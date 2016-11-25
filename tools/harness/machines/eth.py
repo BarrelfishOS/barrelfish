@@ -9,7 +9,8 @@
 
 import os, getpass, subprocess, socket, pty
 import debug, eth_machinedata
-from machines import Machine, MachineLockedError, MachineFactory
+from machines import Machine, MachineLockedError, MachineFactory,\
+    MachineOperations
 
 from subprocess_timeout import wait_or_terminate
 import traceback
@@ -23,6 +24,7 @@ class ETHBaseMachine(Machine):
     _machines = None
 
     def __init__(self, options,
+                 operations,
                  bootarch=None,
                  machine_name=None,
                  boot_timeout=360,
@@ -37,7 +39,7 @@ class ETHBaseMachine(Machine):
                  perfcount_type=None,
                  **kwargs):
 
-        super(ETHBaseMachine, self).__init__(options)
+        super(ETHBaseMachine, self).__init__(options, operations)
 
         self.lockprocess = None
         self.masterfd = None
@@ -112,6 +114,11 @@ class ETHBaseMachine(Machine):
     def _get_console_status(self):
         raise NotImplementedError
 
+class ETHBaseMachineOperations(MachineOperations):
+
+    def __init__(self, machine):
+        super(ETHBaseMachineOperations, self).__init__(machine)
+
     def lock(self):
         """Use conserver to lock the machine."""
 
@@ -165,7 +172,7 @@ class ETHMachine(ETHBaseMachine):
     _machines = eth_machinedata.machines
 
     def __init__(self, options, **kwargs):
-        super(ETHMachine, self).__init__(options, **kwargs)
+        super(ETHMachine, self).__init__(options, ETHMachineOperations(self), **kwargs)
 
     def get_buildall_target(self):
         return self.get_bootarch().upper() + "_Full"
@@ -199,6 +206,11 @@ class ETHMachine(ETHBaseMachine):
 
     def get_ip(self):
         return socket.gethostbyname(self.get_hostname())
+
+class ETHMachineOperations(ETHBaseMachineOperations):
+
+    def __init__(self, machine):
+        super(ETHMachineOperations, self).__init__(machine)
 
     def get_tftp_dir(self):
         user = getpass.getuser()

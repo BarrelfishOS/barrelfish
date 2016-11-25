@@ -12,8 +12,9 @@ import barrelfish
 
 class Machine(object):
 
-    def __init__(self, options):
+    def __init__(self, options, operations):
         self._name = "(unknown)"
+        self._operations = operations
 
     def get_bootarch(self):
         """Return the architecture for booting and base system services."""
@@ -81,35 +82,44 @@ class Machine(object):
 
     def get_tftp_dir(self):
         """Return a unique TFTP boot directory for this machine."""
-        raise NotImplementedError
+        print("DEPRECATED get_tftp_dir")
+        return self._operations.get_tftp_dir()
 
     def set_bootmodules(self, modules):
         """Set the machine to boot from the given module data."""
-        raise NotImplementedError
+        print("DEPRECATED set_bootmodules")
+        return self._operations.set_bootmodules(modules)
 
     def lock(self):
         """Lock the machine to prevent concurrent access."""
-        raise NotImplementedError
+        print("DEPRECATED lock")
+        return self._operations.lock()
 
     def unlock(self):
         """Unlock an already-locked machine."""
-        raise NotImplementedError
+        print("DEPRECATED unlock")
+        return self._operations.unlock()
+
 
     def setup(self):
         """Prepare a locked machine to be booted."""
-        raise NotImplementedError
+        print("DEPRECATED setup")
+        return self._operations.setup()
 
     def reboot(self):
         """Reboot (or boot) the machine."""
-        raise NotImplementedError
+        print("DEPRECATED reboot")
+        return self._operations.reboot()
 
     def shutdown(self):
         """Shut down/switch off the machine."""
-        raise NotImplementedError
+        print("DEPRECATED shutdown")
+        return self._operations.shutdown()
 
     def get_output(self):
         """Returns a file object to the output of a locked machine."""
-        raise NotImplementedError
+        print("DEPRECATED get_output")
+        return self._operations.get_output()
 
     def getName(self):
         return self._name
@@ -175,6 +185,43 @@ class Machine(object):
             m.add_module("kaluga", machine.get_kaluga_args())
         return m
 
+class MachineOperations(object):
+
+    def __init__(self, machine):
+        self._machine = machine
+
+    def get_tftp_dir(self):
+        """Return a unique TFTP boot directory for this machine."""
+        raise NotImplementedError
+
+    def set_bootmodules(self, modules):
+        """Set the machine to boot from the given module data."""
+        raise NotImplementedError
+
+    def lock(self):
+        """Lock the machine to prevent concurrent access."""
+        raise NotImplementedError
+
+    def unlock(self):
+        """Unlock an already-locked machine."""
+        raise NotImplementedError
+
+    def setup(self):
+        """Prepare a locked machine to be booted."""
+        raise NotImplementedError
+
+    def reboot(self):
+        """Reboot (or boot) the machine."""
+        raise NotImplementedError
+
+    def shutdown(self):
+        """Shut down/switch off the machine."""
+        raise NotImplementedError
+
+    def get_output(self):
+        """Returns a file object to the output of a locked machine."""
+        raise NotImplementedError
+
 
 
 class MachineLockedError(Exception):
@@ -182,8 +229,8 @@ class MachineLockedError(Exception):
     pass
 
 class ARMMachineBase(Machine):
-    def __init__(self, options):
-        super(ARMMachineBase, self).__init__(options)
+    def __init__(self, options, operations):
+        super(ARMMachineBase, self).__init__(options, operations)
         self.options = options
         self.menulst = None
         self.mmap = None
@@ -249,15 +296,12 @@ class ARMMachineBase(Machine):
         f.close()
 
 class ARMSimulatorBase(ARMMachineBase):
-    def __init__(self, options):
-        super(ARMSimulatorBase, self).__init__(options)
+    def __init__(self, options, operations):
+        super(ARMSimulatorBase, self).__init__(options, operations)
         self.child = None
         self.telnet = None
         self.tftp_dir = None
         self.simulator_start_timeout = 5 # seconds
-
-    def setup(self):
-        pass
 
     def get_coreids(self):
         return range(0, self.get_ncores())
@@ -278,6 +322,11 @@ class ARMSimulatorBase(ARMMachineBase):
 
     def get_bootarch(self):
         raise NotImplementedError
+
+class ARMSimulatorOperations(MachineOperations):
+
+    def setup(self):
+        pass
 
     def force_write(self, consolectrl):
         pass

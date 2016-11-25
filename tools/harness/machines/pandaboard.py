@@ -9,7 +9,7 @@
 
 import debug, eth_machinedata
 import subprocess, os, socket, sys, shutil, tempfile, pty
-from machines import ARMMachineBase, MachineFactory
+from machines import ARMMachineBase, MachineFactory, MachineOperations
 from eth import ETHBaseMachine
 
 PANDA_ROOT='/mnt/local/nfs/pandaboot'
@@ -27,11 +27,7 @@ class PandaboardMachine(ARMMachineBase):
     imagename = "armv7_omap44xx_image"
 
     def __init__(self, options):
-        super(PandaboardMachine, self).__init__(options)
-        self.picocom = None
-        self.masterfd = None
-        self.tftp_dir = None
-        self.menulst_template = "menu.lst.armv7_omap44xx"
+        super(PandaboardMachine, self).__init__(options, PandaboardOperations(self))
 
     def setup(self, builddir=None):
         pass
@@ -52,24 +48,33 @@ class PandaboardMachine(ARMMachineBase):
     def get_buildall_target(self):
         return "PandaboardES"
 
+class PandaboardOperations(MachineOperations):
+
+    def __init__(self, machine):
+        super(PandaboardOperations, self).__init__(machine)
+        self.picocom = None
+        self.tftp_dir = None
+        self.masterfd = None
+        self.menulst_template = "menu.lst.armv7_omap44xx"
+
     def get_tftp_dir(self):
         if self.tftp_dir is None:
             self.tftp_dir = tempfile.mkdtemp(prefix="panda_")
         return self.tftp_dir
 
     def set_bootmodules(self, modules):
-        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
+        menulst_fullpath = os.path.join(self._machine.options.builds[0].build_dir,
                 "platforms", "arm", self.menulst_template)
-        self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
+        self._machine._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper pandaboard image")
-        debug.checkcmd(["make", self.imagename],
-                cwd=self.options.builds[0].build_dir)
+        debug.checkcmd(["make", self._machine.imagename],
+                cwd=self._machine.options.builds[0].build_dir)
 
     def __usbboot(self):
         debug.verbose("Usbbooting pandaboard; press reset")
-        debug.verbose("build dir: %s" % self.options.builds[0].build_dir)
+        debug.verbose("build dir: %s" % self._machine.options.builds[0].build_dir)
         debug.checkcmd(["make", "usbboot_panda"],
-                cwd=self.options.builds[0].build_dir)
+                cwd=self._machine.options.builds[0].build_dir)
 
     def lock(self):
         pass
@@ -92,7 +97,10 @@ class PandaboardMachine(ARMMachineBase):
         if self.picocom is not None:
             debug.verbose("Killing picocom")
             self.picocom.kill()
-            os.unlink("/var/lock/LCK..ttyUSB0")
+            try:
+                os.unlink("/var/lock/LCK..ttyUSB0")
+            except OSError:
+                pass
         self.picocom = None
         self.masterfd = None
 
@@ -108,15 +116,12 @@ class PandaboardMachine(ARMMachineBase):
         return self.console_out
 
 
-class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
+class ETHRackPandaboardMachine(ETHBaseMachine):
     _machines = eth_machinedata.pandaboards
     imagename = "armv7_omap44xx_image"
 
-    def __init__(self, options):
-        super(ETHRackPandaboardMachine, self).__init__(options)
-        ARMMachineBase.__init__(self, options)
-        self._tftp_dir = None
-        self.menulst_template = "menu.lst.armv7_omap44xx"
+    def __init__(self, options, **kwargs):
+        super(ETHRackPandaboardMachine, self).__init__(options, ETHRackPandaboardMachineOperations(self), **kwargs)
 
     def setup(self, builddir=None):
         pass
@@ -128,6 +133,13 @@ class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
     def get_buildall_target(self):
         return "PandaboardES"
 
+class ETHRackPandaboardMachineOperations(MachineOperations):
+
+    def __init__(self, machine):
+        super(ETHRackPandaboardMachineOperations, self).__init__(machine)
+        self._tftp_dir = None
+        self.menulst_template = "menu.lst.armv7_omap44xx"
+
     def __chmod_ar(self, file):
         '''make file/directory readable by all'''
         import stat
@@ -138,7 +150,7 @@ class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
 
     def get_tftp_dir(self):
         if self._tftp_dir is None:
-            self._tftp_dir = tempfile.mkdtemp(dir=PANDA_ROOT, prefix="%s_" % self.name)
+            self._tftp_dir = tempfile.mkdtemp(dir=PANDA_ROOT, prefix="%s_" % self._machine.getName())
             self.__chmod_ar(self._tftp_dir)
         return self._tftp_dir
 
@@ -200,6 +212,6 @@ class ETHRackPandaboardMachine(ETHBaseMachine, ARMMachineBase):
 for pb in ETHRackPandaboardMachine._machines:
     class TmpMachine(ETHRackPandaboardMachine):
         name = pb
-    MachineFactory.addMachine(pb, TmpMachine)
+    MachineFactory.addMachine(pb, TmpMachine, ETHRackPandaboardMachine._machines[pb])
 
 MachineFactory.addMachine("panda_local", PandaboardMachine)
