@@ -38,14 +38,11 @@ class BootModules(object):
             return modulespec == modulename.rsplit('/',1)[-1]
 
     def add_module(self, module, args=[]):
-
-        # Support for build targets with / in their name (e.g. examples/xmpl-spawn)
-        module = module.replace('$BUILD', self.prefix)
-
         if module.startswith('/'):
+            # absolute path are converted to relative and left as-is
             module = module[1:]
         else:
-            assert self.kernel
+            # relative paths are prepended with the prefix
             module = os.path.join(self.prefix, module)
         self.modules[module] = args
 

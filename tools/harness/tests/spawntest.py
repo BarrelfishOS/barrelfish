@@ -30,7 +30,7 @@ class SpawnTest(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(SpawnTest, self).get_modules(build, machine)
-        modules.add_module("$BUILD/examples/xmpl-spawn", [ NUM_SPAWNS, NUM_CORES ])
+        modules.add_module("examples/xmpl-spawn", [ NUM_SPAWNS, NUM_CORES ])
         return modules
 
     def is_finished(self, line):

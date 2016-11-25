@@ -59,7 +59,7 @@ class SpanTestInterleaved(TestCommon):
     def get_modules(self, build, machine):
         modules = super(SpanTestInterleaved, self).get_modules(build, machine)
         # span on all cores other than 0 -- matches spantest code
-        modules.add_module("$BUILD/tests/span-interleaved", [ machine.get_ncores() ])
+        modules.add_module("tests/span-interleaved", [ machine.get_ncores() ])
         return modules
 
     def is_finished(self, line):
@@ -89,7 +89,7 @@ class SpanTestExit(TestCommon):
     def get_modules(self, build, machine):
         modules = super(SpanTestExit, self).get_modules(build, machine)
         # span on all cores other than 0 -- matches spantest code
-        modules.add_module("$BUILD/tests/span-exit", [ machine.get_ncores() ])
+        modules.add_module("tests/span-exit", [ machine.get_ncores() ])
         return modules
 
     def is_finished(self, line):

@@ -25,7 +25,7 @@ class TomMathMont(TomMathAbstract):
 
     def get_modules(self, build, machine):
         modules = super(TomMathMont, self).get_modules(build, machine)
-        modules.add_module("$BUILD/tommath/mont", [ int(random.random() * 100000) ])
+        modules.add_module("tommath/mont", [ int(random.random() * 100000) ])
         return modules
 
     def process_data(self, testdir, rawiter):
