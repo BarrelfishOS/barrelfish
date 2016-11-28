@@ -31,36 +31,6 @@ class ETHBaseMachine(Machine):
                                              serial_binary=serial_binary,
                                              **kwargs)
 
-    def get_bootarch(self):
-        return self._bootarch
-
-    def get_buildarchs(self):
-        return self._build_archs
-
-    def get_ncores(self):
-        return self._ncores
-
-    def get_cores_per_socket(self):
-        return self._cores_per_socket
-
-    def get_kernel_args(self):
-        return self._kernel_args
-
-    def get_serial_binary(self):
-        return self._serial_binary
-
-    def get_boot_timeout(self):
-        return self._boot_timeout
-
-    def get_pci_args(self):
-        return self._pci_args
-
-    def get_platform(self):
-        return self._platform
-
-    def get_eth0(self):
-        return self._eth0
-
     def get_perfcount_type(self):
         return self._perfcount_type
 
