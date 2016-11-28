@@ -8,8 +8,8 @@
 ##########################################################################
 
 import os, signal, tempfile, subprocess, shutil
-import debug, machines
-from machines import Machine, ARMMachineBase, MachineFactory
+import debug
+from machines import Machine, ARMMachineBase, MachineFactory, MachineOperations
 
 QEMU_SCRIPT_PATH = 'tools/qemu-wrapper.sh' # relative to source tree
 GRUB_IMAGE_PATH = 'tools/grub-qemu.img' # relative to source tree
@@ -21,17 +21,8 @@ QEMU_ARGS_X64 = '-net nic,model=ne2k_pci -net user -m 3084'.split()
 QEMU_ARGS_X32 = '-net nic,model=ne2k_pci -net user -m 512'.split()
 
 class QEMUMachineBase(Machine):
-    def __init__(self, options):
-        super(QEMUMachineBase, self).__init__(options)
-        self.child = None
-        self.tftp_dir = None
-        self.options = options
-
-    def setup(self):
-        pass
-
-    def get_coreids(self):
-        return range(0, self.get_ncores())
+    def __init__(self, options, operations, **kwargs):
+        super(QEMUMachineBase, self).__init__(options, operations, **kwargs)
 
     def get_tickrate(self):
         return None
@@ -49,6 +40,17 @@ class QEMUMachineBase(Machine):
 
     def get_serial_binary(self):
         return "serial_pc16550d"
+
+class QEMUMachineBaseOperations(MachineOperations):
+
+    def __init__(self, machine):
+        super(QEMUMachineBaseOperations, self).__init__(machine)
+        self.child = None
+        self.tftp_dir = None
+
+    def setup(self):
+        pass
+
 
     def force_write(self, consolectrl):
         pass
@@ -111,75 +113,50 @@ class QEMUMachineBase(Machine):
     def get_output(self):
         return self.qemu_out
 
-class QEMUMachineX64(QEMUMachineBase):
+class QEMUMachineX64Operations(QEMUMachineBaseOperations):
     def _get_cmdline(self):
-        qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
+        qemu_wrapper = os.path.join(self._machine.options.sourcedir, QEMU_SCRIPT_PATH)
         menu_lst = os.path.join(self.get_tftp_dir(), 'menu.lst')
         return [ qemu_wrapper, "--menu", menu_lst, "--arch", "x86_64",
-                "--smp", "%s" % self.get_ncores() ]
+                "--smp", "%s" % self._machine.get_ncores() ]
 
     def set_bootmodules(self, modules):
         path = os.path.join(self.get_tftp_dir(), 'menu.lst')
         self._write_menu_lst(modules.get_menu_data('/', self.get_tftp_dir()), path)
 
-    def get_bootarch(self):
-        return "x86_64"
-
-class QEMUMachineX32(QEMUMachineBase):
+class QEMUMachineX32Operations(QEMUMachineBaseOperations):
     def _get_cmdline(self):
         grub_image = os.path.join(self.options.sourcedir, GRUB_IMAGE_PATH)
         s = '-smp %d -fda %s -tftp %s' % (self.get_ncores(), grub_image,
                                           self.get_tftp_dir())
         return [QEMU_CMD_X32] + QEMU_ARGS_GENERIC + QEMU_ARGS_X32 + s.split()
 
-    def get_bootarch(self):
-        return "x86_32"
-
 # create 1, 2 and 4 core x86_64 qemu machines
-for n in [1, 2, 4]:
-    class TmpMachine(QEMUMachineX64):
-        name = 'qemu%d' % n
-        cores= n
 
-        def get_ncores(self):
-            return self.cores
+for n in [1, 2, 4]:
+    class TmpMachine(QEMUMachineBase):
+        def __init__(self, options, _class=None, **kwargs):
+            super(_class, self).__init__(options, QEMUMachineX64Operations(self), **kwargs)
 
         # 60 seconds per core
         def get_boot_timeout(self):
-            return self.cores * 60
+            return self.get_ncores() * 60
 
         # 120 seconds per core
         def get_test_timeout(self):
-            return self.cores * 120
+            return self.get_ncores() * 120
 
-    MachineFactory.addMachine(TmpMachine.name, TmpMachine)
+    MachineFactory.addMachine('qemu%d' % n, TmpMachine,
+                              { 'ncores' : n, 'bootarch' : 'x86_64', '_class' : TmpMachine})
 
-class QEMUMachineX32Uniproc(QEMUMachineX32):
-    '''Uniprocessor x86_32 QEMU'''
-    name = 'qemu1-32'
-
-    def get_ncores(self):
-        return 1
-
-MachineFactory.addMachine(QEMUMachineX32Uniproc.name, QEMUMachineX32Uniproc)
-
-class QEMUMachineX32Multiproc(QEMUMachineX32):
-    '''Multiprocessor x86_32 QEMU (4 CPUs)'''
-    name = 'qemu4-32'
-
-    def get_ncores(self):
-        return 4
-
-MachineFactory.addMachine(QEMUMachineX32Multiproc.name, QEMUMachineX32Multiproc)
-
-class QEMUMachineARMv7Uniproc(QEMUMachineBase, ARMMachineBase):
+class QEMUMachineARMv7Uniproc(ARMMachineBase):
     '''Uniprocessor ARMv7 QEMU'''
     name = 'qemu_armv7'
 
     imagename = "armv7_a15ve_1_image"
 
-    def __init__(self, options):
-        super(QEMUMachineARMv7Uniproc, self).__init__(options)
+    def __init__(self, options, **kwargs):
+        super(QEMUMachineARMv7Uniproc, self).__init__(options, QEMUMAchineARMv7UniprocOperations(self), **kwargs)
         self._set_kernel_image()
 
     def get_ncores(self):
@@ -191,36 +168,38 @@ class QEMUMachineARMv7Uniproc(QEMUMachineBase, ARMMachineBase):
     def get_platform(self):
         return 'a15ve'
 
+class QEMUMAchineARMv7UniprocOperations(QEMUMachineBaseOperations):
+
     def _write_menu_lst(self, data, path):
-        ARMMachineBase._write_menu_lst(self, data, path)
+        self._machine._write_menu_lst(data, path)
 
     def set_bootmodules(self, modules):
         # write menu.lst
         debug.verbose("Writing menu.lst in build directory.")
-        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
+        menulst_fullpath = os.path.join(self._machine.options.builds[0].build_dir,
                 "platforms", "arm", "menu.lst.armv7_a15ve_1")
         self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
 
         # produce ROM image
         debug.verbose("Building QEMU image.")
-        debug.checkcmd(["make", self.imagename],
-                cwd=self.options.builds[0].build_dir)
+        debug.checkcmd(["make", self._machine.imagename],
+                cwd=self._machine.options.builds[0].build_dir)
 
     def _get_cmdline(self):
-        qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
+        qemu_wrapper = os.path.join(self._machine.options.sourcedir, QEMU_SCRIPT_PATH)
 
-        return ([qemu_wrapper, '--arch', 'a15ve', '--image', self.kernel_img])
+        return ([qemu_wrapper, '--arch', 'a15ve', '--image', self._machine.kernel_img])
 
 MachineFactory.addMachine(QEMUMachineARMv7Uniproc.name, QEMUMachineARMv7Uniproc)
 
-class QEMUMachineZynq7(QEMUMachineBase, ARMMachineBase):
+class QEMUMachineZynq7(ARMMachineBase):
     '''Zynq7000 as modelled by QEMU'''
     name = 'qemu_armv7_zynq7'
 
     imagename = "armv7_zynq7_image"
 
-    def __init__(self, options):
-        super(QEMUMachineZynq7, self).__init__(options)
+    def __init__(self, options, **kwargs):
+        super(QEMUMachineZynq7, self).__init__(options, QEMUMachineZync7Operations(self), **kwargs)
         self._set_kernel_image()
         # XXX: change this once we have proper zynq7 configurations
         self.menulst_template = "menu.lst.armv7_zynq7"
@@ -234,24 +213,26 @@ class QEMUMachineZynq7(QEMUMachineBase, ARMMachineBase):
     def get_platform(self):
         return 'zynq7'
 
+class QEMUMachineZync7Operations(QEMUMachineBaseOperations):
+
     def _write_menu_lst(self, data, path):
-        ARMMachineBase._write_menu_lst(self, data, path)
+        self._machine._write_menu_lst(data, path)
 
     def set_bootmodules(self, modules):
         # write menu.lst
         debug.verbose("Writing menu.lst in build directory.")
-        menulst_fullpath = os.path.join(self.options.builds[0].build_dir,
+        menulst_fullpath = os.path.join(self._machine.options.builds[0].build_dir,
                 "platforms", "arm", "menu.lst.armv7_zynq7")
         self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
 
         # produce ROM image
         debug.verbose("Building QEMU image.")
-        debug.checkcmd(["make", self.imagename],
-                cwd=self.options.builds[0].build_dir)
+        debug.checkcmd(["make", self._machine.imagename],
+                cwd=self._machine.options.builds[0].build_dir)
 
     def _get_cmdline(self):
-        qemu_wrapper = os.path.join(self.options.sourcedir, QEMU_SCRIPT_PATH)
+        qemu_wrapper = os.path.join(self._machine.options.sourcedir, QEMU_SCRIPT_PATH)
 
-        return ([qemu_wrapper, '--arch', 'zynq7', '--image', self.kernel_img])
+        return ([qemu_wrapper, '--arch', 'zynq7', '--image', self._machine.kernel_img])
 
 MachineFactory.addMachine(QEMUMachineZynq7.name, QEMUMachineZynq7)
