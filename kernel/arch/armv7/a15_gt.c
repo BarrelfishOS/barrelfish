@@ -31,15 +31,8 @@ a15_gt_init(void) {
     uint32_t cntv_ctl= (1 << 1) /* IMASK */;
     __asm volatile("mcr p15, 0, %0, c14, c3, 1" : : "r"(cntv_ctl));
 
-    /* Set the compare value high, so that it doesn't trigger until somebody's
-     * called a15_gt_timeout().  Note that the rollover period is guaranteed
-     * to be at least 40 years.  See ARMv7 ARM B8.1.1. */
-    uint32_t cval_low= 0xffffffff, cval_high= 0xffffffff;
-    __asm volatile("mcrr p15, 2, %0, %1, c14" : :
-            "r"(cval_low), "r"(cval_high));
-
-    /* CNTP_CTL - physical timer enabled, interrupt unmasked. */
-    uint32_t cntp_ctl= (1 << 0) /* ENABLE */;
+    /* CNTP_CTL - physical timer enabled, interrupt masked. */
+    uint32_t cntp_ctl= (1 << 1) | (1 << 0) /* IMASK and ENABLE */;
     __asm volatile("mcr p15, 0, %0, c14, c2, 1" : : "r"(cntp_ctl));
 
     /* From this point, the current timestamp is available in CNTPCT at PL0 &

@@ -21,6 +21,7 @@
 #include <init.h>
 #include <paging_kernel_arch.h>
 #include <platform.h>
+#include <systime.h>
 
 #define MSG(format, ...) \
     printk( LOG_NOTE, "CortexA15 platform: "format, ## __VA_ARGS__ )
@@ -55,10 +56,10 @@ platform_get_core_count(void) {
 /* Timeslice counter uses the Non-secure Physical Timer. */
 
 /* See TRM 8.2.3 */
-/* This *should* be IRQ 30, for the non-secure timer, but GEM5 only
+/* This *should* be IRQ 30 (AT: why?), for the non-secure timer, but GEM5 only
  * provides the secure timer, even in NS mode.
  * The timerirq parameter allows this to be overridden. */
-#define DEFAULT_TIMER_IRQ 30
+#define DEFAULT_TIMER_IRQ 29
 
 extern uint32_t timerirq;
 extern uint32_t cntfrq;
@@ -72,10 +73,12 @@ timers_init(int timeslice) {
      * it for us, as on the FVP simulators. */
     if(cntfrq != 0) a15_gt_set_cntfrq(cntfrq);
 
-    /* The timeslice is in ms, so divide by 1000. */
-    timeslice_ticks= timeslice * a15_gt_frequency() / 1000;
+    systime_frequency = a15_gt_frequency();
 
-    MSG("System counter frequency is %uHz.\n", a15_gt_frequency());
+    /* The timeslice is in ms, so divide by 1000. */
+    timeslice_ticks = ns_to_systime(timeslice * 1000000);
+
+    MSG("System counter frequency is %uHz.\n", systime_frequency);
     MSG("Timeslice interrupt every %u ticks (%dms).\n",
             timeslice_ticks, timeslice);
 
@@ -83,12 +86,11 @@ timers_init(int timeslice) {
 
     if(timerirq == 0) timerirq= DEFAULT_TIMER_IRQ;
     MSG("Timer interrupt is %u\n", timerirq);
-
     /* Enable the interrupt. */
     gic_enable_interrupt(timerirq, 0, 0, 0, 0);
 
     /* Set the first timeout. */
-    a15_gt_timeout(timeslice_ticks);
+    systime_set_timeout(systime_now() + timeslice_ticks);
 
     /* We use the system counter for timestamps, which doesn't need any
      * further initialisation. */
@@ -108,11 +110,23 @@ bool
 timer_interrupt(uint32_t irq) {
     if(irq == timerirq) {
         gic_ack_irq(irq);
+        a15_gt_mask_interrupt();
 
         /* Reset the timeout. */
-        a15_gt_timeout(timeslice_ticks);
+        uint64_t now = systime_now();
+        systime_set_timeout(now + timeslice_ticks);
         return 1;
     }
 
     return 0;
+}
+
+systime_t systime_now(void)
+{
+    return a15_gt_counter();
+}
+
+void systime_set_timeout(systime_t timeout)
+{
+    a15_gt_set_comparator(timeout);
 }

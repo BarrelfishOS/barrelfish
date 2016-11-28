@@ -45,4 +45,23 @@ a15_gt_timeout(uint32_t t) {
     __asm volatile("mcr p15, 0, %0, c14, c2, 0" : : "r"(t));
 }
 
+static inline void a15_gt_set_control(uint32_t cntp_ctl) {
+    __asm volatile("mcr p15, 0, %0, c14, c2, 1" : : "r"(cntp_ctl));
+}
+
+static inline void a15_gt_set_comparator(systime_t timeout) {
+    uint32_t lo, hi;
+
+    lo = timeout;
+    hi = timeout >> 32;
+    __asm volatile("mcrr p15, 2, %0, %1, c14" : : "r" (lo), "r" (hi));
+    uint32_t cntp_ctl = (1 << 0) /* ENABLE*/;
+    a15_gt_set_control(cntp_ctl);
+}
+
+static inline void a15_gt_mask_interrupt(void) {
+    uint32_t cntp_ctl = (1 << 1) | (1 << 0) /* IMASK and ENABLE*/;
+    a15_gt_set_control(cntp_ctl);
+}
+
 void a15_gt_init(void);

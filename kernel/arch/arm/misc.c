@@ -28,11 +28,6 @@
 bool kernel_ticks_enabled = true;
 
 /**
- * The current time since kernel start in timeslices.
- */
-size_t kernel_now = 0;
-
-/**
  * \brief Spin forever
  *
  */

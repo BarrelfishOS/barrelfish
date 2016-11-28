@@ -1134,7 +1134,7 @@ static struct sysret handle_debug_syscall(int msg)
             break;
 
         case DEBUG_TIMESLICE_COUNTER_READ:
-            retval.value = kernel_now;
+            retval.value = systime_now();
             break;
 
         case DEBUG_HARDWARE_TIMER_READ:

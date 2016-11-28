@@ -17,6 +17,8 @@
 
 #ifndef __ASSEMBLER__
 
+#include <barrelfish_kpi/types.h>
+
 static inline uint64_t rdtsc(void)
 {
     uint64_t ccnt;
