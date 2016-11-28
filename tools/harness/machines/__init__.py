@@ -12,6 +12,13 @@ import barrelfish
 
 class Machine(object):
 
+    @classmethod
+    def validateArgs(cls, kwargs):
+        try:
+            kwargs['bootarch']
+        except KeyError as e:
+            raise TypeError("Missing key %s" % e.args[0])
+
     def __init__(self, options, operations,
                  bootarch=None,
                  machine_name=None,
@@ -278,6 +285,15 @@ class MachineLockedError(Exception):
     pass
 
 class ARMMachineBase(Machine):
+
+    @classmethod
+    def validateArgs(cls, kwargs):
+        super(ARMMachineBase, cls).validateArgs(kwargs)
+        try:
+            kwargs['platform']
+        except KeyError as e:
+            raise TypeError("Missing key %s" % e.args[0])
+
     def __init__(self, options, operations, **kwargs):
         super(ARMMachineBase, self).__init__(options, operations, **kwargs)
         self.menulst = None
@@ -461,6 +477,7 @@ class MachineFactory:
     @classmethod
     def addMachine(cls, name, machineClass, kwargs={}):
         cls.machineFactories[name] = MachineFactory(name, machineClass, kwargs)
+        machineClass.validateArgs(kwargs)
 
     def getName(self):
         """Get the name of the machine produced by this factory."""
