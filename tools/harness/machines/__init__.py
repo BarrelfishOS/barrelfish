@@ -67,6 +67,8 @@ class Machine(object):
 
         self._perfcount_type = perfcount_type
 
+        if bool(kwargs):
+            debug.error("Fix machine definition, unknown args: %s" % str(kwargs))
         print("Unknown args: %s" % str(kwargs))
 
     def get_machine_name(self):
