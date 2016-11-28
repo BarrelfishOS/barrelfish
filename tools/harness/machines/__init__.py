@@ -69,7 +69,6 @@ class Machine(object):
 
         if bool(kwargs):
             debug.error("Fix machine definition, unknown args: %s" % str(kwargs))
-        print("Unknown args: %s" % str(kwargs))
 
     def get_machine_name(self):
         return self._machine_name
@@ -179,6 +178,10 @@ class Machine(object):
         print("DEPRECATED get_output")
         return self._operations.get_output()
 
+    def force_write(self, consolectrl):
+        print("DEPRECATED force_write")
+        return self._operations.force_write(consolectrl)
+
     def getName(self):
         return self._name
 
@@ -280,7 +283,8 @@ class MachineOperations(object):
         """Returns a file object to the output of a locked machine."""
         raise NotImplementedError
 
-
+    def force_write(self, consolectrl):
+        raise NotImplementedError
 
 class MachineLockedError(Exception):
     """May be raised by lock() when the machine is locked by another user."""
