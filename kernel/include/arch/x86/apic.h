@@ -25,6 +25,8 @@
 #define APIC_ERROR_INTERRUPT_VECTOR             253
 #define APIC_SPURIOUS_INTERRUPT_VECTOR          254
 
+extern uint64_t apic_systime_frequency_ratio;
+
 void apic_init(void);
 void apic_send_init_assert(uint8_t destination, uint8_t destination_shorthand);
 void apic_send_init_deassert(void);

@@ -54,8 +54,8 @@ struct dcb {
     struct dcb          *prev;          ///< Previous DCB in schedule
                                         /// (only valid iff CONFIG_SCHEDULER_RR)
 #if defined(CONFIG_SCHEDULER_RBED)
-    unsigned long       release_time, etime, last_dispatch;
-    unsigned long       wcet, period, deadline;
+    systime_t          release_time, etime, last_dispatch;
+    systime_t          wcet, period, deadline;
     unsigned short      weight;
     enum task_type      type;
 #endif

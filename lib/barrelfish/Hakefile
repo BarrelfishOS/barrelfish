@@ -27,7 +27,7 @@ let common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                     "slot_alloc/single_slot_alloc.c", "slot_alloc/slot_alloc.c",
                     "slot_alloc/range_slot_alloc.c", "slot_alloc/twolevel_slot_alloc.c",
                     "bulk_transfer.c", "trace.c", "resource_ctrl.c", "coreset.c",
-                    "inthandler.c", "deferred.c", "syscalls.c", "sys_debug.c"
+                    "inthandler.c", "deferred.c", "syscalls.c", "sys_debug.c", "systime.c"
                   ]
 in
 [(let arch_dir = "arch" </> archFamily arch

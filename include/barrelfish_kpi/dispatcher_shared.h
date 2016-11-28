@@ -57,6 +57,7 @@ struct dispatcher_shared_generic {
     uint32_t    fpu_used;                       ///< Was FPU used while disabled?
     uint32_t    fpu_trap;                       ///< State of FPU trap
 
+    uint64_t    systime_frequency;              ///< Systime frequency
     coreid_t    curr_core_id;                   ///< Core id of current core, in this part so kernel can update
 #ifdef __k1om__
     uint8_t     xeon_phi_id;

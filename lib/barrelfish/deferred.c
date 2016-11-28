@@ -16,6 +16,7 @@
 #include <barrelfish/deferred.h>
 #include <barrelfish/waitset_chan.h>
 #include <stdio.h>
+#include <barrelfish/systime.h>
 
 // FIXME: why do I need quite so many dispatcher headers?
 #include <barrelfish/dispatch.h>
@@ -25,9 +26,6 @@
 
 #include "waitset_chan_priv.h"
 
-// kludge: the kernel currently reports time in ms rather than us
-#define SYSTIME_MULTIPLIER 1000
-
 static void update_wakeup_disabled(dispatcher_handle_t dh)
 {
     struct dispatcher_generic *dg = get_dispatcher_generic(dh);
@@ -36,7 +34,7 @@ static void update_wakeup_disabled(dispatcher_handle_t dh)
     if (dg->deferred_events == NULL) {
         ds->wakeup = 0;
     } else {
-        ds->wakeup = dg->deferred_events->time / SYSTIME_MULTIPLIER;
+        ds->wakeup = dg->deferred_events->time;
     }
 }
 
@@ -45,9 +43,7 @@ static void update_wakeup_disabled(dispatcher_handle_t dh)
  */
 systime_t get_system_time(void)
 {
-    dispatcher_handle_t dh = curdispatcher();
-    struct dispatcher_shared_generic *ds = get_dispatcher_shared_generic(dh);
-    return ds->systime * SYSTIME_MULTIPLIER;
+    return systime_now();
 }
 
 void deferred_event_init(struct deferred_event *event)
@@ -77,9 +73,8 @@ errval_t deferred_event_register(struct deferred_event *event,
     if (err_is_ok(err)) {
         struct dispatcher_generic *dg = get_dispatcher_generic(dh);
 
-        // XXX: determine absolute time for event (ignoring time since dispatch!)
-        event->time = get_system_time() + delay;
-
+        // determine absolute time for event
+        event->time = systime_now() + ns_to_systime((uint64_t)delay * 1000);
         // enqueue in sorted list of pending timers
         for (struct deferred_event *e = dg->deferred_events, *p = NULL; ;
              p = e, e = e->next) {
@@ -179,8 +174,6 @@ static void periodic_event_handler(void *arg)
                            MKCLOSURE(periodic_event_handler, e));
     assert(err_is_ok(err));
 
-    //printf("%s:%s: periodic handler %p\n", disp_name(), __func__, e->cl.handler);
-
     // run handler
     e->cl.handler(e->cl.arg);
 }
@@ -220,8 +213,6 @@ void trigger_deferred_events_disabled(dispatcher_handle_t dh, systime_t now)
     struct dispatcher_generic *dg = get_dispatcher_generic(dh);
     struct deferred_event *e;
     errval_t err;
-
-    now *= SYSTIME_MULTIPLIER;
 
     for (e = dg->deferred_events; e != NULL && e->time <= now; e = e->next) {
         err = waitset_chan_trigger_disabled(&e->waitset_state, dh);

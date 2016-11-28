@@ -13,6 +13,7 @@
  */
 
 #include <kernel.h>
+#include <systime.h>
 #include <arch/x86/apic.h>
 #include <arch/x86/start_aps.h>
 #include <paging_kernel_arch.h>
@@ -25,17 +26,23 @@
 #define APIC_PAGE_SIZE          4096
 #define APIC_DEFAULT_PRIORITY   0x0000
 
+/// Ratio of APIC frequency to systime frequency * 2^32
+uint64_t apic_systime_frequency_ratio;
+
 /**
  * The kernel's APIC ID.
  */
 uint8_t apic_id;
 
 /**
- * True iff we're on the BSP
+ * True if we're on the BSP
  */
 bool apic_bsp = true;
 
 static xapic_t apic;
+
+/// TSC deadline functionality
+static bool use_tsc_deadline = false;
 
 /**
  * \brief Initializes the local APIC timer.
@@ -47,8 +54,9 @@ void apic_timer_init(bool masked, bool periodic)
 {
     xapic_lvt_timer_t t = xapic_lvt_timer_initial;
     t = xapic_lvt_timer_vector_insert(t, APIC_TIMER_INTERRUPT_VECTOR);
-    t = xapic_lvt_timer_mask_insert(t, masked ? xapic_masked : xapic_not_masked );
-    t = xapic_lvt_timer_mode_insert(t, periodic ? xapic_periodic : xapic_one_shot);
+    t = xapic_lvt_timer_mask_insert(t, masked ? xapic_masked : xapic_not_masked);
+    t = xapic_lvt_timer_mode_insert(t, periodic ? xapic_periodic :
+        (use_tsc_deadline && !masked ? xapic_tsc_deadline : xapic_one_shot));
     xapic_lvt_timer_wr(&apic, t);
 }
 
@@ -208,6 +216,17 @@ void apic_init(void)
         apic_base_msr = ia32_apic_base_global_insert(apic_base_msr, 1);
         ia32_apic_base_wr(NULL,apic_base_msr);
     }
+
+    uint32_t eax, ebx, ecx, edx;
+
+    cpuid(1, &eax, &ebx, &ecx, &edx);
+    if (ecx & (1 << 24)) { // check for TSC deadline functionality
+        use_tsc_deadline = true;
+    }
+    // cpuid(0x80000007, &eax, &ebx, &ecx, &edx);
+    // if (edx && (1 << 8)) { // check if TSC is invariant
+    //     printf("TSC invariant\n");
+    // }
 }
 
 /** \brief This function sends an IPI
@@ -387,4 +406,32 @@ void apic_disable(void) {
     ia32_apic_base_t apic_base_msr = ia32_apic_base_rd(NULL);
     apic_base_msr = ia32_apic_base_global_insert(apic_base_msr, 0);
     ia32_apic_base_wr(NULL, apic_base_msr);
+}
+
+static uint32_t systime_to_apic_ticks(systime_t ticks)
+{
+    uint64_t q, r;
+
+    q = ticks >> 32;
+    r = ticks & 0xffffffff;
+    uint64_t rt = q * apic_systime_frequency_ratio +
+        ((r * apic_systime_frequency_ratio) >> 32);
+    return MIN(rt, UINT32_MAX);
+}
+
+void systime_set_timeout(systime_t timeout)
+{
+    if (use_tsc_deadline) { // we have TSC deadline
+        ia32_tsc_deadline_wr(NULL, timeout);
+    } else { // fallback to APIC timer
+        uint32_t apic_ticks = 1;
+
+        systime_t now = systime_now();
+        if (timeout > now) {
+            apic_ticks = systime_to_apic_ticks(timeout - now);
+            if (apic_ticks == 0)
+                apic_ticks = 1;
+        }
+        apic_timer_set_count(apic_ticks);
+    }
 }

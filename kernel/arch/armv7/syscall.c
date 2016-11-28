@@ -27,6 +27,7 @@
 #include <useraccess.h>
 #include <platform.h>
 #include <startup_arch.h>
+#include <systime.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -45,7 +46,7 @@ func( \
 
 
 __attribute__((noreturn))
- void sys_syscall(arch_registers_state_t* context, 
+ void sys_syscall(arch_registers_state_t* context,
 		  uint32_t disabled,
 		  struct dispatcher_shared_arm *disp);
 __attribute__((noreturn))
@@ -1225,7 +1226,7 @@ static struct sysret handle_debug_syscall(int msg)
             break;
 
         case DEBUG_TIMESLICE_COUNTER_READ:
-            retval.value = kernel_now;
+            retval.value = systime_now();
             break;
 
         case DEBUG_HARDWARE_TIMER_READ:
@@ -1264,7 +1265,7 @@ static struct sysret handle_debug_syscall(int msg)
 	//  r2  = kernel address of dispatcher
 	//  r3  = scratch value
 __attribute__((noreturn))
-void sys_syscall(arch_registers_state_t* context, 
+void sys_syscall(arch_registers_state_t* context,
 		 uint32_t disabled,
 		 struct dispatcher_shared_arm *disp)
 {
@@ -1274,7 +1275,7 @@ void sys_syscall(arch_registers_state_t* context,
     // XXX
     assert(dcb_current != NULL);
     assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
-    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, context->named.pc)) { 
+    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, context->named.pc)) {
 	assert(context == dispatcher_get_disabled_save_area((dispatcher_handle_t)disp));
 	dcb_current->disabled = true;
     } else {
@@ -1374,4 +1375,3 @@ void sys_syscall(arch_registers_state_t* context,
 
     resume(context);
 }
-

@@ -21,6 +21,7 @@
 #include <wakeup.h>
 #include <irq.h>
 #include <gic.h>
+#include <systime.h>
 
 void handle_user_page_fault(lvaddr_t fault_address,
                             arch_registers_state_t* save_area,
@@ -32,7 +33,7 @@ void handle_user_page_fault(lvaddr_t fault_address,
     // XXX
     assert(dcb_current != NULL);
     assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
-    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) { 
+    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) {
         assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
         dcb_current->disabled = true;
     } else {
@@ -100,7 +101,7 @@ void handle_user_undef(lvaddr_t fault_address,
     // XXX
     assert(dcb_current != NULL);
     assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
-    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) { 
+    if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, save_area->named.pc)) {
         assert(save_area == dispatcher_get_trap_save_area((dispatcher_handle_t)disp));
         dcb_current->disabled = true;
     } else {
@@ -266,14 +267,14 @@ void handle_fiq_kernel(arch_registers_state_t* save_area, uintptr_t fault_pc)
     panic("FIQ Interrupt in the kernel");
 }
 
-void handle_fiq(arch_registers_state_t* save_area, 
-                uintptr_t fault_pc, 
+void handle_fiq(arch_registers_state_t* save_area,
+                uintptr_t fault_pc,
                 struct dispatcher_shared_generic *disp)
 {
     panic("FIQ interrupt from user mode");
 }
 
-void handle_irq_kernel(arch_registers_state_t* save_area, 
+void handle_irq_kernel(arch_registers_state_t* save_area,
                        uintptr_t fault_pc)
 {
     /* In-kernel interrupts are bugs, except if we'd gone to sleep in
@@ -288,8 +289,8 @@ void handle_irq_kernel(arch_registers_state_t* save_area,
     handle_irq(save_area, fault_pc, NULL);
 }
 
-void handle_irq(arch_registers_state_t* save_area, 
-                uintptr_t fault_pc, 
+void handle_irq(arch_registers_state_t* save_area,
+                uintptr_t fault_pc,
                 struct dispatcher_shared_arm *disp)
 {
     // XXX
@@ -298,7 +299,7 @@ void handle_irq(arch_registers_state_t* save_area,
     // XXX
     if(dcb_current != NULL) {
         assert((struct dispatcher_shared_arm *)(dcb_current->disp) == disp);
-        if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, fault_pc)) { 
+        if (dispatcher_is_disabled_ip((dispatcher_handle_t)disp, fault_pc)) {
             assert(save_area ==
                    dispatcher_get_disabled_save_area(
                        (dispatcher_handle_t)disp));
@@ -316,13 +317,11 @@ void handle_irq(arch_registers_state_t* save_area,
     irq = gic_get_active_irq();
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current->disabled ? "disabled": "enabled" );
-    
+
     // Offer it to the timer
     if (timer_interrupt(irq)) {
         // Timer interrupt, timer_interrupt() acks it at the timer.
-        assert(kernel_ticks_enabled);
-        kernel_now += kernel_timeslice;
-        wakeup_check(kernel_now);
+        wakeup_check(systime_now());
         dispatch(schedule());
     }
     // this is the (still) unacknowledged startup interrupt sent by the BSP

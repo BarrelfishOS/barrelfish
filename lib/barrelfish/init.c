@@ -26,6 +26,7 @@
 #include <barrelfish/monitor_client.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/spawn_client.h>
+#include <barrelfish/systime.h>
 #include <barrelfish_kpi/domain_params.h>
 #include <if/monitor_defs.h>
 #include <trace/trace.h>
@@ -365,6 +366,8 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         }
     }
 
+    dispatcher_handle_t handle = curdispatcher();
+    systime_frequency = get_dispatcher_shared_generic(handle)->systime_frequency;
     return err;
 }
 

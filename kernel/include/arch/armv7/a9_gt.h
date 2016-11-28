@@ -41,4 +41,7 @@ extern uint32_t tsc_hz;
 /* Platform-specific clock rate discovery. */
 void a9_probe_tsc(void);
 
+/// Set a global timer comparator
+void a9_gt_set_comparator(uint64_t timeout);
+
 #endif // __A9_GT_H__

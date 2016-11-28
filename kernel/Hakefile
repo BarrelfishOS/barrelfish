@@ -47,7 +47,8 @@ let
                "syscall.c",
                "wakeup.c",
                "useraccess.c",
-               "coreboot.c" ]
+               "coreboot.c",
+               "systime.c" ]
              ++ (if Config.microbenchmarks then ["microbenchmarks.c"] else [])
              ++ (if Config.oneshot_timer then ["timer.c"] else [])
   common_libs = [ "getopt", "mdb_kernel" ]
@@ -128,6 +129,7 @@ let
                 "arch/x86_64/page_mappings_arch.c",
                 "arch/x86/apic.c",
                 "arch/x86/pic.c",
+                "arch/x86/pit.c",
                 "arch/x86/cmos.c",
                 "arch/x86/misc.c",
                 "arch/x86/serial.c",

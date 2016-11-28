@@ -60,6 +60,7 @@
 #       include <trace_definitions/trace_defs.h>
 #       include <timer.h> // update_sched_timer
 #       include <kcb.h>
+#include <systime.h>
 #endif
 
 #define SPECTRUM        1000000
@@ -105,7 +106,7 @@ static inline unsigned int u_actual_srt(struct dcb *dcb)
     }
 }
 
-static inline unsigned long deadline(struct dcb *dcb)
+static inline systime_t deadline(struct dcb *dcb)
 {
     return dcb->release_time + dcb->deadline;
 }
@@ -280,16 +281,13 @@ static void adjust_weights(void)
 static void set_best_effort_wcet(struct dcb *dcb)
 {
     unsigned int u_actual = do_resource_allocation(dcb);
-    unsigned long wcet_undiv = (kcb_current->n_be * kernel_timeslice * u_actual);
+    systime_t wcet_undiv = (kcb_current->n_be * kernel_timeslice * u_actual);
 
     // Assert we are never overloaded
     assert(kcb_current->u_hrt + kcb_current->u_srt + u_actual <= SPECTRUM);
 
     // Divide with proper rounding
-    dcb->wcet = wcet_undiv / SPECTRUM;
-    if(wcet_undiv % SPECTRUM > (SPECTRUM >> 1)) {
-        dcb->wcet++;
-    }
+    dcb->wcet = (wcet_undiv + SPECTRUM / 2) / SPECTRUM;
 }
 
 /**
@@ -300,15 +298,16 @@ static void set_best_effort_wcet(struct dcb *dcb)
 struct dcb *schedule(void)
 {
     struct dcb *todisp;
+    systime_t now = systime_now();
 
     // Assert we are never overloaded
     assert(kcb_current->u_hrt + kcb_current->u_srt + BETA <= SPECTRUM);
 
     // Update executed time of last dispatched task
     if(lastdisp != NULL) {
-        assert(lastdisp->last_dispatch <= kernel_now);
-        if(lastdisp->release_time <= kernel_now) {
-            lastdisp->etime += kernel_now -
+        assert(lastdisp->last_dispatch <= now);
+        if(lastdisp->release_time <= now) {
+            lastdisp->etime += now -
                 MAX(lastdisp->last_dispatch, lastdisp->release_time);
         }
     }
@@ -326,7 +325,7 @@ struct dcb *schedule(void)
         struct dispatcher_shared_generic *dst = \
             get_dispatcher_shared_generic(d->disp); \
         debug(SUBSYS_DISPATCH, "looking at '%s', release_time=%lu, kernel_now=%zu\n", \
-                dst->name, d->release_time, kernel_now); \
+                dst->name, d->release_time, now); \
     }while(0)
 #else
 #define PRINT_NAME(d) do{}while(0)
@@ -334,7 +333,7 @@ struct dcb *schedule(void)
 
     // Skip over all tasks released in the future, they're technically not
     // in the schedule yet. We just have them to reduce book-keeping.
-    while(todisp != NULL && todisp->release_time > kernel_now) {
+    while(todisp != NULL && todisp->release_time > now) {
         PRINT_NAME(todisp);
         todisp = todisp->next;
     }
@@ -357,24 +356,24 @@ struct dcb *schedule(void)
          * another BE task was removed while we already ran well into
          * our timeslice). In that case we need to re-release.
          */
-        if(deadline(todisp) < kernel_now) {
-            todisp->release_time = kernel_now;
+        if(deadline(todisp) < now) {
+            todisp->release_time = now;
         }
     }
 
     // Assert we never miss a hard deadline
-    if(todisp->type == TASK_TYPE_HARD_REALTIME && kernel_now > deadline(todisp)) {
-        panic("Missed hard deadline: now = %zu, deadline = %lu", kernel_now,
+    if(todisp->type == TASK_TYPE_HARD_REALTIME && now > deadline(todisp)) {
+        panic("Missed hard deadline: now = %zu, deadline = %lu", now,
               deadline(todisp));
         assert(false && "HRT task missed a dead line!");
     }
 
     // Deadline's can't be in the past (or EDF wouldn't work properly)
-    assert(deadline(todisp) >= kernel_now);
+    assert(deadline(todisp) >= now);
 
     // Dispatch first guy in schedule if not over budget
     if(todisp->etime < todisp->wcet) {
-        todisp->last_dispatch = kernel_now;
+        todisp->last_dispatch = now;
 
         // If nothing changed, run whatever ran last (task might have
         // yielded to another), unless it is blocked
@@ -392,7 +391,7 @@ struct dcb *schedule(void)
         #ifdef CONFIG_ONESHOT_TIMER
         // we might be able to do better than that...
         // (e.g., check if there is only one task in the queue)
-        update_sched_timer(kernel_now + (todisp->wcet - todisp->etime));
+        update_sched_timer(now + (todisp->wcet - todisp->etime));
         #endif
         return todisp;
     }
@@ -414,11 +413,11 @@ struct dcb *schedule(void)
     struct dcb *dcb = todisp;
     queue_remove(todisp);
     if(dcb->type != TASK_TYPE_BEST_EFFORT) {
-        if(kernel_now > dcb->release_time) {
+        if(now > dcb->release_time) {
             dcb->release_time += dcb->period;
         }
     } else {
-        dcb->release_time = kernel_now;
+        dcb->release_time = now;
     }
     dcb->etime = 0;
     queue_insert(dcb);
@@ -429,14 +428,17 @@ struct dcb *schedule(void)
 
 void schedule_now(struct dcb *dcb)
 {
-    if (dcb->release_time >= kernel_now) {
-        dcb->release_time = kernel_now;
+    systime_t now = systime_now();
+    if (dcb->release_time >= now) {
+        dcb->release_time = now;
     }
     dcb->deadline = 1;
 }
 
 void make_runnable(struct dcb *dcb)
 {
+    systime_t now = systime_now();
+
     // No-Op if already in schedule
     if(in_queue(dcb)) {
         return;
@@ -460,7 +462,7 @@ void make_runnable(struct dcb *dcb)
         kcb_current->w_be += dcb->weight;
         kcb_current->n_be++;
         dcb->deadline = dcb->period = kcb_current->n_be * kernel_timeslice;
-        dcb->release_time = kernel_now;
+        dcb->release_time = now;
         /* queue_sort(); */
         break;
 
@@ -483,9 +485,9 @@ void make_runnable(struct dcb *dcb)
               (kcb_current->u_hrt + kcb_current->u_srt + BETA) / (SPECTRUM / 100));
     }
 
-    if(dcb->release_time < kernel_now) {
+    if(dcb->release_time < now) {
         panic("Released in the past! now = %zu, release_time = %lu\n",
-              kernel_now, dcb->release_time);
+              now, dcb->release_time);
     }
     /* assert(dcb->release_time >= kernel_now); */
     dcb->etime = 0;
@@ -543,8 +545,9 @@ void scheduler_remove(struct dcb *dcb)
  */
 void scheduler_yield(struct dcb *dcb)
 {
+    systime_t now = systime_now();
     // For tasks not running yet, yield is a no-op
-    if(!in_queue(dcb) || dcb->release_time > kernel_now) {
+    if(!in_queue(dcb) || dcb->release_time > now) {
         return;
     }
 
@@ -560,7 +563,7 @@ void scheduler_yield(struct dcb *dcb)
 
     case TASK_TYPE_BEST_EFFORT:
         // Shuffle us around one time
-        dcb->release_time = kernel_now;
+        dcb->release_time = now;
         break;
     }
     dcb->etime = 0;
@@ -572,7 +575,6 @@ void scheduler_yield(struct dcb *dcb)
 void scheduler_reset_time(void)
 {
     trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER_SYNC, 0);
-    kernel_now = 0;
 
     // XXX: Currently, we just re-release everything now
     struct kcb *k = kcb_current;

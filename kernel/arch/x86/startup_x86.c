@@ -432,7 +432,7 @@ static struct cmdarg cmdargs[] = {
     {"loglevel", ArgType_Int, { .integer = &kernel_loglevel }},
     {"logmask", ArgType_Int, { .integer = &kernel_log_subsystem_mask }},
     {"ticks", ArgType_Bool, { .boolean = &kernel_ticks_enabled }},
-    {"timeslice", ArgType_Int, { .integer = &kernel_timeslice }},
+    {"timeslice", ArgType_UInt, { .uinteger = &config_timeslice }},
     {"serial", ArgType_Int, { .integer = &serial_portbase }},
     {"bsp_coreid", ArgType_Int, { .integer = &bsp_coreid }},
     {NULL, 0, {NULL}}

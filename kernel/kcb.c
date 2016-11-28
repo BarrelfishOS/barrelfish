@@ -15,6 +15,7 @@
 #include <kernel.h>
 #include <kcb.h>
 #include <dispatch.h>
+#include <systime.h>
 
 // this is used to pin a kcb for critical sections
 bool kcb_sched_suspended = false;
@@ -42,7 +43,7 @@ errval_t kcb_remove(struct kcb *to_remove)
         if (to_remove->next->next == to_remove) {
             assert(to_remove->next->prev == to_remove);
             to_remove->next->next = to_remove->next->prev = NULL;
-        } 
+        }
         else {
             to_remove->prev->next = to_remove->next;
             to_remove->next->prev = to_remove->prev;
@@ -51,7 +52,7 @@ errval_t kcb_remove(struct kcb *to_remove)
         // intentionally leaving to_remove->next alone
         // so switch_kcb doesn't break
         to_remove->prev = NULL;
-        to_remove->kernel_off = kernel_now;
+        to_remove->kernel_off = systime_now();
 
         return SYS_ERR_OK;
     }
@@ -72,7 +73,7 @@ errval_t kcb_remove(struct kcb *to_remove)
             k->next = k->prev = NULL;
 
             // Update kernel_off & break out if we're done
-            k->kernel_off = kernel_now;
+            k->kernel_off = systime_now();
             return SYS_ERR_OK;
         }
     }

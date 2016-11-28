@@ -10,7 +10,7 @@
  * xapic.dev
  *
  * DESCRIPTION: Local eXtended APIC hardware description
- * 
+ *
  * Numbers in comments refer to the Intel Software Development Manual
  * volume 3, October 2007.
  */
@@ -41,8 +41,9 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
 
   // 8.5.1
   constants timer_mode "Timer mode" {
-    one_shot	= 0;
-    periodic	= 1;
+    one_shot     = 0;
+    periodic     = 1;
+    tsc_deadline = 2;
   };
 
   constants int_mask "Interrupt mask" {
@@ -56,11 +57,11 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
     status      1 "Delivery status";
     _           3;
     mask        1 type(int_mask) "Masked";
-    mode        1 type(timer_mode) "Mode";
-    _           14;
+    mode        2 type(timer_mode) "Mode";
+    _           13;
   };
 
-  constants vdm "Vector delivery mode" { 
+  constants vdm "Vector delivery mode" {
     fixed   = 0b000 "Fixed";
     lowest  = 0b001 "Lowest priority";
     smi     = 0b010 "SMI";
@@ -90,7 +91,7 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
   register lvt_lint0 rw addr(base, 0x0350) type (lvt_lint);
   register lvt_lint1 rw addr(base, 0x0360) type (lvt_lint);
 
-  register lvt_err rw addr(base, 0x0370) { 
+  register lvt_err rw addr(base, 0x0370) {
     vector      8 "Vector";
     _           4;
     status      1 "Delivery status";
@@ -108,7 +109,7 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
     mask        1 type(int_mask) "Masked";
     _           15;
   };
-  
+
   register lvt_perf_cnt rw addr(base, 0x0340) type (lvt_mon);
   register lvt_thermal rw addr(base, 0x0330) type (lvt_mon);
 
@@ -177,7 +178,7 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
     _           24;
     dest        8 "Destination field";
   };
-  
+
   /*
    * the xeon phi has a slightly different register layout than normal apic
    */
@@ -191,7 +192,7 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
     _           24;
     log_id      8 "Logical APIC ID";
   };
-  
+
   register ldr_xeon_phi rw also  addr(base, 0x00d0) "Logical Destination" {
     _           16;
     log_id      16 "Logical APIC ID";
@@ -222,7 +223,7 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
 
   // 8.8.5
   register eoi wo addr(base, 0x00b0) "End Of Interrupt" type(uint32);
-  
+
   // 8.9
   register svr rw addr(base, 0x00f0) "Spurious Interrupt Vector Register" {
     vector      8 "Vector";
@@ -233,7 +234,7 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
 
   /*
    * AMD extensions: see AMD64 Architecture Programmer's Manual,
-   * vol. 2 rev 3.14 (September 2007). 
+   * vol. 2 rev 3.14 (September 2007).
    */
 
   // 16.7.1
@@ -259,9 +260,8 @@ device xapic lsbfirst ( addr base ) "Local APIC" {
     vector	8 "Vector";
     _		24 mbz;
   };
-  
+
   // 16.7.3
   regarray ier ro addr(base, 0x0480) [8; 0x10] "IER" type(uint32);
 
 };
-

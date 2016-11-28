@@ -28,8 +28,8 @@ struct global {
         spinlock_t print;       ///< Lock for printing
     } locks;
 
-    uint32_t tickspersec;
-    uint32_t tscperms;
+    uint32_t apic_frequency;
+    systime_t systime_frequency;
 
     uint64_t padding[64];
     volatile uint64_t wait[8];

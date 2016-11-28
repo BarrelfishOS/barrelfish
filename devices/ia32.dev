@@ -10,8 +10,8 @@
  * ia32.dev
  *
  * DESCRIPTION: ia32 Architectural definitions, including Architectural MSRs
- * 
- * Numbers in comments refer to the Intel Architecture Manual, August 2007 
+ *
+ * Numbers in comments refer to the Intel Architecture Manual, August 2007
  */
 
 device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
@@ -39,7 +39,7 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	vec_gp = 13	"general protection fault";
 	vec_pf = 14	"page fault";
 	//		15 reserved to intel
-   
+
 	vec_mf = 16	"x87 FPU floating-point error";
 	vec_ac = 17	"alignment check";
 	vec_mc = 18	"machine check";
@@ -61,7 +61,7 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 
     // 7.11.5
     register mon_filter_size msr(0x06) "Monitor/Mwait filter size" type(uint64);
-    
+
     // Appendix B.1
     register platform_id ro msr(0x17) "Platform ID" {
 	_	50;
@@ -92,7 +92,7 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	_              1 mbz;
  	region_size    13 "Bytes that should be allocated for VMXON and VMCS regions";
 	_	       3;
-	paddr_width    1 "Physical address width Limited to 32 Bits";   
+	paddr_width    1 "Physical address width Limited to 32 Bits";
 	dual_mon       1 "Dual-monitor treatment supported";
 	mem_type       4 "Memory tpe used to access VMCS with VMREAD/VMWRITE";
 	instr_info_io  1 "INS/OUTS info is reported in VM-exit instruction-information";
@@ -101,12 +101,12 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
     };
 
     // Capability Reporting Registers for VMX Controls
-    register vmx_pinbased_ctls ro msr(0x481) "Pin-based Controls" type(uint64);     
+    register vmx_pinbased_ctls ro msr(0x481) "Pin-based Controls" type(uint64);
     register vmx_ppbased_ctls ro msr(0x482) "Primary Processor-based Controls" type(uint64);
     register vmx_exit_ctls ro msr(0x483) "VM-exit Controls" type(uint64);
     register vmx_entry_ctls ro msr(0x484) "VM-entry Controls" type(uint64);
     register vmx_spbased_ctls ro msr(0x48b) "Secondary Processor-based Controls" type(uint64);
-     
+
     // Capability Reporting Registers for VMX Flex Controls
     register vmx_true_pinbased_ctls ro msr(0x48d) "Pin-based Flex Controls" type(uint64);
     register vmx_true_ppbased_ctls ro msr(0x48e) "Primary Processor-based Flex Controls" type(uint64);
@@ -143,8 +143,8 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	invvpid_sct    1 "Support single-context INVVPID type";
 	invvpid_act    1 "Support all-context INVVPID type";
 	invvpid_scrgt  1 "Support single-context-retaining-globals INVVPID type";
-     	_ 	       20; 
-    };        
+     	_ 	       20;
+    };
 
     register bios_updt_trig rw msr(0x79) "BIOS update trigger" type(uint64);
     register bios_sign_id rw msr(0x8b) "BIOS update signature" type(uint64);
@@ -210,12 +210,12 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	_		61;
     };
 
-    // 14.3.1.3 
+    // 14.3.1.3
     constants mcg_ctl_val width(64) "Global MC control values" {
 	mc_enable	= 1s;
 	mc_disable	= 0x0;
     };
-    register mcg_ctl rw msr(0x17b) "Global machine check control" 
+    register mcg_ctl rw msr(0x17b) "Global machine check control"
 	type(mcg_ctl_val);
 
     // 14.3.2.5
@@ -254,8 +254,8 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	tbes		2 type(tbtrk) "Threshold-based error status";
 	_		2 mbz; // Seems to need to be written zero to
 			       // work (otherwise a GPF) but doesn't
-			       // always read as zero on 
-			       // some AMD-based processors. 
+			       // always read as zero on
+			       // some AMD-based processors.
 	pcc		1 "Processor context corrupt";
 	addrv		1 "MCi_ADDR register valid";
 	miscv		1 "MCi_MISC register valid";
@@ -266,14 +266,14 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
     };
     regarray mc_addr rwzc msr(0x402)[5; 4] "Machine check addr" type(uint64);
     regarray mc_misc rwzc msr(0x403)[5; 4] "Machine check misc" type(uint64);
-    
+
 
     /*
      * ***********************
      * Debugging and performance
      * ***********************
      */
-    
+
     // 18.5.1
     register debugctl rw msr(0x1d9) "Debug control" {
 	lbr			1 "Last branch/int/exception";
@@ -285,13 +285,13 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	bts_off_os		1 "BTS off in OS";
 	bts_off_usr		1 "BTS off in user code";
 	freeze_lbrs_on_pmi	1;
-	freeze_perfmon_on_pmi	1; 
+	freeze_perfmon_on_pmi	1;
 	_			19;
     };
 
     // 18.10
     register tsc msr(0x10) "Time stamp counter" type(uint64);
-    
+
     // 18.12.1.1
     regtype perfevtsel "Perfmon event select" {
 	evsel		8 "Event select";
@@ -322,7 +322,7 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
     register fixed_ctr2 rw msr(0x30b) "Fixed-funct. counter 2" type(fixed_ctr);
 
     //345 perf_capabilities
-    
+
     //18.12.2.1
     register fixed_ctr_ctl msr(0x38d) "Fixed counter control" {
 	enos0		1 "Enable 0 for OS";
@@ -338,7 +338,7 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	_		1;
 	pmi2		1 "Enable PMI on overflow 2";
 	_		52;
-    };	
+    };
 
     regtype perf_global "Perfmon global status/overflow" {
 	pmc0		1 "PMC0 overflow";
@@ -352,9 +352,9 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	condchgd	1 "Condition changed";
     };
 
-    register perf_global_status ro msr(0x38e) "Perfmon global status" 
+    register perf_global_status ro msr(0x38e) "Perfmon global status"
 	type(perf_global);
-    register perf_global_over rwzc msr(0x390) "Perfmon global overlflow control" 
+    register perf_global_over rwzc msr(0x390) "Perfmon global overlflow control"
 	type(perf_global);
 
     register perf_global_ctrl msr(0x38f) "Perfmon global control" {
@@ -398,11 +398,11 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	ret	16 "SYSRET CS and SS";
     };
 
-    register lstar msr(0xc0000082) "Long mode Syscall target address" 
+    register lstar msr(0xc0000082) "Long mode Syscall target address"
 	type(uint64);
 
     register cstar msr(0xc0000083) "Compatibility mode Syscall target address"
-        type(uint64);  
+        type(uint64);
 
     register fmask msr(0xc0000084) "SYSCALL EFLAGS mask" {
 	v	32 "Value";
@@ -542,7 +542,7 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	rv	1 ro "Reading valid";
 	_	32;
     };
-    
+
 
     /*
      * ***********************
@@ -692,5 +692,7 @@ device ia32 lsbfirst () "ia32 / Intel64 core architecture" {
 	 avail	12 "Available";
 	 nx	1  "Np execute";
      };
-    
+
+    register tsc_deadline rw msr(0x6e0) "TSC deadline" type(uint64);
+
 };

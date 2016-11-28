@@ -24,6 +24,7 @@
 #include <paging_generic.h>
 #include <exec.h>
 #include <fpu.h>
+#include <systime.h>
 #include <arch/x86/x86.h>
 #include <arch/x86/apic.h>
 #include <arch/x86/global.h>
@@ -592,8 +593,8 @@ static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
     return sys_io(to, cmd, port, data);
 }
 
-static struct sysret handle_vmread(struct capability *to, 
-				   int cmd, uintptr_t *args) 
+static struct sysret handle_vmread(struct capability *to,
+				   int cmd, uintptr_t *args)
 {
 #if defined(__k1om__) || defined(CONFIG_SVM)
     return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
@@ -610,8 +611,8 @@ static struct sysret handle_vmread(struct capability *to,
 #endif
 }
 
-static struct sysret handle_vmwrite(struct capability *to, 
-				    int cmd, uintptr_t *args) 
+static struct sysret handle_vmwrite(struct capability *to,
+				    int cmd, uintptr_t *args)
 {
 #if defined(__k1om__) || defined(CONFIG_SVM)
     return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
@@ -628,8 +629,8 @@ static struct sysret handle_vmwrite(struct capability *to,
 #endif
 }
 
-static struct sysret handle_vmptrld(struct capability *to, 
-				    int cmd, uintptr_t *args) 
+static struct sysret handle_vmptrld(struct capability *to,
+				    int cmd, uintptr_t *args)
 {
 #if defined(__k1om__) || defined(CONFIG_SVM)
     return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
@@ -642,8 +643,8 @@ static struct sysret handle_vmptrld(struct capability *to,
 #endif
 }
 
-static struct sysret handle_vmclear(struct capability *to, 
-				    int cmd, uintptr_t *args) 
+static struct sysret handle_vmclear(struct capability *to,
+				    int cmd, uintptr_t *args)
 {
 #if defined(__k1om__) || defined(CONFIG_SVM)
     return SYSRET(SYS_ERR_VMKIT_UNAVAIL);
@@ -737,7 +738,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
     }
 
 #ifndef CONFIG_SVM
-    // Initialize VMCS for the single virtual-CPU here instead of in 
+    // Initialize VMCS for the single virtual-CPU here instead of in
     // userspace, where the privilege level is not 0.
     err = initialize_vmcs(vmcb_cte->cap.u.frame.base);
     assert(err_is_ok(err));
@@ -1518,7 +1519,7 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             break;
 
         case DEBUG_TIMESLICE_COUNTER_READ:
-            retval.value = kernel_now;
+            retval.value = systime_now();
             break;
 
         case DEBUG_FLUSH_CACHE:

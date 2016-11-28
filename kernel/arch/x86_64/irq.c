@@ -69,6 +69,7 @@
 #include <kcb.h>
 #include <mdb/mdb_tree.h>
 #include <sys_debug.h>
+#include <systime.h>
 
 #include <dev/ia32_dev.h>
 
@@ -931,29 +932,6 @@ static __attribute__ ((used))
     __asm volatile("" :: "r" (arg0), "r" (arg1), "r" (arg2), "r" (arg3));
 }
 
-static void
-update_kernel_now(void)
-{
-    uint64_t tsc_now = rdtsc();
-    #ifdef CONFIG_ONESHOT_TIMER
-    uint64_t ticks = tsc_now - tsc_lasttime;
-    kernel_now += ticks / timing_get_tsc_per_ms();
-    #else // !CONFIG_ONESHOT_TIMER
-    // maintain compatibility with old behaviour. Not sure if it is
-    // actually needed. -AKK
-    //
-    // Ignore timeslice if it happens too closely (less than half
-    // of the TSC ticks that are supposed to pass) to the last.
-    // In that case we have just synced timers and see a spurious
-    // APIC timer interrupt.
-    if(tsc_now - tsc_lasttime >
-       (kernel_timeslice * timing_get_tsc_per_ms()) / 2) {
-        kernel_now += kernel_timeslice;
-    }
-    #endif // CONFIG_ONESHOT_TIMER
-    tsc_lasttime = tsc_now;
-}
-
 /// Handle an IRQ that arrived, either while in user or kernel mode (HLT)
 static __attribute__ ((used)) void handle_irq(int vector)
 {
@@ -975,6 +953,10 @@ static __attribute__ ((used)) void handle_irq(int vector)
     if (vector == APIC_TIMER_INTERRUPT_VECTOR) {
         // count time slices
         timer_fired ++;
+        static uint64_t last = 0;
+        systime_t now = systime_now();
+
+        last = now;
 
         // switch kcb every other timeslice
         if (!kcb_sched_suspended && timer_fired % 2 == 0 && kcb_current->next) {
@@ -984,9 +966,11 @@ static __attribute__ ((used)) void handle_irq(int vector)
 
         apic_eoi();
 	    assert(kernel_ticks_enabled);
-	    update_kernel_now();
-        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER, kernel_now);
-        wakeup_check(kernel_now+kcb_current->kernel_off);
+        trace_event(TRACE_SUBSYS_KERNEL, TRACE_EVENT_KERNEL_TIMER, now);
+        wakeup_check(now + kcb_current->kernel_off);
+#ifndef CONFIG_ONESHOT_TIMER
+        systime_set_timeout(now + kernel_timeslice);
+#endif
     } else if (vector == APIC_PERFORMANCE_INTERRUPT_VECTOR) {
         // Handle performance counter overflow
         // Reset counters
@@ -1037,7 +1021,7 @@ static __attribute__ ((used)) void handle_irq(int vector)
         // Update kernel_off for all KCBs
         struct kcb *k = kcb_current;
         do{
-            k->kernel_off = kernel_now;
+            k->kernel_off = systime_now();
             k = k->next;
         } while(k && k!=kcb_current);
         // Stop the core

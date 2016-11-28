@@ -16,6 +16,7 @@
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 #include <dev/cortex_a9_gt_dev.h>
+#include <systime.h>
 
 static cortex_a9_gt_t a9_gt;
 static bool initialized = false;
@@ -34,14 +35,12 @@ void a9_gt_init(lpaddr_t addr)
     initialized = true;
     MSG("initialized at 0x%"PRIxLVADDR"\n", gt_base);
 
-    // enable auto increment
-    cortex_a9_gt_TimerControl_auto_increment_wrf(&a9_gt, 0x1);
-
-    // reset timer (TRM 4.4.4)
-    cortex_a9_gt_TimerControl_timer_enable_wrf(&a9_gt, 0x0);
-    cortex_a9_gt_TimerCounterLow_wr(&a9_gt, 0x0);
-    cortex_a9_gt_TimerCounterHigh_wr(&a9_gt, 0x0);
+    // set the global timer
     cortex_a9_gt_TimerControl_timer_enable_wrf(&a9_gt, 0x1);
+    cortex_a9_gt_TimerControl_comp_enable_wrf(&a9_gt, 0x0);
+    cortex_a9_gt_TimerControl_int_enable_wrf(&a9_gt, 0x1);
+    cortex_a9_gt_TimerControl_auto_increment_wrf(&a9_gt, 0x0);
+    cortex_a9_gt_TimerControl_prescale_wrf(&a9_gt, 0x0);
 }
 
 uint64_t a9_gt_read(void)
@@ -64,4 +63,12 @@ uint32_t a9_gt_read_low(void)
 uint32_t a9_gt_read_high(void)
 {
     return cortex_a9_gt_TimerCounterHigh_rd(&a9_gt);
+}
+
+void a9_gt_set_comparator(uint64_t timeout)
+{
+    cortex_a9_gt_TimerControl_comp_enable_wrf(&a9_gt, 0x0);
+    cortex_a9_gt_TimerComparatorLow_wr(&a9_gt, timeout);
+    cortex_a9_gt_TimerComparatorHigh_wr(&a9_gt, timeout >> 32);
+    cortex_a9_gt_TimerControl_comp_enable_wrf(&a9_gt, 0x1);
 }

@@ -17,9 +17,11 @@
 
 /// Period of LPC timer 0 counter, in nanoseconds
 #define PIT_TIMER0_PERIOD_NS    838
+#define PIT_TIMER0_FREQUENCY    1193182
 
 void pit_init(void);
-void pit_timer0_set(uint16_t count, bool periodic);
+void pit_timer0_set(uint16_t count, bool periodic, bool only_lsb);
 uint16_t pit_timer0_read(void);
+uint8_t pit_timer0_read_lsb(void);
 
 #endif

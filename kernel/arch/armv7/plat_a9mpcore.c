@@ -23,6 +23,7 @@
 #include <init.h>
 #include <paging_kernel_arch.h>
 #include <platform.h>
+#include <systime.h>
 
 #define MSG(format, ...) \
     printk( LOG_NOTE, "CortexA9 platform: "format, ## __VA_ARGS__ )
@@ -79,8 +80,8 @@ platform_get_core_count(void) {
 
 static cortex_a9_pit_t tsc;
 
-/* See TRM 4.2.3 */
-#define LOCAL_TIMER_IRQ 29
+/* See TRM 4.3 */
+#define GLOBAL_TIMER_IRQ 27
 
 void
 timers_init(int timeslice) {
@@ -93,29 +94,18 @@ timers_init(int timeslice) {
     /* Global timer: use the Cortex-A9 Global Timer
        (see Cortex-A9 MPCore TRM 4.3). */
     a9_gt_init(platform_get_gt_address());
-
+    gic_enable_interrupt(GLOBAL_TIMER_IRQ, 0, 0, 0, 0);
     /* Discover the clock rate. */
     a9_probe_tsc();
     assert(tsc_hz != 0);
 
-    /* Write counter reload value.  Divide by 1000, as timeslice is in ms. */
-    uint32_t reload = (timeslice * tsc_hz) / 1000;
-    MSG("System counter frequency is %uHz.\n", tsc_hz);
-    MSG("Timeslice interrupt every %u ticks (%dms).\n", reload, timeslice);
-    cortex_a9_pit_TimerLoad_wr(&tsc, reload);
+    systime_frequency = tsc_hz;
 
-    /* Prescaler value to 1 - run at PERIPHCLK to match the global timer. */
-    cortex_a9_pit_TimerControl_prescale_wrf(&tsc, 0);
-    /* Enable interrupt generation. */
-    cortex_a9_pit_TimerControl_int_enable_wrf(&tsc, 1);
-    /* Automatic reload. */
-    cortex_a9_pit_TimerControl_auto_reload_wrf(&tsc, 1);
-    /* Clear any pending event */
-    cortex_a9_pit_TimerIntStat_event_flag_wrf(&tsc, 1);
-    /* Enable the timeslice interrupt. */
-    gic_enable_interrupt(LOCAL_TIMER_IRQ, 0, 0, 0, 0);
-    /* Enable the timer. */
-    cortex_a9_pit_TimerControl_timer_enable_wrf(&tsc, 1);
+    MSG("System counter frequency is %uHz.\n", tsc_hz);
+    /* Set kernel timeslice value, timeslice is in ms. */
+    kernel_timeslice = ns_to_systime(timeslice * 1000000);
+    MSG("Timeslice interrupt every %llu system ticks (%dms).\n", kernel_timeslice, timeslice);
+    systime_set_timeout(systime_now() + kernel_timeslice);
 }
 
 uint64_t
@@ -128,16 +118,26 @@ timestamp_freq(void) {
     return tsc_hz;
 }
 
-bool
-timer_interrupt(uint32_t irq) {
-    if(irq == LOCAL_TIMER_IRQ) {
-        /* Clear the flag at the timer. */
-        cortex_a9_pit_TimerIntStat_event_flag_wrf(&tsc, 1);
-
+bool timer_interrupt(uint32_t irq) {
+    if (irq == GLOBAL_TIMER_IRQ) {
+#ifndef CONFIG_ONESHOT_TIMER
+        // Set next trigger
+        systime_set_timeout(systime_now() + kernel_timeslice);
+#endif
         /* Ack the interrupt at the controller. */
         gic_ack_irq(irq);
         return 1;
     }
 
     return 0;
+}
+
+systime_t systime_now(void)
+{
+    return a9_gt_read();
+}
+
+void systime_set_timeout(systime_t timeout)
+{
+    a9_gt_set_comparator(timeout);
 }

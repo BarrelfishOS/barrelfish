@@ -35,6 +35,7 @@
 #include <trace_definitions/trace_defs.h>
 #include <kcb.h>
 #include <useraccess.h>
+#include <systime.h>
 
 errval_t sys_print(const char *str, size_t length)
 {
@@ -177,6 +178,9 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
         trace_new_boot_application(disp->name, (uintptr_t) dcb);
     }
 
+    // Setup systime frequency
+    disp->systime_frequency = systime_frequency;
+
     return SYSRET(SYS_ERR_OK);
 }
 
@@ -205,7 +209,7 @@ sys_dispatcher_properties(struct capability *to,
     dcb->deadline = deadline;
     dcb->wcet = wcet;
     dcb->period = period;
-    dcb->release_time = (release == 0) ? kernel_now : release;
+    dcb->release_time = (release == 0) ? systime_now() : release;
     dcb->weight = weight;
 
     make_runnable(dcb);
@@ -618,7 +622,7 @@ struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr
 struct sysret sys_yield(capaddr_t target)
 {
     dispatcher_handle_t handle = dcb_current->disp;
-    struct dispatcher_shared_generic *disp = 
+    struct dispatcher_shared_generic *disp =
         get_dispatcher_shared_generic(handle);
 
 
@@ -657,7 +661,7 @@ struct sysret sys_yield(capaddr_t target)
     // Remove from queue when no work and no more messages and no missed wakeup
     systime_t wakeup = disp->wakeup;
     if (!disp->haswork && disp->lmp_delivered == disp->lmp_seen
-        && (wakeup == 0 || wakeup > (kernel_now + kcb_current->kernel_off))) {
+        && (wakeup == 0 || wakeup > (systime_now() + kcb_current->kernel_off))) {
 
         trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_SCHED_REMOVE,
             (uint32_t)(lvaddr_t)dcb_current & 0xFFFFFFFF);
@@ -801,7 +805,7 @@ struct sysret sys_kernel_add_kcb(struct kcb *new_kcb)
     kcb_add(new_kcb);
 
     // update kernel_now offset
-    new_kcb->kernel_off -= kernel_now;
+    new_kcb->kernel_off -= systime_now();
     // reset scheduler statistics
     scheduler_reset_time();
     // update current core id of all domains
@@ -850,6 +854,6 @@ struct sysret sys_get_absolute_time(void)
     // of a second accuracy range.
     return (struct sysret) {
         .error = SYS_ERR_OK,
-        .value = kernel_now + kcb_current->kernel_off,
+        .value = systime_now() + kcb_current->kernel_off,
     };
 }

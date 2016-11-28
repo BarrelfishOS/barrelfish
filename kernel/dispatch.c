@@ -19,6 +19,7 @@
 #include <dispatch.h>
 #include <kcb.h>
 #include <wakeup.h>
+#include <systime.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/lmp.h>
 #include <trace/trace.h>
@@ -44,9 +45,11 @@
 #define MIN(a,b)        ((a) < (b) ? (a) : (b))
 
 /**
- * \brief The kernel timeslice given in milliseconds.
+ * \brief The kernel timeslice given in system ticks
  */
-int kernel_timeslice = CONFIG_TIMESLICE;
+systime_t kernel_timeslice;
+
+unsigned int config_timeslice = CONFIG_TIMESLICE;
 
 /// Counter for number of context switches
 uint64_t context_switch_counter = 0;
@@ -145,13 +148,6 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     // If we have nothing to do we should call something other than dispatch
     if (dcb == NULL) {
         dcb_current = NULL;
-#if defined(__x86_64__) || defined(__i386__) || defined(__k1om__)
-        // Can this be moved into wait_for_interrupt?
-        // Or wait_for_nonscheduling_interrupt()?
-        if (!wakeup_is_pending()) {
-            apic_mask_timer();
-        }
-#endif
         wait_for_interrupt();
     }
 
@@ -177,7 +173,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
         dispatcher_get_disabled_save_area(handle);
 
     if(disp != NULL) {
-        disp->systime = kernel_now + kcb_current->kernel_off;
+        disp->systime = systime_now() + kcb_current->kernel_off;
     }
     TRACE(KERNEL, SC_YIELD, 1);
 

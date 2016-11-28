@@ -14,6 +14,7 @@
 
 #include <string.h>
 #include <kernel.h>
+#include <systime.h>
 #include <arch/x86/apic.h>
 #include <arch/x86/rtc.h>
 #include <arch/x86/pit.h>
@@ -24,7 +25,7 @@
 #include <xeon_phi.h>
 #endif
 
-static uint32_t tickspersec = 0;
+static uint32_t apic_frequency = 0;
 static uint64_t tscperms = 0;
 
 #if !defined(__k1om__)
@@ -32,19 +33,21 @@ static uint64_t tscperms = 0;
  * \brief Calibrates local APIC timer against RTC.
  * \return Local APIC timer ticks per RTC second.
  */
-static uint32_t calibrate_apic_timer_rtc(void)
+static uint32_t __attribute__((unused)) calibrate_apic_timer_rtc(uint64_t *ticks_per_ms)
 {
     // Set APIC timer to one-shot mode
     apic_timer_init(true, false);
     apic_timer_set_divide(xapic_by1);
     // Wait until start of new second
 
+    uint64_t tsc_start, tsc_end;
     uint8_t start = rtc_read_secs(), now;
     do {
         now = rtc_read_secs();
     } while(now == start);
 
     apic_timer_set_count(UINT32_MAX);
+    tsc_start = rdtsc();
 
     // Wait a second
     //uint32_t oldcount = UINT32_MAX;
@@ -52,7 +55,6 @@ static uint32_t calibrate_apic_timer_rtc(void)
     start = now;
     do {
         now = rtc_read_secs();
-
 #if 0
         // Assert timer never underflows
         // XXX: this fires on QEMU, because the APIC timer is driven directly by
@@ -66,11 +68,16 @@ static uint32_t calibrate_apic_timer_rtc(void)
 
     // Get new count
     uint32_t curcount = apic_timer_get_count();
+    tsc_end = rdtsc();
     assert(curcount != 0);
+    uint64_t ticks;
+
+    ticks = tsc_end - tsc_start;
+    *ticks_per_ms = ticks / 1000;
 
     uint32_t tps = UINT32_MAX - curcount;
     printk(LOG_NOTE, "Measured %"PRIu32" APIC timer counts in one RTC second, "
-           "%d data points.\n", tps, reads);
+           "%d data points. %ld ticks per ms\n", tps, reads, *ticks_per_ms);
 
     return tps;
 }
@@ -141,52 +148,48 @@ static uint32_t calibrate_pit_rtc(void)
     return ticks;
 }
 
+#endif
 /**
  * \brief Calibrates local APIC timer against PIT.
  * \return Local APIC timer ticks per PIT second.
  */
-static uint32_t calibrate_apic_timer_pit(void)
+static uint32_t calibrate_apic_timer_pit(systime_t *systime_freq)
 {
     // Set APIC timer to one-shot mode
-    xapic_lvt_timer_wr(&apic, (xapic_lvt_timer_t) {
-            .vector = APIC_TIMER_INTERRUPT_VECTOR,
-            .mask = xapic_masked,
-            .mode = xapic_one_shot }
-        );
-
+    apic_timer_init(true, false);
     apic_timer_set_divide(xapic_by1);
 
     // Calibrate against PIT
     pit_init();
-    pit_timer0_set(0xffff, false);
+    pit_timer0_set(0xffff, false, true); // only lsb
 
     // Start both timers
     apic_timer_set_count(UINT32_MAX);
 
-    // Wait a second (1,193,180 Ticks)
+    // Wait a second (1,193,182 ticks)
     uint16_t oldcnt = pit_timer0_read();
+    uint64_t timestamp = rdtsc();
     uint32_t ticks = 0;
     do {
         uint16_t cnt = pit_timer0_read();
-        if(cnt <= oldcnt) {
+        if (cnt <= oldcnt) {
             ticks += oldcnt - cnt;
         } else {
-            ticks += oldcnt + (0xffff - cnt);
+            ticks += oldcnt + 256 - cnt;
         }
         oldcnt = cnt;
-    } while(ticks < 1193180);
 
-    // Get new count
-    uint32_t curcount = xapic_cur_count_rd(&apic);
-    assert(curcount != 0);
+    } while (ticks < PIT_TIMER0_FREQUENCY);
 
-    uint32_t tps = UINT32_MAX - curcount;
-    printf("Measured %d APIC timer counts in one PIT second.\n",
-           tps);
+    uint64_t afreq = UINT32_MAX - apic_timer_get_count();
+    uint64_t sfreq = rdtsc() - timestamp;
 
-    return tps;
+    *systime_freq = sfreq;
+    printf("Measured APIC frequency: %ld Hz, systime frequency: %ld Hz\n",
+           afreq, sfreq);
+    return afreq;
 }
-#endif
+
 
 /// Number of measurement iterations
 #define MAX_ITERATIONS  100
@@ -195,11 +198,11 @@ static uint32_t calibrate_apic_timer_pit(void)
  * \brief Calibrates TSC against local APIC timer.
  * \return TSC ticks per local APIC timer tick.
  */
-static uint64_t calibrate_tsc_apic_timer(void)
+static uint64_t __attribute__((unused)) calibrate_tsc_apic_timer(void)
 {
     // Must tick with higher granularity than a millisecond
-    assert(tickspersec > 1000);
-    uint32_t ticksperms = tickspersec / 1000;
+    assert(apic_frequency > 1000);
+    uint32_t ticksperms = apic_frequency / 1000;
 
     // XXX: Let's hope this fits on the stack (reserve half the stack)
     /* assert(sizeof(uint64_t) * MAX_ITERATIONS < KERNEL_STACK_SIZE / 2); */
@@ -269,26 +272,16 @@ static uint64_t calibrate_tsc_apic_timer(void)
 void timing_apic_timer_set_ms(unsigned int ms)
 {
     // Must tick with higher granularity than a millisecond
-    assert(tickspersec > 1000);
-    assert(ms < UINT32_MAX / (tickspersec / 1000));
+    assert(apic_frequency > 1000);
+    assert(ms < UINT32_MAX / (apic_frequency / 1000));
 
     apic_timer_set_divide(xapic_by1);
-    apic_timer_set_count(ms * (tickspersec / 1000));
-}
-
-void arch_set_timer(systime_t t);
-void arch_set_timer(systime_t t)
-{
-    // systime_t is absolute time in ms,
-    // and the APIC time count registers are 32 bit
-    assert(t > kernel_now);
-    uint32_t ms = (t - kernel_now);
-    apic_timer_set_count(ms * (tickspersec / 1000));
+    apic_timer_set_count(ms * (apic_frequency / 1000));
 }
 
 uint32_t timing_get_apic_ticks_per_sec(void)
 {
-    return tickspersec;
+    return apic_frequency;
 }
 
 uint64_t timing_get_tsc_per_ms(void)
@@ -303,22 +296,29 @@ void timing_calibrate(void)
     if (CPU_IS_M5_SIMULATOR) {
         // Guess -- avoid delay of calibration
         printk(LOG_WARN, "Warning: using hard-coded timer calibration on M5\n");
-        tickspersec = 31250000;
-        tscperms = tickspersec/1000;
+        apic_frequency = 31250000;
+        tscperms = apic_frequency / 1000;
     } else {
         if(apic_is_bsp()) {
 #ifdef __k1om__
-            tickspersec = calibrate_apic_timer_k1om();
-#else
-            tickspersec = calibrate_apic_timer_rtc();
-#endif
-            global->tickspersec = tickspersec;
-
+            apic_frequency = calibrate_apic_timer_k1om();
             tscperms = calibrate_tsc_apic_timer();
-            global->tscperms = tscperms;
+            systime_frequency = tscperms * 1000;
+#else
+            apic_frequency = calibrate_apic_timer_pit(&systime_frequency);
+#endif
+            global->apic_frequency = apic_frequency;
+            global->systime_frequency = systime_frequency;
         } else {
-            tickspersec = global->tickspersec;
-            tscperms = global->tscperms;
+            apic_frequency = global->apic_frequency;
+            systime_frequency = global->systime_frequency;
         }
+        tscperms = systime_frequency / 1000;
+        apic_systime_frequency_ratio = ((uint64_t)apic_frequency << 32) / systime_frequency;
     }
+}
+
+systime_t systime_now(void)
+{
+    return rdtsc();
 }

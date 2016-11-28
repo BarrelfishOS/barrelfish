@@ -124,7 +124,7 @@ typedef uint64_t perfmon_event_t;
 // Performance mask
 typedef uint64_t perfmon_mask_t;
 
-/// Absolute system time (in microseconds)
+/// Absolute system wallclock time in ticks
 typedef uint64_t systime_t;
 #define PRIuSYSTIME PRIu64
 #define PRIxSYSTIME PRIx64

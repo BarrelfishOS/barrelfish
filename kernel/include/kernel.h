@@ -111,22 +111,20 @@ void kernel_startup_early(void);
 void kernel_startup(void) __attribute__ ((noreturn));
 
 /**
- * command-line option for kernel timeslice in milliseconds.
+ * kernel timeslice in system ticks
  */
-extern int kernel_timeslice;
+extern systime_t kernel_timeslice;
+
+/**
+ * command-line option for kernel timeslice in milliseconds
+ */
+extern unsigned int config_timeslice;
 
 /**
  * variable for gating timer interrupts.
  */
 extern bool kernel_ticks_enabled;
 
-/**
- * Current kernel epoch in number of kernel_timeslice elapsed.
- *
- * XXX AKK: shouldn't this be systime_t?
- * (It seems to count ms and not ticks anyway)
- */
-extern size_t kernel_now;
 
 extern lvaddr_t kernel_trace_buf;
 

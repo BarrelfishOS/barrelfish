@@ -26,6 +26,7 @@
 #include <getopt/getopt.h>
 #include <exec.h>
 #include <kputchar.h>
+#include <systime.h>
 #include <arch/x86/conio.h>
 #include <arch/x86/pic.h>
 #include <arch/x86/apic.h>
@@ -483,7 +484,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
 
     // do not remove/change this printf: needed by regression harness
     printf("Barrelfish CPU driver starting on x86_64 apic_id %u\n", apic_id);
-   
+
 
     if(apic_is_bsp()) {
         // Initialize classic (8259A) PIC
@@ -496,13 +497,12 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Initialize local APIC timer
     if (kernel_ticks_enabled) {
         timing_calibrate();
-        bool periodic = true;
-        #ifdef CONFIG_ONESHOT_TIMER
-        // we probably need a global variable like kernel_ticks_enabled
-        periodic = false;
-        #endif
-        apic_timer_init(false, periodic);
-        timing_apic_timer_set_ms(kernel_timeslice);
+        apic_timer_init(false, false);
+        apic_timer_set_divide(xapic_by1);
+        kernel_timeslice = ns_to_systime(config_timeslice * 1000000);
+#ifndef CONFIG_ONESHOT_TIMER
+        systime_set_timeout(systime_now() + kernel_timeslice);
+#endif
     } else {
         printk(LOG_WARN, "APIC timer disabled: NO timeslicing\n");
         apic_mask_timer();

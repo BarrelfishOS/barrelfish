@@ -66,7 +66,7 @@ static struct cmdarg cmdargs[] = {
     { "debugPort",   ArgType_UInt, { .uinteger = (void *)0 } },
     { "loglevel",    ArgType_Int,  { .integer  = (void *)0 } },
     { "logmask",     ArgType_Int,  { .integer  = (void *)0 } },
-    { "timeslice",   ArgType_Int,  { .integer  = (void *)0 } },
+    { "timeslice",   ArgType_UInt,  { .uinteger = (void *)0 } },
     { "periphclk",   ArgType_UInt, { .uinteger = (void *)0 } },
     { "periphbase",  ArgType_UInt, { .uinteger = (void *)0 } },
     { "timerirq"  ,  ArgType_UInt, { .uinteger = (void *)0 } },
@@ -80,7 +80,7 @@ init_cmdargs(void) {
     cmdargs[1].var.uinteger= &serial_debug_port;
     cmdargs[2].var.integer=  &kernel_loglevel;
     cmdargs[3].var.integer=  &kernel_log_subsystem_mask;
-    cmdargs[4].var.integer=  &kernel_timeslice;
+    cmdargs[4].var.uinteger= &config_timeslice;
     cmdargs[5].var.uinteger= &periphclk;
     cmdargs[6].var.uinteger= &periphbase;
     cmdargs[7].var.uinteger= &timerirq;
@@ -221,7 +221,7 @@ arch_init(struct arm_core_data *boot_core_data,
                min(MAXCMDLINE-1, strlen(mb_cmdline)));
         core_data->cmdline_buf[MAXCMDLINE-1]= '\0';
     }
-    
+
     MSG("Multiboot info:\n");
     MSG(" info header at 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb);
     MSG(" mods_addr is P:0x%"PRIxLPADDR"\n",       (lpaddr_t)mb->mods_addr);
@@ -254,7 +254,7 @@ arch_init(struct arm_core_data *boot_core_data,
     MSG("Parsing command line\n");
     init_cmdargs();
     parse_commandline((const char *)core_data->cmdline, cmdargs);
-    kernel_timeslice = min(max(kernel_timeslice, 20), 1);
+    config_timeslice = min(max(config_timeslice, 1), 20);
 
     errval = serial_debug_init();
     if (err_is_fail(errval)) {
@@ -272,7 +272,7 @@ arch_init(struct arm_core_data *boot_core_data,
     }
 
     MSG("Enabling timers\n");
-    timers_init(kernel_timeslice);
+    timers_init(config_timeslice);
 
     MSG("Enabling cycle counter user access\n");
     /* enable user-mode access to the performance counter */
@@ -290,13 +290,13 @@ arch_init(struct arm_core_data *boot_core_data,
 
 #if 0
 /**
- * \brief Initialization for the BSP (the first core to be booted). 
+ * \brief Initialization for the BSP (the first core to be booted).
  * \param pointer address of \c multiboot_info
  */
-static void bsp_init( void *pointer ) 
+static void bsp_init( void *pointer )
 {
     struct multiboot_info *mb = pointer;
-    
+
     MSG("We seem to be a BSP; multiboot info:\n");
     MSG(" mods_addr is 0x%"PRIxLVADDR"\n",       (lvaddr_t)mb->mods_addr);
     MSG(" mods_count is 0x%"PRIxLVADDR"\n",      (lvaddr_t)mb->mods_count);
@@ -308,7 +308,7 @@ static void bsp_init( void *pointer )
 }
 
 /**
- * \brief Initialization on a non-BSP (second and successive cores). 
+ * \brief Initialization on a non-BSP (second and successive cores).
  * \param pointer address of the global structure set up by \c bsp_init
  */
 static void nonbsp_init( void *pointer )

@@ -31,12 +31,12 @@ static struct lpc_timer_t timer;        ///< Mackerel state for timer registers
  * \param count  Count for oneshot timer, rate for ticker
  * \param periodic True for a periodic timer, false for oneshot
  */
-void pit_timer0_set(uint16_t count, bool periodic)
+void pit_timer0_set(uint16_t count, bool periodic, bool only_lsb)
 {
     struct lpc_timer_tcw_t tcw = {
         .bcd = 0,                       // Binary mode (no BCD)
         .mode = periodic ? lpc_timer_rtgen : lpc_timer_oseoc, // Operating mode
-        .rwsel = lpc_timer_lmsb,        // First MSB, then LSB
+        .rwsel = only_lsb ? lpc_timer_lsb: lpc_timer_lmsb,
         .select = lpc_timer_c0          // Select counter 0
     };
 
@@ -45,7 +45,8 @@ void pit_timer0_set(uint16_t count, bool periodic)
 
     if (count > 0) {
         // Set the count/rate (LSB, then MSB)
-        lpc_timer_cntacc0_wr(&timer, count & 0xff);
+        if (!only_lsb)
+            lpc_timer_cntacc0_wr(&timer, count & 0xff);
         lpc_timer_cntacc0_wr(&timer, count >> 8);
     }
 }
@@ -83,8 +84,13 @@ uint16_t pit_timer0_read(void)
     return val;
 }
 
+uint8_t pit_timer0_read_lsb(void)
+{
+    return lpc_timer_cntacc0_rd(&timer);
+}
+
 void pit_init(void)
 {
     lpc_timer_initialize(&timer, TIMER_IOBASE);
-    pit_timer0_set(0, false);
+    pit_timer0_set(0, false, false);
 }

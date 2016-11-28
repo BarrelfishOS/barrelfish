@@ -17,6 +17,7 @@
 #include <kcb.h> // kcb_current->wakeup_queue_head
 #include <timer.h> // update_wakeup_timer()
 #include <wakeup.h>
+#include <systime.h>
 
 /* wrapper to change the head, and update the next wakeup tick */
 void wakeup_set_queue_head(struct dcb *h)
@@ -58,7 +59,6 @@ void wakeup_remove(struct dcb *dcb)
 void wakeup_set(struct dcb *dcb, systime_t waketime)
 {
     assert(dcb != NULL);
-    assert(waketime > (kernel_now + kcb_current->kernel_off));
 
     // if we're already enqueued, remove first
     wakeup_remove(dcb);
@@ -97,6 +97,7 @@ void wakeup_check(systime_t now)
         d->wakeup_time = 0;
         d->wakeup_prev = d->wakeup_next = NULL;
         make_runnable(d);
+        schedule_now(d);
     }
     if (d != NULL) {
         d->wakeup_prev = NULL;

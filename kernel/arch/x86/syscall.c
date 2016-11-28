@@ -74,7 +74,7 @@ struct sysret sys_monitor_handle_sync_timer(uint64_t synctime)
     }
 
     while(rdtsc() < synctime);
-    timing_apic_timer_set_ms(kernel_timeslice);
+    timing_apic_timer_set_ms(config_timeslice);
     tsc_lasttime = rdtsc();
     scheduler_reset_time();
 
