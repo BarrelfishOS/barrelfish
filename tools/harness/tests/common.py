@@ -17,6 +17,7 @@ RAW_TEST_OUTPUT_FILENAME = Harness.RAW_FILE_NAME
 DEFAULT_TEST_TIMEOUT = datetime.timedelta(seconds=360)
 DEFAULT_BOOT_TIMEOUT = datetime.timedelta(seconds=240)
 AFTER_FINISH_TIMEOUT = datetime.timedelta(seconds=30)
+TEST_NO_OUTPUT_LINE = '[Error: could not read output from test]\n'
 TEST_TIMEOUT_LINE = '[Error: test timed out]\n'
 BOOT_TIMEOUT_LINE_RETRY = '[Error: boot timed out, retrying...]\n'
 BOOT_TIMEOUT_LINE_FAIL = '[Error: boot timed out, retry limit reached]\n'
@@ -206,6 +207,9 @@ class TestCommon(Test):
 
     def collect_data(self, machine):
         fh = machine.get_output()
+        if fh is None:
+            yield TEST_NO_OUTPUT_LINE
+            return
         while True:
             try:
                 line = self._readline(fh)
