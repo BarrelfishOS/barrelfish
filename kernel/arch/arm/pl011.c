@@ -63,8 +63,7 @@ errval_t serial_early_init_mmu_enabled(unsigned n)
     assert(paging_mmu_enabled());
     assert(n < serial_num_physical_ports);
 
-    lvaddr_t uart = paging_map_device(uart_base[n], BASE_PAGE_SIZE);
-    pl011_uart_initialize(&uarts[n], (mackerel_addr_t)uart);
+    pl011_uart_initialize(&uarts[n], (mackerel_addr_t)uart_base[n]);
 
     // Make sure that the UART is enabled and transmitting - not all platforms
     // do this for us.
