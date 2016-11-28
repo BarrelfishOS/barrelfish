@@ -170,4 +170,4 @@ class UWMachine(Machine):
 for n in sorted(UWMachine._uw_machines.keys()):
     class TmpMachine(UWMachine):
         name = n
-    MachineFactory.addMachine(n, TmpMachine)
+    MachineFactory.addMachine(n, TmpMachine, **UWMachine._uw_machines[n])

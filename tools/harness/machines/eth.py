@@ -236,4 +236,4 @@ class ETHMachineOperations(ETHBaseMachineOperations):
 for n in sorted(ETHMachine._machines.keys()):
     class TmpMachine(ETHMachine):
         name = n
-    MachineFactory.addMachine(n, TmpMachine, ETHMachine._machines[n])
+    MachineFactory.addMachine(n, TmpMachine, **ETHMachine._machines[n])

@@ -117,17 +117,6 @@ class Gem5MachineARMSingleCore(Gem5MachineARM):
     def __init__(self, options, **kwargs):
         super(Gem5MachineARMSingleCore, self).__init__(options, Gem5MachineARMSingleCoreOperations(self), **kwargs)
 
-    def get_bootarch(self):
-        return "armv7"
-
-    def get_platform(self):
-        return 'a15ve'
-
-    def get_ncores(self):
-        return 1
-
-    def get_cores_per_socket(self):
-        return 1
 
 class Gem5MachineARMSingleCoreOperations(Gem5MachineARMOperations):
 
@@ -139,4 +128,6 @@ class Gem5MachineARMSingleCoreOperations(Gem5MachineARMOperations):
         return ([script_path, 'VExpress_EMM', self._machine.kernel_img, GEM5_PATH,
                  str(self.telnet_port)])
 
-MachineFactory.addMachine(Gem5MachineARMSingleCore.name, Gem5MachineARMSingleCore)
+MachineFactory.addMachine(Gem5MachineARMSingleCore.name, Gem5MachineARMSingleCore,
+                          bootarch="armv7",
+                          platform="a15ve")

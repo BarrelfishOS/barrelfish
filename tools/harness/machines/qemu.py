@@ -147,7 +147,9 @@ for n in [1, 2, 4]:
             return self.get_ncores() * 120
 
     MachineFactory.addMachine('qemu%d' % n, TmpMachine,
-                              { 'ncores' : n, 'bootarch' : 'x86_64', '_class' : TmpMachine})
+                              ncores=n,
+                              bootarch='x86_64',
+                              _class=TmpMachine)
 
 class QEMUMachineARMv7Uniproc(ARMMachineBase):
     '''Uniprocessor ARMv7 QEMU'''
@@ -190,7 +192,9 @@ class QEMUMAchineARMv7UniprocOperations(QEMUMachineBaseOperations):
 
         return ([qemu_wrapper, '--arch', 'a15ve', '--image', self._machine.kernel_img])
 
-MachineFactory.addMachine(QEMUMachineARMv7Uniproc.name, QEMUMachineARMv7Uniproc)
+MachineFactory.addMachine(QEMUMachineARMv7Uniproc.name, QEMUMachineARMv7Uniproc,
+                          bootarch="armv7",
+                          platform="a15ve")
 
 class QEMUMachineZynq7(ARMMachineBase):
     '''Zynq7000 as modelled by QEMU'''
@@ -206,9 +210,6 @@ class QEMUMachineZynq7(ARMMachineBase):
 
     def get_ncores(self):
         return 1
-
-    def get_bootarch(self):
-        return "armv7"
 
     def get_platform(self):
         return 'zynq7'
@@ -235,4 +236,6 @@ class QEMUMachineZync7Operations(QEMUMachineBaseOperations):
 
         return ([qemu_wrapper, '--arch', 'zynq7', '--image', self._machine.kernel_img])
 
-MachineFactory.addMachine(QEMUMachineZynq7.name, QEMUMachineZynq7)
+MachineFactory.addMachine(QEMUMachineZynq7.name, QEMUMachineZynq7,
+                          bootarch="armv7",
+                          platform='zynq7')

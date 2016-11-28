@@ -61,12 +61,6 @@ class FVPMachineARMv7(FVPMachineBase):
     def __init__(self, options, operations, **kwargs):
         super(FVPMachineARMv7, self).__init__(options, operations, **kwargs)
 
-    def get_bootarch(self):
-        return 'armv7'
-
-    def get_platform(self):
-        return 'a9ve'
-
     def set_bootmodules(self, modules):
         # write menu.lst in build directory
         debug.verbose("writing menu.lst in build directory")
@@ -98,26 +92,19 @@ class FVPMachineARMv7NCoresOperations(FVPMachineBaseOperations):
                 self._machine.kernel_img]
 
 # Single core machine
-MachineFactory.addMachine("armv7_fvp", FVPMachineARMv7NCores, {"ncores": 1})
+MachineFactory.addMachine("armv7_fvp", FVPMachineARMv7NCores,
+                          bootarch="armv7",
+                          platform="a9ve")
 
 # Quad-core machine
-MachineFactory.addMachine('armv7_fvp_4', FVPMachineARMv7NCores, {"ncores": 4})
+MachineFactory.addMachine('armv7_fvp_4', FVPMachineARMv7NCores,
+                          bootarch="armv7",
+                          platform="a9ve",
+                          ncores=4)
 
 
 class FVPMachineEFI(FVPMachineBase):
     imagename = "armv8_efi"
-
-    def get_bootarch(self):
-        return "armv8"
-
-    def get_platform(self):
-        return "a57v"
-
-    def get_ncores(self):
-        return 1
-
-    def get_cores_per_socket(self):
-        return 1
 
     def set_bootmodules(self, modules):
         # write menu.lst in build directory
@@ -156,4 +143,6 @@ class FVPMachineEFIOperations(FVPMachineBaseOperations):
                 "-C", "bp.flashloader0.fname=/home/moritz/dev/eth/fvp-uefi/fip.bin",
                 "-C", "bp.mmc.p_mmc_file=%s" % self.kernel_img]
 
-MachineFactory.addMachine('armv8_fvp_base', FVPMachineEFI)
+MachineFactory.addMachine('armv8_fvp_base', FVPMachineEFI,
+                          bootarch='armv8',
+                          platform='a57v')

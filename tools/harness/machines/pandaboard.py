@@ -32,19 +32,6 @@ class PandaboardMachine(ARMMachineBase):
     def setup(self, builddir=None):
         pass
 
-    def get_ncores(self):
-        return 2
-
-    def get_bootarch(self):
-        return 'armv7'
-
-    def get_buildarchs(self):
-        return ['armv7']
-
-    # pandaboard specifics
-    def get_platform(self):
-        return 'omap44xx'
-
     def get_buildall_target(self):
         return "PandaboardES"
 
@@ -225,6 +212,9 @@ class ETHRackPandaboardMachineOperations(ETHBaseMachineOperations):
 for pb in ETHRackPandaboardMachine._machines:
     class TmpMachine(ETHRackPandaboardMachine):
         name = pb
-    MachineFactory.addMachine(pb, TmpMachine, ETHRackPandaboardMachine._machines[pb])
+    MachineFactory.addMachine(pb, TmpMachine, **ETHRackPandaboardMachine._machines[pb])
 
-MachineFactory.addMachine("panda_local", PandaboardMachine)
+MachineFactory.addMachine("panda_local", PandaboardMachine,
+                          bootarch='armv7',
+                          platform='omap44xx',
+                          ncores=2)

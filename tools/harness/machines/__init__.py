@@ -475,7 +475,7 @@ class MachineFactory:
         self._name = name
 
     @classmethod
-    def addMachine(cls, name, machineClass, kwargs={}):
+    def addMachine(cls, name, machineClass, **kwargs):
         cls.machineFactories[name] = MachineFactory(name, machineClass, kwargs)
         machineClass.validateArgs(kwargs)
 
