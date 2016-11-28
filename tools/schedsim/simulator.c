@@ -95,6 +95,8 @@ get_dispatcher_shared_generic(dispatcher_handle_t handle)
     return (struct dispatcher_shared_generic *)handle;
 }
 
+typedef uint64_t systime_t;
+#define systime_now() kernel_now
 static size_t kernel_now = 0;
 static int kernel_timeslice = 80;
 static struct dcb *dcb_current = NULL;
