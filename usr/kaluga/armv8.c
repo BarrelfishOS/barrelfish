@@ -20,7 +20,7 @@
 #include "kaluga.h"
 
 
-static errval_t tmas_startup(void)
+static errval_t armv8_startup_common(void)
 {
     errval_t err = SYS_ERR_OK;
     // We need to run on core 0
@@ -75,6 +75,16 @@ static errval_t tmas_startup(void)
     return SYS_ERR_OK;
 }
 
+static errval_t fvp_startup(void)
+{
+    return armv8_startup_common();
+}
+
+static errval_t apm88xxxx_startup(void)
+{
+    return armv8_startup_common();
+}
+
 errval_t arch_startup(char * add_device_db_file)
 {
     errval_t err = SYS_ERR_OK;
@@ -88,9 +98,12 @@ errval_t arch_startup(char * add_device_db_file)
     assert(arch == PI_ARCH_ARMV8A);
 
     switch(platform) {
-        case PI_PLATFORM_TMAS:
-            debug_printf("Kaluga running on TMAS\n");
-            return tmas_startup();
+    case PI_PLATFORM_FVP:
+        debug_printf("Kaluga running on FVP\n");
+        return fvp_startup();
+    case PI_PLATFORM_APM88XXXX:
+        debug_printf("Kaluga running on APM88xxxx\n");
+        return apm88xxxx_startup();
     }
 
     return KALUGA_ERR_UNKNOWN_PLATFORM;
