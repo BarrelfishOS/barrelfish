@@ -29,6 +29,7 @@
 #include <start_aps.h>
 #include <useraccess.h>
 #include <platform.h>
+#include <systime.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
