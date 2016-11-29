@@ -22,6 +22,7 @@
 // required for lib/lwip/src/barrelfish/idc_barrelfish.c
 
 #include <assert.h>
+#include <stdint.h>
 
 static inline void mfence(void)
 {
