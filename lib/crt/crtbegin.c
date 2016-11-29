@@ -20,7 +20,7 @@ void *__dso_handle = &__dso_handle;
 typedef void (*CDtor)(void);
 
 /// First entry in .ctors array is the unspecified length marker (-1)
-static CDtor ctors[1]
+static volatile CDtor ctors[1]
 __attribute__ ((unused, section(".ctors"), aligned(sizeof(CDtor))))
     = { (CDtor)(-1) };
 
