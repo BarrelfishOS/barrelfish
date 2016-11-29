@@ -18,6 +18,7 @@
 #ifndef __ASSEMBLER__
 
 #include <target/x86_64/barrelfish_kpi/registers_target.h>
+#include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
 
 static inline void cpuid(uint32_t function, uint32_t *eax, uint32_t *ebx,
                          uint32_t *ecx, uint32_t *edx)
