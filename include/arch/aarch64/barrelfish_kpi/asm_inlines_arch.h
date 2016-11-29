@@ -17,7 +17,7 @@
 
 #ifndef __ASSEMBLER__
 
-#include <barrelfish_kpi/types.h>
+#include <stdint.h>
 
 static inline uint64_t rdtsc(void)
 {
