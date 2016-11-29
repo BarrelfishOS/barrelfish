@@ -167,11 +167,11 @@ static uint32_t calibrate_apic_timer_pit(systime_t *systime_freq)
     apic_timer_set_count(UINT32_MAX);
 
     // Wait a second (1,193,182 ticks)
-    uint16_t oldcnt = pit_timer0_read();
+    uint16_t oldcnt = pit_timer0_read_lsb();
     uint64_t timestamp = rdtsc();
     uint32_t ticks = 0;
     do {
-        uint16_t cnt = pit_timer0_read();
+        uint16_t cnt = pit_timer0_read_lsb();
         if (cnt <= oldcnt) {
             ticks += oldcnt - cnt;
         } else {

@@ -191,15 +191,21 @@ lrpc_check_runnable_continue:
     mov     %eax, %fs
     mov     %eax, %gs
 
+    /* Get systime */
+    xchg    %rdx, %r11
+    rdtsc
+    shl     $32, %rdx
+    mov     %eax, %edx
+
     /* Get new dispatcher pointer */
     mov     OFFSETOF_DCB_DISP(%rsi), %rax
     /* Disable target dispatcher -- gotta do it here for TLB hit reasons */
     movl    $1, OFFSETOF_DISP_DISABLED(%rax)
     /* update dispatcher's global delivered count */
     addl    $(LRPC_MSG_LENGTH + LMP_RECV_HEADER_LENGTH), OFFSETOF_DISP_LMP_DELIVERED(%rax)
-    /* update systime field in dispatcher from kernel_now variable */
-    movq    kernel_now(%rip), %r11
-    movq    %r11, OFFSETOF_DISP_SYSTIME(%rax)
+    /* update systime field in dispatcher */
+    movq    %rdx, OFFSETOF_DISP_SYSTIME(%rax)
+    xchg    %rdx, %r11
 
     /* Check if it's necessary to load a new LDT */
     mov     OFFSETOF_DISP_X86_64_LDT_BASE(%rax), %r11
