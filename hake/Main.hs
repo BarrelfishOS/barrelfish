@@ -590,6 +590,9 @@ resolveTokenPath o hakepath (PreDep tree arch path) =
 -- An target token implicitly refers to the build tree.
 resolveTokenPath o hakepath (Target arch path) = 
     (Target arch (treePath o BuildTree arch path hakepath))
+-- An absolute target token implicitly refers to the build tree.
+resolveTokenPath o hakepath (AbsTarget arch path) =
+    (AbsTarget arch path)
 -- A target token referring to an absolute resource
 resolveTokenPath o hakepath (Abs rule rule2) =
     let o' = o {

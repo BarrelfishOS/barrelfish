@@ -37,6 +37,7 @@ inRule :: RuleToken -> Bool
 inRule (Dep _ _ _) = False
 inRule (PreDep _ _ _) = False
 inRule (Target _ _) = False
+inRule (AbsTarget _ _) = False
 inRule _ = True
 
 --
@@ -1055,6 +1056,15 @@ appGetOptionsForArch arch args =
                             s <- Args.addGeneratedDependencies args]
                    }
 
+fullTarget arch appname =
+    let
+        mkFullTargetRule = [
+            Dep InstallTree arch (applicationPath appname),
+            AbsTarget arch "_All"
+            ]
+    in
+        Rule $ mkFullTargetRule
+
 appBuildArch tdb tf args arch =
     let -- Fiddle the options
         opts = appGetOptionsForArch arch args
@@ -1079,7 +1089,8 @@ appBuildArch tdb tf args arch =
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
                 mylink opts (allObjectPaths opts args) (allLibraryPaths args)
-                       appname
+                       appname,
+                fullTarget arch appname
               ]
             )
 
