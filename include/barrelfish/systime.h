@@ -16,7 +16,7 @@
 #ifndef BARRELFISH_SYSTIME_H
 #define BARRELFISH_SYSTIME_H
 
-#include <barrelfish_kpi/generic_arch.h> /* systime_t */
+#include <barrelfish_kpi/types.h> /* systime_t */
 
 /// Frequency of the system time ticks (systime)
 extern systime_t systime_frequency;
