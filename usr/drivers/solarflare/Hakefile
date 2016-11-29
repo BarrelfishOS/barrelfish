@@ -24,7 +24,10 @@
                       flounderBindings = [ "sfn5122f", "net_ARP", "sfn5122f_devif"],
                       flounderExtraBindings = [ ("sfn5122f_devif", ["rpcclient"]) ],
                       flounderDefs = [ "sfn5122f", "sfn5122f_devif" ],
-                      flounderExtraDefs = [ ("sfn5122f_devif",["rpcclient"]) ],
+                      flounderExtraDefs = [
+                        ("net_ARP",["rpcclient"]),
+                        ("sfn5122f_devif",["rpcclient"])
+                        ],
                       mackerelDevices = [ "sfn5122f"],
                       addLibraries = libDeps["netQmng", "pci", "contmng", 
                                              "net_device_manager", "bench", "trace", "skb",
