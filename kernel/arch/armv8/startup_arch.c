@@ -761,7 +761,7 @@ void arm_kernel_startup(void)
     gic_cpu_interface_enable();
 
     // Initialize system timers
-    timers_init();
+    timers_init(kernel_timeslice);
 
     MSG("Calling dispatch from arm_kernel_startup, entry point %#"PRIxLVADDR"\n",
             get_dispatcher_shared_aarch64(init_dcb->disp)->disabled_save_area.named.pc);
