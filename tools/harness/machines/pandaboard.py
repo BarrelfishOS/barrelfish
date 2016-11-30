@@ -26,8 +26,9 @@ class PandaboardMachine(ARMMachineBase):
     name = 'panda_local'
     imagename = "armv7_omap44xx_image"
 
-    def __init__(self, options):
-        super(PandaboardMachine, self).__init__(options, PandaboardOperations(self))
+    def __init__(self, options, **kwargs):
+        super(PandaboardMachine, self).__init__(options, PandaboardOperations(self), **kwargs)
+        self.menulst_template = "menu.lst.armv7_omap44xx"
 
     def setup(self, builddir=None):
         pass
@@ -42,7 +43,6 @@ class PandaboardOperations(MachineOperations):
         self.picocom = None
         self.tftp_dir = None
         self.masterfd = None
-        self.menulst_template = "menu.lst.armv7_omap44xx"
 
     def get_tftp_dir(self):
         if self.tftp_dir is None:
@@ -51,7 +51,7 @@ class PandaboardOperations(MachineOperations):
 
     def set_bootmodules(self, modules):
         menulst_fullpath = os.path.join(self._machine.options.builds[0].build_dir,
-                "platforms", "arm", self.menulst_template)
+                "platforms", "arm", self._machine.menulst_template)
         self._machine._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         debug.verbose("building proper pandaboard image")
         debug.checkcmd(["make", self._machine.imagename],
@@ -106,6 +106,7 @@ class ETHRackPandaboardMachine(ARMMachineBase):
 
     def __init__(self, options, **kwargs):
         super(ETHRackPandaboardMachine, self).__init__(options, ETHRackPandaboardMachineOperations(self), **kwargs)
+        self.menulst_template = "menu.lst.armv7_omap44xx"
 
     def setup(self, builddir=None):
         pass
@@ -122,7 +123,6 @@ class ETHRackPandaboardMachineOperations(ETHBaseMachineOperations):
     def __init__(self, machine):
         super(ETHRackPandaboardMachineOperations, self).__init__(machine)
         self._tftp_dir = None
-        self.menulst_template = "menu.lst.armv7_omap44xx"
         self.targe_name = None
 
     def __chmod_ar(self, file):
@@ -141,7 +141,7 @@ class ETHRackPandaboardMachineOperations(ETHBaseMachineOperations):
 
     def set_bootmodules(self, modules):
         menulst_fullpath = os.path.join(self._machine.options.builds[0].build_dir,
-                "platforms", "arm", self.menulst_template)
+                "platforms", "arm", self._machine.menulst_template)
         self._machine._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
         source_name = os.path.join(self._machine.options.builds[0].build_dir, self._machine.imagename)
         self.target_name = os.path.join(self.get_tftp_dir(), self._machine.imagename)
