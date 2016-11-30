@@ -136,6 +136,7 @@ class FVPMachineEFIOperations(FVPMachineBaseOperations):
                 "-C", "bp.vis.disable_visualisation=1",
                 # Don't start a telnet xterm
                 "-C", "bp.terminal_0.start_telnet=0",
+                "-C", "bp.terminal_1.start_telnet=0",
                 "-C", "bp.secureflashloader.fname=%s" % FVP_UEFI_BL1,
                 "-C", "bp.flashloader0.fname=%s" % FVP_UEFI_FIP,
                 "-C", "bp.mmc.p_mmc_file=%s" % self._machine.kernel_img,
