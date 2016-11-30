@@ -63,12 +63,12 @@ arm_cxx      = arm_gnu_tool "g++"
 
 -- ARM AArch64
 aarch64_gnu_tool = findTool (toolPath aarch64_tools) (toolPrefix aarch64_tools)
-aarch64_cc       = aarch64_gnu_tool "gcc-5"
+aarch64_cc       = aarch64_gnu_tool "gcc"
 aarch64_objcopy  = aarch64_gnu_tool "objcopy"
 aarch64_objdump  = aarch64_gnu_tool "objdump"
 aarch64_ar       = aarch64_gnu_tool "ar"
 aarch64_ranlib   = aarch64_gnu_tool "ranlib"
-aarch64_cxx      = aarch64_gnu_tool "g++-5"
+aarch64_cxx      = aarch64_gnu_tool "g++"
 
 -- ARM thumb (e.g. -M profile) toolchain
 thumb_gnu_tool = findTool (toolPath thumb_tools) (toolPrefix thumb_tools)
