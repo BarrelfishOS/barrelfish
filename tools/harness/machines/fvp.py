@@ -12,8 +12,7 @@ import debug
 from machines import ARMSimulatorBase, MachineFactory, ARMSimulatorOperations
 import efiimage
 
-FVP_PATH = '/home/netos/tools/DS-5_v5.24.0/bin'
-FVP_PATH = '/home/moritz/apps/DS-5_v5.25.0/bin'
+FVP_PATH = '/home/netos/tools/DS-5_v5.25.0/bin'
 FVP_LICENSE = '8224@sgv-license-01.ethz.ch'
 FVP_START_TIMEOUT = 2 # in seconds
 
