@@ -18,7 +18,6 @@
 #ifndef __ASSEMBLER__
 
 #include <target/x86_64/barrelfish_kpi/registers_target.h>
-#include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
 
 static inline void cpuid(uint32_t function, uint32_t *eax, uint32_t *ebx,
                          uint32_t *ecx, uint32_t *edx)
@@ -47,8 +46,8 @@ static inline void cpuid(uint32_t function, uint32_t *eax, uint32_t *ebx,
 /** \brief Atomic compare-and-swap on 128 bits
  *
  * If *dst == old then *dst = new, returns 0 on failure
- * 
- * Note, dest should point to a 128bit structure that is to be overwritten 
+ *
+ * Note, dest should point to a 128bit structure that is to be overwritten
  */
 static inline int cmpxchg128(volatile uint64_t dest[2], uint64_t old_top, uint64_t old_bot, uint64_t new_top, uint64_t new_bot)
 {
