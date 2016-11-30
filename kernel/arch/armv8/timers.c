@@ -96,7 +96,7 @@ void timers_init(systime_t timeslice)
 
 uint64_t timestamp_read(void)
 {
-    return sysreg_read_cntp_cval_el0();
+    return sysreg_read_cntpct_el0();
 }
 
 uint32_t timestamp_freq(void)

@@ -350,6 +350,13 @@ sysreg_write_cntp_tval_el0(uint32_t cntp_tval_el0) {
 }
 
 static inline uint64_t
+sysreg_read_cntpct_el0(void) {
+    uint64_t cntpct_el0;
+    __asm volatile("mrs %[cntpct_el0], cntpct_el0" : [cntpct_el0] "=r" (cntpct_el0));
+    return cntpct_el0;
+}
+
+static inline uint64_t
 sysreg_read_id_aa64pfr0_el1(void) {
     uint64_t x;
     __asm volatile("mrs %[x], id_aa64pfr0_el1" : [x] "=r" (x));
