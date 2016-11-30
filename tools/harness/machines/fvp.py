@@ -13,6 +13,8 @@ from machines import ARMSimulatorBase, MachineFactory, ARMSimulatorOperations
 import efiimage
 
 FVP_PATH = '/home/netos/tools/DS-5_v5.25.0/bin'
+FVP_UEFI_BL1="/home/netos/tools/fvp-uefi/bl1.bin"
+FVP_UEFI_FIP="/home/netos/tools/fvp-uefi/fip.bin"
 FVP_LICENSE = '8224@sgv-license-01.ethz.ch'
 FVP_START_TIMEOUT = 2 # in seconds
 
@@ -135,8 +137,8 @@ class FVPMachineEFIOperations(FVPMachineBaseOperations):
                 # Don't start a telnet xterm
                 "-C", "bp.terminal_0.start_telnet=0",
                 "-C", "bp.terminal_0.start_port=%d" % self.telnet_port,
-                "-C", "bp.secureflashloader.fname=/home/moritz/dev/eth/fvp-uefi/bl1.bin",
-                "-C", "bp.flashloader0.fname=/home/moritz/dev/eth/fvp-uefi/fip.bin",
+                "-C", "bp.secureflashloader.fname=%s" % FVP_UEFI_BL1,
+                "-C", "bp.flashloader0.fname=%s" % FVP_UEFI_FIP,
                 "-C", "bp.mmc.p_mmc_file=%s" % self._machine.kernel_img]
 
 MachineFactory.addMachine('armv8_fvp_base', FVPMachineEFI,
