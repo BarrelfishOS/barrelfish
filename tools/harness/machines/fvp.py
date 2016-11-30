@@ -137,7 +137,7 @@ class FVPMachineEFIOperations(FVPMachineBaseOperations):
                 "-C", "bp.terminal_0.start_port=%d" % self.telnet_port,
                 "-C", "bp.secureflashloader.fname=/home/moritz/dev/eth/fvp-uefi/bl1.bin",
                 "-C", "bp.flashloader0.fname=/home/moritz/dev/eth/fvp-uefi/fip.bin",
-                "-C", "bp.mmc.p_mmc_file=%s" % self.kernel_img]
+                "-C", "bp.mmc.p_mmc_file=%s" % self._machine.kernel_img]
 
 MachineFactory.addMachine('armv8_fvp_base', FVPMachineEFI,
                           bootarch='armv8',
