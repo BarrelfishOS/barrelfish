@@ -101,8 +101,10 @@ MachineFactory.addMachine('armv7_fvp_4', FVPMachineARMv7NCores,
 class FVPMachineEFI(FVPMachineBase):
     imagename = "armv8_efi"
 
-    def __init__(self, options, **kwargs):
+    def __init__(self, options, simulator=None, **kwargs):
         super(FVPMachineEFI, self).__init__(options, FVPMachineEFIOperations(self), **kwargs)
+        assert(simulator)
+        self.simulator = simulator
 
     def set_bootmodules(self, modules):
         # write menu.lst in build directory
@@ -131,7 +133,7 @@ class FVPMachineEFIOperations(FVPMachineBaseOperations):
     def _get_cmdline(self):
         self.get_free_port()
 
-        return [os.path.join(FVP_PATH, "FVP_Base_AEMv8A"),
+        return [os.path.join(FVP_PATH, self._machine.simulator),
                 # Don't try to pop an LCD window up
                 "-C", "bp.vis.disable_visualisation=1",
                 # Don't start a telnet xterm
@@ -149,4 +151,15 @@ class FVPMachineEFIOperations(FVPMachineBaseOperations):
 
 MachineFactory.addMachine('armv8_fvp_base', FVPMachineEFI,
                           bootarch='armv8',
-                          platform='a57v')
+                          platform='a57v',
+                          simulator="FVP_Base_AEMv8A")
+
+MachineFactory.addMachine('armv8_fvp_a57x1', FVPMachineEFI,
+                          bootarch='armv8',
+                          platform='a57v',
+                          simulator="FVP_Base_Cortex-A57x1")
+
+MachineFactory.addMachine('armv8_fvp_a57x2_a53x4', FVPMachineEFI,
+                          bootarch='armv8',
+                          platform='a57v',
+                          simulator="FVP_Base_Cortex-A57x2-A53x4")
