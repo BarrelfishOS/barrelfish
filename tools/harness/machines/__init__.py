@@ -491,7 +491,11 @@ class MachineFactory:
 
     def createMachine(self, options):
         """Create a new machine instance."""
-        machine = self._class(options, **self._kwargs)
+        try:
+            machine = self._class(options, **self._kwargs)
+        except TypeError as e:
+            print("Machine class %s failed to instantiate: %s" % (str(self._class), str(e)))
+            raise TypeError(e)
         machine.setName(self._name)
         return machine
 
