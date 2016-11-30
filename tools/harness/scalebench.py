@@ -361,6 +361,8 @@ class Scalebench:
             debug.log('Failed tests:')
             for t in [ t for t in testcases if not self.testcase_passed(t) ]:
                 debug.log(' * %s' % self.testcase_name(t))
+            # return False if we had test failures
+            retval = False
         debug.log('all done!')
         return retval
 
