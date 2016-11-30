@@ -139,7 +139,13 @@ class FVPMachineEFIOperations(FVPMachineBaseOperations):
                 "-C", "bp.terminal_0.start_port=%d" % self.telnet_port,
                 "-C", "bp.secureflashloader.fname=%s" % FVP_UEFI_BL1,
                 "-C", "bp.flashloader0.fname=%s" % FVP_UEFI_FIP,
-                "-C", "bp.mmc.p_mmc_file=%s" % self._machine.kernel_img]
+                "-C", "bp.mmc.p_mmc_file=%s" % self._machine.kernel_img,
+                "-C", "bp.pl011_uart0.unbuffered_output=1",
+                # This has to be the last parameter because otherwise the command
+                # passed to the OS has incorrect parameters. Don't know why
+                # MH 11/2016
+                "-C", "bp.pl011_uart0.out_file=-",
+                ]
 
 MachineFactory.addMachine('armv8_fvp_base', FVPMachineEFI,
                           bootarch='armv8',
