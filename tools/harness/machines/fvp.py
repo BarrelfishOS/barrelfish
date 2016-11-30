@@ -48,12 +48,6 @@ class FVPMachineBaseOperations(ARMSimulatorOperations):
                              stderr=subprocess.STDOUT, env=env)
         #time.sleep(FVP_START_TIMEOUT)
 
-    def get_output(self):
-        # wait a bit to give the simulator time to listen for a telnet connection
-        if self.child.poll() != None: # Check if child is down
-            print 'Simulator is down, return code is %d' % self.child.returncode
-            return None
-        return self.child.stdout
 
 class FVPMachineARMv7(FVPMachineBase):
 
