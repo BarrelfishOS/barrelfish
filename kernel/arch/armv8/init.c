@@ -145,8 +145,8 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
         parse_commandline(kernel_cmd->string, cmdargs);
 
         // initialize the serial console.
-        serial_early_init_mmu_enabled(serial_console_port);
-        serial_console_init(false);
+        serial_init(serial_console_port, false);
+//        serial_console_init(false);
 
         struct multiboot_tag_efi_mmap *mmap = (struct multiboot_tag_efi_mmap *)
                 multiboot2_find_header(mb, size, MULTIBOOT_TAG_TYPE_EFI_MMAP);
