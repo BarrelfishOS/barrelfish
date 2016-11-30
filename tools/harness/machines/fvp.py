@@ -133,6 +133,10 @@ class FVPMachineEFI(FVPMachineBase):
 
 class FVPMachineEFIOperations(FVPMachineBaseOperations):
 
+
+    def get_output(self):
+        return self.child.stdout
+
     def _get_cmdline(self):
         self.get_free_port()
 
