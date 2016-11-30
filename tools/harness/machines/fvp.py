@@ -99,6 +99,9 @@ MachineFactory.addMachine('armv7_fvp_4', FVPMachineARMv7NCores,
 class FVPMachineEFI(FVPMachineBase):
     imagename = "armv8_efi"
 
+    def __init__(self, options, **kwargs):
+        super(FVPMachineEFI, self).__init__(options, FVPMachineEFIOperations(self), **kwargs)
+
     def set_bootmodules(self, modules):
         # write menu.lst in build directory
         debug.verbose("writing menu.lst in build directory")
