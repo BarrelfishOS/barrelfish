@@ -56,15 +56,15 @@ platform_get_core_count(void) {
 /* Timeslice counter uses the Non-secure Physical Timer. */
 
 /* See TRM 8.2.3 */
-/* This *should* be IRQ 30 (AT: why?), for the non-secure timer, but GEM5 only
+/* This *should* be IRQ 30, for the non-secure timer, but GEM5 only
  * provides the secure timer, even in NS mode.
  * The timerirq parameter allows this to be overridden. */
+ 
+/// For now, use secure timer
 #define DEFAULT_TIMER_IRQ 29
 
 extern uint32_t timerirq;
 extern uint32_t cntfrq;
-
-static uint32_t timeslice_ticks;
 
 void
 timers_init(int timeslice) {
@@ -76,21 +76,22 @@ timers_init(int timeslice) {
     systime_frequency = a15_gt_frequency();
 
     /* The timeslice is in ms, so divide by 1000. */
-    timeslice_ticks = ns_to_systime(timeslice * 1000000);
+    kernel_timeslice = ns_to_systime(timeslice * 1000000);
 
     MSG("System counter frequency is %uHz.\n", systime_frequency);
     MSG("Timeslice interrupt every %u ticks (%dms).\n",
-            timeslice_ticks, timeslice);
+            kernel_timeslice, timeslice);
 
     a15_gt_init();
 
     if(timerirq == 0) timerirq= DEFAULT_TIMER_IRQ;
     MSG("Timer interrupt is %u\n", timerirq);
+
     /* Enable the interrupt. */
     gic_enable_interrupt(timerirq, 0, 0, 0, 0);
 
     /* Set the first timeout. */
-    systime_set_timeout(systime_now() + timeslice_ticks);
+    systime_set_timeout(systime_now() + kernel_timeslice);
 
     /* We use the system counter for timestamps, which doesn't need any
      * further initialisation. */
@@ -106,15 +107,15 @@ timestamp_freq(void) {
     return a15_gt_frequency();
 }
 
-bool
-timer_interrupt(uint32_t irq) {
-    if(irq == timerirq) {
+bool timer_interrupt(uint32_t irq)
+{
+    if (irq == timerirq) {
         gic_ack_irq(irq);
         a15_gt_mask_interrupt();
 
         /* Reset the timeout. */
         uint64_t now = systime_now();
-        systime_set_timeout(now + timeslice_ticks);
+        systime_set_timeout(now + kernel_timeslice);
         return 1;
     }
 
