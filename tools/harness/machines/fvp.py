@@ -13,6 +13,9 @@ from machines import ARMSimulatorBase, MachineFactory, ARMSimulatorOperations
 import efiimage
 
 FVP_PATH = '/home/netos/tools/DS-5_v5.25.0/bin'
+
+# Get the prebuilt binary snapshots (fvp-uefi.zip) from:
+# https://community.arm.com/docs/DOC-10952
 FVP_UEFI_BL1="/home/netos/tools/fvp-uefi/bl1.bin"
 FVP_UEFI_FIP="/home/netos/tools/fvp-uefi/fip.bin"
 FVP_LICENSE = '8224@sgv-license-01.ethz.ch'
