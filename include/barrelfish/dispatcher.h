@@ -26,9 +26,9 @@ struct deferred_event;
 // Architecture generic user only dispatcher struct
 struct dispatcher_generic {
     /// stack for traps and disabled pagefaults
-    uintptr_t trap_stack[DISPATCHER_STACK_WORDS];
+    uintptr_t trap_stack[DISPATCHER_STACK_WORDS] __attribute__ ((aligned (16)));
     /// all other dispatcher upcalls run on this stack
-    uintptr_t stack[DISPATCHER_STACK_WORDS];
+    uintptr_t stack[DISPATCHER_STACK_WORDS] __attribute__ ((aligned (16)));
 
     /// Currently-running (or last-run) thread, if any
     struct thread *current;
