@@ -16,7 +16,7 @@
 #define LIBBARRELFISH_DISPATCH_H
 
 /// Stack size for dispatcher, in words
-#define DISPATCHER_STACK_BYTES  6400     /* ~6kB */
+#define DISPATCHER_STACK_BYTES  (8192)     /* 8kB */
 #define DISPATCHER_STACK_WORDS  (DISPATCHER_STACK_BYTES / sizeof(uintptr_t))
 
 #ifndef __ASSEMBLER__
