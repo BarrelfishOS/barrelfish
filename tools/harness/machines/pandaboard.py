@@ -191,24 +191,6 @@ class ETHRackPandaboardMachineOperations(ETHBaseMachineOperations):
     def shutdown(self):
         self.__rackpower('-d')
 
-    def lock(self):
-        pass
-
-    def unlock(self):
-        pass
-
-    def get_output(self):
-        '''Use picocom to get output. This replicates part of
-        ETHMachine.lock()'''
-        (self.masterfd, slavefd) = pty.openpty()
-        self.picocom = subprocess.Popen(
-                ["picocom", "-b", "115200", "/dev/ttyUSB0"],
-                close_fds=True, stdout=slavefd, stdin=slavefd)
-        os.close(slavefd)
-        self.console_out = os.fdopen(self.masterfd, 'rb', 0)
-        return self.console_out
-
-
 for pb in ETHRackPandaboardMachine._machines:
     class TmpMachine(ETHRackPandaboardMachine):
         name = pb
