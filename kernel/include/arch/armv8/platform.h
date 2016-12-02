@@ -83,7 +83,7 @@ void platform_notify_bsp(lpaddr_t *mailbox);
 /*
  * Timers
  */
-void     timers_init(systime_t timeslice);
+void     timers_init(int timeslice);
 uint64_t timestamp_read(void);
 uint32_t timestamp_freq(void);
 bool     timer_interrupt(uint32_t irq);

@@ -23,7 +23,7 @@
 /*
  * Timers
  */
-void timers_init(systime_t timeslice)
+void timers_init(int timeslice)
 {
     printk(LOG_NOTE, "isr_el1=%p\n", sysreg_read_isr_el1());
     {
@@ -49,7 +49,13 @@ void timers_init(systime_t timeslice)
         sysreg_write_cntp_cval_el0(CNTP_CVAL_EL0);
     }
 
-    printk(LOG_NOTE, "timestamp_freq=%zu\n", timestamp_freq());
+    systime_frequency = timestamp_freq();
+    /* The timeslice is in ms, so divide by 1000. */
+    kernel_timeslice = ns_to_systime(timeslice * 1000000);
+
+    printf("System counter frequency is %uHz.\n", timestamp_freq());
+    printf("Timeslice interrupt every %u ticks (%dms).\n",
+            kernel_timeslice, timeslice);
 
     {
         // Wait for n time units, close to cycles

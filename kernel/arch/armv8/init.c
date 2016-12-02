@@ -32,6 +32,7 @@
 #include <arch/armv8/kernel_multiboot2.h>
 #include <arch/armv8/paging_kernel_arch.h>
 #include <arch/armv8/platform.h>
+#include <systime.h>
 
 static struct global global_temp;
 
@@ -49,7 +50,7 @@ static struct cmdarg cmdargs[] = {
     {"loglevel", ArgType_Int, { .integer = &kernel_loglevel }},
     {"logmask", ArgType_Int, { .integer = &kernel_log_subsystem_mask }},
     {"ticks", ArgType_Bool, { .boolean = &kernel_ticks_enabled }},
-    {"timeslice", ArgType_ULong, { .ulonginteger = &kernel_timeslice }},
+    {"timeslice", ArgType_UInt, { .uinteger = &config_timeslice }},
     {"serial", ArgType_ULong, { .ulonginteger = &uart_base[0] }},
     {"gic", ArgType_ULong, { .ulonginteger = &platform_gic_cpu_base }},
     {"gicdist", ArgType_ULong, { .ulonginteger = &platform_gic_dist_base }},
