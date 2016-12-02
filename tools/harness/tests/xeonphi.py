@@ -29,27 +29,27 @@ class XeonPhi_Boot_Test(TestCommon):
         fullpath = os.path.join(machine.get_tftp_dir(), 'menu.lst.k1om')
         f = open(fullpath, 'w')
 
-        machine.get_tftp_subdir()
+        tftpdir = machine._operations.get_tftp_subdir()
 
         f.write("title   Barrelfish \n")
         f.write("root    (nd) \n")
-        f.write("kernel  /" + machine.get_tftp_subdir() + "/k1om/sbin/weever\n")
-        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/cpu loglevel=3 \n")
-        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/init\n")
+        f.write("kernel  /" + tftpdir + "/k1om/sbin/weever\n")
+        f.write("module  /" + tftpdir + "/k1om/sbin/cpu loglevel=3 \n")
+        f.write("module  /" + tftpdir + "/k1om/sbin/init\n")
 
         # Domains spawned by init
-        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/mem_serv\n")
-        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/monitor\n")
+        f.write("module  /" + tftpdir + "/k1om/sbin/mem_serv\n")
+        f.write("module  /" + tftpdir + "/k1om/sbin/monitor\n")
 
         # Special boot time domains spawned by monitor
-        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/ramfsd boot \n")
-        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/skb boot \n")
-        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/xeon_phi boot \n")
-        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/spawnd boot \n")
-        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/startd boot \n")
+        f.write("module  /" + tftpdir + "/k1om/sbin/ramfsd boot \n")
+        f.write("module  /" + tftpdir + "/k1om/sbin/skb boot \n")
+        f.write("module  /" + tftpdir + "/k1om/sbin/xeon_phi boot \n")
+        f.write("module  /" + tftpdir + "/k1om/sbin/spawnd boot \n")
+        f.write("module  /" + tftpdir + "/k1om/sbin/startd boot \n")
 
         # drivers
-        f.write("module  /" + machine.get_tftp_subdir() + "/k1om/sbin/corectrl auto \n")
+        f.write("module  /" + tftpdir + "/k1om/sbin/corectrl auto \n")
 
         # GDDR Memory we have 6GB on our Xeon PHi
         f.write("mmap map 0x0000000000 0x00FEE00000 1 \n")
@@ -99,10 +99,11 @@ class XeonPhi_Boot_Test(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(XeonPhi_Boot_Test, self).get_modules(build, machine)
+        tftpdir = machine._operations.get_tftp_subdir()
         modules.add_module("xeon_phi_mgr", [""])
         modules.add_module("xeon_phi", ["auto", 
                                         "--tftp=tftp://10.110.4.4:69",
-                                        "--modlist=/" + machine.get_tftp_subdir() + "/menu.lst.k1om"])
+                                        "--modlist=/" + tftpdir + "/menu.lst.k1om"])
         modules.add_module("e1000n", ["auto", "noirq"])
         modules.add_module("NGD_mng", ["auto"])
         modules.add_module("netd", ["auto"])
