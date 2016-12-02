@@ -149,11 +149,13 @@ static uint32_t calibrate_pit_rtc(void)
 }
 
 #endif
+
+
 /**
  * \brief Calibrates local APIC timer against PIT.
  * \return Local APIC timer ticks per PIT second.
  */
-static uint32_t calibrate_apic_timer_pit(systime_t *systime_freq)
+static uint32_t __attribute__((unused)) calibrate_apic_timer_pit(systime_t *systime_freq)
 {
     // Set APIC timer to one-shot mode
     apic_timer_init(true, false);

@@ -417,8 +417,7 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
     return init_dcb;
 }
 
-struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
-                           alloc_phys_aligned_func alloc_phys_aligned)
+struct dcb *spawn_bsp_init(const char *name)
 {
     errval_t err;
 
@@ -426,7 +425,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
     assert(apic_is_bsp());
 
     /* Allocate bootinfo */
-    lpaddr_t bootinfo_phys = alloc_phys(BOOTINFO_SIZE);
+    lpaddr_t bootinfo_phys = bsp_alloc_phys(BOOTINFO_SIZE);
     memset((void *)local_phys_to_mem(bootinfo_phys), 0, BOOTINFO_SIZE);
 
     /* Construct cmdline args */
@@ -436,8 +435,8 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
 
     struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
                                              ARRAY_LENGTH(argv), argv,
-                                             bootinfo_phys, alloc_phys,
-                                             alloc_phys_aligned);
+                                             bootinfo_phys, bsp_alloc_phys,
+                                             bsp_alloc_phys_aligned);
 
     /* Map bootinfo R/W into VSpace at vaddr BOOTINFO_BASE */
     paging_x86_64_map_table(&init_pml4[0], mem_to_local_phys((lvaddr_t)init_pdpt));
@@ -468,7 +467,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
 
     /* Create caps for init to use */
     create_module_caps(&spawn_state);
-    lpaddr_t init_alloc_end = alloc_phys(0);
+    lpaddr_t init_alloc_end = bsp_alloc_phys(0);
     create_phys_caps(init_alloc_end);
 
     /* Fill bootinfo struct */
@@ -480,9 +479,7 @@ struct dcb *spawn_bsp_init(const char *name, alloc_phys_func alloc_phys,
     return init_dcb;
 }
 
-struct dcb *spawn_app_init(struct x86_core_data *core_data,
-                           const char *name, alloc_phys_func alloc_phys,
-                           alloc_phys_aligned_func alloc_phys_aligned)
+struct dcb *spawn_app_init(struct x86_core_data *core_data, const char *name)
 {
     errval_t err;
 
@@ -504,8 +501,8 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data,
 
     struct dcb *init_dcb = spawn_init_common(&spawn_state, name,
                                              ARRAY_LENGTH(argv), argv,
-                                             0, alloc_phys,
-                                             alloc_phys_aligned);
+                                             0, app_alloc_phys,
+                                             app_alloc_phys_aligned);
 
     // Urpc frame cap
     struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
