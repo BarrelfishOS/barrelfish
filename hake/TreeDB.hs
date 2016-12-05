@@ -1,3 +1,5 @@
+{-# LANGUAGE StandaloneDeriving #-}
+
 module TreeDB(
     DirList,
     dlEmpty, dlByExt, dlByExts, dlAdd, dlAddByExt,

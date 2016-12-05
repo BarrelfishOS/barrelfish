@@ -33,9 +33,6 @@ import System.IO
 import GHC hiding (Target, Ghc, runGhc, FunBind, Match)
 import GHC.Paths (libdir)
 import Control.Monad.Ghc
-import DynFlags (defaultFatalMessager, defaultFlushOut,
-                 xopt_set, ExtensionFlag(Opt_DeriveDataTypeable,
-                                         Opt_StandaloneDeriving))
 
 -- We parse and pretty-print Hakefiles.
 import Language.Haskell.Exts
@@ -194,7 +191,6 @@ listFiles' root current
 evalHakeFiles :: Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
                  IO (S.Set FilePath)
 evalHakeFiles makefile o srcDB hakefiles =
-    --defaultErrorHandler defaultFatalMessager defaultFlushOut $
     errorHandler $
         runGhc (Just libdir) $
         driveGhc makefile o srcDB hakefiles
@@ -205,9 +201,7 @@ driveGhc :: Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
 driveGhc makefile o srcDB hakefiles = do
     -- Set the RTS flags
     dflags <- getSessionDynFlags
-    let dflags' = foldl xopt_set dflags [ Opt_DeriveDataTypeable,
-                                          Opt_StandaloneDeriving ]
-    _ <- setSessionDynFlags dflags'{
+    _ <- setSessionDynFlags dflags {
         importPaths = module_paths,
         hiDir = Just "./hake",
         objectDir = Just "./hake"
