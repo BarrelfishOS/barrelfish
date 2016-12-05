@@ -79,6 +79,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "testdesc-child",
                         "tests/cxxtest",
                         "tests/dma_test",
+                        "tests/tftpclient",
                         "tests/xphi_nameservice_test",
                         "thcidctest",
                         "thcminitest",
