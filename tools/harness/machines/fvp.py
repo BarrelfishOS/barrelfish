@@ -12,7 +12,7 @@ import debug
 from machines import ARMSimulatorBase, MachineFactory, ARMSimulatorOperations
 import efiimage
 
-FVP_PATH = '/home/netos/tools/DS-5_v5.25.0/bin'
+FVP_PATH = '/home/netos/tools/DS-5_v5.26.0/bin'
 
 # Get the prebuilt binary snapshots (fvp-uefi.zip) from:
 # https://community.arm.com/docs/DOC-10952
