@@ -19,11 +19,141 @@ device armv8 msbfirst () "ARMv8 architecture" {
 
     space sysreg(name) registerwise "System registers";
 
+    register ICC_AP0R0_EL1 rw sysreg(ICC_AP0R0_EL1) "" {
+        impl    32;
+    };
+    register ICC_AP0R1_EL1 rw sysreg(ICC_AP0R1_EL1) "" {
+        impl    32;
+    };
+    register ICC_AP0R2_EL1 rw sysreg(ICC_AP0R2_EL1) "" {
+        impl    32;
+    };
+    register ICC_AP0R3_EL1 rw sysreg(ICC_AP0R3_EL1) "" {
+        impl    32;
+    };
+
+    register ICC_AP1R0_EL1 rw sysreg(ICC_AP1R0_EL1) "" {
+        impl    32;
+    };
+    register ICC_AP1R1_EL1 rw sysreg(ICC_AP1R1_EL1) "" {
+        impl    32;
+    };
+    register ICC_AP1R2_EL1 rw sysreg(ICC_AP1R2_EL1) "" {
+        impl    32;
+    };
+    register ICC_AP1R3_EL1 rw sysreg(ICC_AP1R3_EL1) "" {
+        impl    32;
+    };
+
+    register ICC_BPR0_EL1 rw sysreg(ICC_BPR0_EL1) "Interrupt Controller Binray Point Register 0" {
+        _            29;
+        binary_point  3;
+    };
+
+    register ICC_BPR1_EL1 rw sysreg(ICC_BPR1_EL1) "" {
+        _            29;
+        binary_point  3;
+    };
+
+    register ICC_CTLR_EL1 rw sysreg(ICC_CTLR_EL1) "" {
+        _           16;
+        a3v          1 "Affinity 3 Valid";
+        seis         1 ro "SEI Support";
+        IDbits       3 "Identifier bits";
+        PRIbits      3 "Priority bits";
+        _            1;
+        pmhe         1 "Priority Mask Hint Enable";
+        _            4;
+        EOImode      1 "EOI mode";
+        cbpr         1 "Common Binary Point Regsiter";
+    };
+
+    register ICC_DIR_EL1 rw sysreg(ICC_DIR_EL1) "Interrupt Controller Deactivate Interrupt Register" {
+        _            8;
+        intid       24 "INTID of the interrupt to be deactivated";
+    };
+
+    register ICC_EOIR0_EL1 rw sysreg(ICC_EOIR0_EL1) "Interrupt Controller End Of Interrupt Register 0" {
+        _            8;
+        intid       24 "INTID from the corresponding ICC_IAR0_EL1 access";
+    };
+
+    register ICC_EOI1_EL1 rw sysreg(ICC_EOI1_EL1) "Interrupt Controller End Of Interrupt Register 1" {
+        _            8;
+        intid       24 "INTID from the corresponding ICC_IAR1_EL1 access";
+    };
+
+    register ICC_HPPIR0_EL1 rw sysreg(ICC_HPPIR0_EL1) "Interrupt Controller Highest Priority Pending Interrupt Register 0" {
+        _            8;
+        intid       24 "INTID of the highest priority pending interrupt";
+    };
+
+    register ICC_HPPIR1_EL1 rw sysreg(ICC_HPPIR1_EL1) "Interrupt Controller Highest Priority Pending Interrupt Register 1" {
+        _            8;
+        intid       24 "INTID of the highest priority pending interrupt";
+    };
+
+    register ICC_IAR0_EL1 rw sysreg(ICC_IAR0_EL1) "Interrupt Controller Interrupt Acknowledge Register 0" {
+        _            8;
+        intid       24 "INTID of the signaled interrupt";
+    };
+
+    register ICC_IAR1_EL1 rw sysreg(ICC_IAR1_EL1) "Interrupt Controller Interrupt Acknowledge Register 1" {
+        _            8;
+        intid       24 "INTID of the signaled interrupt";
+    };
+
+    register ICC_IGRPEN0_EL1 rw sysreg(ICC_IGRPEN0_EL1) "Interrupt Controller Interrupt Group 0 Enable Register" {
+        _           31;
+        enable       1 "Enables Group 0 interrupts";
+    };
+
+    register ICC_IGRPEN1_EL1 rw sysreg(ICC_IGRPEN1_EL1) "Interrupt Controller Interrupt Group 1 Enable Register" {
+        _           31;
+        enable       1 "Enables Group 1 interrupts";
+    };
+
+
+    register ICC_PMR_EL1 rw sysreg(ICC_PMR_EL1) "Interrupt Controller Interrupt Priority Mask Register" {
+        _          24;
+        priority    8 "Priority mask level";
+    };
+
+    register ICC_RPR_EL1 rw sysreg(ICC_RPR_EL1) "Interrupt Controller Running Priority Register" {
+        _          24;
+        priority    8 "Running priority";
+    };
+
+
+    register ICC_SGI0R_EL1 wo sysreg(ICC_SGI0R_EL1) "Interrupt Controller Software Generated Interrupt Group 0 Register" {
+        _           8;
+        aff3        8 "Affinity Path 3";
+        _           7;
+        irm         1 "Interrupt Routing Mode";
+        aff2        8 "Affinity Path 2";
+        _           4;
+        intid       4 "INTID of the SGI";
+        aff1        8 "Affinity Path 1";
+        target     16 "Target List";
+    };
+
+    register ICC_SGI1R_EL1 wo sysreg(ICC_SGI1R_EL1) "Interrupt Controller Software Generated Interrupt Group 1 Register" {
+        _           8;
+        aff3        8 "Affinity Path 3";
+        _           7;
+        irm         1 "Interrupt Routing Mode";
+        aff2        8 "Affinity Path 2";
+        _           4;
+        intid       4 "INTID of the SGI";
+        aff1        8 "Affinity Path 1";
+        target     16 "Target List";
+    };
+
     register ICC_SRE_EL1 rw sysreg(ICC_SRE_EL1) "Interrupt Controller System Register Enable" {
         _       29;
-        DIB     1;
-        DFB     1;
-        SRE     1;
+        DIB     1 "Disable IRQ bypass";
+        DFB     1 "Disable FIQ bypass";
+        SRE     1 "System Register Enable";
     };
 
 };

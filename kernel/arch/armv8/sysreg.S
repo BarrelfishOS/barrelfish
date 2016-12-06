@@ -177,7 +177,7 @@ armv8_sysreg_read\()_\sz\()_\name :
 .globl armv8_sysreg_write\()_\sz\()_\name
 armv8_sysreg_write\()_\sz\()_\name :
     mov x12, x30
-    msr \reg , x0
+    msr \reg , x1
     ret x12
     nop
 .endm
@@ -188,7 +188,36 @@ sysreg_write \sz \name \reg
 .endm
 
 .macro sysreg_ro sz name reg
-sysreg read \sz \name \reg
+sysreg_read \sz \name \reg
 .endm
 
-sysreg_rw 32 ICC_SRE_EL1 S3_0_C12_C12_5
+.macro sysreg_wo sz name reg
+sysreg_write \sz \name \reg
+.endm
+
+sysreg_rw 32 ICC_PMR_EL1        S3_0_C4_C6_0
+sysreg_ro 32 ICC_IAR0_EL1       S3_0_C12_C8_0
+sysreg_wo 32 ICC_EOIR0_EL1      S3_0_C12_C8_1
+sysreg_ro 32 ICC_HPPIR0_EL1     S3_0_C12_C8_2
+sysreg_rw 32 ICC_BPR0_EL1       S3_0_C12_C8_3
+sysreg_rw 32 ICC_AP0R0_EL1      S3_0_C12_C8_4
+sysreg_rw 32 ICC_AP0R1_EL1      S3_0_C12_C8_5
+sysreg_rw 32 ICC_AP0R2_EL1      S3_0_C12_C8_6
+sysreg_rw 32 ICC_AP0R3_EL1      S3_0_C12_C8_7
+sysreg_rw 32 ICC_AP1R0_EL1      S3_0_C12_C9_0
+sysreg_rw 32 ICC_AP1R1_EL1      S3_0_C12_C9_1
+sysreg_rw 32 ICC_AP1R2_EL1      S3_0_C12_C9_2
+sysreg_rw 32 ICC_AP1R3_EL1      S3_0_C12_C9_3
+sysreg_wo 32 ICC_DIR_EL1        S3_0_C12_C11_1
+sysreg_ro 32 ICC_RPR_El1        S3_0_C12_C11_3
+sysreg_wo 64 ICC_SGI1R_EL1      S3_0_C12_C11_5
+sysreg_wo 64 ICC_ASGI1R_EL1     S3_0_C12_C11_6
+sysreg_wo 64 ICC_SGI0R_EL1      S3_0_C12_C11_7
+sysreg_ro 32 ICC_IAR1_EL1       S3_0_C12_C12_0
+sysreg_wo 32 ICC_EOIR1_EL1      S3_0_C12_C12_1
+sysreg_ro 32 ICC_HPPIR1_EL1     S3_0_C12_C12_2
+sysreg_rw 32 ICC_BPR1_EL1       S3_0_C12_C12_3
+sysreg_rw 32 ICC_CTLR_EL1       S3_0_C12_C12_4
+sysreg_rw 32 ICC_SRE_EL1        S3_0_C12_C12_5
+sysreg_rw 32 ICC_IGRPEN0_EL1    S3_0_C12_C12_6
+sysreg_rw 32 ICC_IGRPEN1_EL1    S3_0_C12_C12_7

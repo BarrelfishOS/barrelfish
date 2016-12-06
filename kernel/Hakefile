@@ -601,6 +601,7 @@ let
     ],
     mackerelDevices = [
         "arm",
+        "armv8",
         "arm_icp_pit",
         "pl130_gic",
         "pl011_uart"
