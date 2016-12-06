@@ -216,7 +216,7 @@ data Unit = Comment String
           | StructDecl String [ Param ]
           | UnionDecl String [ Param ]
           | EnumDecl String [ EnumItem ]
---          | FunctionDecl TypeSpec String
+          | FunctionDecl TypeSpec String [ Param ]
           | GVarDecl ScopeSpec ConstSpec TypeSpec String (Maybe Expr)
           | Define String [ String ] String
           | Undef String
@@ -250,8 +250,8 @@ pp_unit (EnumDecl s el) =
     (comma_sep_lines [ tabstop ++ (pp_enumitem e) | e <- el ])
     ++ 
     ["};"]
--- pp_unit (FunctionDecl sc ts n pl) = 
---     [ (pp_scopespec sc) ++ " " ++ (pp_fnhead ts n pl) ++ ";" ]
+pp_unit (FunctionDecl ts n pl) =
+    [ (pp_fnhead ts n pl) ++ ";" ]
 pp_unit (GVarDecl sc cs ts s Nothing) = 
     [ printf "%s%s%s;" (pp_scopespec sc) (pp_constspec cs) (pp_typespec ts s)]
 pp_unit (GVarDecl sc cs ts s (Just e)) = 

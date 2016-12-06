@@ -15,7 +15,7 @@ module Space where
 
 import Text.ParserCombinators.Parsec
 
-data SpaceType = BYTEWISE Integer | VALUEWISE | UNDEF
+data SpaceType = BYTEWISE Integer | VALUEWISE | REGISTERWISE | UNDEF
                deriving (Show, Eq)
 
 data Rec = Builtin { n :: String,

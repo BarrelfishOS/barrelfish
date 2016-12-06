@@ -82,6 +82,14 @@ space_write_fn_name :: Space.Rec -> Integer -> String
 space_write_fn_name s w = 
   printf "__DN(%s)" (concat $ intersperse "_" [ Space.n s, "write", show w ])
 
+space_cpu_reg_read_fn_name :: Space.Rec -> Integer -> String -> String
+space_cpu_reg_read_fn_name s w n =
+  printf "__DN(%s)" (concat $ intersperse "_" [ Space.n s, "read", show w, n ])
+
+space_cpu_reg_write_fn_name :: Space.Rec -> Integer -> String -> String
+space_cpu_reg_write_fn_name s w n =
+  printf "__DN(%s)" (concat $ intersperse "_" [ Space.n s, "write", show w, n ])
+
 --
 -- Constants-related names
 --
@@ -666,12 +674,18 @@ regtype_dump rt =
                     ++ 
                     [ field_dump f | f <- TT.fields rt ])
 --
+-- Calculate an appropriate built-in type for a mackerel type
+--
+regtype_c_builtin :: TT.Rec -> C.TypeSpec
+regtype_c_builtin rt = C.TypeName $ round_field_size $ TT.tt_size rt
+
+--
 -- Define the register type to be an unsigned integer of appropriate size
 --
 regtype_typedef :: TT.Rec -> C.Unit
 regtype_typedef rt =
     C.TypeDef 
-          (C.TypeName $ round_field_size $ TT.tt_size rt)
+          (regtype_c_builtin rt)
           (regtype_c_name rt)
 
 --
@@ -929,10 +943,15 @@ regarray_shadow_ref rt
 --
 register_decl :: RT.Rec -> [ C.Unit ]
 register_decl r = [ register_dump_comment r,
-                    regarray_length_macro r,
-                    register_rawread_fn r,
-                    register_read_fn r,
-                    register_rawwrite_fn r,
+                    regarray_length_macro r ]
+                  ++
+                  ( register_rawread_fn r)
+                  ++
+                  [ register_read_fn r ]
+                  ++
+                  ( register_rawwrite_fn r)
+                  ++
+                  [
                     register_write_fn r
                   ] 
                   ++
@@ -984,18 +1003,25 @@ regarray_length_macro r
 -- 
 -- Do a raw read from a register, if the address is available.
 -- 
-register_rawread_fn :: RT.Rec -> C.Unit
+register_rawread_fn :: RT.Rec -> [ C.Unit ]
 register_rawread_fn r =
     let 
       rtn = regtype_c_type $ RT.tpe r
       args = (register_arg_list [] r [])
       n = register_rawread_fn_name r    
+      raw_type = regtype_c_builtin $ RT.tpe r
+      decl = loc_read_decl r raw_type args
     in
      if RT.is_noaddr r then
+       [
        C.Comment (printf "%s has no address, user must supply %s" 
                  (RT.name r) n)
+       ]
      else
+       [
+       decl,
        C.StaticInline rtn n args [ C.Return (loc_read r) ]
+       ]
 
 --
 -- Read from the register, or from a shadow copy if it's not readable. 
@@ -1014,17 +1040,26 @@ register_read_fn r =
 -- 
 -- Do a write read top a register, if the address is available.
 -- 
-register_rawwrite_fn :: RT.Rec -> C.Unit
+register_rawwrite_fn :: RT.Rec -> [ C.Unit ]
 register_rawwrite_fn r =
     let 
+      rtn = regtype_c_type $ RT.tpe r
       args = register_arg_list [] r [ C.Param (regtype_c_type $ RT.tpe r) cv_regval ]
       n = register_rawwrite_fn_name r    
+      raw_type = (C.TypeName $ round_field_size $ TT.tt_size $ RT.tpe r)
+      raw_args = register_arg_list [] r [ C.Param ( regtype_c_builtin $ RT.tpe r) cv_regval ]
+      decl = loc_write_decl r raw_type raw_args
     in
      if RT.is_noaddr r then
+       [
        C.Comment (printf "%s has no address, user must supply %s" 
                  (RT.name r) n)
+       ]
      else
+       [
+       decl,
        C.StaticInline C.Void n args [ C.Ex $ loc_write r cv_regval ]
+       ]
 
 --
 -- Write to register.  Harder than it sounds. 
@@ -1130,9 +1165,28 @@ loc_read r =
       Space.Builtin { Space.n = name } -> 
           C.Call (mackerel_read_fn_name name (RT.size r))
             [ C.DerefField (C.Variable cv_dev) (RT.base r), loc_array_offset r ]
+      s@Space.Defined { Space.t = Space.REGISTERWISE } ->
+          C.Call (space_cpu_reg_read_fn_name s (RT.size r) (RT.base r))
+                [ C.Variable cv_dev ]
       s@Space.Defined {} -> 
           C.Call (space_read_fn_name s (RT.size r))
                 [ C.Variable cv_dev, loc_array_offset r ]
+
+loc_read_decl :: RT.Rec -> C.TypeSpec -> [ C.Param ] -> C.Unit
+loc_read_decl r tpe args =
+  case RT.spc r of
+      s@Space.Defined { Space.t = Space.REGISTERWISE } ->
+          C.FunctionDecl tpe (space_cpu_reg_read_fn_name s (RT.size r) (RT.base r)) args
+      _ -> C.NoOp
+
+
+loc_write_decl :: RT.Rec -> C.TypeSpec -> [ C.Param ] -> C.Unit
+loc_write_decl r tpe args =
+  case RT.spc r of
+      s@Space.Defined { Space.t = Space.REGISTERWISE } ->
+          C.FunctionDecl tpe (space_cpu_reg_write_fn_name s (RT.size r) (RT.base r))
+               args
+      _ -> C.NoOp
 
 loc_write :: RT.Rec -> String -> C.Expr
 loc_write r val = 
@@ -1145,6 +1199,9 @@ loc_write r val =
                 [ C.DerefField (C.Variable cv_dev) (RT.base r),
                   loc_array_offset r,
                   C.Variable val ]
+      s@Space.Defined { Space.t = Space.REGISTERWISE} ->
+          C.Call (space_cpu_reg_write_fn_name s (RT.size r) (RT.base r))
+                [ C.Variable cv_dev, C.Variable val ]
       s@Space.Defined {} -> 
           C.Call (space_write_fn_name s (RT.size r)) 
                 [ C.Variable cv_dev, loc_array_offset r, C.Variable val ]

@@ -185,6 +185,8 @@ spaceType = do{ reserved "bytewise" ; return (Space.BYTEWISE 1) }
             <|> 
             do{ reserved "valuewise"; return Space.VALUEWISE }
             <|>
+            do{ reserved "registerwise"; return Space.REGISTERWISE }
+            <|>
             do{ reserved "stepwise";
                 s <- parens integer;
                 return (Space.BYTEWISE s)
@@ -321,6 +323,10 @@ binarySpace = do { reserved "addr" ; return "addr" }
               <|> do { reserved "io" ; return "io" }
               <|> do { reserved "pci" ; return "pci" }
 
+
+regLocIdentified = do { base <- identifier; return (base, 0) }
+                   <|> do { offset <- integer; return ("", offset) }
+
 regLoc = do { reserved "noaddr"
             ; return RegNoLoc 
             }
@@ -331,8 +337,8 @@ regLoc = do { reserved "noaddr"
             }
          <|> 
          do { sp <- identifier
-            ; offset <- parens integer
-            ; return (RegLoc sp "" offset)
+            ; (base, offset) <- parens regLocIdentified
+            ; return (RegLoc sp base offset)
             }
     
 binLoc = do { e1 <- identifier 
