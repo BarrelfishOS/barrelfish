@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2016, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * armv8.dev
+ *
+ * DESCRIPTION: ARMv8 architecture definitions
+ * 
+ * See:
+ *   ARM Architecture Reference Manual
+ */
+
+device armv8 msbfirst () "ARMv8 architecture" {
+
+    space sysreg(name) registerwise "System registers";
+
+    register ICC_SRE_EL1 rw sysreg(ICC_SRE_EL1) "Interrupt Controller System Register Enable" {
+        _       29;
+        DIB     1;
+        DFB     1;
+        SRE     1;
+    };
+
+};

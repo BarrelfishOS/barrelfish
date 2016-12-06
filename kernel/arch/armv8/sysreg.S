@@ -163,3 +163,32 @@ sysreg_enable_mmu:
 	isb
 	
 	ret x12
+
+.macro sysreg_read sz name reg
+.globl armv8_sysreg_read\()_\sz\()_\name
+armv8_sysreg_read\()_\sz\()_\name :
+    mov x12, x30
+    mrs x0, \reg
+    ret x12
+    nop
+.endm
+
+.macro sysreg_write sz name reg
+.globl armv8_sysreg_write\()_\sz\()_\name
+armv8_sysreg_write\()_\sz\()_\name :
+    mov x12, x30
+    msr \reg , x0
+    ret x12
+    nop
+.endm
+
+.macro sysreg_rw sz name reg
+sysreg_read \sz \name \reg
+sysreg_write \sz \name \reg
+.endm
+
+.macro sysreg_ro sz name reg
+sysreg read \sz \name \reg
+.endm
+
+sysreg_rw 32 ICC_SRE_EL1 S3_0_C12_C12_5
