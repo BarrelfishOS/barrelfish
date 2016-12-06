@@ -62,7 +62,7 @@ cxxFlags = ArchDefaults.commonCxxFlags
 
 cDefines = ArchDefaults.cDefines options
 
-ourLdFlags = [ Str "-Wl,--build-id=none" ]
+ourLdFlags = [ Str "-Wl,--build-id=none", Str "-static" ]
 
 ldFlags = ArchDefaults.ldFlags arch ++ ourLdFlags
 ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
