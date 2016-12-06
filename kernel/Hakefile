@@ -584,6 +584,7 @@ let
         "arch/armv8/plat_arm_vm_consts.c",
         "arch/armv8/plat_a57mpcore.c",
         "arch/armv8/init.c",
+        "arch/armv8/gic_v3.c",
         "arch/armv8/gdb_arch.c",
         "arch/armv8/efiboot_init.c",
         -----
