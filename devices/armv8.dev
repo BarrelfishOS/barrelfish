@@ -15,9 +15,226 @@
  *   ARM Architecture Reference Manual
  */
 
-device armv8 msbfirst () "ARMv8 architecture" {
+device armv8 msbfirst () "ARMv8 architecture registers" {
 
     space sysreg(name) registerwise "System registers";
+
+    register CurrentEL ro sysreg(CurrentEL) "Current Exception Level" {
+        _       28;
+        EL       2 "Current Exception level";
+        _        2;
+    };
+
+    register DAIF rw sysreg(DAIF) "Interrupt Mask Bits" {
+        _       22;
+        D        1 "Process state D mask";
+        A        1 "SError interrupt mask bit";
+        I        1 "IRQ mask bit";
+        F        1 "FIQ mask bit";
+        _        6;
+    };
+
+    register DLR_EL0 rw sysreg(DLR_EL0) "Debug Link Register" {
+        addr    64 "Restart address";
+    };
+
+    register DSPSR_EL0 rw sysreg(DSPSR_EL0) "Debug Saved Program Status Register" {
+        N        1 "N condition flag";
+        Z        1 "Z condition flag";
+        C        1 "C condition flag";
+        V        1 "V condition flag";
+        _        6;
+        SS       1 "Software step";
+        IL       1 "Illegal Execution state bit";
+        _       10;
+        D        1 "Process state D mask";
+        A        1 "SError interrupt mask bit";
+        I        1 "IRQ mask bit";
+        F        1 "FIQ mask bit";
+        _        1;
+        M4       1 "Execution state that debug state was entered from (AArch64=0)";
+        M        4 "AArch64 mode";
+    };
+
+    register ELR_EL1 rw sysreg(ELR_EL1) "Exception Link Register (EL1)" {
+        addr    64 "Return address";
+    };
+
+    register ELR_EL2 rw sysreg(ELR_EL2) "Exception Link Register (EL2)" {
+        addr    64 "Return address";
+    };
+
+    register ELR_EL3 rw sysreg(ELR_EL3) "Exception Link Register (EL3)" {
+        addr    64 "Return address";
+    };
+
+    register FCPR rw sysreg(FCPR) "Floating-point Control Register" {
+        _        5;
+        AHP      1 "Alternate half-precision control bit";
+        DN       1 "Default NaN mode control bit";
+        FZ       1 "Flush-to-zero mode control bit";
+        RMode    2 "Rounding mode control field";
+        Stride   2 "Ignored on AArch64";
+        _        1;
+        Len      3 "Ignored on AArch64";
+        IDE      1 "Input Denormal exception trap enable";
+        _        2;
+        IXE      1 "Inexact exception trap enable";
+        UFE      1 "Underflow exception trap enable";
+        OFE      1 "Overflow exception trap enable";
+        DZE      1 "Division by Zero exception trap enable";
+        IOE      1 "Invalid Operation exception trap enable";
+        _        8;
+    };
+
+    register FPSR rw sysreg(FPSR) "Floating-point Status Register" {
+        N        1;
+        Z        1;
+        C        1;
+        V        1;
+        QC       1;
+        _       19;
+        IDC      1;
+        _        2;
+        IXC      1;
+        UFC      1;
+        OFC      1;
+        DZC      1;
+        IOC      1;
+    };
+
+    register NZCV rw sysreg(NZCV) "Condition Flags" {
+        N        1 "Negative condition flag";
+        Z        1 "Zero condition flag";
+        C        1 "Carry condition flag";
+        V        1 "Overflow condition flag";
+        _       28;
+    };
+
+    register SP_EL0 rw sysreg(SP_EL0) "Stack Pointer (EL0)" {
+        addr    64 "Stack pointer";
+    };
+
+    register SP_EL1 rw sysreg(SP_EL1) "Stack Pointer (EL1)" {
+        addr    64 "Stack pointer";
+    };
+
+    register SP_EL2 rw sysreg(SP_EL2) "Stack Pointer (EL2)" {
+        addr    64 "Stack pointer";
+    };
+
+    register SP_EL3 rw sysreg(SP_EL3) "Stack Pointer (EL3)" {
+        addr    64 "Stack pointer";
+    };
+
+    register SPSel rw sysreg(SPSel) "Stack Pointer Select" {
+        _       31;
+        SP       1 "Stack pointer use (1=Use SP_ELx at Exception level ELx)";
+    };
+
+    constants shareability width(2) "Shareability" {
+        non_shareable   = 0b00 "Non-shareable";
+        outer_shareable = 0b10 "Outer Shareable";
+        inner_shareable = 0b11 "Inner Shareable";
+    };
+
+    constants cacheability width(2) "Cacheability" {
+        non_cacheable   = 0b00 "Normal memory, Outer Non-cacheable";
+        WbRaWa_cache    = 0b01 "Normal memory, Outer Write-Back Read-Allocate Write-Allocate Cacheable";
+        WtRanWa_cache   = 0b10 "Normal memory, Outer Write-Through Read-Allocate No Write-Allocate Cacheable";
+        WbRanWa_cache   = 0b11 "Normal memory, Outer Write-Back Read-Allocate No Write-Allocate Cacheable";
+    };
+
+    constants ASID_size width(1) "ASID size" {
+        bit_8   = 0b0 "8 bit ASID size";
+        bit_16  = 0b1 "16 bit ASID size";
+    };
+
+    constants granule width(2) "Granule size" {
+        KB_4    = 0b00;
+        KB_64   = 0b01;
+        KB_16   = 0b10;
+    };
+
+    register TCR_EL1 rw sysreg(TCR_EL1) "Translation Control Register (EL1)" {
+        _       25;
+        TBI1     1 "Top Byte ignored bit (TTBR1)";
+        TBI0     1 "Top Byte ignored bit (TTBR0)";
+        AS       1 type(ASID_size) "ASID size (0=8 bit, 1=16 bit)";
+        _        1;
+        IPS      3 "Intermediate Physical Address Size";
+        TG1      2 type(granule) "Granule size for the TTBR1_EL1";
+        SH1      2 type(shareability) "TTBR1 shareability";
+        ORGN1    2 type(cacheability) "Outer TTBR1 cacheability";
+        IRGN1    2 type(cacheability) "Inner TTBR1 cacheability";
+        EPD1     1 "TTBR1 disable";
+        A1       1 "ASID selection (0=TTBR0, 1=TTBR1)";
+        T1SZ     6 "TTBR1_EL1 region size is 2^(64-T1SZ)";
+        TG0      2 type(granule) "Granule size fo the TTBR0_EL1";
+        SH0      2 type(shareability) "TTBR0 shareability";
+        ORGN0    2 type(cacheability) "Outer TTBR0 cacheability";
+        IRGN0    2 type(cacheability) "Inner TTBR0 cacheability";
+        EPD0     1 "TTBR0 disable";
+        _        1;
+        T0SZ     6 "TTBR0_EL1 region size is 2^(64-T0SZ)";
+    };
+
+
+    register TTBCR rw sysreg(TTBCR) "Translation Table Base Control Register (32 bit)" {
+        EAE      1 "Extended Address Enable (1=Long-descriptor translation table)";
+        imp_def  1;
+        SH1      2 type(shareability) "TTBR1 shareability";
+        ORGN1    2 type(cacheability) "Outer TTBR1 cacheability";
+        IRGN1    2 type(cacheability) "Inner TTBR1 cacheability";
+        EPD1     1 "TTBR1 disable";
+        A1       1 "ASID selection (0=TTBR0, 1=TTBR1)";
+        _        3;
+        T1SZ     3 "Translation Table 1 format";
+        _        2;
+        SH0      2 type(shareability) "TTBR0 shareability";
+        ORGN0    2 type(cacheability) "Outer TTBR0 cacheability";
+        IRGN0    2 type(cacheability) "Inner TTBR0 cacheability";
+        EPD0     1 "TTBR0 disable";
+        _        4;
+        T0SZ     3 "Translation Table 0 format";
+    };
+
+    constants endianness width(1) "Endianness configuration" {
+        little  = 0b0 "Little endian";
+        big     = 0b1 "Big endian";
+    };
+
+    register SCTLR_EL1 rw sysreg(SCTLR_EL1) "System Control Register (EL1)" {
+        _        2 mbz;
+        _        2 mb1;
+        _        1 mbz;
+        UCI      1 "Trap cache maintenance instruction to EL1";
+        EE       1 type(endianness) "EL1 endianness";
+        E0E      1 type(endianness) "EL0 endianness";
+        _        2 mb1;
+        _        1 mbz;
+        _        1 mb1;
+        WXN      1 "Write permission implies XN (Execute-never)";
+        nTWE     1 "Disable trap EL0 WFE instructions to EL1";
+        _        1 mbz;
+        nTWI     1 "Disable trap EL0 WFI instructions to EL1";
+        UCT      1 "Disable trap EL0 CTR_EL0 access to EL1";
+        DZE      1 "Disable trap EL0 DC ZVA access to EL1";
+        _        1 mbz;
+        I        1 "Instruction access Cacheability control (0=non-cacheable)";
+        _        1 mb1;
+        _        1 mbz;
+        UMA      1 "User Mask Access. Disable trapping EL0 MSR/MRS to EL1";
+        SED      1 "SETEND instruction disable";
+        ITD      1 "IT Disable";
+        _        1 mbz;
+        CP15BEN  1 "System instruciton memory barrier enable";
+        SA0      1 "Enable SP Alignment check for EL0";
+        SA       1 "Enable SP Alignment check for EL1";
+        C        1 "Data cacheability control";
+        A        1 "Alignment check enable";
+        M        1 "MMU enable";
+    };
 
     register ICC_AP0R0_EL1 rw sysreg(ICC_AP0R0_EL1) "" {
         impl    32;
