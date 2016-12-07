@@ -195,6 +195,7 @@ sysreg_read \sz \name \reg
 sysreg_write \sz \name \reg
 .endm
 
+sysreg_rw 64 TCR_EL1            TCR_EL1
 sysreg_rw 32 ICC_PMR_EL1        S3_0_C4_C6_0
 sysreg_ro 32 ICC_IAR0_EL1       S3_0_C12_C8_0
 sysreg_wo 32 ICC_EOIR0_EL1      S3_0_C12_C8_1

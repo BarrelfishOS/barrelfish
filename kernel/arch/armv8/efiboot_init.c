@@ -23,6 +23,7 @@
 #include <init.h>
 #include <offsets.h>
 #include <sysreg.h>
+#include <dev/armv8_dev.h>
 
 void eret(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3);
 
@@ -30,6 +31,42 @@ void efiboot_init(uint32_t magic, void *pointer, void *kernel_stack_top)
     __attribute__((noreturn,section(".efiboot_init")));
 
 void *jump_target= &arch_init;
+
+static inline
+void configure_tcr(void) {
+    armv8_TCR_EL1_t tcr_el1 = armv8_TCR_EL1_rd(NULL);
+    // disable top byte ignored, EL1
+    tcr_el1 = armv8_TCR_EL1_TBI1_insert(tcr_el1, 0);
+    // disable top byte ignored, EL0
+    tcr_el1 = armv8_TCR_EL1_TBI0_insert(tcr_el1, 0);
+    // 48b IPA
+    tcr_el1 = armv8_TCR_EL1_IPS_insert(tcr_el1, 5);
+    // 4kB granule
+    tcr_el1 = armv8_TCR_EL1_TG1_insert(tcr_el1, armv8_KB_4);
+    // Walks inner shareable
+    tcr_el1 = armv8_TCR_EL1_SH1_insert(tcr_el1, armv8_inner_shareable);
+    // Walks outer WB WA
+    tcr_el1 = armv8_TCR_EL1_ORGN1_insert(tcr_el1, armv8_WbRaWa_cache);
+    // Walks inner WB WA
+    tcr_el1 = armv8_TCR_EL1_IRGN1_insert(tcr_el1, armv8_WbRaWa_cache);
+    // enable EL1 translation
+    tcr_el1 = armv8_TCR_EL1_EPD1_insert(tcr_el1, 0);
+    // 48b kernel VA
+    tcr_el1 = armv8_TCR_EL1_T1SZ_insert(tcr_el1, 16);
+    // 4kB granule
+    tcr_el1 = armv8_TCR_EL1_TG0_insert(tcr_el1, armv8_KB_4);
+    // Walks inner shareable
+    tcr_el1 = armv8_TCR_EL1_SH0_insert(tcr_el1, armv8_inner_shareable);
+    // Walks outer WB WA
+    tcr_el1 = armv8_TCR_EL1_ORGN0_insert(tcr_el1, armv8_WbRaWa_cache);
+    // Walks inner WB WA
+    tcr_el1 = armv8_TCR_EL1_IRGN0_insert(tcr_el1, armv8_WbRaWa_cache);
+    // enable EL0 translation
+    tcr_el1 = armv8_TCR_EL1_EPD0_insert(tcr_el1, 0);
+    // 48b user VA
+    tcr_el1 = armv8_TCR_EL1_T0SZ_insert(tcr_el1, 16);
+    armv8_TCR_EL1_wr(NULL, tcr_el1);
+}
 
 /* On entry:
 
@@ -56,21 +93,7 @@ efiboot_init(uint32_t magic, void *pointer, void *stack) {
 
     /* Configure the EL1 translation regime. */
     /* assert(el >= 1) */
-    {
-        uint64_t tcr_el1=
-            (5UL   << 32)  | /* 48b IPA */
-            (0UL   << 30)  | /* 4kB granule */
-            (3UL   << 28)  | /* Walks inner shareable */
-            (1UL   << 26)  | /* Walks outer WB WA */
-            (1UL   << 24)  | /* Walks inner WB WA */
-            (16UL  << 16)  | /* T1SZ = 16, 48b kernel VA */
-            (0UL   << 14)  | /* 4kB granule */
-            (3UL   << 12)  | // SH0, inner shareable
-            (1UL   << 10)  | // ORGN0, walks outer WB WA
-            (1UL   << 8)   | // IRGN0, walks inner WB WA
-            (16UL  << 0)   ; /* T0SZ = 16, 48b user VA. TODO: should be a domain attribute */
-        sysreg_write_ttbcr(tcr_el1);
-    }
+    configure_tcr();
 
     /* Copy the current TTBR for EL1. */
     {
