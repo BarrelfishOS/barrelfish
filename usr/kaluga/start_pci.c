@@ -280,6 +280,7 @@ static void bridge_change_event(octopus_mode_t mode, char* bridge_record, void* 
 errval_t watch_for_pci_root_bridge(void)
 {
 
+#if !defined(__ARM_ARCH_8A__)
     // TODO: Get all_irq_cap from somewhere and remove sys_debug call
     errval_t err;
     err = slot_alloc(&all_irq_cap);
@@ -287,6 +288,7 @@ errval_t watch_for_pci_root_bridge(void)
     err = sys_debug_create_irq_src_cap(all_irq_cap, 0, 65536);
     assert(err_is_ok(err));
     
+#endif
     static char* root_bridge = "r'hw\\.pci\\.rootbridge\\.[0-9]+' { "
                                " bus: _, device: _, function: _, maxbus: _,"
                                " acpi_node: _ }";
