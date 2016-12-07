@@ -246,6 +246,8 @@ static void spawnd_change_event(octopus_mode_t mode, char* record, void* state)
     }
 }
 
+extern size_t cpu_count;
+
 errval_t wait_for_all_spawnds(void)
 {
     // Note: The whole wait for all_spawnds_up thing is a hack.
@@ -275,6 +277,10 @@ errval_t wait_for_all_spawnds(void)
         return err_push(err, KALUGA_ERR_QUERY_LOCAL_APIC);
     }
     oct_free_names(names, count);
+
+    if (cpu_count) {
+        count = cpu_count;
+    }
 
     static char* spawnds = "r'spawn.[0-9]+' { iref: _ }";
     octopus_trigger_id_t tid;

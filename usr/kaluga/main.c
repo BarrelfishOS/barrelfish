@@ -42,6 +42,7 @@
 coreid_t my_core_id = 0;  // Core ID
 uint32_t my_arch_id = 0;  // APIC ID
 struct pci_address eth0 = {0xff, 0xff, 0xff};
+size_t cpu_count = 0;
 
 static void add_start_function_overrides(void)
 {
@@ -50,7 +51,7 @@ static void add_start_function_overrides(void)
     set_start_function("corectrl", start_boot_driver);
 }
 
-static void parse_arguments(int argc, char** argv, char ** add_device_db_file)
+static void parse_arguments(int argc, char** argv, char ** add_device_db_file, size_t *cpu_count)
 {
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "apicid=", 7) == 0) {
@@ -70,6 +71,8 @@ static void parse_arguments(int argc, char** argv, char ** add_device_db_file)
         } else if (strncmp(argv[i],"add_device_db=", strlen("add_device_db=")) == 0){
            *add_device_db_file = argv[i] + strlen("add_device_db=");
            printf("Kaluga using additional device_db file: %s.\n", *add_device_db_file);
+        } else if (strncmp(argv[i], "cpu_count=", strlen("cpu_count=")) == 0) {
+            sscanf(argv[i], "cpu_count=%zu", cpu_count);
         }
     }
 }
@@ -89,7 +92,7 @@ int main(int argc, char** argv)
 
     my_core_id = disp_get_core_id();
     char * add_device_db_file = NULL;
-    parse_arguments(argc, argv, &add_device_db_file);
+    parse_arguments(argc, argv, &add_device_db_file, &cpu_count);
 
     err = oct_init();
     if (err_is_fail(err)) {
