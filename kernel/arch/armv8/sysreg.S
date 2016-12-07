@@ -177,7 +177,7 @@ armv8_sysreg_read\()_\sz\()_\name :
 .globl armv8_sysreg_write\()_\sz\()_\name
 armv8_sysreg_write\()_\sz\()_\name :
     mov x12, x30
-    msr \reg , x1
+    msr \reg , x0
     ret x12
     nop
 .endm
