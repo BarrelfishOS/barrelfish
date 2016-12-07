@@ -294,7 +294,9 @@ pp_fnhead :: TypeSpec -> String -> [ Param ] -> String
 pp_fnhead ts n pl = 
     (pp_typespec ts n) ++ "(" ++ parlist ++ ")" 
     where 
-      parlist = concat $ intersperse ", " [ pp_param p | p <- pl ]
+      parlist = case pl of
+        [] -> "void"
+        xs -> concat $ intersperse ", " [ pp_param p | p <- xs ]
 
 -- 
 -- Branches of a case statement: note that they fall through

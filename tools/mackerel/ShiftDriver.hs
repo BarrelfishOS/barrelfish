@@ -1167,7 +1167,7 @@ loc_read r =
             [ C.DerefField (C.Variable cv_dev) (RT.base r), loc_array_offset r ]
       s@Space.Defined { Space.t = Space.REGISTERWISE } ->
           C.Call (space_cpu_reg_read_fn_name s (RT.size r) (RT.base r))
-                [ C.Variable cv_dev ]
+                [ ]
       s@Space.Defined {} -> 
           C.Call (space_read_fn_name s (RT.size r))
                 [ C.Variable cv_dev, loc_array_offset r ]
@@ -1176,7 +1176,7 @@ loc_read_decl :: RT.Rec -> C.TypeSpec -> [ C.Param ] -> C.Unit
 loc_read_decl r tpe args =
   case RT.spc r of
       s@Space.Defined { Space.t = Space.REGISTERWISE } ->
-          C.FunctionDecl tpe (space_cpu_reg_read_fn_name s (RT.size r) (RT.base r)) args
+          C.FunctionDecl tpe (space_cpu_reg_read_fn_name s (RT.size r) (RT.base r)) (tail args)
       _ -> C.NoOp
 
 
@@ -1184,8 +1184,8 @@ loc_write_decl :: RT.Rec -> C.TypeSpec -> [ C.Param ] -> C.Unit
 loc_write_decl r tpe args =
   case RT.spc r of
       s@Space.Defined { Space.t = Space.REGISTERWISE } ->
-          C.FunctionDecl tpe (space_cpu_reg_write_fn_name s (RT.size r) (RT.base r))
-               args
+          C.FunctionDecl C.Void (space_cpu_reg_write_fn_name s (RT.size r) (RT.base r))
+               (tail args)
       _ -> C.NoOp
 
 loc_write :: RT.Rec -> String -> C.Expr
@@ -1201,7 +1201,7 @@ loc_write r val =
                   C.Variable val ]
       s@Space.Defined { Space.t = Space.REGISTERWISE} ->
           C.Call (space_cpu_reg_write_fn_name s (RT.size r) (RT.base r))
-                [ C.Variable cv_dev, C.Variable val ]
+                [ C.Variable val ]
       s@Space.Defined {} -> 
           C.Call (space_write_fn_name s (RT.size r)) 
                 [ C.Variable cv_dev, loc_array_offset r, C.Variable val ]
