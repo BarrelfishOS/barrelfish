@@ -17,6 +17,7 @@
 #ifndef SFN5122F_H_
 #define SFN5122F_H_
 
+#include <dev/sfn5122f_dev.h>
 #include "mcdi_rpc.h"
 #include "helper.h"
 
