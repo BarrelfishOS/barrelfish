@@ -225,6 +225,8 @@ class Machine(object):
         # armv8
         if a == "armv8" :
             m.add_module("acpi", ["boot"])
+            # We don't support multiple CPUs on ARMv8 yet...
+            m.add_module("kaluga", ["boot", "cpu_count=1"])
 
         # SKB and PCI are x86-only for the moment
         if a == "x86_64" or a == "x86_32":
