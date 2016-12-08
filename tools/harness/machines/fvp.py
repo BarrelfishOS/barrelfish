@@ -125,7 +125,7 @@ class FVPMachineEFI(FVPMachineBase):
         efi = efiimage.EFIImage(self.kernel_img, 200)
         efi.create()
         for module in buildModules:
-            efi.addFile(module, module)
+            efi.addFile(os.path.join(self.options.builds[0].build_dir, module), module)
         efi.writeFile("startup.nsh", "Hagfish.efi hagfish.cfg")
         efi.addFile("/home/netos/tftpboot/Hagfish.efi", "Hagfish.efi")
         efi.addFile(menulst_fullpath, "hagfish.cfg")
