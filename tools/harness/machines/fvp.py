@@ -158,14 +158,17 @@ class FVPMachineEFIOperations(FVPMachineBaseOperations):
 MachineFactory.addMachine('armv8_fvp_base', FVPMachineEFI,
                           bootarch='armv8',
                           platform='a57v',
+                          boot_timeout=60,
                           simulator="FVP_Base_AEMv8A")
 
 MachineFactory.addMachine('armv8_fvp_a57x1', FVPMachineEFI,
                           bootarch='armv8',
                           platform='a57v',
+                          boot_timeout=60,
                           simulator="FVP_Base_Cortex-A57x1")
 
 MachineFactory.addMachine('armv8_fvp_a57x2_a53x4', FVPMachineEFI,
                           bootarch='armv8',
                           platform='a57v',
+                          boot_timeout=60,
                           simulator="FVP_Base_Cortex-A57x2-A53x4")
