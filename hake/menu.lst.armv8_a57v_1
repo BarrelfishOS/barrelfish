@@ -1,0 +1,28 @@
+#
+# This script is used to describe the commands to start at
+# boot-time and the arguments they should receive.
+#
+
+kernel /armv8/sbin/cpu_a57v loglevel=3 serial=0x1c090000 gicdist=0x8000000 gic=0x8010000 timeslice=80
+stack 131072
+module /armv8/sbin/init
+
+# Domains spawned by init
+module /armv8/sbin/mem_serv
+module /armv8/sbin/monitor
+
+# Special boot time domains spawned by monitor
+module /armv8/sbin/ramfsd boot
+module /armv8/sbin/skb boot
+module /armv8/sbin/kaluga boot
+#module /armv8/sbin/spawnd boot
+module /armv8/sbin/startd boot
+module /armv8/sbin/acpi boot
+
+# ramfs contents
+modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
+modulenounzip /skb_ramfs.cpio.gz nospawn
+
+# Drivers
+# module /armv8/sbin/corectrl auto
+#module /armv8/sbin/pci auto
