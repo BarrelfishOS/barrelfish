@@ -122,8 +122,7 @@ class FVPMachineEFI(FVPMachineBase):
         debug.checkcmd(["make"] + buildModules, cwd=self.options.builds[0].build_dir)
 
         debug.verbose("building proper FVP image")
-        efiImage = os.path.join(self.options.builds[0].build_dir, self.kernel_img)
-        efi = efiimage.EFIImage(efiImage, 200)
+        efi = efiimage.EFIImage(self.kernel_img, 200)
         efi.create()
         for module in buildModules:
             efi.addFile(module, module)
