@@ -183,7 +183,7 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
     MSG("Exception vectors (VBAR_EL1): %p\n", &vectors);
     sysreg_write_vbar_el1((uint64_t)&vectors);
 
-    gic_init();
+    platform_gic_init();
 
     arm_kernel_startup();
     while (1) {

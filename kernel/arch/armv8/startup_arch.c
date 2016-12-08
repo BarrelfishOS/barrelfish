@@ -758,7 +758,7 @@ void arm_kernel_startup(void)
     }
 
     // enable interrupt forwarding to cpu
-    gic_cpu_interface_enable();
+    platform_gic_cpu_interface_enable();
 
     // Initialize system timers
     timers_init(config_timeslice);

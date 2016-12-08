@@ -17,6 +17,7 @@
 #include <platform.h>
 #include <serial.h>
 #include <dev/apm88xxxx/apm88xxxx_pc16550_dev.h>
+#include <arch/arm/gic.h>
 
 /* the maximum number of UARTS supported */
 #define MAX_NUM_UARTS 4
@@ -107,4 +108,14 @@ void platform_get_info(struct platform_info *pi)
 void armv8_get_info(struct arch_info_armv8 *ai)
 {
 
+}
+
+errval_t platform_gic_init(void) {
+    gic_init();
+    return SYS_ERR_OK;
+}
+
+errval_t gicv3_cpu_interface_enable() {
+    gic_cpu_interface_enable();
+    return SYS_ERR_OK;
 }

@@ -24,12 +24,17 @@ static armv8_t armv8_dev;
  * 2) Private Peripheral Interrupts (PPI) - IDs 16-31
  * 3) Shared Peripheral Interrups (SPI) - IDs 32...
  */
-void gicv3_init(void)
+errval_t gicv3_init(void)
 {
     armv8_initialize(&armv8_dev);
     // Enable system register access
     armv8_ICC_SRE_EL1_SRE_wrf(&armv8_dev, 1);
 
-    printk(LOG_NOTE, "gic_init done\n");
+    printk(LOG_NOTE, "gicv3_init done\n");
+    return SYS_ERR_OK;
 }
 
+errval_t gicv3_cpu_interface_enable(void) {
+    printk(LOG_NOTE, "gicv3_cpu_interface_enable needs to be implemented\n");
+    return SYS_ERR_OK;
+}
