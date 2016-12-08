@@ -178,6 +178,7 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
     MSG("Global data at %p\n", global);
     MSG("Multiboot record at %p\n", pointer);
     MSG("Kernel stack at 0x%" PRIxPTR "\n", kernel_stack);
+    MSG("Kernel first byte at 0x%" PRIxPTR "\n", &kernel_first_byte);
 
     MSG("Exception vectors (VBAR_EL1): %p\n", &vectors);
     sysreg_write_vbar_el1((uint64_t)&vectors);
