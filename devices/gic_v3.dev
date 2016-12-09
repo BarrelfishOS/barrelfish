@@ -105,7 +105,7 @@ device gic_v3 msbfirst (addr dist) "GIC v3 architecture" {
 
     regarray GICD_ICACTIVER addr(dist, 0x380)[32] "Interrupt Clear-Active Registers" type(uint32);
 
-    regarray GICD_IPRIORITYR addr(dist, 0x400)[255] "Interrupt Priority Registers" type(uint32);
+    regarray GICD_IPRIORITYR addr(dist, 0x400)[1020] "Interrupt Priority Registers" type(uint8);
 
     regarray GICD_ITARGETSR addr(dist, 0x800)[255] "Interrupt Processor Targets Registers" type(uint32);
 
@@ -116,13 +116,13 @@ device gic_v3 msbfirst (addr dist) "GIC v3 architecture" {
     regarray GICD_NSACR addr(dist, 0xe00)[64] "Non-secure Access Control Registers" type(uint32);
 
 
-    constant TargetFilterList width(2) "SGI forwadring" {
+    constants TargetFilterList width(2) "SGI forwarding" {
         CPUTargetList = 0b00 "Forward the interrupt to the CPU interfaces specified by GICD_SGIR.CPUTargetList.";
-        PEAllTarget   = 0b01 "Forward the interrupt to all CPU interfaces except that of the PE that requested the interrupt."
+        PEAllTarget   = 0b01 "Forward the interrupt to all CPU interfaces except that of the PE that requested the interrupt.";
         PEOnlyTarget  = 0b10 "Forward the interrupt only to the CPU interface of the PE that requested the interrupt.";
     };
 
-    register GICD_SGIR wo addr(dist, 0xF00) "Software Generated Inerrupt Register" {
+    register GICD_SGIR wo addr(dist, 0xF00) "Software Generated Interrupt Register" {
         _        6 mbz;
         TargetFilterList     2 type(TargetFilterList);
         CPUTargetList        8 "Forward to CPU interface bit N (only if TargetFilterList==CPUTargetList)";
@@ -147,7 +147,7 @@ device gic_v3 msbfirst (addr dist) "GIC v3 architecture" {
 
     register GICD_PIDR2 ro addr(dist, 0xffe8) "Peripheral ID2 Register" {
         _       24;
-        ArchRev  4 "GIC archtiecture revision";
+        ArchRev  4 "GIC architecture revision";
         _        4;
     };
 
