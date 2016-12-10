@@ -450,7 +450,7 @@ std_header_files dev =
     where 
       inclist = [ "mackerel/mackerel.h", "inttypes.h" ]
                 ++
-                [ i ++ ".dev.h" | i <- Dev.imports dev ] 
+                [ i ++ "_dev.h" | i <- Dev.imports dev ] 
 
 -- Device representation structure generator              
 device_struct_def :: Dev.Rec -> [ C.Unit ]
