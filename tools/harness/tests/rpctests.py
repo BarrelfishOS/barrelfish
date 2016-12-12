@@ -28,7 +28,7 @@ class RpcTestCommon(TestCommon):
         args = []
         if self.benchmark_type != None:
             args = [str(self.benchmark_type)]
-        modules.reset_module(self.get_module_name(), args)
+        modules.add_module(self.get_module_name(), args)
         self.boot(machine, modules)
         return self.collect_data(machine)
 
