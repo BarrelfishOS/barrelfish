@@ -119,7 +119,7 @@ handle_frame_identify(
 
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
+    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame || to->type == ObjType_RAM);
     assert((get_address(to) & BASE_PAGE_MASK) == 0);
 
     struct frame_identity *fi = (struct frame_identity *)sa->arg2;
@@ -866,6 +866,9 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_KernelControlBlock] = {
         [FrameCmd_Identify] = handle_kcb_identify
+    },
+    [ObjType_RAM] = {
+        [RAMCmd_Identify] = handle_frame_identify,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
