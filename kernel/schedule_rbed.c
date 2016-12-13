@@ -25,18 +25,18 @@
  *
  * real-time tasks:
  *  the behaviour of real-time tasks is characterized by four parameters: wcet
- *  (worst case execution time), period, deadline, and release_time.  Besides
- *  release_time, the values of these parameters are not changed by the
- *  scheduler. RT tasks are considered to be periodic. Note that the
- *  interpretation of the parameters is a little different than the original RBED
- *  paper.
+ *  (worst case execution time), period, (relative) deadline, and
+ *  release_time.  Besides release_time, the values of these parameters are
+ *  not changed by the scheduler. RT tasks are considered to be periodic. Note
+ *  that the interpretation of the parameters is a little different than the
+ *  original RBED paper.
  *
  *  ->release_time is the time that the task is ready to be scheduled. RT tasks
  *  with ->release_time in the future are not effectively considered to be on
  *  the runqueue and are ignored by the scheduler.  In order to meet its
  *  deadline the task needs to be scheduled no later than ->release_time +
- *  ->deadline. EDF guarantees this property, as long as the utilization rate
- *  is <= 1.
+ *  deadline - wcet. EDF guarantees this property, as long as the utilization
+ *  rate is <= 1.
  *
  *  The execution of an rt task for a particular period ends either when: (a)
  *  the task runs outs of budget (->etime >= ->wcet), or (b) the task yields
