@@ -33,6 +33,9 @@ define objsize_vnode_arm_l1 16384;
 define objsize_vnode_arm_l2 1024;
 /* size of a kernel control block */
 define objsize_kcb 65536; /* OBJSIZE_KCB */
+/* size of a mapping cap:
+ * if mappings are zero-sized they mess up range queries */
+define objsize_mapping 1;
 
 /**
     The capabilities of the whole system are listed thereafter.
@@ -74,6 +77,7 @@ cap Mapping abstract {
     uint16 pte_count;
 
     address { get_address(cap) };
+    size { objsize_mapping };
 };
 
 cap VNode abstract {
