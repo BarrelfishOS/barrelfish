@@ -23,6 +23,7 @@ DEBUG_SCRIPT=""
 SMP=${SMP:-2}
 # Grab NIC_MODEL from env, if unset default to e1000
 NIC_MODEL="${NIC_MODEL:-e1000}"
+DEBUGCON="debugcon.out"
 
 
 usage () {
@@ -40,6 +41,7 @@ usage () {
     echo "    --smp <cores>      (number of cores to use, defaults to $SMP)"
     echo "    --nic-model <name> (nic model to use, defaults to $NIC_MODEL)"
     echo "    --hagfish <file>   (Hagfish boot loader, defaults to $HAGFISH_LOCATION)"
+    echo "    --debugcon <file>  (Enable QEMU debug port & qemu_debug_puts() (x86-*-only))"
     echo "  "
     echo "  The following environment variables are considered:"
     echo "    QEMU_PATH         (Path for qemu-system-* binary)"
@@ -88,6 +90,9 @@ while test $# != 0; do
         ;;
     "--nic-model")
         shift; NIC_MODEL="$1"
+        ;;
+    "--debugcon")
+        shift; DEBUGCON="$1"
         ;;
     *)
         echo "Unknown option $1 (try: --help)" >&2
@@ -151,6 +156,8 @@ tool_variant () {
 
 case "$ARCH" in
     "x86_64")
+    rm -f ${DEBUGCON}
+    touch ${DEBUGCON}
     QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
         -machine type=q35 \
         -smp $SMP \
@@ -159,7 +166,8 @@ case "$ARCH" in
         -net user \
         -device ahci,id=ahci \
         -device ide-drive,drive=disk,bus=ahci.0 \
-        -drive id=disk,file="$HDFILE",if=none"
+        -drive id=disk,file="$HDFILE",if=none \
+        -debugcon file:${DEBUGCON}"
     QEMU_NONDEBUG=-nographic
     GDB=$(tool_variant "gdb-multiarch" "gdb")
     echo "Creating hard disk image $HDFILE"
