@@ -62,6 +62,20 @@
 
 #ifndef __ASSEMBLER__
 
+static inline uint64_t __attribute__((always_inline)) rdrip(void)
+{
+    uint64_t rip;
+    __asm__ ("leaq 0(%%rip), %0\n\t" : "=g" (rip) : /* no input */ : /* no clobber */ );
+    return rip;
+}
+
+static inline uint64_t __attribute__((always_inline)) rdrsp(void)
+{
+    uint64_t rsp;
+    __asm__ ("mov %%rsp, %0\n\t"     : "=g" (rsp) : /* no input */ : /* no clobber */ );
+    return rsp;
+}
+
 static inline uint64_t rdcr0(void)
 {
     uint64_t cr0;
