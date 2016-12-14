@@ -548,7 +548,7 @@ AcpiOsMapMemory (
     int npages = DIVIDE_ROUND_UP(length, BASE_PAGE_SIZE);
     lpaddr_t pend  = pbase + length;
 
-    //printf("AcpiOsMapMemory: 0x%"PRIxLPADDR", %d\n", pbase, npages);
+    ACPI_DEBUG("AcpiOsMapMemory: aligned request: 0x%"PRIxLPADDR", %d\n", pbase, npages);
 
     struct capref am_pages[npages];
     memset(&am_pages, 0, npages*sizeof(struct capref));
@@ -617,47 +617,62 @@ AcpiOsMapMemory (
         DEBUG_ERR(err, "vregion_map failed");
         return NULL;
     }
+    ACPI_DEBUG("%s: Mapping %#"PRIxLPADDR" at %#"PRIxGENVADDR"\n",
+            __FUNCTION__, pbase, vregion_get_base_addr(vregion));
 
     struct AcpiMapping *new = malloc(sizeof(struct AcpiMapping));
     new->num_caps = npages;
     new->caps = calloc(npages, sizeof(struct capref));
     for (int page = 0; page < npages; page++) {
-        struct capref frame_cap;
+
         if (capref_is_null(am_pages[page])) {
             lpaddr_t paddr = pbase + page * BASE_PAGE_SIZE;
 
+            ACPI_DEBUG("%s: allocating page for %#"PRIxLPADDR"\n",
+                    __FUNCTION__, paddr);
+
             err = mm_realloc_range(&pci_mm_physaddr, BASE_PAGE_BITS, paddr,
-                                   &frame_cap);
+                    &new->caps[page]);
             if (err_is_fail(err)) {
                 free(new->caps);
                 free(new);
                 DEBUG_ERR(err, "AcpiOsMapMemory: allocating RAM at %lx failed\n",
-                          paddr);
+                        paddr);
                 return NULL;
             }
             /* result of mm_realloc_range is already DevFrame */
         }
         else {
-            frame_cap = am_pages[page];
+            ACPI_DEBUG("%s: already have page for %#"PRIxLPADDR"\n",
+                    __FUNCTION__, pbase + page * BASE_PAGE_SIZE);
+
+            // Create a copy of the cap so we don't accidentally kill more
+            // than one mapping in AcpiOsUnmapMemory()
+            err = slot_alloc(&new->caps[page]);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "slot_alloc for copy of page");
+                // XXX: TODO: cleanup previous pages
+                free(new->caps);
+                free(new);
+                return NULL;
+            }
+            err = cap_copy(new->caps[page], am_pages[page]);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "slot_alloc for copy of page");
+                // XXX: TODO: cleanup previous pages
+                slot_free(new->caps[page]);
+                free(new->caps);
+                free(new);
+                return NULL;
+            }
         }
 
-        err = slot_alloc(&new->caps[page]);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "AcpiOsMapMemory: could not allocate slot for capability: %s.",
-                    err_getstring(err_no(err)));
-            return NULL;
-        }
-        err = cap_copy(new->caps[page], frame_cap);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "AcpiOsMapMemory: cap_copy failed: %s.",
-                    err_getstring(err_no(err)));
-            return NULL;
-        }
         err = memobj->m.f.fill(&memobj->m, page * BASE_PAGE_SIZE, new->caps[page],
-                           BASE_PAGE_SIZE);
+                BASE_PAGE_SIZE);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "AcpiOsMapMemory: memobj fill failed: %s.",
                     err_getstring(err_no(err)));
+            // XXX: TODO: cleanup
             return NULL;
         }
         assert(err == 0);
@@ -665,6 +680,7 @@ AcpiOsMapMemory (
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "AcpiOsMapMemory: memobj pagefault failed: %s.",
                     err_getstring(err_no(err)));
+            // XXX: TODO: cleanup
             return NULL;
         }
         assert(err == 0);
@@ -702,10 +718,13 @@ AcpiOsUnmapMemory (
     void                    *where,
     ACPI_SIZE               length)
 {
-    // printf("unmap %p %zd\n", where, (size_t)length);
+    ACPI_DEBUG("%s: %p %zd\n", __FUNCTION__, where, (size_t)length);
 
     uintptr_t vbase = (uintptr_t)where & (~BASE_PAGE_MASK);
     length = ROUND_UP(length, BASE_PAGE_SIZE);
+
+    ACPI_DEBUG("%s: aligned request: %#"PRIxPTR", %zu pages\n",
+            __FUNCTION__, vbase, length / BASE_PAGE_SIZE);
 
     // printf("AcpiOsUnmapMemory: 0x%lx, %ld\n", vbase, length / BASE_PAGE_SIZE);
 
@@ -715,28 +734,54 @@ AcpiOsUnmapMemory (
     assert(head); // there should be a mapped region if Unmap is called
 
     struct AcpiMapping *prev = NULL;
+    errval_t err;
     for (struct AcpiMapping *walk = head; walk; prev = walk, walk = walk->next) {
         genvaddr_t walk_vaddr = vregion_get_base_addr(walk->vregion);
         genvaddr_t walk_end   = walk_vaddr + walk->length;
         // printf("0x%"PRIxGENVADDR", 0x%"PRIxGENVADDR"\n", walk_vaddr, walk_end);
         if (walk_vaddr <= vbase && walk_end >= vbase + length) {
+            ACPI_DEBUG("region: %#"PRIxGENVADDR", %zu pages\n",
+                    walk_vaddr, walk->length / BASE_PAGE_SIZE);
             // printf("match\n");
             walk->refcount--;
             if (!walk->refcount) {
-                vregion_destroy(walk->vregion);
-                memobj_destroy_anon((struct memobj *)walk->memobj);
+                ACPI_DEBUG("%s: last reference to region, cleaning up\n", __FUNCTION__);
+
+                // Remove from list
                 if (prev) {
                     prev->next = walk->next;
                 }
                 else { // we were head
                     head = walk->next;
                 }
-                for (int i = 0; i < walk->num_caps; i++) {
-                    // XXX: ensure that this never deletes a last copy?
-                    cap_destroy(walk->caps[i]);
+
+                // Delete vregion; do this first because vnode_unmap complains
+                // about missing caps if we mm_free() the backing caps first
+                err = vregion_destroy(walk->vregion);
+                if (err_is_fail(err)) {
+                    DEBUG_ERR(err, "%s: vregion_destroy", __FUNCTION__);
                 }
+
+                // return backing caps to MM
+                for (int page = 0; page < walk->num_caps; page++) {
+                    lpaddr_t pagebase = walk->pbase + page * BASE_PAGE_SIZE;
+                    err = mm_free(&pci_mm_physaddr, walk->caps[page],
+                            pagebase, BASE_PAGE_BITS);
+                    if (err_is_fail(err)) {
+                        DEBUG_ERR(err, "mm_free()");
+                    }
+                }
+
+                // memobj destroy will fail as backing caps are already
+                // deleted, so we don't check errors.
+                memobj_destroy_anon((struct memobj *)walk->memobj);
+
+                // Free malloc'd memory for element
+                free(walk->vregion);
+                free(walk->memobj);
                 free(walk->caps);
                 free(walk);
+
                 return;
             }
         }
