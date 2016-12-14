@@ -64,7 +64,9 @@ union x86_64_pdir_entry {
         uint64_t        write_through   :1;
         uint64_t        cache_disabled  :1;
         uint64_t        accessed        :1;
-        uint64_t        reserved        :3;
+        uint64_t        reserved00      :1;
+        uint64_t        ps              :1; // 0: internal node, 1: leaf
+        uint64_t        reserved01      :1;
         uint64_t        available       :3;
         uint64_t        base_addr       :28;
         uint64_t        reserved2       :12;
@@ -72,6 +74,11 @@ union x86_64_pdir_entry {
         uint64_t        execute_disable :1;
     } d;
 };
+
+static inline bool __attribute__((always_inline)) x86_64_pdir_entry_leafp (union x86_64_pdir_entry *pde)
+{
+    return pde->d.ps != 0;
+}
 
 #ifdef __k1om__
 #define X86_64_PHYSADDR_BITS X1OM_PADDR_SPACE_BITS // TODO: Take that from offsets target
