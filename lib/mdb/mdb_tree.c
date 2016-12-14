@@ -555,6 +555,8 @@ static bool
 mdb_is_inside(genpaddr_t outer_begin, genpaddr_t outer_end,
               genpaddr_t inner_begin, genpaddr_t inner_end)
 {
+    assert(outer_begin <= outer_end);
+    assert(inner_begin <= inner_end);
     return
         (inner_begin >= outer_begin && inner_end < outer_end) ||
         (inner_begin > outer_begin && inner_end <= outer_end);
