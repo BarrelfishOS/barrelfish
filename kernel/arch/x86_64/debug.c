@@ -57,35 +57,47 @@ void debug_vaddr_identify(lvaddr_t debug_pml4, lvaddr_t vaddr)
     uint64_t *pml4et;
     pml4et = (uint64_t*)(debug_pml4 +
                          (lin_addr.d.pml4 * sizeof(union x86_64_pdir_entry)));
-    printf("addr = %lx ", (uint64_t)pml4et);
-    printf("content = %lx\n", *pml4et);
+    printf("PML4e addr = %016lx ", (uint64_t)pml4et);
+    printf("content = %016lx\n", *pml4et);
 
     lvaddr_t pdpt_addr;
     pdpt_addr = local_phys_to_mem(((union x86_64_pdir_entry*)pml4et)->d.base_addr << 12);
     uint64_t *pdptet;
     pdptet = (uint64_t*)(pdpt_addr +
                          (lin_addr.d.pdpt * sizeof(union x86_64_pdir_entry)));
-    printf("addr = %lx ", (uint64_t)pdptet);
-    printf("content = %lx\n", *pdptet);
+    printf("PDPe  addr = %016lx ", (uint64_t)pdptet);
+    printf("content = %016lx\n", *pdptet);
+
+    if (x86_64_pdir_entry_leafp ((union x86_64_pdir_entry*) pdptet)) {
+	lpaddr_t addr = ((union x86_64_ptable_entry*)pdptet)->huge.base_addr << 30;
+	printf("addr = %016lx, 1G page\n", addr);
+	return;
+    }
 
     lvaddr_t pdir_addr;
     pdir_addr = local_phys_to_mem(((union x86_64_pdir_entry*)pdptet)->d.base_addr << 12);
     uint64_t *pdiret;
     pdiret = (uint64_t*)(pdir_addr +
                          (lin_addr.d.pdir * sizeof(union x86_64_pdir_entry)));
-    printf("addr = %lx ", (uint64_t)pdiret);
-    printf("content = %lx\n", *pdiret);
+    printf("PGDe  addr = %016lx ", (uint64_t)pdiret);
+    printf("content = %016lx\n", *pdiret);
+
+    if (x86_64_pdir_entry_leafp ((union x86_64_pdir_entry*) pdiret)) {
+	lpaddr_t addr = ((union x86_64_ptable_entry*)pdiret)->large.base_addr << 21;
+	printf("addr = %016lx, 2M page\n", addr);
+	return;
+    }
 
     lvaddr_t ptable_addr;
     ptable_addr = local_phys_to_mem(((union x86_64_pdir_entry*)pdiret)->d.base_addr << 12);
     uint64_t *ptableet;
     ptableet = (uint64_t*)(ptable_addr +
                          (lin_addr.d.ptable * sizeof(union x86_64_pdir_entry)));
-    printf("addr = %lx ", (uint64_t)ptableet);
-    printf("content = %lx\n", *ptableet);
+    printf("PTe   addr = %016lx ", (uint64_t)ptableet);
+    printf("content = %016lx\n", *ptableet);
 
     lpaddr_t addr = ((union x86_64_ptable_entry*)ptableet)->base.base_addr << 12;
-    printf("addr = %lx\n", addr);
+    printf("addr = %016lx, 4K page\n", addr);
 }
 
 uintptr_t kernel_virt_to_elf_addr(void *addr)
