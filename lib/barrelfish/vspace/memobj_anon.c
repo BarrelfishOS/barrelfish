@@ -270,6 +270,9 @@ static errval_t fill_foff(struct memobj *memobj, genvaddr_t offset, struct capre
 
     struct frame_identity fi;
     err = frame_identify(frame, &fi);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_FRAME_IDENTIFY);
+    }
     assert(err_is_ok(err));
     new->pa = fi.base;
 
