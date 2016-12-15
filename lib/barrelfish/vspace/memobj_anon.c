@@ -250,7 +250,14 @@ static errval_t fill_foff(struct memobj *memobj, genvaddr_t offset, struct capre
 
     // Allocate
     struct memobj_frame_list *new = slab_alloc(&anon->frame_slab);
-    if (!new) { // Grow
+    // We have to grow our slab allocator when there's still one slab left as
+    // we otherwise might run out of slabs when calling memobj->fill() from
+    // vspace_pinned_alloc(). The is_refilling flag allows us to hand out the
+    // last slab when coming back here from vspace_pinned_alloc().
+    // -SG, 2016-12-15.
+    static bool is_refilling = false;
+    if (slab_freecount(&anon->frame_slab) <= 1 && !is_refilling) {
+        is_refilling = true;
         void *buf;
         err = vspace_pinned_alloc(&buf, FRAME_LIST);
         if (err_is_fail(err)) {
@@ -262,6 +269,7 @@ static errval_t fill_foff(struct memobj *memobj, genvaddr_t offset, struct capre
         if (!new) {
             return LIB_ERR_SLAB_ALLOC_FAIL;
         }
+        is_refilling = false;
     }
     new->offset  = offset;
     new->frame   = frame;
