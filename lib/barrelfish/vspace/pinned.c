@@ -93,7 +93,9 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
         return LIB_ERR_VSPACE_PINNED_INVALID_TYPE;
     }
 
-    thread_mutex_lock(&state->mutex);
+    // memobj->fill() can recurse into vspace_alloc_pinned(), so we need to
+    // acquire this lock in nested mode
+    thread_mutex_lock_nested(&state->mutex);
 
     // Try allocating
     static bool is_refilling = false;
