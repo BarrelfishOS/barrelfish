@@ -774,7 +774,7 @@ AcpiOsUnmapMemory (
 
                 // memobj destroy will fail as backing caps are already
                 // deleted, so we don't check errors.
-                memobj_destroy_anon((struct memobj *)walk->memobj);
+                memobj_destroy_anon((struct memobj *)walk->memobj, false);
 
                 // Free malloc'd memory for element
                 free(walk->vregion);

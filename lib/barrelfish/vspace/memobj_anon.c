@@ -489,7 +489,7 @@ errval_t memobj_create_anon(struct memobj_anon *anon, size_t size,
  * \brief Destroy the object
  *
  */
-errval_t memobj_destroy_anon(struct memobj *memobj)
+errval_t memobj_destroy_anon(struct memobj *memobj, bool delete_caps)
 {
     struct memobj_anon *m = (struct memobj_anon *)memobj;
 
@@ -508,9 +508,11 @@ errval_t memobj_destroy_anon(struct memobj *memobj)
 
     struct memobj_frame_list *fwalk = m->frame_list;
     while (fwalk) {
-        err = cap_delete(fwalk->frame);
-        if (err_is_fail(err)) {
-            return err;
+        if (delete_caps) {
+            err = cap_delete(fwalk->frame);
+            if (err_is_fail(err)) {
+                return err;
+            }
         }
         struct memobj_frame_list *old = fwalk;
         fwalk = fwalk->next;

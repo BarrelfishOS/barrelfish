@@ -145,7 +145,7 @@ errval_t memobj_create_pinned(struct memobj_pinned *memobj, size_t size,
 
 errval_t memobj_create_anon(struct memobj_anon *memobj, size_t size,
                             memobj_flags_t flags);
-errval_t memobj_destroy_anon(struct memobj *memobj);
+errval_t memobj_destroy_anon(struct memobj *memobj, bool delete_caps);
 
 errval_t memobj_create_one_frame(struct memobj_one_frame *memobj, size_t size,
                                  memobj_flags_t flags);
