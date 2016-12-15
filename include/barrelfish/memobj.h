@@ -112,6 +112,7 @@ struct memobj_anon {
     struct slab_allocator vregion_slab;       ///< Slab to back the vregion list
     struct memobj_frame_list *frame_list; ///< List of frames tracked by the obj
     struct slab_allocator frame_slab;         ///< Slab to back the frame list
+    bool frame_slab_refilling;      ///< True, iff we're currently refilling `frame_slab`
 };
 
 /**

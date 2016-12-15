@@ -255,9 +255,8 @@ static errval_t fill_foff(struct memobj *memobj, genvaddr_t offset, struct capre
     // vspace_pinned_alloc(). The is_refilling flag allows us to hand out the
     // last slab when coming back here from vspace_pinned_alloc().
     // -SG, 2016-12-15.
-    static bool is_refilling = false;
-    if (slab_freecount(&anon->frame_slab) <= 1 && !is_refilling) {
-        is_refilling = true;
+    if (slab_freecount(&anon->frame_slab) <= 1 && !anon->frame_slab_refilling) {
+        anon->frame_slab_refilling = true;
         void *buf;
         err = vspace_pinned_alloc(&buf, FRAME_LIST);
         if (err_is_fail(err)) {
@@ -265,12 +264,15 @@ static errval_t fill_foff(struct memobj *memobj, genvaddr_t offset, struct capre
         }
         slab_grow(&anon->frame_slab, buf,
                   VSPACE_PINNED_UNIT * sizeof(struct memobj_frame_list));
-        new = slab_alloc(&anon->frame_slab);
-        if (!new) {
-            return LIB_ERR_SLAB_ALLOC_FAIL;
+        if (new == NULL) {
+            new = slab_alloc(&anon->frame_slab);
         }
-        is_refilling = false;
+        anon->frame_slab_refilling = false;
     }
+    if (!new) {
+        return LIB_ERR_SLAB_ALLOC_FAIL;
+    }
+    assert(new != NULL);
     new->offset  = offset;
     new->frame   = frame;
     new->size    = size;
@@ -487,6 +489,8 @@ errval_t memobj_create_anon(struct memobj_anon *anon, size_t size,
     /* anon specific portion */
     slab_init(&anon->vregion_slab, sizeof(struct vregion_list), NULL);
     slab_init(&anon->frame_slab, sizeof(struct memobj_frame_list), NULL);
+
+    anon->frame_slab_refilling = false;
 
     anon->vregion_list = NULL;
     anon->frame_list = NULL;
