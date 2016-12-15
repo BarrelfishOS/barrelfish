@@ -135,8 +135,7 @@ static errval_t elf_allocate(void *state, genvaddr_t base, size_t size,
             .cnode = si->segcn,
             .slot = spawn_vspace_slot++,
         };
-        genvaddr_t genvaddr = vspace_lvaddr_to_genvaddr(offset);
-        err = memobj->f.fill(spawn_memobj, genvaddr, frame, sz);
+        err = memobj->f.fill(spawn_memobj, offset, frame, sz);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_MEMOBJ_FILL);
         }
