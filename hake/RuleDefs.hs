@@ -1059,7 +1059,7 @@ appGetOptionsForArch arch args =
 fullTarget arch appname =
     let
         mkFullTargetRule = [
-            Dep InstallTree arch (applicationPath appname),
+            Dep BuildTree arch (applicationPath appname),
             AbsTarget arch "_All"
             ]
     in
