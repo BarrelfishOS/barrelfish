@@ -14,7 +14,7 @@ module HakeTypes where
 
 import Data.Typeable
 
-data TreeRef = SrcTree | BuildTree | InstallTree
+data TreeRef = SrcTree | BFSrcTree | BuildTree | InstallTree
              deriving (Show,Eq,Ord)
 
 -- Note on Abs:

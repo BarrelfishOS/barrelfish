@@ -60,14 +60,15 @@ cDefines options = [ Str ("-D"++s) | s <- [ "BARRELFISH",
                    ++ Config.arch_defines options
 
 cStdIncs arch archFamily =
-    [ NoDep SrcTree "src" "/include",
-      NoDep SrcTree "src" ("/include/arch" </> archFamily),
-      NoDep SrcTree "src" "/lib/newlib/newlib/libc/include",
-      NoDep SrcTree "src" "/include/c",
-      NoDep SrcTree "src" ("/include/target" </> archFamily),
-      NoDep SrcTree "src" Config.lwipxxxInc, -- XXX
-      NoDep SrcTree "src" Config.lwipInc,
+    [ NoDep BFSrcTree "src" "/include",
+      NoDep BFSrcTree "src" ("/include/arch" </> archFamily),
+      NoDep BFSrcTree "src" "/lib/newlib/newlib/libc/include",
+      NoDep BFSrcTree "src" "/include/c",
+      NoDep BFSrcTree "src" ("/include/target" </> archFamily),
+      NoDep BFSrcTree "src" Config.lwipxxxInc, -- XXX
+      NoDep BFSrcTree "src" Config.lwipInc,
       NoDep InstallTree arch "/include",
+      NoDep BFSrcTree "src" ".",
       NoDep SrcTree "src" ".",
       NoDep BuildTree arch "." ]
                       

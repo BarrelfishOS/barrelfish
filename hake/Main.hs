@@ -86,6 +86,8 @@ parse_arguments ("--source-dir" : s : t) =
   (parse_arguments t) { opt_sourcedir = s }
 parse_arguments ("--bfsource-dir" : s : t) =  
   (parse_arguments t) { opt_bfsourcedir = s }
+parse_arguments ("--build-dir" : s : t) =
+  (parse_arguments t) { opt_builddir = s }
 parse_arguments ("--output-filename" : s : t) =
   (parse_arguments t) { opt_makefilename = s }
 parse_arguments ("--quiet" : t ) = 
@@ -592,7 +594,8 @@ resolveTokenPath o hakepath (Abs rule rule2) =
     let o' = o {
             opt_sourcedir = opt_abs_sourcedir o,
             opt_installdir = opt_abs_installdir o,
-            opt_builddir = opt_abs_builddir o
+            opt_builddir = opt_abs_builddir o,
+            opt_bfsourcedir = opt_abs_bfsourcedir o
         }
     in Abs (resolveTokenPath o' hakepath rule) (resolveTokenPath o hakepath rule2)
 -- Other tokens don't contain paths to resolve.
@@ -611,12 +614,16 @@ treePath :: Opts -> TreeRef -> FilePath -> FilePath -> FilePath -> FilePath
 -- The architecture 'root' is special.
 treePath o SrcTree "root" path hakepath = 
     relPath (opt_sourcedir o) path hakepath
+treePath o BFSrcTree "root" path hakepath =
+    relPath (opt_bfsourcedir o) path hakepath
 treePath o BuildTree "root" path hakepath = 
     relPath (opt_builddir o) path hakepath
 treePath o InstallTree "root" path hakepath = 
     relPath (opt_installdir o) path hakepath
 -- The architecture 'cache' is special.
 treePath o SrcTree "cache" path hakepath =
+    relPath Config.cache_dir path hakepath
+treePath o BFSrcTree "cache" path hakepath =
     relPath Config.cache_dir path hakepath
 treePath o BuildTree "cache" path hakepath =
     relPath Config.cache_dir path hakepath
@@ -625,6 +632,8 @@ treePath o InstallTree "cache" path hakepath =
 -- Source-tree paths don't get an architecture.
 treePath o SrcTree arch path hakepath =
     relPath (opt_sourcedir o) path hakepath
+treePath o BFSrcTree arch path hakepath =
+    relPath (opt_bfsourcedir o) path hakepath
 treePath o BuildTree arch path hakepath =
     relPath ((opt_builddir o) </> arch) path hakepath
 treePath o InstallTree arch path hakepath =
@@ -658,6 +667,7 @@ makeHakeDeps h o l = do
                     ( [ hake, 
                         Str "--source-dir", Str (opt_sourcedir o),
                         Str "--install-dir", Str (opt_installdir o),
+                        Str "--bfsource-dir", Str (opt_bfsourcedir o),
                         Str "--output-filename", makefile
                       ] ++
                       [ Dep SrcTree "root" h | h <- l ]
