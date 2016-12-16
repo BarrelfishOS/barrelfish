@@ -493,8 +493,11 @@ makefileRule h (HakeTypes.Rule tokens) =
         then makefileRuleInner h tokens False
         else return S.empty
 makefileRule h (Phony name double_colon tokens) = do
-    hPutStrLn h $ ".PHONY: " ++ name
-    makefileRuleInner h (Target "build" name : tokens) double_colon
+    if allowedArchs (map frArch tokens)
+        then do
+            hPutStrLn h $ ".PHONY: " ++ name
+            makefileRuleInner h (Target "build" name : tokens) double_colon
+        else return S.empty
 
 printTokens :: Handle -> S.Set RuleToken -> IO ()
 printTokens h tokens =
