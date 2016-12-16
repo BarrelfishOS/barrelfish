@@ -379,13 +379,6 @@ install: $(MODULES)
 .PHONY : install
 
 
-install_headers:
-	echo "Installing header files..." ; \
-	for a in ${HAKE_ARCHS}; do \
-	  mkdir -p "$$a" ; \
-	  cp -rv "${SRCDIR}/include" "$$a/" ; \
-	done; \
-	echo "done." ; \
 
 .PHONY : install_headers
 
