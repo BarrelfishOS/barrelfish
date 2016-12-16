@@ -10,8 +10,7 @@
 -- 
 --------------------------------------------------------------------------
 
-[ includeFile (options arch) f
-      | f <- [ 
+[ includeFile [
    "cpiobin.h",
    "dlfcn.h",
    "multicast.h",
@@ -20,4 +19,4 @@
    "x86emu.h",
    "zconf.h",
    "zlib.h"
-  ], arch <- allArchitectures ]
+  ] ]

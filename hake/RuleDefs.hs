@@ -525,13 +525,12 @@ extraGeneratedCDependency opts file s =
 --
 -- Copy include files to the appropriate directory
 --
-includeFile :: Options -> String -> HRule
-includeFile opts hdr =
-    Rules [ (Rule [ Str "cp", In SrcTree "src" hdr, Out (optArch opts) hdr ]),
-            (Rule [ PreDep BuildTree (optArch opts) hdr,
-                    Target (optArch opts) "/include/errors/errno.h" ]
-            )
-          ]
+includeFile :: [ String ] -> HRule
+includeFile hdrs =
+    Rules ([ Rule [ Str "cp", In SrcTree "src" hdr, Out "root" hdr] | hdr <- hdrs ]
+    ++ [
+        Phony "install_headers" False [ Dep BuildTree "root" hdr | hdr <- hdrs ]
+    ])
 
 --
 -- Build a Mackerel header file from a definition.
