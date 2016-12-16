@@ -37,7 +37,6 @@ inRule :: RuleToken -> Bool
 inRule (Dep _ _ _) = False
 inRule (PreDep _ _ _) = False
 inRule (Target _ _) = False
-inRule (AbsTarget _ _) = False
 inRule _ = True
 
 --
@@ -1057,13 +1056,9 @@ appGetOptionsForArch arch args =
                    }
 
 fullTarget arch appname =
-    let
-        mkFullTargetRule = [
-            Dep BuildTree arch (applicationPath appname),
-            AbsTarget arch "_All"
-            ]
-    in
-        Rule $ mkFullTargetRule
+    Phony (arch ++ "_All") False
+        [ Dep BuildTree arch (applicationPath appname) ]
+
 
 appBuildArch tdb tf args arch =
     let -- Fiddle the options
