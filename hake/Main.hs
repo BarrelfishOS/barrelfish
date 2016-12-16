@@ -642,6 +642,8 @@ treePath o InstallTree arch path hakepath =
 -- Otherwise it is appended to 'hakepath'.  We then treat this as a relative
 -- path (by removing any initial /), and append it to the relevant tree root
 -- (which may or may not have an architecture path appended already).
+relPath "." path hakepath =
+    stripSlash (hakepath </> path)
 relPath treeroot path hakepath =
     treeroot </> stripSlash (hakepath </> path)
 
