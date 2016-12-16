@@ -38,7 +38,8 @@ static errval_t map_region(struct memobj *memobj, struct vregion *vregion)
 
     // Allocate space
     struct vregion_list *data = slab_alloc(&anon->vregion_slab);
-    if (!data) { // Grow
+    if (slab_freecount(&anon->vregion_slab) <= 1 && !anon->vregion_slab_refilling) { // Grow
+        anon->vregion_slab_refilling = true;
         void *buf;
         err = vspace_pinned_alloc(&buf, VREGION_LIST);
         if (err_is_fail(err)) {
@@ -46,10 +47,13 @@ static errval_t map_region(struct memobj *memobj, struct vregion *vregion)
         }
         slab_grow(&anon->vregion_slab, buf,
                   VSPACE_PINNED_UNIT * sizeof(struct vregion_list));
-        data = slab_alloc(&anon->vregion_slab);
-        if (!data) {
-            return LIB_ERR_SLAB_ALLOC_FAIL;
+        if (data == NULL) {
+            data = slab_alloc(&anon->vregion_slab);
         }
+        anon->vregion_slab_refilling = false;
+    }
+    if (!data) {
+        return LIB_ERR_SLAB_ALLOC_FAIL;
     }
     data->region = vregion;
 
@@ -490,6 +494,7 @@ errval_t memobj_create_anon(struct memobj_anon *anon, size_t size,
     slab_init(&anon->vregion_slab, sizeof(struct vregion_list), NULL);
     slab_init(&anon->frame_slab, sizeof(struct memobj_frame_list), NULL);
 
+    anon->vregion_slab_refilling = false;
     anon->frame_slab_refilling = false;
 
     anon->vregion_list = NULL;
