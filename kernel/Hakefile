@@ -12,18 +12,6 @@
 --
 --------------------------------------------------------------------------
 
---
--- Missing from this new Hakefile is the rule to build kernel debug
--- symbols, since this requires some thinking about naming
--- conventions.  Here is the rule we need:
---
---                Rule ( [ Str "OBJDUMP=objdump",
---                         In SrcTree "src" "/tools/gen-gdbscript.sh",
---                         In SrcTree "src" "/tools/debug.gdb.in",
---                         In BuildTree arch "../sbin/cpu",
---                         Str ">", Out arch "/debug.gdb"
---                        ] )
-
 let
   scheduler = case Config.scheduler of
       Config.RR   -> "schedule_rr.c"
