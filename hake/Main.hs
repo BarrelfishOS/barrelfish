@@ -174,7 +174,8 @@ listFiles' root current
         ignore "CMakeFiles" = True
         ignore ".hg"        = True
         ignore ".git"       = True
-        ignore ('.' : xs)   = True
+        ignore ('.':[])     = False
+        ignore ('.':xs)     = True
         ignore "build"      = True
         ignore _            = False
 
