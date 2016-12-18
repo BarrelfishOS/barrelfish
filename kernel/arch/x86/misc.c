@@ -53,7 +53,11 @@ wait_cycles(uint64_t duration)
  */
 void __stack_chk_fail(void); // Existence implied by (certainly configured) GCC.
 
+void dump_stack (void);
+
 void __stack_chk_fail (void)
 {
+    printf ("FATAL: stack smashed.\n");
+    dump_stack ();
     panic("finally reached __stack_chk_fail()");
 }
