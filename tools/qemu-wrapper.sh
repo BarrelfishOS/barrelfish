@@ -24,6 +24,7 @@ SMP=${SMP:-2}
 # Grab NIC_MODEL from env, if unset default to e1000
 NIC_MODEL="${NIC_MODEL:-e1000}"
 DEBUGCON="debugcon.out"
+NO_DISPLAY="-display none"
 
 
 usage () {
@@ -42,6 +43,7 @@ usage () {
     echo "    --nic-model <name> (nic model to use, defaults to $NIC_MODEL)"
     echo "    --hagfish <file>   (Hagfish boot loader, defaults to $HAGFISH_LOCATION)"
     echo "    --debugcon <file>  (Enable QEMU debug port & qemu_debug_puts() (x86-*-only))"
+    echo "    --display          (Do not disable QEMU display)"
     echo "  "
     echo "  The following environment variables are considered:"
     echo "    QEMU_PATH         (Path for qemu-system-* binary)"
@@ -93,6 +95,9 @@ while test $# != 0; do
         ;;
     "--debugcon")
         shift; DEBUGCON="$1"
+        ;;
+    "--display")
+        NO_DISPLAY=""
         ;;
     *)
         echo "Unknown option $1 (try: --help)" >&2
@@ -298,7 +303,7 @@ if test -z "$EFI"; then
             -serial $SERIAL_OUTPUT \
             -gdb tcp::$PORT \
             -S \
-            -display none \
+            ${NO_DISPLAY} \
             -daemonize \
             -pidfile $PIDFILE"
     else
@@ -308,7 +313,7 @@ if test -z "$EFI"; then
             -serial $SERIAL_OUTPUT \
             -gdb tcp::$PORT \
             -S \
-            -display none \
+            ${NO_DISPLAY} \
             -daemonize \
             -pidfile $PIDFILE"
     fi
@@ -317,7 +322,7 @@ else
         -serial $SERIAL_OUTPUT \
         -gdb tcp::$PORT \
         -S \
-        -display none \
+        ${NO_DISPLAY} \
         -daemonize \
         -pidfile $PIDFILE"
 fi
