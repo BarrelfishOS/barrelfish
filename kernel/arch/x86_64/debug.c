@@ -16,6 +16,8 @@
 #include <stdio.h>
 #include <x86.h>
 #include <arch/x86/debug.h>
+#include <arch/x86_64/irq.h>
+#include <arch/x86_64/vmx_vmkit.h> // for rd_idtr
 #include <paging_kernel_arch.h>
 
 union lin_addr {
@@ -103,6 +105,60 @@ void debug_vaddr_identify(lvaddr_t debug_pml4, lvaddr_t vaddr)
 uintptr_t kernel_virt_to_elf_addr(void *addr)
 {
     return (uintptr_t)addr - (uintptr_t)&_start_kernel + START_KERNEL_PHYS;
+}
+#define gate_offset(g) ((g).offset_low | ((unsigned long)(g).offset_middle << 16) | ((unsigned long)(g).offset_high << 32))
+
+static inline uintptr_t gd_offset (struct gate_descriptor *gd)
+{
+    return (uintptr_t) ((((uint64_t) gd->gd_hioffset) << 16)
+		       |(((uint64_t) gd->gd_looffset) & 0xffff));
+}
+
+static void dump_gate_descriptor (struct gate_descriptor *gd, char *desc, int i)
+{
+    char *type;
+
+    switch (gd->gd_type) {
+    case SDT_SYSNULL:  type = "NULL";      break;
+    case SDT_SYSLDT:   type = "LDT";       break;
+    case SDT_SYSTSS:   type = "TSS avail"; break;
+    case SDT_SYSBSY:   type = "TSS busy";  break;
+    case SDT_SYSCGT:   type = "call gate"; break;
+    case SDT_SYSIGT:   type = "intr gate"; break;
+    case SDT_SYSTGT:   type = "trap gate"; break;
+    default:
+	if (gd->gd_type >= SDT_MEMRO)
+	    type = "memory";
+	else
+	    type = "invalid";
+    };
+
+    char *iscanon = is_canonical (gd_offset (gd)) ? "ok" : "non-canonical!";
+    printf ("  %s[%d]%p = { .sel = %d, .offset = 0x%lx(%s), .present = %d, .type = 0x%x (%s), .istidx = %d, .dpl = %x }\n"
+	    , desc, i, gd, gd->gd_selector, gd_offset (gd), iscanon, gd->gd_p,    gd->gd_type, type, gd->gd_ist,   gd->gd_dpl);
+}
+
+void dump_idt (void)
+{
+    union {
+	uint64_t        raw;
+	struct {
+	    uint64_t  bytes:16;
+	    uint64_t offset:32;
+	} __attribute__ ((packed));
+    } __attribute__ ((packed)) idtr;
+
+    idtr.raw = rd_idtr ();
+
+    int amd64_idt_entry_size = 16;
+    int             idt_elts = (idtr.bytes + 1) / amd64_idt_entry_size;
+    struct gate_descriptor (*idt)[256] __attribute__ ((aligned (16))) =
+      (struct gate_descriptor (*)[256]) (uint64_t) idtr.offset;
+
+    printf ("Dumping %d entries of IDT at %x (raw IDTR=%lx):\n", idt_elts, idtr.offset, idtr.raw);
+    for (int i = 0; i < idt_elts; i++)
+	dump_gate_descriptor (&(*idt)[i], "IDT", i);
+    printf ("-- end of IDT --\n");
 }
 
 /*

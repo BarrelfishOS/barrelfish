@@ -24,6 +24,8 @@ void debug_setup_stackwalker (uint64_t stack_top, uint64_t stack_bottom, uint64_
 void debug_relocate_dynsyms (struct Elf64_Sym *dynsyms, int n, uint64_t offset);
 void dump_stack (void);
 
+void dump_idt (void);
+
 /* Citing the QEMU manpage, circa 2016:
  * -debugcon dev
  *
