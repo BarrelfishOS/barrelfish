@@ -37,6 +37,7 @@ let
                "useraccess.c",
                "coreboot.c",
                "systime.c" ]
+             ++ (if Config.stack_trace then ["qsort.c"] else [])
              ++ (if Config.microbenchmarks then ["microbenchmarks.c"] else [])
              ++ (if Config.oneshot_timer then ["timer.c"] else [])
   common_libs = [ "getopt", "mdb_kernel" ]
