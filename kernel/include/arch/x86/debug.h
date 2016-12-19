@@ -45,4 +45,17 @@ static inline void __attribute__ ((always_inline)) qemu_debug_puts (char *s)
 	qemu_debug_outb (c);
 }
 
+#define QEMU_DEBUG_PRINTF_MAX 128
+static inline int qemu_debug_printf (char *format, ...)
+{
+    char printf_buf[QEMU_DEBUG_PRINTF_MAX];
+    va_list va;
+    va_start (va, format);
+    int ret = snprintf (printf_buf, QEMU_DEBUG_PRINTF_MAX, format, va);
+    int written = min (ret, QEMU_DEBUG_PRINTF_MAX);
+    qemu_debug_puts (printf_buf);
+    va_end (va);
+    return written;
+}
+
 #endif //KERNEL_DEBUG_H
