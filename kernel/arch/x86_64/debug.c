@@ -104,3 +104,154 @@ uintptr_t kernel_virt_to_elf_addr(void *addr)
 {
     return (uintptr_t)addr - (uintptr_t)&_start_kernel + START_KERNEL_PHYS;
 }
+
+/*
+ * Stack walker internals
+ */
+#if defined (CONFIG_KERNEL_STACK_TRACE)
+
+static inline uint64_t __attribute__((always_inline)) rdrbp (void)
+{
+    uint64_t rbp;
+    __asm__("movq %%rbp, %0" : "=r" (rbp) :);
+    return rbp;
+}
+
+struct stack_frame {
+    struct stack_frame *next_frame;
+    uint64_t            return_address;
+};
+
+static uint64_t debug_stackwalker_stack_top, debug_stackwalker_stack_bottom = -1;
+static uint64_t debug_stackwalker_text_start, debug_stackwalker_text_end;
+static struct Elf64_Sym
+               *debug_stackwalker_dynsyms;
+static    char *debug_stackwalker_dynstr;
+static      int debug_stackwalker_nsyms;
+const       int debug_stackwalker_max_frames = 16;
+
+static bool debug_stackwalker_initializedp (void)
+{
+    return debug_stackwalker_stack_bottom != -1;
+}
+
+static int stack_pointer_valid_p (uint64_t ptr, uint64_t top, uint64_t bottom)
+{
+    return bottom <= ptr && ptr < top && !(ptr & 0x7);
+}
+static int text_address_valid_p (uint64_t ptr, uint64_t start, uint64_t end)
+{
+    return start <= ptr && ptr < end;
+}
+
+static void walk_stack (uint64_t rbp, uint64_t stack_top, uint64_t stack_bottom,
+			int max_frames, void (*walk_callback) (struct stack_frame *))
+{
+    struct stack_frame *frame = (struct stack_frame *) rbp;
+    int i = 0;
+    while ((! max_frames || i < max_frames) &&
+	   stack_pointer_valid_p ((uint64_t) frame->next_frame, stack_top, stack_bottom)) {
+	walk_callback (frame);
+	frame = frame->next_frame;
+	i++;
+    }
+}
+
+static char *resolve_sym (uint64_t addr)
+{
+    if (! debug_stackwalker_initializedp ())
+	return "<symbols unavailable>";
+
+    addr = addr < X86_64_PADDR_SPACE_LIMIT ? local_phys_to_mem (addr) : addr;
+    if (! text_address_valid_p (addr, debug_stackwalker_text_start, debug_stackwalker_text_end))
+	return "<not in .text>";
+
+    for (int i = 0; i < debug_stackwalker_nsyms; i++) {
+	struct Elf64_Sym *sym = &debug_stackwalker_dynsyms[i];
+	if (i < debug_stackwalker_nsyms - 1 &&
+	    addr < (sym + 1)->st_value)
+	    return & debug_stackwalker_dynstr[sym->st_name];
+    }
+    return "<odd missing symbol>";
+}
+
+static void print_frame(struct stack_frame * frame)
+{
+    uint64_t addr = frame->return_address;
+
+    printf ("%16lx %s\n\r", addr, resolve_sym (addr));
+}
+
+static void __dump_stack (uint64_t rbp)
+{
+    if (! debug_stackwalker_initializedp ()) {
+	printf("ERROR: stack walker is not initialized\n\r");
+	return;
+    }
+
+    printf ("    call trace (rbp: %lx, stack: %lx-%lx, text: %lx-%lx):\n\r",
+	    rbp, debug_stackwalker_stack_top, debug_stackwalker_stack_bottom, debug_stackwalker_text_start, debug_stackwalker_text_end);
+    walk_stack (rbp, debug_stackwalker_stack_top, debug_stackwalker_stack_bottom, debug_stackwalker_max_frames, print_frame);
+}
+
+static int compare_syms (const struct Elf64_Sym *a, const struct Elf64_Sym *b)
+{
+    return (a->st_value <  b->st_value ? -1 :
+	    a->st_value == b->st_value ? 0  :
+	    1);
+}
+#endif
+
+/*
+ * Stack walker public API
+ */
+#define _unused __attribute__((unused))
+
+void debug_setup_stackwalker (_unused uint64_t stack_top, _unused uint64_t stack_bottom, _unused uint64_t text_start, _unused uint64_t text_end, _unused struct Elf64_Sym *dynsyms, _unused char *dynstr, _unused int nsyms)
+{
+#if defined (CONFIG_KERNEL_STACK_TRACE)
+    uint64_t rbp = rdrbp (), rsp;
+    rsp = (uint64_t) &rsp;
+
+    if (! stack_pointer_valid_p (rbp, stack_top, stack_bottom)) {
+	printf ("WARNING:  refusing to initialize stackwalker with rbp=0x%lx (rsp=0x%lx) outside of specified 0x%lx-0x%lx\n"
+		, rbp, rsp, stack_top, stack_bottom);
+	return;
+    }
+
+    debug_stackwalker_stack_top    = stack_top;
+    debug_stackwalker_stack_bottom = stack_bottom;
+    debug_stackwalker_text_start   = text_start;
+    debug_stackwalker_text_end     = text_end;
+    debug_stackwalker_dynsyms      = dynsyms;
+    debug_stackwalker_dynstr       = dynstr;
+    debug_stackwalker_nsyms        = nsyms;
+
+    printf ("Initialized stack walker with stack 0x%lx-0x%lx, text 0x%lx-0x%lx (rbp=%lx, rsp=%lx)\n"
+	    , stack_top, stack_bottom, text_start, text_end, rbp, rsp);
+#else
+    printf ("WARNING:  refusing to initialize stackwalker: disabled by CONFIG_KERNEL_STACK_TRACE\n");
+#endif
+}
+
+void debug_sort_dynsyms (struct Elf64_Sym *dynsyms, int n)
+{
+#if defined (CONFIG_KERNEL_STACK_TRACE)
+    qsort (dynsyms, n, sizeof (struct Elf64_Sym), (int (*)(const void *, const void *)) compare_syms);
+#endif
+}
+
+void debug_relocate_dynsyms (struct Elf64_Sym *dynsyms, int n, uint64_t offset)
+{
+    for (int i = 0; i < n; i++)
+	dynsyms[i].st_value += offset;
+}
+
+void dump_stack (void)
+{
+#if defined (CONFIG_KERNEL_STACK_TRACE)
+    __dump_stack (rdrbp ());
+#else
+    printf ("WARNING:  not dumping stack: disabled by CONFIG_KERNEL_STACK_TRACE\n");
+#endif
+}
