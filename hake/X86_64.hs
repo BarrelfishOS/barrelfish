@@ -99,7 +99,8 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mno-sse4.2",
                                 "-mno-sse4",
                                 "-mno-sse4a",
-                                "-mno-3dnow" ]]
+                                "-mno-3dnow" ]
+                                ++ [ "-fno-omit-frame-pointer" | Config.stack_trace ] ]
 
 kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
                                 "-pie",
