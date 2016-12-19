@@ -1335,6 +1335,11 @@ platform name archs files docstr =
       Phony name False
       ([ NStr "@echo 'Built platform <",  NStr name, NStr ">'" ] ++
        [ Dep BuildTree arch file | (arch,file) <- files ]) ,
+      Phony ("install_" ++ name) False
+      ([ NStr "@echo 'Installing platform <",  NStr name, NStr ">'" ] ++
+       [ NL, Str "rsync -v -a --relative" ] ++
+       [ In BuildTree arch file | (arch,file) <- files ] ++
+       [ Str Config.dist_dir ]),
       Phony "help-platforms" True
       [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"" ]
       ]
