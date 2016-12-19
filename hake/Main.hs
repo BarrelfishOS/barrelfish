@@ -450,7 +450,7 @@ makefilePreamble h opts args =
              "Q=@",
              "SRCDIR=" ++ opt_sourcedir opts,
              "HAKE_ARCHS=" ++ intercalate " " Config.architectures,
-             "include ./symbolic_targets.mk" ])
+             "include ./hake/symbolic_targets.mk" ])
 
 -- There a several valid top-level build directores, apart from the
 -- architecture-specific one.
