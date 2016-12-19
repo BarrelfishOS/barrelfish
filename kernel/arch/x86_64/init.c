@@ -27,6 +27,7 @@
 #include <exec.h>
 #include <kputchar.h>
 #include <systime.h>
+#include <arch/x86/debug.h>
 #include <arch/x86/conio.h>
 #include <arch/x86/pic.h>
 #include <arch/x86/apic.h>
@@ -343,6 +344,12 @@ relocate_stack(lvaddr_t offset)
                    : [stack] "er" (offset)
                    : "rsp"
                    );
+#if defined (CONFIG_KERNEL_STACK_TRACE)
+	__asm volatile("add %[stack], %%rbp\n\t"
+		       : /* No output */
+		       : [stack] "er" (offset)
+		       );
+#endif
 }
 
 /**
@@ -542,6 +549,8 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
     // Returning here will crash! -- low pages not mapped anymore!
 }
 
+extern int _start_kernel_text, _end_kernel_text;
+
 /**
  * \brief Architecture-specific initialization function.
  *
@@ -685,12 +694,14 @@ void arch_init(uint64_t magic, void *pointer)
     // Alias kernel on top of memory, keep low memory
     paging_init((lpaddr_t)&_start_kernel, SIZE_KERNEL_IMAGE);
 
+    struct Elf64_Sym *syms = (struct Elf64_Sym *)(symtab->sh_addr - X86_64_START_KERNEL_PHYS + &_start_kernel);
+
     // Relocate kernel image for top of memory
-    elf64_relocate(X86_64_MEMORY_OFFSET + (lvaddr_t)&_start_kernel,
+    elf64_relocate(X86_64_MEMORY_OFFSET + (lvaddr_t) &_start_kernel,
                    (lvaddr_t)&_start_kernel,
                    (struct Elf64_Rela *)(rela->sh_addr - X86_64_START_KERNEL_PHYS + &_start_kernel),
                    rela->sh_size,
-                   (struct Elf64_Sym *)(symtab->sh_addr - X86_64_START_KERNEL_PHYS + &_start_kernel),
+                   syms,
                    symtab->sh_size,
                    X86_64_START_KERNEL_PHYS, &_start_kernel);
 
@@ -698,6 +709,27 @@ void arch_init(uint64_t magic, void *pointer)
 
     // Relocate stack to aliased location
     relocate_stack(X86_64_MEMORY_OFFSET);
+
+#if defined (CONFIG_KERNEL_STACK_TRACE)
+    // Now that address dances are somewhat settled, let's instate some comfort:
+    int nsyms = symtab->sh_size / sizeof (struct Elf64_Sym);
+
+    debug_sort_dynsyms (syms, nsyms);
+    debug_relocate_dynsyms (syms, nsyms, X86_64_MEMORY_OFFSET - X86_64_START_KERNEL_PHYS + (uint64_t) &_start_kernel);
+
+    struct Elf64_Shdr *dynstr_sectn = elf64_find_section_header_type((struct Elf64_Shdr *)
+								     (lpaddr_t)elf->addr,
+								     elf->num, SHT_STRTAB);
+    if (dynstr_sectn == NULL) {
+        panic("Kernel image does not include symbol strings!");
+    }
+    char *dynstr = (char *)(dynstr_sectn->sh_addr - X86_64_START_KERNEL_PHYS + &_start_kernel);
+
+    uint64_t stack_bottom = local_phys_to_mem ((lpaddr_t) & x86_64_kernel_stack);
+    debug_setup_stackwalker (stack_bottom + sizeof x86_64_kernel_stack, stack_bottom,
+			     (lpaddr_t) &_start_kernel_text, (lpaddr_t) &_end_kernel_text,
+			     syms, dynstr, nsyms);
+#endif
 
     // Call aliased text_init() function and continue initialization
     reloc_text_init();
