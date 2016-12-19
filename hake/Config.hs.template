@@ -124,6 +124,9 @@ install_dir :: String
 cache_dir :: String
 -- cache_dir = undefined -- (set by hake.sh, see end of file)
 
+dist_dir :: String
+-- dist_dir = undefined -- (set by hake.sh, see end of file)
+
 -- Set of architectures for which to generate rules
 architectures :: [String]
 -- architectures = undefined -- (set by hake.sh, see end of file)
