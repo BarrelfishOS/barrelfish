@@ -16,6 +16,7 @@ _start_kernel = X86_64_START_KERNEL_PHYS;
 
 SECTIONS {
         . = ALIGN(4k);
+        _start_kernel_text = .;
         .text X86_64_START_KERNEL_PHYS : ALIGN(4k)
         {
                 *(.text);
