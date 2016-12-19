@@ -106,7 +106,8 @@ kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
                                  "-fno-builtin",
                                  "-nostdlib",
                                  "-Wl,--fatal-warnings",
-                                 "-m32" ] ]
+                                 "-m32" ]
+                                 ++ [ "-rdynamic" | Config.stack_trace ] ]
 
 --
 -- Compilers

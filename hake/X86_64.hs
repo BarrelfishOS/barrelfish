@@ -103,10 +103,11 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
 
 kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
                                 "-pie",
-                                 "-fno-builtin",
+                                "-fno-builtin",
                                 "-nostdlib",
                                 "-Wl,--fatal-warnings",
-                                "-m64" ] ]
+                                "-m64" ]
+                                ++ [ "-rdynamic" | Config.stack_trace ] ]
 
 
 ------------------------------------------------------------------------
