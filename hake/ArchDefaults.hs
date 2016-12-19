@@ -135,7 +135,11 @@ options arch archFamily = Options {
             extraIncludes = [],
             extraDependencies = [],
             extraLdFlags = [],
-            optSuffix = []
+            optSuffix = [],
+            optInstallPath = OptionsPath {
+                optPathBin = "/sbin",
+                optPathLib = "/lib"
+            }
           }
 
 ------------------------------------------------------------------------

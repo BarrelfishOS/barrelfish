@@ -120,6 +120,11 @@ formatToken (NL) = "\n\t"
 --
 -------------------------------------------------------------------------
 
+data OptionsPath = OptionsPath {
+    optPathBin :: String,
+    optPathLib :: String
+}
+
 data Options = Options {
       optArch :: String,
       optArchFamily :: String,
@@ -140,6 +145,7 @@ data Options = Options {
       extraIncludes :: [RuleToken],
       extraDependencies :: [RuleToken],
       extraLdFlags :: [RuleToken],
-      optSuffix :: String
+      optSuffix :: String,
+      optInstallPath :: OptionsPath
     }
       

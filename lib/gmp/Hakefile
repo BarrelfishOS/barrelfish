@@ -209,7 +209,7 @@ in [ ] ++ (getExternalDependency gmp_url gmp_archive) ++
     Rule ( [
         Str "cp",
         In BuildTree arch ".libs/libgmp.a",
-        Out arch $ libraryPath "gmp"
+        Out arch $ libraryPath (options arch) "gmp"
         ]
     )
   ] | arch <- (allArchitectures Data.List.\\ [ ]) ]

@@ -154,7 +154,11 @@ kernelOptions arch = Options {
             extraDefines = [],
             extraIncludes = [],
             extraDependencies = [],
-            extraLdFlags = []
+            extraLdFlags = [],
+            optInstallPath = OptionsPath {
+                optPathBin = "/sbin",
+                optPathLib = "/lib"
+            }
           }
 
 
@@ -398,36 +402,36 @@ assemble opts src =
 --
 archiveLibrary :: Options -> String -> [String] -> [String] -> [ RuleToken ]
 archiveLibrary opts name objs libs =
-    archive opts objs libs name (libraryPath name)
+    archive opts objs libs name (libraryPath opts name)
 
 --
 -- Link an executable
 --
 linkExecutable :: Options -> [String] -> [String] -> String -> [RuleToken]
 linkExecutable opts objs libs bin =
-    linker opts objs libs (applicationPath bin)
+    linker opts objs libs (applicationPath opts bin)
 
 --
 -- Strip debug symbols from an executable
 --
 stripExecutable :: Options -> String -> String -> String -> [RuleToken]
 stripExecutable opts src debuglink target =
-    strip opts (applicationPath src) (applicationPath debuglink)
-               (applicationPath target)
+    strip opts (applicationPath opts src) (applicationPath opts debuglink)
+               (applicationPath opts target)
 
 --
 -- Extract debug symbols from an executable
 --
 debugExecutable :: Options -> String -> String -> [RuleToken]
 debugExecutable opts src target =
-    debug opts (applicationPath src) (applicationPath target)
+    debug opts (applicationPath opts src) (applicationPath opts target)
 
 --
 -- Link a C++ executable
 --
 linkCxxExecutable :: Options -> [String] -> [String] -> String -> [RuleToken]
 linkCxxExecutable opts objs libs bin =
-    cxxlinker opts objs libs (applicationPath bin)
+    cxxlinker opts objs libs (applicationPath opts bin)
 
 -------------------------------------------------------------------------
 
@@ -583,8 +587,12 @@ flounderTHCHdrPath ifn = "/include/if" </> (ifn ++ "_thc.h")
 flounderTHCStubPath opts ifn =
     (optSuffix opts) </> (ifn ++ "_thc.c")
 
-applicationPath name = "/sbin" </> name
-libraryPath libname = "/lib" </> ("lib" ++ libname ++ ".a")
+applicationPath :: Options -> String -> String
+applicationPath opts name = optPathBin (optInstallPath opts) </> name
+
+libraryPath :: Options -> String -> String
+libraryPath opts libname = optPathLib (optInstallPath opts) </> ("lib" ++ libname ++ ".a")
+
 kernelPath = "/sbin/cpu"
 
 -- construct include arguments to flounder for common types
@@ -835,11 +843,11 @@ linkCxx opts objs libs bin =
 --
 linkKernel :: Options -> String -> [String] -> [String] -> String -> HRule
 linkKernel opts name objs libs driverType
-    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
-    | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
-    | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath l | l <- libs ] ("/sbin" </> name)
-    | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath l | l <- libs ] name driverType
-    | optArch opts == "armv8" = ARMv8.linkKernel opts objs [libraryPath l | l <- libs ] name
+    | optArch opts == "x86_64" = X86_64.linkKernel opts objs [libraryPath opts l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath opts l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath opts l | l <- libs ] ("/sbin" </> name)
+    | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath opts l | l <- libs ] name driverType
+    | optArch opts == "armv8" = ARMv8.linkKernel opts objs [libraryPath opts l | l <- libs ] name
     | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
 --
@@ -910,7 +918,11 @@ nativeOptions = Options {
       extraIncludes          = [],
       extraDependencies      = [],
       extraLdFlags           = [],
-      optSuffix              = ""
+      optSuffix              = "",
+      optInstallPath         = OptionsPath {
+            optPathBin = "/sbin",
+            optPathLib = "/lib"
+      }
     }
 
 --
@@ -1009,9 +1021,9 @@ allObjectPaths opts args =
                 (Args.generatedCFiles args) ++ (Args.generatedCxxFiles args)
     ]
 
-allLibraryPaths :: Args.Args -> [String]
-allLibraryPaths args =
-    [ libraryPath l | l <- Args.addLibraries args ]
+allLibraryPaths :: Options -> Args.Args -> [String]
+allLibraryPaths opts args =
+    [ libraryPath opts l | l <- Args.addLibraries args ]
 
 
 ---------------------------------------------------------------------
@@ -1026,6 +1038,9 @@ allLibraryPaths args =
 
 application :: Args.Args
 application = Args.defaultArgs { Args.buildFunction = applicationBuildFn }
+
+system :: Args.Args -> Args.Args
+system args = args { Args.installDirs = (Args.installDirs args) { Args.bindir = "/sbin" }}
 
 applicationBuildFn :: TreeDB -> String -> Args.Args -> HRule
 applicationBuildFn tdb tf args
@@ -1051,13 +1066,17 @@ appGetOptionsForArch arch args =
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
                      extraDependencies =
                          [Dep BuildTree arch s |
-                            s <- Args.addGeneratedDependencies args]
+                            s <- Args.addGeneratedDependencies args],
+                     optInstallPath = OptionsPath {
+                        optPathBin = Args.bindir (Args.installDirs args),
+                        optPathLib = Args.libdir (Args.installDirs args)
+                     }
                    }
 
-fullTarget arch appname =
+fullTarget :: Options -> String -> String -> HRule
+fullTarget opts arch appname =
     Phony (arch ++ "_All") False
-        [ Dep BuildTree arch (applicationPath appname) ]
-
+        [ Dep BuildTree arch (applicationPath opts appname) ]
 
 appBuildArch tdb tf args arch =
     let -- Fiddle the options
@@ -1082,9 +1101,9 @@ appBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                mylink opts (allObjectPaths opts args) (allLibraryPaths args)
+                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args)
                        appname,
-                fullTarget arch appname
+                fullTarget opts arch appname
               ]
             )
 
@@ -1143,7 +1162,7 @@ arrakisAppBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                mylink opts (allObjectPaths opts args) (allLibraryPaths args) appname
+                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args) appname
               ]
             )
 
@@ -1194,7 +1213,7 @@ libBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                staticLibrary opts (Args.target args) (allObjectPaths opts args) (allLibraryPaths args)
+                staticLibrary opts (Args.target args) (allObjectPaths opts args) (allLibraryPaths opts args)
               ]
             )
 

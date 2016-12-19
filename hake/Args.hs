@@ -42,8 +42,14 @@ data Args = Args {
       addLibraries :: [String],
       addGeneratedDependencies :: [String],
       architectures :: [String],
-      sockeyeSchema :: [String]
-} 
+      sockeyeSchema :: [String],
+      installDirs :: InstallDirs
+}
+
+data InstallDirs = InstallDirs {
+    bindir :: String,
+    libdir :: String
+}
 
 defaultArgs = Args { 
       buildFunction = defaultBuildFn,
@@ -72,7 +78,11 @@ defaultArgs = Args {
       addLibraries = [],
       addGeneratedDependencies = [],
       architectures = allArchitectures,
-      sockeyeSchema = []
+      sockeyeSchema = [],
+      installDirs = InstallDirs {
+            bindir = "/sbin",
+            libdir = "/lib"
+      }
 }
 
 allArchitectures = [ "x86_64", "x86_32", "armv7", "armv8", "k1om" ]
