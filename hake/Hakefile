@@ -25,7 +25,7 @@ in
           Str "-package ghc-paths",
           Str "-package bytestring-trie",
           Str "-o", Out "hake" "/hake",
-          Str "-outputdir", NoDep BuildTree "hake" "/",
+          Str "-outputdir", NoDep BuildTree "root" "/hake",
           NStr "-i", NoDep SrcTree "src" "",
           NStr "-i", NoDep BuildTree "hake" "/",
           Str "-rtsopts=all",
