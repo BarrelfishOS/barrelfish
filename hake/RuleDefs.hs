@@ -1345,7 +1345,8 @@ platform name archs files docstr =
        [ In BuildTree arch file | (arch,file) <- files ] ++
        [ Str Config.dist_dir ]),
       Phony "help-platforms" True
-      [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"" ]
+      [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"",
+        Dep BuildTree "root" "/help-platforms-header" ]
       ]
   else
     Rules []
@@ -1363,7 +1364,8 @@ boot name archs tokens docstr =
     Rules [
       Phony name False tokens,
       Phony "help-boot" True
-      [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"" ]
+      [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"",
+        Dep BuildTree "root" "/help-boot-header"  ]
       ]
   else
     Rules []
