@@ -1343,7 +1343,7 @@ platform name archs files docstr =
       ([ NStr "@echo 'Installing platform <",  NStr name, NStr ">'" ] ++
        [ NL, Str "rsync -v -a --relative" ] ++
        [ In BuildTree arch file | (arch,file) <- files ] ++
-       [ Str Config.dist_dir ]),
+       [ Str "${INSTALL_PREFIX}" ]),
       Phony "help-platforms" True
       [ Str "@echo \"", NStr name, Str ":\\n\\t", NStr docstr, Str "\"",
         Dep BuildTree "root" "/help-platforms-header" ]

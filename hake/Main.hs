@@ -454,7 +454,8 @@ makefilePreamble h opts args =
              "MAKEFLAGS=r",
              -- Explicitly disable the flex and bison implicit rules
              "%.c : %.y",
-             "%.c : %.l" ])
+             "%.c : %.l",
+             "INSTALL_PREFIX ?= /home/netos/tftpboot/$(USER)" ])
 
 -- There a several valid top-level build directores, apart from the
 -- architecture-specific one.
