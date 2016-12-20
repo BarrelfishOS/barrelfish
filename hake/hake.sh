@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 ##########################################################################
 # Copyright (c) 2009, 2011, 2013, 2015, ETH Zurich.
@@ -56,7 +56,7 @@ usage() {
 #
 # Legacy compatibility to avoid breaking the harness...
 #
-if [[ $# -eq 1 ]] && [[ $1 != "-"* ]]; then
+if test $# -eq 1 && test $1 != "-"*; then
     echo "WARNING: old usage of hake.sh (sole argument gives the source directory) is"
     echo "deprecated: please use --source-dir instead."
     SRCDIR="$1"
