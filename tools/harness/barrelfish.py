@@ -9,6 +9,11 @@
 
 import os.path
 
+class Module(object):
+    def __init__(self, module, args):
+        self.module = module
+        self.args = args
+
 class BootModules(object):
     """Modules to boot (ie. the menu.lst file)"""
 
@@ -17,7 +22,7 @@ class BootModules(object):
         self.prefix = prefix
         self.kernel = os.path.join(prefix, kernel)
         self.kernelArgs = []
-        self.modules = {}
+        self.modules = []
         self.machine = machine
 
     def set_kernel(self, kernel, args=[]):
@@ -44,12 +49,14 @@ class BootModules(object):
         else:
             # relative paths are prepended with the prefix
             module = os.path.join(self.prefix, module)
-        self.modules[module] = args
+        mod = Module(module, args)
+        self.modules.append(mod)
+        return mod
 
     def add_module_arg(self, modulename, arg):
-        for (mod, args) in self.modules.items():
-            if self._module_matches(mod, modulename):
-                args.append(arg)
+        for mod in self.modules:
+            if self._module_matches(mod.module, modulename):
+                mod.args.append(arg)
 
     def get_menu_data(self, path, root="(nd)"):
         assert(self.kernel[0])
@@ -60,13 +67,13 @@ class BootModules(object):
             r += "hypervisor %s\n" % os.path.join(path, self.prefix, self.hypervisor)
         r += "kernel %s %s\n" % (
                 os.path.join(path, self.kernel), " ".join(self.kernelArgs))
-        for (module, args) in self.modules.iteritems():
-            r += "modulenounzip %s %s\n" % (os.path.join(path, module), " ".join(map(str, args)))
+        for module in self.modules:
+            r += "modulenounzip %s %s\n" % (os.path.join(path, module.module), " ".join(map(str, module.args)))
         return r
 
     # what targets do we need to build/install to run this test?
     def get_build_targets(self):
-        ret = list(set([self.kernel] + self.modules.keys()))
+        ret = list(set([self.kernel] + [ module.module for module in self.modules] ))
 
         if self.hypervisor:
             ret.append(self.hypervisor)
