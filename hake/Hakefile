@@ -88,5 +88,25 @@ in
   Phony "clean" False (
     [ Str "$(RM)", Str "-r", Str "tools", Str "docs" ] ++
     (map Str Config.architectures) ++
-    [ Dep BuildTree "root" "/clean-platform" ])
+    [ Dep BuildTree "root" "/clean-platform" ]),
+  -- Legacy target for scalebench to install modules
+  Phony "install" False ([
+    Dep BuildTree "root" "/$(MODULES)",
+    Str "@echo \"\";",
+    Str "echo \"Installing modules...\" ;",
+    Str "for m in ${MODULES}; do",
+    Str "  if [ ! -f ${INSTALL_PREFIX}/$$m ] ||",
+    Str "      [ $$(stat -c%Y $$m) -ne $$(stat -c%Y ${INSTALL_PREFIX}/$$m) ]; then",
+    Str "         do_update=1;",
+    Str "         echo \"  > Installing $$m\" ;",
+    Str "         mkdir -p ${INSTALL_PREFIX}/$$(dirname $$m);",
+    Str "         install -p $$m ${INSTALL_PREFIX}/$$m;",
+    Str "  fi;",
+    Str "done;",
+    Str "if [ ! $$do_update ]; then",
+    Str "    echo \"  > All up to date\" ;",
+    Str "fi;",
+    Str "echo \"\";",
+    Str "echo \"done.\" ;"
+  ])
 ]
