@@ -1335,6 +1335,10 @@ platform name archs files docstr =
       Phony name False
       ([ NStr "@echo 'Built platform <",  NStr name, NStr ">'" ] ++
        [ Dep BuildTree arch file | (arch,file) <- files ]) ,
+      Phony "clean-platform" True
+      ([ NStr "@echo 'Cleaning platform <",  NStr name, NStr ">'", NL,
+         Str "$(RM)" ] ++
+       [ NoDep BuildTree arch file | (arch,file) <- files ]),
       Phony ("install_" ++ name) False
       ([ NStr "@echo 'Installing platform <",  NStr name, NStr ">'" ] ++
        [ NL, Str "rsync -v -a --relative" ] ++

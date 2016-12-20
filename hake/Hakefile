@@ -57,5 +57,9 @@ in
     "K1om.hs",
     "X86_32.hs",
     "X86_64.hs"
-  ]
+  ],
+  Phony "clean" False (
+    [ Str "$(RM)", Str "-r", Str "tools", Str "docs" ] ++
+    (map Str Config.architectures) ++
+    [ Dep BuildTree "root" "/clean-platform" ])
 ]
