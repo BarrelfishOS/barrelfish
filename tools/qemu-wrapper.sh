@@ -323,7 +323,7 @@ eval $QEMU_INVOCATION
 
 if test $? -eq 0; then
     stty sane
-    trap '' SIGINT
+    trap '' INT
     ${GDB} -x barrelfish_debug.gdb ${GDB_ARGS}
     PID=`cat ${PIDFILE}`
     kill ${PID} > /dev/null || true
