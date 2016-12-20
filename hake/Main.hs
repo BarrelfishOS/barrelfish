@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 {- 
   Hake: a meta build system for Barrelfish
 
@@ -33,9 +35,12 @@ import System.IO
 import GHC hiding (Target, Ghc, runGhc, FunBind, Match)
 import GHC.Paths (libdir)
 import Control.Monad.Ghc
-import DynFlags (defaultFatalMessager, defaultFlushOut,
-                 xopt_set, ExtensionFlag(Opt_DeriveDataTypeable,
-                                         Opt_StandaloneDeriving))
+import DynFlags (defaultFatalMessager, defaultFlushOut, xopt_set)
+#if (__GLASGOW_HASKELL__ > 710)
+import qualified Language.Haskell.TH.LanguageExtensions as GE
+#else
+import DynFlags                               (ExtensionFlag(Opt_DeriveDataTypeable, Opt_StandaloneDeriving))
+#endif
 
 -- We parse and pretty-print Hakefiles.
 import Language.Haskell.Exts
@@ -210,8 +215,13 @@ driveGhc :: Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
 driveGhc makefile o srcDB hakefiles = do
     -- Set the RTS flags
     dflags <- getSessionDynFlags
-    let dflags' = foldl xopt_set dflags [ Opt_DeriveDataTypeable,
-                                          Opt_StandaloneDeriving ]
+    let dflags' = foldl xopt_set dflags
+#if (__GLASGOW_HASKELL__ > 710)
+                        [ GE.DeriveDataTypeable,  GE.StandaloneDeriving ]
+#else
+                        [ Opt_DeriveDataTypeable, Opt_StandaloneDeriving ]
+#endif
+
     _ <- setSessionDynFlags dflags'{
         importPaths = module_paths,
         hiDir = Just "./hake",
