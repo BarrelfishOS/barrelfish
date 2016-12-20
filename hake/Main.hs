@@ -454,8 +454,7 @@ makefilePreamble h opts args =
              "MAKEFLAGS=r",
              -- Explicitly disable the flex and bison implicit rules
              "%.c : %.y",
-             "%.c : %.l",
-             "include ./hake/symbolic_targets.mk" ])
+             "%.c : %.l" ])
 
 -- There a several valid top-level build directores, apart from the
 -- architecture-specific one.

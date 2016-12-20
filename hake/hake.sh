@@ -207,12 +207,6 @@ else
     echo "You already have Config.hs, leaving it as-is."
 fi
 
-if [ ! -f ./hake/symbolic_targets.mk ]; then
-    echo "Creating new symbolic_targets.mk file."
-    cp "$SRCDIR/hake/symbolic_targets.mk" hake/
-else
-    echo "You already have symbolic_targets.mk, leaving it as-is."
-fi
 
 # FIXME: do we really need this; doesn't ghc get the dependencies right? -AB
 #rm -f hake/*.hi hake/*.o 

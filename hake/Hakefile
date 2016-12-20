@@ -36,10 +36,6 @@ in
           Str "$(LDFLAGS)"
         ] 
         ++ [Dep SrcTree "src" f | f <- hakesrc]),
-  Rule [ Str "cp", 
-         In SrcTree "src" "symbolic_targets.mk",
-         Out "root" "symbolic_targets.mk" 
-       ],
 
   -- copy default menu.lst file for the first architecture
   -- XXX: this should be per-platform, if hake knew about them
