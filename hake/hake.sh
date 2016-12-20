@@ -16,7 +16,6 @@ DEFAULT_JOBS=4
 JOBS="$DEFAULT_JOBS"
 CACHEDIR="$HOME/.cache/barrelfish"
 HAGFISH_LOCATION="/home/netos/tftpboot/Hagfish.efi"
-DIST_DIR="/home/netos/tftpboot/$USER"
 
 # Don't override the default toolchain unless asked to.
 TOOLROOT=Nothing
@@ -40,7 +39,6 @@ usage() {
     echo "       <arch>."
     echo "   -r|--toolroot <path>: where should I look for toolchains (instead"
     echo "       of (/home/netos/tools)"
-    echo "   -d|--dist-dir: path to distribution directory (default $DIST_DIR)."
     echo "   -j|--jobs: Number of parallel jobs to run (default $DEFAULT_JOBS)."
     echo "   --hagfish: Location of Hagfish boot loader (default $HAGFISH_LOCATION)."
     echo "   --cachedir: Cache directory (default $CACHEDIR)."
@@ -201,7 +199,6 @@ x86_toolspec     = $X86_TOOLSPEC
 k1om_toolspec    = $K1OM_TOOLSPEC
 cache_dir        = "$CACHEDIR"
 hagfish_location = "$HAGFISH_LOCATION"
-dist_dir         = "$DIST_DIR"
 EOF
 else
     echo "You already have Config.hs, leaving it as-is."
