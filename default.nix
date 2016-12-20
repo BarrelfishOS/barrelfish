@@ -4,13 +4,16 @@
 , automake
 , binutils
 , coreutils
+, cpio
 , curl
 , gcc5
+, gdb
 , git
 , gmp
 , gnugrep
 , gnused
 , m4
+, qemu
 
 , ghc-version ? "ghc801"
 
@@ -41,13 +44,16 @@ let src-repo = fetchgit {
 	automake
 	binutils
 	coreutils
+	cpio
 	curl
 	gcc5
+	gdb
 	git
 	gmp
 	gnugrep
 	gnused
 	m4
+	qemu
 
 	# custom GHC
 	ghc
