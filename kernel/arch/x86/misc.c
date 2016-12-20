@@ -127,3 +127,13 @@ lvaddr_t kernel_trace_buf = 0;
 
 struct trace_application kernel_trace_boot_applications[TRACE_MAX_BOOT_APPLICATIONS];
 int kernel_trace_num_boot_applications = 0;
+
+/**
+ * Stack protection handler
+ */
+void __stack_chk_fail(void); // Existence implied by (certainly configured) GCC.
+
+void __stack_chk_fail (void)
+{
+    panic("finally reached __stack_chk_fail()");
+}
