@@ -249,7 +249,7 @@ if [ "$RUN_HAKE" == "No" ] ; then
 fi
 
 echo "Running hake..."
-./hake/hake --output-filename Makefile --source-dir "$SRCDIR/" || exit
+./hake/hake --output-filename Makefile --source-dir "$SRCDIR/" --ghc-libdir "$(ghc --print-libdir)" || exit
 
 echo "Now running initial make to build dependencies."
 echo "Running $JOBS jobs at once (-j N to change this)."

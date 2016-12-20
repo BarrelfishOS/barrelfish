@@ -59,6 +59,7 @@ data Opts = Opts { opt_makefilename :: String,
                    opt_sourcedir :: String,
                    opt_bfsourcedir :: String,
                    opt_builddir :: String,
+                   opt_ghc_libdir :: String,
                    opt_abs_installdir :: String,
                    opt_abs_sourcedir :: String,
                    opt_abs_bfsourcedir :: String,
@@ -76,6 +77,7 @@ parse_arguments [] =
          opt_sourcedir = Config.source_dir,
          opt_bfsourcedir = Config.source_dir,
          opt_builddir = ".",
+         opt_ghc_libdir = libdir,
          opt_abs_installdir = "",
          opt_abs_sourcedir = "",
          opt_abs_bfsourcedir = "",
@@ -89,6 +91,8 @@ parse_arguments ("--source-dir" : s : t) =
   (parse_arguments t) { opt_sourcedir = s }
 parse_arguments ("--bfsource-dir" : s : t) =  
   (parse_arguments t) { opt_bfsourcedir = s }
+parse_arguments ("--ghc-libdir" : (s : t)) =
+  (parse_arguments t) { opt_ghc_libdir = s }
 parse_arguments ("--output-filename" : s : t) =
   (parse_arguments t) { opt_makefilename = s }
 parse_arguments ("--quiet" : t ) = 
@@ -109,6 +113,7 @@ usage = unlines [ "Usage: hake <options>",
                   "   --source-dir <dir> (required)",
                   "   --bfsource-dir <dir> (defaults to source dir)",
                   "   --install-dir <dir> (defaults to source dir)",
+                  "   --ghc-libdir <dir> (defaults to " ++ libdir ++ ")",
                   "   --quiet",
                   "   --verbose"
                 ]
@@ -191,12 +196,12 @@ listFiles' root current
 
 -- We invoke GHC to parse the Hakefiles in a preconfigured environment,
 -- to implement the Hake DSL.
-evalHakeFiles :: Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
+evalHakeFiles :: FilePath -> Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
                  IO (S.Set FilePath)
-evalHakeFiles makefile o srcDB hakefiles =
+evalHakeFiles the_libdir makefile o srcDB hakefiles =
     --defaultErrorHandler defaultFatalMessager defaultFlushOut $
     errorHandler $
-        runGhc (Just libdir) $
+        runGhc (Just the_libdir) $
         driveGhc makefile o srcDB hakefiles
 
 -- This is the code that executes in the GHC monad.
@@ -543,8 +548,8 @@ makefileRuleInner h tokens double_colon = do
 --
 -- For example, if we are building for architecture 'x86_64', with build tree
 -- '/home/user/barrelfish/build' and build tree '/home/user/barrelfish'
--- (relative path '../', and we are compiling a Hakefile at 'apps/init/Hakefile'
--- (relative path  '../apps/init/Hakefile'), we would resolve as follows:
+-- relative path '../', and we are compiling a Hakefile at 'apps/init/Hakefile'
+-- relative path  '../apps/init/Hakefile', we would resolve as follows:
 --
 --   In SourceTree "../apps/init" "x86_64" "main.c"
 --      -> "../apps/init/main.c"
@@ -661,7 +666,8 @@ makeHakeDeps h o l = do
                     ( [ hake, 
                         Str "--source-dir", Str (opt_sourcedir o),
                         Str "--install-dir", Str (opt_installdir o),
-                        Str "--output-filename", makefile
+                        Str "--output-filename", makefile,
+                        Str "--ghc-libdir", Str (opt_ghc_libdir o)
                       ] ++
                       [ Dep SrcTree "root" h | h <- l ]
                     )
@@ -720,6 +726,7 @@ body =  do
                        " (" ++ opt_abs_bfsourcedir opts ++ ")")
     putStrLn ("Install directory: " ++ opt_installdir opts ++
                        " (" ++ opt_abs_installdir opts ++ ")")
+    putStrLn ("GHC libdir: " ++ opt_ghc_libdir opts)
 
     -- Find Hakefiles
     putStrLn "Scanning directory tree..."
@@ -735,7 +742,7 @@ body =  do
     -- Evaluate Hakefiles
     putStrLn $ "Evaluating " ++ show (length hakefiles) ++
                         " Hakefiles..."
-    dirs <- evalHakeFiles makefile opts srcDB hakefiles
+    dirs <- evalHakeFiles (opt_ghc_libdir opts) makefile opts srcDB hakefiles
 
     -- Emit directory rules
     putStrLn $ "Generating build directory dependencies..."

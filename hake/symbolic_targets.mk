@@ -401,7 +401,7 @@ TAGS: cscope.files
 
 # force rebuild of the Makefile
 rehake: ./hake/hake
-	./hake/hake --source-dir $(SRCDIR) --install-dir . \
+	./hake/hake --source-dir $(SRCDIR) --install-dir . --ghc-libdir $$(ghc --print-libdir) \
 	            --output-filename Makefile
 .PHONY: rehake
 
