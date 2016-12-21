@@ -84,7 +84,7 @@ struct waitset_chanstate {
     bool persistent;                        ///< Channel should be always registered
     struct waitset_chanstate *polled_next, *polled_prev;    ///< Dispatcher's polled queue
     struct thread *wait_for;                ///< Thread waiting for this event
-    bool masked;
+    struct waitset_chanstate *trigger;      ///< Chanstate that triggers this chanstate 
 };
 
 /**
@@ -110,7 +110,8 @@ errval_t waitset_destroy(struct waitset *ws);
 
 errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure);
 errval_t get_next_event_disabled(struct waitset *ws, struct waitset_chanstate **retchan,
-        struct event_closure *retclosure, struct waitset_chanstate *waitfor, dispatcher_handle_t handle, bool debug);
+    struct event_closure *retclosure, struct waitset_chanstate *waitfor,
+    struct waitset_chanstate *waitfor2, dispatcher_handle_t handle, bool debug);
 errval_t check_for_event(struct waitset *ws);
 errval_t event_dispatch(struct waitset *ws);
 errval_t wait_for_channel(struct waitset *ws, struct waitset_chanstate *channel, errval_t *error_var);

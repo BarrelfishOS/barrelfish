@@ -84,9 +84,9 @@ struct thread {
     bool    rpc_in_progress;	            ///< RPC in progress
     errval_t    async_error;                ///< RPC async error
     uint32_t    outgoing_token;             ///< Token of outgoing message
-    bool    mask_channels;
     struct capref recv_slots[MAX_RECV_SLOTS];///< Queued cap recv slots
     int8_t recv_slot_count;                 ///< number of currently queued recv slots
+    struct waitset_chanstate *local_trigger; ///< Trigger for a local thread event
 };
 
 void thread_enqueue(struct thread *thread, struct thread **queue);

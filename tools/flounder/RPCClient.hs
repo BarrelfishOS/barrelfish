@@ -101,9 +101,7 @@ rpc_binding_struct name = C.StructDecl (rpc_bind_type name) fields
   where
     fields = [
         C.Param (C.Ptr $ C.Struct $ intf_bind_type name) "b",
-        C.Param (C.Struct $ rpc_vtbl_type name) "vtbl",
-        C.Param (C.Struct "waitset") "rpc_waitset",
-        C.Param (C.Struct "waitset_chanstate") "dummy_chanstate"]
+        C.Param (C.Struct $ rpc_vtbl_type name) "vtbl"]
 
 rpc_init_fn_proto :: String -> C.Unit
 rpc_init_fn_proto n =
@@ -185,7 +183,7 @@ rpc_fn ifn typedefs msg@(RPC n args _) =
         rpcvar = C.Variable rpc_bind_var
         rpc_progress_var = C.Call "thread_get_rpc_in_progress" []
         async_err_var = C.Call "thread_get_async_error" []
-        waitset_var = C.AddressOf $ C.DerefField rpcvar "rpc_waitset"
+        waitset_var = C.DerefField bindvar "waitset"
         bindvar = C.DerefField rpcvar "b"
         tx_func = C.DerefField bindvar "tx_vtbl" `C.FieldOf` (rpc_call_name n)
         tx_func_args = [bindvar, C.Variable "BLOCKING_CONT"] ++ (map C.Variable $ concat $ map mkargs txargs)
@@ -245,38 +243,21 @@ rpc_error_fn ifn = C.FunctionDef C.Static C.Void (rpc_error_fn_name ifn)
      C.If (C.Call "thread_get_rpc_in_progress" [])
         [C.Ex $ C.Call "assert" [C.Call "err_is_fail" [errvar]],
          C.Ex $ C.Call "thread_set_async_error" [errvar],
-         C.SComment "kick waitset with dummy event",
-         C.Ex $ C.Call "flounder_support_register"
-                    [waitset_addr, chanstate_addr,
-                     C.Variable "dummy_event_closure", C.Variable "true"]]
+         C.SComment "kick waitset with dummy event"]
         [C.Ex $ C.Call "USER_PANIC_ERR" [errvar, C.StringConstant "async error in RPC"]]
     ]
     where
         rpcvar = C.Variable rpc_bind_var
-        waitset_addr = C.AddressOf $ C.DerefField rpcvar "rpc_waitset"
-        chanstate_addr = C.AddressOf $ C.DerefField rpcvar "dummy_chanstate"
 
 rpc_init_fn :: String -> [MessageDef] -> C.Unit
 rpc_init_fn ifn ml = C.FunctionDef C.NoScope (C.TypeName "errval_t")
                             (rpc_init_fn_name ifn) (rpc_init_fn_params ifn) $
-    [localvar (C.TypeName "errval_t") errvar_name Nothing,
+    [
      C.SBlank,
      C.SComment "Setup state of RPC client object",
      C.Ex $ C.Assignment (C.DerefField rpcvar "b") bindvar,
-     C.Ex $ C.Call "waitset_init" [waitset_addr],
-     C.Ex $ C.Call "flounder_support_waitset_chanstate_init"
-                        [C.AddressOf $ C.DerefField rpcvar "dummy_chanstate"],
      C.Ex $ C.Assignment (C.DerefField rpcvar "vtbl") (C.Variable $ rpc_vtbl_name ifn),
      C.Ex $ C.Assignment (C.DerefField bindvar "st") rpcvar,
-     C.SBlank,
-     C.SComment "Change waitset on binding",
-     C.Ex $ C.Assignment errvar $
-        C.CallInd (C.DerefField bindvar "change_waitset")
-                [bindvar, waitset_addr],
-     C.If (C.Call "err_is_fail" [errvar])
-        [C.Ex $ C.Call "waitset_destroy" [waitset_addr],
-         C.Return $ C.Call "err_push" [errvar, C.Variable "FLOUNDER_ERR_CHANGE_WAITSET"]]
-        [],
      C.SBlank,
      C.SComment "Set RX handlers on binding object for RPCs",
      C.StmtList [C.Ex $ C.Assignment (C.FieldOf (C.DerefField bindvar "rx_vtbl")
@@ -292,7 +273,7 @@ rpc_init_fn ifn ml = C.FunctionDef C.NoScope (C.TypeName "errval_t")
     where
         rpcvar = C.Variable "rpc"
         bindvar = C.Variable "binding"
-        waitset_addr = C.AddressOf $ C.DerefField rpcvar "rpc_waitset"
+        waitset_addr = C.AddressOf $ C.DerefField bindvar "waitset"
 
 rpc_init_fn_params n = [C.Param (C.Ptr $ C.Struct (rpc_bind_type n)) "rpc",
                         C.Param (C.Ptr $ C.Struct (intf_bind_type n)) "binding"]

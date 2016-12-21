@@ -152,6 +152,7 @@ static inline struct waitset_chanstate * ump_chan_get_receiving_channel(struct u
     return &chan->endpoint.waitset_state;
 }
 
+struct waitset_chanstate * monitor_bind_get_receiving_chanstate(struct monitor_binding *b);
 
 __END_DECLS
 

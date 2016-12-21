@@ -85,7 +85,6 @@ void flounder_support_waitset_chanstate_init_persistent(struct waitset_chanstate
 {
     waitset_chanstate_init(wc, CHANTYPE_FLOUNDER);
     wc->persistent = true;
-    wc->masked = true;
 }
 
 void flounder_support_waitset_chanstate_destroy(struct waitset_chanstate *wc)
@@ -147,10 +146,13 @@ errval_t flounder_stub_send_cap(struct flounder_cap_state *s,
                                            monitor_id, cap, s->tx_capnum);
     }
     if (err_is_ok(err)) {
+        thread_set_local_trigger(&mb->tx_cont_chanstate);
         s->tx_capnum++;
         return err;
     } else if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        // register to retry
+        assert(0); // this should never happen
+        thread_set_local_trigger(&mb->tx_cont_chanstate); // not sure if this is
+        // ok since I don't know how to test this case
         return mb->register_send(mb, mb->waitset, MKCONT(cap_send_cont, s));
     } else {
         return err_push(err, LIB_ERR_MONITOR_CAP_SEND);

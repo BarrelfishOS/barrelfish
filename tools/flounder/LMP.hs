@@ -226,6 +226,7 @@ lmp_init_fn :: String -> C.Unit
 lmp_init_fn ifn = C.FunctionDef C.NoScope C.Void (lmp_init_fn_name ifn) params [
     C.StmtList common_init,
     C.Ex $ C.Call "lmp_chan_init" [C.AddressOf $ C.DerefField lmp_bind_var "chan"],
+    C.Ex $ C.Assignment (C.FieldOf (common_field "tx_cont_chanstate") "trigger") (C.AddressOf $ C.FieldOf (C.DerefField lmp_bind_var "chan") "send_waitset"),
     C.Ex $ C.Assignment (common_field "change_waitset") (C.Variable $ change_waitset_fn_name ifn),
     C.Ex $ C.Assignment (common_field "control") (C.Variable $ control_fn_name ifn),
     C.Ex $ C.Assignment (common_field "receive_next") (C.Variable $ receive_next_fn_name ifn),
@@ -278,6 +279,8 @@ lmp_bind_cont_fn ifn =
     C.FunctionDef C.Static C.Void (lmp_bind_cont_fn_name ifn) params [
         localvar (C.Ptr $ C.Struct $ lmp_bind_type ifn)
             lmp_bind_var_name (Just $ C.Variable "st"),
+        localvar (C.Ptr $ C.Struct $ intf_bind_type ifn)
+             intf_bind_var (Just $ C.AddressOf $ lmp_bind_var `C.DerefField` "b"),
         C.SBlank,
 
         C.If (C.Call "err_is_ok" [errvar])
@@ -301,7 +304,8 @@ lmp_bind_cont_fn ifn =
                 [C.Ex $ C.Assignment errvar $
                         C.Call "err_push"
                                 [errvar, C.Variable "LIB_ERR_CHAN_REGISTER_RECV"],
-                 C.Goto "fail"] []]
+                 C.Goto "fail"] [],
+             C.Ex $ C.Call (connect_handlers_fn_name ifn) [C.Variable intf_bind_var]]
             [C.Label "fail",
              C.Ex $ C.Call (lmp_destroy_fn_name ifn) [lmp_bind_var]],
         C.SBlank,
@@ -594,7 +598,6 @@ tx_fn ifn typedefs msg@(Message mtype n args _) =
             C.StmtList [ tx_fn_arg_check_size ifn typedefs n a | a <- args ],
             C.SComment "check that we can accept an outgoing message",
             C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
-            localvar (C.Ptr $ C.Struct "waitset") "send_waitset" (Just $ C.DerefField bindvar "waitset"),
             C.Ex $ C.Assignment binding_error (C.Variable "SYS_ERR_OK"),
             C.If (C.Binary C.NotEquals tx_msgnum_field (C.NumConstant 0))
                 [C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],

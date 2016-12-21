@@ -213,12 +213,6 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
         path = pathbuf;
     }
 
-    // XXX: HACK: change waitset on monitor binding temporarily so we get UMP
-    // cap transfer notifications!
-    struct monitor_binding *mb = get_monitor_binding();
-    struct waitset *mon_ws = mb->waitset;
-    mb->change_waitset(mb, &cl->rpc_waitset);
-
     if (capref_is_null(inheritcn_cap) && capref_is_null(argcn_cap)) {
         err = cl->vtbl.spawn_domain(cl, path, argstr, argstrlen,
                                     envstr, envstrlen, flags,
@@ -239,7 +233,6 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
     }
 
 out:
-    mb->change_waitset(mb, mon_ws);
     return msgerr;
 }
 

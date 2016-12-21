@@ -41,7 +41,7 @@
 struct peer_core {
     coreid_t id;
     bool is_bound;
-    struct mem_thc_client_binding_t cl; 
+    struct mem_thc_client_binding_t cl;
     thc_lock_t lock;
 };
 
@@ -49,7 +49,7 @@ coreid_t mycore;
 static struct peer_core *peer_cores;
 static int num_peers;
 
-// FIXME: possible race if handling two concurrent alloc request that both 
+// FIXME: possible race if handling two concurrent alloc request that both
 // try to connect to the same peer
 static errval_t connect_peer(struct peer_core *peer)
 {
@@ -83,10 +83,10 @@ static errval_t connect_peer(struct peer_core *peer)
     return SYS_ERR_OK;
 }
 
-static errval_t steal_from_serv(struct peer_core *peer, 
-                                struct capref *ret_cap, 
-                                uint8_t bits, 
-                                genpaddr_t minbase, 
+static errval_t steal_from_serv(struct peer_core *peer,
+                                struct capref *ret_cap,
+                                uint8_t bits,
+                                genpaddr_t minbase,
                                 genpaddr_t maxlimit)
 {
     assert(peer != NULL);
@@ -103,10 +103,10 @@ static errval_t steal_from_serv(struct peer_core *peer,
         peer->is_bound = true;
     }
 
-    // due to the single-waiter rule of thc we need to make sure we only 
+    // due to the single-waiter rule of thc we need to make sure we only
     // ever have one of these rpcs outstanding at a time.
     thc_lock_acquire(&peer->lock);
-    peer->cl.call_seq.steal(&peer->cl, bits, minbase, maxlimit, 
+    peer->cl.call_seq.steal(&peer->cl, bits, minbase, maxlimit,
                                 &err, ret_cap);
     thc_lock_release(&peer->lock);
 
@@ -146,12 +146,12 @@ static errval_t rr_steal(struct capref *ret_cap, uint8_t bits,
     }
     */
 
-    return err; 
+    return err;
 }
 
 
-static errval_t steal_and_alloc(struct capref *ret_cap, uint8_t steal_bits, 
-                                uint8_t alloc_bits, 
+static errval_t steal_and_alloc(struct capref *ret_cap, uint8_t steal_bits,
+                                uint8_t alloc_bits,
                                 genpaddr_t minbase, genpaddr_t maxlimit)
 {
     errval_t err;
@@ -170,16 +170,6 @@ static errval_t steal_and_alloc(struct capref *ret_cap, uint8_t steal_bits,
         return err;
     }
 
-    // XXX: Hack to allow monitor to allocate memory while we call RPC into it
-    // These calls should just be avoided...
-    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
-    assert(mc != NULL);
-    struct waitset *oldws = monitor_mem_binding->waitset;
-    err = monitor_mem_binding->change_waitset(monitor_mem_binding, &mc->rpc_waitset);
-    if(err_is_fail(err)) {
-        USER_PANIC_ERR(err, "change_waitset");
-    }
-
     // XXX: Mark as local to this core, until we have x-core cap management
     err = monitor_cap_set_remote(ramcap, false);
     if(err_is_fail(err)) {
@@ -191,17 +181,10 @@ static errval_t steal_and_alloc(struct capref *ret_cap, uint8_t steal_bits,
     if (err_is_fail(err)) {
         return err_push(err, MON_ERR_CAP_IDENTIFY);
     }
-
-    // XXX: Reset waitset before THC becomes active again
-    err = monitor_mem_binding->change_waitset(monitor_mem_binding, oldws);
-    if(err_is_fail(err)) {
-        USER_PANIC_ERR(err, "change_waitset");
-    }
-
 #if 0
     debug_printf("STOLEN cap is type %d Ram base 0x%"PRIxGENPADDR
                  " (%"PRIuGENPADDR") Bits %d\n",
-                 info.type, info.u.ram.base, info.u.ram.base, 
+                 info.type, info.u.ram.base, info.u.ram.base,
                  info.u.ram.bits);
 #endif
     if(steal_bits != log2ceil(info.u.ram.bytes)) {
@@ -228,10 +211,10 @@ static errval_t steal_and_alloc(struct capref *ret_cap, uint8_t steal_bits,
 
     mem_avail += mem_to_add;
 
-    err = percore_alloc(ret_cap, alloc_bits, minbase, maxlimit);    
+    err = percore_alloc(ret_cap, alloc_bits, minbase, maxlimit);
 
     return err;
-} 
+}
 
 
 void try_steal(errval_t *ret, struct capref *cap, uint8_t bits,
@@ -245,7 +228,7 @@ void try_steal(errval_t *ret, struct capref *cap, uint8_t bits,
 									__builtin_return_address(3),
 									__builtin_return_address(4),
 									__builtin_return_address(5));
-    //DEBUG_ERR(*ret, "allocation of %d bits in 0x%" PRIxGENPADDR 
+    //DEBUG_ERR(*ret, "allocation of %d bits in 0x%" PRIxGENPADDR
     //           "-0x%" PRIxGENPADDR " failed", bits, minbase, maxlimit);
     *ret = steal_and_alloc(cap, bits+1, bits, minbase, maxlimit);
     if (err_is_fail(*ret)) {
@@ -257,9 +240,9 @@ void try_steal(errval_t *ret, struct capref *cap, uint8_t bits,
 //	*cap = NULL_CAP;
 }
 
-errval_t init_peers(coreid_t core, int len_cores, coreid_t *cores) 
+errval_t init_peers(coreid_t core, int len_cores, coreid_t *cores)
 {
-    // initialise info about our peers 
+    // initialise info about our peers
     mycore = core;
     num_peers = len_cores;
     peer_cores = malloc(num_peers * sizeof(struct peer_core));
@@ -276,7 +259,7 @@ errval_t init_peers(coreid_t core, int len_cores, coreid_t *cores)
 }
 
 errval_t percore_steal_handler_common(uint8_t bits,
-                                      genpaddr_t minbase, 
+                                      genpaddr_t minbase,
                                       genpaddr_t maxlimit,
                                       struct capref *retcap)
 {
@@ -286,7 +269,7 @@ errval_t percore_steal_handler_common(uint8_t bits,
     trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_PERCORE_ALLOC, bits);
     /* debug_printf("%d: percore steal request: bits: %d\n", disp_get_core_id(), bits); */
 
-    // refill slot allocator if needed 
+    // refill slot allocator if needed
     err = slot_prealloc_refill(mm_percore.slot_alloc_inst);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Warning: failure in slot_prealloc_refill\n");
@@ -294,17 +277,17 @@ errval_t percore_steal_handler_common(uint8_t bits,
         return err;
     }
 
-    // refill slab allocator if needed 
+    // refill slab allocator if needed
     err = slab_refill(&mm_percore.slabs);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Warning: failure when refilling mm_percore slab\n");
     }
 
-    // get actual ram cap 
+    // get actual ram cap
     ret = percore_alloc(&cap, bits, minbase, maxlimit);
     if (err_is_fail(ret)){
         // debug_printf("percore steal request failed\n");
-        //DEBUG_ERR(ret, "allocation of stolen %d bits in 0x%" PRIxGENPADDR 
+        //DEBUG_ERR(ret, "allocation of stolen %d bits in 0x%" PRIxGENPADDR
         //          "-0x%" PRIxGENPADDR " failed", bits, minbase, maxlimit);
         cap = NULL_CAP;
     }

@@ -1144,13 +1144,6 @@ tx_fn p ifn typedefs msg@(Message mtype n args _) (MsgSpec _ _ caps) =
             C.StmtList [ tx_fn_arg_check_size ifn typedefs n a | a <- args ],
             C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
             C.Ex $ C.Assignment binding_error (C.Variable "SYS_ERR_OK"),
-            localvar (C.Ptr $ C.Struct "waitset") "send_waitset" (Just $ C.DerefField bindvar "waitset"),
-            -- localvar (C.Struct "waitset") "tmp_waitset" Nothing,
-            -- C.If (C.Binary C.Equals ((C.Variable intf_cont_var) `C.FieldOf` "handler") (C.Variable "blocking_cont")) [
-            --     C.Ex $ C.Assignment (C.Variable "send_waitset") (C.AddressOf $ C.Variable "tmp_waitset"),
-            --     C.Ex $ C.Call "waitset_init" [C.Variable "send_waitset"]
-            -- ] [],
-
             C.SComment "check that we can accept an outgoing message",
             C.If (C.Binary C.NotEquals tx_msgnum_field (C.NumConstant 0))
                 [C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
@@ -1211,7 +1204,8 @@ block_sending_with_caps p ifn cont_ex = [
 
             C.Ex $ C.Assignment binding_error $ C.Call "flounder_support_change_monitor_waitset" [monitor_binding, C.DerefField bindvar "waitset"],
             C.If (C.Binary C.Equals binding_error (C.Variable "SYS_ERR_OK")) [
-                C.Ex $ C.Assignment binding_error $ C.Call "wait_for_channel" [C.Variable "send_waitset", tx_cont_chanstate, C.AddressOf binding_error]] [],
+                C.Ex $ C.Assignment (C.DerefField tx_cont_chanstate "trigger") $ C.CallInd (bindvar `C.DerefField` "get_receiving_chanstate") [bindvar],
+                C.Ex $ C.Assignment binding_error $ C.Call "wait_for_channel" [C.DerefField bindvar "waitset", tx_cont_chanstate, C.AddressOf binding_error]] [],
             C.If (C.Binary C.Equals binding_error (C.Variable "SYS_ERR_OK")) [
                 C.Ex $ C.Assignment binding_error $ C.Call "flounder_support_change_monitor_waitset" [monitor_binding, C.Variable "ws"]] []
             ] [
@@ -1386,7 +1380,7 @@ rx_handler p ifn typedefs msgdefs msgs =
         rx_msgfrag_field = C.DerefField bindvar "rx_msg_fragment"
 
         call_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (call_msgnum_case msgdef msg)
-                            | (msgdef, msg@(MsgSpec mn _ _)) <- zip msgdefs msgs]
+                            | (msgdef, msg@(MsgSpec mn _ caps)) <- zip msgdefs msgs, caps == []]
 
         call_msgnum_case msgdef@(Message mtype mn msgargs _) (MsgSpec _ frags caps) =
             [C.StmtList $ call_handler (ump_drv p) ifn typedefs mtype mn msgargs, C.Break]
@@ -1493,15 +1487,12 @@ rx_handler p ifn typedefs msgdefs msgs =
             | caps == [] = call_callback
             | otherwise = [
                 rx_fragment_increment,
-                C.If (C.Binary C.Equals
-                                    (capst `C.FieldOf` "rx_capnum")
-                                    (C.NumConstant $ toInteger $ length caps))
-                    call_callback
-                    [C.SComment "don't process anything else until we're done",
-                     C.Goto "out_no_reregister"]]
+                C.Ex $ C.Assignment (C.DerefField message_chanstate "trigger") $ C.Call "monitor_bind_get_receiving_chanstate" [ump_chan `C.DerefField` "monitor_binding"],
+                C.Goto "out_no_reregister"]
              where
                 call_callback = [C.StmtList $ finished_recv_nocall (ump_drv p) ifn typedefs mtype mn msgargs, C.Goto "out"]
                 ump_chan = C.AddressOf $ statevar `C.FieldOf` "chan"
+                message_chanstate = C.Binary C.Plus (C.DerefField bindvar "message_chanstate") (C.Variable $ msg_enum_elem_name ifn mn)
 
         rx_fragment_increment
             = C.Ex $ C.PostInc $ C.DerefField bindvar "rx_msg_fragment"
@@ -1548,7 +1539,7 @@ cap_rx_handler p ifn typedefs msgdefs msgspecs
                  | (MsgSpec mn frags caps, msgdef) <- zip msgspecs msgdefs, caps /= []]
         rx_msgnum_field = C.DerefField bindvar "rx_msgnum"
         call_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (call_msgnum_case msgdef msg)
-                            | (msgdef, msg@(MsgSpec mn _ _)) <- zip msgdefs msgspecs]
+                            | (msgdef, msg@(MsgSpec mn _ caps)) <- zip msgdefs msgspecs, caps /= []]
 
         call_msgnum_case msgdef@(Message mtype mn msgargs _) (MsgSpec _ frags caps) =
             [C.StmtList $ call_handler (ump_drv p) ifn typedefs mtype mn msgargs, C.Break]
@@ -1575,6 +1566,7 @@ cap_rx_handler_case p ifn typedefs mn (Message mtype _ msgargs _) nfrags caps = 
                 C.If (C.Binary C.Equals rx_msgfrag_field (C.NumConstant $ toInteger nfrags))
                     [
                         C.StmtList $ finished_recv_nocall (ump_drv p) ifn typedefs mtype mn msgargs,
+                        C.Ex $ C.Assignment (C.DerefField message_chanstate "trigger") $ C.CallInd (bindvar `C.DerefField` "get_receiving_chanstate") [bindvar],
                         C.If (C.Unary C.Not (C.Variable "no_register"))
                             [C.StmtList $ register_recv p ifn] [],
                         C.SBlank
@@ -1586,6 +1578,7 @@ cap_rx_handler_case p ifn typedefs mn (Message mtype _ msgargs _) nfrags caps = 
                 is_last = (ncap + 1 == length caps)
                 statevar = C.DerefField my_bindvar "ump_state"
                 ump_chan = C.AddressOf $ statevar `C.FieldOf` "chan"
+                message_chanstate = C.Binary C.Plus (C.DerefField bindvar "message_chanstate") (C.Variable $ msg_enum_elem_name ifn mn)
 
 -- generate the code to register for receive notification
 register_recv :: UMPParams -> String -> [C.Stmt]

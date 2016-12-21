@@ -363,10 +363,6 @@ binding_struct n ml = C.StructDecl (intf_bind_type n) fields
         C.ParamComment "Message channels",
         C.Param (C.Array (toInteger ((length ml) + 3)) (C.Struct "waitset_chanstate")) "message_chanstate",
 
-        C.ParamComment "Waitset used for send continuations",
-        C.Param (C.Ptr $ C.Struct "waitset") "send_waitset",
-        C.ParamBlank,
-
         C.ParamComment "Private state belonging to the binding implementation",
         C.Param (C.Union $ binding_arg_union_type TX n) "tx_union",
         C.Param (C.Union $ binding_arg_union_type RX n) "rx_union",

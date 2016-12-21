@@ -728,7 +728,6 @@ tx_fn ifn typedefs msg@(Message _ n args _) =
             C.If (C.Binary C.NotEquals tx_msgnum_field (C.NumConstant 0))
             [C.Return $ C.Variable "FLOUNDER_ERR_TX_BUSY"] [],
             C.SBlank,
-            localvar (C.Ptr $ C.Struct "waitset") "send_waitset" (Just $ C.DerefField bindvar "waitset"),
             C.SComment "register send continuation",
             C.StmtList $ register_txcont (C.Variable intf_cont_var),
             C.SBlank,

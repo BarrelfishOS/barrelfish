@@ -344,3 +344,8 @@ void ump_init(void)
     mcb->rx_vtbl.bind_ump_reply_client = bind_ump_reply_handler;
     mcb->rx_vtbl.bind_ump_service_request = bind_ump_service_request_handler;
 }
+
+struct waitset_chanstate * monitor_bind_get_receiving_chanstate(struct monitor_binding *b)
+{
+    return b->get_receiving_chanstate(b);
+}
