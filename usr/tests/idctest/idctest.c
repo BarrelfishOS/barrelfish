@@ -17,6 +17,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/debug.h>
+#include <barrelfish/deferred.h>
 #include <if/test_defs.h>
 
 static const char *my_service_name = "idctest";
@@ -126,14 +127,6 @@ struct client_state {
     struct capref cap1, cap2, cap3;
 };
 
-static void wait_a_bit(void){
-    uint64_t tscperus;
-    errval_t err;
-    err = sys_debug_get_tsc_per_ms(&tscperus);
-    cycles_t start = rdtsc();
-    while(rdtsc() < start + tscperus * 100);
-}
-
 // send the next message in our sequence
 static void send_cont(void *arg)
 {
@@ -204,7 +197,7 @@ static void send_cont(void *arg)
         // here is where we would deallocate the buffer, if it wasn't static
         // client all done is the message determined to terminate the test,
         // wait a bit to give the server time to print the message.
-        wait_a_bit();
+        barrelfish_usleep(1000000);
         printf("client all done!\n");
         return;
 
