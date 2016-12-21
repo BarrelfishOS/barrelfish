@@ -306,6 +306,8 @@ static int getColumns(int ifd, int ofd) {
                 /* Can't recover... */
             }
         }
+        if (cols < 20) // there are no smaller terminals
+            cols = 20;
         return cols;
     } else {
         return ws.ws_col;
