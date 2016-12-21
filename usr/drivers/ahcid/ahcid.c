@@ -31,7 +31,7 @@ static void ahci_interrupt_handler(void *arg)
 
 #ifdef DISABLE_INTERRUPTS
     assert(chan != NULL);
-    assert(dq != NULL);
+//    assert(dq != NULL);
     errval_t err = waitset_chan_register(&disk_ws, chan, MKCLOSURE(ahci_interrupt_handler, dq));
     if (err_is_fail(err) && err_no(err) == LIB_ERR_CHAN_ALREADY_REGISTERED) {
         printf("Got actual interrupt?\n");
