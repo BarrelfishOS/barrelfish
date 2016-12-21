@@ -1,4 +1,4 @@
-{ stdenv, fetchgit, haskell
+{ stdenv, fetchgit, haskell, pythonPackages
 
 , autoconf
 , automake
@@ -54,6 +54,8 @@ let src-repo = fetchgit {
 	gnused
 	m4
 	qemu
+
+	pythonPackages.pexpect
 
 	# custom GHC
 	ghc
