@@ -34,53 +34,53 @@
 \usepackage{nameref}
 \newcommand{\longref}[1]{\autoref{#1},~\nameref{#1}}
 
-\input{title-settings}
+\include{title-settings}
 
 \begin{document}
 
-\input{glossary}
+\include{glossary}
 
 \maketitle
 
-\input{abstract}
+\include{abstract}
 
 \tableofcontents
 
 \chapter{Introduction}
-\input{intro}
+\include{intro}
 
 \chapter{Related Work}
-\input{related}
+\include{related}
 
 \chapter{Design}
-\input{design}
+\include{design}
 
 \chapter{ahcid}
-\input{xahcid}
+\include{xahcid}
 
 \chapter{libahci}
-\input{libahci}
+\include{libahci}
 
 \chapter{Flounder AHCI Backend}
-\input{flounder-ahci}
+\include{flounder-ahci}
 
 \chapter{Driver Usage Example}
-\input{usage}
+\include{usage}
 
 \chapter{Blockdevice Filesystem}
-\input{blockdevfs}
+\include{blockdevfs}
 
 \chapter{FAT Filesystem}
-\input{fat}
+\include{fat}
 
 \chapter{Running the AHCI Driver}
-\input{running}
+\include{running}
 
 \chapter{Future Work}
-\input{future}
+\include{future}
 
 \chapter{Conclusion}
-\input{conclusion}
+\include{conclusion}
 
 \cleardoublepage
 \phantomsection
