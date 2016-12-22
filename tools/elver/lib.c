@@ -117,3 +117,18 @@ strcmp(const char* a, const char* b)
 
     return *a - *b;
 }
+
+// Existence implied by (certainly configured) GCC.
+
+void __stack_chk_fail_local(void);
+void __stack_chk_fail(void);
+
+void __stack_chk_fail_local(void)
+{
+  __stack_chk_fail();
+}
+
+void __stack_chk_fail(void)
+{
+    for (;;) ;
+}

@@ -47,3 +47,13 @@ wait_cycles(uint64_t duration)
         last = now;
     }
 }
+
+/**
+ * Stack protection handler
+ */
+void __stack_chk_fail(void); // Existence implied by (certainly configured) GCC.
+
+void __stack_chk_fail (void)
+{
+    panic("finally reached __stack_chk_fail()");
+}

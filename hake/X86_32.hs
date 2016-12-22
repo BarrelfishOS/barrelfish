@@ -141,7 +141,7 @@ linkKernel opts objs libs kbin =
                   ++
                   (ArchDefaults.kernelLibs arch)
                   ++
-                  [ NL, NStr "/bin/echo -e '\\0002' | dd of=",
+                  [ NL, NStr "bash -c \"echo -e '\\0002'\" | dd of=",
                     Out arch kbin, 
                     Str "bs=1 seek=16 count=1 conv=notrunc status=noxfer"
                   ]
