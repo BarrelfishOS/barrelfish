@@ -140,6 +140,15 @@ fi
 echo "Kernel command line arguments: $KERNEL_CMDS"
 echo "Requested architecture is $ARCH."
 
+tool_variant () {
+    while test $# -ge 1
+    do if test ! -z "$(type -P $1)"
+       then echo $1; return
+       else shift
+       fi
+    done
+}
+
 case "$ARCH" in
     "x86_64")
     QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
@@ -152,7 +161,7 @@ case "$ARCH" in
         -device ide-drive,drive=disk,bus=ahci.0 \
         -drive id=disk,file="$HDFILE",if=none"
     QEMU_NONDEBUG=-nographic
-    GDB=gdb-multiarch
+    GDB=$(tool_variant "gdb-multiarch" "gdb")
     echo "Creating hard disk image $HDFILE"
     qemu-img create "$HDFILE" 10M
     ;;
@@ -196,7 +205,7 @@ case "$ARCH" in
                 -pflash $EFI_FLASH1 \
                 -drive if=none,file=fat:rw:qemu-efi,id=drv \
                 -device virtio-blk-device,drive=drv"
-       GDB=gdb-multiarch
+       GDB=$(tool_variant "gdb-multiarch" "gdb")
        QEMU_NONDEBUG=-nographic
        # Now you'll need to create pflash volumes for UEFI. Two volumes are required,
        # one static one for the UEFI firmware, and another dynamic one to store variables.
