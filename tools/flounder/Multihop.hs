@@ -906,7 +906,6 @@ rx_handler_msg arch ifn typedefs msgdef (MsgSpec mn frags caps) =
       concat [ receive_buf b | (OverflowFragment b@(BufferFragment {})) <- frags],
       C.SBlank,
 
-      C.Ex $ C.Call "free" [C.Variable "message"],
       C.If (C.DerefField multihop_bind_var "trigger_chan")
       [C.Ex $ C.Assignment (C.DerefField multihop_bind_var "trigger_chan") (C.Variable "false"),
        C.StmtList finished_send] [],
