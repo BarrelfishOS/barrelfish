@@ -108,5 +108,16 @@ in
     Str "fi;",
     Str "echo \"\";",
     Str "echo \"done.\" ;"
+  ]),
+  Rule ([
+    Str "sed -r",
+    Str "'s#@CMAKE_SOURCE_DIR@#${SRCDIR}#g'",
+    In SrcTree "root" "/doc/Doxyfile.cmake",
+    Str ">",
+    Out "root" "/Doxyfile"
+  ]),
+  Phony "doxygen" False ([
+    Str "doxygen",
+    In BuildTree "root" "/Doxyfile"
   ])
 ]
