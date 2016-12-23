@@ -115,7 +115,7 @@ errval_t platform_gic_init(void) {
     return SYS_ERR_OK;
 }
 
-errval_t gicv3_cpu_interface_enable() {
+errval_t platform_gic_cpu_interface_enable(void) {
     gic_cpu_interface_enable();
     return SYS_ERR_OK;
 }
