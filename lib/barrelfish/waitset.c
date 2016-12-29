@@ -499,6 +499,7 @@ errval_t wait_for_channel(struct waitset *ws, struct waitset_chanstate *waitfor,
                           errval_t *error_var)
 {
     assert(waitfor->waitset == ws);
+    thread_set_local_trigger(NULL);
     for (;;) {
         struct event_closure closure;
         struct waitset_chanstate *channel, *trigger;
@@ -507,8 +508,6 @@ errval_t wait_for_channel(struct waitset *ws, struct waitset_chanstate *waitfor,
         dispatcher_handle_t handle = disp_disable();
         errval_t err = get_next_event_disabled(ws, &channel, &closure, waitfor,
             trigger ? trigger: waitfor->trigger, handle, false);
-        if (trigger)
-            thread_set_local_trigger(NULL);
         disp_enable(handle);
         if (err_is_fail(err)) {
             assert(0);
