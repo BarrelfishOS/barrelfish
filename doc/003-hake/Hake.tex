@@ -68,9 +68,6 @@ hardware.
 You can supply multiple \texttt{-a} options to build for multiple
 architectures at the same time. 
 
-Edit the file \texttt{symbolic\_targets.mk} in your build directory to
-add extra make targets. 
-
 Edit the file \texttt{hake/Config.hs} in your build directory and
 rebuild Hake to reconfigure your build tree. 
 
@@ -238,12 +235,12 @@ to build to support a given hardware configuration.  Here is the
 (pretty minimal) specification for the ARMv5 test platform - just the
 CPU driver and its bootable image:
 \begin{verbatim}
-[ platform "ARMv5" [ "armv5" ]
-    ([ ("armv5", "/sbin/" ++ f) | f <- [ "cpu", "cpu.bin" ]])
-    "Very basic ARMv5 configuration for testing",
+[ platform "ARMv7" [ "armv7" ]
+    ([ ("armv7", "/sbin/" ++ f) | f <- [ "cpu", "cpu.bin" ]])
+    "Very basic ARMv7 configuration for testing",
 ]
 \end{verbatim}
-The first argument is the name of the platform (``\texttt{ARMv5}''),
+The first argument is the name of the platform (``\texttt{ARMv7}''),
 the second is a set of architectures which must be built (and
 configured) for this platform.  The third argument is a list of
 pathnames in the build tree of files which must be built, and the
@@ -406,12 +403,13 @@ data RuleToken = In     TreeRef String String -- Input to the computation
                | NoDep  TreeRef String String -- File that's not a dependency
                | PreDep TreeRef String String -- One-time dependency
                | Out    String String         -- Output of the computation
-               | Target String String   -- Target that's not involved
-               | Str String             -- String with trailing " "
-               | NStr String            -- Just a string
-               | ErrorMsg String        -- Error message: $(error x)
-               | NL                     -- New line
-                 deriving (Show,Eq)
+               | Target String String    -- Target that's not involved
+               | Str String              -- String with trailing " "
+               | NStr String             -- Just a string
+               | ErrorMsg String         -- Error message: $(error x)
+               | NL                      -- New line
+               | Abs RuleRoken RuleToken -- Absolute path rule token
+                 deriving (Show,Eq,Ord)
 \end{verbatim}
 Each rule token can either be a string of some form, or a reference to
 a file.   Note that for some file references, the tree is implicit:
@@ -447,7 +445,7 @@ tokens, since they are prerequisites.   Both are in the \texttt{arch}
 architecture, since they have presumably been built by other rules. 
 
 This function is called from another, \texttt{arch}-independent
-function called ``\texttt{archiveLibrary}, which dispatches based on
+function called ``\texttt{archiveLibrary}'', which dispatches based on
 the architectures that need to be built for a given library. 
 Hence, if a Hakefile at ``\texttt{drivers/e1000/Hakefile}'' contained
 the expression:
@@ -514,7 +512,11 @@ The precise definitions of each token are as follows:
   the Makefile - they are translated into the GNU make construct
   \texttt{\$(error \textit{x})}. 
 
-\item[NL] tokens are simply newlines in the rule. 
+\item[NL] tokens are simply newlines in the rule.
+
+\item[Abs] tokens convert a \texttt{RuleToken} into an absolute path.
+  This is used internally when a command is executed inside a subdirectory
+  in the build tree and needs access to other resources in the tree.
 
 \end{description}
 
@@ -541,8 +543,8 @@ For every target architecture (at time of writing, only
 \texttt{x86\_64}), there is a file (\texttt{X64\_64.hs}) which
 contains the definitions required to build the system for that
 target.   Adding a new target architecture for Barrelfish involves
-writing a new one of these files (e.g. \texttt{ARM.hs}, or
-\texttt{X86\_32.hs}, etc.) and modifying the code in
+writing a new one of these files (e.g. \texttt{ARMv8.hs}, or
+\texttt{X86\_64.hs}, etc.) and modifying the code in
 \texttt{RuleDefs.hs} to dispatch to the correct module. 
 
 \section{Host architectures}
@@ -587,7 +589,9 @@ run in the root of the new build directory.
 \item[-h,--help:] Prints a usage message.
 \item[-n,--no-hake:] This option simply rebuilds Hake, but does not
   run it to generate a Makefile. It can be handy for debugging Hake
-  itself. 
+  itself.
+\item[-t,--toolchain <arch> <toolchain>:] Use \texttt{toolchain} to build
+  \texttt{arch}.
 \end{description}
 
 After parsing and checking arguments, \texttt{hake.sh} next creates a new
@@ -601,10 +605,6 @@ persist across multiple bootstrapping runs of \texttt{hake.sh}.
 If you really want to reconfigure a build tree from scratch, you
 should therefore remove everything in the build tree, including this
 file. 
-
-\texttt{hake.sh} next similarly creates a file called
-\texttt{symbolic\_targets.mk} in the root of the build tree, if it
-does not already exist. 
 
 After this, Hake itself is recompiled in the build tree (including the
 new \texttt{Config.hs} file), and then run with default options (most
@@ -689,12 +689,14 @@ The Hake binary built in a Barrelfish tree can be found in
   information messages.
 \item[--install-dir:] this option specifies the install tree.  It
   defaults to the build tree (the current working directory where Hake runs).
+\item[--bfsource-dir:] this option specifies the location of Barrefish headers.
 \item[--architecture:] this option can be specified multiple times and
   gives an architecture for Hake to build.  It overrides the default
   list of architectures to build that was set when Hake was
   configured.  At time of writing, supported architectures include
-  \texttt{x86\_64}, \texttt{x86\_32}, \texttt{arm}, \texttt{arm11mp},
-  \texttt{beehive}, and \texttt{scc}. 
+  \texttt{x86\_64}, \texttt{armv7}, \texttt{armv8},
+  and \texttt{k1om}.
+\item[--ghc-libdir:] Library directory for GHC.
 \end{description}
 
 \subsection{Building an external application or library}
@@ -709,16 +711,18 @@ For example, suppose \texttt{/projects/barrelfish/install} contains a
 core Barrelfish tree built for all supported architectures, and the
 user's home directory contains a small source tree
 \verb!~/quake3! containing an application to be built for
-\texttt{x86\_32} only.  As long as this source tree has a correct
+\texttt{x86\_64} only.  As long as this source tree has a correct
 Hakefile (or Hakefiles), the following should build the application:
 
 \begin{verbatim}
+(Barrelfish) $ make install_headers
 $ mkdir quake_build
 $ cd quake_build
 $ /projects/barrelfish/install/hake/hake \
         --source-dir ~/quake \
         --install-dir /projects/barrelfish/install \
-        --architecture x86_32
+        --bfsource-dir /project/barrelfish/install \
+        --architecture x86_64
 $ make -j 16
 \end{verbatim}
 
