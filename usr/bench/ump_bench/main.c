@@ -62,8 +62,9 @@ static void bind_cb(void *st, errval_t binderr, struct bench_binding *b)
     while (1) {
         volatile struct ump_message *msg;
         struct ump_control ctrl;
-        while (!ump_impl_recv(recv));
-        msg = ump_impl_get_next(send, &ctrl);
+        while (!(msg = ump_impl_recv(recv)));
+        ump_impl_free_message(msg);
+        while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->header.control = ctrl;
     }
 }

@@ -106,6 +106,7 @@ static inline bool havework_disabled(dispatcher_handle_t handle)
             || disp->lmp_send_events_list != NULL
 #endif
             || disp->polled_channels != NULL
+            || disp->ump_send_events_list != NULL
             ;
 }
 
