@@ -30,6 +30,7 @@ static void ump_init_msg(struct bench_binding *b, coreid_t id)
     array[id] = b;
 
     // All clients connected, run experiment
+    printf("%s: %d %d\n", __func__, count, num_cores);
     if (count == num_cores) {
         for (coreid_t i = 0; i < MAX_CPUS; i++) {
             if (array[i]) {

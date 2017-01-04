@@ -42,14 +42,16 @@ void experiment(coreid_t idx)
     cycles_t ts = bench_tsc();
     for (int i = 0; i < MAX_COUNT; i++) { /* Sustained sending of msgs */
         timestamps[i].time0 = ts;
-        while (!ump_impl_recv(recv));
+        while (!(msg = ump_impl_recv(recv)));
+        ump_impl_free_message(msg);
         ts = timestamps[i].time1 = bench_tsc();
         while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->header.control = ctrl;
     }
 
     for (int i = 0; i < NUM_MSGS; i++) { /* Empty the buffer */
-        while (!ump_impl_recv(recv));
+        while (!(msg = ump_impl_recv(recv)));
+        ump_impl_free_message(msg);
     }
 
     /* Print results */

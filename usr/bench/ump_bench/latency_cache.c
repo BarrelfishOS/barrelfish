@@ -69,7 +69,8 @@ void experiment(coreid_t idx)
             sys_debug_flush_cache();
             while (!(msg = ump_impl_get_next(send, &ctrl)));
             msg->header.control = ctrl;
-            while (!ump_impl_recv(recv));
+            while (!(msg = ump_impl_recv(recv)));
+            ump_impl_free_message(msg);
             timestamps[i].time1 = rdpmc(0);
         }
         sys_debug_print_timeslice();

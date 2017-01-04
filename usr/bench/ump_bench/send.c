@@ -40,7 +40,8 @@ void experiment(coreid_t idx)
         while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->header.control = ctrl;
         timestamps[i].time1 = bench_tsc();
-        while (!ump_impl_recv(recv));
+        while (!(msg = ump_impl_recv(recv)));
+        ump_impl_free_message(msg);
     }
 
     for (int i = MAX_COUNT / 10; i < MAX_COUNT; i++) {

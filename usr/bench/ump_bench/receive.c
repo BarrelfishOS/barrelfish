@@ -40,7 +40,8 @@ void experiment(coreid_t idx)
         msg->header.control = ctrl;
         while(true) {
             timestamps[i].time0 = bench_tsc();
-            if (ump_impl_recv(recv)) {
+            if ((msg = ump_impl_recv(recv))) {
+                ump_impl_free_message(msg);
                 timestamps[i].time1 = bench_tsc();
                 break;
             }
