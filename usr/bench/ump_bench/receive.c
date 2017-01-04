@@ -36,7 +36,7 @@ void experiment(coreid_t idx)
     struct ump_control ctrl;
 
     for (int i = 0; i < MAX_COUNT; i++) {
-        msg = ump_impl_get_next(send, &ctrl);
+        while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->header.control = ctrl;
         while(true) {
             timestamps[i].time0 = bench_tsc();

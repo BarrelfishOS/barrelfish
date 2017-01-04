@@ -67,7 +67,7 @@ void experiment(coreid_t idx)
         for (int i = 0; i < MAX_COUNT; i++) {
             timestamps[i].time0 = rdpmc(0);
             sys_debug_flush_cache();
-            msg = ump_impl_get_next(send, &ctrl);
+            while (!(msg = ump_impl_get_next(send, &ctrl)));
             msg->header.control = ctrl;
             while (!ump_impl_recv(recv));
             timestamps[i].time1 = rdpmc(0);

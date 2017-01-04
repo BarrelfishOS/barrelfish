@@ -35,7 +35,7 @@ void experiment(coreid_t idx)
     volatile struct ump_message *msg;
     struct ump_control ctrl;
     for (int i = 0; i < NUM_MSGS; i++) { /* Fill up the buffer */
-        msg = ump_impl_get_next(send, &ctrl);
+        while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->header.control = ctrl;
     }
 
@@ -44,7 +44,7 @@ void experiment(coreid_t idx)
         timestamps[i].time0 = ts;
         while (!ump_impl_recv(recv));
         ts = timestamps[i].time1 = bench_tsc();
-        msg = ump_impl_get_next(send, &ctrl);
+        while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->header.control = ctrl;
     }
 

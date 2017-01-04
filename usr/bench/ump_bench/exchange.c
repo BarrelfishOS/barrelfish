@@ -63,8 +63,8 @@ static void experiment(coreid_t idx)
         struct ump_control ctrl;
         timestamps[i].time0 = bench_tsc();
 
-        // Send a messaage
-        msg = ump_impl_get_next(send, &ctrl);
+        // Send a message
+        while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->header.control = ctrl;
 
         // Receive a message
@@ -131,7 +131,7 @@ static void bind_cb(void *st, errval_t binderr, struct bench_binding *b)
         while (!ump_impl_recv(recv));
 
         // Send a message
-        msg = ump_impl_get_next(send, &ctrl);
+        while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->data[0] = bench_tsc();
         msg->header.control = ctrl;
     }
