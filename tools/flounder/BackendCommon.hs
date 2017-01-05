@@ -455,8 +455,8 @@ finished_recv drvn ifn typedefs mtype mn msgargs
              C.Ex $ C.CallInd handler (bindvar:args)]
             [C.Ex $ C.Assignment (C.FieldOf message_chanstate "token") binding_incoming_token,
              C.Ex $ C.Call "flounder_support_trigger_chan" [C.AddressOf message_chanstate],
-             C.Ex $ C.Assignment (C.Variable "no_register") (C.NumConstant 1),
-             C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0)]]
+             C.Ex $ C.Assignment (C.Variable "no_register") (C.NumConstant 1)],
+             C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0)]
     where
         rx_msgnum_field = C.DerefField bindvar "rx_msgnum"
         handler = C.DerefField bindvar "rx_vtbl" `C.FieldOf` mn
