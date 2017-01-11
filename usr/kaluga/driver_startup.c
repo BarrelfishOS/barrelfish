@@ -91,7 +91,7 @@ errval_t default_start_function(coreid_t where,
         // list.
         pci_arg_str = malloc(26);
         // Make sure pci vendor and device id fit into our argument
-        assert(vendor_id < 0x9999 && device_id < 0x9999);
+        assert(vendor_id < 0xFFFF && device_id < 0xFFFF);
         snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
                         PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
 
