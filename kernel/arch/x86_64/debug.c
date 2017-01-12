@@ -186,7 +186,7 @@ static    char *debug_stackwalker_dynstr;
 static      int debug_stackwalker_nsyms;
 const       int debug_stackwalker_max_frames = 16;
 
-static bool debug_stackwalker_initializedp (void)
+static bool debug_stackwalker_initialized_p (void)
 {
     return debug_stackwalker_stack_bottom != -1;
 }
@@ -194,10 +194,6 @@ static bool debug_stackwalker_initializedp (void)
 static int stack_pointer_valid_p (uint64_t ptr, uint64_t top, uint64_t bottom)
 {
     return bottom <= ptr && ptr < top && !(ptr & 0x7);
-}
-static int text_address_valid_p (uint64_t ptr, uint64_t start, uint64_t end)
-{
-    return start <= ptr && ptr < end;
 }
 
 static void walk_stack (uint64_t rbp, uint64_t stack_top, uint64_t stack_bottom,
@@ -213,43 +209,113 @@ static void walk_stack (uint64_t rbp, uint64_t stack_top, uint64_t stack_bottom,
     }
 }
 
-static char *resolve_sym (uint64_t addr, uint64_t *delta)
+static uint64_t maybe_local_phys_to_mem (uint64_t addr)
 {
-    *delta = 0;
+    return addr < X86_64_PADDR_SPACE_LIMIT ? local_phys_to_mem (addr) : addr;
+}
 
-    if (! debug_stackwalker_initializedp ())
-	return "<symbols unavailable>";
+static uint64_t maybe_mem_to_local_phys (uint64_t addr)
+{
+    return addr < X86_64_PADDR_SPACE_LIMIT ? addr : mem_to_local_phys (addr);
+}
 
-    addr = addr < X86_64_PADDR_SPACE_LIMIT ? local_phys_to_mem (addr) : addr;
-    if (! text_address_valid_p (addr, debug_stackwalker_text_start, debug_stackwalker_text_end))
-	return "<not in .text>";
+/**
+ * \brief Normalize an address to correspond to the unrelocated ELF symbols.
+ */
+static uint64_t addr_to_elf (uint64_t addr)
+{
+    if (addr == (uint64_t) -1)
+	return addr;
+    uint64_t phys_start = mem_to_local_phys (debug_stackwalker_text_start);
+    return addr < phys_start ? addr : maybe_mem_to_local_phys (addr) - phys_start;
+}
+
+static bool try_explain_address (uint64_t addr, int n, char *name, int64_t *delta, struct Elf64_Sym *sym, uint64_t next_value, char *next_name) {
+    if        (addr < sym->st_value + sym->st_size) {
+        *delta = addr - sym->st_value;
+        snprintf (name, n, "%s", & debug_stackwalker_dynstr[sym->st_name]);
+        return true;
+    } else if (addr < next_value) {
+        *delta = addr - next_value;
+        snprintf (name, n, "past %s(0x%lx+0x%lx), before %s(0x%lx)",
+                  & debug_stackwalker_dynstr[sym->st_name], addr_to_elf (sym->st_value), sym->st_size,
+                  next_name, addr_to_elf (next_value));
+        return true;
+    }
+    return false;
+}
+
+static void resolve_addr2sym (uint64_t addr, int n, char *name, int64_t *delta)
+{
+    addr = maybe_local_phys_to_mem (addr);
+    *delta = addr - _start_kernel;
+
+    if (! debug_stackwalker_initialized_p ()) {
+	snprintf (name, n, "<symbols unavailable> _start_kernel");
+	return;
+    }
+
+    /* First, rule out outright misses: */
+    if        (addr < debug_stackwalker_text_start) {
+	snprintf (name, n, "<below .text> _start_kernel");
+	return;
+    } else if (addr >= debug_stackwalker_text_end) {
+	snprintf (name, n, "<above .text> _start_kernel");
+	return;
+    } else if (addr < debug_stackwalker_dynsyms[0].st_value) {
+	snprintf (name, n, "<before first symbol> .text");
+	*delta = addr - debug_stackwalker_text_start;
+	return;
+    }
+
+    /* Next, handle first N-1 symbols: */
+    for (int i = 0; i < debug_stackwalker_nsyms - 1; i++) {
+	struct Elf64_Sym     *sym = & debug_stackwalker_dynsyms[i];
+	struct Elf64_Sym *nextsym = sym + 1;
+	if (try_explain_address (addr, n, name, delta, sym, nextsym->st_value, & debug_stackwalker_dynstr[nextsym->st_name]))
+	    return;
+    }
+
+    /* Finally, the special case of the last symbol: */
+    struct Elf64_Sym *sym = & debug_stackwalker_dynsyms[debug_stackwalker_nsyms - 1];
+    if (try_explain_address (addr, n, name, delta, sym, debug_stackwalker_text_end, "<end-of-.text>"))
+	return;
+
+    snprintf (name, n, "<algorithm failure> _start_kernel");
+    return;
+}
+
+static uint64_t __attribute__((used)) resolve_sym2addr (char *symname)
+{
+    if (! debug_stackwalker_initialized_p ())
+	return (uint64_t) -1;
 
     for (int i = 0; i < debug_stackwalker_nsyms; i++) {
-	struct Elf64_Sym *sym = &debug_stackwalker_dynsyms[i];
-	if (i < debug_stackwalker_nsyms - 1 &&
-	    addr < (sym + 1)->st_value) {
-	    *delta = addr - sym->st_value;
-	    return & debug_stackwalker_dynstr[sym->st_name];
-	}
+	struct Elf64_Sym *sym = & debug_stackwalker_dynsyms[i];
+	if (! strcmp (symname, & debug_stackwalker_dynstr[sym->st_name]))
+	    return sym->st_value;
     }
-    return "<odd missing symbol>";
+
+    return (uint64_t) -1;
 }
 
 static void print_frame(struct stack_frame * frame)
 {
-    uint64_t addr = frame->return_address, delta;
-    char    *name = resolve_sym (addr, &delta);
+    uint64_t    addr = frame->return_address;
+    char symbol_name[128] = { 0 };
+    int64_t    delta;
+    resolve_addr2sym (addr, 127, symbol_name, &delta);
 
-    printf ("%16lx %s + 0x%x\n\r", addr, name, (uint32_t) delta);
+    printf ("%16lx ELF:%lx %20s %s 0x%x\n\r",
+            addr, addr_to_elf (addr), symbol_name, delta < 0 ? "-" : "+", (uint32_t) (delta < 0 ? -delta : delta));
 }
 
 static void __dump_stack (uint64_t rbp)
 {
-    if (! debug_stackwalker_initializedp ()) {
+    if (! debug_stackwalker_initialized_p ()) {
 	printf("ERROR: stack walker is not initialized\n\r");
 	return;
     }
-
     printf ("    call trace (rbp: %lx, stack: %lx-%lx, text: %lx-%lx):\n\r",
 	    rbp, debug_stackwalker_stack_top, debug_stackwalker_stack_bottom, debug_stackwalker_text_start, debug_stackwalker_text_end);
     walk_stack (rbp, debug_stackwalker_stack_top, debug_stackwalker_stack_bottom, debug_stackwalker_max_frames, print_frame);
