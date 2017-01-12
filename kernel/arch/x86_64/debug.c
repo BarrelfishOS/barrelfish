@@ -213,8 +213,10 @@ static void walk_stack (uint64_t rbp, uint64_t stack_top, uint64_t stack_bottom,
     }
 }
 
-static char *resolve_sym (uint64_t addr)
+static char *resolve_sym (uint64_t addr, uint64_t *delta)
 {
+    *delta = 0;
+
     if (! debug_stackwalker_initializedp ())
 	return "<symbols unavailable>";
 
@@ -225,17 +227,20 @@ static char *resolve_sym (uint64_t addr)
     for (int i = 0; i < debug_stackwalker_nsyms; i++) {
 	struct Elf64_Sym *sym = &debug_stackwalker_dynsyms[i];
 	if (i < debug_stackwalker_nsyms - 1 &&
-	    addr < (sym + 1)->st_value)
+	    addr < (sym + 1)->st_value) {
+	    *delta = addr - sym->st_value;
 	    return & debug_stackwalker_dynstr[sym->st_name];
+	}
     }
     return "<odd missing symbol>";
 }
 
 static void print_frame(struct stack_frame * frame)
 {
-    uint64_t addr = frame->return_address;
+    uint64_t addr = frame->return_address, delta;
+    char    *name = resolve_sym (addr, &delta);
 
-    printf ("%16lx %s\n\r", addr, resolve_sym (addr));
+    printf ("%16lx %s + 0x%x\n\r", addr, name, (uint32_t) delta);
 }
 
 static void __dump_stack (uint64_t rbp)
