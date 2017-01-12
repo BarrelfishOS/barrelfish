@@ -38,15 +38,15 @@ void debug_vaddr_identify(lvaddr_t debug_pml4, lvaddr_t vaddr)
     printf("cr3 register      %lx\n", debug_pml4);
     printf("identifying vaddr %lx\n", vaddr);
 
-    volatile uint64_t *temp = (uint64_t*)vaddr;
+    volatile lvaddr_t *temp = (lvaddr_t*)vaddr;
 
     for(i = 0; i < 512; i++) {
-        printf("at addr %lx content is %lx\n", (uint64_t)(temp + i), *(temp + i));
+        printf("at addr %lx content is %lx\n", (lvaddr_t)(temp + i), *(temp + i));
     }
     printf("\n");
 
     union lin_addr lin_addr;
-    lin_addr.raw = (uint64_t)vaddr;
+    lin_addr.raw = (lvaddr_t)vaddr;
 
     printf("vaddr broken down\n");
     printf("sign_extend = %x\n", lin_addr.d.sign_extend);
@@ -56,18 +56,18 @@ void debug_vaddr_identify(lvaddr_t debug_pml4, lvaddr_t vaddr)
     printf("ptable      = %x\n", lin_addr.d.ptable);
     printf("offset      = %x\n", lin_addr.d.offset);
 
-    uint64_t *pml4et;
-    pml4et = (uint64_t*)(debug_pml4 +
+    lvaddr_t *pml4et;
+    pml4et = (lvaddr_t*)(debug_pml4 +
                          (lin_addr.d.pml4 * sizeof(union x86_64_pdir_entry)));
-    printf("PML4e addr = %016lx ", (uint64_t)pml4et);
+    printf("PML4e addr = %016lx ", (lvaddr_t)pml4et);
     printf("content = %016lx\n", *pml4et);
 
     lvaddr_t pdpt_addr;
     pdpt_addr = local_phys_to_mem(((union x86_64_pdir_entry*)pml4et)->d.base_addr << 12);
-    uint64_t *pdptet;
-    pdptet = (uint64_t*)(pdpt_addr +
+    lvaddr_t *pdptet;
+    pdptet = (lvaddr_t*)(pdpt_addr +
                          (lin_addr.d.pdpt * sizeof(union x86_64_pdir_entry)));
-    printf("PDPe  addr = %016lx ", (uint64_t)pdptet);
+    printf("PDPe  addr = %016lx ", (lvaddr_t)pdptet);
     printf("content = %016lx\n", *pdptet);
 
     if (x86_64_pdir_entry_leafp ((union x86_64_pdir_entry*) pdptet)) {
@@ -78,10 +78,10 @@ void debug_vaddr_identify(lvaddr_t debug_pml4, lvaddr_t vaddr)
 
     lvaddr_t pdir_addr;
     pdir_addr = local_phys_to_mem(((union x86_64_pdir_entry*)pdptet)->d.base_addr << 12);
-    uint64_t *pdiret;
-    pdiret = (uint64_t*)(pdir_addr +
+    lvaddr_t *pdiret;
+    pdiret = (lvaddr_t*)(pdir_addr +
                          (lin_addr.d.pdir * sizeof(union x86_64_pdir_entry)));
-    printf("PGDe  addr = %016lx ", (uint64_t)pdiret);
+    printf("PGDe  addr = %016lx ", (lvaddr_t)pdiret);
     printf("content = %016lx\n", *pdiret);
 
     if (x86_64_pdir_entry_leafp ((union x86_64_pdir_entry*) pdiret)) {
@@ -92,10 +92,10 @@ void debug_vaddr_identify(lvaddr_t debug_pml4, lvaddr_t vaddr)
 
     lvaddr_t ptable_addr;
     ptable_addr = local_phys_to_mem(((union x86_64_pdir_entry*)pdiret)->d.base_addr << 12);
-    uint64_t *ptableet;
-    ptableet = (uint64_t*)(ptable_addr +
+    lvaddr_t *ptableet;
+    ptableet = (lvaddr_t*)(ptable_addr +
                          (lin_addr.d.ptable * sizeof(union x86_64_pdir_entry)));
-    printf("PTe   addr = %016lx ", (uint64_t)ptableet);
+    printf("PTe   addr = %016lx ", (lvaddr_t)ptableet);
     printf("content = %016lx\n", *ptableet);
 
     lpaddr_t addr = ((union x86_64_ptable_entry*)ptableet)->base.base_addr << 12;
@@ -166,20 +166,20 @@ void dump_idt (void)
  */
 #if defined (CONFIG_KERNEL_STACK_TRACE)
 
-static inline uint64_t __attribute__((always_inline)) rdrbp (void)
+static inline lvaddr_t __attribute__((always_inline)) rdrbp (void)
 {
-    uint64_t rbp;
+    lvaddr_t rbp;
     __asm__("movq %%rbp, %0" : "=r" (rbp) :);
     return rbp;
 }
 
 struct stack_frame {
     struct stack_frame *next_frame;
-    uint64_t            return_address;
+    lvaddr_t            return_address;
 };
 
-static uint64_t debug_stackwalker_stack_top, debug_stackwalker_stack_bottom = -1;
-static uint64_t debug_stackwalker_text_start, debug_stackwalker_text_end;
+static lvaddr_t debug_stackwalker_stack_top, debug_stackwalker_stack_bottom = -1;
+static lvaddr_t debug_stackwalker_text_start, debug_stackwalker_text_end;
 static struct Elf64_Sym
                *debug_stackwalker_dynsyms;
 static    char *debug_stackwalker_dynstr;
@@ -191,30 +191,30 @@ static bool debug_stackwalker_initialized_p (void)
     return debug_stackwalker_stack_bottom != -1;
 }
 
-static int stack_pointer_valid_p (uint64_t ptr, uint64_t top, uint64_t bottom)
+static int stack_pointer_valid_p (lvaddr_t ptr, lvaddr_t top, lvaddr_t bottom)
 {
     return bottom <= ptr && ptr < top && !(ptr & 0x7);
 }
 
-static void walk_stack (uint64_t rbp, uint64_t stack_top, uint64_t stack_bottom,
+static void walk_stack (lvaddr_t rbp, lvaddr_t stack_top, lvaddr_t stack_bottom,
 			int max_frames, void (*walk_callback) (struct stack_frame *))
 {
     struct stack_frame *frame = (struct stack_frame *) rbp;
     int i = 0;
     while ((! max_frames || i < max_frames) &&
-	   stack_pointer_valid_p ((uint64_t) frame->next_frame, stack_top, stack_bottom)) {
+	   stack_pointer_valid_p ((lvaddr_t) frame->next_frame, stack_top, stack_bottom)) {
 	walk_callback (frame);
 	frame = frame->next_frame;
 	i++;
     }
 }
 
-static uint64_t maybe_local_phys_to_mem (uint64_t addr)
+static lvaddr_t maybe_local_phys_to_mem (uint64_t addr)
 {
     return addr < X86_64_PADDR_SPACE_LIMIT ? local_phys_to_mem (addr) : addr;
 }
 
-static uint64_t maybe_mem_to_local_phys (uint64_t addr)
+static lpaddr_t maybe_mem_to_local_phys (uint64_t addr)
 {
     return addr < X86_64_PADDR_SPACE_LIMIT ? addr : mem_to_local_phys (addr);
 }
@@ -230,7 +230,7 @@ static uint64_t addr_to_elf (uint64_t addr)
     return addr < phys_start ? addr : maybe_mem_to_local_phys (addr) - phys_start;
 }
 
-static bool try_explain_address (uint64_t addr, int n, char *name, int64_t *delta, struct Elf64_Sym *sym, uint64_t next_value, char *next_name) {
+static bool try_explain_address (lvaddr_t addr, int n, char *name, int64_t *delta, struct Elf64_Sym *sym, lvaddr_t next_value, char *next_name) {
     if        (addr < sym->st_value + sym->st_size) {
         *delta = addr - sym->st_value;
         snprintf (name, n, "%s", & debug_stackwalker_dynstr[sym->st_name]);
@@ -285,23 +285,23 @@ static void resolve_addr2sym (uint64_t addr, int n, char *name, int64_t *delta)
     return;
 }
 
-static uint64_t __attribute__((used)) resolve_sym2addr (char *symname)
+static lvaddr_t __attribute__((used)) resolve_sym2addr (char *symname)
 {
     if (! debug_stackwalker_initialized_p ())
-	return (uint64_t) -1;
+	return (lvaddr_t) -1;
 
     for (int i = 0; i < debug_stackwalker_nsyms; i++) {
 	struct Elf64_Sym *sym = & debug_stackwalker_dynsyms[i];
 	if (! strcmp (symname, & debug_stackwalker_dynstr[sym->st_name]))
-	    return sym->st_value;
+	    return (lvaddr_t) sym->st_value;
     }
 
-    return (uint64_t) -1;
+    return (lvaddr_t) -1;
 }
 
 static void print_frame(struct stack_frame * frame)
 {
-    uint64_t    addr = frame->return_address;
+    lvaddr_t    addr = frame->return_address;
     char symbol_name[128] = { 0 };
     int64_t    delta;
     resolve_addr2sym (addr, 127, symbol_name, &delta);
@@ -310,7 +310,7 @@ static void print_frame(struct stack_frame * frame)
             addr, addr_to_elf (addr), symbol_name, delta < 0 ? "-" : "+", (uint32_t) (delta < 0 ? -delta : delta));
 }
 
-static void __dump_stack (uint64_t rbp)
+static void __dump_stack (lvaddr_t rbp)
 {
     if (! debug_stackwalker_initialized_p ()) {
 	printf("ERROR: stack walker is not initialized\n\r");
@@ -334,11 +334,11 @@ static int compare_syms (const struct Elf64_Sym *a, const struct Elf64_Sym *b)
  */
 #define _unused __attribute__((unused))
 
-void debug_setup_stackwalker (_unused uint64_t stack_top, _unused uint64_t stack_bottom, _unused uint64_t text_start, _unused uint64_t text_end, _unused struct Elf64_Sym *dynsyms, _unused char *dynstr, _unused int nsyms)
+void debug_setup_stackwalker (_unused lvaddr_t stack_top, _unused lvaddr_t stack_bottom, _unused lvaddr_t text_start, _unused lvaddr_t text_end, _unused struct Elf64_Sym *dynsyms, _unused char *dynstr, _unused int nsyms)
 {
 #if defined (CONFIG_KERNEL_STACK_TRACE)
-    uint64_t rbp = rdrbp (), rsp;
-    rsp = (uint64_t) &rsp;
+    lvaddr_t rbp = rdrbp (), rsp;
+    rsp = (lvaddr_t) &rsp;
 
     if (! stack_pointer_valid_p (rbp, stack_top, stack_bottom)) {
 	printf ("WARNING:  refusing to initialize stackwalker with rbp=0x%lx (rsp=0x%lx) outside of specified 0x%lx-0x%lx\n"
