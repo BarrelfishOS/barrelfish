@@ -714,9 +714,6 @@ void arch_init(uint64_t magic, void *pointer)
     // Now that address dances are somewhat settled, let's instate some comfort:
     int nsyms = symtab->sh_size / sizeof (struct Elf64_Sym);
 
-    debug_sort_dynsyms (syms, nsyms);
-    debug_relocate_dynsyms (syms, nsyms, X86_64_MEMORY_OFFSET - X86_64_START_KERNEL_PHYS + (uint64_t) &_start_kernel);
-
     struct Elf64_Shdr *dynstr_sectn = elf64_find_section_header_type((struct Elf64_Shdr *)
 								     (lpaddr_t)elf->addr,
 								     elf->num, SHT_STRTAB);
@@ -729,6 +726,9 @@ void arch_init(uint64_t magic, void *pointer)
     debug_setup_stackwalker (stack_bottom + sizeof x86_64_kernel_stack, stack_bottom,
 			     (lpaddr_t) &_start_kernel_text, (lpaddr_t) &_end_kernel_text,
 			     syms, dynstr, nsyms);
+
+    debug_sort_dynsyms (syms, nsyms);
+    debug_relocate_dynsyms (syms, nsyms, X86_64_MEMORY_OFFSET - X86_64_START_KERNEL_PHYS + (uint64_t) &_start_kernel);
 #endif
 
     // Call aliased text_init() function and continue initialization
