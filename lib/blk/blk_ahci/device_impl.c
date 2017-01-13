@@ -1,19 +1,28 @@
 #include <barrelfish/barrelfish.h>
 #include <assert.h>
-//#include <devif/queue.h>
+#include <devif/queue_interface.h>
+#include <devif/backends/blk/ahci_devq.h>
 
 #include "blk_ahci.h"
 #include "ahci_dev.h" // TODO: get rid of this include
 #include "../dma_mem/dma_mem.h"
 #include "../blk_debug.h"
+#include "../../devif/queue_interface_internal.h"
 
-#if 0
-static bool is_valid_buffer(struct dev_queue* dq, size_t slot)
+struct ahci_queue {
+    struct devq q;
+    struct ahci_port* port;
+    struct dma_mem buffers[MAX_BUFFERS];
+    struct dev_queue_request requests[MAX_REQUESTS];
+};
+
+
+static bool is_valid_buffer(struct ahci_queue* dq, size_t slot)
 {
     return !capref_is_null(dq->buffers[slot].frame);
 }
 
-static errval_t request_slot_alloc(struct dev_queue* dq, size_t* slot)
+static errval_t request_slot_alloc(struct ahci_queue* dq, size_t* slot)
 {
     assert(dq->port->ncs <= MAX_REQUESTS);
 
@@ -43,13 +52,12 @@ static errval_t get_port(struct ahci_disk* hba, size_t port_num, struct ahci_por
     return SYS_ERR_OK;
 }
 
-static errval_t init_queue(struct dev_queue** dq, struct ahci_port *port) {
-    struct dev_queue* queue = calloc(1, sizeof(struct dev_queue));
+static errval_t init_queue(struct ahci_queue** dq) {
+    struct ahci_queue* queue = calloc(1, sizeof(struct ahci_queue));
     if (dq == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    queue->port = port;
     for (size_t i = 0; i< MAX_BUFFERS; i++) {
         queue->buffers[i].frame = NULL_CAP;
     }
@@ -75,70 +83,52 @@ static bool flags_is_write(uint64_t flags) {
     return (flags & (1ULL << 63)) > 0;
 }
 
-void devq_interrupt_handler(void* q);
-void devq_interrupt_handler(void* q)
+void ahci_interrupt_handler(void* q)
 {
     if (q == NULL) {
         BLK_DEBUG("Ignored interrupt, device not yet initialized?\n");
         return;
     }
-    struct dev_queue *queue = q;
+    struct ahci_queue *queue = q;
     struct ahci_port *port = queue->port;
 
     assert(port->interrupt != NULL);
-    port->interrupt(port, queue);
+    port->interrupt(port, queue->requests, port->ncs);
 }
 
-errval_t devq_create(void* st, char *device_name, uint64_t flags, void **queue)
+errval_t ahci_destroy(struct ahci_queue *q)
 {
-    errval_t err = SYS_ERR_OK;
-
-    struct ahci_port* port = NULL;
-    err = get_port(st, flags, &port);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    struct dev_queue *dq;
-    err = init_queue(&dq, port);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    *queue = dq;
-
-    return err;
-}
-
-errval_t devq_destroy(void *qp)
-{
-    struct dev_queue *queue = qp;
-
     // TODO: Wait for stuff to finish...!
 
     // Clean-up memory:
     for (size_t i = 0; i< MAX_BUFFERS; i++) {
-        dma_mem_free(&queue->buffers[i]);
+        dma_mem_free(&q->buffers[i]);
     }
-    free(qp);
+    free(q);
     return SYS_ERR_OK;
 }
 
-errval_t devq_enqueue(void *q, regionid_t region_id, lpaddr_t base, size_t length, bufferid_t buffer_id, uint64_t flags)
+static errval_t ahci_enqueue(struct devq *q, 
+                             regionid_t region_id, 
+                             bufferid_t buffer_id, 
+                             lpaddr_t base, 
+                             size_t length, 
+                             uint64_t flags)
 {
-    struct dev_queue *queue = q;
-    assert(region_id < MAX_BUFFERS);
-    assert(is_valid_buffer(queue, region_id));
+    struct ahci_queue *queue = (struct ahci_queue*) q;
+    
+    assert(is_valid_buffer(queue, (region_id % MAX_BUFFERS)));
     assert(base != 0);
     assert(length >= 512);
 
-    struct dma_mem* mem = &queue->buffers[region_id];
+    struct dma_mem* mem = &queue->buffers[(region_id % MAX_BUFFERS)];
 
     if (!slice_is_in_range(mem, base, length)) {
         return DEV_ERR_INVALID_BUFFER_ARGS;
     }
 
     size_t slot = 0;
+    
     errval_t err = request_slot_alloc(queue, &slot);
     if (err_is_fail(err)) {
         return err;
@@ -149,36 +139,37 @@ errval_t devq_enqueue(void *q, regionid_t region_id, lpaddr_t base, size_t lengt
     dqr->buffer_id = buffer_id;
     dqr->base = base;
     dqr->length = length;
-    dqr->region_id = region_id;
+    dqr->region_id = region_id ;
     dqr->command_slot = slot;
 
     uint64_t block = flags_get_block(flags);
     bool write = flags_is_write(flags);
-    return blk_ahci_port_dma_async(queue->port, slot, block, base, length, write);
+
+    err = blk_ahci_port_dma_async(queue->port, slot, block, base, length, write);
+    return err;
 }
 
-errval_t devq_dequeue(void *q,
-                      regionid_t* region_id,
-                      lpaddr_t* base,
-                      size_t* length,
-                      bufferid_t* buffer_id)
+static errval_t ahci_dequeue(struct devq* q,
+                             regionid_t* region_id,
+                             bufferid_t* buffer_id,
+                             lpaddr_t* base,
+                             size_t* length,
+                             uint64_t* misc_flags)
 {
     assert(q != NULL);
     assert(region_id != NULL);
     assert(base != NULL);
     assert(length != NULL);
-    assert(length != NULL);
 
-    struct dev_queue *queue = q;
+    struct ahci_queue *queue = (struct ahci_queue*) q;
 
-    for (size_t i=0; i<queue->port->ncs; i++) {
+    for (size_t i=0; i < queue->port->ncs; i++) {
         struct dev_queue_request *dqr = &queue->requests[i];
         if (dqr->status == RequestStatus_Done) {
             *base = dqr->base;
             *length = dqr->length;
             *buffer_id = dqr->buffer_id;
             *region_id = dqr->region_id;
-
             dqr->status = RequestStatus_Unused;
             return dqr->error;
         }
@@ -187,53 +178,89 @@ errval_t devq_dequeue(void *q,
     return DEV_ERR_QUEUE_EMPTY;
 }
 
-errval_t devq_register(void *q,
-                       struct capref cap,
-                       regionid_t* region_id)
+static errval_t ahci_register(struct devq *q,
+                              struct capref cap,
+                              regionid_t region_id)
 {
+
     errval_t err = DEV_ERR_REGISTER_BUFFER;
     assert(!capref_is_null(cap));
-    struct dev_queue *queue = q;
+    struct ahci_queue *queue = (struct ahci_queue*) q;
 
     for (size_t i=0; i<MAX_BUFFERS; i++) {
-        if (is_valid_buffer(q, i)) {
+        uint16_t slot = ((region_id+i) % MAX_BUFFERS);
+
+        if (is_valid_buffer(queue, slot)) {
             printf("Don't overwrite existing buffer\n");
             continue;
         }
-
-        struct dma_mem* mem = &queue->buffers[i];
+        
+        queue->buffers[slot].frame = cap;
+        
+        struct dma_mem* mem = &queue->buffers[slot];
         err = dma_mem_from_capref(cap, mem);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "call failed");
             return err_push(err, DEV_ERR_REGISTER_BUFFER);
         }
-
-        *region_id = i;
         return SYS_ERR_OK;
     }
 
     return err;
 }
 
-errval_t devq_remove(void *q, regionid_t region_id)
+static errval_t ahci_deregister(struct devq *q, regionid_t region_id)
 {
-    assert(region_id < MAX_BUFFERS);
     assert(q != NULL);
-    struct dev_queue *queue = q;
+    struct ahci_queue *queue = (struct ahci_queue*) q;
 
-    struct dma_mem* mem = &queue->buffers[region_id];
+    struct dma_mem* mem = &queue->buffers[(region_id % MAX_BUFFERS)];
     assert(!capref_is_null(mem->frame));
 
     return dma_mem_free(mem);
 }
 
-errval_t devq_sync(void *q)
+static errval_t ahci_notify(struct devq *q)
 {
     return SYS_ERR_OK;
 }
 
-errval_t devq_control(void *q, uint64_t request, uint64_t value)
+static errval_t ahci_control(struct devq *q, uint64_t request, uint64_t value)
 {
     return SYS_ERR_OK;
 }
-#endif
+
+errval_t ahci_create(struct ahci_queue** q, void* st, uint64_t flags)
+{
+    errval_t err = SYS_ERR_OK;
+
+    struct ahci_port* port = NULL;
+    err = get_port(st, flags, &port);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    struct ahci_queue *dq;
+    err = init_queue(&dq);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    dq->port = port;
+
+    dq->q.f.enq = ahci_enqueue;
+    dq->q.f.deq = ahci_dequeue;
+    dq->q.f.reg = ahci_register;
+    dq->q.f.dereg = ahci_deregister;
+    dq->q.f.ctrl = ahci_control;
+    dq->q.f.notify = ahci_notify;
+
+    err = devq_init(&dq->q, false);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    *q = dq;
+
+    return err;
+}

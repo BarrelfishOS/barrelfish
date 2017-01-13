@@ -52,27 +52,6 @@ struct __attribute__((__packed__)) command_table {
 
 struct ahci_port;
 struct dev_queue;
-typedef void (*ahci_port_interrupt_handler_fn)(struct ahci_port*, struct dev_queue*);
-
-struct ahci_port {
-    bool is_initialized; //< Port is up and running, ready to read/write.
-    ahci_port_t port;
-    struct dma_mem fb;
-    struct dma_mem clb;
-    struct dma_mem ctba_mem[MAX_CTBA_SLOTS];
-    struct command_table* command_table[MAX_CTBA_SLOTS]; //< Points to ctba_mem[i].vaddr
-    size_t ncs; //< Number of command slots actually implemented
-    ahci_port_interrupt_handler_fn interrupt;
-    struct ahci_mgmt_binding *binding;
-    struct dma_mem identify_mem;
-    ata_identify_t identify; //< Points to identify_mem.vaddr, valid after port_identify() is done.
-};
-
-struct ahci_disk {
-    struct device_mem* bar5;
-    ahci_hba_t controller;
-    struct ahci_port ports[MAX_AHCI_PORTS];
-};
 
 
 enum RequestStatus {
@@ -97,6 +76,31 @@ struct dev_queue_request {
     errval_t error;
     enum RequestStatus status;
 };
+
+
+typedef void (*ahci_port_interrupt_handler_fn)(struct ahci_port*, struct dev_queue_request* reqs, size_t slots);
+
+struct ahci_port {
+    bool is_initialized; //< Port is up and running, ready to read/write.
+    ahci_port_t port;
+    struct dma_mem fb;
+    struct dma_mem clb;
+    struct dma_mem ctba_mem[MAX_CTBA_SLOTS];
+    struct command_table* command_table[MAX_CTBA_SLOTS]; //< Points to ctba_mem[i].vaddr
+    size_t ncs; //< Number of command slots actually implemented
+    ahci_port_interrupt_handler_fn interrupt;
+    struct ahci_mgmt_binding *binding;
+    struct dma_mem identify_mem;
+    ata_identify_t identify; //< Points to identify_mem.vaddr, valid after port_identify() is done.
+};
+
+struct ahci_disk {
+    struct device_mem* bar5;
+    ahci_hba_t controller;
+    struct ahci_port ports[MAX_AHCI_PORTS];
+};
+
+
 
 struct dev_queue {
     struct ahci_port* port;

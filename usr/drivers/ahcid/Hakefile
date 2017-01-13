@@ -16,7 +16,7 @@
         mackerelDevices = [ "ata_identify", "ahci_port", "ahci_hba" ],
         cFiles = [ "ahcid.c", "test.c" ],
         addCFlags = ["-Wno-unused-variable", "-Wno-unused-function"],
-        addLibraries = [ "blk", "pci", "skb", "bench" ]
+        addLibraries = [ "blk", "pci", "skb", "bench", "devif" ]
     },
 
     build application {
@@ -24,6 +24,6 @@
         mackerelDevices = [ "ata_identify", "ahci_port", "ahci_hba" ],
         cFiles = [ "ahcid.c", "test.c" ],
         addCFlags = ["-DTESTING"],
-        addLibraries = [ "blk", "pci", "skb", "bench" ]
+        addLibraries = [ "blk", "pci", "skb", "bench" , "devif"]
     }
 ]
