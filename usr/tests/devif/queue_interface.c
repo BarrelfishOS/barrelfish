@@ -18,8 +18,6 @@
 #include <devif/backends/descq.h>
 
 
-#define IDC_TEST
-#define SFN_TEST
 #define NUM_ENQ 2
 #define NUM_RX_BUF 1024
 #define NUM_ROUNDS 32
@@ -54,7 +52,6 @@ struct list_ele{
     struct list_ele* next;
 };
 
-#ifdef SFN_TEST
 static uint8_t udp_header[8] = {
     0x07, 0xD0, 0x07, 0xD0,
     0x00, 0x80, 0x00, 0x00,
@@ -226,11 +223,10 @@ static void test_sfn5122f_device_direct(void)
 
     err = sfn5122f_queue_destroy((struct sfn5122f_queue*) q);
 
-    printf("SFN5122F direct device test ended\n");
+    printf("SUCCESS: SFN5122F direct device test ended\n");
 }
-#endif
 
-#ifdef IDC_TEST
+
 static errval_t descq_notify(struct descq* q) 
 {   
     errval_t err = SYS_ERR_OK;
@@ -327,13 +323,11 @@ static void test_idc_queue(void)
         USER_PANIC("Devq deregister tx failed \n");
     }
 
-    printf("Descriptor queue test end \n");
+    printf("SUCCESS: IDC queue\n");
 }
 
-#endif
 int main(int argc, char *argv[])
 {
-    //barrelfish_usleep(1000*1000*5);
     errval_t err;
     // Allocate memory
     err = frame_alloc(&memory_rx, MEMORY_SIZE, NULL);
@@ -373,13 +367,15 @@ int main(int argc, char *argv[])
     }
 
     phys_tx = id.base;
-#ifdef SFN_TEST
-    test_sfn5122f_device_direct();
+
+    if (strcmp(argv[1], "net") == 0) {
+        test_sfn5122f_device_direct();
+    }
+
+    if (strcmp(argv[1], "idc") == 0) {
+        test_idc_queue();
+    }
+
     barrelfish_usleep(1000*1000*5);
-#endif
-#ifdef IDC_TEST
-    test_idc_queue();
-    barrelfish_usleep(1000*1000*5);
-#endif
 }
 
