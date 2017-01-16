@@ -47,10 +47,16 @@ class DevifTests(TestCommon):
         return PassFailResult(passed)
 
 @tests.add_test
-class DevifNetTest(DevifTests):
-    ''' Devif Net Test'''
-    name = "devif_net_test"
-    OP = "net"
+class DevifNetTxTest(DevifTests):
+    ''' Devif Net TX Test'''
+    name = "devif_net_tx_test"
+    OP = "net_tx"
+
+@tests.add_test
+class DevifNetRxTest(DevifTests):
+    ''' Devif Net RX Test'''
+    name = "devif_net_rx_test"
+    OP = "net_rx"
 
 @tests.add_test
 class DevifIdcTest(DevifTests):
