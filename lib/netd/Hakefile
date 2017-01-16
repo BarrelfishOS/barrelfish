@@ -6,12 +6,14 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /usr/netd
+-- Hakefile for lib/netd
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "netd",
-                      cFiles = [ "main.c" ],
-                      addLibraries = [ "netd" ]
-                    }
+[ build library { target = "netd",
+                  cFiles = [ "netd.c", "lwipinit.c", "ARP_lookup_service.c" ],
+                  flounderBindings = [ "net_ARP" ],
+                  flounderDefs = [ "net_ARP" ],
+                  addLibraries = [ "lwip", "contmng", "net_if_raw", "timer",
+                                   "trace" ] }
 ]
