@@ -87,6 +87,7 @@ struct sfn5122f_queue {
 
     // Direct interface fields
     uint16_t id;
+    struct capref frame;
     sfn5122f_t *device;
     void* device_va;
     struct region_entry* regions;
@@ -153,21 +154,8 @@ static inline sfn5122f_queue_t* sfn5122f_queue_init(void* tx,
 static inline errval_t sfn5122f_queue_free(struct sfn5122f_queue* q)
 {
     errval_t err;
-    
-    err = vspace_unmap(q->ev_ring);  
-    if (err_is_fail(err)) {
-        return err;
-    }   
 
-    if (q->userspace) {
-        err = vspace_unmap(q->rx_ring.user);  
-    } else {
-        err = vspace_unmap(q->rx_ring.ker);  
-    }
-    if (err_is_fail(err)) {
-        return err;
-    } 
-  
+    // only one cap that is mapped (TX)
     if (q->userspace) {
         err = vspace_unmap(q->tx_ring.user);  
     } else {
@@ -176,7 +164,6 @@ static inline errval_t sfn5122f_queue_free(struct sfn5122f_queue* q)
     if (err_is_fail(err)) {
         return err;
     }   
-
     free(q->rx_bufs);
     free(q->tx_bufs);
     free(q);
