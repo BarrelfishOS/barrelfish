@@ -63,7 +63,7 @@ static void lrpc_bench_handler(void *arg)
         printf("SERVER: %lf != %lf\n", SERVER_VAL, d_val);
         abort();
     }
-    
+
     // try to pull a message out of the channel
     struct lmp_recv_msg msg = LMP_RECV_MSG_INIT;
     err = lmp_chan_recv(chan, &msg, NULL);

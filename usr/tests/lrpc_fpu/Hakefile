@@ -13,5 +13,6 @@
 [ build application { target = "lrpc_fpu",
                       cFiles = [ "lrpc_fpu.c" ],
                       flounderBindings = [ "bench" ],
-                      addLibraries = ["bench"] }
+                      addLibraries = ["bench"],
+                      architectures = [ "x86_64", "k1om" ] }
 ]
