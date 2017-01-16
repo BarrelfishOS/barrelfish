@@ -264,8 +264,8 @@ class BlkTests(TestCommon):
                     result.mark_failed('No data for {} with bs {}.'.format(operation, bs))
                     return result
 
-                lower_bound = bandwidth[self.machine][operation][bs] * (1 - 0.15)
-                upper_bound = bandwidth[self.machine][operation][bs] * (1 + 0.20)
+                lower_bound = bandwidth[self.machine][operation][bs] * (1 - 0.25)
+                upper_bound = bandwidth[self.machine][operation][bs] * (1 + 0.25)
 
                 result.add_row((operation, buffer_size, bs, bw))
                 if bw <= lower_bound:
