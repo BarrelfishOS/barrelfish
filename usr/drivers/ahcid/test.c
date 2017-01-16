@@ -2,9 +2,11 @@
 #include "test.h"
 
 #include <stdarg.h>
+#include <barrelfish/deferred.h>
 #include <bench/bench.h>
 #include <devif/backends/blk/ahci_devq.h>
 #include <devif/queue_interface.h>
+
 
 static uint64_t finish_counter = 0;
 
@@ -20,6 +22,9 @@ void test_runner(int n, ...)
 {
     va_list arguments;
     va_start(arguments, n);
+    
+    // sleep for 5 sec
+    barrelfish_usleep(5000*1000);
 
     for (size_t i=0; i<n; i++) {
         enum AhciTest test = va_arg(arguments, enum AhciTest);
