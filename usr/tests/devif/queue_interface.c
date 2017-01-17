@@ -258,7 +258,8 @@ static void test_sfn5122f_rx(void)
     struct sfn5122f_queue* queue;
 
     printf("SFN5122F direct device test started \n");
-    err = sfn5122f_queue_create(&queue, sfn5122f_event_cb, true, false);
+    err = sfn5122f_queue_create(&queue, sfn5122f_event_cb, /* userlevel*/ true, 
+                                /*MSIX interrupts*/ false);
     if (err_is_fail(err)){
         USER_PANIC("Allocating devq failed \n");
     }    

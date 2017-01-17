@@ -82,8 +82,13 @@ struct sfn5122f_queue {
     struct sfn5122f_devif_rpc_client* rpc;
     volatile bool bound;
 
+
+    // interrupts
+    uint8_t core;
+    uint8_t vector;
+
     // callback 
-    struct periodic_event* event;
+    sfn5122f_event_cb_t cb;
 
     // Direct interface fields
     uint16_t id;

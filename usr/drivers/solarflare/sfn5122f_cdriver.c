@@ -14,6 +14,7 @@
 #include <net_queue_manager/net_queue_manager.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/spawn_client.h>
+#include <barrelfish/deferred.h>
 #include <pci/pci.h>
 #include <ipv4/lwip/inet.h>
 #include <barrelfish/debug.h>
@@ -213,7 +214,7 @@ static uint32_t init_evq(uint16_t n, lpaddr_t phys);
 static void queue_hw_stop(uint16_t n);
 
 static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector);
-static void interrupt_handler(void* arg);
+static void global_interrupt_handler(void* arg);
 
 static void bind_arp(struct waitset *ws);
 static errval_t arp_ip_info(void);
@@ -769,7 +770,7 @@ static void device_init(void)
     if (use_msix) {
         reg = sfn5122f_int_adr_reg_ker_hi_norm_int_vec_dis_ker_insert(reg, 1);
         if (cdriver_msix == -1) {
-            r = pci_setup_inthandler(interrupt_handler, NULL, &cdriver_vector);
+            r = pci_setup_inthandler(global_interrupt_handler, NULL, &cdriver_vector);
             assert(err_is_ok(r));
             setup_interrupt(&cdriver_msix, disp_get_core_id(), cdriver_vector);
         }
@@ -862,7 +863,6 @@ static void start_all(void)
     in[CMD_MAC_STATS_IN_DMA_LEN_OFFSET+1] = 3;
     errval_t err = mcdi_rpc(CMD_MAC_STATS, in, CMD_MAC_STATS_IN_LEN, 
                             NULL, 0, NULL, pci_function, d); 
-
     assert(err_is_ok(err));
 }
 
@@ -980,7 +980,9 @@ static uint32_t init_evq(uint16_t n, lpaddr_t phys)
     } else {
         reg = sfn5122f_timer_command_reg_lo_tc_timer_mode_insert(reg, 0); 
     }
+
     sfn5122f_timer_command_reg_lo_wr(d, n, reg);
+
 
     sfn5122f_evq_rptr_reg_wr(d, n, queues[n].ev_head);
 
@@ -989,7 +991,6 @@ static uint32_t init_evq(uint16_t n, lpaddr_t phys)
 
 static uint32_t init_rxq(uint16_t n, lpaddr_t phys, bool userspace)
 {
-
     //errval_t r;
     size_t num_ent_rx;
     //struct frame_identity frameid = { .base = 0, .bytes = 0 };
@@ -1137,7 +1138,7 @@ static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector)
 }
 
 /** Here are the global interrupts handled. */
-static void interrupt_handler(void* arg)
+static void global_interrupt_handler(void* arg)
 {
     //uint64_t reg;
     uint32_t queue;
@@ -1261,6 +1262,7 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
     assert(err_is_ok(err));
     queues[n].rx_buf_tbl = init_rxq(n, id.base, userspace);
 
+
     if(queues[n].ev_buf_tbl == -1 ||
        queues[n].tx_buf_tbl == -1 ||
        queues[n].rx_buf_tbl == -1){
@@ -1268,6 +1270,8 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
        DEBUG("Allocating queue failed \n");
        return;
     }      
+
+    queues[n].enabled = true;
 
     if (queues[n].use_irq) {
         if (queues[n].msix_intvec != 0) {
@@ -1277,8 +1281,6 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
             }
         } 
     }
-
-    queues[n].enabled = true;
 
     idc_write_queue_tails(queues[n].binding);     
 
@@ -1388,12 +1390,11 @@ static struct sfn5122f_rx_vtbl rx_vtbl = {
 };
 
 static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref frame,
-                            bool user) 
+                            bool user, bool interrupt, uint8_t core, uint8_t msix_vector) 
 {
     DEBUG("cd_create_queue \n");
     errval_t err;
     struct frame_identity id;
-
 
     int n = -1;
     for (int i = 0; i < NUM_QUEUES; i++) {
@@ -1410,6 +1411,7 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
         assert(err_is_ok(err));
     }
     
+    queues[n].use_irq = interrupt;
     queues[n].enabled = false;
     queues[n].tx_frame = frame;
     queues[n].tx_head = 0;
@@ -1417,9 +1419,19 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     queues[n].ev_head = 0;
     queues[n].rxbufsz = MTU_MAX;
     queues[n].devif = b;
-    queues[n].use_irq = false;
     queues[n].userspace = user;
     queues[n].msix_index = -1;
+    queues[n].msix_intdest = core;
+    queues[n].msix_intvec = msix_vector;
+
+    if (queues[n].use_irq) {
+        if (queues[n].msix_intvec != 0) {
+            if (queues[n].msix_index == -1) {
+                setup_interrupt(&queues[n].msix_index, queues[n].msix_intdest,
+                                queues[n].msix_intvec);
+            }
+        } 
+    }
 
     err = invoke_frame_identify(frame, &id);
     assert(err_is_ok(err));
@@ -1672,6 +1684,11 @@ static void pci_init_card(struct device_mem* bar_info, int bar_count)
     /* initalize managemnt interface   */
     initialize_mngif();  
     initialized = true;
+
+    if (first){
+       start_all();
+       first = 0;
+    }
 }
 
 static void parse_cmdline(int argc, char **argv)
@@ -1730,7 +1747,7 @@ int main(int argc, char** argv)
                                 PCI_DONT_CARE, PCI_DONT_CARE, 
                                 PCI_VENDOR_SOLARFLARE, DEVICE_ID,
                                 pci_bus, pci_device, pci_function, 
-                                interrupt_handler, NULL);
+                                global_interrupt_handler, NULL);
 
     while (!initialized) {
         event_dispatch(get_default_waitset());

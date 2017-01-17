@@ -14,6 +14,7 @@
 #include <barrelfish/deferred.h>
 #include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
+#include <pci/pci.h>
 #include <if/sfn5122f_devif_defs.h>
 #include <if/sfn5122f_devif_rpcclient_defs.h>
 #include <devif/backends/net/sfn5122f_devif.h>
@@ -28,7 +29,7 @@
     #define DEBUG_QUEUE(x...) do {} while (0)
 #endif
 
-#define DELAY 1
+//#define DELAY 1
 
 // TX Queue
 #define TX_ENTRIES 2048
@@ -325,6 +326,9 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bi
     
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) q;
 
+    sfn5122f_evq_rptr_reg_wr(queue->device, queue->id, queue->ev_head);
+    //__sync_synchronize();
+
     if (queue->num_left > 0) {
         *rid = queue->bufs[queue->last_deq].rid;
         *bid = queue->bufs[queue->last_deq].bid;
@@ -391,14 +395,22 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bi
     return err;
 }
 
+static void interrupt_handler(void* arg)
+{
+    printf("WTF \n");
+    struct sfn5122f_queue* queue = (struct sfn5122f_queue*) arg;
+    // TODO check fata interrupts
+
+    queue->cb(queue);
+}
+
 /**
  * Public functions
  *
  */
 
 errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb, 
-                               bool userlevel, 
-                               bool interrupts)
+                               bool userlevel, bool interrupts)
 {
     DEBUG_QUEUE("create called \n");
 
@@ -428,26 +440,6 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     rx_virt = tx_virt + (sizeof(uint64_t) *TX_ENTRIES);
     ev_virt = rx_virt + (sizeof(uint64_t) *RX_ENTRIES);
 
-    /*
-    tx_size = sfn5122f_q_tx_ker_desc_size * TX_ENTRIES;
-    tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, tx_size, &tx_frame);
-    if (tx_virt == NULL) {
-        return SFN_ERR_ALLOC_QUEUE;
-    }
-
-    rx_size = sfn5122f_q_rx_user_desc_size * RX_ENTRIES;
-    rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, rx_size, &rx_frame);
-    if (rx_virt == NULL) {
-        return SFN_ERR_ALLOC_QUEUE;
-    }
-
-    ev_size = sfn5122f_q_event_entry_size * EV_ENTRIES;
-    ev_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, ev_size, &ev_frame);
-    if (ev_virt == NULL) {
-        return SFN_ERR_ALLOC_QUEUE;
-    }
-    */
-
     DEBUG_QUEUE("queue init \n");
     // Init queue
     queue = sfn5122f_queue_init(tx_virt, TX_ENTRIES, rx_virt, RX_ENTRIES,
@@ -455,7 +447,9 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
 
     queue->frame = frame;
     queue->bound = false;
+    queue->cb = cb;
 
+    
     iref_t iref;
     const char *name = "sfn5122f_sfn5122fmng_devif";
 
@@ -483,11 +477,29 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     struct capref regs;
 
     // Inform card driver about new queue and get the registers/queue id
-    err = queue->rpc->vtbl.create_queue(queue->rpc, frame, userlevel, &queue->id, 
-                                        &regs, &err2);
-    if (err_is_fail(err) || err_is_fail(err2)) {
-        err = err_is_fail(err) ? err: err2;
-        return err;
+
+    if (!interrupts) {
+        printf("Solarflare queue used in polling mode \n");
+        err = queue->rpc->vtbl.create_queue(queue->rpc, frame, userlevel, interrupts, 
+                                            0, 0, &queue->id, &regs, &err2);
+        if (err_is_fail(err) || err_is_fail(err2)) {
+            err = err_is_fail(err) ? err: err2;
+            return err;
+        }
+    } else {
+        printf("Solarflare queue used in interrupt mode mode \n");
+        err = pci_setup_inthandler(interrupt_handler, queue, &queue->vector);
+        assert(err_is_ok(err));
+
+        queue->core = disp_get_core_id();
+        
+        err = queue->rpc->vtbl.create_queue(queue->rpc, frame, userlevel, interrupts, queue->core,
+                                            queue->vector, &queue->id, 
+                                            &regs, &err2);
+        if (err_is_fail(err) || err_is_fail(err2)) {
+            err = err_is_fail(err) ? err: err2;
+            printf("Registering interrupt failed, continueing in polling mode \n");
+        }
     }
 
     DEBUG_QUEUE("rpc done \n");
@@ -520,17 +532,6 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     queue->q.f.ctrl = sfn5122f_control;
     queue->q.f.notify = sfn5122f_notify;
     
-    if (!interrupts) {
-        queue->event = malloc(sizeof(struct periodic_event));
-
-        err = periodic_event_create(queue->event, get_default_waitset(),
-                                    DELAY, MKCLOSURE(cb, queue));
-        if (err_is_fail(err)) {
-            return err;
-        }
-    } else {
-        USER_PANIC("Interrupts NIY \n");
-    }
     *q = queue;
 
     return SYS_ERR_OK;
@@ -545,13 +546,6 @@ errval_t sfn5122f_queue_destroy(struct sfn5122f_queue* q)
         return err;
     }
 
-    err = periodic_event_cancel(q->event);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    free(q->event);
-    
     err = vspace_unmap(q->device_va);
     if (err_is_fail(err)) {
         return err;
