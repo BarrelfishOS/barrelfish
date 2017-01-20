@@ -477,6 +477,10 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     struct capref regs;
 
     // Inform card driver about new queue and get the registers/queue id
+    err = slot_alloc(&regs);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     if (!interrupts) {
         printf("Solarflare queue used in polling mode \n");
@@ -493,7 +497,8 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
 
         queue->core = disp_get_core_id();
         
-        err = queue->rpc->vtbl.create_queue(queue->rpc, frame, userlevel, interrupts, queue->core,
+        err = queue->rpc->vtbl.create_queue(queue->rpc, frame, userlevel, 
+                                            interrupts, queue->core,
                                             queue->vector, &queue->id, 
                                             &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
