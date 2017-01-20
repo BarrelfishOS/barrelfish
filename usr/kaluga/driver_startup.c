@@ -155,13 +155,13 @@ errval_t start_networking(coreid_t core,
 
     struct module_info* netd = find_module("netd");
     if (netd == NULL || !is_auto_driver(netd)) {
-        printf("Kaluga: netd not found or not declared as auto.");
+        printf("Kaluga: netd not found or not declared as auto.\n");
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
     struct module_info* ngd_mng = find_module("NGD_mng");
     if (ngd_mng == NULL || !is_auto_driver(ngd_mng)) {
-        printf("Kaluga: NGD_mng not found or not declared as auto.");
+        printf("Kaluga: NGD_mng not found or not declared as auto.\n");
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
