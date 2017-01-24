@@ -12,8 +12,7 @@
 
 [ build application { target = "e1000n",
                       cFiles = [ "e1000n.c", "e1000n_hwinit.c", "e1000n_helpers.c" ],
-                      flounderBindings = [ "net_queue_manager",
-                                            "net_soft_filters", "octopus" ],
+                      flounderBindings = [ "net_queue_manager" ],
                       mackerelDevices = [ "e1000" ],
                       addLibraries = libDeps [ "pci", "netQmng", "trace", "octopus" ],
                       architectures = [ "x86_64" ]
@@ -22,8 +21,7 @@
   build application { target = "e1000n_irqtest",
                       cFiles = [ "e1000n.c", "e1000n_hwinit.c",
                         "e1000n_helpers.c", "test_instr_irqtest.c" ],
-                      flounderBindings = [ "net_queue_manager",
-                                           "net_soft_filters", "octopus" ],
+                      flounderBindings = [ "net_queue_manager" ],
                       mackerelDevices = [ "e1000" ],
                       addLibraries = libDeps [ "pci", "netQmng", "trace", "octopus" ],
                       architectures = [ "x86_64" ],

@@ -63,7 +63,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish/net_constants.h>
-#include <contmng/netbench.h>
+#include <netbench/netbench.h>
 
 
 /* FIXME: Move this to config */

@@ -10,8 +10,8 @@
 --
 --------------------------------------------------------------------------
 
-[ build library { target = "contmng",
-                  cFiles = [ "contmng.c" ]
+[ build library { target = "netbench",
+                  cFiles = [ "netbench.c" ]
                 }
 ]
 

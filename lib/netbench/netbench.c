@@ -16,7 +16,7 @@
 #ifndef NETBENCH_C_
 #define NETBENCH_C_
 
-#include <contmng/netbench.h>
+#include <netbench/netbench.h>
 #include <string.h>
 
 #define MACHINE_CLK_UNIT    (1000000)
