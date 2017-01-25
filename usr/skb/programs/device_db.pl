@@ -70,6 +70,19 @@ pci_driver{
     platforms: ['x86_64']
 }.
 
+
+pci_driver{
+    binary: "e10k",
+    supported_cards:
+    [ pci_card{ vendor: 16'8086, device: 16'10fb, function: _, subvendor: _, subdevice: _ }],
+    core_hint: 0,
+    core_offset: 0,
+    multi_instance: 0,
+    interrupt_load: 0.5,
+    interrupt_model: [msix],
+    platforms: ['x86_64']
+}.
+
 pci_driver{
     binary: "rtl8029",
     supported_cards:
