@@ -1230,7 +1230,7 @@ data LibDepTree = LibDep String | LibDeps [LibDepTree] deriving (Show,Eq)
 libposixcompat_deps   = LibDeps [ LibDep "posixcompat",
                                   (libvfs_deps_all "vfs"), LibDep "term_server" ]
 liblwip_deps          = LibDeps $ [ LibDep x | x <- deps ]
-    where deps = ["lwip" ,"net_if_raw" ,"timer" ,"hashtable"]
+    where deps = ["lwip" ,"net_if_raw" ,"timer" ,"hashtable", "netbench" ]
 libnetQmng_deps       = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["net_queue_manager"]
 libnfs_deps           = LibDeps $ [ LibDep "nfs", liblwip_deps]
