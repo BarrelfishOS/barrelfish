@@ -21,7 +21,6 @@
 #include <assert.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
-#include <contmng/contmng.h>
 #include <netbench/netbench.h>
 #include <procon/procon.h>
 #include "lwip/pbuf.h"

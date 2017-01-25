@@ -26,6 +26,6 @@ in
                     addCFlags =  [ "-Wno-redundant-decls",
                                    "-DBF_LWIP_CHAN_SUPPORT" ],
                     addIncludes = [ "src/barrelfish" ],
-                    addLibraries = [ "contmng", "procon"]
+                    addLibraries = [ "netbench", "procon"]
                   }
   ]
