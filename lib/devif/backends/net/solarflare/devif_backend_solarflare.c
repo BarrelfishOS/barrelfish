@@ -298,7 +298,7 @@ static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid, bufferid_t bid,
 
 
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) q;
-    if (flags & DEVQ_BUF_FLAG_RX) {
+    if (flags & NETIF_RXFLAG) {
         /* can not enqueue receive buffer larger than 2048 bytes */
         assert(len <= 2048);
 
@@ -306,7 +306,7 @@ static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid, bufferid_t bid,
         if (err_is_fail(err)) {
             return err;
         }      
-    } else if (flags & DEVQ_BUF_FLAG_TX) {
+    } else if (flags & NETIF_TXFLAG) {
         assert(len <= BASE_PAGE_SIZE);
 
         err = enqueue_tx_buf(queue, rid, bid, base, len, flags);

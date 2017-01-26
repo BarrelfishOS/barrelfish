@@ -16,9 +16,10 @@
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/net/sfn5122f_devif.h>
+//#include <devif/backends/net/e10k_devif.h>
 #include <devif/backends/descq.h>
 #include <bench/bench.h>
-
+#include <net_interfaces/flags.h>
 
 #define BUF_SIZE 2048
 #define NUM_ENQ 512
@@ -81,7 +82,6 @@ static void print_buffer(size_t len, bufferid_t bid)
     printf("\n");
 }
 */
-
 static void wait_for_interrupt(void)
 {
     errval_t err = event_dispatch(&card_ws);
@@ -110,20 +110,14 @@ static void sfn5122f_event_cb(void* queue)
             break;
         }
 
-        switch (flags) {
-            case DEVQ_BUF_FLAG_TX:
-                num_tx++;
-                break;
-            case DEVQ_BUF_FLAG_RX:
-                num_rx++;
-                //print_buffer(len, bid);
-                break;
-            case DEVQ_BUF_FLAG_TX + DEVQ_BUF_FLAG_TX_LAST:
-                num_tx++;
-                break;
-            default:
-                printf("Unknown flags \n");
-        }    
+        if (flags & NETIF_TXFLAG) {
+            num_tx++;
+        } else if (flags & NETIF_RXFLAG) {
+            num_rx++;
+            //print_buffer(len, bid);
+        } else {
+            printf("Unknown flags \n");
+        }
     }
 
     // MSIX is not working on sfn5122f yet so we have to "simulate interrupts"
@@ -205,7 +199,7 @@ static void test_sfn5122f_tx(void)
             addr = phys_tx+(i*(BUF_SIZE));
 
             err = devq_enqueue(q, regid_tx, addr, BUF_SIZE, 
-                               DEVQ_BUF_FLAG_TX | DEVQ_BUF_FLAG_TX_LAST, &bid);
+                               NETIF_TXFLAG | NETIF_TXFLAG_LAST, &bid);
             if (err_is_fail(err)){
                 USER_PANIC("Devq enqueue failed \n");
             }    
@@ -295,7 +289,7 @@ static void test_sfn5122f_rx(void)
     for (int i = 0; i < NUM_ROUNDS_RX; i++){
         addr = phys_rx+(i*2048);
         err = devq_enqueue(q, regid_rx, addr, 2048, 
-                           DEVQ_BUF_FLAG_RX, &bid);
+                           NETIF_RXFLAG, &bid);
         if (err_is_fail(err)){
             USER_PANIC("Devq enqueue failed: %s\n", err_getstring(err));
         }    
@@ -428,6 +422,36 @@ static void test_idc_queue(void)
     printf("SUCCESS: IDC queue\n");
 }
 
+
+#if 0
+static void e10k_event_cb(void* queue)
+{
+    return;
+}
+
+static void test_e10k_queue(void) 
+{
+    num_tx = 0;
+    num_rx = 0;
+
+    errval_t err;
+    struct devq* q;   
+    struct e10k_queue* queue;
+
+    printf("e10k test started \n");
+    err = e10k_queue_create(&queue, e10k_event_cb, /* interrupts*/ false, 
+                            /* RSC*/false);
+    if (err_is_fail(err)){
+        USER_PANIC("Allocating devq failed \n");
+    }    
+    
+    q = (struct devq*) queue;    
+ 
+       
+    printf("e10k test endned \n");
+}
+#endif
+
 int main(int argc, char *argv[])
 {
     errval_t err;
@@ -481,8 +505,12 @@ int main(int argc, char *argv[])
     if (strcmp(argv[1], "idc") == 0) {
         test_idc_queue();
     }
-
-
+    
+    /*
+    if (strcmp(argv[1], "e10k") == 0) {
+        test_e10k_queue();
+    }
+    */
     barrelfish_usleep(1000*1000*5);
 }
 

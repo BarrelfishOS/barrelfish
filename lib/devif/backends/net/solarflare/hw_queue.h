@@ -15,6 +15,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <net_interfaces/net_interfaces.h>
 #include <devif/queue_interface.h>
 #include <dev/sfn5122f_q_dev.h>
 #include <dev/sfn5122f_dev.h>
@@ -489,7 +490,7 @@ static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q,
  
     buf = &q->tx_bufs[tail];
    
-    bool last = flags & DEVQ_BUF_FLAG_TX_LAST;    
+    bool last = flags & NETIF_TXFLAG_LAST;    
     buf->rid = rid;
     buf->bid = bid;
     buf->addr = base;
@@ -526,7 +527,7 @@ static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q,
     d = q->tx_ring.ker[tail];
     buf = &q->tx_bufs[tail];
    
-    bool last = flags & DEVQ_BUF_FLAG_TX_LAST;    
+    bool last = flags & NETIF_TXFLAG_LAST;    
     buf->rid = rid;
     buf->bid = devq_bid;
     buf->addr = base;
