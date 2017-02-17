@@ -11,7 +11,7 @@
 --------------------------------------------------------------------------
 
 [ build library { target = "contmng",
-                  cFiles = [ "contmng.c", "netbench.c" ]
+                  cFiles = [ "contmng.c" ]
                 }
 ]
 

@@ -61,9 +61,18 @@ errval_t devq_enqueue(struct devq *q,
     if (err_is_fail(err)) {
         return err;
     }
-    
+
     err = q->f.enq(q, region_id, *buffer_id, base, length, 
                    misc_flags);
+
+    if (err_is_fail(err)){
+        if (q->exp) {
+            region_pool_get_buffer_id_from_region(q->pool, region_id, base,
+                                                        buffer_id);
+        } else {
+            region_pool_return_buffer_to_region(q->pool, region_id, base);
+        }
+    }
 
     DQI_DEBUG("Enqueue q=%p rid=%d, bid=%d, err=%s \n", q, region_id, 
               *buffer_id, err_getstring(err));

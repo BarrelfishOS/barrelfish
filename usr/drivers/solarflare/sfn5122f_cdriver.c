@@ -14,6 +14,7 @@
 #include <net_queue_manager/net_queue_manager.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/spawn_client.h>
+#include <barrelfish/deferred.h>
 #include <pci/pci.h>
 #include <ipv4/lwip/inet.h>
 #include <barrelfish/debug.h>
@@ -207,13 +208,13 @@ static void idc_write_queue_tails(struct sfn5122f_binding *b);
 static void device_init(void);
 static void start_all(void);
 static void probe_all(void);
-static uint32_t init_txq(uint16_t n, bool csum, bool userspace);
-static uint32_t init_rxq(uint16_t n, bool userspace);
-static uint32_t init_evq(uint16_t n);
+static uint32_t init_txq(uint16_t n, lpaddr_t phys, bool csum, bool userspace);
+static uint32_t init_rxq(uint16_t n, lpaddr_t phys, bool userspace);
+static uint32_t init_evq(uint16_t n, lpaddr_t phys);
 static void queue_hw_stop(uint16_t n);
 
 static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector);
-static void interrupt_handler(void* arg);
+static void global_interrupt_handler(void* arg);
 
 static void bind_arp(struct waitset *ws);
 static errval_t arp_ip_info(void);
@@ -769,7 +770,7 @@ static void device_init(void)
     if (use_msix) {
         reg = sfn5122f_int_adr_reg_ker_hi_norm_int_vec_dis_ker_insert(reg, 1);
         if (cdriver_msix == -1) {
-            r = pci_setup_inthandler(interrupt_handler, NULL, &cdriver_vector);
+            r = pci_setup_inthandler(global_interrupt_handler, NULL, &cdriver_vector);
             assert(err_is_ok(r));
             setup_interrupt(&cdriver_msix, disp_get_core_id(), cdriver_vector);
         }
@@ -862,7 +863,6 @@ static void start_all(void)
     in[CMD_MAC_STATS_IN_DMA_LEN_OFFSET+1] = 3;
     errval_t err = mcdi_rpc(CMD_MAC_STATS, in, CMD_MAC_STATS_IN_LEN, 
                             NULL, 0, NULL, pci_function, d); 
-
     assert(err_is_ok(err));
 }
 
@@ -928,13 +928,12 @@ static void queue_hw_stop(uint16_t n)
 
 
 
-static uint32_t init_evq(uint16_t n)
+static uint32_t init_evq(uint16_t n, lpaddr_t phys)
 {
 
-    errval_t r; 
-    struct frame_identity frameid = { .base = 0, .bytes = 0 };
-    uint64_t ev_phys, reg, buffer_offset;
-    size_t ev_size;
+    //errval_t r; 
+    //struct frame_identity frameid = { .base = 0, .bytes = 0 };
+    uint64_t reg, buffer_offset;
     reg = 0;
 
     reg = sfn5122f_timer_tbl_lo_timer_q_en_insert(reg, 1);
@@ -951,17 +950,18 @@ static uint32_t init_evq(uint16_t n)
     sfn5122f_timer_tbl_lo_wr(d, n, reg);
     sfn5122f_timer_tbl_hi_wr(d, n, sfn5122f_timer_tbl_hi_rd(d, n));
 
+    /*
     r = invoke_frame_identify(queues[n].ev_frame, &frameid);
     assert(err_is_ok(r));
     ev_phys = frameid.base;
-    ev_size = frameid.bytes;  
+    */
 
-    buffer_offset = alloc_buf_tbl_entries(ev_phys, NUM_ENT_EVQ, 0, 0, d);
+    buffer_offset = alloc_buf_tbl_entries(phys, NUM_ENT_EVQ, 0, 0, d);
     if (buffer_offset == -1) {
         return -1;
     }
 
-    DEBUG("EV_QUEUE_%d: buf_off %ld, phys 0x%lx\n",n , buffer_offset, ev_phys);
+    DEBUG("EV_QUEUE_%d: buf_off %ld, phys 0x%lx\n",n , buffer_offset, phys);
     //  setup EV queue
     reg = sfn5122f_evq_ptr_tbl_lo_rd(d, n);
     reg = sfn5122f_evq_ptr_tbl_lo_evq_en_insert(reg, 1);
@@ -980,32 +980,32 @@ static uint32_t init_evq(uint16_t n)
     } else {
         reg = sfn5122f_timer_command_reg_lo_tc_timer_mode_insert(reg, 0); 
     }
+
     sfn5122f_timer_command_reg_lo_wr(d, n, reg);
+
 
     sfn5122f_evq_rptr_reg_wr(d, n, queues[n].ev_head);
 
     return buffer_offset;
 }
 
-static uint32_t init_rxq(uint16_t n, bool userspace)
+static uint32_t init_rxq(uint16_t n, lpaddr_t phys, bool userspace)
 {
-
-    errval_t r;
-    size_t rx_size;
+    //errval_t r;
     size_t num_ent_rx;
-    struct frame_identity frameid = { .base = 0, .bytes = 0 };
-    uint64_t rx_phys, reg_lo, reg_hi,  buffer_offset;
+    //struct frame_identity frameid = { .base = 0, .bytes = 0 };
+    uint64_t reg_lo, reg_hi,  buffer_offset;
    /*
     * This will define a buffer in the buffer table, allowing
     * it to be used for event queues, descriptor rings etc.
     */
     /* Get physical addresses for rx/tx rings and event queue */
-  
+    /*
     r = invoke_frame_identify(queues[n].rx_frame, &frameid);
     assert(err_is_ok(r));
     rx_phys = frameid.base;
     rx_size = frameid.bytes;  
- 
+    */
     if (userspace) {
         num_ent_rx = NUM_ENT_RX_USR;
     } else {
@@ -1013,14 +1013,14 @@ static uint32_t init_rxq(uint16_t n, bool userspace)
     }
 
     /* RX   */
-    buffer_offset = alloc_buf_tbl_entries(rx_phys, num_ent_rx, 0, 0, d);
+    buffer_offset = alloc_buf_tbl_entries(phys, num_ent_rx, 0, 0, d);
 
     if (buffer_offset == -1) {
        return -1;
     }
 
     DEBUG("RX_QUEUE_%d: buf_off %ld, phys %lx, size %lx \n", n, 
-          buffer_offset, rx_phys, rx_size);
+          buffer_offset, phys, rx_size);
     /* setup RX queue */
     reg_lo = sfn5122f_rx_desc_ptr_tbl_lo_rd(d, n);
     reg_hi = sfn5122f_rx_desc_ptr_tbl_hi_rd(d, n);
@@ -1060,26 +1060,22 @@ static uint32_t init_rxq(uint16_t n, bool userspace)
     return buffer_offset;
 }
 
-static uint32_t init_txq(uint16_t n, bool csum, bool userspace)
+
+static uint32_t init_txq(uint16_t n, uint64_t phys,                        
+                         bool csum, bool userspace)
 {
 
-    errval_t r;
-    size_t tx_size;
-    struct frame_identity frameid = { .base = 0, .bytes = 0 };
-    uint64_t tx_phys, reg, reg1, buffer_offset;    
-    /* Get physical addresses for rx/tx rings and event queue */
-    r = invoke_frame_identify(queues[n].tx_frame, &frameid);
-    assert(err_is_ok(r));
-    tx_phys = frameid.base;
-    tx_size = frameid.bytes;
+    //errval_t r;
+    //struct frame_identity frameid = { .base = 0, .bytes = 0 };
+    uint64_t reg, reg1, buffer_offset;    
   
-    buffer_offset = alloc_buf_tbl_entries(tx_phys, NUM_ENT_TX, 0, 0, d);
+    buffer_offset = alloc_buf_tbl_entries(phys, NUM_ENT_TX, 0, 0, d);
     
     if (buffer_offset == -1) {
        return -1;
     }
 
-    DEBUG("TX_QUEUE_%d: buf_off %ld, phys %lx\n",n , buffer_offset, tx_phys);
+    DEBUG("TX_QUEUE_%d: buf_off %ld, phys %lx\n",n , buffer_offset, phys);
     /* setup TX queue */
     reg = sfn5122f_tx_desc_ptr_tbl_lo_rd(d, n);
     reg1 = sfn5122f_tx_desc_ptr_tbl_hi_rd(d, n);
@@ -1142,7 +1138,7 @@ static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector)
 }
 
 /** Here are the global interrupts handled. */
-static void interrupt_handler(void* arg)
+static void global_interrupt_handler(void* arg)
 {
     //uint64_t reg;
     uint32_t queue;
@@ -1233,6 +1229,7 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
 {
     // Save state so we can restore the configuration in case we need to do a
     // reset
+    errval_t err;    
 
     bool failed = 0;
     queues[n].enabled = false;
@@ -1250,10 +1247,21 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
     queues[n].msix_intvec = vector;
     queues[n].msix_intdest = core;
 
-    queues[n].ev_buf_tbl = init_evq(n);
+    struct frame_identity id;
+    err = invoke_frame_identify(ev_frame, &id);
+    assert(err_is_ok(err));
+    queues[n].ev_buf_tbl = init_evq(n, id.base);
+
+
     // enable checksums
-    queues[n].tx_buf_tbl = init_txq(n, csum_offload, userspace);
-    queues[n].rx_buf_tbl = init_rxq(n, userspace);
+    err = invoke_frame_identify(tx_frame, &id);
+    assert(err_is_ok(err));
+    queues[n].tx_buf_tbl = init_txq(n, id.base, csum_offload, userspace);
+
+    err = invoke_frame_identify(rx_frame, &id);
+    assert(err_is_ok(err));
+    queues[n].rx_buf_tbl = init_rxq(n, id.base, userspace);
+
 
     if(queues[n].ev_buf_tbl == -1 ||
        queues[n].tx_buf_tbl == -1 ||
@@ -1263,6 +1271,8 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
        return;
     }      
 
+    queues[n].enabled = true;
+
     if (queues[n].use_irq) {
         if (queues[n].msix_intvec != 0) {
             if (queues[n].msix_index == -1) {
@@ -1271,8 +1281,6 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
             }
         } 
     }
-
-    queues[n].enabled = true;
 
     idc_write_queue_tails(queues[n].binding);     
 
@@ -1381,11 +1389,13 @@ static struct sfn5122f_rx_vtbl rx_vtbl = {
     .unregister_filter = idc_unregister_filter, 
 };
 
-static void cd_create_queue(struct sfn5122f_devif_binding *b, bool user, 
-                            struct capref rx, struct capref tx, struct capref ev) 
+static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref frame,
+                            bool user, bool interrupt, uint8_t core, uint8_t msix_vector) 
 {
     DEBUG("cd_create_queue \n");
     errval_t err;
+    struct frame_identity id;
+
     int n = -1;
     for (int i = 0; i < NUM_QUEUES; i++) {
         if (queues[i].enabled == false) {
@@ -1397,38 +1407,59 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, bool user,
     if (n == -1) {
         err = SFN_ERR_ALLOC_QUEUE;
         err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, NULL_CAP, err);
+        //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
         assert(err_is_ok(err));
     }
     
+    queues[n].use_irq = interrupt;
     queues[n].enabled = false;
-    queues[n].tx_frame = tx;
-    queues[n].rx_frame = rx;
-    queues[n].ev_frame = ev;
+    queues[n].tx_frame = frame;
     queues[n].tx_head = 0;
     queues[n].rx_head = 0;
     queues[n].ev_head = 0;
     queues[n].rxbufsz = MTU_MAX;
     queues[n].devif = b;
-    queues[n].use_irq = false;
     queues[n].userspace = user;
     queues[n].msix_index = -1;
+    queues[n].msix_intdest = core;
+    queues[n].msix_intvec = msix_vector;
 
-    queues[n].ev_buf_tbl = init_evq(n);
+    if (queues[n].use_irq) {
+        if (queues[n].msix_intvec != 0) {
+            if (queues[n].msix_index == -1) {
+                setup_interrupt(&queues[n].msix_index, queues[n].msix_intdest,
+                                queues[n].msix_intvec);
+            }
+        } 
+    }
+
+    err = invoke_frame_identify(frame, &id);
+    assert(err_is_ok(err));
+    queues[n].ev_buf_tbl = init_evq(n, id.base+sizeof(uint64_t)*(TX_ENTRIES+RX_ENTRIES));
     // enable checksums
-    queues[n].tx_buf_tbl = init_txq(n, csum_offload, user);
-    queues[n].rx_buf_tbl = init_rxq(n, user);
+    queues[n].tx_buf_tbl = init_txq(n, id.base, csum_offload, user);
+    queues[n].rx_buf_tbl = init_rxq(n, id.base+ sizeof(uint64_t)*TX_ENTRIES, user);
 
     if(queues[n].ev_buf_tbl == -1 ||
        queues[n].tx_buf_tbl == -1 ||
        queues[n].rx_buf_tbl == -1){
         err = SFN_ERR_ALLOC_QUEUE;
+        //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
         err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, NULL_CAP, err);
         assert(err_is_ok(err));
     }      
 
     queues[n].enabled = true;
     DEBUG("created queue %d \n", n);
-    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, *regframe, SYS_ERR_OK);
+    //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, *regframe, SYS_ERR_OK);a
+
+    struct capref regs;
+    err = slot_alloc(&regs);
+    assert(err_is_ok(err));
+    err = cap_copy(regs, *regframe);
+    assert(err_is_ok(err));
+
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, regs, SYS_ERR_OK);
     assert(err_is_ok(err));
     DEBUG("cd_create_queue end\n");
 }
@@ -1653,6 +1684,11 @@ static void pci_init_card(struct device_mem* bar_info, int bar_count)
     /* initalize managemnt interface   */
     initialize_mngif();  
     initialized = true;
+
+    if (first){
+       start_all();
+       first = 0;
+    }
 }
 
 static void parse_cmdline(int argc, char **argv)
@@ -1711,7 +1747,7 @@ int main(int argc, char** argv)
                                 PCI_DONT_CARE, PCI_DONT_CARE, 
                                 PCI_VENDOR_SOLARFLARE, DEVICE_ID,
                                 pci_bus, pci_device, pci_function, 
-                                interrupt_handler, NULL);
+                                global_interrupt_handler, NULL);
 
     while (!initialized) {
         event_dispatch(get_default_waitset());

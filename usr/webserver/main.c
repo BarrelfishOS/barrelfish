@@ -22,7 +22,7 @@
 #include <lwip/init.h>
 #include <lwip/tcp.h>
 #include <netif/bfeth.h>
-#include <contmng/netbench.h>
+#include <netbench/netbench.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 

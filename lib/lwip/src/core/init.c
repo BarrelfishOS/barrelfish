@@ -63,7 +63,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish/net_constants.h>
-#include <contmng/netbench.h>
+#include <netbench/netbench.h>
 
 
 /* FIXME: Move this to config */
@@ -522,7 +522,6 @@ uint8_t lwip_driver_benchmark_state(int direction, uint64_t *delta,
    return get_driver_benchmark_state(direction, delta, cl);
 }
 
-#include <contmng/contmng.h>
 #define FREE_SLOT_THRESHOLD    100
 int is_lwip_loaded(void)
 {
@@ -556,10 +555,6 @@ int is_lwip_loaded(void)
     }
     // Check for load the driver itself
     uint64_t tx_slots_left = idc_check_driver_load();
-
-    if (tx_slots_left < (MAX_QUEUE_SIZE + 10)) {
-//        return 5;
-    }
 
     // Everything is great!
     return 0;
@@ -639,4 +634,3 @@ bool is_hw_feature_enabled(int hw_feature)
     // activeness should be decided
     return false;
 } // end function: is_hw_feature_enabled
-

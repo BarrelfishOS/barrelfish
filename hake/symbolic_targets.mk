@@ -108,6 +108,7 @@ TESTS_x86_64= \
 	sbin/fputest \
 	sbin/fread_test \
 	sbin/fscanf_test \
+	sbin/lrpc_fpu \
 	sbin/mdbtest_addr_zero \
 	sbin/mdbtest_range_query \
 	sbin/mem_affinity \

@@ -30,6 +30,7 @@ static void ump_init_msg(struct bench_binding *b, coreid_t id)
     array[id] = b;
 
     // All clients connected, run experiment
+    printf("%s: %d %d\n", __func__, count, num_cores);
     if (count == num_cores) {
         for (coreid_t i = 0; i < MAX_CPUS; i++) {
             if (array[i]) {
@@ -62,8 +63,9 @@ static void bind_cb(void *st, errval_t binderr, struct bench_binding *b)
     while (1) {
         volatile struct ump_message *msg;
         struct ump_control ctrl;
-        while (!ump_impl_recv(recv));
-        msg = ump_impl_get_next(send, &ctrl);
+        while (!(msg = ump_impl_recv(recv)));
+        ump_impl_free_message(msg);
+        while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->header.control = ctrl;
     }
 }

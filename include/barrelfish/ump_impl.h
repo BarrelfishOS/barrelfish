@@ -54,11 +54,11 @@ __BEGIN_DECLS
 
 // control word is 32-bit, because it must be possible to atomically write it
 typedef uint32_t ump_control_t;
-#define UMP_EPOCH_BITS  1
+#define UMP_USED_BITS  1
 #define UMP_HEADER_BITS 31
 
 struct ump_control {
-    ump_control_t epoch:UMP_EPOCH_BITS;
+    ump_control_t used:UMP_USED_BITS;
     ump_control_t header:UMP_HEADER_BITS;
     ump_control_t token:32;
 };
@@ -93,7 +93,6 @@ struct ump_chan_state {
     volatile struct ump_message *buf;  ///< Ring buffer
     ump_index_t        pos;            ///< Current position
     ump_index_t        bufmsgs;        ///< Buffer size in messages
-    bool               epoch;          ///< Next Message epoch
     enum ump_direction dir;            ///< Channel direction
 };
 
@@ -128,7 +127,6 @@ static inline errval_t ump_chan_state_init(struct ump_chan_state *c,
     c->buf = (volatile struct ump_message *) buf;
     c->dir = dir;
     c->bufmsgs = size / UMP_MSG_BYTES;
-    c->epoch = 1;
 
     if(dir == UMP_INCOMING) {
         ump_index_t i;
@@ -150,10 +148,9 @@ static inline errval_t ump_chan_state_init(struct ump_chan_state *c,
 static inline volatile struct ump_message *ump_impl_poll(struct ump_chan_state *c)
 {
     assert(c->dir == UMP_INCOMING);
-    ump_control_t ctrl_epoch =  c->buf[c->pos].header.control.epoch;
-    if (ctrl_epoch == c->epoch) {
+    ump_control_t ctrl_used =  c->buf[c->pos].header.control.used;
+    if (ctrl_used)
         return &c->buf[c->pos];
-    }
     return NULL;
 }
 
@@ -170,10 +167,8 @@ static inline volatile struct ump_message *ump_impl_recv(struct ump_chan_state *
     volatile struct ump_message *msg = ump_impl_poll(c);
 
     if (msg != NULL) {
-        if (++c->pos == c->bufmsgs) {
+        if (++c->pos == c->bufmsgs)
             c->pos = 0;
-            c->epoch = !c->epoch;
-        }
         return msg;
     }
     return NULL;
@@ -194,7 +189,7 @@ static inline volatile struct ump_message *ump_impl_get_next(
     assert(c->dir == UMP_OUTGOING);
 
     // construct header
-    ctrl->epoch = c->epoch;
+    ctrl->used = 1;
     ctrl->token = 0;
 
 #ifdef __x86_64__
@@ -211,14 +206,24 @@ static inline volatile struct ump_message *ump_impl_get_next(
 #endif
 
     volatile struct ump_message *msg = &c->buf[c->pos];
-
+    if (msg->header.control.used)
+        return NULL;
     // update pos
-    if (++c->pos == c->bufmsgs) {
+    if (++c->pos == c->bufmsgs)
         c->pos = 0;
-        c->epoch = !c->epoch;
-    }
-
     return msg;
+}
+
+static inline volatile bool ump_impl_can_send(struct ump_chan_state *c)
+{
+    assert(c->dir == UMP_OUTGOING);
+    volatile struct ump_message *msg = &c->buf[c->pos];
+    return !msg->header.control.used;
+}
+
+static inline void ump_impl_free_message(volatile struct ump_message *msg)
+{
+    msg->header.control.used = 0;
 }
 
 __END_DECLS

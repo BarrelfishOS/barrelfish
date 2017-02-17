@@ -93,7 +93,11 @@ in
   Phony "install" False ([
     Dep BuildTree "root" "/$(MODULES)",
     Str "@echo \"\";",
-    Str "echo \"Installing modules...\" ;",
+    Str "echo \"Installing modules...\" ;",   
+    Str "if [ $${#MODULES[@]} -eq 0 ]; then",
+    Str "    echo \"   > Modules is empty, did you mean install_X86_64_Basic? \" ;",
+    Str "    exit 0;",
+    Str "fi;",
     Str "for m in ${MODULES}; do",
     Str "  if [ ! -f ${INSTALL_PREFIX}/$$m ] ||",
     Str "      [ $$(stat -c%Y $$m) -ne $$(stat -c%Y ${INSTALL_PREFIX}/$$m) ]; then",

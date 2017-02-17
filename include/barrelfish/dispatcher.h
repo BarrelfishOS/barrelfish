@@ -21,6 +21,7 @@
 #include <barrelfish/threads.h>
 
 struct lmp_chan;
+struct ump_chan;
 struct deferred_event;
 
 // Architecture generic user only dispatcher struct
@@ -45,6 +46,7 @@ struct dispatcher_generic {
 
     /// List of LMP channels waiting to retry a send
     struct lmp_chan *lmp_send_events_list;
+    struct ump_chan *ump_send_events_list;
 
     /// LMP endpoint heap state
     struct heap lmp_endpoint_heap;

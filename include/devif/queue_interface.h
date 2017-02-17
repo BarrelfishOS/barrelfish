@@ -12,12 +12,6 @@
 
 #include <barrelfish/barrelfish.h>
 
-#define DEVQ_BUF_FLAG_TX 0x1
-#define DEVQ_BUF_FLAG_RX 0x2
-#define DEVQ_BUF_FLAG_TX_LAST 0x4
-
-
-
 typedef uint32_t regionid_t;
 typedef uint32_t bufferid_t;
 

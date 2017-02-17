@@ -115,4 +115,4 @@ static inline float in_seconds(uint64_t cycles)
 
 __END_DECLS
 
-#endif // CONTMNG_H_
+#endif // NETBENCH_H_

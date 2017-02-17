@@ -25,7 +25,7 @@
 #include <lwip/init.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/waitset.h>
-#include <contmng/netbench.h>
+#include <netbench/netbench.h>
 
 #define MOUNT_DIR   "/nfs"
 

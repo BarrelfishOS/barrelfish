@@ -119,49 +119,18 @@ static int_route_controller_int_message_t build_int_message(uint64_t port, char 
     return ret;
 }
 
-struct controller_add_mapping_data {
-    char * lbl;
-    char * class;
-    int_route_controller_int_message_t in_msg;
-    int_route_controller_int_message_t out_msg;
-    struct int_route_controller_binding *binding;
-};
-
-static void send_controller_add_mapping(void * arg) {
-    struct controller_add_mapping_data * msg = arg;
-
-    errval_t err;
-    err = int_route_controller_add_mapping__tx(msg->binding,
-            NOP_CONT, msg->lbl, msg->class,
-            msg->in_msg, msg->out_msg);
-
-    if(err_is_fail(err)){
-       if(err_no(err) == FLOUNDER_ERR_TX_BUSY){
-           INT_DEBUG("FLOUNDER_ERR_TX_BUSY, registering re-send");
-           msg->binding->register_send(msg->binding,get_default_waitset(),
-                   MKCONT(send_controller_add_mapping, arg));
-       } else {
-           USER_PANIC_ERR(err, "send_controller_add_mapping");
-       }
-    } else { //err_is_ok
-        free(msg->lbl);
-        free(msg->class);
-        free(msg);
-    }
-}
-
 static errval_t read_route_output_and_tell_controllers(void){
     char * out = skb_get_output();
     INT_DEBUG("skb output: %s\n", out);
 
     // Parse output and instruct controller
     int inport, outport;
-    char * class = malloc(255);
-    char * lbl = malloc(255);
-    char inmsg[255], outmsg[255];
+    char class[256];
+    char lbl[256];
+    char inmsg[256], outmsg[256];
 
     for(char * pos = out; pos - 1 != NULL && *pos != 0; pos = strchr(pos,'\n')+1 ) {
-        int res = sscanf(pos, "%[^,\n],%[^,\n],%d,%[^,\n],%d,%[^,\n]",
+        int res = sscanf(pos, "%255[^,\n],%255[^,\n],%d,%255[^,\n],%d,%255[^,\n]",
                 lbl, class, &inport, inmsg, &outport, outmsg);
         if(res != 6) {
             debug_printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
@@ -174,14 +143,11 @@ static errval_t read_route_output_and_tell_controllers(void){
         if(dest == NULL){
             INT_DEBUG("No controller driver found.");
         } else {
-            struct controller_add_mapping_data *msg;
-            msg = malloc(sizeof(*msg));
-            msg->binding = dest->binding;
-            msg->in_msg = build_int_message(inport, inmsg);
-            msg->out_msg = build_int_message(outport, outmsg); 
-            msg->lbl = lbl;
-            msg->class = class;
-            send_controller_add_mapping(msg);
+            errval_t err;
+            err = int_route_controller_add_mapping__tx(dest->binding,
+                    BLOCKING_CONT, lbl, class, build_int_message(inport, inmsg),
+                    build_int_message(outport, outmsg));
+            assert(err_is_ok(err));
         }
     }
     return SYS_ERR_OK;
@@ -199,7 +165,7 @@ static void driver_route_call(struct int_route_service_binding *b,
     uint64_t int_src_num_high = INVALID_VECTOR;
     err = invoke_irqsrc_get_vec_end(intsource, &int_src_num_high);
 
-    // TODO: Maybe it would be better to pass a IRQ offset into 
+    // TODO: Maybe it would be better to pass a IRQ offset into
     // the capability to the route call. So that the client
     // doesnt have to do retype all the time.
     if(int_src_num != int_src_num_high){

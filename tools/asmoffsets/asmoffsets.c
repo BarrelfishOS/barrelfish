@@ -91,6 +91,7 @@ void dummy(void)
     // XXX: Assumes cap is first member of struct cte
     DECL(DCB_CSPACE_CAP, struct dcb, cspace.cap);
     DECL(DCB_VSPACE, struct dcb, vspace);
+    DECL(DCB_IS_VM_GUEST, struct dcb, is_vm_guest);
     DECL(DCB_RR_PREV, struct dcb, prev);
     DECL(DCB_RBED_NEXT, struct dcb, next);
 
@@ -109,6 +110,7 @@ void dummy(void)
     DECL(DISP_UDISP, struct dispatcher_shared_generic, udisp);
     DECL(DISP_LMP_DELIVERED, struct dispatcher_shared_generic, lmp_delivered);
     DECL(DISP_SYSTIME, struct dispatcher_shared_generic, systime);
+    DECL(DISP_FPU_TRAP, struct dispatcher_shared_generic, fpu_trap);
 
     DECL_LIMIT(DISP_PRIV_STACK_LIMIT, struct dispatcher_generic, stack);
     DECL_LIMIT(DISP_PRIV_TRAP_STACK_LIMIT, struct dispatcher_generic, trap_stack);

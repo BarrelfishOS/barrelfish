@@ -26,7 +26,7 @@ class MultithreadedWaitsetTest(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(MultithreadedWaitsetTest, self).get_modules(build, machine)
-        modules.add_module("mt_waitset", ["10", "10", "100000", "8"])
+        modules.add_module("mt_waitset", ["10", "10", "10000"])
         return modules
 
     def is_finished(self, line):

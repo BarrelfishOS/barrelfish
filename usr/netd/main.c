@@ -23,16 +23,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "netd.h"
-#include "netd_debug.h"
-
-bool do_dhcp = true; // flag to control use of dhcp
-// IP information for static configuration
-char *ip_addr_str = NULL; // IP address for this interface
-char *netmask_str = NULL; // netmask for this LAN
-char *gateway_str = NULL; // default gateway address
-char *dns_str = NULL; // ip address of DNS name server
-
+#include <netd/netd.h>
+#include <netd/netd_debug.h>
 
 static void netd_event_polling_loop(void)
 {
@@ -62,6 +54,13 @@ int main(int argc, char **argv)
     uint64_t allocated_queue = 0;
 
     uint64_t minbase = -1, maxbase = -1;
+
+    bool do_dhcp = true; // flag to control use of dhcp
+    // IP information for static configuration
+    char *ip_addr_str = NULL; // IP address for this interface
+    char *netmask_str = NULL; // netmask for this LAN
+    char *gateway_str = NULL; // default gateway address
+    char *dns_str = NULL; // ip address of DNS name server
 
     NETD_DEBUG("running on core %d\n", disp_get_core_id());
     NETD_DEBUG("###################################################\n");
@@ -133,13 +132,10 @@ int main(int argc, char **argv)
     // Connect to the driver for given card
     NETD_DEBUG("trying to connect to the %s:%"PRIu64" driver...\n",
             card_name, allocated_queue);
-    startlwip(card_name, allocated_queue);
-
-    NETD_DEBUG("registering net_ARP service\n");
-    // register ARP service
-    init_ARP_lookup_service(card_name);
+    struct netd_state *state;
+    
+    netd_init(&state, card_name, allocated_queue, do_dhcp, ip_addr_str, netmask_str, gateway_str);
 
     netd_event_polling_loop();
     return 0;
 }
-

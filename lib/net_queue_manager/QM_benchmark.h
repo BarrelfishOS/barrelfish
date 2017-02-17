@@ -12,7 +12,7 @@
 #include <barrelfish/barrelfish.h>
 #include <if/net_queue_manager_defs.h>
 #include <net_queue_manager/net_queue_manager.h>
-#include <contmng/netbench.h>
+#include <netbench/netbench.h>
 #include <stdio.h>
 #include <string.h>
 #include "queue_manager_debug.h"

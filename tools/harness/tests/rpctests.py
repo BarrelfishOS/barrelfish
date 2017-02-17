@@ -343,3 +343,31 @@ class LrpcTest(RpcTestCommon):
                 index = int(m.group(1))
         results.add_group(iteration, data)
         return results
+
+@tests.add_test
+class LrpcFPUTest(RpcTestCommon):
+    ''' LRPC FPU microbenchmark '''
+    name = "lrpc_fpu"
+
+    def get_module_name(self):
+        return "lrpc_fpu"
+
+    def get_modules(self, build, machine):
+        modules = super(RpcTestCommon, self).get_modules(build, machine)
+        modules.add_module("lrpc_fpu", ["server"])
+        modules.add_module("lrpc_fpu", ["client"])
+        return modules
+
+    def get_finish_string(self):
+        return "End of LRPC-FPU test:"
+
+    def run(self, *args):
+        # XXX: want to use the base single-boot implementation
+        return TestCommon.run(self, *args)
+
+    def process_data(self, testdir, raw_iter):
+        passed = False
+        for line in raw_iter:
+            if "Everything OK" in line:
+                passed = True
+        return PassFailResult(passed)

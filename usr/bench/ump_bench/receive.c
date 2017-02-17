@@ -36,11 +36,12 @@ void experiment(coreid_t idx)
     struct ump_control ctrl;
 
     for (int i = 0; i < MAX_COUNT; i++) {
-        msg = ump_impl_get_next(send, &ctrl);
+        while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->header.control = ctrl;
         while(true) {
             timestamps[i].time0 = bench_tsc();
-            if (ump_impl_recv(recv)) {
+            if ((msg = ump_impl_recv(recv))) {
+                ump_impl_free_message(msg);
                 timestamps[i].time1 = bench_tsc();
                 break;
             }
