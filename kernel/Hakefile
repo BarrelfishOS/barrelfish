@@ -556,7 +556,7 @@ let
         "arch/arm/irq.c"
     ],
     mackerelDevices = [
-        "arm",
+      "arm",
         "armv8",
         "arm_icp_pit",
         "gic_v3",
@@ -566,5 +566,50 @@ let
         "elf",
         "cpio"
     ]
-    }
+    },
+  
+  --
+  -- Cavium ThunderX CN88xx series SoC,
+  --
+  cpuDriver {
+     target = "cn88xx",
+     architectures = [ "armv8" ],
+     assemblyFiles = [
+        "arch/armv8/efiboot.S",
+        "arch/armv8/sysreg.S",
+        "arch/armv8/exceptions.S"
+     ],
+     cFiles = [
+         "arch/arm/misc.c",
+         "arch/arm/pl011.c",
+         "arch/arm/kputchar.c",
+         "arch/arm/gdb_arch.c",
+         "arch/armv8/plat_cn88xx.c",
+         "arch/armv8/init.c",
+         "arch/armv8/gdb_arch.c",
+         "arch/armv8/efiboot_init.c",
+         -----
+         "arch/armv8/kernel_multiboot2.c",
+         "arch/armv8/dispatch.c",
+         "arch/armv8/exec.c",
+         "arch/armv8/exn.c",
+         "arch/armv8/paging.c",
+         "arch/armv8/startup_arch.c",
+         "arch/armv8/syscall.c",
+         "arch/armv8/timers.c",
+         "arch/arm/debug.c",
+         "arch/arm/gic.c",
+         "arch/arm/irq.c"
+     ],
+     mackerelDevices = [
+        "arm",
+        "pl011_uart",
+        "pl130_gic",
+        "arm_icp_pit"
+     ],
+     addLibraries = [
+        "elf",
+        "cpio"
+    ]
+  }
   ]
