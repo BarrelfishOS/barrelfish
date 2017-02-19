@@ -256,7 +256,7 @@ static void thread_init(dispatcher_handle_t disp, struct thread *newthread)
 
     newthread->rpc_in_progress = false;
     newthread->async_error = SYS_ERR_OK;
-    newthread->mask_channels = false;
+    newthread->local_trigger = NULL;
 }
 
 /**
@@ -663,6 +663,18 @@ void thread_get_outgoing_token(uint32_t *token)
     }
 }
 
+void thread_set_local_trigger(struct waitset_chanstate *trigger)
+{
+    struct thread *me = thread_self();
+    me->local_trigger = trigger;
+}
+
+struct waitset_chanstate * thread_get_local_trigger(void)
+{
+    struct thread *me = thread_self();
+    return me->local_trigger;
+}
+
 void thread_set_rpc_in_progress(bool v)
 {
     thread_self()->rpc_in_progress = v;
@@ -681,16 +693,6 @@ void thread_set_async_error(errval_t e)
 errval_t thread_get_async_error(void)
 {
     return thread_self()->async_error;
-}
-
-void thread_set_mask_channels(bool m)
-{
-    thread_self()->mask_channels = m;
-}
-
-bool thread_get_mask_channels(void)
-{
-    return thread_self()->mask_channels;
 }
 
 /**

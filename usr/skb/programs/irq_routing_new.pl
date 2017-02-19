@@ -22,6 +22,9 @@
 % int_dest_used(CpuNumber,VectorNumber).
 :- dynamic(int_dest_used/2). 
 
+% This is also defined in queries.pl
+:- dynamic(interrupt_override/4). 
+
 
 %>> X86
 % X86 specific. To find an IOAPIC given a GSI, the system must know 
@@ -709,7 +712,7 @@ print_controller_driver :-
 controller_for_gsi(GSI, Lbl, Base) :-
     ioapic_gsi_base(Lbl, Base),
     Base > GSI-24,
-    Base < GSI.
+    Base =< GSI.
 
 
 

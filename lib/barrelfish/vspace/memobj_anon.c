@@ -38,7 +38,8 @@ static errval_t map_region(struct memobj *memobj, struct vregion *vregion)
 
     // Allocate space
     struct vregion_list *data = slab_alloc(&anon->vregion_slab);
-    if (!data) { // Grow
+    if (slab_freecount(&anon->vregion_slab) <= 1 && !anon->vregion_slab_refilling) { // Grow
+        anon->vregion_slab_refilling = true;
         void *buf;
         err = vspace_pinned_alloc(&buf, VREGION_LIST);
         if (err_is_fail(err)) {
@@ -46,10 +47,13 @@ static errval_t map_region(struct memobj *memobj, struct vregion *vregion)
         }
         slab_grow(&anon->vregion_slab, buf,
                   VSPACE_PINNED_UNIT * sizeof(struct vregion_list));
-        data = slab_alloc(&anon->vregion_slab);
-        if (!data) {
-            return LIB_ERR_SLAB_ALLOC_FAIL;
+        if (data == NULL) {
+            data = slab_alloc(&anon->vregion_slab);
         }
+        anon->vregion_slab_refilling = false;
+    }
+    if (!data) {
+        return LIB_ERR_SLAB_ALLOC_FAIL;
     }
     data->region = vregion;
 
@@ -250,7 +254,13 @@ static errval_t fill_foff(struct memobj *memobj, genvaddr_t offset, struct capre
 
     // Allocate
     struct memobj_frame_list *new = slab_alloc(&anon->frame_slab);
-    if (!new) { // Grow
+    // We have to grow our slab allocator when there's still one slab left as
+    // we otherwise might run out of slabs when calling memobj->fill() from
+    // vspace_pinned_alloc(). The is_refilling flag allows us to hand out the
+    // last slab when coming back here from vspace_pinned_alloc().
+    // -SG, 2016-12-15.
+    if (slab_freecount(&anon->frame_slab) <= 1 && !anon->frame_slab_refilling) {
+        anon->frame_slab_refilling = true;
         void *buf;
         err = vspace_pinned_alloc(&buf, FRAME_LIST);
         if (err_is_fail(err)) {
@@ -258,11 +268,15 @@ static errval_t fill_foff(struct memobj *memobj, genvaddr_t offset, struct capre
         }
         slab_grow(&anon->frame_slab, buf,
                   VSPACE_PINNED_UNIT * sizeof(struct memobj_frame_list));
-        new = slab_alloc(&anon->frame_slab);
-        if (!new) {
-            return LIB_ERR_SLAB_ALLOC_FAIL;
+        if (new == NULL) {
+            new = slab_alloc(&anon->frame_slab);
         }
+        anon->frame_slab_refilling = false;
     }
+    if (!new) {
+        return LIB_ERR_SLAB_ALLOC_FAIL;
+    }
+    assert(new != NULL);
     new->offset  = offset;
     new->frame   = frame;
     new->size    = size;
@@ -270,6 +284,9 @@ static errval_t fill_foff(struct memobj *memobj, genvaddr_t offset, struct capre
 
     struct frame_identity fi;
     err = frame_identify(frame, &fi);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_FRAME_IDENTIFY);
+    }
     assert(err_is_ok(err));
     new->pa = fi.base;
 
@@ -477,6 +494,9 @@ errval_t memobj_create_anon(struct memobj_anon *anon, size_t size,
     slab_init(&anon->vregion_slab, sizeof(struct vregion_list), NULL);
     slab_init(&anon->frame_slab, sizeof(struct memobj_frame_list), NULL);
 
+    anon->vregion_slab_refilling = false;
+    anon->frame_slab_refilling = false;
+
     anon->vregion_list = NULL;
     anon->frame_list = NULL;
     return SYS_ERR_OK;
@@ -486,7 +506,7 @@ errval_t memobj_create_anon(struct memobj_anon *anon, size_t size,
  * \brief Destroy the object
  *
  */
-errval_t memobj_destroy_anon(struct memobj *memobj)
+errval_t memobj_destroy_anon(struct memobj *memobj, bool delete_caps)
 {
     struct memobj_anon *m = (struct memobj_anon *)memobj;
 
@@ -505,9 +525,11 @@ errval_t memobj_destroy_anon(struct memobj *memobj)
 
     struct memobj_frame_list *fwalk = m->frame_list;
     while (fwalk) {
-        err = cap_delete(fwalk->frame);
-        if (err_is_fail(err)) {
-            return err;
+        if (delete_caps) {
+            err = cap_delete(fwalk->frame);
+            if (err_is_fail(err)) {
+                return err;
+            }
         }
         struct memobj_frame_list *old = fwalk;
         fwalk = fwalk->next;

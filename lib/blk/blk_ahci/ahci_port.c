@@ -81,16 +81,16 @@ static errval_t port_init_ctba(struct ahci_port* port, size_t command_slot)
     return err;
 }
 
-static void blk_ahci_interrupt(struct ahci_port* port, struct dev_queue *queue)
+static void blk_ahci_interrupt(struct ahci_port* port, struct dev_queue_request* reqs, 
+                               size_t slots)
 {
     ahci_port_is_t status = ahci_port_is_rd(&port->port);
 
     // A request was handled:
     //if (ahci_port_is_dhrs_extract(status) > 0) {
-        BLK_DEBUG("Done with DMA command.\n");
 
-        for (size_t slot = 0; slot < queue->port->ncs; slot++) {
-            struct dev_queue_request *dqr = &queue->requests[slot];
+        for (size_t slot = 0; slot < slots; slot++) {
+            struct dev_queue_request *dqr = &reqs[slot];
 
             bool slot_has_request = dqr->status == RequestStatus_InProgress;
             bool slot_done = ahci_port_slot_free(&port->port, slot);
@@ -98,7 +98,6 @@ static void blk_ahci_interrupt(struct ahci_port* port, struct dev_queue *queue)
                 //printf("waiting for slot %zu.\n", slot);
             }
             if (slot_has_request && slot_done) {
-                //printf("AHCI slot %zu is done now.\n", slot);
                 dqr->status = RequestStatus_Done;
             }
         }
@@ -149,6 +148,7 @@ errval_t blk_ahci_port_dma_async(struct ahci_port *port, size_t slot, uint64_t b
     ct->prdt[0] = region_descriptor_new(base, (length - 1) | 0x1, false);
 
     while (!ahci_port_is_ready(&port->port)) {
+        
         // TODO: Abort return error on timeout
     }
 

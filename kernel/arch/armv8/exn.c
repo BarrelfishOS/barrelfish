@@ -273,11 +273,16 @@ void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
     /* int instruction_length = FIELD(25,1,esr); */
     int iss                = FIELD(0,25,esr);
 
-    printk(LOG_PANIC, "Fatal (unexpected) fault at 0x%"PRIx64 "\n\n", epc);
+    printk(LOG_PANIC, "Fatal (unexpected) fault at 0x%"PRIx64 " (%#" PRIx64 ")\n\n", epc, epc - (uintptr_t)&kernel_first_byte);
     printk(LOG_PANIC, "Register context saved at: %p\n", save_area);
 
     for (i = 0; i < 31; i++) {
-        printk(LOG_PANIC, "x%d\t%"PRIx64"\n", i, save_area->regs[i]);
+        uint64_t reg = save_area->regs[i];
+        if (reg >= (uintptr_t)&kernel_first_byte && reg <= (uintptr_t)&kernel_text_final_byte) {
+            printk(LOG_PANIC, "x%d\t%"PRIx64" (%#" PRIx64 ")\n", i, reg, reg - (uintptr_t)&kernel_first_byte);
+        } else {
+            printk(LOG_PANIC, "x%d\t%"PRIx64"\n", i, reg);
+        }
     }
 
     printk(LOG_PANIC, "sp\t%"PRIx64"\n", save_area->regs[SP_REG]);

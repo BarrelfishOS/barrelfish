@@ -17,7 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/bulk_transfer.h>
-#include <contmng/netbench.h>
+#include <netbench/netbench.h>
 #include <procon/procon.h>
 #include <barrelfish/net_constants.h>
 #include <net_interfaces/flags.h>

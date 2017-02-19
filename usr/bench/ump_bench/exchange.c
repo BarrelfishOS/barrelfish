@@ -63,14 +63,15 @@ static void experiment(coreid_t idx)
         struct ump_control ctrl;
         timestamps[i].time0 = bench_tsc();
 
-        // Send a messaage
-        msg = ump_impl_get_next(send, &ctrl);
+        // Send a message
+        while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->header.control = ctrl;
 
         // Receive a message
         while (true) {
             msg = ump_impl_recv(recv);
             if (msg) {
+                ump_impl_free_message(msg);
                 break;
             }
         }
@@ -94,7 +95,7 @@ static void ump_init_msg(struct bench_binding *b, coreid_t id)
     array[id] = b;
 
     // All clients connected, run experiment
-    if (count + 1 == num_cores) {
+    if (count == num_cores) {
         for (coreid_t i = 0; i < MAX_CPUS; i++) {
             if (array[i]) {
                 experiment(i);
@@ -128,10 +129,11 @@ static void bind_cb(void *st, errval_t binderr, struct bench_binding *b)
         struct ump_control ctrl;
 
         // Receive a message
-        while (!ump_impl_recv(recv));
+        while (!(msg = ump_impl_recv(recv)));
+        ump_impl_free_message(msg);
 
         // Send a message
-        msg = ump_impl_get_next(send, &ctrl);
+        while (!(msg = ump_impl_get_next(send, &ctrl)));
         msg->data[0] = bench_tsc();
         msg->header.control = ctrl;
     }

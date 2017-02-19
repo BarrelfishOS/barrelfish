@@ -64,10 +64,6 @@ void timers_init(int timeslice)
         do {
             cntp_ctl_el0 = sysreg_read_cntp_ctl_el0();
         } while ((cntp_ctl_el0 & 4) == 0);
-        uint32_t irq = gic_get_active_irq();
-        gic_ack_irq(irq);
-        gic_enable_interrupt(1, 1, 0, 1, 0);
-        gic_raise_softirq(0xff, 1);
 
     }
 

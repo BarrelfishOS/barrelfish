@@ -112,6 +112,7 @@ void disp_run(dispatcher_handle_t handle)
 #endif // CONFIG_INTERCONNECT_DRIVER_LMP
     // Check polled channels
     poll_channels_disabled(handle);
+    ump_channels_retry_send_disabled(handle);
 
     // Run, saving state of previous thread if required
     thread_run_disabled(handle);

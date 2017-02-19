@@ -65,7 +65,7 @@
 #include <netif/bfeth.h>
 
 #include <barrelfish/barrelfish.h>
-#include <contmng/netbench.h>
+#include <netbench/netbench.h>
 #include <idc_barrelfish.h>
 #include <mem_barrelfish.h>
 

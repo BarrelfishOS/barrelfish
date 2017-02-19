@@ -17,6 +17,8 @@
 /*
  * generic interrupt controller functionality
  */
-void     gicv3_init(void);
+errval_t gicv3_init(void);
+
+errval_t gicv3_cpu_interface_enable(void);
 
 #endif // __GIC_V3_H__

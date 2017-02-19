@@ -15,6 +15,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include <net_interfaces/net_interfaces.h>
 #include <devif/queue_interface.h>
 #include <dev/sfn5122f_q_dev.h>
 #include <dev/sfn5122f_dev.h>
@@ -82,11 +83,17 @@ struct sfn5122f_queue {
     struct sfn5122f_devif_rpc_client* rpc;
     volatile bool bound;
 
+
+    // interrupts
+    uint8_t core;
+    uint8_t vector;
+
     // callback 
-    struct periodic_event* event;
+    sfn5122f_event_cb_t cb;
 
     // Direct interface fields
     uint16_t id;
+    struct capref frame;
     sfn5122f_t *device;
     void* device_va;
     struct region_entry* regions;
@@ -153,21 +160,8 @@ static inline sfn5122f_queue_t* sfn5122f_queue_init(void* tx,
 static inline errval_t sfn5122f_queue_free(struct sfn5122f_queue* q)
 {
     errval_t err;
-    
-    err = vspace_unmap(q->ev_ring);  
-    if (err_is_fail(err)) {
-        return err;
-    }   
 
-    if (q->userspace) {
-        err = vspace_unmap(q->rx_ring.user);  
-    } else {
-        err = vspace_unmap(q->rx_ring.ker);  
-    }
-    if (err_is_fail(err)) {
-        return err;
-    } 
-  
+    // only one cap that is mapped (TX)
     if (q->userspace) {
         err = vspace_unmap(q->tx_ring.user);  
     } else {
@@ -176,7 +170,6 @@ static inline errval_t sfn5122f_queue_free(struct sfn5122f_queue* q)
     if (err_is_fail(err)) {
         return err;
     }   
-
     free(q->rx_bufs);
     free(q->tx_bufs);
     free(q);
@@ -497,7 +490,7 @@ static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q,
  
     buf = &q->tx_bufs[tail];
    
-    bool last = flags & DEVQ_BUF_FLAG_TX_LAST;    
+    bool last = flags & NETIF_TXFLAG_LAST;    
     buf->rid = rid;
     buf->bid = bid;
     buf->addr = base;
@@ -534,7 +527,7 @@ static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q,
     d = q->tx_ring.ker[tail];
     buf = &q->tx_bufs[tail];
    
-    bool last = flags & DEVQ_BUF_FLAG_TX_LAST;    
+    bool last = flags & NETIF_TXFLAG_LAST;    
     buf->rid = rid;
     buf->bid = devq_bid;
     buf->addr = base;

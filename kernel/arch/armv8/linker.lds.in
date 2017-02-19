@@ -29,11 +29,10 @@ SECTIONS {
     HIDDEN(kernel_stack = .);
     HIDDEN(kernel_stack_top = .);
 
-    HIDDEN(efiboot_start = .);
+    HIDDEN(kernel_first_byte = .);
     .efiboot_init : { *(.efiboot_init); } :load
     .efiboot : { *(.efiboot); } :load
     
-    HIDDEN(kernel_first_byte = .);
     .text : { *(.text); } :load
     HIDDEN(kernel_text_final_byte = .);
     .rodata . : { *(.rodata); }

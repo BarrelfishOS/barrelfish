@@ -1,5 +1,11 @@
 # vim swap files
+*~
 *.swp
+.*.swo
+.*.swp
+\#*
+.\#*
+.~*
 
 # ctags
 tags

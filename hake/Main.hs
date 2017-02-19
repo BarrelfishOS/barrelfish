@@ -56,6 +56,7 @@ data Opts = Opts { opt_makefilename :: String,
                    opt_sourcedir :: String,
                    opt_bfsourcedir :: String,
                    opt_builddir :: String,
+                   opt_ghc_libdir :: String,
                    opt_abs_installdir :: String,
                    opt_abs_sourcedir :: String,
                    opt_abs_bfsourcedir :: String,
@@ -73,6 +74,7 @@ parse_arguments [] =
          opt_sourcedir = Config.source_dir,
          opt_bfsourcedir = Config.source_dir,
          opt_builddir = ".",
+         opt_ghc_libdir = libdir,
          opt_abs_installdir = "",
          opt_abs_sourcedir = "",
          opt_abs_bfsourcedir = "",
@@ -86,6 +88,10 @@ parse_arguments ("--source-dir" : s : t) =
   (parse_arguments t) { opt_sourcedir = s }
 parse_arguments ("--bfsource-dir" : s : t) =  
   (parse_arguments t) { opt_bfsourcedir = s }
+parse_arguments ("--build-dir" : s : t) =
+  (parse_arguments t) { opt_builddir = s }
+parse_arguments ("--ghc-libdir" : (s : t)) =
+  (parse_arguments t) { opt_ghc_libdir = s }
 parse_arguments ("--output-filename" : s : t) =
   (parse_arguments t) { opt_makefilename = s }
 parse_arguments ("--quiet" : t ) = 
@@ -106,6 +112,7 @@ usage = unlines [ "Usage: hake <options>",
                   "   --source-dir <dir> (required)",
                   "   --bfsource-dir <dir> (defaults to source dir)",
                   "   --install-dir <dir> (defaults to source dir)",
+                  "   --ghc-libdir <dir> (defaults to " ++ libdir ++ ")",
                   "   --quiet",
                   "   --verbose"
                 ]
@@ -172,7 +179,8 @@ listFiles' root current
         ignore "CMakeFiles" = True
         ignore ".hg"        = True
         ignore ".git"       = True
-        ignore ('.' : xs)   = True
+        ignore ('.':[])     = False
+        ignore ('.':xs)     = True
         ignore "build"      = True
         ignore _            = False
 
@@ -188,11 +196,12 @@ listFiles' root current
 
 -- We invoke GHC to parse the Hakefiles in a preconfigured environment,
 -- to implement the Hake DSL.
-evalHakeFiles :: Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
+evalHakeFiles :: FilePath -> Handle -> Opts -> TreeDB -> [(FilePath, String)] ->
                  IO (S.Set FilePath)
-evalHakeFiles makefile o srcDB hakefiles =
+evalHakeFiles the_libdir makefile o srcDB hakefiles =
+    --defaultErrorHandler defaultFatalMessager defaultFlushOut $
     errorHandler $
-        runGhc (Just libdir) $
+        runGhc (Just the_libdir) $
         driveGhc makefile o srcDB hakefiles
 
 -- This is the code that executes in the GHC monad.
@@ -447,7 +456,12 @@ makefilePreamble h opts args =
              "Q=@",
              "SRCDIR=" ++ opt_sourcedir opts,
              "HAKE_ARCHS=" ++ intercalate " " Config.architectures,
-             "include ./symbolic_targets.mk" ])
+             -- Disable built-in implicit rules. GNU make adds environment's MAKEFLAGS too.
+             "MAKEFLAGS=r",
+             -- Explicitly disable the flex and bison implicit rules
+             "%.c : %.y",
+             "%.c : %.l",
+             "INSTALL_PREFIX ?= /home/netos/tftpboot/$(USER)" ])
 
 -- There a several valid top-level build directores, apart from the
 -- architecture-specific one.
@@ -490,8 +504,11 @@ makefileRule h (HakeTypes.Rule tokens) =
         then makefileRuleInner h tokens False
         else return S.empty
 makefileRule h (Phony name double_colon tokens) = do
-    hPutStrLn h $ ".PHONY: " ++ name
-    makefileRuleInner h (Target "build" name : tokens) double_colon
+    if allowedArchs (map frArch tokens)
+        then do
+            hPutStrLn h $ ".PHONY: " ++ name
+            makefileRuleInner h (Target "build" name : tokens) double_colon
+        else return S.empty
 
 printTokens :: Handle -> S.Set RuleToken -> IO ()
 printTokens h tokens =
@@ -537,8 +554,8 @@ makefileRuleInner h tokens double_colon = do
 --
 -- For example, if we are building for architecture 'x86_64', with build tree
 -- '/home/user/barrelfish/build' and build tree '/home/user/barrelfish'
--- (relative path '../', and we are compiling a Hakefile at 'apps/init/Hakefile'
--- (relative path  '../apps/init/Hakefile'), we would resolve as follows:
+-- relative path '../', and we are compiling a Hakefile at 'apps/init/Hakefile'
+-- relative path  '../apps/init/Hakefile', we would resolve as follows:
 --
 --   In SourceTree "../apps/init" "x86_64" "main.c"
 --      -> "../apps/init/main.c"
@@ -584,15 +601,13 @@ resolveTokenPath o hakepath (PreDep tree arch path) =
 -- An target token implicitly refers to the build tree.
 resolveTokenPath o hakepath (Target arch path) = 
     (Target arch (treePath o BuildTree arch path hakepath))
--- An absolute target token implicitly refers to the build tree.
-resolveTokenPath o hakepath (AbsTarget arch path) =
-    (AbsTarget arch path)
 -- A target token referring to an absolute resource
 resolveTokenPath o hakepath (Abs rule rule2) =
     let o' = o {
             opt_sourcedir = opt_abs_sourcedir o,
             opt_installdir = opt_abs_installdir o,
-            opt_builddir = opt_abs_builddir o
+            opt_builddir = opt_abs_builddir o,
+            opt_bfsourcedir = opt_abs_bfsourcedir o
         }
     in Abs (resolveTokenPath o' hakepath rule) (resolveTokenPath o hakepath rule2)
 -- Other tokens don't contain paths to resolve.
@@ -611,12 +626,16 @@ treePath :: Opts -> TreeRef -> FilePath -> FilePath -> FilePath -> FilePath
 -- The architecture 'root' is special.
 treePath o SrcTree "root" path hakepath = 
     relPath (opt_sourcedir o) path hakepath
+treePath o BFSrcTree "root" path hakepath =
+    relPath (opt_bfsourcedir o) path hakepath
 treePath o BuildTree "root" path hakepath = 
     relPath (opt_builddir o) path hakepath
 treePath o InstallTree "root" path hakepath = 
     relPath (opt_installdir o) path hakepath
 -- The architecture 'cache' is special.
 treePath o SrcTree "cache" path hakepath =
+    relPath Config.cache_dir path hakepath
+treePath o BFSrcTree "cache" path hakepath =
     relPath Config.cache_dir path hakepath
 treePath o BuildTree "cache" path hakepath =
     relPath Config.cache_dir path hakepath
@@ -625,6 +644,8 @@ treePath o InstallTree "cache" path hakepath =
 -- Source-tree paths don't get an architecture.
 treePath o SrcTree arch path hakepath =
     relPath (opt_sourcedir o) path hakepath
+treePath o BFSrcTree arch path hakepath =
+    relPath (opt_bfsourcedir o) path hakepath
 treePath o BuildTree arch path hakepath =
     relPath ((opt_builddir o) </> arch) path hakepath
 treePath o InstallTree arch path hakepath =
@@ -635,6 +656,12 @@ treePath o InstallTree arch path hakepath =
 -- Otherwise it is appended to 'hakepath'.  We then treat this as a relative
 -- path (by removing any initial /), and append it to the relevant tree root
 -- (which may or may not have an architecture path appended already).
+relPath :: String -> String -> String -> String
+-- The first rule prevents a path of / to be reduced to the empty string
+relPath "." "/" hakepath =
+    "."
+relPath "." path hakepath =
+    stripSlash (hakepath </> path)
 relPath treeroot path hakepath =
     treeroot </> stripSlash (hakepath </> path)
 
@@ -658,7 +685,9 @@ makeHakeDeps h o l = do
                     ( [ hake, 
                         Str "--source-dir", Str (opt_sourcedir o),
                         Str "--install-dir", Str (opt_installdir o),
-                        Str "--output-filename", makefile
+                        Str "--bfsource-dir", Str (opt_bfsourcedir o),
+                        Str "--output-filename", makefile,
+                        Str "--ghc-libdir", Str (opt_ghc_libdir o)
                       ] ++
                       [ Dep SrcTree "root" h | h <- l ]
                     )
@@ -717,6 +746,7 @@ body =  do
                        " (" ++ opt_abs_bfsourcedir opts ++ ")")
     putStrLn ("Install directory: " ++ opt_installdir opts ++
                        " (" ++ opt_abs_installdir opts ++ ")")
+    putStrLn ("GHC libdir: " ++ opt_ghc_libdir opts)
 
     -- Find Hakefiles
     putStrLn "Scanning directory tree..."
@@ -732,7 +762,7 @@ body =  do
     -- Evaluate Hakefiles
     putStrLn $ "Evaluating " ++ show (length hakefiles) ++
                         " Hakefiles..."
-    dirs <- evalHakeFiles makefile opts srcDB hakefiles
+    dirs <- evalHakeFiles (opt_ghc_libdir opts) makefile opts srcDB hakefiles
 
     -- Emit directory rules
     putStrLn $ "Generating build directory dependencies..."

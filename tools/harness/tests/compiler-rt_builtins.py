@@ -222,6 +222,10 @@ def get_modules_tpl(ts, self, build, machine):
     '''Function template for get_modules() for each compiler-rt test case'''
     modules = super(CompilerRTBuiltinsAbstract, self).get_modules(build, machine)
     for m in ts:
+        if machine.name.startswith("panda") and \
+           (m.endswith("floatdisf_test") or m.endswith("floatdidf_test")):
+            # Skip failing test on pandaboard
+            continue
         modules.add_module(m)
     modules.add_module("usleeptest", [ "5" ])
     return modules

@@ -1559,6 +1559,22 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
                 debug(SUBSYS_CAPS,
                     "%s: found existing region inside, or overlapping requested region:\n",
                     __FUNCTION__);
+                debug(SUBSYS_CAPS, "%s: our region: %#"PRIxGENPADDR"--%#"PRIxGENPADDR"\n",
+                        __FUNCTION__, base, base+objsize*count);
+                if (found_cte && kernel_loglevel >= LOG_DEBUG &&
+                    kernel_log_subsystem_mask & SUBSYS_CAPS)
+                {
+                    char capbuf[128];
+                    sprint_cap(capbuf, 128, &found_cte->cap);
+                    printk(LOG_NOTE, "%s: cap=%s\n", __FUNCTION__, capbuf);
+                    if (type_is_mapping(found_cte->cap.type)) {
+                        sprint_cap(capbuf, 128, found_cte->cap.u.frame_mapping.cap);
+                        printk(LOG_NOTE, "%s: ... is mapping for cap=%s\n",
+                                __FUNCTION__, capbuf);
+                    }
+                    assert(get_address(&found_cte->cap) >= base &&
+                           get_address(&found_cte->cap) < base+objsize*count);
+                }
                 return SYS_ERR_REVOKE_FIRST;
             }
             // return REVOKE_FIRST, if we found a cap that isn't our source

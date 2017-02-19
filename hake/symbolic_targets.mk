@@ -12,14 +12,6 @@
 #
 ##########################################################################
 
-# Disable built-in implicit rules. GNU make adds environment's MAKEFLAGS too.
-MAKEFLAGS=r
-
-# Explicitly disable the flex and bison implicit rules
-%.c : %.y
-
-%.c : %.l
-
 # Set default architecture to the first specified by Hake in generated Makefile.
 ARCH ?= $(word 1, $(HAKE_ARCHS))
 
@@ -116,6 +108,7 @@ TESTS_x86_64= \
 	sbin/fputest \
 	sbin/fread_test \
 	sbin/fscanf_test \
+	sbin/lrpc_fpu \
 	sbin/mdbtest_addr_zero \
 	sbin/mdbtest_range_query \
 	sbin/mem_affinity \
@@ -379,13 +372,6 @@ install: $(MODULES)
 .PHONY : install
 
 
-install_headers:
-	echo "Installing header files..." ; \
-	for a in ${HAKE_ARCHS}; do \
-	  mkdir -p "$$a" ; \
-	  cp -rv "${SRCDIR}/include" "$$a/" ; \
-	done; \
-	echo "done." ; \
 
 .PHONY : install_headers
 
@@ -403,7 +389,7 @@ TAGS: cscope.files
 
 # force rebuild of the Makefile
 rehake: ./hake/hake
-	./hake/hake --source-dir $(SRCDIR) --install-dir . \
+	./hake/hake --source-dir $(SRCDIR) --install-dir . --ghc-libdir $$(ghc --print-libdir) \
 	            --output-filename Makefile
 .PHONY: rehake
 

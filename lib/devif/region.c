@@ -22,8 +22,28 @@
  * the bucket of this page. Within a bucket there is a linked list. To allocated
  * the buffer structures a slab allocator is used.
  */
+/*
+static void print_list(struct buffer* b, uint32_t page_id, bool insert) {
 
-
+    printf("########################### \n");
+    struct buffer* buf = b;
+    for (int i =0; i < 9; i++) {
+        if (buf) {
+            if (insert) {
+                printf("ins page_id %d, bid %d, baddr %p, baddr->next %p \n", page_id, 
+                       buf->id, buf, buf->next);
+            } else {
+                printf("del page_id %d, bid %d, baddr %p, baddr->next %p \n", page_id, 
+                       buf->id, buf, buf->next);
+            }
+            buf = buf->next;
+        } else {
+            break;
+        }
+    }
+    printf("############################## \n");
+}
+*/
 /**
  * @brief initialized a region from which only fixed size buffers are used
  *
@@ -41,7 +61,7 @@ errval_t region_init(struct region** region,
     errval_t err;
     struct frame_identity id;
 
-    struct region* tmp = malloc(sizeof(struct region));
+    struct region* tmp = calloc(1, sizeof(struct region));
     if (tmp == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
@@ -60,7 +80,7 @@ errval_t region_init(struct region** region,
 
     // Datastructures for keeping track of buffers
     slab_init(&tmp->alloc, sizeof(struct buffer), slab_default_refill);
-    slab_grow(&tmp->alloc, tmp->bufs, sizeof(tmp->bufs));
+    slab_grow(&tmp->alloc, tmp->bufs, sizeof(struct buffer)*INIT_SIZE);
     tmp->used_bufs = calloc(1, sizeof(struct buffer*)*tmp->len/BASE_PAGE_SIZE);
 
     *region = tmp;   
@@ -120,7 +140,7 @@ errval_t region_get_buffer_id(struct region* region,
     }
 
     struct buffer* tmp = slab_alloc(&region->alloc);
-    tmp->id = *buffer_id;
+    tmp->id = addr - region->base_addr;
     tmp->next = NULL;
     struct buffer* ele = region->used_bufs[page_id];
     
@@ -139,7 +159,7 @@ errval_t region_get_buffer_id(struct region* region,
     }
 
     ele->next = tmp;
-    
+
     DQI_DEBUG_REGION("buffer region=%d bucket=%d, id=%d, addr=%16lx\n", 
                region->id, page_id, *buffer_id, addr);
     return SYS_ERR_OK;
@@ -229,17 +249,18 @@ errval_t region_free_buffer_id(struct region* region,
         return SYS_ERR_OK;
     }
     
-    while (ele->next != NULL) {
+    while (ele != NULL) {
         if (ele->next->id == buffer_id) {
+            struct buffer* ele_to_free = ele->next;
             ele->next = ele->next->next;
-            slab_free(&region->alloc, ele);
+            slab_free(&region->alloc, ele_to_free);
             DQI_DEBUG_REGION("Returned buffer id=%d (second or higher entry) \n", 
                       buffer_id);
             return SYS_ERR_OK;
         }
         ele = ele->next;
     }
-    
+   
     return SYS_ERR_OK;
 }
 

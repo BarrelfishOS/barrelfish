@@ -14,7 +14,7 @@ module HakeTypes where
 
 import Data.Typeable
 
-data TreeRef = SrcTree | BuildTree | InstallTree
+data TreeRef = SrcTree | BFSrcTree | BuildTree | InstallTree
              deriving (Show,Eq,Ord)
 
 -- Note on Abs:
@@ -28,7 +28,6 @@ data RuleToken = In     TreeRef String String -- Input to the computation
                | PreDep TreeRef String String -- One-time dependency
                | Out    String String         -- Output of the computation
                | Target String String         -- Target that's not involved
-               | AbsTarget String String      -- Target that's not involved
                | Str String                   -- String with trailing " "
                | NStr String                  -- Just a string               
                | ContStr Bool String String   -- Conditional string 
@@ -55,7 +54,6 @@ frArch (Dep _ a _ ) = a
 frArch (NoDep _ a _ ) = a
 frArch (PreDep _ a _ ) = a
 frArch (Target a _ ) = a
-frArch (AbsTarget a _ ) = a
 frArch (Abs rule _) = frArch rule
 frArch t = ""
 
@@ -99,7 +97,6 @@ isPredependency _ = False
 isOutput :: RuleToken -> Bool
 isOutput (Out _ _) = True
 isOutput (Target _ _) = True
-isOutput (AbsTarget _ _) = True
 isOutput (Abs rule _) = isOutput rule
 isOutput _ = False
 
@@ -110,7 +107,6 @@ formatToken (Dep _ a f) = f ++ " "
 formatToken (NoDep _ a f) = f ++ " "
 formatToken (PreDep _ a f) = f ++ " "
 formatToken (Target a f) = f ++ " "
-formatToken (AbsTarget a f) = a ++ f
 formatToken (Str s) = s ++ " "
 formatToken (NStr s) = s 
 formatToken (Abs rule _) = formatToken rule
@@ -123,6 +119,11 @@ formatToken (NL) = "\n\t"
 -- generators, and the like
 --
 -------------------------------------------------------------------------
+
+data OptionsPath = OptionsPath {
+    optPathBin :: String,
+    optPathLib :: String
+}
 
 data Options = Options {
       optArch :: String,
@@ -144,6 +145,7 @@ data Options = Options {
       extraIncludes :: [RuleToken],
       extraDependencies :: [RuleToken],
       extraLdFlags :: [RuleToken],
-      optSuffix :: String
+      optSuffix :: String,
+      optInstallPath :: OptionsPath
     }
       

@@ -24,7 +24,7 @@
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <timer/timer.h>
-#include <contmng/netbench.h>
+#include <netbench/netbench.h>
 #include "webserver_network.h"
 #include "webserver_debug.h"
 #include "webserver_session.h"

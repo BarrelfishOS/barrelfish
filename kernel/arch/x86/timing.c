@@ -33,7 +33,7 @@ static uint64_t tscperms = 0;
  * \brief Calibrates local APIC timer against RTC.
  * \return Local APIC timer ticks per RTC second.
  */
-static uint32_t __attribute__((unused)) calibrate_apic_timer_rtc(uint64_t *ticks_per_ms)
+static uint32_t __attribute__((unused)) calibrate_apic_timer_rtc(systime_t *systime_freq)
 {
     // Set APIC timer to one-shot mode
     apic_timer_init(true, false);
@@ -70,15 +70,11 @@ static uint32_t __attribute__((unused)) calibrate_apic_timer_rtc(uint64_t *ticks
     uint32_t curcount = apic_timer_get_count();
     tsc_end = rdtsc();
     assert(curcount != 0);
-    uint64_t ticks;
 
-    ticks = tsc_end - tsc_start;
-    *ticks_per_ms = ticks / 1000;
-
+    *systime_freq = tsc_end - tsc_start;
     uint32_t tps = UINT32_MAX - curcount;
-    printk(LOG_NOTE, "Measured %"PRIu32" APIC timer counts in one RTC second, "
-           "%d data points. %ld ticks per ms\n", tps, reads, *ticks_per_ms);
-
+    printk(LOG_NOTE, "Measured APIC frequency: %u Hz in one RTC second,"
+        "systime frequency: %lu Hz\n", tps, *systime_freq);
     return tps;
 }
 #endif
@@ -307,7 +303,8 @@ void timing_calibrate(void)
             tscperms = calibrate_tsc_apic_timer();
             systime_frequency = tscperms * 1000;
 #else
-            apic_frequency = calibrate_apic_timer_pit(&systime_frequency);
+            // apic_frequency = calibrate_apic_timer_pit(&systime_frequency);
+            apic_frequency = calibrate_apic_timer_rtc(&systime_frequency);
 #endif
             global->apic_frequency = apic_frequency;
             global->systime_frequency = systime_frequency;

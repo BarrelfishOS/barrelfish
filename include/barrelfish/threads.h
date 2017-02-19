@@ -84,15 +84,16 @@ uint32_t thread_current_token(void);
 void thread_set_outgoing_token(uint32_t token);
 void thread_get_outgoing_token(uint32_t *token);
 
+/// Set/get a local trigger for currently processed event channel
+void thread_set_local_trigger(struct waitset_chanstate *trigger);
+struct waitset_chanstate * thread_get_local_trigger(void);
+
 struct flounder_rpc_context;
 
 void thread_set_rpc_in_progress(bool v);
 bool thread_get_rpc_in_progress(void);
 void thread_set_async_error(errval_t e);
 errval_t thread_get_async_error(void);
-
-void thread_set_mask_channels(bool m);
-bool thread_get_mask_channels(void);
 
 void thread_store_recv_slot(struct capref recv_slot);
 struct capref thread_get_next_recv_slot(void);

@@ -58,10 +58,11 @@ case "`which pdflatex`" in
 esac
 
 cons_inputs() {
+    path=$(readlink -f ${2})
     if [ -z "$_ISCYGWIN" ] ; then
-	echo "${1}${2}//:"
+	echo "${1}${path}//:"
     else
-	echo "${1}${2}//\\;"
+	echo "${1}${path}//\\;"
     fi
 }
 
@@ -116,6 +117,7 @@ if [ -z "$OUTPUT_PDF" ] ; then usage ; fi
 # Calculate all the other stuff we need.
 #
 INPUT_DIR=`dirname "$INPUT_TEX"`
+INPUT_DIR=`readlink -f $INPUT_DIR`
 INPUT_BASE=`basename "$INPUT_TEX" .tex`
 TEXINPUTS=`cons_inputs "$TEXINPUTS" "$INPUT_DIR"`
 BIBINPUTS=`cons_inputs "$BIBINPUTS" "$INPUT_DIR"`
@@ -162,7 +164,7 @@ export LD_LIBRARY_PATH=
 #
 # bibtex on cygwin can be miktex which always 0 exit code
 run_latex
-if [ -n "$HAS_BIB" ]; then (bibtex $AUX_FILE_WITHOUT_AUX && test -r $BBL_FILE)  || exit; echo run_latex; fi
+if [ -n "$HAS_BIB" ]; then (cd $WORKING_DIR && bibtex $JOB_NAME) && test -r $BBL_FILE || exit; echo run_latex; fi
 if [ -n "$HAS_GLO" ]; then (makeglossaries -s $IST_FILE $GLO_FILE && makeglossaries -s $IST_FILE $ACN_FILE && test -r $GLO_FILE)  || exit; echo run_latex; fi
 if [ -e "$TOC_FILE" -o -e "$BBL_FILE" -o -e "$VER_FILE" -o -e "$GLO_FILE" -o -e "$ACN_FILE" ]; then run_latex; fi
 while egrep -e '^LaTeX Warning.*Rerun|^\(.*\).*Rerun' "$LOG_FILE"; do run_latex; done

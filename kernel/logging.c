@@ -53,7 +53,6 @@ void panic(const char *msg, ...)
 
     printf("kernel %d PANIC! %.*s\n", my_core_id, (int)sizeof(buf), buf);
 
-    breakpoint();
     halt();
 }
 

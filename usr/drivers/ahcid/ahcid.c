@@ -7,6 +7,9 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+
+#include <inttypes.h>
+#include <devif/backends/blk/ahci_devq.h>
 #include "ahcid.h"
 #include "test.h"
 
@@ -24,15 +27,14 @@ struct device_id {
     uint16_t device;
 };
 
-static void ahci_interrupt_handler(void *arg)
+static void interrupt_handler(void *arg)
 {
-//    void devq_interrupt_handler(void*);
-//    devq_interrupt_handler(dq);
+    ahci_interrupt_handler(dq);
 
 #ifdef DISABLE_INTERRUPTS
     assert(chan != NULL);
     assert(dq != NULL);
-    errval_t err = waitset_chan_register(&disk_ws, chan, MKCLOSURE(ahci_interrupt_handler, dq));
+    errval_t err = waitset_chan_register(&disk_ws, chan, MKCLOSURE(interrupt_handler, dq));
     if (err_is_fail(err) && err_no(err) == LIB_ERR_CHAN_ALREADY_REGISTERED) {
         printf("Got actual interrupt?\n");
     }
@@ -44,6 +46,7 @@ static void ahci_interrupt_handler(void *arg)
         USER_PANIC_ERR(err, "trigger failed.");
     }
 #endif
+    
 }
 
 static void do_ahci_init(struct device_mem* bar_info, int nr_allocated_bars)
@@ -68,14 +71,22 @@ static void do_ahci_init(struct device_mem* bar_info, int nr_allocated_bars)
         USER_PANIC_ERR(err, "AHCI HBA init failed.");
     }
 
-#if DISABLE_INTERRUPTS
+    struct ahci_queue* q;
+    err = ahci_create(&q, ad, 0);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "ahci_queue create failed.");
+    }
+
+    dq = (struct devq*) q;
+
+#ifdef DISABLE_INTERRUPTS
     waitset_init(&disk_ws);
 
     // Hack: Why don't interrupts work?
     chan = malloc(sizeof(struct waitset_chanstate));
     waitset_chanstate_init(chan, CHANTYPE_AHCI);
 
-    err = waitset_chan_register(&disk_ws, chan, MKCLOSURE(ahci_interrupt_handler, dq));
+    err = waitset_chan_register(&disk_ws, chan, MKCLOSURE(interrupt_handler, dq));
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "waitset_chan_regster failed.");
     }
@@ -94,7 +105,7 @@ static void ahci_reregister_handler(void *arg)
     struct device_id *dev_id = arg;
     err = pci_reregister_irq_for_device(PCI_CLASS_MASS_STORAGE, PCI_SUB_SATA,
             PCI_DONT_CARE, dev_id->vendor, dev_id->device, PCI_DONT_CARE, PCI_DONT_CARE,
-            PCI_DONT_CARE, ahci_interrupt_handler, NULL,
+            PCI_DONT_CARE, interrupt_handler, NULL,
             ahci_reregister_handler, dev_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "pci_reregister_irq_for_device");
@@ -124,7 +135,7 @@ int main(int argc, char **argv)
         r = pci_register_driver_movable_irq(do_ahci_init, PCI_CLASS_MASS_STORAGE,
                 PCI_SUB_SATA, PCI_DONT_CARE, vendor_id, device_id,
                 PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
-                ahci_interrupt_handler, NULL,
+                interrupt_handler, NULL,
                 ahci_reregister_handler, dev_id);
         if (err_is_fail(r)) {
             printf("Couldn't register device %04"PRIx64":%04"PRIx64": %s\n", vendor_id,

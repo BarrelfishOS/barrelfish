@@ -28,7 +28,7 @@ class SplashMPCommon(TestCommon):
         for i in range(1, ncores + 1):
             debug.log('running %s iteration %d/%d' % (self.name, i, ncores))
             yield '[harness: run on %d/%d cores]\n' % (i, ncores)
-            modules.reset_module(self.get_module_name(), [str(i)])
+            modules.add_module(self.get_module_name(), [str(i)])
             self.boot(machine, modules)
             try:
                 for line in self.collect_data(machine):

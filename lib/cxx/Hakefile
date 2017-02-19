@@ -42,6 +42,6 @@
     Rules [Rules [compileCxxFile defaultopts s | s <- (Args.cxxFiles args)],
     	   Rules [compileCFile defaultopts s | s <- (Args.cFiles args)],
     	   Rules [assembleSFile defaultopts s | s <- (Args.assemblyFiles args)],
-           staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args) (allLibraryPaths args) ]
+           staticLibrary defaultopts (Args.target args) (allObjectPaths defaultopts args) (allLibraryPaths defaultopts args) ]
  ) | a <- [ "x86_64", "k1om" ] 
 ]

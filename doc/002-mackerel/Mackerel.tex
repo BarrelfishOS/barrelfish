@@ -361,7 +361,7 @@ index registers, etc.
 The syntax for defining a new address space is:
 
 \begin{syntax}
-space \synit{name}(\synit{index}) bytewise|valuewise|stepwise(\textit{step}) 
+space \synit{name}(\synit{index}) bytewise|valuewise|stepwise(\textit{step})|registerwise
           "\synit{description}"; 
 \end{syntax}
 
@@ -373,7 +373,7 @@ space \synit{name}(\synit{index}) bytewise|valuewise|stepwise(\textit{step})
 \item [index] is an identifier for the argument giving the address for
   the registers
 
-\item [bytewise or valuewise] defines how registers in the new
+\item [bytewise, valuewise or registerwise] defines how registers in the new
   space are addressed.  Bytewise addresses are like conventional
   memory addresses, for example two adjacent 32-bit registers in a
   bytewise-addressed space will have offsets that differ by 4.  All
@@ -392,6 +392,17 @@ space \synit{name}(\synit{index}) bytewise|valuewise|stepwise(\textit{step})
   \texttt{stepwise(1)}, but \texttt{stepwise(4)} might be useful for
   devices (such as some IOAPICs) where registers are indexed by 32-bit
   values but can be accessed as 64-bit quantities. 
+
+  Alternatively, \texttt{registerwise} gives more freedom by calling a
+  custom function to access each register. For a 32-bit register \texttt{R} in the
+  registerwise address space \texttt{S}, the read and write functions are
+  declared as follows:
+%
+  \begin{syntax}
+uint32_t __DN(S_read_32_R)(void);
+void __DN(S_write_32_R)(uint32_t _regval);
+  \end{syntax}
+
 
 \item [``description''] is a string literal in double quotes, which
   describes the constant type being specified, for example

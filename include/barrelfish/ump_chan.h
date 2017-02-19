@@ -44,7 +44,9 @@ struct ump_chan {
 
     struct ump_chan_state send_chan;       ///< Outgoing UMP channel state
     struct ump_endpoint endpoint;          ///< Incoming UMP endpoint
-
+    struct waitset_chanstate send_waitset;
+    struct ump_chan *next, *prev;
+    
     /// connection state
     enum {UMP_DISCONNECTED,     ///< Disconnected
           UMP_BIND_WAIT,        ///< Waiting for bind reply
@@ -80,6 +82,9 @@ errval_t ump_chan_bind(struct ump_chan *uc, struct ump_bind_continuation cont,
                        struct capref notify_cap);
 errval_t ump_chan_accept(struct ump_chan *uc, uintptr_t mon_id,
                          struct capref frame, size_t inchanlen, size_t outchanlen);
+errval_t ump_chan_register_send(struct ump_chan *uc, struct waitset *ws,
+                                struct event_closure closure);
+void ump_channels_retry_send_disabled(dispatcher_handle_t handle);
 void ump_chan_send_bind_reply(struct monitor_binding *mb,
                               struct ump_chan *uc, errval_t err,
                               uintptr_t monitor_id, struct capref notify_cap);
@@ -134,6 +139,17 @@ static inline volatile struct ump_message *ump_chan_get_next(
     return ump_impl_get_next(&uc->send_chan, ctrl);
 }
 
+static inline bool ump_chan_can_send(struct ump_chan *uc)
+{
+    assert(uc != NULL);
+    return ump_impl_can_send(&uc->send_chan);
+}
+
+static inline void ump_chan_free_message(volatile struct ump_message *msg)
+{
+    ump_impl_free_message(msg);
+}
+
 /**
  * \brief Migrate an event registration made with
  * ump_chan_register_recv() to a new waitset
@@ -152,6 +168,7 @@ static inline struct waitset_chanstate * ump_chan_get_receiving_channel(struct u
     return &chan->endpoint.waitset_state;
 }
 
+struct waitset_chanstate * monitor_bind_get_receiving_chanstate(struct monitor_binding *b);
 
 __END_DECLS
 

@@ -85,7 +85,6 @@ void flounder_support_waitset_chanstate_init_persistent(struct waitset_chanstate
 {
     waitset_chanstate_init(wc, CHANTYPE_FLOUNDER);
     wc->persistent = true;
-    wc->masked = true;
 }
 
 void flounder_support_waitset_chanstate_destroy(struct waitset_chanstate *wc)
@@ -147,10 +146,13 @@ errval_t flounder_stub_send_cap(struct flounder_cap_state *s,
                                            monitor_id, cap, s->tx_capnum);
     }
     if (err_is_ok(err)) {
+        thread_set_local_trigger(&mb->tx_cont_chanstate);
         s->tx_capnum++;
         return err;
     } else if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        // register to retry
+        assert(0); // this should never happen
+        thread_set_local_trigger(&mb->tx_cont_chanstate); // not sure if this is
+        // ok since I don't know how to test this case
         return mb->register_send(mb, mb->waitset, MKCONT(cap_send_cont, s));
     } else {
         return err_push(err, LIB_ERR_MONITOR_CAP_SEND);
@@ -386,10 +388,6 @@ errval_t flounder_stub_lmp_recv_string(struct lmp_recv_msg *msg, char *str,
 
 void flounder_stub_ump_state_init(struct flounder_ump_state *s, void *binding)
 {
-    s->next_id = 1;
-    s->seq_id = 0;
-    s->ack_id = 0;
-    s->last_ack = 0;
     s->token = 0;
     flounder_stub_cap_state_init(&s->capst, binding);
 }
@@ -404,11 +402,9 @@ errval_t flounder_stub_ump_send_buf(struct flounder_ump_state *s,
     int msgpos;
 
     do {
-        if (!flounder_stub_ump_can_send(s)) {
-            return FLOUNDER_ERR_BUF_SEND_MORE;
-        }
-
         msg = ump_chan_get_next(&s->chan, &ctrl);
+        if (!msg)
+            return FLOUNDER_ERR_BUF_SEND_MORE;
         flounder_stub_ump_control_fill(s, &ctrl, msgnum);
 
         // is this the start of the buffer?

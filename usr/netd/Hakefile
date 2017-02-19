@@ -11,11 +11,7 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "netd",
-  cFiles = [ "main.c", "lwipinit.c", "ARP_lookup_service.c" ],
-                      flounderBindings = [ "net_ARP" ],
-                      flounderDefs = [ "net_ARP" ],
-		      addLibraries = [ "lwip", "contmng", "net_if_raw", "timer",
-                      "trace" ]
+                      cFiles = [ "main.c" ],
+                      addLibraries = [ "netd" ]
                     }
 ]
-

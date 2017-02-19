@@ -157,35 +157,37 @@ static bool waitset_can_receive(struct waitset_chanstate *chan,
 {
     bool res = false;
 
-    if (!thread->mask_channels || !chan->masked) {
-        if (chan->wait_for) // if a thread is waiting for this specific event
-            res = chan->wait_for == thread;
-        else
-            res = (chan->token & 1 && !thread->token) // incoming token is a request
-                // and a thread is not waiting for a token
-                || (!chan->token && chan != thread->channel) // there's no token
-                // and a thread is not waiting specifically for that event
-                || (chan->token == thread->token && chan == thread->channel);
-                // there is a token and it matches thread's token and event
-    }
+    if (chan->wait_for) // if a thread is waiting for this specific event
+        res = chan->wait_for == thread;
+    else
+        res = (chan->token & 1 && !thread->token) // incoming token is a request
+            // and a thread is not waiting for a token
+            || (!chan->token && chan != thread->channel) // there's no token
+            // and a thread is not waiting specifically for that event
+            || (chan->token == thread->token && chan == thread->channel);
+            // there is a token and it matches thread's token and event
     return res;
 }
 
 /// Returns a channel with a pending event on the given waitset matching
 /// our thread
 static struct waitset_chanstate *get_pending_event_disabled(struct waitset *ws,
-                                    struct waitset_chanstate *chan)
+          struct waitset_chanstate *waitfor, struct waitset_chanstate *waitfor2)
 {
     struct thread *me = thread_self_disabled();
 
-    if (chan) { // channel that we wait for
-        if (chan->state == CHAN_PENDING && waitset_can_receive(chan, me)) {
-            return chan;
+    if (waitfor) { // channel that we wait for
+        if ((waitfor->state == CHAN_PENDING || waitfor->state == CHAN_WAITING)
+            && waitset_can_receive(waitfor, me)) {
+            return waitfor;
         }
-        if (chan->state == CHAN_WAITING && waitset_can_receive(chan, me)) {
-            return chan;
+        if (waitfor2 && (waitfor2->state == CHAN_PENDING || waitfor2->state == CHAN_WAITING)
+            && waitset_can_receive(waitfor2, me)) {
+            return waitfor2;
         }
+        return NULL;
     }
+    struct waitset_chanstate *chan;
     // check a waiting queue for matching event
     for (chan = ws->waiting; chan; ) {
         if (waitset_can_receive(chan, me)) {
@@ -332,12 +334,14 @@ static void wake_up_other_thread(dispatcher_handle_t handle, struct waitset *ws)
 
 errval_t get_next_event_disabled(struct waitset *ws,
     struct waitset_chanstate **retchannel, struct event_closure *retclosure,
-    struct waitset_chanstate *waitfor, dispatcher_handle_t handle, bool debug)
+    struct waitset_chanstate *waitfor, struct waitset_chanstate *waitfor2,
+    dispatcher_handle_t handle, bool debug)
 {
     struct waitset_chanstate * chan;
 
+// debug_printf("%s: %p %p %p %p\n", __func__, __builtin_return_address(0), __builtin_return_address(1), __builtin_return_address(2), __builtin_return_address(3));
     for (;;) {
-        chan = get_pending_event_disabled(ws, waitfor); // get our event
+        chan = get_pending_event_disabled(ws, waitfor, waitfor2); // get our event
         if (chan) {
             *retchannel = chan;
             *retclosure = chan->closure;
@@ -348,6 +352,7 @@ errval_t get_next_event_disabled(struct waitset *ws,
             else
                 waitset_chan_deregister_disabled(chan, handle);
             wake_up_other_thread(handle, ws);
+    // debug_printf("%s.%d: %p\n", __func__, __LINE__, retclosure->handler);
             return SYS_ERR_OK;
         }
         chan = ws->pending; // check a pending queue
@@ -399,7 +404,7 @@ errval_t get_next_event(struct waitset *ws, struct event_closure *retclosure)
 {
     dispatcher_handle_t handle = disp_disable();
     struct waitset_chanstate *channel;
-    errval_t err = get_next_event_disabled(ws, &channel, retclosure, NULL,
+    errval_t err = get_next_event_disabled(ws, &channel, retclosure, NULL, NULL,
                                             handle, false);
     disp_enable(handle);
     return err;
@@ -422,7 +427,7 @@ static errval_t check_for_event_disabled(struct waitset *ws, dispatcher_handle_t
     struct waitset_chanstate *chan;
 
     poll_channels_disabled(handle);
-    chan = get_pending_event_disabled(ws, NULL);
+    chan = get_pending_event_disabled(ws, NULL, NULL);
     if (chan != NULL) {
         return SYS_ERR_OK;
     }
@@ -467,8 +472,8 @@ errval_t event_dispatch_debug(struct waitset *ws)
     struct event_closure closure;
     struct waitset_chanstate *channel;
     dispatcher_handle_t handle = disp_disable();
-    errval_t err = get_next_event_disabled(ws, &channel, &closure, NULL, handle,
-                                            true);
+    errval_t err = get_next_event_disabled(ws, &channel, &closure, NULL, NULL,
+                                           handle, true);
     disp_enable(handle);
     if (err_is_fail(err)) {
         return err;
@@ -491,24 +496,25 @@ errval_t event_dispatch_debug(struct waitset *ws)
  */
 
 errval_t wait_for_channel(struct waitset *ws, struct waitset_chanstate *waitfor,
-                            errval_t *error_var)
+                          errval_t *error_var)
 {
     assert(waitfor->waitset == ws);
+    thread_set_local_trigger(NULL);
     for (;;) {
         struct event_closure closure;
-        struct waitset_chanstate *channel;
+        struct waitset_chanstate *channel, *trigger;
 
+        trigger = thread_get_local_trigger();
         dispatcher_handle_t handle = disp_disable();
         errval_t err = get_next_event_disabled(ws, &channel, &closure, waitfor,
-                                                handle, false);
+            trigger ? trigger: waitfor->trigger, handle, false);
         disp_enable(handle);
         if (err_is_fail(err)) {
             assert(0);
             return err;
         }
-        if (channel == waitfor) {
+        if (channel == waitfor)
             return SYS_ERR_OK;
-        }
         assert(!channel->wait_for);
         assert(closure.handler != NULL);
         closure.handler(closure.arg);
@@ -541,7 +547,7 @@ errval_t event_dispatch_non_block(struct waitset *ws)
         disp_enable(handle);
         return err;
     }
-    err = get_next_event_disabled(ws, &channel, &closure, NULL, handle,
+    err = get_next_event_disabled(ws, &channel, &closure, NULL, NULL, handle,
                                             false);
     if (err_is_fail(err))
         return err;
@@ -576,7 +582,7 @@ void waitset_chanstate_init(struct waitset_chanstate *chan,
     chan->persistent = false;
     chan->token = 0;
     chan->wait_for = NULL;
-    chan->masked = false;
+    chan->trigger = NULL;
 }
 
 /**

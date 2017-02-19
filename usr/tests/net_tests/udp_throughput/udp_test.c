@@ -23,7 +23,7 @@
 #include <lwip/udp.h>
 #include <lwip/init.h>
 #include <netif/etharp.h>
-#include <contmng/netbench.h>
+#include <netbench/netbench.h>
 
 /* Enable tracing only when it is globally enabled */
 #if CONFIG_TRACE && NETWORK_STACK_BENCHMARK

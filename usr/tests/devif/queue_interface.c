@@ -12,17 +12,20 @@
 #include <time.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
+#include <barrelfish/waitset_chan.h>
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/net/sfn5122f_devif.h>
+//#include <devif/backends/net/e10k_devif.h>
 #include <devif/backends/descq.h>
+#include <bench/bench.h>
+#include <net_interfaces/flags.h>
 
-
-#define IDC_TEST
-#define SFN_TEST
-#define NUM_ENQ 2
+#define BUF_SIZE 2048
+#define NUM_ENQ 512
 #define NUM_RX_BUF 1024
-#define NUM_ROUNDS 32
+#define NUM_ROUNDS_TX 16384
+#define NUM_ROUNDS_RX 128
 #define MEMORY_SIZE BASE_PAGE_SIZE*512
 
 static struct capref memory_rx;
@@ -54,18 +57,22 @@ struct list_ele{
     struct list_ele* next;
 };
 
-#ifdef SFN_TEST
+
+static struct waitset_chanstate *chan = NULL;
+static struct waitset card_ws;
+
+
 static uint8_t udp_header[8] = {
     0x07, 0xD0, 0x07, 0xD0,
     0x00, 0x80, 0x00, 0x00,
 };
 
+/*
 static void print_buffer(size_t len, bufferid_t bid)
 {
     uint8_t* buf = (uint8_t*) va_rx+bid;
     printf("Packet in region %p at address %p len %zu \n", 
             va_rx, buf, len);
-/*
     for (int i = 0; i < len; i++) {
         if (((i % 10) == 0) && i > 0) {
             printf("\n");
@@ -73,7 +80,14 @@ static void print_buffer(size_t len, bufferid_t bid)
         printf("%2X ", buf[i]);   
     }
     printf("\n");
+}
 */
+static void wait_for_interrupt(void)
+{
+    errval_t err = event_dispatch(&card_ws);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error in event_dispatch for wait_for_interrupt");
+    }
 }
 
 static void sfn5122f_event_cb(void* queue)
@@ -88,30 +102,40 @@ static void sfn5122f_event_cb(void* queue)
     size_t len;
     uint64_t flags;
 
-    while (true) {    
+    err = SYS_ERR_OK;
+
+    while (err == SYS_ERR_OK) {    
         err = devq_dequeue(q, &rid, &addr, &len, &bid, &flags);
         if (err_is_fail(err)) {
             break;
         }
 
-        switch (flags) {
-            case DEVQ_BUF_FLAG_TX:
-                num_tx++;
-                break;
-            case DEVQ_BUF_FLAG_RX:
-                num_rx++;
-                print_buffer(len, bid);
-                break;
-            case DEVQ_BUF_FLAG_TX + DEVQ_BUF_FLAG_TX_LAST:
-                num_tx++;
-                break;
-            default:
-                printf("Unknown flags \n");
-        }    
+        if (flags & NETIF_TXFLAG) {
+            num_tx++;
+        } else if (flags & NETIF_RXFLAG) {
+            num_rx++;
+            //print_buffer(len, bid);
+        } else {
+            printf("Unknown flags \n");
+        }
+    }
+
+    // MSIX is not working on sfn5122f yet so we have to "simulate interrupts"
+    err = waitset_chan_register(&card_ws, chan, 
+                                MKCLOSURE(sfn5122f_event_cb, queue));
+    if (err_is_fail(err) && err_no(err) == LIB_ERR_CHAN_ALREADY_REGISTERED) {
+        printf("Got actual interrupt?\n");
+    }
+    else if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Can't register our dummy channel.");
+    }
+    err = waitset_chan_trigger(chan);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "trigger failed.");
     }
 }
 
-static void test_sfn5122f_device_direct(void) 
+static void test_sfn5122f_tx(void) 
 {
     num_tx = 0;
     num_rx = 0;
@@ -127,12 +151,24 @@ static void test_sfn5122f_device_direct(void)
     }    
     
     q = (struct devq*) queue;    
+    
 
-    err = devq_register(q, memory_rx, &regid_rx);
-    if (err_is_fail(err)){
-        USER_PANIC("Registering memory to devq failed \n");
+    waitset_init(&card_ws);
+
+    // MSIX is not working on sfn5122f yet so we have to "simulate interrupts"
+    chan = malloc(sizeof(struct waitset_chanstate));
+    waitset_chanstate_init(chan, CHANTYPE_AHCI);
+
+    err = waitset_chan_register(&card_ws, chan, MKCLOSURE(sfn5122f_event_cb, q));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "waitset_chan_regster failed.");
     }
-  
+
+    err = waitset_chan_trigger(chan);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "trigger failed.");
+    }
+
     err = devq_register(q, memory_tx, &regid_tx);
     if (err_is_fail(err)){
         USER_PANIC("Registering memory to devq failed \n");
@@ -141,70 +177,133 @@ static void test_sfn5122f_device_direct(void)
     lpaddr_t addr;  
     bufferid_t bid;
 
-    // Enqueue RX buffers to receive into
-    for (int i = 0; i < NUM_ROUNDS; i++){
-        addr = phys_rx+(i*2048);
-        err = devq_enqueue(q, regid_rx, addr, 2048, 
-                           DEVQ_BUF_FLAG_RX, &bid);
-        if (err_is_fail(err)){
-            USER_PANIC("Devq enqueue failed: %s\n", err_getstring(err));
-        }    
+    // write something into the buffers
+    char* write = NULL;
+    uint16_t rest = 4096 -BUF_SIZE;
 
+    for (int i = 0; i < NUM_ENQ; i++) {
+        write = va_tx + i*(BUF_SIZE+rest);
+        for (int j = 0; j < 8; j++) {
+            write[j] = udp_header[j];
+        }
+        for (int j = 8; j < BUF_SIZE; j++) {
+            write[j] = 'a';
+        }
     }
 
-    // not necessary NOP!
-    err = devq_notify(q);
-    if (err_is_fail(err)){
-        USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
-    }   
- 
-
     // Send something
-    char* write = NULL;
-    for (int z = 0; z < 5; z++) {
-        for (int i = 0; i < 1000; i++) {
-            addr = phys_tx+(i*2048);
-            write = va_tx + i*2048;
-            for (int j = 0; j < 8; j++) {
-                write[j] = udp_header[j];
-            }
-            for (int j = 8; j < 128; j++) {
-                write[j] = 'a';
-            }
+    cycles_t t1 = bench_tsc();   
 
-            err = devq_enqueue(q, regid_tx, addr, 2048, 
-                               DEVQ_BUF_FLAG_TX | DEVQ_BUF_FLAG_TX_LAST, &bid);
+    for (int z = 0; z < NUM_ROUNDS_TX; z++) {
+        for (int i = 0; i < NUM_ENQ; i++) {
+            addr = phys_tx+(i*(BUF_SIZE));
+
+            err = devq_enqueue(q, regid_tx, addr, BUF_SIZE, 
+                               NETIF_TXFLAG | NETIF_TXFLAG_LAST, &bid);
             if (err_is_fail(err)){
                 USER_PANIC("Devq enqueue failed \n");
             }    
-
-            // Not necessary
-            err = devq_notify(q);
-            if (err_is_fail(err)){
-                USER_PANIC("Devq notify failed \n");
-            }
-            
         }
 
         while(true) {
-            if ((num_tx < 1000)) {
-                event_dispatch(get_default_waitset());
+            if ((num_tx < NUM_ENQ)) {
+                wait_for_interrupt();
             } else {
-                printf("exit loop \n");
                 break;
             }
         }
         num_tx = 0;
     }
 
+    cycles_t t2 = bench_tsc();
+    cycles_t result = (t2 -t1 - bench_tscoverhead());
+ 
+    uint64_t sent_bytes = (uint64_t) BUF_SIZE*NUM_ENQ*NUM_ROUNDS_TX;
+    double result_ms = (double) bench_tsc_to_ms(result);
+    double bw = sent_bytes / result_ms / 1000;
+    
+    printf("Write throughput %.2f [MB/s] for %.2f ms \n", bw, result_ms);  
+
+    err = devq_control(q, 1, 1);
+    if (err_is_fail(err)){
+        printf("%s \n", err_getstring(err));
+        USER_PANIC("Devq control failed \n");
+    }
+
+    err = devq_deregister(q, regid_tx, &memory_tx);
+    if (err_is_fail(err)){
+        printf("%s \n", err_getstring(err));
+        USER_PANIC("Devq deregister tx failed \n");
+    }
+    
+    err = sfn5122f_queue_destroy((struct sfn5122f_queue*) q);
+
+    printf("SUCCESS: SFN5122F tx test ended\n");
+}
+
+
+static void test_sfn5122f_rx(void) 
+{
+    num_tx = 0;
+    num_rx = 0;
+
+    errval_t err;
+    struct devq* q;   
+    struct sfn5122f_queue* queue;
+
+    printf("SFN5122F direct device test started \n");
+    err = sfn5122f_queue_create(&queue, sfn5122f_event_cb, /* userlevel*/ true, 
+                                /*MSIX interrupts*/ false);
+    if (err_is_fail(err)){
+        USER_PANIC("Allocating devq failed \n");
+    }    
+    
+    q = (struct devq*) queue;    
+    
+
+    waitset_init(&card_ws);
+
+    // MSIX is not working on sfn5122f yet so we have to "simulate interrupts"
+    chan = malloc(sizeof(struct waitset_chanstate));
+    waitset_chanstate_init(chan, CHANTYPE_AHCI);
+
+    err = waitset_chan_register(&card_ws, chan, MKCLOSURE(sfn5122f_event_cb, q));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "waitset_chan_regster failed.");
+    }
+
+    err = waitset_chan_trigger(chan);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "trigger failed.");
+    }
+
+    err = devq_register(q, memory_rx, &regid_rx);
+    if (err_is_fail(err)){
+        USER_PANIC("Registering memory to devq failed \n");
+    }
+    
+    lpaddr_t addr;  
+    bufferid_t bid;
+
+    // Enqueue RX buffers to receive into
+    for (int i = 0; i < NUM_ROUNDS_RX; i++){
+        addr = phys_rx+(i*2048);
+        err = devq_enqueue(q, regid_rx, addr, 2048, 
+                           NETIF_RXFLAG, &bid);
+        if (err_is_fail(err)){
+            USER_PANIC("Devq enqueue failed: %s\n", err_getstring(err));
+        }    
+
+    }
+
     while (true) {
-        if ((num_rx < NUM_ROUNDS)) {
-            event_dispatch(get_default_waitset());
+        if ((num_rx < NUM_ROUNDS_RX)) {
+            wait_for_interrupt();
         } else {
-            printf("exit event loop \n");
             break;
         }
     }
+
 
     err = devq_control(q, 1, 1);
     if (err_is_fail(err)){
@@ -217,20 +316,13 @@ static void test_sfn5122f_device_direct(void)
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq deregister rx failed \n");
     }
-
-    err = devq_deregister(q, regid_tx, &memory_tx);
-    if (err_is_fail(err)){
-        printf("%s \n", err_getstring(err));
-        USER_PANIC("Devq deregister tx failed \n");
-    }
-
+   
     err = sfn5122f_queue_destroy((struct sfn5122f_queue*) q);
 
-    printf("SFN5122F direct device test ended\n");
+    printf("SUCCESS: SFN5122F rx test ended\n");
 }
-#endif
 
-#ifdef IDC_TEST
+
 static errval_t descq_notify(struct descq* q) 
 {   
     errval_t err = SYS_ERR_OK;
@@ -285,9 +377,9 @@ static void test_idc_queue(void)
     lpaddr_t addr;
     bufferid_t bid;
     // Enqueue RX buffers to receive into
-    for (int j = 0; j < NUM_RX_BUF/16; j++){
-        for (int i = 0; i < 16; i++){
-            addr = phys_rx+(j*16*2048)+(i*2048);
+    for (int j = 0; j < 1000000; j++){
+        for (int i = 0; i < 32; i++){
+            addr = phys_rx+(i*2048);
             err = devq_enqueue(q, regid_rx, addr, 2048, 
                                0, &bid);
             if (err_is_fail(err)){
@@ -327,13 +419,41 @@ static void test_idc_queue(void)
         USER_PANIC("Devq deregister tx failed \n");
     }
 
-    printf("Descriptor queue test end \n");
+    printf("SUCCESS: IDC queue\n");
 }
 
+
+#if 0
+static void e10k_event_cb(void* queue)
+{
+    return;
+}
+
+static void test_e10k_queue(void) 
+{
+    num_tx = 0;
+    num_rx = 0;
+
+    errval_t err;
+    struct devq* q;   
+    struct e10k_queue* queue;
+
+    printf("e10k test started \n");
+    err = e10k_queue_create(&queue, e10k_event_cb, /* interrupts*/ false, 
+                            /* RSC*/false);
+    if (err_is_fail(err)){
+        USER_PANIC("Allocating devq failed \n");
+    }    
+    
+    q = (struct devq*) queue;    
+ 
+       
+    printf("e10k test endned \n");
+}
 #endif
+
 int main(int argc, char *argv[])
 {
-    //barrelfish_usleep(1000*1000*5);
     errval_t err;
     // Allocate memory
     err = frame_alloc(&memory_rx, MEMORY_SIZE, NULL);
@@ -373,13 +493,24 @@ int main(int argc, char *argv[])
     }
 
     phys_tx = id.base;
-#ifdef SFN_TEST
-    test_sfn5122f_device_direct();
+
+    if (strcmp(argv[1], "net_tx") == 0) {
+        test_sfn5122f_tx();
+    }
+
+    if (strcmp(argv[1], "net_rx") == 0) {
+        test_sfn5122f_rx();
+    }
+
+    if (strcmp(argv[1], "idc") == 0) {
+        test_idc_queue();
+    }
+    
+    /*
+    if (strcmp(argv[1], "e10k") == 0) {
+        test_e10k_queue();
+    }
+    */
     barrelfish_usleep(1000*1000*5);
-#endif
-#ifdef IDC_TEST
-    test_idc_queue();
-    barrelfish_usleep(1000*1000*5);
-#endif
 }
 

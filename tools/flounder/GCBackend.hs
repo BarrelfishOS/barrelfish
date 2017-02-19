@@ -156,6 +156,7 @@ connect_handler :: String -> MessageDef -> C.Stmt
 connect_handler n msg@(Message _ mn _ _) = C.StmtList [
     C.Ex $ C.Call "flounder_support_waitset_chanstate_init_persistent" [message_chanstate],
     C.Ex $ C.Assignment errvar $ C.Call "flounder_support_register" [waitset, message_chanstate, closure, C.Variable "false"],
+    C.Ex $ C.Assignment (C.DerefField message_chanstate "trigger") $ C.CallInd (bindvar `C.DerefField` "get_receiving_chanstate") [bindvar],
     C.Ex $ C.Call "assert" [C.Call "err_is_ok" [errvar]]
     ]
     where

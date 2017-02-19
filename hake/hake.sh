@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 ##########################################################################
 # Copyright (c) 2009, 2011, 2013, 2015, ETH Zurich.
@@ -56,7 +56,7 @@ usage() {
 #
 # Legacy compatibility to avoid breaking the harness...
 #
-if [[ $# -eq 1 ]] && [[ $1 != "-"* ]]; then
+if test $# -eq 1 && test $1 != "-"*; then
     echo "WARNING: old usage of hake.sh (sole argument gives the source directory) is"
     echo "deprecated: please use --source-dir instead."
     SRCDIR="$1"
@@ -66,10 +66,10 @@ fi
 #
 # Parse args
 #
-while [ $# -ne 0 ]; do
+while test $# -ne 0; do
     case $1 in
 	"-a"|"--architecture") 
-	    if [ -z "$NEWARCHS" ] ; then
+	    if test -z "$NEWARCHS"; then
 		    NEWARCHS="\"$2\""
 	    else
 		    NEWARCHS="$NEWARCHS, \"$2\""
@@ -143,7 +143,7 @@ while [ $# -ne 0 ]; do
     shift
 done
 
-if [ -z "$INSTALLDIR" ] ; then
+if test -z "$INSTALLDIR"; then
     echo "Install directory defaulting to '.'"
     INSTALLDIR="."
 else
@@ -151,37 +151,37 @@ else
 fi
 cd $INSTALLDIR
 
-if [ -z "$SRCDIR" ] ; then
+if test -z "$SRCDIR"; then
     usage
 fi
 
-if [ ! -f "$SRCDIR"/hake/Main.hs ] ; then
+if test ! -f "$SRCDIR"/hake/Main.hs; then
     echo "Can't find Hake in the source directory $SRCDIR."
     echo "Did you specify the source directory correctly?"
     usage
 fi
 echo "Source directory is $SRCDIR"
 
-if [ ! -z "$NEWARCHS" ]; then
+if test ! -z "$NEWARCHS"; then
     ARCHS="$NEWARCHS"
 else 
     ARCHS="$DFLTARCHS"
 fi
 echo "Architectures to build: $ARCHS"
 
-if [ ! -d "$CACHEDIR" ] ; then
+if test ! -d "$CACHEDIR"; then
     mkdir -p "$CACHEDIR"
     chmod g+rw "$CACHEDIR"
 fi
 
-if [ ! -d hake ] ; then
+if test ! -d hake; then
     echo "Creating a local hake directory..."
     mkdir -p hake
     touch hake/.marker
 fi
 
 echo "Setting up hake build directory..."
-if [ ! -f hake/Config.hs ]; then
+if test ! -f hake/Config.hs; then
     echo "Bootstrapping Config.hs"
     cp $SRCDIR/hake/Config.hs.template hake/Config.hs
     cat >> hake/Config.hs <<EOF
@@ -204,12 +204,6 @@ else
     echo "You already have Config.hs, leaving it as-is."
 fi
 
-if [ ! -f ./symbolic_targets.mk ]; then
-    echo "Creating new symbolic_targets.mk file."
-    cp "$SRCDIR/hake/symbolic_targets.mk" . 
-else
-    echo "You already have symbolic_targets.mk, leaving it as-is."
-fi
 
 # FIXME: do we really need this; doesn't ghc get the dependencies right? -AB
 #rm -f hake/*.hi hake/*.o 
@@ -243,13 +237,13 @@ ghc -O --make \
 
     # -eventlog \
 
-if [ "$RUN_HAKE" == "No" ] ; then
+if test "$RUN_HAKE" = "No"; then
     echo "Not running hake as per your request."
     exit
 fi
 
 echo "Running hake..."
-./hake/hake --output-filename Makefile --source-dir "$SRCDIR/" || exit
+./hake/hake --output-filename Makefile --source-dir "$SRCDIR/" --ghc-libdir "$(ghc --print-libdir)" || exit
 
 echo "Now running initial make to build dependencies."
 echo "Running $JOBS jobs at once (-j N to change this)."

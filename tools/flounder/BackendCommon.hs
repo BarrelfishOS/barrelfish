@@ -279,7 +279,6 @@ binding_struct_init :: String -> String -> C.Expr -> C.Expr ->  C.Expr -> [C.Stm
 binding_struct_init drv ifn binding_var waitset_ex tx_vtbl_ex = [
     C.Ex $ C.Assignment (C.FieldOf binding_var "st") (C.Variable "NULL"),
     C.Ex $ C.Assignment (C.FieldOf binding_var "waitset") waitset_ex,
-    C.Ex $ C.Assignment (C.FieldOf binding_var "send_waitset") (C.Variable "NULL"),
     C.Ex $ C.Call "event_mutex_init" [C.AddressOf $ C.FieldOf binding_var "mutex", waitset_ex],
     C.Ex $ C.Call "thread_mutex_init" [C.AddressOf $ C.FieldOf binding_var "rxtx_mutex"],
     C.Ex $ C.Call "thread_mutex_init" [C.AddressOf $ C.FieldOf binding_var "send_mutex"],
@@ -382,7 +381,7 @@ register_txcont cont_ex = [
     C.If (C.Binary C.NotEquals (cont_ex `C.FieldOf` "handler") (C.Variable "NULL"))
         [localvar (C.TypeName "errval_t") "_err" Nothing,
          C.Ex $ C.Assignment errvar $ C.Call "flounder_support_register"
-            [C.Variable "send_waitset",
+            [C.DerefField bindvar "waitset",
              C.AddressOf $ bindvar `C.DerefField` "tx_cont_chanstate",
              cont_ex,
              C.Variable "false"],
@@ -404,10 +403,8 @@ block_sending :: C.Expr -> [C.Stmt]
 block_sending cont_ex = [
     C.If (C.Binary C.Equals (cont_ex `C.FieldOf` "handler") (C.Variable "blocking_cont"))
         [C.If (C.Binary C.Equals binding_error (C.Variable "SYS_ERR_OK")) [
-            C.Ex $ C.Call "thread_set_mask_channels" [C.Variable "true"],
             C.Ex $ C.Assignment binding_error $ C.Call "wait_for_channel"
-                [C.Variable "send_waitset", tx_cont_chanstate, C.AddressOf binding_error],
-            C.Ex $ C.Call "thread_set_mask_channels" [C.Variable "false"]
+                [C.DerefField bindvar "waitset", tx_cont_chanstate, C.AddressOf binding_error]
             ] [
             C.Ex $ C.Call "flounder_support_deregister_chan" [tx_cont_chanstate]
             ]
@@ -459,7 +456,7 @@ finished_recv drvn ifn typedefs mtype mn msgargs
             [C.Ex $ C.Assignment (C.FieldOf message_chanstate "token") binding_incoming_token,
              C.Ex $ C.Call "flounder_support_trigger_chan" [C.AddressOf message_chanstate],
              C.Ex $ C.Assignment (C.Variable "no_register") (C.NumConstant 1)],
-        C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0)]
+             C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0)]
     where
         rx_msgnum_field = C.DerefField bindvar "rx_msgnum"
         handler = C.DerefField bindvar "rx_vtbl" `C.FieldOf` mn

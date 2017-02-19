@@ -17,6 +17,9 @@
 #include <barrelfish/ump_chan.h>
 #include <barrelfish/idc_export.h>
 #include <if/monitor_defs.h>
+#include <barrelfish/waitset.h>
+#include <barrelfish/waitset_chan.h>
+#include "waitset_chan_priv.h"
 
 #define UMP_MAP_ATTR VREGION_FLAGS_READ_WRITE
 
@@ -58,7 +61,11 @@ errval_t ump_chan_init(struct ump_chan *uc,
     memset(&uc->cap_handlers, 0, sizeof(uc->cap_handlers));
     uc->iref = 0;
     uc->monitor_binding = get_monitor_binding(); // TODO: expose non-default to caller
-
+    waitset_chanstate_init(&uc->send_waitset, CHANTYPE_OTHER);
+    
+    uc->prev = NULL;
+    uc->next = NULL;
+    
     return SYS_ERR_OK;
 }
 
@@ -337,10 +344,74 @@ errval_t ump_chan_accept(struct ump_chan *uc, uintptr_t mon_id,
     return SYS_ERR_OK;
 }
 
+errval_t ump_chan_register_send(struct ump_chan *uc, struct waitset *ws,
+                                struct event_closure closure)
+{
+    assert(uc != NULL);
+    assert(ws != NULL);
+
+    errval_t err = waitset_chan_register(ws, &uc->send_waitset, closure);
+    assert(err_is_ok(err));
+
+    // enqueue in list of channels with a registered event to retry sending
+    assert(uc->next == NULL && uc->prev == NULL);
+    dispatcher_handle_t handle = disp_disable();
+    struct dispatcher_generic *dp = get_dispatcher_generic(handle);
+    if (dp->ump_send_events_list == NULL) {
+        dp->ump_send_events_list = uc;
+        uc->next = uc->prev = uc;
+    } else {
+        uc->prev = dp->ump_send_events_list->prev;
+        uc->next = dp->ump_send_events_list;
+        uc->prev->next = uc;
+        uc->next->prev = uc;
+    }
+    disp_enable(handle);
+
+    return err;
+}
+
+void ump_channels_retry_send_disabled(dispatcher_handle_t handle)
+{
+    struct dispatcher_generic *dp = get_dispatcher_generic(handle);
+    struct ump_chan *uc, *first = dp->ump_send_events_list, *next;
+    errval_t err;
+
+    for (uc = first; uc != NULL; uc = next) {
+        next = uc->next;
+        assert(next != NULL);
+        bool cs = ump_chan_can_send(uc);
+        if (cs) {
+            if (uc->next == uc) {
+                dp->ump_send_events_list = NULL;
+            } else {
+                uc->prev->next = uc->next;
+                uc->next->prev = uc->prev;
+                if (dp->ump_send_events_list == uc) {
+                    dp->ump_send_events_list = next;
+                    first = next;
+                }
+            }
+            uc->next = uc->prev = NULL;
+            err = waitset_chan_trigger_disabled(&uc->send_waitset, handle);
+            assert_disabled(err_is_ok(err)); // shouldn't fail
+        }
+        if (next == first) {
+            break; // wrapped
+        }
+    }
+}
+
+
 /// Initialise the UMP channel driver
 void ump_init(void)
 {
     struct monitor_binding *mcb = get_monitor_binding();
     mcb->rx_vtbl.bind_ump_reply_client = bind_ump_reply_handler;
     mcb->rx_vtbl.bind_ump_service_request = bind_ump_service_request_handler;
+}
+
+struct waitset_chanstate * monitor_bind_get_receiving_chanstate(struct monitor_binding *b)
+{
+    return b->get_receiving_chanstate(b);
 }

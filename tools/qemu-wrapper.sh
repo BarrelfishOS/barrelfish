@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 ##########################################################################
 # Copyright (c) 2009-2015 ETH Zurich.
 # All rights reserved.
@@ -49,8 +49,8 @@ usage () {
 }
 
 
-if [ $# == 0 ]; then usage ; fi
-while [ $# != 0 ]; do
+if test $# = 0; then usage ; fi
+while test $# != 0; do
     case $1 in
     "--help"|"-h")
         usage
@@ -97,37 +97,37 @@ while [ $# != 0 ]; do
     shift
 done
 
-if [ -z "$IMAGE" ]; then
-    if [ -z "$MENUFILE" ]; then
+if test -z "$IMAGE"; then
+    if test -z "$MENUFILE"; then
         echo "No menu.lst file specified."
-        if [ -z "$KERNEL" ]; then
+        if test -z "$KERNEL"; then
         echo "ERROR: No initial kernel given and no menu.lst file." >&2; exit 1
         fi
-        if [ -z "$INITRD" ]; then
+        if test -z "$INITRD"; then
         echo "ERROR: No initial RAM disk given and no menu.lst file." >&2; exit 1
         fi
     else
         echo "Using menu file $MENUFILE"
         ROOT=`sed -rne 's,^root[ \t]*([^ ]*).*,\1,p' "$MENUFILE"`
-        if [ "$ROOT" != "(nd)" ]; then
+        if test "$ROOT" != "(nd)"; then
             echo "Root: $ROOT"
         fi
         KERNEL=`sed -rne 's,^kernel[ \t]*/([^ ]*).*,\1,p' "$MENUFILE"`
-        if [ "$ROOT" != "(nd)" ]; then
+        if test "$ROOT" != "(nd)"; then
             KERNEL="$ROOT/$KERNEL"
         fi
-        if [ -z "$KERNEL" ]; then
+        if test -z "$KERNEL"; then
         echo "ERROR: No initial kernel specified in menu.lst file." >&2; exit 1
         fi
         KERNEL_CMDS=`sed -rne 's,^kernel[ \t]*[^ ]*[ \t]*(.*),\1,p' "$MENUFILE"`
-        if [ "$ROOT" != "(nd)" ]; then
+        if test "$ROOT" != "(nd)"; then
             AWKSCRIPT='{ if (NR == 1) printf(root "/" $$0); else printf("," root "/" $$0) }'
             AWKARGS="-v root=$ROOT"
         else
             AWKSCRIPT='{ if (NR == 1) printf($$0); else printf("," $$0) }'
         fi
         INITRD=`sed -rne 's,^module(nounzip)?[ \t]*/(.*),\2,p' "$MENUFILE" | awk $AWKARGS "$AWKSCRIPT"`
-        if [ -z "$INITRD" ]; then
+        if test -z "$INITRD"; then
         echo "ERROR: No initial ram disk modules specified in menu.lst file." >&2; exit 1
         fi
     fi
@@ -225,10 +225,10 @@ esac
 
 export QEMU_AUDIO_DRV=none
 
-if [ "$DEBUG_SCRIPT" = "" ] ; then
+if test "$DEBUG_SCRIPT" = ""; then
     echo "OK: about to run the follow qemu command:"
-    if [ -z "$EFI" ] ; then
-        if [ -z "$IMAGE" ]; then
+    if test -z "$EFI"; then
+        if test -z "$IMAGE"; then
             echo "$QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append '$KERNEL_CMDS' -initrd $INITRD"
             exec $QEMU_CMD $QEMU_NONDEBUG -kernel $KERNEL -append '$KERNEL_CMDS'  -initrd "$INITRD"
         else
@@ -247,7 +247,7 @@ GDB_ARGS="-x $DEBUG_SCRIPT"
 SERIAL_OUTPUT=file:/dev/stdout
 PORT=$((10000 + UID))
 
-if [ "${SERIAL_OUTPUT}" = "" ] ; then
+if test "${SERIAL_OUTPUT}" = ""; then
     # Assuming session is interactive. Use terminal for serial output because
     # stdout does not work for daemonized qemu and output is lost. This likely
     # only matters on ARM where there is no video driver at time of writing.
@@ -272,8 +272,8 @@ cat > barrelfish_debug.gdb <<EOF
 target remote localhost:$PORT
 EOF
 
-if [ -z "$EFI" ] ; then
-    if [ -z "$IMAGE"]; then
+if test -z "$EFI"; then
+    if test -z "$IMAGE"; then
         QEMU_INVOCATION="${QEMU_CMD} \
             -kernel \"$KERNEL\" \
             -append \"$KERNEL_CMDS\" \
@@ -306,11 +306,13 @@ else
 fi
 
 echo $QEMU_INVOCATION
+set -x
+
 eval $QEMU_INVOCATION
 
-if [ $? -eq 0 ] ; then
+if test $? -eq 0; then
     stty sane
-    trap '' SIGINT
+    trap '' INT
     ${GDB} -x barrelfish_debug.gdb ${GDB_ARGS}
     PID=`cat ${PIDFILE}`
     kill ${PID} > /dev/null || true

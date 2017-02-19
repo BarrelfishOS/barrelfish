@@ -80,7 +80,7 @@ errval_t vspace_map_anon_nomalloc(void **retaddr, struct memobj_anon *memobj,
 
  error:
     if (err_no(err1) !=  LIB_ERR_MEMOBJ_CREATE_ANON) {
-        err2 = memobj_destroy_anon((struct memobj *)memobj);
+        err2 = memobj_destroy_anon((struct memobj *)memobj, true);
         if (err_is_fail(err2)) {
             DEBUG_ERR(err2, "memobj_destroy_anon failed");
         }
@@ -206,7 +206,7 @@ errval_t vspace_map_anon_fixed(genvaddr_t base, size_t size,
 
 error:
     if (memobj) {
-        err2 = memobj_destroy_anon(memobj);
+        err2 = memobj_destroy_anon(memobj, true);
         if (err_is_fail(err2)) {
             DEBUG_ERR(err2, "memobj_destroy_anon failed");
         }

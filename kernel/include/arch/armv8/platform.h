@@ -104,5 +104,13 @@ extern lpaddr_t platform_gic_dist_base;
 #define tsc_read() timestamp_read()
 #define tsc_get_hz() timestamp_freq()
 
+/*
+ * GIC interface
+ */
+
+errval_t platform_gic_init(void);
+
+errval_t platform_gic_cpu_interface_enable(void);
+
 
 #endif // __ARM_PLATFORM_H__

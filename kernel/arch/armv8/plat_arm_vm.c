@@ -18,6 +18,7 @@
 #include <platform.h>
 #include <serial.h>
 #include <arch/arm/pl011.h>
+#include <arch/armv8/gic_v3.h>
 
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
@@ -92,4 +93,12 @@ void platform_get_info(struct platform_info *pi)
 void armv8_get_info(struct arch_info_armv8 *ai)
 {
 
+}
+
+errval_t platform_gic_init(void) {
+    return gicv3_init();
+}
+
+errval_t platform_gic_cpu_interface_enable(void) {
+    return gicv3_cpu_interface_enable();
 }

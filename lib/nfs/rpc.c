@@ -19,7 +19,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
-#include <contmng/netbench.h>
+#include <netbench/netbench.h>
 
 // XXX: kludge making it possible to use bench_tsc without -lbench
 #if defined(__i386__) || defined(__x86_64__)

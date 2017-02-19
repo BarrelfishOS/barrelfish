@@ -21,7 +21,6 @@ struct thread *threads[256];
 static int server_threads = 10;
 static int client_threads = 1;
 static int iteration_count = 1000;
-static int limit;
 
 static int client_counter = 0;
 static int64_t server_calls[256];
@@ -74,8 +73,6 @@ static int client_thread(void * arg)
 
         for (i = 0; i < j; i++)
             payload[i] = i2 + i;
-        if (j > limit)
-            j = limit;
         err = rpc_client->vtbl.rpc_method(rpc_client, i2, (uint8_t *)payload, 8 * j, i1, &o1, (uint8_t *)result, &result_size, &o2);
 
         assert(err == SYS_ERR_OK);
@@ -279,8 +276,8 @@ int main(int argc, char *argv[])
 
     if (argc == 1) {
         debug_printf("Usage: %s server_threads client_threads iteration_count\n", argv[0]);
-    } else if (argc == 5) {
-        char *xargv[] = {my_name, argv[2], argv[3], argv[4], NULL};
+    } else if (argc == 4) {
+        char *xargv[] = {my_name, argv[2], argv[3], NULL};
 
         server_threads = atoi(argv[1]);
         client_threads = atoi(argv[2]);
@@ -306,7 +303,6 @@ int main(int argc, char *argv[])
     } else {
         client_threads = atoi(argv[1]);
         iteration_count = atoi(argv[2]);
-        limit = atoi(argv[3]);
 
         struct waitset *ws = get_default_waitset();
         start_client();
