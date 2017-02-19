@@ -29,8 +29,8 @@ lpaddr_t phys_memory_start = CN88XX_MAP_LMC_OFFSET;
  * ----------------------------------------------------------------------------
  */
 
-lpaddr_t platform_gic_cpu_base  = CN88XX_MAP_GIC_GICD;
-lpaddr_t platform_gic_dist_base = CN88XX_MAP_GIC_CCS;
+lpaddr_t platform_gic_cpu_base  = CN88XX_MAP_GIC_GICD_OFFFSET;
+lpaddr_t platform_gic_dist_base = CN88XX_MAP_GIC_CCS_OFFSET;
 
 /*
  * ----------------------------------------------------------------------------
@@ -51,16 +51,14 @@ unsigned int serial_debug_port = 0;
 unsigned serial_num_physical_ports = 1;
 
 /* uart bases */
-const lpaddr_t
-uart_base[MAX_NUM_UARTS]= {
+lpaddr_t uart_base[MAX_NUM_UARTS]= {
     CN88XX_MAP_UART0_OFFSET,
     CN88XX_MAP_UART1_OFFSET
 };
 
 /* uart sizes */
-const size_t
-uart_size[MAX_NUM_UARTS]= {
-    4096
+size_t uart_size[MAX_NUM_UARTS]= {
+    4096, 4096
 };
 
 
@@ -190,7 +188,6 @@ lpaddr_t platform_get_private_region(void) {
 lpaddr_t platform_get_gic_cpu_address(void) {
     assert(paging_mmu_enabled());
     return platform_gic_cpu_base;
-    }
 }
 
 /**
@@ -203,10 +200,10 @@ size_t platform_get_gic_cpu_size(void) {
 
 lpaddr_t platform_get_distributor_address(void)
 {
-    return CN88XX_MAP_GIC_GICD_SIZE;
+    return CN88XX_MAP_GIC_GICD_OFFFSET;
 }
 
 lpaddr_t platform_get_distributor_size(void)
 {
-    return CN88XX_MAP_GIC_GICD_OFFSET;
+    return CN88XX_MAP_GIC_GICD_SIZE;
 }
