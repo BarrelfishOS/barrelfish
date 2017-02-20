@@ -382,7 +382,8 @@ binding_struct n ml = C.StructDecl (intf_bind_type n) fields
         C.Param (C.TypeName "uint32_t") "outgoing_token",
         C.Param (C.Struct "thread_mutex") "rxtx_mutex",
         C.Param (C.Struct "thread_mutex") "send_mutex",
-        C.Param (C.TypeName "errval_t") "error"
+        C.Param (C.TypeName "errval_t") "error",
+        C.Param (C.Ptr $ C.Struct $ intf_bind_type n) "local_binding"
         ]
 
 --
@@ -574,7 +575,7 @@ tx_wrapper ifn (Message _ mn args _)
 -- Include the right files for different backends
 --
 
-flounder_backends = [ "lmp", "ump", "ump_ipi", "multihop" ]
+flounder_backends = [ "lmp", "ump", "ump_ipi", "multihop", "local" ]
 
 backend_includes :: String -> [ C.Unit ]
 backend_includes n =

@@ -125,6 +125,8 @@ static errval_t init_lmp_binding(struct monitor_lmp_binding *mcb,
     /* setup initial receive handlers */
     mcb->b.rx_vtbl = monitor_rx_vtbl;
 
+    // connect handlers
+    mcb->b.change_waitset(&mcb->b, mcb->b.waitset);
     return SYS_ERR_OK;
 }
 
@@ -335,7 +337,7 @@ static void monitor_rpc_bind_continuation(void *st_arg, errval_t err,
     struct bind_state *st = st_arg;
 
     if (err_is_ok(err)) {
-        struct monitor_blocking_rpc_client *r = 
+        struct monitor_blocking_rpc_client *r =
             malloc(sizeof(struct monitor_blocking_rpc_client));
         assert(r != NULL);
         err = monitor_blocking_rpc_client_init(r, b);
@@ -388,7 +390,7 @@ errval_t monitor_client_blocking_rpc_init(void)
     /* fire off a request for the iref for monitor rpc channel */
     struct monitor_binding *mb = get_monitor_binding();
     mb->rx_vtbl.get_monitor_rpc_iref_reply = get_monitor_rpc_iref_reply;
-    err = mb->tx_vtbl.get_monitor_rpc_iref_request(mb, NOP_CONT, 
+    err = mb->tx_vtbl.get_monitor_rpc_iref_request(mb, NOP_CONT,
                                                    (uintptr_t) &st);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_GET_MON_BLOCKING_IREF);

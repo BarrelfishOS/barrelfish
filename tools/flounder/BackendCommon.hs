@@ -303,7 +303,8 @@ binding_struct_init drv ifn binding_var waitset_ex tx_vtbl_ex = [
          | f <- ["tx_msgnum", "rx_msgnum", "tx_msg_fragment", "rx_msg_fragment",
                  "tx_str_pos", "rx_str_pos", "tx_str_len", "rx_str_len"]],
     C.Ex $ C.Assignment (C.FieldOf binding_var "incoming_token") (C.NumConstant 0),
-    C.Ex $ C.Assignment (C.FieldOf binding_var "outgoing_token") (C.NumConstant 0)]
+    C.Ex $ C.Assignment (C.FieldOf binding_var "outgoing_token") (C.NumConstant 0),
+    C.Ex $ C.Assignment (C.FieldOf binding_var "local_binding") (C.Variable "NULL") ]
 
 binding_struct_destroy :: String -> C.Expr -> [C.Stmt]
 binding_struct_destroy ifn binding_var

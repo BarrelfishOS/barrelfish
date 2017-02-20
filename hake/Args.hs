@@ -92,7 +92,7 @@ thcArchitectures = ["x86_64", "x86_32"]
 
 -- all known flounder backends that we might want to generate defs for
 allFlounderBackends
-    = [ "lmp", "ump", "ump_ipi", "loopback", "rpcclient", "msgbuf", "multihop", "ahci" ]
+    = [ "lmp", "ump", "ump_ipi", "loopback", "rpcclient", "msgbuf", "multihop", "ahci", "local" ]
 
 defaultBuildFn :: TreeDB -> String -> Args -> HRule
 defaultBuildFn _ f _ = 

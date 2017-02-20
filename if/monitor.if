@@ -19,6 +19,9 @@ interface monitor "The monitor to client Interface" {
         iref iref,
         errval err);
 
+    message get_service_id_request(iref iref);
+    message get_service_id_reply(errval err, iref iref, uintptr service_id);
+
     /* TODO: move to monitor_blocking as RPC? */
     message boot_core_request(uint8 id, cap frame);
     message boot_core_reply(errval err);

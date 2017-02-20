@@ -144,6 +144,83 @@ static void alloc_iref_request(struct monitor_binding *b,
     alloc_iref_reply_cont(b, service_id, iref, reterr);
 }
 
+
+static void get_service_id_reply_handler(struct monitor_binding *b,
+                                         struct monitor_msg_queue_elem *e);
+
+struct get_service_id_reply_state {
+    struct monitor_msg_queue_elem elem;
+    struct monitor_get_service_id_reply__tx_args args;
+    struct monitor_binding *b;
+};
+
+static void get_service_id_reply_cont(struct monitor_binding *b, errval_t reterr,
+                                      iref_t iref, uintptr_t service_id)
+{
+    errval_t err;
+
+    err = b->tx_vtbl.get_service_id_reply(b, NOP_CONT, reterr, iref, service_id);
+    if (err_is_fail(err)) {
+        if(err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            struct get_service_id_reply_state *me =
+                malloc(sizeof(struct get_service_id_reply_state));
+            assert(me != NULL);
+            struct monitor_state *ist = b->st;
+            assert(ist != NULL);
+            me->args.err = reterr;
+            me->args.iref = iref;
+            me->args.service_id = service_id;
+            me->b = b;
+            me->elem.cont = get_service_id_reply_handler;
+
+            err = monitor_enqueue_send(b, &ist->queue,
+                                       get_default_waitset(), &me->elem.queue);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "monitor_enqueue_send failed");
+            }
+            return;
+        }
+
+        USER_PANIC_ERR(err, "reply failed");
+    }
+}
+
+static void get_service_id_reply_handler(struct monitor_binding *b,
+                                       struct monitor_msg_queue_elem *e)
+{
+    struct get_service_id_reply_state *st = (struct get_service_id_reply_state *)e;
+    get_service_id_reply_cont(b, st->args.err, st->args.iref, st->args.service_id);
+    free(e);
+}
+
+static void get_service_id_request(struct monitor_binding *b, iref_t iref)
+{
+    errval_t err;
+    struct monitor_binding *serv_binding = NULL;
+
+    /* Look up core_id from the iref */
+    uint8_t core_id;
+    iref_get_core_id(iref, &core_id);
+    
+    // Return error if service on different core
+    if (core_id != my_core_id) {
+        get_service_id_reply_cont(b, MON_ERR_IDC_BIND_NOT_SAME_CORE, iref, 0);
+        return;
+    }
+
+    /* Lookup the server's connection to monitor */
+    err = iref_get_binding(iref, &serv_binding);
+    if (err_is_fail(err)) {
+        get_service_id_reply_cont(b, err, iref, 0);
+        return;
+    }
+
+    /* Lookup the server's service_id */
+    uintptr_t service_id;
+    err = iref_get_service_id(iref, &service_id);
+    get_service_id_reply_cont(b, err, iref, service_id);
+}
+
 /******* stack-ripped bind_lmp_service_request *******/
 
 static void bind_lmp_client_request_error_handler(struct monitor_binding *b,
@@ -316,6 +393,12 @@ static void bind_lmp_client_request(struct monitor_binding *b,
     err = iref_get_service_id(iref, &service_id);
     if (err_is_fail(err)) {
         bind_lmp_client_request_error(b, err, domain_id, serv_binding, ep);
+        return;
+    }
+
+    /* Check for intra-domain connection */
+    if (b == serv_binding) {
+        bind_lmp_client_request_error(b, MON_ERR_IDC_BIND_LOCAL, domain_id, serv_binding, ep);
         return;
     }
 
@@ -809,6 +892,7 @@ static void migrate_dispatcher_request(struct monitor_binding *b,
 
 struct monitor_rx_vtbl the_table = {
     .alloc_iref_request = alloc_iref_request,
+    .get_service_id_request = get_service_id_request,
 
     .bind_lmp_client_request= bind_lmp_client_request,
     .bind_lmp_reply_monitor = bind_lmp_reply,

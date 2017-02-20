@@ -24,6 +24,7 @@ import LMP (lmp_bind_type, lmp_bind_fn_name)
 import qualified UMP (bind_type, bind_fn_name)
 import qualified UMP_IPI (bind_type, bind_fn_name)
 import qualified Multihop (m_bind_type, m_bind_fn_name)
+import Local (local_init_fn_name)
 
 -- name of the bind continuation function
 bind_cont_name :: String -> String
@@ -428,6 +429,7 @@ data BindBackend = BindBackend {
 bind_backends :: String -> String -> [BindBackend]
 bind_backends ifn cont_fn_name = map (\i -> i ifn (C.Variable cont_fn_name))
                     [lmp_bind_backend,
+                     local_bind_backend,
                      ump_ipi_bind_backend,
                      ump_bind_backend,
                      multihop_bind_backend]
@@ -459,9 +461,34 @@ lmp_bind_backend ifn cont =
                                            C.Variable "DEFAULT_LMP_BUF_WORDS"]
     ],
     test_cb_success = C.Call "err_is_ok" [errvar],
-    test_cb_try_next = C.Binary C.Equals (C.Call "err_no" [errvar])
-                                         (C.Variable "MON_ERR_IDC_BIND_NOT_SAME_CORE"),
+    test_cb_try_next = C.Binary C.Or
+                        (C.Binary C.Equals (C.Call "err_no" [errvar]) (C.Variable "MON_ERR_IDC_BIND_NOT_SAME_CORE"))
+                        (C.Binary C.Equals (C.Call "err_no" [errvar]) (C.Variable "MON_ERR_IDC_BIND_LOCAL")),
     cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]
+    }
+
+local_bind_backend ifn (C.Variable cont) =
+  BindBackend {
+    flounder_backend = "local",
+    start_bind = [
+        C.If (C.Binary C.Equals (C.Call "err_no" [errvar]) (C.Variable "MON_ERR_IDC_BIND_LOCAL"))
+        [
+            C.Ex $ C.Assignment binding $ C.Call "malloc" [C.SizeOfT $ C.Struct $ intf_bind_type ifn],
+            C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
+            localvar (C.Ptr $ C.Struct "idc_export") "e" $ Nothing,
+            localvar (C.Ptr $ C.Void) "ret_binding" $ Nothing,
+            C.Ex $ C.Assignment errvar $ C.Call "idc_get_service" [iref, C.AddressOf $ C.Variable "e"],
+            C.Ex $ C.CallInd (C.DerefField (C.Variable "e") "local_connect_callback") [C.Variable "e", binding, C.AddressOf $ C.Variable "ret_binding"],
+            C.Ex $ C.Call (local_init_fn_name ifn) [binding, waitset, C.Variable "ret_binding"],
+            C.Ex $ C.Call cont [C.Variable "b", C.Variable "SYS_ERR_OK", binding]
+        ] [
+            C.Ex $ C.Call cont [C.Variable "b", errvar, C.Variable "NULL"],
+            C.Ex $ C.Assignment errvar (C.Variable "SYS_ERR_OK")
+        ]
+    ],
+    test_cb_success = C.Call "err_is_ok" [errvar],
+    test_cb_try_next = C.Variable "true",
+    cleanup_bind = []
     }
 
 ump_bind_backend ifn cont =

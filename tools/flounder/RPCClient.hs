@@ -32,9 +32,11 @@ rpc_bind_var = "_rpc" :: String
 
 -- Name of the RPC function
 rpc_fn_name ifn mn = idscope ifn mn "rpc"
+local_rpc_fn_name ifn mn = idscope ifn mn "local_rpc"
 
 -- Name of the RPC vtable
 rpc_vtbl_name ifn = ifscope ifn "rpc_vtbl"
+local_rpc_vtbl_name ifn = ifscope ifn "local_rpc_vtbl"
 
 -- Name of the init function
 rpc_init_fn_name :: String -> String
@@ -47,6 +49,8 @@ rpc_error_fn_name ifn = ifscope ifn "rpc_client_error"
 -- Name of the struct type for the method vtable
 rpc_vtbl_type :: String -> String
 rpc_vtbl_type ifn = ifscope ifn "rpc_vtbl"
+local_rpc_vtbl_type :: String -> String
+local_rpc_vtbl_type ifn = ifscope ifn "local_rpc_vtbl"
 
 ------------------------------------------------------------------------
 -- Language mapping: Create the header file for this interconnect driver
@@ -131,10 +135,12 @@ rpc_stub_body infile intf@(Interface ifn descr decls) = C.UnitList [
 
     C.MultiComment [ "RPC wrapper functions" ],
     C.UnitList [ rpc_fn ifn types m | m <- rpcs ],
+    C.UnitList [ local_rpc_fn ifn types m | m <- rpcs ],
     C.Blank,
 
     C.MultiComment [ "RPC Vtable" ],
     rpc_vtbl ifn rpcs,
+    local_rpc_vtbl ifn rpcs,
     C.Blank,
 
 
@@ -219,11 +225,37 @@ rpc_fn ifn typedefs msg@(RPC n args _) =
             ] []
 
 
+local_rpc_fn :: String -> [TypeDef] -> MessageDef -> C.Unit
+local_rpc_fn ifn typedefs msg@(RPC n args _) =
+    C.FunctionDef C.Static (C.TypeName "errval_t") (local_rpc_fn_name ifn n) params [
+        C.Return $ C.CallInd tx_func (localbindvar:(map C.Variable $ concat $ map mkargs rpc_args))
+    ]
+    where
+        params = [rpc_binding_param ifn]
+                 ++ concat [rpc_argdecl2 TX ifn typedefs a | a <- args]
+        rpc_args = map rpc_arg args
+        tx_func = C.DerefField localbindvar "rpc_rx_vtbl" `C.FieldOf` (rpc_call_name n)
+        rpcvar = C.Variable rpc_bind_var
+        bindvar = C.DerefField rpcvar "b"
+        localbindvar = C.DerefField bindvar "local_binding"
+        rpc_arg (RPCArgIn t v) = Arg t v
+        rpc_arg (RPCArgOut t v) = Arg t v
+        mkargs (Arg _ (Name an)) = [an]
+        mkargs (Arg _ (StringArray an _)) = [an]
+        mkargs (Arg _ (DynamicArray an al _)) = [an, al]
+        (txargs, rxargs) = partition_rpc_args args
+
 rpc_vtbl :: String -> [MessageDef] -> C.Unit
 rpc_vtbl ifn ml =
     C.StructDef C.Static (rpc_vtbl_type ifn) (rpc_vtbl_name ifn) fields
     where
         fields = [let mn = msg_name m in (mn, rpc_fn_name ifn mn) | m <- ml]
+
+local_rpc_vtbl :: String -> [MessageDef] -> C.Unit
+local_rpc_vtbl ifn ml =
+    C.StructDef C.Static (rpc_vtbl_type ifn) (local_rpc_vtbl_name ifn) fields
+    where
+        fields = [let mn = msg_name m in (mn, local_rpc_fn_name ifn mn) | m <- ml]
 
 
 arg_names :: MessageArgument -> [String]
@@ -256,7 +288,11 @@ rpc_init_fn ifn ml = C.FunctionDef C.NoScope (C.TypeName "errval_t")
      C.SBlank,
      C.SComment "Setup state of RPC client object",
      C.Ex $ C.Assignment (C.DerefField rpcvar "b") bindvar,
-     C.Ex $ C.Assignment (C.DerefField rpcvar "vtbl") (C.Variable $ rpc_vtbl_name ifn),
+     C.If (C.DerefField bindvar "local_binding") [
+        C.Ex $ C.Assignment (C.DerefField rpcvar "vtbl") (C.Variable $ local_rpc_vtbl_name ifn)
+     ][
+        C.Ex $ C.Assignment (C.DerefField rpcvar "vtbl") (C.Variable $ rpc_vtbl_name ifn)
+     ],
      C.Ex $ C.Assignment (C.DerefField bindvar "st") rpcvar,
      C.SBlank,
      C.SComment "Set RX handlers on binding object for RPCs",

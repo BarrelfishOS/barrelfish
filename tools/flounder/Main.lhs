@@ -36,6 +36,7 @@
 > import qualified UMP_IPI
 > import qualified Multihop
 > import qualified Loopback
+> import qualified Local
 > import qualified RPCClient
 > import qualified MsgBuf
 > import qualified THCBackend
@@ -55,6 +56,8 @@
 >            | Multihop_Header
 >            | Loopback_Header
 >            | Loopback_Stub
+>            | Local_Header
+>            | Local_Stub
 >            | RPCClient_Header
 >            | RPCClient_Stub
 >            | MsgBuf_Header
@@ -99,6 +102,8 @@
 >     where arch = optArch opts
 > generator _ Loopback_Header = Loopback.header
 > generator _ Loopback_Stub = Loopback.stub
+> generator _ Local_Header = Local.header
+> generator _ Local_Stub = Local.stub
 > generator _ RPCClient_Header = RPCClient.header
 > generator _ RPCClient_Stub = RPCClient.stub
 > generator _ MsgBuf_Header = MsgBuf.header
@@ -141,6 +146,8 @@
 >             Option [] ["multihop-stub"] (NoArg $ addTarget Multihop_Stub)     "Create a stub file for Multihop",
 >             Option [] ["loopback-header"] (NoArg $ addTarget Loopback_Header) "Create a header file for loopback",
 >             Option [] ["loopback-stub"] (NoArg $ addTarget Loopback_Stub) "Create a stub file for loopback",
+>             Option [] ["local-header"] (NoArg $ addTarget Local_Header) "Create a header file for local",
+>             Option [] ["local-stub"] (NoArg $ addTarget Local_Stub) "Create a stub file for local",
 >             Option [] ["rpcclient-header"] (NoArg $ addTarget RPCClient_Header) "Create a header file for RPC",
 >             Option [] ["rpcclient-stub"] (NoArg $ addTarget RPCClient_Stub) "Create a stub file for RPC",
 >             Option [] ["msgbuf-header"] (NoArg $ addTarget MsgBuf_Header) "Create a header file for message buffers",
