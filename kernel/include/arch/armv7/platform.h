@@ -78,10 +78,9 @@ bool     timer_interrupt(uint32_t irq);
 /*
  * UART locations
  */
+extern const lpaddr_t uart_base[];
+extern const size_t uart_size[];
 
-uint32_t platform_get_uart_count();
-lpaddr_t platform_get_uart_base(uint32_t port);
-size_t platform_get_uart_size(uint32_t port);
 
 
 #endif // __ARM_PLATFORM_H__
