@@ -302,6 +302,18 @@ sysreg_read_par_el1(void) {
 }
 
 static inline uint32_t
+sysreg_read_cnthctl_el2(void) {
+    uint32_t cnthctl_el2;
+    __asm volatile("mrs %[cnthctl_el2], CNTHCTL_EL2" : [cnthctl_el2] "=r" (cnthctl_el2));
+    return cnthctl_el2;
+}
+
+static inline void
+sysreg_write_cnthctl_el2(uint32_t cnthctl_el2) {
+    __asm volatile("msr CNTHCTL_EL2, %[cnthctl_el2]" : : [cnthctl_el2] "r" (cnthctl_el2));
+}
+
+static inline uint32_t
 sysreg_read_cntkctl_el1(void) {
     uint32_t cntkctl_el1;
     __asm volatile("mrs %[cntkctl_el1], CNTKCTL_EL1" : [cntkctl_el1] "=r" (cntkctl_el1));
