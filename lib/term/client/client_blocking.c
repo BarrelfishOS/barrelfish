@@ -596,7 +596,7 @@ static void handle_triggers(struct term_client *client, char *data,
     collections_list_traverse_end(client->triggers);
 }
 
-static void in_characters_handler(struct terminal_binding *b, char *data,
+static void in_characters_handler(struct terminal_binding *b, const char *data,
                                   size_t length)
 {
     struct term_client *client = b->st;
@@ -643,7 +643,7 @@ static void in_bind_cb(void *st, errval_t err, struct terminal_binding *b)
     check_connection_established(client);
 }
 
-static void out_characters_handler(struct terminal_binding *b, char *data,
+static void out_characters_handler(struct terminal_binding *b, const char *data,
                                    size_t length)
 {
     struct term_client *client = b->st;
@@ -676,7 +676,7 @@ static void out_bind_cb(void *st, errval_t err, struct terminal_binding *b)
 
 static void conf_configuration_handler(struct terminal_config_binding *b,
                                        terminal_config_option_t opt,
-                                       char *arguments)
+                                       const char *arguments)
 {
     struct term_client *client = b->st;
 

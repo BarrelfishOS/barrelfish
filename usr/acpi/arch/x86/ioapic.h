@@ -33,6 +33,6 @@ void ioapic_setup_inti(struct ioapic *a, int inti,
 void ioapic_route_inti(struct ioapic *a, int inti, uint8_t vector,
                        uint8_t dest);
 
-struct ioapic *find_ioapic_for_label(char *label);
+struct ioapic *find_ioapic_for_label(const char *label);
 
 #endif

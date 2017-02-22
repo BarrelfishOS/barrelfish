@@ -86,12 +86,12 @@ static void message(void)
 struct msg_buf msgbuf[MAX_CPUS];
 
 static void message_request(struct rcce_binding *st, uint16_t coreid,
-                            uint8_t *msg, size_t size)
+                            const uint8_t *msg, size_t size)
 {
     assert(!msgbuf[coreid].pending);
     struct msg_buf *m = &msgbuf[coreid];
 
-    m->msg = (char *)msg;
+    m->msg = memdup(msg, size);
     m->length = size;
     m->pending = true;
     m->bulk = false;

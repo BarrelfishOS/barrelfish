@@ -78,7 +78,7 @@ struct multihop_bind_continuation {
 
 // message receive handler
 struct multihop_receive_handler {
-    void (*handler)(void *arg, uint8_t *message, size_t length);
+    void (*handler)(void *arg, const uint8_t *message, size_t length);
     void *arg;
 };
 

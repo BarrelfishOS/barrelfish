@@ -600,9 +600,9 @@ static void inter_rsrc_phase(struct intermon_binding *b, rsrcid_t id,
 }
 
 static void inter_rsrc_phase_data(struct intermon_binding *b, rsrcid_t id,
-                                  uint32_t phase, uint8_t *data, size_t len)
+                                  uint32_t phase, const uint8_t *data, size_t len)
 {
-    errval_t err = rsrc_set_phase_data(id, phase, data, len);
+    errval_t err = rsrc_set_phase_data(id, phase, (CONST_CAST)data, len);
     assert(err_is_ok(err));
 }
 

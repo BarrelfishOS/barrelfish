@@ -25,7 +25,7 @@
 
 #define TRIGGER_ALWAYS (OCT_PERSIST | OCT_ON_SET | OCT_ON_DEL | OCT_ALWAYS_SET)
 
-typedef void(*trigger_handler_fn)(octopus_mode_t mode, char* record, void* state);
+typedef void(*trigger_handler_fn)(octopus_mode_t mode, const char* record, void* state);
 octopus_trigger_t oct_mktrigger(errval_t, octopus_binding_type_t, octopus_mode_t,
         trigger_handler_fn, void*);
 errval_t oct_remove_trigger(octopus_trigger_id_t);

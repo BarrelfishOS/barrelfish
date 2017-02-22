@@ -460,7 +460,8 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
     return 0;
 }
 
-static void unixsock_recv(struct unixsock_binding *b, uint8_t *msg, size_t size)
+static void unixsock_recv(struct unixsock_binding *b, const uint8_t *msg,
+                          size_t size)
 {
     struct _unix_socket *us = b->st;
 
@@ -474,7 +475,7 @@ static void unixsock_recv(struct unixsock_binding *b, uint8_t *msg, size_t size)
     // Append to receive queue
     usr->next = NULL;
     usr->prev = us->recv_list_end;
-    usr->msg = msg;
+    usr->msg = (CONST_CAST)msg;
     usr->size = size;
     usr->consumed = 0;
     if(us->recv_list_end != NULL) {

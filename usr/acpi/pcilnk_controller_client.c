@@ -35,11 +35,11 @@
  * TODO: Once everything uses the interrupt routing service,
  * this method should become static and should be called only from add_mapping
  */
-errval_t set_device_irq(char* device, uint32_t irq) {
+errval_t set_device_irq(const char* device, uint32_t irq) {
     ACPI_DEBUG("Setting link device '%s' to GSI %"PRIu32"\n", device, irq);
 
     ACPI_HANDLE source;
-    ACPI_STATUS as = AcpiGetHandle(NULL, device, &source);
+    ACPI_STATUS as = AcpiGetHandle(NULL, (CONST_CAST)device, &source);
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("  failed lookup: %s\n", AcpiFormatException(as));
         return ACPI_ERR_INVALID_PATH_NAME;
@@ -82,8 +82,8 @@ errval_t set_device_irq(char* device, uint32_t irq) {
 }
 
 static void add_mapping(struct int_route_controller_binding *b,
-        char *label,
-        char *class,
+        const char *label,
+        const char *class,
         int_route_controller_int_message_t from,
         int_route_controller_int_message_t to) {
 

@@ -105,7 +105,7 @@ static errval_t do_listing_on_stdout(struct skb_query_state* st)
 }
 
 
-errval_t execute_query(char* query, struct skb_query_state* st)
+errval_t execute_query(const char* query, struct skb_query_state* st)
 {
     SKB_DEBUG("Executing query: %s\n", query);
     assert(query != NULL);
@@ -146,7 +146,7 @@ errval_t execute_query(char* query, struct skb_query_state* st)
         } while ((res != 0) && (st->output_length < sizeof(st->output_buffer)));
 
         // Check for overflow
-        if(st->output_length == sizeof(st->output_buffer) && 
+        if(st->output_length == sizeof(st->output_buffer) &&
                 !output_overflow){
             debug_printf("st->output_buffer overflow. Query: %s\n", query);
             output_overflow = 1;
@@ -193,7 +193,7 @@ errval_t execute_query(char* query, struct skb_query_state* st)
     
     if((error_overflow || output_overflow) && st->exec_res == PSUCCEED){
         st->exec_res = PBUFFER_OVERLFLOW;
-    } 
+    }
 
     return SYS_ERR_OK;
 }
@@ -215,7 +215,7 @@ static void run_reply(struct skb_binding* b, struct skb_reply_state* srt) {
 }
 
 
-static void run(struct skb_binding *b, char *query)
+static void run(struct skb_binding *b, const char *query)
 {
     struct skb_reply_state* srt = NULL;
     errval_t err = new_reply_state(&srt, run_reply);

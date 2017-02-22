@@ -791,7 +791,7 @@ static void exit_help(const char *program)
 }
 
 
-static void check_possible_e1000_card(octopus_mode_t mode, char *record, void *st)
+static void check_possible_e1000_card(octopus_mode_t mode, const char *record, void *st)
 {
     errval_t err;
     if (mode & OCT_ON_SET) {
@@ -826,8 +826,6 @@ static void check_possible_e1000_card(octopus_mode_t mode, char *record, void *s
         }
 
     }
-
-    free(record);
 }
 
 
@@ -1048,7 +1046,7 @@ int e1000n_driver_init(int argc, char **argv)
             // nonblocking. Need to call test_instr_periodic
             // for testing. Maybe a dedicated thread
             // would be nicer.
-            err = event_dispatch_non_block(ws); 
+            err = event_dispatch_non_block(ws);
             test_instr_periodic(&e1000_device);
 #else
             err = event_dispatch(ws);

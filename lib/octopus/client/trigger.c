@@ -27,7 +27,7 @@
 #include "common.h"
 
 void trigger_handler(struct octopus_binding* b, octopus_trigger_id_t id,
-        uint64_t t, octopus_mode_t mode, char* record, uint64_t st)
+        uint64_t t, octopus_mode_t mode, const char* record, uint64_t st)
 {
     assert(t != 0);
 

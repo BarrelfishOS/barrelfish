@@ -33,7 +33,7 @@
 
 static const char *processor_regex = HW_PROCESSOR_GENERIC_REGEX;
 
-static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
+static void cpu_change_event(octopus_mode_t mode, const char* record, void* state)
 {
     if (mode & OCT_ON_SET) {
         KALUGA_DEBUG("CPU found: %s\n", record);
@@ -52,7 +52,7 @@ static void cpu_change_event(octopus_mode_t mode, char* record, void* state)
         /* find the corectrl module for the given cpu type */
         struct module_info* mi = find_corectrl_for_cpu_type((enum cpu_type)type);
         if (mi != NULL) {
-            err = mi->start_function(0, mi, record, NULL);
+            err = mi->start_function(0, mi, (CONST_CAST)record, NULL);
             if (err_is_fail(err)) {
                 printf("Boot driver not found. Do not boot discovered CPU %"PRIu64".\n",
                        barrelfish_id);
@@ -85,7 +85,7 @@ struct inheritcn_del_st {
 
 // Trigger function: gets called when spanwd on core n is up to delete
 // associated inherit cnode that was given to `corectrl boot n`.
-static void delete_inheritcn(octopus_mode_t mode, char *record, void *state)
+static void delete_inheritcn(octopus_mode_t mode, const char *record, void *state)
 {
     errval_t err;
     struct inheritcn_del_st *st = state;
@@ -229,7 +229,8 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
 }
 
 
-static void spawnd_change_event(octopus_mode_t mode, char* record, void* state)
+static void spawnd_change_event(octopus_mode_t mode, const char* record,
+                                void* state)
 {
     size_t count = (size_t) state;
     static coreid_t spawnd_counter = 0;

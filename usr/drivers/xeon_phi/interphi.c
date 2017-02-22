@@ -410,7 +410,7 @@ static errval_t chan_open_response_tx(struct txq_msg_st *msg_st)
  */
 
 static void domain_wait_call_rx(struct interphi_binding *_binding,
-                                char *name,
+                                const char *name,
                                 size_t length,
                                 uintptr_t state)
 {
@@ -451,7 +451,6 @@ static void domain_wait_call_rx(struct interphi_binding *_binding,
             txq_send(msg_st);
         break;
     }
-    free(name);
 #endif
 }
 
@@ -473,7 +472,7 @@ static void domain_wait_response_rx(struct interphi_binding *_binding,
 }
 
 static void domain_lookup_call_rx(struct interphi_binding *_binding,
-                                  char *name,
+                                  const char *name,
                                   size_t length)
 {
 #ifdef __k1om__
@@ -498,8 +497,6 @@ static void domain_lookup_call_rx(struct interphi_binding *_binding,
 
     msg_st->err = domain_lookup(name, &st->args.domain.domid);
 
-    free(name);
-
     txq_send(msg_st);
 #endif
 }
@@ -522,7 +519,7 @@ static void domain_lookup_response_rx(struct interphi_binding *_binding,
 }
 
 static void domain_register_call_rx(struct interphi_binding *_binding,
-                                    char *name,
+                                    const char *name,
                                     size_t length,
                                     xphi_dom_id_t domid)
 {
@@ -548,8 +545,6 @@ static void domain_register_call_rx(struct interphi_binding *_binding,
 
     msg_st->err = domain_register(name, domid);
 
-    free(name);
-
     txq_send(msg_st);
 #endif
 }
@@ -571,7 +566,7 @@ static void domain_register_response_rx(struct interphi_binding *_binding,
 
 static void spawn_call_rx(struct interphi_binding *_binding,
                           uint8_t core,
-                          char *cmdline,
+                          const char *cmdline,
                           size_t length,
                           uint8_t flags)
 {
@@ -592,7 +587,7 @@ static void spawn_call_rx(struct interphi_binding *_binding,
     msg_st->cleanup = NULL;
 
     char *argv[MAX_CMDLINE_ARGS+1];
-    msg_st->err = spawn_cmdline_extract_argv(cmdline, length, argv, MAX_CMDLINE_ARGS);
+    msg_st->err = spawn_cmdline_extract_argv((CONST_CAST)cmdline, length, argv, MAX_CMDLINE_ARGS);
     if (err_is_fail(msg_st->err)) {
         txq_send(msg_st);
         return;
@@ -617,9 +612,6 @@ static void spawn_call_rx(struct interphi_binding *_binding,
         st->args.spawn_reply.domainid = xeon_phi_domain_build_id(phi->id, core,
                                                                  is_host, domid);
     }
-
-    free(cmdline);
-
     txq_send(msg_st);
 }
 
@@ -638,7 +630,7 @@ static void spawn_response_rx(struct interphi_binding *_binding,
 
 static void spawn_with_cap_call_rx(struct interphi_binding *_binding,
                                    uint8_t core,
-                                   char *cmdline,
+                                   const char *cmdline,
                                    size_t length,
                                    uint8_t flags,
                                    uint64_t cap_base,
@@ -661,7 +653,7 @@ static void spawn_with_cap_call_rx(struct interphi_binding *_binding,
     msg_st->cleanup = NULL;
 
     char *argv[MAX_CMDLINE_ARGS+1];
-    msg_st->err = spawn_cmdline_extract_argv(cmdline, length, argv, MAX_CMDLINE_ARGS);
+    msg_st->err = spawn_cmdline_extract_argv((CONST_CAST)cmdline, length, argv, MAX_CMDLINE_ARGS);
     if (err_is_fail(msg_st->err)) {
         txq_send(msg_st);
         return;
@@ -689,9 +681,6 @@ static void spawn_with_cap_call_rx(struct interphi_binding *_binding,
                         XEON_PHI_DOMAIN_HOST, core, 1, domid);
 #endif
     }
-
-    free(cmdline);
-
     txq_send(msg_st);
 }
 

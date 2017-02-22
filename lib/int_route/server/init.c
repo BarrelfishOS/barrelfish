@@ -209,7 +209,7 @@ static void driver_route_call(struct int_route_service_binding *b,
 }
 
 static void ctrl_register_controller(struct int_route_controller_binding *_binding,
-        char *label, char *class) {
+        const char *label, const char *class) {
     struct controller_driver * c = add_controller(controller_head);
     c->label = malloc(strlen(label)+1);
     assert(c->label != NULL);

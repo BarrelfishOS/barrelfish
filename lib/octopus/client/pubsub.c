@@ -31,7 +31,7 @@
 #include "handler.h"
 
 void subscription_handler(struct octopus_binding *b, subscription_t id,
-        uint64_t fn, octopus_mode_t mode, char *record,
+        uint64_t fn, octopus_mode_t mode, const char *record,
         uint64_t st)
 {
 

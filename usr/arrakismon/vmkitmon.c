@@ -30,8 +30,8 @@
 
 #define SERVICE_BASENAME    "arrakis" // the core ID is appended to this
 
-static errval_t spawn_arrakis(char *path, char *const argv[], char *argbuf,
-			      size_t argbytes, char *const envp[], 
+static errval_t spawn_arrakis(const char *path, char *const argv[], const char *argbuf,
+			      size_t argbytes, char *const envp[],
 			      struct capref inheritcn_cap, struct capref argcn_cap,
 			      domainid_t *domainid)
 {
@@ -55,7 +55,7 @@ static errval_t spawn_arrakis(char *path, char *const argv[], char *argbuf,
     uint8_t *image = malloc(info.size);
     if (image == NULL) {
         vfs_close(fh);
-        return err_push(err, SPAWN_ERR_LOAD);        
+        return err_push(err, SPAWN_ERR_LOAD);
     }
 
     size_t pos = 0, readlen;
@@ -80,7 +80,7 @@ static errval_t spawn_arrakis(char *path, char *const argv[], char *argbuf,
     }
 
     // find short name (last part of path)
-    char *name = strrchr(path, VFS_PATH_SEP);
+    const char *name = strrchr(path, VFS_PATH_SEP);
     if (name == NULL) {
         name = path;
     } else {
@@ -153,7 +153,7 @@ static errval_t spawn_arrakis(char *path, char *const argv[], char *argbuf,
     struct ps_entry *pe = malloc(sizeof(struct ps_entry));
     assert(pe != NULL);
     memset(pe, 0, sizeof(struct ps_entry));
-    memcpy(pe->argv, argv, MAX_CMDLINE_ARGS*sizeof(*argv));
+    memcpy(pe->argv, (CONST_CAST)argv, MAX_CMDLINE_ARGS*sizeof(*argv));
     pe->argbuf = argbuf;
     pe->argbytes = argbytes;
     /*
@@ -209,7 +209,7 @@ static void retry_spawn_domain_response(void *a)
 
     if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
         // try again
-        err = b->register_send(b, get_default_waitset(), 
+        err = b->register_send(b, get_default_waitset(),
                                MKCONT(retry_spawn_domain_response,a));
     }
     if (err_is_fail(err)) {
@@ -227,12 +227,12 @@ static errval_t spawn_reply(struct arrakis_binding *b, errval_t rerr,
  
     err = b->tx_vtbl.spawn_arrakis_domain_response(b, NOP_CONT, rerr, domainid);
 
-    if (err_is_fail(err)) { 
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "error sending spawn_domain reply\n");
 
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             // this will be freed in the retry handler
-            struct pending_spawn_response *sr = 
+            struct pending_spawn_response *sr =
                 malloc(sizeof(struct pending_spawn_response));
             if (sr == NULL) {
                 return LIB_ERR_MALLOC_FAIL;
@@ -240,7 +240,7 @@ static errval_t spawn_reply(struct arrakis_binding *b, errval_t rerr,
             sr->b = b;
             sr->err = rerr;
             sr->domainid = domainid;
-            err = b->register_send(b, get_default_waitset(), 
+            err = b->register_send(b, get_default_waitset(),
                                    MKCONT(retry_spawn_domain_response, sr));
             if (err_is_fail(err)) {
                 // note that only one continuation may be registered at a time
@@ -255,9 +255,9 @@ static errval_t spawn_reply(struct arrakis_binding *b, errval_t rerr,
 }
 
 
-static void spawn_with_caps_handler(struct arrakis_binding *b, char *path,
-                                    char *argbuf, size_t argbytes,
-                                    char *envbuf, size_t envbytes,
+static void spawn_with_caps_handler(struct arrakis_binding *b, const char *path,
+                                    const char *argbuf, size_t argbytes,
+                                    const char *envbuf, size_t envbytes,
                                     struct capref inheritcn_cap,
                                     struct capref argcn_cap)
 {
@@ -267,11 +267,11 @@ static void spawn_with_caps_handler(struct arrakis_binding *b, char *path,
     /* printf("arrakismon: spawning '%s'\n", path); */
 
     /* extract arguments from buffer */
-    char *argv[MAX_CMDLINE_ARGS + 1];
+    char * argv[MAX_CMDLINE_ARGS + 1];
     int i = 0;
     size_t pos = 0;
     while (pos < argbytes && i < MAX_CMDLINE_ARGS) {
-        argv[i++] = &argbuf[pos];
+        argv[i++] = (CONST_CAST)argbuf + pos;
         char *end = memchr(&argbuf[pos], '\0', argbytes - pos);
         if (end == NULL) {
             err = SPAWN_ERR_GET_CMDLINE_ARGS;
@@ -287,7 +287,7 @@ static void spawn_with_caps_handler(struct arrakis_binding *b, char *path,
     i = 0;
     pos = 0;
     while (pos < envbytes && i < MAX_CMDLINE_ARGS) {
-        envp[i++] = &envbuf[pos];
+        envp[i++] = (CONST_CAST)envbuf + pos;
         char *end = memchr(&envbuf[pos], '\0', envbytes - pos);
         if (end == NULL) {
             err = SPAWN_ERR_GET_CMDLINE_ARGS;
@@ -298,9 +298,11 @@ static void spawn_with_caps_handler(struct arrakis_binding *b, char *path,
     assert(i <= MAX_CMDLINE_ARGS);
     envp[i] = NULL;
 
-    vfs_path_normalise(path);
+    char *npath = alloca(strlen(path));
+    strcpy(npath, path);
+    vfs_path_normalise(npath);
 
-    err = spawn_arrakis(path, argv, argbuf, argbytes, envp, inheritcn_cap,
+    err = spawn_arrakis(npath, argv, argbuf, argbytes, envp, inheritcn_cap,
 			argcn_cap, &domainid);
     if (!capref_is_null(inheritcn_cap)) {
         errval_t err2;
@@ -315,7 +317,6 @@ static void spawn_with_caps_handler(struct arrakis_binding *b, char *path,
 
  finish:
     if(err_is_fail(err)) {
-        free(argbuf);
         DEBUG_ERR(err, "spawn");
     }
 
@@ -325,14 +326,11 @@ static void spawn_with_caps_handler(struct arrakis_binding *b, char *path,
         // not much we can do about this
         DEBUG_ERR(err, "while sending reply in spawn_handler");
     }
-
-    free(envbuf);
-    free(path);
 }
 
 
-static void spawn_handler(struct arrakis_binding *b, char *path, char *argbuf,
-                          size_t argbytes, char *envbuf, size_t envbytes)
+static void spawn_handler(struct arrakis_binding *b, const char *path, const char *argbuf,
+                          size_t argbytes, const char *envbuf, size_t envbytes)
 {
     spawn_with_caps_handler(b, path, argbuf, argbytes, envbuf, envbytes,
                             NULL_CAP, NULL_CAP);

@@ -370,7 +370,7 @@ input_handler (void *user_data, const char *str, size_t size)
     process_interrupt_conditions(u);
 }
 
-static void serial_input_handler(struct serial_binding *b, char *data,
+static void serial_input_handler(struct serial_binding *b, const char *data,
                                  size_t size)
 {
     struct pc16550d *state = b->st;

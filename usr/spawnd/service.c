@@ -30,7 +30,7 @@
 #include "ps.h"
 
 
-static errval_t spawn(char *path, char *const argv[], char *argbuf,
+static errval_t spawn(const char *path, char *const argv[], const char *argbuf,
                       size_t argbytes, char *const envp[],
                       struct capref inheritcn_cap, struct capref argcn_cap,
                       uint8_t flags, domainid_t *domainid)
@@ -80,7 +80,7 @@ static errval_t spawn(char *path, char *const argv[], char *argbuf,
     }
 
     // find short name (last part of path)
-    char *name = strrchr(path, VFS_PATH_SEP);
+    const char *name = strrchr(path, VFS_PATH_SEP);
     if (name == NULL) {
         name = path;
     } else {
@@ -239,11 +239,11 @@ struct pending_spawn_response {
     domainid_t domainid;
 };
 
-static errval_t spawn_with_caps_common(char *path, char *argbuf, size_t argbytes,
-                                       char *envbuf, size_t envbytes,
+static errval_t spawn_with_caps_common(const char *path, const char *argbuf,
+                                       size_t argbytes, const char *envbuf,
+                                       size_t envbytes,
                                        struct capref inheritcn_cap,
-                                       struct capref argcn_cap,
-                                       uint8_t flags,
+                                       struct capref argcn_cap, uint8_t flags,
                                        domainid_t *domainid)
 {
     errval_t err;
@@ -255,7 +255,7 @@ static errval_t spawn_with_caps_common(char *path, char *argbuf, size_t argbytes
     int i = 0;
     size_t pos = 0;
     while (pos < argbytes && i < MAX_CMDLINE_ARGS) {
-        argv[i++] = &argbuf[pos];
+        argv[i++] = (CONST_CAST)argbuf + pos;
         char *end = memchr(&argbuf[pos], '\0', argbytes - pos);
         if (end == NULL) {
             err = SPAWN_ERR_GET_CMDLINE_ARGS;
@@ -271,7 +271,7 @@ static errval_t spawn_with_caps_common(char *path, char *argbuf, size_t argbytes
     i = 0;
     pos = 0;
     while (pos < envbytes && i < MAX_CMDLINE_ARGS) {
-        envp[i++] = &envbuf[pos];
+        envp[i++] = (CONST_CAST)envbuf + pos;
         char *end = memchr(&envbuf[pos], '\0', envbytes - pos);
         if (end == NULL) {
             err = SPAWN_ERR_GET_CMDLINE_ARGS;
@@ -282,9 +282,12 @@ static errval_t spawn_with_caps_common(char *path, char *argbuf, size_t argbytes
     assert(i <= MAX_CMDLINE_ARGS);
     envp[i] = NULL;
 
-    vfs_path_normalise(path);
+    char *npath;
+    npath = alloca(strlen(path));
+    strcpy(npath, path);
+    vfs_path_normalise(npath);
 
-    err = spawn(path, argv, argbuf, argbytes, envp, inheritcn_cap, argcn_cap,
+    err = spawn(npath, argv, argbuf, argbytes, envp, inheritcn_cap, argcn_cap,
                 flags, domainid);
     // XXX: do we really want to delete the inheritcn and the argcn here? iaw:
     // do we copy these somewhere? -SG
@@ -307,8 +310,8 @@ static errval_t spawn_with_caps_common(char *path, char *argbuf, size_t argbytes
     return err;
 }
 
-static errval_t spawn_with_caps_handler(struct spawn_binding *b, char *path,
-    char *argvbuf, size_t argvbytes, char *envbuf, size_t envbytes,
+static errval_t spawn_with_caps_handler(struct spawn_binding *b, const char *path,
+    const char *argvbuf, size_t argvbytes, const char *envbuf, size_t envbytes,
     struct capref inheritcn_cap, struct capref argcn_cap, uint8_t flags,
     errval_t *err, spawn_domainid_t *domain_id)
 {
@@ -317,8 +320,8 @@ static errval_t spawn_with_caps_handler(struct spawn_binding *b, char *path,
     return SYS_ERR_OK;
 }
 
-static errval_t spawn_handler(struct spawn_binding *b, char *path,
-    char *argvbuf, size_t argvbytes, char *envbuf, size_t envbytes,
+static errval_t spawn_handler(struct spawn_binding *b, const char *path,
+    const char *argvbuf, size_t argvbytes, const char *envbuf, size_t envbytes,
     uint8_t flags, errval_t *err, spawn_domainid_t *domain_id)
 {
     *err = spawn_with_caps_common(path, argvbuf, argvbytes, envbuf, envbytes,

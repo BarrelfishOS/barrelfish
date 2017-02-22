@@ -73,7 +73,7 @@ static void remote_cap_revoke(struct monitor_blocking_binding *b,
 }
 
 static void rsrc_manifest(struct monitor_blocking_binding *b,
-                          struct capref dispcap, char *str)
+                          struct capref dispcap, const char *str)
 {
     errval_t err, err2;
     rsrcid_t id;
@@ -87,7 +87,7 @@ static void rsrc_manifest(struct monitor_blocking_binding *b,
         // TODO: Cleanup
         goto out;
     }
-    err = rsrc_submit_manifest(id, str);
+    err = rsrc_submit_manifest(id, (CONST_CAST)str);
 
  out:
     err2 = b->tx_vtbl.rsrc_manifest_response(b, NOP_CONT, id, err);
@@ -237,7 +237,7 @@ static void irq_handle_call(struct monitor_blocking_binding *b, struct capref ep
     /* set it and reply */
     err = invoke_irqtable_set(cap_irq, vec, ep);
     if (err_is_fail(err)) {
-        err = err_push(err, MON_ERR_INVOKE_IRQ_SET);        
+        err = err_push(err, MON_ERR_INVOKE_IRQ_SET);
     }
     err2 = b->tx_vtbl.irq_handle_response(b, NOP_CONT, err, vec);
     assert(err_is_ok(err2));

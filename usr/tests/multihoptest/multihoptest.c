@@ -186,7 +186,7 @@ static void rx_basic(struct test_binding *b, uint32_t arg)
     printf("%s rx_basic %"PRIu32"\n", get_role_name(), arg);
 }
 
-static void rx_str(struct test_binding *b, uint32_t arg, char *s)
+static void rx_str(struct test_binding *b, uint32_t arg, const char *s)
 {
 
     // make sure we received the correct argument(s)
@@ -218,7 +218,7 @@ static void rx_caps(struct test_binding *b, uint32_t arg, struct capref cap1,
     printf("%s rx_caps %"PRIu32" [%s] [%s]\n", get_role_name(), arg, buf1, buf2);
 }
 
-static void rx_buf(struct test_binding *b, uint8_t *buf, size_t buflen)
+static void rx_buf(struct test_binding *b, const uint8_t *buf, size_t buflen)
 {
 
     // make sure we received the correct argument(s)

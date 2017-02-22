@@ -529,14 +529,13 @@ static void fsb_payload64_16_request(struct bench_binding *b, int64_t payload0,
     }
 }
 
-static void fsb_buffer_reply(struct bench_binding *b, uint8_t *payload,
+static void fsb_buffer_reply(struct bench_binding *b, const uint8_t *payload,
         size_t size)
 {
     message_received();
-    free(payload);
 }
 
-static void fsb_buffer_request(struct bench_binding *b, uint8_t *payload,
+static void fsb_buffer_request(struct bench_binding *b, const uint8_t *payload,
         size_t size)
 {
     errval_t err;
@@ -551,7 +550,6 @@ static void fsb_buffer_request(struct bench_binding *b, uint8_t *payload,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error while sending reply message in client\n");
     }
-    free(payload);
 }
 
 // receive virtual table

@@ -133,7 +133,7 @@ static void get_path_name(ACPI_HANDLE handle, char* name, size_t len)
     assert(ACPI_SUCCESS(s));
 }
 
-static void read_irq_table(struct acpi_binding* b, char* pathname,
+static void read_irq_table(struct acpi_binding* b, const char* pathname,
         acpi_pci_address_t addr, uint8_t bus)
 {
     ACPI_DEBUG("read_irq_table: (parent)%s, (%"PRIu8",%"PRIu8",%"PRIu8"), %"PRIu8"\n",
@@ -143,7 +143,7 @@ static void read_irq_table(struct acpi_binding* b, char* pathname,
     ACPI_STATUS as;
     ACPI_HANDLE handle;
 
-    as = AcpiGetHandle(NULL, pathname, &handle);
+    as = AcpiGetHandle(NULL, (CONST_CAST)pathname, &handle);
     if (ACPI_SUCCESS(as)) {
         ACPI_HANDLE child;
         err = acpi_get_irqtable_device(handle, addr, &child, bus);
@@ -171,7 +171,7 @@ static void read_irq_table(struct acpi_binding* b, char* pathname,
 
 
 
-static void set_device_irq_handler(struct acpi_binding *b, char* device, uint32_t irq)
+static void set_device_irq_handler(struct acpi_binding *b, const char* device, uint32_t irq)
 {
     errval_t err = set_device_irq(device,irq);
     err = b->tx_vtbl.set_device_irq_response(b, NOP_CONT, err);
@@ -235,7 +235,7 @@ ACPI_STATUS get_handle_handler_callback(
     return AE_OK;
 }
 
-static void get_handle_handler(struct acpi_binding *b, char *dev_id)
+static void get_handle_handler(struct acpi_binding *b, const char *dev_id)
 {
     errval_t err = SYS_ERR_OK;;
 
@@ -244,7 +244,7 @@ static void get_handle_handler(struct acpi_binding *b, char *dev_id)
     ACPI_STATUS s;
     ACPI_HANDLE handle = NULL;
 
-    s = AcpiGetDevices(NULL, get_handle_handler_callback, dev_id, &handle);
+    s = AcpiGetDevices(NULL, get_handle_handler_callback, (CONST_CAST)dev_id, &handle);
     if (ACPI_FAILURE(s)) {
         debug_printf("Looking up handle failed: %d\n", s);
         err = ACPI_ERR_INVALID_HANDLE;
@@ -255,12 +255,10 @@ static void get_handle_handler(struct acpi_binding *b, char *dev_id)
     //out uint64 handle, out errval err
     err = b->tx_vtbl.get_handle_response(b, NOP_CONT, (uint64_t)handle, err);
     assert(err_is_ok(err));
-
-    free(dev_id);
 }
 
 static void eval_integer_handler(struct acpi_binding *b,
-                                 uint64_t handle, char *path)
+                                 uint64_t handle, const char *path)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -278,7 +276,6 @@ static void eval_integer_handler(struct acpi_binding *b,
 
     debug_printf("eval_integer_handler\n");
     err = b->tx_vtbl.eval_integer_response(b, NOP_CONT, val, err);
-    free(path);
 }
 
 

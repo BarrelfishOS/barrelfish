@@ -61,16 +61,14 @@ void test_retype(struct capref src, struct capref *dest, gensize_t offset,
 }
 
 //{{{1 Unused message handlers
-static void rx_str(struct test_binding *b, uint32_t arg, char *s)
+static void rx_str(struct test_binding *b, uint32_t arg, const char *s)
 {
     printf("rx_str %"PRIu32" '%s'\n", arg, s);
-    free(s);
 }
 
-static void rx_buf(struct test_binding *b, uint8_t *buf, size_t buflen)
+static void rx_buf(struct test_binding *b, const uint8_t *buf, size_t buflen)
 {
     printf("rx_buf buflen=%zu\n", buflen);
-    free(buf);
 }
 
 //{{{1 Server

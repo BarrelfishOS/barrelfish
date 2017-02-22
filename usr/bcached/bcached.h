@@ -37,9 +37,9 @@ typedef enum {
     KEY_MISSING,
     KEY_INTRANSIT
 } key_state_t;
-key_state_t cache_lookup(char *key, size_t key_len, uintptr_t *index, uintptr_t *length);
+key_state_t cache_lookup(const char *key, size_t key_len, uintptr_t *index, uintptr_t *length);
 
-uintptr_t cache_allocate(char *key, size_t key_len);
+uintptr_t cache_allocate(const char *key, size_t key_len);
 void cache_update(uintptr_t index, uintptr_t length);
 
 void cache_register_wait(uintptr_t index, void *b);

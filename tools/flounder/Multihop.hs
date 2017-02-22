@@ -187,7 +187,7 @@ multihop_rx_handler_proto ifn = C.GVarDecl C.Extern C.NonConst
 
 multihop_rx_handler_params :: [C.Param]
 multihop_rx_handler_params = [C.Param (C.Ptr C.Void) "arg",
-                              C.Param (C.Ptr (C.TypeName "uint8_t")) "message", C.Param (C.TypeName "size_t") "message_len"]
+                              C.Param (C.Ptr (C.ConstT (C.TypeName "uint8_t"))) "message", C.Param (C.TypeName "size_t") "message_len"]
 
 multihop_connect_handler_proto :: String -> C.Unit
 multihop_connect_handler_proto ifn = C.GVarDecl C.Extern C.NonConst
@@ -837,7 +837,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
       (if (contains_overflow_frags)
        then localvar m_size_type "o_frag_size" Nothing
        else C.SBlank),
-      localvar (C.Ptr $ C.TypeName "uint8_t") "msg" Nothing,
+      localvar (C.Ptr $ C.ConstT $ C.TypeName "uint8_t") "msg" Nothing,
       localvar (C.TypeName "int") "__attribute__ ((unused)) no_register" (Just $ C.NumConstant 0),
       C.SBlank,
 

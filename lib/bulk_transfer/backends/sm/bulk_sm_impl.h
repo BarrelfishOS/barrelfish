@@ -51,7 +51,7 @@ void bulk_sm_move_rx_call(
         uint32_t                 bufferid,
         uint32_t                 tid,
         struct capref            cap,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize);
 
 void bulk_sm_move_trusted_rx_call(
@@ -59,7 +59,7 @@ void bulk_sm_move_trusted_rx_call(
         bulk_ctrl_poolid_t       poolid,
         uint32_t                 bufferid,
         uint32_t                 tid,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize);
 
 void bulk_sm_move_rx_response(
@@ -73,7 +73,7 @@ void bulk_sm_copy_rx_call(
         uint32_t                 bufferid,
         uint32_t                 tid,
         struct capref            cap,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize);
 
 void bulk_sm_copy_trusted_rx_call(
@@ -81,7 +81,7 @@ void bulk_sm_copy_trusted_rx_call(
         bulk_ctrl_poolid_t       poolid,
         uint32_t                 bufferid,
         uint32_t                 tid,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize);
 
 void bulk_sm_copy_rx_response(
@@ -95,7 +95,7 @@ void bulk_sm_pass_rx_call(
         uint32_t                 bufferid,
         uint32_t                 tid,
         struct capref            cap,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize);
 
 void bulk_sm_pass_trusted_rx_call(
@@ -103,7 +103,7 @@ void bulk_sm_pass_trusted_rx_call(
         bulk_ctrl_poolid_t       poolid,
         uint32_t                 bufferid,
         uint32_t                 tid,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize);
 
 void bulk_sm_pass_rx_response(

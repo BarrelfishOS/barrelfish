@@ -184,7 +184,7 @@ static ENTRY_TYPE ht_get_capability(struct dictionary *dict, char *key,
     return 0;
 }
 
-static int ht_remove(struct dictionary *dict, char *key, size_t key_len)
+static int ht_remove(struct dictionary *dict, const char *key, size_t key_len)
 {
     assert(dict != NULL);
     struct hashtable *ht = (struct hashtable*) dict;

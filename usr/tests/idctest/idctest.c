@@ -68,7 +68,7 @@ static void rx_basic(struct test_binding *b, uint32_t arg)
     assert(arg == 7);
 }
 
-static void rx_str(struct test_binding *b, uint32_t arg, char *s)
+static void rx_str(struct test_binding *b, uint32_t arg, const char *s)
 {
     debug_printf("rx_str %"PRIu32" Str[:5]:'%.5s'\n", arg, s);
     switch(arg){
@@ -104,10 +104,9 @@ static void rx_caps(struct test_binding *b, uint32_t arg,
     debug_printf("rx_caps %"PRIu32" [%s] [%s]\n", arg, buf1, buf2);
 }
 
-static void rx_buf(struct test_binding *b, uint8_t *buf, size_t buflen)
+static void rx_buf(struct test_binding *b, const uint8_t *buf, size_t buflen)
 {
     debug_printf("rx_buf (%zu bytes)\n", buflen);
-    free(buf);
 }
 
 static struct test_rx_vtbl rx_vtbl = {

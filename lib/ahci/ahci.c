@@ -38,7 +38,7 @@ struct mgmt_close_call_st
 };
 
 static void ahci_mgmt_identify_response_cb(struct ahci_mgmt_binding *b,
-        uint8_t *identify_data, size_t data_len)
+        const uint8_t *identify_data, size_t data_len)
 {
     struct bind_st *bst = b->st;
     struct ahci_binding *ahci_binding = bst->ahci_binding[bst->port];
@@ -52,7 +52,7 @@ static void ahci_mgmt_identify_response_cb(struct ahci_mgmt_binding *b,
     if (has_identify) {
         free(ahci_binding->identify_data);
     }
-    ahci_binding->identify_data = identify_data;
+    ahci_binding->identify_data = (CONST_CAST)identify_data;
     ahci_binding->identify_length = data_len;
     ata_identify_initialize(&ahci_binding->identify,
             (void*)ahci_binding->identify_data);

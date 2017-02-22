@@ -29,7 +29,7 @@ struct ps_waiter {
 
 struct ps_entry {
     char *argv[MAX_CMDLINE_ARGS];
-    char *argbuf;
+    const char *argbuf;
     size_t argbytes;
     struct capref rootcn_cap, dcb;
     struct cnoderef rootcn;

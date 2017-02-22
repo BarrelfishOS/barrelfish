@@ -78,7 +78,7 @@ static struct ioapic *find_ioapic(uint32_t gsi)
     return NULL;
 }
 
-struct ioapic *find_ioapic_for_label(char *label)
+struct ioapic *find_ioapic_for_label(const char *label)
 {
     for(int i = 0; i < IOAPIC_MAX; i++) {
         struct ioapic *a = &ioapics[i];
@@ -223,12 +223,12 @@ int init_all_interrupt_sources(void)
                 errval_t err = oct_set(HW_PROCESSOR_X86_RECORD_FORMAT,
                                    barrelfish_id,/* hw.processor.%d */
                                    s->LapicFlags & ACPI_MADT_ENABLED, /* enabled */
-                                   barrelfish_id, /* barrelfish_id */ 
-                                   s->Id, /* hw_id */ 
-                                   CURRENT_CPU_TYPE, /* type */ 
-                                   s->ProcessorId, /* processor_id */ 
-                                   s->Id /* apic_id */ 
-                                   ); 
+                                   barrelfish_id, /* barrelfish_id */
+                                   s->Id, /* hw_id */
+                                   CURRENT_CPU_TYPE, /* type */
+                                   s->ProcessorId, /* processor_id */
+                                   s->Id /* apic_id */
+                                   );
                 assert(err_is_ok(err));
 
                 skb_add_fact("apic(%d,%d,%"PRIu32").",

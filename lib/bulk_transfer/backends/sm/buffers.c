@@ -330,7 +330,7 @@ void bulk_sm_move_rx_call(
         uint32_t                 bufferid,
         uint32_t                 tid,
         struct capref            cap,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize)
 {
     errval_t err = SYS_ERR_OK;
@@ -368,7 +368,7 @@ void bulk_sm_move_rx_call(
     //send reply & inform user
     if (err_is_ok(err)){
         if (channel->callbacks->move_received) {
-            channel->callbacks->move_received(channel, buffer, meta);
+            channel->callbacks->move_received(channel, buffer, (CONST_CAST)meta);
         }
 
         txcont = MKCONT(bulk_sm_flounder_msg_sent_debug_cb,
@@ -394,7 +394,7 @@ void bulk_sm_move_trusted_rx_call(
         bulk_ctrl_poolid_t       poolid,
         uint32_t                 bufferid,
         uint32_t                 tid,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize)
 {
     //call normal handler with a NULL_CAP
@@ -443,7 +443,7 @@ void bulk_sm_copy_rx_call(
         uint32_t                 bufferid,
         uint32_t                 tid,
         struct capref            cap,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize)
 {
     errval_t err = SYS_ERR_OK;
@@ -479,7 +479,7 @@ void bulk_sm_copy_rx_call(
 
     if (err_is_ok(err)){
         if (channel->callbacks->copy_received) {
-            channel->callbacks->copy_received(channel, buffer, meta);
+            channel->callbacks->copy_received(channel, buffer, (CONST_CAST)meta);
         }
 
         txcont = MKCONT(bulk_sm_flounder_msg_sent_debug_cb,
@@ -506,7 +506,7 @@ void bulk_sm_copy_trusted_rx_call(
         bulk_ctrl_poolid_t       poolid,
         uint32_t                 bufferid,
         uint32_t                 tid,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize)
 {
     //call normal handler with a NULL_CAP
@@ -556,7 +556,7 @@ void bulk_sm_pass_rx_call(
         uint32_t                 bufferid,
         uint32_t                 tid,
         struct capref            cap,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize)
 {
     BULK_DEBUG_PRINT("%s", "bulk_sm_pass_rx_call called\n");
@@ -596,7 +596,7 @@ void bulk_sm_pass_rx_call(
     //send reply & inform user
     if (err_is_ok(err)){
         if (channel->callbacks->buffer_received) {
-            channel->callbacks->buffer_received(channel, buffer, meta);
+            channel->callbacks->buffer_received(channel, buffer, (CONST_CAST)meta);
         }
 
         txcont = MKCONT(bulk_sm_flounder_msg_sent_debug_cb,
@@ -622,7 +622,7 @@ void bulk_sm_pass_trusted_rx_call(
         bulk_ctrl_poolid_t       poolid,
         uint32_t                 bufferid,
         uint32_t                 tid,
-        uint8_t                  *meta,
+        const uint8_t            *meta,
         size_t                   metasize)
 {
     //call normal handler with a NULL_CAP

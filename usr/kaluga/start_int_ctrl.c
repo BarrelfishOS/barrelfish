@@ -57,7 +57,8 @@ static void csv_to_argv(char * in, int * argc, char *** argv) {
     argv_out[argv_idx] = NULL;
 }
 
-static void int_controller_change_event(octopus_mode_t mode, char* device_record, void* st)
+static void int_controller_change_event(octopus_mode_t mode,
+                                        const char* device_record, void* st)
 {
     KALUGA_DEBUG("int_controller_change_event!\n");
 

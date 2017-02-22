@@ -48,6 +48,6 @@ struct skb_reply_state {
 
 errval_t new_reply_state(struct skb_reply_state**, rpc_reply_handler_fn);
 void free_reply_state(void*);
-errval_t execute_query(char*, struct skb_query_state*);
+errval_t execute_query(const char*, struct skb_query_state*);
 
 #endif

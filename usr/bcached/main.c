@@ -121,7 +121,7 @@ uint64_t cache_get_block_length(uintptr_t idx)
     return l->block_length;
 }
 
-key_state_t cache_lookup(char *key, size_t key_len,
+key_state_t cache_lookup(const char *key, size_t key_len,
                          uintptr_t *idx, uintptr_t *length)
 {
     ENTRY_TYPE et;
@@ -201,7 +201,7 @@ cache_get_next_waiter(uintptr_t idx)
     return ret;
 }
 
-uintptr_t cache_allocate(char *key, size_t key_len)
+uintptr_t cache_allocate(const char *key, size_t key_len)
 {
     struct lru_queue *e = lru_get();
 
@@ -224,7 +224,8 @@ uintptr_t cache_allocate(char *key, size_t key_len)
 
     e->in_use = true;
     e->in_transit = true;
-    e->key = key;
+    e->key = strdup(key);
+    assert(e->key);
     e->key_len = key_len;
     e->block_length = 0;
     e->waiters.start = e->waiters.end = NULL;

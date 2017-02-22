@@ -517,7 +517,7 @@ errval_t multihop_send_capability(struct multihop_chan *mc,
  */
 static void handle_multihop_message(struct monitor_binding *mon_closure,
         multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
-        uint8_t *buf, size_t buflen)
+        const uint8_t *buf, size_t buflen)
 {
 
     struct multihop_chan *mc = multihop_chan_mappings_lookup(vci);

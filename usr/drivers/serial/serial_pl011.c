@@ -121,7 +121,7 @@ serial_putc(char c) {
 }
 
 void
-serial_write(char *c, size_t len) {
+serial_write(const char *c, size_t len) {
     for (int i = 0; i < len; i++) {
         serial_putc(c[i]);
     }

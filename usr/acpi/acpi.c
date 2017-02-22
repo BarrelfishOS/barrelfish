@@ -246,14 +246,14 @@ static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
 }
 #endif
 
-ACPI_STATUS acpi_eval_integer(ACPI_HANDLE handle, char *name, ACPI_INTEGER *ret)
+ACPI_STATUS acpi_eval_integer(ACPI_HANDLE handle, const char *name, ACPI_INTEGER *ret)
 {
     assert(ret != NULL);
     ACPI_STATUS as;
     char intbuf[sizeof(ACPI_OBJECT)];
     ACPI_BUFFER intbufobj = {.Length = sizeof(intbuf), .Pointer = intbuf};
 
-    as = AcpiEvaluateObjectTyped(handle, name, NULL, &intbufobj, ACPI_TYPE_INTEGER);
+    as = AcpiEvaluateObjectTyped(handle, (CONST_CAST)name, NULL, &intbufobj, ACPI_TYPE_INTEGER);
     if (ACPI_SUCCESS(as)) {
         ACPI_OBJECT *obj = intbufobj.Pointer;
         *ret = obj->Integer.Value;

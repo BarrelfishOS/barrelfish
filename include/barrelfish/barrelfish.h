@@ -66,4 +66,6 @@ static inline void * memdup(const void *ptr, size_t size) {
 void messages_wait_and_handle_next(void);
 void __attribute__((noreturn)) messages_handler_loop(void);
 
+typedef void *CONST_CAST;
+
 #endif

@@ -33,7 +33,8 @@ static bool inwrite[NUM_BLOCKS];
 static struct bcache_binding *waiting[NUM_BLOCKS];
 #endif
 
-static void get_start_handler(struct bcache_binding *b, char *key, size_t key_len)
+static void get_start_handler(struct bcache_binding *b, const char *key,
+                              size_t key_len)
 {
     errval_t err;
     key_state_t ks;
@@ -44,13 +45,11 @@ static void get_start_handler(struct bcache_binding *b, char *key, size_t key_le
     ks = cache_lookup(key, key_len, &idx, &length);
 
     if (ks == KEY_INTRANSIT) { // key is in transit: wait for it!
-        free(key);
         cache_register_wait(idx, b);
         return; // get_start_response() will be called when key arrives
     } else if (ks == KEY_MISSING) {
         idx = cache_allocate(key, key_len);
     } else if (ks == KEY_EXISTS) {
-        free(key);
     } else {
         assert(0);
     }

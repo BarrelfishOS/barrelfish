@@ -35,7 +35,7 @@ struct serial_params {
 
 typedef void serial_input_fn_t(char *data, size_t length);
 
-void serial_write(char *c, size_t len);
+void serial_write(const char *c, size_t len);
 errval_t serial_init(struct serial_params *params);
 void start_service(void);
 void start_basic_service(char *driver_name);

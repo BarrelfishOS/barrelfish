@@ -194,7 +194,7 @@ static errval_t readdir(struct trivfs_binding *b, trivfs_fh_t dir, uint32_t idx,
     return SYS_ERR_OK;
 }
 
-static errval_t lookup(struct trivfs_binding *b, trivfs_fh_t dir, char *name,
+static errval_t lookup(struct trivfs_binding *b, trivfs_fh_t dir, const char *name,
                        errval_t *reterr, trivfs_fh_t *retfh, bool *isdir)
 {
     errval_t err;
@@ -279,7 +279,7 @@ static errval_t read(struct trivfs_binding *b, trivfs_fh_t fh,
 }
 
 static errval_t write(struct trivfs_binding *b, trivfs_fh_t fh,
-                      trivfs_offset_t offset, uint8_t *data, size_t len,
+                      trivfs_offset_t offset, const uint8_t *data, size_t len,
                       errval_t *reterr)
 {
     errval_t err;
@@ -410,7 +410,7 @@ static errval_t truncate(struct trivfs_binding *b, trivfs_fh_t fh,
     return SYS_ERR_OK;
 }
 
-static errval_t create(struct trivfs_binding *b, trivfs_fh_t dir, char *name,
+static errval_t create(struct trivfs_binding *b, trivfs_fh_t dir, const char *name,
                        errval_t *reterr, trivfs_fh_t *fh)
 {
     errval_t err;
@@ -429,16 +429,9 @@ static errval_t create(struct trivfs_binding *b, trivfs_fh_t dir, char *name,
         return SYS_ERR_OK;
     }
 
-
-    name = strdup(name);
-    if (name == NULL) {
-        *reterr = LIB_ERR_MALLOC_FAIL;
-        return SYS_ERR_OK;
-    }
     struct dirent *newf;
     err = ramfs_create(d, name, &newf);
     if (err_is_fail(err)) {
-        free(name);
         *reterr = err;
         return SYS_ERR_OK;
     }
@@ -447,7 +440,7 @@ static errval_t create(struct trivfs_binding *b, trivfs_fh_t dir, char *name,
     return SYS_ERR_OK;
 }
 
-static errval_t mkdir(struct trivfs_binding *b, trivfs_fh_t dir, char *name,
+static errval_t mkdir(struct trivfs_binding *b, trivfs_fh_t dir, const char *name,
                       errval_t *reterr, trivfs_fh_t *fh)
 {
     errval_t err;
@@ -466,16 +459,9 @@ static errval_t mkdir(struct trivfs_binding *b, trivfs_fh_t dir, char *name,
         return SYS_ERR_OK;
     }
 
-    name = strdup(name);
-    if (name == NULL) {
-        *reterr = LIB_ERR_MALLOC_FAIL;
-        return SYS_ERR_OK;
-    }
-
     struct dirent *newd;
     err = ramfs_mkdir(d, name, &newd);
     if (err_is_fail(err)) {
-        free(name);
         *reterr = err;
         return SYS_ERR_OK;
     }

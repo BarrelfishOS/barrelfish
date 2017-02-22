@@ -194,7 +194,7 @@ static errval_t domain_wait_response_tx(struct txq_msg_st* msg_st)
  */
 
 static void domain_lookup_call_rx(struct xeon_phi_binding *binding,
-                                  char *name,
+                                  const char *name,
                                   size_t length)
 {
     XSERVICE_DEBUG("domain_lookup_call_rx: %s\n", name);
@@ -212,15 +212,13 @@ static void domain_lookup_call_rx(struct xeon_phi_binding *binding,
 
     struct xphi_svc_msg_st *st = (struct xphi_svc_msg_st *) msg_st;
 
-    msg_st->err = interphi_domain_lookup(&phi->topology[phi->id], name,
+    msg_st->err = interphi_domain_lookup(&phi->topology[phi->id], (CONST_CAST)name,
                                          &st->args.domain.domid);
-    free(name);
-
     txq_send(msg_st);
 }
 
 static void domain_wait_call_rx(struct xeon_phi_binding *binding,
-                                char *name,
+                                const char *name,
                                 size_t length)
 {
     XSERVICE_DEBUG("domain_wait_call_rx: %s\n", name);
@@ -235,17 +233,14 @@ static void domain_wait_call_rx(struct xeon_phi_binding *binding,
 
     /* TODO: allocate reply state */
 
-    msg_st->err = interphi_domain_wait(&phi->topology[phi->id], name, svc_st);
+    msg_st->err = interphi_domain_wait(&phi->topology[phi->id], (CONST_CAST)name, svc_st);
     if (err_is_fail(msg_st->err)) {
         txq_send(msg_st);
     }
-
-    free(name);
-
 }
 
 static void domain_register_call_rx(struct xeon_phi_binding *binding,
-                                    char *name,
+                                    const char *name,
                                     size_t length,
                                     xphi_dom_id_t domid)
 {
@@ -262,7 +257,7 @@ static void domain_register_call_rx(struct xeon_phi_binding *binding,
     msg_st->cleanup = NULL;
 
     svc_st->domainid = domid;
-    svc_st->name = name;
+    svc_st->name = (CONST_CAST)name;
 
 #ifdef __k1om__
     struct xeon_phi *phi = svc_st->phi;
@@ -270,16 +265,13 @@ static void domain_register_call_rx(struct xeon_phi_binding *binding,
 #else
     msg_st->err = domain_register(name, domid);
 #endif
-
-    free(name);
-
     txq_send(msg_st);
 }
 
 static void domain_init_call_rx(struct xeon_phi_binding *binding,
                                 domainid_t domain,
                                 coreid_t core,
-                                char *name,
+                                const char *name,
                                 size_t length)
 {
     XSERVICE_DEBUG("domain_init_call_rx: %s @ domainid:%"PRIuDOMAINID"\n", name,
@@ -317,9 +309,6 @@ static void domain_init_call_rx(struct xeon_phi_binding *binding,
     msg_st->err = domain_register(svc_st->name, svc_st->domainid);
 #endif
     xphi_svc_clients_insert(svc_st);
-
-    free(name);
-
     txq_send(msg_st);
 }
 
@@ -393,7 +382,7 @@ static void kill_call_rx(struct xeon_phi_binding *binding,
 static void spawn_with_cap_call_rx(struct xeon_phi_binding *binding,
                                    uint8_t xid,
                                    uint8_t core,
-                                   char *cmdline,
+                                   const char *cmdline,
                                    size_t length,
                                    uint8_t flags,
                                    struct capref cap)
@@ -417,18 +406,16 @@ static void spawn_with_cap_call_rx(struct xeon_phi_binding *binding,
 #else
     struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
 #endif
-    msg_st->err = interphi_spawn_with_cap(node, core, cmdline, length, flags, cap,
+    msg_st->err = interphi_spawn_with_cap(node, core, (CONST_CAST)cmdline, length,
+                                          flags, cap,
                                           &xphi_st->args.spawn.domainid);
-
-    free(cmdline);
-
     txq_send(msg_st);
 }
 
 static void spawn_call_rx(struct xeon_phi_binding *binding,
                           uint8_t xid,
                           uint8_t core,
-                          char *cmdline,
+                          const char *cmdline,
                           size_t length,
                           uint8_t flags)
 {
@@ -451,11 +438,8 @@ static void spawn_call_rx(struct xeon_phi_binding *binding,
 #else
     struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
 #endif
-    msg_st->err = interphi_spawn(node, core, cmdline, length, flags,
+    msg_st->err = interphi_spawn(node, core, (CONST_CAST)cmdline, length, flags,
                                  &xphi_st->args.spawn.domainid);
-
-    free(cmdline);
-
     txq_send(msg_st);
 }
 

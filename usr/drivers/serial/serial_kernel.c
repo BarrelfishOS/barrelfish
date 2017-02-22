@@ -48,7 +48,7 @@ errval_t serial_init(struct serial_params *params)
 }
 
 
-void serial_write(char *c, size_t len)
+void serial_write(const char *c, size_t len)
 {
     sys_print(c, len);
 }

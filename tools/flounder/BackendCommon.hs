@@ -129,12 +129,11 @@ type_c_type ifn (Builtin Bool) = C.TypeName "bool"
 type_c_type ifn (Builtin String) = C.Ptr $ C.TypeName "char"
 type_c_type ifn t = C.TypeName $ type_c_name ifn t
 
--- TX pointers should be const
+-- pointers should be const
 type_c_type_dir :: Direction -> String -> TypeRef -> C.TypeSpec
-type_c_type_dir TX ifn tr = case type_c_type ifn tr of
+type_c_type_dir _ ifn tr = case type_c_type ifn tr of
     C.Ptr t -> C.Ptr $ C.ConstT t
     t -> t
-type_c_type_dir RX ifn tr = type_c_type ifn tr
 
 -- Array types in the msg args struct should only be pointers to the storage
 type_c_type_msgstruct :: Direction -> String -> [TypeDef] -> TypeRef -> C.TypeSpec
@@ -228,12 +227,9 @@ msg_argdecl dir ifn (Arg tr (Name n)) =
     [ C.Param (type_c_type_dir dir ifn tr) n ]
 msg_argdecl dir ifn (Arg tr (StringArray n l)) =
     [ C.Param (type_c_type_dir dir ifn tr) n ]
-msg_argdecl RX ifn (Arg tr (DynamicArray n l _)) =
-    [ C.Param (C.Ptr $ type_c_type_dir RX ifn tr) n,
+msg_argdecl dir ifn (Arg tr (DynamicArray n l _)) =
+    [ C.Param (C.Ptr $ C.ConstT $ type_c_type_dir dir ifn tr) n,
       C.Param (type_c_type_dir RX ifn size) l ]
-msg_argdecl TX ifn (Arg tr (DynamicArray n l _)) =
-    [ C.Param (C.Ptr $ C.ConstT $ type_c_type_dir TX ifn tr) n,
-      C.Param (type_c_type_dir TX ifn size) l ]
 
 
 msg_argstructdecl :: Direction -> String -> [TypeDef] -> MessageArgument -> [C.Param]

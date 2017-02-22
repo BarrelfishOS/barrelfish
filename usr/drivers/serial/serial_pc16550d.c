@@ -115,7 +115,7 @@ static void serial_putc(char c)
     pc16550d_thr_wr(&uart, c);
 }
 
-void serial_write(char *c, size_t len)
+void serial_write(const char *c, size_t len)
 {
     for (int i = 0; i < len; i++) {
         serial_putc(c[i]);

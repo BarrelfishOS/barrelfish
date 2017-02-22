@@ -117,7 +117,8 @@ static void multihop_routing_table_new(struct monitor_binding *b,
 
 // receive a part of the routing table from RTS (routing table set-up dispatcher)
 static void multihop_routing_table_set(struct monitor_binding *b,
-                                       coreid_t from, coreid_t *to, size_t len)
+                                       coreid_t from, const coreid_t *to,
+                                       size_t len)
 {
     // sanity-check input (FIXME: report errors!)
     // FIXME: we don't yet support changes to the existing routing table
@@ -184,7 +185,7 @@ static void multihop_handle_routing_table_response(struct intermon_binding *b,
                                                    errval_t err,
                                                    coreid_t source_coreid,
                                                    coreid_t max_coreid,
-                                                   coreid_t *to, size_t len)
+                                                   const coreid_t *to, size_t len)
 {
     assert(routing_table == NULL);
     assert(source_coreid == my_core_id);
@@ -210,7 +211,8 @@ static void multihop_handle_routing_table_response(struct intermon_binding *b,
 // grow the routing table to a set of desination cores, via a given forwarder
 static void multihop_routing_table_grow(struct intermon_binding *b,
                                         coreid_t forwarder,
-                                        coreid_t *destinations, size_t ndests)
+                                        const coreid_t *destinations,
+                                        size_t ndests)
 {
     assert(ndests > 0);
 
@@ -934,14 +936,14 @@ static inline void multihop_monitor_request_error(
 
 static inline void multihop_message_monitor_forward(struct monitor_binding *b,
         multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
-        uint8_t *payload, size_t size, bool first_try);
+        const uint8_t *payload, size_t size, bool first_try);
 
 static void multihop_message_forward_continue(struct monitor_binding *b,
         struct monitor_msg_queue_elem *e);
 
 static inline void multihop_message_intermon_forward(struct intermon_binding *b,
         multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
-        uint8_t *payload, size_t size, bool first_try);
+        const uint8_t *payload, size_t size, bool first_try);
 
 static void multihop_message_intermon_forward_cont(struct intermon_binding *b,
         struct intermon_msg_queue_elem *e);
@@ -973,7 +975,7 @@ struct intermon_message_forwarding_state {
  */
 static void multihop_message_handler(struct monitor_binding *mon_binding,
         multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
-        uint8_t *payload, size_t size)
+        const uint8_t *payload, size_t size)
 {
 
     MULTIHOP_DEBUG(
@@ -1034,7 +1036,7 @@ static void multihop_message_intermon_forward_cont(struct intermon_binding *b,
  */
 static inline void multihop_message_intermon_forward(struct intermon_binding *b,
         multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
-        uint8_t *payload, size_t size, bool first_try)
+        const uint8_t *payload, size_t size, bool first_try)
 {
 
     errval_t err;
@@ -1093,7 +1095,7 @@ static inline void multihop_message_intermon_forward(struct intermon_binding *b,
  */
 static void intermon_multihop_message_handler(struct intermon_binding *binding,
         multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
-        uint8_t *payload, size_t size)
+        const uint8_t *payload, size_t size)
 {
 
     MULTIHOP_DEBUG(
@@ -1184,7 +1186,7 @@ static void multihop_message_forward_continue(struct monitor_binding *b,
  */
 static inline void multihop_message_monitor_forward(struct monitor_binding *b,
         multihop_vci_t vci, uint8_t direction, uint8_t flags, uint32_t ack,
-        uint8_t *payload, size_t size, bool first_try)
+        const uint8_t *payload, size_t size, bool first_try)
 {
 
     errval_t err;

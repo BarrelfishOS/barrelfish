@@ -57,28 +57,28 @@ struct oct_reply_state {
 
 errval_t new_oct_reply_state(struct oct_reply_state**, oct_reply_handler_fn);
 
-void get_names_handler(struct octopus_binding*, char*, octopus_trigger_t);
-void get_handler(struct octopus_binding*, char*, octopus_trigger_t);
-void set_handler(struct octopus_binding*, char*, uint64_t, octopus_trigger_t, bool);
+void get_names_handler(struct octopus_binding*, const char*, octopus_trigger_t);
+void get_handler(struct octopus_binding*, const char*, octopus_trigger_t);
+void set_handler(struct octopus_binding*, const char*, uint64_t, octopus_trigger_t, bool);
 void get_with_idcap_handler(struct octopus_binding*, struct capref,
                             octopus_trigger_t);
-void set_with_idcap_handler(struct octopus_binding*, struct capref, char*,
+void set_with_idcap_handler(struct octopus_binding*, struct capref, const char*,
                             uint64_t, octopus_trigger_t, bool);
-void del_handler(struct octopus_binding*, char*, octopus_trigger_t);
-void exists_handler(struct octopus_binding*, char*, octopus_trigger_t);
-void wait_for_handler(struct octopus_binding*, char*);
+void del_handler(struct octopus_binding*, const char*, octopus_trigger_t);
+void exists_handler(struct octopus_binding*, const char*, octopus_trigger_t);
+void wait_for_handler(struct octopus_binding*, const char*);
 void remove_trigger_handler(struct octopus_binding*, octopus_trigger_id_t);
 
-void subscribe_handler(struct octopus_binding*, char*, uint64_t, uint64_t);
-void publish_handler(struct octopus_binding*, char*);
+void subscribe_handler(struct octopus_binding*, const char*, uint64_t, uint64_t);
+void publish_handler(struct octopus_binding*, const char*);
 void unsubscribe_handler(struct octopus_binding*, uint64_t);
 
 void get_identifier(struct octopus_binding*);
 void identify_binding(struct octopus_binding*, uint64_t, octopus_binding_type_t);
 
 // Capability Storage
-void get_cap_handler(struct octopus_binding*, char*);
-void put_cap_handler(struct octopus_binding*, char*, struct capref);
-void remove_cap_handler(struct octopus_binding*, char*);
+void get_cap_handler(struct octopus_binding*, const char*);
+void put_cap_handler(struct octopus_binding*, const char*, struct capref);
+void remove_cap_handler(struct octopus_binding*, const char*);
 
 #endif /* OCTOPUS_SERVICE_H_ */

@@ -44,7 +44,7 @@
 
 static uint64_t current_id = 1;
 
-static inline errval_t check_query_length(char* query) {
+static inline errval_t check_query_length(const char* query) {
     if (strlen(query) >= MAX_QUERY_LENGTH) {
         return OCT_ERR_QUERY_SIZE;
     }
@@ -213,7 +213,8 @@ static void get_reply(struct octopus_binding* b, struct oct_reply_state* drt)
     }
 }
 
-void get_handler(struct octopus_binding *b, char *query, octopus_trigger_t trigger)
+void get_handler(struct octopus_binding *b, const char *query,
+                 octopus_trigger_t trigger)
 {
     errval_t err = SYS_ERR_OK;
 
@@ -262,7 +263,8 @@ static void get_names_reply(struct octopus_binding* b,
     }
 }
 
-void get_names_handler(struct octopus_binding *b, char *query, octopus_trigger_t t)
+void get_names_handler(struct octopus_binding *b, const char *query,
+                       octopus_trigger_t t)
 {
     OCT_DEBUG(" get_names_handler: %s\n", query);
 
@@ -309,7 +311,7 @@ static void set_reply(struct octopus_binding* b, struct oct_reply_state* drs)
     }
 }
 
-void set_handler(struct octopus_binding *b, char *query, uint64_t mode,
+void set_handler(struct octopus_binding *b, const char *query, uint64_t mode,
         octopus_trigger_t trigger, bool get)
 {
     OCT_DEBUG(" set_handler: %s\n", query);
@@ -350,7 +352,7 @@ out:
 }
 
 static errval_t build_query_with_idcap(char **query_p, struct capref idcap,
-                                       char *attributes)
+                                       const char *attributes)
 {
     errval_t err;
     idcap_id_t id = 0;
@@ -460,7 +462,7 @@ static void set_with_idcap_reply(struct octopus_binding *b,
 }
 
 void set_with_idcap_handler(struct octopus_binding *b, struct capref idcap,
-                            char *attributes, uint64_t mode,
+                            const char *attributes, uint64_t mode,
                             octopus_trigger_t trigger, bool get)
 {
     errval_t err;
@@ -518,7 +520,8 @@ static void del_reply(struct octopus_binding* b, struct oct_reply_state* drs)
     }
 }
 
-void del_handler(struct octopus_binding* b, char* query, octopus_trigger_t trigger)
+void del_handler(struct octopus_binding* b, const char* query,
+                 octopus_trigger_t trigger)
 {
     OCT_DEBUG(" del_handler: %s\n", query);
     errval_t err = SYS_ERR_OK;
@@ -570,7 +573,7 @@ static void exists_reply(struct octopus_binding* b, struct oct_reply_state* drs)
     }
 }
 
-void exists_handler(struct octopus_binding* b, char* query,
+void exists_handler(struct octopus_binding* b, const char* query,
         octopus_trigger_t trigger)
 {
     errval_t err = SYS_ERR_OK;
@@ -615,7 +618,7 @@ static void wait_for_reply(struct octopus_binding* b, struct oct_reply_state* dr
 }
 
 // XXX: For compatibility reasons with nameserver API
-void wait_for_handler(struct octopus_binding* b, char* query) {
+void wait_for_handler(struct octopus_binding* b, const char* query) {
     errval_t err = SYS_ERR_OK;
     errval_t set_watch_err = SYS_ERR_OK;
 
@@ -669,7 +672,7 @@ static void subscribe_reply(struct octopus_binding* b,
     }
 }
 
-void subscribe_handler(struct octopus_binding *b, char* query,
+void subscribe_handler(struct octopus_binding *b, const char* query,
         uint64_t trigger_fn, uint64_t state)
 {
     OCT_DEBUG("subscribe: query = %s\n", query);
@@ -790,7 +793,7 @@ static void publish_reply(struct octopus_binding* b, struct oct_reply_state* drs
     }
 }
 
-void publish_handler(struct octopus_binding *b, char* record)
+void publish_handler(struct octopus_binding *b, const char* record)
 {
     OCT_DEBUG("publish_handler query: %s\n", record);
     errval_t err = SYS_ERR_OK;
@@ -899,4 +902,3 @@ void identify_binding(struct octopus_binding* b, uint64_t id,
     drs->error = set_binding(type, id, b);
     drs->reply(b, drs);
 }
-

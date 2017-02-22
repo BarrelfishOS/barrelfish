@@ -33,7 +33,7 @@ struct wait_state
 };
 
 static void domain_wait_trigger_handler(octopus_mode_t mode,
-                                        char* record,
+                                        const char* record,
                                         void* state)
 {
     errval_t err;
@@ -196,4 +196,3 @@ errval_t domain_register(const char *iface,
 
     return err;
 }
-

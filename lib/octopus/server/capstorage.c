@@ -53,12 +53,12 @@ static void get_cap_reply(struct octopus_binding *b,
     }
 }
 
-void get_cap_handler(struct octopus_binding *b, char *key)
+void get_cap_handler(struct octopus_binding *b, const char *key)
 {
     errval_t err, reterr = SYS_ERR_OK;
     struct capref cap;
 
-    capdb->d.get_capability(&capdb->d, key, &cap);
+    capdb->d.get_capability(&capdb->d, (CONST_CAST)key, &cap);
 
     if(capcmp(cap, NULL_CAP)) {
         reterr = OCT_ERR_CAP_NAME_UNKNOWN;
@@ -87,13 +87,13 @@ static void put_cap_reply(struct octopus_binding *b,
     }
 }
 
-void put_cap_handler(struct octopus_binding *b, char *key,
+void put_cap_handler(struct octopus_binding *b, const char *key,
                             struct capref cap)
 {
     errval_t err, reterr = SYS_ERR_OK;
     struct capref dbcap;
 
-    capdb->d.get_capability(&capdb->d, key, &dbcap);
+    capdb->d.get_capability(&capdb->d, (CONST_CAST)key, &dbcap);
     if(!capcmp(dbcap, NULL_CAP)) {
         reterr = OCT_ERR_CAP_OVERWRITE;
         err = cap_delete(cap);
@@ -101,7 +101,7 @@ void put_cap_handler(struct octopus_binding *b, char *key,
     } else {
         /* we need to make our own copy of the key */
         key = strdup(key);
-        int r = capdb->d.put_capability(&capdb->d, key, cap);
+        int r = capdb->d.put_capability(&capdb->d, (CONST_CAST)key, cap);
         assert(r == 0);
     }
 
@@ -127,12 +127,12 @@ static void remove_cap_reply(struct octopus_binding *b,
     }
 }
 
-void remove_cap_handler(struct octopus_binding *b, char *key)
+void remove_cap_handler(struct octopus_binding *b, const char *key)
 {
     errval_t err, reterr = SYS_ERR_OK;
 
     struct capref cap;
-    capdb->d.get_capability(&capdb->d, key, &cap);
+    capdb->d.get_capability(&capdb->d, (CONST_CAST)key, &cap);
     if(capcmp(cap, NULL_CAP)) {
         reterr = OCT_ERR_CAP_NAME_UNKNOWN;
     }

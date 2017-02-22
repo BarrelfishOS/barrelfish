@@ -35,8 +35,8 @@
 
 
 static void add_mapping(struct int_route_controller_binding *b,
-        char *label,
-        char *class,
+        const char *label,
+        const char *class,
         int_route_controller_int_message_t from,
         int_route_controller_int_message_t to) {
 

@@ -377,8 +377,8 @@ static void check_first_client_connected(struct term_server *server)
     server->first_client_connected = true;
 }
 
-static void in_characters_handler(struct terminal_binding *b, char *buffer,
-                                  size_t length)
+static void in_characters_handler(struct terminal_binding *b,
+                                  const char *buffer, size_t length)
 {
     struct term_server *server = b->st;
 
@@ -386,7 +386,7 @@ static void in_characters_handler(struct terminal_binding *b, char *buffer,
      * Characters arrived at the interface for incoming characters, call
      * user supplied chars_cb.
      */
-    server->chars_cb(server->st, buffer, length);
+    server->chars_cb(server->st, (CONST_CAST)buffer, length);
 }
 
 static errval_t in_connect_cb(void *st, struct terminal_binding *b)
@@ -407,8 +407,8 @@ static errval_t in_connect_cb(void *st, struct terminal_binding *b)
     return SYS_ERR_OK;
 }
 
-static void out_characters_handler(struct terminal_binding *b, char *buffer,
-                                   size_t length)
+static void out_characters_handler(struct terminal_binding *b,
+                                   const char *buffer, size_t length)
 {
     struct term_server *server = b->st;
 
@@ -449,12 +449,12 @@ static void conf_disconnect_handler(struct terminal_config_binding *b)
 
 static void conf_configuration_handler(struct terminal_config_binding *b,
                                        terminal_config_option_t opt,
-                                       char *arguments)
+                                       const char *arguments)
 {
     struct term_server *server = b->st;
 
     /* If a configuration messages arrives, call user supplied conf_cb. */
-    server->conf_cb(server->st, opt, arguments);
+    server->conf_cb(server->st, opt, (CONST_CAST)arguments);
 }
 
 static errval_t conf_connect_cb(void *st, struct terminal_config_binding *b)
