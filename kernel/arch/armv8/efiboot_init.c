@@ -156,6 +156,10 @@ efiboot_init(uint32_t magic, void *pointer, void *stack) {
          * within the kernel window).  That's * fine, as we'll never return to
          * this context. */
         sysreg_write_sp_el1((uint64_t)stack + KERNEL_OFFSET);
+
+        /* disable traps to EL2 for timer accesses */
+        uint32_t cnthctl = sysreg_read_cnthctl_el2();
+        sysreg_write_cnthctl_el2(cnthctl | 0x3);
     }
 
     if (el == 3) {
