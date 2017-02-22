@@ -714,6 +714,9 @@ void arm_kernel_startup(void)
     /* Used when bringing up other cores, must be at consistent global address
      * seen by all cores */
 
+    // Initialize system timers
+    timers_init(config_timeslice);
+
     /*
      * XXX:
      */
@@ -757,11 +760,10 @@ void arm_kernel_startup(void)
         gic_ack_irq(irq);
     }
 
+
     // enable interrupt forwarding to cpu
     platform_gic_cpu_interface_enable();
 
-    // Initialize system timers
-    timers_init(config_timeslice);
 
     MSG("Calling dispatch from arm_kernel_startup, entry point %#"PRIxLVADDR"\n",
             get_dispatcher_shared_aarch64(init_dcb->disp)->disabled_save_area.named.pc);
