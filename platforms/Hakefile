@@ -490,6 +490,15 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     )
     "The APM XGene development board (Mustang)",
 
+    platform "ThunderX" [ "armv8" ]
+    ([ ("armv8", "/sbin/cpu_cn88xx") ]
+       ++
+       [ ("armv8", f) | f <- armv8_modules ]
+       ++
+       [ ("",       f) | f <- modules_generic]
+    )
+    "Cavium ThunderX-1 (CN88xx) boards",
+
     platform "PandaboardES" [ "armv7" ]
     ([ ("armv7", f) | f <- pandaModules ] ++
      [ ("root", "/armv7_omap44xx_image"),
