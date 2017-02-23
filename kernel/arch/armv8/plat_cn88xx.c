@@ -129,7 +129,7 @@ void platform_print_id(void)
 void platform_get_info(struct platform_info *pi)
 {
     pi->arch = PI_ARCH_ARMV8A;
-    pi->platform = PI_PLATFORM_FVP;
+    pi->platform = PI_PLATFORM_CN88XX;
 }
 
 void armv8_get_info(struct arch_info_armv8 *ai)
