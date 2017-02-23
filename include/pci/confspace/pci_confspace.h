@@ -24,8 +24,12 @@
 // XXX: this enum defines region types that must not overlap
 // with the KPI-defined enum region_type.
 enum user_region_type {
+    /* X86 */
     RegionType_LocalAPIC = RegionType_Max,  ///< local APIC start address
-    RegionType_IOAPIC                       ///< I/O APIC start address
+    RegionType_IOAPIC,                      ///< I/O APIC start address
+    /* ARMv8 */
+    RegionType_GIC,                         ///< GIC Start Address
+    RegionType_GIC_DIST
 };
 
 struct pci_address {
