@@ -614,8 +614,20 @@ errval_t mm_add_multi(struct mm *mm, struct capref cap, gensize_t size, genpaddr
         struct capref temp;
         err = mm->slot_alloc(mm->slot_alloc_inst, 1, &temp);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Allocating slot");
-            return err_push(err, MM_ERR_SLOT_NOSLOTS);
+            if (mm->slot_refill == NULL) {
+                return err_push(err, MM_ERR_SLOT_NOSLOTS);
+            }
+
+            err = mm->slot_refill(mm->slot_alloc_inst);
+            if (err_is_fail(err)) {
+                return err_push(err, MM_ERR_SLOT_NOSLOTS);
+            }
+
+            err = mm->slot_alloc(mm->slot_alloc_inst, 1, &temp);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "Allocating slot");
+                return err_push(err, MM_ERR_SLOT_NOSLOTS);
+            }
         }
 
         err = cap_retype(temp, cap, offset, mm->objtype, blockbytes, 1);
