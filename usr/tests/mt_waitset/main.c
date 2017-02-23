@@ -154,7 +154,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     }
 }
 
-static errval_t server_rpc_method_call(struct mt_waitset_binding *b, uint64_t i1, uint8_t *s, size_t ss, uint32_t i2, uint64_t *o1, uint8_t *r, size_t *rs, uint32_t *o2)
+static errval_t server_rpc_method_call(struct mt_waitset_binding *b, uint64_t i1, const uint8_t *s, size_t ss, uint32_t i2, uint64_t *o1, uint8_t *r, size_t *rs, uint32_t *o2)
 {
     int i, j, k, me;
     static int count = 0;
