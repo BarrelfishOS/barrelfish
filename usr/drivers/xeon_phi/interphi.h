@@ -170,7 +170,7 @@ errval_t interphi_chan_open(struct xnode *node,
  *          errval on error
  */
 errval_t interphi_domain_register(struct xnode *node,
-                                  char *name,
+                                  const char *name,
                                   xphi_dom_id_t domid);
 
 /**
