@@ -85,6 +85,11 @@ static errval_t apm88xxxx_startup(void)
     return armv8_startup_common();
 }
 
+static errval_t cn88xx_startup(void)
+{
+    return armv8_startup_common();
+}
+
 errval_t arch_startup(char * add_device_db_file)
 {
     errval_t err = SYS_ERR_OK;
@@ -104,6 +109,9 @@ errval_t arch_startup(char * add_device_db_file)
     case PI_PLATFORM_APM88XXXX:
         debug_printf("Kaluga running on APM88xxxx\n");
         return apm88xxxx_startup();
+    case PI_PLATFORM_CN88XX:
+        debug_printf("Kaluga running on CN88xx\n");
+        return cn88xx_startup();
     }
 
     return KALUGA_ERR_UNKNOWN_PLATFORM;
