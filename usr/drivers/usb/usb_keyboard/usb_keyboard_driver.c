@@ -620,7 +620,7 @@ static void usb_keyboard_process_data(void)
  * \param   length  number of bytes in the data buffer
  *
  */
-static void usb_keyboard_transfer_cb(usb_error_t err, void *data_in,
+static void usb_keyboard_transfer_cb(usb_error_t err, const void *data_in,
         uint32_t length)
 {
     //USB_DEBUG("usb_keyboard_transfer_cb() %u\n", length);

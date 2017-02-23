@@ -388,7 +388,7 @@ static void usb_tx_request_read_response(void *a)
  *
  */
 void usb_rx_request_read_call(struct usb_manager_binding *binding,
-        uint8_t *request, size_t req_length)
+        const uint8_t *request, size_t req_length)
 {
     USB_DEBUG_TR_ENTER;
 
@@ -447,7 +447,8 @@ static void usb_tx_request_write_response(void *a)
 }
 
 void usb_rx_request_write_call(struct usb_manager_binding *binding,
-        uint8_t *request, size_t req_length, uint8_t *data, size_t data_length)
+        const uint8_t *request, size_t req_length, const uint8_t *data,
+        size_t data_length)
 {
     USB_DEBUG_TR_ENTER;
 
@@ -524,8 +525,8 @@ static void usb_tx_request_response(void *a)
     USB_TX_REQUEST_ERR(usb_tx_request_response);
 }
 
-void usb_rx_request_call(struct usb_manager_binding *binding, uint8_t *request,
-        size_t req_length)
+void usb_rx_request_call(struct usb_manager_binding *binding,
+        const uint8_t *request, size_t req_length)
 {
     USB_DEBUG_TR_ENTER;
 

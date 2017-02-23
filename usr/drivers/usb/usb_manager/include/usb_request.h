@@ -29,11 +29,12 @@ struct usb_request_state {
  * Flounder Callback Functions
  */
 void usb_rx_request_read_call(struct usb_manager_binding *_binding,
-        uint8_t *request, size_t req_length);
+        const uint8_t *request, size_t req_length);
 void usb_rx_request_write_call(struct usb_manager_binding *_binding,
-        uint8_t *request, size_t req_length, uint8_t *data, size_t data_length);
-void usb_rx_request_call(struct usb_manager_binding *_binding, uint8_t *request,
-        size_t req_length);
+        const uint8_t *request, size_t req_length, const uint8_t *data,
+        size_t data_length);
+void usb_rx_request_call(struct usb_manager_binding *_binding,
+        const uint8_t *request, size_t req_length);
 
 /*
  * Handle the requests

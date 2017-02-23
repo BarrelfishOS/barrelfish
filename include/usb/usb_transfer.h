@@ -16,7 +16,7 @@
 typedef uint32_t usb_xfer_id_t;
 
 /// callback function for completed transfers
-typedef void (usb_transfer_cb_t)(usb_error_t err, void *data,
+typedef void (usb_transfer_cb_t)(usb_error_t err, const void *data,
         uint32_t data_length);
 
 // the USB control endpoint

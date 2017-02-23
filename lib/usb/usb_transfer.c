@@ -119,7 +119,7 @@ static struct usb_xfer_state *usb_xfer_get_state(usb_xfer_id_t tid)
  *        when an USB transfer is completed.
  */
 void usb_driver_rx_done_notify(struct usb_driver_binding *b,
-        uint32_t tid, uint32_t error, uint8_t *data, size_t length)
+        uint32_t tid, uint32_t error, const uint8_t *data, size_t length)
 {
 
     struct usb_xfer_state *st = usb_xfer_get_state(tid);
