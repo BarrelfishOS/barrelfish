@@ -19,7 +19,7 @@
 
 #define HW_PROCESSOR_ARMV8_FIELDS "{ " HW_PROCESSOR_GENERIC_FIELDS ", " \
                                       "cpu_interface_number: %d, " \
-                                      "uid: %x, " \
+                                      "uid: %" PRIu32 ", " \
                                       "mailbox: %" PRIu64 ", " \
                                       "parkingversion: %d, " \
                                       "mpdir: %" PRIu64 " }"
