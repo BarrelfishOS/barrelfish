@@ -1,10 +1,11 @@
 /**
- * \file
- * \brief PCI
+ * \file acpi_generic.c
+ * \brief 
  */
 
+
 /*
- * Copyright (c) 2007, 2008, 2009, 2011, 2016 ETH Zurich.
+ * Copyright (c) 2017 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -12,38 +13,40 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+// Memory allocator instance for physical address regions and platform memory
+
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/capabilities.h>
-#include <barrelfish/nameservice_client.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <mm/mm.h>
 #include <if/monitor_blocking_rpcclient_defs.h>
 
-#include <octopus/octopus.h>
+#include <mm/mm.h>
+
 #include <skb/skb.h>
 
 #include "acpi_debug.h"
 #include "acpi_shared.h"
+#include "acpi_allocators.h"
 
-uintptr_t my_hw_id;
 
-// Memory allocator instance for physical address regions and platform memory
 struct mm pci_mm_physaddr;
 
-// BIOS Copy
 struct capref physical_caps;
 struct capref my_devframes_cnode;
 
 // XXX should be from offests
 #define PADDR_SPACE_SIZE_BITS   48
+#define MAXCHILDBITS    4               ///< Max branching of BTree nodes
 
-static errval_t init_allocators(void)
+errval_t acpi_allocators_init(void)
 {
     errval_t err, msgerr;
 
+    ACPI_DEBUG("acpi: initializing allocators\n");
+
     struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
     assert(cl != NULL);
+
+    ACPI_DEBUG("acpi: obtaining boot info...\n");
 
     // Get the bootinfo and map it in.
     struct capref bootinfo_frame;
@@ -54,6 +57,7 @@ static errval_t init_allocators(void)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "slot_alloc for monitor->get_bootinfo");
     }
+
     msgerr = cl->vtbl.get_bootinfo(cl, &err, &bootinfo_frame, &bootinfo_size);
     if (err_is_fail(msgerr) || err_is_fail(err)) {
         USER_PANIC_ERR(err_is_fail(msgerr) ? msgerr : err, "failed in get_bootinfo");
@@ -61,7 +65,16 @@ static errval_t init_allocators(void)
 
     err = vspace_map_one_frame((void**)&bootinfo, bootinfo_size, bootinfo_frame,
                                NULL, NULL);
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "mapping of bootinfo frame failed\n");
+        return err;
+    }
+
+    ACPI_DEBUG("acpi: boot info mapped [%p..%p]\n", bootinfo,
+                bootinfo + bootinfo_size);
+
+
+    ACPI_DEBUG("acpi: setup slot allocator with %" PRIu64 " slots\n", L2_CNODE_SLOTS);
 
     /* Initialize the memory allocator to handle PhysAddr caps */
     static struct range_slot_allocator devframes_allocator;
@@ -70,34 +83,46 @@ static errval_t init_allocators(void)
         return err_push(err, LIB_ERR_SLOT_ALLOC_INIT);
     }
 
-    /* This next parameter is important. It specifies the maximum
-     * amount that a cap may be "chunked" (i.e. broken up) at each
-     * level in the allocator. Setting it higher than 1 reduces the
-     * memory overhead of keeping all the intermediate caps around,
-     * but leads to problems if you chunk up a cap too small to be
-     * able to allocate a large subregion. This caused problems
-     * for me with a large framebuffer... -AB 20110810 */
-    err = mm_init(&pci_mm_physaddr, ObjType_DevFrame, 0, PADDR_SPACE_SIZE_BITS,
-                  1, slab_default_refill, slot_alloc_dynamic,
+    err = range_slot_alloc_refill(&devframes_allocator, L2_CNODE_SLOTS);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC_INIT);
+    }
+    ACPI_DEBUG("acpi: setup memory manager for physaddr region\n");
+
+    err = mm_init(&pci_mm_physaddr, ObjType_DevFrame, 0, 48,
+                  /* This next parameter is important. It specifies the maximum
+                   * amount that a cap may be "chunked" (i.e. broken up) at each
+                   * level in the allocator. Setting it higher than 1 reduces the
+                   * memory overhead of keeping all the intermediate caps around,
+                   * but leads to problems if you chunk up a cap too small to be
+                   * able to allocate a large subregion. This caused problems
+                   * for me with a large framebuffer... -AB 20110810 */
+                  1, /*was DEFAULT_CNODE_BITS,*/
+                  slab_default_refill, slot_alloc_dynamic,
                   slot_refill_dynamic, &devframes_allocator, false);
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }
 
+
+    ACPI_DEBUG("acpi: REFILL=%p %p\n", slot_refill_dynamic, pci_mm_physaddr.slot_refill);
+
+    struct capref requested_caps;
+
+
     // XXX: The code below is confused about gen/l/paddrs.
     // Caps should be managed in genpaddr, while the bus mgmt must be in lpaddr.
 
+    ACPI_DEBUG("acpi: obtaining CNODE containing physaddr caps\n");
+
     // Here we get a cnode cap, so we need to put it somewhere in the root cnode
     // As we already have a reserved slot for a phyaddr caps cnode, we put it there
-
-    errval_t error_code;
-    struct capref requested_caps;
     err = slot_alloc(&requested_caps);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "slot_alloc for monitor->get_phyaddr_cap");
     }
-    err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &error_code);
-    assert(err_is_ok(err) && err_is_ok(error_code));
+    err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &msgerr);
+    assert(err_is_ok(err) && err_is_ok(msgerr));
     physical_caps = requested_caps;
 
     struct capref pacn = {
@@ -113,6 +138,8 @@ static errval_t init_allocators(void)
     phys_cap.cnode = build_cnoderef(pacn, CNODE_TYPE_OTHER);
     phys_cap.slot = 0;
 
+    ACPI_DEBUG("acpi: creating L2 cnode for device caps\n");
+
     struct cnoderef devcnode;
     err = cnode_create_l2(&my_devframes_cnode, &devcnode);
     if (err_is_fail(err)) { USER_PANIC_ERR(err, "cnode create"); }
@@ -125,14 +152,23 @@ static errval_t init_allocators(void)
                 bootinfo->regions_length, L2_CNODE_SLOTS);
     }
 
+    ACPI_DEBUG("acpi: walking boot info to obtain the device regions\n");
+
     for (int i = 0; i < bootinfo->regions_length; i++) {
         struct mem_region *mrp = &bootinfo->regions[i];
+
         if (mrp->mr_type == RegionType_Module) {
+//            ACPI_DEBUG("acpi: region[%u] base=0x%" PRIxGENPADDR ", size=%zu, type=%u\n",
+//                               i, mrp->mr_base, mrp->mrmod_size, mrp->mr_type);
+
             skb_add_fact("memory_region(16'%" PRIxGENPADDR ",%u,%zu,%u,%tu).",
                          mrp->mr_base, 0, mrp->mrmod_size, mrp->mr_type,
                          mrp->mrmod_data);
         }
         else {
+        //    ACPI_DEBUG("acpi: region[%u] base=0x%" PRIxGENPADDR ", size=%zu, type=%u\n",
+        //                       i, mrp->mr_base, mrp->mr_bytes, mrp->mr_type);
+
             skb_add_fact("memory_region(16'%" PRIxGENPADDR ",%u,%zu,%u,%tu).",
                         mrp->mr_base, 0, mrp->mr_bytes, mrp->mr_type,
                         mrp->mrmod_data);
@@ -162,87 +198,7 @@ static errval_t init_allocators(void)
             devframe.slot++;
             phys_cap.slot++;
         }
-
-        if (mrp->mr_type == RegionType_ACPI_TABLE) {
-            debug_printf("FOUND ACPI TABLE: %lx\n", mrp->mr_base);
-            AcpiOsSetRootPointer(mrp->mr_base);
-        }
-
     }
 
-    return SYS_ERR_OK;
-}
-
-static errval_t setup_skb_info(void)
-{
-    skb_execute("[pci_queries].");
-    errval_t err = skb_read_error_code();
-    if (err_is_fail(err)) {
-        ACPI_DEBUG("\npcimain.c: Could not load pci_queries.pl.\n"
-               "SKB returned: %s\nSKB error: %s\n",
-                skb_get_output(), skb_get_error_output());
-        return err;
-    }
-
-    skb_add_fact("mem_region_type(%d,ram).", RegionType_Empty);
-    skb_add_fact("mem_region_type(%d,roottask).", RegionType_RootTask);
-    skb_add_fact("mem_region_type(%d,phyaddr).", RegionType_PhyAddr);
-    skb_add_fact("mem_region_type(%d,multiboot_module).", RegionType_Module);
-    skb_add_fact("mem_region_type(%d,platform_data).", RegionType_PlatformData);
-    skb_add_fact("mem_region_type(%d,apic).", RegionType_LocalAPIC);
-    skb_add_fact("mem_region_type(%d,ioapic).", RegionType_IOAPIC);
-
-    return err;
-}
-
-int main(int argc, char *argv[])
-{
-    errval_t err;
-
-    // Parse CMD Arguments
-    bool got_apic_id = false;
-    for (int i = 1; i < argc; i++) {
-        if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_hw_id) == 1) {
-            got_apic_id = true;
-        } else {
-            debug_printf("unkown argument: '%s'\n", argv[i]);
-        }
-    }
-
-    if(got_apic_id == false) {
-        fprintf(stderr, "Usage: %s APIC_ID\n", argv[0]);
-        fprintf(stderr, "Wrong monitor version?\n");
-        return EXIT_FAILURE;
-    }
-
-    err = oct_init();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Initialize dist");
-    }
-
-    //connect to the SKB
-    ACPI_DEBUG("acpi: connecting to the SKB...\n");
-    err = skb_client_connect();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Connecting to SKB failed.");
-    }
-
-    skb_execute("[pci_queries].");
-
-    err = setup_skb_info();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Populating SKB failed.");
-    }
-
-    err = init_allocators();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Init memory allocator");
-    }
-
-    int r = init_acpi();
-    assert(r == 0);
-
-   start_service();
-
-    messages_handler_loop();
+    return acpi_allocators_init_arch(bootinfo);
 }

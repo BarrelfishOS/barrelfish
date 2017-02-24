@@ -254,3 +254,9 @@ errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector)
     USER_PANIC("NYI!");
     return SYS_ERR_OK;
 }
+
+
+errval_t acpi_interrupts_arch_setup(void)
+{
+    return SYS_ERR_OK;
+}

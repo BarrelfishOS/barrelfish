@@ -88,7 +88,7 @@ static ACPI_STATUS walk_video_device(ACPI_HANDLE handle, UINT32 level,
 }
 
 // XXX: enable video output switching
-void video_init(void)
+void acpi_arch_video_init(void)
 {
     ACPI_STATUS as;
 

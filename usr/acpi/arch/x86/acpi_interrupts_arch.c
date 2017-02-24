@@ -28,6 +28,8 @@
 #include "ioapic.h"
 #include "acpi_debug.h"
 #include "acpi_shared.h"
+#include "pcilnk_controller_client.h"
+#include "ioapic_controller_client.h"
 
 //from documentation
 #define APIC_BITS 11
@@ -461,6 +463,45 @@ errval_t enable_and_route_interrupt(int gsi, coreid_t dest, int vector)
 
     /* enable */
     ioapic_toggle_inti(i, inti, true);
+
+    return SYS_ERR_OK;
+}
+
+
+static errval_t setup_skb_irq_controllers(void){
+    errval_t err;
+    // Execute add x86 controllers
+    skb_execute("add_x86_controllers.");
+    err = skb_read_error_code();
+    if (err_is_fail(err)) {
+        debug_printf("Failure executing add_irq_controllers\n"
+               "SKB returned: %s\nSKB error: %s\n",
+                skb_get_output(), skb_get_error_output());
+        return err;
+    } else {
+        ACPI_DEBUG("Add x86 controllers successful.\n");
+    }
+    return SYS_ERR_OK;
+}
+
+errval_t acpi_interrupts_arch_setup(void)
+{
+    errval_t err;
+
+    err = setup_skb_irq_controllers();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "setup skb irq controllers");
+    }
+
+    err = pcilnk_controller_client_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "int controller client init");
+    }
+
+    err = ioapic_controller_client_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "ioapic controller client init");
+    }
 
     return SYS_ERR_OK;
 }

@@ -52,4 +52,11 @@ void
 AcpiOsSetRootPointer (
     ACPI_PHYSICAL_ADDRESS physaddr);
 
+
+errval_t acpi_arch_copy_bios_mem(void);
+errval_t acpi_arch_load_irq_routing_new(void);
+void acpi_arch_video_init(void);
+errval_t acpi_arch_skb_set_info(void);
+errval_t acpi_interrupts_arch_setup(void);
+
 #endif /* ACPI_SHARED_H_ */
