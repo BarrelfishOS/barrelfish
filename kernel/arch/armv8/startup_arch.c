@@ -255,8 +255,6 @@ void create_module_caps(struct spawn_state *st)
         struct mem_region *region =
               &bootinfo->regions[bootinfo->regions_length++];
 
-        memcpy(&region->mr_base, acpi_old->rsdp, sizeof(region->mr_base));
-
         region->mr_base = mem_to_local_phys((lvaddr_t)acpi_old->rsdp);
         region->mr_type = RegionType_ACPI_TABLE;
 
