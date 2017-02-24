@@ -224,7 +224,8 @@ class Machine(object):
 
         # armv8
         if a == "armv8" :
-            m.add_module("acpi", ["boot"])
+            # disabling ACPI until it works properly...
+            # m.add_module("acpi", ["boot"])
             # We don't support multiple CPUs on ARMv8 yet...
             m.add_module("kaluga", ["boot", "cpu_count=1"])
 
