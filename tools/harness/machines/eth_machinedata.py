@@ -405,7 +405,7 @@ machines = dict({
                     'boot_timeout': 360,
                     'platform': 'cn88xx',
                     'serial_binary': 'serial_kernel'},
-    'gorgonzola1': {'ncores'      : 48,
+    'gorgonzola2': {'ncores'      : 48,
                     'machine_name' : 'gorgonzola1',
                     'bootarch' : 'armv8',
                     'buildarchs' : ['armv8'],
