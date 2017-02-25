@@ -523,6 +523,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/arm/menu.lst." ++ p)
             | p <- [ "armv8_a57v",
+                     "armv8_a57v_1",
+                     "armv8_apm88xxxx",
+                     "armv8_cn88xx",
                      "armv7_a9ve_1",
                      "armv7_a9ve_4",
                      "armv7_a15ve_1",
