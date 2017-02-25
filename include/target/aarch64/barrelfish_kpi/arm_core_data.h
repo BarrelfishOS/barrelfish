@@ -16,6 +16,14 @@
 #ifndef _AARCH64_COREDATA_H
 #define _AARCH64_COREDATA_H
 
+
+struct armv8_coredata_elf {
+    uint32_t    num;
+    uint32_t    size;
+    uint32_t    addr;
+    uint32_t    shndx;
+};
+
 /**
  * \brief Data sent to a newly booted kernel
  *
@@ -47,8 +55,10 @@ struct armv8_core_data {
     uint32_t    chan_id;
 
     genpaddr_t kcb; ///< The kernel control block
+
+    struct armv8_coredata_elf elf;
 }; //__attribute__ ((packed));
 
-#define ARM_CORE_DATA_PAGES 	1100
+#define ARMV8_CORE_DATA_PAGES 1100
 
 #endif

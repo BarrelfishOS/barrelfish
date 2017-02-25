@@ -17,7 +17,9 @@
 #include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish_kpi/platform.h>
 #include <barrelfish/syscall_arch.h>
-#include <target/arm/barrelfish_kpi/arm_core_data.h>
+#include <target/aarch64/barrelfish_kpi/arm_core_data.h>
+
+#include <barrelfish/deferred.h>
 
 #include <hw_records_arch.h>
 
@@ -27,6 +29,11 @@
 #include "../../coreboot.h"
 
 #define ARMV8_MONITOR_NAME "/" BF_BINARY_PREFIX "armv8/sbin/monitor"
+
+volatile uint64_t *ap_dispatch;
+extern coreid_t my_arch_id;
+extern struct capref ipi_cap;
+extern uint64_t end;
 
 
 errval_t get_architecture_config(enum cpu_type type,
@@ -65,6 +72,12 @@ errval_t get_architecture_config(enum cpu_type type,
 
     return SYS_ERR_OK;
 }
+
+static int start_aps_armv8_start(uint8_t core_id, genvaddr_t entry)
+{
+    return 1;
+}
+
 
 
 errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, 
@@ -119,6 +132,152 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
             DEBUG_ERR(err, "Can not lookup module");
             return err;
         }
+    }
+
+    struct capref cpu_memory_cap;
+    struct frame_identity frameid;
+
+    lvaddr_t cpu_memory = elf_virtual_size(cpu_binary) + arch_page_size;
+
+    err =  frame_alloc_identify(&cpu_memory_cap, cpu_memory, &cpu_memory, &frameid);
+    if (err_is_fail(err)) {
+        /* XXX: clean up the modules */
+        DEBUG_ERR(err, "Can not allocate space for new app kernel.");
+        return err;
+    }
+
+    err = cap_mark_remote(cpu_memory_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not mark cap remote.");
+        return err;
+    }
+
+    void *cpu_buf_memory;
+    err = vspace_map_one_frame(&cpu_buf_memory, cpu_memory, cpu_memory_cap,
+                               NULL, NULL);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_VSPACE_MAP);
+    }
+
+    /* Chunk of memory to load monitor on the app core */
+    struct capref spawn_memory_cap;
+    struct frame_identity spawn_memory_identity;
+
+    err = frame_alloc_identify(&spawn_memory_cap,
+                               ARMV8_CORE_DATA_PAGES * arch_page_size,
+                               NULL, &spawn_memory_identity);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_FRAME_ALLOC);
+    }
+
+    err = cap_mark_remote(spawn_memory_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not mark cap remote.");
+        return err;
+    }
+
+    struct elf_allocate_state state;
+    state.vbase = (char *)cpu_buf_memory + arch_page_size;
+    assert(sizeof(struct armv8_core_data) <= arch_page_size);
+    state.elfbase = elf_virtual_base(cpu_binary);
+
+    struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *)cpu_binary;
+    genvaddr_t cpu_entry;
+
+    err = elf_load(cpu_head->e_machine, elfload_allocate, &state,
+                   cpu_binary, cpu_binary_size, &cpu_entry);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    struct Elf64_Shdr *rela, *symtab, *symhead =
+        (struct Elf64_Shdr *)(cpu_binary + (uintptr_t)cpu_head->e_shoff);
+
+    assert(cpu_head->e_shoff != 0);
+    rela = elf64_find_section_header_type(symhead, cpu_head->e_shnum, SHT_RELA);
+    assert(rela != NULL);
+    symtab = elf64_find_section_header_type(symhead, cpu_head->e_shnum, SHT_DYNSYM);
+    assert(symtab != NULL);
+    elf64_relocate(frameid.base + arch_page_size, state.elfbase,
+                   (struct Elf64_Rela *)(uintptr_t)(cpu_binary + rela->sh_offset),
+                   rela->sh_size,
+                   (struct Elf64_Sym *)(uintptr_t)(cpu_binary + symtab->sh_offset),
+                   symtab->sh_size,
+                   state.elfbase, state.vbase);
+
+
+    genvaddr_t cpu_reloc_entry = cpu_entry - state.elfbase
+                                 + frameid.base + arch_page_size;
+
+    /* Compute entry point in the foreign address space */
+    forvaddr_t foreign_cpu_reloc_entry = (forvaddr_t)cpu_reloc_entry;
+
+    /* Setup the core_data struct in the new kernel */
+    struct armv8_core_data *core_data = (struct armv8_core_data *)cpu_buf_memory;
+    switch (cpu_head->e_machine) {
+    case EM_AARCH64:
+        core_data->elf.size = sizeof(struct Elf64_Shdr);
+        core_data->elf.addr = cpu_binary_phys + (uintptr_t)cpu_head->e_shoff;
+        core_data->elf.num  = cpu_head->e_shnum;
+        break;
+    default:
+        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
+    }
+    core_data->module_start = cpu_binary_phys;
+    core_data->module_end   = cpu_binary_phys + cpu_binary_size;
+    core_data->urpc_frame_base = urpc_frame_id.base;
+    assert((1UL << log2ceil(urpc_frame_id.bytes)) == urpc_frame_id.bytes);
+    core_data->urpc_frame_bits = log2ceil(urpc_frame_id.bytes);
+    core_data->monitor_binary   = monitor_binary_phys;
+    core_data->monitor_binary_size = monitor_binary_size;
+    core_data->memory_base_start = spawn_memory_identity.base;
+    assert((1UL << log2ceil(spawn_memory_identity.bytes)) == spawn_memory_identity.bytes);
+    core_data->memory_bits       = log2ceil(spawn_memory_identity.bytes);
+    core_data->src_core_id       = disp_get_core_id();
+    core_data->src_arch_id       = my_arch_id;
+    core_data->dst_core_id       = coreid;
+
+
+    struct frame_identity fid;
+    err = invoke_frame_identify(kcb, &fid);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Invoke frame identity for KCB failed. "
+                            "Did you add the syscall handler for that architecture?");
+    }
+    DEBUG("%s:%s:%d: fid.base is 0x%"PRIxGENPADDR"\n",
+           __FILE__, __FUNCTION__, __LINE__, fid.base);
+    core_data->kcb = (genpaddr_t) fid.base;
+#ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
+    core_data->chan_id           = chanid;
+#endif
+
+    if (cmdline != NULL) {
+        // copy as much of command line as will fit
+        snprintf(core_data->kernel_cmdline, sizeof(core_data->kernel_cmdline),
+                "%s %s", cpuname, cmdline);
+        // ensure termination
+        core_data->kernel_cmdline[sizeof(core_data->kernel_cmdline) - 1] = '\0';
+
+        DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->kernel_cmdline);
+    }
+
+
+    /* Invoke kernel capability to boot new core */
+    start_aps_armv8_start(hwid, foreign_cpu_reloc_entry);
+
+
+    // XXX: Should not delete the remote caps?
+    err = cap_destroy(spawn_memory_cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cap_destroy failed");
+    }
+    err = vspace_unmap(cpu_buf_memory);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "vspace unmap CPU driver memory failed");
+    }
+    err = cap_destroy(cpu_memory_cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cap_destroy failed");
     }
 
     debug_printf("WARNING: spawn_xcore_monitor currently not implemented!");
