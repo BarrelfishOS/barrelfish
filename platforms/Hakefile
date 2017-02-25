@@ -333,7 +333,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "ramfsd",
                        "spawnd",
                        "startd",
-                    -- "corectrl",  removing core control for now, as this is not suppported
+                       "corectrl",
                        "skb",
                        "pci",
                        "memtest",
