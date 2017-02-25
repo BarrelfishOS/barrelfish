@@ -90,7 +90,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "xcorecap",
                         "xcorecapserv" ] ] ++ tests_x86
 
-    tests_x86_32 = tests_x86
 
     tests_k1om = [ "/sbin/" ++ f | f <- [
                         "tests/dma_test",
@@ -150,7 +149,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "shared_mem_clock_bench",
                         "tsc_bench" ]]
 
-    bench_x86_32 = bench_x86 ++ bin_rcce_bt ++ bin_rcce_lu
 
     bench_k1om = [ "/sbin/" ++ f | f <- [
                         "benchmarks/bomp_mm",
@@ -238,32 +236,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                                   "ssf_bcast",
                                   "lamport_bcast" ]]
 
-    -- x86-32-specific module to build by default
-    modules_x86_32  = [ "/sbin/" ++ f | f <- [
-                           "cpu",
-                           "lpc_kbd",
-                           "serial_pc16550d",
-                           "rcce_pingpong",
-                           "bench",
-                           "fbdemo",
-                           "fish",
-                           "fputest",
-                           "pci",
-                           "acpi",
-                           "kaluga",
-                           "slideshow",
-                           "thc_v_flounder_empty",
-                           "thcidctest",
-                           "thcminitest",
-                           "thctest",
-                           "vbe",
-                           "mem_serv_dist",
-                           "routing_setup",
-                           "multihoptest",
-                           "multihop_latency_bench",
-                           "angler",
-                           "sshd",
-                           "corectrl" ]] ++ bin_rcce_bt ++ bin_rcce_lu
 
     modules_k1om = [ "/sbin/" ++ f | f <- [
                         "weever",
@@ -437,24 +409,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        [ ("",       f) | f <- modules_generic])
       "64-bit x86 PC build with benchmarks and test suites",
 
-    platform "X86_32_Basic" [ "x86_32" ]
-      ([ ("x86_32", f) | f <- modules_x86_32 ]
-       ++
-       [ ("",       f) | f <- modules_generic])
-      "Basic 32-bit x86 PC build",
-
-    platform "X86_32_Benchmarks" [ "x86_32" ]
-      ([ ("x86_32", f) | f <- modules_x86_32 ++ bench_x86_32]
-       ++
-       [ ("",       f) | f <- modules_generic])
-      "32-bit x86 PC build with benchmarks",
-
-    platform "X86_32_Full" [ "x86_32" ]
-      ([ ("x86_32", f) | f <- modules_x86_32 ++ bench_x86_32 ++ tests_x86_32 ]
-       ++
-       [ ("",       f) | f <- modules_generic])
-      "32-bit x86 PC build with benchmarks and test suites",
-
     platform "K1OM_Basic" [ "k1om" ]
       ([ ("k1om", f) | f <- modules_k1om ]
        ++
@@ -610,7 +564,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "armv7_zynq7" ]],
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/x86/menu.lst." ++ p)
-            | p <- [ "x86_32", "x86_64", "k1om" ] ],
+            | p <- [ "x86_64", "k1om" ] ],
 
     -- Convenient functions for running GEM5
     boot "gem5_armv8" [ "armv8" ] [
