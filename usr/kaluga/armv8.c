@@ -88,17 +88,50 @@ static errval_t fvp_startup(void)
 
 static errval_t apm88xxxx_startup(void)
 {
+    errval_t err;
+
+    err = skb_execute_query("[plat_apm88xxxx].");
+    if(err_is_fail(err)){
+        USER_PANIC_SKB_ERR(err, "Additional device db file 'plat_apm88xxxx' not loaded.");
+    }
+
     return armv8_startup_common();
 }
 
 static errval_t cn88xx_startup(void)
 {
+    errval_t err;
+
+    err = skb_execute_query("[plat_cn88xx].");
+    if(err_is_fail(err)){
+        USER_PANIC_SKB_ERR(err, "Additional device db file 'plat_cn88xx' not loaded.");
+    }
+
     return armv8_startup_common();
 }
 
 errval_t arch_startup(char * add_device_db_file)
 {
-    errval_t err = SYS_ERR_OK;
+    errval_t err;
+
+    err = skb_client_connect();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Connect to SKB.");
+    }
+
+    // Make sure the driver db is loaded
+    err = skb_execute("[device_db].");
+    if (err_is_fail(err)) {
+        USER_PANIC_SKB_ERR(err, "Device DB not loaded.");
+    }
+
+    if (add_device_db_file) {
+        err = skb_execute_query("[%s].", add_device_db_file);
+        if(err_is_fail(err)){
+            USER_PANIC_SKB_ERR(err, "Additional device db file '%s' not loaded.",
+                               add_device_db_file);
+        }
+    }
 
     struct monitor_blocking_rpc_client *m = get_monitor_blocking_rpc_client();
     assert(m != NULL);
