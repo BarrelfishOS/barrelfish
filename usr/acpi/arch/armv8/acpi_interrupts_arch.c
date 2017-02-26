@@ -146,17 +146,25 @@ int init_all_interrupt_sources(void)
              *  Bits [7:0] Aff0 : Match Aff0 of target processor MPIDR
              */
 
-
+/*
             printf("Found GENERIC_INTERRUPT: BaseAddress=0x%016"
                        PRIx64
+                       ", ParkingVersion=0x%" PRIu32
                        ", ParkedAddress=0x%016" PRIx64
                        ", GicvBaseAddress=0x%016" PRIx64
                        ", GichBaseAddress=0x%016" PRIx64
                        ", GicrBaseAddress=0x%016" PRIx64
                        ", CpuInterfaceNumber=%" PRIu32 ", Uid=%" PRIu32
-                       ", ArmMpidr =%" PRIx64 "\n",
-                       gi->BaseAddress, gi->ParkedAddress, gi->GicvBaseAddress, gi->GichBaseAddress,
+                       ", ArmMpidr =%" PRIu64 "\n",
+                       gi->BaseAddress, gi->ParkingVersion, gi->ParkedAddress, gi->GicvBaseAddress, gi->GichBaseAddress,
                        gi->GicrBaseAddress, gi->CpuInterfaceNumber, gi->Uid, gi->ArmMpidr);
+
+            */
+            printf("Found GENERIC_INTERRUPT: CIFN=%" PRIu32 ", Uid=%" PRIu32", Mpidr =%" PRIu64 "\n",
+                        gi->CpuInterfaceNumber, gi->Uid, gi->ArmMpidr);
+            printf("Affinity: %lu : %lu : %lu \n", (gi->ArmMpidr >> 32) & 0xff, (gi->ArmMpidr >> 8) & 0xff, gi->ArmMpidr & 0xff);
+            printf("Parking: %u @ 0x%16lx\n", gi->ParkingVersion, gi->ParkedAddress);
+
 
             coreid_t barrelfish_id;
             if (my_hw_id == gi->Uid) {
@@ -172,10 +180,22 @@ int init_all_interrupt_sources(void)
                          gi->ParkedAddress, gi->CpuInterfaceNumber, gi->Uid);
 
             errval_t err = oct_set(HW_PROCESSOR_ARMV8_RECORD_FORMAT,
-                                   barrelfish_id, gi->Flags & ACPI_MADT_ENABLED,
-                                   barrelfish_id, gi->CpuInterfaceNumber, CURRENT_CPU_TYPE,
-                                   gi->CpuInterfaceNumber, gi->Uid,
-                                   gi->ParkedAddress, gi->ParkingVersion,
+                                   barrelfish_id,
+                                   gi->Flags & ACPI_MADT_ENABLED,
+                                   barrelfish_id,
+                                   gi->CpuInterfaceNumber,
+                                   CURRENT_CPU_TYPE,
+                                   gi->CpuInterfaceNumber,
+                                   gi->Uid,
+                                   gi->Flags,
+                                   gi->ParkingVersion,
+                                   gi->PerformanceInterrupt,
+                                   gi->ParkedAddress,
+                                   gi->BaseAddress,
+                                   gi->GicvBaseAddress,
+                                   gi->GichBaseAddress,
+                                   gi->VgicInterrupt,
+                                   gi->GicrBaseAddress,
                                    gi->ArmMpidr);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "failed to set record");
