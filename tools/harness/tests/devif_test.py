@@ -30,9 +30,10 @@ class DevifTests(TestCommon):
     def get_modules(self, build, machine):
         self.machine = machine.name
         modules = super(DevifTests, self).get_modules(build, machine)
+        modules.add_module("e10k", ["auto", "function=0"])
         modules.add_module("sfn5122f", ["auto", "function=0"])
         modules.add_module("devif_idc", ["core=1"])
-        modules.add_module(self.get_module_name(), ["core=0", self.OP])
+        modules.add_module(self.get_module_name(), ["core=2", self.OP, self.CARD])
 
         return modules
 
@@ -51,15 +52,18 @@ class DevifNetTxTest(DevifTests):
     ''' Devif Net TX Test'''
     name = "devif_net_tx_test"
     OP = "net_tx"
+    CARD = "e10k"
 
 @tests.add_test
 class DevifNetRxTest(DevifTests):
     ''' Devif Net RX Test'''
     name = "devif_net_rx_test"
     OP = "net_rx"
+    CARD = "e10k"
 
 @tests.add_test
 class DevifIdcTest(DevifTests):
     ''' Devif IDC Test'''
     name = "devif_idc_test"
     OP = "idc"
+
