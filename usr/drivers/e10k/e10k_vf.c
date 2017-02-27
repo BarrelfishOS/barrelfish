@@ -18,7 +18,8 @@
 #include <barrelfish/debug.h>
 #include <ipv4/lwip/inet.h>
 #include <if/e10k_defs.h>
-
+#include <skb/skb.h>
+#include <acpi_client/acpi_client.h>
 #ifdef VF
 #    include <if/e10k_vf_defs.h>
 #    include <if/e10k_vf_rpcclient_defs.h>
@@ -30,8 +31,8 @@
 
 #define E10K_PCI_DEVID 0x10ed
 
-//#define DEBUG(x...) printf("e10k_vf: " x)
-#define DEBUG(x...) do {} while (0)
+#define DEBUG(x...) printf("e10k_vf: " x)
+//#define DEBUG(x...) do {} while (0)
 
 #define QUEUE_INTRX 0
 #define QUEUE_INTTX 1
@@ -134,7 +135,7 @@ uint64_t d_mac;
 static int initialized = 0;
 static e10k_vf_t *d = NULL;
 static struct capref *regframe;
-static bool msix = true;
+static bool msix = false;
 
 // Management of MSI-X vectors
 static struct bmallocator msix_alloc;
@@ -301,7 +302,7 @@ static void device_init(void)
 static void queue_hw_init(uint8_t n)
 {
     errval_t r;
-    struct frame_identity frameid = { .base = 0, .bits = 0 };
+    struct frame_identity frameid = { .base = 0, .bytes = 0 };
     uint64_t tx_phys, txhwb_phys, rx_phys;
     size_t tx_size, rx_size;
 
@@ -309,12 +310,12 @@ static void queue_hw_init(uint8_t n)
     r = invoke_frame_identify(queues[n].tx_frame, &frameid);
     assert(err_is_ok(r));
     tx_phys = frameid.base;
-    tx_size = 1 << frameid.bits;
+    tx_size = frameid.bytes;
 
     r = invoke_frame_identify(queues[n].rx_frame, &frameid);
     assert(err_is_ok(r));
     rx_phys = frameid.base;
-    rx_size = 1 << frameid.bits;
+    rx_size = frameid.bytes;
 
 
     DEBUG("tx.phys=%"PRIx64" tx.size=%"PRIu64"\n", tx_phys, tx_size);
@@ -794,11 +795,10 @@ static void pci_register(void)
         inthandler = NULL;
     }
 
-    r = pci_register_driver_irq(pci_init_card, PCI_CLASS_ETHERNET,
+    r = pci_register_driver_noirq(pci_init_card, PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
                                 PCI_VENDOR_INTEL, E10K_PCI_DEVID,
-                                pci_bus, pci_device, pci_function,
-                                inthandler, NULL);
+                                pci_bus, pci_device, pci_function);
     assert(err_is_ok(r));
 }
 
@@ -912,6 +912,25 @@ int e1000n_driver_init(int argc, char *argv[])
 
     DEBUG("Connecting to PF driver...\n");
     e10k_vf_client_connect();
+
+
+    errval_t err = skb_client_connect();
+    assert(err_is_ok(err));
+
+    int vtd_coherency;
+    err = skb_execute_query("vtd_enabled(0,C), write(vtd_coherency(C)).");
+    if (err_is_ok(err)) {
+        err = skb_read_output("vtd_coherency(%d)", &vtd_coherency);
+        assert(err_is_ok(err));
+    }
+
+    err = connect_to_acpi();
+	assert(err_is_ok(err));
+	err = vtd_create_domain(cap_vroot);
+	assert(err_is_ok(err));
+    DEBUG("Connecting to PF driver...\n");
+	err = vtd_domain_add_device(0, 7, 16, 0, cap_vroot);
+	assert(err_is_ok(err));
 
     pci_register();
 

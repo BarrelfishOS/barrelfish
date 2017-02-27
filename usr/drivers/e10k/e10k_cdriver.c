@@ -29,7 +29,7 @@
 #include "sleep.h"
 #include "helper.h"
 
-#define VTON_DCBOFF
+//#define VTON_DCBOFF TODO use if VFs are enabled
 //#define DCA_ENABLED
 
 //#define DEBUG(x...) printf("e10k: " x)
@@ -149,7 +149,7 @@ static void idc_write_queue_tails(struct e10k_binding *b);
 static void stop_device(void);
 
 static void device_init(void);
-static void queue_hw_init(uint8_t n);
+static void queue_hw_init(uint8_t n, bool set_tail);
 //static void queue_hw_stop(uint8_t n);
 static void interrupt_handler_msix(void* arg);
 //static void interrupt_handler_msix_b(void* arg);
@@ -163,7 +163,7 @@ static const char *service_name = "e10k";
 static int initialized = 0;
 static e10k_t *d = NULL;
 static struct capref *regframe;
-static bool msix = true;
+static bool msix = false;
 
 /** Specifies if RX/TX is currently enabled on the device. */
 static bool rxtx_enabled = false;
@@ -187,6 +187,8 @@ static uint32_t pci_device = PCI_DONT_CARE;
 static uint32_t pci_function = 0;
 static uint32_t pci_deviceid = E10K_PCI_DEVID;
 
+/* VFs alloacation data*/
+static bool vf_used[63];
 
 static void e10k_flt_ftqf_setup(int idx, struct e10k_filter* filter)
 {
@@ -576,6 +578,7 @@ static void device_init(void)
         e10k_vfta_vlan_flt_wrf(d, i, 0);
     for (i = 0; i < 128; i++)
         e10k_pfvlvfb_wr(d, i, 0);
+
     for (i = 0; i < 64; i++) {
 #ifdef VTON_DCBOFF
         e10k_pfvlvf_vi_en_wrf(d, i, 1);
@@ -668,22 +671,24 @@ static void device_init(void)
 
     e10k_mrqc_mrque_wrf(d, e10k_vrt_only);
     e10k_mtqc_rt_en_wrf(d, 0);
-
     e10k_mtqc_vt_en_wrf(d, 1);
     e10k_mtqc_num_tc_wrf(d, 1);
     e10k_pfvtctl_vt_en_wrf(d, 1);
 #else
-    for (i = 0; i < 8; i++) {
-        e10k_rxpbsize_size_wrf(d, i, 0x40);
-        e10k_txpbsize_size_wrf(d, i, 0x14);
-        e10k_txpbthresh_thresh_wrf(d, i, 0x14);
+    e10k_rxpbsize_size_wrf(d, 0, 0x200);
+    e10k_txpbsize_size_wrf(d, 0, 0xA0);
+    e10k_txpbthresh_thresh_wrf(d, 0, 0xA0);
+    for (i = 1; i < 8; i++) {
+        e10k_rxpbsize_size_wrf(d, i, 0x0);
+        e10k_txpbsize_size_wrf(d, i, 0x0);
+        e10k_txpbthresh_thresh_wrf(d, i, 0x0);
     }
 
-    e10k_mrqc_mrque_wrf(d, e10k_vrt_only);
-    e10k_mtqc_rt_en_wrf(d, 1);
-    e10k_mtqc_vt_en_wrf(d, 1);
-    e10k_mtqc_num_tc_wrf(d, 2);
-    e10k_pfvtctl_vt_en_wrf(d, 1);
+    e10k_mrqc_mrque_wrf(d, e10k_no_rss);
+    e10k_mtqc_rt_en_wrf(d, 0);
+    e10k_mtqc_vt_en_wrf(d, 0);
+    e10k_mtqc_num_tc_wrf(d, 0);
+    e10k_pfvtctl_vt_en_wrf(d, 0);
 #endif
     e10k_rtrup2tc_wr(d, 0);
     e10k_rttup2tc_wr(d, 0);
@@ -717,7 +722,7 @@ static void device_init(void)
     /* Causes ECC error (could be same problem as with l34timir (see e10k.dev) */
     for (i = 0; i < 128; i++) {
         e10k_rttdqsel_txdq_idx_wrf(d, i);
-	e10k_rttdt1c_wr(d, credit_refill[i]);   // Credit refill x 64 bytes
+        e10k_rttdt1c_wr(d, credit_refill[i]);   // Credit refill x 64 bytes
         e10k_rttbcnrc_wr(d, 0);
         if(tx_rate[i] != 0) {
             // Turn on rate scheduler for this queue and set rate factor
@@ -743,6 +748,7 @@ static void device_init(void)
 #ifdef VTON_DCBOFF
     e10k_rttdcs_tdpac_wrf(d, 0);
     e10k_rttdcs_vmpac_wrf(d, 1);        // Remember to set RTTDT1C >= MTU when this is 1
+
     e10k_rttdcs_tdrm_wrf(d, 0);
     e10k_rttdcs_bdpm_wrf(d, 1);
     e10k_rttdcs_bpbfsm_wrf(d, 0);
@@ -755,14 +761,15 @@ static void device_init(void)
     e10k_rttdcs_tdpac_wrf(d, 1);
     e10k_rttdcs_vmpac_wrf(d, 1);
     e10k_rttdcs_tdrm_wrf(d, 1);
+
     e10k_rttdcs_bdpm_wrf(d, 1);
     e10k_rttdcs_bpbfsm_wrf(d, 0);
     e10k_rttpcs_tppac_wrf(d, 1);
     e10k_rttpcs_tprm_wrf(d, 1);
     e10k_rttpcs_arbd_wrf(d, 0x004);
-    e10k_rtrpcs_rac_wrf(d, 1);
-    e10k_rtrpcs_rrm_wrf(d, 1);
 
+    e10k_rtrpcs_rac_wrf(d, 0);
+    e10k_rtrpcs_rrm_wrf(d, 1);
     e10k_sectxminifg_sectxdcb_wrf(d, 0x1f);
 #endif
 
@@ -820,7 +827,7 @@ static void device_init(void)
         // Restoring queues
         for (i = 0; i < 128; i++) {
             if (queues[i].enabled) {
-                queue_hw_init(i);
+                queue_hw_init(i, true);
             }
         }
 
@@ -831,7 +838,7 @@ static void device_init(void)
 }
 
 /** Initialize hardware queue n. */
-static void queue_hw_init(uint8_t n)
+static void queue_hw_init(uint8_t n, bool set_tail)
 {
     errval_t r;
     struct frame_identity frameid = { .base = 0, .bytes = 0 };
@@ -1048,8 +1055,9 @@ static void queue_hw_init(uint8_t n)
     // Some initialization stuff from BSD driver
     e10k_dca_txctrl_txdesc_wbro_wrf(d, n, 0);
 
-    idc_write_queue_tails(queues[n].binding);
-
+    if (set_tail) {
+        idc_write_queue_tails(queues[n].binding);
+    }
 }
 
 #ifndef LIBRARY
@@ -1157,10 +1165,6 @@ static void interrupt_handler(void* arg)
                      !!(eicr & (1 << QUEUE_INTTX)));
     }
 }
-
-
-
-
 
 /******************************************************************************/
 /* Management interface implemetation */
@@ -1303,7 +1307,7 @@ void cd_register_queue_memory(struct e10k_binding *b,
     queues[n].rx_va = rx_va;
     queues[n].txhwb_va = txhwb_va;
 
-    queue_hw_init(n);
+    queue_hw_init(n, true);
 
     if (b == NULL) {
         qd_queue_memory_registered(b);
@@ -1311,6 +1315,7 @@ void cd_register_queue_memory(struct e10k_binding *b,
     }
     idc_queue_memory_registered(b);
 }
+
 
 /** Request from queue driver to initialize hardware queue. */
 void cd_set_interrupt_rate(struct e10k_binding *b,
@@ -1459,8 +1464,95 @@ static void get_mac_address_vf(struct e10k_vf_binding *b, uint8_t vfn)
     assert(err_is_ok(err));
 }
 
+static void request_vf_number(struct e10k_vf_binding *b)
+{
+    DEBUG("VF allocated\n");
+    errval_t err;
+    uint8_t vf_num = 255;
+    for (int i = 0; i < 64; i++) {
+        if (!vf_used[i]) {
+            vf_num = i;
+            break;
+        }
+    }
+
+    if (vf_num == 255){
+        //TODO better error
+        err = SFN_ERR_ALLOC_QUEUE;
+    } else {
+        err = SYS_ERR_OK;
+    }
+
+    err = b->tx_vtbl.request_vf_number_response(b, NOP_CONT, vf_num, err);
+    assert(err_is_ok(err));
+}
+
+
+/** Request from queue driver to initialize hardware queue. */
+static void create_queue(struct e10k_vf_binding *b,
+                         struct capref tx_frame,
+                         struct capref txhwb_frame,
+                         struct capref rx_frame,
+                         uint32_t rxbufsz,
+                         int16_t msix_intvec,
+                         uint8_t msix_intdest,
+                         bool use_irq,
+                         bool use_rsc)
+{
+    errval_t err;
+    // TODO: Make sure that rxbufsz is a power of 2 >= 1024
+
+    if (use_irq && msix_intvec != 0 && !msix) {
+        printf("e10k: Queue requests MSI-X, but MSI-X is not enabled "
+                " card driver. Ignoring queue\n");
+        return;
+    }
+
+    // allocate a queue
+    int n = -1;
+    for (int i = 0; i < 128; i++) {
+        if (!queues[i].enabled) {
+            queues[i].enabled = true;
+            n = i;
+            break;
+        }
+    }
+    
+    DEBUG("create queue(%"PRIu8")\n", n);
+
+    if (n == -1) {
+       err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, NULL_CAP);
+       assert(err_is_ok(err));
+    }
+
+    // Save state so we can restore the configuration in case we need to do a
+    // reset
+    
+    queues[n].tx_frame = tx_frame;
+    queues[n].txhwb_frame = txhwb_frame;
+    queues[n].rx_frame = rx_frame;
+    queues[n].tx_head = 0;
+    queues[n].rx_head = 0;
+    queues[n].rxbufsz = rxbufsz;
+    queues[n].msix_index = -1;
+    queues[n].msix_intvec = msix_intvec;
+    queues[n].msix_intdest = msix_intdest;
+    queues[n].use_irq = use_irq;
+    queues[n].use_rsc = use_rsc;
+
+    queue_hw_init(n, false);
+
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, *regframe);
+    assert(err_is_ok(err));
+    
+    DEBUG("[%d] Queue int done\n", n);
+}
+
+
 static struct e10k_vf_rx_vtbl vf_rx_vtbl = {
     .get_mac_address_call = get_mac_address_vf,
+    .request_vf_number_call = request_vf_number,
+    .create_queue_call = create_queue,
     .init_done_call = init_done_vf,
 };
 

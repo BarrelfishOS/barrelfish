@@ -10,4 +10,24 @@
 interface e10k_vf "e10k VF/PF interface" {
 	  rpc get_mac_address(in uint8 vfn, out uint64 mac);
 	  rpc init_done(in uint8 vfn);
+      
+    /*****************************************************
+     * For devif interface
+     *****************************************************/
+      rpc request_vf_number(out uint8 vfn, out errval err);
+
+      // XXX: technically should not be in the VF interface
+      // since it is only used withouth VFs
+      rpc create_queue(in cap    tx,
+                       in cap    txhwb,
+                       in cap    rx,
+                       in uint32 rxbufsz,
+                       in int16  msix_intvec,
+                       in uint8  msix_intdest,
+                       in bool   use_irq,
+                       in bool   use_rsc,
+                       out int qid,
+                       out cap regs);
+
+      rpc destroy_queue(in int qid, out errval err);
 };
