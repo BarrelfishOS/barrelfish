@@ -1224,6 +1224,7 @@ errors cpuid CPUID_ERR_ {
 };
 
 errors cpuid DEVQ_ERR_ {
+    failure INIT_QUEUE              "Could not initalize queue",
     failure BUFFER_ID               "Could not get a buffer id.",
     failure BUFFER_NOT_IN_REGION    "The buffer id is not in this region",
     failure BUFFER_ALREADY_IN_USE   "The buffer is already in use",
