@@ -30,9 +30,8 @@
 #include <dist/barrier.h>
 
 #include <if/mem_defs.h>
-#include <if/mem_rpcclient_defs.h>
 #include <if/monitor_defs.h>
-#include <if/spawn_rpcclient_defs.h>
+#include <if/spawn_defs.h>
 
 #include "skb.h"
 #include "args.h"
@@ -44,7 +43,7 @@
 
 /*
  * TODO:
- * - currently requests too much memory from initial mem_serv and other 
+ * - currently requests too much memory from initial mem_serv and other
  *   (non_dist) mem_serv clients may suffer
  */
 
@@ -57,13 +56,13 @@ memsize_t mem_local = 0;
 
 /// MM per-core allocator instance data: B-tree to manage mem regions
 struct mm mm_percore;
-// static storage for MM allocator to get it started 
+// static storage for MM allocator to get it started
 static char percore_nodebuf[SLAB_STATIC_SIZE(MINSPARENODES,
                                              MM_NODE_SIZE(MAXCHILDBITS))];
 
 /// MM allocator for reserve of emergency memory used within the mem_serv only
 struct mm mm_local;
-// static storage for MM allocator to get it started 
+// static storage for MM allocator to get it started
 static char local_nodebuf[SLAB_STATIC_SIZE(MINSPARENODES,
                                            MM_NODE_SIZE(MAXCHILDBITS))];
 
@@ -107,9 +106,9 @@ errval_t slab_refill(struct slab_allocator *slabs)
 {
     errval_t err;
 
-    // refill slab allocator if needed 
+    // refill slab allocator if needed
     while (slab_freecount(slabs) <= MINSPARENODES) {
-        // debug_printf("running low on free slabs: slabs=%ld\n", 
+        // debug_printf("running low on free slabs: slabs=%ld\n",
         //             slab_freecount(&mm_percore.slabs));
         struct capref frame;
         err = slot_alloc(&frame);
@@ -162,7 +161,7 @@ static errval_t do_free(struct mm *mm, struct capref ramcap,
     return SYS_ERR_OK;
 }
 
-static errval_t percore_free(struct capref ramcap) 
+static errval_t percore_free(struct capref ramcap)
 {
     struct capability info;
     errval_t ret;
@@ -179,7 +178,7 @@ static errval_t percore_free(struct capref ramcap)
 #if 0
     printf("%d: Cap is type %d Ram base 0x%"PRIxGENPADDR
            " (%"PRIuGENPADDR") Bits %d\n", disp_get_core_id(),
-           info.type, info.u.ram.base, info.u.ram.base, 
+           info.type, info.u.ram.base, info.u.ram.base,
            info.u.ram.bits);
 #endif
 
@@ -193,7 +192,7 @@ errval_t percore_free_handler_common(struct capref ramcap, genpaddr_t base,
     return do_free(&mm_percore, ramcap, base, bits, &mem_avail);
 }
 
-memsize_t mem_available_handler_common(void) 
+memsize_t mem_available_handler_common(void)
 {
     return mem_avail;
 }
@@ -248,7 +247,7 @@ static errval_t local_alloc(struct capref *ret, uint8_t bits,
     return err;
 }
 
-static errval_t get_more_ram(uint8_t bits, genpaddr_t minbase, 
+static errval_t get_more_ram(uint8_t bits, genpaddr_t minbase,
                              genpaddr_t maxlimit)
 {
     errval_t err;
@@ -266,7 +265,7 @@ static errval_t get_more_ram(uint8_t bits, genpaddr_t minbase,
     // make the cap available for a subsequent alloc
     percore_free(cap);
 
-    return SYS_ERR_OK;    
+    return SYS_ERR_OK;
 }
 
 static errval_t do_slot_prealloc_refill(struct slot_prealloc *slot_alloc_inst)
@@ -290,7 +289,7 @@ static errval_t do_slot_prealloc_refill(struct slot_prealloc *slot_alloc_inst)
 }
 
 errval_t percore_allocate_handler_common(uint8_t bits,
-                                         genpaddr_t minbase, 
+                                         genpaddr_t minbase,
                                          genpaddr_t maxlimit,
                                          struct capref *retcap)
 {
@@ -301,13 +300,13 @@ errval_t percore_allocate_handler_common(uint8_t bits,
 
     trace_event(TRACE_SUBSYS_MEMSERV, TRACE_EVENT_MEMSERV_PERCORE_ALLOC, bits);
 
-    // refill slot allocator if needed 
+    // refill slot allocator if needed
     err = do_slot_prealloc_refill(mm_slots->slot_alloc_inst);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Warning: failure in slot_prealloc_refill");
     }
 
-    // refill slab allocators if needed 
+    // refill slab allocators if needed
     err = slab_refill(&mm_percore.slabs);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Warning: failure when refilling mm_percore slab");
@@ -343,8 +342,8 @@ static memsize_t get_percore_size(int num_cores)
     memsize_t all_mem_avail, mem_percore, tot_mem;
 
     // send message to mem_serv
-    struct mem_rpc_client *b = get_mem_client();
-    err = b->vtbl.available(b, &all_mem_avail, &tot_mem);
+    struct mem_binding *b = get_mem_client();
+    err = b->rpc_tx_vtbl.available(b, &all_mem_avail, &tot_mem);
 
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Warning: failure in call to mem_serv.available");
@@ -352,19 +351,19 @@ static memsize_t get_percore_size(int num_cores)
         return PERCORE_MEM;
     }
 
-    debug_printf("available memory: %"PRIuMEMSIZE" bytes over %d cores\n", 
+    debug_printf("available memory: %"PRIuMEMSIZE" bytes over %d cores\n",
                   all_mem_avail, num_cores);
 
     mem_percore = all_mem_avail / num_cores;
 
-    debug_printf("available memory per core: %"PRIuMEMSIZE" bytes\n", 
+    debug_printf("available memory per core: %"PRIuMEMSIZE" bytes\n",
                   mem_percore);
 
     return mem_percore;
 #else
     // Use predetermined amount of memory per core
 
-    debug_printf("available memory per core: %"PRIuMEMSIZE" bytes\n", 
+    debug_printf("available memory per core: %"PRIuMEMSIZE" bytes\n",
                  PERCORE_MEM);
 
     return PERCORE_MEM;
@@ -392,7 +391,7 @@ static void set_affinity(coreid_t core)
 #endif
 
 
-static memsize_t fill_mm(struct mm *mm, memsize_t mem_requested, uint8_t bits, 
+static memsize_t fill_mm(struct mm *mm, memsize_t mem_requested, uint8_t bits,
                       memsize_t *mem_tot)
 {
     errval_t err;
@@ -402,12 +401,12 @@ static memsize_t fill_mm(struct mm *mm, memsize_t mem_requested, uint8_t bits,
     struct capref ramcap;
     struct capability info;
 
-    // get as much of the requested memory as we can, requesting ever 
+    // get as much of the requested memory as we can, requesting ever
     // smaller RAM caps until we hit the smallest RAM cap size
 
     while (bits >= MINALLOCBITS) {
 
-        // debug_printf("adding memory %"PRIuMEMSIZE" (%d bits)\n", 
+        // debug_printf("adding memory %"PRIuMEMSIZE" (%d bits)\n",
         //             (memsize_t)1<<bits, bits);
 
         err = ram_alloc(&ramcap, bits);
@@ -415,7 +414,7 @@ static memsize_t fill_mm(struct mm *mm, memsize_t mem_requested, uint8_t bits,
             // skip this size and try the next size down
             bits--;
             continue;
-        } 
+        }
 
         // XXX: Hack until we have cross-core cap management
         // Forget about remote relations of this cap. This will ensure
@@ -435,7 +434,7 @@ static memsize_t fill_mm(struct mm *mm, memsize_t mem_requested, uint8_t bits,
 #if 0
         debug_printf("Cap is type %d Ram base 0x%"PRIxGENPADDR
                      " (%"PRIuGENPADDR") Bits %d\n",
-                     info.type, info.u.ram.base, info.u.ram.base, 
+                     info.type, info.u.ram.base, info.u.ram.base,
                      info.u.ram.bits);
 #endif
         assert(bits == log2ceil(info.u.ram.bytes));
@@ -509,7 +508,7 @@ static errval_t init_mm(struct mm *mm, char nodebuf[], memsize_t nodebuf_size,
         return err_push(err, MM_ERR_MM_ADD);
     }
 
-    // try to refill slot allocator (may fail or do nothing) 
+    // try to refill slot allocator (may fail or do nothing)
     slot_prealloc_refill(mm->slot_alloc_inst);
 
     return SYS_ERR_OK;
@@ -530,7 +529,7 @@ static errval_t init_slot_allocator(struct slot_prealloc *slot_alloc_inst,
         .slot = 0,
     };
 
-    // init slot allocator 
+    // init slot allocator
     err = slot_prealloc_init(slot_alloc_inst, MAXCHILDBITS,
                              cnode_start_cap, L2_CNODE_SLOTS, mm);
     if (err_is_fail(err)) {
@@ -540,7 +539,7 @@ static errval_t init_slot_allocator(struct slot_prealloc *slot_alloc_inst,
     return SYS_ERR_OK;
 }
 
-errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores, 
+errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores,
                                      int len_cores, memsize_t percore_mem)
 {
     errval_t err;
@@ -593,7 +592,7 @@ errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores,
     // TODO: is this necessary?
     slot_prealloc_refill(mm_slots->slot_alloc_inst);
 
-    // refill slab allocator if needed and possible 
+    // refill slab allocator if needed and possible
     if (slab_freecount(&mm_percore.slabs) <= MINSPARENODES
         && mem_avail > (1UL << (CNODE_BITS + OBJBITS_CTE)) * 2
         + 10 * BASE_PAGE_SIZE) {
@@ -638,13 +637,13 @@ errval_t initialize_percore_mem_serv(coreid_t core, coreid_t *cores,
  */
 errval_t set_local_spawnd_memserv(coreid_t coreid)
 {
-    struct spawn_rpc_client *cl;
-    errval_t err = spawn_rpc_client(coreid, &cl);
+    struct spawn_binding *cl;
+    errval_t err = spawn_binding(coreid, &cl);
     if (err_is_fail(err)) {
         return err;
     }
 
-    return cl->vtbl.use_local_memserv(cl);
+    return cl->rpc_tx_vtbl.use_local_memserv(cl);
 }
 
 
@@ -655,7 +654,7 @@ static int run_worker(coreid_t core, struct args *args)
     // debug_printf("Distributed mem_serv. percore server on core %d\n", core);
 
     // this should never return
-    percore_mem_serv(core, args->cores, args->cores_len, args->ram); 
+    percore_mem_serv(core, args->cores, args->cores_len, args->ram);
     return EXIT_FAILURE; // so we should never reach here
 }
 
@@ -672,7 +671,7 @@ static int run_master(coreid_t core, struct args *args)
     if (args->ram > 0) {
         percore_mem = args->ram;
     } else {
-        percore_mem = get_percore_size(args->cores_len); 
+        percore_mem = get_percore_size(args->cores_len);
     }
 
     // debug_printf("spawning on %d cores\n", args->cores_len);
@@ -683,7 +682,7 @@ static int run_master(coreid_t core, struct args *args)
     // -r <percore_mem>
     char *new_argv[7];
     new_argv[0] = args->path;
-    new_argv[1] = "-w"; 
+    new_argv[1] = "-w";
     new_argv[2] = "-c";
     new_argv[3] = list_to_string(args->cores, args->cores_len);
     assert(new_argv[3] != NULL);
@@ -702,7 +701,7 @@ static int run_master(coreid_t core, struct args *args)
     new_argv[6] = NULL;
 
     for (int i = 0; i < args->cores_len; i++) {
-        err = spawn_program(args->cores[i], new_argv[0], new_argv, 
+        err = spawn_program(args->cores[i], new_argv[0], new_argv,
                             NULL, 0, NULL);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "spawning percore mem_serv on core %d", i);
@@ -732,7 +731,7 @@ int common_main(int argc, char ** argv)
         return run_master(core, &my_args);
     } else {
         return run_worker(core, &my_args);
-    } 
+    }
 
     return EXIT_SUCCESS;
 }

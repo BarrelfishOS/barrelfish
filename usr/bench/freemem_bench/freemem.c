@@ -3,7 +3,7 @@
 
 static int freemem(void)
 {
-	struct mem_rpc_client *mc = get_mem_client();
+	struct mem_binding *mc = get_mem_client();
 	assert(mc != NULL);
 	errval_t err;
 	genpaddr_t available, total;

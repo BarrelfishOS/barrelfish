@@ -1,6 +1,6 @@
 /**
  * \file acpi_generic.c
- * \brief 
+ * \brief
  */
 
 
@@ -17,7 +17,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/capabilities.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 
 #include <mm/mm.h>
 
@@ -43,7 +43,7 @@ errval_t acpi_allocators_init(void)
 
     ACPI_DEBUG("acpi: initializing allocators\n");
 
-    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *cl = get_monitor_blocking_binding();
     assert(cl != NULL);
 
     ACPI_DEBUG("acpi: obtaining boot info...\n");
@@ -58,7 +58,7 @@ errval_t acpi_allocators_init(void)
         USER_PANIC_ERR(err, "slot_alloc for monitor->get_bootinfo");
     }
 
-    msgerr = cl->vtbl.get_bootinfo(cl, &err, &bootinfo_frame, &bootinfo_size);
+    msgerr = cl->rpc_tx_vtbl.get_bootinfo(cl, &err, &bootinfo_frame, &bootinfo_size);
     if (err_is_fail(msgerr) || err_is_fail(err)) {
         USER_PANIC_ERR(err_is_fail(msgerr) ? msgerr : err, "failed in get_bootinfo");
     }
@@ -121,7 +121,7 @@ errval_t acpi_allocators_init(void)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "slot_alloc for monitor->get_phyaddr_cap");
     }
-    err = cl->vtbl.get_phyaddr_cap(cl, &requested_caps, &msgerr);
+    err = cl->rpc_tx_vtbl.get_phyaddr_cap(cl, &requested_caps, &msgerr);
     assert(err_is_ok(err) && err_is_ok(msgerr));
     physical_caps = requested_caps;
 

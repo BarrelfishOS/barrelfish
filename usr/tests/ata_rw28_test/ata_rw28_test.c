@@ -16,10 +16,9 @@
 #include <barrelfish/waitset.h>
 #include <if/ata_rw28_defs.h>
 #include <if/ata_rw28_ahci_defs.h>
-#include <if/ata_rw28_rpcclient_defs.h>
+#include <if/ata_rw28_defs.h>
 
 struct ahci_ata_rw28_binding ahci_ata_rw28_binding;
-struct ata_rw28_rpc_client ata_rw28_rpc;
 struct ata_rw28_binding *ata_rw28_binding = NULL;
 struct ahci_binding *ahci_binding = NULL;
 volatile errval_t bind_err = SYS_ERR_OK;
@@ -40,7 +39,7 @@ static void write_and_check_32(uint32_t pat, size_t start_lba, size_t block_size
 
     printf("writing data\n");
     errval_t status;
-    err = ata_rw28_rpc.vtbl.write_dma(&ata_rw28_rpc, buf, bytes, start_lba, &status);
+    err = ata_rw28_binding->rpc_tx_vtbl.write_dma(ata_rw28_binding, buf, bytes, start_lba, &status);
     if (err_is_fail(err))
         USER_PANIC_ERR(err, "write_dma rpc");
     if (err_is_fail(status))
@@ -49,7 +48,7 @@ static void write_and_check_32(uint32_t pat, size_t start_lba, size_t block_size
 
     printf("reading data\n");
     struct ata_rw28_read_dma_response__rx_args reply;
-    err = ata_rw28_rpc.vtbl.read_dma(&ata_rw28_rpc, bytes, start_lba, reply.buffer, &reply.buffer_size);
+    err = ata_rw28_binding->rpc_tx_vtbl.read_dma(ata_rw28_binding, bytes, start_lba, reply.buffer, &reply.buffer_size);
     if (err_is_fail(err))
         USER_PANIC_ERR(err, "read_dma rpc");
     if (reply.buffer_size != bytes)
@@ -116,10 +115,7 @@ int main(int argc, char **argv)
     ata_rw28_binding = (struct ata_rw28_binding*)&ahci_ata_rw28_binding;
 
     // init RPC client
-    err = ata_rw28_rpc_client_init(&ata_rw28_rpc, ata_rw28_binding);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "ata_rw28_rpc_client_init");
-    }
+    ata_rw28_rpc_client_init(ata_rw28_binding);
 
     // run tests
     run_tests();

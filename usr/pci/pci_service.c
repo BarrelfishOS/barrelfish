@@ -22,7 +22,7 @@
 #include <barrelfish/sys_debug.h>
 
 #include <if/pci_defs.h>
-#include <if/acpi_rpcclient_defs.h>
+#include <if/acpi_defs.h>
 
 #include <acpi_client/acpi_client.h>
 #include <mm/mm.h>
@@ -137,9 +137,9 @@ static void init_legacy_device_handler(struct pci_binding *b,
     /* determine IOAPIC INTI for given GSI and map to core */
     if (vector != (uint32_t)-1) {
 
-        struct acpi_rpc_client* cl = get_acpi_rpc_client();
+        struct acpi_binding* cl = get_acpi_binding();
         errval_t ret_error;
-        e = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
+        e = cl->rpc_tx_vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
         assert(err_is_ok(e));
         if (err_is_fail(ret_error)) {
             DEBUG_ERR(e, "failed to route interrupt %d -> %d\n", irq, vector);

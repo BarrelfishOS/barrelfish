@@ -1,6 +1,6 @@
 /**
  * \file acpi_generic.c
- * \brief 
+ * \brief
  */
 
 
@@ -15,7 +15,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/capabilities.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 
 #include "acpi_debug.h"
 #include "acpi_shared.h"
@@ -25,7 +25,7 @@ errval_t acpi_allocators_init_arch(struct bootinfo *bootinfo)
 {
     errval_t err;
 
-    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *cl = get_monitor_blocking_binding();
     assert(cl != NULL);
 
     // Request I/O Cap
@@ -35,7 +35,7 @@ errval_t acpi_allocators_init_arch(struct bootinfo *bootinfo)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "slot_alloc for monitor->get_io_cap");
     }
-    err = cl->vtbl.get_io_cap(cl, &requested_caps, &error_code);
+    err = cl->rpc_tx_vtbl.get_io_cap(cl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
     // Copy into correct slot
     struct capref caps_io = {

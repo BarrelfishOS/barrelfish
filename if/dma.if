@@ -19,7 +19,7 @@ interface dma "Generic DMA service interface" {
 	 * 
 	 * Note: either local or remote memory must be registered
 	 */
-    rpc register(in cap memory, out errval msgerr);
+    rpc register_(in cap memory, out errval msgerr);
     
 
     /**

@@ -1156,28 +1156,28 @@ struct monitor_binding *get_monitor_binding(void)
 /**
  * \brief set the  blocking rpc monitor client binding on the dispatcher priv
  */
-void set_monitor_blocking_rpc_client(struct monitor_blocking_rpc_client *st)
+void set_monitor_blocking_binding(struct monitor_blocking_binding *st)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
-    disp->core_state.c.monitor_blocking_rpc_client = st;
+    disp->core_state.c.monitor_blocking_binding = st;
 }
 
 /**
  * \brief Returns the blocking rpc monitor client binding on the
  * dispatcher priv
  */
-struct monitor_blocking_rpc_client *get_monitor_blocking_rpc_client(void)
+struct monitor_blocking_binding *get_monitor_blocking_binding(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
-    return disp->core_state.c.monitor_blocking_rpc_client;
+    return disp->core_state.c.monitor_blocking_binding;
 }
 
 /**
  * \brief set the mem client on the dispatcher priv
  */
-void set_mem_client(struct mem_rpc_client *st)
+void set_mem_client(struct mem_binding *st)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
@@ -1187,7 +1187,7 @@ void set_mem_client(struct mem_rpc_client *st)
 /**
  * \brief Returns the mem client on the dispatcher priv
  */
-struct mem_rpc_client *get_mem_client(void)
+struct mem_binding *get_mem_client(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
@@ -1257,62 +1257,62 @@ struct skb_state *get_skb_state(void)
 /**
  * \brief Returns a pointer to the octopus rpc client on the dispatcher priv
  */
-struct octopus_rpc_client *get_octopus_rpc_client(void)
+struct octopus_binding *get_octopus_binding(void)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
-    return disp->core_state.c.octopus_rpc_client;
+    return disp->core_state.c.octopus_binding;
 }
 
 /**
  * \brief Sets the octopus rpc client on the dispatcher priv
  */
-void set_octopus_rpc_client(struct octopus_rpc_client *c)
+void set_octopus_binding(struct octopus_binding *c)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
-    disp->core_state.c.octopus_rpc_client = c;
+    disp->core_state.c.octopus_binding = c;
 }
 
 /**
  * \brief Returns a pointer to the chips_context state on the dispatcher priv
  */
-struct spawn_rpc_client *get_spawn_rpc_client(coreid_t core)
+struct spawn_binding *get_spawn_binding(coreid_t core)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     assert(core < MAX_CPUS);
-    return disp->core_state.c.spawn_rpc_clients[core];
+    return disp->core_state.c.spawn_bindings[core];
 }
 
 /**
  * \brief set the chips_context state on the dispatcher priv
  */
-void set_spawn_rpc_client(coreid_t core, struct spawn_rpc_client *c)
+void set_spawn_binding(coreid_t core, struct spawn_binding *c)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     assert(core < MAX_CPUS);
-    disp->core_state.c.spawn_rpc_clients[core] = c;
+    disp->core_state.c.spawn_bindings[core] = c;
 }
 
-struct arrakis_rpc_client *get_arrakis_rpc_client(coreid_t core)
+struct arrakis_binding *get_arrakis_binding(coreid_t core)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     assert(core < MAX_CPUS);
-    return disp->core_state.c.arrakis_rpc_clients[core];
+    return disp->core_state.c.arrakis_bindings[core];
 }
 
 /**
  * \brief set the chips_context state on the dispatcher priv
  */
-void set_arrakis_rpc_client(coreid_t core, struct arrakis_rpc_client *c)
+void set_arrakis_binding(coreid_t core, struct arrakis_binding *c)
 {
     dispatcher_handle_t handle = curdispatcher();
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     assert(core < MAX_CPUS);
-    disp->core_state.c.arrakis_rpc_clients[core] = c;
+    disp->core_state.c.arrakis_bindings[core] = c;
 }
 
 /**

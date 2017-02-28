@@ -16,7 +16,7 @@
 #include <barrelfish/barrelfish.h>
 #include <skb/skb.h>
 #include <barrelfish_kpi/platform.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 #include "kaluga.h"
 
 
@@ -100,11 +100,11 @@ errval_t arch_startup(char * add_device_db_file)
 {
     errval_t err = SYS_ERR_OK;
 
-    struct monitor_blocking_rpc_client *m = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *m = get_monitor_blocking_binding();
     assert(m != NULL);
 
     uint32_t arch, platform;
-    err = m->vtbl.get_platform(m, &arch, &platform);
+    err = m->rpc_tx_vtbl.get_platform(m, &arch, &platform);
     assert(err_is_ok(err));
     assert(arch == PI_ARCH_ARMV8A);
 

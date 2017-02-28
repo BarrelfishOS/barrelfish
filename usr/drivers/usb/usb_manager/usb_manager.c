@@ -12,8 +12,8 @@
 
 #include <if/usb_driver_defs.h>
 #include <if/usb_manager_defs.h>
-#include <if/usb_manager_rpcclient_defs.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/usb_manager_defs.h>
+#include <if/monitor_blocking_defs.h>
 
 #include <usb_controller.h>
 #include <usb_request.h>
@@ -330,10 +330,10 @@ int main(int argc, char *argv[])
     /* the default tuple size is 2, since on x86 the interrupts can be routed */
     uint8_t arg_tuple_size = 2;
 
-    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *cl = get_monitor_blocking_binding();
     assert(cl != NULL);
     uint32_t arch, platform;
-    err = cl->vtbl.get_platform(cl, &arch, &platform);
+    err = cl->rpc_tx_vtbl.get_platform(cl, &arch, &platform);
     assert(err_is_ok(err));
 
     if (arch == PI_ARCH_ARMV7A && platform == PI_PLATFORM_OMAP44XX) {

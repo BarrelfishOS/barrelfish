@@ -14,7 +14,7 @@
 #include <barrelfish/spawn_client.h>
 
 #include <if/usb_manager_defs.h>
-#include <if/usb_manager_rpcclient_defs.h>
+#include <if/usb_manager_defs.h>
 
 #include <usb/usb.h>
 #include <usb/class/usb_hid.h>

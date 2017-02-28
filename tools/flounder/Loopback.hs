@@ -191,6 +191,7 @@ tx_fn ifn msg@(Message _ mn args _) =
 
         -- string and array arguments need special treatment
         mkvars (Arg (Builtin String) (Name n)) = [C.Call "strdup" [C.Variable n]]
+        mkvars (Arg _ (StringArray n _)) = [C.Variable n]
         mkvars (Arg _ (DynamicArray n l _)) = [C.Variable $ array_copy_name n, C.Variable l]
         mkvars (Arg _ (Name n)) = [C.Variable n]
 

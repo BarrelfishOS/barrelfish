@@ -19,7 +19,7 @@
 #include <dev/fat_direntry_dev.h>
 #include <if/ata_rw28_defs.h>
 #include <if/ata_rw28_ahci_defs.h>
-#include <if/ata_rw28_rpcclient_defs.h>
+#include <if/ata_rw28_defs.h>
 #include <ahci/ahci.h>
 #include "vfs_fat_conv.h"
 #include "vfs_backends.h"
@@ -128,7 +128,6 @@ enum {
 
 struct fat_mount {
     struct ata_rw28_binding *ata_rw28_binding;
-    struct ata_rw28_rpc_client ata_rw28_rpc;
     struct ahci_binding *ahci_binding;
     errval_t bind_err;
 
@@ -171,7 +170,7 @@ acquire_or_read(struct fat_mount *mount, struct fs_cache *cache,
     else if (err == FS_CACHE_NOTPRESENT) {
         size_t read_size;
         data_ = malloc(size);
-        err = mount->ata_rw28_rpc.vtbl.read_dma(&mount->ata_rw28_rpc,
+        err = mount->ata_rw28_binding->rpc_tx_vtbl.read_dma(mount->ata_rw28_binding,
                 size, block, data_, &read_size);
         if (err_is_fail(err)) {
             return err;
@@ -1077,11 +1076,7 @@ bind_cb(void *st, errval_t err, struct ata_rw28_binding *b)
 
     struct fat_mount *mount = (struct fat_mount*) st;
 
-    err = ata_rw28_rpc_client_init(&mount->ata_rw28_rpc, b);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "RPC initialization failed");
-    }
-
+    ata_rw28_binding_init(b);
     mount->ata_rw28_binding = b;
 }
 #endif
@@ -1164,11 +1159,8 @@ vfs_fat_mount(const char *uri, void **retst, struct vfs_ops **retops)
     }
     FAT_DEBUG("ahci_ata_rw28_init completed");
     mount->ata_rw28_binding = (struct ata_rw28_binding*)ahci_ata_rw28_binding;
-    err = ata_rw28_rpc_client_init(&mount->ata_rw28_rpc, mount->ata_rw28_binding);
-    if (err_is_fail(err)) {
-        goto ata_rw28_init_failed;
-    }
-    FAT_DEBUG("ata_rw28_rpc_client_init completed");
+    ata_rw28_rpc_client_init(mount->ata_rw28_binding);
+    FAT_DEBUG("ata_rw28_binding_init completed");
 #elif defined(__pandaboard__)
     FAT_DEBUG("wait for mmchs service\n");
     iref_t iref;
@@ -1194,7 +1186,7 @@ vfs_fat_mount(const char *uri, void **retst, struct vfs_ops **retops)
     size_t size;
     // read data from fat boot sector
     uint8_t *data = malloc(ata_rw28__read_dma_block_response_buffer_MAX_ARGUMENT_SIZE);
-    err = mount->ata_rw28_rpc.vtbl.read_dma_block(&mount->ata_rw28_rpc,
+    err = mount->ata_rw28_binding->rpc_tx_vtbl.read_dma_block(mount->ata_rw28_binding,
             mount->startblock, mount->bootsec_data, &size);
     if (err_is_fail(err)) {
         goto bootsec_read_failed;
@@ -1295,7 +1287,7 @@ vfs_fat_mount(const char *uri, void **retst, struct vfs_ops **retops)
             goto fs_check_failed;
         }
         struct ata_rw28_read_dma_block_response__rx_args reply;
-        mount->ata_rw28_rpc.vtbl.read_dma_block(&mount->ata_rw28_rpc,
+        mount->ata_rw28_binding->rpc_tx_vtbl.read_dma_block(mount->ata_rw28_binding,
                 mount->startblock + fs_info_sector, reply.buffer ,
                 &reply.buffer_size);
         if (memcmp(reply.buffer+0, "RRaA", 4) != 0 ||

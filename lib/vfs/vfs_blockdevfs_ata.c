@@ -13,11 +13,11 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <if/ahci_mgmt_defs.h>
-#include <if/ahci_mgmt_rpcclient_defs.h>
+#include <if/ahci_mgmt_defs.h>
 #include <if/ahci_mgmt_defs.h>
 #include <if/ata_rw28_defs.h>
 #include <if/ata_rw28_ahci_defs.h>
-#include <if/ata_rw28_rpcclient_defs.h>
+#include <if/ata_rw28_defs.h>
 #include <dev/ata_identify_dev.h>
 #include <dev/ahci_port_dev.h>
 #include <ahci/ahci.h>
@@ -26,7 +26,6 @@
 
 #include "vfs_blockdevfs.h"
 
-static struct ahci_mgmt_rpc_client ahci_mgmt_rpc;
 static struct ahci_mgmt_binding *ahci_mgmt_binding;
 static bool ahci_mgmt_bound = false;
 
@@ -39,7 +38,6 @@ static bool ahci_mgmt_bound = false;
 struct ata_handle {
     struct ahci_binding *ahci_binding;
     struct ata_rw28_binding *ata_rw28_binding;
-    struct ata_rw28_rpc_client ata_rw28_rpc;
     uint8_t port_num;
     bool waiting;
     errval_t wait_status;
@@ -90,12 +88,7 @@ errval_t blockdevfs_ata_open(void *handle)
     ahci_ata_rw28_binding = calloc(1, sizeof(struct ahci_ata_rw28_binding));
     ahci_ata_rw28_init(ahci_ata_rw28_binding, get_default_waitset(), h->ahci_binding);
     h->ata_rw28_binding = (struct ata_rw28_binding*)ahci_ata_rw28_binding;
-    err = ata_rw28_rpc_client_init(&h->ata_rw28_rpc, h->ata_rw28_binding);
-    if (err_is_fail(err)) {
-        // TODO: bindings leak
-        VFS_BLK_DEBUG("blockdevfs_ata_open: failed to init ata_rw28 rpc client\n");
-        return err;
-    }
+    ata_rw28_rpc_client_init(h->ata_rw28_binding);
     VFS_BLK_DEBUG("blockdevfs_ata_open: exiting\n");
     return h->wait_status;
 }
@@ -112,7 +105,7 @@ errval_t blockdevfs_ata_flush(void *handle)
 {
     struct ata_handle *h = handle;
     errval_t err, status;
-    err = h->ata_rw28_rpc.vtbl.flush_cache(&h->ata_rw28_rpc, &status);
+    err = h->ata_rw28_binding->rpc_tx_vtbl.flush_cache(h->ata_rw28_binding, &status);
     if (err_is_fail(err)) {
         printf("failed calling flush_cache\n");
         return err;
@@ -126,7 +119,7 @@ errval_t blockdevfs_ata_close(void *handle)
     struct ata_handle *h = handle;
     errval_t err, status;
 
-    err = h->ata_rw28_rpc.vtbl.flush_cache(&h->ata_rw28_rpc, &status);
+    err = h->ata_rw28_binding->rpc_tx_vtbl.flush_cache(h->ata_rw28_binding, &status);
     if (err_is_fail(err)) {
         printf("failed calling flush_cache\n");
         return err;
@@ -163,7 +156,7 @@ errval_t blockdevfs_ata_read(void *handle, size_t pos, void *buffer,
 
     //VFS_BLK_DEBUG("bdfs_ahci: read begin: %zu -> %zu\n", bytes, aligned_bytes);
 
-    err = h->ata_rw28_rpc.vtbl.read_dma(&h->ata_rw28_rpc,
+    err = h->ata_rw28_binding->rpc_tx_vtbl.read_dma(h->ata_rw28_binding,
             aligned_bytes, blockpos, buffer, bytes_read);
 
     return err;
@@ -179,7 +172,7 @@ errval_t blockdevfs_ata_write(void *handle, size_t pos, const void *buffer,
     size_t blockpos = pos / PR_SIZE;
 
     errval_t status;
-    err = h->ata_rw28_rpc.vtbl.write_dma(&h->ata_rw28_rpc,
+    err = h->ata_rw28_binding->rpc_tx_vtbl.write_dma(h->ata_rw28_binding,
             buffer, aligned_bytes, blockpos, &status);
     *bytes_written = aligned_bytes;
     return err;
@@ -192,16 +185,12 @@ static void ahci_mgmt_bind_cb(void *st, errval_t err, struct ahci_mgmt_binding *
     }
 
     ahci_mgmt_binding = b;
-    err = ahci_mgmt_rpc_client_init(&ahci_mgmt_rpc, b);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "ahci_mgmt RPC init failed");
-    }
-
+    ahci_mgmt_rpc_client_init(ahci_mgmt_binding);
     ahci_mgmt_bound = true;
 
     // populate list
     struct ahci_mgmt_list_response__rx_args reply;
-    err = ahci_mgmt_rpc.vtbl.list(&ahci_mgmt_rpc, reply.port_ids, &reply.len);
+    err = ahci_mgmt_binding->rpc_tx_vtbl.list(ahci_mgmt_binding, reply.port_ids, &reply.len);
     assert(err_is_ok(err));
 
     for (size_t i = 0; i < reply.len; i++) {
@@ -209,7 +198,7 @@ static void ahci_mgmt_bind_cb(void *st, errval_t err, struct ahci_mgmt_binding *
             break;
         }
         struct ahci_mgmt_identify_response__rx_args identify_reply;
-        err = ahci_mgmt_rpc.vtbl.identify(&ahci_mgmt_rpc, reply.port_ids[i],
+        err = ahci_mgmt_binding->rpc_tx_vtbl.identify(ahci_mgmt_binding, reply.port_ids[i],
                                           identify_reply.identify_data,
                                           &identify_reply.data_len);
         assert(err_is_ok(err));

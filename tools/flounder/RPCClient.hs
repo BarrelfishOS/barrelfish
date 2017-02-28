@@ -67,31 +67,7 @@ header infile outfile intf =
 
 rpc_header_body :: String -> Interface -> [C.Unit]
 rpc_header_body infile interface@(Interface name descr decls) = [
-    intf_preamble infile name descr,
-    C.Blank,
-    C.MultiComment [ "RPC client" ],
-    C.Blank,
-    C.Include C.Standard ("if/" ++ name ++ "_defs.h"),
-    C.Blank,
-    C.MultiComment [ "Forward declaration of binding type" ],
-    C.StructForwardDecl (rpc_bind_type name),
-    C.Blank,
-    C.MultiComment [ "Function signatures" ],
-    C.UnitList [ msg_signature_generic TX name types (rpc_binding_param name) m
-                | m <- rpcs ],
-    C.Blank,
-    C.MultiComment [ "VTable struct definition for the interface" ],
-    rpc_vtbl_decl name rpcs,
-    C.Blank,
-    C.MultiComment [ "The Binding structure" ],
-    rpc_binding_struct name,
-    C.Blank,
-    C.MultiComment [ "Function to initialise an RPC client" ],
-    rpc_init_fn_proto name,
     C.Blank]
-    where
-        (types, messagedecls) = Backend.partitionTypesMessages decls
-        rpcs = [m | m@(RPC _ _ _) <- messagedecls]
 
 rpc_vtbl_decl :: String -> [MessageDef] -> C.Unit
 rpc_vtbl_decl n ml =
@@ -131,21 +107,7 @@ rpc_stub_body infile intf@(Interface ifn descr decls) = C.UnitList [
     C.Include C.Standard "barrelfish/barrelfish.h",
     C.Include C.Standard "flounder/flounder_support.h",
     C.Include C.Standard ("if/" ++ ifn ++ "_rpcclient_defs.h"),
-    C.Blank,
-
-    C.MultiComment [ "RPC wrapper functions" ],
-    C.UnitList [ rpc_fn ifn types m | m <- rpcs ],
-    C.UnitList [ local_rpc_fn ifn types m | m <- rpcs ],
-    C.Blank,
-
-    C.MultiComment [ "RPC Vtable" ],
-    rpc_vtbl ifn rpcs,
-    local_rpc_vtbl ifn rpcs,
-    C.Blank,
-
-
-    C.MultiComment [ "Init function" ],
-    rpc_init_fn ifn rpcs]
+    C.Blank]
     where
         (types, messagedecls) = Backend.partitionTypesMessages decls
         rpcs = [m | m@(RPC _ _ _) <- messagedecls]
@@ -288,11 +250,23 @@ rpc_init_fn ifn ml = C.FunctionDef C.NoScope (C.TypeName "errval_t")
      C.SBlank,
      C.SComment "Setup state of RPC client object",
      C.Ex $ C.Assignment (C.DerefField rpcvar "b") bindvar,
+
+
+
      C.If (C.DerefField bindvar "local_binding") [
         C.Ex $ C.Assignment (C.DerefField rpcvar "vtbl") (C.Variable $ local_rpc_vtbl_name ifn)
      ][
         C.Ex $ C.Assignment (C.DerefField rpcvar "vtbl") (C.Variable $ rpc_vtbl_name ifn)
      ],
+     C.SBlank,
+     C.SComment "Set RX handlers on binding object for RPCs",
+     C.StmtList [C.Ex $ C.Assignment (C.FieldOf (C.DerefField bindvar "rx_vtbl")
+                                        (rpc_resp_name mn))
+         (C.Variable "NULL") | RPC mn _ _ <- ml],
+     
+     
+     
+     
      C.Ex $ C.Assignment (C.DerefField bindvar "st") rpcvar,
      C.SBlank,
      C.SComment "Set RX handlers on binding object for RPCs",

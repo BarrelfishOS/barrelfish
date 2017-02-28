@@ -21,7 +21,7 @@
 
 
 /// the usb manager RPC client structure
-struct usb_manager_rpc_client usb_manager;
+struct usb_manager_binding *usb_manager;
 
 /*
  * -------------------------------------------------------------------------
@@ -111,12 +111,10 @@ static void usb_bind_cb(void *st, errval_t err, struct usb_manager_binding *b)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "USB manager binding failed");
     }
-
-    err = usb_manager_rpc_client_init(&usb_manager, b);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "rpc client initialization failed\n");
-    }
-    debug_printf("vtbl.connect=%p\n", usb_manager.vtbl.connect);
+    
+    usb_manager = b;
+    usb_manager_rpc_client_init(usb_manager);
+    debug_printf("vtbl.connect=%p\n", usb_manager->rpc_tx_vtbl.connect);
 
     uint32_t ret_status;
 
@@ -124,7 +122,7 @@ static void usb_bind_cb(void *st, errval_t err, struct usb_manager_binding *b)
     uint8_t tmp[2048];
 
     /* connect with the USB Manager */
-    err = usb_manager.vtbl.connect(&usb_manager, client_st->usb_driver_iref, client_st->init_config,
+    err = usb_manager->rpc_tx_vtbl.connect(usb_manager, client_st->usb_driver_iref, client_st->init_config,
             &ret_status, tmp, &length);
 
     if (((usb_error_t) ret_status) != USB_ERR_OK) {

@@ -13,7 +13,7 @@
 #include <devif/backends/descq.h>
 #include <if/descq_data_defs.h>
 #include <if/descq_ctrl_defs.h>
-#include <if/descq_ctrl_rpcclient_defs.h>
+#include <if/descq_ctrl_defs.h>
 #include "../../queue_interface_internal.h"
 #include "descq_debug.h"
 
@@ -56,7 +56,7 @@ struct descq {
     // Flounder
     struct descq_data_binding* data;
     struct descq_ctrl_binding* ctrl;
-    struct descq_ctrl_rpc_client* rpc;
+    struct descq_ctrl_binding* rpc;
 
     // linked list
     struct descq* next;
@@ -171,7 +171,7 @@ static errval_t descq_notify(struct devq* q)
     struct descq* queue = (struct descq*) q;
     /*
     DESCQ_DEBUG("start \n");
-    err = queue->rpc->vtbl.notify(queue->rpc, &err2);
+    err = queue->rpc->rpc_tx_vtbl.notify(queue->rpc, &err2);
     err = err_is_fail(err) ? err : err2;
     DESCQ_DEBUG("end\n");
     */
@@ -195,7 +195,7 @@ static errval_t descq_control(struct devq* q, uint64_t cmd,
     struct descq* queue = (struct descq*) q;
 
     DESCQ_DEBUG("start \n");
-    err = queue->rpc->vtbl.control(queue->rpc, cmd, value, &err2);
+    err = queue->rpc->rpc_tx_vtbl.control(queue->rpc, cmd, value, &err2);
     err = err_is_fail(err) ? err : err2;
     DESCQ_DEBUG("end\n");
     return err;
@@ -208,7 +208,7 @@ static errval_t descq_register(struct devq* q, struct capref cap,
     struct descq* queue = (struct descq*) q;
 
     DESCQ_DEBUG("start %p\n", queue);
-    err = queue->rpc->vtbl.register_region(queue->rpc, cap, rid, &err2);
+    err = queue->rpc->rpc_tx_vtbl.register_region(queue->rpc, cap, rid, &err2);
     err = err_is_fail(err) ? err : err2;
     DESCQ_DEBUG("end\n");
     return err;
@@ -219,7 +219,7 @@ static errval_t descq_deregister(struct devq* q, regionid_t rid)
     errval_t err, err2;
     struct descq* queue = (struct descq*) q;
 
-    err = queue->rpc->vtbl.deregister_region(queue->rpc, rid, &err2);
+    err = queue->rpc->rpc_tx_vtbl.deregister_region(queue->rpc, rid, &err2);
     err = err_is_fail(err) ? err : err2;
     return err;
 }
@@ -451,10 +451,10 @@ static void ctrl_bind_cb(void *st, errval_t err, struct descq_ctrl_binding* b)
     struct descq* q = (struct descq*) st;
     DESCQ_DEBUG("Control interface bound \n");
     q->ctrl = b;
-    q->rpc = malloc(sizeof(struct descq_ctrl_rpc_client));
+    q->rpc = malloc(sizeof(struct descq_ctrl_binding));
     assert(q->rpc != NULL); 
 
-    err = descq_ctrl_rpc_client_init(q->rpc, b);
+    err = descq_ctrl_binding_init(q->rpc, b);
     assert(err_is_ok(err));
 
     b->rx_vtbl = ctrl_rx_vtbl;
@@ -603,7 +603,7 @@ errval_t descq_create(struct descq** q,
         }
 
         errval_t err2;
-        err = tmp->rpc->vtbl.create_queue(tmp->rpc, slots, rx, tx, &err2);
+        err = tmp->rpc->rpc_tx_vtbl.create_queue(tmp->rpc, slots, rx, tx, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             goto cleanup5;

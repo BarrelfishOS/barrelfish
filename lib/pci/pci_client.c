@@ -21,8 +21,7 @@
 #include <pci/pci.h>
 #include <pci/pci_client_debug.h>
 #include <if/pci_defs.h>
-#include <if/pci_rpcclient_defs.h>
-#include <if/acpi_rpcclient_defs.h>
+#include <if/acpi_defs.h>
 #include <acpi_client/acpi_client.h>
 #include <int_route/int_model.h>
 #include <int_route/int_route_client.h>
@@ -30,7 +29,7 @@
 #define INVALID_VECTOR ((uint64_t)-1)
 #define INVALID_VECTOR_32 ((uint32_t)-1)
 
-static struct pci_rpc_client *pci_client = NULL;
+static struct pci_binding *pci_client = NULL;
 
 
 /*
@@ -81,7 +80,7 @@ errval_t pci_reregister_irq_for_device(uint32_t class, uint32_t subclass, uint32
         assert(vector != INVALID_VECTOR);
     }
 
-    err = pci_client->vtbl.
+    err = pci_client->rpc_tx_vtbl.
         reregister_interrupt(pci_client, class, subclass, prog_if, vendor,
                 device, bus, dev, fun, disp_get_current_core_id(),
                 vector, &msgerr);
@@ -178,7 +177,7 @@ static errval_t setup_int_routing(int irq_idx, interrupt_handler_fn handler,
     }
 
     // Activate PCI interrupt
-    err = pci_client->vtbl.irq_enable(pci_client, &msgerr);
+    err = pci_client->rpc_tx_vtbl.irq_enable(pci_client, &msgerr);
     assert(err_is_ok(err));
     if(err_is_fail(msgerr)){
         DEBUG_ERR(msgerr, "irq_enable");
@@ -200,7 +199,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
     uint8_t nbars;
     errval_t err, msgerr;
 
-    err = pci_client->vtbl.
+    err = pci_client->rpc_tx_vtbl.
         init_pci_device(pci_client, class, subclass, prog_if, vendor,
                         device, bus, dev, fun, &msgerr,
                         &nbars, caps_per_bar, caps_per_bar + 1, caps_per_bar + 2,
@@ -245,7 +244,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
 
             err = slot_alloc(&cap);
             assert(err_is_ok(err));
-            err = pci_client->vtbl.get_bar_cap(pci_client, nb, nc, &msgerr, &cap,
+            err = pci_client->rpc_tx_vtbl.get_bar_cap(pci_client, nb, nc, &msgerr, &cap,
                                            &type, &bar->bar_nr);
             if (err_is_fail(err) || err_is_fail(msgerr)) {
                 if (err_is_ok(err)) {
@@ -319,7 +318,7 @@ errval_t pci_register_legacy_driver_irq_cap(legacy_driver_init_fn init_func,
     // Connect to PCI without interrupts
     err = slot_alloc(&iocap);
     assert(err_is_ok(err));
-    err = pci_client->vtbl.init_legacy_device(pci_client, iomin, iomax, 0,
+    err = pci_client->rpc_tx_vtbl.init_legacy_device(pci_client, iomin, iomax, 0,
                                               disp_get_core_id(), INVALID_VECTOR_32,
                                               &msgerr, &iocap);
     if (err_is_fail(err)) {
@@ -375,7 +374,7 @@ errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,
 
     err = slot_alloc(&iocap);
     assert(err_is_ok(err));
-    err = pci_client->vtbl.init_legacy_device(pci_client, iomin, iomax, irq,
+    err = pci_client->rpc_tx_vtbl.init_legacy_device(pci_client, iomin, iomax, irq,
                                               disp_get_core_id(), vector,
                                               &msgerr, &iocap);
     if (err_is_fail(err)) {
@@ -417,14 +416,14 @@ errval_t pci_setup_inthandler(interrupt_handler_fn handler, void *handler_arg,
 errval_t pci_read_conf_header(uint32_t dword, uint32_t *val)
 {
     errval_t err, msgerr;
-    err = pci_client->vtbl.read_conf_header(pci_client, dword, &msgerr, val);
+    err = pci_client->rpc_tx_vtbl.read_conf_header(pci_client, dword, &msgerr, val);
     return err_is_fail(err) ? err : msgerr;
 }
 
 errval_t pci_write_conf_header(uint32_t dword, uint32_t val)
 {
     errval_t err, msgerr;
-    err = pci_client->vtbl.write_conf_header(pci_client, dword, val, &msgerr);
+    err = pci_client->rpc_tx_vtbl.write_conf_header(pci_client, dword, val, &msgerr);
     return err_is_fail(err) ? err : msgerr;
 }
 
@@ -432,9 +431,9 @@ errval_t pci_msix_enable_addr(struct pci_address *addr, uint16_t *count)
 {
     errval_t err, msgerr;
     if (addr == NULL) {
-        err = pci_client->vtbl.msix_enable(pci_client, &msgerr, count);
+        err = pci_client->rpc_tx_vtbl.msix_enable(pci_client, &msgerr, count);
     } else {
-        err = pci_client->vtbl.msix_enable_addr(pci_client, addr->bus, addr->device,
+        err = pci_client->rpc_tx_vtbl.msix_enable_addr(pci_client, addr->bus, addr->device,
                                                 addr->function, &msgerr, count);
     }
     return err_is_fail(err) ? err : msgerr;
@@ -450,10 +449,10 @@ errval_t pci_msix_vector_init_addr(struct pci_address *addr, uint16_t idx,
 {
     errval_t err, msgerr;
     if (addr == NULL) {
-        err = pci_client->vtbl.msix_vector_init(pci_client, idx, destination,
+        err = pci_client->rpc_tx_vtbl.msix_vector_init(pci_client, idx, destination,
                                                     vector, &msgerr);
     } else {
-        err = pci_client->vtbl.msix_vector_init_addr(pci_client, addr->bus,
+        err = pci_client->rpc_tx_vtbl.msix_vector_init_addr(pci_client, addr->bus,
                                                      addr->device, addr->function,
                                                      idx, destination,
                                                      vector, &msgerr);
@@ -472,14 +471,8 @@ static void bind_cont(void *st, errval_t err, struct pci_binding *b)
 {
     errval_t *reterr = st;
     if (err_is_ok(err)) {
-        struct pci_rpc_client *r = malloc(sizeof(*r));
-        assert(r != NULL);
-        err = pci_rpc_client_init(r, b);
-        if (err_is_ok(err)) {
-            pci_client = r;
-        } else {
-            free(r);
-        }
+        pci_rpc_client_init(b);
+        pci_client = b;
     }
     *reterr = err;
 }

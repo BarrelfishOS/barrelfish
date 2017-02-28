@@ -84,7 +84,7 @@ static errval_t dma_register_response_tx(struct txq_msg_st *msg_st)
 {
     struct dma_binding *b = msg_st->queue->binding;
 
-    return dma_register_response__tx(b, TXQCONT(msg_st), msg_st->err);
+    return dma_register__response__tx(b, TXQCONT(msg_st), msg_st->err);
 }
 
 static void dma_register_call_rx(struct dma_binding *_binding,
@@ -188,7 +188,7 @@ static void dma_memcpy_call_rx(struct dma_binding *_binding,
 }
 
 struct dma_rx_vtbl dma_rx_vtbl = {
-    .register_call = dma_register_call_rx,
+    .register__call = dma_register_call_rx,
     .deregister_call = dma_deregister_call_rx,
     .memcpy_call = dma_memcpy_call_rx,
 };

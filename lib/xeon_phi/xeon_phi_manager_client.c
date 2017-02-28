@@ -14,7 +14,7 @@
 #include <xeon_phi/xeon_phi_manager_client.h>
 
 #include <if/xeon_phi_manager_defs.h>
-#include <if/xeon_phi_manager_rpcclient_defs.h>
+#include <if/xeon_phi_manager_defs.h>
 
 /// the name of the Xeon Phi Manager service
 #define XEON_PHI_MANAGER_SERVICE_NAME "xeon_phi_manager"
@@ -48,8 +48,6 @@ static iref_t xpm_iref = 0;
 
 /// Flounder binind go the Xeon Phi manager
 static struct xeon_phi_manager_binding *xpm_binding = NULL;
-
-static struct xeon_phi_manager_rpc_client xpm_rpc_client;
 
 /// connection state
 static enum xpm_state conn_state = XPM_STATE_INVALID;
@@ -99,7 +97,7 @@ static void xpm_bind_cb(void *st,
 
     conn_state = XPM_STATE_BIND_OK;
 
-    xeon_phi_manager_rpc_client_init(&xpm_rpc_client, binding);
+    xeon_phi_manager_rpc_client_init(xpm_binding);
 
     DEBUG_XPMC("binding to "XEON_PHI_MANAGER_SERVICE_NAME" succeeded\n");
 }
@@ -198,7 +196,7 @@ errval_t xeon_phi_manager_client_register(iref_t svc_iref,
 
     xeon_phi_manager_cards_t cards;
 
-    err = xpm_rpc_client.vtbl.register_driver(&xpm_rpc_client, svc_iref, id,
+    err = xpm_binding->rpc_tx_vtbl.register_driver(xpm_binding, svc_iref, id,
                                               &cards, &msgerr);
     if (err_is_fail(err)) {
         return err;
@@ -251,7 +249,7 @@ errval_t xeon_phi_manager_lookup(xphi_id_t xid,
         return err;
     }
 
-    err = xpm_rpc_client.vtbl.lookup(&xpm_rpc_client, xid, svc_iref, &msgerr);
+    err = xpm_binding->rpc_tx_vtbl.lookup(xpm_binding, xid, svc_iref, &msgerr);
     if (err_is_fail(err)) {
         return err;
     }

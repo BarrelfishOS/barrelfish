@@ -30,7 +30,13 @@ bind_fn_name n = ifscope n "bind"
 connect_handlers_fn_name n = ifscope n "connect_handlers"
 disconnect_handlers_fn_name n = ifscope n "disconnect_handlers"
 
+-- Name of the init function
+rpc_init_fn_name :: String -> String
+rpc_init_fn_name ifn = ifscope ifn "rpc_client_init"
+
 rpc_rx_vtbl_type ifn = ifscope ifn "rpc_rx_vtbl"
+rpc_tx_vtbl_type ifn = ifscope ifn "rpc_tx_vtbl"
+local_rpc_tx_vtbl_type ifn = ifscope ifn "local_rpc_tx_vtbl"
 
 ------------------------------------------------------------------------
 -- Language mapping: Create the generic header file for the interface
@@ -96,7 +102,12 @@ intf_header_body infile interface@(Interface name descr decls) =
         C.Blank,
 
         C.MultiComment [ "RPC RX function signatures" ],
-        C.UnitList [ msg_signature_rpc_rx name types (binding_param name) m
+        C.UnitList [ msg_signature_generic RX name types (binding_param name) m
+                    | m <- rpcs ],
+        C.Blank,
+
+        C.MultiComment [ "RPC TX Function signatures" ],
+        C.UnitList [ msg_signature_generic TX name types (binding_param name) m
                     | m <- rpcs ],
         C.Blank,
 
@@ -133,6 +144,10 @@ intf_header_body infile interface@(Interface name descr decls) =
         rpc_rx_vtbl_decl name rpcs,
         C.Blank,
 
+        C.MultiComment [ "VTable struct definition for the rpc interface (transmit)" ],
+        rpc_tx_vtbl_decl name rpcs,
+        C.Blank,
+        
         C.MultiComment [ "Incoming connect callback type" ],
         connect_callback_fn name,
         C.Blank,
@@ -172,6 +187,9 @@ intf_header_body infile interface@(Interface name descr decls) =
         C.MultiComment [ "Backend-specific includes" ],
         C.UnitList $ backend_includes name,
 
+        C.MultiComment [ "Function to initialise an RPC client" ],
+        rpc_init_fn_proto name,
+        
         C.MultiComment [ "And we're done" ]
       ]
 
@@ -191,9 +209,8 @@ msg_enums ifname msgs
 -- Generate type definitions for each message signature
 --
 msg_signature_generic :: Direction -> String -> [TypeDef] -> C.Param -> MessageDef -> C.Unit
-msg_signature_generic dirn ifname typedefs firstparam m = case dirn of
-    TX -> C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) name
-    RX -> C.TypeDef (C.Function C.NoScope (C.TypeName "void") params) name
+msg_signature_generic dirn ifname typedefs firstparam m =
+    C.TypeDef (C.Function C.NoScope (return_type dirn m) params) name
   where
     name = msg_sig_type ifname m dirn
     continuation = C.Param (C.Struct "event_closure") intf_cont_var
@@ -206,23 +223,23 @@ msg_signature_generic dirn ifname typedefs firstparam m = case dirn of
     params = [ firstparam ] ++ opt_continuation ++ concat payload
     payload = case m of
         Message _ _ args _ -> [ msg_argdecl dirn ifname a | a <- args ]
-        RPC s args _       -> [ rpc_argdecl2 TX ifname typedefs a | a <- args ]
+        RPC s args _       -> [ rpc_argdecl2 dirn ifname typedefs a | a <- args ]
+    return_type RX m@(Message _ _ _ _) = C.TypeName "void"
+    return_type _ _ = C.TypeName "errval_t"
 
 msg_signature :: Direction -> String -> MessageDef -> C.Unit
 msg_signature dir ifn = msg_signature_generic dir ifn [] (binding_param ifn)
-
-msg_signature_rpc_rx :: String -> [TypeDef] -> C.Param -> MessageDef -> C.Unit
-msg_signature_rpc_rx ifname typedefs firstparam m@(RPC s args _) = C.TypeDef (C.Function C.NoScope (C.TypeName "errval_t") params) name
-  where
-    name = msg_sig_type_rpc_rx ifname m
-    params = [ firstparam ] ++ concat payload
-    payload = [rpc_argdecl2 RX ifname typedefs a | a <- args]
 
 rpc_rx_vtbl_decl :: String -> [MessageDef] -> C.Unit
 rpc_rx_vtbl_decl n ml =
     C.StructDecl (rpc_rx_vtbl_type n) [ param n m | m <- ml ]
     where
-        param ifn m = C.Param (C.Ptr $ C.TypeName $ msg_sig_type_rpc_rx ifn m) ((msg_name m) ++ "_call")
+        param ifn m = C.Param (C.Ptr $ C.TypeName $ msg_sig_type ifn m RX) ((msg_name m) ++ "_call")
+
+rpc_tx_vtbl_decl :: String -> [MessageDef] -> C.Unit
+rpc_tx_vtbl_decl n ml =
+    C.StructDecl (rpc_tx_vtbl_type n) [ intf_vtbl_param n m TX | m <- ml ]
+
 
 --
 -- Get the maximum size of the arguments
@@ -358,6 +375,10 @@ binding_struct n ml = C.StructDecl (intf_bind_type n) fields
 
         C.ParamComment "Incoming message rpc handlers (filled in by user)",
         C.Param (C.Struct $ rpc_rx_vtbl_type n) "rpc_rx_vtbl",
+        C.ParamBlank,
+
+        C.ParamComment "RPC send functions (filled in by binding)",
+        C.Param (C.Struct $ rpc_tx_vtbl_type n) "rpc_tx_vtbl",
         C.ParamBlank,
 
         C.ParamComment "Message channels",
@@ -552,6 +573,14 @@ connect_function n =
                  C.Param (C.Ptr $ C.TypeName "void") "st",
                  C.Param (C.Ptr $ C.Struct "waitset") "ws",
                  C.Param (C.TypeName "idc_bind_flags_t") "flags" ]
+
+rpc_init_fn_proto :: String -> C.Unit
+rpc_init_fn_proto n =
+    C.GVarDecl C.Extern C.NonConst
+         (C.Function C.NoScope (C.Void) (rpc_init_fn_params n)) name Nothing
+    where
+        name = rpc_init_fn_name n
+        rpc_init_fn_params n = [C.Param (C.Ptr $ C.Struct (intf_bind_type n)) "binding"]
 
 --
 -- Generate send function inline wrappers for each message signature

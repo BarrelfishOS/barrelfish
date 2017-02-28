@@ -16,11 +16,11 @@
 #include <pci/pci.h> // for pci_address
 
 #ifdef __arm__
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 #endif
 
 #ifdef __aarch64__
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 #endif
 
 #include "kaluga.h"
@@ -204,14 +204,14 @@ errval_t start_networking(coreid_t core,
 /*     debug_printf("doing pandaboard related setup...\n"); */
 /*     errval_t err; */
 
-/*     struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client(); */
+/*     struct monitor_binding *cl = get_monitor_blocking_binding(); */
 /*     assert(cl != NULL); */
 
 /*     // Request I/O Cap */
 /*     struct capref requested_caps; */
 /*     errval_t error_code; */
 
-/*     err = cl->vtbl.get_io_cap(cl, &requested_caps, &error_code); */
+/*     err = cl->rpc_tx_vtbl.get_io_cap(cl, &requested_caps, &error_code); */
 /*     assert(err_is_ok(err) && err_is_ok(error_code)); */
 
 /*     // Copy into correct slot */

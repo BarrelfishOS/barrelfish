@@ -13,7 +13,7 @@
 
 interface xeon_phi_driver "Xeon Phi Service Interface" {
 
-    rpc register(in uint8 id, 
+    rpc register_(in uint8 id, 
                  in uint64 local_apt_base,
                  in uint64 local_apt_size, 
                  out errval msgerr, 

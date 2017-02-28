@@ -24,7 +24,7 @@
 #include "lwip/init.h"
 #include <netbench/netbench.h>
 #include <if/net_ports_defs.h>
-#include <if/net_ports_rpcclient_defs.h>
+#include <if/net_ports_defs.h>
 #include <stdio.h>
 #include <assert.h>
 #include "lwip/barrelfish.h"
@@ -52,7 +52,7 @@ static void (*close_port) (uint16_t port, net_ports_port_type_t type) = NULL;
  * @{
  *
  ****************************************************************/
-static struct net_ports_rpc_client net_ports_rpc;
+static struct net_ports_binding *net_ports_binding;
 static bool net_ports_service_connected = false;
 
 static net_ports_appid_t appid_delete = 0;
@@ -152,12 +152,8 @@ static void net_ports_bind_cb(void *st, errval_t err, struct net_ports_binding *
     }
     LWIPBF_DEBUG("net_ports_bind_cb: called\n");
 
-    err = net_ports_rpc_client_init(&net_ports_rpc, b);
-    if (!err_is_ok(err)) {
-        printf("net_ports_bind_cb failed in init\n");
-        abort();
-    }
-
+    net_ports_binding = b;
+    net_ports_rpc_client_init(net_ports_binding);
     net_ports_service_connected = true;
     LWIPBF_DEBUG("net_ports_bind_cb: net_ports bind successful!\n");
 }
@@ -235,7 +231,7 @@ void idc_get_ip(void)
     errval_t err;
     struct ip_addr ip, gw, nm;
 
-    err = net_ports_rpc.vtbl.get_ip_info(&net_ports_rpc, &ip.addr, &gw.addr,
+    err = net_ports_binding->rpc_tx_vtbl.get_ip_info(net_ports_binding, &ip.addr, &gw.addr,
             &nm.addr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending get_ip_info");
@@ -268,7 +264,7 @@ static err_t idc_close_port(uint16_t port, int port_type)
 
     errval_t err, msgerr;
 
-    err = net_ports_rpc.vtbl.close_port(&net_ports_rpc, port_type, port,
+    err = net_ports_binding->rpc_tx_vtbl.close_port(net_ports_binding, port_type, port,
                                   appid_delete, lwip_queue_id,
                                   &msgerr);
     if (err_is_fail(err)) {
@@ -307,7 +303,7 @@ static err_t idc_bind_port(uint16_t port, net_ports_port_type_t port_type)
     errval_t err, msgerr;
 
     /* getting the proper buffer id's here */
-    err = net_ports_rpc.vtbl.bind_port(&net_ports_rpc, port_type, port,
+    err = net_ports_binding->rpc_tx_vtbl.bind_port(net_ports_binding, port_type, port,
                                   /* buffer for RX */
                                    get_rx_bufferid(),
                                   /* buffer for TX */
@@ -352,7 +348,7 @@ static err_t idc_new_port(uint16_t * port_no, net_ports_port_type_t port_type)
     //assert(!"NYI");
 
     /* getting the proper buffer id's here */
-    err = net_ports_rpc.vtbl.get_port(&net_ports_rpc, port_type,
+    err = net_ports_binding->rpc_tx_vtbl.get_port(net_ports_binding, port_type,
                                  /* buffer for RX */
                                  get_rx_bufferid(),
                                  /* buffer for TX */
@@ -410,7 +406,7 @@ static err_t idc_redirect(struct ip_addr *local_ip, u16_t local_port,
 #if 0
     /* getting the proper buffer id's here */
     err =
-      net_ports_rpc.vtbl.redirect(&net_ports_rpc, port_type, local_ip->addr, local_port,
+      net_ports_binding->rpc_tx_vtbl.redirect(net_ports_binding, port_type, local_ip->addr, local_port,
                              remote_ip->addr, remote_port,
                              /* buffer for RX */
                              get_rx_bufferid(),
@@ -448,7 +444,7 @@ static err_t idc_pause(struct ip_addr *local_ip, u16_t local_port,
 #if 0
     /* getting the proper buffer id's here */
     err =
-      net_ports_rpc.vtbl.redirect_pause(&net_ports_rpc, port_type, local_ip->addr,
+      net_ports_binding->rpc_tx_vtbl.redirect_pause(net_ports_binding, port_type, local_ip->addr,
                                    local_port, remote_ip->addr, remote_port,
                                    /* buffer for RX */
                                    ((struct client_closure_NC *)
@@ -508,4 +504,3 @@ void perform_ownership_housekeeping(uint16_t(*alloc_tcp_ptr) (void),
     bind_port = bind_port_ptr;
     close_port = close_port_ptr;
 }
-

@@ -193,7 +193,7 @@ static void memcpy_response_rx(struct dma_binding *_binding,
 }
 
 static struct dma_rx_vtbl dma_rxvtbl = {
-    .register_response = register_response_rx,
+    .register__response = register_response_rx,
     .deregister_response = deregister_response_rx,
     .memcpy_response = memcpy_response_rx,
     .done = done_msg_rx
@@ -209,7 +209,7 @@ static errval_t dma_client_channel_register_call_tx(struct txq_msg_st *msg_st)
 {
     struct svc_msg_st *st = (struct svc_msg_st *) msg_st;
 
-    return dma_register_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+    return dma_register__call__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                  st->args.cap);
 }
 

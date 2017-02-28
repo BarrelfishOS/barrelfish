@@ -14,7 +14,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/inthandler.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 
 struct waitset *barrelfish_interrupt_waitset = NULL;
 
@@ -23,8 +23,8 @@ static errval_t arm_allocirq(struct capref ep, uint32_t irq)
 {
     errval_t err, msgerr;
 
-    struct monitor_blocking_rpc_client *r = get_monitor_blocking_rpc_client();
-    err = r->vtbl.arm_irq_handle(r, ep, irq, &msgerr);
+    struct monitor_blocking_binding *r = get_monitor_blocking_binding();
+    err = r->rpc_tx_vtbl.arm_irq_handle(r, ep, irq, &msgerr);
     if (err_is_fail(err)){
         return err;
     } else {
@@ -40,12 +40,12 @@ errval_t alloc_dest_irq_cap(struct capref *retcap)
 {
     errval_t err, msgerr;
 
-    struct monitor_blocking_rpc_client *r = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *r = get_monitor_blocking_binding();
     err = slot_alloc(retcap);
     if (err_is_fail(err)) {
         return err;
     }
-    err = r->vtbl.get_irq_dest_cap(r, retcap, &msgerr);
+    err = r->rpc_tx_vtbl.get_irq_dest_cap(r, retcap, &msgerr);
     if (err_is_fail(err)){
         return err;
     } else {

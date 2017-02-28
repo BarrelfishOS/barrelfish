@@ -13,7 +13,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <if/ahci_mgmt_defs.h>
-#include <if/ahci_mgmt_rpcclient_defs.h>
+#include <if/ahci_mgmt_defs.h>
 #include <dev/ata_identify_dev.h>
 #include <dev/ahci_port_dev.h>
 #include <ahci/ahci.h>
@@ -22,7 +22,6 @@
 
 #include "vfs_blockdevfs.h"
 
-static struct ahci_mgmt_rpc_client ahci_mgmt_rpc;
 static struct ahci_mgmt_binding *ahci_mgmt_binding;
 static bool ahci_mgmt_bound = false;
 
@@ -297,20 +296,17 @@ static void ahci_mgmt_bind_cb(void *st, errval_t err, struct ahci_mgmt_binding *
     }
 
     ahci_mgmt_binding = b;
-    err = ahci_mgmt_rpc_client_init(&ahci_mgmt_rpc, b);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "ahci_mgmt RPC init failed");
-    }
+    ahci_mgmt_rpc_client_init(ahci_mgmt_binding);
 
     ahci_mgmt_bound = true;
 
     struct ahci_mgmt_list_response__rx_args reply;
-    err = ahci_mgmt_rpc.vtbl.list(&ahci_mgmt_rpc, reply.port_ids, &reply.len);
+    err = ahci_mgmt_binding->rpc_tx_vtbl.list(ahci_mgmt_binding, reply.port_ids, &reply.len);
     assert(err_is_ok(err));
 
     for (size_t i = 0; i < reply.len; i++) {
         struct ahci_mgmt_identify_response__rx_args identify_reply;
-        err = ahci_mgmt_rpc.vtbl.identify(&ahci_mgmt_rpc,
+        err = ahci_mgmt_binding->rpc_tx_vtbl.identify(ahci_mgmt_binding,
                 reply.port_ids[i], identify_reply.identify_data,
                 &identify_reply.data_len);
         assert(err_is_ok(err));

@@ -16,7 +16,7 @@
 #include <virtio/virtio_host.h>
 
 #include <if/virtio_defs.h>
-#include <if/virtio_rpcclient_defs.h>
+#include <if/virtio_defs.h>
 
 #include "channel.h"
 #include "device.h"

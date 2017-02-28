@@ -54,7 +54,7 @@ struct ram_alloc_state {
 
 struct skb_state {
     bool request_done;
-    struct skb_rpc_client *skb;
+    struct skb_binding *skb;
 };
 
 struct slot_alloc_state {
@@ -74,24 +74,25 @@ struct slot_alloc_state {
 };
 
 struct terminal_state;
-struct octopus_rpc_client;
+struct octopus_binding;
 struct domain_state;
 struct spawn_state;
 struct monitor_binding;
-struct mem_rpc_client;
-struct spawn_rpc_client;
-struct arrakis_rpc_client;
+struct monitor_blocking_binding;
+struct mem_binding;
+struct spawn_binding;
+struct arrakis_binding;
 
 struct core_state_generic {
     struct waitset default_waitset;
     struct monitor_binding *monitor_binding;
-    struct monitor_blocking_rpc_client *monitor_blocking_rpc_client;
-    struct mem_rpc_client *mem_st;
+    struct monitor_blocking_binding *monitor_blocking_binding;
+    struct mem_binding *mem_st;
     struct morecore_state morecore_state;
     struct ram_alloc_state ram_alloc_state;
-    struct octopus_rpc_client *octopus_rpc_client;
-    struct spawn_rpc_client *spawn_rpc_clients[MAX_CPUS];
-    struct arrakis_rpc_client *arrakis_rpc_clients[MAX_CPUS];
+    struct octopus_binding *octopus_binding;
+    struct spawn_binding *spawn_bindings[MAX_CPUS];
+    struct arrakis_binding *arrakis_bindings[MAX_CPUS];
     struct terminal_state *terminal_state;
     struct domain_state *domain_state;
     struct spawn_state *spawn_state;

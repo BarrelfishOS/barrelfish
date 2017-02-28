@@ -206,7 +206,7 @@ static void register_response_send(void *a)
 
     struct xeon_phi *phi = topology->local;
 
-    err = xeon_phi_driver_register_response__tx(topology->binding, txcont, err,
+    err = xeon_phi_driver_register__response__tx(topology->binding, txcont, err,
                                                 phi->apt.pbase, phi->apt.length);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -296,7 +296,7 @@ static void register_call_send(void *a)
 
     topology->state = XNODE_STATE_REGISTERING;
 
-    err = xeon_phi_driver_register_call__tx(topology->binding, txcont, phi->id,
+    err = xeon_phi_driver_register__call__tx(topology->binding, txcont, phi->id,
                                             phi->apt.pbase, phi->apt.length);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -312,8 +312,8 @@ static void register_call_send(void *a)
 
 /// Receive handler table
 static struct xeon_phi_driver_rx_vtbl xps_rx_vtbl = {
-    .register_call = register_call_recv,
-    .register_response = register_response_recv,
+    .register__call = register_call_recv,
+    .register__response = register_response_recv,
     .bootstrap_call = bootstrap_call_rx,
     .bootstrap_response = bootstrap_response_rx
 };
@@ -494,4 +494,3 @@ errval_t service_start(struct xeon_phi *phi)
 
     return SYS_ERR_OK;
 }
-

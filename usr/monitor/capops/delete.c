@@ -18,7 +18,7 @@
 #include "delete_int.h"
 #include "internal.h"
 #include "ram_alloc.h"
-#include <if/mem_rpcclient_defs.h>
+#include <if/mem_defs.h>
 
 struct delete_remote_mc_st {
     struct capsend_mc_st mc_st;
@@ -70,7 +70,7 @@ send_new_ram_cap(struct capref cap)
     struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
     thread_mutex_lock(&ram_alloc_state->ram_alloc_lock);
 
-    struct mem_rpc_client *b = get_mem_client();
+    struct mem_binding *b = get_mem_client();
     if (!b) {
         DEBUG_CAPOPS("%s: forwarding to monitor.0\n", __FUNCTION__);
         // we're not on core 0, so forward free_monitor msg to monitor.0
@@ -80,7 +80,7 @@ send_new_ram_cap(struct capref cap)
         DEBUG_CAPOPS("%s: we are monitor.0\n", __FUNCTION__);
         // XXX: This should not be an RPC! It could stall the monitor, but
         // we trust mem_serv for the moment.
-        err = b->vtbl.free_monitor(b, cap, ram.base, log2ceil(ram.bytes), &result);
+        err = b->rpc_tx_vtbl.free_monitor(b, cap, ram.base, log2ceil(ram.bytes), &result);
         assert(err_is_ok(err));
         assert(err_is_ok(result));
     }

@@ -19,7 +19,7 @@
 #include <barrelfish/debug.h>
 #include <barrelfish/sys_debug.h>
 #include <barrelfish/dispatch.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -88,11 +88,11 @@ errval_t debug_cap_identify(struct capref cap, struct capability *ret)
         struct capability capability;
     } u;
 
-    struct monitor_blocking_rpc_client *r = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *r = get_monitor_blocking_binding();
     if (!r) {
         return LIB_ERR_MONITOR_RPC_NULL;
     }
-    err = r->vtbl.cap_identify(r, cap, &msgerr, &u.caprep);
+    err = r->rpc_tx_vtbl.cap_identify(r, cap, &msgerr, &u.caprep);
     if (err_is_fail(err)){
         return err;
     } else if (err_is_fail(msgerr)) {

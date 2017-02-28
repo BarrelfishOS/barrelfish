@@ -16,10 +16,10 @@
 #include <debug.h>
 
 #include <if/dma_mgr_defs.h>
-#include <if/dma_mgr_rpcclient_defs.h>
+#include <if/dma_mgr_defs.h>
 
 /// DMA manager RPC client
-static struct dma_mgr_rpc_client dma_mgr_client;
+static struct dma_mgr_binding *dma_mgr_client;
 
 /// connected flag
 uint8_t dma_mgr_connected = 0x0;
@@ -53,12 +53,8 @@ static void bind_cb(void *st,
     }
 
     DMAMGR_DEBUG("connect: connection to {%s} established.\n", DMA_MGR_SVC_NAME);
-
-    bindst->err = dma_mgr_rpc_client_init(&dma_mgr_client, b);
-
-    if (err_is_fail(bindst->err)) {
-        DMAMGR_DEBUG("connect: RPC client init failed.\n");
-    }
+    dma_mgr_client = b;
+    dma_mgr_rpc_client_init(dma_mgr_client);
 
     bindst->bound = 0x1;
 }
@@ -162,7 +158,7 @@ errval_t dma_manager_register_driver(lpaddr_t mem_low,
     //XXX need to figure this out otherwise
     uint8_t numa_node = (disp_get_core_id() >= 20);
 
-    err = dma_mgr_client.vtbl.register_driver(&dma_mgr_client, mem_low, mem_high,
+    err = dma_mgr_client->rpc_tx_vtbl.register_driver(dma_mgr_client, mem_low, mem_high,
                     numa_node, type, iref, &msgerr);
     if (err_is_fail(err)) {
         DMAMGR_DEBUG("register driver: RPC failed %s\n", err_getstring(err));
@@ -223,7 +219,7 @@ errval_t dma_manager_lookup_driver(lpaddr_t addr,
 
     uint8_t numa_node = (disp_get_core_id() >= 20);
 
-    err = dma_mgr_client.vtbl.lookup_driver(&dma_mgr_client, addr, size,
+    err = dma_mgr_client->rpc_tx_vtbl.lookup_driver(dma_mgr_client, addr, size,
                     numa_node, &msgerr, &info->mem_low,
                     &info->mem_high, &info->numa_node,
                     (uint8_t*) &info->type, &info->iref);
@@ -267,7 +263,7 @@ errval_t dma_manager_lookup_by_iref(iref_t iref,
 
     DMAMGR_DEBUG("lookup driver by iref:%"PRIxIREF"\n", iref);
 
-    err = dma_mgr_client.vtbl.lookup_driver_by_iref(&dma_mgr_client, iref,
+    err = dma_mgr_client->rpc_tx_vtbl.lookup_driver_by_iref(dma_mgr_client, iref,
                                                     &msgerr, &info->mem_low,
                                                     &info->mem_high,
                                                     &info->numa_node,
@@ -304,4 +300,3 @@ errval_t dma_manager_wait_for_driver(dma_dev_type_t device,
     iref_t dummy_iref;
     return nameservice_blocking_lookup(buf, &dummy_iref);
 }
-

@@ -12,7 +12,7 @@
 #define USB_TRANSFER_H_
 
 #include <if/usb_manager_defs.h>
-#include <if/usb_manager_rpcclient_defs.h>
+#include <if/usb_manager_defs.h>
 
 struct usb_device;
 struct usb_xfer;

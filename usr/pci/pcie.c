@@ -19,7 +19,7 @@
 #include <pci/confspace/pci_confspace.h>
 #include <acpi_client/acpi_client.h>
 #include <skb/skb.h>
-#include <if/acpi_rpcclient_defs.h>
+#include <if/acpi_defs.h>
 
 #include "pci.h"
 #include "pci_debug.h"
@@ -32,8 +32,8 @@ errval_t pcie_setup_confspace(void) {
     uint8_t sbus;
     uint8_t ebus;
 
-    struct acpi_rpc_client* cl = get_acpi_rpc_client();
-    cl->vtbl.get_pcie_confspace(cl, &err, &address, &segment, &sbus, &ebus);
+    struct acpi_binding* cl = get_acpi_binding();
+    cl->rpc_tx_vtbl.get_pcie_confspace(cl, &err, &address, &segment, &sbus, &ebus);
     if (err_is_ok(err)) {
 
         size_t region_pages = (ebus + 1 - sbus) << 8;
@@ -41,13 +41,13 @@ errval_t pcie_setup_confspace(void) {
         uint8_t region_bits = log2ceil(region_bytes);
 
         struct capref pcie_cap;
-        struct acpi_rpc_client* acl = get_acpi_rpc_client();
+        struct acpi_binding* acl = get_acpi_binding();
         errval_t error_code;
         err = slot_alloc(&pcie_cap);
         if (err_is_fail(err)) {
             return err;
         }
-        err = acl->vtbl.mm_alloc_range_proxy(acl, region_bits, address,
+        err = acl->rpc_tx_vtbl.mm_alloc_range_proxy(acl, region_bits, address,
                 address + (1UL << region_bits), &pcie_cap, &error_code);
         if (err_is_fail(err)) {
             return err;

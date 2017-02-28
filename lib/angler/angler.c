@@ -19,8 +19,8 @@
 #include <barrelfish/waitset.h>
 #include <if/monitor_defs.h>
 #include <if/terminal_session_defs.h>
-#include <if/terminal_session_rpcclient_defs.h>
-#include <if/octopus_rpcclient_defs.h>
+#include <if/terminal_session_defs.h>
+#include <if/octopus_defs.h>
 #include <octopus/getset.h> /* For SET_DEFAULT */
 #include <octopus/trigger.h> /* For NOP_TRIGGER */
 
@@ -81,7 +81,6 @@ errval_t angler_new_session_with_iref(iref_t session_iref,
     errval_t err = SYS_ERR_OK;
     errval_t error = SYS_ERR_OK;
     struct _angler_state *state = NULL;
-    struct terminal_session_rpc_client rpc_client;
     struct waitset ws;
     iref_t in_iref;
     iref_t out_iref;
@@ -122,15 +121,11 @@ errval_t angler_new_session_with_iref(iref_t session_iref,
     }
 
     /* Initialize rpc client. */
-    err = terminal_session_rpc_client_init(&rpc_client, state->binding);
-    if (err_is_fail(err)) {
-        err = err_push(err, ANGLER_ERR_INIT_RPCCLIENT);
-        goto out;
-    }
+    terminal_session_rpc_client_init(state->binding);
 
     /* Associate session with terminal. */
-    err = rpc_client.vtbl.session_associate_with_terminal
-            (&rpc_client, *session_id, &in_iref, &out_iref, &conf_iref, &error);
+    err = state->binding->rpc_tx_vtbl.session_associate_with_terminal
+            (state->binding, *session_id, &in_iref, &out_iref, &conf_iref, &error);
     if (err_is_fail(err)) {
         err = err_push(err, ANGLER_ERR_ASSOCIATE_WITH_TERMINAL);
         goto out;
@@ -174,12 +169,12 @@ static errval_t store_session_state(struct capref *session_id,
 {
     errval_t err = SYS_ERR_OK;
     errval_t error;
-    struct octopus_rpc_client *rpc_client = NULL;
+    struct octopus_binding *rpc_client = NULL;
     char *attributes = NULL;
     size_t attributes_len = 0;
     octopus_trigger_id_t tid;
 
-    rpc_client = get_octopus_rpc_client();
+    rpc_client = get_octopus_binding();
     assert(rpc_client != NULL);
 
     /* Build attributes. */
@@ -192,7 +187,7 @@ static errval_t store_session_state(struct capref *session_id,
 
 
     /* Store record at octopus. */
-    err = rpc_client->vtbl.set_with_idcap(rpc_client, *session_id, attributes,
+    err = rpc_client->rpc_tx_vtbl.set_with_idcap(rpc_client, *session_id, attributes,
                                            SET_DEFAULT, NOP_TRIGGER, false,
                                            NULL, &tid, &error);
     if (err_is_fail(err)) {

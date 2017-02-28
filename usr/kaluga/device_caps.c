@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mm/mm.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 
 #include "kaluga.h"
 
@@ -81,13 +81,13 @@ errval_t init_cap_manager(void)
     errval_t err, error_code;
 
     // Request I/O Cap
-    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *cl = get_monitor_blocking_binding();
     assert(cl != NULL);
 
     struct capref requested_cap;
     err = slot_alloc(&requested_cap);
     assert(err_is_ok(err));
-    err = cl->vtbl.get_io_cap(cl, &requested_cap, &error_code);
+    err = cl->rpc_tx_vtbl.get_io_cap(cl, &requested_cap, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
 
     // Initialize the memory allocator to handle PhysAddr caps

@@ -75,12 +75,10 @@ msg_enum_elem_name ifn mn = idscope ifn mn "msgnum"
 
 -- Name of the type of a message function
 msg_sig_type :: String -> MessageDef -> Direction -> String
-msg_sig_type ifn m@(RPC _ _ _) _ = idscope ifn (msg_name m) "rpc_method_fn"
+msg_sig_type ifn m@(RPC _ _ _) TX = idscope ifn (msg_name m) "rpc_tx_method_fn"
+msg_sig_type ifn m@(RPC _ _ _) RX = idscope ifn (msg_name m) "rpc_rx_method_fn"
 msg_sig_type ifn m TX = idscope ifn (msg_name m) "tx_method_fn"
 msg_sig_type ifn m RX =  idscope ifn (msg_name m) "rx_method_fn"
-
-msg_sig_type_rpc_rx :: String -> MessageDef -> String
-msg_sig_type_rpc_rx ifn m@(RPC _ _ _) = idscope ifn (msg_name m) "rpc_rx_method_fn"
 
 -- Name of a given message definition
 msg_name :: MessageDef -> String

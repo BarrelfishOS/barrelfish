@@ -18,12 +18,12 @@
 #include <errors/errno.h>
 
 /* forward declaration */
-struct acpi_rpc_client;
+struct acpi_binding;
 
 typedef uint64_t acpi_device_handle_t;
 
 
-struct acpi_rpc_client* get_acpi_rpc_client(void);
+struct acpi_binding* get_acpi_binding(void);
 errval_t connect_to_acpi(void);
 
 errval_t acpi_client_get_device_handle(const char *dev_id,

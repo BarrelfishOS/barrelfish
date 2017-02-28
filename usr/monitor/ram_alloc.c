@@ -15,11 +15,11 @@
 #include "monitor.h"
 #include "capops.h"
 #include <if/monitor_mem_defs.h>
-#include <if/monitor_mem_rpcclient_defs.h>
-#include <if/mem_rpcclient_defs.h>
+#include <if/monitor_mem_defs.h>
+#include <if/mem_defs.h>
 
 static uint8_t mem_core_id;
-static struct monitor_mem_rpc_client monitor_mem_client;
+static struct monitor_mem_binding *monitor_mem_client;
 static bool mem_setup_complete = false;
 iref_t monitor_mem_iref = 0;
 
@@ -140,9 +140,9 @@ static errval_t mem_free_handler(struct monitor_mem_binding *b,
     }
     DEBUG_CAPOPS("%s: created local copy, sending to memserv\n", __FUNCTION__);
 
-    struct mem_rpc_client *mb = get_mem_client();
+    struct mem_binding *mb = get_mem_client();
     assert(mb);
-    err = mb->vtbl.free_monitor(mb, cap, base, bits, result);
+    err = mb->rpc_tx_vtbl.free_monitor(mb, cap, base, bits, result);
     if (err_is_fail(err)) {
         *result = err;
     }
@@ -158,7 +158,7 @@ static errval_t mon_ram_alloc(struct capref *ret, uint8_t size_bits,
     intermon_caprep_t caprep;
     errval_t reterr;
 
-    err = monitor_mem_client.vtbl.alloc(&monitor_mem_client, size_bits,
+    err = monitor_mem_client->rpc_tx_vtbl.alloc(monitor_mem_client, size_bits,
                                         minbase, maxlimit, my_core_id, &reterr,
                                         (monitor_mem_caprep_t *) &caprep);
     if (err_is_fail(err)) {
@@ -223,12 +223,9 @@ static void bind_cont(void *st, errval_t err, struct monitor_mem_binding *b)
     }
 
     // setup RPC client above binding
-    err = monitor_mem_rpc_client_init(&monitor_mem_client, b);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "in monitor_mem_rpc_client_init");
-    } else {
-        mem_setup_complete = true;
-    }
+    monitor_mem_client = b;
+    monitor_mem_rpc_client_init(monitor_mem_client);
+    mem_setup_complete = true;
 }
 
 errval_t mon_ram_alloc_init(coreid_t core_id, struct intermon_binding *b)
@@ -276,10 +273,9 @@ errval_t mon_ram_free(struct capability *cap_raw, genpaddr_t base, uint8_t bits)
     STATIC_ASSERT_SIZEOF(caprep, sizeof(caprep2));
     memcpy(&caprep2, &caprep, sizeof(caprep));
 
-    err = monitor_mem_client.vtbl.free(&monitor_mem_client, caprep2, base, bits, &status);
+    err = monitor_mem_client->rpc_tx_vtbl.free(monitor_mem_client, caprep2, base, bits, &status);
     if (err_is_fail(err)) {
         return err;
     }
     return status;
 }
-

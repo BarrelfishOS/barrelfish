@@ -16,22 +16,19 @@
 #include <stdlib.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <if/fb_rpcclient_defs.h>
+#include <if/fb_defs.h>
 
 #include "demo.h"
 
-static struct fb_rpc_client fb_client;
+static struct fb_binding *fb_client;
 static bool init = false;
 
 static void fb_bind_cb(void *st, errval_t err, struct fb_binding *b)
 {
     assert(err_is_ok(err));
 
-    err = fb_rpc_client_init(&fb_client, b);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "error in mem_rpc_client_init");
-    }
-
+    fb_client = b;
+    fb_rpc_client_init(fb_client);
     init = true;
 }
 
@@ -60,7 +57,7 @@ static int fb_client_connect(void)
 
 void wait_for_vsync(void)
 {
-    errval_t err = fb_client.vtbl.vsync(&fb_client);
+    errval_t err = fb_client->rpc_tx_vtbl.vsync(fb_client);
     assert(err_is_ok(err));
 }
 
@@ -81,7 +78,7 @@ int main(int argc, char *argv[])
 
     fb_client_connect();
 
-    err = fb_client.vtbl.set_videomode(&fb_client, xres, yres, bpp, &ret);
+    err = fb_client->rpc_tx_vtbl.set_videomode(fb_client, xres, yres, bpp, &ret);
     assert(err_is_ok(err));
     if(err_is_fail(ret)) {
         fprintf(stderr, "Error: failed to set video mode %dx%d %dbpp\n",
@@ -92,7 +89,7 @@ int main(int argc, char *argv[])
     // Get and map framebuffer
     struct capref fbcap;
     uint32_t fboffset;
-    err = fb_client.vtbl.get_framebuffer(&fb_client, &ret, &fbcap, &fboffset);
+    err = fb_client->rpc_tx_vtbl.get_framebuffer(fb_client, &ret, &fbcap, &fboffset);
     assert(err_is_ok(err));
     assert(err_is_ok(ret));
 

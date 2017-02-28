@@ -16,8 +16,8 @@ module GCBackend where
 import Data.Char
 
 import qualified CAbsSyntax as C
-import Syntax (Interface (Interface), MessageDef(Message, RPC), TypeDef, MessageType(MMessage, MCall, MResponse), RPCArgument(RPCArgIn, RPCArgOut))
-import GHBackend (flounder_backends, export_fn_name, bind_fn_name, accept_fn_name, connect_fn_name, connect_handlers_fn_name, disconnect_handlers_fn_name)
+import Syntax
+import GHBackend (flounder_backends, export_fn_name, bind_fn_name, accept_fn_name, connect_fn_name, connect_handlers_fn_name, disconnect_handlers_fn_name, rpc_tx_vtbl_type, rpc_init_fn_name)
 import qualified Backend
 import BackendCommon
 import LMP (lmp_bind_type, lmp_bind_fn_name)
@@ -26,6 +26,9 @@ import qualified UMP_IPI (bind_type, bind_fn_name)
 import qualified Multihop (m_bind_type, m_bind_fn_name)
 import Local (local_init_fn_name)
 
+
+-- import GHBackend (msg_signature_generic, intf_vtbl_param)
+
 -- name of the bind continuation function
 bind_cont_name :: String -> String
 bind_cont_name ifn = ifscope ifn "bind_continuation_direct"
@@ -33,6 +36,18 @@ bind_cont_name ifn = ifscope ifn "bind_continuation_direct"
 -- name of an alternative bind continuation function
 bind_cont_name2 :: String -> String
 bind_cont_name2 ifn = ifscope ifn "bind_contination_multihop"
+
+-- Name of the RPC function
+rpc_fn_name ifn mn = idscope ifn mn "rpc"
+local_rpc_fn_name ifn mn = idscope ifn mn "local_rpc"
+
+-- Name of the RPC vtable
+rpc_vtbl_name ifn = ifscope ifn "rpc_vtbl"
+local_rpc_vtbl_name ifn = ifscope ifn "local_rpc_vtbl"
+
+-- Name of the error handler
+rpc_error_fn_name :: String -> String
+rpc_error_fn_name ifn = ifscope ifn "rpc_client_error"
 
 compile :: String -> String -> Interface -> String
 compile infile outfile interface =
@@ -90,6 +105,20 @@ stub_body_message_handlers infile (Interface ifn descr decls) = C.UnitList [
 
     C.MultiComment [ "Disconnect handlers function" ],
     disconnect_handlers_fn_def ifn messages,
+    C.Blank,
+
+    C.MultiComment [ "RPC wrapper functions" ],
+    C.UnitList [ rpc_fn ifn types m | m <- rpcs ],
+    C.UnitList [ local_rpc_fn ifn types m | m <- rpcs ],
+    C.Blank,
+
+    C.MultiComment [ "RPC Vtable" ],
+    rpc_vtbl ifn rpcs,
+    local_rpc_vtbl ifn rpcs,
+        
+    C.MultiComment [ "RPC init function" ],
+    rpc_init_fn ifn rpcs,
+        
     C.Blank]
 
     where
@@ -413,6 +442,147 @@ bind_fn_def n =
                  C.Param (C.Ptr $ C.Struct "waitset") "waitset",
                  C.Param (C.TypeName "idc_bind_flags_t") "flags" ]
 
+rpc_rx_union_elem :: String -> String -> C.Expr
+rpc_rx_union_elem mn fn =
+   C.FieldOf (C.FieldOf (C.DerefField bindvar "rx_union")
+                    (rpc_resp_name mn)) fn
+
+rpc_fn :: String -> [TypeDef] -> MessageDef -> C.Unit
+rpc_fn ifn typedefs msg@(RPC n args _) =
+    C.FunctionDef C.Static (C.TypeName "errval_t") (rpc_fn_name ifn n) params [
+        localvar (C.TypeName "errval_t") errvar_name (Just $ C.Variable "SYS_ERR_OK"),
+        C.Ex $ C.Call "assert" [C.Unary C.Not rpc_progress_var],
+        C.Ex $ C.Call "assert" [C.Binary C.Equals async_err_var (C.Variable "SYS_ERR_OK")],
+        C.Ex $ C.Call "thread_set_rpc_in_progress" [C.Variable "true"],
+        C.SBlank,
+        C.SComment "set provided caprefs on underlying binding",
+        binding_save_rx_slots,
+        C.SBlank,
+        C.SComment "call send function",
+        C.Ex $ C.Assignment binding_error (C.Variable "SYS_ERR_OK"),
+        C.Ex $ C.Call "thread_set_outgoing_token" [C.Call "thread_set_token" [message_chanstate]],
+        C.Ex $ C.Assignment errvar $ C.CallInd tx_func tx_func_args,
+        C.If (C.Call "err_is_fail" [errvar]) [
+            C.Goto "out"] [],
+        C.SBlank,
+        C.SComment "wait for message to be sent and reply or error to be present",
+        C.Ex $ C.Assignment errvar $ C.Call "wait_for_channel"
+                [waitset_var, message_chanstate, C.AddressOf binding_error],
+        C.SBlank,
+        C.If (C.Call "err_is_fail" [errvar]) [
+            C.Goto "out"] [],
+        C.SBlank,
+
+        C.StmtList [assign typedefs arg | arg <- rxargs],
+        C.Ex $ C.Assignment errvar $ C.CallInd receive_next [bindvar],
+        C.Label "out",
+        C.Ex $ C.Call "thread_set_rpc_in_progress" [C.Variable "false"],
+        C.Ex $ C.Call "thread_clear_token" [receiving_chanstate],
+        C.Return errvar
+    ]
+    where
+        params = [C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var]
+                 ++ concat [rpc_argdecl2 TX ifn typedefs a | a <- args]
+        rpc_progress_var = C.Call "thread_get_rpc_in_progress" []
+        async_err_var = C.Call "thread_get_async_error" []
+        waitset_var = C.DerefField bindvar "waitset"
+        tx_func = C.DerefField bindvar "tx_vtbl" `C.FieldOf` (rpc_call_name n)
+        tx_func_args = [bindvar, C.Variable "BLOCKING_CONT"] ++ (map C.Variable $ concat $ map mkargs txargs)
+        mkargs (Arg _ (Name an)) = [an]
+        mkargs (Arg _ (StringArray an _)) = [an]
+        mkargs (Arg _ (DynamicArray an al _)) = [an, al]
+        (txargs, rxargs) = partition_rpc_args args
+        is_cap_arg (Arg (Builtin t) _) = t == Cap || t == GiveAwayCap
+        is_cap_arg (Arg _ _) = False
+        rx_cap_args = filter is_cap_arg rxargs
+        binding_save_rx_slot (Arg tr (Name an)) = C.Ex $
+            C.Call "thread_store_recv_slot" [(C.DerefPtr $ C.Variable an)]
+        binding_save_rx_slots = C.StmtList [ binding_save_rx_slot c | c <- rx_cap_args ]
+        token_name = "token"
+        outgoing_token = bindvar `C.DerefField` "outgoing_token"
+        receiving_chanstate = C.CallInd (bindvar `C.DerefField` "get_receiving_chanstate") [bindvar]
+        binding_error = C.DerefField bindvar "error"
+        message_chanstate = C.Binary C.Plus (C.DerefField bindvar "message_chanstate") (C.Variable $ msg_enum_elem_name ifn (rpc_resp_name n))
+        receive_next = C.DerefField bindvar "receive_next"
+        assign td (Arg tr (Name an)) = case lookup_typeref typedefs tr of
+            TArray t n _ -> C.If (rpc_rx_union_elem n an) [ C.Ex $ C.Call "mem__cpy" [
+                                (rpc_rx_union_elem n an),
+                                (C.Variable an),
+                                C.SizeOfT $ C.TypeName (type_c_name1 ifn n)]][]
+            _ -> C.If (C.Variable an) [
+                    C.Ex $ C.Assignment (C.DerefPtr $ C.Variable an) (rpc_rx_union_elem n an)] []
+        assign _ (Arg _ (StringArray an l)) =  C.If (C.Variable an) [
+                C.Ex $ C.Call "strncpy" [(C.Variable an), (rpc_rx_union_elem n an), C.NumConstant l]
+            ] []
+        assign _ (Arg _ (DynamicArray an al l)) =  C.If (C.Binary C.And (C.Variable an) (C.Variable al)) [
+                C.Ex $ C.Assignment (C.DerefPtr $ C.Variable al) (rpc_rx_union_elem n al),
+                C.Ex $ C.Call "memcpy" [(C.Variable an), (rpc_rx_union_elem n an), C.DerefPtr $ C.Variable al]
+            ] []
+        errvar_name = "_err"
+        errvar = C.Variable errvar_name
+
+
+
+local_rpc_fn :: String -> [TypeDef] -> MessageDef -> C.Unit
+local_rpc_fn ifn typedefs msg@(RPC n args _) =
+    C.FunctionDef C.Static (C.TypeName "errval_t") (local_rpc_fn_name ifn n) params [
+        C.Return $ C.CallInd tx_func (localbindvar:(map C.Variable $ concat $ map mkargs rpc_args))
+    ]
+    where
+        params = [C.Param (C.Ptr $ C.Struct $ intf_bind_type ifn) intf_bind_var]
+                 ++ concat [rpc_argdecl2 TX ifn typedefs a | a <- args]
+        rpc_args = map rpc_arg args
+        tx_func = C.DerefField localbindvar "rpc_rx_vtbl" `C.FieldOf` (rpc_call_name n)
+        localbindvar = C.DerefField bindvar "local_binding"
+        rpc_arg (RPCArgIn t v) = Arg t v
+        rpc_arg (RPCArgOut t v) = Arg t v
+        mkargs (Arg _ (Name an)) = [an]
+        mkargs (Arg _ (StringArray an _)) = [an]
+        mkargs (Arg _ (DynamicArray an al _)) = [an, al]
+        (txargs, rxargs) = partition_rpc_args args
+
+rpc_vtbl :: String -> [MessageDef] -> C.Unit
+rpc_vtbl ifn ml =
+    C.StructDef C.Static (rpc_tx_vtbl_type ifn) (rpc_vtbl_name ifn) fields
+    where
+        fields = [let mn = msg_name m in (mn, rpc_fn_name ifn mn) | m <- ml]
+
+local_rpc_vtbl :: String -> [MessageDef] -> C.Unit
+local_rpc_vtbl ifn ml =
+    C.StructDef C.Static (rpc_tx_vtbl_type ifn) (local_rpc_vtbl_name ifn) fields
+    where
+        fields = [let mn = msg_name m in (mn, local_rpc_fn_name ifn mn) | m <- ml]
+
+
+arg_names :: MessageArgument -> [String]
+arg_names (Arg _ v) = var_names v
+    where
+        var_names (Name n) = [n]
+        var_names (StringArray n _) = [n]
+        var_names (DynamicArray n1 n2 _) = [n1, n2]
+
+rpc_init_fn :: String -> [MessageDef] -> C.Unit
+rpc_init_fn ifn ml = C.FunctionDef C.NoScope (C.Void)
+                            (rpc_init_fn_name ifn) (rpc_init_fn_params ifn) $
+    [
+     C.SBlank,
+     C.SComment "Setup state of RPC client object",
+     C.If (C.DerefField bindvar "local_binding") [
+        C.Ex $ C.Assignment (C.DerefField bindvar "rpc_tx_vtbl") (C.Variable $ local_rpc_vtbl_name ifn)
+     ][
+        C.Ex $ C.Assignment (C.DerefField bindvar "rpc_tx_vtbl") (C.Variable $ rpc_vtbl_name ifn)
+     ],
+     C.SBlank,
+     C.SComment "Set RX handlers on binding object for RPCs",
+     C.StmtList [C.Ex $ C.Assignment (C.FieldOf (C.DerefField bindvar "rx_vtbl")
+                                        (rpc_resp_name mn))
+         (C.Variable "NULL") | RPC mn _ _ <- ml],
+     C.Ex $ C.Assignment (bindvar `C.DerefField` "error_handler") (C.Variable "NULL"),
+     C.SBlank,
+     C.ReturnVoid]
+    where
+        rpc_init_fn_params n = [C.Param (C.Ptr $ C.Struct (intf_bind_type n)) "_binding"]
+
 ----------------------------------------------------------------------------
 -- everything that we need to know about a backend to attempt a generic bind
 ----------------------------------------------------------------------------
@@ -444,7 +614,7 @@ multihop_bind_backends ifn cont_fn_name = map (\i -> i ifn (C.Variable cont_fn_n
 
 bindst = C.Variable "b"
 binding = bindst `C.DerefField` "binding"
-iref = bindst `C.DerefField` "iref"
+bind_iref = bindst `C.DerefField` "iref"
 waitset = bindst `C.DerefField` "waitset"
 flags = bindst `C.DerefField` "flags"
 
@@ -456,7 +626,7 @@ lmp_bind_backend ifn cont =
             C.Call "malloc" [C.SizeOfT $ C.Struct $ lmp_bind_type ifn],
         C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
         C.Ex $ C.Assignment errvar $
-            C.Call (lmp_bind_fn_name ifn) [binding, iref, cont, C.Variable "b", waitset,
+            C.Call (lmp_bind_fn_name ifn) [binding, bind_iref, cont, C.Variable "b", waitset,
                                            flags,
                                            C.Variable "DEFAULT_LMP_BUF_WORDS"]
     ],
@@ -477,7 +647,7 @@ local_bind_backend ifn (C.Variable cont) =
             C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
             localvar (C.Ptr $ C.Struct "idc_export") "e" $ Nothing,
             localvar (C.Ptr $ C.Void) "ret_binding" $ Nothing,
-            C.Ex $ C.Assignment errvar $ C.Call "idc_get_service" [iref, C.AddressOf $ C.Variable "e"],
+            C.Ex $ C.Assignment errvar $ C.Call "idc_get_service" [bind_iref, C.AddressOf $ C.Variable "e"],
             C.Ex $ C.CallInd (C.DerefField (C.Variable "e") "local_connect_callback") [C.Variable "e", binding, C.AddressOf $ C.Variable "ret_binding"],
             C.Ex $ C.Call (local_init_fn_name ifn) [binding, waitset, C.Variable "ret_binding"],
             C.Ex $ C.Call cont [C.Variable "b", C.Variable "SYS_ERR_OK", binding]
@@ -499,7 +669,7 @@ ump_bind_backend ifn cont =
             C.Call "malloc" [C.SizeOfT $ C.Struct $ UMP.bind_type ifn],
         C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
         C.Ex $ C.Assignment errvar $
-            C.Call (UMP.bind_fn_name ifn) [binding, iref, cont, C.Variable "b", waitset,
+            C.Call (UMP.bind_fn_name ifn) [binding, bind_iref, cont, C.Variable "b", waitset,
                                            flags,
                                            C.Variable "DEFAULT_UMP_BUFLEN",
                                            C.Variable "DEFAULT_UMP_BUFLEN"]
@@ -517,7 +687,7 @@ ump_ipi_bind_backend ifn cont =
             C.Call "malloc" [C.SizeOfT $ C.Struct $ UMP_IPI.bind_type ifn],
         C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
         C.Ex $ C.Assignment errvar $
-            C.Call (UMP_IPI.bind_fn_name ifn) [binding, iref, cont, C.Variable "b", waitset,
+            C.Call (UMP_IPI.bind_fn_name ifn) [binding, bind_iref, cont, C.Variable "b", waitset,
                                            flags,
                                            C.Variable "DEFAULT_UMP_BUFLEN",
                                            C.Variable "DEFAULT_UMP_BUFLEN"]
@@ -534,7 +704,7 @@ multihop_bind_backend ifn cont =
                          C.Call "malloc" [C.SizeOfT $ C.Struct $ Multihop.m_bind_type ifn],
                          C.Ex $ C.Call "assert" [C.Binary C.NotEquals binding (C.Variable "NULL")],
                          C.Ex $ C.Assignment errvar $
-                         C.Call (Multihop.m_bind_fn_name ifn) [binding, iref, cont, C.Variable "b", waitset, flags]],
+                         C.Call (Multihop.m_bind_fn_name ifn) [binding, bind_iref, cont, C.Variable "b", waitset, flags]],
     test_cb_success = C.Call "err_is_ok" [errvar],
     test_cb_try_next = C.Variable "true",
     cleanup_bind = [ C.Ex $ C.Call "free" [binding] ]

@@ -19,7 +19,7 @@
 #include <collections/list.h>
 #include <if/monitor_defs.h>
 #include <if/octopus_defs.h>
-#include <if/octopus_rpcclient_defs.h>
+#include <if/octopus_defs.h>
 #include <if/terminal_defs.h>
 #include <if/terminal_config_defs.h>
 #include <octopus/getset.h>
@@ -467,12 +467,12 @@ static errval_t get_irefs(struct capref session_id, iref_t *in_iref,
 {
     errval_t err;
 
-    struct octopus_rpc_client *r = get_octopus_rpc_client();
+    struct octopus_binding *r = get_octopus_binding();
     assert(r != NULL);
 
     struct octopus_get_with_idcap_response__rx_args reply;
 
-    err = r->vtbl.get_with_idcap(r, session_id, NOP_TRIGGER, reply.output, &reply.tid,
+    err = r->rpc_tx_vtbl.get_with_idcap(r, session_id, NOP_TRIGGER, reply.output, &reply.tid,
                                  &reply.error_code);
     if (err_is_fail(err)) {
         err_push(err, TERM_ERR_LOOKUP_SESSION_RECORD);

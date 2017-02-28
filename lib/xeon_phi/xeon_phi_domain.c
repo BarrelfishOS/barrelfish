@@ -21,7 +21,7 @@
 #include <xeon_phi/xeon_phi_client.h>
 
 #include <if/octopus_defs.h>
-#include <if/octopus_rpcclient_defs.h>
+#include <if/octopus_defs.h>
 //#include <if/monitor_defs.h>
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
@@ -96,13 +96,13 @@ errval_t xeon_phi_domain_lookup(const char *iface,
 #else
     errval_t err;
 
-    struct octopus_rpc_client *r = get_octopus_rpc_client();
+    struct octopus_binding *r = get_octopus_binding();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
     struct octopus_get_response__rx_args reply;
-    err = r->vtbl.get(r, iface, NOP_TRIGGER, reply.output, &reply.tid, &reply.error_code);
+    err = r->rpc_tx_vtbl.get(r, iface, NOP_TRIGGER, reply.output, &reply.tid, &reply.error_code);
     if (err_is_fail(err)) {
         goto out;
     }
@@ -144,13 +144,13 @@ errval_t xeon_phi_domain_blocking_lookup(const char *iface,
 #else
     errval_t err;
 
-    struct octopus_rpc_client *r = get_octopus_rpc_client();
+    struct octopus_binding *r = get_octopus_binding();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
 
     struct octopus_wait_for_response__rx_args reply;
-    err = r->vtbl.wait_for(r, iface, reply.record, &reply.error_code);
+    err = r->rpc_tx_vtbl.wait_for(r, iface, reply.record, &reply.error_code);
     if (err_is_fail(err)) {
         goto out;
     }
@@ -191,7 +191,7 @@ errval_t xeon_phi_domain_register(const char *iface,
 #else
     errval_t err = SYS_ERR_OK;
 
-    struct octopus_rpc_client *r = get_octopus_rpc_client();
+    struct octopus_binding *r = get_octopus_binding();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
@@ -207,7 +207,7 @@ errval_t xeon_phi_domain_register(const char *iface,
 
     octopus_trigger_id_t tid;
     errval_t error_code;
-    err = r->vtbl.set(r, record, 0, NOP_TRIGGER, 0, NULL, &tid, &error_code);
+    err = r->rpc_tx_vtbl.set(r, record, 0, NOP_TRIGGER, 0, NULL, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;
     }

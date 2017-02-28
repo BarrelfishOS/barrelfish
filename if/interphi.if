@@ -76,7 +76,7 @@ interface interphi "Interface between host and card side driver" {
      */
 
 
-    rpc register(in uint8 id,
+    rpc register_(in uint8 id,
                  in uint64 local_apt_base,
                  in uint64 local_apt_size,
                  out errval msgerr,

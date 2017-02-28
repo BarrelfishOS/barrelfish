@@ -22,7 +22,7 @@
 #include <acpi_client/acpi_client.h>
 #ifdef VF
 #    include <if/e10k_vf_defs.h>
-#    include <if/e10k_vf_rpcclient_defs.h>
+#    include <if/e10k_vf_defs.h>
 #    include <dev/e10k_vf_dev.h>
 #endif
 
@@ -157,7 +157,7 @@ static uint32_t pci_bus = PCI_DONT_CARE;
 static uint32_t pci_device = PCI_DONT_CARE;
 static uint32_t pci_function = 0;
 
-static struct e10k_vf_rpc_client *e10k_vf_client = NULL;
+static struct e10k_vf_binding *e10k_vf_client = NULL;
 
 static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector)
 {
@@ -767,7 +767,7 @@ static void pci_init_card(struct device_mem* bar_info, int bar_count)
     assert(initialized);
 
     // Tell PF driver
-    err = e10k_vf_client->vtbl.init_done(e10k_vf_client, vf_num);
+    err = e10k_vf_client->rpc_tx_vtbl.init_done(e10k_vf_client, vf_num);
     assert(err_is_ok(err));
 
 #if 0
@@ -834,9 +834,9 @@ static void vf_bind_cont(void *st, errval_t err, struct e10k_vf_binding *b)
 {
   assert(err_is_ok(err));
 
-  struct e10k_vf_rpc_client *r = malloc(sizeof(*r));
+  struct e10k_vf_binding *r = malloc(sizeof(*r));
   assert(r != NULL);
-  err = e10k_vf_rpc_client_init(r, b);
+  err = e10k_vf_binding_init(r, b);
   if (err_is_ok(err)) {
     e10k_vf_client = r;
   } else {
@@ -872,7 +872,7 @@ static errval_t e10k_vf_client_connect(void)
         messages_wait_and_handle_next();
     }
 
-    err = e10k_vf_client->vtbl.get_mac_address(e10k_vf_client, vf_num, &d_mac);
+    err = e10k_vf_client->rpc_tx_vtbl.get_mac_address(e10k_vf_client, vf_num, &d_mac);
     assert(err_is_ok(err));
 
     return err2;
