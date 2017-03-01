@@ -536,6 +536,52 @@ static size_t max_slabs_for_mapping_huge(size_t bytes)
 }
 
 /**
+ * \brief Refill slabs using pages from fixed allocator, used if we need to
+ * refill the slab allocator before we've established a connection to
+ * the memory server.
+ *
+ * \arg pmap the pmap whose slab allocator we want to refill
+ * \arg bytes the refill buffer size in bytes
+ */
+static errval_t refill_slabs_fixed_allocator(struct pmap_x86 *pmap, size_t bytes)
+{
+    size_t pages = DIVIDE_ROUND_UP(bytes, BASE_PAGE_SIZE);
+
+    genvaddr_t vbase = pmap->vregion_offset;
+
+    // Allocate and map buffer using base pages
+    for (int i = 0; i < pages; i++) {
+        struct capref cap;
+        size_t retbytes;
+        // Get page
+        errval_t err = frame_alloc(&cap, BASE_PAGE_SIZE, &retbytes);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_FRAME_ALLOC);
+        }
+        assert(retbytes == BASE_PAGE_SIZE);
+
+        // Map page
+        genvaddr_t genvaddr = pmap->vregion_offset;
+        pmap->vregion_offset += (genvaddr_t)BASE_PAGE_SIZE;
+        assert(pmap->vregion_offset < vregion_get_base_addr(&pmap->vregion) +
+                vregion_get_size(&pmap->vregion));
+
+        err = do_map(pmap, genvaddr, cap, 0, BASE_PAGE_SIZE,
+                VREGION_FLAGS_READ_WRITE, NULL, NULL);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_DO_MAP);
+        }
+    }
+
+    /* Grow the slab */
+    lvaddr_t buf = vspace_genvaddr_to_lvaddr(vbase);
+    debug_printf("%s: Calling slab_grow with %#zx bytes\n", __FUNCTION__, bytes);
+    slab_grow(&pmap->slab, (void*)buf, bytes);
+
+    return SYS_ERR_OK;
+}
+
+/**
  * \brief Refill slabs used for metadata
  *
  * \param pmap     The pmap to refill in
@@ -566,7 +612,12 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, size_t request)
         struct capref cap;
         err = frame_alloc(&cap, bytes, &bytes);
         if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_FRAME_ALLOC);
+            if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
+                return refill_slabs_fixed_allocator(pmap, bytes);
+            }
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_FRAME_ALLOC);
+            }
         }
         // Count slots for frames backing slab allocator in pmap statistics
         pmap->used_cap_slots ++;
