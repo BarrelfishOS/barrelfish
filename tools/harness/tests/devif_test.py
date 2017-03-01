@@ -48,16 +48,31 @@ class DevifTests(TestCommon):
         return PassFailResult(passed)
 
 @tests.add_test
-class DevifNetTxTest(DevifTests):
+class DevifNetTxSF(DevifTests):
     ''' Devif Net TX Test'''
-    name = "devif_net_tx_test"
+    name = "devif_nettx_sf"
+    OP = "net_tx"
+    CARD = "sfn5122f"
+
+
+@tests.add_test
+class DevifNetTxE10k(DevifTests):
+    ''' Devif Net TX Test'''
+    name = "devif_nettx_e10k"
     OP = "net_tx"
     CARD = "e10k"
 
 @tests.add_test
-class DevifNetRxTest(DevifTests):
+class DevifNetRxSF(DevifTests):
     ''' Devif Net RX Test'''
-    name = "devif_net_rx_test"
+    name = "devif_netrx_sf"
+    OP = "net_rx"
+    CARD = "sfn5122f"
+
+@tests.add_test
+class DevifNetRxE10k(DevifTests):
+    ''' Devif Net RX Test'''
+    name = "devif_netrx_e10k"
     OP = "net_rx"
     CARD = "e10k"
 
@@ -66,4 +81,5 @@ class DevifIdcTest(DevifTests):
     ''' Devif IDC Test'''
     name = "devif_idc_test"
     OP = "idc"
+    CARD = "none"
 
