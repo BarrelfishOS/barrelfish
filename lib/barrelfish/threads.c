@@ -1191,6 +1191,11 @@ static int bootstrap_thread(struct spawn_domain_params *params)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "vspace_mmu_aware_init for thread region failed\n");
     }
+    // XXX: do this nicer, but we need struct threads to be in Vspace < 4GB so
+    // we can set the thread segment register. -SG, 2017-02-28.
+    // We can't use the assertion yet, as the init domain has it's thread
+    // slabs above 4G.
+    //assert(vregion_get_base_addr(&thread_slabs_vm.vregion) + vregion_get_size(&thread_slabs_vm.vregion) < 1ul << 32);
     slab_init(&thread_slabs, blocksize, refill_thread_slabs);
 
     if (init_domain_global) {

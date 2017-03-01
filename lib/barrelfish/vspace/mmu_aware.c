@@ -137,13 +137,13 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state, size_t req_size,
             // mapoffset is aligned to at least LARGE_PAGE_SIZE.
             alloc_size = ROUND_UP(req_size, LARGE_PAGE_SIZE);
         }
-        // Create frame of appropriate size
-allocate:
+        // allocate slot before jump target
         err = state->slot_alloc->alloc(state->slot_alloc, &frame);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_SLOT_ALLOC_NO_SPACE);
         }
-
+allocate:
+        // Create frame of appropriate size
         err = frame_create(frame, alloc_size, &ret_size);
         if (err_is_fail(err)) {
             if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
