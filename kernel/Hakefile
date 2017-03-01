@@ -577,7 +577,8 @@ let
      assemblyFiles = [
         "arch/armv8/efiboot.S",
         "arch/armv8/sysreg.S",
-        "arch/armv8/exceptions.S"
+        "arch/armv8/exceptions.S",
+        "arch/armv8/smc.S"
      ],
      cFiles = [
          "arch/arm/misc.c",
@@ -593,6 +594,7 @@ let
          "arch/armv8/dispatch.c",
          "arch/armv8/exec.c",
          "arch/armv8/exn.c",
+         "arch/armv8/psci.c",
          "arch/armv8/gic_v3.c",
          "arch/armv8/paging.c",
          "arch/armv8/startup_arch.c",

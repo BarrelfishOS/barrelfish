@@ -1251,3 +1251,15 @@ errors sfn SFN_ERR_{
     failure QDRIVER              "Failure starting queue driver", 
 };
 
+errors psci PSCI_ERR_{
+    failure NOT_SUPPORTED    "Function not supported",
+    failure INVALID_PARAMETER "Invalid parameters supplied",
+    failure DENIED           "Access to the function denied",
+    failure ALREADY_ON       "Core is already on",
+    failure ON_PENDING       "There is a pending CPU_ON for this core",
+    failure INTERNAL_FAILURE "Internal failure",
+    failure NOT_PRESENT      "Resource not present",
+    failure DISABLED         "Core is disabled",
+    failure INVALID_ADDRESS  "Invald address provided",
+    failure UNKNOWN_ERROR    "Error number unknown",
+};
