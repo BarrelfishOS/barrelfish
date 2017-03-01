@@ -160,7 +160,7 @@ errval_t psci_cpu_on(uintptr_t target_cpu, lpaddr_t entry_point,
                      uintptr_t context_id)
 {
     struct psci_retval retval;
-    psci_invoke(PSCI_FN_CPU_OFF, target_cpu, entry_point, context_id, &retval);
+    psci_invoke(PSCI_FN_CPU_ON, target_cpu, entry_point, context_id, &retval);
 
     return psci_error_to_barrelfish(retval);
 }
