@@ -1606,8 +1606,7 @@ static void a_bind_cb(void *st, errval_t err, struct net_ARP_binding *b)
 {
     assert(err_is_ok(err));
     arp_binding = b;
-    err = net_ARP_rpc_client_init(arp_binding);
-    assert(err_is_ok(err));
+    net_ARP_rpc_client_init(arp_binding);
     net_arp_connected = true;
 }
 

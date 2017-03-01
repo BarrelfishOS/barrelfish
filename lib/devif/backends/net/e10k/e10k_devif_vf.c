@@ -68,7 +68,7 @@ struct vf_state {
     bool use_interrupts;
 
     //
-    struct e10k_vf_rpc_client *binding;
+    struct e10k_vf_binding *binding;
     bool bound;
 };
 
@@ -468,7 +468,7 @@ static void pci_init_card(struct device_mem* bar_info, int bar_count)
     assert(vf->initialized);
 
     // Tell PF driver
-    err = vf->binding->vtbl.init_done(vf->binding, vf->vf_num);
+    err = vf->binding->rpc_tx_vtbl.init_done(vf->binding, vf->vf_num);
     assert(err_is_ok(err));
 
 }
@@ -510,14 +510,7 @@ static void vf_bind_cont(void *st, errval_t err, struct e10k_vf_binding *b)
 {
     assert(err_is_ok(err));
 
-    struct e10k_vf_rpc_client *r = malloc(sizeof(*r));
-    assert(r != NULL);
-    err = e10k_vf_rpc_client_init(r, b);
-    if (err_is_ok(err)) {
-        vf->binding = r;
-    } else {
-        free(r);
-    }
+    vf->binding = b;
 }
 
 static errval_t e10k_vf_client_connect(int pci_function)
@@ -601,14 +594,16 @@ errval_t e10k_init_vf_driver(uint8_t pci_function,
     }  
 
     DEBUG_VF("Requesting VF number from PF...\n");
-    err = vf->binding->vtbl.request_vf_number(vf->binding, (uint8_t*) &vf->vf_num, 
-                                              &err2); 
+    err = vf->binding->rpc_tx_vtbl.request_vf_number(vf->binding, 
+                                                     (uint8_t*) &vf->vf_num, 
+                                                     &err2); 
     if (err_is_fail(err) || err_is_fail(err2)) {
         return err_is_fail(err) ? err: err2;
     }
  
     DEBUG_VF("Requesting MAC from PF...\n");
-    err = vf->binding->vtbl.get_mac_address(vf->binding, vf->vf_num, &vf->d_mac);
+    err = vf->binding->rpc_tx_vtbl.get_mac_address(vf->binding, vf->vf_num, 
+                                                   &vf->d_mac);
     assert(err_is_ok(err));
 
     DEBUG_VF("VF num %d initalize...\n", vf->vf_num);

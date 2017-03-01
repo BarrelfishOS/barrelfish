@@ -79,15 +79,19 @@ typedef errval_t (*devq_control_t)(struct devq *q,
   *
   * @param q            The device queue handle
   * @param region_id    The region id of the buffer
-  * @param buffer_id    The buffer id of the buffer
-  * @param base         The base address of the buffer
-  * @param length       The length of the buffer
+  * @param offset       Offset into the region where the buffer starts
+  * @param length       Length of the buffer
+  * @param valid_data   Offset into the region where the valid data of the
+  *                     buffer starts
+  * @param valid_length Length of the valid data in this buffer   
   * @param misc_flags   Misc flags
   *
   * @returns error on failure or SYS_ERR_OK on success
   */
 typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
-                                   bufferid_t buffer_id, lpaddr_t base, size_t length,
+                                   genoffset_t offset, genoffset_t length, 
+                                   genoffset_t valid_offset,
+                                   genoffset_t valid_length,
                                    uint64_t misc_flags);
 
  /**
@@ -96,15 +100,21 @@ typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
   *
   * @param q            The device queue handle
   * @param region_id    The region id of the buffer
-  * @param buffer_id    The buffer id of the buffer
-  * @param base         The base address of the buffer
-  * @param length       The length of the buffer
+  * @param offset       Return pointer to the offset into the region
+  *                     where the buffer starts
+  * @param length       Return pointer to the length of the buffer
+  * @param valid_offset Return pointer to the offset into the region
+  *                     where the valid data of the buffer starts
+  * @param valid_length Return pointer to the length of the valid data of
+  *                     this buffer
   * @param misc_flags   Misc flags
   *
   * @returns error on failure if the queue is empty or SYS_ERR_OK on success
   */
 typedef errval_t (*devq_dequeue_t)(struct devq *q, regionid_t* region_id,
-                                   bufferid_t* buffer_id, lpaddr_t* base, size_t* length,
+                                   genoffset_t* offset, genoffset_t* length, 
+                                   genoffset_t* valid_offset,
+                                   genoffset_t* valid_length,
                                    uint64_t* misc_flags);
 
 

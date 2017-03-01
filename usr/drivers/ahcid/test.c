@@ -121,9 +121,10 @@ void ahci_simple_test(void)
 {
     errval_t err;
     regionid_t region_id = 0;
-    lpaddr_t base = 0;
-    size_t length = 0;
-    bufferid_t buffer_id = 0;
+    genoffset_t offset = 0;
+    genoffset_t length = 0;
+    genoffset_t valid_data = 0;
+    genoffset_t valid_length = 0;
 
     // Allocate a buffer:
     struct dma_mem mem;
@@ -156,14 +157,14 @@ void ahci_simple_test(void)
     }
 
     uint64_t flags = 0x0;
-    bufferid_t bid;
-    devq_enqueue(dq, region_id, id.base, 512, flags, &bid);
+    devq_enqueue(dq, region_id, 0, 512, 0, 512, flags);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "devq enqueue");
     }
 
     do {
-        err = devq_dequeue(dq, &region_id, &base, &length, &buffer_id, &flags);
+        err = devq_dequeue(dq, &region_id, &offset, &length, &valid_data, 
+                           &valid_length, &flags);
         if (err_is_ok(err)) {
             break;
         }
@@ -173,7 +174,7 @@ void ahci_simple_test(void)
         wait_for_interrupt();
     } while (err_no(err) == DEV_ERR_QUEUE_EMPTY);
 
-    assert (base == id.base);
+    assert (offset == 0);
     assert (length == 512);
 
     err = devq_deregister(dq, region_id, &mem.frame);
@@ -184,13 +185,15 @@ void ahci_simple_test(void)
     printf("[%s]: DONE\n", __FUNCTION__);
 }
 
-static void blocking_dequeue(void* q, regionid_t* region_id, lpaddr_t* base, 
-                             size_t* length, bufferid_t* buffer_id)
+static void blocking_dequeue(void* q, regionid_t* region_id, 
+                             genoffset_t* offset, genoffset_t* length,
+                             genoffset_t* valid_data, genoffset_t* valid_length)
 {
     uint64_t flags;
     errval_t err;
     do {
-        err = devq_dequeue(q, region_id, base, length, buffer_id, &flags);
+        err = devq_dequeue(q, region_id, offset, length, valid_data,
+                           valid_length, &flags);
         if (err_is_ok(err)) {
             break;
         }
@@ -206,10 +209,12 @@ static void blocking_dequeue(void* q, regionid_t* region_id, lpaddr_t* base,
 static void receive_block(void)
 {
     regionid_t rid = 0;
-    lpaddr_t base = 0;
-    size_t len = 0;
-    bufferid_t bid = 0;
-    blocking_dequeue(dq, &rid, &base, &len, &bid);
+    genoffset_t offset = 0;
+    genoffset_t length = 0;
+    genoffset_t valid_data = 0;
+    genoffset_t valid_length = 0;
+    blocking_dequeue(dq, &rid, &offset, &length, &valid_data,
+                     &valid_length);
     finish_counter++;
 }
 
@@ -239,8 +244,9 @@ void ahci_perf_sequential(size_t buffer_size, size_t block_size, bool write)
     for (size_t i=0; i < read_requests; i++) {
         uint64_t disk_block = write_flag | i;
         do {
-            err = devq_enqueue(dq, region_id, id.base + (i*block_size), 
-                               block_size, disk_block, &received[i]);
+            err = devq_enqueue(dq, region_id, (i*block_size), 
+                               block_size, (i*block_size),
+                               block_size, disk_block);
             if (err_is_ok(err)) {
                 break;
             }
@@ -315,8 +321,8 @@ void ahci_verify_sequential(size_t buffer_size, size_t block_size)
     for (size_t i=0; i < requests; i++) {
         uint64_t disk_block = write_flag | i;
         do {
-            err = devq_enqueue(dq, region_id, id.base + (i*block_size), block_size, 
-                               disk_block, &received[i]);
+            err = devq_enqueue(dq, region_id, (i*block_size), block_size, 
+                               (i*block_size), block_size, disk_block);
             if (err_is_ok(err)) {
                 break;
             }
@@ -341,8 +347,9 @@ void ahci_verify_sequential(size_t buffer_size, size_t block_size)
         //printf("%s:%s:%d: i: %zu requests: %zu\n", __FILE__, __FUNCTION__, __LINE__, i, requests);
         uint64_t disk_block = i;
         do {
-            err = devq_enqueue(dq, region_id, id.base + (i*block_size), 
-                               block_size, disk_block, &received[i]);
+            err = devq_enqueue(dq, region_id, (i*block_size), 
+                               block_size, (i*block_size), block_size,
+                               disk_block);
             if (err_is_ok(err)) {
                 break;
             }

@@ -28,22 +28,24 @@
  *
  * @param q             The device queue to call the operation on
  * @param region_id     Id of the memory region the buffer belongs to
- * @param base          Physical address of the start of the enqueued buffer
+ * @param offset        Offset into the region i.e. where the buffer starts
+ *                      that is enqueued
  * @param lenght        Lenght of the enqueued buffer
+ * @param valid_data    Offset into the region where the valid data of this buffer
+ *                      starts
+ * @param valid_length  Length of the valid data of this buffer
  * @param misc_flags    Any other argument that makes sense to the device queue
- * @param buffer_id     Return pointer to buffer id of the enqueued buffer 
- *                      buffer_id is assigned by the interface
  *
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
-
 errval_t devq_enqueue(struct devq *q,
                       regionid_t region_id,
-                      lpaddr_t base,
-                      size_t length,
-                      uint64_t misc_flags,
-                      bufferid_t* buffer_id)
+                      genoffset_t offset,
+                      genoffset_t length,
+                      genoffset_t valid_data,
+                      genoffset_t valid_length,
+                      uint64_t misc_flags)
 {
     errval_t err;
 
@@ -51,20 +53,21 @@ errval_t devq_enqueue(struct devq *q,
        access. In the device case, we keep track of the buffers the device
        actually has access to.
     */
+    /* TODO do bounds checks
     if (q->exp) {
         err = region_pool_return_buffer_to_region(q->pool, region_id, base);
     } else {
         err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
                                                     buffer_id);
     }
-
     if (err_is_fail(err)) {
         return err;
     }
+    */
+    err = q->f.enq(q, region_id, offset, length, valid_data,
+                   valid_length, misc_flags);
 
-    err = q->f.enq(q, region_id, *buffer_id, base, length, 
-                   misc_flags);
-
+    /*
     if (err_is_fail(err)){
         if (q->exp) {
             region_pool_get_buffer_id_from_region(q->pool, region_id, base,
@@ -73,7 +76,7 @@ errval_t devq_enqueue(struct devq *q,
             region_pool_return_buffer_to_region(q->pool, region_id, base);
         }
     }
-
+    */
     DQI_DEBUG("Enqueue q=%p rid=%d, bid=%d, err=%s \n", q, region_id, 
               *buffer_id, err_getstring(err));
 
@@ -86,27 +89,30 @@ errval_t devq_enqueue(struct devq *q,
  * @param q             The device queue to call the operation on
  * @param region_id     Return pointer to the id of the memory 
  *                      region the buffer belongs to
- * @param base          Return pointer to the physical address of 
- *                      the of the buffer
+ * @param region_offset Return pointer to the offset into the region where
+ *                      this buffer starts.
  * @param lenght        Return pointer to the lenght of the dequeue buffer
- * @param buffer_id     Return pointer to the buffer id of the dequeued buffer 
+ * @param valid_data    Return pointer to an offset into the region where the
+ *                      valid data of this buffer starts
+ * @param valid_length  Return pointer to the length of the valid data of 
+ *                      this buffer
  * @param misc_flags    Return value from other endpoint
  *
  * @returns error on failure or SYS_ERR_OK on success
  *
  */
-
 errval_t devq_dequeue(struct devq *q,
                       regionid_t* region_id,
-                      lpaddr_t* base,
-                      size_t* length,
-                      bufferid_t* buffer_id,
+                      genoffset_t* offset,
+                      genoffset_t* length,
+                      genoffset_t* valid_data,
+                      genoffset_t* valid_length,
                       uint64_t* misc_flags)
 {
     errval_t err;
 
-    err = q->f.deq(q, region_id, buffer_id, base, length, 
-                   misc_flags);
+    err = q->f.deq(q, region_id, offset, length, valid_data,
+                   valid_length, misc_flags);
     if (err_is_fail(err)) {
         return err;
     }
@@ -116,6 +122,7 @@ errval_t devq_dequeue(struct devq *q,
        actually has access to.
     */
     // Add buffer to free ones
+    /*
     if (q->exp) {
         err = region_pool_set_buffer_id_from_region(q->pool, *region_id,
                                                     *base, *buffer_id);
@@ -127,7 +134,7 @@ errval_t devq_dequeue(struct devq *q,
     if (err_is_fail(err)) {
         return err;
     }
-
+    */
     DQI_DEBUG("Dequeue q=%p rid=%d, bid=%d \n", q, *region_id, *buffer_id);
 
     return SYS_ERR_OK;

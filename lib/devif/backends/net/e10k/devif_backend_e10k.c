@@ -97,7 +97,10 @@ static struct region_entry* get_region(struct e10k_queue* q, regionid_t rid)
 
 
 static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
-                               bufferid_t bid, lpaddr_t base, size_t len, 
+                               genoffset_t offset,
+                               genoffset_t length,
+                               genoffset_t valid_data,
+                               genoffset_t valid_length,
                                uint64_t flags)
 {
     DEBUG_QUEUE("Enqueueing TX buf \n");
@@ -131,13 +134,21 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
             assert(entry != NULL);
 
             lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->virt + (base-entry->phys);
-            e10k_queue_add_txbuf_ctx(q, rid, bid, addr, len, flags, 
-                                     first, last, len, 0, true, l4len !=0);
+            addr = (lpaddr_t) entry->virt + offset;
+            e10k_queue_add_txbuf_ctx(q, addr, rid, offset, length,
+                                     valid_data, valid_length, flags, 
+                                     first, last, length, 0, true, l4len !=0);
 	    } else {
 
-            e10k_queue_add_txbuf_ctx(q, rid, bid, base, len, flags, 
-                                     first, last, len, 0, true, l4len != 0);
+            // get virtual address of buffer
+            struct region_entry* entry = get_region(q, rid);
+            assert(entry != NULL);
+
+            lpaddr_t addr = 0;
+            addr = (lpaddr_t) entry->phys + offset;
+            e10k_queue_add_txbuf_ctx(q, addr, rid, offset, length,
+                                     valid_data, valid_length, flags, 
+                                     first, last, length, 0, true, l4len != 0);
         }
     } else {
         if (q->use_vtd) {
@@ -146,11 +157,18 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
             assert(entry != NULL);
 
             lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->virt + (base-entry->phys);
-            e10k_queue_add_txbuf(q, rid, bid, addr, len, flags, 
-                                 first, last, len);
+            addr = (lpaddr_t) entry->virt + offset;
+            e10k_queue_add_txbuf(q, addr, rid, offset, length, valid_data,
+                                 valid_length, flags, 
+                                 first, last, length);
         } else {
-            e10k_queue_add_txbuf(q, rid, bid, base, len, flags, first, last, len);
+            struct region_entry* entry = get_region(q, rid);
+            assert(entry != NULL);
+
+            lpaddr_t addr = 0;
+            addr = (lpaddr_t) entry->phys + offset;
+            e10k_queue_add_txbuf(q, addr, rid, offset, length, valid_data,
+                                 valid_length, flags, first, last, length);
         }
     }
     e10k_queue_bump_txtail(q);
@@ -159,7 +177,10 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
 
 
 static errval_t enqueue_rx_buf(struct e10k_queue* q, regionid_t rid,
-                               bufferid_t bid, lpaddr_t base, size_t len, 
+                               genoffset_t offset,
+                               genoffset_t length,
+                               genoffset_t valid_data,
+                               genoffset_t valid_length,
                                uint64_t flags)
 {
     DEBUG_QUEUE("Enqueueing RX buf \n");
@@ -177,10 +198,18 @@ static errval_t enqueue_rx_buf(struct e10k_queue* q, regionid_t rid,
         assert(entry != NULL);
 
         lpaddr_t addr = 0;
-        addr = (lpaddr_t) entry->virt + (base-entry->phys);
-        e10k_queue_add_rxbuf(q, rid, bid, addr, len, flags);
+        addr = (lpaddr_t) entry->virt + offset;
+        e10k_queue_add_rxbuf(q, addr, rid, offset, length, valid_data,
+                             valid_length, flags);
     } else {
-        e10k_queue_add_rxbuf(q, rid, bid, base, len, flags);
+        // get virtual address of buffer
+        struct region_entry* entry = get_region(q, rid);
+        assert(entry != NULL);
+
+        lpaddr_t addr = 0;
+        addr = (lpaddr_t) entry->phys + offset;
+        e10k_queue_add_rxbuf(q, addr, rid, offset, length, valid_data,
+                             valid_length, flags);
     }
 
     DEBUG_QUEUE("before bump tail\n");
@@ -192,8 +221,9 @@ static errval_t enqueue_rx_buf(struct e10k_queue* q, regionid_t rid,
 /******************************************************************************/
 /* Queue functions */
 
-static errval_t e10k_enqueue(struct devq* q, regionid_t rid, bufferid_t bid, 
-                             lpaddr_t base, size_t len, uint64_t flags)
+static errval_t e10k_enqueue(struct devq* q, regionid_t rid, genoffset_t offset,
+                             genoffset_t length, genoffset_t valid_data,
+                             genoffset_t valid_length, uint64_t flags)
 {
     errval_t err;
 
@@ -201,17 +231,19 @@ static errval_t e10k_enqueue(struct devq* q, regionid_t rid, bufferid_t bid,
     struct e10k_queue* queue = (struct e10k_queue*) q;
     if (flags & NETIF_RXFLAG) {
         /* can not enqueue receive buffer larger than 2048 bytes */
-        assert(len <= 2048);
+        assert(length <= 2048);
 
-        err = enqueue_rx_buf(queue, rid, bid, base, len, flags);
+        err = enqueue_rx_buf(queue, rid, offset, length, valid_data,
+                             valid_length, flags);
         if (err_is_fail(err)) {
             return err;
         }      
     } else if (flags & NETIF_TXFLAG) {
 
-        assert(len <= 2048);
+        assert(length <= 2048);
         
-        err = enqueue_tx_buf(queue, rid, bid, base, len, flags);
+        err = enqueue_tx_buf(queue, rid, offset, length, valid_data,
+                             valid_length, flags);
         if (err_is_fail(err)) {
             return err;
         } 
@@ -221,20 +253,24 @@ static errval_t e10k_enqueue(struct devq* q, regionid_t rid, bufferid_t bid,
 }
 
 
-static errval_t e10k_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bid, 
-                             lpaddr_t* base, size_t* len, uint64_t* flags)
+static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
+                             genoffset_t* offset, genoffset_t* length,
+                             genoffset_t* valid_data,
+                             genoffset_t* valid_length, uint64_t* flags)
 {
     struct e10k_queue* que = (struct e10k_queue*) q;
     int last;
     errval_t err = SYS_ERR_OK;
 
-    if (!e10k_queue_get_rxbuf(que, rid, bid, base, len, flags, &last)) {
+    if (!e10k_queue_get_rxbuf(que, rid, offset, length, valid_data, 
+                             valid_length, flags, &last)) {
         err = DEVQ_ERR_RX_EMPTY;
     } else {
         return SYS_ERR_OK;
     }
      
-    if (!e10k_queue_get_txbuf(que, rid, bid, base, len, flags)) {
+    if (!e10k_queue_get_txbuf(que, rid, offset, length, valid_data,
+                              valid_length, flags)) {
         err = DEVQ_ERR_RX_EMPTY;
     }  else {
         return SYS_ERR_OK;
@@ -326,14 +362,10 @@ static void bind_cb(void *st, errval_t err, struct e10k_vf_binding *b)
 
     DEBUG_QUEUE("Sucessfully connected to management interface\n");
 
-    struct e10k_vf_rpc_client *r = malloc(sizeof(*r));
-    assert(r != NULL);
-    err = e10k_vf_rpc_client_init(r, b);
-    assert(err_is_ok(err));
     b->st = q;
-    q->binding = r;
+    q->binding = b;
+    e10k_vf_rpc_client_init(q->binding);
     q->bound = true;
-
 }
 
 /** Connect to the management interface */
@@ -521,7 +553,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
         }
 
         int q_id;
-        err = q->binding->vtbl.create_queue(q->binding, tx_frame, txhwb_frame, 
+        err = q->binding->rpc_tx_vtbl.create_queue(q->binding, tx_frame, txhwb_frame, 
                                             rx_frame, 2048, q->msix_intvec, 
                                             q->msix_intdest, false, false, &q_id,
                                             &regs);   

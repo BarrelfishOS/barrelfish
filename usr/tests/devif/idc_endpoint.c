@@ -65,20 +65,23 @@ static errval_t notify(struct descq* q)
     errval_t err = SYS_ERR_OK;
     //errval_t err2 = SYS_ERR_OK;
     regionid_t rid;
-    lpaddr_t base;
-    size_t len;
-    bufferid_t bid;
+    genoffset_t offset;
+    genoffset_t length;
+    genoffset_t valid_data;
+    genoffset_t valid_length;
     uint64_t flags;
     bool exit = false;
     uint16_t num_enq = 0;
     while(!exit) {
-        err = devq_dequeue(queue, &rid, &base, &len, &bid, &flags);
+        err = devq_dequeue(queue, &rid, &offset, &length, 
+                           &valid_data, &valid_length, &flags);
         if (err_is_fail(err)) {
             exit = true;
         } else {
            bool exit2 = false;
             while(!exit2) {
-                err = devq_enqueue(queue, rid, base, len, flags, &bid);
+                err = devq_enqueue(queue, rid, offset, length, valid_data,
+                                   valid_length, flags);
                 if (err_is_ok(err)) {
                     exit2 = true;
                     num_enq++;

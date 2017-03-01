@@ -25,7 +25,8 @@
 //#define DEBUG(x...) printf("devif_test: " x)
 #define DEBUG(x...) do {} while (0)
 
-#define BUF_SIZE 2048
+#define TX_BUF_SIZE 2048
+#define RX_BUF_SIZE 2048
 #define NUM_ENQ 512
 #define NUM_RX_BUF 1024
 #define NUM_ROUNDS_TX 16384
@@ -75,10 +76,10 @@ static uint8_t udp_header[8] = {
 
 static void print_buffer(size_t len, bufferid_t bid)
 {
-    /*
+   /*
     uint8_t* buf = (uint8_t*) va_rx+bid;
-    DEBUG("Packet in region %p at address %p len %zu \n", 
-            va_rx, buf, len);
+    printf("Packet in region %p at address %p len %zu \n", 
+           va_rx, buf, len);
     for (int i = 0; i < len; i++) {
         if (((i % 10) == 0) && i > 0) {
             printf("\n");
@@ -104,15 +105,17 @@ static void event_cb(void* queue)
     errval_t err;
 
     regionid_t rid;
-    bufferid_t bid;
-    lpaddr_t addr;
-    size_t len;
+    genoffset_t offset;
+    genoffset_t length;
+    genoffset_t valid_data;
+    genoffset_t valid_length;
     uint64_t flags;
 
     err = SYS_ERR_OK;
 
     while (err == SYS_ERR_OK) {    
-        err = devq_dequeue(q, &rid, &addr, &len, &bid, &flags);
+        err = devq_dequeue(q, &rid, &offset, &length, &valid_data,  
+                           &valid_length, &flags);
         if (err_is_fail(err)) {
             break;
         }
@@ -123,7 +126,7 @@ static void event_cb(void* queue)
         } else if (flags & NETIF_RXFLAG) {
             num_rx++;
             DEBUG("Received RX buffer \n");
-            print_buffer(len, bid);
+            print_buffer(valid_length, offset);
         } else {
             printf("Unknown flags %lx \n", flags);
         }
@@ -231,18 +234,16 @@ static void test_net_tx(void)
         USER_PANIC("Registering memory to devq failed \n");
     }
     
-    lpaddr_t addr;  
-    bufferid_t bid;
 
     // write something into the buffers
     char* write = NULL;
 
     for (int i = 0; i < NUM_ENQ; i++) {
-        write = va_tx + i*(BUF_SIZE);
+        write = va_tx + i*(TX_BUF_SIZE);
         for (int j = 0; j < 8; j++) {
             write[j] = udp_header[j];
         }
-        for (int j = 8; j < BUF_SIZE; j++) {
+        for (int j = 8; j < TX_BUF_SIZE; j++) {
             write[j] = 'a';
         }
     }
@@ -252,10 +253,9 @@ static void test_net_tx(void)
 
     for (int z = 0; z < NUM_ROUNDS_TX; z++) {
         for (int i = 0; i < NUM_ENQ; i++) {
-            addr = phys_tx+(i*(BUF_SIZE));
-
-            err = devq_enqueue(q, regid_tx, addr, BUF_SIZE, 
-                               NETIF_TXFLAG | NETIF_TXFLAG_LAST, &bid);
+            err = devq_enqueue(q, regid_tx, i*(TX_BUF_SIZE), TX_BUF_SIZE, 
+                               i*(TX_BUF_SIZE), TX_BUF_SIZE,
+                               NETIF_TXFLAG | NETIF_TXFLAG_LAST);
             if (err_is_fail(err)){
                 USER_PANIC("Devq enqueue failed \n");
             }    
@@ -274,7 +274,7 @@ static void test_net_tx(void)
     cycles_t t2 = bench_tsc();
     cycles_t result = (t2 -t1 - bench_tscoverhead());
  
-    uint64_t sent_bytes = (uint64_t) BUF_SIZE*NUM_ENQ*NUM_ROUNDS_TX;
+    uint64_t sent_bytes = (uint64_t) TX_BUF_SIZE*NUM_ENQ*NUM_ROUNDS_TX;
     double result_ms = (double) bench_tsc_to_ms(result);
     double bw = sent_bytes / result_ms / 1000;
     
@@ -335,14 +335,11 @@ static void test_net_rx(void)
         USER_PANIC("Registering memory to devq failed \n");
     }
     
-    lpaddr_t addr;  
-    bufferid_t bid;
-
     // Enqueue RX buffers to receive into
     for (int i = 0; i < NUM_ROUNDS_RX; i++){
-        addr = phys_rx+(i*2048);
-        err = devq_enqueue(q, regid_rx, addr, 2048, 
-                           NETIF_RXFLAG, &bid);
+        err = devq_enqueue(q, regid_rx, i*RX_BUF_SIZE, RX_BUF_SIZE, 
+                           i*RX_BUF_SIZE, RX_BUF_SIZE,
+                           NETIF_RXFLAG);
         if (err_is_fail(err)){
             USER_PANIC("Devq enqueue failed: %s\n", err_getstring(err));
         }    
@@ -386,13 +383,15 @@ static errval_t descq_notify(struct descq* q)
     struct devq* queue = (struct devq*) q;
     
     regionid_t rid;
-    bufferid_t bid;
-    lpaddr_t addr;
+    genoffset_t offset;
+    genoffset_t length;
+    genoffset_t valid_data;
+    genoffset_t valid_length;
     uint64_t flags;
-    size_t len;
 
     while(err_is_ok(err)) {
-        err = devq_dequeue(queue, &rid, &addr, &len, &bid, &flags);
+        err = devq_dequeue(queue, &rid, &offset, &length, &valid_data, 
+                           &valid_length, &flags);
         if (err_is_ok(err)){
             num_rx++;
         }
@@ -431,14 +430,11 @@ static void test_idc_queue(void)
         USER_PANIC("Registering memory to devq failed \n");
     }
  
-    lpaddr_t addr;
-    bufferid_t bid;
     // Enqueue RX buffers to receive into
     for (int j = 0; j < 1000000; j++){
         for (int i = 0; i < 32; i++){
-            addr = phys_rx+(i*2048);
-            err = devq_enqueue(q, regid_rx, addr, 2048, 
-                               0, &bid);
+            err = devq_enqueue(q, regid_rx, i*2048, 2048, 
+                               i*2048, 2048, 0);
             if (err_is_fail(err)){
                 // retry
                 i--;

@@ -13,19 +13,19 @@
 #include <devif/backends/descq.h>
 #include <if/descq_data_defs.h>
 #include <if/descq_ctrl_defs.h>
-#include <if/descq_ctrl_defs.h>
 #include "../../queue_interface_internal.h"
 #include "descq_debug.h"
 
 
 struct __attribute__((aligned(DESCQ_ALIGNMENT))) desc {
-    regionid_t rid; // 4
-    bufferid_t bid; // 8
-    lpaddr_t addr; // 16
-    size_t len; // 24
-    uint64_t flags; // 32
-    uint64_t seq; // 40
-    uint8_t pad[24];
+    genoffset_t offset; // 8 
+    genoffset_t length; // 16 
+    genoffset_t valid_data; // 24
+    genoffset_t valid_length; // 32
+    uint64_t flags; // 40
+    uint64_t seq; // 48
+    regionid_t rid; // 52
+    uint8_t pad[12];
 };
 
 union __attribute__((aligned(DESCQ_ALIGNMENT))) pointer {
@@ -56,7 +56,6 @@ struct descq {
     // Flounder
     struct descq_data_binding* data;
     struct descq_ctrl_binding* ctrl;
-    struct descq_ctrl_binding* rpc;
 
     // linked list
     struct descq* next;
@@ -79,18 +78,21 @@ struct descq_endpoint_state {
  *
  * @param q                     The descriptor queue
  * @param region_id             Region id of the enqueued buffer
- * @param buffer_id             Buffer id of the buffer
- * @param base                  Physical address of hte buffer
- * @param len                   Lenght of the buffer
+ * @param offset                Offset into the region where the buffer resides
+ * @param length                Length of the buffer
+ * @param valid_data            Offset into the region where the valid data
+ *                              of the buffer resides
+ * @param valid_length          Length of the valid data of the buffer
  * @param misc_flags            Miscellaneous flags
  *
  * @returns error if queue is full or SYS_ERR_OK on success
  */
 static errval_t descq_enqueue(struct devq* queue,
                               regionid_t region_id,
-                              bufferid_t buffer_id,
-                              lpaddr_t base,
-                              size_t len,
+                              genoffset_t offset,
+                              genoffset_t length,
+                              genoffset_t valid_data,
+                              genoffset_t valid_length,
                               uint64_t misc_flags)
 {
     struct descq* q = (struct descq*) queue;
@@ -100,19 +102,21 @@ static errval_t descq_enqueue(struct devq* queue,
     }
     
     q->tx_descs[head].rid = region_id;
-    q->tx_descs[head].bid = buffer_id;
-    q->tx_descs[head].addr = base;
-    q->tx_descs[head].len = len;
+    q->tx_descs[head].offset = offset;
+    q->tx_descs[head].length = length;
+    q->tx_descs[head].valid_data = valid_data;
+    q->tx_descs[head].valid_length = valid_length;
     q->tx_descs[head].flags = misc_flags;
     q->tx_descs[head].seq = q->tx_seq;    
 
     // only write local head
     q->tx_seq++;
 
-    DESCQ_DEBUG("tx_seq=%lu tx_seq_ack=%lu bid=%d\n", 
-                    q->tx_seq, q->tx_seq_ack->value, buffer_id);
+    DESCQ_DEBUG("tx_seq=%lu tx_seq_ack=%lu \n", 
+                    q->tx_seq, q->tx_seq_ack->value);
     return SYS_ERR_OK;
 }
+
 /**
  * @brief Dequeue a descriptor (as seperate fields) 
  *        from the descriptor queue
@@ -120,19 +124,23 @@ static errval_t descq_enqueue(struct devq* queue,
  * @param q                     The descriptor queue
  * @param region_id             Return pointer to the region id of 
  *                              the denqueued buffer
- * @param buffer_id             Return pointer to the buffer id of the buffer
- * @param base                  Return pointer to the physical address 
- *                              of the buffer
- * @param len                   Return pointer to the lenght of the buffer
+ * @param offset                Return pointer to the offset into the region
+ *                              where the buffer resides
+ * @param length                Return pointer to the length of the buffer
+ * @param valid_data            Return pointer to the offset into the region
+ *                              where the valid data of the buffer resides
+ * @param valid_lenght          Return pointer to the length of the valid
+ *                              data of the buffer
  * @param misc_flags            Return pointer to miscellaneous flags
  *
  * @returns error if queue is empty or SYS_ERR_OK on success
  */
 static errval_t descq_dequeue(struct devq* queue,
                               regionid_t* region_id,
-                              bufferid_t* buffer_id,
-                              lpaddr_t* base,
-                              size_t* len,
+                              genoffset_t* offset,
+                              genoffset_t* length,
+                              genoffset_t* valid_data,
+                              genoffset_t* valid_length,
                               uint64_t* misc_flags)
 {
     struct descq* q = (struct descq*) queue;
@@ -144,16 +152,17 @@ static errval_t descq_dequeue(struct devq* queue,
 
     size_t tail = q->rx_seq % q->slots;
     *region_id = q->rx_descs[tail].rid;
-    *buffer_id = q->rx_descs[tail].bid;
-    *base = q->rx_descs[tail].addr;
-    *len = q->rx_descs[tail].len;
+    *offset = q->rx_descs[tail].offset;
+    *length = q->rx_descs[tail].length;
+    *valid_data = q->rx_descs[tail].valid_data;
+    *valid_length = q->rx_descs[tail].valid_length;
     *misc_flags = q->rx_descs[tail].flags;
  
        
     q->rx_seq++;
     q->rx_seq_ack->value = q->rx_seq;
 
-    DESCQ_DEBUG("rx_seq_ack=%lu bid=%d \n", q->rx_seq_ack->value, *buffer_id);
+    DESCQ_DEBUG("rx_seq_ack=%lu\n", q->rx_seq_ack->value);
     return SYS_ERR_OK;
 }
 
@@ -171,7 +180,7 @@ static errval_t descq_notify(struct devq* q)
     struct descq* queue = (struct descq*) q;
     /*
     DESCQ_DEBUG("start \n");
-    err = queue->rpc->rpc_tx_vtbl.notify(queue->rpc, &err2);
+    err = queue->ctrl->rpc_tx_vtbl.notify(queue->rpc, &err2);
     err = err_is_fail(err) ? err : err2;
     DESCQ_DEBUG("end\n");
     */
@@ -195,7 +204,7 @@ static errval_t descq_control(struct devq* q, uint64_t cmd,
     struct descq* queue = (struct descq*) q;
 
     DESCQ_DEBUG("start \n");
-    err = queue->rpc->rpc_tx_vtbl.control(queue->rpc, cmd, value, &err2);
+    err = queue->ctrl->rpc_tx_vtbl.control(queue->ctrl, cmd, value, &err2);
     err = err_is_fail(err) ? err : err2;
     DESCQ_DEBUG("end\n");
     return err;
@@ -208,7 +217,7 @@ static errval_t descq_register(struct devq* q, struct capref cap,
     struct descq* queue = (struct descq*) q;
 
     DESCQ_DEBUG("start %p\n", queue);
-    err = queue->rpc->rpc_tx_vtbl.register_region(queue->rpc, cap, rid, &err2);
+    err = queue->ctrl->rpc_tx_vtbl.register_region(queue->ctrl, cap, rid, &err2);
     err = err_is_fail(err) ? err : err2;
     DESCQ_DEBUG("end\n");
     return err;
@@ -219,7 +228,7 @@ static errval_t descq_deregister(struct devq* q, regionid_t rid)
     errval_t err, err2;
     struct descq* queue = (struct descq*) q;
 
-    err = queue->rpc->rpc_tx_vtbl.deregister_region(queue->rpc, rid, &err2);
+    err = queue->ctrl->rpc_tx_vtbl.deregister_region(queue->ctrl, rid, &err2);
     err = err_is_fail(err) ? err : err2;
     return err;
 }
@@ -451,11 +460,7 @@ static void ctrl_bind_cb(void *st, errval_t err, struct descq_ctrl_binding* b)
     struct descq* q = (struct descq*) st;
     DESCQ_DEBUG("Control interface bound \n");
     q->ctrl = b;
-    q->rpc = malloc(sizeof(struct descq_ctrl_binding));
-    assert(q->rpc != NULL); 
-
-    err = descq_ctrl_binding_init(q->rpc, b);
-    assert(err_is_ok(err));
+    descq_ctrl_rpc_client_init(q->ctrl);
 
     b->rx_vtbl = ctrl_rx_vtbl;
     b->st = q;
@@ -603,7 +608,7 @@ errval_t descq_create(struct descq** q,
         }
 
         errval_t err2;
-        err = tmp->rpc->rpc_tx_vtbl.create_queue(tmp->rpc, slots, rx, tx, &err2);
+        err = tmp->ctrl->rpc_tx_vtbl.create_queue(tmp->ctrl, slots, rx, tx, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             goto cleanup5;

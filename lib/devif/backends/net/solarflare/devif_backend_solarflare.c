@@ -90,8 +90,7 @@ static void bind_cb(void *st, errval_t err, struct sfn5122f_devif_binding *b)
     // Initi RPC client
     
     queue->b = b;
-
-    sfn5122f_devif_binding_init(queue->b);
+    sfn5122f_devif_rpc_client_init(queue->b);
     queue->bound = true;
 }
 
@@ -106,8 +105,8 @@ static errval_t sfn5122f_register(struct devq* q, struct capref cap,
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) q;
 
     if (queue->userspace) {
-        err = queue->b->b_tx_vtbl.register_region(queue->b, queue->id, cap,
-                                               &buftbl_idx, &err2);
+        err = queue->b->rpc_tx_vtbl.register_region(queue->b, queue->id, cap,
+                                                    &buftbl_idx, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             return err;
@@ -164,8 +163,8 @@ static errval_t sfn5122f_deregister(struct devq* q, regionid_t rid)
    
     // do rpc do inform carddriver to remove buftbl entries
     if (queue->userspace) {
-        err = queue->b->b_tx_vtbl.deregister_region(queue->b, cur->buftbl_idx, cur->size,
-                                                 &err2);
+        err = queue->b->rpc_tx_vtbl.deregister_region(queue->b, cur->buftbl_idx, 
+                                                      cur->size, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             return err;
@@ -191,7 +190,8 @@ static errval_t sfn5122f_notify(struct devq* q)
 }
 
 static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
-                               bufferid_t bid, lpaddr_t base, size_t len,
+                               genoffset_t offset, genoffset_t length,
+                               genoffset_t valid_data, genoffset_t valid_length,
                                uint64_t flags)
 {
 
@@ -215,21 +215,22 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
     }
     
     // compute buffer table entry of the rx buffer and the within it offset
-    uint64_t buftbl_idx = entry->buftbl_idx + (bid/BUF_SIZE);
-    uint16_t offset = bid & 0x00000FFF;
+    uint64_t buftbl_idx = entry->buftbl_idx + (offset/BUF_SIZE);
+    uint16_t b_off = offset & 0x00000FFF;
 
     // still in the same buffer table entry
-    assert(buftbl_idx == (entry->buftbl_idx + ((bid+len-1)/BUF_SIZE)));
+    assert(buftbl_idx == (entry->buftbl_idx + ((offset+length-1)/BUF_SIZE)));
 
    
     DEBUG_QUEUE("RX_BUF tbl_idx=%lu offset=%d flags=%lu \n",
-                buftbl_idx, offset, flags);
+                buftbl_idx, b_off, flags);
     if (q->userspace) {
-        sfn5122f_queue_add_user_rxbuf_devif(q, buftbl_idx, offset,
-                                            rid, bid, base, len, flags);
+        sfn5122f_queue_add_user_rxbuf_devif(q, buftbl_idx, b_off,
+                                            rid, offset, length, valid_data,
+                                            valid_length, flags);
     } else {
-        sfn5122f_queue_add_rxbuf_devif(q, rid, bid, base,
-                                       len, flags);
+        sfn5122f_queue_add_rxbuf_devif(q, entry->phys + offset, rid, offset, length,
+                                       valid_data, valid_length, flags);
     }
     sfn5122f_queue_bump_rxtail(q);
     return SYS_ERR_OK;
@@ -237,7 +238,8 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
 
 
 static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
-                               bufferid_t bid, lpaddr_t base, size_t len,
+                               genoffset_t offset, genoffset_t length,
+                               genoffset_t valid_data, genoffset_t valid_length,
                                uint64_t flags)
 {
     DEBUG_QUEUE("Enqueueing TX buf \n");
@@ -260,33 +262,37 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
     }
     
     // compute buffer table entry of the rx buffer and the within it offset
-    uint64_t buftbl_idx = entry->buftbl_idx + (bid/BUF_SIZE);
-    uint16_t offset = bid & 0x00000FFF;
+    uint64_t buftbl_idx = entry->buftbl_idx + (offset/BUF_SIZE);
+    uint16_t b_off = offset & 0x00000FFF;
 
 
     // still in the same buffer table entry
-    assert(buftbl_idx == (entry->buftbl_idx + ((bid+len-1)/BUF_SIZE)));
+    assert(buftbl_idx == (entry->buftbl_idx + ((offset+length-1)/BUF_SIZE)));
 
-    DEBUG_QUEUE("TX_BUF tbl_idx=%lu offset=%d flags=%lu \n", buftbl_idx, offset,
+    DEBUG_QUEUE("TX_BUF tbl_idx=%lu offset=%d flags=%lu \n", buftbl_idx, b_off,
                 flags);
     if (q->userspace) {
 
-        DEBUG_QUEUE("TX_BUF tbl_idx=%lu offset=%d flags=%lu \n", buftbl_idx, offset,
+        DEBUG_QUEUE("TX_BUF tbl_idx=%lu offset=%d flags=%lu \n", buftbl_idx, b_off,
                     flags);
-        sfn5122f_queue_add_user_txbuf_devif(q, buftbl_idx, offset,
-                                            rid, bid, base, len, flags);
+        sfn5122f_queue_add_user_txbuf_devif(q, buftbl_idx, b_off,
+                                            rid, offset, length, valid_data,
+                                            valid_length, flags);
     } else {
 
         DEBUG_QUEUE("TX_BUF flags=%lu \n", flags);
-        sfn5122f_queue_add_txbuf_devif(q, rid, bid, base,
-                                       len, flags);
+        sfn5122f_queue_add_txbuf_devif(q, entry->phys + offset, rid, offset, 
+                                       length, valid_data, valid_length,
+                                       flags);
     }
     sfn5122f_queue_bump_txtail(q);
     return SYS_ERR_OK;
 }
 
-static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid, bufferid_t bid,
-                                 lpaddr_t base, size_t len, uint64_t flags)
+static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid, 
+                                 genoffset_t offset, genoffset_t length,
+                                 genoffset_t valid_data, genoffset_t valid_length,
+                                 uint64_t flags)
 {
     errval_t err;
 
@@ -294,16 +300,18 @@ static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid, bufferid_t bid,
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) q;
     if (flags & NETIF_RXFLAG) {
         /* can not enqueue receive buffer larger than 2048 bytes */
-        assert(len <= 2048);
+        assert(length <= 2048);
 
-        err = enqueue_rx_buf(queue, rid, bid, base, len, flags);
+        err = enqueue_rx_buf(queue, rid, offset, length, valid_data, valid_length,
+                             flags);
         if (err_is_fail(err)) {
             return err;
         }
     } else if (flags & NETIF_TXFLAG) {
-        assert(len <= BASE_PAGE_SIZE);
+        assert(length <= BASE_PAGE_SIZE);
 
-        err = enqueue_tx_buf(queue, rid, bid, base, len, flags);
+        err = enqueue_tx_buf(queue, rid, offset, length, valid_data, valid_length, 
+                             flags);
         if (err_is_fail(err)) {
             return err;
         }
@@ -312,8 +320,9 @@ static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid, bufferid_t bid,
     return SYS_ERR_OK;
 }
 
-static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bid,
-                                 lpaddr_t* base, size_t* len, uint64_t* flags)
+static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset,
+                                 genoffset_t* length, genoffset_t* valid_data,
+                                 genoffset_t* valid_length, uint64_t* flags)
 {
     uint8_t ev_code;
     errval_t err = DEVQ_ERR_RX_EMPTY;
@@ -325,10 +334,11 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bi
 
     if (queue->num_left > 0) {
         *rid = queue->bufs[queue->last_deq].rid;
-        *bid = queue->bufs[queue->last_deq].bid;
+        *offset = queue->bufs[queue->last_deq].offset;
         *flags = queue->bufs[queue->last_deq].flags;
-        *base = queue->bufs[queue->last_deq].addr;
-        *len = queue->bufs[queue->last_deq].len;
+        *valid_length = queue->bufs[queue->last_deq].valid_length;
+        *valid_data = queue->bufs[queue->last_deq].valid_data;
+        *length = queue->bufs[queue->last_deq].length;
         queue->num_left--;
         queue->last_deq++;
         return SYS_ERR_OK;
@@ -339,16 +349,18 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, bufferid_t* bi
         switch(ev_code){
         case EV_CODE_RX:
             // TODO multiple packets
-            err = sfn5122f_queue_handle_rx_ev_devif(queue, rid, bid, base,
-                                                    len, flags);
+            err = sfn5122f_queue_handle_rx_ev_devif(queue, rid, offset, length,
+                                                    valid_data, valid_length, 
+                                                    flags);
             if (err_is_ok(err)) {
-                DEBUG_QUEUE(" RX_EV Q_ID: %d len %ld \n", queue->id, *len);
+                DEBUG_QUEUE(" RX_EV Q_ID: %d len %ld \n", queue->id, *length);
             }
             sfn5122f_queue_bump_evhead(queue);
             return SYS_ERR_OK;
         case EV_CODE_TX:
-            err = sfn5122f_queue_handle_tx_ev_devif(queue, rid, bid, base,
-                                                    len, flags);
+            err = sfn5122f_queue_handle_tx_ev_devif(queue, rid, offset, length,
+                                                    valid_data, valid_length,
+                                                    flags);
             if (err_is_ok(err)) {
                 DEBUG_QUEUE("TX EVENT OK %d \n", queue->id);
             } else {
@@ -478,8 +490,9 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
 
     if (!interrupts) {
         printf("Solarflare queue used in polling mode \n");
-        err = queue->b->b_tx_vtbl.create_queue(queue->b, frame, userlevel, interrupts, 
-                                            0, 0, &queue->id, &regs, &err2);
+        err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel, 
+                                                 interrupts, 
+                                                 0, 0, &queue->id, &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             return err;
@@ -491,10 +504,10 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
 
         queue->core = disp_get_core_id();
         
-        err = queue->b->b_tx_vtbl.create_queue(queue->b, frame, userlevel,
-                                            interrupts, queue->core,
-                                            queue->vector, &queue->id,
-                                            &regs, &err2);
+        err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
+                                                 interrupts, queue->core,
+                                                 queue->vector, &queue->id,
+                                                 &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             printf("Registering interrupt failed, continueing in polling mode \n");
@@ -539,7 +552,7 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
 errval_t sfn5122f_queue_destroy(struct sfn5122f_queue* q)
 {
     errval_t err, err2;
-    err = q->b->b_tx_vtbl.destroy_queue(q->b, q->id, &err2);
+    err = q->b->rpc_tx_vtbl.destroy_queue(q->b, q->id, &err2);
     if (err_is_fail(err) || err_is_fail(err2)) {
         err = err_is_fail(err) ? err: err2;
         return err;

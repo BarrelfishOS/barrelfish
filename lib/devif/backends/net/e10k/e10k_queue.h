@@ -81,7 +81,7 @@ struct e10k_queue {
     struct vf_state* vf;
 
     // Communicatio to PF
-    struct e10k_vf_rpc_client *binding;
+    struct e10k_vf_binding *binding;
     bool bound;
 
     // FIXME: Look for appropriate type for the _head/tail/size fields
@@ -161,10 +161,14 @@ static inline int e10k_queue_add_txcontext(e10k_queue_t* q, uint8_t idx,
     return 0;
 }
 
-
-static inline int e10k_queue_add_txbuf_ctx(e10k_queue_t* q, regionid_t rid,
-                                           bufferid_t bid, lpaddr_t base,
-                                           size_t totallen, uint64_t flags,
+// len is only length of this descriptor where length is the total length
+static inline int e10k_queue_add_txbuf_ctx(e10k_queue_t* q, lpaddr_t phys,
+                                           regionid_t rid,
+                                           genoffset_t offset,
+                                           genoffset_t length,
+                                           genoffset_t valid_data, 
+                                           genoffset_t valid_length,
+                                           uint64_t flags,
                                            bool first, bool last,
                                            size_t len, uint8_t ctx,
                                            bool ixsm, bool txsm)
@@ -177,17 +181,18 @@ static inline int e10k_queue_add_txbuf_ctx(e10k_queue_t* q, regionid_t rid,
     // TODO: Check if there is room in the queue
     q->tx_isctx[tail] = false;
     struct devq_buf* buf = &q->tx_bufs[tail];
-    buf->addr = base;
-    buf->bid = bid;
     buf->rid = rid;
+    buf->offset = offset;
+    buf->length = length;
+    buf->valid_data = valid_data;
+    buf->valid_length = valid_length;
     buf->flags = flags;  
-    buf->len = totallen;
     d = q->tx_ring[tail];
 
-    e10k_q_tdesc_adv_rd_buffer_insert(d, base);
+    e10k_q_tdesc_adv_rd_buffer_insert(d, phys);
     e10k_q_tdesc_adv_rd_dtalen_insert(d, len);
     if (first) {
-        e10k_q_tdesc_adv_rd_paylen_insert(d, totallen);
+        e10k_q_tdesc_adv_rd_paylen_insert(d, length);
     }
     e10k_q_tdesc_adv_rd_dtyp_insert(d, e10k_q_adv_data);
     e10k_q_tdesc_adv_rd_dext_insert(d, 1);
@@ -208,13 +213,18 @@ static inline int e10k_queue_add_txbuf_ctx(e10k_queue_t* q, regionid_t rid,
 
 }
 
-static inline int e10k_queue_add_txbuf(e10k_queue_t* q, regionid_t rid,
-                                       bufferid_t bid, lpaddr_t base,
-                                       size_t totallen, uint64_t flags,
+static inline int e10k_queue_add_txbuf(e10k_queue_t* q, lpaddr_t phys,
+                                       regionid_t rid,
+                                       genoffset_t offset,
+                                       genoffset_t length,      
+                                       genoffset_t valid_data,
+                                       genoffset_t valid_length,
+                                       uint64_t flags,
                                        bool first, bool last,
                                        size_t len)
 {
-    return e10k_queue_add_txbuf_ctx(q, rid, bid, base, totallen, 
+    return e10k_queue_add_txbuf_ctx(q, phys, rid, offset, length,
+                                    valid_data, valid_length, 
                                     flags, first, last, 
                                     len, -1, false, false);
 }
@@ -228,9 +238,12 @@ static inline int e10k_queue_add_txbuf(e10k_queue_t* q, regionid_t rid,
  *
  * \return true if packet can be reclaimed otherwise false
  */
-static inline bool e10k_queue_get_txbuf(e10k_queue_t* q, regionid_t* rid,
-                                       bufferid_t* bid, lpaddr_t* base, 
-                                       size_t* len, uint64_t* flags)
+static inline bool e10k_queue_get_txbuf(e10k_queue_t* q, regionid_t* rid,   
+                                        genoffset_t* offset,
+                                        genoffset_t* length,
+                                        genoffset_t* valid_data,
+                                        genoffset_t* valid_length,
+                                        uint64_t* flags)
 {
     /* e10k_q_tdesc_adv_wb_t d; */
     size_t head = q->tx_head;
@@ -259,9 +272,10 @@ static inline bool e10k_queue_get_txbuf(e10k_queue_t* q, regionid_t* rid,
     if (!q->tx_isctx[head]) {
         //*opaque = q->tx_opaque[head];
         *rid = q->tx_bufs[head].rid;
-        *bid = q->tx_bufs[head].bid;
-        *base = q->tx_bufs[head].addr;
-        *len = q->tx_bufs[head].len;
+        *offset = q->tx_bufs[head].offset;
+        *length = q->tx_bufs[head].length;
+        *valid_data = q->tx_bufs[head].valid_data;
+        *valid_length = q->tx_bufs[head].valid_length;
         *flags = q->tx_bufs[head].flags;
 
         result = true;
@@ -292,10 +306,12 @@ static inline size_t e10k_queue_free_txslots(e10k_queue_t* q)
 }
 
 static inline int e10k_queue_add_rxbuf(e10k_queue_t* q,
+                                       lpaddr_t phys,
                                        regionid_t rid,
-                                       bufferid_t bid,
-                                       lpaddr_t base,
-                                       size_t len,
+                                       genoffset_t offset,
+                                       genoffset_t length,
+                                       genoffset_t valid_data,
+                                       genoffset_t valid_length,
                                        uint64_t flags)
 {
     e10k_q_rdesc_adv_rd_t d;
@@ -310,14 +326,15 @@ static inline int e10k_queue_add_rxbuf(e10k_queue_t* q,
 
     // TODO: Check if there is room in the queue
     ctx->buf.rid = rid;
-    ctx->buf.bid = bid;
-    ctx->buf.len = len;
-    ctx->buf.addr = base;
+    ctx->buf.offset = offset;
+    ctx->buf.length = length;
+    ctx->buf.valid_data = valid_data;
+    ctx->buf.valid_length = valid_length;
     ctx->buf.flags = flags;
     ctx->used = true;
     d = (e10k_q_rdesc_adv_rd_t) q->rx_ring[tail];
 
-    e10k_q_rdesc_adv_rd_buffer_insert(d, base);
+    e10k_q_rdesc_adv_rd_buffer_insert(d, phys);
     // TODO: Does this make sense for RSC?
     e10k_q_rdesc_adv_rd_hdr_buffer_insert(d, 0);
 
@@ -361,8 +378,12 @@ static inline uint64_t e10k_queue_convert_rxflags(e10k_q_rdesc_adv_wb_t d)
 }
 
 static inline bool e10k_queue_get_rxbuf(e10k_queue_t* q, regionid_t* rid,
-                                        bufferid_t* bid, lpaddr_t* base,
-                                        size_t* len, uint64_t* flags, int* last)
+                                        genoffset_t* offset,
+                                        genoffset_t* length,
+                                        genoffset_t* valid_data,
+                                        genoffset_t* valid_length,
+                                        uint64_t* flags,
+                                        int* last)
 {
     e10k_q_rdesc_adv_wb_t d;
     size_t head = q->rx_head;
@@ -390,10 +411,11 @@ static inline bool e10k_queue_get_rxbuf(e10k_queue_t* q, regionid_t* rid,
 
     // TODO: Extract status (okay/error)
     *last = e10k_q_rdesc_adv_wb_eop_extract(d);
-    *len = e10k_q_rdesc_adv_wb_pkt_len_extract(d);
+    *valid_length = e10k_q_rdesc_adv_wb_pkt_len_extract(d);
     *rid = ctx->buf.rid;
-    *bid = ctx->buf.bid;
-    *base = ctx->buf.addr;
+    *offset = ctx->buf.offset;
+    *length = ctx->buf.length;
+    *valid_data = ctx->buf.valid_data;
 
     ctx->used = false;
     memset(d, 0, e10k_q_rdesc_adv_wb_size);

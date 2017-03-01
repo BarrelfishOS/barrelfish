@@ -66,12 +66,14 @@ static errval_t init_queue(struct ahci_queue** dq) {
     return SYS_ERR_OK;
 }
 
-static bool slice_is_in_range(struct dma_mem *mem, lpaddr_t base, size_t length)
+static bool slice_is_in_range(struct dma_mem *mem, genpaddr_t offset, size_t length)
 {
-    bool lower_bound = mem->paddr <= base;
-    bool upper_bound = mem->paddr+mem->bytes >= base+length;
-
-    return lower_bound && upper_bound;
+    // do not have to check lower bound since it is unsigned
+    bool upper_bound = (mem->bytes >= length);
+    bool upper_bound2 = (mem->paddr + offset + length) <= (mem->paddr + mem->bytes);
+   // printf("mem->paddr %lx, mem->bytes %lx, offset %lx, length %lx \n",
+   //        mem->paddr, mem->bytes, offset, length);
+    return upper_bound2 && upper_bound;
 }
 
 static uint64_t flags_get_block(uint64_t flags)
@@ -110,20 +112,20 @@ errval_t ahci_destroy(struct ahci_queue *q)
 
 static errval_t ahci_enqueue(struct devq *q, 
                              regionid_t region_id, 
-                             bufferid_t buffer_id, 
-                             lpaddr_t base, 
-                             size_t length, 
+                             genoffset_t offset,
+                             genoffset_t length,
+                             genoffset_t valid_data,
+                             genoffset_t valid_length,
                              uint64_t flags)
 {
     struct ahci_queue *queue = (struct ahci_queue*) q;
     
     assert(is_valid_buffer(queue, (region_id % MAX_BUFFERS)));
-    assert(base != 0);
     assert(length >= 512);
 
     struct dma_mem* mem = &queue->buffers[(region_id % MAX_BUFFERS)];
 
-    if (!slice_is_in_range(mem, base, length)) {
+    if (!slice_is_in_range(mem, offset, length)) {
         return DEV_ERR_INVALID_BUFFER_ARGS;
     }
 
@@ -136,29 +138,34 @@ static errval_t ahci_enqueue(struct devq *q,
 
     struct dev_queue_request *dqr = &queue->requests[slot];
     dqr->status = RequestStatus_InProgress;
-    dqr->buffer_id = buffer_id;
-    dqr->base = base;
+    dqr->region_id = region_id;
+    dqr->offset = offset;
     dqr->length = length;
-    dqr->region_id = region_id ;
+    dqr->valid_data = valid_data;
+    dqr->valid_length = valid_length;
     dqr->command_slot = slot;
 
     uint64_t block = flags_get_block(flags);
     bool write = flags_is_write(flags);
 
-    err = blk_ahci_port_dma_async(queue->port, slot, block, base, length, write);
+    err = blk_ahci_port_dma_async(queue->port, slot, block, mem->paddr+offset, 
+                                  length, write);
     return err;
 }
 
 static errval_t ahci_dequeue(struct devq* q,
                              regionid_t* region_id,
-                             bufferid_t* buffer_id,
-                             lpaddr_t* base,
-                             size_t* length,
+                             genoffset_t* offset,
+                             genoffset_t* length,
+                             genoffset_t* valid_data,
+                             genoffset_t* valid_length,
                              uint64_t* misc_flags)
 {
     assert(q != NULL);
     assert(region_id != NULL);
-    assert(base != NULL);
+    assert(offset != NULL);
+    assert(valid_data != NULL);
+    assert(valid_length != NULL);
     assert(length != NULL);
 
     struct ahci_queue *queue = (struct ahci_queue*) q;
@@ -166,10 +173,11 @@ static errval_t ahci_dequeue(struct devq* q,
     for (size_t i=0; i < queue->port->ncs; i++) {
         struct dev_queue_request *dqr = &queue->requests[i];
         if (dqr->status == RequestStatus_Done) {
-            *base = dqr->base;
-            *length = dqr->length;
-            *buffer_id = dqr->buffer_id;
             *region_id = dqr->region_id;
+            *offset = dqr->offset;
+            *length = dqr->length;
+            *valid_data = dqr->valid_data;
+            *valid_length = dqr->valid_length;
             dqr->status = RequestStatus_Unused;
             return dqr->error;
         }
