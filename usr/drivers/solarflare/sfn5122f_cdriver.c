@@ -91,7 +91,7 @@ static uint32_t phy_loopback_mode = 0;
 static uint32_t wol_filter_id = 0;
 
 // ARP rpc client
-static struct net_ARP_binding arp_rpc;
+static struct net_ARP_binding *arp_binding;
 static bool net_arp_connected = false;
 static struct waitset rpc_ws;
 
@@ -1595,7 +1595,7 @@ static errval_t arp_ip_info(void)
 
     uint32_t gw;
     uint32_t mask;
-    err = arp_rpc->rpc_tx_vtbl.ip_info(&arp_rpc, 0, &msgerr, &ip, &gw, &mask);
+    err = arp_binding->rpc_tx_vtbl.ip_info(arp_binding, 0, &msgerr, &ip, &gw, &mask);
     if (err_is_fail(err)) {
         return err;
     }
@@ -1605,7 +1605,8 @@ static errval_t arp_ip_info(void)
 static void a_bind_cb(void *st, errval_t err, struct net_ARP_binding *b)
 {
     assert(err_is_ok(err));
-    err = net_ARP_binding_init(&arp_rpc, b);
+    arp_binding = b;
+    err = net_ARP_rpc_client_init(arp_binding);
     assert(err_is_ok(err));
     net_arp_connected = true;
 }
