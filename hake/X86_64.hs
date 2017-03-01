@@ -63,8 +63,8 @@ options = (ArchDefaults.options arch archFamily) {
             optDefines = cDefines,
             optLdFlags = ldFlags,
             optLdCxxFlags = ldCxxFlags,
-            optInterconnectDrivers = ["lmp", "ump", "multihop"],
-            optFlounderBackends = ["lmp", "ump", "multihop"]
+            optInterconnectDrivers = ["lmp", "ump", "multihop", "local"],
+            optFlounderBackends = ["lmp", "ump", "multihop", "local"]
           }
 
 --

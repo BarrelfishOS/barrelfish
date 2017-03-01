@@ -33,7 +33,7 @@
 #include <dev/ht_config_dev.h>
 #include "pci_debug.h"
 
-#include <if/acpi_rpcclient_defs.h>
+#include <if/acpi_defs.h>
 
 #define BAR_PROBE       0xffffffff
 
@@ -158,7 +158,7 @@ static errval_t alloc_device_bar(uint8_t idx,
                                  pciaddr_t high,
                                  pcisize_t size)
 {
-    struct acpi_rpc_client* acl = get_acpi_rpc_client();
+    struct acpi_binding* acl = get_acpi_binding();
 
     struct device_caps *c = &dev_caps[bus][dev][fun][idx];
     errval_t err;
@@ -184,7 +184,7 @@ static errval_t alloc_device_bar(uint8_t idx,
         errval_t error_code;
         err = slot_alloc(&c->phys_cap[i]);
         assert(err_is_ok(err));
-        err = acl->vtbl.mm_alloc_range_proxy(acl, bits, base + i * framesize,
+        err = acl->rpc_tx_vtbl.mm_alloc_range_proxy(acl, bits, base + i * framesize,
                                              base + (i + 1) * framesize,
                                              &c->phys_cap[i], &error_code);
         assert(err_is_ok(err));
@@ -196,7 +196,7 @@ static errval_t alloc_device_bar(uint8_t idx,
             if (err_no(err) == MM_ERR_MISSING_CAPS && bits > PAGE_BITS) {
                 /* try again with smaller page-sized caps */
                 for (int j = 0; j < i; j++) {
-                    err = acl->vtbl.mm_free_proxy(acl, c->phys_cap[i],
+                    err = acl->rpc_tx_vtbl.mm_free_proxy(acl, c->phys_cap[i],
                                                   base + j * framesize, bits,
                                                   &error_code);
                     assert(err_is_ok(err) && err_is_ok(error_code));
@@ -523,9 +523,9 @@ errval_t device_reregister_interrupt(uint8_t coreid, int vector,
     PCI_DEBUG("pci: init_device_handler_irq: init interrupt.\n");
     PCI_DEBUG("pci: irq = %u, core = %hhu, vector = %u\n",
             irq, coreid, vector);
-    struct acpi_rpc_client* cl = get_acpi_rpc_client();
+    struct acpi_binding* cl = get_acpi_binding();
     errval_t ret_error;
-    err = cl->vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
+    err = cl->rpc_tx_vtbl.enable_and_route_interrupt(cl, irq, coreid, vector, &ret_error);
     assert(err_is_ok(err));
     assert(err_is_ok(ret_error)); // FIXME
     //        printf("IRQ for this device is %d\n", irq);
@@ -680,14 +680,14 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                 errval_t error_code;
                 PCI_DEBUG("get irq table for (%hhu,%hhu,%hhu)\n", (*busnum) + 2,
                           addr.device, addr.function);
-                struct acpi_rpc_client* cl = get_acpi_rpc_client();
+                struct acpi_binding* cl = get_acpi_binding();
                 // XXX: why do we have two different types for the same thing?
                 acpi_pci_address_t xaddr = {
                     .bus = addr.bus,
                     .device = addr.device,
                     .function = addr.function,
                 };
-                errval_t err = cl->vtbl.read_irq_table(cl, handle, xaddr, (*busnum) + 2,
+                errval_t err = cl->rpc_tx_vtbl.read_irq_table(cl, handle, xaddr, (*busnum) + 2,
                                         &error_code, child);
                 if (err_is_ok(err) && error_code == ACPI_ERR_NO_CHILD_BRIDGE){
                     PCI_DEBUG("No corresponding ACPI entry for bridge found\n");
@@ -1703,9 +1703,9 @@ uint32_t pci_setup_interrupt(uint32_t bus,
         return irq;
     }
 
-    struct acpi_rpc_client* cl = get_acpi_rpc_client();
+    struct acpi_binding* cl = get_acpi_binding();
     errval_t error_code;
-    err = cl->vtbl.set_device_irq(cl, ldev, irq, &error_code);
+    err = cl->rpc_tx_vtbl.set_device_irq(cl, ldev, irq, &error_code);
     assert(err_is_ok(err));
     if (err_is_fail(error_code)) {
         //DEBUG_ERR(error_code, "set device irq failed.");

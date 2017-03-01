@@ -16,7 +16,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <skb/skb.h>
-#include <if/skb_rpcclient_defs.h>
+#include <if/skb_defs.h>
 #include <barrelfish/core_state_arch.h>
 #include "skb_debug.h"
 
@@ -58,7 +58,7 @@ errval_t skb_execute(char *goal)
     struct skb_state *skb_state = get_skb_state();
 
     last_goal = goal;
-    err = skb_state->skb->vtbl.run(skb_state->skb, goal, output,
+    err = skb_state->skb->rpc_tx_vtbl.run(skb_state->skb, goal, output,
             error_output, &error_code);
     if (err_is_fail(err)) {
         return err_push(err, SKB_ERR_RUN);

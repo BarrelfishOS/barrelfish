@@ -23,13 +23,13 @@
 #include <trace_definitions/trace_defs.h>
 #include <mm/mm.h>
 #include <if/mem_defs.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 
 #include <thc/thc.h>
 #include <thc/thcsync.h>
 
 #include <if/mem_defs.h>
-#include <if/mem_rpcclient_defs.h>
+#include <if/mem_defs.h>
 #include <if/mem_thc.h>
 
 // #include "barrier.h"

@@ -67,11 +67,10 @@ struct dev_queue_request {
     struct dma_mem region;
     uint64_t command_slot;
 
-    lpaddr_t base;
-    size_t length;
-    // TODO change back to buffer_t
-    //bufferid_t buffer_id;
-    uint32_t buffer_id;
+    genpaddr_t offset;
+    genpaddr_t length;
+    genpaddr_t valid_data;
+    genpaddr_t valid_length;
 
     errval_t error;
     enum RequestStatus status;

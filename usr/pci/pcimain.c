@@ -19,7 +19,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 
 #include <mm/mm.h>
 #include <octopus/init.h>
@@ -36,7 +36,7 @@ static errval_t init_io_ports(void)
 {
     errval_t err;
 
-    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *cl = get_monitor_blocking_binding();
     assert(cl != NULL);
 
     // Request I/O Cap
@@ -44,7 +44,7 @@ static errval_t init_io_ports(void)
     errval_t error_code;
     err = slot_alloc(&requested_caps);
     assert(err_is_ok(err));
-    err = cl->vtbl.get_io_cap(cl, &requested_caps, &error_code);
+    err = cl->rpc_tx_vtbl.get_io_cap(cl, &requested_caps, &error_code);
     assert(err_is_ok(err) && err_is_ok(error_code));
 
     // Copy into correct slot

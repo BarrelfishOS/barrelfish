@@ -15,7 +15,7 @@
 #include <barrelfish/bulk_transfer.h>
 //#include <net_device_manager/net_ports_service.h>
 #include <if/net_soft_filters_defs.h>
-#include <if/net_soft_filters_rpcclient_defs.h>
+#include <if/net_soft_filters_defs.h>
 //#include <if/net_ports_defs.h>
 
 // For filter generation
@@ -151,9 +151,7 @@ static void soft_filters_bind_cb(void *st, errval_t err,
     }
     NDM_DEBUG("soft_filters_bind_cb: started\n");
 
-    struct net_soft_filters_rpc_client *rpc_client = malloc(sizeof(struct net_soft_filters_rpc_client));
-    net_soft_filters_rpc_client_init(rpc_client, enb);
-    enb->st = rpc_client;
+    net_soft_filters_rpc_client_init(enb);
 
     soft_filters_connection = enb;
     NDM_DEBUG(" soft_filters_bind_cb: connection made,"
@@ -228,10 +226,9 @@ static void connect_soft_filters_service(char *dev_name, qid_t qid)
 static void register_filter_memory(struct capref cap)
 {
     struct net_soft_filters_binding *b = soft_filters_connection;
-    struct net_soft_filters_rpc_client *rpc = b->st;
 
     errval_t err, rerr;
-    err = rpc->vtbl.register_filter_memory(rpc, cap, &rerr);
+    err = b->rpc_tx_vtbl.register_filter_memory(b, cap, &rerr);
     assert(err_is_ok(err));
     assert(err_is_ok(rerr));
     soft_filters_ready = true;
@@ -288,11 +285,10 @@ static struct eth_addr my_convert_uint64_to_eth_addr(uint64_t given_mac)
 static void sf_mac_lookup(void)
 {
     struct net_soft_filters_binding *b = soft_filters_connection;
-    struct net_soft_filters_rpc_client *rpc = b->st;
 
     uint64_t mac_addr;
     errval_t err, rerr;
-    err = rpc->vtbl.mac_address(rpc, &rerr, &mac_addr);
+    err = b->rpc_tx_vtbl.mac_address(b, &rerr, &mac_addr);
     assert(err_is_ok(err));
     assert(err_is_ok(rerr));
     mac = my_convert_uint64_to_eth_addr(mac_addr);
@@ -312,11 +308,10 @@ static void send_soft_filter(uint64_t id, uint64_t len_rx,
                " and type %x, paused = %d\n", id, ftype, paused);
 
     struct net_soft_filters_binding *b = soft_filters_connection;
-    struct net_soft_filters_rpc_client *rpc = b->st;
 
     errval_t err, rerr;
     uint64_t filter_id;
-    err = rpc->vtbl.register_filter(rpc, id, len_rx, len_tx, buffer_id_rx, buffer_id_tx, ftype, paused, &rerr, &filter_id);
+    err = b->rpc_tx_vtbl.register_filter(b, id, len_rx, len_tx, buffer_id_rx, buffer_id_tx, ftype, paused, &rerr, &filter_id);
     assert(err_is_ok(err));
     assert(err_is_ok(rerr));
     NDM_DEBUG("filter at id [%" PRIu64 "] type[%" PRIu64
@@ -340,10 +335,9 @@ static void send_soft_filter(uint64_t id, uint64_t len_rx,
 static void unregister_soft_filter(uint64_t filter_id, qid_t qid)
 {
     struct net_soft_filters_binding *b = soft_filters_connection;
-    struct net_soft_filters_rpc_client *rpc = b->st;
 
     errval_t err, rerr;
-    err = rpc->vtbl.deregister_filter(rpc, filter_id, &rerr);
+    err = b->rpc_tx_vtbl.deregister_filter(b, filter_id, &rerr);
     assert(err_is_ok(err));
     assert(err_is_ok(rerr));
 } // end function: unregister_soft_filter
@@ -357,10 +351,9 @@ static void register_arp_soft_filter(uint64_t id, uint64_t len_rx,
 {
     NDM_DEBUG("register_arp_soft_filter: called\n");
     struct net_soft_filters_binding *b = soft_filters_connection;
-    struct net_soft_filters_rpc_client *rpc = b->st;
 
     errval_t err, rerr;
-    err = rpc->vtbl.register_arp_filter(rpc, id, len_rx, len_tx, &rerr);
+    err = b->rpc_tx_vtbl.register_arp_filter(b, id, len_rx, len_tx, &rerr);
     assert(err_is_ok(err));
     assert(err_is_ok(rerr));
 
@@ -437,4 +430,3 @@ static uint64_t populate_rx_tx_filter_mem(uint16_t port, net_ports_port_type_t t
 
     return id;
 }
-

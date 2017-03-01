@@ -16,7 +16,7 @@
 #include <hw_records_arch.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish_kpi/platform.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 
 #include <skb/skb.h>
 #include <octopus/getset.h>
@@ -137,11 +137,11 @@ errval_t arch_startup(char * add_device_db_file)
         }
     }
 
-    struct monitor_blocking_rpc_client *m = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *m = get_monitor_blocking_binding();
     assert(m != NULL);
 
     uint32_t arch, platform;
-    err = m->vtbl.get_platform(m, &arch, &platform);
+    err = m->rpc_tx_vtbl.get_platform(m, &arch, &platform);
     assert(err_is_ok(err));
     assert(arch == PI_ARCH_ARMV7A);
 
@@ -149,7 +149,7 @@ errval_t arch_startup(char * add_device_db_file)
 
     struct arch_info_armv7 *arch_info= (struct arch_info_armv7 *)buf;
     size_t buflen;
-    err = m->vtbl.get_platform_arch(m, buf, &buflen);
+    err = m->rpc_tx_vtbl.get_platform_arch(m, buf, &buflen);
     assert(buflen == sizeof(struct arch_info_armv7));
 
     /* Query the SKB for the available cores on this platform - we can't

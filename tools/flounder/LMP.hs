@@ -233,7 +233,7 @@ lmp_init_fn ifn = C.FunctionDef C.NoScope C.Void (lmp_init_fn_name ifn) params [
     C.Ex $ C.Assignment (common_field "get_receiving_chanstate") (C.Variable $ get_receiving_chanstate_fn_name ifn),
     C.Ex $ C.Assignment
             (C.DerefField lmp_bind_var "flags")
-            (C.Variable "LMP_SEND_FLAGS_DEFAULT") ]
+            (C.Variable "LMP_SEND_FLAGS_DEFAULT")]
     where
       params = [C.Param (C.Ptr $ C.Struct (lmp_bind_type ifn)) lmp_bind_var_name,
                 C.Param (C.Ptr $ C.Struct "waitset") "waitset"]

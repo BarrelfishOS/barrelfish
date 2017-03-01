@@ -20,7 +20,7 @@
 #include <spawndomain/spawndomain.h>
 
 #include <if/octopus_defs.h>
-#include <if/octopus_rpcclient_defs.h>
+#include <if/octopus_defs.h>
 #include <if/monitor_defs.h>
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
@@ -247,7 +247,7 @@ errval_t spawn_symval_lookup(const char *binary,
     }
     snprintf(omp_entry, len+1, "%s.omp.%"PRIu32, binary, idx);
 
-    struct octopus_rpc_client *r = get_octopus_rpc_client();
+    struct octopus_binding *r = get_octopus_binding();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
@@ -260,7 +260,7 @@ errval_t spawn_symval_lookup(const char *binary,
     }
 
     struct octopus_get_response__rx_args reply;
-    err = r->vtbl.get(r, omp_entry, NOP_TRIGGER,
+    err = r->rpc_tx_vtbl.get(r, omp_entry, NOP_TRIGGER,
                       reply.output, &reply.tid, &reply.error_code);
     if (err_is_fail(err)) {
         goto out;
@@ -311,7 +311,7 @@ errval_t spawn_symval_register(const char *binary,
 
     errval_t err = SYS_ERR_OK;
 
-    struct octopus_rpc_client *r = get_octopus_rpc_client();
+    struct octopus_binding *r = get_octopus_binding();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
@@ -336,7 +336,7 @@ errval_t spawn_symval_register(const char *binary,
 
     octopus_trigger_id_t tid;
     errval_t error_code;
-    err = r->vtbl.set(r, record, 0, NOP_TRIGGER,
+    err = r->rpc_tx_vtbl.set(r, record, 0, NOP_TRIGGER,
                       0, NULL, &tid, &error_code);
     if (err_is_fail(err)) {
         goto out;

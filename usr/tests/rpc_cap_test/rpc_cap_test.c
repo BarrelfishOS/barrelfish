@@ -17,14 +17,14 @@
 #include <barrelfish/nameservice_client.h>
 
 #include <if/test_rpc_cap_defs.h>
-#include <if/test_rpc_cap_rpcclient_defs.h>
+#include <if/test_rpc_cap_defs.h>
 
 static const char *my_service_name = "rpc_cap_test";
 uint8_t is_server = 0x0;
 int client_id = 0;
 
 __attribute__((format(printf, 1, 2)))
-static void my_debug_printf(const char *fmt, ...) 
+static void my_debug_printf(const char *fmt, ...)
 {
     struct thread *me = thread_self();
     va_list argptr;
@@ -112,12 +112,12 @@ static struct test_rpc_cap_rx_vtbl rx_vtbl = {
 
 /* ------------------------------ CLIENT ------------------------------ */
 
-static struct test_rpc_cap_rpc_client rpc_client;
+static struct test_rpc_cap_binding *test_rpc_binding;
 
 static void client_call_test_1(void){
     uint32_t res=0;
     errval_t err;
-    err = rpc_client.vtbl.echo(&rpc_client, client_id, &res);
+    err = test_rpc_binding->rpc_tx_vtbl.echo(test_rpc_binding, client_id, &res);
     if(err_is_fail(err)){
         my_debug_printf("Error in rpc call (1)\n");
     } else if(res != client_id) {
@@ -134,7 +134,7 @@ static void client_call_test_2(void){
     err = frame_alloc(&my_frame, BASE_PAGE_SIZE, NULL);
     assert(err_is_ok(err));
 
-    err = rpc_client.vtbl.send_cap_one(&rpc_client, my_frame, &msg_err);
+    err = test_rpc_binding->rpc_tx_vtbl.send_cap_one(test_rpc_binding, my_frame, &msg_err);
     if(err_is_fail(err)){
         USER_PANIC_ERR(err, "Error in rpc call (2)\n");
     } else if(err_is_fail(msg_err)) {
@@ -165,7 +165,7 @@ static void client_call_test_3(int i){
 
     my_debug_printf("Calling send_cap_two: %s\n", buf);
 
-    err = rpc_client.vtbl.send_cap_two(&rpc_client, frame1, frame2, &msg_err);
+    err = test_rpc_binding->rpc_tx_vtbl.send_cap_two(test_rpc_binding, frame1, frame2, &msg_err);
     if(err_is_fail(err)){
         USER_PANIC_ERR(err, "Error in rpc call (3)\n");
     } else if(err_is_fail(msg_err)) {
@@ -185,7 +185,8 @@ static void bind_cb(void *st,
 
     my_debug_printf("client: bound!\n");
 
-    test_rpc_cap_rpc_client_init(&rpc_client, b);
+    test_rpc_binding = b;
+    test_rpc_cap_rpc_client_init(b);
 
     client_call_test_1();
     client_call_test_2();

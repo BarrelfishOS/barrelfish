@@ -18,9 +18,10 @@
 
 #define NETIF_TXFLAG (1 << 31)
 #define NETIF_TXFLAG_LAST (1 << 30)
+#define NETIF_TXFLAG_FIRST (1 << 29)
 
 
-#define NETIF_RXFLAG (1 << 29)
+#define NETIF_RXFLAG (1 << 28)
 #define NETIF_RXFLAG_TYPE_IPV4 (1 << 0)
 #define NETIF_RXFLAG_TYPE_UDP (1 << 1)
 #define NETIF_RXFLAG_TYPE_TCP (1 << 2)

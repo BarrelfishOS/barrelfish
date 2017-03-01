@@ -173,14 +173,14 @@ static void send_bind_reply(void *arg)
     struct monitor_binding *b = st->b;
     errval_t err;
 
-    err = st->b->tx_vtbl.bind_lmp_reply_monitor(st->b, NOP_CONT, st->args.err,
-                                                st->args.mon_id, st->args.conn_id, 
+    err = b->tx_vtbl.bind_lmp_reply_monitor(b, NOP_CONT, st->args.err,
+                                                st->args.mon_id, st->args.conn_id,
                                                 st->args.ep);
     if (err_is_ok(err)) {
         event_mutex_unlock(&b->mutex);
         free(st);
     } else if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-        err = st->b->register_send(st->b, st->b->waitset,
+        err = b->register_send(b, b->waitset,
                                    MKCONT(send_bind_reply,st));
         assert(err_is_ok(err)); // shouldn't fail, as we have the mutex
     } else {

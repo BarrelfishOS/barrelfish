@@ -15,7 +15,7 @@
 #include <barrelfish/net_constants.h>
 
 #include <if/net_ARP_defs.h>
-#include <if/net_ARP_rpcclient_defs.h>
+#include <if/net_ARP_defs.h>
 
 // standard include files
 #include <stdio.h>
@@ -31,7 +31,7 @@
 // *****************************************************************
 //     local states
 // *****************************************************************
-static struct net_ARP_rpc_client net_ARP_rpc;
+static struct net_ARP_binding *net_ARP_binding;
 static bool net_ARP_service_connected = false;
 static struct netif netif;
 
@@ -50,13 +50,8 @@ static void net_ARP_bind_cb(void *st, errval_t err, struct net_ARP_binding *b)
         abort();
     }
     LWIPBF_DEBUG("net_ARP_bind_cb: called\n");
-
-    err = net_ARP_rpc_client_init(&net_ARP_rpc, b);
-    if (!err_is_ok(err)) {
-        printf("net_ARP_bind_cb failed in init\n");
-        abort();
-    }
-
+    net_ARP_binding = b;
+    net_ARP_rpc_client_init(b);
     net_ARP_service_connected = true;
     LWIPBF_DEBUG("net_ARP_bind_cb: net_ARP bind successful!\n");
 }
@@ -137,7 +132,7 @@ void idc_get_ip_from_ARP_lookup(void)
     struct ip_addr ip, gw, nm;
     uint32_t iface = 0;
 
-    err = net_ARP_rpc.vtbl.ip_info(&net_ARP_rpc, iface, &remote_err,
+    err = net_ARP_binding->rpc_tx_vtbl.ip_info(net_ARP_binding, iface, &remote_err,
             &ip.addr, &gw.addr, &nm.addr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error in making ip_info call");
@@ -173,7 +168,7 @@ uint64_t idc_ARP_lookup(uint32_t ip)
     bool force = false;
     uint64_t mac = 0;
 
-    err = net_ARP_rpc.vtbl.ARP_lookup(&net_ARP_rpc, ip, iface, force,
+    err = net_ARP_binding->rpc_tx_vtbl.ARP_lookup(net_ARP_binding, ip, iface, force,
             &remote_err, &mac);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error in making ARP_lookup call");
@@ -187,5 +182,3 @@ uint64_t idc_ARP_lookup(uint32_t ip)
     LWIPBF_DEBUG("idc_ARP_lookup: got answer\n");
     return mac;
 } // end function: idc_ARP_lookup
-
-

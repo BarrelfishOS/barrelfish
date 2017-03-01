@@ -11,12 +11,12 @@
 #include <barrelfish/waitset.h>
 #include <if/ata_rw28_defs.h>
 #include <if/ata_rw28_ahci_defs.h>
-#include <if/ata_rw28_rpcclient_defs.h>
+#include <if/ata_rw28_defs.h>
 #include <storage/vsic.h>
 
 struct ahci_vsic {
     struct ahci_ata_rw28_binding ahci_ata_rw28_binding;
-    struct ata_rw28_rpc_client ata_rw28_rpc;
+    struct ata_rw28_binding ata_rw28_rpc;
     struct ata_rw28_binding *ata_rw28_binding;
     struct ahci_binding *ahci_binding;
     errval_t bind_err;
@@ -31,7 +31,7 @@ static errval_t vsic_write(struct storage_vsic *vsic, struct storage_vsa *vsa,
     struct ahci_vsic *mydata = vsic->data;
     errval_t status;
 
-    errval_t err = mydata->ata_rw28_rpc.vtbl.
+    errval_t err = mydata->ata_rw28_rpc->rpc_tx_vtbl.
       write_dma(&mydata->ata_rw28_rpc, buffer, STORAGE_VSIC_ROUND(vsic, size),
 		offset, &status);
     if (err_is_fail(err)) {
@@ -54,7 +54,7 @@ static errval_t vsic_read(struct storage_vsic *vsic, struct storage_vsa *vsa,
     uint8_t *buf = NULL;
     size_t bytes_read, toread = STORAGE_VSIC_ROUND(vsic, size);
 
-    errval_t err = mydata->ata_rw28_rpc.vtbl.
+    errval_t err = mydata->ata_rw28_rpc->rpc_tx_vtbl.
       read_dma(&mydata->ata_rw28_rpc, toread, offset, &buf, &bytes_read);
     if (err_is_fail(err))
         USER_PANIC_ERR(err, "read_dma rpc");
@@ -77,7 +77,7 @@ static errval_t vsic_flush(struct storage_vsic *vsic, struct storage_vsa *vsa)
   struct ahci_vsic *mydata = vsic->data;
   errval_t outerr;
 
-  errval_t err = mydata->ata_rw28_rpc.vtbl.
+  errval_t err = mydata->ata_rw28_rpc->rpc_tx_vtbl.
     flush_cache(&mydata->ata_rw28_rpc, &outerr);
   assert(err_is_ok(err));
 
@@ -132,10 +132,10 @@ static errval_t ahci_vsic_alloc(struct storage_vsic *vsic, uint8_t port)
         (struct ata_rw28_binding*)&mydata->ahci_ata_rw28_binding;
 
     // init RPC client
-    err = ata_rw28_rpc_client_init(&mydata->ata_rw28_rpc,
+    err = ata_rw28_binding_init(&mydata->ata_rw28_rpc,
                                    mydata->ata_rw28_binding);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "ata_rw28_rpc_client_init");
+        USER_PANIC_ERR(err, "ata_rw28_binding_init");
     }
 
     // Init VSIC data structure

@@ -577,7 +577,7 @@ int main(int argc, char ** argv)
 
 #if 0
         static bool in_rpc_init = false;
-        if (do_rpc_init && !in_rpc_init && !get_monitor_blocking_rpc_client()) {
+        if (do_rpc_init && !in_rpc_init && !get_monitor_blocking_binding()) {
             // XXX: this is an ugly hack try and get a monitor rpc client once
             // the monitor is ready
             in_rpc_init = true;

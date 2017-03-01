@@ -598,7 +598,7 @@ usb_error_t usb_do_request(struct usb_device_request *req)
 
     USB_DEBUG_IDC("libusb: usb_do_request()\n");
 
-    err = usb_manager.vtbl.request(&usb_manager, (uint8_t*) req, sizeof(*req),
+    err = usb_manager->rpc_tx_vtbl.request(usb_manager, (uint8_t*) req, sizeof(*req),
             &ret_status);
 
     if (err_is_fail(err)) {
@@ -624,7 +624,7 @@ usb_error_t usb_do_request_write(struct usb_device_request *req,
 
     USB_DEBUG_IDC("libusb: usb_do_request_write()\n");
 
-    err = usb_manager.vtbl.request_write(&usb_manager, (uint8_t*) req,
+    err = usb_manager->rpc_tx_vtbl.request_write(usb_manager, (uint8_t*) req,
             sizeof(*req), (uint8_t *) data, length, &ret_status);
 
     if (err_is_fail(err)) {
@@ -653,7 +653,7 @@ usb_error_t usb_do_request_read(struct usb_device_request *req,
 
     USB_DEBUG_IDC("libusb: usb_do_request_read()\n");
 
-    err = usb_manager.vtbl.request_read(&usb_manager, (uint8_t*) req,
+    err = usb_manager->rpc_tx_vtbl.request_read(usb_manager, (uint8_t*) req,
             sizeof(*req), data, &length, &ret_status);
 
     *ret_length = length;

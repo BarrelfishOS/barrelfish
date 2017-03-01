@@ -159,7 +159,7 @@ usb_error_t usb_transfer_setup_control(usb_transfer_setup_t *setup,
 
     usb_manager_setup_param_t *params = (usb_manager_setup_param_t *) setup;
 
-    usb_manager.vtbl.transfer_setup(&usb_manager, (uint8_t) USB_TYPE_CTRL,
+    usb_manager->rpc_tx_vtbl.transfer_setup(usb_manager, (uint8_t) USB_TYPE_CTRL,
             *params, &ret_error, &ret_tid);
 
     if (((usb_error_t) ret_error) != USB_ERR_OK) {
@@ -203,7 +203,7 @@ usb_error_t usb_transfer_setup_isoc(usb_transfer_setup_t *setup,
 
     usb_manager_setup_param_t *params = (usb_manager_setup_param_t *) setup;
 
-    usb_manager.vtbl.transfer_setup(&usb_manager, (uint8_t) USB_TYPE_ISOC,
+    usb_manager->rpc_tx_vtbl.transfer_setup(usb_manager, (uint8_t) USB_TYPE_ISOC,
             *params, &ret_error, &ret_tid);
 
     if (((usb_error_t) ret_error) != USB_ERR_OK) {
@@ -247,7 +247,7 @@ usb_error_t usb_transfer_setup_bulk(usb_transfer_setup_t *setup,
 
     usb_manager_setup_param_t *params = (usb_manager_setup_param_t *) setup;
 
-    usb_manager.vtbl.transfer_setup(&usb_manager, (uint8_t) USB_TYPE_BULK,
+    usb_manager->rpc_tx_vtbl.transfer_setup(usb_manager, (uint8_t) USB_TYPE_BULK,
             *params, &ret_error, &ret_tid);
 
     if (((usb_error_t) ret_error) != USB_ERR_OK) {
@@ -291,7 +291,7 @@ usb_error_t usb_transfer_setup_intr(usb_transfer_setup_t *setup,
 
     usb_manager_setup_param_t *params = (usb_manager_setup_param_t *) setup;
 
-    usb_manager.vtbl.transfer_setup(&usb_manager, (uint8_t) USB_TYPE_INTR,
+    usb_manager->rpc_tx_vtbl.transfer_setup(usb_manager, (uint8_t) USB_TYPE_INTR,
             *params, &ret_error, &ret_tid);
 
     if (((usb_error_t) ret_error) != USB_ERR_OK) {
@@ -333,7 +333,7 @@ usb_error_t usb_transfer_unsetup(usb_xfer_id_t tid)
     }
     uint32_t ret_error = 0;
 
-    usb_manager.vtbl.transfer_unsetup(&usb_manager, tid, &ret_error);
+    usb_manager->rpc_tx_vtbl.transfer_unsetup(usb_manager, tid, &ret_error);
 
     if (((usb_error_t) ret_error) != USB_ERR_OK) {
         return ((usb_error_t) ret_error);
@@ -372,7 +372,7 @@ usb_error_t usb_transfer_start(usb_xfer_id_t tid)
 
     uint32_t ret_error = 0;
 
-    usb_manager.vtbl.transfer_start(&usb_manager, tid, &ret_error);
+    usb_manager->rpc_tx_vtbl.transfer_start(usb_manager, tid, &ret_error);
 
     if (((usb_error_t) ret_error) != USB_ERR_OK) {
         return ((usb_error_t) ret_error);
@@ -398,7 +398,7 @@ usb_error_t usb_transfer_stop(usb_xfer_id_t tid)
     }
     uint32_t ret_error = 0;
 
-    usb_manager.vtbl.transfer_stop(&usb_manager, tid, &ret_error);
+    usb_manager->rpc_tx_vtbl.transfer_stop(usb_manager, tid, &ret_error);
 
     if (((usb_error_t) ret_error) != USB_ERR_OK) {
         return ((usb_error_t) ret_error);
@@ -423,7 +423,7 @@ usb_error_t usb_transfer_clear_stall(usb_xfer_id_t tid)
     }
     uint32_t ret_error = 0;
 
-    usb_manager.vtbl.transfer_clear_stall(&usb_manager, tid, &ret_error);
+    usb_manager->rpc_tx_vtbl.transfer_clear_stall(usb_manager, tid, &ret_error);
 
     if (((usb_error_t) ret_error) != USB_ERR_OK) {
         return ((usb_error_t) ret_error);
@@ -456,7 +456,7 @@ usb_error_t usb_transfer_get_state(usb_xfer_id_t tid, usb_tstate_t *ret_state)
     uint32_t ret_error = 0;
     uint32_t idc_ret_state = 0;
 
-    usb_manager.vtbl.transfer_state(&usb_manager, tid, &ret_error,
+    usb_manager->rpc_tx_vtbl.transfer_state(usb_manager, tid, &ret_error,
             &idc_ret_state);
 
     if (((usb_error_t) ret_error) != USB_ERR_OK) {
@@ -493,7 +493,7 @@ usb_error_t usb_transfer_get_status(usb_xfer_id_t tid, uint32_t *ret_actlen,
 
     uint32_t ret_error = 0;
 
-    usb_manager.vtbl.transfer_status(&usb_manager, tid, &ret_error,
+    usb_manager->rpc_tx_vtbl.transfer_status(usb_manager, tid, &ret_error,
             ret_actlen, ret_length, ret_actframes, ret_numframes);
 
     if (((usb_error_t) ret_error) != USB_ERR_OK) {

@@ -24,6 +24,8 @@
 #include <arch/x86/start_aps.h>
 #include <target/x86_64/offsets_target.h>
 #include <target/x86_32/offsets_target.h>
+#include <if/acpi_defs.h>
+#include <if/monitor_blocking_defs.h>
 
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
 
@@ -102,11 +104,11 @@ errval_t get_architecture_config(enum cpu_type type,
         *arch_page_size = X86_64_BASE_PAGE_SIZE;
         *monitor_binary = (cmd_monitor_binary == NULL) ?
                         "/" BF_BINARY_PREFIX "x86_64/sbin/monitor" :
-                        get_binary_path("/" BF_BINARY_PREFIX "x86_64/sbin/%s", 
+                        get_binary_path("/" BF_BINARY_PREFIX "x86_64/sbin/%s",
                                         cmd_monitor_binary);
         *cpu_binary = (cmd_kernel_binary == NULL) ?
                         "/" BF_BINARY_PREFIX "x86_64/sbin/cpu" :
-                        get_binary_path("/" BF_BINARY_PREFIX "x86_64/sbin/%s", 
+                        get_binary_path("/" BF_BINARY_PREFIX "x86_64/sbin/%s",
                                         cmd_kernel_binary);
     }
     break;
@@ -116,11 +118,11 @@ errval_t get_architecture_config(enum cpu_type type,
         *arch_page_size = X86_32_BASE_PAGE_SIZE;
         *monitor_binary = (cmd_monitor_binary == NULL) ?
                         "/" BF_BINARY_PREFIX "x86_32/sbin/monitor" :
-                        get_binary_path("/" BF_BINARY_PREFIX "x86_32/sbin/%s", 
+                        get_binary_path("/" BF_BINARY_PREFIX "x86_32/sbin/%s",
                                         cmd_monitor_binary);
         *cpu_binary = (cmd_kernel_binary == NULL) ?
                         "/" BF_BINARY_PREFIX "x86_32/sbin/cpu" :
-                        get_binary_path("/" BF_BINARY_PREFIX "x86_32/sbin/%s", 
+                        get_binary_path("/" BF_BINARY_PREFIX "x86_32/sbin/%s",
                                         cmd_kernel_binary);
     }
     break;
@@ -130,11 +132,11 @@ errval_t get_architecture_config(enum cpu_type type,
         *arch_page_size = X86_64_BASE_PAGE_SIZE;
         *monitor_binary = (cmd_kernel_binary == NULL) ?
                         "/" BF_BINARY_PREFIX "k1om/sbin/monitor" :
-                        get_binary_path("/" BF_BINARY_PREFIX "k1om/sbin/%s", 
+                        get_binary_path("/" BF_BINARY_PREFIX "k1om/sbin/%s",
                                         cmd_monitor_binary);
         *cpu_binary = (cmd_kernel_binary == NULL) ?
                         "/" BF_BINARY_PREFIX "k1om/sbin/cpu" :
-                        get_binary_path("/" BF_BINARY_PREFIX "k1om/sbin/%s", 
+                        get_binary_path("/" BF_BINARY_PREFIX "k1om/sbin/%s",
                                         cmd_kernel_binary);
     }
     break;
@@ -191,13 +193,13 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 
 
 #else
-    struct acpi_rpc_client* acl = get_acpi_rpc_client();
+    struct acpi_binding* acl = get_acpi_binding();
     err = slot_alloc(&bootcap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "slot_alloc for mm_realloc_range_proxy");
     }
     errval_t error_code;
-    err = acl->vtbl.mm_realloc_range_proxy(acl, 16, 0x0,
+    err = acl->rpc_tx_vtbl.mm_realloc_range_proxy(acl, 16, 0x0,
                                            &bootcap, &error_code);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "mm_alloc_range_proxy failed.");
@@ -235,9 +237,9 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 
 
     genpaddr_t global;
-    struct monitor_blocking_rpc_client *mc =
-        get_monitor_blocking_rpc_client();
-    err = mc->vtbl.get_global_paddr(mc, &global);
+    struct monitor_blocking_binding *mc =
+        get_monitor_blocking_binding();
+    err = mc->rpc_tx_vtbl.get_global_paddr(mc, &global);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke spawn core");
         return err_push(err, MON_ERR_SPAWN_CORE);
@@ -310,14 +312,14 @@ int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry)
     uint8_t *real_end = (uint8_t *) &x86_32_start_ap_end;
 
     struct capref bootcap;
-    struct acpi_rpc_client* acl = get_acpi_rpc_client();
+    struct acpi_binding* acl = get_acpi_binding();
     errval_t err, error_code;
 
     err = slot_alloc(&bootcap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "slot_alloc for mm_alloc_range_proxy");
     }
-    err = acl->vtbl.mm_realloc_range_proxy(acl, 16, 0x0,
+    err = acl->rpc_tx_vtbl.mm_realloc_range_proxy(acl, 16, 0x0,
                                                     &bootcap, &error_code);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "mm_alloc_range_proxy failed.");
@@ -354,9 +356,9 @@ int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry)
 
 
     genpaddr_t global;
-    struct monitor_blocking_rpc_client *mc =
-        get_monitor_blocking_rpc_client();
-    err = mc->vtbl.get_global_paddr(mc, &global);
+    struct monitor_blocking_binding *mc =
+        get_monitor_blocking_binding();
+    err = mc->rpc_tx_vtbl.get_global_paddr(mc, &global);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke spawn core");
         return err_push(err, MON_ERR_SPAWN_CORE);

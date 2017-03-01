@@ -175,10 +175,10 @@ static bool use_interrupts = false;
 static bool use_rsc = false;
 
 /** Indicates whether MSI-X should be used */
-static bool use_msix = true;
+static bool use_msix = false;
 
 /** Indicates whether or the VT-d should be used for DMA remapping.*/
-static bool use_vtd = true; 
+static bool use_vtd = false; 
 
 /** Minimal delay between interrupts in us */
 static uint16_t interrupt_delay = 0;
@@ -577,6 +577,7 @@ static size_t check_for_new_packets(int num)
     // arrive faster than they can be processed.
     count = 0;
     pkt_cnt = 0;
+    
     while ((res = e10k_queue_get_rxbuf(q, &op, &len, &last, &flags)) == 0 ||
            pkt_cnt != 0)
     {

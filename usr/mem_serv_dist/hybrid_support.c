@@ -30,7 +30,7 @@
 #include <dist/barrier.h>
 
 #include <if/mem_defs.h>
-#include <if/mem_rpcclient_defs.h>
+#include <if/mem_defs.h>
 #include <if/monitor_defs.h>
 
 // #include "barrier.h"

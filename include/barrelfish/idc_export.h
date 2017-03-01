@@ -22,6 +22,11 @@ __BEGIN_DECLS
 
 typedef void idc_export_callback_fn(void *st, errval_t err, iref_t iref);
 
+#ifdef CONFIG_INTERCONNECT_DRIVER_LOCAL
+typedef errval_t local_connect_callback_fn(void *st, void *binding,
+                                           void **ret_binding);
+#endif // CONFIG_INTERCONNECT_DRIVER_LOCAL
+
 #ifdef CONFIG_INTERCONNECT_DRIVER_LMP
 typedef errval_t lmp_connect_callback_fn(void *st, size_t buflen_words,
                                          struct capref endpoint,
@@ -49,6 +54,9 @@ struct idc_export {
 
     /* for each configured channel type, we need a binding-specific
      * connect callback */
+#ifdef CONFIG_INTERCONNECT_DRIVER_LOCAL
+    local_connect_callback_fn *local_connect_callback;
+#endif
 #ifdef CONFIG_INTERCONNECT_DRIVER_LMP
     lmp_connect_callback_fn *lmp_connect_callback;
 #endif
@@ -61,6 +69,7 @@ struct idc_export {
 };
 
 errval_t idc_export_service(struct idc_export *e);
+errval_t idc_get_service(iref_t iref, struct idc_export **e);
 void idc_export_init(void);
 
 __END_DECLS

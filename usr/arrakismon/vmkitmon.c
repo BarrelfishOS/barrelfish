@@ -24,7 +24,7 @@
 #include <vfs/vfs_path.h>
 #include <spawndomain/spawndomain.h>
 #include <if/arrakis_defs.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 /* #include <timer/timer.h> */
 #include "ps.h"
 
@@ -100,9 +100,9 @@ static errval_t spawn_arrakis(const char *path, char *const argv[], const char *
     free(image);
 
     /* request connection from monitor */
-    struct monitor_blocking_rpc_client *mrpc = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *mrpc = get_monitor_blocking_binding();
     struct capref monep;
-    err = mrpc->vtbl.alloc_monitor_ep(mrpc, &msgerr, &monep);
+    err = mrpc->rpc_tx_vtbl.alloc_monitor_ep(mrpc, &msgerr, &monep);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MONITOR_CLIENT);
     } else if (err_is_fail(msgerr)) {

@@ -19,7 +19,7 @@
 #include <barrelfish/caddr.h>
 #include <barrelfish/lmp_endpoints.h>
 #include <if/monitor_defs.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 #include <barrelfish/monitor_client.h>
 #include <trace/trace.h>
 #include <stdio.h>
@@ -173,7 +173,7 @@ static errval_t cap_retype_remote(struct capref src_root, struct capref dest_roo
                                   gensize_t objsize, size_t count, capaddr_t to,
                                   capaddr_t slot, int to_level)
 {
-    struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *mrc = get_monitor_blocking_binding();
     if (!mrc) {
         return LIB_ERR_MONITOR_RPC_NULL;
     }
@@ -181,7 +181,7 @@ static errval_t cap_retype_remote(struct capref src_root, struct capref dest_roo
     errval_t err, remote_cap_err;
     int send_count = 0;
     do {
-        err = mrc->vtbl.remote_cap_retype(mrc, src_root, dest_root, src,
+        err = mrc->rpc_tx_vtbl.remote_cap_retype(mrc, src_root, dest_root, src,
                                           offset, (uint64_t)new_type, objsize,
                                           count, to, slot, to_level, &remote_cap_err);
         if (err_is_fail(err)){
@@ -206,7 +206,7 @@ static errval_t cap_retype_remote(struct capref src_root, struct capref dest_roo
  */
 static errval_t cap_delete_remote(struct capref root, capaddr_t src, uint8_t level)
 {
-    struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *mrc = get_monitor_blocking_binding();
     if (!mrc) {
         return LIB_ERR_MONITOR_RPC_NULL;
     }
@@ -214,7 +214,7 @@ static errval_t cap_delete_remote(struct capref root, capaddr_t src, uint8_t lev
     errval_t err, remote_cap_err;
     int count = 0;
     do {
-        err = mrc->vtbl.remote_cap_delete(mrc, root, src, level,
+        err = mrc->rpc_tx_vtbl.remote_cap_delete(mrc, root, src, level,
                                           &remote_cap_err);
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap delete\n");
@@ -237,7 +237,7 @@ static errval_t cap_delete_remote(struct capref root, capaddr_t src, uint8_t lev
  */
 static errval_t cap_revoke_remote(struct capref root, capaddr_t src, uint8_t level)
 {
-    struct monitor_blocking_rpc_client *mrc = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *mrc = get_monitor_blocking_binding();
     if (!mrc) {
         return LIB_ERR_MONITOR_RPC_NULL;
     }
@@ -245,7 +245,7 @@ static errval_t cap_revoke_remote(struct capref root, capaddr_t src, uint8_t lev
     errval_t err, remote_cap_err;
     int count = 0;
     do {
-        err = mrc->vtbl.remote_cap_revoke(mrc, root, src, level,
+        err = mrc->rpc_tx_vtbl.remote_cap_revoke(mrc, root, src, level,
                                           &remote_cap_err);
         if (err_is_fail(err)){
             DEBUG_ERR(err, "remote cap delete\n");

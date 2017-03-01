@@ -20,8 +20,8 @@
 #include <barrelfish/debug.h>
 #include <if/sfn5122f_defs.h>
 #include <if/sfn5122f_devif_defs.h>
-#include <if/sfn5122f_devif_rpcclient_defs.h>
-#include <if/net_ARP_rpcclient_defs.h>
+#include <if/sfn5122f_devif_defs.h>
+#include <if/net_ARP_defs.h>
 #include <if/net_ARP_defs.h>
 
 
@@ -91,7 +91,7 @@ static uint32_t phy_loopback_mode = 0;
 static uint32_t wol_filter_id = 0;
 
 // ARP rpc client
-static struct net_ARP_rpc_client arp_rpc;
+static struct net_ARP_binding *arp_binding;
 static bool net_arp_connected = false;
 static struct waitset rpc_ws;
 
@@ -1595,7 +1595,7 @@ static errval_t arp_ip_info(void)
 
     uint32_t gw;
     uint32_t mask;
-    err = arp_rpc.vtbl.ip_info(&arp_rpc, 0, &msgerr, &ip, &gw, &mask);
+    err = arp_binding->rpc_tx_vtbl.ip_info(arp_binding, 0, &msgerr, &ip, &gw, &mask);
     if (err_is_fail(err)) {
         return err;
     }
@@ -1605,8 +1605,8 @@ static errval_t arp_ip_info(void)
 static void a_bind_cb(void *st, errval_t err, struct net_ARP_binding *b)
 {
     assert(err_is_ok(err));
-    err = net_ARP_rpc_client_init(&arp_rpc, b);
-    assert(err_is_ok(err));
+    arp_binding = b;
+    net_ARP_rpc_client_init(arp_binding);
     net_arp_connected = true;
 }
 

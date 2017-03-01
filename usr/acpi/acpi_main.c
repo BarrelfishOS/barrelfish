@@ -18,7 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <mm/mm.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 
 #include <octopus/octopus.h>
 #include <skb/skb.h>

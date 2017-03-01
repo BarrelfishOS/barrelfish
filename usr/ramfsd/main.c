@@ -19,7 +19,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <if/monitor_defs.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 #include <if/trivfs_defs.h>
 #include <spawndomain/spawndomain.h>
 #include "ramfs.h"
@@ -436,7 +436,7 @@ static errval_t map_bootinfo(struct bootinfo **bootinfo)
 {
     errval_t err, msgerr;
 
-    struct monitor_blocking_rpc_client *cl = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *cl = get_monitor_blocking_binding();
     assert(cl != NULL);
 
     struct capref bootinfo_frame;
@@ -446,7 +446,7 @@ static errval_t map_bootinfo(struct bootinfo **bootinfo)
     if (err_is_fail(err)) {
         return err;
     }
-    msgerr = cl->vtbl.get_bootinfo(cl, &err, &bootinfo_frame, &bootinfo_size);
+    msgerr = cl->rpc_tx_vtbl.get_bootinfo(cl, &err, &bootinfo_frame, &bootinfo_size);
     if (err_is_fail(msgerr)) {
         err = msgerr;
     }

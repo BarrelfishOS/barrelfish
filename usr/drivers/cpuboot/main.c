@@ -14,6 +14,7 @@
 #include <getopt.h>
 #include "coreboot.h"
 #include <hw_records.h>
+#include <if/monitor_blocking_defs.h>
 
 
 coreid_t my_arch_id;
@@ -38,8 +39,8 @@ char* cmd_kernel_args = "loglevel=2 logmask=0";
 
 static void load_arch_id(void)
 {
-    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
-    errval_t err = mc->vtbl.get_arch_core_id(mc, (uintptr_t *)&my_arch_id);
+    struct monitor_blocking_binding *mc = get_monitor_blocking_binding();
+    errval_t err = mc->rpc_tx_vtbl.get_arch_core_id(mc, (uintptr_t *)&my_arch_id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_arch_core_id failed.");
     }
@@ -55,12 +56,12 @@ static void setup_monitor_messaging(void)
 static void load_ipi_cap(void)
 {
     errval_t err;
-    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *mc = get_monitor_blocking_binding();
     err = slot_alloc(&ipi_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "slot_alloc for monitor->get_ipi_cap failed");
     }
-    err = mc->vtbl.get_ipi_cap(mc, &ipi_cap);
+    err = mc->rpc_tx_vtbl.get_ipi_cap(mc, &ipi_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_ipi_cap failed.");
     }
@@ -370,12 +371,12 @@ static int remove_kcb(int argc, char** argv)
         USER_PANIC_ERR(err, "Can not get KCB.");
     }
 
-    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *mc = get_monitor_blocking_binding();
     // send message to monitor to be relocated -> don't switch kcb ->
     // remove kcb from ring -> msg ->
     // (disp_save_rm_kcb -> next/home/... kcb -> enable switching)
     errval_t ret_err;
-    err = mc->vtbl.forward_kcb_rm_request(mc, target_id, kcb, &ret_err);
+    err = mc->rpc_tx_vtbl.forward_kcb_rm_request(mc, target_id, kcb, &ret_err);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "forward_kcb_request failed.");
     }

@@ -19,7 +19,7 @@
 #include <barrelfish/core_state.h>
 #include <barrelfish/dispatch.h>
 #include "monitor.h"
-#include <if/mem_rpcclient_defs.h>
+#include <if/mem_defs.h>
 
 #if !defined(__arm__) && !defined(__aarch64__)
 static errval_t reclaim_memory(genpaddr_t base, uint8_t bits)
@@ -52,10 +52,10 @@ static errval_t reclaim_memory(genpaddr_t base, uint8_t bits)
     struct ram_alloc_state *ram_alloc_state = get_ram_alloc_state();
     errval_t result;
     thread_mutex_lock(&ram_alloc_state->ram_alloc_lock);
-    struct mem_rpc_client *b = get_mem_client();
+    struct mem_binding *b = get_mem_client();
     // XXX: This should not be an RPC! It could stall the monitor, but
     // we trust mem_serv for the moment.
-    err = b->vtbl.free_monitor(b, ramcap, base, bits, &result);
+    err = b->rpc_tx_vtbl.free_monitor(b, ramcap, base, bits, &result);
     thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
     if(err_is_fail(err)) {
         return err;

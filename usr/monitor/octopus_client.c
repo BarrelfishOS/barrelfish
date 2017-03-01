@@ -15,7 +15,7 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <if/octopus_rpcclient_defs.h>
+#include <if/octopus_defs.h>
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
 #include "monitor.h"
@@ -38,16 +38,8 @@ static void bind_continuation(void *st_arg, errval_t err,
     if (err_is_ok(err)) {
         b->error_handler = error_handler;
 
-        struct octopus_rpc_client *r;
-        r = malloc(sizeof(struct octopus_rpc_client));
-        assert(r != NULL);
-        err = octopus_rpc_client_init(r, b);
-        if (err_is_fail(err)) {
-            free(r);
-            USER_PANIC_ERR(err, "error in nameservice_rpc_client_init");
-        } else {
-            set_octopus_rpc_client(r);
-        }
+        octopus_rpc_client_init(b);
+        set_octopus_binding(b);
     }
 
     st->err = err;
@@ -84,8 +76,8 @@ errval_t octopus_set_bspkcb(void)
     };
 
     debug_printf("%s: storing cap\n", __FUNCTION__);
-    struct octopus_rpc_client *orpc = get_octopus_rpc_client();
-    err = orpc->vtbl.put_cap(orpc, kcb_key, bspkcb, &octerr);
+    struct octopus_binding *orpc = get_octopus_binding();
+    err = orpc->rpc_tx_vtbl.put_cap(orpc, kcb_key, bspkcb, &octerr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "oct_put_capability(bspkcb)");
         return err;
@@ -95,7 +87,7 @@ errval_t octopus_set_bspkcb(void)
         return err;
     }
     debug_printf("%s: setting mapping\n", __FUNCTION__);
-    err = orpc->vtbl.set(orpc, mapping, SET_DEFAULT, NOP_TRIGGER, false,
+    err = orpc->rpc_tx_vtbl.set(orpc, mapping, SET_DEFAULT, NOP_TRIGGER, false,
                          NULL, NULL, &octerr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "oct_set(\"kcb.0 { ... }\")");

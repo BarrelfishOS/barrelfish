@@ -17,7 +17,7 @@
 #include <barrelfish/nameservice_client.h>
 
 #include <if/acpi_defs.h>
-#include <if/acpi_rpcclient_defs.h>
+#include <if/acpi_defs.h>
 
 #include <acpi_client/acpi_client.h>
 
@@ -26,47 +26,47 @@ static struct acpi_connection {
     errval_t err;
 } state;
 
-static struct acpi_rpc_client* rpc_client;
+static struct acpi_binding* binding;
 
 errval_t acpi_client_get_device_handle(const char *dev_id,
                                        acpi_device_handle_t *ret_handle)
 {
-    assert(rpc_client != NULL);
+    assert(binding != NULL);
     errval_t err, msgerr;
-    err = rpc_client->vtbl.get_handle(rpc_client, dev_id, ret_handle, &msgerr);
+    err = binding->rpc_tx_vtbl.get_handle(binding, dev_id, ret_handle, &msgerr);
     return err_is_fail(err) ? err : msgerr;
 }
 
 errval_t acpi_client_eval_integer(acpi_device_handle_t handle,
                                   const char *path, uint64_t *data)
 {
-    assert(rpc_client != NULL);
+    assert(binding != NULL);
     errval_t err, msgerr;
-    err = rpc_client->vtbl.eval_integer(rpc_client, handle, path, data, &msgerr);
+    err = binding->rpc_tx_vtbl.eval_integer(binding, handle, path, data, &msgerr);
     return err_is_fail(err) ? err : msgerr;
 }
 
 
 errval_t acpi_reset(void)
 {
-    assert(rpc_client != NULL);
+    assert(binding != NULL);
     errval_t err, msgerr;
-    err = rpc_client->vtbl.reset(rpc_client, &msgerr);
+    err = binding->rpc_tx_vtbl.reset(binding, &msgerr);
     return err_is_fail(err) ? err : msgerr;
 }
 
 errval_t acpi_sleep(int st)
 {
-    assert(rpc_client != NULL);
+    assert(binding != NULL);
     errval_t err, msgerr;
-    err = rpc_client->vtbl.sleep(rpc_client, st, &msgerr);
+    err = binding->rpc_tx_vtbl.sleep(binding, st, &msgerr);
     return err_is_fail(err) ? err : msgerr;
 }
 
 // Kludge for VBE driver
 errval_t acpi_get_vbe_bios_cap(struct capref *retcap, size_t *retsize)
 {
-    assert(rpc_client != NULL);
+    assert(binding != NULL);
     errval_t err, msgerr;
     assert(retcap != NULL);
     assert(retsize != NULL);
@@ -75,67 +75,62 @@ errval_t acpi_get_vbe_bios_cap(struct capref *retcap, size_t *retsize)
     if (err_is_fail(err)) {
         return err;
     }
-    err = rpc_client->vtbl.get_vbe_bios_cap(rpc_client, &msgerr, retcap, &s);
+    err = binding->rpc_tx_vtbl.get_vbe_bios_cap(binding, &msgerr, retcap, &s);
     *retsize = s;
     return err_is_fail(err) ? err : msgerr;
 }
 
 errval_t vtd_create_domain(struct capref pml4)
 {
-    assert(rpc_client != NULL);
+    assert(binding != NULL);
     errval_t err, msgerr;
-    err = rpc_client->vtbl.create_domain(rpc_client, pml4, &msgerr);
+    err = binding->rpc_tx_vtbl.create_domain(binding, pml4, &msgerr);
     return err_is_fail(err) ? err : msgerr;
 }
 
 errval_t vtd_delete_domain(struct capref pml4)
 {
-    assert(rpc_client != NULL);
+    assert(binding != NULL);
     errval_t err, msgerr;
-    err = rpc_client->vtbl.delete_domain(rpc_client, pml4, &msgerr);
+    err = binding->rpc_tx_vtbl.delete_domain(binding, pml4, &msgerr);
     return err_is_fail(err) ? err : msgerr;
 }
 
-errval_t vtd_domain_add_device(int seg, int bus, int dev, int func, struct capref pml4) 
+errval_t vtd_domain_add_device(int seg, int bus, int dev, int func, struct capref pml4)
 {
-    assert(rpc_client != NULL);
+    assert(binding != NULL);
     errval_t err, msgerr;
-    err = rpc_client->vtbl.vtd_add_device(rpc_client, seg, bus, dev, func, pml4, &msgerr);
+    err = binding->rpc_tx_vtbl.vtd_add_device(binding, seg, bus, dev, func, pml4, &msgerr);
     return err_is_fail(err) ? err : msgerr;
 }
 
-errval_t vtd_domain_remove_device(int seg, int bus, int dev, int func, struct capref pml4) 
+errval_t vtd_domain_remove_device(int seg, int bus, int dev, int func, struct capref pml4)
 {
-    assert(rpc_client != NULL);
+    assert(binding != NULL);
     errval_t err, msgerr;
-    err = rpc_client->vtbl.vtd_remove_device(rpc_client, seg, bus, dev, func, pml4, &msgerr);
+    err = binding->rpc_tx_vtbl.vtd_remove_device(binding, seg, bus, dev, func, pml4, &msgerr);
     return err_is_fail(err) ? err : msgerr;
 }
 
 errval_t vtd_add_devices(void)
 {
-    assert(rpc_client != NULL);
+    assert(binding != NULL);
     errval_t err, msgerr;
-    err = rpc_client->vtbl.vtd_id_dom_add_devices(rpc_client, &msgerr);
+    err = binding->rpc_tx_vtbl.vtd_id_dom_add_devices(binding, &msgerr);
     return err_is_fail(err) ? err : msgerr;
 }
 
-struct acpi_rpc_client* get_acpi_rpc_client(void)
+struct acpi_binding* get_acpi_binding(void)
 {
-    assert(rpc_client != NULL);
-    return rpc_client;
+    assert(binding != NULL);
+    return binding;
 }
 
 static void rpc_bind_cb(void *st, errval_t err, struct acpi_binding* b)
 {
     if (err_is_ok(err)) {
-        rpc_client = malloc(sizeof(struct acpi_rpc_client));
-        assert(rpc_client != NULL);
-
-        err = acpi_rpc_client_init(rpc_client, b);
-        if (err_is_fail(err)) {
-            free(rpc_client);
-        }
+        binding = b;
+        acpi_rpc_client_init(binding);
     } // else: Do nothing
 
     assert(!state.is_done);

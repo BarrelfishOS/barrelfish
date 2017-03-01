@@ -18,7 +18,7 @@
 #include <barrelfish/bulk_transfer.h>
 #include <barrelfish/nameservice_client.h>
 #include <vfs/vfs.h>
-#include <if/bcache_rpcclient_defs.h>
+#include <if/bcache_defs.h>
 
 #ifdef WITH_BUFFER_CACHE
 
@@ -34,7 +34,7 @@
 #define MAX_CACHES      10
 
 struct bcache_client {
-    struct bcache_rpc_client rpc;
+    struct bcache_binding rpc;
     struct bulk_transfer_slave bulk_slave;
     struct capref cache_memory;
     bool bound;
@@ -374,7 +374,7 @@ static bool cache_op_start(char *key, size_t key_len, void **retblock,
 #ifndef FAKE_SCALABLE_CACHE
     errval_t err;
 
-    err = bcc->rpc.vtbl.get_start(&bcc->rpc, key, key_len, &index, &haveit,
+    err = bcc->rpc->rpc_tx_vtbl.get_start(&bcc->rpc, key, key_len, &index, &haveit,
                                   transid, block_length);
     /* err = bcc->rpc.b->tx_vtbl.get_start_call(bcc->rpc.b, key, key_len); */
     if(err_is_fail(err)) {
@@ -410,7 +410,7 @@ static void cache_op_stop(void *block, uint64_t transid, uintptr_t block_length)
 
 #ifndef FAKE_SCALABLE_CACHE
     errval_t err;
-    err = bcc->rpc.vtbl.get_stop(&bcc->rpc, transid, index, block_length);
+    err = bcc->rpc->rpc_tx_vtbl.get_stop(&bcc->rpc, transid, index, block_length);
     if(err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_stop");
     }
@@ -421,7 +421,7 @@ void cache_print_stats(void);
 void cache_print_stats(void)
 {
     struct bcache_client *bcc = cache[0];
-    errval_t err = bcc->rpc.vtbl.print_stats(&bcc->rpc);
+    errval_t err = bcc->rpc->rpc_tx_vtbl.print_stats(&bcc->rpc);
     assert(err_is_ok(err));
 
     printf("cache[%d] stats\n", disp_get_core_id());
@@ -808,7 +808,7 @@ static void bind_cb(void *st, errval_t err, struct bcache_binding *b)
         USER_PANIC_ERR(err, "bind failed");
     }
 
-    err = bcache_rpc_client_init(&cl->rpc, b);
+    err = bcache_binding_init(&cl->rpc, b);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "RPC init failed");
     }
@@ -862,7 +862,7 @@ static errval_t buffer_cache_connect(const char *bcache_name)
     if(err_is_fail(err)) {
         USER_PANIC_ERR(err, "slot_alloc for new_client");
     }
-    err = client->rpc.vtbl.new_client(&client->rpc, &client->cache_memory);
+    err = client->rpc->rpc_tx_vtbl.new_client(&client->rpc, &client->cache_memory);
     if(err_is_fail(err)) {
         USER_PANIC_ERR(err, "new_client");
     }

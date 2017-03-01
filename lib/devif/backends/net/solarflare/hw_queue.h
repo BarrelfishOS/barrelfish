@@ -247,11 +247,12 @@ static inline errval_t sfn5122f_queue_handle_mcdi_event(sfn5122f_queue_t* q)
 /*    RX      */
 static inline int sfn5122f_queue_add_user_rxbuf_devif(sfn5122f_queue_t* q, 
                                                       uint32_t buf_id,
-                                                      uint16_t offset,
+                                                      uint16_t b_off,
                                                       regionid_t rid,
-                                                      bufferid_t devq_bid,
-                                                      lpaddr_t base,
-                                                      size_t len,
+                                                      genoffset_t offset,
+                                                      genoffset_t length,
+                                                      genoffset_t valid_data,
+                                                      genoffset_t valid_length,
                                                       uint64_t flags)
 {
     struct devq_buf* buf;
@@ -262,21 +263,24 @@ static inline int sfn5122f_queue_add_user_rxbuf_devif(sfn5122f_queue_t* q,
     buf = &q->rx_bufs[tail];
 
     buf->rid = rid;
-    buf->bid = devq_bid;
-    buf->addr = base;
-    buf->len = len;
+    buf->offset = offset;
+    buf->length = length;
+    buf->valid_data = valid_data;
+    buf->valid_length = valid_length;
     buf->flags = flags;
     sfn5122f_q_rx_user_desc_rx_user_buf_id_insert(d, buf_id);
-    sfn5122f_q_rx_user_desc_rx_user_2byte_offset_insert(d, offset >> 1);
+    sfn5122f_q_rx_user_desc_rx_user_2byte_offset_insert(d, b_off >> 1);
     q->rx_tail = (tail + 1) % q->rx_size;
     return 0;
 }
 
 static inline int sfn5122f_queue_add_rxbuf_devif(sfn5122f_queue_t* q, 
-                                                 regionid_t rid,
-                                                 bufferid_t bid,
                                                  lpaddr_t addr,
-                                                 size_t len,
+                                                 regionid_t rid,
+                                                 genoffset_t offset,
+                                                 genoffset_t length,
+                                                 genoffset_t valid_data,
+                                                 genoffset_t valid_length,
                                                  uint64_t flags)
 {
     struct devq_buf* buf;
@@ -288,24 +292,26 @@ static inline int sfn5122f_queue_add_rxbuf_devif(sfn5122f_queue_t* q,
     buf = &q->rx_bufs[tail];
 
     buf->rid = rid;
-    buf->bid = bid;
-    buf->addr = addr;
-    buf->len = len;
+    buf->offset = offset;
+    buf->length = length;
+    buf->valid_data = valid_data;
+    buf->valid_length = valid_length;
     buf->flags = flags;
 
     sfn5122f_q_rx_ker_desc_rx_ker_buf_addr_insert(d, addr);
     sfn5122f_q_rx_ker_desc_rx_ker_buf_region_insert(d, 0);
     // TODO: Check size
-    sfn5122f_q_rx_ker_desc_rx_ker_buf_size_insert(d, len);
+    sfn5122f_q_rx_ker_desc_rx_ker_buf_size_insert(d, length);
     q->rx_tail = (tail + 1) % q->rx_size;
     return 0;
 }
 
 static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q, 
                                                          regionid_t* rid,
-                                                         bufferid_t* bid,
-                                                         lpaddr_t* base,
-                                                         size_t* len,
+                                                         genoffset_t* offset,
+                                                         genoffset_t* length,
+                                                         genoffset_t* valid_data,
+                                                         genoffset_t* valid_length,
                                                          uint64_t* flags)
 {   
     /*  Only one event is generated even if there is more than one
@@ -322,8 +328,9 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
     buf = &q->rx_bufs[rx_head];
 
     *rid = buf->rid;
-    *bid = buf->bid;
-    *base = buf->addr;
+    *offset = buf->offset;
+    *length = buf->length;
+    *valid_data = buf->valid_data;
     *flags = buf->flags;
 
     if(!sfn5122f_q_rx_ev_rx_ev_pkt_ok_extract(ev)) {   
@@ -341,10 +348,10 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
          return SFN_ERR_RX_PKT;
     }
 
-    *len = sfn5122f_q_rx_ev_rx_ev_byte_ctn_extract(ev);
+    *valid_length = sfn5122f_q_rx_ev_rx_ev_byte_ctn_extract(ev);
     /* Length of 0 is treated as 16384 bytes */
-    if (*len == 0) {
-        *len = 16384;
+    if (*valid_length == 0) {
+        *valid_length = 16384;
     }
 
     rx_head = sfn5122f_q_rx_ev_rx_ev_desc_ptr_extract(ev);
@@ -353,8 +360,9 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
     buf = &q->rx_bufs[rx_head];
 
     *rid = buf->rid;
-    *bid = buf->bid;
-    *base = buf->addr;
+    *offset = buf->offset;
+    *length = buf->length;
+    *valid_data = buf->valid_data;
     *flags = buf->flags;
 
     memset(ev, 0xff, sfn5122f_q_event_entry_size);
@@ -409,9 +417,10 @@ static inline bool is_batched(size_t size, uint16_t tx_head, uint16_t q_tx_head)
 
 static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q, 
                                                          regionid_t* rid,
-                                                         bufferid_t* bid,
-                                                         lpaddr_t* base,
-                                                         size_t* len,
+                                                         genoffset_t* offset,
+                                                         genoffset_t* length,
+                                                         genoffset_t* valid_data,
+                                                         genoffset_t* valid_length,
                                                          uint64_t* flags)
 {
     /*  Only one event is generated even if there is more than one
@@ -432,10 +441,10 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
     //        q->tx_size);
 
     *rid = buf->rid;
-    *bid = buf->bid;
-    *base = buf->addr;
+    *offset = buf->offset;
+    *length = buf->length;
+    *valid_data = buf->valid_data;
     *flags = buf->flags;
-    *len = buf->len;
 
     if (sfn5122f_q_tx_ev_tx_ev_pkt_err_extract(ev)){     
         q->tx_head = (tx_head +1) % q->tx_size;
@@ -451,10 +460,11 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
             while (q->tx_head != (tx_head + 1) % q->tx_size ) {
                 buf = &q->tx_bufs[q->tx_head];
                 q->bufs[index].rid = buf->rid;
-                q->bufs[index].bid = buf->bid;
-                q->bufs[index].addr = buf->addr;
+                q->bufs[index].offset = buf->offset;
+                q->bufs[index].valid_data = buf->valid_data;
+                q->bufs[index].valid_length = buf->valid_length;
                 q->bufs[index].flags = buf->flags;
-                q->bufs[index].len = buf->len;
+                q->bufs[index].length = buf->length;
                 d_user = q->tx_ring.user[tx_head];  
                 index++;
                 q->tx_head = (q->tx_head + 1) % q->tx_size;
@@ -476,10 +486,12 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
 }
 
 static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q, 
+                                                 lpaddr_t addr,
                                                  regionid_t rid,
-                                                 bufferid_t bid,
-                                                 lpaddr_t base,
-                                                 size_t len,
+                                                 genoffset_t offset,
+                                                 genoffset_t length,
+                                                 genoffset_t valid_data,
+                                                 genoffset_t valid_length,
                                                  uint64_t flags)
 {
     struct devq_buf* buf;
@@ -492,13 +504,14 @@ static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q,
    
     bool last = flags & NETIF_TXFLAG_LAST;    
     buf->rid = rid;
-    buf->bid = bid;
-    buf->addr = base;
-    buf->len = len;
+    buf->offset = offset;
+    buf->length = length;
+    buf->valid_data = valid_data;
+    buf->valid_length = valid_length;
     buf->flags = flags;
 
-    sfn5122f_q_tx_ker_desc_tx_ker_buf_addr_insert(d, base);
-    sfn5122f_q_tx_ker_desc_tx_ker_byte_count_insert(d, len);
+    sfn5122f_q_tx_ker_desc_tx_ker_buf_addr_insert(d, addr);
+    sfn5122f_q_tx_ker_desc_tx_ker_byte_count_insert(d, valid_length);
     sfn5122f_q_tx_ker_desc_tx_ker_cont_insert(d, !last);
     sfn5122f_q_tx_ker_desc_tx_ker_buf_region_insert(d, 0);
 
@@ -511,11 +524,12 @@ static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q,
 
 static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q, 
                                                       uint64_t buftbl_idx, 
-                                                      uint64_t offset,
+                                                      uint64_t b_off,
                                                       regionid_t rid,
-                                                      bufferid_t devq_bid,
-                                                      lpaddr_t base,
-                                                      size_t len,
+                                                      genoffset_t offset,
+                                                      genoffset_t length,
+                                                      genoffset_t valid_data,
+                                                      genoffset_t valid_length,
                                                       uint64_t flags)
 {
     
@@ -529,16 +543,17 @@ static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q,
    
     bool last = flags & NETIF_TXFLAG_LAST;    
     buf->rid = rid;
-    buf->bid = devq_bid;
-    buf->addr = base;
-    buf->len = len;
+    buf->offset = offset;
+    buf->length = length;
+    buf->valid_data = valid_data;
+    buf->valid_length = valid_length;
     buf->flags = flags;
 
     sfn5122f_q_tx_user_desc_tx_user_sw_ev_en_insert(d, 0);
     sfn5122f_q_tx_user_desc_tx_user_cont_insert(d, !last);
-    sfn5122f_q_tx_user_desc_tx_user_byte_cnt_insert(d, len);
+    sfn5122f_q_tx_user_desc_tx_user_byte_cnt_insert(d, valid_length);
     sfn5122f_q_tx_user_desc_tx_user_buf_id_insert(d, buftbl_idx);
-    sfn5122f_q_tx_user_desc_tx_user_byte_ofs_insert(d, offset);
+    sfn5122f_q_tx_user_desc_tx_user_byte_ofs_insert(d, b_off);
 
     __sync_synchronize();
  

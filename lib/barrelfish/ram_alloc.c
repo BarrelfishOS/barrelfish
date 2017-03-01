@@ -16,7 +16,7 @@
 #include <barrelfish/core_state.h>
 
 #include <if/monitor_defs.h>
-#include <if/mem_rpcclient_defs.h>
+#include <if/mem_defs.h>
 
 /* remote (indirect through a channel) version of ram_alloc, for most domains */
 static errval_t ram_alloc_remote(struct capref *ret, uint8_t size_bits,
@@ -60,8 +60,8 @@ static errval_t ram_alloc_remote(struct capref *ret, uint8_t size_bits,
 
     thread_mutex_lock(&ram_alloc_state->ram_alloc_lock);
 
-    struct mem_rpc_client *b = get_mem_client();
-    err = b->vtbl.allocate(b, size_bits, minbase, maxlimit, &result, ret);
+    struct mem_binding *b = get_mem_client();
+    err = b->rpc_tx_vtbl.allocate(b, size_bits, minbase, maxlimit, &result, ret);
 
     thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
 
@@ -140,9 +140,9 @@ errval_t ram_available(genpaddr_t *available, genpaddr_t *total)
 {
     errval_t err;
 
-    struct mem_rpc_client *mc = get_mem_client();
+    struct mem_binding *mc = get_mem_client();
 
-    err = mc->vtbl.available(mc, available, total);
+    err = mc->rpc_tx_vtbl.available(mc, available, total);
     if(err_is_fail(err)) {
         USER_PANIC_ERR(err, "available");
     }
@@ -156,15 +156,8 @@ static void bind_continuation(void *st, errval_t err, struct mem_binding *b)
     assert(st == get_ram_alloc_state());
 
     if (err_is_ok(err)) {
-        struct mem_rpc_client *r = malloc(sizeof(struct mem_rpc_client));
-        assert(r != NULL);
-        err = mem_rpc_client_init(r, b);
-        if (err_is_fail(err)) {
-            free(r);
-            USER_PANIC_ERR(err, "error in mem_rpc_client_init");
-        } else {
-            set_mem_client(r);
-        }
+        mem_rpc_client_init(b);
+        set_mem_client(b);
     }
 
     ram_alloc_state->mem_connect_err = err;

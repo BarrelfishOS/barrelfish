@@ -22,7 +22,7 @@
 #include <vfs/vfs_path.h>
 #include <dist/barrier.h>
 #include <if/spawn_defs.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 #include <barrelfish/dispatcher_arch.h>
 #include <barrelfish/invocations_arch.h>
 
@@ -101,13 +101,13 @@ static errval_t spawn(const char *path, char *const argv[], const char *argbuf,
     free(image);
 
     /* request connection from monitor */
-    struct monitor_blocking_rpc_client *mrpc = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *mrpc = get_monitor_blocking_binding();
     struct capref monep;
     err = slot_alloc(&monep);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MONEP_SLOT_ALLOC);
     }
-    err = mrpc->vtbl.alloc_monitor_ep(mrpc, &msgerr, &monep);
+    err = mrpc->rpc_tx_vtbl.alloc_monitor_ep(mrpc, &msgerr, &monep);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MONITOR_CLIENT);
     } else if (err_is_fail(msgerr)) {

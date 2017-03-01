@@ -25,7 +25,7 @@
 #include <barrelfish/waitset.h>
 #include <collections/list.h>
 #include <if/octopus_defs.h>
-#include <if/octopus_rpcclient_defs.h>
+#include <if/octopus_defs.h>
 #include <octopus/octopus.h>
 #include <posixcompat.h>
 #include <term/server/server.h>
@@ -465,13 +465,13 @@ static errval_t allocate_unique_number(uint32_t *np)
 {
     errval_t err;
 
-    struct octopus_rpc_client *oc = get_octopus_rpc_client();
+    struct octopus_binding *oc = get_octopus_binding();
 
     struct octopus_set_response__rx_args reply;
 
     /* request a system-wide unique number at octopus */
     char *query = PTY_PTS_OCTOPUS_PREFIX;
-    oc->vtbl.set(oc, query, SET_SEQUENTIAL, NOP_TRIGGER, true, reply.record,
+    oc->rpc_tx_vtbl.set(oc, query, SET_SEQUENTIAL, NOP_TRIGGER, true, reply.record,
                  &reply.tid, &err);
     if (err_is_fail(err)) {
         goto finish;

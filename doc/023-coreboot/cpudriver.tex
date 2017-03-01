@@ -1,0 +1,66 @@
+\documentclass[a4paper,11pt,twoside]{report}
+\usepackage{bftn}
+\usepackage{calc}
+\usepackage{verbatim}
+\usepackage{xspace}
+\usepackage{pifont}
+\usepackage{pxfonts}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage[framemethod=default]{mdframed}
+\usepackage[shortlabels]{enumitem}
+\usepackage{parskip}
+\usepackage{xparse}
+
+\newcommand{\todo}[1]{[\textcolor{red}{\emph{#1}}]}
+
+\title{Coreboot in Barrelfish}
+\author{Barrelfish project}
+\tnnumber{23}
+\tnkey{Coreboot}
+
+\begin{document}
+\maketitle			% Uncomment for final draft
+
+\begin{versionhistory}
+\vhEntry{0.1}{28.02.2017}{GZ}{Initial Version}
+\end{versionhistory}
+
+% \intro{Abstract}		% Insert abstract here
+% \intro{Acknowledgements}	% Uncomment (if needed) for acknowledgements
+\tableofcontents		% Uncomment (if needed) for final draft
+% \listoffigures		% Uncomment (if needed) for final draft
+% \listoftables			% Uncomment (if needed) for final draft
+\cleardoublepage
+\setcounter{secnumdepth}{2}
+
+\newcommand{\fnname}[1]{\textit{\texttt{#1}}}%
+\newcommand{\datatype}[1]{\textit{\texttt{#1}}}%
+\newcommand{\varname}[1]{\texttt{#1}}%
+\newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
+\newcommand{\pathname}[1]{\texttt{#1}}%
+\newcommand{\tabindent}{\hspace*{3ex}}%
+\newcommand{\sockeye}{\lstinline[language=sockeye]}
+\newcommand{\ccode}{\lstinline[language=C]}
+
+\lstset{
+  language=C,
+  basicstyle=\ttfamily \small,
+  keywordstyle=\bfseries,
+  flexiblecolumns=false,
+  basewidth={0.5em,0.45em},
+  boxpos=t,
+  captionpos=b
+}
+
+\chapter{Introduction}
+\label{chap:introduction}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{abbrv}
+\bibliography{barrelfish}
+
+\end{document}

@@ -80,8 +80,66 @@ errval_t idc_export_service(struct idc_export *e)
     return SYS_ERR_OK;
 }
 
+
+struct idc_export_get_state {
+    struct event_queue_node qnode;
+    iref_t iref;
+    struct idc_export *e;
+    errval_t err;
+    struct monitor_binding *mb;
+};
+
+static void get_service_id_request_sender(void *arg)
+{
+    struct idc_export_get_state *st = arg;
+    struct monitor_binding *mb = st->mb;
+
+    /* Send alloc_iref request to the monitor */
+    errval_t err = mb->tx_vtbl.get_service_id_request(mb, NOP_CONT, st->iref);
+    if (err_is_ok(err)) {
+        event_mutex_unlock(&mb->mutex);
+    } else if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        err = mb->register_send(mb, mb->waitset,
+                                MKCONT(get_service_id_request_sender, st));
+        assert(err_is_ok(err)); // shouldn't fail, as we have the mutex
+    } else { // permanent error
+        event_mutex_unlock(&mb->mutex);
+    }
+}
+
+errval_t idc_get_service(iref_t iref, struct idc_export **e)
+{
+    struct idc_export_get_state st;
+
+    struct monitor_binding *mb = get_monitor_binding();
+    st.iref = iref;
+    st.e = NULL;
+    st.err = SYS_ERR_OK;
+    st.mb = mb;
+
+    // wait for the ability to use the monitor binding
+    event_mutex_enqueue_lock(&mb->mutex, &st.qnode,
+                             MKCLOSURE(get_service_id_request_sender, &st));
+    
+    errval_t error_var = SYS_ERR_OK;
+    errval_t err = wait_for_channel(mb->waitset, mb->message_chanstate + monitor_get_service_id_reply__msgnum, &error_var);
+    
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "in event_dispatch waiting for mem_serv binding");
+        return err_push(err, LIB_ERR_EVENT_DISPATCH);
+    }
+    
+    assert(err_is_ok(mb->rx_union.get_service_id_reply.err));
+    assert(iref == mb->rx_union.get_service_id_reply.iref);
+    assert(mb->rx_union.get_service_id_reply.service_id);
+    *e = (struct idc_export *)mb->rx_union.get_service_id_reply.service_id;
+    mb->receive_next(mb);
+    return err;
+}
+
 void idc_export_init(void)
 {
     struct monitor_binding *mcb = get_monitor_binding();
     mcb->rx_vtbl.alloc_iref_reply = alloc_iref_reply_handler;
+    mcb->rx_vtbl.get_service_id_reply = NULL;
 }

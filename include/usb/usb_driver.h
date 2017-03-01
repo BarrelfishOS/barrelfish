@@ -15,6 +15,6 @@
 #include <usb/usb_request.h>
 
 #include <if/usb_manager_defs.h>
-#include <if/usb_manager_rpcclient_defs.h>
+#include <if/usb_manager_defs.h>
 
 #endif /* LIB_USB_DRIVER_H_ */

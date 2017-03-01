@@ -14,24 +14,24 @@
 #include <virtio/virtio_guest.h>
 
 #include <if/virtio_defs.h>
-#include <if/virtio_rpcclient_defs.h>
+#include <if/virtio_defs.h>
 
 #include "channel.h"
 #include "debug.h"
 
 
-static struct virtio_rpc_client virtio_rpc_client;
+static struct virtio_binding *virtio_binding;
 
 static iref_t virtio_rpc_svc_iref;
 
-enum virtio_rpc_client_state {
+enum virtio_binding_state {
     RPC_CLIENT_STATE_INVALID,
     RPC_CLIENT_STATE_BINDING,
     RPC_CLIENT_STATE_FAILED,
     RPC_CLIENT_STATE_READY
 };
 
-static enum virtio_rpc_client_state rpc_client_state = RPC_CLIENT_STATE_INVALID;
+static enum virtio_binding_state rpc_client_state = RPC_CLIENT_STATE_INVALID;
 
 
 /**
@@ -49,7 +49,7 @@ static  errval_t open_device(uint8_t backend,
         return -1;
     }
 
-    err = virtio_rpc_client.vtbl.open(&virtio_rpc_client,
+    err = virtio_binding->rpc_tx_vtbl.open(virtio_binding,
                                       backend,
                                       &msg_err,
                                       ret_frame);
@@ -71,7 +71,7 @@ static  errval_t close_device(void)
         return -1;
     }
 
-    err =  virtio_rpc_client.vtbl.close(&virtio_rpc_client);
+    err =  virtio_binding->rpc_tx_vtbl.close(virtio_binding);
     if (err_is_fail(err)) {
         return err;
     }
@@ -99,7 +99,7 @@ static  errval_t add_vring(struct virtqueue *vq)
 
     uint16_t ndesc = virtio_virtqueue_get_num_desc(vq);
 
-    err =  virtio_rpc_client.vtbl.add(&virtio_rpc_client, id, ndesc, buffers, frame, &msg_err);
+    err =  virtio_binding->rpc_tx_vtbl.add(virtio_binding, id, ndesc, buffers, frame, &msg_err);
     if (err_is_fail(err)) {
         return err;
     }
@@ -119,7 +119,7 @@ static  errval_t extend_vring(uint16_t vq_id,
         return -1;
     }
 
-    err =  virtio_rpc_client.vtbl.extend(&virtio_rpc_client, vq_id, vbuf, &msg_err);
+    err =  virtio_binding->rpc_tx_vtbl.extend(virtio_binding, vq_id, vbuf, &msg_err);
     if (err_is_fail(err)) {
         return err;
     }
@@ -139,7 +139,7 @@ static  errval_t request_mem(uint64_t size,
         return -1;
     }
 
-    err =  virtio_rpc_client.vtbl.req(&virtio_rpc_client, size, &msg_err, cap);
+    err =  virtio_binding->rpc_tx_vtbl.req(virtio_binding, size, &msg_err, cap);
     if (err_is_fail(err)) {
         return err;
     }
@@ -163,11 +163,8 @@ static void bind_cb(void *st, errval_t err, struct virtio_binding *b)
     }
 
     VIRTIO_DEBUG_CHAN("Initializing RPC client\n");
-    err = virtio_rpc_client_init(&virtio_rpc_client, b);
-    if (err_is_fail(err)) {
-        rpc_client_state = RPC_CLIENT_STATE_FAILED;
-    }
-
+    virtio_binding = b;
+    virtio_rpc_client_init(virtio_binding);
     vguest_chan_fn = &vguest_fc_fn;
 
     rpc_client_state = RPC_CLIENT_STATE_READY;

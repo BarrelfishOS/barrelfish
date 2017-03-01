@@ -35,7 +35,7 @@
 #include <vfs/vfs_path.h>
 #include <if/pixels_defs.h>
 
-#include <if/octopus_rpcclient_defs.h>
+#include <if/octopus_defs.h>
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
 #include <octopus/init.h> // oct_init
@@ -1152,7 +1152,7 @@ static int src(int argc, char *argv[])
 
 static int freecmd(int argc, char *argv[])
 {
-    struct mem_rpc_client *mc = get_mem_client();
+    struct mem_binding *mc = get_mem_client();
     assert(mc != NULL);
     errval_t err;
     genpaddr_t available, total;
@@ -1178,8 +1178,8 @@ static int nproc(int argc, char* argv[]) {
     oct_init();
 
     struct octopus_get_names_response__rx_args reply;
-    struct octopus_rpc_client *r = get_octopus_rpc_client();
-    err = r->vtbl.get_names(r, spawnds, NOP_TRIGGER, reply.output,
+    struct octopus_binding *r = get_octopus_binding();
+    err = r->rpc_tx_vtbl.get_names(r, spawnds, NOP_TRIGGER, reply.output,
                             &reply.tid, &reply.error_code);
     if (err_is_fail(err) || err_is_fail(reply.error_code)) {
         DEBUG_ERR(err, "get_names failed");

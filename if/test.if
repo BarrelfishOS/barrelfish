@@ -13,4 +13,5 @@ interface test "Test interface" {
         message one_cap(uint32 arg, cap cap1);
         message caps(uint32 arg, cap cap1, cap cap2);
         message buf(uint8 buf[buflen, 2048]);
+        rpc basic_rpc(in uint32 arg, out uint32 result);
 };

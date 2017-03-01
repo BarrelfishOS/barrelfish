@@ -15,7 +15,7 @@
 #include <barrelfish/bulk_transfer.h>
 #include <vfs/vfs_path.h>
 #include <if/trivfs_defs.h>
-#include <if/trivfs_rpcclient_defs.h>
+#include <if/trivfs_defs.h>
 #include <if/monitor_defs.h>
 
 #include "vfs_backends.h"
@@ -27,7 +27,7 @@ static const bool use_bulk_data = true;
 #define BULK_BLOCK_SIZE     BULK_MEM_SIZE   // (it's RPC)
 
 struct ramfs_client {
-    struct trivfs_rpc_client rpc;
+    struct trivfs_binding *rpc;
     struct bulk_transfer bulk;
     trivfs_fh_t rootfh;
     bool bound;
@@ -73,14 +73,14 @@ restart: ;
 
         // lookup
         trivfs_fh_t nextfh;
-        err = cl->rpc.vtbl.lookup(&cl->rpc, fh, pathbuf, &msgerr, &nextfh, &isdir);
+        err = cl->rpc->rpc_tx_vtbl.lookup(cl->rpc, fh, pathbuf, &msgerr, &nextfh, &isdir);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "transport error in lookup");
             return err;
         } else if (err_is_fail(msgerr)) {
             if (err_no(msgerr) == FS_ERR_INVALID_FH) {
                 if (fh == cl->rootfh) { // revalidate root
-                    err = cl->rpc.vtbl.getroot(&cl->rpc, &cl->rootfh);
+                    err = cl->rpc->rpc_tx_vtbl.getroot(cl->rpc, &cl->rootfh);
                     if (err_is_fail(err)) {
                         USER_PANIC_ERR(err, "failed to get root fh");
                     }
@@ -176,7 +176,7 @@ static errval_t create(void *st, const char *path, vfs_handle_t *rethandle)
     }
 
     // create the last part of the path
-    err = cl->rpc.vtbl.create(&cl->rpc, fh, &path[pos], &msgerr, &fh);
+    err = cl->rpc->rpc_tx_vtbl.create(cl->rpc, fh, &path[pos], &msgerr, &fh);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in create");
         return err;
@@ -214,7 +214,7 @@ static errval_t ramfs_remove(void *st, const char *path)
         return FS_ERR_NOTFILE;
     }
 
-    err = cl->rpc.vtbl.delete(&cl->rpc, fh, &msgerr);
+    err = cl->rpc->rpc_tx_vtbl.delete(cl->rpc, fh, &msgerr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in delete");
         return err;
@@ -237,7 +237,7 @@ static errval_t read(void *st, vfs_handle_t handle, void *buffer, size_t bytes,
     assert(!h->isdir);
 
 restart:
-    err = cl->rpc.vtbl.read(&cl->rpc, h->fh, h->pos, bytes,
+    err = cl->rpc->rpc_tx_vtbl.read(cl->rpc, h->fh, h->pos, bytes,
                             &msgerr, buffer, bytes_read);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in read");
@@ -274,7 +274,7 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer,
     assert(!h->isdir);
 
 restart:
-    err = cl->rpc.vtbl.write(&cl->rpc, h->fh, h->pos, buffer, bytes, &msgerr);
+    err = cl->rpc->rpc_tx_vtbl.write(cl->rpc, h->fh, h->pos, buffer, bytes, &msgerr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in write");
         return err;
@@ -328,7 +328,7 @@ static errval_t read_bulk(void *st, vfs_handle_t handle, void *buffer,
         int restarts = 0;
 
 restart:
-        err = cl->rpc.vtbl.read_bulk(&cl->rpc, h->fh, h->pos, reqlen,
+        err = cl->rpc->rpc_tx_vtbl.read_bulk(cl->rpc, h->fh, h->pos, reqlen,
                                      txbufid, &msgerr, &retlen);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "transport error in read");
@@ -399,7 +399,7 @@ static errval_t write_bulk(void *st, vfs_handle_t handle, const void *buffer,
         int restarts = 0;
 
 restart:
-        err = cl->rpc.vtbl.write_bulk(&cl->rpc, h->fh, h->pos, reqlen, bufid,
+        err = cl->rpc->rpc_tx_vtbl.write_bulk(cl->rpc, h->fh, h->pos, reqlen, bufid,
                                       &msgerr);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "transport error in write");
@@ -443,7 +443,7 @@ static errval_t truncate(void *st, vfs_handle_t handle, size_t bytes)
     assert(!h->isdir);
 
 restart:
-    err = cl->rpc.vtbl.truncate(&cl->rpc, h->fh, bytes, &msgerr);
+    err = cl->rpc->rpc_tx_vtbl.truncate(cl->rpc, h->fh, bytes, &msgerr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in truncate");
         return err;
@@ -479,7 +479,7 @@ static errval_t stat(void *st, vfs_handle_t inhandle, struct vfs_fileinfo *info)
     int restarts = 0;
 
 restart:
-    err = cl->rpc.vtbl.getattr(&cl->rpc, h->fh, &msgerr, &isdir, &size);
+    err = cl->rpc->rpc_tx_vtbl.getattr(cl->rpc, h->fh, &msgerr, &isdir, &size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in getattr");
         return err;
@@ -589,7 +589,7 @@ static errval_t dir_read_next(void *st, vfs_handle_t inhandle, char **retname,
 
     struct trivfs_readdir_response__rx_args reply;
 restart:
-    err = cl->rpc.vtbl.readdir(&cl->rpc, h->fh, h->pos,
+    err = cl->rpc->rpc_tx_vtbl.readdir(cl->rpc, h->fh, h->pos,
                                &reply.err, reply.name, &reply.isdir, &reply.size);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in readdir");
@@ -598,7 +598,7 @@ restart:
         if (err_no(reply.err) == FS_ERR_INVALID_FH && !restarts++) {
             // revalidate handle and try again
             if (h->fh == cl->rootfh) { // XXX: revalidate root
-                err = cl->rpc.vtbl.getroot(&cl->rpc, &cl->rootfh);
+                err = cl->rpc->rpc_tx_vtbl.getroot(cl->rpc, &cl->rootfh);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "failed to get root fh");
                 }
@@ -673,7 +673,7 @@ static errval_t mkdir(void *st, const char *path)
 
     // create child
     trivfs_fh_t newfh;
-    err = cl->rpc.vtbl.mkdir(&cl->rpc, parent, childname, &msgerr, &newfh);
+    err = cl->rpc->rpc_tx_vtbl.mkdir(cl->rpc, parent, childname, &msgerr, &newfh);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in mkdir");
         return err;
@@ -696,7 +696,7 @@ static errval_t rmdir(void *st, const char *path)
         return FS_ERR_NOTDIR;
     }
 
-    err = cl->rpc.vtbl.delete(&cl->rpc, fh, &msgerr);
+    err = cl->rpc->rpc_tx_vtbl.delete(cl->rpc, fh, &msgerr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "transport error in delete");
         return err;
@@ -751,12 +751,9 @@ static void bind_cb(void *st, errval_t err, struct trivfs_binding *b)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "bind failed");
     }
-
-    err = trivfs_rpc_client_init(&cl->rpc, b);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "RPC init failed");
-    }
-
+    
+    cl->rpc = b;
+    trivfs_rpc_client_init(cl->rpc);
     cl->bound = true;
 }
 
@@ -840,7 +837,7 @@ errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
     }
 
     // get root fh
-    err = client->rpc.vtbl.getroot(&client->rpc, &client->rootfh);
+    err = client->rpc->rpc_tx_vtbl.getroot(client->rpc, &client->rootfh);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to get root fh");
     }
@@ -855,7 +852,7 @@ errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
         }
 
         // Send bulk frame cap to server
-        err = client->rpc.vtbl.bulk_init(&client->rpc, shared_frame, &msgerr);
+        err = client->rpc->rpc_tx_vtbl.bulk_init(client->rpc, shared_frame, &msgerr);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "failed to call bulk_init");
         } else if (err_is_fail(msgerr)) {

@@ -29,7 +29,7 @@
 #include <thc/thcsync.h>
 
 #include <if/mem_defs.h>
-#include <if/mem_rpcclient_defs.h>
+#include <if/mem_defs.h>
 #include <if/mem_thc.h>
 #include <if/monitor_defs.h>
 

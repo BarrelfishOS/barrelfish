@@ -12,6 +12,7 @@
  */
 
 #include "coreboot.h"
+#include <if/monitor_blocking_defs.h>
 
 extern bool done;
 extern coreid_t core_count;
@@ -137,12 +138,12 @@ errval_t create_or_get_kcb_cap(coreid_t coreid, struct capref* the_kcb)
 
 errval_t give_kcb_to_new_core(coreid_t destination_id, struct capref new_kcb)
 {
-    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *mc = get_monitor_blocking_binding();
     DEBUG("%s:%s:%d: Send KCB to local monitor for forwarding to destination_id = %"PRIuCOREID"\n",
           __FILE__, __FUNCTION__, __LINE__, destination_id);
 
     errval_t ret_err;
-    errval_t err = mc->vtbl.forward_kcb_request(mc, destination_id, new_kcb,
+    errval_t err = mc->rpc_tx_vtbl.forward_kcb_request(mc, destination_id, new_kcb,
                    &ret_err);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "forward_kcb_request failed.");
@@ -159,8 +160,8 @@ errval_t cap_mark_remote(struct capref cap)
 {
     errval_t err, msgerr;
 
-    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
-    err = mc->vtbl.cap_set_remote(mc, cap, true, &msgerr);
+    struct monitor_blocking_binding *mc = get_monitor_blocking_binding();
+    err = mc->rpc_tx_vtbl.cap_set_remote(mc, cap, true, &msgerr);
     if (err_is_fail(err)) {
         debug_printf("cap_set_remote RPC transmission failed\n");
         return err;

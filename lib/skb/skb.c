@@ -16,7 +16,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <skb/skb.h>
-#include <if/skb_rpcclient_defs.h>
+#include <if/skb_defs.h>
 #include <barrelfish/core_state_arch.h>
 
 /* ------------------------- Connecting to skb ------------------------------ */
@@ -30,15 +30,8 @@ static void bind_cb(void *st, errval_t err, struct skb_binding *b)
         abort();
     }
 
-    skb_state->skb = malloc(sizeof(struct skb_rpc_client));
-    assert(skb_state->skb != NULL);
-    err = skb_rpc_client_init(skb_state->skb, b);
-    if (err_is_fail(err)) {
-        free(skb_state->skb);
-        DEBUG_ERR(err, "error in skb_rpc_client_init");
-        abort();
-    }
-
+    skb_state->skb = b;
+    skb_rpc_client_init(skb_state->skb);
     assert(!skb_state->request_done);
     skb_state->request_done = true;
 }
@@ -98,7 +91,7 @@ errval_t skb_evaluate(char *query, char **ret_result, char **ret_str_error, int3
             return LIB_ERR_MALLOC_FAIL;
         }
     }
-    err = skb_state->skb->vtbl.run(skb_state->skb, query, result,
+    err = skb_state->skb->rpc_tx_vtbl.run(skb_state->skb, query, result,
                                    str_error, int_error);
     if (err_is_fail(err)) {
         if (result) {

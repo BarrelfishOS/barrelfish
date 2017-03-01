@@ -21,13 +21,12 @@
 #include <int_route/int_route_debug.h>
 
 #include <if/int_route_service_defs.h>
-#include <if/int_route_service_rpcclient_defs.h>
+#include <if/int_route_service_defs.h>
 
 static struct int_route_state {
     bool request_done;
-    struct int_route_rpc_client * client;
+    struct int_route_binding * client;
     struct int_route_service_binding * binding;
-    struct int_route_service_rpc_client rpc_client;
 
 } int_route_state_st;
 
@@ -38,12 +37,10 @@ static struct int_route_state * get_int_route_state(void){
 
 static void bind_cb(void *st, errval_t binderr, struct int_route_service_binding *b) {
     assert(err_is_ok(binderr));
-    errval_t err;
     int_route_state_st.binding = b;
     int_route_state_st.request_done = true;
 
-    err = int_route_service_rpc_client_init(&(int_route_state_st.rpc_client), b);
-    assert(err_is_ok(err));
+    int_route_service_rpc_client_init(b);
 }
 
 //errval_t int_route_add_controller(int bus, int dev, int fun,
@@ -65,9 +62,9 @@ static void bind_cb(void *st, errval_t binderr, struct int_route_service_binding
 
 errval_t int_route_client_route(struct capref intsrc, struct capref intdest){
     assert(int_route_state_st.request_done);
-    struct int_route_service_rpc_client * cl = &int_route_state_st.rpc_client;
+    struct int_route_service_binding * cl = int_route_state_st.binding;
     errval_t msgerr, err;
-    msgerr = cl->vtbl.route(cl, intsrc, intdest, &err);
+    msgerr = cl->rpc_tx_vtbl.route(cl, intsrc, intdest, &err);
     if(err_is_fail(msgerr)){
         return msgerr;
     }

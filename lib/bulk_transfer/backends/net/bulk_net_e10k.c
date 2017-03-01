@@ -19,9 +19,9 @@
 #include <pci/pci.h>
 
 #include <if/net_ports_defs.h>
-#include <if/net_ports_rpcclient_defs.h>
+#include <if/net_ports_defs.h>
 #include <if/net_ARP_defs.h>
-#include <if/net_ARP_rpcclient_defs.h>
+#include <if/net_ARP_defs.h>
 #include <if/e10k_defs.h>
 
 #include <dev/e10k_dev.h>
@@ -62,10 +62,10 @@ struct e10k_tx_event {
 };
 
 
-static struct net_ports_rpc_client net_ports_rpc;
+static struct net_ports_binding *net_ports_rpc;
 static bool net_ports_connected = false;
 
-static struct net_ARP_rpc_client net_arp_rpc;
+static struct net_ARP_binding *net_arp_rpc;
 static bool net_arp_connected = false;
 
 static errval_t update_rxtail(void *opaque, size_t tail);
@@ -101,7 +101,7 @@ static errval_t port_bind(uint64_t b_rx, uint64_t b_tx, uint64_t q,
 {
     errval_t err, msgerr;
 
-    err = net_ports_rpc.vtbl.bind_port(&net_ports_rpc, net_ports_PORT_UDP, port,
+    err = net_ports_rpc->rpc_tx_vtbl.bind_port(net_ports_rpc, net_ports_PORT_UDP, port,
             b_rx, b_tx, 0, q, &msgerr);
     if (err_is_fail(err)) {
         return err;
@@ -116,7 +116,7 @@ static errval_t port_get(uint64_t b_rx, uint64_t b_tx, uint64_t q,
 {
     errval_t err, msgerr;
 
-    err = net_ports_rpc.vtbl.get_port(&net_ports_rpc, net_ports_PORT_UDP,
+    err = net_ports_rpc->rpc_tx_vtbl.get_port(net_ports_rpc, net_ports_PORT_UDP,
             b_rx, b_tx, 0, q, &msgerr, port);
     if (err_is_fail(err)) {
         return err;
@@ -128,8 +128,8 @@ static errval_t port_get(uint64_t b_rx, uint64_t b_tx, uint64_t q,
 static void p_bind_cb(void *st, errval_t err, struct net_ports_binding *b)
 {
     assert(err_is_ok(err));
-    err = net_ports_rpc_client_init(&net_ports_rpc, b);
-    assert(err_is_ok(err));
+    net_ports_rpc = b;
+    net_ports_rpc_client_init(net_ports_rpc);
     net_ports_connected = true;
 }
 
@@ -164,7 +164,7 @@ static errval_t arp_ip_info(uint32_t *ip, uint32_t *gw, uint32_t *mask)
 {
     errval_t err, msgerr;
 
-    err = net_arp_rpc.vtbl.ip_info(&net_arp_rpc, 0, &msgerr, ip, gw, mask);
+    err = net_arp_rpc->rpc_tx_vtbl.ip_info(net_arp_rpc, 0, &msgerr, ip, gw, mask);
     if (err_is_fail(err)) {
         return err;
     }
@@ -176,7 +176,7 @@ static errval_t arp_lookup(uint32_t ip, uint64_t *mac)
 {
     errval_t err, msgerr;
 
-    err = net_arp_rpc.vtbl.ARP_lookup(&net_arp_rpc, ip, 0, true, &msgerr, mac);
+    err = net_arp_rpc->rpc_tx_vtbl.ARP_lookup(net_arp_rpc, ip, 0, true, &msgerr, mac);
     if (err_is_fail(err)) {
         return err;
     }
@@ -186,8 +186,8 @@ static errval_t arp_lookup(uint32_t ip, uint64_t *mac)
 static void a_bind_cb(void *st, errval_t err, struct net_ARP_binding *b)
 {
     assert(err_is_ok(err));
-    err = net_ARP_rpc_client_init(&net_arp_rpc, b);
-    assert(err_is_ok(err));
+    net_arp_rpc = b;
+    net_ARP_rpc_client_init(net_arp_rpc);
     net_arp_connected = true;
 }
 
@@ -725,4 +725,3 @@ errval_t bulk_e10k_arp_lookup(struct bulk_e10k *bu, uint32_t ip, uint64_t *mac)
 {
     return arp_lookup(htonl(ip), mac);
 }
-

@@ -16,7 +16,7 @@
 #include <barrelfish/dispatcher_arch.h>
 #include <if/monitor_defs.h>
 #include <barrelfish/monitor_client.h>
-#include <if/monitor_blocking_rpcclient_defs.h>
+#include <if/monitor_blocking_defs.h>
 #include <string.h>
 #include <inttypes.h>
 
@@ -125,6 +125,8 @@ static errval_t init_lmp_binding(struct monitor_lmp_binding *mcb,
     /* setup initial receive handlers */
     mcb->b.rx_vtbl = monitor_rx_vtbl;
 
+    // connect handlers
+    mcb->b.change_waitset(&mcb->b, mcb->b.waitset);
     return SYS_ERR_OK;
 }
 
@@ -311,11 +313,11 @@ errval_t monitor_cap_set_remote(struct capref cap, bool remote)
 {
     return ERR_NOTIMP;
 #if 0
-    struct monitor_blocking_rpc_client *mc = get_monitor_blocking_rpc_client();
+    struct monitor_blocking_binding *mc = get_monitor_blocking_binding();
     assert(mc != NULL);
     errval_t err, reterr;
 
-    err = mc->vtbl.cap_set_remote(mc, cap, remote, &reterr);
+    err = mc->rpc_tx_vtbl.cap_set_remote(mc, cap, remote, &reterr);
     if(err_is_fail(err)) {
         return err;
     } else {
@@ -335,16 +337,8 @@ static void monitor_rpc_bind_continuation(void *st_arg, errval_t err,
     struct bind_state *st = st_arg;
 
     if (err_is_ok(err)) {
-        struct monitor_blocking_rpc_client *r = 
-            malloc(sizeof(struct monitor_blocking_rpc_client));
-        assert(r != NULL);
-        err = monitor_blocking_rpc_client_init(r, b);
-        if (err_is_fail(err)) {
-            free(r);
-            USER_PANIC_ERR(err, "error in mem_rpc_client_init");
-        } else {
-            set_monitor_blocking_rpc_client(r);
-        }
+        monitor_blocking_rpc_client_init(b);
+        set_monitor_blocking_binding(b);
     }
 
     st->err  = err;
@@ -388,7 +382,7 @@ errval_t monitor_client_blocking_rpc_init(void)
     /* fire off a request for the iref for monitor rpc channel */
     struct monitor_binding *mb = get_monitor_binding();
     mb->rx_vtbl.get_monitor_rpc_iref_reply = get_monitor_rpc_iref_reply;
-    err = mb->tx_vtbl.get_monitor_rpc_iref_request(mb, NOP_CONT, 
+    err = mb->tx_vtbl.get_monitor_rpc_iref_request(mb, NOP_CONT,
                                                    (uintptr_t) &st);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_GET_MON_BLOCKING_IREF);

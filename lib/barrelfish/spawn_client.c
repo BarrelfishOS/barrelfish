@@ -20,15 +20,15 @@
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/cpu_arch.h>
-#include <if/spawn_rpcclient_defs.h>
-#include <if/arrakis_rpcclient_defs.h>
+#include <if/spawn_defs.h>
+#include <if/arrakis_defs.h>
 #include <if/monitor_defs.h>
 #include <vfs/vfs_path.h>
 
 // For spawn_program_on_all_cores
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
-#include <if/octopus_rpcclient_defs.h>
+#include <if/octopus_defs.h>
 
 
 extern char **environ;
@@ -69,12 +69,12 @@ static struct spawn_binding *spawn_b = NULL;
 
 static errval_t bind_client(coreid_t coreid)
 {
-    struct spawn_rpc_client *cl;
+    struct spawn_binding *cl;
     errval_t err = SYS_ERR_OK;
 
     // do we have a spawn client connection for this core?
     assert(coreid < MAX_CPUS);
-    cl = get_spawn_rpc_client(coreid);
+    cl = get_spawn_binding(coreid);
     if (cl == NULL) {
         char namebuf[16];
         snprintf(namebuf, sizeof(namebuf), "spawn.%u", coreid);
@@ -107,18 +107,8 @@ static errval_t bind_client(coreid_t coreid)
 
         spawn_b = bindst.b;
 
-        cl = malloc(sizeof(struct spawn_rpc_client));
-        if (cl == NULL) {
-            return err_push(err, LIB_ERR_MALLOC_FAIL);
-        }
-
-        err = spawn_rpc_client_init(cl, bindst.b);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "spawn_rpc_client_init failed");
-            return err;
-        }
-
-        set_spawn_rpc_client(coreid, cl);
+        spawn_rpc_client_init(bindst.b);
+        set_spawn_binding(coreid, bindst.b);
     }
 
     return err;
@@ -160,7 +150,7 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
         return err;
     }
 
-    struct spawn_rpc_client *cl = get_spawn_rpc_client(coreid);
+    struct spawn_binding *cl = get_spawn_binding(coreid);
     assert(cl != NULL);
 
     // construct argument "string"
@@ -214,11 +204,11 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
     }
 
     if (capref_is_null(inheritcn_cap) && capref_is_null(argcn_cap)) {
-        err = cl->vtbl.spawn_domain(cl, path, argstr, argstrlen,
+        err = cl->rpc_tx_vtbl.spawn_domain(cl, path, argstr, argstrlen,
                                     envstr, envstrlen, flags,
                                     &msgerr, &domain_id);
     } else {
-        err = cl->vtbl.spawn_domain_with_caps(cl, path, argstr, argstrlen,
+        err = cl->rpc_tx_vtbl.spawn_domain_with_caps(cl, path, argstr, argstrlen,
                                               envstr, envstrlen, inheritcn_cap,
                                               argcn_cap, flags, &msgerr, &domain_id);
     }
@@ -242,7 +232,7 @@ errval_t spawn_arrakis_program(coreid_t coreid, const char *path,
                                struct capref argcn_cap, spawn_flags_t flags,
                                domainid_t *ret_domainid)
 {
-    struct arrakis_rpc_client *cl;
+    struct arrakis_binding *cl;
     errval_t err, msgerr;
 
     // default to copying our environment
@@ -252,7 +242,7 @@ errval_t spawn_arrakis_program(coreid_t coreid, const char *path,
 
     // do we have a arrakis client connection for this core?
     assert(coreid < MAX_CPUS);
-    cl = get_arrakis_rpc_client(coreid);
+    cl = get_arrakis_binding(coreid);
     if (cl == NULL) {
         char namebuf[16];
         snprintf(namebuf, sizeof(namebuf), "arrakis.%u", coreid);
@@ -283,15 +273,8 @@ errval_t spawn_arrakis_program(coreid_t coreid, const char *path,
         }
         assert(bindst.b != NULL);
 
-        cl = malloc(sizeof(struct arrakis_rpc_client));
-        assert(cl != NULL);
-
-        err = arrakis_rpc_client_init(cl, bindst.b);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "arrakis_rpc_client_init failed");
-        }
-
-        set_arrakis_rpc_client(coreid, cl);
+        arrakis_rpc_client_init(bindst.b);
+        set_arrakis_binding(coreid, bindst.b);
     }
 
     // construct argument "string"
@@ -344,7 +327,7 @@ errval_t spawn_arrakis_program(coreid_t coreid, const char *path,
         path = pathbuf;
     }
 
-    err = cl->vtbl.spawn_arrakis_domain(cl, path, argstr, argstrlen,
+    err = cl->rpc_tx_vtbl.spawn_arrakis_domain(cl, path, argstr, argstrlen,
                                         envstr, envstrlen, &msgerr, &domain_id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error sending arrakis request");
@@ -408,7 +391,7 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
     // TODO: handle flags, domain ID
     errval_t err = SYS_ERR_OK;
 
-    struct octopus_rpc_client *r = get_octopus_rpc_client();
+    struct octopus_binding *r = get_octopus_binding();
     if (r == NULL) {
         return LIB_ERR_NAMESERVICE_NOT_BOUND;
     }
@@ -419,7 +402,7 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
 
     static char* spawnds = "r'spawn.[0-9]+' { iref: _ }";
     struct octopus_get_names_response__rx_args reply;
-    err = r->vtbl.get_names(r, spawnds, NOP_TRIGGER, reply.output, &reply.tid,
+    err = r->rpc_tx_vtbl.get_names(r, spawnds, NOP_TRIGGER, reply.output, &reply.tid,
                             &reply.error_code);
     if (err_is_fail(err) || err_is_fail(reply.error_code)) {
         err = err_push(err, SPAWN_ERR_FIND_SPAWNDS);
@@ -458,14 +441,14 @@ out:
     return err;
 }
 
-errval_t spawn_rpc_client(coreid_t coreid, struct spawn_rpc_client **ret_client)
+errval_t spawn_binding(coreid_t coreid, struct spawn_binding **ret_client)
 {
     errval_t err = bind_client(coreid);
     if (err_is_fail(err)) {
         return err;
     }
 
-    *ret_client = get_spawn_rpc_client(coreid);
+    *ret_client = get_spawn_binding(coreid);
     return SYS_ERR_OK;
 }
 
@@ -480,10 +463,10 @@ errval_t spawn_kill(domainid_t domainid)
     if (err_is_fail(err)) {
         return err;
     }
-    struct spawn_rpc_client *cl = get_spawn_rpc_client(disp_get_core_id());
+    struct spawn_binding *cl = get_spawn_binding(disp_get_core_id());
     assert(cl != NULL);
 
-    err = cl->vtbl.kill(cl, domainid, &reterr);
+    err = cl->rpc_tx_vtbl.kill(cl, domainid, &reterr);
     if (err_is_fail(err)) {
         return err;
     }
@@ -502,10 +485,10 @@ errval_t spawn_exit(uint8_t exitcode)
     if (err_is_fail(err)) {
         return err;
     }
-    struct spawn_rpc_client *cl = get_spawn_rpc_client(disp_get_core_id());
+    struct spawn_binding *cl = get_spawn_binding(disp_get_core_id());
     assert(cl != NULL);
 
-    err = cl->vtbl.exit(cl, disp_get_domain_id(), exitcode);
+    err = cl->rpc_tx_vtbl.exit(cl, disp_get_domain_id(), exitcode);
     if (err_is_fail(err)) {
         return err;
     }
@@ -534,10 +517,10 @@ errval_t spawn_wait_core(coreid_t coreid, domainid_t domainid,
     if (err_is_fail(err)) {
         return err;
     }
-    struct spawn_rpc_client *cl = get_spawn_rpc_client(coreid);
+    struct spawn_binding *cl = get_spawn_binding(coreid);
     assert(cl != NULL);
 
-    err = cl->vtbl.wait(cl, domainid, nohang, exitcode, &reterr);
+    err = cl->rpc_tx_vtbl.wait(cl, domainid, nohang, exitcode, &reterr);
     if (err_is_fail(err)) {
         return err;
     }
@@ -560,15 +543,15 @@ errval_t spawn_get_domain_list(uint8_t **domains, size_t *len)
 {
     errval_t err;
 
-    struct spawn_rpc_client *cl;
-    err = spawn_rpc_client(disp_get_core_id(), &cl);
+    struct spawn_binding *cl;
+    err = spawn_binding(disp_get_core_id(), &cl);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "spawn_rpc_client");
+        USER_PANIC_ERR(err, "spawn_binding");
     }
     assert(cl != NULL);
 
     struct spawn_get_domainlist_response__rx_args reply;
-    err = cl->vtbl.get_domainlist(cl, reply.domains, len);
+    err = cl->rpc_tx_vtbl.get_domainlist(cl, reply.domains, len);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_domainlist");
     }
@@ -585,15 +568,15 @@ errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
 {
     errval_t err;
 
-    struct spawn_rpc_client *cl;
-    err = spawn_rpc_client(disp_get_core_id(), &cl);
+    struct spawn_binding *cl;
+    err = spawn_binding(disp_get_core_id(), &cl);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "spawn_rpc_client");
+        USER_PANIC_ERR(err, "spawn_binding");
     }
     assert(cl != NULL);
 
     struct spawn_status_response__rx_args reply;
-    err = cl->vtbl.status(cl, domain, (spawn_ps_entry_t *)pse, reply.argv,
+    err = cl->rpc_tx_vtbl.status(cl, domain, (spawn_ps_entry_t *)pse, reply.argv,
                           arglen, reterr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "status");
@@ -614,10 +597,10 @@ errval_t spawn_dump_capabilities(domainid_t domainid)
     if (err_is_fail(err)) {
         return err;
     }
-    struct spawn_rpc_client *cl = get_spawn_rpc_client(disp_get_core_id());
+    struct spawn_binding *cl = get_spawn_binding(disp_get_core_id());
     assert(cl != NULL);
 
-    err = cl->vtbl.dump_capabilities(cl, domainid, &reterr);
+    err = cl->rpc_tx_vtbl.dump_capabilities(cl, domainid, &reterr);
     if (err_is_fail(err)) {
         return err;
     }

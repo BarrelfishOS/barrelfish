@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
-#include <if/fb_rpcclient_defs.h>
+#include <if/fb_defs.h>
 #include <if/keyboard_defs.h>
 #include <barrelfish/nameservice_client.h>
 #include <vfs/vfs.h>
@@ -24,7 +24,7 @@
 
 #include "slideshow.h"
 
-static struct fb_rpc_client fb_client;
+static struct fb_binding *fb_client;
 static struct keyboard_binding *kb_client;
 
 static char *vidmem;    /// Pointer to video memory
@@ -36,7 +36,7 @@ static char fontbackup[65536];
 
 void wait_for_vsync(void)
 {
-    errval_t err = fb_client.vtbl.vsync(&fb_client);
+    errval_t err = fb_client->rpc_tx_vtbl.vsync(fb_client);
     assert(err_is_ok(err));
 }
 
@@ -47,7 +47,7 @@ void quit(void)
     // Restore font backup
     memcpy(vidmem, fontbackup, 65536);
 
-    err = fb_client.vtbl.set_vesamode(&fb_client, origmode, origlinear,
+    err = fb_client->rpc_tx_vtbl.set_vesamode(fb_client, origmode, origlinear,
                                       true, &ret);
     assert(err_is_ok(err));
     assert(err_is_ok(ret));
@@ -70,10 +70,8 @@ static void fb_connected_callback(void *st, errval_t err, struct fb_binding *b)
 {
     assert(err_is_ok(err));
 
-    err = fb_rpc_client_init(&fb_client, b);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "error in mem_rpc_client_init");
-    }
+    fb_client = b;
+    fb_rpc_client_init(fb_client);
 }
 
 static void start_keyboard_client(void)
@@ -240,19 +238,19 @@ int main(int argc, char *argv[])
     load_slides(argv[4]);
 
     // Get current video mode
-    err = fb_client.vtbl.get_vesamode(&fb_client, &origmode, &origlinear, &ret);
+    err = fb_client->rpc_tx_vtbl.get_vesamode(fb_client, &origmode, &origlinear, &ret);
     assert(err_is_ok(err));
     assert(err_is_ok(ret));
 
     // Set videomode
-    err = fb_client.vtbl.set_videomode(&fb_client, xres, yres, bpp, &ret);
+    err = fb_client->rpc_tx_vtbl.set_videomode(fb_client, xres, yres, bpp, &ret);
     assert(err_is_ok(err));
     assert(err_is_ok(ret));
 
     // Get and map framebuffer
     struct capref fbcap;
     uint32_t fboffset;
-    err = fb_client.vtbl.get_framebuffer(&fb_client, &ret, &fbcap, &fboffset);
+    err = fb_client->rpc_tx_vtbl.get_framebuffer(fb_client, &ret, &fbcap, &fboffset);
     assert(err_is_ok(err));
     assert(err_is_ok(ret));
 
