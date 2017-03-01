@@ -97,7 +97,7 @@ int vfsfd_read(int fd, void *buf, size_t len)
     case FDTAB_TYPE_FILE:
         {
             errval_t err = vfs_read((vfs_handle_t)e->handle, buf, len, &retlen);
-            VFSFD_DEBUG("%d : read(%d, %d) = %lu\n", disp_get_domain_id(), fd, len, retlen);
+            VFSFD_DEBUG("%d : read(%d, %zd) = %lu\n", disp_get_domain_id(), fd, len, retlen);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "error in vfs_read");
                 return -1;
@@ -129,7 +129,7 @@ int vfsfd_write(int fd, const void *buf, size_t len)
     case FDTAB_TYPE_FILE:
         {
             errval_t err = vfs_write((vfs_handle_t)e->handle, buf, len, &retlen);
-            VFSFD_DEBUG("write(%d, %d) = %lu\n", fd, len, retlen);
+            VFSFD_DEBUG("write(%d, %zd) = %lu\n", fd, len, retlen);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "error in vfs_write");
                 return -1;
@@ -232,7 +232,7 @@ off_t vfsfd_lseek(int fd, off_t offset, int whence)
                 return -1;
             }
 
-            VFSFD_DEBUG("lseek(%d, %lld, %d) = %lu\n",
+            VFSFD_DEBUG("lseek(%d, %ld, %d) = %lu\n",
                          fd, offset, whence, retpos);
 
             return retpos;
