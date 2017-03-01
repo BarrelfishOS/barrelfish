@@ -178,6 +178,19 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         _        1;
         T0SZ     6 "TTBR0_EL1 region size is 2^(64-T0SZ)";
     };
+    
+    register TCR_EL2 rw sysreg(TCR_EL2) "Translation Control Register (EL2)" {
+        _       11 "";
+        TBI      1 "Top Byte Ignored";
+        _        1 "";
+        PS       3 "Physical address size.";
+        TG0      2 "TTBR0_EL2 granule size";
+        SH0      2 "Shareability attribute for memory";
+        ORGN0    2 "Outer cacheability attribute for memory associated";
+        IRGN0    2 "Inner cacheability attribute for memory ";
+        _        2;
+        T0SZ     6 "TTBR0_EL1 region size is 2^(64-T0SZ)";
+    };
 
 
     register TTBCR rw sysreg(TTBCR) "Translation Table Base Control Register (32 bit)" {
