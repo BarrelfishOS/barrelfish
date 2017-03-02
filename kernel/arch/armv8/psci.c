@@ -17,31 +17,24 @@
 #include <stddef.h>
 #include <errno.h>
 
+#include <arch/arm/smc_hvc.h>
+
 #include <psci.h>
-
-
-struct psci_retval
-{
-    uintptr_t a0;
-    uintptr_t a1;
-};
-
-
-
-extern void invoke_arm_smc64(uintptr_t fn, uintptr_t a1, uintptr_t a2,
-                             uintptr_t a3, uintptr_t a4, uintptr_t a5,
-                             uintptr_t a6, uintptr_t a7, struct psci_retval *res);
 
 
 
 static inline void psci_invoke(psci_fn_t fn, uintptr_t arg0, uintptr_t arg1,
-                               uintptr_t arg2, struct psci_retval *ret_val)
+                               uintptr_t arg2, struct arm_smc_hvc_retval *ret_val)
 {
-    invoke_arm_smc64(fn, arg0, arg1, arg2, 0, 0, 0, 0, ret_val);
+    /*
+     * TODO: we need to distinguish between SMC and HVC instructions to
+     *       call the PSCI function
+     */
+    invoke_arm_smc(fn, arg0, arg1, arg2, 0, 0, 0, 0, ret_val);
 }
 
 
-static errval_t psci_error_to_barrelfish(struct psci_retval retval)
+static errval_t psci_error_to_barrelfish(struct arm_smc_hvc_retval retval)
 {
     int32_t err = (int32_t)(retval.a0 & 0xffffffff);
 
@@ -83,7 +76,7 @@ static errval_t psci_error_to_barrelfish(struct psci_retval retval)
  */
 errval_t psci_version(uint16_t *major, uint16_t *minor)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_VERSION, 0, 0, 0, &retval);
 
     uint32_t version = (uint32_t)retval.a0;
@@ -115,7 +108,7 @@ errval_t psci_version(uint16_t *major, uint16_t *minor)
 errval_t psci_cpu_suspend(uint32_t power_state, lpaddr_t entry_point,
                           uintptr_t context_id)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_CPU_SUSPEND, power_state, entry_point, context_id, &retval);
 
     return psci_error_to_barrelfish(retval);
@@ -132,7 +125,7 @@ errval_t psci_cpu_suspend(uint32_t power_state, lpaddr_t entry_point,
  */
 errval_t psci_cpu_off(void)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_CPU_OFF, 0, 0, 0, &retval);
 
     return psci_error_to_barrelfish(retval);
@@ -159,7 +152,7 @@ errval_t psci_cpu_off(void)
 errval_t psci_cpu_on(uintptr_t target_cpu, lpaddr_t entry_point,
                      uintptr_t context_id)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_CPU_ON, target_cpu, entry_point, context_id, &retval);
 
     return psci_error_to_barrelfish(retval);
@@ -174,7 +167,7 @@ errval_t psci_cpu_on(uintptr_t target_cpu, lpaddr_t entry_point,
  */
 errval_t psci_cpu_freeze(void)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_CPU_FREEZE, 0, 0, 0, &retval);
 
     return psci_error_to_barrelfish(retval);
@@ -192,7 +185,7 @@ errval_t psci_cpu_freeze(void)
 errval_t psci_cpu_default_suspend(lpaddr_t entry_point_address,
                                   uintptr_t context_id)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_CPU_DEFAULT_SUSPEND64, entry_point_address, context_id,
                 0, &retval);
 
@@ -213,7 +206,7 @@ errval_t psci_affinity_info(uintptr_t target_affinity,
                             uint32_t lowest_affinity_level,
                             psci_affinity_t *ret_info)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_AFFINITY_INFO64, target_affinity, lowest_affinity_level,
                 0, &retval);
 
@@ -240,7 +233,7 @@ errval_t psci_affinity_info(uintptr_t target_affinity,
  */
 errval_t psci_migrate(uintptr_t target_cpu)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_MIGRATE64, target_cpu, 0, 0, &retval);
 
     return psci_error_to_barrelfish(retval);
@@ -257,7 +250,7 @@ errval_t psci_migrate(uintptr_t target_cpu)
  */
 errval_t psci_migrate_info_type(psci_migrate_t *ret_migrate_type)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_MIGRATE_INFO_TYPE, 0, 0, 0, &retval);
 
     errval_t err = psci_error_to_barrelfish(retval);
@@ -280,7 +273,7 @@ errval_t psci_migrate_info_type(psci_migrate_t *ret_migrate_type)
  */
 errval_t psci_migrate_info_up_cpu(uintptr_t *ret_mpdir)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_MIGRATE_INFO_UP_CPU64, 0, 0, 0, &retval);
 
     errval_t err = psci_error_to_barrelfish(retval);
@@ -296,7 +289,7 @@ errval_t psci_migrate_info_up_cpu(uintptr_t *ret_mpdir)
  */
 void psci_system_off(void)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_SYSTEM_OFF, 0, 0, 0, &retval);
     panic("SHOULD NOT BE REACHED!\n");
 }
@@ -306,7 +299,7 @@ void psci_system_off(void)
  */
 void psci_system_reset(void)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_SYSTEM_REST, 0, 0, 0, &retval);
     panic("SHOULD NOT BE REACHED!\n");
 }
@@ -325,7 +318,7 @@ void psci_system_reset(void)
  */
 errval_t psci_system_suspend(lpaddr_t entry_point_address, uintptr_t context_id)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_SYSTEM_SUPSEND64, entry_point_address, context_id, 0,
                 &retval);
 
@@ -343,7 +336,7 @@ errval_t psci_system_suspend(lpaddr_t entry_point_address, uintptr_t context_id)
  */
 errval_t psci_features(uint32_t psci_fn_id, uint32_t *ret_feature_flags)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_PSCI_FEATURES, psci_fn_id, 0, 0, &retval);
 
     errval_t err = psci_error_to_barrelfish(retval);
@@ -370,7 +363,7 @@ errval_t psci_features(uint32_t psci_fn_id, uint32_t *ret_feature_flags)
 errval_t psci_node_hw_state(uintptr_t target_cpu, uint32_t power_level,
                             psci_node_hw_state_t *ret_node_hw)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_NODE_HW_STATE64, target_cpu, power_level,
                 0, &retval);
 
@@ -396,7 +389,7 @@ errval_t psci_node_hw_state(uintptr_t target_cpu, uint32_t power_level,
  */
 errval_t psci_set_suspend_mode(psci_suspend_mode_t mode)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_PSCI_SET_SUSPEND_MODE, mode, 0, 0, &retval);
 
     return psci_error_to_barrelfish(retval);
@@ -415,7 +408,7 @@ errval_t psci_set_suspend_mode(psci_suspend_mode_t mode)
 errval_t psci_stat_residency(uintptr_t target_cpu, uint32_t power_state,
                              uintptr_t *ret_residency)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_PSCI_STAT_RESIDENCY64, target_cpu, power_state,
             0, &retval);
 
@@ -440,7 +433,7 @@ errval_t psci_stat_residency(uintptr_t target_cpu, uint32_t power_state,
 errval_t psci_stat_count(uintptr_t target_cpu, uint32_t power_state,
                          uintptr_t *count)
 {
-    struct psci_retval retval;
+    struct arm_smc_hvc_retval retval;
     psci_invoke(PSCI_FN_PSCI_STAT_COUNT64, target_cpu, power_state,
             0, &retval);
 
