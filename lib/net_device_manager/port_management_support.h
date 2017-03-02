@@ -29,8 +29,9 @@ typedef errval_t (*register_filter_t)(uint16_t port,
                     bufid_t buffer_id_rx,
                     bufid_t buffer_id_tx,
                     appid_t appid,
-                    qid_t qid);
-typedef void (*deregister_filter_t)(uint64_t filter_id, qid_t qid);
+                    qid_t qid,
+                    uint64_t *id, errval_t *rerr, uint64_t *filter_id);
+typedef errval_t (*deregister_filter_t)(uint64_t filter_id, qid_t qid);
 
 
 // Struct to capture the signature of different filter managers
@@ -60,8 +61,8 @@ int init_ports_service(char *dev_name);
 
 // based on the response received from queue_manager,
 // report the success/failure of the call to an application
-void handle_filter_response(uint64_t id, errval_t err, uint64_t filter_id,
-        uint64_t buffer_id_rx, uint64_t buffer_id_tx, uint64_t ftype);
+//void handle_filter_response(uint64_t id, errval_t err, uint64_t filter_id,
+//        uint64_t buffer_id_rx, uint64_t buffer_id_tx, uint64_t ftype);
 
 
 // *****************************************************************
@@ -144,4 +145,3 @@ struct net_user *registerd_app_list;
 
 
 #endif // PORT_MNG_SUPPORT_H_
-

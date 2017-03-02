@@ -13,7 +13,6 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
-#include <contmng/contmng.h>
 #include <ipv4/lwip/inet.h>
 
 #include <if/sfn5122f_defs.h>
@@ -30,96 +29,9 @@
 /** Connection to sfn5122f management service */
 struct sfn5122f_binding *sfn5122f_binding = NULL;
 
-struct cont_queue *sfn5122f_c_queue = NULL;
-
-
 /******************************************************************************
  * Operations for filter interface
  ******************************************************************************/
-
-// Callback from sfn5122f
-static void idc_filter_registered(struct sfn5122f_binding *b,
-                                  uint64_t buf_id_rx,
-                                  uint64_t buf_id_tx,
-                                  errval_t err,
-                                  uint64_t filter)
-{
-    NDM_DEBUG("sfn5122f_idc_filter_registered(f=%"PRIu64" rx=%"PRIu64" tx=%"PRIu64
-            ")\n", filter, buf_id_rx, buf_id_tx);
-    handle_filter_response(filter, err, filter, buf_id_rx, buf_id_tx, 1);
-}
-
-// Callback from sfn5122f
-static void idc_filter_unregistered(struct sfn5122f_binding *b,
-                                    uint64_t filter,
-                                    errval_t err)
-{
-    NDM_DEBUG("sfn5122f_idc_filter_unregistered(%"PRIu64")\n", filter);
-}
-
-static errval_t send_register_port_filter(struct q_entry e)
-{
-    if (sfn5122f_binding->can_send(sfn5122f_binding)) {
-        return sfn5122f_binding->tx_vtbl.register_port_filter(
-                sfn5122f_binding, MKCONT(cont_queue_callback, sfn5122f_c_queue),
-                e.plist[0], e.plist[1], e.plist[2], e.plist[3], e.plist[4]);
-    } else {
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
-/** Register filter with sfn5122f card driver */
-static void idc_register_port_filter(uint64_t buf_id_rx,
-                                     uint64_t buf_id_tx,
-                                     uint16_t queue,
-                                     sfn5122f_port_type_t type,
-                                     uint16_t port)
-{
-    struct q_entry entry;
-    NDM_DEBUG("sfn5122f_idc_register_port_filter(q=%d p=%d rx=%"PRIu64" tx=%"
-            PRIu64")\n", queue, port, buf_id_rx, buf_id_tx);
-
-    memset(&entry, 0, sizeof(struct q_entry));
-
-    entry.handler = send_register_port_filter;
-    entry.binding_ptr = sfn5122f_binding;
-    entry.plist[0] = buf_id_rx;
-    entry.plist[1] = buf_id_tx;
-    entry.plist[2] = queue;
-    entry.plist[3] = type;
-    entry.plist[4] = port;
-
-    enqueue_cont_q(sfn5122f_c_queue, &entry);
-}
-
-static errval_t send_unregister_filter(struct q_entry e)
-{
-    if (sfn5122f_binding->can_send(sfn5122f_binding)) {
-        return sfn5122f_binding->tx_vtbl.unregister_filter(
-                sfn5122f_binding, MKCONT(cont_queue_callback, sfn5122f_c_queue),
-                e.plist[0]);
-    } else {
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-}
-
-/** Unregister filter with sfn5122f card driver */
-static void idc_unregister_filter(uint64_t filter)
-{
-    struct q_entry entry;
-    memset(&entry, 0, sizeof(struct q_entry));
-
-    entry.handler = send_unregister_filter;
-    entry.binding_ptr = sfn5122f_binding;
-    entry.plist[0] = filter;
-
-    enqueue_cont_q(sfn5122f_c_queue, &entry);
-}
-
-static struct sfn5122f_rx_vtbl rx_vtbl = {
-    .filter_registered = idc_filter_registered,
-    .filter_unregistered = idc_filter_unregistered,
-};
 
 // Callback for bind
 static void bind_cb(void *st, errval_t err, struct sfn5122f_binding *b)
@@ -128,10 +40,8 @@ static void bind_cb(void *st, errval_t err, struct sfn5122f_binding *b)
 
     NDM_DEBUG("Sucessfully connected to management interface\n");
 
-    b->rx_vtbl = rx_vtbl;
-
     sfn5122f_binding = b;
-    sfn5122f_c_queue = create_cont_q("sfn5122f_filters");
+    sfn5122f_rpc_client_init(sfn5122f_binding);
 }
 
 /** Open connection to management interface */
@@ -187,7 +97,8 @@ static errval_t reg_filters(uint16_t port,
                             bufid_t buffer_id_rx,
                             bufid_t buffer_id_tx,
                             appid_t appid,
-                            qid_t qid)
+                            qid_t qid,
+                            uint64_t *id, errval_t *rerr, uint64_t *filter_id)
 {
     sfn5122f_port_type_t t;
     assert(sfn5122f_binding != NULL);
@@ -199,18 +110,22 @@ static errval_t reg_filters(uint16_t port,
     } else {
         t = sfn5122f_PORT_UDP;
     }
-
-    idc_register_port_filter(buffer_id_rx, buffer_id_tx, qid, t, port);
+    errval_t err;
+    err = sfn5122f_binding->rpc_tx_vtbl.register_port_filter(sfn5122f_binding, buffer_id_rx, buffer_id_tx, qid, t, port, rerr, filter_id);
 
     return SYS_ERR_OK;
 }
 
-static void unreg_filters(uint64_t filter_id, qid_t qid)
+static errval_t unreg_filters(uint64_t filter_id, qid_t qid)
 {
     assert(sfn5122f_binding != NULL);
 
     NDM_DEBUG("sfn5122f_unreg_filters()\n");
-    idc_unregister_filter(filter_id);
+    errval_t err, rerr;
+    err = sfn5122f_binding->rpc_tx_vtbl.unregister_filter(sfn5122f_binding, filter_id, &rerr);
+    assert(err_is_ok(err));
+    
+    return rerr;
 }
 
 
@@ -230,5 +145,3 @@ struct filters_tx_vtbl *get_sfn5122f_filt_mng_sign(void)
 {
     return &sfn5122f_filts_mng;
 }
-
-

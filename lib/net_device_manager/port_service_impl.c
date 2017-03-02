@@ -14,9 +14,6 @@
 #include <if/net_soft_filters_defs.h>
 #include <if/net_ports_defs.h>
 
-// for handling contiuations
-#include <contmng/contmng.h>
-
 // standard libraries
 #include <stdio.h>
 #include <string.h>
@@ -45,19 +42,11 @@ static bool port_service_exported = false;
 struct net_user *registerd_app_list = NULL;
 
 /*****************************************************************
-// House-keeping prototypes
-*****************************************************************/
-
-static void wrapper_get_port_response(struct net_ports_binding *cc,
-                errval_t err, uint16_t port_no);
-static void wrapper_bind_port_response(struct net_ports_binding *cc,
-        errval_t err);
-static void wrapper_close_port_response(struct net_ports_binding *cc,
-            errval_t err);
-
-/*****************************************************************
 * Prototypes
 *****************************************************************/
+
+static void handle_filter_response(uint64_t id, errval_t err, uint64_t filter_id,
+        uint64_t buffer_id_rx, uint64_t buffer_id_tx, uint64_t ftype);
 
 static struct buffer_port_translation *find_filter_id(
             struct buffer_port_translation *port_list,
@@ -75,12 +64,14 @@ static struct buffer_port_translation *find_filter_id(
 //   *. Insert appropriate filter
 //   *. Once you get ack for filter being inserted successfully,
 //          send back the response (done by another funcation)
-static void get_port(struct net_ports_binding *cc,
+static errval_t get_port(struct net_ports_binding *cc,
                     port_type_t type,
                     bufid_t buffer_id_rx,
                     bufid_t buffer_id_tx,
                     appid_t appid,
-                    qid_t queueid);
+                    qid_t queueid,
+                    errval_t *err,
+                    uint16_t *port);
 
 // Allocates the specified port number to the application
 // To be used on server side who wants to listen on perticular port number
@@ -92,13 +83,14 @@ static void get_port(struct net_ports_binding *cc,
 //   *. Insert appropriate filter
 //   *. Once you get ack for filter being inserted successfully,
 //          send back the response (done by another funcation)
-static void bind_port(struct net_ports_binding *cc,
+static errval_t bind_port(struct net_ports_binding *cc,
                     port_type_t type,
                     uint16_t port_no,
                     bufid_t buffer_id_rx,
                     bufid_t buffer_id_tx,
                     appid_t appid,
-                    qid_t queueid);
+                    qid_t queueid,
+                    errval_t *err);
 
 
 // Close the specified port number
@@ -108,18 +100,19 @@ static void bind_port(struct net_ports_binding *cc,
 //   *. Send request to remove the filter
 //   *. Once you get ack for filter being removed successfully,
 //          send back the response (done by another funcation)
-static void close_port(struct net_ports_binding *cc,
+static errval_t close_port(struct net_ports_binding *cc,
                     port_type_t type,
                     uint16_t port_no,
                     uint64_t appid,
-                    uint64_t queueid);
+                    uint64_t queueid,
+                    errval_t *err);
 
 
 // Get the mac address for given machine
-static void get_mac_address(struct net_ports_binding *cc);
+static errval_t get_mac_address(struct net_ports_binding *cc, uint64_t *hwaddr);
 
 // service mappings
-static struct net_ports_rx_vtbl rx_net_ports_vtbl = {
+static struct net_ports_rpc_rx_vtbl rx_net_ports_vtbl = {
 //    .get_ip_info_call = get_ip_info,
     .get_mac_address_call = get_mac_address,
     .get_port_call = get_port,
@@ -150,8 +143,7 @@ static errval_t connect_ports_cb(void *st, struct net_ports_binding *b)
     registerd_app_list = new_net_app;
     b->st = (void *) new_net_app;
 
-    new_net_app->q = create_cont_q("NDM2APP");
-    b->rx_vtbl = rx_net_ports_vtbl;
+    b->rpc_rx_vtbl = rx_net_ports_vtbl;
     return err;
 } // end function: connect_ports_cb
 
@@ -279,10 +271,14 @@ static errval_t res_port(struct net_ports_binding *cc,
     // add this flow to the list of all flows for this app
     bp->next = this_net_app->open_ports;
     this_net_app->open_ports = bp;
-
+    
+    uint64_t id;
+    errval_t rerr;
+    uint64_t filter_id;
+    
     // FIXME: qlist[queueid].insert_rule();
     err = qlist[queueid].filt_mng->reg_filters(port, type, buffer_id_rx,
-            buffer_id_tx, appid, queueid);
+            buffer_id_tx, appid, queueid, &id, &rerr, &filter_id);
     if (err_is_fail(err)) {
         // close the port which was allocated
         free_port(port, type);
@@ -291,6 +287,8 @@ static errval_t res_port(struct net_ports_binding *cc,
         return err;
     } // end if: err
 
+    handle_filter_response(id, rerr, filter_id, buffer_id_rx, buffer_id_tx, type);
+            
     NDM_DEBUG("res_port: waiting for response\n");
     return err;
 } // end function: res_port
@@ -307,42 +305,43 @@ static errval_t res_port(struct net_ports_binding *cc,
 //   *. Insert appropriate filter
 //   *. Once you get ack for filter being inserted successfully,
 //          send back the response (done by another funcation)
-static void get_port(struct net_ports_binding *cc,
+static errval_t get_port(struct net_ports_binding *cc,
                     port_type_t type,
                     bufid_t buffer_id_rx,
                     bufid_t buffer_id_tx,
                     appid_t appid,
-                    qid_t queueid)
+                    qid_t queueid,
+                    errval_t *err,
+                    uint16_t *port)
 {
     NDM_DEBUG("get_port called\n");
 
-    errval_t err = SYS_ERR_OK;
-    uint16_t port;
+    *err = SYS_ERR_OK;
 
     /* FIXME: get free port from portalloc system */
     if (type == net_ports_PORT_TCP) {
-        port = alloc_tcp_port();
+        *port = alloc_tcp_port();
     } else {
-        port = alloc_udp_port();
+        *port = alloc_udp_port();
     }
 
     // If could not allocate the port
-    if (port == 0) {
-        err = PORT_ERR_NO_MORE_PORT;
+    if (*port == 0) {
+        *err = PORT_ERR_NO_MORE_PORT;
         NDM_DEBUG("all the ports for this user are allocated!\n");
-        wrapper_get_port_response(cc, err, 0);
-        return;
+        return SYS_ERR_OK;
     }
 
-    err = res_port(cc, port, type, buffer_id_rx, buffer_id_tx, appid, queueid,
+    *err = res_port(cc, *port, type, buffer_id_rx, buffer_id_tx, appid, queueid,
             false);
-    if (err_is_fail(err)) {
-        wrapper_get_port_response(cc, err, 0);
-        return;
+    if (err_is_fail(*err))
+    {
+        *port = 0;
+        return SYS_ERR_OK;
     }
 
     NDM_DEBUG("get_port: waiting for response\n");
-    return;
+    return SYS_ERR_OK;
 } // end function: get_port
 
 
@@ -356,17 +355,18 @@ static void get_port(struct net_ports_binding *cc,
 //   *. Insert appropriate filter
 //   *. Once you get ack for filter being inserted successfully,
 //          send back the response (done by another funcation)
-static void bind_port(struct net_ports_binding *cc,
+static errval_t bind_port(struct net_ports_binding *cc,
                     port_type_t type,
                     uint16_t port_no,
                     bufid_t buffer_id_rx,
                     bufid_t buffer_id_tx,
                     appid_t appid,
-                    qid_t queueid)
+                    qid_t queueid,
+                    errval_t *err)
 {
     // FIXME: too much of code repetation in get_port and bind_port. FIX it.
     NDM_DEBUG("bind_port called\n");
-    errval_t err = SYS_ERR_OK;
+    *err = SYS_ERR_OK;
     uint16_t port;
 
     NDM_DEBUG("bind_port: called for port %" PRIu16 " with RX[%" PRIu64
@@ -375,21 +375,16 @@ static void bind_port(struct net_ports_binding *cc,
     port = (uint64_t) alloc_specific_port((uint16_t) port_no, type);
 
     if (port == 0) {
-        err = PORT_ERR_IN_USE;
+        *err = PORT_ERR_IN_USE;
         NDM_DEBUG("Requested port is in use!\n");
-        wrapper_bind_port_response(cc, err);
-        return;
+        return SYS_ERR_OK;
     }
 
-    err = res_port(cc, port, type, buffer_id_rx, buffer_id_tx, appid, queueid,
+    *err = res_port(cc, port, type, buffer_id_rx, buffer_id_tx, appid, queueid,
             true);
-    if (err_is_fail(err)) {
-        wrapper_bind_port_response(cc, err);
-        return;
-    }
     NDM_DEBUG("bind_port: exiting\n");
 
-    return;
+    return SYS_ERR_OK;
 } // end function: bind_port
 
 
@@ -401,15 +396,16 @@ static void bind_port(struct net_ports_binding *cc,
 //   *. Send request to remove the filter
 //   *. Once you get ack for filter being removed successfully,
 //          send back the response (done by another funcation)
-static void close_port(struct net_ports_binding *cc,
+static errval_t close_port(struct net_ports_binding *cc,
                     port_type_t type,
                     uint16_t port_no,
                     uint64_t appid,
-                    uint64_t queueid)
+                    uint64_t queueid,
+                    errval_t *err)
 {
     NDM_DEBUG("close_port called\n");
 
-    errval_t err = SYS_ERR_OK;
+    *err = SYS_ERR_OK;
 
     NDM_DEBUG("close_port: called\n");
     struct buffer_port_translation *bp;
@@ -427,20 +423,19 @@ static void close_port(struct net_ports_binding *cc,
         // free(bp);
     } else {
         NDM_DEBUG("close_port: port not found\n");
-        err = PORT_ERR_NOT_FOUND;
-        wrapper_close_port_response(cc, err);
+        *err = PORT_ERR_NOT_FOUND;
     }
 
-    return;
+    return SYS_ERR_OK;
 } // end function: close_port
 
 
 // Get the mac address for given machine
-static void get_mac_address(struct net_ports_binding *cc)
+static errval_t get_mac_address(struct net_ports_binding *cc, uint64_t *hwaddr)
 {
     NDM_DEBUG("get_mac_address called\n");
     assert(!"get_mac_address: NYI");
-    return;
+    return SYS_ERR_OK;
 } // end function: get_mac_address
 
 
@@ -475,7 +470,7 @@ static struct buffer_port_translation *find_filter_id(struct
         status. It is some kind of IDC forwarding mechanism.
         (or a gateway for that matter)
 */
-void handle_filter_response(uint64_t id, errval_t err, uint64_t filter_id,
+static void handle_filter_response(uint64_t id, errval_t err, uint64_t filter_id,
         uint64_t buffer_id_rx, uint64_t buffer_id_tx, uint64_t ftype)
 {
     // FIXME: This is very ugly way to lookup the the request to be processed.
@@ -526,9 +521,9 @@ void handle_filter_response(uint64_t id, errval_t err, uint64_t filter_id,
                     assert(!"NYI filter redirect");
                     // idc_redirect_response(bp->st, err);
                 } else if (bp->bind) {
-                    wrapper_bind_port_response(bp->st, err);
+                    //// wrapper_bind_port_response(bp->st, err);
                 } else {
-                    wrapper_get_port_response(bp->st, err, bp->local_port);
+                    //// wrapper_get_port_response(bp->st, err);
                 }
 
                 // cleaning up
@@ -562,143 +557,3 @@ void handle_filter_response(uint64_t id, errval_t err, uint64_t filter_id,
     USER_PANIC("client buffer_id not found");
 
 } // end function: handle_filter_response
-
-
-
-/*****************************************************************
-* housekeeping functions
-* FIXME: move them in separate file
-*****************************************************************/
-#include <contmng/contmng.h>
-// get_port response: helper functions
-static errval_t send_new_port(struct q_entry e)
-{
-    struct net_ports_binding *b = (struct net_ports_binding *) e.binding_ptr;
-    struct net_user *nu = (struct net_user *) b->st;
-    assert(nu != NULL);
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.get_port_response(b,
-                            MKCONT(cont_queue_callback, nu->q),
-                            e.plist[0], e.plist[1]);
-        /*  e.err, e.port_no */
-    } else {
-        NDM_DEBUG("send_new_port: Flounder busy,rtry++\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-
-}
-
-static void wrapper_get_port_response(struct net_ports_binding *cc,
-                errval_t err, uint16_t port_no)
-{
-
-    NDM_DEBUG("wrapper_get_port_response: called\n");
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_new_port;
-    entry.binding_ptr = (void *) cc;
-
-    entry.plist[0] = err;
-    entry.plist[1] = port_no;
-
-    /*      e.plist[0], e.plist[1]
-       e.err,     e.port_no  */
-
-    struct net_user *nu = (struct net_user *) cc->st;
-    assert(nu != NULL);
-    enqueue_cont_q(nu->q, &entry);
-
-    NDM_DEBUG("wrapper_get_port_response: terminated\n");
-} // end function: wrapper_get_port_response
-
-
-// bind_port response: helper functions
-static errval_t send_bound_port(struct q_entry e)
-{
-    struct net_ports_binding *b = (struct net_ports_binding *) e.binding_ptr;
-    struct net_user *nu = (struct net_user *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.bind_port_response(b,
-                                             MKCONT(cont_queue_callback, nu->q),
-                                             e.plist[0]);
-        /* entry.err */
-    } else {
-        NDM_DEBUG("send_bound_port: Flounder busy,rtry++\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-
-}
-
-static void wrapper_bind_port_response(struct net_ports_binding *cc,
-        errval_t err)
-{
-
-    NDM_DEBUG("idc_bound_port: called\n");
-
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_bound_port;
-    entry.binding_ptr = (void *) cc;
-
-    entry.plist[0] = err;
-
-    /* plist[0]
-     * entry.err
-     */
-
-    struct net_user *nu = (struct net_user *) cc->st;
-    assert(nu != NULL);
-
-    enqueue_cont_q(nu->q, &entry);
-
-    NDM_DEBUG("idc_bound_port: terminated\n");
-}
-
-
-// close_port response: helper functions
-static errval_t send_close_port_response(struct q_entry e)
-{
-    struct net_ports_binding *b = (struct net_ports_binding *) e.binding_ptr;
-    struct net_user *nu = (struct net_user *) b->st;
-
-    if (b->can_send(b)) {
-        return b->tx_vtbl.close_port_response(b,
-                                              MKCONT(cont_queue_callback,
-                                                     nu->q), e.plist[0]);
-        /*  e.err */
-    } else {
-        NDM_DEBUG("send_close_port_response: Flounder busy,rtry++\n");
-        return FLOUNDER_ERR_TX_BUSY;
-    }
-
-} // end function: send_close_port_response
-
-static void wrapper_close_port_response(struct net_ports_binding *cc,
-            errval_t err)
-{
-
-    NDM_DEBUG("wrapper_close_port_response: called\n");
-    struct q_entry entry;
-
-    memset(&entry, 0, sizeof(struct q_entry));
-    entry.handler = send_close_port_response;
-    entry.binding_ptr = (void *) cc;
-
-    entry.plist[0] = err;
-
-    /*  e.plist[0]
-       e.err    */
-
-    struct net_user *nu = (struct net_user *) cc->st;
-
-    enqueue_cont_q(nu->q, &entry);
-
-    NDM_DEBUG("wrapper_close_port_response: terminated\n");
-}
-
-
-

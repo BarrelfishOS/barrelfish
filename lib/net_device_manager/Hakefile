@@ -17,7 +17,7 @@
                   flounderBindings = [ "net_soft_filters", "net_ports",
                                        "e10k", "sfn5122f" ],
                   flounderExtraBindings = [ ("net_soft_filters", ["rpcclient"])],
-                  addLibraries = [ "bfdmuxtools", "trace", "contmng"
+                  addLibraries = [ "bfdmuxtools", "trace"
 -- try to get rid of "lwip" as it is only used for hton[s/l]
                     , "lwip"
                   ]

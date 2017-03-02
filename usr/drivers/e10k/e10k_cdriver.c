@@ -1203,42 +1203,6 @@ static void idc_write_queue_tails(struct e10k_binding *b)
     assert(err_is_ok(r));
 }
 
-#ifndef LIBRARY
-/** Signal queue driver that the queue is stopped. */
-static void idc_queue_terminated(struct e10k_binding *b)
-{
-    errval_t r;
-    r = e10k_queue_terminated__tx(b, NOP_CONT);
-    // TODO: handle busy
-    assert(err_is_ok(r));
-}
-
-/** Send response about filter registration to device manager */
-static void idc_filter_registered(struct e10k_binding *b,
-                                  uint64_t buf_id_rx,
-                                  uint64_t buf_id_tx,
-                                  errval_t err,
-                                  uint64_t filter)
-{
-    errval_t r;
-    r = e10k_filter_registered__tx(b, NOP_CONT, buf_id_rx, buf_id_tx, err,
-                                   filter);
-    // TODO: handle busy
-    assert(err_is_ok(r));
-}
-
-/** Send response about filter deregistration to device manager */
-static void idc_filter_unregistered(struct e10k_binding *b,
-                                    uint64_t filter,
-                                    errval_t err)
-{
-    errval_t r;
-    r = e10k_filter_unregistered__tx(b, NOP_CONT, filter, err);
-    // TODO: handle busy
-    assert(err_is_ok(r));
-}
-#endif
-
 /** Request from queue driver for register memory cap */
 void cd_request_device_info(struct e10k_binding *b)
 {
@@ -1341,7 +1305,7 @@ void cd_set_interrupt_rate(struct e10k_binding *b,
  * Request from queue driver to stop hardware queue and free everything
  * associated with that queue.
  */
-static void idc_terminate_queue(struct e10k_binding *b, uint8_t n)
+static errval_t idc_terminate_queue(struct e10k_binding *b, uint8_t n)
 {
     DEBUG("idc_terminate_queue(q=%d)\n", n);
 
@@ -1351,15 +1315,17 @@ static void idc_terminate_queue(struct e10k_binding *b, uint8_t n)
     queues[n].binding = NULL;
 
     // TODO: Do we have to free the frame caps, or destroy the binding?
-    idc_queue_terminated(b);
+    return SYS_ERR_OK;
 }
 
-static void idc_register_port_filter(struct e10k_binding *b,
+static errval_t idc_register_port_filter(struct e10k_binding *b,
                                      uint64_t buf_id_rx,
                                      uint64_t buf_id_tx,
                                      uint8_t queue,
                                      e10k_port_type_t type,
-                                     uint16_t port)
+                                     uint16_t port,
+                                     errval_t *err,
+                                     uint64_t *filter)
 {
     struct e10k_filter f = {
         .dst_port = port,
@@ -1368,33 +1334,34 @@ static void idc_register_port_filter(struct e10k_binding *b,
         .priority = 1,
         .queue = queue,
     };
-    errval_t err;
-    uint64_t fid = -1ULL;
+    *filter = -1ULL;
 
     DEBUG("idc_register_port_filter: called (q=%d t=%d p=%d)\n",
             queue, type, port);
 
-    err = reg_ftfq_filter(&f, &fid);
-    DEBUG("filter registered: err=%"PRIu64", fid=%"PRIu64"\n", err, fid);
-
-    idc_filter_registered(b, buf_id_rx, buf_id_tx, err, fid);
+    *err = reg_ftfq_filter(&f, filter);
+    DEBUG("filter registered: err=%"PRIu64", fid=%"PRIu64"\n", *err, *filter);
+    return SYS_ERR_OK;
 }
 
-static void idc_unregister_filter(struct e10k_binding *b,
-                                  uint64_t filter)
+static errval_t idc_unregister_filter(struct e10k_binding *b,
+                                  uint64_t filter, errval_t *err)
 {
     DEBUG("unregister_filter: called (%"PRIx64")\n", filter);
-    idc_filter_unregistered(b, filter, LIB_ERR_NOT_IMPLEMENTED);
+    *err = LIB_ERR_NOT_IMPLEMENTED;
+    return SYS_ERR_OK;
 }
 
 static struct e10k_rx_vtbl rx_vtbl = {
     .request_device_info = cd_request_device_info,
     .register_queue_memory = cd_register_queue_memory,
     .set_interrupt_rate = cd_set_interrupt_rate,
-    .terminate_queue = idc_terminate_queue,
+};
 
-    .register_port_filter = idc_register_port_filter,
-    .unregister_filter = idc_unregister_filter,
+static struct e10k_rpc_rx_vtbl rpc_rx_vtbl = {
+    .terminate_queue_call = idc_terminate_queue,
+    .register_port_filter_call = idc_register_port_filter,
+    .unregister_filter_call = idc_unregister_filter,
 };
 
 
@@ -1417,6 +1384,7 @@ static errval_t connect_cb(void *st, struct e10k_binding *b)
 {
     DEBUG("New connection on management interface\n");
     b->rx_vtbl = rx_vtbl;
+    b->rpc_rx_vtbl = rpc_rx_vtbl;
     return SYS_ERR_OK;
 }
 

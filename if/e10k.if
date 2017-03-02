@@ -46,25 +46,19 @@ interface e10k "e10k queue management interface" {
     message write_queue_tails();
 
     /* Called by queue manager if it is done, and is going to terminate. */
-    message terminate_queue(qid id);
-    message queue_terminated();
+    rpc terminate_queue(in qid id);
 
     /*****************************************************
      * Filter management (used by device  manager library)
      *****************************************************/
 
-    message register_port_filter(uint64    buf_id_rx,
-                              uint64    buf_id_tx,
-                              qid       queue,
-                              port_type type,
-                              uint16    port);
-    message filter_registered(uint64    buf_id_rx,
-                               uint64    buf_id_tx,
-                               errval err,
-                               uint64 filter);
+    rpc register_port_filter(in uint64    buf_id_rx,
+                              in uint64    buf_id_tx,
+                              in qid       queue,
+                              in port_type type,
+                              in uint16    port,
+                              out errval rerr,
+                              out uint64 filter);
 
-    message unregister_filter(uint64 filter);
-    message filter_unregistered(uint64 filter, errval err);
-
-                            
+    rpc unregister_filter(in uint64 filter, out errval rerr);
 };

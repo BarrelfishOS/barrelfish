@@ -133,7 +133,7 @@ static bool standalone = false;
 static struct e10k_binding *binding = NULL;
 
 /** Queue index for this manager instance */
-int qi = -1;
+int queue_index = -1;
 
 /** Mackerel handle for device */
 #ifndef VF
@@ -143,7 +143,7 @@ static e10k_vf_t *d = NULL;
 #endif
 
 /** Queue handle for queue management library */
-static e10k_queue_t *q;
+static e10k_queue_t *queue_handle;
 
 /** MAC address to be used */
 static uint64_t mac_address = 0;
@@ -178,7 +178,7 @@ static bool use_rsc = false;
 static bool use_msix = false;
 
 /** Indicates whether or the VT-d should be used for DMA remapping.*/
-static bool use_vtd = false; 
+static bool use_vtd = false;
 
 /** Minimal delay between interrupts in us */
 static uint16_t interrupt_delay = 0;
@@ -212,7 +212,7 @@ static void queue_debug(const char* fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
-    printf("e10k.q%d: ", qi);
+    printf("e10k.queue_handle%d: ", queue_index);
     vprintf(fmt, va);
     va_end(va);
 }
@@ -387,11 +387,11 @@ bool e1000n_queue_empty(void)
     uint32_t tail, head;
 
 #ifndef VF
-    tail = e10k_tdt_rd(d, qi);
-    head = e10k_tdh_rd(d, qi);
+    tail = e10k_tdt_rd(d, queue_index);
+    head = e10k_tdh_rd(d, queue_index);
 #else
-    tail = e10k_vf_vftdt_rd(d, qi);
-    head = e10k_vf_vftdh_rd(d, qi);
+    tail = e10k_vf_vftdt_rd(d, queue_index);
+    head = e10k_vf_vftdh_rd(d, queue_index);
 #endif
 
     return (head == tail);
@@ -432,13 +432,13 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
             l4t = e10k_q_udp;
             l4len = UDPHDR_LEN;
         }
-        e10k_queue_add_txcontext(q, 0, ETHHDR_LEN, IPHDR_LEN, l4len, l4t);
+        e10k_queue_add_txcontext(queue_handle, 0, ETHHDR_LEN, IPHDR_LEN, l4len, l4t);
 
 	if (use_vtd) {
-	    e10k_queue_add_txbuf_ctx(q, (lvaddr_t)buffers[0].va, buffers[0].len,
+	    e10k_queue_add_txbuf_ctx(queue_handle, (lvaddr_t)buffers[0].va, buffers[0].len,
 				     buffers[0].opaque, 1, (count == 1), totallen, 0, true, l4len != 0);
 	} else {
-            e10k_queue_add_txbuf_ctx(q, buffers[0].pa, buffers[0].len,
+            e10k_queue_add_txbuf_ctx(queue_handle, buffers[0].pa, buffers[0].len,
                 buffers[0].opaque, 1, (count == 1), totallen, 0, true, l4len != 0);
         }
         start++;
@@ -446,15 +446,15 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
 
     for (i = start; i < count; i++) {
         if (use_vtd) {
-	    e10k_queue_add_txbuf(q, (lvaddr_t)buffers[i].va, buffers[i].len,
+	    e10k_queue_add_txbuf(queue_handle, (lvaddr_t)buffers[i].va, buffers[i].len,
 				 buffers[i].opaque, (i == 0), (i == count - 1), totallen);
 	} else {
-            e10k_queue_add_txbuf(q, buffers[i].pa, buffers[i].len,
+            e10k_queue_add_txbuf(queue_handle, buffers[i].pa, buffers[i].len,
                 buffers[i].opaque, (i == 0), (i == count - 1), totallen);
         }
     }
 
-    e10k_queue_bump_txtail(q);
+    e10k_queue_bump_txtail(queue_handle);
 #if TRACE_ETHERSRV_MODE
     trace_event(TRACE_SUBSYS_NNET, TRACE_EVENT_NNET_DRV_SEE, 0);
 #endif // TRACE_ETHERSRV_MODE
@@ -465,14 +465,14 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
 
 static uint64_t find_tx_free_slot_count_fn(void)
 {
-    return e10k_queue_free_txslots(q);
+    return e10k_queue_free_txslots(queue_handle);
 }
 
 static bool handle_free_tx_slot_fn(void)
 {
     void *op;
 
-    if (e10k_queue_get_txbuf(q, &op) != 0) {
+    if (e10k_queue_get_txbuf(queue_handle, &op) != 0) {
         return false;
     }
 
@@ -510,11 +510,11 @@ static errval_t register_rx_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
     /* printf("Got %p from stack\n", opaque); */
     DEBUG("register_rx_buffer_fn: called\n");
     if (use_vtd) {
-        e10k_queue_add_rxbuf(q, (lvaddr_t)vaddr, opaque);
+        e10k_queue_add_rxbuf(queue_handle, (lvaddr_t)vaddr, opaque);
     } else {
-        e10k_queue_add_rxbuf(q, paddr, opaque);
+        e10k_queue_add_rxbuf(queue_handle, paddr, opaque);
     }
-    e10k_queue_bump_rxtail(q);
+    e10k_queue_bump_rxtail(queue_handle);
 
     DEBUG("register_rx_buffer_fn: terminated\n");
     return SYS_ERR_OK;
@@ -522,7 +522,7 @@ static errval_t register_rx_buffer_fn(uint64_t paddr, void *vaddr, void *opaque)
 
 static uint64_t find_rx_free_slot_count_fn(void)
 {
-    return e10k_queue_free_rxslots(q);
+    return e10k_queue_free_rxslots(queue_handle);
 }
 
 static size_t check_for_new_packets(int num)
@@ -559,8 +559,8 @@ static size_t check_for_new_packets(int num)
 #ifndef VF
 #if 0
     // Check if queue runs too full
-    int rdtp = e10k_rdt_1_rd(d, qi);
-    int rdhp = e10k_rdh_1_rd(d, qi);
+    int rdtp = e10k_rdt_1_rd(d, queue_index);
+    int rdhp = e10k_rdh_1_rd(d, queue_index);
     if(rdtp < rdhp) {
         if(NRXDESCS - (rdhp - rdtp) < 10) {
             printf("Running low on receive buffers! rdhp = %u, rdtp = %u\n", rdhp, rdtp);
@@ -578,7 +578,7 @@ static size_t check_for_new_packets(int num)
     count = 0;
     pkt_cnt = 0;
     
-    while ((res = e10k_queue_get_rxbuf(q, &op, &len, &last, &flags)) == 0 ||
+    while ((res = e10k_queue_get_rxbuf(queue_handle, &op, &len, &last, &flags)) == 0 ||
            pkt_cnt != 0)
     {
         if (res != 0) continue;
@@ -587,7 +587,7 @@ static size_t check_for_new_packets(int num)
 #endif // TRACE_ETHERSRV_MODE
 
 
-        DEBUG("New packet (q=%d f=%"PRIx64")\n", qi, flags);
+        DEBUG("New packet (queue_handle=%d f=%"PRIx64")\n", queue_index, flags);
 
         buf[pkt_cnt].opaque = op;
         buf[pkt_cnt].len = len;
@@ -607,7 +607,7 @@ static size_t check_for_new_packets(int num)
         flags = 0;
     }
 
-    if (count > 0) e10k_queue_bump_rxtail(q);
+    if (count > 0) e10k_queue_bump_rxtail(queue_handle);
     return count;
 }
 
@@ -624,9 +624,9 @@ static errval_t update_txtail(void *opaque, size_t tail)
     assert(d != NULL);
 
 #ifndef VF
-    e10k_tdt_wr(d, qi, tail);
+    e10k_tdt_wr(d, queue_index, tail);
 #else
-    e10k_vf_vftdt_wr(d, qi, tail);
+    e10k_vf_vftdt_wr(d, queue_index, tail);
 #endif
     return SYS_ERR_OK;
 }
@@ -636,9 +636,9 @@ static errval_t update_rxtail(void *opaque, size_t tail)
     assert(d != NULL);
 
 #ifndef VF
-    e10k_rdt_1_wr(d, qi, tail);
+    e10k_rdt_1_wr(d, queue_index, tail);
 #else
-    e10k_vf_vfrdt_wr(d, qi, tail);
+    e10k_vf_vfrdt_wr(d, queue_index, tail);
 #endif
     return SYS_ERR_OK;
 }
@@ -704,7 +704,7 @@ static void setup_queue(void)
     }
 
     // Initialize queue manager
-    q = e10k_queue_init(tx_virt, NTXDESCS, txhwb_virt, rx_virt, NRXDESCS, &ops,
+    queue_handle = e10k_queue_init(tx_virt, NTXDESCS, txhwb_virt, rx_virt, NRXDESCS, &ops,
                         NULL);
 
 
@@ -732,11 +732,11 @@ static void setup_queue(void)
     }
 
     if (use_vtd) {
-        idc_register_queue_memory(qi, tx_frame, txhwb_frame, rx_frame, RXBUFSZ,
+        idc_register_queue_memory(queue_index, tx_frame, txhwb_frame, rx_frame, RXBUFSZ,
                                   vector, core, (lvaddr_t)tx_virt, (lvaddr_t)rx_virt,
                                   (lvaddr_t)txhwb_virt);
     } else {
-        idc_register_queue_memory(qi, tx_frame, txhwb_frame, rx_frame, RXBUFSZ,
+        idc_register_queue_memory(queue_index, tx_frame, txhwb_frame, rx_frame, RXBUFSZ,
                                   vector, core, 0, 0, 0);
     }
 }
@@ -744,7 +744,7 @@ static void setup_queue(void)
 /** Hardware queue initialized in card driver */
 static void hwqueue_initialized(void)
 {
-    idc_set_interrupt_rate(qi, interrupt_delay);
+    idc_set_interrupt_rate(queue_index, interrupt_delay);
 }
 
 /** Terminate this queue driver */
@@ -830,16 +830,37 @@ static void idc_set_interrupt_rate(uint8_t queue, uint16_t rate)
 /** Tell card driver to stop this queue. */
 static void idc_terminate_queue(void)
 {
-    errval_t r;
     INITDEBUG("idc_terminate_queue()\n");
 
     if (!standalone) {
         USER_PANIC("Terminating monolithic driver is not a good idea");
     }
 
-    r = e10k_terminate_queue__tx(binding, NOP_CONT, qi);
+    errval_t err;
+    err = binding->rpc_tx_vtbl.terminate_queue(binding, queue_index);
+    assert(err_is_ok(err));
     // TODO: handle busy
-    assert(err_is_ok(r));
+
+    INITDEBUG("idc_queue_terminated()\n");
+
+    // Free memory for hardware ring buffers
+    err = vspace_unmap(queue_handle->tx_ring);
+    assert(err_is_ok(err));
+    err = vspace_unmap(queue_handle->rx_ring);
+    assert(err_is_ok(err));
+    err = cap_delete(tx_frame);
+    assert(err_is_ok(err));
+    err = cap_delete(rx_frame);
+    assert(err_is_ok(err));
+
+    if (!capref_is_null(txhwb_frame)) {
+        err = vspace_unmap(queue_handle->tx_hwb);
+        assert(err_is_ok(err));
+        err = cap_delete(txhwb_frame);
+        assert(err_is_ok(err));
+    }
+
+    exit(0);
 }
 
 // Callback from device manager
@@ -881,12 +902,12 @@ void qd_queue_memory_registered(struct e10k_binding *b)
 
     // Register queue with queue_mgr library
 #ifndef LIBRARY
-    ethersrv_init((char*) service_name, qi, get_mac_addr_fn, terminate_queue_fn,
+    ethersrv_init((char*) service_name, queue_index, get_mac_addr_fn, terminate_queue_fn,
         transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
         handle_free_tx_slot_fn, RXBUFSZ, register_rx_buffer_fn,
         find_rx_free_slot_count_fn);
 #else
-    ethernetif_backend_init((char*) service_name, qi, get_mac_addr_fn, terminate_queue_fn,
+    ethernetif_backend_init((char*) service_name, queue_index, get_mac_addr_fn, terminate_queue_fn,
         transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
         handle_free_tx_slot_fn, RXBUFSZ, register_rx_buffer_fn,
         find_rx_free_slot_count_fn);
@@ -898,43 +919,16 @@ void qd_write_queue_tails(struct e10k_binding *b)
 {
     INITDEBUG("idc_write_queue_tails()\n");
 
-    e10k_queue_bump_rxtail(q);
-    e10k_queue_bump_txtail(q);
+    e10k_queue_bump_rxtail(queue_handle);
+    e10k_queue_bump_txtail(queue_handle);
 }
 
 #ifndef LIBRARY
-// Callback from device manager
-static void idc_queue_terminated(struct e10k_binding *b)
-{
-    errval_t err;
-
-    INITDEBUG("idc_queue_terminated()\n");
-
-    // Free memory for hardware ring buffers
-    err = vspace_unmap(q->tx_ring);
-    assert(err_is_ok(err));
-    err = vspace_unmap(q->rx_ring);
-    assert(err_is_ok(err));
-    err = cap_delete(tx_frame);
-    assert(err_is_ok(err));
-    err = cap_delete(rx_frame);
-    assert(err_is_ok(err));
-
-    if (!capref_is_null(txhwb_frame)) {
-        err = vspace_unmap(q->tx_hwb);
-        assert(err_is_ok(err));
-        err = cap_delete(txhwb_frame);
-        assert(err_is_ok(err));
-    }
-
-    exit(0);
-}
 
 static struct e10k_rx_vtbl rx_vtbl = {
     .queue_init_data = qd_queue_init_data,
     .queue_memory_registered = qd_queue_memory_registered,
     .write_queue_tails = qd_write_queue_tails,
-    .queue_terminated = idc_queue_terminated,
 };
 
 static void bind_cb(void *st, errval_t err, struct e10k_binding *b)
@@ -989,7 +983,7 @@ void qd_argument(const char *arg)
         service_name = arg + strlen("cardname=");
         ethersrv_argument(arg);
     } else if (strncmp(arg, "queue=", strlen("queue=") - 1) == 0) {
-        qi = atol(arg + strlen("queue="));
+        queue_index = atol(arg + strlen("queue="));
         ethersrv_argument(arg);
     } else if (strncmp(arg, "cache_coherence=",
                        strlen("cache_coherence=") - 1) == 0) {
@@ -1121,7 +1115,7 @@ void qd_interrupt(bool is_rx, bool is_tx)
 void qd_main(void)
 {
     // Validate some settings
-    if (qi == -1) {
+    if (queue_index == -1) {
         USER_PANIC("For queue driver the queue= parameter has to be specified "
                    "on the command line!");
     }
