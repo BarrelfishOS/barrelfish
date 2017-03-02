@@ -26,6 +26,7 @@
 
 \begin{versionhistory}
 \vhEntry{0.1}{28.02.2017}{GZ}{Initial Version}
+\vhEntry{0.1}{02.03.2017}{RA}{Adding basic structure}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -57,6 +58,98 @@
 
 \chapter{Introduction}
 \label{chap:introduction}
+
+This document describes the way Barrelfish boots secondary cores on supported 
+architectures.
+
+\chapter{Generic Operations}
+\label{chap:generic}
+
+\section{Terminology}
+\begin{itemize}
+    \item OLD cpudriver
+    \item NEW cpudriver
+    \item KCB
+    \item bootdriver
+\end{itemize}
+
+\section{Boot process}
+\begin{enumerate}
+    \item Instantiation of a boot driver for a \emph{specific} core.
+    \item Invoking the operations of the boot driver
+    \item opt: Removing the old cpu driver
+    \item (re)start core with the new CPU driver
+\end{enumerate}
+
+\section{CPU Capability}
+\todo{Figure out how we can integrate the right to boot/reset etc. into the 
+    cap system. CF. interrupt capabilities}
+
+\section{Components}
+
+\subsection{Bootdriver}
+\begin{itemize}
+    \item Input args: information about the core it's responsible, capabilities
+    \item Exported interface: (cf. cpuboot operations)
+\end{itemize}
+
+
+\subsubsection{Operations (current)}
+\begin{itemize}
+\item boot: Boot a fresh core with a KCB. "boot <target coreid>"
+\item update: Update the kernel on an existing core. "update <target coreid>"
+\item stop: Stop execution on an existing core. "stop <target coreid>"
+\item give: Give kcb from one core to another. "give <from kcbid> <to kcbid>",
+\item rmkcb: Remove a running KCB from a core. "rm <kcbid>",
+\item park: Stop execution on an existing core and park KCB on another core.",
+    "park <kcbid to stop> <recv kcbid>"
+\item unpark: Reestablish parked KCB on its original core."unpark <kcbid to 
+unpark>"
+\item lscpu: List current status of all cores. "lscpu"
+\item lskcb: List current KCBs. "lskcb"
+\end{itemize}
+
+
+
+
+
+\chapter{Booting x86 Cores}
+\label{chap:x86}
+\todo{explain x86 specific boot arguements / protocols}
+
+\section{Core discovery and identification}
+
+\section{Booting a new core}
+
+\chapter{Booting ARMv7 Cores}
+\label{chap:armv7}
+\todo{explain ARMv7 specific boot arguements / protocols}
+
+\section{Core discovery and identification}
+
+\section{Booting a new core}
+
+\chapter{Booting ARMv8 Cores}
+\label{chap:armv8}
+
+\todo{explain ARMv8 specific boot arguements / protocols}
+
+\section{Core discovery and identification}
+
+\section{Booting a new core}
+% 
+%http://infocenter.arm.com/help/topic/com.arm.doc.den0044b/DEN0044B_Server_Base_Boot_Requirements.pdf
+
+\subsection{Power State Coordination Interface (PSCI)}
+
+% 
+%http://infocenter.arm.com/help/topic/com.arm.doc.den0022c/DEN0022C_Power_State_Coordination_Interface.pdf
+
+\subsection{Parking Protocol}
+%https://acpica.org/sites/acpica/files/MP%20Startup%20for%20ARM%20platforms.doc
+
+\subsection{All at once}
+Raspberry Pi
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
