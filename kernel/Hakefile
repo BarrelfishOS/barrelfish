@@ -578,7 +578,7 @@ let
         "arch/armv8/efiboot.S",
         "arch/armv8/sysreg.S",
         "arch/armv8/exceptions.S",
-        "arch/armv8/smc.S"
+        "arch/armv8/smc_hvc.S"
      ],
      cFiles = [
          "arch/arm/misc.c",

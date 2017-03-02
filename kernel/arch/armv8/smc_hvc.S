@@ -10,29 +10,32 @@
 #include <asmoffsets.h>
 #include <offsets.h>
 
-#define ARM_SMCCC_QUIRK_NONE        0
-#define ARM_SMCCC_QUIRK_QCOM_A6     1 /* Save/restore register a6 */
 
-.global invoke_arm_smc64
-.global invoke_arm_hvc64
+.global invoke_arm_smc
+.global invoke_arm_hvc
 
 /*
- * void invoke_arm_smc(uintptr_t fn, uintptr_t a1, uintptr_t a2,
- *                     uintptr_t a3, uintptr_t a4, uintptr_t a5,
- *                     uintptr_t a6, uintptr_t a7, struct psci_retval *res);
+ * We use the firest 8 arguments to be passed through the registers and
+ * the address of the struct to hold the return values on the stack
  */
-invoke_arm_smc64:
+
+/*
+ * void invoke_arm_smc(uintptr_t a0, uintptr_t a1, uintptr_t a2,
+ *                     uintptr_t a3, uintptr_t a4, uintptr_t a5,
+ *                     uintptr_t a6, uintptr_t a7, struct arm_smc_hvc_retval *res);
+ */
+invoke_arm_smc:
     smc  #0
     ldr x4, [sp]
     stp x0, x1, [x4]
     ret
 
 /*
- * void invoke_arm_smc(uintptr_t fn, uintptr_t a1, uintptr_t a2,
+ * void invoke_arm_hvc(uintptr_t a0, uintptr_t a1, uintptr_t a2,
  *                     uintptr_t a3, uintptr_t a4, uintptr_t a5,
- *                     uintptr_t a6, uintptr_t a7, struct psci_retval *res,);
+ *                     uintptr_t a6, uintptr_t a7, struct arm_smc_hvc_retval *res,);
  */
-invoke_arm_hvc64:
+invoke_arm_hvc:
     hvc  #0
     ldr x4, [sp]
     stp x0, x1, [x4]
