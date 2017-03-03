@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2012, ETH Zurich.
+ * Copyright (c) 2012, 2017 ETH Zurich.
  * Copyright (c) 2015, 2016 Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
@@ -29,6 +29,8 @@ struct armv8_coredata_elf {
  *
  */
 struct armv8_core_data {
+    lpaddr_t stack;
+    lpaddr_t l0_pagetable;
     lpaddr_t multiboot2; ///< The physical multiboot2 location
     uint64_t multiboot2_size;
     lpaddr_t efi_mmap;
