@@ -183,7 +183,7 @@ int init_all_interrupt_sources(void)
                                    barrelfish_id,
                                    gi->Flags & ACPI_MADT_ENABLED,
                                    barrelfish_id,
-                                   gi->CpuInterfaceNumber,
+                                   gi->ArmMpidr,
                                    CURRENT_CPU_TYPE,
                                    gi->CpuInterfaceNumber,
                                    gi->Uid,
