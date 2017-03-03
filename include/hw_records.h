@@ -15,6 +15,8 @@
 #ifndef INCLUDE_HW_RECORDS_ARCH_H_
 #define INCLUDE_HW_RECORDS_ARCH_H_
 
+#include <barrelfish_kpi/types.h>
+
 /*
  * ===========================================================================
  * Generic Processor Record
@@ -30,8 +32,8 @@
  * @brief the generic fields of a processor record
  */
 #define HW_PROCESSOR_GENERIC_FIELDS "enabled: %d, " \
-                                    "barrelfish_id: %d, " \
-                                    "hw_id: %d, " \
+                                    "barrelfish_id: %" PRIuCOREID ", " \
+                                    "hw_id: %" PRIuHWID ", " \
                                     "type: %d"
 
 /**

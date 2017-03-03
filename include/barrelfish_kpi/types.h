@@ -100,6 +100,11 @@ typedef coreid_t nodeid_t;
 #define MAX_NODEID 255
 #endif
 
+/* hardware id (apic, mpdir, ...) */
+typedef uint64_t hwid_t;
+#define PRIuHWID PRIu64
+#define PRIxHWID PRIx64
+
 /* ID capability ID */
 // Returned if IDCmd_Identify is invoked on an ID capability.
 typedef uint64_t idcap_id_t;
