@@ -55,7 +55,7 @@ extern coreid_t my_arch_id;
 extern struct capref ipi_cap;
 extern uint64_t end;
 
-errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_type)
+errval_t get_core_info(coreid_t core_id, hwid_t* apic_id, enum cpu_type* cpu_type)
 {
 #if  defined(__k1om__)
     size_t step = 4;
@@ -74,15 +74,14 @@ errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_t
         goto out;
     }
 
-    uint64_t apic, enabled, type;
+    uint64_t enabled, type;
     err = oct_read(record, "_ { apic_id: %d, enabled: %d, type: %d}",
-                   &apic, &enabled, &type);
+                   &apic_id, &enabled, &type);
     assert (enabled);
     if (err_is_fail(err)) {
         goto out;
     }
 
-    *apic_id = (archid_t) apic;
     *cpu_type = (enum cpu_type) type;
 out:
     return err;
@@ -506,7 +505,7 @@ static errval_t relocate_cpu_binary(lvaddr_t cpu_binary,
     return SYS_ERR_OK;
 }
 
-errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
+errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
                              enum cpu_type cpu_type,
                              const char *cmdline,
                              struct frame_identity urpc_frame_id,

@@ -38,19 +38,18 @@ extern coreid_t my_arch_id;
 extern struct capref ipi_cap;
 
 errval_t get_core_info(coreid_t core_id, 
-                       archid_t* hw_id, 
+                       hwid_t* hw_id,
                        enum cpu_type* cpu_type) {
     char* record = NULL;
     errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
     if (err_is_fail(err)) return err;
 
-    int apic, enabled, type;
+    int enabled, type;
     err = oct_read(record, "_ { hw_id: %d, enabled: %d, type: %d}",
-                   &apic, &enabled, &type);
+                   &hw_id, &enabled, &type);
     assert (enabled);
     if (err_is_fail(err)) return err;
 
-    *hw_id = (archid_t) apic;
     *cpu_type = (enum cpu_type) type;
     return SYS_ERR_OK;
 }
@@ -459,7 +458,7 @@ load_cpu_relocatable_segment(void *elfdata, void *out, lvaddr_t vbase,
 }
 
 /* XXX - this currently only clones the running kernel. */
-errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, 
+errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
                              enum cpu_type cpu_type,
                              const char *cmdline,
                              struct frame_identity urpc_frame_id,

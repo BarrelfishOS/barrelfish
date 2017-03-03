@@ -210,7 +210,7 @@ static int boot_cpu(int argc, char **argv)
     for (coreid_t target_id = core_from; target_id<=core_to; target_id += core_step) {
         assert(target_id < MAX_COREID);
 
-        archid_t target_apic_id;
+        hwid_t target_apic_id;
         enum cpu_type cpu_type;
         errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
         if (err_is_fail(err)) {
@@ -259,7 +259,7 @@ static int update_cpu(int argc, char** argv)
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
 
-    archid_t target_apic_id;
+    hwid_t target_apic_id;
     enum cpu_type cpu_type;
     errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
     if (err_is_fail(err)) {
@@ -308,7 +308,7 @@ static int stop_cpu(int argc, char** argv)
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
 
-    archid_t target_apic_id;
+    hwid_t target_apic_id;
     enum cpu_type cpu_type;
     errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
     if (err_is_fail(err)) {

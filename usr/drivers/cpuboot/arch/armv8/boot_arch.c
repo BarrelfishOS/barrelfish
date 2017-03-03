@@ -28,215 +28,315 @@
 
 #include "../../coreboot.h"
 
-#define ARMV8_MONITOR_NAME "/" BF_BINARY_PREFIX "armv8/sbin/monitor"
-
-volatile uint64_t *ap_dispatch;
 extern coreid_t my_arch_id;
-extern struct capref ipi_cap;
-extern uint64_t end;
 
 
-errval_t get_architecture_config(enum cpu_type type,
-                                 genpaddr_t *arch_page_size,
-                                 const char **monitor_binary,
-                                 const char **cpu_binary)
+static errval_t get_arch_config(hwid_t hwid,
+                                genpaddr_t *arch_page_size,
+                                const char *monitor_binary,
+                                const char *cpu_binary)
 {
     errval_t err;
 
-    struct monitor_blocking_rpc_client *m = get_monitor_blocking_rpc_client();
-    assert(m != NULL);
-
-    uint32_t arch, platform;
-    err = m->vtbl.get_platform(m, &arch, &platform);
+    err = skb_client_connect();
     if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Connect to SKB.");
+    }
+
+    /* Query the SKB for the CPU driver to use. */
+    err= skb_execute_query("cpu_driver(S), write(res(S)).");
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "skb_execute_query");
         return err;
     }
-    assert(arch == PI_ARCH_ARMV8A);
+    err= skb_read_output("res(%255[^)])", cpu_binary);
+    if (err_is_fail(err)) return err;
 
-    switch(platform) {
-    case PI_PLATFORM_FVP:
-        *cpu_binary = "/" BF_BINARY_PREFIX "armv8/sbin/cpu_a53v";
-        break;
-    case PI_PLATFORM_APM88XXXX:
-        *cpu_binary = "/" BF_BINARY_PREFIX "armv8/sbin/cpu_apm88xxxx";
-        break;
-    case PI_PLATFORM_CN88XX:
-        *cpu_binary = "/" BF_BINARY_PREFIX "armv8/sbin/cpu_cn88xx";
-        break;
-    default:
-        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
+    /* Query the SKB for the monitor binary to use. */
+    err= skb_execute_query("monitor(S), write(res(S)).");
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "skb_execute_query");
+        return err;
     }
+    err= skb_read_output("res(%255[^)])", monitor_binary);
+    if (err_is_fail(err)) return err;
 
-    *monitor_binary = ARMV8_MONITOR_NAME;
-    *arch_page_size = BASE_PAGE_SIZE;
+    *arch_page_size= BASE_PAGE_SIZE;
 
     return SYS_ERR_OK;
 }
 
-static int start_aps_armv8_start(uint8_t core_id, genvaddr_t entry)
+
+struct mem_info {
+    size_t                size;
+    struct capref         cap;
+    void                  *buf;
+    struct frame_identity frameid;
+};
+
+static errval_t mem_alloc(size_t size, bool map, struct mem_info *mem_info)
 {
-    return 1;
+    errval_t err;
+
+    DEBUG("mem_alloc=%zu bytes\n", size);
+
+    memset(mem_info, 0, sizeof(*mem_info));
+
+    err = frame_alloc(&mem_info->cap, size, &mem_info->size);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = invoke_frame_identify(mem_info->cap, &mem_info->frameid);
+    if (err_is_fail(err)) {
+        err =  err_push(err, LIB_ERR_FRAME_IDENTIFY);
+        goto out_err;
+    }
+
+    if (map) {
+        err = vspace_map_one_frame(&mem_info->buf, mem_info->size, mem_info->cap,
+                                   NULL, NULL);
+        if (err_is_fail(err)) {
+            err =  err_push(err, LIB_ERR_VSPACE_MAP);
+            goto out_err;
+        }
+    }
+
+    // Mark memory as remote
+    err = cap_mark_remote(mem_info->cap);
+    if (err_is_fail(err)) {
+        vspace_unmap(mem_info->buf);
+        goto out_err;
+    }
+
+    return SYS_ERR_OK;
+
+out_err:
+    cap_delete(mem_info->cap);
+    memset(mem_info, 0, sizeof(*mem_info));
+    return err;
+}
+
+static errval_t mem_free(struct mem_info *mem_info)
+{
+    errval_t err;
+
+    if (mem_info->buf) {
+        err = vspace_unmap(mem_info->buf);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to unmap\n");
+        }
+    }
+    if (!capref_is_null(mem_info->cap)) {
+        err = cap_destroy(mem_info->cap);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to cap destory");
+        }
+    }
+
+    return SYS_ERR_OK;
 }
 
 
+static errval_t cpu_memory_alloc(size_t size, struct mem_info *mem_info)
+{
+    return mem_alloc(size, true, mem_info);
+}
 
-errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, 
+static errval_t app_memory_alloc(size_t size, struct mem_info *mem_info)
+{
+    return mem_alloc(size, false, mem_info);
+}
+
+
+struct module_blob {
+    size_t             size;    ///< size of the binary in memory
+    lvaddr_t           vaddr;   ///< virtual address of the binary in memory
+    genpaddr_t         paddr;   ///< physical address of the memory
+    struct capref      frame;
+    struct mem_region *mem_region;
+};
+
+static errval_t
+get_module_info(const char *name, struct module_blob *blob)
+{
+    errval_t err;
+
+    DEBUG("getting module %s\n", name);
+
+    err = lookup_module(name, &blob->vaddr,
+                        &blob->paddr, &blob->size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not lookup module");
+        return err_push(err, SPAWN_ERR_FIND_MODULE);
+    }
+
+    return SYS_ERR_OK;
+}
+
+#if 0
+
+/* Return the first program header of type 'type'. */
+static struct Elf64_Phdr *
+elf64_find_segment_type(void *elfdata, uint32_t type) {
+    struct Elf64_Ehdr *ehdr= (struct Elf64_Ehdr *)elfdata;
+
+    if(!IS_ELF(*ehdr)
+             || ehdr->e_ident[EI_CLASS] != ELFCLASS64
+             || ehdr->e_machine != EM_AARCH64) {
+        debug_printf("IS_ELF(*ehdr)=%u, ehdr->e_ident[EI_CLASS] != ELFCLASS64=%u, ehdr->e_machine != EM_AARCH64=%u",
+                     IS_ELF(*ehdr), ehdr->e_ident[EI_CLASS] != ELFCLASS64,ehdr->e_machine != EM_AARCH64);
+        return NULL;
+    }
+
+    void *phdrs_base= (void *)(elfdata + ehdr->e_phoff);
+
+    for(size_t i= 0; i < ehdr->e_phnum; i++) {
+        struct Elf64_Phdr *phdr= phdrs_base + i * ehdr->e_phentsize;
+
+        if(phdr->p_type == type) {
+            return phdr;
+        }
+    }
+
+    return NULL;
+}
+#endif
+
+errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
                              enum cpu_type cpu_type,
                              const char *cmdline,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb)
 {
-    const char *monitorname = NULL, *cpuname = NULL;
+    static char cpuname[256], monitorname[256];
     genpaddr_t arch_page_size;
     errval_t err;
 
-    err = get_architecture_config(cpu_type, &arch_page_size,
-                                  &monitorname, &cpuname);
+    if(cpu_type != CPU_ARM8) {
+        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
+    }
+
+    err = get_arch_config(hwid, &arch_page_size, monitorname, cpuname);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to obtain architecture configuration");
+    }
 
     DEBUG("loading kernel: %s\n", cpuname);
     DEBUG("loading 1st app: %s\n", monitorname);
 
+    // compute size of frame needed and allocate it
     DEBUG("%s:%s:%d: urpc_frame_id.base=%"PRIxGENPADDR"\n",
-           __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.base);
+          __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.base);
     DEBUG("%s:%s:%d: urpc_frame_id.size=0x%" PRIuGENSIZE "\n",
-           __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bytes);
+          __FILE__, __FUNCTION__, __LINE__, urpc_frame_id.bytes);
 
-    static size_t cpu_binary_size;
-    static lvaddr_t cpu_binary = 0;
-    static genpaddr_t cpu_binary_phys;
-    static const char* cached_cpuname = NULL;
-    if (cpu_binary == 0) {
-        cached_cpuname = cpuname;
-        // XXX: Caching these for now, until we have unmap
-        err = lookup_module(cpuname, &cpu_binary, &cpu_binary_phys,
-                            &cpu_binary_size);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Can not lookup module");
-            return err;
-        }
-    }
-    // Ensure caching actually works and we're
-    // always loading same binary. If this starts to fail, get rid of caching.
-    assert (strcmp(cached_cpuname, cpuname) == 0);
 
-    static size_t monitor_binary_size;
-    static lvaddr_t monitor_binary = 0;
-    static genpaddr_t monitor_binary_phys;
-    static const char* cached_monitorname = NULL;
-    if (monitor_binary == 0) {
-        cached_monitorname = monitorname;
-        // XXX: Caching these for now, until we have unmap
-        err = lookup_module(monitorname, &monitor_binary,
-                            &monitor_binary_phys, &monitor_binary_size);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Can not lookup module");
-            return err;
-        }
-    }
+    // XXX: Caching these for now, until we have unmap
 
-    struct capref cpu_memory_cap;
-    struct frame_identity frameid;
-
-    lvaddr_t cpu_memory = elf_virtual_size(cpu_binary) + arch_page_size;
-
-    err =  frame_alloc_identify(&cpu_memory_cap, cpu_memory, &cpu_memory, &frameid);
+    struct module_blob cpu_binary;
+    err = get_module_info(cpuname, &cpu_binary);
     if (err_is_fail(err)) {
-        /* XXX: clean up the modules */
+        DEBUG_ERR(err, "Can not lookup module");
+        return err;
+    }
+
+    struct module_blob monitor_binary;
+    err = get_module_info(monitorname, &monitor_binary);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not lookup module");
+        return err;
+    }
+
+    /* */
+    struct mem_info cpu_mem;
+    err = cpu_memory_alloc(cpu_binary.size, &cpu_mem);
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not allocate space for new app kernel.");
         return err;
     }
 
-    err = cap_mark_remote(cpu_memory_cap);
+    assert(monitor_binary.size < ARMV8_CORE_DATA_PAGES * arch_page_size);
+
+    struct mem_info monitor_mem;
+    err = app_memory_alloc(ARMV8_CORE_DATA_PAGES * arch_page_size, &monitor_mem);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Can not mark cap remote.");
+        DEBUG_ERR(err, "Can not allocate space for new app kernel.");
         return err;
     }
 
-    void *cpu_buf_memory;
-    err = vspace_map_one_frame(&cpu_buf_memory, cpu_memory, cpu_memory_cap,
-                               NULL, NULL);
+    struct mem_info stack_mem;
+    err = app_memory_alloc(16*1024, &stack_mem);
     if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_VSPACE_MAP);
-    }
-
-    /* Chunk of memory to load monitor on the app core */
-    struct capref spawn_memory_cap;
-    struct frame_identity spawn_memory_identity;
-
-    err = frame_alloc_identify(&spawn_memory_cap,
-                               ARMV8_CORE_DATA_PAGES * arch_page_size,
-                               NULL, &spawn_memory_identity);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_FRAME_ALLOC);
-    }
-
-    err = cap_mark_remote(spawn_memory_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Can not mark cap remote.");
+        DEBUG_ERR(err, "Can not allocate space for new app kernel.");
         return err;
     }
 
+    /* Load cpu */
     struct elf_allocate_state state;
-    state.vbase = (char *)cpu_buf_memory + arch_page_size;
+    state.vbase = (char *)cpu_mem.buf + arch_page_size;
     assert(sizeof(struct armv8_core_data) <= arch_page_size);
-    state.elfbase = elf_virtual_base(cpu_binary);
+    state.elfbase = elf_virtual_base(cpu_binary.vaddr);
 
-    struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *)cpu_binary;
+    struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *)cpu_binary.vaddr;
     genvaddr_t cpu_entry;
 
     err = elf_load(cpu_head->e_machine, elfload_allocate, &state,
-                   cpu_binary, cpu_binary_size, &cpu_entry);
+                   cpu_binary.vaddr, cpu_binary.size, &cpu_entry);
     if (err_is_fail(err)) {
         return err;
     }
 
-    struct Elf64_Shdr *rela, *symtab, *symhead =
-        (struct Elf64_Shdr *)(cpu_binary + (uintptr_t)cpu_head->e_shoff);
+
+    struct Elf64_Shdr *rela, *symtab, *symhead;
+    symhead = (struct Elf64_Shdr *)(cpu_binary.vaddr + (uintptr_t)cpu_head->e_shoff);
 
     assert(cpu_head->e_shoff != 0);
     rela = elf64_find_section_header_type(symhead, cpu_head->e_shnum, SHT_RELA);
     assert(rela != NULL);
-    symtab = elf64_find_section_header_type(symhead, cpu_head->e_shnum, SHT_DYNSYM);
+    symtab = elf64_find_section_header_type(symhead, cpu_head->e_shnum, SHT_SYMTAB /* SHT_DYNSYM */);
     assert(symtab != NULL);
-    elf64_relocate(frameid.base + arch_page_size, state.elfbase,
-                   (struct Elf64_Rela *)(uintptr_t)(cpu_binary + rela->sh_offset),
+    elf64_relocate(cpu_mem.frameid.base + arch_page_size, state.elfbase,
+                   (struct Elf64_Rela *)(uintptr_t)(cpu_binary.vaddr + rela->sh_offset),
                    rela->sh_size,
-                   (struct Elf64_Sym *)(uintptr_t)(cpu_binary + symtab->sh_offset),
+                   (struct Elf64_Sym *)(uintptr_t)(cpu_binary.vaddr + symtab->sh_offset),
                    symtab->sh_size,
                    state.elfbase, state.vbase);
 
 
-    genvaddr_t cpu_reloc_entry = cpu_entry - state.elfbase
-                                 + frameid.base + arch_page_size;
+  //  "psci_boot_entry"
+  //  "parking_boot_entry"
 
-    /* Compute entry point in the foreign address space */
-    forvaddr_t foreign_cpu_reloc_entry = (forvaddr_t)cpu_reloc_entry;
+    struct Elf64_Sym *entry_sym =
+    elf64_find_symbol_by_name(cpu_binary.vaddr, cpu_binary.size,
+                              "psci_boot_entry", 0, STT_FUNC, NULL);
 
-    /* Setup the core_data struct in the new kernel */
-    struct armv8_core_data *core_data = (struct armv8_core_data *)cpu_buf_memory;
-    switch (cpu_head->e_machine) {
-    case EM_AARCH64:
-        core_data->elf.size = sizeof(struct Elf64_Shdr);
-        core_data->elf.addr = cpu_binary_phys + (uintptr_t)cpu_head->e_shoff;
-        core_data->elf.num  = cpu_head->e_shnum;
-        break;
-    default:
-        return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
-    }
-    core_data->module_start = cpu_binary_phys;
-    core_data->module_end   = cpu_binary_phys + cpu_binary_size;
+
+    genvaddr_t cpu_reloc_entry = entry_sym->st_value - state.elfbase
+                                 + cpu_mem.frameid.base + arch_page_size;
+
+    DEBUG("using psci_boot_entry @ %lx, reloc: %lx\n", entry_sym->st_value , cpu_reloc_entry);
+
+    struct armv8_core_data *core_data = (struct armv8_core_data *)cpu_mem.buf;
+
+    core_data->stack = stack_mem.frameid.base;
+    core_data->elf.size = sizeof(struct Elf64_Shdr);
+    core_data->elf.addr = cpu_binary.paddr + (uintptr_t)cpu_head->e_shoff;
+    core_data->elf.num  = cpu_head->e_shnum;
+
+    core_data->module_start = cpu_binary.paddr;
+    core_data->module_end   = cpu_binary.paddr + cpu_binary.size;
     core_data->urpc_frame_base = urpc_frame_id.base;
     assert((1UL << log2ceil(urpc_frame_id.bytes)) == urpc_frame_id.bytes);
     core_data->urpc_frame_bits = log2ceil(urpc_frame_id.bytes);
-    core_data->monitor_binary   = monitor_binary_phys;
-    core_data->monitor_binary_size = monitor_binary_size;
-    core_data->memory_base_start = spawn_memory_identity.base;
-    assert((1UL << log2ceil(spawn_memory_identity.bytes)) == spawn_memory_identity.bytes);
-    core_data->memory_bits       = log2ceil(spawn_memory_identity.bytes);
+    core_data->monitor_binary   = monitor_binary.paddr;
+    core_data->monitor_binary_size = monitor_binary.size;
+    core_data->memory_base_start = monitor_mem.frameid.base;
+    assert((1UL << log2ceil(monitor_mem.frameid.bytes)) == monitor_mem.frameid.bytes);
+    core_data->memory_bits       = log2ceil(monitor_mem.frameid.bytes);
     core_data->src_core_id       = disp_get_core_id();
     core_data->src_arch_id       = my_arch_id;
     core_data->dst_core_id       = coreid;
-
 
     struct frame_identity fid;
     err = invoke_frame_identify(kcb, &fid);
@@ -244,12 +344,14 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
         USER_PANIC_ERR(err, "Invoke frame identity for KCB failed. "
                             "Did you add the syscall handler for that architecture?");
     }
+
     DEBUG("%s:%s:%d: fid.base is 0x%"PRIxGENPADDR"\n",
            __FILE__, __FUNCTION__, __LINE__, fid.base);
     core_data->kcb = (genpaddr_t) fid.base;
 #ifdef CONFIG_FLOUNDER_BACKEND_UMP_IPI
     core_data->chan_id           = chanid;
 #endif
+
 
     if (cmdline != NULL) {
         // copy as much of command line as will fit
@@ -261,30 +363,29 @@ errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
         DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->kernel_cmdline);
     }
 
+    /* start */
 
-    /* Invoke kernel capability to boot new core */
-    start_aps_armv8_start(hwid, foreign_cpu_reloc_entry);
+    //invoke_start_cpu(hwid, cpu_reloc_entry, core_data, type);
 
 
-    // XXX: Should not delete the remote caps?
-    err = cap_destroy(spawn_memory_cap);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "cap_destroy failed");
-    }
-    err = vspace_unmap(cpu_buf_memory);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "vspace unmap CPU driver memory failed");
-    }
-    err = cap_destroy(cpu_memory_cap);
+
+    err = mem_free(&stack_mem);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap_destroy failed");
     }
 
-    debug_printf("WARNING: spawn_xcore_monitor currently not implemented!");
+    err = mem_free(&cpu_mem);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cap_destroy failed");
+    }
+    err = mem_free(&monitor_mem);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cap_destroy failed");
+    }
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
-errval_t get_core_info(coreid_t core_id, archid_t* hw_id, enum cpu_type* cpu_type)
+errval_t get_core_info(coreid_t core_id, hwid_t* hw_id, enum cpu_type* cpu_type)
 {
     char* record = NULL;
     errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
@@ -292,17 +393,23 @@ errval_t get_core_info(coreid_t core_id, archid_t* hw_id, enum cpu_type* cpu_typ
         goto out;
     }
 
-    /* XXX: figure out which fields are required */
-    uint64_t apic, enabled, type;
-    err = oct_read(record, "_ { apic_id: %d, enabled: %d, type: %d}",
-                   &apic, &enabled, &type);
-    assert (enabled);
+    uint64_t enabled, type, barrelfish_id;
+    err = oct_read(record, "_ { " HW_PROCESSOR_GENERIC_FIELDS " }",
+                   &enabled, &barrelfish_id, &hw_id, &type);
     if (err_is_fail(err)) {
         goto out;
     }
 
-    *hw_id = (archid_t) apic;
+    if (!enabled) {
+        /* XXX: better error code */
+        err = SYS_ERR_CORE_NOT_FOUND;
+    }
+
+
     *cpu_type = (enum cpu_type) type;
 out:
+    if (record) {
+        free(record);
+    }
     return err;
 }
