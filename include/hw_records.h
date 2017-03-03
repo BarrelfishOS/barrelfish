@@ -32,8 +32,8 @@
  * @brief the generic fields of a processor record
  */
 #define HW_PROCESSOR_GENERIC_FIELDS "enabled: %d, " \
-                                    "barrelfish_id: %" PRIuCOREID ", " \
-                                    "hw_id: %" PRIuHWID ", " \
+                                    "barrelfish_id: %d, " \
+                                    "hw_id: %d, " \
                                     "type: %d"
 
 /**
