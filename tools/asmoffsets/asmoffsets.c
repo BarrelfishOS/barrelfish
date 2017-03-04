@@ -76,6 +76,10 @@
 #include <barrelfish_kpi/arm_core_data.h>
 #endif
 
+#ifdef __aarch64__
+#include <barrelfish_kpi/arm_core_data.h>
+#endif
+
 /* wrap everything inside a dummy function, to keep the compiler happy */
 #ifdef __ICC
 int main(void)
@@ -155,6 +159,7 @@ void dummy(void)
     DECL(DISP_DISABLED_AREA, struct dispatcher_shared_aarch64, disabled_save_area);
     DECL(DISP_TRAP_AREA, struct dispatcher_shared_aarch64, trap_save_area);
     DECL(DISP_GENERIC, struct dispatcher_aarch64, generic);
+    DECL(COREDATA_KERNEL_STACK, struct armv8_core_data, kernel_stack)
 #endif // __aarch64__
 
     DECL(LMP_ENDPOINT_DELIVERED, struct lmp_endpoint_kern, delivered);

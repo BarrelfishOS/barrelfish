@@ -14,6 +14,7 @@
 #define ASM_FILE 1
 #endif
 #include <multiboot2.h>
+#include <asmoffsets.h>
 
 
 .section .boot, "ax"
@@ -82,7 +83,7 @@ boot_entry:
  */
 
 psci_or_parking_boot:
-    ldr x1, [x0]
+    ldr x1, [x0, #OFFSETOF_COREDATA_KERNEL_STACK]
     mov sp, x1
     b boot_app_init
 
