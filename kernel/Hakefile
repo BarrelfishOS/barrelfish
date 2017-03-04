@@ -480,9 +480,10 @@ let
      target = "apm88xxxx",
      architectures = [ "armv8" ],
      assemblyFiles = [
-        "arch/armv8/efiboot.S",
+        "arch/armv8/boot_entry.S",
         "arch/armv8/sysreg.S",
-        "arch/armv8/exceptions.S"
+        "arch/armv8/exceptions.S",
+         "arch/armv8/smc_hvc.S"
      ],
      cFiles = [
          "arch/arm/misc.c",
@@ -493,11 +494,12 @@ let
          "arch/armv8/plat_a57mpcore.c",
          "arch/armv8/init.c",
          "arch/armv8/gdb_arch.c",
-         "arch/armv8/efiboot_init.c",
+         "arch/armv8/boot.c",
          -----
          "arch/armv8/kernel_multiboot2.c",
          "arch/armv8/dispatch.c",
          "arch/armv8/exec.c",
+         "arch/armv8/psci.c",
          "arch/armv8/exn.c",
          "arch/armv8/paging.c",
          "arch/armv8/startup_arch.c",
@@ -526,9 +528,10 @@ let
     target = "a57v",
     architectures = [ "armv8" ],
     assemblyFiles = [
-        "arch/armv8/efiboot.S",
+        "arch/armv8/boot_entry.S",
         "arch/armv8/sysreg.S",
-        "arch/armv8/exceptions.S"
+        "arch/armv8/exceptions.S",
+         "arch/armv8/smc_hvc.S"
     ],
     cFiles = [
         "arch/arm/misc.c",
@@ -541,12 +544,13 @@ let
         "arch/armv8/init.c",
         "arch/armv8/gic_v3.c",
         "arch/armv8/gdb_arch.c",
-        "arch/armv8/efiboot_init.c",
+        "arch/armv8/boot.c",
         -----
         "arch/armv8/kernel_multiboot2.c",
         "arch/armv8/dispatch.c",
         "arch/armv8/exec.c",
         "arch/armv8/exn.c",
+        "arch/armv8/psci.c",
         "arch/armv8/paging.c",
         "arch/armv8/startup_arch.c",
         "arch/armv8/syscall.c",
@@ -575,11 +579,10 @@ let
      target = "cn88xx",
      architectures = [ "armv8" ],
      assemblyFiles = [
-        "arch/armv8/efiboot.S",
+        "arch/armv8/boot_entry.S",
         "arch/armv8/sysreg.S",
         "arch/armv8/exceptions.S",
-        "arch/armv8/smc_hvc.S",
-        "arch/armv8/entry.S"
+        "arch/armv8/smc_hvc.S"
      ],
      cFiles = [
          "arch/arm/misc.c",
@@ -589,7 +592,7 @@ let
          "arch/armv8/plat_cn88xx.c",
          "arch/armv8/init.c",
          "arch/armv8/gdb_arch.c",
-         "arch/armv8/efiboot_init.c",
+         "arch/armv8/boot.c",
          -----
          "arch/armv8/kernel_multiboot2.c",
          "arch/armv8/dispatch.c",

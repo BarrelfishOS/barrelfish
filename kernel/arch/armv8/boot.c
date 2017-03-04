@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, ETH Zurich.
+ * Copyright (c) 2016, 2017, ETH Zurich.
  * Copyright (c) 2016, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
@@ -27,8 +27,10 @@
 
 void eret(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3);
 
-void efiboot_init(uint32_t magic, void *pointer, void *kernel_stack_top)
-    __attribute__((noreturn,section(".efiboot_init")));
+void boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
+    __attribute__((noreturn,section(".boot")));
+void boot_app_init(lpaddr_t context)
+    __attribute__((noreturn,section(".boot")));
 
 void *jump_target= &arch_init;
 
@@ -67,6 +69,42 @@ void configure_tcr(void) {
     tcr_el1 = armv8_TCR_EL1_T0SZ_insert(tcr_el1, 16);
     armv8_TCR_EL1_wr(NULL, tcr_el1);
 }
+#include <dev/pl011_uart_dev.h>
+static pl011_uart_t uart;
+
+static  inline void __serial_putchar(char c)
+{
+    while(pl011_uart_FR_txff_rdf(&uart) == 1) ;
+    pl011_uart_DR_rawwr(&uart, c);
+}
+
+static inline void __serial_console_putchar(char c)
+{
+    if (c == '\n') {
+        __serial_putchar('\r');
+    }
+    __serial_putchar(c);
+}
+
+static void print_string(char *string)
+{
+    while(string && *string) {
+        __serial_console_putchar(*string);
+        string++;
+    }
+}
+
+
+void boot_app_init(lpaddr_t state)
+{
+    pl011_uart_initialize(&uart, (mackerel_addr_t)0x87E024000000UL);
+
+
+    print_string("######### Hello world\n");
+    while(1)
+        ;
+}
+
 
 /* On entry:
 
@@ -87,7 +125,7 @@ void configure_tcr(void) {
    Register x1 contains a pointer to top entry in the kernel stack
  */
 void
-efiboot_init(uint32_t magic, void *pointer, void *stack) {
+boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
     int el= get_current_el();
 
 
@@ -205,7 +243,7 @@ efiboot_init(uint32_t magic, void *pointer, void *stack) {
         eret(magic, (uint64_t)pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET), 0);
     } else {
         // We are in EL1, so call arch_init directly.
-        void (*relocated_arch_init)(uint32_t magic, void *pointer, uintptr_t stack);
+        void (*relocated_arch_init)(uint32_t magic, lpaddr_t pointer, lpaddr_t stack);
         if ((lvaddr_t)arch_init < KERNEL_OFFSET) {
             relocated_arch_init = (void *)((lvaddr_t)arch_init + KERNEL_OFFSET);
         } else {
