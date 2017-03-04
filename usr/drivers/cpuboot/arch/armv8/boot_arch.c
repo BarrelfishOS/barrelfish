@@ -248,8 +248,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
         return err;
     }
 
+#define ARMV8_KERNEL_STACK_SIZE (16 * 1024)
+
     struct mem_info stack_mem;
-    err = app_memory_alloc(16*1024, &stack_mem);
+    err = app_memory_alloc(ARMV8_KERNEL_STACK_SIZE, &stack_mem);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not allocate space for new app kernel.");
         return err;
@@ -291,7 +293,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     struct armv8_core_data *core_data = (struct armv8_core_data *)cpu_mem.buf;
 
-    core_data->stack = stack_mem.frameid.base;
+    /* set the stack */
+    core_data->kernel_stack = stack_mem.frameid.base + stack_mem.frameid.bytes - 16;
+    core_data->boot_magic = ARMV8_BOOTMAGIC_PSCI;
+
     core_data->elf.size = sizeof(struct Elf64_Shdr);
     core_data->elf.addr = cpu_binary.paddr + (uintptr_t)cpu_head->e_shoff;
     core_data->elf.num  = cpu_head->e_shnum;
