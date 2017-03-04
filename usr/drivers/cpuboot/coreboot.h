@@ -36,9 +36,9 @@
 #include <if/acpi_defs.h>
 #endif
 
-#define DEBUG_CPUBOOT 1
+
 #ifdef DEBUG_CPUBOOT
-#define DEBUG(x...) if (1) debug_printf(x)
+#define DEBUG(x...) if (debug_flag) debug_printf(x)
 #else
 #define DEBUG(x...) ((void)0)
 #endif
