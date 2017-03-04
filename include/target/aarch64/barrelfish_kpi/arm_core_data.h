@@ -24,13 +24,18 @@ struct armv8_coredata_elf {
     uint32_t    shndx;
 };
 
+#define ARMV8_BOOTMAGIC_PSCI 0xb001b001
+#define ARMV8_BOOTMAGIC_PARKING 0xb001b002
+
 /**
  * \brief Data sent to a newly booted kernel
  *
  */
 struct armv8_core_data {
-    lpaddr_t stack;
-    lpaddr_t l0_pagetable;
+    uint64_t boot_magic;
+    lpaddr_t kernel_stack;
+    lpaddr_t kernel_l0_pagetable;
+
     lpaddr_t multiboot2; ///< The physical multiboot2 location
     uint64_t multiboot2_size;
     lpaddr_t efi_mmap;
