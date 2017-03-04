@@ -174,34 +174,14 @@ get_module_info(const char *name, struct module_blob *blob)
     return SYS_ERR_OK;
 }
 
-#if 0
 
-/* Return the first program header of type 'type'. */
-static struct Elf64_Phdr *
-elf64_find_segment_type(void *elfdata, uint32_t type) {
-    struct Elf64_Ehdr *ehdr= (struct Elf64_Ehdr *)elfdata;
+#include <barrelfish_kpi/sys_debug.h>
 
-    if(!IS_ELF(*ehdr)
-             || ehdr->e_ident[EI_CLASS] != ELFCLASS64
-             || ehdr->e_machine != EM_AARCH64) {
-        debug_printf("IS_ELF(*ehdr)=%u, ehdr->e_ident[EI_CLASS] != ELFCLASS64=%u, ehdr->e_machine != EM_AARCH64=%u",
-                     IS_ELF(*ehdr), ehdr->e_ident[EI_CLASS] != ELFCLASS64,ehdr->e_machine != EM_AARCH64);
-        return NULL;
-    }
-
-    void *phdrs_base= (void *)(elfdata + ehdr->e_phoff);
-
-    for(size_t i= 0; i < ehdr->e_phnum; i++) {
-        struct Elf64_Phdr *phdr= phdrs_base + i * ehdr->e_phentsize;
-
-        if(phdr->p_type == type) {
-            return phdr;
-        }
-    }
-
-    return NULL;
+static errval_t sys_debug_invoke_psci(uintptr_t target, lpaddr_t entry, lpaddr_t context)
+{
+    struct sysret sr = syscall5(SYSCALL_DEBUG, DEBUG_PSCI_CPU_ON, target, entry, context);
+    return sr.error;
 }
-#endif
 
 errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
                              enum cpu_type cpu_type,
@@ -209,6 +189,9 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb)
 {
+
+    DEBUG("Booting: %" PRIuCOREID ", hwid=%" PRIxHWID "\n", coreid, hwid);
+
     static char cpuname[256], monitorname[256];
     genpaddr_t arch_page_size;
     errval_t err;
@@ -303,19 +286,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
                    symtab->sh_size,
                    state.elfbase, state.vbase);
 
-
-  //  "psci_boot_entry"
-  //  "parking_boot_entry"
-
-    struct Elf64_Sym *entry_sym =
-    elf64_find_symbol_by_name(cpu_binary.vaddr, cpu_binary.size,
-                              "psci_boot_entry", 0, STT_FUNC, NULL);
-
-
-    genvaddr_t cpu_reloc_entry = entry_sym->st_value - state.elfbase
+    genvaddr_t cpu_reloc_entry = cpu_entry - state.elfbase
                                  + cpu_mem.frameid.base + arch_page_size;
-
-    DEBUG("using psci_boot_entry @ %lx, reloc: %lx\n", entry_sym->st_value , cpu_reloc_entry);
 
     struct armv8_core_data *core_data = (struct armv8_core_data *)cpu_mem.buf;
 
@@ -365,8 +337,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     /* start */
 
-    //invoke_start_cpu(hwid, cpu_reloc_entry, core_data, type);
-
+    debug_printf("invoking PSCI_START hwid=%lx entry=%lx context=%lx\n",
+                 hwid, cpu_reloc_entry, cpu_mem.frameid.base);
+    err = sys_debug_invoke_psci(hwid, cpu_reloc_entry, cpu_mem.frameid.base);
+    DEBUG_ERR(err, "sys_debug_invoke_psci");
 
 
     err = mem_free(&stack_mem);
@@ -382,7 +356,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap_destroy failed");
     }
-    return LIB_ERR_NOT_IMPLEMENTED;
+    return SYS_ERR_OK;
 }
 
 errval_t get_core_info(coreid_t core_id, hwid_t* hw_id, enum cpu_type* cpu_type)
@@ -393,12 +367,15 @@ errval_t get_core_info(coreid_t core_id, hwid_t* hw_id, enum cpu_type* cpu_type)
         goto out;
     }
 
+
     uint64_t enabled, type, barrelfish_id;
     err = oct_read(record, "_ { " HW_PROCESSOR_GENERIC_FIELDS " }",
-                   &enabled, &barrelfish_id, &hw_id, &type);
+                   &enabled, &barrelfish_id, hw_id, &type);
     if (err_is_fail(err)) {
         goto out;
     }
+
+    debug_printf("Get Core Info: %" PRIuCOREID ", hwid=%" PRIxHWID "\n", core_id, *hw_id);
 
     if (!enabled) {
         /* XXX: better error code */

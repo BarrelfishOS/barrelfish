@@ -1161,6 +1161,8 @@ static struct sysret handle_debug_syscall(int msg)
     return retval;
 }
 
+#include <psci.h>
+
 /* XXX - function documentation is inconsistent. */
 /**
  * System call dispatch routine.
@@ -1233,9 +1235,15 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
             break;
 
         case SYSCALL_DEBUG:
+            if (a1 == DEBUG_PSCI_CPU_ON) {
+                printf("Invoking PSCI on: cpu=%lx, entry=%lx, context=%lx\n", a2, a3, a4);
+                r.error = psci_cpu_on(a2, a3, a4);
+                break;
+            }
             if (argc == 2) {
                 r = handle_debug_syscall(a1);
             }
+
             break;
 
         default:
