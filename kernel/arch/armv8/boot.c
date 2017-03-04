@@ -93,16 +93,57 @@ static void print_string(char *string)
         string++;
     }
 }
+#include <barrelfish_kpi/arm_core_data.h>
 
-
+/**
+ * @brief initializes an application core
+ *
+ * @param state pointer to the armv8_core_data structure
+ *
+ * This function is intended to bring the core to the same state as if it
+ * has been booted by the UEFI boot loader.
+ */
 void boot_app_init(lpaddr_t state)
 {
     pl011_uart_initialize(&uart, (mackerel_addr_t)0x87E024000000UL);
 
+    struct armv8_core_data *cd = (struct armv8_core_data *)state;
 
-    print_string("######### Hello world\n");
+    if (cd->boot_magic == ARMV8_BOOTMAGIC_PSCI) {
+        print_string("######### Hello world: ARMV8_BOOTMAGIC_PSCI\n");
+    } else if (cd->boot_magic == ARMV8_BOOTMAGIC_PARKING) {
+        print_string("######### Hello world: ARMV8_BOOTMAGIC_PSCI\n");
+    } else {
+        print_string("######### Hello world: UNKNOWN PROTOCOL\n");
+    }
+
+    uint8_t current_el = get_current_el();
+    if (current_el == 3) {
+        print_string("EL=3\n");
+    } else if (current_el == 2) {
+        print_string("EL=2\n");
+    } else if (current_el == 1) {
+        print_string("EL=1\n");
+    }
+
+    /* disable interrupts */
+
+    /* set the TCR */
+
+    /* set the ttbr0/1 */
+
+    /* flush caches */
+
+    /* enable MMU */
+
+    /* invalidate TLB */
+
+    /* enable interrupts */
+
     while(1)
         ;
+
+    boot_bsp_init(cd->boot_magic, state, cd->kernel_stack);
 }
 
 
