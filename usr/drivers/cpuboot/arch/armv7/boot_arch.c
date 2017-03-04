@@ -46,7 +46,7 @@ errval_t get_core_info(coreid_t core_id,
 
     int enabled, type;
     err = oct_read(record, "_ { hw_id: %d, enabled: %d, type: %d}",
-                   &hw_id, &enabled, &type);
+                   hw_id, &enabled, &type);
     assert (enabled);
     if (err_is_fail(err)) return err;
 

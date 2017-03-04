@@ -76,7 +76,7 @@ errval_t get_core_info(coreid_t core_id, hwid_t* apic_id, enum cpu_type* cpu_typ
 
     uint64_t enabled, type;
     err = oct_read(record, "_ { apic_id: %d, enabled: %d, type: %d}",
-                   &apic_id, &enabled, &type);
+                   apic_id, &enabled, &type);
     assert (enabled);
     if (err_is_fail(err)) {
         goto out;
