@@ -25,7 +25,16 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         _        2;
     };
 
-    register DAIF rw sysreg(DAIF) "Interrupt Mask Bits" {
+    register DAIFSet rw sysreg(DAIFSet) "Interrupt Mask Bits" {
+        _       22;
+        D        1 "Process state D mask";
+        A        1 "SError interrupt mask bit";
+        I        1 "IRQ mask bit";
+        F        1 "FIQ mask bit";
+        _        6;
+    };
+    
+    register DAIFClr rw sysreg(DAIFClr) "Interrupt Mask Bits" {
         _       22;
         D        1 "Process state D mask";
         A        1 "SError interrupt mask bit";
@@ -248,6 +257,53 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         A        1 "Alignment check enable";
         M        1 "MMU enable";
     };
+    
+    register SCTLR_EL2 rw sysreg(SCTLR_EL2) "System Control Register (EL2)" {
+        _        2 mbz;
+        _        2 mb1;
+        _        2 mbz;
+        EE       1 "Exception Endianess";
+        _        1 mbz;
+        _        2 mb1;
+        _        2 mbz;
+        WZN      1 "Force treatment of all memory regions with write permissions as XN";
+        _        1 mb1;
+        _        1 mbz;
+        _        1 mb1;
+        _        3 mbz;
+        I        1 "Instruction cache enable";
+        _        1 mb1;
+        _        5 mbz;
+        _        2 mb1;
+        SA       1 "Enable SP Alignment check";
+        C        1 "Data cacheability control";
+        A        1 "Alignment check enable";
+        M        1 "MMU enable";
+    };
+    
+    register SCTLR_EL3 rw sysreg(SCTLR_EL3) "System Control Register (EL3)" {
+        _        2 mbz;
+        _        2 mb1;
+        _        2 mbz;
+        EE       1 "Exception Endianess";
+        _        1 mbz;
+        _        2 mb1;
+        _        2 mbz;
+        WZN      1 "Force treatment of all memory regions with write permissions as XN";
+        _        1 mb1;
+        _        1 mbz;
+        _        1 mb1;
+        _        3 mbz;
+        I        1 "Instruction cache enable";
+        _        1 mb1;
+        _        5 mbz;
+        _        2 mb1;
+        SA       1 "Enable SP Alignment check";
+        C        1 "Data cacheability control";
+        A        1 "Alignment check enable";
+        M        1 "MMU enable";
+    };
+
 
     register ICC_AP0R0_EL1 rw sysreg(ICC_AP0R0_EL1) "" {
         impl    32;
@@ -385,5 +441,6 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         DFB     1 "Disable FIQ bypass";
         SRE     1 "System Register Enable";
     };
-
+    
+   
 };

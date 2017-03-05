@@ -169,6 +169,7 @@ sysreg_enable_mmu:
 armv8_sysreg_read\()_\sz\()_\name :
     mov x12, x30
     mrs x0, \reg
+    isb
     ret x12
     nop
 .endm
@@ -178,6 +179,7 @@ armv8_sysreg_read\()_\sz\()_\name :
 armv8_sysreg_write\()_\sz\()_\name :
     mov x12, x30
     msr \reg , x0
+    isb
     ret x12
     nop
 .endm
@@ -197,6 +199,9 @@ sysreg_write \sz \name \reg
 
 sysreg_rw 64 TCR_EL1            TCR_EL1
 sysreg_rw 32 TCR_EL2            TCR_EL2
+sysreg_rw 32 SCTLR_EL1          SCTLR_EL1
+sysreg_rw 32 SCTLR_EL2          SCTLR_EL2
+sysreg_rw 32 SCTLR_EL3          SCTLR_EL3
 sysreg_rw 32 ICC_PMR_EL1        S3_0_C4_C6_0
 sysreg_ro 32 ICC_IAR0_EL1       S3_0_C12_C8_0
 sysreg_wo 32 ICC_EOIR0_EL1      S3_0_C12_C8_1
