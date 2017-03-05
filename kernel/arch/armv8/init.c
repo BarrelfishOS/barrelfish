@@ -115,12 +115,10 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
     global = &global_temp;
     memset(&global->locks, 0, sizeof(global->locks));
 
-    // initialize the core id
-    my_core_id = sysreg_get_cpu_id();
-
     switch (magic) {
     case MULTIBOOT2_BOOTLOADER_MAGIC:
         {
+        my_core_id = 0;
 
         struct multiboot_header *mbhdr = pointer;
         uint32_t size = mbhdr->header_length;
@@ -167,8 +165,30 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
 
         break;
     }
+    case ARMV8_BOOTMAGIC_PSCI :
+        //serial_init(serial_console_port, false);
+
+        serial_init(serial_console_port, false);
+
+        struct armv8_core_data *core_data = (struct armv8_core_data*)pointer;
+        armv8_glbl_core_data = core_data;
+        global = (struct global *)core_data->kernel_global;
+
+        kernel_stack = stack;
+        my_core_id = core_data->dst_core_id;
+
+        MSG("ARMv8 Core magic...\n");
+
+        break;
     default: {
+        serial_init(serial_console_port, false);
+
+        serial_console_putchar('x');
+        serial_console_putchar('x');
+        serial_console_putchar('\n');
+
         panic("Implement AP booting!");
+        __asm volatile ("wfi":::);
         break;
     }
     }
