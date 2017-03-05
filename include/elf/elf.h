@@ -610,6 +610,12 @@ struct Elf64_Rela {
     int64_t     r_addend;
 } __attribute__ ((packed));
 
+struct Elf64_Rel {
+    uint64_t    r_offset;
+    uint64_t    r_info;
+} __attribute__ ((packed));
+
+
 /**
  * \brief ELF64 symbol table entry.
  */
