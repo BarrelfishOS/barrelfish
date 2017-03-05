@@ -35,6 +35,7 @@ struct armv8_core_data {
     uint64_t boot_magic;
     lpaddr_t kernel_stack;
     lpaddr_t kernel_l0_pagetable;
+    lpaddr_t kernel_global;
 
     lpaddr_t multiboot2; ///< The physical multiboot2 location
     uint64_t multiboot2_size;
