@@ -394,10 +394,6 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     DEBUG("Booting: %" PRIuCOREID ", hwid=%" PRIxHWID "\n", coreid, hwid);
 
-    if (coreid != 47) {
-        return SYS_ERR_OK;
-    }
-
     static char cpuname[256], monitorname[256];
     genpaddr_t arch_page_size;
     size_t stack_size;
@@ -451,10 +447,9 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
     size_t monitor_size = ROUND_UP(elf_virtual_size(monitor_binary.vaddr),
                                    arch_page_size);
 
-    debug_printf("Monitor binary: %zu\n", monitor_size);
-
     struct mem_info monitor_mem;
-    err = app_memory_alloc(monitor_size + ARMV8_CORE_DATA_PAGES * arch_page_size, &monitor_mem);
+    err = app_memory_alloc(monitor_size + ARMV8_CORE_DATA_PAGES * arch_page_size,
+                           &monitor_mem);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not allocate space for new app kernel.");
         return err;
