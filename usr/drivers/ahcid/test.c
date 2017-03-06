@@ -245,7 +245,7 @@ void ahci_perf_sequential(size_t buffer_size, size_t block_size, bool write)
         uint64_t disk_block = write_flag | i;
         do {
             err = devq_enqueue(dq, region_id, (i*block_size), 
-                               block_size, (i*block_size),
+                               block_size, 0,
                                block_size, disk_block);
             if (err_is_ok(err)) {
                 break;
@@ -322,7 +322,7 @@ void ahci_verify_sequential(size_t buffer_size, size_t block_size)
         uint64_t disk_block = write_flag | i;
         do {
             err = devq_enqueue(dq, region_id, (i*block_size), block_size, 
-                               (i*block_size), block_size, disk_block);
+                               0, block_size, disk_block);
             if (err_is_ok(err)) {
                 break;
             }
@@ -348,7 +348,7 @@ void ahci_verify_sequential(size_t buffer_size, size_t block_size)
         uint64_t disk_block = i;
         do {
             err = devq_enqueue(dq, region_id, (i*block_size), 
-                               block_size, (i*block_size), block_size,
+                               block_size, 0, block_size,
                                disk_block);
             if (err_is_ok(err)) {
                 break;

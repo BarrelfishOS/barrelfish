@@ -44,7 +44,7 @@ struct devq_buf{
  * @param offset        Offset into the region i.e. where the buffer starts
  *                      that is enqueued
  * @param lenght        Lenght of the enqueued buffer
- * @param valid_data    Offset into the region where the valid data of this buffer
+ * @param valid_data    Offset into the buffer where the valid data of this buffer
  *                      starts
  * @param valid_length  Length of the valid data of this buffer
  * @param misc_flags    Any other argument that makes sense to the device queue
@@ -69,7 +69,7 @@ errval_t devq_enqueue(struct devq *q,
  * @param region_offset Return pointer to the offset into the region where
  *                      this buffer starts.
  * @param lenght        Return pointer to the lenght of the dequeue buffer
- * @param valid_data    Return pointer to an offset into the region where the
+ * @param valid_data    Return pointer to an offset into the buffer where the
  *                      valid data of this buffer starts
  * @param valid_length  Return pointer to the length of the valid data of 
  *                      this buffer

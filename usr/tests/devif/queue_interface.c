@@ -254,7 +254,7 @@ static void test_net_tx(void)
     for (int z = 0; z < NUM_ROUNDS_TX; z++) {
         for (int i = 0; i < NUM_ENQ; i++) {
             err = devq_enqueue(q, regid_tx, i*(TX_BUF_SIZE), TX_BUF_SIZE, 
-                               i*(TX_BUF_SIZE), TX_BUF_SIZE,
+                               0, TX_BUF_SIZE,
                                NETIF_TXFLAG | NETIF_TXFLAG_LAST);
             if (err_is_fail(err)){
                 USER_PANIC("Devq enqueue failed \n");
@@ -338,7 +338,7 @@ static void test_net_rx(void)
     // Enqueue RX buffers to receive into
     for (int i = 0; i < NUM_ROUNDS_RX; i++){
         err = devq_enqueue(q, regid_rx, i*RX_BUF_SIZE, RX_BUF_SIZE, 
-                           i*RX_BUF_SIZE, RX_BUF_SIZE,
+                           0, RX_BUF_SIZE,
                            NETIF_RXFLAG);
         if (err_is_fail(err)){
             USER_PANIC("Devq enqueue failed: %s\n", err_getstring(err));
@@ -434,7 +434,7 @@ static void test_idc_queue(void)
     for (int j = 0; j < 1000000; j++){
         for (int i = 0; i < 32; i++){
             err = devq_enqueue(q, regid_rx, i*2048, 2048, 
-                               i*2048, 2048, 0);
+                               0, 2048, 0);
             if (err_is_fail(err)){
                 // retry
                 i--;
