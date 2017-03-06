@@ -101,7 +101,7 @@ typedef coreid_t nodeid_t;
 #endif
 
 /* hardware id (apic, mpdir, ...) */
-typedef uint64_t hwid_t;
+typedef uintptr_t hwid_t;
 #define PRIuHWID PRIu64
 #define PRIxHWID PRIx64
 
