@@ -25,12 +25,15 @@
 #include <sysreg.h>
 #include <dev/armv8_dev.h>
 
+#include <barrelfish_kpi/arm_core_data.h>
+
+
 void eret(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3);
 
 void boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
-    __attribute__((noreturn,section(".boot")));
+    __attribute__((noreturn));
 void boot_app_init(lpaddr_t context)
-    __attribute__((noreturn,section(".boot")));
+    __attribute__((noreturn));
 
 void *jump_target= &arch_init;
 
@@ -69,31 +72,133 @@ void configure_tcr(void) {
     tcr_el1 = armv8_TCR_EL1_T0SZ_insert(tcr_el1, 16);
     armv8_TCR_EL1_wr(NULL, tcr_el1);
 }
-#include <dev/pl011_uart_dev.h>
-static pl011_uart_t uart;
 
-static  inline void __serial_putchar(char c)
+
+#define    DAIF_FIQ_BIT   (1 << 0)
+#define    DAIF_IRQ_BIT   (1 << 1)
+
+
+/*
+ * XXX: the following functions should go somewhere else, leaving them
+ *      here for the moment... -RA
+ */
+static void armv8_disable_interrupts(void)
 {
-    while(pl011_uart_FR_txff_rdf(&uart) == 1) ;
-    pl011_uart_DR_rawwr(&uart, c);
+    //__asm volatile("msr DAIFSet, #(DAIF_FIQ_BIT | DAIF_IRQ_BIT)\n");
+    __asm volatile("msr DAIFSet, #3\n");
 }
 
-static inline void __serial_console_putchar(char c)
+static void armv8_enable_interrupts(void)
 {
-    if (c == '\n') {
-        __serial_putchar('\r');
+   // __asm volatile("msr DAIFClr, #(DAIF_FIQ_BIT | DAIF_IRQ_BIT)\n");
+    __asm volatile("msr DAIFClr, #3\n");
+}
+
+static void armv8_set_tcr(uint8_t el)
+{
+    switch(el) {
+        case 3:
+            //sysreg_write_ttbr0_el2(addr);
+        case 2:
+        {
+            armv8_TCR_EL2_t reg = 0;
+            reg = armv8_TCR_EL2_PS_insert(reg, 5);
+            reg = armv8_TCR_EL2_T0SZ_insert(reg, (64 - 48));
+            armv8_TCR_EL2_wr(NULL, reg);
+            break;
+        }
+        case 1:
+        {
+            armv8_TCR_EL1_t reg = 0;
+          // TODO: figure out what to set  reg = armv8_TCR_EL1_PS_insert(reg, 5);
+            reg = armv8_TCR_EL1_T0SZ_insert(reg, (64 - 48));
+            armv8_TCR_EL1_wr(NULL, reg);
+            break;
+        }
+        default:
+            assert("should not happen");
+            return;
     }
-    __serial_putchar(c);
 }
 
-static void print_string(char *string)
+static void armv8_set_ttbr0(uint8_t el, lpaddr_t addr)
 {
-    while(string && *string) {
-        __serial_console_putchar(*string);
-        string++;
+    switch(el) {
+        case 3:
+            //sysreg_write_ttbr0_el2(addr);
+        case 2:
+            sysreg_write_ttbr0_el2(addr);
+            sysreg_write_ttbr0_el1(addr);
+            break;
+        case 1:
+            sysreg_write_ttbr0_el1(addr);
+            break;
+        default:
+            assert("should not happen");
+            return;
     }
+    __asm volatile("isb");
 }
-#include <barrelfish_kpi/arm_core_data.h>
+
+static void armv8_enable_mmu(uint8_t el)
+{
+    switch(el) {
+        case 3:
+            armv8_SCTLR_EL3_M_wrf(NULL, 0x1);
+            __asm volatile("tlbi    alle3\n  isb");
+            break;
+        case 2:
+            armv8_SCTLR_EL2_M_wrf(NULL, 0x1);
+            __asm volatile("tlbi    alle2\n  isb");
+            break;
+        case 1:
+            armv8_SCTLR_EL1_M_wrf(NULL, 0x1);
+            __asm volatile("tlbi    vmalle1\n  isb");
+            break;
+        default:
+            assert("should not happen");
+            return;
+    }
+    __asm volatile("dsb sy\n isb");
+}
+
+static void armv8_invalidate_tlb(uint8_t el)
+{
+    switch(el) {
+        case 3:
+            armv8_SCTLR_EL3_M_wrf(NULL, 0x1);
+            __asm volatile("tlbi    alle3");
+            break;
+        case 2:
+            armv8_SCTLR_EL2_M_wrf(NULL, 0x1);
+            __asm volatile("tlbi    alle2");
+            break;
+        case 1:
+            armv8_SCTLR_EL1_M_wrf(NULL, 0x1);
+            __asm volatile("tlbi    vmalle1");
+            break;
+        default:
+            assert("should not happen");
+            return;
+    }
+    __asm volatile("dsb sy\n isb");
+}
+
+static void armv8_invalidate_icache(void)
+{
+    __asm volatile(
+      "ic      iallu \n"
+      "dsb     sy \n"
+      "isb \n"
+      );
+}
+
+static void armv8_instruction_synchronization_barrier(void)
+{
+    __asm volatile("isb");
+}
+
+
 
 /**
  * @brief initializes an application core
@@ -105,43 +210,32 @@ static void print_string(char *string)
  */
 void boot_app_init(lpaddr_t state)
 {
-    pl011_uart_initialize(&uart, (mackerel_addr_t)0x87E024000000UL);
 
     struct armv8_core_data *cd = (struct armv8_core_data *)state;
 
-    if (cd->boot_magic == ARMV8_BOOTMAGIC_PSCI) {
-        print_string("######### Hello world: ARMV8_BOOTMAGIC_PSCI\n");
-    } else if (cd->boot_magic == ARMV8_BOOTMAGIC_PARKING) {
-        print_string("######### Hello world: ARMV8_BOOTMAGIC_PSCI\n");
-    } else {
-        print_string("######### Hello world: UNKNOWN PROTOCOL\n");
-    }
-
     uint8_t current_el = get_current_el();
-    if (current_el == 3) {
-        print_string("EL=3\n");
-    } else if (current_el == 2) {
-        print_string("EL=2\n");
-    } else if (current_el == 1) {
-        print_string("EL=1\n");
-    }
 
     /* disable interrupts */
-
-    /* set the TCR */
+    armv8_disable_interrupts();
 
     /* set the ttbr0/1 */
+    armv8_set_ttbr0(current_el, cd->kernel_l0_pagetable);
 
-    /* flush caches */
+    /* set the TCR */
+    armv8_set_tcr(current_el);
 
     /* enable MMU */
+    armv8_enable_mmu(current_el);
 
     /* invalidate TLB */
+    armv8_invalidate_tlb(current_el);
+
+    /* invalidate icache */
+    armv8_invalidate_icache();
+    armv8_instruction_synchronization_barrier();
 
     /* enable interrupts */
-
-    while(1)
-        ;
+    armv8_enable_interrupts();
 
     boot_bsp_init(cd->boot_magic, state, cd->kernel_stack);
 }
@@ -217,8 +311,6 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
 
     /* If so, we need to configure EL2 traps. */
     if (have_el2 && el > 1) {
-        /* assert(el >= 2) */
-
         /* We'll never return to (or enter) EL2, so leave the MMU
          * unconfigured. */
 
@@ -272,8 +364,6 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
         sysreg_write_elr_el3((uint64_t)jump_target);
         eret(magic, (uint64_t)pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET), 0);
     } else if (el == 2) {
-        /* assert(el == 2) */
-
         /* Call plat_init() in EL1 */
         uint64_t spsr=
             0xf << 6 | /* Mask exceptions SPSR[9:6] */

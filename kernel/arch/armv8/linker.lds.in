@@ -30,9 +30,6 @@ SECTIONS {
     HIDDEN(kernel_stack_top = .);
 
     HIDDEN(kernel_first_byte = .);
-    /*.boot_bsp_init : { *(.boot_bsp_init); } :load */
-    /*.boot_app_init : { *(.boot_app_init); } :load  */
-    .boots : { *(.boot); } :load
     
     .text : { *(.text); } :load
     HIDDEN(kernel_text_final_byte = .);

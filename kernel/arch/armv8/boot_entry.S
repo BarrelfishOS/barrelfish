@@ -17,7 +17,7 @@
 #include <asmoffsets.h>
 
 
-.section .boot, "ax"
+.text
 
 .global eret, boot_entry, boot_entry_psci, boot_entry_parking
 
