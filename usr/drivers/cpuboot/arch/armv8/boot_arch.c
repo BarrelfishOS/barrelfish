@@ -29,10 +29,21 @@
 #include "../../coreboot.h"
 
 extern coreid_t my_arch_id;
-
+extern struct capref ipi_cap;
 
 /// XXX: make this configurable...
 #define ARMV8_KERNEL_STACK_SIZE (16 * 1024)
+
+
+static inline errval_t
+invoke_monitor_spawn_core(hwid_t core_id, enum cpu_type cpu_type,
+                          genpaddr_t entry, genpaddr_t context)
+{
+    return cap_invoke5(ipi_cap, IPICmd_Send_Start, core_id, cpu_type,
+                       entry, context).error;
+}
+
+
 
 static errval_t get_arch_config(hwid_t hwid,
                                 genpaddr_t *arch_page_size,
@@ -178,17 +189,6 @@ get_module_info(const char *name, struct module_blob *blob)
 
     return SYS_ERR_OK;
 }
-
-
-#include <barrelfish_kpi/sys_debug.h>
-
-static errval_t sys_debug_invoke_psci(uintptr_t target, lpaddr_t entry, lpaddr_t context)
-{
-    struct sysret sr = syscall5(SYSCALL_DEBUG, DEBUG_PSCI_CPU_ON, target, entry, context);
-    return sr.error;
-}
-
-
 
 
 static errval_t
@@ -537,8 +537,13 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     debug_printf("invoking PSCI_START hwid=%lx entry=%lx context=%lx\n",
                  hwid, cpu_entry, cpu_mem.frameid.base);
-    err = sys_debug_invoke_psci(hwid, cpu_entry, cpu_mem.frameid.base);
-    DEBUG_ERR(err, "sys_debug_invoke_psci");
+
+    err = invoke_monitor_spawn_core(hwid, cpu_type, cpu_entry, cpu_mem.frameid.base);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to spawn the cpu\n");
+    }
+
+
 
     err = mem_free(&stack_mem);
     if (err_is_fail(err)) {
