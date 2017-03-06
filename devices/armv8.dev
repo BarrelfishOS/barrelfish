@@ -304,6 +304,20 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         M        1 "MMU enable";
     };
 
+    constants fpen width(1) "Endianness configuration" {
+        fpen_trap_any  = 0b00 "Trap any FP and SIMD instructions in EL0 or EL1";
+        fpen_trap_el0  = 0b01 "Trap any FP and SIMD in EL0 to EL21";
+        fpen_trap_el1  = 0b10 "Trap any FP and SIMD instructions in EL0 or EL1";
+        fpen_trap_none = 0b11 "Does not cause any instruction to be trapped.";
+    };
+
+    register CPACR_EL1 rw sysreg(CPACR_EL1) "Architectural Feature Access Control Register" {
+        _        3 mbz;
+        TTA      1 "Traps EL0 and EL1 System register accesses to all implemented trace registers to EL1";
+        _        6 mbz;
+        FPEN     2 type(endianness) "Traps EL0 and EL1 accesses to the SIMD and floating-point registers to EL1";
+        _       20 mbz;
+    };
 
     register ICC_AP0R0_EL1 rw sysreg(ICC_AP0R0_EL1) "" {
         impl    32;

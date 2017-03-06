@@ -215,6 +215,11 @@ void boot_app_init(lpaddr_t state)
 
     uint8_t current_el = get_current_el();
 
+    if (current_el == 2) {
+        uint64_t zero = 0;
+        __asm volatile("MSR CPTR_EL2, %[zero]" : : [zero] "r" (zero));
+    }
+
     /* disable interrupts */
     armv8_disable_interrupts();
 
@@ -331,6 +336,9 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
         /* disable traps to EL2 for timer accesses */
         uint32_t cnthctl = sysreg_read_cnthctl_el2();
         sysreg_write_cnthctl_el2(cnthctl | 0x3);
+
+        /* disable traps for FP/SIMD access  */
+        armv8_CPACR_EL1_FPEN_wrf(NULL, armv8_fpen_trap_none);
     }
 
     if (el == 3) {

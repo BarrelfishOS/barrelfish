@@ -202,6 +202,7 @@ sysreg_rw 32 TCR_EL2            TCR_EL2
 sysreg_rw 32 SCTLR_EL1          SCTLR_EL1
 sysreg_rw 32 SCTLR_EL2          SCTLR_EL2
 sysreg_rw 32 SCTLR_EL3          SCTLR_EL3
+sysreg_rw 32 CPACR_EL1          CPACR_EL1
 sysreg_rw 32 ICC_PMR_EL1        S3_0_C4_C6_0
 sysreg_ro 32 ICC_IAR0_EL1       S3_0_C12_C8_0
 sysreg_wo 32 ICC_EOIR0_EL1      S3_0_C12_C8_1
