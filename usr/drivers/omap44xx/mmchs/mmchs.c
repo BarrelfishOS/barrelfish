@@ -14,7 +14,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/inthandler.h>
 
-#include <omap44xx_map.h>
+#include <maps/omap44xx_map.h>
 
 #include <driverkit/driverkit.h>
 #include <arch/arm/omap44xx/device_registers.h>

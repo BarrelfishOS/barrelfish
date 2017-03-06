@@ -19,8 +19,8 @@
 #include <serial.h>
 #include <assert.h>
 #include <errors/errno.h>
-#include <a9mpcore_map.h>
-#include <omap44xx_map.h>
+#include <maps/a9mpcore_map.h>
+#include <maps/omap44xx_map.h>
 #include <omap_uart.h>
 #include <cp15.h>
 #include <a9_scu.h>

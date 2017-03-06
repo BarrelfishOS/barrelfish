@@ -13,7 +13,7 @@
  */
 
 #include <a15_gt.h>
-#include <a15mpcore_map.h>
+#include <maps/a15mpcore_map.h>
 #include <assert.h>
 #include <cp15.h>
 #include <gic.h>

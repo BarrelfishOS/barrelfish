@@ -26,8 +26,8 @@
 #include <pl011.h>
 #include <assert.h>
 #include <errors/errno.h>
-#include <a9mpcore_map.h>
-#include <vexpress_map.h>
+#include <maps/a9mpcore_map.h>
+#include <maps/vexpress_map.h>
 #include <dev/cortex_a9_pit_dev.h>
 #include <gic.h>
 

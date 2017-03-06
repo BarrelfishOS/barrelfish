@@ -5,7 +5,7 @@
 
 #include <dev/omap/omap44xx_uart3_dev.h>
 #include <arch/arm/omap44xx/device_registers.h>
-#include <omap44xx_map.h>
+#include <maps/omap44xx_map.h>
 
 /* XXX */
 #define UART_IRQ (32+74)

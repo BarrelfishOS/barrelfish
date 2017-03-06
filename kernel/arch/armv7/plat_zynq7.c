@@ -16,7 +16,7 @@
 
 #include <a9_gt.h>
 #include <a9_scu.h>
-#include <a9mpcore_map.h>
+#include <maps/a9mpcore_map.h>
 #include <assert.h>
 #include <cp15.h>
 #include <dev/cortex_a9_pit_dev.h>
@@ -28,7 +28,7 @@
 #include <paging_kernel_arch.h>
 #include <platform.h>
 #include <serial.h>
-#include <zynq7_map.h>
+#include <maps/zynq7_map.h>
 #include <zynq_uart.h>
 
 #define MSG(format, ...) printk( LOG_NOTE, "ZYNQ7: "format, ## __VA_ARGS__ )

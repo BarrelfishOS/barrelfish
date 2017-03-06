@@ -14,10 +14,14 @@
  */
 
 /*
- * The GIC registers are memory-mapped, with a physical base address specified by PERIPHBASE[43:18]. This input must be tied to a constant value. The PERIPHBASE value is sampled during reset into the Configuration Base Address Register (CBAR) for each processor in the MPCore device. See Configuration Base Address Register, EL1 and Configuration Base Address Register.
+ * The GIC registers are memory-mapped, with a physical base address specified
+ * by PERIPHBASE[43:18]. This input must be tied to a constant value. The
+ * PERIPHBASE value is sampled during reset into the Configuration Base Address
+ * Register (CBAR) for each processor in the MPCore device. See Configuration
+ * Base Address Register, EL1 and Configuration Base Address Register.
  */
 
-#include <a57mpcore_map.h>
+#include <maps/a57mpcore_map.h>
 #include <kernel.h>
 #include <platform.h>
 #include <paging_kernel_arch.h>
