@@ -49,12 +49,12 @@ struct armv8_core_data {
     lpaddr_t memory_base_start;
     size_t memory_size;
     coreid_t src_core_id;
-    uint64_t src_arch_id;
+    hwid_t src_arch_id;
     coreid_t dst_core_id;
     char kernel_cmdline[128];
 
     lpaddr_t    initrd_start;
-    lpaddr_t	initrd_size;
+    lpaddr_t    initrd_size;
 
 
     uint64_t    start_kernel_ram; ///< The physical start of allocated kernel memory
@@ -67,7 +67,7 @@ struct armv8_core_data {
     struct armv8_coredata_elf elf;
 }; //__attribute__ ((packed));
 
-#define ARMV8_CORE_DATA_PAGES 1100
+#define ARMV8_CORE_DATA_PAGES 700
 
 
 #endif

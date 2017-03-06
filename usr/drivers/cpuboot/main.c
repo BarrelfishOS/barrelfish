@@ -17,7 +17,7 @@
 #include <if/monitor_blocking_defs.h>
 
 
-coreid_t my_arch_id;
+hwid_t my_arch_id;
 struct capref ipi_cap;
 
 coreid_t core_count = 0;
@@ -40,7 +40,7 @@ char* cmd_kernel_args = "loglevel=2 logmask=0";
 static void load_arch_id(void)
 {
     struct monitor_blocking_binding *mc = get_monitor_blocking_binding();
-    errval_t err = mc->rpc_tx_vtbl.get_arch_core_id(mc, (uintptr_t *)&my_arch_id);
+    errval_t err = mc->rpc_tx_vtbl.get_arch_core_id(mc, &my_arch_id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_arch_core_id failed.");
     }

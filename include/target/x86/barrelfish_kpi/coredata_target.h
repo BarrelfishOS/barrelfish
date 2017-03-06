@@ -54,7 +54,7 @@ struct x86_core_data {
     genpaddr_t memory_base_start;
     uint8_t memory_bits;
     coreid_t src_core_id;
-    uint8_t src_arch_id;
+    hwid_t src_arch_id;
     coreid_t dst_core_id;
     char kernel_cmdline[128];
 
