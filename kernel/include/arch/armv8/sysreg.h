@@ -18,6 +18,87 @@ void sysreg_invalidate_i_and_d_caches(void);
 void sysreg_invalidate_tlb_fn(void);
 void sysreg_enable_mmu(void);
 
+
+#define ARMV8_SYSREG_WRITE_FN(_bits, _name, _reg) \
+        static inline void \
+        armv8_sysreg_write_## _bits ## _ ## _name(uint## _bits ## _t val) { \
+            __asm volatile ("msr "#_reg ", %[val]\n" \
+                            "isb \n" : : [val] "r" (val)); \
+        }
+
+#define ARMV8_SYSREG_READ_FN(_bits, _name, _reg) \
+        static inline uint## _bits ## _t \
+        armv8_sysreg_read_## _bits ## _ ## _name(void) { \
+            uint## _bits ## _t val; \
+            __asm volatile("mrs %[val], "#_reg "\n" \
+                           "isb \n" : [val] "=r" (val)); \
+            return val; \
+        }
+
+#define ARMV8_SYSREG_WO(_bits, _name, _reg) \
+    ARMV8_SYSREG_WRITE_FN(_bits, _name, _reg)
+
+#define ARMV8_SYSREG_RO(_bits, _name, _reg) \
+    ARMV8_SYSREG_READ_FN(_bits, _name, _reg)
+
+#define ARMV8_SYSREG_RW(_bits, _name, _reg) \
+    ARMV8_SYSREG_READ_FN(_bits, _name, _reg) \
+    ARMV8_SYSREG_WRITE_FN(_bits, _name, _reg)
+
+ARMV8_SYSREG_RO(32, CurrentEL, CurrentEL)
+
+ARMV8_SYSREG_RW(64, esr_el1, esr_el1)
+ARMV8_SYSREG_RW(64, TCR_EL1, TCR_EL1)
+ARMV8_SYSREG_RW(32, FCPR, FCPR)
+ARMV8_SYSREG_RW(32, DAIFSet,    DAIFSet)
+ARMV8_SYSREG_RW(32, DAIFClr,   DAIFClr)
+ARMV8_SYSREG_RW(32, TCR_EL2, TCR_EL2)
+ARMV8_SYSREG_RW(32, SCTLR_EL1, SCTLR_EL1)
+ARMV8_SYSREG_RW(32, SCTLR_EL2, SCTLR_EL2)
+ARMV8_SYSREG_RW(32, SCTLR_EL3, SCTLR_EL3)
+ARMV8_SYSREG_RW(32, CPACR_EL1, CPACR_EL1)
+ARMV8_SYSREG_RW(64, ELR_EL1, ELR_EL1)
+ARMV8_SYSREG_RW(64, ELR_EL2, ELR_EL2)
+ARMV8_SYSREG_RW(64, ELR_EL3, ELR_EL3)
+ARMV8_SYSREG_RW(64, DLR_EL0, DLR_EL0)
+ARMV8_SYSREG_RW(32, FPSR, FPSR)
+ARMV8_SYSREG_RW(32, NZCV, NZCV)
+ARMV8_SYSREG_RW(32, SPSel, SPSel)
+ARMV8_SYSREG_RW(32, TTBCR, TTBCR)
+ARMV8_SYSREG_RW(64, SP_EL0, SP_EL0)
+ARMV8_SYSREG_RW(64, SP_EL1, SP_EL1)
+ARMV8_SYSREG_RW(64, SP_EL2, SP_EL2)
+ARMV8_SYSREG_RW(64, SP_EL3, SP_EL3)
+ARMV8_SYSREG_RW(32, DSPSR_EL0, DSPSR_EL0)
+ARMV8_SYSREG_RW(32, ICC_PMR_EL1, S3_0_C4_C6_0)
+ARMV8_SYSREG_RW(32, ICC_IAR0_EL1, S3_0_C12_C8_0)
+ARMV8_SYSREG_RW(32, ICC_EOIR0_EL1, S3_0_C12_C8_1)
+ARMV8_SYSREG_RW(32, ICC_HPPIR0_EL1, S3_0_C12_C8_2)
+ARMV8_SYSREG_RW(32, ICC_BPR0_EL1, S3_0_C12_C8_3)
+ARMV8_SYSREG_RW(32, ICC_AP0R0_EL1, S3_0_C12_C8_4)
+ARMV8_SYSREG_RW(32, ICC_AP0R1_EL1, S3_0_C12_C8_5)
+ARMV8_SYSREG_RW(32, ICC_AP0R2_EL1, S3_0_C12_C8_6)
+ARMV8_SYSREG_RW(32, ICC_AP0R3_EL1, S3_0_C12_C8_7)
+ARMV8_SYSREG_RW(32, ICC_AP1R0_EL1, S3_0_C12_C9_0)
+ARMV8_SYSREG_RW(32, ICC_AP1R1_EL1, S3_0_C12_C9_1)
+ARMV8_SYSREG_RW(32, ICC_AP1R2_EL1, S3_0_C12_C9_2)
+ARMV8_SYSREG_RW(32, ICC_AP1R3_EL1, S3_0_C12_C9_3)
+ARMV8_SYSREG_RW(32, ICC_DIR_EL1, S3_0_C12_C11_1)
+ARMV8_SYSREG_RW(32, ICC_RPR_EL1,    S3_0_C12_C11_3)
+ARMV8_SYSREG_RW(64, ICC_SGI1R_EL1, S3_0_C12_C11_5)
+ARMV8_SYSREG_RW(64, ICC_ASGI1R_EL1, S3_0_C12_C11_6)
+ARMV8_SYSREG_RW(64, ICC_SGI0R_EL1, S3_0_C12_C11_7)
+ARMV8_SYSREG_RW(32, ICC_IAR1_EL1, S3_0_C12_C12_0)
+ARMV8_SYSREG_RW(32, ICC_EOIR1_EL1, S3_0_C12_C12_1)
+ARMV8_SYSREG_RW(32, ICC_HPPIR1_EL1, S3_0_C12_C12_2)
+ARMV8_SYSREG_RW(32, ICC_BPR1_EL1, S3_0_C12_C12_3)
+ARMV8_SYSREG_RW(32, ICC_CTLR_EL1, S3_0_C12_C12_4)
+ARMV8_SYSREG_RW(32, ICC_SRE_EL1, S3_0_C12_C12_5)
+ARMV8_SYSREG_RW(32, ICC_IGRPEN0_EL1, S3_0_C12_C12_6)
+ARMV8_SYSREG_RW(32, ICC_IGRPEN1_EL1, S3_0_C12_C12_7)
+ARMV8_SYSREG_RW(32, ICC_EOI1_EL1, ICC_EOI1_EL1)
+
+
 /**
  * \brief Read instruction fault status register.
  */
