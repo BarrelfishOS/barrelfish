@@ -63,8 +63,8 @@ sys_dispatcher_setup_guest (struct capability *to,
                             capaddr_t vmcbp, capaddr_t ctrlp);
 struct sysret sys_trace_setup(struct capability *cap, capaddr_t cptr);
 struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id);
-struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                                     genvaddr_t entry);
+struct sysret sys_monitor_spawn_core(hwid_t core_id, enum cpu_type cpu_type,
+                                     genvaddr_t entry, genpaddr_t context_id);
 
 struct sysret sys_kernel_add_kcb(struct kcb* new_kcb);
 struct sysret sys_kernel_remove_kcb(struct kcb* kcb_addr);

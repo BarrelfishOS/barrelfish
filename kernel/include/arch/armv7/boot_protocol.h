@@ -26,7 +26,7 @@ struct armv7_boot_record {
     uint32_t done;
 
     /* The MPID value (hardware core ID) of the core to boot. */
-    uint32_t target_mpid;
+    hwid_t target_mpid;
 };
 
 void plat_advance_aps(void);

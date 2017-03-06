@@ -782,7 +782,7 @@ monitor_spawn_core(
     enum cpu_type cpu_type = sa->arg3;
     genvaddr_t entry       = sa->arg5;
 
-    return sys_monitor_spawn_core(core_id, cpu_type, entry);
+    return sys_monitor_spawn_core(core_id, cpu_type, entry, 0);
 }
 
 static struct sysret

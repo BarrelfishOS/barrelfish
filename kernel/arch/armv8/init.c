@@ -33,6 +33,7 @@
 #include <arch/armv8/paging_kernel_arch.h>
 #include <arch/armv8/platform.h>
 #include <systime.h>
+#include <coreboot.h>
 
 static struct global global_temp;
 
@@ -205,6 +206,9 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
     sysreg_write_vbar_el1((uint64_t)&vectors);
 
     platform_gic_init();
+
+    MSG("Setting coreboot spawn handler\n");
+    coreboot_set_spawn_handler(CPU_ARM8, platform_boot_core);
 
     arm_kernel_startup(pointer);
     while (1) {

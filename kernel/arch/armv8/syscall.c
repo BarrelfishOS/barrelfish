@@ -729,16 +729,14 @@ monitor_spawn_core(
     arch_registers_state_t* context,
     int argc)
 {
-    /* XXX - Why is this commented out? */
-	//assert(3 == argc);
+    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
-	struct registers_aarch64_syscall_args* sa = &context->syscall_args;
-
-	coreid_t core_id       = sa->arg2;
+    hwid_t core_id         = sa->arg2;
     enum cpu_type cpu_type = sa->arg3;
-    genvaddr_t entry       = sa->arg5;
+    genvaddr_t entry       = sa->arg4;
+    genpaddr_t context_id  = sa->arg5;
 
-    return sys_monitor_spawn_core(core_id, cpu_type, entry);
+    return sys_monitor_spawn_core(core_id, cpu_type, entry, context_id);
 }
 
 static struct sysret

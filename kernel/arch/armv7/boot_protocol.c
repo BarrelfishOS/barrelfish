@@ -30,8 +30,9 @@
  *
  * \returns Zero on successful boot, non-zero (error code) on failure
  */
-int
-platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
+errval_t platform_boot_aps(hwid_t target, genpaddr_t gen_entry, genpaddr_t context)
+{
+
     assert(paging_mmu_enabled());
 
     /* XXX - we're abusing the gen_entry pointer here.  Change the interface
@@ -54,7 +55,7 @@ platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry) {
     /* Flag which core should boot. */
     /* XXX - this will only work for single-cluster systems, whose MPID fits
      * entirely within the low 8 bits.  Make core IDs bigger! */
-    br->target_mpid= core_id;
+    br->target_mpid= target;
 
     /* The boot driver will read this value with its MMU and caches disabled,
      * so we need to make sure it's visible. */

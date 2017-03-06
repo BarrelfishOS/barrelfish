@@ -54,7 +54,7 @@ size_t platform_get_ram_size(void)
 /*
  * Boot secondary processors
  */
-int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
+errval_t platform_boot_core(hwid_t target, genpaddr_t gen_entry, genpaddr_t context)
 {
     return 0;
 }

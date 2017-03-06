@@ -778,26 +778,31 @@ struct sysret sys_idcap_identify(struct capability *cap, idcap_id_t *id)
  *     the specified cpu_type.
  * \retval SYS_ERR_CORE_NOT_FOUND Core failed to boot.
  */
-struct sysret sys_monitor_spawn_core(coreid_t core_id, enum cpu_type cpu_type,
-                                     genvaddr_t entry)
+
+struct sysret sys_monitor_spawn_core(hwid_t target, enum cpu_type cpu_type,
+                                     genvaddr_t entry, genpaddr_t context)
 {
+    errval_t err;
+
     assert(cpu_type < CPU_TYPE_NUM);
     // TODO(gz): assert core_id valid
     // TODO(gz): assert entry range?
 
-    if (cpu_type < CPU_TYPE_NUM &&
-        coreboot_get_spawn_handler(cpu_type) == NULL) {
-        assert(!"Architecture not supported -- " \
-               "or you failed to register spawn handler?");
+    if (cpu_type >= CPU_TYPE_NUM) {
         return SYSRET(SYS_ERR_ARCHITECTURE_NOT_SUPPORTED);
     }
 
-    int r = (coreboot_get_spawn_handler(cpu_type))(core_id, entry);
-    if (r != 0) {
-        return SYSRET(SYS_ERR_CORE_NOT_FOUND);
+    coreboot_start_fn_t start_fn = coreboot_get_spawn_handler(cpu_type);
+
+    if (start_fn == NULL) {
+        return SYSRET(SYS_ERR_ARCHITECTURE_NOT_SUPPORTED);
     }
 
-    return SYSRET(SYS_ERR_OK);
+    err = start_fn(target, entry, context);
+    if(err_is_fail(err)) {
+        err = err_push(err, SYS_ERR_CORE_NOT_FOUND);
+    }
+    return SYSRET(err);
 }
 
 struct sysret sys_kernel_add_kcb(struct kcb *new_kcb)
