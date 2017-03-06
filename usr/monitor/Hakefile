@@ -31,7 +31,7 @@
      arch_srcs "x86_64"  = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
      arch_srcs "k1om"    = [ "arch/x86/boot.c", "arch/x86/inter.c", "arch/x86/monitor_server.c", "arch/x86/notify_ipi.c" ]
      arch_srcs "armv7"   = [ "arch/armv7/boot.c", "arch/armv7/inter.c", "arch/armv7/monitor_server.c", "arch/armv7/notify_ipi.c" ]
-     arch_srcs "armv8"   = [ "arch/aarch64/boot.c", "arch/aarch64/inter.c", "arch/aarch64/monitor_server.c", "arch/aarch64/notify_ipi.c" ]
+     arch_srcs "armv8"   = [ "arch/armv8/boot.c", "arch/armv8/inter.c", "arch/armv8/monitor_server.c", "arch/armv8/notify_ipi.c" ]
      arch_srcs _         = []
 
      idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
