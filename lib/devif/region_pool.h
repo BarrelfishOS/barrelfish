@@ -143,4 +143,23 @@ errval_t region_pool_return_buffer_to_region(struct region_pool* pool,
 bool region_pool_buffer_id_of_region_in_use(struct region_pool* pool,
                                             regionid_t region_id,
                                             bufferid_t buffer_id);
+
+/**
+ * @brief check if buffer is valid
+ *
+ * @param pool          The pool to get the region from
+ * @param region_id     The id of the region
+ * @param offset        offset into the region
+ * @param length        length of the buffer
+ * @param valid_data    offset into the buffer
+ * @param valid_length  length of the valid_data
+ *
+ * @returns true if the buffer is valid otherwise false
+ */
+bool region_pool_buffer_check_bounds(struct region_pool* pool,
+                                     regionid_t region_id,
+                                     genoffset_t offset,
+                                     genoffset_t length,
+                                     genoffset_t valid_data,
+                                     genoffset_t valid_length);
 #endif /* REGION_POOL_H_ */

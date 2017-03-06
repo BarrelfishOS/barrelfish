@@ -16,6 +16,7 @@
 #include "dqi_debug.h"
 #include "queue_interface_internal.h"
 
+
 /*
  * ===========================================================================
  * Datapath functions
@@ -47,38 +48,21 @@ errval_t devq_enqueue(struct devq *q,
                       genoffset_t valid_length,
                       uint64_t misc_flags)
 {
+    assert(q != NULL);
     errval_t err;
+    
+    // check if the buffer to enqueue is valid
+    if (!region_pool_buffer_check_bounds(q->pool, region_id, offset, 
+        length, valid_data, valid_length)) {
+        return DEV_ERR_INVALID_BUFFER_ARGS;
+    }
 
-    /* In the user case we keep track of the buffers the user should not
-       access. In the device case, we keep track of the buffers the device
-       actually has access to.
-    */
-    /* TODO do bounds checks
-    if (q->exp) {
-        err = region_pool_return_buffer_to_region(q->pool, region_id, base);
-    } else {
-        err = region_pool_get_buffer_id_from_region(q->pool, region_id, base,
-                                                    buffer_id);
-    }
-    if (err_is_fail(err)) {
-        return err;
-    }
-    */
+
     err = q->f.enq(q, region_id, offset, length, valid_data,
                    valid_length, misc_flags);
 
-    /*
-    if (err_is_fail(err)){
-        if (q->exp) {
-            region_pool_get_buffer_id_from_region(q->pool, region_id, base,
-                                                        buffer_id);
-        } else {
-            region_pool_return_buffer_to_region(q->pool, region_id, base);
-        }
-    }
-    */
-    DQI_DEBUG("Enqueue q=%p rid=%d, bid=%d, err=%s \n", q, region_id, 
-              *buffer_id, err_getstring(err));
+    DQI_DEBUG("Enqueue q=%p rid=%d, offset=%lu, lenght=%lu, err=%s \n", 
+              q, region_id, offset, length, err_getstring(err));
 
     return err;
 }
@@ -111,30 +95,22 @@ errval_t devq_dequeue(struct devq *q,
 {
     errval_t err;
 
+    assert(q != NULL);
+    assert(offset != NULL);
+    assert(length != NULL);
+
     err = q->f.deq(q, region_id, offset, length, valid_data,
                    valid_length, misc_flags);
     if (err_is_fail(err)) {
         return err;
     }
 
-    /* In the user case we keep track of the buffers the user should not
-       access. In the device case, we keep track of the buffers the device
-       actually has access to.
-    */
-    // Add buffer to free ones
-    /*
-    if (q->exp) {
-        err = region_pool_set_buffer_id_from_region(q->pool, *region_id,
-                                                    *base, *buffer_id);
-    } else {
-        err = region_pool_return_buffer_id_to_region(q->pool, *region_id,
-                                                     *buffer_id);
+    // check if the dequeue buffer is valid
+    if (!region_pool_buffer_check_bounds(q->pool, *region_id, *offset, 
+        *length, *valid_data, *valid_length)) {
+        return DEV_ERR_INVALID_BUFFER_ARGS;
     }
 
-    if (err_is_fail(err)) {
-        return err;
-    }
-    */
     DQI_DEBUG("Dequeue q=%p rid=%d, bid=%d \n", q, *region_id, *buffer_id);
 
     return SYS_ERR_OK;

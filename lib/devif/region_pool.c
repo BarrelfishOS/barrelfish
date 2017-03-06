@@ -12,7 +12,7 @@
 #include "region.h"
 #include "dqi_debug.h"
 
-#define INIT_POOL_SIZE 32
+#define INIT_POOL_SIZE 16
 
 struct region_pool {
 
@@ -41,7 +41,7 @@ struct region_pool {
 errval_t region_pool_init(struct region_pool** pool)
 {
     // Allocate pool struct itself including pointers to region
-    (*pool) = calloc(sizeof(struct region_pool), 1);
+    (*pool) = calloc(1, sizeof(struct region_pool));
     if (*pool == NULL) {
         DQI_DEBUG_REGION("Allocationg inital pool failed \n");
         return LIB_ERR_MALLOC_FAIL;
@@ -55,7 +55,7 @@ errval_t region_pool_init(struct region_pool** pool)
     (*pool)->region_offset = (rand() >> 12) ;
     (*pool)->size = INIT_POOL_SIZE;    
 
-    (*pool)->pool = calloc(sizeof(struct region*)*INIT_POOL_SIZE, 1);
+    (*pool)->pool = calloc(INIT_POOL_SIZE, sizeof(struct region*));
     if ((*pool)->pool == NULL) {
         free(*pool);
         DQI_DEBUG_REGION("Allocationg inital pool failed \n");
@@ -118,7 +118,7 @@ static errval_t region_pool_grow(struct region_pool* pool)
 
     uint16_t new_size = (pool->size)*2;
     // Allocate new pool twice the size
-    tmp = calloc(sizeof(struct region*)*new_size, 1);
+    tmp = calloc(new_size, sizeof(struct region*));
     if (tmp == NULL) {
         DQI_DEBUG_REGION("Allocationg larger pool failed \n");
         return LIB_ERR_MALLOC_FAIL;
@@ -161,7 +161,37 @@ errval_t region_pool_add_region(struct region_pool* pool,
 {
     errval_t err;
     struct region* region;
-    
+    struct frame_identity id;
+
+    err = invoke_frame_identify(cap, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    // for now just loop over all entries
+    for (int i = 0; i < pool->size; i++) {
+        struct region* tmp;
+        tmp = pool->pool[i]; 
+   
+        if (tmp == NULL) {
+            continue;
+        }
+
+        // check if region is already registered
+        if (tmp->base_addr == id.base) {
+            return DEVQ_ERR_REGION_INVALID;
+        }
+
+        /* if region if entierly before other region or
+           entierly after region, otherwise there is an overlap
+         */
+        if (!((id.base + id.bytes <= tmp->base_addr) ||
+            (tmp->base_addr + tmp->len <= id.base))) {
+            return DEVQ_ERR_REGION_INVALID;
+        }
+
+    }
+
     // Check if pool size is large enough
     if (!(pool->num_regions < pool->size)) {
         DQI_DEBUG_REGION("Increasing pool size to %d \n", pool->size*2);
@@ -176,6 +206,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
     uint16_t offset = pool->last_offset;
     uint16_t index = 0;
 
+    // find slot
     while (true) {
         index = (pool->region_offset + pool->num_regions + offset) % pool->size;
         DQI_DEBUG_REGION("Trying insert index %d \n", index);
@@ -445,3 +476,41 @@ bool region_pool_buffer_id_of_region_in_use(struct region_pool* pool,
     
     return region_buffer_id_in_use(region, buffer_id);
 }
+
+
+/**
+ * @brief check if buffer is valid
+ *
+ * @param pool          The pool to get the region from
+ * @param region_id     The id of the region
+ * @param offset        offset into the region
+ * @param length        length of the buffer
+ * @param valid_data    offset into the buffer
+ * @param valid_length  length of the valid_data
+ *
+ * @returns true if the buffer is valid otherwise false
+ */
+bool region_pool_buffer_check_bounds(struct region_pool* pool,
+                                     regionid_t region_id,
+                                     genoffset_t offset,
+                                     genoffset_t length,
+                                     genoffset_t valid_data,
+                                     genoffset_t valid_length)
+{
+    struct region* region;
+    region = pool->pool[region_id % pool->size];
+    if (region == NULL) {
+        return false;
+    }
+
+    // check validity of buffer within region
+    // and check validity of valid data values
+    if ((length + offset > region->len) ||
+         (valid_data + valid_length > length)) {
+        return false;
+    }
+
+    return true;
+}
+
+
