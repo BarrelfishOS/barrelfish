@@ -18,7 +18,7 @@
 #include <barrelfish_kpi/platform.h>
 #include <barrelfish/syscall_arch.h>
 #include <target/aarch64/barrelfish_kpi/arm_core_data.h>
-
+#include <offsets.h>
 #include <barrelfish/deferred.h>
 
 #include <hw_records_arch.h>
@@ -31,8 +31,12 @@
 extern coreid_t my_arch_id;
 
 
+/// XXX: make this configurable...
+#define ARMV8_KERNEL_STACK_SIZE (16 * 1024)
+
 static errval_t get_arch_config(hwid_t hwid,
                                 genpaddr_t *arch_page_size,
+                                size_t *stack_size,
                                 const char *monitor_binary,
                                 const char *cpu_binary)
 {
@@ -62,6 +66,7 @@ static errval_t get_arch_config(hwid_t hwid,
     if (err_is_fail(err)) return err;
 
     *arch_page_size= BASE_PAGE_SIZE;
+    *stack_size = ARMV8_KERNEL_STACK_SIZE;
 
     return SYS_ERR_OK;
 }
@@ -183,6 +188,203 @@ static errval_t sys_debug_invoke_psci(uintptr_t target, lpaddr_t entry, lpaddr_t
     return sr.error;
 }
 
+
+
+
+static errval_t
+relocate_elf(struct mem_info *cpumem, lvaddr_t base, size_t arch_page_size,
+             struct Elf64_Phdr *phdr, size_t phnum, size_t shnum) {
+
+    struct Elf64_Ehdr   *ehdr = (struct Elf64_Ehdr *)base;
+
+    DEBUG("Relocating kernel image.\n");
+
+    struct Elf64_Shdr *shead = (struct Elf64_Shdr *)(base + (uintptr_t)ehdr->e_shoff);
+
+    /* Search for relocaton sections. */
+    for(size_t i= 0; i < shnum; i++) {
+
+        struct Elf64_Shdr *shdr=  &shead[i];
+
+        if(shdr->sh_type == SHT_REL ||
+           shdr->sh_type == SHT_RELA) {
+            if(shdr->sh_info != 0) {
+                debug_printf("I expected global relocations, but got"
+                              " section-specific ones.\n");
+                return ELF_ERR_HEADER;
+            }
+
+
+            uint64_t segment_elf_base= phdr[0].p_vaddr;
+            uint64_t segment_load_base=cpumem->frameid.base + arch_page_size;
+            uint64_t segment_delta= segment_load_base - segment_elf_base;
+            uint64_t segment_vdelta= (uintptr_t)cpumem->buf+arch_page_size - segment_elf_base;
+
+            size_t rsize;
+            if(shdr->sh_type == SHT_REL){
+                rsize= sizeof(struct Elf64_Rel);
+            } else {
+                rsize= sizeof(struct Elf64_Rela);
+            }
+
+            assert(rsize == shdr->sh_entsize);
+            size_t nrel= shdr->sh_size / rsize;
+
+            void * reldata = (void*)(base + shdr->sh_offset);
+
+            /* Iterate through the relocations. */
+            for(size_t ii= 0; ii < nrel; ii++) {
+                void *reladdr= reldata + ii *rsize;
+
+                switch(shdr->sh_type) {
+                    case SHT_REL:
+                        debug_printf("SHT_REL unimplemented.\n");
+                        return ELF_ERR_PROGHDR;
+                    case SHT_RELA:
+                    {
+                        struct Elf64_Rela *rel= reladdr;
+
+                        uint64_t offset= rel->r_offset;
+                        uint64_t sym= ELF64_R_SYM(rel->r_info);
+                        uint64_t type= ELF64_R_TYPE(rel->r_info);
+                        uint64_t addend= rel->r_addend;
+
+                        uint64_t *rel_target= (void *)offset + segment_vdelta;
+
+                        switch(type) {
+                            case R_AARCH64_RELATIVE:
+                                if(sym != 0) {
+                                    debug_printf("Relocation references a"
+                                                 " dynamic symbol, which is"
+                                                 " unsupported.\n");
+                                    return ELF_ERR_PROGHDR;
+                                }
+
+                                /* Delta(S) + A */
+                                *rel_target= addend + segment_delta + KERNEL_OFFSET;
+                                break;
+
+                            default:
+                                debug_printf("Unsupported relocation type %d\n",
+                                             type);
+                                return ELF_ERR_PROGHDR;
+                        }
+                    }
+                    break;
+                    default:
+                        debug_printf("Unexpected type\n");
+                        break;
+
+                }
+            }
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t load_cpudriver(uint16_t em_machine, struct mem_info *cpumem,
+                               lvaddr_t base, size_t size, size_t arch_page_size,
+                               genvaddr_t *retentry){
+
+
+    errval_t err;
+    struct Elf64_Ehdr   *ehdr = (struct Elf64_Ehdr *)base;
+
+    // Check for valid file size
+    if (size < sizeof(struct Elf64_Ehdr)) {
+        return ELF_ERR_FILESZ;
+    }
+
+
+    if(ehdr->e_ident[EI_CLASS] != ELFCLASS64 || ehdr->e_ident[EI_DATA] != ELFDATA2LSB) {
+        return ELF_ERR_HEADER;
+    }
+
+    if(ehdr->e_ident[EI_OSABI] != ELFOSABI_STANDALONE
+        && ehdr->e_ident[EI_OSABI] != ELFOSABI_NONE) {
+        debug_printf("Warning: Compiled for OS ABI %d.  Wrong compiler?\n",
+                     ehdr->e_ident[EI_OSABI]);
+        return ELF_ERR_HEADER;
+    }
+
+    if(ehdr->e_machine != EM_AARCH64) {
+        debug_printf( "Error: Not AArch64\n");
+        return ELF_ERR_HEADER;
+    }
+
+    if(ehdr->e_type != ET_EXEC) {
+        debug_printf("Warning: CPU driver isn't executable! Continuing anyway.\n");
+    }
+
+    DEBUG("Unrelocated kernel entry point is %x\n", ehdr->e_entry);
+
+    // More sanity checks
+    if (ehdr->e_phoff + ehdr->e_phentsize * ehdr->e_phnum > size
+        || ehdr->e_phentsize != sizeof(struct Elf64_Phdr)) {
+        return ELF_ERR_PROGHDR;
+    }
+
+    DEBUG("Found %d program header(s)\n", ehdr->e_phnum);
+
+    /* Load the CPU driver from its ELF image. */
+    bool found_entry_point= 0;
+    bool loaded = 0;
+    lpaddr_t entry_point = 0;
+    struct Elf64_Phdr *phdr = (struct Elf64_Phdr *)(base + ehdr->e_phoff);
+    for(size_t i= 0; i < ehdr->e_phnum; i++) {
+        if(phdr[i].p_type != PT_LOAD) {
+            DEBUG("Segment %d load address 0x% "PRIx64 ", file size %" PRIu64
+                  ", memory size 0x%" PRIx64 " SKIP\n", i, phdr[i].p_vaddr,
+                  phdr[i].p_filesz, phdr[i].p_memsz);
+            continue;
+        }
+
+        DEBUG("Segment %d load address 0x% "PRIx64 ", file size %" PRIu64
+              ", memory size 0x%" PRIx64 " LOAD\n", i, phdr[i].p_vaddr,
+              phdr[i].p_filesz, phdr[i].p_memsz);
+
+
+        if (loaded) {
+            USER_PANIC("Expected one load able segment!\n");
+        }
+        loaded = 1;
+
+        void *dest = cpumem->buf + arch_page_size;
+        lpaddr_t dest_phys = cpumem->frameid.base + arch_page_size;
+
+        /* copy loadable part */
+        memcpy(dest, (void *)(base + phdr[i].p_offset), phdr[i].p_filesz);
+
+        /* zero out BSS section */
+        memset(dest + phdr[i].p_filesz, 0, phdr[i].p_memsz - phdr[i].p_filesz);
+
+        if(ehdr->e_entry >= phdr[i].p_vaddr &&
+           ehdr->e_entry - phdr[i].p_vaddr < phdr[i].p_memsz) {
+            entry_point= (dest_phys + (ehdr->e_entry - phdr[i].p_vaddr));
+            found_entry_point= 1;
+        }
+    }
+
+    err = relocate_elf(cpumem, base, arch_page_size, phdr, ehdr->e_phnum, ehdr->e_shnum);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if(!found_entry_point) {
+        debug_printf("Kernel entry point wasn't in any loaded segment.\n");
+        return ELF_ERR_HEADER;
+    }
+
+    DEBUG("Relocated entry point is %p\n",entry_point);
+
+    *retentry = (genvaddr_t)entry_point;
+
+    return SYS_ERR_OK;
+}
+
+
+
 errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
                              enum cpu_type cpu_type,
                              const char *cmdline,
@@ -192,15 +394,20 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     DEBUG("Booting: %" PRIuCOREID ", hwid=%" PRIxHWID "\n", coreid, hwid);
 
+    if (coreid != 47) {
+        return SYS_ERR_OK;
+    }
+
     static char cpuname[256], monitorname[256];
     genpaddr_t arch_page_size;
+    size_t stack_size;
     errval_t err;
 
     if(cpu_type != CPU_ARM8) {
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
     }
 
-    err = get_arch_config(hwid, &arch_page_size, monitorname, cpuname);
+    err = get_arch_config(hwid, &arch_page_size, &stack_size, monitorname, cpuname);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to obtain architecture configuration");
     }
@@ -239,19 +446,26 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
         return err;
     }
 
-    assert(monitor_binary.size < ARMV8_CORE_DATA_PAGES * arch_page_size);
+    DEBUG("CPUMEM: %lx, %zu kb\n", cpu_mem.frameid.base, cpu_mem.size >> 10);
+
+    size_t monitor_size = ROUND_UP(elf_virtual_size(monitor_binary.vaddr),
+                                   arch_page_size);
+
+    debug_printf("Monitor binary: %zu\n", monitor_size);
 
     struct mem_info monitor_mem;
-    err = app_memory_alloc(ARMV8_CORE_DATA_PAGES * arch_page_size, &monitor_mem);
+    err = app_memory_alloc(monitor_size + ARMV8_CORE_DATA_PAGES * arch_page_size, &monitor_mem);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not allocate space for new app kernel.");
         return err;
     }
 
-#define ARMV8_KERNEL_STACK_SIZE (16 * 1024)
+    DEBUG("DATAMEM: %lx, %zu kb\n", monitor_mem.frameid.base,
+                 monitor_mem.frameid.bytes >> 10);
+
 
     struct mem_info stack_mem;
-    err = app_memory_alloc(ARMV8_KERNEL_STACK_SIZE, &stack_mem);
+    err = app_memory_alloc(stack_size, &stack_mem);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not allocate space for new app kernel.");
         return err;
@@ -266,30 +480,12 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
     struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *)cpu_binary.vaddr;
     genvaddr_t cpu_entry;
 
-    err = elf_load(cpu_head->e_machine, elfload_allocate, &state,
-                   cpu_binary.vaddr, cpu_binary.size, &cpu_entry);
+    err = load_cpudriver(cpu_head->e_machine, &cpu_mem, cpu_binary.vaddr,
+                         cpu_binary.size, arch_page_size, &cpu_entry);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not load kernel .");
         return err;
     }
-
-
-    struct Elf64_Shdr *rela, *symtab, *symhead;
-    symhead = (struct Elf64_Shdr *)(cpu_binary.vaddr + (uintptr_t)cpu_head->e_shoff);
-
-    assert(cpu_head->e_shoff != 0);
-    rela = elf64_find_section_header_type(symhead, cpu_head->e_shnum, SHT_RELA);
-    assert(rela != NULL);
-    symtab = elf64_find_section_header_type(symhead, cpu_head->e_shnum, SHT_SYMTAB /* SHT_DYNSYM */);
-    assert(symtab != NULL);
-    elf64_relocate(cpu_mem.frameid.base + arch_page_size, state.elfbase,
-                   (struct Elf64_Rela *)(uintptr_t)(cpu_binary.vaddr + rela->sh_offset),
-                   rela->sh_size,
-                   (struct Elf64_Sym *)(uintptr_t)(cpu_binary.vaddr + symtab->sh_offset),
-                   symtab->sh_size,
-                   state.elfbase, state.vbase);
-
-    genvaddr_t cpu_reloc_entry = cpu_entry - state.elfbase
-                                 + cpu_mem.frameid.base + arch_page_size;
 
     struct armv8_core_data *core_data = (struct armv8_core_data *)cpu_mem.buf;
 
@@ -304,13 +500,11 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
     core_data->module_start = cpu_binary.paddr;
     core_data->module_end   = cpu_binary.paddr + cpu_binary.size;
     core_data->urpc_frame_base = urpc_frame_id.base;
-    assert((1UL << log2ceil(urpc_frame_id.bytes)) == urpc_frame_id.bytes);
-    core_data->urpc_frame_bits = log2ceil(urpc_frame_id.bytes);
+    core_data->urpc_frame_size = urpc_frame_id.bytes;
     core_data->monitor_binary   = monitor_binary.paddr;
     core_data->monitor_binary_size = monitor_binary.size;
     core_data->memory_base_start = monitor_mem.frameid.base;
-    assert((1UL << log2ceil(monitor_mem.frameid.bytes)) == monitor_mem.frameid.bytes);
-    core_data->memory_bits       = log2ceil(monitor_mem.frameid.bytes);
+    core_data->memory_size       = monitor_mem.frameid.bytes;
     core_data->src_core_id       = disp_get_core_id();
     core_data->src_arch_id       = my_arch_id;
     core_data->dst_core_id       = coreid;
@@ -340,13 +534,16 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
         DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->kernel_cmdline);
     }
 
+    __asm volatile("dsb   sy\n"
+                   "dmb   sy\n"
+                   "isb     \n");
+
     /* start */
 
     debug_printf("invoking PSCI_START hwid=%lx entry=%lx context=%lx\n",
-                 hwid, cpu_reloc_entry, cpu_mem.frameid.base);
-    err = sys_debug_invoke_psci(hwid, cpu_reloc_entry, cpu_mem.frameid.base);
+                 hwid, cpu_entry, cpu_mem.frameid.base);
+    err = sys_debug_invoke_psci(hwid, cpu_entry, cpu_mem.frameid.base);
     DEBUG_ERR(err, "sys_debug_invoke_psci");
-
 
     err = mem_free(&stack_mem);
     if (err_is_fail(err)) {
@@ -379,8 +576,6 @@ errval_t get_core_info(coreid_t core_id, hwid_t* hw_id, enum cpu_type* cpu_type)
     if (err_is_fail(err)) {
         goto out;
     }
-
-    debug_printf("Get Core Info: %" PRIuCOREID ", hwid=%" PRIxHWID "\n", core_id, *hw_id);
 
     if (!enabled) {
         /* XXX: better error code */
