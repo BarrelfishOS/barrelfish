@@ -59,67 +59,293 @@
 \chapter{Introduction}
 \label{chap:introduction}
 
-This document describes the way Barrelfish boots secondary cores on supported 
-architectures.
+This document describes the way Barrelfish boots cores on supported
+architectures. We first explain the terminology used throughout this document.
+Then, we will give an overview of supported operations and finally, explain in
+detail how the implementation of these operations on differ for various
+supported architectures.
+
+\section{Boot drivers}
+
+Barrelfish uses \textit{boot drivers}, which is a piece of code running on a
+``home core'' and manages a ``target core''. It encapsulates the hardware
+functionality to boot, suspend, resume, and power-down the latter.  Boot drivers
+run as processes, but closely resemble device drivers and could equally run as
+software objects within another process. The boot driver abstraction treats CPU
+cores much like peripheral devices, and allows us to reuse the OS's existing
+device and hot-plug management infrastructure to handle new cores and select
+drivers and kernels for them. The code for the Barrelfish boot driver can be
+found in \texttt{usr/drivers/cpuboot/}. From the source folder, a binary called
+``corectrl'' is generated at build time and can be used to do target core
+management. The ``corectrl'' program is a command line tool that supports
+different operations as described below.
+
+\section{CPU driver}
+
+Is the binary that runs on a core and executes in privileged mode. CPU drivers
+are the Barrelfish equivalent of a kernel, except that there is one per core,
+and they share no state or synchronization. CPU drivers are typically
+non-preemptible, single-threaded, and mostly stateless. The CPU driver binary is
+selected and loaded by a \textit{boot driver}, which among other things, is
+responsible of making sure the CPU driver is executed on a core. TN-021 contains
+a more detailed explanation of CPU drivers and the provided functionality.
+
+The code for the Barrelfish CPU drivers can be found in \texttt{kernel/}.
+
+\section{Kernel Control Block (KCB)}
+
+The Kernel Control Block (or KCB) is a memory region that can only be accessed
+by kernel-space. However, a program, especially boot drivers, can create and
+reference KCBs in user-space through the capability system. The Kernel Control
+Block's purpose is to hold or keep pointers to all per-core state. All per-KCB
+state maintained by a kernel must be reachable from the KCB itself or
+reconstructible by reading the KCB.
+
+Usually, a KCB is created for each core we start and passed to the new core on
+start-up. On boot-up, the kernel checks if the KCB it received is initialized.
+In that case, it will use the KCB and start to dispatch the applications it
+contains. If the KCB is uninitialized, the kernel sets all the entries of the
+KCB to its default values and continues bootstrapping the core (and the KCB
+block) by starting the monitor application, which is critical for communication
+across cores in user-space.
+
+Every kernel has the possibility to maintain multiple KCBs. The kernel maintains
+a ring structure of KCBs it owns. A CPU driver supports switching to another KCB
+on demand. In case a CPU driver is running multiple KCBs it divides the
+time-slices evenly among different KCBs and switches KCBs after a given amount
+of time has passed. Currently, the CPU driver uses round-robin scheduling for
+having multiple KCBs on one core but other models are possible as well.
+
 
 \chapter{Generic Operations}
 \label{chap:generic}
 
-\section{Terminology}
+The boot driver (currently called ``corectrl'') has support for a range of
+operations, which we describe in more detail in this chapter. As a summary the
+operations are listed here:
+
 \begin{itemize}
-    \item OLD cpudriver
-    \item NEW cpudriver
-    \item KCB
-    \item bootdriver
+\item boot \textless target coreid\textgreater: Boots a new core with a KCB.
+\item stop \textless target coreid\textgreater: Stop execution on an existing core.
+\item update \textless target coreid\textgreater: Update the CPU driver on an existing core.
+\item give \textless from kcbid\textgreater \textless to kcbid\textgreater: Give kcb from one core to another.
+\item rmkcb \textless kcbid\textgreater: Remove a running KCB from a core.
+%\item park \textless kcbid to stop\textgreater \textless recv kcbid\textgreater: Stop execution on an existing core and park KCB on another core.
+%\item unpark \textless kcbid to unpark\textgreater: Reestablish parked KCB on its original core.
+\item lscpu: List current status of all cores.
+\item lskcb: List current KCBs.
 \end{itemize}
 
-\section{Boot process}
-\begin{enumerate}
-    \item Instantiation of a boot driver for a \emph{specific} core.
-    \item Invoking the operations of the boot driver
-    \item opt: Removing the old cpu driver
-    \item (re)start core with the new CPU driver
-\end{enumerate}
+Note that the implementation of ``corectrl'' in it's current from is essentially
+a command line tool that must be invoked for every operation. This means that
+the boot driver is currently state-less which is fine for just executing the
+operations since all information required can be reconstructed from the SKB.
 
-\section{CPU Capability}
-\todo{Figure out how we can integrate the right to boot/reset etc. into the 
-    cap system. CF. interrupt capabilities}
-
-\section{Components}
-
-\subsection{Bootdriver}
+There are a few optional flags that can be passed to the different operations:
 \begin{itemize}
-    \item Input args: information about the core it's responsible, capabilities
-    \item Exported interface: (cf. cpuboot operations)
-\end{itemize}
-
-
-\subsubsection{Operations (current)}
-\begin{itemize}
-\item boot: Boot a fresh core with a KCB. "boot <target coreid>"
-\item update: Update the kernel on an existing core. "update <target coreid>"
-\item stop: Stop execution on an existing core. "stop <target coreid>"
-\item give: Give kcb from one core to another. "give <from kcbid> <to kcbid>",
-\item rmkcb: Remove a running KCB from a core. "rm <kcbid>",
-\item park: Stop execution on an existing core and park KCB on another core.",
-    "park <kcbid to stop> <recv kcbid>"
-\item unpark: Reestablish parked KCB on its original core."unpark <kcbid to 
-unpark>"
-\item lscpu: List current status of all cores. "lscpu"
-\item lskcb: List current KCBs. "lskcb"
+\item -d, --debug: Print debug information
+\item -k, --kernel \textless binary\textgreater: Overwrite default kernel binary.
+\item -x, --monitor \textless binary\textgreater: Overwrite default monitor binary.
+\item -a, --kargs \textless args\textgreater: Overwrite default kernel command line arguments.
+\item -n, --newkcb: Create a new KCB even if there is already one for that core.
+\item -m, --nomsg: Don't wait for a monitor message.
 \end{itemize}
 
 
+\section{boot \textless target coreid\textgreater}
+
+Starts a CPU driver on a core. If the new core that has never been started
+before, it is brought online as follows:
+
+\begin{penumerate}
+
+\item The new core is detected by some platform-specific mechanism (e.g., ACPI)
+and its appearance registered with the device management subsystem. This is done
+by adding an octopus record to the SKB. The record name is of the format
+\texttt{hw.processor.ID} where ID is an identifier guaranteed to be unique by the
+SKB/Octopus. The record has the following mandatory, architecture independent
+fields:
+
+\begin{itemize}
+
+\item \texttt{enabled}: A boolean field that says if the core is usable or not
+(for example, on x86 if hyper-threads are disabled, this flag would be set to
+false for hyper-threads -- the resulting core would not be booted by default).
+
+\item \texttt{barrelfish\_id}: A unique integer identifier used by Barrelfish to
+refer to this core.
+
+\item \texttt{hw\_id}: An identifier assigned by the hardware/platform to this
+core.
+
+\item \texttt{type}: A number that corresponds to that cores architecture as
+described in \texttt{enum cpu\_type} (defined in barrelfish\_kpi/cpu.h).
+
+\end{itemize}
+
+\item Barrelfish selects and starts an appropriate boot driver for the new core.
+This is done by propagating the added octopus record to kaluga which then
+invokes ``corectrl'' with the boot command.
+
+\item The boot driver selects a kernel binary and arguments for the new core,
+and directs the boot driver to boot the kernel on the core. By default
+``corectrl'' uses the \texttt{type} field in the octopus record to decide which
+binary to spawn on the target core. However, this can be overridden by manually
+selecting a kernel with the --kernel flag. Alternatively, the default
+parameters passed to the kernel can be overridden with the --kargs option.
+
+\item The boot driver loads and relocates the kernel, and executes the hardware
+protocol to start the new core. This is done by using the file system to load
+the binaries and additionally a series of system calls to invoke protected
+operations (starting a core, sending an IPI etc.). In this process, also a new
+KCB is created for the core and initialized with default arguments.
+
+\item The new kernel initializes and uses existing Barrelfish protocols for
+integrating into the running OS. This involves spawning the first user-space
+program (the monitor) on the new core. The default choice
+for the first user-space program loaded on the new core can be overridden
+by using the --monitor flag.
+
+\item The monitor will inform the other boot driver about its existence by
+sending a message back to it. Then, the boot driver will tell its local monitor
+about the newly available and initialized core. In some cases (for example if
+something else is spawned than the default monitor binary) we may not want to
+wait for such a message. If the --nomsg flag is passed to ``corectrl'' this
+step is skipped.
+
+\item The SKB is updated with information about the new core: The core is marked
+online and booted. The KCB that was created during the boot process by
+``corectrl'' is stored in the capability storage in case it needs to be
+retrieved at a different point in time.
+
+\end{penumerate}
+
+At least three special cases need to be considered:
+
+\begin{itemize}
+
+    \item The core id is invalid: If we don't find the core in the SKB,
+    the operation is aborted.
+
+    \item The core is already running: In that case we abort with an error.
+
+    \item The core has been booted before: By default ``corectrl'' will check if
+    an existing KCB for the given core already exists. If yes, the capability
+    for the KCB will be retrieved from the SKB and passed to the new core. This
+    behavior can be overridden by passing the --newkcb flag which makes sure
+    that an existing KCB is not reused.
+
+\end{itemize}
 
 
+\section{stop \textless target coreid\textgreater}
+
+Stops a CPU driver on a core. If the core is already stopped, nothing is done.
+The KCB running on this core will stop dispatching until the core is either
+restarted, or the KCB is given to another core.
+
+In general the operations executed is follow:
+
+\begin{itemize}
+
+\item Invoke hardware specific protocol to stop the core.
+
+\item Optional: Update meta-data in SKB to mark core as stopped.
+
+\end{itemize}
+
+This operations does not take any optional flags or additional arguments.
+
+Note that while this is deliberately very simple and low-overhead, just having
+the KCB stop to execute is generally a bad idea as there may be messages waiting
+to be received on that core etc. which can cause the whole system to lock-up. It
+makes sense for example to park the KCB after stopping (see the give operation
+later).
+
+\section{update \textless target coreid\textgreater}
+
+Update is implemented as a sequence of executing the \texttt{stop} and
+\texttt{start} command. It takes the same arguments and flags as described in
+the start section.
+
+\section{give \textless target kcbid\textgreater \textless destination kcbid\textgreater}
+
+Removes a KCB on the core it is currently executing and transfers it to
+the core that is currently dispatching the destination KCB.
+This command involves several steps:
+
+\begin{penumerate}
+
+\item The boot driver instructs its local monitor to send a message to the
+monitor of the target KCB. The message instructs the receiving monitor to inform
+its local CPU driver to stop dispatching the KCB (or OSNode).
+
+\item The boot driver sends message to the monitor of the destination KCB,
+passing along the cap reference of the target KCB. Upon receipt, the destination
+monitor will hand the reference to its CPU driver.
+
+\item The destination CPU driver will do some minimal initialization, resetting
+timers and scheduling state, check for registered interrupts and up-call drivers
+to re-register them, and then start dispatching the target KCB.
+
+\item The boot driver will update the SKB to change the core assigned to the
+target kcbid.
+
+\end{penumerate}
+
+
+The following special cases need to be considered:
+
+\begin{itemize}
+
+    \item The target or destination KCB ID is invalid: The operation is aborted.
+
+    \item The destination KCB is not currently assigned a core: The operation is
+    aborted.
+
+    \item The target KCB is not currently running on a core: The step where we
+    first send a message to the target KCB is skipped.
+
+\end{itemize}
+
+
+\section{rmkcb \textless kcbid\textgreater}
+
+\begin{penumerate}
+
+\item The boot driver instructs its local monitor to send a message to the
+monitor of the target KCB.
+
+\item Upon receipt, the monitor of the target KCB will instruct the CPU driver
+to remove the KCB from the scheduling queue. If queue is now empty, the CPU
+driver will stop itself, otherwise it will switch to the next KCB  in the list.
+
+\end{penumerate}
+
+The following special cases need to be considered:
+
+\begin{itemize}
+
+    \item The KCB id is invalid: If we don't find the KCB capability in the SKB,
+    the operation is aborted.
+
+    \item The KCB is not dispatched on any core: If the KCB is not currently
+    associated with any core, it can't be removed and therefore the operation
+    is a NOP.
+
+\end{itemize}
+
+\todo{Don't remember exactly if we need to send this to KCBID we want to
+remove or the core/KCB that is currently hosting us...}
 
 \chapter{Booting x86 Cores}
 \label{chap:x86}
-\todo{explain x86 specific boot arguements / protocols}
 
 \section{Core discovery and identification}
 
 \section{Booting a new core}
+
+
 
 \chapter{Booting ARMv7 Cores}
 \label{chap:armv7}
@@ -137,12 +363,12 @@ unpark>"
 \section{Core discovery and identification}
 
 \section{Booting a new core}
-% 
+%
 %http://infocenter.arm.com/help/topic/com.arm.doc.den0044b/DEN0044B_Server_Base_Boot_Requirements.pdf
 
 \subsection{Power State Coordination Interface (PSCI)}
 
-% 
+%
 %http://infocenter.arm.com/help/topic/com.arm.doc.den0022c/DEN0022C_Power_State_Coordination_Interface.pdf
 
 \subsection{Parking Protocol}

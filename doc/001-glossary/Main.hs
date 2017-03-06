@@ -33,6 +33,12 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              "The kernel object representing all per-core state. KCBs are \
              \referred to by special capability types.",
 
+             Entry "Boot driver" []
+
+             "A piece of code running on a ``home core'' to manage a ``target core''. \
+             \It encapsulates the hardware functionality to boot, suspend, resume, \
+             \and power-down the latter.",
+
              Entry "CPU driver" []
 
              "The code running on a core which executes in kernel or \
@@ -429,7 +435,7 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \or other APP cores and not the initial boot-loader or firmware.",
 
              Entry "Domain" []
-             
+
              "The word domain is used to refer to the user-level\
              \code sharing a protection domain and (usually) an address space.\
              \A domain consists of one or more dispatchers.",
