@@ -40,21 +40,21 @@ struct armv8_core_data {
     lpaddr_t multiboot2; ///< The physical multiboot2 location
     uint64_t multiboot2_size;
     lpaddr_t efi_mmap;
-    uint32_t module_start;  ///< The start of the cpu module
-    uint32_t module_end;    ///< The end of the cpu module
-    uint32_t urpc_frame_base;
-    uint8_t urpc_frame_bits;
-    uint32_t monitor_binary;
-    uint32_t monitor_binary_size;
-    uint32_t memory_base_start;
-    uint8_t memory_bits;
+    lpaddr_t module_start;  ///< The start of the cpu module
+    lpaddr_t module_end;    ///< The end of the cpu module
+    lpaddr_t urpc_frame_base;
+    size_t urpc_frame_size;
+    lpaddr_t monitor_binary;
+    size_t monitor_binary_size;
+    lpaddr_t memory_base_start;
+    size_t memory_size;
     coreid_t src_core_id;
-    uint8_t src_arch_id;
+    uint64_t src_arch_id;
     coreid_t dst_core_id;
     char kernel_cmdline[128];
 
-    uint32_t    initrd_start;
-    uint32_t	initrd_size;
+    lpaddr_t    initrd_start;
+    lpaddr_t	initrd_size;
 
 
     uint64_t    start_kernel_ram; ///< The physical start of allocated kernel memory
@@ -68,5 +68,6 @@ struct armv8_core_data {
 }; //__attribute__ ((packed));
 
 #define ARMV8_CORE_DATA_PAGES 1100
+
 
 #endif
