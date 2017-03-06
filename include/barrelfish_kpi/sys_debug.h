@@ -35,7 +35,6 @@ enum debug_message {
     DEBUG_TRACE_PMEM_CTRL,
     DEBUG_GET_APIC_ID,
     DEBUG_CREATE_IRQ_SRC_CAP,
-    DEBUG_PSCI_CPU_ON,
 };
 
 #endif //BARRELFISH_KPI_SYS_DEBUG_H

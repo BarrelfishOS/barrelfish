@@ -1161,9 +1161,6 @@ static struct sysret handle_debug_syscall(int msg)
     return retval;
 }
 
-#include <psci.h>
-#include <barrelfish_kpi/arm_core_data.h>
-#include <arch/armv8/global.h>
 
 /* XXX - function documentation is inconsistent. */
 /**
@@ -1237,17 +1234,6 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
             break;
 
         case SYSCALL_DEBUG:
-            if (a1 == DEBUG_PSCI_CPU_ON) {
-                printf("Invoking PSCI on: cpu=%lx, entry=%lx, context=%lx\n", a2, a3, a4);
-                struct armv8_core_data *cd = (struct armv8_core_data *)local_phys_to_mem(a4);
-                cd->kernel_l0_pagetable = sysreg_read_ttbr1_el1();
-                cd->kernel_global = (uintptr_t)global;
-                __asm volatile("dsb   sy\n"
-                               "dmb   sy\n"
-                               "isb     \n");
-                r.error = psci_cpu_on(a2, a3, a4);
-                break;
-            }
             if (argc == 2) {
                 r = handle_debug_syscall(a1);
             }
