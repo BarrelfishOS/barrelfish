@@ -90,6 +90,7 @@ static void mmap_find_memory(struct multiboot_tag_efi_mmap *mmap)
 
 bool cpu_is_bsp(void)
 {
+    /* XXX: i don't think this is correct*/
     return (sysreg_get_cpu_id() == 0);
 }
 
@@ -205,7 +206,7 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
 
     platform_gic_init();
 
-    arm_kernel_startup();
+    arm_kernel_startup(pointer);
     while (1) {
         __asm volatile ("wfi":::);
     }

@@ -18,7 +18,7 @@
 #ifndef __ASSEMBLER__
 
 /*
- * \brief Main entry point to C from boot.S /efiboot[.S|.c]
+ * \brief Main entry point to C from boot[.S|.c]
  */
 void arch_init(uint32_t magic, void *pointer, uintptr_t stack) __attribute__((noreturn));
 
@@ -30,7 +30,7 @@ extern bool cpu_is_bsp(void);
 /*
  * Second-stage startup
  */
-void arm_kernel_startup(void) __attribute__((noreturn));
+void  arm_kernel_startup(void *pointer) __attribute__((noreturn));
 
 #endif // __ASSEMBLER__
 
