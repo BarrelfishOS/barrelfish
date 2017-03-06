@@ -725,7 +725,7 @@ INVOCATION_HANDLER(monitor_get_platform)
  */
 static struct sysret
 monitor_spawn_core(
-	struct capability *kernel_cap,
+    struct capability *kernel_cap,
     arch_registers_state_t* context,
     int argc)
 {
@@ -741,15 +741,15 @@ monitor_spawn_core(
 
 static struct sysret
 monitor_identify_cap(
-	struct capability *kernel_cap,
+    struct capability *kernel_cap,
     arch_registers_state_t* context,
     int argc)
 {
-	struct registers_aarch64_syscall_args* sa = &context->syscall_args;
+    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
-	capaddr_t cptr = sa->arg2;
-	int bits = sa->arg3;
-	struct capability *retbuf = (void *)sa->arg4;
+    capaddr_t cptr = sa->arg2;
+    int bits = sa->arg3;
+    struct capability *retbuf = (void *)sa->arg4;
 
     return sys_monitor_identify_cap(&dcb_current->cspace.cap, cptr, bits, retbuf);
 }
@@ -900,16 +900,16 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_AARCH64_l1] = {
-    	[VNodeCmd_Map]   = handle_map,
-    	[VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_AARCH64_l2] = {
-    	[VNodeCmd_Map]   = handle_map,
-    	[VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_AARCH64_l3] = {
-    	[VNodeCmd_Map]   = handle_map,
-    	[VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_Frame_Mapping] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
