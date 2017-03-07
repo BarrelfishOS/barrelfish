@@ -19,12 +19,10 @@ static errval_t get_ram_caps(void)
 {
     get_ram_caps_count ++;
     struct capref ram;
-    size_t alloc_bits;
     size_t alloc_bytes = default_frame_bytes;
     errval_t err;
 ram_alloc_retry:
-    alloc_bits = log2floor(alloc_bytes);
-    err = ram_alloc(&ram, alloc_bits);
+    err = ram_alloc(&ram, log2ceil(alloc_bytes));
     if (err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
         DEBUG_COW("early ram_alloc, retry with BASE_PAGE_BITS\n");
         // this is probably before we have a connection to init and are using
@@ -53,41 +51,40 @@ ram_alloc_retry:
     // retype into 4k caps in new cnode
     cslot_t slots_needed = alloc_bytes / BASE_PAGE_SIZE;
     current_slot_count = slots_needed;
+    debug_printf("slots_needed = %"PRIuCSLOT"\n", slots_needed);
     if (slots_needed == 1) {
         USER_PANIC("OOM");
     }
+    if (slots_needed < L2_CNODE_SLOTS) {
+        debug_printf("slowly running out of RAM: only got %d pages\n", slots_needed);
+    }
     assert(slots_needed > 1);
-    cslot_t slots;
+    assert(slots_needed <= L2_CNODE_SLOTS);
     struct capref nextcncap;
     struct cnoderef nextcn;
     DEBUG_COW("%s: need CNode with %d slots\n", __FUNCTION__, slots_needed);
-    err = cnode_create(&nextcncap, &nextcn, slots_needed, &slots);
+    err = cnode_create_l2(&nextcncap, &nextcn);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "cnode_create");
         return err;
-    }
-    if (slots < slots_needed) {
-        USER_PANIC("cnode_create 1");
     }
     current_ram = (struct capref) {
         .cnode = nextcn,
         .slot = 0,
     };
-
-    err = cnode_create(&nextcncap, &nextcn, slots_needed, &slots);
+    // Create empty cnode for retypes to frames/ptables in cow_get_page
+    err = cnode_create_l2(&nextcncap, &nextcn);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "cnode_create");
         return err;
-    }
-    if (slots < slots_needed) {
-        USER_PANIC("cnode_create 2");
     }
     current_frame = (struct capref) {
         .cnode = nextcn,
         .slot = 0,
     };
 
-    err = cap_retype(current_ram, ram, ObjType_RAM, BASE_PAGE_BITS);
+    // Retype into 4kB RAM caps
+    err = cap_retype(current_ram, ram, 0, ObjType_RAM, BASE_PAGE_SIZE, slots_needed);
     if (err_is_fail(err)) {
         debug_printf("error in cap_retype: %s\n", err_getstring(err));
         return err;
@@ -108,7 +105,7 @@ static errval_t cow_get_page(struct capref *f, enum objtype type)
             return err;
         }
     }
-    err = cap_retype(current_frame, current_ram, type, BASE_PAGE_BITS);
+    err = cap_retype(current_frame, current_ram, 0, type, BASE_PAGE_SIZE, 1);
     if (err_is_fail(err)) {
         return err;
     }
@@ -130,9 +127,12 @@ static errval_t alloc_vnode_noalloc(struct pmap_x86 *pmap, struct vnode *root,
     }
     newvnode->u.vnode.cap = vnodecap;
 
+    err = slot_alloc(&newvnode->mapping);
+    assert(err_is_ok(err));
+
     // Map it
     err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
-                    PTABLE_ACCESS_DEFAULT, 0, 1);
+                    PTABLE_ACCESS_DEFAULT, 0, 1, newvnode->mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
@@ -426,8 +426,11 @@ static void cow_handler(enum exception_type type, int subtype, void *vaddr,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cow_get_page");
     }
+    struct capref mapping;
+    err = slot_alloc(&mapping);
+    assert(err_is_ok(err));
     err = vnode_copy_remap(ptable->u.vnode.cap, newframe, X86_64_PTABLE_BASE(faddr),
-            vregion_to_pmap_flag(VREGION_FLAGS_READ_WRITE), 0, 1);
+            vregion_to_pmap_flag(VREGION_FLAGS_READ_WRITE), 0, 1, mapping);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "frame_alloc");
     }
@@ -489,8 +492,9 @@ errval_t pmap_setup_cow(struct vregion *vregion, void **retbuf)
     }
     assert(err_is_ok(err));
 
-    DEBUG_COW("setting up frame pool (8MB) for remapping pages\n");
-    default_frame_bytes = 8UL << 20;
+    default_frame_bytes = L2_CNODE_SLOTS * BASE_PAGE_SIZE;
+    DEBUG_COW("setting up frame pool (%uMB) for remapping pages\n",
+            default_frame_bytes / 1024 / 1024);
     err = get_ram_caps();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_frames");

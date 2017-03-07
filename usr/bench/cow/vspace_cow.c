@@ -70,17 +70,17 @@ errval_t cow_init(size_t bufsize, size_t granularity,
     assert(err_is_ok(err));
     DEBUG_COW("ram alloc done\n");
     // calculate #slots
+    granularity = 1 << log2floor(granularity);
     cslot_t cap_count = bufsize / granularity;
-    cslot_t slots;
+    debug_printf("cap_count = %"PRIuCSLOT"\n", cap_count); assert(cap_count < 256);
     // get CNode
-    err = cnode_create(&cncap, &cnode, cap_count, &slots);
+    err = cnode_create_l2(&cncap, &cnode);
     assert(err_is_ok(err));
-    assert(slots >= cap_count);
     DEBUG_COW("cnode create done\n");
 
     // retype RAM into Frames
     struct capref first_frame = (struct capref) { .cnode = cnode, .slot = 0 };
-    err = cap_retype(first_frame, frame, ObjType_Frame, log2floor(granularity));
+    err = cap_retype(first_frame, frame, 0, ObjType_Frame, granularity, cap_count);
     assert(err_is_ok(err));
     DEBUG_COW("retype done\n");
 
@@ -92,7 +92,7 @@ errval_t cow_init(size_t bufsize, size_t granularity,
             ex_stack+EX_STACK_SIZE, NULL, NULL);
     assert(err_is_ok(err));
 
-    cow_frame_count = slots;
+    cow_frame_count = cap_count;
     cow_frames = cnode;
     cow_vbuf = vaddr;
     cow_bufsize = bufsize;
