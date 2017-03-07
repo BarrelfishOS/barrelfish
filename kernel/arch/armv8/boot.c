@@ -213,7 +213,7 @@ void boot_app_init(lpaddr_t state)
 
     struct armv8_core_data *cd = (struct armv8_core_data *)state;
 
-    uint8_t current_el = get_current_el();
+    uint8_t current_el = armv8_CurrentEL_EL_rdf(NULL);
 
     if (current_el == 2) {
         uint64_t zero = 0;
@@ -266,11 +266,12 @@ void boot_app_init(lpaddr_t state)
  */
 void
 boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
-    int el= get_current_el();
 
+    uint8_t el = armv8_CurrentEL_EL_rdf(NULL);
+
+    //int el= get_current_el();
 
     /* Configure the EL1 translation regime. */
-    /* assert(el >= 1) */
     configure_tcr();
 
     /* Copy the current TTBR for EL1. */
