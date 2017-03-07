@@ -655,12 +655,6 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, size_t request)
     return SYS_ERR_OK;
 }
 
-/// Minimally refill the slab allocator
-static errval_t min_refill_slabs(struct pmap_x86 *pmap)
-{
-    return refill_slabs(pmap, 16);
-}
-
 /**
  * \brief Create page mappings
  *
@@ -1497,7 +1491,7 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     /* x86 specific portion */
     slab_init(&x86->slab, sizeof(struct vnode), NULL);
     slab_grow(&x86->slab, x86->slab_buffer, INIT_SLAB_BUFFER_SIZE);
-    x86->refill_slabs = min_refill_slabs;
+    x86->refill_slabs = refill_slabs;
 
     x86->root.type = ObjType_VNode_x86_64_pml4;
     x86->root.is_vnode          = true;

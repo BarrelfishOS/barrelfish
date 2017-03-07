@@ -541,7 +541,7 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
 
     while (*inlen > 0 && (*in)->depth == depth) {
         // ensure slab allocator has sufficient space
-        err = pmapx->refill_slabs(pmapx);
+        err = pmapx->refill_slabs(pmapx, 16);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_SLAB_REFILL);
         }
