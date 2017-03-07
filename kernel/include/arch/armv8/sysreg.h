@@ -78,6 +78,7 @@ ARMV8_SYSREG_RW(spsr_el1, SPSR_EL1, 32)
 ARMV8_SYSREG_RW(spsr_el2, SPSR_EL2, 32)
 ARMV8_SYSREG_RW(spsr_el3, SPSR_EL3, 32)
 
+ARMV8_SYSREG_RO(id_aa64pfr0_el1, id_aa64pfr0_el1, 64)
 
 ARMV8_SYSREG_RW(CPACR_EL1, CPACR_EL1, 32)
 ARMV8_SYSREG_RW(esr_el1, esr_el1, 64)
@@ -85,10 +86,21 @@ ARMV8_SYSREG_RW(esr_el1, esr_el1, 64)
 ARMV8_SYSREG_RW(dfsr, dfsr, 64)
 ARMV8_SYSREG_RW(ifsr, ifsr, 64)
 
+ARMV8_SYSREG_RW(hcr_el2, hcr_el2, 64)
+ARMV8_SYSREG_RW(scr_el3, scr_el3, 32)
+
+ARMV8_SYSREG_RW(mdcr_el2, mdcr_el2, 32)
+ARMV8_SYSREG_RW(mdcr_el3, mdcr_el3, 32)
+
+
 ARMV8_SYSREG_RW(ttbr0_el1, ttbr0_el1, 64)
 ARMV8_SYSREG_RW(ttbr0_el2, ttbr0_el2, 64)
 ARMV8_SYSREG_RW(ttbr0_el3, ttbr0_el3, 64)
 ARMV8_SYSREG_RW(ttbr1_el1, ttbr1_el1, 64)
+
+ARMV8_SYSREG_RW(mair_el1, mair_el1, 64)
+ARMV8_SYSREG_RW(mair_el2, mair_el2, 64)
+ARMV8_SYSREG_RW(mair_el3, mair_el3, 64)
 
 
 ARMV8_SYSREG_RW(ICC_AP0R0_EL1, S3_0_C12_C8_4, 32)
@@ -155,12 +167,6 @@ ARMV8_SYSREG_RW(TTBCR, TTBCR, 32)
 #define ARMV8_CACHE_CTRL_WO(_name, _reg, _bits) \
     ARMV8_CACHE_CTRL_WRITE_FN(_name, _reg, _bits)
 
-#define ARMV8_CACHE_CTRL_RO(_name, _reg, _bits) \
-    ARMV8_CACHE_CTRL_READ_FN(_name, _reg, _bits)
-
-#define ARMV8_CACHE_CTRL_RW(_name, _reg, _bits) \
-    ARMV8_CACHE_CTRL_READ_FN(_name, _reg, _bits) \
-    ARMV8_CACHE_CTRL_WRITE_FN(_name, _reg, _bits)
 
 ARMV8_CACHE_CTRL_WO(cisw,CISW,64)
 ARMV8_CACHE_CTRL_WO(civac, CIVAC,64)
@@ -272,12 +278,6 @@ sysreg_read_cntfrq_el0(void) {
     return frq;
 }
 
-static inline uint64_t
-sysreg_read_sp_el0(void) {
-    uint64_t sp_el0;
-    __asm volatile("mrs %[sp_el0], sp_el0" : [sp_el0] "=r" (sp_el0));
-    return sp_el0;
-}
 
 static inline uint64_t
 sysreg_read_sp(void) {
@@ -335,11 +335,6 @@ sysreg_write_mdcr_el3(uint64_t x) {
     __asm volatile("msr mdcr_el3, %[x]" : : [x] "r" (x));
 }
 
-static inline void
-sysreg_write_hcr_el2(uint64_t x) {
-    __asm volatile("msr hcr_el2, %[x]" : : [x] "r" (x));
-}
-
 static inline uint64_t
 sysreg_read_sctlr_el1(void) {
     uint64_t sctlr_el1;
@@ -369,20 +364,12 @@ sysreg_write_mair_el1(uint64_t x) {
     __asm volatile("msr mair_el1, %[x]" : : [x] "r" (x));
 }
 
-static inline void
-sysreg_write_spsr_el3(uint64_t x) {
-    __asm volatile("msr spsr_el3, %[x]" : : [x] "r" (x));
-}
 
 static inline void
 sysreg_write_elr_el3(uint64_t x) {
     __asm volatile("msr elr_el3, %[x]" : : [x] "r" (x));
 }
 
-static inline void
-sysreg_write_spsr_el2(uint64_t x) {
-    __asm volatile("msr spsr_el2, %[x]" : : [x] "r" (x));
-}
 
 static inline void
 sysreg_write_elr_el2(uint64_t x) {
