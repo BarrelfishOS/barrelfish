@@ -198,7 +198,243 @@ static void armv8_instruction_synchronization_barrier(void)
     __asm volatile("isb");
 }
 
+static void configure_spsr(uint8_t el) {
+    uint32_t spsr = 0;
+    /* mask the exceptions */
+    spsr = armv8_SPSR_EL2_D_insert(spsr, 1);
+    spsr = armv8_SPSR_EL2_A_insert(spsr, 1);
+    spsr = armv8_SPSR_EL2_I_insert(spsr, 1);
+    spsr = armv8_SPSR_EL2_F_insert(spsr, 1);
 
+    /* set el1 */
+    spsr = armv8_SPSR_EL2_EL_insert(spsr, 1);
+
+    /* use the SP_ELx stack */
+    spsr = armv8_SPSR_EL2_SP_insert(spsr, 1);
+
+    switch(el) {
+    case 3:
+        armv8_SPSR_EL3_wr(NULL, spsr);
+        return;
+    case 2:
+        armv8_SPSR_EL2_wr(NULL, spsr);
+        break;
+    case 1:
+        armv8_SPSR_EL1_wr(NULL, spsr);
+        return;
+    default:
+        return;
+    }
+}
+
+static void configure_ttbr1(uint8_t el)
+{
+    lpaddr_t ttbr1_el1;
+    switch(el) {
+    case 3:
+        ttbr1_el1= armv8_TTBR0_EL3_rawrd(NULL);
+        break;
+    case 2:
+        ttbr1_el1= armv8_TTBR0_EL2_rawrd(NULL);
+        break;
+    case 1:
+        ttbr1_el1= armv8_TTBR0_EL1_rawrd(NULL);
+        break;
+    default:
+        return;
+    }
+    armv8_TTBR1_EL1_rawwr(NULL, ttbr1_el1);
+}
+
+static void configure_mair(void)
+{
+    /* Set memory type 0, for kernel use. */
+    // attr0 = Normal Memory, Inner Write-back non transient
+    // attr1 = Device-nGnRnE memory
+    armv8_MAIR_EL1_wr(NULL, 0x00ff);
+}
+
+static void configure_sctlr(void)
+/* Enable EL0/1 translation. */
+{
+
+    armv8_SCTLR_EL1_t val = 0;
+
+    /* Traps EL0 execution of cache maintenance instructions to EL1 */
+    val = armv8_SCTLR_EL1_UCI_insert(val, 0x1);
+
+    /* write permissions implies execute never */
+    //val = armv8_SCTLR_EL1_WXN_insert(val, 0x1);
+
+    /* don't trap WFI/WFE instructions to EL1 */
+    val = armv8_SCTLR_EL1_nTWE_insert(val, 0x1);
+    val = armv8_SCTLR_EL1_nTWI_insert(val, 0x1);
+
+    /* disable Traps EL0 accesses to the CTR_EL0 to EL1*/
+    val = armv8_SCTLR_EL1_UCT_insert(val, 0x1);
+
+    /* Allow EL0 to do DC ZVA */
+    val = armv8_SCTLR_EL1_DZE_insert(val, 0x1);
+
+    /* enable instruction cache */
+    val = armv8_SCTLR_EL1_I_insert(val, 0x1);
+
+    /*
+     * EL0 execution of MRS , MSR(register) , or MSR(immediate) instructions
+     * that access the DAIF is not trapped to EL1.
+     */
+    //val = armv8_SCTLR_EL1_UMA_insert(val, 0x1);
+
+    /*
+     * Enables accesses to the DMB, DSB, and ISB System
+     * instructions in the (coproc== 1111 ) encoding space from EL0
+     */
+    val = armv8_SCTLR_EL1_CP15BEN_insert(val, 0x1);
+
+    /* Enable SP alignment checks */
+    val = armv8_SCTLR_EL1_SA0_insert(val, 0x1);
+    val = armv8_SCTLR_EL1_SA_insert(val, 0x1);
+
+    /* enable data cachable */
+    val = armv8_SCTLR_EL1_C_insert(val, 0x1);
+
+    /* enable alignment checks */
+    val = armv8_SCTLR_EL1_A_insert(val, 0x1);
+
+    /* enable mmu */
+    val = armv8_SCTLR_EL1_M_insert(val, 0x1);
+
+    armv8_SCTLR_EL1_wr(NULL, val);
+}
+
+static void configure_el3_traps(void)
+{
+
+    /* If we've started in EL3, that most likely means we're in the
+     * simulator.  We don't use it at all, so just disable all traps to
+     * EL3, and drop to non-secure EL2 (if it exists). */
+
+    armv8_SCR_EL3_t val = 0;
+
+    /* Don't trap secure timer access. */
+    val = armv8_SCR_EL3_ST_insert(val, 0x1);
+
+    /* Next EL is AArch64. */
+    val = armv8_SCR_EL3_RW_insert(val, 0x1);
+
+    /* HVC is enabled. */
+    val = armv8_SCR_EL3_HCE_insert(val, 0x1);
+
+    /* SMC is disabled. */
+    val = armv8_SCR_EL3_SMD_insert(val, 0x1);
+
+    /* External aborts don't trap to EL3. */
+    val = armv8_SCR_EL3_EA_insert(val, 0x1);
+
+    /* FIQs don't trap to EL3. */
+    val = armv8_SCR_EL3_FIQ_insert(val, 0x1);
+
+    /* IRQs don't trap to EL3. */
+    val = armv8_SCR_EL3_IRQ_insert(val, 0x1);
+
+    /* EL0 and EL1 are non-secure. */
+    val = armv8_SCR_EL3_NS_insert(val, 0x1);
+
+    armv8_SCR_EL3_wr(NULL, val);
+
+    /* We don't need to set SCTLR_EL3, as we're not using it. */
+
+    armv8_MDCR_EL3_t mdcr = 0;
+    /* Allow event counting in secure state. */
+    armv8_MDCR_EL3_SPME_insert(mdcr, 0x1);
+    armv8_MDCR_EL3_wr(NULL, mdcr);
+}
+
+static void configure_el2_traps(void)
+{
+    /* check if EL2 is implemented */
+    if (armv8_ID_AA64PFR0_EL1_EL2_rdf(NULL) == armv8_ID_EL_NOT_IMPLEMENTED) {
+        return;
+    }
+
+    /* configure EL2 traps & mmu */
+
+    armv8_HCR_EL2_t val = 0;
+
+    /* For the Non-secure EL1&0 translation regime, for permitted accesses to a
+     * memory location that use a common definition of the Shareability and
+     * Cacheability of the location, there might be a loss of coherency if the
+     * Inner Cacheability attribute for those accesses differs from the Outer
+     * Cacheability attribute.*/
+    val = armv8_HCR_EL2_MIOCNC_insert(val, 1);
+
+    /* Set the mode to be AARCH64 */
+    val = armv8_HCR_EL2_RW_insert(val, 1);
+
+    /* HVC instructions are UNDEFINED at EL2 and Non-secure EL1. Any resulting
+     * exception is taken to the Exception level at which the HVC instruction
+     * is executed.
+     *
+     * XXX: this will disable Hypervisor calls entirely, revisit for ARRAKIS
+     */
+    val = armv8_HCR_EL2_HCD_insert(val, 1);
+
+    armv8_HCR_EL2_wr(NULL, val);
+
+
+    /* disable traps to EL2 for timer accesses */
+    uint32_t cnthctl = sysreg_read_cnthctl_el2();
+    sysreg_write_cnthctl_el2(cnthctl | 0x3);
+
+}
+
+static void configure_el1_traps(void)
+{
+    /* disable traps for FP/SIMD access  */
+    armv8_CPACR_EL1_FPEN_wrf(NULL, armv8_fpen_trap_none);
+}
+
+static void drop_to_el2(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
+{
+    /* write the stack pointer for EL1 */
+    armv8_SP_EL1_wr(NULL, stack + KERNEL_OFFSET);
+
+    /* Set the jump target */
+    armv8_ELR_EL3_wr(NULL, (uint64_t)jump_target);
+
+    /* call exception return */
+    eret(magic, pointer + KERNEL_OFFSET, stack + KERNEL_OFFSET, 0);
+}
+
+static void drop_to_el1(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
+{
+    /* write the stack pointer for EL1 */
+    armv8_SP_EL1_wr(NULL, stack + KERNEL_OFFSET);
+
+    /* Set the jump target */
+    armv8_ELR_EL2_wr(NULL, (uint64_t)jump_target);
+
+    /* call exception return */
+    eret(magic, pointer + KERNEL_OFFSET, stack + KERNEL_OFFSET, 0);
+}
+
+static void jump_to_cpudriver(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
+{
+    // We are in EL1, so call arch_init directly.
+    void (*relocated_arch_init)(uint32_t magic, lpaddr_t pointer, lpaddr_t stack);
+    if ((lvaddr_t)arch_init < KERNEL_OFFSET) {
+        relocated_arch_init = (void *)((lvaddr_t)arch_init + KERNEL_OFFSET);
+    } else {
+        relocated_arch_init = (void *)((lvaddr_t)arch_init);
+    }
+
+    // we may need to re set the stack pointer
+    uint64_t sp = sysreg_read_sp();
+    if (sp < KERNEL_OFFSET) {
+        sysreg_write_sp(sp + KERNEL_OFFSET);
+    }
+    relocated_arch_init(magic, pointer + KERNEL_OFFSET, stack + KERNEL_OFFSET);
+}
 
 /**
  * @brief initializes an application core
@@ -269,134 +505,42 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
 
     uint8_t el = armv8_CurrentEL_EL_rdf(NULL);
 
-    //int el= get_current_el();
-
     /* Configure the EL1 translation regime. */
     configure_tcr();
 
     /* Copy the current TTBR for EL1. */
-    {
-        lpaddr_t ttbr1_el1;
-        if(el == 3) ttbr1_el1= armv8_TTBR0_EL3_rawrd(NULL);
-        if(el == 2) ttbr1_el1= armv8_TTBR0_EL2_rawrd(NULL);
-        else        ttbr1_el1= armv8_TTBR0_EL1_rawrd(NULL);
-        armv8_TTBR1_EL1_rawwr(NULL, ttbr1_el1);
-    }
+    configure_ttbr1(el);
+
+    /* configure memory attributes */
+    configure_mair();
 
     /* Enable EL0/1 translation. */
-    {
-        /* Set memory type 0, for kernel use. */
-        // attr0 = Normal Memory, Inner Write-back non transient
-        // attr1 = Device-nGnRnE memory
-        sysreg_write_mair_el1(0x00ff);
+    configure_sctlr();
 
-        uint64_t sctlr=
-            BIT(18) | /* Don't trap WFE */
-            BIT(16) | /* Don't trap WFI */
-            BIT(15) | /* Allow CTR_EL0 access */
-            BIT(14) | /* Allow EL0 DC ZVA */
-            BIT(12) | /* Instructions are cacheable */
-            BIT(9)  | /* Don't trap MSR DAIF */
-            BIT(5)  | /* Allow AArch32 barriers */
-            BIT(4)  | /* Check stack alignment at EL0 */
-            BIT(3)  | /* Check stack alignment at EL1 */
-            BIT(2)  | /* Data is cacheable */
-          //  BIT(1)  | /* Alignment checking */
-            BIT(0)  ; /* EL0/1 translation enabled */
-        sysreg_write_sctlr_el1(sctlr);
+    /* configure spsr */
+    configure_spsr(el);
 
+    /* configure EL 1 traps*/
+    configure_el1_traps();
+
+    switch(el) {
+    case 3:
+        configure_el3_traps();
+        configure_el2_traps();
+        drop_to_el2(magic, pointer, stack);
+        break;
+    case 2:
+        configure_el2_traps();
+        drop_to_el1(magic, pointer, stack);
+        break;
+    case 1:
+        jump_to_cpudriver(magic, pointer, stack);
+        break;
+    default:
+        break;
     }
 
-    /* Do we have an EL2? */
-    int have_el2;
-    {
-        uint64_t pfr0= sysreg_get_id_aa64pfr0_el1();
-        int el2= FIELD(8,4,pfr0);
-        have_el2= el2 == 1 || el2 == 2;
+    while(1) {
+        __asm volatile("wfi \n");
     }
-
-    /* If so, we need to configure EL2 traps. */
-    if (have_el2 && el > 1) {
-        /* We'll never return to (or enter) EL2, so leave the MMU
-         * unconfigured. */
-
-        /* Disable all traps to EL2. */
-        uint64_t hcr_el2=
-            BIT(38) | /* Allow noncoherence for mismatched attributes. */
-            BIT(31) | /* EL1 is AArch64. */
-            BIT(29) ; /* HVC disabled (XXX revisit for Arrakis). */
-        sysreg_write_hcr_el2(hcr_el2);
-    }
-
-    if (el > 1) {
-        /* When we jump down to EL1, we'll reset the stack to the top (relocated
-         * within the kernel window).  That's * fine, as we'll never return to
-         * this context. */
-        sysreg_write_sp_el1((uint64_t)stack + KERNEL_OFFSET);
-
-        /* disable traps to EL2 for timer accesses */
-        uint32_t cnthctl = sysreg_read_cnthctl_el2();
-        sysreg_write_cnthctl_el2(cnthctl | 0x3);
-
-        /* disable traps for FP/SIMD access  */
-        armv8_CPACR_EL1_FPEN_wrf(NULL, armv8_fpen_trap_none);
-    }
-
-    if (el == 3) {
-        /* If we've started in EL3, that most likely means we're in the
-         * simulator.  We don't use it at all, so just disable all traps to
-         * EL3, and drop to non-secure EL2 (if it exists). */
-
-        uint64_t scr_el3=
-            BIT(11) | /* Don't trap secure timer access. */
-            BIT(10) | /* Next EL is AArch64. */
-            BIT(8)  | /* HVC is enabled. */
-            BIT(7)  | /* SMC is disabled. */
-            BIT(3)  | /* External aborts don't trap to EL3. */
-            BIT(2)  | /* FIQs don't trap to EL3. */
-            BIT(1)  | /* IRQs don't trap to EL3. */
-            BIT(0)  ; /* EL0 and EL1 are non-secure. */
-        sysreg_write_scr_el3(scr_el3);
-
-        /* We don't need to set SCTLR_EL3, as we're not using it. */
-
-        uint64_t mdcr_el3=
-            BIT(17) ; /* Allow event counting in secure state. */
-        sysreg_write_mdcr_el3(mdcr_el3);
-
-        /* Call plat_init() in EL1 */
-        uint64_t spsr=
-            0xf << 6 | /* Mask exceptions SPSR[9:6] */
-            1   << 2 | /* EL1             SPSR[3:2] */
-            1        ; /* Use EL1 stack pointer */
-        sysreg_write_spsr_el3(spsr);
-        sysreg_write_elr_el3((uint64_t)jump_target);
-        eret(magic, (uint64_t)pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET), 0);
-    } else if (el == 2) {
-        /* Call plat_init() in EL1 */
-        uint64_t spsr=
-            0xf << 6 | /* Mask exceptions SPSR[9:6] */
-            1   << 2 | /* EL1             SPSR[3:2] */
-            1        ; /* Use EL1 stack pointer */
-        sysreg_write_spsr_el2(spsr);
-        sysreg_write_elr_el2((uint64_t)jump_target);
-        eret(magic, (uint64_t)pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET), 0);
-    } else {
-        // We are in EL1, so call arch_init directly.
-        void (*relocated_arch_init)(uint32_t magic, lpaddr_t pointer, lpaddr_t stack);
-        if ((lvaddr_t)arch_init < KERNEL_OFFSET) {
-            relocated_arch_init = (void *)((lvaddr_t)arch_init + KERNEL_OFFSET);
-        } else {
-            relocated_arch_init = (void *)((lvaddr_t)arch_init);
-        }
-
-        // we may need to re set the stack pointer
-        uint64_t sp = sysreg_read_sp();
-        if (sp < KERNEL_OFFSET) {
-            sysreg_write_sp(sp + KERNEL_OFFSET);
-        }
-        relocated_arch_init(magic, pointer + KERNEL_OFFSET, (uint64_t) (stack + KERNEL_OFFSET));
-    }
-
-    while(1);
 }
