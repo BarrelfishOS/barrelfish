@@ -12,3 +12,7 @@
 cpu_driver("/armv8/sbin/cpu_apm88xxxx").
 monitor("/armv8/sbin/monitor").
 
+
+entry_symbol(armBootBSP, "boot_entry_bsp").
+entry_symbol(armBootPSCI, "boot_entry_psci").
+entry_symbol(armBootParking, "boot_entry_parking").
