@@ -18,6 +18,7 @@
 #include <cap_predicates.h>
 #include <dispatch.h>
 #include <mdb/mdb_tree.h>
+#include <dev/armv8_dev.h>
 
 
 // ------------------------------------------------------------------------
@@ -813,10 +814,10 @@ void paging_context_switch(lpaddr_t ttbr)
     assert(ttbr < MEMORY_OFFSET);
     //assert((ttbr & 0x3fff) == 0);
 
-    lpaddr_t old_ttbr = sysreg_read_ttbr0_el1();
+    lpaddr_t old_ttbr = armv8_TTBR0_EL1_rd(NULL);
     if (ttbr != old_ttbr)
     {
-        sysreg_write_ttbr0_el1(ttbr);
+        armv8_TTBR0_EL1_wr(NULL, ttbr);
         sysreg_invalidate_tlb();
         //this isn't necessary on gem5, since gem5 doesn't implement the cache
         //maintenance instructions, but ensures coherency by itself

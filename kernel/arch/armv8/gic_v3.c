@@ -8,7 +8,7 @@
  */
 
 #include <kernel.h>
-
+#include <sysreg.h>
 #include <dev/armv8_dev.h>
 #include <platform.h>
 #include <paging_kernel_arch.h>

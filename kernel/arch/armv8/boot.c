@@ -127,11 +127,11 @@ static void armv8_set_ttbr0(uint8_t el, lpaddr_t addr)
         case 3:
             //sysreg_write_ttbr0_el2(addr);
         case 2:
-            sysreg_write_ttbr0_el2(addr);
-            sysreg_write_ttbr0_el1(addr);
+            armv8_TTBR0_EL2_baddr_wrf(NULL, addr);
+            armv8_TTBR0_EL1_baddr_wrf(NULL, addr);
             break;
         case 1:
-            sysreg_write_ttbr0_el1(addr);
+            armv8_TTBR0_EL1_baddr_wrf(NULL, addr);
             break;
         default:
             assert("should not happen");
@@ -276,11 +276,11 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
 
     /* Copy the current TTBR for EL1. */
     {
-        uint64_t ttbr1_el1;
-        if(el == 3) ttbr1_el1= sysreg_read_ttbr0_el3();
-        if(el == 2) ttbr1_el1= sysreg_read_ttbr0_el2();
-        else        ttbr1_el1= sysreg_read_ttbr0_el1();
-        sysreg_write_ttbr1_el1(ttbr1_el1);
+        lpaddr_t ttbr1_el1;
+        if(el == 3) ttbr1_el1= armv8_TTBR0_EL3_rawrd(NULL);
+        if(el == 2) ttbr1_el1= armv8_TTBR0_EL2_rawrd(NULL);
+        else        ttbr1_el1= armv8_TTBR0_EL1_rawrd(NULL);
+        armv8_TTBR1_EL1_rawwr(NULL, ttbr1_el1);
     }
 
     /* Enable EL0/1 translation. */

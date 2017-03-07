@@ -23,7 +23,7 @@
 #include <arch/armv8/gic_v3.h>
 #include <arch/armv8/global.h>
 #include <sysreg.h>
-
+#include <dev/armv8_dev.h>
 #include <barrelfish_kpi/arm_core_data.h>
 
 
@@ -107,7 +107,7 @@ errval_t platform_boot_core(hwid_t target, genpaddr_t gen_entry, genpaddr_t cont
 {
     printf("Invoking PSCI on: cpu=%lx, entry=%lx, context=%lx\n", target, gen_entry, context);
     struct armv8_core_data *cd = (struct armv8_core_data *)local_phys_to_mem(context);
-    cd->kernel_l0_pagetable = sysreg_read_ttbr1_el1();
+    cd->kernel_l0_pagetable = armv8_TTBR1_EL1_rd(NULL);
     cd->kernel_global = (uintptr_t)global;
     __asm volatile("dsb   sy\n"
                    "dmb   sy\n"

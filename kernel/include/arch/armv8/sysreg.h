@@ -183,6 +183,7 @@ sysreg_read_ifsr(void) {
     return ifsr;
 }
 
+
 /**
  * \brief Read data fault status register.
  */
@@ -213,67 +214,6 @@ sysreg_read_esr_el1(void) {
     return addr;
 }
 
-static inline uintptr_t
-get_current_el(void) {
-    uintptr_t currentel;
-    __asm volatile("mrs %[curel], currentel" : [curel] "=r" (currentel));
-    return (currentel >> 2) & 0x3; /* bits [3:2] */
-}
-
-static inline lpaddr_t
-sysreg_read_ttbr0_el1(void) {
-    lpaddr_t ttbr0;
-    __asm volatile("mrs %[ttbr], ttbr0_el1" : [ttbr] "=r" (ttbr0));
-    return ttbr0;
-}
-
-static inline lpaddr_t
-sysreg_read_ttbr0_el2(void) {
-    lpaddr_t ttbr0;
-    __asm volatile("mrs %[ttbr], ttbr0_el2" : [ttbr] "=r" (ttbr0));
-    return ttbr0;
-}
-
-static inline lpaddr_t
-sysreg_read_ttbr0_el3(void) {
-    lpaddr_t ttbr0;
-    __asm volatile ("mrs %[ttbr], ttbr0_el3" : [ttbr] "=r" (ttbr0));
-    return ttbr0;
-}
-
-static inline void
-sysreg_write_ttbr0_el1(lpaddr_t ttbr) {
-    __asm volatile ("msr ttbr0_el1, %[ttbr]" : : [ttbr] "r" (ttbr));
-}
-
-static inline void
-sysreg_write_ttbr0_el2(lpaddr_t ttbr) {
-    __asm volatile ("msr ttbr0_el2, %[ttbr]" : : [ttbr] "r" (ttbr));
-}
-
-static inline lpaddr_t
-sysreg_read_ttbr1_el1(void) {
-    lpaddr_t ttbr1;
-    __asm volatile ("mrs %[ttbr], ttbr1_el1" : [ttbr] "=r" (ttbr1));
-    return ttbr1;
-}
-
-static inline lpaddr_t
-sysreg_read_ttbr1_el2(void) {
-    lpaddr_t ttbr1;
-    __asm volatile ("mrs %[ttbr], ttbr1_el2" : [ttbr] "=r" (ttbr1));
-    return ttbr1;
-}
-
-static inline void
-sysreg_write_ttbr1_el1(lpaddr_t ttbr) {
-    __asm volatile ("msr ttbr1_el1, %[ttbr]" : : [ttbr] "r" (ttbr));
-}
-
-static inline void
-sysreg_write_ttbr1_el2(lpaddr_t ttbr) {
-    __asm volatile ("msr ttbr1_el2, %[ttbr]" : : [ttbr] "r" (ttbr));
-}
 
 static inline uint64_t
 sysreg_read_ttbcr(void) {
