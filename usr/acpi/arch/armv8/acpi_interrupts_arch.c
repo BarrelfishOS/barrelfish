@@ -179,6 +179,16 @@ int init_all_interrupt_sources(void)
                          gi->BaseAddress, gi->GicvBaseAddress, gi->GichBaseAddress,
                          gi->ParkedAddress, gi->CpuInterfaceNumber, gi->Uid);
 
+            if (gi->ParkingVersion) {
+                /* parking */
+                skb_add_fact("boot_driver_entry(%"PRIu64",%s).", gi->ArmMpidr,
+                             "armBootParking");
+            } else {
+                /* psci */
+                skb_add_fact("boot_driver_entry(%"PRIu64",%s).", gi->ArmMpidr,
+                                             "armBootPSCI");
+            }
+
             errval_t err = oct_set(HW_PROCESSOR_ARMV8_RECORD_FORMAT,
                                    barrelfish_id,
                                    gi->Flags & ACPI_MADT_ENABLED,
