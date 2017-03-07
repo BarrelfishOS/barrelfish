@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, ETH Zurich. All rights reserved.
+ * Copyright (c) 2016, 2017 ETH Zurich. All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
@@ -18,44 +18,36 @@
 device armv8 msbfirst () "ARMv8 architecture registers" {
 
     space sysreg(name) registerwise "System registers";
+    space cache_ctrl(name) registerwise "Cache control register";
 
-    register CurrentEL ro sysreg(CurrentEL) "Current Exception Level" {
-        _       28;
+    register CurrentEL ro sysreg(current_el) "Current Exception Level" {
+        _       28 mbz;
         EL       2 "Current Exception level";
-        _        2;
+        _        2 mbz;
     };
 
-    register DAIFSet rw sysreg(DAIFSet) "Interrupt Mask Bits" {
-        _       22;
+    register DAIF rw sysreg(daif) "Interrupt Mask Bits" {
+        _       22 mbz;
         D        1 "Process state D mask";
         A        1 "SError interrupt mask bit";
         I        1 "IRQ mask bit";
         F        1 "FIQ mask bit";
-        _        6;
-    };
-    
-    register DAIFClr rw sysreg(DAIFClr) "Interrupt Mask Bits" {
-        _       22;
-        D        1 "Process state D mask";
-        A        1 "SError interrupt mask bit";
-        I        1 "IRQ mask bit";
-        F        1 "FIQ mask bit";
-        _        6;
+        _        6 mbz;
     };
 
-    register DLR_EL0 rw sysreg(DLR_EL0) "Debug Link Register" {
+    register DLR_EL0 rw sysreg(dlr_el0) "Debug Link Register" {
         addr    64 "Restart address";
     };
 
-    register DSPSR_EL0 rw sysreg(DSPSR_EL0) "Debug Saved Program Status Register" {
+    register DSPSR_EL0 rw sysreg(dspsr_el0) "Debug Saved Program Status Register" {
         N        1 "N condition flag";
         Z        1 "Z condition flag";
         C        1 "C condition flag";
         V        1 "V condition flag";
-        _        6;
+        _        6 mbz;
         SS       1 "Software step";
         IL       1 "Illegal Execution state bit";
-        _       10;
+        _       10 mbz;
         D        1 "Process state D mask";
         A        1 "SError interrupt mask bit";
         I        1 "IRQ mask bit";
@@ -65,80 +57,212 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         M        4 "AArch64 mode";
     };
 
-    register ELR_EL1 rw sysreg(ELR_EL1) "Exception Link Register (EL1)" {
+    register ELR_EL1 rw sysreg(elr_el1) "Exception Link Register (EL1)" {
         addr    64 "Return address";
     };
 
-    register ELR_EL2 rw sysreg(ELR_EL2) "Exception Link Register (EL2)" {
+    register ELR_EL2 rw sysreg(elr_el2) "Exception Link Register (EL2)" {
         addr    64 "Return address";
     };
 
-    register ELR_EL3 rw sysreg(ELR_EL3) "Exception Link Register (EL3)" {
+    register ELR_EL3 rw sysreg(elr_el3) "Exception Link Register (EL3)" {
         addr    64 "Return address";
     };
 
-    register FCPR rw sysreg(FCPR) "Floating-point Control Register" {
-        _        5;
+    register FCPR rw sysreg(fpcr) "Floating-point Control Register" {
+        _        5 mbz;
         AHP      1 "Alternate half-precision control bit";
         DN       1 "Default NaN mode control bit";
         FZ       1 "Flush-to-zero mode control bit";
         RMode    2 "Rounding mode control field";
         Stride   2 "Ignored on AArch64";
-        _        1;
+        _        1 mbz;
         Len      3 "Ignored on AArch64";
         IDE      1 "Input Denormal exception trap enable";
-        _        2;
+        _        2  mbz;
         IXE      1 "Inexact exception trap enable";
         UFE      1 "Underflow exception trap enable";
         OFE      1 "Overflow exception trap enable";
         DZE      1 "Division by Zero exception trap enable";
         IOE      1 "Invalid Operation exception trap enable";
-        _        8;
+        _        8 mbz;
     };
 
-    register FPSR rw sysreg(FPSR) "Floating-point Status Register" {
-        N        1;
-        Z        1;
-        C        1;
-        V        1;
-        QC       1;
-        _       19;
-        IDC      1;
-        _        2;
-        IXC      1;
-        UFC      1;
-        OFC      1;
-        DZC      1;
-        IOC      1;
+    register FPSR rw sysreg(fpsr) "Floating-point Status Register" {
+        N        1 "Negative condition flag for AArch32 floating-poin";
+        Z        1 "Zero condition flag for AArch32";
+        C        1 "Carry condition flag for AArch32 floating-point comparison operation";
+        V        1 "Overflow condition flag for AArch32 floating-poin";
+        QC       1 "Cumulative saturation bit, Advanced SIMD only";
+        _       19 mbz;
+        IDC      1 "Input Denormal cumulative exception bit.";
+        _        2 mbz;
+        IXC      1 "Inexact cumulative exception bit";
+        UFC      1 "Underflow cumulative exception bit.";
+        OFC      1 "Overflow cumulative exception bit";
+        DZC      1 "Division by Zero cumulative exception bit.";
+        IOC      1 "Invalid Operation cumulative exception bit.";
     };
 
-    register NZCV rw sysreg(NZCV) "Condition Flags" {
+    register NZCV rw sysreg(nzcv) "Condition Flags" {
         N        1 "Negative condition flag";
         Z        1 "Zero condition flag";
         C        1 "Carry condition flag";
         V        1 "Overflow condition flag";
-        _       28;
+        _       28 mbz;
     };
 
-    register SP_EL0 rw sysreg(SP_EL0) "Stack Pointer (EL0)" {
+    register SP_EL0 rw sysreg(sp_el0) "Stack Pointer (EL0)" {
         addr    64 "Stack pointer";
     };
 
-    register SP_EL1 rw sysreg(SP_EL1) "Stack Pointer (EL1)" {
+    register SP_EL1 rw sysreg(sp_el1) "Stack Pointer (EL1)" {
         addr    64 "Stack pointer";
     };
 
-    register SP_EL2 rw sysreg(SP_EL2) "Stack Pointer (EL2)" {
+    register SP_EL2 rw sysreg(sp_el2) "Stack Pointer (EL2)" {
         addr    64 "Stack pointer";
     };
 
-    register SP_EL3 rw sysreg(SP_EL3) "Stack Pointer (EL3)" {
+    register SP_EL3 rw sysreg(sp_el3) "Stack Pointer (EL3)" {
         addr    64 "Stack pointer";
     };
 
-    register SPSel rw sysreg(SPSel) "Stack Pointer Select" {
-        _       31;
+    register SPSel rw sysreg(spsel) "Stack Pointer Select" {
+        _       31 mbz;
         SP       1 "Stack pointer use (1=Use SP_ELx at Exception level ELx)";
+    };
+    
+    register SPSR_abt rw sysreg(spsr_abt) "Saved Program Status Register (Abort mode)" {
+        N     1 "Set to the value of CPSR.N on taking an exception to Abort mode";
+        Z     1 "Set to the value of CPSR.Z on taking an exception to Abort mode";
+        C     1 "Set to the value of CPSR.C on taking an exception to Abort mode,";
+        V     1 "Set to the value of CPSR.V on taking an exception to Abort mode,";
+        Q     1 "Cumulative saturation bit. Set to 1 to indicate that overflow";
+        IT_lo 2 "IT block state bits for the T32 IT (If-Then) instruction.";
+        _     4 mbz;
+        IL    1 "Illegal Execution state bi";
+        GE    4 "Greater than or Equal flags";
+        IT_hi 6 "IT block state bits for the T32 IT (If-Then) instruction. Th";
+        E     1 "Endianness state bit. C";
+        A     1 "SError interrupt mask bit.";
+        I     1 "IRQ mask bit";
+        F     1 "FIQ mask bit.";
+        T     1 "T32 Instruction set state bit. D";
+        M32   1 "Exception taken from AArch32.";
+        M     4 "AArch32 mode that an exception was taken from";
+    };
+    
+    register SPSR_EL1 rw sysreg(spsr_el1) "Saved Program Status Register (EL1)" {
+        N     1 "Set to the value of the N condition flag on taking an exception to EL1";
+        Z     1 "Set to the value of the Z condition flag on taking an exception to EL1,";
+        C     1 "Set to the value of the C condition flag on taking an exception to EL1,,";
+        V     1 "Set to the value of the V condition flag on taking an exception to EL1";
+        _     6 mbz;
+        SS    1 "Software step. Shows the value of PSTATE.SS immediately before the exception was taken.";
+        IL    1 "Illegal Execution state bi";
+        _    10 mbz;
+        D     1 "Process state D mask.";
+        A     1 "SError interrupt mask bit.";
+        I     1 "IRQ mask bit";
+        F     1 "FIQ mask bit.";
+        _     2 mbz;
+        M     4 "AArch32 mode that an exception was taken from";
+    };
+    
+    register SPSR_EL2 rw sysreg(spsr_el2) "Saved Program Status Register (EL2)" {
+        N     1 "Set to the value of the N condition flag on taking an exception to EL2";
+        Z     1 "Set to the value of the Z condition flag on taking an exception to EL2,";
+        C     1 "Set to the value of the C condition flag on taking an exception to EL2,,";
+        V     1 "Set to the value of the V condition flag on taking an exception to EL2";
+        _     6 mbz;
+        SS    1 "Software step. Shows the value of PSTATE.SS immediately before the exception was taken.";
+        IL    1 "Illegal Execution state bi";
+        _    10 mbz;
+        D     1 "Process state D mask.";
+        A     1 "SError interrupt mask bit.";
+        I     1 "IRQ mask bit";
+        F     1 "FIQ mask bit.";
+        _     2 mbz;
+        M     4 "AArch32 mode that an exception was taken from";
+    };
+    
+    register SPSR_EL3 rw sysreg(spsr_el3) "Saved Program Status Register (EL3)" {
+        N     1 "Set to the value of the N condition flag on taking an exception to EL2";
+        Z     1 "Set to the value of the Z condition flag on taking an exception to EL2,";
+        C     1 "Set to the value of the C condition flag on taking an exception to EL2,,";
+        V     1 "Set to the value of the V condition flag on taking an exception to EL2";
+        _     6 mbz;
+        SS    1 "Software step. Shows the value of PSTATE.SS immediately before the exception was taken.";
+        IL    1 "Illegal Execution state bi";
+        _    10 mbz;
+        D     1 "Process state D mask.";
+        A     1 "SError interrupt mask bit.";
+        I     1 "IRQ mask bit";
+        F     1 "FIQ mask bit.";
+        _     2 mbz;
+        M     4 "AArch32 mode that an exception was taken from";
+    };
+    
+    
+    register SPSR_fiq rw sysreg(spsr_fiq) "Saved Program Status Register (fiq mode)" {
+        N     1 "Set to the value of CPSR.N on taking an exception to FIQ mode";
+        Z     1 "Set to the value of CPSR.Z on taking an exception to FIQ mode";
+        C     1 "Set to the value of CPSR.C on taking an exception to FIQ mode,";
+        V     1 "Set to the value of CPSR.V on taking an exception to FIQ mode,";
+        Q     1 "Cumulative saturation bit. Set to 1 to indicate that overflow";
+        IT_lo 2 "IT block state bits for the T32 IT (If-Then) instruction.";
+        _     4 mbz;
+        IL    1 "Illegal Execution state bi";
+        GE    4 "Greater than or Equal flags";
+        IT_hi 6 "IT block state bits for the T32 IT (If-Then) instruction. Th";
+        E     1 "Endianness state bit. C";
+        A     1 "SError interrupt mask bit.";
+        I     1 "IRQ mask bit";
+        F     1 "FIQ mask bit.";
+        T     1 "T32 Instruction set state bit. D";
+        M32   1 "Exception taken from AArch32.";
+        M     4 "AArch32 mode that an exception was taken from";
+    };
+    
+    register SPSR_irq rw sysreg(spsr_irq) "Saved Program Status Register (IRQ mode)" {
+        N     1 "Set to the value of CPSR.N on taking an exception to IRQ mode";
+        Z     1 "Set to the value of CPSR.Z on taking an exception to IRQ mode";
+        C     1 "Set to the value of CPSR.C on taking an exception to IRQ mode,";
+        V     1 "Set to the value of CPSR.V on taking an exception to IRQ mode,";
+        Q     1 "Cumulative saturation bit. Set to 1 to indicate that overflow";
+        IT_lo 2 "IT block state bits for the T32 IT (If-Then) instruction.";
+        _     4 mbz;
+        IL    1 "Illegal Execution state bi";
+        GE    4 "Greater than or Equal flags";
+        IT_hi 6 "IT block state bits for the T32 IT (If-Then) instruction. Th";
+        E     1 "Endianness state bit. C";
+        A     1 "SError interrupt mask bit.";
+        I     1 "IRQ mask bit";
+        F     1 "FIQ mask bit.";
+        T     1 "T32 Instruction set state bit. D";
+        M32   1 "Exception taken from AArch32.";
+        M     4 "AArch32 mode that an exception was taken from";
+    };
+    
+    register SPSR_und rw sysreg(spsr_und) "Saved Program Status Register (Undefined mode)" {
+        N     1 "Set to the value of CPSR.N on taking an exception to Undefined mode";
+        Z     1 "Set to the value of CPSR.Z on taking an exception to Undefined mode";
+        C     1 "Set to the value of CPSR.C on taking an exception to Undefined mode,";
+        V     1 "Set to the value of CPSR.V on taking an exception to Undefined mode,";
+        Q     1 "Cumulative saturation bit. Set to 1 to indicate that overflow";
+        IT_lo 2 "IT block state bits for the T32 IT (If-Then) instruction.";
+        _     4 mbz;
+        IL    1 "Illegal Execution state bi";
+        GE    4 "Greater than or Equal flags";
+        IT_hi 6 "IT block state bits for the T32 IT (If-Then) instruction. Th";
+        E     1 "Endianness state bit. C";
+        A     1 "SError interrupt mask bit.";
+        I     1 "IRQ mask bit";
+        F     1 "FIQ mask bit.";
+        T     1 "T32 Instruction set state bit. D";
+        M32   1 "Exception taken from AArch32.";
+        M     4 "AArch32 mode that an exception was taken from";
     };
 
     constants shareability width(2) "Shareability" {
@@ -219,6 +343,26 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         EPD0     1 "TTBR0 disable";
         _        4;
         T0SZ     3 "Translation Table 0 format";
+    };
+    
+    register TTBR0_EL1 rw sysreg(ttbr0_el1) "Translation Table Base Register 0 (EL1)" {
+        asid  16 "An ASID for the translation table base address.";
+        baddr 48 "Translation table base address";
+    };
+    
+    register TTBR0_EL2 rw sysreg(ttbr0_el2) "Translation Table Base Register 0 (EL2)" {
+        _     16 mbz;
+        baddr 48 "Translation table base address";
+    };
+    
+    register TTBR0_EL3 rw sysreg(ttbr0_el3) "Translation Table Base Register 0 (EL3)" {
+        _     16 mbz;
+        baddr 48 "Translation table base address";
+    };
+    
+    register TTBR1_EL1 rw sysreg(ttbr1_el1) "Translation Table Base Register 1 (EL1)" {
+        asid  16 "An ASID for the translation table base address.";
+        baddr 48 "Translation table base address";
     };
 
     constants endianness width(1) "Endianness configuration" {
@@ -457,4 +601,45 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
     };
     
    
+    register DC_CSIW wo cache_ctrl(cisw) "Data or unified Cache line Clean and Invalidate by Set/Way" {
+        _       32 mbz;
+        SetWay  28 "Set and ways. depends on the cache settings";
+        Level    3 "Cache level to operate on, minus 1.";
+        _        1 mbz;
+    };
+    
+    register DC_CIVAC wo cache_ctrl(civac) "Data or unified Cache line Clean and Invalidate by VA to PoC" {
+        addr 64 "Virtual address to use.";
+    };
+    
+    register DC_CSW wo cache_ctrl(csw) "Data or unified Cache line Clean by Set/Way" {
+        _       32 mbz;
+        SetWay  28 "Set and ways. depends on the cache settings";
+        Level    3 "Cache level to operate on, minus 1.";
+        _        1 mbz;
+    };
+    
+    register DC_CVAC wo cache_ctrl(cvac) "Data or unified Cache line Clean by VA to PoC" {
+        addr 64 "Virtual address to use.";
+    };
+    
+    register DC_CVAU wo cache_ctrl(cvau) "Data or unified Cache line Clean by VA to PoU" {
+        addr 64 "Virtual address to use.";
+    };
+    
+    register DC_ISW wo cache_ctrl(isw) "Data or unified Cache line Invalidate by Set/Way" {
+        _       32 mbz;
+        SetWay  28 "Set and ways. depends on the cache settings";
+        Level    3 "Cache level to operate on, minus 1.";
+        _        1 mbz;
+    };
+    
+    register DC_IVAC wo cache_ctrl(ivac) "Data or unified Cache line Invalidate by VA to PoC" {
+        addr 64 "Virtual address to use.";
+    };
+    
+    register DC_ZVA wo cache_ctrl(zva) "Data or unified Cache line Invalidate by VA to PoC" {
+        addr 64 "Virtual address to use.";
+    };
+    
 };

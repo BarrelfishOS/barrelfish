@@ -19,14 +19,20 @@ void sysreg_invalidate_tlb_fn(void);
 void sysreg_enable_mmu(void);
 
 
-#define ARMV8_SYSREG_WRITE_FN(_bits, _name, _reg) \
+/*
+ * ============================================================================
+ * System register from section C5.2
+ * ============================================================================
+ */
+
+#define ARMV8_SYSREG_WRITE_FN(_name, _reg, _bits) \
         static inline void \
         armv8_sysreg_write_## _bits ## _ ## _name(uint## _bits ## _t val) { \
             __asm volatile ("msr "#_reg ", %[val]\n" \
                             "isb \n" : : [val] "r" (val)); \
         }
 
-#define ARMV8_SYSREG_READ_FN(_bits, _name, _reg) \
+#define ARMV8_SYSREG_READ_FN(_name, _reg, _bits) \
         static inline uint## _bits ## _t \
         armv8_sysreg_read_## _bits ## _ ## _name(void) { \
             uint## _bits ## _t val; \
@@ -35,68 +41,136 @@ void sysreg_enable_mmu(void);
             return val; \
         }
 
-#define ARMV8_SYSREG_WO(_bits, _name, _reg) \
-    ARMV8_SYSREG_WRITE_FN(_bits, _name, _reg)
+#define ARMV8_SYSREG_WO(_name, _reg, _bits) \
+    ARMV8_SYSREG_WRITE_FN(_name, _reg, _bits)
 
-#define ARMV8_SYSREG_RO(_bits, _name, _reg) \
-    ARMV8_SYSREG_READ_FN(_bits, _name, _reg)
+#define ARMV8_SYSREG_RO(_name, _reg, _bits) \
+    ARMV8_SYSREG_READ_FN(_name, _reg, _bits)
 
-#define ARMV8_SYSREG_RW(_bits, _name, _reg) \
-    ARMV8_SYSREG_READ_FN(_bits, _name, _reg) \
-    ARMV8_SYSREG_WRITE_FN(_bits, _name, _reg)
+#define ARMV8_SYSREG_RW(_name, _reg, _bits) \
+    ARMV8_SYSREG_READ_FN(_name, _reg, _bits) \
+    ARMV8_SYSREG_WRITE_FN(_name, _reg, _bits)
 
-ARMV8_SYSREG_RO(32, CurrentEL, CurrentEL)
 
-ARMV8_SYSREG_RW(64, esr_el1, esr_el1)
-ARMV8_SYSREG_RW(64, TCR_EL1, TCR_EL1)
-ARMV8_SYSREG_RW(32, FCPR, FCPR)
-ARMV8_SYSREG_RW(32, DAIFSet,    DAIFSet)
-ARMV8_SYSREG_RW(32, DAIFClr,   DAIFClr)
-ARMV8_SYSREG_RW(32, TCR_EL2, TCR_EL2)
-ARMV8_SYSREG_RW(32, SCTLR_EL1, SCTLR_EL1)
-ARMV8_SYSREG_RW(32, SCTLR_EL2, SCTLR_EL2)
-ARMV8_SYSREG_RW(32, SCTLR_EL3, SCTLR_EL3)
-ARMV8_SYSREG_RW(32, CPACR_EL1, CPACR_EL1)
-ARMV8_SYSREG_RW(64, ELR_EL1, ELR_EL1)
-ARMV8_SYSREG_RW(64, ELR_EL2, ELR_EL2)
-ARMV8_SYSREG_RW(64, ELR_EL3, ELR_EL3)
-ARMV8_SYSREG_RW(64, DLR_EL0, DLR_EL0)
-ARMV8_SYSREG_RW(32, FPSR, FPSR)
-ARMV8_SYSREG_RW(32, NZCV, NZCV)
-ARMV8_SYSREG_RW(32, SPSel, SPSel)
-ARMV8_SYSREG_RW(32, TTBCR, TTBCR)
-ARMV8_SYSREG_RW(64, SP_EL0, SP_EL0)
-ARMV8_SYSREG_RW(64, SP_EL1, SP_EL1)
-ARMV8_SYSREG_RW(64, SP_EL2, SP_EL2)
-ARMV8_SYSREG_RW(64, SP_EL3, SP_EL3)
-ARMV8_SYSREG_RW(32, DSPSR_EL0, DSPSR_EL0)
-ARMV8_SYSREG_RW(32, ICC_PMR_EL1, S3_0_C4_C6_0)
-ARMV8_SYSREG_RW(32, ICC_IAR0_EL1, S3_0_C12_C8_0)
-ARMV8_SYSREG_RW(32, ICC_EOIR0_EL1, S3_0_C12_C8_1)
-ARMV8_SYSREG_RW(32, ICC_HPPIR0_EL1, S3_0_C12_C8_2)
-ARMV8_SYSREG_RW(32, ICC_BPR0_EL1, S3_0_C12_C8_3)
-ARMV8_SYSREG_RW(32, ICC_AP0R0_EL1, S3_0_C12_C8_4)
-ARMV8_SYSREG_RW(32, ICC_AP0R1_EL1, S3_0_C12_C8_5)
-ARMV8_SYSREG_RW(32, ICC_AP0R2_EL1, S3_0_C12_C8_6)
-ARMV8_SYSREG_RW(32, ICC_AP0R3_EL1, S3_0_C12_C8_7)
-ARMV8_SYSREG_RW(32, ICC_AP1R0_EL1, S3_0_C12_C9_0)
-ARMV8_SYSREG_RW(32, ICC_AP1R1_EL1, S3_0_C12_C9_1)
-ARMV8_SYSREG_RW(32, ICC_AP1R2_EL1, S3_0_C12_C9_2)
-ARMV8_SYSREG_RW(32, ICC_AP1R3_EL1, S3_0_C12_C9_3)
-ARMV8_SYSREG_RW(32, ICC_DIR_EL1, S3_0_C12_C11_1)
-ARMV8_SYSREG_RW(32, ICC_RPR_EL1,    S3_0_C12_C11_3)
-ARMV8_SYSREG_RW(64, ICC_SGI1R_EL1, S3_0_C12_C11_5)
-ARMV8_SYSREG_RW(64, ICC_ASGI1R_EL1, S3_0_C12_C11_6)
-ARMV8_SYSREG_RW(64, ICC_SGI0R_EL1, S3_0_C12_C11_7)
-ARMV8_SYSREG_RW(32, ICC_IAR1_EL1, S3_0_C12_C12_0)
-ARMV8_SYSREG_RW(32, ICC_EOIR1_EL1, S3_0_C12_C12_1)
-ARMV8_SYSREG_RW(32, ICC_HPPIR1_EL1, S3_0_C12_C12_2)
-ARMV8_SYSREG_RW(32, ICC_BPR1_EL1, S3_0_C12_C12_3)
-ARMV8_SYSREG_RW(32, ICC_CTLR_EL1, S3_0_C12_C12_4)
-ARMV8_SYSREG_RW(32, ICC_SRE_EL1, S3_0_C12_C12_5)
-ARMV8_SYSREG_RW(32, ICC_IGRPEN0_EL1, S3_0_C12_C12_6)
-ARMV8_SYSREG_RW(32, ICC_IGRPEN1_EL1, S3_0_C12_C12_7)
-ARMV8_SYSREG_RW(32, ICC_EOI1_EL1, ICC_EOI1_EL1)
+/*
+ * System register from section C5.2
+ */
+ARMV8_SYSREG_RO(current_el, CurrentEL, 32)
+ARMV8_SYSREG_RW(daif, DAIF, 32)
+ARMV8_SYSREG_RW(dlr_el0, DLR_EL0, 64)
+ARMV8_SYSREG_RW(dspsr_el0, DSPSR_EL0, 32)
+ARMV8_SYSREG_RW(elr_el1, ELR_EL1, 64)
+ARMV8_SYSREG_RW(elr_el2, ELR_EL2, 64)
+ARMV8_SYSREG_RW(elr_el3, ELR_EL3, 64)
+ARMV8_SYSREG_RW(fpcr, FCPR, 32)
+ARMV8_SYSREG_RW(fpsr, FPSR, 32)
+ARMV8_SYSREG_RW(nzcv, NZCV, 32)
+ARMV8_SYSREG_RW(sp_el0, SP_EL0, 64)
+ARMV8_SYSREG_RW(sp_el1, SP_EL1, 64)
+ARMV8_SYSREG_RW(sp_el2, SP_EL2, 64)
+ARMV8_SYSREG_RW(sp_el3, SP_EL3, 64)
+ARMV8_SYSREG_RW(spsel, SPSel, 32)
+ARMV8_SYSREG_RW(spsr_abt, SPSR_abt, 32)
+ARMV8_SYSREG_RW(spsr_fiq, SPSR_fiq, 32)
+ARMV8_SYSREG_RW(spsr_irq, SPSR_irq, 32)
+ARMV8_SYSREG_RW(spsr_und, SPSR_und, 32)
+ARMV8_SYSREG_RW(spsr_el1, SPSR_EL1, 32)
+ARMV8_SYSREG_RW(spsr_el2, SPSR_EL2, 32)
+ARMV8_SYSREG_RW(spsr_el3, SPSR_EL3, 32)
+
+
+ARMV8_SYSREG_RW(CPACR_EL1, CPACR_EL1, 32)
+ARMV8_SYSREG_RW(esr_el1, esr_el1, 64)
+
+ARMV8_SYSREG_RW(dfsr, dfsr, 64)
+ARMV8_SYSREG_RW(ifsr, ifsr, 64)
+
+ARMV8_SYSREG_RW(ttbr0_el1, ttbr0_el1, 64)
+ARMV8_SYSREG_RW(ttbr0_el2, ttbr0_el2, 64)
+ARMV8_SYSREG_RW(ttbr0_el3, ttbr0_el3, 64)
+ARMV8_SYSREG_RW(ttbr1_el1, ttbr1_el1, 64)
+
+
+ARMV8_SYSREG_RW(ICC_AP0R0_EL1, S3_0_C12_C8_4, 32)
+ARMV8_SYSREG_RW(ICC_AP0R1_EL1, S3_0_C12_C8_5, 32)
+ARMV8_SYSREG_RW(ICC_AP0R2_EL1, S3_0_C12_C8_6, 32)
+ARMV8_SYSREG_RW(ICC_AP0R3_EL1, S3_0_C12_C8_7, 32)
+ARMV8_SYSREG_RW(ICC_AP1R0_EL1, S3_0_C12_C9_0, 32)
+ARMV8_SYSREG_RW(ICC_AP1R1_EL1, S3_0_C12_C9_1, 32)
+ARMV8_SYSREG_RW(ICC_AP1R2_EL1, S3_0_C12_C9_2, 32)
+ARMV8_SYSREG_RW(ICC_AP1R3_EL1, S3_0_C12_C9_3, 32)
+ARMV8_SYSREG_RW(ICC_ASGI1R_EL1, S3_0_C12_C11_6, 64)
+ARMV8_SYSREG_RW(ICC_BPR0_EL1, S3_0_C12_C8_3, 32)
+ARMV8_SYSREG_RW(ICC_BPR1_EL1, S3_0_C12_C12_3, 32)
+ARMV8_SYSREG_RW(ICC_CTLR_EL1, S3_0_C12_C12_4, 32)
+ARMV8_SYSREG_RW(ICC_DIR_EL1, S3_0_C12_C11_1, 32)
+ARMV8_SYSREG_RW(ICC_EOI1_EL1, ICC_EOI1_EL1, 32)
+ARMV8_SYSREG_RW(ICC_EOIR0_EL1, S3_0_C12_C8_1, 32)
+ARMV8_SYSREG_RW(ICC_EOIR1_EL1, S3_0_C12_C12_1, 32)
+ARMV8_SYSREG_RW(ICC_HPPIR0_EL1, S3_0_C12_C8_2, 32)
+ARMV8_SYSREG_RW(ICC_HPPIR1_EL1, S3_0_C12_C12_2, 32)
+ARMV8_SYSREG_RW(ICC_IAR0_EL1, S3_0_C12_C8_0, 32)
+ARMV8_SYSREG_RW(ICC_IAR1_EL1, S3_0_C12_C12_0, 32)
+ARMV8_SYSREG_RW(ICC_IGRPEN0_EL1, S3_0_C12_C12_6, 32)
+ARMV8_SYSREG_RW(ICC_IGRPEN1_EL1, S3_0_C12_C12_7, 32)
+ARMV8_SYSREG_RW(ICC_PMR_EL1, S3_0_C4_C6_0, 32)
+ARMV8_SYSREG_RW(ICC_RPR_EL1,    S3_0_C12_C11_3, 32)
+ARMV8_SYSREG_RW(ICC_SGI0R_EL1, S3_0_C12_C11_7, 64)
+ARMV8_SYSREG_RW(ICC_SGI1R_EL1, S3_0_C12_C11_5, 64)
+ARMV8_SYSREG_RW(ICC_SRE_EL1, S3_0_C12_C12_5, 32)
+
+ARMV8_SYSREG_RW(SCTLR_EL1, SCTLR_EL1, 32)
+ARMV8_SYSREG_RW(SCTLR_EL2, SCTLR_EL2, 32)
+ARMV8_SYSREG_RW(SCTLR_EL3, SCTLR_EL3, 32)
+
+
+ARMV8_SYSREG_RW(TCR_EL1, TCR_EL1, 64)
+ARMV8_SYSREG_RW(TCR_EL2, TCR_EL2, 32)
+ARMV8_SYSREG_RW(TTBCR, TTBCR, 32)
+
+
+
+/*
+ * ============================================================================
+ * C5.3 A64 system instructions for cache maintenance
+ * ============================================================================
+ */
+
+#define ARMV8_CACHE_CTRL_WRITE_FN(_name, _reg, _bits) \
+        static inline void \
+        armv8_cache_ctrl_write_## _bits ## _ ## _name(uint## _bits ## _t val) { \
+            __asm volatile ("dc "#_reg ", %[val]\n" \
+                            "isb \n" : : [val] "r" (val)); \
+        }
+
+#define ARMV8_CACHE_CTRL_READ_FN(_name, _reg, _bits) \
+        static inline uint## _bits ## _t \
+        armv8_cache_ctrl_read_## _bits ## _ ## _name(void) { \
+            uint## _bits ## _t val; \
+            __asm volatile("dc %[val], "#_reg "\n" \
+                           "isb \n" : [val] "=r" (val)); \
+            return val; \
+        }
+
+#define ARMV8_CACHE_CTRL_WO(_name, _reg, _bits) \
+    ARMV8_CACHE_CTRL_WRITE_FN(_name, _reg, _bits)
+
+#define ARMV8_CACHE_CTRL_RO(_name, _reg, _bits) \
+    ARMV8_CACHE_CTRL_READ_FN(_name, _reg, _bits)
+
+#define ARMV8_CACHE_CTRL_RW(_name, _reg, _bits) \
+    ARMV8_CACHE_CTRL_READ_FN(_name, _reg, _bits) \
+    ARMV8_CACHE_CTRL_WRITE_FN(_name, _reg, _bits)
+
+ARMV8_CACHE_CTRL_WO(cisw,CISW,64)
+ARMV8_CACHE_CTRL_WO(civac, CIVAC,64)
+ARMV8_CACHE_CTRL_WO(csw, CSW, 64)
+ARMV8_CACHE_CTRL_WO(cvac, CVAC, 64)
+ARMV8_CACHE_CTRL_WO(cvau, CVAU, 64)
+ARMV8_CACHE_CTRL_WO(isw, ISW, 64)
+ARMV8_CACHE_CTRL_WO(ivac, IVAC, 64)
+ARMV8_CACHE_CTRL_WO(zva, zva, 64)
+
 
 
 /**
