@@ -321,6 +321,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     struct vnode *page = slab_alloc(&pmap->slab);
     assert(page);
     page->is_vnode = false;
+    page->is_cloned = false;
     page->entry = table_base;
 #ifdef PMAP_LL
     page->next  = ptable->u.vnode.children;

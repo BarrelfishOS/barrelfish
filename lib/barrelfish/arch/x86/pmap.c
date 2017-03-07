@@ -342,6 +342,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
 
     // The VNode meta data
     newvnode->is_vnode  = true;
+    newvnode->is_cloned = false;
     newvnode->entry     = entry;
     newvnode->type      = type;
 #if defined(PMAP_LL)
