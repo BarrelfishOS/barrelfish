@@ -365,6 +365,10 @@ static struct sysret handle_inherit(struct capability *dest,
     uint64_t *dst_entry = (uint64_t *)local_phys_to_mem(dst_addr);
     uint64_t *src_entry = (uint64_t *)local_phys_to_mem(src_addr);
 
+    debug(SUBSYS_PAGING, "vnode_inherit: copying entries %"PRIu64"--%"PRIu64
+            " from %p to %p, new flags = %"PRIx64"\n",
+            start, end, src_entry, dst_entry, flags);
+
     for (uint64_t i = start; i < end; ++i) {
         //printf("kernel: cpy: %p -> %p\n", src_entry+i, dst_entry+i);
         //printf("kernel: cpy: [%016lx] -> [%016lx]\n", src_entry[i], dst_entry[i]);
