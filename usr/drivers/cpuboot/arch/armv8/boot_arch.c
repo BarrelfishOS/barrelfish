@@ -43,13 +43,22 @@ invoke_monitor_spawn_core(hwid_t core_id, enum cpu_type cpu_type,
                        entry, context).error;
 }
 
-
+struct arch_config
+{
+    genpaddr_t arch_page_size;
+    size_t stack_size;
+    char boot_driver[256];
+    char boot_driver_entry[256];
+    char cpu_driver[256];
+    char monitor_binary[256];
+};
 
 static errval_t get_arch_config(hwid_t hwid,
                                 genpaddr_t *arch_page_size,
                                 size_t *stack_size,
                                 const char *monitor_binary,
-                                const char *cpu_binary)
+                                const char *cpu_binary,
+                                const char *entry_sym)
 {
     errval_t err;
 
@@ -75,6 +84,17 @@ static errval_t get_arch_config(hwid_t hwid,
     }
     err= skb_read_output("res(%255[^)])", monitor_binary);
     if (err_is_fail(err)) return err;
+
+    err = skb_execute_query("boot_driver_entry(%"PRIu64",T), entry_symbol(T,S),"
+                            " write(res(S)).", hwid);
+    if (err_is_fail(err)) {
+        printf("error: \n %s\n", skb_get_error_output());
+        return err;
+    }
+    err= skb_read_output("res(%255[^)])", entry_sym);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     *arch_page_size= BASE_PAGE_SIZE;
     *stack_size = ARMV8_KERNEL_STACK_SIZE;
@@ -285,7 +305,7 @@ relocate_elf(struct mem_info *cpumem, lvaddr_t base, size_t arch_page_size,
 
 static errval_t load_cpudriver(uint16_t em_machine, struct mem_info *cpumem,
                                lvaddr_t base, size_t size, size_t arch_page_size,
-                               genvaddr_t *retentry){
+                               const char *entry_sym, genvaddr_t *retentry){
 
 
     errval_t err;
@@ -327,10 +347,27 @@ static errval_t load_cpudriver(uint16_t em_machine, struct mem_info *cpumem,
 
     DEBUG("Found %d program header(s)\n", ehdr->e_phnum);
 
+    lpaddr_t entry_point = 0;
+
+    if (entry_sym && strlen(entry_sym) > 0) {
+        DEBUG("Looking for entry: '%s'\n", entry_sym);
+        struct Elf64_Sym *entry;
+        entry = elf64_find_symbol_by_name(base, size, entry_sym, 0, STT_FUNC, 0);
+        if (!entry) {
+            debug_printf("Entry '%s' not found\n", entry_sym);
+            return ELF_ERR_PROGHDR;
+        }
+        entry_point = entry->st_value;
+    } else {
+        entry_point = ehdr->e_entry;
+    }
+
+    DEBUG("Entry point: %p\n", entry_point);
+
     /* Load the CPU driver from its ELF image. */
     bool found_entry_point= 0;
     bool loaded = 0;
-    lpaddr_t entry_point = 0;
+
     struct Elf64_Phdr *phdr = (struct Elf64_Phdr *)(base + ehdr->e_phoff);
     for(size_t i= 0; i < ehdr->e_phnum; i++) {
         if(phdr[i].p_type != PT_LOAD) {
@@ -359,10 +396,12 @@ static errval_t load_cpudriver(uint16_t em_machine, struct mem_info *cpumem,
         /* zero out BSS section */
         memset(dest + phdr[i].p_filesz, 0, phdr[i].p_memsz - phdr[i].p_filesz);
 
-        if(ehdr->e_entry >= phdr[i].p_vaddr &&
-           ehdr->e_entry - phdr[i].p_vaddr < phdr[i].p_memsz) {
-            entry_point= (dest_phys + (ehdr->e_entry - phdr[i].p_vaddr));
-            found_entry_point= 1;
+        if (!found_entry_point) {
+            if(entry_point >= phdr[i].p_vaddr
+                 && entry_point - phdr[i].p_vaddr < phdr[i].p_memsz) {
+               entry_point= (dest_phys + (entry_point - phdr[i].p_vaddr));
+               found_entry_point= 1;
+            }
         }
     }
 
@@ -394,7 +433,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     DEBUG("Booting: %" PRIuCOREID ", hwid=%" PRIxHWID "\n", coreid, hwid);
 
-    static char cpuname[256], monitorname[256];
+    static char cpuname[256], monitorname[256], entry_sym[256];
     genpaddr_t arch_page_size;
     size_t stack_size;
     errval_t err;
@@ -403,13 +442,16 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
     }
 
-    err = get_arch_config(hwid, &arch_page_size, &stack_size, monitorname, cpuname);
+    err = get_arch_config(hwid, &arch_page_size, &stack_size, monitorname,
+                          cpuname, entry_sym);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to obtain architecture configuration");
+        return err;
     }
 
     DEBUG("loading kernel: %s\n", cpuname);
     DEBUG("loading 1st app: %s\n", monitorname);
+    DEBUG("entry symbol: %s\n", entry_sym);
 
     // compute size of frame needed and allocate it
     DEBUG("%s:%s:%d: urpc_frame_id.base=%"PRIxGENPADDR"\n",
@@ -476,7 +518,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
     genvaddr_t cpu_entry;
 
     err = load_cpudriver(cpu_head->e_machine, &cpu_mem, cpu_binary.vaddr,
-                         cpu_binary.size, arch_page_size, &cpu_entry);
+                         cpu_binary.size, arch_page_size, entry_sym, &cpu_entry);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not load kernel .");
         return err;

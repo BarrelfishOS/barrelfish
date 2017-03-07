@@ -19,8 +19,11 @@
 
 .text
 
-.global eret, boot_entry, boot_entry_psci, boot_entry_parking
+.global eret, boot_entry_bsp, boot_entry_psci, boot_entry_parking
 
+.type boot_entry_bsp, @function
+.type boot_entry_psci, @function
+.type boot_entry_parking, @function
 
 /*
     This is the kernel entry point. We distinguish between how and who booted
@@ -42,18 +45,8 @@
  */
 
 
-boot_entry:
-    /* load the MULTIBOOT2_BOOTLOADER_MAGIC value into register x4. */
-    movz x4, #(MULTIBOOT2_BOOTLOADER_MAGIC >> 16), LSL #16
-    movk x4, #(MULTIBOOT2_BOOTLOADER_MAGIC & 0xffff)
-
-    /* compare with register x0 */
-    cmp x0, x4
-
-    /* branch off to psci or parking boot */
-    b.ne psci_or_parking_boot
-
-    /* Calling the boot initialization function for the BSP core.
+boot_entry_bsp:
+     /* Calling the boot initialization function for the BSP core.
 
       void boot_bsp_init(uint32_t magic,
                          lpaddr_t pointer,
@@ -82,11 +75,15 @@ boot_entry:
    before we branch off to the C function
  */
 
-psci_or_parking_boot:
+boot_entry_psci:
     ldr x1, [x0, #OFFSETOF_COREDATA_KERNEL_STACK]
     mov sp, x1
     b boot_app_init
+    wfi
 
+
+boot_entry_parking:
+    wfi
 
 /* Error return required to drop to lower execution levels */
 eret:
