@@ -1018,10 +1018,15 @@ register_rawread_fn r =
                  (RT.name r) n)
        ]
      else
-       [
-       decl,
-       C.StaticInline rtn n args [ C.Return (loc_read r) ]
-       ]
+        if RT.is_readable r then 
+        [ 
+        decl,
+        C.StaticInline rtn n args [ C.Return (loc_read r) ]
+        ]
+        else 
+        [ 
+         C.Comment $ printf "Register %s is not readale" (RT.name r) 
+        ]
 
 --
 -- Read from the register, or from a shadow copy if it's not readable. 
