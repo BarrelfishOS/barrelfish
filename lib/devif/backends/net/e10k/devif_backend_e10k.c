@@ -264,14 +264,14 @@ static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
 
     if (!e10k_queue_get_rxbuf(que, rid, offset, length, valid_data, 
                              valid_length, flags, &last)) {
-        err = DEVQ_ERR_RX_EMPTY;
+        err = DEVQ_ERR_QUEUE_EMPTY;
     } else {
         return SYS_ERR_OK;
     }
      
     if (!e10k_queue_get_txbuf(que, rid, offset, length, valid_data,
                               valid_length, flags)) {
-        err = DEVQ_ERR_RX_EMPTY;
+        err = DEVQ_ERR_QUEUE_EMPTY;
     }  else {
         return SYS_ERR_OK;
     }

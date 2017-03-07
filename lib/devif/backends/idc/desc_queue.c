@@ -98,7 +98,7 @@ static errval_t descq_enqueue(struct devq* queue,
     struct descq* q = (struct descq*) queue;
     size_t head = q->tx_seq % q->slots;
     if ((q->tx_seq - q->tx_seq_ack->value) > (q->slots-1)) {
-        return DEVQ_ERR_TX_FULL;
+        return DEVQ_ERR_QUEUE_FULL;
     }
     
     q->tx_descs[head].rid = region_id;
@@ -147,7 +147,7 @@ static errval_t descq_dequeue(struct devq* queue,
     uint64_t seq = q->rx_descs[q->rx_seq % q->slots].seq;   
     
     if (!(q->rx_seq == seq)) {
-        return DEVQ_ERR_RX_EMPTY;
+        return DEVQ_ERR_QUEUE_EMPTY;
     }
 
     size_t tail = q->rx_seq % q->slots;

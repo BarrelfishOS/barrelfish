@@ -154,7 +154,7 @@ static errval_t sfn5122f_deregister(struct devq* q, regionid_t rid)
     struct region_entry* cur = queue->regions;
 
     if (cur == NULL) {
-        return SFN_ERR_DEREGISTER_REGION;
+        return DEVQ_ERR_INVALID_REGION_ARGS;
     }
 
     while (cur->next != NULL && cur->rid != rid) {
@@ -200,7 +200,7 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
     if (sfn5122f_queue_free_rxslots(q) == 0) {
         printf("SFN5122F_%d: Not enough space in RX ring, not adding buffer\n",
                 q->id);
-        return SFN_ERR_ENQUEUE;
+        return DEVQ_ERR_QUEUE_FULL;
     }
 
     // find region
@@ -211,7 +211,7 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
     }
     
     if (entry == NULL) {
-        return SFN_ERR_ENQUEUE;
+        return DEVQ_ERR_INVALID_REGION_ARGS;
     }
     
     // compute buffer table entry of the rx buffer and the within it offset
@@ -247,7 +247,7 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
     if (sfn5122f_queue_free_txslots(q) == 0) {
         printf("SFN5122F_%d: Not enough space in TX ring, not adding buffer\n",
                 q->id);
-        return SFN_ERR_ENQUEUE;
+        return DEVQ_ERR_QUEUE_FULL;
     }
 
     // find region
@@ -258,7 +258,7 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
     }
     
     if (entry == NULL) {
-        return SFN_ERR_ENQUEUE;
+        return DEVQ_ERR_INVALID_REGION_ARGS;
     }
     
     // compute buffer table entry of the rx buffer and the within it offset
@@ -325,7 +325,7 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
                                  genoffset_t* valid_length, uint64_t* flags)
 {
     uint8_t ev_code;
-    errval_t err = DEVQ_ERR_RX_EMPTY;
+    errval_t err = DEVQ_ERR_QUEUE_EMPTY;
     
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) q;
 
@@ -440,7 +440,7 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     total_size = sizeof(uint64_t)*(TX_ENTRIES + RX_ENTRIES + EV_ENTRIES);
     tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, total_size, &frame);
     if (tx_virt == NULL) {
-        return SFN_ERR_ALLOC_QUEUE;
+        return DEVQ_ERR_INIT_QUEUE;
     }
 
     rx_virt = tx_virt + (sizeof(uint64_t) *TX_ENTRIES);

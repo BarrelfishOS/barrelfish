@@ -168,11 +168,11 @@ void ahci_simple_test(void)
         if (err_is_ok(err)) {
             break;
         }
-        if (err_is_fail(err) && err_no(err) != DEV_ERR_QUEUE_EMPTY) {
+        if (err_is_fail(err) && err_no(err) != DEVQ_ERR_QUEUE_EMPTY) {
             USER_PANIC_ERR(err, "devq dequeue");
         }
         wait_for_interrupt();
-    } while (err_no(err) == DEV_ERR_QUEUE_EMPTY);
+    } while (err_no(err) == DEVQ_ERR_QUEUE_EMPTY);
 
     assert (offset == 0);
     assert (length == 512);
@@ -197,13 +197,13 @@ static void blocking_dequeue(void* q, regionid_t* region_id,
         if (err_is_ok(err)) {
             break;
         }
-        if (err_is_fail(err) && err_no(err) != DEV_ERR_QUEUE_EMPTY) {
+        if (err_is_fail(err) && err_no(err) != DEVQ_ERR_QUEUE_EMPTY) {
             USER_PANIC_ERR(err, "devq dequeue");
         }
 
-        assert(err_no(err) == DEV_ERR_QUEUE_EMPTY);
+        assert(err_no(err) == DEVQ_ERR_QUEUE_EMPTY);
         wait_for_interrupt();
-    } while (err_no(err) == DEV_ERR_QUEUE_EMPTY);
+    } while (err_no(err) == DEVQ_ERR_QUEUE_EMPTY);
 }
 
 static void receive_block(void)
@@ -250,7 +250,7 @@ void ahci_perf_sequential(size_t buffer_size, size_t block_size, bool write)
             if (err_is_ok(err)) {
                 break;
             }
-            else if (err_no(err) == DEV_ERR_QUEUE_FULL) {
+            else if (err_no(err) == DEVQ_ERR_QUEUE_FULL) {
                 receive_block();
             }
             else {
@@ -326,7 +326,7 @@ void ahci_verify_sequential(size_t buffer_size, size_t block_size)
             if (err_is_ok(err)) {
                 break;
             }
-            else if (err_no(err) == DEV_ERR_QUEUE_FULL) {
+            else if (err_no(err) == DEVQ_ERR_QUEUE_FULL) {
                 receive_block();
             }
             else {
@@ -353,7 +353,7 @@ void ahci_verify_sequential(size_t buffer_size, size_t block_size)
             if (err_is_ok(err)) {
                 break;
             }
-            else if (err_no(err) == DEV_ERR_QUEUE_FULL) {
+            else if (err_no(err) == DEVQ_ERR_QUEUE_FULL) {
                 receive_block();
             }
             else {

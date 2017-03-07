@@ -54,7 +54,7 @@ errval_t devq_enqueue(struct devq *q,
     // check if the buffer to enqueue is valid
     if (!region_pool_buffer_check_bounds(q->pool, region_id, offset, 
         length, valid_data, valid_length)) {
-        return DEV_ERR_INVALID_BUFFER_ARGS;
+        return DEVQ_ERR_INVALID_BUFFER_ARGS;
     }
 
 
@@ -108,7 +108,7 @@ errval_t devq_dequeue(struct devq *q,
     // check if the dequeue buffer is valid
     if (!region_pool_buffer_check_bounds(q->pool, *region_id, *offset, 
         *length, *valid_data, *valid_length)) {
-        return DEV_ERR_INVALID_BUFFER_ARGS;
+        return DEVQ_ERR_INVALID_BUFFER_ARGS;
     }
 
     DQI_DEBUG("Dequeue q=%p rid=%d, bid=%d \n", q, *region_id, *buffer_id);

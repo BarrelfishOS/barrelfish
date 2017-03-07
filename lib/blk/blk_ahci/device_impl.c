@@ -35,7 +35,7 @@ static errval_t request_slot_alloc(struct ahci_queue* dq, size_t* slot)
         }
     }
 
-    return DEV_ERR_QUEUE_FULL;
+    return DEVQ_ERR_QUEUE_FULL;
 }
 
 static errval_t get_port(struct ahci_disk* hba, size_t port_num, struct ahci_port** p) {
@@ -45,7 +45,7 @@ static errval_t get_port(struct ahci_disk* hba, size_t port_num, struct ahci_por
 
     struct ahci_port* port = &hba->ports[port_num];
     if (!port->is_initialized) {
-        return err_push(err, DEV_ERR_NOT_INITIALIZED);
+        return err_push(err, DEVQ_ERR_INIT_QUEUE);
     }
 
     *p = port;
@@ -126,7 +126,7 @@ static errval_t ahci_enqueue(struct devq *q,
     struct dma_mem* mem = &queue->buffers[(region_id % MAX_BUFFERS)];
 
     if (!slice_is_in_range(mem, offset, length)) {
-        return DEV_ERR_INVALID_BUFFER_ARGS;
+        return DEVQ_ERR_INVALID_BUFFER_ARGS;
     }
 
     size_t slot = 0;
@@ -183,7 +183,7 @@ static errval_t ahci_dequeue(struct devq* q,
         }
     }
 
-    return DEV_ERR_QUEUE_EMPTY;
+    return DEVQ_ERR_QUEUE_EMPTY;
 }
 
 static errval_t ahci_register(struct devq *q,
@@ -191,7 +191,7 @@ static errval_t ahci_register(struct devq *q,
                               regionid_t region_id)
 {
 
-    errval_t err = DEV_ERR_REGISTER_BUFFER;
+    errval_t err = DEVQ_ERR_REGISTER_REGION;
     assert(!capref_is_null(cap));
     struct ahci_queue *queue = (struct ahci_queue*) q;
 
@@ -209,7 +209,7 @@ static errval_t ahci_register(struct devq *q,
         err = dma_mem_from_capref(cap, mem);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "call failed");
-            return err_push(err, DEV_ERR_REGISTER_BUFFER);
+            return err_push(err, DEVQ_ERR_REGISTER_REGION);
         }
         return SYS_ERR_OK;
     }

@@ -179,7 +179,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
 
         // check if region is already registered
         if (tmp->base_addr == id.base) {
-            return DEVQ_ERR_REGION_INVALID;
+            return DEVQ_ERR_INVALID_REGION_ARGS;
         }
 
         /* if region if entierly before other region or
@@ -187,7 +187,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
          */
         if (!((id.base + id.bytes <= tmp->base_addr) ||
             (tmp->base_addr + tmp->len <= id.base))) {
-            return DEVQ_ERR_REGION_INVALID;
+            return DEVQ_ERR_INVALID_REGION_ARGS;
         }
 
     }
