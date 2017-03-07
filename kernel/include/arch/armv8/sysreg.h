@@ -312,69 +312,12 @@ sysreg_write_tpidr_el1(uint64_t x) {
 }
 
 static inline uint64_t
-sysreg_get_id_aa64pfr0_el1(void) {
-    uint64_t pfr;
-    __asm volatile("mrs %[pfr], id_aa64pfr0_el1" : [pfr] "=r" (pfr));
-    return pfr;
-}
-
-static inline uint64_t
 sysreg_get_id_aa64mmfr0_el1(void) {
     uint64_t pfr;
     __asm volatile("mrs %[pfr], id_aa64mmfr0_el1" : [pfr] "=r" (pfr));
     return pfr;
 }
 
-static inline void
-sysreg_write_scr_el3(uint64_t x) {
-    __asm volatile("msr scr_el3, %[x]" : : [x] "r" (x));
-}
-
-static inline void
-sysreg_write_mdcr_el3(uint64_t x) {
-    __asm volatile("msr mdcr_el3, %[x]" : : [x] "r" (x));
-}
-
-static inline uint64_t
-sysreg_read_sctlr_el1(void) {
-    uint64_t sctlr_el1;
-    __asm volatile("mrs %[x], sctlr_el1" : [x] "=r" (sctlr_el1));
-    return sctlr_el1;
-}
-
-static inline uint64_t
-sysreg_read_sctlr_el2(void) {
-    uint64_t sctlr_el2;
-    __asm volatile("mrs %[x], sctlr_el2" : [x] "=r" (sctlr_el2));
-    return sctlr_el2;
-}
-
-static inline void
-sysreg_write_sctlr_el1(uint64_t x) {
-    __asm volatile("msr sctlr_el1, %[x]" : : [x] "r" (x));
-}
-
-static inline void
-sysreg_write_sctlr_el2(uint64_t x) {
-    __asm volatile("msr sctlr_el2, %[x]" : : [x] "r" (x));
-}
-
-static inline void
-sysreg_write_mair_el1(uint64_t x) {
-    __asm volatile("msr mair_el1, %[x]" : : [x] "r" (x));
-}
-
-
-static inline void
-sysreg_write_elr_el3(uint64_t x) {
-    __asm volatile("msr elr_el3, %[x]" : : [x] "r" (x));
-}
-
-
-static inline void
-sysreg_write_elr_el2(uint64_t x) {
-    __asm volatile("msr elr_el2, %[x]" : : [x] "r" (x));
-}
 
 static inline uint64_t
 sysreg_read_par_el1(void) {
@@ -450,33 +393,6 @@ sysreg_read_cntpct_el0(void) {
     return cntpct_el0;
 }
 
-static inline uint64_t
-sysreg_read_id_aa64pfr0_el1(void) {
-    uint64_t x;
-    __asm volatile("mrs %[x], id_aa64pfr0_el1" : [x] "=r" (x));
-    return x;
-}
-
-static inline uint64_t
-sysreg_read_id_aa64dfr0_el1(void) {
-    uint64_t x;
-    __asm volatile("mrs %[x], id_aa64dfr0_el1" : [x] "=r" (x));
-    return x;
-}
-
-static inline uint64_t
-sysreg_read_id_aa64isar0_el1(void) {
-    uint64_t x;
-    __asm volatile("mrs %[x], id_aa64isar0_el1" : [x] "=r" (x));
-    return x;
-}
-
-static inline uint64_t
-sysreg_read_id_aa64mmfr0_el1(void) {
-    uint64_t x;
-    __asm volatile("mrs %[x], id_aa64mmfr0_el1" : [x] "=r" (x));
-    return x;
-}
 
 static inline uint32_t
 sysreg_read_isr_el1(void) {
