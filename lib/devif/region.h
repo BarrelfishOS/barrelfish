@@ -29,16 +29,6 @@ struct region {
     struct capref* cap;
     // Lenght of the memory region
     size_t len;
-
-
-    // slab allocator for buffer structs
-    struct slab_allocator alloc;
-    // inital slab buffers
-    struct buffer bufs[INIT_SIZE];
-    // Data structure to keep track of buffers
-    struct buffer** used_bufs;
-    // Largest page id
-    uint32_t max_page_id;
 };
 
 /**
@@ -62,52 +52,4 @@ errval_t region_init(struct region** region,
  */
 errval_t region_destroy(struct region* region);
 
-/**
- * @brief Get a buffer id from a region
- *
- * @param region                The region to get the buffer from
- * @param addr                  The physical address of the buffer
- * @param buffer_id             Return pointer to the buffer id of the buffer
- *
- * @returns error on failure or SYS_ERR_OK on success
- */
-errval_t region_get_buffer_id(struct region* region,
-                              lpaddr_t addr,
-                              bufferid_t* buffer_id);
-
-/**
- * @brief Set a certain buffer id as used
- *
- * @param region                The region to get the buffer from
- * @param addr                  The physical address of the buffer
- * @param buffer_id             The buffer id
- *
- * @returns error on failure or SYS_ERR_OK on success
- */
-errval_t region_set_buffer_id(struct region* region,
-                              lpaddr_t addr,
-                              bufferid_t buffer_id);
-
-/**
- * @brief Return a buffer id to the region
- *
- * @param region                The region to return the buffer to
- * @param buffer_id             The id of the buffer to return to the region
- *
- * @returns error on failure or SYS_ERR_OK on success
- */
-errval_t region_free_buffer_id(struct region* region,
-                               bufferid_t buffer_id);
-
-
-/**
- * @brief Return a if a buffer to the region is in use
- *
- * @param region                The region to return the buffer to
- * @param buffer_id             The id of the buffer
- *
- * @returns true if the buffer is in use otherwise false
- */
-bool region_buffer_id_in_use(struct region* region,
-                             bufferid_t buffer_id);
 #endif /* REGION_H_ */
