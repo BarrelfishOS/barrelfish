@@ -59,6 +59,7 @@ int vfsfd_open(const char *pathname, int flags)
 
         switch(err_no(err)) {
         case FS_ERR_NOTFOUND:
+        case FS_ERR_NOTFILE:
             errno = ENOENT;
             break;
 
