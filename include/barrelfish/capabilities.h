@@ -139,12 +139,17 @@ static inline errval_t vnode_modify_flags(struct capref pgtl,
 
 static inline errval_t
 vnode_copy_remap(struct capref dest, struct capref src, capaddr_t slot,
-                 uint64_t attr, uint64_t off, uint64_t pte_count)
+                 uint64_t attr, uint64_t off, uint64_t pte_count,
+                 struct capref mapping)
 {
-    uint8_t svbits = get_cap_valid_bits(src);
-    capaddr_t saddr = get_cap_addr(src) >> (CPTR_BITS - svbits);
+     enum cnode_type slevel = get_cap_level(src);
+     capaddr_t saddr = get_cap_addr(src);
 
-    return invoke_vnode_copy_remap(dest, slot, saddr, svbits, attr, off, pte_count);
+    enum cnode_type mcn_level = get_cnode_level(mapping);
+    capaddr_t mcn_addr = get_cnode_addr(mapping);
+
+    return invoke_vnode_copy_remap(dest, slot, saddr, slevel, attr, off,
+                                   pte_count, mcn_addr, mapping.slot, mcn_level);
 }
 
 /**

@@ -249,10 +249,13 @@ static inline errval_t invoke_vnode_modify_flags(struct capref cap,
 }
 
 static inline errval_t invoke_vnode_copy_remap(struct capref ptable, capaddr_t slot,
-                                        capaddr_t src, int frombits, size_t flags,
-                                        size_t offset, size_t pte_count)
+                                        capaddr_t src, enum cnode_type srclevel,
+                                        size_t flags, size_t offset, size_t pte_count,
+                                        capaddr_t mcn_addr, cslot_t mapping_slot,
+                                        enum cnode_type mcn_level)
 {
-    return cap_invoke7(ptable, VNodeCmd_CopyRemap, slot, src, frombits, flags, offset, pte_count).error;
+    return cap_invoke10(ptable, VNodeCmd_CopyRemap, slot, src, srclevel, flags,
+                        offset, pte_count, mcn_addr, mapping_slot, mcn_level).error;
 }
 /**
  * \brief Return the system-wide unique ID of the passed ID capability.

@@ -519,6 +519,18 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot,
     if (entry) {
         *entry = entry_;
     }
+
+    if (mapped_addr) {
+        *mapped_addr = paddr;
+    }
+
+    if (pte) {
+        *pte = pte_;
+    }
+
+    if (entry) {
+        *entry = entry_;
+    }
 }
 
 errval_t paging_copy_remap(struct cte *dest_vnode_cte, cslot_t dest_slot,
@@ -664,7 +676,6 @@ static errval_t generic_modify_flags(struct cte *leaf_pt, size_t offset,
     lvaddr_t base = local_phys_to_mem(get_address(&leaf_pt->cap)) +
         offset * sizeof(union x86_64_ptable_entry);
 
-    size_t pagesize = BASE_PAGE_SIZE;
     switch(leaf_pt->cap.type) {
         case ObjType_VNode_x86_64_ptable :
             for (int i = 0; i < pages; i++) {
@@ -679,24 +690,35 @@ static errval_t generic_modify_flags(struct cte *leaf_pt, size_t offset,
             for (int i = 0; i < pages; i++) {
                 union x86_64_ptable_entry *entry =
                     (union x86_64_ptable_entry *)base + i;
-                if (entry->large.present) {
+                if (entry->large.present && entry->large.always1) {
                     paging_x86_64_modify_flags_large(entry, flags);
+                } else if (((union x86_64_pdir_entry*)entry)->d.present) {
+                    paging_x86_64_pdir_modify_flags((union x86_64_pdir_entry*)entry, flags);
                 }
             }
-            pagesize = LARGE_PAGE_SIZE;
             break;
         case ObjType_VNode_x86_64_pdpt :
             for (int i = 0; i < pages; i++) {
                 union x86_64_ptable_entry *entry =
                     (union x86_64_ptable_entry *)base + i;
-                if (entry->large.present) {
+                if (entry->large.present && entry->large.always1) {
                     paging_x86_64_modify_flags_huge(entry, flags);
+                } else if (((union x86_64_pdir_entry*)entry)->d.present) {
+                    paging_x86_64_pdir_modify_flags((union x86_64_pdir_entry*)entry, flags);
                 }
             }
-            pagesize = HUGE_PAGE_SIZE;
+            break;
+        case ObjType_VNode_x86_64_pml4 :
+            for (int i = 0; i < pages; i++) {
+                union x86_64_pdir_entry *entry =
+                    (union x86_64_pdir_entry *)base + i;
+                if (entry->d.present) {
+                    paging_x86_64_pdir_modify_flags(entry, flags);
+                }
+            }
             break;
         default:
-            return SYS_ERR_WRONG_MAPPING;
+            return SYS_ERR_VNODE_TYPE;
     }
 
     return SYS_ERR_OK;

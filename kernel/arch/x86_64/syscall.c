@@ -307,13 +307,17 @@ static struct sysret handle_vnode_copy_remap(struct capability *ptable,
     /* Retrieve arguments */
     uint64_t  slot          = args[0];
     capaddr_t source_cptr   = args[1];
-    int       source_vbits  = args[2];
+    int       source_level  = args[2];
     uint64_t  flags         = args[3];
     uint64_t  offset        = args[4];
     uint64_t  pte_count     = args[5];
+    capaddr_t mapping_cnptr = args[6];
+    cslot_t   mapping_slot  = args[7];
+    uint8_t   mapping_cnlevel=args[8];
 
-    struct sysret sr = sys_copy_remap(ptable, slot, source_cptr, source_vbits, flags,
-                                      offset, pte_count);
+    struct sysret sr = sys_copy_remap(ptable, slot, source_cptr, source_level, flags,
+                                      offset, pte_count, mapping_cnptr,
+                                      mapping_cnlevel, mapping_slot);
     return sr;
 }
 
@@ -326,7 +330,7 @@ static struct sysret handle_inherit(struct capability *dest,
     errval_t err;
 
     capaddr_t source_cptr   = args[0];
-    int       source_vbits  = args[1];
+    int       source_level  = args[1];
     uint64_t  start         = args[2];
     uint64_t  end           = args[3];
     uint64_t  flags         = args[4];
@@ -341,7 +345,7 @@ static struct sysret handle_inherit(struct capability *dest,
 
     struct capability *root = &dcb_current->cspace.cap;
     struct cte *src_cte;
-    err = caps_lookup_slot(root, source_cptr, source_vbits, &src_cte,
+    err = caps_lookup_slot(root, source_cptr, source_level, &src_cte,
                            CAPRIGHTS_READ);
     if (err_is_fail(err)) {
         return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
@@ -355,7 +359,7 @@ static struct sysret handle_inherit(struct capability *dest,
     genpaddr_t dst_addr = get_address(dest);
     genpaddr_t src_addr = get_address(src);
     if (!type_is_vnode(dest->type)) {
-        return SYSRET(SYS_ERR_CNODE_TYPE);
+        return SYSRET(SYS_ERR_VNODE_TYPE);
     }
 
     uint64_t *dst_entry = (uint64_t *)local_phys_to_mem(dst_addr);
