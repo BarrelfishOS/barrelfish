@@ -290,6 +290,7 @@ void spawn_app_domains(void)
             || strncmp(si.shortname, "cpu", si.shortnamelen) == 0
                 // Adding following condition for cases like "cpu_omap44xx"
             || strncmp(si.shortname, "cpu", strlen("cpu")) == 0
+            || strncmp(si.shortname, "boot_", strlen("boot_")) == 0
             || strncmp(si.shortname, "monitor", si.shortnamelen) == 0
             || strncmp(si.shortname, "mem_serv", si.shortnamelen) == 0
 #ifdef __k1om__
