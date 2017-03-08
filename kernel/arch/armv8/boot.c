@@ -460,7 +460,7 @@ void boot_app_init(lpaddr_t state)
     armv8_disable_interrupts();
 
     /* set the ttbr0/1 */
-    armv8_set_ttbr0(current_el, cd->kernel_l0_pagetable);
+    armv8_set_ttbr0(current_el, cd->page_table_root);
 
     /* set the TCR */
     armv8_set_tcr(current_el);
@@ -478,7 +478,7 @@ void boot_app_init(lpaddr_t state)
     /* enable interrupts */
     armv8_enable_interrupts();
 
-    boot_bsp_init(cd->boot_magic, state, cd->kernel_stack);
+    boot_bsp_init(cd->boot_magic, state, cd->cpu_driver_stack);
 }
 
 

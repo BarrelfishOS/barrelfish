@@ -190,9 +190,9 @@ load_init_image(
     /* Load init ELF64 binary */
     struct multiboot_header_tag *multiboot =
             (struct multiboot_header_tag *) local_phys_to_mem(
-                    armv8_glbl_core_data->multiboot2);
+                    armv8_glbl_core_data->multiboot_image.base);
     struct multiboot_tag_module_64 *module = multiboot2_find_module_64(
-            multiboot, armv8_glbl_core_data->multiboot2_size, name);
+            multiboot, armv8_glbl_core_data->multiboot_image.length, name);
     if (module == NULL) {
         panic("Could not find init module!");
     }
@@ -226,7 +226,7 @@ void create_module_caps(struct spawn_state *st)
 
     /* Create caps for multiboot modules */
     struct multiboot_header_tag *multiboot =
-        (struct multiboot_header_tag *)local_phys_to_mem(armv8_glbl_core_data->multiboot2);
+        (struct multiboot_header_tag *)local_phys_to_mem(armv8_glbl_core_data->multiboot_image.base);
 
     // Allocate strings area
     lpaddr_t mmstrings_phys = bsp_alloc_phys(BASE_PAGE_SIZE);
@@ -246,7 +246,7 @@ void create_module_caps(struct spawn_state *st)
 
     /* Walk over multiboot modules, creating frame caps */
     size_t position = 0;
-    size_t size = armv8_glbl_core_data->multiboot2_size;
+    size_t size = armv8_glbl_core_data->multiboot_image.length;
 
     /* add the ACPI regions */
     struct multiboot_tag_old_acpi *acpi_old = (struct multiboot_tag_old_acpi *)
@@ -669,9 +669,9 @@ struct dcb *spawn_app_init(struct armv8_core_data *core_data,
 
     // XXX: Create as devframe so the memory is not zeroed out
     err = caps_create_new(ObjType_DevFrame,
-                          core_data->urpc_frame_base,
-                          core_data->urpc_frame_size,
-                          core_data->urpc_frame_size,
+                          core_data->urpc_frame.base,
+                          core_data->urpc_frame.length,
+                          core_data->urpc_frame.length,
                           my_core_id,
                           urpc_frame_cte);
     assert(err_is_ok(err));
@@ -690,20 +690,20 @@ struct dcb *spawn_app_init(struct armv8_core_data *core_data,
     genvaddr_t entry_point, got_base=0;
 
     MSG("loading elf '%s' @ %" PRIxLPADDR "\n", name,
-        local_phys_to_mem(core_data->monitor_binary));
+        local_phys_to_mem(core_data->monitor_binary.base));
 
     err = elf_load(EM_AARCH64, startup_alloc_init, &l3_info,
-            local_phys_to_mem(core_data->monitor_binary),
-            core_data->monitor_binary_size, &entry_point);
+            local_phys_to_mem(core_data->monitor_binary.base),
+            core_data->monitor_binary.length, &entry_point);
     if (err_is_fail(err)) {
         //err_print_calltrace(err);
         panic("ELF load of init module failed!");
     }
 
     // TODO: Fix application linkage so that it's non-PIC.
-    struct Elf64_Shdr* got_shdr =
-            elf64_find_section_header_name(local_phys_to_mem(core_data->monitor_binary),
-                                           core_data->monitor_binary_size, ".got");
+    struct Elf64_Shdr* got_shdr;
+    got_shdr = elf64_find_section_header_name(local_phys_to_mem(core_data->monitor_binary.base),
+                                           core_data->monitor_binary.length, ".got");
     if (got_shdr)
     {
         got_base = got_shdr->sh_addr;
@@ -766,10 +766,9 @@ void arm_kernel_startup(void *pointer)
         /* Initialize the allocator */
 
 
-        app_alloc_phys_start = (core_data->memory_base_start);
-        app_alloc_phys_end   = (core_data->memory_size + app_alloc_phys_start);
+        app_alloc_phys_start = (core_data->memory.base);
+        app_alloc_phys_end   = (core_data->memory.length + app_alloc_phys_start);
 
-        MSG("Memory: %lx, size=%zu kB\n", app_alloc_phys_start, core_data->memory_size >> 10);
         MSG("Memory: %lx, %lx, size=%zu kB\n", app_alloc_phys_start, app_alloc_phys_end,
             (app_alloc_phys_end - app_alloc_phys_start + 1) >> 10);
 

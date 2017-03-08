@@ -27,35 +27,69 @@ struct armv8_coredata_elf {
 #define ARMV8_BOOTMAGIC_PSCI 0xb001b001
 #define ARMV8_BOOTMAGIC_PARKING 0xb001b002
 
+struct armv8_coredata_memreg
+{
+    genpaddr_t base;
+    gensize_t length;
+};
+
 /**
  * \brief Data sent to a newly booted kernel
  *
  */
 struct armv8_core_data {
+
+    /**
+     * ARMv8 Boot magic field. Contains the value ARMV8_BOOTMAGIC_*
+     */
     uint64_t boot_magic;
-    lpaddr_t kernel_stack;
-    lpaddr_t kernel_l0_pagetable;
-    lpaddr_t kernel_global;
 
-    lpaddr_t multiboot2; ///< The physical multiboot2 location
-    uint64_t multiboot2_size;
+    /**
+     * Physical address of the kernel stack
+     */
+    genpaddr_t cpu_driver_stack;
+
+    /**
+     * Physical address of the global data structure shared by all
+     */
+    genpaddr_t cpu_driver_globals_pointer;
+
+    /**
+     * CPU Driver entry point
+     */
+    genvaddr_t cpu_driver_entry;
+
+    /**
+     * CPU driver command line arguments
+     */
+    char cpu_driver_cmdline[128];
+
+    /**
+     * Physical address of the L0 page table in memory
+     */
+    genpaddr_t page_table_root;
+
+    /**
+     * Memory region to be used for the new CPU driver's allocations
+     */
+    struct armv8_coredata_memreg memory;
+
+    /**
+     * Memory region to be used for the new CPU driver's allocations
+     */
+    struct armv8_coredata_memreg urpc_frame;
+
+    /**
+     * Memory region to be used for the new CPU driver's allocations
+     */
+    struct armv8_coredata_memreg monitor_binary;
+
+    /**
+     * memory region of the multiboot image
+     */
+    struct armv8_coredata_memreg multiboot_image;
+
     lpaddr_t efi_mmap;
-    lpaddr_t module_start;  ///< The start of the cpu module
-    lpaddr_t module_end;    ///< The end of the cpu module
-    lpaddr_t urpc_frame_base;
-    size_t urpc_frame_size;
-    lpaddr_t monitor_binary;
-    size_t monitor_binary_size;
-    lpaddr_t memory_base_start;
-    size_t memory_size;
-    coreid_t src_core_id;
-    hwid_t src_arch_id;
-    coreid_t dst_core_id;
-    char kernel_cmdline[128];
-
-    lpaddr_t    initrd_start;
-    lpaddr_t    initrd_size;
-
 
     uint64_t    start_kernel_ram; ///< The physical start of allocated kernel memory
     uint64_t    start_free_ram; ///< The physical start of free ram for the bsp allocator
@@ -64,8 +98,14 @@ struct armv8_core_data {
 
     genpaddr_t kcb; ///< The kernel control block
 
-    struct armv8_coredata_elf elf;
-}; //__attribute__ ((packed));
+
+    coreid_t src_core_id;
+    coreid_t dst_core_id;
+    hwid_t src_arch_id;
+    hwid_t dst_arch_id;
+
+
+};
 
 #define ARMV8_CORE_DATA_PAGES 700
 

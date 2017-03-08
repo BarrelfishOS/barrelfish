@@ -159,8 +159,8 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
 
         mmap_find_memory(mmap);
 
-        armv8_glbl_core_data->multiboot2 = mem_to_local_phys((lvaddr_t) mb);
-        armv8_glbl_core_data->multiboot2_size = size;
+        armv8_glbl_core_data->multiboot_image.base  = mem_to_local_phys((lvaddr_t) mb);
+        armv8_glbl_core_data->multiboot_image.length = size;
         armv8_glbl_core_data->efi_mmap = mem_to_local_phys((lvaddr_t) mmap);
 
         kernel_stack = stack;
@@ -174,7 +174,7 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
 
         struct armv8_core_data *core_data = (struct armv8_core_data*)pointer;
         armv8_glbl_core_data = core_data;
-        global = (struct global *)core_data->kernel_global;
+        global = (struct global *)core_data->cpu_driver_globals_pointer;
 
         kernel_stack = stack;
         my_core_id = core_data->dst_core_id;
