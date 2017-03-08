@@ -73,7 +73,7 @@ let
       opts = kernelOptions $ head $ Args.architectures arg
       name = "boot_" ++ Args.target arg
       objs = [ objectFilePath opts f
-             | f <- (Args.assemblyFiles arg) ++ (Args.cFiles arg) ++ boot_c ]
+             | f <- (Args.assemblyFiles arg) ++ (Args.cFiles arg) ]
       libs = (Args.addLibraries arg) ++ common_libs
 
   cpudrivers arglist =
@@ -263,7 +263,7 @@ let
                 "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/pl011.c"
-                ],
+                ] ++ boot_c,
      mackerelDevices = [ "arm",
                          "cpuid_arm",
                          "pl011_uart"
@@ -335,7 +335,7 @@ let
                 "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/omap_uart.c"
-                ],
+                ] ++ boot_c,
      mackerelDevices = [ "arm",
                          "cpuid_arm",
                          "omap/omap44xx_cortexa9_wugen",
@@ -420,7 +420,7 @@ let
                 "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/zynq_uart.c"
-                ],
+                ] ++ boot_c,
      mackerelDevices = [ "arm",
                          "cpuid_arm",
                          "zynq7/zynq_uart"
@@ -511,6 +511,7 @@ let
      ],
      mackerelDevices = [
         "arm",
+        "armv8",
         "pl130_gic",
         "arm_icp_pit",
         "apm88xxxx/apm88xxxx_pc16550"
@@ -575,11 +576,17 @@ let
   --
   -- Cavium ThunderX CN88xx series SoC,
   --
+  bootDriver {
+     target = "armv8_generic",
+     architectures = [ "armv8" ],
+     assemblyFiles = [  "arch/armv8/boot/boot_entry.S" ],
+     cFiles = [  "arch/armv8/boot/boot_generic.c" ],
+     mackerelDevices = [ "armv8" ]
+     },
   cpuDriver {
      target = "cn88xx",
      architectures = [ "armv8" ],
      assemblyFiles = [
-        "arch/armv8/boot_entry.S",
         "arch/armv8/sysreg.S",
         "arch/armv8/exceptions.S",
         "arch/armv8/smc_hvc.S"
@@ -592,7 +599,6 @@ let
          "arch/armv8/plat_cn88xx.c",
          "arch/armv8/init.c",
          "arch/armv8/gdb_arch.c",
-         "arch/armv8/boot.c",
          -----
          "arch/armv8/kernel_multiboot2.c",
          "arch/armv8/dispatch.c",
@@ -610,6 +616,7 @@ let
      ],
      mackerelDevices = [
         "arm",
+        "armv8",
         "pl011_uart",
         "pl130_gic",
         "arm_icp_pit"
