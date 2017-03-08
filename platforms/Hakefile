@@ -420,7 +420,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     "ARM Virtual Machine Board with ARM Cortex A57 processors in Qemu.",
 
     platform "APM88xxxx" [ "armv8" ]
-    ([ ("armv8", "/sbin/cpu_apm88xxxx") ]
+    ([ ("armv8", "/sbin/cpu_apm88xxxx"), ("armv8", "/sbin/boot_armv8_generic")]
        ++
        [ ("armv8", f) | f <- armv8_modules ]
        ++
@@ -429,7 +429,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     "The APM XGene development board (Mustang)",
 
     platform "ThunderX" [ "armv8" ]
-    ([ ("armv8", "/sbin/cpu_cn88xx") ]
+    ([ ("armv8", "/sbin/cpu_cn88xx"), ("armv8", "/sbin/boot_armv8_generic") ]
        ++
        [ ("armv8", f) | f <- armv8_modules ]
        ++

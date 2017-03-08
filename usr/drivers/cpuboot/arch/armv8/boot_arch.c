@@ -47,18 +47,13 @@ struct arch_config
 {
     genpaddr_t arch_page_size;
     size_t stack_size;
-    char boot_driver[256];
+    char boot_driver_binary[256];
     char boot_driver_entry[256];
-    char cpu_driver[256];
+    char cpu_driver_binary[256];
     char monitor_binary[256];
 };
 
-static errval_t get_arch_config(hwid_t hwid,
-                                genpaddr_t *arch_page_size,
-                                size_t *stack_size,
-                                const char *monitor_binary,
-                                const char *cpu_binary,
-                                const char *entry_sym)
+static errval_t get_arch_config(hwid_t hwid, struct arch_config * config)
 {
     errval_t err;
 
@@ -73,7 +68,7 @@ static errval_t get_arch_config(hwid_t hwid,
         DEBUG_SKB_ERR(err, "skb_execute_query");
         return err;
     }
-    err= skb_read_output("res(%255[^)])", cpu_binary);
+    err= skb_read_output("res(%255[^)])", config->cpu_driver_binary);
     if (err_is_fail(err)) return err;
 
     /* Query the SKB for the monitor binary to use. */
@@ -82,7 +77,7 @@ static errval_t get_arch_config(hwid_t hwid,
         DEBUG_SKB_ERR(err, "skb_execute_query");
         return err;
     }
-    err= skb_read_output("res(%255[^)])", monitor_binary);
+    err= skb_read_output("res(%255[^)])", config->monitor_binary);
     if (err_is_fail(err)) return err;
 
     err = skb_execute_query("boot_driver_entry(%"PRIu64",T), entry_symbol(T,S),"
@@ -91,13 +86,20 @@ static errval_t get_arch_config(hwid_t hwid,
         printf("error: \n %s\n", skb_get_error_output());
         return err;
     }
-    err= skb_read_output("res(%255[^)])", entry_sym);
+
+    snprintf(config->boot_driver_binary, sizeof(config->boot_driver_binary),
+            "/armv8/sbin/boot_armv8_generic");
+
+    err= skb_read_output("res(%255[^)])", config->boot_driver_entry);
     if (err_is_fail(err)) {
         return err;
     }
 
-    *arch_page_size= BASE_PAGE_SIZE;
-    *stack_size = ARMV8_KERNEL_STACK_SIZE;
+    config->arch_page_size= BASE_PAGE_SIZE;
+    config->stack_size = ARMV8_KERNEL_STACK_SIZE;
+
+
+
 
     return SYS_ERR_OK;
 }
@@ -212,33 +214,33 @@ get_module_info(const char *name, struct module_blob *blob)
 
 
 static errval_t
-relocate_elf(struct mem_info *cpumem, lvaddr_t base, size_t arch_page_size,
-             struct Elf64_Phdr *phdr, size_t phnum, size_t shnum) {
-
-    struct Elf64_Ehdr   *ehdr = (struct Elf64_Ehdr *)base;
+relocate_elf(struct module_blob *binary, struct mem_info *mem,
+            lvaddr_t kernel_offset) {
 
     DEBUG("Relocating kernel image.\n");
 
-    struct Elf64_Shdr *shead = (struct Elf64_Shdr *)(base + (uintptr_t)ehdr->e_shoff);
+    struct Elf64_Ehdr *ehdr = (struct Elf64_Ehdr *)binary->vaddr;
+
+    size_t shnum  = ehdr->e_shnum;
+    struct Elf64_Phdr *phdr = (struct Elf64_Phdr *)(binary->vaddr + ehdr->e_phoff);
+    struct Elf64_Shdr *shead = (struct Elf64_Shdr *)(binary->vaddr + (uintptr_t)ehdr->e_shoff);
 
     /* Search for relocaton sections. */
     for(size_t i= 0; i < shnum; i++) {
 
         struct Elf64_Shdr *shdr=  &shead[i];
-
-        if(shdr->sh_type == SHT_REL ||
-           shdr->sh_type == SHT_RELA) {
+        if(shdr->sh_type == SHT_REL || shdr->sh_type == SHT_RELA) {
             if(shdr->sh_info != 0) {
-                debug_printf("I expected global relocations, but got"
+                DEBUG("I expected global relocations, but got"
                               " section-specific ones.\n");
                 return ELF_ERR_HEADER;
             }
 
 
             uint64_t segment_elf_base= phdr[0].p_vaddr;
-            uint64_t segment_load_base=cpumem->frameid.base + arch_page_size;
+            uint64_t segment_load_base=mem->frameid.base;
             uint64_t segment_delta= segment_load_base - segment_elf_base;
-            uint64_t segment_vdelta= (uintptr_t)cpumem->buf+arch_page_size - segment_elf_base;
+            uint64_t segment_vdelta= (uintptr_t)mem->buf - segment_elf_base;
 
             size_t rsize;
             if(shdr->sh_type == SHT_REL){
@@ -250,7 +252,7 @@ relocate_elf(struct mem_info *cpumem, lvaddr_t base, size_t arch_page_size,
             assert(rsize == shdr->sh_entsize);
             size_t nrel= shdr->sh_size / rsize;
 
-            void * reldata = (void*)(base + shdr->sh_offset);
+            void * reldata = (void*)(binary->vaddr + shdr->sh_offset);
 
             /* Iterate through the relocations. */
             for(size_t ii= 0; ii < nrel; ii++) {
@@ -258,7 +260,7 @@ relocate_elf(struct mem_info *cpumem, lvaddr_t base, size_t arch_page_size,
 
                 switch(shdr->sh_type) {
                     case SHT_REL:
-                        debug_printf("SHT_REL unimplemented.\n");
+                        DEBUG("SHT_REL unimplemented.\n");
                         return ELF_ERR_PROGHDR;
                     case SHT_RELA:
                     {
@@ -274,25 +276,25 @@ relocate_elf(struct mem_info *cpumem, lvaddr_t base, size_t arch_page_size,
                         switch(type) {
                             case R_AARCH64_RELATIVE:
                                 if(sym != 0) {
-                                    debug_printf("Relocation references a"
+                                    DEBUG("Relocation references a"
                                                  " dynamic symbol, which is"
                                                  " unsupported.\n");
                                     return ELF_ERR_PROGHDR;
                                 }
 
                                 /* Delta(S) + A */
-                                *rel_target= addend + segment_delta + KERNEL_OFFSET;
+                                *rel_target= addend + segment_delta + kernel_offset;
                                 break;
 
                             default:
-                                debug_printf("Unsupported relocation type %d\n",
+                                DEBUG("Unsupported relocation type %d\n",
                                              type);
                                 return ELF_ERR_PROGHDR;
                         }
                     }
                     break;
                     default:
-                        debug_printf("Unexpected type\n");
+                        DEBUG("Unexpected type\n");
                         break;
 
                 }
@@ -303,19 +305,14 @@ relocate_elf(struct mem_info *cpumem, lvaddr_t base, size_t arch_page_size,
     return SYS_ERR_OK;
 }
 
-static errval_t load_cpudriver(uint16_t em_machine, struct mem_info *cpumem,
-                               lvaddr_t base, size_t size, size_t arch_page_size,
-                               const char *entry_sym, genvaddr_t *retentry){
-
-
-    errval_t err;
-    struct Elf64_Ehdr   *ehdr = (struct Elf64_Ehdr *)base;
+static errval_t elf_check_header(lvaddr_t addr, size_t size)
+{
+    struct Elf64_Ehdr   *ehdr = (struct Elf64_Ehdr *)addr;
 
     // Check for valid file size
     if (size < sizeof(struct Elf64_Ehdr)) {
         return ELF_ERR_FILESZ;
     }
-
 
     if(ehdr->e_ident[EI_CLASS] != ELFCLASS64 || ehdr->e_ident[EI_DATA] != ELFDATA2LSB) {
         return ELF_ERR_HEADER;
@@ -323,21 +320,19 @@ static errval_t load_cpudriver(uint16_t em_machine, struct mem_info *cpumem,
 
     if(ehdr->e_ident[EI_OSABI] != ELFOSABI_STANDALONE
         && ehdr->e_ident[EI_OSABI] != ELFOSABI_NONE) {
-        debug_printf("Warning: Compiled for OS ABI %d.  Wrong compiler?\n",
+        DEBUG("Warning: Compiled for OS ABI %d.  Wrong compiler?\n",
                      ehdr->e_ident[EI_OSABI]);
         return ELF_ERR_HEADER;
     }
 
     if(ehdr->e_machine != EM_AARCH64) {
-        debug_printf( "Error: Not AArch64\n");
+        DEBUG( "Error: Not AArch64\n");
         return ELF_ERR_HEADER;
     }
 
     if(ehdr->e_type != ET_EXEC) {
-        debug_printf("Warning: CPU driver isn't executable! Continuing anyway.\n");
+        DEBUG("Warning: CPU driver isn't executable! Continuing anyway.\n");
     }
-
-    DEBUG("Unrelocated kernel entry point is %x\n", ehdr->e_entry);
 
     // More sanity checks
     if (ehdr->e_phoff + ehdr->e_phentsize * ehdr->e_phnum > size
@@ -345,30 +340,21 @@ static errval_t load_cpudriver(uint16_t em_machine, struct mem_info *cpumem,
         return ELF_ERR_PROGHDR;
     }
 
-    DEBUG("Found %d program header(s)\n", ehdr->e_phnum);
+    return SYS_ERR_OK;
+}
 
-    lpaddr_t entry_point = 0;
+static errval_t load_elf_binary(struct module_blob *binary, struct mem_info *mem,
+                         genvaddr_t entry_point, genvaddr_t *reloc_entry_point)
 
-    if (entry_sym && strlen(entry_sym) > 0) {
-        DEBUG("Looking for entry: '%s'\n", entry_sym);
-        struct Elf64_Sym *entry;
-        entry = elf64_find_symbol_by_name(base, size, entry_sym, 0, STT_FUNC, 0);
-        if (!entry) {
-            debug_printf("Entry '%s' not found\n", entry_sym);
-            return ELF_ERR_PROGHDR;
-        }
-        entry_point = entry->st_value;
-    } else {
-        entry_point = ehdr->e_entry;
-    }
+{
 
-    DEBUG("Entry point: %p\n", entry_point);
+    struct Elf64_Ehdr *ehdr = (struct Elf64_Ehdr *)binary->vaddr;
 
     /* Load the CPU driver from its ELF image. */
     bool found_entry_point= 0;
     bool loaded = 0;
 
-    struct Elf64_Phdr *phdr = (struct Elf64_Phdr *)(base + ehdr->e_phoff);
+    struct Elf64_Phdr *phdr = (struct Elf64_Phdr *)(binary->vaddr + ehdr->e_phoff);
     for(size_t i= 0; i < ehdr->e_phnum; i++) {
         if(phdr[i].p_type != PT_LOAD) {
             DEBUG("Segment %d load address 0x% "PRIx64 ", file size %" PRIu64
@@ -387,11 +373,13 @@ static errval_t load_cpudriver(uint16_t em_machine, struct mem_info *cpumem,
         }
         loaded = 1;
 
-        void *dest = cpumem->buf + arch_page_size;
-        lpaddr_t dest_phys = cpumem->frameid.base + arch_page_size;
+        void *dest = mem->buf;
+        lpaddr_t dest_phys = mem->frameid.base;
+
+        assert(phdr[i].p_offset + phdr[i].p_memsz <= mem->frameid.bytes);
 
         /* copy loadable part */
-        memcpy(dest, (void *)(base + phdr[i].p_offset), phdr[i].p_filesz);
+        memcpy(dest, (void *)(binary->vaddr + phdr[i].p_offset), phdr[i].p_filesz);
 
         /* zero out BSS section */
         memset(dest + phdr[i].p_filesz, 0, phdr[i].p_memsz - phdr[i].p_filesz);
@@ -399,25 +387,104 @@ static errval_t load_cpudriver(uint16_t em_machine, struct mem_info *cpumem,
         if (!found_entry_point) {
             if(entry_point >= phdr[i].p_vaddr
                  && entry_point - phdr[i].p_vaddr < phdr[i].p_memsz) {
-               entry_point= (dest_phys + (entry_point - phdr[i].p_vaddr));
+               *reloc_entry_point= (dest_phys + (entry_point - phdr[i].p_vaddr));
                found_entry_point= 1;
             }
         }
     }
 
-    err = relocate_elf(cpumem, base, arch_page_size, phdr, ehdr->e_phnum, ehdr->e_shnum);
+    if (!found_entry_point) {
+        USER_PANIC("No entry point loaded\n");
+    }
+
+    return SYS_ERR_OK;
+}
+
+
+static errval_t elf_find_entry(struct module_blob *binary, const char *sym,
+                               genvaddr_t *ret_entry)
+{
+    if (sym && strlen(sym) > 0) {
+        DEBUG("Looking for entry: '%s'\n", sym);
+        struct Elf64_Sym *entry;
+        entry = elf64_find_symbol_by_name(binary->vaddr, binary->size, sym, 0,
+                                          STT_FUNC, 0);
+        if (!entry) {
+            DEBUG("Entry '%s' not found\n", sym);
+            return ELF_ERR_PROGHDR;
+        }
+        *ret_entry = entry->st_value;
+    } else {
+        *ret_entry = ((struct Elf64_Ehdr *)binary->vaddr)->e_entry;
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t load_boot_and_cpu_driver(struct arch_config *cfg,
+                                         struct module_blob *boot_driver,
+                                         struct mem_info *boot_mem,
+                                         struct module_blob *cpu_driver,
+                                         struct mem_info *cpu_mem,
+                                         genvaddr_t *ret_boot_entry,
+                                         genvaddr_t *ret_cpu_entry) {
+
+    errval_t err;
+
+    err = elf_check_header(boot_driver->vaddr, boot_driver->size);
     if (err_is_fail(err)) {
         return err;
     }
 
-    if(!found_entry_point) {
-        debug_printf("Kernel entry point wasn't in any loaded segment.\n");
-        return ELF_ERR_HEADER;
+    err = elf_check_header(boot_driver->vaddr, cpu_driver->size);
+    if (err_is_fail(err)) {
+        return err;
     }
 
-    DEBUG("Relocated entry point is %p\n",entry_point);
+    genvaddr_t boot_entry_point = 0;
+    err = elf_find_entry(boot_driver, cfg->boot_driver_entry, &boot_entry_point);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
-    *retentry = (genvaddr_t)entry_point;
+    DEBUG("Unrelocated entry point in bootdriver: '%s' @ %" PRIxGENVADDR "\n",
+                 cfg->boot_driver_entry, boot_entry_point);
+
+    genvaddr_t cpu_entry_point = 0;
+    err = elf_find_entry(cpu_driver, "arch_init", &cpu_entry_point);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    DEBUG("Unrelocated entry point in cpu driver: '%s' @ %" PRIxGENVADDR "\n",
+                 "arch_init", cpu_entry_point);
+
+
+    err = load_elf_binary(boot_driver, boot_mem, boot_entry_point, &boot_entry_point);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = load_elf_binary(cpu_driver, cpu_mem, cpu_entry_point, &cpu_entry_point);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = relocate_elf(boot_driver, boot_mem, 0);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = relocate_elf(cpu_driver, cpu_mem, KERNEL_OFFSET);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    DEBUG("Relocated boot driver point is %p\n",boot_entry_point);
+    DEBUG("Relocated cpu driver point is %p\n", cpu_entry_point);
+
+    *ret_boot_entry = boot_entry_point;
+    *ret_cpu_entry = cpu_entry_point + KERNEL_OFFSET;
 
     return SYS_ERR_OK;
 }
@@ -433,25 +500,27 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     DEBUG("Booting: %" PRIuCOREID ", hwid=%" PRIxHWID "\n", coreid, hwid);
 
-    static char cpuname[256], monitorname[256], entry_sym[256];
-    genpaddr_t arch_page_size;
-    size_t stack_size;
+    struct arch_config config;
+
     errval_t err;
 
     if(cpu_type != CPU_ARM8) {
         return SPAWN_ERR_UNKNOWN_TARGET_ARCH;
     }
 
-    err = get_arch_config(hwid, &arch_page_size, &stack_size, monitorname,
-                          cpuname, entry_sym);
+    err = get_arch_config(hwid, &config);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to obtain architecture configuration");
         return err;
     }
 
-    DEBUG("loading kernel: %s\n", cpuname);
-    DEBUG("loading 1st app: %s\n", monitorname);
-    DEBUG("entry symbol: %s\n", entry_sym);
+
+    DEBUG("boot driver: %s\n", config.cpu_driver_binary);
+    DEBUG("boot driver entry: %s\n", config.boot_driver_entry);
+    DEBUG("cpu_driver: %s\n", config.cpu_driver_binary);
+    DEBUG("monitor: %s\n", config.monitor_binary);
+
+
 
     // compute size of frame needed and allocate it
     DEBUG("%s:%s:%d: urpc_frame_id.base=%"PRIxGENPADDR"\n",
@@ -462,23 +531,45 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     // XXX: Caching these for now, until we have unmap
 
+    struct module_blob boot_binary;
+    err = get_module_info(config.boot_driver_binary, &boot_binary);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not lookup module");
+        return err;
+    }
+
     struct module_blob cpu_binary;
-    err = get_module_info(cpuname, &cpu_binary);
+    err = get_module_info(config.cpu_driver_binary, &cpu_binary);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not lookup module");
         return err;
     }
 
     struct module_blob monitor_binary;
-    err = get_module_info(monitorname, &monitor_binary);
+    err = get_module_info(config.monitor_binary, &monitor_binary);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not lookup module");
         return err;
     }
 
+    size_t elf_size = ROUND_UP(elf_virtual_size(boot_binary.vaddr),
+                               config.arch_page_size);
+
+    struct mem_info boot_mem;
+    err = cpu_memory_alloc(elf_size, &boot_mem);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Can not allocate space for new app kernel.");
+        return err;
+    }
+
+    DEBUG("BOOTMEM: %lx, %zu kb\n", boot_mem.frameid.base, boot_mem.size >> 10);
+
     /* */
+
+    elf_size = ROUND_UP(elf_virtual_size(cpu_binary.vaddr), config.arch_page_size);
+
     struct mem_info cpu_mem;
-    err = cpu_memory_alloc(cpu_binary.size, &cpu_mem);
+    err = cpu_memory_alloc(elf_size, &cpu_mem);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not allocate space for new app kernel.");
         return err;
@@ -486,11 +577,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     DEBUG("CPUMEM: %lx, %zu kb\n", cpu_mem.frameid.base, cpu_mem.size >> 10);
 
-    size_t monitor_size = ROUND_UP(elf_virtual_size(monitor_binary.vaddr),
-                                   arch_page_size);
+    elf_size = ROUND_UP(elf_virtual_size(monitor_binary.vaddr), config.arch_page_size);
 
     struct mem_info monitor_mem;
-    err = app_memory_alloc(monitor_size + ARMV8_CORE_DATA_PAGES * arch_page_size,
+    err = app_memory_alloc(elf_size + ARMV8_CORE_DATA_PAGES * config.arch_page_size,
                            &monitor_mem);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not allocate space for new app kernel.");
@@ -501,50 +591,50 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
                  monitor_mem.frameid.bytes >> 10);
 
 
+    /*
+     * The layout is:
+     *  [ARMv8 CORE DATA]
+     *  [KERNEL STACK]
+     */
     struct mem_info stack_mem;
-    err = app_memory_alloc(stack_size, &stack_mem);
+    err = cpu_memory_alloc(config.stack_size + config.arch_page_size , &stack_mem);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not allocate space for new app kernel.");
         return err;
     }
 
+
     /* Load cpu */
-    struct elf_allocate_state state;
-    state.vbase = (char *)cpu_mem.buf + arch_page_size;
-    assert(sizeof(struct armv8_core_data) <= arch_page_size);
-    state.elfbase = elf_virtual_base(cpu_binary.vaddr);
+    genvaddr_t boot_entry, cpu_driver_entry;
+    err =  load_boot_and_cpu_driver(&config, &boot_binary, &boot_mem, &cpu_binary,
+                                    &cpu_mem, &boot_entry, &cpu_driver_entry);
 
-    struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *)cpu_binary.vaddr;
-    genvaddr_t cpu_entry;
-
-    err = load_cpudriver(cpu_head->e_machine, &cpu_mem, cpu_binary.vaddr,
-                         cpu_binary.size, arch_page_size, entry_sym, &cpu_entry);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can not load kernel .");
         return err;
     }
 
-    struct armv8_core_data *core_data = (struct armv8_core_data *)cpu_mem.buf;
+    DEBUG("Writing core data structure...\n");
+    struct armv8_core_data *core_data = (struct armv8_core_data *)stack_mem.buf;
 
-    /* set the stack */
-    core_data->kernel_stack = stack_mem.frameid.base + stack_mem.frameid.bytes - 16;
     core_data->boot_magic = ARMV8_BOOTMAGIC_PSCI;
+    core_data->cpu_driver_stack = stack_mem.frameid.base + stack_mem.frameid.bytes - 16;
+    core_data->cpu_driver_entry = cpu_driver_entry;
 
-    core_data->elf.size = sizeof(struct Elf64_Shdr);
-    core_data->elf.addr = cpu_binary.paddr + (uintptr_t)cpu_head->e_shoff;
-    core_data->elf.num  = cpu_head->e_shnum;
 
-    core_data->module_start = cpu_binary.paddr;
-    core_data->module_end   = cpu_binary.paddr + cpu_binary.size;
-    core_data->urpc_frame_base = urpc_frame_id.base;
-    core_data->urpc_frame_size = urpc_frame_id.bytes;
-    core_data->monitor_binary   = monitor_binary.paddr;
-    core_data->monitor_binary_size = monitor_binary.size;
-    core_data->memory_base_start = monitor_mem.frameid.base;
-    core_data->memory_size       = monitor_mem.frameid.bytes;
+    core_data->memory.base = monitor_mem.frameid.base;
+    core_data->memory.length = monitor_mem.frameid.bytes;
+
+    core_data->urpc_frame.base = urpc_frame_id.base;
+    core_data->urpc_frame.length = urpc_frame_id.bytes;
+
+    core_data->monitor_binary.base   = monitor_binary.paddr;
+    core_data->monitor_binary.length = monitor_binary.size;
+
     core_data->src_core_id       = disp_get_core_id();
     core_data->src_arch_id       = my_arch_id;
     core_data->dst_core_id       = coreid;
+    core_data->dst_arch_id       = hwid;
 
     struct frame_identity fid;
     err = invoke_frame_identify(kcb, &fid);
@@ -563,10 +653,10 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     if (cmdline != NULL) {
         // copy as much of command line as will fit
-        snprintf(core_data->kernel_cmdline, sizeof(core_data->kernel_cmdline),
-                "%s %s", cpuname, cmdline);
+        snprintf(core_data->cpu_driver_cmdline, sizeof(core_data->cpu_driver_cmdline),
+                "%s %s", config.cpu_driver_binary, cmdline);
         // ensure termination
-        core_data->kernel_cmdline[sizeof(core_data->kernel_cmdline) - 1] = '\0';
+        core_data->cpu_driver_cmdline[sizeof(core_data->cpu_driver_cmdline) - 1] = '\0';
 
         DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->kernel_cmdline);
     }
@@ -577,15 +667,13 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     /* start */
 
-    debug_printf("invoking PSCI_START hwid=%lx entry=%lx context=%lx\n",
-                 hwid, cpu_entry, cpu_mem.frameid.base);
+    DEBUG("invoking PSCI_START hwid=%lx entry=%lx context=%lx\n",
+                 hwid, boot_entry, stack_mem.frameid.base);
 
-    err = invoke_monitor_spawn_core(hwid, cpu_type, cpu_entry, cpu_mem.frameid.base);
+    err = invoke_monitor_spawn_core(hwid, cpu_type, boot_entry, stack_mem.frameid.base);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn the cpu\n");
     }
-
-
 
     err = mem_free(&stack_mem);
     if (err_is_fail(err)) {
