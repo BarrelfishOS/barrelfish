@@ -46,10 +46,17 @@ int init_all_interrupt_sources(void)
         madt = (ACPI_TABLE_MADT*)ath;
     }
 
+    ACPI_DEBUG("MADT Revision: %u, Size=%u, OEM=%s\n", madt->Header.Revision,
+               madt->Header.Length, madt->Header.OemId);
+
+    //uint8_t revision = madt->Header.Revision;
+
     // Walk all subtables (after the main table entries)
     void *p = (void *)madt + sizeof(ACPI_TABLE_MADT);
     while(p < (void *)madt + madt->Header.Length) {
         ACPI_SUBTABLE_HEADER *sh = (ACPI_SUBTABLE_HEADER *)p;
+
+        uint8_t length = sh->Length;
 
         switch(sh->Type) {
         case ACPI_MADT_TYPE_LOCAL_APIC:
@@ -160,11 +167,6 @@ int init_all_interrupt_sources(void)
                        gi->GicrBaseAddress, gi->CpuInterfaceNumber, gi->Uid, gi->ArmMpidr);
 
             */
-            printf("Found GENERIC_INTERRUPT: CIFN=%" PRIu32 ", Uid=%" PRIu32", Mpidr =%" PRIu64 "\n",
-                        gi->CpuInterfaceNumber, gi->Uid, gi->ArmMpidr);
-            printf("Affinity: %lu : %lu : %lu \n", (gi->ArmMpidr >> 32) & 0xff, (gi->ArmMpidr >> 8) & 0xff, gi->ArmMpidr & 0xff);
-            printf("Parking: %u @ 0x%16lx\n", gi->ParkingVersion, gi->ParkedAddress);
-
 
             coreid_t barrelfish_id;
             if (my_hw_id == gi->Uid) {
@@ -210,7 +212,6 @@ int init_all_interrupt_sources(void)
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "failed to set record");
             }
-            assert(err_is_ok(err));
             }
             break;
         case ACPI_MADT_TYPE_GENERIC_DISTRIBUTOR:
@@ -262,8 +263,8 @@ int init_all_interrupt_sources(void)
             ACPI_DEBUG("Unknown subtable type %d\n", sh->Type);
             break;
         }
-
-        p += sh->Length;
+        assert(length);
+        p += length;
     }
 
 
@@ -276,6 +277,9 @@ int init_all_interrupt_sources(void)
 
     }
 #endif
+
+    ACPI_DEBUG("DONE: MADT Element %p / %p\n", p, (void *)madt + madt->Header.Length);
+
     return 0;
 }
 

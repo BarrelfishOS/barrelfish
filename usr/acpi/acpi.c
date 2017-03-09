@@ -664,6 +664,7 @@ static int acpi_init(void)
     assert(err_is_ok(err));
 #endif
 
+    ACPI_DEBUG("Enabling full ACPI subsystem...\n");
     as = AcpiEnableSubsystem(ACPI_FULL_INITIALIZATION);
     if (ACPI_FAILURE(as)) {
         ACPI_DEBUG("AcpiEnableSubsystem failed %s\n", AcpiFormatException(as));
