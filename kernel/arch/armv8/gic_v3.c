@@ -34,7 +34,37 @@ errval_t gicv3_init(void)
     return SYS_ERR_OK;
 }
 
-errval_t gicv3_cpu_interface_enable(void) {
-    printk(LOG_NOTE, "gicv3_cpu_interface_enable needs to be implemented\n");
+/*
+ * Returns active interrupt of group 1 
+ */
+uint32_t gicv3_get_active_irq(void)
+{
+    armv8_ICC_IAR1_EL1_t iar = armv8_ICC_IAR1_EL1_rd(NULL);
+    return armv8_ICC_IAR1_EL1_intid_extract(iar);
+}
+
+/*
+ * ACKs group 1 interrupt
+ */
+void gicv3_ack_irq(uint32_t irq)
+{
+    armv8_ICC_EOIR0_EL1_rawwr(NULL, irq);
+}
+
+errval_t gicv3_cpu_interface_enable(void)
+{
+    //TODO: GICD_CTLR: set affinity routing
+    printk(LOG_NOTE, "gicv3_cpu_interface_enable: enabling group 1 int\n");
+
+    // Linux does: 
+    // sets priority mode: PMR to 0xf0
+    armv8_ICC_PMR_EL1_wr(NULL, 0xf0);
+    // Set binary point to 1, 6 group priority bits, 2 subpriority bits
+    armv8_ICC_BPR1_EL1_wr(NULL, 1);
+
+    //Enable group 1
+    armv8_ICC_IGRPEN1_EL1_wr(NULL, 0x1);
+    printk(LOG_NOTE, "gicv3_cpu_interface_enable: group 1 int enabled\n");
+
     return SYS_ERR_OK;
 }

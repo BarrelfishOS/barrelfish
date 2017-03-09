@@ -21,4 +21,8 @@ errval_t gicv3_init(void);
 
 errval_t gicv3_cpu_interface_enable(void);
 
+uint32_t gicv3_get_active_irq(void);
+
+void gicv3_ack_irq(uint32_t irq);
+
 #endif // __GIC_V3_H__

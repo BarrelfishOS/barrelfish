@@ -156,9 +156,7 @@ errval_t platform_gic_init(void) {
 }
 
 errval_t platform_gic_cpu_interface_enable(void) {
-    printf("WARNING: gicv3_cpu_interface_enable not implemented\n");
-    return SYS_ERR_OK;
-    //return gicv3_cpu_interface_enable();
+    return gicv3_cpu_interface_enable();
 }
 /**
  * \file plat_a57mpcore.c

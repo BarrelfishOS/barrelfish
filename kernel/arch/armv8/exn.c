@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <wakeup.h>
 #include <irq.h>
-#include <arch/arm/gic.h>
+#include <arch/armv8/gic_v3.h>
 #include <dev/armv8_dev.h>
 
 void handle_user_page_fault(lvaddr_t                fault_address,
@@ -203,6 +203,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
                 uint64_t x0, uint64_t x1, uint64_t x2, uint64_t x3)
 {
     uint32_t irq = 0;
+    printk(LOG_NOTE, "enter handle_irq...\n");
 
     /* The assembly stub leaves the first 4 registers, the stack pointer, and
      * the exception PC for us to save, as it's run out of room for the
@@ -214,7 +215,9 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
     save_area->named.stack = armv8_SP_EL0_rd(NULL);
     save_area->named.pc    = fault_pc;
 
-    irq = gic_get_active_irq();
+    irq = gicv3_get_active_irq();
+
+    printk(LOG_NOTE, "IRQ %"PRIu32"\n", irq);
 
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") :
@@ -252,11 +255,11 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 #endif
 if(irq == 1)
     {
-    	gic_ack_irq(irq);
+    	gicv3_ack_irq(irq);
     	dispatch(schedule());
     }
     else {
-        gic_ack_irq(irq);
+        gicv3_ack_irq(irq);
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
     }
