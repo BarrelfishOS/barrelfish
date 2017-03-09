@@ -109,7 +109,7 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
         DEBUG_QUEUE("e10k_%d: Not enough space in TX ring, not adding buffer\n", 
                 q->id);
         // TODO better error
-        return SFN_ERR_ENQUEUE;
+        return NIC_ERR_ENQUEUE;
     }
 
     bool last = flags & NETIF_TXFLAG_LAST;
@@ -189,7 +189,7 @@ static errval_t enqueue_rx_buf(struct e10k_queue* q, regionid_t rid,
         DEBUG_QUEUE("e10k_%d: Not enough space in RX ring, not adding buffer\n", 
                 q->id);
         // TODO better error
-        return SFN_ERR_ENQUEUE;
+        return NIC_ERR_ENQUEUE;
     }
 
     if (q->use_vtd) {

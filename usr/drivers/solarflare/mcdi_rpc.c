@@ -97,13 +97,13 @@ errval_t mcdi_rpc(unsigned cmd, const uint8_t *in, uint32_t inlen,
         DEBUG("AN ERROR OCCURRED: CMD %d, ERROR %d \n",cmd , reg);
         switch(reg){
         case 4:
-            return SFN_ERR_INTR;
+            return NIC_ERR_INTR;
         case 5:
-            return SFN_ERR_IO;
+            return NIC_ERR_IO;
         case 37:
-            return SFN_ERR_NOSYS;
+            return NIC_ERR_NOSYS;
         default:
-            return SFN_ERR_UNKNOWN;
+            return NIC_ERR_UNKNOWN;
         }
     }
     // read result

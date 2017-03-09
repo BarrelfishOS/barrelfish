@@ -1446,7 +1446,7 @@ static void request_vf_number(struct e10k_vf_binding *b)
 
     if (vf_num == 255){
         //TODO better error
-        err = SFN_ERR_ALLOC_QUEUE;
+        err = NIC_ERR_ALLOC_QUEUE;
     } else {
         err = SYS_ERR_OK;
     }

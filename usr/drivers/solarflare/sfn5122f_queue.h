@@ -179,12 +179,12 @@ static inline errval_t sfn5122f_handle_drv_ev(sfn5122f_queue_t* q, uint16_t n)
     
     if (sfn5122f_q_driver_ev_driver_ev_subcode_extract(code) == 14) {
         printf("RX error %d \n", n);
-        return SFN_ERR_RX_PKT;
+        return NIC_ERR_RX_PKT;
     }
 
     if (sfn5122f_q_driver_ev_driver_ev_subcode_extract(code) == 15) {
         printf("TX error %d \n", n);
-        return SFN_ERR_TX_PKT;
+        return NIC_ERR_TX_PKT;
     }
 
     memset(code, 0xff, sfn5122f_q_event_entry_size);
@@ -318,11 +318,11 @@ static inline errval_t sfn5122f_queue_handle_rx_ev(sfn5122f_queue_t* q,
          // TODO error handling
          if (sfn5122f_q_rx_ev_rx_ev_tobe_disc_extract(ev)) {
             // packet discared by softare -> ok
-            return SFN_ERR_RX_DISCARD;
+            return NIC_ERR_RX_DISCARD;
          }
 
          printf("Packet not ok \n");
-         return SFN_ERR_RX_PKT;
+         return NIC_ERR_RX_PKT;
     }
 
     *len = sfn5122f_q_rx_ev_rx_ev_byte_ctn_extract(ev);
@@ -382,14 +382,14 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
          q->rx_head = (rx_head + 1) % q->rx_size;
          if (sfn5122f_q_rx_ev_rx_ev_tobe_disc_extract(ev)) {
             // packet discared by softare -> ok
-            return SFN_ERR_RX_DISCARD;
+            return NIC_ERR_RX_DISCARD;
          }
 
          printf("Packet not ok \n");
          if (sfn5122f_q_rx_ev_rx_ev_buf_owner_id_extract(ev)) {
              printf("Wrong owner \n");
          }
-         return SFN_ERR_RX_PKT;
+         return NIC_ERR_RX_PKT;
     }
 
     *len = sfn5122f_q_rx_ev_rx_ev_byte_ctn_extract(ev);
@@ -463,7 +463,7 @@ static inline errval_t sfn5122f_queue_handle_tx_ev(sfn5122f_queue_t* q, void** o
     ev = q->ev_ring[ev_head];
     if(sfn5122f_q_tx_ev_tx_ev_pkt_err_extract(ev)){     
            //TODO error handling
-           return SFN_ERR_TX_PKT;
+           return NIC_ERR_TX_PKT;
     }
 
     if (sfn5122f_q_tx_ev_tx_ev_comp_extract(ev) == 1){  
@@ -518,7 +518,7 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
 
     if (sfn5122f_q_tx_ev_tx_ev_pkt_err_extract(ev)){     
         q->tx_head = (tx_head +1) % q->tx_size;
-        return SFN_ERR_TX_PKT;
+        return NIC_ERR_TX_PKT;
     }
 
     if (sfn5122f_q_tx_ev_tx_ev_comp_extract(ev) == 1){  

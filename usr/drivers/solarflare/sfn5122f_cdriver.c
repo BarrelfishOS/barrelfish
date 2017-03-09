@@ -1373,7 +1373,7 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     }
 
     if (n == -1) {
-        err = SFN_ERR_ALLOC_QUEUE;
+        err = NIC_ERR_ALLOC_QUEUE;
         err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, NULL_CAP, err);
         //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
         assert(err_is_ok(err));
@@ -1411,7 +1411,7 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     if(queues[n].ev_buf_tbl == -1 ||
        queues[n].tx_buf_tbl == -1 ||
        queues[n].rx_buf_tbl == -1){
-        err = SFN_ERR_ALLOC_QUEUE;
+        err = NIC_ERR_ALLOC_QUEUE;
         //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
         err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, NULL_CAP, err);
         assert(err_is_ok(err));
@@ -1441,7 +1441,7 @@ static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid,
 
     err = invoke_frame_identify(region, &id);
     if (err_is_fail(err)) {
-        err = b->tx_vtbl.register_region_response(b, NOP_CONT, 0, SFN_ERR_REGISTER_REGION);
+        err = b->tx_vtbl.register_region_response(b, NOP_CONT, 0, NIC_ERR_REGISTER_REGION);
         assert(err_is_ok(err));
     }
 
@@ -1451,7 +1451,7 @@ static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid,
     // TODO unsigned/signed not nice ...
     buffer_offset = alloc_buf_tbl_entries(addr, size/BUF_SIZE, qid, true, d);
     if (buffer_offset == -1) {
-        err = b->tx_vtbl.register_region_response(b, NOP_CONT, 0, SFN_ERR_REGISTER_REGION);
+        err = b->tx_vtbl.register_region_response(b, NOP_CONT, 0, NIC_ERR_REGISTER_REGION);
         assert(err_is_ok(err));
     }
     
