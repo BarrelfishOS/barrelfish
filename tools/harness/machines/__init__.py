@@ -32,6 +32,8 @@ class Machine(object):
                  pci_args=[],
                  eth0=(0xff, 0xff, 0xff),
                  perfcount_type=None,
+                 boot_driver = None,
+                 tickrate = 0,
                  **kwargs):
 
         self._name = "(unknown)"
@@ -54,6 +56,8 @@ class Machine(object):
         self._cores_per_socket = cores_per_socket
 
         self._kernel_args = kernel_args
+        
+        self._boot_driver = boot_driver
 
         self._serial_binary = serial_binary
 
@@ -66,6 +70,8 @@ class Machine(object):
         self._eth0 = eth0
 
         self._perfcount_type = perfcount_type
+        
+        self._tick_rate = tickrate
 
         if bool(kwargs):
             debug.error("Fix machine definition, unknown args: %s" % str(kwargs))
@@ -110,6 +116,10 @@ class Machine(object):
     def get_kernel_args(self):
         """Returns list of machine-specific arguments to add to the kernel command-line"""
         return self._kernel_args
+    
+    def get_boot_driver(self):
+        """Returns list of machine-specific arguments to add to the kernel command-line"""
+        return self._boot_driver
 
     def get_pci_args(self):
         """Returns list of machine-specific arguments to add to the PCI command-line"""
@@ -207,9 +217,16 @@ class Machine(object):
         m.add_kernel_args(machine.get_kernel_args())
         # default for all barrelfish archs
         # hack: cpu driver is not called "cpu" for ARMv7 builds
-        if a == "armv7" or a == "armv8":
+        if a == "armv7" :
             m.add_module("cpu_%s" % machine.get_platform(), machine.get_kernel_args())
-        else:
+        elif a == "armv8" :
+            # add cpu driver
+            m.set_cpu_driver(kernel, machine.get_kernel_args)
+            # add boot driver
+            m.set_boot_driver(machine.get_boot_driver())
+            # remove kernel
+            m.set_kernel(None)
+        else :
             m.add_module("cpu", machine.get_kernel_args())
 
         m.add_module("init")

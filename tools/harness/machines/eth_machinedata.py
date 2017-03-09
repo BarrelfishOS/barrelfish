@@ -393,7 +393,8 @@ machines = dict({
                  'tickrate'    : 2400,
                  'boot_timeout': 360,
                  'platform': 'apm88xxxx',
-                 'serial_binary': 'serial_kernel'},
+                 'serial_binary': 'serial_kernel',
+                 'boot_driver' : 'boot_armv8_generic'},
 
     'gorgonzola1': {'ncores'      : 48,
                     'machine_name' : 'gorgonzola1',
@@ -404,7 +405,8 @@ machines = dict({
                     'tickrate'    : 1950,
                     'boot_timeout': 360,
                     'platform': 'cn88xx',
-                    'serial_binary': 'serial_kernel'},
+                    'serial_binary': 'serial_kernel',
+                    'boot_driver' : 'boot_armv8_generic'},
     'gorgonzola2': {'ncores'      : 48,
                     'machine_name' : 'gorgonzola1',
                     'bootarch' : 'armv8',
@@ -414,7 +416,8 @@ machines = dict({
                     'tickrate'    : 1950,
                     'boot_timeout': 360,
                     'platform': 'cn88xx',
-                    'serial_binary': 'serial_kernel'},
+                    'serial_binary': 'serial_kernel',
+                    'boot_driver' : 'boot_armv8_generic'},
     'roquefort':    {'ncores'      : 96,
                      'machine_name' : 'roquefort',
                      'bootarch' : 'armv8',
@@ -424,7 +427,8 @@ machines = dict({
                      'tickrate'    : 1950,
                      'boot_timeout': 360,
                      'platform': 'cn88xx',
-                     'serial_binary': 'serial_kernel'},
+                     'serial_binary': 'serial_kernel',
+                     'boot_driver' : 'boot_armv8_generic'},
 
 
     # SK: For Python 2.7
