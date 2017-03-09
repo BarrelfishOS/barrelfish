@@ -58,7 +58,7 @@ let commonCFiles = [
     archCFlags arch = case arch of
         "x86_32" -> archCFlags "x86_64"
         "x86_64" -> [ "-DACPI_PROBE_ECDT", "-DACPI_HAVE_VTD" ]
-        "armv8" -> [ ]
+        "armv8" -> [ "-DACPI_REDUCED_HARDWARE=1", "-DACPI_MISALIGNMENT_NOT_SUPPORTED" ]
 
   in
     [ build application {
