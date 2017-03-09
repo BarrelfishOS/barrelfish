@@ -9,10 +9,15 @@
 
 % Statically-initialised hardware facts for the X-GENE APM88xxxx SoC
 
+boot_driver("/armv8/sbin/boot_armv8_generic").
 cpu_driver("/armv8/sbin/cpu_apm88xxxx").
 monitor("/armv8/sbin/monitor").
 
 
+% boot dirver entry points
 entry_symbol(armBootBSP, "boot_entry_bsp").
 entry_symbol(armBootPSCI, "boot_entry_psci").
 entry_symbol(armBootParking, "boot_entry_parking").
+
+% ACPI quirks
+acpi_quirk(AcpiInitializeObjects, 16'20).

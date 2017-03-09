@@ -8,12 +8,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Statically-initialised hardware facts for the ThunderX CN88xx SoC
-
+boot_driver("/armv8/sbin/boot_armv8_generic").
 cpu_driver("/armv8/sbin/cpu_cn88xx").
 monitor("/armv8/sbin/monitor").
-boot_driver("/armv8/sbin/bootdriver_cn88xx").
 
+
+% boot dirver entry points
 entry_symbol(armBootBSP, "boot_entry_bsp").
 entry_symbol(armBootPSCI, "boot_entry_psci").
 entry_symbol(armBootParking, "boot_entry_parking").
 
+% ACPI quirks
+acpi_quirk(AcpiInitializeObjects, 16'00).
