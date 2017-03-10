@@ -20,6 +20,8 @@
 #include <target/aarch64/barrelfish_kpi/arm_core_data.h>
 #include <offsets.h>
 #include <barrelfish/deferred.h>
+#include <acpi_client/acpi_client.h>
+#include <if/acpi_defs.h>
 
 #include <hw_records_arch.h>
 
@@ -33,6 +35,47 @@ extern struct capref ipi_cap;
 
 /// XXX: make this configurable...
 #define ARMV8_KERNEL_STACK_SIZE (16 * 1024)
+
+struct armv8_parking_page
+{
+    uint32_t processor_id;
+    uint32_t reserved;
+    genpaddr_t jump_address;
+    genpaddr_t context;
+    uint8_t reserved_os[2048 - 24];
+    uint8_t reserved_firmware[2048];
+};
+STATIC_ASSERT_SIZEOF(struct armv8_parking_page, 4096);
+
+
+static void parking_write_mailbox(struct armv8_parking_page *mailbox,
+                                  uint32_t procid, genpaddr_t entry,
+                                  genpaddr_t context)
+{
+    mailbox->context = context;
+
+    /* Change the Processor ID to all ones */
+    mailbox->processor_id = 0xffffffff;
+
+    /* Execute a data synchronization barrier */
+    __asm volatile("dsb   sy\n"
+                   "dmb   sy\n"
+                   "isb     \n");
+
+    /* Change the jump address to the required value */
+    mailbox ->jump_address = entry;
+
+    /* Execute a data synchronization barrier */
+    __asm volatile("dsb   sy\n"
+                   "dmb   sy\n"
+                   "isb     \n");
+
+
+    /* Program the correct Processor ID in the mailbox */
+    mailbox->processor_id = procid;
+}
+
+
 
 
 static inline errval_t
@@ -87,19 +130,25 @@ static errval_t get_arch_config(hwid_t hwid, struct arch_config * config)
         return err;
     }
 
-    snprintf(config->boot_driver_binary, sizeof(config->boot_driver_binary),
-            "/armv8/sbin/boot_armv8_generic");
-
     err= skb_read_output("res(%255[^)])", config->boot_driver_entry);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+
+    err = skb_execute_query("boot_driver(S), write(res(S)).");
+    if (err_is_fail(err)) {
+        printf("error: \n %s\n", skb_get_error_output());
+        return err;
+    }
+
+    err= skb_read_output("res(%255[^)])", config->boot_driver_binary);
     if (err_is_fail(err)) {
         return err;
     }
 
     config->arch_page_size= BASE_PAGE_SIZE;
     config->stack_size = ARMV8_KERNEL_STACK_SIZE;
-
-
-
 
     return SYS_ERR_OK;
 }
@@ -490,6 +539,74 @@ static errval_t load_boot_and_cpu_driver(struct arch_config *cfg,
 }
 
 
+static errval_t get_boot_protocol(coreid_t core_id, uint32_t *parking_version,
+                                  struct mem_info *parking_page)
+{
+    errval_t err;
+
+    char* record = NULL;
+    err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    uint64_t parked_address, _parking_version;
+    err = oct_read(record, "_ { parkingVersion: %d, parkedAddress: %d}",
+            &_parking_version, &parked_address);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    *parking_version = _parking_version;
+
+    debug_printf("Parking Version: %u, ParkedAddress= 0x%lx\n", *parking_version,
+                  parked_address);
+
+    if (*parking_version) {
+        struct acpi_binding* acl = get_acpi_binding();
+
+        err = slot_alloc(&parking_page->cap);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "slot_alloc for mm_realloc_range_proxy");
+        }
+        errval_t error_code;
+        err = acl->rpc_tx_vtbl.mm_realloc_range_proxy(acl, 12, parked_address,
+                                                      &parking_page->cap,
+                                                      &error_code);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "mm_alloc_range_proxy failed.");
+            goto out;
+        }
+        if (err_is_fail(error_code)) {
+            DEBUG_ERR(error_code, "mm_alloc_range_proxy return failed.");
+            err = error_code;
+            goto out;
+        }
+
+        err = vspace_map_one_frame(&parking_page->buf, 4096, parking_page->cap,
+                                   NULL, NULL);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to map parking page\n");
+            goto out;
+        }
+
+        parking_page->size = 4096;
+        parking_page->frameid.base = parked_address;
+        parking_page->frameid.bytes = 4096;
+
+    } else {
+        memset(parking_page, 0, sizeof(*parking_page));
+        *parking_version = 0;
+    }
+
+    out:
+    if (record) {
+        free(record);
+    }
+    return err;
+
+}
+
 
 errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
                              enum cpu_type cpu_type,
@@ -514,12 +631,17 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
         return err;
     }
 
+    struct mem_info parking_mem;
+    uint32_t parking_version = 0;
+    err = get_boot_protocol(coreid, &parking_version, &parking_mem);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     DEBUG("boot driver: %s\n", config.cpu_driver_binary);
     DEBUG("boot driver entry: %s\n", config.boot_driver_entry);
     DEBUG("cpu_driver: %s\n", config.cpu_driver_binary);
     DEBUG("monitor: %s\n", config.monitor_binary);
-
 
 
     // compute size of frame needed and allocate it
@@ -661,18 +783,31 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
         DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->kernel_cmdline);
     }
 
+
+    if (parking_version) {
+        assert(parking_mem.buf);
+        parking_write_mailbox(parking_mem.buf, hwid, boot_entry,
+                              stack_mem.frameid.base);
+    }
+
     __asm volatile("dsb   sy\n"
                    "dmb   sy\n"
                    "isb     \n");
 
     /* start */
 
-    DEBUG("invoking PSCI_START hwid=%lx entry=%lx context=%lx\n",
+    DEBUG("invoking boot start hwid=%lx entry=%lx context=%lx\n",
                  hwid, boot_entry, stack_mem.frameid.base);
 
     err = invoke_monitor_spawn_core(hwid, cpu_type, boot_entry, stack_mem.frameid.base);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn the cpu\n");
+    }
+
+    if (parking_version) {
+        debug_printf("WAITING FOR ACK!\n");
+
+        debug_printf("ACKNOWLEDGED!\n");
     }
 
     err = mem_free(&stack_mem);
@@ -684,7 +819,18 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap_destroy failed");
     }
+
     err = mem_free(&monitor_mem);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cap_destroy failed");
+    }
+
+    err = mem_free(&boot_mem);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "cap_destroy failed");
+    }
+
+    err = mem_free(&parking_mem);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap_destroy failed");
     }

@@ -31,7 +31,7 @@
 #include <if/monitor_defs.h>
 #include <if/intermon_defs.h>
 
-#if defined(__x86__) && !defined(__k1om__)
+#if defined(__aarch64__) || (defined(__x86__) && !defined(__k1om__))
 #include <acpi_client/acpi_client.h>
 #include <if/acpi_defs.h>
 #endif
