@@ -574,7 +574,7 @@ errval_t paging_copy_remap(struct cte *dest_vnode_cte, cslot_t dest_slot,
     errval_t err;
     // clone existing pages
     lvaddr_t toaddr;
-    toaddr = local_phys_to_mem(gen_phys_to_local_phys(get_address(src_cap)));
+    toaddr = local_phys_to_mem(gen_phys_to_local_phys(get_address(src_cap))) + offset;
     genpaddr_t gpfromaddr = 0;
     lvaddr_t fromaddr = 0;
 
