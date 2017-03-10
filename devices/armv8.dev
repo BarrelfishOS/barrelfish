@@ -649,7 +649,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         intid       24 "INTID from the corresponding ICC_IAR0_EL1 access";
     };
 
-    register ICC_EOI1_EL1 rw sysreg(ICC_EOI1_EL1) "Interrupt Controller End Of Interrupt Register 1" {
+    register ICC_EOIR1_EL1 rw sysreg(ICC_EOIR1_EL1) "Interrupt Controller End Of Interrupt Register 1" {
         _            8;
         intid       24 "INTID from the corresponding ICC_IAR1_EL1 access";
     };
