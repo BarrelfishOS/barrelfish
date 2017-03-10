@@ -17,6 +17,7 @@ import HakeTypes
 import qualified Config
 import qualified ArchDefaults
 
+
 -------------------------------------------------------------------------
 --
 -- Architecture specific definitions for ARM
@@ -155,12 +156,14 @@ linkKernel opts objs libs name driverType=
         kernelmap  = "/kernel/" ++ name ++ ".map"
         kasmdump   = "/kernel/" ++ name ++ ".asm"
         kbinary    = "/sbin/" ++ name
-        kbootable  = kbinary ++ ".bin"
+        kdebug     = kbinary ++ ".debug"
+        kfull      = kbinary ++ ".full"
     in
         Rules [ Rule ([ Str compiler ] ++
                     map Str Config.cOptFlags ++
                     [ NStr "-T", In BuildTree arch linkscript,
-                      Str "-o", Out arch kbinary,
+                      Str "-o", 
+                      Out arch kfull,
                       NStr "-Wl,-Map,", Out arch kernelmap
                     ]
                     ++ (optLdFlags opts)
@@ -171,23 +174,20 @@ linkKernel opts objs libs name driverType=
                     ++
                     (ArchDefaults.kernelLibs arch)
                    ),
+             Rule $ strip opts kfull kdebug kbinary,
+             Rule $ debug opts kfull kdebug,
               -- Generate kernel assembly dump
               Rule [ Str objdump, 
                      Str "-d", 
                      Str "-M reg-names-raw",
                      In BuildTree arch kbinary, 
-                     Str ">", Out arch kasmdump ],
+                     Str ">", 
+                     Out arch kasmdump ],
               Rule [ Str "cpp",
                      NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/armv8",
                      Str "-D__ASSEMBLER__",
                      Str "-P", In SrcTree "src"
                            ("/kernel/arch/armv8/"++driverType++".lds.in"),
                      Out arch linkscript
-                   ],
-              -- Produce a stripped binary
-              Rule [ Str objcopy,
-                     Str "-g",
-                     In BuildTree arch kbinary,
-                     Out arch (kbinary ++ ".stripped")
                    ]
             ]
