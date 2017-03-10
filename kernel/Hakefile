@@ -480,10 +480,9 @@ let
      target = "apm88xxxx",
      architectures = [ "armv8" ],
      assemblyFiles = [
-        "arch/armv8/boot_entry.S",
         "arch/armv8/sysreg.S",
         "arch/armv8/exceptions.S",
-         "arch/armv8/smc_hvc.S"
+        "arch/armv8/smc_hvc.S"
      ],
      cFiles = [
          "arch/arm/misc.c",
@@ -494,7 +493,6 @@ let
          "arch/armv8/plat_a57mpcore.c",
          "arch/armv8/init.c",
          "arch/armv8/gdb_arch.c",
-         "arch/armv8/boot.c",
          "arch/armv8/gic_v3.c",
          -----
          "arch/armv8/kernel_multiboot2.c",
