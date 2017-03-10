@@ -67,10 +67,10 @@ void buttons_init(void)
         printf("Installing fixed event handler for power button\n");
         as = AcpiInstallFixedEventHandler(ACPI_EVENT_POWER_BUTTON,
                                           power_button_handler, NULL);
-        assert(ACPI_SUCCESS(as));
+        if(ACPI_SUCCESS(as)) {
+            // install handlers for notify events on other button objects
+            AcpiGetDevices("PNP0C0C", power_button_probe, NULL, NULL); // power buttons
+            AcpiGetDevices("PNP0C0E", power_button_probe, NULL, NULL); // sleep buttons
+        }
     }
-
-    // install handlers for notify events on other button objects
-    AcpiGetDevices("PNP0C0C", power_button_probe, NULL, NULL); // power buttons
-    AcpiGetDevices("PNP0C0E", power_button_probe, NULL, NULL); // sleep buttons
 }
