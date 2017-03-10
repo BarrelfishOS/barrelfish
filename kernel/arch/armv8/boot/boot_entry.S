@@ -83,6 +83,12 @@ boot_entry_psci:
 
 
 boot_entry_parking:
+    /*
+        we are using the remainder of the OS use part of the parking frame for
+        the stack
+     */
+    add sp, x0, #2032
+    b boot_app_init
     wfi
 
 /* Error return required to drop to lower execution levels */

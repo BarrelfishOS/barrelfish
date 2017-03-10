@@ -36,6 +36,65 @@ void boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
 void boot_app_init(lpaddr_t context)
     __attribute__((noreturn));
 
+/* low level debugging facilities */
+#if DEBUG
+#ifdef THUNDERX
+#include <dev/pl011_uart_dev.h>
+
+#define CN88XX_MAP_UART0_OFFSET 0x87E024000000UL
+
+static pl011_uart_t uart;
+
+static void debug_uart_initialize(void) {
+    pl011_uart_initialize(&uart, (mackerel_addr_t) CN88XX_MAP_UART0_OFFSET);
+}
+
+static void debug_serial_putc(char c)
+{
+    while(pl011_uart_FR_txff_rdf(&uart) == 1) ;
+    pl011_uart_DR_rawwr(&uart, c);
+}
+#elif defined(XGENE)
+#include <dev/apm88xxxx/apm88xxxx_pc16550_dev.h>
+
+#define CN88XX_MAP_UART0_OFFSET 0x87E024000000UL
+
+apm88xxxx_pc16550_t uart;
+
+static void debug_uart_initialize(void) {
+    apm88xxxx_pc16550_initialize(&uart, (mackerel_addr_t)0x1C020000);
+}
+
+static void debug_serial_putc(char c)
+{
+    // Wait until FIFO can hold more characters
+    while(!apm88xxxx_pc16550_LSR_thre_rdf(&uart));
+    // Write character
+    apm88xxxx_pc16550_THR_thr_wrf(&uart, c);
+}
+
+#endif
+
+static void debug_serial_putchar(char c) {
+    if (c == '\n') {
+        debug_serial_putc('\r');
+    }
+    debug_serial_putc(c);
+}
+
+
+static void debug_print_string(char *str)
+{
+    while (str && *str) {
+        debug_serial_putchar(*str);
+        str++;
+    }
+}
+#else
+#define debug_print_string(x)
+#define debug_uart_initialize()
+#endif
+
 
 void (*cpu_driver_entry)(uint32_t magic, lpaddr_t pointer, lpaddr_t stack);
 
@@ -426,42 +485,6 @@ static void jump_to_cpudriver(uint32_t magic, lpaddr_t pointer, lpaddr_t stack)
 
 }
 
-#if 0
-#include <dev/pl011_uart_dev.h>
-
-#define CN88XX_MAP_UART0_OFFSET 0x87E024000000UL
-
-static pl011_uart_t uart;
-
-static void debug_uart_initialize(void) {
-    pl011_uart_initialize(&uart, (mackerel_addr_t) CN88XX_MAP_UART0_OFFSET);
-}
-
-static void debug_serial_putc(char c)
-{
-    while(pl011_uart_FR_txff_rdf(&uart) == 1) ;
-    pl011_uart_DR_rawwr(&uart, c);
-}
-
-static void debug_serial_putchar(char c) {
-    if (c == '\n') {
-        debug_serial_putc('\r');
-    }
-    debug_serial_putc(c);
-}
-
-
-static void debug_print_string(char *str)
-{
-    while (str && *str) {
-        debug_serial_putchar(*str);
-        str++;
-    }
-}
-#else
-#define debug_print_string(x)
-#define debug_uart_initialize()
-#endif
 
 /* On entry:
 
@@ -532,6 +555,9 @@ static void boot_generic_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) 
 void boot_app_init(lpaddr_t state)
 {
 
+    debug_uart_initialize();
+    debug_print_string("APP BOOTING\n");
+
     struct armv8_core_data *cd = (struct armv8_core_data *)state;
 
     cpu_driver_entry = (void *)cd->cpu_driver_entry;
@@ -594,8 +620,7 @@ void
 boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
 
     debug_uart_initialize();
-
-    debug_print_string("BOOOTING\n");
+    debug_print_string("BSP BOOTING\n");
 
     /* Boot magic must be set */
     if (magic != MULTIBOOT2_BOOTLOADER_MAGIC) {
