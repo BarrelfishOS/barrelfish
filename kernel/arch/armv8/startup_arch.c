@@ -219,6 +219,7 @@ load_init_image(
     }
 }
 
+
 /// Setup the module cnode, which contains frame caps to all multiboot modules
 void create_module_caps(struct spawn_state *st)
 {
@@ -248,38 +249,28 @@ void create_module_caps(struct spawn_state *st)
     size_t position = 0;
     size_t size = armv8_glbl_core_data->multiboot_image.length;
 
+    struct mem_region *region;
+
+    lpaddr_t acpi_base = (lpaddr_t)-1;
     /* add the ACPI regions */
-    struct multiboot_tag_old_acpi *acpi_old = (struct multiboot_tag_old_acpi *)
-            multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_OLD);
-    while (acpi_old) {
-        struct mem_region *region =
-              &bootinfo->regions[bootinfo->regions_length++];
-
-        region->mr_base = mem_to_local_phys((lvaddr_t)acpi_old->rsdp);
-        region->mr_type = RegionType_ACPI_TABLE;
-
-        acpi_old = ((void *) acpi_old) + acpi_old->size;
-        position += acpi_old->size;
-        acpi_old = (struct multiboot_tag_old_acpi *) multiboot2_find_header(
-                (struct multiboot_header_tag *) acpi_old, size - position,
-                MULTIBOOT_TAG_TYPE_ACPI_OLD);
+    struct multiboot_tag_new_acpi *acpi_new;
+    acpi_new = (struct multiboot_tag_new_acpi *)
+           multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_NEW);
+    if (acpi_new) {
+        acpi_base = mem_to_local_phys((lvaddr_t)&acpi_new->rsdp[0]);
+    } else {
+        struct multiboot_tag_old_acpi *acpi_old;
+        acpi_old = (struct multiboot_tag_old_acpi *)
+           multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_OLD);
+        if (acpi_old) {
+            acpi_base = mem_to_local_phys((lvaddr_t)&acpi_old->rsdp[0]);
+        }
     }
 
-    struct multiboot_tag_new_acpi *acpi_new = (struct multiboot_tag_new_acpi *)
-            multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_NEW);
-    position = 0;
-    while (acpi_new) {
-        struct mem_region *region =
-                      &bootinfo->regions[bootinfo->regions_length++];
-
+    if (acpi_base != (lpaddr_t)-1) {
+        region = &bootinfo->regions[bootinfo->regions_length++];
+        region->mr_base = acpi_base;
         region->mr_type = RegionType_ACPI_TABLE;
-        region->mr_base = mem_to_local_phys((lvaddr_t)acpi_new->rsdp);
-
-        acpi_new = ((void *) acpi_new) + acpi_new->size;
-        position += acpi_new->size;
-        acpi_new = (struct multiboot_tag_new_acpi *) multiboot2_find_header(
-                (struct multiboot_header_tag *) acpi_new, size - position,
-                MULTIBOOT_TAG_TYPE_ACPI_NEW);
     }
 
     /* add the module regions */
@@ -288,8 +279,7 @@ void create_module_caps(struct spawn_state *st)
             multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
     while (module) {
         // Set memory regions within bootinfo
-        struct mem_region *region =
-            &bootinfo->regions[bootinfo->regions_length++];
+        region = &bootinfo->regions[bootinfo->regions_length++];
 
         genpaddr_t remain = module->mod_end - module->mod_start;
         genpaddr_t base_addr = local_phys_to_gen_phys(module->mod_start);
