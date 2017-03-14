@@ -83,15 +83,6 @@ void platform_notify_bsp(lpaddr_t *mailbox);
 
 
 /*
- * Timers
- */
-void     timers_init(int timeslice);
-uint64_t timestamp_read(void);
-uint32_t timestamp_freq(void);
-bool     timer_interrupt(uint32_t irq);
-void timer_timeout(uint32_t ms);
-
-/*
  * UART locations
  */
 extern lpaddr_t uart_base[];
@@ -103,8 +94,8 @@ extern size_t uart_size[];
 extern lpaddr_t platform_gic_cpu_base;
 extern lpaddr_t platform_gic_dist_base;
 
-#define tsc_read() timestamp_read()
-#define tsc_get_hz() timestamp_freq()
+#define tsc_read() timer_get_timestamp()
+#define tsc_get_hz() timer_get_frequency()
 
 /*
  * GIC interface

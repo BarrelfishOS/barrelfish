@@ -18,6 +18,7 @@
 #include <misc.h>
 #include <stdio.h>
 #include <wakeup.h>
+#include <timers.h>
 #include <irq.h>
 #include <arch/armv8/gic_v3.h>
 #include <dev/armv8_dev.h>
@@ -216,7 +217,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 
     irq = gicv3_get_active_irq();
 
-    printk(LOG_NOTE, "handle_irq IRQ %"PRIu32"\n", irq);
+   // printk(LOG_NOTE, "handle_irq IRQ %"PRIu32"\n", irq);
 
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") :
@@ -254,8 +255,9 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 #endif
     if(irq == 30)
     {
-    	gicv3_ack_irq(irq);
-    	dispatch(schedule());
+        gicv3_ack_irq(irq);
+        timer_reset(kernel_timeslice);
+        dispatch(schedule());
     }
     else {
         gicv3_ack_irq(irq);
