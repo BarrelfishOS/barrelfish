@@ -220,12 +220,12 @@ class Machine(object):
         if a == "armv7" :
             m.add_module("cpu_%s" % machine.get_platform(), machine.get_kernel_args())
         elif a == "armv8" :
+            # remove kernel
+            m.set_kernel(None)
             # add cpu driver
             m.set_cpu_driver(kernel, machine.get_kernel_args)
             # add boot driver
             m.set_boot_driver(machine.get_boot_driver())
-            # remove kernel
-            m.set_kernel(None)
         else :
             m.add_module("cpu", machine.get_kernel_args())
 

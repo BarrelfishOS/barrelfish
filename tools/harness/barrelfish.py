@@ -23,7 +23,6 @@ class BootModules(object):
         self.kernel = os.path.join(prefix, kernel)
         self.kernelArgs = []
         self.cpu_driver = None
-        self.cpu_driver_args = []
         self.boot_driver = None
         self.boot_driver_args = []
         self.modules = []
@@ -42,22 +41,21 @@ class BootModules(object):
     def set_cpu_driver(self, cpu_driver, args=[]):
         if cpu_driver == None :
             self.cpu_driver = None
+            self.kernelArgs = []
         else :
             self.cpu_driver = os.path.join(self.prefix, cpu_driver)
-        self.cpu_driver_args = args
-
-    def add_cpu_driver_args(self, args):
-        self.kernelArgs.extend(args)
+            self.kernelArgs = args
             
     def set_boot_driver(self, boot_driver,  args=[]):
         if boot_driver == None :
             self.boot_driver = None
+            self.boot_driver_args = []
         else :
             self.boot_driver = os.path.join(self.prefix, boot_driver);
-        self.boot_driver_args = args
+            self.boot_driver_args = args
     
     def set_boot_driver_args(self, args):
-        self.boot_driver_args = args
+        self.boot_driver_args.extend(args)
 
     def set_hypervisor(self, h):
         self.hypervisor = h
@@ -95,8 +93,8 @@ class BootModules(object):
             r += "bootdriver %s %s\n" % (
                 os.path.join(path, self.boot_driver), " ".join(self.boot_driver_args))
         if self.cpu_driver :
-            r += "kernel %s %s\n" % (
-                os.path.join(path, self.cpu_driver), " ".join(self.cpu_driver_args))
+            r += "cpudriver %s %s\n" % (
+                os.path.join(path, self.cpu_driver), " ".join(self.kernelArgs))
         if self.hypervisor:
             r += "hypervisor %s\n" % os.path.join(path, self.prefix, self.hypervisor)
         
