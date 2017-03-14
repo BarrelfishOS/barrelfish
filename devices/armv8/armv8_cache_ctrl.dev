@@ -1,0 +1,62 @@
+/*
+ * Copyright (c) 2016, 2017 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * armv8.dev
+ *
+ * DESCRIPTION: ARMv8 architecture definitions
+ * 
+ * See:
+ *   ARM Architecture Reference Manual
+ */
+
+device armv8_cache_ctrl msbfirst () "ARMv8 Cache Control registers" {
+
+    space cache_ctrl(name) registerwise "Cache control register";
+    
+    register DC_CSIW wo cache_ctrl(cisw) "Data or unified Cache line Clean and Invalidate by Set/Way" {
+        _       32 mbz;
+        SetWay  28 "Set and ways. depends on the cache settings";
+        Level    3 "Cache level to operate on, minus 1.";
+        _        1 mbz;
+    };
+    
+    register DC_CIVAC wo cache_ctrl(civac) "Data or unified Cache line Clean and Invalidate by VA to PoC" {
+        addr 64 "Virtual address to use.";
+    };
+    
+    register DC_CSW wo cache_ctrl(csw) "Data or unified Cache line Clean by Set/Way" {
+        _       32 mbz;
+        SetWay  28 "Set and ways. depends on the cache settings";
+        Level    3 "Cache level to operate on, minus 1.";
+        _        1 mbz;
+    };
+    
+    register DC_CVAC wo cache_ctrl(cvac) "Data or unified Cache line Clean by VA to PoC" {
+        addr 64 "Virtual address to use.";
+    };
+    
+    register DC_CVAU wo cache_ctrl(cvau) "Data or unified Cache line Clean by VA to PoU" {
+        addr 64 "Virtual address to use.";
+    };
+    
+    register DC_ISW wo cache_ctrl(isw) "Data or unified Cache line Invalidate by Set/Way" {
+        _       32 mbz;
+        SetWay  28 "Set and ways. depends on the cache settings";
+        Level    3 "Cache level to operate on, minus 1.";
+        _        1 mbz;
+    };
+    
+    register DC_IVAC wo cache_ctrl(ivac) "Data or unified Cache line Invalidate by VA to PoC" {
+        addr 64 "Virtual address to use.";
+    };
+    
+    register DC_ZVA wo cache_ctrl(zva) "Data or unified Cache line Invalidate by VA to PoC" {
+        addr 64 "Virtual address to use.";
+    };
+};

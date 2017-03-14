@@ -17,16 +17,16 @@
 
 device armv8 msbfirst () "ARMv8 architecture registers" {
 
-    space sysreg(name) registerwise "System registers";
+    space armv8_sysreg(name) registerwise "System registers";
     space cache_ctrl(name) registerwise "Cache control register";
 
-    register CurrentEL ro sysreg(current_el) "Current Exception Level" {
+    register CurrentEL ro armv8_sysreg(current_el) "Current Exception Level" {
         _       28 mbz;
         EL       2 "Current Exception level";
         _        2 mbz;
     };
 
-    register DAIF rw sysreg(daif) "Interrupt Mask Bits" {
+    register DAIF rw armv8_sysreg(daif) "Interrupt Mask Bits" {
         _       22 mbz;
         D        1 "Process state D mask";
         A        1 "SError interrupt mask bit";
@@ -35,11 +35,11 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         _        6 mbz;
     };
 
-    register DLR_EL0 rw sysreg(dlr_el0) "Debug Link Register" {
+    register DLR_EL0 rw armv8_sysreg(dlr_el0) "Debug Link Register" {
         addr    64 "Restart address";
     };
 
-    register DSPSR_EL0 rw sysreg(dspsr_el0) "Debug Saved Program Status Register" {
+    register DSPSR_EL0 rw armv8_sysreg(dspsr_el0) "Debug Saved Program Status Register" {
         N        1 "N condition flag";
         Z        1 "Z condition flag";
         C        1 "C condition flag";
@@ -57,19 +57,19 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         M        4 "AArch64 mode";
     };
 
-    register ELR_EL1 rw sysreg(elr_el1) "Exception Link Register (EL1)" {
+    register ELR_EL1 rw armv8_sysreg(elr_el1) "Exception Link Register (EL1)" {
         addr    64 "Return address";
     };
 
-    register ELR_EL2 rw sysreg(elr_el2) "Exception Link Register (EL2)" {
+    register ELR_EL2 rw armv8_sysreg(elr_el2) "Exception Link Register (EL2)" {
         addr    64 "Return address";
     };
 
-    register ELR_EL3 rw sysreg(elr_el3) "Exception Link Register (EL3)" {
+    register ELR_EL3 rw armv8_sysreg(elr_el3) "Exception Link Register (EL3)" {
         addr    64 "Return address";
     };
 
-    register FCPR rw sysreg(fpcr) "Floating-point Control Register" {
+    register FCPR rw armv8_sysreg(fpcr) "Floating-point Control Register" {
         _        5 mbz;
         AHP      1 "Alternate half-precision control bit";
         DN       1 "Default NaN mode control bit";
@@ -88,7 +88,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         _        8 mbz;
     };
 
-    register FPSR rw sysreg(fpsr) "Floating-point Status Register" {
+    register FPSR rw armv8_sysreg(fpsr) "Floating-point Status Register" {
         N        1 "Negative condition flag for AArch32 floating-poin";
         Z        1 "Zero condition flag for AArch32";
         C        1 "Carry condition flag for AArch32 floating-point comparison operation";
@@ -104,7 +104,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         IOC      1 "Invalid Operation cumulative exception bit.";
     };
 
-    register NZCV rw sysreg(nzcv) "Condition Flags" {
+    register NZCV rw armv8_sysreg(nzcv) "Condition Flags" {
         N        1 "Negative condition flag";
         Z        1 "Zero condition flag";
         C        1 "Carry condition flag";
@@ -112,23 +112,23 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         _       28 mbz;
     };
     
-    register SP_EL0 rw sysreg(sp_el0) "Stack Pointer (EL0)" {
+    register SP_EL0 rw armv8_sysreg(sp_el0) "Stack Pointer (EL0)" {
         addr    64 "Stack pointer";
     };
 
-    register SP_EL1 rw sysreg(sp_el1) "Stack Pointer (EL1)" {
+    register SP_EL1 rw armv8_sysreg(sp_el1) "Stack Pointer (EL1)" {
         addr    64 "Stack pointer";
     };
 
-    register SP_EL2 rw sysreg(sp_el2) "Stack Pointer (EL2)" {
+    register SP_EL2 rw armv8_sysreg(sp_el2) "Stack Pointer (EL2)" {
         addr    64 "Stack pointer";
     };
 
-    register SP_EL3 rw sysreg(sp_el3) "Stack Pointer (EL3)" {
+    register SP_EL3 rw armv8_sysreg(sp_el3) "Stack Pointer (EL3)" {
         addr    64 "Stack pointer";
     };
 
-    register SPSel rw sysreg(spsel) "Stack Pointer Select" {
+    register SPSel rw armv8_sysreg(spsel) "Stack Pointer Select" {
         _       31 mbz;
         SP       1 "Stack pointer use (1=Use SP_ELx at Exception level ELx)";
     };
@@ -149,7 +149,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
     };
 
     
-    register MAIR_EL1 rw sysreg(mair_el1) "Memory Attribute Indirection Register (EL1)" {
+    register MAIR_EL1 rw armv8_sysreg(mair_el1) "Memory Attribute Indirection Register (EL1)" {
         attr7_mem       2 type(MAIR_Mem) "Memory / Write Back";
         attr7_mem_rw    2 "Read/Write allocate policy";
         attr7_dev 2 type(MAIR_Dev) "Device memory type";  
@@ -184,7 +184,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         _         2 mbz;      
     };
     
-    register MAIR_EL2 rw sysreg(mair_el2) "Memory Attribute Indirection Register (EL2)" {
+    register MAIR_EL2 rw armv8_sysreg(mair_el2) "Memory Attribute Indirection Register (EL2)" {
         attr7_mem       2 type(MAIR_Mem) "Memory / Write Back";
         attr7_mem_rw    2 "Read/Write allocate policy";
         attr7_dev 2 type(MAIR_Dev) "Device memory type";  
@@ -219,7 +219,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         _         2 mbz;      
     };
     
-    register MAIR_EL3 rw sysreg(mair_el3) "Memory Attribute Indirection Register (EL3)" {
+    register MAIR_EL3 rw armv8_sysreg(mair_el3) "Memory Attribute Indirection Register (EL3)" {
         attr7_mem       2 type(MAIR_Mem) "Memory / Write Back";
         attr7_mem_rw    2 "Read/Write allocate policy";
         attr7_dev 2 type(MAIR_Dev) "Device memory type";  
@@ -254,7 +254,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         _         2 mbz;      
     };
     
-    register SPSR_abt rw sysreg(spsr_abt) "Saved Program Status Register (Abort mode)" {
+    register SPSR_abt rw armv8_sysreg(spsr_abt) "Saved Program Status Register (Abort mode)" {
         N     1 "Set to the value of CPSR.N on taking an exception to Abort mode";
         Z     1 "Set to the value of CPSR.Z on taking an exception to Abort mode";
         C     1 "Set to the value of CPSR.C on taking an exception to Abort mode,";
@@ -274,7 +274,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         M     4 "AArch32 mode that an exception was taken from";
     };
     
-    register SPSR_EL1 rw sysreg(spsr_el1) "Saved Program Status Register (EL1)" {
+    register SPSR_EL1 rw armv8_sysreg(spsr_el1) "Saved Program Status Register (EL1)" {
         N     1 "Set to the value of the N condition flag on taking an exception to EL1";
         Z     1 "Set to the value of the Z condition flag on taking an exception to EL1,";
         C     1 "Set to the value of the C condition flag on taking an exception to EL1,,";
@@ -293,7 +293,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         SP    1 "Stack pointer is determined by EL";
     };
     
-    register SPSR_EL2 rw sysreg(spsr_el2) "Saved Program Status Register (EL2)" {
+    register SPSR_EL2 rw armv8_sysreg(spsr_el2) "Saved Program Status Register (EL2)" {
         N     1 "Set to the value of the N condition flag on taking an exception to EL2";
         Z     1 "Set to the value of the Z condition flag on taking an exception to EL2,";
         C     1 "Set to the value of the C condition flag on taking an exception to EL2,,";
@@ -312,7 +312,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         SP    1 "Stack pointer is determined by EL";
     };
     
-    register SPSR_EL3 rw sysreg(spsr_el3) "Saved Program Status Register (EL3)" {
+    register SPSR_EL3 rw armv8_sysreg(spsr_el3) "Saved Program Status Register (EL3)" {
         N     1 "Set to the value of the N condition flag on taking an exception to EL2";
         Z     1 "Set to the value of the Z condition flag on taking an exception to EL2,";
         C     1 "Set to the value of the C condition flag on taking an exception to EL2,,";
@@ -332,7 +332,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
     };
     
     
-    register SPSR_fiq rw sysreg(spsr_fiq) "Saved Program Status Register (fiq mode)" {
+    register SPSR_fiq rw armv8_sysreg(spsr_fiq) "Saved Program Status Register (fiq mode)" {
         N     1 "Set to the value of CPSR.N on taking an exception to FIQ mode";
         Z     1 "Set to the value of CPSR.Z on taking an exception to FIQ mode";
         C     1 "Set to the value of CPSR.C on taking an exception to FIQ mode,";
@@ -352,7 +352,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         M     4 "AArch32 mode that an exception was taken from";
     };
     
-    register SPSR_irq rw sysreg(spsr_irq) "Saved Program Status Register (IRQ mode)" {
+    register SPSR_irq rw armv8_sysreg(spsr_irq) "Saved Program Status Register (IRQ mode)" {
         N     1 "Set to the value of CPSR.N on taking an exception to IRQ mode";
         Z     1 "Set to the value of CPSR.Z on taking an exception to IRQ mode";
         C     1 "Set to the value of CPSR.C on taking an exception to IRQ mode,";
@@ -372,7 +372,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         M     4 "AArch32 mode that an exception was taken from";
     };
     
-    register SPSR_und rw sysreg(spsr_und) "Saved Program Status Register (Undefined mode)" {
+    register SPSR_und rw armv8_sysreg(spsr_und) "Saved Program Status Register (Undefined mode)" {
         N     1 "Set to the value of CPSR.N on taking an exception to Undefined mode";
         Z     1 "Set to the value of CPSR.Z on taking an exception to Undefined mode";
         C     1 "Set to the value of CPSR.C on taking an exception to Undefined mode,";
@@ -416,7 +416,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         KB_16   = 0b10;
     };
 
-    register TCR_EL1 rw sysreg(TCR_EL1) "Translation Control Register (EL1)" {
+    register TCR_EL1 rw armv8_sysreg(TCR_EL1) "Translation Control Register (EL1)" {
         _       25;
         TBI1     1 "Top Byte ignored bit (TTBR1)";
         TBI0     1 "Top Byte ignored bit (TTBR0)";
@@ -439,7 +439,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         T0SZ     6 "TTBR0_EL1 region size is 2^(64-T0SZ)";
     };
     
-    register TCR_EL2 rw sysreg(TCR_EL2) "Translation Control Register (EL2)" {
+    register TCR_EL2 rw armv8_sysreg(TCR_EL2) "Translation Control Register (EL2)" {
         _       11 "";
         TBI      1 "Top Byte Ignored";
         _        1 "";
@@ -453,7 +453,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
     };
 
 
-    register TTBCR rw sysreg(TTBCR) "Translation Table Base Control Register (32 bit)" {
+    register TTBCR rw armv8_sysreg(TTBCR) "Translation Table Base Control Register (32 bit)" {
         EAE      1 "Extended Address Enable (1=Long-descriptor translation table)";
         imp_def  1;
         SH1      2 type(shareability) "TTBR1 shareability";
@@ -472,22 +472,22 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         T0SZ     3 "Translation Table 0 format";
     };
     
-    register TTBR0_EL1 rw sysreg(ttbr0_el1) "Translation Table Base Register 0 (EL1)" {
+    register TTBR0_EL1 rw armv8_sysreg(ttbr0_el1) "Translation Table Base Register 0 (EL1)" {
         asid  16 "An ASID for the translation table base address.";
         baddr 48 "Translation table base address";
     };
     
-    register TTBR0_EL2 rw sysreg(ttbr0_el2) "Translation Table Base Register 0 (EL2)" {
+    register TTBR0_EL2 rw armv8_sysreg(ttbr0_el2) "Translation Table Base Register 0 (EL2)" {
         _     16 mbz;
         baddr 48 "Translation table base address";
     };
     
-    register TTBR0_EL3 rw sysreg(ttbr0_el3) "Translation Table Base Register 0 (EL3)" {
+    register TTBR0_EL3 rw armv8_sysreg(ttbr0_el3) "Translation Table Base Register 0 (EL3)" {
         _     16 mbz;
         baddr 48 "Translation table base address";
     };
     
-    register TTBR1_EL1 rw sysreg(ttbr1_el1) "Translation Table Base Register 1 (EL1)" {
+    register TTBR1_EL1 rw armv8_sysreg(ttbr1_el1) "Translation Table Base Register 1 (EL1)" {
         asid  16 "An ASID for the translation table base address.";
         baddr 48 "Translation table base address";
     };
@@ -497,7 +497,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         big     = 0b1 "Big endian";
     };
 
-    register SCTLR_EL1 rw sysreg(SCTLR_EL1) "System Control Register (EL1)" {
+    register SCTLR_EL1 rw armv8_sysreg(SCTLR_EL1) "System Control Register (EL1)" {
         _        2 mbz;
         _        2 mb1;
         _        1 mbz;
@@ -529,7 +529,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         M        1 "MMU enable";
     };
     
-    register SCTLR_EL2 rw sysreg(SCTLR_EL2) "System Control Register (EL2)" {
+    register SCTLR_EL2 rw armv8_sysreg(SCTLR_EL2) "System Control Register (EL2)" {
         _        2 mbz;
         _        2 mb1;
         _        2 mbz;
@@ -552,7 +552,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         M        1 "MMU enable";
     };
     
-    register SCTLR_EL3 rw sysreg(SCTLR_EL3) "System Control Register (EL3)" {
+    register SCTLR_EL3 rw armv8_sysreg(SCTLR_EL3) "System Control Register (EL3)" {
         _        2 mbz;
         _        2 mb1;
         _        2 mbz;
@@ -582,7 +582,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         fpen_trap_none = 0b11 "Does not cause any instruction to be trapped.";
     };
 
-    register CPACR_EL1 rw sysreg(CPACR_EL1) "Architectural Feature Access Control Register" {
+    register CPACR_EL1 rw armv8_sysreg(CPACR_EL1) "Architectural Feature Access Control Register" {
         _        3 mbz;
         TTA      1 "Traps EL0 and EL1 System register accesses to all implemented trace registers to EL1";
         _        6 mbz;
@@ -590,43 +590,43 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         _       20 mbz;
     };
 
-    register ICC_AP0R0_EL1 rw sysreg(ICC_AP0R0_EL1) "" {
+    register ICC_AP0R0_EL1 rw armv8_sysreg(ICC_AP0R0_EL1) "" {
         impl    32;
     };
-    register ICC_AP0R1_EL1 rw sysreg(ICC_AP0R1_EL1) "" {
+    register ICC_AP0R1_EL1 rw armv8_sysreg(ICC_AP0R1_EL1) "" {
         impl    32;
     };
-    register ICC_AP0R2_EL1 rw sysreg(ICC_AP0R2_EL1) "" {
+    register ICC_AP0R2_EL1 rw armv8_sysreg(ICC_AP0R2_EL1) "" {
         impl    32;
     };
-    register ICC_AP0R3_EL1 rw sysreg(ICC_AP0R3_EL1) "" {
-        impl    32;
-    };
-
-    register ICC_AP1R0_EL1 rw sysreg(ICC_AP1R0_EL1) "" {
-        impl    32;
-    };
-    register ICC_AP1R1_EL1 rw sysreg(ICC_AP1R1_EL1) "" {
-        impl    32;
-    };
-    register ICC_AP1R2_EL1 rw sysreg(ICC_AP1R2_EL1) "" {
-        impl    32;
-    };
-    register ICC_AP1R3_EL1 rw sysreg(ICC_AP1R3_EL1) "" {
+    register ICC_AP0R3_EL1 rw armv8_sysreg(ICC_AP0R3_EL1) "" {
         impl    32;
     };
 
-    register ICC_BPR0_EL1 rw sysreg(ICC_BPR0_EL1) "Interrupt Controller Binray Point Register 0" {
+    register ICC_AP1R0_EL1 rw armv8_sysreg(ICC_AP1R0_EL1) "" {
+        impl    32;
+    };
+    register ICC_AP1R1_EL1 rw armv8_sysreg(ICC_AP1R1_EL1) "" {
+        impl    32;
+    };
+    register ICC_AP1R2_EL1 rw armv8_sysreg(ICC_AP1R2_EL1) "" {
+        impl    32;
+    };
+    register ICC_AP1R3_EL1 rw armv8_sysreg(ICC_AP1R3_EL1) "" {
+        impl    32;
+    };
+
+    register ICC_BPR0_EL1 rw armv8_sysreg(ICC_BPR0_EL1) "Interrupt Controller Binray Point Register 0" {
         _            29;
         binary_point  3;
     };
 
-    register ICC_BPR1_EL1 rw sysreg(ICC_BPR1_EL1) "" {
+    register ICC_BPR1_EL1 rw armv8_sysreg(ICC_BPR1_EL1) "" {
         _            29;
         binary_point  3;
     };
 
-    register ICC_CTLR_EL1 rw sysreg(ICC_CTLR_EL1) "" {
+    register ICC_CTLR_EL1 rw armv8_sysreg(ICC_CTLR_EL1) "" {
         _           16;
         a3v          1 "Affinity 3 Valid";
         seis         1 ro "SEI Support";
@@ -639,64 +639,64 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         cbpr         1 "Common Binary Point Regsiter";
     };
 
-    register ICC_DIR_EL1 rw sysreg(ICC_DIR_EL1) "Interrupt Controller Deactivate Interrupt Register" {
+    register ICC_DIR_EL1 rw armv8_sysreg(ICC_DIR_EL1) "Interrupt Controller Deactivate Interrupt Register" {
         _            8;
         intid       24 "INTID of the interrupt to be deactivated";
     };
 
-    register ICC_EOIR0_EL1 rw sysreg(ICC_EOIR0_EL1) "Interrupt Controller End Of Interrupt Register 0" {
+    register ICC_EOIR0_EL1 rw armv8_sysreg(ICC_EOIR0_EL1) "Interrupt Controller End Of Interrupt Register 0" {
         _            8;
         intid       24 "INTID from the corresponding ICC_IAR0_EL1 access";
     };
 
-    register ICC_EOIR1_EL1 rw sysreg(ICC_EOIR1_EL1) "Interrupt Controller End Of Interrupt Register 1" {
+    register ICC_EOIR1_EL1 rw armv8_sysreg(ICC_EOIR1_EL1) "Interrupt Controller End Of Interrupt Register 1" {
         _            8;
         intid       24 "INTID from the corresponding ICC_IAR1_EL1 access";
     };
 
-    register ICC_HPPIR0_EL1 rw sysreg(ICC_HPPIR0_EL1) "Interrupt Controller Highest Priority Pending Interrupt Register 0" {
+    register ICC_HPPIR0_EL1 rw armv8_sysreg(ICC_HPPIR0_EL1) "Interrupt Controller Highest Priority Pending Interrupt Register 0" {
         _            8;
         intid       24 "INTID of the highest priority pending interrupt";
     };
 
-    register ICC_HPPIR1_EL1 rw sysreg(ICC_HPPIR1_EL1) "Interrupt Controller Highest Priority Pending Interrupt Register 1" {
+    register ICC_HPPIR1_EL1 rw armv8_sysreg(ICC_HPPIR1_EL1) "Interrupt Controller Highest Priority Pending Interrupt Register 1" {
         _            8;
         intid       24 "INTID of the highest priority pending interrupt";
     };
 
-    register ICC_IAR0_EL1 rw sysreg(ICC_IAR0_EL1) "Interrupt Controller Interrupt Acknowledge Register 0" {
+    register ICC_IAR0_EL1 rw armv8_sysreg(ICC_IAR0_EL1) "Interrupt Controller Interrupt Acknowledge Register 0" {
         _            8;
         intid       24 "INTID of the signaled interrupt";
     };
 
-    register ICC_IAR1_EL1 rw sysreg(ICC_IAR1_EL1) "Interrupt Controller Interrupt Acknowledge Register 1" {
+    register ICC_IAR1_EL1 rw armv8_sysreg(ICC_IAR1_EL1) "Interrupt Controller Interrupt Acknowledge Register 1" {
         _            8;
         intid       24 "INTID of the signaled interrupt";
     };
 
-    register ICC_IGRPEN0_EL1 rw sysreg(ICC_IGRPEN0_EL1) "Interrupt Controller Interrupt Group 0 Enable Register" {
+    register ICC_IGRPEN0_EL1 rw armv8_sysreg(ICC_IGRPEN0_EL1) "Interrupt Controller Interrupt Group 0 Enable Register" {
         _           31;
         enable       1 "Enables Group 0 interrupts";
     };
 
-    register ICC_IGRPEN1_EL1 rw sysreg(ICC_IGRPEN1_EL1) "Interrupt Controller Interrupt Group 1 Enable Register" {
+    register ICC_IGRPEN1_EL1 rw armv8_sysreg(ICC_IGRPEN1_EL1) "Interrupt Controller Interrupt Group 1 Enable Register" {
         _           31;
         enable       1 "Enables Group 1 interrupts";
     };
 
 
-    register ICC_PMR_EL1 rw sysreg(ICC_PMR_EL1) "Interrupt Controller Interrupt Priority Mask Register" {
+    register ICC_PMR_EL1 rw armv8_sysreg(ICC_PMR_EL1) "Interrupt Controller Interrupt Priority Mask Register" {
         _          24;
         priority    8 "Priority mask level";
     };
 
-    register ICC_RPR_EL1 rw sysreg(ICC_RPR_EL1) "Interrupt Controller Running Priority Register" {
+    register ICC_RPR_EL1 rw armv8_sysreg(ICC_RPR_EL1) "Interrupt Controller Running Priority Register" {
         _          24;
         priority    8 "Running priority";
     };
 
 
-    register ICC_SGI0R_EL1 wo sysreg(ICC_SGI0R_EL1) "Interrupt Controller Software Generated Interrupt Group 0 Register" {
+    register ICC_SGI0R_EL1 wo armv8_sysreg(ICC_SGI0R_EL1) "Interrupt Controller Software Generated Interrupt Group 0 Register" {
         _           8;
         aff3        8 "Affinity Path 3";
         _           7;
@@ -708,7 +708,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         target     16 "Target List";
     };
 
-    register ICC_SGI1R_EL1 wo sysreg(ICC_SGI1R_EL1) "Interrupt Controller Software Generated Interrupt Group 1 Register" {
+    register ICC_SGI1R_EL1 wo armv8_sysreg(ICC_SGI1R_EL1) "Interrupt Controller Software Generated Interrupt Group 1 Register" {
         _           8;
         aff3        8 "Affinity Path 3";
         _           7;
@@ -720,7 +720,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         target     16 "Target List";
     };
 
-    register ICC_SRE_EL1 rw sysreg(ICC_SRE_EL1) "Interrupt Controller System Register Enable" {
+    register ICC_SRE_EL1 rw armv8_sysreg(ICC_SRE_EL1) "Interrupt Controller System Register Enable" {
         _       29;
         DIB     1 "Disable IRQ bypass";
         DFB     1 "Disable FIQ bypass";
@@ -738,7 +738,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         ID_EL_AARCH32_OR_64 = 0b0010;
     };
    
-    register ID_AA64PFR0_EL1 ro sysreg(id_aa64pfr0_el1) "AArch64 Processor Feature Register 0" {
+    register ID_AA64PFR0_EL1 ro armv8_sysreg(id_aa64pfr0_el1) "AArch64 Processor Feature Register 0" {
         _      36 mbz;
         GIC     4 "System register GIC interface support.";
         AdvSIMD 4 type(ID_FEATURE) "Advanced SIMD. Defined values are";
@@ -749,7 +749,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         EL0     4 type(EL_IMPLEMENTED)"EL0 Exception level handling.";
     };
     
-    register HCR_EL2 rw sysreg(hcr_el2) "Hypervisor Configuration Register" {
+    register HCR_EL2 rw armv8_sysreg(hcr_el2) "Hypervisor Configuration Register" {
         _ 25 mbz;
         MIOCNC 1 "Mismatched Inner/Outer Cacheable Non-Coherency Enable, fo";
         _     4 mbz;
@@ -788,7 +788,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         VM    1 "Virtualization enable. Enables stage 2 address translation";
     };
 
-    register SCR_EL3 rw sysreg(scr_el3) "Secure Configuration Register" {
+    register SCR_EL3 rw armv8_sysreg(scr_el3) "Secure Configuration Register" {
         _   18 mbz;
         TWE  1 "Traps EL2, EL1, and EL0 execution of WFE instructions to EL3,";
         TWI  1 "Traps EL2, EL1, and EL0 execution of WFI instructions to EL3";
@@ -805,7 +805,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         NS   1 "Non-secure bit.";
     };
     
-    register MDCR_EL2 rw sysreg(mdcr_el2) "Monitor Debug Configuration Register (EL3)" {
+    register MDCR_EL2 rw armv8_sysreg(mdcr_el2) "Monitor Debug Configuration Register (EL3)" {
         _   20 mbz;
         TDRA  1 "Trap Debug ROM Address register access.";
         TDOSA 1 "Trap debug OS-related register access";
@@ -818,7 +818,7 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         
     };
     
-    register MDCR_EL3 rw sysreg(mdcr_el3) "Monitor Debug Configuration Register (EL3)" {
+    register MDCR_EL3 rw armv8_sysreg(mdcr_el3) "Monitor Debug Configuration Register (EL3)" {
         _    10 mbz;
         EPMAD 1 "External debug interface Performance Monitors registers disable.";
         EDAD  1 "External debug interface breakpoint and watchpoint register access disable.";
@@ -832,48 +832,6 @@ device armv8 msbfirst () "ARMv8 architecture registers" {
         _     2 mbz;
         TPM   1 "Trap Performance Monitors accesses.";
         _     6 mbz;
-    };
-    
-    
-    register DC_CSIW wo cache_ctrl(cisw) "Data or unified Cache line Clean and Invalidate by Set/Way" {
-        _       32 mbz;
-        SetWay  28 "Set and ways. depends on the cache settings";
-        Level    3 "Cache level to operate on, minus 1.";
-        _        1 mbz;
-    };
-    
-    register DC_CIVAC wo cache_ctrl(civac) "Data or unified Cache line Clean and Invalidate by VA to PoC" {
-        addr 64 "Virtual address to use.";
-    };
-    
-    register DC_CSW wo cache_ctrl(csw) "Data or unified Cache line Clean by Set/Way" {
-        _       32 mbz;
-        SetWay  28 "Set and ways. depends on the cache settings";
-        Level    3 "Cache level to operate on, minus 1.";
-        _        1 mbz;
-    };
-    
-    register DC_CVAC wo cache_ctrl(cvac) "Data or unified Cache line Clean by VA to PoC" {
-        addr 64 "Virtual address to use.";
-    };
-    
-    register DC_CVAU wo cache_ctrl(cvau) "Data or unified Cache line Clean by VA to PoU" {
-        addr 64 "Virtual address to use.";
-    };
-    
-    register DC_ISW wo cache_ctrl(isw) "Data or unified Cache line Invalidate by Set/Way" {
-        _       32 mbz;
-        SetWay  28 "Set and ways. depends on the cache settings";
-        Level    3 "Cache level to operate on, minus 1.";
-        _        1 mbz;
-    };
-    
-    register DC_IVAC wo cache_ctrl(ivac) "Data or unified Cache line Invalidate by VA to PoC" {
-        addr 64 "Virtual address to use.";
-    };
-    
-    register DC_ZVA wo cache_ctrl(zva) "Data or unified Cache line Invalidate by VA to PoC" {
-        addr 64 "Virtual address to use.";
     };
     
 };

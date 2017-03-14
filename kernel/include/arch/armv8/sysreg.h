@@ -102,7 +102,7 @@ ARMV8_SYSREG_RW(mair_el1, mair_el1, 64)
 ARMV8_SYSREG_RW(mair_el2, mair_el2, 64)
 ARMV8_SYSREG_RW(mair_el3, mair_el3, 64)
 
-
+/* gic registers */
 ARMV8_SYSREG_RW(ICC_AP0R0_EL1, S3_0_C12_C8_4, 32)
 ARMV8_SYSREG_RW(ICC_AP0R1_EL1, S3_0_C12_C8_5, 32)
 ARMV8_SYSREG_RW(ICC_AP0R2_EL1, S3_0_C12_C8_6, 32)
@@ -140,6 +140,25 @@ ARMV8_SYSREG_RW(TCR_EL1, TCR_EL1, 64)
 ARMV8_SYSREG_RW(TCR_EL2, TCR_EL2, 32)
 ARMV8_SYSREG_RW(TTBCR, TTBCR, 32)
 
+/* counter registers */
+ARMV8_SYSREG_RO(cntfrq_el0, cntfrq_el0, 32)
+ARMV8_SYSREG_RW(cnthctl_el2, cnthctl_el2, 32)
+ARMV8_SYSREG_RW(cntkctl_el1, cntkctl_el1, 32)
+ARMV8_SYSREG_RW(cnthp_ctl_el2, cnthp_ctl_el2, 32)
+ARMV8_SYSREG_RW(cnthp_cval_el2, cnthp_cval_el2, 64)
+ARMV8_SYSREG_RW(cnthp_tval_el2, cnthp_tval_el2, 64)
+ARMV8_SYSREG_RW(cntp_ctl_el0, cntp_ctl_el0, 32)
+ARMV8_SYSREG_RW(cntp_cval_el0, cntp_cval_el0, 64)
+ARMV8_SYSREG_RW(cntp_tval_el0, cntp_tval_el0, 64)
+ARMV8_SYSREG_RW(cntpct_el0, cntpct_el0, 64)
+ARMV8_SYSREG_RW(cntps_ctl_el1, cntps_ctl_el1, 32)
+ARMV8_SYSREG_RW(cntps_cval_el1, cntps_cval_el1, 64)
+ARMV8_SYSREG_RW(cntps_tval_el1, cntps_tval_el1, 64)
+ARMV8_SYSREG_RW(cntv_ctl_el0, cntv_ctl_el0, 32)
+ARMV8_SYSREG_RW(cntv_cval_el0, cntv_cval_el0, 64)
+ARMV8_SYSREG_RW(cntv_tval_el0, cntv_tval_el0, 32)
+ARMV8_SYSREG_RO(cntvct_el0, cntvct_el0, 64)
+ARMV8_SYSREG_RW(cntvoff_el2, cntvoff_el2, 64)
 
 
 /*

@@ -71,6 +71,8 @@
            "ti_twl6030",
            "sdhc",
            "apm88xxxx/apm88xxxx_pc16550",
+           "armv8/armv8_generic_timer",
+           "armv8/armv8_cache_ctrl",
            "omap/ehci",
            "omap/ohci",
            "omap/omap_uart",
