@@ -86,7 +86,8 @@ class BootModules(object):
                 mod.args.append(arg)
 
     def get_menu_data(self, path, root="(nd)"):
-        assert(self.kernel[0])
+        assert(self.kernel != None 
+                or (self.boot_driver != None and self.cpu_driver != None))
         r = "timeout 0\n"
         r += "title Harness image\n"
         r += "root %s\n" % root
@@ -105,7 +106,6 @@ class BootModules(object):
         for module in self.modules:
             r += "modulenounzip %s %s\n" % (os.path.join(path, module.module), " ".join(map(str, module.args)))
             
-        print(r)
         return r
 
     # what targets do we need to build/install to run this test?
