@@ -15,7 +15,6 @@
 #include <paging_kernel_arch.h>
 #include <arch/armv8/gic_v3.h>
 
-static armv8_t armv8_dev;
 static gic_v3_t gic_v3_dev;
 
 /*
@@ -28,9 +27,9 @@ static gic_v3_t gic_v3_dev;
  */
 errval_t gicv3_init(void)
 {
-    armv8_initialize(&armv8_dev);
+
     // Enable system register access
-    armv8_ICC_SRE_EL1_SRE_wrf(&armv8_dev, 1);
+    armv8_ICC_SRE_EL1_SRE_wrf(NULL, 1);
 
     lvaddr_t gic_dist = local_phys_to_mem(platform_get_gic_cpu_address());
     gic_v3_initialize(&gic_v3_dev, (char *)gic_dist);
