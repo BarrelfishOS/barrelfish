@@ -30,6 +30,7 @@
 #include <useraccess.h>
 #include <platform.h>
 #include <systime.h>
+#include <timers.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -1140,11 +1141,11 @@ static struct sysret handle_debug_syscall(int msg)
             break;
 
         case DEBUG_HARDWARE_TIMER_READ:
-            retval.value = tsc_read();
+            retval.value = timer_get_timestamp();
             break;
 
         case DEBUG_HARDWARE_TIMER_HERTZ_READ:
-            retval.value = tsc_get_hz();
+            retval.value = timer_get_frequency();
             break;
 
         case DEBUG_GET_TSC_PER_MS:
