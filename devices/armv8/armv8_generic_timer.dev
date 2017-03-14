@@ -61,33 +61,33 @@ device armv8_generic_timer msbfirst () "ARMv8 Generic Timer Registers" {
     
     /* physical timer registers */
     
-    register phys_ctrl_el0 rw armv8_sysreg(cntp_ctl_el0) "Counter-timer Physical Timer Control register" {
+    register ctrl_el0 rw armv8_sysreg(cntp_ctl_el0) "Counter-timer Physical Timer Control register" {
         _       29 mbz;
         ISTATUS  1 "The status of the timer. This bit indicates whether the timer condition is met:";
         IMASK    1 "Timer interrupt mask bit. Permitted values are:";
         ENABLE   1 "Enables the timer. Permitted values are:";
     };
     
-    register phys_compare_val_el0 rw armv8_sysreg(cntp_cval_el0) "Counter-timer Physical Timer CompareValue register"
+    register compare_val_el0 rw armv8_sysreg(cntp_cval_el0) "Counter-timer Physical Timer CompareValue register"
     type(uint64);
     
-    register phys_timer_val_el0 rw armv8_sysreg(cntp_tval_el0) "Counter-timer Physical Timer TimerValue register"
+    register timer_val_el0 rw armv8_sysreg(cntp_tval_el0) "Counter-timer Physical Timer TimerValue register"
     type(uint64);
     
-    register phys_count_el0 rw armv8_sysreg(cntpct_el0) "Counter-timer Physical Count register"
+    register count_el0 rw armv8_sysreg(cntpct_el0) "Counter-timer Physical Count register"
     type(uint64);
     
-    register phys_ctrl_el1 rw armv8_sysreg(cntps_ctl_el1) "Counter-timer Physical Secure Timer Control register" {
+    register ctrl_el1 rw armv8_sysreg(cntps_ctl_el1) "Counter-timer Physical Secure Timer Control register" {
         _       29 mbz;
         ISTATUS  1 "The status of the timer. This bit indicates whether the timer condition is met:";
         IMASK    1 "Timer interrupt mask bit. Permitted values are:";
         ENABLE   1 "Enables the timer. Permitted values are:";
     };
     
-    register phys_compare_val_el1 rw armv8_sysreg(cntps_cval_el1) "Counter-timer Physical Timer CompareValue register"
+    register compare_val_el1 rw armv8_sysreg(cntps_cval_el1) "Counter-timer Physical Timer CompareValue register"
     type(uint64);
     
-    register phys_timer_val_el1 rw armv8_sysreg(cntps_tval_el1) "Counter-timer Physical Timer TimerValue register" 
+    register timer_val_el1 rw armv8_sysreg(cntps_tval_el1) "Counter-timer Physical Timer TimerValue register" 
     type(uint64);
     
     /* virtual timer registers */
