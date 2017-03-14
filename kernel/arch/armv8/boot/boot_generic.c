@@ -24,6 +24,7 @@
 #include <offsets.h>
 #include <sysreg.h>
 #include <dev/armv8_dev.h>
+#include <dev/armv8/armv8_generic_timer_dev.h>
 
 #include <multiboot2.h>
 #include <barrelfish_kpi/arm_core_data.h>
@@ -437,9 +438,12 @@ static void configure_el2_traps(void)
 
 
     /* disable traps to EL2 for timer accesses */
-    uint32_t cnthctl = sysreg_read_cnthctl_el2();
-    sysreg_write_cnthctl_el2(cnthctl | 0x3);
 
+    armv8_generic_timer_hvc_ctrl_el2_t cnthctl;
+    cnthctl = armv8_generic_timer_hvc_ctrl_el2_rd(NULL);
+    cnthctl = armv8_generic_timer_hvc_ctrl_el2_EL1PCEN_insert(cnthctl, 0x1);
+    cnthctl = armv8_generic_timer_hvc_ctrl_el2_EL1PCTEN_insert(cnthctl, 0x1);
+    armv8_generic_timer_hvc_ctrl_el2_wr(NULL, cnthctl);
 }
 
 static void configure_el1_traps(void)
