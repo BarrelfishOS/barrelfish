@@ -84,11 +84,11 @@ space_write_fn_name s w =
 
 space_cpu_reg_read_fn_name :: Space.Rec -> Integer -> String -> String
 space_cpu_reg_read_fn_name s w n =
-  printf "__DN(%s)" (concat $ intersperse "_" [ Space.n s, "read", show w, n ])
+  printf (concat $ intersperse "_" [ Space.n s, "read", show w, n ])
 
 space_cpu_reg_write_fn_name :: Space.Rec -> Integer -> String -> String
 space_cpu_reg_write_fn_name s w n =
-  printf "__DN(%s)" (concat $ intersperse "_" [ Space.n s, "write", show w, n ])
+  printf (concat $ intersperse "_" [ Space.n s, "write", show w, n ])
 
 --
 -- Constants-related names
