@@ -27,7 +27,7 @@
 #include <kernel_multiboot2.h>
 #include <offsets.h>
 #include <startup_arch.h>
-
+#include <timers.h>
 #include <platform.h>
 
 #include <arch/arm/startup_arm.h>
