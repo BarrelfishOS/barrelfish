@@ -54,7 +54,21 @@ void gicv3_ack_irq(uint32_t irq)
     armv8_ICC_EOIR1_EL1_rawwr(NULL, irq);
 }
 
+/*
+ * Raise an SGI on a core
+ */
+void gicv3_raise_softirq(uint8_t cpumask, uint8_t irq)
+{
+    assert(irq <= 15);
+    gic_v3_GICD_SGIR_t reg = 0;
+    reg = gic_v3_GICD_SGIR_INTID_insert(reg, irq);
+    reg = gic_v3_GICD_SGIR_CPUTargetList_insert(reg, cpumask);
+    gic_v3_GICD_SGIR_wr(&gic_v3_dev, reg);
+}
 
+/*
+ * Enable GIC CPU-IF and local distributor
+ */
 errval_t gicv3_cpu_interface_enable(void)
 {
     printk(LOG_NOTE, "gicv3_cpu_interface_enable: enabling group 1 int\n");
