@@ -63,17 +63,16 @@ errval_t two_level_alloc(struct slot_allocator *ca, struct capref *ret)
         // Do not call slot_alloc_root() here as we want control over refill.
         struct slot_alloc_state *state = get_slot_alloc_state();
         struct slot_allocator *rca = (struct slot_allocator *)(&state->rootca);
-        err = rca->alloc(rca, &cap);
-        // From here: we may call back into slot_alloc when resizing root
-        // cnode and/or creating new L2 Cnode.
-        if (err_no(err) == LIB_ERR_SLOT_ALLOC_NO_SPACE) {
+        // Need to refill when one slot left, otherwise it's too late
+        size_t rootcn_free = single_slot_alloc_freecount(&state->rootca);
+        if (rootcn_free == 1) {
             // resize root slot allocator (and rootcn)
             err = root_slot_allocator_refill(NULL, NULL);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_ROOTSA_RESIZE);
             }
-            err = rca->alloc(rca, &cap);
         }
+        err = rca->alloc(rca, &cap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "allocating root cnode slot failed");
             return err_push(err, LIB_ERR_SLOT_ALLOC);
