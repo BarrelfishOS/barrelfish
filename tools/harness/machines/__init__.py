@@ -223,7 +223,7 @@ class Machine(object):
             # remove kernel
             m.set_kernel(None)
             # add cpu driver
-            m.set_cpu_driver(kernel, machine.get_kernel_args)
+            m.set_cpu_driver(kernel, machine.get_kernel_args())
             # add boot driver
             m.set_boot_driver(machine.get_boot_driver())
         else :
