@@ -712,7 +712,6 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
     DEBUG("DATAMEM: %lx, %zu kb\n", monitor_mem.frameid.base,
                  monitor_mem.frameid.bytes >> 10);
 
-
     /*
      * The layout is:
      *  [ARMv8 CORE DATA]
@@ -724,6 +723,9 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
         DEBUG_ERR(err, "Can not allocate space for new app kernel.");
         return err;
     }
+
+    DEBUG("STACKMEM: %lx, %zu kb\n", stack_mem.frameid.base,
+            stack_mem.frameid.bytes >> 10);
 
 
     /* Load cpu */
@@ -741,6 +743,12 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
     core_data->boot_magic = ARMV8_BOOTMAGIC_PSCI;
     core_data->cpu_driver_stack = stack_mem.frameid.base + stack_mem.frameid.bytes - 16;
+    core_data->cpu_driver_stack_limit = stack_mem.frameid.base + BASE_PAGE_SIZE;
+
+    DEBUG("kernel stack: 0x%" PRIxLPADDR"..0x%" PRIxLPADDR "\n",
+            core_data->cpu_driver_stack_limit,
+            core_data->cpu_driver_stack);
+
     core_data->cpu_driver_entry = cpu_driver_entry;
 
 
