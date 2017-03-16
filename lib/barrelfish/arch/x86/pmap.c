@@ -350,6 +350,14 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     root->u.vnode.children = newvnode;
     newvnode->u.vnode.children = NULL;
 #elif defined(PMAP_ARRAY)
+    if (slab_freecount(&pmap->ptslab) < 4) {
+        err = pmap->refill_ptslab(pmap, 32);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLAB_REFILL);
+        }
+    }
+    newvnode->u.vnode.children = slab_alloc(&pmap->ptslab);
+    assert(newvnode->u.vnode.children);
     memset(newvnode->u.vnode.children, 0, sizeof(struct vode *)*PTABLE_SIZE);
     root->u.vnode.children[entry] = newvnode;
 #else
@@ -436,6 +444,7 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
 
             // remove vnode from list
             remove_vnode(root, n);
+        slab_free(&pmap->ptslab, n->u.vnode.children);
             slab_free(&pmap->slab, n);
         }
     }
@@ -562,6 +571,14 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
          n->next      = parent->u.vnode.children;
          parent->u.vnode.children = n;
 #elif defined(PMAP_ARRAY)
+        if (slab_freecount(&pmapx->ptslab) < 4) {
+            err = pmapx->refill_ptslab(pmapx, 32);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_SLAB_REFILL);
+            }
+        }
+        n->u.vnode.children = slab_alloc(&pmapx->ptslab);
+        assert(n->u.vnode.children);
         memset(n->u.vnode.children, 0, sizeof(struct vode *)*PTABLE_SIZE);
         // insert in array
         parent->u.vnode.children[n->entry] = n;

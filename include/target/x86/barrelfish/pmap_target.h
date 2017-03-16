@@ -37,7 +37,7 @@ struct vnode { // NB: misnomer :)
 #ifdef PMAP_LL
             struct vnode *children;
 #elif defined(PMAP_ARRAY)
-            struct vnode  *children[PTABLE_SIZE];   ///< Children of this VNode
+            struct vnode  **children;   ///< Children of this VNode, allocated from second slab allocator
 #else
 #error Invalid pmap datastructure
 #endif
@@ -60,11 +60,16 @@ struct pmap_x86 {
     genvaddr_t vregion_offset;  ///< Offset into amount of reserved virtual address used
     struct vnode root;          ///< Root of the vnode tree
     errval_t (*refill_slabs)(struct pmap_x86 *, size_t count); ///< Function to refill slabs
+    errval_t (*refill_ptslab)(struct pmap_x86 *, size_t count); ///< Function to refill slabs
     struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries
+#ifdef PMAP_ARRAY
+    struct slab_allocator ptslab;     ///< Slab allocator for the page table children arrays
+#endif
     genvaddr_t min_mappable_va; ///< Minimum mappable virtual address
     genvaddr_t max_mappable_va; ///< Maximum mappable virtual address
     size_t used_cap_slots;      ///< Current count of capability slots allocated by pmap code
     uint8_t *slab_buffer;       ///< Initial buffer to back the allocator (static for own pmap, malloced for other pmaps)
+    uint8_t pt_slab_buffer[SLAB_STATIC_SIZE(32, BASE_PAGE_SIZE)];   ///< Initial buffer to back the allocator
 };
 
 #endif // TARGET_X86_BARRELFISH_PMAP_H

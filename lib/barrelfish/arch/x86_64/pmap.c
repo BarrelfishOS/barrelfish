@@ -544,7 +544,7 @@ static size_t max_slabs_for_mapping_huge(size_t bytes)
  * \arg pmap the pmap whose slab allocator we want to refill
  * \arg bytes the refill buffer size in bytes
  */
-static errval_t refill_slabs_fixed_allocator(struct pmap_x86 *pmap, size_t bytes)
+static errval_t refill_slabs_fixed_allocator(struct pmap_x86 *pmap, struct slab_allocator *slab, size_t bytes)
 {
     size_t pages = DIVIDE_ROUND_UP(bytes, BASE_PAGE_SIZE);
 
@@ -577,7 +577,7 @@ static errval_t refill_slabs_fixed_allocator(struct pmap_x86 *pmap, size_t bytes
     /* Grow the slab */
     lvaddr_t buf = vspace_genvaddr_to_lvaddr(vbase);
     debug_printf("%s: Calling slab_grow with %#zx bytes\n", __FUNCTION__, bytes);
-    slab_grow(&pmap->slab, (void*)buf, bytes);
+    slab_grow(slab, (void*)buf, bytes);
 
     return SYS_ERR_OK;
 }
@@ -596,16 +596,16 @@ static errval_t refill_slabs_fixed_allocator(struct pmap_x86 *pmap, size_t bytes
  * Can only be called for the current pmap
  * Will recursively call into itself till it has enough slabs
  */
-static errval_t refill_slabs(struct pmap_x86 *pmap, size_t request)
+static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab, size_t request)
 {
     errval_t err;
 
     /* Keep looping till we have #request slabs */
-    while (slab_freecount(&pmap->slab) < request) {
+    while (slab_freecount(slab) < request) {
         // Amount of bytes required for #request
-        size_t slabs_req = request - slab_freecount(&pmap->slab);
+        size_t slabs_req = request - slab_freecount(slab);
         size_t bytes = SLAB_STATIC_SIZE(slabs_req,
-                                        sizeof(struct vnode));
+                                        slab->blocksize);
         bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
         bytes *= 4;
 
@@ -614,7 +614,7 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, size_t request)
         err = frame_alloc(&cap, bytes, &bytes);
         if (err_is_fail(err)) {
             if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
-                return refill_slabs_fixed_allocator(pmap, bytes);
+                return refill_slabs_fixed_allocator(pmap, slab, bytes);
             }
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_FRAME_ALLOC);
@@ -625,11 +625,13 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, size_t request)
 
         /* If we do not have enough slabs to map the frame in, recurse */
         size_t required_slabs_for_frame = max_slabs_for_mapping(bytes);
+        // Here we need to check that we have enough vnode slabs, not whatever
+        // slabs we're refilling
         if (slab_freecount(&pmap->slab) < required_slabs_for_frame) {
             // If we recurse, we require more slabs than to map a single page
             assert(required_slabs_for_frame > 4);
 
-            err = refill_slabs(pmap, required_slabs_for_frame);
+            err = refill_slabs(pmap, slab, required_slabs_for_frame);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_SLAB_REFILL);
             }
@@ -649,10 +651,20 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, size_t request)
 
         /* Grow the slab */
         lvaddr_t buf = vspace_genvaddr_to_lvaddr(genvaddr);
-        slab_grow(&pmap->slab, (void*)buf, bytes);
+        slab_grow(slab, (void*)buf, bytes);
     }
 
     return SYS_ERR_OK;
+}
+
+static errval_t refill_vnode_slabs(struct pmap_x86 *pmap, size_t count)
+{
+    return refill_slabs(pmap, &pmap->slab, count);
+}
+
+static errval_t refill_pt_slabs(struct pmap_x86 *pmap, size_t count)
+{
+    return refill_slabs(pmap, &pmap->ptslab, count);
 }
 
 /**
@@ -718,7 +730,7 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     if (slabs_free < max_slabs) {
         struct pmap *mypmap = get_current_pmap();
         if (pmap == mypmap) {
-            err = refill_slabs(x86, max_slabs);
+            err = refill_vnode_slabs(x86, max_slabs);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_SLAB_REFILL);
             }
@@ -1491,7 +1503,14 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     /* x86 specific portion */
     slab_init(&x86->slab, sizeof(struct vnode), NULL);
     slab_grow(&x86->slab, x86->slab_buffer, INIT_SLAB_BUFFER_SIZE);
-    x86->refill_slabs = refill_slabs;
+    x86->refill_slabs = refill_vnode_slabs;
+
+#ifdef PMAP_ARRAY
+    /* Initialize slab allocator for child arrays */
+    slab_init(&x86->ptslab, BASE_PAGE_SIZE, NULL);
+    slab_grow(&x86->ptslab, x86->pt_slab_buffer, sizeof(x86->pt_slab_buffer));
+    x86->refill_ptslab = refill_pt_slabs;
+#endif
 
     x86->root.type = ObjType_VNode_x86_64_pml4;
     x86->root.is_vnode          = true;
@@ -1510,6 +1529,8 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     x86->root.u.vnode.children  = NULL;
     x86->root.next              = NULL;
 #elif defined(PMAP_ARRAY)
+    x86->root.u.vnode.children = slab_alloc(&x86->ptslab);
+    assert(x86->root.u.vnode.children);
     memset(x86->root.u.vnode.children, 0, sizeof(struct vnode *)*PTABLE_SIZE);
 #else
 #error Invalid pmap datastructure
