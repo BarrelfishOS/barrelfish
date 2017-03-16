@@ -17,7 +17,7 @@
 #include <paging_kernel_arch.h>
 #include <omap44xx_spinlock.h>
 #include <dev/omap/omap44xx_spinlock_dev.h>
-#include <omap44xx_map.h>
+#include <maps/omap44xx_map.h>
 
 
 #define MSG(format, ...) printk( LOG_NOTE, "OMAP44xx spinlock: "format, ## __VA_ARGS__ )

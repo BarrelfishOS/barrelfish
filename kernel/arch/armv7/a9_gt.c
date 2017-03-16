@@ -12,7 +12,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 #include <a9_gt.h>
-#include <a9mpcore_map.h>
+#include <maps/a9mpcore_map.h>
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 #include <dev/cortex_a9_gt_dev.h>

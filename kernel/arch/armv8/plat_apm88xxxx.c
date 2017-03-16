@@ -119,3 +119,8 @@ errval_t platform_gic_cpu_interface_enable(void) {
     gic_cpu_interface_enable();
     return SYS_ERR_OK;
 }
+
+errval_t platform_boot_core(hwid_t target, genpaddr_t gen_entry, genpaddr_t context)
+{
+    return SYS_ERR_OK;
+}

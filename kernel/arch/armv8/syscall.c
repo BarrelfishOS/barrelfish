@@ -30,6 +30,7 @@
 #include <useraccess.h>
 #include <platform.h>
 #include <systime.h>
+#include <timers.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -725,33 +726,31 @@ INVOCATION_HANDLER(monitor_get_platform)
  */
 static struct sysret
 monitor_spawn_core(
-	struct capability *kernel_cap,
+    struct capability *kernel_cap,
     arch_registers_state_t* context,
     int argc)
 {
-    /* XXX - Why is this commented out? */
-	//assert(3 == argc);
+    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
-	struct registers_aarch64_syscall_args* sa = &context->syscall_args;
-
-	coreid_t core_id       = sa->arg2;
+    hwid_t core_id         = sa->arg2;
     enum cpu_type cpu_type = sa->arg3;
-    genvaddr_t entry       = sa->arg5;
+    genvaddr_t entry       = sa->arg4;
+    genpaddr_t context_id  = sa->arg5;
 
-    return sys_monitor_spawn_core(core_id, cpu_type, entry);
+    return sys_monitor_spawn_core(core_id, cpu_type, entry, context_id);
 }
 
 static struct sysret
 monitor_identify_cap(
-	struct capability *kernel_cap,
+    struct capability *kernel_cap,
     arch_registers_state_t* context,
     int argc)
 {
-	struct registers_aarch64_syscall_args* sa = &context->syscall_args;
+    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
-	capaddr_t cptr = sa->arg2;
-	int bits = sa->arg3;
-	struct capability *retbuf = (void *)sa->arg4;
+    capaddr_t cptr = sa->arg2;
+    int bits = sa->arg3;
+    struct capability *retbuf = (void *)sa->arg4;
 
     return sys_monitor_identify_cap(&dcb_current->cspace.cap, cptr, bits, retbuf);
 }
@@ -806,9 +805,9 @@ static struct sysret dispatcher_dump_ptables(
 
     printf("kernel_dump_ptables\n");
 
-    struct dcb *dispatcher = to->u.dispatcher.dcb;
+   // struct dcb *dispatcher = to->u.dispatcher.dcb;
 
-    paging_dump_tables(dispatcher);
+   // paging_dump_tables(dispatcher);
 
     return SYSRET(SYS_ERR_OK);
 }
@@ -902,16 +901,16 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_AARCH64_l1] = {
-    	[VNodeCmd_Map]   = handle_map,
-    	[VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_AARCH64_l2] = {
-    	[VNodeCmd_Map]   = handle_map,
-    	[VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_AARCH64_l3] = {
-    	[VNodeCmd_Map]   = handle_map,
-    	[VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_Frame_Mapping] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
@@ -1142,11 +1141,11 @@ static struct sysret handle_debug_syscall(int msg)
             break;
 
         case DEBUG_HARDWARE_TIMER_READ:
-            retval.value = tsc_read();
+            retval.value = timer_get_timestamp();
             break;
 
         case DEBUG_HARDWARE_TIMER_HERTZ_READ:
-            retval.value = tsc_get_hz();
+            retval.value = timer_get_frequency();
             break;
 
         case DEBUG_GET_TSC_PER_MS:
@@ -1160,6 +1159,7 @@ static struct sysret handle_debug_syscall(int msg)
     }
     return retval;
 }
+
 
 /* XXX - function documentation is inconsistent. */
 /**
@@ -1236,6 +1236,7 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
             if (argc == 2) {
                 r = handle_debug_syscall(a1);
             }
+
             break;
 
         default:

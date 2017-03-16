@@ -12,7 +12,7 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <a9mpcore_map.h>
+#include <maps/a9mpcore_map.h>
 #include <a9_scu.h>
 #include <a9_gt.h>
 #include <gic.h>

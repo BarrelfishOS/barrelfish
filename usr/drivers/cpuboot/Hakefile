@@ -13,11 +13,11 @@
 let commonCFiles = [ "common.c", "main.c" ]
 
     archCFiles arch = case arch of
-        "x86_32" -> [ "x86boot.c" ]
-        "x86_64" -> [ "x86boot.c" ]
-        "k1om"   -> [ "x86boot.c" ]
-        "armv7"  -> [ "armboot.c" ]
-        "armv8"  -> [ "armboot.c" ]
+        "x86_32" -> [ "arch/x86/boot_arch.c" ]
+        "x86_64" -> [ "arch/x86/boot_arch.c" ]
+        "k1om"   -> [ "arch/x86/boot_arch.c" ]
+        "armv7"  -> [ "arch/armv7/boot_arch.c" ]
+        "armv8"  -> [ "arch/armv8/boot_arch.c" ]
 
     --- incluldes ---
 
@@ -62,9 +62,9 @@ let commonCFiles = [ "common.c", "main.c" ]
     --- assembly files ---
 
     archAssembyFiles arch =  case arch of
-        "x86_64" -> ["init_ap_x86_64.S", "init_ap_x86_32.S"]
-        "x86_32" -> ["init_ap_x86_64.S", "init_ap_x86_32.S"]
-        "k1om"   -> ["init_ap_x86_64.S", "init_ap_x86_32.S"]
+        "x86_64" -> ["arch/x86/init_ap_x86_64.S", "arch/x86/init_ap_x86_32.S"]
+        "x86_32" -> ["arch/x86/init_ap_x86_64.S", "arch/x86/init_ap_x86_32.S"]
+        "k1om"   -> ["arch/x86/init_ap_x86_64.S", "arch/x86/init_ap_x86_32.S"]
         _        -> []
 
     in

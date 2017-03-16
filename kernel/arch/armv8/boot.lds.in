@@ -1,0 +1,84 @@
+/*
+ * Copyright (c) 2007, 2008, 2016, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.  If
+ * you do not find this file, copies can be found by writing to: ETH Zurich
+ * D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+#include <offsets.h>
+
+OUTPUT_FORMAT("elf64-littleaarch64")
+OUTPUT_ARCH("aarch64")
+
+ENTRY(boot_entry_bsp)
+
+PHDRS {
+    load PT_LOAD ;
+    dynamic PT_DYNAMIC ;
+    note PT_NOTE ;
+}
+
+SECTIONS {
+    /* This is a relocatable executable, its actual link address is
+     * irrelevant. */
+    . = 0x0;
+    . = ALIGN(4k);
+
+    .text : {
+        *(.text);
+        *(.text.unlikely);
+    }  :load
+
+    .rodata . :
+    {
+        *(.rodata);
+        *(.rodata.*);
+    }
+
+    .data . :
+    {
+        *(.data);
+        *(.data.*);
+    }
+
+    .bss . :
+    {
+        *(.bss);
+    }
+
+    .got . :
+    {
+        got_base = .;
+        *(.got);
+        *(.got.plt);
+    }
+   
+    .rela.dyn . :
+    {
+        *(.rela.dyn);
+    }
+    
+    .dynamic . : 
+    { 
+        *(.dynamic); 
+    } :load :dynamic
+    
+    .note.gnu.build-id . :
+    {
+        *(.note.gnu.build-id);
+    }
+    
+    /***** These sections get discarded *****/
+    /DISCARD/ :
+    {
+        /* Discard exception handler frames and headers -- we don't use em */
+        *(.eh_frame);
+        *(.eh_frame_hdr);
+        *(.dynsym);
+        *(.dynstr);
+        *(.hash);
+        *(.interp);
+    }
+}

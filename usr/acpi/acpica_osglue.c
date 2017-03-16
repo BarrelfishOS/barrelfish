@@ -539,67 +539,125 @@ AcpiOsMapMemory (
     ACPI_PHYSICAL_ADDRESS   where,  /* not page aligned */
     ACPI_SIZE               length) /* in bytes, not page-aligned */
 {
-    ACPI_DEBUG("AcpiOsMapMemory where=0x%016lx, length=%lu\n", where, length);
     errval_t err;
+
+    ACPI_DEBUG("AcpiOsMapMemory where=0x%016lx, length=%lu\n", where, length);
+
     //printf("AcpiOsMapMemory: 0x%"PRIxLPADDR", %lu\n", where, length);
+
+    /* round the addresses to page boundary */
     lpaddr_t pbase = where & (~BASE_PAGE_MASK);
     length += where - pbase;
     length = ROUND_UP(length, BASE_PAGE_SIZE);
-    int npages = DIVIDE_ROUND_UP(length, BASE_PAGE_SIZE);
-    lpaddr_t pend  = pbase + length;
+    size_t npages = DIVIDE_ROUND_UP(length, BASE_PAGE_SIZE);
 
-    ACPI_DEBUG("AcpiOsMapMemory: aligned request: 0x%"PRIxLPADDR", %d\n", pbase, npages);
+    lpaddr_t pend  = pbase + length - 1;
+
+    ACPI_DEBUG("AcpiOsMapMemory: aligned request: 0x%" PRIxLPADDR "..0x%"
+                PRIxLPADDR", %d\n", pbase, pend, npages);
 
     struct capref am_pages[npages];
     memset(&am_pages, 0, npages*sizeof(struct capref));
 
+    /* find existing mappings */
     for (struct AcpiMapping *walk = head; walk; walk = walk->next) {
-        lpaddr_t walk_end = walk->pbase + walk->length;
-        if (walk->pbase <= pbase && walk_end >= pend) {
-            walk->refcount++;
-            ACPI_DEBUG("%s: found region for request (new refcount=%d), mapped at %#"PRIxLVADDR"\n",
-                    __FUNCTION__, walk->refcount, vregion_get_base_addr(walk->vregion));
-            return (void*)(uintptr_t)vregion_get_base_addr(walk->vregion) + (where-walk->pbase);
-        }
-        // overlapping map requests
-        else if (walk->pbase >= pbase && walk_end <= pend) {
-            //printf("old mapping inside request\n");
-            // new request contains old mapping
-            //        |---| walk
-            // |---------------| new mapping
-            size_t first = (walk->pbase - pbase) / BASE_PAGE_SIZE;
-            // printf("pbase = 0x%"PRIxGENPADDR", walk->pbase = 0x%"PRIxGENPADDR"\n", pbase, walk->pbase);
-            // printf("npages = %d, walk->npages = %zd\n", npages, walk->num_caps);
-            // printf("caps %zd - %zd already retyped\n", first, first + walk->num_caps-1);
-            for (int c = 0; c < walk->num_caps; c++) {
-                am_pages[first + c] = walk->caps[c];
+        lpaddr_t walk_end = walk->pbase + walk->length - 1;
+
+        ACPI_DEBUG("%s: walk=0x%" PRIxLPADDR "...0x%" PRIxLPADDR ", region=0x%"
+                   PRIxLPADDR "...0x%" PRIxLPADDR "\n", __FUNCTION__,
+                   walk->pbase, walk_end, pbase, pend);
+
+        /*
+         * The walk region starts before the requested region.
+         *   Walk   |------------------
+         *   Region         |-----------------
+         */
+        if (walk->pbase <= pbase) {
+
+            /*
+             * The walk region ends after the requested region.
+             *   Walk   |------------------|
+             *   Region         |--------|
+             *
+             *   We have found the overlapping region, return this.
+             *   Increase the refcount and return
+             */
+            if (walk_end >= pend) {
+                walk->refcount++;
+                ACPI_DEBUG("%s: found region for request (new refcount=%d), "
+                           "mapped at %#"PRIxLVADDR"\n", __FUNCTION__,
+                           walk->refcount, vregion_get_base_addr(walk->vregion));
+
+                return (void*)(uintptr_t)vregion_get_base_addr(walk->vregion)
+                                                   + (where-walk->pbase);
             }
-        }
-        else if (walk->pbase < pbase && walk_end > pbase && walk_end < pend) {
-            //printf("old mapping at beginning of new request\n");
-            // new request overlaps end of old mapping-->walk_end < pend
-            // |--------| walk
-            //       |--------------| new mapping
-            size_t overlap_count = (walk_end - pbase) / BASE_PAGE_SIZE;
-            //printf("pbase = 0x%"PRIxGENPADDR", walk->pbase = 0x%"PRIxGENPADDR"\n", pbase, walk->pbase);
-            //printf("npages = %d, walk->npages = %zd\n", npages, walk->num_caps);
-            //printf("caps %d - %zd already retyped\n", 0, overlap_count - 1);
-            for (int c = 0; c < overlap_count; c++) {
-                am_pages[c] = walk->caps[walk->num_caps - overlap_count + c];
+
+            /*
+             * The walk region ends before the requested region.
+             *   Walk   |----|
+             *   Region         |--------|
+             *
+             *   We have found the overlapping region, return this.
+             *   Increase the refcount and return
+             */
+
+            if (walk_end < pbase) {
+                continue;
             }
-        }
-        else if (walk->pbase > pbase && walk->pbase < pend && walk_end > pend) {
-            //printf("old mapping at end of new request\n");
-            // new request overlaps beginning of old mapping
-            //               |-----| walk
-            // |---------------| new mapping
-            size_t first = (pend - walk->pbase) / BASE_PAGE_SIZE;
-            size_t overlap_count = npages - first;
-            //printf("pbase = 0x%"PRIxGENPADDR", walk->pbase = 0x%"PRIxGENPADDR"\n", pbase, walk->pbase);
-            //printf("npages = %d, walk->npages = %zd\n", npages, walk->num_caps);
-            //printf("caps %zd - %zd already retyped\n", first, first + overlap_count - 1);
-            for (int c = 0; c < overlap_count; c++) {
-                am_pages[first + c] =  walk->caps[c];
+
+            /*
+             * The walk region ends before the requested region ends
+             *   Walk   |------------------|
+             *   Region         |--------------|
+             *
+             * We can use the caps of the parts of this walk region. From
+             * where the requested region starts until the end.
+             */
+            size_t walk_offset = (walk->pbase - pbase) / BASE_PAGE_SIZE;
+            size_t idx = 0;
+            for (size_t i = walk_offset; i < walk->num_caps; i++) {
+                ACPI_DEBUG("%s: using am_pages[%zu/%zu] = walk->caps[%zu/%zu] with paddr=0x%"
+                           PRIxLPADDR "\n", __FUNCTION__, idx, npages, i,
+                           walk->num_caps,  walk->pbase + i * BASE_PAGE_SIZE);
+                assert(i < walk->num_caps);
+                assert(idx < npages);
+                am_pages[idx++] = walk->caps[i];
+
+
+            }
+        } else {
+
+            /*
+             * The walk region starts after the requested element.
+             *   Walk                |------------------|
+             *   Region   |------|
+             *
+             *   walk->pbase > pbase
+             *
+             *   the region is outside of the walk.
+             */
+            if (walk->pbase > pend) {
+                continue;
+            }
+
+            /*
+             * The walk region starts after the requested element.
+             *   Walk          |------------------|
+             *   Region   |------|
+             *
+             *   walk->pbase > pbase
+             *
+             *   the region is outside of the walk.
+             */
+            size_t region_offset = (walk->pbase - pbase) / BASE_PAGE_SIZE;
+            size_t idx = 0;
+            for (lpaddr_t cur = walk->pbase; cur < pend; cur += BASE_PAGE_SIZE) {
+                ACPI_DEBUG("%s: using am_pages[%zu/%zu] = walk->caps[%zu/%zu] with paddr=0x%"
+                           PRIxLPADDR "\n", __FUNCTION__, region_offset, npages, idx,
+                           walk->num_caps,  walk->pbase + idx * BASE_PAGE_SIZE);
+                assert(region_offset < npages);
+                assert(idx < walk->num_caps);
+                am_pages[region_offset++] = walk->caps[idx++];
             }
         }
     }

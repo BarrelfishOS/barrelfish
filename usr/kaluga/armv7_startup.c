@@ -23,8 +23,8 @@
 #include <if/monitor_blocking_defs.h>
 
 #include <arch/arm/omap44xx/device_registers.h>
-#include <omap44xx_map.h>
-#include <vexpress_map.h>
+#include <maps/omap44xx_map.h>
+#include <maps/vexpress_map.h>
 
 #include "kaluga.h"
 

@@ -18,8 +18,14 @@
 #include <offsets.h>
 #include <platform.h>
 #include <serial.h>
+#include <psci.h>
 #include <arch/arm/pl011.h>
 #include <arch/armv8/gic_v3.h>
+#include <arch/armv8/global.h>
+#include <sysreg.h>
+#include <dev/armv8_dev.h>
+#include <barrelfish_kpi/arm_core_data.h>
+
 
 lpaddr_t phys_memory_start = CN88XX_MAP_LMC_OFFSET;
 
@@ -93,12 +99,20 @@ size_t platform_get_ram_size(void)
     return 0;
 }
 
+
 /*
  * Boot secondary processors
  */
-int platform_boot_aps(coreid_t core_id, genvaddr_t gen_entry)
+errval_t platform_boot_core(hwid_t target, genpaddr_t gen_entry, genpaddr_t context)
 {
-    return 0;
+    printf("Invoking PSCI on: cpu=%lx, entry=%lx, context=%lx\n", target, gen_entry, context);
+    struct armv8_core_data *cd = (struct armv8_core_data *)local_phys_to_mem(context);
+    cd->page_table_root = armv8_TTBR1_EL1_rd(NULL);
+    cd->cpu_driver_globals_pointer = (uintptr_t)global;
+    __asm volatile("dsb   sy\n"
+                   "dmb   sy\n"
+                   "isb     \n");
+    return psci_cpu_on(target, gen_entry, context);
 }
 
 void platform_notify_bsp(lpaddr_t *mailbox)
@@ -142,9 +156,7 @@ errval_t platform_gic_init(void) {
 }
 
 errval_t platform_gic_cpu_interface_enable(void) {
-    printf("WARNING: gicv3_cpu_interface_enable not implemented\n");
-    return SYS_ERR_OK;
-    //return gicv3_cpu_interface_enable();
+    return gicv3_cpu_interface_enable();
 }
 /**
  * \file plat_a57mpcore.c
@@ -162,10 +174,14 @@ errval_t platform_gic_cpu_interface_enable(void) {
  */
 
 /*
- * The GIC registers are memory-mapped, with a physical base address specified by PERIPHBASE[43:18]. This input must be tied to a constant value. The PERIPHBASE value is sampled during reset into the Configuration Base Address Register (CBAR) for each processor in the MPCore device. See Configuration Base Address Register, EL1 and Configuration Base Address Register.
+ * The GIC registers are memory-mapped, with a physical base address specified
+ * by PERIPHBASE[43:18]. This input must be tied to a constant value. The
+ * PERIPHBASE value is sampled during reset into the Configuration Base Address
+ * Register (CBAR) for each processor in the MPCore device. See Configuration
+ * Base Address Register, EL1 and Configuration Base Address Register.
  */
 
-#include <a57mpcore_map.h>
+#include <maps/a57mpcore_map.h>
 #include <kernel.h>
 #include <platform.h>
 #include <paging_kernel_arch.h>

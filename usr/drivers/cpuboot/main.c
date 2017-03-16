@@ -17,7 +17,7 @@
 #include <if/monitor_blocking_defs.h>
 
 
-coreid_t my_arch_id;
+hwid_t my_arch_id;
 struct capref ipi_cap;
 
 coreid_t core_count = 0;
@@ -40,7 +40,7 @@ char* cmd_kernel_args = "loglevel=2 logmask=0";
 static void load_arch_id(void)
 {
     struct monitor_blocking_binding *mc = get_monitor_blocking_binding();
-    errval_t err = mc->rpc_tx_vtbl.get_arch_core_id(mc, (uintptr_t *)&my_arch_id);
+    errval_t err = mc->rpc_tx_vtbl.get_arch_core_id(mc, &my_arch_id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_arch_core_id failed.");
     }
@@ -74,7 +74,7 @@ static void initialize(void)
     vfs_init();
     bench_init();
 
-#if defined(__x86__) && !defined(__k1om__)
+#if defined(__aarch64__) || (defined(__x86__) && !defined(__k1om__))
     err = connect_to_acpi();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "connect to acpi failed.");
@@ -210,9 +210,9 @@ static int boot_cpu(int argc, char **argv)
     for (coreid_t target_id = core_from; target_id<=core_to; target_id += core_step) {
         assert(target_id < MAX_COREID);
 
-        archid_t target_apic_id;
+        hwid_t target_hwid;
         enum cpu_type cpu_type;
-        errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
+        errval_t err = get_core_info(target_id, &target_hwid, &cpu_type);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "get_apic_id failed.");
         }
@@ -242,7 +242,7 @@ static int boot_cpu(int argc, char **argv)
             USER_PANIC_ERR(err, "boot_core_request failed");
         }
 
-        err = spawn_xcore_monitor(target_id, target_apic_id,
+        err = spawn_xcore_monitor(target_id, target_hwid,
                                   cpu_type, cmd_kernel_args,
                                   urpc_frame_id, kcb);
         if (err_is_fail(err)) {
@@ -259,9 +259,9 @@ static int update_cpu(int argc, char** argv)
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
 
-    archid_t target_apic_id;
+    hwid_t target_hwid;
     enum cpu_type cpu_type;
-    errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
+    errval_t err = get_core_info(target_id, &target_hwid, &cpu_type);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_apic_id failed.");
     }
@@ -286,13 +286,13 @@ static int update_cpu(int argc, char** argv)
     }
 
     // do clean shutdown
-    err = sys_debug_send_ipi(target_apic_id, 0, APIC_INTER_HALT_VECTOR);
+    err = sys_debug_send_ipi(target_hwid, 0, APIC_INTER_HALT_VECTOR);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
     }
 
     done = true;
-    err = spawn_xcore_monitor(target_id, target_apic_id, cpu_type,
+    err = spawn_xcore_monitor(target_id, target_hwid, cpu_type,
                               cmd_kernel_args,
                               urpc_frame_id, kcb);
     if (err_is_fail(err)) {
@@ -308,14 +308,14 @@ static int stop_cpu(int argc, char** argv)
     coreid_t target_id = (coreid_t) strtol(argv[1], NULL, 0);
     assert(target_id < MAX_COREID);
 
-    archid_t target_apic_id;
+    hwid_t target_hwid;
     enum cpu_type cpu_type;
-    errval_t err = get_core_info(target_id, &target_apic_id, &cpu_type);
+    errval_t err = get_core_info(target_id, &target_hwid, &cpu_type);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_apic_id failed.");
     }
 
-    err = sys_debug_send_ipi(target_apic_id, 0, APIC_INTER_HALT_VECTOR);
+    err = sys_debug_send_ipi(target_hwid, 0, APIC_INTER_HALT_VECTOR);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "debug_send_ipi to power it down failed.");
     }

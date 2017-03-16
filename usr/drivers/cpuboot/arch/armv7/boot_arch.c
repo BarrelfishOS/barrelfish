@@ -3,15 +3,15 @@
  * \brief Boot driver arch specific parts for ARM CPUs
  */
 /*
- * Copyright (c) 2014, ETH Zurich.
+ * Copyright (c) 2014,2017 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include "coreboot.h"
+#include "../../coreboot.h"
 
 #include <barrelfish_kpi/paging_arch.h>
 #include <barrelfish_kpi/platform.h>
@@ -38,19 +38,18 @@ extern coreid_t my_arch_id;
 extern struct capref ipi_cap;
 
 errval_t get_core_info(coreid_t core_id, 
-                       archid_t* hw_id, 
+                       hwid_t* hw_id,
                        enum cpu_type* cpu_type) {
     char* record = NULL;
     errval_t err = oct_get(&record, "hw.processor.%"PRIuCOREID"", core_id);
     if (err_is_fail(err)) return err;
 
-    int apic, enabled, type;
+    int enabled, type;
     err = oct_read(record, "_ { hw_id: %d, enabled: %d, type: %d}",
-                   &apic, &enabled, &type);
+                   hw_id, &enabled, &type);
     assert (enabled);
     if (err_is_fail(err)) return err;
 
-    *hw_id = (archid_t) apic;
     *cpu_type = (enum cpu_type) type;
     return SYS_ERR_OK;
 }
@@ -459,7 +458,7 @@ load_cpu_relocatable_segment(void *elfdata, void *out, lvaddr_t vbase,
 }
 
 /* XXX - this currently only clones the running kernel. */
-errval_t spawn_xcore_monitor(coreid_t coreid, int hwid, 
+errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
                              enum cpu_type cpu_type,
                              const char *cmdline,
                              struct frame_identity urpc_frame_id,

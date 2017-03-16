@@ -73,7 +73,7 @@ let
       opts = kernelOptions $ head $ Args.architectures arg
       name = "boot_" ++ Args.target arg
       objs = [ objectFilePath opts f
-             | f <- (Args.assemblyFiles arg) ++ (Args.cFiles arg) ++ boot_c ]
+             | f <- (Args.assemblyFiles arg) ++ (Args.cFiles arg) ]
       libs = (Args.addLibraries arg) ++ common_libs
 
   cpudrivers arglist =
@@ -111,8 +111,8 @@ let
      architectures = [ "x86_64" ],
      assemblyFiles = [ "arch/x86_64/boot.S",
                        "arch/x86_64/entry.S",
-                       "../usr/drivers/cpuboot/init_ap_x86_64.S",
-                       "../usr/drivers/cpuboot/init_ap_x86_32.S" ],
+                       "../usr/drivers/cpuboot/arch/x86/init_ap_x86_64.S",
+                       "../usr/drivers/cpuboot/arch/x86/init_ap_x86_32.S" ],
      cFiles = [ "arch/x86_64/debug.c",
                 "arch/x86_64/gdb_arch.c",
                 "arch/x86_64/init.c",
@@ -163,8 +163,8 @@ let
      architectures = [ "k1om" ],
      assemblyFiles = [ "arch/x86_64/boot.S",
                        "arch/x86_64/entry.S",
-                       "../usr/drivers/cpuboot/init_ap_x86_64.S",
-                       "../usr/drivers/cpuboot/init_ap_x86_32.S" ],
+                       "../usr/drivers/cpuboot/arch/x86/init_ap_x86_64.S",
+                       "../usr/drivers/cpuboot/arch/x86/init_ap_x86_32.S" ],
      cFiles = [ "arch/x86/apic.c",
     --          "arch/x86/pic.c",
                 "arch/x86/misc.c",
@@ -263,7 +263,7 @@ let
                 "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/pl011.c"
-                ],
+                ] ++ boot_c,
      mackerelDevices = [ "arm",
                          "cpuid_arm",
                          "pl011_uart"
@@ -335,7 +335,7 @@ let
                 "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/omap_uart.c"
-                ],
+                ] ++ boot_c,
      mackerelDevices = [ "arm",
                          "cpuid_arm",
                          "omap/omap44xx_cortexa9_wugen",
@@ -420,7 +420,7 @@ let
                 "arch/arm/misc.c",
                 "arch/arm/multiboot.c",
                 "arch/arm/zynq_uart.c"
-                ],
+                ] ++ boot_c,
      mackerelDevices = [ "arm",
                          "cpuid_arm",
                          "zynq7/zynq_uart"
@@ -480,9 +480,9 @@ let
      target = "apm88xxxx",
      architectures = [ "armv8" ],
      assemblyFiles = [
-        "arch/armv8/efiboot.S",
         "arch/armv8/sysreg.S",
-        "arch/armv8/exceptions.S"
+        "arch/armv8/exceptions.S",
+        "arch/armv8/smc_hvc.S"
      ],
      cFiles = [
          "arch/arm/misc.c",
@@ -493,11 +493,12 @@ let
          "arch/armv8/plat_a57mpcore.c",
          "arch/armv8/init.c",
          "arch/armv8/gdb_arch.c",
-         "arch/armv8/efiboot_init.c",
+         "arch/armv8/gic_v3.c",
          -----
          "arch/armv8/kernel_multiboot2.c",
          "arch/armv8/dispatch.c",
          "arch/armv8/exec.c",
+         "arch/armv8/psci.c",
          "arch/armv8/exn.c",
          "arch/armv8/paging.c",
          "arch/armv8/startup_arch.c",
@@ -509,6 +510,9 @@ let
      ],
      mackerelDevices = [
         "arm",
+        "armv8",
+        "armv8/armv8_generic_timer",
+        "armv8/armv8_cache_ctrl",
         "pl130_gic",
         "arm_icp_pit",
         "apm88xxxx/apm88xxxx_pc16550"
@@ -526,9 +530,9 @@ let
     target = "a57v",
     architectures = [ "armv8" ],
     assemblyFiles = [
-        "arch/armv8/efiboot.S",
         "arch/armv8/sysreg.S",
-        "arch/armv8/exceptions.S"
+        "arch/armv8/exceptions.S",
+         "arch/armv8/smc_hvc.S"
     ],
     cFiles = [
         "arch/arm/misc.c",
@@ -541,12 +545,12 @@ let
         "arch/armv8/init.c",
         "arch/armv8/gic_v3.c",
         "arch/armv8/gdb_arch.c",
-        "arch/armv8/efiboot_init.c",
         -----
         "arch/armv8/kernel_multiboot2.c",
         "arch/armv8/dispatch.c",
         "arch/armv8/exec.c",
         "arch/armv8/exn.c",
+        "arch/armv8/psci.c",
         "arch/armv8/paging.c",
         "arch/armv8/startup_arch.c",
         "arch/armv8/syscall.c",
@@ -558,6 +562,8 @@ let
     mackerelDevices = [
       "arm",
         "armv8",
+        "armv8/armv8_generic_timer",
+        "armv8/armv8_cache_ctrl",
         "arm_icp_pit",
         "gic_v3",
         "pl011_uart"
@@ -571,13 +577,20 @@ let
   --
   -- Cavium ThunderX CN88xx series SoC,
   --
+  bootDriver {
+     target = "armv8_generic",
+     architectures = [ "armv8" ],
+     assemblyFiles = [  "arch/armv8/boot/boot_entry.S" ],
+     cFiles = [  "arch/armv8/boot/boot_generic.c" ],
+     mackerelDevices = [ "armv8" ]
+     },
   cpuDriver {
      target = "cn88xx",
      architectures = [ "armv8" ],
      assemblyFiles = [
-        "arch/armv8/efiboot.S",
         "arch/armv8/sysreg.S",
-        "arch/armv8/exceptions.S"
+        "arch/armv8/exceptions.S",
+        "arch/armv8/smc_hvc.S"
      ],
      cFiles = [
          "arch/arm/misc.c",
@@ -587,12 +600,12 @@ let
          "arch/armv8/plat_cn88xx.c",
          "arch/armv8/init.c",
          "arch/armv8/gdb_arch.c",
-         "arch/armv8/efiboot_init.c",
          -----
          "arch/armv8/kernel_multiboot2.c",
          "arch/armv8/dispatch.c",
          "arch/armv8/exec.c",
          "arch/armv8/exn.c",
+         "arch/armv8/psci.c",
          "arch/armv8/gic_v3.c",
          "arch/armv8/paging.c",
          "arch/armv8/startup_arch.c",
@@ -604,6 +617,9 @@ let
      ],
      mackerelDevices = [
         "arm",
+        "armv8",
+        "armv8/armv8_generic_timer",
+        "armv8/armv8_cache_ctrl",
         "pl011_uart",
         "pl130_gic",
         "arm_icp_pit"

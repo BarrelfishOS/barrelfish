@@ -23,7 +23,7 @@
 #include <string.h>
 
 #include "omap_sdma.h"
-#include <omap44xx_map.h>
+#include <maps/omap44xx_map.h>
 
 static omap44xx_sdma_t devsdma;
 static bool allocated_channel[OMAP44XX_SDMA_NUM_CHANNEL];

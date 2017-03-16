@@ -19,6 +19,9 @@
 #include <sysreg.h>
 #include <arch/arm/gic.h>
 #include <systime.h>
+#include <timers.h>
+
+cycles_t ticks_per_ms = 1;
 
 /*
  * Timers
@@ -27,50 +30,43 @@ void timers_init(int timeslice)
 {
     printk(LOG_NOTE, "isr_el1=%p\n", sysreg_read_isr_el1());
     {
-        uint32_t CNTKCTL_EL1 = sysreg_read_cntkctl_el1();
-        CNTKCTL_EL1 |= (0 << 9); // Trap access to CNTP_* to EL1
-        CNTKCTL_EL1 |= (0 << 8); // Dont trap access to CNTV_* to EL1
-        CNTKCTL_EL1 |= (1 << 1); // Dont trap access to CNTFRQ* to EL1
-        CNTKCTL_EL1 |= (1 << 0); // Dont trap access to CNTFRQ* to EL1
-        sysreg_write_cntkctl_el1(CNTKCTL_EL1);
+        armv8_generic_timer_kernel_ctrl_el1_t kctl;
+        kctl = armv8_generic_timer_kernel_ctrl_el1_rd(NULL);
+
+        /* don't trap access to CNTFRQ* and CNTFRQ* registers from EL0 to EL1 */
+        kctl = armv8_generic_timer_kernel_ctrl_el1_EL0PCTEN_insert(kctl, 0x1);
+        kctl = armv8_generic_timer_kernel_ctrl_el1_EL0VCTEN_insert(kctl, 0x1);
+
+        /* trap access to CNTP_* and CNTV_* registers from EL0 to EL1 */
+        kctl = armv8_generic_timer_kernel_ctrl_el1_EL0PTEN_insert(kctl, 0x0);
+        kctl = armv8_generic_timer_kernel_ctrl_el1_EL0VTEN_insert(kctl, 0x0);
+
+        armv8_generic_timer_kernel_ctrl_el1_wr(NULL, kctl);
     }
 
-    {
-        uint32_t cntp_ctl_el0 = sysreg_read_cntp_ctl_el0();
+    /* enable the timer */
+    armv8_generic_timer_ctrl_el0_ENABLE_wrf(NULL, 0x1);
 
-        // Enable the timer
-        cntp_ctl_el0 |= (1 << 0);
+    /* set the compare value */
+    armv8_generic_timer_compare_val_el0_wr(NULL, 0xffffffffffffffff);
 
-        sysreg_write_cntp_ctl_el0(cntp_ctl_el0);
-    }
 
-    {
-        uint64_t CNTP_CVAL_EL0 = (uint64_t) 0xffffffff | (uint64_t) 0xffffffff << 32;
-        sysreg_write_cntp_cval_el0(CNTP_CVAL_EL0);
-    }
-
-    systime_frequency = timestamp_freq();
+    systime_frequency = timer_get_frequency() / 1000;
     /* The timeslice is in ms, so divide by 1000. */
     kernel_timeslice = ns_to_systime(timeslice * 1000000);
 
-    printf("System counter frequency is %uHz.\n", timestamp_freq());
+    printf("System counter frequency is %uHz.\n", timer_get_frequency());
     printf("Timeslice interrupt every %u ticks (%dms).\n",
             kernel_timeslice, timeslice);
 
-    {
-        // Wait for n time units, close to cycles
-        sysreg_write_cntp_tval_el0(100);
-        uint32_t cntp_ctl_el0;
-        do {
-            cntp_ctl_el0 = sysreg_read_cntp_ctl_el0();
-        } while ((cntp_ctl_el0 & 4) == 0);
+    // Wait for n time units, close to cycles
+    armv8_generic_timer_timer_val_el0_wr(NULL, 100);
 
-    }
+    while(timer_is_set())
+        ;
 
-    {
-        uint32_t cntp_tval_el0 = timeslice * timestamp_freq() / 1000 ;
-        sysreg_write_cntp_tval_el0(cntp_tval_el0);
-    }
+    armv8_generic_timer_timer_val_el0_wr(NULL, kernel_timeslice);
+
 
     uint32_t PMCR_EL0  = 0;
 
@@ -96,30 +92,17 @@ void timers_init(int timeslice)
     __asm volatile("msr PMUSERENR_EL0, %[PMUSERENR_EL0]" : : [PMUSERENR_EL0] "r" (PMUSERENR_EL0));
 }
 
-uint64_t timestamp_read(void)
+/**
+ *
+ * @param ms
+ */
+void timer_reset(uint64_t ms)
 {
-    return sysreg_read_cntpct_el0();
+    armv8_generic_timer_timer_val_el0_wr(NULL, ms * systime_frequency);
 }
 
-uint32_t timestamp_freq(void)
-{
-    return sysreg_read_cntfrq_el0();
-}
-
-bool timer_interrupt(uint32_t irq)
-{
-    printk(LOG_NOTE, "Got interrupt %d\n", irq);
-    return 0;
-}
-
-void timer_timeout(uint32_t ms)
-{
-    uint32_t cntp_tval_el0 = ms * timestamp_freq() / 1000 ;
-    sysreg_write_cntp_tval_el0(cntp_tval_el0);
-    printk(LOG_NOTE, "CNTP_TVAL_EL0=%ld\n", sysreg_read_cntp_tval_el0());
-}
 
 systime_t systime_now(void)
 {
-    return timestamp_read();
+    return timer_get_timestamp();
 }

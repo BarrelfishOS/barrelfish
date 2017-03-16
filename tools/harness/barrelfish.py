@@ -22,15 +22,40 @@ class BootModules(object):
         self.prefix = prefix
         self.kernel = os.path.join(prefix, kernel)
         self.kernelArgs = []
+        self.cpu_driver = None
+        self.boot_driver = None
+        self.boot_driver_args = []
         self.modules = []
         self.machine = machine
 
     def set_kernel(self, kernel, args=[]):
-        self.kernel = kernel
+        if kernel == None:
+            self.kernel = None
+        else: 
+            self.kernel = os.path.join(self.prefix, kernel)
         self.kernelArgs = args
 
     def add_kernel_args(self, args):
-            self.kernelArgs.extend(args)
+        self.kernelArgs.extend(args)
+    
+    def set_cpu_driver(self, cpu_driver, args=[]):
+        if cpu_driver == None :
+            self.cpu_driver = None
+            self.kernelArgs = []
+        else :
+            self.cpu_driver = os.path.join(self.prefix, cpu_driver)
+            self.kernelArgs = args
+            
+    def set_boot_driver(self, boot_driver,  args=[]):
+        if boot_driver == None :
+            self.boot_driver = None
+            self.boot_driver_args = []
+        else :
+            self.boot_driver = os.path.join(self.prefix, boot_driver);
+            self.boot_driver_args = args
+    
+    def set_boot_driver_args(self, args):
+        self.boot_driver_args.extend(args)
 
     def set_hypervisor(self, h):
         self.hypervisor = h
@@ -59,22 +84,38 @@ class BootModules(object):
                 mod.args.append(arg)
 
     def get_menu_data(self, path, root="(nd)"):
-        assert(self.kernel[0])
+        assert(self.kernel != None 
+                or (self.boot_driver != None and self.cpu_driver != None))
         r = "timeout 0\n"
         r += "title Harness image\n"
         r += "root %s\n" % root
+        if self.boot_driver :
+            r += "bootdriver %s %s\n" % (
+                os.path.join(path, self.boot_driver), " ".join(self.boot_driver_args))
+        if self.cpu_driver :
+            r += "cpudriver %s %s\n" % (
+                os.path.join(path, self.cpu_driver), " ".join(self.kernelArgs))
         if self.hypervisor:
             r += "hypervisor %s\n" % os.path.join(path, self.prefix, self.hypervisor)
-        r += "kernel %s %s\n" % (
+        
+        if self.kernel :
+            r += "kernel %s %s\n" % (
                 os.path.join(path, self.kernel), " ".join(self.kernelArgs))
         for module in self.modules:
             r += "modulenounzip %s %s\n" % (os.path.join(path, module.module), " ".join(map(str, module.args)))
+            
         return r
 
     # what targets do we need to build/install to run this test?
     def get_build_targets(self):
-        ret = list(set([self.kernel] + [ module.module for module in self.modules] ))
-
+        ret = list(set([ module.module for module in self.modules] ))
+        
+        if self.kernel :
+            ret.append(self.kernel)
+        if self.cpu_driver :
+            ret.append(self.cpu_driver)
+        if self.boot_driver : 
+            ret.append(self.boot_driver)
         if self.hypervisor:
             ret.append(self.hypervisor)
 

@@ -162,12 +162,14 @@ MachineFactory.addMachine('armv8_fvp_base', FVPMachineEFI,
 
 MachineFactory.addMachine('armv8_fvp_a57x1', FVPMachineEFI,
                           bootarch='armv8',
+                          boot_driver = 'boot_armv8_generic',
                           platform='a57v',
                           boot_timeout=60,
                           simulator="FVP_Base_Cortex-A57x1")
 
 MachineFactory.addMachine('armv8_fvp_a57x2_a53x4', FVPMachineEFI,
                           bootarch='armv8',
+                          boot_driver = 'boot_armv8_generic',
                           platform='a57v',
                           boot_timeout=60,
                           simulator="FVP_Base_Cortex-A57x2-A53x4")

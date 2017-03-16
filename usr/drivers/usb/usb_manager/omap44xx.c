@@ -9,7 +9,7 @@
 #include <usb/usb.h>
 
 #include <arch/arm/omap44xx/device_registers.h>
-#include <omap44xx_map.h>
+#include <maps/omap44xx_map.h>
 
 #include <dev/omap/ehci_dev.h>
 #include <dev/omap/omap44xx_hsusbhost_dev.h>

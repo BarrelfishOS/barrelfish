@@ -20,7 +20,7 @@
 #include <platform.h>
 #include <serial.h>
 #include <zynq_uart.h>
-#include <zynq7_map.h>
+#include <maps/zynq7_map.h>
 
 /* Serial console and debugger interfaces. */
 static zynq_uart_t ports[ZYNQ_UART_MAX_PORTS];

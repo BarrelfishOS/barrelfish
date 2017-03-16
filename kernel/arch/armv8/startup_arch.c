@@ -27,7 +27,7 @@
 #include <kernel_multiboot2.h>
 #include <offsets.h>
 #include <startup_arch.h>
-
+#include <timers.h>
 #include <platform.h>
 
 #include <arch/arm/startup_arm.h>
@@ -190,9 +190,9 @@ load_init_image(
     /* Load init ELF64 binary */
     struct multiboot_header_tag *multiboot =
             (struct multiboot_header_tag *) local_phys_to_mem(
-                    armv8_glbl_core_data->multiboot2);
+                    armv8_glbl_core_data->multiboot_image.base);
     struct multiboot_tag_module_64 *module = multiboot2_find_module_64(
-            multiboot, armv8_glbl_core_data->multiboot2_size, name);
+            multiboot, armv8_glbl_core_data->multiboot_image.length, name);
     if (module == NULL) {
         panic("Could not find init module!");
     }
@@ -219,6 +219,7 @@ load_init_image(
     }
 }
 
+
 /// Setup the module cnode, which contains frame caps to all multiboot modules
 void create_module_caps(struct spawn_state *st)
 {
@@ -226,7 +227,7 @@ void create_module_caps(struct spawn_state *st)
 
     /* Create caps for multiboot modules */
     struct multiboot_header_tag *multiboot =
-        (struct multiboot_header_tag *)local_phys_to_mem(armv8_glbl_core_data->multiboot2);
+        (struct multiboot_header_tag *)local_phys_to_mem(armv8_glbl_core_data->multiboot_image.base);
 
     // Allocate strings area
     lpaddr_t mmstrings_phys = bsp_alloc_phys(BASE_PAGE_SIZE);
@@ -246,40 +247,30 @@ void create_module_caps(struct spawn_state *st)
 
     /* Walk over multiboot modules, creating frame caps */
     size_t position = 0;
-    size_t size = armv8_glbl_core_data->multiboot2_size;
+    size_t size = armv8_glbl_core_data->multiboot_image.length;
 
+    struct mem_region *region;
+
+    lpaddr_t acpi_base = (lpaddr_t)-1;
     /* add the ACPI regions */
-    struct multiboot_tag_old_acpi *acpi_old = (struct multiboot_tag_old_acpi *)
-            multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_OLD);
-    while (acpi_old) {
-        struct mem_region *region =
-              &bootinfo->regions[bootinfo->regions_length++];
-
-        region->mr_base = mem_to_local_phys((lvaddr_t)acpi_old->rsdp);
-        region->mr_type = RegionType_ACPI_TABLE;
-
-        acpi_old = ((void *) acpi_old) + acpi_old->size;
-        position += acpi_old->size;
-        acpi_old = (struct multiboot_tag_old_acpi *) multiboot2_find_header(
-                (struct multiboot_header_tag *) acpi_old, size - position,
-                MULTIBOOT_TAG_TYPE_ACPI_OLD);
+    struct multiboot_tag_new_acpi *acpi_new;
+    acpi_new = (struct multiboot_tag_new_acpi *)
+           multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_NEW);
+    if (acpi_new) {
+        acpi_base = mem_to_local_phys((lvaddr_t)&acpi_new->rsdp[0]);
+    } else {
+        struct multiboot_tag_old_acpi *acpi_old;
+        acpi_old = (struct multiboot_tag_old_acpi *)
+           multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_OLD);
+        if (acpi_old) {
+            acpi_base = mem_to_local_phys((lvaddr_t)&acpi_old->rsdp[0]);
+        }
     }
 
-    struct multiboot_tag_new_acpi *acpi_new = (struct multiboot_tag_new_acpi *)
-            multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_ACPI_NEW);
-    position = 0;
-    while (acpi_new) {
-        struct mem_region *region =
-                      &bootinfo->regions[bootinfo->regions_length++];
-
+    if (acpi_base != (lpaddr_t)-1) {
+        region = &bootinfo->regions[bootinfo->regions_length++];
+        region->mr_base = acpi_base;
         region->mr_type = RegionType_ACPI_TABLE;
-        region->mr_base = mem_to_local_phys((lvaddr_t)acpi_new->rsdp);
-
-        acpi_new = ((void *) acpi_new) + acpi_new->size;
-        position += acpi_new->size;
-        acpi_new = (struct multiboot_tag_new_acpi *) multiboot2_find_header(
-                (struct multiboot_header_tag *) acpi_new, size - position,
-                MULTIBOOT_TAG_TYPE_ACPI_NEW);
     }
 
     /* add the module regions */
@@ -288,8 +279,7 @@ void create_module_caps(struct spawn_state *st)
             multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
     while (module) {
         // Set memory regions within bootinfo
-        struct mem_region *region =
-            &bootinfo->regions[bootinfo->regions_length++];
+        region = &bootinfo->regions[bootinfo->regions_length++];
 
         genpaddr_t remain = module->mod_end - module->mod_start;
         genpaddr_t base_addr = local_phys_to_gen_phys(module->mod_start);
@@ -572,7 +562,7 @@ static struct dcb *spawn_init_common(const char *name,
 
 struct dcb *spawn_bsp_init(const char *name)
 {
-    MSG("spawning init on BSP core\n");
+    MSG("spawning '%s' on BSP core\n", name);
     /* Only the first core can run this code */
     assert(cpu_is_bsp());
 
@@ -629,14 +619,15 @@ struct dcb *spawn_bsp_init(const char *name)
     return init_dcb;
 }
 
-// XXX: panic() messes with GCC, remove attribute when code works again!
-__attribute__((noreturn))
 struct dcb *spawn_app_init(struct armv8_core_data *core_data,
                            const char *name)
 {
-    panic("Unimplemented.\n");
-#if 0
     errval_t err;
+
+    MSG("spawning '%s' on APP core\n", name);
+
+    /* Only the app core can run this code */
+    assert(!cpu_is_bsp());
 
     /* Construct cmdline args */
     // Core id of the core that booted this core
@@ -655,58 +646,81 @@ struct dcb *spawn_app_init(struct armv8_core_data *core_data,
     const char *argv[5] = { name, coreidchar, chanidchar, archidchar };
     int argc = 4;
 
-    struct dcb *init_dcb = spawn_init_common(name, argc, argv,0, alloc_phys);
 
+
+    struct dcb *init_dcb= spawn_init_common(name, argc, argv, 0, app_alloc_phys,
+                                            app_alloc_phys_aligned);
+
+
+    MSG("creating monitor URPC frame cap\n");
     // Urpc frame cap
     struct cte *urpc_frame_cte = caps_locate_slot(CNODE(spawn_state.taskcn),
-            TASKCN_SLOT_MON_URPC);
+                                                  TASKCN_SLOT_MON_URPC);
+
     // XXX: Create as devframe so the memory is not zeroed out
-    err = caps_create_new(ObjType_DevFrame, core_data->urpc_frame_base,
-            1UL << core_data->urpc_frame_bits, 1UL << core_data->urpc_frame_bits,
-            my_core_id, urpc_frame_cte);
+    err = caps_create_new(ObjType_DevFrame,
+                          core_data->urpc_frame.base,
+                          core_data->urpc_frame.length,
+                          core_data->urpc_frame.length,
+                          my_core_id,
+                          urpc_frame_cte);
     assert(err_is_ok(err));
     urpc_frame_cte->cap.type = ObjType_Frame;
     lpaddr_t urpc_ptr = gen_phys_to_local_phys(urpc_frame_cte->cap.u.frame.base);
 
-    /* Map urpc frame at MON_URPC_BASE */
-    spawn_init_map(init_l3, INIT_VBASE, MON_URPC_VBASE, urpc_ptr, MON_URPC_SIZE,
-                   INIT_PERM_RW);
 
-    struct startup_l3_info l3_info = { init_l3, INIT_VBASE };
+    /* Map urpc frame at MON_URPC_BASE */
+    MSG("mapping URPC frame cap %" PRIxLPADDR" \n",urpc_ptr );
+    spawn_init_map(init_l3, ARMV8_INIT_VBASE, MON_URPC_VBASE, urpc_ptr,
+                   MON_URPC_SIZE, INIT_PERM_RW);
+
+    struct startup_l3_info l3_info = { init_l3, ARMV8_INIT_VBASE };
 
     // elf load the domain
     genvaddr_t entry_point, got_base=0;
+
+    MSG("loading elf '%s' @ %" PRIxLPADDR "\n", name,
+        local_phys_to_mem(core_data->monitor_binary.base));
+
     err = elf_load(EM_AARCH64, startup_alloc_init, &l3_info,
-            local_phys_to_mem(core_data->monitor_binary),
-            core_data->monitor_binary_size, &entry_point);
+            local_phys_to_mem(core_data->monitor_binary.base),
+            core_data->monitor_binary.length, &entry_point);
     if (err_is_fail(err)) {
         //err_print_calltrace(err);
         panic("ELF load of init module failed!");
     }
 
     // TODO: Fix application linkage so that it's non-PIC.
-    struct Elf64_Shdr* got_shdr =
-            elf64_find_section_header_name(local_phys_to_mem(core_data->monitor_binary),
-                                           core_data->monitor_binary_size, ".got");
+    struct Elf64_Shdr* got_shdr;
+    got_shdr = elf64_find_section_header_name(local_phys_to_mem(core_data->monitor_binary.base),
+                                           core_data->monitor_binary.length, ".got");
     if (got_shdr)
     {
         got_base = got_shdr->sh_addr;
     }
 
+    MSG("init loaded with entry=0x%" PRIxGENVADDR " and GOT=0x%" PRIxGENVADDR "\n",
+        entry_point, got_base);
+
     struct dispatcher_shared_aarch64 *disp_aarch64 =
             get_dispatcher_shared_aarch64(init_dcb->disp);
-    disp_aarch64->enabled_save_area.named.x10  = got_base;
-    disp_aarch64->got_base = got_base;
 
-    disp_aarch64->disabled_save_area.named.pc   = entry_point;
-    disp_aarch64->disabled_save_area.named.spsr = AARCH64_MODE_USR | CPSR_F_MASK;
+    disp_aarch64->got_base = got_base;
+    disp_aarch64->enabled_save_area.named.x10  = got_base;
     disp_aarch64->disabled_save_area.named.x10  = got_base;
 
+    /* setting entry points */
+    disp_aarch64->disabled_save_area.named.pc   = entry_point;
+    disp_aarch64->disabled_save_area.named.spsr = AARCH64_MODE_USR | CPSR_F_MASK;
+    //arch_set_thread_register(INIT_DISPATCHER_VBASE);
+
+    MSG("init dcb set up\n");
+
     return init_dcb;
-#endif
+
 }
 
-void arm_kernel_startup(void)
+void arm_kernel_startup(void *pointer)
 {
     /* Initialize the core_data */
     /* Used when bringing up other cores, must be at consistent global address
@@ -714,12 +728,6 @@ void arm_kernel_startup(void)
 
     // Initialize system timers
     timers_init(config_timeslice);
-
-    /*
-     * XXX:
-     */
-    struct armv8_core_data *core_data
-    = (void *)((lvaddr_t)&kernel_first_byte - BASE_PAGE_SIZE);
 
     struct dcb *init_dcb;
 
@@ -741,21 +749,25 @@ void arm_kernel_startup(void)
 //        pit_start(0);
     } else {
         MSG("Doing non-BSP related bootup \n");
-
-        kcb_current = (struct kcb *)
-            local_phys_to_mem((lpaddr_t) kcb_current);
+        struct armv8_core_data *core_data = (struct armv8_core_data *)pointer;
 
         my_core_id = core_data->dst_core_id;
 
         /* Initialize the allocator */
-        app_alloc_phys_start = core_data->memory_base_start;
-        app_alloc_phys_end   = ((lpaddr_t)1 << core_data->memory_bits) +
-                app_alloc_phys_start;
+
+
+        app_alloc_phys_start = (core_data->memory.base);
+        app_alloc_phys_end   = (core_data->memory.length + app_alloc_phys_start);
+
+        MSG("Memory: %lx, %lx, size=%zu kB\n", app_alloc_phys_start, app_alloc_phys_end,
+            (app_alloc_phys_end - app_alloc_phys_start + 1) >> 10);
+
+        kcb_current= (struct kcb *)local_phys_to_mem(core_data->kcb);
 
         init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME);
 
-        uint32_t irq = gic_get_active_irq();
-        gic_ack_irq(irq);
+       // uint32_t irq = gic_get_active_irq();
+       // gic_ack_irq(irq);
     }
 
 

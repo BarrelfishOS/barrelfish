@@ -39,7 +39,7 @@ def debug(s):
 def checkcmd(*args, **kwargs):
     """Run a command as with subprocess.check_call, but either discard or
     display the output, depending on the current debug level."""
-
+    
     # display verbose message saying what we do
     verbose('executing ' + ' '.join(args[0]))
 

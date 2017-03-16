@@ -46,10 +46,17 @@ int init_all_interrupt_sources(void)
         madt = (ACPI_TABLE_MADT*)ath;
     }
 
+    ACPI_DEBUG("MADT Revision: %u, Size=%u, OEM=%s\n", madt->Header.Revision,
+               madt->Header.Length, madt->Header.OemId);
+
+    //uint8_t revision = madt->Header.Revision;
+
     // Walk all subtables (after the main table entries)
     void *p = (void *)madt + sizeof(ACPI_TABLE_MADT);
     while(p < (void *)madt + madt->Header.Length) {
         ACPI_SUBTABLE_HEADER *sh = (ACPI_SUBTABLE_HEADER *)p;
+
+        uint8_t length = sh->Length;
 
         switch(sh->Type) {
         case ACPI_MADT_TYPE_LOCAL_APIC:
@@ -146,17 +153,20 @@ int init_all_interrupt_sources(void)
              *  Bits [7:0] Aff0 : Match Aff0 of target processor MPIDR
              */
 
-
+/*
             printf("Found GENERIC_INTERRUPT: BaseAddress=0x%016"
                        PRIx64
+                       ", ParkingVersion=0x%" PRIu32
                        ", ParkedAddress=0x%016" PRIx64
                        ", GicvBaseAddress=0x%016" PRIx64
                        ", GichBaseAddress=0x%016" PRIx64
                        ", GicrBaseAddress=0x%016" PRIx64
                        ", CpuInterfaceNumber=%" PRIu32 ", Uid=%" PRIu32
-                       ", ArmMpidr =%" PRIx64 "\n",
-                       gi->BaseAddress, gi->ParkedAddress, gi->GicvBaseAddress, gi->GichBaseAddress,
+                       ", ArmMpidr =%" PRIu64 "\n",
+                       gi->BaseAddress, gi->ParkingVersion, gi->ParkedAddress, gi->GicvBaseAddress, gi->GichBaseAddress,
                        gi->GicrBaseAddress, gi->CpuInterfaceNumber, gi->Uid, gi->ArmMpidr);
+
+            */
 
             coreid_t barrelfish_id;
             if (my_hw_id == gi->Uid) {
@@ -171,16 +181,37 @@ int init_all_interrupt_sources(void)
                          gi->BaseAddress, gi->GicvBaseAddress, gi->GichBaseAddress,
                          gi->ParkedAddress, gi->CpuInterfaceNumber, gi->Uid);
 
+            if (gi->ParkingVersion) {
+                /* parking */
+                skb_add_fact("boot_driver_entry(%"PRIu64",%s).", gi->ArmMpidr,
+                             "armBootParking");
+            } else {
+                /* psci */
+                skb_add_fact("boot_driver_entry(%"PRIu64",%s).", gi->ArmMpidr,
+                                             "armBootPSCI");
+            }
+
             errval_t err = oct_set(HW_PROCESSOR_ARMV8_RECORD_FORMAT,
-                                   barrelfish_id, gi->Flags & ACPI_MADT_ENABLED,
-                                   barrelfish_id, gi->CpuInterfaceNumber, CURRENT_CPU_TYPE,
-                                   gi->CpuInterfaceNumber, gi->Uid,
-                                   gi->ParkedAddress, gi->ParkingVersion,
+                                   barrelfish_id,
+                                   gi->Flags & ACPI_MADT_ENABLED,
+                                   barrelfish_id,
+                                   gi->ArmMpidr,
+                                   CURRENT_CPU_TYPE,
+                                   gi->CpuInterfaceNumber,
+                                   gi->Uid,
+                                   gi->Flags,
+                                   gi->ParkingVersion,
+                                   gi->PerformanceInterrupt,
+                                   gi->ParkedAddress,
+                                   gi->BaseAddress,
+                                   gi->GicvBaseAddress,
+                                   gi->GichBaseAddress,
+                                   gi->VgicInterrupt,
+                                   gi->GicrBaseAddress,
                                    gi->ArmMpidr);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "failed to set record");
             }
-            assert(err_is_ok(err));
             }
             break;
         case ACPI_MADT_TYPE_GENERIC_DISTRIBUTOR:
@@ -232,8 +263,8 @@ int init_all_interrupt_sources(void)
             ACPI_DEBUG("Unknown subtable type %d\n", sh->Type);
             break;
         }
-
-        p += sh->Length;
+        assert(length);
+        p += length;
     }
 
 
@@ -246,6 +277,9 @@ int init_all_interrupt_sources(void)
 
     }
 #endif
+
+    ACPI_DEBUG("DONE: MADT Element %p / %p\n", p, (void *)madt + madt->Header.Length);
+
     return 0;
 }
 

@@ -31,19 +31,18 @@
 #include <if/monitor_defs.h>
 #include <if/intermon_defs.h>
 
-#if defined(__x86__) && !defined(__k1om__)
+#if defined(__aarch64__) || (defined(__x86__) && !defined(__k1om__))
 #include <acpi_client/acpi_client.h>
 #include <if/acpi_defs.h>
 #endif
 
-#define DEBUG_CPUBOOT 0
+
 #ifdef DEBUG_CPUBOOT
 #define DEBUG(x...) if (debug_flag) debug_printf(x)
 #else
 #define DEBUG(x...) ((void)0)
 #endif
 
-typedef coreid_t archid_t;
 typedef coreid_t kcbid_t;
 
 // Globals
@@ -85,12 +84,12 @@ errval_t get_architecture_config(enum cpu_type type,
                                  genpaddr_t *arch_page_size,
                                  const char **monitor_binary,
                                  const char **cpu_binary);
-errval_t spawn_xcore_monitor(coreid_t coreid, int hwid,
+errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
                              enum cpu_type cpu_type,
                              const char *cmdline,
                              struct frame_identity urpc_frame_id,
                              struct capref kcb);
-errval_t get_core_info(coreid_t core_id, archid_t* apic_id, enum cpu_type* cpu_type);
+errval_t get_core_info(coreid_t core_id, hwid_t* apic_id, enum cpu_type* cpu_type);
 errval_t invoke_monitor_cap_remote(capaddr_t cap, int bits, bool is_remote,
                                    bool *has_descendents);
 

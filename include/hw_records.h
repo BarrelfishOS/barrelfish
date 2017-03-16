@@ -15,6 +15,8 @@
 #ifndef INCLUDE_HW_RECORDS_ARCH_H_
 #define INCLUDE_HW_RECORDS_ARCH_H_
 
+#include <barrelfish_kpi/types.h>
+
 /*
  * ===========================================================================
  * Generic Processor Record

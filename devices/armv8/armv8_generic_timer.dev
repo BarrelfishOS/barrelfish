@@ -1,0 +1,113 @@
+/*
+ * Copyright (c) 2016, 2017 ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * armv8.dev
+ *
+ * DESCRIPTION: ARMv8 architecture definitions
+ * 
+ * See:
+ *   ARM Architecture Reference Manual
+ */
+
+device armv8_generic_timer msbfirst () "ARMv8 Generic Timer Registers" {
+
+    space armv8_sysreg(name) registerwise "System registers";
+   
+    
+    /* timer registers */
+    
+    register frequency_el0 ro armv8_sysreg(cntfrq_el0) "Counter-timer Frequency register" 
+    type(uint32);
+    
+    register hvc_ctrl_el2 rw armv8_sysreg(cnthctl_el2) "Counter-timer Hypervisor Control register" {
+        _       24 mbz;
+        EVNTI    4 "Selects which bit (0 to 15) of the counter register CNTPCT_EL0 is the trigger for the event stream";
+        EVNTDIR  1 "Controls which transition of the counter register CNTPCT_EL0 trigger bit";
+        EVNTEN   1 "Enables the generation of an event stream from the counter register CNTPCT_EL0:";
+        EL1PCEN  1 "Traps Non-secure EL0 and EL1 accesses to the physical timer registers to EL2.";
+        EL1PCTEN 1 "Traps Non-secure EL0 and EL1 accesses to the physical counter register to EL2.";
+    };
+    
+    register hvc_phys_ctrl_el2 rw armv8_sysreg(cnthp_ctl_el2) "Counter-timer Hypervisor Physical Timer Control register" {
+        _       29 mbz;
+        ISTATUS  1 "The status of the timer. This bit indicates whether the timer condition is met:";
+        IMASK    1 "Timer interrupt mask bit. Permitted values are:";
+        ENABLE   1 "Enables the timer. Permitted values are:";
+    };
+    
+    register hvc_phys_compare_val_el2 rw armv8_sysreg(cnthp_cval_el2) "Counter-timer Hypervisor Physical Timer CompareValue register"
+    type(uint64);
+    
+    register hvc_phys_timer_val_el2 rw armv8_sysreg(cnthp_tval_el2) "Counter-timer Hypervisor Physical Timer TimerValue register"
+    type(uint64);
+    
+    register kernel_ctrl_el1 rw armv8_sysreg(cntkctl_el1) "Counter-timer Kernel Control register" {
+        _       22 mbz;
+        EL0PTEN  1 "Traps EL0 accesses to the physical timer registers to EL1.";
+        EL0VTEN  1 "Traps EL0 accesses to the virtual timer registers to EL1";
+        
+        EVNTI    4 "Selects which bit (0 to 15) of the counter register CNTPCT_EL0 is the trigger for the event stream";
+        EVNTDIR  1 "Controls which transition of the counter register CNTPCT_EL0 trigger bit";
+        EVNTEN   1 "Enables the generation of an event stream from the counter register CNTVCT_EL0:";
+        EL0VCTEN 1 "Traps EL0 accesses to the frequency register and virtual counter register to EL1.";
+        EL0PCTEN 1 "Traps EL0 accesses to the frequency register and physical counter register to EL1.";
+    };
+    
+    /* physical timer registers */
+    
+    register ctrl_el0 rw armv8_sysreg(cntp_ctl_el0) "Counter-timer Physical Timer Control register" {
+        _       29 mbz;
+        ISTATUS  1 "The status of the timer. This bit indicates whether the timer condition is met:";
+        IMASK    1 "Timer interrupt mask bit. Permitted values are:";
+        ENABLE   1 "Enables the timer. Permitted values are:";
+    };
+    
+    register compare_val_el0 rw armv8_sysreg(cntp_cval_el0) "Counter-timer Physical Timer CompareValue register"
+    type(uint64);
+    
+    register timer_val_el0 rw armv8_sysreg(cntp_tval_el0) "Counter-timer Physical Timer TimerValue register"
+    type(uint64);
+    
+    register count_el0 rw armv8_sysreg(cntpct_el0) "Counter-timer Physical Count register"
+    type(uint64);
+    
+    register ctrl_el1 rw armv8_sysreg(cntps_ctl_el1) "Counter-timer Physical Secure Timer Control register" {
+        _       29 mbz;
+        ISTATUS  1 "The status of the timer. This bit indicates whether the timer condition is met:";
+        IMASK    1 "Timer interrupt mask bit. Permitted values are:";
+        ENABLE   1 "Enables the timer. Permitted values are:";
+    };
+    
+    register compare_val_el1 rw armv8_sysreg(cntps_cval_el1) "Counter-timer Physical Timer CompareValue register"
+    type(uint64);
+    
+    register timer_val_el1 rw armv8_sysreg(cntps_tval_el1) "Counter-timer Physical Timer TimerValue register" 
+    type(uint64);
+    
+    /* virtual timer registers */
+    
+    register virt_ctrl_el0 rw armv8_sysreg(cntv_ctl_el0) "Counter-timer Virtual Timer Control register" {
+        _       29 mbz;
+        ISTATUS  1 "The status of the timer. This bit indicates whether the timer condition is met:";
+        IMASK    1 "Timer interrupt mask bit. Permitted values are:";
+        ENABLE   1 "Enables the timer. Permitted values are:";
+    };
+    
+    register virt_compare_val rw armv8_sysreg(cntv_cval_el0) "Counter-timer Virtual Timer CompareValue register"
+    type(uint64);
+    
+    register virt_timer_val rw armv8_sysreg(cntv_tval_el0) "Counter-timer Virtual Timer TimerValue register"
+    type(uint32);
+    
+    register virt_count_el0 ro armv8_sysreg(cntvct_el0) "Counter-timer Virtual Count register"
+    type(uint64);
+
+    register virt_offset_el2 rw armv8_sysreg(cntvoff_el2) "Counter-timer Virtual Timer CompareValue register" 
+    type(uint64);
+};

@@ -84,11 +84,11 @@ space_write_fn_name s w =
 
 space_cpu_reg_read_fn_name :: Space.Rec -> Integer -> String -> String
 space_cpu_reg_read_fn_name s w n =
-  printf "__DN(%s)" (concat $ intersperse "_" [ Space.n s, "read", show w, n ])
+  printf (concat $ intersperse "_" [ Space.n s, "read", show w, n ])
 
 space_cpu_reg_write_fn_name :: Space.Rec -> Integer -> String -> String
 space_cpu_reg_write_fn_name s w n =
-  printf "__DN(%s)" (concat $ intersperse "_" [ Space.n s, "write", show w, n ])
+  printf (concat $ intersperse "_" [ Space.n s, "write", show w, n ])
 
 --
 -- Constants-related names
@@ -1018,10 +1018,15 @@ register_rawread_fn r =
                  (RT.name r) n)
        ]
      else
-       [
-       decl,
-       C.StaticInline rtn n args [ C.Return (loc_read r) ]
-       ]
+        if RT.is_readable r then 
+        [ 
+        decl,
+        C.StaticInline rtn n args [ C.Return (loc_read r) ]
+        ]
+        else 
+        [ 
+         C.Comment $ printf "Register %s is not readale" (RT.name r) 
+        ]
 
 --
 -- Read from the register, or from a shadow copy if it's not readable. 
@@ -1056,10 +1061,16 @@ register_rawwrite_fn r =
                  (RT.name r) n)
        ]
      else
-       [
-       decl,
-       C.StaticInline C.Void n args [ C.Ex $ loc_write r cv_regval ]
-       ]
+        if RT.is_writeable r then 
+        [ 
+         decl,
+         C.StaticInline C.Void n args [ C.Ex $ loc_write r cv_regval ]
+        ]
+        else 
+        [ 
+         C.Comment $ printf "Register %s is not writeable" (RT.name r) 
+        ]
+       
 
 --
 -- Write to register.  Harder than it sounds. 
@@ -1175,17 +1186,17 @@ loc_read r =
 loc_read_decl :: RT.Rec -> C.TypeSpec -> [ C.Param ] -> C.Unit
 loc_read_decl r tpe args =
   case RT.spc r of
-      s@Space.Defined { Space.t = Space.REGISTERWISE } ->
-          C.FunctionDecl tpe (space_cpu_reg_read_fn_name s (RT.size r) (RT.base r)) (tail args)
+--      s@Space.Defined { Space.t = Space.REGISTERWISE } ->
+--          C.FunctionDecl tpe (space_cpu_reg_read_fn_name s (RT.size r) (RT.base r)) (tail args)
       _ -> C.NoOp
 
 
 loc_write_decl :: RT.Rec -> C.TypeSpec -> [ C.Param ] -> C.Unit
 loc_write_decl r tpe args =
   case RT.spc r of
-      s@Space.Defined { Space.t = Space.REGISTERWISE } ->
-          C.FunctionDecl C.Void (space_cpu_reg_write_fn_name s (RT.size r) (RT.base r))
-               (tail args)
+--      s@Space.Defined { Space.t = Space.REGISTERWISE } ->
+--          C.FunctionDecl C.Void (space_cpu_reg_write_fn_name s (RT.size r) (RT.base r))
+--               (tail args)
       _ -> C.NoOp
 
 loc_write :: RT.Rec -> String -> C.Expr

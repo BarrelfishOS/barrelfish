@@ -494,7 +494,7 @@ struct dcb *spawn_app_init(struct x86_core_data *core_data, const char *name)
 
     // Arch id of the core that booted this core
     char archidchar[30];
-    snprintf(archidchar, sizeof(archidchar), "archid=%d",
+    snprintf(archidchar, sizeof(archidchar), "archid=%" PRIuHWID,
              core_data->src_arch_id);
 
     const char *argv[] = { name, coreidchar, chanidchar, archidchar };

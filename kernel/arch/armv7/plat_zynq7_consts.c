@@ -14,7 +14,7 @@
 
 #include <kernel.h>
 
-#include <zynq7_map.h>
+#include <maps/zynq7_map.h>
 
 /* RAM starts at 0 on the Zynq */
 /* XXX - MMAP */

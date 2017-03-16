@@ -18,11 +18,18 @@
 #include <hw_records.h>
 
 #define HW_PROCESSOR_ARMV8_FIELDS "{ " HW_PROCESSOR_GENERIC_FIELDS ", " \
-                                      "cpu_interface_number: %d, " \
+                                      "cpuInterfaceNumber: %" PRIu32 ", " \
                                       "uid: %" PRIu32 ", " \
-                                      "mailbox: %" PRIu64 ", " \
-                                      "parkingversion: %d, " \
-                                      "mpdir: %" PRIu64 " }"
+                                      "flags: %" PRIu32 ", " \
+                                      "parkingVersion: %" PRIu32 ", " \
+                                      "performanceInterrupt: %" PRIu32 ", " \
+                                      "parkedAddress: %" PRIu64 ", " \
+                                      "baseAddress: %" PRIu64 ", " \
+                                      "gicvBaseAddress: %" PRIu64 ", " \
+                                      "gichBaseAddress: %" PRIu64 ", " \
+                                      "vgicInterrupt: %" PRIu32 ", " \
+                                      "gicrBaseAddress: %" PRIu64 ", " \
+                                      "armMpidr: %" PRIu64 " }"
 
 #define HW_PROCESSOR_ARMV8_RECORD_FORMAT "hw.processor.%d " HW_PROCESSOR_ARMV8_FIELDS
 

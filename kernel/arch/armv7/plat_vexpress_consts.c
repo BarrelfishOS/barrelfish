@@ -14,7 +14,7 @@
 
 #include <kernel.h>
 
-#include <vexpress_map.h>
+#include <maps/vexpress_map.h>
 
 /* XXX - initialise this from the MMAP. */
 lpaddr_t phys_memory_start= GEN_ADDR(31);

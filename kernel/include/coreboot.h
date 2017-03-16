@@ -14,9 +14,9 @@
 #include <barrelfish_kpi/types.h>
 #include <barrelfish_kpi/cpu.h>
 
-typedef int(*start_core_fn)(coreid_t coreid, genvaddr_t entry);
+typedef uintptr_t (*coreboot_start_fn_t)(hwid_t target, genpaddr_t entry, genpaddr_t context);
 
-void coreboot_set_spawn_handler(enum cpu_type type, start_core_fn handler);
-start_core_fn coreboot_get_spawn_handler(enum cpu_type);
+void coreboot_set_spawn_handler(enum cpu_type type, coreboot_start_fn_t handler);
+coreboot_start_fn_t coreboot_get_spawn_handler(enum cpu_type);
 
 #endif // COREBOOT_H

@@ -17,7 +17,7 @@
 #include <boot_protocol.h>
 #include <cp15.h>
 #include <dev/omap/omap44xx_cortexa9_wugen_dev.h>
-#include <omap44xx_map.h>
+#include <maps/omap44xx_map.h>
 
 /* The boot driver entry point. */
 extern char start;

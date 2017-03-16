@@ -18,7 +18,7 @@
 #include <thc/thc.h>
 
 #include <arch/arm/omap44xx/device_registers.h>
-#include <omap44xx_map.h>
+#include <maps/omap44xx_map.h>
 
 #include "sdma.h"
 #include "omap_sdma.h"

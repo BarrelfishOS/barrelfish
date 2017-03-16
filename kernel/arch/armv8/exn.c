@@ -18,8 +18,10 @@
 #include <misc.h>
 #include <stdio.h>
 #include <wakeup.h>
+#include <timers.h>
 #include <irq.h>
-#include <arch/arm/gic.h>
+#include <arch/armv8/gic_v3.h>
+#include <dev/armv8_dev.h>
 
 void handle_user_page_fault(lvaddr_t                fault_address,
                             arch_registers_state_t* save_area,
@@ -210,10 +212,12 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
     save_area->named.x1    = x1;
     save_area->named.x2    = x2;
     save_area->named.x3    = x3;
-    save_area->named.stack = sysreg_read_sp_el0();
+    save_area->named.stack = armv8_SP_EL0_rd(NULL);
     save_area->named.pc    = fault_pc;
 
-    irq = gic_get_active_irq();
+    irq = gicv3_get_active_irq();
+
+   // printk(LOG_NOTE, "handle_irq IRQ %"PRIu32"\n", irq);
 
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") :
@@ -249,13 +253,14 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
      * We just acknowledge it here. */
     else
 #endif
-if(irq == 1)
+    if(irq == 30)
     {
-    	gic_ack_irq(irq);
-    	dispatch(schedule());
+        gicv3_ack_irq(irq);
+        timer_reset(kernel_timeslice);
+        dispatch(schedule());
     }
     else {
-        gic_ack_irq(irq);
+        gicv3_ack_irq(irq);
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
     }

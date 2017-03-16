@@ -847,7 +847,7 @@ linkKernel opts name objs libs driverType
     | optArch opts == "k1om" = K1om.linkKernel opts objs [libraryPath opts l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "x86_32" = X86_32.linkKernel opts objs [libraryPath opts l | l <- libs ] ("/sbin" </> name)
     | optArch opts == "armv7" = ARMv7.linkKernel opts objs [libraryPath opts l | l <- libs ] name driverType
-    | optArch opts == "armv8" = ARMv8.linkKernel opts objs [libraryPath opts l | l <- libs ] name
+    | optArch opts == "armv8" = ARMv8.linkKernel opts objs [libraryPath opts l | l <- libs ] name driverType
     | otherwise = Rule [ Str ("Error: Can't link kernel for '" ++ (optArch opts) ++ "'") ]
 
 --

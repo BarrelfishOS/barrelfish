@@ -216,7 +216,7 @@ usb_error_t usb_ohci_roothub_exec(struct usb_device *device,
                         return USB_ERR_IOERROR;
                 }
                 // write the value to the register
-                ohci_rh_portstat_rawwr(hc->ohci_base, req_index, ps);
+                ohci_rh_portctrl_rawwr(hc->ohci_base, req_index, ps);
 
                 switch (req_value) {
                     case USB_HUB_FEATURE_C_PORT_CONNECTION:
@@ -485,7 +485,7 @@ usb_error_t usb_ohci_roothub_exec(struct usb_device *device,
                         return USB_ERR_IOERROR;
                         break;
                 }
-                ohci_rh_portstat_rawwr(hc->ohci_base, req_index, ps);
+                ohci_rh_portctrl_rawwr(hc->ohci_base, req_index, ps);
                 /*
                  * handle the reset of the port
                  */

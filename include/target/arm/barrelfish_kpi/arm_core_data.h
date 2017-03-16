@@ -81,7 +81,7 @@ struct arm_core_data {
     coreid_t dst_core_id;
 
     /* The architecture of the core that booted us. */
-    uint8_t src_arch_id;
+    hwid_t src_arch_id;
 
     /* The address of the global locks. */
     lvaddr_t global;
