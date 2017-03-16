@@ -18,6 +18,11 @@
 #include <serial.h>
 #include <dev/apm88xxxx/apm88xxxx_pc16550_dev.h>
 #include <arch/arm/gic.h>
+#include <sysreg.h>
+#include <dev/armv8_dev.h>
+#include <barrelfish_kpi/arm_core_data.h>
+#include <psci.h>
+#include <arch/armv8/global.h>
 
 /* the maximum number of UARTS supported */
 #define MAX_NUM_UARTS 4
@@ -122,5 +127,19 @@ errval_t platform_gic_cpu_interface_enable(void) {
 
 errval_t platform_boot_core(hwid_t target, genpaddr_t gen_entry, genpaddr_t context)
 {
+    printf("Invoking PSCI on: cpu=0x%lx, entry=0x%lx, context=0x%lx\n", target, gen_entry, context);
+    struct armv8_core_data *cd = (struct armv8_core_data *)local_phys_to_mem(context);
+    cd->page_table_root = armv8_TTBR1_EL1_rd(NULL);
+    cd->cpu_driver_globals_pointer = (uintptr_t)global;
+    __asm volatile("dsb   sy\n"
+                   "dmb   sy\n"
+                   "isb     \n");
+
+    /*
+     * An IRQ interrupt, even if the PSTATE I-bit is set.
+An FIQ interrupt, even if the PSTATE F-bit is set.
+     *
+     *
+     */
     return SYS_ERR_OK;
 }
