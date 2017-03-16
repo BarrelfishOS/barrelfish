@@ -50,6 +50,7 @@ struct vnode { // NB: misnomer :)
             vregion_flags_t flags;     ///< Flags for mapping
             size_t        pte_count;   ///< number of mapped PTEs in this mapping
             lvaddr_t vaddr;            ///< The virtual address this frame has
+            uint16_t cloned_count;     ///< counter for #times a page of this range was cloned
         } frame; // for leaf node (maps an actual page)
     } u;
 };

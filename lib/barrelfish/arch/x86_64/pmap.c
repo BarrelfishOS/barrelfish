@@ -338,6 +338,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     page->u.frame.flags = flags;
     page->u.frame.pte_count = pte_count;
     page->u.frame.vaddr = vaddr;
+    page->u.frame.cloned_count = 0;
 
     err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &page->mapping);
     if (err_is_fail(err)) {
