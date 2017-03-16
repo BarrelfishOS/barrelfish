@@ -50,6 +50,11 @@ struct armv8_core_data {
     genpaddr_t cpu_driver_stack;
 
     /**
+     * Physical address of the kernel stack
+     */
+    genpaddr_t cpu_driver_stack_limit;
+
+    /**
      * Physical address of the global data structure shared by all
      */
     genpaddr_t cpu_driver_globals_pointer;
@@ -106,6 +111,13 @@ struct armv8_core_data {
 
 
 };
+
+#include <barrelfish_kpi/paging_arch.h>
+
+STATIC_ASSERT(sizeof(struct armv8_core_data) < BASE_PAGE_SIZE,
+        "Core Data structure must not exceed page size");
+
+
 
 #define ARMV8_CORE_DATA_PAGES 700
 
