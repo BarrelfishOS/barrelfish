@@ -3,8 +3,9 @@
 # boot-time and the arguments they should receive.
 #
 
-kernel /armv8/sbin/cpu_apm88xxxx loglevel=3
-stack 131072
+bootdrive /armv8/sbin/boot_armv8_generic
+cpudriver /armv8/sbin/cpu_apm88xxxx loglevel=3
+
 module /armv8/sbin/init
 
 # Domains spawned by init
@@ -31,5 +32,3 @@ module /armv8/sbin/pci auto
 # General user domains
 module /armv8/sbin/fish nospawn
 module /armv8/sbin/angler serial0.terminal xterm
-
-# End of file, this needs to have a certain length...
