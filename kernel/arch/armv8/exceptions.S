@@ -435,8 +435,9 @@ do_resume:
     add x0, x0, #(33 * 8)
 
     /* Reset the kernel stack pointer. */
-    adrp x1, kernel_stack
-    add sp, x1, #0
+    ldr x1, =kernel_stack   // load the address of the kernel sack
+    ldr x2,  [x1]           // read the entry of the kernel stack
+    mov sp, x2
 
     /* Flush the TLB - XXX kill this with fire. */
     dsb sy
