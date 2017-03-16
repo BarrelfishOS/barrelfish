@@ -55,15 +55,19 @@ void gicv3_ack_irq(uint32_t irq)
 }
 
 /*
- * Raise an SGI on a core
+ * Raise an SGI on a core. 
  */
-void gicv3_raise_softirq(uint8_t cpumask, uint8_t irq)
+void gicv3_raise_softirq(coreid_t cpuid, uint8_t irq)
 {
     assert(irq <= 15);
-    gic_v3_GICD_SGIR_t reg = 0;
-    reg = gic_v3_GICD_SGIR_INTID_insert(reg, irq);
-    reg = gic_v3_GICD_SGIR_CPUTargetList_insert(reg, cpumask);
-    gic_v3_GICD_SGIR_wr(&gic_v3_dev, reg);
+    armv8_ICC_SGI1R_EL1_t reg = 0;
+    reg = armv8_ICC_SGI1R_EL1_intid_insert(reg, 1);
+    // TODO: make that work for cpuids > 15
+    reg = armv8_ICC_SGI1R_EL1_target_insert(reg, 1<<cpuid);
+    reg = armv8_ICC_SGI1R_EL1_aff3_insert(reg, 0);
+    reg = armv8_ICC_SGI1R_EL1_aff2_insert(reg, 0);
+    reg = armv8_ICC_SGI1R_EL1_aff1_insert(reg, 0);
+    armv8_ICC_SGI1R_EL1_wr(NULL, reg);
 }
 
 /*

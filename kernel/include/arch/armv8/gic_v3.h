@@ -13,6 +13,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <barrelfish_kpi/types.h>
 
 /*
  * generic interrupt controller functionality
@@ -25,6 +26,6 @@ uint32_t gicv3_get_active_irq(void);
 
 void gicv3_ack_irq(uint32_t irq);
 
-void gicv3_raise_softirq(uint8_t cpumask, uint8_t irq);
+void gicv3_raise_softirq(coreid_t cpuid, uint8_t irq);
 
 #endif // __GIC_V3_H__
