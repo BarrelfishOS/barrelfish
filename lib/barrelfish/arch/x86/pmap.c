@@ -350,12 +350,6 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     root->u.vnode.children = newvnode;
     newvnode->u.vnode.children = NULL;
 #elif defined(PMAP_ARRAY)
-    if (slab_freecount(&pmap->ptslab) < 4) {
-        err = pmap->refill_ptslab(pmap, 32);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_SLAB_REFILL);
-        }
-    }
     newvnode->u.vnode.children = slab_alloc(&pmap->ptslab);
     assert(newvnode->u.vnode.children);
     memset(newvnode->u.vnode.children, 0, sizeof(struct vode *)*PTABLE_SIZE);

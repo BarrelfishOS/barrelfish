@@ -744,6 +744,29 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
             slab_grow(&x86->slab, buf, bytes);
         }
     }
+#ifdef PMAP_ARRAY
+    // Refill child array slabs, if necessary
+    size_t ptslabs_free = slab_freecount(&x86->ptslab);
+    size_t max_ptslabs = max_slabs; // XXX Is this a strict overestimation??
+
+    if (ptslabs_free < max_ptslabs) {
+        struct pmap *mypmap = get_current_pmap();
+        if (pmap == mypmap) {
+            err = refill_pt_slabs(x86, max_ptslabs);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_SLAB_REFILL);
+            }
+        } else {
+            size_t bytes = SLAB_STATIC_SIZE(max_ptslabs - ptslabs_free,
+                                            sizeof(struct vnode *)*PTABLE_SIZE);
+            void *buf = malloc(bytes);
+            if (!buf) {
+                return LIB_ERR_MALLOC_FAIL;
+            }
+            slab_grow(&x86->ptslab, buf, bytes);
+        }
+    }
+#endif
 
     err = do_map(x86, vaddr, frame, offset, size, flags, retoff, retsize);
     return err;
