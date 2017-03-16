@@ -25,10 +25,6 @@ SECTIONS {
      * irrelevant. */
     . = 0x0;
 
-    /* The kernel stack location is filled in by the bootloader. */
-    HIDDEN(kernel_stack = .);
-    HIDDEN(kernel_stack_top = .);
-
     HIDDEN(kernel_first_byte = .);
     
     .text : { *(.text); } :load
