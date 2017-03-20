@@ -23,6 +23,8 @@
 #include <barrelfish_kpi/arm_core_data.h>
 #include <psci.h>
 #include <arch/armv8/global.h>
+#include <arch/armv8/gic_v3.h>
+#include <paging_kernel_arch.h>
 
 /* the maximum number of UARTS supported */
 #define MAX_NUM_UARTS 4
@@ -115,15 +117,38 @@ void armv8_get_info(struct arch_info_armv8 *ai)
 
 }
 
+/* GIC */
+
 errval_t platform_gic_init(void) {
-    gic_init();
+    gicv3_init();
     return SYS_ERR_OK;
 }
 
 errval_t platform_gic_cpu_interface_enable(void) {
-    gic_cpu_interface_enable();
+    gicv3_cpu_interface_enable();
     return SYS_ERR_OK;
 }
+
+/**
+ * @brief obtain the address of the GIC CPU interface
+ *
+ * @return physical address of the CBAR region
+ */
+lpaddr_t platform_get_gic_cpu_address(void) {
+    assert(paging_mmu_enabled());
+    return platform_gic_cpu_base;
+}
+
+/**
+ * @brief obtain the address of the GIC distributor interface
+ *
+ * @return physical address of the CBAR region
+ */
+lpaddr_t platform_get_distributor_address(void) {
+    assert(paging_mmu_enabled());
+    return platform_gic_dist_base;
+}
+
 
 errval_t platform_boot_core(hwid_t target, genpaddr_t gen_entry, genpaddr_t context)
 {
@@ -141,5 +166,9 @@ An FIQ interrupt, even if the PSTATE F-bit is set.
      *
      *
      */
+
+    gicv3_raise_softirq(target, 1);
+     
     return SYS_ERR_OK;
 }
+

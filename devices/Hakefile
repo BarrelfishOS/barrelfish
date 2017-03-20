@@ -41,6 +41,7 @@
            "fat_bpb",
            "fat_direntry",
            "gic_v3",
+           "gic_v3_cpu",
            "hpet",
            "ia32",
            "ixp2800_icp_pic0",
