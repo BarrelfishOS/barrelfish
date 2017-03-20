@@ -189,9 +189,12 @@ tx_fn ifn msg@(Message _ mn args _) =
             C.Ex $ C.CallInd handler ((local_binding):(concat $ map mkvars args)),
             C.SBlank,
             C.SComment "run continuation, if any",
-            C.If (C.Binary C.NotEquals
+            C.If (C.Binary C.And (C.Binary C.NotEquals
                                 (C.Variable intf_cont_var `C.FieldOf` "handler")
                                 (C.Variable "NULL"))
+                (C.Binary C.NotEquals
+                        (C.Variable intf_cont_var `C.FieldOf` "handler")
+                        (C.Variable "blocking_cont")))
                 [C.Ex $ C.CallInd (C.Variable intf_cont_var `C.FieldOf` "handler")
                                 [C.Variable intf_cont_var `C.FieldOf` "arg"]] [],
             C.SBlank,

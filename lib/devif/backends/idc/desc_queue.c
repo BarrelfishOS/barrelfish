@@ -11,15 +11,14 @@
 #include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/descq.h>
-#include <if/descq_data_defs.h>
-#include <if/descq_ctrl_defs.h>
+#include <if/descq_defs.h>
 #include "../../queue_interface_internal.h"
 #include "descq_debug.h"
 
 
 struct __attribute__((aligned(DESCQ_ALIGNMENT))) desc {
-    genoffset_t offset; // 8 
-    genoffset_t length; // 16 
+    genoffset_t offset; // 8
+    genoffset_t length; // 16
     genoffset_t valid_data; // 24
     genoffset_t valid_length; // 32
     uint64_t flags; // 40
@@ -54,12 +53,16 @@ struct descq {
     union pointer* tx_seq_ack;
    
     // Flounder
-    struct descq_data_binding* data;
-    struct descq_ctrl_binding* ctrl;
-
+    struct descq_binding* binding;
+    bool local_bind;
+    bool lmp_bind;
+    bool ump_bind;
+    
     // linked list
     struct descq* next;
     uint64_t qid;
+    
+    bool notifications;
 };
 
 struct descq_endpoint_state {
@@ -73,7 +76,7 @@ struct descq_endpoint_state {
 
 
 /**
- * @brief Enqueue a descriptor (as seperate fields) 
+ * @brief Enqueue a descriptor (as seperate fields)
  *        into the descriptor queue
  *
  * @param q                     The descriptor queue
@@ -107,22 +110,25 @@ static errval_t descq_enqueue(struct devq* queue,
     q->tx_descs[head].valid_data = valid_data;
     q->tx_descs[head].valid_length = valid_length;
     q->tx_descs[head].flags = misc_flags;
-    q->tx_descs[head].seq = q->tx_seq;    
+    q->tx_descs[head].seq = q->tx_seq;
 
     // only write local head
     q->tx_seq++;
 
-    DESCQ_DEBUG("tx_seq=%lu tx_seq_ack=%lu \n", 
+    DESCQ_DEBUG("tx_seq=%lu tx_seq_ack=%lu \n",
                     q->tx_seq, q->tx_seq_ack->value);
+    // if (q->local_bind) {
+        q->binding->tx_vtbl.notify(q->binding, NOP_CONT);
+    // }
     return SYS_ERR_OK;
 }
 
 /**
- * @brief Dequeue a descriptor (as seperate fields) 
+ * @brief Dequeue a descriptor (as seperate fields)
  *        from the descriptor queue
  *
  * @param q                     The descriptor queue
- * @param region_id             Return pointer to the region id of 
+ * @param region_id             Return pointer to the region id of
  *                              the denqueued buffer
  * @param offset                Return pointer to the offset into the region
  *                              where the buffer resides
@@ -144,7 +150,7 @@ static errval_t descq_dequeue(struct devq* queue,
                               uint64_t* misc_flags)
 {
     struct descq* q = (struct descq*) queue;
-    uint64_t seq = q->rx_descs[q->rx_seq % q->slots].seq;   
+    uint64_t seq = q->rx_descs[q->rx_seq % q->slots].seq;
     
     if (!(q->rx_seq == seq)) {
         return DEVQ_ERR_QUEUE_EMPTY;
@@ -170,7 +176,7 @@ static void resend_notify(void* a)
 {
     errval_t err;
     struct descq* queue = (struct descq*) a;
-    err = queue->data->tx_vtbl.notify(queue->data, NOP_CONT);
+    err = queue->binding->tx_vtbl.notify(queue->binding, NOP_CONT);
 }
 
 static errval_t descq_notify(struct devq* q)
@@ -180,14 +186,14 @@ static errval_t descq_notify(struct devq* q)
     struct descq* queue = (struct descq*) q;
     /*
     DESCQ_DEBUG("start \n");
-    err = queue->ctrl->rpc_tx_vtbl.notify(queue->rpc, &err2);
+    err = queue->binding->rpc_tx_vtbl.notify(queue->rpc, &err2);
     err = err_is_fail(err) ? err : err2;
     DESCQ_DEBUG("end\n");
     */
-    err = queue->data->tx_vtbl.notify(queue->data, NOP_CONT);
+    err = queue->binding->tx_vtbl.notify(queue->binding, NOP_CONT);
     if (err_is_fail(err)) {
         while(err_is_fail(err)) {
-            err = queue->data->register_send(queue->data, get_default_waitset(), 
+            err = queue->binding->register_send(queue->binding, get_default_waitset(),
                                              MKCONT(resend_notify, queue));
             if (err_is_fail(err)) {
                 event_dispatch(get_default_waitset());
@@ -198,13 +204,13 @@ static errval_t descq_notify(struct devq* q)
 }
 
 static errval_t descq_control(struct devq* q, uint64_t cmd,
-                              uint64_t value)
+                              uint64_t value, uint64_t *result)
 {
     errval_t err, err2;
     struct descq* queue = (struct descq*) q;
 
     DESCQ_DEBUG("start \n");
-    err = queue->ctrl->rpc_tx_vtbl.control(queue->ctrl, cmd, value, &err2);
+    err = queue->binding->rpc_tx_vtbl.control(queue->binding, cmd, value, result, &err2);
     err = err_is_fail(err) ? err : err2;
     DESCQ_DEBUG("end\n");
     return err;
@@ -217,7 +223,7 @@ static errval_t descq_register(struct devq* q, struct capref cap,
     struct descq* queue = (struct descq*) q;
 
     DESCQ_DEBUG("start %p\n", queue);
-    err = queue->ctrl->rpc_tx_vtbl.register_region(queue->ctrl, cap, rid, &err2);
+    err = queue->binding->rpc_tx_vtbl.register_region(queue->binding, cap, rid, &err2);
     err = err_is_fail(err) ? err : err2;
     DESCQ_DEBUG("end\n");
     return err;
@@ -228,7 +234,7 @@ static errval_t descq_deregister(struct devq* q, regionid_t rid)
     errval_t err, err2;
     struct descq* queue = (struct descq*) q;
 
-    err = queue->ctrl->rpc_tx_vtbl.deregister_region(queue->ctrl, rid, &err2);
+    err = queue->binding->rpc_tx_vtbl.deregister_region(queue->binding, rid, &err2);
     err = err_is_fail(err) ? err : err2;
     return err;
 }
@@ -237,10 +243,9 @@ static errval_t descq_deregister(struct devq* q, regionid_t rid)
  * Flounder interface implementation
  */
 
-static void mp_notify(struct descq_data_binding* b) {
-    
+static void mp_notify(struct descq_binding* b) {
     DESCQ_DEBUG("start \n");
-    errval_t err;    
+    errval_t err;
     struct descq* q = (struct descq*) b->st;
 
     DESCQ_DEBUG("%p \n",q->f.notify);
@@ -251,87 +256,74 @@ static void mp_notify(struct descq_data_binding* b) {
 }
 
 
-static void mp_reg(struct descq_ctrl_binding* b, struct capref cap,
-                   uint32_t rid) 
+static errval_t mp_reg(struct descq_binding* b, struct capref cap,
+                   uint32_t rid, errval_t *err)
 {
     DESCQ_DEBUG("start \n");
-    errval_t err;    
-    struct descq* q = (struct descq*) b->st;    
+    struct descq* q = (struct descq*) b->st;
 
-    err = devq_add_region((struct devq*) q, cap, rid);
-    if (err_is_fail(err)) {
-        err = b->tx_vtbl.register_region_response(b, NOP_CONT, err);
-        assert(err_is_ok(err));
+    *err = devq_add_region((struct devq*) q, cap, rid);
+    if (err_is_fail(*err)) {
+        return SYS_ERR_OK;
     }
 
-    err = q->f.reg(q, cap, rid);
-
-    err = b->tx_vtbl.register_region_response(b, NOP_CONT, err);
+    *err = q->f.reg(q, cap, rid);
     DESCQ_DEBUG("end \n");
-    assert(err_is_ok(err));
+    return SYS_ERR_OK;
 }
 
-static void mp_dereg(struct descq_ctrl_binding* b, uint32_t rid) 
+static errval_t mp_dereg(struct descq_binding* b, uint32_t rid,
+                         errval_t *err)
 {
-    errval_t err;    
     struct descq* q = (struct descq*) b->st;
 
-    err = devq_remove_region((struct devq*) q, rid);
-    if (err_is_fail(err)) {
-        err = b->tx_vtbl.deregister_region_response(b, NOP_CONT, err);
-        assert(err_is_ok(err));
+    *err = devq_remove_region((struct devq*) q, rid);
+    if (err_is_fail(*err)) {
+        return SYS_ERR_OK;
     }
 
-    err = q->f.dereg(q, rid);
-
-    err = b->tx_vtbl.deregister_region_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
+    *err = q->f.dereg(q, rid);
+    return SYS_ERR_OK;
 }
 
-static void mp_control(struct descq_ctrl_binding* b, uint64_t cmd,
-                       uint64_t value) 
+static errval_t mp_control(struct descq_binding* b, uint64_t cmd,
+                       uint64_t value, uint64_t *result, errval_t *err)
 {
-    errval_t err;    
     struct descq* q = (struct descq*) b->st;
 
-    err = q->f.control(q, cmd, value);
-
-    err = b->tx_vtbl.control_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
+    *err = q->f.control(q, cmd, value, result);
+    return SYS_ERR_OK;
 }
 
-static void mp_destroy(struct descq_ctrl_binding* b) 
+static errval_t mp_destroy(struct descq_binding* b, errval_t *err)
 {
-    errval_t err;    
     struct descq* q = (struct descq*) b->st;
 
-    err = q->f.destroy(q);
+    *err = q->f.destroy(q);
     
     USER_PANIC("Destroy NYI \n");
-
-    err = b->tx_vtbl.destroy_queue_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
+    return SYS_ERR_OK;
 }
 
-static void mp_create(struct descq_ctrl_binding* b, uint32_t slots,
-                      struct capref rx, struct capref tx) {
+static errval_t mp_create(struct descq_binding* b, uint32_t slots,
+        struct capref rx, struct capref tx, bool notifications, uint8_t role,
+        uint64_t *queue_id, errval_t *err) {
     
     struct descq* q = (struct descq*) b->st;
     DESCQ_DEBUG("start %p\n",q);
-    errval_t err;    
     
     // switch RX/TX for correct setup
-    err = vspace_map_one_frame_attr((void**) &(q->rx_descs),
-                                    slots*DESCQ_ALIGNMENT, tx, 
+    *err = vspace_map_one_frame_attr((void**) &(q->rx_descs),
+                                    slots*DESCQ_ALIGNMENT, tx,
                                     VREGION_FLAGS_READ_WRITE, NULL, NULL);
-    if (err_is_fail(err)) {
+    if (err_is_fail(*err)) {
         goto end2;
     }
 
-    err = vspace_map_one_frame_attr((void**) &(q->tx_descs),
-                                    slots*DESCQ_ALIGNMENT, rx, 
+    *err = vspace_map_one_frame_attr((void**) &(q->tx_descs),
+                                    slots*DESCQ_ALIGNMENT, rx,
                                     VREGION_FLAGS_READ_WRITE, NULL, NULL);
-    if (err_is_fail(err)) {
+    if (err_is_fail(*err)) {
         goto end1;
     }
  
@@ -350,21 +342,20 @@ static void mp_create(struct descq_ctrl_binding* b, uint32_t slots,
     q->q.f.dereg = descq_deregister;
     q->q.f.ctrl = descq_control;
      
-    err = q->f.create(q);
-    if (err_is_ok(err)) {
+    *err = q->f.create(q, notifications, role, queue_id);
+    if (err_is_ok(*err)) {
         goto end2;
     }
 
 end1:
-    err = vspace_unmap(q->rx_descs);
-    assert(err_is_ok(err));
+    *err = vspace_unmap(q->rx_descs);
+    assert(err_is_ok(*err));
 end2:
-    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
     DESCQ_DEBUG("end \n");
+    return SYS_ERR_OK;
 }
 
-static struct descq_ctrl_rx_vtbl ctrl_rx_vtbl = {
+static struct descq_rpc_rx_vtbl rpc_rx_vtbl = {
     .create_queue_call = mp_create,
     .destroy_queue_call = mp_destroy,
     .register_region_call = mp_reg,
@@ -372,51 +363,23 @@ static struct descq_ctrl_rx_vtbl ctrl_rx_vtbl = {
     .control_call = mp_control,
 };
 
-static struct descq_data_rx_vtbl data_rx_vtbl = {
+static struct descq_rx_vtbl rx_vtbl = {
     .notify = mp_notify,
 };
 
-static void ctrl_export_cb(void *st, errval_t err, iref_t iref)
+static void export_cb(void *st, errval_t err, iref_t iref)
 {
     struct descq_endpoint_state* q = (struct descq_endpoint_state*) st;
-    const char* suffix = "_ctrl";
-    char name[strlen(q->name)+strlen(suffix)+1];
-    
-    sprintf(name, "%s%s", q->name, suffix);
-    err = nameservice_register(name, iref);
+
+    err = nameservice_register(q->name, iref);
     assert(err_is_ok(err));
     q->exp_done = true;
     // state is only function pointers
     DESCQ_DEBUG("Control interface exported (%s)\n", name);
 }
 
-static void data_export_cb(void *st, errval_t err, iref_t iref)
+static errval_t connect_cb(void *st, struct descq_binding* b)
 {
-    struct descq_endpoint_state* q = (struct descq_endpoint_state*) st;
-    const char* suffix = "_data";
-    char name[strlen(q->name)+strlen(suffix)+1];
-    
-    sprintf(name, "%s%s", q->name, suffix);
-    err = nameservice_register(name, iref);
-    DESCQ_DEBUG("Data interface exported (%s)\n", name);
-    assert(err_is_ok(err));
-}
-
-static errval_t data_connect_cb(void *st, struct descq_data_binding* b)
-{
-
-    struct descq_endpoint_state* state = (struct descq_endpoint_state*) st;
-    struct descq* q = state->tail;
-    b->rx_vtbl = data_rx_vtbl;
-    b->st = q;
-    q->data = b;
-    DESCQ_DEBUG("New connection data %p q->data %p \n", q, q->data);
-    return SYS_ERR_OK;
-}
-
-static errval_t ctrl_connect_cb(void *st, struct descq_ctrl_binding* b)
-{
-    //errval_t err;
     struct descq* q;
     struct descq_endpoint_state* state = (struct descq_endpoint_state*) st;
     // Allocate state
@@ -424,7 +387,7 @@ static errval_t ctrl_connect_cb(void *st, struct descq_ctrl_binding* b)
     if (q == NULL) {
         return DEVQ_ERR_DESCQ_INIT;
     }
-    q->ctrl = b;
+    q->binding = b;
 
     q->qid = state->qid;
     state->qid++;
@@ -446,33 +409,32 @@ static errval_t ctrl_connect_cb(void *st, struct descq_ctrl_binding* b)
         state->tail = q;
     }
 
-    b->rx_vtbl = ctrl_rx_vtbl;
+    b->rpc_rx_vtbl = rpc_rx_vtbl;
+    b->rx_vtbl = rx_vtbl;
     b->st = q;
+    q->local_bind = b->local_binding != NULL;
+    // if (q->local_bind) {
+        q->ump_bind = false;
+        q->lmp_bind = false;
+    // } else {
+    //     q->ump_bind = b->get_receiving_chanstate(b)->chantype == CHANTYPE_UMP_IN;
+    //     q->lmp_bind = !q->ump_bind;
+    // }
 
     return SYS_ERR_OK;
 }
 
 
-static void ctrl_bind_cb(void *st, errval_t err, struct descq_ctrl_binding* b)
+static void bind_cb(void *st, errval_t err, struct descq_binding* b)
 
 {
 
     struct descq* q = (struct descq*) st;
-    DESCQ_DEBUG("Control interface bound \n");
-    q->ctrl = b;
-    descq_ctrl_rpc_client_init(q->ctrl);
+    DESCQ_DEBUG("Interface bound \n");
+    q->binding = b;
+    b->rx_vtbl = rx_vtbl;
+    descq_rpc_client_init(q->binding);
 
-    b->rx_vtbl = ctrl_rx_vtbl;
-    b->st = q;
-}
-
-static void data_bind_cb(void *st, errval_t err, struct descq_data_binding* b)
-
-{
-    struct descq* q = (struct descq*) st;
-    q->data = b;
-    b->rx_vtbl = data_rx_vtbl;
-    DESCQ_DEBUG("Data interface bound\n");
     q->bound_done = true;
     b->st = q;
 }
@@ -485,6 +447,9 @@ errval_t descq_create(struct descq** q,
                       size_t slots,
                       char* name,
                       bool exp,
+                      bool notifications,
+                      uint8_t role,
+                      uint64_t *queue_id,
                       struct descq_func_pointer* f)
 {
     DESCQ_DEBUG("create start\n");
@@ -496,14 +461,13 @@ errval_t descq_create(struct descq** q,
     // Init basic struct fields
     tmp = malloc(sizeof(struct descq));
     assert(tmp != NULL);
-    tmp->name = malloc(sizeof(strlen(name)));
+    tmp->name = strdup(name);
     assert(tmp->name != NULL);
-    strncpy(tmp->name, name, strlen(name));
 
-    if (exp) {
+    if (exp) {  // exporting
         struct descq_endpoint_state* state = malloc(sizeof(struct descq_endpoint_state));
-        state->name = malloc(sizeof(strlen(name)));
-        strncpy(state->name, name, strlen(name));
+        state->name = strdup(name);
+        assert(state->name);
 
         state->f.notify = f->notify;
         state->f.dereg = f->dereg;
@@ -512,13 +476,7 @@ errval_t descq_create(struct descq** q,
         state->f.destroy = f->destroy;
         state->f.control = f->control;
 
-        err = descq_data_export(state, data_export_cb, data_connect_cb, 
-                                get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
-        if (err_is_fail(err)) {
-            goto cleanup1;
-        }
-
-        err = descq_ctrl_export(state, ctrl_export_cb, ctrl_connect_cb, 
+        err = descq_export(state, export_cb, connect_cb,
                                 get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
         if (err_is_fail(err)) {
             goto cleanup1;
@@ -553,14 +511,14 @@ errval_t descq_create(struct descq** q,
         assert(bytes >= DESCQ_ALIGNMENT*slots);
 
         err = vspace_map_one_frame_attr((void**) &(tmp->rx_descs),
-                                        slots*DESCQ_ALIGNMENT, rx, 
+                                        slots*DESCQ_ALIGNMENT, rx,
                                         VREGION_FLAGS_READ_WRITE, NULL, NULL);
         if (err_is_fail(err)) {
             goto cleanup3;
         }
 
         err = vspace_map_one_frame_attr((void**) &(tmp->tx_descs),
-                                        slots*DESCQ_ALIGNMENT, tx, 
+                                        slots*DESCQ_ALIGNMENT, tx,
                                         VREGION_FLAGS_READ_WRITE, NULL, NULL);
         if (err_is_fail(err)) {
             goto cleanup4;
@@ -572,43 +530,33 @@ errval_t descq_create(struct descq** q,
         tmp->bound_done = false;
         iref_t iref;
 
-        const char *suffix_ctrl = "_ctrl";
-        char name_ctrl[strlen(name)+strlen(suffix_ctrl)+1];
-        sprintf(name_ctrl, "%s%s", name, suffix_ctrl);
-
-        err = nameservice_blocking_lookup(name_ctrl, &iref);
+        err = nameservice_blocking_lookup(name, &iref);
         if (err_is_fail(err)) {
             goto cleanup5;
         }
 
-        err = descq_ctrl_bind(iref, ctrl_bind_cb, tmp, get_default_waitset(),
+        err = descq_bind(iref, bind_cb, tmp, get_default_waitset(),
                               IDC_BIND_FLAGS_DEFAULT);
         if (err_is_fail(err)) {
             goto cleanup5;
         }
  
-        const char *suffix_data = "_data";
-        char name_data[strlen(name)+strlen(suffix_data)+1];
-        sprintf(name_data, "%s%s", name, suffix_data);
-        iref_t iref2;
-   
-        err = nameservice_blocking_lookup(name_data, &iref2);
-        if (err_is_fail(err)) {
-            goto cleanup5;
-        }
-    
-        err = descq_data_bind(iref2, data_bind_cb, tmp, get_default_waitset(),
-                              IDC_BIND_FLAGS_DEFAULT);
-        if (err_is_fail(err)) {
-            goto cleanup5;
-        }
-
         while(!tmp->bound_done) {
             event_dispatch(get_default_waitset());
         }
 
+        tmp->local_bind = tmp->binding->local_binding != NULL;
+        // if (tmp->local_bind) {
+            tmp->ump_bind = false;
+            tmp->lmp_bind = false;
+        // } else {
+        //     tmp->ump_bind = tmp->binding->get_receiving_chanstate(tmp->binding)->chantype == CHANTYPE_UMP_IN;
+        //     tmp->lmp_bind = !tmp->ump_bind;
+        // }
+        
         errval_t err2;
-        err = tmp->ctrl->rpc_tx_vtbl.create_queue(tmp->ctrl, slots, rx, tx, &err2);
+        err = tmp->binding->rpc_tx_vtbl.create_queue(tmp->binding, slots, rx, tx,
+            notifications, role, queue_id, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             goto cleanup5;
@@ -628,7 +576,8 @@ errval_t descq_create(struct descq** q,
         tmp->q.f.reg = descq_register;
         tmp->q.f.dereg = descq_deregister;
         tmp->q.f.ctrl = descq_control;
-
+        
+        tmp->notifications = notifications;
     }
 
 
@@ -638,9 +587,9 @@ errval_t descq_create(struct descq** q,
     return SYS_ERR_OK;
 
 cleanup5:
-    vspace_unmap(tmp->rx_descs);    
+    vspace_unmap(tmp->rx_descs);
 cleanup4:
-    vspace_unmap(tmp->rx_descs);    
+    vspace_unmap(tmp->rx_descs);
 cleanup3:
     cap_destroy(tx);
 cleanup2:
@@ -663,7 +612,7 @@ cleanup1:
  * @returns error on failure or SYS_ERR_OK on success
  */
 errval_t descq_destroy(struct descq* q)
-{   
+{
     errval_t err;
     err = vspace_unmap(q->tx_descs);
     if (err_is_fail(err)) {

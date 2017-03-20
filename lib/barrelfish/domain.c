@@ -1152,6 +1152,11 @@ struct monitor_binding *get_monitor_binding(void)
     return disp->core_state.c.monitor_binding;
 }
 
+struct waitset_chanstate *get_monitor_binding_chanstate(void)
+{
+    struct monitor_binding *mb = get_monitor_binding();
+    return mb->get_receiving_chanstate(mb);
+}
 
 /**
  * \brief set the  blocking rpc monitor client binding on the dispatcher priv

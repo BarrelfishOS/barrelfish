@@ -70,7 +70,8 @@ typedef errval_t (*devq_deregister_t)(struct devq *q, regionid_t region_id);
   */
 typedef errval_t (*devq_control_t)(struct devq *q,
                                    uint64_t request,
-                                   uint64_t value);
+                                   uint64_t value,
+                                   uint64_t *result);
 
 
  /**
@@ -83,13 +84,13 @@ typedef errval_t (*devq_control_t)(struct devq *q,
   * @param length       Length of the buffer
   * @param valid_data   Offset into the region where the valid data of the
   *                     buffer starts
-  * @param valid_length Length of the valid data in this buffer   
+  * @param valid_length Length of the valid data in this buffer
   * @param misc_flags   Misc flags
   *
   * @returns error on failure or SYS_ERR_OK on success
   */
 typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
-                                   genoffset_t offset, genoffset_t length, 
+                                   genoffset_t offset, genoffset_t length,
                                    genoffset_t valid_offset,
                                    genoffset_t valid_length,
                                    uint64_t misc_flags);
@@ -112,7 +113,7 @@ typedef errval_t (*devq_enqueue_t)(struct devq *q, regionid_t region_id,
   * @returns error on failure if the queue is empty or SYS_ERR_OK on success
   */
 typedef errval_t (*devq_dequeue_t)(struct devq *q, regionid_t* region_id,
-                                   genoffset_t* offset, genoffset_t* length, 
+                                   genoffset_t* offset, genoffset_t* length,
                                    genoffset_t* valid_offset,
                                    genoffset_t* valid_length,
                                    uint64_t* misc_flags);
@@ -141,6 +142,7 @@ struct devq {
        has to be handeled differently in the bookkeeping part
     */
     bool exp;
+    void *state;
 };
 
 

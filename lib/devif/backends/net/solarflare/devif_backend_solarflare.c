@@ -163,7 +163,7 @@ static errval_t sfn5122f_deregister(struct devq* q, regionid_t rid)
    
     // do rpc do inform carddriver to remove buftbl entries
     if (queue->userspace) {
-        err = queue->b->rpc_tx_vtbl.deregister_region(queue->b, cur->buftbl_idx, 
+        err = queue->b->rpc_tx_vtbl.deregister_region(queue->b, cur->buftbl_idx,
                                                       cur->size, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
@@ -175,7 +175,7 @@ static errval_t sfn5122f_deregister(struct devq* q, regionid_t rid)
 }
 
 
-static errval_t sfn5122f_control(struct devq* q, uint64_t cmd, uint64_t value)
+static errval_t sfn5122f_control(struct devq* q, uint64_t cmd, uint64_t value, uint64_t *result)
 {
 
     DEBUG_QUEUE("Control cmd=%lu value=%lu \n", cmd, value);
@@ -281,7 +281,7 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
     } else {
 
         DEBUG_QUEUE("TX_BUF flags=%lu \n", flags);
-        sfn5122f_queue_add_txbuf_devif(q, entry->phys + offset, rid, offset, 
+        sfn5122f_queue_add_txbuf_devif(q, entry->phys + offset, rid, offset,
                                        length, valid_data, valid_length,
                                        flags);
     }
@@ -289,7 +289,7 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
     return SYS_ERR_OK;
 }
 
-static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid, 
+static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid,
                                  genoffset_t offset, genoffset_t length,
                                  genoffset_t valid_data, genoffset_t valid_length,
                                  uint64_t flags)
@@ -310,7 +310,7 @@ static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid,
     } else if (flags & NETIF_TXFLAG) {
         assert(length <= BASE_PAGE_SIZE);
 
-        err = enqueue_tx_buf(queue, rid, offset, length, valid_data, valid_length, 
+        err = enqueue_tx_buf(queue, rid, offset, length, valid_data, valid_length,
                              flags);
         if (err_is_fail(err)) {
             return err;
@@ -350,7 +350,7 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
         case EV_CODE_RX:
             // TODO multiple packets
             err = sfn5122f_queue_handle_rx_ev_devif(queue, rid, offset, length,
-                                                    valid_data, valid_length, 
+                                                    valid_data, valid_length,
                                                     flags);
             if (err_is_ok(err)) {
                 DEBUG_QUEUE(" RX_EV Q_ID: %d len %ld \n", queue->id, *length);
@@ -490,8 +490,8 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
 
     if (!interrupts) {
         printf("Solarflare queue used in polling mode \n");
-        err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel, 
-                                                 interrupts, 
+        err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
+                                                 interrupts,
                                                  0, 0, &queue->id, &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;

@@ -526,6 +526,7 @@ rpc_fn ifn typedefs msg@(RPC n args _) =
 local_rpc_fn :: String -> [TypeDef] -> MessageDef -> C.Unit
 local_rpc_fn ifn typedefs msg@(RPC n args _) =
     C.FunctionDef C.Static (C.TypeName "errval_t") (local_rpc_fn_name ifn n) params [
+        C.Ex $ C.Call "assert" [C.Binary C.NotEquals tx_func (C.Variable "NULL")],
         C.Return $ C.CallInd tx_func (localbindvar:(map C.Variable $ concat $ map mkargs rpc_args))
     ]
     where

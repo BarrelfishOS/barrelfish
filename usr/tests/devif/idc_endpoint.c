@@ -28,7 +28,7 @@ struct ele {
     struct ele* next;
 };
 
-static errval_t create(struct descq* q)
+static errval_t create(struct descq* q, bool notifications)
 {
     printf("Create \n");
     if (list == NULL) {
@@ -73,7 +73,7 @@ static errval_t notify(struct descq* q)
     bool exit = false;
     uint16_t num_enq = 0;
     while(!exit) {
-        err = devq_dequeue(queue, &rid, &offset, &length, 
+        err = devq_dequeue(queue, &rid, &offset, &length,
                            &valid_data, &valid_length, &flags);
         if (err_is_fail(err)) {
             exit = true;
@@ -94,7 +94,7 @@ static errval_t notify(struct descq* q)
         err = devq_notify(queue);
     } else {
         err = SYS_ERR_OK;
-    }   
+    }
 
     return err;
 }
@@ -131,12 +131,12 @@ int main(int argc, char *argv[])
     f->destroy = destroy;
     f->reg = reg;
     f->dereg = dereg;
-    f->control = control;   
+    f->control = control;
 
     struct descq* exp_queue;
 
-    err = descq_create(&exp_queue, DESCQ_DEFAULT_SIZE, "test_queue", 
-                       true, f);
+    err = descq_create(&exp_queue, DESCQ_DEFAULT_SIZE, "test_queue",
+                       true, true, f);
 
     assert(err_is_ok(err));
 
