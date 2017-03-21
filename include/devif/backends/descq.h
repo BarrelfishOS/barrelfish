@@ -12,7 +12,7 @@
 
 #include <barrelfish/barrelfish.h>
 
-#define DESCQ_DEFAULT_SIZE 64
+#define DESCQ_DEFAULT_SIZE 2048
 #define DESCQ_ALIGNMENT 64
 
 struct descq;
