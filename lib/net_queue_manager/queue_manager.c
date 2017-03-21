@@ -436,7 +436,6 @@ static errval_t send_raw_xmit_done(struct devq *queue,
     struct client_closure *cl = (struct client_closure *)devq_get_state(queue);
     errval_t err;
     err = devq_enqueue(queue, cl->region_id, offset, length, 0, 0, flags);
-    debug_printf("%s: %d %ld\n", __func__, cl->region_id, err);
     assert(err_is_ok(err));
     return err;
 } // end function: send_raw_xmit_done

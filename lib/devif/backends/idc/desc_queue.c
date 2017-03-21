@@ -332,6 +332,8 @@ static errval_t mp_create(struct descq_binding* b, uint32_t slots,
     q->tx_descs++;
     q->rx_descs++;
     q->slots = slots-1;
+    q->rx_seq = 0;
+    q->tx_seq = 0;
 
     devq_init(&q->q, true);
 
@@ -564,10 +566,14 @@ errval_t descq_create(struct descq** q,
 
         tmp->tx_seq_ack = (void*)tmp->tx_descs;
         tmp->rx_seq_ack = (void*)tmp->rx_descs;
+        tmp->tx_seq_ack->value = 0;
+        tmp->rx_seq_ack->value = 0;
         tmp->tx_descs++;
         tmp->rx_descs++;
         tmp->slots = slots-1;
-
+        tmp->rx_seq = 0;
+        tmp->tx_seq = 0;
+        
         devq_init(&tmp->q, false);
 
         tmp->q.f.enq = descq_enqueue;
