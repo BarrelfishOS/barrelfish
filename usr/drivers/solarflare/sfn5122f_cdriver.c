@@ -57,7 +57,6 @@ struct queue_state {
     uint8_t msix_intdest;
 };
 
-
 static bool use_msix = false;
 static const char *service_name = "sfn5122f";
 static sfn5122f_t *d = NULL;
@@ -108,6 +107,8 @@ static struct bmallocator msix_alloc;
 static size_t cdriver_msix = -1;
 static uint8_t cdriver_vector;
 
+static bool use_interrupt = false;
+
 // first to start everything
 static bool first = 1;
 
@@ -116,6 +117,7 @@ uint8_t rx_hash_key[40];
 uint8_t mc_hash[32];
 
 // Filters
+//static uint32_t ip = 175178791;
 static uint32_t ip = 0;
 
 enum filter_type_ip {
@@ -943,7 +945,11 @@ static uint32_t init_evq(uint16_t n, lpaddr_t phys)
     } else {
         reg = sfn5122f_timer_tbl_lo_int_pend_insert(reg, 0);
         reg = sfn5122f_timer_tbl_lo_int_armd_insert(reg, 0);
-        reg = sfn5122f_timer_tbl_lo_host_notify_mode_insert(reg, 1);
+        if (use_interrupt) {
+            reg = sfn5122f_timer_tbl_lo_host_notify_mode_insert(reg, 0);
+        } else {
+            reg = sfn5122f_timer_tbl_lo_host_notify_mode_insert(reg, 1);
+        }
     }
     // timer mode disabled
     reg = sfn5122f_timer_tbl_lo_timer_mode_insert(reg, 0);
@@ -1019,8 +1025,8 @@ static uint32_t init_rxq(uint16_t n, lpaddr_t phys, bool userspace)
        return -1;
     }
 
-    DEBUG("RX_QUEUE_%d: buf_off %ld, phys %lx, size %lx \n", n,
-          buffer_offset, phys, rx_size);
+    DEBUG("RX_QUEUE_%d: buf_off %ld, phys %lx\n", n,
+          buffer_offset, phys);
     /* setup RX queue */
     reg_lo = sfn5122f_rx_desc_ptr_tbl_lo_rd(d, n);
     reg_hi = sfn5122f_rx_desc_ptr_tbl_hi_rd(d, n);
@@ -1156,6 +1162,10 @@ static void global_interrupt_handler(void* arg)
 
     queue = sfn5122f_int_isr0_reg_lo_rd(d);
     DEBUG("AN INTERRUPT OCCURED %d \n", queue);
+
+    
+    
+
     // Don't need to start event queues because we're already polling
 
 }
@@ -1527,6 +1537,7 @@ static void export_devif_cb(void *st, errval_t err, iref_t iref)
     err = nameservice_register(name, iref);
     assert(err_is_ok(err));
     DEBUG("Devif Management interface exported\n");
+    initialized = true;
 }
 
 
@@ -1652,7 +1663,6 @@ static void pci_init_card(struct device_mem* bar_info, int bar_count)
     init_rx_filter_config();
     /* initalize managemnt interface   */
     initialize_mngif();
-    initialized = true;
 
     if (first){
        start_all();
@@ -1721,6 +1731,7 @@ int main(int argc, char** argv)
     while (!initialized) {
         event_dispatch(get_default_waitset());
     }
+
     /* loop myself */
     cd_main();
 }
