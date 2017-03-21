@@ -307,7 +307,7 @@ static errval_t mp_destroy(struct descq_binding* b, errval_t *err)
 
 static errval_t mp_create(struct descq_binding* b, uint32_t slots,
         struct capref rx, struct capref tx, bool notifications, uint8_t role,
-        uint64_t *queue_id, errval_t *err) {
+        errval_t *err, uint64_t *queue_id) {
     
     struct descq* q = (struct descq*) b->st;
     DESCQ_DEBUG("start %p\n",q);
@@ -558,7 +558,7 @@ errval_t descq_create(struct descq** q,
         
         errval_t err2;
         err = tmp->binding->rpc_tx_vtbl.create_queue(tmp->binding, slots, rx, tx,
-            notifications, role, queue_id, &err2);
+            notifications, role, &err2, queue_id);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             goto cleanup5;
