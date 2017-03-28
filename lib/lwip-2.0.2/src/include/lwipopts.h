@@ -430,7 +430,7 @@
 #define NETIF_DEBUG      LWIP_DBG_ON
 #define SOCKETS_DEBUG    LWIP_DBG_ON
 #define DEMO_DEBUG       LWIP_DBG_ON
-#define IP_DEBUG         LWIP_DBG_ON
+#define IP_DEBUG         LWIP_DBG_OFF
 #define IP_REASS_DEBUG   LWIP_DBG_ON
 #define RAW_DEBUG        LWIP_DBG_ON
 #define ICMP_DEBUG       LWIP_DBG_ON
