@@ -58,7 +58,7 @@ typedef uintptr_t       mem_ptr_t;
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
+
 
 #define LWIP_PLATFORM_DIAG(x)   do {printf x;} while(0)
 #define LWIP_PLATFORM_ASSERT(x) do {printf("Assertion \"%s\" failed at line %d in %s\n", \

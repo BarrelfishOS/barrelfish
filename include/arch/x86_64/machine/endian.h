@@ -61,8 +61,12 @@ extern "C" {
  * strict namespaces.
  */
 #if __BSD_VISIBLE
+#ifndef LITTLE_ENDIAN
 #define	LITTLE_ENDIAN	_LITTLE_ENDIAN
+#endif
+#ifndef BIG_ENDIAN
 #define	BIG_ENDIAN	_BIG_ENDIAN
+#endif
 #define	PDP_ENDIAN	_PDP_ENDIAN
 #define	BYTE_ORDER	_BYTE_ORDER
 #endif
