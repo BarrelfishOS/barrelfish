@@ -15,15 +15,13 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include <devif/queue_interface.h>
 #include <dev/sfn5122f_q_dev.h>
 #include <dev/sfn5122f_dev.h>
 #include "helper.h"
+#include "sfn5122f_debug.h"
 
 #define MTU_MAX 2048
 
-struct sfn5122f_devif_binding;
-struct sfn5122f_devif_rpc_client;
 struct sfn5122f_queue;
 
 struct sfn5122f_queue_ops {
@@ -80,9 +78,24 @@ struct sfn5122f_queue {
     uint16_t id;
     sfn5122f_t *device;
     struct region_entry* regions;
+
+    // TX envents might merge multiple TX descirptors
+    void* bufs[32];
+    uint8_t last;
+    uint8_t num_left;
 };
 
 typedef struct sfn5122f_queue sfn5122f_queue_t;
+
+
+static inline bool is_batched(size_t size, uint16_t tx_head, uint16_t q_tx_head)
+{
+    if (tx_head >= q_tx_head) {
+        return (tx_head - q_tx_head > 0);
+    } else {
+        return (((tx_head + size) - q_tx_head) > 0);
+    }
+}
 
 static inline sfn5122f_queue_t* sfn5122f_queue_init(void* tx, 
                                                     size_t tx_size,
@@ -242,64 +255,6 @@ static inline int sfn5122f_queue_add_user_rxbuf(sfn5122f_queue_t* q,
     return 0;
 }
 
-
-static inline int sfn5122f_queue_add_user_rxbuf_devif(sfn5122f_queue_t* q, 
-                                                      uint32_t buf_id,
-                                                      uint16_t offset,
-                                                      regionid_t rid,
-                                                      bufferid_t devq_bid,
-                                                      lpaddr_t base,
-                                                      size_t len,
-                                                      uint64_t flags)
-{
-    struct devq_buf* buf;
-    sfn5122f_q_rx_user_desc_t d;
-    size_t tail = q->rx_tail;
-
-    d = q->rx_ring.user[tail];
-    buf = &q->rx_bufs[tail];
-
-    buf->rid = rid;
-    buf->bid = devq_bid;
-    buf->addr = base;
-    buf->len = len;
-    buf->flags = flags;
-    sfn5122f_q_rx_user_desc_rx_user_buf_id_insert(d, buf_id);
-    sfn5122f_q_rx_user_desc_rx_user_2byte_offset_insert(d, offset >> 1);
-    q->rx_tail = (tail + 1) % q->rx_size;
-    return 0;
-}
-
-static inline int sfn5122f_queue_add_rxbuf_devif(sfn5122f_queue_t* q, 
-                                                 regionid_t rid,
-                                                 bufferid_t bid,
-                                                 lpaddr_t addr,
-                                                 size_t len,
-                                                 uint64_t flags)
-{
-    struct devq_buf* buf;
-    sfn5122f_q_rx_ker_desc_t d;
-    size_t tail = q->rx_tail;
-
-    d = q->rx_ring.ker[tail];
-
-    buf = &q->rx_bufs[tail];
-
-    buf->rid = rid;
-    buf->bid = bid;
-    buf->addr = addr;
-    buf->len = len;
-    buf->flags = flags;
-
-    sfn5122f_q_rx_ker_desc_rx_ker_buf_addr_insert(d, addr);
-    sfn5122f_q_rx_ker_desc_rx_ker_buf_region_insert(d, 0);
-    // TODO: Check size
-    sfn5122f_q_rx_ker_desc_rx_ker_buf_size_insert(d, len);
-    q->rx_tail = (tail + 1) % q->rx_size;
-    return 0;
-}
-
-
 static inline errval_t sfn5122f_queue_handle_rx_ev(sfn5122f_queue_t* q, 
                                                    void** opaque, 
                                                    size_t* len)
@@ -313,15 +268,41 @@ static inline errval_t sfn5122f_queue_handle_rx_ev(sfn5122f_queue_t* q,
     sfn5122f_q_rx_user_desc_t d_user = 0;
 
     ev = q->ev_ring[ev_head];
+    rx_head = sfn5122f_q_rx_ev_rx_ev_desc_ptr_extract(ev);
 
     if(!sfn5122f_q_rx_ev_rx_ev_pkt_ok_extract(ev)) {   
          // TODO error handling
+         q->rx_head = (rx_head + 1) % q->rx_size;
          if (sfn5122f_q_rx_ev_rx_ev_tobe_disc_extract(ev)) {
             // packet discared by softare -> ok
             return NIC_ERR_RX_DISCARD;
          }
 
-         printf("Packet not ok \n");
+         if (sfn5122f_q_rx_ev_rx_ev_frm_trunc_extract(ev)) {
+            //printf("Packet truncated \n");
+         }
+
+         if (sfn5122f_q_rx_ev_rx_ev_pkt_not_parsed_extract(ev)) {
+            DEBUG_QUEUE("Packet not parsed\n");
+         }
+
+         if (sfn5122f_q_rx_ev_rx_ev_ip_frag_err_extract(ev)) {
+            DEBUG_QUEUE("Packet IP header err\n");
+         }
+
+         if (sfn5122f_q_rx_ev_rx_ev_ip_hdr_chksum_err_extract(ev)) {
+            DEBUG_QUEUE("Packet IP header checksum err\n");
+         }
+
+         if (sfn5122f_q_rx_ev_rx_ev_tcp_udp_chksum_err_extract(ev)) {
+            DEBUG_QUEUE("Packet TCP/UPD checksum err\n");
+         }
+
+         if (sfn5122f_q_rx_ev_rx_ev_eth_crc_err_extract(ev)) {
+            DEBUG_QUEUE("Packet Ethernet CRC err\n");
+         }
+
+         DEBUG_QUEUE("Packet not ok \n");
          return NIC_ERR_RX_PKT;
     }
 
@@ -331,7 +312,6 @@ static inline errval_t sfn5122f_queue_handle_rx_ev(sfn5122f_queue_t* q,
         *len = 16384;
     }
 
-    rx_head = sfn5122f_q_rx_ev_rx_ev_desc_ptr_extract(ev);
     if (q->userspace) {
         d_user = q->rx_ring.user[rx_head];  
     } else {
@@ -346,70 +326,6 @@ static inline errval_t sfn5122f_queue_handle_rx_ev(sfn5122f_queue_t* q,
     } else {
         memset(d, 0 , sfn5122f_q_rx_ker_desc_size);
     }
-
-    q->rx_head = (rx_head + 1) % q->rx_size;
-    return SYS_ERR_OK;
-}
-
-
-static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q, 
-                                                         regionid_t* rid,
-                                                         bufferid_t* bid,
-                                                         lpaddr_t* base,
-                                                         size_t* len,
-                                                         uint64_t* flags)
-{   
-    /*  Only one event is generated even if there is more than one
-        descriptor per packet  */
-    struct devq_buf* buf;
-    size_t ev_head = q->ev_head;
-    size_t rx_head;
-    sfn5122f_q_rx_ev_t ev;
-    sfn5122f_q_rx_user_desc_t d_user = 0;
-
-    ev = q->ev_ring[ev_head];
-    rx_head = sfn5122f_q_rx_ev_rx_ev_desc_ptr_extract(ev);
-
-    buf = &q->rx_bufs[rx_head];
-
-    *rid = buf->rid;
-    *bid = buf->bid;
-    *base = buf->addr;
-    *flags = buf->flags;
-
-    if(!sfn5122f_q_rx_ev_rx_ev_pkt_ok_extract(ev)) {   
-         // TODO error handling
-         q->rx_head = (rx_head + 1) % q->rx_size;
-         if (sfn5122f_q_rx_ev_rx_ev_tobe_disc_extract(ev)) {
-            // packet discared by softare -> ok
-            return NIC_ERR_RX_DISCARD;
-         }
-
-         printf("Packet not ok \n");
-         if (sfn5122f_q_rx_ev_rx_ev_buf_owner_id_extract(ev)) {
-             printf("Wrong owner \n");
-         }
-         return NIC_ERR_RX_PKT;
-    }
-
-    *len = sfn5122f_q_rx_ev_rx_ev_byte_ctn_extract(ev);
-    /* Length of 0 is treated as 16384 bytes */
-    if (*len == 0) {
-        *len = 16384;
-    }
-
-    rx_head = sfn5122f_q_rx_ev_rx_ev_desc_ptr_extract(ev);
-    d_user = q->rx_ring.user[rx_head];  
-
-    buf = &q->rx_bufs[rx_head];
-
-    *rid = buf->rid;
-    *bid = buf->bid;
-    *base = buf->addr;
-    *flags = buf->flags;
-
-    memset(ev, 0xff, sfn5122f_q_event_entry_size);
-    memset(d_user, 0 , sfn5122f_q_rx_user_desc_size);
 
     q->rx_head = (rx_head + 1) % q->rx_size;
     return SYS_ERR_OK;
@@ -450,7 +366,7 @@ static inline size_t sfn5122f_queue_free_txslots(sfn5122f_queue_t* q)
 }
 
 
-static inline errval_t sfn5122f_queue_handle_tx_ev(sfn5122f_queue_t* q, void** opaque)
+static inline errval_t sfn5122f_queue_handle_tx_ev(sfn5122f_queue_t* q)
 {   
     /*  Only one event is generated even if there is more than one
         descriptor per packet  */
@@ -458,75 +374,39 @@ static inline errval_t sfn5122f_queue_handle_tx_ev(sfn5122f_queue_t* q, void** o
     size_t tx_head;
     sfn5122f_q_tx_ev_t ev;
     sfn5122f_q_tx_ker_desc_t d = 0;
-    sfn5122f_q_tx_user_desc_t d_user= 0;
     
+
     ev = q->ev_ring[ev_head];
+    tx_head = sfn5122f_q_tx_ev_tx_ev_desc_ptr_extract(ev);
+
     if(sfn5122f_q_tx_ev_tx_ev_pkt_err_extract(ev)){     
            //TODO error handling
            return NIC_ERR_TX_PKT;
     }
 
+
     if (sfn5122f_q_tx_ev_tx_ev_comp_extract(ev) == 1){  
-        tx_head = sfn5122f_q_tx_ev_tx_ev_desc_ptr_extract(ev);
-        if (q->userspace) {
-            d_user = q->tx_ring.user[tx_head];  
-        } else {
+        // TX Event is a batch
+        if (is_batched(q->tx_size, tx_head, q->tx_head)) {
+            uint8_t index = 0;
+            q->num_left = 0;
+            d = q->tx_ring.ker[q->tx_head];  
+            while (q->tx_head != (tx_head + 1) % q->tx_size ) {
+                q->bufs[index] = q->tx_opaque[q->tx_head];
+                index++;
+                q->tx_head = (q->tx_head + 1) % q->tx_size;
+                q->num_left++;
+            }          
+            memset(d, 0 , sfn5122f_q_tx_ker_desc_size*q->num_left);
+        } else { // Singe descriptor
             d = q->tx_ring.ker[tx_head];  
+            q->num_left = 1;
+            q->bufs[0] = q->tx_opaque[tx_head];
+            memset(d, 0 , sfn5122f_q_tx_ker_desc_size);
         }
-
-        *opaque = q->tx_opaque[tx_head]; 
 
         // reset entry event in queue
         memset(ev, 0xff, sfn5122f_q_event_entry_size);
-        if (q->userspace) {
-            memset(d_user, 0 , sfn5122f_q_tx_user_desc_size);
-        } else {
-           memset(d, 0 , sfn5122f_q_tx_ker_desc_size);
-        }
-        q->tx_head = (tx_head +1) % q->tx_size;
-    }
-
-    return SYS_ERR_OK;
-}
-
-
-static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q, 
-                                                         regionid_t* rid,
-                                                         bufferid_t* bid,
-                                                         lpaddr_t* base,
-                                                         size_t* len,
-                                                         uint64_t* flags)
-{
-    /*  Only one event is generated even if there is more than one
-        descriptor per packet  */
-    size_t ev_head = q->ev_head;
-    size_t tx_head;
-    struct devq_buf* buf;
-    sfn5122f_q_tx_ev_t ev;
-    sfn5122f_q_tx_user_desc_t d_user= 0;
-   
-    ev = q->ev_ring[ev_head];
-    tx_head = sfn5122f_q_tx_ev_tx_ev_desc_ptr_extract(ev);
-    
-
-    buf = &q->tx_bufs[tx_head];
-
-    *rid = buf->rid;
-    *bid = buf->bid;
-    *base = buf->addr;
-    *flags = buf->flags;
-
-    if (sfn5122f_q_tx_ev_tx_ev_pkt_err_extract(ev)){     
-        q->tx_head = (tx_head +1) % q->tx_size;
-        return NIC_ERR_TX_PKT;
-    }
-
-    if (sfn5122f_q_tx_ev_tx_ev_comp_extract(ev) == 1){  
-        d_user = q->tx_ring.user[tx_head];  
-
-        // reset entry event in queue
-        memset(ev, 0xff, sfn5122f_q_event_entry_size);
-        memset(d_user, 0 , sfn5122f_q_tx_user_desc_size);
         q->tx_head = (tx_head +1) % q->tx_size;
     }
 
@@ -556,74 +436,5 @@ static inline int sfn5122f_queue_add_txbuf(sfn5122f_queue_t* q,
     return 0;
 }
 
-static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q, 
-                                                 regionid_t rid,
-                                                 bufferid_t bid,
-                                                 lpaddr_t base,
-                                                 size_t len,
-                                                 uint64_t flags)
-{
-    struct devq_buf* buf;
-    sfn5122f_q_tx_ker_desc_t d;
-    size_t tail = q->tx_tail;
-
-    d = q->tx_ring.ker[tail];
- 
-    buf = &q->tx_bufs[tail];
-   
-    bool last = flags & DEVQ_BUF_FLAG_TX_LAST;    
-    buf->rid = rid;
-    buf->bid = bid;
-    buf->addr = base;
-    buf->len = len;
-    buf->flags = flags;
-
-    sfn5122f_q_tx_ker_desc_tx_ker_buf_addr_insert(d, base);
-    sfn5122f_q_tx_ker_desc_tx_ker_byte_count_insert(d, len);
-    sfn5122f_q_tx_ker_desc_tx_ker_cont_insert(d, !last);
-    sfn5122f_q_tx_ker_desc_tx_ker_buf_region_insert(d, 0);
-
-    __sync_synchronize();
- 
-    q->tx_tail = (tail + 1) % q->tx_size;
-    return 0;
-}
-
-
-static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q, 
-                                                      uint64_t buftbl_idx, 
-                                                      uint64_t offset,
-                                                      regionid_t rid,
-                                                      bufferid_t devq_bid,
-                                                      lpaddr_t base,
-                                                      size_t len,
-                                                      uint64_t flags)
-{
-    sfn5122f_q_tx_user_desc_t d;
-    struct devq_buf* buf;
-    size_t tail = q->tx_tail;
-
-    d = q->tx_ring.ker[tail];
-    buf = &q->tx_bufs[tail];
-   
-    bool last = flags & DEVQ_BUF_FLAG_TX_LAST;    
-    buf->rid = rid;
-    buf->bid = devq_bid;
-    buf->addr = base;
-    buf->len = len;
-    buf->flags = flags;
-
-    sfn5122f_q_tx_user_desc_tx_user_sw_ev_en_insert(d, 0);
-    sfn5122f_q_tx_user_desc_tx_user_cont_insert(d, !last);
-    sfn5122f_q_tx_user_desc_tx_user_byte_cnt_insert(d, len);
-    sfn5122f_q_tx_user_desc_tx_user_buf_id_insert(d, buftbl_idx);
-    sfn5122f_q_tx_user_desc_tx_user_byte_ofs_insert(d, offset);
-
-    __sync_synchronize();
- 
-    q->tx_tail = (tail + 1) % q->tx_size;
-    return 0;
-}
-
-#endif //ndef SFN5122F_CHANNEL_H_
+#endif 
 
