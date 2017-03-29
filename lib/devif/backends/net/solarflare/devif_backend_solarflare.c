@@ -22,6 +22,7 @@
 #include "hw_queue.h"
 #include "helper.h"
 
+
 //#define DEBUG_SFN
 #ifdef DEBUG_SFN
     #define DEBUG_QUEUE(x...) printf("sfn5122f_q : " x)
@@ -32,8 +33,9 @@
 //#define DELAY 1
 
 // TX Queue
-#define TX_ENTRIES 2048
-#define RX_ENTRIES 2048
+#define TX_ENTRIES 4096
+#define RX_ENTRIES 4096
+#define EV_ENTRIES 32768
 // Event Queue
 #define EV_CODE_RX 0
 #define EV_CODE_TX 2
@@ -48,7 +50,9 @@
 
 /* for each TX/RX entry one entry plus an additonal 2 for mcdi completion
 and link state events */
-#define EV_ENTRIES 4096
+
+struct sfn5122f_queue* queues[1024];
+
 
 /**  Misc             */
 static errval_t update_rxtail(struct sfn5122f_queue* q, size_t tail)
@@ -56,12 +60,19 @@ static errval_t update_rxtail(struct sfn5122f_queue* q, size_t tail)
     assert(q->device != NULL);
     uint64_t reg = 0;
 
-    reg = sfn5122f_rx_desc_upd_reg_hi_rx_desc_wptr_insert(reg, tail);
-    /* don't want to push an additional rx descriptor with the write pointer */
-    reg = sfn5122f_rx_desc_upd_reg_hi_rx_desc_push_cmd_insert(reg, 0);
-    /* the lower register will be ignored   */
-    sfn5122f_rx_desc_upd_reg_lo_wr(q->device, q->id, 0);
-    sfn5122f_rx_desc_upd_reg_hi_wr(q->device, q->id, reg);
+    q->rx_batch_size++;
+
+    if (q->rx_batch_size > 31) { 
+        /* Write to this register is very very expensive (2500 cycles +) 
+           So we batch the updates together*/
+        reg = sfn5122f_rx_desc_upd_reg_hi_rx_desc_wptr_insert(reg, tail);
+        /* don't want to push an additional rx descriptor with the write pointer */
+        reg = sfn5122f_rx_desc_upd_reg_hi_rx_desc_push_cmd_insert(reg, 0);
+        /* the lower register will be ignored   */
+        sfn5122f_rx_desc_upd_reg_lo_wr(q->device, q->id, 0);
+        sfn5122f_rx_desc_upd_reg_hi_wr(q->device, q->id, reg);
+        q->rx_batch_size = 0;
+    }
 
     return SYS_ERR_OK;
 }
@@ -81,12 +92,23 @@ static errval_t update_txtail(struct sfn5122f_queue* q, size_t tail)
     return SYS_ERR_OK;
 }
 
+static void interrupt_cb(struct sfn5122f_devif_binding *b, uint16_t qid)
+{
+    struct sfn5122f_queue* q = queues[qid];
+    q->cb(q);
+}
+
+static struct sfn5122f_devif_rx_vtbl rx_vtbl = {
+    .interrupt = interrupt_cb,
+};
+
 static void bind_cb(void *st, errval_t err, struct sfn5122f_devif_binding *b)
 {
     
     DEBUG_QUEUE("binding CB  \n");
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) st;
     b->st = queue;
+    b->rx_vtbl = rx_vtbl;
     // Initi RPC client
     
     queue->b = b;
@@ -141,6 +163,7 @@ static errval_t sfn5122f_register(struct devq* q, struct capref cap,
     
     cur->next = entry;
     
+    DEBUG_QUEUE("Region %d registered \n", rid);
     return SYS_ERR_OK;
 }
 
@@ -177,7 +200,7 @@ static errval_t sfn5122f_deregister(struct devq* q, regionid_t rid)
 
 static errval_t sfn5122f_control(struct devq* q, uint64_t cmd, uint64_t value, uint64_t *result)
 {
-
+    
     DEBUG_QUEUE("Control cmd=%lu value=%lu \n", cmd, value);
     return SYS_ERR_OK;
 }
@@ -194,18 +217,24 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
                                genoffset_t valid_data, genoffset_t valid_length,
                                uint64_t flags)
 {
-
     DEBUG_QUEUE("Enqueueing RX buf \n");
     // check if there is space
+
     if (sfn5122f_queue_free_rxslots(q) == 0) {
-        printf("SFN5122F_%d: Not enough space in RX ring, not adding buffer\n",
+        DEBUG_QUEUE("SFN5122F_%d: Not enough space in RX ring, not adding buffer\n",
                 q->id);
         return DEVQ_ERR_QUEUE_FULL;
     }
 
     // find region
+
     struct region_entry* entry = q->regions;
     
+    // If regions already empty -> return error
+    if (entry == NULL) {
+        return DEVQ_ERR_INVALID_REGION_ARGS;
+    }
+
     while((entry->next != NULL) && (entry->rid != rid)) {
         entry = entry->next;
     }
@@ -213,36 +242,35 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
     if (entry == NULL) {
         return DEVQ_ERR_INVALID_REGION_ARGS;
     }
-    
-    // compute buffer table entry of the rx buffer and the within it offset
-    uint64_t buftbl_idx = entry->buftbl_idx + (offset/BUF_SIZE);
-    uint16_t b_off = offset & 0x00000FFF;
 
-    // still in the same buffer table entry
-    assert(buftbl_idx == (entry->buftbl_idx + ((offset+length-1)/BUF_SIZE)));
-
-   
-    DEBUG_QUEUE("RX_BUF tbl_idx=%lu offset=%d flags=%lu \n",
-                buftbl_idx, b_off, flags);
     if (q->userspace) {
+        // compute buffer table entry of the rx buffer and the within it offset
+        uint64_t buftbl_idx = entry->buftbl_idx + (offset/BUF_SIZE);
+        uint16_t b_off = offset & 0x00000FFF;
+
+        DEBUG_QUEUE("RX_BUF tbl_idx=%lu offset=%d flags=%lu \n",
+                    buftbl_idx, b_off, flags);
+        // still in the same buffer table entry
+        assert(buftbl_idx == (entry->buftbl_idx + ((offset+length-1)/BUF_SIZE)));
         sfn5122f_queue_add_user_rxbuf_devif(q, buftbl_idx, b_off,
                                             rid, offset, length, valid_data,
                                             valid_length, flags);
     } else {
         sfn5122f_queue_add_rxbuf_devif(q, entry->phys + offset, rid, offset, length,
                                        valid_data, valid_length, flags);
+
     }
-    sfn5122f_queue_bump_rxtail(q);
+
+    update_rxtail(q, q->rx_tail);
     return SYS_ERR_OK;
 }
-
 
 static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
                                genoffset_t offset, genoffset_t length,
                                genoffset_t valid_data, genoffset_t valid_length,
                                uint64_t flags)
 {
-    DEBUG_QUEUE("Enqueueing TX buf \n");
+    DEBUG_QUEUE("Enqueueing TX buf\n");
     // check if there is space
     if (sfn5122f_queue_free_txslots(q) == 0) {
         printf("SFN5122F_%d: Not enough space in TX ring, not adding buffer\n",
@@ -253,6 +281,10 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
     // find region
     struct region_entry* entry = q->regions;
     
+    if (entry == NULL) {
+        return DEVQ_ERR_INVALID_REGION_ARGS;
+    }
+
     while((entry->next != NULL) && (entry->rid != rid)) {
         entry = entry->next;
     }
@@ -261,31 +293,29 @@ static errval_t enqueue_tx_buf(struct sfn5122f_queue* q, regionid_t rid,
         return DEVQ_ERR_INVALID_REGION_ARGS;
     }
     
-    // compute buffer table entry of the rx buffer and the within it offset
-    uint64_t buftbl_idx = entry->buftbl_idx + (offset/BUF_SIZE);
-    uint16_t b_off = offset & 0x00000FFF;
 
-
-    // still in the same buffer table entry
-    assert(buftbl_idx == (entry->buftbl_idx + ((offset+length-1)/BUF_SIZE)));
-
-    DEBUG_QUEUE("TX_BUF tbl_idx=%lu offset=%d flags=%lu \n", buftbl_idx, b_off,
-                flags);
     if (q->userspace) {
+        // compute buffer table entry of the rx buffer and the within it offset
+        uint64_t buftbl_idx = entry->buftbl_idx + (offset/BUF_SIZE);
+        uint16_t b_off = offset & 0x00000FFF;
 
-        DEBUG_QUEUE("TX_BUF tbl_idx=%lu offset=%d flags=%lu \n", buftbl_idx, b_off,
-                    flags);
+
+        DEBUG_QUEUE("TX_BUF tbl_idx=%lu offset=%d flags=%lx \n", buftbl_idx, b_off,
+                flags);
+        // still in the same buffer table entry
+        assert(buftbl_idx == (entry->buftbl_idx + ((offset+length-1)/BUF_SIZE)));
         sfn5122f_queue_add_user_txbuf_devif(q, buftbl_idx, b_off,
                                             rid, offset, length, valid_data,
                                             valid_length, flags);
+
     } else {
 
-        DEBUG_QUEUE("TX_BUF flags=%lu \n", flags);
+        DEBUG_QUEUE("TX_BUF phys=%zu \n", entry->phys + offset);
         sfn5122f_queue_add_txbuf_devif(q, entry->phys + offset, rid, offset,
                                        length, valid_data, valid_length,
                                        flags);
     }
-    sfn5122f_queue_bump_txtail(q);
+    update_txtail(q, q->tx_tail);
     return SYS_ERR_OK;
 }
 
@@ -315,6 +345,9 @@ static errval_t sfn5122f_enqueue(struct devq* q, regionid_t rid,
         if (err_is_fail(err)) {
             return err;
         }
+    } else {
+        printf("Unknown buffer flags \n");
+        return NIC_ERR_ENQUEUE;
     }
 
     return SYS_ERR_OK;
@@ -329,7 +362,7 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
     
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) q;
 
-    sfn5122f_evq_rptr_reg_wr(queue->device, queue->id, queue->ev_head);
+    //sfn5122f_evq_rptr_reg_wr(queue->device, queue->id, queue->ev_head);
     //__sync_synchronize();
 
     if (queue->num_left > 0) {
@@ -352,10 +385,21 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
             err = sfn5122f_queue_handle_rx_ev_devif(queue, rid, offset, length,
                                                     valid_data, valid_length,
                                                     flags);
-            if (err_is_ok(err)) {
-                DEBUG_QUEUE(" RX_EV Q_ID: %d len %ld \n", queue->id, *length);
+            DEBUG_QUEUE("RX_EV Q_ID: %d len %ld OK %s \n", queue->id, *valid_length,
+                        err_getstring(err));
+
+            if (err_is_fail(err)) {
+                err = enqueue_rx_buf(queue, *rid, *offset, *length,
+                                     *valid_data, *valid_length,
+                                     *flags);
+                if (err_is_fail(err)) {
+                    printf("Error receiving packet, could not enqueue buffer\n");
+                }
+                sfn5122f_queue_bump_evhead(queue);
+                continue;
             }
             sfn5122f_queue_bump_evhead(queue);
+            assert(*valid_length > 0);
             return SYS_ERR_OK;
         case EV_CODE_TX:
             err = sfn5122f_queue_handle_tx_ev_devif(queue, rid, offset, length,
@@ -370,7 +414,7 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
             sfn5122f_queue_bump_evhead(queue);
             return SYS_ERR_OK;
         case EV_CODE_DRV:
-            //DEBUG_QUEUE("DRIVER EVENT %d\n", qi);
+            DEBUG_QUEUE("DRIVER EVENT %d\n", queue->id);
             sfn5122f_handle_drv_ev(queue, queue->id);
             sfn5122f_queue_bump_evhead(queue);
             break;
@@ -383,7 +427,7 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
             sfn5122f_queue_bump_evhead(queue);
             break;
         case EV_CODE_MCDI:
-            //DEBUG_QUEUE("MCDI EVENT \n");
+            DEBUG_QUEUE("MCDI EVENT \n");
             sfn5122f_queue_handle_mcdi_event(queue);
             sfn5122f_queue_bump_evhead(queue);
             break;
@@ -403,12 +447,12 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
 
 static void interrupt_handler(void* arg)
 {
-    printf("WTF \n");
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) arg;
-    // TODO check fata interrupts
 
     queue->cb(queue);
 }
+
+
 
 /**
  * Public functions
@@ -436,7 +480,6 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
    
     /* Allocate memory for descriptor rings
        No difference for userspace networking*/
-    // TODO too large ...
     total_size = sizeof(uint64_t)*(TX_ENTRIES + RX_ENTRIES + EV_ENTRIES);
     tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, total_size, &frame);
     if (tx_virt == NULL) {
@@ -545,6 +588,8 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     queue->q.f.notify = sfn5122f_notify;
     
     *q = queue;
+
+    queues[queue->id] = queue;
 
     return SYS_ERR_OK;
 }

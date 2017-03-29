@@ -20,6 +20,8 @@
 #include <barrelfish/net_constants.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/descq.h>
+#include <devif/backends/net/sfn5122f_devif.h>
+#include <devif/backends/net/e10k_devif.h>
 
 #define MAX_SERVICE_NAME_LEN  256   // Max len that a name of service can have
 #define BUFFER_SIZE 2048
@@ -36,6 +38,12 @@ static struct descq *devq_tx = NULL;
 static uint64_t bufid_tx;
 static regionid_t regid_tx;
 
+static struct devq *devq_direct = NULL;
+static regionid_t regid_direct;
+static bool direct = false;
+static bool reg = false;
+
+
 static struct capref buffer_frame;
 void *buffer_base = NULL;
 size_t buffer_size = 2048;
@@ -51,8 +59,13 @@ errval_t buffer_tx_add(size_t idx, size_t offset, size_t length,
     errval_t err;
     
     offset += idx * BUFFER_SIZE;
-    err = devq_enqueue((struct devq *)devq_tx, regid_tx, offset, length, 0, 0, flags);
-    assert(err_is_ok(err));
+    if (!direct) {
+        err = devq_enqueue((struct devq *)devq_tx, regid_tx, offset, length, 0, 0, flags);
+    } else {
+        flags = 0;
+        err = devq_enqueue((struct devq *)devq_direct, regid_direct, offset, 
+                           length, 0, length, (flags | NETIF_TXFLAG | NETIF_TXFLAG_LAST));
+    }
     return err;
 }
 
@@ -62,8 +75,13 @@ errval_t buffer_rx_add(size_t idx)
     size_t offset;
     
     offset = idx * BUFFER_SIZE;
-    err = devq_enqueue((struct devq *)devq_rx, regid_rx, offset, BUFFER_SIZE, 0, 0, 0);
-    assert(err_is_ok(err));
+    if (!direct) {
+        err = devq_enqueue((struct devq *)devq_rx, regid_rx, offset, BUFFER_SIZE, 0, 0, 0);
+    } else {
+        uint64_t flags = 0;
+        err = devq_enqueue((struct devq *)devq_direct, regid_direct, offset, BUFFER_SIZE, 
+                           0, BUFFER_SIZE, flags | NETIF_RXFLAG);
+    }
     return err;
 }
 
@@ -88,12 +106,19 @@ static void alloc_mem(struct capref *frame, void** virt, size_t size)
 
 static void buffers_init(size_t count)
 {
-    alloc_mem(&buffer_frame, &buffer_base, BUFFER_SIZE * count);
     errval_t err;
-    err = devq_register((struct devq *)devq_rx, buffer_frame, &regid_rx);
-    assert(err_is_ok(err));
-    err = devq_register((struct devq *)devq_tx, buffer_frame, &regid_tx);
-    assert(err_is_ok(err));
+    alloc_mem(&buffer_frame, &buffer_base, BUFFER_SIZE * count);
+
+    if (!direct) { 
+        err = devq_register((struct devq *)devq_rx, buffer_frame, &regid_rx);
+        assert(err_is_ok(err));
+        err = devq_register((struct devq *)devq_tx, buffer_frame, &regid_tx);
+        assert(err_is_ok(err));
+    } else {
+        err = devq_register((struct devq *)devq_direct, buffer_frame, &regid_direct);
+        assert(err_is_ok(err));
+        reg = true;
+    }
 }
 
 
@@ -164,14 +189,41 @@ static void connect_to_driver(const char *cname, uint64_t qid, bool isRX, struct
     struct descq_func_pointer f;
     f.notify = isRX ? notify_rx: notify_tx;
     
-    debug_printf("Descriptor queue test started \n");
     err = descq_create(isRX ? &devq_rx: &devq_tx, DESCQ_DEFAULT_SIZE, qm_name,
                        false, true, !isRX, isRX ? &bufid_rx: &bufid_tx, &f);
     assert(err_is_ok(err));
 }
 
+static void int_handler(void* args)
+{
+    regionid_t rid;
+    genoffset_t offset;
+    genoffset_t length;
+    genoffset_t valid_data;
+    genoffset_t valid_length;
+    uint64_t flags;
+
+    for (;;) {
+        errval_t err;
+        err = devq_dequeue(devq_direct, &rid, &offset, &length,
+                           &valid_data, &valid_length, &flags);
+        if (err_is_fail(err))
+            break;
+
+        size_t idx = offset / BUFFER_SIZE;
+        if (flags & NETIF_TXFLAG) {
+            benchmark_tx_done(idx);
+        } else if (flags & NETIF_RXFLAG) {
+            assert(valid_length > 0);
+            benchmark_rx_done(idx, valid_length, 0/*more*/, flags);
+        }
+    }
+
+}
+
 void net_if_init(const char* cardname, uint64_t qid)
 {
+    errval_t err;
     static bool initialized = false;
     struct waitset *ws = get_default_waitset();
 
@@ -183,15 +235,40 @@ void net_if_init(const char* cardname, uint64_t qid)
     queue_id = qid;
 
     // Connect RX path
-    connect_to_driver(cardname, queue_id, true, ws);
-    // Connect TX path
-    connect_to_driver(cardname, queue_id, false, ws);
+    if ((strcmp(cardname, "e1000") == 0) || (qid == 0)) {
+        connect_to_driver(cardname, queue_id, true, ws);
+        // Connect TX path
+        connect_to_driver(cardname, queue_id, false, ws);
+    } else if ((strcmp(cardname, "e10k") == 0) && (qid != 0)) {
+        USER_PANIC("e10k queue NIY \n");
+        /*
+        direct = true;
+        struct e10k_queue* e10k;
+        err = e10k_queue_create(&e10k, int_handler, false, false);
+        assert(err_is_ok(err));
+
+        devq_direct = (struct devq*) e10k; 
+        card_mac = 0x1; // TODO 
+        */
+    } else if ((strcmp(cardname, "sfn5122f") == 0) && qid != 0) {
+        direct = true;
+        struct sfn5122f_queue* sfn5122f;
+        err = sfn5122f_queue_create(&sfn5122f, int_handler, false, true);
+        assert(err_is_ok(err));
+
+        devq_direct = (struct devq*) sfn5122f; 
+        card_mac = 0x000f530748d4; // TODO 
+    } else {
+        USER_PANIC("Unknown card name \n");
+    }
+
     buffers_init(BUFFER_COUNT);
 
     // Get MAC address
-    errval_t err;
-    err = devq_control((struct devq *)devq_rx, 0, 0, &card_mac);
-    assert(err_is_ok(err));
+    if (!direct) {
+        err = devq_control((struct devq *)devq_rx, 0, 0, &card_mac);
+        assert(err_is_ok(err));
+    }
 
     initialized = true;
 }
