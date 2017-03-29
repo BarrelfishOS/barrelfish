@@ -198,9 +198,11 @@ static errval_t sfn5122f_deregister(struct devq* q, regionid_t rid)
 }
 
 
-static errval_t sfn5122f_control(struct devq* q, uint64_t cmd, uint64_t value, uint64_t *result)
+static errval_t sfn5122f_control(struct devq* q, uint64_t cmd, uint64_t value, 
+                                 uint64_t *result)
 {
-    
+    struct sfn5122f_queue* queue = (struct sfn5122f_queue*) q;
+    *result = queue->mac;
     DEBUG_QUEUE("Control cmd=%lu value=%lu \n", cmd, value);
     return SYS_ERR_OK;
 }
@@ -535,7 +537,8 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
         printf("Solarflare queue used in polling mode \n");
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
                                                  interrupts,
-                                                 0, 0, &queue->id, &regs, &err2);
+                                                 0, 0, &queue->mac ,&queue->id, 
+                                                 &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             return err;
@@ -549,8 +552,8 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
         
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
                                                  interrupts, queue->core,
-                                                 queue->vector, &queue->id,
-                                                 &regs, &err2);
+                                                 queue->vector, &queue->mac, 
+                                                 &queue->id, &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             printf("Registering interrupt failed, continueing in polling mode \n");

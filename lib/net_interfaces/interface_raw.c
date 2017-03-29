@@ -253,11 +253,13 @@ void net_if_init(const char* cardname, uint64_t qid)
     } else if ((strcmp(cardname, "sfn5122f") == 0) && qid != 0) {
         direct = true;
         struct sfn5122f_queue* sfn5122f;
-        err = sfn5122f_queue_create(&sfn5122f, int_handler, false, true);
+        err = sfn5122f_queue_create(&sfn5122f, int_handler, 
+                                    false /*userlevel network feature*/, 
+                                    true /* user interrupts*/);
         assert(err_is_ok(err));
 
         devq_direct = (struct devq*) sfn5122f; 
-        card_mac = 0x000f530748d4; // TODO 
+        //card_mac = 0x000f530748d4; // TODO 
     } else {
         USER_PANIC("Unknown card name \n");
     }
@@ -265,8 +267,12 @@ void net_if_init(const char* cardname, uint64_t qid)
     buffers_init(BUFFER_COUNT);
 
     // Get MAC address
-    if (!direct) {
+    if(!direct) {
         err = devq_control((struct devq *)devq_rx, 0, 0, &card_mac);
+        assert(err_is_ok(err));
+    } else {
+        err = devq_control((struct devq *)devq_direct, 0, 0, &card_mac);
+        printf("MAC %16lX \n", card_mac);
         assert(err_is_ok(err));
     }
 

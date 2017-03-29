@@ -1418,7 +1418,7 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
 
     if (n == -1) {
         err = NIC_ERR_ALLOC_QUEUE;
-        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, NULL_CAP, err);
+        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, 0, NULL_CAP, err);
         //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
         assert(err_is_ok(err));
     }
@@ -1458,7 +1458,7 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
        queues[n].rx_buf_tbl == -1){
         err = NIC_ERR_ALLOC_QUEUE;
         //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
-        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, NULL_CAP, err);
+        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, 0, NULL_CAP, err);
         assert(err_is_ok(err));
     }
 
@@ -1472,7 +1472,8 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     err = cap_copy(regs, *regframe);
     assert(err_is_ok(err));
 
-    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, regs, SYS_ERR_OK);
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, d_mac[pci_function], n, 
+                                           regs, SYS_ERR_OK);
     assert(err_is_ok(err));
     DEBUG("cd_create_queue end\n");
 }

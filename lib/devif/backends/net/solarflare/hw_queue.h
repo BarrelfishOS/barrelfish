@@ -95,6 +95,7 @@ struct sfn5122f_queue {
 
     // Direct interface fields
     uint16_t id;
+    uint64_t mac;
     struct capref frame;
     sfn5122f_t *device;
     void* device_va;
