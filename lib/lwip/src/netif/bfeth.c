@@ -268,7 +268,7 @@ bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
     //which was processed in this function. Therefore we have to register a new
     //free buffer for receiving packets. We can reuse the odl buffer's index
     //and the corresponding data structures (i.e. array entries)
-    uint64_t ts = rdtsc();
+    //uint64_t ts = rdtsc();
     errval_t err = mem_barrelfish_replace_pbuf(replaced_pbuf);
     if (err != SYS_ERR_OK) {
         printf("Can't replace received pbuf in RX ring\n");
@@ -276,7 +276,7 @@ bfeth_input(struct netif *netif, uint64_t pbuf_id, uint64_t paddr, uint64_t len,
         USER_PANIC("Can't replace received pbuf in RX ring\n");
     }
 
-    netbench_record_event_simple(nb, RE_PBUF_REPLACE, ts);
+    //netbench_record_event_simple(nb, RE_PBUF_REPLACE, ts);
 }
 
 static void bfeth_input_handler(void *data, uint64_t pbuf_id, uint64_t paddr,
