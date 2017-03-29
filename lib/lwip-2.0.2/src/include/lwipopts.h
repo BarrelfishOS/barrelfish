@@ -42,6 +42,7 @@
 #include <barrelfish/net_constants.h>
 
 
+
 /// Don't want lwip POSIX socket wrappers
 #define LWIP_POSIX_SOCKETS_IO_NAMES     0
 
@@ -89,7 +90,7 @@
  *    4 byte alignment -> #define MEM_ALIGNMENT 4
  *    2 byte alignment -> #define MEM_ALIGNMENT 2
  */
-#define MEM_ALIGNMENT                   1
+#define MEM_ALIGNMENT                   8
 
 
 /*
@@ -97,6 +98,10 @@
    ---------- Internal Memory Pool Sizes ----------
    ------------------------------------------------
 */
+
+#define LWIP_SUPPORT_CUSTOM_PBUF 1
+#define MEM_USE_POOLS 1
+#define MEMP_USE_CUSTOM_POOLS 1
 
 
 /**
@@ -374,7 +379,7 @@
  * LWIP_HAVE_LOOPIF==1: Support loop interface (127.0.0.1) and loopif.c
  */
 #define LWIP_HAVE_LOOPIF                1
-
+#define LWIP_NETIF_LOOPBACK 1
 
 /** LWIP_ETHERNET==1: enable ethernet support even though ARP might be disabled
  */

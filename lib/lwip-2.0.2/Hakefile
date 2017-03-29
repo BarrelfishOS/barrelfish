@@ -15,12 +15,14 @@
 let 
     subdirs = [ "src/core", "src/core/ipv4",  "src/netif",  "src/api" ]
     
-    srcs = concat [ find cInDir sd | sd <- subdirs ] ++ ["src/sys_arch.c"]
+    srcs = concat [ find cInDir sd | sd <- subdirs ] 
+            ++ ["src/sys_arch.c", "src/barrelfish/pbuf_barrelfish.c" ]
     --   ++ [ "src/netif/bfeth.c", "src/netif/etharp.c", "src/sys_arch.c" ]
+    srcs2 = filter (\x ->  not (Data.List.isInfixOf "pbuf.c" x)) srcs
 in
   [ build library { 
         target = "lwip2",
-        cFiles = srcs,
+        cFiles = srcs2,
         -- omitCFlags = [ "-Werror" ],
         -- addCFlags =  [ "-Wno-redundant-decls", "-DBF_LWIP_CHAN_SUPPORT" ],
         flounderBindings = [ "net_queue_manager", "net_ports", "net_ARP" ],
