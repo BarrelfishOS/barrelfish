@@ -24,8 +24,18 @@ lpaddr_t phys_memory_start= 0;
  * ----------------------------------------------------------------------------
  */
 
+// These values are from the APM88xx manual
+//lpaddr_t platform_gic_cpu_base  = 0x00000000781e2000;
+//lpaddr_t platform_gic_dist_base = 0x0000000078121000;
+
+// These values are from linux devicetree file
 lpaddr_t platform_gic_cpu_base  = 0x0000000078020000;
 lpaddr_t platform_gic_dist_base = 0x0000000078010000;
+
+/*
+lpaddr_t platform_gic_cpu_base  = 0x0000000078010000;
+lpaddr_t platform_gic_dist_base = 0x0000000078020000;
+*/
 
 
 /*

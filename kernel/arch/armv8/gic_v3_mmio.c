@@ -31,13 +31,21 @@ errval_t gicv3_init(void)
 {
     printk(LOG_NOTE, "gicv3_init (mem-mapped CPU if) enter\n");
 
-    lvaddr_t gic_cpu = local_phys_to_mem(platform_get_gic_cpu_address());
-    gic_v3_initialize(&gic_v3_dev, (char *)gic_cpu);
-
     lvaddr_t gic_dist = local_phys_to_mem(platform_get_distributor_address());
-    gic_v3_cpu_initialize(&gic_v3_cpu_dev, (char *)gic_dist);
+    gic_v3_initialize(&gic_v3_dev, (char *)gic_dist);
+
+    lvaddr_t gic_cpu = local_phys_to_mem(platform_get_gic_cpu_address());
+    gic_v3_cpu_initialize(&gic_v3_cpu_dev, (char *)gic_cpu);
+
+    if(gic_v3_GICD_CTLR_secure_DS_rdf(&gic_v3_dev)){
+        printk(LOG_NOTE, "gicv3_init: GIC supports secure mode\n"); 
+    } else {
+        printk(LOG_NOTE, "gicv3_init: GIC does not support secure mode\n"); 
+    }
 
     printk(LOG_NOTE, "gicv3_init done\n");
+
+
     return SYS_ERR_OK;
 }
 
@@ -88,6 +96,14 @@ void gicv3_raise_softirq(coreid_t cpuid, uint8_t irq)
 errval_t gicv3_cpu_interface_enable(void)
 {
     printk(LOG_NOTE, "gicv3_cpu_interface_enable: enabling group 1 int\n");
+
+    printk(LOG_NOTE, "GICC IIDR "
+            "implementer=0x%x, revision=0x%x, variant=0x%x, prodid=0x%x\n",
+            gic_v3_cpu_IIDR_Implementer_rdf(&gic_v3_cpu_dev),
+            gic_v3_cpu_IIDR_Revision_rdf(&gic_v3_cpu_dev),
+            gic_v3_cpu_IIDR_Variant_rdf(&gic_v3_cpu_dev),
+            gic_v3_cpu_IIDR_ProductID_rdf(&gic_v3_cpu_dev)
+            );
 
     // Linux does: 
     // sets priority mode: PMR to 0xf0
