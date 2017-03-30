@@ -28,7 +28,8 @@ struct ele {
     struct ele* next;
 };
 
-static errval_t create(struct descq* q, bool notifications)
+static errval_t create(struct descq* q, bool notifications, uint8_t role,
+                       uint64_t* queue_id)
 {
     printf("Create \n");
     if (list == NULL) {
@@ -114,7 +115,7 @@ static errval_t dereg(struct descq* q, regionid_t rid)
 }
 
 
-static errval_t control(struct descq* q, uint64_t cmd, uint64_t value)
+static errval_t control(struct descq* q, uint64_t cmd, uint64_t value, uint64_t* res)
 {
     printf("Control \n");
     return SYS_ERR_OK;
@@ -122,6 +123,7 @@ static errval_t control(struct descq* q, uint64_t cmd, uint64_t value)
 
 int main(int argc, char *argv[])
 {
+    uint64_t id;
     errval_t err;
     struct descq_func_pointer* f = malloc(sizeof(struct descq_func_pointer));
     assert(f != NULL);
@@ -135,8 +137,8 @@ int main(int argc, char *argv[])
 
     struct descq* exp_queue;
 
-    err = descq_create(&exp_queue, DESCQ_DEFAULT_SIZE, "test_queue",
-                       true, true, f);
+    err = descq_create(&exp_queue, DESCQ_DEFAULT_SIZE, "test_queue", 
+                       true, true, 0, &id, f);
 
     assert(err_is_ok(err));
 
