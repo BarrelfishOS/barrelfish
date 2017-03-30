@@ -483,15 +483,12 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
             q->last_deq = 0;
 
             // set descriptor to 0 
-            /*
             if (q->userspace){
                 memset(d_user, 0 , sfn5122f_q_tx_user_desc_size*q->num_left);
             } else {
                 memset(d, 0 , sfn5122f_q_tx_ker_desc_size*q->num_left);
             }
-            */
         } else { // Singe descriptor
-            /*
             if (q->userspace){
                 d_user = q->tx_ring.user[q->tx_head];  
                 memset(d_user, 0 , sfn5122f_q_tx_user_desc_size);
@@ -499,7 +496,6 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
                 d = q->tx_ring.ker[q->tx_head];  
                 memset(d, 0 , sfn5122f_q_tx_ker_desc_size);
             }
-            */
         }
 
         // reset entry event in queue

@@ -280,7 +280,8 @@ static void test_net_tx(void)
     
     printf("Write throughput %.2f [MB/s] for %.2f ms \n", bw, result_ms);
 
-    err = devq_control(q, 1, 1, NULL);
+    
+    err = devq_control(q, 1, 1, &sent_bytes);
     if (err_is_fail(err)){
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq control failed \n");
