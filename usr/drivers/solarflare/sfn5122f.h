@@ -27,7 +27,7 @@
 #define DEVICE_ID 0x803
 // TX Queue
 #define TX_DESC_CACHE_SIZE 16
-#define TX_ENTRIES 2048
+#define TX_ENTRIES 4096
 #define TX_DC_BASE 0x11000
 // Event Queue
 #define EV_CODE_RX 0
@@ -40,11 +40,11 @@
 
 /* for each TX/RX entry one entry plus an additonal 2 for mcdi completion
 and link state events */
-#define EV_ENTRIES 4096
+#define EV_ENTRIES 32768
 
 // RX Queue
 #define RX_DESC_CACHE_SIZE 64
-#define RX_ENTRIES 2048
+#define RX_ENTRIES 4096
 #define RX_DC_BASE 0xD000
 // calculcat max frame length
 #define MTU 1500

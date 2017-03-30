@@ -16,7 +16,7 @@ extern struct buffer_descriptor *buffers_list;
 
 /* NETD connections */
 #define NETD_BUF_NR 2
-struct net_queue_manager_binding *netd[NETD_BUF_NR];
+struct devq *netd[NETD_BUF_NR];
 
 // Measurement purpose, counting interrupt numbers
 extern uint64_t interrupt_counter;
@@ -29,7 +29,7 @@ extern uint64_t total_rx_datasize;
 //struct buffer_descriptor *find_buffer(uint64_t buffer_id);
 
 // Function prototypes for ether_control service
-void init_soft_filters_service(char *service_name, uint64_t qid,
+void init_soft_filters_service(struct net_soft_filter_state *state, char *service_name, uint64_t qid,
                                size_t rx_bufsz);
 void sf_process_received_packet(struct driver_rx_buffer *buf, size_t count,
                                 uint64_t flags);

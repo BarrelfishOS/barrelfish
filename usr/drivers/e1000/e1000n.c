@@ -353,10 +353,6 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
                                       size_t                count)
 
 {
-    if (!count) { // flush
-        update_e1000_tdt();
-        return SYS_ERR_OK;
-    }
     E1000_DEBUG("transmit_pbuf_list_fn(count=%"PRIu64")\n", count);
     if (!can_transmit(count)){
         while(handle_free_TX_slot_fn());
@@ -385,6 +381,7 @@ static errval_t transmit_pbuf_list_fn(struct driver_buffer *buffers,
         (uint32_t)0);
 #endif // TRACE_ONLY_SUB_NNET
 
+    update_e1000_tdt();
     return SYS_ERR_OK;
 } // end function: transmit_pbuf_list_fn
 
@@ -763,7 +760,6 @@ static void e1000_interrupt_handler_fn(void *arg)
         handle_multiple_packets(1);
 #endif
     }
-    check_queues();
     while(handle_free_TX_slot_fn());
 }
 

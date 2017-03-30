@@ -61,6 +61,8 @@ struct sfn5122f_queue {
     uint16_t                        rx_head;
     uint16_t                        rx_tail;
     uint16_t                        rx_size;
+    uint8_t                         rx_batch_size;
+
 
     sfn5122f_q_event_entry_array_t* ev_ring;
     uint32_t                        ev_head;
@@ -93,6 +95,7 @@ struct sfn5122f_queue {
 
     // Direct interface fields
     uint16_t id;
+    uint64_t mac;
     struct capref frame;
     sfn5122f_t *device;
     void* device_va;
@@ -131,6 +134,7 @@ static inline sfn5122f_queue_t* sfn5122f_queue_init(void* tx,
     q->rx_bufs = malloc(sizeof(struct devq_buf) * rx_size);
     q->rx_head = 0;
     q->rx_tail = 0;
+    q->rx_batch_size = 0;
     q->rx_size = rx_size;
   
     q->ev_ring = ev;
@@ -317,12 +321,12 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
     /*  Only one event is generated even if there is more than one
         descriptor per packet  */
     struct devq_buf* buf;
-    size_t ev_head = q->ev_head;
     size_t rx_head;
     sfn5122f_q_rx_ev_t ev;
-    sfn5122f_q_rx_user_desc_t d_user = 0;
+    //sfn5122f_q_rx_user_desc_t d_user= 0;
+    //sfn5122f_q_rx_ker_desc_t d = 0;
 
-    ev = q->ev_ring[ev_head];
+    ev = q->ev_ring[q->ev_head];
     rx_head = sfn5122f_q_rx_ev_rx_ev_desc_ptr_extract(ev);
 
     buf = &q->rx_bufs[rx_head];
@@ -341,7 +345,6 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
             return NIC_ERR_RX_DISCARD;
          }
 
-         printf("Packet not ok \n");
          if (sfn5122f_q_rx_ev_rx_ev_buf_owner_id_extract(ev)) {
              printf("Wrong owner \n");
          }
@@ -354,19 +357,18 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
         *valid_length = 16384;
     }
 
-    rx_head = sfn5122f_q_rx_ev_rx_ev_desc_ptr_extract(ev);
-    d_user = q->rx_ring.user[rx_head];  
 
-    buf = &q->rx_bufs[rx_head];
-
-    *rid = buf->rid;
-    *offset = buf->offset;
-    *length = buf->length;
-    *valid_data = buf->valid_data;
-    *flags = buf->flags;
-
+    /*
+    if (q->userspace){
+        d_user = q->tx_ring.user[q->tx_head];  
+        d_user = 0;
+    } else {
+        d = q->tx_ring.ker[q->tx_head];  
+        d = 0;
+    }
+    */
+    /* only have to reset event entry */
     memset(ev, 0xff, sfn5122f_q_event_entry_size);
-    memset(d_user, 0 , sfn5122f_q_rx_user_desc_size);
 
     q->rx_head = (rx_head + 1) % q->rx_size;
     return SYS_ERR_OK;
@@ -430,6 +432,7 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
     struct devq_buf* buf;
     sfn5122f_q_tx_ev_t ev;
     sfn5122f_q_tx_user_desc_t d_user= 0;
+    sfn5122f_q_tx_ker_desc_t d = 0;
    
     ev = q->ev_ring[ev_head];
     tx_head = sfn5122f_q_tx_ev_tx_ev_desc_ptr_extract(ev);
@@ -437,8 +440,8 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
 
     buf = &q->tx_bufs[q->tx_head];
 
-    //printf("Tx_head %d q->tx_head %d size %ld \n", tx_head, q->tx_head,
-    //        q->tx_size);
+    //printf("Tx_head %d q->tx_head %d size %ld q->tx_tail %d\n", 
+    //        tx_head, q->tx_head, q->tx_size, q->tx_tail);
 
     *rid = buf->rid;
     *offset = buf->offset;
@@ -456,7 +459,13 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
         if (is_batched(q->tx_size, tx_head, q->tx_head)) {
             uint8_t index = 0;
             q->num_left = 0;
-            d_user = q->tx_ring.user[q->tx_head];  
+
+            if (q->userspace) {
+                d_user = q->tx_ring.user[q->tx_head];  
+            } else {
+                d = q->tx_ring.ker[q->tx_head];  
+            }
+
             while (q->tx_head != (tx_head + 1) % q->tx_size ) {
                 buf = &q->tx_bufs[q->tx_head];
                 q->bufs[index].rid = buf->rid;
@@ -465,16 +474,28 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
                 q->bufs[index].valid_length = buf->valid_length;
                 q->bufs[index].flags = buf->flags;
                 q->bufs[index].length = buf->length;
-                d_user = q->tx_ring.user[tx_head];  
+                //d_user = q->tx_ring.user[tx_head];  
                 index++;
                 q->tx_head = (q->tx_head + 1) % q->tx_size;
                 q->num_left++;
-            }          
-            q->last_deq = 0;  
-            memset(d_user, 0 , sfn5122f_q_tx_user_desc_size*q->num_left);
+            }
+          
+            q->last_deq = 0;
+
+            // set descriptor to 0 
+            if (q->userspace){
+                memset(d_user, 0 , sfn5122f_q_tx_user_desc_size*q->num_left);
+            } else {
+                memset(d, 0 , sfn5122f_q_tx_ker_desc_size*q->num_left);
+            }
         } else { // Singe descriptor
-            d_user = q->tx_ring.user[tx_head];  
-            memset(d_user, 0 , sfn5122f_q_tx_user_desc_size);
+            if (q->userspace){
+                d_user = q->tx_ring.user[q->tx_head];  
+                memset(d_user, 0 , sfn5122f_q_tx_user_desc_size);
+            } else {
+                d = q->tx_ring.ker[q->tx_head];  
+                memset(d, 0 , sfn5122f_q_tx_ker_desc_size);
+            }
         }
 
         // reset entry event in queue

@@ -21,6 +21,7 @@
 #include <procon/procon.h>
 #include <barrelfish/net_constants.h>
 #include <net_interfaces/flags.h>
+#include <devif/queue_interface.h>
 
 /*****************************************************************
  * Constants:
@@ -57,7 +58,7 @@ struct filter {
 
 // State required in TX path to remember information about buffers
 struct buffer_state_metadata {
-    struct net_queue_manager_binding *binding;
+    struct devq *device_queue;
     uint64_t offset;
 //    uint64_t spp_index;
 //    uint64_t tx_pending;
@@ -73,7 +74,7 @@ struct bsm_queue {
 
 struct buffer_descriptor {
     uint64_t buffer_id;  // buffer identifier
-    struct net_queue_manager_binding *con; // binding to which buffer belongs
+    struct devq *device_queue; // device queue
     struct capref cap; // cap backing the buffer memory
 //    struct shared_pool_private *spp_prv; // shared producer consumer pool
 
@@ -132,9 +133,10 @@ struct client_closure {
     uint64_t rx_index;  // index of which is next slot to be received
 
     uint64_t queueid; // The queueid to which this buffer belongs
-    struct net_queue_manager_binding *app_connection; // Binding pointer to talk back
-    struct cont_queue *q; // Cont management queue to report events
-    uint64_t *queue;
+    struct devq *app_connection; // Application device queue
+    regionid_t region_id;
+    uint8_t role;  // Role of buffer (RX/TX)
+    uint64_t buffer_id;  // buffer identifier
 
     // Place to store data when there are multiple parts to the packet
     struct driver_buffer driver_buff_list[MAX_CHUNKS]; // list of already seen chunks
@@ -284,6 +286,11 @@ enum Recorded_Events {
 };
 
 extern struct netbench_details *bm;
+
+struct net_soft_filter_state
+{
+    struct waitset_chanstate initialization_completed;
+};
 
 // **************************************
 // Use of optimised memcpy for SCC

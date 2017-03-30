@@ -22,10 +22,10 @@ struct region_pool;
 
 // For convinience reason buffer descritpion in one struct
 struct devq_buf{
-    genoffset_t offset; // 8 
+    genoffset_t offset; // 8
     genoffset_t length; // 16
-    genoffset_t valid_data; // 24 
-    genoffset_t valid_length; // 32 
+    genoffset_t valid_data; // 24
+    genoffset_t valid_length; // 32
     uint64_t flags; // 40
     regionid_t rid; // 44
 };
@@ -64,14 +64,14 @@ errval_t devq_enqueue(struct devq *q,
  * @brief dequeue a buffer from the device queue
  *
  * @param q             The device queue to call the operation on
- * @param region_id     Return pointer to the id of the memory 
+ * @param region_id     Return pointer to the id of the memory
  *                      region the buffer belongs to
  * @param region_offset Return pointer to the offset into the region where
  *                      this buffer starts.
  * @param lenght        Return pointer to the lenght of the dequeue buffer
  * @param valid_data    Return pointer to an offset into the buffer where the
  *                      valid data of this buffer starts
- * @param valid_length  Return pointer to the length of the valid data of 
+ * @param valid_length  Return pointer to the length of the valid data of
  *                      this buffer
  * @param misc_flags    Return value from other endpoint
  *
@@ -93,7 +93,7 @@ errval_t devq_dequeue(struct devq *q,
  */
 
 /**
- * @brief Add a memory region that can be used as buffers to 
+ * @brief Add a memory region that can be used as buffers to
  *        the device queue
  *
  * @param q              The device queue to call the operation on
@@ -109,10 +109,10 @@ errval_t devq_register(struct devq *q,
                        regionid_t* region_id);
 
 /**
- * @brief Remove a memory region 
+ * @brief Remove a memory region
  *
  * @param q              The device queue to call the operation on
- * @param region_id      The region id to remove from the device 
+ * @param region_id      The region id to remove from the device
  *                       queues memory
  * @param cap            The capability to the removed memory
  *
@@ -156,6 +156,10 @@ errval_t devq_prepare(struct devq *q);
  */
 errval_t devq_control(struct devq *q,
                       uint64_t request,
-                      uint64_t value);
+                      uint64_t value,
+                      uint64_t *result);
+
+void devq_set_state(struct devq *q, void *state);
+void * devq_get_state(struct devq *q);
 
 #endif /* QUEUE_INTERFACE_H_ */

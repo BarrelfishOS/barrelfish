@@ -110,8 +110,8 @@ errval_t ahci_destroy(struct ahci_queue *q)
     return SYS_ERR_OK;
 }
 
-static errval_t ahci_enqueue(struct devq *q, 
-                             regionid_t region_id, 
+static errval_t ahci_enqueue(struct devq *q,
+                             regionid_t region_id,
                              genoffset_t offset,
                              genoffset_t length,
                              genoffset_t valid_data,
@@ -148,7 +148,7 @@ static errval_t ahci_enqueue(struct devq *q,
     uint64_t block = flags_get_block(flags);
     bool write = flags_is_write(flags);
 
-    err = blk_ahci_port_dma_async(queue->port, slot, block, mem->paddr+offset, 
+    err = blk_ahci_port_dma_async(queue->port, slot, block, mem->paddr+offset,
                                   length, write);
     return err;
 }
@@ -233,7 +233,8 @@ static errval_t ahci_notify(struct devq *q)
     return SYS_ERR_OK;
 }
 
-static errval_t ahci_control(struct devq *q, uint64_t request, uint64_t value)
+static errval_t ahci_control(struct devq *q, uint64_t request, uint64_t value,
+                             uint64_t *result)
 {
     return SYS_ERR_OK;
 }

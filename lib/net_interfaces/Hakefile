@@ -12,7 +12,14 @@
 
 [ build library { target = "net_if_raw",
                   cFiles = [ "interface_raw.c" ],
-                  flounderBindings = [ "net_queue_manager" ],
-                  flounderExtraBindings = [("net_queue_manager", ["rpcclient"])] }
+                  addLibraries = libDeps [ "devif", "devif_backend_idc",
+                                           "devif_backend_solarflare", 
+                                           "devif_backend_e10k"],
+                  architectures = ["x86_64"]},
+
+ build library { target = "net_if_raw",
+                  cFiles = [ "interface_raw.c" ],
+                  addLibraries = libDeps [ "devif", "devif_backend_idc"],
+                  architectures = ["armv7", "armv8"]}
 ]
 

@@ -78,13 +78,13 @@ static void print_buffer(size_t len, bufferid_t bid)
 {
    /*
     uint8_t* buf = (uint8_t*) va_rx+bid;
-    printf("Packet in region %p at address %p len %zu \n", 
+    printf("Packet in region %p at address %p len %zu \n",
            va_rx, buf, len);
     for (int i = 0; i < len; i++) {
         if (((i % 10) == 0) && i > 0) {
             printf("\n");
         }
-        printf("%2X ", buf[i]);   
+        printf("%2X ", buf[i]);
     }
     printf("\n");
     */
@@ -113,8 +113,8 @@ static void event_cb(void* queue)
 
     err = SYS_ERR_OK;
 
-    while (err == SYS_ERR_OK) {    
-        err = devq_dequeue(q, &rid, &offset, &length, &valid_data,  
+    while (err == SYS_ERR_OK) {
+        err = devq_dequeue(q, &rid, &offset, &length, &valid_data,
                            &valid_length, &flags);
         if (err_is_fail(err)) {
             break;
@@ -133,7 +133,7 @@ static void event_cb(void* queue)
     }
 
     // MSIX is not working on so we have to "simulate interrupts"
-    err = waitset_chan_register(&card_ws, chan, 
+    err = waitset_chan_register(&card_ws, chan,
                                 MKCLOSURE(event_cb, queue));
     if (err_is_fail(err) && err_no(err) == LIB_ERR_CHAN_ALREADY_REGISTERED) {
         printf("Got actual interrupt?\n");
@@ -153,23 +153,23 @@ static struct devq* create_net_queue(char* card_name)
     if (strcmp(card_name, "sfn5122f") == 0) {
         struct sfn5122f_queue* q;
         
-        err = sfn5122f_queue_create(&q, event_cb, /* userlevel*/ true, 
+        err = sfn5122f_queue_create(&q, event_cb, /* userlevel*/ true,
                                     /*MSIX interrupts*/ false);
         if (err_is_fail(err)){
             USER_PANIC("Allocating devq failed \n");
         }
-        return (struct devq*) q;    
+        return (struct devq*) q;
     }
 
     if (strcmp(card_name, "e10k") == 0) {
         struct e10k_queue* q;
         
-        err = e10k_queue_create(&q, event_cb, /*VFs */ false, 
+        err = e10k_queue_create(&q, event_cb, /*VFs */ false,
                                 /*MSIX interrupts*/ false);
         if (err_is_fail(err)){
             USER_PANIC("Allocating devq failed \n");
         }
-        return (struct devq*) q;    
+        return (struct devq*) q;
     }
 
     USER_PANIC("Unknown card name\n");
@@ -185,7 +185,7 @@ static errval_t destroy_net_queue(struct devq* q, char* card_name)
         if (err_is_fail(err)){
             USER_PANIC("Destroying devq failed \n");
         }
-        return err;    
+        return err;
     }
 
     if (strcmp(card_name, "e10k") == 0) {
@@ -193,7 +193,7 @@ static errval_t destroy_net_queue(struct devq* q, char* card_name)
         if (err_is_fail(err)){
             USER_PANIC("Destroying devq failed \n");
         }
-        return err;    
+        return err;
     }
 
     USER_PANIC("Unknown card name\n");
@@ -201,13 +201,13 @@ static errval_t destroy_net_queue(struct devq* q, char* card_name)
     return SYS_ERR_OK;
 }
 
-static void test_net_tx(void) 
+static void test_net_tx(void)
 {
     num_tx = 0;
     num_rx = 0;
 
     errval_t err;
-    struct devq* q;   
+    struct devq* q;
     
 
     q = create_net_queue(card);
@@ -249,16 +249,16 @@ static void test_net_tx(void)
     }
 
     // Send something
-    cycles_t t1 = bench_tsc();   
+    cycles_t t1 = bench_tsc();
 
     for (int z = 0; z < NUM_ROUNDS_TX; z++) {
         for (int i = 0; i < NUM_ENQ; i++) {
-            err = devq_enqueue(q, regid_tx, i*(TX_BUF_SIZE), TX_BUF_SIZE, 
+            err = devq_enqueue(q, regid_tx, i*(TX_BUF_SIZE), TX_BUF_SIZE,
                                0, TX_BUF_SIZE,
                                NETIF_TXFLAG | NETIF_TXFLAG_LAST);
             if (err_is_fail(err)){
                 USER_PANIC("Devq enqueue failed \n");
-            }    
+            }
         }
 
         while(true) {
@@ -278,9 +278,10 @@ static void test_net_tx(void)
     double result_ms = (double) bench_tsc_to_ms(result);
     double bw = sent_bytes / result_ms / 1000;
     
-    printf("Write throughput %.2f [MB/s] for %.2f ms \n", bw, result_ms);  
+    printf("Write throughput %.2f [MB/s] for %.2f ms \n", bw, result_ms);
 
-    err = devq_control(q, 1, 1);
+    
+    err = devq_control(q, 1, 1, &sent_bytes);
     if (err_is_fail(err)){
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq control failed \n");
@@ -302,14 +303,14 @@ static void test_net_tx(void)
 }
 
 
-static void test_net_rx(void) 
+static void test_net_rx(void)
 {
 
     num_tx = 0;
     num_rx = 0;
 
     errval_t err;
-    struct devq* q;   
+    struct devq* q;
    
     q = create_net_queue(card);
     assert(q != NULL);
@@ -337,12 +338,12 @@ static void test_net_rx(void)
     
     // Enqueue RX buffers to receive into
     for (int i = 0; i < NUM_ROUNDS_RX; i++){
-        err = devq_enqueue(q, regid_rx, i*RX_BUF_SIZE, RX_BUF_SIZE, 
+        err = devq_enqueue(q, regid_rx, i*RX_BUF_SIZE, RX_BUF_SIZE,
                            0, RX_BUF_SIZE,
                            NETIF_RXFLAG);
         if (err_is_fail(err)){
             USER_PANIC("Devq enqueue failed: %s\n", err_getstring(err));
-        }    
+        }
 
     }
 
@@ -355,7 +356,7 @@ static void test_net_rx(void)
     }
 
 
-    err = devq_control(q, 1, 1);
+    err = devq_control(q, 1, 1, NULL);
     if (err_is_fail(err)){
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq control failed \n");
@@ -377,8 +378,8 @@ static void test_net_rx(void)
 }
 
 
-static errval_t descq_notify(struct descq* q) 
-{   
+static errval_t descq_notify(struct descq* q)
+{
     errval_t err = SYS_ERR_OK;
     struct devq* queue = (struct devq*) q;
     
@@ -390,7 +391,7 @@ static errval_t descq_notify(struct descq* q)
     uint64_t flags;
 
     while(err_is_ok(err)) {
-        err = devq_dequeue(queue, &rid, &offset, &length, &valid_data, 
+        err = devq_dequeue(queue, &rid, &offset, &length, &valid_data,
                            &valid_length, &flags);
         if (err_is_ok(err)){
             num_rx++;
@@ -405,20 +406,19 @@ static void test_idc_queue(void)
     num_rx = 0;
 
     errval_t err;
-    struct devq* q;   
+    struct devq* q;
     struct descq* queue;
-    struct descq_func_pointer* f;
-    f = malloc(sizeof(struct descq_func_pointer));
-    f->notify = descq_notify;
-
-    printf("Descriptor queue test started \n");
+    struct descq_func_pointer f;
+    f.notify = descq_notify;
+    
+    debug_printf("Descriptor queue test started \n");
     err = descq_create(&queue, DESCQ_DEFAULT_SIZE, "test_queue",
-                       false, f);
+                       false, true, true, NULL, &f);
     if (err_is_fail(err)){
         USER_PANIC("Allocating devq failed \n");
-    }    
+    }
    
-    q = (struct devq*) queue;    
+    q = (struct devq*) queue;
 
     err = devq_register(q, memory_rx, &regid_rx);
     if (err_is_fail(err)){
@@ -454,7 +454,7 @@ static void test_idc_queue(void)
         event_dispatch(get_default_waitset());
     }
 
-    err = devq_control(q, 1, 1);
+    err = devq_control(q, 1, 1, NULL);
     if (err_is_fail(err)){
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq control failed \n");
@@ -476,18 +476,18 @@ static void test_idc_queue(void)
 }
 
 int main(int argc, char *argv[])
-{   
+{
     errval_t err;
     // Allocate memory
     err = frame_alloc(&memory_rx, MEMORY_SIZE, NULL);
     if (err_is_fail(err)){
         USER_PANIC("Allocating cap failed \n");
-    }    
+    }
 
     err = frame_alloc(&memory_tx, MEMORY_SIZE, NULL);
     if (err_is_fail(err)){
         USER_PANIC("Allocating cap failed \n");
-    }    
+    }
     
     // RX frame
     err = invoke_frame_identify(memory_rx, &id);
@@ -496,7 +496,7 @@ int main(int argc, char *argv[])
     }
 
     err = vspace_map_one_frame_attr(&va_rx, id.bytes, memory_rx,
-                                    VREGION_FLAGS_READ, NULL, NULL); 
+                                    VREGION_FLAGS_READ, NULL, NULL);
     if (err_is_fail(err)) {
         USER_PANIC("Frame mapping failed \n");
     }
@@ -510,7 +510,7 @@ int main(int argc, char *argv[])
     }
    
     err = vspace_map_one_frame_attr(&va_tx, id.bytes, memory_tx,
-                                    VREGION_FLAGS_WRITE, NULL, NULL); 
+                                    VREGION_FLAGS_WRITE, NULL, NULL);
     if (err_is_fail(err)) {
         USER_PANIC("Frame mapping failed \n");
     }

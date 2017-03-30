@@ -52,7 +52,7 @@ errval_t devq_enqueue(struct devq *q,
     errval_t err;
     
     // check if the buffer to enqueue is valid
-    if (!region_pool_buffer_check_bounds(q->pool, region_id, offset, 
+    if (!region_pool_buffer_check_bounds(q->pool, region_id, offset,
         length, valid_data, valid_length)) {
         return DEVQ_ERR_INVALID_BUFFER_ARGS;
     }
@@ -61,7 +61,7 @@ errval_t devq_enqueue(struct devq *q,
     err = q->f.enq(q, region_id, offset, length, valid_data,
                    valid_length, misc_flags);
 
-    DQI_DEBUG("Enqueue q=%p rid=%d, offset=%lu, lenght=%lu, err=%s \n", 
+    DQI_DEBUG("Enqueue q=%p rid=%d, offset=%lu, lenght=%lu, err=%s \n",
               q, region_id, offset, length, err_getstring(err));
 
     return err;
@@ -71,14 +71,14 @@ errval_t devq_enqueue(struct devq *q,
  * @brief dequeue a buffer from the device queue
  *
  * @param q             The device queue to call the operation on
- * @param region_id     Return pointer to the id of the memory 
+ * @param region_id     Return pointer to the id of the memory
  *                      region the buffer belongs to
  * @param region_offset Return pointer to the offset into the region where
  *                      this buffer starts.
  * @param lenght        Return pointer to the lenght of the dequeue buffer
  * @param valid_data    Return pointer to an offset into the region where the
  *                      valid data of this buffer starts
- * @param valid_length  Return pointer to the length of the valid data of 
+ * @param valid_length  Return pointer to the length of the valid data of
  *                      this buffer
  * @param misc_flags    Return value from other endpoint
  *
@@ -106,7 +106,7 @@ errval_t devq_dequeue(struct devq *q,
     }
 
     // check if the dequeue buffer is valid
-    if (!region_pool_buffer_check_bounds(q->pool, *region_id, *offset, 
+    if (!region_pool_buffer_check_bounds(q->pool, *region_id, *offset,
         *length, *valid_data, *valid_length)) {
         return DEVQ_ERR_INVALID_BUFFER_ARGS;
     }
@@ -119,11 +119,11 @@ errval_t devq_dequeue(struct devq *q,
 /*
  * ===========================================================================
  * Control Path
- * =========================================================================== 
+ * ===========================================================================
 */
 
 /**
- * @brief Add a memory region that can be used as buffers to 
+ * @brief Add a memory region that can be used as buffers to
  *        the device queue
  *
  * @param q              The device queue to call the operation on
@@ -140,24 +140,24 @@ errval_t devq_register(struct devq *q,
 {
     errval_t err;
 
-    err = region_pool_add_region(q->pool, cap, region_id); 
+    err = region_pool_add_region(q->pool, cap, region_id);
     if (err_is_fail(err)) {
         return err;
     }
 
-    DQI_DEBUG("register q=%p, cap=%p, regionid=%d \n", (void*) q, 
+    DQI_DEBUG("register q=%p, cap=%p, regionid=%d \n", (void*) q,
               (void*) &cap, *region_id);
 
-    err = q->f.reg(q, cap, *region_id);   
+    err = q->f.reg(q, cap, *region_id);
 
     return err;
 }
 
 /**
- * @brief Remove a memory region 
+ * @brief Remove a memory region
  *
  * @param q              The device queue to call the operation on
- * @param region_id      The region id to remove from the device 
+ * @param region_id      The region id to remove from the device
  *                       queues memory
  * @param cap            The capability to the removed memory
  *
@@ -170,14 +170,14 @@ errval_t devq_deregister(struct devq *q,
 {
     errval_t err;
     
-    err = region_pool_remove_region(q->pool, region_id, cap); 
+    err = region_pool_remove_region(q->pool, region_id, cap);
     if (err_is_fail(err)) {
         return err;
     }
-    DQI_DEBUG("deregister q=%p, cap=%p, regionid=%d \n", (void*) q, 
+    DQI_DEBUG("deregister q=%p, cap=%p, regionid=%d \n", (void*) q,
               (void*) cap, region_id);
     
-    err = q->f.dereg(q, region_id);   
+    err = q->f.dereg(q, region_id);
 
     return err;
 }
@@ -227,13 +227,23 @@ errval_t devq_prepare(struct devq *q)
  */
 errval_t devq_control(struct devq *q,
                       uint64_t request,
-                      uint64_t value)
+                      uint64_t value,
+                      uint64_t *result)
 {
     errval_t err;
 
-    err = q->f.ctrl(q, request, value);
+    err = q->f.ctrl(q, request, value, result);
 
     return err;
 
 }
 
+void devq_set_state(struct devq *q, void *state)
+{
+    q->state = state;
+}
+
+void * devq_get_state(struct devq *q)
+{
+    return q->state;
+}

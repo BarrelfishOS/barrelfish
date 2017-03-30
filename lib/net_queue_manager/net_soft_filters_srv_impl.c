@@ -20,6 +20,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/net_constants.h>
+#include <barrelfish/waitset_chan.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -108,7 +109,8 @@ static uint64_t filter_id_counter = 0;
 static void export_soft_filters_cb(void *st, errval_t err, iref_t iref)
 {
     char service_name[MAX_NET_SERVICE_NAME_LEN];
-
+    struct net_soft_filter_state *state = st;
+    
     snprintf(service_name, sizeof(service_name), "%s%s", sf_srv_name,
              FILTER_SERVICE_SUFFIX);
     if (err_is_fail(err)) {
@@ -124,6 +126,7 @@ static void export_soft_filters_cb(void *st, errval_t err, iref_t iref)
         DEBUG_ERR(err, "nameservice_register failed for [%s]", service_name);
         abort();
     }
+    waitset_chan_trigger(&state->initialization_completed);
 }
 
 static errval_t connect_soft_filters_cb(void *st,
@@ -517,9 +520,9 @@ static errval_t pause_filter(struct net_soft_filters_binding *cc, uint64_t filte
         for (int i = 0; i < rx_filter->pause_bufpos; i++) {
             struct bufdesc *bd = &rx_filter->pause_buffer[i];
 
-            struct net_queue_manager_binding *b = rx_filter->buffer->con;
-            assert(b != NULL);
-            struct client_closure *cl = (struct client_closure *)b->st;
+            struct devq *q = rx_filter->buffer->device_queue;
+            assert(q != NULL);
+            struct client_closure *cl = devq_get_state(q);
             assert(cl != NULL);
             copy_packet_to_user(rx_filter->buffer, bd->pkt_data, bd->pkt_len,
                     bd->flags);
@@ -581,12 +584,12 @@ static void send_arp_to_all(void *data, uint64_t len, uint64_t flags)
 
     /* FIXME: this code will send two copies or ARP if there are two filters
      * registered, which is incorrect.  Fix it. */
-    struct net_queue_manager_binding *b = NULL;
+    struct devq *q = NULL;
     struct client_closure *cl = NULL;
     while (head) {
-        b = head->buffer->con;
-        assert(b != NULL);
-        cl = (struct client_closure *) b->st;
+        q = head->buffer->device_queue;
+        assert(q != NULL);
+        cl = devq_get_state(q);
         assert(cl != NULL);
         copy_packet_to_user(head->buffer, data, len, flags);
         head = head->next;
@@ -596,9 +599,7 @@ static void send_arp_to_all(void *data, uint64_t len, uint64_t flags)
     	return;
     }
     // Forwarding it to netd as well.
-    struct buffer_descriptor *buffer = ((struct client_closure *)
-                                        (netd[RECEIVE_CONNECTION]->st))->
-      buffer_ptr;
+    struct buffer_descriptor *buffer = ((struct client_closure *)devq_get_state(netd[RECEIVE_CONNECTION]))->buffer_ptr;
 
 
 #if TRACE_ETHERSRV_MODE
@@ -705,7 +706,7 @@ static void init_rx_ring(size_t rx_bufsz)
     }
 }
 
-void init_soft_filters_service(char *service_name, uint64_t qid,
+void init_soft_filters_service(struct net_soft_filter_state *state, char *service_name, uint64_t qid,
                                size_t rx_bufsz)
 {
     // FIXME: do I need separate sf_srv_name for ether_netd services
@@ -717,7 +718,7 @@ void init_soft_filters_service(char *service_name, uint64_t qid,
     filter_id_counter = 0;
     snprintf(sf_srv_name, sizeof(sf_srv_name), "%s_%"PRIu64"",
             service_name, qid);
-    errval_t err = net_soft_filters_export(NULL, export_soft_filters_cb,
+    errval_t err = net_soft_filters_export(state, export_soft_filters_cb,
                                connect_soft_filters_cb, get_default_waitset(),
                                IDC_EXPORT_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
@@ -750,9 +751,9 @@ static bool handle_application_packet(void *packet, size_t len, uint64_t flags)
 
     // Matching filter found, sending packet to application
     struct buffer_descriptor *buffer = filter->buffer;
-    struct net_queue_manager_binding *b = buffer->con;
-    assert(b != NULL);
-    struct client_closure *cl = (struct client_closure *) b->st;
+    struct devq *q = buffer->device_queue;
+    assert(q != NULL);
+    struct client_closure *cl = devq_get_state(q);
     assert(cl != NULL);
 
     if (cl->debug_state == 4) {
@@ -853,8 +854,7 @@ static bool handle_netd_packet(void *packet, size_t len, uint64_t flags)
     }
 
   ETHERSRV_DEBUG("No client wants, giving it to netd\n");
-    struct buffer_descriptor *buffer = ((struct client_closure *)
-              (netd[RECEIVE_CONNECTION]->st))->buffer_ptr;
+    struct buffer_descriptor *buffer = ((struct client_closure *)devq_get_state(netd[RECEIVE_CONNECTION]))->buffer_ptr;
 
 //    ETHERSRV_DEBUG("sending packet up.\n");
     /* copy the packet to userspace */
@@ -863,13 +863,13 @@ static bool handle_netd_packet(void *packet, size_t len, uint64_t flags)
         return false;
     }
 
-    struct net_queue_manager_binding *b = buffer->con;
-    if(b == NULL) {
+    struct devq *q = buffer->device_queue;
+    if(q == NULL) {
         printf("netd buffer->con not present\n");
         return false;
     }
 
-    struct client_closure *cl = (struct client_closure *)b->st;
+    struct client_closure *cl = devq_get_state(q);
     assert(cl != NULL);
     if (copy_packet_to_user(buffer, packet, len, flags) == false) {
         ETHERSRV_DEBUG("Copy packet to userspace failed\n");
@@ -1018,4 +1018,3 @@ void sf_process_received_packet(struct driver_rx_buffer *buf, size_t count,
 out:
      rx_ring_register_buffer(opaque);
 } // end function: process_received_packet
-

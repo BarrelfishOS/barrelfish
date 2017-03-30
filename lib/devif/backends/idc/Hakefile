@@ -17,10 +17,8 @@
         target = "devif_backend_idc",
         cFiles = ["desc_queue.c"],
         addCFlags = [ "-DLIBRARY" ],
-        flounderBindings = ["descq_data", "descq_ctrl"],
-        flounderExtraBindings = [("descq_ctrl",["rpcclient"])],
-        flounderDefs = ["descq_data", "descq_ctrl"],
-        flounderExtraDefs = [("descq_ctrl",["rpcclient"])],
+        flounderBindings = ["descq"],
+        flounderDefs = ["descq"],
         addLibraries = libDeps ["devif_internal"]
     }
 ]

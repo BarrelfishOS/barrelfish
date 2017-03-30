@@ -41,6 +41,7 @@ domainid_t disp_get_domain_id(void);
 coreid_t disp_handle_get_core_id(dispatcher_handle_t handle);
 void set_monitor_binding(struct monitor_binding *b);
 struct monitor_binding *get_monitor_binding(void);
+struct waitset_chanstate *get_monitor_binding_chanstate(void);
 void set_monitor_blocking_binding(struct monitor_blocking_binding *st);
 struct monitor_blocking_binding *get_monitor_blocking_binding(void);
 void set_mem_client(struct mem_binding *st);

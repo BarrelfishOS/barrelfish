@@ -16,6 +16,5 @@
                   flounderDefs = [ "net_queue_manager"],
                   flounderBindings = [ "net_queue_manager",
                                        "net_soft_filters" ],
-                  flounderExtraBindings = [ ("net_soft_filters", ["rpcclient"]) ],
-                  addLibraries = [ "procon", "netbench", "bfdmuxvm", "trace"] }
+                  addLibraries = [ "procon", "netbench", "bfdmuxvm", "trace", "devif", "devif_backend_idc" ] }
 ]

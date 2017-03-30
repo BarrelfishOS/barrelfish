@@ -13,7 +13,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>
 #include <net_interfaces/flags.h>
 
 #include <devif/queue_interface.h>

@@ -626,7 +626,7 @@ errval_t waitset_chan_register_disabled(struct waitset *ws,
     assert_disabled(chan->state == CHAN_UNREGISTERED);
 
     // this is probably insane! :)
-    assert_disabled(closure.handler != NULL);
+    // assert_disabled(closure.handler != NULL);
 
     // store closure
     chan->closure = closure;

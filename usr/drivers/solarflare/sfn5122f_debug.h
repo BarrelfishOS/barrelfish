@@ -33,7 +33,7 @@
 #endif
 
 
-#ifdef DEBUG_buftbl
+#ifdef DEBUG_BUFTBL
     #define DEBUG_BUF(x...) printf("buftbl: " x)
 #else
     #define DEBUG_BUF(x...) do {} while (0)

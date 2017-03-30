@@ -21,11 +21,9 @@ in
                     flounderBindings = [ "net_queue_manager", "net_ports",
                                 "net_ARP" ],
                     omitCFlags = [ "-Werror" ],
-                    flounderExtraBindings = [ ("net_ports", ["rpcclient"]),
-                     ("net_ARP", ["rpcclient"]) ],
                     addCFlags =  [ "-Wno-redundant-decls",
                                    "-DBF_LWIP_CHAN_SUPPORT" ],
                     addIncludes = [ "src/barrelfish" ],
-                    addLibraries = [ "netbench", "procon"]
+                    addLibraries = [ "netbench", "procon", "net_if_raw" ]
                   }
   ]

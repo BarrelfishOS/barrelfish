@@ -18,150 +18,72 @@
 #include <net_interfaces/net_interfaces.h>
 
 #include <barrelfish/net_constants.h>
-#include <if/net_queue_manager_defs.h>
+#include <devif/queue_interface.h>
+#include <devif/backends/descq.h>
+#if defined(__x86_64__)
+    #include <devif/backends/net/sfn5122f_devif.h>
+    #include <devif/backends/net/e10k_devif.h>
+#endif
 
 #define MAX_SERVICE_NAME_LEN  256   // Max len that a name of service can have
 #define BUFFER_SIZE 2048
 #define BUFFER_COUNT ((128*1024*1024) / BUFFER_SIZE)
 
-#define QUEUE_SIZE 2048
-
-static errval_t idc_raw_add_buffer(struct net_queue_manager_binding *binding,
-                               uint64_t *queue, uint64_t offset, uint64_t len,
-                               uint64_t more_chunks, uint64_t flags,
-                               bool blocking);
-
-static uint64_t queue = 0;
+static uint64_t queue_id = 0;
 static uint64_t card_mac = -1ULL;
 
-static struct net_queue_manager_binding *binding_rx = NULL;
-static uint64_t bufid_rx = -1ULL;
+static struct descq *devq_rx = NULL;
+static uint64_t bufid_rx;
+static regionid_t regid_rx;
 
-static struct net_queue_manager_binding *binding_tx = NULL;
-static uint64_t bufid_tx = -1ULL;
+static struct descq *devq_tx = NULL;
+static uint64_t bufid_tx;
+static regionid_t regid_tx;
+
+static struct devq *devq_direct = NULL;
+static regionid_t regid_direct;
+static bool direct = false;
+static bool reg = false;
+
 
 static struct capref buffer_frame;
 void *buffer_base = NULL;
 size_t buffer_size = 2048;
 size_t buffer_count = BUFFER_COUNT;
 
-static struct capref rx_queue_frame;
-uint64_t *rx_queue_base = NULL;
-static struct capref tx_queue_frame;
-uint64_t *tx_queue_base = NULL;
-
-static void init_queue(uint64_t *q)
-{
-    q[0] = 1;
-    q[1] = 1;
-    q[2] = 0;
-    q[3] = 0;
-}
-
-static int put_to_queue(uint64_t *q, uint64_t v1, uint64_t v2, uint64_t v3, uint64_t v4)
-{
-    uint64_t start = q[0];
-    uint64_t end = q[1];
-
-    if (end == (QUEUE_SIZE - 1)) {
-        assert(start > 1);
-    } else {
-        assert((end + 1) != start);
-    }
-
-    q[4 * end] = v1;
-    q[4 * end + 1] = v2;
-    q[4 * end + 2] = v3;
-    q[4 * end + 3] = v4;
-    bool s = start == end;
-    if (end == (QUEUE_SIZE - 1))
-        q[1] = 1;
-    else
-        q[1]++;
-    end = q[1];
-    bool f = (end == (QUEUE_SIZE - 1)) ? (start == 1): (start == end + 1);
-    return s + 2 * f;
-}
-
-static bool check_queue(uint64_t *q)
-{
-    uint64_t start = q[0];
-    uint64_t end = q[1];
-
-    return start != end;
-}
-
-static bool get_from_queue(uint64_t *q, uint64_t *v1, uint64_t *v2, uint64_t *v3, uint64_t *v4)
-{
-    uint64_t start = q[0];
-    uint64_t end = q[1];
-
-    assert(start != end);
-    *v1 = q[4 * start];
-    *v2 = q[4 * start + 1];
-    *v3 = q[4 * start + 2];
-    *v4 = q[4 * start + 3];
-    if (start == (QUEUE_SIZE - 1))
-        q[0] = 1;
-    else
-        q[0]++;
-    return !q[2];
-}
-
-static errval_t register_buffer(struct net_queue_manager_binding *b, struct capref buf, struct capref sp, uint64_t queueid, uint64_t slots, uint8_t role, struct capref queue_cap, uint64_t *idx)
-{
-    errval_t _err = SYS_ERR_OK;
-    b->error = SYS_ERR_OK;
-    thread_set_outgoing_token(thread_set_token(b->message_chanstate + net_queue_manager_register_buffer_response__msgnum));
-    _err = b->tx_vtbl.register_buffer_call(b, BLOCKING_CONT, buf, sp, queueid, slots, role, queue_cap);
-    if (err_is_fail(_err))
-        goto out;
-    _err = wait_for_channel(get_default_waitset(), b->message_chanstate + net_queue_manager_register_buffer_response__msgnum, &b->error);
-    if (err_is_fail(_err))
-        goto out;
-    *idx = b->rx_union.register_buffer_response.idx;
-    _err = b->receive_next(b);
-out:
-    thread_clear_token(b->get_receiving_chanstate(b));
-    return(_err);
-}
-
-static errval_t get_mac_address(struct net_queue_manager_binding *b, uint64_t queueid, uint64_t *hwaddr)
-{
-    errval_t _err = SYS_ERR_OK;
-    b->error = SYS_ERR_OK;
-    thread_set_outgoing_token(thread_set_token(b->message_chanstate + net_queue_manager_get_mac_address_response__msgnum));
-    _err = b->tx_vtbl.get_mac_address_call(b, BLOCKING_CONT, queueid);
-    if (err_is_fail(_err))
-        goto out;
-    _err = wait_for_channel(get_default_waitset(), b->message_chanstate + net_queue_manager_get_mac_address_response__msgnum, &b->error);
-    if (err_is_fail(_err))
-        goto out;
-    *hwaddr = b->rx_union.get_mac_address_response.hwaddr;
-    _err = b->receive_next(b);
-out:
-    thread_clear_token(b->get_receiving_chanstate(b));
-    return(_err);
-}
 
 /******************************************************************************/
 /* Buffer management */
 
-errval_t buffer_tx_add(size_t idx, size_t offset, size_t len,
+errval_t buffer_tx_add(size_t idx, size_t offset, size_t length,
                        size_t more_chunks, uint64_t flags)
 {
-
-    errval_t err = SYS_ERR_OK;
-    err = idc_raw_add_buffer(binding_tx, tx_queue_base, idx * BUFFER_SIZE + offset, len,
-            (uint64_t)more_chunks, flags, 0);
+    errval_t err;
+    
+    offset += idx * BUFFER_SIZE;
+    if (!direct) {
+        err = devq_enqueue((struct devq *)devq_tx, regid_tx, offset, length, 0, 0, flags);
+    } else {
+        flags = 0;
+        err = devq_enqueue((struct devq *)devq_direct, regid_direct, offset, 
+                           length, 0, length, (flags | NETIF_TXFLAG | NETIF_TXFLAG_LAST));
+    }
     return err;
 }
 
 errval_t buffer_rx_add(size_t idx)
 {
-
-    errval_t err = SYS_ERR_OK;
-    err = idc_raw_add_buffer(binding_rx, rx_queue_base, idx * BUFFER_SIZE, BUFFER_SIZE, 0, 0, 0);
+    errval_t err;
+    size_t offset;
+    
+    offset = idx * BUFFER_SIZE;
+    if (!direct) {
+        err = devq_enqueue((struct devq *)devq_rx, regid_rx, offset, BUFFER_SIZE, 0, 0, 0);
+    } else {
+        uint64_t flags = 0;
+        err = devq_enqueue((struct devq *)devq_direct, regid_direct, offset, BUFFER_SIZE, 
+                           0, BUFFER_SIZE, flags | NETIF_RXFLAG);
+    }
     return err;
 }
 
@@ -186,53 +108,24 @@ static void alloc_mem(struct capref *frame, void** virt, size_t size)
 
 static void buffers_init(size_t count)
 {
+    errval_t err;
     alloc_mem(&buffer_frame, &buffer_base, BUFFER_SIZE * count);
 
-    errval_t err;
-    void *va;
-
-    alloc_mem(&rx_queue_frame, &va, QUEUE_SIZE * 4 * sizeof(uint64_t) * 2);
-    rx_queue_base = va;
-    alloc_mem(&tx_queue_frame, &va, QUEUE_SIZE * 4 * sizeof(uint64_t) * 2);
-    tx_queue_base = va;
-    memset(rx_queue_base, 0, QUEUE_SIZE * 4 * sizeof(uint64_t) * 2);
-    memset(tx_queue_base, 0, QUEUE_SIZE * 4 * sizeof(uint64_t) * 2);
-    init_queue(rx_queue_base);
-    init_queue(rx_queue_base + QUEUE_SIZE * 4);
-    init_queue(tx_queue_base);
-    init_queue(tx_queue_base + QUEUE_SIZE * 4);
-
-    err = register_buffer(binding_rx, buffer_frame, NULL_CAP, queue, count,
-        RX_BUFFER_ID, rx_queue_frame, &bufid_rx);
-    assert(err_is_ok(err));
-    err = register_buffer(binding_tx, buffer_frame, NULL_CAP, queue, count,
-        TX_BUFFER_ID, tx_queue_frame, &bufid_tx);
-    assert(err_is_ok(err));
+    if (!direct) { 
+        err = devq_register((struct devq *)devq_rx, buffer_frame, &regid_rx);
+        assert(err_is_ok(err));
+        err = devq_register((struct devq *)devq_tx, buffer_frame, &regid_tx);
+        assert(err_is_ok(err));
+    } else {
+        err = devq_register((struct devq *)devq_direct, buffer_frame, &regid_direct);
+        assert(err_is_ok(err));
+        reg = true;
+    }
 }
 
 
 /******************************************************************************/
 /* Flounder interface */
-
-static errval_t idc_raw_add_buffer(struct net_queue_manager_binding *binding, uint64_t *q,
-                               uint64_t offset, uint64_t len,
-                               uint64_t more_chunks, uint64_t flags, bool blocking)
-{
-    int r;
-    r = put_to_queue(q, offset, len, more_chunks, flags);
-    if (r) {
-        if (r == 2) {//} || binding == binding_tx) {
-            binding->control(binding, IDC_CONTROL_SET_SYNC);
-        }
-        errval_t err = binding->tx_vtbl.raw_add_buffer(binding, BLOCKING_CONT, offset, len, more_chunks, flags);
-        assert(err_is_ok(err));
-        if (r == 2) {//} || binding == binding_tx)
-            binding->control(binding, IDC_CONTROL_CLEAR_SYNC);
-        }
-    }
-    return SYS_ERR_OK;
-}
-
 
 // Returns the bufferid for specified type (RX, TX)
 uint64_t get_rx_bufferid(void)
@@ -245,74 +138,106 @@ uint64_t get_tx_bufferid(void)
     return bufid_tx;
 }
 
-static void raw_xmit_done(struct net_queue_manager_binding *st,
-                          uint64_t offset, uint64_t len, uint64_t more,
-                          uint64_t flags)
+static errval_t notify_rx(struct descq *queue)
 {
-    if (st == binding_rx) {
-        for (;;) {
-            bool c = check_queue(rx_queue_base + QUEUE_SIZE * 4);
-            if (c) {
-                get_from_queue(rx_queue_base + QUEUE_SIZE * 4, &offset, &len, &more, &flags);
-                size_t idx = offset / BUFFER_SIZE;
-                benchmark_rx_done(idx, len, more, flags);
-            } else
-                break;
-        }
-    } else {
-        for (;;) {
-            bool c = check_queue(tx_queue_base + QUEUE_SIZE * 4);
-            if (c) {
-                get_from_queue(tx_queue_base + QUEUE_SIZE * 4, &offset, &len, &more, &flags);
-                size_t idx = offset / BUFFER_SIZE;
-                benchmark_tx_done(idx);
-            } else
-                break;
-        }
+    regionid_t rid;
+    genoffset_t offset;
+    genoffset_t length;
+    genoffset_t valid_data;
+    genoffset_t valid_length;
+    uint64_t flags;
+
+    for (;;) {
+        errval_t err;
+        err = devq_dequeue((struct devq *)queue, &rid, &offset, &length,
+                           &valid_data, &valid_length, &flags);
+        if (err_is_fail(err))
+            break;
+        size_t idx = offset / BUFFER_SIZE;
+        benchmark_rx_done(idx, length, 0/*more*/, flags);
     }
+    return SYS_ERR_OK;
 }
 
-static struct net_queue_manager_rx_vtbl rx_vtbl = {
-    .raw_xmit_done = raw_xmit_done,
-};
-
-
-static void bind_cb_rx(void *st, errval_t err, struct net_queue_manager_binding *b)
+static errval_t notify_tx(struct descq *queue)
 {
-    assert(err_is_ok(err));
+    regionid_t rid;
+    genoffset_t offset;
+    genoffset_t length;
+    genoffset_t valid_data;
+    genoffset_t valid_length;
+    uint64_t flags;
 
-    b->rx_vtbl = rx_vtbl;
-    b->control(b, IDC_CONTROL_CLEAR_SYNC);
-    binding_rx = b;
+    for (;;) {
+        errval_t err;
+        err = devq_dequeue((struct devq *)queue, &rid, &offset, &length,
+                           &valid_data, &valid_length, &flags);
+        if (err_is_fail(err))
+            break;
+        size_t idx = offset / BUFFER_SIZE;
+        benchmark_tx_done(idx);
+    }
+    return SYS_ERR_OK;
 }
-
-static void bind_cb_tx(void *st, errval_t err, struct net_queue_manager_binding *b)
-{
-    assert(err_is_ok(err));
-
-    b->rx_vtbl = rx_vtbl;
-    b->control(b, IDC_CONTROL_CLEAR_SYNC);
-    binding_tx = b;
-}
-
 
 static void connect_to_driver(const char *cname, uint64_t qid, bool isRX, struct waitset *ws)
 {
     errval_t err;
-    iref_t iref;
     char qm_name[MAX_SERVICE_NAME_LEN] = { 0 };
 
     snprintf(qm_name, sizeof(qm_name), "%s_%"PRIu64"", cname, qid);
-    err = nameservice_blocking_lookup(qm_name, &iref);
-    assert(err_is_ok(err));
+    debug_printf("%s: nqm bind [%s]\n", __func__, qm_name);
 
-    err = net_queue_manager_bind(iref, isRX ? bind_cb_rx: bind_cb_tx, NULL, ws,
-            IDC_BIND_FLAGS_DEFAULT);
+    struct descq_func_pointer f;
+    f.notify = isRX ? notify_rx: notify_tx;
+    
+    err = descq_create(isRX ? &devq_rx: &devq_tx, DESCQ_DEFAULT_SIZE, qm_name,
+                       false, true, !isRX, isRX ? &bufid_rx: &bufid_tx, &f);
     assert(err_is_ok(err));
 }
 
+#if defined(__x86_64__)
+static void int_handler(void* args)
+{
+    regionid_t rid;
+    genoffset_t offset;
+    genoffset_t length;
+    genoffset_t valid_data;
+    genoffset_t valid_length;
+    uint64_t flags;
+    int count = 0;
+
+    for(;;){
+        errval_t err;
+        err = devq_dequeue(devq_direct, &rid, &offset, &length,
+                           &valid_data, &valid_length, &flags);
+        if (err_is_fail(err))
+            break;
+
+        printf("Dequeue \n");
+        count++;
+        size_t idx = offset / BUFFER_SIZE;
+        if (flags & NETIF_TXFLAG) {
+            benchmark_tx_done(idx);
+        } else if (flags & NETIF_RXFLAG) {
+            if (valid_length == 0) {
+                printf("rid %d \n", rid);
+                printf("offset %lx \n", offset);
+                printf("length %lu \n", length);
+                printf("valid_data %lu \n", valid_data);
+                printf("valid_length %lu \n", valid_length);
+            }
+            assert(valid_length > 0);
+            benchmark_rx_done(idx, valid_length, 0/*more*/, flags);
+        }
+    }
+
+}
+#endif
+
 void net_if_init(const char* cardname, uint64_t qid)
 {
+    errval_t err;
     static bool initialized = false;
     struct waitset *ws = get_default_waitset();
 
@@ -321,22 +246,54 @@ void net_if_init(const char* cardname, uint64_t qid)
         return;
     }
 
-    queue = qid;
+    queue_id = qid;
 
     // Connect RX path
-    connect_to_driver(cardname, queue, true, ws);
-    // Connect TX path
-    connect_to_driver(cardname, queue, false, ws);
 
-    while (binding_rx == NULL  || binding_tx == NULL) {
-        event_dispatch(ws);
+#if defined(__x86_64__)
+    if ((strcmp(cardname, "e1000") == 0) || (qid == 0)) {
+        connect_to_driver(cardname, queue_id, true, ws);
+        // Connect TX path
+        connect_to_driver(cardname, queue_id, false, ws);
+    } else if ((strcmp(cardname, "e10k") == 0) && (qid != 0)) {
+        USER_PANIC("e10k queue NIY \n");
+        direct = true;
+        struct e10k_queue* e10k;
+        err = e10k_queue_create(&e10k, int_handler, false, false);
+        assert(err_is_ok(err));
+
+        devq_direct = (struct devq*) e10k; 
+        card_mac = 0x1; // TODO 
+    } else if ((strcmp(cardname, "sfn5122f") == 0) && qid != 0) {
+        direct = true;
+        struct sfn5122f_queue* sfn5122f;
+        err = sfn5122f_queue_create(&sfn5122f, int_handler, 
+                                    false /*userlevel network feature*/, 
+                                    true /* user interrupts*/);
+        assert(err_is_ok(err));
+
+        devq_direct = (struct devq*) sfn5122f; 
+        //card_mac = 0x000f530748d4; // TODO 
+    } else {
+        USER_PANIC("Unknown card name \n");
     }
 
+#else 
+    connect_to_driver(cardname, queue_id, true, ws);
+    // Connect TX path
+    connect_to_driver(cardname, queue_id, false, ws);
+#endif
     buffers_init(BUFFER_COUNT);
 
     // Get MAC address
-    errval_t err = get_mac_address(binding_rx, queue, &card_mac);
-    assert(err_is_ok(err));
+    if(!direct) {
+        err = devq_control((struct devq *)devq_rx, 0, 0, &card_mac);
+        assert(err_is_ok(err));
+    } else {
+        err = devq_control((struct devq *)devq_direct, 0, 0, &card_mac);
+        printf("MAC %16lX \n", card_mac);
+        assert(err_is_ok(err));
+    }
 
     initialized = true;
 }
