@@ -20,8 +20,10 @@
 #include <barrelfish/net_constants.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/descq.h>
-#include <devif/backends/net/sfn5122f_devif.h>
-#include <devif/backends/net/e10k_devif.h>
+#if defined(__x86_64__)
+    #include <devif/backends/net/sfn5122f_devif.h>
+    #include <devif/backends/net/e10k_devif.h>
+#endif
 
 #define MAX_SERVICE_NAME_LEN  256   // Max len that a name of service can have
 #define BUFFER_SIZE 2048
@@ -194,6 +196,7 @@ static void connect_to_driver(const char *cname, uint64_t qid, bool isRX, struct
     assert(err_is_ok(err));
 }
 
+#if defined(__x86_64__)
 static void int_handler(void* args)
 {
     regionid_t rid;
@@ -202,24 +205,35 @@ static void int_handler(void* args)
     genoffset_t valid_data;
     genoffset_t valid_length;
     uint64_t flags;
+    int count = 0;
 
-    for (;;) {
+    for(;;){
         errval_t err;
         err = devq_dequeue(devq_direct, &rid, &offset, &length,
                            &valid_data, &valid_length, &flags);
         if (err_is_fail(err))
             break;
 
+        printf("Dequeue \n");
+        count++;
         size_t idx = offset / BUFFER_SIZE;
         if (flags & NETIF_TXFLAG) {
             benchmark_tx_done(idx);
         } else if (flags & NETIF_RXFLAG) {
+            if (valid_length == 0) {
+                printf("rid %d \n", rid);
+                printf("offset %lx \n", offset);
+                printf("length %lu \n", length);
+                printf("valid_data %lu \n", valid_data);
+                printf("valid_length %lu \n", valid_length);
+            }
             assert(valid_length > 0);
             benchmark_rx_done(idx, valid_length, 0/*more*/, flags);
         }
     }
 
 }
+#endif
 
 void net_if_init(const char* cardname, uint64_t qid)
 {
@@ -235,13 +249,14 @@ void net_if_init(const char* cardname, uint64_t qid)
     queue_id = qid;
 
     // Connect RX path
+
+#if defined(__x86_64__)
     if ((strcmp(cardname, "e1000") == 0) || (qid == 0)) {
         connect_to_driver(cardname, queue_id, true, ws);
         // Connect TX path
         connect_to_driver(cardname, queue_id, false, ws);
     } else if ((strcmp(cardname, "e10k") == 0) && (qid != 0)) {
         USER_PANIC("e10k queue NIY \n");
-        /*
         direct = true;
         struct e10k_queue* e10k;
         err = e10k_queue_create(&e10k, int_handler, false, false);
@@ -249,7 +264,6 @@ void net_if_init(const char* cardname, uint64_t qid)
 
         devq_direct = (struct devq*) e10k; 
         card_mac = 0x1; // TODO 
-        */
     } else if ((strcmp(cardname, "sfn5122f") == 0) && qid != 0) {
         direct = true;
         struct sfn5122f_queue* sfn5122f;
@@ -264,6 +278,11 @@ void net_if_init(const char* cardname, uint64_t qid)
         USER_PANIC("Unknown card name \n");
     }
 
+#else 
+    connect_to_driver(cardname, queue_id, true, ws);
+    // Connect TX path
+    connect_to_driver(cardname, queue_id, false, ws);
+#endif
     buffers_init(BUFFER_COUNT);
 
     // Get MAC address
