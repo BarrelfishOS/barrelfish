@@ -15,6 +15,7 @@
 #include "lwip/init.h"
 #include "lwip/netif.h"
 #include "lwip/ip.h"
+#include "lwip/dhcp.h"
 #include "lwip/prot/ethernet.h"
 
 
@@ -48,6 +49,15 @@ errval_t networking_get_defaults(uint64_t *queue, char **cardname)
     return SYS_ERR_OK;
 }
 
+
+
+static void int_handler(void* args)
+{
+    struct net_state *st = devq_get_state(args);
+
+    net_if_poll(&st->netif);
+}
+
 static errval_t create_loopback_queue (uint64_t queueid, struct devq **retqueue)
 {
     errval_t err;
@@ -64,9 +74,9 @@ static errval_t create_loopback_queue (uint64_t queueid, struct devq **retqueue)
 
 static errval_t create_driver_queue (uint64_t queueid, struct devq **retqueue)
 {
-
     return SYS_ERR_OK;
 }
+
 
 static errval_t create_e10k_queue (uint64_t queueid, struct devq **retqueue)
 {
@@ -75,7 +85,10 @@ static errval_t create_e10k_queue (uint64_t queueid, struct devq **retqueue)
 
 static errval_t create_sfn5122f_queue (uint64_t queueid, struct devq **retqueue)
 {
-    return SYS_ERR_OK;
+
+    return sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, int_handler,
+                                false /*userlevel network feature*/,
+                                true /* user interrupts*/);
 }
 
 
@@ -147,7 +160,9 @@ errval_t networking_poll(void)
 errval_t networking_init_default(void) {
     errval_t err;
 
-    if(state.initialized) {
+    struct net_state *st = &state;
+
+    if(st->initialized) {
         debug_printf("WARNING. initialize called twice. Ignoring\n");
         return SYS_ERR_OK;
     }
@@ -155,52 +170,54 @@ errval_t networking_init_default(void) {
     NETDEBUG("initializing networking...\n");
 
     // obtain the settings to create the queue
-    err = networking_get_defaults(&state.queueid, &state.cardname);
+    err = networking_get_defaults(&st->queueid, &st->cardname);
     if (err_is_fail(err)) {
         return err;
     }
 
     // create the queue
-    err = networking_create_queue(state.cardname, state.queueid, &state.queue);
+    err = networking_create_queue(st->cardname, st->queueid, &st->queue);
     if (err_is_fail(err)) {
         return err;
     }
+
+    devq_set_state(st->queue, st);
 
     // initialize LWIP
     NETDEBUG("initializing LWIP...\n");
     lwip_init();
 
     /* create buffers */
-    err = net_buf_init(state.queue, NETWORKING_BUFFER_COUNT,
-                                 NETWORKING_BUFFER_SIZE, &state.pool);
+    err = net_buf_init(st->queue, NETWORKING_BUFFER_COUNT,
+                                 NETWORKING_BUFFER_SIZE, &st->pool);
     if (err_is_fail(err)) {
         goto out_err1;
     }
 
     NETDEBUG("creating netif for LWIP...\n");
-    err = net_if_init_devq(&state.netif, state.queue);
+    err = net_if_init_devq(&st->netif, st->queue);
     if (err_is_fail(err)) {
         goto out_err2;
     }
 
-    err = net_if_add(&state.netif, &state);
+    err = net_if_add(&st->netif, st);
     if (err_is_fail(err)) {
         goto out_err2;
     }
 
     NETDEBUG("setting default netif...\n");
-    netif_set_default(&state.netif);
+    netif_set_default(&st->netif);
 
 
     NETDEBUG("adding RX buffers\n");
 
     for (int i = 0; i < 10; i++) {
-        struct pbuf *p = net_buf_alloc(state.pool);
+        struct pbuf *p = net_buf_alloc(st->pool);
         if (p == NULL) {
             NETDEBUG("net: WARNING there was no buffer\n");
             break;
         }
-        err = net_if_add_rx_buf(&state.netif, p);
+        err = net_if_add_rx_buf(&st->netif, p);
         if (err_is_fail(err)) {
             break;
         }
@@ -208,6 +225,10 @@ errval_t networking_init_default(void) {
 
 
     NETDEBUG("starting DHCP...\n");
+    err_t lwip_err = dhcp_start(&st->netif);
+    if(lwip_err != ERR_OK) {
+
+    }
 
 
     NETDEBUG("initialization complete.\n");
