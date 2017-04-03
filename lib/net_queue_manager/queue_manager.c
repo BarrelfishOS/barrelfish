@@ -354,8 +354,7 @@ static errval_t register_region(struct descq* q, struct capref cap,
 {
     debug_printf("Register \n");
 // Actual register_buffer function with all it's logic
-    ETHERSRV_DEBUG("ethersrv:register buffer called with slots %"PRIu64"\n",
-            slots);
+    ETHERSRV_DEBUG("ethersrv:register buffer called \n");
     errval_t err;
     struct client_closure *closure = (struct client_closure *)devq_get_state((struct devq *)q);
     closure->queueid = exported_queueid;
@@ -433,9 +432,14 @@ static errval_t send_raw_xmit_done(struct devq *queue,
                                    uint64_t offset, uint64_t length,
                                    uint64_t more, uint64_t flags)
 {
+    if (flags & NETIF_TXFLAG) {
+        ETHERSRV_DEBUG("Sending TX buf on queue\n");
+    } else {
+        ETHERSRV_DEBUG("Sending RX buf on queue\n");
+    }
     struct client_closure *cl = (struct client_closure *)devq_get_state(queue);
     errval_t err;
-    err = devq_enqueue(queue, cl->region_id, offset, length, 0, 0, flags);
+    err = devq_enqueue(queue, cl->region_id, offset, length, 0, length, flags);
     assert(err_is_ok(err));
     return err;
 } // end function: send_raw_xmit_done
@@ -480,7 +484,7 @@ bool handle_tx_done(void *opaque)
 
     // Handle raw interface
     errval_t err = send_raw_xmit_done(bsm->device_queue, (uintptr_t)bsm->offset, 0,
-            0, 0);
+            0, NETIF_TXFLAG | NETIF_TXFLAG_LAST);
     if (err_is_ok(err)) {
         return true;
     } else {
@@ -540,7 +544,7 @@ void process_received_packet(struct driver_rx_buffer* bufs, size_t count,
             assert(buf->rxq.buffer_state_used > 0);
 
             errval_t err = send_raw_xmit_done(bsm->device_queue, bsm->offset,
-                    bufs[i].len, (i != count - 1), flags);
+                    bufs[i].len, (i != count - 1), flags | NETIF_RXFLAG);
             if (err_is_ok(err)) {
                 --buf->rxq.buffer_state_used;
                 return;
@@ -623,7 +627,7 @@ bool copy_packet_to_user(struct buffer_descriptor *buffer,
 #endif // TRACE_ETHERSRV_MODE
 
     // Handle raw interface
-    errval_t err = send_raw_xmit_done(q, offset, len, 0, flags);
+    errval_t err = send_raw_xmit_done(q, offset, len, 0, flags | NETIF_RXFLAG);
     if (err_is_ok(err)) {
         return true;
     } else {
@@ -751,7 +755,7 @@ static errval_t notify_queue(struct descq *queue)
         if (err_is_fail(err))
             break;
 
-        if (cl->buffer_ptr->role == TX_BUFFER_ID) {
+        if (flags & NETIF_TXFLAG) {
             // debug_printf("notify_queue_tx: %p: %d:%lx:%ld\n", queue, rid, offset, length);
             raw_add_buffer_tx(cl, offset, length, 0, flags);
         } else {
@@ -997,7 +1001,7 @@ void ethersrv_argument(const char* arg)
 // This function tells if netd is registered or not.
 bool waiting_for_netd(void)
 {
-    return (netd_buffer_count < 2);
+    return (netd_buffer_count < 1);
 //    return ((netd[RECEIVE_CONNECTION] == NULL)
 //            || (netd[TRANSMIT_CONNECTION] == NULL));
 } // end function: is_netd_registered

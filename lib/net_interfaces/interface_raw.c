@@ -32,18 +32,9 @@
 static uint64_t queue_id = 0;
 static uint64_t card_mac = -1ULL;
 
-static struct descq *devq_rx = NULL;
-static uint64_t bufid_rx;
-static regionid_t regid_rx;
-
-static struct descq *devq_tx = NULL;
-static uint64_t bufid_tx;
-static regionid_t regid_tx;
-
-static struct devq *devq_direct = NULL;
-static regionid_t regid_direct;
-static bool direct = false;
-static bool reg = false;
+static struct devq *devq = NULL;
+static regionid_t regid;
+static uint64_t bufid;
 
 
 static struct capref buffer_frame;
@@ -59,15 +50,12 @@ errval_t buffer_tx_add(size_t idx, size_t offset, size_t length,
                        size_t more_chunks, uint64_t flags)
 {
     errval_t err;
+    uint64_t flags_new = flags | NETIF_TXFLAG | NETIF_TXFLAG_LAST;
+
     
     offset += idx * BUFFER_SIZE;
-    if (!direct) {
-        err = devq_enqueue((struct devq *)devq_tx, regid_tx, offset, length, 0, 0, flags);
-    } else {
-        flags = 0;
-        err = devq_enqueue((struct devq *)devq_direct, regid_direct, offset, 
-                           length, 0, length, (flags | NETIF_TXFLAG | NETIF_TXFLAG_LAST));
-    }
+    err = devq_enqueue((struct devq *)devq, regid, offset, 
+                       length, 0, length, flags_new);
     return err;
 }
 
@@ -75,15 +63,11 @@ errval_t buffer_rx_add(size_t idx)
 {
     errval_t err;
     size_t offset;
-    
+    uint64_t flags = NETIF_RXFLAG;
+
     offset = idx * BUFFER_SIZE;
-    if (!direct) {
-        err = devq_enqueue((struct devq *)devq_rx, regid_rx, offset, BUFFER_SIZE, 0, 0, 0);
-    } else {
-        uint64_t flags = 0;
-        err = devq_enqueue((struct devq *)devq_direct, regid_direct, offset, BUFFER_SIZE, 
-                           0, BUFFER_SIZE, flags | NETIF_RXFLAG);
-    }
+    err = devq_enqueue((struct devq *)devq, regid, offset, BUFFER_SIZE, 
+                           0, BUFFER_SIZE, flags);
     return err;
 }
 
@@ -111,16 +95,8 @@ static void buffers_init(size_t count)
     errval_t err;
     alloc_mem(&buffer_frame, &buffer_base, BUFFER_SIZE * count);
 
-    if (!direct) { 
-        err = devq_register((struct devq *)devq_rx, buffer_frame, &regid_rx);
-        assert(err_is_ok(err));
-        err = devq_register((struct devq *)devq_tx, buffer_frame, &regid_tx);
-        assert(err_is_ok(err));
-    } else {
-        err = devq_register((struct devq *)devq_direct, buffer_frame, &regid_direct);
-        assert(err_is_ok(err));
-        reg = true;
-    }
+    err = devq_register((struct devq *)devq, buffer_frame, &regid);
+    assert(err_is_ok(err));
 }
 
 
@@ -130,15 +106,15 @@ static void buffers_init(size_t count)
 // Returns the bufferid for specified type (RX, TX)
 uint64_t get_rx_bufferid(void)
 {
-    return bufid_rx;
+    return bufid;
 }
 
 uint64_t get_tx_bufferid(void)
 {
-    return bufid_tx;
+    return bufid;
 }
 
-static errval_t notify_rx(struct descq *queue)
+static errval_t notify_handler(struct descq *queue)  
 {
     regionid_t rid;
     genoffset_t offset;
@@ -146,41 +122,29 @@ static errval_t notify_rx(struct descq *queue)
     genoffset_t valid_data;
     genoffset_t valid_length;
     uint64_t flags;
+    int count = 0;
 
-    for (;;) {
+    for(;;){
         errval_t err;
-        err = devq_dequeue((struct devq *)queue, &rid, &offset, &length,
+        err = devq_dequeue((struct devq*) queue, &rid, &offset, &length,
                            &valid_data, &valid_length, &flags);
         if (err_is_fail(err))
             break;
+
+        count++;
         size_t idx = offset / BUFFER_SIZE;
-        benchmark_rx_done(idx, length, 0/*more*/, flags);
+        if (flags & NETIF_TXFLAG) {
+            benchmark_tx_done(idx);
+        } else if (flags & NETIF_RXFLAG) {
+            assert(valid_length > 0);
+            benchmark_rx_done(idx, valid_length, 0/*more*/, flags);
+        }
     }
     return SYS_ERR_OK;
 }
 
-static errval_t notify_tx(struct descq *queue)
-{
-    regionid_t rid;
-    genoffset_t offset;
-    genoffset_t length;
-    genoffset_t valid_data;
-    genoffset_t valid_length;
-    uint64_t flags;
 
-    for (;;) {
-        errval_t err;
-        err = devq_dequeue((struct devq *)queue, &rid, &offset, &length,
-                           &valid_data, &valid_length, &flags);
-        if (err_is_fail(err))
-            break;
-        size_t idx = offset / BUFFER_SIZE;
-        benchmark_tx_done(idx);
-    }
-    return SYS_ERR_OK;
-}
-
-static void connect_to_driver(const char *cname, uint64_t qid, bool isRX, struct waitset *ws)
+static void connect_to_driver(const char *cname, uint64_t qid, struct waitset *ws)
 {
     errval_t err;
     char qm_name[MAX_SERVICE_NAME_LEN] = { 0 };
@@ -188,13 +152,16 @@ static void connect_to_driver(const char *cname, uint64_t qid, bool isRX, struct
     snprintf(qm_name, sizeof(qm_name), "%s_%"PRIu64"", cname, qid);
     debug_printf("%s: nqm bind [%s]\n", __func__, qm_name);
 
+    struct descq* q;
     struct descq_func_pointer f;
-    f.notify = isRX ? notify_rx: notify_tx;
+    f.notify = notify_handler;
     
-    err = descq_create(isRX ? &devq_rx: &devq_tx, DESCQ_DEFAULT_SIZE, qm_name,
-                       false, true, !isRX, isRX ? &bufid_rx: &bufid_tx, &f);
+    err = descq_create(&q, DESCQ_DEFAULT_SIZE, qm_name,
+                       false, true, 0, &bufid, &f);
     assert(err_is_ok(err));
+    devq = (struct devq*) q;
 }
+
 
 #if defined(__x86_64__)
 static void int_handler(void* args)
@@ -209,12 +176,11 @@ static void int_handler(void* args)
 
     for(;;){
         errval_t err;
-        err = devq_dequeue(devq_direct, &rid, &offset, &length,
+        err = devq_dequeue(devq, &rid, &offset, &length,
                            &valid_data, &valid_length, &flags);
         if (err_is_fail(err))
             break;
 
-        printf("Dequeue \n");
         count++;
         size_t idx = offset / BUFFER_SIZE;
         if (flags & NETIF_TXFLAG) {
@@ -252,48 +218,35 @@ void net_if_init(const char* cardname, uint64_t qid)
 
 #if defined(__x86_64__)
     if ((strcmp(cardname, "e1000") == 0) || (qid == 0)) {
-        connect_to_driver(cardname, queue_id, true, ws);
-        // Connect TX path
-        connect_to_driver(cardname, queue_id, false, ws);
+        connect_to_driver(cardname, queue_id, ws);
     } else if ((strcmp(cardname, "e10k") == 0) && (qid != 0)) {
-        USER_PANIC("e10k queue NIY \n");
-        direct = true;
+        USER_PANIC("e10k queue NIY \n"); 
         struct e10k_queue* e10k;
-        err = e10k_queue_create(&e10k, int_handler, false, false);
+        err = e10k_queue_create(&e10k, int_handler, false, true);
         assert(err_is_ok(err));
 
-        devq_direct = (struct devq*) e10k; 
+        devq = (struct devq*) e10k; 
         card_mac = 0x1; // TODO 
     } else if ((strcmp(cardname, "sfn5122f") == 0) && qid != 0) {
-        direct = true;
         struct sfn5122f_queue* sfn5122f;
         err = sfn5122f_queue_create(&sfn5122f, int_handler, 
                                     false /*userlevel network feature*/, 
                                     true /* user interrupts*/);
         assert(err_is_ok(err));
 
-        devq_direct = (struct devq*) sfn5122f; 
-        //card_mac = 0x000f530748d4; // TODO 
+        devq = (struct devq*) sfn5122f; 
     } else {
         USER_PANIC("Unknown card name \n");
     }
 
 #else 
     connect_to_driver(cardname, queue_id, true, ws);
-    // Connect TX path
-    connect_to_driver(cardname, queue_id, false, ws);
 #endif
     buffers_init(BUFFER_COUNT);
 
     // Get MAC address
-    if(!direct) {
-        err = devq_control((struct devq *)devq_rx, 0, 0, &card_mac);
-        assert(err_is_ok(err));
-    } else {
-        err = devq_control((struct devq *)devq_direct, 0, 0, &card_mac);
-        printf("MAC %16lX \n", card_mac);
-        assert(err_is_ok(err));
-    }
+    err = devq_control((struct devq *)devq, 0, 0, &card_mac);
+    assert(err_is_ok(err));
 
     initialized = true;
 }
