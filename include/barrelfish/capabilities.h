@@ -179,6 +179,9 @@ static inline errval_t frame_identify(struct capref frame, struct frame_identity
             return err_push(err, LIB_ERR_SLOT_ALLOC);
         }
         err = cap_copy(invokable, frame);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_CAP_COPY);
+        }
     }
 
     err = invoke_frame_identify(invokable, ret);
