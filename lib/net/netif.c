@@ -19,6 +19,7 @@
 
 #include <lwip/opt.h>
 #include <lwip/netif.h>
+#include <lwip/timeouts.h>
 #include "include/net/netif.h"
 
 #include <netif/etharp.h>
@@ -52,7 +53,6 @@ static err_t net_if_linkoutput(struct netif *netif, struct pbuf *p)
 
     return ERR_OK;
 }
-
 
 
 static void net_if_status_cb(struct netif *netif)
@@ -326,6 +326,7 @@ errval_t net_if_poll(struct netif *netif)
         }
     }
 
+    sys_check_timeouts();
 
 
     return SYS_ERR_OK;
