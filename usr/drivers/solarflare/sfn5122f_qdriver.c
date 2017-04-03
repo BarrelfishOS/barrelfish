@@ -155,7 +155,7 @@ static size_t check_for_new_events(void)
                         DEBUG_QUEUE("TX EVENT OK %d \n", qi);
                         uint8_t index = 0;
                         while (q->num_left > 0) {
-                            handle_tx_done(q->bufs[0]);
+                            handle_tx_done(q->bufs[index]);
                             index++;
                             q->num_left--;
                         }
