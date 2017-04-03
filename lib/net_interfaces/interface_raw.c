@@ -240,7 +240,7 @@ void net_if_init(const char* cardname, uint64_t qid)
     }
 
 #else 
-    connect_to_driver(cardname, queue_id, true, ws);
+    connect_to_driver(cardname, queue_id, ws);
 #endif
     buffers_init(BUFFER_COUNT);
 
