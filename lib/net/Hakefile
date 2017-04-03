@@ -1,0 +1,28 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2012, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /lib/net
+--
+--------------------------------------------------------------------------
+
+[ build library { 
+    target       = "net",
+    cFiles       = [ "net.c", "netbufs.c",  "netif.c", "pbuf.c" ],
+    addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
+    addLibraries = libDeps [ "lwip2", "devif", "devif_backend_idc",
+                             "devif_backend_solarflare", "devif_backend_e10k",
+                             "devif_backend_loopback" ] 
+  },
+    
+  build application {
+    target       = "net_udp_echo",
+    cFiles       = [ "test/udp_echo.c" ],
+    addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
+    addLibraries = libDeps [ "net" ]
+  }
+]
