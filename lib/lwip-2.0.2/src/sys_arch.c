@@ -19,9 +19,17 @@
  * - implement sys_jiffies
  */
 
+unsigned char debug_flags;
+
+#include <barrelfish/sys_debug.h>
+static cycles_t tsc_per_ms = 0;
 u32_t sys_now(void)
 {
-    return rdtsc() >> 10;
+    if (tsc_per_ms == 0) {
+        sys_debug_get_tsc_per_ms(&tsc_per_ms);
+    }
+
+    return rdtsc() / tsc_per_ms;
 }
 
 #if 0
