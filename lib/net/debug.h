@@ -15,8 +15,8 @@
 #ifndef LIB_NET_DEBUG_H_
 #define LIB_NET_DEBUG_H_
 
-//#define NETDEBUG(x...) debug_printf(NETDEBUG_SUBSYSTEM x);
+#define NETDEBUG(x, ...)
 
-#define NETDEBUG(fmt, ...) debug_printf(NETDEBUG_SUBSYSTEM ": %s : " fmt, __FUNCTION__, ##__VA_ARGS__)
+//#define NETDEBUG(fmt, ...) debug_printf(NETDEBUG_SUBSYSTEM ": %s : " fmt, __FUNCTION__, ##__VA_ARGS__)
 
 #endif /* LIB_NET_DEBUG_H_ */
