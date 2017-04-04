@@ -18,6 +18,8 @@
 #include "lwip/dhcp.h"
 #include "lwip/prot/ethernet.h"
 
+#include <barrelfish/deferred.h>
+
 
 #include <net_interfaces/flags.h>
 #include "networking_internal.h"
@@ -25,7 +27,8 @@
 struct net_state state = {0};
 
 #define NETWORKING_DEFAULT_QUEUE_ID 0
-#define NETWORKING_BUFFER_COUNT 1024
+#define NETWORKING_BUFFER_COUNT (4096 * 3)
+#define NETWORKING_BUFFER_RX_POPULATE (4096)
 #define NETWORKING_BUFFER_SIZE  2048
 
 
@@ -44,16 +47,15 @@ errval_t networking_get_defaults(uint64_t *queue, char **cardname)
     /* TODO: get the values from the SKB */
 
     *queue = NETWORKING_DEFAULT_QUEUE_ID;
-    *cardname = "loopback";
+    *cardname = "sfn5122f";
 
     return SYS_ERR_OK;
 }
 
-
-
 static void int_handler(void* args)
 {
     struct net_state *st = devq_get_state(args);
+
 
     net_if_poll(&st->netif);
 }
@@ -88,7 +90,7 @@ static errval_t create_sfn5122f_queue (uint64_t queueid, struct devq **retqueue)
 
     return sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, int_handler,
                                 false /*userlevel network feature*/,
-                                true /* user interrupts*/);
+                                false /* user interrupts*/);
 }
 
 
@@ -137,20 +139,41 @@ errval_t networking_create_queue(const char *cardname, uint64_t queueid,
 
 errval_t networking_get_mac(struct devq *q, uint8_t *hwaddr, uint8_t hwaddrlen) {
     debug_printf("net: obtaining MAC address for card.\n");
+    errval_t err;
+
+    uint64_t card_mac;
+    err = devq_control(q, 0, 0, &card_mac);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    memcpy(hwaddr, &card_mac, hwaddrlen);
+
+    SMEMCPY(hwaddr, &card_mac, hwaddrlen);
+
+    debug_printf("got mac: %x:%x:%x:%x:%x:%x\n",
+                 hwaddr[0], hwaddr[1],hwaddr[2], hwaddr[3], hwaddr[4], hwaddr[5]);
+
     return SYS_ERR_OK;
 }
-
-#define NETWORKING_POLL_MAX 100
-#include <lwip/pbuf.h>
-#include <lwip/prot/ethernet.h>
-#include <lwip/prot/ip4.h>
-#include <lwip/prot/udp.h>
 
 errval_t networking_poll(void)
 {
     struct net_state *st = &state;
 
+
     return net_if_poll(&st->netif);
+}
+
+static void timer_callback(void *data)
+{
+
+    void (*lwip_callback) (void) = data;
+  //  NETD_DEBUG("timer_callback: triggering %p\n", lwip_callback);
+//    wrapper_perform_lwip_work();
+    lwip_callback();
+
+//    NETD_DEBUG("timer_callback: terminated\n");
 }
 
 /**
@@ -206,12 +229,12 @@ errval_t networking_init_default(void) {
     }
 
     NETDEBUG("setting default netif...\n");
-    netif_set_default(&st->netif);
+   // netif_set_default(&st->netif);
 
 
     NETDEBUG("adding RX buffers\n");
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < NETWORKING_BUFFER_RX_POPULATE; i++) {
         struct pbuf *p = net_buf_alloc(st->pool);
         if (p == NULL) {
             NETDEBUG("net: WARNING there was no buffer\n");
@@ -229,6 +252,21 @@ errval_t networking_init_default(void) {
     if(lwip_err != ERR_OK) {
 
     }
+
+    static struct periodic_event dhcp_fine_timer;
+    static struct periodic_event dhcp_coarse_timer;
+
+    /* DHCP fine timer */
+    err = periodic_event_create(&dhcp_fine_timer, get_default_waitset(),
+                                (DHCP_FINE_TIMER_MSECS * 1000),
+                                MKCLOSURE(timer_callback, dhcp_fine_tmr));
+    assert(err_is_ok(err));
+
+    /* DHCP coarse timer */
+    err = periodic_event_create(&dhcp_coarse_timer, get_default_waitset(),
+                                (DHCP_COARSE_TIMER_MSECS * 1000),
+                                MKCLOSURE(timer_callback, dhcp_coarse_tmr));
+    assert(err_is_ok(err));
 
 
     NETDEBUG("initialization complete.\n");
