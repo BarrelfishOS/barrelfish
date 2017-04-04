@@ -56,7 +56,7 @@
 #define LWIP_NETIF_STATUS_CALLBACK      1
 
 /// Don't do ARP lookup to test IP
-#define DHCP_DOES_ARP_CHECK     0
+#define DHCP_DOES_ARP_CHECK     1
 
 /// Disable locks (we lock the whole stack)
 #define SYS_LIGHTWEIGHT_PROT    0
@@ -90,7 +90,7 @@
  *    4 byte alignment -> #define MEM_ALIGNMENT 4
  *    2 byte alignment -> #define MEM_ALIGNMENT 2
  */
-#define MEM_ALIGNMENT                   8
+#define MEM_ALIGNMENT                   1
 
 
 /*
@@ -219,7 +219,7 @@
  * that this option does not affect incoming packet sizes, which can be
  * controlled via IP_REASSEMBLY.
  */
-#define IP_FRAG                         1
+#define IP_FRAG                         0
 
 /**
  * IP_REASS_MAXAGE: Maximum time (in multiples of IP_TMR_INTERVAL - so seconds, normally)
@@ -303,7 +303,7 @@
  * LWIP_SNMP==1: Turn on SNMP module. UDP must be available for SNMP
  * transport.
  */
-#define LWIP_SNMP                       1
+#define LWIP_SNMP                       0
 #define LWIP_MIB2_CALLBACKS             0
 #define MIB2_STATS                      0
 
@@ -368,7 +368,7 @@
  * link level header. The default is 14, the standard value for
  * Ethernet.
  */
-#define PBUF_LINK_HLEN                  16
+#define PBUF_LINK_HLEN                  14
 
 /*
    ------------------------------------
@@ -421,37 +421,41 @@
    ---------------------------------------
 */
 
-
-#define TAPIF_DEBUG      LWIP_DBG_ON
+//#define LWIP_DEBUG 0
+#define TAPIF_DEBUG      LWIP_DBG_OFF
 #define TUNIF_DEBUG      LWIP_DBG_OFF
 #define UNIXIF_DEBUG     LWIP_DBG_OFF
 #define DELIF_DEBUG      LWIP_DBG_OFF
 #define SIO_FIFO_DEBUG   LWIP_DBG_OFF
-#define ETHARP_DEBUG    LWIP_DBG_ON
-#define TCPDUMP_DEBUG    LWIP_DBG_ON
-#define API_LIB_DEBUG    LWIP_DBG_ON
-#define API_MSG_DEBUG    LWIP_DBG_ON
-#define TCPIP_DEBUG      LWIP_DBG_ON
-#define NETIF_DEBUG      LWIP_DBG_ON
-#define SOCKETS_DEBUG    LWIP_DBG_ON
-#define DEMO_DEBUG       LWIP_DBG_ON
+#define ETHARP_DEBUG     LWIP_DBG_OFF
+#define TCPDUMP_DEBUG    LWIP_DBG_OFF
+#define API_LIB_DEBUG    LWIP_DBG_OFF
+#define API_MSG_DEBUG    LWIP_DBG_OFF
+#define TCPIP_DEBUG      LWIP_DBG_OFF
+#define NETIF_DEBUG      LWIP_DBG_OFF
+#define SOCKETS_DEBUG    LWIP_DBG_OFF
+#define DEMO_DEBUG       LWIP_DBG_OFF
 #define IP_DEBUG         LWIP_DBG_OFF
-#define IP_REASS_DEBUG   LWIP_DBG_ON
-#define RAW_DEBUG        LWIP_DBG_ON
-#define ICMP_DEBUG       LWIP_DBG_ON
-#define UDP_DEBUG        LWIP_DBG_ON
-#define TCP_DEBUG        LWIP_DBG_ON
-#define TCP_INPUT_DEBUG  LWIP_DBG_ON
-#define TCP_OUTPUT_DEBUG LWIP_DBG_ON
-#define TCP_RTO_DEBUG    LWIP_DBG_ON
-#define TCP_CWND_DEBUG   LWIP_DBG_ON
-#define TCP_WND_DEBUG    LWIP_DBG_ON
-#define TCP_FR_DEBUG     LWIP_DBG_ON
-#define TCP_QLEN_DEBUG   LWIP_DBG_ON
-#define TCP_RST_DEBUG    LWIP_DBG_ON
+#define IP_REASS_DEBUG   LWIP_DBG_OFF
+#define RAW_DEBUG        LWIP_DBG_OFF
+#define ICMP_DEBUG       LWIP_DBG_OFF
+#define UDP_DEBUG        LWIP_DBG_OFF
+#define TCP_DEBUG        LWIP_DBG_OFF
+#define TCP_INPUT_DEBUG  LWIP_DBG_OFF
+#define TCP_OUTPUT_DEBUG LWIP_DBG_OFF
+#define TCP_RTO_DEBUG    LWIP_DBG_OFF
+#define TCP_CWND_DEBUG   LWIP_DBG_OFF
+#define TCP_WND_DEBUG    LWIP_DBG_OFF
+#define TCP_FR_DEBUG     LWIP_DBG_OFF
+#define TCP_QLEN_DEBUG   LWIP_DBG_OFF
+#define TCP_RST_DEBUG    LWIP_DBG_OFF
+#define PBUF_DEBUG       LWIP_DBG_OFF
+#define DHCP_DEBUG       LWIP_DBG_OFF
 
 extern unsigned char debug_flags;
-#define LWIP_DBG_TYPES_ON debug_flags
+#define LWIP_DBG_TYPES_ON LWIP_DBG_ON
+
+
 
 #if 0
 #ifndef CHECKSUM_GEN_IP
