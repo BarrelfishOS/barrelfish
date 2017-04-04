@@ -451,6 +451,7 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
 
     if (sfn5122f_q_tx_ev_tx_ev_pkt_err_extract(ev)){     
         q->tx_head = (tx_head +1) % q->tx_size;
+        debug_printf("ERROR \n");
         return NIC_ERR_TX_PKT;
     }
 
@@ -531,7 +532,7 @@ static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q,
     buf->valid_length = valid_length;
     buf->flags = flags;
 
-    sfn5122f_q_tx_ker_desc_tx_ker_buf_addr_insert(d, addr);
+    sfn5122f_q_tx_ker_desc_tx_ker_buf_addr_insert(d, addr + valid_data);
     sfn5122f_q_tx_ker_desc_tx_ker_byte_count_insert(d, valid_length);
     sfn5122f_q_tx_ker_desc_tx_ker_cont_insert(d, !last);
     sfn5122f_q_tx_ker_desc_tx_ker_buf_region_insert(d, 0);
