@@ -244,7 +244,7 @@ pbuf_header_impl(struct pbuf *p, s16_t header_size_increment, u8_t force)
 u8_t
 pbuf_header(struct pbuf *p, s16_t header_size_increment)
 {
-   return pbuf_header_impl(p, header_size_increment, 0);
+   return pbuf_header_impl(p, header_size_increment, 1);
 }
 
 /**
