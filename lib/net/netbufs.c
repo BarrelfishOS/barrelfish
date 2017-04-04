@@ -134,6 +134,7 @@ errval_t net_buf_add(struct net_buf_pool *bp, struct capref frame, size_t buffer
         nb->vbase = reg->vbase + offset;
         nb->region = reg;
         nb->pbuf.custom_free_function = net_buf_free;
+        nb->allocated = 0;
 
         /* enqueue to freelist */
         nb->pbuf.pbuf.next =  bp->pbufs;
@@ -202,12 +203,18 @@ struct pbuf *net_buf_alloc(struct net_buf_pool *bp)
 {
     if (bp->pbufs) {
         struct net_buf_p *nb = (struct net_buf_p *)bp->pbufs;
+#if BENCH_LWIP_STACK
+        nb->timestamp = 0;
+#endif
+        assert(nb->allocated == 0);
+
         bp->pbufs = bp->pbufs->next;
         bp->buffer_free--;
         struct pbuf* p;
         p = pbuf_alloced_custom(PBUF_RAW, 0, PBUF_REF, &nb->pbuf,
                                 nb->vbase, nb->region->buffer_size);
 
+        nb->allocated = 1;
         NETDEBUG("bp=%p, allocated pbuf=%p, free count %zu / %zu\n", bp, p,
                  bp->buffer_free, bp->buffer_count);
         return p;
@@ -228,6 +235,8 @@ void net_buf_free(struct pbuf *p)
     nb->pbuf.pbuf.next =  bp->pbufs;
     bp->pbufs = &nb->pbuf.pbuf;
     bp->buffer_free++;
+    assert(nb->allocated == 1);
+    nb->allocated = 0;
 }
 
 struct pbuf *net_buf_get_by_region(struct net_buf_pool *bp,
@@ -242,6 +251,7 @@ struct pbuf *net_buf_get_by_region(struct net_buf_pool *bp,
             if (reg->frame.bytes < offset) {
                 return NULL;
             }
+            assert(reg->netbufs[offset / reg->buffer_size].allocated);
             return &reg->netbufs[offset / reg->buffer_size].pbuf.pbuf;
         }
         reg = reg->next;

@@ -31,6 +31,11 @@
 
 #include "debug.h"
 
+// enable benchmarking
+#define BENCH_LWIP_STACK 0
+#define BENCH_DEVQ_ENQUEUE 0
+
+
 /**
  * @brief encapsulates the state of the networking library
  */
@@ -48,6 +53,8 @@ struct net_state {
 extern struct net_state state;
 
 
+
+
 struct net_buf_pool;
 
 struct net_buf_p
@@ -56,6 +63,10 @@ struct net_buf_p
     lpaddr_t offset;
     void *vbase;
     struct net_buf_region *region;
+    bool allocated;
+#if BENCH_LWIP_STACK
+    cycles_t timestamp;
+#endif
 };
 
 struct net_buf_region

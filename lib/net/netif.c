@@ -57,7 +57,11 @@ static err_t net_if_linkoutput(struct netif *netif, struct pbuf *p)
 
 static void net_if_status_cb(struct netif *netif)
 {
-    debug_printf("netif status changed %s\n", ip4addr_ntoa(netif_ip4_addr(netif)));
+    debug_printf("######################################\n");
+    debug_printf("# IP Addr %s\n", ip4addr_ntoa(netif_ip4_addr(netif)));
+    debug_printf("# GW Addr %s\n", ip4addr_ntoa(netif_ip4_gw(netif)));
+    debug_printf("# Netmask %s\n", ip4addr_ntoa(netif_ip4_netmask(netif)));
+    debug_printf("######################################\n");
 }
 
 
@@ -134,7 +138,7 @@ errval_t net_if_add(struct netif *netif, void *st)
     IP4_ADDR(&ipaddr, 192,168,0,2);
     IP4_ADDR(&netmask, 255,255,255,0);
 
-    netif_add(netif, &ipaddr, &netmask, &gw, st,
+    netif_add(netif, IP_ADDR_ANY, IP_ADDR_ANY, IP_ADDR_ANY, st,
               netif_init_cb, netif_input);
 
     return SYS_ERR_OK;
@@ -166,6 +170,13 @@ errval_t net_if_remove(struct netif *netif)
  */
 
 
+#if BENCH_DEVQ_ENQUEUE
+#define BENCH_DEVQ_MEASUREMENT_SHIFT 12
+#define BENCH_DEVQ_MEASUREMENT (1 << BENCH_DEVQ_MEASUREMENT_SHIFT)
+static cycles_t bench_devq_processing = 0;
+static size_t bench_devq_processing_count = 0;
+#endif
+
 /**
  * @brief adds a new receive buffer to the interface
  *
@@ -182,10 +193,35 @@ errval_t net_if_add_rx_buf(struct netif *netif, struct pbuf *pbuf)
     NETDEBUG("netif=%p <- pbuf=%p   (reg=%u, offset=%" PRIxLPADDR ")\n", netif,
              pbuf, nb->region->regionid, nb->offset);
 
-    return devq_enqueue(st->queue, nb->region->regionid, nb->offset,
+
+#if BENCH_DEVQ_ENQUEUE
+    cycles_t tsc_start = rdtsc();
+#endif
+    errval_t err;
+    err =  devq_enqueue(st->queue, nb->region->regionid, nb->offset,
                         nb->region->buffer_size, 0, nb->region->buffer_size,
                         NETIF_RXFLAG);
+
+#if BENCH_DEVQ_ENQUEUE
+    if (bench_devq_processing_count == BENCH_DEVQ_MEASUREMENT) {
+        debug_printf("BENCH ENQUEUE: %lu\n", bench_devq_processing >> BENCH_DEVQ_MEASUREMENT_SHIFT);
+        bench_devq_processing = 0;
+        bench_devq_processing_count = 0;
+    }
+    bench_devq_processing += rdtsc() - tsc_start;
+    bench_devq_processing_count++;
+#endif
+
+    return err;
 }
+
+#if BENCH_LWIP_STACK
+#define BENCH_LWIP_STACK_MEASUREMENT_SHIFT 12
+#define BENCH_LWIP_STACK_MEASUREMENT (1 << BENCH_LWIP_STACK_MEASUREMENT_SHIFT)
+static cycles_t bench_lwip_processing = 0;
+static size_t bench_lwip_processing_count = 0;
+#endif
+
 
 /**
  * @brief adds a new transmit buffer to the interface
@@ -200,10 +236,7 @@ errval_t net_if_add_tx_buf(struct netif *netif, struct pbuf *pbuf)
     errval_t err;
 
     struct net_state *st = netif->state;
-    struct net_buf_p *nb = (struct net_buf_p *)pbuf;
 
-    NETDEBUG("netif=%p <- pbuf=%p   (reg=%u, offset=%" PRIxLPADDR ")\n", netif,
-             pbuf, nb->region->regionid, nb->offset);
 
     LINK_STATS_INC(link.xmit);
 
@@ -211,12 +244,31 @@ errval_t net_if_add_tx_buf(struct netif *netif, struct pbuf *pbuf)
     for (struct pbuf * tmpp = pbuf; tmpp != 0; tmpp = tmpp->next) {
         pbuf_ref(tmpp);
 
+
+        NETDEBUG("netif=%p <- pbuf=%p   (reg=%u, offset=%" PRIxLPADDR ")\n", netif,
+                 pbuf, nb->region->regionid, nb->offset);
+
+        struct net_buf_p *nb = (struct net_buf_p *)tmpp;
+
         if (tmpp->next == NULL) {
             flags |= NETIF_TXFLAG_LAST;
         }
-
-        err = devq_enqueue(st->queue, nb->region->regionid, nb->offset, tmpp->len, 0,
+#if BENCH_LWIP_STACK
+        if (nb->timestamp) {
+            if (bench_lwip_processing_count == BENCH_LWIP_STACK_MEASUREMENT) {
+                debug_printf("BENCH LWIP PROCESS: %lu\n", bench_lwip_processing >> BENCH_LWIP_STACK_MEASUREMENT_SHIFT);
+                bench_lwip_processing = 0;
+                bench_lwip_processing_count = 0;
+            }
+            bench_lwip_processing += rdtsc() - nb->timestamp;
+            bench_lwip_processing_count++;
+        }
+#endif
+        err = devq_enqueue(st->queue, nb->region->regionid, nb->offset,
+                           nb->region->buffer_size,
+                           ((uintptr_t)tmpp->payload - (uintptr_t)nb->vbase),
                            tmpp->len, flags);
+
         if (err_is_fail(err)) {
             return err;
         }
@@ -233,7 +285,7 @@ errval_t net_if_add_tx_buf(struct netif *netif, struct pbuf *pbuf)
  */
 
 
-#define NET_IF_POLL_MAX 100
+#define NET_IF_POLL_MAX 50
 
 /**
  * @brief polls then network interface for new incoming packets
@@ -244,17 +296,21 @@ errval_t net_if_add_tx_buf(struct netif *netif, struct pbuf *pbuf)
  */
 errval_t net_if_poll(struct netif *netif)
 {
-    NETDEBUG("netif=%p\n", netif);
+    //NETDEBUG("netif=%p\n", netif);
 
     errval_t err;
+
+    sys_check_timeouts();
 
     struct net_state *st = netif->state;
     if (st == NULL) {
         /* XXX: return an error code ?? */
+        debug_printf("FOOBAR\n");
         return SYS_ERR_OK;
     }
 
-    for (int i = 0; i < NET_IF_POLL_MAX; i++) {
+    //for (int i = 0; i < NET_IF_POLL_MAX; i++) {
+    for (;;) {
         struct devq_buf buf;
         err = devq_dequeue(st->queue, &buf.rid, &buf.offset, &buf.length,
                            &buf.valid_data, &buf.valid_length, &buf.flags);
@@ -272,15 +328,18 @@ errval_t net_if_poll(struct netif *netif)
             NETDEBUG("netif=%p, polling %u/%u. ERROR. No PBUF found for rid=%u, "
                             "offset=%"PRIxLPADDR "\n", netif, i, NET_IF_POLL_MAX,
                             buf.rid, buf.offset);
+            debug_printf("BUFFER NOT FOUND!!!!");
             continue;
         }
 
+#if BENCH_LWIP_STACK
+        ((struct net_buf_p *)p)->timestamp = rdtsc();
+#endif
         if (buf.flags & NETIF_TXFLAG) {
             NETDEBUG("netif=%p, polling %u/%u. TX done of pbuf=%p (rid=%u, "
                       "offset=%"PRIxLPADDR ")\n", netif, i, NET_IF_POLL_MAX,
                       p, buf.rid, buf.offset);
             net_buf_free(p);
-            continue;
         }
 
         if (buf.flags & NETIF_RXFLAG) {
@@ -288,7 +347,10 @@ errval_t net_if_poll(struct netif *netif)
                      "offset=%"PRIxLPADDR ")\n", netif, i, NET_IF_POLL_MAX,
                      p, buf.rid, buf.offset);
 
-#if 1
+            p->len = buf.valid_length;
+            p->tot_len = p->len;
+            p->payload += buf.valid_data;
+#if 0
 #include <lwip/pbuf.h>
 #include <lwip/prot/ethernet.h>
 #include <lwip/prot/ip.h>
@@ -317,16 +379,20 @@ errval_t net_if_poll(struct netif *netif)
             udphdr->src = PP_HTONS(11);
             udphdr->len = PP_HTONS(64 + UDP_HLEN);
 
+#endif
             netif_input(p, &st->netif);
 
-#endif
             /* XXX: do this at another time ? */
             p = net_buf_alloc(st->pool);
-            net_if_add_rx_buf(&st->netif, p);
+            if (p) {
+                net_if_add_rx_buf(&st->netif, p);
+            } else {
+                USER_PANIC("Could not allocate a receive buffer\n");
+            }
         }
     }
 
-    sys_check_timeouts();
+
 
 
     return SYS_ERR_OK;
