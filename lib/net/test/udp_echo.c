@@ -21,12 +21,25 @@
 
 #define UDP_ECHOSERVER_PORT 7
 
+size_t counter = 0;
+
 static void echo_recv_handler(void *arg, struct udp_pcb *upcb, struct pbuf *p,
                               const ip_addr_t *addr, uint16_t port)
 {
-    debug_printf("UDP ECHO received packet\n");
-    udp_sendto(upcb, p, addr, port);
-    pbuf_free(p);
+    /*
+    if ((++counter % 100) == 0) {
+        debug_printf("UDP ECHO received %zu packets\n", counter);
+    }
+    */
+
+    if (p != NULL) {
+      /* send received packet back to sender */
+      udp_sendto(upcb, p, addr, port);
+      /* free the pbuf */
+      pbuf_free(p);
+    } else {
+        debug_printf("Warning: PBUF was Zero.\n");
+    }
 }
 
 int main(int argc, char *argv[])
@@ -64,8 +77,9 @@ int main(int argc, char *argv[])
 
     debug_printf("UDP ECHO start receiving messages\n");
 
+    while(1) {
+        //event_dispatch_non_block(get_default_waitset());
 
-    for (int i = 0; i < 100; i++) {
         networking_poll();
     }
 
