@@ -41,6 +41,37 @@
 #define NET_IF__NAME0 'e'
 #define NET_IF__NAME1 'n'
 
+#if (BENCH_LWIP_STACK || BENCH_DEVQ_ENQUEUE || BENCH_DEVQ_DEQUEUE)
+#include <barrelfish/sys_debug.h>
+static cycles_t tsc_per_us = 0;
+static inline uint64_t cycles_to_us(cycles_t cycles)
+{
+    if (tsc_per_us == 0) {
+        sys_debug_get_tsc_per_ms(&tsc_per_us);
+        tsc_per_us /= 1000;
+    }
+
+    return cycles / (tsc_per_us);
+}
+#endif
+
+#if BENCH_LWIP_STACK
+static cycles_t bench_lwip_processing = 0;
+static cycles_t bench_lwip_processing2 = 0;
+static size_t bench_lwip_processing_count = 0;
+#endif
+
+#if BENCH_DEVQ_ENQUEUE
+static cycles_t bench_devq_enq_rx = 0;
+static size_t bench_devq_enq_rx_count = 0;
+static cycles_t bench_devq_enq_tx = 0;
+static size_t bench_devq_enq_tx_count = 0;
+#endif
+
+#if BENCH_DEVQ_DEQUEUE
+static cycles_t bench_devq_deq = 0;
+static size_t bench_devq_deq_count = 0;
+#endif
 
 
 static err_t net_if_linkoutput(struct netif *netif, struct pbuf *p)
@@ -170,12 +201,6 @@ errval_t net_if_remove(struct netif *netif)
  */
 
 
-#if BENCH_DEVQ_ENQUEUE
-#define BENCH_DEVQ_MEASUREMENT_SHIFT 12
-#define BENCH_DEVQ_MEASUREMENT (1 << BENCH_DEVQ_MEASUREMENT_SHIFT)
-static cycles_t bench_devq_processing = 0;
-static size_t bench_devq_processing_count = 0;
-#endif
 
 /**
  * @brief adds a new receive buffer to the interface
@@ -212,24 +237,19 @@ errval_t net_if_add_rx_buf(struct netif *netif, struct pbuf *pbuf)
                         NETIF_RXFLAG);
 
 #if BENCH_DEVQ_ENQUEUE
-    if (bench_devq_processing_count == BENCH_DEVQ_MEASUREMENT) {
-        debug_printf("BENCH ENQUEUE: %lu\n", bench_devq_processing >> BENCH_DEVQ_MEASUREMENT_SHIFT);
-        bench_devq_processing = 0;
-        bench_devq_processing_count = 0;
+    bench_devq_enq_rx += rdtsc() - tsc_start;
+    bench_devq_enq_rx_count++;
+    if (bench_devq_enq_rx_count== BENCH_NUM_MEASUREMENTS) {
+        debug_printf("BENCH ENQUEUE RX: %lu us (%lu)\n", cycles_to_us(bench_devq_enq_rx >> BENCH_NUM_MEASUREMENTS_BITS), bench_devq_enq_rx >> BENCH_NUM_MEASUREMENTS_BITS);
+        bench_devq_enq_rx = 0;
+        bench_devq_enq_rx_count = 0;
     }
-    bench_devq_processing += rdtsc() - tsc_start;
-    bench_devq_processing_count++;
 #endif
 
     return err;
 }
 
-#if BENCH_LWIP_STACK
-#define BENCH_LWIP_STACK_MEASUREMENT_SHIFT 12
-#define BENCH_LWIP_STACK_MEASUREMENT (1 << BENCH_LWIP_STACK_MEASUREMENT_SHIFT)
-static cycles_t bench_lwip_processing = 0;
-static size_t bench_lwip_processing_count = 0;
-#endif
+
 
 
 /**
@@ -275,23 +295,41 @@ errval_t net_if_add_tx_buf(struct netif *netif, struct pbuf *pbuf)
 
 #if BENCH_LWIP_STACK
         if (nb->timestamp) {
-            if (bench_lwip_processing_count == BENCH_LWIP_STACK_MEASUREMENT) {
-                debug_printf("BENCH LWIP PROCESS: %lu\n", bench_lwip_processing >> BENCH_LWIP_STACK_MEASUREMENT_SHIFT);
+            cycles_t now = rdtsc();
+            bench_lwip_processing += now- nb->timestamp;
+            bench_lwip_processing2 += now - nb->timestamp2;
+            bench_lwip_processing_count++;
+            if (bench_lwip_processing_count == BENCH_NUM_MEASUREMENTS) {
+                debug_printf("BENCH LWIP PROCESS: %lu us (%lu)\n", cycles_to_us(bench_lwip_processing >> BENCH_NUM_MEASUREMENTS_BITS), bench_lwip_processing >> BENCH_NUM_MEASUREMENTS_BITS);
+                debug_printf("BENCH LWIP PROCESS2: %lu us (%lu)\n", cycles_to_us(bench_lwip_processing2 >> BENCH_NUM_MEASUREMENTS_BITS), bench_lwip_processing2>> BENCH_NUM_MEASUREMENTS_BITS);
                 bench_lwip_processing = 0;
+                bench_lwip_processing2 = 0;
                 bench_lwip_processing_count = 0;
             }
-            bench_lwip_processing += rdtsc() - nb->timestamp;
-            bench_lwip_processing_count++;
         }
 #endif
 
         size_t valid_data = (uintptr_t)tmpp->payload - (uintptr_t)nb->vbase;
         assert((valid_data + tmpp->len) < nb->region->buffer_size);
         assert(((uintptr_t)tmpp->payload - valid_data) == (uintptr_t)nb->vbase);
+
+#if BENCH_DEVQ_ENQUEUE
+    cycles_t tsc_start = rdtsc();
+#endif
         err = devq_enqueue(st->queue, nb->region->regionid, nb->offset,
                            nb->region->buffer_size,
                            ((uintptr_t)tmpp->payload - (uintptr_t)nb->vbase),
                            tmpp->len, flags);
+#if BENCH_DEVQ_ENQUEUE
+    bench_devq_enq_tx += rdtsc() - tsc_start;
+    bench_devq_enq_tx_count++;
+    if (bench_devq_enq_tx_count== BENCH_NUM_MEASUREMENTS) {
+        debug_printf("BENCH ENQUEUE TX: %lu us (%lu)\n", cycles_to_us(bench_devq_enq_tx >> BENCH_NUM_MEASUREMENTS_BITS), bench_devq_enq_tx >> BENCH_NUM_MEASUREMENTS_BITS);
+        bench_devq_enq_tx = 0;
+        bench_devq_enq_tx_count = 0;
+    }
+
+#endif
 
         if (err_is_fail(err)) {
             return err;
@@ -335,9 +373,24 @@ errval_t net_if_poll(struct netif *netif)
 
     //for (int i = 0; i < NET_IF_POLL_MAX; i++) {
     for (;;) {
+#if BENCH_DEVQ_DEQUEUE
+        cycles_t tsc_start = rdtsc();
+#endif
         struct devq_buf buf;
         err = devq_dequeue(st->queue, &buf.rid, &buf.offset, &buf.length,
                            &buf.valid_data, &buf.valid_length, &buf.flags);
+
+
+#if BENCH_DEVQ_DEQUEUE
+        bench_devq_deq += rdtsc() - tsc_start;
+        bench_devq_deq_count++;
+        if (bench_devq_deq_count== BENCH_NUM_MEASUREMENTS) {
+            debug_printf("BENCH DEQUEUE: %lu\n", bench_devq_deq >> BENCH_NUM_MEASUREMENTS_BITS);
+            bench_devq_deq = 0;
+            bench_devq_deq_count = 0;
+        }
+
+#endif
         if (err_is_fail(err)) {
             NETDEBUG("netif=%p, polling %u/%u: %s\n", netif, i, NET_IF_POLL_MAX,
                      err_getstring(err));
@@ -366,6 +419,14 @@ errval_t net_if_poll(struct netif *netif)
             debug_printf("ERROR: pbuf=%p, rid=%u, offset=%lx magic=%lx, enq=%u, alloc=%u, flags=%lx (%lx)\n",
                          p, nb->region->regionid, nb->offset, nb->magic, nb->enqueued, nb->allocated, nb->flags, buf.flags);
         }
+
+        assert(nb->magic == 0xdeadbeefcafebabe);
+        assert(nb->flags == buf.flags);
+        assert(nb->enqueued == 1);
+        assert(nb->allocated == 1);
+
+        nb->enqueued = 0;
+        nb->flags = 0;
 #endif
 
 
@@ -377,16 +438,6 @@ errval_t net_if_poll(struct netif *netif)
                       "offset=%"PRIxLPADDR ")\n", netif, i, NET_IF_POLL_MAX,
                       p, buf.rid, buf.offset);
 
-#if NETBUF_DEBGUG
-            assert(nb->magic == 0xdeadbeefcafebabe);
-            assert(nb->flags == buf.flags);
-            assert(nb->enqueued == 1);
-            assert(nb->allocated == 1);
-
-            nb->enqueued = 0;
-            nb->flags = 0;
-#endif
-
             pbuf_free(p);
 
             assert(!(buf.flags & NETIF_RXFLAG));
@@ -395,15 +446,6 @@ errval_t net_if_poll(struct netif *netif)
             NETDEBUG("netif=%p, polling %u/%u. RX done of pbuf=%p (rid=%u, "
                             "offset=%"PRIxLPADDR ")\n", netif, i, NET_IF_POLL_MAX,
                             p, buf.rid, buf.offset);
-
-#if NETBUF_DEBGUG
-            assert(nb->magic == 0xdeadbeefcafebabe);
-            assert(nb->enqueued == 1);
-            assert(nb->allocated == 1);
-            assert(nb->flags == buf.flags);
-            nb->enqueued = 0;
-            nb->flags = 0;
-#endif
 
             p->len = buf.valid_length;
             p->tot_len = p->len;
@@ -441,7 +483,7 @@ errval_t net_if_poll(struct netif *netif)
             udphdr->len = PP_HTONS(64 + UDP_HLEN);
 
 #endif
-            if (netif_input(p, &st->netif) != ERR_OK) {
+            if (st->netif.input(p, &st->netif) != ERR_OK) {
                 net_if_add_rx_buf(&st->netif, p);
             } else {
                 /* XXX: do this at another time ? */

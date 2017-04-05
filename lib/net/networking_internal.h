@@ -34,6 +34,9 @@
 // enable benchmarking
 #define BENCH_LWIP_STACK 0
 #define BENCH_DEVQ_ENQUEUE 0
+#define BENCH_DEVQ_DEQUEUE 0
+#define BENCH_NUM_MEASUREMENTS_BITS 16
+#define BENCH_NUM_MEASUREMENTS (1UL << BENCH_NUM_MEASUREMENTS_BITS)
 
 #define NETBUF_DEBGUG 1
 
@@ -71,11 +74,11 @@ struct net_buf_p
     struct net_buf_region *region;
 #if BENCH_LWIP_STACK
     cycles_t timestamp;
+    cycles_t timestamp2;
 #endif
 #if NETBUF_DEBGUG
     uint64_t magic;
 #endif
-
 };
 
 struct net_buf_region
