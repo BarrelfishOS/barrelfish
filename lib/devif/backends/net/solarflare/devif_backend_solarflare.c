@@ -390,23 +390,36 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
             DEBUG_QUEUE("RX_EV Q_ID: %d len %ld OK %s \n", queue->id, *valid_length,
                         err_getstring(err));
 
+            sfn5122f_queue_bump_evhead(queue);
+
             if (err_is_fail(err)) {
+                //debug_printf("enqueue again: rid=%u, off=%lx\n", *rid, *offset);
                 err = enqueue_rx_buf(queue, *rid, *offset, *length,
                                      *valid_data, *valid_length,
                                      *flags);
                 if (err_is_fail(err)) {
                     printf("Error receiving packet, could not enqueue buffer\n");
+                    /* we need to return the buffer here, and let the networkstack
+                     * deal with it */
+                    return SYS_ERR_OK;
                 }
-                sfn5122f_queue_bump_evhead(queue);
-                continue;
+
+                /* the packet has been discarded and enqueued successfully,
+                 * return emtpy queue */
+                err = DEVQ_ERR_QUEUE_EMPTY;
+            } else {
+                assert(*valid_length > 0);
+                return SYS_ERR_OK;
             }
-            sfn5122f_queue_bump_evhead(queue);
-            assert(*valid_length > 0);
-            return SYS_ERR_OK;
+            break;
         case EV_CODE_TX:
             err = sfn5122f_queue_handle_tx_ev_devif(queue, rid, offset, length,
                                                     valid_data, valid_length,
                                                     flags);
+            if (*flags & NETIF_RXFLAG) {
+                            printf("HUH: reiceived rx buffer in tx event???\n");
+                        }
+
             if (err_is_ok(err)) {
                 DEBUG_QUEUE("TX EVENT OK %d \n", queue->id);
             } else {
