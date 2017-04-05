@@ -193,6 +193,15 @@ errval_t net_if_add_rx_buf(struct netif *netif, struct pbuf *pbuf)
     NETDEBUG("netif=%p <- pbuf=%p   (reg=%u, offset=%" PRIxLPADDR ")\n", netif,
              pbuf, nb->region->regionid, nb->offset);
 
+#if NETBUF_DEBGUG
+    assert(nb->magic == 0xdeadbeefcafebabe);
+    assert(nb->allocated == 1);
+    assert(nb->enqueued == 0);
+    assert(nb->flags == 0);
+    nb->enqueued = 1;
+    nb->flags = NETIF_RXFLAG;
+#endif
+
 
 #if BENCH_DEVQ_ENQUEUE
     cycles_t tsc_start = rdtsc();
@@ -253,6 +262,17 @@ errval_t net_if_add_tx_buf(struct netif *netif, struct pbuf *pbuf)
         if (tmpp->next == NULL) {
             flags |= NETIF_TXFLAG_LAST;
         }
+
+#if NETBUF_DEBGUG
+        assert(nb->magic == 0xdeadbeefcafebabe);
+        assert(nb->allocated == 1);
+        assert(nb->enqueued == 0);
+        assert(nb->flags == 0);
+        nb->enqueued = 1;
+        nb->flags = flags;
+#endif
+
+
 #if BENCH_LWIP_STACK
         if (nb->timestamp) {
             if (bench_lwip_processing_count == BENCH_LWIP_STACK_MEASUREMENT) {
@@ -264,6 +284,10 @@ errval_t net_if_add_tx_buf(struct netif *netif, struct pbuf *pbuf)
             bench_lwip_processing_count++;
         }
 #endif
+
+        size_t valid_data = (uintptr_t)tmpp->payload - (uintptr_t)nb->vbase;
+        assert((valid_data + tmpp->len) < nb->region->buffer_size);
+        assert(((uintptr_t)tmpp->payload - valid_data) == (uintptr_t)nb->vbase);
         err = devq_enqueue(st->queue, nb->region->regionid, nb->offset,
                            nb->region->buffer_size,
                            ((uintptr_t)tmpp->payload - (uintptr_t)nb->vbase),
@@ -332,6 +356,19 @@ errval_t net_if_poll(struct netif *netif)
             continue;
         }
 
+
+#if NETBUF_DEBGUG
+        struct net_buf_p *nb = (struct net_buf_p *)p;
+
+        assert((buf.valid_data + buf.valid_length) < nb->region->buffer_size);
+
+        if (nb->magic != 0xdeadbeefcafebabe || nb->enqueued != 1 || nb->allocated != 1 || nb->flags != buf.flags) {
+            debug_printf("ERROR: pbuf=%p, rid=%u, offset=%lx magic=%lx, enq=%u, alloc=%u, flags=%lx (%lx)\n",
+                         p, nb->region->regionid, nb->offset, nb->magic, nb->enqueued, nb->allocated, nb->flags, buf.flags);
+        }
+#endif
+
+
 #if BENCH_LWIP_STACK
         ((struct net_buf_p *)p)->timestamp = rdtsc();
 #endif
@@ -339,17 +376,41 @@ errval_t net_if_poll(struct netif *netif)
             NETDEBUG("netif=%p, polling %u/%u. TX done of pbuf=%p (rid=%u, "
                       "offset=%"PRIxLPADDR ")\n", netif, i, NET_IF_POLL_MAX,
                       p, buf.rid, buf.offset);
-            net_buf_free(p);
-        }
 
-        if (buf.flags & NETIF_RXFLAG) {
+#if NETBUF_DEBGUG
+            assert(nb->magic == 0xdeadbeefcafebabe);
+            assert(nb->flags == buf.flags);
+            assert(nb->enqueued == 1);
+            assert(nb->allocated == 1);
+
+            nb->enqueued = 0;
+            nb->flags = 0;
+#endif
+
+            pbuf_free(p);
+
+            assert(!(buf.flags & NETIF_RXFLAG));
+
+        } else if (buf.flags & NETIF_RXFLAG) {
             NETDEBUG("netif=%p, polling %u/%u. RX done of pbuf=%p (rid=%u, "
-                     "offset=%"PRIxLPADDR ")\n", netif, i, NET_IF_POLL_MAX,
-                     p, buf.rid, buf.offset);
+                            "offset=%"PRIxLPADDR ")\n", netif, i, NET_IF_POLL_MAX,
+                            p, buf.rid, buf.offset);
+
+#if NETBUF_DEBGUG
+            assert(nb->magic == 0xdeadbeefcafebabe);
+            assert(nb->enqueued == 1);
+            assert(nb->allocated == 1);
+            assert(nb->flags == buf.flags);
+            nb->enqueued = 0;
+            nb->flags = 0;
+#endif
 
             p->len = buf.valid_length;
             p->tot_len = p->len;
             p->payload += buf.valid_data;
+
+            assert(!(buf.flags & NETIF_TXFLAG));
+
 #if 0
 #include <lwip/pbuf.h>
 #include <lwip/prot/ethernet.h>
@@ -380,15 +441,27 @@ errval_t net_if_poll(struct netif *netif)
             udphdr->len = PP_HTONS(64 + UDP_HLEN);
 
 #endif
-            netif_input(p, &st->netif);
-
-            /* XXX: do this at another time ? */
-            p = net_buf_alloc(st->pool);
-            if (p) {
+            if (netif_input(p, &st->netif) != ERR_OK) {
                 net_if_add_rx_buf(&st->netif, p);
             } else {
-                USER_PANIC("Could not allocate a receive buffer\n");
+                /* XXX: do this at another time ? */
+                p = net_buf_alloc(st->pool);
+#if NETBUF_DEBGUG
+        nb = (struct net_buf_p *)p;
+        assert(nb->magic == 0xdeadbeefcafebabe);
+        assert(nb->allocated == 1);
+        assert(nb->enqueued == 0);
+        assert(nb->flags == 0);
+
+#endif
+                if (p) {
+                    net_if_add_rx_buf(&st->netif, p);
+                } else {
+                    USER_PANIC("Could not allocate a receive buffer\n");
+                }
             }
+        } else {
+            debug_printf("WARNING: got buffer without a flag\n");
         }
     }
 

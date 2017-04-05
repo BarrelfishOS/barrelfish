@@ -100,7 +100,7 @@ errval_t net_buf_add(struct net_buf_pool *bp, struct capref frame, size_t buffer
 
 
     size_t numbuf = reg->frame.bytes / reg->buffer_size;
-
+    assert(numbuf * reg->buffer_size <= reg->frame.bytes);
 
     reg->netbufs = calloc(numbuf, sizeof(struct net_buf_p));
     if (reg->netbufs == NULL) {
@@ -134,8 +134,12 @@ errval_t net_buf_add(struct net_buf_pool *bp, struct capref frame, size_t buffer
         nb->vbase = reg->vbase + offset;
         nb->region = reg;
         nb->pbuf.custom_free_function = net_buf_free;
+#if NETBUF_DEBGUG
         nb->allocated = 0;
-
+        nb->enqueued = 0;
+        nb->flags = 0;
+        nb->magic = 0xdeadbeefcafebabe;
+#endif
         /* enqueue to freelist */
         nb->pbuf.pbuf.next =  bp->pbufs;
         bp->pbufs = &nb->pbuf.pbuf;
@@ -206,17 +210,27 @@ struct pbuf *net_buf_alloc(struct net_buf_pool *bp)
 #if BENCH_LWIP_STACK
         nb->timestamp = 0;
 #endif
-        assert(nb->allocated == 0);
 
+#if NETBUF_DEBGUG
+        assert(nb->magic == 0xdeadbeefcafebabe);
+        assert(nb->allocated == 0);
+        assert(nb->enqueued == 0);
+        assert(nb->flags == 0);
+
+#endif
         bp->pbufs = bp->pbufs->next;
         bp->buffer_free--;
         struct pbuf* p;
         p = pbuf_alloced_custom(PBUF_RAW, 0, PBUF_REF, &nb->pbuf,
                                 nb->vbase, nb->region->buffer_size);
-
+#if NETBUF_DEBGUG
         nb->allocated = 1;
+        assert(p->next == NULL);
+#endif
         NETDEBUG("bp=%p, allocated pbuf=%p, free count %zu / %zu\n", bp, p,
                  bp->buffer_free, bp->buffer_count);
+     //   printf("alloc: %p\n", p);
+
         return p;
     }
 
@@ -229,14 +243,30 @@ struct pbuf *net_buf_alloc(struct net_buf_pool *bp)
 void net_buf_free(struct pbuf *p)
 {
     NETDEBUG("pbuf=%p\n", p);
+
+    if (p->next) {
+        debug_printf("!!!!!! p->NEXT was not NULL\n");
+    }
+
+   // printf("free: %p\n", p);
+
     // TODO sanity checks ?
     struct net_buf_p *nb = (struct net_buf_p *)p;
-    struct net_buf_pool *bp = nb->region->pool;
-    nb->pbuf.pbuf.next =  bp->pbufs;
-    bp->pbufs = &nb->pbuf.pbuf;
-    bp->buffer_free++;
+
+#if NETBUF_DEBGUG
+    assert(nb->magic == 0xdeadbeefcafebabe);
+    assert(p->ref == 0);
     assert(nb->allocated == 1);
+    assert(nb->enqueued == 0);
+    assert(nb->flags == 0);
     nb->allocated = 0;
+
+#endif
+
+    struct net_buf_pool *bp = nb->region->pool;
+    p->next =  bp->pbufs;
+    bp->pbufs = p;
+    bp->buffer_free++;
 }
 
 struct pbuf *net_buf_get_by_region(struct net_buf_pool *bp,
@@ -251,8 +281,13 @@ struct pbuf *net_buf_get_by_region(struct net_buf_pool *bp,
             if (reg->frame.bytes < offset) {
                 return NULL;
             }
-            assert(reg->netbufs[offset / reg->buffer_size].allocated);
-            return &reg->netbufs[offset / reg->buffer_size].pbuf.pbuf;
+
+            assert((offset & (reg->buffer_size - 1)) == 0);
+            assert(offset / reg->buffer_size < reg->pool->buffer_count);
+            struct net_buf_p *nb = reg->netbufs + (offset / reg->buffer_size);
+            assert(nb->offset == offset);
+
+            return (struct pbuf *)nb;
         }
         reg = reg->next;
     }

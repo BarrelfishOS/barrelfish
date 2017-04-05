@@ -35,6 +35,7 @@
 #define BENCH_LWIP_STACK 0
 #define BENCH_DEVQ_ENQUEUE 0
 
+#define NETBUF_DEBGUG 1
 
 /**
  * @brief encapsulates the state of the networking library
@@ -60,13 +61,21 @@ struct net_buf_pool;
 struct net_buf_p
 {
     struct pbuf_custom pbuf;
+#if NETBUF_DEBGUG
+    uint64_t flags;
+    bool allocated;
+    bool enqueued;
+#endif
     lpaddr_t offset;
     void *vbase;
     struct net_buf_region *region;
-    bool allocated;
 #if BENCH_LWIP_STACK
     cycles_t timestamp;
 #endif
+#if NETBUF_DEBGUG
+    uint64_t magic;
+#endif
+
 };
 
 struct net_buf_region
