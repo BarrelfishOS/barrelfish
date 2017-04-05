@@ -421,6 +421,7 @@
    ---------------------------------------
 */
 
+#define LWIP_NOASSERT 1
 //#define LWIP_DEBUG 0
 #define TAPIF_DEBUG      LWIP_DBG_OFF
 #define TUNIF_DEBUG      LWIP_DBG_OFF
@@ -482,13 +483,15 @@ extern unsigned char debug_flags;
 #define CHECKSUM_CHECK_TCP              1
 #endif
 #else
-#ifndef CHECKSUM_CHECK_IP
-#define CHECKSUM_CHECK_IP               0
-#endif
 
-#ifndef CHECKSUM_CHECK_UDP
+#define CHECKSUM_CHECK_IP               0
 #define CHECKSUM_CHECK_UDP              0
-#endif
+#define CHECKSUM_CHECK_ICMP              0
+#define LWIP_CHECKSUM_ON_COPY       0
+#define CHECKSUM_CHECK_TCP 0
+#define CHECKSUM_GEN_IP 0
+#define CHECKSUM_GEN_UDP 0
+#define CHECKSUM_GEN_TCP 0
 #endif
 
 #endif /* LWIP_LWIPOPTS_H */
