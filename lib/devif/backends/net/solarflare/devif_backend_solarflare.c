@@ -36,6 +36,12 @@
 #define TX_ENTRIES 4096
 #define RX_ENTRIES 4096
 #define EV_ENTRIES 32768
+
+STATIC_ASSERT((TX_ENTRIES & (TX_ENTRIES - 1)) == 0, "must be a power of two");
+STATIC_ASSERT((RX_ENTRIES & (RX_ENTRIES - 1)) == 0, "must be a power of two");
+STATIC_ASSERT((EV_ENTRIES & (EV_ENTRIES - 1)) == 0, "must be a power of two");
+
+
 // Event Queue
 #define EV_CODE_RX 0
 #define EV_CODE_TX 2
@@ -379,6 +385,11 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
         return SYS_ERR_OK;
     }
 
+
+    if((queue->ev_head & ((EV_ENTRIES / 8) - 1)) == 0) {
+        sfn5122f_evq_rptr_reg_wr(queue->device, queue->id, queue->ev_head);
+    }
+
     while(true) {
         ev_code = sfn5122f_get_event_code(queue);
         switch(ev_code){
@@ -393,7 +404,7 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
             sfn5122f_queue_bump_evhead(queue);
 
             if (err_is_fail(err)) {
-                //debug_printf("enqueue again: rid=%u, off=%lx\n", *rid, *offset);
+                debug_printf("enqueue again: rid=%u, off=%lx\n", *rid, *offset);
                 err = enqueue_rx_buf(queue, *rid, *offset, *length,
                                      *valid_data, *valid_length,
                                      *flags);
@@ -451,8 +462,6 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
             sfn5122f_queue_bump_evhead(queue);
             break;
         case EV_CODE_NONE:
-            sfn5122f_evq_rptr_reg_wr(queue->device, queue->id,
-                                     queue->ev_head);
             return err;
         }
     }

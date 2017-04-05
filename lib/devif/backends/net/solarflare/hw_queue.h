@@ -181,6 +181,46 @@ static inline errval_t sfn5122f_queue_free(struct sfn5122f_queue* q)
     return SYS_ERR_OK;
 }
 
+static inline void sfn5122f_queue_bump_evhead(sfn5122f_queue_t* q)
+{
+     q->ev_head = (q->ev_head +1) & (q->ev_size - 1);
+}
+
+static inline void sfn5122f_queue_bump_rxhead(sfn5122f_queue_t* q)
+{
+    q->rx_head = (q->rx_head +1) & (q->rx_size - 1);
+}
+
+static inline void sfn5122f_queue_bump_rxtail(sfn5122f_queue_t* q)
+{
+    q->rx_tail = (q->rx_tail +1) & (q->rx_size - 1);
+}
+
+static inline void sfn5122f_queue_bump_txhead(sfn5122f_queue_t* q)
+{
+    q->tx_head = (q->tx_head +1) & (q->tx_size - 1);
+}
+
+static inline void sfn5122f_queue_bump_txtail(sfn5122f_queue_t* q)
+{
+    q->tx_tail = (q->tx_tail +1) & (q->tx_size - 1);
+}
+
+static inline void sfn5122f_queue_clear_ev(void *ev)
+{
+    STATIC_ASSERT_SIZEOF(sfn5122f_q_tx_ev_array_t, sizeof(uint64_t));
+    STATIC_ASSERT_SIZEOF(sfn5122f_q_rx_ev_array_t, sizeof(uint64_t));
+    //memset(ev, 0xff, sfn5122f_q_event_entry_size);
+
+    *((uint64_t *)ev) = 0xffffffffffffffffUL;
+}
+
+static inline void sfn5122f_queue_clear_kdesc(void *kdesc)
+{
+    STATIC_ASSERT_SIZEOF(sfn5122f_q_tx_user_desc_size, sizeof(uint64_t));
+    STATIC_ASSERT_SIZEOF(sfn5122f_q_tx_ker_desc_size, sizeof(uint64_t));
+    *((uint64_t *)kdesc) = 0UL;
+}
 
 static inline uint8_t sfn5122f_get_event_code(sfn5122f_queue_t* queue)
 {             
@@ -190,13 +230,13 @@ static inline uint8_t sfn5122f_get_event_code(sfn5122f_queue_t* queue)
 }
 
 
-static inline errval_t sfn5122f_queue_bump_txtail(sfn5122f_queue_t* q)
+static inline errval_t sfn5122f_queue_update_txtail(sfn5122f_queue_t* q)
 {
     return q->ops.update_txtail(q, q->tx_tail);
 }
 
 
-static inline errval_t sfn5122f_queue_bump_rxtail(sfn5122f_queue_t* q)
+static inline errval_t sfn5122f_queue_update_rxtail(sfn5122f_queue_t* q)
 {
     return q->ops.update_rxtail(q, q->rx_tail);
 }
@@ -227,7 +267,7 @@ static inline errval_t sfn5122f_handle_drv_ev(sfn5122f_queue_t* q, uint16_t n)
         return NIC_ERR_TX_PKT;
     }
 
-    memset(code, 0xff, sfn5122f_q_event_entry_size);
+    sfn5122f_queue_clear_ev(code);
     return SYS_ERR_OK;
 
 }
@@ -242,8 +282,8 @@ static inline errval_t sfn5122f_queue_handle_mcdi_event(sfn5122f_queue_t* q)
     uint64_t reg;
     ev = q->ev_ring[ev_head]; 
     reg = sfn5122f_q_event_entry_ev_data_extract(ev);
-    memset(ev, 0xff, sfn5122f_q_event_entry_size);
 
+    sfn5122f_queue_clear_ev(ev);
     return SYS_ERR_OK;
 
 }
@@ -274,7 +314,8 @@ static inline int sfn5122f_queue_add_user_rxbuf_devif(sfn5122f_queue_t* q,
     buf->flags = flags;
     sfn5122f_q_rx_user_desc_rx_user_buf_id_insert(d, buf_id);
     sfn5122f_q_rx_user_desc_rx_user_2byte_offset_insert(d, b_off >> 1);
-    q->rx_tail = (tail + 1) % q->rx_size;
+
+    sfn5122f_queue_bump_rxtail(q);
     return 0;
 }
 
@@ -306,9 +347,11 @@ static inline int sfn5122f_queue_add_rxbuf_devif(sfn5122f_queue_t* q,
     sfn5122f_q_rx_ker_desc_rx_ker_buf_region_insert(d, 0);
     // TODO: Check size
     sfn5122f_q_rx_ker_desc_rx_ker_buf_size_insert(d, length);
-    q->rx_tail = (tail + 1) % q->rx_size;
+    sfn5122f_queue_bump_rxtail(q);
     return 0;
 }
+
+
 
 static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q, 
                                                          regionid_t* rid,
@@ -318,6 +361,7 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
                                                          genoffset_t* valid_length,
                                                          uint64_t* flags)
 {   
+    errval_t err = SYS_ERR_OK;
     /*  Only one event is generated even if there is more than one
         descriptor per packet  */
     struct devq_buf* buf;
@@ -328,7 +372,7 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
 
     ev = q->ev_ring[q->ev_head];
     rx_head = sfn5122f_q_rx_ev_rx_ev_desc_ptr_extract(ev);
-
+    assert(rx_head < q->rx_size);
     buf = &q->rx_bufs[rx_head];
 
     *rid = buf->rid;
@@ -338,25 +382,20 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
     *flags = buf->flags;
 
     if(!sfn5122f_q_rx_ev_rx_ev_pkt_ok_extract(ev)) {   
-         // TODO error handling
-         q->rx_head = (rx_head + 1) % q->rx_size;
          if (sfn5122f_q_rx_ev_rx_ev_tobe_disc_extract(ev)) {
             // packet discared by softare -> ok
-            return NIC_ERR_RX_DISCARD;
-         }
-
-         if (sfn5122f_q_rx_ev_rx_ev_buf_owner_id_extract(ev)) {
+            err = NIC_ERR_RX_DISCARD;
+         } else if (sfn5122f_q_rx_ev_rx_ev_buf_owner_id_extract(ev)) {
              printf("Wrong owner \n");
+             err = NIC_ERR_RX_PKT;
          }
-         return NIC_ERR_RX_PKT;
+    } else {
+        *valid_length = sfn5122f_q_rx_ev_rx_ev_byte_ctn_extract(ev);
+        /* Length of 0 is treated as 16384 bytes */
+        if (*valid_length == 0) {
+            *valid_length = 16384;
+        }
     }
-
-    *valid_length = sfn5122f_q_rx_ev_rx_ev_byte_ctn_extract(ev);
-    /* Length of 0 is treated as 16384 bytes */
-    if (*valid_length == 0) {
-        *valid_length = 16384;
-    }
-
 
     /*
     if (q->userspace){
@@ -368,16 +407,12 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
     }
     */
     /* only have to reset event entry */
-    memset(ev, 0xff, sfn5122f_q_event_entry_size);
+    sfn5122f_queue_clear_ev(ev);
 
-    q->rx_head = (rx_head + 1) % q->rx_size;
-    return SYS_ERR_OK;
+    sfn5122f_queue_bump_rxhead(q);
+    return err;
 }
 
-static inline void sfn5122f_queue_bump_evhead(sfn5122f_queue_t* q)
-{     
-     q->ev_head = (q->ev_head +1) % q->ev_size;
-}
 
 static inline size_t sfn5122f_queue_free_rxslots(sfn5122f_queue_t* q)
 {
@@ -425,6 +460,8 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
                                                          genoffset_t* valid_length,
                                                          uint64_t* flags)
 {
+    errval_t err = SYS_ERR_OK;
+
     /*  Only one event is generated even if there is more than one
         descriptor per packet  */
     uint16_t ev_head = q->ev_head;
@@ -437,7 +474,7 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
     ev = q->ev_ring[ev_head];
     tx_head = sfn5122f_q_tx_ev_tx_ev_desc_ptr_extract(ev);
     
-
+    assert(q->tx_head < q->tx_size);
     buf = &q->tx_bufs[q->tx_head];
 
     //printf("Tx_head %d q->tx_head %d size %ld q->tx_tail %d\n", 
@@ -449,10 +486,12 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
     *valid_data = buf->valid_data;
     *flags = buf->flags;
 
+    sfn5122f_queue_bump_txhead(q);
+
     if (sfn5122f_q_tx_ev_tx_ev_pkt_err_extract(ev)){     
-        q->tx_head = (tx_head +1) % q->tx_size;
         debug_printf("ERROR \n");
-        return NIC_ERR_TX_PKT;
+        err = NIC_ERR_TX_PKT;
+        goto out;
     }
 
     if (sfn5122f_q_tx_ev_tx_ev_comp_extract(ev) == 1){  
@@ -467,7 +506,9 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
                 d = q->tx_ring.ker[q->tx_head];  
             }
 
-            while (q->tx_head != (tx_head + 1) % q->tx_size ) {
+            tx_head = (tx_head +1) & (q->tx_size - 1);
+            while (q->tx_head != tx_head ) {
+                assert(q->tx_head < q->tx_size);
                 buf = &q->tx_bufs[q->tx_head];
                 q->bufs[index].rid = buf->rid;
                 q->bufs[index].offset = buf->offset;
@@ -477,7 +518,7 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
                 q->bufs[index].length = buf->length;
                 //d_user = q->tx_ring.user[tx_head];  
                 index++;
-                q->tx_head = (q->tx_head + 1) % q->tx_size;
+                sfn5122f_queue_bump_txhead(q);
                 q->num_left++;
             }
           
@@ -492,19 +533,21 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
         } else { // Singe descriptor
             if (q->userspace){
                 d_user = q->tx_ring.user[q->tx_head];  
-                memset(d_user, 0 , sfn5122f_q_tx_user_desc_size);
+                sfn5122f_queue_clear_kdesc(d_user);
+
             } else {
                 d = q->tx_ring.ker[q->tx_head];  
-                memset(d, 0 , sfn5122f_q_tx_ker_desc_size);
+                sfn5122f_queue_clear_kdesc(d);
             }
         }
-
-        // reset entry event in queue
-        memset(ev, 0xff, sfn5122f_q_event_entry_size);
-        q->tx_head = (tx_head +1) % q->tx_size;
     }
 
-    return SYS_ERR_OK;
+    out:
+
+    // reset entry event in queue
+    sfn5122f_queue_clear_ev(ev);
+
+    return err;
 }
 
 static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q, 
@@ -521,7 +564,9 @@ static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q,
     size_t tail = q->tx_tail;
 
     d = q->tx_ring.ker[tail];
- 
+
+    assert(tail < q->tx_size);
+
     buf = &q->tx_bufs[tail];
    
     bool last = flags & NETIF_TXFLAG_LAST;    
@@ -537,9 +582,10 @@ static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q,
     sfn5122f_q_tx_ker_desc_tx_ker_cont_insert(d, !last);
     sfn5122f_q_tx_ker_desc_tx_ker_buf_region_insert(d, 0);
 
+    sfn5122f_queue_bump_txtail(q);
+
     __sync_synchronize();
  
-    q->tx_tail = (tail + 1) % q->tx_size;
     return 0;
 }
 
@@ -561,6 +607,8 @@ static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q,
     size_t tail = q->tx_tail;
 
     d = q->tx_ring.ker[tail];
+
+    assert(tail < q->tx_size);
     buf = &q->tx_bufs[tail];
    
     bool last = flags & NETIF_TXFLAG_LAST;    
@@ -579,7 +627,7 @@ static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q,
 
     __sync_synchronize();
  
-    q->tx_tail = (tail + 1) % q->tx_size;
+    sfn5122f_queue_bump_txtail(q);
     return 0;
 }
 
