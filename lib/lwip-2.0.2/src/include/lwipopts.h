@@ -100,8 +100,8 @@
 */
 
 #define LWIP_SUPPORT_CUSTOM_PBUF 1
-#define MEM_USE_POOLS 1
-#define MEMP_USE_CUSTOM_POOLS 1
+#define MEM_USE_POOLS 0
+#define MEMP_USE_CUSTOM_POOLS 0
 
 
 /**
@@ -272,7 +272,7 @@
 /**
  * LWIP_RAW==1: Enable application layer to hook into the IP layer itself.
  */
-#define LWIP_RAW                        0
+#define LWIP_RAW                        1
 
 /*
    ----------------------------------
