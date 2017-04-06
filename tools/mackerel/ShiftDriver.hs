@@ -1122,6 +1122,7 @@ register_write_fn r =
                       C.SComment "No MB1 fields present"
                  ),
                  (if prsvmask /= 0 then
+                    (if RT.is_readable r then
                       (C.Ex $ C.Assignment 
                              (C.Variable cv_regval) 
                              (C.Binary C.BitwiseOr 
@@ -1129,6 +1130,9 @@ register_write_fn r =
                                     (C.Binary C.BitwiseAnd
                                           (C.HexConstant prsvmask)
                                           (loc_read r))))
+                      else 
+                      C.SComment "No pre-read. Register is write only."
+                  )
                   else
                       C.SComment "No pre-read of register required"
                  ),

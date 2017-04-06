@@ -11,11 +11,13 @@
 #include <sysreg.h>
 #include <dev/armv8_dev.h>
 #include <dev/gic_v3_dev.h>
+#include <dev/gic_v3_cpu_dev.h>
 #include <platform.h>
 #include <paging_kernel_arch.h>
 #include <arch/armv8/gic_v3.h>
 
 static gic_v3_t gic_v3_dev;
+static gic_v3_cpu_t gic_v3_cpu_dev;
 
 /*
  * Initialize the global interrupt controller
@@ -27,14 +29,23 @@ static gic_v3_t gic_v3_dev;
  */
 errval_t gicv3_init(void)
 {
+    printk(LOG_NOTE, "gicv3_init (mem-mapped CPU if) enter\n");
 
-    // Enable system register access
-    armv8_ICC_SRE_EL1_SRE_wrf(NULL, 1);
-
-    lvaddr_t gic_dist = local_phys_to_mem(platform_get_gic_cpu_address());
+    lvaddr_t gic_dist = local_phys_to_mem(platform_get_distributor_address());
     gic_v3_initialize(&gic_v3_dev, (char *)gic_dist);
 
+    lvaddr_t gic_cpu = local_phys_to_mem(platform_get_gic_cpu_address());
+    gic_v3_cpu_initialize(&gic_v3_cpu_dev, (char *)gic_cpu);
+
+    if(gic_v3_GICD_CTLR_secure_DS_rdf(&gic_v3_dev)){
+        printk(LOG_NOTE, "gicv3_init: GIC supports secure mode\n"); 
+    } else {
+        printk(LOG_NOTE, "gicv3_init: GIC does not support secure mode\n"); 
+    }
+
     printk(LOG_NOTE, "gicv3_init done\n");
+
+
     return SYS_ERR_OK;
 }
 
@@ -43,7 +54,7 @@ errval_t gicv3_init(void)
  */
 uint32_t gicv3_get_active_irq(void)
 {
-    return armv8_ICC_IAR1_EL1_intid_rdf(NULL);
+    return gic_v3_cpu_IAR_intid_rdf(&gic_v3_cpu_dev);
 }
 
 /*
@@ -51,7 +62,9 @@ uint32_t gicv3_get_active_irq(void)
  */
 void gicv3_ack_irq(uint32_t irq)
 {
-    armv8_ICC_EOIR1_EL1_rawwr(NULL, irq);
+    gic_v3_cpu_EOIR_t reg = 0;
+    reg = gic_v3_cpu_EOIR_intid_insert(reg, irq);
+    gic_v3_cpu_EOIR_rawwr(&gic_v3_cpu_dev, irq);
 }
 
 /*
@@ -59,15 +72,22 @@ void gicv3_ack_irq(uint32_t irq)
  */
 void gicv3_raise_softirq(coreid_t cpuid, uint8_t irq)
 {
+    // assuming affinity routing DISABLED
     assert(irq <= 15);
+    gic_v3_GICD_SGIR_t reg = 0;
+    reg = gic_v3_GICD_SGIR_INTID_insert(reg, irq);
+    reg = gic_v3_GICD_SGIR_CPUTargetList_insert(reg, 1<<(cpuid-1));
+    gic_v3_GICD_SGIR_wr(&gic_v3_dev, reg);
+    /*
     armv8_ICC_SGI1R_EL1_t reg = 0;
     reg = armv8_ICC_SGI1R_EL1_intid_insert(reg, 1);
     // TODO: make that work for cpuids > 15
-    reg = armv8_ICC_SGI1R_EL1_target_insert(reg, 1<<cpuid);
+    reg = armv8_ICC_SGI1R_EL1_target_insert(reg, 1<<(cpuid-1));
     reg = armv8_ICC_SGI1R_EL1_aff3_insert(reg, 0);
     reg = armv8_ICC_SGI1R_EL1_aff2_insert(reg, 0);
     reg = armv8_ICC_SGI1R_EL1_aff1_insert(reg, 0);
     armv8_ICC_SGI1R_EL1_wr(NULL, reg);
+    */
 }
 
 /*
@@ -77,14 +97,22 @@ errval_t gicv3_cpu_interface_enable(void)
 {
     printk(LOG_NOTE, "gicv3_cpu_interface_enable: enabling group 1 int\n");
 
+    printk(LOG_NOTE, "GICC IIDR "
+            "implementer=0x%x, revision=0x%x, variant=0x%x, prodid=0x%x\n",
+            gic_v3_cpu_IIDR_Implementer_rdf(&gic_v3_cpu_dev),
+            gic_v3_cpu_IIDR_Revision_rdf(&gic_v3_cpu_dev),
+            gic_v3_cpu_IIDR_Variant_rdf(&gic_v3_cpu_dev),
+            gic_v3_cpu_IIDR_ProductID_rdf(&gic_v3_cpu_dev)
+            );
+
     // Linux does: 
     // sets priority mode: PMR to 0xf0
-    armv8_ICC_PMR_EL1_wr(NULL, 0xf0);
+    gic_v3_cpu_PMR_wr(&gic_v3_cpu_dev, 0xf0);
     // Set binary point to 1, 6 group priority bits, 2 subpriority bits
-    armv8_ICC_BPR1_EL1_wr(NULL, 1);
+    gic_v3_cpu_BPR_wr(&gic_v3_cpu_dev, 1);
 
     //Enable group 1
-    armv8_ICC_IGRPEN1_EL1_wr(NULL, 0x1);
+    gic_v3_cpu_CTLR_NS_wr(&gic_v3_cpu_dev, 0x1);
     printk(LOG_NOTE, "gicv3_cpu_interface_enable: group 1 int enabled\n");
 
     printk(LOG_NOTE, "gicv3_cpu_interface_enable: configuring distributor\n");
@@ -97,7 +125,7 @@ errval_t gicv3_cpu_interface_enable(void)
             );
 
     gic_v3_GICD_CTLR_secure_t ctrl = 0;
-    // Set affinity routing (redundant on CN88xx)
+    // Set affinity routing
     ctrl = gic_v3_GICD_CTLR_secure_ARE_NS_insert(ctrl, 1);
     // Enable group 1 interrupts
     ctrl = gic_v3_GICD_CTLR_secure_EnableGrp1NS_insert(ctrl, 1);

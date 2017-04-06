@@ -1,0 +1,140 @@
+/*
+ * Memory mapped GIC v3 CPU Interface. Sysreg mapped CPUs should
+ * definitions in armv8.dev.
+ * Source: ARM IHI 0069B, page 8-560
+ */
+device gic_v3_cpu msbfirst (addr cpuif) "MMIO mapped GIC CPU interface" {
+
+    register CTLR rw addr(cpuif, 0x0) "CPU Interface Control Register - secure" {
+        _               21 mbz;
+        EOImodeNS       1;
+        EOImodeS        1;
+        IRQBypDisGrp1   1;
+        FIQBypDisGrp1   1;
+        IRQBypDisGrp0   1;
+        FIQBypDisGrp0   1;
+        CBPR            1;
+        FIQEn           1;
+        _               1 mbz;
+        EnableGrp1      1;
+        EnableGrp0      1;
+    };
+
+    register CTLR_NS rw also addr(cpuif, 0x0) "CPU Interface Control Register - Non-secure" {
+        _              22 mbz;
+        EOImodeNS       1;
+        RES0            2;
+        IRQBypDisGrp1   1;
+        FIQBypDisGrp1   1;
+        _               4 mbz;
+        EnableGrp1      1;
+    };
+
+    register PMR rw addr(cpuif, 0x0004) "Interrupt Controller Interrupt Priority Mask Register" {
+        _          24;
+        priority    8 "Priority mask level";
+    };
+
+    register BPR rw addr(cpuif, 0x0008) "Interrupt Controller Binray Point Register" {
+        _            29;
+        binary_point  3;
+    };
+
+    register IAR rw addr(cpuif, 0x000C) "Interrupt Controller Interrupt Acknowledge Register" {
+        _            8;
+        intid       24 "INTID of the signaled interrupt";
+    };
+
+    register EOIR wo addr(cpuif, 0x0010) "Interrupt Controller End Of Interrupt Register"  {
+        _            8;
+        intid       24 "INTID from the corresponding ICC_IAR0_EL1 access";
+    };
+
+
+    register RPR ro addr(cpuif, 0x0014) "Running Priority Register" {
+
+        _          24;
+        priority    8 "Running priority";
+    };
+
+
+    register HPPIR ro addr(cpuif, 0x0018) "Highest Priority Pending Interrupt Register" {
+        _            8;
+        intid       24 "INTID of the highest priority pending interrupt";
+    };
+
+    register ABPR rw addr(cpuif, 0x001c) "Aliased Binary Point Register" {
+        _            29;
+        binary_point  3;
+    };
+    
+    register AIAR ro addr(cpuif, 0x0020) "Aliased Interrupt Acknowledge Register" {
+        _            8;
+        intid       24 "INTID of the signaled interrupt";
+    };
+
+    register AEOIR wo addr(cpuif, 0x0024) "Aliased End of Interrupt Register" {
+        _            8;
+        intid       24 "INTID from the corresponding ICC_IAR0_EL1 access";
+    };
+
+    register AHPPIR ro addr(cpuif, 0x0028) "Aliased Highest Priority Pending Interrupt Register" {
+        _            8;
+        intid       24 "INTID of the highest priority pending interrupt";
+    };
+
+    register STATUSR rw addr(cpuif, 0x002C) "Error Reporting Status Register" {
+        _           27;
+        asv         1 "Attempted security violation";
+        wrod        1 "Write to an RO location";
+        rwod        1 "Read of a WO location";
+        wrd         1 "Write to a reserved location";
+        rrd         1 "Read of a reserved location";
+    };
+
+    register APR1 rw addr(cpuif, 0x00D0) "CPU Interface Active Priorities Registers" {
+        impl    32;
+    };
+
+    register APR2 rw addr(cpuif, 0x00D4) "CPU Interface Active Priorities Registers" {
+        impl    32;
+    };
+
+    register APR3 rw addr(cpuif, 0x00D8) "CPU Interface Active Priorities Registers" {
+        impl    32;
+    };
+
+    register APR4 rw addr(cpuif, 0x00DC) "CPU Interface Active Priorities Registers" {
+        impl    32;
+    };
+
+    register NSAPR1 rw addr(cpuif, 0x00E0) "Non-secure CPU Interface Active Priorities Registers" {
+        impl    32;
+    };
+
+    register NSAPR2 rw addr(cpuif, 0x00E4) "Non-secure CPU Interface Active Priorities Registers" {
+        impl    32;
+    };
+
+    register NSAPR3 rw addr(cpuif, 0x00E8) "Non-secure CPU Interface Active Priorities Registers" {
+        impl    32;
+    };
+
+    register NSAPR4 rw addr(cpuif, 0x00EC) "Non-secure CPU Interface Active Priorities Registers" {
+        impl    32;
+    };
+
+    register IIDR ro addr(cpuif, 0x00FC) "CPU Interface Identification Register" {
+        ProductID    8 "Product identifier";
+        _            4 mbz;
+        Variant      4 "Variant number";
+        Revision     4 "Revision number";
+        Implementer 12 "JEP106 code of implementing company";
+    };
+
+    register DIR wo addr(cpuif, 0x1000) "Deactivate Interrupt Register" {
+        _            8;
+        intid       24 "INTID of the highest priority pending interrupt";
+    };
+
+};

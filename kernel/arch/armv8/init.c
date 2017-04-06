@@ -42,6 +42,9 @@ static struct global global_temp;
  */
 struct armv8_core_data *armv8_glbl_core_data = NULL;
 
+lpaddr_t kernel_stack = 0;
+lpaddr_t kernel_stack_top = 0;
+
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv8-A: "format, ## __VA_ARGS__ )
 
 /*
@@ -61,7 +64,7 @@ static struct cmdarg cmdargs[] = {
 static void mmap_find_memory(struct multiboot_tag_efi_mmap *mmap)
 {
     lpaddr_t physical_mem = 0;
-    uint64_t pages = 512;
+    uint64_t pages = ARMV8_CORE_DATA_PAGES;
 
     for (size_t i = 0; i < mmap->size; i += mmap->descr_size) {
         efi_memory_descriptor *desc = (efi_memory_descriptor *)(mmap->efi_mmap + i);
@@ -163,8 +166,10 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
         armv8_glbl_core_data->multiboot_image.length = size;
         armv8_glbl_core_data->efi_mmap = mem_to_local_phys((lvaddr_t) mmap);
 
-        kernel_stack = stack;
+        armv8_glbl_core_data->cpu_driver_stack = stack;
 
+        kernel_stack = stack;
+        kernel_stack_top = stack + 16 - KERNEL_STACK_SIZE;
         break;
     }
     case ARMV8_BOOTMAGIC_PSCI :
@@ -177,6 +182,8 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
         global = (struct global *)core_data->cpu_driver_globals_pointer;
 
         kernel_stack = stack;
+        kernel_stack_top = local_phys_to_mem(core_data->cpu_driver_stack_limit);
+
         my_core_id = core_data->dst_core_id;
 
         MSG("ARMv8 Core magic...\n");
@@ -199,7 +206,8 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
     MSG("Barrelfish CPU driver starting on ARMv8\n");
     MSG("Global data at %p\n", global);
     MSG("Multiboot record at %p\n", pointer);
-    MSG("Kernel stack at 0x%" PRIxPTR "\n", kernel_stack);
+    MSG("Kernel stack at 0x%016" PRIxPTR ".. 0x%016" PRIxPTR "\n",
+        kernel_stack_top, kernel_stack);
     MSG("Kernel first byte at 0x%" PRIxPTR "\n", &kernel_first_byte);
 
     MSG("Exception vectors (VBAR_EL1): %p\n", &vectors);
