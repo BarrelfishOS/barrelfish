@@ -1,32 +1,18 @@
 This directory contains some simple example programs that show how to
 do specific things in barrelfish. 
 
-In order to build an example you add it to symbolic_targets.mk under
-MODULES_COMMON.  For example for the hello example:
+In order to build an example you add it to platforms/Hakefile under
+modules_common.  For example for the hello example:
 
 
-MODULES_COMMON= \
-        sbin/cpu \
+modules_common = [ "/sbin/" ++ f | f <- [
+    "init"
 	...
-	sbin/examples/xmpl-hello \
+	"examples/xmpl-hello"
+    ... ]]
 
 (Note there is an exception for xmpl-thc-lang.  See the README.txt file 
 in that directory for more information).
-
-
-For convenience a list of all the examples (to cut and paste into
-symbolic targets) follows:
-
-	sbin/examples/xmpl-hello \
-        sbin/examples/xmpl-trace \
-        sbin/examples/xmpl-thread \
-        sbin/examples/xmpl-thread-min \
-        sbin/examples/xmpl-spawn \
-        sbin/examples/xmpl-span \
-        sbin/examples/xmpl-call-response \
-        sbin/examples/xmpl-rpc_msg \
-        sbin/examples/xmpl-rpc_rpc \
-        sbin/examples/xmpl-thc-binding \
 
 For each example we also include a sample menu.lst for running that
 example.
