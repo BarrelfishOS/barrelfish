@@ -38,7 +38,7 @@
 #define BENCH_NUM_MEASUREMENTS_BITS 16
 #define BENCH_NUM_MEASUREMENTS (1UL << BENCH_NUM_MEASUREMENTS_BITS)
 
-#define NETBUF_DEBGUG 1
+#define NETBUF_DEBGUG 0
 
 /**
  * @brief encapsulates the state of the networking library
@@ -88,6 +88,7 @@ struct net_buf_region
     struct capref framecap;
     struct net_buf_region *next;
     size_t buffer_size;
+    uint8_t buffer_shift;
     regionid_t regionid;
     struct net_buf_pool *pool;
     struct net_buf_p *netbufs;    /// array of netbufs

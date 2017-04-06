@@ -87,6 +87,11 @@ errval_t net_buf_add(struct net_buf_pool *bp, struct capref frame, size_t buffer
     }
 
     reg->buffer_size = ROUND_UP(buffersize, NETWORKING_BUFFER_ALIGN);
+    reg->buffer_shift = 0;
+    while(!((reg->buffer_size >> reg->buffer_shift) & 0x1)) {
+        reg->buffer_shift++;
+    }
+
     reg->framecap = frame;
     reg->pool = bp;
 
@@ -285,6 +290,9 @@ struct pbuf *net_buf_get_by_region(struct net_buf_pool *bp,
             assert((offset & (reg->buffer_size - 1)) == 0);
             assert(offset / reg->buffer_size < reg->pool->buffer_count);
             struct net_buf_p *nb = reg->netbufs + (offset / reg->buffer_size);
+
+            assert((offset / reg->buffer_size) == (offset >> reg->buffer_shift));
+
             assert(nb->offset == offset);
 
             return (struct pbuf *)nb;
