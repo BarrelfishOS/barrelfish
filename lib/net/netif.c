@@ -88,11 +88,19 @@ static err_t net_if_linkoutput(struct netif *netif, struct pbuf *p)
 
 static void net_if_status_cb(struct netif *netif)
 {
-    debug_printf("######################################\n");
-    debug_printf("# IP Addr %s\n", ip4addr_ntoa(netif_ip4_addr(netif)));
-    debug_printf("# GW Addr %s\n", ip4addr_ntoa(netif_ip4_gw(netif)));
-    debug_printf("# Netmask %s\n", ip4addr_ntoa(netif_ip4_netmask(netif)));
-    debug_printf("######################################\n");
+    printf("ip_addr_cmp(&netif->ip_addr, IP_ADDR_ANY)=%u\n",
+            ip_addr_cmp(&netif->ip_addr, IP_ADDR_ANY));
+    if (!ip_addr_cmp(&netif->ip_addr, IP_ADDR_ANY)) {
+
+        debug_printf("######################################\n");
+        debug_printf("# IP Addr %s\n", ip4addr_ntoa(netif_ip4_addr(netif)));
+        debug_printf("# GW Addr %s\n", ip4addr_ntoa(netif_ip4_gw(netif)));
+        debug_printf("# Netmask %s\n", ip4addr_ntoa(netif_ip4_netmask(netif)));
+        debug_printf("######################################\n");
+
+        netif_set_default(netif);
+        printf("setting default interface\n");
+    }
 }
 
 
@@ -162,12 +170,6 @@ errval_t net_if_init_devq(struct netif *netif, struct devq *devq)
 errval_t net_if_add(struct netif *netif, void *st)
 {
     NETDEBUG("netif=%p, state=%p\n", netif, st);
-
-    /* TODO: use something sensible here ?? -> RUN DHCP*/
-    ip4_addr_t ipaddr, netmask, gw;
-    IP4_ADDR(&gw, 192,168,0,1);
-    IP4_ADDR(&ipaddr, 192,168,0,2);
-    IP4_ADDR(&netmask, 255,255,255,0);
 
     netif_add(netif, IP_ADDR_ANY, IP_ADDR_ANY, IP_ADDR_ANY, st,
               netif_init_cb, netif_input);
@@ -408,6 +410,7 @@ errval_t net_if_poll(struct netif *netif)
             debug_printf("BUFFER NOT FOUND!!!!");
             continue;
         }
+
 
 
 #if NETBUF_DEBGUG
