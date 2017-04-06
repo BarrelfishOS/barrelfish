@@ -136,8 +136,9 @@ ping_send(struct raw_pcb *raw, ip_addr_t *addr)
 
     iecho->chksum = inet_chksum(iecho, ping_size);
 
-    results[ping_seq_num & (PING_RESULT_MAX - 1)].t_start = rdtsc();
     results[ping_seq_num & (PING_RESULT_MAX - 1)].t_end = 0;
+    results[ping_seq_num & (PING_RESULT_MAX - 1)].received = 0;
+    results[ping_seq_num & (PING_RESULT_MAX - 1)].t_start = rdtsc();
 
     raw_sendto(raw, p, addr);
   }
@@ -150,6 +151,10 @@ ping_timeout(void *arg)
   struct raw_pcb *pcb = (struct raw_pcb*)arg;
 
   LWIP_ASSERT("ping_timeout: no pcb given!", pcb != NULL);
+
+  if (!results[ping_seq_num & (PING_RESULT_MAX - 1)].received) {
+      printf("Timeout.\n");
+  }
 
   ping_send(pcb, &ping_addr);
 
@@ -189,6 +194,8 @@ int main(int argc, char *argv[])
     raw_recv(ping_pcb, ping_recv, NULL);
     raw_bind(ping_pcb, IP_ADDR_ANY);
     sys_timeout(PING_DELAY, ping_timeout, ping_pcb);
+
+
 
     while(1) {
         //event_dispatch_non_block(get_default_waitset());
