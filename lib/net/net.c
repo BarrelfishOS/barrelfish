@@ -32,6 +32,9 @@ struct net_state state = {0};
 #define NETWORKING_BUFFER_SIZE  2048
 
 
+#define NET_USE_INTERRUPTS 1
+
+
 #define NETDEBUG_SUBSYSTEM "net"
 
 /**
@@ -55,7 +58,6 @@ errval_t networking_get_defaults(uint64_t *queue, char **cardname)
 static void int_handler(void* args)
 {
     struct net_state *st = devq_get_state(args);
-
 
     net_if_poll(&st->netif);
 }
@@ -90,7 +92,7 @@ static errval_t create_sfn5122f_queue (uint64_t queueid, struct devq **retqueue)
 
     return sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, int_handler,
                                 false /*userlevel network feature*/,
-                                false /* user interrupts*/);
+                                NET_USE_INTERRUPTS /* user interrupts*/);
 }
 
 
@@ -159,10 +161,13 @@ errval_t networking_get_mac(struct devq *q, uint8_t *hwaddr, uint8_t hwaddrlen) 
 
 errval_t networking_poll(void)
 {
+
+#if NET_USE_INTERRUPTS
+    return event_dispatch_non_block(get_default_waitset());
+#else
     struct net_state *st = &state;
-
-
     return net_if_poll(&st->netif);
+#endif
 }
 
 static void timer_callback(void *data)
@@ -250,7 +255,7 @@ errval_t networking_init_default(void) {
     NETDEBUG("starting DHCP...\n");
     err_t lwip_err = dhcp_start(&st->netif);
     if(lwip_err != ERR_OK) {
-
+        printf("ERRRRRR dhcp start: %i\n", lwip_err);
     }
 
     static struct periodic_event dhcp_fine_timer;
@@ -268,6 +273,14 @@ errval_t networking_init_default(void) {
                                 MKCLOSURE(timer_callback, dhcp_coarse_tmr));
     assert(err_is_ok(err));
 
+
+    printf("waiting for DHCP to complete");
+    while(ip_addr_cmp(&st->netif.ip_addr, IP_ADDR_ANY)) {
+        event_dispatch_non_block(get_default_waitset());
+        networking_poll();
+
+    }
+    printf("OK\nDHCP completed.\n");
 
     NETDEBUG("initialization complete.\n");
 
