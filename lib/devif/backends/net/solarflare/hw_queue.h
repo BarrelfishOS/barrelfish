@@ -84,7 +84,7 @@ struct sfn5122f_queue {
     struct sfn5122f_devif_binding* b;
     struct sfn5122f_devif_rpc_client* rpc;
     volatile bool bound;
-
+    bool use_interrupts;
 
     // interrupts
     uint8_t core;
@@ -484,6 +484,7 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
     *offset = buf->offset;
     *length = buf->length;
     *valid_data = buf->valid_data;
+    *valid_length = buf->valid_length;
     *flags = buf->flags;
 
     sfn5122f_queue_bump_txhead(q);

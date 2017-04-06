@@ -68,7 +68,7 @@ static errval_t update_rxtail(struct sfn5122f_queue* q, size_t tail)
 
     q->rx_batch_size++;
 
-    if (q->rx_batch_size > 31) { 
+    if (q->rx_batch_size > 31) {
         /* Write to this register is very very expensive (2500 cycles +) 
            So we batch the updates together*/
         reg = sfn5122f_rx_desc_upd_reg_hi_rx_desc_wptr_insert(reg, tail);
@@ -101,6 +101,12 @@ static errval_t update_txtail(struct sfn5122f_queue* q, size_t tail)
 static void interrupt_cb(struct sfn5122f_devif_binding *b, uint16_t qid)
 {
     struct sfn5122f_queue* q = queues[qid];
+
+    if (q != b->st) {
+        debug_printf("STATE MISMATCH!\n %p %p\n", q, b->st);
+        q = b->st;
+    }
+
     q->cb(q);
 }
 
@@ -385,11 +391,6 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
         return SYS_ERR_OK;
     }
 
-
-    if((queue->ev_head & ((EV_ENTRIES / 8) - 1)) == 0) {
-        sfn5122f_evq_rptr_reg_wr(queue->device, queue->id, queue->ev_head);
-    }
-
     while(true) {
         ev_code = sfn5122f_get_event_code(queue);
         switch(ev_code){
@@ -462,6 +463,10 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
             sfn5122f_queue_bump_evhead(queue);
             break;
         case EV_CODE_NONE:
+            if(queue->use_interrupts || ((queue->ev_head & ((EV_ENTRIES / 8) - 1)) == 0)) {
+                sfn5122f_evq_rptr_reg_wr(queue->device, queue->id, queue->ev_head);
+            }
+
             return err;
         }
     }
@@ -521,6 +526,7 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     queue->frame = frame;
     queue->bound = false;
     queue->cb = cb;
+    queue->use_interrupts = interrupts;
 
     
     iref_t iref;
