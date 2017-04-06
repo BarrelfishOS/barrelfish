@@ -522,6 +522,8 @@ pbuf_alloced_custom(pbuf_layer l, u16_t length, pbuf_type type, struct pbuf_cust
 void
 pbuf_realloc(struct pbuf *p, u16_t new_len)
 {
+    return;
+#if 0
   struct pbuf *q;
   u16_t rem_len; /* remaining length */
   s32_t grow;
@@ -584,6 +586,7 @@ pbuf_realloc(struct pbuf *p, u16_t new_len)
   }
   /* q is last packet in chain */
   q->next = NULL;
+#endif
 }
 
 
