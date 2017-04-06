@@ -24,5 +24,12 @@
     cFiles       = [ "test/udp_echo.c" ],
     addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
     addLibraries = libDeps [ "net" ]
-  }
+  },
+  
+  build application {
+    target       = "ping",
+    cFiles       = [ "test/ping.c" ],
+    addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
+    addLibraries = libDeps [ "net" ]
+  }  
 ]
