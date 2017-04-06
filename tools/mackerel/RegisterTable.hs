@@ -13,6 +13,7 @@
 
 module RegisterTable where
 
+import Data.List
 import MackerelParser
 import Text.ParserCombinators.Parsec
 import Attr
@@ -134,11 +135,27 @@ get_location (RegLoc s b o) spt =
     ( s, Space.lookup s spt, b, o)
 
 overlap :: Rec -> Rec -> Bool
-overlap r1 r2 
+overlap r1 r2
     | spc_id r1 /= spc_id r2 = False
     | base r1 /= base r2 = False
-    | otherwise = 
-        any extent_overlap [ (e1, e2) | e1 <- extents r1, e2 <- extents r2 ]
+    | spc r1 == Space.NoSpace = False
+    | spc r2 == Space.NoSpace = False
+    | otherwise = compare_extents (extents r1) (extents r2)
+
+compare_extents :: [ (Integer, Integer) ] -> [ (Integer, Integer) ] -> Bool
+compare_extents [] _ = False
+compare_extents _ [] = False
+compare_extents (e:es) (f:fs)
+    | extent_overlap e f = True
+    | otherwise =
+        if fst e < fst f
+            then compare_extents es (f:fs)
+            else compare_extents (e:es) fs
+
+extent_overlap :: (Integer, Integer) ->  (Integer, Integer) -> Bool
+extent_overlap (b1, o1) (b2, o2)
+    |  b1 > b2 = ( b2 + o2 > b1 )
+    | otherwise = ( b1 + o1 > b2 )
 
 extents :: Rec -> [ (Integer, Integer) ]
 extents r 
@@ -149,18 +166,11 @@ extentsz :: Space.SpaceType -> Integer -> Integer
 extentsz (Space.BYTEWISE s) sz = sz `div` 8 `div` s
 extentsz _ sz = 1
 
-    
-
 arrayoffsets :: ArrayLoc -> Integer -> [ Integer ]
 arrayoffsets (ArrayListLoc []) _ = [0]
-arrayoffsets (ArrayListLoc l) _ = l
+arrayoffsets (ArrayListLoc l) _ = (sort l) -- Return offsets in order
 arrayoffsets (ArrayStepLoc n 0) sz = enumFromThenTo 0 (sz `div` 8) (sz* (n-1) `div` 8)
 arrayoffsets (ArrayStepLoc n s) _ = enumFromThenTo 0 s (s* (n-1))
-
-extent_overlap :: ( (Integer, Integer),  (Integer, Integer)) -> Bool
-extent_overlap ( (b1, o1), (b2, o2) )
-    |  b1 > b2 = ( b2 + o2 > b1 )
-    | otherwise = ( b1 + o1 > b2 )
 
 --
 -- Lookups
