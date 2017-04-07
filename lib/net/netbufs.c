@@ -40,8 +40,8 @@
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t net_buf_init(struct devq *dev_q, size_t numbuf, size_t size,
-                                struct net_buf_pool **retbp)
+errval_t net_buf_pool_alloc(struct devq *dev_q, size_t numbuf, size_t size,
+                            struct net_buf_pool **retbp)
 {
     errval_t err;
 
@@ -64,6 +64,11 @@ errval_t net_buf_init(struct devq *dev_q, size_t numbuf, size_t size,
 
     *retbp = netbp;
 
+    return SYS_ERR_OK;
+}
+
+errval_t net_buf_pool_free(struct net_buf_pool *retbp)
+{
     return SYS_ERR_OK;
 }
 

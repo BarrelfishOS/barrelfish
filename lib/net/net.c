@@ -32,6 +32,8 @@ struct net_state state = {0};
 #define NETWORKING_BUFFER_SIZE  2048
 
 
+
+
 #define NET_USE_INTERRUPTS 1
 
 
@@ -45,12 +47,13 @@ struct net_state state = {0};
  *
  * @return SYS_ERR_OK on success, SKB_ERR_* on failure
  */
-errval_t networking_get_defaults(uint64_t *queue, char **cardname)
+errval_t networking_get_defaults(uint64_t *queue, const char **cardname, uint32_t *flags)
 {
     /* TODO: get the values from the SKB */
 
     *queue = NETWORKING_DEFAULT_QUEUE_ID;
     *cardname = "sfn5122f";
+    *flags = NET_FLAGS_DEFAULTS;
 
     return SYS_ERR_OK;
 }
@@ -170,75 +173,67 @@ errval_t networking_poll(void)
 #endif
 }
 
-static void timer_callback(void *data)
-{
 
-    void (*lwip_callback) (void) = data;
-  //  NETD_DEBUG("timer_callback: triggering %p\n", lwip_callback);
-//    wrapper_perform_lwip_work();
-    lwip_callback();
 
-//    NETD_DEBUG("timer_callback: terminated\n");
-}
 
 /**
- * @brief
- * @return
+ * @brief initializes the netowrking library with a given device queue
+ *
+ * @param q         the device queue to initialize the networking on
+ * @param flags     supplied initialization flags
+ *
+ * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_init_default(void) {
+errval_t networking_init_with_queue(struct devq *q, net_flags_t flags)
+{
     errval_t err;
 
     struct net_state *st = &state;
+
+    NETDEBUG("initializing networking with devq=%p, flags=%" PRIx32 "...\n", q,
+             flags);
 
     if(st->initialized) {
         debug_printf("WARNING. initialize called twice. Ignoring\n");
         return SYS_ERR_OK;
     }
 
-    NETDEBUG("initializing networking...\n");
+    /* set the variables */
+    st->flags = flags;
+    st->queue = q;
+    st->initialized = true;
+    st->waitset = get_default_waitset();
 
-    // obtain the settings to create the queue
-    err = networking_get_defaults(&st->queueid, &st->cardname);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    // create the queue
-    err = networking_create_queue(st->cardname, st->queueid, &st->queue);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
+    /* associate the net state with the device queue */
     devq_set_state(st->queue, st);
 
-    // initialize LWIP
+
+    /* initialize the device queue */
     NETDEBUG("initializing LWIP...\n");
     lwip_init();
 
-    /* create buffers */
-    err = net_buf_init(st->queue, NETWORKING_BUFFER_COUNT,
-                                 NETWORKING_BUFFER_SIZE, &st->pool);
+    /* create the LWIP network interface and initialize it */
+    NETDEBUG("creating netif for LWIP...\n");
+    err = net_if_init_devq(&st->netif, st->queue);
     if (err_is_fail(err)) {
         goto out_err1;
     }
 
-    NETDEBUG("creating netif for LWIP...\n");
-    err = net_if_init_devq(&st->netif, st->queue);
-    if (err_is_fail(err)) {
-        goto out_err2;
-    }
-
     err = net_if_add(&st->netif, st);
     if (err_is_fail(err)) {
-        goto out_err2;
+        goto out_err1;
     }
 
-    NETDEBUG("setting default netif...\n");
-   // netif_set_default(&st->netif);
 
+    /* create buffers and add them to the interface*/
+    err = net_buf_pool_alloc(st->queue, NETWORKING_BUFFER_COUNT,
+                             NETWORKING_BUFFER_SIZE, &st->pool);
+    if (err_is_fail(err)) {
+        //net_if_destroy(&st->netif);
+        goto out_err1;
+    }
 
     NETDEBUG("adding RX buffers\n");
-
     for (int i = 0; i < NETWORKING_BUFFER_RX_POPULATE; i++) {
         struct pbuf *p = net_buf_alloc(st->pool);
         if (p == NULL) {
@@ -252,48 +247,91 @@ errval_t networking_init_default(void) {
     }
 
 
-    NETDEBUG("starting DHCP...\n");
-    err_t lwip_err = dhcp_start(&st->netif);
-    if(lwip_err != ERR_OK) {
-        printf("ERRRRRR dhcp start: %i\n", lwip_err);
+    if (flags & NET_FLAGS_DO_DHCP) {
+        err = dhcpd_start(flags);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to start DHCP.\n");
+        }
+    } else {
+        /* get IP from dhcpd */
+        err = dhcpd_query(flags);
     }
-
-    static struct periodic_event dhcp_fine_timer;
-    static struct periodic_event dhcp_coarse_timer;
-
-    /* DHCP fine timer */
-    err = periodic_event_create(&dhcp_fine_timer, get_default_waitset(),
-                                (DHCP_FINE_TIMER_MSECS * 1000),
-                                MKCLOSURE(timer_callback, dhcp_fine_tmr));
-    assert(err_is_ok(err));
-
-    /* DHCP coarse timer */
-    err = periodic_event_create(&dhcp_coarse_timer, get_default_waitset(),
-                                (DHCP_COARSE_TIMER_MSECS * 1000),
-                                MKCLOSURE(timer_callback, dhcp_coarse_tmr));
-    assert(err_is_ok(err));
-
-
-    printf("waiting for DHCP to complete");
-    while(ip_addr_cmp(&st->netif.ip_addr, IP_ADDR_ANY)) {
-        event_dispatch_non_block(get_default_waitset());
-        networking_poll();
-
-    }
-    printf("OK\nDHCP completed.\n");
 
     NETDEBUG("initialization complete.\n");
 
     return SYS_ERR_OK;
 
-    out_err2:
-        // TODO: clear buffers
-
     out_err1:
-        // TODO: cleanup queue
+    st->initialized = false;
+
+    return err;
+
+}
 
 
+/**
+ * @brief initializes the networking library
+ *
+ * @param nic       the nic to use with the networking library
+ * @param flags     flags to use to initialize the networking library
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t networking_init(const char *nic, net_flags_t flags)
+{
+    errval_t err;
+
+    struct net_state *st = &state;
+
+    NETDEBUG("initializing networking with nic=%s, flags=%" PRIx32 "...\n", nic,
+             flags);
+
+    if(st->initialized) {
+        NETDEBUG("WARNING. initialize called twice. Ignoring\n");
+        return SYS_ERR_OK;
+    }
+
+    st->cardname = nic;
+
+    /* create the queue wit the given nic and card name */
+    err = networking_create_queue(st->cardname, st->queueid, &st->queue);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = networking_init_with_queue(st->queue, flags);
+    if (err_is_fail(err)) {
+       // devq_destroy(st->queue);
+    }
 
     return err;
 }
 
+
+
+/**
+ * @brief initializes the networking with the defaults
+ *
+ * @return SYS_ERR_OK on sucess, errval on failure
+ */
+errval_t networking_init_default(void)
+{
+    errval_t err;
+
+    struct net_state *st = &state;
+
+    NETDEBUG("initializing networking with default options...\n");
+
+    if(st->initialized) {
+        NETDEBUG("WARNING. initialize called twice. Ignoring\n");
+        return SYS_ERR_OK;
+    }
+
+    // obtain the settings to create the queue
+    err = networking_get_defaults(&st->queueid, &st->cardname, &st->flags);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return networking_init(st->cardname, st->flags);
+}
