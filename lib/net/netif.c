@@ -275,11 +275,10 @@ errval_t net_if_add_tx_buf(struct netif *netif, struct pbuf *pbuf)
     for (struct pbuf * tmpp = pbuf; tmpp != 0; tmpp = tmpp->next) {
         pbuf_ref(tmpp);
 
+        struct net_buf_p *nb = (struct net_buf_p *)tmpp;
 
         NETDEBUG("netif=%p <- pbuf=%p   (reg=%u, offset=%" PRIxLPADDR ")\n", netif,
                  pbuf, nb->region->regionid, nb->offset);
-
-        struct net_buf_p *nb = (struct net_buf_p *)tmpp;
 
         if (tmpp->next == NULL) {
             flags |= NETIF_TXFLAG_LAST;
@@ -394,8 +393,6 @@ errval_t net_if_poll(struct netif *netif)
 
 #endif
         if (err_is_fail(err)) {
-            NETDEBUG("netif=%p, polling %u/%u: %s\n", netif, i, NET_IF_POLL_MAX,
-                     err_getstring(err));
             if (err_no(err) == DEVQ_ERR_QUEUE_EMPTY) {
                 return SYS_ERR_OK;
             }
@@ -404,9 +401,8 @@ errval_t net_if_poll(struct netif *netif)
 
         struct pbuf *p = net_buf_get_by_region(st->pool, buf.rid, buf.offset);
         if (p == NULL) {
-            NETDEBUG("netif=%p, polling %u/%u. ERROR. No PBUF found for rid=%u, "
-                            "offset=%"PRIxLPADDR "\n", netif, i, NET_IF_POLL_MAX,
-                            buf.rid, buf.offset);
+            NETDEBUG("netif=%p, ERROR. No PBUF found for rid=%u, "
+                     "offset=%"PRIxLPADDR "\n", netif, buf.rid, buf.offset);
             debug_printf("BUFFER NOT FOUND!!!!");
             continue;
         }
@@ -437,18 +433,16 @@ errval_t net_if_poll(struct netif *netif)
         ((struct net_buf_p *)p)->timestamp = rdtsc();
 #endif
         if (buf.flags & NETIF_TXFLAG) {
-            NETDEBUG("netif=%p, polling %u/%u. TX done of pbuf=%p (rid=%u, "
-                      "offset=%"PRIxLPADDR ")\n", netif, i, NET_IF_POLL_MAX,
-                      p, buf.rid, buf.offset);
+            NETDEBUG("netif=%p, TX done of pbuf=%p (rid=%u, offset=%"PRIxLPADDR ")\n",
+                     netif, p, buf.rid, buf.offset);
 
             pbuf_free(p);
 
             assert(!(buf.flags & NETIF_RXFLAG));
 
         } else if (buf.flags & NETIF_RXFLAG) {
-            NETDEBUG("netif=%p, polling %u/%u. RX done of pbuf=%p (rid=%u, "
-                            "offset=%"PRIxLPADDR ")\n", netif, i, NET_IF_POLL_MAX,
-                            p, buf.rid, buf.offset);
+            NETDEBUG("netif=%p, RX done of pbuf=%p (rid=%u, offset=%"PRIxLPADDR ")\n",
+                     netif, p, buf.rid, buf.offset);
 
             p->len = buf.valid_length;
             p->tot_len = p->len;

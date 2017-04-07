@@ -21,6 +21,9 @@
 #include <net_interfaces/flags.h>
 #include "networking_internal.h"
 
+///< the debug subsystem
+#define NETDEBUG_SUBSYSTEM "dhcpd"
+
 ///< the DHCP timeout in milli seconds
 #define DHCP_TIMEOUT_MSECS (120UL * 1000)
 
