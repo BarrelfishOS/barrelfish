@@ -18,6 +18,7 @@
 
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/deferred.h>
 
 #include <devif/queue_interface.h>
 #include <devif/backends/loopback_devif.h>
@@ -28,6 +29,7 @@
 #include <net/net.h>
 #include <net/netbufs.h>
 #include <net/netif.h>
+#include <net/dhcp.h>
 
 #include "debug.h"
 
@@ -45,8 +47,19 @@
  */
 struct net_state {
     uint64_t queueid;
-    char *cardname;
+    const char *cardname;
+    net_flags_t flags;
     bool initialized;
+
+    /* DHCP timer events */
+    uint64_t dhcp_ticks;
+    uint64_t dhcp_triggerid;
+    struct periodic_event dhcp_timer;
+    bool dhcp_done;
+    bool dhcp_running;
+
+    struct waitset *waitset;
+
     struct devq *queue;
     struct net_buf_pool *pool;
     struct netif netif;
@@ -56,7 +69,10 @@ struct net_state {
 
 extern struct net_state state;
 
-
+static inline struct net_state *get_default_net_state(void)
+{
+    return &state;
+}
 
 
 struct net_buf_pool;
