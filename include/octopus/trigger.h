@@ -16,7 +16,6 @@
 #define OCTOPUS_TRIGGER_H_
 
 #include <barrelfish/barrelfish.h>
-#include <if/octopus_defs.h>
 
 #include <octopus/definitions.h>
 
