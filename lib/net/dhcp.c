@@ -27,10 +27,10 @@
 ///< the DHCP timeout in milli seconds
 #define DHCP_TIMEOUT_MSECS (120UL * 1000)
 
+#define DHCP_RECORD_FIELDS "{ ip: %d, gw: %d, netmask: %d }"
 
-#define DHCP_RECORD_FORMAT "net.ipconfig {ip: %" PRIu32 ", "\
-                                         "gw:" PRIu32 ", " \
-                                         "netmask: %" PRIu32 "}"
+
+#define DHCP_RECORD_FORMAT "net.ipconfig " DHCP_RECORD_FIELDS
 
 #define DHCP_RECORD_REGEX "net.ipconfig  {ip: _,  gw: _, netmask: _}"
 
@@ -85,6 +85,12 @@ errval_t dhcpd_start(net_flags_t flags)
 
     struct net_state *st = get_default_net_state();
 
+    // initialize octopus if not already done
+    err = oct_init();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     NETDEBUG("starting DHCP...\n");
     err_t lwip_err = dhcp_start(&st->netif);
     if(lwip_err != ERR_OK) {
@@ -92,6 +98,7 @@ errval_t dhcpd_start(net_flags_t flags)
         return -1;
     }
 
+    st->waitset = get_default_waitset();
     st->dhcp_ticks = 1;
     st->dhcp_running = 1;
 
@@ -149,22 +156,34 @@ static void dhcpd_change_event(octopus_mode_t mode, const char* record, void* ar
 
     struct net_state *st = arg;
 
+    NETDEBUG("DHCP change event: %s\n", record);
+
     if (mode & OCT_ON_SET) {
 
-        ip_addr_t ip, nm, gw;
-
-        err = oct_read(record, DHCP_RECORD_FORMAT, &ip.addr, &gw.addr, &nm.addr);
+        uint64_t ip, nm, gw;
+        err = oct_read(record, "_" DHCP_RECORD_FIELDS, &ip, &gw, &nm);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "cannot read DHCPD record '%s\n", record);
+            return;
         }
 
-        netif_set_addr(&st->netif, &ip, &nm, &gw);
+        ip_addr_t ipaddr, netmask, gateway;
+        ipaddr.addr = (uint32_t)ip;
+        netmask.addr = (uint32_t)nm;
+        gateway.addr = (uint32_t)gw;
+
+        NETDEBUG("DHCP got ip set: %s \n", ip4addr_ntoa(&ipaddr));
+        NETDEBUG("DHCP got gw set: %s\n", ip4addr_ntoa(&gateway));
+        NETDEBUG("DHCP got nm set: %s\n", ip4addr_ntoa(&netmask));
+
+        netif_set_addr(&st->netif, &ipaddr, &netmask, &gateway);
         netif_set_up(&st->netif);
 
         st->dhcp_done = true;
     }
 
     if (mode & OCT_ON_DEL) {
+
         /* DHCP has been removed */
         netif_set_down(&st->netif);
     }
@@ -179,7 +198,14 @@ errval_t dhcpd_query(net_flags_t flags)
 {
     errval_t err;
 
+    // initialize octopus if not already done
+    err = oct_init();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     struct net_state *st = get_default_net_state();
+    assert(st);
 
     st->dhcp_ticks = 1;
     st->dhcp_running = 1;
