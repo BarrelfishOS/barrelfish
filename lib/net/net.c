@@ -32,11 +32,6 @@ struct net_state state = {0};
 #define NETWORKING_BUFFER_SIZE  2048
 
 
-
-
-#define NET_USE_INTERRUPTS 1
-
-
 #define NETDEBUG_SUBSYSTEM "net"
 
 /**
@@ -53,7 +48,7 @@ errval_t networking_get_defaults(uint64_t *queue, const char **cardname, uint32_
 
     *queue = NETWORKING_DEFAULT_QUEUE_ID;
     *cardname = "sfn5122f";
-    *flags = NET_FLAGS_DEFAULTS;
+    *flags = NET_FLAGS_ENABLE_POLLING_MODE | NET_FLAGS_DO_DHCP | NET_FLAGS_BLOCKING_INIT;
 
     return SYS_ERR_OK;
 }
@@ -65,7 +60,8 @@ static void int_handler(void* args)
     net_if_poll(&st->netif);
 }
 
-static errval_t create_loopback_queue (uint64_t queueid, struct devq **retqueue)
+static errval_t create_loopback_queue (struct net_state *st, uint64_t queueid,
+                                       struct devq **retqueue)
 {
     errval_t err;
 
@@ -79,27 +75,29 @@ static errval_t create_loopback_queue (uint64_t queueid, struct devq **retqueue)
     return SYS_ERR_OK;
 }
 
-static errval_t create_driver_queue (uint64_t queueid, struct devq **retqueue)
+static errval_t create_driver_queue (struct net_state *st, uint64_t queueid,
+                                     struct devq **retqueue)
 {
     return SYS_ERR_OK;
 }
 
 
-static errval_t create_e10k_queue (uint64_t queueid, struct devq **retqueue)
+static errval_t create_e10k_queue (struct net_state *st, uint64_t queueid,
+                                   struct devq **retqueue)
 {
     return SYS_ERR_OK;
 }
 
-static errval_t create_sfn5122f_queue (uint64_t queueid, struct devq **retqueue)
+static errval_t create_sfn5122f_queue (struct net_state *st, uint64_t queueid, struct devq **retqueue)
 {
 
     return sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, int_handler,
                                 false /*userlevel network feature*/,
-                                NET_USE_INTERRUPTS /* user interrupts*/);
+                                !(st->flags & NET_FLAGS_ENABLE_POLLING_MODE) /* user interrupts*/);
 }
 
 
-typedef errval_t (*queue_create_fn)(uint64_t queueid, struct devq **retqueue);
+typedef errval_t (*queue_create_fn)(struct net_state *, uint64_t, struct devq **);
 struct networking_card
 {
     char *cardname;
@@ -122,8 +120,8 @@ struct networking_card
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_create_queue(const char *cardname, uint64_t queueid,
-                                 struct devq **retqueue)
+static errval_t net_create_queue(struct net_state *st, const char *cardname,
+                                        uint64_t queueid, struct devq **retqueue)
 {
     debug_printf("net: creating queue for card='%s', queueid=%" PRIu64 "...\n",
                   cardname, queueid);
@@ -131,7 +129,7 @@ errval_t networking_create_queue(const char *cardname, uint64_t queueid,
     struct networking_card *nc = networking_cards;
     while(nc->cardname != NULL) {
         if (strncmp(cardname, nc->cardname, strlen(nc->cardname)) == 0) {
-            return nc->createfn(queueid, retqueue);
+            return nc->createfn(st, queueid, retqueue);
         }
         nc++;
     }
@@ -140,6 +138,23 @@ errval_t networking_create_queue(const char *cardname, uint64_t queueid,
                   cardname, queueid);
 
     return -1;
+}
+
+/**
+ * @brief creates a queue to the given card and the queueid
+ *
+ * @param cardname  network card to create the queue for
+ * @param queueid   queueid of the network card
+ * @param retqueue  returns the pointer to the queue
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t networking_create_queue(const char *cardname, uint64_t queueid,
+                                 struct devq **retqueue)
+{
+    struct net_state *st = get_default_net_state();
+
+    return net_create_queue(st, cardname, queueid, retqueue);
 }
 
 errval_t networking_get_mac(struct devq *q, uint8_t *hwaddr, uint8_t hwaddrlen) {
@@ -283,8 +298,8 @@ errval_t networking_init(const char *nic, net_flags_t flags)
 
     struct net_state *st = &state;
 
-    NETDEBUG("initializing networking with nic=%s, flags=%" PRIx32 "...\n", nic,
-             flags);
+    debug_printf("initializing networking with nic=%s, flags=%" PRIx32 "...\n", nic,
+                 flags);
 
     if(st->initialized) {
         NETDEBUG("WARNING. initialize called twice. Ignoring\n");
@@ -292,6 +307,7 @@ errval_t networking_init(const char *nic, net_flags_t flags)
     }
 
     st->cardname = nic;
+    st->flags = flags;
 
     /* create the queue wit the given nic and card name */
     err = networking_create_queue(st->cardname, st->queueid, &st->queue);
