@@ -450,36 +450,6 @@ errval_t net_if_poll(struct netif *netif)
 
             assert(!(buf.flags & NETIF_TXFLAG));
 
-#if 0
-#include <lwip/pbuf.h>
-#include <lwip/prot/ethernet.h>
-#include <lwip/prot/ip.h>
-            #include <lwip/prot/ip4.h>
-#include <lwip/prot/udp.h>
-            p->len = 64 + SIZEOF_ETH_HDR + IP_HLEN + UDP_HLEN; //buf.valid_length;
-            p->tot_len = p->len;
-
-            struct eth_hdr* ethhdr = p->payload;
-            struct ip_hdr *iphdr   = p->payload + SIZEOF_ETH_HDR;
-            struct udp_hdr *udphdr = p->payload  + SIZEOF_ETH_HDR + IP_HLEN;
-
-            memset(ethhdr->dest.addr, 0xaa, sizeof(ethhdr->dest.addr));
-            memset(ethhdr->src.addr, 0xbb, sizeof(ethhdr->src.addr));
-            ethhdr->type = PP_HTONS(ETHTYPE_IP);
-
-            iphdr->_len = lwip_htons(64 + UDP_HLEN + IP_HLEN);
-            IPH_VHL_SET(iphdr, 4, 5);
-
-            IP4_ADDR(&(iphdr->dest), 192,168,0,2);
-            IP4_ADDR(&(iphdr->src), 192,168,0,3);
-
-            iphdr->_proto = IP_PROTO_UDP;
-
-            udphdr->dest = PP_HTONS(7);
-            udphdr->src = PP_HTONS(11);
-            udphdr->len = PP_HTONS(64 + UDP_HLEN);
-
-#endif
             if (st->netif.input(p, &st->netif) != ERR_OK) {
                 net_if_add_rx_buf(&st->netif, p);
             } else {
