@@ -75,7 +75,7 @@ static struct capref mac_stats;
 static void* mac_virt;
 static uint64_t mac_phys;
 /*        */
-static uint8_t pci_function = 0;
+
 // Port  info
 static uint32_t cap[2];
 static uint32_t speed[2];
@@ -106,6 +106,10 @@ static struct queue_state queues[1024];
 /* PCI device address passed on command line */
 static uint32_t pci_bus = PCI_DONT_CARE;
 static uint32_t pci_device = PCI_DONT_CARE;
+static uint32_t pci_vendor = PCI_DONT_CARE;
+static uint32_t pci_devid = PCI_DONT_CARE;
+static uint32_t pci_function = 0;
+
 static struct bmallocator msix_alloc;
 static size_t cdriver_msix = -1;
 static uint8_t cdriver_vector;
@@ -1711,17 +1715,48 @@ static void pci_init_card(struct device_mem* bar_info, int bar_count)
 
 static void parse_cmdline(int argc, char **argv)
 {
+    /*
+     * XXX: the following contains a hack only to start the driver when
+     *      the supplied bus/dev/funct matches the Kaluga start arguments.
+     */
     int i;
-
+    uint32_t tmp;
     for (i = 1; i < argc; i++) {
         if (strncmp(argv[i], "cardname=", strlen("cardname=") - 1) == 0) {
             service_name = argv[i] + strlen("cardname=");
         } else if (strncmp(argv[i], "bus=", strlen("bus=") - 1) == 0) {
+            tmp = atol(argv[i] + strlen("bus="));
+            if (pci_bus == PCI_DONT_CARE) {
+                pci_bus = tmp;
+            }
+
+            if (pci_bus != tmp) {
+                printf("DRIVER STARTED FOR BUS: 0x%x/0x%x\n", pci_bus, tmp);
+                exit(1);
+            }
             pci_bus = atol(argv[i] + strlen("bus="));
         } else if (strncmp(argv[i], "device=", strlen("device=") - 1) == 0) {
-            pci_device = atol(argv[i] + strlen("device="));
+            tmp = atol(argv[i] + strlen("device="));
+            if (pci_device == PCI_DONT_CARE) {
+                pci_device = tmp;
+            }
+
+            if (pci_device != tmp) {
+                printf("DRIVER STARTED FOR DEVICE: 0x%x/0x%x\n", pci_device, tmp);
+                exit(1);
+            }
+
         } else if (strncmp(argv[i], "function=", strlen("function=") - 1) == 0){
-            pci_function = atol(argv[i] + strlen("function="));
+            tmp = atol(argv[i] + strlen("function="));
+            if (pci_function == PCI_DONT_CARE) {
+                pci_function = tmp;
+            }
+
+            if (pci_function != tmp) {
+                printf("DRIVER STARTED FOR FUNCTION: 0x%x/0x%x\n", pci_bus, tmp);
+                exit(1);
+            }
+
             if (pci_function != 0) {
                 USER_PANIC("Second port not implemented, please use function=0")
             }
@@ -1789,13 +1824,33 @@ int main(int argc, char** argv)
     DEBUG("SFN5122F driver started \n");
     errval_t err;
 
+    if (argc > 1) {
+        uint32_t parsed = sscanf(argv[argc - 1], "%x:%x:%x:%x:%x", &pci_vendor,
+                                 &pci_devid, &pci_bus, &pci_device, &pci_function);
+        if (parsed != 5) {
+            pci_vendor = PCI_DONT_CARE;
+            pci_devid = PCI_DONT_CARE;
+            pci_bus = PCI_DONT_CARE;
+            pci_device = PCI_DONT_CARE;
+            pci_function = 0;
+        } else {
+            if ((pci_vendor != PCI_VENDOR_SOLARFLARE) || (pci_devid != DEVICE_ID)) {
+                printf("VENDOR/DEVICE ID MISMATCH: %x/%x %x/%x\n",
+                        pci_vendor, PCI_VENDOR_SOLARFLARE, pci_devid, DEVICE_ID);
+            }
+            argc--;
+        }
+    }
+
     parse_cmdline(argc, argv);
+
+
     /* Register our device driver */
     err = pci_client_connect();
     assert(err_is_ok(err));
     err = pci_register_driver_irq(pci_init_card, PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
-                                PCI_VENDOR_SOLARFLARE, DEVICE_ID,
+                                pci_vendor, pci_devid,
                                 pci_bus, pci_device, pci_function,
                                 global_interrupt_handler, NULL);
 
