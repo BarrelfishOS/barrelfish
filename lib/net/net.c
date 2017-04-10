@@ -48,7 +48,7 @@ errval_t networking_get_defaults(uint64_t *queue, const char **cardname, uint32_
 
     *queue = NETWORKING_DEFAULT_QUEUE_ID;
     *cardname = "sfn5122f";
-    *flags = NET_FLAGS_ENABLE_POLLING_MODE | NET_FLAGS_DO_DHCP | NET_FLAGS_BLOCKING_INIT;
+    *flags = NET_FLAGS_POLLING | NET_FLAGS_DO_DHCP | NET_FLAGS_BLOCKING_INIT;
 
     return SYS_ERR_OK;
 }
@@ -93,7 +93,7 @@ static errval_t create_sfn5122f_queue (struct net_state *st, uint64_t queueid, s
 
     return sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, int_handler,
                                 false /*userlevel network feature*/,
-                                !(st->flags & NET_FLAGS_ENABLE_POLLING_MODE) /* user interrupts*/);
+                                !(st->flags & NET_FLAGS_POLLING) /* user interrupts*/);
 }
 
 
@@ -179,13 +179,13 @@ errval_t networking_get_mac(struct devq *q, uint8_t *hwaddr, uint8_t hwaddrlen) 
 
 errval_t networking_poll(void)
 {
-
-#if NET_USE_INTERRUPTS
-    return event_dispatch_non_block(get_default_waitset());
-#else
     struct net_state *st = &state;
-    return net_if_poll(&st->netif);
-#endif
+
+    if (st->flags & NET_FLAGS_POLLING) {
+        return net_if_poll(&st->netif);
+    } else {
+        return event_dispatch_non_block(get_default_waitset());
+    }
 }
 
 

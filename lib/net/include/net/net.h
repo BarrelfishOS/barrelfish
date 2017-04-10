@@ -27,7 +27,7 @@ struct eth_addr;
 #define NET_FLAGS_DEFAULTS               (0)
 
 ///< use polling instead of interrupt driven messaging
-#define NET_FLAGS_ENABLE_POLLING_MODE    (1 << 0)
+#define NET_FLAGS_POLLING                (1 << 0)
 
 ///< enable DHCP functionality on this queue
 #define NET_FLAGS_DO_DHCP                (1 << 1)
