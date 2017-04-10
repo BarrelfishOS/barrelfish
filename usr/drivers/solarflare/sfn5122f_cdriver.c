@@ -124,8 +124,6 @@ uint8_t rx_hash_key[40];
 uint8_t mc_hash[32];
 
 // Filters
-static uint32_t ip = 0x2704710A;
-//static uint32_t ip = 0;
 
 enum filter_type_ip {
     OTHER,
@@ -1006,20 +1004,12 @@ static uint32_t init_evq(uint16_t n, lpaddr_t phys, bool interrupt)
 
 static uint32_t init_rxq(uint16_t n, lpaddr_t phys, bool userspace)
 {
-    //errval_t r;
-    //struct frame_identity frameid = { .base = 0, .bytes = 0 };
     uint64_t reg_lo, reg_hi,  buffer_offset;
    /*
     * This will define a buffer in the buffer table, allowing
     * it to be used for event queues, descriptor rings etc.
     */
     /* Get physical addresses for rx/tx rings and event queue */
-    /*
-    r = invoke_frame_identify(queues[n].rx_frame, &frameid);
-    assert(err_is_ok(r));
-    rx_phys = frameid.base;
-    rx_size = frameid.bytes;
-    */
 
     /* RX   */
     if (userspace) {
@@ -1078,8 +1068,6 @@ static uint32_t init_txq(uint16_t n, uint64_t phys,
                          bool csum, bool userspace)
 {
 
-    //errval_t r;
-    //struct frame_identity frameid = { .base = 0, .bytes = 0 };
     uint64_t reg, reg1, buffer_offset;
   
     buffer_offset = alloc_buf_tbl_entries(phys, NUM_ENT_TX, 0, 0, d);
@@ -1334,75 +1322,6 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
     }
 }
 
-/*
-static errval_t idc_terminate_queue(struct sfn5122f_binding *b, uint16_t n)
-{
-  DEBUG("idc_terminate_queue(q=%d) \n", n);
-  
-  queue_hw_stop(n);
-  
-  queues[n].enabled = false;
-  queues[n].binding = NULL;
-
-  return SYS_ERR_OK;
-}
-
-
-
-static errval_t idc_register_port_filter(struct sfn5122f_binding *b,
-                                     uint64_t buf_id_rx,
-                                     uint64_t buf_id_tx,
-                                     uint16_t queue,
-                                     sfn5122f_port_type_t type,
-                                     uint16_t port,
-                                     errval_t *err,
-                                     uint64_t *fid)
-{
-
-    if (ip == 0) {
-        //arp_ip_info();
-        printf("IP %d \n", ip);
-    }
-
-    DEBUG("idc_register_port_filter: called (q=%d t=%d p=%d)\n",
-            queue, type, port);
-
-    struct sfn5122f_filter_ip f = {
-            .dst_port = port,
-            .dst_ip = htonl(ip),
-            .src_ip = 0,
-            .src_port = 0,
-            .type_ip = type,
-            .queue = queue,
-    };
-
-
-    *err = reg_port_filter(&f, fid);
-    DEBUG("filter registered: err=%"PRIu64", fid=%"PRIu64"\n", *err, *fid);
-
-    return SYS_ERR_OK;
-}
-
-
-static errval_t idc_unregister_filter(struct sfn5122f_binding *b,
-                                  uint64_t filter, errval_t *err)
-{
-    DEBUG("unregister_filter: called (%"PRIx64")\n", filter);
-    *err = LIB_ERR_NOT_IMPLEMENTED;
-    return SYS_ERR_OK;
-}
-static struct sfn5122f_rx_vtbl rx_vtbl = {
-    .request_device_info = cd_request_device_info,
-    .register_queue_memory = cd_register_queue_memory,
-};
-
-static struct sfn5122f_rpc_rx_vtbl rpc_rx_vtbl = {
-    .terminate_queue_call = idc_terminate_queue,
-    .register_port_filter_call = idc_register_port_filter,
-    .unregister_filter_call = idc_unregister_filter,
-};
-*/
-
 static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref frame,
                             bool user, bool interrupt, uint8_t core, uint8_t msix_vector)
 {
@@ -1540,31 +1459,6 @@ static struct sfn5122f_devif_rx_vtbl rx_vtbl_devif = {
     .deregister_region_call = cd_deregister_region,
 };
 
-/*
-static void export_cb(void *st, errval_t err, iref_t iref)
-{
-    const char *suffix = "_sfn5122fmng";
-    char name[strlen(service_name) + strlen(suffix) + 1];
-
-    assert(err_is_ok(err));
-
-    // Build label for interal management service
-    sprintf(name, "%s%s", service_name, suffix);
-
-    err = nameservice_register(name, iref);
-    assert(err_is_ok(err));
-    DEBUG("Management interface exported\n");
-}
-
-
-static errval_t connect_cb(void *st, struct sfn5122f_binding *b)
-{
-    DEBUG("New connection on management interface\n");
-    b->rx_vtbl = rx_vtbl;
-    b->rpc_rx_vtbl = rpc_rx_vtbl;
-    return SYS_ERR_OK;
-}
-*/
 static void export_devif_cb(void *st, errval_t err, iref_t iref)
 {
     const char *suffix = "_sfn5122fmng_devif";
@@ -1604,12 +1498,6 @@ static errval_t cb_install_filter(struct net_filter_binding *b,
                                   uint16_t dst_port,
                                   uint64_t* fid)
 {
-    if (ip == 0) {
-        /* Get cards IP */
-        //arp_ip_info();
-        printf("IP %d \n", ip);
-    }
-
     struct sfn5122f_filter_ip f = {
             .dst_port = dst_port,
             .src_port = src_port,
@@ -1691,55 +1579,6 @@ static void initialize_mngif(void)
                           get_default_waitset(), 1);
     assert(err_is_ok(r));
 }
-
-
-/*****************************************************************************/
-/* ARP service client */
-
-/** Get information about the local TCP/IP configuration*/
-/*
-static errval_t arp_ip_info(void)
-{
-    errval_t err, msgerr;
-
-    uint32_t gw;
-    uint32_t mask;
-    err = arp_binding->rpc_tx_vtbl.ip_info(arp_binding, 0, &msgerr, &ip, &gw, &mask);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    return msgerr;
-}
-
-static void a_bind_cb(void *st, errval_t err, struct net_ARP_binding *b)
-{
-    assert(err_is_ok(err));
-    arp_binding = b;
-    net_ARP_rpc_client_init(arp_binding);
-    net_arp_connected = true;
-}
-
-static void bind_arp(struct waitset *ws)
-{
-    errval_t err;
-    iref_t iref;
-
-    DEBUG("bind_arp()\n");
-    err = nameservice_blocking_lookup("sfn5122f_ARP", &iref);
-    assert(err_is_ok(err));
-    DEBUG("resolved\n");
-
-    err = net_ARP_bind(iref, a_bind_cb, NULL, ws, IDC_BIND_FLAGS_DEFAULT);
-    assert(err_is_ok(err));
-    DEBUG("binding initiated\n");
-
-    while (!net_arp_connected) {
-        event_dispatch_non_block(ws);
-        event_dispatch_non_block(get_default_waitset());
-    }
-    DEBUG("bound_arp\n");
-}
-*/
 
 /******************************************************************************/
 /* Initialization code for driver */
@@ -1874,37 +1713,6 @@ static void cd_main(void)
 }
 
 
-
-/*
-static errval_t init_stack(void)
-{
-
-    struct netd_state *state;
-    char* card_name = "sfn5122f";
-    uint32_t allocated_queue = 0;   
-    uint32_t total_queues = 16;
-    uint8_t filter_type = 2;
-    bool do_dhcp = false;
-    char* ip_addr_str = "10.113.4.39";
-    char* netmask_str = "255.255.252.0";
-    char* gateway_str = "10.113.4.4";
-    errval_t err;
-
-    err = init_device_manager(card_name, total_queues, filter_type);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    err = netd_init(&state, card_name, allocated_queue, do_dhcp, 
-                    ip_addr_str, netmask_str, gateway_str);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return SYS_ERR_OK;
-}
-*/
-
 int main(int argc, char** argv)
 {
     DEBUG("SFN5122F driver started \n");
@@ -1974,32 +1782,6 @@ int main(int argc, char** argv)
 
     start_all();    
     
-    /*
-    err = init_stack();
-    if (err_is_fail(err)) {
-        USER_PANIC("Failed initalizing netd etc %s \n", err_getstring(err));
-    } 
-    */   
-
-    /*
-    struct sfn5122f_filter_ip f = {
-            .dst_port = 7,
-            .dst_ip = htonl(0x2704710A),
-            .src_ip = 0,
-            .src_port = 0,
-            .type_ip = sfn5122f_PORT_UDP,
-            .queue = 1,
-    };
-
-    uint64_t fid;   
-    for (int i = 0; i < 10; i++) {
-        f.dst_port = 7+i;
-        f.queue = i+1;
-        err = reg_port_filter(&f, &fid);
-        assert(err_is_ok(err));
-
-    }
-    */
     /* loop myself */
     cd_main();
 }
