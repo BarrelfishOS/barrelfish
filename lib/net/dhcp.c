@@ -12,9 +12,9 @@
 // barrelfish includes
 
 // lwip includes
-#include "lwip/ip.h"
-#include "lwip/dhcp.h"
-
+#include <lwip/ip.h>
+#include <lwip/dhcp.h>
+#include <lwip/timeouts.h>
 
 #include <octopus/octopus.h>
 
@@ -22,7 +22,7 @@
 #include "networking_internal.h"
 
 ///< the debug subsystem
-#define NETDEBUG_SUBSYSTEM "dhcpd"
+#define debug_printf_SUBSYSTEM "dhcpd"
 
 ///< the DHCP timeout in milli seconds
 #define DHCP_TIMEOUT_MSECS (120UL * 1000)
@@ -49,7 +49,9 @@ static void dhcpd_timer_callback(void *data)
         dhcp_coarse_tmr();
     }
 
-    if (!ip_addr_cmp(&st->netif.ip_addr, IP_ADDR_ANY)) {
+    if (!ip_addr_cmp(&st->netif.ip_addr, IP_ADDR_ANY) && st->dhcp_done == 0) {
+
+        debug_printf("setting ip record\n");
 
         /* register IP with octopus */
         err = oct_set(DHCP_RECORD_FORMAT, netif_ip4_addr(&st->netif)->addr,
@@ -62,6 +64,12 @@ static void dhcpd_timer_callback(void *data)
     }
 
     st->dhcp_ticks++;
+}
+
+static void dhcpd_timer_callback_polling(void *data)
+{
+    dhcpd_timer_callback(data);
+    sys_timeout(DHCP_FINE_TIMER_MSECS, dhcpd_timer_callback_polling, data);
 }
 
 static bool dhcpd_has_ip(void)
@@ -91,21 +99,26 @@ errval_t dhcpd_start(net_flags_t flags)
         return err;
     }
 
-    NETDEBUG("starting DHCP...\n");
+    debug_printf("starting DHCP...\n");
     err_t lwip_err = dhcp_start(&st->netif);
     if(lwip_err != ERR_OK) {
         printf("ERRRRRR dhcp start: %i\n", lwip_err);
         return -1;
     }
 
-    st->waitset = get_default_waitset();
     st->dhcp_ticks = 1;
     st->dhcp_running = 1;
 
-    /* DHCP fine timer */
-    err = periodic_event_create(&st->dhcp_timer, st->waitset,
-                                (DHCP_FINE_TIMER_MSECS * 1000),
-                                MKCLOSURE(dhcpd_timer_callback, st));
+    if (flags & NET_FLAGS_POLLING) {
+        sys_timeout(DHCP_FINE_TIMER_MSECS, dhcpd_timer_callback_polling, st);
+    } else {
+        /* DHCP fine timer */
+        err = periodic_event_create(&st->dhcp_timer, st->waitset,
+                (DHCP_FINE_TIMER_MSECS * 1000),
+                MKCLOSURE(dhcpd_timer_callback, st));
+    }
+
+
     if (err_is_fail(err)) {
         dhcp_stop(&st->netif);
         return err;
@@ -156,7 +169,7 @@ static void dhcpd_change_event(octopus_mode_t mode, const char* record, void* ar
 
     struct net_state *st = arg;
 
-    NETDEBUG("DHCP change event: %s\n", record);
+    debug_printf("DHCP change event: %s\n", record);
 
     if (mode & OCT_ON_SET) {
 
@@ -172,9 +185,9 @@ static void dhcpd_change_event(octopus_mode_t mode, const char* record, void* ar
         netmask.addr = (uint32_t)nm;
         gateway.addr = (uint32_t)gw;
 
-        NETDEBUG("DHCP got ip set: %s \n", ip4addr_ntoa(&ipaddr));
-        NETDEBUG("DHCP got gw set: %s\n", ip4addr_ntoa(&gateway));
-        NETDEBUG("DHCP got nm set: %s\n", ip4addr_ntoa(&netmask));
+        debug_printf("DHCP got ip set: %s \n", ip4addr_ntoa(&ipaddr));
+        debug_printf("DHCP got gw set: %s\n", ip4addr_ntoa(&gateway));
+        debug_printf("DHCP got nm set: %s\n", ip4addr_ntoa(&netmask));
 
         netif_set_addr(&st->netif, &ipaddr, &netmask, &gateway);
         netif_set_up(&st->netif);
