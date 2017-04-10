@@ -22,7 +22,7 @@
 #include <barrelfish/debug.h>
 #include <if/sfn5122f_defs.h>
 #include <if/sfn5122f_devif_defs.h>
-#include <if/sfn5122f_devif_defs.h>
+#include <if/net_filter_defs.h>
 #include <if/net_ARP_defs.h>
 #include <if/net_ARP_defs.h>
 
@@ -30,6 +30,7 @@
 #include "sfn5122f_debug.h"
 #include "buffer_tbl.h"
 #include "sfn5122f_qdriver.h"
+
 
 struct queue_state {
     bool enabled;
@@ -93,9 +94,8 @@ static uint32_t phy_loopback_mode = 0;
 static uint32_t wol_filter_id = 0;
 
 // ARP rpc client
-static struct net_ARP_binding *arp_binding;
-static bool net_arp_connected = false;
-static struct waitset rpc_ws;
+//static struct net_ARP_binding *arp_binding;
+//static bool net_arp_connected = false;
 
 static bool csum_offload = 1;
 // TX / RX
@@ -124,8 +124,8 @@ uint8_t rx_hash_key[40];
 uint8_t mc_hash[32];
 
 // Filters
-//static uint32_t ip = 0x2704710A;
-static uint32_t ip = 0;
+static uint32_t ip = 0x2704710A;
+//static uint32_t ip = 0;
 
 enum filter_type_ip {
     OTHER,
@@ -225,8 +225,10 @@ static void queue_hw_stop(uint16_t n);
 static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector);
 static void global_interrupt_handler(void* arg);
 
+/*
 static void bind_arp(struct waitset *ws);
 static errval_t arp_ip_info(void);
+*/
 /***************************************************************************/
 /* Filters */
 
@@ -235,7 +237,7 @@ static void sfn5122f_filter_port_setup(int idx, struct sfn5122f_filter_ip* filte
     sfn5122f_rx_filter_tbl_lo_t filter_lo = 0;
     sfn5122f_rx_filter_tbl_hi_t filter_hi = 0;
 
-    if (filter->type_ip == sfn5122f_PORT_UDP) {
+    if (filter->type_ip == net_filter_PORT_UDP) {
 
         // Add destination IP
         filter_hi = sfn5122f_rx_filter_tbl_hi_dest_ip_insert(filter_hi,
@@ -254,7 +256,7 @@ static void sfn5122f_filter_port_setup(int idx, struct sfn5122f_filter_ip* filte
                filter->src_ip, filter->src_port, filter->queue);
     }
 
-    if (filter->type_ip == sfn5122f_PORT_TCP) {
+    if (filter->type_ip == net_filter_PORT_TCP) {
         // Add dst IP and port
         filter_hi = sfn5122f_rx_filter_tbl_hi_dest_ip_insert(filter_hi,
                                                              filter->dst_ip);
@@ -320,6 +322,7 @@ static uint16_t filter_hash(uint32_t key)
     return tmp ^ tmp >> 9;
 }
 
+/*
 static bool filter_equals(struct sfn5122f_filter_ip* f1,
                           struct sfn5122f_filter_ip* f2)
 {
@@ -336,7 +339,7 @@ static bool filter_equals(struct sfn5122f_filter_ip* f1,
         return true;
     }
 }
-
+*/
 static uint16_t filter_increment(uint32_t key)
 {
     return key * 2 - 1;
@@ -358,9 +361,7 @@ static int ftqf_alloc(struct sfn5122f_filter_ip* f)
     while (true) {
         if (filters_rx_ip[key].enabled == false) {
             return key;
-        } else if (filter_equals(&filters_rx_ip[key], f)){
-            return key;
-        }
+        } 
         
         if (depth > 3) {
             return -1;
@@ -372,7 +373,6 @@ static int ftqf_alloc(struct sfn5122f_filter_ip* f)
 
     return key;
 }
-
 
 static errval_t reg_port_filter(struct sfn5122f_filter_ip* f, uint64_t* fid)
 {
@@ -1334,6 +1334,7 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
     }
 }
 
+/*
 static errval_t idc_terminate_queue(struct sfn5122f_binding *b, uint16_t n)
 {
   DEBUG("idc_terminate_queue(q=%d) \n", n);
@@ -1359,10 +1360,7 @@ static errval_t idc_register_port_filter(struct sfn5122f_binding *b,
 {
 
     if (ip == 0) {
-        /* Get cards IP */
-        waitset_init(&rpc_ws);
-        bind_arp(&rpc_ws);
-        arp_ip_info();
+        //arp_ip_info();
         printf("IP %d \n", ip);
     }
 
@@ -1393,7 +1391,6 @@ static errval_t idc_unregister_filter(struct sfn5122f_binding *b,
     *err = LIB_ERR_NOT_IMPLEMENTED;
     return SYS_ERR_OK;
 }
-
 static struct sfn5122f_rx_vtbl rx_vtbl = {
     .request_device_info = cd_request_device_info,
     .register_queue_memory = cd_register_queue_memory,
@@ -1404,6 +1401,7 @@ static struct sfn5122f_rpc_rx_vtbl rpc_rx_vtbl = {
     .register_port_filter_call = idc_register_port_filter,
     .unregister_filter_call = idc_unregister_filter,
 };
+*/
 
 static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref frame,
                             bool user, bool interrupt, uint8_t core, uint8_t msix_vector)
@@ -1542,6 +1540,7 @@ static struct sfn5122f_devif_rx_vtbl rx_vtbl_devif = {
     .deregister_region_call = cd_deregister_region,
 };
 
+/*
 static void export_cb(void *st, errval_t err, iref_t iref)
 {
     const char *suffix = "_sfn5122fmng";
@@ -1565,7 +1564,7 @@ static errval_t connect_cb(void *st, struct sfn5122f_binding *b)
     b->rpc_rx_vtbl = rpc_rx_vtbl;
     return SYS_ERR_OK;
 }
-
+*/
 static void export_devif_cb(void *st, errval_t err, iref_t iref)
 {
     const char *suffix = "_sfn5122fmng_devif";
@@ -1590,6 +1589,87 @@ static errval_t connect_devif_cb(void *st, struct sfn5122f_devif_binding *b)
     return SYS_ERR_OK;
 }
 
+
+/****************************************************************************/
+/* Net filter interface implementation                                      */
+/****************************************************************************/
+
+
+static errval_t cb_install_filter(struct net_filter_binding *b,
+                                  net_filter_filter_type_t type,
+                                  uint64_t qid,
+                                  uint32_t src_ip,
+                                  uint32_t dst_ip,
+                                  uint16_t src_port,
+                                  uint16_t dst_port,
+                                  uint64_t* fid)
+{
+    if (ip == 0) {
+        /* Get cards IP */
+        //arp_ip_info();
+        printf("IP %d \n", ip);
+    }
+
+    struct sfn5122f_filter_ip f = {
+            .dst_port = dst_port,
+            .src_port = src_port,
+            .dst_ip = htonl(dst_ip),
+            .src_ip = htonl(src_ip),
+            .type_ip = type,
+            .queue = qid,
+    };
+
+
+    errval_t err = reg_port_filter(&f, fid);
+    assert(err_is_ok(err));
+    DEBUG("filter registered: err=%"PRIu64", fid=%"PRIu64"\n", err, *fid);
+    return SYS_ERR_OK;
+}
+
+
+static errval_t cb_remove_filter(struct net_filter_binding *b,
+                                 net_filter_filter_type_t type,
+                                 uint64_t filter_id,
+                                 errval_t* err)
+{
+    if ((type == net_filter_PORT_UDP || type == net_filter_PORT_TCP)
+        && filters_rx_ip[filter_id].enabled == true) {
+        filters_rx_ip[filter_id].enabled = false;  
+
+        sfn5122f_rx_filter_tbl_lo_wr(d, filter_id, 0);
+        sfn5122f_rx_filter_tbl_hi_wr(d, filter_id, 0);
+        *err = SYS_ERR_OK;
+    } else {
+        *err = NET_FILTER_ERR_NOT_FOUND;
+    }
+
+    DEBUG("unregister_filter: called (%"PRIx64")\n", filter_id);
+    return SYS_ERR_OK;
+}
+
+static struct net_filter_rpc_rx_vtbl net_filter_rpc_rx_vtbl = {
+    .install_filter_ip_call = cb_install_filter,
+    .remove_filter_call = cb_remove_filter,
+    .install_filter_mac_call = NULL,
+};
+
+static void net_filter_export_cb(void *st, errval_t err, iref_t iref)
+{
+
+    printf("exported net filter interface\n");
+    err = nameservice_register("net_filter_sfn5122f", iref);
+    assert(err_is_ok(err));
+    DEBUG("Net filter interface exported\n");
+}
+
+
+static errval_t net_filter_connect_cb(void *st, struct net_filter_binding *b)
+{
+    printf("New connection on net filter interface\n");
+    b->rpc_rx_vtbl = net_filter_rpc_rx_vtbl;
+    return SYS_ERR_OK;
+}
+
 /**
  * Initialize management interface for queue drivers.
  * This has to be done _after_ the hardware is initialized.
@@ -1598,19 +1678,26 @@ static void initialize_mngif(void)
 {
     errval_t r;
 
+    /*
     r = sfn5122f_export(NULL, export_cb, connect_cb, get_default_waitset(),
                     IDC_BIND_FLAGS_DEFAULT);
     assert(err_is_ok(r));
+    */
     r = sfn5122f_devif_export(NULL, export_devif_cb, connect_devif_cb,
                               get_default_waitset(), 1);
     assert(err_is_ok(r));
 
+    r = net_filter_export(NULL, net_filter_export_cb, net_filter_connect_cb,
+                          get_default_waitset(), 1);
+    assert(err_is_ok(r));
 }
+
 
 /*****************************************************************************/
 /* ARP service client */
 
 /** Get information about the local TCP/IP configuration*/
+/*
 static errval_t arp_ip_info(void)
 {
     errval_t err, msgerr;
@@ -1632,7 +1719,6 @@ static void a_bind_cb(void *st, errval_t err, struct net_ARP_binding *b)
     net_arp_connected = true;
 }
 
-/** Bind to ARP service (currently blocking) */
 static void bind_arp(struct waitset *ws)
 {
     errval_t err;
@@ -1653,7 +1739,7 @@ static void bind_arp(struct waitset *ws)
     }
     DEBUG("bound_arp\n");
 }
-
+*/
 
 /******************************************************************************/
 /* Initialization code for driver */

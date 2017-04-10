@@ -12,8 +12,13 @@
 
 [ build library { 
     target       = "net",
-    cFiles       = [ "net.c", "netbufs.c",  "netif.c", "pbuf.c", "dhcp.c" ],
+    cFiles       = [ "net.c", "netbufs.c",  "netif.c", "pbuf.c", "dhcp.c",
+                     "net_filter.c" ],
     addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
+    flounderBindings = [ "net_filter"],
+    flounderExtraBindings = [ ("net_filter", ["rpcclient"])],
+    flounderDefs = [ "net_filter" ],
+    flounderExtraDefs = [ ("net_filter",["rpcclient"]) ],
     addLibraries = libDeps [ "lwip2", "devif", "devif_backend_idc",
                              "devif_backend_solarflare", "devif_backend_e10k",
                              "devif_backend_loopback",

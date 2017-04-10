@@ -92,7 +92,8 @@
                "xomp_gateway",
                "sfn5122f",
                "sfn5122f_devif",
-               "descq"
+               "descq",
+               "net_filter"
            ],
              arch <- allArchitectures
 ] ++

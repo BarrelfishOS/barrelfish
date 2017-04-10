@@ -748,6 +748,11 @@ errors filter PORT_ERR_ {
 };
 
 
+//errors in Filter management
+errors filter NET_FILTER_ERR_ {
+    failure NOT_FOUND           "Filter not found or not installed",
+    failure ALREADY_EXISTS      "Filter already installed",
+};
 
 
 //errors in Filter management

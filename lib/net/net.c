@@ -18,9 +18,10 @@
 #include "lwip/dhcp.h"
 #include "lwip/prot/ethernet.h"
 
+#include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
 
-
+#include <net/net_filter.h>
 #include <net_interfaces/flags.h>
 #include "networking_internal.h"
 
@@ -238,6 +239,16 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
     }
 
 
+    NETDEBUG("initializing hw filter...\n");
+
+    err = net_filter_init(st->cardname);
+    if (err_is_fail(err)) {
+        USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+    }
+
+    NETDEBUG("setting default netif...\n");
+   // netif_set_default(&st->netif);
+
     /* create buffers and add them to the interface*/
     err = net_buf_pool_alloc(st->queue, NETWORKING_BUFFER_COUNT,
                              NETWORKING_BUFFER_SIZE, &st->pool);
@@ -258,7 +269,6 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
             break;
         }
     }
-
 
     if (flags & NET_FLAGS_DO_DHCP) {
         err = dhcpd_start(flags);

@@ -18,6 +18,7 @@
 #include <lwip/udp.h>
 #include <lwip/pbuf.h>
 #include <net/net.h>
+#include <net/net_filter.h>
 
 #define UDP_ECHOSERVER_PORT 7
 
@@ -68,6 +69,20 @@ int main(int argc, char *argv[])
     if(r != ERR_OK) {
         udp_remove(pcb);
         return(r);
+    }
+
+    struct net_filter_ip ip;
+    ip.qid = 1;
+    ip.ip_src = 0;
+    // TODO 10.110.4.39 get this from somewhere
+    ip.ip_dst = 0x2704710A;
+    ip.port_dst = 7;
+    ip.port_src = 0;
+    ip.type = NET_FILTER_UPD;
+
+    err = net_filter_ip_install(&ip);    
+    if (err_is_fail(err)) {
+        USER_PANIC("Adding filter failed %s \n", err_getstring(err));
     }
 
     debug_printf("UDP ECHO bound to UDP port %u.\n", UDP_ECHOSERVER_PORT);
