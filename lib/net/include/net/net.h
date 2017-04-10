@@ -68,7 +68,7 @@ errval_t networking_init_default(void);
 errval_t networking_init(const char *nic, net_flags_t flags);
 
 /**
- * @brief initializes the netowrking library with a given device queue
+ * @brief initializes the networking library with a given device queue
  *
  * @param q         the device queue to initialize the networking on
  * @param flags     supplied initialization flags
@@ -78,8 +78,11 @@ errval_t networking_init(const char *nic, net_flags_t flags);
 errval_t networking_init_with_queue(struct devq *q, net_flags_t flags);
 
 
-
-
+/**
+ * @brief polls the network for new packets
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
 errval_t networking_poll(void);
 
 
@@ -101,7 +104,7 @@ errval_t networking_create_queue(const char *cardname, uint64_t queueid,
                                  struct devq **retqueue);
 
 /**
- * @brief obtains the default setting for initializaion of the driver
+ * @brief obtains the default setting for initialization of the driver
  *
  * @param queue     returns the queue to be used
  * @param cardname  returns the card name to be used

@@ -177,10 +177,8 @@ errval_t networking_get_mac(struct devq *q, uint8_t *hwaddr, uint8_t hwaddrlen) 
     return SYS_ERR_OK;
 }
 
-errval_t networking_poll(void)
+static errval_t networking_poll_st(struct net_state *st)
 {
-    struct net_state *st = &state;
-
     if (st->flags & NET_FLAGS_POLLING) {
         return net_if_poll(&st->netif);
     } else {
@@ -192,18 +190,18 @@ errval_t networking_poll(void)
 
 
 /**
- * @brief initializes the netowrking library with a given device queue
+ * @brief initializes the networking library with a given device queue
  *
+ * @param st        the networking state to initialize
  * @param q         the device queue to initialize the networking on
  * @param flags     supplied initialization flags
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_init_with_queue(struct devq *q, net_flags_t flags)
+static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *q,
+                                              net_flags_t flags)
 {
     errval_t err;
-
-    struct net_state *st = &state;
 
     NETDEBUG("initializing networking with devq=%p, flags=%" PRIx32 "...\n", q,
              flags);
@@ -283,23 +281,22 @@ errval_t networking_init_with_queue(struct devq *q, net_flags_t flags)
 
 }
 
-
 /**
  * @brief initializes the networking library
  *
+ * @param st        the networking state to be initalized
  * @param nic       the nic to use with the networking library
  * @param flags     flags to use to initialize the networking library
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_init(const char *nic, net_flags_t flags)
+static errval_t networking_init_st(struct net_state *st, const char *nic,
+                                   net_flags_t flags)
 {
     errval_t err;
 
-    struct net_state *st = &state;
-
-    debug_printf("initializing networking with nic=%s, flags=%" PRIx32 "...\n", nic,
-                 flags);
+    NETDEBUG("initializing networking with nic=%s, flags=%" PRIx32 "...\n", nic,
+             flags);
 
     if(st->initialized) {
         NETDEBUG("WARNING. initialize called twice. Ignoring\n");
@@ -315,7 +312,7 @@ errval_t networking_init(const char *nic, net_flags_t flags)
         return err;
     }
 
-    err = networking_init_with_queue(st->queue, flags);
+    err = networking_init_with_queue_st(st, st->queue, flags);
     if (err_is_fail(err)) {
        // devq_destroy(st->queue);
     }
@@ -323,18 +320,16 @@ errval_t networking_init(const char *nic, net_flags_t flags)
     return err;
 }
 
-
-
 /**
  * @brief initializes the networking with the defaults
  *
+ * @param st    the networking state to be initialized
+ *
  * @return SYS_ERR_OK on sucess, errval on failure
  */
-errval_t networking_init_default(void)
+static errval_t networking_init_default_st(struct net_state *st)
 {
     errval_t err;
-
-    struct net_state *st = &state;
 
     NETDEBUG("initializing networking with default options...\n");
 
@@ -349,5 +344,65 @@ errval_t networking_init_default(void)
         return err;
     }
 
-    return networking_init(st->cardname, st->flags);
+    return networking_init_st(st, st->cardname, st->flags);
+}
+
+
+
+/*
+ * ===========================================================================
+ * Public interface
+ * ===========================================================================
+ */
+
+/**
+ * @brief initializes the networking library with a given device queue
+ *
+ * @param q         the device queue to initialize the networking on
+ * @param flags     supplied initialization flags
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t networking_init_with_queue(struct devq *q, net_flags_t flags)
+{
+    struct net_state *st = get_default_net_state();
+    return networking_init_with_queue_st(st, q, flags);
+}
+
+/**
+ * @brief initializes the networking library
+ *
+ * @param nic       the nic to use with the networking library
+ * @param flags     flags to use to initialize the networking library
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t networking_init(const char *nic, net_flags_t flags)
+{
+    struct net_state *st = get_default_net_state();
+    return networking_init_st(st, nic, flags);
+}
+
+
+/**
+ * @brief initializes the networking with the defaults
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t networking_init_default(void)
+{
+    struct net_state *st = get_default_net_state();
+    return networking_init_default_st(st);
+}
+
+
+/**
+ * @brief polls the network for new packets
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t networking_poll(void)
+{
+    struct net_state *st = &state;
+    return networking_poll_st(st);
 }
