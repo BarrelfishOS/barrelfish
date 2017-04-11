@@ -13,30 +13,51 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#define LWIP_ARP_FILTER_NETIF_FN(p, netif, type) arp_filter_netif(p, netif, type)
 
-#if LWIP_ARP_FILTER_NETIF
-  netif = LWIP_ARP_FILTER_NETIF_FN(p, netif, lwip_htons(type));
-#endif /* LWIP_ARP_FILTER_NETIF*/
+#include <barrelfish/barrelfish.h>
 
-#if 0
-  err_t etharp_add_static_entry(const ip4_addr_t *ipaddr, struct eth_addr *ethaddr);
-  err_t etharp_remove_static_entry(const ip4_addr_t *ipaddr);
-#endif
 
-#define ARP_ENTRY "net.arp.%d {mac: %d}"
+#include <lwip/opt.h>
+#include <lwip/netif.h>
+#include <lwip/timeouts.h>
+#include "include/net/netif.h"
 
-#define ARP_ENTRY_REGEX "r'net\\.arp\\.[0-9]+' { mac: _ }"
+#include <netif/etharp.h>
+
+#include <octopus/octopus.h>
+
+
+#include "networking_internal.h"
+
+///< the debug subsystem
+#define NETDEBUG_SUBSYSTEM "arpd"
+
+
+#define ARP_ENTRY_FIELDS "{mac: %d, ip: %d}"
+#define ARP_ENTRY "net.arp.%d {mac: %lu, ip: %d}"
+
+#define ARP_ENTRY_REGEX "r'net\\.arp\\.[0-9]+' { mac: _, ip: _}"
 
 struct netif *arp_filter_netif(struct pbuf *p, struct netif *netif, uint16_t type)
 {
-    debug_printf("arp_filter_netif");
-
     if (type != ETHTYPE_ARP) {
         return netif;
     }
 
+    struct net_state *st = netif->state;
+
+    if (!st->arp_running) {
+        return netif;
+    }
+
+    if (p->len < SIZEOF_ETH_HDR || pbuf_header(p, (s16_t)-SIZEOF_ETH_HDR)) {
+        NETDEBUG("wrong packet size received\n");
+        return netif;
+    }
+
     struct etharp_hdr *hdr = (struct etharp_hdr *)p->payload;
+
+    pbuf_header(p, (s16_t)SIZEOF_ETH_HDR);
 
     /* RFC 826 "Packet Reception": */
     if ((hdr->hwtype != PP_HTONS(HWTYPE_ETHERNET)) ||
@@ -49,43 +70,95 @@ struct netif *arp_filter_netif(struct pbuf *p, struct netif *netif, uint16_t typ
       return netif;
     }
 
+    ip_addr_t ip;
+    IPADDR2_COPY(&ip, &hdr->sipaddr);
+
+    uint64_t hwaddr = 0;
+    if (etharp_find_addr(netif, &ip, (struct eth_addr **)&hwaddr,
+                         (const ip4_addr_t **)&hwaddr) != -1) {
+        return netif;
+    }
 
     /*
      * If already exists, return
      */
 
-    uint64_t hwaddr = 0;
-    SMEMCPY(&hwaddr, hdr->shwaddr, sizeof(hdr->shwaddr));
-    oct_publish(ARP_ENTRY, hdr->sipaddr, hdr->shwaddr);
+    hwaddr = 0;
+    SMEMCPY(&hwaddr, hdr->shwaddr.addr, sizeof(hdr->shwaddr));
 
-    etharp_add_static_entry(hdr->sipaddr, hdr->shwaddr);
+    NETDEBUG("set " ARP_ENTRY "\n", ip.addr, hwaddr, ip.addr);
+
+    oct_set(ARP_ENTRY, ip.addr, hwaddr, ip.addr);
+
+    etharp_add_static_entry(&ip, &hdr->shwaddr);
 
     return netif;
 }
 
-static  void handle_arp_entry(octopus_mode_t mode, const char* record, void* state)
+static errval_t arp_service_start_st(struct net_state *st)
 {
+    errval_t err;
 
-    uint64_t ip,hwaddr;
-    oct_read(record, ARP_ENTRY, &ip, &hwaddr);
+    err = oct_init();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    st->arp_running = true;
+
+    return SYS_ERR_OK;
+}
+
+errval_t arp_service_start(void)
+{
+    return arp_service_start_st(get_default_net_state());
+}
+
+static  void arp_change_event(octopus_mode_t mode, const char* record, void* st)
+{
+    errval_t err;
+
+    uint64_t ip, hwaddr;
+    err = oct_read(record, "_" ARP_ENTRY_FIELDS, &hwaddr, &ip);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to read the entrie\n");
+    }
 
     ip_addr_t ipaddr;
     ipaddr.addr = (uint32_t)ip;
 
     if (mode & OCT_ON_SET) {
 
+        NETDEBUG("adding ARP entries: ip=%u, mac=%lx\n", ipaddr.addr, hwaddr);
+
         struct eth_addr mac;
         SMEMCPY(mac.addr, &hwaddr, sizeof(mac));
 
         etharp_add_static_entry(&ipaddr, &mac);
     } else if (mode & OCT_ON_DEL) {
+        NETDEBUG("deleting ARP entries: ip=%u, mac=%lx\n", ipaddr.addr, hwaddr);
         etharp_remove_static_entry(&ipaddr);
     }
 }
 
-errval_t arp_filter_subscribe(void)
+static errval_t arp_service_subscribe_st(struct net_state *st)
+{
+    NETDEBUG("subscribing to ARP updates..\n");
+
+    errval_t err;
+    err = oct_init();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    st->arp_running = false;
+
+    return oct_trigger_existing_and_watch(ARP_ENTRY_REGEX, arp_change_event,
+                                             st, &st->arp_triggerid);
+}
+
+errval_t arp_service_subscribe(void)
 {
     struct net_state *st = get_default_net_state();
-    subscription_t sub;
-    return  oct_subscribe(handle_arp_entry, st, &sub, ARP_ENTRY_REGEX);
+    return arp_service_subscribe_st(st);
 }

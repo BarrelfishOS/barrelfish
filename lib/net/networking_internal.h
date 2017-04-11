@@ -30,6 +30,7 @@
 #include <net/netbufs.h>
 #include <net/netif.h>
 #include <net/dhcp.h>
+#include <net/arp.h>
 
 #include "debug.h"
 
@@ -57,6 +58,9 @@ struct net_state {
     struct periodic_event dhcp_timer;
     bool dhcp_done;
     bool dhcp_running;
+
+    bool arp_running;
+    uint64_t arp_triggerid;
 
     struct waitset *waitset;
 

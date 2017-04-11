@@ -181,6 +181,7 @@ errval_t networking_get_mac(struct devq *q, uint8_t *hwaddr, uint8_t hwaddrlen) 
 
 static errval_t networking_poll_st(struct net_state *st)
 {
+    event_dispatch_non_block(get_default_waitset());
     if (st->flags & NET_FLAGS_POLLING) {
         return net_if_poll(&st->netif);
     } else {
@@ -276,11 +277,21 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to start DHCP.\n");
         }
+
+        err = arp_service_start();
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err,  "failed to start the ARP service\n");
+        }
     } else {
         /* get IP from dhcpd */
         err = dhcpd_query(flags);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to start DHCP.\n");
+        }
+
+        err = arp_service_subscribe();
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to subscribte the ARP service\n");
         }
     }
 

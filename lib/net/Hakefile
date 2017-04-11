@@ -13,7 +13,7 @@
 [ build library { 
     target       = "net",
     cFiles       = [ "net.c", "netbufs.c",  "netif.c", "pbuf.c", "dhcp.c",
-                     "net_filter.c" ],
+                     "net_filter.c", "arp.c" ],
     addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
     flounderBindings = [ "net_filter"],
     flounderExtraBindings = [ ("net_filter", ["rpcclient"])],
@@ -42,6 +42,18 @@
   build application {
     target       = "udp_ping",
     cFiles       = [ "test/udp_ping.c" ],
+    addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
+    addLibraries = libDeps [ "net" ]
+  },
+  build application {
+    target       = "net_dhcp",
+    cFiles       = [ "test/dhcp.c" ],
+    addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
+    addLibraries = libDeps [ "net" ]
+  },
+    build application {
+    target       = "net_arp",
+    cFiles       = [ "test/arp.c" ],
     addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
     addLibraries = libDeps [ "net" ]
   }  
