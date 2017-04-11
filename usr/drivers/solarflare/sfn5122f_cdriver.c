@@ -1543,13 +1543,6 @@ static void export_devif_cb(void *st, errval_t err, iref_t iref)
 }
 
 
-static errval_t connect_devif_cb(void *st, struct sfn5122f_devif_binding *b)
-{
-    DEBUG("New connection on devif management interface\n");
-    b->rx_vtbl = rx_vtbl_devif;
-    return SYS_ERR_OK;
-}
-
 
 /****************************************************************************/
 /* Net filter interface implementation                                      */
