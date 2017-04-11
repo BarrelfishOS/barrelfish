@@ -11,16 +11,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <net_queue_manager/net_queue_manager.h>
+#include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <barrelfish/spawn_client.h>
 #include <barrelfish/deferred.h>
-#include <netd/netd.h>
-#include <net/net.h>
-#include <net_device_manager/net_device_manager.h>
-#include <pci/pci.h>
-#include <ipv4/lwip/inet.h>
 #include <barrelfish/debug.h>
+#include <net/net.h>
+#include <pci/pci.h>
+
+// TODO only required for htonl
+#include <lwip/ip4_addr.h>
+
 #include <if/sfn5122f_defs.h>
 #include <if/sfn5122f_devif_defs.h>
 #include <if/net_filter_defs.h>
@@ -28,8 +28,6 @@
 #include "sfn5122f.h"
 #include "sfn5122f_debug.h"
 #include "buffer_tbl.h"
-#include "sfn5122f_qdriver.h"
-
 
 struct queue_state {
     uint64_t qid;
@@ -37,7 +35,6 @@ struct queue_state {
     bool userspace;
     bool use_irq;
 
-    struct sfn5122f_binding *binding;
     struct sfn5122f_devif_binding *devif;
     struct capref tx_frame;
     struct capref rx_frame;
@@ -92,10 +89,6 @@ static uint32_t phy_loopback_mode = 0;
 //static uint32_t phy_loopback_speed = 0;
 //WoL Filter id
 static uint32_t wol_filter_id = 0;
-
-// ARP rpc client
-//static struct net_ARP_binding *arp_binding;
-//static bool net_arp_connected = false;
 
 static bool csum_offload = 1;
 // TX / RX
@@ -189,28 +182,6 @@ static struct sfn5122f_filter_mac filters_tx_ip[NUM_FILTERS_MAC];
 
 /******************************************************************************/
 /* Prototypes */
-void qd_main(void) __attribute__((weak));
-void qd_argument(const char *arg) __attribute__((weak));
-void qd_interrupt(void) __attribute__((weak));
-void qd_queue_init_data(struct sfn5122f_binding *b, struct capref registers,
-                        uint64_t macaddr) __attribute__((weak));
-void qd_queue_memory_registered(struct sfn5122f_binding *b) __attribute__((weak));
-void qd_write_queue_tails(struct sfn5122f_binding *b) __attribute__((weak));
-
-
-void cd_request_device_info(struct sfn5122f_binding *b);
-void cd_register_queue_memory(struct sfn5122f_binding *b,
-                              uint16_t queue,
-                              struct capref tx,
-                              struct capref rx,
-                              struct capref ev,
-                              uint32_t rxbufsz,
-                              bool use_interrupts,
-                              bool userspace,
-                              uint8_t vector,
-                              uint16_t core);
-
-static void idc_write_queue_tails(struct sfn5122f_binding *b);
 
 static void device_init(void);
 static void start_all(void);
@@ -223,10 +194,6 @@ static void queue_hw_stop(uint16_t n);
 static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector);
 static void global_interrupt_handler(void* arg);
 
-/*
-static void bind_arp(struct waitset *ws);
-static errval_t arp_ip_info(void);
-*/
 /***************************************************************************/
 /* Filters */
 
@@ -289,7 +256,7 @@ static uint32_t build_key(struct sfn5122f_filter_ip* f)
     host1 = f->src_ip;
     host2 = f->dst_ip;
     
-    if (f->type_ip == sfn5122f_PORT_UDP) {
+    if (f->type_ip == net_filter_PORT_UDP) {
        port1 = f->dst_port;
        port2 = f->src_port;
        data[3] = 1;
@@ -1189,134 +1156,6 @@ static void global_interrupt_handler(void* arg)
 /******************************************************************************/
 /* Management interface implemetation */
 
-static void idc_queue_init_data(struct sfn5122f_binding *b,
-                                struct capref registers,
-                                uint64_t macaddr)
-{
-    errval_t r;
-
-    r = sfn5122f_queue_init_data__tx(b, NOP_CONT, registers, macaddr);
-    // TODO: handle busy
-    assert(err_is_ok(r));
-}
-
-/** Tell queue driver that we are done initializing the queue. */
-static void idc_queue_memory_registered(struct sfn5122f_binding *b)
-{
-    errval_t r;
-    r = sfn5122f_queue_memory_registered__tx(b, NOP_CONT);
-    // TODO: handle busy
-    assert(err_is_ok(r));
-}
-
-/** Send request to queue driver to rewrite the tail pointers of its queues. */
-static void idc_write_queue_tails(struct sfn5122f_binding *b)
-{
-    errval_t r;
-    if (b == NULL) {
-        qd_write_queue_tails(b);
-        return;
-    }
-
-    r = sfn5122f_write_queue_tails__tx(b, NOP_CONT);
-    // TODO: handle busy
-    assert(err_is_ok(r));
-}
-
-/** Request from queue driver for register memory cap */
-void cd_request_device_info(struct sfn5122f_binding *b)
-{
-    if (b == NULL) {
-        qd_queue_init_data(b, *regframe, d_mac[pci_function]);
-        return;
-    }
-    idc_queue_init_data(b, *regframe, d_mac[pci_function]);
-}
-
-/** Request from queue driver to initialize hardware queue. */
-void cd_register_queue_memory(struct sfn5122f_binding *b,
-                              uint16_t n,
-                              struct capref tx_frame,
-                              struct capref rx_frame,
-                              struct capref ev_frame,
-                              uint32_t rxbufsz,
-                              bool use_irq,
-                              bool userspace,
-                              uint8_t vector,
-                              uint16_t core)
-{
-    // Save state so we can restore the configuration in case we need to do a
-    // reset
-    errval_t err;
-
-    bool failed = 0;
-    queues[n].enabled = false;
-    queues[n].tx_frame = tx_frame;
-    queues[n].rx_frame = rx_frame;
-    queues[n].ev_frame = ev_frame;
-    queues[n].tx_head = 0;
-    queues[n].rx_head = 0;
-    queues[n].ev_head = 0;
-    queues[n].rxbufsz = rxbufsz;
-    queues[n].binding = b;
-    queues[n].use_irq = use_irq;
-    queues[n].userspace = userspace;
-    queues[n].msix_index = -1;
-    queues[n].msix_intvec = vector;
-    queues[n].msix_intdest = core;
-    queues[n].qid = n;
-
-    struct frame_identity id;
-    err = invoke_frame_identify(ev_frame, &id);
-    assert(err_is_ok(err));
-    queues[n].ev_buf_tbl = init_evq(n, id.base, use_irq);
-
-
-    // enable checksums
-    err = invoke_frame_identify(tx_frame, &id);
-    assert(err_is_ok(err));
-    queues[n].tx_buf_tbl = init_txq(n, id.base, csum_offload, userspace);
-
-    err = invoke_frame_identify(rx_frame, &id);
-    assert(err_is_ok(err));
-    queues[n].rx_buf_tbl = init_rxq(n, id.base, userspace);
-
-
-    if(queues[n].ev_buf_tbl == -1 ||
-       queues[n].tx_buf_tbl == -1 ||
-       queues[n].rx_buf_tbl == -1){
-       failed = 1;
-       DEBUG("Allocating queue failed \n");
-       return;
-    }
-
-    queues[n].enabled = true;
-
-    if (queues[n].use_irq) {
-        if (queues[n].msix_intvec != 0) {
-            if (queues[n].msix_index == -1) {
-                setup_interrupt(&queues[n].msix_index, queues[n].msix_intdest,
-                                queues[n].msix_intvec);
-            }
-        }
-    }
-
-    idc_write_queue_tails(queues[n].binding);
-
-    if (b == NULL) {
-        qd_queue_memory_registered(b);
-        return;
-    }
-
-    idc_queue_memory_registered(b);
-
-    if (first){
-       start_all();
-       first = 0;
-    }
-}
-
-
 static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct capref frame,
                     bool user, bool interrupt, bool qzero, 
                     uint8_t core, uint8_t msix_vector, 
@@ -1423,7 +1262,8 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     struct capref regs;
 
 
-    cd_create_queue_rpc(b, frame, user, interrupt, false, core, msix_vector, &mac, &queueid, &regs, &err);
+    cd_create_queue_rpc(b, frame, user, interrupt, false, core, 
+                        msix_vector, &mac, &queueid, &regs, &err);
 
     err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, err);
     assert(err_is_ok(err));
@@ -1488,7 +1328,7 @@ static void cd_destroy_queue(struct sfn5122f_devif_binding *b, uint16_t qid)
     queue_hw_stop(qid);
 
     queues[qid].enabled = false;
-    queues[qid].binding = NULL;
+    queues[qid].devif = NULL;
 
     err = b->tx_vtbl.destroy_queue_response(b, NOP_CONT, SYS_ERR_OK);
     assert(err_is_ok(err));
@@ -1502,7 +1342,7 @@ static void cd_control(struct sfn5122f_devif_binding *b, uint64_t request,
     struct queue_state *q = b->st;
     assert(q);
 
-    debug_printf("control arg=0x%lx\n", arg);
+    DEBUG("control arg=0x%lx\n", arg);
 
     struct sfn5122f_filter_ip f = {
             .dst_port = ((uint32_t)arg >> 16),
@@ -1516,8 +1356,8 @@ static void cd_control(struct sfn5122f_devif_binding *b, uint64_t request,
     uint64_t fid;
     err = reg_port_filter(&f, &fid);
 
-    debug_printf("register filter: 0x%x:%u UDP=%u -> q=%u @ index=%lu %s\n",f.dst_ip, f.dst_port,
-                f.type_ip, f.queue, fid, err_getstring(err));
+    DEBUG("register filter: 0x%x:%u UDP=%u -> q=%u @ index=%lu %s\n",f.dst_ip, 
+          f.dst_port, f.type_ip, f.queue, fid, err_getstring(err));
 
 
     err = b->tx_vtbl.control_response(b, NOP_CONT, fid, err);
