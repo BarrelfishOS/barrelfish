@@ -94,7 +94,8 @@ static errval_t create_sfn5122f_queue (struct net_state *st, uint64_t queueid, s
 
     return sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, int_handler,
                                 false /*userlevel network feature*/,
-                                !(st->flags & NET_FLAGS_POLLING) /* user interrupts*/);
+                                !(st->flags & NET_FLAGS_POLLING) /* user interrupts*/,
+                                (st->flags & NET_FLAGS_DEFAULT_QUEUE));
 }
 
 

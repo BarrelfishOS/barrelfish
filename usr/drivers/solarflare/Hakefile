@@ -24,9 +24,10 @@
                         ("net_filter",["rpcclient"])
                         ],
                       mackerelDevices = [ "sfn5122f"],
+                      addIncludes  = [ "include", "/lib/net/include/" ],
                       addLibraries = libDeps["netQmng", "pci", "contmng", 
                                              "net_device_manager", "bench", "trace", "skb",
-                                             "spawndomain", "netd" ]
+                                             "spawndomain", "netd" , "net"]
                     }
   ]
 

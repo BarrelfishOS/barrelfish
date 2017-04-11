@@ -18,6 +18,7 @@ interface sfn5122f_devif "sfn5122f devif communication interface" {
     // create and destroy a queue. Only the device driver itself should
     // access configuration registers
     rpc create_queue(in cap frame, in bool user, in bool interrupt,
+                     in bool qzero,
                      in uint8 core, in uint8 vector,
                      out uint64 mac, out uint16 qid, 
                      out cap regs, out errval err);

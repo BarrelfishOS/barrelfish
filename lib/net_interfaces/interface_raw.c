@@ -231,7 +231,8 @@ void net_if_init(const char* cardname, uint64_t qid)
         struct sfn5122f_queue* sfn5122f;
         err = sfn5122f_queue_create(&sfn5122f, int_handler, 
                                     false /*userlevel network feature*/, 
-                                    true /* user interrupts*/);
+                                    true /* user interrupts*/,
+                                    false);
         assert(err_is_ok(err));
 
         devq = (struct devq*) sfn5122f; 

@@ -16,6 +16,7 @@
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/deferred.h>
 #include <netd/netd.h>
+#include <net/net.h>
 #include <net_device_manager/net_device_manager.h>
 #include <pci/pci.h>
 #include <ipv4/lwip/inet.h>
@@ -23,8 +24,6 @@
 #include <if/sfn5122f_defs.h>
 #include <if/sfn5122f_devif_defs.h>
 #include <if/net_filter_defs.h>
-#include <if/net_ARP_defs.h>
-#include <if/net_ARP_defs.h>
 
 #include "sfn5122f.h"
 #include "sfn5122f_debug.h"
@@ -1170,7 +1169,7 @@ static void global_interrupt_handler(void* arg)
 
     q_to_check = sfn5122f_int_isr0_reg_lo_rd(d);
 
-    for (uint64_t i = 1; i < 32; i++) {
+    for (uint64_t i = 0; i < 32; i++) {
         if ((q_to_check >> i) & 0x1) {
             if (queues[i].use_irq && queues[i].devif != NULL) {
                 DEBUG("Interrupt to queue %lu \n", i);
@@ -1184,13 +1183,6 @@ static void global_interrupt_handler(void* arg)
         }
     }
 
-    if (q_to_check & 0x1) {
-        DEBUG("Interrupt to queue 0 \n");
-        check_queue_0();
-    }
-
-
-   
     // Don't need to start event queues because we're already polling
 
 }
@@ -1326,8 +1318,10 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
 
 
 static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct capref frame,
-                    bool user, bool interrupt, uint8_t core, uint8_t msix_vector,
-                    uint64_t *mac, uint16_t *qid, struct capref *regs, errval_t *ret_err)
+                    bool user, bool interrupt, bool qzero, 
+                    uint8_t core, uint8_t msix_vector, 
+                    uint64_t *mac, uint16_t *qid, struct capref *regs, 
+                    errval_t *ret_err)
 {
 
     DEBUG("cd_create_queue \n");
@@ -1343,14 +1337,19 @@ static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct cap
         }
     }
 
-
     if (n == -1) {
         *ret_err = NIC_ERR_ALLOC_QUEUE;
         *regs = NULL_CAP;
-//        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, 0, NULL_CAP, err);
-//        //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
-//        assert(err_is_ok(err));
         return NIC_ERR_ALLOC_QUEUE;
+    }
+    
+    if (qzero) {
+        if (queues[0].enabled == false) {
+            n = 0;
+        } else {
+            printf("Default queue already initalized \n");
+            return NIC_ERR_ALLOC_QUEUE;
+        }
     }
 
     b->st = &queues[n];
@@ -1392,12 +1391,10 @@ static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct cap
         *ret_err = NIC_ERR_ALLOC_QUEUE;
         *regs = NULL_CAP;
         return NIC_ERR_ALLOC_QUEUE;
-        //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
     }
 
     queues[n].enabled = true;
     DEBUG("created queue %d \n", n);
-    //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, *regframe, SYS_ERR_OK);a
 
     *mac = d_mac[pci_function];
     *qid = n;
@@ -1415,7 +1412,8 @@ static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct cap
 
 
 static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref frame,
-                            bool user, bool interrupt, uint8_t core, uint8_t msix_vector)
+                            bool user, bool interrupt, bool qzero, uint8_t core, 
+                            uint8_t msix_vector)
 {
 
     uint64_t mac;
@@ -1425,7 +1423,7 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     struct capref regs;
 
 
-    cd_create_queue_rpc(b, frame, user, interrupt, core, msix_vector, &mac, &queueid, &regs, &err);
+    cd_create_queue_rpc(b, frame, user, interrupt, false, core, msix_vector, &mac, &queueid, &regs, &err);
 
     err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, err);
     assert(err_is_ok(err));
@@ -1646,11 +1644,6 @@ static void initialize_mngif(void)
 {
     errval_t r;
 
-    /*
-    r = sfn5122f_export(NULL, export_cb, connect_cb, get_default_waitset(),
-                    IDC_BIND_FLAGS_DEFAULT);
-    assert(err_is_ok(r));
-    */
     r = sfn5122f_devif_export(NULL, export_devif_cb, connect_devif_cb,
                               get_default_waitset(), 1);
     assert(err_is_ok(r));
@@ -1808,8 +1801,9 @@ int main(int argc, char** argv)
             pci_device = PCI_DONT_CARE;
             pci_function = 0;
         } else {
-            if ((pci_vendor != PCI_VENDOR_SOLARFLARE) || (pci_devid != DEVICE_ID)) {
-                printf("VENDOR/DEVICE ID MISMATCH: %x/%x %x/%x\n",
+            if ((pci_vendor != PCI_VENDOR_SOLARFLARE) || (pci_devid != DEVICE_ID) ||
+                (pci_function != 0)) {
+                printf("VENDOR/DEVICE ID MISMATCH: %x/%x %x/%x \n",
                         pci_vendor, PCI_VENDOR_SOLARFLARE, pci_devid, DEVICE_ID);
             }
             argc--;
@@ -1831,35 +1825,13 @@ int main(int argc, char** argv)
     while (!initialized) {
         event_dispatch(get_default_waitset());
     }
-
-    init_queue_0("sfn5122f", d_mac[pci_function], d_virt,
-                 use_interrupt, false, &queues[0].ev_frame, 
-                 &queues[0].tx_frame, &queues[0].rx_frame);
-
-    queues[0].enabled = false;
-    queues[0].tx_head = 0;
-    queues[0].rx_head = 0;
-    queues[0].ev_head = 0;
-    queues[0].rxbufsz = MTU_MAX;
-    queues[0].binding = NULL;
-    queues[0].use_irq = true;
-    queues[0].userspace = false;
-
-    struct frame_identity id;
-    err = invoke_frame_identify(queues[0].ev_frame, &id);
+    
+    DEBUG("SFN5122F driver networking init \n");
+    err = networking_init("sfn5122f", NET_FLAGS_BLOCKING_INIT | NET_FLAGS_DO_DHCP |
+                          NET_FLAGS_DEFAULT_QUEUE);
     assert(err_is_ok(err));
-    queues[0].ev_buf_tbl = init_evq(0, id.base, queues[0].use_irq);
-    // enable checksums
-    err = invoke_frame_identify(queues[0].tx_frame, &id);
-    assert(err_is_ok(err));
-    queues[0].tx_buf_tbl = init_txq(0, id.base, csum_offload, false);
 
-    err = invoke_frame_identify(queues[0].rx_frame, &id);
-    assert(err_is_ok(err));
-    queues[0].rx_buf_tbl = init_rxq(0, id.base, false);
-
-    write_queue_tails();
-
+    DEBUG("SFN5122F driver networking init done\n");
     start_all();    
     
     /* loop myself */

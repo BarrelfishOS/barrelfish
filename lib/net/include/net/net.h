@@ -34,6 +34,8 @@ struct eth_addr;
 
 #define NET_FLAGS_BLOCKING_INIT          (1 << 2)
 
+///< initalize with default queue
+#define NET_FLAGS_DEFAULT_QUEUE          (1 << 3)
 ///< networking flags
 typedef uint32_t net_flags_t;
 
