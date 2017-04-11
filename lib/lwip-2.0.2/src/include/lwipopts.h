@@ -38,6 +38,8 @@
 #ifndef LWIP_LWIPOPTS_H
 #define LWIP_LWIPOPTS_H
 
+#include <stdint.h>
+
 
 #include <barrelfish/net_constants.h>
 
@@ -66,6 +68,20 @@
  * entries (using etharp_add_static_entry/etharp_remove_static_entry).
  */
 #define ETHARP_SUPPORT_STATIC_ENTRIES 1
+
+/** Define this to 1 and define LWIP_ARP_FILTER_NETIF_FN(pbuf, netif, type)
+ * to a filter function that returns the correct netif when using multiple
+ * netifs on one hardware interface where the netif's low-level receive
+ * routine cannot decide for the correct netif (e.g. when mapping multiple
+ * IP addresses to one hardware interface).
+ */
+#define LWIP_ARP_FILTER_NETIF 1
+#define LWIP_ARP_FILTER_NETIF_FN(p, netif, type) arp_filter_netif(p, netif, type)
+
+struct pbuf;
+struct netif;
+struct netif *arp_filter_netif(struct pbuf *p, struct netif *netif, uint16_t type);
+
 
 /*
    -----------------------------------------------
