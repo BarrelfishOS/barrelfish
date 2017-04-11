@@ -61,6 +61,12 @@
 /// Disable locks (we lock the whole stack)
 #define SYS_LIGHTWEIGHT_PROT    0
 
+
+/** ETHARP_SUPPORT_STATIC_ENTRIES==1: enable code to support static ARP table
+ * entries (using etharp_add_static_entry/etharp_remove_static_entry).
+ */
+#define ETHARP_SUPPORT_STATIC_ENTRIES 1
+
 /*
    -----------------------------------------------
    ---------- Platform specific locking ----------
