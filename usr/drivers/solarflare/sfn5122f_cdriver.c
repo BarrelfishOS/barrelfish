@@ -33,6 +33,7 @@
 
 
 struct queue_state {
+    uint64_t qid;
     bool enabled;
     bool userspace;
     bool use_irq;
@@ -1271,6 +1272,7 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
     queues[n].msix_index = -1;
     queues[n].msix_intvec = vector;
     queues[n].msix_intdest = core;
+    queues[n].qid = n;
 
     struct frame_identity id;
     err = invoke_frame_identify(ev_frame, &id);
@@ -1322,10 +1324,14 @@ void cd_register_queue_memory(struct sfn5122f_binding *b,
     }
 }
 
-static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref frame,
-                            bool user, bool interrupt, uint8_t core, uint8_t msix_vector)
+
+static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct capref frame,
+                    bool user, bool interrupt, uint8_t core, uint8_t msix_vector,
+                    uint64_t *mac, uint16_t *qid, struct capref *regs, errval_t *ret_err)
 {
+
     DEBUG("cd_create_queue \n");
+
     errval_t err;
     struct frame_identity id;
 
@@ -1337,13 +1343,18 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
         }
     }
 
+
     if (n == -1) {
-        err = NIC_ERR_ALLOC_QUEUE;
-        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, 0, NULL_CAP, err);
-        //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
-        assert(err_is_ok(err));
+        *ret_err = NIC_ERR_ALLOC_QUEUE;
+        *regs = NULL_CAP;
+//        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, 0, NULL_CAP, err);
+//        //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
+//        assert(err_is_ok(err));
+        return NIC_ERR_ALLOC_QUEUE;
     }
-    
+
+    b->st = &queues[n];
+
     queues[n].use_irq = interrupt;
     queues[n].enabled = false;
     queues[n].tx_frame = frame;
@@ -1356,12 +1367,13 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     queues[n].msix_index = -1;
     queues[n].msix_intdest = core;
     queues[n].msix_intvec = msix_vector;
+    queues[n].qid = n;
 
     if (queues[n].use_irq && use_msix) {
         if (queues[n].msix_intvec != 0) {
             if (queues[n].msix_index == -1) {
                 setup_interrupt(&queues[n].msix_index, queues[n].msix_intdest,
-                                queues[n].msix_intvec);
+                        queues[n].msix_intvec);
             }
         }
     }
@@ -1372,37 +1384,60 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     queues[n].tx_buf_tbl = init_txq(n, id.base, csum_offload, user);
     queues[n].rx_buf_tbl = init_rxq(n, id.base+ sizeof(uint64_t)*TX_ENTRIES, user);
 
-    queues[n].ev_buf_tbl = init_evq(n, id.base+sizeof(uint64_t)*(TX_ENTRIES+RX_ENTRIES), 
-                                    interrupt);
+    queues[n].ev_buf_tbl = init_evq(n, id.base+sizeof(uint64_t)*(TX_ENTRIES+RX_ENTRIES),
+            interrupt);
     if(queues[n].ev_buf_tbl == -1 ||
-       queues[n].tx_buf_tbl == -1 ||
-       queues[n].rx_buf_tbl == -1){
-        err = NIC_ERR_ALLOC_QUEUE;
+            queues[n].tx_buf_tbl == -1 ||
+            queues[n].rx_buf_tbl == -1){
+        *ret_err = NIC_ERR_ALLOC_QUEUE;
+        *regs = NULL_CAP;
+        return NIC_ERR_ALLOC_QUEUE;
         //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
-        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, 0, NULL_CAP, err);
-        assert(err_is_ok(err));
     }
 
     queues[n].enabled = true;
     DEBUG("created queue %d \n", n);
     //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, *regframe, SYS_ERR_OK);a
 
-    struct capref regs;
-    err = slot_alloc(&regs);
+    *mac = d_mac[pci_function];
+    *qid = n;
+
+    err = slot_alloc(regs);
     assert(err_is_ok(err));
-    err = cap_copy(regs, *regframe);
+    err = cap_copy(*regs, *regframe);
     assert(err_is_ok(err));
 
-    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, d_mac[pci_function], n, 
-                                           regs, SYS_ERR_OK);
+    *ret_err = SYS_ERR_OK;
+
+    return SYS_ERR_OK;
+
+}
+
+
+static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref frame,
+                            bool user, bool interrupt, uint8_t core, uint8_t msix_vector)
+{
+
+    uint64_t mac;
+    uint16_t queueid;
+    errval_t err;
+
+    struct capref regs;
+
+
+    cd_create_queue_rpc(b, frame, user, interrupt, core, msix_vector, &mac, &queueid, &regs, &err);
+
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, err);
     assert(err_is_ok(err));
     DEBUG("cd_create_queue end\n");
 }
 
-static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid,
-                               struct capref region)
+
+static errval_t cd_register_region_rpc(struct sfn5122f_devif_binding *b, uint16_t qid,
+                                struct capref region, uint64_t *buftbl_id, errval_t *ret_err)
 {
     errval_t err;
+
     struct frame_identity id;
     uint64_t buffer_offset = 0;
 
@@ -1415,17 +1450,27 @@ static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid,
     size_t size = id.bytes;
     lpaddr_t addr = id.base;
 
-    // TODO unsigned/signed 
+    // TODO unsigned/signed
     buffer_offset = alloc_buf_tbl_entries(addr, size/BUF_SIZE, qid, true, d);
     if (buffer_offset == -1) {
-        err = b->tx_vtbl.register_region_response(b, NOP_CONT, 0, NIC_ERR_REGISTER_REGION);
-        assert(err_is_ok(err));
+        *buftbl_id = 0;
+        return -1;
     }
-    
-    err = b->tx_vtbl.register_region_response(b, NOP_CONT, buffer_offset, SYS_ERR_OK);
-    if (err_is_fail(err)) {
-       
-    }
+
+    *buftbl_id = buffer_offset;
+    *ret_err = SYS_ERR_OK;
+    return SYS_ERR_OK;
+}
+
+
+static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid,
+                               struct capref region)
+{
+    errval_t err, msgerr;
+    uint64_t id;
+    err = cd_register_region_rpc(b, qid, region, &id, &msgerr);
+
+    err = b->tx_vtbl.register_region_response(b, NOP_CONT, id, msgerr);
 }
 
 
@@ -1451,13 +1496,35 @@ static void cd_destroy_queue(struct sfn5122f_devif_binding *b, uint16_t qid)
     assert(err_is_ok(err));
 }
 
+static void cd_control(struct sfn5122f_devif_binding *b, uint64_t request,
+                       uint64_t arg)
+{
+    errval_t err;
 
-static struct sfn5122f_devif_rx_vtbl rx_vtbl_devif = {
-    .create_queue_call = cd_create_queue,
-    .destroy_queue_call = cd_destroy_queue,
-    .register_region_call = cd_register_region,
-    .deregister_region_call = cd_deregister_region,
-};
+    struct queue_state *q = b->st;
+    assert(q);
+
+    debug_printf("control arg=0x%lx\n", arg);
+
+    struct sfn5122f_filter_ip f = {
+            .dst_port = ((uint32_t)arg >> 16),
+            .dst_ip = htonl((uint32_t)(arg >> 32)),
+            .src_ip = 0,
+            .src_port = 0,
+            .type_ip = arg & 0x1,
+            .queue = q->qid,
+    };
+
+    uint64_t fid;
+    err = reg_port_filter(&f, &fid);
+
+    debug_printf("register filter: 0x%x:%u UDP=%u -> q=%u @ index=%lu %s\n",f.dst_ip, f.dst_port,
+                f.type_ip, f.queue, fid, err_getstring(err));
+
+
+    err = b->tx_vtbl.control_response(b, NOP_CONT, fid, err);
+    assert(err_is_ok(err));
+}
 
 static void export_devif_cb(void *st, errval_t err, iref_t iref)
 {
@@ -1555,6 +1622,26 @@ static errval_t net_filter_connect_cb(void *st, struct net_filter_binding *b)
 {
     printf("New connection on net filter interface\n");
     b->rpc_rx_vtbl = net_filter_rpc_rx_vtbl;
+    return SYS_ERR_OK;
+}
+
+
+static errval_t connect_devif_cb(void *st, struct sfn5122f_devif_binding *b)
+{
+    DEBUG("New connection on devif management interface\n");
+
+    //b->rx_vtbl = rx_vtbl_devif;
+
+    b->rx_vtbl.create_queue_call = cd_create_queue;
+    b->rx_vtbl.destroy_queue_call = cd_destroy_queue;
+    b->rx_vtbl.register_region_call = cd_register_region;
+    b->rx_vtbl.deregister_region_call = cd_deregister_region;
+    b->rx_vtbl.control_call = cd_control;
+
+
+    b->rpc_rx_vtbl.create_queue_call = cd_create_queue_rpc;
+    b->rpc_rx_vtbl.register_region_call = cd_register_region_rpc;
+
     return SYS_ERR_OK;
 }
 
