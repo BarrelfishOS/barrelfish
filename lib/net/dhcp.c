@@ -43,15 +43,14 @@ static void dhcpd_timer_callback(void *data)
 
     dhcp_fine_tmr();
 
-
-
     if ((st->dhcp_ticks % (DHCP_COARSE_TIMER_MSECS / DHCP_FINE_TIMER_MSECS)) == 0) {
         dhcp_coarse_tmr();
     }
 
     if (!ip_addr_cmp(&st->netif.ip_addr, IP_ADDR_ANY) && st->dhcp_done == 0) {
 
-        debug_printf("setting ip record\n");
+        NETDEBUG("setting system DHCP record to IP: %s\n",
+                ip4addr_ntoa(netif_ip4_addr(&st->netif)));
 
         /* register IP with octopus */
         err = oct_set(DHCP_RECORD_FORMAT, netif_ip4_addr(&st->netif)->addr,
@@ -75,7 +74,6 @@ static void dhcpd_timer_callback_polling(void *data)
 static bool dhcpd_has_ip(void)
 {
     struct net_state *st = get_default_net_state();
-
     return !ip_addr_cmp(&st->netif.ip_addr, IP_ADDR_ANY);
 }
 
@@ -114,8 +112,8 @@ errval_t dhcpd_start(net_flags_t flags)
     } else {
         /* DHCP fine timer */
         err = periodic_event_create(&st->dhcp_timer, st->waitset,
-                (DHCP_FINE_TIMER_MSECS * 1000),
-                MKCLOSURE(dhcpd_timer_callback, st));
+                                    (DHCP_FINE_TIMER_MSECS * 1000),
+                                    MKCLOSURE(dhcpd_timer_callback, st));
     }
 
 
@@ -127,9 +125,7 @@ errval_t dhcpd_start(net_flags_t flags)
     if (flags & NET_FLAGS_BLOCKING_INIT) {
         printf("waiting for DHCP to complete");
         while(!dhcpd_has_ip()) {
-            event_dispatch_non_block(st->waitset);
             networking_poll();
-
             if (st->dhcp_ticks > DHCP_TIMEOUT_MSECS / DHCP_FINE_TIMER_MSECS) {
                 dhcpd_stop();
                 return -1;
@@ -210,6 +206,8 @@ static void dhcpd_change_event(octopus_mode_t mode, const char* record, void* ar
 errval_t dhcpd_query(net_flags_t flags)
 {
     errval_t err;
+
+    NETDEBUG("query DHCPD for IP...\n");
 
     // initialize octopus if not already done
     err = oct_init();
