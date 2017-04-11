@@ -49,7 +49,7 @@ errval_t networking_get_defaults(uint64_t *queue, const char **cardname, uint32_
 
     *queue = NETWORKING_DEFAULT_QUEUE_ID;
     *cardname = "sfn5122f";
-    *flags = NET_FLAGS_POLLING | NET_FLAGS_DO_DHCP | NET_FLAGS_BLOCKING_INIT;
+    *flags = NET_FLAGS_POLLING | NET_FLAGS_BLOCKING_INIT;
 
     return SYS_ERR_OK;
 }
@@ -278,6 +278,9 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
     } else {
         /* get IP from dhcpd */
         err = dhcpd_query(flags);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to start DHCP.\n");
+        }
     }
 
     NETDEBUG("initialization complete.\n");
