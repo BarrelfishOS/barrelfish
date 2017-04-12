@@ -11,13 +11,13 @@
 #include <sysreg.h>
 #include <dev/armv8_dev.h>
 #include <dev/gic_v3_dev.h>
-#include <dev/gic_v3_cpu_dev.h>
+#include <dev/gic_v2_cpu_dev.h>
 #include <platform.h>
 #include <paging_kernel_arch.h>
 #include <arch/armv8/gic_v3.h>
 
 static gic_v3_t gic_v3_dev;
-static gic_v3_cpu_t gic_v3_cpu_dev;
+static gic_v2_cpu_t gic_v2_cpu_dev;
 
 /*
  * This should return 1<<my_core_id
@@ -33,10 +33,10 @@ static uint8_t gic_get_cpumask(void){
  * Reads th STATUSR register, prints error on error condition
  */
 static void check_cpu_if_statusr(void){
-    gic_v3_cpu_STATUSR_t raw =  gic_v3_cpu_STATUSR_rawrd(&gic_v3_cpu_dev);
+    gic_v2_cpu_STATUSR_t raw =  gic_v2_cpu_STATUSR_rawrd(&gic_v2_cpu_dev);
     if(raw) {
         char buf[512];
-        gic_v3_cpu_STATUSR_pr(buf,sizeof(buf),&gic_v3_cpu_dev);
+        gic_v2_cpu_STATUSR_pr(buf,sizeof(buf),&gic_v2_cpu_dev);
     }
 }
 
@@ -54,7 +54,7 @@ errval_t gicv3_init(void)
     gic_v3_initialize(&gic_v3_dev, (char *)gic_dist);
 
     lvaddr_t gic_cpu = local_phys_to_mem(platform_get_gic_cpu_address());
-    gic_v3_cpu_initialize(&gic_v3_cpu_dev, (char *)gic_cpu);
+    gic_v2_cpu_initialize(&gic_v2_cpu_dev, (char *)gic_cpu);
 
     if(gic_v3_GICD_TYPER_SecurityExtn_rdf(&gic_v3_dev)){
         printk(LOG_NOTE, "gicv3: In init. GIC supports secure mode\n"); 
@@ -70,7 +70,7 @@ errval_t gicv3_init(void)
  */
 uint32_t gicv3_get_active_irq(void)
 {
-    uint32_t res = gic_v3_cpu_IAR_intid_rdf(&gic_v3_cpu_dev);
+    uint32_t res = gic_v2_cpu_IAR_intid_rdf(&gic_v2_cpu_dev);
     check_cpu_if_statusr();
     return res;
 }
@@ -80,9 +80,9 @@ uint32_t gicv3_get_active_irq(void)
  */
 void gicv3_ack_irq(uint32_t irq)
 {
-    gic_v3_cpu_EOIR_t reg = 0;
-    reg = gic_v3_cpu_EOIR_intid_insert(reg, irq);
-    gic_v3_cpu_EOIR_rawwr(&gic_v3_cpu_dev, irq);
+    gic_v2_cpu_EOIR_t reg = 0;
+    reg = gic_v2_cpu_EOIR_intid_insert(reg, irq);
+    gic_v2_cpu_EOIR_rawwr(&gic_v2_cpu_dev, irq);
     check_cpu_if_statusr();
 }
 
@@ -107,24 +107,24 @@ errval_t gicv3_cpu_interface_enable(void)
 {
     printk(LOG_NOTE, "gic_v3: GICC IIDR "
             "implementer=0x%x, revision=0x%x, variant=0x%x, prodid=0x%x, raw=0x%x\n",
-            gic_v3_cpu_IIDR_Implementer_rdf(&gic_v3_cpu_dev),
-            gic_v3_cpu_IIDR_Revision_rdf(&gic_v3_cpu_dev),
-            gic_v3_cpu_IIDR_Variant_rdf(&gic_v3_cpu_dev),
-            gic_v3_cpu_IIDR_ProductID_rdf(&gic_v3_cpu_dev),
-            gic_v3_cpu_IIDR_rawrd(&gic_v3_cpu_dev)
+            gic_v2_cpu_IIDR_Implementer_rdf(&gic_v2_cpu_dev),
+            gic_v2_cpu_IIDR_Revision_rdf(&gic_v2_cpu_dev),
+            gic_v2_cpu_IIDR_Variant_rdf(&gic_v2_cpu_dev),
+            gic_v2_cpu_IIDR_ProductID_rdf(&gic_v2_cpu_dev),
+            gic_v2_cpu_IIDR_rawrd(&gic_v2_cpu_dev)
             );
 
     // Do as Linux does: 
     // set priority mode: PMR to 0xf0
-    gic_v3_cpu_PMR_wr(&gic_v3_cpu_dev, 0xf0);
+    gic_v2_cpu_PMR_wr(&gic_v2_cpu_dev, 0xf0);
     check_cpu_if_statusr();
     // Set binary point to 1: 6 group priority bits, 2 subpriority bits
-    gic_v3_cpu_BPR_wr(&gic_v3_cpu_dev, 1);
+    gic_v2_cpu_BPR_wr(&gic_v2_cpu_dev, 1);
     check_cpu_if_statusr();
 
     //We enable both group 0 and 1, but let both trigger IRQs (and not FIQs)
-    gic_v3_cpu_CTLR_NS_rawwr(&gic_v3_cpu_dev, 0x3); // code for non-secure
-    gic_v3_cpu_CTLR_FIQEn_wrf(&gic_v3_cpu_dev, 0x0); // route both to IRQ
+    gic_v2_cpu_CTLR_NS_rawwr(&gic_v2_cpu_dev, 0x3);  // code for non-secure
+    gic_v2_cpu_CTLR_FIQEn_wrf(&gic_v2_cpu_dev, 0x0); // route both groups to IRQ
 
     gic_v3_GICD_CTLR_secure_t ctrl = 0;
     // Set affinity routing (redundant on CN88xx)
@@ -133,8 +133,6 @@ errval_t gicv3_cpu_interface_enable(void)
     ctrl = gic_v3_GICD_CTLR_secure_EnableGrp1NS_insert(ctrl, 1);
     gic_v3_GICD_CTLR_secure_wr(&gic_v3_dev, ctrl);
 
-    //gic_v3_cpu_CTLR_EnableGrp1_wrf(&gic_v3_cpu_dev, 0x1); // code for secure...
-    //gic_v3_cpu_CTLR_EnableGrp0_wrf(&gic_v3_cpu_dev, 0x1); // code for secure...
     check_cpu_if_statusr();
 
     printk(LOG_NOTE, "gic_v3: GICD IIDR "

@@ -1,10 +1,9 @@
 /*
- * THIS IS A GICv2 interface!
- * Memory mapped GIC v3 CPU Interface. Sysreg mapped CPUs should
- * definitions in armv8.dev.
+ * Memory mapped GIC v2 CPU Interface. sysreg mapped (GICv3) CPU interfaces
+ * should use definitions in armv8.dev.
  * Source: ARM IHI 0069B, page 8-560
  */
-device gic_v3_cpu msbfirst (addr cpuif) "MMIO mapped GIC CPU interface" {
+device gic_v2_cpu msbfirst (addr cpuif) "MMIO mapped GIC CPU interface" {
 
     register CTLR rw addr(cpuif, 0x0) "CPU Interface Control Register - secure" {
         _               21 mbz;
