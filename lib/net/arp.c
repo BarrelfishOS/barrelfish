@@ -73,6 +73,11 @@ struct netif *arp_filter_netif(struct pbuf *p, struct netif *netif, uint16_t typ
     ip_addr_t ip;
     IPADDR2_COPY(&ip, &hdr->sipaddr);
 
+    /* don't store any IPs */
+    if (ip_addr_cmp(&st->netif.ip_addr, IP_ADDR_ANY)) {
+        return netif;
+    }
+
     uint64_t hwaddr = 0;
     if (etharp_find_addr(netif, &ip, (struct eth_addr **)&hwaddr,
                          (const ip4_addr_t **)&hwaddr) != -1) {
