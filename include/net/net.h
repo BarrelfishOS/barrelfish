@@ -20,7 +20,6 @@
 struct devq;
 struct eth_addr;
 
-
 /*
  * ==============================================================================
  * Networking Flags
@@ -50,7 +49,6 @@ typedef uint32_t net_flags_t;
 
 ///< the default network interface
 #define NET_DEFAULT_NIC NULL
-
 
 /*
  * ==============================================================================
@@ -106,7 +104,7 @@ errval_t networking_poll(void);
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_create_queue(const char *cardname, uint64_t queueid,
+errval_t networking_create_queue(const char *cardname, uint64_t* queueid,
                                  struct devq **retqueue);
 
 /**
@@ -119,5 +117,36 @@ errval_t networking_create_queue(const char *cardname, uint64_t queueid,
  */
 errval_t networking_get_defaults(uint64_t *queue, const char **cardname, uint32_t *flags);
 
+/*
+ * ==============================================================================
+ * Installing filters
+ * ==============================================================================
+ */
+
+/**
+ * @brief Install L3/L4 filter
+ *
+ * @param tcp       should TCP packets be filtered or UPD
+ * @param src_ip    source ip of the filter, 0 for wildcard
+ * @param src_port  source port of the filter, 0 for wildcard
+ * @param dst_port  destination port fo the filter       
+ *
+ * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
+ */
+errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src, 
+                                      uint16_t src_port, uint16_t dst_port);
+
+/**
+ * @brief Remove L3/L4 filter
+ *
+ * @param tcp       should TCP packets be filtered or UPD
+ * @param src_ip    source ip of the filter, 0 for wildcard
+ * @param src_port  source port of the filter, 0 for wildcard
+ * @param dst_port  destination port fo the filter       
+ *
+ * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
+ */
+errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src, 
+                                     uint16_t src_port, uint16_t dst_port);
 
 #endif /* LIB_NET_INCLUDE_NETWORKING_H_ */

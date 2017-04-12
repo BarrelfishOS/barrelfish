@@ -15,4 +15,6 @@ typedef void (*e10k_event_cb_t)(void* q);
 errval_t e10k_queue_create(struct e10k_queue** q, e10k_event_cb_t cb, 
                            bool use_vf, bool interrupts);
 errval_t e10k_queue_destroy(struct e10k_queue* q);
+
+uint64_t e10k_queue_get_id(struct e10k_queue* q);
 #endif

@@ -13,6 +13,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/deferred.h>
 
 #include <lwip/ip.h>
 #include <lwip/udp.h>
@@ -48,7 +49,6 @@ int main(int argc, char *argv[])
     errval_t err;
 
     debug_printf("UDP ECHO started.\n");
-
     /* connect to the network */
     err = networking_init_default();
     if (err_is_fail(err)) {
@@ -71,16 +71,8 @@ int main(int argc, char *argv[])
         return(r);
     }
 
-    struct net_filter_ip ip;
-    ip.qid = 1;
-    ip.ip_src = 0;
-    // TODO 10.110.4.39 get this from somewhere
-    ip.ip_dst = 0x2704710A;
-    ip.port_dst = 7;
-    ip.port_src = 0;
-    ip.type = NET_FILTER_UPD;
-
-    err = net_filter_ip_install(&ip);    
+    err = networking_install_ip_filter(false, (ip_addr_t*) IP_ADDR_ANY, 
+                                       0, UDP_ECHOSERVER_PORT);    
     if (err_is_fail(err)) {
         USER_PANIC("Adding filter failed %s \n", err_getstring(err));
     }

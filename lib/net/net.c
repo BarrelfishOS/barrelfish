@@ -61,13 +61,14 @@ static void int_handler(void* args)
     net_if_poll(&st->netif);
 }
 
-static errval_t create_loopback_queue (struct net_state *st, uint64_t queueid,
+static errval_t create_loopback_queue (struct net_state *st, uint64_t* queueid,
                                        struct devq **retqueue)
 {
     errval_t err;
 
     debug_printf("net: creating loopback queue.\n");
 
+    *queueid = 0;
     err = loopback_queue_create((struct loopback_queue **)retqueue);
     if (err_is_fail(err)) {
         return err;
@@ -76,30 +77,34 @@ static errval_t create_loopback_queue (struct net_state *st, uint64_t queueid,
     return SYS_ERR_OK;
 }
 
-static errval_t create_driver_queue (struct net_state *st, uint64_t queueid,
+static errval_t create_driver_queue (struct net_state *st, uint64_t* queueid,
                                      struct devq **retqueue)
 {
+    *queueid = 0;
     return SYS_ERR_OK;
 }
 
 
-static errval_t create_e10k_queue (struct net_state *st, uint64_t queueid,
+static errval_t create_e10k_queue (struct net_state *st, uint64_t* queueid,
                                    struct devq **retqueue)
 {
     return SYS_ERR_OK;
 }
 
-static errval_t create_sfn5122f_queue (struct net_state *st, uint64_t queueid, struct devq **retqueue)
+static errval_t create_sfn5122f_queue (struct net_state *st, uint64_t* queueid, 
+                                       struct devq **retqueue)
 {
-
-    return sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, int_handler,
+    errval_t err;
+    err = sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, int_handler,
                                 false /*userlevel network feature*/,
                                 !(st->flags & NET_FLAGS_POLLING) /* user interrupts*/,
                                 (st->flags & NET_FLAGS_DEFAULT_QUEUE));
+    *queueid = sfn5122f_queue_get_id((struct sfn5122f_queue*)*retqueue);
+    return err;
 }
 
 
-typedef errval_t (*queue_create_fn)(struct net_state *, uint64_t, struct devq **);
+typedef errval_t (*queue_create_fn)(struct net_state *, uint64_t*, struct devq **);
 struct networking_card
 {
     char *cardname;
@@ -123,10 +128,10 @@ struct networking_card
  * @return SYS_ERR_OK on success, errval on failure
  */
 static errval_t net_create_queue(struct net_state *st, const char *cardname,
-                                        uint64_t queueid, struct devq **retqueue)
+                                 uint64_t* queueid, struct devq **retqueue)
 {
-    debug_printf("net: creating queue for card='%s', queueid=%" PRIu64 "...\n",
-                  cardname, queueid);
+    debug_printf("net: creating queue for card='%s'...\n",
+                  cardname);
 
     struct networking_card *nc = networking_cards;
     while(nc->cardname != NULL) {
@@ -137,7 +142,7 @@ static errval_t net_create_queue(struct net_state *st, const char *cardname,
     }
 
     debug_printf("net: ERROR unknown queue. card='%s', queueid=%" PRIu64 "\n",
-                  cardname, queueid);
+                  cardname, *queueid);
 
     return -1;
 }
@@ -151,7 +156,7 @@ static errval_t net_create_queue(struct net_state *st, const char *cardname,
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_create_queue(const char *cardname, uint64_t queueid,
+errval_t networking_create_queue(const char *cardname, uint64_t* queueid,
                                  struct devq **retqueue)
 {
     struct net_state *st = get_default_net_state();
@@ -225,7 +230,7 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
 
     NETDEBUG("initializing hw filter...\n");
 
-    err = net_filter_init(st->cardname);
+    err = net_filter_init(&st->filter, st->cardname);
     if (err_is_fail(err)) {
         USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
     }
@@ -314,7 +319,7 @@ static errval_t networking_init_st(struct net_state *st, const char *nic,
     st->flags = flags;
 
     /* create the queue wit the given nic and card name */
-    err = networking_create_queue(st->cardname, st->queueid, &st->queue);
+    err = networking_create_queue(st->cardname, &st->queueid, &st->queue);
     if (err_is_fail(err)) {
         return err;
     }
@@ -412,4 +417,94 @@ errval_t networking_poll(void)
 {
     struct net_state *st = &state;
     return networking_poll_st(st);
+}
+
+
+/**
+ * @brief Install L3/L4 filter
+ *
+ * @param tcp       should TCP packets be filtered or UPD
+ * @param src_ip    source ip of the filter, 0 for wildcard
+ * @param src_port  source port of the filter, 0 for wildcard
+ * @param dst_port  destination port fo the filter       
+ *
+ * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
+ */
+errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src, 
+                                      uint16_t src_port, uint16_t dst_port)
+{
+    errval_t err;
+    if (state.filter == NULL) {
+        return NET_FILTER_ERR_NOT_INITIALIZED;
+    }
+
+    struct net_filter_state *st = state.filter;
+
+    // get current config
+    ip_addr_t dst_ip;
+    err = dhcpd_get_ipconfig(&dst_ip, NULL, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    struct net_filter_ip ip = {
+        .qid = state.queueid,
+        .ip_src = (uint32_t) src->addr,
+        .ip_dst = (uint32_t) dst_ip.addr,
+        .port_dst = dst_port,
+        .port_src = src_port,
+    };
+
+    if (tcp) {
+        ip.type = NET_FILTER_TCP;
+    } else {
+        ip.type = NET_FILTER_UDP;
+    }
+    
+    return net_filter_ip_install(st, &ip);
+}
+
+/**
+ * @brief Remove L3/L4 filter
+ *
+ * @param tcp       should TCP packets be filtered or UPD
+ * @param src_ip    source ip of the filter, 0 for wildcard
+ * @param src_port  source port of the filter, 0 for wildcard
+ * @param dst_port  destination port fo the filter       
+ *
+ * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
+ */
+errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src, 
+                                     uint16_t src_port, uint16_t dst_port)
+{
+
+    errval_t err;
+    if (state.filter == NULL) {
+        return NET_FILTER_ERR_NOT_INITIALIZED;
+    }
+
+    struct net_filter_state *st = state.filter;
+
+    // get current config
+    ip_addr_t dst_ip;
+    err = dhcpd_get_ipconfig(&dst_ip, NULL, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    struct net_filter_ip ip = {
+        .qid = state.queueid,
+        .ip_src = (uint32_t) src->addr,
+        .ip_dst = (uint32_t) dst_ip.addr,
+        .port_dst = dst_port,
+        .port_src = src_port,
+    };
+
+    if (tcp) {
+        ip.type = NET_FILTER_TCP;
+    } else {
+        ip.type = NET_FILTER_UDP;
+    }
+    
+    return net_filter_ip_remove(st, &ip);
 }

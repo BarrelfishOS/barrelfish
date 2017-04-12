@@ -26,6 +26,7 @@
 
 #include <lwip/netif.h>
 
+#include <net/net_filter.h>
 #include <net/net.h>
 #include <net/netbufs.h>
 #include <net/netif.h>
@@ -67,6 +68,7 @@ struct net_state {
     struct devq *queue;
     struct net_buf_pool *pool;
     struct netif netif;
+    struct net_filter_state* filter;
 
   //  ip4_addr_t ipaddr, netmask, gw;
 };

@@ -399,6 +399,7 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
             err = sfn5122f_queue_handle_rx_ev_devif(queue, rid, offset, length,
                                                     valid_data, valid_length,
                                                     flags);
+
             DEBUG_QUEUE("RX_EV Q_ID: %d len %ld OK %s \n", queue->id, *valid_length,
                         err_getstring(err));
 
@@ -488,7 +489,7 @@ static void interrupt_handler(void* arg)
  *
  */
 
-errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb,
+errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb, 
                                bool userlevel, bool interrupts, bool qzero)
 {
     DEBUG_QUEUE("create called \n");
@@ -653,4 +654,10 @@ errval_t sfn5122f_queue_destroy(struct sfn5122f_queue* q)
     }
 
     return SYS_ERR_OK;
+}
+
+
+uint64_t sfn5122f_queue_get_id(struct sfn5122f_queue* q)
+{
+    return q->id;    
 }

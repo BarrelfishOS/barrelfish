@@ -123,7 +123,7 @@ errval_t dhcpd_start(net_flags_t flags)
     }
 
     if (flags & NET_FLAGS_BLOCKING_INIT) {
-        printf("waiting for DHCP to complete");
+        printf("waiting for DHCP to complete \n");
         while(!dhcpd_has_ip()) {
             networking_poll();
             if (st->dhcp_ticks > DHCP_TIMEOUT_MSECS / DHCP_FINE_TIMER_MSECS) {

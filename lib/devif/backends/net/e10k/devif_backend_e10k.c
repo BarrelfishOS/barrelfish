@@ -588,3 +588,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
     return SYS_ERR_OK;
 }
 
+uint64_t e10k_queue_get_id(struct e10k_queue* q)
+{
+    return q->id;
+}

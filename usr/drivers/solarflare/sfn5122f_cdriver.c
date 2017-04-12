@@ -15,11 +15,11 @@
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish/debug.h>
-#include <net/net.h>
 #include <pci/pci.h>
 
 // TODO only required for htonl
-#include <lwip/ip4_addr.h>
+#include <lwip/ip.h>
+#include <net/net.h>
 
 #include <if/sfn5122f_defs.h>
 #include <if/sfn5122f_devif_defs.h>
@@ -1641,8 +1641,7 @@ int main(int argc, char** argv)
             pci_device = PCI_DONT_CARE;
             pci_function = 0;
         } else {
-            if ((pci_vendor != PCI_VENDOR_SOLARFLARE) || (pci_devid != DEVICE_ID) ||
-                (pci_function != 0)) {
+            if ((pci_vendor != PCI_VENDOR_SOLARFLARE) || (pci_devid != DEVICE_ID)) {
                 printf("VENDOR/DEVICE ID MISMATCH: %x/%x %x/%x \n",
                         pci_vendor, PCI_VENDOR_SOLARFLARE, pci_devid, DEVICE_ID);
             }
