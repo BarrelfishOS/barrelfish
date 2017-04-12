@@ -21,7 +21,11 @@ struct devq;
 struct eth_addr;
 
 
-/* Initialization flags */
+/*
+ * ==============================================================================
+ * Networking Flags
+ * ==============================================================================
+ */
 
 ///< default flags to initialize the networking library
 #define NET_FLAGS_DEFAULTS               (0)
@@ -36,8 +40,11 @@ struct eth_addr;
 
 ///< initalize with default queue
 #define NET_FLAGS_DEFAULT_QUEUE          (1 << 3)
+
 ///< networking flags
 typedef uint32_t net_flags_t;
+
+
 
 /* network interfaces */
 
@@ -87,9 +94,6 @@ errval_t networking_init_with_queue(struct devq *q, net_flags_t flags);
  */
 errval_t networking_poll(void);
 
-
-
-errval_t networking_get_mac(struct devq *q, uint8_t *hwaddr, uint8_t hwaddrlen);
 
 
 

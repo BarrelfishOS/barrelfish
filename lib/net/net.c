@@ -159,25 +159,7 @@ errval_t networking_create_queue(const char *cardname, uint64_t queueid,
     return net_create_queue(st, cardname, queueid, retqueue);
 }
 
-errval_t networking_get_mac(struct devq *q, uint8_t *hwaddr, uint8_t hwaddrlen) {
-    debug_printf("net: obtaining MAC address for card.\n");
-    errval_t err;
 
-    uint64_t card_mac;
-    err = devq_control(q, 0, 0, &card_mac);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    memcpy(hwaddr, &card_mac, hwaddrlen);
-
-    SMEMCPY(hwaddr, &card_mac, hwaddrlen);
-
-    debug_printf("got mac: %x:%x:%x:%x:%x:%x\n",
-                 hwaddr[0], hwaddr[1],hwaddr[2], hwaddr[3], hwaddr[4], hwaddr[5]);
-
-    return SYS_ERR_OK;
-}
 
 static errval_t networking_poll_st(struct net_state *st)
 {

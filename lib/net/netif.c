@@ -106,9 +106,17 @@ static void net_if_status_cb(struct netif *netif)
 
 static err_t netif_init_cb(struct netif *netif)
 {
+    errval_t err;
 
+    netif->hwaddr_len = ETHARP_HWADDR_LEN;
     netif->flags      = NETWORING_NETIF_FLAGS;
     netif->mtu        = NET_IF__MTU;
+
+    err =  net_if_get_hwaddr(netif);
+    if (err_is_fail(err)) {
+        return ERR_IF;
+    }
+
     netif_set_status_callback(netif, net_if_status_cb);
     netif_set_up(netif);
     netif_set_link_up(netif);
@@ -134,17 +142,7 @@ static err_t netif_init_cb(struct netif *netif)
  */
 errval_t net_if_init_devq(struct netif *netif, struct devq *devq)
 {
-    errval_t err;
-
     NETDEBUG("netif=%p, devq=%p\n", netif, devq);
-
-    netif->hwaddr_len = ETHARP_HWADDR_LEN;
-
-    // obtain the mac address
-    err = networking_get_mac(devq, netif->hwaddr, netif->hwaddr_len);
-    if (err_is_fail(err)) {
-        return err;
-    }
 
     /* set the output functions */
     netif->output     = etharp_output;
@@ -195,6 +193,31 @@ errval_t net_if_remove(struct netif *netif)
     return SYS_ERR_OK;
 }
 
+#define net_if_get_net_state(netif) ((struct net_state*)netif->state)
+
+/**
+ * @brief obtains the hardware address of the interface
+ *
+ * @param netif      the networking interface
+
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t net_if_get_hwaddr(struct netif *netif)
+{
+    errval_t err;
+
+    struct devq *q = net_if_get_net_state(netif)->queue;
+
+    uint64_t card_mac;
+    err = devq_control(q, 0, 0, &card_mac);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    SMEMCPY(netif->hwaddr, &card_mac, netif->hwaddr_len);
+
+    return SYS_ERR_OK;
+}
 
 /*
  * ===============================================================================
