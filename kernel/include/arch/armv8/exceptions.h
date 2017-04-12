@@ -11,14 +11,25 @@
 #ifndef KERNEL_ARMV8_EXCEPTIONS_H
 #define KERNEL_ARMV8_EXCEPTIONS_H
 
-/* XXX - this looks like cruft. */
-#define AARCH64_EVECTOR_RESET 0x00
-#define AARCH64_EVECTOR_UNDEF 0x04
-#define AARCH64_EVECTOR_SWI   0x08
-#define AARCH64_EVECTOR_PABT  0x0c
-#define AARCH64_EVECTOR_DABT  0x10
-#define AARCH64_EVECTOR_IRQ   0x18
-#define AARCH64_EVECTOR_FIQ   0x1c
+#define AARCH64_EVECTOR_UNDEF       0x00
+#define AARCH64_EVECTOR_EL0_SYNC    0x01
+#define AARCH64_EVECTOR_EL0_IRQ     0x02
+#define AARCH64_EVECTOR_EL0_FIQ     0x03
+#define AARCH64_EVECTOR_EL0_SERROR  0x04
+#define AARCH64_EVECTOR_EL1_SYNC    0x05
+#define AARCH64_EVECTOR_EL1_IRQ     0x06
+#define AARCH64_EVECTOR_EL1_FIQ     0x07
+#define AARCH64_EVECTOR_EL1_SERROR  0x08
+#define AARCH64_EVECTOR_EL2_SYNC    0x09
+#define AARCH64_EVECTOR_EL2_IRQ     0x0a
+#define AARCH64_EVECTOR_EL2_FIQ     0x0b
+#define AARCH64_EVECTOR_EL2_SERROR  0x0c
+#define AARCH32_EVECTOR_EL0_SYNC    0x10
+#define AARCH32_EVECTOR_EL0_IRQ     0x11
+#define AARCH32_EVECTOR_EL0_FIQ     0x12
+#define AARCH32_EVECTOR_EL0_SERROR  0x13
+
+#if !defined(__ASSEMBLER__)
 
 enum aarch64_exception_class {
     aarch64_ec_unknown   = 0x0,
@@ -98,7 +109,6 @@ enum aarch64_dsfc {
 #define JUMP_TABLE_OFFSET		0x100
 #define ETABLE_PHYS_BASE		0x800f0000
 
-#if !defined(__ASSEMBLER__)
 
 /* The exception vector table. */
 extern int vectors;
@@ -130,7 +140,7 @@ void handle_user_fault(lvaddr_t fault_address, uintptr_t cause,
  * This function should be called with interrupts disabled.
  */
 void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
-                        arch_registers_state_t* save_area)
+                        uint64_t vector, arch_registers_state_t* save_area)
     __attribute__((noreturn));
 
 /**

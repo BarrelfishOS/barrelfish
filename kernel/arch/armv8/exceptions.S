@@ -9,11 +9,12 @@
 
 #include <asmoffsets.h>
 #include <offsets.h>
+#include <exceptions.h>
 
 .global do_resume
 .global vectors
 
-.macro invalid_exception
+.macro invalid_exception vector
     /* Just stick the trap frame on the kernel stack - we're about to panic
      * anyway.  */
 
@@ -47,10 +48,13 @@
     /* Exception Syndrome Register */
     mrs x2, esr_el1
 
-    /* Base of the register save area. */
-    mov x3, sp
+    /* Exception vector */
+    mov x3, \vector
 
-    /* Arguments: x0 = EPC, x1 = SPSR, x2 = ESR, x3 = save area. */
+    /* Base of the register save area. */
+    mov x4, sp
+
+    /* Arguments: x0 = EPC, x1 = SPSR, x2 = ESR, x3 = vector, x4 = save area. */
     b fatal_kernel_fault
 .endm
 
@@ -68,31 +72,31 @@ vectors:
  * here before we branch. */
 .align 7 /* 0x000 */
 el1_sp_el0_sync:
-    invalid_exception
+    invalid_exception AARCH64_EVECTOR_EL0_SYNC    
 .align 7 /* 0x080 */
 el1_sp_el0_irq:
-    invalid_exception
+    invalid_exception AARCH64_EVECTOR_EL0_IRQ /* TODO: Waait, wenn we do wait for interrupt in kernel, that shouldnt be invalid */
 .align 7 /* 0x100 */
 el1_sp_el0_fiq:
-    invalid_exception
+    invalid_exception AARCH64_EVECTOR_EL0_FIQ 
 .align 7 /* 0x180 */
 el1_sp_el0_serror:
-    invalid_exception
+    invalid_exception AARCH64_EVECTOR_EL0_SERROR 
 
 /* Offset 0x200 */
 /* Exceptions from the kernel itself, at EL1. */
 .align 7 /* 0x200 */
 el1_sync:
-    invalid_exception
+    invalid_exception AARCH64_EVECTOR_EL1_SYNC
 .align 7 /* 0x280 */
 el1_irq:
-    invalid_exception
+    invalid_exception AARCH64_EVECTOR_EL1_IRQ
 .align 7 /* 0x300 */
 el1_fiq:
-    invalid_exception
+    invalid_exception AARCH64_EVECTOR_EL1_FIQ
 .align 7 /* 0x380 */
 el1_serror:
-    invalid_exception
+    invalid_exception AARCH64_EVECTOR_EL1_SERROR
 
 /* Offset 0x400 */
 /* Exceptions from user level, EL0, executing AArch64.  For any of these four
@@ -254,28 +258,28 @@ el0_aarch64_irq:
 .align 7 /* 0x500 */
 /* We don't implement fast IRQs */
 el0_aarch64_fiq:
-    invalid_exception
+    invalid_exception AARCH64_EVECTOR_EL0_FIQ
 
 .align 7 /* 0x580 */
 /* A delayed abort.  We don't handle this. */
 el0_aarch64_serror:
-    invalid_exception
+    invalid_exception AARCH64_EVECTOR_EL0_SERROR
 
 /* Offset 0x600 */
 /* Exceptions from user level, EL0, executing AArch32.  This is currently
  * unimplemented. */
 .align 7 /* 0x600 */
 el0_aarch32_sync:
-    invalid_exception
+    invalid_exception AARCH32_EVECTOR_EL0_SYNC
 .align 7 /* 0x680 */
 el0_aarch32_irq:
-    invalid_exception
+    invalid_exception AARCH32_EVECTOR_EL0_IRQ
 .align 7 /* 0x700 */
 el0_aarch32_fiq:
-    invalid_exception
+    invalid_exception AARCH32_EVECTOR_EL0_FIQ
 .align 7 /* 0x780 */
 el0_aarch32_serror:
-    invalid_exception
+    invalid_exception AARCH32_EVECTOR_EL0_SERROR
 
 .align 11
 /********************************/

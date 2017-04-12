@@ -271,7 +271,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 
 /* For unhandled faults, we print a register dump and panic. */
 void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
-                        arch_registers_state_t* save_area)
+                        uint64_t vector, arch_registers_state_t* save_area)
 {
     size_t i;
     enum aarch64_exception_class exception_class = FIELD(26,6,esr);
@@ -280,6 +280,60 @@ void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
 
     printk(LOG_PANIC, "Fatal (unexpected) fault at 0x%"PRIx64 " (%#" PRIx64 ")\n\n", epc, epc - (uintptr_t)&kernel_first_byte);
     printk(LOG_PANIC, "Register context saved at: %p\n", save_area);
+    printk(LOG_PANIC, "Vector: ");
+    switch(vector) {
+        case AARCH64_EVECTOR_UNDEF:
+            printk(LOG_PANIC, "UNDEF\n");
+            break;
+        case AARCH64_EVECTOR_EL0_SYNC:
+            printk(LOG_PANIC, "EL0_SYNC\n");
+            break;
+        case AARCH64_EVECTOR_EL0_IRQ:
+            printk(LOG_PANIC, "EL0_IRQ\n");
+            break;
+        case AARCH64_EVECTOR_EL0_FIQ:
+            printk(LOG_PANIC, "EL0_FIQ\n");
+            break;
+        case AARCH64_EVECTOR_EL0_SERROR:
+            printk(LOG_PANIC, "EL0_SERROR\n");
+            break;
+        case AARCH64_EVECTOR_EL1_SYNC:
+            printk(LOG_PANIC, "EL1_SYNC\n");
+            break;
+        case AARCH64_EVECTOR_EL1_IRQ:
+            printk(LOG_PANIC, "EL1_IRQ\n");
+            break;
+        case AARCH64_EVECTOR_EL1_FIQ:
+            printk(LOG_PANIC, "EL1_FIQ\n");
+            break;
+        case AARCH64_EVECTOR_EL1_SERROR:
+            printk(LOG_PANIC, "EL1_SERROR\n");
+            break;
+        case AARCH64_EVECTOR_EL2_SYNC:
+            printk(LOG_PANIC, "EL2_SYNC\n");
+            break;
+        case AARCH64_EVECTOR_EL2_IRQ:
+            printk(LOG_PANIC, "EL2_IRQ\n");
+            break;
+        case AARCH64_EVECTOR_EL2_FIQ:
+            printk(LOG_PANIC, "EL2_FIQ\n");
+            break;
+        case AARCH64_EVECTOR_EL2_SERROR:
+            printk(LOG_PANIC, "EL2_SERROR\n");
+            break;
+        case AARCH32_EVECTOR_EL0_SYNC:
+            printk(LOG_PANIC, "AARCH32_EL0_SYNC\n");
+            break;
+        case AARCH32_EVECTOR_EL0_IRQ:
+            printk(LOG_PANIC, "AARCH32_EL0_IRQ\n");
+            break;
+        case AARCH32_EVECTOR_EL0_FIQ:
+            printk(LOG_PANIC, "AARCH32_EL0_FIQ\n");
+            break;
+        case AARCH32_EVECTOR_EL0_SERROR:
+            printk(LOG_PANIC, "AARCH32_EL0_SERROR\n");
+            break;
+    }
 
     for (i = 0; i < 31; i++) {
         uint64_t reg = save_area->regs[i];
@@ -330,7 +384,7 @@ void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
 
     switch(exception_class) {
         case aarch64_ec_unknown:
-            panic("Unknown instruction.\n");
+            panic("Unknown reason/instruction.\n");
 
         case aarch64_ec_wfi:
             panic("Trapped WFI/WFI.\n");
