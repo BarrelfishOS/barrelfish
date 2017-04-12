@@ -253,7 +253,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
      * We just acknowledge it here. */
     else
 #endif
-    if(irq == 30)
+    if(irq == 30 || irq==29) 
     {
         gicv3_ack_irq(irq);
         timer_reset(kernel_timeslice);
@@ -346,7 +346,7 @@ void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
 
     printk(LOG_PANIC, "sp\t%"PRIx64"\n", save_area->regs[SP_REG]);
     printk(LOG_PANIC, "pc\t%"PRIx64"\n", epc);
-    printk(LOG_PANIC, "cpsr\t%"PRIx64"\n", spsr);
+    printk(LOG_PANIC, "spsr\t%"PRIx64"\n", spsr);
     printk(LOG_PANIC, "instruction-specific syndrome\t%x\n", iss);
 
     /* Skip the trap frame to dump the prior stack. */

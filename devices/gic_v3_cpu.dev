@@ -1,4 +1,5 @@
 /*
+ * THIS IS A GICv2 interface!
  * Memory mapped GIC v3 CPU Interface. Sysreg mapped CPUs should
  * definitions in armv8.dev.
  * Source: ARM IHI 0069B, page 8-560

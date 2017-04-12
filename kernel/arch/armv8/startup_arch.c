@@ -552,7 +552,7 @@ static struct dcb *spawn_init_common(const char *name,
     /* Set the thread ID register to point to the shared structure. */
 
     disp_aarch64->enabled_save_area.named.x0   = paramaddr;
-    disp_aarch64->enabled_save_area.named.spsr = AARCH64_MODE_USR | CPSR_F_MASK;
+    disp_aarch64->enabled_save_area.named.spsr = AARCH64_MODE_USR | CPSR_I_MASK;
     sysreg_write_tpidrro_el0((uint64_t)disp->udisp);
 
     dump_dispatcher(disp);

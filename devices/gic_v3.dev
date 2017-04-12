@@ -48,7 +48,7 @@ device gic_v3 msbfirst (addr dist) "GIC v3 architecture" {
         DVIS     1 "Implementation supports Direct Virtual LPI injection";
         LPIS     1 "Implementation supports LPIs";
         MBIS     1 "Implementation supports message-based interrupts";
-        _        5 mbz;
+        LSPI     5 "maximum number of implemented lockable SPI";
         SecurityExtn 1 "Indicates whether the GIC implementation supports two Security states";
         _        2 mbz;
         CPUNumber    3 "Number of PEs that can be used with affinity routing not enabled, minus one";

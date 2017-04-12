@@ -45,6 +45,7 @@ void timers_init(int timeslice)
     }
 
     /* enable the timer */
+    armv8_generic_timer_ctrl_el0_IMASK_wrf(NULL, 0x0);
     armv8_generic_timer_ctrl_el0_ENABLE_wrf(NULL, 0x1);
 
     /* set the compare value */
