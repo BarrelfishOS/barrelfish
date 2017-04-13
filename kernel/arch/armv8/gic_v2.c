@@ -37,6 +37,7 @@ static void check_cpu_if_statusr(void){
     if(raw) {
         char buf[512];
         gic_v2_cpu_STATUSR_pr(buf,sizeof(buf),&gic_v2_cpu_dev);
+        printk(LOG_NOTE, "gic_v2: Error condition! Status: %s\n", buf); 
     }
 }
 
@@ -57,9 +58,9 @@ errval_t gicv3_init(void)
     gic_v2_cpu_initialize(&gic_v2_cpu_dev, (char *)gic_cpu);
 
     if(gic_v3_GICD_TYPER_SecurityExtn_rdf(&gic_v3_dev)){
-        printk(LOG_NOTE, "gicv3: In init. GIC supports secure mode\n"); 
+        printk(LOG_NOTE, "gic_v2: In init. GIC supports secure mode\n"); 
     } else {
-        printk(LOG_NOTE, "gicv3: In init. GIC does not support secure mode\n"); 
+        printk(LOG_NOTE, "gic_v2: In init. GIC does not support secure mode\n"); 
     }
 
     return SYS_ERR_OK;
@@ -105,7 +106,7 @@ void gicv3_raise_softirq(coreid_t cpuid, uint8_t irq)
  */
 errval_t gicv3_cpu_interface_enable(void)
 {
-    printk(LOG_NOTE, "gic_v3: GICC IIDR "
+    printk(LOG_NOTE, "gic_v2: GICC IIDR "
             "implementer=0x%x, revision=0x%x, variant=0x%x, prodid=0x%x, raw=0x%x\n",
             gic_v2_cpu_IIDR_Implementer_rdf(&gic_v2_cpu_dev),
             gic_v2_cpu_IIDR_Revision_rdf(&gic_v2_cpu_dev),
@@ -123,8 +124,16 @@ errval_t gicv3_cpu_interface_enable(void)
     check_cpu_if_statusr();
 
     //We enable both group 0 and 1, but let both trigger IRQs (and not FIQs)
-    gic_v2_cpu_CTLR_NS_rawwr(&gic_v2_cpu_dev, 0x3);  // code for non-secure
-    gic_v2_cpu_CTLR_FIQEn_wrf(&gic_v2_cpu_dev, 0x0); // route both groups to IRQ
+    gic_v2_cpu_CTLR_NS_rawwr(&gic_v2_cpu_dev, 3);  // code for non-secure
+    gic_v2_cpu_CTLR_FIQEn_wrf(&gic_v2_cpu_dev, 0); // route both groups to IRQ
+
+    // Disable all GIC bypassing (no wake-up interrupts). This does not
+    // seem to have any effect?
+    gic_v2_cpu_CTLR_FIQBypDisGrp1_wrf(&gic_v2_cpu_dev, 1);
+    gic_v2_cpu_CTLR_FIQBypDisGrp0_wrf(&gic_v2_cpu_dev, 1);
+    gic_v2_cpu_CTLR_IRQBypDisGrp1_wrf(&gic_v2_cpu_dev, 1);
+    gic_v2_cpu_CTLR_IRQBypDisGrp0_wrf(&gic_v2_cpu_dev, 1);
+    check_cpu_if_statusr();
 
     gic_v3_GICD_CTLR_secure_t ctrl = 0;
     // Set affinity routing (redundant on CN88xx)
@@ -135,8 +144,8 @@ errval_t gicv3_cpu_interface_enable(void)
 
     check_cpu_if_statusr();
 
-    printk(LOG_NOTE, "gic_v3: GICD IIDR "
-            "implementer=0x%x, revision=0x%x, variant=0x%x,prodid=0x%x,raw=0x%x\n",
+    printk(LOG_NOTE, "gic_v2: GICD IIDR "
+            "implementer=0x%x, revision=0x%x, variant=0x%x, prodid=0x%x, raw=0x%x\n",
             gic_v3_GICD_IIDR_Implementer_rdf(&gic_v3_dev),
             gic_v3_GICD_IIDR_Revision_rdf(&gic_v3_dev),
             gic_v3_GICD_IIDR_Variant_rdf(&gic_v3_dev),
@@ -149,15 +158,14 @@ errval_t gicv3_cpu_interface_enable(void)
     itlines = (itlines+1)*32;
     if(itlines > 1020)
         itlines = 1020;
-    printk(LOG_NOTE, "#intids supported: %" PRIu32 "\n", itlines);
+    printk(LOG_NOTE, "gic_v2: #INTIDs supported: %" PRIu32 "\n", itlines);
 
     uint32_t lspi = gic_v3_GICD_TYPER_LSPI_rdf(&gic_v3_dev);
-    printk(LOG_NOTE, "#LSPIs supported: %" PRIx32 "\n", lspi);
+    printk(LOG_NOTE, "gic_v2: #LSPIs supported: %" PRIu32 "\n", lspi);
 
 
     // Setup distributor so it forwards all interrupts to this CPU.
     uint8_t my_cpumask = gic_get_cpumask();
-    printk(LOG_NOTE, "gic_get_cpumask: 0x%" PRIx8 "\n", my_cpumask);
     uint32_t dest_cpumask = my_cpumask;
     dest_cpumask = dest_cpumask | dest_cpumask << 8 | dest_cpumask << 16 | dest_cpumask << 24;
     for(int i=8; i*4 < itlines; i++)
@@ -173,6 +181,9 @@ errval_t gicv3_cpu_interface_enable(void)
         // And put in group 0
         gic_v3_GICD_IGROUPR_rawwr(&gic_v3_dev, i, 0);
     }
+
+    // Disable interrupt FIQ Bypass interrupt 28
+    gic_v3_GICD_ICENABLER_wr(&gic_v3_dev, 0, (1<<28));
 
 
     gic_v3_GICD_CTLR_rawwr(&gic_v3_dev, 0x1); // Enable Distributor
