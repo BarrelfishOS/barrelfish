@@ -73,11 +73,15 @@
                       cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c",
                                  "helper.c"],
                       flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k", "e10k_vf" ],
-                      flounderDefs = [ "e10k_vf" ],
+                      flounderDefs = [ "e10k_vf" , "net_filter"],
                       --flounderBindings = [ "e10k"],
+                      flounderExtraBindings = [ ("net_filter", ["rpcclient"])],
+                      flounderExtraDefs = [("net_filter",["rpcclient"])],
                       mackerelDevices = [ "e10k" ],
+                      addIncludes  = [ "/lib/lwip-2.0.2/src/include/" ],
+
                       addLibraries = [ "pci", "contmng", "net_device_manager",
-                                       "bench", "trace", "skb" ]
+                                       "bench", "trace", "skb" , "net"]
                     },
 
   build application { target = "e10k_queue_elb",

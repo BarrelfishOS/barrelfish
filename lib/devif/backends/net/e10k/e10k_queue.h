@@ -59,6 +59,7 @@ struct e10k_queue {
     bool use_txhwb; 
     size_t rxbufsz;
     uint8_t pci_function; 
+    uint64_t mac;
 
     // registered regions
     struct region_entry* regions;   
@@ -129,6 +130,8 @@ static inline void e10k_queue_init(struct e10k_queue* q, void* tx, size_t tx_siz
     // Initialize ring memory with zero
     memset(tx, 0, tx_size * e10k_q_tdesc_adv_wb_size);
     memset(rx, 0, rx_size * e10k_q_rdesc_adv_wb_size);
+    memset(q->tx_isctx, 0, tx_size*sizeof(bool));
+    memset(q->rx_context, 0, tx_size*sizeof(*q->rx_context));
 }
 
 static inline int e10k_queue_add_txcontext(e10k_queue_t* q, uint8_t idx,

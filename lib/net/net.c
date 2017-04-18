@@ -48,8 +48,10 @@ errval_t networking_get_defaults(uint64_t *queue, const char **cardname, uint32_
     /* TODO: get the values from the SKB */
 
     *queue = NETWORKING_DEFAULT_QUEUE_ID;
+    //*cardname = "e10k";
     *cardname = "sfn5122f";
     *flags = NET_FLAGS_POLLING | NET_FLAGS_BLOCKING_INIT;
+    //*flags = NET_FLAGS_POLLING;
 
     return SYS_ERR_OK;
 }
@@ -88,7 +90,13 @@ static errval_t create_driver_queue (struct net_state *st, uint64_t* queueid,
 static errval_t create_e10k_queue (struct net_state *st, uint64_t* queueid,
                                    struct devq **retqueue)
 {
-    return SYS_ERR_OK;
+    errval_t err;
+    err = e10k_queue_create((struct e10k_queue**)retqueue, int_handler,
+                            false /*virtual functions*/,
+                            !(st->flags & NET_FLAGS_POLLING) /* user interrupts*/);
+    *queueid = 0;
+    //*queueid = e10k_queue_get_id((struct e10k_queue*)*retqueue);
+    return err;
 }
 
 static errval_t create_sfn5122f_queue (struct net_state *st, uint64_t* queueid, 

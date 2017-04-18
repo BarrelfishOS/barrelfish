@@ -74,6 +74,8 @@ static size_t bench_devq_deq_count = 0;
 #endif
 
 
+errval_t net_if_get_hwaddr(struct netif *netif);
+
 static err_t net_if_linkoutput(struct netif *netif, struct pbuf *p)
 {
     errval_t err;

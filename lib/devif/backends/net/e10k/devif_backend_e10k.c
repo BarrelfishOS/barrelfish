@@ -115,6 +115,7 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
     bool last = flags & NETIF_TXFLAG_LAST;
     bool first = flags & NETIF_TXFLAG_FIRST;
     // Prepare checksum offload
+
     if (buf_use_ipxsm(flags)) {
         e10k_q_l4_type_t l4t = 0;
         uint8_t l4len = 0;
@@ -134,7 +135,7 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
             assert(entry != NULL);
 
             lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->virt + offset;
+            addr = (lpaddr_t) entry->virt + offset + valid_data;
             e10k_queue_add_txbuf_ctx(q, addr, rid, offset, length,
                                      valid_data, valid_length, flags,
                                      first, last, length, 0, true, l4len !=0);
@@ -145,7 +146,7 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
             assert(entry != NULL);
 
             lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->phys + offset;
+            addr = (lpaddr_t) entry->phys + offset + valid_data;
             e10k_queue_add_txbuf_ctx(q, addr, rid, offset, length,
                                      valid_data, valid_length, flags,
                                      first, last, length, 0, true, l4len != 0);
@@ -157,7 +158,7 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
             assert(entry != NULL);
 
             lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->virt + offset;
+            addr = (lpaddr_t) entry->virt + offset + valid_data;
             e10k_queue_add_txbuf(q, addr, rid, offset, length, valid_data,
                                  valid_length, flags,
                                  first, last, length);
@@ -166,7 +167,7 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
             assert(entry != NULL);
 
             lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->phys + offset;
+            addr = (lpaddr_t) entry->phys + offset + valid_data;
             e10k_queue_add_txbuf(q, addr, rid, offset, length, valid_data,
                                  valid_length, flags, first, last, length);
         }
@@ -242,6 +243,7 @@ static errval_t e10k_enqueue(struct devq* q, regionid_t rid, genoffset_t offset,
 
         assert(length <= 2048);
         
+        DEBUG_QUEUE("Enqueuing offset=%lu valid_data=%lu \n", offset, valid_data);
         err = enqueue_tx_buf(queue, rid, offset, length, valid_data,
                              valid_length, flags);
         if (err_is_fail(err)) {
@@ -266,6 +268,7 @@ static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
                              valid_length, flags, &last)) {
         err = DEVQ_ERR_QUEUE_EMPTY;
     } else {
+        DEBUG_QUEUE("Received offset=%lu valid_data=%lu \n", *offset, *valid_data);
         return SYS_ERR_OK;
     }
      
@@ -273,6 +276,7 @@ static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
                               valid_length, flags)) {
         err = DEVQ_ERR_QUEUE_EMPTY;
     }  else {
+        DEBUG_QUEUE("Sent offset=%lu valid_data=%lu \n", *offset, *valid_data);
         return SYS_ERR_OK;
     }
 
@@ -341,6 +345,9 @@ static errval_t e10k_deregister(struct devq* q, regionid_t rid)
 
 static errval_t e10k_control(struct devq* q, uint64_t cmd, uint64_t value, uint64_t *result)
 {
+    struct e10k_queue* queue = (struct e10k_queue*) q;
+    *result = queue->mac;
+    DEBUG_QUEUE("Control cmd=%lu value=%lu \n", cmd, value);
     return SYS_ERR_OK;
 }
 
@@ -483,7 +490,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
 
     // allocate memory for RX/TX rings
     struct capref tx_frame;
-    size_t tx_size = e10k_q_tdesc_legacy_size*NUM_TX_DESC;
+    size_t tx_size = e10k_q_tdesc_adv_ctx_size*NUM_TX_DESC;
     void* tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, tx_size, &tx_frame);
     if (tx_virt == NULL) {
         return DEVQ_ERR_INIT_QUEUE;
@@ -491,7 +498,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
 
 
     struct capref rx_frame;
-    size_t rx_size = e10k_q_tdesc_legacy_size*NUM_TX_DESC;
+    size_t rx_size = e10k_q_tdesc_adv_ctx_size*NUM_RX_DESC;
     void* rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, rx_size, &rx_frame);
     if (rx_virt == NULL) {
         return DEVQ_ERR_INIT_QUEUE;
@@ -535,13 +542,10 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
             return err;
         }
     } else {
-        struct capref regs;
 
-        // Inform card driver about new queue and get the registers/queue id
-        err = slot_alloc(&regs);
-        if (err_is_fail(err)) {
-            return err;
-        }
+        int qid;
+        errval_t err2;
+        struct capref regs;
 
         if (q->use_irq) {
             /*
@@ -552,26 +556,35 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
             // TODO setup MSI-X interrupts
         }
 
-        int q_id;
-        err = q->binding->rpc_tx_vtbl.create_queue(q->binding, tx_frame, txhwb_frame,
-                                            rx_frame, 2048, q->msix_intvec,
-                                            q->msix_intdest, false, false, &q_id,
-                                            &regs);
+        // Inform card driver about new queue and get the registers/queue id
+        err = slot_alloc(&regs);
         if (err_is_fail(err)) {
             return err;
         }
 
-        assert(q_id >= 0);
-        q->id = (uint16_t)q_id;
+        err = q->binding->rpc_tx_vtbl.create_queue(q->binding, tx_frame, txhwb_frame,
+                                            rx_frame, 2048, q->msix_intvec,
+                                            q->msix_intdest, false, false, 
+                                            &q->mac, &qid,
+                                            &regs, &err2);
+        if (err_is_fail(err) || err_is_fail(err2)) {
+            DEBUG_QUEUE("e10k rpc error\n");
+            return err_is_fail(err)? err: err2;
+        }
+
+        assert(qid >= 0);
+        q->id = (uint16_t)qid;
 
         err = map_device_memory(q, regs);
         if (err_is_fail(err)) {
+            DEBUG_QUEUE("e10k map device error\n");
             return err;
         }
     }
 
     err = devq_init(&q->q, false);
     if (err_is_fail(err)) {
+        DEBUG_QUEUE("e10k devq_init error\n");
         return err;
     }
     
@@ -585,6 +598,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
 
     *queue = q;
 
+    DEBUG_QUEUE("e10k queue init done\n");
     return SYS_ERR_OK;
 }
 

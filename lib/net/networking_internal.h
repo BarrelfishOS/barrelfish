@@ -23,6 +23,7 @@
 #include <devif/queue_interface.h>
 #include <devif/backends/loopback_devif.h>
 #include <devif/backends/net/sfn5122f_devif.h>
+#include <devif/backends/net/e10k_devif.h>
 
 #include <lwip/netif.h>
 
