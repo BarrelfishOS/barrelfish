@@ -257,7 +257,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 
     if(irq == 30 || irq==29) {
         gicv3_ack_irq(irq);
-        timer_reset(kernel_timeslice);
+        timer_reset(CONFIG_TIMESLICE);
         dispatch(schedule());
     }
     else {
