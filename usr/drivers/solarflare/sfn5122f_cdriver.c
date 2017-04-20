@@ -1616,7 +1616,11 @@ static void eventloop(void)
     ws = get_default_waitset();
     DEBUG("SFN5122F enter event loop \n");
     while (1) {
-        event_dispatch(ws);
+        if (use_interrupt) {
+            event_dispatch(ws);
+        } else {
+            networking_poll();
+        }
     }
 }
 
@@ -1628,6 +1632,7 @@ static void cd_main(void)
 
 int main(int argc, char** argv)
 {
+    //barrelfish_usleep(10*1000*1000);
     DEBUG("SFN5122F driver started \n");
     errval_t err;
 
