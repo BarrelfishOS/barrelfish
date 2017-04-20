@@ -24,8 +24,9 @@
 \title{Skate in Barrelfish}
 \author{Barrelfish project}
 % \date{\today}   % Uncomment (if needed) - date is automatic
-\tnnumber{20}
+\tnnumber{020}
 \tnkey{Skate}
+
 
 \lstdefinelanguage{skate}{
     morekeywords={schema,typedef,fact,enum},
@@ -123,7 +124,7 @@ The Skate compiler is written in Haskell using the Parsec parsing library. It
 generates C header files from the Skate files. In addition it supports the 
 generation of Schema documentation.
 
-The source code for Skate can be found in \texttt{$SOURCE/tools/skate}.
+The source code for Skate can be found in \texttt{SOURCE/tools/skate}.
 
 
 \section{Command line options}
@@ -132,6 +133,7 @@ The source code for Skate can be found in \texttt{$SOURCE/tools/skate}.
 \begin{verbatim}
 $ skate <options> INFILE.skt
 \end{verbatim}
+
 
 Where options is one of
 \begin{description}
@@ -213,6 +215,78 @@ fact \> query \> flags \> constants \>  \>  \\
 \chapter{Declarations}
 \label{chap:declaration}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this chapter we define the layout of a skate file, which declarations it
+must contain and what other declarations it can have.
+
+\section{The Skate File}
+A Skate file must consist of zero or more \emph{import} declarations (see
+~\ref{sec:decl:schema}) followed by a single \emph{schema} declaration 
+(see~\ref{sec:decl:schema}) which contains the actual fact definitions, etc.
+
+\begin{syntax}
+(Import)*
+Schema
+\end{syntax}
+
+%\begin{align*}
+%    skatefile & \rightarrow ( Import )^{\textrm{*}} (Schema)
+%\end{align*}
+
+\section{Imports}\label{sec:decl:import}
+An import declaration makes the definitions in a different device file
+available in the current device definition, as described below.  The
+syntax of an import declaration is as follows:
+
+\begin{syntax}
+import \synit{schema};
+\end{syntax}
+
+\begin{description}
+\item[schema] is the name of the schema to import definitions from.  
+\end{description}
+
+The Skate compiler will search for a file with the appropriate name and
+parse this at the same time as the main file, along with this file's
+imports, and so on.  Cyclic dependencies between device files will not
+cause errors, but at present are unlikely to result in C header files
+which will successfully compile. 
+
+\section{Schemas}\label{sec:decl:schema}
+
+\begin{syntax}
+schema \synit{name} "\synit{description}"
+\verb+{+
+  \synit{declaration};
+  \ldots
+\verb+}+;
+\end{syntax}
+
+\begin{description}
+\item[name] is an identifier for the Schema type, and will be used to
+  generate identifiers in the target language (typically C).  
+  The name of the name of the schema \emph{must} correspond to the
+  filename of the file, including case sensitivity: for example, 
+  the file \texttt{cpuid.schema} will define a schema type
+  of name \texttt{cpuid}. 
+
+\item [description] is a string literal in double quotes, which
+  describes the schema type being specified, for example \texttt{"CPUID 
+  Information Schema"}. 
+
+\item [declaration] One of the declarations described in~\ref{sec:decl:decls}.
+
+\end{description}
+
+\section{Declarations}\label{sec:decl:decls}
+
+\subsection{Facts}
+
+\subsection{Flags}
+
+\subsection{Constants}
+
+\subsection{Queries}
 
 
 
