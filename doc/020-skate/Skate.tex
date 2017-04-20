@@ -1,0 +1,359 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (c) 2015, ETH Zurich.
+% All rights reserved.
+%
+% This file is distributed under the terms in the attached LICENSE file.
+% If you do not find this file, copies can be found by writing to:
+% ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass[a4paper,11pt,twoside]{report}
+\usepackage{bftn}
+\usepackage{calc}
+\usepackage{verbatim}
+\usepackage{xspace}
+\usepackage{pifont}
+\usepackage{pxfonts}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{todonotes}
+\usepackage{hyperref}
+
+\title{Skate in Barrelfish}
+\author{Barrelfish project}
+% \date{\today}   % Uncomment (if needed) - date is automatic
+\tnnumber{20}
+\tnkey{Skate}
+
+\lstdefinelanguage{skate}{
+    morekeywords={schema,typedef,fact,enum},
+    sensitive=true,
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]",
+}
+
+\presetkeys{todonotes}{inline}{}
+
+\begin{document}
+\maketitle      % Uncomment for final draft
+
+\begin{versionhistory}
+\vhEntry{0.1}{16.11.2015}{MH}{Initial Version}
+\vhEntry{0.2}{20.04.2017}{RA}{Renaming ot Skate and expanding.}
+\end{versionhistory}
+
+% \intro{Abstract}    % Insert abstract here
+% \intro{Acknowledgements}  % Uncomment (if needed) for acknowledgements
+\tableofcontents    % Uncomment (if needed) for final draft
+% \listoffigures    % Uncomment (if needed) for final draft
+% \listoftables     % Uncomment (if needed) for final draft
+\cleardoublepage
+\setcounter{secnumdepth}{2}
+
+\newcommand{\fnname}[1]{\textit{\texttt{#1}}}%
+\newcommand{\datatype}[1]{\textit{\texttt{#1}}}%
+\newcommand{\varname}[1]{\texttt{#1}}%
+\newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
+\newcommand{\pathname}[1]{\texttt{#1}}%
+\newcommand{\tabindent}{\hspace*{3ex}}%
+\newcommand{\Skate}{\lstinline[language=skate]}
+\newcommand{\ccode}{\lstinline[language=C]}
+
+\lstset{
+  language=C,
+  basicstyle=\ttfamily \small,
+  keywordstyle=\bfseries,
+  flexiblecolumns=false,
+  basewidth={0.5em,0.45em},
+  boxpos=t,
+  captionpos=b
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction and usage}
+\label{chap:introduction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\emph{Skate}\footnote{Skates are cartilaginous fish belonging to the family 
+Rajidae in the superorder Batoidea of rays. More than 200 species have been 
+described, in 32 genera. The two subfamilies are Rajinae (hardnose skates) and 
+Arhynchobatinae (softnose skates). 
+Source: \href{https://en.wikipedia.org/wiki/Skate_(fish)}{Wikipedia}}
+is a domain specific language to describe the schema of 
+Barrelfish's System Knowledge Base (SKB)~\cite{skb}. The SKB stores all 
+statically or dynamically discovered facts about the system. Static facts are 
+known and exist already at compile time of the SKB ramdisk or are added through
+an initialization script or program. 
+
+Examples for static facts include the device database, that associates known 
+drivers with devices or the devices of a wellknown SoC. Dynamic facts, on the 
+otherhand, are added to the SKB during and based on hardware discovery. 
+Examples for dynamic facts include the number of processors or PCI Express 
+devices. 
+
+Inside the SKB, a prolog based constraint solver takes the added facts and 
+computes a solution for hardware configuration such as PCI bridge programming,
+NUMA information for memory allocation or device driver lookup. Programs can 
+query the SKB using Prolog statements and obtain device configuration and PCI 
+bridge programming, interrupt routing and constructing routing trees for IPC. 
+Applications can use information to determine hardware characteristics such as 
+cores, nodes, caches and memory as well as their affinity.
+
+
+The Skate language is used to define format of those facts. The DSL is then 
+compiled into a set of fact definitions and functions that are wrappers arround
+the SKB client functions, in particular \texttt{skb\_add\_fact()}, to ensure
+the correct format of the added facts.  
+
+The intention when designing Skate is that the contents of system descriptor
+tables such as ACPI, hardware information obtained by CPUID or PCI discovery
+can be extracted from the respective manuals and easily specified in a Skate 
+file. 
+
+Skate complements the SKB by defining a \emph{schema} of the data stored in
+the SKB. A schema defines facts and their structure, which is similar to Prolog
+facts and their arity. A code-generation tool generates a C-API to populate the
+SKB according to a specific schema instance.
+
+The Skate compiler is written in Haskell using the Parsec parsing library. It
+generates C header files from the Skate files. In addition it supports the 
+generation of Schema documentation.
+
+The source code for Skate can be found in \texttt{$SOURCE/tools/skate}.
+
+
+\section{Command line options}
+\label{sec:cmdline}
+
+\begin{verbatim}
+$ skate <options> INFILE.skt
+\end{verbatim}
+
+Where options is one of
+\begin{description}
+  \item[-o] \textit{filename} The output file name
+  \item[-D] generate documentation
+  \item[-H] generate headerfile
+\end{description}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Lexical Conventions}
+\label{chap:lexer}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We initialize a Java-style-like parser for Skate and thus adopt the following
+convention. We follow a similar convention as opted by modern day programming 
+languages like C and Java.
+
+\begin{description}
+\item[Whitespace:]  As in C and Java, Skate considers sequences of
+  space, newline, tab, and carriage return characters to be
+  whitespace.  Whitespace is generally not significant. 
+
+\item[Comments:] Skate supports C-style comments.  Single line comments
+  start with \texttt{//} and continue until the end of the line.
+  Multiline comments are enclosed between \texttt{/*} and \texttt{*/};
+  anything inbetween is ignored and treated as white space.
+
+\item[Identifiers:] Valid Skate identifiers are sequences of numbers
+  (0-9), letters (a-z, A-Z) and the underscore character ``\texttt{\_}''.  They
+  must start with a letter or ``\texttt{\_}''.  
+  \begin{align*}
+    identifier & \rightarrow ( letter \mid \_ ) (letter \mid digit \mid \_)^{\textrm{*}} \\
+    letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
+    digit & \rightarrow (\textsf{0 \ldots 9})
+\end{align*}
+
+  Note that a single underscore ``\texttt{\_}'' by itself is a special,
+  ``don't care'' or anonymous identifier which is treated differently
+  inside the language. 
+  
+\item[Integer Literals:] A Skate integer literal is a sequence of
+  digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
+  literals have no specifier and hexadecimal literals start with
+  \texttt{0x}.  Binary literals start with \texttt{0b}. 
+
+  In addition, as a special case the string \texttt{1s} can be used to
+  indicate an integer which is composed entirely of binary 1's. 
+
+\begin{align*}
+digit & \rightarrow (\textsf{0 \ldots 9})^{\textrm{1}}\\
+hexadecimal & \rightarrow (\textsf{0x})(\textsf{0 \ldots 9} \mid \textsf{A \ldots F} \mid \textsf{a \ldots f})^{\textrm{1}}\\
+binary & \rightarrow (\textsf{0b})(\textsf{0, 1})^{\textrm{1}}\\
+\end{align*}
+
+
+\item[Reserved words:] The following are reserved words in Skate:
+\begin{alltt}
+  \begin{tabbing}
+xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \kill
+fact \> query \> flags \> constants \>  \>  \\
+  \end{tabbing}
+\end{alltt}
+
+\item[Special characters:] The following characters are used as operators,
+  separators, terminators or other special purposes in Skate:
+\begin{alltt}
+
+  \{ \} [ ] ( ) + - * / ; , . = 
+
+\end{alltt}
+
+\end{description}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Declarations}
+\label{chap:declaration}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+\chapter{High-level overview: Skate schema for the SKB}
+\label{chap:overview}
+
+
+
+
+Throughout this document a example describing certain CPU characteristics is
+being used. It is an abstraction of the CPUID information found on Intel and AMD
+CPUs. The source code for the Skate tool can be found in
+\pathname{tools/Skate}.
+
+\section{Schema language}
+
+The schema language is a C-like language defining facts and their attributes. An
+attribute is typed and can be one of a basic type, a fact or an enumeration
+type. Basic types include signed and unsigned integers as well as memory
+addresses with a machine-specific word size and strings. As facts can be
+attributes of other facts we can achieve a simple nesting of facts.
+
+In Listing \ref{lst:sample_schema} an excerpt of the CPUID schema is shown. In
+Barrelfish, a CPU core is identified using an eight bit unsigned number, hence
+we use a \Skate{typedef} to declare a \varname{core\_id} type.
+
+\begin{lstlisting}[caption={Sample Skate schema definition},
+label={lst:sample_schema},language=Skate]
+
+schema cpuid "CPUID abstractions" {
+    typedef uint8 core_ID;
+    fact vendor "Literal vendor" {
+        core_id Core_id "Core";
+        string vendor "Core vendor";
+    };
+};
+\end{lstlisting}
+
+Each schema starts with the keyword \Skate{schema}. It is followed by an
+identifier and a documentation string for that schema. The identifier also needs
+to be equal to the file name, i.e.~the schema \varname{cpuid} needs to reside in
+\varname{cpuid.Skate}. After the schema declaration we find a list of facts,
+typdefs and enums enclosed in curly braces (\{\}).
+
+Each fact has an identifying name and a documentation string. Its attributes
+follow the documentation string and are enclosed in curly braces. The attributes
+are a tuple consisting of a type, a name and an optional documentation. The type
+can be a basic type, a fact or an enumeration type. Note that types need to have
+unique names, there is no mechanism to derive new types from existing types.
+
+Typedefs allow to use a different identifier for a built-in type. This is useful
+for abstracting common built-in types.
+
+\todo{Explain enumerations}
+
+\section{Code generation}
+
+Skate can translate schema definitions into documentation and C code (header
+and implementation). Here, we explain the mechanisms that are used to generate a
+C implementation of the schema.
+
+The example presented in Listing \ref{lst:sample_schema} translates into C
+structures and type definitions for both \varname{core\_id} and
+\varname{vendor}. Functions are provided to populate the SKB with instanced of
+facts.
+
+\section{Translating facts}
+
+Each fact corresponds to a structure in C. Skate generates both a structure
+and a type definition for each fact. Using the example, it creates the
+structure shown in Listing \ref{lst:c_vendor}.
+
+\begin{lstlisting}[caption={C header for fact
+\varname{vendor}},label={lst:c_vendor},language=C]
+struct cpuid__vendor {
+    /* CPU ID */
+    cpuid__core_id_t Core_ID;
+    /* Vendor string */
+    char *vendor;
+};
+typedef struct cpuid__vendor cpuid__vendor_t;
+\end{lstlisting}
+
+Each fact attribute is represented by a \ccode!struct!~field. Nested structures are
+allowed, but there cannot be a recursive dependency.
+
+On top of this, it generates a function
+\ccode!cpuid__vendor__add(struct cpuid__vendor *)!.
+This function can be used to add facts of the specified type to the SKB. For
+example, the code presented in Listing \ref{lst:c_add_vendor} adds an Intel core
+to the SKB.
+
+\begin{lstlisting}[caption={C example to add a vendor fact.},
+label={lst:c_add_vendor}, language=C]
+cpuid__vendor_t vendor;
+vendor.Core_ID = core_id;
+vendor.vendor = vendor_string;
+
+errval_t err = cpuid__vendor__add(&vendor);
+\end{lstlisting}
+
+\section{Mapping facts to Prolog facts}
+
+Each fact added to the SKB using Skate is represented by a single Prolog
+functor.  The functor name in Prolog consist of the schema and fact name.  The
+fact defined in Listing \ref{lst:sample_schema} is represented by the functor
+\lstinline!cpuid_vendor!~and has an arity of three.
+
+\section{Integration with the build process}
+
+Skate is a tool that is integrated with Hake. Add the attribute
+\lstinline!SkateSchema!~to a Hakefile to invoke Skate as shown in Listing
+\ref{lst:Skate_hake}.
+
+\begin{lstlisting}[caption={Including Skate schemata in Hake},
+label={lst:Skate_hake}, language=Haskell]
+[ build application {
+    SkateSchema = [ "cpu" ]
+    ... 
+} ]
+\end{lstlisting}
+
+Adding an entry for \varname{SkateSchema} to a Hakefile will generate both
+header and implementation and adds it to the list of compiled resources. A
+Skate schema is referred to by its name and Skate will look for a file
+ending with \varname{.Skate} containing the schema definition.
+
+The header file is placed in \pathname{include/schema} in the build tree, the C
+implementation is stored in the Hakefile application or library directory.
+
+\chapter{Limitations \& Work in Progress}
+
+Skate is not yet in a feature-complete state. It does not allow querying facts
+or specifying more advanced rules for types besides the ones being enforced by C
+on \ccode!struct!s. Although features are missing users can start writing
+schemata as the syntax is not going to change significantly at the moment.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{abbrv}
+\bibliography{barrelfish}
+
+\end{document}
