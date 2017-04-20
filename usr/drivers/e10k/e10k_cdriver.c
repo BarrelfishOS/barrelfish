@@ -206,16 +206,27 @@ static void e10k_flt_ftqf_setup(int idx, struct e10k_filter* filter)
 
 
     // Write filter data
-    if (!(m & MASK_SRCIP))
+    if (!(m & MASK_SRCIP)) {
+        DEBUG("src_ip=%"PRIx32" ", filter->src_ip);
         e10k_saqf_wr(d, idx, htonl(filter->src_ip));
-    if (!(m & MASK_DSTIP))
-        e10k_daqf_wr(d, idx, htonl(filter->dst_ip));
-    if (!(m & MASK_SRCPORT))
-        sdpqf = e10k_sdpqf_src_port_insert(sdpqf, htons(filter->src_port));
-    if (!(m & MASK_DSTPORT))
-        sdpqf = e10k_sdpqf_dst_port_insert(sdpqf, htons(filter->dst_port));
-    e10k_sdpqf_wr(d, idx, sdpqf);
+    }
 
+    if (!(m & MASK_DSTIP)) {
+        DEBUG("dst_ip=%"PRIx32" ", filter->dst_ip);
+        e10k_daqf_wr(d, idx, htonl(filter->dst_ip));
+    }
+
+    if (!(m & MASK_SRCPORT)) {
+        DEBUG("src_port=%d ", filter->src_port);
+        sdpqf = e10k_sdpqf_src_port_insert(sdpqf, htons(filter->src_port));
+    }
+
+    if (!(m & MASK_DSTPORT)) {
+        DEBUG("dst_port=%d ", filter->dst_port);
+        sdpqf = e10k_sdpqf_dst_port_insert(sdpqf, htons(filter->dst_port));
+    }
+    e10k_sdpqf_wr(d, idx, sdpqf);
+    DEBUG("queue_id=%d \n", filter->queue);
 
     if (!(m & MASK_L4PROTO)) {
         switch (filter->l4_type) {
@@ -307,9 +318,8 @@ static errval_t cb_install_filter(struct net_filter_binding *b,
         f.mask = f.mask | MASK_SRCIP;
     }
 
-    if (dst_ip == 0) {
-        f.mask = f.mask | MASK_DSTIP;
-    }
+    // ignore dst ip
+    f.mask = f.mask | MASK_DSTIP;
 
     if (dst_port == 0) {
         f.mask = f.mask | MASK_DSTPORT;
@@ -1560,8 +1570,9 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
                                     struct capref tx_frame, struct capref txhwb_frame, 
                                     struct capref rx_frame, uint32_t rxbufsz, 
                                     int16_t msix_intvec, uint8_t msix_intdest, 
-                                    bool use_irq, bool use_rsc, uint64_t *mac, 
-                                    int32_t *qid, struct capref *regs, errval_t *ret_err)
+                                    bool use_irq, bool use_rsc, bool default_q,
+                                    uint64_t *mac, int32_t *qid, struct capref *regs, 
+                                    errval_t *ret_err)
 {
     // TODO: Make sure that rxbufsz is a power of 2 >= 1024
 
@@ -1574,14 +1585,22 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
 
     // allocate a queue
     int n = -1;
-    for (int i = 0; i < 128; i++) {
+    for (int i = 1; i < 128; i++) {
         if (!queues[i].enabled) {
-            queues[i].enabled = true;
             n = i;
             break;
         }
     }
-    
+
+    if (default_q) {
+        if (queues[0].enabled == false) {
+            n = 0;
+        } else {
+            printf("Default queue already initalized \n");
+            return NIC_ERR_ALLOC_QUEUE;
+        }
+    }
+
     DEBUG("create queue(%"PRIu8")\n", n);
 
     if (n == -1) {  
@@ -1603,6 +1622,7 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
     queues[n].msix_intdest = msix_intdest;
     queues[n].use_irq = use_irq;
     queues[n].use_rsc = use_rsc;
+    queues[n].enabled = true;
 
     queue_hw_init(n, false);
 
@@ -1622,7 +1642,7 @@ static void cd_create_queue(struct e10k_vf_binding *b,
                             struct capref tx_frame, struct capref txhwb_frame, 
                             struct capref rx_frame, uint32_t rxbufsz, 
                             int16_t msix_intvec, uint8_t msix_intdest, 
-                            bool use_irq, bool use_rsc)
+                            bool use_irq, bool use_rsc, bool default_q)
 {
 
     uint64_t mac;
@@ -1633,7 +1653,7 @@ static void cd_create_queue(struct e10k_vf_binding *b,
 
     err = cd_create_queue_rpc(b, tx_frame, txhwb_frame, rx_frame, 
                               rxbufsz, msix_intvec, msix_intdest, use_irq, use_rsc, 
-                              &mac, &queueid, &regs, &err);
+                              default_q, &mac, &queueid, &regs, &err);
 
     err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, err);
     assert(err_is_ok(err));
@@ -1871,6 +1891,7 @@ int main(int argc, char **argv)
 int e1000n_driver_init(int argc, char *argv[])
 #endif
 {
+    //barrelfish_usleep(10*1000*1000);
     DEBUG("PF driver started\n");
     // credit_refill value must be >= 1 for a queue to be able to send.
     // Set them all to 1 here. May be overridden via commandline.
