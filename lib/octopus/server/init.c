@@ -52,6 +52,7 @@ static const struct octopus_rx_vtbl rpc_rx_vtbl = {
         // Cap storage
         .get_cap_call = get_cap_handler,
         .put_cap_call = put_cap_handler,
+        .sput_cap_call = sput_cap_handler,
         .remove_cap_call = remove_cap_handler,
 };
 

@@ -112,6 +112,62 @@ void put_cap_handler(struct octopus_binding *b, const char *key,
     ns->reply(b, ns);
 }
 
+static void free_ns(void* arg) {
+    struct oct_reply_state* ns = (struct oct_reply_state*) arg;
+    free(ns->retkey);
+    free(ns);
+}
+
+static void sput_cap_reply(struct octopus_binding *b,
+        struct oct_reply_state* ns)
+{
+    errval_t err;
+    err = b->tx_vtbl.sput_cap_response(b, MKCONT(free_ns, ns), ns->retkey, ns->error);
+    if (err_is_fail(err)) {
+        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+            oct_rpc_enqueue_reply(b, ns);
+            return;
+        }
+        USER_PANIC_ERR(err, "SKB: sending %s failed!", __FUNCTION__);
+    }
+}
+
+void sput_cap_handler(struct octopus_binding *b, const char *key,
+                      struct capref cap)
+{
+    errval_t err, reterr = SYS_ERR_OK;
+    struct oct_reply_state* ns = NULL;
+    struct capref dbcap;
+    // Identfier to make sure all caps have a unique key
+    static uint32_t CAP_IDENT = 0;
+
+    char* uniquekey = NULL;
+    int r = asprintf(&uniquekey, "%s%d", key, CAP_IDENT++);
+    if (uniquekey == NULL || r == -1) {
+        reterr = LIB_ERR_MALLOC_FAIL;
+        goto out;
+    }
+
+    capdb->d.get_capability(&capdb->d, (CONST_CAST)key, &dbcap);
+    if(!capcmp(dbcap, NULL_CAP)) {
+        // This case is not intended to happen
+        // but can if a malicious client takes a key
+        reterr = OCT_ERR_CAP_OVERWRITE;
+    } else {
+        // we need to make our own copy of the key
+        char* dupkey = strdup(uniquekey);
+        r = capdb->d.put_capability(&capdb->d, (CONST_CAST)dupkey, cap);
+        assert(r == 0);
+    }
+
+out:
+    err = new_oct_reply_state(&ns, sput_cap_reply);
+    assert(err_is_ok(err));
+    ns->retkey = uniquekey;
+    ns->error = reterr;
+    ns->reply(b, ns);
+}
+
 static void remove_cap_reply(struct octopus_binding *b,
         struct oct_reply_state* ns)
 {

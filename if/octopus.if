@@ -184,7 +184,8 @@ interface octopus "octopus RPC Interface" {
     //
 
     // Simple capability storage
-    rpc get_cap(in String key[2048], out cap retcap, out errval reterr);
-    rpc put_cap(in String key[2048], in cap storecap, out errval reterr);
-    rpc remove_cap(in String key[2048], out errval reterr);
+    rpc get_cap(in String key[256], out cap retcap, out errval reterr);
+    rpc put_cap(in String key[256], in cap storecap, out errval reterr);
+    rpc sput_cap(in String key[256], in cap storecap, out String retkey[256], out errval reterr);
+    rpc remove_cap(in String key[256], out errval reterr);
 };
