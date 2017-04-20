@@ -19,6 +19,7 @@
 #include "../../../queue_interface_internal.h"
 #include <dev/e10k_q_dev.h>
 
+#define LEGACY_DESC 1
 
 struct e10k_queue_ops {
     errval_t (*update_txtail)(struct e10k_queue*, size_t);
@@ -56,7 +57,7 @@ struct e10k_queue {
     bool use_rsc; // Receive Side Coalescing
     bool use_vtd; // Virtual addressing (required for VF)
     bool use_rxctx; // 
-    bool use_txhwb; 
+    bool use_txhwb; //
     size_t rxbufsz;
     uint8_t pci_function; 
     uint64_t mac;
@@ -94,6 +95,7 @@ struct e10k_queue {
     void*                           tx_hwb;
 
     e10k_q_rdesc_adv_wb_array_t*    rx_ring;
+    struct devq_buf*                rx_bufs;
     struct e10k_queue_rxctx*        rx_context;
     size_t                          rx_head;
     size_t                          rx_tail;
@@ -120,6 +122,7 @@ static inline void e10k_queue_init(struct e10k_queue* q, void* tx, size_t tx_siz
     q->tx_hwb = tx_hwb;
 
     q->rx_ring = rx;
+    q->rx_bufs = calloc(rx_size, sizeof(struct devq_buf));
     q->rx_context = calloc(rx_size, sizeof(*q->rx_context));
     q->rx_head = 0;
     q->rx_tail = 0;
@@ -215,6 +218,42 @@ static inline int e10k_queue_add_txbuf_ctx(e10k_queue_t* q, lpaddr_t phys,
 
 }
 
+
+static inline int e10k_queue_add_txbuf_legacy(e10k_queue_t* q, lpaddr_t phys,
+                                       regionid_t rid,
+                                       genoffset_t offset,
+                                       genoffset_t length,      
+                                       genoffset_t valid_data,
+                                       genoffset_t valid_length,
+                                       uint64_t flags,
+                                       bool first, bool last,
+                                       size_t len)
+{
+    e10k_q_tdesc_legacy_t d;
+    size_t tail = q->tx_tail;
+
+
+    struct devq_buf* buf = &q->tx_bufs[tail];
+    buf->rid = rid;
+    buf->offset = offset;
+    buf->length = length;
+    buf->valid_data = valid_data;
+    buf->valid_length = valid_length;
+    buf->flags = flags;  
+
+    d = q->tx_ring[tail];
+
+    e10k_q_tdesc_legacy_buffer_insert(d, phys);
+    e10k_q_tdesc_legacy_length_insert(d, len);
+    // OPTIMIZATION: Maybe only set rs on last packet?
+    e10k_q_tdesc_legacy_rs_insert(d, (last == 1));
+    e10k_q_tdesc_legacy_ifcs_insert(d,  1);
+    e10k_q_tdesc_legacy_eop_insert(d, last);
+
+    q->tx_tail = (tail + 1) % q->tx_size;
+    return 0;
+}
+
 static inline int e10k_queue_add_txbuf(e10k_queue_t* q, lpaddr_t phys,
                                        regionid_t rid,
                                        genoffset_t offset,
@@ -225,10 +264,17 @@ static inline int e10k_queue_add_txbuf(e10k_queue_t* q, lpaddr_t phys,
                                        bool first, bool last,
                                        size_t len)
 {
-    return e10k_queue_add_txbuf_ctx(q, phys, rid, offset, length,
+#ifdef LEGACY_DESC
+        return e10k_queue_add_txbuf_legacy(q, phys, rid, offset, length,
+                                    valid_data, valid_length, 
+                                    flags, first, last, 
+                                    len);
+#else
+        return e10k_queue_add_txbuf_ctx(q, phys, rid, offset, length,
                                     valid_data, valid_length, 
                                     flags, first, last, 
                                     len, -1, false, false);
+#endif
 }
 
 /*
@@ -240,7 +286,7 @@ static inline int e10k_queue_add_txbuf(e10k_queue_t* q, lpaddr_t phys,
  *
  * \return true if packet can be reclaimed otherwise false
  */
-static inline bool e10k_queue_get_txbuf(e10k_queue_t* q, regionid_t* rid,   
+static inline bool e10k_queue_get_txbuf_avd(e10k_queue_t* q, regionid_t* rid,   
                                         genoffset_t* offset,
                                         genoffset_t* length,
                                         genoffset_t* valid_data,
@@ -288,6 +334,69 @@ static inline bool e10k_queue_get_txbuf(e10k_queue_t* q, regionid_t* rid,
     return result;
 }
 
+static inline bool e10k_queue_get_txbuf_legacy(e10k_queue_t* q, regionid_t* rid,   
+                                        genoffset_t* offset,
+                                        genoffset_t* length,
+                                        genoffset_t* valid_data,
+                                        genoffset_t* valid_length,
+                                        uint64_t* flags)
+{
+
+    e10k_q_tdesc_legacy_t d;
+    size_t head = q->tx_head;
+
+    d = q->tx_ring[head];
+    if (e10k_q_tdesc_legacy_dd_extract(d)) {
+
+        *rid = q->tx_bufs[head].rid;
+        *offset = q->tx_bufs[head].offset;
+        *length = q->tx_bufs[head].length;
+        *valid_data = q->tx_bufs[head].valid_data;
+        *valid_length = q->tx_bufs[head].valid_length;
+        *flags = q->tx_bufs[head].flags;
+        memset(d, 0, e10k_q_tdesc_legacy_size);
+
+        q->tx_head = (head + 1) % q->tx_size;
+        return true;
+    } 
+
+    if (q->tx_hwb) {
+        head = *((uint32_t*) q->tx_hwb);
+        if (q->tx_head == head) {
+            return false;
+        } else {
+            *rid = q->tx_bufs[q->tx_head].rid;
+            *offset = q->tx_bufs[q->tx_head].offset;
+            *length = q->tx_bufs[q->tx_head].length;
+            *valid_data = q->tx_bufs[q->tx_head].valid_data;
+            *valid_length = q->tx_bufs[q->tx_head].valid_length;
+            *flags = q->tx_bufs[q->tx_head].flags;
+            memset(d, 0, e10k_q_tdesc_legacy_size);
+
+            q->tx_head = (q->tx_head + 1) % q->tx_size;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static inline bool e10k_queue_get_txbuf(e10k_queue_t* q, regionid_t* rid,   
+                                        genoffset_t* offset,
+                                        genoffset_t* length,
+                                        genoffset_t* valid_data,
+                                        genoffset_t* valid_length,
+                                        uint64_t* flags)
+{
+#ifdef LEGACY_DESC
+        return e10k_queue_get_txbuf_legacy(q, rid, offset, length, valid_data, 
+                                           valid_length, flags);
+#else
+        return e10k_queue_get_txbuf_avd(q, rid, offset, length, valid_data, 
+                                        valid_length, flags);
+#endif
+}
+
 static inline errval_t e10k_queue_bump_txtail(e10k_queue_t* q)
 {
     return q->ops.update_txtail(q, q->tx_tail);
@@ -307,7 +416,7 @@ static inline size_t e10k_queue_free_txslots(e10k_queue_t* q)
 
 }
 
-static inline int e10k_queue_add_rxbuf(e10k_queue_t* q,
+static inline int e10k_queue_add_rxbuf_adv(e10k_queue_t* q,
                                        lpaddr_t phys,
                                        regionid_t rid,
                                        genoffset_t offset,
@@ -345,6 +454,54 @@ static inline int e10k_queue_add_rxbuf(e10k_queue_t* q,
     return 0;
 }
 
+static inline int e10k_queue_add_rxbuf_legacy(e10k_queue_t* q,
+                                       lpaddr_t phys,
+                                       regionid_t rid,
+                                       genoffset_t offset,
+                                       genoffset_t length,
+                                       genoffset_t valid_data,
+                                       genoffset_t valid_length,
+                                       uint64_t flags)
+{
+    e10k_q_rdesc_legacy_t d;
+    size_t tail = q->rx_tail;
+
+
+    struct devq_buf* buf = &q->rx_bufs[tail];
+    buf->rid = rid;
+    buf->offset = offset;
+    buf->length = length;
+    buf->valid_data = valid_data;
+    buf->valid_length = valid_length;
+    buf->flags = flags;  
+    
+    d = q->rx_ring[tail];
+
+    e10k_q_rdesc_legacy_buffer_insert(d, phys);
+
+    q->rx_tail = (tail + 1) % q->rx_size;
+
+    return 0;
+}
+
+
+static inline int e10k_queue_add_rxbuf(e10k_queue_t* q,
+                                       lpaddr_t phys,
+                                       regionid_t rid,
+                                       genoffset_t offset,
+                                       genoffset_t length,
+                                       genoffset_t valid_data,
+                                       genoffset_t valid_length,
+                                       uint64_t flags)
+{
+#ifdef LEGACY_DESC
+    return e10k_queue_add_rxbuf_legacy(q, phys, rid, offset, length, valid_data,
+                                       valid_length, flags);
+#else
+    return e10k_queue_add_rxbuf_adv(q, phys, rid, offset, length, valid_data,
+                                    valid_length, flags);
+#endif
+}
 static inline uint64_t e10k_queue_convert_rxflags(e10k_q_rdesc_adv_wb_t d)
 {
     uint64_t flags = 0;
@@ -379,7 +536,7 @@ static inline uint64_t e10k_queue_convert_rxflags(e10k_q_rdesc_adv_wb_t d)
     return flags;
 }
 
-static inline bool e10k_queue_get_rxbuf(e10k_queue_t* q, regionid_t* rid,
+static inline bool e10k_queue_get_rxbuf_avd(e10k_queue_t* q, regionid_t* rid,
                                         genoffset_t* offset,
                                         genoffset_t* length,
                                         genoffset_t* valid_data,
@@ -424,6 +581,58 @@ static inline bool e10k_queue_get_rxbuf(e10k_queue_t* q, regionid_t* rid,
 
     q->rx_head = (head + 1) % q->rx_size;
     return true;
+}
+
+
+static inline bool e10k_queue_get_rxbuf_legacy(e10k_queue_t* q, regionid_t* rid,
+                                        genoffset_t* offset,
+                                        genoffset_t* length,
+                                        genoffset_t* valid_data,
+                                        genoffset_t* valid_length,
+                                        uint64_t* flags,
+                                        int* last)
+{
+
+    e10k_q_rdesc_legacy_t d;
+    size_t head = q->rx_head;
+    struct devq_buf* buf = &q->rx_bufs[head];
+
+    d = q->rx_ring[head];
+    if (e10k_q_rdesc_legacy_dd_extract(d)) {
+        *last = e10k_q_rdesc_legacy_eop_extract(d);
+        *valid_length = e10k_q_rdesc_legacy_length_extract(d);
+
+        *rid = buf->rid;
+        *offset = buf->offset;
+        *length = buf->length;
+        *valid_data = buf->valid_data;
+        *flags = buf->flags;
+
+        memset(d, 0, e10k_q_rdesc_legacy_size);
+
+        q->rx_head = (head + 1) % q->rx_size;
+        return true;
+    } else {
+        return false;
+    }
+}
+
+
+static inline bool e10k_queue_get_rxbuf(e10k_queue_t* q, regionid_t* rid,
+                                        genoffset_t* offset,
+                                        genoffset_t* length,
+                                        genoffset_t* valid_data,
+                                        genoffset_t* valid_length,
+                                        uint64_t* flags,
+                                        int* last)
+{
+#ifdef LEGACY_DESC
+       return e10k_queue_get_rxbuf_legacy(q, rid, offset, length, valid_data, valid_length,
+                                    flags, last);
+#else 
+       return e10k_queue_get_rxbuf_avd(q, rid, offset, length, valid_data, valid_length,
+                                       flags, last);
+#endif
 }
 
 static inline errval_t e10k_queue_bump_rxtail(e10k_queue_t* q)

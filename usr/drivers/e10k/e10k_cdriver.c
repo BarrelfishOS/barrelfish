@@ -985,7 +985,8 @@ static void queue_hw_init(uint8_t n, bool set_tail)
         e10k_psrtype_split_ip6_wrf(d, n, 1);
         e10k_psrtype_split_l2_wrf(d, n, 1);
     } else {
-        e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
+        //e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
+        e10k_srrctl_1_desctype_wrf(d, n, e10k_legacy);
     }
     e10k_srrctl_1_bsz_hdr_wrf(d, n, 128 / 64); // TODO: Do 128 bytes suffice in
                                                //       all cases?

@@ -480,7 +480,7 @@ extern unsigned char debug_flags;
 
 
 
-#if 0
+#if 1
 #ifndef CHECKSUM_GEN_IP
 #define CHECKSUM_GEN_IP                 1
 #endif
