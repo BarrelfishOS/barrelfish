@@ -93,7 +93,8 @@ static errval_t create_e10k_queue (struct net_state *st, uint64_t* queueid,
     errval_t err;
     err = e10k_queue_create((struct e10k_queue**)retqueue, int_handler,
                             false /*virtual functions*/,
-                            !(st->flags & NET_FLAGS_POLLING) /* user interrupts*/);
+                            !(st->flags & NET_FLAGS_POLLING), /* user interrupts*/
+                            (st->flags & NET_FLAGS_DEFAULT_QUEUE));
     *queueid = e10k_queue_get_id((struct e10k_queue*)*retqueue);
     return err;
 }

@@ -377,7 +377,8 @@ static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
                               valid_length, flags)) {
         err = DEVQ_ERR_QUEUE_EMPTY;
     }  else {
-        DEBUG_QUEUE("Sent offset=%lu valid_data=%lu \n", *offset, *valid_data);
+        DEBUG_QUEUE("Queue %d sent offset=%lu valid_length=%lu \n", 
+               que->id, *offset, *valid_length);
         return SYS_ERR_OK;
     }
 
@@ -385,7 +386,8 @@ static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
                              valid_length, flags, &last)) {
         err = DEVQ_ERR_QUEUE_EMPTY;
     } else {
-        DEBUG_QUEUE("Received offset=%lu valid_data=%lu \n", *offset, *valid_data);
+        DEBUG_QUEUE("Queue %d received offset=%lu valid_length=%lu \n", 
+               que->id, *offset, *valid_length);
         return SYS_ERR_OK;
     }
      
@@ -551,9 +553,10 @@ static errval_t map_device_memory(struct e10k_queue* q,
     d = q->d;
     return SYS_ERR_OK;
 }
+
 // TODO mostly cleanup when fail
 errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
-                           bool use_vf, bool interrupts)
+                           bool use_vf, bool interrupts, bool qzero)
 {
 
     errval_t err;
@@ -675,7 +678,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
 
         err = q->binding->rpc_tx_vtbl.create_queue(q->binding, tx_frame, txhwb_frame,
                                             rx_frame, 2048, q->msix_intvec,
-                                            q->msix_intdest, false, false, 
+                                            q->msix_intdest, false, false, qzero,
                                             &q->mac, &qid,
                                             &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
