@@ -239,7 +239,7 @@ available in the current device definition, as described below.  The
 syntax of an import declaration is as follows:
 
 \begin{syntax}
-import \synit{schema};
+\synbf{import} \synit{schema};
 \end{syntax}
 
 \begin{description}
@@ -255,7 +255,7 @@ which will successfully compile.
 \section{Schemas}\label{sec:decl:schema}
 
 \begin{syntax}
-schema \synit{name} "\synit{description}"
+\synbf{schema} \synit{name} "\synit{description}"
 \verb+{+
   \synit{declaration};
   \ldots
@@ -280,15 +280,115 @@ schema \synit{name} "\synit{description}"
 
 \section{Declarations}\label{sec:decl:decls}
 
-\subsection{Facts}
-
 \subsection{Flags}
+
+Flags are unsigned numbers of a specified width where each bit position has a
+specific meaning. Flags are declared in a flag group which represents a single
+field in the a hardware description. Example for this type are the 
+\emph{LapicFlags} of the APIC entry in the ACPI MADT table. Flags are declared 
+as follows:
+
+\begin{syntax}
+\synbf{flags} \synit{name} \synit{width} "\synit{description}" \verb+{+
+    \synit{position1} \synit{name1} [ "\synit{description1}" ] ;
+    \ldots
+\verb+}+;
+\end{syntax}
+
+\begin{description}
+    \item[name] the identifier of this flag group. Must be unique for all 
+    declarations.
+    
+    \item [width] with in bits of this flag group. This is one of 8, 16, 32, 64.
+    
+    \item [description] description in double quotes is a short explanation of
+                        what the flag group represents.
+    
+    \item [name1] identifier of the flag. Must be unique within the flag group. 
+    
+    \item [position1] base 10 integer defining which bit position the flag sets
+    
+    \item [description1] description of this particular flag
+        
+\end{description}
 
 \subsection{Constants}
 
+\begin{syntax}
+\synbf{constants} \synit{name} \synit{type} "\synit{description}" \verb+{+
+    \synit{name1} = \synit{value1} [ "\synit{description1} "] ;
+    \ldots
+\verb+}+;
+\end{syntax}
+
+\begin{description}
+    \item[name] the identifier of this constants group. Must be unique for all 
+    declarations.
+    
+    \item [type] the type of the constant group. Must be one of the builtin 
+    types.
+    
+    \item [description] description in double quotes is a short explanation of
+    what the constant group represents.
+    
+    \item [name1] identifier of the constant. Must be unique within the 
+    constant group. 
+    
+    \item [value1] binary (0b..) or hex (0x..) value with exactly one bit set
+    
+    \item [description1] description of this particular constant
+    
+\end{description}
+
+\subsection{Enumerations}
+
+Enumerations are a special type of constants without any specific value. This
+declaration is analogue to the C style \texttt{enum} declaration.
+
+\begin{syntax}
+\synbf{enumeration} \synit{name} "\synit{description}" \verb+{+
+    \synit{name1} [ "\synit{description1} "] ;
+    \ldots
+\verb+}+;
+\end{syntax}
+
+\begin{description}
+    \item[name] the identifier of this constants group. Must be unique for all 
+    declarations.
+    
+    \item [description] description in double quotes is a short explanation of
+    what the constant group represents.
+    
+    \item [name1] identifier of the constant. Must be unique within the 
+    constant group.   
+    
+    \item [description1] description of this particular constant
+    
+\end{description}
+
+\subsection{Facts}
+
+\begin{syntax}
+\synbf{fact} \synit{name}  "\synit{description}" \verb+{+
+    \synit{declaration};
+    \ldots
+\verb+}+;
+\end{syntax}
+
+
+
+
+
 \subsection{Queries}
 
+\begin{syntax}
+\synbf{query} \synit{name} "\synit{description}" \verb+{+
+    \synit{declaration};
+    \ldots
+\verb+}+;
+\end{syntax}
 
+\section{Types}\label{sec:decl:types}
 
 
 \chapter{High-level overview: Skate schema for the SKB}
