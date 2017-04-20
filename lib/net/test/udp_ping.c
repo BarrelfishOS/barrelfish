@@ -193,8 +193,15 @@ int main(int argc, char *argv[])
 
     debug_printf("PING pcb created.\n");
 
-    udp_recv(ping_pcb, ping_recv, NULL);
     udp_bind(ping_pcb, IP_ADDR_ANY, UDP_ECHOSERVER_PORT);
+
+    udp_recv(ping_pcb, ping_recv, NULL);
+
+    err = networking_install_ip_filter(false, (ip_addr_t*) IP_ADDR_ANY, 
+                                       0, UDP_ECHOSERVER_PORT);    
+    if (err_is_fail(err)) {
+        USER_PANIC("Adding filter failed %s \n", err_getstring(err));
+    }
 
     sys_timeout(PING_DELAY, ping_timeout, ping_pcb);
 
