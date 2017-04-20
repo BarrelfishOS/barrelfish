@@ -13,5 +13,11 @@
 [ build application { target = "mem_affinity" ,
                       cFiles = [ "mem_affinity.c" ],
                       addLibraries = [ "skb" ]
-                    }
+                    },
+
+  build application {
+    target = "skb_cap_storage" ,
+    cFiles = [ "cap_storage.c" ],
+    addLibraries = [ "skb", "octopus" ]
+  }
 ]
