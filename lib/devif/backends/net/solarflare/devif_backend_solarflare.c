@@ -563,10 +563,10 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     }
 
     if (!interrupts) {
-        printf("Solarflare queue used in polling mode \n");
+        printf("Solarflare queue used in polling mode (default %d) \n", qzero);
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
-                                                 interrupts,
-                                                 0, 0, qzero, &queue->mac ,&queue->id, 
+                                                 interrupts, qzero,
+                                                 0, 0, &queue->mac ,&queue->id, 
                                                  &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;

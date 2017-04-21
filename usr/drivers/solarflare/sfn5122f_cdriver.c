@@ -1632,6 +1632,7 @@ static void cd_main(void)
 
 int main(int argc, char** argv)
 {
+    
     //barrelfish_usleep(10*1000*1000);
     DEBUG("SFN5122F driver started \n");
     errval_t err;
@@ -1671,8 +1672,13 @@ int main(int argc, char** argv)
     }
     
     DEBUG("SFN5122F driver networking init \n");
-    err = networking_init("sfn5122f", NET_FLAGS_BLOCKING_INIT | NET_FLAGS_DO_DHCP |
-                          NET_FLAGS_DEFAULT_QUEUE);
+    if (use_interrupt) {
+        err = networking_init("sfn5122f", NET_FLAGS_DO_DHCP |
+                              NET_FLAGS_DEFAULT_QUEUE);
+    } else {
+        err = networking_init("sfn5122f", NET_FLAGS_DO_DHCP | NET_FLAGS_POLLING |
+                              NET_FLAGS_DEFAULT_QUEUE);
+    }
     assert(err_is_ok(err));
 
     DEBUG("SFN5122F driver networking init done\n");
