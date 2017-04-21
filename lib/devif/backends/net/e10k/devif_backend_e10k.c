@@ -9,13 +9,11 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <devif/backends/net/e10k_devif.h>
 #include <devif/queue_interface.h>
 #include <dev/e10k_q_dev.h>
 #include <dev/e10k_dev.h>
 #include <dev/e10k_vf_dev.h>
 #include <skb/skb.h>
-
 
 #include <if/e10k_vf_defs.h>
 #include <if/e10k_vf_rpcclient_defs.h>
@@ -33,8 +31,12 @@
 #define UDPHDR_LEN 8
 
 
+
 // for debugging
 static e10k_t* d;
+
+// TODO only required for legacy interrupts
+struct e10k_queue* queues[128];
 
 /*
 static void queue_debug(const char* fmt, ...)
@@ -474,6 +476,22 @@ static errval_t e10k_notify(struct devq* q)
  *
  */
 
+static void interrupt_cb(struct e10k_vf_binding *b, uint16_t qid)
+{
+    struct e10k_queue* q = queues[qid];
+
+    if (q != b->st) {
+        debug_printf("STATE MISMATCH!\n %p %p\n", q, b->st);
+        q = b->st;
+    }
+
+    q->cb(q);
+}
+
+static struct e10k_vf_rx_vtbl rx_vtbl = {
+    .interrupt = interrupt_cb,
+};
+
 static void bind_cb(void *st, errval_t err, struct e10k_vf_binding *b)
 {
     struct e10k_queue* q = (struct e10k_queue*) st;
@@ -483,6 +501,7 @@ static void bind_cb(void *st, errval_t err, struct e10k_vf_binding *b)
 
     b->st = q;
     q->binding = b;
+    b->rx_vtbl = rx_vtbl;
     e10k_vf_rpc_client_init(q->binding);
     q->bound = true;
 }
@@ -568,7 +587,8 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
 
     // txhwb
     q->use_txhwb = true;
-
+    q->cb = cb;
+    
     if (use_vf) {
         USER_PANIC("NOT YET WORKING \n");
         // Start VF
@@ -678,7 +698,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
 
         err = q->binding->rpc_tx_vtbl.create_queue(q->binding, tx_frame, txhwb_frame,
                                             rx_frame, 2048, q->msix_intvec,
-                                            q->msix_intdest, false, false, qzero,
+                                            q->msix_intdest, q->use_irq, false, qzero,
                                             &q->mac, &qid,
                                             &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
@@ -715,6 +735,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
 
 
     *queue = q;
+    queues[q->id] = q;
 
     DEBUG_QUEUE("e10k queue init done\n");
     return SYS_ERR_OK;

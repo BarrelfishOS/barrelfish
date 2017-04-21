@@ -15,8 +15,11 @@
 #include <stdlib.h>
 #include <net_interfaces/flags.h>
 
+#include <net_interfaces/net_interfaces.h>
 #include <devif/queue_interface.h>
+#include <devif/backends/net/e10k_devif.h>
 #include "../../../queue_interface_internal.h"
+#include <dev/e10k_dev.h>
 #include <dev/e10k_q_dev.h>
 
 #define LEGACY_DESC 1
@@ -70,6 +73,8 @@ struct e10k_queue {
     uint8_t msix_intvec;
     uint8_t msix_intdest;
     size_t msix_index;
+    // callback 
+    e10k_event_cb_t cb;
     
 
     // memory caps

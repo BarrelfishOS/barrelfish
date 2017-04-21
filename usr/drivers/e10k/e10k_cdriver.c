@@ -44,6 +44,7 @@
 struct queue_state {
     bool enabled;
     struct e10k_binding *binding;
+    struct e10k_vf_binding *devif;
 
     struct capref tx_frame;
     struct capref txhwb_frame;
@@ -168,7 +169,7 @@ static bool exported = false;
 static e10k_t *d = NULL;
 static struct capref *regframe;
 
-static bool use_interrupts = false;
+static bool use_interrupts = true;
 static bool msix = false;
 
 /** Specifies if RX/TX is currently enabled on the device. */
@@ -648,6 +649,7 @@ static void device_init(void)
         // Enable interrupt
         e10k_eimsn_wr(d, cdriver_msix / 32, (1 << (cdriver_msix % 32)));
     } else {
+        e10k_gpie_msix_wrf(d, 0);
         // Set no Interrupt delay
         e10k_eitr_l_wr(d, 0, 0);
         e10k_gpie_eimen_wrf(d, 1);
@@ -1038,8 +1040,10 @@ static void queue_hw_init(uint8_t n, bool set_tail)
             }
             rxv = txv = queues[n].msix_index;
         } else {
-            rxv = QUEUE_INTRX;
-            txv = QUEUE_INTTX;
+            //rxv = QUEUE_INTRX;
+            //txv = QUEUE_INTTX;
+            rxv = n % 16;
+            txv = n % 16;
         }
         DEBUG("rxv=%d txv=%d\n", rxv, txv);
 
@@ -1257,23 +1261,43 @@ static void interrupt_handler_msix(void* arg)
     e10k_eimsn_cause_wrf(d, cdriver_msix / 32, (1 << (cdriver_msix % 32)));
 }
 
+
+static void resend_interrupt(void* arg)
+{
+    errval_t err;
+    uint64_t i = (uint64_t) arg;
+    err = queues[i].devif->tx_vtbl.interrupt(queues[i].devif, NOP_CONT, i);
+    // If the queue is busy, there is already an oustanding message
+    if (err_is_fail(err) && err != FLOUNDER_ERR_TX_BUSY) {
+        USER_PANIC("Error when sending interrupt %s \n", err_getstring(err));
+    } 
+}
+
 /** Here are the global interrupts handled. */
 static void interrupt_handler(void* arg)
 {
-    DEBUG("e10k: received interrupt\n");
+    errval_t err;
     e10k_eicr_t eicr = e10k_eicr_rd(d);
 
     if (eicr >> 16) {
         management_interrupt(eicr);
     }
-    if (eicr & ((1 << QUEUE_INTRX) | (1 << QUEUE_INTTX))) {
-        e10k_eicr_wr(d, eicr);
-        qd_interrupt(!!(eicr & (1 << QUEUE_INTRX)),
-                     !!(eicr & (1 << QUEUE_INTTX)));
-    }
+    e10k_eicr_wr(d, eicr);
 
-    // Reenable interrupt
-    e10k_eimsn_cause_wrf(d, 0, 0x1);
+    for (uint64_t i = 0; i < 16; i++) {
+        if ((eicr >> i) & 0x1) {
+            DEBUG("Interrupt eicr=%"PRIx32" \n", eicr);
+            if (queues[i].use_irq && queues[i].devif != NULL) {
+                err = queues[i].devif->tx_vtbl.interrupt(queues[i].devif, NOP_CONT, i);
+                if (err_is_fail(err)) {
+                    err = queues[i].devif->register_send(queues[i].devif, 
+                                                         get_default_waitset(),
+                                                         MKCONT(resend_interrupt, 
+                                                                (void*)i));
+                }
+            }
+        }
+    }
 }
 
 /******************************************************************************/
@@ -1601,7 +1625,7 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
         }
     }
 
-    DEBUG("create queue(%"PRIu8")\n", n);
+    DEBUG("create queue(%"PRIu8": interrupt %d )\n", n, use_irq);
 
     if (n == -1) {  
         *ret_err = NIC_ERR_ALLOC_QUEUE;
@@ -1616,6 +1640,7 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
     queues[n].rx_frame = rx_frame;
     queues[n].tx_head = 0;
     queues[n].rx_head = 0;
+    queues[n].devif = b;
     queues[n].rxbufsz = rxbufsz;
     queues[n].msix_index = -1;
     queues[n].msix_intvec = msix_intvec;
@@ -1623,6 +1648,7 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
     queues[n].use_irq = use_irq;
     queues[n].use_rsc = use_rsc;
     queues[n].enabled = true;
+    
 
     queue_hw_init(n, false);
 
@@ -1910,8 +1936,12 @@ int e1000n_driver_init(int argc, char *argv[])
 
     DEBUG("e10k driver networking init \n");
     errval_t err;
-    err = networking_init("e10k", NET_FLAGS_DO_DHCP | NET_FLAGS_POLLING |
-                          NET_FLAGS_DEFAULT_QUEUE);
+    if (use_interrupts){
+        err = networking_init("e10k", NET_FLAGS_DO_DHCP | NET_FLAGS_DEFAULT_QUEUE);
+    } else {
+        err = networking_init("e10k", NET_FLAGS_DO_DHCP | NET_FLAGS_POLLING |
+                              NET_FLAGS_DEFAULT_QUEUE);
+    }
     DEBUG("e10k driver networking init done with error: %s \n", err_getstring(err));
     assert(err_is_ok(err));
 

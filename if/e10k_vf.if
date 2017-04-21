@@ -33,4 +33,6 @@ interface e10k_vf "e10k VF/PF interface" {
                        out errval err);
 
       rpc destroy_queue(in int qid, out errval err);
+
+      message interrupt(uint16 qid);
 };
