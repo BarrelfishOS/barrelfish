@@ -440,8 +440,6 @@ transformation.
     \item [description1] description of this particular field
 \end{description}
 
-
-
 \subsection{Queries}
 
 \todo{figure out how to do this...}
@@ -453,12 +451,52 @@ transformation.
 \verb+}+;
 \end{syntax}
 
+\section{Namespaces}
+
+The idea of a namespace is to provide more hierarchical structure, for example
+a PCI devices may have virtual and physical functions.
+
+\todo{does everything has to live in a namespace?, or is there an implicit
+default namespace?}
+
+\begin{syntax}
+\synbf{namespace} \synit{name} "\synit{description}" \verb+{+
+    \synit{declaration};
+    \ldots
+\verb+}+;
+\end{syntax}
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{C mapping for Schema Definitions}
 \label{chap:cmapping}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 For each schema specification, Skate generates ....
+
+\paragraph{Abbrevations}
+In all the sections of this chapter, we use the follwing abbrevations, where 
+the actual value may be upper or lower case depending on the conventions:
+
+\begin{description}
+  \item[SN] The schema name as used in the schema declaration.
+  \item[DN] The declaration name as used in the flags / constants / 
+            enumeration / facts declaration
+  \item[FN] The field name as used in field declaration of flags / constants / 
+            enumeration / facts
+\end{description}
+
+In general all defined functions, types and macros are prefixed with the schema
+name SN.
+
+\paragraph{Conventions}
+We use the follwing conventions for the generated code:
+\begin{itemize}
+  \item macro definitions and enumerations are uppercase.
+  \item type definitions, function names are lowercase.
+  \item use of the underscore \texttt{'\_'} to separate words
+\end{itemize}
+
 \todo{just a header file (cf mackerel), or also C functions (cf. flounder)?}
 
 \section{Using Schemas}
@@ -466,28 +504,121 @@ For each schema specification, Skate generates ....
 Developers can use the schemas by including the generated header file of a 
 schema. All header files are placed in the schema subdirectory of the main 
 include folder of the build tree. For example, the 
-schema \texttt{cpuid} would generate the file \texttt{cpuid\_schema.h} and can be included by a C program with:
-
-
-\texttt{\#include <schema/cpuid\_schema.h}
+schema \texttt{SN} would generate the file \texttt{SN\_schema.h} and can 
+be included by a C program with:
+\begin{quote}
+\texttt{\#include <schema/SN\_schema.h}
+\end{quote}
 
 \section{Preamble}
 
-\section{Facts}
+The generated headerfile is protected by a include guard that depends on the
+schema name. For example, the schema \texttt{SN} will be guarded by the
+macro definition \texttt{\_\_SCHEMADEF\_\_SN\_H\_}. The header file will 
+include the folling header files:
+\begin{enumerate}
+  \item a common header \texttt{skate.h} providing the missing macro and 
+        function definitions for correct C generation.
+  \item an include for each of the imported schema devices.
+\end{enumerate}
 
 \section{Constants}
 
+For any declared constant group, Skate will generate the following:
+
+\paragraph{Type and macro definitions}
+\begin{enumerate}
+  \item A type definition for the declared type of the constant group. The 
+        type  typename will be \texttt{SN\_DN\_t}.
+  \item A set of CPP macro definitions, one for each of the declared constants.
+        Each macro will have the name as in \texttt{SN\_DN\_FN} and expands to the field value cast to the type of the field.
+\end{enumerate}
+
+\paragraph{Function definitions}
+\begin{enumerate}
+  \item A function to describe the value 
+        \begin{quote}
+          \texttt{SN\_DN\_describe(SN\_DN\_t);}
+        \end{quote}
+
+  \item An snprintf-like function to pretty-print values of type SN\_DN\_t, 
+        with prototype:
+        \begin{quote}
+          \texttt{int SN\_DN\_print(char *s, size\_t sz);}
+        \end{quote}
+
+\end{enumerate}
+\todo{Do we need more ?}
+
 \section{Flags}
+
+\paragraph{Type and macro definitions}
+\begin{enumerate}
+  \item A type definition for the declared type of the flag group. The 
+        type typename will be \texttt{SN\_DN\_t}.
+\end{enumerate}
+
+\paragraph{Function definitions}
+\begin{enumerate}
+  \item A function to describe the value 
+        \begin{quote}
+          \texttt{SN\_DN\_describe(SN\_DN\_t);}
+        \end{quote}
+\end{enumerate}
+\todo{Do we need more ?}
+
+\section{Enumerations}
+Enumerations translate one-to-one to the C enumeration type in a straight 
+forward manner:
+
+\begin{quote}
+  \texttt{typdef enum \{ SN\_DN\_FN1, ... \} SN\_DN\_t; }
+\end{quote}
+
+\paragraph{Function definitions}
+\begin{enumerate}
+  \item A function to describe the value 
+        \begin{quote}
+          \texttt{SN\_DN\_describe(SN\_DN\_t);}
+        \end{quote}
+  \item A function to pretty-print the value
+        \begin{quote}
+          \texttt{SN\_DN\_print(char *b, size\_t sz, SN\_DN\_t val);}
+        \end{quote}
+\end{enumerate}
+
+\section{Facts}
+
+
+\paragraph{Type and macro definitions}
+\begin{enumerate}
+  \item A type definition for the declared type of the flag group. The 
+        type typename will be \texttt{SN\_DN\_t}.
+\end{enumerate}
+
+\paragraph{Function definitions}
+\begin{enumerate}
+  \item A function to describe the value 
+        \begin{quote}
+          \texttt{SN\_DN\_describe(SN\_DN\_t);}
+        \end{quote}
+  \item A function to add a fact to the SKB
+  \item A function to retrieve all the facts of this type from the SKB
+  \item A function to delete the fact from the SKB
+\end{enumerate}
+
+\todo{Provide some way of wildcard values. e.g. list all facts with this 
+filter or delete all facts that match the filter.}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Prolog mapping for Schema Definitions}
-\label{chap:cmapping}
+\label{chap:prologmapping}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Generated Documentation}
-\label{chap:cmapping}
+\label{chap:documentation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \chapter{High-level overview: Skate schema for the SKB}
