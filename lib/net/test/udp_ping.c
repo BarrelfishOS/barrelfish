@@ -15,6 +15,7 @@
 
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/deferred.h>
 
 #include <lwip/ip.h>
 #include <lwip/udp.h>
@@ -37,6 +38,7 @@ static ip_addr_t ping_addr;
 static uint16_t ping_port = UDP_ECHOSERVER_PORT;
 
 static struct udp_pcb *ping_pcb;
+static struct periodic_event ev;
 
 #define PING_TIMEOUT   1000
 #define PING_DELAY     1000
@@ -155,7 +157,7 @@ ping_timeout(void *arg)
 
   ping_send(pcb, &ping_addr);
 
-  sys_timeout(PING_DELAY, ping_timeout, pcb);
+  //sys_timeout(PING_DELAY, ping_timeout, pcb);
 }
 
 
@@ -203,11 +205,14 @@ int main(int argc, char *argv[])
         USER_PANIC("Adding filter failed %s \n", err_getstring(err));
     }
 
-    sys_timeout(PING_DELAY, ping_timeout, ping_pcb);
-
+    err = periodic_event_create(&ev, get_default_waitset(),
+                                (PING_DELAY * 1000),
+                                MKCLOSURE(ping_timeout, (void*) ping_pcb));
+    if (err_is_fail(err)) {
+        USER_PANIC("Creating perodic event failed %s \n", err_getstring(err));
+    }
 
     while(1) {
-        //event_dispatch_non_block(get_default_waitset());
         networking_poll();
     }
 
