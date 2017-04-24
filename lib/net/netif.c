@@ -408,12 +408,14 @@ errval_t net_if_poll(struct netif *netif)
 
 
 #if BENCH_DEVQ_DEQUEUE
-        bench_devq_deq += rdtsc() - tsc_start;
-        bench_devq_deq_count++;
-        if (bench_devq_deq_count== BENCH_NUM_MEASUREMENTS) {
-            debug_printf("BENCH DEQUEUE: %lu\n", bench_devq_deq >> BENCH_NUM_MEASUREMENTS_BITS);
-            bench_devq_deq = 0;
-            bench_devq_deq_count = 0;
+        if (err == SYS_ERR_OK) {
+            bench_devq_deq += rdtsc() - tsc_start;
+            bench_devq_deq_count++;
+            if (bench_devq_deq_count== BENCH_NUM_MEASUREMENTS) {
+                debug_printf("BENCH DEQUEUE: %lu\n", bench_devq_deq >> BENCH_NUM_MEASUREMENTS_BITS);
+                bench_devq_deq = 0;
+                bench_devq_deq_count = 0;
+            }
         }
 
 #endif
@@ -453,10 +455,10 @@ errval_t net_if_poll(struct netif *netif)
         nb->flags = 0;
 #endif
 
-
 #if BENCH_LWIP_STACK
         ((struct net_buf_p *)p)->timestamp = rdtsc();
 #endif
+
         if (buf.flags & NETIF_TXFLAG) {
             NETDEBUG("netif=%p, TX done of pbuf=%p (rid=%u, offset=%"PRIxLPADDR ")\n",
                      netif, p, buf.rid, buf.offset);
