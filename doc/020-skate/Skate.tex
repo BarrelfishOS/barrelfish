@@ -280,7 +280,17 @@ it must have at least one declaration.
   describes the schema type being specified, for example \texttt{"CPUID 
   Information Schema"}. 
 
-\item [declaration] One of the declarations described in~\ref{sec:decl:decls}.
+\item [declaration] one of 
+    \begin{itemize}
+        \item flags -- Section \ref{sec:decl:flags}
+        \item constants -- Section \ref{sec:decl:constants}
+        \item enumeration -- Section \ref{sec:decl:enums}
+        \item facts -- Section \ref{sec:decl:facts}
+        \item namespace -- Section \ref{sec:decl:namespace}
+        \item section -- Section \ref{sec:doc:section}
+        \item text -- Section \ref{sec:doc:text}
+    \end{itemize}
+
 
 \end{description}
 
@@ -317,6 +327,7 @@ In this section we define the syntax for all possible flag and type
 declarations supported in Skate. 
 
 \subsection{Flags}
+\label{sec:decl:flags}
 
 Flags are unsigned numbers of a specified width where each bit position has a
 specific meaning. Flags are declared in a flag group which represents a single
@@ -350,6 +361,7 @@ as follows:
 \end{description}
 
 \subsection{Constants}
+\label{sec:decl:constants}
 
 Compared to flags, constants can take up arbitrary values. An example of a 
 constant may be the vendor ID of a PCI express device or the version number
@@ -384,6 +396,7 @@ must have this type.
 \end{description}
 
 \subsection{Enumerations}
+\label{sec:decl:enums}
 
 Enumerations are a special type of constants without any specific value. This
 declaration is analogue to the C style \texttt{enum} declaration.
@@ -410,6 +423,7 @@ declaration is analogue to the C style \texttt{enum} declaration.
 \end{description}
 
 \subsection{Facts}
+\label{sec:decl:facts}
 
 The fact is the central element of Skate. It defines the actual facts about the
 system that are put into the SKB. Each fact has a name and one or more fields
@@ -452,6 +466,7 @@ transformation.
 \end{syntax}
 
 \section{Namespaces}
+\label{sec:decl:namespace}
 
 The idea of a namespace is to provide more hierarchical structure, for example
 a PCI devices may have virtual and physical functions.
@@ -466,6 +481,53 @@ default namespace?}
 \verb+}+;
 \end{syntax}
 
+\begin{description}
+    \item[name] the identifier of this namespace.
+    
+    \item[description] description of this namespace
+    
+    \item[declarations] One or more declarations as stated above.
+\end{description}
+
+
+\section{Documentation}
+
+In order to organize the generated documentation we have a few syntactical 
+constructs that allows inserting structural elements and additional text for
+explanation into the generated documentation. There will not be any code 
+generated based from this constructs.
+
+\subsection{Schemas}
+The generated documentation will contain all the schema declared in the source 
+tree. The different schema files correspond to chapters in the resulting 
+documentation.
+
+\subsection{Sections}
+\label{sec:doc:section}
+The \texttt{section} construct allows to insert section headings into the 
+documentation. A section logically groups the declarations together to allow
+expressing a logical hierarchy. 
+
+\begin{syntax}
+\synbf{section} "\synit{name}";  \verb+{+
+    \synit{declaration};
+    \ldots
+\verb+}+;
+    
+\end{syntax}
+
+\subsection{Text}
+\label{sec:doc:text}
+
+By adding \texttt{text} blocks, additional content can be added to the generated
+documentation. This includes examples and additional information of the
+declarations of the schema.
+
+\begin{syntax}
+\synbf{text} \verb+{+
+    \synit{text}
+\verb+}+; 
+\end{syntax}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{C mapping for Schema Definitions}
