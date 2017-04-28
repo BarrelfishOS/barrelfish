@@ -33,8 +33,8 @@ import qualified SkateBackendCode
 import qualified SkateBackendHeader
 import qualified SkateBackendLatex
 import qualified SkateBackendWiki
-import qualified SkateTools
 import qualified SkateSchema
+import qualified SkateChecker
 
 
 
@@ -167,15 +167,7 @@ parseFile fname = do
         Left err -> ioError $ userError ("Parse error at: " ++ (show err))
         Right x -> return x
 
-{- verifies that the filename matches with the query definition -}
-checkFilename :: SkateParser.Schema -> String -> IO ()
-checkFilename schema fname = do
-    let 
-        SkateParser.Schema sname _ _ _ = schema
-    if sname == takeBaseName fname 
-    then return () 
-    else ioError $ userError (
-        "Schema name '" ++ sname ++ "' has to equal filename in " ++ fname)
+
 
 
 
@@ -196,7 +188,7 @@ resolveImp dfl path =
         case required of
             [] -> return dfl
             (t:_) -> do { 
-                i <- (findImport path (t ++ ".Skate")); 
+                i <- (findImport path (t ++ ".skate")); 
                 resolveImp (dfl ++ [i]) path }
 
 
@@ -210,23 +202,22 @@ main = do {
         inFile = fromJust $ opt_infilename opts
         outFile = fromJust $ opt_outfilename opts
         target = opt_targets opts
+        dfl  = []
     in 
         do {
             printf "Start parsing '%s'\n" inFile;
             ast  <- parseFile inFile; 
             dfl <- resolveImp [ast] (opt_includes opts); 
-
-
-            checkFilename ast inFile;
             
             printf "output parsing '%s'\n" outFile;
             let 
-                s = SkateSchema.make_schema_record ast (tail dfl) 
+                st = SkateSchema.make_schema_record ast (tail dfl);
+                ast2 = SkateSchema.skateSchemaGetAst st;
             in
                 do { 
-                  --  _ <- run_checks inFile s; 
+                    _ <- SkateChecker.run_all_checks inFile st; 
                     outFileD <- openFile outFile WriteMode; 
-                    compile opts target ast inFile outFile outFileD;
+                    compile opts target ast2 inFile outFile outFileD;
                     hClose outFileD          
                 }
         }
