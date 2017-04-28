@@ -377,7 +377,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     assert(err_is_ok(err));
     q->exp_done = true;
     // state is only function pointers
-    DESCQ_DEBUG("Control interface exported (%s)\n", name);
+    DESCQ_DEBUG("Control interface exported (%s)\n", q->name);
 }
 
 static errval_t connect_cb(void *st, struct descq_binding* b)

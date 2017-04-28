@@ -10,13 +10,13 @@
 #define DESCQ_DEBUG_H_ 1
 
 
-#define DESCQ_DEBUG_ENABLED 1
+//#define DESCQ_DEBUG_ENABLED 1
 
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
 
-#if defined(DQI_DEBUG_QUEUE_ENABLED) 
+#if defined(DESCQ_DEBUG_ENABLED) 
 #define DESCQ_DEBUG(x...) do { printf("DQI_REGION:%s.%d:%s:%d: ", \
             disp_name(), disp_get_core_id(), __func__, __LINE__); \
                 printf(x);\
