@@ -315,7 +315,6 @@ sectiondecl = do {
 textdecl = do {
     reserved "text";
     t <- stringLit;
-    _ <- symbol ";" ;
     return (Text t);
 };
 

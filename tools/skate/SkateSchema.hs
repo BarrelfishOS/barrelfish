@@ -29,20 +29,31 @@ data SchemaRecord = SchemaRecord {
 }
 
 
+skateSchemaTransform :: SchemaRecord -> SchemaRecord
+skateSchemaTransform sr = sr
+
 make_schema_record :: Schema -> [Schema] -> SchemaRecord
 make_schema_record s@(Schema n d decls imps) dfl =
     let ttbl = TT.make_table s
         ftbl = DT.make_table ttbl decls n
         qtbl = DT.make_table ttbl decls n
     in
-        SchemaRecord { 
+        (skateSchemaTransform SchemaRecord { 
             name = n, 
-            desc = d, 
+            desc = d,   
             schema = s, 
             types = ttbl,
             -- all_types = ttbl ++ ( concat $ map TT.make_rtypetable dfl ),
             facts = ftbl,
             queries = qtbl,
             imports = imps
-        }
+        })
+
+        
+
+
+
+skateSchemaGetAst :: SchemaRecord -> Schema
+skateSchemaGetAst sr = (schema sr)
+
 
