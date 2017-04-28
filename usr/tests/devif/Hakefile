@@ -18,5 +18,11 @@
 
   build application { target = "devif_idc", 
                       cFiles = [ "idc_endpoint.c" ],
-                      addLibraries = [ "devif" , "devif_backend_idc"] }
+                      addLibraries = [ "devif" , "devif_backend_idc",
+                                       "devif_backend_debug"] },
+
+  build application { target = "devif_debug_test", 
+                      cFiles = [ "debug_test.c" ],
+                      addLibraries = [ "devif" , "devif_backend_idc",
+                                       "devif_backend_debug"] }
 ]
