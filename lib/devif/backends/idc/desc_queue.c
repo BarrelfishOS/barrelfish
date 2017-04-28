@@ -51,13 +51,14 @@ struct descq {
     uint64_t tx_seq;
     union pointer* rx_seq_ack;
     union pointer* tx_seq_ack;
-   
+  
     // Flounder
     struct descq_binding* binding;
     bool local_bind;
     bool lmp_bind;
     bool ump_bind;
-    
+    uint64_t resend_args;
+  
     // linked list
     struct descq* next;
     uint64_t qid;
@@ -229,14 +230,35 @@ static errval_t descq_register(struct devq* q, struct capref cap,
     return err;
 }
 
+static void try_deregister(void* a)
+{
+    errval_t err, err2;
+    struct descq* queue = (struct descq*) a;
+    
+    err = queue->binding->rpc_tx_vtbl.deregister_region(queue->binding, queue->resend_args, 
+                                                        &err2);
+    assert(err_is_ok(err2) && err_is_ok(err));
+}
+
+
 static errval_t descq_deregister(struct devq* q, regionid_t rid)
 {
     errval_t err, err2;
+    err2 = SYS_ERR_OK;
     struct descq* queue = (struct descq*) q;
 
     err = queue->binding->rpc_tx_vtbl.deregister_region(queue->binding, rid, &err2);
-    err = err_is_fail(err) ? err : err2;
-    return err;
+    if (err_is_fail(err)) {
+        queue->resend_args = rid;
+        while(err_is_fail(err)) {
+            err = queue->binding->register_send(queue->binding, get_default_waitset(),
+                                                MKCONT(try_deregister, queue));
+            if (err_is_fail(err)) {
+                event_dispatch(get_default_waitset());
+            }
+        }
+    }
+    return err2;
 }
 
 /*
