@@ -195,7 +195,7 @@ binary & \rightarrow (\textsf{0b})(\textsf{0, 1})^{\textrm{1}}\\
 \begin{alltt}
   \begin{tabbing}
 xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \= xxxxxxxxx \kill
-fact \> query \> flags \> constants \>  enum \>  \\
+fact \> flags \> constants \>  enumeration \> text \> section\\
   \end{tabbing}
 \end{alltt}
 
@@ -223,7 +223,8 @@ must contain and what other declarations it can have.
 A Skate file must consist of zero or more \emph{import} declarations (see
 ~\ref{sec:decl:schema}) followed by a single \emph{schema} declaration 
 (see~\ref{sec:decl:schema}) which contains the actual fact definitions, etc.
-The Skate file typicall has the extension \emph{*.schema}.
+The Skate file typically has the extension \emph{*.schema}. An optional 
+\emph{Prelude} allows to write introductory text.
 
 \begin{syntax}
 (Import)*
@@ -254,12 +255,17 @@ attempt to parse all the imports of the imported files transitively.
 Cyclic dependencies between device files will not cause errors, but at present 
 are unlikely to result in C header files which will successfully compile. 
 
+
+
+
 \section{Schemas}\label{sec:decl:schema}
 
 A schema groups all the facts of a particular topic together. For example, 
 a schema could be the PCI Express devices, memory regions or an ACPI table. 
 Each schema must have a unique name, which must match the name of the file, and
 it must have at least one declaration.
+
+
 
 \begin{syntax}
 \synbf{schema} \synit{name} "\synit{description}" \verb+{+
@@ -293,6 +299,33 @@ it must have at least one declaration.
 
 
 \end{description}
+
+\section{Namespaces}
+\label{sec:decl:namespace}
+
+The idea of a namespaces is to provide more hierarchical structure similar to 
+java packages or URIs. For example a PCI devices may have virtual and physical 
+functions or a processor has multiple cores. Namespaces can be nested within 
+a schema.
+
+\todo{does everything has to live in a namespace?, or is there an implicit
+default namespace?}
+
+\begin{syntax}
+    \synbf{namespace} \synit{name} "\synit{description}" \verb+{+
+    \synit{declaration};
+    \ldots
+    \verb+}+;
+\end{syntax}
+
+\begin{description}
+    \item[name] the identifier of this namespace.
+    
+    \item[description] description of this namespace
+    
+    \item[declarations] One or more declarations as stated above.
+\end{description}
+
 
 \section{Types}\label{sec:decl:types}
 
@@ -465,69 +498,65 @@ transformation.
 \verb+}+;
 \end{syntax}
 
-\section{Namespaces}
-\label{sec:decl:namespace}
 
-The idea of a namespace is to provide more hierarchical structure, for example
-a PCI devices may have virtual and physical functions.
-
-\todo{does everything has to live in a namespace?, or is there an implicit
-default namespace?}
-
-\begin{syntax}
-\synbf{namespace} \synit{name} "\synit{description}" \verb+{+
-    \synit{declaration};
-    \ldots
-\verb+}+;
-\end{syntax}
-
-\begin{description}
-    \item[name] the identifier of this namespace.
-    
-    \item[description] description of this namespace
-    
-    \item[declarations] One or more declarations as stated above.
-\end{description}
 
 
 \section{Documentation}
 
-In order to organize the generated documentation we have a few syntactical 
-constructs that allows inserting structural elements and additional text for
-explanation into the generated documentation. There will not be any code 
-generated based from this constructs.
+The schema declaration may contain \emph{section} and \emph{text} blocks that
+allow providing an introduction or additional information for the schema 
+declared in the Skate file. The two constructs are for documentation purpose 
+only and do not affect code generation. The section and text blocks can appear
+at any place in the Schema declaration.
 
-\subsection{Schemas}
-The generated documentation will contain all the schema declared in the source 
+\subsection{Schema}
+The generated documentation will contain all the schemas declared in the source 
 tree. The different schema files correspond to chapters in the resulting 
-documentation.
-
-\subsection{Sections}
-\label{sec:doc:section}
-The \texttt{section} construct allows to insert section headings into the 
-documentation. A section logically groups the declarations together to allow
-expressing a logical hierarchy. 
-
-\begin{syntax}
-\synbf{section} "\synit{name}";  \verb+{+
-    \synit{declaration};
-    \ldots
-\verb+}+;
-    
-\end{syntax}
+documentation or form a page of a wiki for instance.
 
 \subsection{Text}
 \label{sec:doc:text}
 
 By adding \texttt{text} blocks, additional content can be added to the generated
 documentation. This includes examples and additional information of the
-declarations of the schema.
+declarations of the schema. The text blocks are omitted when generating code. 
+Note, each of the text lines must be wrapped in double quotes. Generally, a 
+block of text will translate to a paragraph.
 
 \begin{syntax}
-\synbf{text} \verb+{+
-    \synit{text}
-\verb+}+; 
+    \synbf{text}  \verb+{+
+    "synit{text}"
+    ...
+    \verb+}+
 \end{syntax}
+
+\begin{description}
+    \item[text] A line of text (string)
+\end{description}
+
+\todo{have javadoc like references @my_decl to create links in the text}
+
+\subsection{Sections}
+\label{sec:doc:section}
+The \texttt{section} construct allows to insert section headings into the 
+documentation. A section logically groups the declarations and text blocks 
+together to allow expressing a logical hierarchy. 
+
+\begin{syntax}
+    \synbf{section} "\synit{name}"  \verb+{+
+    \synit{declaration};
+    \ldots
+    \verb+};+;
+\end{syntax}
+
+\begin{description}
+    \item[name] the name will be used as the section heading
+    \item[declaration] declarations belonging to this section. 
+\end{description}
+
+Note, nested sections will result into (sub)subheadings or heading 2, 3, ...
+Namespaces will appear as sections in the documentation.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{C mapping for Schema Definitions}
@@ -672,16 +701,42 @@ forward manner:
 \todo{Provide some way of wildcard values. e.g. list all facts with this 
 filter or delete all facts that match the filter.}
 
+\section{Namespaces}
+
+\paragraph{Function definitions}
+\begin{enumerate}
+    \item A function to retrieve all the facts belonging to a name space
+\end{enumerate}
+
+
+\section{Sections and text blocks}
+For the \texttt{section} and \texttt{text} blocks in the schema file, there
+won't be any visible C constructs generated, but rather turned into comment
+blocks in the generated C files.
+
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Prolog mapping for Schema Definitions}
 \label{chap:prologmapping}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Generated Documentation}
 \label{chap:documentation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Access Control}
+\label{chap:accesscontrol}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+on the level of schema or namespaces.
 
 \chapter{High-level overview: Skate schema for the SKB}
 \label{chap:overview}
