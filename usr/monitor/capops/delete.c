@@ -428,11 +428,13 @@ delete_trylock_cont(void *st)
     err = monitor_lock_cap(del_st->capref.croot, del_st->capref.cptr,
                            del_st->capref.level);
     if (err_no(err) == SYS_ERR_CAP_LOCKED) {
+        DEBUG_CAPOPS("%s: from lock(): cap already locked, queuing retry\n", __FUNCTION__);
         caplock_wait(del_st->capref, &del_st->lock_qn,
                      MKCLOSURE(delete_trylock_cont, del_st));
         return;
     }
     else if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
+        DEBUG_CAPOPS("%s: from lock(): cap not found, got deleted from elsewhere\n", __FUNCTION__);
         // Some other operation (another delete or a revoke) has deleted the
         // target cap. This is OK.
         err = err_push(SYS_ERR_OK, err);
@@ -475,6 +477,7 @@ delete_trylock_cont(void *st)
     return;
 
 report_error:
+    DEBUG_CAPOPS("%s: reporting error: %s\n", __FUNCTION__, err_getcode(err));
     delete_result__rx(err, del_st, locked);
 }
 
