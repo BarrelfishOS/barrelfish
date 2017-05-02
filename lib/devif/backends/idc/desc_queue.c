@@ -105,12 +105,18 @@ static errval_t descq_enqueue(struct devq* queue,
         return DEVQ_ERR_QUEUE_FULL;
     }
     
+ 
+    assert(length > 0);
+
     q->tx_descs[head].rid = region_id;
     q->tx_descs[head].offset = offset;
     q->tx_descs[head].length = length;
     q->tx_descs[head].valid_data = valid_data;
     q->tx_descs[head].valid_length = valid_length;
     q->tx_descs[head].flags = misc_flags;
+
+    __sync_synchronize();
+
     q->tx_descs[head].seq = q->tx_seq;
 
     // only write local head
@@ -119,7 +125,7 @@ static errval_t descq_enqueue(struct devq* queue,
     DESCQ_DEBUG("tx_seq=%lu tx_seq_ack=%lu \n",
                     q->tx_seq, q->tx_seq_ack->value);
     // if (q->local_bind) {
-        q->binding->tx_vtbl.notify(q->binding, NOP_CONT);
+    //q->binding->tx_vtbl.notify(q->binding, NOP_CONT);
     // }
     return SYS_ERR_OK;
 }
@@ -164,8 +170,9 @@ static errval_t descq_dequeue(struct devq* queue,
     *valid_data = q->rx_descs[tail].valid_data;
     *valid_length = q->rx_descs[tail].valid_length;
     *misc_flags = q->rx_descs[tail].flags;
- 
-       
+
+    assert(*length > 0);       
+
     q->rx_seq++;
     q->rx_seq_ack->value = q->rx_seq;
 
@@ -185,12 +192,7 @@ static errval_t descq_notify(struct devq* q)
     errval_t err;
     //errval_t err2;
     struct descq* queue = (struct descq*) q;
-    /*
-    DESCQ_DEBUG("start \n");
-    err = queue->binding->rpc_tx_vtbl.notify(queue->rpc, &err2);
-    err = err_is_fail(err) ? err : err2;
-    DESCQ_DEBUG("end\n");
-    */
+
     err = queue->binding->tx_vtbl.notify(queue->binding, NOP_CONT);
     if (err_is_fail(err)) {
         while(err_is_fail(err)) {
