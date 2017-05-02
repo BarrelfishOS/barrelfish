@@ -27,7 +27,8 @@
 #define DEBUG(x...) do {} while (0)
 
 #define BUF_SIZE 2048
-#define MEMORY_SIZE BUF_SIZE*512
+#define NUM_BUFS 128
+#define MEMORY_SIZE BUF_SIZE*NUM_BUFS
 
 static struct capref memory;
 static regionid_t regid;
@@ -56,7 +57,7 @@ struct list_ele{
 
 struct devq* que;
 
-static bool enq[MEMORY_SIZE/BUF_SIZE];
+static volatile bool enq[NUM_BUFS];
 
 static errval_t descq_notify(struct descq* q)
 {
@@ -82,7 +83,7 @@ static errval_t descq_notify(struct descq* q)
 
 #define NUM_REGIONS 32
 
-#define NUM_ROUNDS 1000
+#define NUM_ROUNDS 10000
 
 static void test_register(void)
 {
@@ -91,7 +92,7 @@ static void test_register(void)
     regionid_t rids[NUM_REGIONS];
     bool is_reg[NUM_REGIONS];
 
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < NUM_REGIONS; i++) {
         err = frame_alloc(&regions[i], BASE_PAGE_SIZE, NULL);
         if (err_is_fail(err)){
             USER_PANIC("Allocating cap failed \n");
@@ -139,7 +140,7 @@ static void test_enqueue_dequeue(void)
     num_rx = 0;
 
     // enqueue from the beginning of the region
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < NUM_BUFS/8; i++) {
         err = devq_enqueue(que, regid, i*BUF_SIZE, BUF_SIZE, 
                            0, BUF_SIZE, 0);
         if (err_is_fail(err)){
@@ -151,7 +152,7 @@ static void test_enqueue_dequeue(void)
 
 
     // enqueue from the end of the region
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < NUM_BUFS/8; i++) {
         err = devq_enqueue(que, regid, MEMORY_SIZE-((i+1)*BUF_SIZE), 
                            BUF_SIZE, 0, BUF_SIZE, 0);
         if (err_is_fail(err)){
@@ -160,25 +161,14 @@ static void test_enqueue_dequeue(void)
             num_tx++;
         }
     }
-
-    // enqueue from middle part...
-    for (int i = 0; i < 10; i++) {
-        err = devq_enqueue(que, regid, 10*(i+2)*BUF_SIZE, 
-                           BUF_SIZE, 0, BUF_SIZE, 0);
-        if (err_is_fail(err)){
-            USER_PANIC("Enqueue failed: %s \n", err_getstring(err));
-        } else {
-            num_tx++;
-        }
-    }
-    
+ 
     err = devq_notify(que);
     if (err_is_fail(err)) {
         USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
     }
 
-    while(num_rx < 30) {
-        event_dispatch_non_block(get_default_waitset());
+    while(num_rx < (NUM_BUFS/4)) {
+        event_dispatch(get_default_waitset());
     }
 }
 
@@ -189,7 +179,6 @@ static void test_failures(void)
     num_tx = 0;
     num_rx = 0;
 
-    
 
     err = devq_enqueue(que, regid, 0, BUF_SIZE, 
                        0, BUF_SIZE, 0);
@@ -253,15 +242,16 @@ static void test_randomized_test(void)
     errval_t err;
     num_tx = 0;
     num_rx = 0;
-
+    memset((void*)enq, 0, sizeof(bool)*NUM_BUFS);
+    
     srand(rdtsc());
     int idx = 0;
     // enqueue from the beginning of the region
-    for (int i = 0; i < 32; i++) {
-        for (int j = 0; j < 32; j++) {
-            idx = rand() % 512;
+    for (int i = 0; i < 1000000; i++) {
+        for (int j = 0; j < NUM_BUFS/2; j++) {
+            idx = rand() % NUM_BUFS;
             while (enq[idx]) {
-                idx = rand() % 512;
+                idx = rand() % NUM_BUFS;
             }            
 
             err = devq_enqueue(que, regid, idx*BUF_SIZE, BUF_SIZE, 
@@ -274,13 +264,17 @@ static void test_randomized_test(void)
             }
         }
 
+        if ((i % 100000) == 0) {
+            printf("Round %d \n", i);
+        }
+
         err = devq_notify(que);
         if (err_is_fail(err)) {
             USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
         }
 
-        while(num_rx < ((i+1)*32)) {
-            event_dispatch_non_block(get_default_waitset());
+        while(num_rx < ((i+1)*NUM_BUFS/2)) {
+            event_dispatch(get_default_waitset());
         }
     }
 
@@ -346,12 +340,10 @@ int main(int argc, char *argv[])
     printf("Starting randomized test \n");
     test_randomized_test();
 
-    barrelfish_usleep(1*1000*1000);
     err = devq_deregister(que, regid, &memory);
     if (err_is_fail(err)){
         USER_PANIC("Deregistering memory from devq failed: %s \n",
                    err_getstring(err));
-        abort();
     }
 
     printf("SUCCESS \n");
