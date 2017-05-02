@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
 #include <devif/queue_interface.h>
@@ -16,6 +17,8 @@
 #include <devif/backends/debug.h>
 #include "debug.h"
 
+#define HIST_SIZE 128
+#define MAX_STR_SIZE 128
 
 struct memory_ele {
     genoffset_t offset;
@@ -31,11 +34,19 @@ struct memory_list {
     struct memory_list* next; // next in list of lists
 };
 
+struct operation {
+    char str[MAX_STR_SIZE];
+    genoffset_t offset;
+    genoffset_t length;
+};
+
 struct debug_q {
     struct devq my_q;
     struct devq* q;
     struct memory_list* regions; // list of lists
     struct slab_allocator alloc;
+    uint16_t hist_head;
+    struct operation history[HIST_SIZE];
 };
 
 static void dump_list(struct memory_list* region)
@@ -71,6 +82,42 @@ static void check_consistency(struct memory_list* region)
         ele = ele->next;
     }   
 }
+
+static void add_to_history(struct debug_q* q, genoffset_t offset, 
+                           genoffset_t length, char* s)
+{
+    q->history[q->hist_head].offset = offset;
+    q->history[q->hist_head].length = length;
+    strncpy(q->history[q->hist_head].str, s, MAX_STR_SIZE);
+    q->hist_head = (q->hist_head + 1) % HIST_SIZE;
+
+}
+
+static void dump_history(struct debug_q* q)
+{
+    for (int i = 0; i < HIST_SIZE; i++) {
+        printf("offset=%lu length=%lu %s\n", q->history[q->hist_head].offset, 
+               q->history[q->hist_head].length, q->history[q->hist_head].str);
+       
+        q->hist_head = (q->hist_head + 1) % HIST_SIZE;
+    }
+}
+
+/*
+static bool in_list(struct memory_list* region, genoffset_t offset,
+                    genoffset_t length)
+{
+    struct memory_ele* ele = region->buffers;
+    while (ele != NULL) {
+        if (offset >= ele->offset && 
+            offset + length <= ele->offset+ele->length) {
+            return true;
+        }
+        ele = ele->next;
+    }   
+    return false;
+}
+*/
 
 static errval_t debug_register(struct devq* q, struct capref cap,
                                regionid_t rid) 
@@ -264,15 +311,21 @@ static void remove_split_buffer(struct debug_q* que,
         buffer->length -= length;
 
         if (buffer->length == 0) {
+            add_to_history(que, offset, length, "enq cut of beginning remove");
+            DEBUG("enqueue remove buffer from list\n");
             // remove
             if (buffer->prev != NULL) {
                 buffer->prev->next = buffer->next;
+            } else {
+                region->buffers = buffer->next;
             }
         
             if (buffer->next != NULL) {
                 buffer->next->prev = buffer->prev;
             }
             slab_free(&que->alloc, buffer);
+        } else {
+            add_to_history(que, offset, length, "enq cut of beginning");
         }
 
         DEBUG("enqueue first cut off begining results in offset=%"PRIu64" "
@@ -286,6 +339,7 @@ static void remove_split_buffer(struct debug_q* que,
         buffer->length -= length;
 
         if (buffer->length == 0) {
+            add_to_history(que, offset, length, "enq cut of end remove");
             // remove
             if (buffer->prev != NULL) {
                 buffer->prev = buffer->next;
@@ -295,6 +349,8 @@ static void remove_split_buffer(struct debug_q* que,
                 buffer->next->prev = buffer->prev;
             }
             slab_free(&que->alloc, buffer);
+        } else {
+            add_to_history(que, offset, length, "enq cut of end");
         }
     
         DEBUG("enqueue first cut off end results in offset=%"PRIu64" "
@@ -325,6 +381,9 @@ static void remove_split_buffer(struct debug_q* que,
     }
 
     buffer->next = after;
+
+    add_to_history(que, offset, length, "enq split buffer");
+
     DEBUG("Split buffer length=%lu to "
           "offset=%"PRIu64" length=%"PRIu64" and "
           "offset=%lu length=%lu \n",
@@ -346,6 +405,7 @@ static void insert_merge_buffer(struct debug_q* que,
 {
     assert(buffer != NULL);
     assert(region != NULL);
+
     if (offset >= buffer->offset+buffer->length) {// insert after
         // buffer is on lower boundary
         //
@@ -370,7 +430,12 @@ static void insert_merge_buffer(struct debug_q* que,
                       next->offset, next->length,
                       buffer->offset, buffer->length);
 
+                add_to_history(que, offset, length, "deq insert after"
+                               " on lower boundary and merge");
+
                 slab_free(&que->alloc, next);
+            } else {
+                add_to_history(que, offset, length, "deq insert after on lower boundary");
             }
         } else { 
             // check higher boundary
@@ -384,6 +449,8 @@ static void insert_merge_buffer(struct debug_q* que,
                       "length=%"PRIu64" to offset=%"PRIu64" length=%"PRIu64" \n ",
                       offset, length,
                       buffer->next->offset, buffer->next->length);
+                add_to_history(que, offset, length, "deq insert after"
+                               " on higer boundary");
             
             } else { 
                 // buffer->next can be null and the newly inserted buffer
@@ -392,6 +459,9 @@ static void insert_merge_buffer(struct debug_q* que,
                     buffer->offset + buffer->length == offset) {
 
                     buffer->length += length;
+
+                    add_to_history(que, offset, length, "deq insert after"
+                                   " on higer boundary end");
 
                     DEBUG("dequeue insert after merged offset=%"PRIu64" "
                           "length=%"PRIu64" "
@@ -413,6 +483,8 @@ static void insert_merge_buffer(struct debug_q* que,
 
                     buffer->next = ele;
 
+                    add_to_history(que, offset, length, "deq insert after"
+                                   " in between");
                     DEBUG("dequeue insert after offset=%"PRIu64" length=%"PRIu64" "
                           "after offset=%"PRIu64" length=%"PRIu64" \n",
                           offset, length, buffer->offset, buffer->length);
@@ -439,17 +511,29 @@ static void insert_merge_buffer(struct debug_q* que,
 
                 slab_free(&que->alloc, buffer);
 
+                add_to_history(que, offset, length, "deq insert buffer"
+                               " before lower boundary merge");
                 DEBUG("dequeue merge before more offset=%"PRIu64" "
                       "length=%"PRIu64" to offset=%"PRIu64" length=%"PRIu64" \n ",
                       offset, length, prev->offset, prev->length);
+            } else {
+                add_to_history(que, offset, length, "deq insert buffer"
+                               " before lower boundary");
             }
         } else {
             // check lower boundary
             if (buffer->prev != NULL &&
                 (buffer->prev->offset+ buffer->prev->length == 
                 offset)) {
+                if (length == 0) {
+                    printf("Length is 0 \n");
+                    buffer->prev->length += 2048;
+                }
+
                 buffer->prev->length += length;
 
+                add_to_history(que, offset, length, "deq insert buffer"
+                               " before prev lower boundary merge");
                 DEBUG("dequeue merge before more offset=%"PRIu64" "
                       "length=%"PRIu64" to offset=%"PRIu64" length=%"PRIu64" \n ",
                       offset, length, buffer->prev->offset, buffer->prev->length);
@@ -472,6 +556,8 @@ static void insert_merge_buffer(struct debug_q* que,
 
                 buffer->prev = ele;
 
+                add_to_history(que, offset, length, "deq insert buffer"
+                               " before in between");
                 DEBUG("dequeue insert before offset=%"PRIu64" length=%"PRIu64" "
                       "next is offset=%"PRIu64" length=%"PRIu64" \n",
                       offset, length,
@@ -508,6 +594,7 @@ static errval_t debug_enqueue(struct devq* q, regionid_t rid,
                               genoffset_t valid_data, genoffset_t valid_length,
                               uint64_t flags)
 {
+    assert(length > 0);
     DEBUG("enqueue offset %"PRIu64" \n", offset);
     errval_t err;
     struct debug_q* que = (struct debug_q*) q;
@@ -542,9 +629,11 @@ static errval_t debug_enqueue(struct devq* q, regionid_t rid,
             remove_split_buffer(que, region, buffer, offset, length);
             return SYS_ERR_OK;          
         } else {
-            DEBUG("Bounds check failed only buffer offset=%lu length=%lu " 
+            printf("Bounds check failed only buffer offset=%lu length=%lu " 
                   " buf->offset=%lu buf->len=%lu\n", offset, length,
                   buffer->offset, buffer->length);
+            dump_history(que);
+            dump_list(region);
             return DEVQ_ERR_INVALID_BUFFER_ARGS;
         }
     }
@@ -566,7 +655,9 @@ static errval_t debug_enqueue(struct devq* q, regionid_t rid,
         buffer = buffer->next;
     }  
     
-    DEBUG("Did not find region \n");
+    printf("Did not find region offset=%ld length=%ld \n", offset, length);
+    dump_history(que);
+    dump_list(region);
 
     return DEVQ_ERR_INVALID_BUFFER_ARGS;
 }
@@ -579,7 +670,6 @@ static errval_t debug_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
     struct debug_q* que = (struct debug_q*) q;
     err = que->q->f.deq(que->q, rid, offset, length, valid_data,
                         valid_length, flags);
-
     if (err_is_fail(err)) {
         return err;
     }
