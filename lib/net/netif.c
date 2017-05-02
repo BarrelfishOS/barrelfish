@@ -69,8 +69,10 @@ static size_t bench_devq_enq_tx_count = 0;
 #endif
 
 #if BENCH_DEVQ_DEQUEUE
-static cycles_t bench_devq_deq = 0;
-static size_t bench_devq_deq_count = 0;
+static cycles_t bench_devq_deq_rx = 0;
+static size_t bench_devq_deq_count_rx = 0;
+static cycles_t bench_devq_deq_tx = 0;
+static size_t bench_devq_deq_count_tx = 0;
 #endif
 
 
@@ -409,12 +411,25 @@ errval_t net_if_poll(struct netif *netif)
 
 #if BENCH_DEVQ_DEQUEUE
         if (err == SYS_ERR_OK) {
-            bench_devq_deq += rdtsc() - tsc_start;
-            bench_devq_deq_count++;
-            if (bench_devq_deq_count== BENCH_NUM_MEASUREMENTS) {
-                debug_printf("BENCH DEQUEUE: %lu\n", bench_devq_deq >> BENCH_NUM_MEASUREMENTS_BITS);
-                bench_devq_deq = 0;
-                bench_devq_deq_count = 0;
+            cycles_t end = rdtsc();
+            if (buf.flags & NETIF_TXFLAG) {
+                bench_devq_deq_tx += end - tsc_start;
+                bench_devq_deq_count_tx++;
+                if (bench_devq_deq_count_tx == BENCH_NUM_MEASUREMENTS) {
+                    debug_printf("BENCH DEQUEUE TX: %lu\n", bench_devq_deq_tx >> BENCH_NUM_MEASUREMENTS_BITS);
+                    bench_devq_deq_tx = 0;
+                    bench_devq_deq_count_tx = 0;
+                }
+            }
+
+            if (buf.flags & NETIF_RXFLAG) {
+                bench_devq_deq_rx += end - tsc_start;
+                bench_devq_deq_count_rx++;
+                if (bench_devq_deq_count_rx == BENCH_NUM_MEASUREMENTS) {
+                    debug_printf("BENCH DEQUEUE RX: %lu\n", bench_devq_deq_rx >> BENCH_NUM_MEASUREMENTS_BITS);
+                    bench_devq_deq_rx = 0;
+                    bench_devq_deq_count_rx = 0;
+                }
             }
         }
 
