@@ -125,11 +125,7 @@
 # define LDOUBLE double
 #endif
 
-#ifdef HAVE_LONG_LONG
 # define LLONG long long
-#else
-# define LLONG long
-#endif
 
 /*
  * dopr(): poor man's version of doprintf
