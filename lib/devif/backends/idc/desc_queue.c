@@ -106,7 +106,7 @@ static errval_t descq_enqueue(struct devq* queue,
     }
     
  
-    assert(length > 0);
+    //assert(length > 0);
 
     q->tx_descs[head].rid = region_id;
     q->tx_descs[head].offset = offset;
@@ -171,7 +171,7 @@ static errval_t descq_dequeue(struct devq* queue,
     *valid_length = q->rx_descs[tail].valid_length;
     *misc_flags = q->rx_descs[tail].flags;
 
-    assert(*length > 0);       
+    //assert(*length > 0);       
 
     q->rx_seq++;
     q->rx_seq_ack->value = q->rx_seq;

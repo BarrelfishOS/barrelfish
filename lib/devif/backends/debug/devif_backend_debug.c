@@ -20,6 +20,38 @@
 #define HIST_SIZE 128
 #define MAX_STR_SIZE 128
 
+/*
+ * This is a debugging interface for the device queue interface that
+ * can be used with any existing queue. It can be stacked on top 
+ * to check for non valid buffer enqueues/deqeues that might happen.
+ * A not valid enqueue of a buffer is when the endpoint that enqueues
+ * the buffer does not own the buffer. 
+ *
+ * We keep track of the owned buffers as a list of regions which each
+ * contains a list of memory chunks.
+ * Each chunk specifies a offset within the region and its length.
+ *
+ * When a region is registered, we add one memory chunk that describes
+ * the whole region i.e. offset=0 length= length of region
+ *
+ * If a a buffer is enqueued, it has to be contained in one of these
+ * memory chunks. The memory chunk is then altered according how
+ * the buffer is contained in the chunk. If it is at the beginning or
+ * end of the chunk, the offset/length of the chunk is changed accordingly
+ * If the buffer is in the middle of the chunk, we split the memory chunk
+ * into two new memory chunks that do not contain the buffer.
+ *
+ * If a buffer is dequeued the buffer is added to the existing memory
+ * chunks if possible, otherwise a new memory chunk is added to the
+ * list of chunks. If a buffer is dequeued that is in between two
+ * memory chunks, the memory chunks are merged to one big chunk. 
+ *
+ * When a region is deregistered, the list of chunks has to only 
+ * contain a single chunk that descirbes the whole region. Otherwise
+ * the call will fail since some of the buffers are still in use. 
+ * 
+ */
+
 struct memory_ele {
     genoffset_t offset;
     genoffset_t length;
@@ -118,6 +150,8 @@ static bool in_list(struct memory_list* region, genoffset_t offset,
     return false;
 }
 */
+
+
 
 static errval_t debug_register(struct devq* q, struct capref cap,
                                regionid_t rid) 
