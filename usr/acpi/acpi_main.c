@@ -135,4 +135,3 @@ int main(int argc, char *argv[])
 
     messages_handler_loop();
 }
-

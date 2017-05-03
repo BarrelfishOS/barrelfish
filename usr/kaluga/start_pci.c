@@ -19,8 +19,12 @@
 
 #include <barrelfish/barrelfish.h>
 
-#include <octopus/octopus.h>
+#include <if/octopus_defs.h>
 #include <if/octopus_thc.h>
+
+#include <octopus/octopus.h>
+#include <octopus/trigger.h>
+
 #include <skb/skb.h>
 #include <thc/thc.h>
 
@@ -87,11 +91,11 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "Got malformed device record?");
         }
-        
+
         /* duplicate device record as we may need it for later */
         device_record = strdup(device_record);
         assert(device_record);
-        
+
 
         // Ask the SKB which binary and where to start it...
         static char* query = "find_pci_driver(pci_card(%"PRIu64", %"PRIu64", _, _, _), Driver),"
@@ -289,7 +293,7 @@ errval_t watch_for_pci_root_bridge(void)
     assert(err_is_ok(err));
     err = sys_debug_create_irq_src_cap(all_irq_cap, 0, 65536);
     assert(err_is_ok(err));
-    
+
 #endif
     static char* root_bridge = "r'hw\\.pci\\.rootbridge\\.[0-9]+' { "
                                " bus: _, device: _, function: _, maxbus: _,"

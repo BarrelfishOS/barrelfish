@@ -22,10 +22,11 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/threads.h>
 
-#include <octopus/init.h>
-#include <octopus/pubsub.h>
 #include <if/octopus_defs.h>
 #include <if/octopus_thc.h>
+
+#include <octopus/init.h>
+#include <octopus/pubsub.h>
 
 #include "common.h"
 #include "handler.h"

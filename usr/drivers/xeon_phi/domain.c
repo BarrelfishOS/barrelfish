@@ -15,11 +15,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <barrelfish/barrelfish.h>
-#include <octopus/octopus.h>
 
 #include <if/octopus_defs.h>
-#include <if/octopus_defs.h>
 #include <if/octopus_thc.h>
+
+#include <octopus/octopus.h>
+#include <octopus/trigger.h>
 
 #include "xeon_phi_internal.h"
 #include "domain.h"
