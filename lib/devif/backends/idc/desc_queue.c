@@ -195,12 +195,15 @@ static errval_t descq_notify(struct devq* q)
 
     err = queue->binding->tx_vtbl.notify(queue->binding, NOP_CONT);
     if (err_is_fail(err)) {
-        while(err_is_fail(err)) {
-            err = queue->binding->register_send(queue->binding, get_default_waitset(),
-                                             MKCONT(resend_notify, queue));
-            if (err_is_fail(err)) {
-                event_dispatch(get_default_waitset());
-            }
+        
+        err = queue->binding->register_send(queue->binding, get_default_waitset(),
+                                            MKCONT(resend_notify, queue));
+        if (err == LIB_ERR_CHAN_ALREADY_REGISTERED) {
+            // dont care about this failure since there is an oustanding message
+            // anyway if this fails 
+            return SYS_ERR_OK;
+        } else {
+            return err;     
         }
     }
     return SYS_ERR_OK;
