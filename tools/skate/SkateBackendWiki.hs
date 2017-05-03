@@ -1,15 +1,15 @@
-{- 
+{-
   SkateBackendWiki: Backend to generate a Wiki documentation
-   
+
   Part of Skate: a Schema specification languge
-   
+
   Copyright (c) 2017, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--}  
+-}
 
 module SkateBackendWiki   where
 
@@ -29,7 +29,7 @@ import SkateTypes
 
 {- starts the compilation process of the schema -}
 compile :: String -> String -> Schema -> String
-compile infile outfile s@(Schema sname sdesc decls imps) = 
+compile infile outfile s@(Schema sname sdesc decls imps) =
     h ++ i ++ W.lineBreak ++ b ++ W.lineBreak ++ f
     where
         h = wikiHeader sname sdesc infile
@@ -46,14 +46,14 @@ wikiHeader sname desc infile = W.title ("Schema: " ++ desc)
     ++ W.textit "Schema Identifier: " ++ W.inlinecode sname ++ W.lineBreak
     ++ W.tableOfContent
 
-    
+
 
 wikiImports :: [String] -> String
 wikiImports imps = h ++ i
     where
         h = W.heading "Imports"
         i = (if imps == [] then "No imports." else (W.unOrderedList 1 imps))
-       
+
 
 wikiBody :: [Declaration] -> String-> String
 wikiBody decls sname = heading ++ concat declstr
@@ -64,22 +64,21 @@ wikiBody decls sname = heading ++ concat declstr
 
 wikiPrintDecl :: Declaration -> Int -> String -> String
 wikiPrintDecl d@(Fact fn fd attr) l prefix= (wikiPrintFact fn fd attr prefix l)
-wikiPrintDecl d@(Flags f w fd defs) l prefix = (wikiPrintFlags f w fd defs) prefix l
-wikiPrintDecl d@(Constants n t cd defs) l prefix = wikiPrintConstants n t cd defs prefix l
+wikiPrintDecl d@(Flags f fd w defs) l prefix = (wikiPrintFlags f w fd defs) prefix l
+wikiPrintDecl d@(Constants n cd t defs) l prefix = wikiPrintConstants n t cd defs prefix l
 wikiPrintDecl d@(Enumeration n ed defs) l prefix = wikiPrintEnum n ed defs prefix l
 wikiPrintDecl d@(Namespace n nd defs) l prefix = wikiPrintNameSpace n nd defs l prefix
 wikiPrintDecl d@(Section n defs) l prefix = wikiPrintSection n defs l prefix
 wikiPrintDecl d@(Text t) l prefix = wikiPrintText t
-wikiPrintDecl d@(TypeDef t n) l prefix = wikiPrintTypedef t n prefix
 
 
 {----------------------------------------------------------------------------}
 
 wikiPrintFact :: String -> String -> [FactAttrib] -> String -> Int -> String
-wikiPrintFact n d attrib prefix l = title ++ W.newLine 
-    ++ "Fact Name: " ++ (W.inlinecode name) ++ W.lineBreak 
-    ++ "Prolog: " ++ W.newLine  ++ (W.code prolog) ++ W.lineBreak 
-    ++ "Fields: " ++ W.newLine 
+wikiPrintFact n d attrib prefix l = title ++ W.newLine
+    ++ "Fact Name: " ++ (W.inlinecode name) ++ W.lineBreak
+    ++ "Prolog: " ++ W.newLine  ++ (W.code prolog) ++ W.lineBreak
+    ++ "Fields: " ++ W.newLine
     ++ (W.tableHeading ["Name", "Type", "Description"]) ++ (concat tableRows)
     ++ W.lineBreak
     where
@@ -100,7 +99,7 @@ wikiPrintFactFieldNames fa@(FactAttrib n _ _) = n
 
 
 wikiPrintFlags :: String -> Integer -> String -> [FlagDef] -> String -> Int -> String
-wikiPrintFlags n w d f prefix l = title ++ W.newLine 
+wikiPrintFlags n w d f prefix l = title ++ W.newLine
     ++ "Flags Name: " ++ name ++ W.lineBreak
     ++ "Prolog: " ++ W.newLine ++ (W.code (concat prolog)) ++ W.newLine
     ++ "Flags: " ++ W.lineBreak
@@ -145,15 +144,15 @@ wikiPrintEnum n d defs prefix l = title
 
 
 wikiPrintNameSpace :: String -> String ->  [ Declaration ] -> Int -> String -> String
-wikiPrintNameSpace n d decls l prefix =  h ++ W.lineBreak  
+wikiPrintNameSpace n d decls l prefix =  h ++ W.lineBreak
     ++ "Namespace identifier: " ++ W.inlinecode (makeNameSpacePrefix prefix n)
     ++ W.lineBreak
-    ++ (concat ns) 
+    ++ (concat ns)
     ++ W.lineBreak
-    ++ "End of namespace " ++ n 
+    ++ "End of namespace " ++ n
     ++ W.newLine ++ W.hline
     ++ W.lineBreak
-    where 
+    where
         h = W.headingGeneric ("Namespace: " ++ d) l
         newprefix = makeNameSpacePrefix prefix n
         ns = [wikiPrintDecl d (l + 1) newprefix | d <- decls]
@@ -163,7 +162,7 @@ wikiPrintNameSpace n d decls l prefix =  h ++ W.lineBreak
 
 
 wikiPrintSection :: String -> [ Declaration ] -> Int -> String -> String
-wikiPrintSection  n decls l prefix = h ++ (concat subsection) ++ W.newLine 
+wikiPrintSection  n decls l prefix = h ++ (concat subsection) ++ W.newLine
     ++ W.lineBreak
     where
         h = W.headingGeneric n l
@@ -173,7 +172,7 @@ wikiPrintSection  n decls l prefix = h ++ (concat subsection) ++ W.newLine
 {----------------------------------------------------------------------------}
 
 
-wikiPrintText :: String -> String 
+wikiPrintText :: String -> String
 wikiPrintText t = t ++ W.lineBreak
 
 
@@ -208,7 +207,5 @@ makeDeclName prefix n = prefix ++ "__" ++ n
 
 makeFlagName :: String -> String -> String -> String
 makeFlagName prefix flag name = map toUpper fname
-    where 
+    where
         fname = prefix ++ "_" ++ flag ++ "_" ++ name
-
-

@@ -1,12 +1,12 @@
 {-
   Skate: a strawman device definition DSL for Barrelfish
-   
+
   Copyright (c) 2017 ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
-  ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. 
+  ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich.
   Attn: Systems Group.
 -}
 
@@ -54,7 +54,7 @@ data Options = Options {
 
 {- The default options for Skate-}
 defaultOptions :: Options
-defaultOptions    = Options { 
+defaultOptions    = Options {
   opt_infilename  = Nothing,
   opt_outfilename = Nothing,
   opt_includes    = [],
@@ -86,41 +86,41 @@ optSetInFile s o = o { opt_infilename = Just s }
 
 {- Set the option parser Systems.GetOpt -}
 options :: [OptDescr (Options -> Options)]
-options = [ --Option ['c'] ["input-file"] 
+options = [ --Option ['c'] ["input-file"]
     --(ReqArg (\f opts -> opts { opt_infilename = Just f } ) "file")
     --"input file",
-    Option ['I'] 
-           ["import"] 
+    Option ['I']
+           ["import"]
            (ReqArg (\ f opts -> optAddInclude f opts) "file" )
-           "Include a given file before processing",  
+           "Include a given file before processing",
 
-    Option ['v'] 
-           ["verbose"] 
+    Option ['v']
+           ["verbose"]
            (NoArg (\ opts -> optSetVerbosity 1 opts ))
            "increase verbosity level",
 
-    Option ['o'] 
-           ["output"] 
+    Option ['o']
+           ["output"]
            (ReqArg (\ f opts -> optSetOutFile f opts ) "file")
-           "output file name", 
+           "output file name",
 
-    Option ['H'] 
-           ["header"] 
-           (NoArg (\ opts -> optSetTarget Header opts))  
+    Option ['H']
+           ["header"]
+           (NoArg (\ opts -> optSetTarget Header opts))
            "Create a header file",
 
-    Option ['C'] 
-           ["code"] 
-           (NoArg (\ opts -> optSetTarget Code opts)) 
-           "Create code", 
+    Option ['C']
+           ["code"]
+           (NoArg (\ opts -> optSetTarget Code opts))
+           "Create code",
 
-    Option ['L'] 
-           ["latex"] 
+    Option ['L']
+           ["latex"]
            (NoArg (\ opts -> optSetTarget Latex opts))
            "add documentation target",
 
-    Option ['W'] 
-           ["wiki"] 
+    Option ['W']
+           ["wiki"]
            (NoArg (\ opts -> optSetTarget Wiki opts))
            "add documentation target"
   ]
@@ -128,9 +128,9 @@ options = [ --Option ['c'] ["input-file"]
 
 {- prints an error message if wrong options are supplied -}
 usageError :: [String] -> IO (Options)
-usageError errs = 
+usageError errs =
   ioError (userError (concat errs ++ usageInfo usage options))
-  where usage = "Usage: Skate <options> <input file>" 
+  where usage = "Usage: Skate <options> <input file>"
 
 
 {- evaluates the compiler options -}
@@ -150,7 +150,7 @@ getGenerator _ Wiki = SkateBackendWiki.compile
 
 
 {- compile the backend codes -}
-compile :: Options -> Target -> SkateParser.Schema -> String -> String 
+compile :: Options -> Target -> SkateParser.Schema -> String -> String
            -> Handle -> IO ()
 compile opts fl ast infile outfile outfiled =
     hPutStr outfiled $ (getGenerator opts fl) infile outfile ast
@@ -160,7 +160,7 @@ compile opts fl ast infile outfile outfiled =
 
 
 {- parses the file -}
-parseFile :: String -> IO SkateParser.Schema 
+parseFile :: String -> IO SkateParser.Schema
 parseFile fname = do
     src <- readFile fname
     case (runParser SkateParser.parse () fname src) of
@@ -174,51 +174,50 @@ parseFile fname = do
 {- Resolve the imports in the files -}
 findImport :: [String] -> String -> IO SkateParser.Schema
 findImport [] f =  ioError (userError $ printf "Can't find import '%s'" f)
-findImport (d:t) f =  do 
+findImport (d:t) f =  do
     catch (parseFile (d </> f))
       (\e -> (if isDoesNotExistError e then findImport t f else ioError e))
 
 resolveImp :: [SkateParser.Schema] -> [String] -> IO [SkateParser.Schema]
-resolveImp dfl path = 
-    let 
+resolveImp dfl path =
+    let
         allimports = nub $ concat [ i | (SkateParser.Schema n _ _ i) <- dfl ]
         gotimports = [ n | (SkateParser.Schema n _ _ i) <- dfl ]
         required = allimports \\ gotimports
     in
         case required of
             [] -> return dfl
-            (t:_) -> do { 
-                i <- (findImport path (t ++ ".skate")); 
+            (t:_) -> do {
+                i <- (findImport path (t ++ ".sks"));
                 resolveImp (dfl ++ [i]) path }
 
 
 
 {- The Main Entry Point of Skate-}
 main :: IO ()
-main = do { 
-    cli <- System.Environment.getArgs; 
-    opts <- compilerOpts cli; 
-    let 
+main = do {
+    cli <- System.Environment.getArgs;
+    opts <- compilerOpts cli;
+    let
         inFile = fromJust $ opt_infilename opts
         outFile = fromJust $ opt_outfilename opts
         target = opt_targets opts
         dfl  = []
-    in 
+    in
         do {
             printf "Start parsing '%s'\n" inFile;
-            ast  <- parseFile inFile; 
-            dfl <- resolveImp [ast] (opt_includes opts); 
-            
+            ast  <- parseFile inFile;
+            dfl  <- resolveImp [ast] (opt_includes opts);
+            st <- SkateSchema.make_schema_record ast (tail dfl);
             printf "output parsing '%s'\n" outFile;
-            let 
-                st = SkateSchema.make_schema_record ast (tail dfl);
+            let
                 ast2 = SkateSchema.skateSchemaGetAst st;
             in
-                do { 
-                    _ <- SkateChecker.run_all_checks inFile st; 
-                    outFileD <- openFile outFile WriteMode; 
+                do {
+                    _ <- SkateChecker.run_all_checks inFile st;
+                    outFileD <- openFile outFile WriteMode;
                     compile opts target ast2 inFile outFile outFileD;
-                    hClose outFileD          
+                    hClose outFileD
                 }
         }
     }
