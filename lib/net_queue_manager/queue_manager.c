@@ -441,6 +441,7 @@ static errval_t send_raw_xmit_done(struct devq *queue,
     errval_t err;
     err = devq_enqueue(queue, cl->region_id, offset, length, 0, length, flags);
     assert(err_is_ok(err));
+    err = devq_notify(queue);
     return err;
 } // end function: send_raw_xmit_done
 
