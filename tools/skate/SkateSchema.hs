@@ -26,8 +26,15 @@ data SchemaRecord = SchemaRecord {
     name :: String,
     desc :: String,
     schema:: Schema,
+
     facts :: [DT.Rec],
-    types :: [TT.Rec],
+    flags :: [DT.Rec],
+    constants :: [DT.Rec],
+    enumerations :: [DT.Rec],
+    namespaces :: [DT.Rec],
+
+    types :: [TT.TTEntry],
+    allTypes :: [TT.TTEntry],
     imports :: [ String ]
 }
 
@@ -51,8 +58,12 @@ make_schema_record s@(Schema n d decls imps) dfl =
             desc = d,
             schema = s,
             types = ttbl,
-    -- all_types = ttbl ++ ( concat $ map TT.make_rtypetable dfl ),
+            allTypes = ttbl, -- ++ ( concat $ map TT.make_rtypetable dfl ),
             facts = [],
+            flags = [],
+            constants = [],
+            enumerations = [],
+            namespaces = [],
                 imports = imps
             }
 
@@ -60,4 +71,4 @@ make_schema_record s@(Schema n d decls imps) dfl =
 
 
 skateSchemaGetAst :: SchemaRecord -> Schema
-skateSchemaGetAst  sr@(SchemaRecord n d s f t i) = s
+skateSchemaGetAst  sr@(SchemaRecord _ _ s _ _ _ _ _ _ _ _) = s
