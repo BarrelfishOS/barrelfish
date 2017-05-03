@@ -28,6 +28,7 @@
 #define MAX_SERVICE_NAME_LEN  256   // Max len that a name of service can have
 #define BUFFER_SIZE 2048
 #define BUFFER_COUNT ((128*1024*1024) / BUFFER_SIZE)
+#define BATCH_SIZE 32
 
 static uint64_t queue_id = 0;
 static uint64_t card_mac = -1ULL;
@@ -82,10 +83,11 @@ errval_t buffer_rx_add(size_t idx)
     }
 
     batch_rx++;
-    if (batch_rx > 31) {
+    if (batch_rx > BATCH_SIZE) {
         err = devq_notify(devq);
         batch_rx = 0;
     }
+
     return err;
 }
 
