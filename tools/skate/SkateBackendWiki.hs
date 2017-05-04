@@ -25,13 +25,15 @@ import  SkateParser
 import SkateTypes
 import qualified AbsSyntaxWiki as W
 import SkateTypes
+import SkateSchema
 
 
 {- starts the compilation process of the schema -}
-compile :: String -> String -> Schema -> String
-compile infile outfile s@(Schema sname sdesc decls imps) =
+compile :: String -> String -> SchemaRecord -> String
+compile infile outfile sr =
     h ++ i ++ W.lineBreak ++ b ++ W.lineBreak ++ f
     where
+        Schema sname sdesc decls imps = (schema sr)
         h = wikiHeader sname sdesc infile
         i = wikiImports imps
         b = wikiBody decls sname

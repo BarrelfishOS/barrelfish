@@ -150,3 +150,12 @@ builtin_get_bits (Char)    = 8
 make_qualified_type :: String -> String -> String
 make_qualified_type "" i = i
 make_qualified_type q i = q ++ "." ++ i
+
+make_qualified_name :: [Char] -> [Char]
+make_qualified_name [] = []
+make_qualified_name (xs:x) =
+    if xs == '.' then '_' : make_qualified_name x
+    else xs : make_qualified_name x
+
+make_type_name :: String -> String
+make_type_name s = s ++ "_t"

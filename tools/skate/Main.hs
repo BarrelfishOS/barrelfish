@@ -141,7 +141,7 @@ compilerOpts argv =
     (_,_,errs) -> usageError errs
 
 
-getGenerator :: Options -> Target -> String -> String -> SkateParser.Schema -> String
+getGenerator :: Options -> Target -> String -> String -> SkateSchema.SchemaRecord -> String
 getGenerator _ Header = SkateBackendHeader.compile
 getGenerator _ Code = SkateBackendCode.compile
 getGenerator _ Latex = SkateBackendLatex.compile
@@ -150,7 +150,7 @@ getGenerator _ Wiki = SkateBackendWiki.compile
 
 
 {- compile the backend codes -}
-compile :: Options -> Target -> SkateParser.Schema -> String -> String
+compile :: Options -> Target -> SkateSchema.SchemaRecord -> String -> String
            -> Handle -> IO ()
 compile opts fl ast infile outfile outfiled =
     hPutStr outfiled $ (getGenerator opts fl) infile outfile ast
@@ -210,14 +210,9 @@ main = do {
             dfl  <- resolveImp [ast] (opt_includes opts);
             st <- SkateSchema.make_schema_record ast (tail dfl);
             printf "output parsing '%s'\n" outFile;
-            let
-                ast2 = SkateSchema.skateSchemaGetAst st;
-            in
-                do {
-                    _ <- SkateChecker.run_all_checks inFile st;
-                    outFileD <- openFile outFile WriteMode;
-                    compile opts target ast2 inFile outFile outFileD;
-                    hClose outFileD
-                }
+            _ <- SkateChecker.run_all_checks inFile st;
+            outFileD <- openFile outFile WriteMode;
+            compile opts target st inFile outFile outFileD;
+            hClose outFileD
         }
     }
