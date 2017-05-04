@@ -168,12 +168,14 @@ pp_unop BitwiseNot = "~"
 --
 data Param = Param TypeSpec String
            | ParamComment String
+           | ParamDoxyComment String
            | ParamBlank
              deriving (Show, Eq)
 
 pp_param :: Param -> String
 pp_param (Param t s) = (pp_typespec t s)
 pp_param (ParamComment s) = "/* " ++ s ++ " */"
+pp_param (ParamDoxyComment s) = "///< " ++ s
 pp_param ParamBlank = ""
 
 --

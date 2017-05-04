@@ -1,0 +1,38 @@
+
+schema foobar "" {
+    fact myfact "My fact desc" {
+        uint8 attrib1 "attribute 1";
+        uint8 attrib2 "attribute 2";
+        uint8 attrib3 "attribute 3";
+    };
+
+    fact foobar2 "" {
+        uint8 foo "";
+    };
+
+    namespace foobar22 "" {
+    fact foobar3 "" {
+        uint8 foo "";
+    };
+    };
+
+    flags myflags 8 "This are My Flags" {
+        1 flag01 "des";
+        2 flag02 "des";
+    };
+
+    enumeration myenum "this is my enum" {
+        first "sss";
+        second "dddd";
+    };
+
+    constants myintconst uint8 "this are my const" {
+        const1 = 3 "aasdf";
+        const2 = 3 "aasdf";
+    };
+
+    constants mystringconst string "this are my const" {
+        const1 = "asdf" "aasdf";
+        const2 = "asdf" "aasdf";
+    };
+};

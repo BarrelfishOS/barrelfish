@@ -110,9 +110,21 @@ skate_c_headerfiles imps = [C.MultiComment ["Imports"]] ++
 - Premable and Imports
 ------------------------------------------------------------------------------}
 
+skate_c_header_one_attrib :: String -> FactAttrib -> [C.Param]
+skate_c_header_one_attrib p e@(FactAttrib i d t) = [
+  C.ParamDoxyComment d,
+  C.Param (typeref_to_ctype t) i]
+
 skate_c_header_fact :: String -> String -> [ FactAttrib ]-> [C.Unit]
-skate_c_header_fact d i attrib = [
-    C.MultiComment ["fact"]]
+skate_c_header_fact i d attrib = [
+    (skate_c_type_comment "Fact" d i),
+    C.StructDecl ttype $ concat (intersperse [C.ParamBlank] [skate_c_header_one_attrib i a | a <- attrib]),
+    C.TypeDef (C.Struct ttype) ttype,
+    C.Blank]
+    where
+        tname = (make_qualified_name i)
+        ttype = (make_type_name tname)
+
 
 skate_c_header_one_flag :: String -> FlagDef -> C.TypeSpec -> C.Unit
 skate_c_header_one_flag p f@(FlagDef i d v) t = C.UnitList [
