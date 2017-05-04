@@ -14,12 +14,89 @@
 
 module SkateDeclarationTable where
 
+
+import Data.List
+
+import System.IO
+import System.IO.Error
+import Text.Printf
+
 import SkateParser
+import SkateTypes
 import qualified SkateTypeTable as TT
 
 data Rec = Rec {
     name :: String
 }
 
-make_table :: [TT.TTEntry] -> [Declaration] -> String -> [Rec]
-make_table ttbl decls n = []
+data DeclarationTable = DTRec [Declaration] [Declaration] [Declaration] [Declaration] [Declaration]
+
+{-
+==============================================================================
+= Public Functions
+==============================================================================
+-}
+
+make_table :: Schema -> [TT.TTEntry] -> IO DeclarationTable
+make_table s@(Schema n d decls imps) ttbl = do {
+    printf "Creating DeclarationTable.\n";
+    print (show facts);
+    print (show namespaces);
+    print (show flags);
+    print (show constants);
+    print (show enumerations);
+    return (DTRec namespaces facts flags constants enumerations)
+}
+    where
+        fdecls = flatten_decl_tree n [] decls;
+        facts = filter fact_filter fdecls;
+        namespaces = filter namespace_filter fdecls;
+        flags = filter flags_filter fdecls;
+        constants = filter constants_filter fdecls;
+        enumerations = filter enumeration_filter fdecls;
+
+
+{-
+==============================================================================
+= Module Private Functions
+==============================================================================
+-}
+
+
+{- filter functions -}
+fact_filter :: Declaration -> Bool
+fact_filter d@(Fact _ _ _) = True
+fact_filter _ = False
+
+namespace_filter :: Declaration -> Bool
+namespace_filter d@(Namespace _ _ _) = True
+namespace_filter _ = False
+
+flags_filter :: Declaration -> Bool
+flags_filter d@(Flags _ _ _ _) = True
+flags_filter _ = False
+
+constants_filter :: Declaration -> Bool
+constants_filter d@(Constants _ _ _ _) = True
+constants_filter _ = False
+
+enumeration_filter :: Declaration -> Bool
+enumeration_filter d@(Enumeration _ _ _) = True
+enumeration_filter _ = False
+
+
+{- recursively go over the declaration list -}
+flatten_decl_tree :: String -> [Declaration] -> [Declaration] -> [Declaration]
+flatten_decl_tree p t (xs:x) = (flatten_decl_tree p ((parseType p t xs)) x)
+flatten_decl_tree p t [] = t
+
+
+{- handles each declaration and adds a type  -}
+parseType :: String -> [Declaration] -> Declaration -> [Declaration]
+parseType p t x@(Fact i d a) = t ++ [Fact (make_qualified_type p i) d a]
+parseType p t x@(Flags i d w f) = t ++ [Flags (make_qualified_type p i) d w f]
+parseType p t x@(Constants i d a w) = t ++ [Constants (make_qualified_type p i) d a w]
+parseType p t x@(Enumeration i d e) = t ++ [Enumeration (make_qualified_type p i) d e]
+parseType p t x@(Namespace i d decls) = flatten_decl_tree (make_qualified_type p i) (t ++ [Namespace (make_qualified_type p i) d decls]) decls
+parseType p t x@(Section _ decls) = flatten_decl_tree p t decls
+parseType p t x@(Text _) = t

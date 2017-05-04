@@ -27,11 +27,11 @@ data SchemaRecord = SchemaRecord {
     desc :: String,
     schema:: Schema,
 
-    facts :: [DT.Rec],
-    flags :: [DT.Rec],
-    constants :: [DT.Rec],
-    enumerations :: [DT.Rec],
-    namespaces :: [DT.Rec],
+    facts :: [Declaration],
+    flags :: [Declaration],
+    constants :: [Declaration],
+    enumerations :: [Declaration],
+    namespaces :: [Declaration],
 
     types :: [TT.TTEntry],
     allTypes :: [TT.TTEntry],
@@ -48,9 +48,17 @@ skateSchemaTransform sr = do {
 
 make_schema_record :: Schema -> [Schema] -> IO SchemaRecord
 make_schema_record s@(Schema n d decls imps) dfl =
-    do
+    do {
         printf "Creating SchemRecord.\n";
         ttbl <- TT.make_table s;
+        DT.DTRec ns fa fl co en <-  DT.make_table s ttbl;
+        --dt <- DT.make_table s ttbl;
+        --facts <- DT.make_facts_table s ttbl
+        --namespaces <-DT.make_namespaces_table s ttbl
+        --flags <-DT.make_flags_table s ttbl
+        --constants <-DT.make_constants_table s ttbl
+        --enums <-DT.make_enumerations_table s ttbl
+
         --ftbl <- DT.make_table ttbl decls n;
         --qtbl <- DT.make_table ttbl decls n;
         return SchemaRecord {
@@ -59,16 +67,20 @@ make_schema_record s@(Schema n d decls imps) dfl =
             schema = s,
             types = ttbl,
             allTypes = ttbl, -- ++ ( concat $ map TT.make_rtypetable dfl ),
-            facts = [],
-            flags = [],
-            constants = [],
-            enumerations = [],
-            namespaces = [],
-                imports = imps
+            facts = fa,
+            flags = fl,
+            constants = co,
+            enumerations = en,
+            namespaces = ns,
+            imports = imps
             }
+        }
 
 
 
 
 skateSchemaGetAst :: SchemaRecord -> Schema
 skateSchemaGetAst  sr@(SchemaRecord _ _ s _ _ _ _ _ _ _ _) = s
+
+skateSchemaGetFacts :: SchemaRecord -> [Declaration]
+skateSchemaGetFacts  sr = facts sr

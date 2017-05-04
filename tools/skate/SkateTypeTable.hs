@@ -20,8 +20,17 @@ import System.IO.Error
 import Text.Printf
 
 import SkateParser
+import SkateTypes
 
 data RecType = TTBuiltIn | TTFlags | TTConstant | TTEnum | TTFact
+    deriving(Eq)
+
+instance Show RecType where
+    show TTBuiltIn = "builtin"
+    show TTFlags = "flag"
+    show TTConstant = "const"
+    show TTEnum = "enum"
+    show TTFact = "fact"
 
 data TTEntry = Rec RecType String
 
@@ -49,9 +58,8 @@ make_table s@(Schema n d decls imps) =
 }
 
 {- -}
-exist :: [TTEntry] -> String -> Bool
-exist t a = not (null (filter (typeExists a) t))
-
+exist :: [TTEntry] -> RecType -> String -> Bool
+exist ttbl t a = not (null (filter (type_ref_exists a t) ttbl))
 
 {- -}
 lookup ::  [TTEntry] -> String -> RecType
@@ -68,17 +76,17 @@ lookup t a = tt
 
 {- recursively adds a list of declarations to the type table -}
 addOneTypeToTable :: String -> [TTEntry] -> [Declaration] -> [TTEntry]
-addOneTypeToTable p t (xs:x) = (addOneTypeToTable p (t ++ parseType p t xs) x)
+addOneTypeToTable p t (xs:x) = (addOneTypeToTable p (parseType p t xs) x)
 addOneTypeToTable p t [] = t
 
 
 {- handles each declaration and adds a type  -}
 parseType :: String -> [TTEntry] -> Declaration -> [TTEntry]
-parseType p t d@(Fact i _ _) = addOneType (make_qualified_name p i) t TTFact
-parseType p t d@(Flags i _ w _) = addOneType (make_qualified_name p i) t TTFlags
-parseType p t d@(Constants i _ _ _) = addOneType (make_qualified_name p i) t TTConstant
-parseType p t d@(Enumeration i _ _) = addOneType (make_qualified_name p i) t TTEnum
-parseType p t d@(Namespace i _ decls) = addOneTypeToTable (make_qualified_name p i) t decls
+parseType p t d@(Fact i _ _) = addOneType (make_qualified_type p i) t TTFact
+parseType p t d@(Flags i _ w _) = addOneType (make_qualified_type p i) t TTFlags
+parseType p t d@(Constants i _ _ _) = addOneType (make_qualified_type p i) t TTConstant
+parseType p t d@(Enumeration i _ _) = addOneType (make_qualified_type p i) t TTEnum
+parseType p t d@(Namespace i _ decls) = addOneTypeToTable (make_qualified_type p i) t decls
 parseType p t d@(Section _ decls) = addOneTypeToTable p t decls
 parseType p t d@(Text _) = t
 
@@ -86,14 +94,12 @@ parseType p t d@(Text _) = t
 typeExists :: String -> TTEntry -> Bool
 typeExists a d@(Rec _ e) = (a == e)
 
+{- boolean function that returns True iff the type record matches -}
+type_ref_exists :: String -> RecType -> TTEntry -> Bool
+type_ref_exists a t d@(Rec tt e) = ((a == e) &&  (t == tt))
+
 {- adds one type to the type table -}
 addOneType :: String -> [TTEntry] -> RecType -> [TTEntry]
 addOneType n recs t =
-    if null (filter (typeExists n) recs) then  recs ++ [Rec t n]
+    if null (filter (typeExists n) recs) then recs ++ [Rec t n]
     else error $ "error: type '" ++ n ++ "' has already been defined";
-
-
-{- xxx: move this somewhere else ... -}
-make_qualified_name :: String -> String -> String
-make_qualified_name "" i = i
-make_qualified_name q i = q ++ "." ++ i

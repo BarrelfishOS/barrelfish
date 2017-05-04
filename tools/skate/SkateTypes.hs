@@ -1,15 +1,15 @@
-{- 
+{-
   SkateTypes: All defined builtin types
-   
+
   Part of Skate: a Schema specification languge
-   
+
   Copyright (c) 2017, ETH Zurich.
   All rights reserved.
-  
+
   This file is distributed under the terms in the attached LICENSE file.
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
--} 
+-}
 
 
 module SkateTypes where
@@ -29,7 +29,7 @@ data TypeRef = TEnum String
              | TFlags String
              deriving(Eq)
 
-instance Show TypeRef where  
+instance Show TypeRef where
     show (TEnum t) = "TEnum(" ++ t ++ ")"
     show (TConstant t) = "TConstant(" ++ t ++ ")"
     show (TFact t) = "TFact(" ++ t ++ ")"
@@ -60,7 +60,7 @@ instance Show TypeBuiltIn where
 
 
 instance Read TypeBuiltIn where
-    readsPrec _ = \s -> case s of 
+    readsPrec _ = \s -> case s of
         "uint8" -> [(UInt8, "")]
         "uint16" -> [(UInt16, "")]
         "uint32" -> [(UInt32, "")]
@@ -131,4 +131,22 @@ builtin_fmt_rd (Bool)    = "\"i\""
 builtin_fmt_rd (String)  = "\"s\""
 builtin_fmt_rd (Char)    = "\"c\""
 
+builtin_get_bits:: TypeBuiltIn -> Integer
+builtin_get_bits (UInt8)   = 8
+builtin_get_bits (UInt16)  = 16
+builtin_get_bits (UInt32)  = 32
+builtin_get_bits (UInt64)  = 64
+builtin_get_bits (UIntPtr) = 64 -- xxx: make this arch specific!
+builtin_get_bits (Int8)    = 8
+builtin_get_bits (Int16)   = 16
+builtin_get_bits (Int32)   = 32
+builtin_get_bits (Int64)   = 64
+builtin_get_bits (IntPtr)  = 64 -- xxx: make this arch specific!
+builtin_get_bits (Size)    = 64 -- xxx: make this arch specific!
+builtin_get_bits (Bool)    = 8
+builtin_get_bits (Char)    = 8
 
+{- xxx: move this somewhere else ... -}
+make_qualified_type :: String -> String -> String
+make_qualified_type "" i = i
+make_qualified_type q i = q ++ "." ++ i
