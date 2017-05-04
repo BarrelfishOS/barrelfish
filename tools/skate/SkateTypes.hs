@@ -14,6 +14,7 @@
 
 module SkateTypes where
 
+import qualified CAbsSyntax as C
 
 data TypeBuiltIn = UInt8 | UInt16 | UInt32 | UInt64 | UIntPtr
                   | Int8 | Int16  | Int32  | Int64  | IntPtr
@@ -55,7 +56,26 @@ instance Show TypeBuiltIn where
     show Char    = "char"
     show Capref  = "capref"
 
-
+typeref_to_ctype :: TypeRef -> C.TypeSpec
+typeref_to_ctype (TBuiltIn UInt8)   = C.TypeName "uint8_t"
+typeref_to_ctype (TBuiltIn UInt16)  = C.TypeName "uint16_t"
+typeref_to_ctype (TBuiltIn UInt32)  = C.TypeName "uint32_t"
+typeref_to_ctype (TBuiltIn UInt64)  = C.TypeName "uint64_t"
+typeref_to_ctype (TBuiltIn UIntPtr) = C.TypeName "uintptr_t"
+typeref_to_ctype (TBuiltIn Int8)    = C.TypeName "int8_t"
+typeref_to_ctype (TBuiltIn Int16)   = C.TypeName "int16_t"
+typeref_to_ctype (TBuiltIn Int32)   = C.TypeName "int32_t"
+typeref_to_ctype (TBuiltIn Int64)   = C.TypeName "int64_t"
+typeref_to_ctype (TBuiltIn IntPtr)  = C.TypeName "intptr_t"
+typeref_to_ctype (TBuiltIn Size)    = C.TypeName "size_t"
+typeref_to_ctype (TBuiltIn Bool)    = C.TypeName "bool"
+typeref_to_ctype (TBuiltIn String)  = C.Ptr (C.TypeName "char")
+typeref_to_ctype (TBuiltIn Char)    = C.TypeName "char"
+typeref_to_ctype (TBuiltIn Capref)  = C.Struct "capref"
+typeref_to_ctype (TEnum i)          = C.TypeName (make_type_name (make_qualified_name i))
+typeref_to_ctype (TConstant i)      = C.TypeName (make_type_name (make_qualified_name i))
+typeref_to_ctype (TFact i)          = C.TypeName (make_type_name (make_qualified_name i))
+typeref_to_ctype (TFlags i)         = C.TypeName (make_type_name (make_qualified_name i))
 
 
 
@@ -95,6 +115,7 @@ findBuiltIntType "string" = String
 findBuiltIntType "char" = Char
 findBuiltIntType "capref" = Capref
 findBuiltIntType s = error  $ "Undefined builtin type " ++ s
+
 
 
 

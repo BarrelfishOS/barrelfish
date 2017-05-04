@@ -117,10 +117,8 @@ skate_c_header_fact d i attrib = [
 skate_c_header_one_flag :: String -> FlagDef -> C.TypeSpec -> C.Unit
 skate_c_header_one_flag p f@(FlagDef i d v) t = C.UnitList [
     C.DoxyComment d,
-    C.Define (flagdef) [] ("(" ++ (
-        C.pp_expr $ C.Cast t $ C.Binary C.LeftShift (C.NumConstant 1) (C.NumConstant v)) ++ ")")
---    C.Define (sym) [] C.Ex LeftShift (C.Cast t (NumConstant 1) ) v
-    ]
+    C.Define (flagdef) [] (C.pp_expr $ C.Cast t $
+            C.Binary C.LeftShift (C.NumConstant 1) (C.NumConstant v)) ]
         where
             flag = make_qualified_type p i
             flagdef = map toUpper (make_qualified_name flag)
@@ -128,21 +126,65 @@ skate_c_header_one_flag p f@(FlagDef i d v) t = C.UnitList [
 
 skate_c_header_flags :: String -> String -> Integer ->[ FlagDef ]-> [C.Unit]
 skate_c_header_flags i d w defs = [
-    C.MultiDoxy [
-        "@brief Flags " ++ d
-    ],
-    C.TypeDef (C.TypeName "uint8_t") (make_type_name (make_qualified_name i))
-    ] ++ [skate_c_header_one_flag i def (C.TypeName "uint8_t") | def <- defs]
+    (skate_c_type_comment "Flags" d i),
+    C.TypeDef (C.TypeName ttype) tname,
+    C.Blank]
+    ++ [skate_c_header_one_flag i def (C.TypeName tname) | def <- defs]
+    ++ [C.Blank]
     where
         ttype = "uint" ++ show(w) ++ "_t"
+        tname = (make_type_name (make_qualified_name i))
 
+
+
+skate_c_header_one_const :: String -> ConstantDef -> C.TypeSpec -> C.Unit
+skate_c_header_one_const p f@(ConstantDefInt i d v) t = C.UnitList [
+    C.DoxyComment d,
+    C.Define (constdef) [] (C.pp_expr $ C.Cast t $ C.NumConstant v) ]
+    where
+        c = make_qualified_type p i
+        constdef = map toUpper (make_qualified_name c)
+skate_c_header_one_const p f@(ConstantDefStr i d v) t = C.UnitList [
+    C.DoxyComment d,
+    C.Define (constdef) [] (C.pp_expr $ C.Cast t $ C.StringConstant v) ]
+        where
+            c = make_qualified_type p i
+            constdef = map toUpper (make_qualified_name c)
 
 skate_c_header_const :: String -> String -> TypeRef ->[ ConstantDef ] -> [C.Unit]
-skate_c_header_const d i t defs = [C.MultiComment ["const"]]
+skate_c_header_const i d t@(TBuiltIn tref) defs = [
+    (skate_c_type_comment "Constants" d i),
+    C.TypeDef (typeref_to_ctype t) tname,
+    C.Blank]
+    ++ [skate_c_header_one_const i def (C.TypeName tname) | def <- defs]
+    ++ [C.Blank]
+    where
+        tname = (make_type_name (make_qualified_name i))
+
+
+skate_c_header_one_enum :: String -> EnumDef -> C.EnumItem
+skate_c_header_one_enum p e@(EnumDef i d) = C.EnumItem name d Nothing
+    where
+        enum = make_qualified_type p i
+        name = map toUpper (make_qualified_name enum)
+
 
 skate_c_header_enum :: String -> String -> [ EnumDef ] -> [C.Unit]
-skate_c_header_enum d i defs = [C.MultiComment ["enum"]]
+skate_c_header_enum i d defs = [
+    (skate_c_type_comment "Enumeration" d i),
+    C.EnumDecl ttype [skate_c_header_one_enum i def | def <- defs],
+    C.Blank]
+    where
+        tname = (make_qualified_name i)
+        ttype = (make_type_name tname)
 
+
+skate_c_type_comment :: String -> String -> String -> C.Unit
+skate_c_type_comment t desc defined = C.MultiDoxy [
+    "@brief " ++ desc,
+    "",
+    "Type: " ++ t,
+    "Defined in " ++ defined]
 
 skate_c_header_one_decl :: Declaration -> [ C.Unit ]
 skate_c_header_one_decl de@(Fact i d a) = skate_c_header_fact i d a
