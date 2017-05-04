@@ -58,6 +58,16 @@ data Declaration = Fact String String [ FactAttrib ]
                   | Section String [ Declaration ]
                   | Text String
 
+{--}
+instance Show Declaration where
+    show de@(Fact i d _) = "Fact '" ++ i ++ "'"
+    show de@(Flags  i d _ _) = "Flags '" ++ i ++ "'"
+    show de@(Enumeration  i d _) = "Enumeration '" ++ i ++ "'"
+    show de@(Constants  i d _ _) = "Constants '" ++ i ++ "'"
+    show de@(Namespace  i d _) = "Namespace '" ++ i ++ "'"
+    show de@(Section  i _) = "Section '" ++ i ++ "'"
+    show de@(Text i) = "Text Block"
+
 {- the schema -}
 data Schema = Schema String String [ Declaration ] [ String ]
 
@@ -324,9 +334,22 @@ fieldTypeBuiltIn = do {
     return (TBuiltIn (findBuiltIntType n))
 };
 
+{- Parsing qualified identifiers -}
+qualifiedPart = do {
+    symbol ".";
+    i <- identifier;
+    return ("." ++ i);
+}
+
+qualifiedIdentiferLiteral = do {
+    i <- identifier;
+    ids <- many qualifiedPart;
+    return (i ++ (concat ids))
+}
+
 fieldTypeFactRef  = do {
     reserved "fact";
-    n <- identifier;
+    n <- qualifiedIdentiferLiteral;
     return (TFact n);
 }
 
