@@ -19,7 +19,10 @@
 #include <cpuid/cpuid.h>
 #include <skb/skb.h>
 
-#include <schema/cpuid.h>
+
+/* XXX: removed references to old sockeye generated code undil skate has feature parity */
+
+//#include <schema/cpuid.h>
 
 #include "datagatherer.h"
 
@@ -47,26 +50,27 @@ errval_t gather_cpuid_data(coreid_t core_id)
         return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
-    char *vendor_string = cpuid_vendor_string();
+//    char *vendor_string = cpuid_vendor_string();
 
-    cpuid__vendor_t vendor;
-    vendor.Core_ID = core_id;
-    vendor.vendor = vendor_string;
+//    cpuid__vendor_t vendor;
+//    vendor.Core_ID = core_id;
+//    vendor.vendor = vendor_string;
+    
 
-    err = cpuid__vendor__add(&vendor);
+    USER_PANIC("err = cpuid__vendor__add(&vendor);");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "cpuid__vendor__add: %s", skb_get_error_output());
         return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
-    cpuid__family_t f_family;
-    f_family.Core_ID = core_id;
-    f_family.Vendor_String = vendor_string;
-    f_family.Family = family.family;
-    f_family.Model = family.model;
-    f_family.Stepping = family.stepping;
+//    cpuid__family_t f_family;
+//    f_family.Core_ID = core_id;
+//    f_family.Vendor_String = vendor_string;
+//    f_family.Family = family.family;
+//    f_family.Model = family.model;
+//    f_family.Stepping = family.stepping;
 
-    err = cpuid__family__add(&f_family);
+    USER_PANIC("err = cpuid__family__add(&f_family);");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "");
         return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
@@ -79,13 +83,13 @@ errval_t gather_cpuid_data(coreid_t core_id)
         return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
-    cpuid__thread_t thread;
-    thread.Core_ID = core_id;
-    thread.Package = ti.package;
-    thread.Core = ti.core;
-    thread.HyperThread = ti.hyperthread;
+//    cpuid__thread_t thread;
+//    thread.Core_ID = core_id;
+//    thread.Package = ti.package;
+//    thread.Core = ti.core;
+//    thread.HyperThread = ti.hyperthread;
 
-    err = cpuid__thread__add(&thread);
+    USER_PANIC("err = cpuid__thread__add(&thread);");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "");
         return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
@@ -95,18 +99,18 @@ errval_t gather_cpuid_data(coreid_t core_id)
     struct cpuid_cacheinfo ci;
     while((err = cpuid_cache_info(&ci, i)) == SYS_ERR_OK) {
 
-        cpuid__cache_t cache;
-        cache.Core_ID = core_id;
-        cache.Name = ci.name;
-        cache.Level = ci.level;
-        cache.type = cpuid_cache_type_string(ci.type);
-        cache.Size = ci.size;
-        cache.Associativity = ci.associativity;
-        cache.LineSize = ci.linesize;
-        cache.Shared = ci.shared;
-        cache.Inclusive = ci.inclusive;
+//        cpuid__cache_t cache;
+//        cache.Core_ID = core_id;
+//        cache.Name = ci.name;
+//        cache.Level = ci.level;
+//        cache.type = cpuid_cache_type_string(ci.type);
+//        cache.Size = ci.size;
+//        cache.Associativity = ci.associativity;
+//        cache.LineSize = ci.linesize;
+//        cache.Shared = ci.shared;
+//        cache.Inclusive = ci.inclusive;
 
-        err = cpuid__cache__add(&cache);
+        USER_PANIC("err = cpuid__cache__add(&cache);");
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "");
             return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
@@ -137,15 +141,15 @@ errval_t gather_cpuid_data(coreid_t core_id)
     struct cpuid_tlbinfo tlbi;
     while((err = cpuid_tlb_info(&tlbi, i)) == SYS_ERR_OK) {
 
-        cpuid__tlb_t tlb;
-        tlb.Core_ID = core_id;
-        tlb.type = cpuid_cache_type_string(tlbi.type);
-        tlb.level = tlbi.level;
-        tlb.PageSize = tlbi.pagesize;
-        tlb.Entries = tlbi.entries;
-        tlb.Associativity = tlbi.associativity;
+//        cpuid__tlb_t tlb;
+//        tlb.Core_ID = core_id;
+//        tlb.type = cpuid_cache_type_string(tlbi.type);
+//        tlb.level = tlbi.level;
+//        tlb.PageSize = tlbi.pagesize;
+//        tlb.Entries = tlbi.entries;
+//        tlb.Associativity = tlbi.associativity;
 
-        err = cpuid__tlb__add(&tlb);
+        USER_PANIC("err = cpuid__tlb__add(&tlb);");
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "");
             return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
@@ -172,13 +176,13 @@ errval_t gather_cpuid_data(coreid_t core_id)
         return err_push(err, SKB_DATAGATHERER_ERR_CPUID);
     }
 
-    cpuid__addrspace_t addrspace;
-    addrspace.Core_ID = core_id;
-    addrspace.BitsPhys = ai.physical;
-    addrspace.BitsVirt = ai.virtual;
-    addrspace.BitsGuest = ai.guest_physical;
+//    cpuid__addrspace_t addrspace;
+//    addrspace.Core_ID = core_id;
+//    addrspace.BitsPhys = ai.physical;
+//    addrspace.BitsVirt = ai.virtual;
+//    addrspace.BitsGuest = ai.guest_physical;
 
-    err = cpuid__addrspace__add(&addrspace);
+    USER_PANIC("err = cpuid__addrspace__add(&addrspace);");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "");
         return err_push(err, SKB_DATAGATHERER_ERR_CPUID);

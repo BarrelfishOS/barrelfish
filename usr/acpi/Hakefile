@@ -68,6 +68,7 @@ let commonCFiles = [
         flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
         flounderTHCStubs = [ "octopus" ],
         mackerelDevices = commonDevices ++ (archDevices arch),
+        skateSchemas = ["acpimadt"],
         cFiles = commonCFiles ++ (archCFiles arch),
         addIncludes = [ "/lib/acpica/source/include" ],
         addCFlags = commonCFlags ++ (archCFlags arch),
