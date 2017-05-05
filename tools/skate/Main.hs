@@ -42,6 +42,9 @@ import qualified SkateChecker
 {- Compilation Targets -}
 data Target = Header | Code | Wiki | Latex deriving (Eq, Show)
 
+{- Architecture to build for -}
+data Arch = X86_64 | ARMv7 | ARMv8 deriving (Eq, Show)
+
 {- Possible Options -}
 data Options = Options {
   opt_infilename  :: Maybe String,
@@ -49,7 +52,8 @@ data Options = Options {
   opt_includes    :: [String],
   opt_targets     :: Target,
   opt_usage_error :: Bool,
-  opt_verbosity   :: Integer
+  opt_verbosity   :: Integer,
+  opt_arch        :: Arch
   } deriving (Show,Eq)
 
 {- The default options for Skate-}
@@ -60,7 +64,8 @@ defaultOptions    = Options {
   opt_includes    = [],
   opt_targets     = Header,
   opt_usage_error = False,
-  opt_verbosity   = 0 }
+  opt_verbosity   = 0,
+  opt_arch        = X86_64 }
 
 
 {- Adds a new target to the list of targets -}
@@ -83,6 +88,12 @@ optSetOutFile s o = o { opt_outfilename = Just s }
 optSetInFile :: String -> Options -> Options
 optSetInFile s o = o { opt_infilename = Just s }
 
+optSetArch :: String -> Options -> Options
+optSetArch "x86_64" o =  o { opt_arch = X86_64 }
+optSetArch "armv7" o =  o { opt_arch = ARMv7 }
+optSetArch "armv8" o =  o { opt_arch = ARMv8 }
+
+
 
 {- Set the option parser Systems.GetOpt -}
 options :: [OptDescr (Options -> Options)]
@@ -91,7 +102,7 @@ options = [ --Option ['c'] ["input-file"]
     --"input file",
     Option ['I']
            ["import"]
-           (ReqArg (\ f opts -> optAddInclude f opts) "file" )
+           (ReqArg (\ f opts -> optAddInclude f opts) "file.sks" )
            "Include a given file before processing",
 
     Option ['v']
@@ -101,7 +112,7 @@ options = [ --Option ['c'] ["input-file"]
 
     Option ['o']
            ["output"]
-           (ReqArg (\ f opts -> optSetOutFile f opts ) "file")
+           (ReqArg (\ f opts -> optSetOutFile f opts ) "file.out")
            "output file name",
 
     Option ['H']
@@ -122,7 +133,12 @@ options = [ --Option ['c'] ["input-file"]
     Option ['W']
            ["wiki"]
            (NoArg (\ opts -> optSetTarget Wiki opts))
-           "add documentation target"
+           "add documentation target",
+
+    Option ['a']
+           ["arch"]
+           (ReqArg (\ a opts -> optSetArch a opts) "x86_64")
+           "add architecture. one of x86_64, armv7, armv8"
   ]
 
 
