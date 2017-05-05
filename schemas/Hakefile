@@ -13,6 +13,7 @@
 
 -- whereas these are using the new-style bindings
 [ skateGenSchemas (options arch) f | f <- [ 
+          "acpimadt",
           "pci",
           "cpuid"
      ],
