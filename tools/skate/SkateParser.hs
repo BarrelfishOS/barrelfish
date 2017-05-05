@@ -28,6 +28,17 @@ import SkateTypes
 
 {-
 ==============================================================================
+= Helper functions
+==============================================================================
+-}
+
+{- creates a qualified identifier of the form parent.identifier -}
+make_qualified_identifer :: String -> String -> String
+make_qualified_identifer "" i = i
+make_qualified_identifer parent i = parent ++ "." ++ i
+
+{-
+==============================================================================
 = Token data types
 ==============================================================================
 -}
@@ -145,7 +156,7 @@ parse = do {
     reserved "schema";
     name <- identifier;
     desc <- option name stringLit;
-    decls <- braces (many1 schemadecl);
+    decls <- braces (many1 $ schemadecl name);
     _ <- symbol ";" <?> " ';' missing from end of " ++ name ++ " schema def";
     return (Schema name desc decls [i | (Import i) <- imps])
 }
@@ -155,8 +166,9 @@ parse = do {
 - Token rules for the Schema
 ------------------------------------------------------------------------------}
 
-schemadecl = factdecl      <|> constantdecl  <|> flagsdecl  <|> enumdecl <|>
-             namespacedecl <|> sectiondecl   <|> textdecl
+schemadecl sn = factdecl sn  <|>  constantdecl sn   <|> flagsdecl sn    <|>
+                enumdecl sn  <|>  namespacedecl sn  <|> sectiondecl sn  <|>
+                textdecl
 
 
 {------------------------------------------------------------------------------
@@ -175,31 +187,30 @@ importfacts = do {
 - Namespace
 ------------------------------------------------------------------------------}
 
-namespacedecl = do {
+namespacedecl parent = do {
     reserved "namespace";
     i <- identifier;
     d <- stringLit;
-    decls <- braces (many1 schemadecl);
+    decls <- braces (many1 $ schemadecl (make_qualified_identifer parent i));
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " namespace";
-    return (Namespace i d decls);
-};
-
+    return (Namespace (make_qualified_identifer parent i) d decls);
+}
 
 {------------------------------------------------------------------------------
 - Facts
 ------------------------------------------------------------------------------}
 
-factdecl = do {
+factdecl parent = do {
     reserved "fact";
     i <- identifier;
     d <- stringLit;
-    f <- braces (many1 factattrib);
+    f <- braces (many1 $ factattrib parent);
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " fact";
-    return (Fact i d f)
+    return (Fact (make_qualified_identifer parent i) d f)
 }
 
-factattrib = do {
-    t <- fieldType;
+factattrib parent = do {
+    t <- fieldType parent;
     i <- identifier;
     d <- stringLit;
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " fact attribute";
@@ -211,14 +222,14 @@ factattrib = do {
 - Flags
 ------------------------------------------------------------------------------}
 
-flagsdecl = do {
+flagsdecl parent = do {
     reserved "flags";
     i <- identifier;
     b <- integer;
     d <- stringLit;
     flagvals <- braces (many1 flagvals);
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " flags";
-    return (Flags i d b flagvals)
+    return (Flags (make_qualified_identifer parent i) d b flagvals)
 }
 
 {- identifier = value "opt desc"; -}
@@ -237,14 +248,14 @@ flagvals = do {
 
 
 {- constants fname "desc" {[constantvals]}; -}
-constantdecl = do {
+constantdecl parent = do {
     reserved "constants";
     i <- identifier;
-    t <- fieldType;
+    t <- fieldTypeBuiltIn;
     d <- stringLit;
     vals <- braces (many1 (constantvals t));
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " constants";
-    return (Constants i d t vals)
+    return (Constants (make_qualified_identifer parent i) d t vals)
 }
 
 constantvals (TBuiltIn String) = constantvalsstring
@@ -286,13 +297,13 @@ constantvalsstring = do {
 - Enumerations
 ------------------------------------------------------------------------------}
 
-enumdecl = do {
+enumdecl parent = do {
     reserved "enumeration";
     i <- identifier;
     d <- stringLit;
     enums <- braces (many1 enumdef);
      _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " enumeration";
-    return (Enumeration i d enums)
+    return (Enumeration (make_qualified_identifer parent i) d enums)
 }
 
 enumdef = do {
@@ -307,10 +318,10 @@ enumdef = do {
 - Sections and Text blocks
 ------------------------------------------------------------------------------}
 
-sectiondecl = do {
+sectiondecl parent = do {
     reserved "section";
     i <- stringLit;
-    decls <- braces (many1 schemadecl);
+    decls <- braces (many1 $ schemadecl parent);
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " section";
     return (Section i decls);
 };
@@ -327,8 +338,8 @@ textdecl = do {
 Parsing Types
 ------------------------------------------------------------------------------}
 
-fieldType = fieldTypeFactRef  <|> fieldTypeConstRef <|> fieldTypeEnumRef <|>
-            fieldTypeFlagsRef <|> fieldTypeBuiltIn
+fieldType p = fieldTypeFactRef p <|> fieldTypeConstRef p <|>
+              fieldTypeEnumRef p <|> fieldTypeFlagsRef p <|> fieldTypeBuiltIn
 
 fieldTypeBuiltIn = do {
     n <- identifier;
@@ -342,32 +353,32 @@ qualifiedPart = do {
     return ("." ++ i);
 }
 
-qualifiedIdentiferLiteral = do {
+qualifiedIdentiferLiteral p = do {
     i <- identifier;
     ids <- many qualifiedPart;
     return (i ++ (concat ids))
 }
 
-fieldTypeFactRef  = do {
+fieldTypeFactRef p  = do {
     reserved "fact";
-    n <- qualifiedIdentiferLiteral;
-    return (TFact n);
+    n <- qualifiedIdentiferLiteral p;
+    return (TFact n p);
 }
 
-fieldTypeConstRef  = do {
+fieldTypeConstRef p  = do {
     reserved "const";
-    n <- identifier;
-    return (TConstant n);
+    n <- qualifiedIdentiferLiteral p;
+    return (TConstant n p);
 }
 
-fieldTypeEnumRef  = do {
+fieldTypeEnumRef p  = do {
     reserved "enum";
-    n <- identifier;
-    return (TEnum n);
+    n <- qualifiedIdentiferLiteral p;
+    return (TEnum n p);
 }
 
-fieldTypeFlagsRef = do {
+fieldTypeFlagsRef p = do {
     reserved "flag";
-    n <- identifier;
-    return (TFlags n);
+    n <- qualifiedIdentiferLiteral p;
+    return (TFlags n p);
 }

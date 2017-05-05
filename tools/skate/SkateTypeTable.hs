@@ -82,11 +82,11 @@ addOneTypeToTable p t [] = t
 
 {- handles each declaration and adds a type  -}
 parseType :: String -> [TTEntry] -> Declaration -> [TTEntry]
-parseType p t d@(Fact i _ _) = addOneType (make_qualified_type p i) t TTFact
-parseType p t d@(Flags i _ w _) = addOneType (make_qualified_type p i) t TTFlags
-parseType p t d@(Constants i _ _ _) = addOneType (make_qualified_type p i) t TTConstant
-parseType p t d@(Enumeration i _ _) = addOneType (make_qualified_type p i) t TTEnum
-parseType p t d@(Namespace i _ decls) = addOneTypeToTable (make_qualified_type p i) t decls
+parseType p t d@(Fact i _ _) = addOneType i t TTFact
+parseType p t d@(Flags i _ w _) = addOneType i t TTFlags
+parseType p t d@(Constants i _ _ _) = addOneType i t TTConstant
+parseType p t d@(Enumeration i _ _) = addOneType i t TTEnum
+parseType p t d@(Namespace i _ decls) = addOneTypeToTable i t decls
 parseType p t d@(Section _ decls) = addOneTypeToTable p t decls
 parseType p t d@(Text _) = t
 

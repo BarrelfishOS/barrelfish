@@ -93,10 +93,10 @@ flatten_decl_tree p t [] = t
 
 {- handles each declaration and adds a type  -}
 parseType :: String -> [Declaration] -> Declaration -> [Declaration]
-parseType p t x@(Fact i d a) = t ++ [Fact (make_qualified_type p i) d a]
-parseType p t x@(Flags i d w f) = t ++ [Flags (make_qualified_type p i) d w f]
-parseType p t x@(Constants i d a w) = t ++ [Constants (make_qualified_type p i) d a w]
-parseType p t x@(Enumeration i d e) = t ++ [Enumeration (make_qualified_type p i) d e]
-parseType p t x@(Namespace i d decls) = flatten_decl_tree (make_qualified_type p i) (t ++ [Namespace (make_qualified_type p i) d decls]) decls
+parseType p t x@(Fact i d a) = t ++ [x]
+parseType p t x@(Flags i d w f) = t ++ [x]
+parseType p t x@(Constants i d a w) = t ++ [x]
+parseType p t x@(Enumeration i d e) = t ++ [x]
+parseType p t x@(Namespace i d decls) = flatten_decl_tree i (t ++ [x]) decls
 parseType p t x@(Section _ decls) = flatten_decl_tree p t decls
 parseType p t x@(Text _) = t

@@ -101,20 +101,24 @@ checkDeclarations [] _ = do {return ()}
 - Checking Facts
 ------------------------------------------------------------------------------}
 
-fieldTypeLookup :: [TT.TTEntry] -> TT.RecType -> String -> IO ()
-fieldTypeLookup ttbl rt t = do {
+fieldTypeLookup :: [TT.TTEntry] -> TT.RecType -> String -> String -> IO ()
+fieldTypeLookup ttbl rt t s = do {
     if not (TT.exist ttbl rt t) then do {
-    ioError $ userError ("error: unknown type '" ++ (show rt) ++ " " ++ t ++ "'" );
+        if not (TT.exist ttbl rt (make_qualified_identifer s t)) then do {
+            ioError $ userError ("error: unknown type '" ++ (show rt) ++ " " ++ t ++ "'" );
+        } else do {
+            return ()
+        }
     } else do {
         return ()
     }
 }
 
 fieldTypeCheck :: TypeRef -> [TT.TTEntry] -> IO ()
-fieldTypeCheck tr@(TEnum t) ttbl = fieldTypeLookup ttbl TT.TTEnum t
-fieldTypeCheck tr@(TConstant t) ttbl =fieldTypeLookup ttbl TT.TTConstant t
-fieldTypeCheck tr@(TFact  t) ttbl =fieldTypeLookup ttbl TT.TTFact t
-fieldTypeCheck tr@(TFlags t) ttbl =fieldTypeLookup ttbl TT.TTFlags t
+fieldTypeCheck tr@(TEnum t s) ttbl = fieldTypeLookup ttbl TT.TTEnum t s
+fieldTypeCheck tr@(TConstant t s) ttbl =fieldTypeLookup ttbl TT.TTConstant t s
+fieldTypeCheck tr@(TFact  t s) ttbl =fieldTypeLookup ttbl TT.TTFact t s
+fieldTypeCheck tr@(TFlags t s) ttbl =fieldTypeLookup ttbl TT.TTFlags t s
 fieldTypeCheck tr@(TBuiltIn t) ttbl = do {return ()}
 
 

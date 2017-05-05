@@ -17,13 +17,27 @@ import Data.Char
 import Data.List
 import Data.Char
 
-import qualified SkateParser
 import qualified CAbsSyntax as C
-
-import SkateBackendCommon
+import SkateParser
 import SkateSchema
+import SkateTypes
+import SkateBackendCommon
+
 
 
 compile :: String -> String -> SchemaRecord -> String
-compile infile outfile schema =
-    ""
+compile infile outfile s = unlines $ C.pp_unit $  (skate_c_body s infile)
+
+skate_c_body :: SchemaRecord -> String -> C.Unit
+skate_c_body sr infile =
+    let
+        Schema n d decls imps = (schema sr)
+    in
+    C.UnitList [
+        (skate_c_preamble n d infile),
+        C.Blank, C.Blank,
+        skate_c_includes n
+    ]
+
+skate_c_includes :: String -> C.Unit
+skate_c_includes sr = C.Include C.Standard (skate_c_includepath sr)

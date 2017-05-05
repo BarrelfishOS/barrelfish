@@ -23,19 +23,19 @@ data TypeBuiltIn = UInt8 | UInt16 | UInt32 | UInt64 | UIntPtr
 
 
 {-types -}
-data TypeRef = TEnum String
-             | TConstant String
-             | TFact String
+data TypeRef = TEnum String String
+             | TConstant String String
+             | TFact String String
              | TBuiltIn TypeBuiltIn
-             | TFlags String
+             | TFlags String String
              deriving(Eq)
 
 instance Show TypeRef where
-    show (TEnum t) = "TEnum(" ++ t ++ ")"
-    show (TConstant t) = "TConstant(" ++ t ++ ")"
-    show (TFact t) = "TFact(" ++ t ++ ")"
+    show (TEnum t _) = "TEnum(" ++ t ++ ")"
+    show (TConstant t _) = "TConstant(" ++ t ++ ")"
+    show (TFact t _) = "TFact(" ++ t ++ ")"
     show (TBuiltIn t) = "TBuiltIn(" ++ (show t) ++ ")"
-    show (TFlags t)  = "TFlags(" ++ t ++ ")"
+    show (TFlags t _)  = "TFlags(" ++ t ++ ")"
 
 
 {- -}
@@ -72,10 +72,9 @@ typeref_to_ctype (TBuiltIn Bool)    = C.TypeName "bool"
 typeref_to_ctype (TBuiltIn String)  = C.Ptr (C.TypeName "char")
 typeref_to_ctype (TBuiltIn Char)    = C.TypeName "char"
 typeref_to_ctype (TBuiltIn Capref)  = C.Struct "capref"
-typeref_to_ctype (TEnum i)          = C.TypeName (make_type_name (make_qualified_name i))
-typeref_to_ctype (TConstant i)      = C.TypeName (make_type_name (make_qualified_name i))
-typeref_to_ctype (TFact i)          = C.TypeName (make_type_name (make_qualified_name i))
-typeref_to_ctype (TFlags i)         = C.TypeName (make_type_name (make_qualified_name i))
+typeref_to_ctype (TEnum i _)        = C.TypeName "TODO: SkateTypes.hs" -- (make_type_name (identifier_to_cname i))
+typeref_to_ctype (TConstant i _)    = C.TypeName "TODO: SkateTypes.hs" -- (make_type_name (identifier_to_cname i))typeref_to_ctype (TFact i _)        = C.TypeName "TODO: SkateTypes.hs" -- (make_type_name (identifier_to_cname i))
+typeref_to_ctype (TFlags i _)       = C.TypeName "TODO: SkateTypes.hs" -- (make_type_name (identifier_to_cname i))
 
 
 
@@ -166,17 +165,3 @@ builtin_get_bits (IntPtr)  = 64 -- xxx: make this arch specific!
 builtin_get_bits (Size)    = 64 -- xxx: make this arch specific!
 builtin_get_bits (Bool)    = 8
 builtin_get_bits (Char)    = 8
-
-{- xxx: move this somewhere else ... -}
-make_qualified_type :: String -> String -> String
-make_qualified_type "" i = i
-make_qualified_type q i = q ++ "." ++ i
-
-make_qualified_name :: [Char] -> [Char]
-make_qualified_name [] = []
-make_qualified_name (xs:x) =
-    if xs == '.' then '_' : make_qualified_name x
-    else xs : make_qualified_name x
-
-make_type_name :: String -> String
-make_type_name s = s ++ "_t"
