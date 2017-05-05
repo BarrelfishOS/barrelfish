@@ -130,6 +130,41 @@ generation of Schema documentation.
 The source code for Skate can be found in \texttt{SOURCE/tools/skate}.
 
 
+\section{Use cases}
+
+We envision the following non exhausting list of possible use cases for Skate:
+
+\begin{itemize}
+    \item A programmer is writing PCI discovery code or a device driver. The
+    program inserts various facts about the discovered devices and the state
+    of them into the SKB. To make the inserted facts usable to other programs
+    running on the system, the format of the facts have to be known. For this 
+    purpose we need a common to specify the format of those facts and their 
+    meaning.
+    
+    \item Each program needs to ultimately deal with the issue of actually 
+    inserting the facts into the SKB or query them. For this purpose, the fact 
+    strings need to be formatted accordingly, and this may be done differently 
+    for various languages and is error prone to typos. Skate is intended to 
+    remove the burden from the programmer by providing a language native (e.g. 
+    C or Rust) to ensure a safe way of inserting facts into the SKB. 
+    
+    \item Just knowing the format and the existence of certain facts is 
+    useless. A programmer needs to understand the meaning of them and their 
+    fields. It's not enough just to list the facts with the fields. Skate 
+    provides a way to generate a documentation about the specified facts. This 
+    enables programmers to reason about which facts should be used in 
+    particular selecting the right level of abstraction. This is important 
+    given that facts entered into the SKB from hardware discovery are 
+    intentionally as un-abstracted as possible.
+    
+    \item Documenting the available inference rules that the SKB implements
+    to abstract facts into useful concepts for the OS. 
+\end{itemize}
+
+
+
+
 \section{Command line options}
 \label{sec:cmdline}
 
@@ -158,7 +193,7 @@ programming languages like C and Java. Hence, Skate uses a java-style-like
 parser based on the Haskell Parsec Library. The following conventions are used:
 
 \begin{description}
-\item[Encoding] The file should be encoded using plain ASCII.
+\item[Encoding] The file should be encoded using plain text.
 \item[Whitespace:]  As in C and Java, Skate considers sequences of
   space, newline, tab, and carriage return characters to be
   whitespace.  Whitespace is generally not significant. 
