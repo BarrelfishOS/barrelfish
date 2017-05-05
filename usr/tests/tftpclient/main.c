@@ -77,5 +77,11 @@ int main(int argc, char *argv[])
 
     debug_printf("TFTP READFILE: %zu bytes\n", size);
 
-    debug_printf("TFTP TEST DONE.");
+    debug_printf("TFTP TEST DONE. \n");
+
+    // prevent main exit since we do not have
+    // graceful flounder channel teardown
+    while(1) {
+        event_dispatch(get_default_waitset());
+    }
 }
