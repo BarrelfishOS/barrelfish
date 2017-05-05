@@ -77,6 +77,8 @@ int main(int argc, char *argv[])
 
     debug_printf("TFTP READFILE: %zu bytes\n", size);
 
+    debug_printf("TFTP FILE CONTENTS: %s\n", buffer);
+
     debug_printf("TFTP TEST DONE. \n");
 
     // prevent main exit since we do not have

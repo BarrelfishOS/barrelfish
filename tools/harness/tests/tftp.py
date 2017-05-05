@@ -16,8 +16,7 @@ class TftpClientTest(TestCommon):
 
     def setup_tftp_file(self, tftpdir):
         with open(os.path.join(tftpdir, self._filename), 'w') as f:
-            for x in range(0, 1000):
-                f.write(self._filecontents)
+            f.write(self._filecontents)
 
 
     def setup(self, build, machine, testdir):
@@ -35,19 +34,13 @@ class TftpClientTest(TestCommon):
         modules.add_module("netd", ["auto"])
         return modules
 
-    def is_finished(self, line):
-        if 'TFTP TEST DONE.' in line:
-            return True
-        else:
-            return False
-
     def get_finish_string(self):
         return 'TFTP TEST DONE.'
 
     def process_data(self, testdir, rawiter):
         passed = False
         for line in rawiter:
-            if self.get_finish_string() in line:
+            if self._filecontents in line:
                 passed = True
 
         return PassFailResult(passed)
