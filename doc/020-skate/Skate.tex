@@ -426,16 +426,37 @@ default namespace?}
 
 In this section we define the syntax for the possible fact, constant, flags
 and enumeration declarations in Skate. Each of the following declarations will
-define a type and can be used 
+define a type and can be used.
 
 \subsection{Flags}
 \label{sec:decl:flags}
 
-Flags are unsigned numbers of a specified width where each bit position has a
-specific meaning. Flags are declared in a flag group which represents a single
-field in the a hardware description. Example for this type are the 
-\emph{LapicFlags} of the APIC entry in the ACPI MADT table. Flags are declared 
-as follows:
+Flags are bit fields of a fixed size (8, 16, 32, 64 bits) where each bit 
+position has a specific meaning e.g. the CPU is enabled or an interrupt
+is edge-triggered. 
+
+In contrast to constants and enumerations, the bit positions of the flags have 
+a particular meaning and two flags can be combined effectively enabling both
+options whereas the combination of enumeration values or constants may not be 
+defined. Bit positions that are not defined in the flag group are treated as 
+zero.
+
+As an example of where to use the flags use case we take the GICC CPU Interface 
+flags as defined in the MADT Table of the ACPI specification.
+
+
+\begin{tabular}{lll}
+    \textbf{Flag}      & \textbf{Bit} & \textbf{Description} \\
+    \hline
+    Enabled   & 0   & If zero, this processor is unusable.\\
+    Performance Interrupt Mode & 1 &  0 - Level-triggered,\\
+    VGIC Maintenance Interrupt Mode & 2 & 0 - Level-triggered, 1 - 
+    Edge-Triggered \\
+    Reserved & 3..31 & Reserved \\
+    \hline
+\end{tabular}
+
+
 
 \subsubsection{Syntax}
 
@@ -472,16 +493,48 @@ Flags with identifier $name$ define the following type:
 \synbf{flag} \synit{name};
 \end{syntax}
 
+\subsubsection{Example}
+
+The example from the ACPI table can be expressed in Skate as follows:
+
+\begin{syntax}
+\synbf{flags} CPUInterfaceFlags \synit{32} "\synit{GICC CPU Interface Flags}"\
+\verb+{+
+    0 Enabled         "\synit{The CPU is enabled and can be used}" ;
+    1 Performance     "\synit{Performance Interrupt Mode Edge-Triggered }" ;
+    1 VGICMaintenance "\synit{VGIC Maintenance Interrupt Mode Edge-Triggered}" ;
+\verb+}+;
+\end{syntax}
 
 
 \subsection{Constants}
 \label{sec:decl:constants}
 
-Compared to flags, constants can take up arbitrary values. An example of a 
-constant may be the vendor ID of a PCI express device or the version number
-of a generic interrupt controller. The actual constants are declared in a 
-constant group which has a defined type. All constants within this group 
-must have this type.
+Constants provide a way to specify a set of predefined values of a particular 
+type. They are defined in a constant group and every constant of this group
+needs to be of the same type.
+
+Compared to flags, the combination of two constants has no meaning (e.g.
+adding two version numbers). In addition, constants only define a set of known 
+values, but do not rule out the possibility of observing other values. As an 
+example for this may be the vendor ID of a PCI Expess device, where the 
+constant group contains the known vendor IDs.
+
+As an example where constants ca be used we take the GIC version field of the
+GICD entry of the ACPI MADT Table.
+
+\begin{tabular}{ll}
+    \textbf{Value} & \textbf{Meaning} \\
+    \hline
+    \texttt{0x00} & No GIC version is specified, fall back to hardware 
+    discovery for GIC version \\
+    \texttt{0x01} & Controller is a GICv1 \\
+    \texttt{0x02} & Controller is a GICv2 \\
+    \texttt{0x03} & Controller is a GICv3 \\
+    \texttt{0x04} & Controller is a GICv4 \\
+    \texttt{0x05-0xFF} & Reserved for future use. \\
+    \hline
+\end{tabular}
 
 \subsubsection{Syntax}
 
@@ -520,12 +573,31 @@ Constants with identifier $name$ define the following type:
 \end{syntax}
 
 
+\subsubsection{Example}
+The GIC version of our example can be expressed in the syntax as follows: 
+
+\begin{syntax}
+\synbf{constants} GICVersion \synit{uint8} "\synit{The GIC Version}" \verb+{+
+    unspecified = 0x00 "\synit{No GIC version is specified}" ;    
+    GICv1       = 0x01 "\synit{Controller is a GICv1}" ;
+    GICv2       = 0x02 "\synit{Controller is a GICv2}" ;
+    GICv3       = 0x03 "\synit{Controller is a GICv3}" ;
+    GICv4       = 0x04 "\synit{Controller is a GICv4}" ;
+\verb+}+;
+\end{syntax}
+
 \subsection{Enumerations}
 \label{sec:decl:enums}
 
-Enumerations are a special type of constants without any specific value but a 
-clear defined set of values this constant can take on. This
-declaration is analogue to the C style \texttt{enum} declaration.
+Enumerations model a finite set of states effectively constants that only allow
+the specified values. However, in contrast to constants they are not assigned
+an specific value. Two enumeration values cannot be combined. As an example, 
+the enumeration construct can be used to express the state of a device in the
+system which can be in one of the following states: \emph{uninitialized, 
+operational, suspended, halted.} It's obvious, that the combination of the 
+states operational
+and suspended is meaning less.
+
 
 \subsubsection{Syntax}
 
@@ -556,6 +628,16 @@ declaration is analogue to the C style \texttt{enum} declaration.
 Enumerations with identifier $name$ define the following type:
 \begin{syntax}
 \synbf{enum} \synit{name};
+\end{syntax}
+
+\subsubsection{Example}
+\begin{syntax}
+\synbf{enumeration} DeviceState "\synit{Possible device states}" \verb+{+
+    uninitialized "\synit{The device is uninitialized}";
+    operational   "\synit{The device is operaetional}";
+    suspended     "\synit{The device is suspended}";
+    halted        "\synit{The device is halted}";
+\verb+}+;
 \end{syntax}
 
 \subsection{Facts}
