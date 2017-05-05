@@ -151,7 +151,7 @@ class TestCommon(Test):
     def is_finished(self, line):
         # Exit test when we get an assertion failure or an abort, rather than
         # waiting for timeout
-        return line.startswith(self.get_finish_string()) or \
+        return self.get_finish_string() in line or \
                line.startswith("Assertion failed on core") or \
                line.startswith("Aborted")
 
