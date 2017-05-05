@@ -29,7 +29,7 @@ let ramfs_files = find inDir "programs" ".pl" ++
                                                  "icsolver", "vfs_ramfs",
                                                  "posixcompat", "hashtable", "pcre", 
                                                  "octopus_server", "octopus_parser", "skb",
-                                                 "bench", "dmalloc", "lwip", "gmp" ],
+                                                 "bench", "dmalloc", "lwip" ],
                        architectures = [ arch ]
                 }
 in
