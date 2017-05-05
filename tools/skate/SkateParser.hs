@@ -166,7 +166,7 @@ schemadecl = factdecl      <|> constantdecl  <|> flagsdecl  <|> enumdecl <|>
 importfacts = do {
     reserved "import";
     i <- identifier;
-    _ <- symbol ";";
+    _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " import";
     return (Import i)
 }
 
@@ -180,7 +180,7 @@ namespacedecl = do {
     i <- identifier;
     d <- stringLit;
     decls <- braces (many1 schemadecl);
-    _ <- symbol ";";
+    _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " namespace";
     return (Namespace i d decls);
 };
 
@@ -194,7 +194,7 @@ factdecl = do {
     i <- identifier;
     d <- stringLit;
     f <- braces (many1 factattrib);
-    _ <- symbol ";";
+    _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " fact";
     return (Fact i d f)
 }
 
@@ -202,7 +202,7 @@ factattrib = do {
     t <- fieldType;
     i <- identifier;
     d <- stringLit;
-    _ <- symbol ";";
+    _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " fact attribute";
     return (FactAttrib i d t)
 }
 
@@ -217,7 +217,7 @@ flagsdecl = do {
     b <- integer;
     d <- stringLit;
     flagvals <- braces (many1 flagvals);
-    _ <- symbol ";" ;
+    _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " flags";
     return (Flags i d b flagvals)
 }
 
@@ -226,7 +226,7 @@ flagvals = do {
     p <- integer;
     i <- identifier;
     d <- stringLit;
-    _ <- symbol ";";
+    _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " flag val";
     return (FlagDef i d p)
 };
 
@@ -243,7 +243,7 @@ constantdecl = do {
     t <- fieldType;
     d <- stringLit;
     vals <- braces (many1 (constantvals t));
-    _ <- symbol ";" ;
+    _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " constants";
     return (Constants i d t vals)
 }
 
@@ -268,7 +268,7 @@ constantvalsnum = do {
     _ <- symbol "=";
     v <- integer;
     d <- stringLit;
-    _ <- symbol ";";
+    _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " constant";
     return (ConstantDefInt i d v)
 };
 
@@ -277,7 +277,7 @@ constantvalsstring = do {
     _ <- symbol "=";
     v <- stringLit;
     d <- stringLit;
-    _ <- symbol ";";
+    _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " constant";
     return (ConstantDefStr i d v)
 };
 
@@ -291,14 +291,14 @@ enumdecl = do {
     i <- identifier;
     d <- stringLit;
     enums <- braces (many1 enumdef);
-     _ <- symbol ";";
+     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " enumeration";
     return (Enumeration i d enums)
 }
 
 enumdef = do {
     i <- identifier;
     d <- stringLit;
-    _ <- symbol ";";
+    _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " enum item";
     return (EnumDef i d)
 };
 
@@ -311,13 +311,14 @@ sectiondecl = do {
     reserved "section";
     i <- stringLit;
     decls <- braces (many1 schemadecl);
-    _ <- symbol ";" ;
+    _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " section";
     return (Section i decls);
 };
 
 textdecl = do {
     reserved "text";
     t <- braces (many1 stringLit);
+    _ <- symbol ";" <?> " ';' missing from end of text block";
     return (Text (concat (intersperse " " t)) );
 };
 
