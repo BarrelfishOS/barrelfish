@@ -789,12 +789,28 @@ Namespaces will appear as sections in the documentation.
 \label{chap:astops}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+The following checks are executed after the parser has consumed the entire
+Skate file and created the AST.
+
 \section{Filename Check}
+As already stated, the name of the Skate (without extension) must match the 
+identifier of the declared schema in the Skate file. This is required for 
+resolving imports of other Schemas. 
+
+\section{Uniqueness of declarations / fields}
+Skate ensures that all declarations within a namespace are unique no matter 
+which type they are i.e. there cannot be a fact and a constant definition with 
+the same identifier. Moreover, the same check is applied to the fact attributes 
+as well as flags, enumerations and constant values.
+
+Checks are based on the qualified identifier.
 
 \section{Type Checks}
 
-\section{Sorting of Declarations}
 
+
+\section{Sorting of Declarations}
+\todo{This requires generated a dependency graph for the facts etc. }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{C mapping for Schema Definitions}
