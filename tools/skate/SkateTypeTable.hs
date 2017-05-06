@@ -18,6 +18,7 @@ import Data.List
 import System.IO
 import System.IO.Error
 import Text.Printf
+import Text.ParserCombinators.Parsec.Pos
 
 import SkateParser
 import SkateTypes
@@ -32,10 +33,10 @@ instance Show RecType where
     show TTEnum = "enum"
     show TTFact = "fact"
 
-data TTEntry = Rec RecType String
+data TTEntry = Rec RecType String SourcePos
 
 instance Show TTEntry where
-    show (Rec _ s) = "TT.Rec: " ++ s
+    show (Rec _ s _) = "TT.Rec: " ++ s
 
 
 {-
@@ -46,7 +47,7 @@ instance Show TTEntry where
 
 {- creates the Skate type table -}
 make_table :: Schema -> IO [TTEntry]
-make_table s@(Schema n d decls imps) =
+make_table s@(Schema n d decls imps _) =
     let
         tt = addOneTypeToTable n [] decls;
     in
@@ -65,7 +66,7 @@ exist ttbl t a = not (null (filter (type_ref_exists a t) ttbl))
 lookup ::  [TTEntry] -> String -> RecType
 lookup t a = tt
     where
-        Rec tt _ = head (filter (typeExists a) t)
+        Rec tt _  _= head (filter (typeExists a) t)
 
 {-
 ==============================================================================
@@ -82,24 +83,28 @@ addOneTypeToTable p t [] = t
 
 {- handles each declaration and adds a type  -}
 parseType :: String -> [TTEntry] -> Declaration -> [TTEntry]
-parseType p t d@(Fact i _ _) = addOneType i t TTFact
-parseType p t d@(Flags i _ w _) = addOneType i t TTFlags
-parseType p t d@(Constants i _ _ _) = addOneType i t TTConstant
-parseType p t d@(Enumeration i _ _) = addOneType i t TTEnum
-parseType p t d@(Namespace i _ decls) = addOneTypeToTable i t decls
-parseType p t d@(Section _ decls) = addOneTypeToTable p t decls
-parseType p t d@(Text _) = t
+parseType p t d@(Fact i _ _ sp) = addOneType i t TTFact sp
+parseType p t d@(Flags i _ w _ sp) = addOneType i t TTFlags sp
+parseType p t d@(Constants i _ _ _ sp) = addOneType i t TTConstant sp
+parseType p t d@(Enumeration i _ _ sp) = addOneType i t TTEnum sp
+parseType p t d@(Namespace i _ decls sp) = addOneTypeToTable i t decls
+parseType p t d@(Section _ decls sp) = addOneTypeToTable p t decls
+parseType p t d@(Text _ sp) = t
 
 {- boolean function that returns True iff the type record matches -}
 typeExists :: String -> TTEntry -> Bool
-typeExists a d@(Rec _ e) = (a == e)
+typeExists a d@(Rec _ e _) = (a == e)
 
 {- boolean function that returns True iff the type record matches -}
 type_ref_exists :: String -> RecType -> TTEntry -> Bool
-type_ref_exists a t d@(Rec tt e) = ((a == e) &&  (t == tt))
+type_ref_exists a t d@(Rec tt e _) = ((a == e) &&  (t == tt))
 
 {- adds one type to the type table -}
-addOneType :: String -> [TTEntry] -> RecType -> [TTEntry]
-addOneType n recs t =
-    if null (filter (typeExists n) recs) then recs ++ [Rec t n]
-    else error $ "error: type '" ++ n ++ "' has already been defined";
+addOneType :: String -> [TTEntry] -> RecType -> SourcePos -> [TTEntry]
+addOneType n recs t sp =
+    let
+        existingTypes = (filter (typeExists n) recs)
+    in
+    if null existingTypes then recs ++ [Rec t n sp]
+    else error $ "error in " ++ (show sp) ++ ": re-definition of type '" ++ n ++ "'."
+                 ++ " previously defined " ++ (show (head existingTypes));

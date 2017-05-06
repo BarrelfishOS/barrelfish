@@ -38,7 +38,7 @@ data DeclarationTable = DTRec [Declaration] [Declaration] [Declaration] [Declara
 -}
 
 make_table :: Schema -> [TT.TTEntry] -> IO DeclarationTable
-make_table s@(Schema n d decls imps) ttbl = do {
+make_table s@(Schema n d decls imps _) ttbl = do {
     printf "Creating DeclarationTable.\n";
     print (show facts);
     print (show namespaces);
@@ -65,23 +65,23 @@ make_table s@(Schema n d decls imps) ttbl = do {
 
 {- filter functions -}
 fact_filter :: Declaration -> Bool
-fact_filter d@(Fact _ _ _) = True
+fact_filter d@(Fact _ _ _ _) = True
 fact_filter _ = False
 
 namespace_filter :: Declaration -> Bool
-namespace_filter d@(Namespace _ _ _) = True
+namespace_filter d@(Namespace _ _ _ _) = True
 namespace_filter _ = False
 
 flags_filter :: Declaration -> Bool
-flags_filter d@(Flags _ _ _ _) = True
+flags_filter d@(Flags _ _ _ _ _) = True
 flags_filter _ = False
 
 constants_filter :: Declaration -> Bool
-constants_filter d@(Constants _ _ _ _) = True
+constants_filter d@(Constants _ _ _ _ _) = True
 constants_filter _ = False
 
 enumeration_filter :: Declaration -> Bool
-enumeration_filter d@(Enumeration _ _ _) = True
+enumeration_filter d@(Enumeration _ _ _ _) = True
 enumeration_filter _ = False
 
 
@@ -93,10 +93,10 @@ flatten_decl_tree p t [] = t
 
 {- handles each declaration and adds a type  -}
 parseType :: String -> [Declaration] -> Declaration -> [Declaration]
-parseType p t x@(Fact i d a) = t ++ [x]
-parseType p t x@(Flags i d w f) = t ++ [x]
-parseType p t x@(Constants i d a w) = t ++ [x]
-parseType p t x@(Enumeration i d e) = t ++ [x]
-parseType p t x@(Namespace i d decls) = flatten_decl_tree i (t ++ [x]) decls
-parseType p t x@(Section _ decls) = flatten_decl_tree p t decls
-parseType p t x@(Text _) = t
+parseType p t x@(Fact i d a _) = t ++ [x]
+parseType p t x@(Flags i d w f _) = t ++ [x]
+parseType p t x@(Constants i d a w _) = t ++ [x]
+parseType p t x@(Enumeration i d e _) = t ++ [x]
+parseType p t x@(Namespace i d decls _) = flatten_decl_tree i (t ++ [x]) decls
+parseType p t x@(Section _ decls _) = flatten_decl_tree p t decls
+parseType p t x@(Text _ _) = t

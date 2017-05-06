@@ -86,11 +86,11 @@ checkUniqueVal fi i defs = do {
 
 
 checkOneDeclaration :: Declaration -> [TT.TTEntry] -> IO ()
-checkOneDeclaration de@(Fact i d a) ttbl = do {checkFactAttributes i a ttbl [];}
-checkOneDeclaration de@(Flags i d w f) ttbl = do {checkFlagDefs i w f ttbl [] [];}
-checkOneDeclaration de@(Constants i d t f) ttbl = do {checkConstantDefs i t f ttbl [];}
-checkOneDeclaration de@(Enumeration i d f) ttbl = do {checkEnumDefs i f ttbl [];}
-checkOneDeclaration de@(Namespace i d  _ ) ttbl = do {return()}
+checkOneDeclaration de@(Fact i d a sp) ttbl = do {checkFactAttributes i a ttbl [];}
+checkOneDeclaration de@(Flags i d w f sp) ttbl = do {checkFlagDefs i w f ttbl [] [];}
+checkOneDeclaration de@(Constants i d t f sp) ttbl = do {checkConstantDefs i t f ttbl [];}
+checkOneDeclaration de@(Enumeration i d f sp) ttbl = do {checkEnumDefs i f ttbl [];}
+checkOneDeclaration de@(Namespace i d  _ sp) ttbl = do {return()}
 checkOneDeclaration s _ = do {ioError $ userError ("internal error: encoutered unsupported declaration type." ++ (show s))}
 
 checkDeclarations :: [Declaration] -> [TT.TTEntry] -> IO ()
@@ -123,7 +123,7 @@ fieldTypeCheck tr@(TBuiltIn t) ttbl = do {return ()}
 
 
 checkFactAttributes :: String -> [FactAttrib] -> [TT.TTEntry] -> [String] -> IO ()
-checkFactAttributes fi (xs@(FactAttrib i d t):x) ttbl attribs = do {
+checkFactAttributes fi (xs@(FactAttrib i d t sp):x) ttbl attribs = do {
     checkUnique ("fact " ++ fi) i attribs;
     _ <- fieldTypeCheck t ttbl;
     checkFactAttributes fi x ttbl (attribs ++ [i]);
@@ -136,36 +136,36 @@ checkFactAttributes _ [] _ _ = do {return ()}
 ------------------------------------------------------------------------------}
 
 checkConstantDefsInt :: String -> TypeRef -> [ConstantDef] -> [TT.TTEntry] -> [String] -> IO ()
-checkConstantDefsInt fi t (xs@(ConstantDefInt i d v):x) ttbl attribs = do {
+checkConstantDefsInt fi t (xs@(ConstantDefInt i d v sp):x) ttbl attribs = do {
     checkUnique ("constant " ++ fi) i attribs;
     checkConstantDefsInt fi t x ttbl (attribs ++ [i]);
 }
-checkConstantDefsInt fi _ (xs@(ConstantDefStr _ _ _):x) _ _ = do {
+checkConstantDefsInt fi _ (xs@(ConstantDefStr _ _ _ sp):x) _ _ = do {
     ioError $ userError ("error: constant type mismatch '" ++ fi ++ " expected Integer, was String");
 }
 checkConstantDefsInt fi _ [] _ _ = do {return ()}
 
 checkConstantDefsString :: String -> TypeRef -> [ConstantDef] -> [TT.TTEntry] -> [String] -> IO ()
-checkConstantDefsString fi t (xs@(ConstantDefStr i d v):x) ttbl attribs = do {
+checkConstantDefsString fi t (xs@(ConstantDefStr i d v sp):x) ttbl attribs = do {
     checkUnique ("constant " ++ fi) i attribs;
     checkConstantDefsString fi t x ttbl (attribs ++ [i]);
 }
-checkConstantDefsString fi _ (xs@(ConstantDefInt _ _ _):x) _ _ = do {
+checkConstantDefsString fi _ (xs@(ConstantDefInt _ _ _ _):x) _ _ = do {
     ioError $ userError ("error: constant type mismatch '" ++ fi ++ " expected Integer, was String");
 }
 checkConstantDefsString _ _ [] _ _ = do {return ()}
 
 
 checkConstantDefs :: String -> TypeRef -> [ConstantDef] -> [TT.TTEntry] -> [String] -> IO ()
-checkConstantDefs fi t (xs@(ConstantDefInt i d v):x) ttbl attribs = do {checkConstantDefsInt fi t (xs:x) ttbl attribs}
-checkConstantDefs fi t (xs@(ConstantDefStr i d v):x) ttbl attribs = do {checkConstantDefsString fi t (xs:x) ttbl attribs}
+checkConstantDefs fi t (xs@(ConstantDefInt i d v sp):x) ttbl attribs = do {checkConstantDefsInt fi t (xs:x) ttbl attribs}
+checkConstantDefs fi t (xs@(ConstantDefStr i d v sp):x) ttbl attribs = do {checkConstantDefsString fi t (xs:x) ttbl attribs}
 
 {-----------------------------------------------------------------------------
 - Checking Flags
 ------------------------------------------------------------------------------}
 
 checkFlagDefs :: String -> Integer -> [FlagDef] -> [TT.TTEntry] -> [String] -> [Integer] -> IO ()
-checkFlagDefs fi w (xs@(FlagDef i d t):x) ttbl defs bits = do {
+checkFlagDefs fi w (xs@(FlagDef i d t sp):x) ttbl defs bits = do {
     checkUnique ("flags " ++ fi) i defs;
     checkUniqueVal ("flags " ++ fi) t bits;
     if t < w then do {
@@ -182,7 +182,7 @@ checkFlagDefs _ _ [] _ _ _ = do {return ()}
 ------------------------------------------------------------------------------}
 
 checkEnumDefs :: String -> [EnumDef] -> [TT.TTEntry] -> [String] -> IO ()
-checkEnumDefs fi (xs@(EnumDef i d):x) ttbl defs = do {
+checkEnumDefs fi (xs@(EnumDef i d sp):x) ttbl defs = do {
     checkUnique ("enumeration " ++ fi) i defs;
     checkEnumDefs fi x ttbl (defs ++ [i]);
 }
@@ -202,7 +202,7 @@ checkEnumDefs _ [] _ _ = do {return ()}
 checkFilename :: SkateParser.Schema -> String -> IO ()
 checkFilename schema fname = do
     let
-        SkateParser.Schema sname _ _ _ = schema
+        SkateParser.Schema sname _ _ _ _ = schema
     if sname == takeBaseName fname
     then return ()
     else ioError $ userError (

@@ -44,43 +44,43 @@ make_qualified_identifer parent i = parent ++ "." ++ i
 -}
 
 {- import data type -}
-data Import = Import String
+data Import = Import String SourcePos
 
 {- Facts -}
-data FactAttrib = FactAttrib String String TypeRef
+data FactAttrib = FactAttrib String String TypeRef SourcePos
 
 {- Flags -}
-data FlagDef = FlagDef String String Integer
+data FlagDef = FlagDef String String Integer SourcePos
 
 {- Constants -}
-data ConstantDef = ConstantDefInt String String Integer
-                 | ConstantDefStr String String String
+data ConstantDef = ConstantDefInt String String Integer SourcePos
+                 | ConstantDefStr String String String SourcePos
 
 {- Enumerations -}
-data EnumDef = EnumDef String String
+data EnumDef = EnumDef String String SourcePos
 
 
 {- declarations -}
-data Declaration = Fact String String [ FactAttrib ]
-                  | Flags String String Integer [ FlagDef ]
-                  | Constants String String TypeRef [ ConstantDef ]
-                  | Enumeration String String [ EnumDef ]
-                  | Namespace String String [ Declaration ]
-                  | Section String [ Declaration ]
-                  | Text String
+data Declaration = Fact String String [ FactAttrib ] SourcePos
+                  | Flags String String Integer [ FlagDef ] SourcePos
+                  | Constants String String TypeRef [ ConstantDef ] SourcePos
+                  | Enumeration String String [ EnumDef ] SourcePos
+                  | Namespace String String [ Declaration ] SourcePos
+                  | Section String [ Declaration ] SourcePos
+                  | Text String SourcePos
 
 {--}
 instance Show Declaration where
-    show de@(Fact i d _) = "Fact '" ++ i ++ "'"
-    show de@(Flags  i d _ _) = "Flags '" ++ i ++ "'"
-    show de@(Enumeration  i d _) = "Enumeration '" ++ i ++ "'"
-    show de@(Constants  i d _ _) = "Constants '" ++ i ++ "'"
-    show de@(Namespace  i d _) = "Namespace '" ++ i ++ "'"
-    show de@(Section  i _) = "Section '" ++ i ++ "'"
-    show de@(Text i) = "Text Block"
+    show de@(Fact i d _ _) = "Fact '" ++ i ++ "'"
+    show de@(Flags  i d _ _ _) = "Flags '" ++ i ++ "'"
+    show de@(Enumeration  i d _ _) = "Enumeration '" ++ i ++ "'"
+    show de@(Constants  i d _ _ _) = "Constants '" ++ i ++ "'"
+    show de@(Namespace  i d _ _) = "Namespace '" ++ i ++ "'"
+    show de@(Section  i _ _) = "Section '" ++ i ++ "'"
+    show de@(Text i _) = "Text Block"
 
 {- the schema -}
-data Schema = Schema String String [ Declaration ] [ String ]
+data Schema = Schema String String [ Declaration ] [ String ] SourcePos
 
 
 {-
@@ -149,16 +149,30 @@ binLiteral = do {
 - Parser start point
 ------------------------------------------------------------------------------}
 
+
+pErrorDescription :: String -> String -> SourcePos -> String
+pErrorDescription t i spos = " missing description of "++ t ++ " '" ++ i ++ "'"
+                            ++ " in " ++ (show spos)
+
+
+
+
+
+{------------------------------------------------------------------------------
+- Parser start point
+------------------------------------------------------------------------------}
+
 {- parse the the Skate file -}
 parse = do {
     whiteSpace;
     imps <- many importfacts;
+    p <- getPosition;
     reserved "schema";
     name <- identifier;
-    desc <- option name stringLit;
+    desc <- stringLit <?> pErrorDescription "schema" name p;
     decls <- braces (many1 $ schemadecl name);
     _ <- symbol ";" <?> " ';' missing from end of " ++ name ++ " schema def";
-    return (Schema name desc decls [i | (Import i) <- imps])
+    return (Schema name desc decls [i | (Import i _) <- imps] p)
 }
 
 
@@ -177,9 +191,10 @@ schemadecl sn = factdecl sn  <|>  constantdecl sn   <|> flagsdecl sn    <|>
 
 importfacts = do {
     reserved "import";
-    i <- identifier;
+    p <- getPosition;
+    i <- identifier <?> " required valid identifier";
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " import";
-    return (Import i)
+    return (Import i p)
 }
 
 
@@ -189,11 +204,12 @@ importfacts = do {
 
 namespacedecl parent = do {
     reserved "namespace";
+    p <- getPosition;
     i <- identifier;
-    d <- stringLit;
+    d <- stringLit <?> " missing description of namespace '" ++ (make_qualified_identifer parent i) ++ "'";
     decls <- braces (many1 $ schemadecl (make_qualified_identifer parent i));
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " namespace";
-    return (Namespace (make_qualified_identifer parent i) d decls);
+    return (Namespace (make_qualified_identifer parent i) d decls p);
 }
 
 {------------------------------------------------------------------------------
@@ -202,19 +218,21 @@ namespacedecl parent = do {
 
 factdecl parent = do {
     reserved "fact";
+    p <- getPosition;
     i <- identifier;
-    d <- stringLit;
+    d <- stringLit <?> " missing description of fact '" ++ (make_qualified_identifer parent i) ++ "'";
     f <- braces (many1 $ factattrib parent);
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " fact";
-    return (Fact (make_qualified_identifer parent i) d f)
+    return (Fact (make_qualified_identifer parent i) d f p)
 }
 
 factattrib parent = do {
+    p <- getPosition;
     t <- fieldType parent;
     i <- identifier;
     d <- stringLit;
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " fact attribute";
-    return (FactAttrib i d t)
+    return (FactAttrib i d t p)
 }
 
 
@@ -224,21 +242,23 @@ factattrib parent = do {
 
 flagsdecl parent = do {
     reserved "flags";
+    p <- getPosition;
     i <- identifier;
     b <- integer;
-    d <- stringLit;
+    d <- stringLit <?> " missing description of flags '" ++ (make_qualified_identifer parent i) ++ "'";
     flagvals <- braces (many1 flagvals);
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " flags";
-    return (Flags (make_qualified_identifer parent i) d b flagvals)
+    return (Flags (make_qualified_identifer parent i) d b flagvals p)
 }
 
 {- identifier = value "opt desc"; -}
 flagvals = do {
+    pos <- getPosition;
     p <- integer;
     i <- identifier;
     d <- stringLit;
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " flag val";
-    return (FlagDef i d p)
+    return (FlagDef i d p pos)
 };
 
 
@@ -250,12 +270,13 @@ flagvals = do {
 {- constants fname "desc" {[constantvals]}; -}
 constantdecl parent = do {
     reserved "constants";
+    p <- getPosition;
     i <- identifier;
     t <- fieldTypeBuiltIn;
-    d <- stringLit;
+    d <- stringLit <?> " missing description of constants '" ++ (make_qualified_identifer parent i) ++ "'";
     vals <- braces (many1 (constantvals t));
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " constants";
-    return (Constants (make_qualified_identifer parent i) d t vals)
+    return (Constants (make_qualified_identifer parent i) d t vals p)
 }
 
 constantvals (TBuiltIn String) = constantvalsstring
@@ -275,21 +296,23 @@ constantvals (TBuiltIn Bool) =  constantvalsnum
 constantvals s = error $ "Invalid constant type " ++ (show s)
 
 constantvalsnum = do {
+    p <- getPosition;
     i <- identifier;
     _ <- symbol "=";
     v <- integer;
     d <- stringLit;
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " constant";
-    return (ConstantDefInt i d v)
+    return (ConstantDefInt i d v p)
 };
 
 constantvalsstring = do {
+    p <- getPosition;
     i <- identifier;
     _ <- symbol "=";
     v <- stringLit;
     d <- stringLit;
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " constant";
-    return (ConstantDefStr i d v)
+    return (ConstantDefStr i d v p)
 };
 
 
@@ -299,18 +322,20 @@ constantvalsstring = do {
 
 enumdecl parent = do {
     reserved "enumeration";
+    p <- getPosition;
     i <- identifier;
-    d <- stringLit;
+    d <- stringLit <?> " missing description of enumeration '" ++ (make_qualified_identifer parent i) ++ "'";
     enums <- braces (many1 enumdef);
      _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " enumeration";
-    return (Enumeration (make_qualified_identifer parent i) d enums)
+    return (Enumeration (make_qualified_identifer parent i) d enums p)
 }
 
 enumdef = do {
+    p <- getPosition;
     i <- identifier;
     d <- stringLit;
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " enum item";
-    return (EnumDef i d)
+    return (EnumDef i d p)
 };
 
 
@@ -320,17 +345,19 @@ enumdef = do {
 
 sectiondecl parent = do {
     reserved "section";
+    p <- getPosition;
     i <- stringLit;
     decls <- braces (many1 $ schemadecl parent);
     _ <- symbol ";" <?> " ';' missing from end of " ++ i ++ " section";
-    return (Section i decls);
+    return (Section i decls p);
 };
 
 textdecl = do {
     reserved "text";
+    p <- getPosition;
     t <- braces (many1 stringLit);
     _ <- symbol ";" <?> " ';' missing from end of text block";
-    return (Text (concat (intersperse " " t)) );
+    return (Text (concat (intersperse " " t)) p);
 };
 
 

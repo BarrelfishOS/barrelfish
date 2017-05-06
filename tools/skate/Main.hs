@@ -197,8 +197,8 @@ findImport (d:t) f =  do
 resolveImp :: [SkateParser.Schema] -> [String] -> IO [SkateParser.Schema]
 resolveImp dfl path =
     let
-        allimports = nub $ concat [ i | (SkateParser.Schema n _ _ i) <- dfl ]
-        gotimports = [ n | (SkateParser.Schema n _ _ i) <- dfl ]
+        allimports = nub $ concat [ i | (SkateParser.Schema n _ _ i _) <- dfl ]
+        gotimports = [ n | (SkateParser.Schema n _ _ i _) <- dfl ]
         required = allimports \\ gotimports
     in
         case required of

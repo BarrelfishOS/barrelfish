@@ -47,7 +47,7 @@ skateSchemaTransform sr = do {
 
 
 make_schema_record :: Schema -> [Schema] -> IO SchemaRecord
-make_schema_record s@(Schema n d decls imps) dfl =
+make_schema_record s@(Schema n d decls imps sp) dfl =
     do {
         printf "Creating SchemRecord.\n";
         ttbl <- TT.make_table s;

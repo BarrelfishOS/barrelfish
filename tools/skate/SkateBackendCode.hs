@@ -17,6 +17,8 @@ import Data.Char
 import Data.List
 import Data.Char
 
+import Text.ParserCombinators.Parsec.Pos
+
 import qualified CAbsSyntax as C
 import SkateParser
 import SkateSchema
@@ -31,7 +33,7 @@ compile infile outfile s = unlines $ C.pp_unit $  (skate_c_body s infile)
 skate_c_body :: SchemaRecord -> String -> C.Unit
 skate_c_body sr infile =
     let
-        Schema n d decls imps = (schema sr)
+        Schema n d decls imps sp = (schema sr)
     in
     C.UnitList [
         (skate_c_preamble n d infile),

@@ -16,6 +16,8 @@ module SkateBackendHeader where
 import Data.List
 import Data.Char
 
+import Text.ParserCombinators.Parsec.Pos
+
 import qualified CAbsSyntax as C
 import SkateParser
 import SkateSchema
@@ -30,7 +32,7 @@ compile infile outfile s = unlines $ C.pp_unit $ skate_header_file s infile
 skate_header_file :: SchemaRecord -> String -> C.Unit
 skate_header_file sr infile =
     let
-        Schema n d decls imps = (schema sr)
+        Schema n d decls imps sp = (schema sr)
         sym = "SKATE__" ++ (map toUpper n) ++ "_SCHEMA_H_"
     in
       C.IfNDef sym ([ C.Define sym [] "1"] ++ (skate_header_body sr infile)) []
@@ -42,7 +44,7 @@ skate_header_file sr infile =
 skate_header_body :: SchemaRecord -> String -> [ C.Unit ]
 skate_header_body sr infile =
     let
-        Schema n d decls imps = (schema sr)
+        Schema n d decls imps sp = (schema sr)
     in
     [C.Blank, C.Blank] ++
     [(skate_c_preamble n d infile)] ++
@@ -100,13 +102,13 @@ skate_c_headerfiles imps = [C.MultiComment ["Imports"]] ++
 ------------------------------------------------------------------------------}
 
 skate_c_header_one_attrib :: String -> FactAttrib -> [C.Param]
-skate_c_header_one_attrib p e@(FactAttrib i d t) = [
+skate_c_header_one_attrib p e@(FactAttrib i d t sp) = [
   C.ParamDoxyComment d,
   C.Param (typeref_to_ctype t) i]
 
-skate_c_header_fact :: String -> String -> [ FactAttrib ]-> [C.Unit]
-skate_c_header_fact i d attrib = [
-    (skate_c_type_comment "Fact" d i),
+skate_c_header_fact :: String -> String -> [ FactAttrib ] -> SourcePos -> [C.Unit]
+skate_c_header_fact i d attrib sp = [
+    (skate_c_type_comment "Fact" d i sp),
     C.StructDecl ttype $ concat (intersperse [C.ParamBlank] [skate_c_header_one_attrib i a | a <- attrib]),
     C.TypeDef (C.Struct ttype) ttype,
     C.Blank]
@@ -121,7 +123,7 @@ skate_c_header_fact i d attrib = [
 
 
 skate_c_header_one_flag :: String -> FlagDef -> C.TypeSpec -> C.Unit
-skate_c_header_one_flag p f@(FlagDef i d v) t = C.UnitList [
+skate_c_header_one_flag p f@(FlagDef i d v _) t = C.UnitList [
     C.DoxyComment d,
     C.Define (flagdef) [] (C.pp_expr $ C.Cast t $
             C.Binary C.LeftShift (C.NumConstant 1) (C.NumConstant v)) ]
@@ -130,9 +132,9 @@ skate_c_header_one_flag p f@(FlagDef i d v) t = C.UnitList [
             flagdef = map toUpper (identifier_to_cname flag)
 
 
-skate_c_header_flags :: String -> String -> Integer ->[ FlagDef ]-> [C.Unit]
-skate_c_header_flags i d w defs = [
-    (skate_c_type_comment "Flags" d i),
+skate_c_header_flags :: String -> String -> Integer ->[ FlagDef ] -> SourcePos -> [C.Unit]
+skate_c_header_flags i d w defs sp = [
+    (skate_c_type_comment "Flags" d i sp),
     C.TypeDef (C.TypeName ttype) tname,
     C.Blank]
     ++ [skate_c_header_one_flag i def (C.TypeName tname) | def <- defs]
@@ -148,22 +150,22 @@ skate_c_header_flags i d w defs = [
 
 
 skate_c_header_one_const :: String -> ConstantDef -> C.TypeSpec -> C.Unit
-skate_c_header_one_const p f@(ConstantDefInt i d v) t = C.UnitList [
+skate_c_header_one_const p f@(ConstantDefInt i d v _) t = C.UnitList [
     C.DoxyComment d,
     C.Define (constdef) [] (C.pp_expr $ C.Cast t $ C.NumConstant v) ]
     where
         c = make_qualified_identifer p i
         constdef = map toUpper (identifier_to_cname c)
-skate_c_header_one_const p f@(ConstantDefStr i d v) t = C.UnitList [
+skate_c_header_one_const p f@(ConstantDefStr i d v _) t = C.UnitList [
     C.DoxyComment d,
     C.Define (constdef) [] (C.pp_expr $ C.Cast t $ C.StringConstant v) ]
         where
             c = make_qualified_identifer p i
             constdef = map toUpper (identifier_to_cname c)
 
-skate_c_header_const :: String -> String -> TypeRef ->[ ConstantDef ] -> [C.Unit]
-skate_c_header_const i d t@(TBuiltIn tref) defs = [
-    (skate_c_type_comment "Constants" d i),
+skate_c_header_const :: String -> String -> TypeRef ->[ ConstantDef ] -> SourcePos -> [C.Unit]
+skate_c_header_const i d t@(TBuiltIn tref) defs sp = [
+    (skate_c_type_comment "Constants" d i sp),
     C.TypeDef (typeref_to_ctype t) tname,
     C.Blank]
     ++ [skate_c_header_one_const i def (C.TypeName tname) | def <- defs]
@@ -178,15 +180,15 @@ skate_c_header_const i d t@(TBuiltIn tref) defs = [
 
 
 skate_c_header_one_enum :: String -> EnumDef -> C.EnumItem
-skate_c_header_one_enum p e@(EnumDef i d) = C.EnumItem name d Nothing
+skate_c_header_one_enum p e@(EnumDef i d _) = C.EnumItem name d Nothing
     where
         enum = make_qualified_identifer p i
         name = map toUpper (identifier_to_cname enum)
 
 
-skate_c_header_enum :: String -> String -> [ EnumDef ] -> [C.Unit]
-skate_c_header_enum i d defs = [
-    (skate_c_type_comment "Enumeration" d i),
+skate_c_header_enum :: String -> String -> [ EnumDef ] -> SourcePos -> [C.Unit]
+skate_c_header_enum i d defs sp = [
+    (skate_c_type_comment "Enumeration" d i sp),
     C.EnumDecl ttype [skate_c_header_one_enum i def | def <- defs],
     C.Blank]
     where
@@ -201,19 +203,20 @@ skate_c_header_enum i d defs = [
 ------------------------------------------------------------------------------}
 
 skate_c_header_one_decl :: Declaration -> [ C.Unit ]
-skate_c_header_one_decl de@(Fact i d a) = skate_c_header_fact i d a
-skate_c_header_one_decl de@(Flags i d w f) = skate_c_header_flags i d w f
-skate_c_header_one_decl de@(Constants i d t f) = skate_c_header_const i d t f
-skate_c_header_one_decl de@(Enumeration i d f) = skate_c_header_enum i d f
+skate_c_header_one_decl de@(Fact i d a sp) = skate_c_header_fact i d a sp
+skate_c_header_one_decl de@(Flags i d w f sp) = skate_c_header_flags i d w f sp
+skate_c_header_one_decl de@(Constants i d t f sp) = skate_c_header_const i d t f sp
+skate_c_header_one_decl de@(Enumeration i d f sp) = skate_c_header_enum i d f sp
 skate_c_header_one_decl _  = []
 
 
 skate_c_header_decls :: [Declaration] -> [ C.Unit ]
 skate_c_header_decls decls = [C.UnitList $ skate_c_header_one_decl d | d <- decls]
 
-skate_c_type_comment :: String -> String -> String -> C.Unit
-skate_c_type_comment t desc defined = C.MultiDoxy [
+skate_c_type_comment :: String -> String -> String -> SourcePos -> C.Unit
+skate_c_type_comment t desc defined sp = C.MultiDoxy [
     "@brief " ++ desc,
     "",
     "Type: " ++ t,
-    "Defined in " ++ defined]
+    "Defined in " ++ defined,
+    "Defined in " ++ (show sp)]

@@ -20,6 +20,8 @@ import Data.Time.Clock.POSIX
 import Data.List
 import Data.Char
 
+import Text.ParserCombinators.Parsec.Pos
+
 
 import  SkateParser
 import SkateTypes
@@ -33,7 +35,7 @@ compile :: String -> String -> SchemaRecord -> String
 compile infile outfile sr =
     h ++ i ++ W.lineBreak ++ b ++ W.lineBreak ++ f
     where
-        Schema sname sdesc decls imps = (schema sr)
+        Schema sname sdesc decls imps _ = (schema sr)
         h = wikiHeader sname sdesc infile
         i = wikiImports imps
         b = wikiBody decls sname
@@ -65,13 +67,13 @@ wikiBody decls sname = heading ++ concat declstr
 
 
 wikiPrintDecl :: Declaration -> Int -> String -> String
-wikiPrintDecl d@(Fact fn fd attr) l prefix= (wikiPrintFact fn fd attr prefix l)
-wikiPrintDecl d@(Flags f fd w defs) l prefix = (wikiPrintFlags f w fd defs) prefix l
-wikiPrintDecl d@(Constants n cd t defs) l prefix = wikiPrintConstants n t cd defs prefix l
-wikiPrintDecl d@(Enumeration n ed defs) l prefix = wikiPrintEnum n ed defs prefix l
-wikiPrintDecl d@(Namespace n nd defs) l prefix = wikiPrintNameSpace n nd defs l prefix
-wikiPrintDecl d@(Section n defs) l prefix = wikiPrintSection n defs l prefix
-wikiPrintDecl d@(Text t) l prefix = wikiPrintText t
+wikiPrintDecl d@(Fact fn fd attr sp) l prefix= (wikiPrintFact fn fd attr prefix l)
+wikiPrintDecl d@(Flags f fd w defs sp) l prefix = (wikiPrintFlags f w fd defs) prefix l
+wikiPrintDecl d@(Constants n cd t defs sp) l prefix = wikiPrintConstants n t cd defs prefix l
+wikiPrintDecl d@(Enumeration n ed defs sp) l prefix = wikiPrintEnum n ed defs prefix l
+wikiPrintDecl d@(Namespace n nd defs sp) l prefix = wikiPrintNameSpace n nd defs l prefix
+wikiPrintDecl d@(Section n defs sp) l prefix = wikiPrintSection n defs l prefix
+wikiPrintDecl d@(Text t sp) l prefix = wikiPrintText t
 
 
 {----------------------------------------------------------------------------}
@@ -91,10 +93,10 @@ wikiPrintFact n d attrib prefix l = title ++ W.newLine
         prolog = name ++ "(" ++ (concat prologfields) ++ ")"
 
 wikiPrintFactAttrib :: FactAttrib -> [String]
-wikiPrintFactAttrib fa@(FactAttrib n d t) = [n, (show t), d]
+wikiPrintFactAttrib fa@(FactAttrib n d t _) = [n, (show t), d]
 
 wikiPrintFactFieldNames :: FactAttrib -> String
-wikiPrintFactFieldNames fa@(FactAttrib n _ _) = n
+wikiPrintFactFieldNames fa@(FactAttrib n _ _ _) = n
 
 
 {----------------------------------------------------------------------------}
@@ -115,7 +117,7 @@ wikiPrintFlags n w d f prefix l = title ++ W.newLine
         name = makeDeclName prefix n
 
 wikiPrintFlagDefs :: FlagDef -> String -> String -> (String, String, String)
-wikiPrintFlagDefs fd@(FlagDef n d v) flag prefix = (fname, d, fval)
+wikiPrintFlagDefs fd@(FlagDef n d v _) flag prefix = (fname, d, fval)
     where
         fname = makeFlagName prefix flag n
         fval = (show (v))
