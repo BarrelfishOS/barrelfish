@@ -40,7 +40,7 @@ data Block = Block { base  :: Addr
 A name is an address block qualified by a node ID
 -}
 data Name = Name { nodeId     :: NodeId
-                 , addrBlock  :: Block
+                 , block  :: Block
                  }
 
 {-
@@ -61,7 +61,7 @@ instance Show Block where
     show block = "0x" ++ showHex (base block) "" ++ "-" ++ "0x" ++ showHex (limit block) ""
 
 instance Show Name where
-    show name = nodeId name ++ " at " ++ show (addrBlock name)
+    show name = nodeId name ++ " at " ++ show (block name)
 
 instance Show Node where
     show node = acceptStr node ++ " " ++ translateStr node
