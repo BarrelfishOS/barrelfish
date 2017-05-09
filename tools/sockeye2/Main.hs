@@ -13,20 +13,25 @@
 
 module Main where
 
-import System.IO
+import Control.Monad
+import System.Console.GetOpt
 import System.Exit
 import System.Environment
-import System.Console.GetOpt
+import System.IO
 
-import SockeyeAST
+import SockeyeAST as AST
 import SockeyeParser
 
 {- Possible options for the Sockeye Compiler -}
-data Options = Options { optInputFile :: String }
+data Options = Options { optInputFile :: FilePath }
 
 {- Default options -}
 defaultOptions :: Options
 defaultOptions = Options { optInputFile = ""}
+
+{- Set the input file name -}
+optSetInputFileName :: FilePath -> Options -> Options
+optSetInputFileName f o = o { optInputFile = f }
 
 {- Prints usage information possibly with usage errors -}
 usage :: [String] -> IO ()
@@ -49,15 +54,22 @@ options =
 compilerOpts :: [String] -> IO (Options)
 compilerOpts argv =
     case getOpt Permute options argv of
-        (actions, [n], []) -> (foldl (>>=) (return defaultOptions) actions) >>= \o -> return (o { optInputFile = n })
+        (actions, [f], []) -> liftM (optSetInputFileName f) $ foldl (>>=) (return defaultOptions) actions
         (actions, [], [])  -> usage ["Input file not specified\n"] >> exitWith (ExitFailure 1)
         (_, _, errors)     -> usage errors >> exitWith (ExitFailure 1)
+
+{- Runs the parser -}
+parseFile :: FilePath -> IO (AST.Net)
+parseFile file = do
+    src <- readFile file
+    case parseSockeye file src of
+        Left err -> hPutStrLn stderr ("Parse error at " ++ show err) >> exitWith (ExitFailure 2)
+        Right ast -> return ast
 
 main = do
     args <- getArgs
     opts <- compilerOpts args
     let inFile = optInputFile opts
-    src <- readFile inFile
-    case parseSockeye inFile src of
-        Left err -> hPutStrLn stderr ("Parse error at " ++ show err) >> exitWith (ExitFailure 2)
-        Right ast -> print ast
+    ast <- parseFile inFile
+    print ast
+    
