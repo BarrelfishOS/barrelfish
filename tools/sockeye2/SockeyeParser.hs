@@ -19,7 +19,7 @@ import Text.ParserCombinators.Parsec.Language (javaStyle)
 
 import qualified Data.Map as Map
 
-import qualified SockeyeAST as AST
+import SockeyeAST as AST
 
 lexer = P.makeTokenParser (
     javaStyle  {
@@ -44,7 +44,7 @@ lexer = P.makeTokenParser (
 
 identifier = P.identifier lexer
 reserved = P.reserved lexer
-natural = P.natural lexer
+address = P.natural lexer <?> "address"
 brackets = P.brackets lexer
 symbol = P.symbol lexer
 stringLiteral = P.stringLiteral lexer
@@ -63,18 +63,18 @@ net = do
 node = do
     accept <- accept
     translate <- tranlsate
-    return AST.Node { AST.accept    = accept
-                    , AST.translate = translate
+    return AST.Node { accept    = accept
+                    , translate = translate
                     }
     where accept = do
             reserved "accept"
-            brackets $ commaSep block
+            brackets $ commaSep addrBlock
           tranlsate = do
             reserved "map"
             brackets $ commaSep mapping
 
 mapping = do
-    fromBlock <- block
+    fromBlock <- addrBlock
     reserved "to"
     name <- name
     return (fromBlock, name)
@@ -82,17 +82,17 @@ mapping = do
 name = do
     nodeId <- identifier
     reserved "at"
-    block <- block
-    return AST.Name { AST.nodeId = nodeId
-                    , AST.block  = block
+    block <- addrBlock
+    return AST.Name { nodeId = nodeId
+                    , block  = block
                     }
 
-block = do
-    base <- natural
+addrBlock = do
+    base <- address
     symbol "-"
-    limit <- natural
-    return AST.Block { AST.base  = fromIntegral base
-                     , AST.limit = fromIntegral limit
+    limit <- address
+    return AST.Block { base  = fromIntegral base
+                     , limit = fromIntegral limit
                      }
 
-parseSockeye = parse sockeyeFile "(unknown)"
+parseSockeye = parse sockeyeFile
