@@ -66,6 +66,7 @@ net = do
 node = do
     accept <- try accept <|> return []
     translate <- try tranlsate <|> return []
+    overlay <- try overlay <|> return Nothing
     return AST.Node { accept    = accept
                     , translate = translate
                     }
@@ -75,6 +76,11 @@ node = do
           tranlsate = do
             reserved "map"
             brackets $ commaSep mapping
+          overlay = do
+            reserved "over"
+            nodeId <- identifier
+            return (Just nodeId)
+
 
 mapping = do
     fromBlock <- addrBlock
