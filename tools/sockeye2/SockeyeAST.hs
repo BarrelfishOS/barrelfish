@@ -67,7 +67,7 @@ instance Show Name where
 instance Show Node where
     show node = acceptStr node ++ " " ++ translateStr node
         where acceptStr node = "accept [" ++ intercalate ", " (map show (accept node)) ++ "]"
-              translateStr node = "translate [" ++ intercalate ", " (map translationStr (translate node)) ++ "]"
+              translateStr node = "map [" ++ intercalate ", " (map translationStr (translate node)) ++ "]"
                 where translationStr (fromBlock, name) = show fromBlock ++ " to " ++ show name
 
 instance Show Net where

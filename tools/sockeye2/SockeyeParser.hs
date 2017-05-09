@@ -64,8 +64,8 @@ net = do
     return (nodeId, node)
 
 node = do
-    accept <- accept
-    translate <- tranlsate
+    accept <- try accept <|> return []
+    translate <- try tranlsate <|> return []
     return AST.Node { accept    = accept
                     , translate = translate
                     }
