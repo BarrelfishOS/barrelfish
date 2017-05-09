@@ -91,12 +91,20 @@ name = do
                     }
 
 addrBlock = do
-    base <- address
-    symbol "-"
-    limit <- address
-    return AST.Block { base  = fromIntegral base
-                     , limit = fromIntegral limit
-                     }
+    try realBlock
+    <|> singletonBlock
+    where realBlock = do
+            base <- address
+            symbol "-"
+            limit <- address
+            return AST.Block { base  = fromIntegral base
+                             , limit = fromIntegral limit
+                             }
+          singletonBlock = do
+            address <- address
+            return AST.Block { base  = fromIntegral address
+                             , limit = fromIntegral address
+                             }
 
 parseSockeye :: String -> String -> Either ParseError AST.Net
 parseSockeye = parse sockeyeFile
