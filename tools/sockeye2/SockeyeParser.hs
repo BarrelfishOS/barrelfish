@@ -98,4 +98,5 @@ addrBlock = do
                      , limit = fromIntegral limit
                      }
 
+parseSockeye :: String -> String -> Either ParseError AST.Net
 parseSockeye = parse sockeyeFile

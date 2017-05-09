@@ -37,7 +37,7 @@ optSetInputFileName f o = o { optInputFile = f }
 usage :: [String] -> IO ()
 usage errors = do
     prg <- getProgName
-    let usageString = "Usage: " ++ prg ++ " <options> <input file>"
+    let usageString = "Usage: " ++ prg ++ " [options] file\nOptions:"
         in hPutStrLn stderr (usageInfo (concat errors ++ usageString) options)
 
 {- Setup option parser -}
@@ -55,7 +55,7 @@ compilerOpts :: [String] -> IO (Options)
 compilerOpts argv =
     case getOpt Permute options argv of
         (actions, [f], []) -> liftM (optSetInputFileName f) $ foldl (>>=) (return defaultOptions) actions
-        (actions, [], [])  -> usage ["Input file not specified\n"] >> exitWith (ExitFailure 1)
+        (actions, [], [])  -> usage ["No input file\n"] >> exitWith (ExitFailure 1)
         (_, _, errors)     -> usage errors >> exitWith (ExitFailure 1)
 
 {- Runs the parser -}
