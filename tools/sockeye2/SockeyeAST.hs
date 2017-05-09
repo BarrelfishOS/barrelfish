@@ -24,6 +24,7 @@ import Numeric (showHex)
 Nodes are identfied by strings
 -}
 type NodeId = String
+
 {-
 Addresses are natural numbers
 -}

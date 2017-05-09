@@ -13,6 +13,9 @@
   Attn: Systems Group.
 -}
 
+module SockeyeParser
+( parseSockeye ) where
+
 import Text.ParserCombinators.Parsec as Parsec
 import qualified Text.ParserCombinators.Parsec.Token as P
 import Text.ParserCombinators.Parsec.Language (javaStyle)
