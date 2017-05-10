@@ -55,13 +55,20 @@ commaSep = P.commaSep lexer
 
 sockeyeFile = do
     nodes <- many net
-    return $ AST.Net (Map.fromList nodes)
+    return $ AST.Net (Map.fromList $ concat nodes)
 
 net = do
-    nodeId <- identifier
-    reserved "is"
-    node <- node
-    return (nodeId, node)
+    try single <|> multiple
+    where single = do
+            nodeId <- identifier
+            reserved "is"
+            node <- node
+            return [(nodeId, node)]
+          multiple = do
+            nodeIds <- commaSep identifier
+            reserved "are"
+            node <- node
+            return $ map (\nodeId -> (nodeId, node)) nodeIds
 
 node = do
     accept <- try accept <|> return []
