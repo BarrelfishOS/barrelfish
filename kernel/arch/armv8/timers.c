@@ -20,6 +20,7 @@
 #include <arch/arm/gic.h>
 #include <systime.h>
 #include <timers.h>
+#include <dev/armv8_dev.h>
 
 cycles_t ticks_per_ms = 1;
 
@@ -30,26 +31,27 @@ void timers_init(int timeslice)
 {
     printk(LOG_NOTE, "isr_el1=%p\n", sysreg_read_isr_el1());
     {
-        armv8_generic_timer_kernel_ctrl_el1_t kctl;
-        kctl = armv8_generic_timer_kernel_ctrl_el1_rd(NULL);
+        //armv8_CNTPS_CTL_EL1_t kctl;
+        armv8_CNTKCTL_EL1_t kctl;
+        kctl = armv8_CNTKCTL_EL1_rd(NULL);
 
         /* don't trap access to CNTFRQ* and CNTFRQ* registers from EL0 to EL1 */
-        kctl = armv8_generic_timer_kernel_ctrl_el1_EL0PCTEN_insert(kctl, 0x1);
-        kctl = armv8_generic_timer_kernel_ctrl_el1_EL0VCTEN_insert(kctl, 0x1);
+        kctl = armv8_CNTKCTL_EL1_EL0PCTEN_insert(kctl, 0x1);
+        kctl = armv8_CNTKCTL_EL1_EL0VCTEN_insert(kctl, 0x1);
 
         /* trap access to CNTP_* and CNTV_* registers from EL0 to EL1 */
-        kctl = armv8_generic_timer_kernel_ctrl_el1_EL0PTEN_insert(kctl, 0x0);
-        kctl = armv8_generic_timer_kernel_ctrl_el1_EL0VTEN_insert(kctl, 0x0);
+        kctl = armv8_CNTKCTL_EL1_EL0PTEN_insert(kctl, 0x0);
+        kctl = armv8_CNTKCTL_EL1_EL0VTEN_insert(kctl, 0x0);
 
-        armv8_generic_timer_kernel_ctrl_el1_wr(NULL, kctl);
+        armv8_CNTKCTL_EL1_wr(NULL, kctl);
     }
 
     /* enable the timer */
-    armv8_generic_timer_ctrl_el0_IMASK_wrf(NULL, 0x0);
-    armv8_generic_timer_ctrl_el0_ENABLE_wrf(NULL, 0x1);
+    armv8_CNTP_CTL_EL0_IMASK_wrf(NULL, 0x0);
+    armv8_CNTP_CTL_EL0_ENABLE_wrf(NULL, 0x1);
 
     /* set the compare value */
-    armv8_generic_timer_compare_val_el0_wr(NULL, 0xffffffffffffffff);
+    armv8_CNTP_CVAL_EL0_wr(NULL, 0xffffffffffffffff);
 
 
     /* systime_frequency is ticks per milisecond, while timer_get_frequency is in HZ */
@@ -63,35 +65,33 @@ void timers_init(int timeslice)
             kernel_timeslice, timeslice);
 
     // Wait for n time units, close to cycles
-    armv8_generic_timer_timer_val_el0_wr(NULL, 100);
+    armv8_CNTP_TVAL_EL0_wr(NULL, 100);
 
     while(timer_is_set())
         ;
 
     timer_reset(timeslice);
 
-    uint32_t PMCR_EL0  = 0;
+    armv8_PMCR_EL0_t pmcr = 0;
+    pmcr = armv8_PMCR_EL0_E_insert(pmcr, 1); /* All counters are enabled.*/
+    pmcr = armv8_PMCR_EL0_P_insert(pmcr, 1); /* reset all event counters */
+    pmcr = armv8_PMCR_EL0_C_insert(pmcr, 1); /* reset all clock counters */
+    pmcr = armv8_PMCR_EL0_D_insert(pmcr, 0); /* set counter to tick every clock cycle (1=ever 64th) */
+    pmcr = armv8_PMCR_EL0_X_insert(pmcr, 1); /* enable event support */
+    pmcr = armv8_PMCR_EL0_DP_insert(pmcr, 0); /* don't disable cycle counter */
+    //pmcr = armv8_PMCR_EL0_N_insert(pmcr, 6);  /* N is RO ? */
+    armv8_PMCR_EL0_wr(NULL, pmcr);
 
-    PMCR_EL0 |= (1 << 0); /* All counters are enabled.*/
-    PMCR_EL0 |= (1 << 1); /* reset all event counters */
-    PMCR_EL0 |= (1 << 2); /* reset all clock counters */
-    PMCR_EL0 |= (0 << 3); /* set counter to tick every clock cycle (1=ever 64th) */
-    PMCR_EL0 |= (1 << 4); /* enable event support */
-    PMCR_EL0 |= (0 << 5); /* don't disable cycle counte r*/
-
-    PMCR_EL0 |= (6 << 11); /* Six counters */
-
-    __asm volatile("msr PMCR_EL0, %[PMCR_EL0]" : : [PMCR_EL0] "r" (PMCR_EL0));
-
-
-    uint32_t PMUSERENR_EL0  = 0;
-
-    PMUSERENR_EL0 |= (1 << 0);  /* don't trap access to PM registers to EL 1 */
-    PMUSERENR_EL0 |= (1 << 1);  /* don't trap software increment wrap to EL 1 */
-    PMUSERENR_EL0 |= (1 << 2);  /* don't trap cycle counter to EL 1 */
-    PMUSERENR_EL0 |= (1 << 3);  /* don't trap event counter read to EL 1*/
-
-    __asm volatile("msr PMUSERENR_EL0, %[PMUSERENR_EL0]" : : [PMUSERENR_EL0] "r" (PMUSERENR_EL0));
+    armv8_PMUSERENR_EL0_t pmu = 0;
+    /* don't trap access to PM registers to EL 1 */
+    pmu = armv8_PMUSERENR_EL0_EN_insert(pmu, 1);
+    /* don't trap software increment wrap to EL 1 */
+    pmu = armv8_PMUSERENR_EL0_SW_insert(pmu, 1);
+    /* don't trap cycle counter to EL 1 */
+    pmu = armv8_PMUSERENR_EL0_CR_insert(pmu, 1);
+    /* don't trap event counter read to EL 1*/
+    pmu = armv8_PMUSERENR_EL0_ER_insert(pmu, 1);
+    armv8_PMUSERENR_EL0_wr(NULL, pmu);
 }
 
 /**
@@ -100,7 +100,7 @@ void timers_init(int timeslice)
  */
 void timer_reset(uint64_t ms)
 {
-    armv8_generic_timer_timer_val_el0_wr(NULL, ms * systime_frequency);
+    armv8_CNTP_TVAL_EL0_wr(NULL, ms * systime_frequency);
 }
 
 
