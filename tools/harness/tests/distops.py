@@ -45,10 +45,13 @@ def dist_test_factory(testname, finish_string, error_regex):
             # error regex
             error_re = re.compile(error_regex)
             passed = True
+            found_test = False
             for line in rawiter:
                 if error_re.match(line):
                     passed = False
-            return PassFailResult(passed)
+                if self.get_finish_string() in line:
+                    found_test = True
+            return PassFailResult(found_test and passed)
     return DistTest
 
 for t in distops_tests:
