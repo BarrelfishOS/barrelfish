@@ -55,6 +55,7 @@ commaSep = P.commaSep lexer
 
 sockeyeFile = do
     nodes <- many net
+    eof
     return $ AST.Net (Map.fromList $ concat nodes)
 
 net = do
