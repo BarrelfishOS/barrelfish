@@ -449,7 +449,7 @@ register ICC_CTLR_EL3 rw armv8_sysreg(ICC_CTLR_EL3) "Interrupt Controller Contro
 };
 
 /* Source: AArch64-icc_sgi1r_el1.xml */
-register ICC_SGI1R_EL1 ro armv8_sysreg(ICC_SGI1R_EL1) "Interrupt Controller Software Generated Interrupt Group 1 Register" {
+register ICC_SGI1R_EL1 wo armv8_sysreg(ICC_SGI1R_EL1) "Interrupt Controller Software Generated Interrupt Group 1 Register" {
 	_	8  mbz "Reserved, RES0.";
 	Aff3	8   "The affinity 3 value of the affinity path of the cluster for which SGI interrupts will be generated.";
 	_	7  mbz "Reserved, RES0.";
@@ -637,7 +637,7 @@ register SPSR_EL1 rw armv8_sysreg(SPSR_EL1) "Saved Program Status Register (EL1)
 };
 
 /* Source: AArch64-pmswinc_el0.xml */
-register PMSWINC_EL0 ro armv8_sysreg(PMSWINC_EL0) "Performance Monitors Software Increment register" {
+register PMSWINC_EL0 wo armv8_sysreg(PMSWINC_EL0) "Performance Monitors Software Increment register" {
 	_	1  mbz "Reserved, RES0.";
 	P	31   "Event counter software increment bit for PMEVCNTR<n>_EL0.";
 };
@@ -1061,7 +1061,7 @@ register CNTHV_TVAL_EL2 rw armv8_sysreg(CNTHV_TVAL_EL2) "Counter-timer Virtual T
 };
 
 /* Source: AArch64-icc_dir_el1.xml */
-register ICC_DIR_EL1 ro armv8_sysreg(ICC_DIR_EL1) "Interrupt Controller Deactivate Interrupt Register" {
+register ICC_DIR_EL1 wo armv8_sysreg(ICC_DIR_EL1) "Interrupt Controller Deactivate Interrupt Register" {
 	_	8  mbz "Reserved, RES0.";
 	INTID	24   "The INTID of the interrupt to be deactivated.";
 };
@@ -1105,7 +1105,7 @@ register REVIDR_EL1 ro armv8_sysreg(REVIDR_EL1) "Revision ID Register" {
 };
 
 /* Source: AArch64-icc_eoir1_el1.xml */
-register ICC_EOIR1_EL1 ro armv8_sysreg(ICC_EOIR1_EL1) "Interrupt Controller End Of Interrupt Register 1" {
+register ICC_EOIR1_EL1 wo armv8_sysreg(ICC_EOIR1_EL1) "Interrupt Controller End Of Interrupt Register 1" {
 	_	8  mbz "Reserved, RES0.";
 	INTID	24   "The INTID from the corresponding ICC_IAR1_EL1 access.";
 };
@@ -1274,7 +1274,7 @@ register ICH_LR14_EL2 rw armv8_sysreg(ICH_LR14_EL2) "Interrupt Controller List R
 register DBGDTRRX_EL0 ro armv8_sysreg(DBGDTRRX_EL0) "Debug Data Transfer Register, Receive" type(uint32);
 
 /* Source: AArch64-icc_eoir0_el1.xml */
-register ICC_EOIR0_EL1 ro armv8_sysreg(ICC_EOIR0_EL1) "Interrupt Controller End Of Interrupt Register 0" {
+register ICC_EOIR0_EL1 wo armv8_sysreg(ICC_EOIR0_EL1) "Interrupt Controller End Of Interrupt Register 0" {
 	_	8  mbz "Reserved, RES0.";
 	INTID	24   "The INTID from the corresponding ICC_IAR0_EL1 access.";
 };
@@ -1370,7 +1370,7 @@ register VBAR_EL1 rw armv8_sysreg(VBAR_EL1) "Vector Base Address Register (EL1)"
 };
 
 /* Source: AArch64-dbgdtrtx_el0.xml */
-register DBGDTRTX_EL0 ro armv8_sysreg(DBGDTRTX_EL0) "Debug Data Transfer Register, Transmit" type(uint32);
+register DBGDTRTX_EL0 wo armv8_sysreg(DBGDTRTX_EL0) "Debug Data Transfer Register, Transmit" type(uint32);
 
 /* Source: AArch64-esr_el3.xml */
 register ESR_EL3 rw armv8_sysreg(ESR_EL3) "Exception Syndrome Register (EL3)" {
@@ -1469,7 +1469,7 @@ register SCTLR_EL3 rw armv8_sysreg(SCTLR_EL3) "System Control Register (EL3)" {
 };
 
 /* Source: AArch64-icc_sgi0r_el1.xml */
-register ICC_SGI0R_EL1 ro armv8_sysreg(ICC_SGI0R_EL1) "Interrupt Controller Software Generated Interrupt Group 0 Register" {
+register ICC_SGI0R_EL1 wo armv8_sysreg(ICC_SGI0R_EL1) "Interrupt Controller Software Generated Interrupt Group 0 Register" {
 	_	8  mbz "Reserved, RES0.";
 	Aff3	8   "The affinity 3 value of the affinity path of the cluster for which SGI interrupts will be generated.";
 	_	7  mbz "Reserved, RES0.";
@@ -1967,7 +1967,7 @@ register MVFR2_EL1 ro armv8_sysreg(MVFR2_EL1) "AArch32 Media and VFP Feature Reg
 };
 
 /* Source: AArch64-oslar_el1.xml */
-register OSLAR_EL1 ro armv8_sysreg(OSLAR_EL1) "OS Lock Access Register" {
+register OSLAR_EL1 wo armv8_sysreg(OSLAR_EL1) "OS Lock Access Register" {
 	_	31  mbz "Reserved, RES0.";
 	OSLK	1   "On writes to OSLAR_EL1, bit[0] is copied to the OS lock.";
 };
@@ -2340,7 +2340,7 @@ register CNTHV_CTL_EL2 rw armv8_sysreg(CNTHV_CTL_EL2) "Counter-timer Virtual Tim
 };
 
 /* Source: AArch64-icc_asgi1r_el1.xml */
-register ICC_ASGI1R_EL1 ro armv8_sysreg(ICC_ASGI1R_EL1) "Interrupt Controller Alias Software Generated Interrupt Group 1 Register" {
+register ICC_ASGI1R_EL1 wo armv8_sysreg(ICC_ASGI1R_EL1) "Interrupt Controller Alias Software Generated Interrupt Group 1 Register" {
 	_	8  mbz "Reserved, RES0.";
 	Aff3	8   "The affinity 3 value of the affinity path of the cluster for which SGI interrupts will be generated.";
 	_	7  mbz "Reserved, RES0.";
