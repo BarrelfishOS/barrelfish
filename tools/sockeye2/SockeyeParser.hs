@@ -16,14 +16,15 @@
 module SockeyeParser
 ( parseSockeye ) where
 
+import Control.Monad
+
 import Text.ParserCombinators.Parsec as Parsec
 import qualified Text.ParserCombinators.Parsec.Token as P
 import Text.ParserCombinators.Parsec.Language (javaStyle)
 
-import qualified Data.Map as Map
+import qualified SockeyeAST as AST
 
-import SockeyeAST as AST
-
+{- Setup the lexer -}
 lexer = P.makeTokenParser (
     javaStyle  {
         {- list of reserved Names -}
@@ -45,80 +46,68 @@ lexer = P.makeTokenParser (
         P.nestedComments = False
     })
 
-identifier = P.identifier lexer
-reserved = P.reserved lexer
-address = P.natural lexer <?> "address"
-brackets = P.brackets lexer
-symbol = P.symbol lexer
+{- Helper functions -}
+whiteSpace    = P.whiteSpace lexer
+identifier    = P.identifier lexer <?> "node identifier"
+reserved      = P.reserved lexer
+address       = liftM fromIntegral (P.natural lexer) <?> "address"
+brackets      = P.brackets lexer
+symbol        = P.symbol lexer
 stringLiteral = P.stringLiteral lexer
-commaSep = P.commaSep lexer
+commaSep      = P.commaSep lexer
+commaSep1     = P.commaSep1 lexer
 
+{- Sockeye parsing -}
 sockeyeFile = do
-    nodes <- many net
+    whiteSpace
+    nodes <- many netSpec
     eof
-    return $ AST.Net (Map.fromList $ concat nodes)
+    return $ AST.NetSpec $ concat nodes
 
-net = do
-    try single <|> multiple
+netSpec = do
+    nodeIds <- try single <|> multiple
+    node <- nodeSpec
+    return $ map (\nodeId -> (nodeId, node)) nodeIds
     where single = do
             nodeId <- identifier
             reserved "is"
-            node <- node
-            return [(nodeId, node)]
+            return [nodeId]
           multiple = do
-            nodeIds <- commaSep identifier
+            nodeIds <- commaSep1 identifier
             reserved "are"
-            node <- node
-            return $ map (\nodeId -> (nodeId, node)) nodeIds
+            return nodeIds
 
-node = do
-    accept <- try accept <|> return []
-    translate <- try tranlsate <|> return []
-    overlay <- try overlay <|> return Nothing
-    return AST.Node { accept    = accept
-                    , translate = translate
-                    }
-    where accept = do
+nodeSpec = do
+    accept <- try parseAccept <|> return []
+    translate <- try parseTranlsate <|> return []
+    overlay <- try parseOverlay <|> return Nothing
+    return $ AST.NodeSpec accept translate overlay
+    where parseAccept = do
             reserved "accept"
-            brackets $ commaSep addrBlock
-          tranlsate = do
+            brackets $ commaSep blockSpec
+          parseTranlsate = do
             reserved "map"
-            brackets $ commaSep mapping
-          overlay = do
+            brackets $ commaSep mapSpec
+          parseOverlay = do
             reserved "over"
             nodeId <- identifier
             return (Just nodeId)
 
-
-mapping = do
-    fromBlock <- addrBlock
+mapSpec = do
+    srcBlock <- blockSpec
     reserved "to"
-    name <- name
-    return (fromBlock, name)
-
-name = do
-    nodeId <- identifier
+    destNode <- identifier
     reserved "at"
-    block <- addrBlock
-    return AST.Name { nodeId = nodeId
-                    , block  = block
-                    }
+    destBase <- address
+    return $ AST.MapSpec srcBlock destNode destBase
 
-addrBlock = do
-    try realBlock
-    <|> singletonBlock
-    where realBlock = do
-            base <- address
+blockSpec = do
+    base <- address
+    limit <- try parseLimit <|> return base
+    return $ AST.BlockSpec base limit
+    where parseLimit = do
             symbol "-"
-            limit <- address
-            return AST.Block { base  = fromIntegral base
-                             , limit = fromIntegral limit
-                             }
-          singletonBlock = do
-            address <- address
-            return AST.Block { base  = fromIntegral address
-                             , limit = fromIntegral address
-                             }
+            address
 
-parseSockeye :: String -> String -> Either ParseError AST.Net
+parseSockeye :: String -> String -> Either ParseError AST.NetSpec
 parseSockeye = parse sockeyeFile

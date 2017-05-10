@@ -16,8 +16,6 @@
 module SockeyeAST where
 
 import Data.List
-import Data.Map (Map)
-import qualified Data.Map as Map
 import Numeric (showHex)
 
 {-
@@ -31,45 +29,53 @@ Addresses are natural numbers
 type Addr = Word
 
 {-
-A contigous block of addresses
+A block is a contigous set of addresses
 -}
-data Block = Block { base  :: Addr
-                   , limit :: Addr
-                   } deriving (Ord, Eq)
+data BlockSpec = BlockSpec { base  :: Addr
+                           , limit :: Addr
+                           } deriving (Ord, Eq)
 
 {-
-A name is an address block qualified by a node ID
+A mapping of a source address block to a destination node
+at a base address
 -}
-data Name = Name { nodeId     :: NodeId
-                 , block  :: Block
-                 }
+data MapSpec = MapSpec { srcBlock :: BlockSpec
+                       , destNode :: NodeId
+                       , destBase :: Addr
+                       }
 
 {-
-A node can accept a set of addresses and translate a
-(not necessarily disjoint) set of addresses
+A node is specified as a list of blocks it accepts,
+a list of mappings and possibly an overlay on another block
 -}
-data Node = Node { accept    :: [Block]
-                 , translate :: [(Block, Name)]
-                 }
+data NodeSpec = NodeSpec { accept    :: [BlockSpec]
+                         , translate :: [MapSpec]
+                         , overlay   :: Maybe NodeId
+                         }
 
 {-
-A (decoding) net is a Map from Node IDs to nodes
+A decoding net is specified as a list 
+of Node IDs mapped to Nodes
 -}
-newtype Net = Net { getAssignment :: Map NodeId Node }
+newtype NetSpec = NetSpec { getNodes :: [(NodeId, NodeSpec)] }
 
 {- Pretty Printing -}
-instance Show Block where
-    show block = "0x" ++ showHex (base block) "" ++ "-" ++ "0x" ++ showHex (limit block) ""
+instance Show BlockSpec where
+    show blockSpec = "0x" ++ showHex (base blockSpec) "" ++ "-" ++ "0x" ++ showHex (limit blockSpec) ""
 
-instance Show Name where
-    show name = nodeId name ++ " at " ++ show (block name)
+instance Show MapSpec where
+    show mapSpec = let srcStr  = show $ srcBlock mapSpec
+                       nodeStr = destNode mapSpec
+                       baseStr = "0x" ++ showHex (destBase mapSpec) ""
+                   in srcStr ++ " to " ++ nodeStr ++ " at " ++ baseStr
 
-instance Show Node where
-    show node = acceptStr node ++ " " ++ translateStr node
-        where acceptStr node = "accept [" ++ intercalate ", " (map show (accept node)) ++ "]"
-              translateStr node = "map [" ++ intercalate ", " (map translationStr (translate node)) ++ "]"
-                where translationStr (fromBlock, name) = show fromBlock ++ " to " ++ show name
+instance Show NodeSpec where
+    show nodeSpec = let acceptStr    = "accept [" ++ intercalate ", " (map show (accept nodeSpec)) ++ "]"
+                        translateStr = "map [" ++ intercalate ", " (map show (translate nodeSpec)) ++ "]"
+                        overlayStr   = case overlay nodeSpec of Nothing     -> ""
+                                                                Just nodeId -> "over " ++ nodeId
+                    in acceptStr ++ " " ++ translateStr ++ " " ++ overlayStr
 
-instance Show Net where
-    show net = intercalate "\n" (map nodeStr (Map.toList $ getAssignment net))
+instance Show NetSpec where
+    show netSpec = intercalate "\n" (map nodeStr (getNodes netSpec))
         where nodeStr (id, node) = id ++ " is " ++ show node

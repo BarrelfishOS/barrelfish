@@ -59,7 +59,7 @@ compilerOpts argv =
         (_, _, errors)     -> usage errors >> exitWith (ExitFailure 1)
 
 {- Runs the parser -}
-parseFile :: FilePath -> IO (AST.Net)
+parseFile :: FilePath -> IO (AST.NetSpec)
 parseFile file = do
     src <- readFile file
     case parseSockeye file src of
