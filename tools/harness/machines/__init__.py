@@ -238,19 +238,18 @@ class Machine(object):
         m.add_module("startd", ["boot"])
         m.add_module("/eclipseclp_ramfs.cpio.gz", ["nospawn"])
         m.add_module("/skb_ramfs.cpio.gz", ["nospawn"])
+        m.add_module("corectrl", ["auto"])
 
         # armv8
         if a == "armv8" :
-            # disabling ACPI until it works properly...
-            # m.add_module("acpi", ["boot"])
-            # We don't support multiple CPUs on ARMv8 yet...
-            m.add_module("kaluga", ["boot", "cpu_count=1"])
+            m.add_module("acpi", ["boot"])
+            m.add_module("kaluga", ["boot"])
+            m.add_module("pci", ["auto"])
 
         # SKB and PCI are x86-only for the moment
         if a == "x86_64" or a == "x86_32":
             m.add_module("acpi", ["boot"])
             m.add_module("routing_setup", ["boot"])
-            m.add_module("corectrl", ["auto"])
 
             # Add pci with machine-specific extra-arguments
             m.add_module("pci", ["auto"] + machine.get_pci_args())
@@ -262,7 +261,6 @@ class Machine(object):
 
         # coreboot should work on armv7 now
         if a == "armv7":
-            m.add_module("corectrl", ["auto"])
             m.add_module("kaluga", machine.get_kaluga_args())
         return m
 
