@@ -91,7 +91,7 @@ class WebCommon(TestCommon):
         return len(self.server_failures) == 0
 
     def is_finished(self, line):
-        return self.finished
+        return self.finished or super(WebCommon, self).is_finished(line)
 
 
 @tests.add_test

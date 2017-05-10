@@ -111,16 +111,8 @@ class XeonPhi_Boot_Test(TestCommon):
 
         return modules
 
-    def is_finished(self, line):
-        #m = re.search("Xeon Phi operational: xeon_phi.([0-9]).ready", line)
-        m = re.search("Xeon Phi operational: xeon_phi." + str(self.nphi - 1) + ".ready", line)
-        if m :
-            return True
-        else :
-            return False        
-
     def get_finish_string(self):
-        return "Xeon Phi operational: xeon_phi.([0-9]).ready"
+        return "Xeon Phi operational: xeon_phi." + str(self.nphi - 1) + ".ready"
 
     def boot(self, *args):
         super(XeonPhi_Boot_Test, self).boot(*args)

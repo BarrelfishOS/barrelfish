@@ -45,7 +45,7 @@ class RetypeMultiTest(TestCommon):
     def is_finished(self, line):
         if line.startswith("retype: result:"):
             self._nseen += 1
-        return self._nseen == self._ncores
+        return self._nseen == self._ncores or super(RetypeMultiTest, self).is_finished(line)
 
     def process_data(self, testdir, rawiter):
         # the test passed iff the last line is the finish string

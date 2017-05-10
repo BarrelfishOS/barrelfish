@@ -26,8 +26,8 @@ class IRQTest(TestCommon):
         modules.add_module("e1000n_irqtest", ["auto"])
         return modules
 
-    def is_finished(self, line):
-        return line.startswith("TEST ") 
+    def get_finish_string(self):
+        return "TEST "
     
     def process_data(self, testdir, rawiter):
         for line in rawiter:

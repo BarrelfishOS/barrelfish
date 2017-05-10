@@ -29,8 +29,9 @@ class MultithreadedWaitsetTest(TestCommon):
         modules.add_module("mt_waitset", ["10", "10", "10000"])
         return modules
 
-    def is_finished(self, line):
-        return "Test PASSED" in line or "Test FAILED" in line
+    def get_finish_string(self):
+        # Finish line is "Test PASSED" or "Test FAILED"
+        return "Test "
 
     def process_data(self, testdir, rawiter):
         passed = False

@@ -36,7 +36,7 @@ class SpawnTest(TestCommon):
     def is_finished(self, line):
         if re.match(MATCH, line):
             self._nseen += 1
-        return self._nseen == (NUM_SPAWNS + 1)
+        return self._nseen == (NUM_SPAWNS + 1) or super(SpawnTest, self).is_finished(line)
 
     def process_data(self, testdir, rawiter):
         nspawned = 0

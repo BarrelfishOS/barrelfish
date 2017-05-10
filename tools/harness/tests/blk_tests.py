@@ -236,8 +236,8 @@ class BlkTests(TestCommon):
 
         return modules
 
-    def is_finished(self, line):
-        return line.startswith("AHCI testing completed.")
+    def get_finish_string(self):
+        return "AHCI testing completed."
 
     def process_data(self, testdir, rawiter):
         self.regex = re.compile(self.REGEX)
