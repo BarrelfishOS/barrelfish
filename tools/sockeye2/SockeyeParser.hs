@@ -78,9 +78,13 @@ netSpec = do
             return nodeIds
 
 nodeSpec = do
-    accept <- try parseAccept <|> return []
-    translate <- try parseTranlsate <|> return []
-    overlay <- try parseOverlay <|> return Nothing
+    a <- optionMaybe parseAccept 
+    t <- optionMaybe parseTranlsate 
+    overlay <- optionMaybe parseOverlay
+    let accept = case a of Nothing -> []
+                           Just blocks -> blocks
+        translate = case t of Nothing -> []
+                              Just maps -> maps
     return $ AST.NodeSpec accept translate overlay
     where parseAccept = do
             reserved "accept"
@@ -90,8 +94,7 @@ nodeSpec = do
             brackets $ commaSep mapSpec
           parseOverlay = do
             reserved "over"
-            nodeId <- identifier
-            return (Just nodeId)
+            identifier
 
 mapSpec = do
     srcBlock <- blockSpec
