@@ -48,14 +48,15 @@ lexer = P.makeTokenParser (
 
 {- Helper functions -}
 whiteSpace    = P.whiteSpace lexer
-identifier    = P.identifier lexer <?> "node identifier"
 reserved      = P.reserved lexer
-address       = liftM fromIntegral (P.natural lexer) <?> "address"
 brackets      = P.brackets lexer
 symbol        = P.symbol lexer
 stringLiteral = P.stringLiteral lexer
 commaSep      = P.commaSep lexer
 commaSep1     = P.commaSep1 lexer
+identifier    = P.identifier lexer <?> "node identifier"
+address       = liftM fromIntegral (P.natural lexer) <?> "address"
+decimal       = P.decimal lexer
 
 {- Sockeye parsing -}
 sockeyeFile = do
@@ -106,11 +107,16 @@ mapSpec = do
 
 blockSpec = do
     base <- address
-    limit <- try parseLimit <|> return base
+    limit <- option base $ choice [parseLimit, parseLength base]
     return $ AST.BlockSpec base limit
     where parseLimit = do
             symbol "-"
             address
+          parseLength base = do
+            symbol "/"
+            b <- decimal
+            return $ base + 2^b - 1
+
 
 parseSockeye :: String -> String -> Either ParseError AST.NetSpec
 parseSockeye = parse sockeyeFile
