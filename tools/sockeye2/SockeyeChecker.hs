@@ -23,15 +23,18 @@ import qualified Data.Set as Set
 
 import qualified SockeyeAST as AST
 
-findUniqueIdentifiers :: AST.NetSpec -> Writer [String] (Set String)
-findUniqueIdentifiers ast = let allIds = map fst $ AST.getNodes ast
-                            in foldl checkAndAdd (return Set.empty) allIds
-                            where checkAndAdd w id = do
-                                    uids <- w
-                                    tell $ if id `Set.member` uids then ["Duplicate identifier " ++ show id] else []
-                                    return $ id `Set.insert` uids
+findUniqueIdentifiers :: AST.NetSpec -> Writer [String] (Set AST.NodeId)
+findUniqueIdentifiers (AST.NetSpec nodes) = let allIds = map fst $ nodes
+                                            in foldl checkAndAdd (return Set.empty) allIds
+                                            where checkAndAdd w id = do
+                                                    uids <- w
+                                                    tell $ if id `Set.member` uids then
+                                                            ["Duplicate identifier " ++ show id]
+                                                           else
+                                                            []
+                                                    return $ id `Set.insert` uids
 
 checkSockeye :: AST.NetSpec -> [String]
-checkSockeye ast = reverse $ snd $ runWriter $ do
+checkSockeye ast = snd $ runWriter $ do
     ids <- findUniqueIdentifiers ast
     return ids

@@ -54,8 +54,8 @@ symbol        = P.symbol lexer
 stringLiteral = P.stringLiteral lexer
 commaSep      = P.commaSep lexer
 commaSep1     = P.commaSep1 lexer
-identifier    = P.identifier lexer <?> "node identifier"
-address       = liftM fromIntegral (P.natural lexer) <?> "address"
+identifier    = P.identifier lexer
+natural       = (P.natural lexer)
 decimal       = P.decimal lexer
 
 {- Sockeye parsing -}
@@ -70,11 +70,11 @@ netSpec = do
     node <- nodeSpec
     return $ map (\nodeId -> (nodeId, node)) nodeIds
     where single = do
-            nodeId <- identifier
+            nodeId <- nodeId
             reserved "is"
             return [nodeId]
           multiple = do
-            nodeIds <- commaSep1 identifier
+            nodeIds <- commaSep1 nodeId
             reserved "are"
             return nodeIds
 
@@ -95,27 +95,36 @@ nodeSpec = do
             brackets $ commaSep mapSpec
           parseOverlay = do
             reserved "over"
-            identifier
+            nodeId
 
 mapSpec = do
     srcBlock <- blockSpec
     reserved "to"
-    destNode <- identifier
+    destNode <- nodeId
     reserved "at"
-    destBase <- address
+    destBase <- addr
     return $ AST.MapSpec srcBlock destNode destBase
 
 blockSpec = do
-    base <- address
+    base <- addr
     limit <- option base $ choice [parseLimit, parseLength base]
     return $ AST.BlockSpec base limit
     where parseLimit = do
             symbol "-"
-            address
-          parseLength base = do
+            addr
+          parseLength (AST.Addr base) = do
             symbol "/"
             b <- decimal
-            return $ base + 2^b - 1
+            return $ AST.Addr $ base + 2^b - 1
+
+nodeId = do
+    id <- identifier <?> "node identifier"
+    return $ AST.NodeId id
+
+addr = do
+    addr <- natural <?> "address"
+    return $ AST.Addr $ fromIntegral addr
+
 
 
 parseSockeye :: String -> String -> Either ParseError AST.NetSpec
