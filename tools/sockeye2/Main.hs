@@ -14,6 +14,7 @@
 module Main where
 
 import Control.Monad
+import Data.List
 import System.Console.GetOpt
 import System.Exit
 import System.Environment
@@ -21,6 +22,7 @@ import System.IO
 
 import SockeyeAST as AST
 import SockeyeParser
+import SockeyeChecker
 
 {- Possible options for the Sockeye Compiler -}
 data Options = Options { optInputFile :: FilePath }
@@ -66,10 +68,18 @@ parseFile file = do
         Left err -> hPutStrLn stderr ("Parse error at " ++ show err) >> exitWith (ExitFailure 2)
         Right ast -> return ast
 
+{- Runs the chekcer -}
+checkAst :: AST.NetSpec -> IO ()
+checkAst ast = do
+    case checkSockeye ast of 
+        [] -> return ()
+        errors -> hPutStrLn stderr (intercalate "\n" errors) >> exitWith (ExitFailure 2)
+
 main = do
     args <- getArgs
     opts <- compilerOpts args
     let inFile = optInputFile opts
     ast <- parseFile inFile
+    checkAst ast
     print ast
     
