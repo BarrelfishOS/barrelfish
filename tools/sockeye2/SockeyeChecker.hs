@@ -19,50 +19,72 @@ module SockeyeChecker
 import Control.Monad
 import Control.Monad.Trans.Writer
 
+import Data.Map (Map)
+import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
 
 import qualified SockeyeAST as AST
 
-findUniqueIdentifiers :: AST.NetSpec -> Writer [String] (Set AST.NodeId)
+type CheckFailure = (Maybe AST.NodeId, String)
+
+findUniqueIdentifiers :: AST.NetSpec -> Writer [CheckFailure] (Set AST.NodeId)
 findUniqueIdentifiers (AST.NetSpec nodes) = let allIds = map fst $ nodes
                                             in foldl checkAndAdd (return Set.empty) allIds
                                             where checkAndAdd w id = do
                                                     uids <- w
                                                     tell $ if id `Set.member` uids then
-                                                            ["Duplicate identifier '" ++ show id ++ "'"]
+                                                            [(Nothing, "Duplicate identifier '" ++ show id ++ "'")]
                                                            else
                                                             []
                                                     return $ id `Set.insert` uids
 
 class Checkable a where
-    checkReferences :: (Set AST.NodeId) -> a -> Writer[String] ()
+    checkReferences :: (Set AST.NodeId) -> a -> Writer [CheckFailure] Bool
 
 instance Checkable AST.NetSpec where
-    checkReferences ids (AST.NetSpec nodes) = foldM (\_ -> checkReferences ids . snd) () nodes
+    checkReferences ids (AST.NetSpec nodes) = do
+        foldM (checkNode) False nodes
+        where checkNode prevError (nodeId, node) = prependId nodeId $ runWriter $ do
+                (hasError, errors) <- listen $ checkReferences ids node
+                return $ hasError || prevError
+              prependId nodeId (hasError, errors) = writer (hasError, map (\(_, e) -> (Just nodeId, e)) errors)
 
 instance Checkable AST.NodeSpec where
     checkReferences ids nodeSpec = do
-        foldM (\_ -> checkReferences ids) () $ AST.translate nodeSpec
+        foldM checkMap False $ AST.translate nodeSpec
         case AST.overlay nodeSpec of
-            Nothing -> return ()
+            Nothing -> return False
             Just id -> do
-                tell $ if id `Set.member` ids then
-                        []
+                let undefined = id `Set.notMember` ids
+                tell $ if undefined then
+                        [(Nothing, "Reference to undefined node '" ++ show id ++ "' in overlay")]
                        else
-                        ["Reference to undefined node '" ++ show id ++ "' in overlay"]
-                return ()
+                        []
+                return undefined
+        where checkMap prevError mapSpec = do
+                hasError <- checkReferences ids mapSpec
+                return $ hasError || prevError
 
 instance Checkable AST.MapSpec where
     checkReferences ids mapSpec = do
         let destNode = AST.destNode mapSpec
-        tell $ if destNode `Set.member` ids then
-                        []
-                       else
-                        ["Reference to undefined node '" ++ show destNode ++ "' in map"]
+            undefined = destNode `Set.notMember` ids
+        tell $ if undefined then
+                [(Nothing, "Reference to undefined node '" ++ show destNode ++ "' in map")]
+               else
+                []
+        return undefined
 
+{- Group the failed checks by their nodeId-}
+group :: [CheckFailure] -> [(Maybe AST.NodeId, [String])]
+group fs = Map.toList $ foldr addOrAppend Map.empty fs
+        where addOrAppend (key, error) m = if key `Map.member` m then
+                                                Map.insert key (error:(m Map.! key))  m
+                                            else
+                                                Map.insert key [error] m
 
-checkSockeye :: AST.NetSpec -> [String]
-checkSockeye ast = snd $ runWriter $ do
+checkSockeye :: AST.NetSpec -> [(Maybe AST.NodeId, [String])]
+checkSockeye ast = group $ snd $ runWriter $ do
     ids <- findUniqueIdentifiers ast
     checkReferences ids ast

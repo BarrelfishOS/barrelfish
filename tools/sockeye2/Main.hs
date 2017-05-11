@@ -65,15 +65,23 @@ parseFile :: FilePath -> IO (AST.NetSpec)
 parseFile file = do
     src <- readFile file
     case parseSockeye file src of
-        Left err -> hPutStrLn stderr ("Parse error at " ++ show err) >> exitWith (ExitFailure 2)
+        Left err -> do
+            hPutStrLn stderr ("Parse error at " ++ show err)
+            exitWith (ExitFailure 2)
         Right ast -> return ast
 
-{- Runs the chekcer -}
+{- Runs the checker -}
 checkAst :: AST.NetSpec -> IO ()
 checkAst ast = do
     case checkSockeye ast of 
         [] -> return ()
-        errors -> hPutStrLn stderr (intercalate "\n" errors) >> exitWith (ExitFailure 2)
+        errors -> do
+            hPutStrLn stderr $ intercalate "\n" (foldl flattenErrors ["Failed checks:"] errors)
+            exitWith (ExitFailure 3)
+        where flattenErrors es (key, errors)
+                = let indented = map ((replicate 4 ' ') ++) errors
+                  in es ++ case key of Nothing     -> errors
+                                       Just nodeId -> ("In specification of node '" ++ show nodeId ++ "':"):indented
 
 main = do
     args <- getArgs
