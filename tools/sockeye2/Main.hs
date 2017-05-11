@@ -36,7 +36,7 @@ data Options = Options { optInputFile :: FilePath
 {- Default options -}
 defaultOptions :: Options
 defaultOptions = Options { optInputFile = ""
-                         , optTarget = None
+                         , optTarget    = PrintAST
                          }
 
 {- Set the input file name -}
@@ -52,7 +52,9 @@ usage :: [String] -> IO ()
 usage errors = do
     prg <- getProgName
     let usageString = "Usage: " ++ prg ++ " [options] file\nOptions:"
-        in hPutStrLn stderr $ usageInfo (concat errors ++ usageString) options
+    hPutStrLn stderr $ usageInfo (concat errors ++ usageString) options
+    hPutStrLn stderr "The backend (capital letter options) specified last takes precedence."
+
 
 {- Setup option parser -}
 options :: [OptDescr (Options -> IO Options)]
@@ -60,6 +62,9 @@ options =
     [ Option "P" ["print"]
         (NoArg (\opts -> return $ optSetTarget PrintAST opts))
         "Print the AST to the console"
+    , Option "C" ["check"]
+        (NoArg (\opts -> return $ optSetTarget None opts))
+        "Just check the file, do not compile"
     , Option "h" ["help"]
         (NoArg (\_ -> do
                     usage []
@@ -71,11 +76,17 @@ options =
 compilerOpts :: [String] -> IO (Options)
 compilerOpts argv =
     case getOpt Permute options argv of
-        (actions, [f], []) -> liftM (optSetInputFileName f) $ foldl (>>=) (return defaultOptions) actions
-        (actions, [], [])  -> do
-            usage ["No input file\n"]
-            exitWith $ ExitFailure 1
-        (_, _, errors)     -> do
+        (actions, fs, []) -> do
+            opts <- foldl (>>=) (return defaultOptions) actions
+            case fs of []  -> do
+                                usage ["No input file\n"]
+                                exitWith $ ExitFailure 1
+                       [f] -> return $ optSetInputFileName f opts
+                       _   -> do
+                                usage ["Multiple input files not supported\n"]
+                                exitWith $ ExitFailure 1
+
+        (_, _, errors) -> do
             usage errors
             exitWith $ ExitFailure 1
 
