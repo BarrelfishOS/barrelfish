@@ -85,14 +85,14 @@ nodeSpec = do
     let accept = case a of Nothing -> []
                            Just blocks -> blocks
         translate = case t of Nothing -> []
-                              Just maps -> maps
+                              Just maps -> concat maps
     return $ AST.NodeSpec accept translate overlay
     where parseAccept = do
             reserved "accept"
-            brackets $ commaSep blockSpec
+            brackets $ many blockSpec
           parseTranlsate = do
             reserved "map"
-            brackets $ commaSep mapSpec
+            brackets $ many mapSpec
           parseOverlay = do
             reserved "over"
             nodeId
@@ -100,12 +100,14 @@ nodeSpec = do
 mapSpec = do
     srcBlock <- blockSpec
     reserved "to"
-    destNode <- nodeId
-    dB <- optionMaybe parseDestBase
-    let destBase = case dB of Nothing -> AST.base srcBlock
-                              Just addr -> addr
-    return $ AST.MapSpec srcBlock destNode destBase
-    where parseDestBase = do
+    commaSep1 $ parseDest srcBlock
+    where parseDest srcBlock = do
+            destNode <- nodeId
+            dB <- optionMaybe parseDestBase
+            let destBase = case dB of Nothing -> AST.base srcBlock
+                                      Just addr -> addr
+            return $ AST.MapSpec srcBlock destNode destBase
+          parseDestBase = do
             reserved "at"
             addr
 
@@ -119,6 +121,8 @@ blockSpec = do
           parseLength (AST.Addr base) = do
             symbol "/"
             b <- decimal
+            -- While natural consumes following white space, decimal does not
+            whiteSpace 
             return $ AST.Addr $ base + 2^b - 1
 
 nodeId = do
