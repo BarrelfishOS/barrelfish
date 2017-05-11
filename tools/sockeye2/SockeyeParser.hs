@@ -101,9 +101,13 @@ mapSpec = do
     srcBlock <- blockSpec
     reserved "to"
     destNode <- nodeId
-    reserved "at"
-    destBase <- addr
+    dB <- optionMaybe parseDestBase
+    let destBase = case dB of Nothing -> AST.base srcBlock
+                              Just addr -> addr
     return $ AST.MapSpec srcBlock destNode destBase
+    where parseDestBase = do
+            reserved "at"
+            addr
 
 blockSpec = do
     base <- addr
