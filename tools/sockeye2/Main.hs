@@ -23,17 +23,29 @@ import System.IO
 import SockeyeAST as AST
 import SockeyeParser
 import SockeyeChecker
+import qualified SockeyeBackendPrintAST as PrintAST
+
+{- Compilation targets -}
+data Target = None | PrintAST
 
 {- Possible options for the Sockeye Compiler -}
-data Options = Options { optInputFile :: FilePath }
+data Options = Options { optInputFile :: FilePath
+                       , optTarget    :: Target
+                       }
 
 {- Default options -}
 defaultOptions :: Options
-defaultOptions = Options { optInputFile = ""}
+defaultOptions = Options { optInputFile = ""
+                         , optTarget = None
+                         }
 
 {- Set the input file name -}
 optSetInputFileName :: FilePath -> Options -> Options
 optSetInputFileName f o = o { optInputFile = f }
+
+{- Set the target -}
+optSetTarget :: Target -> Options -> Options
+optSetTarget t o = o { optTarget = t }
 
 {- Prints usage information possibly with usage errors -}
 usage :: [String] -> IO ()
@@ -45,7 +57,10 @@ usage errors = do
 {- Setup option parser -}
 options :: [OptDescr (Options -> IO Options)]
 options = 
-    [ Option "h" ["help"]
+    [ Option "P" ["print"]
+        (NoArg (\opts -> return $ optSetTarget PrintAST opts))
+        "Print the AST to the console"
+    , Option "h" ["help"]
         (NoArg (\_ -> do
                     usage []
                     exitWith ExitSuccess))
@@ -75,8 +90,8 @@ parseFile file = do
         Right ast -> return ast
 
 {- Runs the checker -}
-checkAst :: AST.NetSpec -> IO ()
-checkAst ast = do
+checkAST :: AST.NetSpec -> IO ()
+checkAST ast = do
     case checkSockeye ast of 
         [] -> return ()
         errors -> do
@@ -87,11 +102,16 @@ checkAst ast = do
                   in es ++ case key of Nothing     -> errors
                                        Just nodeId -> ("In specification of node '" ++ show nodeId ++ "':"):indented
 
+{- Runs the chosen backend -}
+runBackend :: Target -> AST.NetSpec -> IO ()
+runBackend None     = \_ -> return ()
+runBackend PrintAST = PrintAST.compile
+
 main = do
     args <- getArgs
     opts <- compilerOpts args
     let inFile = optInputFile opts
     ast <- parseFile inFile
-    checkAst ast
-    print ast
+    checkAST ast
+    runBackend (optTarget opts) ast
     
