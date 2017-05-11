@@ -244,7 +244,6 @@ class Machine(object):
         if a == "armv8" :
             m.add_module("acpi", ["boot"])
             m.add_module("kaluga", ["boot"])
-            m.add_module("pci", ["auto"])
 
         # SKB and PCI are x86-only for the moment
         if a == "x86_64" or a == "x86_32":
