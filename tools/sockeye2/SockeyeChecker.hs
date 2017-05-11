@@ -16,6 +16,7 @@
 module SockeyeChecker
 ( checkSockeye ) where
 
+import Control.Monad
 import Control.Monad.Trans.Writer
 
 import Data.Set (Set)
@@ -29,12 +30,39 @@ findUniqueIdentifiers (AST.NetSpec nodes) = let allIds = map fst $ nodes
                                             where checkAndAdd w id = do
                                                     uids <- w
                                                     tell $ if id `Set.member` uids then
-                                                            ["Duplicate identifier " ++ show id]
+                                                            ["Duplicate identifier '" ++ show id ++ "'"]
                                                            else
                                                             []
                                                     return $ id `Set.insert` uids
 
+class Checkable a where
+    checkReferences :: (Set AST.NodeId) -> a -> Writer[String] ()
+
+instance Checkable AST.NetSpec where
+    checkReferences ids (AST.NetSpec nodes) = foldM (\_ -> checkReferences ids . snd) () nodes
+
+instance Checkable AST.NodeSpec where
+    checkReferences ids nodeSpec = do
+        foldM (\_ -> checkReferences ids) () $ AST.translate nodeSpec
+        case AST.overlay nodeSpec of
+            Nothing -> return ()
+            Just id -> do
+                tell $ if id `Set.member` ids then
+                        []
+                       else
+                        ["Reference to undefined node '" ++ show id ++ "' in overlay"]
+                return ()
+
+instance Checkable AST.MapSpec where
+    checkReferences ids mapSpec = do
+        let destNode = AST.destNode mapSpec
+        tell $ if destNode `Set.member` ids then
+                        []
+                       else
+                        ["Reference to undefined node '" ++ show destNode ++ "' in map"]
+
+
 checkSockeye :: AST.NetSpec -> [String]
 checkSockeye ast = snd $ runWriter $ do
     ids <- findUniqueIdentifiers ast
-    return ids
+    checkReferences ids ast
