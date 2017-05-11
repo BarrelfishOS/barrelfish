@@ -40,7 +40,7 @@ usage :: [String] -> IO ()
 usage errors = do
     prg <- getProgName
     let usageString = "Usage: " ++ prg ++ " [options] file\nOptions:"
-        in hPutStrLn stderr (usageInfo (concat errors ++ usageString) options)
+        in hPutStrLn stderr $ usageInfo (concat errors ++ usageString) options
 
 {- Setup option parser -}
 options :: [OptDescr (Options -> IO Options)]
@@ -57,8 +57,12 @@ compilerOpts :: [String] -> IO (Options)
 compilerOpts argv =
     case getOpt Permute options argv of
         (actions, [f], []) -> liftM (optSetInputFileName f) $ foldl (>>=) (return defaultOptions) actions
-        (actions, [], [])  -> usage ["No input file\n"] >> exitWith (ExitFailure 1)
-        (_, _, errors)     -> usage errors >> exitWith (ExitFailure 1)
+        (actions, [], [])  -> do
+            usage ["No input file\n"]
+            exitWith $ ExitFailure 1
+        (_, _, errors)     -> do
+            usage errors
+            exitWith $ ExitFailure 1
 
 {- Runs the parser -}
 parseFile :: FilePath -> IO (AST.NetSpec)
@@ -66,8 +70,8 @@ parseFile file = do
     src <- readFile file
     case parseSockeye file src of
         Left err -> do
-            hPutStrLn stderr ("Parse error at " ++ show err)
-            exitWith (ExitFailure 2)
+            hPutStrLn stderr $ "Parse error at " ++ show err
+            exitWith $ ExitFailure 2
         Right ast -> return ast
 
 {- Runs the checker -}
@@ -77,7 +81,7 @@ checkAst ast = do
         [] -> return ()
         errors -> do
             hPutStrLn stderr $ intercalate "\n" (foldl flattenErrors ["Failed checks:"] errors)
-            exitWith (ExitFailure 3)
+            exitWith $ ExitFailure 3
         where flattenErrors es (key, errors)
                 = let indented = map ((replicate 4 ' ') ++) errors
                   in es ++ case key of Nothing     -> errors
