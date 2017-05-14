@@ -59,18 +59,177 @@ identifier_to_cname (xs:x) =
     if xs == '.' then '_' : identifier_to_cname x
     else xs : identifier_to_cname x
 
+{- makes a type out of a cname -}
 make_type_name :: String -> String
 make_type_name s = s ++ "_t"
+
+make_format_name_pr :: String -> String
+make_format_name_pr s =  map toUpper (s ++ "_pri")
+
+make_format_name_rd :: String -> String
+make_format_name_rd s =  map toUpper (s ++ "_scn")
+
+{--}
+identifier_to_prolog :: [Char] -> [Char]
+identifier_to_prolog [] = []
+identifier_to_prolog (xs:x) =
+    if xs == '.' then '_' : identifier_to_cname x
+    else xs : identifier_to_cname x
+
+
+typeref_to_ctype :: TypeRef -> C.TypeSpec
+typeref_to_ctype (TBuiltIn UInt8)   = C.TypeName "uint8_t"
+typeref_to_ctype (TBuiltIn UInt16)  = C.TypeName "uint16_t"
+typeref_to_ctype (TBuiltIn UInt32)  = C.TypeName "uint32_t"
+typeref_to_ctype (TBuiltIn UInt64)  = C.TypeName "uint64_t"
+typeref_to_ctype (TBuiltIn UIntPtr) = C.TypeName "uintptr_t"
+typeref_to_ctype (TBuiltIn Int8)    = C.TypeName "int8_t"
+typeref_to_ctype (TBuiltIn Int16)   = C.TypeName "int16_t"
+typeref_to_ctype (TBuiltIn Int32)   = C.TypeName "int32_t"
+typeref_to_ctype (TBuiltIn Int64)   = C.TypeName "int64_t"
+typeref_to_ctype (TBuiltIn IntPtr)  = C.TypeName "intptr_t"
+typeref_to_ctype (TBuiltIn Size)    = C.TypeName "size_t"
+typeref_to_ctype (TBuiltIn Bool)    = C.TypeName "bool"
+typeref_to_ctype (TBuiltIn String)  = C.Ptr (C.TypeName "char")
+typeref_to_ctype (TBuiltIn Char)    = C.TypeName "char"
+typeref_to_ctype (TBuiltIn Capref)  = C.Struct "capref"
+typeref_to_ctype (TEnum i _ )        = C.TypeName (make_type_name (identifier_to_cname i))
+typeref_to_ctype (TConstant i _ )    = C.TypeName (make_type_name (identifier_to_cname i))
+typeref_to_ctype (TFact i _)        = C.TypeName (make_type_name (identifier_to_cname i))
+typeref_to_ctype (TFlags i _ )       = C.TypeName (make_type_name (identifier_to_cname i))
+
+
+{-
+==============================================================================
+= Function Signatures
+==============================================================================
+-}
+
+
+skate_c_errval_t :: C.TypeSpec
+skate_c_errval_t = C.TypeName "errval_t"
+
+skate_c_void_t :: C.TypeSpec
+skate_c_void_t = C.TypeName "void"
+
+skate_c_fn_decl :: C.TypeSpec -> String -> [String] -> [C.Param] -> C.Unit
+skate_c_fn_decl rt n c p = C.UnitList [
+    C.Blank, C.Blank,
+    C.MultiDoxy c,
+    C.FunctionDecl C.NoScope rt fn p]
+    where
+        fn = (identifier_to_cname n)
+
+
+skate_c_fn_def :: C.TypeSpec -> String -> [String] -> [C.Param] -> [C.Stmt] -> C.Unit
+skate_c_fn_def rt n c p st = C.UnitList [
+    C.Blank, C.Blank,
+    C.MultiDoxy c,
+    C.FunctionDef C.NoScope rt fn p st]
+    where
+        fn = (identifier_to_cname n)
+
+
+
+{-----------------------------------------------------------------------------
+- schema.namespace.decl.describe()
+------------------------------------------------------------------------------}
+
+skate_c_fn_name_describe :: String -> String
+skate_c_fn_name_describe fn = (make_qualified_identifer fn "describe")
+
+skate_c_fn_decl_describe :: String -> C.Unit
+skate_c_fn_decl_describe fn = skate_c_fn_decl skate_c_void_t fn_name doxy []
+    where
+        fn_name = (skate_c_fn_name_describe fn)
+        doxy = ["@brief Describes the " ++ fn]
+
+
+skate_c_fn_def_describe :: String -> [ C.Stmt ] -> C.Unit
+skate_c_fn_def_describe fn = C.FunctionDef C.NoScope skate_c_errval_t fn_name params
+    where
+        fn_name = (skate_c_fn_name_describe fn)
+        params = []
+
+
+{-----------------------------------------------------------------------------
+- schema.namespace.decl.describe()
+------------------------------------------------------------------------------}
+
+skate_c_fn_name_explain :: String -> String
+skate_c_fn_name_explain fn = (make_qualified_identifer fn "explain")
+
+
+{-----------------------------------------------------------------------------
+- schema.namespace.decl.print()
+------------------------------------------------------------------------------}
+
+skate_c_fn_name_print :: String -> String
+skate_c_fn_name_print fn = (make_qualified_identifer fn "print")
+
+{-----------------------------------------------------------------------------
+- schema.namespace.decl.add()
+------------------------------------------------------------------------------}
+
+skate_c_fn_name_add :: String -> String
+skate_c_fn_name_add fn = (make_qualified_identifer fn "add")
+
+skate_c_fn_decl_add :: String -> ([String], [C.Param])-> C.Unit
+skate_c_fn_decl_add fn (d, p) = skate_c_fn_decl skate_c_void_t fn_name doxy p
+    where
+        fn_name = (skate_c_fn_name_add fn)
+        doxy = ["@brief Adds the " ++ fn, ""] ++ d
+
+
+
+skate_c_fn_def_add :: String -> [C.Param] -> [ C.Stmt ] -> C.Unit
+skate_c_fn_def_add fn p s = C.FunctionDef C.NoScope skate_c_errval_t fn_name p s
+    where
+        fn_name = (skate_c_fn_name_add fn)
+
+{-----------------------------------------------------------------------------
+- schema.namespace.decl.delete()
+------------------------------------------------------------------------------}
+
+skate_c_fn_name_delete :: String -> String
+skate_c_fn_name_delete fn = (make_qualified_identifer fn "delete")
+
+{-----------------------------------------------------------------------------
+- schema.namespace.decl.list()
+------------------------------------------------------------------------------}
+
+skate_c_fn_name_list :: String -> String
+skate_c_fn_name_list fn = (make_qualified_identifer fn "list")
+
 
 {-----------------------------------------------------------------------------
 - Function signatures
 ------------------------------------------------------------------------------}
 
-skate_c_fn_name_describe :: String -> String
-skate_c_fn_name_describe fn = fn ++ ".describe"
+skate_c_fn_one_param :: FactAttrib -> C.Param
+skate_c_fn_one_param a@(FactAttrib i d t _) = C.Param (typeref_to_ctype t) i
 
-skate_c_fn_name_add :: String -> String
-skate_c_fn_name_add fn = fn ++ ".add"
 
-skate_c_fn_name_list :: String -> String
-skate_c_fn_name_list fn = fn ++ ".list"
+skate_c_fn_params_fact :: [FactAttrib] -> ([String], [C.Param])
+skate_c_fn_params_fact attribs = (
+    ["@param " ++ i ++ " " ++ d | FactAttrib i d _ _ <- attribs],
+    [skate_c_fn_one_param a | a <- attribs])
+
+skate_c_fn_params :: C.TypeSpec -> String -> [C.Param]
+skate_c_fn_params t var = [C.Param t var]
+
+
+
+skate_c_fn_decls_facts :: String -> [FactAttrib] -> [C.Unit]
+skate_c_fn_decls_facts fn attribs = [
+    skate_c_fn_decl_describe fn,
+    skate_c_fn_decl_add fn p]
+        where
+            p = skate_c_fn_params_fact attribs
+
+
+
+
+-- | FunctionDef ScopeSpec TypeSpec String  [ Param ] [ Stmt ]
+-- | StaticInline TypeSpec String           [ Param ] [ Stmt ]
+-- | FunctionDecl ScopeSpec TypeSpec String [ Param ]

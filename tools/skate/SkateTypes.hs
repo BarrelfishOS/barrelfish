@@ -16,6 +16,7 @@ module SkateTypes where
 
 import qualified CAbsSyntax as C
 
+
 data TypeBuiltIn = UInt8 | UInt16 | UInt32 | UInt64 | UIntPtr
                   | Int8 | Int16  | Int32  | Int64  | IntPtr
                   | Size | Char   | Bool   | String | Capref
@@ -31,11 +32,11 @@ data TypeRef = TEnum String String
              deriving(Eq)
 
 instance Show TypeRef where
-    show (TEnum t _) = "TEnum(" ++ t ++ ")"
-    show (TConstant t _) = "TConstant(" ++ t ++ ")"
-    show (TFact t _) = "TFact(" ++ t ++ ")"
+    show (TEnum t _ ) = "TEnum(" ++ t ++ ")"
+    show (TConstant t _ ) = "TConstant(" ++ t ++ ")"
+    show (TFact t _ ) = "TFact(" ++ t ++ ")"
     show (TBuiltIn t) = "TBuiltIn(" ++ (show t) ++ ")"
-    show (TFlags t _)  = "TFlags(" ++ t ++ ")"
+    show (TFlags t _ )  = "TFlags(" ++ t ++ ")"
 
 
 {- -}
@@ -55,27 +56,6 @@ instance Show TypeBuiltIn where
     show String  = "string"
     show Char    = "char"
     show Capref  = "capref"
-
-typeref_to_ctype :: TypeRef -> C.TypeSpec
-typeref_to_ctype (TBuiltIn UInt8)   = C.TypeName "uint8_t"
-typeref_to_ctype (TBuiltIn UInt16)  = C.TypeName "uint16_t"
-typeref_to_ctype (TBuiltIn UInt32)  = C.TypeName "uint32_t"
-typeref_to_ctype (TBuiltIn UInt64)  = C.TypeName "uint64_t"
-typeref_to_ctype (TBuiltIn UIntPtr) = C.TypeName "uintptr_t"
-typeref_to_ctype (TBuiltIn Int8)    = C.TypeName "int8_t"
-typeref_to_ctype (TBuiltIn Int16)   = C.TypeName "int16_t"
-typeref_to_ctype (TBuiltIn Int32)   = C.TypeName "int32_t"
-typeref_to_ctype (TBuiltIn Int64)   = C.TypeName "int64_t"
-typeref_to_ctype (TBuiltIn IntPtr)  = C.TypeName "intptr_t"
-typeref_to_ctype (TBuiltIn Size)    = C.TypeName "size_t"
-typeref_to_ctype (TBuiltIn Bool)    = C.TypeName "bool"
-typeref_to_ctype (TBuiltIn String)  = C.Ptr (C.TypeName "char")
-typeref_to_ctype (TBuiltIn Char)    = C.TypeName "char"
-typeref_to_ctype (TBuiltIn Capref)  = C.Struct "capref"
-typeref_to_ctype (TEnum i _)        = C.TypeName "TODO: SkateTypes.hs" -- (make_type_name (identifier_to_cname i))
-typeref_to_ctype (TConstant i _)    = C.TypeName "TODO: SkateTypes.hs" -- (make_type_name (identifier_to_cname i))typeref_to_ctype (TFact i _)        = C.TypeName "TODO: SkateTypes.hs" -- (make_type_name (identifier_to_cname i))
-typeref_to_ctype (TFlags i _)       = C.TypeName "TODO: SkateTypes.hs" -- (make_type_name (identifier_to_cname i))
-
 
 
 instance Read TypeBuiltIn where
@@ -116,8 +96,6 @@ findBuiltIntType "capref" = Capref
 findBuiltIntType s = error  $ "Undefined builtin type " ++ s
 
 
-
-
 builtin_fmt_wr :: TypeBuiltIn -> String
 builtin_fmt_wr (UInt8)   = "PRIu8"
 builtin_fmt_wr (UInt16)  = "PRIu16"
@@ -130,9 +108,9 @@ builtin_fmt_wr (Int32)   = "PRIi32"
 builtin_fmt_wr (Int64)   = "PRIi64"
 builtin_fmt_wr (IntPtr)  = "PRIuPTR"
 builtin_fmt_wr (Size)    = "PRIuSIZE"
-builtin_fmt_wr (Bool)    = "\"i\""
-builtin_fmt_wr (String)  = "\"s\""
-builtin_fmt_wr (Char)    = "\"c\""
+builtin_fmt_wr (Bool)    = "\"%i\""
+builtin_fmt_wr (String)  = "\"%s\""
+builtin_fmt_wr (Char)    = "\"%c\""
 
 
 builtin_fmt_rd :: TypeBuiltIn -> String
@@ -147,9 +125,9 @@ builtin_fmt_rd (Int32)   = "SCNi32"
 builtin_fmt_rd (Int64)   = "SCNi64"
 builtin_fmt_rd (IntPtr)  = "SCNuPTR"
 builtin_fmt_rd (Size)    = "SCNuSIZE"
-builtin_fmt_rd (Bool)    = "\"i\""
-builtin_fmt_rd (String)  = "\"s\""
-builtin_fmt_rd (Char)    = "\"c\""
+builtin_fmt_rd (Bool)    = "\"%i\""
+builtin_fmt_rd (String)  = "\"%s\""
+builtin_fmt_rd (Char)    = "\"%c\""
 
 builtin_get_bits:: TypeBuiltIn -> Integer
 builtin_get_bits (UInt8)   = 8
@@ -165,3 +143,9 @@ builtin_get_bits (IntPtr)  = 64 -- xxx: make this arch specific!
 builtin_get_bits (Size)    = 64 -- xxx: make this arch specific!
 builtin_get_bits (Bool)    = 8
 builtin_get_bits (Char)    = 8
+
+builtin_flag_type :: Integer -> TypeBuiltIn
+builtin_flag_type 64 = UInt64
+builtin_flag_type 32 = UInt32
+builtin_flag_type 16 = UInt16
+builtin_flag_type  8 = UInt8

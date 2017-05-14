@@ -340,6 +340,8 @@ pp_fnbody :: [ Stmt ] -> [ String ]
 pp_fnbody body = [ "{" ] ++ (indent_stmts body) ++ [ "}", ""]
 
 pp_fnhead :: TypeSpec -> String -> [ Param ] -> String
+pp_fnhead ts n [] =
+    (pp_typespec ts n) ++ "(void)"
 pp_fnhead ts n pl =
     (pp_typespec ts n) ++ "(" ++ parlist ++ ")"
     where

@@ -33,10 +33,10 @@ instance Show RecType where
     show TTEnum = "enum"
     show TTFact = "fact"
 
-data TTEntry = Rec RecType String SourcePos
+data TTEntry = Rec RecType String TypeBuiltIn SourcePos
 
 instance Show TTEntry where
-    show (Rec _ s _) = "TT.Rec: " ++ s
+    show (Rec _ s _ _) = "TT.Rec: " ++ s
 
 
 {-
@@ -66,7 +66,13 @@ exist ttbl t a = not (null (filter (type_ref_exists a t) ttbl))
 lookup ::  [TTEntry] -> String -> RecType
 lookup t a = tt
     where
-        Rec tt _  _= head (filter (typeExists a) t)
+        Rec tt _ _ _= head (filter (typeExists a) t)
+
+
+get_builtin_type :: String -> [TTEntry] -> TypeBuiltIn
+get_builtin_type a t = tt
+    where
+        Rec rt _ tt _ = head (filter (typeExists a) t)
 
 {-
 ==============================================================================
@@ -83,28 +89,28 @@ addOneTypeToTable p t [] = t
 
 {- handles each declaration and adds a type  -}
 parseType :: String -> [TTEntry] -> Declaration -> [TTEntry]
-parseType p t d@(Fact i _ _ sp) = addOneType i t TTFact sp
-parseType p t d@(Flags i _ w _ sp) = addOneType i t TTFlags sp
-parseType p t d@(Constants i _ _ _ sp) = addOneType i t TTConstant sp
-parseType p t d@(Enumeration i _ _ sp) = addOneType i t TTEnum sp
+parseType p t d@(Fact i _ _ sp) = addOneType i t TTFact UInt8 sp
+parseType p t d@(Flags i _ w _ sp) = addOneType i t TTFlags (builtin_flag_type w) sp
+parseType p t d@(Constants i _ a@(TBuiltIn tr) _ sp) = addOneType i t TTConstant tr sp
+parseType p t d@(Enumeration i _ _ sp) = addOneType i t TTEnum UInt32 sp
 parseType p t d@(Namespace i _ decls sp) = addOneTypeToTable i t decls
 parseType p t d@(Section _ decls sp) = addOneTypeToTable p t decls
 parseType p t d@(Text _ sp) = t
 
 {- boolean function that returns True iff the type record matches -}
 typeExists :: String -> TTEntry -> Bool
-typeExists a d@(Rec _ e _) = (a == e)
+typeExists a d@(Rec _ e _ _) = (a == e)
 
 {- boolean function that returns True iff the type record matches -}
 type_ref_exists :: String -> RecType -> TTEntry -> Bool
-type_ref_exists a t d@(Rec tt e _) = ((a == e) &&  (t == tt))
+type_ref_exists a t d@(Rec tt e _ _) = ((a == e) &&  (t == tt))
 
 {- adds one type to the type table -}
-addOneType :: String -> [TTEntry] -> RecType -> SourcePos -> [TTEntry]
-addOneType n recs t sp =
+addOneType :: String -> [TTEntry] -> RecType -> TypeBuiltIn -> SourcePos -> [TTEntry]
+addOneType n recs t tr sp =
     let
         existingTypes = (filter (typeExists n) recs)
     in
-    if null existingTypes then recs ++ [Rec t n sp]
+    if null existingTypes then recs ++ [Rec t n tr sp]
     else error $ "error in " ++ (show sp) ++ ": re-definition of type '" ++ n ++ "'."
                  ++ " previously defined " ++ (show (head existingTypes));
