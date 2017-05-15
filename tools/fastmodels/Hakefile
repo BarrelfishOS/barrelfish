@@ -11,7 +11,7 @@
 ----------------------------------------------------------------------
 
 let arch = "armv8"
-    opts = (options arch) { 
+    opts = (options arch) {
              optFlags = [ Str s | s <- [ "-fno-builtin",
                                          "-std=gnu99",
 
@@ -31,14 +31,14 @@ let arch = "armv8"
              optDefines = [],
              optLibs = [],
              optLdFlags = [ Str s | s <- [
-                                        "-fno-builtin", 
+                                        "-fno-builtin",
                                         "-pie",
                                         "-nostdlib",
                                         "-Wl,--fatal-warnings",
                                         "-Wl,-N",
                                         "-Wl,--build-id=none" ]] ++
                           [ Str "-T", In SrcTree "src" "shim.lds" ],
-             optSuffix = "" 
+             optSuffix = ""
            }
 in
 [
@@ -54,7 +54,7 @@ in
         [ "/kernel/include" ],
     assembleSFiles opts [ "shim.S" ],
     compileCFiles opts [ "cache.c" ],
-    link opts [ "shim.o", "cache.o" ] [] "fvp_shim",
+    link opts [ "shim.o", "cache.o" ] [] [] "fvp_shim",
     copyFile SrcTree "tools" "/tools/fastmodels/bootdebug.py"
                      "tools" "/fastmodels/bootdebug.py"
 ]

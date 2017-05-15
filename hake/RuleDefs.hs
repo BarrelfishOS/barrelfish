@@ -263,13 +263,13 @@ archive opts objs libs name libname
     | optArch opts == "armv8" = ARMv8.archive opts objs libs name libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
-linker :: Options -> [String] -> [String] -> String -> [RuleToken]
-linker opts objs libs bin
-    | optArch opts == "x86_64" = X86_64.linker opts objs libs bin
-    | optArch opts == "k1om" = K1om.linker opts objs libs bin
-    | optArch opts == "x86_32" = X86_32.linker opts objs libs bin
-    | optArch opts == "armv7" = ARMv7.linker opts objs libs bin
-    | optArch opts == "armv8" = ARMv8.linker opts objs libs bin
+linker :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
+linker opts objs libs mods bin
+    | optArch opts == "x86_64" = X86_64.linker opts objs libs mods bin
+    | optArch opts == "k1om" = K1om.linker opts objs libs mods bin
+    | optArch opts == "x86_32" = X86_32.linker opts objs libs mods bin
+    | optArch opts == "armv7" = ARMv7.linker opts objs libs mods bin
+    | optArch opts == "armv8" = ARMv8.linker opts objs libs mods bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
 strip :: Options -> String -> String -> String -> [RuleToken]
@@ -290,10 +290,10 @@ debug opts src target
     | optArch opts == "armv8" = ARMv8.debug opts src target
     | otherwise = [ ErrorMsg ("Can't extract debug symbols for " ++ (optArch opts)) ]
 
-cxxlinker :: Options -> [String] -> [String] -> String -> [RuleToken]
-cxxlinker opts objs libs bin
-    | optArch opts == "x86_64" = X86_64.cxxlinker opts objs libs bin
-    | optArch opts == "k1om" = K1om.cxxlinker opts objs libs bin
+cxxlinker :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
+cxxlinker opts objs libs mods bin
+    | optArch opts == "x86_64" = X86_64.cxxlinker opts objs libs mods bin
+    | optArch opts == "k1om" = K1om.cxxlinker opts objs libs mods bin
     | otherwise = [ ErrorMsg ("Can't link C++ executables for " ++ (optArch opts)) ]
 
 --
@@ -407,9 +407,9 @@ archiveLibrary opts name objs libs =
 --
 -- Link an executable
 --
-linkExecutable :: Options -> [String] -> [String] -> String -> [RuleToken]
-linkExecutable opts objs libs bin =
-    linker opts objs libs (applicationPath opts bin)
+linkExecutable :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
+linkExecutable opts objs libs mods bin =
+    linker opts objs libs mods (applicationPath opts bin)
 
 --
 -- Strip debug symbols from an executable
@@ -429,9 +429,9 @@ debugExecutable opts src target =
 --
 -- Link a C++ executable
 --
-linkCxxExecutable :: Options -> [String] -> [String] -> String -> [RuleToken]
-linkCxxExecutable opts objs libs bin =
-    cxxlinker opts objs libs (applicationPath opts bin)
+linkCxxExecutable :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
+linkCxxExecutable opts objs libs mods bin =
+    cxxlinker opts objs libs mods (applicationPath opts bin)
 
 -------------------------------------------------------------------------
 
@@ -821,12 +821,12 @@ hamletFile opts file =
 --
 -- Link a set of object files and libraries together
 --
-link :: Options -> [String] -> [ String ] -> String -> HRule
-link opts objs libs bin =
+link :: Options -> [String] -> [String] -> [String] -> String -> HRule
+link opts objs libs mods bin =
     let full = bin ++ ".full"
         debug = bin ++ ".debug"
     in Rules [
-        Rule $ linkExecutable opts objs libs full,
+        Rule $ linkExecutable opts objs libs mods full,
         Rule $ debugExecutable opts full debug,
         Rule $ stripExecutable opts full debug bin
     ]
@@ -834,9 +834,9 @@ link opts objs libs bin =
 --
 -- Link a set of C++ object files and libraries together
 --
-linkCxx :: Options -> [String] -> [ String ] -> String -> HRule
-linkCxx opts objs libs bin =
-    Rule (linkCxxExecutable opts objs libs bin)
+linkCxx :: Options -> [String] -> [String] -> [String] -> String -> HRule
+linkCxx opts objs libs mods bin =
+    Rule (linkCxxExecutable opts objs libs mods bin)
 
 --
 -- Link a CPU driver.  This is where it gets distinctly architecture-specific.
@@ -1026,6 +1026,10 @@ allLibraryPaths opts args =
     [ libraryPath opts l | l <- Args.addLibraries args ]
 
 
+allModulesPaths :: Options -> Args.Args -> [String]
+allModulesPaths opts args =
+    [ libraryPath opts l | l <- Args.addModules args ]
+
 ---------------------------------------------------------------------
 --
 -- Very large-scale macros
@@ -1101,7 +1105,7 @@ appBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args)
+                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args) (allModulesPaths opts args)
                        appname,
                 fullTarget opts arch appname
               ]
@@ -1162,7 +1166,7 @@ arrakisAppBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args) appname
+                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args) (allModulesPaths opts args) appname
               ]
             )
 
