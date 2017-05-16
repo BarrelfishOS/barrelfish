@@ -39,9 +39,9 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              \instances.",
 
              Entry "Driver Module" []
-             "A Barrelfish driver module is a piece of code (typically a library) that is instantiated on demand \
-             \within a driver domain. It follows a well defined structure that allows Kaluga to interact with an \
-             \instantiated driver (see Driver Instance) in order to control its life-cycle.",
+             "A Barrelfish driver module is a piece of code (typically a library) that describes the logic \
+             \for interacting with a device. It follows a well defined structure that allows Kaluga to interface with an \
+             \instantiated driver (see Driver Instance) to control its life-cycle.",
 
              Entry "Driver Instance" []
              "A driver is the runtime object instantiated from a given driver module. In practice any number of instances\
