@@ -29,14 +29,16 @@ import qualified SockeyeBackendPrintAST as PrintAST
 data Target = None | PrintAST
 
 {- Possible options for the Sockeye Compiler -}
-data Options = Options { optInputFile :: FilePath
-                       , optTarget    :: Target
+data Options = Options { optInputFile  :: FilePath
+                       , optTarget     :: Target
+                       , optOutputFile :: Maybe FilePath
                        }
 
 {- Default options -}
 defaultOptions :: Options
-defaultOptions = Options { optInputFile = ""
-                         , optTarget    = PrintAST
+defaultOptions = Options { optInputFile  = ""
+                         , optTarget     = PrintAST
+                         , optOutputFile = Nothing
                          }
 
 {- Set the input file name -}
@@ -46,6 +48,10 @@ optSetInputFileName f o = o { optInputFile = f }
 {- Set the target -}
 optSetTarget :: Target -> Options -> Options
 optSetTarget t o = o { optTarget = t }
+
+{- Set the outpue file name -}
+optSetOutputFile :: Maybe String -> Options -> Options
+optSetOutputFile f o = o { optOutputFile = f }
 
 {- Prints usage information possibly with usage errors -}
 usage :: [String] -> IO ()
@@ -59,12 +65,15 @@ usage errors = do
 {- Setup option parser -}
 options :: [OptDescr (Options -> IO Options)]
 options = 
-    [ Option "P" ["print"]
+    [ Option "A" ["ast"]
         (NoArg (\opts -> return $ optSetTarget PrintAST opts))
-        "Print the AST to the console"
+        "Print the AST (default)"
     , Option "C" ["check"]
         (NoArg (\opts -> return $ optSetTarget None opts))
         "Just check the file, do not compile"
+    , Option "o" ["output-file"]
+        (ReqArg (\f opts -> return $ optSetOutputFile (Just f) opts) "FILE")
+        "If no output file is specified the compilation result is written to stdout"
     , Option "h" ["help"]
         (NoArg (\_ -> do
                     usage []
@@ -113,10 +122,16 @@ checkAST ast = do
                   in es ++ case key of Nothing     -> errors
                                        Just nodeId -> ("In specification of node '" ++ show nodeId ++ "':"):indented
 
-{- Runs the chosen backend -}
-runBackend :: Target -> AST.NetSpec -> IO ()
-runBackend None     = \_ -> return ()
-runBackend PrintAST = PrintAST.compile
+{- Compiles the AST with the appropriate backend -}
+compile :: Target -> AST.NetSpec -> IO String
+compile None     _   = return ""
+compile PrintAST ast = return $ PrintAST.compile ast
+
+{- Outputs the compilation result -}
+output :: Maybe FilePath -> String -> IO ()
+output outFile out = do
+    case outFile of Nothing -> putStrLn out
+                    Just f  -> writeFile f out
 
 main = do
     args <- getArgs
@@ -124,5 +139,6 @@ main = do
     let inFile = optInputFile opts
     ast <- parseFile inFile
     checkAST ast
-    runBackend (optTarget opts) ast
+    out <- compile (optTarget opts) ast
+    output (optOutputFile opts) out
     

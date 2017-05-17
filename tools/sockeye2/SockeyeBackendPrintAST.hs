@@ -18,5 +18,5 @@ module SockeyeBackendPrintAST
 
 import qualified SockeyeAST as AST
 
-compile :: AST.NetSpec -> IO ()
-compile ast = print ast
+compile :: AST.NetSpec -> String
+compile = show
