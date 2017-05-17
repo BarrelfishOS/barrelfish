@@ -37,7 +37,7 @@ lexer = P.makeTokenParser (
 
         {- valid identifiers -}
         P.identStart = letter,
-        P.identLetter = alphaNum,
+        P.identLetter = alphaNum <|> char '_',
 
         {- comment start and end -}
         P.commentStart = "/*",
