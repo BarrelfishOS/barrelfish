@@ -24,9 +24,10 @@ import SockeyeAST as AST
 import SockeyeParser
 import SockeyeChecker
 import qualified SockeyeBackendPrintAST as PrintAST
+import qualified SockeyeBackendProlog as Prolog
 
 {- Compilation targets -}
-data Target = None | PrintAST
+data Target = None | PrintAST | Prolog
 
 {- Possible options for the Sockeye Compiler -}
 data Options = Options { optInputFile  :: FilePath
@@ -37,7 +38,7 @@ data Options = Options { optInputFile  :: FilePath
 {- Default options -}
 defaultOptions :: Options
 defaultOptions = Options { optInputFile  = ""
-                         , optTarget     = PrintAST
+                         , optTarget     = Prolog
                          , optOutputFile = Nothing
                          }
 
@@ -65,20 +66,23 @@ usage errors = do
 {- Setup option parser -}
 options :: [OptDescr (Options -> IO Options)]
 options = 
-    [ Option "A" ["ast"]
+    [ Option "P" ["Prolog"]
+        (NoArg (\opts -> return $ optSetTarget Prolog opts))
+        "Generate a prolog file that can be loaded into the SKB (default)."
+    , Option "A" ["AST"]
         (NoArg (\opts -> return $ optSetTarget PrintAST opts))
-        "Print the AST (default)"
-    , Option "C" ["check"]
+        "Print the AST."
+    , Option "C" ["Check"]
         (NoArg (\opts -> return $ optSetTarget None opts))
-        "Just check the file, do not compile"
+        "Just check the file, do not compile."
     , Option "o" ["output-file"]
         (ReqArg (\f opts -> return $ optSetOutputFile (Just f) opts) "FILE")
-        "If no output file is specified the compilation result is written to stdout"
+        "If no output file is specified the compilation result is written to stdout."
     , Option "h" ["help"]
         (NoArg (\_ -> do
                     usage []
                     exitWith ExitSuccess))
-        "Show help"
+        "Show help."
     ]
 
 {- evaluates the compiler options -}
@@ -126,6 +130,7 @@ checkAST ast = do
 compile :: Target -> AST.NetSpec -> IO String
 compile None     _   = return ""
 compile PrintAST ast = return $ PrintAST.compile ast
+compile Prolog   ast = return $ Prolog.compile ast
 
 {- Outputs the compilation result -}
 output :: Maybe FilePath -> String -> IO ()
