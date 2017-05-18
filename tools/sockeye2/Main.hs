@@ -119,7 +119,7 @@ checkAST ast = do
     case checkSockeye ast of 
         [] -> return ()
         errors -> do
-            hPutStrLn stderr $ intercalate "\n" (foldl flattenErrors ["Failed checks:"] errors)
+            hPutStr stderr $ unlines (foldl flattenErrors ["Failed checks:"] errors)
             exitWith $ ExitFailure 3
         where flattenErrors es (key, errors)
                 = let indented = map ((replicate 4 ' ') ++) errors
@@ -135,7 +135,7 @@ compile Prolog   ast = return $ Prolog.compile ast
 {- Outputs the compilation result -}
 output :: Maybe FilePath -> String -> IO ()
 output outFile out = do
-    case outFile of Nothing -> putStrLn out
+    case outFile of Nothing -> putStr out
                     Just f  -> writeFile f out
 
 main = do

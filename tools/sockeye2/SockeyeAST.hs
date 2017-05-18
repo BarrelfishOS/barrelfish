@@ -85,5 +85,5 @@ instance Show NodeSpec where
                     in acceptStr ++ " " ++ translateStr ++ " " ++ overlayStr
 
 instance Show NetSpec where
-    show (NetSpec netSpec) = intercalate "\n" $ map nodeStr netSpec
+    show (NetSpec netSpec) = unlines $ map nodeStr netSpec
                              where nodeStr (id, node) = show id ++ " is " ++ show node
