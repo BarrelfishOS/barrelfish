@@ -17,6 +17,7 @@ module SockeyeBackendProlog
 ( compile ) where
 
 import Data.List
+import Data.Char
 
 import qualified SockeyeAST as AST
 
@@ -34,7 +35,7 @@ instance PrologGenerator AST.NetSpec where
                                           in predicate "net" [atom, node] ++ "."
 
 instance PrologGenerator AST.NodeId where
-    generate (AST.NodeId id) = id
+    generate (AST.NodeId id) = map toLower id
 
 instance PrologGenerator AST.NodeSpec where
     generate nodeSpec = predicate "node" [accept, translate, overlay]
