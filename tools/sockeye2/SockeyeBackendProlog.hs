@@ -16,7 +16,60 @@
 module SockeyeBackendProlog
 ( compile ) where
 
+import Data.List
+
 import qualified SockeyeAST as AST
 
 compile :: AST.NetSpec -> String
-compile _ = "Prolog backend is under construction..."
+compile = generate
+
+{- Code Generator -}
+class PrologGenerator a where
+    generate :: a -> String
+
+instance PrologGenerator AST.NetSpec where
+    generate (AST.NetSpec net) = unlines $ map toFact net
+        where toFact (nodeId, nodeSpec) = let atom = generate nodeId
+                                              node = generate nodeSpec
+                                          in predicate "net" [atom, node] ++ "."
+
+instance PrologGenerator AST.NodeId where
+    generate (AST.NodeId id) = id
+
+instance PrologGenerator AST.NodeSpec where
+    generate nodeSpec = predicate "node" [accept, translate, overlay]
+        where accept = list $ map generate (AST.accept nodeSpec)
+              translate = list $ map generate (AST.translate nodeSpec)
+              overlay = case AST.overlay nodeSpec of
+                Nothing -> "@none"
+                Just id -> generate id
+
+instance PrologGenerator AST.BlockSpec where
+    generate blockSpec = let base  = generate $ AST.base blockSpec
+                             limit = generate $ AST.limit blockSpec
+                         in predicate "block" [base, limit]
+
+instance PrologGenerator AST.MapSpec where
+    generate mapSpec = let src  = generate $ AST.srcBlock mapSpec
+                           dest = generate $ AST.destNode mapSpec
+                           base = generate $ AST.destBase mapSpec
+                       in predicate "map" [src, dest, base]
+
+instance PrologGenerator AST.Addr where
+    generate (AST.Addr addr) = show addr
+
+{- Helper functions -}
+predicate :: String -> [String] -> String
+predicate name args = name ++ (parens $ intercalate "," args)
+
+list :: [String] -> String
+list elems = brackets $ intercalate "," elems
+
+enclose :: String -> String -> String -> String
+enclose start end string = start ++ string ++ end
+
+parens :: String -> String
+parens = enclose "(" ")"
+
+brackets :: String -> String
+brackets = enclose "[" "]"
