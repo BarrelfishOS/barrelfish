@@ -38,10 +38,10 @@ translate(Node,Addr,Name) :-
     node(_,_,Overlay) = Node,
     Name = name(Overlay,Addr).
 
-accepted(Name) :-
+acceptedName(Name) :-
+    name(NodeId,Addr) = Name,
     net(NodeId,Node),
-    accept(Node,Addr),
-    Name = name(NodeId,Addr).
+    accept(Node,Addr).
 
 decodeStep(name(NodeId,Addr),Name) :-
     net(NodeId,Node),
@@ -54,7 +54,7 @@ decodesTo(SrcName,DestName) :-
     ).
 
 resolve(SrcName,DestName) :-
-    accepted(DestName),
     (   DestName = SrcName
     ;   decodesTo(SrcName,DestName)
-    ).
+    ),
+    acceptedName(DestName).
