@@ -42,7 +42,7 @@ instance PrologGenerator AST.NodeSpec where
         where accept = list $ map generate (AST.accept nodeSpec)
               translate = list $ map generate (AST.translate nodeSpec)
               overlay = case AST.overlay nodeSpec of
-                Nothing -> "@none"
+                Nothing -> "'@none'"
                 Just id -> generate id
 
 instance PrologGenerator AST.BlockSpec where
