@@ -17,11 +17,11 @@ blockListContains([B|Blocks],Addr) :-
     blockContains(B,Addr);
     blockListContains(Blocks,Addr).
 
-mapsToName(map(Src,Dest,DestBase),Addr,Name) :-
-    blockContains(Src,Addr),
-    block(SrcBase,_) = Src,
-    DestAddr is Addr - SrcBase + DestBase,
-    Name = name(Dest,DestAddr).
+mapsToName(map(SrcBlock,Dest,DestBase),Addr,Name) :-
+    name(Dest,DestAddr) = Name,
+    blockContains(SrcBlock,Addr),
+    block(SrcBase,_) = SrcBlock,
+    DestAddr is Addr - SrcBase + DestBase.
 
 listMapsToName([M|Maps],Addr,Name) :-
     mapsToName(M,Addr,Name);
@@ -30,13 +30,18 @@ listMapsToName([M|Maps],Addr,Name) :-
 accept(node(Accept,_,_),Addr) :-
     blockListContains(Accept,Addr).
 
-translate(node(_,Translate,_),Addr,Name) :-
-    listMapsToName(Translate,Addr,Name),!.
+translateMap(node(_,Translate,_),Addr,Name) :-
+    listMapsToName(Translate,Addr,Name).
 
-translate(Node,Addr,Name) :-
+translateOverlay(Node,Addr,Name) :-
     not(accept(Node,Addr)),
+    not(translateMap(Node,Addr,Name)),
     node(_,_,Overlay) = Node,
     Name = name(Overlay,Addr).
+
+translate(Node,Addr,Name) :-
+    translateMap(Node,Addr,Name);
+    translateOverlay(Node,Addr,Name).
 
 acceptedName(Name) :-
     name(NodeId,Addr) = Name,
