@@ -8,10 +8,13 @@
 % Attn: Systems Group.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-:- module(decodingNet,[resolve/2]).
+%% :- module(decodingNet,[resolve/2]).
+
+:- lib(ic).
 
 blockContains(block(Base, Limit),Addr) :-
-    between(Base,Limit,Addr).
+    %% between(Base,Limit,Addr).
+    Addr :: Base .. Limit.
 
 blockListContains([B|Blocks],Addr) :-
     blockContains(B,Addr);
@@ -21,7 +24,7 @@ mapsToName(map(SrcBlock,Dest,DestBase),Addr,Name) :-
     name(Dest,DestAddr) = Name,
     blockContains(SrcBlock,Addr),
     block(SrcBase,_) = SrcBlock,
-    DestAddr is Addr - SrcBase + DestBase.
+    DestAddr #= Addr - SrcBase + DestBase.
 
 listMapsToName([M|Maps],Addr,Name) :-
     mapsToName(M,Addr,Name);
