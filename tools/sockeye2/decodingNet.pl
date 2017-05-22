@@ -8,21 +8,34 @@
 % Attn: Systems Group.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% :- module(decodingNet,[resolve/2]).
-
 :- lib(ic).
 
-blockContains(block(Base, Limit),Addr) :-
-    %% between(Base,Limit,Addr).
-    Addr :: Base .. Limit.
+%% C constrains Addr to be in block
+inBlock(block(Base,Limit),Addr,C) :-
+    C = (Addr :: [Base..Limit]).
 
-blockListContains([B|Blocks],Addr) :-
-    blockContains(B,Addr);
-    blockListContains(Blocks,Addr).
+%% C constrains Addr to be in one of the blocks
+inBlockList(Blocks,Addr,C) :-
+    (
+        foreach(block(Base,Limit),Blocks),
+        fromto([],Prev,Next,Intervals)
+    do
+        Next = [Base..Limit|Prev]
+    ),
+    C = (Addr :: Intervals).
+    
+%% Extract blocks from map list
+blocksInMapList(Maps,Blocks) :-
+    (
+        foreach(map(Block,_,_),Maps),
+        fromto([],Prev,Next,Blocks)
+    do
+        Next = [Block|Prev]
+    ).
 
 mapsToName(map(SrcBlock,Dest,DestBase),Addr,Name) :-
     name(Dest,DestAddr) = Name,
-    blockContains(SrcBlock,Addr),
+    inBlock(SrcBlock,Addr,C),call(C),
     block(SrcBase,_) = SrcBlock,
     DestAddr #= Addr - SrcBase + DestBase.
 
@@ -30,21 +43,22 @@ listMapsToName([M|Maps],Addr,Name) :-
     mapsToName(M,Addr,Name);
     listMapsToName(Maps,Addr,Name).    
 
-accept(node(Accept,_,_),Addr) :-
-    blockListContains(Accept,Addr).
-
 translateMap(node(_,Translate,_),Addr,Name) :-
     listMapsToName(Translate,Addr,Name).
 
-translateOverlay(Node,Addr,Name) :-
-    not(accept(Node,Addr)),
-    not(translateMap(Node,Addr,Name)),
-    node(_,_,Overlay) = Node,
+translateOverlay(node(Accept,Translate,Overlay),Addr,Name) :-
+    inBlockList(Accept,Addr,C1),call(neg C1),
+    blocksInMapList(Translate,TBlocks),
+    inBlockList(TBlocks,Addr,C2),call(neg C2),
     Name = name(Overlay,Addr).
 
 translate(Node,Addr,Name) :-
     translateMap(Node,Addr,Name);
     translateOverlay(Node,Addr,Name).
+
+accept(node(Accept,_,_),Addr) :-
+    inBlockList(Accept,Addr,C),
+    call(C).
 
 acceptedName(Name) :-
     name(NodeId,Addr) = Name,
@@ -66,3 +80,14 @@ resolve(SrcName,DestName) :-
     ;   decodesTo(SrcName,DestName)
     ),
     acceptedName(DestName).
+
+findTargets(SrcName,DestName) :-
+    resolve(SrcName,DestName),
+    name(_,Addr) = DestName,
+    labeling([Addr]).
+    
+
+findOrigins(SrcName,DestName) :-
+    resolve(SrcName,DestName),
+    name(_,Addr) = SrcName,
+    labeling([Addr]).
