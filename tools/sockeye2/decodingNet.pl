@@ -94,12 +94,29 @@ findOrigins(SrcName,DestName) :-
     name(_,Addr) = SrcName,
     labeling([Addr]).
 
-findTargetRange(SrcName,SrcRange,DestRange) :-
+findRanges(SrcName,DestName,SrcRange,DestRange) :-
     resolve(SrcName,DestName),
     name(SrcId,SrcAddr) = SrcName,
     name(DestId,DestAddr) = DestName,
     get_min(SrcAddr,SrcMin),get_max(SrcAddr,SrcMax),
     get_min(DestAddr,DestMin),get_max(DestAddr,DestMax),
-    SrcRange = (SrcId,SrcMin,SrcMax),
-    DestRange = (DestId,DestMin,DestMax),
-    labeling([DestMin]).
+    SrcRange = (SrcId, SrcMin, SrcMax),
+    DestRange = (DestId, DestMin, DestMax).
+
+printRanges((SrcId,SrcMin,SrcMax),(DestId,DestMin,DestMax)) :-
+    printf("%a [0x%x..0x%x] -> %a [0x%x..0x%x]\n",
+        [ SrcId,SrcMin,SrcMax
+        , DestId,DestMin,DestMax
+        ]
+    ).
+
+findTargetRanges(NodeId) :-
+    SrcName = name(NodeId,_),
+    findall((SrcRange,DestRange),findRanges(SrcName,_,SrcRange,DestRange),List),
+    (foreach((Src,Dest),List) do printRanges(Src,Dest)).
+
+
+findOriginRanges(NodeId) :-
+    DestName = name(NodeId,_),
+    findall((SrcRange,DestRange),findRanges(_,DestName,SrcRange,DestRange),List),
+    (foreach((Src,Dest),List) do printRanges(Src,Dest)).
