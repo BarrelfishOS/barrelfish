@@ -10,32 +10,34 @@
 
 :- lib(ic).
 
-%% C constrains Addr to be in block
-inBlock(block(Base,Limit),Addr,C) :-
-    C = (Addr :: [Base..Limit]).
+%% Address range in block
+blockRange(block(Base,Limit),Range) :-
+    Range = Base..Limit.
 
-%% C constrains Addr to be in one of the blocks
-inBlockList(Blocks,Addr,C) :-
+%% Address ranges in block list
+blockListRanges(Blocks,Ranges) :-
     (
-        foreach(block(Base,Limit),Blocks),
-        fromto([],Prev,Next,Intervals)
+        foreach(Block,Blocks),
+        fromto([],Prev,Next,Ranges)
     do
-        Next = [Base..Limit|Prev]
-    ),
-    C = (Addr :: Intervals).
+        blockRange(Block,Range),
+        Next = [Range|Prev]
+    ).
     
-%% Extract blocks from map list
-blocksInMapList(Maps,Blocks) :-
+%% Extract block ranges from map list
+mapListRanges(Maps,Ranges) :-
     (
         foreach(map(Block,_,_),Maps),
         fromto([],Prev,Next,Blocks)
     do
         Next = [Block|Prev]
-    ).
+    ),
+    blockListRanges(Blocks,Ranges).
 
 mapsToName(map(SrcBlock,Dest,DestBase),Addr,Name) :-
     name(Dest,DestAddr) = Name,
-    inBlock(SrcBlock,Addr,C),call(C),
+    blockRange(SrcBlock,Range),
+    Addr :: Range,
     block(SrcBase,_) = SrcBlock,
     DestAddr #= Addr - SrcBase + DestBase.
 
@@ -47,9 +49,10 @@ translateMap(node(_,Translate,_),Addr,Name) :-
     listMapsToName(Translate,Addr,Name).
 
 translateOverlay(node(Accept,Translate,Overlay),Addr,Name) :-
-    inBlockList(Accept,Addr,C1),call(neg C1),
-    blocksInMapList(Translate,TBlocks),
-    inBlockList(TBlocks,Addr,C2),call(neg C2),
+    blockListRanges(Accept,ARanges),
+    neg(Addr :: ARanges),
+    mapListRanges(Translate,TRanges),
+    neg(Addr :: TRanges),
     Name = name(Overlay,Addr).
 
 translate(Node,Addr,Name) :-
@@ -57,11 +60,10 @@ translate(Node,Addr,Name) :-
     translateOverlay(Node,Addr,Name).
 
 accept(node(Accept,_,_),Addr) :-
-    inBlockList(Accept,Addr,C),
-    call(C).
+    blockListRanges(Accept,Ranges),
+    Addr :: Ranges.
 
-acceptedName(Name) :-
-    name(NodeId,Addr) = Name,
+acceptedName(name(NodeId,Addr)) :-
     net(NodeId,Node),
     accept(Node,Addr).
 
@@ -91,3 +93,13 @@ findOrigins(SrcName,DestName) :-
     resolve(SrcName,DestName),
     name(_,Addr) = SrcName,
     labeling([Addr]).
+
+findTargetRange(SrcName,SrcRange,DestRange) :-
+    resolve(SrcName,DestName),
+    name(SrcId,SrcAddr) = SrcName,
+    name(DestId,DestAddr) = DestName,
+    get_min(SrcAddr,SrcMin),get_max(SrcAddr,SrcMax),
+    get_min(DestAddr,DestMin),get_max(DestAddr,DestMax),
+    SrcRange = (SrcId,SrcMin,SrcMax),
+    DestRange = (DestId,DestMin,DestMax),
+    labeling([DestMin]).
