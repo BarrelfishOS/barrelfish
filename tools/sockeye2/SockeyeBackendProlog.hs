@@ -22,7 +22,7 @@ import Data.Char
 import qualified SockeyeAST as AST
 
 compile :: AST.NetSpec -> String
-compile = generate
+compile ast = preamble ++ generate ast
 
 {- Code Generator -}
 class PrologGenerator a where
@@ -60,6 +60,11 @@ instance PrologGenerator AST.Addr where
     generate (AST.Addr addr) = show addr
 
 {- Helper functions -}
+preamble :: String
+preamble = let dynamicPredicates = ["net/2"]
+           in (unlines $ map f dynamicPredicates) ++ "\n"
+           where f arg = ":-" ++ predicate "dynamic" [arg] ++ "."
+
 predicate :: String -> [String] -> String
 predicate name args = name ++ (parens $ intercalate "," args)
 
