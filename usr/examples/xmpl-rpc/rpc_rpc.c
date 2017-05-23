@@ -25,18 +25,19 @@ const char *service_name = "xmplrpc_rpc_service";
 /* --------------------- Client ------------------------------ */
 
 static struct xmplrpc_binding xmplrpc_client;
+//void xmplrpc_binding_init(struct xmplrpc_binding *, struct xmplrpc_binding *);
 
 static void send_myrpc(void)
 {
     errval_t err;
 
     int in;
-    char *s_out;
+    char s_out[2048];
 
     debug_printf("client: sending myrpc\n");
 
     in = 42;
-    err = xmplrpc_client->rpc_tx_vtbl.myrpc(&xmplrpc_client, in, &s_out);
+    err = xmplrpc_client.rpc_tx_vtbl.myrpc(&xmplrpc_client, in, s_out);
 
     if (err_is_ok(err)) {
         debug_printf("client: myrpc(in: %u, out: '%s')\n", in, s_out);
@@ -53,7 +54,7 @@ static void bind_cb(void *st, errval_t err, struct xmplrpc_binding *b)
         USER_PANIC_ERR(err, "bind failed");
     }
     
-    xmplrpc_binding_init(&xmplrpc_client, b);
+//    xmplrpc_binding_init(&xmplrpc_client, b);
     printf("client: finished xmlrpc_binding_init\n");
 
     send_myrpc();

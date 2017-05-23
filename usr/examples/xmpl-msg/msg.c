@@ -136,7 +136,7 @@ static void rx_msg_ints(struct xmplmsg_binding *b, int ia, int ib)
 }
 
 
-static void rx_msg_string(struct xmplmsg_binding *b, char *str)
+static void rx_msg_string(struct xmplmsg_binding *b, const char *str)
 {
     printf("server: received msg_string:\n\t%s\n", str);
     // no need to free the string

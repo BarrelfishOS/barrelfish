@@ -168,7 +168,17 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                           "startd",
                           "mem_serv",
                           "monitor",
-                          "ramfsd" ]]
+                          "ramfsd",
+			  "examples",
+			  "examples/xmpl-hello",
+			  "examples/xmpl-msg",
+			  "examples/xmpl-call-response",
+			  "examples/xmpl-rpc_rpc",
+			  "examples/xmpl-rpc_msg",
+			  "examples/xmpl-span",
+			  "examples/xmpl-spawn",
+			  "examples/xmpl-thc-binding",
+			  "examples/xmpl-thread" ]]
 
     -- List of modules that are arch-independent and always built
     modules_generic = [
@@ -266,7 +276,18 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "serial_omap44xx",
                         "serial_kernel",
                         "angler",
-                        "corectrl"
+                        "corectrl",
+                  			"examples",
+                  			"examples/xmpl-hello",
+                        "examples/xmpl-mytest",
+                  			"examples/xmpl-msg",
+                  			"examples/xmpl-call-response",
+                  			"examples/xmpl-rpc_rpc",
+                  			"examples/xmpl-rpc_msg",
+                  			"examples/xmpl-span",
+                  			"examples/xmpl-spawn",
+                  			"examples/xmpl-thc-binding",
+                  			"examples/xmpl-thread"
                         ] ]
 
     -- ARMv7-A modules for Versatile Express EMM board (GEM5, qemu)
