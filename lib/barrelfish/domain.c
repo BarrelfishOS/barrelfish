@@ -781,9 +781,11 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
                                   .arg = span_domain_state });
 
     while(!span_domain_state->initialized) {
+	printf("maybe here is the error.....\n");
         event_dispatch(get_default_waitset());
     }
 
+	printf("check initialized finished...\n");
     /* Free state */
     free(span_domain_state);
 

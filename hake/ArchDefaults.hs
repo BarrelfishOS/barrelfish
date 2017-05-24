@@ -26,8 +26,8 @@ commonFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wmissing-declarations",
                                 "-Wmissing-field-initializers",
                                 "-Wtype-limits",
-                                "-Wredundant-decls",
-                                "-Werror" ] ]
+                                "-Werror",
+                                "-Wredundant-decls" ] ]
 
 commonCFlags = [ Str s | s <- [ "-std=c99",
                                 "-U__STRICT_ANSI__", -- for newlib headers

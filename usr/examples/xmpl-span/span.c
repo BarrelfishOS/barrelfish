@@ -29,6 +29,7 @@ int num_span = -1;
 
 static void span_cb(void *arg, errval_t err)
 {
+	printf("\tenter span_cb function.....\n");
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "span failed");
         return;
