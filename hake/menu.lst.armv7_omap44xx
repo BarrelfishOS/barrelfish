@@ -43,3 +43,4 @@ module /armv7/sbin/usb_keyboard auto
 # For pandaboard, use following values.
 mmap map 0x40000000 0x40000000 13 # Devices
 mmap map 0x80000000 0x40000000  1
+

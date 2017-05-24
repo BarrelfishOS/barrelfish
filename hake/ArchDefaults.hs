@@ -26,7 +26,7 @@ commonFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wmissing-declarations",
                                 "-Wmissing-field-initializers",
                                 "-Wtype-limits",
-                                "-Werror",
+--                                "-Werror",
                                 "-Wredundant-decls" ] ]
 
 commonCFlags = [ Str s | s <- [ "-std=c99",
