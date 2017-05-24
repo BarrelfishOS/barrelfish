@@ -11,6 +11,7 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "examples/xmpl-crystal-test1",
+                      addLibraries = libDeps ["vfs"],
                       cFiles = [ "test.c" ]
                     }
 ]

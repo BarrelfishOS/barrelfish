@@ -1008,6 +1008,7 @@ static int mkdir(int argc, char *argv[])
     char *path = vfs_path_mkabsolute(cwd, argv[1]);
     errval_t err = vfs_mkdir(path);
     free(path);
+//    errval_t err = vfs_mkdir(argv[1]);
     if (err_is_fail(err)) {
         printf("%s\n", err_getstring(err));
         return EXIT_FAILURE;
