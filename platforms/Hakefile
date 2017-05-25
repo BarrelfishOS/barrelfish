@@ -170,8 +170,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                           "monitor",
                           "ramfsd",
 			  "examples",
-			  "examples/xmpl-hello",
         "examples/xmpl-crystal-test1",
+        "examples/xmpl-markhello",
 			  "examples/xmpl-msg",
 			  "examples/xmpl-call-response",
 			  "examples/xmpl-rpc_rpc",
@@ -179,6 +179,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 			  "examples/xmpl-span",
 			  "examples/xmpl-spawn",
 			  "examples/xmpl-thc-binding",
+				
 			  "examples/xmpl-thread" ]]
 
     -- List of modules that are arch-independent and always built
