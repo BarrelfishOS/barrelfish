@@ -50,6 +50,9 @@ module /x86_64/sbin/netd auto
 module  /x86_64/sbin/fish nospawn
 module	/x86_64/sbin/angler serial0.terminal xterm
 
-# examples
-module /x86_64/sbin/examples/xmpl-markhello core=0 server
-module /x86_64/sbin/examples/xmpl-markhello core=1 client
+# example of client server communication. Single App. Runs an infinite loop
+# module /x86_64/sbin/examples/xmpl-markhello core=0 server
+# module /x86_64/sbin/examples/xmpl-markhello core=1 client
+ 
+# crystal IO example
+module /x86_64/sbin/examples/xmpl-crystal-test1
