@@ -264,8 +264,14 @@ errval_t ramfs_create(struct dirent *dir, const char *name, struct dirent **ret)
         return LIB_ERR_MALLOC_FAIL;
     }
 
+    char *name_buf = (char*)malloc(strlen(name)*sizeof(char));
+    if (name_buf == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    strcpy(name_buf, name);
+
     f->next = NULL;
-    f->name = name; /* XXX: takes ownership of name buffer */
+    f->name = name_buf;
     f->isdir = false;
     f->refcount = 1;
     f->islive = true;
@@ -299,8 +305,14 @@ errval_t ramfs_mkdir(struct dirent *dir, const char *name, struct dirent **ret)
         return LIB_ERR_MALLOC_FAIL;
     }
 
+    char *name_buf = (char*)malloc(strlen(name)*sizeof(char));
+    if (name_buf == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    strcpy(name_buf, name);
+
     d->next = NULL;
-    d->name = name; /* XXX: takes ownership of name buffer */
+    d->name = name_buf; 
     d->isdir = true;
     d->refcount = 1;
     d->islive = true;

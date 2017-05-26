@@ -154,7 +154,6 @@ static errval_t open(void *st, const char *path, vfs_handle_t *rethandle)
 
 static errval_t create(void *st, const char *path, vfs_handle_t *rethandle)
 {
-	printf("\t here is create function......\n");
     struct ramfs_client *cl = st;
     struct ramfs_handle *handle;
     trivfs_fh_t fh;
@@ -182,7 +181,6 @@ static errval_t create(void *st, const char *path, vfs_handle_t *rethandle)
         DEBUG_ERR(err, "transport error in create");
         return err;
     } else if (err_is_fail(msgerr)) {
-		printf("\t here is the create error......\n");
         DEBUG_ERR(msgerr, "server error in create");
         return msgerr;
     }
@@ -863,10 +861,10 @@ errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
     }
 
     if (use_bulk_data) {
-    	printf ("\t here is ramfsops_bulk...... might be the error\n");
+    	//printf ("\t here is ramfsops_bulk...... might be the error\n");
         *retops = &ramfsops_bulk;
     } else {
-    	printf ("\t here is ramfsops_non_bulk...... might be the error\n");
+    	//printf ("\t here is ramfsops_non_bulk...... might be the error\n");
         *retops = &ramfsops_non_bulk;
     }
     *retst = client;

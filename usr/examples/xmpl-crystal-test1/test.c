@@ -17,20 +17,36 @@
 #include <vfs/vfs_path.h>
 #include <barrelfish/barrelfish.h>
 
-//static char *cwd;
 int main(int argc, char *argv[]) 
 {
-	printf("Now, I am going to create a directory.....\n");
-	//char *path = vfs_path_mkabsolute(cwd, argv[1]);
-	errval_t err = vfs_mkdir(argv[1]);
-	printf("Finished! The path is %s.....\n", argv[1]);
-	//free(path);
-	//free(cwd);
-    if (err_is_fail(err)) {
-        printf("%s\n", err_getstring(err));
-        return EXIT_FAILURE;
-    } else {
-    	printf("Successed!\n");
-        return EXIT_SUCCESS;
-    }
+	vfs_init();
+	FILE * fp;
+	char text[] = "examples lalalalalalalalala";
+	char buffer[100];
+	char buffer2[100];
+	printf("open the file\n");
+	fp = fopen("/x86_64/sbin/examples/test.txt", "w");
+	printf("write something into the file\n");
+	if(fp!=NULL)
+	{
+		fwrite(text, strlen(text)+1, 1, fp);
+		//fseek(fp, 2, SEEK_SET);
+		//fread(buffer2, 50, 1, fp);
+		//printf("reading after seek, the result is %s\n", buffer2);
+		fclose(fp);
+	}
+	else
+	{
+		printf("fp is NULL\n");
+		return EXIT_SUCCESS;
+	}
+
+	FILE * fp2;
+	fp2 = fopen("/x86_64/sbin/examples/test.txt", "r");
+	fread(buffer, 50, 1, fp2);
+	printf("reading after open again, the result is %s\n", buffer);
+	fclose(fp2);
+
+    return EXIT_SUCCESS;
 }
+ 
