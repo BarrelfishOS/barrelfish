@@ -89,7 +89,9 @@ skate_header_body sr infile =
 ------------------------------------------------------------------------------}
 
 skate_c_stdincludes :: [ C.Unit ]
-skate_c_stdincludes = [C.Include C.Standard "stdint.h" ]
+skate_c_stdincludes = [
+    C.Include C.Standard "stdint.h",
+    C.Include C.Standard "errno.h" ]
 
 -- Header files info
 skate_c_headerfiles :: [String] -> [ C.Unit ]
@@ -253,8 +255,8 @@ skate_c_prolog_strings i t = C.UnitList [
     C.Blank]
     where
         cname = (identifier_to_cname i)
-        wr_fmt = concat (intersperse " \", \" " [fmt_wr a | a <- t])
-        rd_fmt = concat (intersperse " \", \" " [fmt_rd a | a <- t])
+        wr_fmt = "\"%\" " ++ concat (intersperse " \", %\" " [fmt_wr a | a <- t])
+        rd_fmt = "\"%\" " ++ concat (intersperse " \", %\" " [fmt_rd a | a <- t])
         prolog = "\"" ++ (identifier_to_prolog i) ++ "(\" "
 
 fmt_wr :: TypeRef -> String

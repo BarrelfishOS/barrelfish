@@ -164,10 +164,10 @@ skate_c_fn_decl_describe fn = skate_c_fn_decl skate_c_void_t fn_name doxy []
 
 
 skate_c_fn_def_describe :: String -> [ C.Stmt ] -> C.Unit
-skate_c_fn_def_describe fn = C.FunctionDef C.NoScope skate_c_errval_t fn_name params
+skate_c_fn_def_describe fn stmt = skate_c_fn_def skate_c_void_t fn_name doxy [] stmt
     where
         fn_name = identifier_to_cname ((skate_c_fn_name_describe fn))
-        params = []
+        doxy = ["@brief Describes the " ++ fn]
 
 
 {-----------------------------------------------------------------------------
@@ -228,7 +228,7 @@ skate_c_fn_name_list fn = (make_qualified_identifer fn "list")
 skate_c_fn_params_fact :: String -> ([String], [C.Param])
 skate_c_fn_params_fact fact = (
     ["@param fact  Pointer to a struct " ++ fact],
-    [C.Param  (C.Ptr $ C.Struct ( identifier_to_cname fact)) "fact" ])
+    [C.Param  (C.Ptr $ C.Struct ( make_type_name (identifier_to_cname fact))) "fact" ])
 
 skate_c_fn_params :: C.TypeSpec -> String -> [C.Param]
 skate_c_fn_params t var = [C.Param t var]
@@ -244,7 +244,6 @@ skate_c_fn_decls_facts fn attribs = [
 
 skate_c_fn_defs_facts :: String -> [FactAttrib] -> [C.Stmt] -> [C.Unit]
 skate_c_fn_defs_facts fn attribs stmt = [
-    skate_c_fn_def_describe fn stmt,
     skate_c_fn_def_add fn p stmt]
         where
             p = skate_c_fn_params_fact fn

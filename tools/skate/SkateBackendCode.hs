@@ -73,8 +73,10 @@ skate_c_body sr infile =
 
 skate_c_includes :: String -> C.Unit
 skate_c_includes sr = C.UnitList [
-    C.Include C.Standard (skate_c_includepath sr),
-    C.Include C.Standard "skb/skb.h"]
+    C.Include C.Standard "barrelfish/barrelfish.h",
+    C.Include C.Standard "skb/skb.h",
+    C.Include C.Standard (skate_c_includepath sr)
+    ]
 
 
 {------------------------------------------------------------------------------
@@ -85,7 +87,7 @@ skate_c_vardecl :: C.TypeSpec -> String -> Maybe C.Expr -> C.Stmt
 skate_c_vardecl t s e = C.VarDecl C.NoScope C.NonConst  t s e
 
 skate_c_vardecl_err :: C.Stmt
-skate_c_vardecl_err = skate_c_vardecl (C.TypeName "errval") "err" Nothing
+skate_c_vardecl_err = skate_c_vardecl (C.TypeName "errval_t") "err" Nothing
 
 skate_c_errvar :: C.Expr
 skate_c_errvar = C.Variable "err"
@@ -126,13 +128,13 @@ skate_c_code_fact def@(Fact i d attrib sp) ttbl = [
     (skate_c_code_add def ttbl)
 
 
-skate_c_header_one_def :: Declaration -> [TT.TTEntry] -> [ C.Unit ]
-skate_c_header_one_def de@(Fact i d a sp) tt = skate_c_code_fact de tt
-skate_c_header_one_def de@(Flags i d w f sp) _ = [] --skate_c_header_flags i d w f sp
-skate_c_header_one_def de@(Constants i d t f sp) _ = [] --skate_c_header_const i d t f sp
-skate_c_header_one_def de@(Enumeration i d f sp) _ = [] --skate_c_header_enum i d f sp
-skate_c_header_one_def _  _ = []
+skate_c_code_one_def :: Declaration -> [TT.TTEntry] -> [ C.Unit ]
+skate_c_code_one_def de@(Fact i d a sp) tt = skate_c_code_fact de tt
+skate_c_code_one_def de@(Flags i d w f sp) _ = [] --skate_c_header_flags i d w f sp
+skate_c_code_one_def de@(Constants i d t f sp) _ = [] --skate_c_header_const i d t f sp
+skate_c_code_one_def de@(Enumeration i d f sp) _ = [] --skate_c_header_enum i d f sp
+skate_c_code_one_def _  _ = []
 
 
 skate_c_code_defs :: [Declaration] -> [TT.TTEntry] -> [ C.Unit ]
-skate_c_code_defs decls ttbl = [C.UnitList $ skate_c_header_one_def d ttbl | d <- decls]
+skate_c_code_defs decls ttbl = [C.UnitList $ skate_c_code_one_def d ttbl | d <- decls]
