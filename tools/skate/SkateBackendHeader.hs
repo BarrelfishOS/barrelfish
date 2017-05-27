@@ -113,6 +113,12 @@ skate_c_header_resolve_types tr@(TConstant i _) ttbl = TBuiltIn (TT.get_builtin_
 skate_c_header_resolve_types tr@(TFlags i _) ttbl = TBuiltIn (TT.get_builtin_type i ttbl)
 skate_c_header_resolve_types tr _ = tr
 
+skate_c_header_extract_field :: String -> TypeRef -> String
+skate_c_header_extract_field s tr@(TFact i _) = fext ++ (("(&((_f)->" ++ s ++ "))"))
+    where
+        fext = make_format_name_extract_all (identifier_to_cname i)
+skate_c_header_extract_field s _ = ("(_f)->" ++ s)
+
 
 skate_c_header_fact :: String -> String -> [ FactAttrib ] -> SourcePos -> [TT.TTEntry] -> [C.Unit]
 skate_c_header_fact i d attrib sp ttbl = [
@@ -120,12 +126,18 @@ skate_c_header_fact i d attrib sp ttbl = [
     C.StructDecl ttype $ concat (intersperse [C.ParamBlank] [skate_c_header_one_attrib i a | a <- attrib]),
     C.TypeDef (C.Struct ttype) ttype,
     C.Blank] ++ skate_c_fn_decls_facts i attrib
-    ++ [C.Blank, C.Blank, (skate_c_prolog_strings i types), C.Blank, C.Blank]
+    ++ [C.Blank, C.Blank, (skate_c_prolog_strings i types), C.Blank,
+
+    C.DoxyComment ("Extract fields from a struct"),
+    C.Define (make_format_name_extract_all tname) ["_f"] (concat (intersperse ", " extractstr)),
+    C.Blank,C.Blank
+
+    ]
     where
         tname = (identifier_to_cname i)
         ttype = (make_type_name tname)
         types = [skate_c_header_resolve_types t ttbl | e@(FactAttrib i d t sp) <- attrib ]
-
+        extractstr = [ (skate_c_header_extract_field i t) | e@(FactAttrib i d t sp) <- attrib ]
 
 
 {-----------------------------------------------------------------------------
@@ -223,20 +235,21 @@ skate_c_header_one_decl _  _ = []
 skate_c_header_decls :: [Declaration] -> [TT.TTEntry] -> [ C.Unit ]
 skate_c_header_decls decls ttbl = [C.UnitList $ skate_c_header_one_decl d ttbl | d <- decls]
 
-skate_c_type_comment :: String -> String -> String -> SourcePos -> C.Unit
-skate_c_type_comment t desc defined sp = C.MultiDoxy [
-    "@brief " ++ desc,
-    "",
-    "Type: " ++ t ++ " " ++ defined,
-    "Defined: " ++ (show sp)]
 
 skate_c_prolog_strings :: String -> [TypeRef] -> C.Unit
 skate_c_prolog_strings i t = C.UnitList [
-    C.DoxyComment ("Prolog format string for " ++ i),
-    C.Define (make_format_name_pr cname) []  (prolog ++  wr_fmt ++ "\").\""),
+    C.DoxyComment ("Prolog fields format string for " ++ i),
+    C.Define (make_format_name_fields_pr cname) []  (wr_fmt),
     C.Blank,
     C.DoxyComment ("Prolog format string for " ++ i),
-    C.Define (make_format_name_rd cname) [] (prolog ++  rd_fmt ++ "\").\""),
+    C.Define (make_format_name_pr cname) []  (prolog ++  (make_format_name_fields_pr cname) ++ " \").\""),
+    C.Blank,
+
+    C.DoxyComment ("Prolog fields format string for " ++ i),
+    C.Define (make_format_name_fields_rd cname) [] (rd_fmt),
+    C.Blank,
+    C.DoxyComment ("Prolog format string for " ++ i),
+    C.Define (make_format_name_rd cname) [] (prolog ++  (make_format_name_fields_rd cname) ++ " \").\""),
     C.Blank]
     where
         cname = (identifier_to_cname i)
@@ -245,9 +258,9 @@ skate_c_prolog_strings i t = C.UnitList [
         prolog = "\"" ++ (identifier_to_prolog i) ++ "(\" "
 
 fmt_wr :: TypeRef -> String
-fmt_wr (TFact t _ ) = (make_format_name_pr (identifier_to_cname t))
+fmt_wr (TFact t _ ) = (make_format_name_fields_pr (identifier_to_cname t))
 fmt_wr (TBuiltIn t) = builtin_fmt_wr t
 
 fmt_rd :: TypeRef -> String
-fmt_rd (TFact t _ ) = (make_format_name_rd (identifier_to_cname t))
+fmt_rd (TFact t _ ) = (make_format_name_fields_rd (identifier_to_cname t))
 fmt_rd (TBuiltIn t) = builtin_fmt_rd t

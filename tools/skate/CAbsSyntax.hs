@@ -56,6 +56,7 @@ data Expr = NumConstant Integer         -- 123
           | PreInc Expr                 -- ++(foo)
           | PreDec Expr                 -- --(foo)
           | Parens Expr                 -- (e)
+          | DefineExpr String               -- DEF
           | StructConstant String [(String, Expr)] -- (struct foo){ .field = val, }
           | ArrayConstant [Expr]        -- { val, }
             deriving (Show, Eq)
@@ -93,6 +94,7 @@ pp_expr (Parens e) = "(" ++ (pp_expr e) ++ ")"
 pp_expr (StructConstant n il) = "(struct " ++ n ++ "){ " ++ inits ++ " }"
   where inits = concat $ intersperse ", " [ " ." ++ f ++ " = " ++ pp_expr v | (f,v) <- il ]
 pp_expr (ArrayConstant vl) = "{ " ++ (concat $ intersperse ", " (map pp_expr vl)) ++ " }"
+pp_expr (DefineExpr str) = str
 
 pp_par_expr :: Expr -> String
 pp_par_expr (Variable s) = s

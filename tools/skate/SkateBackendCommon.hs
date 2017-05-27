@@ -14,7 +14,7 @@
 
 module SkateBackendCommon where
 
-
+import Text.ParserCombinators.Parsec.Pos
 import SkateParser
 import SkateTypes
 import qualified CAbsSyntax as C
@@ -68,6 +68,16 @@ make_format_name_pr s =  map toUpper (s ++ "_pri")
 
 make_format_name_rd :: String -> String
 make_format_name_rd s =  map toUpper (s ++ "_scn")
+
+make_format_name_extract_all :: String -> String
+make_format_name_extract_all s =  map toUpper (s ++ "_extract_all")
+
+make_format_name_fields_pr :: String -> String
+make_format_name_fields_pr s =  map toUpper (s ++ "_fields_pri")
+
+make_format_name_fields_rd :: String -> String
+make_format_name_fields_rd s =  map toUpper (s ++ "_fields_scn")
+
 
 {--}
 identifier_to_prolog :: [Char] -> [Char]
@@ -131,6 +141,14 @@ skate_c_fn_def rt n c p st = C.UnitList [
 
 
 
+
+skate_c_type_comment :: String -> String -> String -> SourcePos -> C.Unit
+skate_c_type_comment t desc defined sp = C.MultiDoxy [
+    "@brief " ++ desc,
+    "",
+    "Type: " ++ t ++ " " ++ defined,
+    "Defined: " ++ (show sp)]
+
 {-----------------------------------------------------------------------------
 - schema.namespace.decl.describe()
 ------------------------------------------------------------------------------}
@@ -148,7 +166,7 @@ skate_c_fn_decl_describe fn = skate_c_fn_decl skate_c_void_t fn_name doxy []
 skate_c_fn_def_describe :: String -> [ C.Stmt ] -> C.Unit
 skate_c_fn_def_describe fn = C.FunctionDef C.NoScope skate_c_errval_t fn_name params
     where
-        fn_name = (skate_c_fn_name_describe fn)
+        fn_name = identifier_to_cname ((skate_c_fn_name_describe fn))
         params = []
 
 
@@ -175,17 +193,18 @@ skate_c_fn_name_add :: String -> String
 skate_c_fn_name_add fn = (make_qualified_identifer fn "add")
 
 skate_c_fn_decl_add :: String -> ([String], [C.Param])-> C.Unit
-skate_c_fn_decl_add fn (d, p) = skate_c_fn_decl skate_c_void_t fn_name doxy p
+skate_c_fn_decl_add fn (d, p) = skate_c_fn_decl skate_c_errval_t fn_name doxy p
     where
         fn_name = (skate_c_fn_name_add fn)
         doxy = ["@brief Adds the " ++ fn, ""] ++ d
 
 
 
-skate_c_fn_def_add :: String -> [C.Param] -> [ C.Stmt ] -> C.Unit
-skate_c_fn_def_add fn p s = C.FunctionDef C.NoScope skate_c_errval_t fn_name p s
+skate_c_fn_def_add :: String -> ([String], [C.Param]) -> [ C.Stmt ] -> C.Unit
+skate_c_fn_def_add fn (d, p) s = skate_c_fn_def skate_c_errval_t fn_name  doxy p s
     where
         fn_name = (skate_c_fn_name_add fn)
+        doxy = ["@brief Adds the " ++ fn, ""] ++ d
 
 {-----------------------------------------------------------------------------
 - schema.namespace.decl.delete()
@@ -206,14 +225,10 @@ skate_c_fn_name_list fn = (make_qualified_identifer fn "list")
 - Function signatures
 ------------------------------------------------------------------------------}
 
-skate_c_fn_one_param :: FactAttrib -> C.Param
-skate_c_fn_one_param a@(FactAttrib i d t _) = C.Param (typeref_to_ctype t) i
-
-
-skate_c_fn_params_fact :: [FactAttrib] -> ([String], [C.Param])
-skate_c_fn_params_fact attribs = (
-    ["@param " ++ i ++ " " ++ d | FactAttrib i d _ _ <- attribs],
-    [skate_c_fn_one_param a | a <- attribs])
+skate_c_fn_params_fact :: String -> ([String], [C.Param])
+skate_c_fn_params_fact fact = (
+    ["@param fact  Pointer to a struct " ++ fact],
+    [C.Param  (C.Ptr $ C.Struct ( identifier_to_cname fact)) "fact" ])
 
 skate_c_fn_params :: C.TypeSpec -> String -> [C.Param]
 skate_c_fn_params t var = [C.Param t var]
@@ -225,7 +240,14 @@ skate_c_fn_decls_facts fn attribs = [
     skate_c_fn_decl_describe fn,
     skate_c_fn_decl_add fn p]
         where
-            p = skate_c_fn_params_fact attribs
+            p = skate_c_fn_params_fact fn
+
+skate_c_fn_defs_facts :: String -> [FactAttrib] -> [C.Stmt] -> [C.Unit]
+skate_c_fn_defs_facts fn attribs stmt = [
+    skate_c_fn_def_describe fn stmt,
+    skate_c_fn_def_add fn p stmt]
+        where
+            p = skate_c_fn_params_fact fn
 
 
 
