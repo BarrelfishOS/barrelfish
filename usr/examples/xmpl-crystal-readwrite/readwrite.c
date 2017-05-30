@@ -21,18 +21,19 @@ int main(int argc, char *argv[])
 {
 	vfs_init();
 	FILE * fp;
-	char text[] = "examples lalalalalalalalala";
+	char text[] = "Here is the example of read and write files";
 	char buffer[100];
 	char buffer2[100];
 	printf("open the file\n");
-	fp = fopen("/x86_64/sbin/examples/test.txt", "w");
-	printf("write something into the file\n");
+	fp = fopen("/x86_64/sbin/examples/test.txt", "w+");
 	if(fp!=NULL)
 	{
+		printf("write something into the file\n");
 		fwrite(text, strlen(text)+1, 1, fp);
-		//fseek(fp, 2, SEEK_SET);
-		//fread(buffer2, 50, 1, fp);
-		//printf("reading after seek, the result is %s\n", buffer2);
+		printf("we will read something from this file\n");
+		fseek(fp, 2, SEEK_SET);
+		fread(buffer2, 50, 1, fp);
+		printf("reading after seek, the result is %s\n", buffer2);
 		fclose(fp);
 	}
 	else
@@ -42,6 +43,7 @@ int main(int argc, char *argv[])
 	}
 
 	FILE * fp2;
+	printf("Now, we will reopen this file and read again\n");
 	fp2 = fopen("/x86_64/sbin/examples/test.txt", "r");
 	fread(buffer, 50, 1, fp2);
 	printf("reading after open again, the result is %s\n", buffer);
@@ -49,4 +51,4 @@ int main(int argc, char *argv[])
 
     return EXIT_SUCCESS;
 }
- 
+

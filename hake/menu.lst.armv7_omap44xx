@@ -44,3 +44,27 @@ module /armv7/sbin/usb_keyboard auto
 mmap map 0x40000000 0x40000000 13 # Devices
 mmap map 0x80000000 0x40000000  1
 
+#examples
+#module  /armv7/sbin/examples/xmpl-hello
+#module  /armv7/sbin/examples/xmpl-test
+#module  /armv7/sbin/examples/xmpl-thread core=0 10
+#module  /armv7/sbin/examples/xmpl-spawn core=0 10 2
+#module  /armv7/sbin/examples/xmpl-span core=0 1
+#module  /armv7/sbin/examples/xmpl-thc-binding core=0 server
+#module  /armv7/sbin/examples/xmpl-thc-binding core=1 client
+#module  /armv7/sbin/examples/xmpl-msg core=0 server
+#module  /armv7/sbin/examples/xmpl-msg core=1 client
+#module  /armv7/sbin/examples/xmpl-rpc_msg core=1 server
+#module  /armv7/sbin/examples/xmpl-rpc_msg core=0 client
+#module  /armv7/sbin/examples/xmpl-rpc_rpc core=1 server
+#module  /armv7/sbin/examples/xmpl-rpc_rpc core=0 client
+#module  /armv7/sbin/examples/xmpl-call-response core=1 server
+#module  /armv7/sbin/examples/xmpl-call-response core=0 client
+
+
+# example of client server communication. Single App. Runs an infinite loop
+# module /armv7/sbin/examples/xmpl-markhello core=0 server
+# module /armv7/sbin/examples/xmpl-markhello core=1 client
+ 
+# crystal IO example
+module /armv7/sbin/examples/xmpl-crystal-readwrite

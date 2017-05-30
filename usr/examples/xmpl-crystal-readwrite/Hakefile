@@ -8,10 +8,14 @@
 --
 -- Hakefile for /usr/example/xmpl-crystal-test1
 --
+-- Note: 
+--	for x86: addLibraries = libDeps ["vfs"]
+--	for armv7: addLibraries = libDeps ["vfs_ramfs"]
+--		or addLibraries = libDeps ["vfs_noblockdev"]
 --------------------------------------------------------------------------
 
-[ build application { target = "examples/xmpl-crystal-test1",
+[ build application { target = "examples/xmpl-crystal-readwrite",
                       addLibraries = libDeps ["vfs"],
-                      cFiles = [ "test.c" ]
+                      cFiles = [ "readwrite.c" ]
                     }
 ]
