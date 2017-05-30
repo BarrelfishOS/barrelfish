@@ -48,7 +48,7 @@ int main(void)
     if (! err_is_ok(err)){
         err_print_calltrace(err);
     }
-    assert(err_is_ok(err));
+    assert(err_is_fail(err));
     
 
 }

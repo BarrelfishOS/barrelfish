@@ -73,4 +73,86 @@ module	/x86_64/sbin/angler serial0.terminal xterm
 # module /x86_64/sbin/examples/xmpl-markhello core=1 client
  
 # crystal IO example
-module /x86_64/sbin/examples/xmpl-crystal-readwrite
+#module /x86_64/sbin/examples/xmpl-crystal-readwrite
+
+#module for test
+#common tests
+# module /x86_64/sbin/fputest fputest 2
+# module /x86_64/sbin/fread_test
+# module /x86_64/sbin/fscanf_test
+# smodule /x86_64/sbin/hellotest
+# module /x86_64/sbin/idctest client
+# module /x86_64/sbin/idctest server
+# module /x86_64/sbin/memtest
+# module /x86_64/sbin/nkmtest_all
+# module /x86_64/sbin/nkmtest_map_unmap
+# module /x86_64/sbin/nkmtest_modify_flags
+# module /x86_64/sbin/nkmtest_map_offset
+# module /x86_64/sbin/test_retype
+# module /x86_64/sbin/test_rootcn_resize
+# module /x86_64/sbin/test_remote_retype server
+# module /x86_64/sbin/test_remote_retype client
+# module /x86_64/sbin/test_remote_delete server
+# module /x86_64/sbin/test_remote_delete client
+# module /x86_64/sbin/test_remote_revoke server
+# module /x86_64/sbin/test_remote_revoke client
+# module /x86_64/sbin/testerror
+# module /x86_64/sbin/yield_test
+# module /x86_64/sbin/skb_cap_storage
+
+# common tests (not pass) including error msg
+#module /x86_64/sbin/schedtest 
+		#ERROR: schedtest.0 in main() ../usr/tests/schedtest/schedtest.c:36
+		#ERROR: rsrc_manifest
+		#Failure: (        monitor)     Illegal manifest [MON_ERR_RSRC_ILL_MANIFEST]
+		#Aborted
+#module /x86_64/sbin/test_create_l1l2_cnodes
+		#test_create_l1l2.0 in cnode_build_cnoderef() ../lib/barrelfish/capabilities.c:894
+		#cnode_build_cnoderef NYI for non rootcn caprefs
+		#Aborted
+
+
+#x86 tests
+# module /x86_64/sbin/tests/luatest
+# module /x86_64/sbin/tests/numatest
+
+#x86_64 tests
+#module /x86_64/sbin/ata_rw28_test #ignore it
+#module /x86_64/sbin/bomp_cpu_bound
+#module /x86_64/sbin/bomp_cpu_bound_progress
+#module /x86_64/sbin/bomp_sync
+#module /x86_64/sbin/bomp_sync_progress
+#module /x86_64/sbin/bomp_test
+#module /x86_64/sbin/bulk_shm
+#module /x86_64/sbin/cryptotest
+#module /x86_64/sbin/mdbtest_addr_zero
+#module /x86_64/sbin/mdbtest_range_query
+#module /x86_64/sbin/mem_affinity
+#module /x86_64/sbin/multihoptest
+#module /x86_64/sbin/net-test
+#module /x86_64/sbin/net_openport_test
+#module /x86_64/sbin/nkmtest_invalid_mappings
+#module /x86_64/sbin/perfmontest
+#module /x86_64/sbin/phoenix_kmeans
+#module /x86_64/sbin/socketpipetest
+#module /x86_64/sbin/spantest
+#module /x86_64/sbin/spin
+#module /x86_64/sbin/testconcurrent
+#module /x86_64/sbin/testdesc
+#module /x86_64/sbin/testdesc-child
+#module /x86_64/sbin/tests/cxxtest
+#module /x86_64/sbin/tests/dma_test
+#module /x86_64/sbin/tests/tftpclient
+#module /x86_64/sbin/tests/xphi_nameservice_test
+#module /x86_64/sbin/thcidctest
+#module /x86_64/sbin/thcminitest
+#module /x86_64/sbin/thctest
+#module /x86_64/sbin/timer_test
+#module /x86_64/sbin/tlstest
+#module /x86_64/sbin/tweedtest
+#module /x86_64/sbin/xcorecap
+#module /x86_64/sbin/xcorecapserv
+
+# x86_64 tests (not pass) including error msg
+#module /x86_64/sbin/arrakis_hellotest
+		#kernel 0: user trap #13: #GP: General Protection Fault WHILE DISABLED in 'arrakis_hellotes': IP 4a4e7a, error 0
