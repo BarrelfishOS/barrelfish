@@ -633,7 +633,6 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
                                                domain_spanned_callback_t callback,
                                                void *callback_arg, size_t stack_size)
 {
-	printf("\t enter domain_new_dispatcher_varstack function....\n");
     assert(core_id != disp_get_core_id());
     printf("core_id = %d\n", core_id);
 
@@ -656,7 +655,6 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
         return LIB_ERR_MALLOC_FAIL;
     }
     remote_core_state->core_id = disp_get_core_id();
-    printf("remote_core_state->core_id = %d\n", remote_core_state->core_id);
     remote_core_state->iref    = domain_state->iref;
 
     /* get the alignment of the morecore state */
@@ -679,9 +677,7 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
     }
     span_domain_state->thread       = newthread;
     span_domain_state->core_id      = core_id;
-	printf("\t assign callback function....\n");
     span_domain_state->callback     = callback;
-	printf("\t assign finished....\n");
     span_domain_state->callback_arg = callback_arg;
 
     /* Give remote_core_state pointer to span_domain_state */

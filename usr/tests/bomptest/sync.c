@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 
   if(argc == 3) {
       nthreads = atoi(argv[2]);
-      assert(!"REVISE!!!");
+      //assert(!"REVISE!!!");
       bomp_bomp_init(nthreads);
       omp_set_num_threads(nthreads);
   }

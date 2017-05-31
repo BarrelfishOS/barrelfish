@@ -96,7 +96,7 @@ static inline struct omp_icv_task *bomp_get_icv_task(void)
     if (task) {
         //
     } else {
-        assert(g_bomp_state);
+        //assert(g_bomp_state);
         icv = &g_bomp_state->icv_task;
     }
     return icv;
