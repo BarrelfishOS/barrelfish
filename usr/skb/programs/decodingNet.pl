@@ -8,7 +8,14 @@
 % Attn: Systems Group.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+:- module(decodingNet).
+:- export net/2.
+:- export resolve/2.
+:- export findRanges/4.
+
 :- lib(ic).
+
+:- dynamic net/2.
 
 %% Address range in block
 blockRange(block(Base,Limit),Range) :-
@@ -49,6 +56,7 @@ translateMap(node(_,Translate,_),Addr,Name) :-
     listMapsToName(Translate,Addr,Name).
 
 translateOverlay(node(Accept,Translate,Overlay),Addr,Name) :-
+    not(Overlay = '@none'),
     blockListRanges(Accept,ARanges),
     neg(Addr :: ARanges),
     mapListRanges(Translate,TRanges),
@@ -102,52 +110,4 @@ findRanges(SrcName,DestName,SrcRange,DestRange) :-
     get_min(DestAddr,DestMin),get_max(DestAddr,DestMax),
     SrcRange = (SrcId, SrcMin, SrcMax),
     DestRange = (DestId, DestMin, DestMax).
-
-printRange((SrcId,SrcMin,SrcMax)) :-
-    printf("%a [0x%x..0x%x]",
-        [ SrcId,SrcMin,SrcMax ]
-    ).
-
-printSrcDestRanges(SrcRange,DestRange) :-
-    printRange(SrcRange),
-    write(" -> "),
-    printRange(DestRange),
-    writeln("").
-
-printSharedRanges(Range1,SharedRange,Range2) :-
-    printRange(Range1),
-    write(" -> "),
-    printRange(SharedRange),
-    write(" <- "),
-    printRange(Range2),
-    writeln("").
-
-findTargetRanges(NodeId) :-
-    SrcName = name(NodeId,_),
-    findall((SrcRange,DestRange),findRanges(SrcName,_,SrcRange,DestRange),List),
-    (foreach((Src,Dest),List) do printSrcDestRanges(Src,Dest)).
-
-
-findOriginRanges(NodeId) :-
-    DestName = name(NodeId,_),
-    findall((SrcRange,DestRange),findRanges(_,DestName,SrcRange,DestRange),List),
-    (foreach((Src,Dest),List) do printSrcDestRanges(Src,Dest)).
-
-findDeviceFrame(NodeId,DeviceId) :-
-    SrcName = name(NodeId,_),
-    DestName = name(DeviceId,_),
-    findRanges(SrcName,DestName,SrcRange,DestRange),
-    printSrcDestRanges(SrcRange,DestRange).
-
-findInterruptLine(NodeId,DeviceId) :-
-    SrcName = name(DeviceId,_),
-    DestName = name(NodeId,_),
-    findRanges(SrcName,DestName,SrcRange,DestRange),
-    printSrcDestRanges(SrcRange,DestRange).
-
-findSharedMemoryFrame(NodeId,DeviceId) :-
-    NodeName = name(NodeId,_),
-    DevName = name(DeviceId,_),
-    findRanges(NodeName,_,NodeRange,SharedRange),
-    findRanges(DevName,_,DeviceRange,SharedRange),
-    printSharedRanges(NodeRange,SharedRange,DeviceRange).    
+  
