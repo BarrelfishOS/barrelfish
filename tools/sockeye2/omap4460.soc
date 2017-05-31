@@ -1,0 +1,142 @@
+/*
+ * Copyright (c) 2017, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich.
+ * Attn: Systems Group.
+ */
+
+/******************
+ * Address spaces *
+ ******************/
+
+ram is accept [0x80000000/30]
+
+gptimer5 is accept [0x0/12]
+
+l3 is accept [0-0x40000000]
+      map [
+        0x80000000/30 to ram
+        0x49000000/24 to l4
+        0x4A056000/12 to sdma
+      ]
+
+l4 is map [
+        0x40138000/12 to gptimer5 at 0
+        0x40139000/12 to gptimer5 at 0
+        0x49038000/12 to gptimer5 at 0
+        0x49039000/12 to gptimer5 at 0
+        0x01D38000/12 to gptimer5 at 0
+        0x01D39000/12 to gptimer5 at 0
+        0x4A056000/12 to sdma
+        0x4A057000/12 to sdma at 0x4A056000
+      ]
+
+dspvirt is map [
+                0x1000000/12 to dspphys at 0x01D3800
+                0x2000000/26 to dspphys
+               ]
+
+dspphys is map [
+            0x80000000/30 to l3
+            0x01D38000/12 to gptimer5 at 0
+           ]
+
+sdma is accept [0x4A056000/12]
+        map [0x80000000/30 to ram]
+
+a9virt_0 is map [
+                0x00000000/30 to a9phys_0 at 0x80000000
+                0x60000000/12 to a9phys_0 at 0x40138000
+                0x60001000/12 to a9phys_0 at 0x49038000
+                0x60002000/12 to a9phys_0 at 0x4A056000
+            ]
+
+a9virt_1 is map [
+                0x10000000/30 to a9phys_0 at 0x80000000
+                0x70000000/12 to a9phys_0 at 0x40138000
+                0x70001000/12 to a9phys_0 at 0x49038000
+                0x70002000/12 to a9phys_0 at 0x4A056000
+            ]
+
+a9phys_0,
+a9phys_1 are map [
+                    0x80000000/30 to l3
+                    0x40138000/12 to l4
+                    0x49038000/12 to l3
+                    0x4A056000/12 to l3
+                 ]
+
+m3virt_0 is map [
+                0x10000000/30 to m3_l2_mif at 0x00000000
+                0x50000000/14 to m3_l2_mif at 0x55000000
+                0x50020000/16 to m3_l2_mif at 0x55020000
+            ]
+
+m3_ram is accept [0x55000000/14]
+m3_rom is accept [0x55020000/16]
+
+m3_l2_mif is map [
+                0x0000000/27 to m3phys
+                0x55000000/14 to m3_ram
+                0x55020000/16 to m3_rom
+             ]
+
+m3phys is map [0x0000000/27 to l3 at 0x80000000]
+
+/**************
+ * Interrupts *
+ **************/
+
+a9_0 is map [0 to a9_1]
+a9_1 is map [0 to a9_0]
+
+dsp is accept [] map []
+
+m3_0,
+m3_1 are accept [] map []
+
+if_a9_0,
+if_a9_1 are accept [
+            0-15
+            16-31
+            32-1019
+        ]
+
+gic is map [
+             73 to if_a9_0
+            131 to if_a9_0
+            132 to if_a9_0
+             44 to if_a9_0
+             45 to if_a9_0
+             46 to if_a9_0
+             47 to if_a9_0
+             44 to if_a9_1
+             45 to if_a9_1
+             46 to if_a9_1
+             47 to if_a9_1
+       ]
+
+dsp_intc is accept [] map []
+
+nvic_0,
+nvic_1 are accept [] map []
+
+pt_0 is map [0 to if_a9_0 at 29]
+pt_1 is map [0 to if_a9_1 at 29]
+
+gptimer5_i is map [0 to spimap at 41, dsp_intc at 41]
+
+audio is map [0 to spimap at 99]
+
+sdma_i is map [
+            0 to spimap at 12, dsp_intc at 18, nvic_0 at 18, nvic_1 at 18
+            1 to spimap at 13, dsp_intc at 19, nvic_0 at 19, nvic_1 at 19
+            2 to spimap at 14, nvic_0 at 20, nvic_1 at 20
+            3 to spimap at 15, nvic_0 at 21, nvic_1 at 21
+          ]
+
+spimap is map [0-987 to gic at 32]
+
+m3mmu is map [0 to spimap at 100]
