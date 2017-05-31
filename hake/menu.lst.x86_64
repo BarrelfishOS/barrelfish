@@ -167,6 +167,7 @@ module	/x86_64/sbin/angler serial0.terminal xterm
 
 
 ##Allocating memory region frame failed: 
+##Maybe some networking connection
 #module /x86_64/sbin/net-test
 		#net-test.0 in alloc_mem() ../lib/net_interfaces/interface_raw.c:102
 		#Allocating memory region frame failed!

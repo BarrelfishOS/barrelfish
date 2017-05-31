@@ -67,4 +67,46 @@ mmap map 0x80000000 0x40000000  1
 # module /armv7/sbin/examples/xmpl-markhello core=1 client
  
 # crystal IO example
-module /armv7/sbin/examples/xmpl-crystal-readwrite
+#module /armv7/sbin/examples/xmpl-crystal-readwrite
+
+#module for test
+#common tests
+# module /armv7/sbin/fputest fputest 2
+# module /armv7/sbin/fread_test
+# module /armv7/sbin/fscanf_test
+# module /armv7/sbin/hellotest
+# module /armv7/sbin/idctest client
+# module /armv7/sbin/idctest server
+# module /armv7/sbin/memtest
+# module /armv7/sbin/nkmtest_all
+# module /armv7/sbin/nkmtest_map_unmap
+# module /armv7/sbin/nkmtest_modify_flags
+# module /armv7/sbin/nkmtest_map_offset
+# module /armv7/sbin/test_retype
+# module /armv7/sbin/test_rootcn_resize
+# module /armv7/sbin/test_remote_retype server
+# module /armv7/sbin/test_remote_retype client
+# module /armv7/sbin/test_remote_delete server
+# module /armv7/sbin/test_remote_delete client
+# module /armv7/sbin/test_remote_revoke server
+# module /armv7/sbin/test_remote_revoke client
+# module /armv7/sbin/testerror
+# module /armv7/sbin/yield_test
+
+# tests with error msg
+#module /armv7/sbin/skb_cap_storage
+		#ERROR: skb_cap_storage.0 in octopus_lmp_default_error_handler() ./armv7/lib/octopus/_for_lib_octopus/octopus_flounder_bindings.c:8638
+		#ERROR: asynchronous error in Flounder-generated octopus lmp binding (default handler)
+		#Failure: (         kernel) Error looking up source for cap transfer [SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP]
+		#Failure: (         kernel) Index into L1 CNode too high [SYS_ERR_L1_CNODE_INDEX]
+		Aborted
+
+#module /armv7/sbin/schedtest 
+		#ERROR: schedtest.0 in main() ../usr/tests/schedtest/schedtest.c:36
+		#ERROR: rsrc_manifest
+		#Failure: (        monitor)     Illegal manifest [MON_ERR_RSRC_ILL_MANIFEST]
+		#Aborted
+
+#module /armv7/sbin/test_create_l1l2_cnodes #maybe NYI
+# Makefile:94594: recipe for target 'armv7_omap44xx_image' failed
+# make: *** [armv7_omap44xx_image] Segmentation fault (core dumped)
