@@ -52,8 +52,10 @@ void timers_init(int timeslice)
     armv8_generic_timer_compare_val_el0_wr(NULL, 0xffffffffffffffff);
 
 
+    /* systime_frequency is ticks per milisecond, while timer_get_frequency is in HZ */
     systime_frequency = timer_get_frequency() / 1000;
-    /* The timeslice is in ms, so divide by 1000. */
+
+    /* The timeslice is in ms */
     kernel_timeslice = ns_to_systime(timeslice * 1000000);
 
     printf("System counter frequency is %uHz.\n", timer_get_frequency());
@@ -66,8 +68,7 @@ void timers_init(int timeslice)
     while(timer_is_set())
         ;
 
-    armv8_generic_timer_timer_val_el0_wr(NULL, kernel_timeslice);
-
+    timer_reset(timeslice);
 
     uint32_t PMCR_EL0  = 0;
 

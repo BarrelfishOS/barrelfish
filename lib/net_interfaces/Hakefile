@@ -20,6 +20,6 @@
  build library { target = "net_if_raw",
                   cFiles = [ "interface_raw.c" ],
                   addLibraries = libDeps [ "devif", "devif_backend_idc"],
-                  architectures = ["armv7", "armv8"]}
+                  architectures = ["armv7", "armv8", "k1om"]}
 ]
 

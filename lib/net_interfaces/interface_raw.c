@@ -20,7 +20,7 @@
 #include <barrelfish/net_constants.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/descq.h>
-#if defined(__x86_64__)
+#if defined(__x86_64__) && !defined(__k1om__)
     #include <devif/backends/net/sfn5122f_devif.h>
     #include <devif/backends/net/e10k_devif.h>
 #endif
@@ -163,7 +163,7 @@ static void connect_to_driver(const char *cname, uint64_t qid, struct waitset *w
 }
 
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) && !defined(__k1om__)
 static void int_handler(void* args)
 {
     regionid_t rid;
@@ -216,7 +216,7 @@ void net_if_init(const char* cardname, uint64_t qid)
 
     // Connect RX path
 
-#if defined(__x86_64__)
+#if defined(__x86_64__) && !defined(__k1om__)
     if ((strcmp(cardname, "e1000") == 0) || (qid == 0)) {
         connect_to_driver(cardname, queue_id, ws);
     } else if ((strcmp(cardname, "e10k") == 0) && (qid != 0)) {

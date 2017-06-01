@@ -205,14 +205,15 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 {
     uint32_t irq = 0;
 
-    /* The assembly stub leaves the first 4 registers, the stack pointer, and
-     * the exception PC for us to save, as it's run out of room for the
-     * necessary instructions. */
+    /* The assembly stub leaves the first 4 registers, the stack pointer, 
+     * the exception PC, and the SPSR for us to save, as it's run out of room for
+     * the necessary instructions. */
     save_area->named.x0    = x0;
     save_area->named.x1    = x1;
     save_area->named.x2    = x2;
     save_area->named.x3    = x3;
     save_area->named.stack = armv8_SP_EL0_rd(NULL);
+    save_area->named.spsr  = armv8_SPSR_EL1_rd(NULL);
     save_area->named.pc    = fault_pc;
 
     irq = gicv3_get_active_irq();
@@ -256,7 +257,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 
     if(irq == 30 || irq==29) {
         gicv3_ack_irq(irq);
-        timer_reset(kernel_timeslice);
+        timer_reset(CONFIG_TIMESLICE);
         dispatch(schedule());
     }
     else {

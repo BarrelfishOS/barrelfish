@@ -722,36 +722,64 @@ flounderRules opts args csrcs =
       allIf = nub $ Args.flounderDefs args ++ [f | (f,_) <- Args.flounderExtraDefs args]
 
 
---
--- Build a Sockeye library
---
-
-sockeyeSchemaCPath :: Options -> String -> String
-sockeyeSchemaCPath opts schema =
-    ((optSuffix opts)) </> (schema ++ ".c")
-
-sockeyeCompileFile :: String -> String -> String -> String -> HRule
-sockeyeCompileFile arch opt in_file out_file =
-    Rule [
-        In InstallTree "tools" "/bin/sockeye",
-        Str opt,
-        In SrcTree "src" (in_file ++ ".sockeye"),
-        Out arch out_file
-    ]
+ --
+ -- Build a Skate library and header file
+ --
 
 
-sockeyeCompileSchema :: Options -> Args.Args -> String -> HRule
-sockeyeCompileSchema opts args file =
-    let arch = optArch opts
-        cfile = sockeyeSchemaCPath opts file
-        hfile = "/include/schema" </> file ++ ".h"
-        opts' = opts { extraDependencies = [ Dep BuildTree arch hfile ] }
-    in
-        Rules [
-            sockeyeCompileFile arch "-H" file hfile,
-            sockeyeCompileFile arch "-C" file cfile,
-            compileGeneratedCFile opts' cfile
-         ]
+skateSchemaPath opts ifn = (optSuffix opts) </> (ifn ++ "_skate_schema.c")
+skateProgLoc = In InstallTree "tools" "/bin/skate"
+skateSksFileLoc schema = In SrcTree "src" ("/schemas" </> (schema ++ ".sks"))
+skateSchemaDefsPath schema = "/include/schemas" </> (schema ++ "_schema.h")
+
+
+skateSchemaHelper :: Options -> String -> String -> [String] -> HRule
+skateSchemaHelper opts ifn cfile srcs = Rules $
+    [ skateRule opts $ args ++ [
+        Str "-o", Out arch cfile, skateSksFileLoc ifn],
+        compileGeneratedCFile opts cfile,
+        skateDefsDepend opts ifn srcs]
+    ++ [extraGeneratedCDependency opts (skateSchemaDefsPath ifn) cfile]
+    where
+        arch = optArch opts
+        archfam = optArchFamily opts
+        args = [Str "-a", Str archfam, Str "-C"]
+
+
+skateSchema :: Options -> String -> [String] -> HRule
+skateSchema opts schema =
+    skateSchemaHelper opts schema (skateSchemaPath opts schema)
+
+
+skateDefsDepend :: Options -> String -> [String] -> HRule
+skateDefsDepend opts schema srcs = Rules $
+    [(extraCDependencies opts (skateSchemaDefsPath schema) srcs)]
+
+
+skateRules :: Options -> Args.Args -> [String] -> [HRule]
+skateRules opts args csrcs =
+    ([ skateSchema opts f csrcs | f <- Args.skateSchemas args ]
+     ++
+     [ skateDefsDepend opts f csrcs | f <- nub $ Args.skateSchemaDefs args ])
+
+
+skateIncludes :: Options -> [RuleToken]
+skateIncludes opts = []
+
+
+skateRule :: Options -> [RuleToken] -> HRule
+skateRule opts args = Rule $ [ skateProgLoc ] ++ (skateIncludes opts) ++ args
+
+
+skateGenSchemas :: Options -> String -> HRule
+skateGenSchemas opts schema =
+ Rules $ [skateRule opts [
+        Str "-H",
+        Str "-o", Out (optArch opts) (skateSchemaDefsPath schema),
+        skateSksFileLoc schema
+      ]]
+
+
 
 --
 -- Build a Fugu library
@@ -1015,8 +1043,8 @@ allObjectPaths opts args =
                 [ flounderTHCStubPath opts f
                       | f <- (Args.flounderTHCStubs args)]
                 ++
-                [ sockeyeSchemaCPath opts f
-                      | f <- (Args.sockeyeSchema args)]
+                [ skateSchemaPath opts f
+                      | f <- (Args.skateSchemas args)]
                 ++
                 (Args.generatedCFiles args) ++ (Args.generatedCxxFiles args)
     ]
@@ -1094,6 +1122,8 @@ appBuildArch tdb tf args arch =
     in
       Rules ( flounderRules opts args csrcs
               ++
+              skateRules opts args csrcs
+              ++
               [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
               ++
               [ compileCFiles opts csrcs,
@@ -1155,6 +1185,8 @@ arrakisAppBuildArch tdb tf args arch =
     in
       Rules ( flounderRules opts args csrcs
               ++
+              skateRules opts args csrcs
+              ++
               [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
               ++
               [ compileCFiles opts csrcs,
@@ -1204,7 +1236,7 @@ libBuildArch tdb tf args arch =
     in
       Rules ( flounderRules opts args csrcs
               ++
-              [ sockeyeCompileSchema opts args schema | schema <- Args.sockeyeSchema args ]
+              skateRules opts args csrcs
               ++
               [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
               ++
