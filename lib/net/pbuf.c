@@ -540,6 +540,8 @@ pbuf_realloc(struct pbuf *p, u16_t new_len)
     return;
   }
 
+  p->len = new_len;
+  p->tot_len = new_len;
   return;
 
   /* the pbuf chain grows by (new_len - p->tot_len) bytes

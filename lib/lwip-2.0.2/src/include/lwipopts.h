@@ -155,7 +155,7 @@ struct netif *arp_filter_netif(struct pbuf *p, struct netif *netif, uint16_t typ
  * MEMP_NUM_TCP_SEG: the number of simultaneously queued TCP segments.
  * (requires the LWIP_TCP option)
  */
-#define MEMP_NUM_TCP_SEG                16
+#define MEMP_NUM_TCP_SEG                4096
 
 /**
  * MEMP_NUM_ARP_QUEUE: the number of simulateously queued outgoing
@@ -515,5 +515,10 @@ extern unsigned char debug_flags;
 #define CHECKSUM_GEN_UDP 0
 #define CHECKSUM_GEN_TCP 0
 #endif
+
+#define TCP_MSS                 1460
+#define TCP_WND                 (TCP_MSS * 20)
+#define TCP_SND_BUF             (TCP_MSS * 40)
+#define TCP_SND_QUEUELEN       (16 * (TCP_SND_BUF/TCP_MSS))
 
 #endif /* LWIP_LWIPOPTS_H */
