@@ -1,6 +1,6 @@
 /**
  * \file arp.c
- * \brief 
+ * \brief
  */
 
 
@@ -25,6 +25,8 @@
 #include <netif/etharp.h>
 
 #include <octopus/octopus.h>
+#include <octopus_server/service.h>
+#include <octopus/trigger.h>
 
 
 #include "networking_internal.h"
