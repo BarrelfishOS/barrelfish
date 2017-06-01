@@ -64,7 +64,7 @@ pci_driver{
     supported_cards:
     [ pci_card{ vendor: 16'1924, device: 16'0803, function: _, subvendor: _, subdevice: _ }],
     core_hint: 0,
-    core_offset: 0,
+    core_offset: 1,
     multi_instance: 0,
     interrupt_load: 0.5,
     platforms: ['x86_64']
@@ -76,9 +76,10 @@ pci_driver{
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'10fb, function: _, subvendor: _, subdevice: _ }],
     core_hint: 0,
-    core_offset: 0,
+    core_offset: 1,
     multi_instance: 0,
     interrupt_load: 0.5,
+    interrupt_model: ['legacy'],
     platforms: ['x86_64']
 }.
 

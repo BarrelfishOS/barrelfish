@@ -85,17 +85,35 @@ enum buffer_memory_types {
 
 //  ##################################################################
 //  This is setup for n1000 card running on real hardware
+
+
+/*
+   ------------------------------------------------
+   ---------- Internal Memory Pool Sizes ----------
+   ------------------------------------------------
+*/
+
+/**
+ * MEM_SIZE: the size of the heap memory. If the application will send
+ * a lot of data that needs to be copied, this should be set high.
+ */
 #ifndef MEM_SIZE
 #define MEM_SIZE                (60*1024*1024)
 #endif // MEM_SIZE
 
-/// Number of PBUF structs available
+/**
+ * MEMP_NUM_PBUF: the number of memp struct pbufs (used for PBUF_ROM and PBUF_REF).
+ * If the application sends a lot of data out of ROM (or other static memory),
+ * this should be set high.
+ */
 #ifndef MEMP_NUM_PBUF
 #define MEMP_NUM_PBUF         (16384)
 //#define MEMP_NUM_PBUF           4096
 #endif // MEMP_NUM_PBUF
 
-/// Number of PBUF buffers available
+/**
+ * PBUF_POOL_SIZE: the number of buffers in the pbuf pool.
+ */
 #ifndef PBUF_POOL_SIZE
 #define PBUF_POOL_SIZE         (20000)
 //#define PBUF_POOL_SIZE          4096

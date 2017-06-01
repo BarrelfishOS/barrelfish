@@ -154,7 +154,8 @@ static struct devq* create_net_queue(char* card_name)
         struct sfn5122f_queue* q;
         
         err = sfn5122f_queue_create(&q, event_cb, /* userlevel*/ true,
-                                    /*MSIX interrupts*/ false);
+                                    /*MSIX interrupts*/ false,
+                                    /*default queue*/ true);
         if (err_is_fail(err)){
             USER_PANIC("Allocating devq failed \n");
         }
