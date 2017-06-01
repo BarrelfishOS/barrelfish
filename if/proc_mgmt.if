@@ -1,0 +1,35 @@
+/*
+ * Copyright (c) 2017, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface proc_mgmt "Process management service" {
+  
+  // Allocate a new endpoint for a future connecting client.
+  rpc alloc_ep(out errval err, out cap ep);
+
+  // Spawn a new domain, returning its domainid cap.
+  rpc spawn(in coreid core,
+            in String path[2048],
+            in char argvbuf[argvbytes, 2048],
+            in char envbuf[envbytes, 2048],
+            in uint8 flags,
+            out errval err,
+            out cap domainid_cap);
+
+  // Span the caller to a new core.
+  rpc span(in cap domainid_cap,
+           in coreid core,
+           in cap vroot,
+           in cap disp_mem,
+           out errval err);
+
+  // Kill a domain for which the caller has a domainid cap.
+  rpc kill(in cap domainid_cap, out errval err);
+
+  // TODO(razvan): exit, wait, status, some other calls from spawn.if?
+};

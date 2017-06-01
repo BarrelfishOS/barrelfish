@@ -16,7 +16,7 @@
 let common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                     "thread_once.c", "thread_sync.c", "slab.c", "domain.c", "idc.c",
                     "waitset.c", "event_queue.c", "event_mutex.c",
-                    "idc_export.c", "nameservice_client.c", "msgbuf.c",
+                    "idc_export.c", "nameservice_client.c", "msgbuf.c", "proc_mgmt_client.c",
                     "monitor_client.c", "flounder_support.c", "flounder_glue_binding.c",
                     "flounder_txqueue.c","morecore.c", "debug.c", "heap.c",
                     "ram_alloc.c", "terminal.c", "spawn_client.c", "vspace/vspace.c",
