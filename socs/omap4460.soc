@@ -13,7 +13,7 @@
 
 ram is accept [0x80000000/30]
 
-gptimer5 is accept [0x0/12]
+gptimer5 is accept [0x1/12]
 
 l3 is accept [0-0x40000000]
       map [
