@@ -1521,14 +1521,18 @@ delete_transferred_cap_reply(struct data *data) {
 \note{Caching NYI}
 
 \subsection{Two phase commit}
-\note{NYI}
-Use 2pc.
+Use two-phase commit to synchronize operations that would otherwise conflict.
+We do not discuss this solution in detail, as we incorporate two-phase commit
+into the delete and revoke operations for the hybrid solution discussed in
+section~\ref{sec:sol:hybrid}.
 
 \subsection{Sequencer}
-\note{NYI}
-Use a sequencer. This will order whole operations.
+Use a sequencer. This will order whole operations. We do not discuss this
+solution in depth, as the sequencer idea is incorporated into the hybrid
+solution in section~\ref{sec:sol:hybrid}.
 
 \subsection{Hybrid}
+\label{sec:sol:hybrid}
 
 We can, of course, combine facets of each of the previously discussed
 approaches to build a hybrid approach which combines some (or all) of them.
@@ -1559,13 +1563,27 @@ Delete and revoke employ a form of two-phase commit, which is implemented as a
 Other operations treat capabilities that have been marked for deletion as
 already deleted, which avoids many otherwise conflicting operation sequences.
 
+\subsubsection{Caching}
+Caching for this solution is implemented using a bitfield which has one bit
+each indicating the presence of remote copies, descendants, and ancestors
+respectively.
+
+\subsection{Multicast vs Broadcast}
+To implement two-phase commit, this solution could use multicast messages to
+all cores that have remote copies/descendants/ancestors or simply use
+broadcast and have cores that do not have any copies reply with a success
+reply for the mark phase.
+
 \subsection{Comparison}
-Compare the approaches
+\note{TODO: Compare the approaches}
 
 \subsection{Implementation}
 
 Currently, the capability operations are implemented using the hybrid
 technique outlined above.
+The implementation uses broadcasts to implement 2PC, because the this way, the
+implementation does not have to keep, and update, a list of remote cores that
+have copies, descendants or ancestors for each capability.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
