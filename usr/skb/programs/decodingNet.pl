@@ -52,10 +52,10 @@ listMapsToName([M|Maps],Addr,Name) :-
     mapsToName(M,Addr,Name);
     listMapsToName(Maps,Addr,Name).    
 
-translateMap(node(_,Translate,_),Addr,Name) :-
+translateMap(node(_,_,Translate,_),Addr,Name) :-
     listMapsToName(Translate,Addr,Name).
 
-translateOverlay(node(Accept,Translate,Overlay),Addr,Name) :-
+translateOverlay(node(_,Accept,Translate,Overlay),Addr,Name) :-
     not(Overlay = '@none'),
     blockListRanges(Accept,ARanges),
     neg(Addr :: ARanges),
@@ -67,7 +67,7 @@ translate(Node,Addr,Name) :-
     translateMap(Node,Addr,Name);
     translateOverlay(Node,Addr,Name).
 
-accept(node(Accept,_,_),Addr) :-
+accept(node(_,Accept,_,_),Addr) :-
     blockListRanges(Accept,Ranges),
     Addr :: Ranges.
 
@@ -90,17 +90,6 @@ resolve(SrcName,DestName) :-
     ;   decodesTo(SrcName,DestName)
     ),
     acceptedName(DestName).
-
-findTargets(SrcName,DestName) :-
-    resolve(SrcName,DestName),
-    name(_,Addr) = DestName,
-    labeling([Addr]).
-    
-
-findOrigins(SrcName,DestName) :-
-    resolve(SrcName,DestName),
-    name(_,Addr) = SrcName,
-    labeling([Addr]).
 
 findRanges(SrcName,DestName,SrcRange,DestRange) :-
     resolve(SrcName,DestName),

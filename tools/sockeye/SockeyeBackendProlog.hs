@@ -38,8 +38,9 @@ instance PrologGenerator AST.NodeId where
     generate (AST.NodeId id) = map toLower id
 
 instance PrologGenerator AST.NodeSpec where
-    generate nodeSpec = predicate "node" [accept, translate, overlay]
-        where accept = list $ map generate (AST.accept nodeSpec)
+    generate nodeSpec = predicate "node" [nodeType, accept, translate, overlay]
+        where nodeType = generate (AST.nodeType nodeSpec)
+              accept = list $ map generate (AST.accept nodeSpec)
               translate = list $ map generate (AST.translate nodeSpec)
               overlay = case AST.overlay nodeSpec of
                 Nothing -> "'@none'"
@@ -55,6 +56,9 @@ instance PrologGenerator AST.MapSpec where
                            dest = generate $ AST.destNode mapSpec
                            base = generate $ AST.destBase mapSpec
                        in predicate "map" [src, dest, base]
+
+instance PrologGenerator AST.NodeType where
+    generate = show 
 
 instance PrologGenerator AST.Addr where
     generate (AST.Addr addr) = show addr

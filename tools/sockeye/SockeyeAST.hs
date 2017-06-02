@@ -46,10 +46,18 @@ data MapSpec = MapSpec { srcBlock :: BlockSpec
                        }
 
 {-
+Node can either be memory, device or other
+-}
+data NodeType = Memory
+              | Device
+              | Other
+
+{-
 A node is specified as a list of blocks it accepts,
 a list of mappings and possibly an overlay on another block
 -}
-data NodeSpec = NodeSpec { accept    :: [BlockSpec]
+data NodeSpec = NodeSpec { nodeType  :: NodeType
+                         , accept    :: [BlockSpec]
                          , translate :: [MapSpec]
                          , overlay   :: Maybe NodeId
                          }
@@ -76,13 +84,19 @@ instance Show MapSpec where
                        baseStr = show $ destBase mapSpec
                    in srcStr ++ " to " ++ nodeStr ++ " at " ++ baseStr
 
+instance Show NodeType where
+  show Memory = "memory"
+  show Device = "device"
+  show Other  = "other"
+
 instance Show NodeSpec where
-    show nodeSpec = let acceptStr    = "accept [" ++ intercalate ", " (map show (accept nodeSpec)) ++ "]"
+    show nodeSpec = let typeStr      = show $ nodeType nodeSpec
+                        acceptStr    = "accept [" ++ intercalate ", " (map show (accept nodeSpec)) ++ "]"
                         translateStr = "map [" ++ intercalate ", " (map show (translate nodeSpec)) ++ "]"
                         overlayStr   = case overlay nodeSpec of
                                         Nothing     -> ""
                                         Just nodeId -> "over " ++ show nodeId
-                    in acceptStr ++ " " ++ translateStr ++ " " ++ overlayStr
+                    in intercalate " " [typeStr, acceptStr, translateStr, overlayStr]
 
 instance Show NetSpec where
     show (NetSpec netSpec) = unlines $ map nodeStr netSpec

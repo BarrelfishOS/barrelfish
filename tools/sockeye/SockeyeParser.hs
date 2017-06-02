@@ -55,7 +55,7 @@ stringLiteral = P.stringLiteral lexer
 commaSep      = P.commaSep lexer
 commaSep1     = P.commaSep1 lexer
 identifier    = P.identifier lexer
-natural       = (P.natural lexer)
+natural       = P.natural lexer
 decimal       = P.decimal lexer
 
 {- Sockeye parsing -}
@@ -79,6 +79,7 @@ netSpec = do
             return nodeIds
 
 nodeSpec = do
+    nt <- nodeType
     a <- optionMaybe parseAccept 
     t <- optionMaybe parseTranlsate 
     overlay <- optionMaybe parseOverlay
@@ -86,7 +87,7 @@ nodeSpec = do
                            Just blocks -> blocks
         translate = case t of Nothing -> []
                               Just maps -> concat maps
-    return $ AST.NodeSpec accept translate overlay
+    return $ AST.NodeSpec nt accept translate overlay
     where parseAccept = do
             reserved "accept"
             brackets $ many blockSpec
@@ -96,6 +97,15 @@ nodeSpec = do
           parseOverlay = do
             reserved "over"
             nodeId
+
+nodeType = try (choice [memory, device]) <|> return AST.Other
+    where memory = do
+            symbol "memory"
+            return AST.Memory
+          device = do
+            symbol "device"
+            return AST.Device
+
 
 mapSpec = do
     srcBlock <- blockSpec
