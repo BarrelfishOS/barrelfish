@@ -497,9 +497,9 @@ zero-fills the frame.
   
 \item[Transferability to another core] Yes
 
-\item[Any copy deleted] Look up associated \emph{Mapping} capability and use
-  information stored in that mapping to remove any page table entries that
-  exist for this copy of the frame capability.
+\item[Any copy deleted] Look up any \emph{Mapping} capabilities associated
+  with this Frame and use information stored in those mappings to remove any
+  page table entries that exist for this copy of the frame capability.
 
 \item[Last copy deleted] Check whether there are any other capabilities that
   refer to the region, or a superset of the region, referred to by this
@@ -539,9 +539,9 @@ memory-mapped devices.
   
 \item[Transferability to another core] Yes
 
-\item[Any copy deleted] Look up associated \emph{Mapping} capability and use
-  information stored in that mapping to remove any page table entries that
-  exist for this copy of the frame capability.
+\item[Any copy deleted] Look up any \emph{Mapping} capabilities associated
+  with this Frame and use information stored in those mappings to remove any
+  page table entries that exist for this copy of the frame capability.
 
 \item[Last copy deleted] Check whether there are any other capabilities that
   refer to the region, or a superset of the region, referred to by this
