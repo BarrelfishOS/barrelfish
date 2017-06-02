@@ -1111,8 +1111,10 @@ errval_t caps_lookup_slot(struct capability *rootcn, capaddr_t cptr,
     }
     assert(rootcn->type == ObjType_L1CNode);
 
-    if (l1index > cnode_get_slots(rootcn)) {
+    if (l1index >= cnode_get_slots(rootcn)) {
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        debug(SUBSYS_CAPS, "%s: l1index = %"PRIuCSLOT", slots= %zu\n",
+                __FUNCTION__, l1index, cnode_get_slots(rootcn));
         return SYS_ERR_L1_CNODE_INDEX;
     }
 
