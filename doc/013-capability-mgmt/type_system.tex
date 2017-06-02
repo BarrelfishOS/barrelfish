@@ -13,7 +13,7 @@ supported types in Barrelfish.
 
 \item[Origin] A capability type is either \emph{primitive}, which
   means that capabilities of the type may be created only through a
-  special process (eg. at boot time), or \emph{derived}, which means
+  special process (e.g. at boot time), or \emph{derived}, which means
   that capabilities of the type may be created by retyping an existing
   capability. For primitive types, we specify how the capabilities of
   that type are created; for derived types, we specify which
@@ -444,12 +444,25 @@ is specified changed by minting an endpoint to another endpoint.
 A VNode capability refers to a hardware page table and is used to
 manage a domain's virtual address space.  Frame and device frame
 capabilities can be copied or minted into them or deleted from them by
-invoking a CNode.  The architecture may impose limitations on the
+invoking the VNode.  The architecture may impose limitations on the
 capabilities that may be copied into a VNode, or may allow extra
 attributes to be set when minting.
 
 We define one VNode capability type per hardware page table type per
 architecture.
+We currently define the following VNode types:
+\begin{itemize}
+  \item \verb|VNode_x86_64_pml4|
+  \item \verb|VNode_x86_64_pdpt|
+  \item \verb|VNode_x86_64_pdir|
+  \item \verb|VNode_x86_64_ptable|
+  \item \verb|VNode_ARM_l1|
+  \item \verb|VNode_ARM_l2|
+  \item \verb|VNode_AARCH64_l0|
+  \item \verb|VNode_AARCH64_l1|
+  \item \verb|VNode_AARCH64_l2|
+  \item \verb|VNode_AARCH64_l3|
+\end{itemize}
 
 \begin{description}
 \item[Origin] Retyping from RAM type capabilities.
@@ -462,8 +475,8 @@ architecture.
   
 \item[Transferability to another core] \note{Discussion pending}
 
-\item[Last copy deleted] \note{NYI, initiate mechanisms to unmap from
-  associated page tables and remove mapped in page tables and frames}
+\item[Last copy deleted] Delete all the mapping capabilities associated with
+  mappings contained in the VNode.
   
 \item[Concrete representations] The in-memory representation on x86-64
   is as follows:
@@ -473,7 +486,44 @@ architecture.
       base     64  "Base address of the page table";
     };
   \end{lstlisting}
-\end{description}  
+\end{description}
+
+\begin{invocation}{Map}
+  \arg VNode entry at which to create mapping
+  \arg CSpace address of the root (L1) CNode of the capability to map
+  \arg CSpace address of the capability to map
+  \arg Level of the capability to map
+  \arg (Architecture-dependent) Flags for the mapping
+  \arg Offset in bytes into the source capability of the region to map
+  \arg Size of the region to map in VNode entries
+  \arg CSpace address of the root (L1) CNode of the capability slot in which
+  to create the mapping capability
+  \arg CSpace address of the CNode of the capability slot in which to create
+  the mapping capability
+  \arg Level of the CNode of the capability slot in which to create
+  the mapping capability
+  \arg Slot in the CNode in which to create the mapping capability
+\end{invocation}
+This invocation maps a region of memory at the given offset and of the given
+size\footnote{we give the size in VNode entries, in order to easily reuse the
+invocation when e.g. creating superpages on x86-64} into the VNode starting at
+the given entry.
+The invocation may fail if the source capability cannot be found, the
+requested mapping region is not entirely covered by the source capability, the
+source capability does not have a type which is mappable into the VNode, given
+it's type, one or more of the VNode entries covering the requested mapping are
+already occupied, or the slot of the mapping capability cannot be found or is
+occupied.
+
+\begin{invocation}{Unmap}
+  \arg CSpace address of the mapping to remove
+  \arg Level of the mapping capability
+\end{invocation}
+This invocation unmaps the region identified by mapping from the VNode, if
+said region is actually mapped in the VNode.
+
+\noarginvocation{Identify}
+This invocation returns the physical address (and size) of the VNode.
 
 \subsection{Frame}
 A frame capability refers to a page-aligned\footnote{We coloquially refer to
@@ -567,6 +617,23 @@ capability copies that are mapped in a VNode, which led to a lot of
 unnecessary heavy-weight Frame capability copies in the system, we redesigned
 the shadow page table implementation to use additional capability types, one
 for each capability type that can be copied to a VNode type.
+
+We define one mapping type per mappable capability type.
+We currently define the following mapping types:
+\begin{itemize}
+  \item \verb|Frame_Mapping|
+  \item \verb|DevFrame_Mapping|
+  \item \verb|VNode_x86_64_pml4_Mapping|
+  \item \verb|VNode_x86_64_pdpt_Mapping|
+  \item \verb|VNode_x86_64_pdir_Mapping|
+  \item \verb|VNode_x86_64_ptable_Mapping|
+  \item \verb|VNode_ARM_l1_Mapping|
+  \item \verb|VNode_ARM_l2_Mapping|
+  \item \verb|VNode_AARCH64_l0_Mapping|
+  \item \verb|VNode_AARCH64_l1_Mapping|
+  \item \verb|VNode_AARCH64_l2_Mapping|
+  \item \verb|VNode_AARCH64_l3_Mapping|
+\end{itemize}
 
 \begin{description}
 \item[Origin] Created when copying a mappable capability to a VNode.
