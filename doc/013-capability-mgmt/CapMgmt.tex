@@ -899,6 +899,7 @@ We will discuss and compare the following four solutions.
 \item Total order broadcast
 \item Two phase commit
 \item Sequencer
+\item Hybrid implementation with locks and 2PC
 \end{itemize}
 
 \subsection{Locks}\label{subsec:locks}
@@ -1527,8 +1528,40 @@ Use 2pc.
 \note{NYI}
 Use a sequencer. This will order whole operations.
 
+\subsection{Hybrid}
+
+We can, of course, to combine facets of each of the previously discussed
+approaches to build a hybrid approach which combines some (or all) of them.
+
+The approach discussed in chapters two and three of Mark Nevill's master's
+thesis~\cite{Nevill2012}, is one such hybrid approach, which combines locking,
+per capability sequencing, and two-phase commit.
+Additionally, Mark's solution does not require any additional requirements on
+Barrelfish's message channels, and works flawlessly with SSF message
+semantics.
+
+We only give a brief overview of the approach here, and refer the curious
+reader to Mark's thesis which discusses the approach in-depth.
+
+The key concept for this approach is that, for each capability, of which there
+can exist arbitrarily many copies, one core in the system is chosen as the
+capability's owner, or sequencer.
+All operations on a capability that need synchronization have to be proxied
+through the capability's owner.
+We use locks to eliminate possible conflicts between operations, and merge
+overlapping deletes and revokes to avoid deadlocks.
+Delete and revoke employ a form of two-phase commit, which is implemented as a
+\emph{mark} and \emph{sweep} algorithm.
+Other operations treat capabilities that have been marked for deletion as
+already deleted, which eliminates many otherwise conflicting operations.
+
 \subsection{Comparison}
 Compare the approaches
+
+\subsection{Implementation}
+
+Currently, the capability operations are implemented using the hybrid
+technique outlined above.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
