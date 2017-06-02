@@ -71,6 +71,7 @@ in
     ," - 'help-boot':      show the boot sequences which can be initiated"
     ," - 'clean':          remove most generated files"
     ," - 'realclean':      remove all generated files (clears the build tree)"
+    ," - 'Documentation':  build all Technical Notes"
     ," - 'Makefile':       attempt to re-run hake"
     ,""
   ] ],

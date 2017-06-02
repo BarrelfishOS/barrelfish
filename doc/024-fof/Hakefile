@@ -1,0 +1,80 @@
+----------------------------------------------------------------------
+-- Copyright (c) 2017, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /tools/fof
+--
+----------------------------------------------------------------------
+
+--
+-- Just builds documentation for now - Filet-o-Fish is only used as a library.
+--
+
+let
+  lhsfiles = [
+    "Compile",
+    "Constructs",
+    "Constructs/Arrays",
+    "Constructs/Conditionals",
+    "Constructs/Enumerations",
+    "Constructs/Functions",
+    "Constructs/References",
+    "Constructs/Strings",
+    "Constructs/Structures",
+    "Constructs/Typedef",
+    "Constructs/Unions",
+    "Eval",
+    "Expressions",
+    -- "FiletOFish",
+    "IL/FoF/Compile",
+    "IL/FoF/FoF",
+    "IL/FoF/Run",
+    "IL/Paka/Builders",
+    "IL/Paka/Compile",
+    "IL/Paka/Optimizer",
+    "IL/Paka/Paka",
+    "IL/Paka/Syntax",
+    "Libbarrelfish/GetAddress",
+    "Libbarrelfish/HasDescendants",
+    "Libbarrelfish/MemToPhys",
+    "Libc/Assert",
+    "Libc/Printf",
+    "Main",
+    "PureExpressions",
+    "Semantics"
+    ]
+  texfiles = [
+    "FutureWork",
+    "IntroLanguage",
+    "Introduction"
+    ]
+  lhsrule f = Rule ( [ Str "lhs2TeX",
+                       Str "-o",
+                       Out "tools" ("/tools/fof/" ++ f ++ ".tex"),
+                       In SrcTree "src" ("/tools/fof/" ++ f ++ ".lhs")
+                     ] )
+  texrule f = Rule ( [ Str "cp",
+                       In SrcTree "src" ("/tools/fof/" ++ f ++ ".tex"),
+                       Out "tools" ("/tools/fof/" ++ f ++ ".tex")
+                     ] )
+  lhsdeps = [ Dep BuildTree "tools" ("/tools/fof/" ++ f ++ ".tex") | f <- lhsfiles ]
+  texdeps = [ Dep BuildTree "tools" ("/tools/fof/" ++ f ++ ".tex") | f <- texfiles ]
+  in
+ [ buildTechNoteWithDeps "top.tex" "TN-024-FiletOFish.pdf" True False []
+   (lhsdeps ++ texdeps ++ [ Dep BuildTree "docs" "FiletOFish-from-lhs.tex" ])
+ ]
+ ++
+ [ lhsrule f | f <- lhsfiles ]
+ ++
+ [ texrule f | f <- texfiles ]
+ ++
+ [ Rule ( [ Str "lhs2TeX",
+            Str "-o",
+            Out "docs" "FiletOFish-from-lhs.tex", 
+            In SrcTree "src" "FiletOFish.lhs"
+          ] )
+ ]
