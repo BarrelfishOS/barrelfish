@@ -673,6 +673,33 @@ dynamically update the type of caching used.  For this, we need to
 identify the cross-over point where one approach is preferred over the
 other.
 
+\section{Implementation}
+
+As summarized, the current implementation uses a partitioned database which
+caches remote relations of capabilities with three bits, one each for remote
+copies, ancestors, and descendants.
+
+Each database partition is associated with a kernel control block, and keeps
+track of all the capabilities in the CSpaces of all the dispatchers associated
+with that kernel control block.
+The database is implemented as a binary search tree.
+We chose the AA tree~\cite{Andersson1993}, which is a variation of the
+red-black tree where red nodes can only be added as right subchildren.
+This results in a greatly simplified implementation of the maintenance
+operations while conserving the red-black tree's invariants.
+
+The particular variation we implement for the capability database is an
+interval tree as described by
+Cormen et al.~\cite[section~14.3, pp~348-354]{Cormen2001} which uses the AA
+tree as its basis.
+
+It is noteworthy that we embed the tree nodes into each kernel capability
+object to avoid any dynamic allocations in the CPU driver.
+
+The choice of tree, the database implementation and its performance are more
+extensively discussed in chapter 4 of Mark Nevill's master's
+thesis~\cite{Nevill2012}.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \chapter{Solutions}\label{chap:solutions}
