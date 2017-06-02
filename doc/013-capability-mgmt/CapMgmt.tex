@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Copyright (c) 2011, ETH Zurich.
+% Copyright (c) 2011-2017, ETH Zurich.
 % All rights reserved.
 %
 % This file is distributed under the terms in the attached LICENSE file.
@@ -14,7 +14,7 @@
 \usepackage{color,listings,ctable}
 
 \title{Capability Management in Barrelfish}   % title of report
-\author{Akhilesh Singhania, Ihor Kuz, Mark Nevill}	% author
+\author{Akhilesh Singhania, Ihor Kuz, Mark Nevill, Simon Gerber}	% author
 \tnnumber{013}  % give the number of the tech report
 \tnkey{Capability Management} % Short title, will appear in footer
 
@@ -60,6 +60,7 @@
 \vhEntry{2.0}{27.1.2012}{MN}{New capability system design}
 \vhEntry{2.1}{8.7.2013}{SK}{Updates}
 \vhEntry{2.2}{1.12.2013}{TR}{Fixed missing references/citations}
+\vhEntry{3.0}{2.06.2017}{SG}{Update to new CSpace design and remove outdated info}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -91,7 +92,7 @@ highlights issues not yet covered in this document.
 \begin{itemize}
 
 \item Kernel operations should not take longer than $O(1)$.  Some
-  capability operations are not constant time but can take $O(n)$
+  capability operations are not constant time but can take $O(log n)$
   where $n$ is the size of the mapping database. Spending so much time
   in the kernel is detrimental for good scheduling as when in the
   kernel, interrupts are disabled. All non constant time operations
@@ -101,29 +102,11 @@ highlights issues not yet covered in this document.
   backing ump channels is deleted, should it initiate a connection
   tear down?
 
-\item We have no mechanics for tracking frames mapped into VNodes. So
-  that if either is deleted, the entries are properly cleaned up.
-
-\item Multicore capability management. We have an implementation on
-  the tip. It is not enabled and has some shortcomings. Not all
-  shortcomings are not known however some missing details are
-  known. As discussed in chapter~\ref{chap:solutions}, all remote
-  relations including descendants, copies, and ancestors must be
-  tracked. The implementation only tracks ancestors.
-
 \item Fragmentation of memory. Example: a ram capability of 4GB is
   retyped into two capabilities of 2GB each. One of the 2GB capability
   is deleted. The only way to get a capability to that 2GB back is to
   also delete the other 2GB capability and then retype the 4GB
   capability again.
-
-\item The mapping database is maintained as a doubly linked
-  list. Implementing Boolean operations like ``has\_descendants'' and
-  ``has\_copies'' require walking the database and testing type
-  specific data structures. We feel that these are not efficient or
-  robust. If we move the mapping database into the monitor, we think
-  that this should at worse become a performance issue and not a
-  correctness one.
 
 \item IO space can be treated in a same way as physical memory. So
   instead of using mint operations to update ranges, we use retype
@@ -134,30 +117,13 @@ highlights issues not yet covered in this document.
 
 \item When a new capability is introduced in a core via cross-core
   send, the kernel must walk the entire mapping database to find the
-  appropriate place to insert the capability. The operation is linear
-  time. This operation must either happen in the monitor or must be
-  made more efficient. If we move the mapping database into the
-  monitor, we think that this should at worse become a performance
-  issue and not a correctness one.
+  appropriate place to insert the capability. The operation is
+  logarithmic time in the size of the mapping database. This
+  operation must either happen in the monitor or must be made more
+  efficient. If we move the mapping database into the monitor, we
+  think that this should at worse become a performance issue and not
+  a correctness one.
 
-\item Simon and I had envisioned a memory server mechanism where it
-  would delete all ram capabilities after handing them out. This
-  allows Simon to implement his version of domain shutdown (discussed
-  in a supporting document). In a nutshell, in his system, the spawn
-  daemon saves all user dispatcher capabilities and revokes them to
-  kill a user dispatcher and repossess its memory. However, there is a
-  subtle problem with this mechanism. A malicious dispatcher can
-  create loops in its CSpace. E.g. root cnode contains a capability to
-  cnode1, cnode1 contains a capability to cnode2, and cnode2 contains
-  another capability to cnode1. When a dispatcher does this and the OS
-  tries to kill it, root cnode will be deleted and all capabilities
-  within it as well. When the OS deletes cnode1, it will check if it
-  has copies, which it does so cnode1 will not be deleted. This will
-  leak memory in the system.
-
-  To avoid this problem, the OS must maintain ancestors of all
-  capabilities that are handed out to user applications and to kill
-  the user application, it must revoke the ancestor capabilities.
 \end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -182,10 +148,10 @@ separate databases:
   associated with a ``root CNode'' that contains all capabilities the
   dispatcher has.
 \item Each core has a mapping database that holds all the capabilities on the
-	core. The mapping database is implemented using a tree of the capabilities.
-	As discussed later in the chapter, the mapping database stores the
-	capabilities in a particular order to facilitate different capability
-	operations.
+      core. The mapping database is implemented using a tree of the capabilities.
+      As discussed later in the chapter, the mapping database stores the
+      capabilities in a particular order to facilitate different capability
+      operations.
 \end{itemize}
 
 \section{Capability invocation}\label{sec:sys_invoke}
@@ -335,10 +301,10 @@ descendants of the specified capability and deletes them.
 \subsection{Looking up local copies and descendants}
 
 Due to the capability ordering used by the mapping database, copies are located
-adjacant to a capabality and descendants immediately thereafter. Therefore, it
+adjacent to a capability and descendants immediately thereafter. Therefore, it
 is easy to look up all related copies of a capability on the same core. This
 facilitates revocation by looking up all copies and descendants, retypes by
-checking for existing descendants, and deltes by checking for copies.
+checking for existing descendants, and deletes by checking for copies.
 
 The following pseudo-code looks up all descendants and copies of a
 capability given the existence of type specific is\_copy and
@@ -391,21 +357,18 @@ is\_descendant functions.
 
 \section{Multicore extensions}
 
-The model above only works for a single core system. We have already
+The model above works for a single core system. We have already
 extended it to work on multiple cores. Here we discuss these
 extensions.
+
+We implement the multi-core extension based on the system discussed in detail
+in chapters 2 and 3 of Mark Nevill's master's thesis, ``An Evaluation of
+Capabilities for a Multikernel''~\cite{Nevill2012}.
 
 \subsection{Cross-core transfer}
 
 This is a special operation available only to the monitors. This sends
 a capability from one core to another.
-
-\subsection{Missing operations}
-
-When a capability is sent to another core, no state is maintained
-about it. When checking for capability relations in capability
-operations, only the current core is checked. Therefore these
-operations are not implemented correctly right now.
 
 \section{Summary}
 
