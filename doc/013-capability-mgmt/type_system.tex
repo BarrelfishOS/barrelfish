@@ -74,7 +74,7 @@ User space refers to entries in that address space with a 32-bit
 The high 24 bits of the capability address are used as an index into the L1
 CNode.
 The L1 CNode index can be too large for a given L1 CNode that has not been
-enlarged to it's maximum size of $2^24$ slots.
+enlarged to it's maximum size of $2^{24}$ slots.
 A user space operation referring to an L1 slot that is not allocated will fail
 with \verb|SYS_ERR_L1_CNODE_INDEX|.
 The CPU driver then uses the L1 index to perform a lookup for the L2 CNode.
@@ -746,7 +746,7 @@ dispatcher's capability into the given buffer.
 Creates the given capability in the given slot in the given CNode with the
 given Owner.
 
-\note{TODO: KernelCmd_Copy_existing}
+\note{TODO: KernelCmd\_Copy\_existing}
 
 \begin{invocation}{Set capability's remote relations}
   \arg CSpace address of CSpace (L1 CNode) in which to look for capability
@@ -767,33 +767,45 @@ remote relations.
 \end{invocation}
 Returns bitmask of currently set remote relations on capability.
 
+Further Kernel capability invocations that we will have to document:
 \begin{itemize}
   \item \verb|KernelCmd_Get_arch_id|: Returns arch id of caller's core
   \item \verb|KernelCmd_Nullify_cap|: Set the capability to NULL allowed it to be reused
   \item \verb|KernelCmd_Setup_trace|: Set up trace buffer
   \item \verb|KernelCmd_Register|: Register monitor notify endpoint
   \item \verb|KernelCmd_Domain_Id|: Set domain ID of dispatcher
-  \item \verb|KernelCmd_Get_cap_owner|:
-  \item \verb|KernelCmd_Set_cap_owner|:
-  \item \verb|KernelCmd_Lock_cap|:
-  \item \verb|KernelCmd_Unlock_cap|:
-  \item \verb|KernelCmd_Delete_last|:
-  \item \verb|KernelCmd_Delete_foreigns|:
-  \item \verb|KernelCmd_Revoke_mark_target|:
-  \item \verb|KernelCmd_Revoke_mark_relations|:
-  \item \verb|KernelCmd_Delete_step|:
-  \item \verb|KernelCmd_Clear_step|:
-  \item \verb|KernelCmd_Retype|:
-  \item \verb|KernelCmd_Has_descendants|:
-  \item \verb|KernelCmd_Is_retypeable|:
-  \item \verb|KernelCmd_Sync_timer|:
-  \item \verb|KernelCmd_IPI_Register|:
-  \item \verb|KernelCmd_IPI_Delete|:
-  \item \verb|KernelCmd_GetGlobalPhys|:
-  \item \verb|KernelCmd_Add_kcb|: add extra kcb to be scheduled
-  \item \verb|KernelCmd_Remove_kcb|: remove kcb from scheduling ring
-  \item \verb|KernelCmd_Suspend_kcb_sched|: suspend/resume kcb scheduler
-  \item \verb|KernelCmd_Get_platform|: Get architecture platform
+  \item \verb|KernelCmd_Get_cap_owner|: Get capability's owning core
+  \item \verb|KernelCmd_Set_cap_owner|: Set capability's owning core
+  \item \verb|KernelCmd_Lock_cap|: Lock capability when performing distributed
+    operation.
+  \item \verb|KernelCmd_Unlock_cap|: Unlock capability when distributed
+    operation done.
+  \item \verb|KernelCmd_Delete_last|: Instruct CPU driver to perform
+    operations necessary -- as outlined in this section -- when deleting last
+    copy of a capability.
+  \item \verb|KernelCmd_Delete_foreigns|: Delete non-owned copies when
+    processing a revoke request from another core.
+  \item \verb|KernelCmd_Revoke_mark_target|: Mark a capability for revocation.
+  \item \verb|KernelCmd_Revoke_mark_relations|: Mark a capability's relations
+    for revocation.
+  \item \verb|KernelCmd_Delete_step|: Instruct the CPU driver to perform a
+    delete step in the distributed delete protocol.
+  \item \verb|KernelCmd_Clear_step|: Instruct the CPU driver to perform a
+    clear step in the distributed delete protocol.
+  \item \verb|KernelCmd_Retype|: Perform a retype for a capability with remote
+    relations.
+  \item \verb|KernelCmd_Has_descendants|: Check whether a capability has
+    descendants.
+  \item \verb|KernelCmd_Is_retypeable|: Check whether a requested retype is
+    valid.
+  \item \verb|KernelCmd_Sync_timer|: Synchronize hardware timers.
+  \item \verb|KernelCmd_IPI_Register|: Register a handler for an IPI (?).
+  \item \verb|KernelCmd_IPI_Delete|: Delete a handler for an IPI (?).
+  \item \verb|KernelCmd_GetGlobalPhys|: Get global physical address
+    corresponding to a local physical address?
+  \item \verb|KernelCmd_Add_kcb|: add extra KCB to be scheduled.
+  \item \verb|KernelCmd_Remove_kcb|: remove KCB from scheduling ring.
+  \item \verb|KernelCmd_Suspend_kcb_sched|: suspend/resume KCB scheduler.
+  \item \verb|KernelCmd_Get_platform|: Get architecture platform.
+\end{itemize}
 
-\note{The other invocations are outdated and will probably change
-  when the monitors are discussed}
