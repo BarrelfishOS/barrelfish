@@ -561,6 +561,57 @@ memory-mapped devices.
 \noarginvocation{Identify} This invocation returns the physical
 address and size (in bytes) of the frame.
 
+\subsection{Mapping}
+After an attempt to store shadow page table entries in the Frame/DevFrame
+capability copies that are mapped in a VNode, which led to a lot of
+unnecessary heavy-weight Frame capability copies in the system, we redesigned
+the shadow page table implementation to use additional capability types, one
+for each capability type that can be copied to a VNode type.
+
+\begin{description}
+\item[Origin] Created when copying a mappable capability to a VNode.
+  
+\item[Retyability] None.
+  
+\item[Mint parameters] None
+  
+\item[Interpretation of rights] \note{Explain rights}
+  
+\item[Transferability to another core] No.
+
+\item[Any copy deleted] Use information stored in capability to delete that
+  mapping that caused this capability to be created.
+
+\item[Last copy deleted] Same as for any other copy deleted.
+  
+\item[Concrete representations] The in-memory representation is as follows:
+  
+  \begin{lstlisting}[language=Mackerel]
+    datatype mapping "Mapping capability" {
+      cap        64  "Kernel address of capability this mapping tracks";
+      pte        64  "Kernel address of VNode entry this mapping tracks";
+      offset     32  "Offset into capability for the mapped region";
+      pte_count  16  "Number of VNode entries of the mapped region";
+    };
+  \end{lstlisting}
+\end{description}
+
+\begin{invocation}{Modify flags of mapping}
+ \arg CSpace address of mapping capability
+ \arg Offset (in #pages) of the first page to get new set of flags from the
+  first page in the mapping identified by the mapping capability.
+ \arg Number of pages that should get new set of flags
+ \arg New set of flags
+ \arg Hint for selective TLB flushing
+\end{invocation}
+Invocation that uses mapping capability to efficiently find relevant VNode
+entries to modify a mapping's flags.
+
+\begin{invocation}{Destroy mapping}
+  \arg Cspace address of mapping capability
+\end{invocation}
+This invocation is not yet implemented.
+
 \subsection{IO}
 An IO capability gives the holder the ability to read and write to IO ports.
 IO capabilities are currently only supported on x86-64.
