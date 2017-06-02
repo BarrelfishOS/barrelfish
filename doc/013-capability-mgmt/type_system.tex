@@ -809,3 +809,37 @@ Further Kernel capability invocations that we will have to document:
   \item \verb|KernelCmd_Get_platform|: Get architecture platform.
 \end{itemize}
 
+\subsection{Kernel Control Block}
+A kernel control block capability captures all the state for a single CPU
+driver.  This allows us to do interesting operations such as rebooting a core
+at runtime~\cite{Coreboot:Zellweger2014}.
+A kernel control block is structured according to the \verb|struct kcb|
+defined in the CPU driver code.
+
+\begin{description}
+\item[Origin] Retyping from RAM type capabilities
+
+\item[Retypability] No
+
+\item[Mint parameters] No
+
+\item[Interpretation of rights] \note{Explain rights and rights mask.
+  Capability rights and rights masks are currently not implemented.
+  This means that every user domain holding a capability has full
+  rights to it.}
+
+\item[Transferability to another core] Yes, between cores that share memory.
+  When transferred to another core, can be scheduled on that core.
+
+\item[Last copy deleted] \note{NYI}
+
+\item[Concrete representations] The in-memory representation is as follows:
+    
+  \begin{lstlisting}[language=Mackerel]
+    datatype KernelControlBlock "Represents a CPU driver's state" {
+      kcb     64  "Kernel address of the KCB represented by this capability"
+    };
+    \end{lstlisting}
+\end{description}
+
+\note{Need to discuss invocations on KCB}
