@@ -11,9 +11,9 @@
  * Address spaces *
  ******************/
 
-ram is accept [0x80000000/30]
+ram is memory accept [0x80000000/30]
 
-gptimer5 is accept [0x1/12]
+gptimer5 is device accept [0x1/12]
 
 l3 is accept [0-0x40000000]
       map [
@@ -43,7 +43,7 @@ dspphys is map [
             0x01D38000/12 to gptimer5 at 0
            ]
 
-sdma is accept [0x4A056000/12]
+sdma is device accept [0x4A056000/12]
         map [0x80000000/30 to ram]
 
 a9virt_0 is map [

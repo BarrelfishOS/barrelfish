@@ -55,6 +55,8 @@ findInterruptLine(NodeId,DeviceId) :-
 findSharedMemoryFrame(NodeId,DeviceId) :-
     NodeName = name(NodeId,_),
     DevName = name(DeviceId,_),
-    findRanges(NodeName,_,NodeRange,SharedRange),
-    findRanges(DevName,_,DeviceRange,SharedRange),
+    SharedName = name(SharedId,_),
+    net(SharedId,node(memory,_,_,_)),
+    findRanges(NodeName,SharedName,NodeRange,SharedRange),
+    findRanges(DevName,SharedName,DeviceRange,SharedRange),
     printSharedRanges(NodeRange,SharedRange,DeviceRange).  
