@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
     err = connect_to_acpi();
     assert(err_is_ok(err));
 
-    err = pci_register_driver_noirq(vbe_init, PCI_CLASS_DISPLAY, PCI_DONT_CARE,
+    err = pci_register_driver_noirq(vbe_init, NULL, PCI_CLASS_DISPLAY, PCI_DONT_CARE,
                                     PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
                                     PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE);
     if (err_is_fail(err)) {

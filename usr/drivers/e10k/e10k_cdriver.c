@@ -1738,7 +1738,7 @@ static void initialize_vfif(void)
 /* Initialization code for driver */
 
 /** Callback from pci to initialize a specific PCI device. */
-static void pci_init_card(struct device_mem* bar_info, int bar_count)
+static void pci_init_card(void *arg, struct device_mem* bar_info, int bar_count)
 {
     errval_t err;
     bool res;
@@ -1833,7 +1833,7 @@ static void pci_register(void)
     assert(err_is_ok(r));
     DEBUG("connected to pci\n");
 
-    r = pci_register_driver_irq(pci_init_card, PCI_CLASS_ETHERNET,
+    r = pci_register_driver_irq(pci_init_card, NULL, PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
                                 PCI_VENDOR_INTEL, pci_deviceid,
                                 pci_bus, pci_device, pci_function,

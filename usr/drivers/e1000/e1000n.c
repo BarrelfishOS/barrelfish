@@ -694,7 +694,7 @@ static uint64_t rx_find_free_slot_count_fn(void)
  * Setup device, create receive ring and connect to Ethernet server.
  *
  ****************************************************************/
-static void e1000_init_fn(struct device_mem *bar_info, int nr_allocated_bars)
+static void e1000_init_fn(void *arg, struct device_mem *bar_info, int nr_allocated_bars)
 {
     E1000_DEBUG("Starting hardware initialization.\n");
     e1000_hwinit(&e1000_device, bar_info, nr_allocated_bars, &transmit_ring,
@@ -1011,14 +1011,14 @@ int e1000n_driver_init(int argc, char **argv)
     assert(err_is_ok(err));
 
     if (use_interrupt) {
-        err = pci_register_driver_movable_irq(e1000_init_fn, class, subclass, program_interface,
+        err = pci_register_driver_movable_irq(e1000_init_fn, NULL, class, subclass, program_interface,
                                               vendor, deviceid, bus, device, function,
                                               e1000_interrupt_handler_fn, NULL,
                                               e1000_reregister_handler,
                                               NULL);
         printf("########### Driver with interrupts ###########\n");
     } else {
-        err = pci_register_driver_noirq(e1000_init_fn, class, subclass, program_interface,
+        err = pci_register_driver_noirq(e1000_init_fn, NULL, class, subclass, program_interface,
                                         vendor, deviceid, bus, device, function);
         printf("########### Driver without interrupts ###########\n");
     }

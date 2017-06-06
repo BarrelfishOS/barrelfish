@@ -49,7 +49,7 @@ static void interrupt_handler(void *arg)
     
 }
 
-static void do_ahci_init(struct device_mem* bar_info, int nr_allocated_bars)
+static void do_ahci_init(void *arg, struct device_mem* bar_info, int nr_allocated_bars)
 {
     // Although the AHCI specification requires the AHCI memory region to be in
     // BAR 5 (BAR 0 to 4 are used for legacy IDE mode) the QEMU AHCI emulation
@@ -132,7 +132,7 @@ int main(int argc, char **argv)
         dev_id->vendor = vendor_id;
         dev_id->device = device_id;
 
-        r = pci_register_driver_movable_irq(do_ahci_init, PCI_CLASS_MASS_STORAGE,
+        r = pci_register_driver_movable_irq(do_ahci_init, NULL, PCI_CLASS_MASS_STORAGE,
                 PCI_SUB_SATA, PCI_DONT_CARE, vendor_id, device_id,
                 PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
                 interrupt_handler, NULL,

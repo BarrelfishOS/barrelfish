@@ -96,7 +96,7 @@ static void device_init(struct xeon_phi *phi)
 
 
 
-static void pci_init_card(struct device_mem* bar_info,
+static void pci_init_card(void *arg, struct device_mem* bar_info,
                           int bar_count)
 {
     errval_t err;
@@ -178,7 +178,7 @@ static void pci_register(struct xeon_phi *phi, uint32_t bus, uint32_t dev, uint3
         USER_PANIC_ERR(err, "Could not connect to PCI\n");
     }
 
-    err = pci_register_driver_irq(pci_init_card,
+    err = pci_register_driver_irq(pci_init_card, NULL,
                                   PCI_DONT_CARE,
                                   PCI_DONT_CARE,
                                   PCI_DONT_CARE,

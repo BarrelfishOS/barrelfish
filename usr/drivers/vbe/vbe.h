@@ -115,7 +115,7 @@ uint32_t vbe_restorestate(void);
 errval_t vbe_get_framebuffer_cap(struct capref *cap, size_t *offset);
 void vbe_vsync(void);
 
-void vbe_init(struct device_mem *bar_info, int nr_mapped_regions);
+void vbe_init(void *arg, struct device_mem *bar_info, int nr_mapped_regions);
 
 void vbe_driver_init_done(void);
 

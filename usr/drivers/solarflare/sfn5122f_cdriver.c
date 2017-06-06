@@ -326,7 +326,7 @@ static int ftqf_alloc(struct sfn5122f_filter_ip* f)
     while (true) {
         if (filters_rx_ip[key].enabled == false) {
             return key;
-        } 
+        }
         
         if (depth > 3) {
             return -1;
@@ -1113,7 +1113,7 @@ static void resend_interrupt(void* arg)
     // If the queue is busy, there is already an oustanding message
     if (err_is_fail(err) && err != FLOUNDER_ERR_TX_BUSY) {
         USER_PANIC("Error when sending interrupt %s \n", err_getstring(err));
-    } 
+    }
 }
 
 /** Here are the global interrupts handled. */
@@ -1142,7 +1142,7 @@ static void global_interrupt_handler(void* arg)
                 DEBUG("Interrupt to queue %lu \n", i);
                 err = queues[i].devif->tx_vtbl.interrupt(queues[i].devif, NOP_CONT, i);
                 if (err_is_fail(err)) {
-                    err = queues[i].devif->register_send(queues[i].devif, 
+                    err = queues[i].devif->register_send(queues[i].devif,
                                                          get_default_waitset(),
                                                          MKCONT(resend_interrupt, (void*)i));
                 }
@@ -1157,9 +1157,9 @@ static void global_interrupt_handler(void* arg)
 /* Management interface implemetation */
 
 static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct capref frame,
-                    bool user, bool interrupt, bool qzero, 
-                    uint8_t core, uint8_t msix_vector, 
-                    uint64_t *mac, uint16_t *qid, struct capref *regs, 
+                    bool user, bool interrupt, bool qzero,
+                    uint8_t core, uint8_t msix_vector,
+                    uint64_t *mac, uint16_t *qid, struct capref *regs,
                     errval_t *ret_err)
 {
 
@@ -1251,7 +1251,7 @@ static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct cap
 
 
 static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref frame,
-                            bool user, bool interrupt, bool qzero, uint8_t core, 
+                            bool user, bool interrupt, bool qzero, uint8_t core,
                             uint8_t msix_vector)
 {
 
@@ -1262,7 +1262,7 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     struct capref regs;
 
 
-    cd_create_queue_rpc(b, frame, user, interrupt, false, core, 
+    cd_create_queue_rpc(b, frame, user, interrupt, false, core,
                         msix_vector, &mac, &queueid, &regs, &err);
 
     err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, err);
@@ -1356,7 +1356,7 @@ static void cd_control(struct sfn5122f_devif_binding *b, uint64_t request,
     uint64_t fid;
     err = reg_port_filter(&f, &fid);
 
-    DEBUG("register filter: 0x%x:%u UDP=%u -> q=%u @ index=%lu %s\n",f.dst_ip, 
+    DEBUG("register filter: 0x%x:%u UDP=%u -> q=%u @ index=%lu %s\n",f.dst_ip,
           f.dst_port, f.type_ip, f.queue, fid, err_getstring(err));
 
 
@@ -1420,7 +1420,7 @@ static errval_t cb_remove_filter(struct net_filter_binding *b,
 {
     if ((type == net_filter_PORT_UDP || type == net_filter_PORT_TCP)
         && filters_rx_ip[filter_id].enabled == true) {
-        filters_rx_ip[filter_id].enabled = false;  
+        filters_rx_ip[filter_id].enabled = false;
 
         sfn5122f_rx_filter_tbl_lo_wr(d, filter_id, 0);
         sfn5122f_rx_filter_tbl_hi_wr(d, filter_id, 0);
@@ -1497,7 +1497,7 @@ static void initialize_mngif(void)
 /* Initialization code for driver */
 
 /** Callback from pci to initialize a specific PCI device. */
-static void pci_init_card(struct device_mem* bar_info, int bar_count)
+static void pci_init_card(void *arg, struct device_mem* bar_info, int bar_count)
 {
     errval_t err;
     bool res;
@@ -1661,7 +1661,7 @@ int main(int argc, char** argv)
     /* Register our device driver */
     err = pci_client_connect();
     assert(err_is_ok(err));
-    err = pci_register_driver_irq(pci_init_card, PCI_CLASS_ETHERNET,
+    err = pci_register_driver_irq(pci_init_card, NULL, PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
                                 pci_vendor, pci_devid,
                                 pci_bus, pci_device, pci_function,
@@ -1682,7 +1682,7 @@ int main(int argc, char** argv)
     assert(err_is_ok(err));
 
     DEBUG("SFN5122F driver networking init done\n");
-    start_all();    
+    start_all();
     
     /* loop myself */
     cd_main();
