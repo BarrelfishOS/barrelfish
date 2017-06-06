@@ -9,7 +9,7 @@
 #ifndef QUEUE_INTERFACE_INTERNAL_H_
 #define QUEUE_INTERFACE_INTERNAL_H_ 1
 
-//#include <devif/queue_interface.h>
+#include <devif/queue_interface.h>
 struct region_pool;
 struct devq;
 

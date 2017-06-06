@@ -5,7 +5,7 @@
     core_offset,        % Core offset where to start the drivers (multi instance)
     multi_instance,     % Allow multi instances of the driver
     interrupt_load,     % Expected Interrupt load
-    interrupt_model,    % List of supported int models. legacy,msi,msix 
+    interrupt_model,    % List of supported int models. legacy,msi,msix
     platforms,          % List of architectures the driver runs on
     priority            % When more than one driver matches, the higher prio gets started
 )).
@@ -158,7 +158,7 @@ int_model_enum(msix, 3).
 get_interrupt_model(IntModels, Model) :-
     ((var(IntModels) -> ModelAtom = none);
     IntModels = [ModelAtom | _]),
-    int_model_enum(ModelAtom, Model). 
+    int_model_enum(ModelAtom, Model).
 
 find_pci_driver(PciInfo, DriverInfo) :-
     PciInfo = pci_card{vendor:VId, device: DId, function: Fun, subvendor: SVId,
@@ -178,7 +178,7 @@ find_pci_driver(PciInfo, DriverInfo) :-
 
 find_cpu_driver(ApicId, DriverInfo) :-
     cpu_driver{binary: Binary, platforms: Platforms},
-    % TODO: In future use ApicId to select cpu driver that has listed the correct 
+    % TODO: In future use ApicId to select cpu driver that has listed the correct
     % platform
     DriverInfo = driver(Binary).
 
@@ -186,4 +186,3 @@ find_ioapic_driver(IOApicId, DriverInfo) :-
     bus_driver{binary: Binary, core_hint: Core, platforms: Platforms},
     % TODO: Select appropriate Core based on core_hint, platform, ioapic id
     DriverInfo = driver(Core, Binary).
-

@@ -86,6 +86,23 @@ static errval_t create_driver_queue (struct net_state *st, uint64_t* queueid,
     return SYS_ERR_OK;
 }
 
+// cardname - "e1000:vendor:deviceid:bus:device:function"
+static errval_t create_e1000_queue(struct net_state *st, uint64_t *queueid,
+                                   struct devq **retqueue)
+{
+    if (st->cardname[5] != ':') {
+        return SYS_ERR_OK;
+    }
+    uint32_t vendor, deviceid, bus, device, function;
+    unsigned parsed = sscanf(st->cardname + 6, "%x:%x:%x:%x:%x", &vendor,
+                             &deviceid, &bus, &device, &function);
+    if (parsed != 5) {
+        return SYS_ERR_OK;
+    }
+
+    return e1000_queue_create((struct e1000_queue**)retqueue, vendor, deviceid,
+                              bus, device, function, 1, int_handler);
+}
 
 static errval_t create_e10k_queue (struct net_state *st, uint64_t* queueid,
                                    struct devq **retqueue)
@@ -99,7 +116,7 @@ static errval_t create_e10k_queue (struct net_state *st, uint64_t* queueid,
     return err;
 }
 
-static errval_t create_sfn5122f_queue (struct net_state *st, uint64_t* queueid, 
+static errval_t create_sfn5122f_queue (struct net_state *st, uint64_t* queueid,
                                        struct devq **retqueue)
 {
     errval_t err;
@@ -119,7 +136,8 @@ struct networking_card
     queue_create_fn createfn;
 } networking_cards [] = {
     { "loopback", create_loopback_queue},
-    { "e1000", create_driver_queue},
+    { "driver", create_driver_queue},
+    { "e1000", create_e1000_queue},
     { "e10k", create_e10k_queue},
     { "sfn5122f", create_sfn5122f_queue},
     { NULL, NULL}
@@ -204,7 +222,7 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
     NETDEBUG("initializing networking with devq=%p, flags=%" PRIx32 "...\n", q,
              flags);
 
-    if(st->initialized) {
+    if (st->initialized) {
         debug_printf("WARNING. initialize called twice. Ignoring\n");
         return SYS_ERR_OK;
     }
@@ -218,6 +236,13 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
     /* associate the net state with the device queue */
     devq_set_state(st->queue, st);
 
+    /* create buffers and add them to the interface*/
+    err = net_buf_pool_alloc(st->queue, NETWORKING_BUFFER_COUNT,
+                             NETWORKING_BUFFER_SIZE, &st->pool);
+    if (err_is_fail(err)) {
+        //net_if_destroy(&st->netif);
+        goto out_err1;
+    }
 
     /* initialize the device queue */
     NETDEBUG("initializing LWIP...\n");
@@ -245,14 +270,6 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
 
     NETDEBUG("setting default netif...\n");
    // netif_set_default(&st->netif);
-
-    /* create buffers and add them to the interface*/
-    err = net_buf_pool_alloc(st->queue, NETWORKING_BUFFER_COUNT,
-                             NETWORKING_BUFFER_SIZE, &st->pool);
-    if (err_is_fail(err)) {
-        //net_if_destroy(&st->netif);
-        goto out_err1;
-    }
 
     NETDEBUG("adding RX buffers\n");
     for (int i = 0; i < NETWORKING_BUFFER_RX_POPULATE; i++) {
@@ -434,11 +451,11 @@ errval_t networking_poll(void)
  * @param tcp       should TCP packets be filtered or UPD
  * @param src_ip    source ip of the filter, 0 for wildcard
  * @param src_port  source port of the filter, 0 for wildcard
- * @param dst_port  destination port fo the filter       
+ * @param dst_port  destination port fo the filter
  *
  * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
  */
-errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src, 
+errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
                                       uint16_t src_port, uint16_t dst_port)
 {
     errval_t err;
@@ -478,11 +495,11 @@ errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
  * @param tcp       should TCP packets be filtered or UPD
  * @param src_ip    source ip of the filter, 0 for wildcard
  * @param src_port  source port of the filter, 0 for wildcard
- * @param dst_port  destination port fo the filter       
+ * @param dst_port  destination port fo the filter
  *
  * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
  */
-errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src, 
+errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src,
                                      uint16_t src_port, uint16_t dst_port)
 {
 

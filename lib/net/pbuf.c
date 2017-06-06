@@ -522,8 +522,6 @@ pbuf_alloced_custom(pbuf_layer l, u16_t length, pbuf_type type, struct pbuf_cust
 void
 pbuf_realloc(struct pbuf *p, u16_t new_len)
 {
-    return;
-#if 0
   struct pbuf *q;
   u16_t rem_len; /* remaining length */
   s32_t grow;
@@ -539,10 +537,6 @@ pbuf_realloc(struct pbuf *p, u16_t new_len)
     /* enlarging not yet supported */
     return;
   }
-
-  p->len = new_len;
-  p->tot_len = new_len;
-  return;
 
   /* the pbuf chain grows by (new_len - p->tot_len) bytes
    * (which may be negative in case of shrinking) */
@@ -588,7 +582,6 @@ pbuf_realloc(struct pbuf *p, u16_t new_len)
   }
   /* q is last packet in chain */
   q->next = NULL;
-#endif
 }
 
 
@@ -705,8 +698,3 @@ pbuf_free(struct pbuf *p)
   /* return number of de-allocated pbufs */
   return count;
 }
-
-
-
-
-

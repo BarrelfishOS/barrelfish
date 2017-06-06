@@ -45,7 +45,7 @@ static void bind_cb(void *st, errval_t err, struct net_filter_binding *b)
 
 
 /** Open connection to management interface */
-static errval_t connect_to_net_filter(struct net_filter_state* st, 
+static errval_t connect_to_net_filter(struct net_filter_state* st,
                                       const char *dev_name)
 {
     errval_t r;
@@ -135,9 +135,9 @@ static bool is_reachable(struct net_filter_ip* filt)
  *
  * @return SYS_ERR_OK on success, error on failure
  */
-errval_t net_filter_init(struct net_filter_state** st, 
+errval_t net_filter_init(struct net_filter_state** st,
                          const char* cardname)
-{   
+{
     errval_t err;
 
     struct net_filter_state* tmp = calloc(1, sizeof(struct net_filter_state));
@@ -155,7 +155,7 @@ errval_t net_filter_init(struct net_filter_state** st,
 
 
 /**
- * @brief Installs an L3/L4 filter in the hardware filter 
+ * @brief Installs an L3/L4 filter in the hardware filter
  *        tables
  *
  * @param st    net filter state
@@ -163,7 +163,7 @@ errval_t net_filter_init(struct net_filter_state** st,
  *
  * @return SYS_ERR_OK on success, error on failure
  */
-errval_t net_filter_ip_install(struct net_filter_state* st, 
+errval_t net_filter_ip_install(struct net_filter_state* st,
                                struct net_filter_ip* filt)
 {
 
@@ -174,7 +174,7 @@ errval_t net_filter_ip_install(struct net_filter_state* st,
     struct net_filter_ele* cur = st->filters_ip.start;
     struct net_filter_ele* prev = NULL;
 
-    /* go through linked list and find last element 
+    /* go through linked list and find last element
      (and check if filter is already installed) */
     if (cur == NULL) {
         st->filters_ip.start = malloc(sizeof(struct net_filter_ele));
@@ -203,7 +203,7 @@ errval_t net_filter_ip_install(struct net_filter_state* st,
     cur->filter.ip.qid = filt->qid;
     cur->filter.ip.type = filt->type;
     cur->next = NULL;
-    cur->prev = prev;    
+    cur->prev = prev;
 
     st->filters_ip.num_ele++;
 
@@ -226,7 +226,7 @@ errval_t net_filter_ip_install(struct net_filter_state* st,
 
 
 /**
- * @brief Removes an L3/L4 filter in the hardware filter 
+ * @brief Removes an L3/L4 filter in the hardware filter
  *        tables
  *
  * @param st    net filter state
@@ -234,7 +234,7 @@ errval_t net_filter_ip_install(struct net_filter_state* st,
  *
  * @return SYS_ERR_OK on success, error on failure
  */
-errval_t net_filter_ip_remove(struct net_filter_state* st, 
+errval_t net_filter_ip_remove(struct net_filter_state* st,
                               struct net_filter_ip* filt)
 {
 
@@ -279,7 +279,7 @@ errval_t net_filter_ip_remove(struct net_filter_state* st,
         prev->next = cur->next;
         if (cur->next != NULL) { // check if last
             cur->next->prev = prev;
-        } 
+        }
     } else {
         st->filters_ip.start = cur->next;
     }
@@ -304,4 +304,3 @@ errval_t net_filter_mac_remove(struct net_filter_state* st,
 {
    USER_PANIC("NYI \n");
 }
-

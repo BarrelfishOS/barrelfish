@@ -541,5 +541,3 @@ errval_t net_if_poll_all(void)
     }
     return SYS_ERR_OK;
 }
-
-
