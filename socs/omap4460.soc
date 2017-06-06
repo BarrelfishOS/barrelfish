@@ -7,136 +7,125 @@
  * Attn: Systems Group.
  */
 
-/******************
- * Address spaces *
- ******************/
+/**
+ * Physical memory map for TI OMAP4460 SoC
+ *
+ * This is derived from:
+ * OMAP4460 Multimedia Device Silicon Revision 1.x Technical Reference
+ * Manual Version Q
+ *
+ */
 
-ram is memory accept [0x80000000/30]
+/*
+ * 2.2 L3 Memory space mapping
+ */
+/* Q0 */
+GPMC is accept [0x00000000/30]
 
-gptimer5 is device accept [0x1/12]
+/* Q1 */
+boot_ROM_internal is accept [0x40028000-0x40033FFF]
+L3_OCM_RAM is accept [0x40300000-0x4030DFFF]
+L3_config_registers is accept [0x44000000/26]
+EMIF1_registers is accept [0x4C000000/24]
+EMIF2_registers is accept [0x4D000000/24]
+DMM_registers is accept [0x4E000000/25]
+GPMC_registers is accept [0x50000000/25]
 
-l3 is accept [0-0x40000000]
-      map [
-        0x80000000/30 to ram
-        0x49000000/24 to l4
-        0x4A056000/12 to sdma
+/* XXX: correct like this (memory controllers are programmable)?
+/* Q2 */
+EMIF1-CS0_SDRAM is memory accept [0x80000000/30]
+// EMIF2-CS0_SDRAM is memory accept [] // interleaving disabled at reset
+
+/* Q3 */
+// EMIF1-CS1_SDRAM is memory accept [] // disabled at reset
+// EMIF2-CS1_SDRAM is memory accept [] // disabled at reset
+
+/* TODO: Tiler view */
+
+L3 is map [
+        0x00000000/30 to GPMC
+        // 0x40000000-0x40027FFF reserved
+        0x40028000-0x40033FFF to boot_ROM_internal //TRM: 0x40030000-4003BFFF?
+        // 0x40034000-0x400FFFFF reserved
+        // 0x40100000/20 Audio back-end (ABE)
+        // 0x40200000/20 reserved
+        0x40300000-0x4030DFFFF to L3_OCM_RAM
+        // 0x4030E000-0x43FFFFFF reserved
+        0x44000000/26 to L3_config_registers
+        // 0x48000000/24 L4_PER domain
+        // 0x49000000/24 L4_ABE domain
+        // 0x4A000000/24 L4_CFG domain
+        // 0x4B000000/24 reserved
+        0x4C000000/24 to EMIF1_registers
+        0x4D000000/24 to EMIF2_registers
+        0x4E000000/25 to DMM_registers
+        0x50000000/25 to GPMC_registers
+        // 0x52000000/25 ISS
+        0x54000000/24 to L3_EMU
+        // 0x55000000/24 Dual Cortex-M3 subsystem target
+        // 0x56000000/25 SGX
+        // 0x58000000/24 Display subsystem
+        // 0x59000000/24 reserved
+        // 0x5A000000/24 IVA-HD configuration
+        // 0x5B000000/24 IVA-HD SL2
+        // 0x5C000000/26 reserved
+        // 0x60000000/28 Tiler address mapping
+        0x80000000/30 to EMIF1-CS0_SDRAM
+        // other RAM controllers disabled at reset
       ]
 
-l4 is map [
-        0x40138000/12 to gptimer5 at 0
-        0x40139000/12 to gptimer5 at 0
-        0x49038000/12 to gptimer5 at 0
-        0x49039000/12 to gptimer5 at 0
-        0x01D38000/12 to gptimer5 at 0
-        0x01D39000/12 to gptimer5 at 0
-        0x4A056000/12 to sdma
-        0x4A057000/12 to sdma at 0x4A056000
-      ]
+/*
+ * 2.2.1 L3_EMU Memory Space Mapping
+ */
 
-dspvirt is map [
-                0x1000000/12 to dspphys at 0x01D3800
-                0x2000000/26 to dspphys
-               ]
+ MIPI_STM_0 is accept [0x54000000/20]
+ MIPI_STM_1 is accept [0x54100000/18]
+ A9_CPU0_debug_PMU is accept [0x54140000/13]
+ A9_CPU1_debug_PMU is accept [0x54142000/13]
+ CTI0 is accept [0x54148000/12]
+ CTI1 is accept [0x54149000/12]
+ PTM0 is accept [0x5414C000/12]
+ PTM1 is accept [0x5414D000/12]
+ Trace_funnel is accept [0x54158000/12]
+ DAP_PC is accept [0x54159000/12]
+ APB is accept [0x5415F000/12]
+ DRM is accept [0x54160000/12]
+ MIPI_STM is accept [0x54161000/12]
+ ETB is accept [0x54162000/12]
+ CS_TPIU is accept [0x54163000/12]
+ CS_TF0 is accept [0x54164000/12]
+ tech_spec_registers_1 is accept [0x54167000/12]
+ tech_spec_registers_2 is accept [0x54180000/12]
 
-dspphys is map [
-            0x80000000/30 to l3
-            0x01D38000/12 to gptimer5 at 0
+ L3_EMU is map [
+                0x54000000/20 to MIPI_STM_0
+                0x54100000/18 to MIPI_STM_1
+                0x54140000/13 to A9_CPU0_debug_PMU
+                0x54142000/13 to A9_CPU1_debug_PMU
+                // 0x54144000/14 reserved
+                0x54148000/12 to CTI0
+                0x54149000/12 to CTI1
+                // 0x5414A000/13 reserved
+                0x5414C000/12 to PTM0
+                0x5414D000/12 to PTM1
+                // 0x5414E000/13 reserved
+                0x54158000/12 to Trace_funnel
+                0x54159000/12 to DAP_PC
+                // 0x5415A000-0x5415EFFF reserved
+                0x5416F000/12 to APB
+                0x54160000/12 to DRM
+                0x54161000/12 to MIPI_STM
+                0x54162000/12 to ETB
+                0x54163000/12 to CS_TPIU
+                0x54164000/12 to CS_TF0
+                // 0x54165000/13 reserved
+                0x54167000/12 to tech_spec_registers_1
+                // 0x54168000-0x5417FFFF reserved
+                0x54180000/12 tech_spec_registers_2
+                // 0x54181000-0x541FFFFF reserved
+                // XXX: What about 0x54200000-0x54FFFFFF
            ]
 
-sdma is device accept [0x4A056000/12]
-        map [0x80000000/30 to ram]
 
-a9virt_0 is map [
-                0x00000000/30 to a9phys_0 at 0x80000000
-                0x60000000/12 to a9phys_0 at 0x40138000
-                0x60001000/12 to a9phys_0 at 0x49038000
-                0x60002000/12 to a9phys_0 at 0x4A056000
-            ]
 
-a9virt_1 is map [
-                0x10000000/30 to a9phys_0 at 0x80000000
-                0x70000000/12 to a9phys_0 at 0x40138000
-                0x70001000/12 to a9phys_0 at 0x49038000
-                0x70002000/12 to a9phys_0 at 0x4A056000
-            ]
 
-a9phys_0,
-a9phys_1 are map [
-                    0x80000000/30 to l3
-                    0x40138000/12 to l4
-                    0x49038000/12 to l3
-                    0x4A056000/12 to l3
-                 ]
-
-m3virt_0 is map [
-                0x10000000/30 to m3_l2_mif at 0x00000000
-                0x50000000/14 to m3_l2_mif at 0x55000000
-                0x50020000/16 to m3_l2_mif at 0x55020000
-            ]
-
-m3_ram is accept [0x55000000/14]
-m3_rom is accept [0x55020000/16]
-
-m3_l2_mif is map [
-                0x0000000/27 to m3phys
-                0x55000000/14 to m3_ram
-                0x55020000/16 to m3_rom
-             ]
-
-m3phys is map [0x0000000/27 to l3 at 0x80000000]
-
-/**************
- * Interrupts *
- **************/
-
-a9_0 is map [0 to a9_1]
-a9_1 is map [0 to a9_0]
-
-dsp is accept [] map []
-
-m3_0,
-m3_1 are accept [] map []
-
-if_a9_0,
-if_a9_1 are accept [
-            0-15
-            16-31
-            32-1019
-        ]
-
-gic is map [
-             73 to if_a9_0
-            131 to if_a9_0
-            132 to if_a9_0
-             44 to if_a9_0
-             45 to if_a9_0
-             46 to if_a9_0
-             47 to if_a9_0
-             44 to if_a9_1
-             45 to if_a9_1
-             46 to if_a9_1
-             47 to if_a9_1
-       ]
-
-dsp_intc is accept [] map []
-
-nvic_0,
-nvic_1 are accept [] map []
-
-pt_0 is map [0 to if_a9_0 at 29]
-pt_1 is map [0 to if_a9_1 at 29]
-
-gptimer5_i is map [0 to spimap at 41, dsp_intc at 41]
-
-audio is map [0 to spimap at 99]
-
-sdma_i is map [
-            0 to spimap at 12, dsp_intc at 18, nvic_0 at 18, nvic_1 at 18
-            1 to spimap at 13, dsp_intc at 19, nvic_0 at 19, nvic_1 at 19
-            2 to spimap at 14, nvic_0 at 20, nvic_1 at 20
-            3 to spimap at 15, nvic_0 at 21, nvic_1 at 21
-          ]
-
-spimap is map [0-987 to gic at 32]
-
-m3mmu is map [0 to spimap at 100]
