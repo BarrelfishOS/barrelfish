@@ -15,7 +15,9 @@
 #ifndef _RPC_H
 #define _RPC_H
 
+#include <nfs/xdr.h>
 #include <barrelfish/deferred.h>
+#include <net_sockets/net_sockets.h>
 
 /**
  * A reply to a call message can take on two forms: The message was
@@ -57,8 +59,9 @@ enum rpc_auth_stat {
 
 /// RPC client instance data
 struct rpc_client {
-    struct udp_pcb *pcb;    ///< UDP connection data in LWIP
-    struct ip_addr server;  ///< Server IP
+    struct net_socket *socket;    ///< UDP socket
+    host_address_t connected_address, connected_port;
+    host_address_t server;  ///< Server IP
     struct rpc_call *call_hash[RPC_HTABLE_SIZE];
 
     uint32_t nextxid;       ///< Next transaction ID
@@ -82,9 +85,9 @@ typedef void (*rpc_callback_t)(struct rpc_client *rpc_client, void *arg1,
                                void *arg2, uint32_t replystat,
                                uint32_t acceptstat, XDR *reply_xdr);
 
-err_t rpc_init(struct rpc_client *client, struct ip_addr server);
+errval_t rpc_init(struct rpc_client *client, host_address_t server);
 void rpc_destroy(struct rpc_client *client);
-err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
+errval_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
                uint32_t vers, uint32_t proc, xdrproc_t args_xdrproc, void *args,
                size_t args_size, rpc_callback_t callback, void *cbarg1,
                void *cbarg2);

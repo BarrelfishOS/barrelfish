@@ -95,7 +95,8 @@
                "descq",
                "ddomain",
                "dcontrol",
-               "net_filter"
+               "net_filter",
+               "net_sockets"
            ],
              arch <- allArchitectures
 ] ++

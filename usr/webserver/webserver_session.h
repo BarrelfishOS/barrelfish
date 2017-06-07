@@ -51,7 +51,7 @@ struct http_conn {
     int                 retries;
     int                 error; /*flag for internal errors */
     char                *filename;     /* name of the requested file */
-    struct tcp_pcb      *pcb;
+    struct net_socket   *pcb;
     void (*callback) (struct http_conn *);
     int                 mark_invalid;     /* is it marked for delete? */
     long                ref_count;
@@ -59,7 +59,7 @@ struct http_conn {
 };
 
 
-err_t http_fetch_file(const char *name, struct http_conn *cs);
+errval_t http_fetch_file(const char *name, struct http_conn *cs);
 long decrement_http_conn_reference (struct http_conn *cs);
 long increment_http_conn_reference (struct http_conn *cs);
 #endif // WEBSERVER_SESSION_H

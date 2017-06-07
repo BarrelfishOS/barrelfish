@@ -15,8 +15,7 @@
 #ifndef _XDR_PBUF_H
 #define _XDR_PBUF_H
 
-struct pbuf;
-bool xdr_pbuf_create_send(XDR *xdr, size_t size);
-void xdr_pbuf_create_recv(XDR *xdr, struct pbuf *pbuf);
+bool xdr_create_send(XDR *xdr, size_t size);
+void xdr_create_recv(XDR *xdr, void *data, size_t size);
 
 #endif

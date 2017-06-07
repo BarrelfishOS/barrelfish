@@ -25,7 +25,7 @@
 #include <barrelfish/deferred.h>
 #include <barrelfish_kpi/cpu_arch.h>
 #include "threads_priv.h"
-
+#include <barrelfish/notificator.h>
 
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
@@ -113,6 +113,8 @@ void disp_run(dispatcher_handle_t handle)
     // Check polled channels
     poll_channels_disabled(handle);
     ump_channels_retry_send_disabled(handle);
+
+    check_notificators_disabled(handle);
 
     // Run, saving state of previous thread if required
     thread_run_disabled(handle);

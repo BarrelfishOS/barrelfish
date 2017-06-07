@@ -6,12 +6,10 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for /usr/webserver
+--
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "netthroughput",
-                      cFiles = [ "nfs_cat.c"],
-                      addLibraries = libDeps ["vfs"]
-                    }
+[ build library { target = "debug_log",
+                  cFiles = [ "debug_log.c" ] }
 ]

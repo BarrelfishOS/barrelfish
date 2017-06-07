@@ -49,20 +49,23 @@ static int cat(char *path)
     	printf("Could not stat file %s\n", path);
     }
     printf("Reading %d bytes from %s.\n", (int)info.size, path);
-    void *buf = malloc(info.size);
+    void *buf = malloc(10485760);
     assert(buf);
 
     uint64_t start = rdtsc();
     lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
 
-	err = vfs_read(vh, buf, info.size, &size);
-	if (err_is_fail(err)) {
-		// XXX: Close any files that might be open
-		DEBUG_ERR(err, "error reading file");
-		return 0;
-	}
-	assert(info.size == size);
-	filesize += size;
+    for (; filesize != info.size;) {
+    	err = vfs_read(vh, buf, 10485760, &size);
+    	if (err_is_fail(err)) {
+    		// XXX: Close any files that might be open
+    		DEBUG_ERR(err, "error reading file");
+    		return 0;
+    	}
+        debug_printf("%s: %ld:%ld\n", __func__, filesize, info.size);
+    	filesize += size;
+    }
+    assert(info.size == filesize);
 
     // record stop time
     uint64_t stop = rdtsc();
@@ -96,7 +99,7 @@ int main(int argc, char**argv)
     }
 
     errval_t err = vfs_mkdir(MOUNT_DIR);
-    if(err_is_fail(err)) {
+    if (err_is_fail(err)) {
         DEBUG_ERR(err, "vfs_mount");
     }
 
