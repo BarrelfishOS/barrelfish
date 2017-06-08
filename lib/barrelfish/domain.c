@@ -634,6 +634,7 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
                                                void *callback_arg, size_t stack_size)
 {
     assert(core_id != disp_get_core_id());
+    printf("core_id = %d\n", core_id);
 
     errval_t err;
     struct domain_state *domain_state = get_domain_state();
@@ -742,6 +743,13 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
     disp_x64->ldt_npages = mydisp_x64->ldt_npages;
 #endif
 
+#ifdef __arm__
+
+    debug_printf("Trying to span a domain on an arm platform. Not yet supported.\n");
+    DEBUG_ERR(0, "Help me! NOOOOOOOOOOOO");
+
+#endif
+
     threads_prepare_to_span(handle);
 
     // Setup new local thread for inter-dispatcher messages, if not already done
@@ -774,18 +782,26 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
     }
 #endif
     /* Wait to use the monitor binding */
+
     struct monitor_binding *mcb = get_monitor_binding();
     event_mutex_enqueue_lock(&mcb->mutex, &span_domain_state->event_qnode,
                           (struct event_closure) {
                               .handler = span_domain_request_sender_wrapper,
                                   .arg = span_domain_state });
 
+
+
+
     while(!span_domain_state->initialized) {
         event_dispatch(get_default_waitset());
     }
 
+
+
     /* Free state */
+
     free(span_domain_state);
+
 
     return SYS_ERR_OK;
 }
@@ -803,6 +819,7 @@ errval_t domain_new_dispatcher(coreid_t core_id,
                                domain_spanned_callback_t callback,
                                void *callback_arg)
 {
+
     return domain_new_dispatcher_varstack(core_id, callback, callback_arg,
                                           THREADS_DEFAULT_STACK_BYTES);
 }

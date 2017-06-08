@@ -861,8 +861,10 @@ errval_t vfs_ramfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
     }
 
     if (use_bulk_data) {
+    	//printf ("\t here is ramfsops_bulk...... might be the error\n");
         *retops = &ramfsops_bulk;
     } else {
+    	//printf ("\t here is ramfsops_non_bulk...... might be the error\n");
         *retops = &ramfsops_non_bulk;
     }
     *retst = client;

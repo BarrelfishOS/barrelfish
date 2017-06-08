@@ -122,7 +122,7 @@ int main(int argc,
             }
         }
     };
-
+printf("\n\n=============================================\n\n");
 
     uint32_t count = 0x1F;
     while(count--) {

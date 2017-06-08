@@ -29,7 +29,7 @@ static int fpu_thread(void *arg)
 
     for(uint64_t i = 0;; i++) {
         save = sin(save + 0.1) + 0.1;
-        // printf("%s(%d): %g\n", progname, n, save);
+        //printf("%s(%d): %ld\n", progname, n, i);
         double test = sin(lastsave + 0.1) + 0.1;
         if(save != test) { // if (fabs(save - test) > 0.00000001)
             printf("ERROR %s(%d): %.15g != %.15g at iteration %" PRIu64 "\n",
@@ -38,7 +38,7 @@ static int fpu_thread(void *arg)
         }
         lastsave = save;
 
-        if(i % 50000000 == 0) {
+        if(i % 10000 == 0) {
             printf("%s(%d): iteration %" PRIu64 "\n", progname, n, i);
             j++;
             if(j == 3) {

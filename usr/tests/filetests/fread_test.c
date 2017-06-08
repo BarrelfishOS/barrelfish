@@ -17,7 +17,7 @@
 
 /* ------------------------------ MAIN ------------------------------ */
 
-#define AMOUNT 100000
+#define AMOUNT 1000
 
 int main(int argc, char *argv[])
 {
@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     }
 
     /* Create a file with a lot of data */
-    FILE *fh = fopen("/filetests/fread_test.dat", "w");
+    FILE *fh = fopen("/filetests/fread_test.dat", "a+");
     if (!fh) {
         USER_PANIC("fopen failed");
     }
@@ -49,19 +49,19 @@ int main(int argc, char *argv[])
     char *ptr = malloc(AMOUNT);
     assert(ptr);
 
-    size_t size = fread(ptr, 10, 1, fh);
+    size_t size = fread(ptr, 1, 10, fh);
     if (size != 10) {
-        USER_PANIC("fread did not read full amount");
+        USER_PANIC("fread did not read full amount1");
     }
 
-    size = fread(ptr, AMOUNT - 10, 1, fh);
+    size = fread(ptr, 1, AMOUNT - 10, fh);
     if (size != AMOUNT - 10) {
-        USER_PANIC("fread did not read full amount");
+        USER_PANIC("fread did not read full amount2");
     }
 
-    size = fread(ptr, AMOUNT, 1, fh);
+    size = fread(ptr, 1, AMOUNT, fh);
     if (size != 0) {
-        USER_PANIC("fread did not read full amount");
+        USER_PANIC("fread did not read full amount3");
     }
 
     printf("client done\n");

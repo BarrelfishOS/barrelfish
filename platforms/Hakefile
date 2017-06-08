@@ -170,6 +170,20 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                           "monitor",
                           "ramfsd" ]]
 
+    -- modules for examples
+    modules_examples = [ "/sbin/" ++ f | f <- [
+                          "examples",
+                          "examples/xmpl-msg",
+                          "examples/xmpl-call-response",
+                          "examples/xmpl-rpc_rpc",
+                          "examples/xmpl-rpc_msg",
+                          "examples/xmpl-span",
+                          "examples/xmpl-spawn",
+                          "examples/xmpl-thc-binding",
+                          "examples/xmpl-thread",
+                          "examples/xmpl-crystal-readwrite",
+                          "examples/xmpl-markhello" ]]                  
+
     -- List of modules that are arch-independent and always built
     modules_generic = [
         "/eclipseclp_ramfs.cpio.gz",
@@ -227,7 +241,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "webserver",
                            "xeon_phi",
                            "xeon_phi_mgr"
-                           ]] ++ modules_common
+                           ]] ++ modules_common 
+                              ++ modules_examples 
+                              ++ tests_x86_64
 
     -- the following are broken in the newidc system
     modules_x86_64_broken  = [ "/sbin/" ++ f | f <- [
@@ -267,7 +283,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "serial_kernel",
                         "angler",
                         "corectrl"
-                        ] ]
+                        ] ] ++ modules_examples
 
     -- ARMv7-A modules for Versatile Express EMM board (GEM5, qemu)
     vExpressEMMModules_A15 = [ "/sbin/" ++ f | f <- [

@@ -337,6 +337,7 @@ errval_t get_next_event_disabled(struct waitset *ws,
     struct waitset_chanstate *waitfor, struct waitset_chanstate *waitfor2,
     dispatcher_handle_t handle, bool debug)
 {
+	//debug_printf("----entering get_next_event_disabled function.....\n");
     struct waitset_chanstate * chan;
 
 // debug_printf("%s: %p %p %p %p\n", __func__, __builtin_return_address(0), __builtin_return_address(1), __builtin_return_address(2), __builtin_return_address(3));
@@ -352,14 +353,16 @@ errval_t get_next_event_disabled(struct waitset *ws,
             else
                 waitset_chan_deregister_disabled(chan, handle);
             wake_up_other_thread(handle, ws);
-    // debug_printf("%s.%d: %p\n", __func__, __LINE__, retclosure->handler);
+  //   debug_printf("%s.%d: %p\n", __func__, __LINE__, retclosure->handler);
             return SYS_ERR_OK;
         }
         chan = ws->pending; // check a pending queue
         if (!chan) { // if nothing then wait
+			//debug_printf("nothing then wait\n");
             thread_block_disabled(handle, &ws->waiting_threads);
             disp_disable();
         } else { // something but it's not our event
+			//debug_printf("something then check\n");
             if (!ws->waiting_threads) { // no other thread interested in
                 dequeue(&ws->pending, chan);
                 enqueue(&ws->waiting, chan);
@@ -367,6 +370,7 @@ errval_t get_next_event_disabled(struct waitset *ws,
                 chan->waitset = ws;
             } else {
                 // find a matching thread
+				//debug_printf("finding a matching thread\n");
                 struct thread *t;
                 for (t = ws->waiting_threads; t; ) {
                     if (waitset_can_receive(chan, t)) { // match found, wake it
@@ -456,14 +460,19 @@ errval_t check_for_event(struct waitset *ws)
 
 errval_t event_dispatch(struct waitset *ws)
 {
+//    debug_printf("entering event_dispatch\n");
     struct event_closure closure;
     errval_t err = get_next_event(ws, &closure);
     if (err_is_fail(err)) {
+//        debug_printf("get next event failed\n");
         return err;
     }
 
     assert(closure.handler != NULL);
+//    debug_printf("event received. executing handler\n");
     closure.handler(closure.arg);
+//    debug_printf("event handled\n");
+//    debug_printf("returning from event_dispatch\n");
     return SYS_ERR_OK;
 }
 

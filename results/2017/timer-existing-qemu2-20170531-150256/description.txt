@@ -1,0 +1,12 @@
+test: timer
+revision: 478e420282ddb4d74221b1750d5e02c6adc7e303
+build: existing
+machine: qemu2
+start time: 2017-05-31 15:02:56.295491
+user: crystal
+untracked-files: hd.img,results/2017/memtest-existing-qemu2-20170531-140911/bootlog.txt,results/2017/memtest-existing-qemu2-20170531-140911/changes.patch,results/2017/memtest-existing-qemu2-20170531-140911/description.txt,results/2017/memtest-existing-qemu2-20170531-140911/menu.lst,results/2017/memtest-existing-qemu2-20170531-140911/raw.txt,results/2017/spantest-existing-qemu2-20170531-141041/bootlog.txt,results/2017/spantest-existing-qemu2-20170531-141041/changes.patch,results/2017/spantest-existing-qemu2-20170531-141041/description.txt,results/2017/spantest-existing-qemu2-20170531-141041/menu.lst,results/2017/spantest-existing-qemu2-20170531-141041/raw.txt,results/2017/timer-existing-qemu2-20170531-150256/description.txt
+commitmsg: run some tests (some error msg included)
+commitmsg-tail: 
+shortrev: 478e420
+dirty: True
+branch: master

@@ -23,7 +23,7 @@ const char *service_name = "xmplrpc_msg_service";
 
 /* --------------------- Client ------------------------------ */
 
-static void rx_myrpc_response(struct xmplrpc_binding *b, char *s)
+static void rx_myrpc_response(struct xmplrpc_binding *b, const char *s)
 {
     debug_printf("client: rx_myrpc_response called: %s\n", s);
 

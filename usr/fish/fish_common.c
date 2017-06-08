@@ -994,7 +994,6 @@ static int ls(int argc, char *argv[])
             DEBUG_ERR(err, "in vfs_closedir");
         }
     }
-
     return ret;
 }
 
@@ -1004,10 +1003,10 @@ static int mkdir(int argc, char *argv[])
         printf("Usage: %s dir\n", argv[0]);
         return EXIT_FAILURE;
     }
-
     char *path = vfs_path_mkabsolute(cwd, argv[1]);
     errval_t err = vfs_mkdir(path);
     free(path);
+//    errval_t err = vfs_mkdir(argv[1]);
     if (err_is_fail(err)) {
         printf("%s\n", err_getstring(err));
         return EXIT_FAILURE;
@@ -1022,7 +1021,6 @@ static int rmdir(int argc, char *argv[])
         printf("Usage: %s dir\n", argv[0]);
         return EXIT_FAILURE;
     }
-
     char *path = vfs_path_mkabsolute(cwd, argv[1]);
     errval_t err = vfs_rmdir(path);
     free(path);

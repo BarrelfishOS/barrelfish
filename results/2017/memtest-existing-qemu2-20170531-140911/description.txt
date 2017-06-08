@@ -1,0 +1,12 @@
+test: memtest
+revision: 478e420282ddb4d74221b1750d5e02c6adc7e303
+build: existing
+machine: qemu2
+start time: 2017-05-31 14:09:11.623303
+user: crystal
+untracked-files: results/2017/memtest-existing-qemu2-20170531-140911/description.txt
+commitmsg: run some tests (some error msg included)
+commitmsg-tail: 
+shortrev: 478e420
+dirty: True
+branch: master

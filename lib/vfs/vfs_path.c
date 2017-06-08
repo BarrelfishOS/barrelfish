@@ -108,10 +108,12 @@ void vfs_path_normalise(char *path)
 char *vfs_path_mkabsolute(const char *cwd, const char *path)
 {
     char *ret;
-
+    //printf("in vfs_path_mkabsolute: path = %s\n", path);
+    //printf("in vfs_path_mkabsolute: cwd = %s\n", cwd);
     if (path[0] == VFS_PATH_SEP) {
         // path is already absolute, just copy it
         ret = strdup(path);
+        //printf("in vfs_path_mkabsolute: if already absolute, ret = %s\n", ret);
         assert(ret != NULL);
     } else {
         // allocate a buffer, and concatenate the cwd and relative path
@@ -120,12 +122,16 @@ char *vfs_path_mkabsolute(const char *cwd, const char *path)
         assert(ret != NULL);
 
         strcpy(ret, cwd);
+        //printf("in vfs_path_mkabsolute: after copy cwd, ret = %s\n", ret);
         strcat(ret, VFS_PATH_SEP_STR);
+        //printf("in vfs_path_mkabsolute: after cat VFS_PATH_SEP_STR, ret = %s\n", ret);
         strcat(ret, path);
+        //printf("in vfs_path_mkabsolute: after cat path, ret = %s\n", ret);
     }
 
     // normalise the result, in either case
     vfs_path_normalise(ret);
+    //printf("in vfs_path_mkabsolute: after normalised, ret = %s\n", ret);
 
     // optional: to save space after normalising
     // realloc(ret, strlen(ret) + 1);

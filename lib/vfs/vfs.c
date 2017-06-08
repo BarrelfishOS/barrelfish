@@ -59,6 +59,7 @@ static struct vfs_mount *find_mount(const char *path, const char **ret_relpath)
     if (path == NULL || path[0] != VFS_PATH_SEP) {
         return NULL;
     }
+    //printf("mounts = %s\n", mounts->mountpoint);
 
     for (struct vfs_mount *m = mounts; m != NULL; m = m->next) {
         if (mount_matches(m->mountpoint, path, &len)
@@ -67,7 +68,6 @@ static struct vfs_mount *find_mount(const char *path, const char **ret_relpath)
             matchlen = len;
         }
     }
-
     if (match != NULL && ret_relpath != NULL) {
         *ret_relpath = &path[matchlen];
     }
@@ -233,9 +233,11 @@ errval_t vfs_open(const char *path, vfs_handle_t *handle)
  */
 errval_t vfs_create(const char *path, vfs_handle_t *handle)
 {
+    //printf("\t here is vfs_create function......\n");
     const char *relpath = NULL;
 
     // locate mount point
+    //printf("\t find_mount......\n");
     struct vfs_mount *m = find_mount(path, &relpath);
     if (m == NULL) {
         return FS_ERR_NOTFOUND;
@@ -244,6 +246,7 @@ errval_t vfs_create(const char *path, vfs_handle_t *handle)
     // call fs ops func
     assert(m->ops != NULL);
     assert(m->ops->create != NULL);
+    //printf("\t create......\n");
     errval_t ret = m->ops->create(m->st, relpath, handle);
 
     // update handle with mount pointer

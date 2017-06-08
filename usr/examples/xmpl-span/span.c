@@ -29,6 +29,7 @@ int num_span = -1;
 
 static void span_cb(void *arg, errval_t err)
 {
+
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "span failed");
         return;
@@ -40,6 +41,7 @@ static void span_cb(void *arg, errval_t err)
     if (num_spanned >= num_span) {
         all_spanned = true;
     }
+	printf("\t span_cb function finished.....\n");
 
 }
 
@@ -47,6 +49,8 @@ int main(int argc, char *argv[])
 {
     errval_t err;
     coreid_t mycore = disp_get_core_id();
+
+    debug_printf("%d\n", mycore);
 
     if (argc == 2) {
         num_span = atoi(argv[1]);
