@@ -20,25 +20,15 @@
  * 2.2 L3 Memory space mapping
  */
 /* Q0 */
-GPMC is memory accept [0x00000000/30]
+GPM is memory accept [0x00000000/30]
 
 /* Q1 */
 boot_ROM_internal is memory accept [0x40028000-0x40033FFF]
 L3_OCM_RAM is memory accept [0x40300000-0x4030DFFF]
-L3_config_registers is device accept [0x44000000/26]
-EMIF1 is device accept [0x4C000000/24]
-EMIF2 is device accept [0x4D000000/24]
-DMM is device accept [0x4E000000/25]
-GPMC_config is device accept [0x50000000/25]
+L3_config is device accept [0x44000000/26]
 
-/* XXX: correct like this (memory controllers are programmable)?
 /* Q2 */
-EMIF1-CS0_SDRAM is memory accept [0x80000000/30]
-/* EMIF2-CS0_SDRAM is memory accept [] // interleaving disabled at reset */
-
-/* Q3 */
-/* EMIF1-CS1_SDRAM is memory accept [] // disabled at reset */
-/* EMIF2-CS1_SDRAM is memory accept [] // disabled at reset */
+SDRAM is memory accept [0/30]
 
 /* TODO: Tiler view */
 
@@ -51,7 +41,7 @@ L3 is map [
         /* 0x40200000/20 reserved */
         0x40300000-0x4030DFFFF to L3_OCM_RAM
         /* 0x4030E000-0x43FFFFFF reserved */
-        0x44000000/26 to L3_config_registers
+        0x44000000/26 to L3_config
         0x48000000/24 to L4_PER
         0x49000000/24 to L4_ABE at 0
         0x4A000000/24 to L4_CFG
@@ -128,45 +118,11 @@ L3_EMU is map [
 /*
  * 2.3.1 L4_CFG Memory Space Mapping
  */
-L4_CFG_AP is device accept [0x4A000000/11]
-L4_CFG_LA is device accept [0x4A000800/11]
-L4_CFG_IP0 is device accept [0x4A001000/12]
-SYSCTRL_GENERAL_CORE is accept [0x4A002000/12]
 CM1 is device accept [0x4A004000/12]
 CM2 is device accept [0x4A008000/12]
-sDMA is device accept [0x4A056000/12]
-HSI_top is device accept [0x4A058000/12]
-HSI_DMA is device accept [0x4A059000/12]
-HSI_Port1 is device accept [0x4A05B000/12]
-HSI_Port2 is device accept [0x4A05C000/12]
 SAR_ROM is device accept [0x4A05E000/13]
-HSUSBTLL is device accept [0x4A06200/12]
-HSUSBHOST is device accept [0x4A06000/12]
-FSUSB is device accept [0x4A0A9000/12]
-HSUSBOTG is device accept [0x4A0AB000/12]
-USBPHY is device accept [0x4A0AD000/12]
-SR_MPU is device accept [0x4A0D900/12]
-SR_IVA is device accept [0x4A0DB000/12]
-SR_CORE is device accept [0x4A0DD00/12]
-Mailbox is device accept [0x4A0F400/12]
-Spinlock is device accept [0x4A0F600/12]
-SYSCTRL_PADCONF_CORE is device accept [0x4A100000/12]
+
 OCP-WP is device accept [0x4A102000/12]
-Face_detect is device accept [0x4A10A000/12]
-C2C_INIT_firewall is device accept [0x4A204000/12] // not in TRM, from omap44xx_map.h
-C2C_TARGET_FIREWALL is device accept [0x4A206000/12] // not in TRM, from omap44xx_map.h
-MA_firewall is device accept[0x4A20A00/12]
-EMIF_firewall is device accept [0x4A20C000/12]
-GPMC_firewall is device accept [0x4A210000/12]
-OCMC_RAM_firewall is device accept [0x4A212000/12]
-GFX-T_firewall is device accept [0x4A214000/12]
-ISS-T_firewall is device accept [0x4A216000/12]
-M3-T_firewall is device accept [0x4A218000/12]
-DSS-T_firewall is device accept [0x4A21C000/12]
-SL2-T_firewall is device accept [0x4A21E000/12]
-IVAHD-CFG-T_firewall is device accept [0x4A220000/12]
-L4-EMU_firewall is device accept [0x4A226000/12]
-L4-ABE_firewall is device accept [0x4A228000/12]
 
 L4_CFG is map [
             0x4A000000/11 to L4_CFG_AP
@@ -267,18 +223,6 @@ L4_CFG is map [
 /*
  * 2.3.2 L4_WKUP Memory Space Mapping
  */
-L4_WKUP_AP is device accept [0x4A300000/11]
-L4_WKUP_LA is device accept [0x4A300800/11]
-L4_WKUP_IP0 is device accept [0x4A301000/12]
-TIMER32K is device accept [0x4A304000/12]
-PRM is device accept [0x4A306000/13]
-SCRM is device accept [0x4A30A000/12]
-SYSCTRL_GENERAL_WKUP is device accept [0x4A30C000/12]
-GPIO1 is device accept [0x4A310000/12]
-WDTIMER2 is device accept [0x4A314000/12]
-GPTIMER1 is device accept [0x4A318000/12]
-Keyboard is device accept [0x4A31C000/12]
-SYSCTRL_PADCONF_WKUP is device accept [0x4A31E000/12]
 SAR_RAM1 is device accept [0x4A326000/12]
 SAR_RAM2 is device accept [0x4A327000/10]
 SAR_RAM3 is device accept [0x4A328000/11]
@@ -327,45 +271,6 @@ L4_WKUP is map [
 /*
  * 2.3.3 L4_PER Memory Space Mapping
  */
-L4_PER_AP is device accept [0x48000000/11]
-L4_PER_LA is device accept [0x48000800/11]
-L4_PER_IP0 is device accept [0x48001000/10]
-L4_PER_IP1 is device accept [0x48001400/10]
-L4_PER_IP2 is device accept [0x48001800/10]
-L4_PER_IP3 is device accept [0x48001C00/10]
-UART3 is device accept [0x48020000/12]
-GPTIMER2 is device accept [0x48032000/12]
-GPTIMER3 is device accept [0x48034000/12]
-GPTIMER4 is device accept [0x48036000/12]
-GPTIMER9 is device accept [0x4803E000/12]
-GPIO2 is device accept [0x4805000/12]
-GPIO3 is device accept [0x4807000/12]
-GPIO4 is device accept [0x4809000/12]
-GPIO5 is device accept [0x480B000/12]
-GPIO6 is device accept [0x480D000/12]
-I2C3 is device accept [0x48060000/12]
-UART1 is device accept [0x4806A000/12]
-UART2 is device accept [0x4806C000/12]
-UART4 is device accept [0x4806E000/12]
-I2C1 is device accept [0x48070000/12]
-I2C2 is device accept [0x48072000/12]
-SLIMBUS2 is device accept [0x48076000/12]
-ELM is device accept [0x48078000/12]
-GPTIMER10 is device accept [0x48086000/12]
-GPTIMER11 is device accept [0x48088000/12]
-McBSP4 is device accept [0x48096000/12]
-McSPI1 is device accept [0x48098000/12]
-McSPI2 is device accept [0x4809A000/12]
-HSMMC1 is device accept [0x4809C000/12]
-MMC_SD3 is device accept [0x480AD000/12]
-HDQ is device accept [0x480B2000/12]
-HSMMC2 is device accept [0x480B4000/12]
-MCSPI3 is device accept [0x480B8000/12]
-MCSPI4 is device accept [0x480BA000/12]
-MMC_SD4 is device accept [0x480D1000/12]
-MMC_SD5 is device accept [0x480D5000/12]
-I2C4 is device accept [0x48350000/12]
-
 L4_PER is map [
             0x48000000/11 to L4_PER_AP
             0x48000800/11 to L4_PER_LA
@@ -460,19 +365,6 @@ L4_PER is map [
 /*
  * 2.3.4 L4_ABE Memory Space Mapping
  */
-McBSP1,
-McBSP2,
-McBSP3 are device accept [0/12]
-McASP_CFG is device accept [0/12]
-McASP_Data is device accept [0/12]
-SLIMBUS1 is device accept [0/12]
-DMIC is device accept [0/12]
-WDTIMER3 is device accept [0/12]
-McPDM is device accept [0/12]
-GPTIMER5,
-GPTIMER6,
-GPTIMER7,
-GPTIMER8 are device accept [0/12]
 DMEM,
 CMEM,
 SMEM are memory accept [0/16]
@@ -526,38 +418,301 @@ L4_ABE is accept [0x00000/14] // XXX: First 16KB do what?
 /*
  * 2.4 Dual Cortex-M3 Subsystem Memory Space Mapping
  */
-M3_ROM is memory accept [0x55000000/14]
-M3_RAM is memory accept [0x55020000/16]
-M3_MMU_config is device accept [0x55080000/12]
-M3_WKUGEN is device accept [0x55081000/12]
-M3_ISP5 is device accept [0x55040000/17]
-M3_SIMCOP is device accept [0x55060000/17]
+M3_ROM is memory accept [0/14]
+M3_RAM is memory accept [0/16]
 
 // TODO: address space not accessible from L3
 
 M3_subsystem is map [
                     0x55000000/14 to M3_ROM
                     0x55020000/16 to M3_RAM
-                    /* 0x55030000/15 reserved */
-                    0x55040000/17 to M3_ISP5
-                    0x55060000/17 to M3_SIMCOP
+                    /* 0x55030000/16 reserved */
+                    0x55040000/18 to M3_ISS
                     0x55080000/12 to M3_MMU_config
                     0x55081000/12 to M3_WKUGEN
                     /* 0x55082000-0x55FFFFFF reserved */
+                    0x56000000/25 to L3
                 ]
 
 /*
  * 2.5 DSP Subsystem Memory Space Mapping
  */
- DSP_SYSC_CONFIG is device accept [0x01C20000/12]
 
  // TODO: address space not accessible from L4_CFG
  DSP_subsystem is map [
-                    0x01C20000/12 to DSP_SYSC_CONFIG
+                    0x01C20000/12 to SYSC
                   ]
 
 /*
  * 2.6 Display Subsystem Memory Space Mapping
  */
 Display_subsystem is map [
-                     ]
+
+/*
+ * 3 Power, Reset and Clock Management
+ */
+PRM is device accept [0x4A306000/13]
+SCRM is device accept [0x4A30A000/12]
+SR_MPU is device accept [0x4A0D900/8]
+SR_IVA is device accept [0x4A0DB000/8]
+SR_CORE is device accept [0x4A0DD00/8]
+
+/*
+ * 4 Dual Cortex-A9 MPU Subsystem
+ */
+SCU is device accept [0/7]
+GIC_Proc_Interface is device accept [0/8]
+Timer is device accept [0/8]
+GIC_Intr_Distributor is device accept [0/12]
+PL310 is device accept [0/12]
+A9_SOCKET_PRCM is device accept [0/9]
+A9_PRM is device accept [0/9]
+A9_CPU0,
+A9_CPU1 are device accept [0/10]
+A9_WUGEN is device accept [0/12]
+CMU is device accept [0/16]
+Local_interconnect is device accept [0/12]
+MA is device accept [0/12]
+
+/*
+ * 5 DSP Subsystem
+ */
+SYS_INTC is device accept [0/16]
+SYS_PD is device accept [0/16]
+EDM is device accept [0/12]
+TPCC is device accept [0/16]
+TPTC0,
+TPTC1 are device accept [0/10]
+SYSC is device accept [0/12]
+WUGEN is device accept [0/12]
+L1_SCACHE,
+L2_SCACHE are device [0/8]
+SCACHE_SCTM is device accept [0/9]
+SCACHE_MMU is device accept [0/11]
+
+/*
+ * 6 IVA-HD Subsystem
+ */
+SYSCTRL is device accept [0/10]
+
+/*
+ * 7 Dual Cortex-M3 MPU Subsystem
+ */
+M3_MMU is device accept [0/12]
+M3_WUGEN is device accept [0/12]
+
+/*
+ * 8 Imaging Subsystem
+ */
+ISS_TOP is device accept [0/8]
+ISP5 is device accept [0/16]
+SIMCOP is device accept [0/17]
+ISS is map [
+            0x00000/8 to ISS_TOP
+            // TODO: Interfaces
+            0x10000/17 to ISP5 at 0
+            0x20000/17 to SIMCOP at 0
+          ]
+
+/*
+ * 9 Face Detect
+ */
+FDIF is device accept [0/12]
+
+/*
+ * 10 Display Subsystem
+ */
+// TODO
+
+/*
+ * 11 2D/3D Graphics Accelerator
+ */
+SGX is device accept [0/25]
+
+/*
+ * 13 Interconnect
+ */
+/* 13.2 L3 Interconnect */
+C2C_INIT_firewall is device accept [0/12] // not in TRM, from omap44xx_map.h
+C2C_TARGET_FIREWALL is device accept [0/12] // not in TRM, from omap44xx_map.h
+MA_firewall is device accept[0/12]
+EMIF_firewall is device accept [0/12]
+GPMC_firewall is device accept [0/12]
+L3_RAM_firewall is device accept [0/12]
+SGX_firewall is device accept [0/12]
+ISS_firewall is device accept [0/12]
+M3_firewall is device accept [0/12]
+DSS_firewall is device accept [0/12]
+SL2_firewall is device accept [0/12]
+IVA-HD_firewall is device accept [0/12]
+L4-EMU_firewall is device accept [0/12]
+L4-ABE_firewall is device accept [0/12]
+
+/* 13.3 L4 Interconnects */
+PER_AP is device accept [0/11]
+PER_LA is device accept [0/11]
+PER_IP0 is device accept [0/10]
+PER_IP1 is device accept [0/10]
+PER_IP2 is device accept [0/10]
+PER_IP3 is device accept [0/10]
+
+L4_CFG_AP is device accept [0/11]
+L4_CFG_LA is device accept [0/11]
+L4_CFG_IP0 is device accept [0/12]
+
+WKUP_AP is device accept [0/11]
+WKUP_LA is device accept [0/11]
+WKUP_IP0 is device accept [0/12]
+
+/*
+ * 15 Memory Subsystem
+ */
+DMM is device accept [0/25]
+EMIF1,
+EMIF2 are device accept [0x4D000000/24]
+GPMC is device accept [0/25]
+ELM is device accept [0x48078000/12]
+
+/*
+ * 16 SDMA
+ */
+SDMA is device accept [0/12]
+
+/*
+ * 17 Interrupt Controllers
+ */
+// TODO
+
+/*
+ * 18 Control Module
+ */
+SYSCTRL_GENERAL_CORE,
+SYSCTRL_GENERAL_WKUP,
+SYSCTRL_PADCONF_CORE,
+SYSCTRL_PADCONF_WKUP are device accept [0/12]
+
+
+/*
+ * 19 Mailbox
+ */
+System_Mailbox,
+IVAHD_Mailbox are device accept[0/12]
+
+/*
+ * 20 Memory Management Units
+ */
+M3_MMU,
+DSP_MMU are device accept [0/12]
+
+/*
+ * 21 Spinnlock
+ */
+Spinnlock is device accept [0/12]
+
+/*
+ * 22 Timers
+ */
+/* 22.2 General Purpose Timers */
+GPTIMER1
+GPTIMER2
+GPTIMER3
+GPTIMER4
+GPTIMER5
+GPTIMER6
+GPTIMER7
+GPTIMER8
+GPTIMER9
+GPTIMER10
+GPTIMER11 are device accept [0/12]
+
+/* 22.3 Watchdog Timers */
+WDTIMER2,
+WDTIMER3 is device accept [0/12]
+
+/* 22.4 32-KHz Synchronized Timer */
+S32KTIMER is device accept [0/12]
+
+/*
+ * 23 Serial Communication Interface
+ */
+
+/* 23.1 Multimaster High-Speed I2C Controller */
+I2C1,
+I2C2,
+I2C3,
+I2C4 are device accept [0/8]
+
+/* 23.2 HDQ/1-Wire */
+HDQ is device accept [0/12]
+
+/* 23.3.1 UART/IrDA/CIR */
+UART1,
+UART2,
+UART3,
+UART4 are device accept [0/10]
+
+/* 23.4 Mulitchannel Serial Port Interface */
+McSPI1,
+McSPI2,
+McSPI3,
+McSPI4 are device accept [0/12]
+
+/* 23.5 Multichannel Buffered Serial Port */
+McBSP1,
+McBSP2,
+McBSP3,
+McBSP4 are device accept [0/12]
+
+/* 23.6 Multichannel PDM Controller */
+McPDM is device accept [0/12]
+
+/* 23.7 Digital Microphone Module */
+DMIC is device accept [0/12]
+
+/* 23.8 Multichannel Audio Serial Port */
+McASP is device accept [0/12]
+
+/* 23.9 Serial Low-Power Inter-Chip Media Bus Controller */
+SLIMBUS1,
+SLIMBUS2 are device accept [0/12]
+
+/* 23.10 MIPI-HSI */
+HSI_TOP is device accept [0/12]
+HSI_DMA is device accept [0/11]
+HSI_PORT1 is device accept [0/12]
+HSI_PORT2 is device accept [0/12]
+
+/* 23.11 High-Speed Multiport USB Host Subsystem */
+USBTLLHS is device accept [0/12]
+HSUSBHOST is device accept [0/12]
+
+/* 23.12 High-Speed USB OTG Controller */
+HSUSBOTG is device accept [0/12]
+USBPHY is device accept [0/12]
+
+/* 23.13 Full-speed USB Host Controller */
+USBFSHOST is device accept[0/12]
+
+/*
+ * 24 MMC/SD/SDIO
+ */
+HSMMC1,
+HSMMC2,
+MMC_SD3,
+MMC_SD4,
+MMC_SD5 are device accept [0/12]
+
+/*
+ * 25 General Purpose Interface
+ */
+GPIO1,
+GPIO2,
+GPIO3,
+GPIO4,
+GPIO5,
+GPIO6 are device accept [0/12]
+
+/*
+ * 26 Keyboard Controller
+ */
+Keyboard is device accept [0/12]
