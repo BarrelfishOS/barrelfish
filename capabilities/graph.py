@@ -14,7 +14,7 @@ desc = 'generate a capability dependency graph from a Hamlet file'
 parser = argparse.ArgumentParser(description=desc)
 parser.add_argument('-f', '--file', type=str, help='name of Hamlet file',
                     default='caps.hl')
-parser.add_argument('-i', '--img', type=str, help='name of svg file without extension',
+parser.add_argument('-i', '--img', type=str, help='name of png file without extension',
                     default='caps')
 args = parser.parse_args()
 
