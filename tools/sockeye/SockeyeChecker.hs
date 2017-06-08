@@ -23,21 +23,26 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.Char (toLower)
 
 import qualified SockeyeAST as AST
 
 type CheckFailure = (Maybe AST.NodeId, String)
 
+canonicalId :: AST.NodeId -> AST.NodeId
+canonicalId (AST.NodeId id) = AST.NodeId $ map toLower id
+
 findUniqueIdentifiers :: AST.NetSpec -> Writer [CheckFailure] (Set AST.NodeId)
 findUniqueIdentifiers (AST.NetSpec nodes) = let allIds = map fst $ nodes
                                             in foldl checkAndAdd (return Set.empty) allIds
                                             where checkAndAdd w id = do
+                                                    let cId = canonicalId id
                                                     uids <- w
-                                                    tell $ if id `Set.member` uids then
+                                                    tell $ if cId `Set.member` uids then
                                                             [(Nothing, "Duplicate identifier '" ++ show id ++ "'")]
                                                            else
                                                             []
-                                                    return $ id `Set.insert` uids
+                                                    return $ cId `Set.insert` uids
 
 class Checkable a where
     checkReferences :: (Set AST.NodeId) -> a -> Writer [CheckFailure] Bool
@@ -56,7 +61,8 @@ instance Checkable AST.NodeSpec where
         case AST.overlay nodeSpec of
             Nothing -> return False
             Just id -> do
-                let undefined = id `Set.notMember` ids
+                let cId  = canonicalId id
+                    undefined = cId `Set.notMember` ids
                 tell $ if undefined then
                         [(Nothing, "Reference to undefined node '" ++ show id ++ "' in overlay")]
                        else
@@ -69,7 +75,8 @@ instance Checkable AST.NodeSpec where
 instance Checkable AST.MapSpec where
     checkReferences ids mapSpec = do
         let destNode = AST.destNode mapSpec
-            undefined = destNode `Set.notMember` ids
+            cDestNode = canonicalId destNode
+            undefined = cDestNode `Set.notMember` ids
         tell $ if undefined then
                 [(Nothing, "Reference to undefined node '" ++ show destNode ++ "' in map")]
                else
