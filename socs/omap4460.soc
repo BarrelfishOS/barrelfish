@@ -430,6 +430,8 @@ Display is map [
 /*
  * 3 Power, Reset and Clock Management
  */
+/*
+/* 3.11.1 PRM Instance Summary */
 INTRCONN_SOCKET_PRM is device accept [0/8]
 CKGEN_PRM is device accept [0/8]
 MPU_PRM is device accept [0/8]
@@ -458,21 +460,58 @@ PRM is map [
             0x0600/8 to ALWAYS_ON_PRM at 0
             0x0700/11 to CORE_PRM at 0
             0x0F00/8 to IVAHD_PRM at 0
-            0x1000/8 to CAM_PRM
-            0x1100/8 to DSS_PRM
-            0x1200/8 to SGX_PRM
-            0x1300/8 to L3INIT_PRM
-            0x1400/9 to L4PER_PRM
-            0x1700/8 to WKUP_PRM
-            0x1800/8 to WKUP_CM
-            0x1900/8 to EMU_PRM
-            0x1A00/8 to EMU_CM
-            0x1B00/8 to DEVICE_PRM
-            0x1F00/8 to INSTR_PRM
+            0x1000/8 to CAM_PRM at 0
+            0x1100/8 to DSS_PRM at 0
+            0x1200/8 to SGX_PRM at 0
+            0x1300/8 to L3INIT_PRM at 0
+            0x1400/9 to L4PER_PRM at 0
+            0x1700/8 to WKUP_PRM at 0
+            0x1800/8 to WKUP_CM at 0
+            0x1900/8 to EMU_PRM at 0
+            0x1A00/8 to EMU_CM at 0
+            0x1B00/8 to DEVICE_PRM at 0
+            0x1F00/8 to INSTR_PRM at 0
        ]
 
+/* 3.11.21 CM1 Instance Summary */
+INTERCONN_SOCKET_CM1 is device accept [0/8]
+CKGEN_CM1 is device accept [0/9]
+CM1 is map [
+        0x000/8 to INTERCONN_SOCKET_CM1 at 0
+        0x100/9 to CKGEN_CM1
+       ]
+
+/* 3.11.29 CM2 Instance Summary */
+INTRCONN_SOCKET_CM2 is device accept [0/8]
+CKGEN_CM2 is device accept [0/8]
+ALWAYS_ON_CM2 is device accept [0/8]
+CORE_CM2 is device accept [0/11]
+IVAHD_CM2 is device accept [0/8]
+CAM_CM2 is device accept [0/8]
+DSS_CM2 is device accept [0/8]
+SGX_CM2 is device accept [0/8]
+L3INIT_CM2 is device accept [0/8]
+L4PER_CM2 is device accept [0/9]
+RESTORE_CM2 is device accept [0/8]
+INSTR_CM2 is device accept [0/8]
+CM2 is map [
+        0x0000/8 to INTRCONN_SOCKET_CM2 at 0
+        0x0100/8 to CKGEN_CM2 at 0
+        0x0600/8 to ALWAYS_ON_CM2 at 0
+        0x0700/11 to CORE_CM2 at 0
+        0x0F00/8 to IVAHD_CM2 at 0
+        0x1000/8 to CAM_CM2 at 0
+        0x1200/8 to SGX_CM2 at 0
+        0x1300/8 to L3INIT_CM2 at 0
+        0x1400/9 to L4PER_CM2 at 0
+        0x1E00/8 to RESTORE_CM2 at 0
+        0x1F00/8 to INSTR_CM2 at 0
+       ]
+
+/* 3.12 SCRM Register Manual */
 SCRM is device accept [0/12]
 
+/* 3.13 SR Register Manual */
 SR_MPU is device accept [0/8]
 SR_IVA is device accept [0/8]
 SR_CORE is device accept [0/8]
@@ -770,12 +809,10 @@ DAP_PC is device accept [0/12]
 APB is device accept [0/12]
 DRM is device accept [0/12]
 MIPI_STM is device accept [0/12]
-CS-ETB is device accept [0x54162000/12]
-CS-TPIU is device accept [0x54163000/12]
-CS-TF is device accept [0x54164000/12]
+CS-ETB is device accept [0/12]
+CS-TPIU is device accept [0/12]
+CS-TF is device accept [0/12]
 
-CM1 is device accept [0x4A004000/12]
-CM2 is device accept [0x4A008000/12]
-OCP-WP is device accept [0x4A102000/12]
+OCP-WP is device accept [0/12]
 
 PMI is device accept [0/8]
