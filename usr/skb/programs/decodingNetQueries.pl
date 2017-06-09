@@ -60,4 +60,9 @@ findSharedMemoryFrame(NodeId,DeviceId) :-
     net(SharedId,node(memory,_,_,_)),
     findRanges(NodeName,SharedName,NodeRange,SharedRange),
     findRanges(DevName,SharedName,DeviceRange,SharedRange),
-    printSharedRanges(NodeRange,SharedRange,DeviceRange).  
+    printSharedRanges(NodeRange,SharedRange,DeviceRange).
+
+findDeviceId(NodeId,Addr) :-
+    SrcName = name(NodeId,Addr),
+    resolve(SrcName,name(DeviceId,_)),
+    writeln(DeviceId).
