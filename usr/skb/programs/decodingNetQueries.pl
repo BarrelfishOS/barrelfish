@@ -43,6 +43,7 @@ findOriginRanges(NodeId) :-
 findDeviceFrame(NodeId,DeviceId) :-
     SrcName = name(NodeId,_),
     DestName = name(DeviceId,_),
+    net(DeviceId,node(device,_,_,_)),
     findRanges(SrcName,DestName,SrcRange,DestRange),
     printSrcDestRanges(SrcRange,DestRange).
 
