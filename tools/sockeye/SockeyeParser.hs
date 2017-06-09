@@ -66,7 +66,7 @@ sockeyeFile = do
     return $ AST.NetSpec $ concat nodes
 
 netSpec = do
-    nodeIds <- try single <|> multiple
+    nodeIds <- choice [try single, try multiple]
     node <- nodeSpec
     return $ map (\nodeId -> (nodeId, node)) nodeIds
     where single = do
