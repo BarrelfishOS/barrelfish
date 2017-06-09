@@ -35,7 +35,7 @@ instance PrologGenerator AST.NetSpec where
                                           in predicate "net" [atom, node] ++ "."
 
 instance PrologGenerator AST.NodeId where
-    generate (AST.NodeId id) = map toLower id
+    generate (AST.NodeId id) = quotes $ map toLower id
 
 instance PrologGenerator AST.NodeSpec where
     generate nodeSpec = predicate "node" [nodeType, accept, translate, overlay]
@@ -78,3 +78,6 @@ parens = enclose "(" ")"
 
 brackets :: String -> String
 brackets = enclose "[" "]"
+
+quotes :: String -> String
+quotes = enclose "'" "'"
