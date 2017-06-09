@@ -15,6 +15,7 @@
 #ifndef BARRELFISH_PROC_MGMT_CLIENT_H
 #define BARRELFISH_PROC_MGMT_CLIENT_H
 
+#include <if/proc_mgmt_defs.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
@@ -22,7 +23,17 @@ __BEGIN_DECLS
 struct proc_mgmt_lmp_binding;
 
 errval_t proc_mgmt_client_lmp_accept(struct proc_mgmt_lmp_binding *lmpb,
-		struct waitset *ws, size_t lmp_buflen_words);
+                                     struct waitset *ws,
+                                     size_t lmp_buflen_words);
+errval_t proc_mgmt_client_lmp_bind(struct proc_mgmt_lmp_binding *lmpb,
+                                   struct capref ep,
+                                   proc_mgmt_bind_continuation_fn *cont,
+                                   void *st,
+                                   struct waitset *ws,
+                                   size_t lmp_buflen_words);
+errval_t proc_mgmt_bind_client(void);
+
+errval_t proc_mgmt_add_spawnd(iref_t iref, coreid_t core_id);
 
 __END_DECLS
 

@@ -256,6 +256,7 @@ errval_t spawn_all_domains(void)
            || !strcmp(short_name, "monitor")
            || !strcmp(short_name, "mem_serv")
            || !strcmp(short_name, "xeon_phi")
+           || !strcmp(short_name, "proc_mgmt")
           )
         {
             continue;

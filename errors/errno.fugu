@@ -419,6 +419,9 @@ errors libbarrelfish LIB_ERR_ {
     failure SEGBASE_OVER_4G_LIMIT  "Segment base address is above 32-bit boundary",
     failure LDT_FULL               "LDT is out of space",
     failure LDT_SELECTOR_INVALID   "Segment selector is invalid for LDT",
+
+    // Process management client library
+    failure PROC_MGMT_CLIENT_ACCEPT "Error in proc_mgmt_client_lmp_accept()",
 };
 
 // errors in Flounder-generated bindings
@@ -658,6 +661,12 @@ errors spawn SPAWN_ERR_ {
 
     failure FIND_SPAWNDS       "Unable to find spawn daemons",
     failure MALFORMED_SPAWND_RECORD "Spawn record without ID found?",
+};
+
+// errors related to the process manager
+errors proc_mgmt PROC_MGMT_ERR_ {
+    failure NOT_MONITOR         "Received monitor-only request from non-monitor domain",
+    failure SPAWND_EXISTS       "Requested spawnd slot already exists",
 };
 
 // errors from ELF library

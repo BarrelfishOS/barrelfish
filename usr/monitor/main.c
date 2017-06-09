@@ -17,16 +17,18 @@
 #include <barrelfish/dispatch.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish/domain.h>
+#include <barrelfish/proc_mgmt_client.h>
 #include <trace/trace.h>
 
 #ifdef __k1om__
 extern char **environ;
 #endif
 
-/* irefs for mem server name service and ramfs */
+/* irefs for mem server, name service, ramfs and spawnd*/
 iref_t mem_serv_iref = 0;
 iref_t ramfs_serv_iref = 0;
 iref_t name_serv_iref = 0;
+iref_t spawn_iref = 0;
 iref_t monitor_rpc_iref = 0;
 
 // Capref to trace cap
@@ -130,11 +132,33 @@ static errval_t boot_bsp_core(int argc, char *argv[])
         return err;
     }
 
+    // Spawn process manager, to be used by further domains.
+    set_proc_mgmt_binding(NULL);
+    err = spawn_domain("proc_mgmt");
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed spawning proc_mgmt");
+        return err;
+    }
+    // XXX: Wait for proc_mgmt to initialize
+    while (get_proc_mgmt_binding() == NULL) {
+        messages_wait_and_handle_next();
+    }
+
     /* Spawn boot domains in menu.lst */
     err = spawn_all_domains();
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "spawn_all_domains failed");
         return err;
+    }
+
+    // XXX: Wait for spawnd to initialize
+    while (spawn_iref == 0) {
+        messages_wait_and_handle_next();
+    }
+    // Now tell process manager about our new spawnd.
+    err = proc_mgmt_add_spawnd(spawn_iref, disp_get_core_id());
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error sending spawnd iref to process manager");
     }
 
     return SYS_ERR_OK;
@@ -211,6 +235,20 @@ static errval_t boot_app_core(int argc, char *argv[])
     err = spawn_spawnd(intermon_binding);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "error spawning spawnd");
+    }
+    // XXX: Wait for spawnd to initialize
+    while (spawn_iref == 0) {
+        messages_wait_and_handle_next();
+    }
+    // Use monitor.0 to tell the process manager about our new spawnd.
+    struct intermon_binding *ib0;
+    err = intermon_binding_get(0, &ib0);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error retrieving intermon_binding for monitor 0");
+    }
+    err = ib0->tx_vtbl.add_spawnd(ib0, NOP_CONT, spawn_iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error sending add_spawnd request to monitor 0");
     }
 
     /* Signal the monitor that booted us that we have initialized */

@@ -30,6 +30,7 @@ struct monitor_blocking_binding;
 struct waitset;
 struct spawn_binding;
 struct arrakis_binding;
+struct proc_mgmt_binding;
 
 struct waitset *get_default_waitset(void);
 void disp_set_core_id(coreid_t core_id);
@@ -65,6 +66,8 @@ struct spawn_state *get_spawn_state(void);
 void set_spawn_state(struct spawn_state *st);
 struct slot_alloc_state *get_slot_alloc_state(void);
 struct skb_state *get_skb_state(void);
+struct proc_mgmt_binding *get_proc_mgmt_binding(void);
+void set_proc_mgmt_binding(struct proc_mgmt_binding *st);
 
 errval_t domain_init(void);
 errval_t domain_new_dispatcher(coreid_t core_id,

@@ -15,7 +15,7 @@
 #ifndef PROC_MGMT_INTERNAL_H_
 #define PROC_MGMT_INTERNAL_H_
 
-#define SERVICE_BASENAME    "proc_mgmt" // the core ID is appended to this
+#define SERVICE_BASENAME    "proc_mgmt"
 
 extern coreid_t my_core_id;
 

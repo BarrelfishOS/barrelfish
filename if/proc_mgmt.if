@@ -9,10 +9,11 @@
 
 interface proc_mgmt "Process management service" {
   
-  // Allocate a new endpoint for a future connecting client.
-  rpc alloc_ep(out errval err, out cap ep);
+  // Add a new spawnd to the process manager's list.
+  message add_spawnd(coreid core, iref iref);
 
   // Spawn a new domain, returning its domainid cap.
+  /*
   rpc spawn(in coreid core,
             in String path[2048],
             in char argvbuf[argvbytes, 2048],
@@ -30,6 +31,7 @@ interface proc_mgmt "Process management service" {
 
   // Kill a domain for which the caller has a domainid cap.
   rpc kill(in cap domainid_cap, out errval err);
+  */
 
   // TODO(razvan): exit, wait, status, some other calls from spawn.if?
 };

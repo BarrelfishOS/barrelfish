@@ -110,6 +110,10 @@ interface monitor "The monitor to client Interface" {
     message get_ramfs_iref_reply(iref iref, uintptr st);
     message set_ramfs_iref_request(iref iref);
 
+    message set_proc_mgmt_ep_request(cap ep);
+
+    message set_spawn_iref_request(iref iref);
+
     message set_mem_iref_request(iref iref);
 
     message set_name_iref_request(iref iref);

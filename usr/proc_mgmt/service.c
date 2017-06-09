@@ -16,75 +16,111 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/proc_mgmt_client.h>
+#include <barrelfish/spawn_client.h>
+#include <if/monitor_defs.h>
 #include <if/proc_mgmt_defs.h>
 
 #include "internal.h"
+#include "spawnd_state.h"
 
-static struct proc_mgmt_rpc_rx_vtbl rpc_rx_vtbl;
-
-static errval_t alloc_ep_handler(struct proc_mgmt_binding *b, errval_t *err,
-        struct capref *ep)
+static void add_spawnd_handler(struct proc_mgmt_binding *b, coreid_t core_id,
+                               iref_t iref)
 {
-    struct proc_mgmt_lmp_binding *lmpb = (struct proc_mgmt_lmp_binding*) malloc(
-            sizeof(struct proc_mgmt_lmp_binding));
+    if (spawnd_state_exists(core_id)) {
+        DEBUG_ERR(PROC_MGMT_ERR_SPAWND_EXISTS, "spawnd_state_exists");
+        return;
+    }
+
+    // Bind with the spawnd.
+    struct spawn_binding *spawnb;
+    errval_t err = spawn_bind_iref(iref, &spawnb);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "spawn_bind_iref");
+        return;
+    }
+
+    err = spawnd_state_alloc(core_id, spawnb);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "spawnd_state_alloc");
+    }
+
+    debug_printf("Process manager bound with spawnd.%u on iref %u\n", core_id,
+            iref);
+
+    err = spawnd_state_get_binding(core_id)->rpc_tx_vtbl.echo(
+            spawnd_state_get_binding(core_id),
+            SERVICE_BASENAME,
+            disp_get_current_core_id());
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "spawnd echo request failed");
+    }
+}
+
+static void add_spawnd_handler_non_monitor(struct proc_mgmt_binding *b,
+                                           coreid_t core_id, iref_t iref)
+{
+    debug_printf("Ignoring add_spawnd call: %s\n",
+                 err_getstring(PROC_MGMT_ERR_NOT_MONITOR));
+}
+
+// static errval_t spawn_handler(struct proc_mgmt_binding *b,
+//                           coreid_t core,
+//                           const char *path,
+//                           const char *argvbuf,
+//                           size_t argvbytes,
+//                           const char *envbuf,
+//                           size_t envbytes,
+//                           uint8_t flags,
+//                           errval_t *err,
+//                           struct capref *domainid_cap)
+// {
+//     return LIB_ERR_NOT_IMPLEMENTED;
+// }
+
+// static errval_t span_handler(struct proc_mgmt_binding *b,
+//                          struct capref domainid_cap,
+//                          coreid_t core,
+//                          struct capref vroot,
+//                          struct capref disp_mem,
+//                          errval_t *err)
+// {
+//     return LIB_ERR_NOT_IMPLEMENTED;
+// }
+
+// static errval_t kill_handler(struct proc_mgmt_binding *b,
+//                          struct capref domainid_cap,
+//                          errval_t *err)
+// {
+//     return LIB_ERR_NOT_IMPLEMENTED;
+// }
+
+static struct proc_mgmt_rx_vtbl monitor_vtbl = {
+    .add_spawnd = add_spawnd_handler
+};
+
+static struct proc_mgmt_rx_vtbl non_monitor_vtbl = {
+    .add_spawnd = add_spawnd_handler_non_monitor
+};
+
+static errval_t alloc_ep_for_monitor(struct capref *ep)
+{
+    struct proc_mgmt_lmp_binding *lmpb =
+        malloc(sizeof(struct proc_mgmt_lmp_binding));
     assert(lmpb != NULL);
 
-    *err = proc_mgmt_client_lmp_accept(lmpb, get_default_waitset(),
-            DEFAULT_LMP_BUF_WORDS);
-    if (err_is_ok(*err)) {
-        *ep = lmpb->chan.local_cap;
-
-        // struct proc_mgmt_state *st = (struct proc_mgmt_state*) malloc(
-        //         sizeof(struct proc_mgmt_state));
-        // assert(st != NULL);
-        // st->queue.head = st->queue.tail = NULL;
-
-        lmpb->b.rpc_rx_vtbl = rpc_rx_vtbl;
-        // lmpb->b.st = st;
-    } else {
+    // setup our end of the binding
+    errval_t err = proc_mgmt_client_lmp_accept(lmpb, get_default_waitset(),
+                                               DEFAULT_LMP_BUF_WORDS);
+    if (err_is_fail(err)) {
         free(lmpb);
+        return err_push(err, LIB_ERR_PROC_MGMT_CLIENT_ACCEPT);
     }
+
+    *ep = lmpb->chan.local_cap;
+    lmpb->b.rx_vtbl = monitor_vtbl;
 
     return SYS_ERR_OK;
 }
-
-static errval_t spawn_handler(struct proc_mgmt_binding *b,
-                          coreid_t core,
-                          const char *path,
-                          const char *argvbuf,
-                          size_t argvbytes,
-                          const char *envbuf,
-                          size_t envbytes,
-                          uint8_t flags,
-                          errval_t *err,
-                          struct capref *domainid_cap)
-{
-    return LIB_ERR_NOT_IMPLEMENTED;
-}
-
-static errval_t span_handler(struct proc_mgmt_binding *b,
-                         struct capref domainid_cap,
-                         coreid_t core,
-                         struct capref vroot,
-                         struct capref disp_mem,
-                         errval_t *err)
-{
-    return LIB_ERR_NOT_IMPLEMENTED;
-}
-
-static errval_t kill_handler(struct proc_mgmt_binding *b,
-                         struct capref domainid_cap,
-                         errval_t *err)
-{
-    return LIB_ERR_NOT_IMPLEMENTED;
-}
-
-static struct proc_mgmt_rpc_rx_vtbl rpc_rx_vtbl = {
-    .alloc_ep_call = alloc_ep_handler,
-    .spawn_call = spawn_handler,
-    .span_call = span_handler,
-    .kill_call = kill_handler
-};
 
 static void export_cb(void *st, errval_t err, iref_t iref)
 {
@@ -92,15 +128,25 @@ static void export_cb(void *st, errval_t err, iref_t iref)
         USER_PANIC_ERR(err, "export failed");
     }
 
-    // construct name
-    char namebuf[32];
-    size_t len = snprintf(namebuf, sizeof(namebuf), "%s.%d", SERVICE_BASENAME,
-                          my_core_id);
-    assert(len < sizeof(namebuf));
-    namebuf[sizeof(namebuf) - 1] = '\0';
+    // Allocate an endpoint for the local monitor, who will use it to inform
+    // us about new spawnd irefs on behalf of other monitors.
+    struct capref ep;
+    err = alloc_ep_for_monitor(&ep);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to allocate LMP EP for local monitor");
+    }
 
-    // register this iref with the name service
-    err = nameservice_register(namebuf, iref);
+    // Send the endpoint to the monitor, so it can finish the handshake.
+    struct monitor_binding *mb = get_monitor_binding();
+    err = mb->tx_vtbl.set_proc_mgmt_ep_request(mb, NOP_CONT, ep);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to send set_proc_mgmt_ep_request to "
+                       "monitor");
+    }
+
+    // Also register this iref with the name service, for arbitrary client
+    // domains to use for spawn-related ops.
+    err = nameservice_register(SERVICE_BASENAME, iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "nameservice_register failed");
     }
@@ -108,7 +154,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 
 static errval_t connect_cb(void *st, struct proc_mgmt_binding *b)
 {
-    b->rpc_rx_vtbl = rpc_rx_vtbl;
+    b->rx_vtbl = non_monitor_vtbl;
     return SYS_ERR_OK;
 }
 

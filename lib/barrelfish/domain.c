@@ -1300,6 +1300,25 @@ void set_spawn_binding(coreid_t core, struct spawn_binding *c)
     assert(core < MAX_CPUS);
     disp->core_state.c.spawn_bindings[core] = c;
 }
+/**
+ * \brief Returns a pointer to the proc_mgmt rpc client on the dispatcher priv
+ */
+struct proc_mgmt_binding *get_proc_mgmt_binding(void)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    return disp->core_state.c.proc_mgmt_binding;
+}
+
+/**
+ * \brief Sets the prog_mgmt rpc client on the dispatcher priv
+ */
+void set_proc_mgmt_binding(struct proc_mgmt_binding *c)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    disp->core_state.c.proc_mgmt_binding = c;
+}
 
 struct arrakis_binding *get_arrakis_binding(coreid_t core)
 {

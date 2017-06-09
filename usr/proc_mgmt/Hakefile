@@ -11,26 +11,29 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "proc_mgmt",
-                      cFiles = [ "main.c", "service.c" ],
+                      cFiles = [ "main.c", "service.c", "spawnd_state.c" ],
                       addLibraries = libDeps [ "skb", "dist", "lwip" ],
-                      flounderDefs = [ "monitor", "monitor_blocking"],
-                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                      flounderDefs = [ "monitor", "monitor_blocking" ],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]), 
+                                            ("spawn",["rpcclient"]) ],
                       flounderBindings = [ "proc_mgmt" ],
                       architectures = [ "x86_64", "x86_32" ]
                     },
   build application { target = "proc_mgmt",
-                      cFiles = [ "main.c", "service.c" ],
+                      cFiles = [ "main.c", "service.c", "spawnd_state.c" ],
                       addLibraries = libDeps [ "skb", "dist", "lwip" ],
                       flounderDefs = [ "monitor", "monitor_blocking"],
-                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]), 
+                                            ("spawn",["rpcclient"]) ],
                       flounderBindings = [ "proc_mgmt" ],
                       architectures = [ "k1om" ]
                     },
   build application { target = "proc_mgmt",
-                      cFiles = [ "main.c", "service.c" ],
+                      cFiles = [ "main.c", "service.c", "spawnd_state.c" ],
                       addLibraries = libDeps [ "skb", "dist", "lwip" ],
                       flounderDefs = [ "monitor", "monitor_blocking"],
-                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]), 
+                                            ("spawn",["rpcclient"]) ],
                       flounderBindings = [ "proc_mgmt" ],
                       architectures = [ "armv7", "armv8" ]
                     }

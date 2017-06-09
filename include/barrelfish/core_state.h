@@ -82,6 +82,7 @@ struct monitor_blocking_binding;
 struct mem_binding;
 struct spawn_binding;
 struct arrakis_binding;
+struct proc_mgmt_binding;
 
 struct core_state_generic {
     struct waitset default_waitset;
@@ -92,6 +93,7 @@ struct core_state_generic {
     struct ram_alloc_state ram_alloc_state;
     struct octopus_binding *octopus_binding;
     struct spawn_binding *spawn_bindings[MAX_CPUS];
+    struct proc_mgmt_binding *proc_mgmt_binding;
     struct arrakis_binding *arrakis_bindings[MAX_CPUS];
     struct terminal_state *terminal_state;
     struct domain_state *domain_state;

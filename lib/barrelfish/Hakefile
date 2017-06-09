@@ -112,7 +112,8 @@ in
                              ++ common_srcs ++ idc_srcs,
                     assemblyFiles = arch_assembly (archFamily arch),
                     flounderBindings = [ "mem", "octopus", "interdisp", "spawn",
-                                         "terminal", "arrakis", "terminal_config" ],
+                                         "proc_mgmt", "terminal", "arrakis",
+                                         "terminal_config" ],
                     -- only makes sense to compile monitor binding for lmp
                     flounderTHCStubs = [ "octopus" ],
                     flounderExtraBindings = [ ("monitor", ["lmp"]),
@@ -120,6 +121,7 @@ in
                                               ("mem", ["rpcclient"]),
                                               ("octopus", ["rpcclient"]),
                                               ("spawn", ["rpcclient"]),
+                                              ("proc_mgmt", ["rpcclient"]),
                                               ("arrakis", ["rpcclient"])],
                     addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
                     addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ],
@@ -198,7 +200,8 @@ in
                     assemblyFiles = arch_assembly (archFamily arch),
                     addCFlags = [ "-DARRAKIS", "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
                     flounderBindings = [ "mem", "octopus", "interdisp", "spawn", "arrakis",
-                                         "terminal", "terminal_config", "terminal_session" ],
+                                         "proc_mgmt", "terminal", "terminal_config",
+                                         "terminal_session" ],
                     -- only makes sense to compile monitor binding for lmp
                     flounderTHCStubs = [ "octopus" ],
                     flounderExtraBindings = [ ("monitor", ["lmp"]),
@@ -206,6 +209,7 @@ in
                                               ("mem", ["rpcclient"]),
                                               ("octopus", ["rpcclient"]),
                                               ("spawn", ["rpcclient"]),
+                                              ("proc_mgmt", ["rpcclient"]),
                                               ("arrakis", ["rpcclient"])],
                     addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ],
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ]

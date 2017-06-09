@@ -39,4 +39,6 @@ interface spawn "Interface to spawn domains" {
 
     // Capability debugging
     rpc dump_capabilities(in domainid domain_id, out errval err);
+
+    rpc echo(in String sender_name[2048], in coreid sender_core);
 };

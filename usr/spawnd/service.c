@@ -22,6 +22,7 @@
 #include <vfs/vfs_path.h>
 #include <dist/barrier.h>
 #include <if/spawn_defs.h>
+#include <if/monitor_defs.h>
 #include <if/monitor_blocking_defs.h>
 #include <barrelfish/dispatcher_arch.h>
 #include <barrelfish/invocations_arch.h>
@@ -529,6 +530,15 @@ static void dump_capabilities_handler(struct spawn_binding *b, domainid_t domain
     }
 }
 
+// TODO(razvan): This is just used to test that the process manager can connect
+// to arbitrary spawnds; maybe remove it soon.
+static errval_t echo_handler(struct spawn_binding *b, const char *sender_name,
+                             coreid_t sender_core)
+{
+    debug_printf("spawnd ECHO from: %s.%u\n", sender_name, sender_core);
+    return SYS_ERR_OK;
+}
+
 static struct spawn_rx_vtbl rx_vtbl = {
     // .spawn_domain_call = spawn_handler,
     // .spawn_domain_with_caps_call = spawn_with_caps_handler,
@@ -544,6 +554,7 @@ static struct spawn_rx_vtbl rx_vtbl = {
 static struct spawn_rpc_rx_vtbl rpc_rx_vtbl = {
     .spawn_domain_call = spawn_handler,
     .spawn_domain_with_caps_call = spawn_with_caps_handler,
+    .echo_call = echo_handler
     // .use_local_memserv_call = use_local_memserv_handler,
     // .kill_call = kill_handler,
     // .exit_call = exit_handler,
@@ -557,6 +568,14 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 {
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "export failed");
+    }
+
+    // Send iref back to monitor, which will forward it to the process manager.
+    struct monitor_binding *mb = get_monitor_binding();
+    err = mb->tx_vtbl.set_spawn_iref_request(mb, NOP_CONT, iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to send set_spawn_iref_request to "
+                "monitor");
     }
 
     // construct name
