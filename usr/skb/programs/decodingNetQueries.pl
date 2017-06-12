@@ -10,6 +10,7 @@
 
 :- use_module(decodingNet).
 
+%% Printing
 printRange((SrcId,SrcMin,SrcMax)) :-
     printf("%a [0x%16R..0x%16R]",
         [ SrcId,SrcMin,SrcMax ]
@@ -29,37 +30,48 @@ printSharedRanges(Range1,SharedRange,Range2) :-
     printRange(Range2),
     writeln("").
 
-findTargetRanges(NodeId) :-
+%% Helper predicates
+resolveToRange(SrcName,DestName,SrcRange,DestRange) :-
+    resolve(SrcName,DestName),
+    toRange(SrcName,SrcRange),
+    toRange(DestName,DestRange).
+
+all(Pred) :- findall(_,Pred,_).
+
+%% Queries
+findTargetRange(NodeId) :-
     SrcName = name(NodeId,_),
-    findall((SrcRange,DestRange),findRanges(SrcName,_,SrcRange,DestRange),List),
-    (foreach((Src,Dest),List) do printSrcDestRanges(Src,Dest)).
+    resolveToRange(SrcName,_,SrcRange,DestRange),
+    printSrcDestRanges(SrcRange,DestRange).
 
-
-findOriginRanges(NodeId) :-
+findOriginRange(NodeId) :-
     DestName = name(NodeId,_),
-    findall((SrcRange,DestRange),findRanges(_,DestName,SrcRange,DestRange),List),
-    (foreach((Src,Dest),List) do printSrcDestRanges(Src,Dest)).
+    resolveToRange(_,DestName,SrcRange,DestRange),
+    printSrcDestRanges(SrcRange,DestRange).
 
 findDeviceFrame(NodeId,DeviceId) :-
     SrcName = name(NodeId,_),
     DestName = name(DeviceId,_),
     net(DeviceId,node(device,_,_,_)),
-    findRanges(SrcName,DestName,SrcRange,DestRange),
+    resolveToRange(SrcName,DestName,SrcRange,DestRange),
     printSrcDestRanges(SrcRange,DestRange).
 
 findInterruptLine(NodeId,DeviceId) :-
     SrcName = name(DeviceId,_),
     DestName = name(NodeId,_),
-    findRanges(SrcName,DestName,SrcRange,DestRange),
+    resolveToRange(SrcName,DestName,SrcRange,DestRange),
     printSrcDestRanges(SrcRange,DestRange).
 
 findSharedMemoryFrame(NodeId,DeviceId) :-
     NodeName = name(NodeId,_),
-    DevName = name(DeviceId,_),
+    DeviceName = name(DeviceId,_),
     SharedName = name(SharedId,_),
     net(SharedId,node(memory,_,_,_)),
-    findRanges(NodeName,SharedName,NodeRange,SharedRange),
-    findRanges(DevName,SharedName,DeviceRange,SharedRange),
+    resolve(NodeName,SharedName),
+    resolve(DeviceName,SharedName),
+    toRange(NodeName,NodeRange),
+    toRange(SharedName,SharedRange),
+    toRange(DeviceName,DeviceRange),
     printSharedRanges(NodeRange,SharedRange,DeviceRange).
 
 findDeviceId(NodeId,Addr) :-

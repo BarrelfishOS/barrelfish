@@ -10,12 +10,18 @@
 
 :- module(decodingNet).
 :- export net/2.
+:- export loadnet/1.
 :- export resolve/2.
-:- export findRanges/4.
+:- export toRange/2.
 
 :- lib(ic).
 
 :- dynamic net/2.
+
+%% Load a precompiled decoding net
+loadnet(Name) :-
+    concat_string(["sockeyefacts/",Name],File),
+    [File].
 
 %% Address range in block
 blockRange(block(Base,Limit),Range) :-
@@ -91,12 +97,8 @@ resolve(SrcName,DestName) :-
     ),
     acceptedName(DestName).
 
-findRanges(SrcName,DestName,SrcRange,DestRange) :-
-    resolve(SrcName,DestName),
-    name(SrcId,SrcAddr) = SrcName,
-    name(DestId,DestAddr) = DestName,
-    get_min(SrcAddr,SrcMin),get_max(SrcAddr,SrcMax),
-    get_min(DestAddr,DestMin),get_max(DestAddr,DestMax),
-    SrcRange = (SrcId, SrcMin, SrcMax),
-    DestRange = (DestId, DestMin, DestMax).
+toRange(Name,Range) :-
+    name(Id,Addr) = Name,
+    get_min(Addr,Min),get_max(Addr,Max),
+    Range = (Id, Min, Max).
   
