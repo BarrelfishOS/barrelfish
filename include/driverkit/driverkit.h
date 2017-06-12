@@ -25,7 +25,7 @@ struct bfdriver_instance {
     void* dstate; //< Driver state. This is owned by the driver implementation.
 };
 
-typedef errval_t(*driver_init_fn)(struct bfdriver_instance*, const char*, uint64_t flags, struct capref, iref_t*);
+typedef errval_t(*driver_init_fn)(struct bfdriver_instance*, const char*, uint64_t flags, struct capref*, size_t, char**, size_t, iref_t*);
 typedef errval_t(*driver_attach_fn)(struct bfdriver_instance*);
 typedef errval_t(*driver_detach_fn)(struct bfdriver_instance*);
 typedef errval_t(*driver_set_sleep_level_fn)(struct bfdriver_instance*, uint32_t level);
@@ -40,7 +40,7 @@ struct bfdriver {
     driver_destroy_fn destroy;
 };
 
-errval_t driverkit_create_driver(const char* cls, const char* name, struct capref caps, uint64_t flags, iref_t* dev, iref_t* ctrl);
+errval_t driverkit_create_driver(const char* cls, const char* name, struct capref* caps, size_t caps_len, char** args, size_t args_len, uint64_t flags, iref_t* dev, iref_t* ctrl);
 errval_t driverkit_destroy(const char* name);
 void driverkit_list(struct bfdriver**, size_t*);
 struct bfdriver* driverkit_lookup_cls(const char*);

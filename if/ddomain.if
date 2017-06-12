@@ -12,7 +12,9 @@ interface ddomain "Kaluga <-> Driver Domain Interface" {
     /**
      * Creates a new driver within the driver domain.
      */
-    message create(char cls[clen, 256], char name[nlen, 256], cap cap, uint64 flags);
+    message create(char cls[clen, 256], char name[nlen, 256],
+                   char a1[a1len, 256], char a2[a2len, 256], char a3[a3len, 256], char a4[a4len, 256], 
+                   cap cap1, cap cap2, cap cap3, cap cap4, uint64 flags);
     message create_response(iref devif, iref control, errval err);
 
     /**
