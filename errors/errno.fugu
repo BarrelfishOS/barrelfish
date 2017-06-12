@@ -162,6 +162,9 @@ errors kernel SYS_ERR_ {
     // ID capability
     failure ID_SPACE_EXHAUSTED  "ID space exhausted",
 
+    // Domain capability
+    failure DOMAIN_SPACE_EXHAUSTED "Domain space exhausted",
+
     // I2C driver
     // XXX: should not be in kernel
     failure I2C_UNINITIALIZED           "Trying to use uninitialized i2c controller",
@@ -650,6 +653,7 @@ errors spawn SPAWN_ERR_ {
     failure COPY_PERF_MON	"Error copying performance monitoring cap",
     failure COPY_KERNEL_CAP     "Error copying Kernel cap",
     failure COPY_INHERITCN_CAP  "Error copying capability from inherited cnode",
+    failure COPY_PROC_MNG_CAP   "Error copying ProcessManager cap",
 
     // make_runnable
     failure DISPATCHER_SETUP    "Dispatcher setup",
@@ -719,6 +723,7 @@ errors init INIT_ERR_ {
     failure COPY_KERNEL_CAP     "Failed to copy kernel cap to monitor",
     failure COPY_BSP_KCB        "Error copying BSP KernelControlBlock",
     failure COPY_IPI            "Failed to copy IPI cap to monitor",
+    failure COPY_PROC_MNG_CAP   "Failed to copy ProcessManager cap to monitor",
     failure COPY_PERF_MON       "Failed to copy performance monitoring cap to monitor",
     failure COPY_MODULECN_CAP   "Failed to copy module CNode cap to monitor",
     failure COPY_PACN_CAP       "Failed to copy phys addr CNode cap to monitor",

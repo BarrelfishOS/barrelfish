@@ -150,6 +150,29 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "nameservice_register failed");
     }
+
+    // Try to create a few domains?
+    // TODO(razvan): Remove this.
+    size_t num_domains = 5;
+    struct capref domain_caps[num_domains];
+    for (size_t i = 1; i <= num_domains; ++i) {
+        err = slot_alloc(&domain_caps[i]);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "slot_alloc domain_cap");
+        }
+        err = cap_retype(domain_caps[i], cap_procmng, 0, ObjType_Domain, 0, 1);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "cap_retype domain_cap from cap_procmng");
+        }
+        struct capability ret;
+        err = debug_cap_identify(domain_caps[i], &ret);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "cap identify domain_cap");
+        }
+        debug_printf("Process manager successfully created domain { .coreid=%u,"
+                     " .core_local_id=%u } (%lu/%lu)\n", ret.u.domain.coreid,
+                     ret.u.domain.core_local_id, i, num_domains);
+    }
 }
 
 static errval_t connect_cb(void *st, struct proc_mgmt_binding *b)
