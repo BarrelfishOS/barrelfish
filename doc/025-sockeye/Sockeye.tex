@@ -1,0 +1,213 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (c) 2017, ETH Zurich.
+% All rights reserved.
+%
+% This file is distributed under the terms in the attached LICENSE file.
+% If you do not find this file, copies can be found by writing to:
+% ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\providecommand{\pgfsyspdfmark}[3]{}
+
+\documentclass[a4paper,11pt,twoside]{report}
+\usepackage{amsmath}
+\usepackage{bftn}
+\usepackage{calc}
+\usepackage{verbatim}
+\usepackage{xspace}
+\usepackage{pifont}
+\usepackage{pxfonts}
+\usepackage{textcomp}
+
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{todonotes}
+\usepackage{hyperref}
+
+\title{Sockeye in Barrelfish}
+\author{Barrelfish project}
+% \date{\today}   % Uncomment (if needed) - date is automatic
+\tnnumber{025}
+\tnkey{Sockeye}
+
+
+\lstdefinelanguage{sockeye}{
+    morekeywords={is,are,accept,map,over,to,at},
+    sensitive=true,
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]",
+}
+
+\presetkeys{todonotes}{inline}{}
+
+\begin{document}
+\maketitle      % Uncomment for final draft
+
+\begin{versionhistory}
+\vhEntry{0.1}{12.06.2017}{DS}{Initial Version}
+\end{versionhistory}
+
+% \intro{Abstract}    % Insert abstract here
+% \intro{Acknowledgements}  % Uncomment (if needed) for acknowledgements
+\tableofcontents    % Uncomment (if needed) for final draft
+% \listoffigures    % Uncomment (if needed) for final draft
+% \listoftables     % Uncomment (if needed) for final draft
+\cleardoublepage
+\setcounter{secnumdepth}{2}
+
+\newcommand{\fnname}[1]{\textit{\texttt{#1}}}%
+\newcommand{\datatype}[1]{\textit{\texttt{#1}}}%
+\newcommand{\varname}[1]{\texttt{#1}}%
+\newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
+\newcommand{\pathname}[1]{\texttt{#1}}%
+\newcommand{\tabindent}{\hspace*{3ex}}%
+\newcommand{\Skate}{\lstinline[language=sockeye]}
+\newcommand{\ccode}{\lstinline[language=C]}
+
+\lstset{
+  language=C,
+  basicstyle=\ttfamily \small,
+  keywordstyle=\bfseries,
+  flexiblecolumns=false,
+  basewidth={0.5em,0.45em},
+  boxpos=t,
+  captionpos=b
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction and usage}
+\label{chap:introduction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\emph{Sockeye}\footnote{Sockeye salmon (Oncorhynchus nerka), also called red salmon, kokanee salmon, or blueback salmon, is an anadromous species of salmon found in the Northern Pacific Ocean and rivers discharging into it. This species is a Pacific salmon that is primarily red in hue during spawning. They can grow up to 84 cm in length and weigh 2.3 to 7 kg. 
+Source: \href{https://en.wikipedia.org/wiki/Sockeye_salmon}{Wikipedia}}
+is a domain specific language to describe SoCs (Systems on a Chip). With Sockeye these descriptions can be made available in Barrelfish's System Knowledge Base (SKB) \cite{skb}.
+
+\todo{More info in introduction}
+
+The Sockeye compiler is written in Haskell using the Parsec parsing library. It
+generates Prolog files from the Sockeye files.
+
+The source code for Sockeye can be found in \texttt{SOURCE/tools/sockeye}.
+
+\section{Use cases}
+
+We envision the following non exhausting list of possible use cases for Sockeye:
+
+\todo{Specify use cases}
+
+
+\section{Command line options}
+\label{sec:cmdline}
+
+\begin{verbatim}
+$ sockeye [options] file
+\end{verbatim}
+
+
+The available options are:
+\begin{description}
+	\item[-P] Generate a prolog file that can be loaded into the SKB.
+	\item[-C] Just perform checks, do not compile.
+  \item[-o] \textit{filename} The path to the output file (including the file extension)
+  \item[-h] show usage information
+\end{description}
+
+The backend (capital letter options) specified last takes precedence.
+
+The Sockeye file to compile is give via the \textit{file} parameter. The typical file extension for Sockeye files is \verb|.soc|.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Lexical Conventions}
+\label{chap:lexer}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The Sockeye parser follows a similar convention as opted by modern day 
+programming languages like C and Java. Hence, Sockeye uses a java-style-like
+parser based on the Haskell Parsec Library. The following conventions are used:
+
+\begin{description}
+\item[Encoding] The file should be encoded using plain text.
+\item[Whitespace:]  As in C and Java, Sockeye considers sequences of
+  space, newline, tab, and carriage return characters to be
+  whitespace.  Whitespace is generally not significant. 
+
+\item[Comments:] Sockeye supports C-style comments.  Single line comments
+  start with \texttt{//} and continue until the end of the line.
+  Multiline comments are enclosed between \texttt{/*} and \texttt{*/};
+  anything inbetween is ignored and treated as white space.
+
+\item[Identifiers:] Valid Sockeye identifiers are sequences of numbers
+  (0-9), letters (a-z, A-Z), the underscore character ``\texttt{\_}'' and hyphens ``\texttt{-}''.  They
+  must start with a letter.
+  \begin{align*}
+    identifier & \rightarrow letter (letter \mid digit \mid \_ \mid -)^{\textrm{*}} \\
+    letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
+    digit & \rightarrow (\textsf{0 \ldots 9})
+\end{align*}
+  
+\item[Integer Literals:] A Sockeye integer literal is a sequence of
+  digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
+  literals have no specifier and hexadecimal literals start with
+  \texttt{0x}. Octal literals start with \texttt{0o}.
+
+\begin{align*}
+digit & \rightarrow (\textsf{0 \ldots 9})^{\textrm{1}}\\
+hexadecimal & \rightarrow (\textsf{0x})(\textsf{0 \ldots 9} \mid \textsf{A \ldots F} \mid \textsf{a \ldots f})^{\textrm{1}}\\
+octal & \rightarrow (\textsf{0o})(\textsf{0 \ldots 7})^{\textrm{1}}\\
+\end{align*}
+
+\item[Reserved words:] The following are reserved words in Sockeye:
+\begin{verbatim}
+is, are, accept, map, over, to, at
+\end{verbatim}
+
+\end{description}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Decoding Net Declaration}
+\label{chap:declaration}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this chapter we define the layout of a Sockeye file.
+
+\section{Syntax Highlights}
+In the following sections we use the syntax highlighting as follows:
+\begin{syntax}
+\synbf{bold}:      Keywords  
+\synit{italic}:      Identifiers
+\verb+verbatim+   constructs, symbols etc.
+\end{syntax}
+
+
+
+\section{Conventions}
+\todo{Specify conventions}
+
+\section{The Sockeye File}
+A Sockeye file consists of one or more node declarations.
+A node declaration contains one or more identifiers and the node specification.
+Nodes are specified by declaring their type, the set of accepted addresses, the set of translated addresses and an overlay.
+Each of these are optional.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Checks on the AST}
+\label{chap:checks}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Prolog Mapping for Sockeye}
+\label{chap:prolog}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{abbrv}
+\bibliography{barrelfish}
+
+\end{document}
