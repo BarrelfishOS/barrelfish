@@ -63,4 +63,4 @@ class MemTestMulti(TestCommon):
                 nspawned += 1
             if line.startswith("memtest passed successfully!"):
                 nseen += 1
-        return PassFailResult(nspawned == nseen)
+        return PassFailResult(nspawned > 0 and nspawned == nseen)
