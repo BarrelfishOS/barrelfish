@@ -194,11 +194,19 @@ A Sockeye file consists of one or more node declarations.
 A node declaration contains one or more identifiers and the node specification.
 Nodes are specified by declaring their type, the set of accepted addresses, the set of translated addresses and an overlay.
 Each of these are optional.
+The order in which the nodes are specified does not matter.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Checks on the AST}
 \label{chap:checks}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The Sockeye compiler performs some sanity checks on the parsed AST.
+
+\section{No Duplicate Identifiers}
+This check makes sure that there aren't two node declarations with the same identifer.
+
+\section{No References to Undefined Nodes}
+This check makes sure that all nodes referenced in translation sets and overlays are declared in the same file.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Prolog Mapping for Sockeye}
