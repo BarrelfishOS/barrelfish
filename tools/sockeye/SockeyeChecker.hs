@@ -30,7 +30,7 @@ import qualified SockeyeAST as AST
 type CheckFailure = (Maybe AST.NodeId, String)
 
 canonicalId :: AST.NodeId -> AST.NodeId
-canonicalId (AST.NodeId id) = AST.NodeId $ map toLower id
+canonicalId = id
 
 findUniqueIdentifiers :: AST.NetSpec -> Writer [CheckFailure] (Set AST.NodeId)
 findUniqueIdentifiers (AST.NetSpec nodes) = let allIds = map fst $ nodes
