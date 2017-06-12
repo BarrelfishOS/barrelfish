@@ -36,7 +36,7 @@ L3 is map [
         /* 0x40000000-0x4002FFFF reserved */
         0x40030000-0x4003BFFF to BOOT_ROM at 0
         /* 0x4003C000-0x400FFFFF reserved */ //TRM: 0x40034000-0x400FFFFF?
-        0x40100000/20 to L4_ABE at 0
+        /* 0x40100000/20 L4_ABE private access for Cortex A9
         /* 0x40200000/20 reserved */
         0x40300000-0x4030DFFFF to L3_OCM_RAM at 0
         /* 0x4030E000-0x43FFFFFF reserved */
@@ -51,7 +51,7 @@ L3 is map [
         0x50000000/25 to GPMC at 0
         0x52000000/25 to ISS at 0
         0x54000000/24 to L3_EMU at 0
-        0x55000000/24 to M3
+        0x55000000/24 to CORTEXM3
         0x56000000/25 to SGX at 0
         0x58000000/24 to Display at 0
         /* 0x59000000/24 reserved */
@@ -387,16 +387,38 @@ L4_ABE is accept [0x00000/14] // XXX: First 16KB do what?
           ]
 
 /*
+ * Cortex A9 Memory Space Mapping
+ */
+CORTEXA9 is map [
+        0x00000000-0x400FFFFF to L3
+        0x40100000/20 to L4_ABE at 0
+        0x48240000/6 to SCU at 0
+        0x48240100/8 to GIC_Proc_Interface
+        0x48240600/8 to Timer at 0
+        0x48241000/12 to GIC_Intr_Distributor at 0
+        0x48242000/12 to PL310 at 0
+        0x48243000/9 to CORTEXA9_SOCKET_PRCM at 0
+        0x48243200/9 to CORTEXA9_PRM at 0
+        0x48243400/10 to CORTEXA9_CPU0 at 0
+        0x48243800/10 to CORTEXA9_CPU1 at 0
+        0x48281000/12 to CORTEXA9_WUGEN at 0
+        0x48290000/16 to CMU at 0
+        0x482A0000/12 to Local_interconnect at 0
+        0x482AF000/12 to MA at 0
+        0x482B0000-0xFFFFFFFF to L3 at 0
+    ]
+
+/*
  * 2.4 Dual Cortex-M3 Subsystem Memory Space Mapping
  */
-M3_ROM is memory accept [0/14]
-M3_RAM is memory accept [0/16]
+CORTEXM3_ROM is memory accept [0/14]
+CORTEXM3_RAM is memory accept [0/16]
 
 // TODO: address space not accessible from L3
-M3 is map [
+CORTEXM3 is map [
                     0x00000000-0x54FFFFFF to L3
-                    0x55000000/14 to M3_ROM at 0
-                    0x55020000/16 to M3_RAM at 0
+                    0x55000000/14 to CORTEXM3_ROM at 0
+                    0x55020000/16 to CORTEXM3_RAM at 0
                     /* 0x55030000/16 reserved */
                     0x55040000/18 to ISS at 0x10000 // XXX: Not accessible from L3?
                     0x55080000/12 to M3_MMU
@@ -519,16 +541,16 @@ SR_CORE is device accept [0/8]
 /*
  * 4 Dual Cortex-A9 MPU Subsystem
  */
-SCU is device accept [0/7]
+SCU is device accept [0/6]
 GIC_Proc_Interface is device accept [0/8]
 Timer is device accept [0/8]
 GIC_Intr_Distributor is device accept [0/12]
 PL310 is device accept [0/12]
-A9_SOCKET_PRCM is device accept [0/9]
-A9_PRM is device accept [0/9]
-A9_CPU0,
-A9_CPU1 are device accept [0/10]
-A9_WUGEN is device accept [0/12]
+CORTEXA9_SOCKET_PRCM is device accept [0/9]
+CORTEXA9_PRM is device accept [0/9]
+CORTEXA9_CPU0,
+CORTEXA9_CPU1 are device accept [0/10]
+CORTEXA9_WUGEN is device accept [0/12]
 CMU is device accept [0/16]
 Local_interconnect is device accept [0/12]
 MA is device accept [0/12]
@@ -604,7 +626,7 @@ AESS is device accept [0/12]
 /* 13.2 L3 Interconnect */
 L3_config is device accept [0/26]
 C2C_INIT_firewall is device accept [0/12] // not in TRM, from omap44xx_map.h
-C2C_TARGET_FIREWALL is device accept [0/12] // not in TRM, from omap44xx_map.h
+C2C_TARGET_firewall is device accept [0/12] // not in TRM, from omap44xx_map.h
 MA_firewall is device accept[0/12]
 EMIF_firewall is device accept [0/12]
 GPMC_firewall is device accept [0/12]
