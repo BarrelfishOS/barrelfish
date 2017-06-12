@@ -390,8 +390,9 @@ L4_ABE is accept [0x00000/14] // XXX: First 16KB do what?
  * Cortex A9 Memory Space Mapping
  */
 CORTEXA9 is map [
-        0x00000000-0x400FFFFF to L3
+        0x00000000-0x400FFFFF to L3 at 0
         0x40100000/20 to L4_ABE at 0
+        0x40200000-0x4823FFFF to L3 at 0x40200000
         0x48240000/6 to SCU at 0
         0x48240100/8 to GIC_Proc_Interface
         0x48240600/8 to Timer at 0
@@ -405,7 +406,7 @@ CORTEXA9 is map [
         0x48290000/16 to CMU at 0
         0x482A0000/12 to Local_interconnect at 0
         0x482AF000/12 to MA at 0
-        0x482B0000-0xFFFFFFFF to L3 at 0
+        0x482B0000-0xFFFFFFFF to L3 at 0x482B0000
     ]
 
 /*
