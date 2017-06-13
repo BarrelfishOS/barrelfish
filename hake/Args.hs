@@ -43,7 +43,8 @@ data Args = Args {
       addModules :: [String],
       addGeneratedDependencies :: [String],
       architectures :: [String],
-      sockeyeSchema :: [String],
+      skateSchemaDefs :: [String],  -- just the Skate Schema headers
+      skateSchemas :: [String],      -- Schema headers and functions
       installDirs :: InstallDirs
 }
 
@@ -80,7 +81,8 @@ defaultArgs = Args {
       addModules = [],
       addGeneratedDependencies = [],
       architectures = allArchitectures,
-      sockeyeSchema = [],
+      skateSchemaDefs = [],
+      skateSchemas = [],
       installDirs = InstallDirs {
             bindir = "/sbin",
             libdir = "/lib"
@@ -126,5 +128,6 @@ showArgs prefix a =
     ++ "\n  addModules:            " ++ (show $ addModules a)
     ++ "\n  addDeps:               " ++ (show $ addGeneratedDependencies a)
     ++ "\n  architectures:         " ++ (show $ architectures a)
-    ++ "\n  sockeyeSchema:         " ++ (show $ sockeyeSchema a)
+    ++ "\n  skateSchemaDefs:       " ++ (show $ skateSchemaDefs a)
+    ++ "\n  skateSchemas:          " ++ (show $ skateSchemas a)
     ++ "\n"
