@@ -216,6 +216,9 @@ parser based on the Haskell Parsec Library. The following conventions are used:
   ``don't care'' or anonymous identifier which is treated differently
   inside the language. 
   
+\item[Case Sensitivity] Skate is not case sensitive hence identifiers 
+\texttt{foo} and \texttt{Foo} will be the same.  
+  
 \item[Integer Literals:] A Skate integer literal is a sequence of
   digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
   literals have no specifier and hexadecimal literals start with
@@ -604,7 +607,7 @@ GICD entry of the ACPI MADT Table.
 \subsubsection{Type}
 Constants with identifier $name$ define the following type:
 \begin{syntax}
-\synbf{constant} \synit{name};
+\synbf{const} \synit{name};
 \end{syntax}
 
 
