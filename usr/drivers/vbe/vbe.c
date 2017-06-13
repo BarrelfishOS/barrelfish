@@ -245,7 +245,7 @@ uint32_t vbe_restorestate(void)
     return regs.eax & 0xffff;
 }
 
-void vbe_init(struct device_mem *bar_info, int nr_mapped_regions)
+void vbe_init(void *arg, struct device_mem *bar_info, int nr_mapped_regions)
 {
     errval_t err;
     printf("vbe: initialising graphics hardware...\n");

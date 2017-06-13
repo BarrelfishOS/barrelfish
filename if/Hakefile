@@ -94,7 +94,8 @@
                "sfn5122f_devif",
                "descq",
                "ddomain",
-               "dcontrol"
+               "dcontrol",
+               "net_filter"
            ],
              arch <- allArchitectures
 ] ++

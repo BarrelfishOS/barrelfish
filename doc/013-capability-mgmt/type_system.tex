@@ -13,7 +13,7 @@ supported types in Barrelfish.
 
 \item[Origin] A capability type is either \emph{primitive}, which
   means that capabilities of the type may be created only through a
-  special process (eg. at boot time), or \emph{derived}, which means
+  special process (e.g. at boot time), or \emph{derived}, which means
   that capabilities of the type may be created by retyping an existing
   capability. For primitive types, we specify how the capabilities of
   that type are created; for derived types, we specify which
@@ -64,36 +64,37 @@ CNodes are used to hierarchically construct the CSpace of a domain, as
 described in \ref{sec:cspace}.  All capability management is
 performed through invocations on CNodes.
 
-A CNode capability stores a \emph{guard} and \emph{guard size}, which
-is expressed as a number of bits. As in guarded page
-tables\cite{Liedtke_GPT}, the guard allows the depth of the CSpace
-tree to be reduced by skipping levels that would only contain a single
-mapping. When resolving a CSpace address that has led to a CNode
-capability, the guard is compared with the corresponding number of
-bits from the remaining part of the address, and if it does not match,
-the lookup fails.
+CNodes are organized as a two-level table with distinct capability types for
+the root or L1 CNode (which can be dynamically enlarged), and L2 or leaf
+CNodes which have a fixed size of 256 capability slots.
+The two-level CNode table forms a 32-bit capability address space for each
+dispatcher.
+User space refers to entries in that address space with a 32-bit
+\emph{capability address}.
+The high 24 bits of the capability address are used as an index into the L1
+CNode.
+The L1 CNode index can be too large for a given L1 CNode that has not been
+enlarged to it's maximum size of $2^{24}$ slots.
+A user space operation referring to an L1 slot that is not allocated will fail
+with \verb|SYS_ERR_L1_CNODE_INDEX|.
+The CPU driver then uses the L1 index to perform a lookup for the L2 CNode.
+If an L2 CNode exists for the given L1 index, the low 8 bits of the supplied
+capability address are used as an index into the L2 CNode.
+The CPU driver then uses the L2 index to perform a lookup for the requested
+capability.
 
 Many CNode invocations require that the caller provide both a CSpace
-address and the number of \emph{valid bits} in the address. This
-allows the invocations to refer to another CNode capability that is
-located at an intermediate level in the tree, and thus would usually
-be recursed through by the address resolution algorithm. If the number
-of valid bits associated with a CSpace is less than the size of a full
-CSpace address, only the least significant bits that are valid, but
-starting with the most significant bit thereof, are used, and the
-address lookup terminates early.
+address and the number of \emph{levels} to resolve. This allows the
+invocations to refer to a L2 CNode capability that is located in a L1 slot,
+and thus would usually be recursed through by the address resolution
+algorithm.
 
 \begin{description}
 \item[Origin] Retyping from RAM type capabilities
 
 \item[Retypability] No
 
-\item[Mint parameters] The mint parameters can be used to set a guard
-  on a CNode.
-  \begin{itemize}
-  \item Parameter 1: The guard to set.
-  \item Parameter 2: The size of the guard in bits.
-  \end{itemize}
+\item[Mint parameters] No
 
 \item[Interpretation of rights] \note{Explain rights and rights mask.
   Capability rights and rights masks are currently not implemented.
@@ -102,33 +103,46 @@ address lookup terminates early.
 
 \item[Transferability to another core] Yes.  When transfered to
   another core, capability is implicitly retyped to a Foreign CNode
-  type. \note{We do not allow CNode type caps to be transferred yet.}
+  type.
+    \note{We currently allow CNode type caps to be transferred without doing
+    the type conversion, which is extremely risky, but does not break the
+    system if the receiver only ever tries to copy capabilities out of the
+    received CNode.}
 
 \item[Last copy deleted] When the last copy is deleted, all
   capabilities stored within it are also deleted.
 
-\item[Concrete representations] The in-memory representation of on
-  x86-64 is as follows:
+\item[Concrete representations] The in-memory representation is as follows:
     
   \begin{lstlisting}[language=Mackerel]
-    datatype cnode_cap "CNode capability" {
+    datatype L1CNode "L1 CNode capability" {
       cnode 64 "Physical base address of CNode";
-      bits 8 "Number of bits this CNode resolves";
+      size  64 "Allocated size of CNode in bytes";
       rightsmask 8 "Capability rights mask";
-      guard_size 8 "Number of bits in guard word";
-      guard 32 "Bitmask already resolved when reaching this CNode";
     };
     \end{lstlisting}
+
+    \begin{lstlisting}[language=Mackerel]
+      datatype L2CNode "L2 CNode capability" {
+        cnode 64 "Physical base address of CNode";
+        rightsmask 8 "Capability rights mask";
+      };
+    \end{lstlisting}
+
+    Note that L2 CNodes have a fixed size of 16384 bytes, which is
+    \textbf{not} stored in their in-memory representation.
 \end{description}
 
 \begin{invocation}{Mint}\label{sec:mint}
-  \arg CSpace address of destination CNode
-  \arg Slot number in destination CNode
-  \arg CSpace address of source capability
-  \arg Number of valid bits in destination CNode address
-  \arg Number of valid bits in source capability address
-  \arg Type-specific parameter 1
-  \arg Type-specific parameter 2
+ \arg Capability of the source cspace root CNode to invoke
+ \arg Destination cspace cap address relative to source cspace
+ \arg Destination CNode address relative to destination cspace
+ \arg Slot in destination CNode cap to place copy into
+ \arg Address of cap to copy.
+ \arg Level/depth of 'to'.
+ \arg Level/depth of 'from'.
+ \arg 1st cap-dependent parameter.
+ \arg 2nd cap-dependent parameter.
 \end{invocation}
 The Mint invocation creates a new capability in an existing CNode
 slot, given an existing capability.  The new capability will be a copy
@@ -138,47 +152,53 @@ of the existing capability, except for changes to the
 The use of the two type-specific parameters is described along with
 the description of the relevant type.
 
-If the destination capability is of type VNode, then instead of a
-mint, a page table entry is made into the page table pointed to by the
-VNode.  In this case, the source capabilities must be of type VNode,
-Frame, or Device Frame.  The first parameter specifies architecture
-specific page (table) attributes and the second parameter specifies an
-offset from the source frame/device frame to map.
-  
 \begin{invocation}{Copy}
-  \arg CSpace address of destination CNode
-  \arg Slot number in destination CNode
-  \arg CSpace address of source capability
-  \arg Number of valid bits in destination CNode address
-  \arg Number of valid bits in source capability address
+ \arg Capability of the source cspace root CNode to invoke
+ \arg Capability address of destination root cnode relative to our cspace
+ \arg CNode address to place copy into relative to destination cspace.
+ \arg Slot in CNode cap to place copy into.
+ \arg Capability address of source root cnode relative to our cspace
+ \arg Address of cap to copy.
+ \arg Level/depth of 'to'.
+ \arg Level/depth of 'from'.
 \end{invocation}
 This invocation is similar to Mint, but does not change any
-type-specific data.
-
-If the destination capability is of type VNode, then instead of a
-copy, a page table entry is made into the page table pointed to by the
-VNode.  In this case, the source capabilities must be of type VNode,
-Frame, or Device Frame.
+type-specific data. In fact, the CPU driver currently uses the same code path
+for copy and mint, and a mint with both cap-dependent parameters set to zero
+will behave exactly like a Copy invocation.
 
 \begin{invocation}{Retype}
-  \arg CSpace address of source capability to retype
-  \arg Type of new objects to create
-  \arg Size in bits of each object, for variable-sized objects
-  \arg CSpace address of destination CNode
-  \arg Slot number in desination CNode of the first created capability
-  \arg Number of valid bits in destination CNode address
+ \arg Capability of the source cspace root CNode to invoke
+ \arg Source cspace cap address in our cspace.
+ \arg Address of cap to retype in source cspace.
+ \arg Offset into cap to retype
+ \arg Kernel object type to retype to.
+ \arg Size of created objects, for variable-sized types
+ \arg Number of objects to create
+ \arg Destination cspace cap address in our cspace
+ \arg Address of CNode cap in destination cspcae to place retyped caps into.
+ \arg Level/depth of CNode cap in destination cspace
+ \arg Slot in CNode cap to start placement.
 \end{invocation}
 
 This invocation creates one or more new descendant capabilities of the
 specified type in the specified slots, given a source capability and a
-destination type.  It will fail if the source or destination are
-invalid, or if the capability already has descendants. (some
-capability types, currently only the dispatcher type can be retyped
-even if it already has descendants).  The destination slots must all
-occupy the same CNode.  The permissible source/destination pairs are
-shown in \ref{fig:cap_types} and \ref{tab:retype_types}.  The number
-of new capabilities created is determined by the size of the source
-capability divided by the size of the newly-created objects.
+destination type.
+It will fail if the source or destination are invalid, or if the capability
+already has descendants which overlap the requested region (some capability
+types, currently only the dispatcher type can be retyped even if it already
+has descendants).
+The destination slots must all occupy the same CNode.  The permissible
+source/destination pairs are shown in \ref{fig:cap_types} and
+\ref{tab:retype_types}.
+The number of new capabilities created is given as an argument.
+The invocation can fail if the retype region, which is defined as a pair of
+base address and size does not fit into the source capability.
+The retype region's base address is given as an offset into the source
+capability, and it's size is given as the number of capabilities to create
+multiplied by the requested size for the new capabilities.
+
+\note{check tables and figure for validity in 2017}
 
 \ctable[
   caption=Permissible types for the Retype invocation,
@@ -203,15 +223,17 @@ capability divided by the size of the newly-created objects.
 \end{figure}
   
 \begin{invocation}{Delete}
-  \arg CSpace address of capability to delete
-  \arg Number of valid bits in capability address
+ \arg Capability of the CNode to invoke
+ \arg Address of cap to delete.
+ \arg Level/depth of 'cap'.
 \end{invocation}
 This invocation deletes the capability at the given address, freeing
 the associated CNode slot.
 
 \begin{invocation}{Revoke}
-  \arg CSpace address of capability to Revoke
-  \arg Number of valid bits in capability address
+ \arg Capability of the CNode to invoke
+ \arg Address of cap to delete.
+ \arg Level/depth of 'cap'.
 \end{invocation}
 This invocation revokes the capability at the given address.
 
@@ -254,6 +276,8 @@ resides.  \note{Full implementation and discussion pending}
       guard      32  "Bitmask already resolved when reaching this CNode";
     };
   \end{lstlisting}
+    \note{This should not be used as-is, as we have changed the CNodes
+    themselves significantly in 2016.}
 \end{description}
 
 \note{Discussion pending on invocations}
@@ -285,12 +309,12 @@ the trusted computing base.
 \item[Last copy deleted] \note{NYI, maybe inform some special
   dispatcher like memory server}
   
-\item[Concrete representations] The in-memory representation on x86-64 is as follows:
+\item[Concrete representations] The in-memory representation is as follows:
   
   \begin{lstlisting}[language=Mackerel]
     datatype physaddr_cap "Physical address range capability" {
       base       64  "Physical base address of region";
-      bits        8  "Size of region";
+      bytes      64  "Size of region";
     };
   \end{lstlisting}
 \end{description}
@@ -314,12 +338,12 @@ region of kernel-accessible memory.
 \item[Last copy deleted] \note{NYI, maybe inform some special
   dispatcher like memory server}
   
-\item[Concrete representations] The in-memory representation on x86-64 is as follows:
+\item[Concrete representations] The in-memory representation is as follows:
   
   \begin{lstlisting}[language=Mackerel]
     datatype ram_cap "RAM capability" {
       base       64  "Physical base address of region";
-      bits        8  "Size fo region";
+      bytes      64  "Size of region";
     };
   \end{lstlisting}
 \end{description}
@@ -354,13 +378,12 @@ user-level dispatcher.
 \end{description}
 
 \begin{invocation}{Setup}
-  \arg CSpace address of domain's root CNode (root of CSpace)
-  \arg Number of valid bits in root CNode address
-  \arg CSpace address of domain's root VNode (root page table)
-  \arg Number of valid bits in root VNode address
-  \arg CSpace address of dispatcher frame (user-level dispatcher
-  data) capability
-  \arg Whether to make dispatcher runnable
+ \arg Address of dispatcher capability relative to dispatchers caller's cspace
+ \arg Address of existing dispatcher for domain ID relative to caller's cspace
+ \arg Root of CSpace for new dispatcher relative to caller's cspace
+ \arg Root of VSpace for new dispatcher relative to cspace for new dispatcher.
+ \arg Frame capability for dispatcher structure relative to cspace for new dispatcher.
+ \arg Make runnable if true
 \end{invocation}
 This invocation sets any of the above parameters on a dispatcher
 object.  If any of the CSpace addresses are null, they are ignored.
@@ -387,6 +410,7 @@ is specified changed by minting an endpoint to another endpoint.
   badge on the capability
   \begin{itemize}
   \item Parameter 1: The endpoint offset to set on the capability.
+  \item Parameter 2: The endpoint buffer size to set on the capability.
   \end{itemize}
   
 \item[Retyability] No
@@ -407,6 +431,7 @@ is specified changed by minting an endpoint to another endpoint.
                         receiver's dispatcher control block";
       epoffset     64  "Offset of endpoint buffer within dispatcher
                         structure";
+      buflen       32  "Length of endpoint buffer in words";
     };
   \end{lstlisting}
   
@@ -419,9 +444,25 @@ is specified changed by minting an endpoint to another endpoint.
 A VNode capability refers to a hardware page table and is used to
 manage a domain's virtual address space.  Frame and device frame
 capabilities can be copied or minted into them or deleted from them by
-invoking a CNode.  The architecture may impose limitations on the
+invoking the VNode.  The architecture may impose limitations on the
 capabilities that may be copied into a VNode, or may allow extra
 attributes to be set when minting.
+
+We define one VNode capability type per hardware page table type per
+architecture.
+We currently define the following VNode types:
+\begin{itemize}
+  \item \verb|VNode_x86_64_pml4|
+  \item \verb|VNode_x86_64_pdpt|
+  \item \verb|VNode_x86_64_pdir|
+  \item \verb|VNode_x86_64_ptable|
+  \item \verb|VNode_ARM_l1|
+  \item \verb|VNode_ARM_l2|
+  \item \verb|VNode_AARCH64_l0|
+  \item \verb|VNode_AARCH64_l1|
+  \item \verb|VNode_AARCH64_l2|
+  \item \verb|VNode_AARCH64_l3|
+\end{itemize}
 
 \begin{description}
 \item[Origin] Retyping from RAM type capabilities.
@@ -434,8 +475,8 @@ attributes to be set when minting.
   
 \item[Transferability to another core] \note{Discussion pending}
 
-\item[Last copy deleted] \note{NYI, initiate mechanisms to unmap from
-  associated page tables and remove mapped in page tables and frames}
+\item[Last copy deleted] Delete all the mapping capabilities associated with
+  mappings contained in the VNode.
   
 \item[Concrete representations] The in-memory representation on x86-64
   is as follows:
@@ -445,13 +486,53 @@ attributes to be set when minting.
       base     64  "Base address of the page table";
     };
   \end{lstlisting}
-\end{description}  
+\end{description}
+
+\begin{invocation}{Map}
+  \arg VNode entry at which to create mapping
+  \arg CSpace address of the root (L1) CNode of the capability to map
+  \arg CSpace address of the capability to map
+  \arg Level of the capability to map
+  \arg (Architecture-dependent) Flags for the mapping
+  \arg Offset in bytes into the source capability of the region to map
+  \arg Size of the region to map in VNode entries
+  \arg CSpace address of the root (L1) CNode of the capability slot in which
+  to create the mapping capability
+  \arg CSpace address of the CNode of the capability slot in which to create
+  the mapping capability
+  \arg Level of the CNode of the capability slot in which to create
+  the mapping capability
+  \arg Slot in the CNode in which to create the mapping capability
+\end{invocation}
+This invocation maps a region of memory at the given offset and of the given
+size\footnote{we give the size in VNode entries, in order to easily reuse the
+invocation when e.g. creating superpages on x86-64} into the VNode starting at
+the given entry.
+The invocation may fail if the source capability cannot be found, the
+requested mapping region is not entirely covered by the source capability, the
+source capability does not have a type which is mappable into the VNode, given
+it's type, one or more of the VNode entries covering the requested mapping are
+already occupied, or the slot of the mapping capability cannot be found or is
+occupied.
+
+\begin{invocation}{Unmap}
+  \arg CSpace address of the mapping to remove
+  \arg Level of the mapping capability
+\end{invocation}
+This invocation unmaps the region identified by mapping from the VNode, if
+said region is actually mapped in the VNode.
+
+\noarginvocation{Identify}
+This invocation returns the physical address (and size) of the VNode.
 
 \subsection{Frame}
-A frame capability refers to a naturally-aligned power-of-two-sized
-region of physical memory that may be mapped into a domain's virtual
-address space (by copying it to a VNode).  When a frame capability is
-created (ie.~retyped from RAM), the kernel zero-fills the frame.
+A frame capability refers to a page-aligned\footnote{We coloquially refer to
+4kB pages as pages} region of physical memory with a size that is a multiple
+of 4096 bytes.
+A frame capability may be mapped into a domain's virtual address space (by
+copying it to a VNode).
+When a frame capability is created (ie.~retyped from RAM), the kernel
+zero-fills the frame.
 \note{Is this a good idea? Shouldn't we be able to pre-zero frames?
   -AB}
 
@@ -466,32 +547,36 @@ created (ie.~retyped from RAM), the kernel zero-fills the frame.
   
 \item[Transferability to another core] Yes
 
-\item[Last copy deleted] \note{NYI, initiate unmapping from page
-  tables.  We may choose for this to happen when the last copy of a
-  frame within a dispatcher is deleted rather than the last copy in
-  the entire system.}
+\item[Any copy deleted] Look up any \emph{Mapping} capabilities associated
+  with this Frame and use information stored in those mappings to remove any
+  page table entries that exist for this copy of the frame capability.
+
+\item[Last copy deleted] Check whether there are any other capabilities that
+  refer to the region, or a superset of the region, referred to by this
+    capability. If not, return create a new RAM capability and return it to a
+    specially identified ``memory server'' dispatcher.
   
-\item[Concrete representations] The in-memory representation on x86-64
-  is as follows:
+\item[Concrete representations] The in-memory representation is as follows:
   
   \begin{lstlisting}[language=Mackerel]
     datatype frame_cap "Frame capability" {
-      base       64  "Physical base address of untyped region";
-      bits        8  "Size of the region";
+      base       64  "Physical base address of mappable region";
+      bytes      64  "Size of the region";
     };
   \end{lstlisting}
 \end{description}  
 
 \noarginvocation{Identify}
-This invocation returns the physical address and size (in bits) of the frame.
+This invocation returns the physical address and size (in bytes) of the frame.
 
 \subsection{Device frame}
-A device frame capability refers to a naturally-aligned
-power-of-two-sized region of physical address space that may be mapped
-into a domain's virtual address space (by copying it to a VNode).
-Unlike frame capabilties, the kernel does not zero-fill device frame
-capabilities upon mapping.  As the name implies, device frames are
-typically used for access to memory-mapped devices.
+A device frame capability refers to a page-aligned region of physical address
+space, with a size that is a multiple of 4096, that may be mapped into a
+domain's virtual address space (by copying it to a VNode).
+Unlike frame capabilities, the kernel does not zero-fill device frame
+capabilities upon mapping.
+As the name implies, device frames are typically used for access to
+memory-mapped devices.
 
 \begin{description}
 \item[Origin] Retyping Physical address range type capabilities.
@@ -504,30 +589,103 @@ typically used for access to memory-mapped devices.
   
 \item[Transferability to another core] Yes
 
-\item[Last copy deleted] \note{NYI, initiate unmapping from page
-  tables.  We may choose for this to happen when the last copy of a
-  frame within a dispatcher is deleted rather than the last copy in
-  the entire system.}
+\item[Any copy deleted] Look up any \emph{Mapping} capabilities associated
+  with this Frame and use information stored in those mappings to remove any
+  page table entries that exist for this copy of the frame capability.
+
+\item[Last copy deleted] Check whether there are any other capabilities that
+  refer to the region, or a superset of the region, referred to by this
+    capability. If not, return create a new RAM capability and return it to a
+    specially identified ``memory server'' dispatcher.
   
-\item[Concrete representations] The in-memory representation on x86-64 is as follows:
+\item[Concrete representations] The in-memory representation is as follows:
   
   \begin{lstlisting}[language=Mackerel]
     datatype device_cap "Device Frame capability" {
       base       64  "Physical base address of region";
-      bits        8  "Size of the region";
+      bytes      64  "Size of the region";
     };
   \end{lstlisting}
 \end{description}  
 
 \noarginvocation{Identify} This invocation returns the physical
-address and size (in bits) of the frame.
+address and size (in bytes) of the frame.
 
-\subsection{IO}
-IO capability gives the holder the ability to read and write to IO
-ports.
+\subsection{Mapping}
+After an attempt to store shadow page table entries in the Frame/DevFrame
+capability copies that are mapped in a VNode, which led to a lot of
+unnecessary heavy-weight Frame capability copies in the system, we redesigned
+the shadow page table implementation to use additional capability types, one
+for each capability type that can be copied to a VNode type.
+
+We define one mapping type per mappable capability type.
+We currently define the following mapping types:
+\begin{itemize}
+  \item \verb|Frame_Mapping|
+  \item \verb|DevFrame_Mapping|
+  \item \verb|VNode_x86_64_pml4_Mapping|
+  \item \verb|VNode_x86_64_pdpt_Mapping|
+  \item \verb|VNode_x86_64_pdir_Mapping|
+  \item \verb|VNode_x86_64_ptable_Mapping|
+  \item \verb|VNode_ARM_l1_Mapping|
+  \item \verb|VNode_ARM_l2_Mapping|
+  \item \verb|VNode_AARCH64_l0_Mapping|
+  \item \verb|VNode_AARCH64_l1_Mapping|
+  \item \verb|VNode_AARCH64_l2_Mapping|
+  \item \verb|VNode_AARCH64_l3_Mapping|
+\end{itemize}
 
 \begin{description}
-\item[Origin] A single capability created at boot time in the bsp core.
+\item[Origin] Created when copying a mappable capability to a VNode.
+  
+\item[Retyability] None.
+  
+\item[Mint parameters] None
+  
+\item[Interpretation of rights] \note{Explain rights}
+  
+\item[Transferability to another core] No.
+
+\item[Any copy deleted] Use information stored in capability to delete that
+  mapping that caused this capability to be created.
+
+\item[Last copy deleted] Same as for any other copy deleted.
+  
+\item[Concrete representations] The in-memory representation is as follows:
+  
+  \begin{lstlisting}[language=Mackerel]
+    datatype mapping "Mapping capability" {
+      cap        64  "Kernel address of capability this mapping tracks";
+      pte        64  "Kernel address of VNode entry this mapping tracks";
+      offset     32  "Offset into capability for the mapped region";
+      pte_count  16  "Number of VNode entries of the mapped region";
+    };
+  \end{lstlisting}
+\end{description}
+
+\begin{invocation}{Modify flags of mapping}
+ \arg CSpace address of mapping capability
+ \arg Offset (in #pages) of the first page to get new set of flags from the
+  first page in the mapping identified by the mapping capability.
+ \arg Number of pages that should get new set of flags
+ \arg New set of flags
+ \arg Hint for selective TLB flushing
+\end{invocation}
+Invocation that uses mapping capability to efficiently find relevant VNode
+entries to modify a mapping's flags.
+
+\begin{invocation}{Destroy mapping}
+  \arg Cspace address of mapping capability
+\end{invocation}
+This invocation is not yet implemented.
+
+\subsection{IO}
+An IO capability gives the holder the ability to read and write to IO ports.
+IO capabilities are currently only supported on x86-64.
+
+\begin{description}
+\item[Origin] A single IO capability covering the whole IO region created at
+  boot time in the BSP core.
   
 \item[Retyability] No
   
@@ -591,6 +749,8 @@ The IRQ table capability allows the holder to configure the user-level
 handler dispatcher that will be invoked when the kernel receives
 device interrupts.
 
+\note{Discuss new IRQSrc and IRQDest capabilities}
+
 \begin{description}
 \item[Origin] Given to the first domain spawned on a core.
   
@@ -625,9 +785,13 @@ interrupts will be delivered as IDC messages.
 This invocation clears the handler for the given IRQ.
 
 \subsection{Kernel Capability}
-So far, this capability is treated as the magic capability that gives
-the holder a backdoor into performing special operations in the
-kernel.
+This capability is used to confer authority to the user-space part of the
+Barrelfish kernel, the ``monitor''.
+Some other privileged domains also receive a copy of the kernel capability,
+but we should factor those operations out and create different capability
+types that give those dispatchers only the right to invoke the operations they
+actually need.
+One example of such a dispatcher is the dispatcher that brings up new cores.
 
 \begin{description}
 \item[Origin] Given to the first domain spawned on a core.
@@ -642,13 +806,15 @@ kernel.
 
 \item[Last copy deleted] \note{NYI}
   
-\item[Concrete representations] The in-memory representation on x86-64 is as follows:
+\item[Concrete representations] The in-memory representation is as follows:
   
   \begin{lstlisting}[language=Mackerel]
     datatype kernel_cap "Kernel capability" {
-      kernel_id   8  "Id of the Kernel";
     };
   \end{lstlisting}
+
+    The kernel capability does not convey any information, it is simply a
+    token of authority.
 \end{description}
 
 \begin{invocation}{Spawn core}
@@ -671,36 +837,127 @@ The invocation returns the APIC ID of the core.
 
 \begin{invocation}{Identify capability}
   \arg CSpace address of the capability to identify
-  \arg Number of valid bits in the capability
+  \arg Level of the capability to identify
   \arg Location of buffer to hold capability representation
 \end{invocation}
 The invocation stores the kernel's in-memory representation of the
 capability into the given buffer.
-
-\begin{invocation}{Identify CNode, get capability}
-  \arg In memory representation of a CNode capability
-  \arg Slot number of a capability within the CNode capability
+j
+\begin{invocation}{Identify another dispatcher's capability}
+  \arg CSpace address of the dispatcher's L1 cnode capability
+  \arg Level in our CSpace of the L1 cnode capability
+  \arg CSpace address relative to the dispatcher's CSpace of the capability to
+  identify
+  \arg Level in the dispatcher's CSpace of the capability to identify
   \arg Location of buffer to hold capability representation
 \end{invocation}
-The invocation stores the kernel's in-memory representation of the
-capability located at the given slot in the given CNode into the given
-buffer.
+The invocation stores the kernel's in-memory representation of another
+dispatcher's capability into the given buffer.
 
 \begin{invocation}{Create capability}
   \arg In memory representation of a capability
   \arg CSpace address of the CNode the place the created capability in
-  \arg Number of valid bits in the CSpace address of the CNode
+  \arg Level of the CNode in the CSpace
   \arg Slot number to place the capability in
+  \arg Owning core of the new capability
 \end{invocation}
-Creates the given capability in the given slot in the given CNode.
+Creates the given capability in the given slot in the given CNode with the
+given Owner.
 
-\begin{invocation}{Create capability}
-  \arg In memory representation of a capability
-  \arg CSpace address of the CNode the place the created capability in
-  \arg Number of valid bits in the CSpace address of the CNode
-  \arg Slot number to place the capability in
+\note{TODO: KernelCmd\_Copy\_existing}
+
+\begin{invocation}{Set capability's remote relations}
+  \arg CSpace address of CSpace (L1 CNode) in which to look for capability
+  \arg Level of root capability.
+  \arg CSpace address of capability
+  \arg Level of capability
+  \arg Remote relations to set.
+  \arg Mask: bitmask to show which remote relations to set.
 \end{invocation}
-Creates the given capability in the given slot in the given CNode.
+If mask is not zero, set remote relations according to the bits set in the
+expression \verb|remote_relations & mask|.
+Always returns the remote relations bitmask after potentially setting new
+remote relations.
 
-\note{The other invocations are outdated and will probably change
-  when the monitors are discussed}
+\begin{invocation}{Read capability's remote relations}
+  \arg CSpace address of capability
+  \arg Level of capability
+\end{invocation}
+Returns bitmask of currently set remote relations on capability.
+
+Further Kernel capability invocations that we will have to document:
+\begin{itemize}
+  \item \verb|KernelCmd_Get_arch_id|: Returns arch id of caller's core
+  \item \verb|KernelCmd_Nullify_cap|: Set the capability to NULL allowed it to be reused
+  \item \verb|KernelCmd_Setup_trace|: Set up trace buffer
+  \item \verb|KernelCmd_Register|: Register monitor notify endpoint
+  \item \verb|KernelCmd_Domain_Id|: Set domain ID of dispatcher
+  \item \verb|KernelCmd_Get_cap_owner|: Get capability's owning core
+  \item \verb|KernelCmd_Set_cap_owner|: Set capability's owning core
+  \item \verb|KernelCmd_Lock_cap|: Lock capability when performing distributed
+    operation.
+  \item \verb|KernelCmd_Unlock_cap|: Unlock capability when distributed
+    operation done.
+  \item \verb|KernelCmd_Delete_last|: Instruct CPU driver to perform
+    operations necessary -- as outlined in this section -- when deleting last
+    copy of a capability.
+  \item \verb|KernelCmd_Delete_foreigns|: Delete non-owned copies when
+    processing a revoke request from another core.
+  \item \verb|KernelCmd_Revoke_mark_target|: Mark a capability for revocation.
+  \item \verb|KernelCmd_Revoke_mark_relations|: Mark a capability's relations
+    for revocation.
+  \item \verb|KernelCmd_Delete_step|: Instruct the CPU driver to perform a
+    delete step in the distributed delete protocol.
+  \item \verb|KernelCmd_Clear_step|: Instruct the CPU driver to perform a
+    clear step in the distributed delete protocol.
+  \item \verb|KernelCmd_Retype|: Perform a retype for a capability with remote
+    relations.
+  \item \verb|KernelCmd_Has_descendants|: Check whether a capability has
+    descendants.
+  \item \verb|KernelCmd_Is_retypeable|: Check whether a requested retype is
+    valid.
+  \item \verb|KernelCmd_Sync_timer|: Synchronize hardware timers.
+  \item \verb|KernelCmd_IPI_Register|: Register a handler for an IPI (?).
+  \item \verb|KernelCmd_IPI_Delete|: Delete a handler for an IPI (?).
+  \item \verb|KernelCmd_GetGlobalPhys|: Get global physical address
+    corresponding to a local physical address?
+  \item \verb|KernelCmd_Add_kcb|: add extra KCB to be scheduled.
+  \item \verb|KernelCmd_Remove_kcb|: remove KCB from scheduling ring.
+  \item \verb|KernelCmd_Suspend_kcb_sched|: suspend/resume KCB scheduler.
+  \item \verb|KernelCmd_Get_platform|: Get architecture platform.
+\end{itemize}
+
+\subsection{Kernel Control Block}
+A kernel control block capability captures all the state for a single CPU
+driver.  This allows us to do interesting operations such as rebooting a core
+at runtime~\cite{Coreboot:Zellweger2014}.
+A kernel control block is structured according to the \verb|struct kcb|
+defined in the CPU driver code.
+
+\begin{description}
+\item[Origin] Retyping from RAM type capabilities
+
+\item[Retypability] No
+
+\item[Mint parameters] No
+
+\item[Interpretation of rights] \note{Explain rights and rights mask.
+  Capability rights and rights masks are currently not implemented.
+  This means that every user domain holding a capability has full
+  rights to it.}
+
+\item[Transferability to another core] Yes, between cores that share memory.
+  When transferred to another core, can be scheduled on that core.
+
+\item[Last copy deleted] \note{NYI}
+
+\item[Concrete representations] The in-memory representation is as follows:
+    
+  \begin{lstlisting}[language=Mackerel]
+    datatype KernelControlBlock "Represents a CPU driver's state" {
+      kcb     64  "Kernel address of the KCB represented by this capability"
+    };
+    \end{lstlisting}
+\end{description}
+
+\note{Need to discuss invocations on KCB}

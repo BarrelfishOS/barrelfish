@@ -186,7 +186,8 @@ static errval_t setup_int_routing(int irq_idx, interrupt_handler_fn handler,
     return err;
 }
 
-errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t class,
+errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func,
+                                         void *user_state, uint32_t class,
                                          uint32_t subclass, uint32_t prog_if,
                                          uint32_t vendor, uint32_t device,
                                          uint32_t bus, uint32_t dev, uint32_t fun,
@@ -279,7 +280,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
 
     // initialize the device. We have all the caps now
     PCI_CLIENT_DEBUG("Succesfully done with pci init.\n");
-    init_func(bars, nbars);
+    init_func(user_state, bars, nbars);
 
     err = SYS_ERR_OK;
 
@@ -287,26 +288,29 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
     return err;
 }
 
-errval_t pci_register_driver_irq(pci_driver_init_fn init_func, uint32_t class,
+errval_t pci_register_driver_irq(pci_driver_init_fn init_func,
+                                 void *user_state, uint32_t class,
                                  uint32_t subclass, uint32_t prog_if,
                                  uint32_t vendor, uint32_t device,
                                  uint32_t bus, uint32_t dev, uint32_t fun,
                                  interrupt_handler_fn handler,
                                  void *handler_arg)
 {
-     return pci_register_driver_movable_irq(init_func, class, subclass,
+     return pci_register_driver_movable_irq(init_func, user_state, class, subclass,
              prog_if, vendor, device, bus, dev, fun, handler, handler_arg,
              NULL, NULL);
 }
 
 
-errval_t pci_register_driver_noirq(pci_driver_init_fn init_func, uint32_t class,
+errval_t pci_register_driver_noirq(pci_driver_init_fn init_func,
+                                   void *user_state, uint32_t class,
                                    uint32_t subclass, uint32_t prog_if,
                                    uint32_t vendor, uint32_t device,
                                    uint32_t bus, uint32_t dev, uint32_t fun)
 {
-    return pci_register_driver_irq(init_func, class, subclass, prog_if, vendor,
-                                   device, bus, dev, fun, NULL, NULL);
+    return pci_register_driver_irq(init_func, user_state, class, subclass,
+                                   prog_if, vendor, device, bus, dev, fun, NULL,
+                                   NULL);
 }
 
 errval_t pci_register_legacy_driver_irq_cap(legacy_driver_init_fn init_func,

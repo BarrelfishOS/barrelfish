@@ -37,8 +37,8 @@ class DevifTests(TestCommon):
 
         return modules
 
-    def is_finished(self, line):
-        return line.startswith("SUCCESS")
+    def get_finish_string(self):
+        return "SUCCESS"
 
     def process_data(self, testdir, rawiter):
         passed = False

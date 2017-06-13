@@ -99,31 +99,26 @@ static int test_l2_create(void)
     // get 2MB RAM cap
     setup(LARGE_PAGE_SIZE);
 
-    struct capref l1_cnode, l2_cnode;
+    struct capref l1_cncap, l2_cncap;
+    struct cnoderef l1_cnode;
 
     // get L1 CNode
     printf("  setup: getting L1 CNode ");
-    err = slot_alloc(&l1_cnode);
-    assert(err_is_ok(err));
-    err = cap_retype(l1_cnode, bunch_o_ram, 0, ObjType_L1CNode, OBJSIZE_L2CNODE, 1);
+    err = cnode_create_l1(&l1_cncap, &l1_cnode);
     GOTO_IF_ERR(err, out);
     printf("...ok\n");
 
-    // create old-style CNodeRef
-    printf("  setup: building old-style CNref for L1 CNode and setting L2 capref ");
-    err = cnode_build_cnoderef(&l2_cnode.cnode, l1_cnode);
-    l2_cnode.slot = 0;
-    GOTO_IF_ERR(err, out);
-    printf("...ok\n");
-
+    // Initialize slot for L2 CNode in custom L1.
+    l2_cncap.cnode = l1_cnode;
+    l2_cncap.slot = 0;
     printf("  allocating L2 CNode at offset 16kB: ");
-    err = cap_retype(l2_cnode, bunch_o_ram, OBJSIZE_L2CNODE, ObjType_L2CNode,
+    err = cap_retype(l2_cncap, bunch_o_ram, OBJSIZE_L2CNODE, ObjType_L2CNode,
                      OBJSIZE_L2CNODE, 1);
     GOTO_IF_ERR(err, out);
     printf("...ok\n");
 
 out:
-    slot_free(l1_cnode);
+    slot_free(l1_cncap);
     cleanup();
     return result;
 }
@@ -137,7 +132,8 @@ int main(void)
     printf("1: L2 CNode creation\n");
     result |= test_l2_create() << 1;
 
-    printf("L1/L2 CNode creation: result: %x\n", result);
+    printf("L1/L2 CNode creation: %s\n", result == 0 ? "passed" : "failed");
+    printf("L1/L2 CNode creation: %x\n", result);
 
     return result;
 }

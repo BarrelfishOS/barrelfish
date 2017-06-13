@@ -16,13 +16,16 @@
 #include <pci/pci.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/debug.h>
-#include <ipv4/lwip/inet.h>
+#include <barrelfish/deferred.h>
+#include <lwip/ip.h>
+#include <net/net.h>
 #ifdef LIBRARY
 #       include <netif/e1000.h>
 #endif
 
 #include <if/e10k_defs.h>
 #include <if/e10k_vf_defs.h>
+#include <if/net_filter_defs.h>
 #include <dev/e10k_dev.h>
 
 #include "e10k.h"
@@ -41,6 +44,7 @@
 struct queue_state {
     bool enabled;
     struct e10k_binding *binding;
+    struct e10k_vf_binding *devif;
 
     struct capref tx_frame;
     struct capref txhwb_frame;
@@ -161,8 +165,11 @@ static void e10k_flt_ftqf_setup(int index, struct e10k_filter *filter);
 
 static const char *service_name = "e10k";
 static int initialized = 0;
+static bool exported = false;
 static e10k_t *d = NULL;
 static struct capref *regframe;
+
+static bool use_interrupts = true;
 static bool msix = false;
 
 /** Specifies if RX/TX is currently enabled on the device. */
@@ -200,16 +207,27 @@ static void e10k_flt_ftqf_setup(int idx, struct e10k_filter* filter)
 
 
     // Write filter data
-    if (!(m & MASK_SRCIP))
+    if (!(m & MASK_SRCIP)) {
+        DEBUG("src_ip=%"PRIx32" ", filter->src_ip);
         e10k_saqf_wr(d, idx, htonl(filter->src_ip));
-    if (!(m & MASK_DSTIP))
-        e10k_daqf_wr(d, idx, htonl(filter->dst_ip));
-    if (!(m & MASK_SRCPORT))
-        sdpqf = e10k_sdpqf_src_port_insert(sdpqf, htons(filter->src_port));
-    if (!(m & MASK_DSTPORT))
-        sdpqf = e10k_sdpqf_dst_port_insert(sdpqf, htons(filter->dst_port));
-    e10k_sdpqf_wr(d, idx, sdpqf);
+    }
 
+    if (!(m & MASK_DSTIP)) {
+        DEBUG("dst_ip=%"PRIx32" ", filter->dst_ip);
+        e10k_daqf_wr(d, idx, htonl(filter->dst_ip));
+    }
+
+    if (!(m & MASK_SRCPORT)) {
+        DEBUG("src_port=%d ", filter->src_port);
+        sdpqf = e10k_sdpqf_src_port_insert(sdpqf, htons(filter->src_port));
+    }
+
+    if (!(m & MASK_DSTPORT)) {
+        DEBUG("dst_port=%d ", filter->dst_port);
+        sdpqf = e10k_sdpqf_dst_port_insert(sdpqf, htons(filter->dst_port));
+    }
+    e10k_sdpqf_wr(d, idx, sdpqf);
+    DEBUG("queue_id=%d \n", filter->queue);
 
     if (!(m & MASK_L4PROTO)) {
         switch (filter->l4_type) {
@@ -269,6 +287,95 @@ static errval_t reg_ftfq_filter(struct e10k_filter* f, uint64_t* fid)
     return SYS_ERR_OK;
 }
 #endif
+
+
+/****************************************************************************/
+/* Net filter interface implementation                                      */
+/****************************************************************************/
+
+
+static errval_t cb_install_filter(struct net_filter_binding *b,
+                                  net_filter_filter_type_t type,
+                                  uint64_t qid,
+                                  uint32_t src_ip,
+                                  uint32_t dst_ip,
+                                  uint16_t src_port,
+                                  uint16_t dst_port,
+                                  uint64_t* fid)
+{
+
+    errval_t err;
+    struct e10k_filter f = {
+        .dst_port = dst_port,
+        .src_port = src_port,
+        .dst_ip = dst_ip,
+        .src_ip = src_ip,
+        .l4_type = (type == net_filter_PORT_TCP ? L4_TCP : L4_UDP),
+        .priority = 1,
+        .queue = qid,
+    };
+
+    if (src_ip == 0) {
+        f.mask = f.mask | MASK_SRCIP;
+    }
+
+    // ignore dst ip
+    f.mask = f.mask | MASK_DSTIP;
+
+    if (dst_port == 0) {
+        f.mask = f.mask | MASK_DSTPORT;
+    }
+
+    if (src_port == 0) {
+        f.mask = f.mask | MASK_SRCPORT;
+    }
+
+    *fid = -1ULL;
+
+    err = reg_ftfq_filter(&f, fid);
+    DEBUG("filter registered: err=%s, fid=%"PRIu64"\n", err_getstring(err), *fid);
+    return err;
+}
+
+
+static errval_t cb_remove_filter(struct net_filter_binding *b,
+                                 net_filter_filter_type_t type,
+                                 uint64_t filter_id,
+                                 errval_t* err)
+{
+    if ((type == net_filter_PORT_UDP || type == net_filter_PORT_TCP)){
+        USER_PANIC("NYI");
+        *err = SYS_ERR_OK;
+    } else {
+        *err = NET_FILTER_ERR_NOT_FOUND;
+    }
+
+    DEBUG("unregister_filter: called (%"PRIx64")\n", filter_id);
+    return SYS_ERR_OK;
+}
+
+static struct net_filter_rpc_rx_vtbl net_filter_rpc_rx_vtbl = {
+    .install_filter_ip_call = cb_install_filter,
+    .remove_filter_call = cb_remove_filter,
+    .install_filter_mac_call = NULL,
+};
+
+static void net_filter_export_cb(void *st, errval_t err, iref_t iref)
+{
+
+    printf("exported net filter interface\n");
+    err = nameservice_register("net_filter_e10k", iref);
+    assert(err_is_ok(err));
+    DEBUG("Net filter interface exported\n");
+}
+
+
+static errval_t net_filter_connect_cb(void *st, struct net_filter_binding *b)
+{
+    printf("New connection on net filter interface\n");
+    b->rpc_rx_vtbl = net_filter_rpc_rx_vtbl;
+    return SYS_ERR_OK;
+}
 
 
 #if 0
@@ -542,6 +649,7 @@ static void device_init(void)
         // Enable interrupt
         e10k_eimsn_wr(d, cdriver_msix / 32, (1 << (cdriver_msix % 32)));
     } else {
+        e10k_gpie_msix_wrf(d, 0);
         // Set no Interrupt delay
         e10k_eitr_l_wr(d, 0, 0);
         e10k_gpie_eimen_wrf(d, 1);
@@ -758,19 +866,17 @@ static void device_init(void)
     e10k_rtrpcs_rac_wrf(d, 0);
     e10k_rtrpcs_rrm_wrf(d, 0);
 #else
-    e10k_rttdcs_tdpac_wrf(d, 1);
-    e10k_rttdcs_vmpac_wrf(d, 1);
-    e10k_rttdcs_tdrm_wrf(d, 1);
 
+    e10k_rttdcs_tdpac_wrf(d, 0);
+    e10k_rttdcs_vmpac_wrf(d, 0);
+    e10k_rttdcs_tdrm_wrf(d, 0);
     e10k_rttdcs_bdpm_wrf(d, 1);
-    e10k_rttdcs_bpbfsm_wrf(d, 0);
-    e10k_rttpcs_tppac_wrf(d, 1);
-    e10k_rttpcs_tprm_wrf(d, 1);
-    e10k_rttpcs_arbd_wrf(d, 0x004);
-
+    e10k_rttdcs_bpbfsm_wrf(d, 1);
+    e10k_rttpcs_tppac_wrf(d, 0);
+    e10k_rttpcs_tprm_wrf(d, 0);
+    e10k_rttpcs_arbd_wrf(d, 0x224);
     e10k_rtrpcs_rac_wrf(d, 0);
-    e10k_rtrpcs_rrm_wrf(d, 1);
-    e10k_sectxminifg_sectxdcb_wrf(d, 0x1f);
+    e10k_rtrpcs_rrm_wrf(d, 0);
 #endif
 
     // disable relaxed ordering
@@ -891,7 +997,8 @@ static void queue_hw_init(uint8_t n, bool set_tail)
         e10k_psrtype_split_ip6_wrf(d, n, 1);
         e10k_psrtype_split_l2_wrf(d, n, 1);
     } else {
-        e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
+        //e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
+        e10k_srrctl_1_desctype_wrf(d, n, e10k_legacy);
     }
     e10k_srrctl_1_bsz_hdr_wrf(d, n, 128 / 64); // TODO: Do 128 bytes suffice in
                                                //       all cases?
@@ -933,8 +1040,10 @@ static void queue_hw_init(uint8_t n, bool set_tail)
             }
             rxv = txv = queues[n].msix_index;
         } else {
-            rxv = QUEUE_INTRX;
-            txv = QUEUE_INTTX;
+            //rxv = QUEUE_INTRX;
+            //txv = QUEUE_INTTX;
+            rxv = n % 16;
+            txv = n % 16;
         }
         DEBUG("rxv=%d txv=%d\n", rxv, txv);
 
@@ -959,13 +1068,14 @@ static void queue_hw_init(uint8_t n, bool set_tail)
                 e10k_eiac_rtxq_wrf(d, e10k_eiac_rtxq_rdf(d) | (1 << rxv));
             }
 
-            // Enable interrupt
-            e10k_eimsn_wr(d, rxv / 32, (1 << (rxv % 32)));
         }
         if (rxv < 16) {
             // Make sure interrupt is cleared
             e10k_eicr_wr(d, 1 << rxv);
         }
+
+        // Enable interrupt
+        e10k_eimsn_wr(d, rxv / 32, (1 << (rxv % 32)));
     }
 
     // Enable RX
@@ -1151,18 +1261,42 @@ static void interrupt_handler_msix(void* arg)
     e10k_eimsn_cause_wrf(d, cdriver_msix / 32, (1 << (cdriver_msix % 32)));
 }
 
+
+static void resend_interrupt(void* arg)
+{
+    errval_t err;
+    uint64_t i = (uint64_t) arg;
+    err = queues[i].devif->tx_vtbl.interrupt(queues[i].devif, NOP_CONT, i);
+    // If the queue is busy, there is already an oustanding message
+    if (err_is_fail(err) && err != FLOUNDER_ERR_TX_BUSY) {
+        USER_PANIC("Error when sending interrupt %s \n", err_getstring(err));
+    } 
+}
+
 /** Here are the global interrupts handled. */
 static void interrupt_handler(void* arg)
 {
+    errval_t err;
     e10k_eicr_t eicr = e10k_eicr_rd(d);
 
     if (eicr >> 16) {
         management_interrupt(eicr);
     }
-    if (eicr & ((1 << QUEUE_INTRX) | (1 << QUEUE_INTTX))) {
-        e10k_eicr_wr(d, eicr);
-        qd_interrupt(!!(eicr & (1 << QUEUE_INTRX)),
-                     !!(eicr & (1 << QUEUE_INTTX)));
+    e10k_eicr_wr(d, eicr);
+
+    for (uint64_t i = 0; i < 16; i++) {
+        if ((eicr >> i) & 0x1) {
+            DEBUG("Interrupt eicr=%"PRIx32" \n", eicr);
+            if (queues[i].use_irq && queues[i].devif != NULL) {
+                err = queues[i].devif->tx_vtbl.interrupt(queues[i].devif, NOP_CONT, i);
+                if (err_is_fail(err)) {
+                    err = queues[i].devif->register_send(queues[i].devif, 
+                                                         get_default_waitset(),
+                                                         MKCONT(resend_interrupt, 
+                                                                (void*)i));
+                }
+            }
+        }
     }
 }
 
@@ -1456,41 +1590,46 @@ static void request_vf_number(struct e10k_vf_binding *b)
 }
 
 
-/** Request from queue driver to initialize hardware queue. */
-static void create_queue(struct e10k_vf_binding *b,
-                         struct capref tx_frame,
-                         struct capref txhwb_frame,
-                         struct capref rx_frame,
-                         uint32_t rxbufsz,
-                         int16_t msix_intvec,
-                         uint8_t msix_intdest,
-                         bool use_irq,
-                         bool use_rsc)
+static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b, 
+                                    struct capref tx_frame, struct capref txhwb_frame, 
+                                    struct capref rx_frame, uint32_t rxbufsz, 
+                                    int16_t msix_intvec, uint8_t msix_intdest, 
+                                    bool use_irq, bool use_rsc, bool default_q,
+                                    uint64_t *mac, int32_t *qid, struct capref *regs, 
+                                    errval_t *ret_err)
 {
-    errval_t err;
     // TODO: Make sure that rxbufsz is a power of 2 >= 1024
 
     if (use_irq && msix_intvec != 0 && !msix) {
         printf("e10k: Queue requests MSI-X, but MSI-X is not enabled "
                 " card driver. Ignoring queue\n");
-        return;
+        *ret_err = NIC_ERR_ALLOC_QUEUE;
+        return NIC_ERR_ALLOC_QUEUE;
     }
 
     // allocate a queue
     int n = -1;
-    for (int i = 0; i < 128; i++) {
+    for (int i = 1; i < 128; i++) {
         if (!queues[i].enabled) {
-            queues[i].enabled = true;
             n = i;
             break;
         }
     }
-    
-    DEBUG("create queue(%"PRIu8")\n", n);
 
-    if (n == -1) {
-       err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, NULL_CAP);
-       assert(err_is_ok(err));
+    if (default_q) {
+        if (queues[0].enabled == false) {
+            n = 0;
+        } else {
+            printf("Default queue already initalized \n");
+            return NIC_ERR_ALLOC_QUEUE;
+        }
+    }
+
+    DEBUG("create queue(%"PRIu8": interrupt %d )\n", n, use_irq);
+
+    if (n == -1) {  
+        *ret_err = NIC_ERR_ALLOC_QUEUE;
+        return NIC_ERR_ALLOC_QUEUE;
     }
 
     // Save state so we can restore the configuration in case we need to do a
@@ -1501,28 +1640,51 @@ static void create_queue(struct e10k_vf_binding *b,
     queues[n].rx_frame = rx_frame;
     queues[n].tx_head = 0;
     queues[n].rx_head = 0;
+    queues[n].devif = b;
     queues[n].rxbufsz = rxbufsz;
     queues[n].msix_index = -1;
     queues[n].msix_intvec = msix_intvec;
     queues[n].msix_intdest = msix_intdest;
     queues[n].use_irq = use_irq;
     queues[n].use_rsc = use_rsc;
+    queues[n].enabled = true;
+    
 
     queue_hw_init(n, false);
 
-    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, *regframe);
-    assert(err_is_ok(err));
-    
+    // TODO for now vfn = 0
+    uint64_t d_mac = e10k_ral_ral_rdf(d, 0) | ((uint64_t) e10k_rah_rah_rdf(d, 0) << 32);
+
+    *regs = *regframe;
+    *qid = n;
+    *mac = d_mac;    
+
     DEBUG("[%d] Queue int done\n", n);
+    *ret_err = SYS_ERR_OK;
+    return SYS_ERR_OK;
 }
 
+static void cd_create_queue(struct e10k_vf_binding *b, 
+                            struct capref tx_frame, struct capref txhwb_frame, 
+                            struct capref rx_frame, uint32_t rxbufsz, 
+                            int16_t msix_intvec, uint8_t msix_intdest, 
+                            bool use_irq, bool use_rsc, bool default_q)
+{
 
-static struct e10k_vf_rx_vtbl vf_rx_vtbl = {
-    .get_mac_address_call = get_mac_address_vf,
-    .request_vf_number_call = request_vf_number,
-    .create_queue_call = create_queue,
-    .init_done_call = init_done_vf,
-};
+    uint64_t mac;
+    int queueid;
+    errval_t err;
+
+    struct capref regs;
+
+    err = cd_create_queue_rpc(b, tx_frame, txhwb_frame, rx_frame, 
+                              rxbufsz, msix_intvec, msix_intdest, use_irq, use_rsc, 
+                              default_q, &mac, &queueid, &regs, &err);
+
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, err);
+    assert(err_is_ok(err));
+    DEBUG("cd_create_queue end\n");
+}
 
 static void vf_export_cb(void *st, errval_t err, iref_t iref)
 {
@@ -1537,12 +1699,21 @@ static void vf_export_cb(void *st, errval_t err, iref_t iref)
     err = nameservice_register(name, iref);
     assert(err_is_ok(err));
     DEBUG("VF/PF interface [%s] exported\n", name);
+    exported = true;
 }
 
 static errval_t vf_connect_cb(void *st, struct e10k_vf_binding *b)
 {
     DEBUG("New connection on VF/PF interface\n");
-    b->rx_vtbl = vf_rx_vtbl;
+
+    b->rx_vtbl.create_queue_call = cd_create_queue;
+    b->rx_vtbl.request_vf_number_call = request_vf_number;
+    b->rx_vtbl.init_done_call = init_done_vf;
+    b->rx_vtbl.get_mac_address_call = get_mac_address_vf;
+
+    b->rpc_rx_vtbl.create_queue_call = cd_create_queue_rpc;
+
+
     return SYS_ERR_OK;
 }
 
@@ -1557,13 +1728,17 @@ static void initialize_vfif(void)
     r = e10k_vf_export(NULL, vf_export_cb, vf_connect_cb, get_default_waitset(),
 		       IDC_BIND_FLAGS_DEFAULT);
     assert(err_is_ok(r));
+
+    r = net_filter_export(NULL, net_filter_export_cb, net_filter_connect_cb, 
+                          get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
+    assert(err_is_ok(r));
 }
 
 /******************************************************************************/
 /* Initialization code for driver */
 
 /** Callback from pci to initialize a specific PCI device. */
-static void pci_init_card(struct device_mem* bar_info, int bar_count)
+static void pci_init_card(void *arg, struct device_mem* bar_info, int bar_count)
 {
     errval_t err;
     bool res;
@@ -1658,7 +1833,7 @@ static void pci_register(void)
     assert(err_is_ok(r));
     DEBUG("connected to pci\n");
 
-    r = pci_register_driver_irq(pci_init_card, PCI_CLASS_ETHERNET,
+    r = pci_register_driver_irq(pci_init_card, NULL, PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
                                 PCI_VENDOR_INTEL, pci_deviceid,
                                 pci_bus, pci_device, pci_function,
@@ -1713,10 +1888,15 @@ static void parse_cmdline(int argc, char **argv)
 static void eventloop(void)
 {
     struct waitset *ws;
-
+    
+    printf("Entering polling loop\n");
     ws = get_default_waitset();
     while (1) {
-        event_dispatch(ws);
+        if (use_interrupts) {
+            event_dispatch(ws);
+        } else {
+            networking_poll();
+        }
     }
 }
 
@@ -1737,6 +1917,7 @@ int main(int argc, char **argv)
 int e1000n_driver_init(int argc, char *argv[])
 #endif
 {
+    //barrelfish_usleep(10*1000*1000);
     DEBUG("PF driver started\n");
     // credit_refill value must be >= 1 for a queue to be able to send.
     // Set them all to 1 here. May be overridden via commandline.
@@ -1749,9 +1930,21 @@ int e1000n_driver_init(int argc, char *argv[])
     parse_cmdline(argc, argv);
     pci_register();
 
-    while (!initialized) {
+    while (!initialized || !exported) {
         event_dispatch(get_default_waitset());
     }
+
+    DEBUG("e10k driver networking init \n");
+    errval_t err;
+    if (use_interrupts){
+        err = networking_init("e10k", NET_FLAGS_DO_DHCP | NET_FLAGS_DEFAULT_QUEUE);
+    } else {
+        err = networking_init("e10k", NET_FLAGS_DO_DHCP | NET_FLAGS_POLLING |
+                              NET_FLAGS_DEFAULT_QUEUE);
+    }
+    DEBUG("e10k driver networking init done with error: %s \n", err_getstring(err));
+    assert(err_is_ok(err));
+
     qd_main();
     return 1;
 }

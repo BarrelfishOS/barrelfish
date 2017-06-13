@@ -408,7 +408,7 @@ machines = dict({
                     'serial_binary': 'serial_kernel',
                     'boot_driver' : 'boot_armv8_generic'},
     'gorgonzola2': {'ncores'      : 48,
-                    'machine_name' : 'gorgonzola1',
+                    'machine_name' : 'gorgonzola2',
                     'bootarch' : 'armv8',
                     'buildarchs' : ['armv8'],
                     'cores_per_socket': 48,

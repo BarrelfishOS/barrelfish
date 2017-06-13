@@ -26,8 +26,9 @@
 % Include version history first
 %
 \begin{versionhistory}
-\vhEntry{2.0}{09.12.2013}{SG}{Updated with new kernel memory interface}
 \vhEntry{1.0}{08.02.2010}{AS}{Initial version}
+\vhEntry{2.0}{09.12.2013}{SG}{Updated with new kernel memory interface}
+\vhEntry{3.0}{02.06.2017}{SG}{Updated to match recent implementation changes}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -111,24 +112,27 @@ pmap can simply inspect the memory object and return the address of the physical
 
 \section{Capability invocations}
 
-The pmap calls into the kernel using invocations on the page table capability
-types (namely \verb|VNode_Map|, \verb|VNode_Unmap|, and
-\verb|VNode_ModifyFlags|).  These invocations are implemented in an
+The pmap calls into the kernel using invocations on the page table and mapping
+capability types (namely \verb|VNode_Map|, \verb|VNode_Unmap|, and
+\verb|Mapping_ModifyFlags|).  These invocations are implemented in an
 architecture specific manner and are used to install, remove and modify
 mappings respectively.
 
 In order for this system to make it possible to remove mappings when the
-underlying Frame capability is deleted each copy of a Frame capability knows
-if and where it is mapped in a page table.  This has a couple consequences,
-the most important one of these is that each copy of a Frame capability can
-only be mapped once (i.e. each copy of a Frame can only be supplied as an
-argument to \verb|VNode_Map| once unless there is an unmap invocation
-inbetween).
+underlying Frame capability is deleted, the \verb|VNode_Map| invocation also
+creates a \emph{Mapping} capability which records both the Frame capability
+and the page table entry at which the mapping was established.
+This mapping capability can then be used to refer to the mapping, e.g. when
+wanting to modify the mapping from read-write to read-only.
 
-On the other hand this issue has been minimized as it's possible to create
-multiple hardware page table entries using only one invocation.  Specifically
-it's possible to create a contiguous region of page table entries inside one
-page table frame using one invocation.
+The map invocation can create multi-page mappings in one system call, as long
+as the mapping does not cross a page table boundary.
+In the case of mappings that cross page table boundaries, we need a map
+invocation per page table that the mapping touches.
+
+Additionally, the map invocation can be used to create superpages (e.g. 2MB
+and 1GB pages on x86-64) by calling it on a x86-64 page directory or PDPT
+capability with a large enough Frame capability as the source capability.
 
 \chapter{Known issues}
 Detail some of the known issues with the system.

@@ -26,8 +26,13 @@ interface e10k_vf "e10k VF/PF interface" {
                        in uint8  msix_intdest,
                        in bool   use_irq,
                        in bool   use_rsc,
+                       in bool   qzero,
+                       out uint64 mac,
                        out int qid,
-                       out cap regs);
+                       out cap regs,
+                       out errval err);
 
       rpc destroy_queue(in int qid, out errval err);
+
+      message interrupt(uint16 qid);
 };

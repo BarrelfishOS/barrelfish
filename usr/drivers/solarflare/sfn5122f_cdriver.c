@@ -11,32 +11,30 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <net_queue_manager/net_queue_manager.h>
+#include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <barrelfish/spawn_client.h>
 #include <barrelfish/deferred.h>
-#include <netd/netd.h>
-#include <net_device_manager/net_device_manager.h>
-#include <pci/pci.h>
-#include <ipv4/lwip/inet.h>
 #include <barrelfish/debug.h>
+#include <pci/pci.h>
+
+// TODO only required for htonl
+#include <lwip/ip.h>
+#include <net/net.h>
+
 #include <if/sfn5122f_defs.h>
 #include <if/sfn5122f_devif_defs.h>
-#include <if/sfn5122f_devif_defs.h>
-#include <if/net_ARP_defs.h>
-#include <if/net_ARP_defs.h>
+#include <if/net_filter_defs.h>
 
 #include "sfn5122f.h"
 #include "sfn5122f_debug.h"
 #include "buffer_tbl.h"
-#include "sfn5122f_qdriver.h"
 
 struct queue_state {
+    uint64_t qid;
     bool enabled;
     bool userspace;
     bool use_irq;
 
-    struct sfn5122f_binding *binding;
     struct sfn5122f_devif_binding *devif;
     struct capref tx_frame;
     struct capref rx_frame;
@@ -75,7 +73,7 @@ static struct capref mac_stats;
 static void* mac_virt;
 static uint64_t mac_phys;
 /*        */
-static uint8_t pci_function = 0;
+
 // Port  info
 static uint32_t cap[2];
 static uint32_t speed[2];
@@ -92,11 +90,6 @@ static uint32_t phy_loopback_mode = 0;
 //WoL Filter id
 static uint32_t wol_filter_id = 0;
 
-// ARP rpc client
-static struct net_ARP_binding *arp_binding;
-static bool net_arp_connected = false;
-static struct waitset rpc_ws;
-
 static bool csum_offload = 1;
 // TX / RX
 static uint32_t rx_indir_tbl[128];
@@ -106,6 +99,10 @@ static struct queue_state queues[1024];
 /* PCI device address passed on command line */
 static uint32_t pci_bus = PCI_DONT_CARE;
 static uint32_t pci_device = PCI_DONT_CARE;
+static uint32_t pci_vendor = PCI_DONT_CARE;
+static uint32_t pci_devid = PCI_DONT_CARE;
+static uint32_t pci_function = 0;
+
 static struct bmallocator msix_alloc;
 static size_t cdriver_msix = -1;
 static uint8_t cdriver_vector;
@@ -120,8 +117,6 @@ uint8_t rx_hash_key[40];
 uint8_t mc_hash[32];
 
 // Filters
-//static uint32_t ip = 0x2704710A;
-static uint32_t ip = 0;
 
 enum filter_type_ip {
     OTHER,
@@ -187,28 +182,6 @@ static struct sfn5122f_filter_mac filters_tx_ip[NUM_FILTERS_MAC];
 
 /******************************************************************************/
 /* Prototypes */
-void qd_main(void) __attribute__((weak));
-void qd_argument(const char *arg) __attribute__((weak));
-void qd_interrupt(void) __attribute__((weak));
-void qd_queue_init_data(struct sfn5122f_binding *b, struct capref registers,
-                        uint64_t macaddr) __attribute__((weak));
-void qd_queue_memory_registered(struct sfn5122f_binding *b) __attribute__((weak));
-void qd_write_queue_tails(struct sfn5122f_binding *b) __attribute__((weak));
-
-
-void cd_request_device_info(struct sfn5122f_binding *b);
-void cd_register_queue_memory(struct sfn5122f_binding *b,
-                              uint16_t queue,
-                              struct capref tx,
-                              struct capref rx,
-                              struct capref ev,
-                              uint32_t rxbufsz,
-                              bool use_interrupts,
-                              bool userspace,
-                              uint8_t vector,
-                              uint16_t core);
-
-static void idc_write_queue_tails(struct sfn5122f_binding *b);
 
 static void device_init(void);
 static void start_all(void);
@@ -221,8 +194,6 @@ static void queue_hw_stop(uint16_t n);
 static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector);
 static void global_interrupt_handler(void* arg);
 
-static void bind_arp(struct waitset *ws);
-static errval_t arp_ip_info(void);
 /***************************************************************************/
 /* Filters */
 
@@ -231,7 +202,7 @@ static void sfn5122f_filter_port_setup(int idx, struct sfn5122f_filter_ip* filte
     sfn5122f_rx_filter_tbl_lo_t filter_lo = 0;
     sfn5122f_rx_filter_tbl_hi_t filter_hi = 0;
 
-    if (filter->type_ip == sfn5122f_PORT_UDP) {
+    if (filter->type_ip == net_filter_PORT_UDP) {
 
         // Add destination IP
         filter_hi = sfn5122f_rx_filter_tbl_hi_dest_ip_insert(filter_hi,
@@ -250,7 +221,7 @@ static void sfn5122f_filter_port_setup(int idx, struct sfn5122f_filter_ip* filte
                filter->src_ip, filter->src_port, filter->queue);
     }
 
-    if (filter->type_ip == sfn5122f_PORT_TCP) {
+    if (filter->type_ip == net_filter_PORT_TCP) {
         // Add dst IP and port
         filter_hi = sfn5122f_rx_filter_tbl_hi_dest_ip_insert(filter_hi,
                                                              filter->dst_ip);
@@ -285,7 +256,7 @@ static uint32_t build_key(struct sfn5122f_filter_ip* f)
     host1 = f->src_ip;
     host2 = f->dst_ip;
     
-    if (f->type_ip == sfn5122f_PORT_UDP) {
+    if (f->type_ip == net_filter_PORT_UDP) {
        port1 = f->dst_port;
        port2 = f->src_port;
        data[3] = 1;
@@ -316,6 +287,7 @@ static uint16_t filter_hash(uint32_t key)
     return tmp ^ tmp >> 9;
 }
 
+/*
 static bool filter_equals(struct sfn5122f_filter_ip* f1,
                           struct sfn5122f_filter_ip* f2)
 {
@@ -332,7 +304,7 @@ static bool filter_equals(struct sfn5122f_filter_ip* f1,
         return true;
     }
 }
-
+*/
 static uint16_t filter_increment(uint32_t key)
 {
     return key * 2 - 1;
@@ -354,8 +326,6 @@ static int ftqf_alloc(struct sfn5122f_filter_ip* f)
     while (true) {
         if (filters_rx_ip[key].enabled == false) {
             return key;
-        } else if (filter_equals(&filters_rx_ip[key], f)){
-            return key;
         }
         
         if (depth > 3) {
@@ -368,7 +338,6 @@ static int ftqf_alloc(struct sfn5122f_filter_ip* f)
 
     return key;
 }
-
 
 static errval_t reg_port_filter(struct sfn5122f_filter_ip* f, uint64_t* fid)
 {
@@ -1002,20 +971,12 @@ static uint32_t init_evq(uint16_t n, lpaddr_t phys, bool interrupt)
 
 static uint32_t init_rxq(uint16_t n, lpaddr_t phys, bool userspace)
 {
-    //errval_t r;
-    //struct frame_identity frameid = { .base = 0, .bytes = 0 };
     uint64_t reg_lo, reg_hi,  buffer_offset;
    /*
     * This will define a buffer in the buffer table, allowing
     * it to be used for event queues, descriptor rings etc.
     */
     /* Get physical addresses for rx/tx rings and event queue */
-    /*
-    r = invoke_frame_identify(queues[n].rx_frame, &frameid);
-    assert(err_is_ok(r));
-    rx_phys = frameid.base;
-    rx_size = frameid.bytes;
-    */
 
     /* RX   */
     if (userspace) {
@@ -1074,8 +1035,6 @@ static uint32_t init_txq(uint16_t n, uint64_t phys,
                          bool csum, bool userspace)
 {
 
-    //errval_t r;
-    //struct frame_identity frameid = { .base = 0, .bytes = 0 };
     uint64_t reg, reg1, buffer_offset;
   
     buffer_offset = alloc_buf_tbl_entries(phys, NUM_ENT_TX, 0, 0, d);
@@ -1154,7 +1113,7 @@ static void resend_interrupt(void* arg)
     // If the queue is busy, there is already an oustanding message
     if (err_is_fail(err) && err != FLOUNDER_ERR_TX_BUSY) {
         USER_PANIC("Error when sending interrupt %s \n", err_getstring(err));
-    } 
+    }
 }
 
 /** Here are the global interrupts handled. */
@@ -1177,13 +1136,13 @@ static void global_interrupt_handler(void* arg)
 
     q_to_check = sfn5122f_int_isr0_reg_lo_rd(d);
 
-    for (uint64_t i = 1; i < 32; i++) {
+    for (uint64_t i = 0; i < 32; i++) {
         if ((q_to_check >> i) & 0x1) {
             if (queues[i].use_irq && queues[i].devif != NULL) {
                 DEBUG("Interrupt to queue %lu \n", i);
                 err = queues[i].devif->tx_vtbl.interrupt(queues[i].devif, NOP_CONT, i);
                 if (err_is_fail(err)) {
-                    err = queues[i].devif->register_send(queues[i].devif, 
+                    err = queues[i].devif->register_send(queues[i].devif,
                                                          get_default_waitset(),
                                                          MKCONT(resend_interrupt, (void*)i));
                 }
@@ -1191,220 +1150,21 @@ static void global_interrupt_handler(void* arg)
         }
     }
 
-    if (q_to_check & 0x1) {
-        DEBUG("Interrupt to queue 0 \n");
-        check_queue_0();
-    }
-
-
-   
     // Don't need to start event queues because we're already polling
 
 }
 /******************************************************************************/
 /* Management interface implemetation */
 
-static void idc_queue_init_data(struct sfn5122f_binding *b,
-                                struct capref registers,
-                                uint64_t macaddr)
-{
-    errval_t r;
-
-    r = sfn5122f_queue_init_data__tx(b, NOP_CONT, registers, macaddr);
-    // TODO: handle busy
-    assert(err_is_ok(r));
-}
-
-/** Tell queue driver that we are done initializing the queue. */
-static void idc_queue_memory_registered(struct sfn5122f_binding *b)
-{
-    errval_t r;
-    r = sfn5122f_queue_memory_registered__tx(b, NOP_CONT);
-    // TODO: handle busy
-    assert(err_is_ok(r));
-}
-
-/** Send request to queue driver to rewrite the tail pointers of its queues. */
-static void idc_write_queue_tails(struct sfn5122f_binding *b)
-{
-    errval_t r;
-    if (b == NULL) {
-        qd_write_queue_tails(b);
-        return;
-    }
-
-    r = sfn5122f_write_queue_tails__tx(b, NOP_CONT);
-    // TODO: handle busy
-    assert(err_is_ok(r));
-}
-
-/** Request from queue driver for register memory cap */
-void cd_request_device_info(struct sfn5122f_binding *b)
-{
-    if (b == NULL) {
-        qd_queue_init_data(b, *regframe, d_mac[pci_function]);
-        return;
-    }
-    idc_queue_init_data(b, *regframe, d_mac[pci_function]);
-}
-
-/** Request from queue driver to initialize hardware queue. */
-void cd_register_queue_memory(struct sfn5122f_binding *b,
-                              uint16_t n,
-                              struct capref tx_frame,
-                              struct capref rx_frame,
-                              struct capref ev_frame,
-                              uint32_t rxbufsz,
-                              bool use_irq,
-                              bool userspace,
-                              uint8_t vector,
-                              uint16_t core)
-{
-    // Save state so we can restore the configuration in case we need to do a
-    // reset
-    errval_t err;
-
-    bool failed = 0;
-    queues[n].enabled = false;
-    queues[n].tx_frame = tx_frame;
-    queues[n].rx_frame = rx_frame;
-    queues[n].ev_frame = ev_frame;
-    queues[n].tx_head = 0;
-    queues[n].rx_head = 0;
-    queues[n].ev_head = 0;
-    queues[n].rxbufsz = rxbufsz;
-    queues[n].binding = b;
-    queues[n].use_irq = use_irq;
-    queues[n].userspace = userspace;
-    queues[n].msix_index = -1;
-    queues[n].msix_intvec = vector;
-    queues[n].msix_intdest = core;
-
-    struct frame_identity id;
-    err = invoke_frame_identify(ev_frame, &id);
-    assert(err_is_ok(err));
-    queues[n].ev_buf_tbl = init_evq(n, id.base, use_irq);
-
-
-    // enable checksums
-    err = invoke_frame_identify(tx_frame, &id);
-    assert(err_is_ok(err));
-    queues[n].tx_buf_tbl = init_txq(n, id.base, csum_offload, userspace);
-
-    err = invoke_frame_identify(rx_frame, &id);
-    assert(err_is_ok(err));
-    queues[n].rx_buf_tbl = init_rxq(n, id.base, userspace);
-
-
-    if(queues[n].ev_buf_tbl == -1 ||
-       queues[n].tx_buf_tbl == -1 ||
-       queues[n].rx_buf_tbl == -1){
-       failed = 1;
-       DEBUG("Allocating queue failed \n");
-       return;
-    }
-
-    queues[n].enabled = true;
-
-    if (queues[n].use_irq) {
-        if (queues[n].msix_intvec != 0) {
-            if (queues[n].msix_index == -1) {
-                setup_interrupt(&queues[n].msix_index, queues[n].msix_intdest,
-                                queues[n].msix_intvec);
-            }
-        }
-    }
-
-    idc_write_queue_tails(queues[n].binding);
-
-    if (b == NULL) {
-        qd_queue_memory_registered(b);
-        return;
-    }
-
-    idc_queue_memory_registered(b);
-
-    if (first){
-       start_all();
-       first = 0;
-    }
-}
-
-static errval_t idc_terminate_queue(struct sfn5122f_binding *b, uint16_t n)
-{
-  DEBUG("idc_terminate_queue(q=%d) \n", n);
-  
-  queue_hw_stop(n);
-  
-  queues[n].enabled = false;
-  queues[n].binding = NULL;
-
-  return SYS_ERR_OK;
-}
-
-
-
-static errval_t idc_register_port_filter(struct sfn5122f_binding *b,
-                                     uint64_t buf_id_rx,
-                                     uint64_t buf_id_tx,
-                                     uint16_t queue,
-                                     sfn5122f_port_type_t type,
-                                     uint16_t port,
-                                     errval_t *err,
-                                     uint64_t *fid)
+static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct capref frame,
+                    bool user, bool interrupt, bool qzero,
+                    uint8_t core, uint8_t msix_vector,
+                    uint64_t *mac, uint16_t *qid, struct capref *regs,
+                    errval_t *ret_err)
 {
 
-    if (ip == 0) {
-        /* Get cards IP */
-        waitset_init(&rpc_ws);
-        bind_arp(&rpc_ws);
-        arp_ip_info();
-        printf("IP %d \n", ip);
-    }
-
-    DEBUG("idc_register_port_filter: called (q=%d t=%d p=%d)\n",
-            queue, type, port);
-
-    struct sfn5122f_filter_ip f = {
-            .dst_port = port,
-            .dst_ip = htonl(ip),
-            .src_ip = 0,
-            .src_port = 0,
-            .type_ip = type,
-            .queue = queue,
-    };
-
-
-    *err = reg_port_filter(&f, fid);
-    DEBUG("filter registered: err=%"PRIu64", fid=%"PRIu64"\n", *err, *fid);
-
-    return SYS_ERR_OK;
-}
-
-
-static errval_t idc_unregister_filter(struct sfn5122f_binding *b,
-                                  uint64_t filter, errval_t *err)
-{
-    DEBUG("unregister_filter: called (%"PRIx64")\n", filter);
-    *err = LIB_ERR_NOT_IMPLEMENTED;
-    return SYS_ERR_OK;
-}
-
-static struct sfn5122f_rx_vtbl rx_vtbl = {
-    .request_device_info = cd_request_device_info,
-    .register_queue_memory = cd_register_queue_memory,
-};
-
-static struct sfn5122f_rpc_rx_vtbl rpc_rx_vtbl = {
-    .terminate_queue_call = idc_terminate_queue,
-    .register_port_filter_call = idc_register_port_filter,
-    .unregister_filter_call = idc_unregister_filter,
-};
-
-static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref frame,
-                            bool user, bool interrupt, uint8_t core, uint8_t msix_vector)
-{
     DEBUG("cd_create_queue \n");
+
     errval_t err;
     struct frame_identity id;
 
@@ -1417,12 +1177,22 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     }
 
     if (n == -1) {
-        err = NIC_ERR_ALLOC_QUEUE;
-        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, 0, NULL_CAP, err);
-        //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
-        assert(err_is_ok(err));
+        *ret_err = NIC_ERR_ALLOC_QUEUE;
+        *regs = NULL_CAP;
+        return NIC_ERR_ALLOC_QUEUE;
     }
     
+    if (qzero) {
+        if (queues[0].enabled == false) {
+            n = 0;
+        } else {
+            printf("Default queue already initalized \n");
+            return NIC_ERR_ALLOC_QUEUE;
+        }
+    }
+
+    b->st = &queues[n];
+
     queues[n].use_irq = interrupt;
     queues[n].enabled = false;
     queues[n].tx_frame = frame;
@@ -1435,12 +1205,13 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     queues[n].msix_index = -1;
     queues[n].msix_intdest = core;
     queues[n].msix_intvec = msix_vector;
+    queues[n].qid = n;
 
     if (queues[n].use_irq && use_msix) {
         if (queues[n].msix_intvec != 0) {
             if (queues[n].msix_index == -1) {
                 setup_interrupt(&queues[n].msix_index, queues[n].msix_intdest,
-                                queues[n].msix_intvec);
+                        queues[n].msix_intvec);
             }
         }
     }
@@ -1451,37 +1222,60 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     queues[n].tx_buf_tbl = init_txq(n, id.base, csum_offload, user);
     queues[n].rx_buf_tbl = init_rxq(n, id.base+ sizeof(uint64_t)*TX_ENTRIES, user);
 
-    queues[n].ev_buf_tbl = init_evq(n, id.base+sizeof(uint64_t)*(TX_ENTRIES+RX_ENTRIES), 
-                                    interrupt);
+    queues[n].ev_buf_tbl = init_evq(n, id.base+sizeof(uint64_t)*(TX_ENTRIES+RX_ENTRIES),
+            interrupt);
     if(queues[n].ev_buf_tbl == -1 ||
-       queues[n].tx_buf_tbl == -1 ||
-       queues[n].rx_buf_tbl == -1){
-        err = NIC_ERR_ALLOC_QUEUE;
-        //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, err);
-        err = b->tx_vtbl.create_queue_response(b, NOP_CONT, 0, 0, NULL_CAP, err);
-        assert(err_is_ok(err));
+            queues[n].tx_buf_tbl == -1 ||
+            queues[n].rx_buf_tbl == -1){
+        *ret_err = NIC_ERR_ALLOC_QUEUE;
+        *regs = NULL_CAP;
+        return NIC_ERR_ALLOC_QUEUE;
     }
 
     queues[n].enabled = true;
     DEBUG("created queue %d \n", n);
-    //err = b->tx_vtbl.create_queue_response(b, NOP_CONT, n, *regframe, SYS_ERR_OK);a
+
+    *mac = d_mac[pci_function];
+    *qid = n;
+
+    err = slot_alloc(regs);
+    assert(err_is_ok(err));
+    err = cap_copy(*regs, *regframe);
+    assert(err_is_ok(err));
+
+    *ret_err = SYS_ERR_OK;
+
+    return SYS_ERR_OK;
+
+}
+
+
+static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref frame,
+                            bool user, bool interrupt, bool qzero, uint8_t core,
+                            uint8_t msix_vector)
+{
+
+    uint64_t mac;
+    uint16_t queueid;
+    errval_t err;
 
     struct capref regs;
-    err = slot_alloc(&regs);
-    assert(err_is_ok(err));
-    err = cap_copy(regs, *regframe);
-    assert(err_is_ok(err));
 
-    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, d_mac[pci_function], n, 
-                                           regs, SYS_ERR_OK);
+
+    cd_create_queue_rpc(b, frame, user, interrupt, false, core,
+                        msix_vector, &mac, &queueid, &regs, &err);
+
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, err);
     assert(err_is_ok(err));
     DEBUG("cd_create_queue end\n");
 }
 
-static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid,
-                               struct capref region)
+
+static errval_t cd_register_region_rpc(struct sfn5122f_devif_binding *b, uint16_t qid,
+                                struct capref region, uint64_t *buftbl_id, errval_t *ret_err)
 {
     errval_t err;
+
     struct frame_identity id;
     uint64_t buffer_offset = 0;
 
@@ -1494,17 +1288,27 @@ static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid,
     size_t size = id.bytes;
     lpaddr_t addr = id.base;
 
-    // TODO unsigned/signed 
+    // TODO unsigned/signed
     buffer_offset = alloc_buf_tbl_entries(addr, size/BUF_SIZE, qid, true, d);
     if (buffer_offset == -1) {
-        err = b->tx_vtbl.register_region_response(b, NOP_CONT, 0, NIC_ERR_REGISTER_REGION);
-        assert(err_is_ok(err));
+        *buftbl_id = 0;
+        return -1;
     }
-    
-    err = b->tx_vtbl.register_region_response(b, NOP_CONT, buffer_offset, SYS_ERR_OK);
-    if (err_is_fail(err)) {
-       
-    }
+
+    *buftbl_id = buffer_offset;
+    *ret_err = SYS_ERR_OK;
+    return SYS_ERR_OK;
+}
+
+
+static void cd_register_region(struct sfn5122f_devif_binding *b, uint16_t qid,
+                               struct capref region)
+{
+    errval_t err, msgerr;
+    uint64_t id;
+    err = cd_register_region_rpc(b, qid, region, &id, &msgerr);
+
+    err = b->tx_vtbl.register_region_response(b, NOP_CONT, id, msgerr);
 }
 
 
@@ -1524,42 +1328,40 @@ static void cd_destroy_queue(struct sfn5122f_devif_binding *b, uint16_t qid)
     queue_hw_stop(qid);
 
     queues[qid].enabled = false;
-    queues[qid].binding = NULL;
+    queues[qid].devif = NULL;
 
     err = b->tx_vtbl.destroy_queue_response(b, NOP_CONT, SYS_ERR_OK);
     assert(err_is_ok(err));
 }
 
-
-static struct sfn5122f_devif_rx_vtbl rx_vtbl_devif = {
-    .create_queue_call = cd_create_queue,
-    .destroy_queue_call = cd_destroy_queue,
-    .register_region_call = cd_register_region,
-    .deregister_region_call = cd_deregister_region,
-};
-
-static void export_cb(void *st, errval_t err, iref_t iref)
+static void cd_control(struct sfn5122f_devif_binding *b, uint64_t request,
+                       uint64_t arg)
 {
-    const char *suffix = "_sfn5122fmng";
-    char name[strlen(service_name) + strlen(suffix) + 1];
+    errval_t err;
 
+    struct queue_state *q = b->st;
+    assert(q);
+
+    DEBUG("control arg=0x%lx\n", arg);
+
+    struct sfn5122f_filter_ip f = {
+            .dst_port = ((uint32_t)arg >> 16),
+            .dst_ip = htonl((uint32_t)(arg >> 32)),
+            .src_ip = 0,
+            .src_port = 0,
+            .type_ip = arg & 0x1,
+            .queue = q->qid,
+    };
+
+    uint64_t fid;
+    err = reg_port_filter(&f, &fid);
+
+    DEBUG("register filter: 0x%x:%u UDP=%u -> q=%u @ index=%lu %s\n",f.dst_ip,
+          f.dst_port, f.type_ip, f.queue, fid, err_getstring(err));
+
+
+    err = b->tx_vtbl.control_response(b, NOP_CONT, fid, err);
     assert(err_is_ok(err));
-
-    // Build label for interal management service
-    sprintf(name, "%s%s", service_name, suffix);
-
-    err = nameservice_register(name, iref);
-    assert(err_is_ok(err));
-    DEBUG("Management interface exported\n");
-}
-
-
-static errval_t connect_cb(void *st, struct sfn5122f_binding *b)
-{
-    DEBUG("New connection on management interface\n");
-    b->rx_vtbl = rx_vtbl;
-    b->rpc_rx_vtbl = rpc_rx_vtbl;
-    return SYS_ERR_OK;
 }
 
 static void export_devif_cb(void *st, errval_t err, iref_t iref)
@@ -1579,10 +1381,98 @@ static void export_devif_cb(void *st, errval_t err, iref_t iref)
 }
 
 
+
+/****************************************************************************/
+/* Net filter interface implementation                                      */
+/****************************************************************************/
+
+
+static errval_t cb_install_filter(struct net_filter_binding *b,
+                                  net_filter_filter_type_t type,
+                                  uint64_t qid,
+                                  uint32_t src_ip,
+                                  uint32_t dst_ip,
+                                  uint16_t src_port,
+                                  uint16_t dst_port,
+                                  uint64_t* fid)
+{
+    struct sfn5122f_filter_ip f = {
+            .dst_port = dst_port,
+            .src_port = src_port,
+            .dst_ip = htonl(dst_ip),
+            .src_ip = htonl(src_ip),
+            .type_ip = type,
+            .queue = qid,
+    };
+
+
+    errval_t err = reg_port_filter(&f, fid);
+    assert(err_is_ok(err));
+    DEBUG("filter registered: err=%"PRIu64", fid=%"PRIu64"\n", err, *fid);
+    return SYS_ERR_OK;
+}
+
+
+static errval_t cb_remove_filter(struct net_filter_binding *b,
+                                 net_filter_filter_type_t type,
+                                 uint64_t filter_id,
+                                 errval_t* err)
+{
+    if ((type == net_filter_PORT_UDP || type == net_filter_PORT_TCP)
+        && filters_rx_ip[filter_id].enabled == true) {
+        filters_rx_ip[filter_id].enabled = false;
+
+        sfn5122f_rx_filter_tbl_lo_wr(d, filter_id, 0);
+        sfn5122f_rx_filter_tbl_hi_wr(d, filter_id, 0);
+        *err = SYS_ERR_OK;
+    } else {
+        *err = NET_FILTER_ERR_NOT_FOUND;
+    }
+
+    DEBUG("unregister_filter: called (%"PRIx64")\n", filter_id);
+    return SYS_ERR_OK;
+}
+
+static struct net_filter_rpc_rx_vtbl net_filter_rpc_rx_vtbl = {
+    .install_filter_ip_call = cb_install_filter,
+    .remove_filter_call = cb_remove_filter,
+    .install_filter_mac_call = NULL,
+};
+
+static void net_filter_export_cb(void *st, errval_t err, iref_t iref)
+{
+
+    printf("exported net filter interface\n");
+    err = nameservice_register("net_filter_sfn5122f", iref);
+    assert(err_is_ok(err));
+    DEBUG("Net filter interface exported\n");
+}
+
+
+static errval_t net_filter_connect_cb(void *st, struct net_filter_binding *b)
+{
+    printf("New connection on net filter interface\n");
+    b->rpc_rx_vtbl = net_filter_rpc_rx_vtbl;
+    return SYS_ERR_OK;
+}
+
+
 static errval_t connect_devif_cb(void *st, struct sfn5122f_devif_binding *b)
 {
     DEBUG("New connection on devif management interface\n");
-    b->rx_vtbl = rx_vtbl_devif;
+
+    //b->rx_vtbl = rx_vtbl_devif;
+
+    b->rx_vtbl.create_queue_call = cd_create_queue;
+    b->rx_vtbl.destroy_queue_call = cd_destroy_queue;
+    b->rx_vtbl.register_region_call = cd_register_region;
+    b->rx_vtbl.deregister_region_call = cd_deregister_region;
+    b->rx_vtbl.control_call = cd_control;
+
+
+    b->rpc_rx_vtbl.create_queue_call = cd_create_queue_rpc;
+    b->rpc_rx_vtbl.register_region_call = cd_register_region_rpc;
+
     return SYS_ERR_OK;
 }
 
@@ -1594,68 +1484,20 @@ static void initialize_mngif(void)
 {
     errval_t r;
 
-    r = sfn5122f_export(NULL, export_cb, connect_cb, get_default_waitset(),
-                    IDC_BIND_FLAGS_DEFAULT);
-    assert(err_is_ok(r));
     r = sfn5122f_devif_export(NULL, export_devif_cb, connect_devif_cb,
                               get_default_waitset(), 1);
     assert(err_is_ok(r));
 
+    r = net_filter_export(NULL, net_filter_export_cb, net_filter_connect_cb,
+                          get_default_waitset(), 1);
+    assert(err_is_ok(r));
 }
-
-/*****************************************************************************/
-/* ARP service client */
-
-/** Get information about the local TCP/IP configuration*/
-static errval_t arp_ip_info(void)
-{
-    errval_t err, msgerr;
-
-    uint32_t gw;
-    uint32_t mask;
-    err = arp_binding->rpc_tx_vtbl.ip_info(arp_binding, 0, &msgerr, &ip, &gw, &mask);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    return msgerr;
-}
-
-static void a_bind_cb(void *st, errval_t err, struct net_ARP_binding *b)
-{
-    assert(err_is_ok(err));
-    arp_binding = b;
-    net_ARP_rpc_client_init(arp_binding);
-    net_arp_connected = true;
-}
-
-/** Bind to ARP service (currently blocking) */
-static void bind_arp(struct waitset *ws)
-{
-    errval_t err;
-    iref_t iref;
-
-    DEBUG("bind_arp()\n");
-    err = nameservice_blocking_lookup("sfn5122f_ARP", &iref);
-    assert(err_is_ok(err));
-    DEBUG("resolved\n");
-
-    err = net_ARP_bind(iref, a_bind_cb, NULL, ws, IDC_BIND_FLAGS_DEFAULT);
-    assert(err_is_ok(err));
-    DEBUG("binding initiated\n");
-
-    while (!net_arp_connected) {
-        event_dispatch_non_block(ws);
-        event_dispatch_non_block(get_default_waitset());
-    }
-    DEBUG("bound_arp\n");
-}
-
 
 /******************************************************************************/
 /* Initialization code for driver */
 
 /** Callback from pci to initialize a specific PCI device. */
-static void pci_init_card(struct device_mem* bar_info, int bar_count)
+static void pci_init_card(void *arg, struct device_mem* bar_info, int bar_count)
 {
     errval_t err;
     bool res;
@@ -1711,17 +1553,48 @@ static void pci_init_card(struct device_mem* bar_info, int bar_count)
 
 static void parse_cmdline(int argc, char **argv)
 {
+    /*
+     * XXX: the following contains a hack only to start the driver when
+     *      the supplied bus/dev/funct matches the Kaluga start arguments.
+     */
     int i;
-
+    uint32_t tmp;
     for (i = 1; i < argc; i++) {
         if (strncmp(argv[i], "cardname=", strlen("cardname=") - 1) == 0) {
             service_name = argv[i] + strlen("cardname=");
         } else if (strncmp(argv[i], "bus=", strlen("bus=") - 1) == 0) {
+            tmp = atol(argv[i] + strlen("bus="));
+            if (pci_bus == PCI_DONT_CARE) {
+                pci_bus = tmp;
+            }
+
+            if (pci_bus != tmp) {
+                printf("DRIVER STARTED FOR BUS: 0x%x/0x%x\n", pci_bus, tmp);
+                exit(1);
+            }
             pci_bus = atol(argv[i] + strlen("bus="));
         } else if (strncmp(argv[i], "device=", strlen("device=") - 1) == 0) {
-            pci_device = atol(argv[i] + strlen("device="));
+            tmp = atol(argv[i] + strlen("device="));
+            if (pci_device == PCI_DONT_CARE) {
+                pci_device = tmp;
+            }
+
+            if (pci_device != tmp) {
+                printf("DRIVER STARTED FOR DEVICE: 0x%x/0x%x\n", pci_device, tmp);
+                exit(1);
+            }
+
         } else if (strncmp(argv[i], "function=", strlen("function=") - 1) == 0){
-            pci_function = atol(argv[i] + strlen("function="));
+            tmp = atol(argv[i] + strlen("function="));
+            if (pci_function == PCI_DONT_CARE) {
+                pci_function = tmp;
+            }
+
+            if (pci_function != tmp) {
+                printf("DRIVER STARTED FOR FUNCTION: 0x%x/0x%x\n", pci_bus, tmp);
+                exit(1);
+            }
+
             if (pci_function != 0) {
                 USER_PANIC("Second port not implemented, please use function=0")
             }
@@ -1743,7 +1616,11 @@ static void eventloop(void)
     ws = get_default_waitset();
     DEBUG("SFN5122F enter event loop \n");
     while (1) {
-        event_dispatch(ws);
+        if (use_interrupt) {
+            event_dispatch(ws);
+        } else {
+            networking_poll();
+        }
     }
 }
 
@@ -1753,112 +1630,60 @@ static void cd_main(void)
 }
 
 
-
-/*
-static errval_t init_stack(void)
-{
-
-    struct netd_state *state;
-    char* card_name = "sfn5122f";
-    uint32_t allocated_queue = 0;   
-    uint32_t total_queues = 16;
-    uint8_t filter_type = 2;
-    bool do_dhcp = false;
-    char* ip_addr_str = "10.113.4.39";
-    char* netmask_str = "255.255.252.0";
-    char* gateway_str = "10.113.4.4";
-    errval_t err;
-
-    err = init_device_manager(card_name, total_queues, filter_type);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    err = netd_init(&state, card_name, allocated_queue, do_dhcp, 
-                    ip_addr_str, netmask_str, gateway_str);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return SYS_ERR_OK;
-}
-*/
-
 int main(int argc, char** argv)
 {
+    
+    //barrelfish_usleep(10*1000*1000);
     DEBUG("SFN5122F driver started \n");
     errval_t err;
 
+    if (argc > 1) {
+        uint32_t parsed = sscanf(argv[argc - 1], "%x:%x:%x:%x:%x", &pci_vendor,
+                                 &pci_devid, &pci_bus, &pci_device, &pci_function);
+        if (parsed != 5) {
+            pci_vendor = PCI_DONT_CARE;
+            pci_devid = PCI_DONT_CARE;
+            pci_bus = PCI_DONT_CARE;
+            pci_device = PCI_DONT_CARE;
+            pci_function = 0;
+        } else {
+            if ((pci_vendor != PCI_VENDOR_SOLARFLARE) || (pci_devid != DEVICE_ID)) {
+                printf("VENDOR/DEVICE ID MISMATCH: %x/%x %x/%x \n",
+                        pci_vendor, PCI_VENDOR_SOLARFLARE, pci_devid, DEVICE_ID);
+            }
+            argc--;
+        }
+    }
+
     parse_cmdline(argc, argv);
+
+
     /* Register our device driver */
     err = pci_client_connect();
     assert(err_is_ok(err));
-    err = pci_register_driver_irq(pci_init_card, PCI_CLASS_ETHERNET,
+    err = pci_register_driver_irq(pci_init_card, NULL, PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
-                                PCI_VENDOR_SOLARFLARE, DEVICE_ID,
+                                pci_vendor, pci_devid,
                                 pci_bus, pci_device, pci_function,
                                 global_interrupt_handler, NULL);
 
     while (!initialized) {
         event_dispatch(get_default_waitset());
     }
-
-    init_queue_0("sfn5122f", d_mac[pci_function], d_virt,
-                 use_interrupt, false, &queues[0].ev_frame, 
-                 &queues[0].tx_frame, &queues[0].rx_frame);
-
-    queues[0].enabled = false;
-    queues[0].tx_head = 0;
-    queues[0].rx_head = 0;
-    queues[0].ev_head = 0;
-    queues[0].rxbufsz = MTU_MAX;
-    queues[0].binding = NULL;
-    queues[0].use_irq = true;
-    queues[0].userspace = false;
-
-    struct frame_identity id;
-    err = invoke_frame_identify(queues[0].ev_frame, &id);
-    assert(err_is_ok(err));
-    queues[0].ev_buf_tbl = init_evq(0, id.base, queues[0].use_irq);
-    // enable checksums
-    err = invoke_frame_identify(queues[0].tx_frame, &id);
-    assert(err_is_ok(err));
-    queues[0].tx_buf_tbl = init_txq(0, id.base, csum_offload, false);
-
-    err = invoke_frame_identify(queues[0].rx_frame, &id);
-    assert(err_is_ok(err));
-    queues[0].rx_buf_tbl = init_rxq(0, id.base, false);
-
-    write_queue_tails();
-
-    start_all();    
     
-    /*
-    err = init_stack();
-    if (err_is_fail(err)) {
-        USER_PANIC("Failed initalizing netd etc %s \n", err_getstring(err));
-    } 
-    */   
-
-    /*
-    struct sfn5122f_filter_ip f = {
-            .dst_port = 7,
-            .dst_ip = htonl(0x2704710A),
-            .src_ip = 0,
-            .src_port = 0,
-            .type_ip = sfn5122f_PORT_UDP,
-            .queue = 1,
-    };
-
-    uint64_t fid;   
-    for (int i = 0; i < 10; i++) {
-        f.dst_port = 7+i;
-        f.queue = i+1;
-        err = reg_port_filter(&f, &fid);
-        assert(err_is_ok(err));
-
+    DEBUG("SFN5122F driver networking init \n");
+    if (use_interrupt) {
+        err = networking_init("sfn5122f", NET_FLAGS_DO_DHCP |
+                              NET_FLAGS_DEFAULT_QUEUE);
+    } else {
+        err = networking_init("sfn5122f", NET_FLAGS_DO_DHCP | NET_FLAGS_POLLING |
+                              NET_FLAGS_DEFAULT_QUEUE);
     }
-    */
+    assert(err_is_ok(err));
+
+    DEBUG("SFN5122F driver networking init done\n");
+    start_all();
+    
     /* loop myself */
     cd_main();
 }

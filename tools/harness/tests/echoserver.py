@@ -48,7 +48,7 @@ class EchoTestCommon(TestCommon):
             self.finished = True
 
     def is_finished(self, line):
-        return self.finished
+        return self.finished or super(EchoTestCommon, self).is_finished(line)
 
     def get_ipbench_test(self):
         return (IPBENCH_TEST, IPBENCH_TEST_ARGS)

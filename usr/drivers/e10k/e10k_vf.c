@@ -722,7 +722,7 @@ static void initialize_mngif(void)
 /* Initialization code for driver */
 
 /** Callback from pci to initialize a specific PCI device. */
-static void pci_init_card(struct device_mem* bar_info, int bar_count)
+static void pci_init_card(void *arg, struct device_mem* bar_info, int bar_count)
 {
     errval_t err;
     bool res;
@@ -795,7 +795,7 @@ static void pci_register(void)
         inthandler = NULL;
     }
 
-    r = pci_register_driver_noirq(pci_init_card, PCI_CLASS_ETHERNET,
+    r = pci_register_driver_noirq(pci_init_card, NULL, PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
                                 PCI_VENDOR_INTEL, E10K_PCI_DEVID,
                                 pci_bus, pci_device, pci_function);

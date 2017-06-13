@@ -14,6 +14,8 @@
 
 #define INIT_POOL_SIZE 16
 
+STATIC_ASSERT((INIT_POOL_SIZE & (INIT_POOL_SIZE - 1)) == 0, "must be a power of two");
+
 struct region_pool {
 
     // IDs are inserted and may have to increase size at some point
@@ -132,7 +134,7 @@ static errval_t region_pool_grow(struct region_pool* pool)
     struct region* region;
     for (int i = 0; i < pool->size; i++) {
         region = pool->pool[i];
-        uint16_t index =  region->id % new_size;
+        uint16_t index =  region->id & (new_size - 1);
         tmp[index] = pool->pool[i];
     }
 
@@ -208,7 +210,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
 
     // find slot
     while (true) {
-        index = (pool->region_offset + pool->num_regions + offset) % pool->size;
+        index = (pool->region_offset + pool->num_regions + offset) & (pool->size - 1);
         DQI_DEBUG_REGION("Trying insert index %d \n", index);
         if (pool->pool[index] == NULL) {
            break;
@@ -225,7 +227,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
         return err;
     }
     // insert into pool
-    pool->pool[region->id % pool->size] = region;
+    pool->pool[region->id & (pool->size - 1)] = region;
     *region_id = region->id;
     DQI_DEBUG_REGION("Inserting region into pool at %d \n", region->id % pool->size);
     return err;
@@ -256,7 +258,7 @@ errval_t region_pool_add_region_with_id(struct region_pool* pool,
         }
     }
 
-    struct region* region = pool->pool[region_id % pool->size];
+    struct region* region = pool->pool[region_id & (pool->size - 1)];
     if (region != NULL) {
         return DEVQ_ERR_INVALID_REGION_ID;
     } else {
@@ -264,7 +266,7 @@ errval_t region_pool_add_region_with_id(struct region_pool* pool,
         if (err_is_fail(err)) {
             return err;
         }
-        pool->pool[region_id % pool->size] = region;
+        pool->pool[region_id & (pool->size - 1)] = region;
     }
 
     pool->num_regions++;
@@ -286,7 +288,7 @@ errval_t region_pool_remove_region(struct region_pool* pool,
 {
     errval_t err;
     struct region* region;
-    region = pool->pool[region_id % pool->size]; 
+    region = pool->pool[region_id & (pool->size - 1)];
     if (region == NULL) {
         return DEVQ_ERR_INVALID_REGION_ID;
     }
@@ -300,7 +302,7 @@ errval_t region_pool_remove_region(struct region_pool* pool,
     }
 
     DQI_DEBUG_REGION("Removing slot %d \n", region_id % pool->size);
-    pool->pool[region_id % pool->size] = NULL;
+    pool->pool[region_id & (pool->size - 1)] = NULL;
 
     pool->num_regions--;
     return SYS_ERR_OK;
@@ -350,7 +352,7 @@ bool region_pool_buffer_check_bounds(struct region_pool* pool,
                                      genoffset_t valid_length)
 {
     struct region* region;
-    region = pool->pool[region_id % pool->size];
+    region = pool->pool[region_id & (pool->size - 1)];
     if (region == NULL) {
         return false;
     }

@@ -35,7 +35,7 @@ static void handle_device_interrupt(void *arg)
 
 }
 
-static void pci_dev_init_service(struct device_mem *bar_info,
+static void pci_dev_init_service(void *arg, struct device_mem *bar_info,
                                  int nr_mapped_bars)
 {
     errval_t err;
@@ -59,7 +59,7 @@ static void pci_dev_init_service(struct device_mem *bar_info,
     device_count++;
 }
 
-static void pci_dev_init_manager(struct device_mem *bar_info,
+static void pci_dev_init_manager(void *arg, struct device_mem *bar_info,
                                  int nr_mapped_bars)
 {
     errval_t err;
@@ -176,7 +176,7 @@ errval_t ioat_device_discovery(struct pci_addr addr,
              * discover devices as manager i.e. don't initialize them as they
              * are handed over to the domains upon request
              */
-            err = pci_register_driver_noirq(pci_dev_init_manager, PCI_DONT_CARE,
+            err = pci_register_driver_noirq(pci_dev_init_manager, NULL, PCI_DONT_CARE,
                                             PCI_DONT_CARE, PCI_DONT_CARE,
                                             PCI_VENDOR_INTEL, dev_ids[i], addr.bus,
                                             addr.device, addr.function + i);
@@ -184,7 +184,7 @@ errval_t ioat_device_discovery(struct pci_addr addr,
             /*
              * discover devices as a service i.e. initialize and map devices
              */
-            err = pci_register_driver_irq(pci_dev_init_service, PCI_DONT_CARE,
+            err = pci_register_driver_irq(pci_dev_init_service, NULL, PCI_DONT_CARE,
                                           PCI_DONT_CARE, PCI_DONT_CARE,
                                           PCI_VENDOR_INTEL,
                                           dev_ids[i], addr.bus, addr.device,

@@ -54,7 +54,7 @@ class MemTestMulti(TestCommon):
         # XXX: count number of times we have seen the finish string
         if line.startswith("memtest passed successfully!"):
             self._nseen += 1
-        return self._nseen == self._ncores
+        return self._nseen == self._ncores or super(MemTestMulti, self).is_finished(line)
 
     def process_data(self, testdir, rawiter):
         nspawned = nseen = 0

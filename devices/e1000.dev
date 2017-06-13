@@ -10,10 +10,10 @@
  * e1000.dev
  *
  * DESCRIPTION: Intel e1000 family Gigabit Ethernet NICs
- * 
+ *
  * Numbers in comments refer to the Intel PCIe GbE Controllers Open
  * Source Software Development Manual, 631xESB / 632xESB, 82563EB /
- * 82564EB, 82571EB / 82572EI & 82573E / 82573V / 82573L. 
+ * 82564EB, 82571EB / 82572EI & 82573E / 82573V / 82573L.
  * 316080-003, Revison 1.2, September 2007
  */
 
@@ -100,7 +100,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     lan_b_mask  = 0x0100 "LAN B mask";
   };
 
-  // 13.3.2 
+  // 13.3.2
   register status ro addr(base, 0x0008) "Device status" {
     fd		1 "Link full duplex configuration";
     lu		1 "Link up";
@@ -109,12 +109,12 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     tbimode	1 "TBI mode";
     speed	2 type(linkspeed) "Link speed setting";
     asdv	2 type(linkspeed) "Auto speed detection value";
-    phyra	1 "PHY reset asserted"; 
+    phyra	1 "PHY reset asserted";
     pci66	1 "PCI Bus speed indication";
     bus64	1 "PCI Bus Width indication";
     pcix_mode   1 "PCI-X Mode indication";
     pcixspd     2 "PCI-X Bus Speed Indication";
-    _		3 mbz;   
+    _		3 mbz;
     gio_mes     1 "GIO master enable status";
     dev_rst_set 1 "Device reset set";
     pf_rst_done 1 "Software Rest or device reset completed";
@@ -129,7 +129,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     _           1 mbz;
     speed       2 type(linkspeed) "Link speed setting";
     asdv        2 type(linkspeed) "Auto speed detection value";
-    phyra       1 "PHY reset asserted"; 
+    phyra       1 "PHY reset asserted";
     _           3  mbz;
     nvf         4 "Num VFs in the IOV capability s";
     vfe         1 "VF enable (VFE) bit in the IOV capability";
@@ -193,7 +193,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     ee_clr_err    1 "Clear EEPROM Access Error";
     ee_det        1 "EEPROM Detected";
     _            12 mbz;
-  };  
+  };
 
   register eec_82574 rw also addr(base, 0x0010) "EEPROM/Flash control for 82574" {
     ee_sk         1 "Clock input to EEPROM";
@@ -214,12 +214,12 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     sec1val       1 "Sec 1 valid";
     nvmtype       1 "NVM Type";
     _             8 mbz;
-  };  
+  };
 
   // 13.3.4
   // NM93C46 compatible EEPROMs
   register eerd_nm rw addr(base, 0x0014) "EEPROM read" {
-    start       1 "Start read";  
+    start       1 "Start read";
     _           3 mbz;
     done        1 ro "Read done";
     _           3 mbz;
@@ -231,7 +231,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     start       1 "Start read";
     done        1 ro "Read done";
     addr        14 "Read address";
-    data        16 "Read data";   
+    data        16 "Read data";
   };
 
 
@@ -292,23 +292,23 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
 
   // 13.3.7
   constants phyop "PHY register opcode" {
-    mdi_write	= 0b01 "MDI Write";
-    mdi_read	= 0b10 "MDI Read";
+    mdi_write_	= 0b01 "MDI Write";
+    mdi_read_	= 0b10 "MDI Read";
   };
   register mdic rw addr(base, 0x0020) "MDI control" {
-    data	16 "Data";
-    regadd	5  "PHY register address";
-    phyadd	5  "PHY address";
-    op		2 type(phyop) "Opcode";
-    r		1 "Ready bit";
-    i		1 "Interript enable";
-    e		1 "Error";
-    _		1 mbz;
+    data        16  "Data";
+    regadd      5   "PHY register address";
+    phyadd      5   "PHY address";
+    op          2   type(phyop) "Opcode";
+    r           1   "Ready bit";
+    i           1   "Interrupt enable";
+    e           1   "Error";
+    _           1   mbz;
   };
   
   // 13.3.8
   // There are a lot of PHY registers, all accessed through the MDIC.
-  // We don't yet list them here. 
+  // We don't yet list them here.
 
   // 13.3.10
   register serdesctl rw addr(base, 0x0024) "SERDES ANA" {
@@ -358,7 +358,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     crred	13 "Code RAM redundancy fuses";
     enad	1  "Enable Data RAM redundancy fuses";
     enac	1  "Enable Code RAM redundancy fuses";
-    _		2; 
+    _		2;
   };
   
   // 13.3.18
@@ -447,9 +447,9 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     led3_blink_mode 1 type(blmode) "Global blink mode";
     led3_ivrt	1 "LED3 invert";
     led3_blink	1 "LED3 blink";
-  };    
+  };
 
-  // 13.3.22 
+  // 13.3.22
   register extcnf_ctrl rw addr(base, 0x0f00) "Extended config control" {
     _		1 mbz;
     phy_we	1 "PHY write enable";
@@ -522,14 +522,33 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     srpd	1 "Small receive packet detected";
     ack		1 "Receive ack frame detected";
     _		2;
-    rx_desc_fifo_par0 1 "Rx descriptor FIFO parity error 0"; 
-    tx_desc_fifo_par0 1 "Tx descriptor FIFO parity error 0"; 
+    rx_desc_fifo_par0 1 "Rx descriptor FIFO parity error 0";
+    tx_desc_fifo_par0 1 "Tx descriptor FIFO parity error 0";
     pcie_master_par 1 "PCIe master data FIFO parity error";
     pbpar	1 "Packet buffer parity error";
-    rx_desc_fifo_par1 1 "Rx descriptor FIFO parity error 1"; 
-    tx_desc_fifo_par1 1 "Tx descriptor FIFO parity error 1"; 
+    rx_desc_fifo_par1 1 "Rx descriptor FIFO parity error 1";
+    tx_desc_fifo_par1 1 "Tx descriptor FIFO parity error 1";
     _		5;
     int_asserted 1 "Interrupt asserted";
+  };
+
+  regtype eintreg "Extended Interrupt register format" {
+    rxtxq0      1 "Receive/Transmit Queue 0 Interrupt";
+    rxtxq1      1 "Receive/Transmit Queue 1 Interrupt";
+    rxtxq2      1 "Receive/Transmit Queue 2 Interrupt";
+    rxtxq3      1 "Receive/Transmit Queue 3 Interrupt";
+    rxtxq4      1 "Receive/Transmit Queue 4 Interrupt";
+    rxtxq5      1 "Receive/Transmit Queue 5 Interrupt";
+    rxtxq6      1 "Receive/Transmit Queue 6 Interrupt";
+    rxtxq7      1 "Receive/Transmit Queue 7 Interrupt";
+    _           22 mbz;
+    tcp_timer   1 "TCP Timer expired";
+    other_cause 1 "Other cause";
+  };
+
+  regtype msixintreg "MSI-X Interrupt register format "{
+    msix        25 "MSI-X vectors";
+    _           7 mbz;
   };
 
   // 13.3.27
@@ -544,7 +563,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   // 13.3.29
   register ics wo addr(base, 0x00c8) "Interrupt cause write" type(intreg);
   
-  // 13.3.30 
+  // 13.3.30
   register ims rw addr(base, 0x00d0) "Interrupt mask set/read" type(intreg);
   
   // 13.3.31
@@ -566,17 +585,25 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     counter  16 "Down counter";
   };
   
-  register eimc wo addr(base, 0x1528) "Extended Interrupt Mask Clear" {
-    RxTxQ 8 "Clear Mask bit for the corresponding EICR RxTXQ interrupt.";
-    _     22 mbz;
-    tcp_timer   1 "EICR TCP timer interrupt.";
-    other_cause 1 "EICR other cause interrupt.";
+  register gpie rw addr(base, 0x1514) "General Purpose Interrupt Enable" {
+    nsicr           1 "Non Selective Interrupt clear on read";
+    _               3 mbz;
+    multiple_msix   1 "Multiple MSIX";
+    _               2 mbz;
+    ll_interval     5 "Low Latency Credits Increment Rate";
+    _               18 mbz;
+    EIAME           1 "EIAME";
+    pba_support     1 "PBA support";
   };
   
-  register eimc_msix wo also addr(base, 0x1528) "Extended Interrupt Mask Clear" {
-    msix 25 "Clear Mask bit for the corresponding EICR RxTXQ interrupt.";
-    _ 7 mbz;
-  };
+  register eics wo addr(base, 0x1520) "Extended Interrupt Cause Set" type(eintreg);
+  register eims rw addr(base, 0x1524) "Extended Interrupt Mask Set/Read" type(eintreg);
+  register eimc wo addr(base, 0x1528) "Extended Interrupt Mask Clear" type(eintreg);
+  register eiac rw addr(base, 0x152c) "Extended Interrupt Auto Clear" type(eintreg);
+  register eiam rw addr(base, 0x1530) "Extended Interrupt Auto Mask Enable" type(eintreg);
+  register eicr rw addr(base, 0x1580) "Extended Interrupt Cause" type(eintreg);
+
+  register eimc_msix wo also addr(base, 0x1528) "Extended Interrupt Mask Clear" type(msixintreg);
   
   regarray eitr_I350 also addr(base, 0x1680)[24;0x4] "Extended Interrupt Throttle" {
     _         2 mbz;
@@ -586,6 +613,32 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     mod_count 10 "Down counter, exposes only the 10 most significant";
     cnt_ingr  1 "When set the hardware does not override the counters fields";
   };
+
+  regarray ivar rw addr(base, 0x1700)[4;0x4] "Interrupt Vector Allocation" {
+    int_alloc0      5   "MSI-X vector";
+    _               2   mbz;
+    int_alloc_val0  1   "Valid bit";
+    int_alloc1      5   "MSI-X vector";
+    _               2   mbz;
+    int_alloc_val1  1   "Valid bit";
+    int_alloc2      5   "MSI-X vector";
+    _               2   mbz;
+    int_alloc_val2  1   "Valid bit";
+    int_alloc3      5   "MSI-X vector";
+    _               2   mbz;
+    int_alloc_val3  1   "Valid bit";
+  };
+
+  register ivar_misc rw addr(base, 0x1740) "Interrupt Vector Allocation - MISC" {
+    int_alloc16     5   "TCP Timer";
+    _               2   mbz;
+    int_alloc_val16 1   "Valid bit";
+    int_alloc17     5   "Other cause";
+    _               2   mbz;
+    int_alloc_val17 1   "Valid bit";
+    _               16  mbz;
+  };
+
 
   /************************************
    * Receive registers
@@ -636,7 +689,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     secrc	1 "Strip Ethernet CRC from packet";
     flxbuf	4 "Flexible buffer size (in KB)";
     _		1 mbz;
-  };    
+  };
   
   // 13.3.34
   register ert rw addr(base, 0x2008) "Early receive threshold" {
@@ -674,15 +727,15 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   };
   
   // 13.3.38/46/39/47
-  regarray rdbal rw addr(base, 0x2800)[2;0x100] 
+  regarray rdbal rw addr(base, 0x2800)[2;0x100]
     "Rx descr. base addr low" type(uint32);
-  regarray rdbah rw addr(base, 0x2804)[2;0x100] 
+  regarray rdbah rw addr(base, 0x2804)[2;0x100]
     "Rx descr. base addr high" type(uint32);
     
-  regarray rdbal_I350 rw addr(base, 0xC000)[8;0x40] 
+  regarray rdbal_I350 rw addr(base, 0xC000)[8;0x40]
     "Rx descr. base addr low" type(uint32);
-  regarray rdbah_I350 rw addr(base, 0xC004)[8;0x40] 
-    "Rx descr. base addr high" type(uint32);    
+  regarray rdbah_I350 rw addr(base, 0xC004)[8;0x40]
+    "Rx descr. base addr high" type(uint32);
 
   // 13.3.40/48 and 13.3.62/71
   // Note that the description of the transmit length (13.3.62/71) refers to
@@ -693,10 +746,10 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     len		13 "Num. descriptors (x8)";
     _		12 mbz;
   };
-  regarray rdlen rw addr(base, 0x2808)[2;0x100] 
+  regarray rdlen rw addr(base, 0x2808)[2;0x100]
     "Rx descriptor length" type(dqlen);
 
-  regarray rdlen_I350 rw addr(base, 0xC008)[8;0x40] 
+  regarray rdlen_I350 rw addr(base, 0xC008)[8;0x40]
     "Rx descriptor length" type(dqlen);
 
   // 13.3.41/49/42/50
@@ -770,7 +823,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     _		20 mbz;
   };
   
-  // 13.3.53 
+  // 13.3.53
   register raid rw addr(base, 0x2c08) "Rx ACK interrupt delay" {
     idv		16 "Interrupt delay value (x 1.024us)";
     _		16 mbz;
@@ -863,15 +916,15 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   //
 
   // 13.3.60/61/69/70
-  regarray tdbal rw addr(base, 0x3800)[2;0x100] "Tx descr. base addr. low" 
+  regarray tdbal rw addr(base, 0x3800)[2;0x100] "Tx descr. base addr. low"
     type(uint32);
-  regarray tdbah rw addr(base, 0x3804)[2;0x100] "Tx descr. base addr. hi" 
+  regarray tdbah rw addr(base, 0x3804)[2;0x100] "Tx descr. base addr. hi"
     type(uint32);
     
-  regarray tdbal_I350 rw addr(base, 0xE000)[8;0x40] "Tx descr. base addr. low" 
+  regarray tdbal_I350 rw addr(base, 0xE000)[8;0x40] "Tx descr. base addr. low"
     type(uint32);
-  regarray tdbah_I350 rw addr(base, 0xE004)[8;0x40] "Tx descr. base addr. hi" 
-    type(uint32);    
+  regarray tdbah_I350 rw addr(base, 0xE004)[8;0x40] "Tx descr. base addr. hi"
+    type(uint32);
   
   // 13.3.62/71
   regarray tdlen rw addr(base, 0x3808)[2;0x100] "Tx descr. length" type(dqlen);
@@ -895,7 +948,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     HeadWB_Low 30 "Bits 31:2 of the head write-back memory location";
   };
   
-  regarray tdwbah rw addr(base, 0xE03C)[8; 0x40] "Tx Descriptor Completion Write" 
+  regarray tdwbah rw addr(base, 0xE03C)[8; 0x40] "Tx Descriptor Completion Write"
     type(uint32);
 
   // 13.3.66/74
@@ -979,7 +1032,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   };
 
   // 13.4.4
-  regarray vfta rw addr(base, 0x5600)[128] 
+  regarray vfta rw addr(base, 0x5600)[128]
     "VLAN filter table array" type(uint32);
 
   // 13.4.5
@@ -1002,7 +1055,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   // 13.4.6
   register rssim rw addr(base, 0x5864) "RSS interrupt mask" type(uint32);
   
-  // 13.4.7 
+  // 13.4.7
   register rssir rw addr(base, 0x5868) "RSS interrupt request" type(uint32);
   
   // 13.4.8
@@ -1024,7 +1077,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     _		28;
   };
 
-  // 13.5.2 
+  // 13.5.2
   regtype wakeup "Wakeup register" {
     lnkc	1 "Link status change";
     mag		1 "Magic packet";
@@ -1059,7 +1112,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   };
 
   // 13.5.5
-  regarray ip4at rw addr(base, 0x5840)[4;8] 
+  regarray ip4at rw addr(base, 0x5840)[4;8]
     "IPv4 address table" type(uint32);
 
   // 13.5.6
@@ -1074,7 +1127,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   // 13.5.8
   regarray wupm rw addr(base, 0x5a00)[32] "Wakeup packet memory" type(uint32);
   
-  // 13.5.9 
+  // 13.5.9
   regarray fflt rw addr(base, 0x5f00)[4;8] "Flexible filter length table" {
     len		11 "Length";
     _		21 mbz;
@@ -1160,7 +1213,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
     dis_tmout		1 "Disable PCIe timeout mechanism";
   };
 
-  // 13.7.2 
+  // 13.7.2
   register gscl1 rw addr(base, 0x5b10) "PCIe statistics control 1" {
     count_en0	1 "Enable PCIe stats counter 0";
     count_en1	1 "Enable PCIe stats counter 1";
@@ -1448,7 +1501,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   register icrxoc rc addr(base, 0x4124)
     "Interrupt cause receive overrun count" type(uint32);
 
-  regarray statsregs rc also addr(base, 0x4000)[74] 
+  regarray statsregs rc also addr(base, 0x4000)[74]
     "All stats registers" type(uint32);
 
 
@@ -1491,7 +1544,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
       _		63;
   };
   datatype rdesc_write lsbfirst(64) "Extended rx descriptor (write format)" {
-      // MRQ 
+      // MRQ
       rss	4 type(rsstype) "RSS type";
       _		4;
       queue	5 "Receive queue";
@@ -1515,7 +1568,7 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
       _		4;
       ack	1  "ACK packet identification";
       _		4;
-      // Extended errors 
+      // Extended errors
       _		4;
       ce	1  "CRC or alignment error";
       se	1  "Symbol error";

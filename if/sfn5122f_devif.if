@@ -18,6 +18,7 @@ interface sfn5122f_devif "sfn5122f devif communication interface" {
     // create and destroy a queue. Only the device driver itself should
     // access configuration registers
     rpc create_queue(in cap frame, in bool user, in bool interrupt,
+                     in bool qzero,
                      in uint8 core, in uint8 vector,
                      out uint64 mac, out uint16 qid, 
                      out cap regs, out errval err);
@@ -26,6 +27,8 @@ interface sfn5122f_devif "sfn5122f devif communication interface" {
     // add a memory region to the buffer table
     rpc register_region(in uint16 qid, in cap reg, out uint64 buftbl_id, out errval err);
     rpc deregister_region(in uint64 buftbl_id, in uint64 size, out errval err);
+
+    rpc control(in uint64 req, in uint64 arg, out uint64 res, out errval msgerr);
 
     message interrupt(uint16 qid);
 };

@@ -41,7 +41,6 @@ class NetCommon(TestCommon):
     def setup(self, build, machine, testdir):
         super(NetCommon, self).setup(build, machine, testdir)
         self.testdir = testdir
-        self.finished = False
         self.ip = None
         self.traceLogsON = False
         self.traceLogs = []
@@ -68,15 +67,12 @@ class NetCommon(TestCommon):
         if line.startswith('dump trac buffers: Start') :
             self.traceLogsON = True
         elif line.startswith('dump trac buffers: Stop') :
-            self.finished = True
             self.traceLogsON = False
         elif  self.traceLogsON :
             self.traceLogs.append(line);
 
-
-    def is_finished(self, line):
-        return self.finished
-
+    def get_finish_string(self):
+        return 'dump trac buffers: Stop'
 
 @tests.add_test
 class NetdTraceTest(NetCommon):
