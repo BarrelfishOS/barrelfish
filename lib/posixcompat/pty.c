@@ -25,8 +25,8 @@
 #include <barrelfish/waitset.h>
 #include <collections/list.h>
 #include <if/octopus_defs.h>
-#include <if/octopus_defs.h>
 #include <octopus/octopus.h>
+#include <octopus/trigger.h>
 #include <posixcompat.h>
 #include <term/server/server.h>
 #include <vfs/fdtab.h>

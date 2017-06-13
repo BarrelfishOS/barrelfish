@@ -21,15 +21,15 @@
 
 #include <barrelfish/barrelfish.h>
 
+#include <if/octopus_defs.h>
+#include <if/octopus_thc.h>
+
 #include <octopus/init.h>
 #include <octopus/getset.h>
 #include <octopus/parser/ast.h>
 #include <octopus/trigger.h>
-#include <if/octopus_defs.h>
-#include <if/octopus_thc.h>
 
 #include "common.h"
-
 
 /**
  * \brief Retrieve all record names matching a given query.

@@ -51,13 +51,14 @@ struct descq {
     uint64_t tx_seq;
     union pointer* rx_seq_ack;
     union pointer* tx_seq_ack;
-   
+  
     // Flounder
     struct descq_binding* binding;
     bool local_bind;
     bool lmp_bind;
     bool ump_bind;
-    
+    uint64_t resend_args;
+  
     // linked list
     struct descq* next;
     uint64_t qid;
@@ -104,12 +105,18 @@ static errval_t descq_enqueue(struct devq* queue,
         return DEVQ_ERR_QUEUE_FULL;
     }
     
+ 
+    //assert(length > 0);
+
     q->tx_descs[head].rid = region_id;
     q->tx_descs[head].offset = offset;
     q->tx_descs[head].length = length;
     q->tx_descs[head].valid_data = valid_data;
     q->tx_descs[head].valid_length = valid_length;
     q->tx_descs[head].flags = misc_flags;
+
+    __sync_synchronize();
+
     q->tx_descs[head].seq = q->tx_seq;
 
     // only write local head
@@ -118,7 +125,7 @@ static errval_t descq_enqueue(struct devq* queue,
     DESCQ_DEBUG("tx_seq=%lu tx_seq_ack=%lu \n",
                     q->tx_seq, q->tx_seq_ack->value);
     // if (q->local_bind) {
-        q->binding->tx_vtbl.notify(q->binding, NOP_CONT);
+    //q->binding->tx_vtbl.notify(q->binding, NOP_CONT);
     // }
     return SYS_ERR_OK;
 }
@@ -163,8 +170,9 @@ static errval_t descq_dequeue(struct devq* queue,
     *valid_data = q->rx_descs[tail].valid_data;
     *valid_length = q->rx_descs[tail].valid_length;
     *misc_flags = q->rx_descs[tail].flags;
- 
-       
+
+    //assert(*length > 0);       
+
     q->rx_seq++;
     q->rx_seq_ack->value = q->rx_seq;
 
@@ -184,20 +192,18 @@ static errval_t descq_notify(struct devq* q)
     errval_t err;
     //errval_t err2;
     struct descq* queue = (struct descq*) q;
-    /*
-    DESCQ_DEBUG("start \n");
-    err = queue->binding->rpc_tx_vtbl.notify(queue->rpc, &err2);
-    err = err_is_fail(err) ? err : err2;
-    DESCQ_DEBUG("end\n");
-    */
+
     err = queue->binding->tx_vtbl.notify(queue->binding, NOP_CONT);
     if (err_is_fail(err)) {
-        while(err_is_fail(err)) {
-            err = queue->binding->register_send(queue->binding, get_default_waitset(),
-                                             MKCONT(resend_notify, queue));
-            if (err_is_fail(err)) {
-                event_dispatch(get_default_waitset());
-            }
+        
+        err = queue->binding->register_send(queue->binding, get_default_waitset(),
+                                            MKCONT(resend_notify, queue));
+        if (err == LIB_ERR_CHAN_ALREADY_REGISTERED) {
+            // dont care about this failure since there is an oustanding message
+            // anyway if this fails 
+            return SYS_ERR_OK;
+        } else {
+            return err;     
         }
     }
     return SYS_ERR_OK;
@@ -229,14 +235,35 @@ static errval_t descq_register(struct devq* q, struct capref cap,
     return err;
 }
 
+static void try_deregister(void* a)
+{
+    errval_t err, err2;
+    struct descq* queue = (struct descq*) a;
+    
+    err = queue->binding->rpc_tx_vtbl.deregister_region(queue->binding, queue->resend_args, 
+                                                        &err2);
+    assert(err_is_ok(err2) && err_is_ok(err));
+}
+
+
 static errval_t descq_deregister(struct devq* q, regionid_t rid)
 {
     errval_t err, err2;
+    err2 = SYS_ERR_OK;
     struct descq* queue = (struct descq*) q;
 
     err = queue->binding->rpc_tx_vtbl.deregister_region(queue->binding, rid, &err2);
-    err = err_is_fail(err) ? err : err2;
-    return err;
+    if (err_is_fail(err)) {
+        queue->resend_args = rid;
+        while(err_is_fail(err)) {
+            err = queue->binding->register_send(queue->binding, get_default_waitset(),
+                                                MKCONT(try_deregister, queue));
+            if (err_is_fail(err)) {
+                event_dispatch(get_default_waitset());
+            }
+        }
+    }
+    return err2;
 }
 
 /*
@@ -377,7 +404,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     assert(err_is_ok(err));
     q->exp_done = true;
     // state is only function pointers
-    DESCQ_DEBUG("Control interface exported (%s)\n", name);
+    DESCQ_DEBUG("Control interface exported (%s)\n", q->name);
 }
 
 static errval_t connect_cb(void *st, struct descq_binding* b)

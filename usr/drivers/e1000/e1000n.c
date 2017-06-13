@@ -41,9 +41,13 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <octopus/octopus.h>
-#include <net_queue_manager/net_queue_manager.h>
+
+#include <if/octopus_defs.h>
 #include <if/net_queue_manager_defs.h>
+
+#include <octopus/octopus.h>
+#include <octopus/trigger.h>
+#include <net_queue_manager/net_queue_manager.h>
 #include <trace/trace.h>
 #ifdef LIBRARY
 #       include <netif/e1000.h>

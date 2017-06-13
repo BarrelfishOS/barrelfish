@@ -13,12 +13,15 @@
  */
 
 #include <stdio.h>
+#include <stddef.h>
 #include <string.h>
+#include <stdarg.h>
+
 #include <barrelfish/barrelfish.h>
 #include <skb/skb.h>
 #include <if/skb_defs.h>
 #include <barrelfish/core_state_arch.h>
-#include "skb_debug.h"
+#include "skb_internal.h"
 
 #define BUFFER_SIZE skb__run_call_input_MAX_ARGUMENT_SIZE
 #define OUTPUT_SIZE skb__run_response_output_MAX_ARGUMENT_SIZE
@@ -73,13 +76,15 @@ errval_t skb_execute(char *goal)
 
 errval_t skb_add_fact(char *fmt, ...)
 {
+    errval_t err;
     va_list va_l;
     va_start(va_l, fmt);
-    int len = vsnprintf(buffer, BUFFER_SIZE, fmt, va_l);
+    int len = skb_vsnprintf(buffer, BUFFER_SIZE, fmt, va_l);
     va_end(va_l);
 
     if (len >= BUFFER_SIZE) {
-        return SKB_ERR_OVERFLOW;
+        err = SKB_ERR_OVERFLOW;
+        goto out;
     }
 
     if (len > 0 && buffer[len - 1] == '.') {
@@ -88,13 +93,15 @@ errval_t skb_add_fact(char *fmt, ...)
 
     SKB_DEBUG("skb_add_fact(): %s\n", buffer);
     int assert_len = snprintf(buffer + len, BUFFER_SIZE - len,
-            "assert(%.*s).", len, buffer);
-
+                              "assert(%.*s).", len, buffer);
     if (assert_len >= BUFFER_SIZE - len) {
-        return SKB_ERR_OVERFLOW;
+        err = SKB_ERR_OVERFLOW;
+        goto out;
     }
 
-    errval_t err = skb_execute(buffer + len);
+    err = skb_execute(buffer + len);
+
+out:
     return err;
 }
 
@@ -102,8 +109,22 @@ errval_t skb_execute_query(char *fmt, ...)
 {
     va_list va_l;
     va_start(va_l, fmt);
-    int len = vsnprintf(buffer, BUFFER_SIZE, fmt, va_l);
+    int len = skb_vsnprintf(buffer, BUFFER_SIZE, fmt, va_l);
     va_end(va_l);
+
+#if 0
+    va_start(va_l, fmt);
+    char* buffer2 = malloc(BUFFER_SIZE+1);
+    len = vsnprintf(buffer2, BUFFER_SIZE, fmt, va_l);
+    va_end(va_l);
+    if (strcmp(buffer, buffer2) != 0) {
+        printf("%s:%s:%d: fmt = %s\n", __FILE__, __FUNCTION__, __LINE__, fmt);
+        printf("%s:%s:%d: skb_vsnprintf: %s\n", __FILE__, __FUNCTION__, __LINE__, buffer);
+        printf("%s:%s:%d: vsnprintf: %s\n", __FILE__, __FUNCTION__, __LINE__, buffer2);
+        USER_PANIC("skb_vsnprintf doesn't quite work!");
+    }
+    free(buffer2);
+#endif
 
     if (len >= BUFFER_SIZE) {
         return SKB_ERR_OVERFLOW;
@@ -122,7 +143,7 @@ static inline int count_expected_conversions(char *s, int len)
     //count the number of single occurences of '%' to calculate the expected
     //number of conversions made by sscanf
     for (int i = 0; i < len; i++) {
-        if ((s[i] == '%') && 
+        if ((s[i] == '%') &&
             (((i + 1 < len) && (s[i + 1] != '%')) ||
             (i + 1 >= len))) {
             expected_conversions++;
@@ -131,34 +152,34 @@ static inline int count_expected_conversions(char *s, int len)
     return (expected_conversions);
 }
 
-errval_t skb_read_output_at(char *out, char *fmt, ...)
-{
-    errval_t r;
-    va_list va_l;
-    va_start(va_l, fmt);
-    r = skb_vread_output_at(out, fmt, va_l);
-    va_end(va_l);
-    return(r);
-}
-
 errval_t skb_vread_output_at(char *out, char *fmt, va_list va_l)
 {
-
     int expected_conversions = 0;
     int nr_conversions;
     int fmtlen = strlen(fmt);
     expected_conversions = count_expected_conversions(fmt, fmtlen);
-
-    nr_conversions = vsscanf(out, fmt, va_l);
+    nr_conversions = skb_vsscanf(out, fmt, va_l);
     if (nr_conversions != expected_conversions) {
-        SKB_DEBUG("skb_vread_output_at(): Could not convert the SKB's result\n");
-        SKB_DEBUG("SKB returned: %s\nSKB error: %s\n", skb_get_output(),
-                skb_get_error_output());
+        printf("skb_vread_output_at(): Could not convert the SKB's result (expected conversions=%d, got instead=%d)\n",
+               expected_conversions, nr_conversions);
+        printf("SKB returned: %s\nSKB error: %s\n", skb_get_output(), skb_get_error_output());
+        printf("%s:%s:%d: fmt = %s out = %s\n", __FILE__, __FUNCTION__, __LINE__, fmt, out);
         return SKB_ERR_CONVERSION_ERROR;
     }
     return SYS_ERR_OK;
 }
 
+errval_t skb_read_output_at(char *out, char *fmt, ...)
+{
+    errval_t r;
+    va_list va_l;
+
+    va_start(va_l, fmt);
+    r = skb_vread_output_at(out, fmt, va_l);
+    va_end(va_l);
+
+    return(r);
+}
 
 errval_t skb_read_output(char *fmt, ...)
 {
@@ -212,7 +233,6 @@ bool skb_read_list(struct list_parser_status *status, char *fmt, ...)
             count_expected_conversions(fmt, fmtlen);
     }
 
-
     //iterate over all buselements
     while (status->conv_ptr < status->s + status->len) {
         // search the beginning of the next buselement
@@ -222,7 +242,7 @@ bool skb_read_list(struct list_parser_status *status, char *fmt, ...)
                     status->conv_ptr++;
         }
         //convert the string to single elements and numbers
-        nr_conversions = vsscanf(status->conv_ptr, fmt, va_l);
+        nr_conversions = skb_vsscanf(status->conv_ptr, fmt, va_l);
         va_end(va_l);
         status->conv_ptr++;
         if (nr_conversions != status->expected_conversions) {

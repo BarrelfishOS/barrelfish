@@ -46,7 +46,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "test_remote_delete",
                         "test_remote_revoke",
                         "testerror",
-                        "yield_test" ] ]
+                        "yield_test",
+                        "skb_cap_storage"
+                    ] ]
 
     tests_x86 = [ "/sbin/" ++ f | f <- [
                         "tests/luatest",
@@ -225,7 +227,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "vnode_map_test",
                            "webserver",
                            "xeon_phi",
-                           "xeon_phi_mgr"
+                           "xeon_phi_mgr",
+                           "driverdomain"
                            ]] ++ modules_common
 
     -- the following are broken in the newidc system
@@ -355,7 +358,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                     Out "root" image,
                     NoDep BuildTree "root" "/",
                     Str physBase ] ++
-                    [ (Dep BuildTree "armv7" m) | m <- modules ] ++ 
+                    [ (Dep BuildTree "armv7" m) | m <- modules ] ++
                     [ (Dep BuildTree "" m) | m <- modules_generic ] ),
 
             Rule ([ Str Config.arm_objcopy,
@@ -412,7 +415,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       "Xeon Phi build with benchmarks and test suites",
 
     platform "QEMU" [ "armv8" ]
-      ([ ("armv8", "/sbin/cpu_a57v") ] 
+      ([ ("armv8", "/sbin/cpu_a57v") ]
        ++
        [ ("armv8", f) | f <- armv8_modules ]
        ++
@@ -540,7 +543,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "root" ("/platforms/x86/menu.lst." ++ p)
             | p <- [ "x86_64", "k1om" ] ],
 
-   
+
     boot "gem5_armv7_vexpressemm" [ "armv7" ] [
       In SrcTree "tools" "/tools/arm_gem5/boot_gem5.sh",
       Str "VExpress_EMM",

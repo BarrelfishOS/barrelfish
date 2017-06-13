@@ -40,6 +40,7 @@ data Args = Args {
       omitIncludes :: [String],
       addLinkFlags :: [String],
       addLibraries :: [String],
+      addModules :: [String],
       addGeneratedDependencies :: [String],
       architectures :: [String],
       skateSchemaDefs :: [String],  -- just the Skate Schema headers
@@ -77,6 +78,7 @@ defaultArgs = Args {
       omitIncludes = [],
       addLinkFlags = [],
       addLibraries = [],
+      addModules = [],
       addGeneratedDependencies = [],
       architectures = allArchitectures,
       skateSchemaDefs = [],
@@ -123,6 +125,7 @@ showArgs prefix a =
     ++ "\n  omitIncludes:          " ++ (show $ omitIncludes a)
     ++ "\n  addLinkFlags:          " ++ (show $ addLinkFlags a)
     ++ "\n  addLibraries:          " ++ (show $ addLibraries a)
+    ++ "\n  addModules:            " ++ (show $ addModules a)
     ++ "\n  addDeps:               " ++ (show $ addGeneratedDependencies a)
     ++ "\n  architectures:         " ++ (show $ architectures a)
     ++ "\n  skateSchemaDefs:       " ++ (show $ skateSchemaDefs a)

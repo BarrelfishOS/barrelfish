@@ -51,6 +51,7 @@ struct oct_reply_state {
 
     // For capability storage
     struct capref cap;
+    char* retkey;
 
     struct oct_reply_state *next;
 };
@@ -79,6 +80,7 @@ void identify_binding(struct octopus_binding*, uint64_t, octopus_binding_type_t)
 // Capability Storage
 void get_cap_handler(struct octopus_binding*, const char*);
 void put_cap_handler(struct octopus_binding*, const char*, struct capref);
+void sput_cap_handler(struct octopus_binding*, const char*, struct capref);
 void remove_cap_handler(struct octopus_binding*, const char*);
 
 #endif /* OCTOPUS_SERVICE_H_ */

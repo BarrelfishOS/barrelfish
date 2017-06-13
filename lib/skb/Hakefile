@@ -7,12 +7,14 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for lib/skb
--- 
+--
 --------------------------------------------------------------------------
 
 [ build library { target = "skb",
-                  cFiles = [ "skb.c", "skb_functions.c", "helper.c" ],
+                  cFiles = [ "skb.c", "skb_functions.c", "skb_snprintf.c", "skb_sscanf.c", "helper.c" ],
                   flounderBindings = [ "skb" ],
-                  flounderExtraBindings = [ ("skb", ["rpcclient"]) ]
+                  flounderExtraBindings = [ ("skb", ["rpcclient"]) ],
+                  addLibraries = ["octopus"],
+                  addCFlags = ["-Wno-char-subscripts"]
                 }
 ]

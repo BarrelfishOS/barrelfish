@@ -14,13 +14,14 @@
 
 #include <barrelfish/barrelfish.h>
 
+#include <if/octopus_defs.h>
+#include <if/octopus_thc.h>
+
 #include <octopus/init.h>
 #include <octopus/getset.h>
 #include <octopus/trigger.h>
 #include <octopus/lock.h>
 #include <octopus/semaphores.h>
-#include <if/octopus_defs.h>
-#include <if/octopus_thc.h>
 
 #include "common.h"
 

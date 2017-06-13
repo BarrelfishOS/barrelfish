@@ -29,6 +29,7 @@
 
 \begin{versionhistory}
 \vhEntry{0.1}{05.12.2013}{GZ}{Initial Version}
+\vhEntry{0.1}{16.05.2017}{GZ}{Update with info about new driver structure}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -55,30 +56,117 @@
   captionpos=b
 }
 
-\chapter{Introduction}
+\chapter{New device driver interface}
 \label{chap:introduction}
 
-This document describes the way we write device drivers in Barrelfish. It will
-walk you through the necessary steps to integrate your driver in the
-Barrelfish infrastructure and gives an overview of available APIs,
-libraries and tools to help you with the process.
+This document describes how we write device drivers in Barrelfish. It will walk
+you through the necessary steps to integrate your driver in the Barrelfish
+infrastructure and gives an overview of available APIs, libraries and tools to
+help you with the process.
 
-In the next chapter, we will give a short overview and walkthrough of an
-existing driver in the Barrelfish code base, to introduce most of the common
-terms and concepts. In the following chapters, we will then go deeper and look
-into the hardware specific APIs available for all the different architectures
-that Barrelfish supports.
-
-Unfortunately, at this point, there is no unified interface for drivers on ARM
-and x86. So, we will usually distinguish between these two architectures in
-the document.
-
-\chapter{High-level overview: A first look at device drivers in Barrelfish}
+\section{Overview}
 \label{chap:overview}
+
+There are three main entities when discussing drivers:
+
+\begin{itemize}
+    \item[Driver Domain] Is a domain that executes one or more drivers. It is
+    special in that it communicates with Kaluga to act on requests to
+    spawn or destroy new driver instances.
+
+    \item[Driver Module] A Barrelfish driver module is a piece of code
+    (typically a library) that contains the logic for a device driver.
+    It follows a well defined structure that allows Kaluga to interact with an
+    instantiated driver (see Driver Instance) in order to control its
+    life-cycle.
+
+    \item[Driver Instance] A driver instance is the runtime object instantiated from a
+    given driver module. In practice, any number of instances can be created
+    from a driver module and executed within one or more driver domains.
+\end{itemize}
+
+\section{Driver Domain}
+\label{sec:domain}
+
+A driver domain is a regular domain (process) in Barrelfish. The template driver
+domain can be found in \pathname{usr/drivers/domain/main.c}, with most of the
+respective logic implemented in \pathname{lib/driverkit}. Driver domains are
+typically started by Kaluga (device manager), and then continue to communicate
+with Kaluga using the ddomain interface (\pathname{if/ddomain.if}).
+
+The ddomain interface exposes two API calls:
+\begin{itemize}
+    \item[\fnname{create}] Creates a driver instance from a driver module.
+    \item[\fnname{destroy}] Destroys a previously created driver instance.
+\end{itemize}
+
+A driver domain can ``dynamically'' instantiate driver instances if a create call
+is made to spawn an instance of a specific module. The driver domain uses a
+basic C-style module system (similar to Linux kernel or Tensorflow modules). The
+module system uses a custom ELF section (called .bfdrivers) where structs with
+module informations are stored. This is achieved using a special linker file
+located in \pathname{lib/driverkit/bfdrivers.ld}.
+
+
+\section{Driver Module}
+\label{sec:module}
+
+The driver module is written as a library. A template module can be found in
+\pathname{usr/drivers/domain/drivertpl.c}. The driver is then statically linked
+with the driver domain. Currently, there is no support to dynamically load
+modules since everything is statically linked in Barrelfish anyways. It's
+important that the module is not linked like a regular library with the domain,
+but rather as a module (\fnname{addModules = ["drivermodule"]}). This makes sure
+the linker will not throw away the (seemingly unused) symbols during linking.
+For an example, take a look at \pathname{usr/drivers/domain/Hakefile}.
+
+A driver must provide an implementation for the following five functions:
+\begin{itemize}
+\item[\fnname{init}] Initialize driver an device.
+\item[\fnname{detach}] Release ownership of the device temporarily.
+\item[\fnname{attach}] Regain ownership of the device (after \fnname{detach}).
+\item[\fnname{set\_sleep\_level}] Change power state of the device.
+\item[\fnname{destroy}] Destruct the driver instance, release ownership of device.
+\end{itemize}
+
+A driver implementation can register itself as a module using the
+\fnname{DEFINE\_MODULE} macro:
+\begin{lstlisting}[caption={Registering an uart driver module}, label={lst:module}]
+DEFINE_MODULE(uart, init, attach, detach, set_sleep_level, destroy);
+\end{lstlisting}
+
+\section{Driver Instance}
+\label{sec:instance}
+
+At runtime, the driver domain creates instances of a given module. This means a
+having a specific, per-instance state coupled with the functions provided in
+module along with the dcontrol interface (\pathname{if/dcontrol.if}) that is
+exported for every driver instance.
+
+Kaluga connects to the dcontrol interface of a driver instance to have more fine
+grained control over the life-cycle of the instance. It exports the following
+messages which basically act as wrappers for the driver functions described in
+Section~\ref{sec:module}:
+\begin{itemize}
+    \item[\fnname{attach}] Calls attach on the driver instance.
+    \item[\fnname{detach}] Calls detach on the driver instance.
+    \item[\fnname{set\_sleep\_level}] Calls \fnname{set\_sleep\_level} on the driver instance.
+\end{itemize}
+
+
+\chapter{Legacy device drivers}
+\label{chap:legacy}
+
+Legacy drivers live within a 9single) domain and the structure, as well as the control
+interface of the driver is completely up to the programmer. No one was really
+happy with this so we introduced some more rules of how a device driver is
+written as described in the previous chapter. Unfortunately, most of our current
+device drivers are still legacy drivers. So in order to understand what is going
+on in such a driver, this chapter is kept around for now.
 
 In a first step, we will look at the necessary bits and pieces to write a new
 driver in Barrelfish on the ARM platform, by using an existing, very simple
-driver as a walkthrough from the Barrelfish code base -- the FDIF driver, a
+driver as a walk-through from the Barrelfish code base -- the FDIF driver, a
 device used for face detection typically found on OMAP chips.
 
 The relevant code for the driver resides in the tree at
@@ -210,38 +298,6 @@ tree on how to do this, as a starting point, have a look at
 \pathname{usr/examples/xmpl-call-response} in the source tree and the tech-
 note on inter-dispatcher communication~\cite{btn011-idc} to get started.
 
-\chapter{System Knowledge Base (SKB)}
-
-Before we start looking at the internals of device management in Barrelfish,
-we have to introduce the system knowledge base (SKB). The goal of the SKB
-is to store all knowledge about a system and provide an interface for
-clients to query and reason about this knowledge.
-
-\section{x86, Octopus and the ECLiPSe Prolog engine}
-
-On x86 architectures, the SKB is implemented using the ECLiPSe logic and
-constraint programming (CLP) engine. The SKB was built as a part of Adrian
-Sch\"upbach's Phd thesis \cite{}, available on \url{barrelfish.org}. In this
-technote we briefly cover the main aspects. The SKB provides two different
-interfaces to clients. One of them is a direct way to access the Prolog query
-engine of the ECLiPSe runtime. This allows you to query for facts (i.e.,
-knowledge) about the system in a very generic and flexible way. You can find
-an API to access the SKB in \pathname{lib/skb}. The other interface is a key--value storage engine, called Octopus, implemented in combination with
-the ECLiPSe engine. Octopus is used to provide various functionality in
-Barrelfish. The key--value store also offers as a publish--subscribe mechanism
-based for stored records. It allows subscribers to receive events in case
-of state changes in the system. We use Octopus to implement various
-functionality in the system such as a nameserver. The system also uses Octopus
-for device related events, if PCI devices are found in the system or CPUs
-are discovered for example. In most cases the device manager, which we will
-introduce in the next chapter, will handle these events for you. However, some
-subsystems such as USB, use Octopus directly to receive events about
-hotplugged devices. You can find the API to interact with the Octopus service
-in \pathname{lib/octopus/client}.
-
-A documentation of the facts stored in the SKB is on the Barrelfish
-Wiki at \url{http://wiki.barrelfish.org/}.
-
 
 \section{ARM and the simple SKB}
 \label{sec:simpleskb}
@@ -260,8 +316,7 @@ can currently not use the APIs in \pathname{lib/skb} on ARM. We are currently
 investigating alternatives for a constraint solver that will run on both
 platforms.
 
-\chapter{Kaluga -- The device manager}
-
+\section{Kaluga -- The device manager}
 
 Kaluga is the device manager in Barrelfish. Its responsibility is to manage
 the periperhals of a system. That encompasses starting the correct drivers,
@@ -468,7 +523,7 @@ user-space drivers for your own platform. We have not covered yet how we
 actually create a capability in the kernel and how it ends up in the monitor,
 but we will cover that shortly in Section~\ref{sec:kernelmemory}.
 
-\chapter{Kernel support for user-space drivers}
+\section{Kernel support for user-space drivers}
 \label{chap:kernel}
 
 In this chapter, we will look at the necessary support in the kernel, if we
@@ -556,7 +611,7 @@ if (err_is_fail(err)) {
 }
 \end{lstlisting}
 
-\chapter{Limitations \& Work in Progress}
+\section{Limitations \& Work in Progress}
 
 Altough we currently have the necessary support for user-space drivers
 on both major platforms Barrelfish runs on we do not yet have an

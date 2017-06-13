@@ -17,10 +17,8 @@
 
 #include <octopus/init.h>
 #include <octopus/getset.h>
-#include <octopus/pubsub.h>
 #include <octopus/lock.h>
 #include <octopus/barrier.h>
 #include <octopus/semaphores.h>
-#include <octopus/trigger.h>
 
 #endif /* OCTOPUS_H_ */

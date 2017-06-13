@@ -31,7 +31,6 @@ struct ele {
 static errval_t create(struct descq* q, bool notifications, uint8_t role,
                        uint64_t* queue_id)
 {
-    printf("Create \n");
     if (list == NULL) {
         list = malloc(sizeof(struct ele));
         list->q = q;
@@ -48,13 +47,11 @@ static errval_t create(struct descq* q, bool notifications, uint8_t role,
     }
     
     qid++;
-    printf("Create end\n");
     return SYS_ERR_OK;
 }
 
 static errval_t destroy(struct descq* q)
 {
-    printf("Destroy \n");
     return SYS_ERR_OK;
 }
 
@@ -103,21 +100,18 @@ static errval_t notify(struct descq* q)
 static errval_t reg(struct descq* q, struct capref cap,
                     regionid_t rid)
 {
-    printf("Register \n");
     return SYS_ERR_OK;
 }
 
 
 static errval_t dereg(struct descq* q, regionid_t rid)
 {
-    printf("Deregister \n");
     return SYS_ERR_OK;
 }
 
 
 static errval_t control(struct descq* q, uint64_t cmd, uint64_t value, uint64_t* res)
 {
-    printf("Control \n");
     return SYS_ERR_OK;
 }
 

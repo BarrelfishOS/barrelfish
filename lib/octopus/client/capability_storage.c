@@ -64,6 +64,40 @@ errval_t oct_put_capability(const char *key, struct capref cap)
 }
 
 /**
+ * \brief Put a capability to the capability store with a generated identifier.
+ *
+ * The server appends a globally unique ID to the key and returns
+ * the generated ID as part of retkey.
+ * The caller is responsible to free retkey.
+ *
+ * \param[in] key           Base key (server appends this with unique ID).
+ * \param[in] cap           The capability to store
+ * \param[out] retkey       Allocated string of generated unique identifier.
+ */
+errval_t oct_sput_capability(const char *key, struct capref cap, char **outkey)
+{
+    errval_t err;
+    struct octopus_thc_client_binding_t* cl = oct_get_thc_client();
+    assert(cl != NULL);
+
+    struct octopus_sput_cap_response__rx_args reply;
+    err = cl->call_seq.sput_cap(cl, key, cap, reply.retkey, &reply.reterr);
+    if(err_is_fail(err)) {
+        return err;
+    }
+    //printf("%s:%s:%d: stored key= %s retkey = %s\n", __FILE__, __FUNCTION__, __LINE__, key, reply.retkey);
+    if (err_is_fail(reply.reterr)) {
+        DEBUG_ERR(reply.reterr, "call failed.");
+    }
+
+    if (reply.retkey != NULL) {
+        *outkey = strdup(reply.retkey);
+    }
+
+    return reply.reterr;
+}
+
+/**
  * \brief Remove a capability from the capability store.
  *
  * \param key           String that identifies the capability

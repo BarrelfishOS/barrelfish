@@ -58,7 +58,7 @@ errval_t map_device_register(lpaddr_t address, size_t size, lvaddr_t *return_add
             return err;
         }
         assert(err_is_ok(err));
-        
+
         lpaddr_t address_base = address & ~(BASE_PAGE_SIZE-1);
         lpaddr_t offset = address & (BASE_PAGE_SIZE-1);
         // XXX: should be address+size <= ...
@@ -77,5 +77,5 @@ errval_t map_device_register(lpaddr_t address, size_t size, lvaddr_t *return_add
         }
     }
 
-    return DRIVERKIT_NO_CAP_FOUND;
+    return DRIVERKIT_ERR_NO_CAP_FOUND;
 }

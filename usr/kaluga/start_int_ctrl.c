@@ -20,8 +20,12 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/spawn_client.h>
 
-#include <octopus/octopus.h>
+#include <if/octopus_defs.h>
 #include <if/octopus_thc.h>
+
+#include <octopus/octopus.h>
+#include <octopus/trigger.h>
+
 #include <skb/skb.h>
 #include <thc/thc.h>
 

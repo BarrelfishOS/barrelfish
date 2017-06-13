@@ -23,12 +23,13 @@
 #include <if/spawn_defs.h>
 #include <if/arrakis_defs.h>
 #include <if/monitor_defs.h>
+#include <if/octopus_defs.h>
 #include <vfs/vfs_path.h>
 
 // For spawn_program_on_all_cores
 #include <octopus/getset.h> // for oct_read TODO
 #include <octopus/trigger.h> // for NOP_TRIGGER
-#include <if/octopus_defs.h>
+
 
 
 extern char **environ;

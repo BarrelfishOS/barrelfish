@@ -97,12 +97,6 @@ in
         addIncludes = [
             "../../Shm/src"
         ],
-        addGeneratedDependencies = [
-            "/lib/gmp/gmp.h"
-        ],
-        addCFlags = common_cFlags ++ [
-            "-I./" ++ arch ++ "/lib/gmp"
-        ],
         omitCFlags = unflags,
         architectures = [ arch ]
     } | arch <- archs ] ++ [
@@ -138,8 +132,7 @@ in
             "eclipse",
             "dummies",
             "shm",
-            "posixcompat",
-            "gmp"
+            "posixcompat"
         ],
         addIncludes = [
             "../../Shm/src"

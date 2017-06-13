@@ -28,6 +28,7 @@
 #define MAX_SERVICE_NAME_LEN  256   // Max len that a name of service can have
 #define BUFFER_SIZE 2048
 #define BUFFER_COUNT ((128*1024*1024) / BUFFER_SIZE)
+#define BATCH_SIZE 32
 
 static uint64_t queue_id = 0;
 static uint64_t card_mac = -1ULL;
@@ -36,6 +37,7 @@ static struct devq *devq = NULL;
 static regionid_t regid;
 static uint64_t bufid;
 
+static uint64_t batch_rx = 0;
 
 static struct capref buffer_frame;
 void *buffer_base = NULL;
@@ -52,10 +54,18 @@ errval_t buffer_tx_add(size_t idx, size_t offset, size_t length,
     errval_t err;
     uint64_t flags_new = flags | NETIF_TXFLAG | NETIF_TXFLAG_LAST;
 
-    
     offset += idx * BUFFER_SIZE;
-    err = devq_enqueue((struct devq *)devq, regid, offset, 
+    err = devq_enqueue(devq, regid, offset, 
                        length, 0, length, flags_new);
+
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    if (!more_chunks) {
+        err = devq_notify(devq);
+    }
+
     return err;
 }
 
@@ -66,8 +76,18 @@ errval_t buffer_rx_add(size_t idx)
     uint64_t flags = NETIF_RXFLAG;
 
     offset = idx * BUFFER_SIZE;
-    err = devq_enqueue((struct devq *)devq, regid, offset, BUFFER_SIZE, 
-                           0, BUFFER_SIZE, flags);
+    err = devq_enqueue(devq, regid, offset, BUFFER_SIZE, 
+                        0, BUFFER_SIZE, flags);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    batch_rx++;
+    if (batch_rx > BATCH_SIZE) {
+        err = devq_notify(devq);
+        batch_rx = 0;
+    }
+
     return err;
 }
 

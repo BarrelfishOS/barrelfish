@@ -13,7 +13,7 @@
 
 #include <stdio.h>
 
-#if __LDBL_MANT_DIG__ == 113
+#if __LDBL_MANT_DIG__ == 113 && !defined(__ARM_ARCH_8A__ )
 
 #include "fp_test.h"
 
@@ -40,7 +40,7 @@ char assumption_1[sizeof(long double) * CHAR_BIT == 128] = {0};
 
 int main()
 {
-#if __LDBL_MANT_DIG__ == 113
+#if __LDBL_MANT_DIG__ == 113 && !defined(__ARM_ARCH_8A__ )
     // qNaN - any = qNaN
     if (test__subtf3(makeQNaN128(),
                      0x1.23456789abcdefp+5L,

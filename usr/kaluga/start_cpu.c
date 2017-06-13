@@ -21,8 +21,11 @@
 #include <barrelfish/cpu_arch.h>
 
 #include <if/monitor_defs.h>
+#include <if/octopus_defs.h>
 
 #include <octopus/octopus.h>
+#include <octopus/trigger.h>
+
 #include <skb/skb.h>
 #include <trace/trace.h>
 #include <barrelfish/spawn_client.h>

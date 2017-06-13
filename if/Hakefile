@@ -92,7 +92,9 @@
                "xomp_gateway",
                "sfn5122f",
                "sfn5122f_devif",
-               "descq"
+               "descq",
+               "ddomain",
+               "dcontrol"
            ],
              arch <- allArchitectures
 ] ++
@@ -105,6 +107,8 @@
                "octopus",
                "omap_sdma",
                "ping_pong",
-               "xmplthc" ],
+               "xmplthc",
+               "ddomain",
+               "dcontrol" ],
              arch <- allArchitectures
 ]

@@ -16,6 +16,7 @@
 
 errval_t oct_get_capability(const char*, struct capref*);
 errval_t oct_put_capability(const char*, struct capref);
+errval_t oct_sput_capability(const char*, struct capref, char** retkey);
 errval_t oct_remove_capability(const char*);
 
 #endif /* OCTOPUS_CAPABILITY_STORAGE_H_ */

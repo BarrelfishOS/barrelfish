@@ -83,3 +83,15 @@ class DevifIdcTest(DevifTests):
     OP = "idc"
     CARD = "none"
 
+@tests.add_test
+class DevifDebug(DevifTests):
+    ''' Devif Debug Backend Test'''
+    name = "devif_debug"
+
+    def get_modules(self, build, machine):
+        self.machine = machine.name
+        modules = super(DevifTests, self).get_modules(build, machine)
+        modules.add_module("devif_idc", ["core=1"])
+        modules.add_module("devif_debug_test")
+
+        return modules
