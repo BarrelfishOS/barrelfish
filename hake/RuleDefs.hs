@@ -743,7 +743,7 @@ skateSchemaHelper opts ifn cfile srcs = Rules $
     where
         arch = optArch opts
         archfam = optArchFamily opts
-        args = [Str "-a", Str archfam, Str "-C"]
+        args = [Str "-a", Str arch, Str "-C"]
 
 
 skateSchema :: Options -> String -> [String] -> HRule
