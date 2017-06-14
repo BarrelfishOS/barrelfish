@@ -111,7 +111,7 @@ The available options are:
 
 The backend (capital letter options) specified last takes precedence.
 
-The Sockeye file to compile is give via the \textit{file} parameter. The typical file extension for Sockeye files is \verb|.soc|.
+The Sockeye file to compile is give via the \textit{file} parameter.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -286,10 +286,13 @@ This check makes sure that all nodes referenced in translation sets and overlays
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Integration into the Hake Build System}
+\chapter{Compiling Sockeye files with Hake}
 \label{chap:hake}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\todo{Describe integration into Hake}
+SoC descriptions are placed in the directory \texttt{SOURCE/socs} with the file extension \texttt{.soc}.
+Each Sockeye file has to be added to the list of SoCs in the Hakefile in the same directory.
+The Hake rule for Sockeye files compiles all the listed files to \texttt{BUILD/sockeyefacts/<filename>.pl} if they are specified as a dependency in some Hakefile.
+To add a compiled Sockeye specification into the SKB RAM disk, the filename can be added to the \verb|sockeyeFiles| list in the SKBs Hakefile.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
