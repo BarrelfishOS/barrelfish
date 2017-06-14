@@ -255,7 +255,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
     lpaddr_t vbase;
 
     // Face detect Module
-    err = map_device_register(0x4A10A000, 4096, &vbase);
+    err = map_device_cap(caps[0], &vbase);
     assert(err_is_ok(err));
     omap44xx_fdif_initialize(&st->devfdif, (mackerel_addr_t)vbase);
 

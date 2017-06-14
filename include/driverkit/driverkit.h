@@ -53,6 +53,7 @@ errval_t ddomain_controller_init(void);
 errval_t dcontrol_service_init(struct bfdriver_instance* bfi, struct waitset* ws);
 
 errval_t map_device_register(lpaddr_t, size_t, lvaddr_t*);
+errval_t map_device_cap(struct capref, lvaddr_t *);
 
 #define __bfdrivers		__attribute__((__section__(".bfdrivers")))
 #define __visible       __attribute__((__externally_visible__))
