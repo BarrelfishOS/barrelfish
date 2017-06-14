@@ -74,7 +74,7 @@ netSpec = do
             reserved "is"
             return [nodeId]
           multiple = do
-            nodeIds <- commaSep1 nodeId
+            nodeIds <- many1 nodeId
             reserved "are"
             return nodeIds
 

@@ -337,8 +337,8 @@ L4_PER is map [
 /*
  * 2.3.4 L4_ABE Memory Space Mapping
  */
-DMEM,
-CMEM,
+DMEM
+CMEM
 SMEM are memory accept [0/16]
 
 L4_ABE is accept [0x00000/14] // XXX: First 16KB do what?
@@ -549,7 +549,7 @@ GIC_Intr_Distributor is device accept [0/12]
 PL310 is device accept [0/12]
 CORTEXA9_SOCKET_PRCM is device accept [0/9]
 CORTEXA9_PRM is device accept [0/9]
-CORTEXA9_CPU0,
+CORTEXA9_CPU0
 CORTEXA9_CPU1 are device accept [0/10]
 CORTEXA9_WUGEN is device accept [0/12]
 CMU is device accept [0/16]
@@ -563,11 +563,11 @@ SYS_INTC is device accept [0/16]
 SYS_PD is device accept [0/16]
 EDM is device accept [0/12]
 TPCC is device accept [0/16]
-TPTC0,
+TPTC0
 TPTC1 are device accept [0/10]
 SYSC is device accept [0/12]
 WUGEN is device accept [0/12]
-L1_SCACHE,
+L1_SCACHE
 L2_SCACHE are device accept [0/8]
 SCACHE_SCTM is device accept [0/9]
 SCACHE_MMU is device accept [0/11]
@@ -603,12 +603,12 @@ FDIF is device accept [0/12]
 /*
  * 10 Display Subsystem
  */
-DISPC,
-RFBI,
-VENC,
-DSI1,
-DSI2,
-HDMI,
+DISPC
+RFBI
+VENC
+DSI1
+DSI2
+HDMI
 HDCP are device accept [0/12]
 
 /*
@@ -661,7 +661,7 @@ WKUP_IP0 is device accept [0/12]
  * 15 Memory Subsystem
  */
 DMM is device accept [0/25]
-EMIF1,
+EMIF1
 EMIF2 are device accept [0x4D000000/24]
 GPMC is device accept [0/25]
 ELM is device accept [0x48078000/12]
@@ -679,22 +679,22 @@ SDMA is device accept [0/12]
 /*
  * 18 Control Module
  */
-SYSCTRL_GENERAL_CORE,
-SYSCTRL_GENERAL_WKUP,
-SYSCTRL_PADCONF_CORE,
+SYSCTRL_GENERAL_CORE
+SYSCTRL_GENERAL_WKUP
+SYSCTRL_PADCONF_CORE
 SYSCTRL_PADCONF_WKUP are device accept [0/12]
 
 
 /*
  * 19 Mailbox
  */
-System_Mailbox,
+System_Mailbox
 IVAHD_Mailbox are device accept[0/12]
 
 /*
  * 20 Memory Management Units
  */
-M3_MMU,
+M3_MMU
 DSP_MMU are device accept [0/12]
 
 /*
@@ -706,20 +706,20 @@ Spinlock is device accept [0/12]
  * 22 Timers
  */
 /* 22.2 General Purpose Timers */
-GPTIMER1,
-GPTIMER2,
-GPTIMER3,
-GPTIMER4,
-GPTIMER5,
-GPTIMER6,
-GPTIMER7,
-GPTIMER8,
-GPTIMER9,
-GPTIMER10,
+GPTIMER1
+GPTIMER2
+GPTIMER3
+GPTIMER4
+GPTIMER5
+GPTIMER6
+GPTIMER7
+GPTIMER8
+GPTIMER9
+GPTIMER10
 GPTIMER11 are device accept [0/12]
 
 /* 22.3 Watchdog Timers */
-WDTIMER2,
+WDTIMER2
 WDTIMER3 are device accept [0/12]
 
 /* 22.4 32-KHz Synchronized Timer */
@@ -730,30 +730,30 @@ S32KTIMER is device accept [0/12]
  */
 
 /* 23.1 Multimaster High-Speed I2C Controller */
-I2C1,
-I2C2,
-I2C3,
+I2C1
+I2C2
+I2C3
 I2C4 are device accept [0/8]
 
 /* 23.2 HDQ/1-Wire */
 HDQ is device accept [0/12]
 
 /* 23.3.1 UART/IrDA/CIR */
-UART1,
-UART2,
-UART3,
+UART1
+UART2
+UART3
 UART4 are device accept [0/10]
 
 /* 23.4 Mulitchannel Serial Port Interface */
-McSPI1,
-McSPI2,
-McSPI3,
+McSPI1
+McSPI2
+McSPI3
 McSPI4 are device accept [0/12]
 
 /* 23.5 Multichannel Buffered Serial Port */
-McBSP1,
-McBSP2,
-McBSP3,
+McBSP1
+McBSP2
+McBSP3
 McBSP4 are device accept [0/12]
 
 /* 23.6 Multichannel PDM Controller */
@@ -767,7 +767,7 @@ McASP is device accept [0/12]
 McASP_DATA is device accept [0/12]
 
 /* 23.9 Serial Low-Power Inter-Chip Media Bus Controller */
-SLIMBUS1,
+SLIMBUS1
 SLIMBUS2 are device accept [0/12]
 
 /* 23.10 MIPI-HSI */
@@ -795,20 +795,20 @@ FSUSBHOST is device accept[0/12]
 /*
  * 24 MMC/SD/SDIO
  */
-HSMMC1,
-HSMMC2,
-MMC_SD3,
-MMC_SD4,
+HSMMC1
+HSMMC2
+MMC_SD3
+MMC_SD4
 MMC_SD5 are device accept [0/12]
 
 /*
  * 25 General Purpose Interface
  */
-GPIO1,
-GPIO2,
-GPIO3,
-GPIO4,
-GPIO5,
+GPIO1
+GPIO2
+GPIO3
+GPIO4
+GPIO5
 GPIO6 are device accept [0/12]
 
 /*
