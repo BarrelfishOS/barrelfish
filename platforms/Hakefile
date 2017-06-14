@@ -163,6 +163,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- Default list of modules to build/install for all enabled architectures
     modules_common = [ "/sbin/" ++ f | f <- [
                           "init",
+                          "simple-init",
                           "skb",
                           "spawnd",
                           "startd",
@@ -173,6 +174,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- modules for examples
     modules_examples = [ "/sbin/" ++ f | f <- [
                           "examples",
+                          "examples/xmpl-hello",
                           "examples/xmpl-msg",
                           "examples/xmpl-call-response",
                           "examples/xmpl-rpc_rpc",

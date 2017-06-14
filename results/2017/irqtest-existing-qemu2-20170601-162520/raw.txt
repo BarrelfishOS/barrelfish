@@ -1,0 +1,210 @@
+Using menu file /tmp/harness_qemu_S4Dbih/menu.lst
+Root: /tmp/harness_qemu_S4Dbih
+Initial kernel file: /tmp/harness_qemu_S4Dbih/x86_64/sbin/elver
+Initial RAM disk contents: /tmp/harness_qemu_S4Dbih/x86_64/sbin/cpu ,/tmp/harness_qemu_S4Dbih/x86_64/sbin/init ,/tmp/harness_qemu_S4Dbih/x86_64/sbin/mem_serv ,/tmp/harness_qemu_S4Dbih/x86_64/sbin/monitor ,/tmp/harness_qemu_S4Dbih/x86_64/sbin/ramfsd boot,/tmp/harness_qemu_S4Dbih/x86_64/sbin/skb boot,/tmp/harness_qemu_S4Dbih/x86_64/sbin/spawnd boot,/tmp/harness_qemu_S4Dbih/x86_64/sbin/startd boot,/tmp/harness_qemu_S4Dbih/eclipseclp_ramfs.cpio.gz nospawn,/tmp/harness_qemu_S4Dbih/skb_ramfs.cpio.gz nospawn,/tmp/harness_qemu_S4Dbih/x86_64/sbin/acpi boot,/tmp/harness_qemu_S4Dbih/x86_64/sbin/routing_setup boot,/tmp/harness_qemu_S4Dbih/x86_64/sbin/corectrl auto,/tmp/harness_qemu_S4Dbih/x86_64/sbin/pci auto,/tmp/harness_qemu_S4Dbih/x86_64/sbin/kaluga boot eth0=255:255:255 add_device_db=device_db_irqtest,/tmp/harness_qemu_S4Dbih/x86_64/sbin/e1000n_irqtest auto
+Kernel command line arguments: 
+Requested architecture is x86_64.
+Creating hard disk image hd.img
+Formatting 'hd.img', fmt=raw size=10485760
+OK: about to run the follow qemu command:
+qemu-system-x86_64         -machine type=q35         -smp 2         -m 1024         -net nic,model=e1000         -net user         -device ahci,id=ahci         -device ide-drive,drive=disk,bus=ahci.0         -drive id=disk,file=hd.img,if=none -nographic -kernel /tmp/harness_qemu_S4Dbih/x86_64/sbin/elver -append '' -initrd /tmp/harness_qemu_S4Dbih/x86_64/sbin/cpu ,/tmp/harness_qemu_S4Dbih/x86_64/sbin/init ,/tmp/harness_qemu_S4Dbih/x86_64/sbin/mem_serv ,/tmp/harness_qemu_S4Dbih/x86_64/sbin/monitor ,/tmp/harness_qemu_S4Dbih/x86_64/sbin/ramfsd boot,/tmp/harness_qemu_S4Dbih/x86_64/sbin/skb boot,/tmp/harness_qemu_S4Dbih/x86_64/sbin/spawnd boot,/tmp/harness_qemu_S4Dbih/x86_64/sbin/startd boot,/tmp/harness_qemu_S4Dbih/eclipseclp_ramfs.cpio.gz nospawn,/tmp/harness_qemu_S4Dbih/skb_ramfs.cpio.gz nospawn,/tmp/harness_qemu_S4Dbih/x86_64/sbin/acpi boot,/tmp/harness_qemu_S4Dbih/x86_64/sbin/routing_setup boot,/tmp/harness_qemu_S4Dbih/x86_64/sbin/corectrl auto,/tmp/harness_qemu_S4Dbih/x86_64/sbin/pci auto,/tmp/harness_qemu_S4Dbih/x86_64/sbin/kaluga boot eth0=255:255:255 add_device_db=device_db_irqtest,/tmp/harness_qemu_S4Dbih/x86_64/sbin/e1000n_irqtest auto
+Kernel starting at address 0xfffffe000262d000
+Barrelfish CPU driver starting on x86_64 apic_id 0
+kernel 0: Measured APIC frequency: 1000007302 Hz in one RTC second,systime frequency: 3498064280 Hz
+spawn module: x86_64/sbin/init
+0xfffffe0002a83af0 0xfffffe0000000000
+Raw MMAP from BIOS
+	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
+	0x0009fc00 - 0x000a0000 Type: 2 Length: 0x400
+	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
+	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
+	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
+	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
+	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
+Sorted MMAP
+	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
+	0x0009fc00 - 0x000a0000 Type: 2 Length: 0x400
+	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
+	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
+	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
+	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
+	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
+Preprocessed MMAP
+	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
+	0x0009fc00 - 0x000a0c00 Type: 2 Length: 0x1000
+	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
+	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
+	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
+	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
+	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
+Pagealigned MMAP
+	0x00000000 - 0x0009f000 Type: 1 Length: 0x9f000
+	0x0009f000 - 0x000a0c00 Type: 2 Length: 0x1c00
+	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
+	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
+	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
+	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
+	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
+init: invoked as: init 2097152
+[34minit.[31m0.0[0m: using 0x3efdf000, 16 MB for init's allocator
+Spawning memory server (x86_64/sbin/mem_serv)...
+Spawning monitor (x86_64/sbin/monitor)...
+monitor: invoked as: x86_64/sbin/monitor 327680
+RAM allocator initialised, 955 MB (of 955 MB) available
+Spawning ramfsd on core 0
+[34mramfsd.[31m0.0[0m: pre-populating from boot image...
+[34mramfsd.[31m0.0[0m: unpacking Gzipped CPIO /eclipseclp_ramfs.cpio.gz
+[34mramfsd.[31m0.0[0m: unpacking Gzipped CPIO /skb_ramfs.cpio.gz
+[34mramfsd.[31m0.0[0m: ready
+Spawning skb on core 0
+[34mmonitor.[31m0.0[0m: Storing BSP KCB in octopus
+[34mmonitor.[31m0.0[0m: octopus_set_bspkcb: storing cap
+[34mmonitor.[31m0.0[0m: octopus_set_bspkcb: setting mapping
+Spawning /tmp/harness_qemu_S4Dbih/x86_64/sbin/spawnd on core 0
+Spawning /tmp/harness_qemu_S4Dbih/x86_64/sbin/startd on core 0
+Spawning /tmp/harness_qemu_S4Dbih/x86_64/sbin/acpi on core 0
+Spawning /tmp/harness_qemu_S4Dbih/x86_64/sbin/routing_setup on core 0
+Spawning /tmp/harness_qemu_S4Dbih/x86_64/sbin/kaluga on core 0
+Kaluga using eth0=255:255:255 as network device
+Kaluga using additional device_db file: device_db_irqtest.
+spawnd.0 up.
+routing GSI 9 -> 9 -> INTI 9 -> APIC 0 (coreid 0) vector 33
+ACPI: Switched to APIC mode.
+[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/corectrl on core 0
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIA)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIB)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIC)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSID)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIE)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIF)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIG)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIH)
+Installing fixed event handler for power button
+[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/pci on core 0
+pci: Unknown commandline option "auto" -- skipping.
+Kaluga: Not starting "serial_pc16550d", binary not found
+Kaluga: Not starting "lpc_timer", binary not found
+Kernel starting at address 0xfffffe0014001000
+Barrelfish CPU driver starting on x86_64 apic_id 1
+spawn module: monitor
+Kaluga: Starting "e1000n_irqtest" for (bus=0,dev=2,fun=0), intcaps: 1027, 1027, on core 0
+monitor: invoked as: monitor 0 chanid=0 archid=0
+[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/e1000n_irqtest on core 0
+kernel 1: dropping ram cap base 0da00000 bytes 0x200000
+Int route service: Routing request, (int=1027) to (cpu=0,vec=34)
+Spawning spawnd on core 1
+[34me1000n_irqtest.[31m0.0[0m: Reset done..
+############################################
+For service [e1000] MAC= 52:54:00:12:34:56
+using 8192 slots for internal buffer
+[34me1000n_irqtest.[31m0.0[0m: ethersrv_init: exporting
+[34me1000n_irqtest.[31m0.0[0m: Creating queue...
+[34me1000n_irqtest.[31m0.0[0m: Queue created
+Ticks per msec: 3498064.
+e1000_irqtest: Disabled interrupt throttling
+########### Driver with interrupts ###########
+e1000: Media type: copper, Link speed: 1 Gb in Full duplex.
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+spawnd.1 up.
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+No bootscript
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+Creating Link change interrupt...
+link-state interrupt
+triggerred: 50 and received 50 interrupts. (+-5 is okay).
+TEST SUCCESS

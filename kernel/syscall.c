@@ -17,7 +17,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <syscall.h>
+#include <sys_debug.h>
 #include <barrelfish_kpi/syscalls.h>
+#include <barrelfish_kpi/capabilities.h>
 #include <capabilities.h>
 #include <cap_predicates.h>
 #include <coreboot.h>
@@ -482,6 +484,127 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
     return SYSRET(caps_copy_to_vnode(cte_for_cap(ptable), slot, src_cte, flags,
                                      offset, pte_count, mapping_cte));
 }
+
+/*********************************************************/
+struct sysret
+sys_unmap (struct capability *root, capaddr_t cptr, int level, struct capability *pgtable)
+{
+    errval_t err;
+    struct cte *mapping = NULL;
+    err = caps_lookup_slot(root, cptr, level, &mapping, CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)){
+        printf("caps_lookup_slot error here\n");
+        return SYSRET(err_push(err, SYS_ERR_CAP_NOT_FOUND));
+    }
+    err = page_mappings_unmap(pgtable, mapping);
+    if (err_is_fail(err)) {
+        printf("page_mappings_unmap error here\n");
+    }
+    return SYSRET(err);
+}
+/*
+struct sysret 
+sys_mapping_modify(struct capability *mapping, size_t offset, size_t pages, size_t flags, genvaddr_t va)
+{
+    errval_t err;
+    if(va != 0)//x86_64 version
+    {
+        err = page_mappings_modify_flags(mapping, offset, pages, flags, va);
+    }
+    else //arm version
+    {
+        err = paging_modify_flags(mapping, offset, pages, flags);
+    }
+    return SYSRET(err);
+}
+*/
+
+struct sysret
+sys_monitor_create_cap(struct capability *src, struct capability *root, capaddr_t cnode_cptr, int cnode_level, cslot_t slot, coreid_t owner)
+{
+        if (src->type == ObjType_Null ) {
+        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+    }
+
+    /* For certain types, only foreign copies can be created here */
+    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+         || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
+        && owner == my_core_id)
+    {
+        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+    }
+
+    return SYSRET(caps_create_from_existing(root,
+                                            cnode_cptr, cnode_level,
+                                            slot, owner, src));
+}
+
+
+struct sysret
+sys_monitor_handle_has_descendants(struct capability *src)
+{
+    struct cte *next = mdb_find_greater(src, false);
+    return (struct sysret) {
+        .error = SYS_ERR_OK,
+        .value = (next && is_ancestor(&next->cap, src)),
+    };
+}
+
+struct sysret
+sys_dispatcher_dump_ptables(struct capability *to)
+{
+    struct dcb *dispatcher = to->u.dispatcher.dcb;
+    paging_dump_tables(dispatcher);
+    return SYSRET(SYS_ERR_OK);
+}
+
+struct sysret
+sys_dispatcher_dump_capabilities(struct capability *to)
+{
+    struct dcb *dispatcher = to->u.dispatcher.dcb;
+    errval_t err = debug_print_cababilities(dispatcher);
+    return SYSRET(err);
+}
+
+struct sysret
+sys_monitor_get_core_id(struct capability *to)
+{
+    return (struct sysret) {.error = SYS_ERR_OK, .value = my_core_id};
+}
+
+struct sysret
+sys_monitor_get_arch_id(struct capability *to)
+{
+    return (struct sysret) {.error = SYS_ERR_OK, .value = apic_id};
+}
+
+struct sysret
+sys_handle_vnode_identify(struct capability *to)
+{
+    genpaddr_t base_addr = get_address(to);
+    assert((base_addr & BASE_PAGE_MASK) == 0);
+
+  return (struct sysret) {
+      .error = SYS_ERR_OK,
+      .value = (genpaddr_t)base_addr | ((uint8_t)to->type),
+  };
+}
+
+struct sysret
+sys_handle_frame_identify(struct capability *to, struct frame_identity *fi)
+{
+    assert((get_address(to) & BASE_PAGE_MASK) == 0);
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
+      return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    fi->base = get_address(to);
+    fi->bytes = get_size(to);
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+/*********************************************************/
 
 struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t level)
 {

@@ -1,0 +1,54 @@
+timeout 0
+title Harness image
+root (nd)
+kernel /x86_64/sbin/elver 
+modulenounzip /x86_64/sbin/cpu 
+modulenounzip /x86_64/sbin/init 
+modulenounzip /x86_64/sbin/mem_serv 
+modulenounzip /x86_64/sbin/monitor 
+modulenounzip /x86_64/sbin/ramfsd boot
+modulenounzip /x86_64/sbin/skb boot
+modulenounzip /x86_64/sbin/spawnd boot
+modulenounzip /x86_64/sbin/startd boot
+modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
+modulenounzip /skb_ramfs.cpio.gz nospawn
+modulenounzip /x86_64/sbin/acpi boot
+modulenounzip /x86_64/sbin/routing_setup boot
+modulenounzip /x86_64/sbin/corectrl auto
+modulenounzip /x86_64/sbin/pci auto
+modulenounzip /x86_64/sbin/kaluga boot eth0=255:255:255
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/adddf3vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/addsf3vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/divdf3vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/divsf3vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/eqdf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/eqsf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/extebdsfdf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/fixdfsivfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/fixsfsivfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/fixunsdfsivfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/fixunssfsivfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/floatsidfvfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/floatsisfvfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/floatunssidfvfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/floatunssisfvfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/gedf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/gesf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/gtdf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/gtsf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/ledf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/lesf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/ltdf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/ltsf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/muldf3vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/mulsf3vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/nedf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/negdf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/negsf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/nesf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/subdf3vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/subsf3vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/truncdfsf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/unorddf2vfp_test 
+modulenounzip /x86_64/sbin/compiler-rt/test/builtins/Unit/unordsf2vfp_test 
+modulenounzip /x86_64/sbin/usleeptest 5

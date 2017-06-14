@@ -241,9 +241,11 @@ static struct sysret handle_resize(struct capability *root,
 static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
 {
+    //printf("\t Changed syscall: handle_unmap\n");
     capaddr_t cptr = args[0];
     uint8_t level  = args[1];
 
+/*
     errval_t err;
     struct cte *mapping;
     err = caps_lookup_slot(&dcb_current->cspace.cap, cptr, level,
@@ -256,6 +258,12 @@ static struct sysret handle_unmap(struct capability *pgtable,
     err = page_mappings_unmap(pgtable, mapping);
     TRACE(KERNEL, SC_UNMAP, 1);
     return SYSRET(err);
+    */
+    TRACE(KERNEL, SC_UNMAP, 0);
+    struct sysret sr = sys_unmap(&dcb_current->cspace.cap, cptr, level, pgtable);
+    TRACE(KERNEL, SC_UNMAP, 1);
+    return sr;
+
 }
 
 static struct sysret handle_mapping_destroy(struct capability *mapping,
@@ -268,6 +276,7 @@ static struct sysret handle_mapping_destroy(struct capability *mapping,
 static struct sysret handle_mapping_modify(struct capability *mapping,
                                            int cmd, uintptr_t *args)
 {
+    //printf("\t Unchanged syscall: handle_mapping_modify\n");
     // Modify flags of (part of) mapped region of frame
     assert(type_is_mapping(mapping->type));
 
@@ -278,12 +287,15 @@ static struct sysret handle_mapping_modify(struct capability *mapping,
     size_t flags  = args[2]; // new flags
     genvaddr_t va = args[3]; // virtual addr hint
 
+    
     errval_t err = page_mappings_modify_flags(mapping, offset, pages, flags, va);
 
     return (struct sysret) {
         .error = err,
         .value = 0,
     };
+    
+    //return sys_mapping_modify(mapping, offset, pages, flags, va);
 }
 
 /// Different handler for cap operations performed by the monitor
@@ -296,14 +308,17 @@ static struct sysret monitor_handle_retype(struct capability *kernel_cap,
 static struct sysret monitor_handle_has_descendants(struct capability *kernel_cap,
                                                     int cmd, uintptr_t *args)
 {
+    //printf("\t Changed syscall: monitor_handle_has_descendants\n");
     struct capability *src = (struct capability *)args;
-
+/*
     struct cte *next = mdb_find_greater(src, false);
 
     return (struct sysret) {
         .error = SYS_ERR_OK,
         .value = (next && is_ancestor(&next->cap, src)),
     };
+*/ 
+    return sys_monitor_handle_has_descendants(src);
 }
 
 static struct sysret monitor_handle_is_retypeable(struct capability *kernel_cap,
@@ -397,13 +412,17 @@ static struct sysret monitor_handle_register(struct capability *kernel_cap,
 static struct sysret monitor_get_core_id(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {
-    return (struct sysret){.error = SYS_ERR_OK, .value = my_core_id};
+    //printf("\t Changed syscall: monitor_get_core_id\n");
+    //return (struct sysret){.error = SYS_ERR_OK, .value = my_core_id};
+    return sys_monitor_get_core_id(kernel_cap);
 }
 
 static struct sysret monitor_get_arch_id(struct capability *kernel_cap,
                                          int cmd, uintptr_t *args)
 {
-    return (struct sysret){.error = SYS_ERR_OK, .value = apic_id};
+    //printf("\t Changed syscall: monitor_get_arch_id\n");
+    //return (struct sysret){.error = SYS_ERR_OK, .value = apic_id};
+    return sys_monitor_get_arch_id(kernel_cap);
 }
 
 static struct sysret monitor_identify_cap_common(struct capability *kernel_cap,
@@ -472,24 +491,25 @@ static struct sysret monitor_remote_relations(struct capability *kernel_cap,
 static struct sysret monitor_create_cap(struct capability *kernel_cap,
                                         int cmd, uintptr_t *args)
 {
+    //printf("\t Changed syscall: monitor_create_cap\n");
     /* XXX: Get the raw metadata of the capability to create */
     struct capability *src = (struct capability *)args;
     int pos = ROUND_UP(sizeof(struct capability), sizeof(uint64_t)) / sizeof(uint64_t);
 
     /* Cannot create null caps */
-    if (src->type == ObjType_Null) {
-        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
-    }
+//    if (src->type == ObjType_Null) {
+//        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+//    }
 
     coreid_t owner = args[pos + 3];
 
     /* For certain types, only foreign copies can be created here */
-    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
-         || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
-        && owner == my_core_id)
-    {
-        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
-    }
+//    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+//         || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
+//        && owner == my_core_id)
+//    {
+//        return SYSRET(SYS_ERR_ILLEGAL_DEST_TYPE);
+//    }
 
     /* Create the cap in the destination */
     capaddr_t cnode_cptr = args[pos];
@@ -497,9 +517,13 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
     size_t slot          = args[pos + 2];
     assert(cnode_level <= 2);
 
-    return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
-                                            cnode_cptr, cnode_level,
-                                            slot, owner, src));
+//    return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
+//                                            cnode_cptr, cnode_level,
+//                                            slot, owner, src));
+
+    return sys_monitor_create_cap(src, &dcb_current->cspace.cap, 
+                                cnode_cptr, cnode_level, slot, owner);
+
 }
 
 static struct sysret monitor_copy_existing(struct capability *kernel_cap,
@@ -549,13 +573,14 @@ static struct sysret monitor_get_platform(struct capability *kern_cap,
 static struct sysret handle_frame_identify(struct capability *to,
                                            int cmd, uintptr_t *args)
 {
+    //printf("\t Changed syscall: handle_frame_identify\n");
     // Return with physical base address of frame
     assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame ||
            to->type == ObjType_RAM);
-    assert((get_address(to) & BASE_PAGE_MASK) == 0);
+    //assert((get_address(to) & BASE_PAGE_MASK) == 0);
 
     struct frame_identity *fi = (struct frame_identity *)args[0];
-
+/*
     if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
         return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
     }
@@ -564,17 +589,20 @@ static struct sysret handle_frame_identify(struct capability *to,
     fi->bytes = get_size(to);
 
     return SYSRET(SYS_ERR_OK);
+*/
+    return sys_handle_frame_identify(to, fi);
 }
 
 static struct sysret handle_vnode_identify(struct capability *to,
 					   int cmd, uintptr_t *args)
 {
+    //printf("\t Changed syscall: handle_vnode_identify\n");
     // Return with physical base address of the VNode
     assert(to->type == ObjType_VNode_x86_64_pml4 ||
 	   to->type == ObjType_VNode_x86_64_pdpt ||
 	   to->type == ObjType_VNode_x86_64_pdir ||
 	   to->type == ObjType_VNode_x86_64_ptable);
-
+/*
     genpaddr_t base_addr = get_address(to);
     assert((base_addr & BASE_PAGE_MASK) == 0);
 
@@ -582,6 +610,8 @@ static struct sysret handle_vnode_identify(struct capability *to,
         .error = SYS_ERR_OK,
         .value = (genpaddr_t)base_addr | ((uint8_t)to->type),
     };
+*/
+    return sys_handle_vnode_identify(to);
 }
 
 
@@ -937,29 +967,35 @@ static struct sysret kernel_ipi_delete(struct capability *cap,
 static struct sysret dispatcher_dump_ptables(struct capability *cap,
                                              int cmd, uintptr_t *args)
 {
+    //printf("\t Changed syscall: dispatcher_dump_ptables\n");
     assert(cap->type == ObjType_Dispatcher);
 
     printf("kernel_dump_ptables\n");
-
+/*
     struct dcb *dispatcher = cap->u.dispatcher.dcb;
 
     paging_dump_tables(dispatcher);
 
     return SYSRET(SYS_ERR_OK);
+*/
+    return sys_dispatcher_dump_ptables(cap);
 }
 
 static struct sysret dispatcher_dump_capabilities(struct capability *cap,
                                              int cmd, uintptr_t *args)
 {
+    //printf("\t Changed syscall: dispatcher_dump_capabilities\n");
     assert(cap->type == ObjType_Dispatcher);
 
     printf("dispatcher_dump_capabilities\n");
-
+/*
     struct dcb *dispatcher = cap->u.dispatcher.dcb;
 
     errval_t err = debug_print_cababilities(dispatcher);
 
     return SYSRET(err);
+*/
+    return sys_dispatcher_dump_capabilities(cap);
 }
 
 /*
@@ -1452,6 +1488,7 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                 break;
             }
 
+            //printf("syscall: syscall=%d, cmd = %d\n", syscall, cmd);
             // Call the invocation
             invocation_handler_t invocation = invocations[to->type][cmd];
             if(invocation == NULL) {

@@ -1,0 +1,13 @@
+diff --git a/hake/menu.lst.x86_64 b/hake/menu.lst.x86_64
+index 6787a3d..2e29efd 100644
+--- a/hake/menu.lst.x86_64
++++ b/hake/menu.lst.x86_64
+@@ -160,6 +160,7 @@ module	/x86_64/sbin/angler serial0.terminal xterm
+ 		#multihoptest.0.0: free: Trying to free not malloced region 0x772ee0 by 0x4e900c
+ 		#Assertion failed on core 0 in multihoptest: ! "NYI!", function test_multihop_destroy, file ./x86_64/usr/tests/multihoptest/_for_app_multihoptest/test_flounder_bindings.c, line 5247.
+ 		#Aborted
++#NOTE: /tools/harness/scalebench.py can run multihoptest (passed)
+ 
+ #module /x86_64/sbin/phoenix_kmeans
+ 		#Assertion failed on core 1 in phoenix_kmeans1: me->recv_slot_count < MAX_RECV_SLOTS, function thread_store_recv_slot, file ../lib/barrelfish/threads.c, line 706.
+

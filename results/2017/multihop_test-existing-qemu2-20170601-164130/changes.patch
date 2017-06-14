@@ -1,0 +1,52 @@
+diff --git a/hake/menu.lst.armv7_omap44xx b/hake/menu.lst.armv7_omap44xx
+index 0886e06..0e41f39 100644
+--- a/hake/menu.lst.armv7_omap44xx
++++ b/hake/menu.lst.armv7_omap44xx
+@@ -100,6 +100,7 @@ mmap map 0x80000000 0x40000000  1
+ 		#Failure: (         kernel) Error looking up source for cap transfer [SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP]
+ 		#Failure: (         kernel) Index into L1 CNode too high [SYS_ERR_L1_CNODE_INDEX]
+ 		Aborted
++#NOTE: even /tools/harness/scalebench.py can't run skb_cap_storage (same error message)
+ 
+ #module /armv7/sbin/schedtest 
+ 		#ERROR: schedtest.0 in main() ../usr/tests/schedtest/schedtest.c:36
+@@ -108,5 +109,5 @@ mmap map 0x80000000 0x40000000  1
+ 		#Aborted
+ 
+ #module /armv7/sbin/test_create_l1l2_cnodes #maybe NYI
+-# Makefile:94594: recipe for target 'armv7_omap44xx_image' failed
+-# make: *** [armv7_omap44xx_image] Segmentation fault (core dumped)
++		# Makefile:94594: recipe for target 'armv7_omap44xx_image' failed
++		# make: *** [armv7_omap44xx_image] Segmentation fault (core dumped)
+diff --git a/hake/menu.lst.x86_64 b/hake/menu.lst.x86_64
+index 6787a3d..fcd944b 100644
+--- a/hake/menu.lst.x86_64
++++ b/hake/menu.lst.x86_64
+@@ -155,11 +155,12 @@ module	/x86_64/sbin/angler serial0.terminal xterm
+ 		#Assertion failed on core 0 in mem_affinity: errint == 0, function main, file ../usr/tests/skb_tests/mem_affinity.c, line 44.
+ 		#Aborted
+ 
+-#module /x86_64/sbin/multihoptest server
+-#module /x86_64/sbin/multihoptest client
++module /x86_64/sbin/multihoptest core=0 server
++module /x86_64/sbin/multihoptest core=1 client
+ 		#multihoptest.0.0: free: Trying to free not malloced region 0x772ee0 by 0x4e900c
+ 		#Assertion failed on core 0 in multihoptest: ! "NYI!", function test_multihop_destroy, file ./x86_64/usr/tests/multihoptest/_for_app_multihoptest/test_flounder_bindings.c, line 5247.
+ 		#Aborted
++#NOTE: /tools/harness/scalebench.py can run multihoptest (passed)
+ 
+ #module /x86_64/sbin/phoenix_kmeans
+ 		#Assertion failed on core 1 in phoenix_kmeans1: me->recv_slot_count < MAX_RECV_SLOTS, function thread_store_recv_slot, file ../lib/barrelfish/threads.c, line 706.
+diff --git a/usr/tests/multihoptest/multihoptest.c b/usr/tests/multihoptest/multihoptest.c
+index ec0f793..00d2f15 100644
+--- a/usr/tests/multihoptest/multihoptest.c
++++ b/usr/tests/multihoptest/multihoptest.c
+@@ -354,6 +354,7 @@ static void start_server(void)
+ 
+ int main(int argc, char *argv[])
+ {
++    printf("\t\tThis is our multihoptest.........................\n");
+     errval_t err;
+ 
+     if (argc == 2 && strcmp(argv[1], "client") == 0) {
+

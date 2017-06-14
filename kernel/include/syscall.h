@@ -17,6 +17,7 @@
 
 #include <kernel.h>
 #include <barrelfish_kpi/cpu.h>
+#include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/dispatcher_shared_target.h>
 #include <barrelfish_kpi/types.h>
 #include <capabilities.h>
@@ -45,6 +46,43 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
         capaddr_t source_cptr, uint8_t source_level, uintptr_t flags,
         uintptr_t offset, uintptr_t pte_count, capaddr_t mapping_crootptr,
         capaddr_t mapping_cnptr, uint8_t mapping_cn_level, cslot_t mapping_slot);
+
+/*********************************************************/
+struct sysret
+sys_unmap (struct capability *root, capaddr_t cptr, 
+          int level, struct capability *pgtable);
+/*
+struct sysret
+sys_mapping_modify(struct capability *mapping, size_t offset, 
+          size_t pages, size_t flags, genvaddr_t va);
+*/
+
+struct sysret
+sys_monitor_create_cap(struct capability *src, struct capability *root, 
+                      capaddr_t cnode_cptr, int cnode_level, 
+                      cslot_t slot, coreid_t owner);
+
+struct sysret
+sys_monitor_handle_has_descendants(struct capability *src);
+
+struct sysret
+sys_dispatcher_dump_ptables(struct capability *to);
+
+struct sysret
+sys_dispatcher_dump_capabilities(struct capability *to);
+
+struct sysret
+sys_monitor_get_core_id(struct capability *to);
+
+struct sysret
+sys_monitor_get_arch_id(struct capability *to);
+
+struct sysret
+sys_handle_vnode_identify(struct capability *to);
+
+struct sysret
+sys_handle_frame_identify(struct capability *to, struct frame_identity *fi);
+/*********************************************************/
 struct sysret
 sys_copy_or_mint(struct capability *root, capaddr_t dest_cspace_cptr,
                  capaddr_t destcn_cptr, cslot_t dest_slot, capaddr_t

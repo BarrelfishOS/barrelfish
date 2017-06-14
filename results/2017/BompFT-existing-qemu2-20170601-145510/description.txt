@@ -1,0 +1,12 @@
+test: BompFT
+revision: 67644d44aa9e4bee339257ab3fcf3409ba52f7a2
+build: existing
+machine: qemu2
+start time: 2017-06-01 14:55:10.708881
+user: crystal
+untracked-files: results/2017/BarnesHut-existing-qemu2-20170601-145133/changes.patch,results/2017/BarnesHut-existing-qemu2-20170601-145133/description.txt,results/2017/BarnesHut-existing-qemu2-20170601-145133/raw.txt,results/2017/BompCG-existing-qemu2-20170601-145223/changes.patch,results/2017/BompCG-existing-qemu2-20170601-145223/description.txt,results/2017/BompCG-existing-qemu2-20170601-145223/menu.lst,results/2017/BompCG-existing-qemu2-20170601-145223/raw.txt,results/2017/BompFT-existing-qemu2-20170601-145510/description.txt
+commitmsg: run common tests on Pandaboard(error msg included)
+commitmsg-tail: 
+shortrev: 67644d4
+dirty: True
+branch: master

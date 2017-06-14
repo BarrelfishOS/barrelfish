@@ -1,0 +1,796 @@
+Using menu file /tmp/harness_qemu_UK9cG7/menu.lst
+Root: /tmp/harness_qemu_UK9cG7
+Initial kernel file: /tmp/harness_qemu_UK9cG7/x86_64/sbin/elver
+Initial RAM disk contents: /tmp/harness_qemu_UK9cG7/x86_64/sbin/cpu ,/tmp/harness_qemu_UK9cG7/x86_64/sbin/init ,/tmp/harness_qemu_UK9cG7/x86_64/sbin/mem_serv ,/tmp/harness_qemu_UK9cG7/x86_64/sbin/monitor ,/tmp/harness_qemu_UK9cG7/x86_64/sbin/ramfsd boot,/tmp/harness_qemu_UK9cG7/x86_64/sbin/skb boot,/tmp/harness_qemu_UK9cG7/x86_64/sbin/spawnd boot,/tmp/harness_qemu_UK9cG7/x86_64/sbin/startd boot,/tmp/harness_qemu_UK9cG7/eclipseclp_ramfs.cpio.gz nospawn,/tmp/harness_qemu_UK9cG7/skb_ramfs.cpio.gz nospawn,/tmp/harness_qemu_UK9cG7/x86_64/sbin/acpi boot,/tmp/harness_qemu_UK9cG7/x86_64/sbin/routing_setup boot,/tmp/harness_qemu_UK9cG7/x86_64/sbin/corectrl auto,/tmp/harness_qemu_UK9cG7/x86_64/sbin/pci auto,/tmp/harness_qemu_UK9cG7/x86_64/sbin/kaluga boot eth0=255:255:255,/tmp/harness_qemu_UK9cG7/x86_64/sbin/e1000n auto,/tmp/harness_qemu_UK9cG7/x86_64/sbin/NGD_mng auto,/tmp/harness_qemu_UK9cG7/x86_64/sbin/netd auto,/tmp/harness_qemu_UK9cG7/x86_64/sbin/listfacts 
+Kernel command line arguments: 
+Requested architecture is x86_64.
+Creating hard disk image hd.img
+Formatting 'hd.img', fmt=raw size=10485760
+OK: about to run the follow qemu command:
+qemu-system-x86_64         -machine type=q35         -smp 2         -m 1024         -net nic,model=e1000         -net user         -device ahci,id=ahci         -device ide-drive,drive=disk,bus=ahci.0         -drive id=disk,file=hd.img,if=none -nographic -kernel /tmp/harness_qemu_UK9cG7/x86_64/sbin/elver -append '' -initrd /tmp/harness_qemu_UK9cG7/x86_64/sbin/cpu ,/tmp/harness_qemu_UK9cG7/x86_64/sbin/init ,/tmp/harness_qemu_UK9cG7/x86_64/sbin/mem_serv ,/tmp/harness_qemu_UK9cG7/x86_64/sbin/monitor ,/tmp/harness_qemu_UK9cG7/x86_64/sbin/ramfsd boot,/tmp/harness_qemu_UK9cG7/x86_64/sbin/skb boot,/tmp/harness_qemu_UK9cG7/x86_64/sbin/spawnd boot,/tmp/harness_qemu_UK9cG7/x86_64/sbin/startd boot,/tmp/harness_qemu_UK9cG7/eclipseclp_ramfs.cpio.gz nospawn,/tmp/harness_qemu_UK9cG7/skb_ramfs.cpio.gz nospawn,/tmp/harness_qemu_UK9cG7/x86_64/sbin/acpi boot,/tmp/harness_qemu_UK9cG7/x86_64/sbin/routing_setup boot,/tmp/harness_qemu_UK9cG7/x86_64/sbin/corectrl auto,/tmp/harness_qemu_UK9cG7/x86_64/sbin/pci auto,/tmp/harness_qemu_UK9cG7/x86_64/sbin/kaluga boot eth0=255:255:255,/tmp/harness_qemu_UK9cG7/x86_64/sbin/e1000n auto,/tmp/harness_qemu_UK9cG7/x86_64/sbin/NGD_mng auto,/tmp/harness_qemu_UK9cG7/x86_64/sbin/netd auto,/tmp/harness_qemu_UK9cG7/x86_64/sbin/listfacts 
+Kernel starting at address 0xfffffe0002c91000
+Barrelfish CPU driver starting on x86_64 apic_id 0
+kernel 0: Measured APIC frequency: 1000010680 Hz in one RTC second,systime frequency: 3498083865 Hz
+spawn module: x86_64/sbin/init
+0xfffffe00030e7af0 0xfffffe0000000000
+Raw MMAP from BIOS
+	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
+	0x0009fc00 - 0x000a0000 Type: 2 Length: 0x400
+	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
+	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
+	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
+	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
+	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
+Sorted MMAP
+	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
+	0x0009fc00 - 0x000a0000 Type: 2 Length: 0x400
+	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
+	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
+	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
+	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
+	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
+Preprocessed MMAP
+	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
+	0x0009fc00 - 0x000a0c00 Type: 2 Length: 0x1000
+	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
+	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
+	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
+	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
+	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
+Pagealigned MMAP
+	0x00000000 - 0x0009f000 Type: 1 Length: 0x9f000
+	0x0009f000 - 0x000a0c00 Type: 2 Length: 0x1c00
+	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
+	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
+	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
+	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
+	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
+init: invoked as: init 2097152
+[34minit.[31m0.0[0m: using 0x3efdf000, 16 MB for init's allocator
+Spawning memory server (x86_64/sbin/mem_serv)...
+Spawning monitor (x86_64/sbin/monitor)...
+monitor: invoked as: x86_64/sbin/monitor 327680
+RAM allocator initialised, 949 MB (of 949 MB) available
+Spawning ramfsd on core 0
+[34mramfsd.[31m0.0[0m: pre-populating from boot image...
+[34mramfsd.[31m0.0[0m: unpacking Gzipped CPIO /eclipseclp_ramfs.cpio.gz
+[34mramfsd.[31m0.0[0m: unpacking Gzipped CPIO /skb_ramfs.cpio.gz
+[34mramfsd.[31m0.0[0m: ready
+Spawning skb on core 0
+[34mmonitor.[31m0.0[0m: Storing BSP KCB in octopus
+[34mmonitor.[31m0.0[0m: octopus_set_bspkcb: storing cap
+[34mmonitor.[31m0.0[0m: octopus_set_bspkcb: setting mapping
+Spawning /tmp/harness_qemu_UK9cG7/x86_64/sbin/spawnd on core 0
+Spawning /tmp/harness_qemu_UK9cG7/x86_64/sbin/startd on core 0
+Spawning /tmp/harness_qemu_UK9cG7/x86_64/sbin/acpi on core 0
+Spawning /tmp/harness_qemu_UK9cG7/x86_64/sbin/routing_setup on core 0
+Spawning /tmp/harness_qemu_UK9cG7/x86_64/sbin/kaluga on core 0
+spawnd.0 up.
+Kaluga using eth0=255:255:255 as network device
+routing GSI 9 -> 9 -> INTI 9 -> APIC 0 (coreid 0) vector 33
+ACPI: Switched to APIC mode.
+[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/corectrl on core 0
+[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/pci on core 0
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIA)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIB)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIC)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSID)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIE)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIF)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIG)
+acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIH)
+Installing fixed event handler for power button
+pci: Unknown commandline option "auto" -- skipping.
+Kaluga: Not starting "serial_pc16550d", binary not found
+Kaluga: Not starting "lpc_timer", binary not found
+Kernel starting at address 0xfffffe0014001000
+Barrelfish CPU driver starting on x86_64 apic_id 1
+spawn module: monitor
+Kaluga: Starting "e1000n" for (bus=0,dev=2,fun=0), intcaps: 1027, 1027, on core 0
+monitor: invoked as: monitor 0 chanid=0 archid=0
+[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/e1000n on core 0
+############# starting network with arguments cardname=e1000
+[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/netd on core 0
+[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/NGD_mng on core 0
+NETD:netd.0:netd_init:48: ###################################################
+NETD:netd.0:netd_init:49: Initialising netd library
+NETD:netd.0:netd_init:59: running on core 0
+NETD:netd.0:netd_init:60: ###################################################
+NETD:netd.0:netd_init:63: card name = e1000
+NETD:netd.0:netd_init:82: trying to connect to the e1000:0 driver...
+owner_lwip_init: Inside lwip_init
+lwip_init_ex: starting......................
+LWIP_other: Inside lwip_init
+#### netd Going ahead with default wait-set
+LWIP: lwip_init: done with sanity check
+LWIP: done with sanity check
+idc_c_port_mng_srv: trying to [e1000_PORTS_MNG]
+NGKDM: card name = e1000
+Started net_dev_manager for [e1000] Q[1] QT[0]
+kernel 1: dropping ram cap base 0f000000 bytes 0x200000
+Int route service: Routing request, (int=1027) to (cpu=0,vec=34)
+Spawning spawnd on core 1
+[34me1000n.[31m0.0[0m: Reset done..
+############################################
+For service [e1000] MAC= 52:54:00:12:34:56
+using 8192 slots for internal buffer
+[34me1000n.[31m0.0[0m: ethersrv_init: exporting
+[34me1000n.[31m0.0[0m: Creating queue...
+[34me1000n.[31m0.0[0m: Queue created
+########### Driver with interrupts ###########
+e1000: Media type: copper, Link speed: 1 Gb in Full duplex.
+################################******
+For service [e1000_0_FILT] MAC= 52:54:00:12:34:56
+NGKDM: done with most of things for device[e1000]
+idc_c_port_mng_srv: success [e1000_PORTS_MNG]
+LWIP: lwip_init: done with connection setup
+LWIP: done with connection setup
+[34mnetd.[31m0.0[0m: connect_to_driver: nqm bind [e1000_0]
+[34me1000n.[31m0.0[0m: create_queue: 0x819810 regid:1
+[34me1000n.[31m0.0[0m: Register 
+net_queue_manager: Use raw interface
+[34me1000n.[31m0.0[0m: Control 
+Connected to driver [e1000]
+remaining_lwip_init: allocating pbuf memory
+#### [0:4:netd] [BIG] [1] MEM_SIZE[62914560], PBUF_POOL_SIZE[20000], MEMP_MAX[14],  RECEIVE_BUFFERS[2044] qid[0]####
+remaining_lwip_init: allocating memory for sending
+remaining_lwip_init: done with memroy allocation
+LWIP: lwip_starting
+r_lwip_init: done ip_init
+r_lwip_init: done udp_init
+r_lwip_init: done tcp_init
+r_lwip_init: done2 igmp_init
+r_lwip_init: starting DNS_init
+r_lwip_init: done DNS_init
+LWIP: lwip_started
+lwip_init_ex: done......................
+LWIP: owner_lwip_init: done with connection setup
+netd: interface is now up
+netd:##########################################
+Interface up! IP address 10.0.2.15
+NetMask 255.255.255.0
+GateWay 10.0.2.2
+for MAC = 52:54:00:12:34:56
+##########################################
+NETD:netd.0:netd_init:85: registering net_ARP service
+spawnd.1 up.
+[34mstartd.[31m0.0[0m: starting app /x86_64/sbin/listfacts on core 0
+[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/listfacts on core 0
+No bootscript
+Starting listfacts
+Connected to SKB
+SKB FACTS LISTING START
+ioapic_gsi_base(ioapic_0, 0).
+
+
+controller(ioapic_0, ioapic, [1001 .. 1024], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326, 327, 328, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 351, 352, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 363, 364, 365, 366, 367, 368, 369, 370, 371, 372, 373, 374, 375, 376, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386, 387, 388, 389, 390, 391, 392, 393, 394, 395, 396, 397, 398, 399, 400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420, 421, 422, 423, 424, 425, 426, 427, 428, 429, 430, 431, 432, 433, 434, 435, 436, 437, 438, 439, 440, 441, 442, 443, 444, 445, 446, 447, 448, 449, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 461, 462, 463, 464, 465, 466, 467, 468, 469, 470, 471, 472, 473, 474, 475, 476, 477, 478, 479, 480, 481, 482, 483, 484, 485, 486, 487, 488, 489, 490, 491, 492, 493, 494, 495, 496, 497, 498, 499, 500, 501, 502, 503, 504, 505, 506, 507, 508, 509, 510, 511, 512, 513, 514, 515, 516, 517, 518, 519, 520, 521, 522, 523, 524, 525, 526, 527, 528, 529, 530, 531, 532, 533, 534, 535, 536, 537, 538, 539, 540, 541, 542, 543, 544, 545, 546, 547, 548, 549, 550, 551, 552, 553, 554, 555, 556, 557, 558, 559, 560, 561, 562, 563, 564, 565, 566, 567, 568, 569, 570, 571, 572, 573, 574, 575, 576, 577, 578, 579, 580, 581, 582, 583, 584, 585, 586, 587, 588, 589, 590, 591, 592, 593, 594, 595, 596, 597, 598, 599, 600, 601, 602, 603, 604, 605, 606, 607, 608, 609, 610, 611, 612, 613, 614, 615, 616, 617, 618, 619, 620, 621, 622, 623, 624, 625, 626, 627, 628, 629, 630, 631, 632, 633, 634, 635, 636, 637, 638, 639, 640, 641, 642, 643, 644, 645, 646, 647, 648, 649, 650, 651, 652, 653, 654, 655, 656, 657, 658, 659, 660, 661, 662, 663, 664, 665, 666, 667, 668, 669, 670, 671, 672, 673, 674, 675, 676, 677, 678, 679, 680, 681, 682, 683, 684, 685, 686, 687, 688, 689, 690, 691, 692, 693, 694, 695, 696, 697, 698, 699, 700, 701, 702, 703, 704, 705, 706, 707, 708, 709, 710, 711, 712, 713, 714, 715, 716, 717, 718, 719, 720, 721, 722, 723, 724, 725, 726, 727, 728, 729, 730, 731, 732, 733, 734, 735, 736, 737, 738, 739, 740, 741, 742, 743, 744, 745, 746, 747, 748, 749, 750, 751, 752, 753, 754, 755, 756, 757, 758, 759, 760, 761, 762, 763, 764, 765, 766, 767, 768, 769, 770, 771, 772, 773, 774, 775, 776, 777, 778, 779, 780, 781, 782, 783, 784, 785, 786, 787, 788, 789, 790, 791, 792, 793, 794, 795, 796, 797, 798, 799, 800, 801, 802, 803, 804, 805, 806, 807, 808, 809, 810, 811, 812, 813, 814, 815, 816, 817, 818, 819, 820, 821, 822, 823, 824, 825, 826, 827, 828, 829, 830, 831, 832, 833, 834, 835, 836, 837, 838, 839, 840, 841, 842, 843, 844, 845, 846, 847, 848, 849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861, 862, 863, 864, 865, 866, 867, 868, 869, 870, 871, 872, 873, 874, 875, 876, 877, 878, 879, 880, 881, 882, 883, 884, 885, 886, 887, 888, 889, 890, 891, 892, 893, 894, 895, 896, 897, 898, 899, 900, 901, 902, 903, 904, 905, 906, 907, 908, 909, 910, 911, 912, 913, 914, 915, 916, 917, 918, 919, 920, 921, 922, 923, 924, 925, 926, 927, 928, 929, 930, 931, 932, 933, 934, 935, 936, 937, 938, 939, 940, 941, 942, 943, 944, 945, 946, 947, 948, 949, 950, 951, 952, 953, 954, 955, 956, 957, 958, 959, 960, 961, 962, 963, 964, 965, 966, 967, 968, 969, 970, 971, 972, 973, 974, 975, 976, 977, 978, 979, 980, 981, 982, 983, 984, 985, 986, 987, 988, 989, 990, 991, 992, 993, 994, 995, 996, 997, 998, 999, 1000]).
+controller(pcilnk_0, pcilnk, [1025 .. 1025], [1021]).
+controller(pcilnk_1, pcilnk, [1026 .. 1026], [1022]).
+controller(pcilnk_2, pcilnk, [1027 .. 1027], [1023]).
+controller(pcilnk_3, pcilnk, [1028 .. 1028], [1024]).
+controller(pcilnk_4, pcilnk, [1029 .. 1029], [1022]).
+controller(pcilnk_5, pcilnk, [1030 .. 1030], [1023]).
+controller(pcilnk_6, pcilnk, [1031 .. 1031], [1024]).
+controller(pcilnk_7, pcilnk, [1032 .. 1032], [1021]).
+controller(pcilnk_8, pcilnk, [1033 .. 1033], [1023]).
+controller(pcilnk_9, pcilnk, [1034 .. 1034], [1024]).
+controller(pcilnk_10, pcilnk, [1035 .. 1035], [1021]).
+controller(pcilnk_11, pcilnk, [1036 .. 1036], [1022]).
+controller(pcilnk_12, pcilnk, [1037 .. 1037], [1024]).
+controller(pcilnk_13, pcilnk, [1038 .. 1038], [1021]).
+controller(pcilnk_14, pcilnk, [1039 .. 1039], [1022]).
+controller(pcilnk_15, pcilnk, [1040 .. 1040], [1023]).
+controller(pcilnk_16, pcilnk, [1041 .. 1041], [1021]).
+controller(pcilnk_17, pcilnk, [1042 .. 1042], [1022]).
+controller(pcilnk_18, pcilnk, [1043 .. 1043], [1023]).
+controller(pcilnk_19, pcilnk, [1044 .. 1044], [1024]).
+controller(pcilnk_20, pcilnk, [1045 .. 1045], [1022]).
+controller(pcilnk_21, pcilnk, [1046 .. 1046], [1023]).
+controller(pcilnk_22, pcilnk, [1047 .. 1047], [1024]).
+controller(pcilnk_23, pcilnk, [1048 .. 1048], [1021]).
+controller(pcilnk_24, pcilnk, [1049 .. 1049], [1023]).
+controller(pcilnk_25, pcilnk, [1050 .. 1050], [1024]).
+controller(pcilnk_26, pcilnk, [1051 .. 1051], [1021]).
+controller(pcilnk_27, pcilnk, [1052 .. 1052], [1022]).
+controller(pcilnk_28, pcilnk, [1053 .. 1053], [1024]).
+controller(pcilnk_29, pcilnk, [1054 .. 1054], [1021]).
+controller(pcilnk_30, pcilnk, [1055 .. 1055], [1022]).
+controller(pcilnk_31, pcilnk, [1056 .. 1056], [1023]).
+controller(pcilnk_32, pcilnk, [1057 .. 1057], [1021]).
+controller(pcilnk_33, pcilnk, [1058 .. 1058], [1022]).
+controller(pcilnk_34, pcilnk, [1059 .. 1059], [1023]).
+controller(pcilnk_35, pcilnk, [1060 .. 1060], [1024]).
+controller(pcilnk_36, pcilnk, [1061 .. 1061], [1022]).
+controller(pcilnk_37, pcilnk, [1062 .. 1062], [1023]).
+controller(pcilnk_38, pcilnk, [1063 .. 1063], [1024]).
+controller(pcilnk_39, pcilnk, [1064 .. 1064], [1021]).
+controller(pcilnk_40, pcilnk, [1065 .. 1065], [1023]).
+controller(pcilnk_41, pcilnk, [1066 .. 1066], [1024]).
+controller(pcilnk_42, pcilnk, [1067 .. 1067], [1021]).
+controller(pcilnk_43, pcilnk, [1068 .. 1068], [1022]).
+controller(pcilnk_44, pcilnk, [1069 .. 1069], [1024]).
+controller(pcilnk_45, pcilnk, [1070 .. 1070], [1021]).
+controller(pcilnk_46, pcilnk, [1071 .. 1071], [1022]).
+controller(pcilnk_47, pcilnk, [1072 .. 1072], [1023]).
+controller(pcilnk_48, pcilnk, [1073 .. 1073], [1021]).
+controller(pcilnk_49, pcilnk, [1074 .. 1074], [1022]).
+controller(pcilnk_50, pcilnk, [1075 .. 1075], [1023]).
+controller(pcilnk_51, pcilnk, [1076 .. 1076], [1024]).
+controller(pcilnk_52, pcilnk, [1077 .. 1077], [1022]).
+controller(pcilnk_53, pcilnk, [1078 .. 1078], [1023]).
+controller(pcilnk_54, pcilnk, [1079 .. 1079], [1024]).
+controller(pcilnk_55, pcilnk, [1080 .. 1080], [1021]).
+controller(pcilnk_56, pcilnk, [1081 .. 1081], [1023]).
+controller(pcilnk_57, pcilnk, [1082 .. 1082], [1024]).
+controller(pcilnk_58, pcilnk, [1083 .. 1083], [1021]).
+controller(pcilnk_59, pcilnk, [1084 .. 1084], [1022]).
+controller(pcilnk_60, pcilnk, [1085 .. 1085], [1024]).
+controller(pcilnk_61, pcilnk, [1086 .. 1086], [1021]).
+controller(pcilnk_62, pcilnk, [1087 .. 1087], [1022]).
+controller(pcilnk_63, pcilnk, [1088 .. 1088], [1023]).
+controller(pcilnk_64, pcilnk, [1089 .. 1089], [1021]).
+controller(pcilnk_65, pcilnk, [1090 .. 1090], [1022]).
+controller(pcilnk_66, pcilnk, [1091 .. 1091], [1023]).
+controller(pcilnk_67, pcilnk, [1092 .. 1092], [1024]).
+controller(pcilnk_68, pcilnk, [1093 .. 1093], [1022]).
+controller(pcilnk_69, pcilnk, [1094 .. 1094], [1023]).
+controller(pcilnk_70, pcilnk, [1095 .. 1095], [1024]).
+controller(pcilnk_71, pcilnk, [1096 .. 1096], [1021]).
+controller(pcilnk_72, pcilnk, [1097 .. 1097], [1023]).
+controller(pcilnk_73, pcilnk, [1098 .. 1098], [1024]).
+controller(pcilnk_74, pcilnk, [1099 .. 1099], [1021]).
+controller(pcilnk_75, pcilnk, [1100 .. 1100], [1022]).
+controller(pcilnk_76, pcilnk, [1101 .. 1101], [1024]).
+controller(pcilnk_77, pcilnk, [1102 .. 1102], [1021]).
+controller(pcilnk_78, pcilnk, [1103 .. 1103], [1022]).
+controller(pcilnk_79, pcilnk, [1104 .. 1104], [1023]).
+controller(pcilnk_80, pcilnk, [1105 .. 1105], [1021]).
+controller(pcilnk_81, pcilnk, [1106 .. 1106], [1022]).
+controller(pcilnk_82, pcilnk, [1107 .. 1107], [1023]).
+controller(pcilnk_83, pcilnk, [1108 .. 1108], [1024]).
+controller(pcilnk_84, pcilnk, [1109 .. 1109], [1022]).
+controller(pcilnk_85, pcilnk, [1110 .. 1110], [1023]).
+controller(pcilnk_86, pcilnk, [1111 .. 1111], [1024]).
+controller(pcilnk_87, pcilnk, [1112 .. 1112], [1021]).
+controller(pcilnk_88, pcilnk, [1113 .. 1113], [1023]).
+controller(pcilnk_89, pcilnk, [1114 .. 1114], [1024]).
+controller(pcilnk_90, pcilnk, [1115 .. 1115], [1021]).
+controller(pcilnk_91, pcilnk, [1116 .. 1116], [1022]).
+controller(pcilnk_92, pcilnk, [1117 .. 1117], [1024]).
+controller(pcilnk_93, pcilnk, [1118 .. 1118], [1021]).
+controller(pcilnk_94, pcilnk, [1119 .. 1119], [1022]).
+controller(pcilnk_95, pcilnk, [1120 .. 1120], [1023]).
+controller(pcilnk_96, pcilnk, [1121 .. 1121], [1021]).
+controller(pcilnk_97, pcilnk, [1122 .. 1122], [1022]).
+controller(pcilnk_98, pcilnk, [1123 .. 1123], [1023]).
+controller(pcilnk_99, pcilnk, [1124 .. 1124], [1024]).
+controller(pcilnk_100, pcilnk, [1125 .. 1125], [1017]).
+controller(pcilnk_101, pcilnk, [1126 .. 1126], [1018]).
+controller(pcilnk_102, pcilnk, [1127 .. 1127], [1019]).
+controller(pcilnk_103, pcilnk, [1128 .. 1128], [1020]).
+controller(pcilnk_104, pcilnk, [1129 .. 1129], [1017]).
+controller(pcilnk_105, pcilnk, [1130 .. 1130], [1018]).
+controller(pcilnk_106, pcilnk, [1131 .. 1131], [1019]).
+controller(pcilnk_107, pcilnk, [1132 .. 1132], [1020]).
+controller(pcilnk_108, pcilnk, [1133 .. 1133], [1017]).
+controller(pcilnk_109, pcilnk, [1134 .. 1134], [1018]).
+controller(pcilnk_110, pcilnk, [1135 .. 1135], [1019]).
+controller(pcilnk_111, pcilnk, [1136 .. 1136], [1020]).
+controller(pcilnk_112, pcilnk, [1137 .. 1137], [1017]).
+controller(pcilnk_113, pcilnk, [1138 .. 1138], [1018]).
+controller(pcilnk_114, pcilnk, [1139 .. 1139], [1019]).
+controller(pcilnk_115, pcilnk, [1140 .. 1140], [1020]).
+controller(pcilnk_116, pcilnk, [1141 .. 1141], [1017]).
+controller(pcilnk_117, pcilnk, [1142 .. 1142], [1018]).
+controller(pcilnk_118, pcilnk, [1143 .. 1143], [1019]).
+controller(pcilnk_119, pcilnk, [1144 .. 1144], [1020]).
+controller(pcilnk_120, pcilnk, [1145 .. 1145], [1021]).
+controller(pcilnk_121, pcilnk, [1146 .. 1146], [1022]).
+controller(pcilnk_122, pcilnk, [1147 .. 1147], [1023]).
+controller(pcilnk_123, pcilnk, [1148 .. 1148], [1024]).
+controller(pcilnk_124, pcilnk, [1149 .. 1149], [1017]).
+controller(pcilnk_125, pcilnk, [1150 .. 1150], [1018]).
+controller(pcilnk_126, pcilnk, [1151 .. 1151], [1019]).
+controller(pcilnk_127, pcilnk, [1152 .. 1152], [1020]).
+controller(msireceiver_a, msireceiver, [1153 .. 1153], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 275, 276, 277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 298, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326, 327, 328, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 351, 352, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 363, 364, 365, 366, 367, 368, 369, 370, 371, 372, 373, 374, 375, 376, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386, 387, 388, 389, 390, 391, 392, 393, 394, 395, 396, 397, 398, 399, 400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 419, 420, 421, 422, 423, 424, 425, 426, 427, 428, 429, 430, 431, 432, 433, 434, 435, 436, 437, 438, 439, 440, 441, 442, 443, 444, 445, 446, 447, 448, 449, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459, 460, 461, 462, 463, 464, 465, 466, 467, 468, 469, 470, 471, 472, 473, 474, 475, 476, 477, 478, 479, 480, 481, 482, 483, 484, 485, 486, 487, 488, 489, 490, 491, 492, 493, 494, 495, 496, 497, 498, 499, 500, 501, 502, 503, 504, 505, 506, 507, 508, 509, 510, 511, 512, 513, 514, 515, 516, 517, 518, 519, 520, 521, 522, 523, 524, 525, 526, 527, 528, 529, 530, 531, 532, 533, 534, 535, 536, 537, 538, 539, 540, 541, 542, 543, 544, 545, 546, 547, 548, 549, 550, 551, 552, 553, 554, 555, 556, 557, 558, 559, 560, 561, 562, 563, 564, 565, 566, 567, 568, 569, 570, 571, 572, 573, 574, 575, 576, 577, 578, 579, 580, 581, 582, 583, 584, 585, 586, 587, 588, 589, 590, 591, 592, 593, 594, 595, 596, 597, 598, 599, 600, 601, 602, 603, 604, 605, 606, 607, 608, 609, 610, 611, 612, 613, 614, 615, 616, 617, 618, 619, 620, 621, 622, 623, 624, 625, 626, 627, 628, 629, 630, 631, 632, 633, 634, 635, 636, 637, 638, 639, 640, 641, 642, 643, 644, 645, 646, 647, 648, 649, 650, 651, 652, 653, 654, 655, 656, 657, 658, 659, 660, 661, 662, 663, 664, 665, 666, 667, 668, 669, 670, 671, 672, 673, 674, 675, 676, 677, 678, 679, 680, 681, 682, 683, 684, 685, 686, 687, 688, 689, 690, 691, 692, 693, 694, 695, 696, 697, 698, 699, 700, 701, 702, 703, 704, 705, 706, 707, 708, 709, 710, 711, 712, 713, 714, 715, 716, 717, 718, 719, 720, 721, 722, 723, 724, 725, 726, 727, 728, 729, 730, 731, 732, 733, 734, 735, 736, 737, 738, 739, 740, 741, 742, 743, 744, 745, 746, 747, 748, 749, 750, 751, 752, 753, 754, 755, 756, 757, 758, 759, 760, 761, 762, 763, 764, 765, 766, 767, 768, 769, 770, 771, 772, 773, 774, 775, 776, 777, 778, 779, 780, 781, 782, 783, 784, 785, 786, 787, 788, 789, 790, 791, 792, 793, 794, 795, 796, 797, 798, 799, 800, 801, 802, 803, 804, 805, 806, 807, 808, 809, 810, 811, 812, 813, 814, 815, 816, 817, 818, 819, 820, 821, 822, 823, 824, 825, 826, 827, 828, 829, 830, 831, 832, 833, 834, 835, 836, 837, 838, 839, 840, 841, 842, 843, 844, 845, 846, 847, 848, 849, 850, 851, 852, 853, 854, 855, 856, 857, 858, 859, 860, 861, 862, 863, 864, 865, 866, 867, 868, 869, 870, 871, 872, 873, 874, 875, 876, 877, 878, 879, 880, 881, 882, 883, 884, 885, 886, 887, 888, 889, 890, 891, 892, 893, 894, 895, 896, 897, 898, 899, 900, 901, 902, 903, 904, 905, 906, 907, 908, 909, 910, 911, 912, 913, 914, 915, 916, 917, 918, 919, 920, 921, 922, 923, 924, 925, 926, 927, 928, 929, 930, 931, 932, 933, 934, 935, 936, 937, 938, 939, 940, 941, 942, 943, 944, 945, 946, 947, 948, 949, 950, 951, 952, 953, 954, 955, 956, 957, 958, 959, 960, 961, 962, 963, 964, 965, 966, 967, 968, 969, 970, 971, 972, 973, 974, 975, 976, 977, 978, 979, 980, 981, 982, 983, 984, 985, 986, 987, 988, 989, 990, 991, 992, 993, 994, 995, 996, 997, 998, 999, 1000]).
+
+interrupt_override(0, 0, 2, 0).
+interrupt_override(0, 5, 5, 13).
+interrupt_override(0, 9, 9, 13).
+interrupt_override(0, 10, 10, 13).
+interrupt_override(0, 11, 11, 13).
+
+apic(0, 0, 1).
+apic(1, 1, 1).
+
+mapf(pcilnk_2, 1027, nullMsg, 1023, nullMsg).
+mapf(ioapic_0, 1023, nullMsg, 0, 34).
+
+bar(addr(0, 1, 0), 0, 4244635648, 16777216, mem, prefetchable, 32).
+bar(addr(0, 1, 0), 2, 4273930240, 4096, mem, nonprefetchable, 32).
+bar(addr(0, 2, 0), 0, 4273733632, 131072, mem, nonprefetchable, 32).
+bar(addr(0, 2, 0), 1, 49152, 128, io, nonprefetchable, 32).
+bar(addr(0, 3, 0), 4, 49280, 128, io, nonprefetchable, 32).
+bar(addr(0, 3, 0), 5, 4273934336, 4096, mem, nonprefetchable, 32).
+bar(addr(0, 31, 2), 4, 49280, 128, io, nonprefetchable, 32).
+bar(addr(0, 31, 2), 5, 4273938432, 4096, mem, nonprefetchable, 32).
+bar(addr(0, 31, 3), 4, 1792, 128, io, nonprefetchable, 32).
+
+
+pcilnk_index("\\_SB_.GSIE", pcilnk_0).
+pcilnk_index("\\_SB_.GSIF", pcilnk_1).
+pcilnk_index("\\_SB_.GSIG", pcilnk_2).
+pcilnk_index("\\_SB_.GSIH", pcilnk_3).
+pcilnk_index("\\_SB_.GSIF", pcilnk_4).
+pcilnk_index("\\_SB_.GSIG", pcilnk_5).
+pcilnk_index("\\_SB_.GSIH", pcilnk_6).
+pcilnk_index("\\_SB_.GSIE", pcilnk_7).
+pcilnk_index("\\_SB_.GSIG", pcilnk_8).
+pcilnk_index("\\_SB_.GSIH", pcilnk_9).
+pcilnk_index("\\_SB_.GSIE", pcilnk_10).
+pcilnk_index("\\_SB_.GSIF", pcilnk_11).
+pcilnk_index("\\_SB_.GSIH", pcilnk_12).
+pcilnk_index("\\_SB_.GSIE", pcilnk_13).
+pcilnk_index("\\_SB_.GSIF", pcilnk_14).
+pcilnk_index("\\_SB_.GSIG", pcilnk_15).
+pcilnk_index("\\_SB_.GSIE", pcilnk_16).
+pcilnk_index("\\_SB_.GSIF", pcilnk_17).
+pcilnk_index("\\_SB_.GSIG", pcilnk_18).
+pcilnk_index("\\_SB_.GSIH", pcilnk_19).
+pcilnk_index("\\_SB_.GSIF", pcilnk_20).
+pcilnk_index("\\_SB_.GSIG", pcilnk_21).
+pcilnk_index("\\_SB_.GSIH", pcilnk_22).
+pcilnk_index("\\_SB_.GSIE", pcilnk_23).
+pcilnk_index("\\_SB_.GSIG", pcilnk_24).
+pcilnk_index("\\_SB_.GSIH", pcilnk_25).
+pcilnk_index("\\_SB_.GSIE", pcilnk_26).
+pcilnk_index("\\_SB_.GSIF", pcilnk_27).
+pcilnk_index("\\_SB_.GSIH", pcilnk_28).
+pcilnk_index("\\_SB_.GSIE", pcilnk_29).
+pcilnk_index("\\_SB_.GSIF", pcilnk_30).
+pcilnk_index("\\_SB_.GSIG", pcilnk_31).
+pcilnk_index("\\_SB_.GSIE", pcilnk_32).
+pcilnk_index("\\_SB_.GSIF", pcilnk_33).
+pcilnk_index("\\_SB_.GSIG", pcilnk_34).
+pcilnk_index("\\_SB_.GSIH", pcilnk_35).
+pcilnk_index("\\_SB_.GSIF", pcilnk_36).
+pcilnk_index("\\_SB_.GSIG", pcilnk_37).
+pcilnk_index("\\_SB_.GSIH", pcilnk_38).
+pcilnk_index("\\_SB_.GSIE", pcilnk_39).
+pcilnk_index("\\_SB_.GSIG", pcilnk_40).
+pcilnk_index("\\_SB_.GSIH", pcilnk_41).
+pcilnk_index("\\_SB_.GSIE", pcilnk_42).
+pcilnk_index("\\_SB_.GSIF", pcilnk_43).
+pcilnk_index("\\_SB_.GSIH", pcilnk_44).
+pcilnk_index("\\_SB_.GSIE", pcilnk_45).
+pcilnk_index("\\_SB_.GSIF", pcilnk_46).
+pcilnk_index("\\_SB_.GSIG", pcilnk_47).
+pcilnk_index("\\_SB_.GSIE", pcilnk_48).
+pcilnk_index("\\_SB_.GSIF", pcilnk_49).
+pcilnk_index("\\_SB_.GSIG", pcilnk_50).
+pcilnk_index("\\_SB_.GSIH", pcilnk_51).
+pcilnk_index("\\_SB_.GSIF", pcilnk_52).
+pcilnk_index("\\_SB_.GSIG", pcilnk_53).
+pcilnk_index("\\_SB_.GSIH", pcilnk_54).
+pcilnk_index("\\_SB_.GSIE", pcilnk_55).
+pcilnk_index("\\_SB_.GSIG", pcilnk_56).
+pcilnk_index("\\_SB_.GSIH", pcilnk_57).
+pcilnk_index("\\_SB_.GSIE", pcilnk_58).
+pcilnk_index("\\_SB_.GSIF", pcilnk_59).
+pcilnk_index("\\_SB_.GSIH", pcilnk_60).
+pcilnk_index("\\_SB_.GSIE", pcilnk_61).
+pcilnk_index("\\_SB_.GSIF", pcilnk_62).
+pcilnk_index("\\_SB_.GSIG", pcilnk_63).
+pcilnk_index("\\_SB_.GSIE", pcilnk_64).
+pcilnk_index("\\_SB_.GSIF", pcilnk_65).
+pcilnk_index("\\_SB_.GSIG", pcilnk_66).
+pcilnk_index("\\_SB_.GSIH", pcilnk_67).
+pcilnk_index("\\_SB_.GSIF", pcilnk_68).
+pcilnk_index("\\_SB_.GSIG", pcilnk_69).
+pcilnk_index("\\_SB_.GSIH", pcilnk_70).
+pcilnk_index("\\_SB_.GSIE", pcilnk_71).
+pcilnk_index("\\_SB_.GSIG", pcilnk_72).
+pcilnk_index("\\_SB_.GSIH", pcilnk_73).
+pcilnk_index("\\_SB_.GSIE", pcilnk_74).
+pcilnk_index("\\_SB_.GSIF", pcilnk_75).
+pcilnk_index("\\_SB_.GSIH", pcilnk_76).
+pcilnk_index("\\_SB_.GSIE", pcilnk_77).
+pcilnk_index("\\_SB_.GSIF", pcilnk_78).
+pcilnk_index("\\_SB_.GSIG", pcilnk_79).
+pcilnk_index("\\_SB_.GSIE", pcilnk_80).
+pcilnk_index("\\_SB_.GSIF", pcilnk_81).
+pcilnk_index("\\_SB_.GSIG", pcilnk_82).
+pcilnk_index("\\_SB_.GSIH", pcilnk_83).
+pcilnk_index("\\_SB_.GSIF", pcilnk_84).
+pcilnk_index("\\_SB_.GSIG", pcilnk_85).
+pcilnk_index("\\_SB_.GSIH", pcilnk_86).
+pcilnk_index("\\_SB_.GSIE", pcilnk_87).
+pcilnk_index("\\_SB_.GSIG", pcilnk_88).
+pcilnk_index("\\_SB_.GSIH", pcilnk_89).
+pcilnk_index("\\_SB_.GSIE", pcilnk_90).
+pcilnk_index("\\_SB_.GSIF", pcilnk_91).
+pcilnk_index("\\_SB_.GSIH", pcilnk_92).
+pcilnk_index("\\_SB_.GSIE", pcilnk_93).
+pcilnk_index("\\_SB_.GSIF", pcilnk_94).
+pcilnk_index("\\_SB_.GSIG", pcilnk_95).
+pcilnk_index("\\_SB_.GSIE", pcilnk_96).
+pcilnk_index("\\_SB_.GSIF", pcilnk_97).
+pcilnk_index("\\_SB_.GSIG", pcilnk_98).
+pcilnk_index("\\_SB_.GSIH", pcilnk_99).
+pcilnk_index("\\_SB_.GSIA", pcilnk_100).
+pcilnk_index("\\_SB_.GSIB", pcilnk_101).
+pcilnk_index("\\_SB_.GSIC", pcilnk_102).
+pcilnk_index("\\_SB_.GSID", pcilnk_103).
+pcilnk_index("\\_SB_.GSIA", pcilnk_104).
+pcilnk_index("\\_SB_.GSIB", pcilnk_105).
+pcilnk_index("\\_SB_.GSIC", pcilnk_106).
+pcilnk_index("\\_SB_.GSID", pcilnk_107).
+pcilnk_index("\\_SB_.GSIA", pcilnk_108).
+pcilnk_index("\\_SB_.GSIB", pcilnk_109).
+pcilnk_index("\\_SB_.GSIC", pcilnk_110).
+pcilnk_index("\\_SB_.GSID", pcilnk_111).
+pcilnk_index("\\_SB_.GSIA", pcilnk_112).
+pcilnk_index("\\_SB_.GSIB", pcilnk_113).
+pcilnk_index("\\_SB_.GSIC", pcilnk_114).
+pcilnk_index("\\_SB_.GSID", pcilnk_115).
+pcilnk_index("\\_SB_.GSIA", pcilnk_116).
+pcilnk_index("\\_SB_.GSIB", pcilnk_117).
+pcilnk_index("\\_SB_.GSIC", pcilnk_118).
+pcilnk_index("\\_SB_.GSID", pcilnk_119).
+pcilnk_index("\\_SB_.GSIE", pcilnk_120).
+pcilnk_index("\\_SB_.GSIF", pcilnk_121).
+pcilnk_index("\\_SB_.GSIG", pcilnk_122).
+pcilnk_index("\\_SB_.GSIH", pcilnk_123).
+pcilnk_index("\\_SB_.GSIA", pcilnk_124).
+pcilnk_index("\\_SB_.GSIB", pcilnk_125).
+pcilnk_index("\\_SB_.GSIC", pcilnk_126).
+pcilnk_index("\\_SB_.GSID", pcilnk_127).
+
+pci_discovery_done.
+
+corename(0, x86_64, apic(0)).
+corename(1, x86_64, apic(1)).
+
+mem_region_type(0, ram).
+mem_region_type(1, roottask).
+mem_region_type(2, phyaddr).
+mem_region_type(4, multiboot_module).
+mem_region_type(3, platform_data).
+mem_region_type(6, apic).
+mem_region_type(7, ioapic).
+
+
+
+rootbridge(addr(0, 0, 0), childbus(0, 255), mem(3221225472, 4273995775)).
+
+binding(4, 12638384, 12628496).
+binding(3, 12521744, 12503536).
+binding(2, 12311904, 12302016).
+binding(1, 12194208, 10892128).
+
+pci_driver("e1000n", [pci_card(32902, 5409, _24409, _24410, _24411), pci_card(32902, 4221, _24417, _24418, _24419), pci_card(32902, 4222, _24425, _24426, _24427), pci_card(32902, 4223, _24433, _24434, _24435), pci_card(32902, 4281, _24441, _24442, _24443), pci_card(32902, 4246, _24449, _24450, _24451), pci_card(32902, 4110, _24457, _24458, _24459), pci_card(32902, 4297, _24465, _24466, _24467), pci_card(32902, 4263, _24473, _24474, _24475), pci_card(32902, 4307, _24481, _24482, _24483), pci_card(32902, 4217, _24489, _24490, _24491), pci_card(32902, 5427, _24497, _24498, _24499)], 0, 0, 0, 0.75, _24399, [x86_64, x86_32], _24401).
+pci_driver("sfn5122f", [pci_card(6436, 2051, _24409, _24410, _24411)], 0, 0, 0, 0.5, _24399, [x86_64], _24401).
+pci_driver("e10k", [pci_card(32902, 4347, _24409, _24410, _24411)], 0, 0, 0, 0.5, _24399, [x86_64], _24401).
+pci_driver("rtl8029", [pci_card(4332, 32809, _24409, _24410, _24411)], 0, 0, 0, 0.5, _24399, [x86_64, x86_32], _24401).
+pci_driver("xeon_phi", [pci_card(32902, 8798, _24409, _24410, _24411)], 2, 10, 1, 0.5, _24399, [x86_64], _24401).
+pci_driver("ioat_dma", [pci_card(32902, 3616, _24409, _24410, _24411), pci_card(32902, 12064, _24417, _24418, _24419)], 4, 20, 1, 0.5, _24399, [x86_64], _24401).
+pci_driver("ahcid", [pci_card(32902, 10530, _24408, _24409, _24410), pci_card(32902, 14882, _24416, _24417, _24418), pci_card(4098, 17296, _24424, _24425, _24426)], 0, 0, 0, 0.5, _24398, [x86_64, x86_32], _24400).
+
+device(pcie, addr(0, 0, 0), 32902, 10688, 6, 0, 0, -1).
+device(pcie, addr(0, 1, 0), 4660, 4369, 3, 0, 0, -1).
+device(pcie, addr(0, 2, 0), 32902, 4110, 2, 0, 0, 0).
+device(pcie, addr(0, 3, 0), 32902, 10530, 1, 6, 1, 0).
+device(pcie, addr(0, 31, 0), 32902, 10520, 6, 1, 0, -1).
+device(pcie, addr(0, 31, 2), 32902, 10530, 1, 6, 1, 0).
+device(pcie, addr(0, 31, 3), 32902, 10544, 12, 5, 0, 0).
+
+currentbar(addr(0, 1, 0), 0, 3221225472, 3238002688, 16777216).
+currentbar(addr(0, 2, 0), 0, 3238002688, 3238133760, 131072).
+currentbar(addr(0, 1, 0), 2, 3238133760, 3238137856, 4096).
+currentbar(addr(0, 3, 0), 5, 3238137856, 3238141952, 4096).
+currentbar(addr(0, 31, 2), 5, 3238141952, 3238146048, 4096).
+
+int_dest_used(0, 34).
+
+
+memory_region(57618432, 0, 1282048, 1, u).
+memory_region(58900480, 0, 2785280, 1, u).
+memory_region(1097728, 0, 1548016, 4, u).
+memory_region(2646016, 0, 1635400, 4, u).
+memory_region(4284416, 0, 1588896, 4, u).
+memory_region(5873664, 0, 2283504, 4, u).
+memory_region(8159232, 0, 1815896, 4, u).
+memory_region(9977856, 0, 4512872, 4, u).
+memory_region(14491648, 0, 3646488, 4, u).
+memory_region(18141184, 0, 3646120, 4, u).
+memory_region(21790720, 0, 1128410, 4, u).
+memory_region(22921216, 0, 56440, 4, u).
+memory_region(22978560, 0, 2518832, 4, u).
+memory_region(25497600, 0, 1716752, 4, u).
+memory_region(27217920, 0, 4090536, 4, u).
+memory_region(31309824, 0, 2430088, 4, u).
+memory_region(33742848, 0, 3678680, 4, u).
+memory_region(37425152, 0, 2594296, 4, u).
+memory_region(40022016, 0, 1980256, 4, u).
+memory_region(42004480, 0, 2846248, 4, u).
+memory_region(44851200, 0, 1873872, 4, u).
+memory_region(0, 0, 1048576, 3, u).
+memory_region(61689856, 0, 995139584, 0, u).
+memory_region(1073606656, 0, 135168, 3, u).
+memory_region(1073741824, 0, 1879048192, 2, u).
+memory_region(2952790016, 0, 268435456, 3, u).
+memory_region(3221225472, 0, 1073479680, 2, u).
+memory_region(4294705152, 0, 262144, 3, u).
+memory_region(4294967296, 0, 281470681743360, 2, u).
+memory_region(4276092928, 11, 2048, 6, 0).
+memory_region(4273995776, 12, 4096, 7, 0).
+
+rootbridge_address_window(addr(0, 0, 0), mem(655360, 786431)).
+rootbridge_address_window(addr(0, 0, 0), mem(3221225472, 4273995775)).
+
+apic_nmi(255, 0, 1).
+
+x86_interrupt_model(apic).
+
+prt(addr(0, 0, _24883), 0, pir("\\_SB_.GSIE")).
+prt(addr(0, 0, _24883), 1, pir("\\_SB_.GSIF")).
+prt(addr(0, 0, _24883), 2, pir("\\_SB_.GSIG")).
+prt(addr(0, 0, _24883), 3, pir("\\_SB_.GSIH")).
+prt(addr(0, 1, _24883), 0, pir("\\_SB_.GSIF")).
+prt(addr(0, 1, _24883), 1, pir("\\_SB_.GSIG")).
+prt(addr(0, 1, _24883), 2, pir("\\_SB_.GSIH")).
+prt(addr(0, 1, _24883), 3, pir("\\_SB_.GSIE")).
+prt(addr(0, 2, _24883), 0, pir("\\_SB_.GSIG")).
+prt(addr(0, 2, _24883), 1, pir("\\_SB_.GSIH")).
+prt(addr(0, 2, _24883), 2, pir("\\_SB_.GSIE")).
+prt(addr(0, 2, _24883), 3, pir("\\_SB_.GSIF")).
+prt(addr(0, 3, _24883), 0, pir("\\_SB_.GSIH")).
+prt(addr(0, 3, _24883), 1, pir("\\_SB_.GSIE")).
+prt(addr(0, 3, _24883), 2, pir("\\_SB_.GSIF")).
+prt(addr(0, 3, _24883), 3, pir("\\_SB_.GSIG")).
+prt(addr(0, 4, _24883), 0, pir("\\_SB_.GSIE")).
+prt(addr(0, 4, _24883), 1, pir("\\_SB_.GSIF")).
+prt(addr(0, 4, _24883), 2, pir("\\_SB_.GSIG")).
+prt(addr(0, 4, _24883), 3, pir("\\_SB_.GSIH")).
+prt(addr(0, 5, _24883), 0, pir("\\_SB_.GSIF")).
+prt(addr(0, 5, _24883), 1, pir("\\_SB_.GSIG")).
+prt(addr(0, 5, _24883), 2, pir("\\_SB_.GSIH")).
+prt(addr(0, 5, _24883), 3, pir("\\_SB_.GSIE")).
+prt(addr(0, 6, _24883), 0, pir("\\_SB_.GSIG")).
+prt(addr(0, 6, _24883), 1, pir("\\_SB_.GSIH")).
+prt(addr(0, 6, _24883), 2, pir("\\_SB_.GSIE")).
+prt(addr(0, 6, _24883), 3, pir("\\_SB_.GSIF")).
+prt(addr(0, 7, _24883), 0, pir("\\_SB_.GSIH")).
+prt(addr(0, 7, _24883), 1, pir("\\_SB_.GSIE")).
+prt(addr(0, 7, _24883), 2, pir("\\_SB_.GSIF")).
+prt(addr(0, 7, _24883), 3, pir("\\_SB_.GSIG")).
+prt(addr(0, 8, _24883), 0, pir("\\_SB_.GSIE")).
+prt(addr(0, 8, _24883), 1, pir("\\_SB_.GSIF")).
+prt(addr(0, 8, _24883), 2, pir("\\_SB_.GSIG")).
+prt(addr(0, 8, _24883), 3, pir("\\_SB_.GSIH")).
+prt(addr(0, 9, _24883), 0, pir("\\_SB_.GSIF")).
+prt(addr(0, 9, _24883), 1, pir("\\_SB_.GSIG")).
+prt(addr(0, 9, _24883), 2, pir("\\_SB_.GSIH")).
+prt(addr(0, 9, _24883), 3, pir("\\_SB_.GSIE")).
+prt(addr(0, 10, _24883), 0, pir("\\_SB_.GSIG")).
+prt(addr(0, 10, _24883), 1, pir("\\_SB_.GSIH")).
+prt(addr(0, 10, _24883), 2, pir("\\_SB_.GSIE")).
+prt(addr(0, 10, _24883), 3, pir("\\_SB_.GSIF")).
+prt(addr(0, 11, _24883), 0, pir("\\_SB_.GSIH")).
+prt(addr(0, 11, _24883), 1, pir("\\_SB_.GSIE")).
+prt(addr(0, 11, _24883), 2, pir("\\_SB_.GSIF")).
+prt(addr(0, 11, _24883), 3, pir("\\_SB_.GSIG")).
+prt(addr(0, 12, _24883), 0, pir("\\_SB_.GSIE")).
+prt(addr(0, 12, _24883), 1, pir("\\_SB_.GSIF")).
+prt(addr(0, 12, _24883), 2, pir("\\_SB_.GSIG")).
+prt(addr(0, 12, _24883), 3, pir("\\_SB_.GSIH")).
+prt(addr(0, 13, _24883), 0, pir("\\_SB_.GSIF")).
+prt(addr(0, 13, _24883), 1, pir("\\_SB_.GSIG")).
+prt(addr(0, 13, _24883), 2, pir("\\_SB_.GSIH")).
+prt(addr(0, 13, _24883), 3, pir("\\_SB_.GSIE")).
+prt(addr(0, 14, _24883), 0, pir("\\_SB_.GSIG")).
+prt(addr(0, 14, _24883), 1, pir("\\_SB_.GSIH")).
+prt(addr(0, 14, _24883), 2, pir("\\_SB_.GSIE")).
+prt(addr(0, 14, _24883), 3, pir("\\_SB_.GSIF")).
+prt(addr(0, 15, _24883), 0, pir("\\_SB_.GSIH")).
+prt(addr(0, 15, _24883), 1, pir("\\_SB_.GSIE")).
+prt(addr(0, 15, _24883), 2, pir("\\_SB_.GSIF")).
+prt(addr(0, 15, _24883), 3, pir("\\_SB_.GSIG")).
+prt(addr(0, 16, _24883), 0, pir("\\_SB_.GSIE")).
+prt(addr(0, 16, _24883), 1, pir("\\_SB_.GSIF")).
+prt(addr(0, 16, _24883), 2, pir("\\_SB_.GSIG")).
+prt(addr(0, 16, _24883), 3, pir("\\_SB_.GSIH")).
+prt(addr(0, 17, _24883), 0, pir("\\_SB_.GSIF")).
+prt(addr(0, 17, _24883), 1, pir("\\_SB_.GSIG")).
+prt(addr(0, 17, _24883), 2, pir("\\_SB_.GSIH")).
+prt(addr(0, 17, _24883), 3, pir("\\_SB_.GSIE")).
+prt(addr(0, 18, _24883), 0, pir("\\_SB_.GSIG")).
+prt(addr(0, 18, _24883), 1, pir("\\_SB_.GSIH")).
+prt(addr(0, 18, _24883), 2, pir("\\_SB_.GSIE")).
+prt(addr(0, 18, _24883), 3, pir("\\_SB_.GSIF")).
+prt(addr(0, 19, _24883), 0, pir("\\_SB_.GSIH")).
+prt(addr(0, 19, _24883), 1, pir("\\_SB_.GSIE")).
+prt(addr(0, 19, _24883), 2, pir("\\_SB_.GSIF")).
+prt(addr(0, 19, _24883), 3, pir("\\_SB_.GSIG")).
+prt(addr(0, 20, _24883), 0, pir("\\_SB_.GSIE")).
+prt(addr(0, 20, _24883), 1, pir("\\_SB_.GSIF")).
+prt(addr(0, 20, _24883), 2, pir("\\_SB_.GSIG")).
+prt(addr(0, 20, _24883), 3, pir("\\_SB_.GSIH")).
+prt(addr(0, 21, _24883), 0, pir("\\_SB_.GSIF")).
+prt(addr(0, 21, _24883), 1, pir("\\_SB_.GSIG")).
+prt(addr(0, 21, _24883), 2, pir("\\_SB_.GSIH")).
+prt(addr(0, 21, _24883), 3, pir("\\_SB_.GSIE")).
+prt(addr(0, 22, _24883), 0, pir("\\_SB_.GSIG")).
+prt(addr(0, 22, _24883), 1, pir("\\_SB_.GSIH")).
+prt(addr(0, 22, _24883), 2, pir("\\_SB_.GSIE")).
+prt(addr(0, 22, _24883), 3, pir("\\_SB_.GSIF")).
+prt(addr(0, 23, _24883), 0, pir("\\_SB_.GSIH")).
+prt(addr(0, 23, _24883), 1, pir("\\_SB_.GSIE")).
+prt(addr(0, 23, _24883), 2, pir("\\_SB_.GSIF")).
+prt(addr(0, 23, _24883), 3, pir("\\_SB_.GSIG")).
+prt(addr(0, 24, _24883), 0, pir("\\_SB_.GSIE")).
+prt(addr(0, 24, _24883), 1, pir("\\_SB_.GSIF")).
+prt(addr(0, 24, _24883), 2, pir("\\_SB_.GSIG")).
+prt(addr(0, 24, _24883), 3, pir("\\_SB_.GSIH")).
+prt(addr(0, 25, _24883), 0, pir("\\_SB_.GSIA")).
+prt(addr(0, 25, _24883), 1, pir("\\_SB_.GSIB")).
+prt(addr(0, 25, _24883), 2, pir("\\_SB_.GSIC")).
+prt(addr(0, 25, _24883), 3, pir("\\_SB_.GSID")).
+prt(addr(0, 26, _24883), 0, pir("\\_SB_.GSIA")).
+prt(addr(0, 26, _24883), 1, pir("\\_SB_.GSIB")).
+prt(addr(0, 26, _24883), 2, pir("\\_SB_.GSIC")).
+prt(addr(0, 26, _24883), 3, pir("\\_SB_.GSID")).
+prt(addr(0, 27, _24883), 0, pir("\\_SB_.GSIA")).
+prt(addr(0, 27, _24883), 1, pir("\\_SB_.GSIB")).
+prt(addr(0, 27, _24883), 2, pir("\\_SB_.GSIC")).
+prt(addr(0, 27, _24883), 3, pir("\\_SB_.GSID")).
+prt(addr(0, 28, _24883), 0, pir("\\_SB_.GSIA")).
+prt(addr(0, 28, _24883), 1, pir("\\_SB_.GSIB")).
+prt(addr(0, 28, _24883), 2, pir("\\_SB_.GSIC")).
+prt(addr(0, 28, _24883), 3, pir("\\_SB_.GSID")).
+prt(addr(0, 29, _24883), 0, pir("\\_SB_.GSIA")).
+prt(addr(0, 29, _24883), 1, pir("\\_SB_.GSIB")).
+prt(addr(0, 29, _24883), 2, pir("\\_SB_.GSIC")).
+prt(addr(0, 29, _24883), 3, pir("\\_SB_.GSID")).
+prt(addr(0, 30, _24883), 0, pir("\\_SB_.GSIE")).
+prt(addr(0, 30, _24883), 1, pir("\\_SB_.GSIF")).
+prt(addr(0, 30, _24883), 2, pir("\\_SB_.GSIG")).
+prt(addr(0, 30, _24883), 3, pir("\\_SB_.GSIH")).
+prt(addr(0, 31, _24883), 0, pir("\\_SB_.GSIA")).
+prt(addr(0, 31, _24883), 1, pir("\\_SB_.GSIB")).
+prt(addr(0, 31, _24883), 2, pir("\\_SB_.GSIC")).
+prt(addr(0, 31, _24882), 3, pir("\\_SB_.GSID")).
+
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIA", 16).
+pir("\\_SB_.GSIB", 17).
+pir("\\_SB_.GSIC", 18).
+pir("\\_SB_.GSID", 19).
+pir("\\_SB_.GSIA", 16).
+pir("\\_SB_.GSIB", 17).
+pir("\\_SB_.GSIC", 18).
+pir("\\_SB_.GSID", 19).
+pir("\\_SB_.GSIA", 16).
+pir("\\_SB_.GSIB", 17).
+pir("\\_SB_.GSIC", 18).
+pir("\\_SB_.GSID", 19).
+pir("\\_SB_.GSIA", 16).
+pir("\\_SB_.GSIB", 17).
+pir("\\_SB_.GSIC", 18).
+pir("\\_SB_.GSID", 19).
+pir("\\_SB_.GSIA", 16).
+pir("\\_SB_.GSIB", 17).
+pir("\\_SB_.GSIC", 18).
+pir("\\_SB_.GSID", 19).
+pir("\\_SB_.GSIE", 20).
+pir("\\_SB_.GSIF", 21).
+pir("\\_SB_.GSIG", 22).
+pir("\\_SB_.GSIH", 23).
+pir("\\_SB_.GSIA", 16).
+pir("\\_SB_.GSIB", 17).
+pir("\\_SB_.GSIC", 18).
+pir("\\_SB_.GSID", 19).
+
+ioapic(0, 4273995776, 0).
+
+
+SKB FACTS LISTING END

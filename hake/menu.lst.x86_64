@@ -14,6 +14,7 @@ title	Barrelfish
 root	(nd)
 kernel	/x86_64/sbin/elver loglevel=3
 module	/x86_64/sbin/cpu loglevel=3
+# module /x86_64/sbin/simple-init
 module	/x86_64/sbin/init
 
 # Domains spawned by init
@@ -51,7 +52,7 @@ module  /x86_64/sbin/fish nospawn
 module	/x86_64/sbin/angler serial0.terminal xterm
 
 #examples
-#module  /x86_64/sbin/examples/xmpl-hello
+module  /x86_64/sbin/examples/xmpl-hello
 #module  /x86_64/sbin/examples/xmpl-test
 #module  /x86_64/sbin/examples/xmpl-thread core=0 10
 #module  /x86_64/sbin/examples/xmpl-spawn core=0 10 2
@@ -64,13 +65,13 @@ module	/x86_64/sbin/angler serial0.terminal xterm
 #module  /x86_64/sbin/examples/xmpl-rpc_msg core=0 client
 #module  /x86_64/sbin/examples/xmpl-rpc_rpc core=1 server
 #module  /x86_64/sbin/examples/xmpl-rpc_rpc core=0 client
-#module  /x86_64/sbin/examples/xmpl-call-response core=1 server
-#module  /x86_64/sbin/examples/xmpl-call-response core=0 client
+#module  /x86_64/sbin/examples/xmpl-call-response server
+#module  /x86_64/sbin/examples/xmpl-call-response client
 
 
 # example of client server communication. Single App. Runs an infinite loop
-# module /x86_64/sbin/examples/xmpl-markhello core=0 server
-# module /x86_64/sbin/examples/xmpl-markhello core=1 client
+# module /x86_64/sbin/examples/xmpl-markhello server
+# module /x86_64/sbin/examples/xmpl-markhello client
  
 # crystal IO example
 #module /x86_64/sbin/examples/xmpl-crystal-readwrite
@@ -140,6 +141,8 @@ module	/x86_64/sbin/angler serial0.terminal xterm
 # module /x86_64/sbin/tlstest
 # module /x86_64/sbin/xcorecap
 # module /x86_64/sbin/xcorecapserv
+# module /x86_64/sbin/multihoptest core=0 server
+# module /x86_64/sbin/multihoptest core=1 client
 
 # x86_64 tests (not pass) including error msg
 ##Assertion failed:
@@ -153,12 +156,6 @@ module	/x86_64/sbin/angler serial0.terminal xterm
 
 #module /x86_64/sbin/mem_affinity
 		#Assertion failed on core 0 in mem_affinity: errint == 0, function main, file ../usr/tests/skb_tests/mem_affinity.c, line 44.
-		#Aborted
-
-#module /x86_64/sbin/multihoptest server
-#module /x86_64/sbin/multihoptest client
-		#multihoptest.0.0: free: Trying to free not malloced region 0x772ee0 by 0x4e900c
-		#Assertion failed on core 0 in multihoptest: ! "NYI!", function test_multihop_destroy, file ./x86_64/usr/tests/multihoptest/_for_app_multihoptest/test_flounder_bindings.c, line 5247.
 		#Aborted
 
 #module /x86_64/sbin/phoenix_kmeans

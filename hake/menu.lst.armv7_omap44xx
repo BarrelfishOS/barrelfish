@@ -100,6 +100,7 @@ mmap map 0x80000000 0x40000000  1
 		#Failure: (         kernel) Error looking up source for cap transfer [SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP]
 		#Failure: (         kernel) Index into L1 CNode too high [SYS_ERR_L1_CNODE_INDEX]
 		Aborted
+#NOTE: even /tools/harness/scalebench.py can't run skb_cap_storage (same error message)
 
 #module /armv7/sbin/schedtest 
 		#ERROR: schedtest.0 in main() ../usr/tests/schedtest/schedtest.c:36
@@ -108,5 +109,5 @@ mmap map 0x80000000 0x40000000  1
 		#Aborted
 
 #module /armv7/sbin/test_create_l1l2_cnodes #maybe NYI
-# Makefile:94594: recipe for target 'armv7_omap44xx_image' failed
-# make: *** [armv7_omap44xx_image] Segmentation fault (core dumped)
+		# Makefile:94594: recipe for target 'armv7_omap44xx_image' failed
+		# make: *** [armv7_omap44xx_image] Segmentation fault (core dumped)

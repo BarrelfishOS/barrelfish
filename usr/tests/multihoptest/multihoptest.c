@@ -354,6 +354,7 @@ static void start_server(void)
 
 int main(int argc, char *argv[])
 {
+    printf("\t\tThis is our multihoptest.........................\n");
     errval_t err;
 
     if (argc == 2 && strcmp(argv[1], "client") == 0) {
