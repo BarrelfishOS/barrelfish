@@ -62,7 +62,7 @@
 \newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
 \newcommand{\pathname}[1]{\texttt{#1}}%
 \newcommand{\tabindent}{\hspace*{3ex}}%
-\newcommand{\Skate}{\lstinline[language=sockeye]}
+\newcommand{\Sockeye}{\lstinline[language=sockeye]}
 \newcommand{\ccode}{\lstinline[language=C]}
 
 \lstset{
@@ -83,12 +83,14 @@
 
 \emph{Sockeye}\footnote{Sockeye salmon (Oncorhynchus nerka), also called red salmon, kokanee salmon, or blueback salmon, is an anadromous species of salmon found in the Northern Pacific Ocean and rivers discharging into it. This species is a Pacific salmon that is primarily red in hue during spawning. They can grow up to 84 cm in length and weigh 2.3 to 7 kg. 
 Source: \href{https://en.wikipedia.org/wiki/Sockeye_salmon}{Wikipedia}}
-is a domain specific language to describe SoCs (Systems on a Chip). With Sockeye these descriptions can be made available in Barrelfish's System Knowledge Base (SKB) \cite{skb}.
+is a domain specific language to describe SoCs (Systems on a Chip).
+It is an implementation of the language introduced in \cite{achermann:mars17} but adds some features to address issues encountered in practise.
 
 \todo{More info in introduction}
 
 The Sockeye compiler is written in Haskell using the Parsec parsing library. It
-generates Prolog files from the Sockeye files.
+generates Prolog files from the Sockeye files. These Prolog files contain facts that represent a decoding net as defined in \cite{achermann:mars17}.
+The Prolog files can then be loaded into Barrelfish's System Knowledgebase (SKB).
 
 The source code for Sockeye can be found in \texttt{SOURCE/tools/sockeye}.
 
@@ -109,7 +111,7 @@ $ sockeye [options] file
 
 The available options are:
 \begin{description}
-	\item[-P] Generate a prolog file that can be loaded into the SKB.
+	\item[-P] Generate a Prolog file that can be loaded into the SKB.
 	\item[-C] Just perform checks, do not compile.
   \item[-o] \textit{filename} The path to the output file (including the file extension)
   \item[-h] show usage information
@@ -126,7 +128,7 @@ The Sockeye file to compile is give via the \textit{file} parameter. The typical
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 The Sockeye parser follows a similar convention as opted by modern day 
-programming languages like C and Java. Hence, Sockeye uses a java-style-like
+programming languages like C and Java. Hence, Sockeye uses a Java-style-like
 parser based on the Haskell Parsec Library. The following conventions are used:
 
 \begin{description}
@@ -141,13 +143,13 @@ parser based on the Haskell Parsec Library. The following conventions are used:
   anything inbetween is ignored and treated as white space.
 
 \item[Identifiers:] Valid Sockeye identifiers are sequences of numbers
-  (0-9), letters (a-z, A-Z), the underscore character ``\texttt{\_}'' and hyphens ``\texttt{-}''.  They
+  (0-9), letters (a-z, A-Z), the underscore character ``\texttt{\_}'' and hyphens ``\texttt{-}''. They
   must start with a letter.
   \begin{align*}
-    identifier & \rightarrow letter (letter \mid digit \mid \_ \mid -)^{\textrm{*}} \\
-    letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
-    digit & \rightarrow (\textsf{0 \ldots 9})
-\end{align*}
+  identifier & \rightarrow letter (letter \mid digit \mid \_ \mid -)^{\textrm{*}} \\
+  letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
+  digit & \rightarrow (\textsf{0 \ldots 9})
+	\end{align*}
   
 \item[Integer Literals:] A Sockeye integer literal is a sequence of
   digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
@@ -155,7 +157,7 @@ parser based on the Haskell Parsec Library. The following conventions are used:
   \texttt{0x}. Octal literals start with \texttt{0o}.
 
 \begin{align*}
-digit & \rightarrow (\textsf{0 \ldots 9})^{\textrm{1}}\\
+decimal & \rightarrow (\textsf{0 \ldots 9})^{\textrm{1}}\\
 hexadecimal & \rightarrow (\textsf{0x})(\textsf{0 \ldots 9} \mid \textsf{A \ldots F} \mid \textsf{a \ldots f})^{\textrm{1}}\\
 octal & \rightarrow (\textsf{0o})(\textsf{0 \ldots 7})^{\textrm{1}}\\
 \end{align*}
@@ -168,33 +170,108 @@ is, are, accept, map, over, to, at
 \end{description}
 
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Decoding Net Declaration}
 \label{chap:declaration}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-In this chapter we define the layout of a Sockeye file.
+In this chapter we define the layout of a Sockeye file. Each Sockeye file contains the declaration of a single decoding net.
+An SoC can be split into multiple decoding nets e.g. one for the address spaces and another one for the interrupt routes.
+However a node in a decoding net can not reference a node in a different decoding net.
 
-\section{Syntax Highlights}
-In the following sections we use the syntax highlighting as follows:
-\begin{syntax}
-\synbf{bold}:      Keywords  
-\synit{italic}:      Identifiers
-\verb+verbatim+   constructs, symbols etc.
-\end{syntax}
+\section{Syntax}
 
+\subsection{Syntax Specification}
+We use EBNF to specify the Sockeye syntax. Terminals are \textbf{bold}.
+The non-terminals \textit{iden}, \textit{integer} and \textit{decimal} correspond to the identifiers, integer literals and decimal literals from Chapter~\ref{chap:lexer}.
 
+\subsection{Net specification}
+A net consists of one or more node declarations.
+A node declaration contains one or more identifiers and the node specification.
+The order in which the nodes are declared does not matter.
+
+\begin{align*}
+\textit{net}_s & \mathop{=}
+	\Big\{
+		\textit{iden}\ \textbf{is}\ \textit{node}_s\
+	\Big|\
+		\bigl\{ \textit{iden}\bigr\}\ \textbf{are}\ \textit{node}_s
+	\Big\} \\
+\end{align*}
+
+\subsection{Node specifications}
+A node specification consists of a type, a set of accepted addresses, a set of translated addresses and an overlay.
+All of these are optional.
+
+\begin{align*}
+\textit{node}_s & \mathop{=}
+	\Big[
+		\textit{type}
+	\Big]\ 	
+	\Big[
+		\textbf{accept [}\ \big\{\textit{block}_s\big\}\ \textbf{]}\ 
+	\Big]\ 
+	\Big[
+		\textbf{map [}\ \big\{\textit{map}_s\big\}\ \textbf{]}\ 
+	\Big]\ 
+	\Big[
+		\textbf{over}\ \textit{iden}
+	\Big] \\
+\end{align*}
+
+\subsection{Node type}
+Currently there are two types: \verb|device| and \verb|memory|. A third internal type \verb|other| is given to nodes for which no type is specified.
+The \verb|device|-type specifies that the accepted addresses are device registers while the \verb|memory|-type is for memory nodes like RAM or ROM.
+
+\begin{align*}
+\textit{type} & \mathop{=}
+	\textbf{device}\
+	|\
+	\textbf{memory} \\
+\end{align*}
+
+\subsection{Addresses}
+Addresses can be given as hexadecimal, octal or decimal integers.
+\begin{align*}
+\textit{addr} & \mathop{=} \textit{integer} \\
+\end{align*}
+
+\subsection{Block specification}
+A block is specified by its start and end address.
+If the start and end address are the same, the end address can be omitted.
+Sockeye also supports specifying a block as its base address and the number of address bits the block spans:
+A block from \texttt{0x0} to \texttt{0xFFF} with a size of 4kB can be specified ass \verb|0x0/12|.
+
+\begin{align*}
+\textit{block}_s & \mathop{=} \textit{addr}\
+	\Big[
+		\textbf{-}\ \textit{addr}\ 
+	\Big|\
+		\textbf{/}decimal
+	\Big] \\
+\end{align*}
+
+\subsection{Map specification}
+A map specification is a source address block, a target node identifier and optionally a target base address where the source block to which the source block is translated.
+Multiple translation targets can be specified by giving a comma-separated list of targets.
+
+\begin{align*}
+\textit{map}_s & \mathop{=}
+\textit{block}_s\ \textbf{to}\ \textit{iden}\ 
+	\Big[
+		\textbf{at}\ \textit{addr}
+	\Big]\
+	\Big\{
+		\textbf{,}\ \textit{iden}\ 
+		\Big[
+			\textbf{at}\ \textit{addr}
+		\Big]
+	\Big\} \\
+\end{align*}
 
 \section{Conventions}
 \todo{Specify conventions}
 
-\section{The Sockeye File}
-A Sockeye file consists of one or more node declarations.
-A node declaration contains one or more identifiers and the node specification.
-Nodes are specified by declaring their type, the set of accepted addresses, the set of translated addresses and an overlay.
-Each of these are optional.
-The order in which the nodes are specified does not matter.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Checks on the AST}
@@ -203,15 +280,24 @@ The order in which the nodes are specified does not matter.
 The Sockeye compiler performs some sanity checks on the parsed AST.
 
 \section{No Duplicate Identifiers}
-This check makes sure that there aren't two node declarations with the same identifer.
+This check makes sure that there aren't two node declarations with the same identifier.
 
 \section{No References to Undefined Nodes}
 This check makes sure that all nodes referenced in translation sets and overlays are declared in the same file.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Prolog Mapping for Sockeye}
 \label{chap:prolog}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\todo{Describe Prolog fact layout}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Integration into the Hake Build System}
+\label{chap:hake}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\todo{Describe integration into Hake}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
