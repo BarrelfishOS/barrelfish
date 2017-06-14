@@ -86,19 +86,11 @@ Source: \href{https://en.wikipedia.org/wiki/Sockeye_salmon}{Wikipedia}}
 is a domain specific language to describe SoCs (Systems on a Chip).
 It is an implementation of the language introduced in \cite{achermann:mars17} but adds some features to address issues encountered in practise.
 
-\todo{More info in introduction}
-
 The Sockeye compiler is written in Haskell using the Parsec parsing library. It
 generates Prolog files from the Sockeye files. These Prolog files contain facts that represent a decoding net as defined in \cite{achermann:mars17}.
 The Prolog files can then be loaded into Barrelfish's System Knowledgebase (SKB).
 
 The source code for Sockeye can be found in \texttt{SOURCE/tools/sockeye}.
-
-\section{Use cases}
-
-We envision the following non exhausting list of possible use cases for Sockeye:
-
-\todo{Specify use cases}
 
 
 \section{Command line options}
