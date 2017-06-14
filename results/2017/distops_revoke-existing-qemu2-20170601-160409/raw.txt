@@ -1,116 +1,0 @@
-Using menu file /tmp/harness_qemu_DuavSd/menu.lst
-Root: /tmp/harness_qemu_DuavSd
-Initial kernel file: /tmp/harness_qemu_DuavSd/x86_64/sbin/elver
-Initial RAM disk contents: /tmp/harness_qemu_DuavSd/x86_64/sbin/cpu ,/tmp/harness_qemu_DuavSd/x86_64/sbin/init ,/tmp/harness_qemu_DuavSd/x86_64/sbin/mem_serv ,/tmp/harness_qemu_DuavSd/x86_64/sbin/monitor ,/tmp/harness_qemu_DuavSd/x86_64/sbin/ramfsd boot,/tmp/harness_qemu_DuavSd/x86_64/sbin/skb boot,/tmp/harness_qemu_DuavSd/x86_64/sbin/spawnd boot,/tmp/harness_qemu_DuavSd/x86_64/sbin/startd boot,/tmp/harness_qemu_DuavSd/eclipseclp_ramfs.cpio.gz nospawn,/tmp/harness_qemu_DuavSd/skb_ramfs.cpio.gz nospawn,/tmp/harness_qemu_DuavSd/x86_64/sbin/acpi boot,/tmp/harness_qemu_DuavSd/x86_64/sbin/routing_setup boot,/tmp/harness_qemu_DuavSd/x86_64/sbin/corectrl auto,/tmp/harness_qemu_DuavSd/x86_64/sbin/pci auto,/tmp/harness_qemu_DuavSd/x86_64/sbin/kaluga boot eth0=255:255:255,/tmp/harness_qemu_DuavSd/x86_64/sbin/test_remote_revoke core=0 server,/tmp/harness_qemu_DuavSd/x86_64/sbin/test_remote_revoke core=1 client
-Kernel command line arguments: 
-Requested architecture is x86_64.
-Creating hard disk image hd.img
-Formatting 'hd.img', fmt=raw size=10485760
-OK: about to run the follow qemu command:
-qemu-system-x86_64         -machine type=q35         -smp 2         -m 1024         -net nic,model=e1000         -net user         -device ahci,id=ahci         -device ide-drive,drive=disk,bus=ahci.0         -drive id=disk,file=hd.img,if=none -nographic -kernel /tmp/harness_qemu_DuavSd/x86_64/sbin/elver -append '' -initrd /tmp/harness_qemu_DuavSd/x86_64/sbin/cpu ,/tmp/harness_qemu_DuavSd/x86_64/sbin/init ,/tmp/harness_qemu_DuavSd/x86_64/sbin/mem_serv ,/tmp/harness_qemu_DuavSd/x86_64/sbin/monitor ,/tmp/harness_qemu_DuavSd/x86_64/sbin/ramfsd boot,/tmp/harness_qemu_DuavSd/x86_64/sbin/skb boot,/tmp/harness_qemu_DuavSd/x86_64/sbin/spawnd boot,/tmp/harness_qemu_DuavSd/x86_64/sbin/startd boot,/tmp/harness_qemu_DuavSd/eclipseclp_ramfs.cpio.gz nospawn,/tmp/harness_qemu_DuavSd/skb_ramfs.cpio.gz nospawn,/tmp/harness_qemu_DuavSd/x86_64/sbin/acpi boot,/tmp/harness_qemu_DuavSd/x86_64/sbin/routing_setup boot,/tmp/harness_qemu_DuavSd/x86_64/sbin/corectrl auto,/tmp/harness_qemu_DuavSd/x86_64/sbin/pci auto,/tmp/harness_qemu_DuavSd/x86_64/sbin/kaluga boot eth0=255:255:255,/tmp/harness_qemu_DuavSd/x86_64/sbin/test_remote_revoke core=0 server,/tmp/harness_qemu_DuavSd/x86_64/sbin/test_remote_revoke core=1 client
-Kernel starting at address 0xfffffe00026d2000
-Barrelfish CPU driver starting on x86_64 apic_id 0
-kernel 0: Measured APIC frequency: 1000010405 Hz in one RTC second,systime frequency: 3498080633 Hz
-spawn module: x86_64/sbin/init
-0xfffffe0002b28af0 0xfffffe0000000000
-Raw MMAP from BIOS
-	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
-	0x0009fc00 - 0x000a0000 Type: 2 Length: 0x400
-	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
-	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
-	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
-	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
-	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
-Sorted MMAP
-	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
-	0x0009fc00 - 0x000a0000 Type: 2 Length: 0x400
-	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
-	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
-	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
-	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
-	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
-Preprocessed MMAP
-	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
-	0x0009fc00 - 0x000a0c00 Type: 2 Length: 0x1000
-	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
-	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
-	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
-	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
-	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
-Pagealigned MMAP
-	0x00000000 - 0x0009f000 Type: 1 Length: 0x9f000
-	0x0009f000 - 0x000a0c00 Type: 2 Length: 0x1c00
-	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
-	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
-	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
-	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
-	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
-init: invoked as: init 2097152
-[34minit.[31m0.0[0m: using 0x3efdf000, 16 MB for init's allocator
-Spawning memory server (x86_64/sbin/mem_serv)...
-Spawning monitor (x86_64/sbin/monitor)...
-monitor: invoked as: x86_64/sbin/monitor 327680
-RAM allocator initialised, 954 MB (of 954 MB) available
-Spawning ramfsd on core 0
-[34mramfsd.[31m0.0[0m: pre-populating from boot image...
-[34mramfsd.[31m0.0[0m: unpacking Gzipped CPIO /eclipseclp_ramfs.cpio.gz
-[34mramfsd.[31m0.0[0m: unpacking Gzipped CPIO /skb_ramfs.cpio.gz
-[34mramfsd.[31m0.0[0m: /x86_64/sbin/test_remote_revoke already exists, skipping it
-[34mramfsd.[31m0.0[0m: ready
-Spawning skb on core 0
-[34mmonitor.[31m0.0[0m: Storing BSP KCB in octopus
-[34mmonitor.[31m0.0[0m: octopus_set_bspkcb: storing cap
-[34mmonitor.[31m0.0[0m: octopus_set_bspkcb: setting mapping
-Spawning /tmp/harness_qemu_DuavSd/x86_64/sbin/spawnd on core 0
-Spawning /tmp/harness_qemu_DuavSd/x86_64/sbin/startd on core 0
-Spawning /tmp/harness_qemu_DuavSd/x86_64/sbin/acpi on core 0
-Spawning /tmp/harness_qemu_DuavSd/x86_64/sbin/routing_setup on core 0
-Spawning /tmp/harness_qemu_DuavSd/x86_64/sbin/kaluga on core 0
-spawnd.0 up.
-Kaluga using eth0=255:255:255 as network device
-routing GSI 9 -> 9 -> INTI 9 -> APIC 0 (coreid 0) vector 33
-ACPI: Switched to APIC mode.
-[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/corectrl on core 0
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIA)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIB)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIC)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSID)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIE)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIF)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIG)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIH)
-Installing fixed event handler for power button
-[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/pci on core 0
-pci: Unknown commandline option "auto" -- skipping.
-Kaluga: Not starting "serial_pc16550d", binary not found
-Kaluga: Not starting "lpc_timer", binary not found
-Kernel starting at address 0xfffffe0014001000
-Barrelfish CPU driver starting on x86_64 apic_id 1
-spawn module: monitor
-monitor: invoked as: monitor 0 chanid=0 archid=0
-kernel 1: dropping ram cap base 0c400000 bytes 0x200000
-Spawning spawnd on core 1
-spawnd.1 up.
-[34mstartd.[31m0.0[0m: starting app /x86_64/sbin/test_remote_revoke on core 0
-[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/test_remote_revoke on core 0
-[34mstartd.[31m0.0[0m: starting app /x86_64/sbin/test_remote_revoke on core 1
-we are the server
-service exported at iref 20
-[34mspawnd.[31m1.0[0m: spawning /x86_64/sbin/test_remote_revoke on core 1
-No bootscript
-we are the client
-client looking up 'distops_test' in name service...
-client binding to 20...
-service got a connection!
-client bound!
-server: try retype on already retyped RAM cap
-kernel 0: caps_retype: is_retypeable failed: 61
-kernel 0: caps_retype: is_retypeable failed: 61
-server: revoke RAM cap
-client rx_basic 0: b->st = 0x772840
-client: exit
-server rx_basic 1
-server: try retype on revoked cap
-kernel 0: caps_retype: is_retypeable failed: 61
-kernel 0: caps_retype: is_retypeable failed: 61
-distops_revoke: test done
