@@ -1,131 +1,0 @@
-Kernel starting at address 0xfffffe0002532000
-Barrelfish CPU driver starting on x86_64 apic_id 0
-kernel 0: Measured APIC frequency: 1000008262 Hz in one RTC second,systime frequency: 3498074396 Hz
-spawn module: x86_64/sbin/init
-0xfffffe0002988af0 0xfffffe0000000000
-Raw MMAP from BIOS
-	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
-	0x0009fc00 - 0x000a0000 Type: 2 Length: 0x400
-	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
-	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
-	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
-	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
-	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
-Sorted MMAP
-	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
-	0x0009fc00 - 0x000a0000 Type: 2 Length: 0x400
-	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
-	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
-	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
-	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
-	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
-Preprocessed MMAP
-	0x00000000 - 0x0009fc00 Type: 1 Length: 0x9fc00
-	0x0009fc00 - 0x000a0c00 Type: 2 Length: 0x1000
-	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
-	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
-	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
-	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
-	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
-Pagealigned MMAP
-	0x00000000 - 0x0009f000 Type: 1 Length: 0x9f000
-	0x0009f000 - 0x000a0c00 Type: 2 Length: 0x1c00
-	0x000f0000 - 0x00100000 Type: 2 Length: 0x10000
-	0x00100000 - 0x3ffdf000 Type: 1 Length: 0x3fedf000
-	0x3ffdf000 - 0x40000000 Type: 2 Length: 0x21000
-	0xb0000000 - 0xc0000000 Type: 2 Length: 0x10000000
-	0xfffc0000 - 0x100000000 Type: 2 Length: 0x40000
-init: invoked as: init 2097152
-[34minit.[31m0.0[0m: using 0x3efdf000, 16 MB for init's allocator
-Spawning memory server (x86_64/sbin/mem_serv)...
-Spawning monitor (x86_64/sbin/monitor)...
-monitor: invoked as: x86_64/sbin/monitor 327680
-RAM allocator initialised, 956 MB (of 956 MB) available
-Spawning ramfsd on core 0
-[34mramfsd.[31m0.0[0m: pre-populating from boot image...
-[34mramfsd.[31m0.0[0m: unpacking Gzipped CPIO /eclipseclp_ramfs.cpio.gz
-[34mramfsd.[31m0.0[0m: unpacking Gzipped CPIO /skb_ramfs.cpio.gz
-[34mramfsd.[31m0.0[0m: ready
-Spawning skb on core 0
-[34mmonitor.[31m0.0[0m: Storing BSP KCB in octopus
-[34mmonitor.[31m0.0[0m: octopus_set_bspkcb: storing cap
-[34mmonitor.[31m0.0[0m: octopus_set_bspkcb: setting mapping
-Spawning /tmp/harness_qemu_CsXVa6/x86_64/sbin/spawnd on core 0
-Spawning /tmp/harness_qemu_CsXVa6/x86_64/sbin/startd on core 0
-Spawning /tmp/harness_qemu_CsXVa6/x86_64/sbin/acpi on core 0
-Spawning /tmp/harness_qemu_CsXVa6/x86_64/sbin/routing_setup on core 0
-Spawning /tmp/harness_qemu_CsXVa6/x86_64/sbin/kaluga on core 0
-spawnd.0 up.
-Kaluga using eth0=255:255:255 as network device
-routing GSI 9 -> 9 -> INTI 9 -> APIC 0 (coreid 0) vector 33
-ACPI: Switched to APIC mode.
-[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/corectrl on core 0
-[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/pci on core 0
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIA)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIB)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIC)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSID)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIE)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIF)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIG)
-acpi: Warning: Cannot execute _DIS of PCI Link device (\_SB_.GSIH)
-Installing fixed event handler for power button
-pci: Unknown commandline option "auto" -- skipping.
-Kaluga: Not starting "serial_pc16550d", binary not found
-Kaluga: Not starting "lpc_timer", binary not found
-Kernel starting at address 0xfffffe0014001000
-Barrelfish CPU driver starting on x86_64 apic_id 1
-spawn module: monitor
-monitor: invoked as: monitor 0 chanid=0 archid=0
-kernel 1: dropping ram cap base 0be00000 bytes 0x200000
-Spawning spawnd on core 1
-spawnd.1 up.
-[34mstartd.[31m0.0[0m: starting app /x86_64/sbin/nkmtest_all on core 0
-[34mspawnd.[31m0.0[0m: spawning /x86_64/sbin/nkmtest_all on core 0
-No bootscript
-map_unmap: done
-0
-kernel 0: user page fault in 'nkmtest_all': addr db1b7000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1b8000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1b9000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1ba000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1bb000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1bc000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1bd000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1be000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1bf000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1c0000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1c1000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1c2000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1c3000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1c4000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1c5000 IP 401193 SP 772f00 error 0x7
-kernel 0: user page fault in 'nkmtest_all': addr db1c6000 IP 401193 SP 772f00 error 0x7
-modify_flags: done
-[34mnkmtest_all.[31m0.0[0m: Cannot allocate 1GB frame (LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS)
-0<-0 PASSED (Wrong source/destination mapping type)
-0<-1 PASSED (Success)
-0<-2 PASSED (Wrong source/destination mapping type)
-0<-3 PASSED (Wrong source/destination mapping type)
-0<-4 PASSED (Wrong source/destination mapping type)
-0<-5 PASSED (Wrong source/destination mapping type)
-1<-0 PASSED (Wrong source/destination mapping type)
-1<-1 PASSED (Wrong source/destination mapping type)
-1<-2 PASSED (Success)
-1<-3 PASSED (Wrong source/destination mapping type)
-1<-4 PASSED (Frame too small for superpage mapping)
-1<-5 PASSED (Frame too small for superpage mapping)
-2<-0 PASSED (Wrong source/destination mapping type)
-2<-1 PASSED (Wrong source/destination mapping type)
-2<-2 PASSED (Wrong source/destination mapping type)
-2<-3 PASSED (Success)
-2<-4 PASSED (Frame too small for superpage mapping)
-2<-5 PASSED (Success)
-3<-0 PASSED (Wrong source/destination mapping type)
-3<-1 PASSED (Wrong source/destination mapping type)
-3<-2 PASSED (Wrong source/destination mapping type)
-3<-3 PASSED (Wrong source/destination mapping type)
-3<-4 PASSED (Success)
-3<-5 PASSED (Success)
-All tests executed: 24 PASSED, 0 FAILED
-nkmtest_all: all tests passed
