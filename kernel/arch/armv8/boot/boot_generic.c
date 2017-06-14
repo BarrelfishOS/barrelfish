@@ -181,11 +181,11 @@ static void armv8_set_ttbr0(uint8_t el, lpaddr_t addr)
         case 3:
             //sysreg_write_ttbr0_el2(addr);
         case 2:
-            armv8_TTBR0_EL2_BADDR_wrf(NULL, addr);
-            armv8_TTBR0_EL1_BADDR_wrf(NULL, addr);
+            armv8_TTBR0_EL2_wr(NULL, addr);
+            armv8_TTBR0_EL1_wr(NULL, addr);
             break;
         case 1:
-            armv8_TTBR0_EL1_BADDR_wrf(NULL, addr);
+            armv8_TTBR0_EL1_wr(NULL, addr);
             break;
         default:
             assert("should not happen");
