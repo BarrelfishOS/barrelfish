@@ -31,7 +31,7 @@
 \tnkey{Sockeye}
 
 
-\lstdefinelanguage{sockeye}{
+\lstdefinelanguage{Sockeye}{
     morekeywords={is,are,accept,map,over,to,at},
     sensitive=true,
     morecomment=[l]{//},
@@ -62,17 +62,20 @@
 \newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
 \newcommand{\pathname}[1]{\texttt{#1}}%
 \newcommand{\tabindent}{\hspace*{3ex}}%
-\newcommand{\Sockeye}{\lstinline[language=sockeye]}
+\newcommand{\Sockeye}{\lstinline[language=Sockeye]}
+\newcommand{\Prolog}{\lstinline[language=Prolog]}
 \newcommand{\ccode}{\lstinline[language=C]}
 
 \lstset{
-  language=C,
   basicstyle=\ttfamily \small,
   keywordstyle=\bfseries,
   flexiblecolumns=false,
   basewidth={0.5em,0.45em},
   boxpos=t,
-  captionpos=b
+  captionpos=b,
+  frame=single,
+  breaklines=true,
+  postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space}
 }
 
 
@@ -142,6 +145,8 @@ parser based on the Haskell Parsec Library. The following conventions are used:
   letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
   digit & \rightarrow (\textsf{0 \ldots 9})
 	\end{align*}
+
+\item[Case sensitivity:] Sockeye is case sensitive hence identifiers \Sockeye{node1} and \Sockeye{Node2} are not the same.
   
 \item[Integer Literals:] A Sockeye integer literal is a sequence of
   digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
@@ -232,7 +237,7 @@ Addresses can be given as hexadecimal, octal or decimal integers.
 A block is specified by its start and end address.
 If the start and end address are the same, the end address can be omitted.
 Sockeye also supports specifying a block as its base address and the number of address bits the block spans:
-A block from \texttt{0x0} to \texttt{0xFFF} with a size of 4kB can be specified ass \verb|0x0/12|.
+A block from \texttt{0x0} to \texttt{0xFFF} with a size of 4kB can be specified ass \Sockeye|0x0/12|.
 
 \begin{align*}
 \textit{block}_s & \mathop{=} \textit{addr}\
@@ -264,6 +269,13 @@ Multiple translation targets can be specified by giving a comma-separated list o
 \section{Conventions}
 \todo{Specify conventions}
 
+\section{Example}
+Listing~\ref{lst:sockeye_example} shows an example Sockeye specification.
+
+\lstinputlisting[caption={Example Sockeye specification}, label={lst:sockeye_example}, language=Sockeye]{example.soc}
+
+The specification for the Texas Instruments OMAP4460 SoC used on the PandaboardES can serve as a real world example. It is located in \texttt{SOURCE/socs/omap4460.soc}.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Checks on the AST}
@@ -282,7 +294,20 @@ This check makes sure that all nodes referenced in translation sets and overlays
 \chapter{Prolog Mapping for Sockeye}
 \label{chap:prolog}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\todo{Describe Prolog fact layout}
+The Sockeye compiler generates \(\text{ECL}^i\text{PS}^e\)-Prolog\footnote{\href{http://eclipseclp.org/}{http://eclipseclp.org/}} to be used within the SKB.
+A decoding net is expressed by the predicate \Prolog{net/2}. The first argument to the predicate is the node identifier represented as a Prolog atom.
+The second argument is the node specification, a Prolog functor with an arity of four. The arguments of the functor are the node type, the list of accepted addresses, the list of translated addresses and the overlay.
+
+The node type is one of three atoms: \Prolog{device}, \Prolog{memory} or \Prolog{other}.
+The accepted addresses are a list of address blocks where each block is represented through the functor \Prolog{block/2} with the start and end addresses as arguments.
+The translated addresses are a list of mappings to other nodes, represented by the functor \Prolog{map/3} where the first argument is the translated address block, the second one is the node identifier of the target node and the third one is the base address for the mapping in the target node.
+The overlay is represented as an atom which is either the node identifier of the overlay node or \Prolog{'@none'} for nodes with no overlay.
+
+There is a predicate clause for \Prolog{net/2} for every node specified.
+
+\lstinputlisting[caption={Generated Prolog code},label={lst:prolog_example},language=Prolog]{example.pl}
+
+Listings~\ref{lst:prolog_example} shows the generated Prolog for the Sockeye example from Listing~\ref{lst:sockeye_example}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -292,7 +317,7 @@ This check makes sure that all nodes referenced in translation sets and overlays
 SoC descriptions are placed in the directory \texttt{SOURCE/socs} with the file extension \texttt{.soc}.
 Each Sockeye file has to be added to the list of SoCs in the Hakefile in the same directory.
 The Hake rule for Sockeye files compiles all the listed files to \texttt{BUILD/sockeyefacts/<filename>.pl} if they are specified as a dependency in some Hakefile.
-To add a compiled Sockeye specification into the SKB RAM disk, the filename can be added to the \verb|sockeyeFiles| list in the SKBs Hakefile.
+To add a compiled Sockeye specification to the SKB RAM disk, the filename can be added to the \verb|sockeyeFiles| list in the SKBs Hakefile.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
