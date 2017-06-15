@@ -18,6 +18,7 @@ module SockeyeBackendProlog
 
 import Data.List
 import Data.Char
+import Numeric (showHex)
 
 import qualified SockeyeAST as AST
 
@@ -61,7 +62,7 @@ instance PrologGenerator AST.NodeType where
     generate = show 
 
 instance PrologGenerator AST.Addr where
-    generate (AST.Addr addr) = show addr
+    generate (AST.Addr addr) = "16'" ++ showHex addr ""
 
 {- Helper functions -}
 predicate :: String -> [String] -> String
