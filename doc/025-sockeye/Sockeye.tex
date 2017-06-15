@@ -45,7 +45,7 @@
 \maketitle      % Uncomment for final draft
 
 \begin{versionhistory}
-\vhEntry{0.1}{12.06.2017}{DS}{Initial Version}
+\vhEntry{0.1}{15.06.2017}{DS}{Initial Version}
 \end{versionhistory}
 
 % \intro{Abstract}    % Insert abstract here
@@ -114,7 +114,7 @@ The available options are:
 
 The backend (capital letter options) specified last takes precedence.
 
-The Sockeye file to compile is give via the \textit{file} parameter.
+The Sockeye file to compile is given via the \textit{file} parameter.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -136,12 +136,13 @@ parser based on the Haskell Parsec Library. The following conventions are used:
   start with \texttt{//} and continue until the end of the line.
   Multiline comments are enclosed between \texttt{/*} and \texttt{*/};
   anything inbetween is ignored and treated as white space.
+  Nested comments are not supported.
 
 \item[Identifiers:] Valid Sockeye identifiers are sequences of numbers
-  (0-9), letters (a-z, A-Z), the underscore character ``\texttt{\_}'' and hyphens ``\texttt{-}''. They
+  (0-9), letters (a-z, A-Z), the underscore character ``\texttt{\_}'' and the dash character ``\textendash''. They
   must start with a letter.
   \begin{align*}
-  identifier & \rightarrow letter (letter \mid digit \mid \_ \mid -)^{\textrm{*}} \\
+  identifier & \rightarrow letter (letter \mid digit \mid \text{\_} \mid \text{\textendash})^{\textrm{*}} \\
   letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
   digit & \rightarrow (\textsf{0 \ldots 9})
 	\end{align*}
@@ -180,7 +181,7 @@ However a node in a decoding net can not reference a node in a different decodin
 
 \subsection{Syntax Specification}
 We use EBNF to specify the Sockeye syntax. Terminals are \textbf{bold}.
-The non-terminals \textit{iden}, \textit{integer} and \textit{decimal} correspond to the identifiers, integer literals and decimal literals from Chapter~\ref{chap:lexer}.
+The non-terminals \textit{iden}, \textit{integer} and \textit{decimal} correspond to identifiers, integer literals and decimal literals from Chapter~\ref{chap:lexer}.
 
 \subsection{Net specification}
 A net consists of one or more node declarations.
@@ -217,8 +218,8 @@ All of these are optional.
 \end{align*}
 
 \subsection{Node type}
-Currently there are two types: \verb|device| and \verb|memory|. A third internal type \verb|other| is given to nodes for which no type is specified.
-The \verb|device|-type specifies that the accepted addresses are device registers while the \verb|memory|-type is for memory nodes like RAM or ROM.
+Currently there are two types: \Sockeye{device} and \Sockeye{memory}. A third internal type \Sockeye{other} is given to nodes for which no type is specified.
+The \verb|device|-type specifies that the accepted addresses are device registers while the \Sockeye{memory}-type is for memory nodes like RAM or ROM.
 
 \begin{align*}
 \textit{type} & \mathop{=}
@@ -249,7 +250,8 @@ A block from \texttt{0x0} to \texttt{0xFFF} with a size of 4kB can be specified 
 \end{align*}
 
 \subsection{Map specification}
-A map specification is a source address block, a target node identifier and optionally a target base address where the source block to which the source block is translated.
+A map specification is a source address block, a target node identifier and optionally a target base address to which the source block is translated within the target node.
+If no target base address is given, the block is translated to the same addresses within the target node.
 Multiple translation targets can be specified by giving a comma-separated list of targets.
 
 \begin{align*}
@@ -265,9 +267,6 @@ Multiple translation targets can be specified by giving a comma-separated list o
 		\Big]
 	\Big\} \\
 \end{align*}
-
-\section{Conventions}
-\todo{Specify conventions}
 
 \section{Example}
 Listing~\ref{lst:sockeye_example} shows an example Sockeye specification.
@@ -296,18 +295,17 @@ This check makes sure that all nodes referenced in translation sets and overlays
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The Sockeye compiler generates \(\text{ECL}^i\text{PS}^e\)-Prolog\footnote{\href{http://eclipseclp.org/}{http://eclipseclp.org/}} to be used within the SKB.
 A decoding net is expressed by the predicate \Prolog{net/2}. The first argument to the predicate is the node identifier represented as a Prolog atom.
-The second argument is the node specification, a Prolog functor with an arity of four. The arguments of the functor are the node type, the list of accepted addresses, the list of translated addresses and the overlay.
+The second argument is the node specification, a Prolog functor with the name \Prolog{node} and an arity of four. The arguments of the functor are the node type, the list of accepted addresses, the list of translated addresses and the overlay.
 
 The node type is one of three atoms: \Prolog{device}, \Prolog{memory} or \Prolog{other}.
 The accepted addresses are a list of address blocks where each block is represented through the functor \Prolog{block/2} with the start and end addresses as arguments.
 The translated addresses are a list of mappings to other nodes, represented by the functor \Prolog{map/3} where the first argument is the translated address block, the second one is the node identifier of the target node and the third one is the base address for the mapping in the target node.
 The overlay is represented as an atom which is either the node identifier of the overlay node or \Prolog{'@none'} for nodes with no overlay.
 
-There is a predicate clause for \Prolog{net/2} for every node specified.
+There is a predicate clause for \Prolog{net/2} for every node specified. 
+Listings~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}.
 
 \lstinputlisting[caption={Generated Prolog code},label={lst:prolog_example},language=Prolog]{example.pl}
-
-Listings~\ref{lst:prolog_example} shows the generated Prolog for the Sockeye example from Listing~\ref{lst:sockeye_example}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -317,7 +315,7 @@ Listings~\ref{lst:prolog_example} shows the generated Prolog for the Sockeye exa
 SoC descriptions are placed in the directory \texttt{SOURCE/socs} with the file extension \texttt{.soc}.
 Each Sockeye file has to be added to the list of SoCs in the Hakefile in the same directory.
 The Hake rule for Sockeye files compiles all the listed files to \texttt{BUILD/sockeyefacts/<filename>.pl} if they are specified as a dependency in some Hakefile.
-To add a compiled Sockeye specification to the SKB RAM disk, the filename can be added to the \verb|sockeyeFiles| list in the SKBs Hakefile.
+To add a compiled Sockeye specification to the SKB RAM-disk, the filename can be added to the \verb|sockeyeFiles| list in the SKBs Hakefile.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
