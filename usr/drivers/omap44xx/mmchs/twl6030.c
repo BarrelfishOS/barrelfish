@@ -9,20 +9,8 @@
 #include "i2c.h"
 #include "twl6030.h"
 
-static uint8_t _ti_twl6030_id1_read_8(void *d, size_t off);
-static void _ti_twl6030_id1_write_8(void *d, size_t off, uint8_t regval);
-#define ti_twl6030_id1_read_8(dev, off) _ti_twl6030_id1_read_8(dev, off)
-#define ti_twl6030_id1_write_8(dev, off, regval) _ti_twl6030_id1_write_8(dev, off, regval)
-#include <dev/ti_twl6030_dev.h>
-
-// I2C Host controller id
-#define I2C_HC 0
 // I2C slave address for id1 reads and writes is 0x48
 #define ID1_I2C_ADDR 0x48
-
-#define PBS (8*1024)
-static char PRBUF[PBS];
-#define PRBUFL PRBUF, (PBS-1)
 
 #include "mmchs_debug.h"
 #if defined(TWL_SERIVCE_DEBUG) || defined(MMCHS_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
@@ -31,9 +19,7 @@ static char PRBUF[PBS];
 #define TWL_DEBUG(x...) ((void)0)
 #endif
 
-static ti_twl6030_t twl;
-
-static inline uint8_t _ti_twl6030_id1_read_8(void *d, size_t off)
+inline uint8_t _ti_twl6030_id1_read_8(void *d, size_t off)
 {
     errval_t err;
 
@@ -66,7 +52,7 @@ static inline uint8_t _ti_twl6030_id1_read_8(void *d, size_t off)
     return result;
 }
 
-static inline void _ti_twl6030_id1_write_8(void *d, size_t off, uint8_t regval)
+inline void _ti_twl6030_id1_write_8(void *d, size_t off, uint8_t regval)
 {
     struct i2c_msg msg;
     errval_t err;
@@ -91,14 +77,18 @@ static inline void _ti_twl6030_id1_write_8(void *d, size_t off, uint8_t regval)
     return;
 }
 
-void ti_twl6030_init(void)
+void ti_twl6030_init(struct mmchs_driver_state* st)
 {
     TWL_DEBUG("%s:%d\n", __FUNCTION__, __LINE__);
-    ti_i2c_init(I2C_HC);
+    ti_i2c_init(st, I2C_HC);
 }
 
-void ti_twl6030_vmmc_pr(void)
+void ti_twl6030_vmmc_pr(ti_twl6030_t twl)
 {
+#define PBS (8*1024)
+static char PRBUF[PBS];
+#define PRBUFL PRBUF, (PBS-1)
+
     ti_twl6030_pr(PRBUFL, &twl);
     TWL_DEBUG("%s\n", PRBUF);
 }
@@ -165,7 +155,7 @@ static ti_twl6030_vsel_t millis_to_vsel(int millis)
 }
 
 
-void ti_twl6030_vmmc_off(void)
+void ti_twl6030_vmmc_off(ti_twl6030_t twl)
 {
     // turn off
     ti_twl6030_cfg_state_w_t st = ti_twl6030_cfg_state_w_default;
@@ -177,7 +167,7 @@ void ti_twl6030_vmmc_off(void)
     ti_twl6030_vmmc_cfg_state_w_rawwr(&twl, st);
 }
 
-void ti_twl6030_vmmc_on(void)
+void ti_twl6030_vmmc_on(ti_twl6030_t twl)
 {
     // turn on
     ti_twl6030_cfg_state_w_t st = ti_twl6030_cfg_state_w_default;
@@ -203,22 +193,22 @@ static void wait_msec(long msec)
 }
 
 
-errval_t ti_twl6030_set_vmmc_vsel(int millis)
+errval_t ti_twl6030_set_vmmc_vsel(ti_twl6030_t twl, int millis)
 {
     TWL_DEBUG("ti_twl6030_vmmc_vsel\n");
     //ti_twl6030_mmcctrl_vmmc_auto_off_wrf(&twl, 0x0);
     ti_twl6030_mmcctrl_sw_fc_wrf(&twl, 0x1);
 
-    ti_twl6030_vmmc_off();
+    ti_twl6030_vmmc_off(twl);
     wait_msec(10);
 
     ti_twl6030_vsel_t vsel = millis_to_vsel(millis);
     ti_twl6030_vmmc_cfg_voltage_vsel_wrf(&twl, vsel);
 
-    ti_twl6030_vmmc_on();
+    ti_twl6030_vmmc_on(twl);
     //ti_twl6030_mmcctrl_vmmc_auto_off_wrf(&twl, 0x0);
 
-    ti_twl6030_vmmc_pr();
+    ti_twl6030_vmmc_pr(twl);
 
 
     return SYS_ERR_OK;

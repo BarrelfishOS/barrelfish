@@ -10,52 +10,42 @@
 #include <driverkit/driverkit.h>
 
 #include <arch/arm/omap44xx/device_registers.h>
-#include <dev/omap/omap44xx_l3init_cm2_dev.h>
-#include <dev/omap/omap44xx_ckgen_cm2_dev.h>
-#include <dev/omap/omap44xx_l4per_cm2_dev.h>
 
-#include "omap44xx_cm2.h"
+#include "mmchs.h"
+#include "cap_slots.h"
 
-static omap44xx_l3init_cm2_t l3init_cm2;
-static omap44xx_l4per_cm2_t l4per_cm2;
-static omap44xx_ckgen_cm2_t clkgen_cm2;
-
-void cm2_enable_hsmmc1(void)
+void cm2_enable_hsmmc1(struct mmchs_driver_state* st)
 {
-    omap44xx_l3init_cm2_cm_l3init_clkstctrl_clktrctrl_wrf(&l3init_cm2, 0x2);
-    omap44xx_l3init_cm2_cm_l3init_hsmmc1_clkctrl_modulemode_wrf(&l3init_cm2, 0x2);
-    while (omap44xx_l3init_cm2_cm_l3init_hsmmc1_clkctrl_idlest_rdf(&l3init_cm2) != 0x0);
+    omap44xx_l3init_cm2_cm_l3init_clkstctrl_clktrctrl_wrf(&st->l3init_cm2, 0x2);
+    omap44xx_l3init_cm2_cm_l3init_hsmmc1_clkctrl_modulemode_wrf(&st->l3init_cm2, 0x2);
+    while (omap44xx_l3init_cm2_cm_l3init_hsmmc1_clkctrl_idlest_rdf(&st->l3init_cm2) != 0x0);
 }
 
-void cm2_enable_i2c(size_t i2c_index)
+void cm2_enable_i2c(struct mmchs_driver_state* st, size_t i2c_index)
 {
     assert (i2c_index < 4);
 
-    omap44xx_l4per_cm2_cm_l4per_i2c_clkctrl_modulemode_wrf(&l4per_cm2, i2c_index, 0x2);
-    while (omap44xx_l4per_cm2_cm_l4per_i2c_clkctrl_idlest_rdf(&l4per_cm2, i2c_index)
+    omap44xx_l4per_cm2_cm_l4per_i2c_clkctrl_modulemode_wrf(&st->l4per_cm2, i2c_index, 0x2);
+    while (omap44xx_l4per_cm2_cm_l4per_i2c_clkctrl_idlest_rdf(&st->l4per_cm2, i2c_index)
             != 0x0);
 }
 
-void cm2_init(void)
+void cm2_init(struct mmchs_driver_state* st)
 {
     lvaddr_t l3init_vaddr;
-    errval_t err = map_device_register(OMAP44XX_CM2, 0x1000, &l3init_vaddr);
+    errval_t err = map_device_cap(st->caps[CM2_SLOT], &l3init_vaddr);
     assert(err_is_ok(err));
-    omap44xx_l3init_cm2_initialize(&l3init_cm2, (mackerel_addr_t)l3init_vaddr);
+    omap44xx_l3init_cm2_initialize(&st->l3init_cm2, (mackerel_addr_t)l3init_vaddr);
+    omap44xx_l4per_cm2_initialize(&st->l4per_cm2, (mackerel_addr_t)l3init_vaddr);
 
     lvaddr_t clkgen_vaddr;
-    err = map_device_register(OMAP44XX_CLKGEN_CM2, 0x1000, &clkgen_vaddr);
+    err = map_device_cap(st->caps[CLKGEN_CM2_SLOT], &clkgen_vaddr);
     assert(err_is_ok(err));
-    omap44xx_ckgen_cm2_initialize(&clkgen_cm2, (mackerel_addr_t)clkgen_vaddr);
-
-    //lvaddr_t l4per_vaddr;
-    //err = map_device_register(OMAP44XX_L4PER_CM2, 0x1000, &l4per_vaddr);
-    //assert(err_is_ok(err));
-    omap44xx_l4per_cm2_initialize(&l4per_cm2, (mackerel_addr_t)l3init_vaddr);
+    omap44xx_ckgen_cm2_initialize(&st->clkgen_cm2, (mackerel_addr_t)clkgen_vaddr);
 }
 
-int cm2_get_hsmmc1_base_clock(void)
+int cm2_get_hsmmc1_base_clock(struct mmchs_driver_state* st)
 {
-    return omap44xx_l3init_cm2_cm_l3init_hsmmc1_clkctrl_clksel_rdf(&l3init_cm2) == 0x0 ?
+    return omap44xx_l3init_cm2_cm_l3init_hsmmc1_clkctrl_clksel_rdf(&st->l3init_cm2) == 0x0 ?
            64000000 : 96000000;
 }

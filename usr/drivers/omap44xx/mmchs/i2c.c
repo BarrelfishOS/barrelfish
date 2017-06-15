@@ -14,19 +14,15 @@
 
 #include "omap44xx_cm2.h" // for turning on I2C clocks
 #include "i2c.h"
+#include "twl6030.h"
+#include "mmchs.h"
+#include "cap_slots.h"
 
 #if defined(I2C_SERVICE_DEBUG) || defined(MMCHS_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define I2C_DEBUG(x...) debug_printf(x)
-//#define PBS (10*1024)
-//static char prbuf[PBS];
 #else
 #define I2C_DEBUG(x...) ((void)0)
 #endif
-
-// there are 4 GP i2c controllers on the pandaboard
-#define I2C_COUNT 4
-static ti_i2c_t i2c[I2C_COUNT];
-static bool i2c_initialized[I2C_COUNT];
 
 static lpaddr_t i2c_pbase[I2C_COUNT] = {
     0x48070000u,
@@ -34,6 +30,16 @@ static lpaddr_t i2c_pbase[I2C_COUNT] = {
     0x48060000u,
     0x48350000u,
 };
+
+lpaddr_t i2c_get_pbase(size_t dev) {
+    assert(dev < 4);
+    return i2c_pbase[dev];
+}
+
+// XXX: This is not converted to module because
+// of weird use of mackerel namespaces...
+static ti_i2c_t i2c[I2C_COUNT];
+static bool i2c_initialized[I2C_COUNT];
 
 // default timeout for waits in ticks
 #define DEFAULT_TIMEOUT (tsc_get_hz() / 4)
@@ -52,19 +58,19 @@ static int tsc_read(void)
 /*
  * \brief initialize I2C controller `i`.
  */
-void ti_i2c_init(int i)
+void ti_i2c_init(struct mmchs_driver_state* st, int i)
 {
     I2C_DEBUG("%s:%d\n", __FUNCTION__, __LINE__);
     // map & initialize mackerel device
     lvaddr_t i2c_vbase;
-    errval_t err = map_device_register(i2c_pbase[i], 0x1000, &i2c_vbase);
+    errval_t err = map_device_cap(st->caps[IC2_SLOT], &i2c_vbase);
     assert(err_is_ok(err));
     ti_i2c_initialize(&i2c[i], (mackerel_addr_t)i2c_vbase);
 
     ti_i2c_t *dev = &i2c[i];
 
     // turn on clocks
-    cm2_enable_i2c(i);
+    cm2_enable_i2c(st, i);
 
     I2C_DEBUG("%s:%d\n", __FUNCTION__, __LINE__);
 
@@ -447,4 +453,3 @@ errval_t ti_i2c_transfer(int devid, struct i2c_msg *msgs, size_t msgcount)
 
     return SYS_ERR_OK;
 }
-

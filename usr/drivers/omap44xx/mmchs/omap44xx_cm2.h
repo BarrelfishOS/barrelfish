@@ -11,13 +11,15 @@
 #define __OMAP44XX_CM2_H__
 
 #include <barrelfish/barrelfish.h>
+#include <dev/omap/omap44xx_l3init_cm2_dev.h>
+#include <dev/omap/omap44xx_ckgen_cm2_dev.h>
+#include <dev/omap/omap44xx_l4per_cm2_dev.h>
 
-void cm2_enable_i2c(size_t i2c_index);
-int  cm2_get_hsmmc1_base_clock(void);
-void cm2_debug_print(void);
-void cm2_print_standby_state(void);
+struct mmchs_driver_state;
 
-void cm2_enable_hsmmc1(void);
-void cm2_init(void);
+void cm2_enable_i2c(struct mmchs_driver_state* st, size_t i2c_index);
+int  cm2_get_hsmmc1_base_clock(struct mmchs_driver_state* st);
+void cm2_enable_hsmmc1(struct mmchs_driver_state*);
+void cm2_init(struct mmchs_driver_state*);
 
 #endif /* __OMAP44XX_CM2_H__ */

@@ -30,7 +30,7 @@
 #define SECTION_SIZE 512
 #define SECTION_ROUND_UP(x) ( ((x) + (SECTION_SIZE-1))  & (~(SECTION_SIZE-1)) )
 
-static void read_dma(struct ata_rw28_thc_service_binding_t *sv,
+static void read_dma(struct mmchs_driver_state* st, struct ata_rw28_thc_service_binding_t *sv,
                      uint32_t read_size, uint32_t start_lba)
 {
     size_t buffer_size = SECTION_ROUND_UP(read_size);
@@ -41,7 +41,7 @@ static void read_dma(struct ata_rw28_thc_service_binding_t *sv,
     uint8_t *bufptr = (uint8_t *)buffer;
     for (size_t i = 0; i < (buffer_size / SECTION_SIZE); i++) {
         MMCHS_DEBUG("%s:%d: i=%d start_lba=%d\n", __FUNCTION__, __LINE__, i, start_lba);
-        errval_t err = mmchs_read_block(start_lba+i, bufptr);
+        errval_t err = mmchs_read_block(st, start_lba+i, bufptr);
         assert(err_is_ok(err));
         bufptr += SECTION_SIZE;
     }
@@ -49,41 +49,41 @@ static void read_dma(struct ata_rw28_thc_service_binding_t *sv,
     free(buffer);
 }
 
-static void read_dma_block(struct ata_rw28_thc_service_binding_t *sv, uint32_t lba)
+static void read_dma_block(struct mmchs_driver_state* st, struct ata_rw28_thc_service_binding_t *sv, uint32_t lba)
 {
     MMCHS_DEBUG("%s:%d lba=%d\n", __FUNCTION__, __LINE__, lba);
 
     void *buffer = malloc(SECTION_SIZE);
     assert(buffer != NULL);
 
-    errval_t err = mmchs_read_block(lba, buffer);
+    errval_t err = mmchs_read_block(st, lba, buffer);
     assert(err_is_ok(err));
 
     sv->send.read_dma_block(sv, buffer, SECTION_SIZE);
     free(buffer);
 }
 
-static void write_dma(struct ata_rw28_thc_service_binding_t *sv,
+static void write_dma(struct mmchs_driver_state* st, struct ata_rw28_thc_service_binding_t *sv,
                       uint8_t *buffer, size_t buffer_len, uint32_t lba)
 {
     MMCHS_DEBUG("%s:%d\n", __FUNCTION__, __LINE__);
     sv->send.write_dma(sv, LIB_ERR_NOT_IMPLEMENTED);
 }
 
-static void identify_device(struct ata_rw28_thc_service_binding_t *sv)
+static void identify_device(struct mmchs_driver_state* st, struct ata_rw28_thc_service_binding_t *sv)
 {
     MMCHS_DEBUG("%s:%d\n", __FUNCTION__, __LINE__);
     sv->send.identify_device(sv, NULL, 0);
 }
 
 
-static void flush_cache(struct ata_rw28_thc_service_binding_t *sv)
+static void flush_cache(struct mmchs_driver_state* st, struct ata_rw28_thc_service_binding_t *sv)
 {
     MMCHS_DEBUG("%s:%d\n", __FUNCTION__, __LINE__);
     sv->send.flush_cache(sv, SYS_ERR_OK);
 }
 
-static void service_client(struct ata_rw28_thc_service_binding_t *sv)
+static void service_client(struct mmchs_driver_state* st, struct ata_rw28_thc_service_binding_t *sv)
 {
     DO_FINISH({
         bool stop = false;
@@ -100,23 +100,23 @@ static void service_client(struct ata_rw28_thc_service_binding_t *sv)
             switch (m.msg) {
 
             case ata_rw28_read_dma:
-                read_dma(sv, m.args.read_dma.in.read_size, m.args.read_dma.in.start_lba);
+                read_dma(st, sv, m.args.read_dma.in.read_size, m.args.read_dma.in.start_lba);
                 break;
 
             case ata_rw28_read_dma_block:
-                read_dma_block(sv, m.args.read_dma_block.in.lba);
+                read_dma_block(st, sv, m.args.read_dma_block.in.lba);
                 break;
 
             case ata_rw28_write_dma:
-                write_dma(sv, m.args.write_dma.in.buffer, m.args.write_dma.in.buffer_size, m.args.write_dma.in.lba);
+                write_dma(st, sv, m.args.write_dma.in.buffer, m.args.write_dma.in.buffer_size, m.args.write_dma.in.lba);
                 break;
 
             case ata_rw28_identify_device:
-                identify_device(sv);
+                identify_device(st, sv);
                 break;
 
             case ata_rw28_flush_cache:
-                flush_cache(sv);
+                flush_cache(st, sv);
                 break;
 
             default:
@@ -127,7 +127,7 @@ static void service_client(struct ata_rw28_thc_service_binding_t *sv)
     });
 }
 
-void init_service(void)
+void init_service(struct mmchs_driver_state* st)
 {
     errval_t err;
     iref_t iref;
@@ -170,7 +170,7 @@ void init_service(void)
             }
 
             MMCHS_DEBUG("%s:%d: Got service %p\n", __FUNCTION__, __LINE__, sv);
-            ASYNC({service_client(sv);});
+            ASYNC({service_client(st, sv);});
         }
     });
 }

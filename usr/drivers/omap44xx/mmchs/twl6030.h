@@ -12,12 +12,22 @@
 #include <barrelfish/types.h>
 #include <errors/errno.h>
 
-void ti_twl6030_init(void);
-errval_t ti_twl6030_set_vmmc_vsel(int millis);
+// I2C Host controller id
+#define I2C_HC 0
 
-void ti_twl6030_vmmc_pr(void);
+uint8_t _ti_twl6030_id1_read_8(void *d, size_t off);
+void _ti_twl6030_id1_write_8(void *d, size_t off, uint8_t regval);
+#define ti_twl6030_id1_read_8(dev, off) _ti_twl6030_id1_read_8(dev, off)
+#define ti_twl6030_id1_write_8(dev, off, regval) _ti_twl6030_id1_write_8(dev, off, regval)
+#include <dev/ti_twl6030_dev.h>
 
-void ti_twl6030_vmmc_on(void);
-void ti_twl6030_vmmc_off(void);
+struct mmchs_driver_state;
+void ti_twl6030_init(struct mmchs_driver_state*);
+errval_t ti_twl6030_set_vmmc_vsel(ti_twl6030_t twl, int millis);
+
+void ti_twl6030_vmmc_pr(ti_twl6030_t twl);
+
+void ti_twl6030_vmmc_on(ti_twl6030_t twl);
+void ti_twl6030_vmmc_off(ti_twl6030_t twl);
 
 #endif // __TI_TWL6030_H__

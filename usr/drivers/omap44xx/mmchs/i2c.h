@@ -12,6 +12,9 @@
 #include <barrelfish/types.h>
 #include <errors/errno.h>
 
+// there are 4 GP i2c controllers on the pandaboard
+#define I2C_COUNT 4
+
 enum i2c_flags {
     I2C_RD     = 0x1,
     I2C_WR     = 0x2,
@@ -26,7 +29,9 @@ struct i2c_msg {
     uint8_t *buf;
 };
 
-void ti_i2c_init(int i);
+struct mmchs_driver_state;
+void ti_i2c_init(struct mmchs_driver_state* st, int i);
 errval_t ti_i2c_transfer(int i, struct i2c_msg *msgs, size_t msgcount);
+lpaddr_t i2c_get_pbase(size_t dev);
 
 #endif // __TI_I2C_H__
