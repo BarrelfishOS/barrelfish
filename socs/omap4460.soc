@@ -501,7 +501,7 @@ INTERCONN_SOCKET_CM1 is device accept [0/8]
 CKGEN_CM1 is device accept [0/9]
 CM1 is map [
         0x000/8 to INTERCONN_SOCKET_CM1 at 0
-        0x100/9 to CKGEN_CM1
+        0x100/9 to CKGEN_CM1 at 0
        ]
 
 /* 3.11.29 CM2 Instance Summary */
