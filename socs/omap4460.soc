@@ -38,7 +38,7 @@ L3 is map [
         /* 0x4003C000-0x400FFFFF reserved */ //TRM: 0x40034000-0x400FFFFF?
         /* 0x40100000/20 L4_ABE private access for Cortex A9
         /* 0x40200000/20 reserved */
-        0x40300000-0x4030DFFFF to L3_OCM_RAM at 0
+        0x40300000-0x4030DFFF to L3_OCM_RAM at 0
         /* 0x4030E000-0x43FFFFFF reserved */
         0x44000000/26 to L3_config at 0
         0x48000000/24 to L4_PER
