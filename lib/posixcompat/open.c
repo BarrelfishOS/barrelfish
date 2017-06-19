@@ -16,6 +16,7 @@
 #include "pty.h"
 
 //XXX: flags are ignored...
+__weak_reference(open, _open);
 int open(const char *pathname, int flags, ...)
 {
     /*

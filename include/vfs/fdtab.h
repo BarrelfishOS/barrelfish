@@ -12,6 +12,7 @@
 #define _FDTAB_H
 
 #include <sys/cdefs.h>
+#include <sys/epoll.h>
 
 __BEGIN_DECLS
 
@@ -33,7 +34,6 @@ enum fdtab_type {
 };
 
 #include <signal.h>
-#include <sys/epoll.h>
 
 struct _epoll_events_list {
     struct _epoll_events_list *prev, *next;

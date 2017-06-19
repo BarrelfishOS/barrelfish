@@ -18,6 +18,7 @@
 #include <nfs/nfs.h>
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
+#include <sys/param.h>
 
 // networking stuff
 #include <lwip/netif.h>
@@ -772,7 +773,7 @@ static void setattr_callback(void *arg, struct nfs_client *client,
 }
 
 
-static errval_t truncate(void *st, vfs_handle_t handle, size_t bytes)
+static errval_t nfs_truncate(void *st, vfs_handle_t handle, size_t bytes)
 {
     struct nfs_handle *h = handle;
 
@@ -1380,7 +1381,7 @@ static struct vfs_ops nfsops = {
     .read = read,
     .write = write,
     .seek = seek,
-    .truncate = truncate,
+    .truncate = nfs_truncate,
     .tell = tell,
     .stat = stat,
     .close = close,

@@ -65,6 +65,7 @@
 @* Interfaces Extension (XSI).
 ** CHANGE it (define it) if your system is XSI compatible.
 */
+#define LUA_USE_POSIX
 #if defined(LUA_USE_POSIX)
 #define LUA_USE_MKSTEMP
 #define LUA_USE_ISATTY
@@ -548,4 +549,3 @@
 
 
 #endif
-

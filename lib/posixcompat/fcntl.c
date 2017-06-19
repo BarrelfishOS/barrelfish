@@ -18,6 +18,7 @@
 #include "unixsock.h"
 #include "pty.h"
 
+__weak_reference(fcntl, _fcntl);
 int fcntl(int fd, int cmd, ...)
 {
     int retval = 0;

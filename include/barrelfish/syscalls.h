@@ -19,6 +19,7 @@
 
 #include <sys/cdefs.h>    /* for __BEGIN_DECLS, __END_DECLS */
 #include <errors/errno.h> /* for errval_t */
+#include <barrelfish_kpi/types.h>
 
 __BEGIN_DECLS
 

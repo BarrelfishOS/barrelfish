@@ -39,6 +39,9 @@
 /* Some ICMP messages should be passed to the transport protocols. This
    is not implemented. */
 
+#include <string.h>
+#include <netinet/in.h>
+
 #include "lwip/opt.h"
 
 #if LWIP_ICMP                   /* don't build if not configured for use in lwipopts.h */
@@ -51,8 +54,6 @@
 #include "lwip/stats.h"
 #include "lwip/snmp.h"
 #include "lwip/init.h"
-
-#include <string.h>
 
 /* Enable tracing based on the global settings. */
 #if CONFIG_TRACE && NETWORK_STACK_TRACE

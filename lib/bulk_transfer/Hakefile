@@ -37,11 +37,11 @@
                    "backends/net/stack_allocator.c",
                    "backends/local/control_channel.c"
                  ],
-         flounderDefs = [ "bulk_ctrl" ],
-         flounderBindings = [ "bulk_ctrl", "net_ports", "net_ARP", "e10k" ],
-	     flounderExtraBindings = [ ("net_ports", ["rpcclient"]),
-				  ("net_ARP", ["rpcclient"]) ],
-	     mackerelDevices = [ "e10k", "e10k_q" ],
-         addLibraries = [ "pci" ]
+        flounderDefs = [ "bulk_ctrl" ],
+        flounderBindings = [ "bulk_ctrl", "net_ports", "net_ARP", "e10k" ],
+        flounderExtraBindings = [ ("net_ports", ["rpcclient"]),
+            ("net_ARP", ["rpcclient"]) ],
+        mackerelDevices = [ "e10k", "e10k_q" ],
+        addLibraries = [ "pci", "lwip" ]
     }
 ]

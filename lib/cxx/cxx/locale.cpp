@@ -1068,7 +1068,7 @@ const ctype<char>::mask*
 ctype<char>::classic_table()  _NOEXCEPT
 {
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(BARRELFISH)
-    return _DefaultRuneLocale.runetype;
+    return 0;//_DefaultRuneLocale.runetype;
 #elif defined(__NetBSD__)
     return _C_ctype_tab_ + 1;
 #elif defined(__GLIBC__)

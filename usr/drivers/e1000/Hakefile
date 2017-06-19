@@ -15,7 +15,7 @@
                       flounderBindings = [ "net_queue_manager" ],
                       flounderDefs = [ "octopus", "net_queue_manager" ],
                       mackerelDevices = [ "e1000" ],
-                      addLibraries = libDeps [ "pci", "netQmng", "trace", "octopus" ],
+                      addLibraries = libDeps [ "pci", "netQmng", "trace", "octopus", "lwip" ],
                       architectures = [ "x86_64" ]
                     },
 
@@ -34,7 +34,7 @@
                       cFiles = [ "e1000n.c", "e1000n_hwinit.c", "e1000n_helpers.c" ],
                       flounderDefs = [ "octopus", "net_queue_manager" ],
                       mackerelDevices = [ "e1000" ],
-                      addLibraries = libDeps [ "pci", "trace", "octopus" ],
+                      addLibraries = libDeps [ "pci", "trace", "octopus", "lwip" ],
                       architectures = [ "x86_64" ],
                       addCFlags = [ "-DLIBRARY" ]
                     }

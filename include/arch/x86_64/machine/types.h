@@ -25,6 +25,6 @@ typedef long int __loff_t;
 #endif
 #endif
 
+typedef long        __suseconds_t;  /* microseconds (signed) */
+
 #endif	/* _MACHTYPES_H_ */
-
-

@@ -10,7 +10,7 @@
 #include <barrelfish/barrelfish.h>
 #include <unistd.h>
 
-int ftruncate(int fd, int length)
+int ftruncate(int fd, __off_t offset)
 {
     USER_PANIC("ftruncate() NYI");
     return (-1);

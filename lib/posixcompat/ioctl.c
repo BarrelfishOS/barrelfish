@@ -19,6 +19,7 @@
 #include <sys/ioctl.h>
 #include <sys/ttycom.h>
 
+__weak_reference(ioctl, _ioctl);
 int ioctl(int fd, unsigned long request,  ...)
 {
     va_list arg;

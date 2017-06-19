@@ -1,16 +1,16 @@
 /*
  * Australian Public Licence B (OZPLB)
- * 
+ *
  * Version 1-0
- * 
+ *
  * Copyright (c) 2004 National ICT Australia
- * 
- * All rights reserved. 
- * 
+ *
+ * All rights reserved.
+ *
  * Developed by: Embedded, Real-time and Operating Systems Program (ERTOS)
  *               National ICT Australia
  *               http://www.ertos.nicta.com.au
- * 
+ *
  * Permission is granted by National ICT Australia, free of charge, to
  * any person obtaining a copy of this software and any associated
  * documentation files (the "Software") to deal with the Software without
@@ -19,19 +19,19 @@
  * sublicense, and/or sell, lend or rent out copies of the Software, and
  * to permit persons to whom the Software is furnished to do so, subject
  * to the following conditions:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimers.
- * 
+ *
  *     * Redistributions in binary form must reproduce the above
  *       copyright notice, this list of conditions and the following
  *       disclaimers in the documentation and/or other materials provided
  *       with the distribution.
- * 
+ *
  *     * Neither the name of National ICT Australia, nor the names of its
  *       contributors, may be used to endorse or promote products derived
  *       from this Software without specific prior written permission.
- * 
+ *
  * EXCEPT AS EXPRESSLY STATED IN THIS LICENCE AND TO THE FULL EXTENT
  * PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED "AS-IS", AND
  * NATIONAL ICT AUSTRALIA AND ITS CONTRIBUTORS MAKE NO REPRESENTATIONS,
@@ -41,7 +41,7 @@
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NONINFRINGEMENT,
  * THE ABSENCE OF LATENT OR OTHER DEFECTS, OR THE PRESENCE OR ABSENCE OF
  * ERRORS, WHETHER OR NOT DISCOVERABLE.
- * 
+ *
  * TO THE FULL EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL
  * NATIONAL ICT AUSTRALIA OR ITS CONTRIBUTORS BE LIABLE ON ANY LEGAL
  * THEORY (INCLUDING, WITHOUT LIMITATION, IN AN ACTION OF CONTRACT,
@@ -55,7 +55,7 @@
  * DEALINGS WITH THE SOFTWARE, EVEN IF NATIONAL ICT AUSTRALIA OR ITS
  * CONTRIBUTORS HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH CLAIM, LOSS,
  * DAMAGES OR OTHER LIABILITY.
- * 
+ *
  * If applicable legislation implies representations, warranties, or
  * conditions, or imposes obligations or liability on National ICT
  * Australia or one of its contributors in respect of the Software that
@@ -72,7 +72,7 @@
  * b.  in the case of services:
  * i.  the supplying of the services again; or
  * ii.  the payment of the cost of having the services supplied again.
- * 
+ *
  * The construction, validity and performance of this licence is governed
  * by the laws in force in New South Wales, Australia.
  */
@@ -259,7 +259,7 @@ void vfs_fopen_init(void)
     #endif
 
     newlib_register_fsops__(vfsfd_open, vfsfd_read, vfsfd_write,
-                            vfsfd_close, vfsfd_lseek);
+                             vfsfd_close, vfsfd_lseek);
 
     // Initialize working directory if not set already
     int r = setenv("PWD", "/", 0);

@@ -9,6 +9,7 @@
 
 #include <grp.h>
 #include <assert.h>
+#include <string.h>
 
 struct group *getgrgid(gid_t gid)
 {

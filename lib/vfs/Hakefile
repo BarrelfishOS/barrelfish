@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for lib/vfs
--- 
+--
 --------------------------------------------------------------------------
 
 [ build library { target = "vfs",
@@ -22,6 +22,7 @@
                                       "fat32_ebpb", "fat_direntry", "ahci_port",
                                       "ahci_hba"
                                     ],
+                  addLibraries = [ "lwip" ],
                   flounderBindings = [ "trivfs", "bcache", "ahci_mgmt", "ata_rw28" ],
                   flounderExtraBindings = [ ("trivfs", ["rpcclient"]),
                                             ("bcache", ["rpcclient"]),
@@ -38,6 +39,7 @@
                              "fdtab.c", "vfs_fd.c", "vfs_blockdevfs_megaraid.c"
                            ],
                   addCFlags = [ "-DDISABLE_NFS" ],
+                  addLibraries = [ "lwip" ],
                   mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb",
                                       "fat32_ebpb", "fat_direntry", "ahci_port",
                                       "ahci_hba"
@@ -60,6 +62,7 @@
                                             ("bcache", ["rpcclient"])
                                           ],
                   addCFlags = [ "-DDISABLE_BLOCKDEV" ],
+                  addLibraries = [ "lwip" ],
                   flounderDefs = [ "monitor" ]
                 },
   build library { target = "vfs_ramfs",
@@ -67,6 +70,7 @@
                              "cache.c", "vfs_cache.c", "fdtab.c", "vfs_fd.c"
                            ],
                   addCFlags = [ "-DDISABLE_NFS", "-DDISABLE_BLOCKDEV" ],
+                  addLibraries = [ "lwip" ],
                   flounderBindings = [ "trivfs", "bcache" ],
                   flounderExtraBindings = [ ("trivfs", ["rpcclient"]),
                                             ("bcache", ["rpcclient"])

@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 #include "port_management_support.h"
 #include "device_manager_debug.h"

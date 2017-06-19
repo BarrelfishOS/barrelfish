@@ -10,9 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
@@ -27,10 +24,10 @@
  * SUCH DAMAGE.
  *
  *	@(#)limits.h	8.3 (Berkeley) 1/4/94
- * $FreeBSD: src/sys/amd64/include/_limits.h,v 1.11 2005/08/20 16:44:40 stefanf Exp $
+ * $FreeBSD$
  */
 
-#ifndef	_MACHINE__LIMITS_H_
+#ifndef _MACHINE__LIMITS_H_
 #define	_MACHINE__LIMITS_H_
 
 /*
@@ -40,8 +37,6 @@
  * type converted according to the integral promotions.  The subtraction for
  * INT_MIN, etc., is so the value is not unsigned; e.g., 0x80000000 is an
  * unsigned int for 32-bit two's complement ANSI compilers (section 3.1.3.2).
- * These numbers are for the default configuration of gcc.  They work for
- * some other compilers as well, but this should not be depended on.
  */
 
 #define	__CHAR_BIT	8		/* number of bits in a char */
@@ -49,13 +44,13 @@
 #define	__SCHAR_MAX	0x7f		/* max value for a signed char */
 #define	__SCHAR_MIN	(-0x7f - 1)	/* min value for a signed char */
 
-#define	__UCHAR_MAX	0xffU		/* max value for an unsigned char */
+#define	__UCHAR_MAX	0xff		/* max value for an unsigned char */
 
-#define	__USHRT_MAX	0xffffU		/* max value for an unsigned short */
+#define	__USHRT_MAX	0xffff		/* max value for an unsigned short */
 #define	__SHRT_MAX	0x7fff		/* max value for a short */
 #define	__SHRT_MIN	(-0x7fff - 1)	/* min value for a short */
 
-#define	__UINT_MAX	0xffffffffU	/* max value for an unsigned int */
+#define	__UINT_MAX	0xffffffff	/* max value for an unsigned int */
 #define	__INT_MAX	0x7fffffff	/* max value for an int */
 #define	__INT_MIN	(-0x7fffffff - 1)	/* min value for an int */
 
@@ -63,10 +58,11 @@
 #define	__LONG_MAX	0x7fffffffffffffffL	/* max for a long */
 #define	__LONG_MIN	(-0x7fffffffffffffffL - 1) /* min for a long */
 
-			/* max value for an unsigned long long */
+/* Long longs have the same size but not the same type as longs. */
+			/* max for an unsigned long long */
 #define	__ULLONG_MAX	0xffffffffffffffffULL
-#define	__LLONG_MAX	0x7fffffffffffffffLL	/* max value for a long long */
-#define	__LLONG_MIN	(-0x7fffffffffffffffLL - 1)  /* min for a long long */
+#define	__LLONG_MAX	0x7fffffffffffffffLL	/* max for a long long */
+#define	__LLONG_MIN	(-0x7fffffffffffffffLL - 1) /* min for a long long */
 
 #define	__SSIZE_MAX	__LONG_MAX	/* max value for a ssize_t */
 
@@ -75,18 +71,15 @@
 #define	__OFF_MAX	__LONG_MAX	/* max value for an off_t */
 #define	__OFF_MIN	__LONG_MIN	/* min value for an off_t */
 
-/* Quads and longs are the same on AArch64.  Ensure they stay in sync. */
-#define	__UQUAD_MAX	__ULONG_MAX	/* max value for a uquad_t */
-#define	__QUAD_MAX	__LONG_MAX	/* max value for a quad_t */
-#define	__QUAD_MIN	__LONG_MIN	/* min value for a quad_t */
+/* Quads and longs are the same size.  Ensure they stay in sync. */
+#define	__UQUAD_MAX	(__ULONG_MAX)	/* max value for a uquad_t */
+#define	__QUAD_MAX	(__LONG_MAX)	/* max value for a quad_t */
+#define	__QUAD_MIN	(__LONG_MIN)	/* min value for a quad_t */
 
 #define	__LONG_BIT	64
 #define	__WORD_BIT	32
 
-/*
- * Minimum signal stack size. The current signal frame
- * for i386 is 408 bytes large.
- */
-#define	__MINSIGSTKSZ	(512 * 4)
+/* Minimum signal stack size. */
+#define	__MINSIGSTKSZ	(1024 * 4)
 
 #endif /* !_MACHINE__LIMITS_H_ */

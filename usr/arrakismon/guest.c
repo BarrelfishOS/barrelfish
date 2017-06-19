@@ -14,6 +14,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <sys/param.h>
+
 #include "vmkitmon.h"
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/lmp_endpoints.h>
@@ -213,7 +215,7 @@ initialize_iopm (struct guest *self) {
     // intercept all IO port accesses (for now)
 #ifdef CONFIG_SVM
     memset((void*)self->iopm_va, 0xFF, IOPM_SIZE);
-#else 
+#else
     memset((void*)self->iobmp_a_va, 0xFF, IOBMP_A_SIZE);
     memset((void*)self->iobmp_b_va, 0xFF, IOBMP_B_SIZE);
 #endif

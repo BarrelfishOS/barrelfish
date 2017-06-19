@@ -15,7 +15,7 @@
 #include <vfs/vfs_path.h>
 #include "posixcompat.h"
 
-int mkdir(const char *pathname, int mode)
+int mkdir(const char *pathname, mode_t mode)
 {
     char *path = vfs_path_mkabs(pathname);
     assert(path != NULL);

@@ -14,7 +14,6 @@
                   cFiles = [ "arranet.c", "inet_chksum.c", "ip_addr.c" ],
                   flounderDefs = [ "acpi", "net_queue_manager" ],
                   flounderBindings = [ "acpi" ],
-                  flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
-                  addLibraries = [ "acpi_client", "skb" ]
+                  addLibraries = [ "acpi_client", "skb", "lwip" ]
                 }
 ]

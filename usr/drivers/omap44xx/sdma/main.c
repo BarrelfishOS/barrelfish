@@ -23,6 +23,8 @@
 #include "sdma.h"
 #include "omap_sdma.h"
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
+
 // Channel State. Filled by the interrupt callback, read by the request task.
 static struct {
     awe_t *request;
@@ -418,8 +420,8 @@ int main(int argc, char **argv)
     errval_t err;
     lvaddr_t dev_base;
 
-    err = map_device_register( OMAP44XX_MAP_L4_CFG_SDMA, 
-			       OMAP44XX_MAP_L4_CFG_SDMA_SIZE, 
+    err = map_device_register( OMAP44XX_MAP_L4_CFG_SDMA,
+			       OMAP44XX_MAP_L4_CFG_SDMA_SIZE,
 			       &dev_base);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "unable to map SDMA registers");

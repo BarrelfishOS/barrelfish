@@ -18,7 +18,9 @@
  */
 
 #include <stdio.h>
+#include <sys/param.h>
 #include <barrelfish/barrelfish.h>
+#include <netinet/in.h>
 #include <lwip/tcp.h>
 #include <lwip/init.h>
 #include <netbench/netbench.h>
@@ -611,4 +613,3 @@ uint64_t get_time_delta(uint64_t *l_ts)
     return delta;
     //  return delta / (2800 * 1000);
 } // end function: get_time_delta
-

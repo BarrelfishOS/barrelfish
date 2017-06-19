@@ -20,7 +20,7 @@
 #include <bench/bench.h>
 
 /* includes for ip address and lwip wrappers */
-#include <ipv4/lwip/inet.h>
+#include <lwip/inet.h>
 #include <lwip/init.h>
 
 /* bulk transfer facilities */
@@ -347,4 +347,3 @@ void run_test(struct bulk_channel *txc, struct bulk_channel *rxc, void *block_se
 }
 #endif //< BLOCK_BENCH_ENABLE
 #endif //< RUN_NET
-

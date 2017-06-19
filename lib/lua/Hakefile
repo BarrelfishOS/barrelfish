@@ -14,10 +14,8 @@
     build library {
         target = "lua",
         cFiles = concat [ find cInDir dir | dir <- ["src"] ],
-        addLibraries = libDeps [ 
-            "posixcompat"
-        ],
+        addLibraries = [ "posixcompat" ],
         addCFlags = ["-DLUA_COMPAT_ALL"],
-        addIncludes = ["/include/lua"]
+        addIncludes = [ "/include/lua" ]
     }
 ]

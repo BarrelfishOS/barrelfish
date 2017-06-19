@@ -5,19 +5,19 @@
  * License Version 1.1 (the "License"); you may not use this file except
  * in compliance with the License.  You may obtain a copy of the License
  * at www.eclipse-clp.org/license.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied.  See
  * the License for the specific language governing rights and limitations
- * under the License. 
- * 
- * The Original Code is  The ECLiPSe Constraint Logic Programming System. 
- * The Initial Developer of the Original Code is  Cisco Systems, Inc. 
+ * under the License.
+ *
+ * The Original Code is  The ECLiPSe Constraint Logic Programming System.
+ * The Initial Developer of the Original Code is  Cisco Systems, Inc.
  * Portions created by the Initial Developer are
  * Copyright (C) 2002-2006 Cisco Systems, Inc.  All Rights Reserved.
- * 
- * Contributor(s): 
- * 
+ *
+ * Contributor(s):
+ *
  * END LICENSE BLOCK */
 
 /*
@@ -44,7 +44,7 @@
 ** PITFALLS TO WATCH FOR when using rounding modes.
 **
 **  1.  Unexpected extra roundings.
-** 
+**
 **      The FPU may by default use more precision internally than is used
 **      when a floating-point number is stored in memory (e.g. i386).  This
 **      means it is possible for rounding to occur twice: once when an
@@ -136,20 +136,20 @@
 /* copied from include/oldc/ieeefp.h */
 #define FP_RND_FLD      0xc00   /* rounding control field */
 #define FP_RND_OFF      10      /* rounding control offset */
-static inline fp_rnd fpgetround(void)
+static inline fp_rnd_t fpgetround(void)
 {
     unsigned int cw;
     __asm volatile ("fnstcw %0" : "=m" (*&cw));
-    return (fp_rnd)((cw & FP_RND_FLD) >> FP_RND_OFF);
+    return (fp_rnd_t)((cw & FP_RND_FLD) >> FP_RND_OFF);
 }
 
-static inline fp_rnd fpsetround(fp_rnd newround)
+static inline fp_rnd_t fpsetround(fp_rnd_t newround)
 {
-    fp_rnd p;
+    fp_rnd_t p;
     unsigned int cw, newcw;
 
     __asm volatile ("fnstcw %0" : "=m" (*&cw));
-    p = (fp_rnd)((cw & FP_RND_FLD) >> FP_RND_OFF);
+    p = (fp_rnd_t)((cw & FP_RND_FLD) >> FP_RND_OFF);
     newcw = cw & ~FP_RND_FLD;
     newcw |= (newround << FP_RND_OFF) & FP_RND_FLD;
     __asm volatile ("fldcw %0" :: "m" (*&newcw));
@@ -161,14 +161,14 @@ static inline fp_rnd fpsetround(fp_rnd newround)
 
 #include "ieeefp.h"
 
-static inline fp_rnd fpgetround(void)
+static inline fp_rnd_t fpgetround(void)
 {
     unsigned int fpscr;
     __asm __volatile("vmrs %0, fpscr" : "=&r"(fpscr));
     return ((fpscr >> 22) & 3);
 }
 
-static inline fp_rnd fpsetround(fp_rnd rnd_dir)
+static inline fp_rnd_t fpsetround(fp_rnd_t rnd_dir)
 {
     unsigned int old, new;
     __asm __volatile("vmrs %0, fpscr" : "=&r"(old));
@@ -183,7 +183,7 @@ static inline fp_rnd fpsetround(fp_rnd rnd_dir)
 
     #include <float.h>
 
-    /* added = 0 assignment on declaration to work around MinGW bug 
+    /* added = 0 assignment on declaration to work around MinGW bug
        with gcc 4.2 that only seem to generate entry for DATA items
        in .def file if variable is assigned during declaration
                       Kish Shen 2010-09-24
@@ -209,7 +209,7 @@ static inline fp_rnd fpsetround(fp_rnd rnd_dir)
 
 # if defined(__x86_64) && defined(__SSE_MATH__)
 
-    /* 
+    /*
     ** On x86_64, gcc by default uses the SSE unit to compile floating
     ** point arithmetic, i.e. -mfpmath=sse rather than -mfpmath=387.
     ** The code in x86_64's fpu_control.h does however currently not
@@ -310,9 +310,9 @@ static inline fp_rnd fpsetround(fp_rnd rnd_dir)
     #include <ieeefp.h>
 
     #define Declare_Rounding_Control_State \
-	fp_rnd ec_fpu_round_orig_;
+	fp_rnd_t ec_fpu_round_orig_;
 
-    extern fp_rnd ec_fpu_round_orig_;
+    extern fp_rnd_t ec_fpu_round_orig_;
 
     #define init_rounding_modes() { \
 		ec_fpu_round_orig_ = fpgetround(); \
@@ -336,7 +336,7 @@ static inline fp_rnd fpsetround(fp_rnd rnd_dir)
 
     /*
     ** Explanation of Alpha FPU Control Register contents:
-    ** 
+    **
     ** Bits   Meaning
     ** 63     Summary (bitwise or) of 57-52
     ** 62-60  Trap flags (don't touch)
@@ -395,7 +395,7 @@ static inline fp_rnd fpsetround(fp_rnd rnd_dir)
 
 # ifndef __POWERPC__
 /* This version uses standard C99 functions. Unfortunately we have reports
-   that these functions are not defined for MacOS X 10.1, even though Apple's on-line 
+   that these functions are not defined for MacOS X 10.1, even though Apple's on-line
    documentation claim that they are available from 10.0 onwards. There may also be issues
    with interaction with gcc's optimisation.
    Intel Macs are only publicly available from 10.5, so assume this code will work.
@@ -519,4 +519,3 @@ static inline fp_rnd fpsetround(fp_rnd rnd_dir)
 
 extern double ec_ieee_up ARGS((double));
 extern double ec_ieee_down ARGS((double));
-

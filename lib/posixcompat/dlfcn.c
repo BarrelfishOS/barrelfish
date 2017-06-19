@@ -10,6 +10,7 @@
 #include <dlfcn.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/link_elf.h>
 #include "posixcompat.h"
 
 static struct function_entry *ftable = 0;
@@ -77,4 +78,12 @@ int dladdr (const void *address, Dl_info *info)
   return result;
 #endif
   return 0;
+}
+
+#pragma weak _rtld_addr_phdr
+int
+_rtld_addr_phdr(const void *addr, struct dl_phdr_info *phdr_info)
+{
+
+	return (0);
 }

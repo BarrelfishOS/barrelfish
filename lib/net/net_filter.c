@@ -17,7 +17,7 @@
 #include <if/net_filter_defs.h>
 #include <if/net_filter_rpcclient_defs.h>
 
-#include "include/net/net_filter.h"
+#include <net/net_filter.h>
 
 #include "networking_internal.h"
 #include "debug.h"

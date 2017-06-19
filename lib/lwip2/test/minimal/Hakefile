@@ -1,0 +1,20 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2012, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+-- Attn: Systems Group.
+--
+-- Hakefile for usr/angler
+--
+--------------------------------------------------------------------------
+
+[ build application { target = "lwipmin",
+                      cFiles = [ "main.c",
+                     --   "/lib/lwip2/src/apps/snmp_private_mib/lwip_prvmib.c",
+                        "/lib/lwip2/src/apps/tcpecho_raw/tcpecho_raw.c",
+                        "/lib/lwip2/src/apps/udpecho_raw/udpecho_raw.c" ],
+                      addLibraries = libDeps [ "lwip2" ]
+                    } ]

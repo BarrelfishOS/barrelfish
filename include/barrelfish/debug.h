@@ -20,6 +20,7 @@
 #include <errors/errno.h>
 #include <barrelfish/caddr.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <barrelfish_kpi/registers_arch.h>
 
 __BEGIN_DECLS

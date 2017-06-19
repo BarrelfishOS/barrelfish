@@ -16,7 +16,7 @@
                       flounderDefs = [ "acpi" ],
                       flounderBindings = [ "acpi" ],
                       flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
-                      addLibraries = libDeps [ "acpi_client", "skb", "pci" ],
+                      addLibraries = libDeps [ "acpi_client", "skb", "pci", "lwip" ],
                       architectures = [ "x86_64", "x86_32" ]
                     },
   build library { target = "megaraid",
@@ -26,7 +26,7 @@
                       flounderDefs = [ "acpi" ],
                       flounderBindings = [ "acpi" ],
                       flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
-                      addLibraries = libDeps [ "acpi_client", "skb", "pci" ],
+                      addLibraries = libDeps [ "acpi_client", "skb", "pci", "lwip" ],
                       architectures = [ "x86_64", "x86_32", "armv8" ]
                     }
 ]

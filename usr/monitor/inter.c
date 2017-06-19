@@ -15,6 +15,7 @@
  */
 
 #include <inttypes.h>
+#include <sys/param.h>
 #include <monitor.h>
 #include <barrelfish/dispatch.h>
 #include <trace/trace.h>

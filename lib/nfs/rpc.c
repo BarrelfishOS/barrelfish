@@ -12,6 +12,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <nfs/xdr.h>
 #include <lwip/pbuf.h>
 #include <lwip/udp.h>
 #include <assert.h>
@@ -29,7 +30,6 @@ bool rdtscp_flag;
 #define FALSE   false
 #define TRUE    true
 
-#include <nfs/xdr.h>
 #include "rpc.h"
 #include "rpc_debug.h"
 #include "xdr_pbuf.h"

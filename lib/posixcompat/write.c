@@ -17,7 +17,8 @@
 #include "posixcompat.h"
 #include "pty.h"
 
-int write(int fd, const void *buf, size_t len)
+__weak_reference(write, _write);
+ssize_t write(int fd, const void *buf, size_t len)
 {
     int ret;
     struct fdtab_entry *e = fdtab_get(fd);

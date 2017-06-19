@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/param.h>
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>

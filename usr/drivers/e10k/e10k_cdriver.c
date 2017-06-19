@@ -22,6 +22,7 @@
 #ifdef LIBRARY
 #       include <netif/e1000.h>
 #endif
+#include <arpa/inet.h>
 
 #include <if/e10k_defs.h>
 #include <if/e10k_vf_defs.h>
@@ -1270,7 +1271,7 @@ static void resend_interrupt(void* arg)
     // If the queue is busy, there is already an oustanding message
     if (err_is_fail(err) && err != FLOUNDER_ERR_TX_BUSY) {
         USER_PANIC("Error when sending interrupt %s \n", err_getstring(err));
-    } 
+    }
 }
 
 /** Here are the global interrupts handled. */
@@ -1290,9 +1291,9 @@ static void interrupt_handler(void* arg)
             if (queues[i].use_irq && queues[i].devif != NULL) {
                 err = queues[i].devif->tx_vtbl.interrupt(queues[i].devif, NOP_CONT, i);
                 if (err_is_fail(err)) {
-                    err = queues[i].devif->register_send(queues[i].devif, 
+                    err = queues[i].devif->register_send(queues[i].devif,
                                                          get_default_waitset(),
-                                                         MKCONT(resend_interrupt, 
+                                                         MKCONT(resend_interrupt,
                                                                 (void*)i));
                 }
             }
@@ -1590,12 +1591,12 @@ static void request_vf_number(struct e10k_vf_binding *b)
 }
 
 
-static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b, 
-                                    struct capref tx_frame, struct capref txhwb_frame, 
-                                    struct capref rx_frame, uint32_t rxbufsz, 
-                                    int16_t msix_intvec, uint8_t msix_intdest, 
+static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
+                                    struct capref tx_frame, struct capref txhwb_frame,
+                                    struct capref rx_frame, uint32_t rxbufsz,
+                                    int16_t msix_intvec, uint8_t msix_intdest,
                                     bool use_irq, bool use_rsc, bool default_q,
-                                    uint64_t *mac, int32_t *qid, struct capref *regs, 
+                                    uint64_t *mac, int32_t *qid, struct capref *regs,
                                     errval_t *ret_err)
 {
     // TODO: Make sure that rxbufsz is a power of 2 >= 1024
@@ -1627,7 +1628,7 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
 
     DEBUG("create queue(%"PRIu8": interrupt %d )\n", n, use_irq);
 
-    if (n == -1) {  
+    if (n == -1) {
         *ret_err = NIC_ERR_ALLOC_QUEUE;
         return NIC_ERR_ALLOC_QUEUE;
     }
@@ -1657,17 +1658,17 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
 
     *regs = *regframe;
     *qid = n;
-    *mac = d_mac;    
+    *mac = d_mac;
 
     DEBUG("[%d] Queue int done\n", n);
     *ret_err = SYS_ERR_OK;
     return SYS_ERR_OK;
 }
 
-static void cd_create_queue(struct e10k_vf_binding *b, 
-                            struct capref tx_frame, struct capref txhwb_frame, 
-                            struct capref rx_frame, uint32_t rxbufsz, 
-                            int16_t msix_intvec, uint8_t msix_intdest, 
+static void cd_create_queue(struct e10k_vf_binding *b,
+                            struct capref tx_frame, struct capref txhwb_frame,
+                            struct capref rx_frame, uint32_t rxbufsz,
+                            int16_t msix_intvec, uint8_t msix_intdest,
                             bool use_irq, bool use_rsc, bool default_q)
 {
 
@@ -1677,8 +1678,8 @@ static void cd_create_queue(struct e10k_vf_binding *b,
 
     struct capref regs;
 
-    err = cd_create_queue_rpc(b, tx_frame, txhwb_frame, rx_frame, 
-                              rxbufsz, msix_intvec, msix_intdest, use_irq, use_rsc, 
+    err = cd_create_queue_rpc(b, tx_frame, txhwb_frame, rx_frame,
+                              rxbufsz, msix_intvec, msix_intdest, use_irq, use_rsc,
                               default_q, &mac, &queueid, &regs, &err);
 
     err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, err);
@@ -1729,7 +1730,7 @@ static void initialize_vfif(void)
 		       IDC_BIND_FLAGS_DEFAULT);
     assert(err_is_ok(r));
 
-    r = net_filter_export(NULL, net_filter_export_cb, net_filter_connect_cb, 
+    r = net_filter_export(NULL, net_filter_export_cb, net_filter_connect_cb,
                           get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
     assert(err_is_ok(r));
 }

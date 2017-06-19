@@ -19,6 +19,7 @@ int dup(int oldfd)
     return fcntl(oldfd, F_DUPFD, 0);
 }
 
+__weak_reference(dup2, _dup2);
 int dup2(int oldfd, int newfd)
 {
     if(newfd < 0 || newfd >= MAX_FD) {

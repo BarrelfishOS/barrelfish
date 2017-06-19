@@ -14,6 +14,6 @@
     build application {
         target = "tests/luatest",
         cFiles = (find withSuffices [".c"]),
-        addLibraries = libDeps ["lua"]
+        addLibraries = libDeps ["lua", "posixcompat"]
     }
 ]

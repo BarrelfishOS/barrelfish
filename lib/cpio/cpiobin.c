@@ -17,7 +17,7 @@
 #include <string.h>
 
 #include <barrelfish/static_assert.h>
-#include <bitmacros.h> // for MIN
+#include <sys/param.h> // for MIN
 
 #include "cpiobin.h"
 

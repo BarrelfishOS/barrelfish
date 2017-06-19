@@ -1,7 +1,3 @@
-/**
- * \file sys/_iovec.h
- */
-
 /*-
  * Copyright (c) 1982, 1986, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -47,7 +43,6 @@ typedef	__size_t	size_t;
 struct iovec {
 	void	*iov_base;	/* Base address. */
 	size_t	 iov_len;	/* Length. */
-        void    *iov_opaque;	/* XXX: Arranet extension. */
 };
 
 #endif /* !_SYS__IOVEC_H_ */

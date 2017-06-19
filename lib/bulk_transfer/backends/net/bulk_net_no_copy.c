@@ -14,7 +14,6 @@
 #include <bulk_transfer/bulk_transfer.h>
 #include <bulk_transfer/bulk_net.h>
 #include <bulk_transfer/bulk_allocator.h>
-#include <ipv4/lwip/inet.h>
 
 #include "../../bulk_pool.h"
 #include "../../bulk_buffer.h"
@@ -1581,4 +1580,3 @@ struct bulk_implementation *bulk_net_get_impl_no_copy(void)
 {
     return &bulk_net_implementation;
 }
-
