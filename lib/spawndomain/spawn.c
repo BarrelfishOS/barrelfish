@@ -754,8 +754,10 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
     }
 
     // Add vspace-pspace mapping to environment
-    char envstr[2048];
+    char *envstrp = NULL;
 #ifdef __x86__  // SK: si->vregions only valid on x86
+    char envstr[2048];
+    envstrp = envstr;
     snprintf(envstr, 2048, "ARRAKIS_PMAP=");
     for(int i = 0; i < si->vregions; i++) {
         struct memobj_anon *m = (struct memobj_anon *)si->vregion[i]->memobj;
@@ -784,7 +786,7 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
         }
 
         if(myenv[i] == NULL) {
-            myenv[i] = envstr;
+            myenv[i] = envstrp;
             myenv[i+1] = NULL;
             break;
         }
