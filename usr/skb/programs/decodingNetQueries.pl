@@ -8,73 +8,75 @@
 % Attn: Systems Group.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+:- module(decodingNetQueries).
+:- export findTargetRegion/2.
+:- export findOriginRegion/2.
+:- export findDeviceRegion/3.
+:- export findMemoryRegion/3.
+:- export findSharedMemoryRegion/3.
+:- export findDeviceId/3.
+:- export findInterruptLine/3.
+
 :- use_module(decodingNet).
 
-%% Printing
-printRange((SrcId,SrcMin,SrcMax)) :-
-    printf("%a [0x%16R..0x%16R]",
-        [ SrcId,SrcMin,SrcMax ]
-    ).
 
-printSrcDestRanges(SrcRange,DestRange) :-
-    printRange(SrcRange),
-    write(" -> "),
-    printRange(DestRange),
-    writeln("").
-
-printSharedRanges(Range1,SharedRange,Range2) :-
-    printRange(Range1),
-    write(" -> "),
-    printRange(SharedRange),
-    write(" <- "),
-    printRange(Range2),
-    writeln("").
-
-%% Helper predicates
-resolveToRange(SrcName,DestName,SrcRange,DestRange) :-
+%%%%%%%%%%%%%%%%%%%%%%%
+%% Helper predicates %%
+%%%%%%%%%%%%%%%%%%%%%%%
+resolveToRegion(SrcName,DestName,SrcRegion,DestRegion) :-
     resolve(SrcName,DestName),
-    toRange(SrcName,SrcRange),
-    toRange(DestName,DestRange).
+    toRegion(SrcName,SrcRegion),
+    toRegion(DestName,DestRegion).
 
-all(Pred) :- findall(_,Pred,_).
 
-%% Queries
-findTargetRange(NodeId) :-
+%%%%%%%%%%%%%
+%% Queries %%
+%%%%%%%%%%%%%
+findTargetRegion(NodeId,Result) :-
     SrcName = name(NodeId,_),
-    resolveToRange(SrcName,_,SrcRange,DestRange),
-    printSrcDestRanges(SrcRange,DestRange).
+    resolveToRegion(SrcName,_,SrcRegion,DestRegion),
+    Result = (SrcRegion,DestRegion).
 
-findOriginRange(NodeId) :-
+findOriginRegion(NodeId,Result) :-
     DestName = name(NodeId,_),
-    resolveToRange(_,DestName,SrcRange,DestRange),
-    printSrcDestRanges(SrcRange,DestRange).
+    resolveToRegion(_,DestName,SrcRegion,DestRegion),
+    Result = (SrcRegion,DestRegion).
 
-findDeviceFrame(NodeId,DeviceId) :-
+%% Address space queries
+findDeviceRegion(NodeId,DeviceId,Result) :-
     SrcName = name(NodeId,_),
     DestName = name(DeviceId,_),
     net(DeviceId,node(device,_,_,_)),
-    resolveToRange(SrcName,DestName,SrcRange,DestRange),
-    printSrcDestRanges(SrcRange,DestRange).
+    resolveToRegion(SrcName,DestName,SrcRegion,DestRegion),
+    Result = (SrcRegion,DestRegion).
 
-findInterruptLine(NodeId,DeviceId) :-
-    SrcName = name(DeviceId,_),
-    DestName = name(NodeId,_),
-    resolveToRange(SrcName,DestName,SrcRange,DestRange),
-    printSrcDestRanges(SrcRange,DestRange).
+findMemoryRegion(NodeId,MemoryId,Result) :-
+    SrcName = name(NodeId,_),
+    DestName = name(MemoryId,_),
+    net(MemoryId,node(memory,_,_,_)),
+    resolveToRegion(SrcName,DestName,SrcRegion,DestRegion),
+    Result = (SrcRegion,DestRegion).
 
-findSharedMemoryFrame(NodeId,DeviceId) :-
+findSharedMemoryRegion(NodeId,DeviceId,Result) :-
     NodeName = name(NodeId,_),
     DeviceName = name(DeviceId,_),
     SharedName = name(SharedId,_),
     net(SharedId,node(memory,_,_,_)),
     resolve(NodeName,SharedName),
     resolve(DeviceName,SharedName),
-    toRange(NodeName,NodeRange),
-    toRange(SharedName,SharedRange),
-    toRange(DeviceName,DeviceRange),
-    printSharedRanges(NodeRange,SharedRange,DeviceRange).
+    toRegion(NodeName,NodeRegion),
+    toRegion(SharedName,SharedRegion),
+    toRegion(DeviceName,DeviceRegion),
+    Result = (NodeRegion,DeviceRegion,SharedRegion).
 
-findDeviceId(NodeId,Addr) :-
+findDeviceId(NodeId,Addr,Result) :-
     SrcName = name(NodeId,Addr),
     resolve(SrcName,name(DeviceId,_)),
-    writeln(DeviceId).
+    Result = DeviceId.
+
+%% Interrupt queries
+findInterruptLine(NodeId,DeviceId,Result) :-
+    SrcName = name(DeviceId,_),
+    DestName = name(NodeId,_),
+    resolveToRegion(SrcName,DestName,SrcRegion,DestRegion),
+    Result = (SrcRegion,DestRegion).

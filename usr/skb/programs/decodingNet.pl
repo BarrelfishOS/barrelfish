@@ -12,16 +12,14 @@
 :- export net/2.
 :- export loadnet/1.
 :- export resolve/2.
-:- export toRange/2.
+:- export toRegion/2.
 
 :- lib(ic).
 
 :- dynamic net/2.
 
 %% Load a precompiled decoding net
-loadnet(Name) :-
-    concat_string(["sockeyefacts/",Name],File),
-    [File].
+loadnet(File) :- [File].
 
 %% Address range in block
 blockRange(block(Base,Limit),Range) :-
@@ -97,8 +95,9 @@ resolve(SrcName,DestName) :-
     ),
     acceptedName(DestName).
 
-toRange(Name,Range) :-
+toRegion(Name,Region) :-
     name(Id,Addr) = Name,
     get_min(Addr,Min),get_max(Addr,Max),
-    Range = (Id, Min, Max).
+    Size is Max - Min + 1,
+    Region = (Id, Min, Size).
   
