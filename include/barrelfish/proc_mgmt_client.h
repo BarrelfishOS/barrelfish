@@ -34,6 +34,16 @@ errval_t proc_mgmt_client_lmp_bind(struct proc_mgmt_lmp_binding *lmpb,
 errval_t proc_mgmt_bind_client(void);
 
 errval_t proc_mgmt_add_spawnd(iref_t iref, coreid_t core_id);
+errval_t proc_mgmt_spawn_program(coreid_t core_id, const char *path,
+	                             char *const argv[], char *const envp[],
+                                 uint8_t flags, struct capref *ret_domain_cap);
+errval_t proc_mgmt_spawn_program_with_caps(coreid_t core_id, const char *path,
+                                 char *const argv[], char *const envp[],
+                                 struct capref inheritcn_cap,
+                                 struct capref argcn_cap, uint8_t flags,
+                                 struct capref *ret_domain_cap);
+errval_t proc_mgmt_span(coreid_t core_id);
+errval_t proc_mgmt_kill(struct capref domain_cap);
 
 __END_DECLS
 

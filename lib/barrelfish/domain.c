@@ -55,20 +55,6 @@ struct remote_core_state {
     size_t pagesize;              ///< the pagesize to be used for the heap
 };
 
-///< Struct for spanning domains state machine
-struct span_domain_state {
-    struct thread *thread;              ///< Thread to run on remote core
-    uint8_t core_id;                    ///< Id of the remote core
-    errval_t err;                       ///< To propagate error value
-    domain_spanned_callback_t callback; ///< Callback for when domain has spanned
-    void *callback_arg;                 ///< Optional argument to pass with callback
-    struct capref frame;                ///< Dispatcher frame
-    struct capref vroot;                ///< VRoot cap
-    struct event_queue_node event_qnode;       ///< Event queue node
-    struct waitset_chanstate initev;    ///< Dispatcher initialized event
-    bool initialized;                   ///< True if remote initialized
-};
-
 ///< Array of all interdisp IREFs in the domain
 static iref_t allirefs[MAX_CPUS];
 
@@ -444,6 +430,7 @@ static int interdisp_msg_handler(void *arg)
     struct waitset *ws = arg;
     assert(ws != NULL);
 
+    debug_printf("Looping on inter-dispatcher message handler\n");
     for(;;) {
         errval_t err = event_dispatch(ws);
         if(err_is_fail(err)) {
@@ -505,8 +492,6 @@ static int remote_core_init_enabled(void *arg)
     /* XXX: create a thread that will handle the default waitset */
     st->default_waitset_handler = thread_create(span_slave_thread, NULL);
     assert(st->default_waitset_handler != NULL);
-
-
 
     return interdisp_msg_handler(&st->interdisp_ws);
 }
@@ -589,7 +574,6 @@ static void span_domain_reply(struct monitor_binding *mb,
     } else { /* Use debug_err if no callback registered */
         DEBUG_ERR(msgerr, "Failure in span_domain_reply");
     }
-    free(span_domain_state);
 }
 
 static void span_domain_request_sender(void *arg)
@@ -631,17 +615,14 @@ static void span_domain_request_sender_wrapper(void *st)
  */
 static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
                                                domain_spanned_callback_t callback,
-                                               void *callback_arg, size_t stack_size)
+                                               void *callback_arg, size_t stack_size,
+                                               struct span_domain_state **ret_span_state)
 {
     assert(core_id != disp_get_core_id());
 
     errval_t err;
     struct domain_state *domain_state = get_domain_state();
-    struct monitor_binding *mb = get_monitor_binding();
     assert(domain_state != NULL);
-
-    /* Set reply handler */
-    mb->rx_vtbl.span_domain_reply = span_domain_reply;
 
     while(domain_state->iref == 0) { /* If not initialized, wait */
         messages_wait_and_handle_next();
@@ -773,19 +754,10 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
         assert(domain_state->default_waitset_handler != NULL);
     }
 #endif
-    /* Wait to use the monitor binding */
-    struct monitor_binding *mcb = get_monitor_binding();
-    event_mutex_enqueue_lock(&mcb->mutex, &span_domain_state->event_qnode,
-                          (struct event_closure) {
-                              .handler = span_domain_request_sender_wrapper,
-                                  .arg = span_domain_state });
 
-    while(!span_domain_state->initialized) {
-        event_dispatch(get_default_waitset());
+    if (ret_span_state != NULL) {
+        *ret_span_state = span_domain_state;
     }
-
-    /* Free state */
-    free(span_domain_state);
 
     return SYS_ERR_OK;
 }
@@ -803,8 +775,51 @@ errval_t domain_new_dispatcher(coreid_t core_id,
                                domain_spanned_callback_t callback,
                                void *callback_arg)
 {
-    return domain_new_dispatcher_varstack(core_id, callback, callback_arg,
-                                          THREADS_DEFAULT_STACK_BYTES);
+    struct span_domain_state *span_domain_state;
+    errval_t err = domain_new_dispatcher_varstack(core_id,
+                                                  callback, callback_arg,
+                                                  THREADS_DEFAULT_STACK_BYTES,
+                                                  &span_domain_state);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    /* Wait to use the monitor binding */
+    struct monitor_binding *mcb = get_monitor_binding();
+    /* Set reply handler */
+    mcb->rx_vtbl.span_domain_reply = span_domain_reply;
+    event_mutex_enqueue_lock(&mcb->mutex, &span_domain_state->event_qnode,
+                          (struct event_closure) {
+                              .handler = span_domain_request_sender_wrapper,
+                                  .arg = span_domain_state });
+
+    while(!span_domain_state->initialized) {
+        event_dispatch(get_default_waitset());
+    }
+
+    free(span_domain_state);
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Creates a dispatcher for a remote core, without running it.
+ *
+ * \param core_id   Id of the core to create the dispatcher on
+ * \param ret_state If non-null, will contain the spanned domain state, which
+ *                  can be used to retrieve the vroot and dispframe, as well as
+ *                  to check when the new dispatcher is up
+ *
+ * The new dispatcher is created with the same vroot, sharing the same vspace.
+ * The new dispatcher also has a urpc connection to the core that created it.
+ */
+errval_t domain_new_dispatcher_setup_only(coreid_t core_id,
+                                          struct span_domain_state **ret_state)
+{
+    assert(ret_state != NULL);
+    return domain_new_dispatcher_varstack(core_id, NULL, NULL,
+                                          THREADS_DEFAULT_STACK_BYTES,
+                                          ret_state);
 }
 
 errval_t domain_send_cap(coreid_t core_id, struct capref cap)

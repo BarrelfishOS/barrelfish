@@ -11,8 +11,10 @@
 --------------------------------------------------------------------------
 
 [ build application { target = "proc_mgmt",
-                      cFiles = [ "main.c", "service.c", "spawnd_state.c" ],
-                      addLibraries = libDeps [ "skb", "dist", "lwip" ],
+                      cFiles = [ "main.c", "service.c", "spawnd_state.c", 
+                                 "domain.c", "pending_clients.c" ],
+                      addLibraries = libDeps [ "skb", "dist", "lwip",
+                                               "collections" ],
                       flounderDefs = [ "monitor", "monitor_blocking" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]), 
                                             ("spawn",["rpcclient"]) ],
@@ -20,8 +22,10 @@
                       architectures = [ "x86_64", "x86_32" ]
                     },
   build application { target = "proc_mgmt",
-                      cFiles = [ "main.c", "service.c", "spawnd_state.c" ],
-                      addLibraries = libDeps [ "skb", "dist", "lwip" ],
+                      cFiles = [ "main.c", "service.c", "spawnd_state.c", 
+                                 "domain.c", "pending_clients.c" ],
+                      addLibraries = libDeps [ "skb", "dist", "lwip",
+                                               "collections" ],
                       flounderDefs = [ "monitor", "monitor_blocking"],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]), 
                                             ("spawn",["rpcclient"]) ],
@@ -29,8 +33,10 @@
                       architectures = [ "k1om" ]
                     },
   build application { target = "proc_mgmt",
-                      cFiles = [ "main.c", "service.c", "spawnd_state.c" ],
-                      addLibraries = libDeps [ "skb", "dist", "lwip" ],
+                      cFiles = [ "main.c", "service.c", "spawnd_state.c", 
+                                 "domain.c", "pending_clients.c" ],
+                      addLibraries = libDeps [ "skb", "dist", "lwip",
+                                               "collections" ],
                       flounderDefs = [ "monitor", "monitor_blocking"],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]), 
                                             ("spawn",["rpcclient"]) ],

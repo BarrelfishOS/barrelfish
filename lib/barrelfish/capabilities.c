@@ -153,6 +153,12 @@ struct capref cap_procmng = {
     .slot = TASKCN_SLOT_PROC_MNG
 };
 
+/// Domain ID cap.
+struct capref cap_domainid = {
+    .cnode = TASK_CNODE_INIT,
+    .slot = TASKCN_SLOT_DOMAINID
+};
+
 /// Root PML4 VNode
 struct capref cap_vroot = {
     .cnode = PAGE_CNODE_INIT,

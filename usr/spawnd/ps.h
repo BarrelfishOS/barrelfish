@@ -31,7 +31,9 @@ struct ps_entry {
     char *argv[MAX_CMDLINE_ARGS];
     char *argbuf;
     size_t argbytes;
-    struct capref rootcn_cap, dcb;
+    struct capref domain_cap;
+    struct capref rootcn_cap;
+    struct capref dcb;
     struct cnoderef rootcn;
     uint8_t exitcode;
     enum ps_status status;

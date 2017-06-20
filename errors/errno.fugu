@@ -654,6 +654,7 @@ errors spawn SPAWN_ERR_ {
     failure COPY_KERNEL_CAP     "Error copying Kernel cap",
     failure COPY_INHERITCN_CAP  "Error copying capability from inherited cnode",
     failure COPY_PROC_MNG_CAP   "Error copying ProcessManager cap",
+    failure COPY_DOMAIN_CAP     "Error copying domain cap",
 
     // make_runnable
     failure DISPATCHER_SETUP    "Dispatcher setup",
@@ -669,8 +670,18 @@ errors spawn SPAWN_ERR_ {
 
 // errors related to the process manager
 errors proc_mgmt PROC_MGMT_ERR_ {
-    failure NOT_MONITOR         "Received monitor-only request from non-monitor domain",
-    failure SPAWND_EXISTS       "Requested spawnd slot already exists",
+    failure NOT_MONITOR          "Received monitor-only request from non-monitor domain",
+    failure SPAWND_EXISTS        "Requested spawnd slot already exists",
+    failure INVALID_SPAWND       "Not connected to spawnd on the requested core",
+    failure CREATE_DOMAIN_CAP    "Failed to create new domain cap",
+    failure SPAWND_REQUEST       "Failed to send request to spawnd",
+    failure DOMAIN_CAP_HASH      "Failed to compute hash code for domain cap",
+    failure CREATE_CLIENTS_TABLE "Failed to create pending clients hash table",
+    failure CLIENTS_TABLE_FIND   "Failed to find requested client in pending clients table",
+    failure CREATE_DOMAIN_TABLE  "Failed to create domain hash table",
+    failure DOMAIN_TABLE_FIND    "Failed to find requested domain in domain table",
+    failure DOMAIN_NOT_RUNNING   "Domain is not currently running",
+    failure ALREADY_SPANNED      "Domain has already been spanned to the given core",
 };
 
 // errors from ELF library

@@ -12,15 +12,17 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/proc_mgmt_client.h>
 #include <barrelfish/spawn_client.h>
 #include <if/monitor_defs.h>
 #include <if/proc_mgmt_defs.h>
+#include <if/spawn_defs.h>
 
+#include "domain.h"
 #include "internal.h"
+#include "pending_clients.h"
 #include "spawnd_state.h"
 
 static void add_spawnd_handler(struct proc_mgmt_binding *b, coreid_t core_id,
@@ -46,14 +48,6 @@ static void add_spawnd_handler(struct proc_mgmt_binding *b, coreid_t core_id,
 
     debug_printf("Process manager bound with spawnd.%u on iref %u\n", core_id,
             iref);
-
-    err = spawnd_state_get_binding(core_id)->rpc_tx_vtbl.echo(
-            spawnd_state_get_binding(core_id),
-            SERVICE_BASENAME,
-            disp_get_current_core_id());
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "spawnd echo request failed");
-    }
 }
 
 static void add_spawnd_handler_non_monitor(struct proc_mgmt_binding *b,
@@ -63,43 +57,252 @@ static void add_spawnd_handler_non_monitor(struct proc_mgmt_binding *b,
                  err_getstring(PROC_MGMT_ERR_NOT_MONITOR));
 }
 
-// static errval_t spawn_handler(struct proc_mgmt_binding *b,
-//                           coreid_t core,
-//                           const char *path,
-//                           const char *argvbuf,
-//                           size_t argvbytes,
-//                           const char *envbuf,
-//                           size_t envbytes,
-//                           uint8_t flags,
-//                           errval_t *err,
-//                           struct capref *domainid_cap)
-// {
-//     return LIB_ERR_NOT_IMPLEMENTED;
-// }
+static void spawn_reply_handler(struct spawn_binding *b,
+                                struct capref domain_cap, errval_t spawn_err)
+{
+    struct pending_client cl;
+    errval_t err = pending_clients_release(domain_cap, &cl);
+    if (err_is_fail(err)) {
+        // This might be a kill request issued after a successful spawn/span
+        // followed by a local error in the process manager (see below). If that
+        // is the case, then we won't have a client, as it has already been
+        // released.
+        debug_printf("Unable to retrieve pending client based on domain cap "
+                     "returned by spawnd");
+        return;
+    }
 
-// static errval_t span_handler(struct proc_mgmt_binding *b,
-//                          struct capref domainid_cap,
-//                          coreid_t core,
-//                          struct capref vroot,
-//                          struct capref disp_mem,
-//                          errval_t *err)
-// {
-//     return LIB_ERR_NOT_IMPLEMENTED;
-// }
+    errval_t resp_err;
+    switch (cl.type) {
+        case ClientType_Spawn:
+            err = spawn_err;
+            if (err_is_ok(spawn_err)) {
+                err = domain_spawn(domain_cap, cl.core_id);
+            }
+            resp_err = cl.b->tx_vtbl.spawn_response(cl.b, NOP_CONT, err,
+                                                     domain_cap);
+            break;
 
-// static errval_t kill_handler(struct proc_mgmt_binding *b,
-//                          struct capref domainid_cap,
-//                          errval_t *err)
-// {
-//     return LIB_ERR_NOT_IMPLEMENTED;
-// }
+        case ClientType_SpawnWithCaps:
+            err = spawn_err;
+            if (err_is_ok(spawn_err)) {
+                err = domain_spawn(domain_cap, cl.core_id);
+            }
+            resp_err = cl.b->tx_vtbl.spawn_with_caps_response(cl.b, NOP_CONT,
+                                                               err, domain_cap);
+            break;
+
+        case ClientType_Span:
+            err = spawn_err;
+            if (err_is_ok(spawn_err)) {
+                err = domain_span(domain_cap, cl.core_id);
+            }
+            resp_err = cl.b->tx_vtbl.span_response(cl.b, NOP_CONT, err);
+            break;
+
+        default:
+            // TODO(razvan): Handle the other cases, e.g. kill.
+            debug_printf("Unknown client type %u\n", cl.type);
+            return;
+    }
+
+    if (err_is_ok(spawn_err) && err_is_fail(err)) {
+        // Spawnd has successfully completed its end of the operation, but
+        // there's been an error in the process manager's book-keeping
+        // of domains. Therefore, if the request was a spawn or span one, spawnd
+        // needs to be asked to stop the dispatcher which it has just enqueued.
+        if (cl.type == ClientType_Spawn ||
+            cl.type == ClientType_SpawnWithCaps ||
+            cl.type == ClientType_Span) {
+            struct spawnd_state *state = spawnd_state_get(cl.core_id);
+            assert(state != NULL);
+            struct spawn_binding *spb = state->b;
+            assert(spb != NULL);
+
+            err = spb->tx_vtbl.kill_request(spb, NOP_CONT, domain_cap);
+            if (err_is_fail(err)) {
+                // XXX: How severe is this? Maybe we want something more
+                // assertive than logging an error message.
+                DEBUG_ERR(err, "failed to send kill request for dangling "
+                          "dispatcher");
+            }
+        }
+    }
+
+    if (err_is_fail(resp_err)) {
+        DEBUG_ERR(resp_err, "failed to send response to client");
+    }
+}
+
+static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
+                                     enum ClientType type,
+                                     coreid_t core_id, const char *path,
+                                     const char *argvbuf, size_t argvbytes,
+                                     const char *envbuf, size_t envbytes,
+                                     struct capref inheritcn_cap,
+                                     struct capref argcn_cap, uint8_t flags,
+                                     struct capref *ret_domain_cap)
+{
+    assert(ret_domain_cap != NULL);
+
+    if (!spawnd_state_exists(core_id)) {
+        return PROC_MGMT_ERR_INVALID_SPAWND;
+    }
+
+    struct spawnd_state *state = spawnd_state_get(core_id);
+    assert(state != NULL);
+    struct spawn_binding *cl = state->b;
+    assert(cl != NULL);
+
+    struct capref domain_cap;
+    errval_t err = slot_alloc(&domain_cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "slot_alloc domain_cap");
+        return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
+    }
+    err = cap_retype(domain_cap, cap_procmng, 0, ObjType_Domain, 0, 1);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cap_retype domain_cap");
+        return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
+    }
+
+    err = pending_clients_add(domain_cap, b, type, core_id);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "pending_clients_add");
+        return err;
+    }
+
+    cl->rx_vtbl.spawn_reply = spawn_reply_handler;
+    if (capref_is_null(inheritcn_cap) && capref_is_null(argcn_cap)) {
+        err = cl->tx_vtbl.spawn_request(cl, NOP_CONT, domain_cap, path, argvbuf,
+                                        argvbytes, envbuf, envbytes, flags);
+    } else {
+        err = cl->tx_vtbl.spawn_with_caps_request(cl, NOP_CONT, domain_cap,
+                                                  path, argvbuf, argvbytes,
+                                                  envbuf, envbytes,
+                                                  inheritcn_cap, argcn_cap,
+                                                  flags);
+    }
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "sending spawn request");
+        pending_clients_release(domain_cap, NULL);
+        return err_push(err, PROC_MGMT_ERR_SPAWND_REQUEST);
+    }
+
+    return SYS_ERR_OK;
+}
+
+static void spawn_handler(struct proc_mgmt_binding *b, coreid_t core_id,
+                          const char *path, const char *argvbuf,
+                          size_t argvbytes, const char *envbuf, size_t envbytes,
+                          uint8_t flags)
+{
+    errval_t err, resp_err;
+    struct capref domain_cap;
+    err = spawn_handler_common(b, ClientType_Spawn, core_id, path, argvbuf,
+                               argvbytes, envbuf, envbytes, NULL_CAP, NULL_CAP,
+                               flags, &domain_cap);
+    if (err_is_ok(err)) {
+        // Will respond to client when we get the reply from spawnd.
+        return;
+    }
+
+    resp_err = b->tx_vtbl.spawn_response(b, NOP_CONT, err, NULL_CAP);
+    if (err_is_fail(resp_err)) {
+        DEBUG_ERR(resp_err, "failed to send spawn_response");
+    }
+}
+
+static void spawn_with_caps_handler(struct proc_mgmt_binding *b,
+                                    coreid_t core_id, const char *path,
+                                    const char *argvbuf, size_t argvbytes,
+                                    const char *envbuf, size_t envbytes,
+                                    struct capref inheritcn_cap,
+                                    struct capref argcn_cap, uint8_t flags)
+{
+    errval_t err, resp_err;
+    struct capref domain_cap;
+    err = spawn_handler_common(b, ClientType_SpawnWithCaps, core_id, path,
+                               argvbuf, argvbytes, envbuf, envbytes,
+                               inheritcn_cap, argcn_cap, flags, &domain_cap);
+    if (err_is_ok(err)) {
+        // Will respond to client when we get the reply from spawnd.
+        return;
+    }
+
+    resp_err = b->tx_vtbl.spawn_with_caps_response(b, NOP_CONT, err,
+                                                            NULL_CAP);
+    if (err_is_fail(resp_err)) {
+        DEBUG_ERR(resp_err, "failed to send spawn_with_caps_response");
+    }
+}
+
+static void span_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
+                         coreid_t core_id, struct capref vroot,
+                         struct capref dispframe)
+{
+    errval_t err, resp_err;
+    err = domain_can_span(domain_cap, core_id);
+    if (err_is_fail(err)) {
+        goto respond_with_err;
+    }
+
+    if (!spawnd_state_exists(core_id)) {
+        err = PROC_MGMT_ERR_INVALID_SPAWND;
+        goto respond_with_err;
+    }
+
+    struct spawnd_state *state = spawnd_state_get(core_id);
+    assert(state != NULL);
+    struct spawn_binding *cl = state->b;
+    assert(cl != NULL);
+
+    err = pending_clients_add(domain_cap, b, ClientType_Span, core_id);
+    if (err_is_fail(err)) {
+        goto respond_with_err;
+    }
+
+    cl->rx_vtbl.spawn_reply = spawn_reply_handler;
+    err = cl->tx_vtbl.span_request(cl, NOP_CONT, domain_cap, vroot, dispframe);
+    if (err_is_ok(err)) {
+        // Will respond to client when we get the reply from spawnd.
+        return;
+    } else {
+        DEBUG_ERR(err, "sending span request");
+        pending_clients_release(domain_cap, NULL);
+        err = err_push(err, PROC_MGMT_ERR_SPAWND_REQUEST);
+    }
+
+respond_with_err:
+    resp_err = b->tx_vtbl.span_response(b, NOP_CONT, err);
+    if (err_is_fail(resp_err)) {
+        DEBUG_ERR(resp_err, "failed to send span_response");
+    }
+}
+
+static void kill_handler(struct proc_mgmt_binding *b, struct capref domain_cap)
+{
+    struct domain_entry *entry;
+    errval_t err = domain_get_by_cap(domain_cap, &entry);
+    if (err_is_ok(err)) {
+        domain_send_stop(entry);
+    }
+}
 
 static struct proc_mgmt_rx_vtbl monitor_vtbl = {
-    .add_spawnd = add_spawnd_handler
+    .add_spawnd           = add_spawnd_handler,
+    .spawn_call           = spawn_handler,
+    .spawn_with_caps_call = spawn_with_caps_handler,
+    .span_call            = span_handler,
+    .kill_call            = kill_handler
 };
 
 static struct proc_mgmt_rx_vtbl non_monitor_vtbl = {
-    .add_spawnd = add_spawnd_handler_non_monitor
+    .add_spawnd           = add_spawnd_handler_non_monitor,
+    .spawn_call           = spawn_handler,
+    .spawn_with_caps_call = spawn_with_caps_handler,
+    .span_call            = span_handler,
+    .kill_call            = kill_handler
 };
 
 static errval_t alloc_ep_for_monitor(struct capref *ep)
@@ -149,29 +352,6 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     err = nameservice_register(SERVICE_BASENAME, iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "nameservice_register failed");
-    }
-
-    // Try to create a few domains?
-    // TODO(razvan): Remove this.
-    size_t num_domains = 5;
-    struct capref domain_caps[num_domains];
-    for (size_t i = 1; i <= num_domains; ++i) {
-        err = slot_alloc(&domain_caps[i]);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "slot_alloc domain_cap");
-        }
-        err = cap_retype(domain_caps[i], cap_procmng, 0, ObjType_Domain, 0, 1);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "cap_retype domain_cap from cap_procmng");
-        }
-        struct capability ret;
-        err = debug_cap_identify(domain_caps[i], &ret);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "cap identify domain_cap");
-        }
-        debug_printf("Process manager successfully created domain { .coreid=%u,"
-                     " .core_local_id=%u } (%lu/%lu)\n", ret.u.domain.coreid,
-                     ret.u.domain.core_local_id, i, num_domains);
     }
 }
 

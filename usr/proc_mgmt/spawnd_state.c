@@ -13,7 +13,7 @@
 
 #include "spawnd_state.h"
 
-static struct spawnd_state *spawnds[MAX_SPAWNDS];
+static struct spawnd_state *spawnds[MAX_COREID];
 
 errval_t spawnd_state_alloc(coreid_t core_id, struct spawn_binding *b)
 {
@@ -24,6 +24,7 @@ errval_t spawnd_state_alloc(coreid_t core_id, struct spawn_binding *b)
     }
 
     spawnds[core_id]->b = b;
+    spawnds[core_id]->core_id = core_id;
 
     return SYS_ERR_OK;
 }
@@ -40,7 +41,7 @@ inline bool spawnd_state_exists(coreid_t core_id)
     return spawnds[core_id] != NULL;
 }
 
-inline struct spawn_binding *spawnd_state_get_binding(coreid_t core_id)
+inline struct spawnd_state *spawnd_state_get(coreid_t core_id)
 {
-    return spawnds[core_id]->b;
+    return spawnds[core_id];
 }

@@ -17,17 +17,16 @@
 #include <if/spawn_defs.h>
 #include <barrelfish/barrelfish.h>
 
-// TODO(razvan): Use a hash map instead.
-#define MAX_SPAWNDS 256
-
 struct spawnd_state {
+	coreid_t core_id;
     struct spawn_binding *b;
+
     // TODO(razvan): will need more state here.
 };
 
 errval_t spawnd_state_alloc(coreid_t core_id, struct spawn_binding *b);
 void spawnd_state_free(coreid_t core_id);
 bool spawnd_state_exists(coreid_t core_id);
-struct spawn_binding *spawnd_state_get_binding(coreid_t core_id);
+struct spawnd_state *spawnd_state_get(coreid_t core_id);
 
 #endif  // SPAWND_STATE

@@ -17,12 +17,15 @@
 #include <barrelfish/proc_mgmt_client.h>
 #include <if/octopus_defs.h>
 #include <if/proc_mgmt_defs.h>
+#include <vfs/vfs_path.h>
 
 struct proc_mgmt_bind_retst {
     errval_t err;
     struct proc_mgmt_binding *b;
     bool present;
 };
+
+extern char **environ;
 
 static void error_handler(struct proc_mgmt_binding *b, errval_t err)
 {
@@ -274,4 +277,213 @@ errval_t proc_mgmt_add_spawnd(iref_t iref, coreid_t core_id)
     }
 
     return err;
+}
+
+/**
+ * \brief Request the process manager to spawn a program on a specific core
+ *
+ * \param coreid          Core ID on which to spawn the program
+ * \param path            Absolute path in the file system to an executable
+ *                        image suitable for the given core
+ * \param argv            Command-line arguments, NULL-terminated
+ * \param envp            Optional environment, NULL-terminated
+ *                        (pass NULL to inherit)
+ * \param inheritcn_cap   Cap to a CNode containing capabilities to be inherited
+ * \param argcn_cap       Cap to a CNode containing capabilities passed as
+ *                        arguments
+ * \param flags           Flags to spawn
+ * \param ret_domain_cap  If non-NULL, filled in with domain cap of new domain
+ *
+ * \bug flags are currently ignored
+ */
+errval_t proc_mgmt_spawn_program_with_caps(coreid_t core_id, const char *path,
+                                           char *const argv[],
+                                           char *const envp[],
+                                           struct capref inheritcn_cap,
+                                           struct capref argcn_cap,
+                                           uint8_t flags,
+                                           struct capref *ret_domain_cap)
+{
+    errval_t err, msgerr;
+
+    // default to copying our environment
+    if (envp == NULL) {
+        envp = environ;
+    }
+
+    err = proc_mgmt_bind_client();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "proc_mgmt_bind_client");
+    }
+
+    struct proc_mgmt_binding *b = get_proc_mgmt_binding();
+    assert(b != NULL);
+
+    // construct argument "string"
+    // \0-separated strings in contiguous character buffer
+    // this is needed, as flounder can't send variable-length arrays of strings
+    size_t argstrlen = 0;
+    for (int i = 0; argv[i] != NULL; i++) {
+        argstrlen += strlen(argv[i]) + 1;
+    }
+
+    char argstr[argstrlen];
+    size_t argstrpos = 0;
+    for (int i = 0; argv[i] != NULL; i++) {
+        strcpy(&argstr[argstrpos], argv[i]);
+        argstrpos += strlen(argv[i]);
+        argstr[argstrpos++] = '\0';
+    }
+    assert(argstrpos == argstrlen);
+
+    // repeat for environment
+    size_t envstrlen = 0;
+    for (int i = 0; envp[i] != NULL; i++) {
+        envstrlen += strlen(envp[i]) + 1;
+    }
+
+    char envstr[envstrlen];
+    size_t envstrpos = 0;
+    for (int i = 0; envp[i] != NULL; i++) {
+        strcpy(&envstr[envstrpos], envp[i]);
+        envstrpos += strlen(envp[i]);
+        envstr[envstrpos++] = '\0';
+    }
+    assert(envstrpos == envstrlen);
+
+    // make an unqualified path absolute using the $PATH variable
+    // TODO: implement search (currently assumes PATH is a single directory)
+    char *searchpath = getenv("PATH");
+    if (searchpath == NULL) {
+        searchpath = VFS_PATH_SEP_STR; // XXX: just put it in the root
+    }
+    size_t buflen = strlen(path) + strlen(searchpath) + 2;
+    char pathbuf[buflen];
+    if (path[0] != VFS_PATH_SEP) {
+        snprintf(pathbuf, buflen, "%s%c%s", searchpath, VFS_PATH_SEP, path);
+        pathbuf[buflen - 1] = '\0';
+        //vfs_path_normalise(pathbuf);
+        path = pathbuf;
+    }
+
+    struct capref domain_cap;
+
+    if (capref_is_null(inheritcn_cap) && capref_is_null(argcn_cap)) {
+        err = b->rpc_tx_vtbl.spawn(b, core_id, path, argstr, argstrlen, envstr,
+                                   envstrlen, flags, &msgerr, &domain_cap);
+    } else {
+        err = b->rpc_tx_vtbl.spawn_with_caps(b, core_id, path, argstr,
+                                             argstrlen, envstr, envstrlen,
+                                             inheritcn_cap, argcn_cap, flags,
+                                             &msgerr, &domain_cap);
+    }
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error sending spawn request to process manager");
+    } else if (err_is_fail(msgerr)) {
+        goto out;
+    }
+
+    if (ret_domain_cap != NULL) {
+        *ret_domain_cap = domain_cap;
+    }
+
+out:
+    return msgerr;
+    
+}
+
+/**
+ * \brief Request the process manager to spawn a program on a specific core
+ *
+ * \param coreid          Core ID on which to spawn the program
+ * \param path            Absolute path in the file system to an executable
+ *                        image suitable for the given core
+ * \param argv            Command-line arguments, NULL-terminated
+ * \param envp            Optional environment, NULL-terminated
+ *                        (pass NULL to inherit)
+ * \param inheritcn_cap   Cap to a CNode containing capabilities to be inherited
+ * \param argcn_cap       Cap to a CNode containing capabilities passed as
+ *                        arguments
+ * \param flags           Flags to spawn
+ * \param ret_domain_cap  If non-NULL, filled in with domain cap of new domain
+ *
+ * \bug flags are currently ignored
+ */
+errval_t proc_mgmt_spawn_program(coreid_t core_id, const char *path,
+                                 char *const argv[], char *const envp[],
+                                 uint8_t flags, struct capref *ret_domain_cap)
+{
+    return proc_mgmt_spawn_program_with_caps(core_id, path, argv, envp,
+                                             NULL_CAP, NULL_CAP, flags,
+                                             ret_domain_cap);
+}
+
+/**
+ * \brief Request the process manager to span onto a new core.
+ *
+ * \param core_id ID of core to span onto.
+ *
+ * Blocks until the new dispatcher has established an interdispatcher connection
+ * to the current one.
+ */
+errval_t proc_mgmt_span(coreid_t core_id)
+{
+    coreid_t my_core_id = disp_get_core_id();
+    assert (core_id != my_core_id);
+
+    errval_t err, msgerr;
+    err = proc_mgmt_bind_client();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "proc_mgmt_bind_client");
+    }
+    
+    struct span_domain_state *st;
+    err = domain_new_dispatcher_setup_only(core_id, &st);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to setup new dispatcher");
+    }
+
+    struct proc_mgmt_binding *b = get_proc_mgmt_binding();
+    assert(b != NULL);
+
+    err = b->rpc_tx_vtbl.span(b, cap_domainid, core_id, st->vroot, st->frame,
+                              &msgerr);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error sending span request to process manager");
+    }
+
+    if (err_is_fail(msgerr)) {
+        return msgerr;
+    }
+
+    while(!st->initialized) {
+        event_dispatch(get_default_waitset());
+    }
+    free(st);
+
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Request the process manager to kill a domain
+ *
+ * \param domain_cap Domain ID cap for the victim
+ */
+errval_t proc_mgmt_kill(struct capref domain_cap)
+{
+    errval_t err, msgerr;
+    err = proc_mgmt_bind_client();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "proc_mgmt_bind_client");
+    }
+
+    struct proc_mgmt_binding *b = get_proc_mgmt_binding();
+    assert(b != NULL);
+
+    err = b->rpc_tx_vtbl.kill(b, domain_cap, &msgerr);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error sending kill request to process manager");
+    }
+
+    return msgerr;
 }
