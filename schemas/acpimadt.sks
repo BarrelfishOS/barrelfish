@@ -23,7 +23,7 @@ schema acpimadt "ACPI Multiple APIC Description Table (MADT)" {
          "processor-based systems, the Generic Interrupt Controller (GIC) "
 
          "ACPI represents all interrupts as 'flat' values known as global  "
-         "system interrupts. Therefore to support APICs, SAPICs or GICs on an " 
+         "system interrupts. Therefore to support APICs, SAPICs or GICs on an "
          "ACPI-enabled system, each used interrupt input must be mapped to  the  "
          "global system interrupt value used by ACPI. "
         };
@@ -96,7 +96,7 @@ schema acpimadt "ACPI Multiple APIC Description Table (MADT)" {
             uint16                  IntiFlags "IntFlags";
             uint32                  Uid "ACPI processor UID";
             uint8                   Lint "LINTn to which NMI is connected";
-        };        
+        };
         
     };
 
@@ -106,10 +106,10 @@ schema acpimadt "ACPI Multiple APIC Description Table (MADT)" {
         text {"In an APIC implementation, there are one or more I/O APICs. Each I/O APIC has a series of interrupt inputs, referred to as INTIn, where the value of n is from 0 to the number of the last interrupt input on the I/O APIC"};
         
         fact apic "I/O APIC Structure" {
-            uint8    Id              "The I/O APIC’s ID.";  
+            uint8    Id              "The I/O APIC's ID.";
             uint8    Reserved       "Reserved. Must be zero.";
             uint32   Address        "The 32-bit unique physical address to access this I/O APIC";
-            uint32   GlobalIrqBase "The global system interrupt number where this I/O APIC’s interrupt inputs start.";        
+            uint32   GlobalIrqBase "The global system interrupt number where this I/O APIC's interrupt inputs start.";        
         };
 
             /* 6: I/O Sapic */
@@ -154,7 +154,7 @@ schema acpimadt "ACPI Multiple APIC Description Table (MADT)" {
         fact source "NMI Source" {
             uint16                  IntiFlags "IntIflags";
             uint32                  GlobalIrq "Global system interrupt";
-        };  
+        };
     };
     
 
