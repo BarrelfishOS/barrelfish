@@ -60,7 +60,7 @@ static void add_spawnd_handler_non_monitor(struct proc_mgmt_binding *b,
 static void spawn_reply_handler(struct spawn_binding *b,
                                 struct capref domain_cap, errval_t spawn_err)
 {
-    struct pending_client cl;
+    struct pending_client *cl;
     errval_t err = pending_clients_release(domain_cap, &cl);
     if (err_is_fail(err)) {
         // This might be a kill request issued after a successful spawn/span
@@ -73,36 +73,36 @@ static void spawn_reply_handler(struct spawn_binding *b,
     }
 
     errval_t resp_err;
-    switch (cl.type) {
+    switch (cl->type) {
         case ClientType_Spawn:
             err = spawn_err;
             if (err_is_ok(spawn_err)) {
-                err = domain_spawn(domain_cap, cl.core_id);
+                err = domain_spawn(domain_cap, cl->core_id);
             }
-            resp_err = cl.b->tx_vtbl.spawn_response(cl.b, NOP_CONT, err,
+            resp_err = cl->b->tx_vtbl.spawn_response(cl->b, NOP_CONT, err,
                                                      domain_cap);
             break;
 
         case ClientType_SpawnWithCaps:
             err = spawn_err;
             if (err_is_ok(spawn_err)) {
-                err = domain_spawn(domain_cap, cl.core_id);
+                err = domain_spawn(domain_cap, cl->core_id);
             }
-            resp_err = cl.b->tx_vtbl.spawn_with_caps_response(cl.b, NOP_CONT,
+            resp_err = cl->b->tx_vtbl.spawn_with_caps_response(cl->b, NOP_CONT,
                                                                err, domain_cap);
             break;
 
         case ClientType_Span:
             err = spawn_err;
             if (err_is_ok(spawn_err)) {
-                err = domain_span(domain_cap, cl.core_id);
+                err = domain_span(domain_cap, cl->core_id);
             }
-            resp_err = cl.b->tx_vtbl.span_response(cl.b, NOP_CONT, err);
+            resp_err = cl->b->tx_vtbl.span_response(cl->b, NOP_CONT, err);
             break;
 
         default:
             // TODO(razvan): Handle the other cases, e.g. kill.
-            debug_printf("Unknown client type %u\n", cl.type);
+            debug_printf("Unknown client type %u\n", cl->type);
             return;
     }
 
@@ -111,10 +111,10 @@ static void spawn_reply_handler(struct spawn_binding *b,
         // there's been an error in the process manager's book-keeping
         // of domains. Therefore, if the request was a spawn or span one, spawnd
         // needs to be asked to stop the dispatcher which it has just enqueued.
-        if (cl.type == ClientType_Spawn ||
-            cl.type == ClientType_SpawnWithCaps ||
-            cl.type == ClientType_Span) {
-            struct spawnd_state *state = spawnd_state_get(cl.core_id);
+        if (cl->type == ClientType_Spawn ||
+            cl->type == ClientType_SpawnWithCaps ||
+            cl->type == ClientType_Span) {
+            struct spawnd_state *state = spawnd_state_get(cl->core_id);
             assert(state != NULL);
             struct spawn_binding *spb = state->b;
             assert(spb != NULL);
@@ -128,6 +128,8 @@ static void spawn_reply_handler(struct spawn_binding *b,
             }
         }
     }
+
+    free(cl);
 
     if (err_is_fail(resp_err)) {
         DEBUG_ERR(resp_err, "failed to send response to client");

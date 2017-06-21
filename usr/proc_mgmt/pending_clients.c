@@ -45,7 +45,7 @@ errval_t pending_clients_add(struct capref domain_cap,
 }
 
 errval_t pending_clients_release(struct capref domain_cap,
-                                        struct pending_client *ret_cl)
+                                        struct pending_client **ret_cl)
 {
     uint64_t key;
     errval_t err = domain_cap_hash(domain_cap, &key);
@@ -58,7 +58,7 @@ errval_t pending_clients_release(struct capref domain_cap,
         return PROC_MGMT_ERR_CLIENTS_TABLE_FIND;
     }
     if (ret_cl != NULL) {
-        *ret_cl = *((struct pending_client*) table_entry);
+        *ret_cl = (struct pending_client*) table_entry;
     }
 
     collections_hash_delete(pending_clients_table, key);

@@ -36,6 +36,6 @@ errval_t pending_clients_add(struct capref domain_cap,
                              struct proc_mgmt_binding *b, enum ClientType type,
                              coreid_t core_id);
 errval_t pending_clients_release(struct capref domain_cap,
-                                 struct pending_client *ret_cl);
+                                 struct pending_client **ret_cl);
 
 #endif  // PENDING_CLIENTS_H

@@ -188,7 +188,16 @@ static errval_t spawn(struct capref domain_cap, const char *path,
     err = cap_copy(pe->dcb, si.dcb);
     assert(err_is_ok(err));
     pe->status = PS_STATUS_RUNNING;
-    pe->domain_cap = domain_cap;
+    
+    if (!capref_is_null(domain_cap)) {
+        err = ps_hash_domain(pe, domain_cap);
+        if (err_is_fail(err)) {
+            free(pe);
+            spawn_free(&si);
+            return err_push(err, SPAWN_ERR_DOMAIN_CAP_HASH);
+        }
+    }
+
     err = ps_allocate(pe, domainid);
     if(err_is_fail(err)) {
         free(pe);
@@ -487,7 +496,15 @@ static void span_request_handler(struct spawn_binding *b,
     err = cap_copy(pe->dcb, si.dcb);
     assert(err_is_ok(err));
     pe->status = PS_STATUS_RUNNING;
-    pe->domain_cap = domain_cap;
+
+    err = ps_hash_domain(pe, domain_cap);
+    if (err_is_fail(err)) {
+        free(pe);
+        spawn_free(&si);
+        err = err_push(err, SPAWN_ERR_DOMAIN_CAP_HASH);
+        goto reply;
+    }
+
     domainid_t domainid;
     err = ps_allocate(pe, &domainid);
     if(err_is_fail(err)) {
@@ -507,10 +524,46 @@ reply:
     }
 }
 
+static void cleanup_cap(struct capref cap)
+{
+    errval_t err;
+
+    err = cap_revoke(cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cap_revoke");
+    }
+    err = cap_destroy(cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cap_destroy");
+    }
+}
+
 static void kill_request_handler(struct spawn_binding *b,
                                  struct capref domain_cap)
 {
-    debug_printf("kill_request_handler: NYI\n");
+    errval_t err, reply_err;
+    struct ps_entry *pe;
+    err = ps_release_domain(domain_cap, &pe);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_DOMAIN_NOTFOUND);
+        goto reply;
+    }
+
+    // Garbage collect victim's capabilities
+    cleanup_cap(pe->dcb);       // Deschedule dispatcher (do this first!)
+    cleanup_cap(pe->rootcn_cap);
+
+    // Cleanup struct ps_entry. Note that waiters will be handled by the process
+    // manager, as opposed to the old protocol of handling them here.
+    free(pe->argbuf);
+    ps_remove(pe->domain_id);
+    free(pe);
+
+reply:
+    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, domain_cap, err);
+    if (err_is_fail(reply_err)) {
+        DEBUG_ERR(err, "failed to send spawn_reply");
+    }
 }
 
 /**
@@ -540,20 +593,6 @@ static void cleanup_domain(domainid_t domainid)
     free(ps->argbuf);
 
     ps_remove(domainid);
-}
-
-static void cleanup_cap(struct capref cap)
-{
-    errval_t err;
-
-    err = cap_revoke(cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cap_revoke");
-    }
-    err = cap_destroy(cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cap_destroy");
-    }
 }
 
 static errval_t kill_domain(domainid_t domainid, uint8_t exitcode)

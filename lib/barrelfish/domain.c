@@ -1423,3 +1423,23 @@ struct slot_alloc_state *get_slot_alloc_state(void)
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     return &disp->core_state.c.slot_alloc_state;
 }
+
+/**
+ * \brief Returns a 64-bit hash code for a given domain cap.
+ */
+errval_t domain_cap_hash(struct capref domain_cap, uint64_t *ret_hash)
+{
+    assert(ret_hash != NULL);
+
+    struct capability ret_cap;
+    errval_t err = debug_cap_identify(domain_cap, &ret_cap);
+    if (err_is_fail(err)) {
+        return err_push(err, PROC_MGMT_ERR_DOMAIN_CAP_HASH);
+    }
+    assert(ret_cap.type == ObjType_Domain);
+
+    static uint64_t base = 1 + (uint64_t) MAX_COREID;
+    *ret_hash = base * ret_cap.u.domain.coreid + ret_cap.u.domain.core_local_id;
+
+    return SYS_ERR_OK;
+}

@@ -17,23 +17,6 @@
 #define HASH_INDEX_BUCKETS 6151
 static collections_hash_table* domain_table = NULL;
 
-errval_t domain_cap_hash(struct capref domain_cap, uint64_t *ret_hash)
-{
-    assert(ret_hash != NULL);
-
-    struct capability ret_cap;
-    errval_t err = debug_cap_identify(domain_cap, &ret_cap);
-    if (err_is_fail(err)) {
-        return err_push(err, PROC_MGMT_ERR_DOMAIN_CAP_HASH);
-    }
-    assert(ret_cap.type == ObjType_Domain);
-
-    static uint64_t base = 1 + (uint64_t) MAX_COREID;
-    *ret_hash = base * ret_cap.u.domain.coreid + ret_cap.u.domain.core_local_id;
-
-    return SYS_ERR_OK;
-}
-
 errval_t domain_new(struct capref domain_cap, struct domain_entry **ret_entry)
 {
     assert(ret_entry != NULL);

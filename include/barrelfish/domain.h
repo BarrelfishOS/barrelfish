@@ -103,6 +103,7 @@ errval_t domain_wakeup_on_disabled(dispatcher_handle_t disp,
                                    struct thread *thread,
                                    dispatcher_handle_t mydisp);
 errval_t domain_thread_move_to(struct thread *thread, coreid_t core_id);
+errval_t domain_cap_hash(struct capref domain_cap, uint64_t *ret_hash);
 
 __END_DECLS
 

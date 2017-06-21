@@ -42,7 +42,6 @@ struct domain_entry {
     struct domain_waiter *waiters;         // Clients waiting after this domain.
 };
 
-errval_t domain_cap_hash(struct capref domain_cap, uint64_t *ret_hash);
 errval_t domain_new(struct capref domain_cap, struct domain_entry **ret_entry);
 errval_t domain_get_by_cap(struct capref domain_cap,
                            struct domain_entry **ret_entry);
