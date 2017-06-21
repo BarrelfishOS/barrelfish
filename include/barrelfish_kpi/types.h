@@ -94,6 +94,7 @@ typedef uint8_t	coreid_t;
 /* node id type */
 typedef coreid_t nodeid_t;
 #define PRIuNODEID PRIu8
+#define SCNuNODEID SCNu8
 #define PRIxNODEID PRIx8
 
 #ifndef MAX_NODEID
