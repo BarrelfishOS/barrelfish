@@ -17,6 +17,8 @@
 
 #include "spawnd_state.h"
 
+#define EXIT_STATUS_KILLED 9
+
 enum domain_status {
     DOMAIN_STATUS_NIL,
     DOMAIN_STATUS_RUNNING,
@@ -30,28 +32,31 @@ struct domain_waiter {
     struct domain_waiter *next;
 };
 
-struct domain_spawnd_state {
-    struct spawnd_state *spawnd_state;
-    struct domain_spawnd_state *next;
-};
-
 struct domain_entry {
-    struct capref domain_cap;              // Unique domain ID cap.
-    enum domain_status status;             // Current domain state.
-    struct domain_spawnd_state *spawnds;   // Spawnds running this domain.
-    struct domain_waiter *waiters;         // Clients waiting after this domain.
+    struct capref domain_cap;   // Unique domain ID cap.
+    enum domain_status status;  // Current domain state.
+
+    struct spawnd_state *spawnds[MAX_COREID];  // Spawnds running this domain.
+    coreid_t num_spawnds_running;
+
+    struct domain_waiter *waiters;  // Clients waiting after this domain.
+
+    uint8_t exit_status;
 };
 
 errval_t domain_new(struct capref domain_cap, struct domain_entry **ret_entry);
 errval_t domain_get_by_cap(struct capref domain_cap,
                            struct domain_entry **ret_entry);
-void domain_run_on_spawnd(struct domain_entry *entry,
-                          struct spawnd_state *spawnd);
+void domain_run_on_core(struct domain_entry *entry, coreid_t core_id);
 
 errval_t domain_spawn(struct capref domain_cap, coreid_t core_id);
 errval_t domain_can_span(struct capref domain_cap, coreid_t core_id);
 errval_t domain_span(struct capref domain_cap, coreid_t core_id);
-void domain_send_stop(struct domain_entry *entry);
+static inline void domain_stop_pending(struct domain_entry *entry)
+{
+    assert(entry != NULL);
+    entry->status = DOMAIN_STATUS_STOP_PEND;
+}
 // TODO(razvan): domain_exists, domain_remove etc.
 
 #endif  // PROC_MGMT_DOMAIN_H

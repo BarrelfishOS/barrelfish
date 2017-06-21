@@ -11,8 +11,10 @@
 
 #include <barrelfish/barrelfish.h>
 #include <collections/hash_table.h>
+#include <if/spawn_defs.h>
 
 #include "domain.h"
+#include "spawnd_state.h"
 
 #define HASH_INDEX_BUCKETS 6151
 static collections_hash_table* domain_table = NULL;
@@ -29,7 +31,8 @@ errval_t domain_new(struct capref domain_cap, struct domain_entry **ret_entry)
 
     entry->domain_cap = domain_cap;
     entry->status = DOMAIN_STATUS_NIL;
-    entry->spawnds = NULL;
+    memset(entry->spawnds, 0, sizeof(entry->spawnds));
+    entry->num_spawnds_running = 0;
     entry->waiters = NULL;
 
     if (domain_table == NULL) {
@@ -73,21 +76,17 @@ errval_t domain_get_by_cap(struct capref domain_cap,
     return SYS_ERR_OK;
 }
 
-void domain_run_on_spawnd(struct domain_entry *entry,
-                          struct spawnd_state *spawnd)
+void domain_run_on_core(struct domain_entry *entry, coreid_t core_id)
 {
     assert(entry != NULL);
-    assert(spawnd != NULL);
+    assert(core_id < MAX_COREID);
     assert(entry->status == DOMAIN_STATUS_NIL ||
            entry->status == DOMAIN_STATUS_RUNNING);
 
     entry->status = DOMAIN_STATUS_RUNNING;
 
-    struct domain_spawnd_state *st = (struct domain_spawnd_state*) malloc(
-            sizeof(struct domain_spawnd_state));
-    st->spawnd_state = spawnd;
-    st->next = entry->spawnds;
-    entry->spawnds = st;
+    entry->spawnds[core_id] = spawnd_state_get(core_id);
+    ++entry->num_spawnds_running;
 }
 
 errval_t domain_spawn(struct capref domain_cap, coreid_t core_id)
@@ -101,7 +100,7 @@ errval_t domain_spawn(struct capref domain_cap, coreid_t core_id)
         return err;
     }
 
-    domain_run_on_spawnd(entry, spawnd_state_get(core_id));
+    domain_run_on_core(entry, core_id);
 
     return SYS_ERR_OK;
 }
@@ -119,14 +118,10 @@ errval_t domain_can_span(struct capref domain_cap, coreid_t core_id)
         return PROC_MGMT_ERR_DOMAIN_NOT_RUNNING;
     }
 
-    struct domain_spawnd_state *st = entry->spawnds;
-    while (st != NULL) {
-        if (st->spawnd_state->core_id == core_id) {
-            // TODO(razvan): Maybe we want to allow the same domain to span
-            // multiple dispatcher onto the same core?
-            return PROC_MGMT_ERR_ALREADY_SPANNED;
-        }
-        st = st->next;
+    if (entry->spawnds[core_id] != NULL) {
+        // TODO(razvan): Maybe we want to allow the same domain to span multiple
+        // dispatchers onto the same core?
+        return PROC_MGMT_ERR_ALREADY_SPANNED;
     }
 
     return SYS_ERR_OK;
@@ -141,19 +136,7 @@ errval_t domain_span(struct capref domain_cap, coreid_t core_id)
     }
     assert(entry != NULL);
 
-    domain_run_on_spawnd(entry, spawnd_state_get(core_id));
+    domain_run_on_core(entry, core_id);
 
     return SYS_ERR_OK;
-}
-
-void domain_send_stop(struct domain_entry *entry)
-{
-    assert(entry != NULL);
-
-    struct domain_spawnd_state *st = entry->spawnds;
-    while (st != NULL) {
-        debug_printf("Simulating STOP message to spawnd at binding %p\n",
-                     st->spawnd_state->b);
-        st = st->next;
-    }
 }

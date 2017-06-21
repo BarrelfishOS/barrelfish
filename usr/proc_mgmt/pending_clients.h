@@ -22,6 +22,7 @@ enum ClientType {
 	ClientType_SpawnWithCaps,
 	ClientType_Span,
 	ClientType_Kill,
+	ClientType_Exit,
 	ClientType_Wait
 	// TODO(razvan): Others?
 };

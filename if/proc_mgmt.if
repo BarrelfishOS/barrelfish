@@ -38,6 +38,9 @@ interface proc_mgmt "Process management service" {
   // Kill a domain for which the caller has a domain cap.
   rpc kill(in cap domain_cap, out errval err);
 
+  // Let the process manager know the caller has finished execution.
+  message exit(cap domain_cap, uint8 status);
+
   /*
   // Span the caller to a new core.
   rpc span(in cap domainid_cap,

@@ -18,7 +18,7 @@
 #include "ps.h"
 
 #define HASH_INDEX_BUCKETS 6151
-static collections_hash_table* domain_table = NULL;
+static collections_hash_table* ps_table = NULL;
 
 static struct ps_entry *entries[MAX_DOMAINS];
 
@@ -61,10 +61,10 @@ errval_t ps_hash_domain(struct ps_entry *entry, struct capref domain_cap)
 {
     entry->domain_cap = domain_cap;
 
-    if (domain_table == NULL) {
-        collections_hash_create_with_buckets(&domain_table, HASH_INDEX_BUCKETS,
+    if (ps_table == NULL) {
+        collections_hash_create_with_buckets(&ps_table, HASH_INDEX_BUCKETS,
                                              NULL);
-        if (domain_table == NULL) {
+        if (ps_table == NULL) {
             return SPAWN_ERR_CREATE_DOMAIN_TABLE;
         }
     }
@@ -75,7 +75,7 @@ errval_t ps_hash_domain(struct ps_entry *entry, struct capref domain_cap)
         return err;
     }
 
-    collections_hash_insert(domain_table, key, entry);
+    collections_hash_insert(ps_table, key, entry);
 
     return SYS_ERR_OK;
 }
@@ -91,13 +91,13 @@ errval_t ps_release_domain(struct capref domain_cap,
         return err;
     }
 
-    void *table_entry = collections_hash_find(domain_table, key);
+    void *table_entry = collections_hash_find(ps_table, key);
     if (table_entry == NULL) {
         return SPAWN_ERR_DOMAIN_TABLE_FIND;
     }
     *ret_entry = (struct ps_entry*) table_entry;
 
-    collections_hash_delete(domain_table, key);
+    collections_hash_delete(ps_table, key);
 
     return SYS_ERR_OK;
 }

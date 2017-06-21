@@ -686,6 +686,7 @@ errors proc_mgmt PROC_MGMT_ERR_ {
     failure DOMAIN_TABLE_FIND    "Failed to find requested domain in domain table",
     failure DOMAIN_NOT_RUNNING   "Domain is not currently running",
     failure ALREADY_SPANNED      "Domain has already been spanned to the given core",
+    failure KILL                 "Failed to kill requested domain",
 };
 
 // errors from ELF library
