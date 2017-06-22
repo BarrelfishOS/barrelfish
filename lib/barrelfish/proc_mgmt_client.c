@@ -508,3 +508,22 @@ errval_t proc_mgmt_exit(uint8_t status )
 
     return SYS_ERR_OK;
 }
+
+errval_t proc_mgmt_wait(struct capref domain_cap, uint8_t *status)
+{
+    errval_t err, msgerr;
+    err = proc_mgmt_bind_client();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    struct proc_mgmt_binding *b = get_proc_mgmt_binding();
+    assert(b != NULL);
+
+    err = b->rpc_tx_vtbl.wait(b, domain_cap, &msgerr, status);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "error sending wait request to process manager");
+    }
+
+    return msgerr;
+}

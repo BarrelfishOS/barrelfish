@@ -102,38 +102,59 @@ static void spawn_reply_handler(struct spawn_binding *b,
             break;
 
         case ClientType_Kill:
-                if (err_is_fail(spawn_err)) {
-                    // Looks like some spawnd was unable to successfully kill
-                    // its dispatcher for this domain. Not much the process
-                    // manager can do about it; return the error to the client.
-                    resp_err = cl->b->tx_vtbl.kill_response(cl->b, NOP_CONT,
-                                                            err);
-                    break;
-                }
+            if (err_is_fail(spawn_err)) {
+                // Looks like some spawnd was unable to successfully kill
+                // its dispatcher for this domain. Not much the process
+                // manager can do about it; return the error to the client.
+                resp_err = cl->b->tx_vtbl.kill_response(cl->b, NOP_CONT,
+                                                        err);
+                break;
+            }
 
-                err = domain_get_by_cap(domain_cap, &entry);
+            err = domain_get_by_cap(domain_cap, &entry);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to retrieve domain by domain_cap "
+                          "returned by spawnd after kill");
+                break;
+            }
+
+            assert(entry->num_spawnds_running > 0);
+            assert(entry->status != DOMAIN_STATUS_STOPPED);
+
+            --entry->num_spawnds_running;
+            if (entry->num_spawnds_running == 0) {
+                entry->status = DOMAIN_STATUS_STOPPED;
+                entry->exit_status = EXIT_STATUS_KILLED;  // TODO(razvan): Is this desirable?
+
+                resp_err = cl->b->tx_vtbl.kill_response(cl->b, NOP_CONT,
+                                                        err);
+
+                // At this point, the domain exists in state STOPPED for
+                // history reasons. For instance, if some other domain
+                // issues a wait call for this one, the process manager can
+                // return the exit status directly.
+                // At some point, however, we might want to just clean up
+                // the domain entry and recycle the domain cap.
+                struct domain_waiter *waiter = entry->waiters;
+                while (waiter != NULL) {
+                    waiter->b->tx_vtbl.wait_response(waiter->b,
+                                                     NOP_CONT,
+                                                     SYS_ERR_OK,
+                                                     entry->exit_status);
+                    struct domain_waiter *aux = waiter;
+                    waiter = waiter->next;
+                    free(aux);
+                }
+                break;
+            } else {
+                // Expecting to receive further kill replies from other spawnds
+                // for the same domain cap, hence re-add the pending client.
+                err = pending_clients_add(domain_cap, cl->b, ClientType_Kill,
+                                          MAX_COREID);
                 if (err_is_fail(err)) {
-                    DEBUG_ERR(err, "failed to retrieve domain by domain_cap "
-                              "returned by spawnd after kill");
-                    break;
+                DEBUG_ERR(err, "pending_clients_add in kill reply handler");
                 }
-
-                assert(entry->num_spawnds_running > 0);
-                assert(entry->status != DOMAIN_STATUS_STOPPED);
-
-                --entry->num_spawnds_running;
-                if (entry->num_spawnds_running == 0) {
-                    entry->status = DOMAIN_STATUS_STOPPED;
-                    entry->exit_status = EXIT_STATUS_KILLED;  // TODO(razvan): Is this desirable?
-
-                    resp_err = cl->b->tx_vtbl.kill_response(cl->b, NOP_CONT,
-                                                            err);
-
-                    // At this point, the domain exists in state STOPPED for
-                    // history reasons.
-                    // TODO(razvan): This is where we will inform waiters.
-                    break;
-                }
+            }
 
             break;
 
@@ -161,9 +182,30 @@ static void spawn_reply_handler(struct spawn_binding *b,
                 entry->status = DOMAIN_STATUS_STOPPED;
 
                 // At this point, the domain exists in state STOPPED for
-                // history reasons.
-                // TODO(razvan): This is where we will inform waiters.
+                // history reasons. For instance, if some other domain
+                // issues a wait call for this one, the process manager can
+                // return the exit status directly.
+                // At some point, however, we might want to just clean up
+                // the domain entry and recycle the domain cap.
+                struct domain_waiter *waiter = entry->waiters;
+                while (waiter != NULL) {
+                    waiter->b->tx_vtbl.wait_response(waiter->b,
+                                                     NOP_CONT,
+                                                     SYS_ERR_OK,
+                                                     entry->exit_status);
+                    struct domain_waiter *aux = waiter;
+                    waiter = waiter->next;
+                    free(aux);
+                }
                 break;
+            } else {
+                // Expecting to receive further kill replies from other spawnds
+                // for the same domain cap, hence re-add the pending client.
+                err = pending_clients_add(domain_cap, cl->b, ClientType_Exit,
+                                          MAX_COREID);
+                if (err_is_fail(err)) {
+                DEBUG_ERR(err, "pending_clients_add in exit reply handler");
+                }
             }
 
         break;
@@ -375,6 +417,7 @@ static errval_t kill_handler_common(struct proc_mgmt_binding *b,
         }
 
         struct spawn_binding *spb = entry->spawnds[i]->b;
+        spb->rx_vtbl.spawn_reply = spawn_reply_handler;
         errval_t req_err = spb->tx_vtbl.kill_request(spb, NOP_CONT, domain_cap);
         if (err_is_fail(req_err)) {
             DEBUG_ERR(req_err, "failed to send kill_request to spawnd %u\n", i);
@@ -408,13 +451,43 @@ static void exit_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
     // Error or not, there's no client to reply to anymore.
 }
 
+static void wait_handler(struct proc_mgmt_binding *b, struct capref domain_cap)
+{
+    errval_t err, resp_err;
+    struct domain_entry *entry;
+    err = domain_get_by_cap(domain_cap, &entry);
+    if (err_is_fail(err)) {
+        goto respond;
+    }
+
+    if (entry->status == DOMAIN_STATUS_STOPPED) {
+        // Domain has already been stopped, so just reply with exit status.
+        goto respond;
+    }
+
+    struct domain_waiter *waiter = (struct domain_waiter*) malloc(
+            sizeof(struct domain_waiter));
+    waiter->b = b;
+    waiter->next = entry->waiters;
+    entry->waiters = waiter;
+    // Will respond when domain is stopped.
+    return;
+
+respond:
+    resp_err = b->tx_vtbl.wait_response(b, NOP_CONT, err, entry->exit_status);
+    if (err_is_fail(resp_err)) {
+        DEBUG_ERR(resp_err, "failed to send wait_response");
+    }
+}
+
 static struct proc_mgmt_rx_vtbl monitor_vtbl = {
     .add_spawnd           = add_spawnd_handler,
     .spawn_call           = spawn_handler,
     .spawn_with_caps_call = spawn_with_caps_handler,
     .span_call            = span_handler,
     .kill_call            = kill_handler,
-    .exit                 = exit_handler
+    .exit                 = exit_handler,
+    .wait_call            = wait_handler
 };
 
 static struct proc_mgmt_rx_vtbl non_monitor_vtbl = {
@@ -423,7 +496,8 @@ static struct proc_mgmt_rx_vtbl non_monitor_vtbl = {
     .spawn_with_caps_call = spawn_with_caps_handler,
     .span_call            = span_handler,
     .kill_call            = kill_handler,
-    .exit                 = exit_handler
+    .exit                 = exit_handler,
+    .wait_call            = wait_handler
 };
 
 static errval_t alloc_ep_for_monitor(struct capref *ep)

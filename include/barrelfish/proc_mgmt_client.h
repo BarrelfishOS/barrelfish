@@ -45,6 +45,7 @@ errval_t proc_mgmt_spawn_program_with_caps(coreid_t core_id, const char *path,
 errval_t proc_mgmt_span(coreid_t core_id);
 errval_t proc_mgmt_kill(struct capref domain_cap);
 errval_t proc_mgmt_exit(uint8_t status);
+errval_t proc_mgmt_wait(struct capref domain_cap, uint8_t *status);
 
 __END_DECLS
 

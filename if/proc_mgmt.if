@@ -41,14 +41,7 @@ interface proc_mgmt "Process management service" {
   // Let the process manager know the caller has finished execution.
   message exit(cap domain_cap, uint8 status);
 
-  /*
-  // Span the caller to a new core.
-  rpc span(in cap domainid_cap,
-           in coreid core,
-           in cap vroot,
-           in cap disp_mem,
-           out errval err);
-  */
+  rpc wait(in cap domain_wap, out errval err, out uint8 status);
 
   // TODO(razvan): exit, wait, status, some other calls from spawn.if?
 };
