@@ -86,8 +86,11 @@
     .endif
     str     \spsr_reg, [\context, #(CPSR_REG * 4)]
     str     lr, [\context, #(PC_REG * 4)]
-    add     \spsr_reg, \context, #(LR_REG * 4)
-    stmda   \spsr_reg, {r4-r14}^
+    add     \spsr_reg, \context, #(R4_REG * 4)
+    stmia   \spsr_reg!, {r4-r14}^
+    add     \spsr_reg, #8
+    vstmia  \spsr_reg!, {d0-d15}
+    vstmia  \spsr_reg!, {d16-d31}
     add     \spsr_reg, \context, #(R3_REG * 4)
     pop     {r4-r7}                         // Pop spilled scratch registers
     stmda   \spsr_reg!, {r4-r7}             // And Save them
@@ -450,8 +453,8 @@ do_resume:
     // LDR = read word from memory
     //        target register
     //        /   use register containing "regs" as base register
-    //       /   /           post index: only base register is used for
-    //      /   /           /   addressing and the offset added afterwards
+    //       /   /     post index: only base register is used for
+    //      /   /     /   addressing and the offset added afterwards
     ldr    lr, [r0], #4
     // set SPSR to value of lr == regs.cpsr
     // restore cpsr
@@ -468,7 +471,11 @@ do_resume:
     // Restore the user stack pointer and link register.  n.b. LR is
     // banked in SVC mode, so *our* LR isn't affected.  Also, this can't
     // write back, so we've got to add the offset ourselves.
-    ldmia  lr, {r13,r14}^
+    add lr, #5*4
+    vldmia lr!, {d0-d15}
+    vldmia lr, {d16-d31}
+    sub lr, #(5+32)*4
+    ldmia  lr, {r13, r14}^
     // Load the (banked SVC) LR with the return address (add the offset
     // that the last ldmia couldn't).
     ldr    lr, [lr, #8]

@@ -42,7 +42,7 @@ void __attribute__ ((visibility ("hidden"))) disp_save_rm_kcb_epilog(void);
 //
 
 STATIC_ASSERT(CPSR_REG == 0,  "broken context assumption");
-STATIC_ASSERT(NUM_REGS == 17, "broken context assumption");
+STATIC_ASSERT(NUM_REGS == 82, "broken context assumption");
 STATIC_ASSERT(PC_REG   == 16, "broken context assumption");
 
 
