@@ -30,7 +30,6 @@ commonFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Werror" ] ]
 
 commonCFlags = [ Str s | s <- [ "-std=c99",
-                                "-U__STRICT_ANSI__", -- for newlib headers
                                 "-Wstrict-prototypes",
                                 "-Wold-style-definition",
                                 "-Wmissing-prototypes" ] ]
@@ -52,8 +51,7 @@ cxxFlags = [ Str s | s <- [ "-Wno-packed-bitfield-compat" ] ]
        ++ commonCxxFlags
 
 cDefines options = [ Str ("-D"++s) | s <- [ "BARRELFISH",
-                                            "BF_BINARY_PREFIX=\\\"\\\"",
-                                            "_WANT_IO_C99_FORMATS" -- newlib C99 printf format specifiers
+                                            "BF_BINARY_PREFIX=\\\"\\\""
                                           ]
                    ]
                    ++ Config.defines
@@ -62,11 +60,7 @@ cDefines options = [ Str ("-D"++s) | s <- [ "BARRELFISH",
 cStdIncs arch archFamily =
     [ NoDep BFSrcTree "src" "/include",
       NoDep BFSrcTree "src" ("/include/arch" </> archFamily),
-      NoDep BFSrcTree "src" "/lib/newlib/newlib/libc/include",
-      NoDep BFSrcTree "src" "/include/c",
       NoDep BFSrcTree "src" ("/include/target" </> archFamily),
-      NoDep BFSrcTree "src" Config.lwipxxxInc, -- XXX
-      NoDep BFSrcTree "src" Config.lwipInc,
       NoDep InstallTree arch "/include",
       NoDep BFSrcTree "src" ".",
       NoDep SrcTree "src" ".",
@@ -95,7 +89,7 @@ stdLibs arch =
       In InstallTree arch "/lib/libterm_client.a",
       In InstallTree arch "/lib/liboctopus_parser.a", -- XXX: For NS client in libbarrelfish
       In InstallTree arch "/errors/errno.o",
-      In InstallTree arch ("/lib/libnewlib.a"),
+      In InstallTree arch ("/lib/libc.a"),
       In InstallTree arch "/lib/libcompiler-rt.a",
       --In InstallTree arch "/lib/libposixcompat.a",
       --In InstallTree arch "/lib/libvfs.a",
@@ -313,11 +307,15 @@ linker arch compiler opts objs libs mods bin =
     ++
     [ In BuildTree arch o | o <- objs ]
     ++
+    [Str "-Wl,--start-group"]
+    ++
     [ In BuildTree arch l | l <- libs ]
     ++
     [Str "-Wl,--whole-archive"] ++ [ In BuildTree arch l | l <- mods ] ++ [Str "-Wl,--no-whole-archive"]
     ++
     (optLibs opts)
+    ++
+    [Str "-Wl,--end-group"]
 
 
 --
@@ -336,9 +334,11 @@ cxxlinker arch cxxcompiler opts objs libs mods bin =
     ++
     [ In BuildTree arch l | l <- libs ]
     ++
-    [Str "-Wl,--whole-archive"] ++ [ In BuildTree arch l | l <- mods ] ++ [Str "-Wl,--no-whole-archive"]
+    [Str "-Wl,--start-group -Wl,--whole-archive"] ++ [ In BuildTree arch l | l <- mods ] ++ [Str "-Wl,--no-whole-archive"]
     ++
     (optCxxLibs opts)
+    ++
+    [Str "-Wl,--end-group"]
 
 --
 -- Strip debug symbols from an executable
