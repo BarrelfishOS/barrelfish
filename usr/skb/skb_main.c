@@ -52,7 +52,7 @@ int main(int argc, char**argv)
 {
     errval_t err;
     vfs_init();
-    init_dmalloc();
+//    init_dmalloc();
     // we'll be needing this...
     vfs_mkdir("/tmp");
     chdir(ECLIPSE_DIR);
