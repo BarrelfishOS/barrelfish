@@ -288,6 +288,12 @@ arch_init(struct arm_core_data *boot_core_data,
     __asm volatile ("mov r3, #0x40000000\n"
                     "vmsr fpexc, r3\n");
 
+    // uint32_t mvfr0, mvfr1;
+    // __asm volatile ("vmrs %0, mvfr0\n"
+    //                 "vmrs %1, mvfr1\n"
+    //                 : "=r" (mvfr0), "=r" (mvfr1));
+    // MSG("VFP:  MVFR0=%08x  MVFR1=%08x\n", mvfr0, mvfr1);
+
     MSG("Setting coreboot spawn handler\n");
     coreboot_set_spawn_handler(CPU_ARM7, platform_boot_aps);
 
