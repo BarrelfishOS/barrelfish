@@ -210,7 +210,8 @@ more)
 
     for (sendlen = 0; sendlen < *len;) {
         void *buffer;
-        size_t s = *len > 1500 ? 1500: *len;
+        size_t s = *len - sendlen;
+        s = s > 16000 ? 16000: s;
 
         buffer = net_alloc(s);
         if (!buffer)
@@ -248,6 +249,8 @@ static void http_send_data(struct net_socket *tpcb, struct http_conn *conn)
                 conn->request_no, conn->header_pos, conn->header_length);
         if (conn->header_pos == conn->header_length) {
             conn->state = HTTP_STATE_SENDFILE; // fall through below
+            conn->reply_pos = 0;
+            conn->reply_sent = 0;
         } else {
             break;
         }
@@ -257,8 +260,12 @@ static void http_send_data(struct net_socket *tpcb, struct http_conn *conn)
             conn->state = HTTP_STATE_CLOSING;
             break;
         }
-        data = conn->hbuff->data +conn->reply_pos; /* pointer arithmatic */
+        data = conn->hbuff->data + conn->reply_pos; /* pointer arithmatic */
         len = conn->hbuff->len - conn->reply_pos;
+        size_t maxlen = 16000 - (conn->reply_pos - conn->reply_sent);
+        // debug_printf("%s: %zd %zd\n", __func__, len, maxlen);
+        if (len > maxlen)
+            len = maxlen;
         err = trysend(tpcb, data, &len, false);
         if (err != SYS_ERR_OK) {
             DEBUGPRINT("http_send_data(): Error %d sending payload\n", err);
@@ -321,12 +328,18 @@ static void http_send_data(struct net_socket *tpcb, struct http_conn *conn)
 // } /* end function: http_poll */
 
 /* called when data is successfully sent */
-static void http_server_sent(void *arg, struct net_socket *socket, void *buffer)
+static void http_server_sent(void *arg, struct net_socket *socket, void *buffer, size_t size)
 {
     struct http_conn *conn = arg;
 
     assert(conn);
     net_free(buffer);
+
+    // debug_printf("%s: %zd  %zd:%zd  %zd:%zd\n", __func__, size, conn->header_pos, conn->header_sent, conn->reply_pos, conn->reply_sent);
+    if (conn->header_sent < conn->header_pos)
+        conn->header_sent += size;
+    else
+        conn->reply_sent += size;
 
     switch(conn->state) {
     case HTTP_STATE_SENDHEADER:
@@ -341,7 +354,9 @@ static void http_server_sent(void *arg, struct net_socket *socket, void *buffer)
     case HTTP_STATE_CLOSING:
         DEBUGPRINT("%d: http_server_sent closing the connection\n",
                     conn->request_no);
-        http_server_close(socket, conn);
+// debug_printf("%s.%d: %zd\n", __func__, __LINE__, size);
+        if (conn->header_pos == conn->header_sent && conn->reply_pos == conn->reply_sent)
+            http_server_close(socket, conn);
         break;
 
     default:
@@ -392,7 +407,7 @@ static void send_response(struct http_conn *cs)
 
         cs->header = error_reply;
         cs->header_length = sizeof(error_reply) - 1;
-
+        cs->header_sent = 0;
     } else {
         DEBUGPRINT ("%d: Sending the response back of size %lu\n",
                 cs->request_no, cs->reply_pos);
@@ -409,9 +424,11 @@ static void send_response(struct http_conn *cs)
 
             cs->header = notfound_reply;
             cs->header_length = sizeof(notfound_reply) - 1;
+            cs->header_sent = 0;
         } else {
             /* found, send static header */
             cs->header = make_header(cs->filename, &cs->header_length);
+            cs->header_sent = 0;
         }
     } /* end else: internal error */
 
@@ -424,7 +441,8 @@ static void send_response(struct http_conn *cs)
     if (cs->state == HTTP_STATE_CLOSING) {
         DEBUGPRINT("%d: send_response closing the connection\n",
                 cs->request_no);
-        http_server_close(cs->pcb, cs);
+// debug_printf("%s.%d:\n", __func__, __LINE__);
+                                // http_server_close(cs->pcb, cs);
     } else {
         // tcp_output(cs->pcb);
     }
@@ -433,7 +451,7 @@ static void send_response(struct http_conn *cs)
 // static errval_t http_server_recv(void *arg, struct net_socket *tpcb, struct pbuf *p,
 //                               errval_t err);
 //
-static void http_server_recv(void *arg, struct net_socket *tpcb, void *data, size_t size, host_address_t ip_address, uint16_t port)
+static void http_server_recv(void *arg, struct net_socket *tpcb, void *data, size_t size, struct in_addr ip_address, uint16_t port)
 {
     struct http_conn *conn = arg;
 
@@ -444,6 +462,7 @@ static void http_server_recv(void *arg, struct net_socket *tpcb, void *data, siz
     assert(conn);
     if (size == 0) {
         DEBUGPRINT("%d, closing from http_server_recv\n", conn->request_no);
+debug_printf("%s.%d:\n", __func__, __LINE__);
         http_server_close(tpcb, conn);
         return;
     }
@@ -529,11 +548,12 @@ invalid:
     DEBUGPRINT("invalid request: %s\n", conn->request);
     DEBUGPRINT("%d: invalid request: %s\n",conn->request_no, conn->request);
     conn->state = HTTP_STATE_CLOSING;
+debug_printf("%s.%d:\n", __func__, __LINE__);
     http_server_close(tpcb, conn);
     return;
 }
 
-static void http_server_accept(void *arg, struct net_socket *tpcb, host_address_t ip_address, uint16_t port)
+static void http_server_accept(void *arg, struct net_socket *tpcb, struct in_addr ip_address, uint16_t port)
 {
 // #if TCP_LISTEN_BACKLOG
 //     /* Decrease the listen backlog counter */
@@ -560,7 +580,7 @@ static void realinit(void)
     uint64_t ts = rdtsc();
     struct net_socket *pcb = net_tcp_socket();
 //    err_t e = tcp_bind(pcb, IP_ADDR_ANY, (HTTP_PORT + disp_get_core_id()));
-    errval_t e = net_bind(pcb, 0, HTTP_PORT);
+    errval_t e = net_bind(pcb, (struct in_addr){(INADDR_ANY)}, HTTP_PORT);
     assert(e == SYS_ERR_OK);
 
     e = net_listen(pcb, 100);
@@ -574,7 +594,7 @@ static void realinit(void)
 
 }
 
-void http_server_init(host_address_t server, const char *path)
+void http_server_init(struct in_addr server, const char *path)
 {
     http_cache_init(server, path, realinit);
 }

@@ -639,7 +639,7 @@ static void mount_callback(void *arg, struct nfs_client *client,
 #endif // PRELOAD_WEB_CACHE
 } /* end function: mount_callback */
 
-errval_t http_cache_init(host_address_t server, const char *path,
+errval_t http_cache_init(struct in_addr server, const char *path,
                      void (*callback)(void))
 {
     struct timer *cache_timer;      /* timer for triggering cache timeouts */

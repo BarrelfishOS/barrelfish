@@ -17,6 +17,7 @@
 #define LIB_NET_INCLUDE_NETWORKING_H_
 
 #include <netinet/in.h>
+#include <errors/errno.h>
 
 // forward declarations
 struct devq;

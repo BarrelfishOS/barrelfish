@@ -16,12 +16,12 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
 #include <stdio.h>
+#include <net_sockets/net_sockets.h>
 #include <netif/etharp.h>
 #include <netif/bfeth.h>
 #include <netbench/netbench.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
-#include <net_sockets/net_sockets.h>
 
 // #include <lwip/dhcp.h>
 // #include <netif/etharp.h>
@@ -31,7 +31,7 @@
 #include "webserver_network.h"
 #include "webserver_debug.h"
 
-static struct ip_addr serverip;
+static struct in_addr serverip;
 static const char *serverpath;
 
 /* Enable tracing only when it is globally enabled */
@@ -51,12 +51,10 @@ int main(int argc, char**argv)
     }
 //    char *card_name = argv[1];
 
-    struct in_addr server1;
-    if (inet_aton(argv[1], &server1) == 0) {
+    if (inet_aton(argv[1], &serverip) == 0) {
         printf("Invalid IP addr: %s\n", argv[1]);
         return 1;
     }
-    serverip.addr = server1.s_addr; // XXX
     serverpath = argv[2];
 
     // Boot up
@@ -68,7 +66,7 @@ int main(int argc, char**argv)
     printf("webserver:%u: networking initialized\n", disp_get_core_id());
 
 //    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
-    http_server_init(serverip.addr, serverpath);
+    http_server_init(serverip, serverpath);
 
     DEBUGPRINT("Init finished.\n");
 

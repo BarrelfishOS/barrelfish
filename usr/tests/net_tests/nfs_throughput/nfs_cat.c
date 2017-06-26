@@ -99,6 +99,7 @@ int main(int argc, char**argv)
         exit(EXIT_FAILURE);
     }
 
+// don't have to do this, MOUNT_DIR is already there
 //    err = vfs_mkdir(MOUNT_DIR);
 //    if (err_is_fail(err)) {
 //        DEBUG_ERR(err, "vfs_mount");

@@ -20,5 +20,5 @@ interface net_sockets "Interface for network sockets" {
     rpc connect(in uint32 descriptor, in uint32 host_address, in uint16 port, out errval error);
     message connected(uint32 descriptor, errval error);
 
-    message accepted(uint32 descriptor, uint32 new_descriptor, uint32 host_address, uint16 port, errval error);
+//    message accepted(uint32 descriptor, uint32 new_descriptor, uint32 host_address, uint16 port, errval error);
 };

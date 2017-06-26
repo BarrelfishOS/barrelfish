@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <net/net.h>
 
 #include <net_device_manager/net_device_manager.h>
 #include <pci/pci.h>
@@ -18,7 +19,6 @@
 #include <barrelfish/debug.h>
 #include <barrelfish/deferred.h>
 #include <lwip/ip.h>
-#include <net/net.h>
 #ifdef LIBRARY
 #       include <netif/e1000.h>
 #endif

@@ -49,11 +49,5 @@
     target       = "net_arp",
     cFiles       = [ "test/arp.c" ],
     addLibraries = libDeps [ "net", "lwip2" ]
-  },
-  build application {
-    target       = "net_sockets_server",
-    cFiles       = [ "net_sockets_server.c" ],
-    flounderBindings = [ "net_sockets" ],
-    addLibraries = libDeps [ "net", "lwip2" ]
   }
 ]

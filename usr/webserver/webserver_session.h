@@ -40,10 +40,11 @@ struct http_conn {
     size_t              request_length;
     /* reply header, position and length (static) */
     const char          *header;
-    size_t              header_pos, header_length;
+    size_t              header_pos, header_length, header_sent;
 
     struct buff_holder  *hbuff;      /* reply buffer holder */
     size_t              reply_pos;  /* amount of data sent from reply */
+    size_t              reply_sent;
 
     // Time taken to send reply
     uint64_t            start_ts;

@@ -15,7 +15,7 @@
 #ifndef HTTP_CACHE_H
 #define HTTP_CACHE_H
 #include "webserver_session.h"
-errval_t http_cache_init (host_address_t server, const char *path,
+errval_t http_cache_init (struct in_addr server, const char *path,
                      void (*callback)(void));
 errval_t http_cache_lookup (const char *name, struct http_conn *cs);
 long decrement_buff_holder_ref (struct buff_holder *bh);

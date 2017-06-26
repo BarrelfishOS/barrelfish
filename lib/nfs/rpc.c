@@ -234,7 +234,7 @@ out:
     if (call != NULL) {
         // We got reply, so there is not need for keeping TX packet saved
         // here for retransmission.  Lets free it up.
-        XDR_DESTROY(&xdr);
+        net_free(call->data);
         free(call);
     }
 }
