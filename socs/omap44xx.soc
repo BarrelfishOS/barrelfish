@@ -390,13 +390,8 @@ L4_ABE is accept [0x00000/14] // XXX: First 16KB do what?
  * Cortex A9 Memory Space Mapping
  */
 CORTEXA9 is map [
-        0x00000000-0x400FFFFF to L3 at 0
         0x40100000/20 to L4_ABE at 0
-        0x40200000-0x4823FFFF to L3 at 0x40200000
-        0x48240000/6 to SCU at 0
-        0x48240100/8 to GIC_Proc_Interface
-        0x48240600/8 to Timer at 0
-        0x48241000/12 to GIC_Intr_Distributor at 0
+        0x48240000/13 to PERIPHBASE at 0
         0x48242000/12 to PL310 at 0
         0x48243000/9 to CORTEXA9_SOCKET_PRCM at 0
         0x48243200/9 to CORTEXA9_PRM at 0
@@ -406,8 +401,7 @@ CORTEXA9 is map [
         0x48290000/16 to CMU at 0
         0x482A0000/12 to Local_interconnect at 0
         0x482AF000/12 to MA at 0
-        0x482B0000-0xFFFFFFFF to L3 at 0x482B0000
-    ]
+    ] over L3
 
 /*
  * 2.4 Dual Cortex-M3 Subsystem Memory Space Mapping
@@ -542,10 +536,11 @@ SR_CORE is device accept [0/8]
 /*
  * 4 Dual Cortex-A9 MPU Subsystem
  */
-SCU is device accept [0/6]
-GIC_Proc_Interface is device accept [0/8]
+SCU is device accept [0x00-0xFC]
+GIC_PROC is device accept [0/8]
+Global_Timer is device accept [0/8]
 Timer is device accept [0/8]
-GIC_Intr_Distributor is device accept [0/12]
+GIC_DIST is device accept [0/12]
 PL310 is device accept [0/12]
 CORTEXA9_SOCKET_PRCM is device accept [0/9]
 CORTEXA9_PRM is device accept [0/9]
@@ -555,6 +550,14 @@ CORTEXA9_WUGEN is device accept [0/12]
 CMU is device accept [0/16]
 Local_interconnect is device accept [0/12]
 MA is device accept [0/12]
+
+PERIPHBASE is map [
+                0x0000/8 to SCU at 0
+                0x0100/8 to GIC_PROC at 0
+                0x0200/9 to Global_Timer at 0
+                0x0600/8 to Timer at 0
+                0x1000/12 to GIC_DIST at 0
+              ]
 
 /*
  * 5 DSP Subsystem
