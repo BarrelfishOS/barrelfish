@@ -16,6 +16,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <spawndomain/spawndomain.h>
+#include <barrelfish/monitor_client.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/cpu_arch.h>
 #include <vfs/vfs.h>
@@ -355,6 +356,7 @@ static errval_t spawn_handler(struct spawn_binding *b, const char *path,
 }
 
 static void spawn_with_caps_request_handler(struct spawn_binding *b,
+                                            struct capref procmng_cap,
                                             struct capref domain_cap,
                                             const char *path,
                                             const char *argvbuf,
@@ -365,39 +367,83 @@ static void spawn_with_caps_request_handler(struct spawn_binding *b,
                                             struct capref argcn_cap,
                                             uint8_t flags)
 {
+    errval_t err, reply_err;
+    struct capability ret;
+    err = monitor_cap_identify_remote(procmng_cap, &ret);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
+        goto reply;
+    }
+
+    if (ret.type != ObjType_ProcessManager) {
+        err = SPAWN_ERR_NOT_PROC_MNGR;
+        goto reply;
+    }
+
     spawn_domainid_t dummy_domain_id;
-    errval_t err = spawn_with_caps_common(domain_cap, path, argvbuf, argvbytes,
-                                          envbuf, envbytes, inheritcn_cap,
-                                          argcn_cap, flags, &dummy_domain_id);
-    errval_t reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, domain_cap, err);
+    err = spawn_with_caps_common(domain_cap, path, argvbuf, argvbytes, envbuf,
+                                 envbytes, inheritcn_cap, argcn_cap, flags,
+                                 &dummy_domain_id);
+
+reply:
+    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, domain_cap, err);
     if (err_is_fail(reply_err)) {
         DEBUG_ERR(err, "failed to send spawn_reply");
     }
 }
 
 static void spawn_request_handler(struct spawn_binding *b,
+                                  struct capref procmng_cap,
                                   struct capref domain_cap, const char *path,
                                   const char *argvbuf, size_t argvbytes,
                                   const char *envbuf, size_t envbytes,
                                   uint8_t flags)
 {
+
+    errval_t err, reply_err;
+    struct capability ret;
+    err = monitor_cap_identify_remote(procmng_cap, &ret);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
+        goto reply;
+    }
+
+    if (ret.type != ObjType_ProcessManager) {
+        err = SPAWN_ERR_NOT_PROC_MNGR;
+        goto reply;
+    }
+    
     spawn_domainid_t dummy_domain_id;
-    errval_t err = spawn_with_caps_common(domain_cap, path, argvbuf, argvbytes,
-                                          envbuf, envbytes, NULL_CAP, NULL_CAP,
-                                          flags, &dummy_domain_id);
-    errval_t reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, domain_cap, err);
+    err = spawn_with_caps_common(domain_cap, path, argvbuf, argvbytes, envbuf,
+                                 envbytes, NULL_CAP, NULL_CAP, flags,
+                                 &dummy_domain_id);
+
+reply:
+    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, domain_cap, err);
     if (err_is_fail(reply_err)) {
         DEBUG_ERR(err, "failed to send spawn_reply");
     }
 }
 
 static void span_request_handler(struct spawn_binding *b,
+                                 struct capref procmng_cap,
                                  struct capref domain_cap, struct capref vroot,
                                  struct capref dispframe)
 {
-    struct spawninfo si;
     errval_t err, mon_err, reply_err;
+    struct capability ret;
+    err = monitor_cap_identify_remote(procmng_cap, &ret);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
+        goto reply;
+    }
 
+    if (ret.type != ObjType_ProcessManager) {
+        err = SPAWN_ERR_NOT_PROC_MNGR;
+        goto reply;
+    }
+
+    struct spawninfo si;
     memset(&si, 0, sizeof(si));
 
     debug_printf("Spanning domain to core %d\n", disp_get_core_id());
@@ -539,9 +585,22 @@ static void cleanup_cap(struct capref cap)
 }
 
 static void kill_request_handler(struct spawn_binding *b,
+                                 struct capref procmng_cap,
                                  struct capref domain_cap)
 {
     errval_t err, reply_err;
+    struct capability ret;
+    err = monitor_cap_identify_remote(procmng_cap, &ret);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
+        goto reply;
+    }
+
+    if (ret.type != ObjType_ProcessManager) {
+        err = SPAWN_ERR_NOT_PROC_MNGR;
+        goto reply;
+    }
+
     struct ps_entry *pe;
     err = ps_release_domain(domain_cap, &pe);
     if (err_is_fail(err)) {

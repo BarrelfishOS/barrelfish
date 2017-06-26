@@ -229,7 +229,8 @@ static void spawn_reply_handler(struct spawn_binding *b,
             struct spawn_binding *spb = state->b;
             assert(spb != NULL);
 
-            err = spb->tx_vtbl.kill_request(spb, NOP_CONT, domain_cap);
+            err = spb->tx_vtbl.kill_request(spb, NOP_CONT, cap_procmng, 
+                                            domain_cap);
             if (err_is_fail(err)) {
                 // XXX: How severe is this? Maybe we want something more
                 // assertive than logging an error message.
@@ -286,12 +287,13 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
 
     cl->rx_vtbl.spawn_reply = spawn_reply_handler;
     if (capref_is_null(inheritcn_cap) && capref_is_null(argcn_cap)) {
-        err = cl->tx_vtbl.spawn_request(cl, NOP_CONT, domain_cap, path, argvbuf,
-                                        argvbytes, envbuf, envbytes, flags);
+        err = cl->tx_vtbl.spawn_request(cl, NOP_CONT, cap_procmng, domain_cap,
+                                        path, argvbuf, argvbytes, envbuf,
+                                        envbytes, flags);
     } else {
-        err = cl->tx_vtbl.spawn_with_caps_request(cl, NOP_CONT, domain_cap,
-                                                  path, argvbuf, argvbytes,
-                                                  envbuf, envbytes,
+        err = cl->tx_vtbl.spawn_with_caps_request(cl, NOP_CONT, cap_procmng,
+                                                  domain_cap, path, argvbuf,
+                                                  argvbytes, envbuf, envbytes,
                                                   inheritcn_cap, argcn_cap,
                                                   flags);
     }
@@ -375,7 +377,8 @@ static void span_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
     }
 
     cl->rx_vtbl.spawn_reply = spawn_reply_handler;
-    err = cl->tx_vtbl.span_request(cl, NOP_CONT, domain_cap, vroot, dispframe);
+    err = cl->tx_vtbl.span_request(cl, NOP_CONT, cap_procmng, domain_cap, vroot,
+                                   dispframe);
     if (err_is_ok(err)) {
         // Will respond to client when we get the reply from spawnd.
         return;
@@ -418,7 +421,8 @@ static errval_t kill_handler_common(struct proc_mgmt_binding *b,
 
         struct spawn_binding *spb = entry->spawnds[i]->b;
         spb->rx_vtbl.spawn_reply = spawn_reply_handler;
-        errval_t req_err = spb->tx_vtbl.kill_request(spb, NOP_CONT, domain_cap);
+        errval_t req_err = spb->tx_vtbl.kill_request(spb, NOP_CONT, cap_procmng,
+                                                     domain_cap);
         if (err_is_fail(req_err)) {
             DEBUG_ERR(req_err, "failed to send kill_request to spawnd %u\n", i);
         }

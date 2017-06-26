@@ -664,6 +664,9 @@ errors spawn SPAWN_ERR_ {
     failure DOMAIN_NOTFOUND    "Domain not found",
     failure DOMAIN_RUNNING    "Domain is running",
     
+    failure IDENTIFY_PROC_MNGR_CAP "Failed to identify process manager cap",
+    failure NOT_PROC_MNGR          "Request did not come from the process manager",
+
     failure CREATE_DOMAIN_TABLE  "Failed to create domain hash table",
     failure DOMAIN_CAP_HASH      "Failed to compute hash code for domain cap",
     failure DOMAIN_TABLE_FIND    "Failed to find requested domain in domain table",

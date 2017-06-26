@@ -21,20 +21,23 @@ interface spawn "Interface to spawn domains" {
                                out domainid domain_id);
 
     // Messages for the async interface with the process manager.
-    message spawn_request(cap domain_cap,
+    message spawn_request(cap procmng_cap,
+                          cap domain_cap,
                           String path[2048],
                           char argvbuf[argvbytes, 2048],
                           char envbuf[envbytes, 2048],
                           uint8 flags);
-    message spawn_with_caps_request(cap domain_cap,
+    message spawn_with_caps_request(cap procmng_cap,
+                                    cap domain_cap,
                                     String path[2048],
                                     char argvbuf[argvbytes, 2048],
                                     char envbuf[envbytes, 2048],
                                     cap inheritcn_cap,
                                     cap argcn_cap,
                                     uint8 flags);
-    message span_request(cap domain_cap, cap vroot, cap dispframe);
-    message kill_request(cap domain_cap);
+    message span_request(cap procmng_cap, cap domain_cap, cap vroot,
+                         cap dispframe);
+    message kill_request(cap procmng_cap, cap domain_cap);
     message spawn_reply(cap domain_cap, errval err);
 
     rpc spawn_proc_mgmt_domain(in cap domain_cap,
