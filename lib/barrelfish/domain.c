@@ -23,6 +23,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/curdispatcher_arch.h>
 #include <barrelfish/dispatcher_arch.h>
+#include <barrelfish/monitor_client.h>
 #include <barrelfish/waitset_chan.h>
 #include <barrelfish_kpi/domain_params.h>
 #include <arch/registers.h>
@@ -1432,7 +1433,7 @@ errval_t domain_cap_hash(struct capref domain_cap, uint64_t *ret_hash)
     assert(ret_hash != NULL);
 
     struct capability ret_cap;
-    errval_t err = debug_cap_identify(domain_cap, &ret_cap);
+    errval_t err = monitor_cap_identify_remote(domain_cap, &ret_cap);
     if (err_is_fail(err)) {
         return err_push(err, PROC_MGMT_ERR_DOMAIN_CAP_HASH);
     }

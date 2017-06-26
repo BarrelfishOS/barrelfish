@@ -17,9 +17,9 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish/debug.h>
+#include <barrelfish/monitor_client.h>
 #include <barrelfish/sys_debug.h>
 #include <barrelfish/dispatch.h>
-#include <if/monitor_blocking_defs.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,41 +68,19 @@ invoke_kernel_identify_cap(capaddr_t cap, int level, struct capability *out)
 
 errval_t debug_cap_identify(struct capref cap, struct capability *ret)
 {
-    errval_t err, msgerr;
-
     if (get_cap_addr(cap) == 0) {
         return SYS_ERR_CAP_NOT_FOUND;
     }
 
     uint8_t level = get_cap_level(cap);
     capaddr_t caddr = get_cap_addr(cap);
-    err = invoke_kernel_identify_cap(caddr, level, ret);
+    errval_t err = invoke_kernel_identify_cap(caddr, level, ret);
     if (err_is_ok(err)) {
         // we have kernel cap, return result;
         return SYS_ERR_OK;
     }
 
-    // Direct invocation failed, try via monitor
-    union {
-        monitor_blocking_caprep_t caprep;
-        struct capability capability;
-    } u;
-
-    struct monitor_blocking_binding *r = get_monitor_blocking_binding();
-    if (!r) {
-        return LIB_ERR_MONITOR_RPC_NULL;
-    }
-    err = r->rpc_tx_vtbl.cap_identify(r, cap, &msgerr, &u.caprep);
-    if (err_is_fail(err)){
-        return err;
-    } else if (err_is_fail(msgerr)) {
-        return msgerr;
-    }
-
-    assert(ret != NULL);
-    *ret = u.capability;
-
-    return msgerr;
+    return monitor_cap_identify_remote(cap, ret);
 }
 
 /**
