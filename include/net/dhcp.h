@@ -1,5 +1,5 @@
 /**
- * @brief 
+ * @brief
  *  net.h
  */
 
@@ -56,7 +56,7 @@ errval_t dhcpd_query(net_flags_t flags);
  *
  * @return
  */
-errval_t dhcpd_get_ipconfig(ip_addr_t *ip, ip_addr_t *gw, ip_addr_t *nm);
+errval_t dhcpd_get_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm);
 
 /**
  * @brief sets the IP configuration
@@ -67,6 +67,6 @@ errval_t dhcpd_get_ipconfig(ip_addr_t *ip, ip_addr_t *gw, ip_addr_t *nm);
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t dhcpd_set_ipconfig(ip_addr_t *ip, ip_addr_t *gw, ip_addr_t *nm);
+errval_t dhcpd_set_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm);
 
 #endif /* LIB_NET_INCLUDE_NETWORKING_DHCP_H_ */

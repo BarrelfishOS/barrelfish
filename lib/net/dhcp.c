@@ -8,6 +8,9 @@
  */
 
 // stdlib includes
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 // barrelfish includes
 
@@ -178,16 +181,20 @@ static void dhcpd_change_event(octopus_mode_t mode, const char* record, void* ar
             return;
         }
 
-        ip_addr_t ipaddr, netmask, gateway;
-        ipaddr.addr = (uint32_t)ip;
-        netmask.addr = (uint32_t)nm;
-        gateway.addr = (uint32_t)gw;
+        struct in_addr ipaddr, netmask, gateway;
+        ipaddr.s_addr = (uint32_t)ip;
+        netmask.s_addr = (uint32_t)nm;
+        gateway.s_addr = (uint32_t)gw;
 
-        debug_printf("DHCP got ip set: %s \n", ip4addr_ntoa(&ipaddr));
-        debug_printf("DHCP got gw set: %s\n", ip4addr_ntoa(&gateway));
-        debug_printf("DHCP got nm set: %s\n", ip4addr_ntoa(&netmask));
+        debug_printf("DHCP got ip set: %s\n", inet_ntoa(ipaddr));
+        debug_printf("DHCP got gw set: %s\n", inet_ntoa(gateway));
+        debug_printf("DHCP got nm set: %s\n", inet_ntoa(netmask));
 
-        netif_set_addr(&st->netif, &ipaddr, &netmask, &gateway);
+        ip_addr_t _ipaddr, _netmask, _gateway;
+        _ipaddr.addr = ipaddr.s_addr;
+        _netmask.addr = netmask.s_addr;
+        _gateway.addr = gateway.s_addr;
+        netif_set_addr(&st->netif, &_ipaddr, &_netmask, &_gateway);
         netif_set_up(&st->netif);
 
         st->dhcp_done = true;
@@ -249,19 +256,19 @@ errval_t dhcpd_query(net_flags_t flags)
  *
  * @return
  */
-errval_t dhcpd_get_ipconfig(ip_addr_t *ip, ip_addr_t *gw, ip_addr_t *nm)
+errval_t dhcpd_get_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm)
 {
     struct net_state *st = get_default_net_state();
     if (ip) {
-        ip->addr = netif_ip4_addr(&st->netif)->addr;
+        ip->s_addr = netif_ip4_addr(&st->netif)->addr;
     }
 
     if (gw) {
-        gw->addr = netif_ip4_gw(&st->netif)->addr;
+        gw->s_addr = netif_ip4_gw(&st->netif)->addr;
     }
 
     if (nm) {
-        nm->addr = netif_ip4_netmask(&st->netif)->addr;
+        nm->s_addr = netif_ip4_netmask(&st->netif)->addr;
     }
 
     return SYS_ERR_OK;
@@ -276,7 +283,7 @@ errval_t dhcpd_get_ipconfig(ip_addr_t *ip, ip_addr_t *gw, ip_addr_t *nm)
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t dhcpd_set_ipconfig(ip_addr_t *ip, ip_addr_t *gw, ip_addr_t *nm)
+errval_t dhcpd_set_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm)
 {
     errval_t err;
     struct net_state *st = get_default_net_state();
@@ -292,7 +299,11 @@ errval_t dhcpd_set_ipconfig(ip_addr_t *ip, ip_addr_t *gw, ip_addr_t *nm)
         }
     }
 
-    netif_set_addr(&st->netif, ip, nm, gw);
+    ip_addr_t _ipaddr, _netmask, _gateway;
+    _ipaddr.addr = ip->s_addr;
+    _netmask.addr = nm->s_addr;
+    _gateway.addr = gw->s_addr;
+    netif_set_addr(&st->netif, &_ipaddr, &_netmask, &_gateway);
     netif_set_up(&st->netif);
 
     st->dhcp_done = true;

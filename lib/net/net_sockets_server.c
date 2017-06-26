@@ -16,10 +16,6 @@
 #include <barrelfish/deferred.h>
 #include <barrelfish/nameservice_client.h>
 
-#include <lwip/ip.h>
-#include <lwip/udp.h>
-#include <lwip/tcp.h>
-#include <lwip/pbuf.h>
 #include <net/net.h>
 
 #include <barrelfish/waitset_chan.h>
@@ -30,7 +26,10 @@
 #include <if/net_sockets_defs.h>
 #include <net_sockets/net_sockets_types.h>
 
-typedef uint32_t host_address_t;
+#include <lwip/ip.h>
+#include <lwip/udp.h>
+#include <lwip/tcp.h>
+#include <lwip/pbuf.h>
 
 #define NO_OF_BUFFERS 128
 #define BUFFER_SIZE 16384
@@ -127,7 +126,7 @@ static void net_udp_receive(void *arg, struct udp_pcb *pcb, struct pbuf *p, cons
 
     nb->size = length;
     nb->descriptor = connection->descriptor;
-    nb->host_address = addr->addr;
+    nb->host_address.s_addr = addr->addr;
     nb->port = port;
     // debug_printf("%s(%d): %p -> %p %p %d\n", __func__, connection->descriptor, buffer, nb->user_callback, nb->user_state, nb->size);
 
@@ -178,7 +177,7 @@ static err_t net_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
         assert(buffer);
         nb->size = length;
         nb->descriptor = socket->descriptor;
-        nb->host_address = 0;
+        nb->host_address.s_addr = 0;
         nb->port = 0;
         // debug_printf("%s(%d): %p -> %p %p %d\n", __func__, connection->descriptor, buffer, nb->user_callback, nb->user_state, nb->size);
 
@@ -190,7 +189,7 @@ static err_t net_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
         assert(buffer);
         nb->size = 0;
         nb->descriptor = socket->descriptor;
-        nb->host_address = 0;
+        nb->host_address.s_addr = 0;
         nb->port = 0;
         debug_printf("%s(%d): close\n", __func__, socket->descriptor);
         // debug_printf("%s(%d): %p -> %p %p %d\n", __func__, connection->descriptor, buffer, nb->user_callback, nb->user_state, nb->size);
@@ -287,7 +286,7 @@ static errval_t net_tcp_socket(struct net_sockets_binding *binding, uint32_t *de
     return SYS_ERR_OK;
 }
 
-static errval_t net_bind(struct net_sockets_binding *binding, uint32_t descriptor, host_address_t ip_address, uint16_t port, errval_t *error)
+static errval_t net_bind(struct net_sockets_binding *binding, uint32_t descriptor, uint32_t ip_address, uint16_t port, errval_t *error)
 {
     struct network_connection *nc;
     struct socket_connection *socket;
@@ -359,7 +358,7 @@ static err_t net_tcp_connected(void *arg, struct tcp_pcb *tpcb, err_t error)
     return SYS_ERR_OK;
 }
 
-static errval_t net_connect(struct net_sockets_binding *binding, uint32_t descriptor, host_address_t ip_address, uint16_t port, errval_t *error)
+static errval_t net_connect(struct net_sockets_binding *binding, uint32_t descriptor, uint32_t ip_address, uint16_t port, errval_t *error)
 {
     struct network_connection *nc;
     struct socket_connection *socket;
@@ -511,7 +510,7 @@ static errval_t q_notify(struct descq* q)
                     ip_addr_t addr;
                     uint16_t port;
                     port = nb->port;
-                    addr.addr = nb->host_address;
+                    addr.addr = nb->host_address.s_addr;
                     // debug_printf("%s: enqueue 2 %lx:%d\n", __func__, offset, BUFFER_SIZE);
                     err = devq_enqueue(queue, rid, offset, BUFFER_SIZE, 0, 0, 2);
                     assert(err_is_ok(err));

@@ -34,7 +34,7 @@ in
                             "arm/aeabi/aeabi_atexit.c", "arm/aeabi/aeabi_unwind_cpp.c",
                             "arm/aeabi/aeabi_unwind_exidx.c" ]
                         "armv8" ->  [ "aarch64/gen/flt_rounds.c" ],
-        addLibraries = [ "locale", "stdio", "string", "sys", "gdtoa", "libc_gdtoa", "stdlib", "libc_sys", "libc_gen", "vis", "libc_stdtime", "tzcode" ],
+        addLibraries = [ "locale", "stdio", "string", "sys", "gdtoa", "libc_gdtoa", "stdlib", "libc_sys", "libc_gen", "vis", "libc_stdtime", "tzcode", "libc_inet" ],
 --        addLibraries = [
 --        "machine" -- put this first, so machine-specific symbols are found before generic ones
 --        , "ctype"

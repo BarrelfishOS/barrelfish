@@ -263,10 +263,10 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
 
     NETDEBUG("initializing hw filter...\n");
 
-    err = net_filter_init(&st->filter, st->cardname);
-    if (err_is_fail(err)) {
-        USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
-    }
+    // err = net_filter_init(&st->filter, st->cardname);
+    // if (err_is_fail(err)) {
+    //     USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+    // }
 
     NETDEBUG("setting default netif...\n");
    // netif_set_default(&st->netif);
@@ -305,6 +305,12 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to subscribte the ARP service\n");
         }
+        
+        ip4_addr_t ipaddr, netmask;
+        IP4_ADDR(&ipaddr, 192, 168, 0, 36);
+        IP4_ADDR(&netmask, 255, 255, 255, 0);
+        netif_set_addr(&st->netif, &ipaddr, &netmask,
+                    IP_ADDR_ANY);
     }
 
     NETDEBUG("initialization complete.\n");
@@ -455,7 +461,7 @@ errval_t networking_poll(void)
  *
  * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
  */
-errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
+errval_t networking_install_ip_filter(bool tcp, struct in_addr *src,
                                       uint16_t src_port, uint16_t dst_port)
 {
     errval_t err;
@@ -466,7 +472,7 @@ errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
     struct net_filter_state *st = state.filter;
 
     // get current config
-    ip_addr_t dst_ip;
+    struct in_addr dst_ip;
     err = dhcpd_get_ipconfig(&dst_ip, NULL, NULL);
     if (err_is_fail(err)) {
         return err;
@@ -474,8 +480,8 @@ errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
     
     struct net_filter_ip ip = {
         .qid = state.queueid,
-        .ip_src = (uint32_t) src->addr,
-        .ip_dst = (uint32_t) dst_ip.addr,
+        .ip_src = (uint32_t) src->s_addr,
+        .ip_dst = (uint32_t) dst_ip.s_addr,
         .port_dst = dst_port,
         .port_src = src_port,
     };
@@ -499,7 +505,7 @@ errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
  *
  * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
  */
-errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src,
+errval_t networking_remove_ip_filter(bool tcp, struct in_addr *src,
                                      uint16_t src_port, uint16_t dst_port)
 {
 
@@ -511,7 +517,7 @@ errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src,
     struct net_filter_state *st = state.filter;
 
     // get current config
-    ip_addr_t dst_ip;
+    struct in_addr dst_ip;
     err = dhcpd_get_ipconfig(&dst_ip, NULL, NULL);
     if (err_is_fail(err)) {
         return err;
@@ -519,8 +525,8 @@ errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src,
     
     struct net_filter_ip ip = {
         .qid = state.queueid,
-        .ip_src = (uint32_t) src->addr,
-        .ip_dst = (uint32_t) dst_ip.addr,
+        .ip_src = (uint32_t) src->s_addr,
+        .ip_dst = (uint32_t) dst_ip.s_addr,
         .port_dst = dst_port,
         .port_src = src_port,
     };

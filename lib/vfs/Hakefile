@@ -39,7 +39,6 @@
                              "fdtab.c", "vfs_fd.c", "vfs_blockdevfs_megaraid.c"
                            ],
                   addCFlags = [ "-DDISABLE_NFS" ],
-                  addLibraries = [ "lwip" ],
                   mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb",
                                       "fat32_ebpb", "fat_direntry", "ahci_port",
                                       "ahci_hba"
@@ -70,11 +69,7 @@
                              "cache.c", "vfs_cache.c", "fdtab.c", "vfs_fd.c"
                            ],
                   addCFlags = [ "-DDISABLE_NFS", "-DDISABLE_BLOCKDEV" ],
-                  addLibraries = [ "lwip" ],
                   flounderBindings = [ "trivfs", "bcache" ],
-                  flounderExtraBindings = [ ("trivfs", ["rpcclient"]),
-                                            ("bcache", ["rpcclient"])
-                                          ],
                   flounderDefs = [ "monitor" ]
                 }
 ]

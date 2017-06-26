@@ -1356,12 +1356,11 @@ errval_t vfs_nfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
     memcpy(host_copy, host, path - host);
     host_copy[path - host] = '\0';
 
-    struct in_addr server1;
-    if (inet_aton(host_copy, &server1) == 0) {
+    struct in_addr server;
+    if (inet_aton(host_copy, &server) == 0) {
         printf("Invalid host IP: %s\n", host_copy);
         return VFS_ERR_BAD_URI;
     }
-    host_address_t server2 = server1.s_addr;
 
     // init stack if needed
     static bool stack_inited;
@@ -1375,7 +1374,7 @@ errval_t vfs_nfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
     assert(st != NULL);
 
     // lwip_mutex_lock();
-    st->client = nfs_mount(server2, path, mount_callback, st);
+    st->client = nfs_mount(server, path, mount_callback, st);
     assert(st->client != NULL);
     wait_for_condition();
     // lwip_mutex_unlock();

@@ -161,7 +161,7 @@ static errval_t xdr_skip_auth(XDR *xdr)
 /// Generic handler for all incoming RPC messages. Finds the appropriate call
 /// instance, checks arguments, and notifies the callback.
 static void rpc_recv_handler(void *user_state, struct net_socket *socket,
-    void *data, size_t size, host_address_t ip_address, uint16_t port)
+    void *data, size_t size, struct in_addr ip_address, uint16_t port)
 {
 
 //    uint64_t ts = rdtsc();
@@ -322,7 +322,7 @@ static void rpc_timer(void *arg)
  *
  * \returns Error code (SYS_ERR_OK on success)
  */
-errval_t rpc_init(struct rpc_client *client, host_address_t server)
+errval_t rpc_init(struct rpc_client *client, struct in_addr server)
 {
     errval_t err;
     
@@ -334,7 +334,7 @@ errval_t rpc_init(struct rpc_client *client, host_address_t server)
     net_debug_state = 0;
 
     client->server = server;
-    client->connected_address = 0;
+    client->connected_address.s_addr = INADDR_NONE;
     client->connected_port = 0;
 
     for (int i = 0; i < RPC_HTABLE_SIZE; ++i) {
@@ -426,7 +426,7 @@ errval_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
 
     RPC_DEBUGP("rpc_call: RPC call for xid %u x0%x\n", xid, xid);
     RPC_DEBUGP("rpc_call: calling UPD_connect\n");
-    if (client->server != client->connected_address || port != client->connected_port) {
+    if (client->server.s_addr != client->connected_address.s_addr || port != client->connected_port) {
         r = net_connect(client->socket, client->server, port, NULL);
         if (r != SYS_ERR_OK) {
             XDR_DESTROY(&xdr);

@@ -93,7 +93,7 @@ in
         flounderBindings = [ "unixsock", "octopus" ],
         flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
         flounderTHCStubs = [ "octopus" ],
-        addLibraries = libDeps [ "vfs",  "term_server", "octopus" ],
+        addLibraries = libDeps [ "vfs_nonfs",  "term_server", "octopus", "lwip" ],
         architectures = [ "x86_64" ]
     },
     build library {

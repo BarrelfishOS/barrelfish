@@ -136,11 +136,11 @@ void net_close(struct net_socket *socket)
     free(socket);
 }
 
-errval_t net_bind(struct net_socket *socket, host_address_t ip_address, uint16_t port)
+errval_t net_bind(struct net_socket *socket, struct in_addr ip_address, uint16_t port)
 {
     errval_t err, error;
 
-    err = binding->rpc_tx_vtbl.bind(binding, socket->descriptor, ip_address, port, &error);
+    err = binding->rpc_tx_vtbl.bind(binding, socket->descriptor, ip_address.s_addr, port, &error);
     assert(err_is_ok(err));
 
     return error;
@@ -184,7 +184,7 @@ errval_t net_send(struct net_socket *socket, void *data, size_t size)
 
     nb->size = size;
     nb->descriptor = socket->descriptor;
-    nb->host_address = 0;
+    nb->host_address.s_addr = INADDR_NONE;
     nb->port = 0;
     // debug_printf("%s: enqueue 2 %lx:%ld\n", __func__, buffer - buffer_start, sizeof(struct net_buffer) + size);
     err = devq_enqueue((struct devq *)descq_queue, regionid, buffer - buffer_start, sizeof(struct net_buffer) + size,
@@ -197,7 +197,7 @@ errval_t net_send(struct net_socket *socket, void *data, size_t size)
     return error;
 }
 
-errval_t net_send_to(struct net_socket *socket, void *data, size_t size, host_address_t ip_address, uint16_t port)
+errval_t net_send_to(struct net_socket *socket, void *data, size_t size, struct in_addr ip_address, uint16_t port)
 {
     errval_t err, error;
 
@@ -220,12 +220,12 @@ errval_t net_send_to(struct net_socket *socket, void *data, size_t size, host_ad
     return error;
 }
 
-errval_t net_connect(struct net_socket *socket, host_address_t ip_address, uint16_t port, net_connected_callback_t cb)
+errval_t net_connect(struct net_socket *socket, struct in_addr ip_address, uint16_t port, net_connected_callback_t cb)
 {
     errval_t err, error;
 
     socket->connected = cb;
-    err = binding->rpc_tx_vtbl.connect(binding, socket->descriptor, ip_address, port, &error);
+    err = binding->rpc_tx_vtbl.connect(binding, socket->descriptor, ip_address.s_addr, port, &error);
     assert(err_is_ok(err));
     assert(err_is_ok(error));
 
@@ -266,7 +266,7 @@ static void net_accepted(struct net_sockets_binding *b, uint32_t descriptor,
     enqueue(&sockets, accepted_socket);
 
     assert(socket->accepted);
-    socket->accepted(socket->user_state, accepted_socket, host_address, port);
+    socket->accepted(socket->user_state, accepted_socket, (struct in_addr){(host_address)}, port);
 }
 
 

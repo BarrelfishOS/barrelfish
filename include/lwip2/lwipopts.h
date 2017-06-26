@@ -521,4 +521,6 @@ extern unsigned char debug_flags;
 #define TCP_SND_BUF             (TCP_MSS * 40)
 #define TCP_SND_QUEUELEN       (16 * (TCP_SND_BUF/TCP_MSS))
 
+#define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS
+
 #endif /* LWIP_LWIPOPTS_H */

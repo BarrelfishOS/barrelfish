@@ -160,7 +160,7 @@ static errval_t portmap_lookup(struct nfs_client *client, u_int prog, u_int vers
  *   call succeeds, the returned client instance must be freed by a later call
  *   to nfs_destroy().
  */
-struct nfs_client *nfs_mount(host_address_t server, const char *path,
+struct nfs_client *nfs_mount(struct in_addr server, const char *path,
                              nfs_mount_callback_t callback, void *cbarg)
 {
     struct nfs_client *client;

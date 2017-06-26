@@ -22,15 +22,15 @@ struct net_socket * net_tcp_socket(void);
 void net_set_user_state(struct net_socket *socket, void *user_state);
 void net_close(struct net_socket *socket);
 
-errval_t net_bind(struct net_socket *socket, host_address_t ip_address, uint16_t port);
+errval_t net_bind(struct net_socket *socket, struct in_addr ip_address, uint16_t port);
 errval_t net_listen(struct net_socket *socket, uint8_t backlog);
 
 errval_t net_send(struct net_socket *socket, void *data, size_t size);
-errval_t net_send_to(struct net_socket *socket, void *data, size_t size, host_address_t ip_address, uint16_t port);
+errval_t net_send_to(struct net_socket *socket, void *data, size_t size, struct in_addr ip_address, uint16_t port);
 
 void net_recv(struct net_socket *socket, net_received_callback_t cb);
 void net_set_sent(struct net_socket *socket, net_sent_callback_t cb);
-errval_t net_connect(struct net_socket *socket, host_address_t ip_address, uint16_t port, net_connected_callback_t cb);
+errval_t net_connect(struct net_socket *socket, struct in_addr ip_address, uint16_t port, net_connected_callback_t cb);
 void net_accept(struct net_socket *socket, net_accepted_callback_t cb);
 
 

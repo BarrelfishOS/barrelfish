@@ -60,8 +60,9 @@ enum rpc_auth_stat {
 /// RPC client instance data
 struct rpc_client {
     struct net_socket *socket;    ///< UDP socket
-    host_address_t connected_address, connected_port;
-    host_address_t server;  ///< Server IP
+    struct in_addr connected_address;
+    uint16_t connected_port;
+    struct in_addr server;  ///< Server IP
     struct rpc_call *call_hash[RPC_HTABLE_SIZE];
 
     uint32_t nextxid;       ///< Next transaction ID
@@ -85,7 +86,7 @@ typedef void (*rpc_callback_t)(struct rpc_client *rpc_client, void *arg1,
                                void *arg2, uint32_t replystat,
                                uint32_t acceptstat, XDR *reply_xdr);
 
-errval_t rpc_init(struct rpc_client *client, host_address_t server);
+errval_t rpc_init(struct rpc_client *client, struct in_addr server);
 void rpc_destroy(struct rpc_client *client);
 errval_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
                uint32_t vers, uint32_t proc, xdrproc_t args_xdrproc, void *args,

@@ -89,6 +89,7 @@ static int cat(char *path)
 
 int main(int argc, char**argv)
 {
+    errval_t err;
     vfs_init();
 
     if(argc < 3) {
@@ -98,10 +99,10 @@ int main(int argc, char**argv)
         exit(EXIT_FAILURE);
     }
 
-    errval_t err = vfs_mkdir(MOUNT_DIR);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "vfs_mount");
-    }
+//    err = vfs_mkdir(MOUNT_DIR);
+//    if (err_is_fail(err)) {
+//        DEBUG_ERR(err, "vfs_mount");
+//    }
 
     err = vfs_mount(MOUNT_DIR, argv[1]);
     if(err_is_fail(err)) {

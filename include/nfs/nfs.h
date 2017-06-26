@@ -192,7 +192,7 @@ typedef void (*nfs_mkdir_callback_t)(void *arg, struct nfs_client *client,
 typedef void (*nfs_remove_callback_t)(void *arg, struct nfs_client *client,
                                       REMOVE3res *result);
 
-struct nfs_client *nfs_mount(host_address_t server, const char *path,
+struct nfs_client *nfs_mount(struct in_addr server, const char *path,
                              nfs_mount_callback_t callback, void *cbarg);
 errval_t nfs_getattr(struct nfs_client *client, struct nfs_fh3 fh,
                   nfs_getattr_callback_t callback, void *cbarg);
