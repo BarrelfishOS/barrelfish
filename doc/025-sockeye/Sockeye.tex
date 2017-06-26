@@ -197,6 +197,14 @@ The order in which the nodes are declared does not matter.
 	\Big\} \\
 \end{align*}
 
+\paragraph{Example}
+\begin{syntax}
+	node1 \textbf{is} \ldots
+
+	node2
+	node3 \textbf{are} \ldots
+\end{syntax}
+
 \subsection{Node specifications}
 A node specification consists of a type, a set of accepted addresses, a set of translated addresses and an overlay.
 All of these are optional.
@@ -217,6 +225,12 @@ All of these are optional.
 	\Big] \\
 \end{align*}
 
+\paragraph{Example}
+\begin{syntax}
+	node1 \textbf{is} \textit{<type>} \textbf{accept} [\ldots]
+	node2 \textbf{is} \textbf{map} [\ldots] \textbf{over} node1
+\end{syntax}
+
 \subsection{Node type}
 Currently there are two types: \Sockeye{device} and \Sockeye{memory}. A third internal type \Sockeye{other} is given to nodes for which no type is specified.
 The \verb|device|-type specifies that the accepted addresses are device registers while the \Sockeye{memory}-type is for memory nodes like RAM or ROM.
@@ -228,17 +242,24 @@ The \verb|device|-type specifies that the accepted addresses are device register
 	\textbf{memory} \\
 \end{align*}
 
+\paragraph{Example}
+\begin{syntax}
+	node1 \textbf{is} memory \textbf{accept} [\ldots]
+	node2 \textbf{is} device \textbf{accept} [\ldots]
+\end{syntax}
+
 \subsection{Addresses}
 Addresses can be given as hexadecimal, octal or decimal integers.
 \begin{align*}
 \textit{addr} & \mathop{=} \textit{integer} \\
 \end{align*}
 
+\clearpage
 \subsection{Block specification}
 A block is specified by its start and end address.
 If the start and end address are the same, the end address can be omitted.
 Sockeye also supports specifying a block as its base address and the number of address bits the block spans:
-A block from \texttt{0x0} to \texttt{0xFFF} with a size of 4kB can be specified ass \Sockeye|0x0/12|.
+A block from \texttt{0x0} to \texttt{0xFFF} with a size of 4kB can be specified as \Sockeye|0x0/12|.
 
 \begin{align*}
 \textit{block}_s & \mathop{=} \textit{addr}\
@@ -248,6 +269,13 @@ A block from \texttt{0x0} to \texttt{0xFFF} with a size of 4kB can be specified 
 		\textbf{/}decimal
 	\Big] \\
 \end{align*}
+
+\paragraph{Example}
+\begin{syntax}
+	node1 is \textbf{accept} [0x42-0x51]
+	node2 is \textbf{accept} [0x42]      // \textit{same as \textup{0x42-0x42}}
+	node3 is \textbf{accept} [0x0/12]    // \textit{same as \textup{0x00-0xFFF}}
+\end{syntax}
 
 \subsection{Map specification}
 A map specification is a source address block, a target node identifier and optionally a target base address to which the source block is translated within the target node.
@@ -268,7 +296,21 @@ Multiple translation targets can be specified by giving a comma-separated list o
 	\Big\} \\
 \end{align*}
 
-\section{Example}
+\paragraph{Example}
+\begin{syntax}
+	/* \textit{Translate \textup{0x0-0xFF} to \textup{node2} at \textup{0x300-0x3FF}:} */
+	node1 is \textbf{map} [0x0/8 \textbf{to} node2 \textbf{at} 0x300] 
+
+	/* \textit{This is the same as \textup{0x300/8 \textbf{to} node1 \textbf{at} 0x300}:} */
+	node2 is \textbf{map} [0x300/8 \textbf{to} node1]
+
+	/* \textit{Multiple translation targets, \textup{0x0-0xFF} is translated to
+	   - \textup{node1} at \textup{0x0-0xFF}
+	   - \textup{node2} at \textup{0x300-0x3FF}:} */
+	node3 is \textbf{map} [0x0/8 \textbf{to} node1, node2 \textbf{at} 0x300]
+\end{syntax}
+
+\section{Example Specification}
 Listing~\ref{lst:sockeye_example} shows an example Sockeye specification.
 
 \lstinputlisting[caption={Example Sockeye specification}, label={lst:sockeye_example}, language=Sockeye]{example.soc}
