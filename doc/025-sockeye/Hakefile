@@ -10,4 +10,17 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "Sockeye.tex" "TN-025-Sockeye.pdf" True False [] ]
+let
+    sockeyeToProlog = [ "example" ]
+    sockeyeRule f = Rule [ sockeyeProgLoc,
+                           In SrcTree "src" (f ++ ".soc"),
+                           Str "-o",
+                           Out "docs" (f ++ ".pl")
+                         ]
+    prologFromSockeye = [ Dep BuildTree "docs" (f ++ ".pl") | f <- sockeyeToProlog]
+in
+[ buildTechNoteWithDeps "Sockeye.tex" "TN-025-Sockeye.pdf" True False [] 
+    prologFromSockeye
+]
+++
+[sockeyeRule f | f <- sockeyeToProlog]

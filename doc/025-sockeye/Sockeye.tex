@@ -93,7 +93,7 @@ The Sockeye compiler is written in Haskell using the Parsec parsing library. It
 generates Prolog files from the Sockeye files. These Prolog files contain facts that represent a decoding net as defined in \cite{achermann:mars17}.
 The Prolog files can then be loaded into Barrelfish's System Knowledgebase (SKB).
 
-The source code for Sockeye can be found in \texttt{SOURCE/tools/sockeye}.
+The source code for Sockeye can be found in \pathname{SOURCE/tools/sockeye}.
 
 
 \section{Command line options}
@@ -106,10 +106,10 @@ $ sockeye [options] file
 
 The available options are:
 \begin{description}
-	\item[-P] Generate a Prolog file that can be loaded into the SKB.
-	\item[-C] Just perform checks, do not compile.
-  \item[-o] \textit{filename} The path to the output file (including the file extension)
-  \item[-h] show usage information
+\item[-P] Generate a Prolog file that can be loaded into the SKB.
+\item[-C] Just perform checks, do not compile.
+\item[-o] \varname{filename} The path to the output file (including the file extension)
+\item[-h] show usage information
 \end{description}
 
 The backend (capital letter options) specified last takes precedence.
@@ -315,7 +315,7 @@ Listing~\ref{lst:sockeye_example} shows an example Sockeye specification.
 
 \lstinputlisting[caption={Example Sockeye specification}, label={lst:sockeye_example}, language=Sockeye]{example.soc}
 
-The specification for the Texas Instruments OMAP4460 SoC used on the PandaboardES can serve as a real world example. It is located in \texttt{SOURCE/socs/omap4460.soc}.
+The specification for the Texas Instruments OMAP4460 SoC used on the PandaboardES can serve as a real world example. It is located in \pathname{SOURCE/socs/omap4460.soc}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -354,10 +354,10 @@ Listings~\ref{lst:prolog_example} shows the generated Prolog code for the Sockey
 \chapter{Compiling Sockeye files with Hake}
 \label{chap:hake}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-SoC descriptions are placed in the directory \texttt{SOURCE/socs} with the file extension \texttt{.soc}.
+SoC descriptions are placed in the directory \pathname{SOURCE/socs} with the file extension \pathname{.soc}.
 Each Sockeye file has to be added to the list of SoCs in the Hakefile in the same directory.
-The Hake rule for Sockeye files compiles all the listed files to \texttt{BUILD/sockeyefacts/<filename>.pl} if they are specified as a dependency in some Hakefile.
-To add a compiled Sockeye specification to the SKB RAM-disk, the filename can be added to the \verb|sockeyeFiles| list in the SKBs Hakefile.
+The Hake rule for Sockeye files compiles all the listed files to \pathname{BUILD/sockeyefacts/<filename>.pl} if they are specified as a dependency in some Hakefile.
+To add a compiled Sockeye specification to the SKB RAM-disk, the filename can be added to the \varname{sockeyeFiles} list in the SKBs Hakefile.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
