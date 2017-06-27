@@ -33,6 +33,7 @@ errval_t domain_new(struct capref domain_cap, struct domain_entry **ret_entry)
     entry->status = DOMAIN_STATUS_NIL;
     memset(entry->spawnds, 0, sizeof(entry->spawnds));
     entry->num_spawnds_running = 0;
+    entry->num_spawnds_resources = 0;
     entry->waiters = NULL;
 
     if (domain_table == NULL) {
@@ -87,6 +88,7 @@ void domain_run_on_core(struct domain_entry *entry, coreid_t core_id)
 
     entry->spawnds[core_id] = spawnd_state_get(core_id);
     ++entry->num_spawnds_running;
+    ++entry->num_spawnds_resources;
 }
 
 errval_t domain_spawn(struct capref domain_cap, coreid_t core_id)

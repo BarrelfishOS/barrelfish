@@ -23,8 +23,8 @@ enum domain_status {
     DOMAIN_STATUS_NIL,
     DOMAIN_STATUS_RUNNING,
     DOMAIN_STATUS_STOP_PEND,
-    DOMAIN_STATUS_STOPPED
-    // TODO(razvan): Add the others, as per the state machine.
+    DOMAIN_STATUS_STOPPED,
+    DOMAIN_STATUS_CLEANED
 };
 
 struct domain_waiter {
@@ -38,6 +38,7 @@ struct domain_entry {
 
     struct spawnd_state *spawnds[MAX_COREID];  // Spawnds running this domain.
     coreid_t num_spawnds_running;
+    coreid_t num_spawnds_resources;
 
     struct domain_waiter *waiters;  // Clients waiting after this domain.
 

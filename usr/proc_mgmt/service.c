@@ -53,8 +53,8 @@ static void add_spawnd_handler(struct proc_mgmt_binding *b, coreid_t core_id,
 static void add_spawnd_handler_non_monitor(struct proc_mgmt_binding *b,
                                            coreid_t core_id, iref_t iref)
 {
-    debug_printf("Ignoring add_spawnd call: %s\n",
-                 err_getstring(PROC_MGMT_ERR_NOT_MONITOR));
+    // debug_printf("Ignoring add_spawnd call: %s\n",
+    //              err_getstring(PROC_MGMT_ERR_NOT_MONITOR));
 }
 
 static void spawn_reply_handler(struct spawn_binding *b,
@@ -118,44 +118,81 @@ static void spawn_reply_handler(struct spawn_binding *b,
                 break;
             }
 
-            assert(entry->num_spawnds_running > 0);
-            assert(entry->status != DOMAIN_STATUS_STOPPED);
+            assert(entry->num_spawnds_resources > 0 ||
+                   entry->num_spawnds_running > 0);
+            assert(entry->status != DOMAIN_STATUS_CLEANED);
 
-            --entry->num_spawnds_running;
-            if (entry->num_spawnds_running == 0) {
-                entry->status = DOMAIN_STATUS_STOPPED;
-                entry->exit_status = EXIT_STATUS_KILLED;  // TODO(razvan): Is this desirable?
-
-                resp_err = cl->b->tx_vtbl.kill_response(cl->b, NOP_CONT,
-                                                        err);
-
-                // At this point, the domain exists in state STOPPED for
-                // history reasons. For instance, if some other domain
-                // issues a wait call for this one, the process manager can
-                // return the exit status directly.
-                // At some point, however, we might want to just clean up
-                // the domain entry and recycle the domain cap.
-                struct domain_waiter *waiter = entry->waiters;
-                while (waiter != NULL) {
-                    waiter->b->tx_vtbl.wait_response(waiter->b,
-                                                     NOP_CONT,
-                                                     SYS_ERR_OK,
-                                                     entry->exit_status);
-                    struct domain_waiter *aux = waiter;
-                    waiter = waiter->next;
-                    free(aux);
-                }
-                break;
-            } else {
-                // Expecting to receive further kill replies from other spawnds
-                // for the same domain cap, hence re-add the pending client.
-                err = pending_clients_add(domain_cap, cl->b, ClientType_Kill,
-                                          MAX_COREID);
+            if (entry->num_spawnds_running > 0) {
+                --entry->num_spawnds_running;
+                    
+                err = pending_clients_add(domain_cap, cl->b,
+                                          ClientType_Kill, MAX_COREID);
                 if (err_is_fail(err)) {
-                DEBUG_ERR(err, "pending_clients_add in kill reply handler");
+                    DEBUG_ERR(err, "pending_clients_add in reply handler");
+                }
+
+                if (entry->num_spawnds_running == 0) {
+                    entry->status = DOMAIN_STATUS_STOPPED;
+                    entry->exit_status = EXIT_STATUS_KILLED;
+
+                    // TODO(razvan): Might it be more sane if we respond back
+                    // to the client after the domain has been cleaned up (i.e.
+                    // the cspace root has been revoked for all dispatchers)?
+                    resp_err = cl->b->tx_vtbl.kill_response(cl->b, NOP_CONT,
+                                                           err);
+                    
+                    // TODO(razvan): Same problem applies to the waiters: would
+                    // it be better if we sent them wait_responses after the
+                    // cspace root has been revoked, too? (here and in the exit
+                    // case).
+                    struct domain_waiter *waiter = entry->waiters;
+                    while (waiter != NULL) {
+                        waiter->b->tx_vtbl.wait_response(waiter->b, NOP_CONT,
+                                                         SYS_ERR_OK,
+                                                         entry->exit_status);
+                        struct domain_waiter *aux = waiter;
+                        waiter = waiter->next;
+                        free(aux);
+                    }
+
+                    for (coreid_t i = 0; i < MAX_COREID; ++i) {
+                        if (entry->spawnds[i] == NULL) {
+                            continue;
+                        }
+
+                        struct spawn_binding *spb = entry->spawnds[i]->b;
+                        spb->rx_vtbl.spawn_reply = spawn_reply_handler;
+                        errval_t req_err = spb->tx_vtbl.cleanup_request(spb,
+                                NOP_CONT, cap_procmng, domain_cap);
+                        if (err_is_fail(req_err)) {
+                            DEBUG_ERR(req_err, "failed to send cleanup_request "
+                                      "to spawnd %u\n", i);
+                        }
+                    }
+                }
+            } else {
+                --entry->num_spawnds_resources;
+
+                if (entry->num_spawnds_resources == 0) {
+                    entry->status = DOMAIN_STATUS_CLEANED;
+
+                    // At this point, the domain exists in state CLEANED for
+                    // history reasons. For instance, if some other domain
+                    // issues a wait call for this one, the process manager can
+                    // return the exit status directly.
+                    // At some point, however, we might want to just clean up
+                    // the domain entry and recycle the domain cap.
+                } else {
+                    // Expecting to receive further cleanup replies from other
+                    // spawnds for the same domain cap, hence re-add the
+                    // pending client.
+                    err = pending_clients_add(domain_cap, cl->b,
+                                              ClientType_Exit, MAX_COREID);
+                    if (err_is_fail(err)) {
+                        DEBUG_ERR(err, "pending_clients_add in reply handler");
+                    }
                 }
             }
-
             break;
 
         case ClientType_Exit:
@@ -174,41 +211,71 @@ static void spawn_reply_handler(struct spawn_binding *b,
                 break;
             }
 
-            assert(entry->num_spawnds_running > 0);
-            assert(entry->status != DOMAIN_STATUS_STOPPED);
+            assert(entry->num_spawnds_resources > 0 ||
+                   entry->num_spawnds_running > 0);
+            assert(entry->status != DOMAIN_STATUS_CLEANED);
 
-            --entry->num_spawnds_running;
-            if (entry->num_spawnds_running == 0) {
-                entry->status = DOMAIN_STATUS_STOPPED;
+            if (entry->num_spawnds_running > 0) {
+                --entry->num_spawnds_running;
 
-                // At this point, the domain exists in state STOPPED for
-                // history reasons. For instance, if some other domain
-                // issues a wait call for this one, the process manager can
-                // return the exit status directly.
-                // At some point, however, we might want to just clean up
-                // the domain entry and recycle the domain cap.
-                struct domain_waiter *waiter = entry->waiters;
-                while (waiter != NULL) {
-                    waiter->b->tx_vtbl.wait_response(waiter->b,
-                                                     NOP_CONT,
-                                                     SYS_ERR_OK,
-                                                     entry->exit_status);
-                    struct domain_waiter *aux = waiter;
-                    waiter = waiter->next;
-                    free(aux);
-                }
-                break;
-            } else {
-                // Expecting to receive further kill replies from other spawnds
-                // for the same domain cap, hence re-add the pending client.
-                err = pending_clients_add(domain_cap, cl->b, ClientType_Exit,
-                                          MAX_COREID);
+                err = pending_clients_add(domain_cap, cl->b,
+                                          ClientType_Exit, MAX_COREID);
                 if (err_is_fail(err)) {
-                DEBUG_ERR(err, "pending_clients_add in exit reply handler");
+                    DEBUG_ERR(err, "pending_clients_add in reply handler");
+                }
+
+                if (entry->num_spawnds_running == 0) {
+                    entry->status = DOMAIN_STATUS_STOPPED;
+
+                    struct domain_waiter *waiter = entry->waiters;
+                    while (waiter != NULL) {
+                        waiter->b->tx_vtbl.wait_response(waiter->b, NOP_CONT,
+                                                         SYS_ERR_OK,
+                                                         entry->exit_status);
+                        struct domain_waiter *aux = waiter;
+                        waiter = waiter->next;
+                        free(aux);
+                    }
+
+                    for (coreid_t i = 0; i < MAX_COREID; ++i) {
+                        if (entry->spawnds[i] == NULL) {
+                            continue;
+                        }
+
+                        struct spawn_binding *spb = entry->spawnds[i]->b;
+                        spb->rx_vtbl.spawn_reply = spawn_reply_handler;
+                        errval_t req_err = spb->tx_vtbl.cleanup_request(spb,
+                                NOP_CONT, cap_procmng, domain_cap);
+                        if (err_is_fail(req_err)) {
+                            DEBUG_ERR(req_err, "failed to send cleanup_request "
+                                      "to spawnd %u\n", i);
+                        }
+                    }
+                }
+            } else {
+                --entry->num_spawnds_resources;
+
+                if (entry->num_spawnds_resources == 0) {
+                    entry->status = DOMAIN_STATUS_CLEANED;
+
+                    // At this point, the domain exists in state CLEANED for
+                    // history reasons. For instance, if some other domain
+                    // issues a wait call for this one, the process manager can
+                    // return the exit status directly.
+                    // At some point, however, we might want to just clean up
+                    // the domain entry and recycle the domain cap.
+                } else {
+                    // Expecting to receive further cleanup replies from other
+                    // spawnds for the same domain cap, hence re-add the
+                    // pending client.
+                    err = pending_clients_add(domain_cap, cl->b,
+                                              ClientType_Exit, MAX_COREID);
+                    if (err_is_fail(err)) {
+                        DEBUG_ERR(err, "pending_clients_add in reply handler");
+                    }
                 }
             }
-
-        break;
+            break;
 
         default:
             // TODO(razvan): Handle the other cases, e.g. wait.
@@ -236,6 +303,9 @@ static void spawn_reply_handler(struct spawn_binding *b,
                 // assertive than logging an error message.
                 DEBUG_ERR(err, "failed to send kill request for dangling "
                           "dispatcher");
+            } else {
+                pending_clients_add(domain_cap, cl->b, ClientType_Kill,
+                                    MAX_COREID);
             }
         }
     }

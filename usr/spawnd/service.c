@@ -602,14 +602,45 @@ static void kill_request_handler(struct spawn_binding *b,
     }
 
     struct ps_entry *pe;
+    err = ps_get_domain(domain_cap, &pe, NULL);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_DOMAIN_NOTFOUND);
+        goto reply;
+    }
+
+    cleanup_cap(pe->dcb);
+
+reply:
+    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, domain_cap, err);
+    if (err_is_fail(reply_err)) {
+        DEBUG_ERR(err, "failed to send spawn_reply");
+    }
+}
+
+static void cleanup_request_handler(struct spawn_binding *b,
+                                    struct capref procmng_cap,
+                                    struct capref domain_cap)
+{
+    errval_t err, reply_err;
+    struct capability ret;
+    err = monitor_cap_identify_remote(procmng_cap, &ret);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
+        goto reply;
+    }
+
+    if (ret.type != ObjType_ProcessManager) {
+        err = SPAWN_ERR_NOT_PROC_MNGR;
+        goto reply;
+    }
+
+    struct ps_entry *pe;
     err = ps_release_domain(domain_cap, &pe);
     if (err_is_fail(err)) {
         err = err_push(err, SPAWN_ERR_DOMAIN_NOTFOUND);
         goto reply;
     }
 
-    // Garbage collect victim's capabilities
-    cleanup_cap(pe->dcb);       // Deschedule dispatcher (do this first!)
     cleanup_cap(pe->rootcn_cap);
 
     // Cleanup struct ps_entry. Note that waiters will be handled by the process
@@ -820,6 +851,7 @@ static struct spawn_rx_vtbl rx_vtbl = {
     .spawn_with_caps_request = spawn_with_caps_request_handler,
     .span_request            = span_request_handler,
     .kill_request            = kill_request_handler,
+    .cleanup_request         = cleanup_request_handler,
 
     .use_local_memserv_call = use_local_memserv_handler,
     .kill_call = kill_handler,

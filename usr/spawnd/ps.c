@@ -80,8 +80,8 @@ errval_t ps_hash_domain(struct ps_entry *entry, struct capref domain_cap)
     return SYS_ERR_OK;
 }
 
-errval_t ps_release_domain(struct capref domain_cap,
-                           struct ps_entry **ret_entry)
+errval_t ps_get_domain(struct capref domain_cap, struct ps_entry **ret_entry,
+                       uint64_t *ret_hash_key)
 {
     assert(ret_entry != NULL);
 
@@ -96,6 +96,24 @@ errval_t ps_release_domain(struct capref domain_cap,
         return SPAWN_ERR_DOMAIN_TABLE_FIND;
     }
     *ret_entry = (struct ps_entry*) table_entry;
+
+    if (ret_hash_key != NULL) {
+        *ret_hash_key = key;
+    }
+
+    return SYS_ERR_OK;
+}
+
+errval_t ps_release_domain(struct capref domain_cap,
+                           struct ps_entry **ret_entry)
+{
+    assert(ret_entry != NULL);
+
+    uint64_t key;
+    errval_t err = ps_get_domain(domain_cap, ret_entry, &key);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     collections_hash_delete(ps_table, key);
 

@@ -51,6 +51,8 @@ bool ps_exists(domainid_t domain_id);
 struct ps_entry *ps_get(domainid_t domain_id);
 
 errval_t ps_hash_domain(struct ps_entry *entry, struct capref domain_cap);
+errval_t ps_get_domain(struct capref domain_cap, struct ps_entry **ret_entry,
+                       uint64_t *ret_hash_key);
 errval_t ps_release_domain(struct capref domain_cap,
                            struct ps_entry **ret_entry);
 
