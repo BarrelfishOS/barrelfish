@@ -89,6 +89,8 @@ Source: \href{https://en.wikipedia.org/wiki/Sockeye_salmon}{Wikipedia}}
 is a domain specific language to describe SoCs (Systems on a Chip).
 It is an implementation of the language introduced in \cite{achermann:mars17} but adds some features to address issues encountered in practise.
 
+\todo{Add short introduction on decoding nets.}
+
 The Sockeye compiler is written in Haskell using the Parsec parsing library. It
 generates Prolog files from the Sockeye files. These Prolog files contain facts that represent a decoding net as defined in \cite{achermann:mars17}.
 The Prolog files can then be loaded into Barrelfish's System Knowledgebase (SKB).
@@ -97,7 +99,6 @@ The source code for Sockeye can be found in \pathname{SOURCE/tools/sockeye}.
 
 
 \section{Command line options}
-\label{sec:cmdline}
 
 \begin{verbatim}
 $ sockeye [options] file
@@ -175,7 +176,7 @@ is, are, accept, map, over, to, at
 
 In this chapter we define the layout of a Sockeye file. Each Sockeye file contains the declaration of a single decoding net.
 An SoC can be split into multiple decoding nets e.g. one for the address spaces and another one for the interrupt routes.
-However a node in a decoding net can not reference a node in a different decoding net.
+However a node in a decoding net can not reference a node in a different decoding net (see also Section~\ref{sec:modularity} for further information).
 
 \section{Syntax}
 
@@ -255,7 +256,7 @@ Addresses can be given as hexadecimal, octal or decimal integers.
 \end{align*}
 
 \clearpage
-\subsection{Block specification}
+\subsection{Block specification}{}
 A block is specified by its start and end address.
 If the start and end address are the same, the end address can be omitted.
 Sockeye also supports specifying a block as its base address and the number of address bits the block spans:
@@ -349,6 +350,14 @@ Listings~\ref{lst:prolog_example} shows the generated Prolog code for the Sockey
 
 \lstinputlisting[caption={Generated Prolog code},label={lst:prolog_example},language=Prolog]{example.pl}
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Limitations}
+\label{chap:limitations}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Modularity}
+\label{sec:modularity}
+\todo{Add description of challenges}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Compiling Sockeye files with Hake}
