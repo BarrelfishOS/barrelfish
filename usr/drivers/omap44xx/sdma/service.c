@@ -21,7 +21,7 @@
 
 #include "sdma.h"
 
-static void run_service(struct omap_sdma_thc_service_binding_t *sv)
+static void run_service(struct sdma_driver_state* st, struct omap_sdma_thc_service_binding_t *sv)
 {
     omap_sdma_service_msg_t msg;
     bool loop = true;
@@ -41,19 +41,19 @@ static void run_service(struct omap_sdma_thc_service_binding_t *sv)
         // dispatch it
         switch(msg.msg) {
         case omap_sdma_mem_copy:
-            reterr = mem_copy(
+            reterr = mem_copy(st,
                 msg.args.mem_copy.in.dst,
                 msg.args.mem_copy.in.src);
             sv->send.mem_copy(sv, reterr);
             break;
         case omap_sdma_mem_fill:
-            reterr = mem_fill(
+            reterr = mem_fill(st,
                 msg.args.mem_fill.in.dst,
                 msg.args.mem_fill.in.color);
             sv->send.mem_fill(sv, reterr);
             break;
         case omap_sdma_mem_copy_2d:
-            reterr = mem_copy_2d(
+            reterr = mem_copy_2d(st,
                 msg.args.mem_copy_2d.in.dst,
                 msg.args.mem_copy_2d.in.src,
                 msg.args.mem_copy_2d.in.count,
@@ -62,7 +62,7 @@ static void run_service(struct omap_sdma_thc_service_binding_t *sv)
             sv->send.mem_copy_2d(sv, reterr);
             break;
         case omap_sdma_mem_fill_2d:
-            reterr = mem_fill_2d(
+            reterr = mem_fill_2d(st,
                 msg.args.mem_fill_2d.in.dst,
                 msg.args.mem_fill_2d.in.count,
                 msg.args.mem_fill_2d.in.color);
@@ -78,7 +78,7 @@ static void run_service(struct omap_sdma_thc_service_binding_t *sv)
     free(sv);
 }
 
-void start_service(void)
+void start_service(struct sdma_driver_state* st)
 {
     errval_t err;
 
@@ -110,7 +110,7 @@ void start_service(void)
                 USER_PANIC_ERR(err, "thc init failed");
             }
 
-            ASYNC({run_service(sv);});
+            ASYNC({run_service(st, sv);});
         }
     });
 }

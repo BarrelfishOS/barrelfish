@@ -13,12 +13,13 @@
 #include <if/omap_sdma_defs.h>
 #include <bitmacros.h>
 
-void start_service(void);
+struct sdma_driver_state;
+void start_service(struct sdma_driver_state* st);
 
-errval_t mem_copy(struct capref dst_cap, struct capref src_cap);
-errval_t mem_fill(struct capref dst_cap, uint8_t color);
+errval_t mem_copy(struct sdma_driver_state* st, struct capref dst_cap, struct capref src_cap);
+errval_t mem_fill(struct sdma_driver_state* st, struct capref dst_cap, uint8_t color);
 
-errval_t mem_copy_2d(omap_sdma_addr_2d_t dst, omap_sdma_addr_2d_t src,
+errval_t mem_copy_2d(struct sdma_driver_state* st, omap_sdma_addr_2d_t dst, omap_sdma_addr_2d_t src,
                 omap_sdma_count_2d_t count, bool transparent, uint32_t color);
-errval_t mem_fill_2d(omap_sdma_addr_2d_t dst, omap_sdma_count_2d_t count, uint32_t color);
+errval_t mem_fill_2d(struct sdma_driver_state* st, omap_sdma_addr_2d_t dst, omap_sdma_count_2d_t count, uint32_t color);
 #endif

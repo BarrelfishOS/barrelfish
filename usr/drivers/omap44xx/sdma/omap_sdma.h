@@ -14,8 +14,9 @@
 #include <dev/omap/omap44xx_sdma_dev.h>
 
 typedef uint8_t omap_sdma_channel_t;
+struct sdma_driver_state;
 
-typedef void (*omap_sdma_irq_handler_t)(omap_sdma_channel_t, errval_t);
+typedef void (*omap_sdma_irq_handler_t)(struct sdma_driver_state*, omap_sdma_channel_t, errval_t);
 
 typedef uint8_t omap44xx_sdma_color_mode_t;
 #define omap44xx_sdma_DISABLE_COLOR_MODE ((omap44xx_sdma_color_mode_t)0x0)
@@ -37,6 +38,24 @@ typedef uint8_t omap44xx_sdma_color_mode_t;
 #else
 #define SDMA_PRINT(...) do{ } while ( false )
 #endif
+
+#include <thc/thc.h>
+
+/// Channel State. Filled by the interrupt callback, read by the request task.
+struct channel_state {
+    awe_t *request;
+    errval_t err;
+};
+
+struct sdma_driver_state {
+    omap44xx_sdma_t devsdma;
+
+    bool allocated_channel[OMAP44XX_SDMA_NUM_CHANNEL];
+    struct channel_state channel_state[OMAP44XX_SDMA_NUM_CHANNEL];
+    omap_sdma_irq_handler_t irq_callback;
+
+    uint32_t level;
+};
 
 struct omap_sdma_transfer_conf {
     lpaddr_t start_address;
@@ -76,18 +95,18 @@ struct omap_sdma_channel_conf {
     omap_sdma_channel_t next_channel;
 };
 
-errval_t omap_sdma_init(mackerel_addr_t dev_base, omap_sdma_irq_handler_t);
+errval_t omap_sdma_init(struct sdma_driver_state*, mackerel_addr_t, omap_sdma_irq_handler_t);
 
-errval_t omap_sdma_allocate_channel(omap_sdma_channel_t *channel);
-void omap_sdma_free_channel(omap_sdma_channel_t channel);
+errval_t omap_sdma_allocate_channel(struct sdma_driver_state* st, omap_sdma_channel_t *channel);
+void omap_sdma_free_channel(struct sdma_driver_state* st, omap_sdma_channel_t channel);
 
 void omap_sdma_init_channel_conf(struct omap_sdma_channel_conf *conf);
 
-void omap_sdma_set_channel_conf(omap_sdma_channel_t channel,
+void omap_sdma_set_channel_conf(struct sdma_driver_state* st, omap_sdma_channel_t channel,
     struct omap_sdma_channel_conf *conf);
 
-void omap_sdma_enable_channel(omap_sdma_channel_t channel, bool interrupt);
+void omap_sdma_enable_channel(struct sdma_driver_state* st, omap_sdma_channel_t channel, bool interrupt);
 
-errval_t omap_sdma_poll_channel(omap_sdma_channel_t channel);
+errval_t omap_sdma_poll_channel(struct sdma_driver_state* st, omap_sdma_channel_t channel);
 
 #endif // OMAP44XX_SDMA_H_
