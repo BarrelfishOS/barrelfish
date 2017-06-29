@@ -13,7 +13,7 @@
   Attn: Systems Group.
 -}
 
-module SockeyeAST where
+module SockeyeASTBackend where
 
 import Data.List
 import Numeric (showHex)
