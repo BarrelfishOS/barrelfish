@@ -82,7 +82,7 @@ sockeyeModule = do
         }
 
 moduleParam = do
-    paramType <- choice [intType, addrType]
+    paramType <- choice [intType, addrType] <?> "parameter type"
     paramName <- parameterName
     return AST.ModuleParam
         { AST.paramName = paramName
@@ -113,7 +113,9 @@ moduleBody = do
             reserved "output"
             commaSep1 identifier
 
-netSpec = choice [inst, decl]
+netSpec = choice [ inst <?> "module instantiation"
+                 , decl <?> "node declaration"
+                 ]
     where
         inst = do
             moduleInst <- moduleInst
@@ -168,7 +170,7 @@ moduleArg = choice [addressArg, numberArg, paramArg]
             return $ AST.ParamArg name
 
 nodeDecl = do
-    nodeIds <- try $ choice [single, multiple]
+    nodeIds <- choice [try single, try multiple]
     nodeSpec <- nodeSpec
     return $ AST.NodeDecl
         { AST.nodeIds = nodeIds
@@ -179,7 +181,7 @@ nodeDecl = do
             reserved "is"
             return [nodeId]
           multiple = do
-            nodeIds <- many1 $ nonIndexedIdentifier
+            nodeIds <- many1 nonIndexedIdentifier
             reserved "are"
             return nodeIds
 
