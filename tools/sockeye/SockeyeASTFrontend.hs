@@ -16,75 +16,95 @@
 module SockeyeASTFrontend where
 
 data SockeyeSpec = SockeyeSpec
-    { modules   :: [Module]
-    , nodeDecls :: [NodeDecl]
+    { modules :: [Module]
+    , net     :: [NetSpec]
     }
 
-data ParamType = Index | Address
+data ParamType = IndexParam | AddressParam
 
 data ModuleParam = ModuleParam
     { paramName :: !String
-    , paramType :: !Maybe ParamType
+    , paramType :: Maybe ParamType
     }
 
 data Module = Module
-    { inputPorts  :: [NodeId]
-    , outputPorts :: [NodeId]
+    { inputPorts  :: [Identifier]
+    , outputPorts :: [Identifier]
     , parameters  :: [ModuleParam]
-    , body        :: [NodeDecl]
+    , body        :: [NetSpec]
     }
 
+data ModuleParamMap
+    = ModuleParamMap
+        { port   :: Identifier
+        , nodeId :: Identifier
+        }
+
+data ModuleInstantiation
+    = ModuleInstantiation
+        { nameSpace      :: Identifier
+        , arguments      :: [Word]
+        , inputMappings  :: [ModuleParamMap]
+        , outputMappings :: [ModuleParamMap]
+        }
+
+data NetSpec
+    = NodeDeclSpec NodeDecl
+    | ModuleInstSpec ModuleInstantiation
+
+
+
 data NodeDecl = NodeDecl
-    { nodeId   :: NodeId
+    { nodeIds  :: [Identifier]
     , nodeSpec :: NodeSpec
     }
 
-data NodeIdIndex = Index
-    { index :: !Word }
-                 | Param
-    { name :: !String }
+data IdentifierIndex 
+    = NumberIndex !Word
+    | ParamIndex !String
 
-data NodeId = Single
-    { prefix :: String }
-            | Indexed
-    { prefix :: !String }            
-            | Multi
-    { prefix :: !String
-    , start  :: NodeIdIndex
-    , end    :: NodeIdIndex
-    }
+data Identifier
+    = Single
+        { prefix :: !String }
+    | Indexed
+        { prefix :: !String }            
+    | Multi
+        { prefix :: !String
+        , start  :: IdentifierIndex
+        , end    :: IdentifierIndex
+        }
 
 data NodeType = Memory | Device
 
 data NodeSpec = NodeSpec
-    { nodeType  :: !Maybe NodeType
+    { nodeType  :: Maybe NodeType
     , accept    :: [BlockSpec]
     , translate :: [MapSpec]
-    , overlay   :: !String
+    , overlay   :: Identifier
     }
 
-data Address = Address
-    { address :: Word }
-             | Param
-    { name :: String }
+data Address = Address !Word
+             | Param !String
 
-data BlockSpec = Singleton
-    { address :: !Address }
-               | Range
-    { base  :: !Address
-    , limit :: !Address
-    }
-               | Length
-    { base :: !Address
-    , bits :: !Word
-    }
+data BlockSpec 
+    = Singleton
+        { address :: !Address }
+    | Range
+        { base  :: !Address
+        , limit :: !Address
+        }
+    | Length
+        { base :: !Address
+        , bits :: !Word
+        }
 
-data MapDest = Direct
-    { destNode :: !NodeId }
-             | BaseAddress
-    { destNode :: !NodeId
-    , destBase :: !Address
-    }
+data MapDest
+    = Direct
+        { destNode :: Identifier }
+    | BaseAddress
+        { destNode :: Identifier
+        , destBase :: Address
+        }
 
 data MapSpec = MapSpec
     { block :: BlockSpec
