@@ -20,7 +20,7 @@ import Data.List
 import Data.Char
 import Numeric (showHex)
 
-import qualified SockeyeAST as AST
+import qualified SockeyeASTBackend as AST
 
 compile :: AST.NetSpec -> String
 compile = generate

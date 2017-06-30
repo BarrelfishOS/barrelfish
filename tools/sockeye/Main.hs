@@ -20,7 +20,9 @@ import System.Exit
 import System.Environment
 import System.IO
 
-import SockeyeAST as AST
+import SockeyeASTFrontend as AST1
+import SockeyeASTBackend as AST2
+
 import SockeyeParser
 import SockeyeChecker
 import qualified SockeyeBackendPrintAST as PrintAST
@@ -104,7 +106,7 @@ compilerOpts argv =
             exitWith $ ExitFailure 1
 
 {- Runs the parser -}
-parseFile :: FilePath -> IO (AST.NetSpec)
+parseFile :: FilePath -> IO (AST2.NetSpec)
 parseFile file = do
     src <- readFile file
     case parseSockeye file src of
@@ -114,7 +116,7 @@ parseFile file = do
         Right ast -> return ast
 
 {- Runs the checker -}
-checkAST :: AST.NetSpec -> IO ()
+checkAST :: AST2.NetSpec -> IO ()
 checkAST ast = do
     case checkSockeye ast of 
         [] -> return ()
@@ -127,7 +129,7 @@ checkAST ast = do
                                        Just nodeId -> ("In specification of node '" ++ show nodeId ++ "':"):indented
 
 {- Compiles the AST with the appropriate backend -}
-compile :: Target -> AST.NetSpec -> IO String
+compile :: Target -> AST2.NetSpec -> IO String
 compile None     _   = return ""
 compile PrintAST ast = return $ PrintAST.compile ast
 compile Prolog   ast = return $ Prolog.compile ast

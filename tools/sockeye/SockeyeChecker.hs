@@ -25,7 +25,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Char (toLower)
 
-import qualified SockeyeAST as AST
+import qualified SockeyeASTBackend as AST
 
 type CheckFailure = (Maybe AST.NodeId, String)
 

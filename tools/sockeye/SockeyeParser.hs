@@ -22,7 +22,7 @@ import Text.ParserCombinators.Parsec as Parsec
 import qualified Text.ParserCombinators.Parsec.Token as P
 import Text.ParserCombinators.Parsec.Language (javaStyle)
 
-import qualified SockeyeAST as AST
+import qualified SockeyeASTBackend as AST
 
 {- Setup the lexer -}
 lexer = P.makeTokenParser (
