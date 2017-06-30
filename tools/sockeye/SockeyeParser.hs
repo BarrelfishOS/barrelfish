@@ -64,30 +64,31 @@ sockeyeFile = do
 
 sockeyeSpec = do
     modules <- many sockeyeModule
-    -- net <- many netSpec
+    net <- many netSpec
     return AST.SockeyeSpec
         { AST.modules = modules
-        , AST.net     = []
+        , AST.net     = net
         }
 
 sockeyeModule = do
     reserved "module"
     name <- moduleName
-    params <- option [] $ parens (commaSep parameter)
+    params <- option [] $ parens (commaSep moduleParam)
     body <- braces moduleBody
     return AST.Module
         { AST.name       = name
         , AST.parameters = params
         , AST.moduleBody = body
         }
+
+moduleParam = do
+    paramType <- choice [intType, addrType]
+    paramName <- parameterName
+    return AST.ModuleParam
+        { AST.paramName = paramName
+        , AST.paramType = paramType 
+        }
     where
-        parameter = do
-            paramType <- choice [intType, addrType]
-            paramName <- parameterName
-            return AST.ModuleParam
-                { AST.paramName = paramName
-                , AST.paramType = paramType 
-                }
         intType = do
             symbol "int"
             return AST.NumberParam
@@ -112,42 +113,73 @@ moduleBody = do
             reserved "output"
             commaSep1 identifier
 
-netSpec = choice [decl]
+netSpec = choice [inst, decl]
     where
-        -- inst = do
-        --     moduleInst <- moduleInst
-        --     return $ AST.ModuleInstSpec moduleInst
+        inst = do
+            moduleInst <- moduleInst
+            return $ AST.ModuleInstSpec moduleInst
         decl = do
             nodeDecl <- nodeDecl
             return $ AST.NodeDeclSpec nodeDecl
 
--- moduleInst = do
---     name <- moduleName
---     args <- option [] parens $ commaSep1 $ choice [ address
---                                                  , decimal <?> ""
---                                                  ]
-
-address = choice [address, param]
+moduleInst = do
+    (name, args) <- try $ do
+        name <- moduleName
+        args <- option [] $ parens (commaSep moduleArg)
+        symbol "as"
+        return (name, args)
+    nameSpace <- nonIndexedIdentifier
+    symbol "with"
+    inputMappings <- many inputMapping
+    outputMappings <- many outputMapping
+    return AST.ModuleInst
+        { AST.moduleName = name
+        , AST.nameSpace  = nameSpace
+        , AST.arguments  = args 
+        , AST.inputMappings = inputMappings
+        , AST.outputMappings = outputMappings
+        }
     where
-        address = do
-            num <- addressLiteral
-            return $ AST.NumberAddress (fromIntegral num)
-        param = do
+        inputMapping = do
+            nodeId <- try $ identifier <* symbol ">"
+            port <- identifier
+            return AST.ModulePortMap
+                { AST.port   = port
+                , AST.nodeId = nodeId
+                }
+        outputMapping = do
+            nodeId <- try $ identifier <* symbol "<"
+            port <- identifier
+            return AST.ModulePortMap
+                { AST.port   = port
+                , AST.nodeId = nodeId
+                }
+
+moduleArg = choice [addressArg, numberArg, paramArg]
+    where
+        addressArg = do
+            addr <- addressLiteral
+            return $ AST.AddressArg (fromIntegral addr)
+        numberArg = do
+            num <- numberLiteral
+            return $ AST.NumberArg (fromIntegral num)
+        paramArg = do
             name <- parameterName
-            return $ AST.ParamAddress name
+            return $ AST.ParamArg name
 
 nodeDecl = do
-    nodeIds <- choice [try single, try multiple]
+    nodeIds <- try $ choice [single, multiple]
     nodeSpec <- nodeSpec
     return $ AST.NodeDecl
         { AST.nodeIds = nodeIds
         , AST.nodeSpec = nodeSpec
         }
     where single = do
-            nodeId <- singleIdentifier <* reserved "is"
+            nodeId <- singleIdentifier
+            reserved "is"
             return [nodeId]
           multiple = do
-            nodeIds <- many1 $ choice [multiIdentifier, singleIdentifier]
+            nodeIds <- many1 $ nonIndexedIdentifier
             reserved "are"
             return nodeIds
 
@@ -183,6 +215,8 @@ identifier = choice [ multiIdentifier
                     , indexedIdentifier
                     , singleIdentifier
                     ]
+
+nonIndexedIdentifier = choice [multiIdentifier, singleIdentifier]
 
 nodeSpec = do
     nodeType <- optionMaybe $ try nodeType
@@ -228,6 +262,15 @@ blockSpec = choice [range, length, singleton]
             bits <- decimal <?> "number of bits"
             return $ AST.Length base (fromIntegral bits)
 
+address = choice [address, param]
+    where
+        address = do
+            addr <- addressLiteral
+            return $ AST.NumberAddress (fromIntegral addr)
+        param = do
+            name <- parameterName
+            return $ AST.ParamAddress name
+
 mapSpec = do
     block <- blockSpec
     reserved "to"
@@ -240,10 +283,7 @@ mapDest = choice [baseAddress, direct]
             destNode <- identifier
             return $ AST.Direct destNode
         baseAddress = do
-            destNode <- try $ do 
-                iden <- identifier
-                reserved "at"
-                return iden
+            destNode <- try $ identifier <* reserved "at"
             destBase <- address
             return $ AST.BaseAddress destNode destBase
 

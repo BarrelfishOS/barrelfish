@@ -44,16 +44,16 @@ data ModuleBody = ModuleBody
 
 data NetSpec
     = NodeDeclSpec NodeDecl
-    | ModuleInstSpec ModuleInstantiation
+    | ModuleInstSpec ModuleInst
     deriving (Show)
 
-data ModuleInstantiation
-    = ModuleInstantiation
+data ModuleInst
+    = ModuleInst
         { moduleName     :: String
         , nameSpace      :: Identifier
         , arguments      :: [ModuleArg]
-        , inputMappings  :: [ModuleParamMap]
-        , outputMappings :: [ModuleParamMap]
+        , inputMappings  :: [ModulePortMap]
+        , outputMappings :: [ModulePortMap]
         } deriving (Show)
 
 data ModuleArg
@@ -62,8 +62,8 @@ data ModuleArg
     | ParamArg !String
     deriving (Show)
 
-data ModuleParamMap
-    = ModuleParamMap
+data ModulePortMap
+    = ModulePortMap
         { port   :: Identifier
         , nodeId :: Identifier
         } deriving (Show)
