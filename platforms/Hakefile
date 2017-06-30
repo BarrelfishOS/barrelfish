@@ -29,8 +29,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
 
     tests_common = [ "/sbin/" ++ f | f <- [
                         "fputest",
-                        "fread_test",
-                        "fscanf_test",
                         "hellotest",
                         "idctest",
                         "memtest",
@@ -64,6 +62,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "bomp_test",
                         "bulk_shm",
                         "cryptotest",
+                        "fread_test",
+                        "fscanf_test",
                         "mdbtest_addr_zero",
                         "mdbtest_range_query",
                         "mem_affinity",

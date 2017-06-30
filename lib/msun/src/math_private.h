@@ -502,7 +502,7 @@ CMPLXL(long double x, long double y)
 
 /* Asm versions of some functions. */
 
-#ifdef __amd64__
+#if defined(__amd64__) && !defined(__k1om__)
 static __inline int
 irint(double x)
 {
@@ -514,7 +514,7 @@ irint(double x)
 #define	HAVE_EFFICIENT_IRINT
 #endif
 
-#ifdef __i386__
+#if defined(__i386__) || defined(__k1om__)
 static __inline int
 irint(double x)
 {

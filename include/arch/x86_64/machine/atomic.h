@@ -53,7 +53,11 @@
  */
 #define	mb()	__asm __volatile("mfence;" : : : "memory")
 #define	wmb()	__asm __volatile("sfence;" : : : "memory")
+#ifndef __k1om__
 #define	rmb()	__asm __volatile("lfence;" : : : "memory")
+#else // there is no lfence on Xeon Phi
+#define	rmb()
+#endif
 
 /*
  * Various simple operations on memory, each of which is atomic in the
