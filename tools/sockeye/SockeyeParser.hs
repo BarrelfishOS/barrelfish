@@ -18,17 +18,22 @@ module SockeyeParser
 
 import Control.Monad
 
+import Data.Maybe (fromMaybe)
+
 import Text.ParserCombinators.Parsec as Parsec
 import qualified Text.ParserCombinators.Parsec.Token as P
 import Text.ParserCombinators.Parsec.Language (javaStyle)
 
-import qualified SockeyeASTBackend as AST
+import qualified SockeyeASTFrontend as AST
 
 {- Setup the lexer -}
 lexer = P.makeTokenParser (
     javaStyle  {
         {- list of reserved Names -}
         P.reservedNames = [
+            "module",
+            "input", "output",
+            "as", "with",
             "is", "are",
             "accept", "map",
             "over",
@@ -46,59 +51,162 @@ lexer = P.makeTokenParser (
         P.nestedComments = False
     })
 
-{- Helper functions -}
-whiteSpace    = P.whiteSpace lexer
-reserved      = P.reserved lexer
-brackets      = P.brackets lexer
-symbol        = P.symbol lexer
-stringLiteral = P.stringLiteral lexer
-commaSep      = P.commaSep lexer
-commaSep1     = P.commaSep1 lexer
-identifier    = P.identifier lexer
-natural       = P.natural lexer
-decimal       = P.decimal lexer
+{- Parser main function -}
+parseSockeye :: String -> String -> Either ParseError AST.SockeyeSpec
+parseSockeye = parse sockeyeFile
 
 {- Sockeye parsing -}
 sockeyeFile = do
     whiteSpace
-    nodes <- many netSpec
+    spec <- sockeyeSpec
     eof
-    return $ AST.NetSpec $ concat nodes
+    return spec
 
-netSpec = do
+sockeyeSpec = do
+    modules <- many sockeyeModule
+    -- net <- many netSpec
+    return AST.SockeyeSpec
+        { AST.modules = modules
+        , AST.net     = []
+        }
+
+sockeyeModule = do
+    reserved "module"
+    name <- moduleName
+    params <- option [] $ parens (commaSep parameter)
+    body <- braces moduleBody
+    return AST.Module
+        { AST.name       = name
+        , AST.parameters = params
+        , AST.moduleBody = body
+        }
+    where
+        parameter = do
+            paramType <- choice [intType, addrType]
+            paramName <- parameterName
+            return AST.ModuleParam
+                { AST.paramName = paramName
+                , AST.paramType = paramType 
+                }
+        intType = do
+            symbol "int"
+            return AST.NumberParam
+        addrType = do
+            symbol "addr" 
+            return AST.AddressParam
+
+moduleBody = do
+    inputPorts <- many inputPort
+    outputPorts <- many outputPort
+    net <- many netSpec
+    return AST.ModuleBody
+        { AST.inputPorts  = concat inputPorts
+        , AST.outputPorts = concat outputPorts
+        , AST.moduleNet   = net
+        }
+    where
+        inputPort = do
+            reserved "input"
+            commaSep1 identifier
+        outputPort = do
+            reserved "output"
+            commaSep1 identifier
+
+netSpec = choice [decl]
+    where
+        -- inst = do
+        --     moduleInst <- moduleInst
+        --     return $ AST.ModuleInstSpec moduleInst
+        decl = do
+            nodeDecl <- nodeDecl
+            return $ AST.NodeDeclSpec nodeDecl
+
+-- moduleInst = do
+--     name <- moduleName
+--     args <- option [] parens $ commaSep1 $ choice [ address
+--                                                  , decimal <?> ""
+--                                                  ]
+
+address = choice [address, param]
+    where
+        address = do
+            num <- addressLiteral
+            return $ AST.NumberAddress (fromIntegral num)
+        param = do
+            name <- parameterName
+            return $ AST.ParamAddress name
+
+nodeDecl = do
     nodeIds <- choice [try single, try multiple]
-    node <- nodeSpec
-    return $ map (\nodeId -> (nodeId, node)) nodeIds
+    nodeSpec <- nodeSpec
+    return $ AST.NodeDecl
+        { AST.nodeIds = nodeIds
+        , AST.nodeSpec = nodeSpec
+        }
     where single = do
-            nodeId <- nodeId
-            reserved "is"
+            nodeId <- singleIdentifier <* reserved "is"
             return [nodeId]
           multiple = do
-            nodeIds <- many1 nodeId
+            nodeIds <- many1 $ choice [multiIdentifier, singleIdentifier]
             reserved "are"
             return nodeIds
 
+singleIdentifier = do
+    prefix <- identifierName
+    return $ AST.Single prefix
+
+indexedIdentifier = do
+    prefix <- try $ identifierName <* symbol "#"
+    return $ AST.Indexed prefix
+
+multiIdentifier = do
+    prefix <- try $ identifierName <* symbol "["
+    start <- index
+    symbol ".."
+    end <- index
+    symbol "]"
+    return AST.Multi
+        { AST.prefix = prefix
+        , AST.start  = start
+        , AST.end    = end
+        }
+    where
+        index = choice [numberIndex, paramIndex]
+        numberIndex = do
+            num <- numberLiteral
+            return $ AST.NumberIndex (fromIntegral num)
+        paramIndex = do
+            name <- parameterName
+            return $ AST.ParamIndex name
+
+identifier = choice [ multiIdentifier
+                    , indexedIdentifier
+                    , singleIdentifier
+                    ]
+
 nodeSpec = do
-    nt <- nodeType
-    a <- optionMaybe parseAccept 
-    t <- optionMaybe parseTranlsate 
-    overlay <- optionMaybe parseOverlay
-    let accept = case a of Nothing -> []
-                           Just blocks -> blocks
-        translate = case t of Nothing -> []
-                              Just maps -> concat maps
-    return $ AST.NodeSpec nt accept translate overlay
-    where parseAccept = do
+    nodeType <- optionMaybe $ try nodeType
+    accept <- option [] accept 
+    translate <- option [] tranlsate 
+    overlay <- optionMaybe overlay
+    return AST.NodeSpec 
+        { AST.nodeType  = nodeType
+        , AST.accept    = accept
+        , AST.translate = translate
+        , AST.overlay   = overlay
+        }
+    where
+        accept = do
             reserved "accept"
             brackets $ many blockSpec
-          parseTranlsate = do
+        tranlsate = do
             reserved "map"
             brackets $ many mapSpec
-          parseOverlay = do
+        overlay = do
             reserved "over"
-            nodeId
+            singleIdentifier
 
-nodeType = try (choice [memory, device]) <|> return AST.Other
+nodeType = choice [memory, device]
     where memory = do
             symbol "memory"
             return AST.Memory
@@ -106,44 +214,56 @@ nodeType = try (choice [memory, device]) <|> return AST.Other
             symbol "device"
             return AST.Device
 
+blockSpec = choice [range, length, singleton]
+    where
+        singleton = do
+            address <- address
+            return $ AST.Singleton address
+        range = do
+            base <- try $ address <* symbol "-"
+            limit <- address
+            return $ AST.Range base limit
+        length = do
+            base <- try $ address <* symbol "/"
+            bits <- decimal <?> "number of bits"
+            return $ AST.Length base (fromIntegral bits)
 
 mapSpec = do
-    srcBlock <- blockSpec
+    block <- blockSpec
     reserved "to"
-    commaSep1 $ parseDest srcBlock
-    where parseDest srcBlock = do
-            destNode <- nodeId
-            dB <- optionMaybe parseDestBase
-            let destBase = case dB of Nothing -> AST.base srcBlock
-                                      Just addr -> addr
-            return $ AST.MapSpec srcBlock destNode destBase
-          parseDestBase = do
-            reserved "at"
-            addr
+    dests <- commaSep1 $ mapDest
+    return $ AST.MapSpec block dests
 
-blockSpec = do
-    base <- addr
-    limit <- option base $ choice [parseLimit, parseLength base]
-    return $ AST.BlockSpec base limit
-    where parseLimit = do
-            symbol "-"
-            addr
-          parseLength (AST.Addr base) = do
-            symbol "/"
-            b <- decimal
-            -- While natural consumes following white space, decimal does not
-            whiteSpace 
-            return $ AST.Addr $ base + 2^b - 1
+mapDest = choice [baseAddress, direct]
+    where
+        direct = do
+            destNode <- identifier
+            return $ AST.Direct destNode
+        baseAddress = do
+            destNode <- try $ do 
+                iden <- identifier
+                reserved "at"
+                return iden
+            destBase <- address
+            return $ AST.BaseAddress destNode destBase
 
-nodeId = do
-    id <- identifier <?> "node identifier"
-    return $ AST.NodeId id
+{- Helper functions -}
+whiteSpace    = P.whiteSpace lexer
+reserved      = P.reserved lexer
+parens        = P.parens lexer
+brackets      = P.brackets lexer
+braces        = P.braces lexer
+symbol        = P.symbol lexer
+stringLiteral = P.stringLiteral lexer
+commaSep      = P.commaSep lexer
+commaSep1     = P.commaSep1 lexer
+idenString    = P.identifier lexer
+hexadecimal   = symbol "0" *> P.hexadecimal lexer <* whiteSpace
+decimal       = P.decimal lexer <* whiteSpace
 
-addr = do
-    addr <- natural <?> "address"
-    return $ AST.Addr $ fromIntegral addr
+moduleName     = idenString <?> "module name"
+parameterName  = idenString <?> "parameter name"
+identifierName = idenString <?> "identifier"
 
-
-
-parseSockeye :: String -> String -> Either ParseError AST.NetSpec
-parseSockeye = parse sockeyeFile
+numberLiteral  = try decimal <?> "number literal"
+addressLiteral = try hexadecimal <?> "address literal (hex)"

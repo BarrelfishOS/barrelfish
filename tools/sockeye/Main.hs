@@ -106,7 +106,7 @@ compilerOpts argv =
             exitWith $ ExitFailure 1
 
 {- Runs the parser -}
-parseFile :: FilePath -> IO (AST2.NetSpec)
+parseFile :: FilePath -> IO (AST1.SockeyeSpec)
 parseFile file = do
     src <- readFile file
     case parseSockeye file src of
@@ -145,7 +145,8 @@ main = do
     opts <- compilerOpts args
     let inFile = optInputFile opts
     ast <- parseFile inFile
-    checkAST ast
-    out <- compile (optTarget opts) ast
-    output (optOutputFile opts) out
+    print ast
+    -- checkAST ast
+    -- out <- compile (optTarget opts) ast
+    -- output (optOutputFile opts) out
     

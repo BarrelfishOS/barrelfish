@@ -18,50 +18,61 @@ module SockeyeASTFrontend where
 data SockeyeSpec = SockeyeSpec
     { modules :: [Module]
     , net     :: [NetSpec]
-    }
+    } deriving (Show)
 
-data ParamType = IndexParam | AddressParam
+data Module = Module
+    { name  :: String
+    , parameters  :: [ModuleParam]
+    , moduleBody  :: ModuleBody
+    } deriving (Show)
 
 data ModuleParam = ModuleParam
     { paramName :: !String
-    , paramType :: Maybe ParamType
-    }
+    , paramType :: ModuleParamType
+    } deriving (Show)
 
-data Module = Module
+data ModuleParamType 
+    = NumberParam
+    | AddressParam
+    deriving (Show)
+
+data ModuleBody = ModuleBody
     { inputPorts  :: [Identifier]
     , outputPorts :: [Identifier]
-    , parameters  :: [ModuleParam]
-    , body        :: [NetSpec]
-    }
+    , moduleNet   :: [NetSpec]
+    } deriving (Show)
+
+data NetSpec
+    = NodeDeclSpec NodeDecl
+    | ModuleInstSpec ModuleInstantiation
+    deriving (Show)
+
+data ModuleInstantiation
+    = ModuleInstantiation
+        { moduleName     :: String
+        , nameSpace      :: Identifier
+        , arguments      :: [ModuleArg]
+        , inputMappings  :: [ModuleParamMap]
+        , outputMappings :: [ModuleParamMap]
+        } deriving (Show)
+
+data ModuleArg
+    = AddressArg !Word
+    | NumberArg !Word
+    | ParamArg !String
+    deriving (Show)
 
 data ModuleParamMap
     = ModuleParamMap
         { port   :: Identifier
         , nodeId :: Identifier
-        }
+        } deriving (Show)
 
-data ModuleInstantiation
-    = ModuleInstantiation
-        { nameSpace      :: Identifier
-        , arguments      :: [Word]
-        , inputMappings  :: [ModuleParamMap]
-        , outputMappings :: [ModuleParamMap]
-        }
-
-data NetSpec
-    = NodeDeclSpec NodeDecl
-    | ModuleInstSpec ModuleInstantiation
-
-
-
-data NodeDecl = NodeDecl
-    { nodeIds  :: [Identifier]
-    , nodeSpec :: NodeSpec
-    }
-
-data IdentifierIndex 
-    = NumberIndex !Word
-    | ParamIndex !String
+data NodeDecl
+    = NodeDecl
+        { nodeIds  :: [Identifier]
+        , nodeSpec :: NodeSpec
+        } deriving (Show)
 
 data Identifier
     = Single
@@ -73,18 +84,24 @@ data Identifier
         , start  :: IdentifierIndex
         , end    :: IdentifierIndex
         }
+    deriving (Show)
 
-data NodeType = Memory | Device
+data IdentifierIndex 
+    = NumberIndex !Word
+    | ParamIndex !String
+    deriving (Show)
 
 data NodeSpec = NodeSpec
     { nodeType  :: Maybe NodeType
     , accept    :: [BlockSpec]
     , translate :: [MapSpec]
-    , overlay   :: Identifier
-    }
+    , overlay   :: Maybe Identifier
+    } deriving (Show)
 
-data Address = Address !Word
-             | Param !String
+data NodeType
+    = Memory
+    | Device
+    deriving (Show)
 
 data BlockSpec 
     = Singleton
@@ -97,6 +114,17 @@ data BlockSpec
         { base :: !Address
         , bits :: !Word
         }
+    deriving (Show)
+
+data Address
+    = NumberAddress !Word
+    | ParamAddress !String
+    deriving (Show)
+
+data MapSpec = MapSpec
+    { block :: BlockSpec
+    , dests :: [MapDest]
+    } deriving (Show)
 
 data MapDest
     = Direct
@@ -105,10 +133,4 @@ data MapDest
         { destNode :: Identifier
         , destBase :: Address
         }
-
-data MapSpec = MapSpec
-    { block :: BlockSpec
-    , dest  :: [MapDest]
-    }
-
-
+    deriving (Show)
