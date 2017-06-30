@@ -37,14 +37,20 @@ data ModuleParamType
     deriving (Show)
 
 data ModuleBody = ModuleBody
-    { inputPorts  :: [Identifier]
-    , outputPorts :: [Identifier]
-    , moduleNet   :: [NetSpec]
+    { ports     :: [PortDef]
+    , moduleNet :: [NetSpec]
     } deriving (Show)
+
+data PortDef
+    = InputPortDef [Identifier]
+    | OutputPortDef [Identifier]
+    | MultiPortDef (For [PortDef])
+    deriving (Show)
 
 data NetSpec
     = NodeDeclSpec NodeDecl
     | ModuleInstSpec ModuleInst
+    | MultiNetSpec (For [NetSpec])
     deriving (Show)
 
 data ModuleInst
@@ -52,7 +58,7 @@ data ModuleInst
         { moduleName   :: String
         , nameSpace    :: Identifier
         , arguments    :: [ModuleArg]
-        , portMappings :: [ModulePortMap]
+        , portMappings :: [PortMap]
         } deriving (Show)
 
 data ModuleArg
@@ -61,7 +67,7 @@ data ModuleArg
     | ParamArg !String
     deriving (Show)
 
-data ModulePortMap
+data PortMap
     = InputPortMap
         { port   :: Identifier
         , nodeId :: Identifier
@@ -69,7 +75,9 @@ data ModulePortMap
     | OutputPortMap
         { port   :: Identifier
         , nodeId :: Identifier
-        } deriving (Show)
+        }
+    | MultiPortMap (For [PortMap])
+    deriving (Show)
 
 data NodeDecl
     = NodeDecl
@@ -78,20 +86,12 @@ data NodeDecl
         } deriving (Show)
 
 data Identifier
-    = Single
-        { prefix :: !String }
-    | Indexed
-        { prefix :: !String }            
-    | Multi
-        { prefix :: !String
-        , start  :: IdentifierIndex
-        , end    :: IdentifierIndex
+    = SimpleIdent !String
+    | TemplateIdent
+        { prefix  :: !String
+        , varName :: !String
+        , suffix  :: Maybe Identifier
         }
-    deriving (Show)
-
-data IdentifierIndex 
-    = NumberIndex !Word
-    | ParamIndex !String
     deriving (Show)
 
 data NodeSpec = NodeSpec
@@ -124,10 +124,11 @@ data Address
     | ParamAddress !String
     deriving (Show)
 
-data MapSpec = MapSpec
-    { block :: BlockSpec
-    , dests :: [MapDest]
-    } deriving (Show)
+data MapSpec 
+    = MapSpec
+        { block :: BlockSpec
+        , dests :: [MapDest]
+        } deriving (Show)
 
 data MapDest
     = Direct
@@ -136,4 +137,17 @@ data MapDest
         { destNode :: Identifier
         , destBase :: Address
         }
+    deriving (Show)
+
+data For a 
+    = For
+        { var     :: !String
+        , start   :: ForLimit
+        , end     :: ForLimit
+        , body    :: a
+        } deriving (Show)
+
+data ForLimit 
+    = NumberLimit !Word
+    | ParamLimit !String
     deriving (Show)

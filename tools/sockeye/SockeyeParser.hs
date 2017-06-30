@@ -33,6 +33,7 @@ lexer = P.makeTokenParser (
         P.reservedNames = [
             "module",
             "input", "output",
+            "for", "in",
             "as", "with",
             "is", "are",
             "accept", "map",
@@ -41,8 +42,8 @@ lexer = P.makeTokenParser (
         ],
 
         {- valid identifiers -}
-        P.identStart = letter,
-        P.identLetter = alphaNum <|> char '_' <|> char '-',
+        P.identStart = identStart,
+        P.identLetter = identLetter,
 
         {- comment start and end -}
         P.commentStart = "/*",
@@ -97,24 +98,30 @@ moduleParam = do
             return AST.AddressParam
 
 moduleBody = do
-    inputPorts <- many inputPort
-    outputPorts <- many outputPort
+    ports <- many $ try portDef
     net <- many netSpec
     return AST.ModuleBody
-        { AST.inputPorts  = concat inputPorts
-        , AST.outputPorts = concat outputPorts
-        , AST.moduleNet   = net
+        { AST.ports     = ports
+        , AST.moduleNet = net
         }
+
+portDef = choice [inputPort, outputPort, multiPorts]
     where
         inputPort = do
             reserved "input"
-            commaSep1 identifier
+            idens <- commaSep1 identifier
+            return $ AST.InputPortDef idens
         outputPort = do
             reserved "output"
-            commaSep1 identifier
+            idens <- commaSep1 identifier
+            return $ AST.OutputPortDef idens
+        multiPorts = do
+            for <- for $ many1 portDef
+            return $ AST.MultiPortDef for
 
 netSpec = choice [ inst <?> "module instantiation"
                  , decl <?> "node declaration"
+                 , multiSpecs
                  ]
     where
         inst = do
@@ -123,6 +130,9 @@ netSpec = choice [ inst <?> "module instantiation"
         decl = do
             nodeDecl <- nodeDecl
             return $ AST.NodeDeclSpec nodeDecl
+        multiSpecs = do
+            for <- for $ many1 netSpec
+            return $ AST.MultiNetSpec for
 
 moduleInst = do
     (name, args) <- try $ do
@@ -130,15 +140,28 @@ moduleInst = do
         args <- option [] $ parens (commaSep moduleArg)
         symbol "as"
         return (name, args)
-    nameSpace <- nonIndexedIdentifier
-    symbol "with"
-    portMappings <- many $ choice [inputMapping, outputMapping]
+    nameSpace <- identifier
+    portMappings <- option [] $ symbol "with" *> many1 portMapping
     return AST.ModuleInst
         { AST.moduleName = name
         , AST.nameSpace  = nameSpace
         , AST.arguments  = args 
         , AST.portMappings = portMappings
         }
+
+moduleArg = choice [addressArg, numberArg, paramArg]
+    where
+        addressArg = do
+            addr <- addressLiteral
+            return $ AST.AddressArg (fromIntegral addr)
+        numberArg = do
+            num <- numberLiteral
+            return $ AST.NumberArg (fromIntegral num)
+        paramArg = do
+            name <- parameterName
+            return $ AST.ParamArg name
+
+portMapping = choice [inputMapping, outputMapping, multiMapping]
     where
         inputMapping = do
             nodeId <- try $ identifier <* symbol ">"
@@ -154,18 +177,9 @@ moduleInst = do
                 { AST.port   = port
                 , AST.nodeId = nodeId
                 }
-
-moduleArg = choice [addressArg, numberArg, paramArg]
-    where
-        addressArg = do
-            addr <- addressLiteral
-            return $ AST.AddressArg (fromIntegral addr)
-        numberArg = do
-            num <- numberLiteral
-            return $ AST.NumberArg (fromIntegral num)
-        paramArg = do
-            name <- parameterName
-            return $ AST.ParamArg name
+        multiMapping = do
+            for <- for $ many1 portMapping
+            return $ AST.MultiPortMap for
 
 nodeDecl = do
     nodeIds <- choice [try single, try multiple]
@@ -175,48 +189,30 @@ nodeDecl = do
         , AST.nodeSpec = nodeSpec
         }
     where single = do
-            nodeId <- singleIdentifier
+            nodeId <- identifier
             reserved "is"
             return [nodeId]
           multiple = do
-            nodeIds <- many1 nonIndexedIdentifier
+            nodeIds <- commaSep1 identifier
             reserved "are"
             return nodeIds
 
-singleIdentifier = do
-    prefix <- identifierName
-    return $ AST.Single prefix
-
-indexedIdentifier = do
-    prefix <- try $ identifierName <* symbol "#"
-    return $ AST.Indexed prefix
-
-multiIdentifier = do
-    prefix <- try $ identifierName <* symbol "["
-    start <- index
-    symbol ".."
-    end <- index
-    symbol "]"
-    return AST.Multi
-        { AST.prefix = prefix
-        , AST.start  = start
-        , AST.end    = end
-        }
+identifier = choice [template identifierName, simple identifierName] <* whiteSpace
     where
-        index = choice [numberIndex, paramIndex]
-        numberIndex = do
-            num <- numberLiteral
-            return $ AST.NumberIndex (fromIntegral num)
-        paramIndex = do
-            name <- parameterName
-            return $ AST.ParamIndex name
-
-identifier = choice [ multiIdentifier
-                    , indexedIdentifier
-                    , singleIdentifier
-                    ]
-
-nonIndexedIdentifier = choice [multiIdentifier, singleIdentifier]
+        simple ident = do
+            name <- ident
+            return $ AST.SimpleIdent name
+        template ident = do
+            prefix <- try $ ident <* char '#'
+            varName <- char '{' *> variableName <* char '}'
+            suffix <- optionMaybe $ choice [ template $ many identLetter
+                                           , simple $ many1 identLetter
+                                           ]
+            return AST.TemplateIdent
+                { AST.prefix  = prefix
+                , AST.varName = varName
+                , AST.suffix   = suffix
+                }
 
 nodeSpec = do
     nodeType <- optionMaybe $ try nodeType
@@ -238,7 +234,7 @@ nodeSpec = do
             brackets $ many mapSpec
         overlay = do
             reserved "over"
-            singleIdentifier
+            identifier
 
 nodeType = choice [memory, device]
     where memory = do
@@ -287,6 +283,33 @@ mapDest = choice [baseAddress, direct]
             destBase <- address
             return $ AST.BaseAddress destNode destBase
 
+for body = do
+    reserved "for"
+    var <- variableName
+    reserved "in"
+    (start, end) <- brackets forRange
+    body <- braces body
+    return AST.For
+        { AST.var   = var
+        , AST.start = start
+        , AST.end   = end
+        , AST.body  = body
+        }
+        
+forRange = do
+    start <- index
+    symbol ".."
+    end <- index
+    return (start, end)
+    where
+        index = choice [numberIndex, paramIndex]
+        numberIndex = do
+            num <- numberLiteral
+            return $ AST.NumberLimit (fromIntegral num)
+        paramIndex = do
+            name <- parameterName
+            return $ AST.ParamLimit name
+
 {- Helper functions -}
 whiteSpace    = P.whiteSpace lexer
 reserved      = P.reserved lexer
@@ -303,7 +326,15 @@ decimal       = P.decimal lexer <* whiteSpace
 
 moduleName     = idenString <?> "module name"
 parameterName  = idenString <?> "parameter name"
-identifierName = idenString <?> "identifier"
+variableName   = idenString <?> "variable name"
+
+identStart      = letter
+identLetter     = alphaNum <|> char '_' <|> char '-'
+identifierName = do
+    start <- identStart
+    rest <- many identLetter
+    return $ start:rest
+    <?> "identifier"
 
 numberLiteral  = try decimal <?> "number literal"
 addressLiteral = try hexadecimal <?> "address literal (hex)"
