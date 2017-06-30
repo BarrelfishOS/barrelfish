@@ -49,11 +49,10 @@ data NetSpec
 
 data ModuleInst
     = ModuleInst
-        { moduleName     :: String
-        , nameSpace      :: Identifier
-        , arguments      :: [ModuleArg]
-        , inputMappings  :: [ModulePortMap]
-        , outputMappings :: [ModulePortMap]
+        { moduleName   :: String
+        , nameSpace    :: Identifier
+        , arguments    :: [ModuleArg]
+        , portMappings :: [ModulePortMap]
         } deriving (Show)
 
 data ModuleArg
@@ -63,7 +62,11 @@ data ModuleArg
     deriving (Show)
 
 data ModulePortMap
-    = ModulePortMap
+    = InputPortMap
+        { port   :: Identifier
+        , nodeId :: Identifier
+        }
+    | OutputPortMap
         { port   :: Identifier
         , nodeId :: Identifier
         } deriving (Show)

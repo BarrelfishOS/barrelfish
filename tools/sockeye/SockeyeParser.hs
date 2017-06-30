@@ -132,27 +132,25 @@ moduleInst = do
         return (name, args)
     nameSpace <- nonIndexedIdentifier
     symbol "with"
-    inputMappings <- many inputMapping
-    outputMappings <- many outputMapping
+    portMappings <- many $ choice [inputMapping, outputMapping]
     return AST.ModuleInst
         { AST.moduleName = name
         , AST.nameSpace  = nameSpace
         , AST.arguments  = args 
-        , AST.inputMappings = inputMappings
-        , AST.outputMappings = outputMappings
+        , AST.portMappings = portMappings
         }
     where
         inputMapping = do
             nodeId <- try $ identifier <* symbol ">"
             port <- identifier
-            return AST.ModulePortMap
+            return AST.InputPortMap
                 { AST.port   = port
                 , AST.nodeId = nodeId
                 }
         outputMapping = do
             nodeId <- try $ identifier <* symbol "<"
             port <- identifier
-            return AST.ModulePortMap
+            return AST.OutputPortMap
                 { AST.port   = port
                 , AST.nodeId = nodeId
                 }
