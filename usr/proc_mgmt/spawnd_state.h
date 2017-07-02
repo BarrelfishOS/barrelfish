@@ -18,10 +18,8 @@
 #include <barrelfish/barrelfish.h>
 
 struct spawnd_state {
-	coreid_t core_id;
+    coreid_t core_id;
     struct spawn_binding *b;
-
-    // TODO(razvan): will need more state here.
 };
 
 errval_t spawnd_state_alloc(coreid_t core_id, struct spawn_binding *b);

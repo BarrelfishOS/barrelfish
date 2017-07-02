@@ -386,9 +386,9 @@ static void spawn_with_caps_request_handler(struct spawn_binding *b,
                                  &dummy_domain_id);
 
 reply:
-    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, domain_cap, err);
+    reply_err = b->tx_vtbl.spawn_with_caps_reply(b, NOP_CONT, domain_cap, err);
     if (err_is_fail(reply_err)) {
-        DEBUG_ERR(err, "failed to send spawn_reply");
+        DEBUG_ERR(err, "failed to send spawn_with_caps_reply");
     }
 }
 
@@ -564,9 +564,9 @@ static void span_request_handler(struct spawn_binding *b,
     }
 
 reply:
-    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, domain_cap, err);
+    reply_err = b->tx_vtbl.span_reply(b, NOP_CONT, domain_cap, err);
     if (err_is_fail(reply_err)) {
-        DEBUG_ERR(err, "failed to send spawn_reply");
+        DEBUG_ERR(err, "failed to send span_reply");
     }
 }
 
@@ -584,36 +584,50 @@ static void cleanup_cap(struct capref cap)
     }
 }
 
-static void kill_request_handler(struct spawn_binding *b,
-                                 struct capref procmng_cap,
-                                 struct capref domain_cap)
+static errval_t kill_handler_common(struct capref procmng_cap,
+                                    struct capref domain_cap)
 {
-    errval_t err, reply_err;
     struct capability ret;
-    err = monitor_cap_identify_remote(procmng_cap, &ret);
+    errval_t err = monitor_cap_identify_remote(procmng_cap, &ret);
     if (err_is_fail(err)) {
-        err = err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
-        goto reply;
+        return err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
     }
 
     if (ret.type != ObjType_ProcessManager) {
-        err = SPAWN_ERR_NOT_PROC_MNGR;
-        goto reply;
+        return SPAWN_ERR_NOT_PROC_MNGR;
     }
 
     struct ps_entry *pe;
     err = ps_get_domain(domain_cap, &pe, NULL);
     if (err_is_fail(err)) {
-        err = err_push(err, SPAWN_ERR_DOMAIN_NOTFOUND);
-        goto reply;
+        return err_push(err, SPAWN_ERR_DOMAIN_NOTFOUND);
     }
 
     cleanup_cap(pe->dcb);
 
-reply:
-    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, domain_cap, err);
+    return SYS_ERR_OK;
+}
+
+static void kill_request_handler(struct spawn_binding *b,
+                                 struct capref procmng_cap,
+                                 struct capref victim_domain_cap)
+{
+    errval_t err = kill_handler_common(procmng_cap, victim_domain_cap);
+    errval_t reply_err = b->tx_vtbl.kill_reply(b, NOP_CONT, victim_domain_cap,
+                                               err);
     if (err_is_fail(reply_err)) {
-        DEBUG_ERR(err, "failed to send spawn_reply");
+        DEBUG_ERR(err, "failed to send kill_reply");
+    }
+}
+
+static void exit_request_handler(struct spawn_binding *b,
+                                 struct capref procmng_cap,
+                                 struct capref domain_cap)
+{
+    errval_t err = kill_handler_common(procmng_cap, domain_cap);
+    errval_t reply_err = b->tx_vtbl.exit_reply(b, NOP_CONT, domain_cap, err);
+    if (err_is_fail(reply_err)) {
+        DEBUG_ERR(err, "failed to send exit_reply");
     }
 }
 
@@ -650,9 +664,9 @@ static void cleanup_request_handler(struct spawn_binding *b,
     free(pe);
 
 reply:
-    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, domain_cap, err);
+    reply_err = b->tx_vtbl.cleanup_reply(b, NOP_CONT, domain_cap, err);
     if (err_is_fail(reply_err)) {
-        DEBUG_ERR(err, "failed to send spawn_reply");
+        DEBUG_ERR(err, "failed to send cleanup_reply");
     }
 }
 
@@ -851,6 +865,7 @@ static struct spawn_rx_vtbl rx_vtbl = {
     .spawn_with_caps_request = spawn_with_caps_request_handler,
     .span_request            = span_request_handler,
     .kill_request            = kill_request_handler,
+    .exit_request            = exit_request_handler,
     .cleanup_request         = cleanup_request_handler,
 
     .use_local_memserv_call = use_local_memserv_handler,

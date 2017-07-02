@@ -27,6 +27,8 @@ interface spawn "Interface to spawn domains" {
                           char argvbuf[argvbytes, 2048],
                           char envbuf[envbytes, 2048],
                           uint8 flags);
+    message spawn_reply(cap domain_cap, errval err);
+
     message spawn_with_caps_request(cap procmng_cap,
                                     cap domain_cap,
                                     String path[2048],
@@ -35,11 +37,20 @@ interface spawn "Interface to spawn domains" {
                                     cap inheritcn_cap,
                                     cap argcn_cap,
                                     uint8 flags);
+    message spawn_with_caps_reply(cap domain_cap, errval err);
+
     message span_request(cap procmng_cap, cap domain_cap, cap vroot,
                          cap dispframe);
+    message span_reply(cap domain_cap, errval err);
+
     message kill_request(cap procmng_cap, cap domain_cap);
+    message kill_reply(cap domain_cap, errval err);
+
+    message exit_request(cap procmng_cap, cap domain_cap);
+    message exit_reply(cap domain_cap, errval err);
+
     message cleanup_request(cap procmng_cap, cap domain_cap);
-    message spawn_reply(cap domain_cap, errval err);
+    message cleanup_reply(cap domain_cap, errval err);
 
     rpc spawn_proc_mgmt_domain(in cap domain_cap,
                                in String path[2048],

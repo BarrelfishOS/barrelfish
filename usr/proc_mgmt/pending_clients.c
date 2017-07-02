@@ -14,16 +14,44 @@
 #include "domain.h"
 #include "pending_clients.h"
 
-static collections_hash_table* pending_clients_table = NULL;
+static collections_hash_table *spawn_table = NULL;
+static collections_hash_table *spawn_with_caps_table = NULL;
+static collections_hash_table *span_table = NULL;
+static collections_hash_table *kill_table = NULL;
+static collections_hash_table *exit_table = NULL;
+static collections_hash_table *cleanup_table = NULL;
 
 errval_t pending_clients_add(struct capref domain_cap,
                              struct proc_mgmt_binding *b, enum ClientType type,
                              coreid_t core_id)
 {
-    if (pending_clients_table == NULL) {
-        collections_hash_create_with_buckets(&pending_clients_table,
-                                             HASH_INDEX_BUCKETS, NULL);
-        if (pending_clients_table == NULL) {
+    collections_hash_table **table;
+    switch (type) {
+        case ClientType_Spawn:
+            table = &spawn_table;
+            break;
+        case ClientType_SpawnWithCaps:
+            table = &spawn_with_caps_table;
+            break;
+        case ClientType_Span:
+            table = &span_table;
+            break;
+        case ClientType_Kill:
+            table = &kill_table;
+            break;
+        case ClientType_Exit:
+            table = &exit_table;
+            break;
+        case ClientType_Cleanup:
+            table = &cleanup_table;
+            break;
+        default:
+            USER_PANIC("Unhandled client type %d\n", type);
+    }
+
+    if (*table == NULL) {
+        collections_hash_create_with_buckets(table, HASH_INDEX_BUCKETS, NULL);
+        if (*table == NULL) {
             return PROC_MGMT_ERR_CREATE_CLIENTS_TABLE;
         }
     }
@@ -34,18 +62,32 @@ errval_t pending_clients_add(struct capref domain_cap,
         return err;
     }
 
-    struct pending_client *client = (struct pending_client*) malloc(
+    struct pending_client *cl = (struct pending_client*) malloc(
             sizeof(struct pending_client));
-    client->b = b;
-    client->core_id = core_id;
-    client->type = type;
-    collections_hash_insert(pending_clients_table, key, client);
+    cl->b = b;
+    cl->domain_cap = domain_cap;
+    cl->core_id = core_id;
+    cl->type = type;
+    cl->next = NULL;
+
+    if (type == ClientType_Kill) {
+        // Special case: multiple clients might have issued a kill for some
+        // domain. Need to chain them together.
+        void *entry = collections_hash_find(*table, key);
+        if (entry != NULL) {
+            struct pending_client* old = (struct pending_client*) entry;
+            collections_hash_delete(*table, key);
+            cl->next = old;
+        }
+    }
+    
+    collections_hash_insert(*table, key, cl);
 
     return SYS_ERR_OK;
 }
 
-errval_t pending_clients_release(struct capref domain_cap,
-                                        struct pending_client **ret_cl)
+errval_t pending_clients_release(struct capref domain_cap, enum ClientType type,
+                                 struct pending_client **ret_cl)
 {
     uint64_t key;
     errval_t err = domain_cap_hash(domain_cap, &key);
@@ -53,15 +95,114 @@ errval_t pending_clients_release(struct capref domain_cap,
         return err;
     }
 
-    void *table_entry = collections_hash_find(pending_clients_table, key);
-    if (table_entry == NULL) {
-        return PROC_MGMT_ERR_CLIENTS_TABLE_FIND;
-    }
-    if (ret_cl != NULL) {
-        *ret_cl = (struct pending_client*) table_entry;
+    collections_hash_table **table;
+    switch (type) {
+        case ClientType_Spawn:
+            table = &spawn_table;
+            break;
+        case ClientType_SpawnWithCaps:
+            table = &spawn_with_caps_table;
+            break;
+        case ClientType_Span:
+            table = &span_table;
+            break;
+        case ClientType_Kill:
+            table = &kill_table;
+            break;
+        case ClientType_Exit:
+            table = &exit_table;
+            break;
+        case ClientType_Cleanup:
+            table = &cleanup_table;
+            break;
+        default:
+            USER_PANIC("Unhandled client type %d\n", type);
     }
 
-    collections_hash_delete(pending_clients_table, key);
+    void *entry = collections_hash_find(*table, key);
+    if (entry == NULL) {
+        return PROC_MGMT_ERR_CLIENTS_TABLE_FIND;
+    }
+    struct pending_client *cl = (struct pending_client*) entry;
+    if (ret_cl != NULL) {
+        *ret_cl = cl;
+    } else {
+        free(cl);
+    }
+
+    collections_hash_delete(*table, key);
+
+    return SYS_ERR_OK;
+}
+
+errval_t pending_clients_release_one(struct capref domain_cap,
+                                     enum ClientType type,
+                                     struct proc_mgmt_binding *b,
+                                     struct pending_client **ret_cl)
+{
+    uint64_t key;
+    errval_t err = domain_cap_hash(domain_cap, &key);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    collections_hash_table **table;
+    switch (type) {
+        case ClientType_Spawn:
+            table = &spawn_table;
+            break;
+        case ClientType_SpawnWithCaps:
+            table = &spawn_with_caps_table;
+            break;
+        case ClientType_Span:
+            table = &span_table;
+            break;
+        case ClientType_Kill:
+            table = &kill_table;
+            break;
+        case ClientType_Exit:
+            table = &exit_table;
+            break;
+        case ClientType_Cleanup:
+            table = &cleanup_table;
+            break;
+        default:
+            USER_PANIC("Unhandled client type %d\n", type);
+    }
+
+    void *entry = collections_hash_find(*table, key);
+    if (entry == NULL) {
+        return PROC_MGMT_ERR_CLIENTS_TABLE_FIND;
+    }
+    struct pending_client *cl = (struct pending_client*) entry;
+    if (cl->b == b) {
+        struct pending_client *tmp = cl;
+        cl = cl->next;
+        if (ret_cl != NULL) {
+            *ret_cl = tmp;
+        } else {
+            free(tmp);
+        }
+    } else {
+        while (cl->next != NULL) {
+            if (cl->next->b == b) {
+                struct pending_client *tmp = cl->next;
+                cl->next = cl->next->next;
+                if (ret_cl != NULL) {
+                    *ret_cl = tmp;
+                } else {
+                    free(tmp);
+                }
+                break;
+            }
+            cl = cl->next;
+        }
+    }
+
+    collections_hash_delete(*table, key);
+    if (cl != NULL) {
+        collections_hash_insert(*table, key, cl);
+    }
 
     return SYS_ERR_OK;
 }

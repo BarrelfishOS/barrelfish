@@ -13,7 +13,9 @@
 #define PENDING_CLIENTS_H
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/event_queue.h>
 #include <if/proc_mgmt_defs.h>
+#include <if/spawn_defs.h>
 
 #define HASH_INDEX_BUCKETS 6151
 
@@ -23,20 +25,70 @@ enum ClientType {
 	ClientType_Span,
 	ClientType_Kill,
 	ClientType_Exit,
-	ClientType_Wait
+	ClientType_Cleanup
 	// TODO(razvan): Others?
+};
+
+struct pending_spawn {
+    struct capref domain_cap;
+
+	struct spawn_binding *b;
+	coreid_t core_id;
+	
+	const char *path;
+	
+	const char *argvbuf;
+	size_t argvbytes;
+	const char *envbuf;
+	size_t envbytes;
+	
+	struct capref inheritcn_cap;
+	struct capref argcn_cap;
+	
+	uint8_t flags;
+
+	struct event_queue_node qn;
+};
+
+struct pending_span {
+    struct capref domain_cap;
+
+	struct spawn_binding *b;
+
+	coreid_t core_id;
+	struct capref vroot;
+	struct capref dispframe;
+
+	struct event_queue_node qn;
+};
+
+struct pending_kill_exit_cleanup {
+    struct capref domain_cap;
+	struct spawn_binding *sb;
+	struct proc_mgmt_binding *pmb;
+	
+	struct event_queue_node qn;
 };
 
 struct pending_client {
     struct proc_mgmt_binding *b;
+
+    struct capref domain_cap;
+
     coreid_t core_id;
     enum ClientType type;
+
+    struct pending_client *next;
 };
 
 errval_t pending_clients_add(struct capref domain_cap,
                              struct proc_mgmt_binding *b, enum ClientType type,
                              coreid_t core_id);
-errval_t pending_clients_release(struct capref domain_cap,
+errval_t pending_clients_release(struct capref domain_cap, enum ClientType type,
                                  struct pending_client **ret_cl);
+errval_t pending_clients_release_one(struct capref domain_cap,
+	                                 enum ClientType type,
+	                                 struct proc_mgmt_binding *b,
+                                     struct pending_client **ret_cl);
 
 #endif  // PENDING_CLIENTS_H

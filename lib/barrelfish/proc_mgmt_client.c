@@ -491,7 +491,7 @@ errval_t proc_mgmt_kill(struct capref domain_cap)
 /**
  * \brief Inform the process manager about exiting execution.
  */
-errval_t proc_mgmt_exit(uint8_t status )
+errval_t proc_mgmt_exit(uint8_t status)
 {
     errval_t err = proc_mgmt_bind_client();
     if (err_is_fail(err)) {
@@ -501,7 +501,7 @@ errval_t proc_mgmt_exit(uint8_t status )
     struct proc_mgmt_binding *b = get_proc_mgmt_binding();
     assert(b != NULL);
 
-    err = b->tx_vtbl.exit(b, NOP_CONT, cap_domainid, status);
+    err = b->rpc_tx_vtbl.exit(b, cap_domainid, status);
     if (err_is_fail(err)) {
         return err;
     }
