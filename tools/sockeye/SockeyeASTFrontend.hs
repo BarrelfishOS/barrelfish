@@ -42,9 +42,9 @@ data ModuleBody = ModuleBody
     } deriving (Show)
 
 data PortDef
-    = InputPortDef [Identifier]
-    | OutputPortDef [Identifier]
-    | MultiPortDef (For [PortDef])
+    = InputPortDef Identifier
+    | OutputPortDef Identifier
+    | MultiPortDef (For PortDef)
     deriving (Show)
 
 data NetSpec
@@ -141,11 +141,16 @@ data MapDest
 
 data For a 
     = For
-        { var     :: !String
-        , start   :: ForLimit
-        , end     :: ForLimit
-        , body    :: a
+        { varRanges :: [ForVarRange]
+        , body     :: a
         } deriving (Show)
+
+data ForVarRange
+    = ForVarRange
+    { var   :: !String
+    , start :: ForLimit
+    , end   :: ForLimit
+    } deriving (Show)
 
 data ForLimit 
     = NumberLimit !Word

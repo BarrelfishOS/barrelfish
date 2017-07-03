@@ -89,26 +89,35 @@ moduleParam = do
             return AST.AddressParam
 
 moduleBody = do
-    ports <- many $ try portDef
+    ports <- many $ portDef
     net <- many netSpec
     return AST.ModuleBody
-        { AST.ports     = ports
+        { AST.ports     = concat ports
         , AST.moduleNet = net
         }
 
-portDef = choice [inputPort, outputPort, multiPorts]
+portDef = choice [inputPorts, outputPorts]
     where
-        inputPort = do
+        inputPorts = do
             reserved "input"
-            idens <- commaSep1 identifier
-            return $ AST.InputPortDef idens
-        outputPort = do
+            ports <- commaSep1 identifierFor
+            return $ map toInDef ports
+        toInDef (forFn, iden) =
+            let
+                portDef = AST.InputPortDef iden
+            in case forFn of
+                Nothing -> portDef
+                Just f  -> AST.MultiPortDef $ f portDef
+        outputPorts = do
             reserved "output"
-            idens <- commaSep1 identifier
-            return $ AST.OutputPortDef idens
-        multiPorts = do
-            for <- for $ many1 portDef
-            return $ AST.MultiPortDef for
+            ports <- commaSep1 identifierFor
+            return $ map toOutDef ports
+        toOutDef (forFn, iden) =
+            let
+                portDef = AST.OutputPortDef iden
+            in case forFn of
+            Nothing -> portDef
+            Just f  -> AST.MultiPortDef $ f portDef
 
 netSpec = choice [ inst <?> "module instantiation"
                  , decl <?> "node declaration"
@@ -276,23 +285,67 @@ mapDest = choice [baseAddress, direct]
 
 for body = do
     reserved "for"
-    var <- variableName
-    reserved "in"
-    (start, end) <- brackets forRange
+    varRanges <- commaSep1 $ forVarRange False
     body <- braces body
     return AST.For
-        { AST.var   = var
-        , AST.start = start
-        , AST.end   = end
-        , AST.body  = body
+        { AST.varRanges = varRanges
+        , AST.body      = body
         }
-        
-forRange = do
-    start <- index
-    symbol ".."
-    end <- index
-    return (start, end)
+
+identifierFor = do
+    (varRanges, Just ident) <- choice [template identifierName, simple identifierName] <* whiteSpace
+    let
+        forFn = case varRanges of
+         [] -> Nothing
+         _  -> Just $ \body -> AST.For
+                { AST.varRanges = varRanges
+                , AST.body      = body
+                }
+    return (forFn, ident)
     where
+        simple ident = do
+            name <- ident
+            return $ ([], Just $ AST.SimpleIdent name)
+        template ident = do
+            prefix <- try $ ident <* symbol "{"
+            optVarRange <- forVarRange True
+            char '}'
+            (subRanges, suffix) <- option ([], Nothing) $ choice
+                [ template $ many identLetter
+                , simple $ many1 identLetter
+                ]
+            let
+                varName = mapOptVarName subRanges (AST.var optVarRange)
+                varRange = optVarRange { AST.var = varName }
+                ident = Just AST.TemplateIdent
+                    { AST.prefix = prefix
+                    , AST.varName = varName
+                    , AST.suffix = suffix
+                    }
+                ranges = varRange:subRanges
+            return (ranges, ident)
+        mapOptVarName prev "#" = "#" ++ (show $ (length prev) + 1)
+        mapOptVarName _ name = name
+
+
+forVarRange optVarName
+    | optVarName = do 
+        var <- option "#" (try $ variableName <* reserved "in")
+        range var
+    | otherwise = do
+        var <- variableName
+        reserved "in"
+        range var
+    where
+        range var = brackets $ do
+            start <- index
+            symbol ".."
+            end <- index
+            return AST.ForVarRange
+                { AST.var   = var
+                , AST.start = start
+                , AST.end   = end
+                }
         index = choice [numberIndex, paramIndex]
         numberIndex = do
             num <- numberLiteral
