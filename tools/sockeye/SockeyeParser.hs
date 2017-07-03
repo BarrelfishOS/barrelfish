@@ -30,19 +30,10 @@ import qualified SockeyeASTFrontend as AST
 lexer = P.makeTokenParser (
     javaStyle  {
         {- list of reserved Names -}
-        P.reservedNames = [
-            "module",
-            "input", "output",
-            "for", "in",
-            "as", "with",
-            "is", "are",
-            "accept", "map",
-            "over",
-            "to", "at"
-        ],
+        P.reservedNames = keywords,
 
         {- valid identifiers -}
-        P.identStart = identStart,
+        P.identStart = letter,
         P.identLetter = identLetter,
 
         {- comment start and end -}
@@ -203,8 +194,8 @@ identifier = choice [template identifierName, simple identifierName] <* whiteSpa
             name <- ident
             return $ AST.SimpleIdent name
         template ident = do
-            prefix <- try $ ident <* char '#'
-            varName <- char '{' *> variableName <* char '}'
+            prefix <- try $ ident <* char '{'
+            varName <- whiteSpace *> variableName <* char '}'
             suffix <- optionMaybe $ choice [ template $ many identLetter
                                            , simple $ many1 identLetter
                                            ]
@@ -320,21 +311,34 @@ symbol        = P.symbol lexer
 stringLiteral = P.stringLiteral lexer
 commaSep      = P.commaSep lexer
 commaSep1     = P.commaSep1 lexer
-idenString    = P.identifier lexer
+identString    = P.identifier lexer
 hexadecimal   = symbol "0" *> P.hexadecimal lexer <* whiteSpace
 decimal       = P.decimal lexer <* whiteSpace
 
-moduleName     = idenString <?> "module name"
-parameterName  = idenString <?> "parameter name"
-variableName   = idenString <?> "variable name"
+keywords = ["module",
+            "input", "output",
+            "for", "in",
+            "as", "with",
+            "is", "are",
+            "accept", "map",
+            "over",
+            "to", "at"]   
 
-identStart      = letter
-identLetter     = alphaNum <|> char '_' <|> char '-'
-identifierName = do
-    start <- identStart
-    rest <- many identLetter
-    return $ start:rest
-    <?> "identifier"
+identStart     = letter
+identLetter    = alphaNum <|> char '_' <|> char '-'
+
+moduleName     = identString <?> "module name"
+parameterName  = identString <?> "parameter name"
+variableName   = identString <?> "variable name"
+identifierName = try ident <?> "identifier"
+    where
+        ident = do
+            start <- identStart
+            rest <- many identLetter
+            let ident = start:rest
+            if ident `elem` keywords
+                then unexpected $ "reserved word \"" ++ ident ++ "\""
+                else return ident
 
 numberLiteral  = try decimal <?> "number literal"
 addressLiteral = try hexadecimal <?> "address literal (hex)"
