@@ -59,7 +59,9 @@ int main(int argc, char** argv)
     iref_t kaluga_iref = 0;
     errval_t err = nameservice_blocking_lookup("ddomain_controller", &kaluga_iref);
     assert(err_is_ok(err));
-    ddomain_communication_init(kaluga_iref);
+    err = ddomain_communication_init(kaluga_iref, 0x1);
+    assert(err_is_ok(err));
+    printf("%s:%s:%d: done initializing\n", __FILE__, __FUNCTION__, __LINE__);
 
     messages_handler_loop();
     return 0;

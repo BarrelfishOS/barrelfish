@@ -19,14 +19,13 @@
                     flounderBindings = [ "omap_sdma" ],
                     flounderTHCStubs = [ "omap_sdma" ],
 
-                    addLibraries = ["driverkit", "thc"],
                     architectures = ["armv7"]
-    },
-
-    build application {
-        target = "sdma",
-        cFiles = [ "sdma_domain.c"],
-        addModules = ["sdma_module"],
-        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ]
     }
+
+    --build application {
+    --    target = "sdma",
+    --    cFiles = [ "sdma_domain.c"],
+    --    addModules = ["sdma_module"],
+    --    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ]
+    --}
 ]

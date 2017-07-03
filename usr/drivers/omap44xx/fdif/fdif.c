@@ -45,14 +45,14 @@ struct fdif_driver_state {
     char printbuf[PRINT_BUFFER_SIZE];
 };
 
-static void manage_clocks(struct fdif_driver_state* st)
+static void manage_clocks(struct fdif_driver_state* st, struct capref caps[])
 {
     FDIF_DEBUG("Enable the clocks in domain CD_CAM\n");
 
     // Clock domain CAM
     lvaddr_t vbase;
     errval_t err;
-    err = map_device_register(0x4A009000, 4096, &vbase);
+    err = map_device_cap(caps[0], &vbase); // 0x4A009000, 4096
     assert(err_is_ok(err));
 
     omap44xx_cam_cm2_initialize(&st->devclk, (mackerel_addr_t)vbase);
@@ -65,14 +65,14 @@ static void manage_clocks(struct fdif_driver_state* st)
     omap44xx_cam_cm2_cm_cam_clkstctrl_clktrctrl_wrf(&st->devclk, 0x2);
 }
 
-static void manage_power(struct fdif_driver_state* st)
+static void manage_power(struct fdif_driver_state* st, struct capref caps[])
 {
     FDIF_DEBUG("Power-on the PD_CAM domain for fdif\n");
 
     // Power domain CAM
     lvaddr_t vbase;
     errval_t err;
-    err = map_device_register(0x4A307000, 4096, &vbase);
+    err = map_device_cap(caps[2], &vbase); // 0x4A307000, 4096
     assert(err_is_ok(err));
 
     omap44xx_cam_prm_initialize(&st->dev, (mackerel_addr_t)vbase);
@@ -255,14 +255,14 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
     lpaddr_t vbase;
 
     // Face detect Module
-    err = map_device_cap(caps[0], &vbase);
+    err = map_device_cap(caps[3], &vbase);
     assert(err_is_ok(err));
     omap44xx_fdif_initialize(&st->devfdif, (mackerel_addr_t)vbase);
 
     FDIF_DEBUG("FDIF Global Initialization\n");
 
-    manage_clocks(st);
-    manage_power(st);
+    manage_clocks(st, caps);
+    manage_power(st, caps);
 
     omap44xx_fdif_fdif_sysconfig_softreset_wrf(&st->devfdif, 1);
     while (omap44xx_fdif_fdif_sysconfig_softreset_rdf(&st->devfdif) != 0);

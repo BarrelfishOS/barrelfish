@@ -19,14 +19,13 @@
         "omap/omap44xx_cam_cm2",
         "omap/omap44xx_fdif",
         "omap/omap44xx_device_prm" ],
-    architectures = ["armv7"],
-    addLibraries = libDeps [ "driverkit" ]
-  },
-
-  build application {
-    target = "fdif",
-    cFiles = [ "fdif_domain.c"],
-    addModules = ["fdif_module"],
-    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ]
+    architectures = ["armv7"]
   }
+
+  --  build application {
+  --    target = "fdif",
+  --    cFiles = [ "fdif_domain.c"],
+  --    addModules = ["fdif_module"],
+  --    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ]
+  --  }
 ]

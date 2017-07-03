@@ -10,13 +10,18 @@
 interface ddomain "Kaluga <-> Driver Domain Interface" {
 
     /**
+     * XXX: Make sure kaluga knows what domain this is.
+     * ideally we could set-up endpoints before spawning something
+     */
+    message identify(uint64 id);
+
+    /**
      * Creates a new driver within the driver domain.
      */
-    message create(char cls[clen, 256], char name[nlen, 256],
-                   char a1[a1len, 256], char a2[a2len, 256], char a3[a3len, 256], char a4[a4len, 256], 
-                   cap cap1, cap cap2, cap cap3, cap cap4, uint64 flags);
-    message create_response(iref devif, iref control, errval err);
-
+    rpc create(in char cls[clen, 256], in char name[nlen, 256],
+               in char a1[a1len, 256], in char a2[a2len, 256], in char a3[a3len, 256], in char a4[a4len, 256],
+               in cap cap1, in cap cap2, in cap cap3, in cap cap4, in uint64 flags,
+               out iref devif, out iref control, out errval err);
     /**
      * Destroys a driver inside a domain.
      */

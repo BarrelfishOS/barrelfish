@@ -46,8 +46,14 @@ void driverkit_list(struct bfdriver**, size_t*);
 struct bfdriver* driverkit_lookup_cls(const char*);
 
 /** driver domain flounder interface */
-errval_t ddomain_communication_init(iref_t kaluga_iref);
+errval_t ddomain_communication_init(iref_t kaluga_iref, uint64_t id);
 errval_t ddomain_controller_init(void);
+struct domain_instance* ddomain_create_domain_instance(uint64_t id);
+struct driver_instance* ddomain_create_driver_instance(char* driver_name, char* inst_name);
+void ddomain_instantiate_driver(struct domain_instance* di, struct driver_instance* drv);
+void ddomain_free_driver_inst(void* arg);
+void ddomain_free_domain_inst(void* arg);
+errval_t ddomain_driver_add_cap(struct driver_instance* drv, struct capref cap);
 
 /** driver control flounder interface */
 errval_t dcontrol_service_init(struct bfdriver_instance* bfi, struct waitset* ws);
@@ -55,9 +61,10 @@ errval_t dcontrol_service_init(struct bfdriver_instance* bfi, struct waitset* ws
 errval_t map_device_register(lpaddr_t, size_t, lvaddr_t*);
 errval_t map_device_cap(struct capref, lvaddr_t *);
 
+
 #define __bfdrivers		__attribute__((__section__(".bfdrivers")))
 #define __visible       __attribute__((__externally_visible__))
-#define __aligned8      __attribute__ ((__aligned__ (8)))
+#define __waligned       __attribute__((__aligned__(sizeof(size_t))))
 #define __used          __attribute__((__used__))
 #define ___PASTE(a,b) a##b
 #define __PASTE(a,b) ___PASTE(a,b)
@@ -68,7 +75,7 @@ errval_t map_device_cap(struct capref, lvaddr_t *);
         __used                                      \
         __visible                                   \
         __bfdrivers                                 \
-        __aligned8 = {                              \
+        __waligned =  {                             \
         #name,                                      \
         init_fn,                                    \
         attach_fn,                                  \

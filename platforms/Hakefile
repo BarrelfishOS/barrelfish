@@ -169,7 +169,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                           "startd",
                           "mem_serv",
                           "monitor",
-                          "ramfsd" ]]
+                          "ramfsd",
+                          "driverdomain" ]]
 
     -- List of modules that are arch-independent and always built
     modules_generic = [
@@ -228,8 +229,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "vnode_map_test",
                            "webserver",
                            "xeon_phi",
-                           "xeon_phi_mgr",
-                           "driverdomain"
+                           "xeon_phi_mgr"
                            ]] ++ modules_common
 
     -- the following are broken in the newidc system
@@ -260,7 +260,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "memtest",
                         "kaluga",
                         "fish",
-                        "sdma",
                         "sdmatest",
                         "sdma_bench",
                         "bulk_sdma",
@@ -270,8 +269,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "serial_kernel",
                         "angler",
                         "corectrl",
-                        "fdif",
-                        "mmchs"
+                        "driverdomain"
                         ] ]
 
     -- ARMv7-A modules for Versatile Express EMM board (GEM5, qemu)

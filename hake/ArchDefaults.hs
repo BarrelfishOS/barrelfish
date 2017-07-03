@@ -313,9 +313,9 @@ linker arch compiler opts objs libs mods bin =
     ++
     [ In BuildTree arch o | o <- objs ]
     ++
-    [ In BuildTree arch l | l <- libs ]
-    ++
     [Str "-Wl,--whole-archive"] ++ [ In BuildTree arch l | l <- mods ] ++ [Str "-Wl,--no-whole-archive"]
+    ++
+    [ In BuildTree arch l | l <- libs ]
     ++
     (optLibs opts)
 

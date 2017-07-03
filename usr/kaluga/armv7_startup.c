@@ -239,3 +239,73 @@ default_start_function(coreid_t where, struct module_info* driver,
 
     return SYS_ERR_OK;
 }
+
+
+/**
+ * \brief Startup function for new-style ARMv7 drivers.
+ *
+ * Launches the driver instance in a driver domain instead.
+ */
+errval_t
+newstyle_start_function(coreid_t where, struct module_info* driver, char* record,
+                        struct driver_argument* int_arg)
+{
+    assert(driver != NULL);
+    assert(record != NULL);
+    errval_t err;
+
+    struct monitor_blocking_binding *m = get_monitor_blocking_binding();
+    assert(m != NULL);
+
+    uint32_t arch, platform;
+    err = m->rpc_tx_vtbl.get_platform(m, &arch, &platform);
+    assert(err_is_ok(err));
+    assert(arch == PI_ARCH_ARMV7A);
+
+    struct allowed_registers **regs= NULL;
+    switch(platform) {
+    case PI_PLATFORM_OMAP44XX:
+        regs= omap44xx;
+        break;
+    case PI_PLATFORM_VEXPRESS:
+        regs= vexpress;
+        break;
+    default:
+        printf("Unrecognised ARMv7 platform\n");
+        abort();
+    }
+
+
+    struct domain_instance* inst = instantiate_driver_domain(0);
+    struct driver_instance* drv = ddomain_create_driver_instance("fdif", "fdif_panda");
+
+    char* name;
+    err = oct_read(record, "%s", &name);
+    assert(err_is_ok(err));
+    KALUGA_DEBUG("%s:%d: Starting driver for %s\n", __FUNCTION__, __LINE__, name);
+    for (size_t i=0; regs[i] != NULL; i++) {
+        if(strcmp(name, regs[i]->binary) != 0) {
+            continue;
+        }
+
+        // Get the device cap from the managed capability tree
+        // put them all in a single cnode
+        for (size_t j=0; regs[i]->registers[j][0] != 0x0; j++) {
+            struct capref device_frame;
+            KALUGA_DEBUG("%s:%d: mapping 0x%"PRIxLPADDR" %"PRIuLPADDR"\n", __FUNCTION__, __LINE__,
+            regs[i]->registers[j][0], regs[i]->registers[j][1]);
+
+            lpaddr_t base = regs[i]->registers[j][0] & ~(BASE_PAGE_SIZE-1);
+            err = get_device_cap(base, regs[i]->registers[j][1], &device_frame);
+            assert(err_is_ok(err));
+
+            KALUGA_DEBUG("get_device_cap worked\n");
+            err = ddomain_driver_add_cap(drv, device_frame);
+            assert(err_is_ok(err));
+        }
+    }
+    free(name);
+
+    ddomain_instantiate_driver(inst, drv);
+    return SYS_ERR_OK;
+}

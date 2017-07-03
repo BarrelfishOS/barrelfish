@@ -31,23 +31,22 @@
                     flounderBindings = [ "ata_rw28" ],
                     flounderTHCStubs = [ "ata_rw28" ],
 
-                    addLibraries = [ "driverkit", "thc" ],
                     architectures = ["armv7"]
-    },
-
-    build application {
-        target = "mmchs",
-        cFiles = [ "mmchs_domain.c"],
-        addModules = ["mmchs_module"],
-        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-        mackerelDevices = [
-            "ti_i2c",
-            "ti_twl6030",
-            "omap/omap44xx_mmchs1",
-            "omap/omap44xx_sysctrl_padconf_core",
-            "omap/omap44xx_l3init_cm2",
-            "omap/omap44xx_ckgen_cm2",
-            "omap/omap44xx_l4per_cm2"
-        ]
     }
+
+    --build application {
+    --    target = "mmchs",
+    --    cFiles = [ "mmchs_domain.c"],
+    --    addModules = ["mmchs_module"],
+    --    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+    --    mackerelDevices = [
+    --        "ti_i2c",
+    --        "ti_twl6030",
+    --        "omap/omap44xx_mmchs1",
+    --        "omap/omap44xx_sysctrl_padconf_core",
+    --        "omap/omap44xx_l3init_cm2",
+    --        "omap/omap44xx_ckgen_cm2",
+    --        "omap/omap44xx_l4per_cm2"
+    --    ]
+    --}
 ]

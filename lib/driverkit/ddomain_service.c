@@ -71,12 +71,12 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
 
     errval_t err = driverkit_create_driver(cls, name, cap_array, 4, args_array, 4, flags, &dev, &ctrl);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga.");
+        DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga.\n");
     }
 
     err = binding->tx_vtbl.create_response(binding, NOP_CONT, dev, ctrl, err);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Sending reply failed.");
+        USER_PANIC_ERR(err, "Sending reply failed.\n");
     }
 }
 
@@ -104,7 +104,7 @@ static void destroy_handler(struct ddomain_binding* binding, const char* name, s
  * Stubs table for functions to call on driver instance.
  */
 static const struct ddomain_rx_vtbl rpc_rx_vtbl = {
-    .create = create_handler,
+    .create_call = create_handler,
     .destroy_call = destroy_handler,
 };
 
@@ -139,7 +139,7 @@ out:
  * \param  connect_to iref where to connect.
  * \retval SYS_ERR_OK Connected to the driver manager.
  */
-errval_t ddomain_communication_init(iref_t connect_to)
+errval_t ddomain_communication_init(iref_t connect_to, uint64_t ident)
 {
     rpc_bind.err = SYS_ERR_OK;
     rpc_bind.is_done = false;
@@ -153,6 +153,10 @@ errval_t ddomain_communication_init(iref_t connect_to)
     while (!rpc_bind.is_done) {
         messages_wait_and_handle_next();
     }
+
+    printf("%s:%s:%d: SEND IDENTIFY\n", __FILE__, __FUNCTION__, __LINE__);
+    errval_t send_err = rpc_bind.binding->tx_vtbl.identify(rpc_bind.binding, NOP_CONT, ident);
+    assert(err_is_ok(send_err));
 
     return rpc_bind.err;
 }
