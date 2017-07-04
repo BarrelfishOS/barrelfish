@@ -177,15 +177,19 @@ nodeDecls = do
         single = do
             nodeId <- identifier
             reserved "is"
-            return [nodeId]
+            return [(Nothing, nodeId)]
         multiple = do
-            nodeIds <- commaSep1 identifier
+            nodeIds <- commaSep1 identifierFor
             reserved "are"
             return nodeIds
-        toNodeDecl nodeSpec nodeId = AST.NodeDecl
-            { AST.nodeId = nodeId
-            , AST.nodeSpec = nodeSpec
-            } 
+        toNodeDecl nodeSpec (forFn, ident) = let
+            nodeDecl = AST.NodeDecl
+                { AST.nodeId = ident
+                , AST.nodeSpec = nodeSpec
+                }
+            in case forFn of
+                Nothing -> nodeDecl
+                Just f  -> AST.MultiNodeDecl $ f nodeDecl
 
 identifier = do
     (_, ident) <- identifierHelper False

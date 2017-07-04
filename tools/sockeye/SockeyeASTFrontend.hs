@@ -83,7 +83,9 @@ data NodeDecl
     = NodeDecl
         { nodeId   :: Identifier
         , nodeSpec :: NodeSpec
-        } deriving (Show)
+        }
+    | MultiNodeDecl (For NodeDecl)
+    deriving (Show)
 
 data Identifier
     = SimpleIdent !String
