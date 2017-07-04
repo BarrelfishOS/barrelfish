@@ -1,5 +1,5 @@
 {-
-  SockeyeASTBackend.hs: BackendAST for Sockeye
+  SockeyeASTBackend.hs: Backend AST for Sockeye
 
   Part of Sockeye
 
