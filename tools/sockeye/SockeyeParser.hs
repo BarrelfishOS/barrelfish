@@ -123,14 +123,18 @@ moduleInst = do
         args <- option [] $ parens (commaSep moduleArg)
         symbol "as"
         return (name, args)
-    nameSpace <- identifier
+    (forFn, nameSpace) <- identifierFor
     portMappings <- option [] $ symbol "with" *> many1 portMapping
-    return AST.ModuleInst
-        { AST.moduleName = name
-        , AST.nameSpace  = nameSpace
-        , AST.arguments  = args 
-        , AST.portMappings = portMappings
-        }
+    return $ let
+        moduleInst = AST.ModuleInst
+            { AST.moduleName = name
+            , AST.nameSpace  = nameSpace
+            , AST.arguments  = args 
+            , AST.portMappings = portMappings
+            }
+        in case forFn of
+            Nothing -> moduleInst
+            Just f  -> AST.MultiModuleInst $ f moduleInst
 
 moduleArg = choice [addressArg, numberArg, paramArg]
     where

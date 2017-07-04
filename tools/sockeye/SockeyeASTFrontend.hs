@@ -59,7 +59,9 @@ data ModuleInst
         , nameSpace    :: Identifier
         , arguments    :: [ModuleArg]
         , portMappings :: [PortMap]
-        } deriving (Show)
+        }
+    | MultiModuleInst (For ModuleInst)
+    deriving (Show)
 
 data ModuleArg
     = AddressArg !Word
