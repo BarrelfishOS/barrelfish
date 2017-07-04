@@ -569,7 +569,13 @@ static void exit_reply_handler(struct spawn_binding *b,
 
     if (entry->num_spawnds_running == 0) {
         entry->status = DOMAIN_STATUS_STOPPED;
-        
+
+        err = pending_clients_add(domain_cap, NULL, ClientType_Cleanup,
+                                  MAX_COREID);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "pending_clients_add in exit_reply_handler");
+        }
+
         free(cl);
 
         // TODO(razvan): Same problem applies to the waiters: would

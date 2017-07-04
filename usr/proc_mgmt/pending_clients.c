@@ -95,31 +95,33 @@ errval_t pending_clients_release(struct capref domain_cap, enum ClientType type,
         return err;
     }
 
-    collections_hash_table **table;
+    collections_hash_table *table;
     switch (type) {
         case ClientType_Spawn:
-            table = &spawn_table;
+            table = spawn_table;
             break;
         case ClientType_SpawnWithCaps:
-            table = &spawn_with_caps_table;
+            table = spawn_with_caps_table;
             break;
         case ClientType_Span:
-            table = &span_table;
+            table = span_table;
             break;
         case ClientType_Kill:
-            table = &kill_table;
+            table = kill_table;
             break;
         case ClientType_Exit:
-            table = &exit_table;
+            table = exit_table;
             break;
         case ClientType_Cleanup:
-            table = &cleanup_table;
+            table = cleanup_table;
             break;
         default:
             USER_PANIC("Unhandled client type %d\n", type);
     }
 
-    void *entry = collections_hash_find(*table, key);
+    assert(table != NULL);
+
+    void *entry = collections_hash_find(table, key);
     if (entry == NULL) {
         return PROC_MGMT_ERR_CLIENTS_TABLE_FIND;
     }
@@ -130,7 +132,7 @@ errval_t pending_clients_release(struct capref domain_cap, enum ClientType type,
         free(cl);
     }
 
-    collections_hash_delete(*table, key);
+    collections_hash_delete(table, key);
 
     return SYS_ERR_OK;
 }
