@@ -481,13 +481,19 @@ static errval_t net_connect(struct net_sockets_binding *binding, uint32_t descri
 
     if (socket->udp_socket) {
         ip_addr_t addr;
+        err_t e;
+
         addr.addr = ip_address;
-        assert(udp_connect(socket->udp_socket, &addr, port) == ERR_OK);
+        e = udp_connect(socket->udp_socket, &addr, port);
+        assert(e == ERR_OK);
         *error = SYS_ERR_OK;
     } else if (socket->tcp_socket) {
         ip_addr_t addr;
+        err_t e;
+
         addr.addr = ip_address;
-        assert(tcp_connect(socket->tcp_socket, &addr, port, net_tcp_connected) == ERR_OK);
+        e = tcp_connect(socket->tcp_socket, &addr, port, net_tcp_connected);
+        assert(e == ERR_OK);
         *error = SYS_ERR_OK;
     }
 
@@ -625,9 +631,19 @@ static errval_t q_notify(struct descq* q)
                     notify = 1;
                     // debug_printf("%s(%d): %d\n", __func__, socket->descriptor, p->tot_len);
                     if (port && addr.addr) {
-                        assert(udp_sendto(pcb, p, &addr, port) == ERR_OK);
+                        err_t e;
+
+                        e = udp_sendto(pcb, p, &addr, port);
+                        if (e != ERR_OK)
+                            debug_printf("%s(%d): err:%d\n", __func__, socket->descriptor, e);
+                        assert(e == ERR_OK);
                     } else {
-                        assert(udp_send(pcb, p) == ERR_OK);
+                        err_t e;
+
+                        e = udp_send(pcb, p);
+                        if (e != ERR_OK)
+                            debug_printf("%s(%d): err:%d\n", __func__, socket->descriptor, e);
+                        assert(e == ERR_OK);
                     }
                     pbuf_free(p);
                 } else if (socket->tcp_socket) {
@@ -741,7 +757,7 @@ int main(int argc, char *argv[])
     snprintf(servicename, sizeof(servicename), "e1000:%s", argv[2]);
 
     /* connect to the network */
-    err = networking_init(servicename, 0);
+    err = networking_init(servicename, NET_FLAGS_DO_DHCP);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to initialize the network");
     }

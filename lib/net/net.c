@@ -305,12 +305,6 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to subscribte the ARP service\n");
         }
-        
-        ip4_addr_t ipaddr, netmask;
-        IP4_ADDR(&ipaddr, 192, 168, 0, 36);
-        IP4_ADDR(&netmask, 255, 255, 255, 0);
-        netif_set_addr(&st->netif, &ipaddr, &netmask,
-                    IP_ADDR_ANY);
     }
 
     NETDEBUG("initialization complete.\n");

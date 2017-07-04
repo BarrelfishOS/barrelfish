@@ -103,7 +103,7 @@ in
         flounderBindings = [ "unixsock", "octopus" ],
         flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
         flounderTHCStubs = [ "octopus" ],
-        addLibraries = libDeps [ "vfs_noblockdev",  "term_server", "octopus" ],
+        addLibraries = libDeps [ "vfs_ramfs",  "term_server", "octopus", "lwip" ],
         architectures = [ "x86_32", "k1om", "armv7", "armv8" ]
     }
 ]
