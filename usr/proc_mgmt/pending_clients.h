@@ -13,7 +13,6 @@
 #define PENDING_CLIENTS_H
 
 #include <barrelfish/barrelfish.h>
-#include <barrelfish/event_queue.h>
 #include <if/proc_mgmt_defs.h>
 #include <if/spawn_defs.h>
 
@@ -46,8 +45,6 @@ struct pending_spawn {
 	struct capref argcn_cap;
 	
 	uint8_t flags;
-
-	struct event_queue_node qn;
 };
 
 struct pending_span {
@@ -58,16 +55,12 @@ struct pending_span {
 	coreid_t core_id;
 	struct capref vroot;
 	struct capref dispframe;
-
-	struct event_queue_node qn;
 };
 
 struct pending_kill_exit_cleanup {
     struct capref domain_cap;
 	struct spawn_binding *sb;
 	struct proc_mgmt_binding *pmb;
-	
-	struct event_queue_node qn;
 };
 
 struct pending_client {

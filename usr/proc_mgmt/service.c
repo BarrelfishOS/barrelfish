@@ -112,7 +112,6 @@ static void spawn_request_sender(void *arg)
                                         with_caps ? ClientType_SpawnWithCaps
                                                   : ClientType_Spawn,
                                         NULL);
-                event_mutex_unlock(&spawn->b->mutex);
                 free(spawn);
             }
         } else {
@@ -121,7 +120,6 @@ static void spawn_request_sender(void *arg)
                                     with_caps ? ClientType_SpawnWithCaps
                                               : ClientType_Spawn,
                                     NULL);
-            event_mutex_unlock(&spawn->b->mutex);
             free(spawn);
         }
     }
@@ -150,13 +148,11 @@ static void span_request_sender(void *arg)
                 DEBUG_ERR(err, "registering for span request");
                 pending_clients_release(span->domain_cap, ClientType_Span,
                                         NULL);
-                event_mutex_unlock(&span->b->mutex);
                 free(span);
             }
         } else {
             DEBUG_ERR(err, "sending span request");
             pending_clients_release(span->domain_cap, ClientType_Span, NULL);
-            event_mutex_unlock(&span->b->mutex);
             free(span);
         }
     }
@@ -191,7 +187,6 @@ static void kill_request_sender(void *arg)
                     }
                 }
 
-                event_mutex_unlock(&kill->sb->mutex);
                 free(kill);
             }
         } else {
@@ -209,7 +204,6 @@ static void kill_request_sender(void *arg)
                 }
             }
 
-            event_mutex_unlock(&kill->sb->mutex);
             free(kill);
         }
     }
@@ -233,14 +227,12 @@ static void exit_request_sender(void *arg)
                 DEBUG_ERR(err, "registering for exit request");
                 err = pending_clients_release(exit->domain_cap, ClientType_Exit,
                                               NULL);
-                event_mutex_unlock(&exit->sb->mutex);
                 free(exit);
             }
         } else {
             DEBUG_ERR(err, "sending exit request");
             err = pending_clients_release(exit->domain_cap, ClientType_Exit,
                                           NULL);
-            event_mutex_unlock(&exit->sb->mutex);
             free(exit);
         }
     }
@@ -264,14 +256,12 @@ static void cleanup_request_sender(void *arg)
                 DEBUG_ERR(err, "registering for cleanup request");
                 pending_clients_release(cleanup->domain_cap, ClientType_Cleanup,
                                         NULL);
-                event_mutex_unlock(&cleanup->sb->mutex);
                 free(cleanup);
             }
         } else {
             DEBUG_ERR(err, "sending cleanup request");
             pending_clients_release(cleanup->domain_cap, ClientType_Cleanup,
                                     NULL);
-            event_mutex_unlock(&cleanup->sb->mutex);
             free(cleanup);
         }
     }
@@ -280,8 +270,6 @@ static void cleanup_request_sender(void *arg)
 static void spawn_reply_handler(struct spawn_binding *b,
                                 struct capref domain_cap, errval_t spawn_err)
 {
-    event_mutex_unlock(&b->mutex);
-
     struct pending_client *cl;
     errval_t err = pending_clients_release(domain_cap, ClientType_Spawn, &cl);
     if (err_is_fail(err)) {
@@ -308,8 +296,6 @@ static void spawn_with_caps_reply_handler(struct spawn_binding *b,
                                           struct capref domain_cap,
                                           errval_t spawn_err)
 {
-    event_mutex_unlock(&b->mutex);
-    
     struct pending_client *cl;
     errval_t err = pending_clients_release(domain_cap, ClientType_SpawnWithCaps,
                                            &cl);
@@ -338,8 +324,6 @@ static void spawn_with_caps_reply_handler(struct spawn_binding *b,
 static void span_reply_handler(struct spawn_binding *b,
                                struct capref domain_cap, errval_t span_err)
 {
-    event_mutex_unlock(&b->mutex);
-
     struct pending_client *cl;
     errval_t err = pending_clients_release(domain_cap, ClientType_Span, &cl);
     if (err_is_fail(err)) {
@@ -374,8 +358,6 @@ static void cleanup_reply_handler(struct spawn_binding *b,
                                   struct capref domain_cap,
                                   errval_t cleanup_err)
 {
-    event_mutex_unlock(&b->mutex);
-
     struct pending_client *cl;
     errval_t err = pending_clients_release(domain_cap, ClientType_Cleanup, &cl);
     if (err_is_fail(err)) {
@@ -428,8 +410,6 @@ static void cleanup_reply_handler(struct spawn_binding *b,
 static void kill_reply_handler(struct spawn_binding *b,
                                struct capref domain_cap, errval_t kill_err)
 {
-    event_mutex_unlock(&b->mutex);
-
     struct pending_client *cl;
     errval_t err = pending_clients_release(domain_cap, ClientType_Kill, &cl);
     if (err_is_fail(err)) {
@@ -519,11 +499,12 @@ static void kill_reply_handler(struct spawn_binding *b,
             cleanup->domain_cap = domain_cap;
 
             spb->rx_vtbl.cleanup_reply = cleanup_reply_handler;
-            event_mutex_enqueue_lock(&spb->mutex,
-                                     &cleanup->qn,
-                                     (struct event_closure) {
-                                         .handler = cleanup_request_sender,
-                                         .arg = cleanup });
+            err = spb->register_send(spb, spb->waitset,
+                                     MKCONT(cleanup_request_sender, cleanup));
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "registering for cleanup request");
+                free(cleanup);
+            }
         }
     } else {
         err = pending_clients_add(domain_cap, cl->b, ClientType_Kill,
@@ -537,8 +518,6 @@ static void kill_reply_handler(struct spawn_binding *b,
 static void exit_reply_handler(struct spawn_binding *b,
                                struct capref domain_cap, errval_t exit_err)
 {
-    event_mutex_unlock(&b->mutex);
-
     struct pending_client *cl;
     errval_t err = pending_clients_release(domain_cap, ClientType_Exit, &cl);
     if (err_is_fail(err)) {
@@ -605,11 +584,12 @@ static void exit_reply_handler(struct spawn_binding *b,
             cleanup->domain_cap = domain_cap;
 
             spb->rx_vtbl.cleanup_reply = cleanup_reply_handler;
-            event_mutex_enqueue_lock(&spb->mutex,
-                                     &cleanup->qn,
-                                     (struct event_closure) {
-                                         .handler = cleanup_request_sender,
-                                         .arg = cleanup });
+            err = spb->register_send(spb, spb->waitset,
+                                     MKCONT(cleanup_request_sender, cleanup));
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "registering for cleanup request");
+                free(cleanup);
+            }
         }
     } else {
         err = pending_clients_add(domain_cap, cl->b, ClientType_Exit,
@@ -669,10 +649,12 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
     spawn->argcn_cap = argcn_cap;
     spawn->flags = flags;
 
-    event_mutex_enqueue_lock(&cl->mutex, &spawn->qn,
-                             (struct event_closure) {
-                                 .handler = spawn_request_sender,
-                                 .arg = spawn });
+    err = cl->register_send(cl, cl->waitset,
+                            MKCONT(spawn_request_sender, spawn));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "registering for spawn request");
+        free(spawn);
+    }
 
     return SYS_ERR_OK;
 }
@@ -753,10 +735,12 @@ static void span_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
     span->vroot = vroot;
     span->dispframe = dispframe;
 
-    event_mutex_enqueue_lock(&cl->mutex, &span->qn,
-                             (struct event_closure) {
-                                 .handler = span_request_sender,
-                                 .arg = span });
+    err = cl->register_send(cl, cl->waitset,
+                            MKCONT(span_request_sender, span));
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "registering for span request");
+        free(span);
+    }
 
 respond_with_err:
     resp_err = b->tx_vtbl.span_response(b, NOP_CONT, err);
@@ -799,20 +783,21 @@ static errval_t kill_handler_common(struct proc_mgmt_binding *b,
         switch (type) {
             case ClientType_Kill:
                 cmd->pmb = b;
-
-                event_mutex_enqueue_lock(&spb->mutex,
-                                         &cmd->qn,
-                                         (struct event_closure) {
-                                            .handler = kill_request_sender,
-                                            .arg = cmd });
+                err = spb->register_send(spb, spb->waitset,
+                                         MKCONT(kill_request_sender, cmd));
+                if (err_is_fail(err)) {
+                    DEBUG_ERR(err, "registering for kill request");
+                    free(cmd);
+                }
                 break;
 
             case ClientType_Exit:
-                event_mutex_enqueue_lock(&spb->mutex,
-                                         &cmd->qn,
-                                         (struct event_closure) {
-                                            .handler = exit_request_sender,
-                                            .arg = cmd });
+                err = spb->register_send(spb, spb->waitset,
+                                         MKCONT(exit_request_sender, cmd));
+                if (err_is_fail(err)) {
+                    DEBUG_ERR(err, "registering for exit request");
+                    free(cmd);
+                }
                 break;
             default:
                 USER_PANIC("invalid client type for kill: %u\n", type);
