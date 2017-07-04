@@ -111,8 +111,8 @@ netSpec = choice [ inst <?> "module instantiation"
             moduleInst <- moduleInst
             return $ AST.ModuleInstSpec moduleInst
         decl = do
-            nodeDecl <- nodeDecl
-            return $ AST.NodeDeclSpec nodeDecl
+            nodeDecls <- nodeDecls
+            return $ AST.NodeDeclSpec nodeDecls
         multiSpecs = do
             for <- for $ many1 netSpec
             return $ AST.MultiNetSpec for
@@ -147,43 +147,45 @@ moduleArg = choice [addressArg, numberArg, paramArg]
 portMapping = choice [inputMapping, outputMapping]
     where
         inputMapping = do
-            (forFn, nodeId) <- try $ identifierFor <* symbol ">"
-            port <- identifier
+            (forFn, mappedId) <- try $ identifierFor <* symbol ">"
+            portId <- identifier
             return $ let
                 portMap = AST.InputPortMap
-                    { AST.port   = port
-                    , AST.nodeId = nodeId
+                    { AST.mappedId = mappedId
+                    , AST.portId   = portId
                     }
                 in case forFn of
                     Nothing -> portMap
                     Just f  -> AST.MultiPortMap $ f portMap
         outputMapping = do
-            (forFn, nodeId) <- try $ identifierFor <* symbol "<"
-            port <- identifier
+            (forFn, mappedId) <- try $ identifierFor <* symbol "<"
+            portId <- identifier
             return $ let
                 portMap = AST.OutputPortMap
-                    { AST.port   = port
-                    , AST.nodeId = nodeId
+                    { AST.portId   = portId
+                    , AST.mappedId = mappedId
                     }
                 in case forFn of
                     Nothing -> portMap
                     Just f  -> AST.MultiPortMap $ f portMap
 
-nodeDecl = do
+nodeDecls = do
     nodeIds <- choice [try single, try multiple]
     nodeSpec <- nodeSpec
-    return $ AST.NodeDecl
-        { AST.nodeIds = nodeIds
-        , AST.nodeSpec = nodeSpec
-        }
-    where single = do
+    return $ map (toNodeDecl nodeSpec) nodeIds
+    where
+        single = do
             nodeId <- identifier
             reserved "is"
             return [nodeId]
-          multiple = do
+        multiple = do
             nodeIds <- commaSep1 identifier
             reserved "are"
             return nodeIds
+        toNodeDecl nodeSpec nodeId = AST.NodeDecl
+            { AST.nodeId = nodeId
+            , AST.nodeSpec = nodeSpec
+            } 
 
 identifier = do
     (_, ident) <- identifierHelper False
@@ -223,15 +225,15 @@ blockSpec = choice [range, length, singleton]
     where
         singleton = do
             address <- address
-            return $ AST.Singleton address
+            return $ AST.SingletonBlock address
         range = do
             base <- try $ address <* symbol "-"
             limit <- address
-            return $ AST.Range base limit
+            return $ AST.RangeBlock base limit
         length = do
             base <- try $ address <* symbol "/"
             bits <- decimal <?> "number of bits"
-            return $ AST.Length base (fromIntegral bits)
+            return $ AST.LengthBlock base (fromIntegral bits)
 
 address = choice [address, param]
     where
@@ -252,11 +254,11 @@ mapDest = choice [baseAddress, direct]
     where
         direct = do
             destNode <- identifier
-            return $ AST.Direct destNode
+            return $ AST.DirectMap destNode
         baseAddress = do
             destNode <- try $ identifier <* reserved "at"
             destBase <- address
-            return $ AST.BaseAddress destNode destBase
+            return $ AST.BaseAddressMap destNode destBase
 
 for body = do
     reserved "for"

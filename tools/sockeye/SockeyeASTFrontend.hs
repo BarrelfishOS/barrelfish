@@ -48,7 +48,7 @@ data PortDef
     deriving (Show)
 
 data NetSpec
-    = NodeDeclSpec NodeDecl
+    = NodeDeclSpec [NodeDecl]
     | ModuleInstSpec ModuleInst
     | MultiNetSpec (For [NetSpec])
     deriving (Show)
@@ -69,19 +69,19 @@ data ModuleArg
 
 data PortMap
     = InputPortMap
-        { port   :: Identifier
-        , nodeId :: Identifier
+        { mappedId :: Identifier
+        , portId   :: Identifier
         }
     | OutputPortMap
-        { port   :: Identifier
-        , nodeId :: Identifier
+        { portId   :: Identifier
+        , mappedId :: Identifier
         }
     | MultiPortMap (For PortMap)
     deriving (Show)
 
 data NodeDecl
     = NodeDecl
-        { nodeIds  :: [Identifier]
+        { nodeId   :: Identifier
         , nodeSpec :: NodeSpec
         } deriving (Show)
 
@@ -107,13 +107,13 @@ data NodeType
     deriving (Show)
 
 data BlockSpec 
-    = Singleton
+    = SingletonBlock
         { address :: !Address }
-    | Range
+    | RangeBlock
         { base  :: !Address
         , limit :: !Address
         }
-    | Length
+    | LengthBlock
         { base :: !Address
         , bits :: !Word
         }
@@ -131,9 +131,9 @@ data MapSpec
         } deriving (Show)
 
 data MapDest
-    = Direct
+    = DirectMap
         { destNode :: Identifier }
-    | BaseAddress
+    | BaseAddressMap
         { destNode :: Identifier
         , destBase :: Address
         }
