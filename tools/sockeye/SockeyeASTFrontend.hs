@@ -76,7 +76,7 @@ data PortMap
         { port   :: Identifier
         , nodeId :: Identifier
         }
-    | MultiPortMap (For [PortMap])
+    | MultiPortMap (For PortMap)
     deriving (Show)
 
 data NodeDecl

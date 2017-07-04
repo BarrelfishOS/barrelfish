@@ -26,23 +26,6 @@ import Text.ParserCombinators.Parsec.Language (javaStyle)
 
 import qualified SockeyeASTFrontend as AST
 
-{- Setup the lexer -}
-lexer = P.makeTokenParser (
-    javaStyle  {
-        {- list of reserved Names -}
-        P.reservedNames = keywords,
-
-        {- valid identifiers -}
-        P.identStart = letter,
-        P.identLetter = identLetter,
-
-        {- comment start and end -}
-        P.commentStart = "/*",
-        P.commentEnd = "*/",
-        P.commentLine = "//",
-        P.nestedComments = False
-    })
-
 {- Parser main function -}
 parseSockeye :: String -> String -> Either ParseError AST.SockeyeSpec
 parseSockeye = parse sockeyeFile
@@ -161,25 +144,30 @@ moduleArg = choice [addressArg, numberArg, paramArg]
             name <- parameterName
             return $ AST.ParamArg name
 
-portMapping = choice [inputMapping, outputMapping, multiMapping]
+portMapping = choice [inputMapping, outputMapping]
     where
         inputMapping = do
-            nodeId <- try $ identifier <* symbol ">"
+            (forFn, nodeId) <- try $ identifierFor <* symbol ">"
             port <- identifier
-            return AST.InputPortMap
-                { AST.port   = port
-                , AST.nodeId = nodeId
-                }
+            return $ let
+                portMap = AST.InputPortMap
+                    { AST.port   = port
+                    , AST.nodeId = nodeId
+                    }
+                in case forFn of
+                    Nothing -> portMap
+                    Just f  -> AST.MultiPortMap $ f portMap
         outputMapping = do
-            nodeId <- try $ identifier <* symbol "<"
+            (forFn, nodeId) <- try $ identifierFor <* symbol "<"
             port <- identifier
-            return AST.OutputPortMap
-                { AST.port   = port
-                , AST.nodeId = nodeId
-                }
-        multiMapping = do
-            for <- for $ many1 portMapping
-            return $ AST.MultiPortMap for
+            return $ let
+                portMap = AST.OutputPortMap
+                    { AST.port   = port
+                    , AST.nodeId = nodeId
+                    }
+                in case forFn of
+                    Nothing -> portMap
+                    Just f  -> AST.MultiPortMap $ f portMap
 
 nodeDecl = do
     nodeIds <- choice [try single, try multiple]
@@ -197,22 +185,9 @@ nodeDecl = do
             reserved "are"
             return nodeIds
 
-identifier = choice [template identifierName, simple identifierName] <* whiteSpace
-    where
-        simple ident = do
-            name <- ident
-            return $ AST.SimpleIdent name
-        template ident = do
-            prefix <- try $ ident <* char '{'
-            varName <- whiteSpace *> variableName <* char '}'
-            suffix <- optionMaybe $ choice [ template $ many identLetter
-                                           , simple $ many1 identLetter
-                                           ]
-            return AST.TemplateIdent
-                { AST.prefix  = prefix
-                , AST.varName = varName
-                , AST.suffix   = suffix
-                }
+identifier = do
+    (_, ident) <- identifierHelper False
+    return ident
 
 nodeSpec = do
     nodeType <- optionMaybe $ try nodeType
@@ -292,41 +267,7 @@ for body = do
         , AST.body      = body
         }
 
-identifierFor = do
-    (varRanges, Just ident) <- choice [template identifierName, simple identifierName] <* whiteSpace
-    let
-        forFn = case varRanges of
-         [] -> Nothing
-         _  -> Just $ \body -> AST.For
-                { AST.varRanges = varRanges
-                , AST.body      = body
-                }
-    return (forFn, ident)
-    where
-        simple ident = do
-            name <- ident
-            return $ ([], Just $ AST.SimpleIdent name)
-        template ident = do
-            prefix <- try $ ident <* symbol "{"
-            optVarRange <- forVarRange True
-            char '}'
-            (subRanges, suffix) <- option ([], Nothing) $ choice
-                [ template $ many identLetter
-                , simple $ many1 identLetter
-                ]
-            let
-                varName = mapOptVarName subRanges (AST.var optVarRange)
-                varRange = optVarRange { AST.var = varName }
-                ident = Just AST.TemplateIdent
-                    { AST.prefix = prefix
-                    , AST.varName = varName
-                    , AST.suffix = suffix
-                    }
-                ranges = varRange:subRanges
-            return (ranges, ident)
-        mapOptVarName prev "#" = "#" ++ (show $ (length prev) + 1)
-        mapOptVarName _ name = name
-
+identifierFor = identifierHelper True
 
 forVarRange optVarName
     | optVarName = do 
@@ -337,7 +278,7 @@ forVarRange optVarName
         reserved "in"
         range var
     where
-        range var = brackets $ do
+        range var = brackets (do
             start <- index
             symbol ".."
             end <- index
@@ -346,6 +287,8 @@ forVarRange optVarName
                 , AST.start = start
                 , AST.end   = end
                 }
+            )
+            <?> "range ([a..b])"
         index = choice [numberIndex, paramIndex]
         numberIndex = do
             num <- numberLiteral
@@ -355,6 +298,22 @@ forVarRange optVarName
             return $ AST.ParamLimit name
 
 {- Helper functions -}
+lexer = P.makeTokenParser (
+    javaStyle  {
+        {- list of reserved Names -}
+        P.reservedNames = keywords,
+
+        {- valid identifiers -}
+        P.identStart = letter,
+        P.identLetter = identLetter,
+
+        {- comment start and end -}
+        P.commentStart = "/*",
+        P.commentEnd = "*/",
+        P.commentLine = "//",
+        P.nestedComments = False
+    })
+
 whiteSpace    = P.whiteSpace lexer
 reserved      = P.reserved lexer
 parens        = P.parens lexer
@@ -395,3 +354,50 @@ identifierName = try ident <?> "identifier"
 
 numberLiteral  = try decimal <?> "number literal"
 addressLiteral = try hexadecimal <?> "address literal (hex)"
+
+identifierHelper inlineFor = do
+    (varRanges, Just ident) <- choice [template identifierName, simple identifierName] <* whiteSpace
+    let
+        forFn = case varRanges of
+         [] -> Nothing
+         _  -> Just $ \body -> AST.For
+                { AST.varRanges = varRanges
+                , AST.body      = body
+                }
+    return (forFn, ident)
+    where
+        simple ident = do
+            name <- ident
+            return $ ([], Just $ AST.SimpleIdent name)
+        template ident = do
+            prefix <- try $ ident <* symbol "{"
+            (ranges, varName, suffix) <- if inlineFor 
+                then choice [forTemplate, varTemplate]
+                else varTemplate
+            let
+                ident = Just AST.TemplateIdent
+                    { AST.prefix = prefix
+                    , AST.varName = varName
+                    , AST.suffix = suffix
+                    }
+            return (ranges, ident)
+        varTemplate = do
+            varName <- variableName
+            char '}'
+            (ranges, suffix) <- templateSuffix
+            return (ranges, varName, suffix)
+        forTemplate = do
+            optVarRange <- forVarRange True
+            char '}'
+            (subRanges, suffix) <- templateSuffix
+            return $ let
+                varName = mapOptVarName subRanges (AST.var optVarRange)
+                varRange = optVarRange { AST.var = varName }
+                ranges = varRange:subRanges
+                in (ranges, varName, suffix)
+        templateSuffix = option ([], Nothing) $ choice
+            [ template $ many identLetter
+            , simple $ many1 identLetter
+            ]
+        mapOptVarName prev "#" = "#" ++ (show $ (length prev) + 1)
+        mapOptVarName _ name = name
