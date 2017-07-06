@@ -42,12 +42,12 @@ newtype SockeyeSpec = SockeyeSpec
     deriving (Show)
 
 data Module = Module
-    { paramNames  :: [String]
-    , paramTypes  :: Map String ModuleParamType
-    , inputPorts  :: [Port]
-    , outputPorts :: [Port]
-    , nodeDecls   :: [NodeDecl]
-    , moduleInsts :: [ModuleInst]
+    { paramNames   :: [String]
+    , paramTypeMap :: Map String ModuleParamType
+    , inputPorts   :: [Port]
+    , outputPorts  :: [Port]
+    , nodeDecls    :: [NodeDecl]
+    , moduleInsts  :: [ModuleInst]
     } deriving (Show)
 
 data Port
@@ -57,19 +57,19 @@ data Port
 
 data ModuleInst
     = ModuleInst
-        { nameSpace     :: Identifier
-        , moduleName    :: String
-        , arguments     :: Map String ModuleArg
-        , inputPortMap  :: [PortMap]
-        , outputPortMap :: [PortMap]
+        { nameSpace  :: Identifier
+        , moduleName :: String
+        , arguments  :: Map String ModuleArg
+        , inPortMap  :: [PortMap]
+        , outPortMap :: [PortMap]
         }
     | MultiModuleInst (For ModuleInst)
     deriving (Show)
 
 data PortMap
     = PortMap
-        { mappedId :: Identifier
-        , portId   :: Identifier
+        { mappedId   :: Identifier
+        , mappedPort :: Identifier
         }
     | MultiPortMap (For PortMap)
     deriving (Show)
