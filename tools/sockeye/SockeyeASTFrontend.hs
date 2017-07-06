@@ -34,7 +34,7 @@ data ModuleParam = ModuleParam
 data ModuleParamType 
     = NumberParam
     | AddressParam
-    deriving (Show)
+    deriving (Eq, Show)
 
 data ModuleBody = ModuleBody
     { ports     :: [PortDef]
@@ -42,13 +42,15 @@ data ModuleBody = ModuleBody
     } deriving (Show)
 
 data PortDef
-    = InputPortDef Identifier
-    | OutputPortDef Identifier
+    = InputPortDef
+        { portId :: Identifier }
+    | OutputPortDef
+        { portId :: Identifier }
     | MultiPortDef (For PortDef)
     deriving (Show)
 
 data NetSpec
-    = NodeDeclSpec [NodeDecl]
+    = NodeDeclSpec NodeDecl
     | ModuleInstSpec ModuleInst
     deriving (Show)
 
@@ -70,12 +72,12 @@ data ModuleArg
 
 data PortMap
     = InputPortMap
-        { mappedId :: Identifier
-        , portId   :: Identifier
+        { mappedId   :: Identifier
+        , mappedPort :: Identifier
         }
     | OutputPortMap
-        { portId   :: Identifier
-        , mappedId :: Identifier
+        { mappedId   :: Identifier
+        , mappedPort :: Identifier
         }
     | MultiPortMap (For PortMap)
     deriving (Show)
@@ -122,24 +124,16 @@ data BlockSpec
         }
     deriving (Show)
 
+data MapSpec 
+    = MapSpec
+        { block    :: BlockSpec
+        , destNode :: Identifier
+        , destBase :: Maybe Address
+        } deriving (Show)
+
 data Address
     = NumberAddress !Word
     | ParamAddress !String
-    deriving (Show)
-
-data MapSpec 
-    = MapSpec
-        { block :: BlockSpec
-        , dests :: [MapDest]
-        } deriving (Show)
-
-data MapDest
-    = DirectMap
-        { destNode :: Identifier }
-    | BaseAddressMap
-        { destNode :: Identifier
-        , destBase :: Address
-        }
     deriving (Show)
 
 data For a 

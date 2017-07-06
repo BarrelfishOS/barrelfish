@@ -22,11 +22,19 @@ import Data.Map (Map)
 import Data.Set (Set)
 
 import SockeyeASTFrontend
-    ( Identifier(SimpleIdent,TemplateIdent)
+    ( Identifier(SimpleIdent, TemplateIdent)
     , prefix, varName, suffix
-    , ModuleParamType(NumberParam,AddressParam)
-    , NodeType(Memory,Device)
-    , ForLimit(NumberLimit,ParamLimit)
+    , ModuleParamType(NumberParam, AddressParam)
+    , ModuleArg(AddressArg, NumberArg, ParamArg)
+    , NodeSpec(NodeSpec)
+    , nodeType, accept, translate, overlay
+    , NodeType(Memory, Device)
+    , BlockSpec(SingletonBlock, RangeBlock, LengthBlock)
+    , address, base, limit, bits
+    , MapSpec(MapSpec)
+    , block, destNode, destBase
+    , Address(NumberAddress, ParamAddress)
+    , ForLimit(NumberLimit, ParamLimit)
     )
 
 newtype SockeyeSpec = SockeyeSpec
@@ -51,7 +59,7 @@ data ModuleInst
     = ModuleInst
         { nameSpace     :: Identifier
         , moduleName    :: String
-        , arguments     :: Map String Word
+        , arguments     :: Map String ModuleArg
         , inputPortMap  :: [PortMap]
         , outputPortMap :: [PortMap]
         }
@@ -73,24 +81,6 @@ data NodeDecl
         }
     | MultiNodeDecl (For NodeDecl)
     deriving (Show)
-
-data NodeSpec = NodeSpec
-    { nodeType  :: Maybe NodeType
-    , accept    :: [BlockSpec]
-    , translate :: [MapSpec]
-    , overlay   :: Maybe String
-    } deriving (Show)
-
-data BlockSpec = BlockSpec
-    { base  :: !Word
-    , limit :: !Word
-    } deriving (Show)
-
-data MapSpec = MapSpec
-    { block    :: BlockSpec
-    , destNode :: !String
-    , destBase :: !Word
-    } deriving (Show)
 
 data For a 
     = For

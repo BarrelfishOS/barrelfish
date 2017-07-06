@@ -31,15 +31,26 @@ import Data.Either
 import qualified SockeyeASTFrontend as ASTF
 import qualified SockeyeASTIntermediate as ASTI
 
+import Debug.Trace
+
 data FailedCheck
     = DuplicateModule String
     | DuplicateParameter String
     | DuplicateVariable String
+    | NoSuchModule String
+    | NoSuchParameter String
+    | NoSuchVariable String
+    | ParameterTypeMismatch String ASTI.ModuleParamType ASTI.ModuleParamType
 
 instance Show FailedCheck where
-    show (DuplicateModule name)    = "Duplicate module '" ++ name ++ "'"
-    show (DuplicateParameter name) = "Duplicate parameter '" ++ name ++ "'"
-    show (DuplicateVariable name)  = "Duplicate variable '" ++ name ++ "'"
+    show (DuplicateModule name)    = concat ["Multiple definitions for module '", name, "'."]
+    show (DuplicateParameter name) = concat ["Multiple definitions for parameter '", name, "'."]
+    show (DuplicateVariable name)  = concat ["Multiple definitions for variable '", name, "'."]
+    show (NoSuchModule name)       = concat ["No definition for module '", name, "'."]
+    show (NoSuchParameter name)    = concat ["Parameter '", name, "' not in scope."]
+    show (NoSuchVariable name)     = concat ["Variable '", name, "' not in scope."]
+    show (ParameterTypeMismatch name expected actual) =
+        concat ["Parameter '", name, "' of type '", show actual, "' used where type '", show expected, "' is required."]
 
 newtype CheckFailure = CheckFailure
     { failedChecks :: [FailedCheck] }
@@ -47,105 +58,281 @@ newtype CheckFailure = CheckFailure
 instance Show CheckFailure where
     show (CheckFailure fs) = unlines $ map (("    " ++) . show) fs
 
+data Context = Context
+    { spec       :: ASTI.SockeyeSpec
+    , moduleName :: !String
+    , vars       :: Set String
+    }
+
 checkSockeye :: ASTF.SockeyeSpec -> Either CheckFailure ASTI.SockeyeSpec
 checkSockeye ast = do
-    duplicateFree <- transform ast
-    return duplicateFree
+    symbolTable <- buildSymbolTable ast
+    let
+        context = Context
+            { spec       = symbolTable
+            , moduleName = ""
+            , vars       = Set.empty
+            }
+    check context ast
 -- build symbol table
--- check modules / top level namespace
---  - no duplicate identifiers
---  - no duplicate namespaces
---  - all instantiated modules must exist
---  - all nodes in maps / overlays must exist
---  - all input ports must be specified
+-- check modules:
+--  - parameter types must match usage site types
+--  - all variables must exist
 --  - 
+--  - all instantiated modules must exist
+--  - modules can not instantiate themselves
+--  - instantiation argument types must match parameter types
 
--- checkModules :: ASTF.SockeyeSpec -> ASTI.SockeyeSpec -> Either CheckFailure ASTI.SockeyeSpec
+--
+-- Build Symbol table
+--
+class SymbolSource a b where
+    buildSymbolTable :: a -> Either CheckFailure b
 
-class ASTTransformable a b where
-    transform :: a -> Either CheckFailure b
---
--- Frontend AST -> Intermediate AST
---
-instance ASTTransformable ASTF.SockeyeSpec ASTI.SockeyeSpec where
-    transform ast = do
+instance SymbolSource ASTF.SockeyeSpec ASTI.SockeyeSpec where
+    buildSymbolTable ast = do
         let
-            modules = rootModule:(ASTF.modules ast)
+            modules = (rootModule ast):(ASTF.modules ast)
             names = map ASTF.name modules
         checkDuplicates names DuplicateModule
-        transformed <- checkAll transform modules
+        symbolTables <- forAll buildSymbolTable modules
         let
-            moduleMap = Map.fromList $ zip names transformed
+            moduleMap = Map.fromList $ zip names symbolTables
         return ASTI.SockeyeSpec
                 { ASTI.modules = moduleMap }
-        where
-            rootModule =
-                let
-                    body = ASTF.ModuleBody
-                        { ASTF.ports = []
-                        , ASTF.moduleNet = ASTF.net ast
-                        }
-                in ASTF.Module
-                    { ASTF.name       = "@root"
-                    , ASTF.parameters = []
-                    , ASTF.moduleBody = body
-                    }   
 
-instance ASTTransformable ASTF.Module ASTI.Module where
-    transform ast = do
+instance SymbolSource ASTF.Module ASTI.Module where
+    buildSymbolTable ast = do
         let
             paramNames = map ASTF.paramName (ASTF.parameters ast)
             paramTypes = map ASTF.paramType (ASTF.parameters ast)
         checkDuplicates paramNames DuplicateParameter
         let
-            portDefs = ASTF.ports $ ASTF.moduleBody ast
-        inputPorts <- checkAll transform $ filter isInPort portDefs
-        outputPorts <- checkAll transform $ filter (not . isInPort) portDefs
-        let
             paramTypeMap = Map.fromList $ zip paramNames paramTypes
         return ASTI.Module
             { ASTI.paramNames  = paramNames
             , ASTI.paramTypes  = paramTypeMap
-            , ASTI.inputPorts  = inputPorts
-            , ASTI.outputPorts = outputPorts
+            , ASTI.inputPorts  = []
+            , ASTI.outputPorts = []
             , ASTI.nodeDecls   = []
             , ASTI.moduleInsts = []
             }
+--
+-- Check module bodies
+--
+class Checkable a b where
+    check :: Context -> a -> Either CheckFailure b
+
+instance Checkable ASTF.SockeyeSpec ASTI.SockeyeSpec where
+    check context ast = do
+        let
+            modules = (rootModule ast):(ASTF.modules ast)
+            names = map ASTF.name modules
+        checked <- forAll (check context) modules
+        let
+            sockeyeSpec = spec context
+            checkedMap = Map.fromList $ zip names checked
+        return sockeyeSpec
+            { ASTI.modules = checkedMap }
+
+instance Checkable ASTF.Module ASTI.Module where
+    check context ast = do
+        let
+            name = ASTF.name ast
+            bodyContext = context
+                { moduleName = name}
+            body = ASTF.moduleBody ast
+            portDefs = ASTF.ports body
+            netSpecs = ASTF.moduleNet body
+        inputPorts  <- forAll (check bodyContext) $ filter isInPort  portDefs
+        outputPorts <- forAll (check bodyContext) $ filter isOutPort portDefs
+        checkedNetSpecs <- forAll (checkNetSpec bodyContext) netSpecs
+        let
+            checkedNodeDecls = lefts checkedNetSpecs
+            checkedModuleInsts = rights checkedNetSpecs
+        mod <- getCurrentModule bodyContext
+        return mod
+            { ASTI.inputPorts  = inputPorts
+            , ASTI.outputPorts = outputPorts
+            , ASTI.nodeDecls   = checkedNodeDecls
+            , ASTI.moduleInsts = checkedModuleInsts
+            }
         where
             isInPort (ASTF.InputPortDef _) = True
-            isInPort (ASTF.OutputPortDef _) = False
             isInPort (ASTF.MultiPortDef for) = isInPort $ ASTF.body for
+            isInPort _ = False
+            isOutPort = not . isInPort
+            checkNetSpec context (ASTF.NodeDeclSpec decl) = do
+                checkedDecl <- check context decl
+                return $ Left checkedDecl
+            checkNetSpec context (ASTF.ModuleInstSpec inst) = do
+                checkedInst <- check context inst
+                return $ Right checkedInst
 
-instance ASTTransformable ASTF.PortDef ASTI.Port where
-    transform (ASTF.InputPortDef ident) = return $ ASTI.Port ident
-    transform (ASTF.OutputPortDef ident) = return $ ASTI.Port ident
-    transform (ASTF.MultiPortDef for) = do
-        transformed <- transform for
-        return $ ASTI.MultiPort transformed
+instance Checkable ASTF.PortDef ASTI.Port where
+    check context (ASTF.MultiPortDef for) = do
+        checkedFor <- check context for
+        return $ ASTI.MultiPort checkedFor
+    check context portDef = do
+        checkedId <- check context (ASTF.portId portDef)
+        return $ ASTI.Port checkedId
 
-instance ASTTransformable a b => ASTTransformable (ASTF.For a) (ASTI.For b) where
-    transform ast = do
+instance Checkable ASTF.ModuleInst ASTI.ModuleInst where
+    check context (ASTF.MultiModuleInst for) = do
+        checkedFor <- check context for
+        return $ ASTI.MultiModuleInst checkedFor
+    check context ast = do
         let
-            vars = map ASTF.var (ASTF.varRanges ast)
-        checkDuplicates vars DuplicateVariable
-        ranges <- checkAll transform (ASTF.varRanges ast)
-        body <- transform $ ASTF.body ast
+            nameSpace = ASTF.nameSpace ast
+            name = ASTF.moduleName ast
+            arguments = ASTF.arguments ast
+            portMaps = ASTF.portMappings ast
+        checkedNameSpace <- check context nameSpace
+        mod <- getModule context name
+        return ASTI.ModuleInst
+            { ASTI.nameSpace     = checkedNameSpace
+            , ASTI.moduleName    = name
+            , ASTI.arguments     = Map.empty
+            , ASTI.inputPortMap  = []
+            , ASTI.outputPortMap = []
+            }
+
+instance Checkable ASTF.NodeDecl ASTI.NodeDecl where
+    check context (ASTF.MultiNodeDecl for) = do
+        checkedFor <- check context for
+        return $ ASTI.MultiNodeDecl checkedFor
+    check context ast = do
         let
-            varRanges = Map.fromList $ zip vars ranges
+            nodeId = ASTF.nodeId ast
+            nodeSpec = ASTF.nodeSpec ast
+        checkedId <- check context nodeId
+        checkedSpec <- check context nodeSpec
+        return ASTI.NodeDecl
+            { ASTI.nodeId   = checkedId
+            , ASTI.nodeSpec = checkedSpec
+            }
+
+instance Checkable ASTF.Identifier ASTI.Identifier where
+    check _ (ASTF.SimpleIdent name) = return $ ASTI.SimpleIdent name
+    check context ast = do
+        let
+            prefix = ASTF.prefix ast
+            varName = ASTF.varName ast
+            suffix = ASTF.suffix ast
+        checkVarInScope context varName
+        checkedSuffix <- case suffix of
+            Nothing    -> return Nothing
+            Just ident -> do
+                checkedIdent <- check context ident
+                return $ Just checkedIdent
+        return ASTI.TemplateIdent
+            { ASTI.prefix  = prefix
+            , ASTI.varName = varName
+            , ASTI.suffix  = checkedSuffix
+            }
+
+instance Checkable ASTF.NodeSpec ASTI.NodeSpec where
+    check context ast = do
+        let 
+            nodeType = ASTF.nodeType ast
+            accept = ASTF.accept ast
+            translate = ASTF.translate ast
+            overlay = ASTF.overlay ast
+        checkedAccept <- return []--forAll (check context) accept
+        checkedTranslate <- return []--forAll (check context) translate
+        checkedOverlay <- case overlay of
+            Nothing    -> return Nothing
+            Just ident -> do
+                checkedIdent <- check context ident
+                return $ Just checkedIdent
+        return ASTI.NodeSpec
+            { ASTI.nodeType  = nodeType
+            , ASTI.accept    = checkedAccept
+            , ASTI.translate = checkedTranslate
+            , ASTI.overlay   = checkedOverlay
+            }
+
+instance Checkable a b => Checkable (ASTF.For a) (ASTI.For b) where
+    check context ast = do
+        let
+            varNames = map ASTF.var (ASTF.varRanges ast)
+        checkDuplicates varNames DuplicateVariable
+        ranges <- forAll (check context) (ASTF.varRanges ast)
+        let
+            currentVars = vars context
+            bodyVars = currentVars `Set.union` (Set.fromList varNames)
+            bodyContext = context
+                { vars = bodyVars }
+        body <- check bodyContext $ ASTF.body ast
+        let
+            varRanges = Map.fromList $ zip varNames ranges
         return ASTI.For
                 { ASTI.varRanges = varRanges
                 , ASTI.body      = body
                 }
 
-instance ASTTransformable ASTF.ForVarRange ASTI.ForRange where
-    transform ast = do
-        let
-            start = ASTF.start ast
-            end = ASTF.end ast
+instance Checkable ASTF.ForVarRange ASTI.ForRange where
+    check context ast = do
+        limits <- forAll (check context) [ASTF.start ast, ASTF.end ast]
         return ASTI.ForRange
-            { ASTI.start = start
-            , ASTI.end   = end
+            { ASTI.start = head limits
+            , ASTI.end   = last limits
             }
+
+instance Checkable ASTF.ForLimit ASTI.ForLimit where
+    check context ast = do
+        case ast of
+            ASTI.NumberLimit _   -> return ast
+            ASTI.ParamLimit name -> do
+                checkParamType context name ASTI.NumberParam
+                return ast
+--
+-- Helpers
+--
+rootModule :: ASTF.SockeyeSpec -> ASTF.Module
+rootModule spec =
+    let
+        body = ASTF.ModuleBody
+            { ASTF.ports = []
+            , ASTF.moduleNet = ASTF.net spec
+            }
+    in ASTF.Module
+        { ASTF.name       = "@root"
+        , ASTF.parameters = []
+        , ASTF.moduleBody = body
+        }
+
+getCurrentModule :: Context -> Either CheckFailure ASTI.Module
+getCurrentModule context = do
+    let
+        modMap = ASTI.modules $ spec context
+    return $ modMap Map.! (moduleName context)
+
+getModule :: Context -> String -> Either CheckFailure ASTI.Module
+getModule context name = do
+    let
+        modMap = ASTI.modules $ spec context
+    case Map.lookup name modMap of
+        Nothing -> Left $ CheckFailure [NoSuchModule name]
+        Just m  -> return m
+
+getParameterType :: Context -> String -> Either CheckFailure ASTI.ModuleParamType
+getParameterType context name = do
+    mod <- getCurrentModule context
+    let
+        paramMap = ASTI.paramTypes mod
+    case Map.lookup name paramMap of
+        Nothing -> Left $ CheckFailure [NoSuchParameter name]
+        Just t  -> return t
+
+forAll :: (a -> Either CheckFailure b) -> [a] -> Either CheckFailure [b]
+forAll f as = do
+    let
+        bs = map f as
+        es = concat $ map failedChecks (lefts bs)
+    case es of
+        [] -> return $ rights bs
+        _  -> Left $ CheckFailure es
 
 checkDuplicates :: [String] -> (String -> FailedCheck) -> Either CheckFailure ()
 checkDuplicates names failure = do
@@ -158,13 +345,20 @@ checkDuplicates names failure = do
         duplicateNames [] = []
         duplicateNames (x:xs)
             | x `elem` xs = nub $ [x] ++ duplicateNames xs
-            | otherwise = duplicateNames xs  
+            | otherwise = duplicateNames xs
 
-checkAll :: (a -> Either CheckFailure b) -> [a] -> Either CheckFailure [b]
-checkAll f as = do
-    let
-        bs = map f as
-        es = concat $ map failedChecks (lefts bs)
-    case es of
-        [] -> return $ rights bs
-        _  -> Left $ CheckFailure es
+checkVarInScope :: Context -> String -> Either CheckFailure ()
+checkVarInScope context name = do
+    if name `Set.member` (vars context)
+        then return ()
+        else Left $ CheckFailure [NoSuchVariable name]
+
+
+checkParamType :: Context -> String -> ASTI.ModuleParamType -> Either CheckFailure ()
+checkParamType context name expected = do
+    actual <- getParameterType context name
+    if actual == expected
+        then return ()
+        else Left $ mismatch actual
+    where
+        mismatch t = CheckFailure [ParameterTypeMismatch name expected t]

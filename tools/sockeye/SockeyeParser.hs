@@ -39,10 +39,10 @@ sockeyeFile = do
 
 sockeyeSpec = do
     modules <- many sockeyeModule
-    net <- many netSpec
+    net <- many netSpecs
     return AST.SockeyeSpec
         { AST.modules = modules
-        , AST.net     = net
+        , AST.net     = concat net
         }
 
 sockeyeModule = do
@@ -73,10 +73,10 @@ moduleParam = do
 
 moduleBody = do
     ports <- many $ portDef
-    net <- many netSpec
+    net <- many netSpecs
     return AST.ModuleBody
         { AST.ports     = concat ports
-        , AST.moduleNet = net
+        , AST.moduleNet = concat net
         }
 
 portDef = choice [inputPorts, outputPorts]
@@ -102,16 +102,16 @@ portDef = choice [inputPorts, outputPorts]
             Nothing -> portDef
             Just f  -> AST.MultiPortDef $ f portDef
 
-netSpec = choice [ inst <?> "module instantiation"
+netSpecs = choice [ inst <?> "module instantiation"
                  , decl <?> "node declaration"
                  ]
     where
         inst = do
             moduleInst <- moduleInst
-            return $ AST.ModuleInstSpec moduleInst
+            return $ [AST.ModuleInstSpec moduleInst]
         decl = do
             nodeDecls <- nodeDecls
-            return $ AST.NodeDeclSpec nodeDecls
+            return $ [AST.NodeDeclSpec decl | decl <- nodeDecls]
 
 moduleInst = do
     (name, args) <- try $ do
@@ -151,8 +151,8 @@ portMapping = choice [inputMapping, outputMapping]
             portId <- identifier
             return $ let
                 portMap = AST.InputPortMap
-                    { AST.mappedId = mappedId
-                    , AST.portId   = portId
+                    { AST.mappedId   = mappedId
+                    , AST.mappedPort = portId
                     }
                 in case forFn of
                     Nothing -> portMap
@@ -162,8 +162,8 @@ portMapping = choice [inputMapping, outputMapping]
             portId <- identifier
             return $ let
                 portMap = AST.OutputPortMap
-                    { AST.portId   = portId
-                    , AST.mappedId = mappedId
+                    { AST.mappedId   = mappedId
+                    , AST.mappedPort = portId
                     }
                 in case forFn of
                     Nothing -> portMap
@@ -212,7 +212,8 @@ nodeSpec = do
             brackets $ many blockSpec
         tranlsate = do
             reserved "map"
-            brackets $ many mapSpec
+            specs <- brackets $ many mapSpecs
+            return $ concat specs
         overlay = do
             reserved "over"
             identifier
@@ -248,21 +249,21 @@ address = choice [address, param]
             name <- parameterName
             return $ AST.ParamAddress name
 
-mapSpec = do
+mapSpecs = do
     block <- blockSpec
     reserved "to"
     dests <- commaSep1 $ mapDest
-    return $ AST.MapSpec block dests
-
-mapDest = choice [baseAddress, direct]
+    return $ map (toMapSpec block) dests
     where
-        direct = do
+        mapDest = do
             destNode <- identifier
-            return $ AST.DirectMap destNode
-        baseAddress = do
-            destNode <- try $ identifier <* reserved "at"
-            destBase <- address
-            return $ AST.BaseAddressMap destNode destBase
+            destBase <- optionMaybe $ reserved "at" *> address
+            return (destNode, destBase)
+        toMapSpec block (destNode, destBase) = AST.MapSpec
+            { AST.block    = block
+            , AST.destNode = destNode
+            , AST.destBase = destBase
+            }
 
 identifierFor = identifierHelper True
 
