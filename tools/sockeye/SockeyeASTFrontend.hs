@@ -21,9 +21,9 @@ data SockeyeSpec = SockeyeSpec
     } deriving (Show)
 
 data Module = Module
-    { name  :: String
-    , parameters  :: [ModuleParam]
-    , moduleBody  :: ModuleBody
+    { name       :: String
+    , parameters :: [ModuleParam]
+    , moduleBody :: ModuleBody
     } deriving (Show)
 
 data ModuleParam = ModuleParam
@@ -50,7 +50,6 @@ data PortDef
 data NetSpec
     = NodeDeclSpec [NodeDecl]
     | ModuleInstSpec ModuleInst
-    | MultiNetSpec (For [NetSpec])
     deriving (Show)
 
 data ModuleInst
@@ -146,7 +145,7 @@ data MapDest
 data For a 
     = For
         { varRanges :: [ForVarRange]
-        , body     :: a
+        , body      :: a
         } deriving (Show)
 
 data ForVarRange

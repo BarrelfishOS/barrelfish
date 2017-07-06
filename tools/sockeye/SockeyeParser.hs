@@ -104,7 +104,6 @@ portDef = choice [inputPorts, outputPorts]
 
 netSpec = choice [ inst <?> "module instantiation"
                  , decl <?> "node declaration"
-                 , multiSpecs
                  ]
     where
         inst = do
@@ -113,9 +112,6 @@ netSpec = choice [ inst <?> "module instantiation"
         decl = do
             nodeDecls <- nodeDecls
             return $ AST.NodeDeclSpec nodeDecls
-        multiSpecs = do
-            for <- for $ many1 netSpec
-            return $ AST.MultiNetSpec for
 
 moduleInst = do
     (name, args) <- try $ do
@@ -268,15 +264,6 @@ mapDest = choice [baseAddress, direct]
             destBase <- address
             return $ AST.BaseAddressMap destNode destBase
 
-for body = do
-    reserved "for"
-    varRanges <- commaSep1 $ forVarRange False
-    body <- braces body
-    return AST.For
-        { AST.varRanges = varRanges
-        , AST.body      = body
-        }
-
 identifierFor = identifierHelper True
 
 forVarRange optVarName
@@ -339,7 +326,7 @@ decimal       = P.decimal lexer <* whiteSpace
 
 keywords = ["module",
             "input", "output",
-            "for", "in",
+            "in",
             "as", "with",
             "is", "are",
             "accept", "map",

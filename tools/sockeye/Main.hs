@@ -14,19 +14,36 @@
 module Main where
 
 import Control.Monad
+
 import Data.List
+
 import System.Console.GetOpt
 import System.Exit
 import System.Environment
 import System.IO
 
-import SockeyeASTFrontend as AST1
-import SockeyeASTBackend as AST2
+import SockeyeASTFrontend as ASTF
+import SockeyeASTIntermediate as ASTI
+import SockeyeASTBackend as ASTB
 
 import SockeyeParser
 import SockeyeChecker
 import qualified SockeyeBackendPrintAST as PrintAST
 import qualified SockeyeBackendProlog as Prolog
+
+import Text.Groom(groom)
+
+{- Exit codes -}
+usageError :: ExitCode
+usageError = ExitFailure 1
+
+parseError :: ExitCode
+parseError = ExitFailure 2
+
+checkError :: ExitCode
+checkError = ExitFailure 3
+
+
 
 {- Compilation targets -}
 data Target = None | PrintAST | Prolog
@@ -93,43 +110,41 @@ compilerOpts argv =
     case getOpt Permute options argv of
         (actions, fs, []) -> do
             opts <- foldl (>>=) (return defaultOptions) actions
-            case fs of []  -> do
-                                usage ["No input file\n"]
-                                exitWith $ ExitFailure 1
-                       [f] -> return $ optSetInputFileName f opts
-                       _   -> do
-                                usage ["Multiple input files not supported\n"]
-                                exitWith $ ExitFailure 1
+            case fs of
+                []  -> do
+                    usage ["No input file\n"]
+                    exitWith usageError
+                [f] -> return $ optSetInputFileName f opts
+                _   -> do
+                    usage ["Multiple input files not supported\n"]
+                    exitWith usageError
 
         (_, _, errors) -> do
             usage errors
-            exitWith $ ExitFailure 1
+            exitWith $ usageError
 
 {- Runs the parser -}
-parseFile :: FilePath -> IO (AST1.SockeyeSpec)
+parseFile :: FilePath -> IO (ASTF.SockeyeSpec)
 parseFile file = do
     src <- readFile file
     case parseSockeye file src of
         Left err -> do
             hPutStrLn stderr $ "Parse error at " ++ show err
-            exitWith $ ExitFailure 2
+            exitWith parseError
         Right ast -> return ast
 
 {- Runs the checker -}
-checkAST :: AST2.NetSpec -> IO ()
-checkAST ast = do
-    case checkSockeye ast of 
-        [] -> return ()
-        errors -> do
-            hPutStr stderr $ unlines (foldl flattenErrors ["Failed checks:"] errors)
-            exitWith $ ExitFailure 3
-        where flattenErrors es (key, errors)
-                = let indented = map ((replicate 4 ' ') ++) errors
-                  in es ++ case key of Nothing     -> errors
-                                       Just nodeId -> ("In specification of node '" ++ show nodeId ++ "':"):indented
+checkAST :: ASTF.SockeyeSpec -> IO ASTI.SockeyeSpec
+checkAST parsedAst = do
+    case checkSockeye parsedAst of 
+        Left fail -> do
+            hPutStrLn stderr $ "Checks failed:"
+            hPutStr stderr $ show fail
+            exitWith checkError
+        Right intermAst -> return intermAst
 
 {- Compiles the AST with the appropriate backend -}
-compile :: Target -> AST2.NetSpec -> IO String
+compile :: Target -> ASTB.NetSpec -> IO String
 compile None     _   = return ""
 compile PrintAST ast = return $ PrintAST.compile ast
 compile Prolog   ast = return $ Prolog.compile ast
@@ -137,16 +152,17 @@ compile Prolog   ast = return $ Prolog.compile ast
 {- Outputs the compilation result -}
 output :: Maybe FilePath -> String -> IO ()
 output outFile out = do
-    case outFile of Nothing -> putStr out
-                    Just f  -> writeFile f out
+    case outFile of
+        Nothing -> putStr out
+        Just f  -> writeFile f out
 
 main = do
     args <- getArgs
     opts <- compilerOpts args
     let inFile = optInputFile opts
-    ast <- parseFile inFile
-    print ast
-    -- checkAST ast
+    parsedAst <- parseFile inFile
+    intermAst <- checkAST parsedAst
+    putStrLn $ groom intermAst
     -- out <- compile (optTarget opts) ast
     -- output (optOutputFile opts) out
     
