@@ -238,8 +238,8 @@ instance Checkable ASTF.NodeSpec ASTI.NodeSpec where
             accept = ASTF.accept ast
             translate = ASTF.translate ast
             overlay = ASTF.overlay ast
-        checkedAccept <- return []--forAll (check context) accept
-        checkedTranslate <- return []--forAll (check context) translate
+        checkedAccept <- forAll (check context) accept
+        checkedTranslate <- forAll (check context) translate
         checkedOverlay <- case overlay of
             Nothing    -> return Nothing
             Just ident -> do
@@ -251,6 +251,52 @@ instance Checkable ASTF.NodeSpec ASTI.NodeSpec where
             , ASTI.translate = checkedTranslate
             , ASTI.overlay   = checkedOverlay
             }
+
+instance Checkable ASTF.BlockSpec ASTI.BlockSpec where
+    check context (ASTF.SingletonBlock address) = do
+        checkedAddress <- check context address
+        return ASTI.SingletonBlock
+            { ASTI.address = checkedAddress }
+    check context (ASTF.RangeBlock base limit) = do
+        let
+            addresses = [base, limit]
+        checkedAddresses <- forAll (check context) addresses
+        return ASTI.RangeBlock
+            { ASTI.base  = head checkedAddresses
+            , ASTI.limit = last checkedAddresses
+            }
+    check context (ASTF.LengthBlock base bits) = do
+        checkedBase <- check context base
+        return ASTI.LengthBlock
+            { ASTI.base = checkedBase
+            , ASTI.bits = bits
+            }
+
+instance Checkable ASTF.MapSpec ASTI.MapSpec where
+    check context ast = do
+        let
+            block = ASTF.block ast
+            destNode = ASTF.destNode ast
+            destBase = ASTF.destBase ast
+        checkedBlock <- check context block
+        checkedDestNode <- check context destNode
+        checkedDestBase <- case destBase of
+            Nothing      -> return Nothing
+            Just address -> do
+                checkedAddress <- check context address
+                return $ Just checkedAddress
+        return ASTI.MapSpec
+            { ASTI.block    = checkedBlock
+            , ASTI.destNode = checkedDestNode
+            , ASTI.destBase = checkedDestBase
+            }
+
+instance Checkable ASTF.Address ASTI.Address where
+    check _ (ASTF.NumberAddress value) = do
+        return $ ASTI.NumberAddress value
+    check context (ASTF.ParamAddress name) = do
+        checkParamType context name ASTI.AddressParam
+        return $ ASTI.ParamAddress name
 
 instance Checkable a b => Checkable (ASTF.For a) (ASTI.For b) where
     check context ast = do
@@ -273,19 +319,20 @@ instance Checkable a b => Checkable (ASTF.For a) (ASTI.For b) where
 
 instance Checkable ASTF.ForVarRange ASTI.ForRange where
     check context ast = do
-        limits <- forAll (check context) [ASTF.start ast, ASTF.end ast]
+        let
+            limits = [ASTF.start ast, ASTF.end ast]
+        checkedLimits <- forAll (check context) limits
         return ASTI.ForRange
-            { ASTI.start = head limits
-            , ASTI.end   = last limits
+            { ASTI.start = head checkedLimits
+            , ASTI.end   = last checkedLimits
             }
 
 instance Checkable ASTF.ForLimit ASTI.ForLimit where
-    check context ast = do
-        case ast of
-            ASTI.NumberLimit _   -> return ast
-            ASTI.ParamLimit name -> do
-                checkParamType context name ASTI.NumberParam
-                return ast
+    check _ (ASTF.NumberLimit value) = do
+        return $ ASTI.NumberLimit value
+    check context (ASTF.ParamLimit name) = do
+        checkParamType context name ASTI.NumberParam
+        return $ ASTI.ParamLimit name
 --
 -- Helpers
 --
