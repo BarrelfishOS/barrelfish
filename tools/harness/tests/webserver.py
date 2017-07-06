@@ -64,7 +64,7 @@ class WebCommon(TestCommon):
         return modules
 
     def process_line(self, line):
-        m = re.match(r'Interface up! IP address (\d+\.\d+\.\d+\.\d+)', line)
+        m = re.match(r'# IP Addr (\d+\.\d+\.\d+\.\d+)', line)
         if m:
             self.ip = m.group(1)
         elif self.ip and 'Starting webserver' in line:

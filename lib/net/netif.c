@@ -94,11 +94,11 @@ static err_t net_if_linkoutput(struct netif *netif, struct pbuf *p)
 static void net_if_status_cb(struct netif *netif)
 {
     if (!ip_addr_cmp(&netif->ip_addr, IP_ADDR_ANY)) {
-        debug_printf("######################################\n");
-        debug_printf("# IP Addr %s\n", ip4addr_ntoa(netif_ip4_addr(netif)));
-        debug_printf("# GW Addr %s\n", ip4addr_ntoa(netif_ip4_gw(netif)));
-        debug_printf("# Netmask %s\n", ip4addr_ntoa(netif_ip4_netmask(netif)));
-        debug_printf("######################################\n");
+        printf("######################################\n");
+        printf("# IP Addr %s\n", ip4addr_ntoa(netif_ip4_addr(netif)));
+        printf("# GW Addr %s\n", ip4addr_ntoa(netif_ip4_gw(netif)));
+        printf("# Netmask %s\n", ip4addr_ntoa(netif_ip4_netmask(netif)));
+        printf("######################################\n");
 
         netif_set_default(netif);
         printf("setting default interface\n");
