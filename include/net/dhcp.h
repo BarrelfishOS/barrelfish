@@ -19,6 +19,12 @@
 #include <net/net.h>
 #include <lwip/ip_addr.h>
 
+#define NET_CONFIG_IP_RECORD_FIELDS "{ ip: %d, gw: %d, netmask: %d }"
+#define NET_CONFIG_CURRENT_IP_RECORD_FORMAT "net.ipconfig " NET_CONFIG_IP_RECORD_FIELDS
+#define NET_CONFIG_CURRENT_IP_RECORD_REGEX "net.ipconfig  {ip: _,  gw: _, netmask: _}"
+#define NET_CONFIG_STATIC_IP_RECORD_FORMAT "net.static_ip " NET_CONFIG_IP_RECORD_FIELDS
+#define NET_CONFIG_STATIC_IP_RECORD_REGEX "net.static_ip  {ip: _,  gw: _, netmask: _}"
+
 /**
  * @brief starts the dhcpd service on the interface
  *
@@ -38,13 +44,23 @@ errval_t dhcpd_stop(void);
 /* functions for querying the current settings */
 
 /**
- * @brief queries the DHCPD settings of the machine
+ * @brief queries the current ip setting of the machine
  *
  * @param flags flags to provide
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t dhcpd_query(net_flags_t flags);
+errval_t net_config_current_ip_query(net_flags_t flags);
+
+
+/**
+ * @brief queries the static ip setting of the machine
+ *
+ * @param flags flags to provide
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t net_config_static_ip_query(net_flags_t flags);
 
 
 /**
@@ -56,7 +72,7 @@ errval_t dhcpd_query(net_flags_t flags);
  *
  * @return
  */
-errval_t dhcpd_get_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm);
+errval_t netif_get_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm);
 
 /**
  * @brief sets the IP configuration
@@ -67,6 +83,6 @@ errval_t dhcpd_get_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_ad
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t dhcpd_set_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm);
+errval_t netif_set_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm);
 
 #endif /* LIB_NET_INCLUDE_NETWORKING_DHCP_H_ */

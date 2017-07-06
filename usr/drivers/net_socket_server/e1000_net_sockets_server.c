@@ -16,9 +16,16 @@
 #include <barrelfish/deferred.h>
 #include <barrelfish/nameservice_client.h>
 
+#include <arpa/inet.h>
+
 #include <net/net.h>
+#include <net/dhcp.h>
 
 #include <barrelfish/waitset_chan.h>
+
+#include <octopus/octopus.h>
+#include <octopus_server/service.h>
+#include <octopus/trigger.h>
 
 #include <devif/queue_interface.h>
 #include <devif/backends/descq.h>
@@ -204,14 +211,14 @@ static err_t net_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
         nb->accepted_descriptor = 0;
         nb->host_address.s_addr = 0;
         nb->port = 0;
-        debug_printf("%s(%d): close\n", __func__, socket->descriptor);
+        // debug_printf("%s(%d): close\n", __func__, socket->descriptor);
         // debug_printf("%s(%d): %p -> %p %p %d\n", __func__, connection->descriptor, buffer, nb->user_callback, nb->user_state, nb->size);
     }
     nc->buffers[nc->next_free] = NULL;
     nc->next_free = (nc->next_free + 1) % NO_OF_BUFFERS;
     assert(sizeof(struct net_buffer) + length <= BUFFER_SIZE);
     
-    debug_printf("%s.%d: enqueue 1 %lx:%ld %d\n", __func__, __LINE__, buffer - nc->buffer_start, sizeof(struct net_buffer) + length, nb->descriptor);
+    // debug_printf("%s.%d: enqueue 1 %lx:%ld %d\n", __func__, __LINE__, buffer - nc->buffer_start, sizeof(struct net_buffer) + length, nb->descriptor);
     err = devq_enqueue((struct devq *)nc->queue, nc->region_id, buffer - nc->buffer_start, sizeof(struct net_buffer) + length,
                        0, 0, 1);
     assert(err_is_ok(err));
@@ -229,7 +236,7 @@ static void net_tcp_error(void *arg, err_t err)
     struct socket_connection *socket = arg;
     // struct network_connection *nc = socket->connection;
     
-    debug_printf("%s(%d): error %d\n", __func__, socket->descriptor, err);
+    // debug_printf("%s(%d): error %d\n", __func__, socket->descriptor, err);
     socket->tcp_socket = NULL; // invalidate
 
     // uint32_t length = 0;
@@ -307,7 +314,7 @@ static err_t net_tcp_accepted(void *arg, struct tcp_pcb *newpcb, err_t error)
     tcp_err(accepted_socket->tcp_socket, net_tcp_error);
     tcp_sent(accepted_socket->tcp_socket, net_tcp_sent);
 
-    debug_printf("%s(%d): -> %d\n", __func__, socket->descriptor, accepted_socket->descriptor);
+    // debug_printf("%s(%d): -> %d\n", __func__, socket->descriptor, accepted_socket->descriptor);
     // errval_t err = nc->binding->tx_vtbl.accepted(nc->binding, BLOCKING_CONT, socket->descriptor, accepted_socket->descriptor, 0, 0, SYS_ERR_OK);
     // assert(err_is_ok(err));
 
@@ -319,9 +326,9 @@ static err_t net_tcp_accepted(void *arg, struct tcp_pcb *newpcb, err_t error)
     nb->size = 0;
     nb->descriptor = socket->descriptor;
     nb->accepted_descriptor = accepted_socket->descriptor;
-    nb->host_address.s_addr = 0;
-    nb->port = 0;
-    debug_printf("%s(%d): accepted %p\n", __func__, socket->descriptor, newpcb);
+    nb->host_address.s_addr = newpcb->remote_ip.addr;
+    nb->port = newpcb->remote_port;
+    // debug_printf("%s(%d): accepted %p\n", __func__, socket->descriptor, newpcb);
 
     nc->buffers[nc->next_free] = NULL;
     nc->next_free = (nc->next_free + 1) % NO_OF_BUFFERS;
@@ -392,7 +399,7 @@ static errval_t net_tcp_socket(struct net_sockets_binding *binding, uint32_t *de
     return SYS_ERR_OK;
 }
 
-static errval_t net_bind(struct net_sockets_binding *binding, uint32_t descriptor, uint32_t ip_address, uint16_t port, errval_t *error)
+static errval_t net_bind(struct net_sockets_binding *binding, uint32_t descriptor, uint32_t ip_address, uint16_t port, errval_t *error, uint16_t *bound_port)
 {
     struct network_connection *nc;
     struct socket_connection *socket;
@@ -412,6 +419,7 @@ static errval_t net_bind(struct net_sockets_binding *binding, uint32_t descripto
         ip.addr = ip_address;
         *error = udp_bind(socket->udp_socket, &ip, port);
         assert(err_is_ok(*error));
+        *bound_port = socket->udp_socket->local_port;
         *error = SYS_ERR_OK;
 
         debug_printf("UDP ECHO bind done.\n");
@@ -419,9 +427,10 @@ static errval_t net_bind(struct net_sockets_binding *binding, uint32_t descripto
         ip_addr_t ip;
 
         ip.addr = ip_address;
-        debug_printf("%s(%d): %x %d\n", __func__, socket->descriptor, ip.addr, port);
+        // debug_printf("%s(%d): %x %d\n", __func__, socket->descriptor, ip.addr, port);
         *error = tcp_bind(socket->tcp_socket, &ip, port);
         assert(err_is_ok(*error));
+        *bound_port = socket->tcp_socket->local_port;
         *error = SYS_ERR_OK;
 
         debug_printf("TCP ECHO bind done.\n");
@@ -444,7 +453,7 @@ static errval_t net_listen(struct net_sockets_binding *binding, uint32_t descrip
     assert(socket);
     assert(socket->tcp_socket);
     socket->tcp_socket = tcp_listen(socket->tcp_socket);
-    debug_printf("%s(%d): listen %p\n", __func__, descriptor, socket->tcp_socket);
+    // debug_printf("%s(%d): listen %p\n", __func__, descriptor, socket->tcp_socket);
     tcp_accept(socket->tcp_socket, net_tcp_accepted);
     tcp_err(socket->tcp_socket, net_tcp_error);
     // socket->tcp_socket = tcp_listen_with_backlog(socket->tcp_socket, backlog);
@@ -459,7 +468,7 @@ static err_t net_tcp_connected(void *arg, struct tcp_pcb *tpcb, err_t error)
     struct socket_connection *socket = arg;
     struct network_connection *nc = socket->connection;
 
-    errval_t err = nc->binding->tx_vtbl.connected(nc->binding, BLOCKING_CONT, socket->descriptor, SYS_ERR_OK);
+    errval_t err = nc->binding->tx_vtbl.connected(nc->binding, BLOCKING_CONT, socket->descriptor, SYS_ERR_OK, tpcb->remote_ip.addr, tpcb->remote_port);
     assert(err_is_ok(err));
 
     return SYS_ERR_OK;
@@ -522,13 +531,13 @@ static errval_t net_delete_socket(struct net_sockets_binding *binding, uint32_t 
         tcp_recv(socket->tcp_socket, NULL); // you can receive packets after you close the socket
         // tcp_accept(socket->tcp_socket, NULL);
         err_t e;
-        debug_printf("%s(%d): tcp_close %p\n", __func__, descriptor, socket->tcp_socket);
+        // debug_printf("%s(%d): tcp_close %p\n", __func__, descriptor, socket->tcp_socket);
         e = tcp_close(socket->tcp_socket);
         assert(e == ERR_OK);
     }
 
-    debug_printf("%s(%d):\n", __func__, descriptor);
-    debug_printf("%s: %ld:%p  %ld:%p\n", __func__, nc->next_free, nc->buffers[nc->next_free], nc->next_used, nc->buffers[nc->next_used]);
+    // debug_printf("%s(%d):\n", __func__, descriptor);
+    // debug_printf("%s: %ld:%p  %ld:%p\n", __func__, nc->next_free, nc->buffers[nc->next_free], nc->next_used, nc->buffers[nc->next_used]);
     if (last)
         last->next = socket->next;
     else
@@ -756,12 +765,16 @@ int main(int argc, char *argv[])
     char servicename[64];
     snprintf(servicename, sizeof(servicename), "e1000:%s", argv[2]);
 
+    // err = oct_init();
+    // assert(err_is_ok(err));
+    // err = oct_set(NET_CONFIG_STATIC_IP_RECORD_FORMAT, inet_addr("192.168.0.36"), inet_addr("0.0.0.0"), inet_addr("255.255.255.0"));
+    // assert(err_is_ok(err));
+
     /* connect to the network */
-    err = networking_init(servicename, NET_FLAGS_DO_DHCP);
+    err = networking_init(servicename, NET_FLAGS_DO_DHCP | NET_FLAGS_NO_NET_FILTER | NET_FLAGS_BLOCKING_INIT);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to initialize the network");
     }
-
 
     struct descq *exp_queue;
     struct descq_func_pointer f;

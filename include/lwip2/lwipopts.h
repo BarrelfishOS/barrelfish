@@ -444,7 +444,7 @@ struct netif *arp_filter_netif(struct pbuf *p, struct netif *netif, uint16_t typ
 */
 
 #define LWIP_NOASSERT 1
-#define LWIP_DEBUG 1
+//#define LWIP_DEBUG 0
 #define TAPIF_DEBUG      LWIP_DBG_OFF
 #define TUNIF_DEBUG      LWIP_DBG_OFF
 #define UNIXIF_DEBUG     LWIP_DBG_OFF
@@ -462,7 +462,7 @@ struct netif *arp_filter_netif(struct pbuf *p, struct netif *netif, uint16_t typ
 #define IP_REASS_DEBUG   LWIP_DBG_OFF
 #define RAW_DEBUG        LWIP_DBG_OFF
 #define ICMP_DEBUG       LWIP_DBG_OFF
-#define UDP_DEBUG        (LWIP_DBG_ON | LWIP_DBG_TYPES_ON | LWIP_DBG_MIN_LEVEL)
+#define UDP_DEBUG        LWIP_DBG_OFF
 #define TCP_DEBUG        LWIP_DBG_OFF
 #define TCP_INPUT_DEBUG  LWIP_DBG_OFF
 #define TCP_OUTPUT_DEBUG LWIP_DBG_OFF

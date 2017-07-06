@@ -43,6 +43,9 @@ struct eth_addr;
 ///< initalize with default queue
 #define NET_FLAGS_DEFAULT_QUEUE          (1 << 3)
 
+///< do not initalize the net filter
+#define NET_FLAGS_NO_NET_FILTER          (1 << 4)
+
 ///< networking flags
 typedef uint32_t net_flags_t;
 

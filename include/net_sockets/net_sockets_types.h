@@ -9,7 +9,7 @@ struct net_socket;
 typedef void (*net_received_callback_t)(void *user_state, struct net_socket *socket, void *data, size_t size, struct in_addr ip_address, uint16_t port);
 typedef void (*net_sent_callback_t)(void *user_state, struct net_socket *socket, void *data, size_t size);
 typedef void (*net_connected_callback_t)(void *user_state, struct net_socket *socket);
-typedef void (*net_accepted_callback_t)(void *user_state, struct net_socket *accepted_socket, struct in_addr ip_address, uint16_t port);
+typedef void (*net_accepted_callback_t)(void *user_state, struct net_socket *accepted_socket);
 
 struct net_buffer {
     uint32_t size;

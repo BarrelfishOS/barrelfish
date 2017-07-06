@@ -456,13 +456,13 @@ static void http_server_recv(void *arg, struct net_socket *tpcb, void *data, siz
     struct http_conn *conn = arg;
 
     DEBUGPRINT("%d, http_server_recv called\n", conn->request_no);
-    debug_printf("%s(%d): %ld\n", __func__, tpcb->descriptor, size);
+    // debug_printf("%s(%d): %ld\n", __func__, tpcb->descriptor, size);
 
     // check if connection closed
     assert(conn);
     if (size == 0) {
         DEBUGPRINT("%d, closing from http_server_recv\n", conn->request_no);
-debug_printf("%s.%d:\n", __func__, __LINE__);
+// debug_printf("%s.%d:\n", __func__, __LINE__);
         http_server_close(tpcb, conn);
         return;
     }
@@ -548,18 +548,18 @@ invalid:
     DEBUGPRINT("invalid request: %s\n", conn->request);
     DEBUGPRINT("%d: invalid request: %s\n",conn->request_no, conn->request);
     conn->state = HTTP_STATE_CLOSING;
-debug_printf("%s.%d:\n", __func__, __LINE__);
+// debug_printf("%s.%d:\n", __func__, __LINE__);
     http_server_close(tpcb, conn);
     return;
 }
 
-static void http_server_accept(void *arg, struct net_socket *tpcb, struct in_addr ip_address, uint16_t port)
+static void http_server_accept(void *arg, struct net_socket *tpcb)
 {
 // #if TCP_LISTEN_BACKLOG
 //     /* Decrease the listen backlog counter */
 //     struct tcp_pcb_listen *lpcb = (struct tcp_pcb_listen*)arg;
 // #endif
-    debug_printf("%s(%d):\n", __func__, tpcb->descriptor);
+    // debug_printf("%s(%d):\n", __func__, tpcb->descriptor);
     struct http_conn *conn = http_conn_new();
     DEBUGPRINT("accpet called: %s\n", conn->request);
     increment_http_conn_reference (conn);

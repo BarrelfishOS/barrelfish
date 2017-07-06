@@ -17,11 +17,11 @@
 // lwip includes
 #include <lwip/ip.h>
 #include <lwip/dhcp.h>
+#include <lwip/prot/dhcp.h>
 #include <lwip/timeouts.h>
 
 #include <octopus/octopus.h>
 #include <octopus_server/service.h>
-#include <octopus/trigger.h>
 
 #include <net_interfaces/flags.h>
 #include "networking_internal.h"
@@ -32,41 +32,15 @@
 ///< the DHCP timeout in milli seconds
 #define DHCP_TIMEOUT_MSECS (120UL * 1000)
 
-#define DHCP_RECORD_FIELDS "{ ip: %d, gw: %d, netmask: %d }"
-
-
-#define DHCP_RECORD_FORMAT "net.ipconfig " DHCP_RECORD_FIELDS
-
-#define DHCP_RECORD_REGEX "net.ipconfig  {ip: _,  gw: _, netmask: _}"
-
 
 static void dhcpd_timer_callback(void *data)
 {
-    errval_t err;
-
     struct net_state *st = data;
 
     dhcp_fine_tmr();
-
     if ((st->dhcp_ticks % (DHCP_COARSE_TIMER_MSECS / DHCP_FINE_TIMER_MSECS)) == 0) {
         dhcp_coarse_tmr();
     }
-
-    if (!ip_addr_cmp(&st->netif.ip_addr, IP_ADDR_ANY) && st->dhcp_done == 0) {
-
-        NETDEBUG("setting system DHCP record to IP: %s\n",
-                ip4addr_ntoa(netif_ip4_addr(&st->netif)));
-
-        /* register IP with octopus */
-        err = oct_set(DHCP_RECORD_FORMAT, netif_ip4_addr(&st->netif)->addr,
-                      netif_ip4_gw(&st->netif)->addr,
-                      netif_ip4_netmask(&st->netif)->addr);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to set the DHCP record\n");
-        }
-        st->dhcp_done = 1;
-    }
-
     st->dhcp_ticks++;
 }
 
@@ -129,7 +103,7 @@ errval_t dhcpd_start(net_flags_t flags)
 
     if (flags & NET_FLAGS_BLOCKING_INIT) {
         printf("waiting for DHCP to complete \n");
-        while(!dhcpd_has_ip()) {
+        while (!dhcpd_has_ip()) {
             networking_poll();
             if (st->dhcp_ticks > DHCP_TIMEOUT_MSECS / DHCP_FINE_TIMER_MSECS) {
                 dhcpd_stop();
@@ -161,62 +135,68 @@ errval_t dhcpd_stop(void)
 }
 
 
-/* functions for querying the current settings */
-
-
-static void dhcpd_change_event(octopus_mode_t mode, const char* record, void* arg)
-{
-    errval_t err;
-
-    struct net_state *st = arg;
-
-    debug_printf("DHCP change event: %s\n", record);
-
-    if (mode & OCT_ON_SET) {
-
-        uint64_t ip, nm, gw;
-        err = oct_read(record, "_" DHCP_RECORD_FIELDS, &ip, &gw, &nm);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "cannot read DHCPD record '%s\n", record);
-            return;
-        }
-
-        struct in_addr ipaddr, netmask, gateway;
-        ipaddr.s_addr = (uint32_t)ip;
-        netmask.s_addr = (uint32_t)nm;
-        gateway.s_addr = (uint32_t)gw;
-
-        debug_printf("DHCP got ip set: %s\n", inet_ntoa(ipaddr));
-        debug_printf("DHCP got gw set: %s\n", inet_ntoa(gateway));
-        debug_printf("DHCP got nm set: %s\n", inet_ntoa(netmask));
-
-        ip_addr_t _ipaddr, _netmask, _gateway;
-        _ipaddr.addr = ipaddr.s_addr;
-        _netmask.addr = netmask.s_addr;
-        _gateway.addr = gateway.s_addr;
-        netif_set_addr(&st->netif, &_ipaddr, &_netmask, &_gateway);
-        netif_set_up(&st->netif);
-
-        st->dhcp_done = true;
-    }
-
-    if (mode & OCT_ON_DEL) {
-
-        /* DHCP has been removed */
-        netif_set_down(&st->netif);
-    }
-}
-
 /**
- * @brief queries the DHCPD settings of the machine
+ * @brief queries the current ip setting of the machine
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t dhcpd_query(net_flags_t flags)
+errval_t net_config_current_ip_query(net_flags_t flags)
 {
     errval_t err;
 
-    NETDEBUG("query DHCPD for IP...\n");
+    NETDEBUG("query current IP...\n");
+
+    // initialize octopus if not already done
+    err = oct_init();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    char* record = NULL;
+    err = oct_get(&record, "net.current_ip");
+    if (err_no(err) == OCT_ERR_NO_RECORD && (flags & NET_FLAGS_BLOCKING_INIT)) {
+        printf("waiting for DHCP to complete");
+        err = oct_wait_for(&record, NET_CONFIG_CURRENT_IP_RECORD_REGEX);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    } else if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cannot get static ip record\n");
+        return err;
+    }
+
+    uint64_t ip, nm, gw;
+    err = oct_read(record, "_" NET_CONFIG_IP_RECORD_FIELDS, &ip, &gw, &nm);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cannot read current ip record '%s\n", record);
+        free(record);
+        return err;
+    }
+    free(record);
+
+    struct in_addr ipaddr, netmask, gateway;
+    ipaddr.s_addr = (uint32_t)ip;
+    netmask.s_addr = (uint32_t)nm;
+    gateway.s_addr = (uint32_t)gw;
+
+    debug_printf("Got current IP set: %s\n", inet_ntoa(ipaddr));
+    debug_printf("Got current GW set: %s\n", inet_ntoa(gateway));
+    debug_printf("Got current NM set: %s\n", inet_ntoa(netmask));
+
+    return SYS_ERR_OK;
+}
+
+
+/**
+ * @brief queries the static ip setting of the machine and sets it
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t net_config_static_ip_query(net_flags_t flags)
+{
+    errval_t err;
+
+    NETDEBUG("query static IP...\n");
 
     // initialize octopus if not already done
     err = oct_init();
@@ -227,20 +207,35 @@ errval_t dhcpd_query(net_flags_t flags)
     struct net_state *st = get_default_net_state();
     assert(st);
 
-    st->dhcp_ticks = 1;
-    st->dhcp_running = 1;
-
-    err = oct_trigger_existing_and_watch(DHCP_RECORD_REGEX, dhcpd_change_event,
-                                         st, &st->dhcp_triggerid);
+    char* record = NULL;
+    err = oct_get(&record, "net.static_ip");
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cannot get static ip record\n");
         return err;
     }
 
-    if (flags & NET_FLAGS_BLOCKING_INIT) {
-        printf("waiting for DHCP to complete");
-        while(!dhcpd_has_ip()) {
-            event_dispatch(get_default_waitset());
-        }
+    uint64_t ip, nm, gw;
+    err = oct_read(record, "_" NET_CONFIG_IP_RECORD_FIELDS, &ip, &gw, &nm);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cannot read static ip record '%s\n", record);
+        free(record);
+        return err;
+    }
+    free(record);
+
+    struct in_addr ipaddr, netmask, gateway;
+    ipaddr.s_addr = (uint32_t)ip;
+    netmask.s_addr = (uint32_t)nm;
+    gateway.s_addr = (uint32_t)gw;
+
+    debug_printf("Got static IP set: %s\n", inet_ntoa(ipaddr));
+    debug_printf("Got static GW set: %s\n", inet_ntoa(gateway));
+    debug_printf("Got static NM set: %s\n", inet_ntoa(netmask));
+
+    err = netif_set_ipconfig(&ipaddr, &gateway, &netmask);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cannot set static ip\n");
+        return err;
     }
 
     return SYS_ERR_OK;
@@ -256,7 +251,7 @@ errval_t dhcpd_query(net_flags_t flags)
  *
  * @return
  */
-errval_t dhcpd_get_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm)
+errval_t netif_get_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm)
 {
     struct net_state *st = get_default_net_state();
     if (ip) {
@@ -275,7 +270,7 @@ errval_t dhcpd_get_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_ad
 }
 
 /**
- * @brief sets the IP configuration
+ * @brief sets the IP configuration, overrides DHCP
  *
  * @param ip    the IP address
  * @param gw    the Gateway
@@ -283,17 +278,13 @@ errval_t dhcpd_get_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_ad
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t dhcpd_set_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm)
+errval_t netif_set_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_addr *nm)
 {
     errval_t err;
     struct net_state *st = get_default_net_state();
 
-    if (st->dhcp_running == 1) {
-        if (st->dhcp_triggerid) {
-            err = oct_remove_trigger(st->dhcp_triggerid);
-        } else {
-            err = dhcpd_stop();
-        }
+    if (st->dhcp_running == 1) { // stop dhcp, if it's running
+        err = dhcpd_stop();
         if (err_is_fail(err)) {
             return err;
         }
@@ -305,8 +296,6 @@ errval_t dhcpd_set_ipconfig(struct in_addr *ip, struct in_addr *gw, struct in_ad
     _gateway.addr = gw->s_addr;
     netif_set_addr(&st->netif, &_ipaddr, &_netmask, &_gateway);
     netif_set_up(&st->netif);
-
-    st->dhcp_done = true;
 
     return SYS_ERR_OK;
 }

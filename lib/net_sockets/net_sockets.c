@@ -5,6 +5,7 @@
 #include <barrelfish/nameservice_client.h>
 #include <if/net_sockets_defs.h>
 #include <net_sockets/net_sockets.h>
+#include <arpa/inet.h>
 
 #include <barrelfish/waitset_chan.h>
 #include <barrelfish/waitset.h>
@@ -62,14 +63,9 @@ static void enqueue(struct net_socket **queue,
     }
 }
 
-struct net_socket * net_udp_socket(void)
+static struct net_socket * allocate_socket(uint32_t descriptor)
 {
-    errval_t err;
     struct net_socket *socket;
-    uint32_t descriptor;
-
-    err = binding->rpc_tx_vtbl.new_udp_socket(binding, &descriptor);
-    assert(err_is_ok(err));
 
     socket = malloc(sizeof(struct net_socket));
     assert(socket);
@@ -79,7 +75,24 @@ struct net_socket * net_udp_socket(void)
     socket->connected = NULL;
     socket->accepted = NULL;
     socket->user_state = NULL;
+    socket->bound_address.s_addr = 0;
+    socket->bound_port = 0;
+    socket->connected_address.s_addr = 0;
+    socket->connected_port = 0;
     enqueue(&sockets, socket);
+    return socket;
+}
+
+struct net_socket * net_udp_socket(void)
+{
+    errval_t err;
+    struct net_socket *socket;
+    uint32_t descriptor;
+
+    err = binding->rpc_tx_vtbl.new_udp_socket(binding, &descriptor);
+    assert(err_is_ok(err));
+
+    socket = allocate_socket(descriptor);
     return socket;
 }
 
@@ -92,16 +105,7 @@ struct net_socket * net_tcp_socket(void)
     err = binding->rpc_tx_vtbl.new_tcp_socket(binding, &descriptor);
     assert(err_is_ok(err));
 
-    socket = malloc(sizeof(struct net_socket));
-    assert(socket);
-
-    socket->descriptor = descriptor;
-    socket->received = NULL;
-    socket->sent = NULL;
-    socket->connected = NULL;
-    socket->accepted = NULL;
-    socket->user_state = NULL;
-    enqueue(&sockets, socket);
+    socket = allocate_socket(descriptor);
     return socket;
 }
 
@@ -116,7 +120,7 @@ static struct net_socket * get_socket(uint32_t descriptor)
         if (socket == sockets)
             break;
     }
-    debug_printf("%s: %d %p\n", __func__, descriptor, __builtin_return_address(0));
+    debug_printf("%s: socket not found %d %p\n", __func__, descriptor, __builtin_return_address(0));
     assert(0);
     return NULL;
 }
@@ -130,21 +134,24 @@ void net_close(struct net_socket *socket)
 {
     errval_t err, error;
 
-    debug_printf("%s(%d):\n", __func__, socket->descriptor);
+    // debug_printf("%s(%d):\n", __func__, socket->descriptor);
     err = binding->rpc_tx_vtbl.delete_socket(binding, socket->descriptor, &error);
     assert(err_is_ok(err));
     assert(err_is_ok(error));
     dequeue(&sockets, socket);
     free(socket);
-    debug_printf("%s: %ld:%p  %ld:%p\n", __func__, next_free, buffers[next_free], next_used, buffers[next_used]);
+    // debug_printf("%s: %ld:%p  %ld:%p\n", __func__, next_free, buffers[next_free], next_used, buffers[next_used]);
 }
 
 errval_t net_bind(struct net_socket *socket, struct in_addr ip_address, uint16_t port)
 {
     errval_t err, error;
+    uint16_t bound_port;
 
-    err = binding->rpc_tx_vtbl.bind(binding, socket->descriptor, ip_address.s_addr, port, &error);
+    err = binding->rpc_tx_vtbl.bind(binding, socket->descriptor, ip_address.s_addr, port, &error, &bound_port);
     assert(err_is_ok(err));
+    socket->bound_address = ip_address;
+    socket->bound_port = bound_port;
 
     return error;
 }
@@ -235,12 +242,14 @@ errval_t net_connect(struct net_socket *socket, struct in_addr ip_address, uint1
     return error;
 }
 
-static void net_connected(struct net_sockets_binding *b, uint32_t descriptor, errval_t error)
+static void net_connected(struct net_sockets_binding *b, uint32_t descriptor, errval_t error, uint32_t connected_address, uint16_t connected_port)
 {
     struct net_socket *socket = get_socket(descriptor);
     assert(socket->descriptor == descriptor);
     assert(err_is_ok(error));
 
+    socket->connected_address.s_addr = connected_address;
+    socket->connected_port = connected_port;
     assert(socket->connected);
     socket->connected(socket->user_state, socket);
 }
@@ -255,19 +264,10 @@ static void net_accepted(uint32_t descriptor, uint32_t accepted_descriptor, stru
     struct net_socket *socket = get_socket(descriptor);
     assert(socket->descriptor == descriptor);
 
-    struct net_socket *accepted_socket = malloc(sizeof(struct net_socket));
-    assert(accepted_socket);
-
-    accepted_socket->descriptor = accepted_descriptor;
-    accepted_socket->received = NULL;
-    accepted_socket->sent = NULL;
-    accepted_socket->connected = NULL;
-    accepted_socket->accepted = NULL;
-    accepted_socket->user_state = NULL;
-    enqueue(&sockets, accepted_socket);
-
-    assert(socket->accepted);
-    socket->accepted(socket->user_state, accepted_socket, host_address, port);
+    struct net_socket *accepted_socket = allocate_socket(accepted_descriptor);
+    accepted_socket->connected_address = host_address;
+    accepted_socket->connected_port = port;
+    socket->accepted(socket->user_state, accepted_socket);
 }
 
 
@@ -385,7 +385,7 @@ errval_t net_sockets_init(void)
     struct descq_func_pointer f;
     f.notify = q_notify;
 
-    debug_printf("Descriptor queue test started \n");
+    debug_printf("net socket client started \n");
     err = descq_create(&descq_queue, DESCQ_DEFAULT_SIZE, "net_sockets_queue",
                        false, true, true, &queue_id, &f);
     assert(err_is_ok(err));

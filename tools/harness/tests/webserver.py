@@ -59,8 +59,7 @@ class WebCommon(TestCommon):
         modules.add_module("e1000_net_sockets_server", ["auto"])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         modules.add_module("webserver", ["core=%d" % machine.get_coreids()[0], #2
-				cardName, nfsip,
-                                         siteconfig.get('WEBSERVER_NFS_PATH')])
+				nfsip, siteconfig.get('WEBSERVER_NFS_PATH')])
 #                                         siteconfig.get('WEBSERVER_NFS_TEST_PATH')])
         return modules
 

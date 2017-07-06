@@ -22,7 +22,6 @@
 // Specific for barrelfish
 #include <barrelfish/barrelfish.h>
 #include <vfs/vfs.h>
-#include <lwip/init.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/waitset.h>
 #include <netbench/netbench.h>
@@ -53,7 +52,6 @@ static int cat(char *path)
     assert(buf);
 
     uint64_t start = rdtsc();
-    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
 
     for (; filesize != info.size;) {
     	err = vfs_read(vh, buf, 10485760, &size);
@@ -70,7 +68,6 @@ static int cat(char *path)
     // record stop time
     uint64_t stop = rdtsc();
     printf("Everything done\n");
-    lwip_print_interesting_stats();
     double speed = ((filesize/in_seconds(stop - start))/(1024 * 1024));
     if (speed < 50) {
         printf("Warning: NFS throughput too low!! [%f]\n", speed);

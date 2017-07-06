@@ -14,11 +14,11 @@ interface net_sockets "Interface for network sockets" {
     rpc new_tcp_socket(out uint32 descriptor);
     rpc delete_socket(in uint32 descriptor, out errval error);
 
-    rpc bind(in uint32 descriptor, in uint32 host_address, in uint16 port, out errval error);
+    rpc bind(in uint32 descriptor, in uint32 host_address, in uint16 port, out errval error, out uint16 bound_port);
     rpc listen(in uint32 descriptor, in uint8 backlog, out errval error);
 
     rpc connect(in uint32 descriptor, in uint32 host_address, in uint16 port, out errval error);
-    message connected(uint32 descriptor, errval error);
+    message connected(uint32 descriptor, errval error, uint32 connected_address, uint16 connected_port);
 
 //    message accepted(uint32 descriptor, uint32 new_descriptor, uint32 host_address, uint16 port, errval error);
 };

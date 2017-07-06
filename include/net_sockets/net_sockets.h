@@ -13,6 +13,12 @@ struct net_socket {
     net_connected_callback_t connected;
     net_accepted_callback_t accepted;
     void *user_state;
+
+    struct in_addr bound_address;
+    uint16_t bound_port;
+    struct in_addr connected_address;
+    uint16_t connected_port;
+
     struct net_socket *prev, *next;
 };
 
