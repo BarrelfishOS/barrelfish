@@ -1,5 +1,5 @@
 {-
-    SockeyeASTFrontend.hs: Frontend AST for Sockeye
+    SockeyeASTParser.hs: AST for the Sockeye parser
 
     Part of Sockeye
 
@@ -13,7 +13,26 @@
     Attn: Systems Group.
 -}
 
-module SockeyeASTFrontend where
+module SockeyeASTParser 
+( module SockeyeASTParser
+, module SockeyeAST
+) where
+
+import SockeyeAST
+    ( Identifier(SimpleIdent, TemplateIdent)
+    , prefix, varName, suffix
+    , ModuleParamType(NumberParam, AddressParam)
+    , ModuleArg(AddressArg, NumberArg, ParamArg)
+    , NodeSpec(NodeSpec)
+    , nodeType, accept, translate, overlay
+    , NodeType(Memory, Device)
+    , BlockSpec(SingletonBlock, RangeBlock, LengthBlock)
+    , address, base, limit, bits
+    , MapSpec(MapSpec)
+    , block, destNode, destBase
+    , Address(NumberAddress, ParamAddress)
+    , ForLimit(NumberLimit, ParamLimit)
+    )
 
 data SockeyeSpec = SockeyeSpec
     { modules :: [Module]
@@ -30,15 +49,6 @@ data ModuleParam = ModuleParam
     { paramName :: !String
     , paramType :: ModuleParamType
     } deriving (Show)
-
-data ModuleParamType 
-    = NumberParam
-    | AddressParam
-    deriving (Eq)
-
-instance Show ModuleParamType where
-    show NumberParam = "nat"
-    show AddressParam = "addr"
 
 data ModuleBody = ModuleBody
     { ports     :: [PortDef]
@@ -68,12 +78,6 @@ data ModuleInst
     | MultiModuleInst (For ModuleInst)
     deriving (Show)
 
-data ModuleArg
-    = AddressArg !Word
-    | NumberArg !Word
-    | ParamArg !String
-    deriving (Show)
-
 data PortMap
     = InputPortMap
         { mappedId   :: Identifier
@@ -94,52 +98,6 @@ data NodeDecl
     | MultiNodeDecl (For NodeDecl)
     deriving (Show)
 
-data Identifier
-    = SimpleIdent !String
-    | TemplateIdent
-        { prefix  :: !String
-        , varName :: !String
-        , suffix  :: Maybe Identifier
-        }
-    deriving (Show)
-
-data NodeSpec = NodeSpec
-    { nodeType  :: Maybe NodeType
-    , accept    :: [BlockSpec]
-    , translate :: [MapSpec]
-    , overlay   :: Maybe Identifier
-    } deriving (Show)
-
-data NodeType
-    = Memory
-    | Device
-    deriving (Show)
-
-data BlockSpec 
-    = SingletonBlock
-        { address :: !Address }
-    | RangeBlock
-        { base  :: !Address
-        , limit :: !Address
-        }
-    | LengthBlock
-        { base :: !Address
-        , bits :: !Word
-        }
-    deriving (Show)
-
-data MapSpec 
-    = MapSpec
-        { block    :: BlockSpec
-        , destNode :: Identifier
-        , destBase :: Maybe Address
-        } deriving (Show)
-
-data Address
-    = NumberAddress !Word
-    | ParamAddress !String
-    deriving (Show)
-
 data For a 
     = For
         { varRanges :: [ForVarRange]
@@ -152,8 +110,3 @@ data ForVarRange
     , start :: ForLimit
     , end   :: ForLimit
     } deriving (Show)
-
-data ForLimit 
-    = NumberLimit !Word
-    | ParamLimit !String
-    deriving (Show)

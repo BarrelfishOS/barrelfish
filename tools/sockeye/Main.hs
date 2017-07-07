@@ -22,15 +22,14 @@ import System.Exit
 import System.Environment
 import System.IO
 
-import SockeyeASTFrontend as ASTF
-import SockeyeASTIntermediate as ASTI
-import SockeyeASTBackend as ASTB
+import qualified SockeyeASTParser as ParseAST
+import qualified SockeyeAST as AST
+import qualified SockeyeASTDecodingNet as NetAST
 
 import SockeyeParser
 import SockeyeChecker
 import SockeyeNetBuilder
 
-import qualified SockeyeBackendPrintAST as PrintAST
 import qualified SockeyeBackendProlog as Prolog
 
 import Text.Groom(groom)
@@ -49,7 +48,7 @@ buildError :: ExitCode
 buildError = ExitFailure 4
 
 {- Compilation targets -}
-data Target = None | PrintAST | Prolog
+data Target = None | Prolog
 
 {- Possible options for the Sockeye Compiler -}
 data Options = Options { optInputFile  :: FilePath
@@ -91,9 +90,6 @@ options =
     [ Option "P" ["Prolog"]
         (NoArg (\opts -> return $ optSetTarget Prolog opts))
         "Generate a prolog file that can be loaded into the SKB (default)."
-    , Option "A" ["AST"]
-        (NoArg (\opts -> return $ optSetTarget PrintAST opts))
-        "Print the AST."
     , Option "C" ["Check"]
         (NoArg (\opts -> return $ optSetTarget None opts))
         "Just check the file, do not compile."
@@ -127,7 +123,7 @@ compilerOpts argv =
             exitWith $ usageError
 
 {- Runs the parser -}
-parseFile :: FilePath -> IO (ASTF.SockeyeSpec)
+parseFile :: FilePath -> IO (ParseAST.SockeyeSpec)
 parseFile file = do
     src <- readFile file
     case parseSockeye file src of
@@ -137,7 +133,7 @@ parseFile file = do
         Right ast -> return ast
 
 {- Runs the checker -}
-checkAST :: ASTF.SockeyeSpec -> IO ASTI.SockeyeSpec
+checkAST :: ParseAST.SockeyeSpec -> IO AST.SockeyeSpec
 checkAST parsedAst = do
     case checkSockeye parsedAst of 
         Left fail -> do
@@ -146,7 +142,7 @@ checkAST parsedAst = do
         Right intermAst -> return intermAst
 
 {- Builds the decoding net from the Sockeye AST -}
-buildNet :: ASTI.SockeyeSpec -> IO ASTB.NetSpec
+buildNet :: AST.SockeyeSpec -> IO NetAST.NetSpec
 buildNet ast = do
     case sockeyeBuildNet ast of 
         Left fail -> do
@@ -155,9 +151,8 @@ buildNet ast = do
         Right netAst -> return netAst
 
 {- Compiles the AST with the appropriate backend -}
-compile :: Target -> ASTB.NetSpec -> IO String
+compile :: Target -> NetAST.NetSpec -> IO String
 compile None     _   = return ""
-compile PrintAST ast = return $ PrintAST.compile ast
 compile Prolog   ast = return $ Prolog.compile ast
 
 {- Outputs the compilation result -}
@@ -175,6 +170,6 @@ main = do
     ast <- checkAST parsedAst
     netAst <- buildNet ast
     putStrLn $ groom netAst
-    -- out <- compile (optTarget opts) ast
-    -- output (optOutputFile opts) out
+    out <- compile (optTarget opts) netAst
+    output (optOutputFile opts) out
     

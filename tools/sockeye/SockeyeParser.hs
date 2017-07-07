@@ -20,12 +20,11 @@ import Control.Monad
 
 import Data.Maybe (fromMaybe)
 
-
 import Text.Parsec
 import qualified Text.Parsec.Token as P
 import Text.Parsec.Language (javaStyle)
 
-import qualified SockeyeASTFrontend as AST
+import qualified SockeyeASTParser as AST
 
 {- Parser main function -}
 parseSockeye :: String -> String -> Either ParseError AST.SockeyeSpec

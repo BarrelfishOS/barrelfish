@@ -20,8 +20,8 @@
 module SockeyeNetBuilder
 ( sockeyeBuildNet ) where
 
-import qualified SockeyeASTIntermediate as ASTI
-import qualified SockeyeASTBackend as ASTB
+import qualified SockeyeAST as AST
+import qualified SockeyeASTDecodingNet as NetAST
 
 newtype CheckFailure = CheckFailure
     { message :: String }
@@ -29,5 +29,5 @@ newtype CheckFailure = CheckFailure
 instance Show CheckFailure where
     show f = unlines $ ["", message f]
 
-sockeyeBuildNet :: ASTI.SockeyeSpec -> Either CheckFailure ASTB.NetSpec
+sockeyeBuildNet :: AST.SockeyeSpec -> Either CheckFailure NetAST.NetSpec
 sockeyeBuildNet _ = Left $ CheckFailure "Net Builder not yet implemented"

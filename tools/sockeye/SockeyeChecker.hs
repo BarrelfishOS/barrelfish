@@ -27,11 +27,11 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Either
 
-import qualified SockeyeASTFrontend as ASTF
-import qualified SockeyeASTIntermediate as ASTI
+import qualified SockeyeASTParser as ParseAST
+import qualified SockeyeAST as AST
 
 data Context = Context
-    { spec       :: ASTI.SockeyeSpec
+    { spec       :: AST.SockeyeSpec
     , moduleName :: !String
     , vars       :: Set String
     , instModule :: String
@@ -44,9 +44,9 @@ data FailedCheckType
     | NoSuchModule String
     | NoSuchParameter String
     | NoSuchVariable String
-    | ParamTypeMismatch String ASTI.ModuleParamType ASTI.ModuleParamType
+    | ParamTypeMismatch String AST.ModuleParamType AST.ModuleParamType
     | WrongNumberOfArgs Int Int
-    | ArgTypeMismatch String ASTI.ModuleParamType ASTI.ModuleParamType
+    | ArgTypeMismatch String AST.ModuleParamType AST.ModuleParamType
 
 instance Show FailedCheckType where
     show (DuplicateModule name)          = concat ["Multiple definitions for module '", name, "'"]
@@ -100,10 +100,10 @@ checkFailure context fs = CheckFailure $ map failCheck fs
             , inModule = moduleName context
             }
 
-checkSockeye :: ASTF.SockeyeSpec -> Either CheckFailure ASTI.SockeyeSpec
+checkSockeye :: ParseAST.SockeyeSpec -> Either CheckFailure AST.SockeyeSpec
 checkSockeye ast = do
     let
-        emptySpec = ASTI.SockeyeSpec Map.empty
+        emptySpec = AST.SockeyeSpec Map.empty
         initContext = Context
             { spec       = emptySpec
             , moduleName = ""
@@ -122,36 +122,36 @@ checkSockeye ast = do
 class SymbolSource a b where
     buildSymbolTable :: Context -> a -> Either CheckFailure b
 
-instance SymbolSource ASTF.SockeyeSpec ASTI.SockeyeSpec where
+instance SymbolSource ParseAST.SockeyeSpec AST.SockeyeSpec where
     buildSymbolTable context ast = do
         let
-            modules = (rootModule ast):(ASTF.modules ast)
-            names = map ASTF.name modules
+            modules = (rootModule ast):(ParseAST.modules ast)
+            names = map ParseAST.name modules
         checkDuplicates context names DuplicateModule
         symbolTables <- buildSymbolTable context modules
         let
             moduleMap = Map.fromList $ zip names symbolTables
-        return ASTI.SockeyeSpec
-                { ASTI.modules = moduleMap }
+        return AST.SockeyeSpec
+                { AST.modules = moduleMap }
 
-instance SymbolSource ASTF.Module ASTI.Module where
+instance SymbolSource ParseAST.Module AST.Module where
     buildSymbolTable context ast = do
         let
-            name = ASTF.name ast
-            paramNames = map ASTF.paramName (ASTF.parameters ast)
-            paramTypes = map ASTF.paramType (ASTF.parameters ast)
+            name = ParseAST.name ast
+            paramNames = map ParseAST.paramName (ParseAST.parameters ast)
+            paramTypes = map ParseAST.paramType (ParseAST.parameters ast)
             moduleContext = context
                 { moduleName = name}
         checkDuplicates moduleContext paramNames DuplicateParameter
         let
             paramTypeMap = Map.fromList $ zip paramNames paramTypes
-        return ASTI.Module
-            { ASTI.paramNames   = paramNames
-            , ASTI.paramTypeMap = paramTypeMap
-            , ASTI.inputPorts   = []
-            , ASTI.outputPorts  = []
-            , ASTI.nodeDecls    = []
-            , ASTI.moduleInsts  = []
+        return AST.Module
+            { AST.paramNames   = paramNames
+            , AST.paramTypeMap = paramTypeMap
+            , AST.inputPorts   = []
+            , AST.outputPorts  = []
+            , AST.nodeDecls    = []
+            , AST.moduleInsts  = []
             }
 
 instance SymbolSource a b => SymbolSource [a] [b] where
@@ -163,27 +163,27 @@ instance SymbolSource a b => SymbolSource [a] [b] where
 class Checkable a b where
     check :: Context -> a -> Either CheckFailure b
 
-instance Checkable ASTF.SockeyeSpec ASTI.SockeyeSpec where
+instance Checkable ParseAST.SockeyeSpec AST.SockeyeSpec where
     check context ast = do
         let
-            modules = (rootModule ast):(ASTF.modules ast)
-            names = map ASTF.name modules
+            modules = (rootModule ast):(ParseAST.modules ast)
+            names = map ParseAST.name modules
         checked <- check context modules
         let
             sockeyeSpec = spec context
             checkedMap = Map.fromList $ zip names checked
         return sockeyeSpec
-            { ASTI.modules = checkedMap }
+            { AST.modules = checkedMap }
 
-instance Checkable ASTF.Module ASTI.Module where
+instance Checkable ParseAST.Module AST.Module where
     check context ast = do
         let
-            name = ASTF.name ast
+            name = ParseAST.name ast
             bodyContext = context
                 { moduleName = name}
-            body = ASTF.moduleBody ast
-            portDefs = ASTF.ports body
-            netSpecs = ASTF.moduleNet body
+            body = ParseAST.moduleBody ast
+            portDefs = ParseAST.ports body
+            netSpecs = ParseAST.moduleNet body
         inputPorts  <- check bodyContext $ filter isInPort  portDefs
         outputPorts <- check bodyContext $ filter isOutPort portDefs
         checkedNetSpecs <- check bodyContext netSpecs
@@ -192,46 +192,46 @@ instance Checkable ASTF.Module ASTI.Module where
             checkedModuleInsts = rights checkedNetSpecs
             mod = getCurrentModule bodyContext
         return mod
-            { ASTI.inputPorts  = inputPorts
-            , ASTI.outputPorts = outputPorts
-            , ASTI.nodeDecls   = checkedNodeDecls
-            , ASTI.moduleInsts = checkedModuleInsts
+            { AST.inputPorts  = inputPorts
+            , AST.outputPorts = outputPorts
+            , AST.nodeDecls   = checkedNodeDecls
+            , AST.moduleInsts = checkedModuleInsts
             }
         where
-            isInPort (ASTF.InputPortDef _) = True
-            isInPort (ASTF.MultiPortDef for) = isInPort $ ASTF.body for
+            isInPort (ParseAST.InputPortDef _) = True
+            isInPort (ParseAST.MultiPortDef for) = isInPort $ ParseAST.body for
             isInPort _ = False
             isOutPort = not . isInPort
 
-instance Checkable ASTF.PortDef ASTI.Port where
-    check context (ASTF.MultiPortDef for) = do
+instance Checkable ParseAST.PortDef AST.Port where
+    check context (ParseAST.MultiPortDef for) = do
         checkedFor <- check context for
-        return $ ASTI.MultiPort checkedFor
+        return $ AST.MultiPort checkedFor
     check context portDef = do
-        checkedId <- check context (ASTF.portId portDef)
-        return $ ASTI.Port checkedId
+        checkedId <- check context (ParseAST.portId portDef)
+        return $ AST.Port checkedId
 
-instance Checkable ASTF.NetSpec (Either ASTI.NodeDecl ASTI.ModuleInst) where
-    check context (ASTF.NodeDeclSpec decl) = do
+instance Checkable ParseAST.NetSpec (Either AST.NodeDecl AST.ModuleInst) where
+    check context (ParseAST.NodeDeclSpec decl) = do
         checkedDecl <- check context decl
         return $ Left checkedDecl
-    check context (ASTF.ModuleInstSpec inst) = do
+    check context (ParseAST.ModuleInstSpec inst) = do
         checkedInst <- check context inst
         return $ Right checkedInst
 
-instance Checkable ASTF.ModuleInst ASTI.ModuleInst where
-    check context (ASTF.MultiModuleInst for) = do
+instance Checkable ParseAST.ModuleInst AST.ModuleInst where
+    check context (ParseAST.MultiModuleInst for) = do
         checkedFor <- check context for
-        return $ ASTI.MultiModuleInst checkedFor
+        return $ AST.MultiModuleInst checkedFor
     check context ast = do
         let
-            nameSpace = ASTF.nameSpace ast
-            name = ASTF.moduleName ast
-            arguments = ASTF.arguments ast
-            portMaps = ASTF.portMappings ast
+            nameSpace = ParseAST.nameSpace ast
+            name = ParseAST.moduleName ast
+            arguments = ParseAST.arguments ast
+            portMaps = ParseAST.portMappings ast
         mod <- getModule context name
         let
-            paramNames = ASTI.paramNames mod
+            paramNames = AST.paramNames mod
             instContext = context
                 { instModule = name }
         checkedArgs <- checkArgs instContext arguments
@@ -240,23 +240,23 @@ instance Checkable ASTF.ModuleInst ASTI.ModuleInst where
         outPortMap <- check instContext $ filter isOutMap portMaps
         let
             argMap = Map.fromList $ zip paramNames checkedArgs
-        return ASTI.ModuleInst
-            { ASTI.nameSpace  = checkedNameSpace
-            , ASTI.moduleName = name
-            , ASTI.arguments  = argMap
-            , ASTI.inPortMap  = inPortMap
-            , ASTI.outPortMap = outPortMap
+        return AST.ModuleInst
+            { AST.nameSpace  = checkedNameSpace
+            , AST.moduleName = name
+            , AST.arguments  = argMap
+            , AST.inPortMap  = inPortMap
+            , AST.outPortMap = outPortMap
             }
         where
-            isInMap (ASTF.InputPortMap {}) = True
-            isInMap (ASTF.MultiPortMap for) = isInMap $ ASTF.body for
+            isInMap (ParseAST.InputPortMap {}) = True
+            isInMap (ParseAST.MultiPortMap for) = isInMap $ ParseAST.body for
             isInMap _ = False
             isOutMap = not . isInMap
             checkArgs context args = do
                 mod <- getInstantiatedModule context
                 let
-                    typeMap = ASTI.paramTypeMap mod
-                    paramNames = ASTI.paramNames mod
+                    typeMap = AST.paramTypeMap mod
+                    paramNames = AST.paramNames mod
                     paramTypes = map (typeMap Map.!) paramNames
                     params = zip paramNames paramTypes
                 checkArgCount paramNames args
@@ -271,76 +271,76 @@ instance Checkable ASTF.ModuleInst ASTI.ModuleInst where
                             else Left $ checkFailure context [WrongNumberOfArgs paramc argc]
                     checkArgType (name, expected) arg = do
                         case arg of
-                            ASTF.AddressArg value -> do
-                                if expected == ASTI.AddressParam
-                                    then return $ ASTI.AddressArg value
-                                    else Left $ mismatch ASTI.AddressParam
-                            ASTF.NumberArg value -> do
-                                if expected == ASTI.NumberParam
-                                    then return $ ASTI.NumberArg value
-                                    else Left $ mismatch ASTI.NumberParam
-                            ASTF.ParamArg pName -> do
+                            ParseAST.AddressArg value -> do
+                                if expected == AST.AddressParam
+                                    then return $ AST.AddressArg value
+                                    else Left $ mismatch AST.AddressParam
+                            ParseAST.NumberArg value -> do
+                                if expected == AST.NumberParam
+                                    then return $ AST.NumberArg value
+                                    else Left $ mismatch AST.NumberParam
+                            ParseAST.ParamArg pName -> do
                                 checkParamType context pName expected
-                                return $ ASTI.ParamArg pName
+                                return $ AST.ParamArg pName
                         where
                             mismatch t = checkFailure context [ArgTypeMismatch name expected t]
 
-instance Checkable ASTF.PortMap ASTI.PortMap where
-    check context (ASTF.MultiPortMap for) = do
+instance Checkable ParseAST.PortMap AST.PortMap where
+    check context (ParseAST.MultiPortMap for) = do
         checkedFor <- check context for
-        return $ ASTI.MultiPortMap checkedFor
+        return $ AST.MultiPortMap checkedFor
     check context portMap = do
         let
-            mappedId = ASTF.mappedId portMap
-            mappedPort = ASTF.mappedPort portMap
+            mappedId = ParseAST.mappedId portMap
+            mappedPort = ParseAST.mappedPort portMap
             idents = [mappedId, mappedPort]
         checkedIds <- check context idents
-        return $ ASTI.PortMap
-            { ASTI.mappedId   = head checkedIds
-            , ASTI.mappedPort = last checkedIds
+        return $ AST.PortMap
+            { AST.mappedId   = head checkedIds
+            , AST.mappedPort = last checkedIds
             }
 
-instance Checkable ASTF.NodeDecl ASTI.NodeDecl where
-    check context (ASTF.MultiNodeDecl for) = do
+instance Checkable ParseAST.NodeDecl AST.NodeDecl where
+    check context (ParseAST.MultiNodeDecl for) = do
         checkedFor <- check context for
-        return $ ASTI.MultiNodeDecl checkedFor
+        return $ AST.MultiNodeDecl checkedFor
     check context ast = do
         let
-            nodeId = ASTF.nodeId ast
-            nodeSpec = ASTF.nodeSpec ast
+            nodeId = ParseAST.nodeId ast
+            nodeSpec = ParseAST.nodeSpec ast
         checkedId <- check context nodeId
         checkedSpec <- check context nodeSpec
-        return ASTI.NodeDecl
-            { ASTI.nodeId   = checkedId
-            , ASTI.nodeSpec = checkedSpec
+        return AST.NodeDecl
+            { AST.nodeId   = checkedId
+            , AST.nodeSpec = checkedSpec
             }
 
-instance Checkable ASTF.Identifier ASTI.Identifier where
-    check _ (ASTF.SimpleIdent name) = return $ ASTI.SimpleIdent name
+instance Checkable ParseAST.Identifier AST.Identifier where
+    check _ (ParseAST.SimpleIdent name) = return $ AST.SimpleIdent name
     check context ast = do
         let
-            prefix = ASTF.prefix ast
-            varName = ASTF.varName ast
-            suffix = ASTF.suffix ast
+            prefix = ParseAST.prefix ast
+            varName = ParseAST.varName ast
+            suffix = ParseAST.suffix ast
         checkVarInScope context varName
         checkedSuffix <- case suffix of
             Nothing    -> return Nothing
             Just ident -> do
                 checkedIdent <- check context ident
                 return $ Just checkedIdent
-        return ASTI.TemplateIdent
-            { ASTI.prefix  = prefix
-            , ASTI.varName = varName
-            , ASTI.suffix  = checkedSuffix
+        return AST.TemplateIdent
+            { AST.prefix  = prefix
+            , AST.varName = varName
+            , AST.suffix  = checkedSuffix
             }
 
-instance Checkable ASTF.NodeSpec ASTI.NodeSpec where
+instance Checkable ParseAST.NodeSpec AST.NodeSpec where
     check context ast = do
         let 
-            nodeType = ASTF.nodeType ast
-            accept = ASTF.accept ast
-            translate = ASTF.translate ast
-            overlay = ASTF.overlay ast
+            nodeType = ParseAST.nodeType ast
+            accept = ParseAST.accept ast
+            translate = ParseAST.translate ast
+            overlay = ParseAST.overlay ast
         checkedAccept <- check context accept
         checkedTranslate <- check context translate
         checkedOverlay <- case overlay of
@@ -348,39 +348,39 @@ instance Checkable ASTF.NodeSpec ASTI.NodeSpec where
             Just ident -> do
                 checkedIdent <- check context ident
                 return $ Just checkedIdent
-        return ASTI.NodeSpec
-            { ASTI.nodeType  = nodeType
-            , ASTI.accept    = checkedAccept
-            , ASTI.translate = checkedTranslate
-            , ASTI.overlay   = checkedOverlay
+        return AST.NodeSpec
+            { AST.nodeType  = nodeType
+            , AST.accept    = checkedAccept
+            , AST.translate = checkedTranslate
+            , AST.overlay   = checkedOverlay
             }
 
-instance Checkable ASTF.BlockSpec ASTI.BlockSpec where
-    check context (ASTF.SingletonBlock address) = do
+instance Checkable ParseAST.BlockSpec AST.BlockSpec where
+    check context (ParseAST.SingletonBlock address) = do
         checkedAddress <- check context address
-        return ASTI.SingletonBlock
-            { ASTI.address = checkedAddress }
-    check context (ASTF.RangeBlock base limit) = do
+        return AST.SingletonBlock
+            { AST.address = checkedAddress }
+    check context (ParseAST.RangeBlock base limit) = do
         let
             addresses = [base, limit]
         checkedAddresses <- check context addresses
-        return ASTI.RangeBlock
-            { ASTI.base  = head checkedAddresses
-            , ASTI.limit = last checkedAddresses
+        return AST.RangeBlock
+            { AST.base  = head checkedAddresses
+            , AST.limit = last checkedAddresses
             }
-    check context (ASTF.LengthBlock base bits) = do
+    check context (ParseAST.LengthBlock base bits) = do
         checkedBase <- check context base
-        return ASTI.LengthBlock
-            { ASTI.base = checkedBase
-            , ASTI.bits = bits
+        return AST.LengthBlock
+            { AST.base = checkedBase
+            , AST.bits = bits
             }
 
-instance Checkable ASTF.MapSpec ASTI.MapSpec where
+instance Checkable ParseAST.MapSpec AST.MapSpec where
     check context ast = do
         let
-            block = ASTF.block ast
-            destNode = ASTF.destNode ast
-            destBase = ASTF.destBase ast
+            block = ParseAST.block ast
+            destNode = ParseAST.destNode ast
+            destBase = ParseAST.destBase ast
         checkedBlock <- check context block
         checkedDestNode <- check context destNode
         checkedDestBase <- case destBase of
@@ -388,25 +388,25 @@ instance Checkable ASTF.MapSpec ASTI.MapSpec where
             Just address -> do
                 checkedAddress <- check context address
                 return $ Just checkedAddress
-        return ASTI.MapSpec
-            { ASTI.block    = checkedBlock
-            , ASTI.destNode = checkedDestNode
-            , ASTI.destBase = checkedDestBase
+        return AST.MapSpec
+            { AST.block    = checkedBlock
+            , AST.destNode = checkedDestNode
+            , AST.destBase = checkedDestBase
             }
 
-instance Checkable ASTF.Address ASTI.Address where
-    check _ (ASTF.NumberAddress value) = do
-        return $ ASTI.NumberAddress value
-    check context (ASTF.ParamAddress name) = do
-        checkParamType context name ASTI.AddressParam
-        return $ ASTI.ParamAddress name
+instance Checkable ParseAST.Address AST.Address where
+    check _ (ParseAST.NumberAddress value) = do
+        return $ AST.NumberAddress value
+    check context (ParseAST.ParamAddress name) = do
+        checkParamType context name AST.AddressParam
+        return $ AST.ParamAddress name
 
-instance Checkable a b => Checkable (ASTF.For a) (ASTI.For b) where
+instance Checkable a b => Checkable (ParseAST.For a) (AST.For b) where
     check context ast = do
         let
-            varRanges = ASTF.varRanges ast
-            varNames = map ASTF.var varRanges
-            body = ASTF.body ast
+            varRanges = ParseAST.varRanges ast
+            varNames = map ParseAST.var varRanges
+            body = ParseAST.body ast
         checkDuplicates context varNames DuplicateVariable
         ranges <- check context varRanges
         let
@@ -417,71 +417,71 @@ instance Checkable a b => Checkable (ASTF.For a) (ASTI.For b) where
         checkedBody <- check bodyContext body
         let
             checkedVarRanges = Map.fromList $ zip varNames ranges
-        return ASTI.For
-                { ASTI.varRanges = checkedVarRanges
-                , ASTI.body      = checkedBody
+        return AST.For
+                { AST.varRanges = checkedVarRanges
+                , AST.body      = checkedBody
                 }
 
-instance Checkable ASTF.ForVarRange ASTI.ForRange where
+instance Checkable ParseAST.ForVarRange AST.ForRange where
     check context ast = do
         let
-            limits = [ASTF.start ast, ASTF.end ast]
+            limits = [ParseAST.start ast, ParseAST.end ast]
         checkedLimits <- check context limits
-        return ASTI.ForRange
-            { ASTI.start = head checkedLimits
-            , ASTI.end   = last checkedLimits
+        return AST.ForRange
+            { AST.start = head checkedLimits
+            , AST.end   = last checkedLimits
             }
 
-instance Checkable ASTF.ForLimit ASTI.ForLimit where
-    check _ (ASTF.NumberLimit value) = do
-        return $ ASTI.NumberLimit value
-    check context (ASTF.ParamLimit name) = do
-        checkParamType context name ASTI.NumberParam
-        return $ ASTI.ParamLimit name
+instance Checkable ParseAST.ForLimit AST.ForLimit where
+    check _ (ParseAST.NumberLimit value) = do
+        return $ AST.NumberLimit value
+    check context (ParseAST.ParamLimit name) = do
+        checkParamType context name AST.NumberParam
+        return $ AST.ParamLimit name
 
 instance Checkable a b => Checkable [a] [b] where
     check context as = forAll (check context) as
 --
 -- Helpers
 --
-rootModule :: ASTF.SockeyeSpec -> ASTF.Module
+rootModule :: ParseAST.SockeyeSpec -> ParseAST.Module
 rootModule spec =
     let
-        body = ASTF.ModuleBody
-            { ASTF.ports = []
-            , ASTF.moduleNet = ASTF.net spec
+        body = ParseAST.ModuleBody
+            { ParseAST.ports = []
+            , ParseAST.moduleNet = ParseAST.net spec
             }
-    in ASTF.Module
-        { ASTF.name       = "@root"
-        , ASTF.parameters = []
-        , ASTF.moduleBody = body
+    in ParseAST.Module
+        { ParseAST.name       = "@root"
+        , ParseAST.parameters = []
+        , ParseAST.moduleBody = body
         }
 
-getModule :: Context -> String -> Either CheckFailure ASTI.Module
+getModule :: Context -> String -> Either CheckFailure AST.Module
 getModule context name = do
     let
-        modMap = ASTI.modules $ spec context
+        modMap = AST.modules $ spec context
     case Map.lookup name modMap of
         Nothing -> Left $ checkFailure context [NoSuchModule name]
         Just m  -> return m
 
-getCurrentModule :: Context -> ASTI.Module
+getCurrentModule :: Context -> AST.Module
 getCurrentModule context =
     let
-        modMap = ASTI.modules $ spec context
+        modMap = AST.modules $ spec context
     in modMap Map.! (moduleName context)
 
-getInstantiatedModule :: Context -> Either CheckFailure ASTI.Module
+getInstantiatedModule :: Context -> Either CheckFailure AST.Module
 getInstantiatedModule context =
     let
         modName = instModule context
     in getModule context modName
 
-getParameterType :: Context -> String -> Either CheckFailure ASTI.ModuleParamType
+getParameterType :: Context -> String -> Either CheckFailure AST.ModuleParamType
 getParameterType context name = do
     let
         mod = getCurrentModule context
-        paramMap = ASTI.paramTypeMap mod
+        paramMap = AST.paramTypeMap mod
     case Map.lookup name paramMap of
         Nothing -> Left $ checkFailure context [NoSuchParameter name]
         Just t  -> return t
@@ -515,7 +515,7 @@ checkVarInScope context name = do
         else Left $ checkFailure context [NoSuchVariable name]
 
 
-checkParamType :: Context -> String -> ASTI.ModuleParamType -> Either CheckFailure ()
+checkParamType :: Context -> String -> AST.ModuleParamType -> Either CheckFailure ()
 checkParamType context name expected = do
     actual <- getParameterType context name
     if actual == expected
