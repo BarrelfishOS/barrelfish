@@ -138,7 +138,6 @@ checkAST :: ASTF.SockeyeSpec -> IO ASTI.SockeyeSpec
 checkAST parsedAst = do
     case checkSockeye parsedAst of 
         Left fail -> do
-            hPutStrLn stderr $ "Checks failed:"
             hPutStr stderr $ show fail
             exitWith checkError
         Right intermAst -> return intermAst

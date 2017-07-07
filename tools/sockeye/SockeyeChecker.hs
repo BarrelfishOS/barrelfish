@@ -20,8 +20,6 @@
 module SockeyeChecker
 ( checkSockeye ) where
 
-import Control.Monad (join)
-
 import Data.List (nub)
 import Data.Map (Map)
 import qualified Data.Map as Map
@@ -32,9 +30,14 @@ import Data.Either
 import qualified SockeyeASTFrontend as ASTF
 import qualified SockeyeASTIntermediate as ASTI
 
-import Debug.Trace
+data Context = Context
+    { spec       :: ASTI.SockeyeSpec
+    , moduleName :: !String
+    , vars       :: Set String
+    , instModule :: String
+    }
 
-data FailedCheck
+data FailedCheckType
     = DuplicateModule String
     | DuplicateParameter String
     | DuplicateVariable String
@@ -42,78 +45,104 @@ data FailedCheck
     | NoSuchParameter String
     | NoSuchVariable String
     | ParamTypeMismatch String ASTI.ModuleParamType ASTI.ModuleParamType
-    | WrongNumberOfArgs String Int Int
-    | ArgTypeMismatch String String ASTI.ModuleParamType ASTI.ModuleParamType
+    | WrongNumberOfArgs Int Int
+    | ArgTypeMismatch String ASTI.ModuleParamType ASTI.ModuleParamType
 
-instance Show FailedCheck where
-    show (DuplicateModule name)    = concat ["Multiple definitions for module '", name, "'."]
-    show (DuplicateParameter name) = concat ["Multiple definitions for parameter '", name, "'."]
-    show (DuplicateVariable name)  = concat ["Multiple definitions for variable '", name, "'."]
-    show (NoSuchModule name)       = concat ["No definition for module '", name, "'."]
-    show (NoSuchParameter name)    = concat ["Parameter '", name, "' not in scope."]
-    show (NoSuchVariable name)     = concat ["Variable '", name, "' not in scope."]
+instance Show FailedCheckType where
+    show (DuplicateModule name)          = concat ["Multiple definitions for module '", name, "'"]
+    show (DuplicateParameter name)       = concat ["Multiple parameters named '", name, "'"]
+    show (DuplicateVariable name)        = concat ["Multiple definitions for variable '", name, "'"]
+    show (NoSuchModule name)             = concat ["No definition for module '", name, "'"]
+    show (NoSuchParameter name)          = concat ["Parameter '", name, "' not in scope"]
+    show (NoSuchVariable name)           = concat ["Variable '", name, "' not in scope"]
+    show (WrongNumberOfArgs takes given) =
+        let arg = if takes == 1
+            then "argument"
+            else "arguments"
+        in concat ["Module takes ", show takes, " ", arg, ", given ", show given]
     show (ParamTypeMismatch name expected actual) =
-        concat ["Parameter '", name, "' of type '", show actual, "' used as '", show expected, "'."]
-    show (WrongNumberOfArgs name has given) =
-        concat ["Module '", name, "' takes ", show has, " arguments, given ", show given, "."]
-    show (ArgTypeMismatch modName paramName expected actual) =
-        concat ["Argument '", paramName, "' to module '", modName, "' of type '", show expected, "' instantiated with type '", show actual, "."]
+        concat ["Expected type '", show expected, "' but '", name, "' has type '", show actual, "'"]
+    show (ArgTypeMismatch name expected actual) =
+        concat ["Type mismatch for argument '", name, "': Expected '", show expected, "', given '", show actual, "'"]
+
+data FailedCheck = FailedCheck
+    { failure  :: FailedCheckType
+    , inModule :: !String
+    }
 
 newtype CheckFailure = CheckFailure
     { failedChecks :: [FailedCheck] }
 
 instance Show CheckFailure where
-    show (CheckFailure fs) = unlines $ map (("    " ++) . show) fs
+    show (CheckFailure fs) = 
+        let
+            modules = nub $ map inModule fs
+        in unlines $ concat (map showFailsForModule modules)
+        where
+            showFailsForModule name =
+                let
+                    title = "\nIn module '" ++ name ++ "':"
+                    fails = filter (\f -> name == inModule f) fs
+                in if name == ""
+                    then "":showFails 0 fails
+                    else title:showFails 1 fails
+            showFails indentLevel fs =
+                let
+                    indent = replicate (indentLevel * 4) ' '
+                in map ((indent ++) . showFail) fs
+            showFail f = (show $ failure f)
 
-data Context = Context
-    { spec       :: ASTI.SockeyeSpec
-    , moduleName :: !String
-    , vars       :: Set String
-    }
+checkFailure :: Context -> [FailedCheckType] -> CheckFailure
+checkFailure context fs = CheckFailure $ map failCheck fs
+    where
+        failCheck f = FailedCheck
+            { failure  = f
+            , inModule = moduleName context
+            }
 
 checkSockeye :: ASTF.SockeyeSpec -> Either CheckFailure ASTI.SockeyeSpec
 checkSockeye ast = do
-    symbolTable <- buildSymbolTable ast
     let
-        context = Context
-            { spec       = symbolTable
+        emptySpec = ASTI.SockeyeSpec Map.empty
+        initContext = Context
+            { spec       = emptySpec
             , moduleName = ""
             , vars       = Set.empty
+            , instModule = ""
             }
+    symbolTable <- buildSymbolTable initContext ast
+    let
+        context = initContext
+            { spec = symbolTable }
     check context ast
--- build symbol table
--- check modules:
---  - parameter types must match usage site types
---  - all variables must exist
---  - 
---  - all instantiated modules must exist
---  - modules can not instantiate themselves
---  - instantiation argument types must match parameter types
 
 --
 -- Build Symbol table
 --
 class SymbolSource a b where
-    buildSymbolTable :: a -> Either CheckFailure b
+    buildSymbolTable :: Context -> a -> Either CheckFailure b
 
 instance SymbolSource ASTF.SockeyeSpec ASTI.SockeyeSpec where
-    buildSymbolTable ast = do
+    buildSymbolTable context ast = do
         let
             modules = (rootModule ast):(ASTF.modules ast)
             names = map ASTF.name modules
-        checkDuplicates names DuplicateModule
-        symbolTables <- buildSymbolTable modules
+        checkDuplicates context names DuplicateModule
+        symbolTables <- buildSymbolTable context modules
         let
             moduleMap = Map.fromList $ zip names symbolTables
         return ASTI.SockeyeSpec
                 { ASTI.modules = moduleMap }
 
 instance SymbolSource ASTF.Module ASTI.Module where
-    buildSymbolTable ast = do
+    buildSymbolTable context ast = do
         let
+            name = ASTF.name ast
             paramNames = map ASTF.paramName (ASTF.parameters ast)
             paramTypes = map ASTF.paramType (ASTF.parameters ast)
-        checkDuplicates paramNames DuplicateParameter
+            moduleContext = context
+                { moduleName = name}
+        checkDuplicates moduleContext paramNames DuplicateParameter
         let
             paramTypeMap = Map.fromList $ zip paramNames paramTypes
         return ASTI.Module
@@ -126,13 +155,8 @@ instance SymbolSource ASTF.Module ASTI.Module where
             }
 
 instance SymbolSource a b => SymbolSource [a] [b] where
-    buildSymbolTable as = do
-        let
-            bs = map buildSymbolTable as
-            es = concat $ map failedChecks (lefts bs)
-        case es of
-            [] -> return $ rights bs
-            _  -> Left $ CheckFailure es
+    buildSymbolTable context as = forAll (buildSymbolTable context) as
+
 --
 -- Check module bodies
 --
@@ -206,15 +230,20 @@ instance Checkable ASTF.ModuleInst ASTI.ModuleInst where
             arguments = ASTF.arguments ast
             portMaps = ASTF.portMappings ast
         mod <- getModule context name
-        checkedNameSpace <- check context nameSpace
-        checkArgCount name mod arguments
-        checkedArgs <- checkArgTypes name mod arguments 
-        inPortMap  <- check context $ filter isInMap  portMaps
-        outPortMap <- check context $ filter isOutMap portMaps
+        let
+            paramNames = ASTI.paramNames mod
+            instContext = context
+                { instModule = name }
+        checkedArgs <- checkArgs instContext arguments
+        checkedNameSpace <- check instContext nameSpace
+        inPortMap  <- check instContext $ filter isInMap  portMaps
+        outPortMap <- check instContext $ filter isOutMap portMaps
+        let
+            argMap = Map.fromList $ zip paramNames checkedArgs
         return ASTI.ModuleInst
             { ASTI.nameSpace  = checkedNameSpace
             , ASTI.moduleName = name
-            , ASTI.arguments  = checkedArgs
+            , ASTI.arguments  = argMap
             , ASTI.inPortMap  = inPortMap
             , ASTI.outPortMap = outPortMap
             }
@@ -223,35 +252,38 @@ instance Checkable ASTF.ModuleInst ASTI.ModuleInst where
             isInMap (ASTF.MultiPortMap for) = isInMap $ ASTF.body for
             isInMap _ = False
             isOutMap = not . isInMap
-            checkArgCount modName mod args = do
+            checkArgs context args = do
+                mod <- getInstantiatedModule context
                 let
-                    paramc = length $ ASTI.paramNames mod
-                    argc = length args
-                if argc == paramc
-                    then return ()
-                    else Left $ CheckFailure [WrongNumberOfArgs modName paramc argc]
-            checkArgTypes modName mod args = do
-                let
+                    typeMap = ASTI.paramTypeMap mod
                     paramNames = ASTI.paramNames mod
-                checkedArgs <- forAll id $ zipWith (checkArgType modName mod) args paramNames
-                return $ Map.fromList $ zip paramNames checkedArgs
-            checkArgType modName mod arg paramName = do
-                let
-                    expected = getParameterType mod paramName
-                case arg of
-                    ASTF.AddressArg value -> do
-                        if expected == ASTI.AddressParam
-                            then return $ ASTI.AddressArg value
-                            else Left $ mismatch expected ASTI.AddressParam
-                    ASTF.NumberArg value -> do
-                        if expected == ASTI.NumberParam
-                            then return $ ASTI.NumberArg value
-                            else Left $ mismatch expected ASTI.NumberParam
-                    ASTF.ParamArg name -> do
-                        checkParamType context name expected
-                        return $ ASTI.ParamArg name
+                    paramTypes = map (typeMap Map.!) paramNames
+                    params = zip paramNames paramTypes
+                checkArgCount paramNames args
+                forAll id $ zipWith checkArgType params args
                 where
-                    mismatch expected actual = CheckFailure [ArgTypeMismatch modName paramName expected actual]
+                    checkArgCount params args = do
+                        let
+                            paramc = length params
+                            argc = length args
+                        if argc == paramc
+                            then return ()
+                            else Left $ checkFailure context [WrongNumberOfArgs paramc argc]
+                    checkArgType (name, expected) arg = do
+                        case arg of
+                            ASTF.AddressArg value -> do
+                                if expected == ASTI.AddressParam
+                                    then return $ ASTI.AddressArg value
+                                    else Left $ mismatch ASTI.AddressParam
+                            ASTF.NumberArg value -> do
+                                if expected == ASTI.NumberParam
+                                    then return $ ASTI.NumberArg value
+                                    else Left $ mismatch ASTI.NumberParam
+                            ASTF.ParamArg pName -> do
+                                checkParamType context pName expected
+                                return $ ASTI.ParamArg pName
+                        where
+                            mismatch t = checkFailure context [ArgTypeMismatch name expected t]
 
 instance Checkable ASTF.PortMap ASTI.PortMap where
     check context (ASTF.MultiPortMap for) = do
@@ -375,7 +407,7 @@ instance Checkable a b => Checkable (ASTF.For a) (ASTI.For b) where
             varRanges = ASTF.varRanges ast
             varNames = map ASTF.var varRanges
             body = ASTF.body ast
-        checkDuplicates varNames DuplicateVariable
+        checkDuplicates context varNames DuplicateVariable
         ranges <- check context varRanges
         let
             currentVars = vars context
@@ -408,13 +440,7 @@ instance Checkable ASTF.ForLimit ASTI.ForLimit where
         return $ ASTI.ParamLimit name
 
 instance Checkable a b => Checkable [a] [b] where
-    check context as = do
-        let
-            bs = map (check context) as
-            es = concat $ map failedChecks (lefts bs)
-        case es of
-            [] -> return $ rights bs
-            _  -> Left $ CheckFailure es
+    check context as = forAll (check context) as
 --
 -- Helpers
 --
@@ -436,7 +462,7 @@ getModule context name = do
     let
         modMap = ASTI.modules $ spec context
     case Map.lookup name modMap of
-        Nothing -> Left $ CheckFailure [NoSuchModule name]
+        Nothing -> Left $ checkFailure context [NoSuchModule name]
         Just m  -> return m
 
 getCurrentModule :: Context -> ASTI.Module
@@ -445,19 +471,19 @@ getCurrentModule context =
         modMap = ASTI.modules $ spec context
     in modMap Map.! (moduleName context)
 
-getParameterType :: ASTI.Module -> String -> ASTI.ModuleParamType
-getParameterType mod name =
+getInstantiatedModule :: Context -> Either CheckFailure ASTI.Module
+getInstantiatedModule context =
     let
-        paramMap = ASTI.paramTypeMap mod
-    in paramMap Map.! name
+        modName = instModule context
+    in getModule context modName
 
-getCurrentParameterType :: Context -> String -> Either CheckFailure ASTI.ModuleParamType
-getCurrentParameterType context name = do
+getParameterType :: Context -> String -> Either CheckFailure ASTI.ModuleParamType
+getParameterType context name = do
     let
         mod = getCurrentModule context
         paramMap = ASTI.paramTypeMap mod
     case Map.lookup name paramMap of
-        Nothing -> Left $ CheckFailure [NoSuchParameter name]
+        Nothing -> Left $ checkFailure context [NoSuchParameter name]
         Just t  -> return t
 
 forAll :: (a -> Either CheckFailure b) -> [a] -> Either CheckFailure [b]
@@ -469,13 +495,13 @@ forAll f as = do
         [] -> return $ rights bs
         _  -> Left $ CheckFailure es
 
-checkDuplicates :: [String] -> (String -> FailedCheck) -> Either CheckFailure ()
-checkDuplicates names failure = do
+checkDuplicates :: Context -> [String] -> (String -> FailedCheckType) -> Either CheckFailure ()
+checkDuplicates context names failure = do
     let
         duplicates = duplicateNames names
     case duplicates of
         [] -> return ()
-        _  -> Left $ CheckFailure (map failure duplicates)
+        _  -> Left $ checkFailure context (map failure duplicates)
     where
         duplicateNames [] = []
         duplicateNames (x:xs)
@@ -486,14 +512,14 @@ checkVarInScope :: Context -> String -> Either CheckFailure ()
 checkVarInScope context name = do
     if name `Set.member` (vars context)
         then return ()
-        else Left $ CheckFailure [NoSuchVariable name]
+        else Left $ checkFailure context [NoSuchVariable name]
 
 
 checkParamType :: Context -> String -> ASTI.ModuleParamType -> Either CheckFailure ()
 checkParamType context name expected = do
-    actual <- getCurrentParameterType context name
+    actual <- getParameterType context name
     if actual == expected
         then return ()
         else Left $ mismatch actual
     where
-        mismatch t = CheckFailure [ParamTypeMismatch name expected t]
+        mismatch t = checkFailure context [ParamTypeMismatch name expected t]

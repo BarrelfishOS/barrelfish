@@ -34,7 +34,11 @@ data ModuleParam = ModuleParam
 data ModuleParamType 
     = NumberParam
     | AddressParam
-    deriving (Eq, Show)
+    deriving (Eq)
+
+instance Show ModuleParamType where
+    show NumberParam = "int"
+    show AddressParam = "addr"
 
 data ModuleBody = ModuleBody
     { ports     :: [PortDef]
