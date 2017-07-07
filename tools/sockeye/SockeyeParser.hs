@@ -20,9 +20,10 @@ import Control.Monad
 
 import Data.Maybe (fromMaybe)
 
-import Text.ParserCombinators.Parsec as Parsec
-import qualified Text.ParserCombinators.Parsec.Token as P
-import Text.ParserCombinators.Parsec.Language (javaStyle)
+
+import Text.Parsec
+import qualified Text.Parsec.Token as P
+import Text.Parsec.Language (javaStyle)
 
 import qualified SockeyeASTFrontend as AST
 
@@ -65,7 +66,7 @@ moduleParam = do
         }
     where
         intType = do
-            symbol "int"
+            symbol "nat"
             return AST.NumberParam
         addrType = do
             symbol "addr" 

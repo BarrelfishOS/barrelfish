@@ -37,7 +37,7 @@ data ModuleParamType
     deriving (Eq)
 
 instance Show ModuleParamType where
-    show NumberParam = "int"
+    show NumberParam = "nat"
     show AddressParam = "addr"
 
 data ModuleBody = ModuleBody
