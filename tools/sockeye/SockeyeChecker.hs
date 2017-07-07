@@ -14,6 +14,7 @@
 -}
 
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 module SockeyeChecker
@@ -101,7 +102,7 @@ instance SymbolSource ASTF.SockeyeSpec ASTI.SockeyeSpec where
             modules = (rootModule ast):(ASTF.modules ast)
             names = map ASTF.name modules
         checkDuplicates names DuplicateModule
-        symbolTables <- forAll buildSymbolTable modules
+        symbolTables <- buildSymbolTable modules
         let
             moduleMap = Map.fromList $ zip names symbolTables
         return ASTI.SockeyeSpec
@@ -123,6 +124,15 @@ instance SymbolSource ASTF.Module ASTI.Module where
             , ASTI.nodeDecls    = []
             , ASTI.moduleInsts  = []
             }
+
+instance SymbolSource a b => SymbolSource [a] [b] where
+    buildSymbolTable as = do
+        let
+            bs = map buildSymbolTable as
+            es = concat $ map failedChecks (lefts bs)
+        case es of
+            [] -> return $ rights bs
+            _  -> Left $ CheckFailure es
 --
 -- Check module bodies
 --
@@ -134,7 +144,7 @@ instance Checkable ASTF.SockeyeSpec ASTI.SockeyeSpec where
         let
             modules = (rootModule ast):(ASTF.modules ast)
             names = map ASTF.name modules
-        checked <- forAll (check context) modules
+        checked <- check context modules
         let
             sockeyeSpec = spec context
             checkedMap = Map.fromList $ zip names checked
@@ -150,9 +160,9 @@ instance Checkable ASTF.Module ASTI.Module where
             body = ASTF.moduleBody ast
             portDefs = ASTF.ports body
             netSpecs = ASTF.moduleNet body
-        inputPorts  <- forAll (check bodyContext) $ filter isInPort  portDefs
-        outputPorts <- forAll (check bodyContext) $ filter isOutPort portDefs
-        checkedNetSpecs <- forAll (checkNetSpec bodyContext) netSpecs
+        inputPorts  <- check bodyContext $ filter isInPort  portDefs
+        outputPorts <- check bodyContext $ filter isOutPort portDefs
+        checkedNetSpecs <- check bodyContext netSpecs
         let
             checkedNodeDecls = lefts checkedNetSpecs
             checkedModuleInsts = rights checkedNetSpecs
@@ -168,12 +178,6 @@ instance Checkable ASTF.Module ASTI.Module where
             isInPort (ASTF.MultiPortDef for) = isInPort $ ASTF.body for
             isInPort _ = False
             isOutPort = not . isInPort
-            checkNetSpec context (ASTF.NodeDeclSpec decl) = do
-                checkedDecl <- check context decl
-                return $ Left checkedDecl
-            checkNetSpec context (ASTF.ModuleInstSpec inst) = do
-                checkedInst <- check context inst
-                return $ Right checkedInst
 
 instance Checkable ASTF.PortDef ASTI.Port where
     check context (ASTF.MultiPortDef for) = do
@@ -182,6 +186,14 @@ instance Checkable ASTF.PortDef ASTI.Port where
     check context portDef = do
         checkedId <- check context (ASTF.portId portDef)
         return $ ASTI.Port checkedId
+
+instance Checkable ASTF.NetSpec (Either ASTI.NodeDecl ASTI.ModuleInst) where
+    check context (ASTF.NodeDeclSpec decl) = do
+        checkedDecl <- check context decl
+        return $ Left checkedDecl
+    check context (ASTF.ModuleInstSpec inst) = do
+        checkedInst <- check context inst
+        return $ Right checkedInst
 
 instance Checkable ASTF.ModuleInst ASTI.ModuleInst where
     check context (ASTF.MultiModuleInst for) = do
@@ -197,8 +209,8 @@ instance Checkable ASTF.ModuleInst ASTI.ModuleInst where
         checkedNameSpace <- check context nameSpace
         checkArgCount name mod arguments
         checkedArgs <- checkArgTypes name mod arguments 
-        inPortMap  <- forAll (check context) $ filter isInMap  portMaps
-        outPortMap <- forAll (check context) $ filter isOutMap portMaps
+        inPortMap  <- check context $ filter isInMap  portMaps
+        outPortMap <- check context $ filter isOutMap portMaps
         return ASTI.ModuleInst
             { ASTI.nameSpace  = checkedNameSpace
             , ASTI.moduleName = name
@@ -250,7 +262,7 @@ instance Checkable ASTF.PortMap ASTI.PortMap where
             mappedId = ASTF.mappedId portMap
             mappedPort = ASTF.mappedPort portMap
             idents = [mappedId, mappedPort]
-        checkedIds <- forAll (check context) idents
+        checkedIds <- check context idents
         return $ ASTI.PortMap
             { ASTI.mappedId   = head checkedIds
             , ASTI.mappedPort = last checkedIds
@@ -297,8 +309,8 @@ instance Checkable ASTF.NodeSpec ASTI.NodeSpec where
             accept = ASTF.accept ast
             translate = ASTF.translate ast
             overlay = ASTF.overlay ast
-        checkedAccept <- forAll (check context) accept
-        checkedTranslate <- forAll (check context) translate
+        checkedAccept <- check context accept
+        checkedTranslate <- check context translate
         checkedOverlay <- case overlay of
             Nothing    -> return Nothing
             Just ident -> do
@@ -319,7 +331,7 @@ instance Checkable ASTF.BlockSpec ASTI.BlockSpec where
     check context (ASTF.RangeBlock base limit) = do
         let
             addresses = [base, limit]
-        checkedAddresses <- forAll (check context) addresses
+        checkedAddresses <- check context addresses
         return ASTI.RangeBlock
             { ASTI.base  = head checkedAddresses
             , ASTI.limit = last checkedAddresses
@@ -360,27 +372,29 @@ instance Checkable ASTF.Address ASTI.Address where
 instance Checkable a b => Checkable (ASTF.For a) (ASTI.For b) where
     check context ast = do
         let
-            varNames = map ASTF.var (ASTF.varRanges ast)
+            varRanges = ASTF.varRanges ast
+            varNames = map ASTF.var varRanges
+            body = ASTF.body ast
         checkDuplicates varNames DuplicateVariable
-        ranges <- forAll (check context) (ASTF.varRanges ast)
+        ranges <- check context varRanges
         let
             currentVars = vars context
             bodyVars = currentVars `Set.union` (Set.fromList varNames)
             bodyContext = context
                 { vars = bodyVars }
-        body <- check bodyContext $ ASTF.body ast
+        checkedBody <- check bodyContext body
         let
-            varRanges = Map.fromList $ zip varNames ranges
+            checkedVarRanges = Map.fromList $ zip varNames ranges
         return ASTI.For
-                { ASTI.varRanges = varRanges
-                , ASTI.body      = body
+                { ASTI.varRanges = checkedVarRanges
+                , ASTI.body      = checkedBody
                 }
 
 instance Checkable ASTF.ForVarRange ASTI.ForRange where
     check context ast = do
         let
             limits = [ASTF.start ast, ASTF.end ast]
-        checkedLimits <- forAll (check context) limits
+        checkedLimits <- check context limits
         return ASTI.ForRange
             { ASTI.start = head checkedLimits
             , ASTI.end   = last checkedLimits
@@ -392,6 +406,15 @@ instance Checkable ASTF.ForLimit ASTI.ForLimit where
     check context (ASTF.ParamLimit name) = do
         checkParamType context name ASTI.NumberParam
         return $ ASTI.ParamLimit name
+
+instance Checkable a b => Checkable [a] [b] where
+    check context as = do
+        let
+            bs = map (check context) as
+            es = concat $ map failedChecks (lefts bs)
+        case es of
+            [] -> return $ rights bs
+            _  -> Left $ CheckFailure es
 --
 -- Helpers
 --
