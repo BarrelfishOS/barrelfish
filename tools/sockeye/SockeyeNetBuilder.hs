@@ -20,6 +20,8 @@
 module SockeyeNetBuilder
 ( sockeyeBuildNet ) where
 
+import qualified Data.Map as Map
+
 import qualified SockeyeAST as AST
 import qualified SockeyeASTDecodingNet as NetAST
 
@@ -30,4 +32,22 @@ instance Show CheckFailure where
     show f = unlines $ ["", message f]
 
 sockeyeBuildNet :: AST.SockeyeSpec -> Either CheckFailure NetAST.NetSpec
-sockeyeBuildNet _ = Left $ CheckFailure "Net Builder not yet implemented"
+sockeyeBuildNet ast = buildNet ast
+
+class NetSource a b where
+    buildNet :: a -> Either CheckFailure b
+
+instance NetSource AST.SockeyeSpec NetAST.NetSpec where
+    buildNet ast = do
+        let
+            rootInst = AST.ModuleInst
+                { AST.nameSpace  = AST.SimpleIdent ""
+                , AST.moduleName = "@root"
+                , AST.arguments  = Map.empty
+                , AST.inPortMap  = []
+                , AST.outPortMap = []
+                }
+        buildNet rootInst
+
+instance NetSource AST.ModuleInst NetAST.NetSpec where
+    buildNet ast = Left $ CheckFailure "ModuleInst conversion not yet implemented"
