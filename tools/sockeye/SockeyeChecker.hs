@@ -293,11 +293,10 @@ instance Checkable ParseAST.PortMap AST.PortMap where
         let
             mappedId = ParseAST.mappedId portMap
             mappedPort = ParseAST.mappedPort portMap
-            idents = [mappedId, mappedPort]
-        checkedIds <- check context idents
+        (checkedId, checkedPort) <- check context (mappedId, mappedPort)
         return $ AST.PortMap
-            { AST.mappedId   = head checkedIds
-            , AST.mappedPort = last checkedIds
+            { AST.mappedId   = checkedId
+            , AST.mappedPort = checkedPort
             }
 
 instance Checkable ParseAST.NodeDecl AST.NodeDecl where
@@ -361,12 +360,10 @@ instance Checkable ParseAST.BlockSpec AST.BlockSpec where
         return AST.SingletonBlock
             { AST.address = checkedAddress }
     check context (ParseAST.RangeBlock base limit) = do
-        let
-            addresses = [base, limit]
-        checkedAddresses <- check context addresses
+        (checkedBase, checkedLimit) <- check context (base, limit)
         return AST.RangeBlock
-            { AST.base  = head checkedAddresses
-            , AST.limit = last checkedAddresses
+            { AST.base  = checkedBase
+            , AST.limit = checkedLimit
             }
     check context (ParseAST.LengthBlock base bits) = do
         checkedBase <- check context base
@@ -424,12 +421,13 @@ instance Checkable a b => Checkable (ParseAST.For a) (AST.For b) where
 
 instance Checkable ParseAST.ForVarRange AST.ForRange where
     check context ast = do
-        let
-            limits = [ParseAST.start ast, ParseAST.end ast]
-        checkedLimits <- check context limits
+        let 
+            start = ParseAST.start ast
+            end = ParseAST.end ast
+        (checkedStart, checkedEnd) <- check context (start, end)
         return AST.ForRange
-            { AST.start = head checkedLimits
-            , AST.end   = last checkedLimits
+            { AST.start = checkedStart
+            , AST.end   = checkedEnd
             }
 
 instance Checkable ParseAST.ForLimit AST.ForLimit where
@@ -441,6 +439,17 @@ instance Checkable ParseAST.ForLimit AST.ForLimit where
 
 instance Checkable a b => Checkable [a] [b] where
     check context as = forAll (check context) as
+
+instance (Checkable a c, Checkable b d) => Checkable (a, b) (c, d) where
+    check context (a, b) =
+        let
+            eitherC = check context a
+            eitherD = check context b
+        in case (eitherC, eitherD) of
+            (Right c, Right d) -> return (c, d)
+            (Left e1, Left e2) -> Left $ CheckFailure (concat $ map failedChecks [e1, e2])
+            (Left e1, _)       -> Left $ e1
+            (_      , Left e2) -> Left $ e2
 --
 -- Helpers
 --
