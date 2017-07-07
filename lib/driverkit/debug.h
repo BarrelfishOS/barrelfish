@@ -10,10 +10,10 @@
 #ifndef __DRIVERKIT_DEBUG__
 #define __DRIVERKIT_DEBUG__
 
-#define ENABLE_DRIVERKIT_DEBUG 1
+//#define ENABLE_DRIVERKIT_DEBUG 1
 
 #if defined(ENABLE_DRIVERKIT_DEBUG) || defined(GLOBAL_DEBUG)
-#define DRIVERKIT_DEBUG(x...) printf("[dkit] " x)
+#define DRIVERKIT_DEBUG(x...) debug_printf("[dkit] " x)
 #else
 #define DRIVERKIT_DEBUG(x...) ((void)0)
 #endif

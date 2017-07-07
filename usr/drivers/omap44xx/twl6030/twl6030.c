@@ -12,12 +12,6 @@
 // I2C slave address for id1 reads and writes is 0x48
 #define ID1_I2C_ADDR 0x48
 
-#include "mmchs_debug.h"
-#if defined(TWL_SERIVCE_DEBUG) || defined(MMCHS_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define TWL_DEBUG(x...) printf(x)
-#else
-#define TWL_DEBUG(x...) ((void)0)
-#endif
 
 inline uint8_t _ti_twl6030_id1_read_8(void *d, size_t off)
 {
@@ -77,7 +71,7 @@ inline void _ti_twl6030_id1_write_8(void *d, size_t off, uint8_t regval)
     return;
 }
 
-void ti_twl6030_init(struct mmchs_driver_state* st)
+void ti_twl6030_init(struct twl6030_driver_state* st)
 {
     TWL_DEBUG("%s:%d\n", __FUNCTION__, __LINE__);
     ti_i2c_init(st, I2C_HC);

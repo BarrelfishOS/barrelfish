@@ -95,7 +95,9 @@
                "descq",
                "ddomain",
                "dcontrol",
-               "net_filter"
+               "net_filter",
+               "twl6030",
+               "cm2"
            ],
              arch <- allArchitectures
 ] ++

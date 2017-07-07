@@ -21,11 +21,4 @@
         "omap/omap44xx_device_prm" ],
     architectures = ["armv7"]
   }
-
-  --  build application {
-  --    target = "fdif",
-  --    cFiles = [ "fdif_domain.c"],
-  --    addModules = ["fdif_module"],
-  --    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ]
-  --  }
 ]

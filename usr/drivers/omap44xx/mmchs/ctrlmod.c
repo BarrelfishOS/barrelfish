@@ -14,7 +14,6 @@
 
 #include <driverkit/driverkit.h>
 
-#include "twl6030.h"
 #include "omap44xx_ctrlmod.h"
 
 #include "mmchs.h"
@@ -99,7 +98,7 @@ void sdmmc1_enable_power(struct mmchs_driver_state* st)
 
     // Step 3: Program desired SDMMC1_VDDS for MMC I/O in I2C attached power
     // controller (3.0V)
-    errval_t err = ti_twl6030_set_vmmc_vsel(st->twl, 3000);
+    errval_t err = st->twl6030_binding->rpc_tx_vtbl.vmmc_vsel(st->twl6030_binding, 3000);
     assert(err_is_ok(err));
 
     // Step 4: Set VMODE bit according to Step 3 (0x1 == 3.0V)

@@ -18,6 +18,7 @@
 
 #include <driverkit/driverkit.h>
 #include <arch/arm/omap44xx/device_registers.h>
+#include <if/cm2_defs.h>
 
 #include "mmchs.h"
 #include "cap_slots.h"
@@ -72,7 +73,9 @@ static void mmc_host_and_bus_configuration(struct mmchs_driver_state* st)
     omap44xx_mmchs1_mmchs_sysctl_cen_wrf(&st->mmchs, 0x0);
     omap44xx_mmchs1_mmchs_sysctl_ice_wrf(&st->mmchs, 0x1);
 
-    MMCHS_DEBUG("%s:%d: clksel = %u\n", __FUNCTION__, __LINE__, cm2_get_hsmmc1_base_clock(st));
+    uint32_t clock = 0;
+    st->cm2_binding->rpc_tx_vtbl.get_hsmmc1_base_clock(st->cm2_binding, &clock);
+    MMCHS_DEBUG("%s:%d: clksel = %u\n", __FUNCTION__, __LINE__, clock);
     change_clock_frequency_to_fit_protocol(st, 0x258);
 
     MMCHS_DEBUG("%s:%d: Wait until internal clock is stable.\n", __FUNCTION__, __LINE__);

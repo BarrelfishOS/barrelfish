@@ -52,17 +52,25 @@ int main(int argc, char** argv)
     struct bfdriver* cur = NULL;
     driverkit_list(&cur, &drivers);
     for (size_t i=0; i<drivers; i++) {
-        printf("%s:%s:%d: Found device driver class = %s\n", __FILE__, __FUNCTION__, __LINE__, cur->name);
+        //printf("%s:%s:%d: Found device driver class = %s\n", __FILE__, __FUNCTION__, __LINE__, cur->name);
         cur += 1;
     }
+    /*for (size_t i=0; i<argc; i++) {
+        printf("%s:%s:%d: argv[i] = %s\n", __FILE__, __FUNCTION__, __LINE__, argv[i]);
+    }*/
 
     iref_t kaluga_iref = 0;
     errval_t err = nameservice_blocking_lookup("ddomain_controller", &kaluga_iref);
     assert(err_is_ok(err));
-    err = ddomain_communication_init(kaluga_iref, 0x1);
+    err = ddomain_communication_init(kaluga_iref, atoi(argv[2]));
     assert(err_is_ok(err));
-    printf("%s:%s:%d: done initializing\n", __FILE__, __FUNCTION__, __LINE__);
 
-    messages_handler_loop();
+    while(1) {
+        err = event_dispatch(get_default_waitset());
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "error in event_dispatch for messages_wait_and_handle_next hack");
+        }
+    }
+
     return 0;
 }

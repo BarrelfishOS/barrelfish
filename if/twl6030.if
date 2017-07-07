@@ -1,0 +1,5 @@
+interface twl6030 "Controlling the Fully Integrated Power Management IC" {
+    rpc vmmc_on();
+    rpc vmmc_off();
+    rpc vmmc_vsel(in uint32 millis);
+};

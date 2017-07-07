@@ -31,21 +31,22 @@ static void argv_push(int * argc, char *** argv, char * new_arg){
     (*argv)[new_size] = NULL;
 }
 
-static errval_t launch_driver_domain(coreid_t where, size_t did, struct module_info* ddomain)
+static errval_t launch_driver_domain(coreid_t where, uint64_t did, struct module_info* ddomain)
 {
     assert(ddomain != NULL);
     errval_t err = SYS_ERR_OK;
 
     char **argv = NULL;
     int argc = ddomain->argc;
-    argv = malloc((argc+1) * sizeof(char *)); // +1 for trailing NULL
+    argv = malloc(sizeof(char*)*ddomain->argc); // +1 for trailing NULL
     assert(argv != NULL);
+
     memcpy(argv, ddomain->argv, (argc+1) * sizeof(char *));
     assert(argv[argc] == NULL);
 
-    char* did_str = malloc(26);
+    char* did_str = calloc(26, sizeof(char));
     assert(did_str != NULL);
-    snprintf(did_str, 26, "%"PRIx64"", did);
+    snprintf(did_str, 26, "%"PRIu64"", did);
     argv_push(&argc, &argv, did_str);
 
     err = spawn_program_with_caps(where, ddomain->path, argv,
@@ -59,6 +60,13 @@ static errval_t launch_driver_domain(coreid_t where, size_t did, struct module_i
     return err;
 }
 
+static void wait_for_id(struct domain_instance* di) {
+    while (di->b == NULL) {
+        messages_wait_and_handle_next();
+    }
+    KALUGA_DEBUG("%s:%s:%d: done with waiting for ID\n", __FILE__, __FUNCTION__, __LINE__);
+}
+
 struct domain_instance* instantiate_driver_domain(coreid_t where) {
     static uint64_t did = 1;
 
@@ -67,7 +75,8 @@ struct domain_instance* instantiate_driver_domain(coreid_t where) {
         USER_PANIC_ERR(err, "call failed.");
     }
     struct domain_instance* di = ddomain_create_domain_instance(did);
-    did++;
+    wait_for_id(di);
 
+    did++;
     return di;
 }

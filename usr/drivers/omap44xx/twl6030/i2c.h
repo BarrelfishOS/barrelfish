@@ -29,8 +29,8 @@ struct i2c_msg {
     uint8_t *buf;
 };
 
-struct mmchs_driver_state;
-void ti_i2c_init(struct mmchs_driver_state* st, int i);
+struct twl6030_driver_state;
+void ti_i2c_init(struct twl6030_driver_state* st, int i);
 errval_t ti_i2c_transfer(int i, struct i2c_msg *msgs, size_t msgcount);
 lpaddr_t i2c_get_pbase(size_t dev);
 

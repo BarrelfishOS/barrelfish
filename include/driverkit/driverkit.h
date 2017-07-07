@@ -12,6 +12,7 @@
 
 #include <barrelfish/types.h>
 #include <errors/errno.h>
+#include <collections/list.h>
 
 struct bfdriver;
 
@@ -46,6 +47,23 @@ void driverkit_list(struct bfdriver**, size_t*);
 struct bfdriver* driverkit_lookup_cls(const char*);
 
 /** driver domain flounder interface */
+struct domain_instance {
+    uint64_t service_id;
+    collections_listnode* to_spawn;
+    collections_listnode* spawned;
+    struct ddomain_binding *b;
+};
+
+struct driver_instance {
+    char* driver_name;
+    char* inst_name;
+    char** args;
+    size_t cap_idx;
+    struct capref* caps;
+    uint64_t flags;
+    iref_t dev;
+    iref_t control;
+};
 errval_t ddomain_communication_init(iref_t kaluga_iref, uint64_t id);
 errval_t ddomain_controller_init(void);
 struct domain_instance* ddomain_create_domain_instance(uint64_t id);
@@ -54,6 +72,7 @@ void ddomain_instantiate_driver(struct domain_instance* di, struct driver_instan
 void ddomain_free_driver_inst(void* arg);
 void ddomain_free_domain_inst(void* arg);
 errval_t ddomain_driver_add_cap(struct driver_instance* drv, struct capref cap);
+void ddomain_wait_for_id(void);
 
 /** driver control flounder interface */
 errval_t dcontrol_service_init(struct bfdriver_instance* bfi, struct waitset* ws);
@@ -61,6 +80,8 @@ errval_t dcontrol_service_init(struct bfdriver_instance* bfi, struct waitset* ws
 errval_t map_device_register(lpaddr_t, size_t, lvaddr_t*);
 errval_t map_device_cap(struct capref, lvaddr_t *);
 
+errval_t driverkit_local_service_register(char* name, void* tbl);
+void* driverkit_local_service_lookup(char* name);
 
 #define __bfdrivers		__attribute__((__section__(".bfdrivers")))
 #define __visible       __attribute__((__externally_visible__))

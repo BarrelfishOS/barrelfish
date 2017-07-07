@@ -116,13 +116,13 @@ static void irq_handler(void *args)
     read_result(st);
 
     omap44xx_fdif_fdif_ctrl_pr(st->printbuf, PRINT_BUFFER_SIZE, &st->devfdif);
-    printf("%s\n", st->printbuf);
+    FDIF_DEBUG("%s\n", st->printbuf);
 
     omap44xx_cam_cm2_pr(st->printbuf, PRINT_BUFFER_SIZE, &st->devclk);
-    printf("%s\n", st->printbuf);
+    FDIF_DEBUG("%s\n", st->printbuf);
 
     omap44xx_cam_prm_pr(st->printbuf, PRINT_BUFFER_SIZE, &st->dev);
-    printf("%s\n", st->printbuf);
+    FDIF_DEBUG("%s\n", st->printbuf);
 
 
     omap44xx_fdif_fdif_irqstatus_finish_irq_wrf(&st->devfdif, 2, 1);
@@ -268,13 +268,13 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
     while (omap44xx_fdif_fdif_sysconfig_softreset_rdf(&st->devfdif) != 0);
 
     omap44xx_fdif_fdif_sysconfig_pr(st->printbuf, PRINT_BUFFER_SIZE, &st->devfdif);
-    printf("%s\n", st->printbuf);
+    FDIF_DEBUG("%s\n", st->printbuf);
 
     omap44xx_fdif_fdif_sysconfig_idlemode_wrf(&st->devfdif, 0x2);
     omap44xx_fdif_fdif_sysconfig_standbymode_wrf(&st->devfdif, 0x2);
 
     omap44xx_fdif_fdif_sysconfig_pr(st->printbuf, PRINT_BUFFER_SIZE, &st->devfdif);
-    printf("%s\n", st->printbuf);
+    FDIF_DEBUG("%s\n", st->printbuf);
 
     omap44xx_fdif_fdif_ctrl_max_tags_wrf(&st->devfdif, 0xA);
 

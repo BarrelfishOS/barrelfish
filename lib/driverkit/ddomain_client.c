@@ -25,30 +25,13 @@
 #include <driverkit/driverkit.h>
 #include <if/ddomain_defs.h>
 
-#include <collections/list.h>
-
 #include "debug.h"
 #define SERVICE_NAME "ddomain_controller"
 
+#define MAX_CAPS 6
+#define MAX_ARGS 4
+
 static collections_listnode* driver_domain_instances;
-
-struct domain_instance {
-    uint64_t service_id;
-    struct ddomain_binding *b;
-    collections_listnode* to_spawn;
-    collections_listnode* spawned;
-};
-
-struct driver_instance {
-    char* driver_name;
-    char* inst_name;
-    char** args;
-    size_t cap_idx;
-    struct capref* caps;
-    uint64_t flags;
-    iref_t dev;
-    iref_t control;
-};
 
 void ddomain_free_driver_inst(void* arg) {
     struct driver_instance* di = (struct driver_instance*) arg;
@@ -62,6 +45,7 @@ void ddomain_free_driver_inst(void* arg) {
 struct domain_instance* ddomain_create_domain_instance(uint64_t id) {
     struct domain_instance* di = calloc(1, sizeof(struct domain_instance));
     assert(di != NULL);
+    di->b = NULL;
     di->service_id = id;
     collections_list_create(&di->to_spawn, ddomain_free_driver_inst);
     collections_list_create(&di->spawned, ddomain_free_driver_inst);
@@ -79,9 +63,9 @@ struct driver_instance* ddomain_create_driver_instance(char* driver_name, char* 
     di->inst_name = strdup(inst_name);
     assert(di->inst_name);
 
-    di->args = calloc(sizeof(char*), 4);
+    di->args = calloc(sizeof(char*), MAX_ARGS);
     assert(di->args);
-    di->caps = calloc(sizeof(struct capref), 4);
+    di->caps = calloc(sizeof(struct capref), MAX_CAPS);
     assert(di->caps);
 
     return di;
@@ -89,7 +73,7 @@ struct driver_instance* ddomain_create_driver_instance(char* driver_name, char* 
 
 errval_t ddomain_driver_add_cap(struct driver_instance* drv, struct capref cap) {
     assert(drv != NULL);
-    if (drv->cap_idx < 4) {
+    if (drv->cap_idx < MAX_CAPS) {
         drv->caps[drv->cap_idx++] = cap;
         return SYS_ERR_OK;
     }
@@ -104,20 +88,21 @@ static errval_t create_call(struct ddomain_binding *b, struct driver_instance* d
     assert(drv != NULL);
 
     errval_t out_err = SYS_ERR_OK;
-    errval_t err = b->rpc_tx_vtbl.create(b, drv->driver_name, strlen(drv->driver_name),
-                                          drv->inst_name, strlen(drv->inst_name),
+    DRIVERKIT_DEBUG("Trying to spawn %s (named %s)\n", drv->driver_name, drv->inst_name);
+    errval_t err = b->rpc_tx_vtbl.create(b, drv->driver_name, strlen(drv->driver_name)+1,
+                                          drv->inst_name, strlen(drv->inst_name)+1,
                                           drv->args[0], (drv->args[0] != NULL) ? strlen(drv->args[0]) : 0,
                                           drv->args[1], (drv->args[1] != NULL) ? strlen(drv->args[1]) : 0,
                                           drv->args[2], (drv->args[2] != NULL) ? strlen(drv->args[2]) : 0,
                                           drv->args[3], (drv->args[3] != NULL) ? strlen(drv->args[3]) : 0,
-                                          drv->caps[0], drv->caps[1], drv->caps[2], drv->caps[3],
-                                          drv->flags, &out_err, &drv->dev, &drv->control);
-
-    DRIVERKIT_DEBUG("Driver domain created driver reachable at [%"PRIuIREF", %"PRIuIREF"]\n", drv->dev, drv->control);
+                                          drv->caps[0], drv->caps[1], drv->caps[2], drv->caps[3], drv->caps[4], drv->caps[5],
+                                          drv->flags, &drv->dev, &drv->control, &out_err);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to create driver %s\n", drv->driver_name);
         return err;
     }
     else {
+        printf("Driver %s created, reachable at [%"PRIuIREF", %"PRIuIREF"]\n", drv->driver_name, drv->dev, drv->control);
         return out_err;
     }
 }
@@ -164,7 +149,6 @@ static void rpc_export_cb(void *st, errval_t err, iref_t iref)
 static int32_t find_id(void* data, void* arg) {
     struct domain_instance* di = (void*) data;
     uint64_t id = (uint64_t)(uintptr_t) arg;
-    printf("%s:%s:%d: check %"PRIu64"\n", __FILE__, __FUNCTION__, __LINE__, di->service_id);
     return di->service_id == id;
 }
 
@@ -173,7 +157,7 @@ static void ddomain_identify_handler(struct ddomain_binding* binding, uint64_t i
 
     void* found = collections_list_find_if(driver_domain_instances, find_id, (void*)(uintptr_t) id);
     if (found) {
-        DRIVERKIT_DEBUG("Found driver for id %"PRIu64"", id);
+        DRIVERKIT_DEBUG("Found driver for id %"PRIu64"\n", id);
         struct domain_instance* di = (struct domain_instance*) found;
         assert(di->service_id == id);
         di->b = binding;
@@ -181,7 +165,7 @@ static void ddomain_identify_handler(struct ddomain_binding* binding, uint64_t i
         void* removed;
         while ( (removed = collections_list_remove_ith_item(di->to_spawn, 0)) != NULL ) {
             struct driver_instance* driver = (struct driver_instance*) removed;
-            DRIVERKIT_DEBUG("Trying to spawn %s", driver->inst_name);
+            DRIVERKIT_DEBUG("Trying to spawn %s\n", driver->inst_name);
             errval_t err = create_call(di->b, driver);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "Can't spawn driver intstance.");
@@ -201,7 +185,7 @@ static const struct ddomain_rx_vtbl rpc_rx_vtbl = {
 
 static errval_t rpc_connect_cb(void *st, struct ddomain_binding *b)
 {
-    DRIVERKIT_DEBUG("Got a new connection from driver domain.\n");
+    DRIVERKIT_DEBUG("%s:%s:%d: Got a new connection from driver domain.\n", __FILE__, __FUNCTION__, __LINE__);
     rpc_export.b = b;
 
     b->rx_vtbl = rpc_rx_vtbl;
@@ -229,6 +213,7 @@ errval_t ddomain_controller_init(void)
         return err;
     }
 
+    DRIVERKIT_DEBUG("%s:%s:%d: Trying to export ddomain interface\n", __FILE__, __FUNCTION__, __LINE__);
     // XXX: broken
     while (!rpc_export.is_done) {
         messages_wait_and_handle_next();

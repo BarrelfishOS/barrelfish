@@ -9,14 +9,12 @@
 
 #include <barrelfish/barrelfish.h>
 #include <driverkit/driverkit.h>
+#include <assert.h>
 
 #include <dev/ti_i2c_dev.h>
 
-#include "omap44xx_cm2.h" // for turning on I2C clocks
 #include "i2c.h"
 #include "twl6030.h"
-#include "mmchs.h"
-#include "cap_slots.h"
 
 #if defined(I2C_SERVICE_DEBUG) || defined(MMCHS_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define I2C_DEBUG(x...) debug_printf(x)
@@ -58,20 +56,22 @@ static int tsc_read(void)
 /*
  * \brief initialize I2C controller `i`.
  */
-void ti_i2c_init(struct mmchs_driver_state* st, int i)
+void ti_i2c_init(struct twl6030_driver_state* st, int i)
 {
     I2C_DEBUG("%s:%d\n", __FUNCTION__, __LINE__);
     // map & initialize mackerel device
     lvaddr_t i2c_vbase;
-    errval_t err = map_device_cap(st->caps[IC2_SLOT], &i2c_vbase);
+    errval_t err = map_device_cap(st->cap, &i2c_vbase);
     assert(err_is_ok(err));
     ti_i2c_initialize(&i2c[i], (mackerel_addr_t)i2c_vbase);
 
     ti_i2c_t *dev = &i2c[i];
 
     // turn on clocks
-    cm2_enable_i2c(st, i);
-
+    assert(st->cm2_binding != NULL);
+    assert(st->cm2_binding->rpc_tx_vtbl.enable_i2c != NULL);
+    err = st->cm2_binding->rpc_tx_vtbl.enable_i2c(st->cm2_binding, i);
+    assert(err_is_ok(err));
     I2C_DEBUG("%s:%d\n", __FUNCTION__, __LINE__);
 
     // TODO?: enable interrupts
@@ -137,8 +137,6 @@ void ti_i2c_init(struct mmchs_driver_state* st, int i)
     //I2C_DEBUG("Initialized\n");
     //ti_i2c_sysc_pr(prbuf, PBS-1, dev);
     //I2C_DEBUG("%s\n", prbuf);
-
-
 
     return;
 }

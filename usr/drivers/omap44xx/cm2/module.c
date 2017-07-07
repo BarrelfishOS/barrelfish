@@ -17,28 +17,9 @@
 #include <assert.h>
 
 #include <barrelfish/barrelfish.h>
-#include <barrelfish/nameservice_client.h>
 #include <driverkit/driverkit.h>
 
-#include "mmchs.h"
-
-
-static void cm2_connected(void *st, errval_t err, struct cm2_binding *b) {
-    MMCHS_DEBUG("Connected to cm2 driver\n");
-    assert(err_is_ok(err));
-    struct mmchs_driver_state* dst = (struct mmchs_driver_state*) st;
-    cm2_rpc_client_init(b);
-    dst->cm2_binding = b;
-}
-
-static void twl6030_connected(void *st, errval_t err, struct twl6030_binding *b) {
-    MMCHS_DEBUG("Connected to twl6030 driver\n");
-    assert(err_is_ok(err));
-    struct mmchs_driver_state* dst = (struct mmchs_driver_state*) st;
-    twl6030_rpc_client_init(b);
-    dst->twl6030_binding = b;
-}
-
+#include "cm2.h"
 
 /**
  * Driver initialization function. This function is called by the driver domain
@@ -60,56 +41,20 @@ static void twl6030_connected(void *st, errval_t err, struct twl6030_binding *b)
  */
 static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t flags,
                      struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) {
-    MMCHS_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
+    CM2_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
-    bfi->dstate = malloc(sizeof(struct mmchs_driver_state));
+    bfi->dstate = malloc(sizeof(struct cm2_driver_state));
     if (bfi->dstate == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
+
     assert(bfi->dstate != NULL);
-    struct mmchs_driver_state* st = (struct mmchs_driver_state*) bfi->dstate;
-    st->caps = caps;
 
-    // Connect to the cm2 driver
-    iref_t cm2_iref;
-    errval_t err = nameservice_lookup("cm2", &cm2_iref);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "finding cm2 service failed.");
-    }
-    err = cm2_bind(cm2_iref, cm2_connected, st, get_default_waitset(), IDC_EXPORT_FLAG_NO_NOTIFY);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "call failed.");
-    }
-    while(st->cm2_binding == NULL) {
-        messages_wait_and_handle_next();
-    }
-    assert(st->cm2_binding != NULL);
+    struct cm2_driver_state* st = (struct cm2_driver_state*) bfi->dstate;
+    st->cap = caps[0];
 
-    // Connect to the twl6030 driver
-    iref_t twl6030_iref;
-    err = nameservice_lookup("twl6030", &twl6030_iref);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "finding cm2 service failed.");
-    }
-    err = twl6030_bind(twl6030_iref, twl6030_connected, st, get_default_waitset(), IDC_EXPORT_FLAG_NO_NOTIFY);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "call failed.");
-    }
-    while(st->twl6030_binding == NULL) {
-        messages_wait_and_handle_next();
-    }
-    assert(st->twl6030_binding != NULL);
-
-    // 1. Initialize the device:
-    ctrlmod_init(st);
-    err = st->cm2_binding->rpc_tx_vtbl.enable_hsmmc1(st->cm2_binding);
-    assert(err_is_ok(err));
-    sdmmc1_enable_power(st);
-    mmchs_init(st);
-
-    // 2. Export service to talk to the device:
-    // FYI: Making this use THC+thread currently fails somewhere in the THC runtime
-    mmchs_init_service(st, dev);
+    cm2_init(st);
+    cm2_init_service(st, dev);
 
     return SYS_ERR_OK;
 }
@@ -126,7 +71,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
  * \retval SYS_ERR_OK Device initialized successfully.
  */
 static errval_t attach(struct bfdriver_instance* bfi) {
-    MMCHS_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
+    CM2_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
     return SYS_ERR_OK;
 }
@@ -140,7 +85,7 @@ static errval_t attach(struct bfdriver_instance* bfi) {
  * \retval SYS_ERR_OK Device initialized successfully.
  */
 static errval_t detach(struct bfdriver_instance* bfi) {
-    MMCHS_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
+    CM2_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
     return SYS_ERR_OK;
 }
@@ -153,9 +98,9 @@ static errval_t detach(struct bfdriver_instance* bfi) {
  * \retval SYS_ERR_OK Device initialized successfully.
  */
 static errval_t set_sleep_level(struct bfdriver_instance* bfi, uint32_t level) {
-    MMCHS_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
+    CM2_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
-    struct mmchs_driver_state* uds = bfi->dstate;
+    struct cm2_driver_state* uds = bfi->dstate;
     uds->level = level;
 
     return SYS_ERR_OK;
@@ -169,8 +114,8 @@ static errval_t set_sleep_level(struct bfdriver_instance* bfi, uint32_t level) {
  * \retval SYS_ERR_OK Device initialized successfully.
  */
 static errval_t destroy(struct bfdriver_instance* bfi) {
-    MMCHS_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
-    struct mmchs_driver_state* uds = bfi->dstate;
+    CM2_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
+    struct cm2_driver_state* uds = bfi->dstate;
     free(uds);
     bfi->dstate = NULL;
 
@@ -182,8 +127,5 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
 
 /**
  * Registers the driver module with the system.
- *
- * To link this particular module in your driver domain,
- * add it to the addModules list in the Hakefile.
  */
-DEFINE_MODULE(mmchs, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(cm2, init, attach, detach, set_sleep_level, destroy);

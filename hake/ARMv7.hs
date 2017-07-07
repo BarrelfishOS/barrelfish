@@ -54,7 +54,7 @@ ourCommonFlags = [ Str "-fno-unwind-tables",
                    Str "-Wno-format"
  ]
 
-cFlags = ArchDefaults.commonCFlags 
+cFlags = ArchDefaults.commonCFlags
          ++ ArchDefaults.commonFlags
          ++ ourCommonFlags
 
@@ -73,11 +73,11 @@ ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
 
 stdLibs = ArchDefaults.stdLibs arch
 
-options = (ArchDefaults.options arch archFamily) { 
+options = (ArchDefaults.options arch archFamily) {
             optFlags = cFlags,
             optCxxFlags = cxxFlags,
             optDefines = cDefines,
-            optDependencies = 
+            optDependencies =
                 [ PreDep InstallTree arch "/include/trace_definitions/trace_defs.h",
                   PreDep InstallTree arch "/include/errors/errno.h",
                   PreDep InstallTree arch "/include/barrelfish_kpi/capbits.h",
@@ -86,8 +86,8 @@ options = (ArchDefaults.options arch archFamily) {
             optLdFlags = ldFlags,
             optLdCxxFlags = ldCxxFlags,
             optLibs = stdLibs,
-            optInterconnectDrivers = ["lmp", "ump"],
-            optFlounderBackends = ["lmp", "ump"]
+            optInterconnectDrivers = ["lmp", "ump", "local"],
+            optFlounderBackends = ["lmp", "ump", "local"]
           }
 
 --
@@ -184,10 +184,10 @@ linkKernel opts objs libs name driverType =
                     (ArchDefaults.kernelLibs arch)
                    ),
               -- Generate kernel assembly dump
-              Rule [ Str objdump, 
-                     Str "-d", 
+              Rule [ Str objdump,
+                     Str "-d",
                      Str "-M reg-names-raw",
-                     In BuildTree arch kbinary, 
+                     In BuildTree arch kbinary,
                      Str ">", Out arch kasmdump ],
               Rule [ Str "cpp",
                      NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/armv7",

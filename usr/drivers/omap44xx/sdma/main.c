@@ -427,10 +427,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
     omap_sdma_init(bfi->dstate, (mackerel_addr_t)dev_base, sdma_irq_handler);
 
     // 2. Export service to talk to the device:
-    start_service(bfi->dstate);
-
-    // 3. Set iref of your exported service (this is reported back to Kaluga)
-    *dev = 0x00;
+    sdma_init_service(bfi->dstate, dev);
 
     return SYS_ERR_OK;
 }

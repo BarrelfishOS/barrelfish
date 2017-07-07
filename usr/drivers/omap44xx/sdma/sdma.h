@@ -13,8 +13,16 @@
 #include <if/omap_sdma_defs.h>
 #include <bitmacros.h>
 
+//#define SDMA_DEBUG_ON 1
+
+#if defined(SDMA_DEBUG_ON) || defined(MMCHS_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
+#define SDMA_DEBUG(x...) printf(x)
+#else
+#define SDMA_DEBUG(x...) ((void)0)
+#endif
+
 struct sdma_driver_state;
-void start_service(struct sdma_driver_state* st);
+void sdma_init_service(struct sdma_driver_state* st, iref_t* iref);
 
 errval_t mem_copy(struct sdma_driver_state* st, struct capref dst_cap, struct capref src_cap);
 errval_t mem_fill(struct sdma_driver_state* st, struct capref dst_cap, uint8_t color);

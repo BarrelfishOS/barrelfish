@@ -10,7 +10,7 @@
 #ifndef MMCHS2_DEBUG_H
 #define MMCHS2_DEBUG_H
 
-#define MMCHS_SERVICE_DEBUG 1
+//#define MMCHS_SERVICE_DEBUG 1
 
 #if defined(MMCHS_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define MMCHS_DEBUG(x...) debug_printf(x)

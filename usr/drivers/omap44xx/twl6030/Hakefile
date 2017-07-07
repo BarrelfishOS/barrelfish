@@ -11,21 +11,15 @@
 --------------------------------------------------------------------------
 
 [
-    build library { target = "mmchs_module",
-                    cFiles = [
-                        "main.c", "ctrlmod.c",
-                        "mmchs.c", "service.c"
-                    ],
+    build library {
+                    target = "twl6030_module",
+                    cFiles = [ "i2c.c", "twl6030.c", "module.c", "service.c" ],
                     mackerelDevices = [
-                        "omap/omap44xx_mmchs1",
-                        "omap/omap44xx_sysctrl_padconf_core"
+                        "ti_i2c",
+                        "ti_twl6030"
                     ],
-
-                    flounderDefs = [ "ata_rw28", "cm2", "twl6030" ],
-                    flounderBindings = [ "ata_rw28" ],
-                    flounderTHCStubs = [ "ata_rw28" ],
-
+                    flounderDefs = [ "twl6030", "cm2" ],
+                    flounderBindings = [ "twl6030" ],
                     architectures = ["armv7"]
     }
-
 ]

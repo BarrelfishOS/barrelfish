@@ -21,11 +21,4 @@
 
                     architectures = ["armv7"]
     }
-
-    --build application {
-    --    target = "sdma",
-    --    cFiles = [ "sdma_domain.c"],
-    --    addModules = ["sdma_module"],
-    --    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ]
-    --}
 ]

@@ -10,10 +10,7 @@
 #ifndef __CAP_SLOTS__
 #define __CAP_SLOTS__
 
-#define CM2_SLOT 0
-#define CLKGEN_CM2_SLOT 1
-#define IC2_SLOT 2
-#define L4_PER_HSMMC1_SLOT 3
-#define PADCONF_CORE_SLOT 4
+#define PADCONF_CORE_SLOT 0
+#define L4_PER_HSMMC1_SLOT 1
 
 #endif // __CAP_SLOTS__

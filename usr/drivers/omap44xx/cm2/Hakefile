@@ -11,21 +11,15 @@
 --------------------------------------------------------------------------
 
 [
-    build library { target = "mmchs_module",
+    build library { target = "cm2_module",
                     cFiles = [
-                        "main.c", "ctrlmod.c",
-                        "mmchs.c", "service.c"
+                        "cm2.c", "module.c", "service.c"
                     ],
                     mackerelDevices = [
-                        "omap/omap44xx_mmchs1",
-                        "omap/omap44xx_sysctrl_padconf_core"
+                        "omap/omap44xx_l3init_cm2"
                     ],
-
-                    flounderDefs = [ "ata_rw28", "cm2", "twl6030" ],
-                    flounderBindings = [ "ata_rw28" ],
-                    flounderTHCStubs = [ "ata_rw28" ],
-
+                    flounderDefs = [ "cm2" ],
+                    flounderBindings = [ "cm2" ],
                     architectures = ["armv7"]
     }
-
 ]

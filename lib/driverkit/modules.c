@@ -199,3 +199,16 @@ errval_t driverkit_create_driver(const char* cls, const char* name,
 
     return err;
 }
+
+
+errval_t driverkit_local_service_register(char* name, void* tbl)
+{
+    
+    return SYS_ERR_OK;
+}
+
+void* driverkit_local_service_lookup(char* name)
+{
+
+    return NULL;
+}
