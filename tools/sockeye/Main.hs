@@ -28,6 +28,8 @@ import SockeyeASTBackend as ASTB
 
 import SockeyeParser
 import SockeyeChecker
+import SockeyeNetBuilder
+
 import qualified SockeyeBackendPrintAST as PrintAST
 import qualified SockeyeBackendProlog as Prolog
 
@@ -43,7 +45,8 @@ parseError = ExitFailure 2
 checkError :: ExitCode
 checkError = ExitFailure 3
 
-
+buildError :: ExitCode
+buildError = ExitFailure 4
 
 {- Compilation targets -}
 data Target = None | PrintAST | Prolog
@@ -142,6 +145,15 @@ checkAST parsedAst = do
             exitWith checkError
         Right intermAst -> return intermAst
 
+{- Builds the decoding net from the Sockeye AST -}
+buildNet :: ASTI.SockeyeSpec -> IO ASTB.NetSpec
+buildNet ast = do
+    case sockeyeBuildNet ast of 
+        Left fail -> do
+            hPutStr stderr $ show fail
+            exitWith buildError
+        Right netAst -> return netAst
+
 {- Compiles the AST with the appropriate backend -}
 compile :: Target -> ASTB.NetSpec -> IO String
 compile None     _   = return ""
@@ -160,8 +172,9 @@ main = do
     opts <- compilerOpts args
     let inFile = optInputFile opts
     parsedAst <- parseFile inFile
-    intermAst <- checkAST parsedAst
-    putStrLn $ groom intermAst
+    ast <- checkAST parsedAst
+    netAst <- buildNet ast
+    putStrLn $ groom netAst
     -- out <- compile (optTarget opts) ast
     -- output (optOutputFile opts) out
     
