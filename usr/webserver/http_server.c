@@ -23,6 +23,7 @@
 #include <netinet/in.h>
 #include <net_sockets/net_sockets.h>
 #include <netbench/netbench.h>
+#include <debug_log/debug_log.h>
 
 #define LWIP_IPV4
 #include <lwip/ip_addr.h>
@@ -183,7 +184,7 @@ static void http_conn_invalidate (struct http_conn *conn)
 // }
 //
 //
-static void http_server_close(struct net_socket *tpcb, struct http_conn *cs)
+static void http_server_close(struct net_socket *socket, struct http_conn *cs)
 {
 /*
     printf("%s %s %s %hu.%hu.%hu.%hu in %"PU"\n",
@@ -192,17 +193,23 @@ static void http_server_close(struct net_socket *tpcb, struct http_conn *cs)
            ip4_addr3(&cs->pcb->remote_ip), ip4_addr4(&cs->pcb->remote_ip),
             in_seconds(get_time_delta(&cs->start_ts)));
 */
+    // debug_printf_to_log("%s(%d): %p", __func__, socket->descriptor, __builtin_return_address(0));
     DEBUGPRINT("%d: http_server_close freeing the connection\n",
         cs->request_no);
 
-    // replace TCP callbacks with NULL
-    if (cs != NULL) {
-        http_conn_invalidate (cs);
-    }
-    net_close(tpcb);
+    assert(cs);
+    // debug_printf("%s(%d):\n", __func__, socket->descriptor);
+    net_close(socket);
 }
 
-static errval_t trysend(struct net_socket *t, const void *data, size_t *len, bool
+static void http_server_closed(void *arg, struct net_socket *socket)
+{
+    // debug_printf("%s(%d):\n", __func__, socket->descriptor);
+    struct http_conn *cs = arg;
+    http_conn_invalidate(cs);
+}
+
+static errval_t trysend(struct net_socket *socket, const void *data, size_t *len, bool
 more)
 {
     size_t sendlen;
@@ -217,7 +224,7 @@ more)
         if (!buffer)
             break;
         memcpy(buffer, data + sendlen, s);
-        err = net_send(t, buffer, s);
+        err = net_send(socket, buffer, s);
         assert(err_is_ok(err));
         sendlen += s;
     }
@@ -225,12 +232,13 @@ more)
     return SYS_ERR_OK;
 }
 
-static void http_send_data(struct net_socket *tpcb, struct http_conn *conn)
+static void http_send_data(struct net_socket *socket, struct http_conn *conn)
 {
     errval_t err;
     const void *data;
     size_t len;
 
+// debug_printf_to_log("%s(%d): %p %d", __func__, socket->descriptor, conn, conn->state);
     switch (conn->state) {
     case HTTP_STATE_SENDHEADER:
         DEBUGPRINT ("%d: http_send_data: header_pos %lu < header_len %lu\n",
@@ -238,7 +246,8 @@ static void http_send_data(struct net_socket *tpcb, struct http_conn *conn)
         assert(conn->header_pos < conn->header_length);
         data = &conn->header[conn->header_pos];
         len = conn->header_length - conn->header_pos;
-        err = trysend(tpcb, data, &len, (conn->hbuff->data != NULL));
+ // debug_printf_to_log("%s(%d): header %zd:%zd", __func__, socket->descriptor, conn->header_pos, len);
+        err = trysend(socket, data, &len, (conn->hbuff->data != NULL));
         if (err != SYS_ERR_OK) {
             DEBUGPRINT("http_send_data(): Error %d sending header\n", err);
             return; // will retry
@@ -266,14 +275,17 @@ static void http_send_data(struct net_socket *tpcb, struct http_conn *conn)
         // debug_printf("%s: %zd %zd\n", __func__, len, maxlen);
         if (len > maxlen)
             len = maxlen;
-        err = trysend(tpcb, data, &len, false);
+ // debug_printf_to_log("%s(%d): file %zd:%zd", __func__, socket->descriptor, conn->reply_pos, len);
+        err = trysend(socket, data, &len, false);
         if (err != SYS_ERR_OK) {
             DEBUGPRINT("http_send_data(): Error %d sending payload\n", err);
             return; // will retry
         }
         conn->reply_pos += len;
+// debug_printf_to_log("%s(%d): %zd %zd\n", __func__, socket->descriptor, conn->reply_pos, conn->hbuff->len);
         if (conn->reply_pos == conn->hbuff->len) {
             conn->state = HTTP_STATE_CLOSING;
+            http_server_close(socket, conn);
         }
         break;
 
@@ -286,28 +298,28 @@ static void http_send_data(struct net_socket *tpcb, struct http_conn *conn)
 /* This function is called periodically from TCP.
  * and is also responsible for taking care of stale connections.
 **/
-// static errval_t http_poll(void *arg, struct net_socket *tpcb)
+// static errval_t http_poll(void *arg, struct net_socket *socket)
 // {
 //     struct http_conn *conn = arg;
 //
-//     if (conn == NULL && tpcb->state == ESTABLISHED) {
-//         tcp_abort(tpcb);
+//     if (conn == NULL && socket->state == ESTABLISHED) {
+//         tcp_abort(socket);
 //         return ERR_ABRT;
 //     } else if (conn != NULL && (conn->state == HTTP_STATE_SENDHEADER
 //                                 || conn->state == HTTP_STATE_SENDFILE)) {
 //         if (++conn->retries == 4) {
 //             DEBUGPRINT ("connection closed, tried too hard\n");
 //             http_conn_invalidate (conn);
-//             net_delete_socket(tpcb);
+//             net_delete_socket(socket);
 //             return ERR_ABRT;
 //         }
-//         http_send_data(tpcb, conn);
+//         http_send_data(socket, conn);
 //         if (conn->state == HTTP_STATE_CLOSING) {
 //             DEBUGPRINT ("%d: http_poll closing the connection\n",
 //                     conn->request_no);
-//             http_server_close(tpcb, conn);
+//             http_server_close(socket, conn);
 //         } else {
-//             // tcp_output(tpcb);
+//             // tcp_output(socket);
 //         }
 //     } else if (conn != NULL && (conn->state == HTTP_STATE_NEW
 //                                 || conn->state == HTTP_STATE_REQUEST)) {
@@ -320,7 +332,7 @@ static void http_send_data(struct net_socket *tpcb, struct http_conn *conn)
 //                         conn->state);
 //
 //             http_conn_invalidate (conn);
-//             net_delete_socket(tpcb);
+//             net_delete_socket(socket);
 //             return ERR_ABRT;
 //         }
 //     }
@@ -332,6 +344,8 @@ static void http_server_sent(void *arg, struct net_socket *socket, void *buffer,
 {
     struct http_conn *conn = arg;
 
+    // debug_printf("%s(%d): %d\n", __func__, socket->descriptor, conn->state == HTTP_STATE_CLOSING);
+    // debug_printf_to_log("%s(%d):", __func__, socket->descriptor);
     assert(conn);
     net_free(buffer);
 
@@ -346,17 +360,15 @@ static void http_server_sent(void *arg, struct net_socket *socket, void *buffer,
     case HTTP_STATE_SENDFILE:
         // Need to send more data?
         http_send_data(socket, conn);
-        if (conn->state != HTTP_STATE_CLOSING) {
-            // tcp_output(tpcb);
-            break;
-        }
-
+        break;
     case HTTP_STATE_CLOSING:
         DEBUGPRINT("%d: http_server_sent closing the connection\n",
                     conn->request_no);
+// debug_printf_to_log("%s(%d): %ld:%ld  %ld:%ld", __func__, socket->descriptor, conn->header_pos, conn->header_sent, conn->reply_pos, conn->reply_sent);
+        // if (conn->header_pos == conn->header_sent && conn->reply_pos == conn->reply_sent) {
 // debug_printf("%s.%d: %zd\n", __func__, __LINE__, size);
-        if (conn->header_pos == conn->header_sent && conn->reply_pos == conn->reply_sent)
-            http_server_close(socket, conn);
+            // http_server_close(socket, conn);
+        // }
         break;
 
     default:
@@ -438,32 +450,33 @@ static void send_response(struct http_conn *cs)
     http_send_data(cs->pcb, cs);
 
     /* did we send the whole page? */
-    if (cs->state == HTTP_STATE_CLOSING) {
-        DEBUGPRINT("%d: send_response closing the connection\n",
-                cs->request_no);
+    // if (cs->state == HTTP_STATE_CLOSING) {
+    //     DEBUGPRINT("%d: send_response closing the connection\n",
+    //             cs->request_no);
 // debug_printf("%s.%d:\n", __func__, __LINE__);
                                 // http_server_close(cs->pcb, cs);
-    } else {
+    // } else {
         // tcp_output(cs->pcb);
-    }
+    // }
 } /* end function: send_response */
 
-// static errval_t http_server_recv(void *arg, struct net_socket *tpcb, struct pbuf *p,
+// static errval_t http_server_recv(void *arg, struct net_socket *socket, struct pbuf *p,
 //                               errval_t err);
 //
-static void http_server_recv(void *arg, struct net_socket *tpcb, void *data, size_t size, struct in_addr ip_address, uint16_t port)
+static void http_server_recv(void *arg, struct net_socket *socket, void *data, size_t size, struct in_addr ip_address, uint16_t port)
 {
     struct http_conn *conn = arg;
 
     DEBUGPRINT("%d, http_server_recv called\n", conn->request_no);
-    // debug_printf("%s(%d): %ld\n", __func__, tpcb->descriptor, size);
+    // debug_printf_to_log("%s(%d): %ld %d\n", __func__, socket->descriptor, size, conn->state);
 
     // check if connection closed
     assert(conn);
     if (size == 0) {
         DEBUGPRINT("%d, closing from http_server_recv\n", conn->request_no);
 // debug_printf("%s.%d:\n", __func__, __LINE__);
-        http_server_close(tpcb, conn);
+        conn->state = HTTP_STATE_CLOSING;
+        http_server_close(socket, conn);
         return;
     }
 
@@ -474,7 +487,7 @@ static void http_server_recv(void *arg, struct net_socket *tpcb, void *data, siz
 
     case HTTP_STATE_REQUEST:
         /* don't send an immediate ack here, do it later with the data */
-        // tpcb->flags &= ~(TF_ACK_DELAY | TF_ACK_NOW);
+        // socket->flags &= ~(TF_ACK_DELAY | TF_ACK_NOW);
 
         /* accumulate the request data */
         conn->request_length += size;
@@ -525,7 +538,7 @@ static void http_server_recv(void *arg, struct net_socket *tpcb, void *data, siz
 
         conn->filename = (char *)uri;
         conn->callback = send_response;
-        conn->pcb = tpcb;
+        conn->pcb = socket;
         conn->start_ts = rdtsc();
         /* for callback execution */
         errval_t e = http_cache_lookup(uri, conn);
@@ -548,30 +561,30 @@ invalid:
     DEBUGPRINT("invalid request: %s\n", conn->request);
     DEBUGPRINT("%d: invalid request: %s\n",conn->request_no, conn->request);
     conn->state = HTTP_STATE_CLOSING;
-// debug_printf("%s.%d:\n", __func__, __LINE__);
-    http_server_close(tpcb, conn);
+    http_server_close(socket, conn);
     return;
 }
 
-static void http_server_accept(void *arg, struct net_socket *tpcb)
+static void http_server_accept(void *arg, struct net_socket *socket)
 {
 // #if TCP_LISTEN_BACKLOG
 //     /* Decrease the listen backlog counter */
 //     struct tcp_pcb_listen *lpcb = (struct tcp_pcb_listen*)arg;
 // #endif
-    // debug_printf("%s(%d):\n", __func__, tpcb->descriptor);
+    // debug_printf_to_log("%s(%d):", __func__, socket->descriptor);
     struct http_conn *conn = http_conn_new();
     DEBUGPRINT("accpet called: %s\n", conn->request);
     increment_http_conn_reference (conn);
     /* NOTE: This initial increment marks the basic assess and it will be
         decremented by http_server_invalidate */
 
-    net_set_user_state(tpcb, conn);
-    net_recv(tpcb, http_server_recv);
-    net_set_sent(tpcb, http_server_sent);
+    net_set_user_state(socket, conn);
+    net_set_on_received(socket, http_server_recv);
+    net_set_on_sent(socket, http_server_sent);
+    net_set_on_closed(socket, http_server_closed);
 
-    // tcp_err(tpcb, http_server_err);
-    // tcp_poll(tpcb, http_poll, 4);
+    // tcp_err(socket, http_server_err);
+    // tcp_poll(socket, http_poll, 4);
 }
 
 
@@ -586,7 +599,7 @@ static void realinit(void)
     e = net_listen(pcb, 100);
     assert(e == SYS_ERR_OK);
 
-    net_accept(pcb, http_server_accept);
+    net_set_on_accepted(pcb, http_server_accept);
     printf("HTTP setup time %"PU"\n", in_seconds(get_time_delta(&ts)));
     printf("#######################################################\n");
     printf("Starting webserver\n");

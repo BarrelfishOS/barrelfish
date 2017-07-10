@@ -357,7 +357,7 @@ errval_t tftp_client_connect(char *ip, uint16_t port)
     // }
 
     TFTP_DEBUG("registering recv handler\n");
-    net_recv(tftp_client.pcb, tftp_client_recv_handler);
+    net_set_on_received(tftp_client.pcb, tftp_client_recv_handler);
 
     tftp_client.state = TFTP_ST_IDLE;
     tftp_client.mode = TFTP_MODE_OCTET;

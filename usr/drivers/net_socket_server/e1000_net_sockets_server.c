@@ -32,6 +32,7 @@
 
 #include <if/net_sockets_defs.h>
 #include <net_sockets/net_sockets_types.h>
+#include <debug_log/debug_log.h>
 
 #include <lwip/ip.h>
 #include <lwip/udp.h>
@@ -80,6 +81,19 @@ struct socket_connection {
 };
 
 static struct network_connection *network_connections = NULL;
+
+static struct socket_connection * find_socket_connection(struct network_connection *nc, uint32_t descriptor)
+{
+    struct socket_connection *socket;
+
+    socket = nc->sockets;
+    while (socket) {
+        if (socket->descriptor == descriptor)
+            break;
+        socket = socket->next;
+    }
+    return socket;
+}
 
 static struct socket_connection * allocate_socket(struct network_connection *nc)
 {
@@ -162,7 +176,7 @@ static void net_udp_receive(void *arg, struct udp_pcb *pcb, struct pbuf *p, cons
     pbuf_free(p);
     // debug_printf("%s.%d: enqueue 1 %lx:%ld\n", __func__, __LINE__, buffer - nc->buffer_start, sizeof(struct net_buffer) + length);
     err = devq_enqueue((struct devq *)nc->queue, nc->region_id, buffer - nc->buffer_start, sizeof(struct net_buffer) + length,
-                       0, 0, 1);
+                       0, 0, NET_EVENT_RECEIVED);
     assert(err_is_ok(err));
     err = devq_notify((struct devq *)nc->queue);
     assert(err_is_ok(err));
@@ -182,7 +196,7 @@ static err_t net_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
     void *buffer = nc->buffers[nc->next_free];
     struct net_buffer *nb = buffer;
 
-    // debug_printf("%s: pcb:%p  p:%p\n", __func__, pcb, p);
+    // debug_printf("%s(%d): pcb:%p  p:%p\n", __func__, socket->descriptor, pcb, p);
     if (p) {
         // debug_printf("%s(%d): %d\n", __func__, socket->descriptor, p->tot_len);
         assert(p->len == p->tot_len);
@@ -212,6 +226,9 @@ static err_t net_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
         nb->host_address.s_addr = 0;
         nb->port = 0;
         // debug_printf("%s(%d): close\n", __func__, socket->descriptor);
+        // debug_printf_to_log("%s(%d): close", __func__, socket->descriptor);
+        tcp_err(socket->tcp_socket, NULL);
+        // debug_printf("%s(%d): close\n", __func__, socket->descriptor);
         // debug_printf("%s(%d): %p -> %p %p %d\n", __func__, connection->descriptor, buffer, nb->user_callback, nb->user_state, nb->size);
     }
     nc->buffers[nc->next_free] = NULL;
@@ -220,7 +237,7 @@ static err_t net_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
     
     // debug_printf("%s.%d: enqueue 1 %lx:%ld %d\n", __func__, __LINE__, buffer - nc->buffer_start, sizeof(struct net_buffer) + length, nb->descriptor);
     err = devq_enqueue((struct devq *)nc->queue, nc->region_id, buffer - nc->buffer_start, sizeof(struct net_buffer) + length,
-                       0, 0, 1);
+                       0, 0, NET_EVENT_RECEIVED);
     assert(err_is_ok(err));
     err = devq_notify((struct devq *)nc->queue);
     assert(err_is_ok(err));
@@ -231,13 +248,37 @@ static err_t net_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
     return ERR_OK;
 }
 
-static void net_tcp_error(void *arg, err_t err)
+static void net_tcp_error(void *arg, err_t tcp_err)
 {
     struct socket_connection *socket = arg;
-    // struct network_connection *nc = socket->connection;
-    
-    // debug_printf("%s(%d): error %d\n", __func__, socket->descriptor, err);
+    struct network_connection *nc = socket->connection;
+    errval_t err;
+
+    // debug_printf("%s(%d): error %d\n", __func__, socket->descriptor, tcp_err);
+    // debug_printf_to_log("%s(%d): error %d", __func__, socket->descriptor, tcp_err);
+    tcp_sent(socket->tcp_socket, NULL);
+    tcp_recv(socket->tcp_socket, NULL);
     socket->tcp_socket = NULL; // invalidate
+
+    void *buffer = nc->buffers[nc->next_free];
+    assert(buffer);
+    struct net_buffer *nb = buffer;
+    nb->size = 0;
+    nb->descriptor = socket->descriptor;
+    nb->accepted_descriptor = 0;
+    nb->host_address.s_addr = 0;
+    nb->port = 0;
+    nc->buffers[nc->next_free] = NULL;
+    nc->next_free = (nc->next_free + 1) % NO_OF_BUFFERS;
+    
+    err = devq_enqueue((struct devq *)nc->queue, nc->region_id, buffer - nc->buffer_start, sizeof(struct net_buffer),
+                       0, 0, NET_EVENT_RECEIVED);
+    assert(err_is_ok(err));
+    // debug_printf_to_log("%s(%d): close", __func__, socket->descriptor);
+    
+    err = devq_notify((struct devq *)nc->queue);
+    assert(err_is_ok(err));
+
 
     // uint32_t length = 0;
     // void *buffer = nc->buffers[nc->next_free];
@@ -270,9 +311,14 @@ static err_t net_tcp_sent(void *arg, struct tcp_pcb *pcb, uint16_t len)
     errval_t err;
 
     while (len > 0) {
+        // debug_printf_to_log("%s(%d): %d  %lx:%ld:%ld  %lx:%ld:%ld", __func__, socket->descriptor, len,
+            // socket->send_frames[0].offset, socket->send_frames[0].sent, socket->send_frames[0].length,
+            // socket->send_frames[1].offset, socket->send_frames[1].sent, socket->send_frames[1].length);
         // debug_printf("%s(%d): %d  %zx:%zd:%zd %zx:%zd:%zd\n", __func__, socket->descriptor, len,
         //     socket->send_frames[0].offset, socket->send_frames[0].sent, socket->send_frames[0].length,
         //     socket->send_frames[1].offset, socket->send_frames[1].sent, socket->send_frames[1].length);
+        if (!socket->send_frames[0].length)
+            debug_print_log();
         assert(socket->send_frames[0].length);
         if (len < (socket->send_frames[0].length - socket->send_frames[0].sent)) {
             socket->send_frames[0].sent += len;
@@ -281,8 +327,8 @@ static err_t net_tcp_sent(void *arg, struct tcp_pcb *pcb, uint16_t len)
             len -= socket->send_frames[0].length - socket->send_frames[0].sent;
             
             socket->send_frames[0].length += sizeof(struct net_buffer);
-            // debug_printf("%s.%d: enqueue 2 %lx:%zd\n", __func__, __LINE__, socket->send_frames[0].offset, socket->send_frames[0].length);
-            err = devq_enqueue((struct devq *)nc->queue, nc->region_id, socket->send_frames[0].offset, socket->send_frames[0].length, 0, 0, 2);
+            // debug_printf_to_log("%s.%d: enqueue %lx:%zd\n", __func__, __LINE__, socket->send_frames[0].offset, socket->send_frames[0].length);
+            err = devq_enqueue((struct devq *)nc->queue, nc->region_id, socket->send_frames[0].offset, socket->send_frames[0].length, 0, 0, NET_EVENT_SENT);
             if (!err_is_ok(err))
                 debug_printf("%s: err %zd\n", __func__, err);
             assert(err_is_ok(err));
@@ -328,7 +374,7 @@ static err_t net_tcp_accepted(void *arg, struct tcp_pcb *newpcb, err_t error)
     nb->accepted_descriptor = accepted_socket->descriptor;
     nb->host_address.s_addr = newpcb->remote_ip.addr;
     nb->port = newpcb->remote_port;
-    // debug_printf("%s(%d): accepted %p\n", __func__, socket->descriptor, newpcb);
+    // debug_printf_to_log("%s(%d): accepted", __func__, accepted_socket->descriptor);
 
     nc->buffers[nc->next_free] = NULL;
     nc->next_free = (nc->next_free + 1) % NO_OF_BUFFERS;
@@ -336,7 +382,7 @@ static err_t net_tcp_accepted(void *arg, struct tcp_pcb *newpcb, err_t error)
     
     // debug_printf("%s.%d: enqueue 1 %lx:%ld %d\n", __func__, __LINE__, buffer - nc->buffer_start, sizeof(struct net_buffer) + length, nb->descriptor);
     err = devq_enqueue((struct devq *)nc->queue, nc->region_id, buffer - nc->buffer_start, sizeof(struct net_buffer) + length,
-                       0, 0, 1);
+                       0, 0, NET_EVENT_ACCEPT);
     assert(err_is_ok(err));
     err = devq_notify((struct devq *)nc->queue);
     assert(err_is_ok(err));
@@ -405,12 +451,7 @@ static errval_t net_bind(struct net_sockets_binding *binding, uint32_t descripto
     struct socket_connection *socket;
 
     nc = binding->st;
-    socket = nc->sockets;
-    while (socket) {
-        if (socket->descriptor == descriptor)
-            break;
-        socket = socket->next;
-    }
+    socket = find_socket_connection(nc, descriptor);
     assert(socket);
 
     if (socket->udp_socket) {
@@ -443,13 +484,12 @@ static errval_t net_listen(struct net_sockets_binding *binding, uint32_t descrip
     struct network_connection *nc;
     struct socket_connection *socket;
 
-    nc = binding->st;
-    socket = nc->sockets;
-    while (socket) {
-        if (socket->descriptor == descriptor)
-            break;
-        socket = socket->next;
+    if (descriptor == -1) {
+        debug_print_log();
+        return SYS_ERR_OK;
     }
+    nc = binding->st;
+    socket = find_socket_connection(nc, descriptor);
     assert(socket);
     assert(socket->tcp_socket);
     socket->tcp_socket = tcp_listen(socket->tcp_socket);
@@ -480,12 +520,7 @@ static errval_t net_connect(struct net_sockets_binding *binding, uint32_t descri
     struct socket_connection *socket;
 
     nc = binding->st;
-    socket = nc->sockets;
-    while (socket) {
-        if (socket->descriptor == descriptor)
-            break;
-        socket = socket->next;
-    }
+    socket = find_socket_connection(nc, descriptor);
     assert(socket);
 
     if (socket->udp_socket) {
@@ -509,12 +544,12 @@ static errval_t net_connect(struct net_sockets_binding *binding, uint32_t descri
     return SYS_ERR_OK;
 }
 
-static errval_t net_delete_socket(struct net_sockets_binding *binding, uint32_t descriptor, errval_t *error)
+static void net_delete_socket(struct network_connection *nc, uint32_t descriptor)
 {
-    struct network_connection *nc;
     struct socket_connection *socket, *last;
+    errval_t err;
 
-    nc = binding->st;
+    // debug_printf_to_log("%s(%d): tcp_close", __func__, descriptor);
     socket = nc->sockets;
     last = NULL;
     while (socket) {
@@ -523,19 +558,44 @@ static errval_t net_delete_socket(struct net_sockets_binding *binding, uint32_t 
         last = socket;
         socket = socket->next;
     }
+    if (!socket)
+        debug_print_log();
     assert(socket);
     if (socket->udp_socket) {
         udp_recv(socket->udp_socket, NULL, NULL);
         udp_remove(socket->udp_socket);
     } else if (socket->tcp_socket) {
         tcp_recv(socket->tcp_socket, NULL); // you can receive packets after you close the socket
+        tcp_sent(socket->tcp_socket, NULL);
         // tcp_accept(socket->tcp_socket, NULL);
         err_t e;
-        // debug_printf("%s(%d): tcp_close %p\n", __func__, descriptor, socket->tcp_socket);
         e = tcp_close(socket->tcp_socket);
         assert(e == ERR_OK);
     }
 
+    // debug_printf_to_log("%s(%d): %p:%ld:%ld  %p:%ld:%ld", __func__, socket->descriptor,
+        // socket->send_frames[0].offset, socket->send_frames[0].sent, socket->send_frames[0].length,
+        // socket->send_frames[1].offset, socket->send_frames[1].sent, socket->send_frames[1].length);
+    while (socket->send_frames[0].length) { // invaldate all sent frames
+        void *buffer;
+        struct net_buffer *nb;
+
+        // debug_printf_to_log("%s(%d): %p:%ld:%ld  %p:%ld:%ld", __func__, socket->descriptor,
+        //     socket->send_frames[0].offset, socket->send_frames[0].sent, socket->send_frames[0].length,
+        //     socket->send_frames[1].offset, socket->send_frames[1].sent, socket->send_frames[1].length);
+
+        socket->send_frames[0].length += sizeof(struct net_buffer);
+        buffer = socket->send_frames[0].offset + nc->buffer_start;
+        nb = buffer;
+        nb->descriptor = descriptor;
+        // debug_printf_to_log("%s.%d: enqueue %lx:%zd\n", __func__, __LINE__, socket->send_frames[0].offset, socket->send_frames[0].length);
+        err = devq_enqueue((struct devq *)nc->queue, nc->region_id, socket->send_frames[0].offset, socket->send_frames[0].length, 0, 0, NET_EVENT_SENT);
+        assert(err_is_ok(err));
+        socket->send_frames[0] = socket->send_frames[1];
+        socket->send_frames[1].sent = 0;
+        socket->send_frames[1].length = 0;
+        socket->send_frames[1].offset = 0;
+    }
     // debug_printf("%s(%d):\n", __func__, descriptor);
     // debug_printf("%s: %ld:%p  %ld:%p\n", __func__, nc->next_free, nc->buffers[nc->next_free], nc->next_used, nc->buffers[nc->next_used]);
     if (last)
@@ -543,9 +603,6 @@ static errval_t net_delete_socket(struct net_sockets_binding *binding, uint32_t 
     else
         nc->sockets = socket->next;
     free(socket);
-
-    *error = SYS_ERR_OK;
-    return SYS_ERR_OK;
 }
 
 static errval_t q_create(struct descq* q, bool notifications, uint8_t role,
@@ -586,7 +643,7 @@ static errval_t q_notify(struct descq* q)
     genoffset_t length;
     genoffset_t valid_data;
     genoffset_t valid_length;
-    uint64_t flags;
+    uint64_t event;
     struct network_connection *nc;
     bool notify = 0;
 
@@ -594,31 +651,28 @@ static errval_t q_notify(struct descq* q)
     nc = devq_get_state(queue);
     for (;;) {
         err = devq_dequeue(queue, &rid, &offset, &length,
-                           &valid_data, &valid_length, &flags);
+                           &valid_data, &valid_length, &event);
         if (err_is_fail(err)) {
             break;
         } else {
-            // debug_printf("%s: dequeue %lx:%ld %ld\n", __func__, offset, length, flags);
-            if (flags == 1) { // receiving buffer
-                // debug_printf("%s: dequeue %lx:%ld %ld\n", __func__, offset, length, flags);
+            void *buffer;
+            buffer = offset + nc->buffer_start;
+            struct net_buffer *nb = buffer;
+
+            // debug_printf_to_log("%s: dequeue %lx:%ld %ld  %d:%d", __func__, offset, length, event, nb->descriptor, nb->size);
+            if (event == NET_EVENT_RECEIVE) {
                 assert(!nc->buffers[nc->next_used]);
                 nc->buffers[nc->next_used] = nc->buffer_start + offset;
                 nc->next_used = (nc->next_used + 1) % NO_OF_BUFFERS;
-            } else if (flags == 2) { // transmitting buffer
+            } else if (event == NET_EVENT_SEND) {
                 struct socket_connection *socket;
-                void *buffer;
-                buffer = offset + nc->buffer_start;
-                struct net_buffer *nb = buffer;
                 void *shb_data = (void *)buffer + sizeof(struct net_buffer);
 
                 // debug_printf("%s: %p\n", __func__, buffer);
-
-                socket = nc->sockets;
-                while (socket) {
-                    if (socket->descriptor == nb->descriptor)
-                        break;
-                    socket = socket->next;
-                }
+// find the socket
+                socket = find_socket_connection(nc, nb->descriptor);
+                if (!socket)
+                    debug_printf("%s(%d): %p\n", __func__, nb->descriptor, socket);
                 assert(socket);
 
                 // debug_printf("buffer: %d %d %x %d  %p %p\n", nb->size, nb->descriptor, nb->host_address, nb->port, socket->udp_socket, socket->tcp_socket);
@@ -635,7 +689,7 @@ static errval_t q_notify(struct descq* q)
                     port = nb->port;
                     addr.addr = nb->host_address.s_addr;
                     // debug_printf("%s.%d: enqueue 2 %lx:%d\n", __func__, __LINE__, offset, nb->size);
-                    err = devq_enqueue(queue, rid, offset, length, 0, 0, 2);
+                    err = devq_enqueue(queue, rid, offset, length, 0, 0, NET_EVENT_SENT);
                     assert(err_is_ok(err));
                     notify = 1;
                     // debug_printf("%s(%d): %d\n", __func__, socket->descriptor, p->tot_len);
@@ -657,7 +711,7 @@ static errval_t q_notify(struct descq* q)
                     pbuf_free(p);
                 } else if (socket->tcp_socket) {
                     err_t e;
-                    // debug_printf("%s: dequeue %lx:%ld %ld\n", __func__, offset, length, flags);
+                    // debug_printf("%s: dequeue %lx:%ld %ld\n", __func__, offset, length, event);
                     
                     if (socket->send_frames[0].length == 0) {
                         
@@ -679,11 +733,29 @@ static errval_t q_notify(struct descq* q)
                         socket->send_frames[1].offset = offset;
                         socket->send_frames[1].length = length - sizeof(struct net_buffer);
                     }
+                    // debug_printf_to_log("%s(%d): tcp_send %lx:%ld    %p:%ld:%ld  %p:%ld:%ld", __func__, socket->descriptor, offset, length,
+                    //     socket->send_frames[0].offset, socket->send_frames[0].sent, socket->send_frames[0].length,
+                    //     socket->send_frames[1].offset, socket->send_frames[1].sent, socket->send_frames[1].length);
                     // debug_printf("%s.%d: enqueue 2 %lx:%zd\n", __func__, __LINE__, offset, length);
                     // err = devq_enqueue(queue, rid, offset, length, 0, 0, 2);
                     // assert(err_is_ok(err));
                     // notify = 1;
+                } else {
+                    err = devq_enqueue(queue, rid, offset, length, 0, 0, NET_EVENT_SENT);
+                    assert(err_is_ok(err));
+                    notify = 1;
                 }
+            } else if (event == NET_EVENT_CLOSE) {
+                // struct net_buffer *nb = offset + nc->buffer_start;
+
+                // debug_printf("%s(%d): close\n", __func__, nb->descriptor);
+                net_delete_socket(nc, nb->descriptor);
+                err = devq_enqueue(queue, rid, offset, length, 0, 0, NET_EVENT_CLOSED);
+                assert(err_is_ok(err));
+                notify = 1;
+            } else {
+                debug_printf("%s: unknown event %ld!", __func__, event);
+                assert(0);
             }
         }
     }
@@ -737,7 +809,6 @@ static struct net_sockets_rpc_rx_vtbl rpc_rx_vtbl = {
     .new_tcp_socket_call = net_tcp_socket,
     .bind_call = net_bind,
     .connect_call = net_connect,
-    .delete_socket_call = net_delete_socket,
     .listen_call = net_listen,
 };
 
@@ -765,13 +836,13 @@ int main(int argc, char *argv[])
     char servicename[64];
     snprintf(servicename, sizeof(servicename), "e1000:%s", argv[2]);
 
-    // err = oct_init();
-    // assert(err_is_ok(err));
-    // err = oct_set(NET_CONFIG_STATIC_IP_RECORD_FORMAT, inet_addr("192.168.0.36"), inet_addr("0.0.0.0"), inet_addr("255.255.255.0"));
-    // assert(err_is_ok(err));
+    err = oct_init();
+    assert(err_is_ok(err));
+    err = oct_set(NET_CONFIG_STATIC_IP_RECORD_FORMAT, inet_addr("192.168.0.36"), inet_addr("0.0.0.0"), inet_addr("255.255.255.0"));
+    assert(err_is_ok(err));
 
     /* connect to the network */
-    err = networking_init(servicename, NET_FLAGS_DO_DHCP | NET_FLAGS_NO_NET_FILTER | NET_FLAGS_BLOCKING_INIT);
+    err = networking_init(servicename, /*NET_FLAGS_DO_DHCP |*/ NET_FLAGS_NO_NET_FILTER | NET_FLAGS_BLOCKING_INIT);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to initialize the network");
     }

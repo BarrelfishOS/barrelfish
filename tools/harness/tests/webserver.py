@@ -112,7 +112,7 @@ class WebserverTest(WebCommon):
                 if (r.status / 100) != 2 :
                     print "HTTP request failed for %d" % (i)
                 assert((r.status / 100) == 2) # check for success response
-
+                data = r.read()
                 # Reset failure count after sucessful retrival
                 failure_count = 0
                 c.close()

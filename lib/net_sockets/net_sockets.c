@@ -12,7 +12,7 @@
 
 #include <devif/queue_interface.h>
 #include <devif/backends/descq.h>
-
+#include <debug_log/debug_log.h>
 
 static struct net_sockets_binding *binding;
 static bool bound_done = false;
@@ -71,6 +71,7 @@ static struct net_socket * allocate_socket(uint32_t descriptor)
     assert(socket);
 
     socket->descriptor = descriptor;
+    socket->is_closing = false;
     socket->received = NULL;
     socket->connected = NULL;
     socket->accepted = NULL;
@@ -120,8 +121,6 @@ static struct net_socket * get_socket(uint32_t descriptor)
         if (socket == sockets)
             break;
     }
-    debug_printf("%s: socket not found %d %p\n", __func__, descriptor, __builtin_return_address(0));
-    assert(0);
     return NULL;
 }
 
@@ -130,17 +129,30 @@ void net_set_user_state(struct net_socket *socket, void *user_state)
     socket->user_state = user_state;
 }
 
+void net_set_on_closed(struct net_socket *socket, net_closed_callback_t cb)
+{
+    socket->closed = cb;
+}
+
 void net_close(struct net_socket *socket)
 {
-    errval_t err, error;
+    errval_t err;
 
-    // debug_printf("%s(%d):\n", __func__, socket->descriptor);
-    err = binding->rpc_tx_vtbl.delete_socket(binding, socket->descriptor, &error);
+// debug_printf_to_log("%s(%d): %ld:%p  %ld:%p", __func__, socket->descriptor, next_free, buffers[next_free], next_used, buffers[next_used]);
+// debug_printf("%s(%d): %d\n", __func__, socket->descriptor, socket->is_closing);
+    if (socket->is_closing)
+        debug_print_log();
+    assert(!socket->is_closing);
+
+    struct net_buffer *nb = net_alloc(0) - sizeof(struct net_buffer);
+    nb->descriptor = socket->descriptor;
+    socket->is_closing = true;
+// debug_printf_to_log("%s(%d): enqueue %lx:%ld", __func__, socket->descriptor, (void *)nb - buffer_start, sizeof(struct net_buffer));
+    err = devq_enqueue((struct devq *)descq_queue, regionid, (void *)nb - buffer_start, sizeof(struct net_buffer),
+                       0, 0, NET_EVENT_CLOSE);
     assert(err_is_ok(err));
-    assert(err_is_ok(error));
-    dequeue(&sockets, socket);
-    free(socket);
-    // debug_printf("%s: %ld:%p  %ld:%p\n", __func__, next_free, buffers[next_free], next_used, buffers[next_used]);
+    err = devq_notify((struct devq *)descq_queue);
+    assert(err_is_ok(err));
 }
 
 errval_t net_bind(struct net_socket *socket, struct in_addr ip_address, uint16_t port)
@@ -168,7 +180,15 @@ errval_t net_listen(struct net_socket *socket, uint8_t backlog)
 
 void * net_alloc(size_t size)
 {
+    assert(size < (BUFFER_SIZE - sizeof(struct net_buffer)));
     void *buffer = buffers[next_free];
+    if (!buffer) {
+        // debug_printf_to_log("%s: %ld:%p  %ld:%p", __func__, next_free, buffers[next_free], next_used, buffers[next_used]);
+        errval_t err, error;
+        err = binding->rpc_tx_vtbl.listen(binding, -1, 0, &error);
+        debug_print_log();
+        assert(0);
+    }
     assert(buffer);
     buffers[next_free] = NULL;
     next_free = (next_free + 1) % NO_OF_BUFFERS;
@@ -191,14 +211,17 @@ errval_t net_send(struct net_socket *socket, void *data, size_t size)
     void *buffer = data - sizeof(struct net_buffer);
     struct net_buffer *nb = buffer;
     // debug_printf("%s(%d): %ld -> %p\n", __func__, socket->descriptor, size, buffer);
+    if (socket->is_closing)
+        debug_print_log();
+    assert(!socket->is_closing);
 
     nb->size = size;
     nb->descriptor = socket->descriptor;
     nb->host_address.s_addr = INADDR_NONE;
     nb->port = 0;
-    // debug_printf("%s: enqueue 2 %lx:%ld\n", __func__, buffer - buffer_start, sizeof(struct net_buffer) + size);
+// debug_printf_to_log("%s(%d): enqueue %lx:%ld", __func__, socket->descriptor, buffer - buffer_start, sizeof(struct net_buffer) + size);
     err = devq_enqueue((struct devq *)descq_queue, regionid, buffer - buffer_start, sizeof(struct net_buffer) + size,
-                       0, 0, 2);
+                       0, 0, NET_EVENT_SEND);
     assert(err_is_ok(err));
     err = devq_notify((struct devq *)descq_queue);
     assert(err_is_ok(err));
@@ -221,7 +244,7 @@ errval_t net_send_to(struct net_socket *socket, void *data, size_t size, struct 
     nb->port = port;
     // debug_printf("%s: enqueue 2 %lx:%ld\n", __func__, buffer - buffer_start, sizeof(struct net_buffer) + size);
     err = devq_enqueue((struct devq *)descq_queue, regionid, buffer - buffer_start, sizeof(struct net_buffer) + size,
-                       0, 0, 2);
+                       0, 0, NET_EVENT_SEND);
     assert(err_is_ok(err));
     err = devq_notify((struct devq *)descq_queue);
     assert(err_is_ok(err));
@@ -245,16 +268,22 @@ errval_t net_connect(struct net_socket *socket, struct in_addr ip_address, uint1
 static void net_connected(struct net_sockets_binding *b, uint32_t descriptor, errval_t error, uint32_t connected_address, uint16_t connected_port)
 {
     struct net_socket *socket = get_socket(descriptor);
+    if (!socket) {
+        debug_printf("%s: socket not found %d\n", __func__, descriptor);
+        // debug_print_log();
+        assert(0);
+    }
     assert(socket->descriptor == descriptor);
     assert(err_is_ok(error));
 
     socket->connected_address.s_addr = connected_address;
     socket->connected_port = connected_port;
     assert(socket->connected);
+// debug_printf_to_log("%s: %ld:%p  %ld:%p", __func__, next_free, buffers[next_free], next_used, buffers[next_used]);
     socket->connected(socket->user_state, socket);
 }
 
-void net_accept(struct net_socket *socket, net_accepted_callback_t cb)
+void net_set_on_accepted(struct net_socket *socket, net_accepted_callback_t cb)
 {
     socket->accepted = cb;
 }
@@ -262,21 +291,27 @@ void net_accept(struct net_socket *socket, net_accepted_callback_t cb)
 static void net_accepted(uint32_t descriptor, uint32_t accepted_descriptor, struct in_addr host_address, uint16_t port)
 {
     struct net_socket *socket = get_socket(descriptor);
+    if (!socket) {
+        debug_printf("%s: socket not found %d\n", __func__, descriptor);
+        // debug_print_log();
+        assert(0);
+    }
     assert(socket->descriptor == descriptor);
 
     struct net_socket *accepted_socket = allocate_socket(accepted_descriptor);
     accepted_socket->connected_address = host_address;
     accepted_socket->connected_port = port;
+// debug_printf_to_log("%s(%d): %ld:%p  %ld:%p", __func__, accepted_descriptor, next_free, buffers[next_free], next_used, buffers[next_used]);
     socket->accepted(socket->user_state, accepted_socket);
 }
 
 
-void net_recv(struct net_socket *socket, net_received_callback_t cb)
+void net_set_on_received(struct net_socket *socket, net_received_callback_t cb)
 {
     socket->received = cb;
 }
 
-void net_set_sent(struct net_socket *socket, net_sent_callback_t cb)
+void net_set_on_sent(struct net_socket *socket, net_sent_callback_t cb)
 {
     socket->sent = cb;
 }
@@ -312,51 +347,72 @@ static errval_t q_notify(struct descq* q)
     genoffset_t length;
     genoffset_t valid_data;
     genoffset_t valid_length;
-    uint64_t flags;
+    uint64_t event;
     bool notify = 0;
 
     // debug_printf("%s: \n", __func__);
     for (;;) {
         err = devq_dequeue((struct devq *)descq_queue, &rid, &offset, &length,
-                           &valid_data, &valid_length, &flags);
+                           &valid_data, &valid_length, &event);
         if (err_is_fail(err)) {
             break;
         } else {
-            // debug_printf("%s: dequeue %lx:%ld %ld\n", __func__, offset, length, flags);
             void *buffer = buffer_start + offset;
             struct net_buffer *nb = buffer;
-            // debug_printf("%s: dequeue %lx:%ld %ld  %p socket:%d asocket:%d\n", __func__, offset, length, flags, nb, nb->descriptor, nb->accepted_descriptor);
-            struct net_socket *socket = get_socket(nb->descriptor);
+            // debug_printf_to_log("%s: dequeue %lx:%ld %ld  %d:%d", __func__, offset, length, event, nb->descriptor, nb->size);
+            // debug_printf("%s: dequeue %lx:%ld %ld  %p socket:%d asocket:%d\n", __func__, offset, length, event, nb, nb->descriptor, nb->accepted_descriptor);
             void *shb_data = buffer + sizeof(struct net_buffer);
 
-            if (flags == 1) { // receiving buffer
+            if (event == NET_EVENT_RECEIVED) { // receiving buffer
                 // debug_printf("%s: enqueue 1> %lx:%d\n", __func__, offset, nb->size);
-                if (nb->accepted_descriptor) { // accept
-                    net_accepted(nb->descriptor, nb->accepted_descriptor, nb->host_address, nb->port);
-
-                    err = devq_enqueue((struct devq *)descq_queue, rid, offset, length, 0, 0, 1);
-                    assert(err_is_ok(err));
-                    notify = 1;
-                } else {  // receive
+                struct net_socket *socket = get_socket(nb->descriptor);
+                if (socket && !socket->is_closing) {
                     if (socket->received) {
                         // debug_printf("net_received(%d): %d\n", nb->descriptor, nb->size);
                         socket->received(socket->user_state, socket, shb_data, nb->size, nb->host_address, nb->port);
                     // debug_printf("%s: enqueue 1< %lx:%d\n", __func__, offset, 2048);
                     }
-
-                    err = devq_enqueue((struct devq *)descq_queue, rid, offset, length, 0, 0, 1);
-                    assert(err_is_ok(err));
-                    notify = 1;
                 }
-            } else if (flags == 2) { // transmitting buffer
+                err = devq_enqueue((struct devq *)descq_queue, rid, offset, length, 0, 0, NET_EVENT_RECEIVE);
+                assert(err_is_ok(err));
+                notify = 1;
+            } else if (event == NET_EVENT_ACCEPT) {
+                uint32_t descriptor = nb->descriptor;
+                uint32_t accepted_descriptor = nb->accepted_descriptor;
+                struct in_addr host_address = nb->host_address;
+                uint16_t port = nb->port;
+
+                // debug_printf("%s(%d): accept\n", __func__, accepted_descriptor);
+                err = devq_enqueue((struct devq *)descq_queue, rid, offset, length, 0, 0, NET_EVENT_RECEIVE);
+                assert(err_is_ok(err));
+                notify = 1;
+                net_accepted(descriptor, accepted_descriptor, host_address, port);
+            } else if (event == NET_EVENT_SENT) { // transmitting buffer
+                struct net_socket *socket = get_socket(nb->descriptor);
+                assert(socket);
+
+                    // debug_printf_to_log("%s(%d): dequeue sent %lx:%ld %p  %p", __func__, socket->descriptor, offset, length, shb_data, socket->sent);
                 if (socket->sent) {
-                    // debug_printf("%s: dequeue %lx:%ld %p\n", __func__, offset, length, shb_data);
                     socket->sent(socket->user_state, socket, shb_data, nb->size);
                 }
-    // debug_printf("%s: %ld:%p  %ld:%p\n", __func__, next_free, buffers[next_free], next_used, buffers[next_used]);
                 // assert(!buffers[next_used]);
                 // buffers[next_used] = buffer_start + offset;
                 // next_used = (next_used + 1) % NO_OF_BUFFERS;
+            } else if (event == NET_EVENT_CLOSED) {
+                struct net_socket *socket = get_socket(nb->descriptor);
+                
+                net_free(shb_data);
+                // debug_printf("%s(%d): closed\n", __func__, nb->descriptor);
+                // debug_printf_to_log("%s(%d): closed %ld:%p  %ld:%p", __func__, nb->descriptor, next_free, buffers[next_free], next_used, buffers[next_used]);
+
+                if (socket->closed) {
+                    socket->closed(socket->user_state, socket);
+                }
+                dequeue(&sockets, socket);
+                free(socket);
+            } else {
+                debug_printf("%s: unknown event %ld!", __func__, event);
+                assert(0);
             }
         }
     }
@@ -400,7 +456,6 @@ errval_t net_sockets_init(void)
     }
     debug_printf("%s: initialized\n", __func__);
     binding->rx_vtbl.connected = net_connected;
-    // binding->rx_vtbl.accepted = net_accepted;
 
     err = binding->rpc_tx_vtbl.register_queue(binding, queue_id);
     assert(err_is_ok(err));
@@ -410,7 +465,7 @@ errval_t net_sockets_init(void)
 
     for (int i = 0; i < NO_OF_BUFFERS; i++) {
         err = devq_enqueue((struct devq *)descq_queue, regionid, i * BUFFER_SIZE, BUFFER_SIZE,
-                           0, 0, 1);
+                           0, 0, NET_EVENT_RECEIVE);
         if (!err_is_ok(err))
             debug_printf("%s: %d:%d\n", __func__, i, NO_OF_BUFFERS);
         assert(err_is_ok(err));

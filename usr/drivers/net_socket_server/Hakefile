@@ -14,6 +14,6 @@
     target       = "e1000_net_sockets_server",
     cFiles       = [ "e1000_net_sockets_server.c" ],
     flounderBindings = [ "net_sockets" ],
-    addLibraries = libDeps [ "net", "lwip2" ]
+    addLibraries = libDeps [ "net", "lwip2", "debug_log" ]
   }
 ]

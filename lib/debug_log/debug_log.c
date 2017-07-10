@@ -26,9 +26,11 @@ void debug_printf_to_log(const char *fmt, ...)
                    DISP_NAME_LEN, disp_name(), disp_get_core_id(), id);
     if (len < sizeof(log[0])) {
         va_start(argptr, fmt);
-        vsnprintf(str + len, sizeof(log[0]) - len, fmt, argptr);
+        len += vsnprintf(str + len, sizeof(log[0]) - len, fmt, argptr);
         va_end(argptr);
     }
+    if (str[len - 1] == '\n')
+        str[len - 1] = 0;
 }
 
 // #define DEBUG_SHOW

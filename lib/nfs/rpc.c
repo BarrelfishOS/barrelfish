@@ -285,7 +285,7 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                 //                       -UDP_HLEN - IP_HLEN - PBUF_LINK_HLEN);
                 // assert(e == SYS_ERR_OK);
 
-                errval_t e = net_send(client->socket, call->data, call->size);
+                errval_t e = net_send_to(client->socket, call->data, call->size, client->connected_address, client->connected_port);
                 if (e != SYS_ERR_OK) {
                     /* XXX: assume that this is a transient condition, retry */
                     fprintf(stderr, "RPC: retransmit failed! will retry...\n");
@@ -329,7 +329,7 @@ errval_t rpc_init(struct rpc_client *client, struct in_addr server)
     client->socket = net_udp_socket();
     assert(client->socket);
     net_set_user_state(client->socket, client);
-    net_recv(client->socket, rpc_recv_handler);
+    net_set_on_received(client->socket, rpc_recv_handler);
 
     net_debug_state = 0;
 
@@ -426,16 +426,8 @@ errval_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
 
     RPC_DEBUGP("rpc_call: RPC call for xid %u x0%x\n", xid, xid);
     RPC_DEBUGP("rpc_call: calling UPD_connect\n");
-    if (client->server.s_addr != client->connected_address.s_addr || port != client->connected_port) {
-        r = net_connect(client->socket, client->server, port, NULL);
-        if (r != SYS_ERR_OK) {
-            XDR_DESTROY(&xdr);
-            free(call);
-            return r;
-        }
-        client->connected_address = client->server;
-        client->connected_port = port;
-    }
+    client->connected_address = client->server;
+    client->connected_port = port;
 
     /* enqueue */
     int hid = hash_function(xid);
@@ -443,7 +435,7 @@ errval_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
     client->call_hash[hid] = call;
 
     RPC_DEBUGP("rpc_call: calling UPD_send\n");
-    r = net_send(client->socket, call->data, call->size);
+    r = net_send_to(client->socket, call->data, call->size, client->connected_address, client->connected_port);
     if (r != SYS_ERR_OK) {
         /* dequeue */
         assert(client->call_hash[hid] == call);
