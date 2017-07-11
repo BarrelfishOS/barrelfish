@@ -26,8 +26,6 @@
 #include <barrelfish/waitset_chan.h>
 
 #include <octopus/octopus.h>
-#include <octopus_server/service.h>
-#include <octopus/trigger.h>
 
 #include <devif/queue_interface.h>
 #include <devif/backends/descq.h>

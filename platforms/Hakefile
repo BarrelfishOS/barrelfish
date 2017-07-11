@@ -175,7 +175,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     modules_generic = [
         "/eclipseclp_ramfs.cpio.gz",
         "/skb_ramfs.cpio.gz" ]
---        "/sshd_ramfs.cpio.gz" ]
 
     -- x86_64-specific modules to build by default
     -- this should shrink as targets are ported and move into the generic list above
@@ -220,7 +219,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "sfxge",
                            "sfn5122f",
                            "slideshow",
---                           "sshd",
                            "vbe",
                            "virtio_blk",
                            "virtio_blk_host",

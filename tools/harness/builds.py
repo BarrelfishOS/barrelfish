@@ -51,7 +51,7 @@ class HakeBuildBase(Build):
         print archs
         if not os.path.isabs(srcdir):
             srcdir = os.path.relpath(srcdir, self.build_dir)
-        debug.checkcmd([os.path.join(srcdir, "hake", "hake.sh"), "--source-dir", srcdir, "-a", archs[0]],
+        debug.checkcmd([os.path.join(srcdir, "hake", "hake.sh"), "--source-dir", srcdir],
                        cwd=self.build_dir)
 
     def _get_hake_conf(self, srcdir, archs):

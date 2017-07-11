@@ -1272,10 +1272,6 @@ liblwip_deps          = LibDeps $ [ LibDep x | x <- deps ]
 libnetQmng_deps       = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["net_queue_manager"]
 libnfs_deps           = LibDeps $ [ LibDep "nfs", liblwip_deps]
-libssh_deps           = LibDeps [ libposixcompat_deps, libopenbsdcompat_deps,
-                                  LibDep "zlib", LibDep "crypto", LibDep "ssh" ]
-libopenbsdcompat_deps = LibDeps [ libposixcompat_deps, LibDep "crypto",
-                                  LibDep "openbsdcompat" ]
 
 -- we need to make vfs more modular to make this actually useful
 data VFSModules = VFS_RamFS | VFS_NFS | VFS_BlockdevFS | VFS_FAT
@@ -1309,17 +1305,13 @@ str2dep  str
     | str == "vfs_noblockdev"= libvfs_deps_noblockdev str
     | str == "lwip"          = liblwip_deps
     | str == "netQmng"       = libnetQmng_deps
-    | str == "ssh"           = libssh_deps
-    | str == "openbsdcompat" = libopenbsdcompat_deps
     | otherwise              = LibDep str
 
 -- get library depdencies
 --   we need a specific order for the .a, so we define a total order
 libDeps :: [String] -> [String]
 libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
-    where xord = [ "ssh"
-                  , "openbsdcompat"
-                  , "crypto"
+    where xord = [  "crypto"
                   , "zlib"
                   , "posixcompat"
                   , "term_server"
