@@ -319,7 +319,7 @@
 #undef HAVE_PTHREAD_H
 
 /* Define if you have the <string.h> header file.  */
-#undef HAVE_STRING_H
+#define HAVE_STRING_H 1
 
 /* Define if you have the <sys/param.h> header file.  */
 #undef HAVE_SYS_PARAM_H

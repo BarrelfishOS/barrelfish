@@ -51,7 +51,7 @@
 	| ECHO | ECHOE | ECHOKE | ECHOCTL)
 #define	TTYDEF_LFLAG TTYDEF_LFLAG_ECHO
 #define	TTYDEF_CFLAG	(CREAD | CS8 | HUPCL)
-#define	TTYDEF_SPEED	(B115200)
+#define	TTYDEF_SPEED	(B9600)
 
 /*
  * Control Character Defaults
@@ -95,10 +95,17 @@
  * #define TTYDEFCHARS to include an array of default control characters.
  */
 #ifdef TTYDEFCHARS
-static cc_t	ttydefchars[NCCS] = {
-	CEOF,	CEOL,	CEOL,	CERASE, CWERASE, CKILL, CREPRINT,
-	CERASE2, CINTR,	CQUIT,	CSUSP,	CDSUSP,	CSTART,	CSTOP,	CLNEXT,
-	CDISCARD, CMIN,	CTIME,  CSTATUS, _POSIX_VDISABLE
+
+#include <sys/cdefs.h>
+#include <sys/_termios.h>
+
+static const cc_t ttydefchars[] = {
+	CEOF, CEOL, CEOL, CERASE, CWERASE, CKILL, CREPRINT, CERASE2, CINTR,
+	CQUIT, CSUSP, CDSUSP, CSTART, CSTOP, CLNEXT, CDISCARD, CMIN, CTIME,
+	CSTATUS, _POSIX_VDISABLE
 };
+_Static_assert(sizeof(ttydefchars) / sizeof(cc_t) == NCCS,
+    "Size of ttydefchars does not match NCCS");
+
 #undef TTYDEFCHARS
-#endif
+#endif /* TTYDEFCHARS */

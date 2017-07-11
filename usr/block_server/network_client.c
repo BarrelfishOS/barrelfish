@@ -15,11 +15,11 @@
 
 #include <barrelfish/barrelfish.h>
 
+#include "block_server.h"
 #include <lwip/init.h>
 #include <lwip/tcp.h>
 #include <lwip/ip_addr.h>
 
-#include "block_server.h"
 #include "network_common.h"
 #include "network_client.h"
 #include "local_server.h"

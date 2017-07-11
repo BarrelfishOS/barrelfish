@@ -17,8 +17,6 @@
 
 #include <debug.h>
 
-#define ALIGN(val, align) (((val) + (align)-1) & ~((align)-1))
-
 /**
  * represents the IOAT DMA ring with its internal state
  */
@@ -337,4 +335,3 @@ inline struct dma_descriptor *dma_ring_get_desc(struct dma_ring *ring,
 {
     return ring->desc[idx & (ring->size - 1)];
 }
-

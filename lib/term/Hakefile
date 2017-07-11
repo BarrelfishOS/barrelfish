@@ -17,7 +17,8 @@
                     flounderBindings = [ "terminal",
                                          "terminal_config",
                                          "terminal_session" ],
-                    flounderDefs = [ "monitor" ]
+                    flounderDefs = [ "monitor" ],
+                    addLibraries = [ "collections" ]
                   },
 
     build library { target = "term_client",

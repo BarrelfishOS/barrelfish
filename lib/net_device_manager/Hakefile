@@ -16,7 +16,6 @@
                   "sfn5122f_filt_cl_impl.c", "portalloc.c" ],
                   flounderBindings = [ "net_soft_filters", "net_ports",
                                        "e10k", "sfn5122f" ],
-                  addLibraries = [ "bfdmuxtools", "trace" ]
+                  addLibraries = [ "bfdmuxtools", "trace", "lwip" ]
                  }
 ]
-

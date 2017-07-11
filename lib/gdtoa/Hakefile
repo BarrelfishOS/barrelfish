@@ -1,0 +1,34 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2017, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for libm
+--
+--------------------------------------------------------------------------
+
+[
+    build library {
+        target = "gdtoa",
+--        cFiles = concat [ find cInDir "." ],
+        cFiles = [
+            "dmisc.c", "dtoa.c", "g_Qfmt.c", "g__fmt.c", "g_ddfmt.c", "g_dfmt.c",
+            "g_ffmt.c", "g_xLfmt.c", "g_xfmt.c", "gdtoa.c", "gethex.c", "gmisc.c", "hd_init.c",
+            "hexnan.c", "misc.c", "smisc.c", "strtoIQ.c", "strtoId.c", "strtoIdd.c",
+            "strtoIf.c", "strtoIg.c", "strtoIx.c", "strtoIxL.c", "strtod.c", "strtodI.c",
+            "strtodg.c", "strtof.c", "strtopQ.c", "strtopd.c", "strtopdd.c", "strtopf.c",
+            "strtopx.c", "strtopxL.c", "strtorQ.c", "strtord.c", "strtordd.c", "strtorf.c",
+            "strtorx.c", "strtorxL.c", "sum.c", "ulp.c" ],
+        addIncludes = [ "/lib/libc/include", "/lib/libc/locale" ] ++ (case arch of
+                        "x86_32" ->  [ "/lib/libc/x86" ]
+                        "x86_64" ->  [ "/lib/libc/amd64" ]
+                        "k1om" ->  [ "/lib/libc/amd64" ]
+                        "armv7" ->  [ "/lib/libc/arm" ]
+                        "armv8" ->  [ "/lib/libc/aarch64" ]),
+        omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ],
+        architectures = [ arch ]
+    } | arch <- allArchitectures
+]

@@ -13,7 +13,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
-#include <ipv4/lwip/inet.h>
+#include <lwip/inet.h>
 
 #include <if/sfn5122f_defs.h>
 

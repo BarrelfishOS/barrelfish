@@ -33,6 +33,7 @@
 // -SG, 2015-02-18
 #define DISP_NAME_LEN   16
 extern "C" {
+#include <barrelfish_kpi/types.h>
 extern const char *disp_name(void);
 extern coreid_t disp_get_core_id(void);
 extern uintptr_t thread_id(void);

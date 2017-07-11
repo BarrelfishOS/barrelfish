@@ -255,7 +255,7 @@ void net_buf_free(struct pbuf *p)
     NETDEBUG("pbuf=%p\n", p);
 
     if (p->next) {
-        debug_printf("!!!!!! p->NEXT was not NULL\n");
+        debug_printf("!!!!!! p->NEXT was not NULL (%p)\n", p->next);
     }
 
    // printf("free: %p\n", p);

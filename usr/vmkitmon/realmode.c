@@ -13,6 +13,7 @@
 
 #include "vmkitmon.h"
 #include <x86emu.h>
+#include <stdarg.h>
 #include "realmode.h"
 #ifdef CONFIG_SVM
 #include "svm.h"
@@ -23,8 +24,8 @@ static struct guest *env = NULL;
 static bool valid_exit = false;
 
 #ifndef CONFIG_SVM
-// Global variables are used, since the corresponding fields are read-only 
-// in the VMCS. 
+// Global variables are used, since the corresponding fields are read-only
+// in the VMCS.
 uint16_t saved_exit_reason;
 uint64_t saved_exit_qual, saved_rip;
 #endif
@@ -302,34 +303,34 @@ realmode_switch_from (struct guest *g)
     if ((amd_vmcb_ss_base_rd(&g->vmcb) >> 4) != M.x86.R_SS) {
         VMCB_WRITE_SEGREG_REALMODE(&g->vmcb, ss, M.x86.R_SS);
     }
-#else 
+#else
     uint64_t guest_cs_base;
-    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_BASE, &guest_cs_base); 
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_BASE, &guest_cs_base);
     if ((guest_cs_base >> 4) != M.x86.R_CS) {
         VMCS_WRITE_SEGREG_REALMODE(g->dcb_cap, CS, M.x86.R_CS);
     }
     uint64_t guest_ds_base;
-    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_BASE, &guest_ds_base); 
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_BASE, &guest_ds_base);
     if ((guest_ds_base >> 4) != M.x86.R_DS) {
         VMCS_WRITE_SEGREG_REALMODE(g->dcb_cap, DS, M.x86.R_DS);
     }
     uint64_t guest_es_base;
-    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_ES_BASE, &guest_es_base); 
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_ES_BASE, &guest_es_base);
     if ((guest_es_base >> 4) != M.x86.R_ES) {
         VMCS_WRITE_SEGREG_REALMODE(g->dcb_cap, ES, M.x86.R_ES);
     }
     uint64_t guest_fs_base;
-    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_FS_BASE, &guest_fs_base); 
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_FS_BASE, &guest_fs_base);
     if ((guest_fs_base >> 4) != M.x86.R_FS) {
         VMCS_WRITE_SEGREG_REALMODE(g->dcb_cap, FS, M.x86.R_FS);
     }
     uint64_t guest_gs_base;
-    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_GS_BASE, &guest_gs_base); 
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_GS_BASE, &guest_gs_base);
     if ((guest_gs_base >> 4) != M.x86.R_GS) {
         VMCS_WRITE_SEGREG_REALMODE(g->dcb_cap, GS, M.x86.R_GS);
     }
     uint64_t guest_ss_base;
-    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_SS_BASE, &guest_ss_base); 
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_SS_BASE, &guest_ss_base);
     if ((guest_ss_base >> 4) != M.x86.R_SS) {
         VMCS_WRITE_SEGREG_REALMODE(g->dcb_cap, SS, M.x86.R_SS);
     }
@@ -339,7 +340,7 @@ realmode_switch_from (struct guest *g)
 }
 
 #ifndef CONFIG_SVM
-// Return true if the "Descriptor-table exiting" Secondary Processor-based control 
+// Return true if the "Descriptor-table exiting" Secondary Processor-based control
 // is set in the VMCS, else false.
 static inline bool vmx_desc_table_exiting(void) {
     uint64_t sec_proc_ctrls;

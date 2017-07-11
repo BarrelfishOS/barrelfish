@@ -242,7 +242,7 @@ static void run_agent_1(int test)
     agent_wait_state(A1_BUFFER_COPIED);
 
     // verify data still readable
-    memcmp(buffer->address, TESTDATA, 3); // dummy function call
+    // memcmp(buffer->address, TESTDATA, 3); // dummy function call
     debug_printf("Agent 1: buffer still readable.\n");
 
     // Additional Test 4: Verify buffer not writeable

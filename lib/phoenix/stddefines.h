@@ -22,7 +22,7 @@
 * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/ 
+*/
 
 #ifndef STDDEFINES_H_
 #define STDDEFINES_H_
@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/time.h>
 
 //#define TIMING
 
@@ -94,11 +95,6 @@ static inline char *GETENV(char *envstr)
       duration.tv_nsec -= 1000000000L;                                     \
    }
 
-struct timeval {
-    // Nothing here yet
-    uint64_t timeval;
-};
-
 #ifdef TIMING
 #       include <barrelfish/barrelfish.h>
 #endif
@@ -109,11 +105,9 @@ static inline unsigned int time_diff (
 #ifdef TIMING
     uint64_t result;
 
-    result = end->timeval - begin->timeval;
-
-    /* result = end->tv_sec - begin->tv_sec; */
-    /* result *= 1000000;     /\* usec *\/ */
-    /* result += end->tv_usec - begin->tv_usec; */
+    result = end->tv_sec - begin->tv_sec;
+    result *= 1000000;     /* usec */
+    result += end->tv_usec - begin->tv_usec;
 
     return result;
 #else
@@ -124,8 +118,7 @@ static inline unsigned int time_diff (
 static inline void get_time (struct timeval *t)
 {
 #ifdef TIMING
-    /* gettimeofday (t, NULL); */
-    t->timeval = rdtsc();
+    gettimeofday (t, NULL);
 #endif
 }
 

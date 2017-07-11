@@ -23,6 +23,7 @@
 struct lmp_chan;
 struct ump_chan;
 struct deferred_event;
+struct notificator;
 
 // Architecture generic user only dispatcher struct
 struct dispatcher_generic {
@@ -89,6 +90,8 @@ struct dispatcher_generic {
 
     /// list of polled channels
     struct waitset_chanstate *polled_channels;
+    
+    struct notificator *notificators;
 };
 
 #endif // BARRELFISH_DISPATCHER_H

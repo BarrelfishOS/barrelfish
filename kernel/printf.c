@@ -194,10 +194,6 @@ vsnprintf(char *bf, size_t size, const char *fmt, va_list ap)
  * NOTE: The kprintf mutex must be held if we're going TOBUF or TOCONS!
  */
 
-/* XXX: legacy types needed by kprintf. don't use these for new code */
-typedef signed long long    quad_t;
-typedef unsigned long long  u_quad_t;
-
 /*
  * macros for converting digits to letters and vice versa
  */

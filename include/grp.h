@@ -1,12 +1,3 @@
-/*
- * Copyright (c) 2012, ETH Zurich.
- * All rights reserved.
- *
- * This file is distributed under the terms in the attached LICENSE file.
- * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
- */
-
 /*-
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -50,47 +41,51 @@
 #include <sys/cdefs.h>
 #include <sys/_types.h>
 
-#define	_PATH_GROUP "/etc/group"
+#define	_PATH_GROUP		"/etc/group"
 
 #ifndef _GID_T_DECLARED
-typedef	__gid_t     gid_t;
+typedef	__gid_t		gid_t;
 #define	_GID_T_DECLARED
 #endif
 
 #ifndef _SIZE_T_DECLARED
-typedef __size_t    size_t;
+typedef __size_t	size_t;
 #define _SIZE_T_DECLARED
 #endif
 
 struct group {
-    char    *gr_name;       /* group name */
-    char    *gr_passwd;     /* group password */
-    gid_t   gr_gid;         /* group id */
-    char    **gr_mem;       /* group members */
+	char	*gr_name;		/* group name */
+	char	*gr_passwd;		/* group password */
+	gid_t	gr_gid;			/* group id */
+	char	**gr_mem;		/* group members */
 };
 
 __BEGIN_DECLS
-#if __BSD_VISIBLE || __POSIX_VISIBLE >= 200112 || __XSI_VISIBLE
-void             endgrent(void);
-struct group    *getgrent(void);
+#if __POSIX_VISIBLE >= 200112 || __XSI_VISIBLE
+void		 endgrent(void);
+struct group	*getgrent(void);
 #endif
-struct group    *getgrgid(gid_t);
-struct group    *getgrnam(const char *);
+struct group	*getgrgid(gid_t);
+struct group	*getgrnam(const char *);
 #if __BSD_VISIBLE
-char            *group_from_gid(gid_t, int);
+const char	*group_from_gid(gid_t, int);
+int		 gid_from_group(const char *, gid_t *);
+int		 pwcache_groupdb(int (*)(int), void (*)(void),
+		    struct group * (*)(const char *),
+		    struct group * (*)(gid_t));
 #endif
-#if __BSD_VISIBLE || __XSI_VISIBLE
-void             setgrent(void);
+#if __XSI_VISIBLE
+void		 setgrent(void);
 #endif
-#if __BSD_VISIBLE || __POSIX_VISIBLE >= 200112 || __XSI_VISIBLE
-int              getgrgid_r(gid_t, struct group *, char *, size_t,
-                            struct group **);
-int              getgrnam_r(const char *, struct group *, char *, size_t,
-                            struct group **);
+#if __POSIX_VISIBLE >= 200112 || __XSI_VISIBLE
+int		 getgrgid_r(gid_t, struct group *, char *, size_t,
+		    struct group **);
+int		 getgrnam_r(const char *, struct group *, char *, size_t,
+		    struct group **);
 #endif
 #if __BSD_VISIBLE
-int              getgrent_r(struct group *, char *, size_t, struct group **);
-int              setgroupent(int);
+int		 getgrent_r(struct group *, char *, size_t, struct group **);
+int		 setgroupent(int);
 #endif
 __END_DECLS
 

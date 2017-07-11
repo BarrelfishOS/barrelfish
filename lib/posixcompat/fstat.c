@@ -14,6 +14,7 @@
 #include "posixcompat.h"
 #include <vfs/fdtab.h>
 
+__weak_reference(fstat, _fstat);
 int fstat(int fd, struct stat *buf)
 {
     struct fdtab_entry *e = fdtab_get(fd);

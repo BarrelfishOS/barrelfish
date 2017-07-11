@@ -49,9 +49,7 @@ class NetCommon(TestCommon):
     def get_modules(self, build, machine):
         cardName = "e1000"
         modules = super(NetCommon, self).get_modules(build, machine)
-        modules.add_module("e1000n", ["auto"])
-        modules.add_module("NGD_mng", ["auto"])
-        modules.add_module("netd", ["auto"])
+        modules.add_module("e1000_net_sockets_server", ["auto"])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         modules.add_module("webserver", ["core=%d" % machine.get_coreids()[0], #2
 				cardName, nfsip,

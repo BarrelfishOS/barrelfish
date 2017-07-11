@@ -14,7 +14,6 @@
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/threads.h>
 #include <barrelfish/waitset_chan.h>
-#include <ipv4/lwip/inet.h>
 #include <bulk_transfer/bulk_transfer.h>
 #include <pci/pci.h>
 

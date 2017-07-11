@@ -807,7 +807,7 @@ write(void *st, vfs_handle_t handle, const void *buffer, size_t bytes,
 }
 
 static errval_t
-truncate(void *st, vfs_handle_t handle, size_t bytes)
+fat_truncate(void *st, vfs_handle_t handle, size_t bytes)
 {
     TRACE_ENTER;
     return LIB_ERR_NOT_IMPLEMENTED;
@@ -1030,7 +1030,7 @@ struct vfs_ops fat_ops = {
     .remove = fat_remove,
     .read = read,
     .write = write,
-    .truncate = truncate,
+    .truncate = fat_truncate,
     .seek = seek,
     .tell = tell,
     .stat = stat,

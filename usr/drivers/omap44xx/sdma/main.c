@@ -23,6 +23,8 @@
 #include "sdma.h"
 #include "omap_sdma.h"
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
+
 /**
  * \brief Interrupt callback which will be called when a channel interrupt
  * occurs.

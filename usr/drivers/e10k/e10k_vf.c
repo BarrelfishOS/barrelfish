@@ -16,7 +16,7 @@
 #include <pci/pci.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/debug.h>
-#include <ipv4/lwip/inet.h>
+#include <lwip/inet.h>
 #include <if/e10k_defs.h>
 #include <skb/skb.h>
 #include <acpi_client/acpi_client.h>

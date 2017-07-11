@@ -14,47 +14,40 @@
     target       = "net",
     cFiles       = [ "net.c", "netbufs.c",  "netif.c", "pbuf.c", "dhcp.c",
                      "net_filter.c", "arp.c" ],
-    addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
     flounderBindings = [ "net_filter"],
-    flounderExtraBindings = [ ("net_filter", ["rpcclient"])],
     flounderDefs = [ "net_filter" ],
     flounderExtraDefs = [ ("net_filter",["rpcclient"]) ],
     addLibraries = libDeps [ "lwip2", "devif", "devif_backend_idc",
                              "devif_backend_solarflare", "devif_backend_e10k",
-                             "devif_backend_loopback",  "devif_backend_e1000",
+                             "devif_backend_loopback",  "devif_backend_e1000", "debug_log",
                              "octopus", "octopus_parser" ]
   },
 
   build application {
     target       = "net_udp_echo",
     cFiles       = [ "test/udp_echo.c" ],
-    addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
-    addLibraries = libDeps [ "net" ]
+    addLibraries = libDeps [ "net", "lwip2" ]
   },
   
   build application {
     target       = "ping",
     cFiles       = [ "test/ping.c" ],
-    addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
-    addLibraries = libDeps [ "net" ]
+    addLibraries = libDeps [ "net", "lwip2" ]
   },
   
   build application {
     target       = "udp_ping",
     cFiles       = [ "test/udp_ping.c" ],
-    addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
-    addLibraries = libDeps [ "net" ]
+    addLibraries = libDeps [ "net", "lwip2" ]
   },
   build application {
     target       = "net_dhcp",
     cFiles       = [ "test/dhcp.c" ],
-    addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
-    addLibraries = libDeps [ "net" ]
+    addLibraries = libDeps [ "net", "lwip2" ]
   },
   build application {
     target       = "net_arp",
     cFiles       = [ "test/arp.c" ],
-    addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
-    addLibraries = libDeps [ "net" ]
+    addLibraries = libDeps [ "net", "lwip2" ]
   }
 ]

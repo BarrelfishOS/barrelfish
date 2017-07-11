@@ -40,10 +40,11 @@ struct http_conn {
     size_t              request_length;
     /* reply header, position and length (static) */
     const char          *header;
-    size_t              header_pos, header_length;
+    size_t              header_pos, header_length, header_sent;
 
     struct buff_holder  *hbuff;      /* reply buffer holder */
     size_t              reply_pos;  /* amount of data sent from reply */
+    size_t              reply_sent;
 
     // Time taken to send reply
     uint64_t            start_ts;
@@ -51,7 +52,7 @@ struct http_conn {
     int                 retries;
     int                 error; /*flag for internal errors */
     char                *filename;     /* name of the requested file */
-    struct tcp_pcb      *pcb;
+    struct net_socket   *pcb;
     void (*callback) (struct http_conn *);
     int                 mark_invalid;     /* is it marked for delete? */
     long                ref_count;
@@ -59,7 +60,7 @@ struct http_conn {
 };
 
 
-err_t http_fetch_file(const char *name, struct http_conn *cs);
+errval_t http_fetch_file(const char *name, struct http_conn *cs);
 long decrement_http_conn_reference (struct http_conn *cs);
 long increment_http_conn_reference (struct http_conn *cs);
 #endif // WEBSERVER_SESSION_H

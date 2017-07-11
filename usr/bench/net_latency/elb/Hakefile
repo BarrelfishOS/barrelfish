@@ -32,7 +32,7 @@
                       cFiles = [ "interface_lib.c", "benchmark_tcp.c",
                         "tcp_server.c", "udp_server.c" ],
                       flounderBindings = [ "net_queue_manager" ],
-                      addLibraries = [ "bench", "trace" ] }
+                      addLibraries = [ "bench", "trace", "lwip" ] }
 
 
 

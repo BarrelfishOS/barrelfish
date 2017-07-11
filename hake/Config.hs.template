@@ -9,7 +9,7 @@
 -- Attn: Systems Group.
 --
 -- Configuration options for Hake
--- 
+--
 --------------------------------------------------------------------------
 
 module Config where
@@ -114,7 +114,7 @@ dot          = "dot"       --   "    "
 inkscape     = "inkscape"
 
 -- path to source and install directories; these are automatically set by
--- hake.sh at setup time 
+-- hake.sh at setup time
 source_dir :: String
 -- source_dir = undefined -- (set by hake.sh, see end of file)
 
@@ -204,7 +204,7 @@ ethersrv_debug = False
 netd_debug :: Bool
 netd_debug = False
 
-libacpi_debug :: Bool 
+libacpi_debug :: Bool
 libacpi_debug = False
 
 acpi_interface_debug :: Bool
@@ -417,12 +417,6 @@ defines = [ Str ("-D" ++ d) | d <- [
              ], d /= "" ]
 
 
--- Sets the include path for lwIP
-lwipInc :: String
-lwipInc = "/lib/lwip/src/include"
-lwipxxxInc :: String
-lwipxxxInc = "/lib/lwip/src/include/ipv4"
-
 -- some defines depend on the architecture/compile options
 arch_defines :: Options -> [RuleToken]
 arch_defines opts
@@ -436,19 +430,3 @@ arch_defines opts
        | d <- ["CONFIG_FLOUNDER_BACKEND_" ++ (map toUpper n)
                | n <- optFlounderBackends opts]
       ]
-
--- newlib common compile flags (maybe put these in a config.h file?)
-newlibAddCFlags :: [String]
-newlibAddCFlags = [ "-DPACKAGE_NAME=\"newlib\"" ,
-                    "-DPACKAGE_TARNAME=\"newlib\"",
-                    "-DPACKAGE_VERSION=\"1.19.0\"",
-                    "-DPACKAGE_BUGREPORT=\"\"",
-                    "-DPACKAGE_URL=\"\"",
-                    "-D_I386MACH_ALLOW_HW_INTERRUPTS",
-                    "-DMISSING_SYSCALL_NAMES",
-                    "-D_WANT_IO_C99_FORMATS",
-                    "-D_COMPILING_NEWLIB",
-                    "-D_WANT_IO_LONG_LONG",
-                    "-D_WANT_IO_LONG_DOUBLE",
-                    "-D_MB_CAPABLE",
-                    "-D__BSD_VISIBLE"]

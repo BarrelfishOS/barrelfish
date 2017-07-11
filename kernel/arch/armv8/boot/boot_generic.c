@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include <barrelfish_kpi/types.h>
 #include <init.h>
 #include <offsets.h>
 #include <sysreg.h>
@@ -647,5 +648,3 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
         __asm volatile("wfi \n");
     }
 }
-
-

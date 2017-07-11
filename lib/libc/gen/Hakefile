@@ -1,0 +1,26 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2017, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for libm
+--
+--------------------------------------------------------------------------
+
+[
+    build library {
+        target = "libc_gen",
+        cFiles = concat [ find cInDir "." ],
+        addIncludes = [ "../include", "../locale", "/lib/tzcode/stdtime" ] ++ (case arch of
+                        "x86_32" ->  [ "../x86" ]
+                        "x86_64" ->  [ "../amd64" ]
+                        "k1om" ->  [ "../amd64" ]
+                        "armv7" ->  [ "../arm" ]
+                        "armv8" ->  [ "../aarch64" ]),
+        omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ],
+        architectures = [ arch ]
+    } | arch <- allArchitectures
+]

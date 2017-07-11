@@ -20,7 +20,7 @@
 #include <bench/bench.h>
 
 /* includes for ip address and lwip wrappers */
-#include <ipv4/lwip/inet.h>
+#include <lwip/inet.h>
 #include <lwip/init.h>
 
 /* bulk transfer facilities */
@@ -146,4 +146,3 @@ int main(int argc, char *argv[])
 
     message_handler_loop();
 }
-

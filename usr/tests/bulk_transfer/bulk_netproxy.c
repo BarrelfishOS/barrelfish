@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include <ipv4/lwip/inet.h>
+#include <lwip/inet.h>
 
 #include<bulk_transfer/bulk_transfer.h>
 #include<bulk_transfer/bulk_allocator.h>
@@ -344,4 +344,3 @@ int main(int argc, char *argv[])
     }
     return 0;
 }
-

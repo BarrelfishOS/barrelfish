@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for /usr/drivers/tulip
--- 
+--
 --------------------------------------------------------------------------
 
 [ build application { target = "tulip",
@@ -15,6 +15,6 @@
                       flounderBindings = [ "net_queue_manager",
                                             "net_soft_filters" ],
                       mackerelDevices = [ "tulip" ],
-                      addLibraries = libDeps [ "pci", "netQmng" ]
+                      addLibraries = libDeps [ "pci", "netQmng", "lwip" ]
            }
 ]

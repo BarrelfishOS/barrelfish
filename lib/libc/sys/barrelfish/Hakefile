@@ -1,0 +1,7 @@
+[
+    build library {
+    target = "sys",
+    cFiles     = [ "syscalls.c" , "stackchk.c", "oldmalloc.c", "oldcalloc.c", "oldrealloc.c", "oldsys_morecore.c"],
+    --   cFiles     = [ "syscalls.c" , "findfp.c" , "posix_syscalls.c", "lock.c", "stackchk.c" ]
+    omitCFlags   = [ "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
+}]

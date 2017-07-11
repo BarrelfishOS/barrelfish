@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/types.h>
 #ifdef BARRELFISH
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>

@@ -20,7 +20,7 @@
 #include <lwip/opt.h>
 #include <lwip/netif.h>
 #include <lwip/timeouts.h>
-#include "include/net/netif.h"
+#include <net/netif.h>
 
 #include <netif/etharp.h>
 

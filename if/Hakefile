@@ -97,7 +97,8 @@
                "dcontrol",
                "net_filter",
                "twl6030",
-               "cm2"
+               "cm2",
+               "net_sockets"
            ],
              arch <- allArchitectures
 ] ++

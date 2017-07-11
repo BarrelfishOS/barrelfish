@@ -395,7 +395,7 @@ static errval_t write_bulk(struct trivfs_binding *b, trivfs_fh_t fh,
     return SYS_ERR_OK;
 }
 
-static errval_t truncate(struct trivfs_binding *b, trivfs_fh_t fh,
+static errval_t trivfs_truncate(struct trivfs_binding *b, trivfs_fh_t fh,
                          trivfs_fsize_t newsize, errval_t *reterr)
 {
     *reterr = SYS_ERR_OK;
@@ -496,7 +496,7 @@ static struct trivfs_rpc_rx_vtbl rpc_rx_vtbl = {
     .write_call = write,
     .read_bulk_call = read_bulk,
     .write_bulk_call = write_bulk,
-    .truncate_call = truncate,
+    .truncate_call = trivfs_truncate,
     .create_call = create,
     .mkdir_call = mkdir,
     .delete_call = delete,

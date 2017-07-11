@@ -32,7 +32,7 @@
 #if __ARM_EABI__
 # define ARM_EABI_FNALIAS(aeabi_name, name)         \
   void __aeabi_##aeabi_name() __attribute__((alias("__" #name)));
-# define COMPILER_RT_ABI __attribute__((pcs("aapcs")))
+# define COMPILER_RT_ABI
 #else
 # define ARM_EABI_FNALIAS(aeabi_name, name)
 # if defined(__arm__) && defined(_WIN32) && (!defined(_MSC_VER) || defined(__clang__))

@@ -8,6 +8,7 @@
  */
 
 #include <pthread.h>
+#include <pthread_np.h>
 #include <assert.h>
 #include <barrelfish/barrelfish.h>
 #include <errno.h>
@@ -17,6 +18,7 @@
 #include <posixcompat.h> // for pthread_placement stuff
 
 #include "posixcompat.h"
+#include "pthreads_private.h"
 
 typedef void (*destructor_fn_t)(void *);
 typedef void *(*start_fn_t)(void *);
@@ -781,12 +783,12 @@ int pthread_rwlock_rdlock(pthread_rwlock_t *rwlock)
 }
 
 
-int _pthread_once(pthread_once_t *ctrl, void (*init) (void))
+int pthread_once(pthread_once_t *ctrl, void (*init) (void))
 {
     if (ctrl == NULL || init == NULL) {
         return EINVAL;
     }
-    thread_once(ctrl, init);
+    thread_once(&ctrl->state, init);
     return 0;
 }
 
@@ -803,7 +805,7 @@ int _pthread_once(pthread_once_t *ctrl, void (*init) (void))
  *
  **/
 int pthread_attr_setaffinity_np(pthread_attr_t *attr,
-                   size_t cpusetsize, const cpu_set_t *cpuset)
+                   size_t cpusetsize, const cpuset_t *cpuset)
 {
     if (attr == NULL || cpuset == NULL) {
         return EFAULT;

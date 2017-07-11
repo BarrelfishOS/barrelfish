@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/param.h>
 
 #include <barrelfish/barrelfish.h>
 #include <spawndomain/spawndomain.h>
@@ -52,7 +53,7 @@ typedef errval_t (*loadfile_fn_t)(char *path, void *buf, size_t buflen, size_t *
 #define UOS_RESERVE_SIZE_MIN    ((128) * 1024 * 1024)
 #define UOS_RESERVE_SIZE_MAX    (((4) * 1024 * 1024 * 1024ULL) - ((4) * 1024))
 
-#define ALIGN(x) ROUND_UP(x, BASE_PAGE_SIZE)
+#define ALIGN_BASE_PAGE(x) ROUND_UP(x, BASE_PAGE_SIZE)
 
 static xeon_phi_boot_t boot_registers;
 static xeon_phi_apic_t apic_registers;
@@ -430,7 +431,7 @@ static errval_t download_modules_generic(struct xeon_phi *phi, size_t offset,
     offset += prepare_multiboot_strings((void *)phi->apt.vbase + strings_offset,
                                         mods, num_mods);
 
-    offset = ALIGN(offset);
+    offset = ALIGN_BASE_PAGE(offset);
 
     for (uint32_t i = 0; i < num_mods; ++i) {
         char *strings = (void *)phi->apt.vbase + strings_offset;
@@ -448,7 +449,7 @@ static errval_t download_modules_generic(struct xeon_phi *phi, size_t offset,
         }
         mbi_mods[i].mod_end = mbi_mods[i].mod_start + imgsize;
 
-        offset = ALIGN(offset + imgsize);
+        offset = ALIGN_BASE_PAGE(offset + imgsize);
 
         XBOOT_DEBUG("module %35s @ 0x08%lx  size %lu kB\n",
                     (char *)phi->apt.vbase + strings_offset, offset, imgsize >> 10);
@@ -715,7 +716,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     }
 
     // round to next page
-    offset = ALIGN(phi->os_offset + phi->os_size);
+    offset = ALIGN_BASE_PAGE(phi->os_offset + phi->os_size);
 
     // load cmdline
     err = load_cmdline(phi, offset);
@@ -724,7 +725,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     }
 
     // round to next page
-    offset = ALIGN(offset+phi->cmdlen);
+    offset = ALIGN_BASE_PAGE(offset+phi->cmdlen);
 
     if (use_tftp) {
         err = download_modules_tftp(phi, offset, modules_parsed + 1, num_mods, num_mmaps);

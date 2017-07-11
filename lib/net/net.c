@@ -214,7 +214,7 @@ static errval_t networking_poll_st(struct net_state *st)
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *q,
+static errval_t networking_init_with_queue_st(struct net_state *st, struct devq *q,
                                               net_flags_t flags)
 {
     errval_t err;
@@ -260,16 +260,17 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
         goto out_err1;
     }
 
+    if (!(flags & NET_FLAGS_NO_NET_FILTER)) {
+        NETDEBUG("initializing hw filter...\n");
 
-    NETDEBUG("initializing hw filter...\n");
-
-    err = net_filter_init(&st->filter, st->cardname);
-    if (err_is_fail(err)) {
-        USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+        err = net_filter_init(&st->filter, st->cardname);
+        if (err_is_fail(err)) {
+            USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+        }
     }
 
     NETDEBUG("setting default netif...\n");
-   // netif_set_default(&st->netif);
+    netif_set_default(&st->netif);
 
     NETDEBUG("adding RX buffers\n");
     for (int i = 0; i < NETWORKING_BUFFER_RX_POPULATE; i++) {
@@ -295,10 +296,10 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
             DEBUG_ERR(err,  "failed to start the ARP service\n");
         }
     } else {
-        /* get IP from dhcpd */
-        err = dhcpd_query(flags);
+        /* get static IP config */
+        err = net_config_static_ip_query(flags);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to start DHCP.\n");
+            DEBUG_ERR(err, "failed to set IP.\n");
         }
 
         err = arp_service_subscribe();
@@ -455,7 +456,7 @@ errval_t networking_poll(void)
  *
  * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
  */
-errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
+errval_t networking_install_ip_filter(bool tcp, struct in_addr *src,
                                       uint16_t src_port, uint16_t dst_port)
 {
     errval_t err;
@@ -466,16 +467,16 @@ errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
     struct net_filter_state *st = state.filter;
 
     // get current config
-    ip_addr_t dst_ip;
-    err = dhcpd_get_ipconfig(&dst_ip, NULL, NULL);
+    struct in_addr dst_ip;
+    err = netif_get_ipconfig(&dst_ip, NULL, NULL);
     if (err_is_fail(err)) {
         return err;
     }
     
     struct net_filter_ip ip = {
         .qid = state.queueid,
-        .ip_src = (uint32_t) src->addr,
-        .ip_dst = (uint32_t) dst_ip.addr,
+        .ip_src = (uint32_t) src->s_addr,
+        .ip_dst = (uint32_t) dst_ip.s_addr,
         .port_dst = dst_port,
         .port_src = src_port,
     };
@@ -499,7 +500,7 @@ errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
  *
  * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
  */
-errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src,
+errval_t networking_remove_ip_filter(bool tcp, struct in_addr *src,
                                      uint16_t src_port, uint16_t dst_port)
 {
 
@@ -511,16 +512,16 @@ errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src,
     struct net_filter_state *st = state.filter;
 
     // get current config
-    ip_addr_t dst_ip;
-    err = dhcpd_get_ipconfig(&dst_ip, NULL, NULL);
+    struct in_addr dst_ip;
+    err = netif_get_ipconfig(&dst_ip, NULL, NULL);
     if (err_is_fail(err)) {
         return err;
     }
     
     struct net_filter_ip ip = {
         .qid = state.queueid,
-        .ip_src = (uint32_t) src->addr,
-        .ip_dst = (uint32_t) dst_ip.addr,
+        .ip_src = (uint32_t) src->s_addr,
+        .ip_dst = (uint32_t) dst_ip.s_addr,
         .port_dst = dst_port,
         .port_src = src_port,
     };

@@ -83,7 +83,7 @@ void printk(int level, const char *msg, ...)
 /**
  * Helper function used in the implementation of assert()
  */
-void __assert_func(const char *file, int line, const char *func, const char *exp)
+void __assert(const char *func, const char *file, int line, const char *exp)
 {
     panic("kernel assertion \"%s\" failed at %s:%d", exp, file, line);
 }

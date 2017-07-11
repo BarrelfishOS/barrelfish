@@ -18,6 +18,7 @@
 #include "posixcompat.h"
 #include "pty.h"
 
+__weak_reference(close, _close);
 int close(int fd)
 {
     int ret;

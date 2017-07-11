@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for lib/vfs
--- 
+--
 --------------------------------------------------------------------------
 
 [ build library { target = "vfs",
@@ -18,6 +18,7 @@
                              "vfs_fat_conv.c", "fdtab.c", "vfs_fd.c",
                              "vfs_blockdevfs_megaraid.c"
                            ],
+                  addLibraries = [ "nfs", "net_sockets" ],
                   mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb",
                                       "fat32_ebpb", "fat_direntry", "ahci_port",
                                       "ahci_hba"
@@ -60,6 +61,7 @@
                                             ("bcache", ["rpcclient"])
                                           ],
                   addCFlags = [ "-DDISABLE_BLOCKDEV" ],
+                  addLibraries = [ "lwip" ],
                   flounderDefs = [ "monitor" ]
                 },
   build library { target = "vfs_ramfs",
@@ -68,9 +70,6 @@
                            ],
                   addCFlags = [ "-DDISABLE_NFS", "-DDISABLE_BLOCKDEV" ],
                   flounderBindings = [ "trivfs", "bcache" ],
-                  flounderExtraBindings = [ ("trivfs", ["rpcclient"]),
-                                            ("bcache", ["rpcclient"])
-                                          ],
                   flounderDefs = [ "monitor" ]
                 }
 ]
