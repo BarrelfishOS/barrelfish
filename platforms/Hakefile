@@ -169,8 +169,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                           "startd",
                           "mem_serv",
                           "monitor",
-                          "ramfsd",
-                          "driverdomain" ]]
+                          "ramfsd" ]]
 
     -- List of modules that are arch-independent and always built
     modules_generic = [
