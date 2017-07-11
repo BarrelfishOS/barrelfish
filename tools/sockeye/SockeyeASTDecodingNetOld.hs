@@ -13,17 +13,13 @@
   Attn: Systems Group.
 -}
 
-module SockeyeASTDecodingNet where
-
-import Data.Map(Map)
+module SockeyeASTDecodingNetOld where
 
 {-
-Nodes are identfied by a namespace and a name
+Nodes are identfied by strings
 -}
-data NodeId = NodeId
-    { namespace :: [String]
-    , name      :: !String
-    } deriving (Eq, Ord, Show)
+newtype NodeId = NodeId String
+  deriving (Eq, Ord, Show)
 
 {-
 Addresses are natural numbers
@@ -77,5 +73,5 @@ data NodeSpec = NodeSpec
 A decoding net is specified as a list 
 of Node IDs mapped to Nodes
 -}
-newtype NetSpec = NetSpec (Map NodeId NodeSpec)
+newtype NetSpec = NetSpec [(NodeId, NodeSpec)]
     deriving (Show)
