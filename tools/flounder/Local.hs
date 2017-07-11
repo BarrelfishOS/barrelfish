@@ -218,7 +218,7 @@ tx_vtbl ifn ml =
 local_connect_handler_fn :: String -> C.Unit
 local_connect_handler_fn ifn = C.FunctionDef C.NoScope (C.TypeName "errval_t")
     (drv_connect_handler_name "local" ifn) local_connect_handler_params [
-    
+
     localvar (C.Ptr $ C.Struct $ export_type ifn) "e" $ Just $ C.Variable "st",
     localvar (C.TypeName "errval_t") "err" Nothing,
     C.SBlank,

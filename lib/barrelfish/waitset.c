@@ -54,7 +54,6 @@ static void dequeue(struct waitset_chanstate **queue, struct waitset_chanstate *
 /// Enqueue a chanstate on a queue
 static void enqueue(struct waitset_chanstate **queue, struct waitset_chanstate *chan)
 {
-    assert(chan != NULL);
     if (*queue == NULL) {
         *queue = chan;
         chan->next = chan->prev = chan;
