@@ -55,11 +55,6 @@ static void dequeue(struct waitset_chanstate **queue, struct waitset_chanstate *
 static void enqueue(struct waitset_chanstate **queue, struct waitset_chanstate *chan)
 {
     assert(chan != NULL);
-    if (queue == (void*)0x8) {
-        printf("callstack: %zu %p %p\n",
-            __builtin_return_address(0));
-    }
-
     if (*queue == NULL) {
         *queue = chan;
         chan->next = chan->prev = chan;
