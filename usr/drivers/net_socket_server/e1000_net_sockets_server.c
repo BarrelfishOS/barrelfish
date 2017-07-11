@@ -12,6 +12,8 @@
  * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <getopt.h>
+
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish/nameservice_client.h>
@@ -831,18 +833,63 @@ int main(int argc, char *argv[])
 {
     errval_t err;
 
-    debug_printf("Net socket server started for e1000 %s.\n", argv[2]);
+    if (argc < 1) {
+        printf("%s: missing card argument!\n", argv[0]);
+        return -1;
+    }
+    debug_printf("Net socket server started for e1000 %s.\n", argv[argc - 1]);
 
     char servicename[64];
-    snprintf(servicename, sizeof(servicename), "e1000:%s", argv[2]);
+    snprintf(servicename, sizeof(servicename), "e1000:%s", argv[argc - 1]);
 
-    err = oct_init();
-    assert(err_is_ok(err));
-    err = oct_set(NET_CONFIG_STATIC_IP_RECORD_FORMAT, inet_addr("192.168.0.36"), inet_addr("0.0.0.0"), inet_addr("255.255.255.0"));
-    assert(err_is_ok(err));
+    char *ip = NULL;
+    char *netmask = NULL;
+    char *gw = NULL;
+
+    while (1) {
+        int option_index = 0;
+        int c;
+        static struct option long_options[] = {
+            {"ip",  required_argument,  0,  1},
+            {"netmask",  required_argument,  0,  2},
+            {"gw",  required_argument,  0,  3},
+            {0, 0,  0,  0}
+        };
+        c = getopt_long_only(argc, argv, "", long_options, &option_index);
+        if (c == -1)
+            break;
+
+        switch (c) {
+        case 1:
+            ip = optarg;
+            break;
+        case 2:
+            netmask = optarg;
+            break;
+        case 3:
+            gw = optarg;
+            break;
+        default:
+            break;
+        }
+    }
+
+    if (ip)
+        printf("option ip [%s]\n", ip);
+    if (netmask)
+        printf("option nm [%s]\n", netmask);
+    if (gw)
+        printf("option gw [%s]\n", gw);
+
+    if (ip) { // setting static IP, no DHCP
+        err = oct_init();
+        assert(err_is_ok(err));
+        err = oct_set(NET_CONFIG_STATIC_IP_RECORD_FORMAT, inet_addr(ip), gw ? inet_addr(gw): 0, netmask ? inet_addr(netmask): 0);
+        assert(err_is_ok(err));
+    }
 
     /* connect to the network */
-    err = networking_init(servicename, /*NET_FLAGS_DO_DHCP |*/ NET_FLAGS_NO_NET_FILTER | NET_FLAGS_BLOCKING_INIT);
+    err = networking_init(servicename, (!ip ? NET_FLAGS_DO_DHCP: 0) | NET_FLAGS_NO_NET_FILTER | NET_FLAGS_BLOCKING_INIT);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to initialize the network");
     }
