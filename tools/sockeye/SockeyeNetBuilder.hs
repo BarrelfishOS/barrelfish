@@ -33,12 +33,16 @@ import qualified SockeyeASTDecodingNet as NetAST
 
 type NetNodeDecl = (NetAST.NodeId, NetAST.NodeSpec)
 type NetList = [NetNodeDecl]
+type PortList = [NetAST.NodeId]
+type PortMap = [(NetAST.NodeId, NetAST.NodeId)]
 
 data FailedCheck
-    = DuplicateIdentifer NetAST.NodeId
+    = UndefinedPort String String
+    | DuplicateIdentifer NetAST.NodeId
     | UndefinedReference NetAST.NodeId
 
 instance Show FailedCheck where
+    show (UndefinedPort modName name) = concat ["'", name, "' is not a port of module '", modName, "'"]
     show (DuplicateIdentifer ident) = concat ["Multiple declarations of node '", show ident, "'"]
     show (UndefinedReference ident) = concat ["Reference to undefined node '", show ident, "'"]
 
@@ -76,10 +80,10 @@ sockeyeBuildNet ast = do
     return netSpec
 
 class NetTransformable a b where
-    transform :: Context -> a -> b
+    transform :: Context -> a -> Either CheckFailure b
 
 instance NetTransformable AST.SockeyeSpec NetList where
-    transform context ast =
+    transform context ast = do
         let
             rootInst = AST.ModuleInst
                 { AST.namespace  = AST.SimpleIdent ""
@@ -90,11 +94,18 @@ instance NetTransformable AST.SockeyeSpec NetList where
                 }
             specContext = context
                 { spec = ast }
-        in transform specContext rootInst
+        transform specContext rootInst
+
+instance NetTransformable AST.Port PortList where
+    transform context (AST.MultiPort for) = transform context for
+    transform context (AST.Port ident) = do
+        let
+            netPort = transform context ident
+        return [netPort]
 
 instance NetTransformable AST.ModuleInst NetList where
     transform context (AST.MultiModuleInst for) = transform context for
-    transform context ast =
+    transform context ast = do
         let
             namespace = AST.namespace ast
             name = AST.moduleName ast
@@ -102,12 +113,13 @@ instance NetTransformable AST.ModuleInst NetList where
             mod = getModule context name
             nodeDecls = AST.nodeDecls mod
             modInsts = AST.moduleInsts mod
-            argValues = transform context args
+        argValues <- transform context args
+        let
             netNamespace = identToName context namespace
             modContext = moduleContext netNamespace argValues
-            declNet = transform modContext nodeDecls
-            instNet = transform modContext modInsts
-        in declNet ++ instNet
+        declNet = transform modContext nodeDecls
+        instNet <- transform modContext modInsts
+        return $ declNet ++ instNet
         where
             moduleContext namespace paramValues =
                 let
@@ -121,44 +133,53 @@ instance NetTransformable AST.ModuleInst NetList where
                     , varValues    = Map.empty
                     }
 
-instance NetTransformable AST.ModuleArg Word where
-    transform context (AST.AddressArg value) = value
-    transform context (AST.NaturalArg value) = value
-    transform context (AST.ParamArg name) = getParamValue context name
+instance NetTransformable AST.PortMap PortMap where
+    transform context (AST.MultiPortMap for) = transform context for
+    transform context ast = do
+        let
+            mappedId = AST.mappedId ast
+            mappedPort = AST.mappedPort ast
+        netMappedId <- transform context mappedId
+        netMappedPort <- transform context mappedPort
+        return [(netMappedId, netMappedPort)]
 
+instance NetTransformable AST.ModuleArg Word where
+    transform context (AST.AddressArg value) = return value
+    transform context (AST.NaturalArg value) = return value
+    transform context (AST.ParamArg name) = return $ getParamValue context name
 
 instance NetTransformable AST.Identifier NetAST.NodeId where
-    transform context ast =
+    transform context ast = do
         let
             namespace = curNamespace context
             name = identToName context ast
-        in NetAST.NodeId
+        return NetAST.NodeId
             { NetAST.namespace = namespace
             , NetAST.name      = name
             }
 
 instance NetTransformable AST.NodeDecl NetList where
     transform context (AST.MultiNodeDecl for) = transform context for
-    transform context ast =
+    transform context ast = do
         let
             ident = AST.nodeId ast
             nodeSpec = AST.nodeSpec ast
-            nodeId = transform context ident
-            netNodeSpec = transform context nodeSpec
-        in [(nodeId, netNodeSpec)]
+        nodeId <- transform context ident
+        netNodeSpec <- transform context nodeSpec
+        return [(nodeId, netNodeSpec)]
 
 instance NetTransformable AST.NodeSpec NetAST.NodeSpec where
-    transform context ast = 
+    transform context ast = do
         let
             nodeType = AST.nodeType ast
             accept = AST.accept ast
             translate = AST.translate ast
             overlay = AST.overlay ast
-            netNodeType = maybe NetAST.Other (transform context) nodeType
-            netAccept = map (transform context) accept
-            netTranslate = map (transform context) translate
-            netOverlay = fmap (transform context) overlay
-        in NetAST.NodeSpec
+        netNodeType <- maybe (return NetAST.Other) (transform context) nodeType
+        netAccept <- fmap (transform context) accept
+        netTranslate <- fmap (transform context) translate
+        netOverlay <- fmap (transform context) overlay
+        return NetAST.NodeSpec
             { NetAST.nodeType  = netNodeType
             , NetAST.accept    = netAccept
             , NetAST.translate = netTranslate
@@ -166,56 +187,57 @@ instance NetTransformable AST.NodeSpec NetAST.NodeSpec where
             }
 
 instance NetTransformable AST.NodeType NetAST.NodeType where
-    transform _ AST.Memory = NetAST.Memory
-    transform _ AST.Device = NetAST.Device
+    transform _ AST.Memory = return NetAST.Memory
+    transform _ AST.Device = return NetAST.Device
 
 instance NetTransformable AST.BlockSpec NetAST.BlockSpec where
-    transform context (AST.SingletonBlock address) =
-        let
-            netAddress = transform context address
-        in NetAST.BlockSpec
+    transform context (AST.SingletonBlock address) = do
+        netAddress <- transform context address
+        return NetAST.BlockSpec
             { NetAST.base  = netAddress
             , NetAST.limit = netAddress
             }
-    transform context (AST.RangeBlock base limit) =
-        let
-            netBase = transform context base
-            netLimit = transform context limit
-        in NetAST.BlockSpec
+    transform context (AST.RangeBlock base limit) = do
+        netBase <- transform context base
+        netLimit <- transform context limit
+        return NetAST.BlockSpec
             { NetAST.base  = netBase
             , NetAST.limit = netLimit
             }
-    transform context (AST.LengthBlock base bits) =
+    transform context (AST.LengthBlock base bits) = do
+        netBase <- transform context base
         let
-            netBase = transform context base
             baseAddress = NetAST.address netBase
             limit = baseAddress + 2^bits - 1
             netLimit = NetAST.Address limit
-        in NetAST.BlockSpec
+        return NetAST.BlockSpec
             { NetAST.base  = netBase
             , NetAST.limit = netLimit
             }
 
 instance NetTransformable AST.MapSpec NetAST.MapSpec where
-    transform context ast =
+    transform context ast = do
         let
             block = AST.block ast
             destNode = AST.destNode ast
             destBase = fromMaybe (AST.base block) (AST.destBase ast)
-            netBlock = transform context block
-            netDestNode = transform context destNode
-            netDestBase = transform context destBase
-        in NetAST.MapSpec
+        netBlock <- transform context block
+        netDestNode <- transform context destNode
+        netDestBase <- transform context destBase
+        return NetAST.MapSpec
             { NetAST.srcBlock = netBlock
             , NetAST.destNode = netDestNode
             , NetAST.destBase = netDestBase
             }
 
 instance NetTransformable AST.Address NetAST.Address where
-    transform _ (AST.LiteralAddress value) = NetAST.Address value
-    transform context (AST.ParamAddress name) = NetAST.Address $ getParamValue context name
+    transform _ (AST.LiteralAddress value) = return NetAST.Address value
+    transform context (AST.ParamAddress name) = do
+        let
+            value = getParamValue context name
+        return $ NetAST.Address value
 
-instance NetTransformable a NetList => NetTransformable (AST.For a) NetList where
+instance NetTransformable a [b] => NetTransformable (AST.For a) [b] where
     transform context ast =
         let
             body = AST.body ast
@@ -236,22 +258,22 @@ instance NetTransformable a NetList => NetTransformable (AST.For a) NetList wher
                     { varValues = values `Map.union` varMap }
 
 instance NetTransformable AST.ForRange [Word] where
-    transform context ast =
+    transform context ast = do
         let
             start = AST.start ast
             end = AST.end ast
-            startVal = transform context start
-            endVal = transform context end
-        in [startVal..endVal]
+        startVal <- transform context start
+        endVal <- transform context end
+        return [startVal..endVal]
 
 instance NetTransformable AST.ForLimit Word where
-    transform _ (AST.LiteralLimit value) = value
-    transform context (AST.ParamLimit name) = getParamValue context name
+    transform _ (AST.LiteralLimit value) = return value
+    transform context (AST.ParamLimit name) = return $ getParamValue context name
 
 instance NetTransformable a b => NetTransformable (Map k a) (Map k b) where
     transform context ast = Map.map (transform context) ast
 
-instance NetTransformable a NetList => NetTransformable [a] NetList where
+instance NetTransformable a [b] => NetTransformable [a] [b] where
     transform context ast = concat $ map (transform context) ast
 
 class NetCheckable a where
