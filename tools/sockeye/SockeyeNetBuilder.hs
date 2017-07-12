@@ -26,7 +26,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, maybe)
 import Data.Set (Set)
-import qualified Data.Set
+import qualified Data.Set as Set
 
 import qualified SockeyeAST as AST
 import qualified SockeyeASTDecodingNet as NetAST
@@ -49,10 +49,10 @@ instance Show CheckFailure where
     show (CheckFailure fs) = unlines $ map show fs
 
 data Context = Context
-    { spec           :: AST.SockeyeSpec
-    , curNamespace   :: NetAST.Namespace
-    , paramValues    :: Map String Word
-    , varValues      :: Map String Word
+    { spec         :: AST.SockeyeSpec
+    , curNamespace :: NetAST.Namespace
+    , paramValues  :: Map String Word
+    , varValues    :: Map String Word
     }
 
 sockeyeBuildNet :: AST.SockeyeSpec -> Either CheckFailure NetAST.NetSpec
@@ -69,8 +69,10 @@ sockeyeBuildNet ast = do
         nodeIds = map fst net
     checkDuplicates nodeIds
     let
-        netSpec = Map.fromList net
-    check netSpec netSpec
+        nodeMap = Map.fromList net
+        symbols = Map.keysSet nodeMap
+        netSpec = NetAST.NetSpec $ nodeMap
+    check symbols netSpec
     return netSpec
 
 class NetTransformable a b where
@@ -186,7 +188,9 @@ instance NetTransformable AST.BlockSpec NetAST.BlockSpec where
     transform context (AST.LengthBlock base bits) =
         let
             netBase = transform context base
-            netLimit = netBase + 2^bits - 1
+            baseAddress = NetAST.address netBase
+            limit = baseAddress + 2^bits - 1
+            netLimit = NetAST.Address limit
         in NetAST.BlockSpec
             { NetAST.base  = netBase
             , NetAST.limit = netLimit
@@ -208,8 +212,8 @@ instance NetTransformable AST.MapSpec NetAST.MapSpec where
             }
 
 instance NetTransformable AST.Address NetAST.Address where
-    transform _ (AST.LiteralAddress value) = value
-    transform context (AST.ParamAddress name) = getParamValue context name
+    transform _ (AST.LiteralAddress value) = NetAST.Address value
+    transform context (AST.ParamAddress name) = NetAST.Address $ getParamValue context name
 
 instance NetTransformable a NetList => NetTransformable (AST.For a) NetList where
     transform context ast =
@@ -251,13 +255,17 @@ instance NetTransformable a NetList => NetTransformable [a] NetList where
     transform context ast = concat $ map (transform context) ast
 
 class NetCheckable a where
-    check :: NetAST.NetSpec -> a -> Either CheckFailure ()
+    check :: Set NetAST.NodeId -> a -> Either CheckFailure ()
 
 instance NetCheckable NetAST.NetSpec where
-    check context net = do
+    check context (NetAST.NetSpec net) = do
         check context $ Map.elems net
 
 instance NetCheckable NetAST.NodeSpec where
+    check context (NetAST.AliasSpec alias) = do
+        case alias of
+            Nothing -> return ()
+            Just ident -> check context ident
     check context net = do
         let
             translate = NetAST.translate net
@@ -273,7 +281,7 @@ instance NetCheckable NetAST.MapSpec where
 
 instance NetCheckable NetAST.NodeId where
     check context net = do
-        if net `Map.member` context
+        if net `Set.member` context
             then return ()
             else Left $ CheckFailure [UndefinedReference net]
 

@@ -151,9 +151,9 @@ buildNet ast = do
         Right netAst -> return netAst
 
 {- Compiles the AST with the appropriate backend -}
--- compile :: Target -> NetAST.NetSpec -> IO String
--- compile None     _   = return ""
--- compile Prolog   ast = return $ Prolog.compile ast
+compile :: Target -> NetAST.NetSpec -> IO String
+compile None     _   = return ""
+compile Prolog   ast = return $ Prolog.compile ast
 
 {- Outputs the compilation result -}
 output :: Maybe FilePath -> String -> IO ()
@@ -170,7 +170,7 @@ main = do
     ast <- checkAST parsedAst
     -- putStrLn $ groom ast ++ "\n"
     netAst <- buildNet ast
-    putStrLn $ groom netAst
-    -- out <- compile (optTarget opts) netAst
-    -- output (optOutputFile opts) out
+    -- putStrLn $ groom netAst ++ "\n"
+    out <- compile (optTarget opts) netAst
+    output (optOutputFile opts) out
     

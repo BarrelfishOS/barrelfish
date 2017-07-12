@@ -16,55 +16,83 @@
 module SockeyeBackendProlog
 ( compile ) where
 
-import Data.List
 import Data.Char
+import Data.List
+import qualified Data.Map as Map
+import Data.Maybe
 import Numeric (showHex)
 
-import qualified SockeyeASTDecodingNetOld as AST
+import qualified SockeyeASTDecodingNet as AST
 
 compile :: AST.NetSpec -> String
-compile = generate
+compile = fromJust . generate
 
 {- Code Generator -}
 class PrologGenerator a where
-    generate :: a -> String
+    generate :: a -> Maybe String
 
 instance PrologGenerator AST.NetSpec where
-    generate (AST.NetSpec net) = unlines $ map toFact net
-        where toFact (nodeId, nodeSpec) = let atom = generate nodeId
-                                              node = generate nodeSpec
-                                          in predicate "net" [atom, node] ++ "."
+    generate (AST.NetSpec net) = do
+        let
+            mapped = Map.mapWithKey toFact net
+            facts = catMaybes $ Map.elems mapped
+        return $ unlines facts
+        where
+            toFact nodeId nodeSpec = do
+                atom <- generate nodeId
+                node <- generate nodeSpec
+                return $ predicate "net" [atom, node] ++ "."
 
 instance PrologGenerator AST.NodeId where
-    generate (AST.NodeId id) = quotes id
+    generate ast = do
+        return $ (atom $ show ast)
 
 instance PrologGenerator AST.NodeSpec where
-    generate nodeSpec = predicate "node" [nodeType, accept, translate, overlay]
-        where nodeType = generate (AST.nodeType nodeSpec)
-              accept = list $ map generate (AST.accept nodeSpec)
-              translate = list $ map generate (AST.translate nodeSpec)
-              overlay = case AST.overlay nodeSpec of
-                Nothing -> "'@none'"
-                Just id -> generate id
+    generate (AST.AliasSpec alias) = maybe Nothing generate alias
+    generate ast = do
+        nodeType <- generate $ AST.nodeType ast
+        accept <- generate $ AST.accept ast
+        translate <- generate $ AST.translate ast
+        overlay <- case AST.overlay ast of
+            Nothing -> return $ atom "@none"
+            Just id -> generate id
+        return $ predicate "node" [nodeType, accept, translate, overlay]
 
 instance PrologGenerator AST.BlockSpec where
-    generate blockSpec = let base  = generate $ AST.base blockSpec
-                             limit = generate $ AST.limit blockSpec
-                         in predicate "block" [base, limit]
+    generate blockSpec = do
+        base  <- generate $ AST.base blockSpec
+        limit <- generate $ AST.limit blockSpec
+        return $ predicate "block" [base, limit]
 
 instance PrologGenerator AST.MapSpec where
-    generate mapSpec = let src  = generate $ AST.srcBlock mapSpec
-                           dest = generate $ AST.destNode mapSpec
-                           base = generate $ AST.destBase mapSpec
-                       in predicate "map" [src, dest, base]
+    generate mapSpec = do
+        src  <- generate $ AST.srcBlock mapSpec
+        dest <- generate $ AST.destNode mapSpec
+        base <- generate $ AST.destBase mapSpec
+        return $ predicate "map" [src, dest, base]
 
 instance PrologGenerator AST.NodeType where
-    generate = show 
+    generate AST.Memory = return $ atom "memory"
+    generate AST.Device = return $ atom "device"
+    generate AST.Other  = return $ atom "other"
 
-instance PrologGenerator AST.Addr where
-    generate (AST.Addr addr) = "16'" ++ showHex addr ""
+instance PrologGenerator AST.Address where
+    generate (AST.Address addr) = return $ "16'" ++ showHex addr ""
+
+instance PrologGenerator a => PrologGenerator [a] where
+    generate ast = do
+        let
+            mapped = map generate ast
+        return $ (list . catMaybes) mapped
 
 {- Helper functions -}
+atom :: String -> String
+atom name@(c:cs)
+    | isLower c && alphaNum cs = name
+    | otherwise = quotes name
+    where
+        alphaNum cs = foldl (\acc c -> isAlphaNum c && acc) True cs
+
 predicate :: String -> [String] -> String
 predicate name args = name ++ (parens $ intercalate "," args)
 

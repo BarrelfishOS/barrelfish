@@ -15,10 +15,13 @@
 
 module SockeyeASTDecodingNet where
 
-import Data.List (intersperse)
+import Data.List (intercalate)
 import Data.Map (Map)
 
-type NetSpec = Map NodeId NodeSpec
+newtype NetSpec =
+    NetSpec
+        { net :: Map NodeId NodeSpec }
+    deriving (Show)
 
 data NodeId = NodeId
     { namespace :: Namespace
@@ -36,14 +39,17 @@ newtype Namespace = Namespace
     deriving (Eq, Ord)
 
 instance Show Namespace where
-    show (Namespace ns) = concat $ intersperse "." ns
+    show (Namespace ns) = intercalate "." ns
 
-data NodeSpec = NodeSpec
-    { nodeType  :: NodeType
-    , accept    :: [BlockSpec]
-    , translate :: [MapSpec]
-    , overlay   :: Maybe NodeId
-    } deriving (Show)
+data NodeSpec
+    = NodeSpec
+        { nodeType  :: NodeType
+        , accept    :: [BlockSpec]
+        , translate :: [MapSpec]
+        , overlay   :: Maybe NodeId
+        }
+    | AliasSpec (Maybe NodeId)
+    deriving (Show)
 
 data NodeType
     = Memory
@@ -62,4 +68,7 @@ data MapSpec = MapSpec
     , destBase :: Address
     } deriving (Show)
 
-type Address = Word
+newtype Address =
+    Address
+        { address :: Word }
+    deriving (Show)
