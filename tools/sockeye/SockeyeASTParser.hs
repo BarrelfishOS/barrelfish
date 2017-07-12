@@ -27,7 +27,7 @@ import SockeyeAST
     , nodeType, accept, translate, overlay
     , NodeType(Memory, Device)
     , BlockSpec(SingletonBlock, RangeBlock, LengthBlock)
-    , address, base, limit, bits
+    , base, limit, bits
     , MapSpec(MapSpec)
     , block, destNode, destBase
     , Address(NumberAddress, ParamAddress)
@@ -71,7 +71,7 @@ data NetSpec
 data ModuleInst
     = ModuleInst
         { moduleName   :: String
-        , nameSpace    :: Identifier
+        , namespace    :: Identifier
         , arguments    :: [ModuleArg]
         , portMappings :: [PortMap]
         }

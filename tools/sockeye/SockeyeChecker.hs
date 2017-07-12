@@ -226,7 +226,7 @@ instance Checkable ParseAST.ModuleInst AST.ModuleInst where
         return $ AST.MultiModuleInst checkedFor
     check context ast = do
         let
-            nameSpace = ParseAST.nameSpace ast
+            namespace = ParseAST.namespace ast
             name = ParseAST.moduleName ast
             arguments = ParseAST.arguments ast
             portMaps = ParseAST.portMappings ast
@@ -237,13 +237,13 @@ instance Checkable ParseAST.ModuleInst AST.ModuleInst where
                 { instModule = name }
         checkSelfInst instContext
         checkedArgs <- checkArgs instContext arguments
-        checkedNameSpace <- check instContext nameSpace
+        checkedNamespace <- check instContext namespace
         inPortMap  <- check instContext $ filter isInMap  portMaps
         outPortMap <- check instContext $ filter isOutMap portMaps
         let
             argMap = Map.fromList $ zip paramNames checkedArgs
         return AST.ModuleInst
-            { AST.nameSpace  = checkedNameSpace
+            { AST.namespace  = checkedNamespace
             , AST.moduleName = name
             , AST.arguments  = argMap
             , AST.inPortMap  = inPortMap
@@ -367,7 +367,7 @@ instance Checkable ParseAST.BlockSpec AST.BlockSpec where
     check context (ParseAST.SingletonBlock address) = do
         checkedAddress <- check context address
         return AST.SingletonBlock
-            { AST.address = checkedAddress }
+            { AST.base = checkedAddress }
     check context (ParseAST.RangeBlock base limit) = do
         (checkedBase, checkedLimit) <- check context (base, limit)
         return AST.RangeBlock

@@ -119,12 +119,12 @@ moduleInst = do
         args <- option [] $ parens (commaSep moduleArg)
         symbol "as"
         return (name, args)
-    (forFn, nameSpace) <- identifierFor
+    (forFn, namespace) <- identifierFor
     portMappings <- option [] $ symbol "with" *> many1 portMapping
     return $ let
         moduleInst = AST.ModuleInst
             { AST.moduleName = name
-            , AST.nameSpace  = nameSpace
+            , AST.namespace  = namespace
             , AST.arguments  = args 
             , AST.portMappings = portMappings
             }

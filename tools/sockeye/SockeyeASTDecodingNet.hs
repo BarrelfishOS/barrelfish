@@ -17,55 +17,13 @@ module SockeyeASTDecodingNet where
 
 import Data.Map(Map)
 
-{-
-Nodes are identfied by a namespace and a name
--}
+type NetSpec = Map NodeId NodeSpec
+
 data NodeId = NodeId
     { namespace :: [String]
     , name      :: !String
     } deriving (Eq, Ord, Show)
 
-{-
-Addresses are natural numbers
--}
-newtype Addr = Addr Word
-  deriving (Eq, Ord, Show)
-
-{-
-A block is a contigous set of addresses
--}
-data BlockSpec = BlockSpec
-    { base  :: Addr
-    , limit :: Addr
-    } deriving (Eq, Ord, Show)
-
-{-
-A mapping of a source address block to a destination node
-at a base address
--}
-data MapSpec = MapSpec
-    { srcBlock :: BlockSpec
-    , destNode :: NodeId
-    , destBase :: Addr
-    } deriving (Show)
-
-{-
-Node can either be memory, device or other
--}
-data NodeType
-    = Memory
-    | Device
-    | Other
-
-instance Show NodeType where
-    show Memory = "memory"
-    show Device = "device"
-    show Other  = "other"
-
-{-
-A node is specified as a list of blocks it accepts,
-a list of mappings and possibly an overlay on another block
--}
 data NodeSpec = NodeSpec
     { nodeType  :: NodeType
     , accept    :: [BlockSpec]
@@ -73,9 +31,21 @@ data NodeSpec = NodeSpec
     , overlay   :: Maybe NodeId
     } deriving (Show)
 
-{-
-A decoding net is specified as a list 
-of Node IDs mapped to Nodes
--}
-newtype NetSpec = NetSpec (Map NodeId NodeSpec)
+data NodeType
+    = Memory
+    | Device
+    | Other
     deriving (Show)
+
+data BlockSpec = BlockSpec
+    { base  :: Address
+    , limit :: Address
+    } deriving (Show)
+
+data MapSpec = MapSpec
+    { srcBlock :: BlockSpec
+    , destNode :: NodeId
+    , destBase :: Address
+    } deriving (Show)
+
+type Address = Word

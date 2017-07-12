@@ -47,7 +47,7 @@ data Port
 
 data ModuleInst
     = ModuleInst
-        { nameSpace  :: Identifier
+        { namespace  :: Identifier
         , moduleName :: String
         , arguments  :: Map String ModuleArg
         , inPortMap  :: [PortMap]
@@ -101,7 +101,7 @@ data NodeType
 
 data BlockSpec 
     = SingletonBlock
-        { address :: !Address }
+        { base :: !Address }
     | RangeBlock
         { base  :: !Address
         , limit :: !Address
