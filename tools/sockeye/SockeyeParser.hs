@@ -66,7 +66,7 @@ moduleParam = do
     where
         intType = do
             symbol "nat"
-            return AST.NumberParam
+            return AST.NaturalParam
         addrType = do
             symbol "addr" 
             return AST.AddressParam
@@ -139,7 +139,7 @@ moduleArg = choice [addressArg, numberArg, paramArg]
             return $ AST.AddressArg (fromIntegral addr)
         numberArg = do
             num <- numberLiteral
-            return $ AST.NumberArg (fromIntegral num)
+            return $ AST.NaturalArg (fromIntegral num)
         paramArg = do
             name <- parameterName
             return $ AST.ParamArg name
@@ -244,7 +244,7 @@ address = choice [address, param]
     where
         address = do
             addr <- addressLiteral
-            return $ AST.NumberAddress (fromIntegral addr)
+            return $ AST.LiteralAddress (fromIntegral addr)
         param = do
             name <- parameterName
             return $ AST.ParamAddress name
@@ -290,7 +290,7 @@ forVarRange optVarName
         index = choice [numberIndex, paramIndex]
         numberIndex = do
             num <- numberLiteral
-            return $ AST.NumberLimit (fromIntegral num)
+            return $ AST.LiteralLimit (fromIntegral num)
         paramIndex = do
             name <- parameterName
             return $ AST.ParamLimit name

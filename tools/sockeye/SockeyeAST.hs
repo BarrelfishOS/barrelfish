@@ -32,12 +32,12 @@ data Module = Module
     } deriving (Show)
 
 data ModuleParamType 
-    = NumberParam
+    = NaturalParam
     | AddressParam
     deriving (Eq)
 
 instance Show ModuleParamType where
-    show NumberParam = "nat"
+    show NaturalParam = "nat"
     show AddressParam = "addr"
 
 data Port
@@ -58,7 +58,7 @@ data ModuleInst
 
 data ModuleArg
     = AddressArg !Word
-    | NumberArg !Word
+    | NaturalArg !Word
     | ParamArg !String
     deriving (Show)
 
@@ -120,7 +120,7 @@ data MapSpec
         } deriving (Show)
 
 data Address
-    = NumberAddress !Word
+    = LiteralAddress !Word
     | ParamAddress !String
     deriving (Show)
 
@@ -137,6 +137,6 @@ data ForRange
     } deriving (Show)
 
 data ForLimit 
-    = NumberLimit !Word
+    = LiteralLimit !Word
     | ParamLimit !String
     deriving (Show)

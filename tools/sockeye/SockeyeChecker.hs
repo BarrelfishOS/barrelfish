@@ -284,10 +284,10 @@ instance Checkable ParseAST.ModuleInst AST.ModuleInst where
                                 if expected == AST.AddressParam
                                     then return $ AST.AddressArg value
                                     else Left $ mismatch AST.AddressParam
-                            ParseAST.NumberArg value -> do
-                                if expected == AST.NumberParam
-                                    then return $ AST.NumberArg value
-                                    else Left $ mismatch AST.NumberParam
+                            ParseAST.NaturalArg value -> do
+                                if expected == AST.NaturalParam
+                                    then return $ AST.NaturalArg value
+                                    else Left $ mismatch AST.NaturalParam
                             ParseAST.ParamArg pName -> do
                                 checkParamType context pName expected
                                 return $ AST.ParamArg pName
@@ -401,8 +401,8 @@ instance Checkable ParseAST.MapSpec AST.MapSpec where
             }
 
 instance Checkable ParseAST.Address AST.Address where
-    check _ (ParseAST.NumberAddress value) = do
-        return $ AST.NumberAddress value
+    check _ (ParseAST.LiteralAddress value) = do
+        return $ AST.LiteralAddress value
     check context (ParseAST.ParamAddress name) = do
         checkParamType context name AST.AddressParam
         return $ AST.ParamAddress name
@@ -440,10 +440,10 @@ instance Checkable ParseAST.ForVarRange AST.ForRange where
             }
 
 instance Checkable ParseAST.ForLimit AST.ForLimit where
-    check _ (ParseAST.NumberLimit value) = do
-        return $ AST.NumberLimit value
+    check _ (ParseAST.LiteralLimit value) = do
+        return $ AST.LiteralLimit value
     check context (ParseAST.ParamLimit name) = do
-        checkParamType context name AST.NumberParam
+        checkParamType context name AST.NaturalParam
         return $ AST.ParamLimit name
 
 instance Checkable a b => Checkable [a] [b] where

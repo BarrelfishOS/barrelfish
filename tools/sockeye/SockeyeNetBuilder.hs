@@ -112,7 +112,7 @@ instance NetTransformable AST.ModuleInst NetList where
 
 instance NetTransformable AST.ModuleArg Word where
     transform context (AST.AddressArg value) = value
-    transform context (AST.NumberArg value) = value
+    transform context (AST.NaturalArg value) = value
     transform context (AST.ParamArg name) = getParamValue context name
 
 
@@ -199,7 +199,7 @@ instance NetTransformable AST.MapSpec NetAST.MapSpec where
             }
 
 instance NetTransformable AST.Address NetAST.Address where
-    transform _ (AST.NumberAddress value) = value
+    transform _ (AST.LiteralAddress value) = value
     transform context (AST.ParamAddress name) = getParamValue context name
 
 instance NetTransformable a NetList => NetTransformable (AST.For a) NetList where
@@ -232,7 +232,7 @@ instance NetTransformable AST.ForRange [Word] where
         in [startVal..endVal]
 
 instance NetTransformable AST.ForLimit Word where
-    transform _ (AST.NumberLimit value) = value
+    transform _ (AST.LiteralLimit value) = value
     transform context (AST.ParamLimit name) = getParamValue context name
 
 instance NetTransformable a b => NetTransformable (Map k a) (Map k b) where

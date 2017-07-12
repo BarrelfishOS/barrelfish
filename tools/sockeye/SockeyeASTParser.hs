@@ -21,8 +21,8 @@ module SockeyeASTParser
 import SockeyeAST
     ( Identifier(SimpleIdent, TemplateIdent)
     , prefix, varName, suffix
-    , ModuleParamType(NumberParam, AddressParam)
-    , ModuleArg(AddressArg, NumberArg, ParamArg)
+    , ModuleParamType(NaturalParam, AddressParam)
+    , ModuleArg(AddressArg, NaturalArg, ParamArg)
     , NodeSpec(NodeSpec)
     , nodeType, accept, translate, overlay
     , NodeType(Memory, Device)
@@ -30,8 +30,8 @@ import SockeyeAST
     , base, limit, bits
     , MapSpec(MapSpec)
     , block, destNode, destBase
-    , Address(NumberAddress, ParamAddress)
-    , ForLimit(NumberLimit, ParamLimit)
+    , Address(LiteralAddress, ParamAddress)
+    , ForLimit(LiteralLimit, ParamLimit)
     )
 
 data SockeyeSpec = SockeyeSpec
