@@ -15,14 +15,28 @@
 
 module SockeyeASTDecodingNet where
 
-import Data.Map(Map)
+import Data.List (intersperse)
+import Data.Map (Map)
 
 type NetSpec = Map NodeId NodeSpec
 
 data NodeId = NodeId
-    { namespace :: [String]
+    { namespace :: Namespace
     , name      :: !String
-    } deriving (Eq, Ord, Show)
+    } deriving (Eq, Ord)
+
+instance Show NodeId where
+    show (NodeId namespace name) = 
+        case ns namespace of
+            [] -> name
+            _  -> concat [show namespace, ".", name]
+
+newtype Namespace = Namespace
+    { ns :: [String] }
+    deriving (Eq, Ord)
+
+instance Show Namespace where
+    show (Namespace ns) = concat $ intersperse "." ns
 
 data NodeSpec = NodeSpec
     { nodeType  :: NodeType

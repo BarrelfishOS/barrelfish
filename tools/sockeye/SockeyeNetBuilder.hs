@@ -21,29 +21,36 @@ module SockeyeNetBuilder
 ( sockeyeBuildNet ) where
 
 import Data.Either
-
+import Data.List (nub, intersperse)
 import Data.Map (Map)
 import qualified Data.Map as Map
-
 import Data.Maybe (fromMaybe, maybe)
+import Data.Set (Set)
+import qualified Data.Set
 
 import qualified SockeyeAST as AST
 import qualified SockeyeASTDecodingNet as NetAST
 
-import Debug.Trace
-
 type NetNodeDecl = (NetAST.NodeId, NetAST.NodeSpec)
 type NetList = [NetNodeDecl]
 
+data FailedCheck
+    = DuplicateIdentifer NetAST.NodeId
+    | UndefinedReference NetAST.NodeId
+
+instance Show FailedCheck where
+    show (DuplicateIdentifer ident) = concat ["Multiple declarations of node '", show ident, "'"]
+    show (UndefinedReference ident) = concat ["Reference to undefined node '", show ident, "'"]
+
 newtype CheckFailure = CheckFailure
-    { message :: String }
+    { failures :: [FailedCheck] }
 
 instance Show CheckFailure where
-    show f = unlines $ ["", message f]
+    show (CheckFailure fs) = unlines $ map show fs
 
 data Context = Context
     { spec           :: AST.SockeyeSpec
-    , curNamespace   :: [String]
+    , curNamespace   :: NetAST.Namespace
     , paramValues    :: Map String Word
     , varValues      :: Map String Word
     }
@@ -54,14 +61,16 @@ sockeyeBuildNet ast = do
         emptySpec = AST.SockeyeSpec Map.empty
         context = Context
             { spec         = emptySpec
-            , curNamespace = []
+            , curNamespace = NetAST.Namespace []
             , paramValues  = Map.empty
             , varValues    = Map.empty
             }
         net = transform context ast
-    -- TODO: check duplicates
+        nodeIds = map fst net
+    checkDuplicates nodeIds
+    let
         netSpec = Map.fromList net
-    -- TODO: check references
+    check netSpec netSpec
     return netSpec
 
 class NetTransformable a b where
@@ -100,10 +109,10 @@ instance NetTransformable AST.ModuleInst NetList where
         where
             moduleContext namespace paramValues =
                 let
-                    curNS = curNamespace context
+                    curNS = NetAST.ns $ curNamespace context
                     newNS = case namespace of
-                        "" -> curNS
-                        _  -> namespace:curNS
+                        "" -> NetAST.Namespace curNS
+                        _  -> NetAST.Namespace $ namespace:curNS
                 in context
                     { curNamespace = newNS
                     , paramValues  = paramValues
@@ -241,6 +250,42 @@ instance NetTransformable a b => NetTransformable (Map k a) (Map k b) where
 instance NetTransformable a NetList => NetTransformable [a] NetList where
     transform context ast = concat $ map (transform context) ast
 
+class NetCheckable a where
+    check :: NetAST.NetSpec -> a -> Either CheckFailure ()
+
+instance NetCheckable NetAST.NetSpec where
+    check context net = do
+        check context $ Map.elems net
+
+instance NetCheckable NetAST.NodeSpec where
+    check context net = do
+        let
+            translate = NetAST.translate net
+            overlay = NetAST.overlay net
+        check context translate
+        maybe (return ()) (check context) overlay
+
+instance NetCheckable NetAST.MapSpec where
+    check context net = do
+        let
+           destNode = NetAST.destNode net
+        check context destNode
+
+instance NetCheckable NetAST.NodeId where
+    check context net = do
+        if net `Map.member` context
+            then return ()
+            else Left $ CheckFailure [UndefinedReference net]
+
+instance NetCheckable a => NetCheckable [a] where
+    check context net = do
+        let
+            checked = map (check context) net
+            fs = lefts $ checked
+        case fs of
+            [] -> return ()
+            _  -> Left $ CheckFailure (concat $ map failures fs)
+
 getModule :: Context -> String -> AST.Module
 getModule context name =
     let
@@ -271,3 +316,22 @@ identToName context ident =
             Nothing -> ""
             Just s  -> identToName context s
     in prefix ++ varValue ++ suffixName
+
+checkDuplicates :: [NetAST.NodeId] -> Either CheckFailure ()
+checkDuplicates nodeIds = do
+    let
+        duplicates = duplicateNames nodeIds
+    case duplicates of
+        [] -> return ()
+        _  -> Left $ CheckFailure (map DuplicateIdentifer duplicates)
+    where
+        duplicateNames [] = []
+        duplicateNames (x:xs)
+            | x `elem` xs = nub $ [x] ++ duplicateNames xs
+            | otherwise = duplicateNames xs
+        msg (NetAST.NodeId namespace name) =
+            let
+                m = concat ["Multiple declarations of node '", name, "'"]
+            in case NetAST.ns namespace of
+                [] -> m
+                _  -> m ++ concat [" in namespace '", show namespace, "'"]
