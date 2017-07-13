@@ -32,6 +32,7 @@ import SockeyeNetBuilder
 
 import qualified SockeyeBackendProlog as Prolog
 
+import Debug.Trace
 import Text.Groom(groom)
 
 {- Exit codes -}
@@ -168,9 +169,8 @@ main = do
     let inFile = optInputFile opts
     parsedAst <- parseFile inFile
     ast <- checkAST parsedAst
-    -- putStrLn $ groom ast ++ "\n"
     netAst <- buildNet ast
-    -- putStrLn $ groom netAst ++ "\n"
+    trace (groom netAst) $ return ()
     out <- compile (optTarget opts) netAst
     output (optOutputFile opts) out
     

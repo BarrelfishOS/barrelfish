@@ -89,20 +89,18 @@ sockeyeBuildNet ast = do
             , AST.inPortMap  = []
             , AST.outPortMap = []
             }
-        (netRoots, simpleAST) = runState (simplify context rootInst) emptySpec
-    trace (groom (netRoots :: [AST.ModuleInst])) $ return ()
+        (netRoot:[], simpleAST) = runState (simplify context rootInst) emptySpec
     trace (groom simpleAST) $ return ()
-    return NetAST.NetSpec
-        { NetAST.net = Map.empty }
-    -- let
-    --     nodeIds = map fst net
-    -- checkDuplicates nodeIds DuplicateIdentifer
-    -- let
-    --     nodeMap = Map.fromList net
-    --     symbols = Map.keysSet nodeMap
-    --     netSpec = NetAST.NetSpec $ nodeMap
-    -- check symbols netSpec
-    -- return netSpec
+    net <- transform context (netRoot :: AST.ModuleInst)
+    let
+        nodeIds = map fst net
+    checkDuplicates nodeIds DuplicateIdentifer
+    let
+        nodeMap = Map.fromList net
+        symbols = Map.keysSet nodeMap
+        netSpec = NetAST.NetSpec $ nodeMap
+    check symbols netSpec
+    return netSpec
 
 --
 -- Simplify AST (instantiate module templates, expand for constructs)
@@ -344,74 +342,31 @@ instance (Traversable t, ASTSimplifiable a b) => ASTSimplifiable (t a) (t b) whe
 --            
 -- Build net
 --
--- class NetTransformable a b where
---     transform :: Context -> a -> Either CheckFailure b
+class NetTransformable a b where
+    transform :: Context -> a -> Either CheckFailure b
 
--- instance NetTransformable AST.SockeyeSpec NetList where
---     transform context ast = do
---         let
---             rootInst = AST.ModuleInst
---                 { AST.namespace  = AST.SimpleIdent ""
---                 , AST.moduleName = "@root"
---                 , AST.arguments  = Map.empty
---                 , AST.inPortMap  = []
---                 , AST.outPortMap = []
---                 }
---             specContext = context
---                 { spec = ast }
---         transform specContext rootInst
+instance NetTransformable AST.Module NetList where
+    transform context ast = return []
 
--- instance NetTransformable AST.Port PortList where
---     transform context (AST.MultiPort for) = do
---         ts <- transform context for
---         return $ concat (ts :: [PortList])
---     transform context (AST.Port ident) = do
---         netPort <- transform context ident
---         return [netPort]
-
--- instance NetTransformable AST.ModuleInst NetList where
---     transform context (AST.MultiModuleInst for) = do
---         ts <- transform context for
---         return $ concat (ts :: [NetList])
---     transform context ast = do
---         let
---             namespace = AST.namespace ast
---             name = AST.moduleName ast
---             args = AST.arguments ast
---             inPortMap = AST.inPortMap ast
---             outPortMap = AST.outPortMap ast
---             mod = getModule context name
---             inPorts = AST.inputPorts mod
---             outPorts = AST.outputPorts mod
---             nodeDecls = AST.nodeDecls mod
---             modInsts = AST.moduleInsts mod
---         argValues <- transform context args
---         let
---             netNamespace = identToName context namespace
---             modContext = moduleContext netNamespace argValues
---         netInPorts <- do
---             ts <- transform modContext inPorts
---             return $ concat (ts :: [PortList])
---         netOutPorts <- do
---             ts <- transform modContext outPorts
---             return $ concat (ts :: [PortList])
---         checkDuplicates netInPorts (DuplicateInPort ast)
---         checkDuplicates netOutPorts (DuplicateOutPort ast)
---         declNet <- transform modContext nodeDecls
---         instNet <- transform modContext modInsts
---         return . concat $ declNet ++ instNet
---         where
---             moduleContext namespace paramValues =
---                 let
---                     curNS = NetAST.ns $ curNamespace context
---                     newNS = case namespace of
---                         "" -> NetAST.Namespace curNS
---                         _  -> NetAST.Namespace $ namespace:curNS
---                 in context
---                     { curNamespace = newNS
---                     , paramValues  = paramValues
---                     , varValues    = Map.empty
---                     }
+instance NetTransformable AST.ModuleInst NetList where
+    transform context ast = do
+        let
+            namespace = AST.namespace ast
+            name = AST.moduleName ast
+            inPortMap = AST.inPortMap ast
+            outPortMap = AST.outPortMap ast
+            mod = getModule context name
+            modContext = moduleContext namespace
+        transform modContext mod
+            where
+                moduleContext namespace =
+                    let
+                        curNS = NetAST.ns $ curNamespace context
+                        newNS = case namespace of
+                            AST.SimpleIdent "" -> NetAST.Namespace curNS
+                            AST.SimpleIdent ns  -> NetAST.Namespace $ ns:curNS
+                    in context
+                        { curNamespace = newNS }
 
 -- instance NetTransformable AST.PortMap PortMap where
 --     transform context (AST.MultiPortMap for) = do
