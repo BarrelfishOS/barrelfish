@@ -72,9 +72,9 @@ static void cleanup_reply_handler(struct spawn_binding *b,
                                   struct capref domain_cap,
                                   errval_t cleanup_err);
 
-static void spawn_request_sender(void *arg)
+static bool spawn_request_sender(struct msg_queue_elem *m)
 {
-    struct pending_spawn *spawn = (struct pending_spawn*) arg;
+    struct pending_spawn *spawn = (struct pending_spawn*) m->st;
 
     errval_t err;
     bool with_caps = !(capref_is_null(spawn->inheritcn_cap) &&
@@ -100,171 +100,112 @@ static void spawn_request_sender(void *arg)
                                               spawn->envbuf, spawn->envbytes,
                                               spawn->flags);
     }
-    if (err_is_ok(err)) {
-        free(spawn);
-    } else {
+
+    if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            err = spawn->b->register_send(spawn->b, spawn->b->waitset,
-                                          MKCONT(spawn_request_sender, arg));
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "registering for spawn request");
-                pending_clients_release(spawn->domain_cap,
-                                        with_caps ? ClientType_SpawnWithCaps
-                                                  : ClientType_Spawn,
-                                        NULL);
-                free(spawn);
-            }
+            return false;
         } else {
-            DEBUG_ERR(err, "sending spawn request");
-            pending_clients_release(spawn->domain_cap,
-                                    with_caps ? ClientType_SpawnWithCaps
-                                              : ClientType_Spawn,
-                                    NULL);
-            free(spawn);
+            USER_PANIC_ERR(err, "sending spawn request");
         }
     }
+
+    free(spawn);
+    free(m);
+
+    return true;
 }
 
-static void span_request_sender(void *arg)
+static bool span_request_sender(struct msg_queue_elem *m)
 {
-    struct pending_span *span = (struct pending_span*) arg;
+    struct pending_span *span = (struct pending_span*) m->st;
 
     errval_t err;
     span->b->rx_vtbl.span_reply = span_reply_handler;
     err = span->b->tx_vtbl.span_request(span->b, NOP_CONT, cap_procmng,
                                         span->domain_cap, span->vroot,
                                         span->dispframe);
-    if (err_is_ok(err)) {
-        err = domain_span(span->domain_cap, span->core_id);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed domain_span to core %u\n", span->core_id);
-        }
-        free(span);
-    } else {
+
+    if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            err = span->b->register_send(span->b, span->b->waitset,
-                                         MKCONT(span_request_sender, arg));
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "registering for span request");
-                pending_clients_release(span->domain_cap, ClientType_Span,
-                                        NULL);
-                free(span);
-            }
+            return false;
         } else {
-            DEBUG_ERR(err, "sending span request");
-            pending_clients_release(span->domain_cap, ClientType_Span, NULL);
-            free(span);
+            USER_PANIC_ERR(err, "sending span request");
         }
     }
+
+    free(span);
+    free(m);
+
+    return true;
 }
 
-static void kill_request_sender(void *arg)
+static bool kill_request_sender(struct msg_queue_elem *m)
 {
-    struct pending_kill_exit_cleanup *kill = (struct pending_kill_exit_cleanup*) arg;
+    struct pending_kill_exit_cleanup *kill = (struct pending_kill_exit_cleanup*) m->st;
 
     errval_t err;
     kill->sb->rx_vtbl.kill_reply = kill_reply_handler;
     err = kill->sb->tx_vtbl.kill_request(kill->sb, NOP_CONT, cap_procmng,
                                         kill->domain_cap);
-    if (err_is_ok(err)) {
-        free(kill);
-    } else {
+
+    if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            err = kill->sb->register_send(kill->sb, kill->sb->waitset,
-                                         MKCONT(kill_request_sender, arg));
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "registering for kill request");
-
-                struct pending_client *cl;
-                err = pending_clients_release_one(kill->domain_cap,
-                                                  ClientType_Kill,
-                                                  kill->pmb, &cl);
-                if (err_is_ok(err)) {
-                    while (cl != NULL) {
-                        struct pending_client *tmp = cl;
-                        cl = cl->next;
-                        free(tmp);
-                    }
-                }
-
-                free(kill);
-            }
+            return false;
         } else {
-            DEBUG_ERR(err, "sending kill request");
-            
-            struct pending_client *cl;
-            err = pending_clients_release_one(kill->domain_cap,
-                                              ClientType_Kill,
-                                              kill->pmb, &cl);
-            if (err_is_ok(err)) {
-                while (cl != NULL) {
-                    struct pending_client *tmp = cl;
-                    cl = cl->next;
-                    free(tmp);
-                }
-            }
-
-            free(kill);
+            USER_PANIC_ERR(err, "sending kill request");
         }
     }
+
+    free(kill);
+    free(m);
+
+    return true;
 }
 
-static void exit_request_sender(void *arg)
+static bool exit_request_sender(struct msg_queue_elem *m)
 {
-    struct pending_kill_exit_cleanup *exit = (struct pending_kill_exit_cleanup*) arg;
+    struct pending_kill_exit_cleanup *exit = (struct pending_kill_exit_cleanup*) m->st;
 
     errval_t err;
     exit->sb->rx_vtbl.exit_reply = exit_reply_handler;
     err = exit->sb->tx_vtbl.exit_request(exit->sb, NOP_CONT, cap_procmng,
                                         exit->domain_cap);
-    if (err_is_ok(err)) {
-        free(exit);
-    } else {
+
+    if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            err = exit->sb->register_send(exit->sb, exit->sb->waitset,
-                                         MKCONT(exit_request_sender, arg));
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "registering for exit request");
-                err = pending_clients_release(exit->domain_cap, ClientType_Exit,
-                                              NULL);
-                free(exit);
-            }
+            return false;
         } else {
-            DEBUG_ERR(err, "sending exit request");
-            err = pending_clients_release(exit->domain_cap, ClientType_Exit,
-                                          NULL);
-            free(exit);
+            USER_PANIC_ERR(err, "sending exit request");
         }
     }
+
+    free(exit);
+    free(m);
+
+    return true;
 }
 
-static void cleanup_request_sender(void *arg)
+static bool cleanup_request_sender(struct msg_queue_elem *m)
 {
-    struct pending_kill_exit_cleanup *cleanup = (struct pending_kill_exit_cleanup*) arg;
+    struct pending_kill_exit_cleanup *cleanup = (struct pending_kill_exit_cleanup*) m->st;
 
     errval_t err;
     cleanup->sb->rx_vtbl.cleanup_reply = cleanup_reply_handler;
     err = cleanup->sb->tx_vtbl.cleanup_request(cleanup->sb, NOP_CONT, cap_procmng,
                                               cleanup->domain_cap);
-    if (err_is_ok(err)) {
-        free(cleanup);
-    } else {
+
+    if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            err = cleanup->sb->register_send(cleanup->sb, cleanup->sb->waitset,
-                                            MKCONT(cleanup_request_sender, arg));
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "registering for cleanup request");
-                pending_clients_release(cleanup->domain_cap, ClientType_Cleanup,
-                                        NULL);
-                free(cleanup);
-            }
+            return false;
         } else {
-            DEBUG_ERR(err, "sending cleanup request");
-            pending_clients_release(cleanup->domain_cap, ClientType_Cleanup,
-                                    NULL);
-            free(cleanup);
+            USER_PANIC_ERR(err, "sending cleanup request");
         }
     }
+
+    free(cleanup);
+    free(m);
+
+    return true;
 }
 
 static void spawn_reply_handler(struct spawn_binding *b,
@@ -498,12 +439,17 @@ static void kill_reply_handler(struct spawn_binding *b,
             cleanup->sb = spb;
             cleanup->domain_cap = domain_cap;
 
-            spb->rx_vtbl.cleanup_reply = cleanup_reply_handler;
-            err = spb->register_send(spb, spb->waitset,
-                                     MKCONT(cleanup_request_sender, cleanup));
+            struct msg_queue_elem *msg = (struct msg_queue_elem*) malloc(
+                    sizeof(struct msg_queue_elem));
+            msg->st = cleanup;
+            msg->cont = cleanup_request_sender;
+
+            err = spawnd_state_enqueue_send(entry->spawnds[i], msg);
+
             if (err_is_fail(err)) {
-                DEBUG_ERR(err, "registering for cleanup request");
+                DEBUG_ERR(err, "enqueuing cleanup request");
                 free(cleanup);
+                free(msg);
             }
         }
     } else {
@@ -583,12 +529,17 @@ static void exit_reply_handler(struct spawn_binding *b,
             cleanup->sb = spb;
             cleanup->domain_cap = domain_cap;
 
-            spb->rx_vtbl.cleanup_reply = cleanup_reply_handler;
-            err = spb->register_send(spb, spb->waitset,
-                                     MKCONT(cleanup_request_sender, cleanup));
+            struct msg_queue_elem *msg = (struct msg_queue_elem*) malloc(
+                    sizeof(struct msg_queue_elem));
+            msg->st = cleanup;
+            msg->cont = cleanup_request_sender;
+
+            err = spawnd_state_enqueue_send(entry->spawnds[i], msg);
+
             if (err_is_fail(err)) {
-                DEBUG_ERR(err, "registering for cleanup request");
+                DEBUG_ERR(err, "enqueuing cleanup request");
                 free(cleanup);
+                free(msg);
             }
         }
     } else {
@@ -612,9 +563,9 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
         return PROC_MGMT_ERR_INVALID_SPAWND;
     }
 
-    struct spawnd_state *state = spawnd_state_get(core_id);
-    assert(state != NULL);
-    struct spawn_binding *cl = state->b;
+    struct spawnd_state *spawnd = spawnd_state_get(core_id);
+    assert(spawnd != NULL);
+    struct spawn_binding *cl = spawnd->b;
     assert(cl != NULL);
 
     struct capref domain_cap;
@@ -649,11 +600,17 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
     spawn->argcn_cap = argcn_cap;
     spawn->flags = flags;
 
-    err = cl->register_send(cl, cl->waitset,
-                            MKCONT(spawn_request_sender, spawn));
+    struct msg_queue_elem *msg = (struct msg_queue_elem*) malloc(
+            sizeof(struct msg_queue_elem));
+    msg->st = spawn;
+    msg->cont = spawn_request_sender;
+
+    err = spawnd_state_enqueue_send(spawnd, msg);
+
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "registering for spawn request");
+        DEBUG_ERR(err, "enqueuing spawn request");
         free(spawn);
+        free(msg);
     }
 
     return SYS_ERR_OK;
@@ -717,9 +674,9 @@ static void span_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
         goto respond_with_err;
     }
 
-    struct spawnd_state *state = spawnd_state_get(core_id);
-    assert(state != NULL);
-    struct spawn_binding *cl = state->b;
+    struct spawnd_state *spawnd = spawnd_state_get(core_id);
+    assert(spawnd != NULL);
+    struct spawn_binding *cl = spawnd->b;
     assert(cl != NULL);
 
     err = pending_clients_add(domain_cap, b, ClientType_Span, core_id);
@@ -735,11 +692,17 @@ static void span_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
     span->vroot = vroot;
     span->dispframe = dispframe;
 
-    err = cl->register_send(cl, cl->waitset,
-                            MKCONT(span_request_sender, span));
+    struct msg_queue_elem *msg = (struct msg_queue_elem*) malloc(
+            sizeof(struct msg_queue_elem));
+    msg->st = span;
+    msg->cont = span_request_sender;
+
+    err = spawnd_state_enqueue_send(spawnd, msg);
+
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "registering for span request");
+        DEBUG_ERR(err, "enqueuing span request");
         free(span);
+        free(msg);
     }
 
 respond_with_err:
@@ -780,25 +743,36 @@ static errval_t kill_handler_common(struct proc_mgmt_binding *b,
         cmd->domain_cap = domain_cap;
         cmd->sb = spb;
 
+        struct msg_queue_elem *msg = (struct msg_queue_elem*) malloc(
+                sizeof(struct msg_queue_elem));
+        msg->st = cmd;
+
         switch (type) {
             case ClientType_Kill:
                 cmd->pmb = b;
-                err = spb->register_send(spb, spb->waitset,
-                                         MKCONT(kill_request_sender, cmd));
+                msg->cont = kill_request_sender;
+
+                err = spawnd_state_enqueue_send(entry->spawnds[i], msg);
+
                 if (err_is_fail(err)) {
-                    DEBUG_ERR(err, "registering for kill request");
+                    DEBUG_ERR(err, "enqueuing kill request");
                     free(cmd);
+                    free(msg);
                 }
                 break;
 
             case ClientType_Exit:
-                err = spb->register_send(spb, spb->waitset,
-                                         MKCONT(exit_request_sender, cmd));
+                msg->cont = exit_request_sender;
+
+                err = spawnd_state_enqueue_send(entry->spawnds[i], msg);
+
                 if (err_is_fail(err)) {
-                    DEBUG_ERR(err, "registering for exit request");
+                    DEBUG_ERR(err, "enqueuing exit request");
                     free(cmd);
+                    free(msg);
                 }
                 break;
+
             default:
                 USER_PANIC("invalid client type for kill: %u\n", type);
         }

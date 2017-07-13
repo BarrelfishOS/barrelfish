@@ -17,14 +17,34 @@
 #include <if/spawn_defs.h>
 #include <barrelfish/barrelfish.h>
 
+struct spawnd_state;
+struct msg_queue_elem;
+typedef bool (*msg_cont_handler_fn)(struct msg_queue_elem*);
+
+struct msg_queue_elem {
+	void *st;
+	msg_cont_handler_fn cont;
+
+    struct msg_queue_elem *next;
+};
+
+struct msg_queue {
+    struct msg_queue_elem *head, *tail;
+};
+
 struct spawnd_state {
     coreid_t core_id;
     struct spawn_binding *b;
+
+    struct msg_queue queue;
 };
 
 errval_t spawnd_state_alloc(coreid_t core_id, struct spawn_binding *b);
 void spawnd_state_free(coreid_t core_id);
 bool spawnd_state_exists(coreid_t core_id);
 struct spawnd_state *spawnd_state_get(coreid_t core_id);
+
+errval_t spawnd_state_enqueue_send(struct spawnd_state *spawnd,
+                                   struct msg_queue_elem *msg);
 
 #endif  // SPAWND_STATE
