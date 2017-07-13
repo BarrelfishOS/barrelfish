@@ -101,13 +101,13 @@ data NodeType
 
 data BlockSpec 
     = SingletonBlock
-        { base :: !Address }
+        { base :: Address }
     | RangeBlock
-        { base  :: !Address
-        , limit :: !Address
+        { base  :: Address
+        , limit :: Address
         }
     | LengthBlock
-        { base :: !Address
+        { base :: Address
         , bits :: !Word
         }
     deriving (Show)

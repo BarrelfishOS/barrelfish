@@ -90,8 +90,8 @@ sockeyeBuildNet ast = do
             , AST.outPortMap = []
             }
         (netRoots, simpleAST) = runState (simplify context rootInst) emptySpec
-    traceShow (groom (netRoots :: [AST.ModuleInst])) $ return ()
-    traceShow (groom simpleAST) $ return ()
+    trace (groom (netRoots :: [AST.ModuleInst])) $ return ()
+    trace (groom simpleAST) $ return ()
     return NetAST.NetSpec
         { NetAST.net = Map.empty }
     -- let
@@ -109,6 +109,34 @@ sockeyeBuildNet ast = do
 --
 class ASTSimplifiable a b where
     simplify :: Context -> a -> State AST.SockeyeSpec b
+
+instance ASTSimplifiable AST.Module AST.Module where
+    simplify context ast = do
+        let
+            inPorts = AST.inputPorts ast
+            outPorts = AST.outputPorts ast
+            nodeDecls = AST.nodeDecls ast
+            moduleInsts = AST.moduleInsts ast
+        simpleInPorts <- simplify context inPorts
+        simpleOutPorts <- simplify context outPorts
+        simpleDecls <- simplify context nodeDecls
+        simpleInsts <- simplify context moduleInsts
+        return AST.Module
+            { AST.paramNames   = []
+            , AST.paramTypeMap = Map.empty
+            , AST.inputPorts   = concat (simpleInPorts :: [[AST.Port]])
+            , AST.outputPorts  = concat (simpleOutPorts :: [[AST.Port]])
+            , AST.nodeDecls    = concat (simpleDecls :: [[AST.NodeDecl]])
+            , AST.moduleInsts  = concat (simpleInsts :: [[AST.ModuleInst]])
+            }
+
+instance ASTSimplifiable AST.Port [AST.Port] where
+    simplify context (AST.MultiPort for) = do
+        simpleFor <- simplify context for
+        return $ concat (simpleFor :: [[AST.Port]])
+    simplify context (AST.Port ident) = do
+        simpleIdent <- simplify context ident
+        return [AST.Port simpleIdent]
 
 instance ASTSimplifiable AST.ModuleInst [AST.ModuleInst] where
     simplify context (AST.MultiModuleInst for) = do 
@@ -128,12 +156,12 @@ instance ASTSimplifiable AST.ModuleInst [AST.ModuleInst] where
         simpleArgs <- simplify context args
         simpleModule <- simplify (moduleContext simpleArgs) mod
         let
-            simpleName = concat [name, " (", intercalate ", " $ argValues simpleArgs mod, ")"]
+            simpleName = concat [name, "(", intercalate ", " $ argValues simpleArgs mod, ")"]
             simplified = AST.ModuleInst
-                { AST.namespace = simpleNS
+                { AST.namespace  = simpleNS
                 , AST.moduleName = simpleName
-                , AST.arguments = Map.empty
-                , AST.inPortMap = concat (simpleInMap :: [[AST.PortMap]])
+                , AST.arguments  = Map.empty
+                , AST.inPortMap  = concat (simpleInMap :: [[AST.PortMap]])
                 , AST.outPortMap = concat (simpleOutMap :: [[AST.PortMap]])
                 }
         modify $ addModule simpleName simpleModule
@@ -216,6 +244,66 @@ instance ASTSimplifiable AST.Identifier AST.Identifier where
                         Just s  -> simpleName s
                 in prefix ++ varValue ++ suffixName
 
+instance ASTSimplifiable AST.NodeSpec AST.NodeSpec where
+    simplify context ast = do
+        let
+            nodeType = AST.nodeType ast
+            accept = AST.accept ast
+            translate = AST.translate ast
+            overlay = AST.overlay ast
+        simpleAccept <- simplify context accept
+        simpleTranslate <- simplify context translate
+        simpleOverlay <- maybe (return Nothing) simplifyOverlay overlay
+        return AST.NodeSpec
+            { AST.nodeType  = nodeType
+            , AST.accept    = simpleAccept
+            , AST.translate = simpleTranslate
+            , AST.overlay   = simpleOverlay
+            }
+        where
+            simplifyOverlay ident = do
+                simpleIdent <- simplify context ident
+                return $ Just simpleIdent
+
+instance ASTSimplifiable AST.BlockSpec AST.BlockSpec where
+    simplify context (AST.SingletonBlock base) = do
+        simpleBase <- simplify context base
+        return $ AST.SingletonBlock simpleBase
+    simplify context (AST.RangeBlock base limit) = do
+        simpleBase <- simplify context base
+        simpleLimit <- simplify context limit
+        return AST.RangeBlock
+            { AST.base  = simpleBase
+            , AST.limit = simpleLimit
+            }
+    simplify context (AST.LengthBlock base bits) = do
+        simpleBase <- simplify context base
+        return AST.LengthBlock
+            { AST.base = simpleBase
+            , AST.bits = bits
+            }
+
+instance ASTSimplifiable AST.MapSpec AST.MapSpec where
+    simplify context ast = do
+        let
+            block = AST.block ast
+            destNode = AST.destNode ast
+            destBase = fromMaybe (AST.base block) (AST.destBase ast)
+        simpleBlock <- simplify context block
+        simpleDestNode <- simplify context destNode
+        simpleDestBase <- simplify context destBase
+        return AST.MapSpec
+            { AST.block    = simpleBlock
+            , AST.destNode = simpleDestNode
+            , AST.destBase = Just simpleDestBase
+            }
+
+instance ASTSimplifiable AST.Address AST.Address where
+    simplify context (AST.ParamAddress name) = do
+        let value = getParamValue context name
+        return $ AST.LiteralAddress value
+    simplify _ ast = return ast
+
 instance ASTSimplifiable a b => ASTSimplifiable (AST.For a) [b] where
     simplify context ast = do
         let
@@ -250,16 +338,8 @@ instance ASTSimplifiable AST.ForLimit Word where
     simplify _ (AST.LiteralLimit value) = return value
     simplify context (AST.ParamLimit name) = return $ getParamValue context name
 
-instance ASTSimplifiable a b => ASTSimplifiable [a] [b] where
+instance (Traversable t, ASTSimplifiable a b) => ASTSimplifiable (t a) (t b) where
     simplify context ast = mapM (simplify context) ast
-
-instance (Ord k, ASTSimplifiable a b) => ASTSimplifiable (Map k a) (Map k b) where
-    simplify context ast = do
-        let
-            ks = Map.keys ast
-            es = Map.elems ast
-        ts <- simplify context es
-        return $ Map.fromList (zip ks ts)
 
 --            
 -- Build net
