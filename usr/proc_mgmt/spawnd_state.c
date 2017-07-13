@@ -25,8 +25,12 @@ errval_t spawnd_state_alloc(coreid_t core_id, struct spawn_binding *b)
 
     spawnds[core_id]->b = b;
     spawnds[core_id]->core_id = core_id;
-    spawnds[core_id]->queue.head = NULL;
-    spawnds[core_id]->queue.tail = NULL;
+    spawnds[core_id]->sendq.head = NULL;
+    spawnds[core_id]->sendq.tail = NULL;
+    spawnds[core_id]->recvq.head = NULL;
+    spawnds[core_id]->recvq.tail = NULL;
+
+    b->st = spawnds[core_id];
 
     return SYS_ERR_OK;
 }
@@ -56,7 +60,7 @@ inline struct spawnd_state *spawnd_state_get(coreid_t core_id)
  *
  * \return true if queue was empty, false if not.
  */
-static bool enqueue_send(struct msg_queue *q, struct msg_queue_elem *m)
+static bool enqueue(struct msg_queue *q, struct msg_queue_elem *m)
 {
     assert(m->next == NULL);
 
@@ -79,7 +83,7 @@ static bool enqueue_send(struct msg_queue *q, struct msg_queue_elem *m)
  *
  * \return the newly dequeued element.
  */
-static struct msg_queue_elem *dequeue_send(struct msg_queue *q)
+static struct msg_queue_elem *dequeue(struct msg_queue *q)
 {
     // Queue should have at least one element
     assert(q->head != NULL && q->tail != NULL);
@@ -101,7 +105,7 @@ static struct msg_queue_elem *dequeue_send(struct msg_queue *q)
  *
  * \return true if queue was empty, false if not.
  */
-static bool enqueue_send_at_front(struct msg_queue *q, struct msg_queue_elem *m)
+static bool enqueue_at_front(struct msg_queue *q, struct msg_queue_elem *m)
 {
     assert(m->next == NULL);
     if(q->tail == NULL) {
@@ -118,17 +122,24 @@ static bool enqueue_send_at_front(struct msg_queue *q, struct msg_queue_elem *m)
 static void spawnd_send_handler(void *arg)
 {
     struct spawnd_state *spawnd = (struct spawnd_state*) arg;
-    struct msg_queue *q = &spawnd->queue;
+    struct msg_queue *q = &spawnd->sendq;
 
     // Dequeue next element from the queue
-    struct msg_queue_elem *m = (struct msg_queue_elem*) dequeue_send(q);
+    struct msg_queue_elem *m = (struct msg_queue_elem*) dequeue(q);
 
     assert(m->cont != NULL);
-    if (!m->cont(m)) {
-        // Flounder TX busy, need to re-enqueue message.
+    if (m->cont(m)) {
+        // Send continuation succeeded, need to enqueue a receive.
+        struct msg_queue_elem *recvm = (struct msg_queue_elem*) malloc(
+                sizeof(struct msg_queue_elem));
+        recvm->st = m->st;
+        recvm->next = NULL;
+        enqueue(&spawnd->recvq, recvm);
+    } else {
+        // Send continuation failed, need to re-enqueue message.
         // TODO(razvan): Re-enqueuing at the front of the queue, to preserve
         // original message order. Could a different strategy be preferrable?
-        enqueue_send_at_front(q, m);
+        enqueue_at_front(q, m);
     }
 
     if (q->head != NULL) {
@@ -149,10 +160,17 @@ errval_t spawnd_state_enqueue_send(struct spawnd_state *spawnd,
     msg->next = NULL;
 
     // If queue was empty, enqueue on waitset
-    if(enqueue_send(&spawnd->queue, msg)) {
+    if(enqueue(&spawnd->sendq, msg)) {
         return spawnd->b->register_send(spawnd->b, spawnd->b->waitset,
                                         MKCONT(spawnd_send_handler, spawnd));
     } else {
         return SYS_ERR_OK;
     }
+}
+
+void *spawnd_state_dequeue_recv(struct spawnd_state *spawnd)
+{
+    struct msg_queue_elem *m = dequeue(&spawnd->recvq);
+    assert(m != NULL);
+    return m->st;
 }

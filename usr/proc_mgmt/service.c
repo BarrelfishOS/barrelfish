@@ -57,30 +57,162 @@ static void add_spawnd_handler_non_monitor(struct proc_mgmt_binding *b,
     //              err_getstring(PROC_MGMT_ERR_NOT_MONITOR));
 }
 
-static void spawn_reply_handler(struct spawn_binding *b,
-                                struct capref domain_cap, errval_t spawn_err);
-static void spawn_with_caps_reply_handler(struct spawn_binding *b,
-                                          struct capref domain_cap,
-                                          errval_t spawn_err);
-static void span_reply_handler(struct spawn_binding *b,
-                               struct capref domain_cap, errval_t span_err);
-static void kill_reply_handler(struct spawn_binding *b,
-                               struct capref domain_cap, errval_t kill_err);
-static void exit_reply_handler(struct spawn_binding *b,
-                               struct capref domain_cap, errval_t exit_err);
-static void cleanup_reply_handler(struct spawn_binding *b,
-                                  struct capref domain_cap,
-                                  errval_t cleanup_err);
+static bool cleanup_request_sender(struct msg_queue_elem *m);
+
+static void spawn_reply_handler(struct spawn_binding *b, errval_t spawn_err)
+{
+    struct pending_client *cl =
+            (struct pending_client*) spawnd_state_dequeue_recv(b->st);
+
+    struct pending_spawn *spawn = NULL;
+    struct pending_span *span = NULL;
+    struct pending_kill_cleanup *kc = NULL;
+
+    struct domain_entry *entry;
+    
+    errval_t err, resp_err;
+
+    switch (cl->type) {
+        case ClientType_Spawn:
+        case ClientType_SpawnWithCaps:
+            spawn = (struct pending_spawn*) cl->st;
+            err = spawn_err;
+            if (err_is_ok(spawn_err)) {
+                err = domain_spawn(spawn->domain_cap, spawn->core_id);
+                if (cl->type == ClientType_Spawn) {
+                    resp_err = cl->b->tx_vtbl.spawn_response(cl->b, NOP_CONT,
+                                                             err,
+                                                             spawn->domain_cap);
+                } else {
+                    resp_err = cl->b->tx_vtbl.spawn_with_caps_response(cl->b,
+                                                                       NOP_CONT,
+                                                                       err,
+                                                                       spawn->domain_cap);
+                }
+            }
+
+            free(spawn);
+            break;
+
+        case ClientType_Span:
+            span = (struct pending_span*) cl->st;
+            entry = span->entry;
+            if (entry->status == DOMAIN_STATUS_RUNNING) {
+                resp_err = cl->b->tx_vtbl.span_response(cl->b, NOP_CONT,
+                                                        spawn_err);
+            }
+
+            free(span);
+            break;
+
+        case ClientType_Cleanup:
+            kc = (struct pending_kill_cleanup*) cl->st;
+            entry = kc->entry;
+
+            assert(entry->num_spawnds_resources > 0);
+            assert(entry->status != DOMAIN_STATUS_CLEANED);
+
+            --entry->num_spawnds_resources;
+            if (entry->num_spawnds_resources == 0) {
+                entry->status = DOMAIN_STATUS_CLEANED;
+
+                // At this point, the domain exists in state CLEANED for history
+                // reasons. For instance, if some other domain issues a wait
+                // call for this one, the process manager can return the exit
+                // status directly. At some point, however, we might want to
+                // just clean up the domain entry and recycle the domain cap.
+            }
+
+            free(kc);
+            break;
+
+        case ClientType_Kill:
+        case ClientType_Exit:
+            kc = (struct pending_kill_cleanup*) cl->st;
+            entry = kc->entry;
+
+            assert(entry->num_spawnds_running > 0);
+            assert(entry->status != DOMAIN_STATUS_STOPPED);
+
+            --entry->num_spawnds_running;
+
+            if (entry->num_spawnds_running == 0) {
+                entry->status = DOMAIN_STATUS_STOPPED;
+
+                if (cl->type == ClientType_Kill) {
+                    entry->exit_status = EXIT_STATUS_KILLED;
+                    resp_err = cl->b->tx_vtbl.kill_response(cl->b, NOP_CONT,
+                                                            spawn_err);
+                }
+
+                struct domain_waiter *waiter = entry->waiters;
+                while (waiter != NULL) {
+                    waiter->b->tx_vtbl.wait_response(waiter->b, NOP_CONT,
+                                                     SYS_ERR_OK,
+                                                     entry->exit_status);
+                    struct domain_waiter *tmp = waiter;
+                    waiter = waiter->next;
+                    free(tmp);
+                }
+
+                for (coreid_t i = 0; i < MAX_COREID; ++i) {
+                    if (entry->spawnds[i] == NULL) {
+                        continue;
+                    }
+
+                    struct spawn_binding *spb = entry->spawnds[i]->b;
+
+                    struct pending_kill_cleanup *cleanup =
+                            (struct pending_kill_cleanup*) malloc(
+                                    sizeof(struct pending_kill_cleanup));
+                    cleanup->b = spb;
+                    cleanup->domain_cap = kc->domain_cap;
+                    cleanup->entry = entry;
+
+                    struct pending_client *cleanup_cl =
+                            (struct pending_client*) malloc(
+                                    sizeof(struct pending_client));
+                    cleanup_cl->b = cl->b;
+                    cleanup_cl->type = ClientType_Cleanup;
+                    cleanup_cl->st = cleanup;
+
+                    struct msg_queue_elem *msg = (struct msg_queue_elem*) malloc(
+                            sizeof(struct msg_queue_elem));
+                    msg->st = cleanup_cl;
+                    msg->cont = cleanup_request_sender;
+
+                    err = spawnd_state_enqueue_send(entry->spawnds[i], msg);
+
+                    if (err_is_fail(err)) {
+                        DEBUG_ERR(err, "enqueuing cleanup request");
+                        free(cleanup);
+                        free(cleanup_cl);
+                        free(msg);
+                    }
+                }
+            }
+
+            free(kc);
+            break;
+
+        default:
+            USER_PANIC("Unknown client type in spawn_reply_handler: %u\n",
+                       cl->type);
+    }
+
+    free(cl);
+}
 
 static bool spawn_request_sender(struct msg_queue_elem *m)
 {
-    struct pending_spawn *spawn = (struct pending_spawn*) m->st;
+    struct pending_client *cl = (struct pending_client*) m->st;
+    struct pending_spawn *spawn = (struct pending_spawn*) cl->st;
+    spawn->b->rx_vtbl.spawn_reply = spawn_reply_handler;
 
     errval_t err;
     bool with_caps = !(capref_is_null(spawn->inheritcn_cap) &&
                        capref_is_null(spawn->argcn_cap));
     if (with_caps) {
-        spawn->b->rx_vtbl.spawn_with_caps_reply = spawn_with_caps_reply_handler;
         err = spawn->b->tx_vtbl.spawn_with_caps_request(spawn->b, NOP_CONT,
                                                         cap_procmng,
                                                         spawn->domain_cap,
@@ -93,7 +225,6 @@ static bool spawn_request_sender(struct msg_queue_elem *m)
                                                         spawn->argcn_cap,
                                                         spawn->flags);
     } else {
-        spawn->b->rx_vtbl.spawn_reply = spawn_reply_handler;
         err = spawn->b->tx_vtbl.spawn_request(spawn->b, NOP_CONT, cap_procmng,
                                               spawn->domain_cap, spawn->path,
                                               spawn->argvbuf, spawn->argvbytes,
@@ -109,7 +240,6 @@ static bool spawn_request_sender(struct msg_queue_elem *m)
         }
     }
 
-    free(spawn);
     free(m);
 
     return true;
@@ -117,10 +247,11 @@ static bool spawn_request_sender(struct msg_queue_elem *m)
 
 static bool span_request_sender(struct msg_queue_elem *m)
 {
-    struct pending_span *span = (struct pending_span*) m->st;
+    struct pending_client *cl = (struct pending_client*) m->st;
+    struct pending_span *span = (struct pending_span*) cl->st;
 
     errval_t err;
-    span->b->rx_vtbl.span_reply = span_reply_handler;
+    span->b->rx_vtbl.spawn_reply = spawn_reply_handler;
     err = span->b->tx_vtbl.span_request(span->b, NOP_CONT, cap_procmng,
                                         span->domain_cap, span->vroot,
                                         span->dispframe);
@@ -133,7 +264,6 @@ static bool span_request_sender(struct msg_queue_elem *m)
         }
     }
 
-    free(span);
     free(m);
 
     return true;
@@ -141,11 +271,12 @@ static bool span_request_sender(struct msg_queue_elem *m)
 
 static bool kill_request_sender(struct msg_queue_elem *m)
 {
-    struct pending_kill_exit_cleanup *kill = (struct pending_kill_exit_cleanup*) m->st;
+    struct pending_client *cl = (struct pending_client*) m->st;
+    struct pending_kill_cleanup *kill = (struct pending_kill_cleanup*) cl->st;
 
     errval_t err;
-    kill->sb->rx_vtbl.kill_reply = kill_reply_handler;
-    err = kill->sb->tx_vtbl.kill_request(kill->sb, NOP_CONT, cap_procmng,
+    kill->b->rx_vtbl.spawn_reply = spawn_reply_handler;
+    err = kill->b->tx_vtbl.kill_request(kill->b, NOP_CONT, cap_procmng,
                                         kill->domain_cap);
 
     if (err_is_fail(err)) {
@@ -156,30 +287,6 @@ static bool kill_request_sender(struct msg_queue_elem *m)
         }
     }
 
-    free(kill);
-    free(m);
-
-    return true;
-}
-
-static bool exit_request_sender(struct msg_queue_elem *m)
-{
-    struct pending_kill_exit_cleanup *exit = (struct pending_kill_exit_cleanup*) m->st;
-
-    errval_t err;
-    exit->sb->rx_vtbl.exit_reply = exit_reply_handler;
-    err = exit->sb->tx_vtbl.exit_request(exit->sb, NOP_CONT, cap_procmng,
-                                        exit->domain_cap);
-
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            return false;
-        } else {
-            USER_PANIC_ERR(err, "sending exit request");
-        }
-    }
-
-    free(exit);
     free(m);
 
     return true;
@@ -187,11 +294,13 @@ static bool exit_request_sender(struct msg_queue_elem *m)
 
 static bool cleanup_request_sender(struct msg_queue_elem *m)
 {
-    struct pending_kill_exit_cleanup *cleanup = (struct pending_kill_exit_cleanup*) m->st;
+    struct pending_client *cl = (struct pending_client*) m->st;
+    struct pending_kill_cleanup *cleanup = (struct pending_kill_cleanup*) cl->st;
 
     errval_t err;
-    cleanup->sb->rx_vtbl.cleanup_reply = cleanup_reply_handler;
-    err = cleanup->sb->tx_vtbl.cleanup_request(cleanup->sb, NOP_CONT, cap_procmng,
+    cleanup->b->rx_vtbl.spawn_reply = spawn_reply_handler;
+    err = cleanup->b->tx_vtbl.cleanup_request(cleanup->b, NOP_CONT,
+                                              cap_procmng,
                                               cleanup->domain_cap);
 
     if (err_is_fail(err)) {
@@ -202,353 +311,9 @@ static bool cleanup_request_sender(struct msg_queue_elem *m)
         }
     }
 
-    free(cleanup);
     free(m);
 
     return true;
-}
-
-static void spawn_reply_handler(struct spawn_binding *b,
-                                struct capref domain_cap, errval_t spawn_err)
-{
-    struct pending_client *cl;
-    errval_t err = pending_clients_release(domain_cap, ClientType_Spawn, &cl);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retrieve pending spawn client based on domain"
-                  " cap");
-        return;
-    }
-
-    err = spawn_err;
-    if (err_is_ok(spawn_err)) {
-        err = domain_spawn(domain_cap, cl->core_id);
-    }
-
-    errval_t resp_err = cl->b->tx_vtbl.spawn_response(cl->b, NOP_CONT, err,
-                                                      domain_cap);
-    if (err_is_fail(resp_err)) {
-        DEBUG_ERR(resp_err, "failed to send spawn_response to client");
-    }
-    
-    free(cl);
-}
-
-static void spawn_with_caps_reply_handler(struct spawn_binding *b,
-                                          struct capref domain_cap,
-                                          errval_t spawn_err)
-{
-    struct pending_client *cl;
-    errval_t err = pending_clients_release(domain_cap, ClientType_SpawnWithCaps,
-                                           &cl);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retrieve pending spawn_with_caps client based"
-                  " on domain cap");
-        return;
-    }
-
-    err = spawn_err;
-    if (err_is_ok(spawn_err)) {
-        err = domain_spawn(domain_cap, cl->core_id);
-    }
-
-    errval_t resp_err = cl->b->tx_vtbl.spawn_with_caps_response(cl->b, NOP_CONT,
-                                                                err,
-                                                                domain_cap);
-    if (err_is_fail(resp_err)) {
-        DEBUG_ERR(resp_err, "failed to send spawn_with_caps_response to "
-                  "client");
-    }
-    
-    free(cl);
-}
-
-static void span_reply_handler(struct spawn_binding *b,
-                               struct capref domain_cap, errval_t span_err)
-{
-    struct pending_client *cl;
-    errval_t err = pending_clients_release(domain_cap, ClientType_Span, &cl);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retrieve pending span client based on domain"
-                  " cap");
-        return;
-    }
-
-    struct domain_entry *entry;
-    err = domain_get_by_cap(cl->domain_cap, &entry);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retrieve span client by domain cap");
-        return;
-    }
-
-    if (entry->status != DOMAIN_STATUS_RUNNING) {
-        // Domain has been stopped while we were serving the request; there's
-        // no one to respond to.
-        free(cl);
-        return;
-    }
-
-    err = cl->b->tx_vtbl.span_response(cl->b, NOP_CONT, span_err);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to send span_response to client");
-    }
-    
-    free(cl);
-}
-
-static void cleanup_reply_handler(struct spawn_binding *b,
-                                  struct capref domain_cap,
-                                  errval_t cleanup_err)
-{
-    struct pending_client *cl;
-    errval_t err = pending_clients_release(domain_cap, ClientType_Cleanup, &cl);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retrieve pending cleanup client based on "
-                  "domain cap");
-        return;
-    }
-
-    if (err_is_fail(cleanup_err)) {
-        // TODO(razvan): Here, spawnd has failed deleting its local cspace.
-        // Should we send another cleanup message, until it might succeed?
-        free(cl);
-        return;
-    }
-
-    struct domain_entry *entry;
-    err = domain_get_by_cap(domain_cap, &entry);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retrieve domain by cap returned by spawnd "
-                  "after cleanup");
-        return;
-    }
-
-    assert(entry->num_spawnds_resources > 0);
-    assert(entry->status != DOMAIN_STATUS_CLEANED);
-
-    --entry->num_spawnds_resources;
-
-    if (entry->num_spawnds_resources == 0) {
-        entry->status = DOMAIN_STATUS_CLEANED;
-
-        // At this point, the domain exists in state CLEANED for
-        // history reasons. For instance, if some other domain
-        // issues a wait call for this one, the process manager can
-        // return the exit status directly.
-        // At some point, however, we might want to just clean up
-        // the domain entry and recycle the domain cap.
-    } else {
-        // Expecting to receive further cleanup replies from other
-        // spawnds for the same domain cap, hence re-add the
-        // pending client.
-        err = pending_clients_add(domain_cap, cl->b,
-                                  ClientType_Cleanup, MAX_COREID);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "pending_clients_add in cleanup_reply_handler");
-        }
-    }
-}
-
-static void kill_reply_handler(struct spawn_binding *b,
-                               struct capref domain_cap, errval_t kill_err)
-{
-    struct pending_client *cl;
-    errval_t err = pending_clients_release(domain_cap, ClientType_Kill, &cl);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retrieve pending kill client based on domain "
-                  "cap");
-        return;
-    }
-
-    errval_t resp_err;
-    if (err_is_fail(kill_err)) {
-        // TODO(razvan): Here, spawnd has failed deleting its local dispatcher.
-        // Should we send another kill message, until it might succeed?
-        while (cl != NULL) {
-            resp_err = cl->b->tx_vtbl.kill_response(cl->b, NOP_CONT,
-                                                     kill_err);
-            if (err_is_fail(resp_err)) {
-                DEBUG_ERR(resp_err, "failed to send kill_response to client");
-            }
-            struct pending_client *tmp = cl;
-            cl = cl->next;
-            free(tmp);
-        }
-        return;
-    }
-
-    struct domain_entry *entry;
-    err = domain_get_by_cap(domain_cap, &entry);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retrieve domain by cap returned by spawnd "
-                  "after kill");
-        return;
-    }
-
-    assert(entry->num_spawnds_running > 0);
-    assert(entry->status != DOMAIN_STATUS_STOPPED);
-
-    --entry->num_spawnds_running;
-
-    if (entry->num_spawnds_running == 0) {
-        entry->status = DOMAIN_STATUS_STOPPED;
-        entry->exit_status = EXIT_STATUS_KILLED;
-
-        err = pending_clients_add(domain_cap, NULL, ClientType_Cleanup,
-                                  MAX_COREID);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "pending_clients_add in kill_reply_handler");
-        }
-
-        // TODO(razvan): Might it be more sane if we respond back
-        // to the client after the domain has been cleaned up (i.e.
-        // the cspace root has been revoked for all dispatchers)?
-        while (cl != NULL) {
-            resp_err = cl->b->tx_vtbl.kill_response(cl->b, NOP_CONT,
-                                                     kill_err);
-            if (err_is_fail(resp_err)) {
-                DEBUG_ERR(resp_err, "failed to send kill_response to client");
-            }
-            struct pending_client *tmp = cl;
-            cl = cl->next;
-            free(tmp);
-        }
-        
-        // TODO(razvan): Same problem applies to the waiters: would
-        // it be better if we sent them wait_responses after the
-        // cspace root has been revoked, too? (here and in the exit
-        // case).
-        struct domain_waiter *waiter = entry->waiters;
-        while (waiter != NULL) {
-            waiter->b->tx_vtbl.wait_response(waiter->b, NOP_CONT,
-                                             SYS_ERR_OK,
-                                             entry->exit_status);
-            struct domain_waiter *tmp = waiter;
-            waiter = waiter->next;
-            free(tmp);
-        }
-
-        for (coreid_t i = 0; i < MAX_COREID; ++i) {
-            if (entry->spawnds[i] == NULL) {
-                continue;
-            }
-
-            struct spawn_binding *spb = entry->spawnds[i]->b;
-
-            struct pending_kill_exit_cleanup *cleanup = (struct pending_kill_exit_cleanup*) malloc(
-                    sizeof(struct pending_kill_exit_cleanup));
-            cleanup->sb = spb;
-            cleanup->domain_cap = domain_cap;
-
-            struct msg_queue_elem *msg = (struct msg_queue_elem*) malloc(
-                    sizeof(struct msg_queue_elem));
-            msg->st = cleanup;
-            msg->cont = cleanup_request_sender;
-
-            err = spawnd_state_enqueue_send(entry->spawnds[i], msg);
-
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "enqueuing cleanup request");
-                free(cleanup);
-                free(msg);
-            }
-        }
-    } else {
-        err = pending_clients_add(domain_cap, cl->b, ClientType_Kill,
-                                  MAX_COREID);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "pending_clients_add in kill_reply_handler");
-        }
-    }
-}
-
-static void exit_reply_handler(struct spawn_binding *b,
-                               struct capref domain_cap, errval_t exit_err)
-{
-    struct pending_client *cl;
-    errval_t err = pending_clients_release(domain_cap, ClientType_Exit, &cl);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retrieve pending exit client based on domain "
-                  "cap");
-        return;
-    }
-
-    if (err_is_fail(exit_err)) {
-        // TODO(razvan): Here, spawnd has failed deleting its local dispatcher.
-        // Should we send another kill message, until it might succeed?
-        free(cl);
-        return;
-    }
-
-    struct domain_entry *entry;
-    err = domain_get_by_cap(domain_cap, &entry);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to retrieve domain by cap returned by spawnd "
-                  "after exit");
-        return;
-    }
-
-    assert(entry->num_spawnds_running > 0);
-    assert(entry->status != DOMAIN_STATUS_STOPPED);
-
-    --entry->num_spawnds_running;
-
-    if (entry->num_spawnds_running == 0) {
-        entry->status = DOMAIN_STATUS_STOPPED;
-
-        err = pending_clients_add(domain_cap, NULL, ClientType_Cleanup,
-                                  MAX_COREID);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "pending_clients_add in exit_reply_handler");
-        }
-
-        free(cl);
-
-        // TODO(razvan): Same problem applies to the waiters: would
-        // it be better if we sent them wait_responses after the
-        // cspace root has been revoked, too? (here and in the exit
-        // case).
-        struct domain_waiter *waiter = entry->waiters;
-        while (waiter != NULL) {
-            waiter->b->tx_vtbl.wait_response(waiter->b, NOP_CONT,
-                                             SYS_ERR_OK,
-                                             entry->exit_status);
-            struct domain_waiter *tmp = waiter;
-            waiter = waiter->next;
-            free(tmp);
-        }
-
-        for (coreid_t i = 0; i < MAX_COREID; ++i) {
-            if (entry->spawnds[i] == NULL) {
-                continue;
-            }
-
-            struct spawn_binding *spb = entry->spawnds[i]->b;
-
-            struct pending_kill_exit_cleanup *cleanup = (struct pending_kill_exit_cleanup*) malloc(
-                    sizeof(struct pending_kill_exit_cleanup));
-            cleanup->sb = spb;
-            cleanup->domain_cap = domain_cap;
-
-            struct msg_queue_elem *msg = (struct msg_queue_elem*) malloc(
-                    sizeof(struct msg_queue_elem));
-            msg->st = cleanup;
-            msg->cont = cleanup_request_sender;
-
-            err = spawnd_state_enqueue_send(entry->spawnds[i], msg);
-
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "enqueuing cleanup request");
-                free(cleanup);
-                free(msg);
-            }
-        }
-    } else {
-        err = pending_clients_add(domain_cap, cl->b, ClientType_Exit,
-                                  MAX_COREID);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "pending_clients_add in kill_reply_handler");
-        }
-    }
 }
 
 static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
@@ -580,12 +345,6 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
         return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
     }
 
-    err = pending_clients_add(domain_cap, b, type, core_id);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "pending_clients_add");
-        return err;
-    }
-
     struct pending_spawn *spawn = (struct pending_spawn*) malloc(
             sizeof(struct pending_spawn));
     spawn->domain_cap = domain_cap;
@@ -600,9 +359,15 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
     spawn->argcn_cap = argcn_cap;
     spawn->flags = flags;
 
+    struct pending_client *spawn_cl = (struct pending_client*) malloc(
+            sizeof(struct pending_client));
+    spawn_cl->b = b;
+    spawn_cl->type = type;
+    spawn_cl->st = spawn;
+
     struct msg_queue_elem *msg = (struct msg_queue_elem*) malloc(
             sizeof(struct msg_queue_elem));
-    msg->st = spawn;
+    msg->st = spawn_cl;
     msg->cont = spawn_request_sender;
 
     err = spawnd_state_enqueue_send(spawnd, msg);
@@ -610,6 +375,7 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "enqueuing spawn request");
         free(spawn);
+        free(spawn_cl);
         free(msg);
     }
 
@@ -664,8 +430,22 @@ static void span_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
                          struct capref dispframe)
 {
     errval_t err, resp_err;
-    err = domain_can_span(domain_cap, core_id);
+    struct domain_entry *entry = NULL;
+    err = domain_get_by_cap(domain_cap, &entry);
     if (err_is_fail(err)) {
+        goto respond_with_err;
+    }
+
+    assert(entry != NULL);
+    if (entry->status != DOMAIN_STATUS_RUNNING) {
+        err = PROC_MGMT_ERR_DOMAIN_NOT_RUNNING;
+        goto respond_with_err;
+    }
+
+    if (entry->spawnds[core_id] != NULL) {
+        // TODO(razvan): Maybe we want to allow the same domain to span multiple
+        // dispatchers onto the same core?
+        err = PROC_MGMT_ERR_ALREADY_SPANNED;
         goto respond_with_err;
     }
 
@@ -679,22 +459,24 @@ static void span_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
     struct spawn_binding *cl = spawnd->b;
     assert(cl != NULL);
 
-    err = pending_clients_add(domain_cap, b, ClientType_Span, core_id);
-    if (err_is_fail(err)) {
-        goto respond_with_err;
-    }
-
     struct pending_span *span = (struct pending_span*) malloc(
             sizeof(struct pending_span));
     span->domain_cap = domain_cap;
+    span->entry = entry;
     span->b = cl;
     span->core_id = core_id;
     span->vroot = vroot;
     span->dispframe = dispframe;
 
+    struct pending_client *span_cl = (struct pending_client*) malloc(
+            sizeof(struct pending_client));
+    span_cl->b = b;
+    span_cl->type = ClientType_Span;
+    span_cl->st = span;
+
     struct msg_queue_elem *msg = (struct msg_queue_elem*) malloc(
             sizeof(struct msg_queue_elem));
-    msg->st = span;
+    msg->st = span_cl;
     msg->cont = span_request_sender;
 
     err = spawnd_state_enqueue_send(spawnd, msg);
@@ -702,6 +484,7 @@ static void span_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "enqueuing span request");
         free(span);
+        free(span_cl);
         free(msg);
     }
 
@@ -717,13 +500,8 @@ static errval_t kill_handler_common(struct proc_mgmt_binding *b,
                                     enum ClientType type,
                                     uint8_t exit_status)
 {
-    errval_t err = pending_clients_add(domain_cap, b, type, MAX_COREID);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
     struct domain_entry *entry;
-    err = domain_get_by_cap(domain_cap, &entry);
+    errval_t err = domain_get_by_cap(domain_cap, &entry);
     if (err_is_fail(err)) {
         return err;
     }
@@ -738,43 +516,29 @@ static errval_t kill_handler_common(struct proc_mgmt_binding *b,
 
         struct spawn_binding *spb = entry->spawnds[i]->b;
 
-        struct pending_kill_exit_cleanup *cmd = (struct pending_kill_exit_cleanup*) malloc(
-                sizeof(struct pending_kill_exit_cleanup));
+        struct pending_kill_cleanup *cmd = (struct pending_kill_cleanup*) malloc(
+                sizeof(struct pending_kill_cleanup));
         cmd->domain_cap = domain_cap;
-        cmd->sb = spb;
+        cmd->entry = entry;
+        cmd->b = spb;
+
+        struct pending_client *cl = (struct pending_client*) malloc(
+                sizeof(struct pending_client));
+        cl->b = b;
+        cl->type = type;
+        cl->st = cmd;
 
         struct msg_queue_elem *msg = (struct msg_queue_elem*) malloc(
                 sizeof(struct msg_queue_elem));
-        msg->st = cmd;
+        msg->st = cl;
+        msg->cont = kill_request_sender;
 
-        switch (type) {
-            case ClientType_Kill:
-                cmd->pmb = b;
-                msg->cont = kill_request_sender;
-
-                err = spawnd_state_enqueue_send(entry->spawnds[i], msg);
-
-                if (err_is_fail(err)) {
-                    DEBUG_ERR(err, "enqueuing kill request");
-                    free(cmd);
-                    free(msg);
-                }
-                break;
-
-            case ClientType_Exit:
-                msg->cont = exit_request_sender;
-
-                err = spawnd_state_enqueue_send(entry->spawnds[i], msg);
-
-                if (err_is_fail(err)) {
-                    DEBUG_ERR(err, "enqueuing exit request");
-                    free(cmd);
-                    free(msg);
-                }
-                break;
-
-            default:
-                USER_PANIC("invalid client type for kill: %u\n", type);
+        err = spawnd_state_enqueue_send(entry->spawnds[i], msg);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "enqueuing kill request");
+            free(cmd);
+            free(cl);
+            free(msg);
         }
     }
 

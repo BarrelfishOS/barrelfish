@@ -16,6 +16,8 @@
 #include <if/proc_mgmt_defs.h>
 #include <if/spawn_defs.h>
 
+#include "domain.h"
+
 #define HASH_INDEX_BUCKETS 6151
 
 enum ClientType {
@@ -48,7 +50,8 @@ struct pending_spawn {
 };
 
 struct pending_span {
-    struct capref domain_cap;
+	struct capref domain_cap;
+    struct domain_entry *entry;
 
 	struct spawn_binding *b;
 
@@ -57,31 +60,16 @@ struct pending_span {
 	struct capref dispframe;
 };
 
-struct pending_kill_exit_cleanup {
-    struct capref domain_cap;
-	struct spawn_binding *sb;
-	struct proc_mgmt_binding *pmb;
+struct pending_kill_cleanup {
+	struct capref domain_cap;
+    struct domain_entry *entry;
+	struct spawn_binding *b;
 };
 
 struct pending_client {
-    struct proc_mgmt_binding *b;
-
-    struct capref domain_cap;
-
-    coreid_t core_id;
-    enum ClientType type;
-
-    struct pending_client *next;
+	struct proc_mgmt_binding *b;
+	enum ClientType type;
+	void *st;
 };
-
-errval_t pending_clients_add(struct capref domain_cap,
-                             struct proc_mgmt_binding *b, enum ClientType type,
-                             coreid_t core_id);
-errval_t pending_clients_release(struct capref domain_cap, enum ClientType type,
-                                 struct pending_client **ret_cl);
-errval_t pending_clients_release_one(struct capref domain_cap,
-	                                 enum ClientType type,
-	                                 struct proc_mgmt_binding *b,
-                                     struct pending_client **ret_cl);
 
 #endif  // PENDING_CLIENTS_H

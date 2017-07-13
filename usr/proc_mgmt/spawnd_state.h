@@ -36,7 +36,8 @@ struct spawnd_state {
     coreid_t core_id;
     struct spawn_binding *b;
 
-    struct msg_queue queue;
+    struct msg_queue sendq;
+    struct msg_queue recvq;
 };
 
 errval_t spawnd_state_alloc(coreid_t core_id, struct spawn_binding *b);
@@ -46,5 +47,6 @@ struct spawnd_state *spawnd_state_get(coreid_t core_id);
 
 errval_t spawnd_state_enqueue_send(struct spawnd_state *spawnd,
                                    struct msg_queue_elem *msg);
+void *spawnd_state_dequeue_recv(struct spawnd_state *spawnd);
 
 #endif  // SPAWND_STATE

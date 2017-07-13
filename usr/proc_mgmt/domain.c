@@ -107,28 +107,6 @@ errval_t domain_spawn(struct capref domain_cap, coreid_t core_id)
     return SYS_ERR_OK;
 }
 
-errval_t domain_can_span(struct capref domain_cap, coreid_t core_id)
-{
-    struct domain_entry *entry = NULL;
-    errval_t err = domain_get_by_cap(domain_cap, &entry);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    assert(entry != NULL);
-    if (entry->status != DOMAIN_STATUS_RUNNING) {
-        return PROC_MGMT_ERR_DOMAIN_NOT_RUNNING;
-    }
-
-    if (entry->spawnds[core_id] != NULL) {
-        // TODO(razvan): Maybe we want to allow the same domain to span multiple
-        // dispatchers onto the same core?
-        return PROC_MGMT_ERR_ALREADY_SPANNED;
-    }
-
-    return SYS_ERR_OK;
-}
-
 errval_t domain_span(struct capref domain_cap, coreid_t core_id)
 {
     struct domain_entry *entry = NULL;
