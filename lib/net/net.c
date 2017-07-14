@@ -87,10 +87,8 @@ void net_lwip_timeout(void)
 {
     errval_t err;
 
-    deferred_event_cancel(&net_lwip_timer);
-
     sys_check_timeouts();
-
+    deferred_event_cancel(&net_lwip_timer);
     uint32_t delay = sys_timeouts_sleeptime();
     if (delay != 0xffffffff) {
         err = deferred_event_register(&net_lwip_timer, get_default_waitset(),
