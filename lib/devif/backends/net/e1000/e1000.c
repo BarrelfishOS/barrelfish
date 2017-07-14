@@ -12,6 +12,7 @@
 #include "../../../queue_interface_internal.h"
 #include "e1000.h"
 #include <net_interfaces/flags.h>
+#include <debug_log/debug_log.h>
 
 #define DRIVER_RECEIVE_BUFFERS      (16384)
 #define DRIVER_TRANSMIT_BUFFERS     (16384)

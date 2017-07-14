@@ -24,7 +24,6 @@ struct net_socket {
     struct net_socket *prev, *next;
 };
 
-// synchronous calls
 struct net_socket * net_udp_socket(void);
 struct net_socket * net_tcp_socket(void);
 void net_set_user_state(struct net_socket *socket, void *user_state);
@@ -32,7 +31,9 @@ void net_close(struct net_socket *socket);
 
 errval_t net_bind(struct net_socket *socket, struct in_addr ip_address, uint16_t port);
 errval_t net_listen(struct net_socket *socket, uint8_t backlog);
+errval_t net_print_log(void);
 
+// data must be allocated using net_alloc, it can be freed, when on_sent is called (i.e. actually sent)
 errval_t net_send(struct net_socket *socket, void *data, size_t size);
 errval_t net_send_to(struct net_socket *socket, void *data, size_t size, struct in_addr ip_address, uint16_t port);
 

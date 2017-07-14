@@ -399,8 +399,6 @@ errval_t net_if_poll(struct netif *netif)
 
     errval_t err;
 
-    sys_check_timeouts();
-
     struct net_state *st = netif->state;
     if (st == NULL) {
         /* XXX: return an error code ?? */
@@ -524,10 +522,6 @@ errval_t net_if_poll(struct netif *netif)
             debug_printf("WARNING: got buffer without a flag\n");
         }
     }
-
-
-
-
     return SYS_ERR_OK;
 }
 
@@ -542,11 +536,13 @@ errval_t net_if_poll_all(void)
 
     errval_t err;
     struct netif *netif = netif_list;
-    while(netif) {
+    while (netif) {
         err = net_if_poll(netif);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to poll network interface");
         }
     }
+    netif_poll_all();
+    net_lwip_timeout();
     return SYS_ERR_OK;
 }

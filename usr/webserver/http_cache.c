@@ -359,7 +359,7 @@ static void lookup_callback (void *arg, struct nfs_client *client,
         /* Set the size of the how much data is read till now. */
         e->copied = 0;
 
-        r = nfs_read (client, e->file_handle, 0, MAX_NFS_READ,
+        r = nfs_read(client, e->file_handle, 0, MAX_NFS_READ,
                 read_callback, e);
         assert (r == SYS_ERR_OK);
 

@@ -79,5 +79,6 @@ void check_notificators_disabled(dispatcher_handle_t handle)
                 assert(err_is_ok(err)); // should not fail
             }
         }
+        n = n->next;
     } while (n != dp->notificators);
 }

@@ -352,6 +352,8 @@ static err_t net_tcp_accepted(void *arg, struct tcp_pcb *newpcb, err_t error)
     struct network_connection *nc = socket->connection;
     struct socket_connection *accepted_socket;
 
+    newpcb->flags |= TF_NODELAY;
+
     accepted_socket = allocate_socket(nc);
     accepted_socket->udp_socket = NULL;
     accepted_socket->tcp_socket = newpcb;
@@ -438,6 +440,7 @@ static errval_t net_tcp_socket(struct net_sockets_binding *binding, uint32_t *de
 
     struct tcp_pcb *pcb = tcp_new();
     assert(pcb);
+    pcb->flags |= TF_NODELAY;
     socket->tcp_socket = pcb;
     tcp_arg(pcb, socket);
     tcp_recv(socket->tcp_socket, net_tcp_receive);
@@ -462,8 +465,6 @@ static errval_t net_bind(struct net_sockets_binding *binding, uint32_t descripto
         assert(err_is_ok(*error));
         *bound_port = socket->udp_socket->local_port;
         *error = SYS_ERR_OK;
-
-        debug_printf("UDP ECHO bind done.\n");
     } else if (socket->tcp_socket) {
         ip_addr_t ip;
 
@@ -473,8 +474,6 @@ static errval_t net_bind(struct net_sockets_binding *binding, uint32_t descripto
         assert(err_is_ok(*error));
         *bound_port = socket->tcp_socket->local_port;
         *error = SYS_ERR_OK;
-
-        debug_printf("TCP ECHO bind done.\n");
     }
     return SYS_ERR_OK;
 }
@@ -913,7 +912,6 @@ int main(int argc, char *argv[])
 
     while(1) {
         event_dispatch(get_default_waitset());
-
         // networking_poll();
     }
 

@@ -155,4 +155,15 @@ errval_t networking_install_ip_filter(bool tcp, struct in_addr *src,
 errval_t networking_remove_ip_filter(bool tcp, struct in_addr *src,
                                      uint16_t src_port, uint16_t dst_port);
 
+
+/**
+ * @brief Trigger a poll of the loopback interface
+ */
+void net_if_trigger_loopback(void);
+
+/**
+ * @brief Process LWIP timeouts
+ */
+void net_lwip_timeout(void);
+
 #endif /* LIB_NET_INCLUDE_NETWORKING_H_ */

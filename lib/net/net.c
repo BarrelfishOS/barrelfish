@@ -17,15 +17,20 @@
 #include "lwip/ip.h"
 #include "lwip/dhcp.h"
 #include "lwip/prot/ethernet.h"
+#include "lwip/timeouts.h"
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
+#include <barrelfish/waitset.h>
+#include <barrelfish/waitset_chan.h>
 
 #include <net/net_filter.h>
 #include <net_interfaces/flags.h>
 #include "networking_internal.h"
 
 struct net_state state = {0};
+struct waitset_chanstate net_loopback_poll_channel;
+struct deferred_event net_lwip_timer;
 
 #define NETWORKING_DEFAULT_QUEUE_ID 0
 #define NETWORKING_BUFFER_COUNT (4096 * 3)
@@ -61,6 +66,37 @@ static void int_handler(void* args)
     struct net_state *st = devq_get_state(args);
 
     net_if_poll(&st->netif);
+    net_lwip_timeout();
+}
+
+static void net_loopback_poll(void *arg)
+{
+    netif_poll_all();
+    net_lwip_timeout();
+}
+
+void net_if_trigger_loopback(void)
+{
+    errval_t err;
+    
+    err = waitset_chan_trigger(&net_loopback_poll_channel);
+    assert(err_is_ok(err));
+}
+
+void net_lwip_timeout(void)
+{
+    errval_t err;
+
+    deferred_event_cancel(&net_lwip_timer);
+
+    sys_check_timeouts();
+
+    uint32_t delay = sys_timeouts_sleeptime();
+    if (delay != 0xffffffff) {
+        err = deferred_event_register(&net_lwip_timer, get_default_waitset(),
+            delay * 1000, MKCLOSURE((void (*)(void *))net_lwip_timeout, NULL));
+        assert(err_is_ok(err));
+    }
 }
 
 static errval_t create_loopback_queue (struct net_state *st, uint64_t* queueid,
@@ -244,6 +280,7 @@ static errval_t networking_init_with_queue_st(struct net_state *st, struct devq 
         goto out_err1;
     }
 
+    deferred_event_init(&net_lwip_timer);
     /* initialize the device queue */
     NETDEBUG("initializing LWIP...\n");
     lwip_init();
@@ -307,6 +344,11 @@ static errval_t networking_init_with_queue_st(struct net_state *st, struct devq 
             DEBUG_ERR(err, "failed to subscribte the ARP service\n");
         }
     }
+
+    waitset_chanstate_init(&net_loopback_poll_channel, CHANTYPE_OTHER);
+    net_loopback_poll_channel.persistent = true;
+    err = waitset_chan_register(get_default_waitset(), &net_loopback_poll_channel,
+                               MKCLOSURE(net_loopback_poll, NULL));
 
     NETDEBUG("initialization complete.\n");
 

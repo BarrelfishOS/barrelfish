@@ -25,7 +25,7 @@ unsigned char debug_flags;
 u32_t sys_now(void)
 {
     uint64_t ns = systime_to_ns(systime_now());
-    return ns / 1000;
+    return ns / 1000000;
 }
 
 #if 0

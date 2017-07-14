@@ -178,6 +178,16 @@ errval_t net_listen(struct net_socket *socket, uint8_t backlog)
     return error;
 }
 
+errval_t net_print_log(void)
+{
+    errval_t err, error;
+
+    err = binding->rpc_tx_vtbl.listen(binding, -1, 0, &error);
+    assert(err_is_ok(err));
+
+    return error;
+}
+
 void * net_alloc(size_t size)
 {
     assert(size < (BUFFER_SIZE - sizeof(struct net_buffer)));
@@ -242,7 +252,7 @@ errval_t net_send_to(struct net_socket *socket, void *data, size_t size, struct 
     nb->descriptor = socket->descriptor;
     nb->host_address = ip_address;
     nb->port = port;
-    // debug_printf("%s: enqueue 2 %lx:%ld\n", __func__, buffer - buffer_start, sizeof(struct net_buffer) + size);
+    // debug_printf_to_log("%s: enqueue %ld  %lx:%ld\n", __func__, size, buffer - buffer_start, sizeof(struct net_buffer) + size);
     err = devq_enqueue((struct devq *)descq_queue, regionid, buffer - buffer_start, sizeof(struct net_buffer) + size,
                        0, 0, NET_EVENT_SEND);
     assert(err_is_ok(err));
@@ -369,6 +379,7 @@ static errval_t q_notify(struct descq* q)
                 if (socket && !socket->is_closing) {
                     if (socket->received) {
                         // debug_printf("net_received(%d): %d\n", nb->descriptor, nb->size);
+                        // debug_printf_to_log("%s: dequeue %ld  %lx:%ld\n", __func__, nb->size, offset, length);
                         socket->received(socket->user_state, socket, shb_data, nb->size, nb->host_address, nb->port);
                     // debug_printf("%s: enqueue 1< %lx:%d\n", __func__, offset, 2048);
                     }
