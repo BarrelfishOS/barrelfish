@@ -41,7 +41,8 @@ instance Show ModuleParamType where
     show AddressParam = "addr"
 
 data Port
-    = Port Identifier
+    = InputPort Identifier
+    | OutputPort Identifier
     | MultiPort (For Port)
     deriving (Show)
 

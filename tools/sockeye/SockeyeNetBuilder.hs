@@ -26,7 +26,7 @@ import Data.Either
 import Data.List (nub, intercalate)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe, maybe)
+import Data.Maybe (catMaybes, fromMaybe, maybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 
@@ -41,23 +41,27 @@ import Debug.Trace
 type NetNodeDecl = (NetAST.NodeId, NetAST.NodeSpec)
 type NetList = [NetNodeDecl]
 type PortList = [NetAST.NodeId]
-type PortMap = [(NetAST.NodeId, NetAST.NodeId)]
+type PortMap = [(String, NetAST.NodeId)]
 
 data FailedCheck
     = ModuleInstLoop [String]
-    | DuplicateInPort String NetAST.NodeId
-    | UndefinedInPort String NetAST.NodeId
-    | DuplicateOutPort String NetAST.NodeId
-    | UndefinedOutPort String NetAST.NodeId
-    | DuplicateIdentifer NetAST.NodeId
-    | UndefinedReference NetAST.NodeId
+    | DuplicateInPort !String !String
+    | DuplicateInMap !String !String
+    | UndefinedInPort !String !String
+    | DuplicateOutPort !String !String
+    | DuplicateOutMap !String !String
+    | UndefinedOutPort !String !String
+    | DuplicateIdentifer !String
+    | UndefinedReference !String
 
 instance Show FailedCheck where
-    show (ModuleInstLoop loop) = concat ["Module instantiation loop :'", intercalate "' -> '" $ loop, "'"]
-    show (DuplicateInPort  modName ident) = concat ["Multiple declarations of input port '", NetAST.name ident, "' in '", modName, "'"]
-    show (UndefinedInPort  modName ident) = concat ["'", NetAST.name ident, "' is not an input port in '", modName, "'"]
-    show (DuplicateOutPort modName ident) = concat ["Multiple declarations of output port '", NetAST.name ident, "' in '", modName, "'"]
-    show (UndefinedOutPort modName ident) = concat ["'", NetAST.name ident, "' is not an output port in '", modName, "'"]
+    show (ModuleInstLoop loop) = concat ["Module instantiation loop :'", intercalate "' -> '" loop, "'"]
+    show (DuplicateInPort  modName port) = concat ["Multiple declarations of input port '", port, "' in '", modName, "'"]
+    show (DuplicateInMap   ns      port) = concat ["Multiple mappings for input port '", port, "' in '", ns, "'"]
+    show (UndefinedInPort  modName port) = concat ["'", port, "' is not an input port in '", modName, "'"]
+    show (DuplicateOutPort modName port) = concat ["Multiple declarations of output port '", port, "' in '", modName, "'"]
+    show (DuplicateOutMap   ns      port) = concat ["Multiple mappings for output port '", port, "' in '", ns, "'"]
+    show (UndefinedOutPort modName port) = concat ["'", port, "' is not an output port in '", modName, "'"]
     show (DuplicateIdentifer ident)   = concat ["Multiple declarations of node '", show ident, "'"]
     show (UndefinedReference ident)   = concat ["Reference to undefined node '", show ident, "'"]
 
@@ -73,6 +77,8 @@ data Context = Context
     , curNamespace :: NetAST.Namespace
     , paramValues  :: Map String Word
     , varValues    :: Map String Word
+    , inPortMaps   :: Map String NetAST.NodeId
+    , outPortMaps  :: Map String NetAST.NodeId
     }
 
 sockeyeBuildNet :: AST.SockeyeSpec -> Either CheckFailure NetAST.NetSpec
@@ -84,6 +90,8 @@ sockeyeBuildNet ast = do
             , curNamespace = NetAST.Namespace []
             , paramValues  = Map.empty
             , varValues    = Map.empty
+            , inPortMaps   = Map.empty
+            , outPortMaps  = Map.empty
             }        
     net <- transform context ast
     trace (groom net) $ return ()
@@ -122,12 +130,66 @@ instance NetTransformable AST.Module NetList where
             outPorts = AST.outputPorts ast
             nodeDecls = AST.nodeDecls ast
             moduleInsts = AST.moduleInsts ast
-            name = last $ modulePath context
-        -- checkDuplicates inPorts $ DuplicateInPort name
-        -- checkDuplicates outPorts $ DuplicateOutPort name
+        inDecls <- do
+            net <- transform context inPorts
+            return $ concat (net :: [NetList])
+        outDecls <- do
+            net <- transform context outPorts
+            return $ concat (net :: [NetList])
+        -- TODO check duplicate ports
+        -- TODO check mappings to non existing port
         netDecls <- transform context nodeDecls
         netInsts <- transform context moduleInsts
-        return $ concat (netDecls ++ netInsts :: [NetList])
+        return $ concat (inDecls:outDecls:netDecls ++ netInsts)
+        where
+            nameWithArgs =
+                let
+                    name = head $ modulePath context
+                    paramNames = AST.paramNames ast
+                    paramTypes = AST.paramTypeMap ast
+                    params = map (\p -> (p, paramTypes Map.! p)) paramNames
+                    argValues = map showValue params
+                in concat [name, "(", intercalate ", " argValues, ")"]
+                where
+                    showValue (name, AST.AddressParam) = "0x" ++ showHex (getParamValue context name) ""
+                    showValue (name, AST.NaturalParam) = show (getParamValue context name)
+            
+
+instance NetTransformable AST.Port NetList where
+    transform context (AST.MultiPort for) = do
+        netPorts <- transform context for
+        return $ concat (netPorts :: [NetList])
+    transform context (AST.InputPort ident) = do
+        netIdent <- transform context ident
+        let
+            portMap = inPortMaps context
+            decl = mapPort portMap netIdent
+        return $ catMaybes [decl]
+            where
+                mapPort portMap port = do
+                    let
+                        name = NetAST.name port
+                    mappedId <- Map.lookup name portMap
+                    return (mappedId, portMapTemplate { NetAST.overlay = Just port })
+    transform context (AST.OutputPort ident) = do
+        netIdent <- transform context ident
+        let
+            portMap = outPortMaps context
+            decl = mapPort portMap netIdent
+        return [decl]
+            where
+                mapPort portMap port = let
+                    name = NetAST.name port
+                    mappedId = Map.lookup name portMap
+                    in (port, portMapTemplate { NetAST.overlay = mappedId })
+
+portMapTemplate :: NetAST.NodeSpec
+portMapTemplate = NetAST.NodeSpec
+    { NetAST.nodeType  = NetAST.Other
+    , NetAST.accept    = []
+    , NetAST.translate = []
+    , NetAST.overlay   = Nothing
+    }
 
 instance NetTransformable AST.ModuleInst NetList where
     transform context (AST.MultiModuleInst for) = do
@@ -144,22 +206,31 @@ instance NetTransformable AST.ModuleInst NetList where
         checkSelfInst name
         netNamespace <- transform context namespace
         netArgs <- transform context args
+        netInMap <- transform context inPortMap
+        netOutMap <- transform context outPortMap
         let
-            modContext = moduleContext name netNamespace netArgs
+            inMaps = concat (netInMap :: [PortMap])
+            outMaps = concat (netOutMap :: [PortMap])
+        checkDuplicates (map fst inMaps) (DuplicateInMap $ show netNamespace) 
+        checkDuplicates (map fst outMaps) (DuplicateOutMap $ show netNamespace)
+        let
+            modContext = moduleContext name netNamespace netArgs inMaps outMaps
         transform modContext mod
             where
-                moduleContext name namespace args =
+                moduleContext name namespace args inMaps outMaps =
                     let
                         path = modulePath context
                         base = NetAST.ns $ NetAST.namespace namespace
                         newNs = case NetAST.name namespace of
                             "" -> NetAST.Namespace base
-                            n  -> NetAST.Namespace $ n:base
+                            n  -> NetAST.Namespace $ base ++ [n]
                     in context
                         { modulePath   = name:path
                         , curNamespace = newNs
                         , paramValues  = args
                         , varValues    = Map.empty
+                        , inPortMaps   = Map.fromList inMaps
+                        , outPortMaps  = Map.fromList outMaps
                         }
                 checkSelfInst name = do
                     let
@@ -184,7 +255,7 @@ instance NetTransformable AST.PortMap PortMap where
             mappedPort = AST.mappedPort ast
         netMappedId <- transform context mappedId
         netMappedPort <- transform context mappedPort
-        return [(netMappedId, netMappedPort)]
+        return [(NetAST.name netMappedPort, netMappedId)]
 
 instance NetTransformable AST.ModuleArg Word where
     transform context (AST.AddressArg value) = return value
@@ -369,10 +440,6 @@ instance NetCheckable NetAST.NetSpec where
         check specContext $ Map.elems net
 
 instance NetCheckable NetAST.NodeSpec where
-    check context (NetAST.AliasSpec alias) = do
-        case alias of
-            Nothing -> return ()
-            Just ident -> check context ident
     check context net = do
         let
             translate = NetAST.translate net
@@ -390,7 +457,7 @@ instance NetCheckable NetAST.NodeId where
     check context net = do
         if net `Set.member` context
             then return ()
-            else Left $ CheckFailure [UndefinedReference net]
+            else Left $ CheckFailure [UndefinedReference $ show net]
 
 instance NetCheckable a => NetCheckable [a] where
     check context net = do
@@ -419,13 +486,13 @@ getVarValue context name =
         vars = varValues context
     in vars Map.! name
 
-checkDuplicates :: [NetAST.NodeId] -> (NetAST.NodeId -> FailedCheck) -> Either CheckFailure ()
+checkDuplicates :: (Eq a, Show a) => [a] -> (String -> FailedCheck) -> Either CheckFailure ()
 checkDuplicates nodeIds fail = do
     let
         duplicates = duplicateNames nodeIds
     case duplicates of
         [] -> return ()
-        _  -> Left $ CheckFailure (map fail duplicates)
+        _  -> Left $ CheckFailure (map (fail . show) duplicates)
     where
         duplicateNames [] = []
         duplicateNames (x:xs)

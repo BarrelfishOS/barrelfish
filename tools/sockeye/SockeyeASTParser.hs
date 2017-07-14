@@ -56,10 +56,8 @@ data ModuleBody = ModuleBody
     } deriving (Show)
 
 data PortDef
-    = InputPortDef
-        { portId :: Identifier }
-    | OutputPortDef
-        { portId :: Identifier }
+    = InputPortDef Identifier
+    | OutputPortDef Identifier
     | MultiPortDef (For PortDef)
     deriving (Show)
 

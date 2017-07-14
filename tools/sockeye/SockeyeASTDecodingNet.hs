@@ -39,7 +39,7 @@ newtype Namespace = Namespace
     deriving (Eq, Ord)
 
 instance Show Namespace where
-    show (Namespace ns) = intercalate "." ns
+    show (Namespace ns) = intercalate "." $ ns
 
 data NodeSpec
     = NodeSpec
@@ -48,7 +48,6 @@ data NodeSpec
         , translate :: [MapSpec]
         , overlay   :: Maybe NodeId
         }
-    | AliasSpec (Maybe NodeId)
     deriving (Show)
 
 data NodeType

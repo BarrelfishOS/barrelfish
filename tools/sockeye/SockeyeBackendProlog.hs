@@ -25,65 +25,61 @@ import Numeric (showHex)
 import qualified SockeyeASTDecodingNet as AST
 
 compile :: AST.NetSpec -> String
-compile = fromJust . generate
+compile = generate
 
 {- Code Generator -}
 class PrologGenerator a where
-    generate :: a -> Maybe String
+    generate :: a -> String
 
 instance PrologGenerator AST.NetSpec where
-    generate (AST.NetSpec net) = do
-        let
-            mapped = Map.mapWithKey toFact net
-            facts = catMaybes $ Map.elems mapped
-        return $ unlines facts
+    generate (AST.NetSpec net) = let
+        mapped = Map.mapWithKey toFact net
+        facts = Map.elems mapped
+        in unlines facts
         where
-            toFact nodeId nodeSpec = do
-                atom <- generate nodeId
-                node <- generate nodeSpec
-                return $ predicate "net" [atom, node] ++ "."
+            toFact nodeId nodeSpec = let
+                atom = generate nodeId
+                node = generate nodeSpec
+                in predicate "net" [atom, node] ++ "."
 
 instance PrologGenerator AST.NodeId where
-    generate ast = do
-        return $ (atom $ show ast)
+    generate ast = atom $ show ast
 
 instance PrologGenerator AST.NodeSpec where
-    generate (AST.AliasSpec alias) = maybe Nothing generate alias
-    generate ast = do
-        nodeType <- generate $ AST.nodeType ast
-        accept <- generate $ AST.accept ast
-        translate <- generate $ AST.translate ast
-        overlay <- case AST.overlay ast of
-            Nothing -> return $ atom "@none"
+    generate ast = let
+        nodeType = generate $ AST.nodeType ast
+        accept = generate $ AST.accept ast
+        translate = generate $ AST.translate ast
+        overlay = case AST.overlay ast of
+            Nothing -> atom "@none"
             Just id -> generate id
-        return $ predicate "node" [nodeType, accept, translate, overlay]
+        in predicate "node" [nodeType, accept, translate, overlay]
 
 instance PrologGenerator AST.BlockSpec where
-    generate blockSpec = do
-        base  <- generate $ AST.base blockSpec
-        limit <- generate $ AST.limit blockSpec
-        return $ predicate "block" [base, limit]
+    generate blockSpec = let
+        base = generate $ AST.base blockSpec
+        limit = generate $ AST.limit blockSpec
+        in predicate "block" [base, limit]
 
 instance PrologGenerator AST.MapSpec where
-    generate mapSpec = do
-        src  <- generate $ AST.srcBlock mapSpec
-        dest <- generate $ AST.destNode mapSpec
-        base <- generate $ AST.destBase mapSpec
-        return $ predicate "map" [src, dest, base]
+    generate mapSpec = let
+        src  = generate $ AST.srcBlock mapSpec
+        dest = generate $ AST.destNode mapSpec
+        base = generate $ AST.destBase mapSpec
+        in predicate "map" [src, dest, base]
 
 instance PrologGenerator AST.NodeType where
-    generate AST.Memory = return $ atom "memory"
-    generate AST.Device = return $ atom "device"
-    generate AST.Other  = return $ atom "other"
+    generate AST.Memory = atom "memory"
+    generate AST.Device = atom "device"
+    generate AST.Other  = atom "other"
 
 instance PrologGenerator AST.Address where
-    generate (AST.Address addr) = return $ "16'" ++ showHex addr ""
+    generate (AST.Address addr) = "16'" ++ showHex addr ""
 
 instance PrologGenerator a => PrologGenerator [a] where
-    generate ast = do
-        let
-            mapped = map generate ast
-        return $ (list . catMaybes) mapped
+    generate ast = let
+        mapped = map generate ast
+        in list mapped
 
 {- Helper functions -}
 atom :: String -> String

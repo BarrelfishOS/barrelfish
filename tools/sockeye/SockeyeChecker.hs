@@ -44,8 +44,8 @@ data FailedCheckType
     | NoSuchParameter String
     | NoSuchVariable String
     | ParamTypeMismatch String AST.ModuleParamType AST.ModuleParamType
-    | WrongNumberOfArgs Int Int
-    | ArgTypeMismatch String AST.ModuleParamType AST.ModuleParamType
+    | WrongNumberOfArgs String Int Int
+    | ArgTypeMismatch String String AST.ModuleParamType AST.ModuleParamType
 
 instance Show FailedCheckType where
     show (DuplicateModule name)          = concat ["Multiple definitions for module '", name, "'"]
@@ -54,15 +54,15 @@ instance Show FailedCheckType where
     show (NoSuchModule name)             = concat ["No definition for module '", name, "'"]
     show (NoSuchParameter name)          = concat ["Parameter '", name, "' not in scope"]
     show (NoSuchVariable name)           = concat ["Variable '", name, "' not in scope"]
-    show (WrongNumberOfArgs takes given) =
+    show (WrongNumberOfArgs name takes given) =
         let arg = if takes == 1
             then "argument"
             else "arguments"
-        in concat ["Module takes ", show takes, " ", arg, ", given ", show given]
+        in concat ["Module '", name, "' takes ", show takes, " ", arg, ", given ", show given]
     show (ParamTypeMismatch name expected actual) =
         concat ["Expected type '", show expected, "' but '", name, "' has type '", show actual, "'"]
-    show (ArgTypeMismatch name expected actual) =
-        concat ["Type mismatch for argument '", name, "': Expected '", show expected, "', given '", show actual, "'"]
+    show (ArgTypeMismatch modName name expected actual) =
+        concat ["Type mismatch for argument '", name, "' for module '", modName, "': Expected '", show expected, "', given '", show actual, "'"]
 
 data FailedCheck = FailedCheck
     { failure  :: FailedCheckType
@@ -82,7 +82,7 @@ instance Show CheckFailure where
                 let
                     title = "\nIn module '" ++ name ++ "':"
                     fails = filter (\f -> name == inModule f) fs
-                in if name == ""
+                in if name == "@root"
                     then "":showFails 0 fails
                     else title:showFails 1 fails
             showFails indentLevel fs =
@@ -203,12 +203,15 @@ instance Checkable ParseAST.Module AST.Module where
             isOutPort = not . isInPort
 
 instance Checkable ParseAST.PortDef AST.Port where
+    check context (ParseAST.InputPortDef ident) = do
+        checkedId <- check context ident
+        return $ AST.InputPort checkedId
+    check context (ParseAST.OutputPortDef ident) = do
+        checkedId <- check context ident
+        return $ AST.OutputPort checkedId
     check context (ParseAST.MultiPortDef for) = do
         checkedFor <- check context for
         return $ AST.MultiPort checkedFor
-    check context portDef = do
-        checkedId <- check context (ParseAST.portId portDef)
-        return $ AST.Port checkedId
 
 instance Checkable ParseAST.NetSpec (Either AST.NodeDecl AST.ModuleInst) where
     check context (ParseAST.NodeDeclSpec decl) = do
@@ -267,7 +270,7 @@ instance Checkable ParseAST.ModuleInst AST.ModuleInst where
                             argc = length args
                         if argc == paramc
                             then return ()
-                            else Left $ checkFailure context [WrongNumberOfArgs paramc argc]
+                            else Left $ checkFailure context [WrongNumberOfArgs (instModule context) paramc argc]
                     checkArgType (name, expected) arg = do
                         case arg of
                             ParseAST.AddressArg value -> do
@@ -282,7 +285,7 @@ instance Checkable ParseAST.ModuleInst AST.ModuleInst where
                                 checkParamType context pName expected
                                 return $ AST.ParamArg pName
                         where
-                            mismatch t = checkFailure context [ArgTypeMismatch name expected t]
+                            mismatch t = checkFailure context [ArgTypeMismatch (instModule context) name expected t]
 
 instance Checkable ParseAST.PortMap AST.PortMap where
     check context (ParseAST.MultiPortMap for) = do
