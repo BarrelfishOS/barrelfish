@@ -170,7 +170,6 @@ main = do
     parsedAst <- parseFile inFile
     ast <- checkAST parsedAst
     netAst <- buildNet ast
-    trace (groom netAst) $ return ()
     out <- compile (optTarget opts) netAst
     output (optOutputFile opts) out
     

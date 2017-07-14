@@ -44,7 +44,6 @@ data FailedCheckType
     | NoSuchParameter String
     | NoSuchVariable String
     | ParamTypeMismatch String AST.ModuleParamType AST.ModuleParamType
-    | ModuleSelfInst
     | WrongNumberOfArgs Int Int
     | ArgTypeMismatch String AST.ModuleParamType AST.ModuleParamType
 
@@ -55,7 +54,6 @@ instance Show FailedCheckType where
     show (NoSuchModule name)             = concat ["No definition for module '", name, "'"]
     show (NoSuchParameter name)          = concat ["Parameter '", name, "' not in scope"]
     show (NoSuchVariable name)           = concat ["Variable '", name, "' not in scope"]
-    show (ModuleSelfInst)                = "Module must not instantiate itself"
     show (WrongNumberOfArgs takes given) =
         let arg = if takes == 1
             then "argument"
@@ -235,7 +233,6 @@ instance Checkable ParseAST.ModuleInst AST.ModuleInst where
             paramNames = AST.paramNames mod
             instContext = context
                 { instModule = name }
-        checkSelfInst instContext
         checkedArgs <- checkArgs instContext arguments
         checkedNamespace <- check instContext namespace
         inPortMap  <- check instContext $ filter isInMap  portMaps
@@ -254,13 +251,6 @@ instance Checkable ParseAST.ModuleInst AST.ModuleInst where
             isInMap (ParseAST.MultiPortMap for) = isInMap $ ParseAST.body for
             isInMap _ = False
             isOutMap = not . isInMap
-            checkSelfInst context = do
-                let
-                    selfName = moduleName context
-                    instName = instModule context
-                if instName == selfName
-                    then Left $ checkFailure context [ModuleSelfInst]
-                    else return ()
             checkArgs context args = do
                 mod <- getInstantiatedModule context
                 let
