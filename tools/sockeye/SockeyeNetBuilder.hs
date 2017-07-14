@@ -35,9 +35,6 @@ import Numeric (showHex)
 import qualified SockeyeAST as AST
 import qualified SockeyeASTDecodingNet as NetAST
 
-import Text.Groom (groom)
-import Debug.Trace
-
 type NetNodeDecl = (NetAST.NodeId, NetAST.NodeSpec)
 type NetList = [NetNodeDecl]
 type PortList = [NetAST.NodeId]
@@ -94,7 +91,6 @@ sockeyeBuildNet ast = do
             , outPortMaps  = Map.empty
             }        
     net <- transform context ast
-    trace (groom net) $ return ()
     check Set.empty net
     return net
 --            

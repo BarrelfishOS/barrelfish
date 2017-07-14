@@ -32,9 +32,6 @@ import SockeyeNetBuilder
 
 import qualified SockeyeBackendProlog as Prolog
 
-import Debug.Trace
-import Text.Groom(groom)
-
 {- Exit codes -}
 usageError :: ExitCode
 usageError = ExitFailure 1
