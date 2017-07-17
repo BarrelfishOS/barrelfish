@@ -52,7 +52,7 @@ data FailedCheck
     | UndefinedReference !String
 
 instance Show FailedCheck where
-    show (ModuleInstLoop loop) = concat ["Module instantiation loop :'", intercalate "' -> '" loop, "'"]
+    show (ModuleInstLoop loop) = concat ["Module instantiation loop:'", intercalate "' -> '" loop, "'"]
     show (DuplicateInPort  modName port) = concat ["Multiple declarations of input port '", port, "' in '", modName, "'"]
     show (DuplicateInMap   ns      port) = concat ["Multiple mappings for input port '", port, "' in '", ns, "'"]
     show (UndefinedInPort  modName port) = concat ["'", port, "' is not an input port in '", modName, "'"]
@@ -136,20 +136,7 @@ instance NetTransformable AST.Module NetList where
         -- TODO check mappings to non existing port
         netDecls <- transform context nodeDecls
         netInsts <- transform context moduleInsts
-        return $ concat (inDecls:outDecls:netDecls ++ netInsts)
-        where
-            nameWithArgs =
-                let
-                    name = head $ modulePath context
-                    paramNames = AST.paramNames ast
-                    paramTypes = AST.paramTypeMap ast
-                    params = map (\p -> (p, paramTypes Map.! p)) paramNames
-                    argValues = map showValue params
-                in concat [name, "(", intercalate ", " argValues, ")"]
-                where
-                    showValue (name, AST.AddressParam) = "0x" ++ showHex (getParamValue context name) ""
-                    showValue (name, AST.NaturalParam) = show (getParamValue context name)
-            
+        return $ concat (inDecls:outDecls:netDecls ++ netInsts)            
 
 instance NetTransformable AST.Port NetList where
     transform context (AST.MultiPort for) = do
@@ -219,7 +206,7 @@ instance NetTransformable AST.ModuleInst NetList where
                         base = NetAST.ns $ NetAST.namespace namespace
                         newNs = case NetAST.name namespace of
                             "" -> NetAST.Namespace base
-                            n  -> NetAST.Namespace $ base ++ [n]
+                            n  -> NetAST.Namespace $ n:base
                     in context
                         { modulePath   = name:path
                         , curNamespace = newNs

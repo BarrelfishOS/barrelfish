@@ -43,7 +43,15 @@ instance PrologGenerator AST.NetSpec where
                 in predicate "net" [atom, node] ++ "."
 
 instance PrologGenerator AST.NodeId where
-    generate ast = atom $ show ast
+    generate ast = let
+        name = AST.name ast
+        namespace = AST.namespace ast
+        in predicate "nodeId" [atom name, generate namespace]
+
+instance PrologGenerator AST.Namespace where
+    generate ast = let
+        ns = AST.ns ast
+        in list $ map atom ns
 
 instance PrologGenerator AST.NodeSpec where
     generate ast = let
@@ -84,10 +92,10 @@ instance PrologGenerator a => PrologGenerator [a] where
 {- Helper functions -}
 atom :: String -> String
 atom name@(c:cs)
-    | isLower c && alphaNum cs = name
+    | isLower c && allAlphaNum cs = name
     | otherwise = quotes name
     where
-        alphaNum cs = foldl (\acc c -> isAlphaNum c && acc) True cs
+        allAlphaNum cs = foldl (\acc c -> isAlphaNum c && acc) True cs
 
 predicate :: String -> [String] -> String
 predicate name args = name ++ (parens $ intercalate "," args)

@@ -39,7 +39,7 @@ newtype Namespace = Namespace
     deriving (Eq, Ord)
 
 instance Show Namespace where
-    show (Namespace ns) = intercalate "." $ ns
+    show (Namespace ns) = intercalate "." $ reverse ns
 
 data NodeSpec
     = NodeSpec
