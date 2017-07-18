@@ -335,7 +335,7 @@ instance NetTransformable AST.MapSpec NetAST.MapSpec where
         let
             block = AST.block ast
             destNode = AST.destNode ast
-            destBase = fromMaybe (AST.base block) (AST.destBase ast)
+            destBase = fromMaybe (AST.LiteralAddress 0) (AST.destBase ast)
         netBlock <- transform context block
         netDestNode <- transform context destNode
         netDestBase <- transform context destBase
