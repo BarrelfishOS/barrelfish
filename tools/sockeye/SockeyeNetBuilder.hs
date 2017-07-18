@@ -23,7 +23,7 @@ module SockeyeNetBuilder
 import Control.Monad.State
 
 import Data.Either
-import Data.List (nub, intercalate)
+import Data.List (nub, intercalate, sort)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromMaybe, maybe)
@@ -76,6 +76,7 @@ data Context = Context
     , varValues    :: Map String Word
     , inPortMaps   :: Map String NetAST.NodeId
     , outPortMaps  :: Map String NetAST.NodeId
+    , mappedBlocks :: [NetAST.BlockSpec]
     }
 
 sockeyeBuildNet :: AST.SockeyeSpec -> Either CheckFailure NetAST.NetSpec
@@ -89,6 +90,7 @@ sockeyeBuildNet ast = do
             , varValues    = Map.empty
             , inPortMaps   = Map.empty
             , outPortMaps  = Map.empty
+            , mappedBlocks = []
             }        
     net <- transform context ast
     check Set.empty net
@@ -142,37 +144,53 @@ instance NetTransformable AST.Port NetList where
     transform context (AST.MultiPort for) = do
         netPorts <- transform context for
         return $ concat (netPorts :: [NetList])
-    transform context (AST.InputPort ident) = do
-        netIdent <- transform context ident
+    transform context (AST.InputPort portId portWidth) = do
+        netPortId <- transform context portId
         let
             portMap = inPortMaps context
-            decl = mapPort portMap netIdent
-        return $ catMaybes [decl]
-            where
-                mapPort portMap port = do
-                    let
-                        name = NetAST.name port
-                    mappedId <- Map.lookup name portMap
-                    return (mappedId, portMapTemplate { NetAST.overlay = Just port })
-    transform context (AST.OutputPort ident) = do
-        netIdent <- transform context ident
+            name = NetAST.name netPortId
+            mappedId = Map.lookup name portMap
+        case mappedId of
+            Nothing    -> return []
+            Just ident -> do
+                let
+                    node = portNode netPortId portWidth
+                return [(ident, node)]
+    transform context (AST.OutputPort portId portWidth) = do
+        netPortId <- transform context portId
         let
             portMap = outPortMaps context
-            decl = mapPort portMap netIdent
-        return [decl]
-            where
-                mapPort portMap port = let
-                    name = NetAST.name port
-                    mappedId = Map.lookup name portMap
-                    in (port, portMapTemplate { NetAST.overlay = mappedId })
+            name = NetAST.name netPortId
+            mappedId = Map.lookup name portMap
+        case mappedId of
+            Nothing    -> return [(netPortId, portNodeTemplate)]
+            Just ident -> do
+                let
+                    node = portNode ident portWidth
+                return [(netPortId, node)]
 
-portMapTemplate :: NetAST.NodeSpec
-portMapTemplate = NetAST.NodeSpec
+portNode :: NetAST.NodeId -> Word -> NetAST.NodeSpec
+portNode destNode width =
+    let
+        base = NetAST.Address 0
+        limit = NetAST.Address $ 2^width - 1
+        srcBlock = NetAST.BlockSpec
+            { NetAST.base  = base
+            , NetAST.limit = limit
+            }
+        map = NetAST.MapSpec
+                { NetAST.srcBlock = srcBlock
+                , NetAST.destNode = destNode
+                , NetAST.destBase = base
+                }
+    in portNodeTemplate { NetAST.translate = [map] }
+
+portNodeTemplate :: NetAST.NodeSpec
+portNodeTemplate = NetAST.NodeSpec
     { NetAST.nodeType  = NetAST.Other
     , NetAST.accept    = []
     , NetAST.translate = []
-    , NetAST.overlay   = Nothing
-    }
+    }    
 
 instance NetTransformable AST.ModuleInst NetList where
     transform context (AST.MultiModuleInst for) = do
@@ -289,16 +307,17 @@ instance NetTransformable AST.NodeSpec NetAST.NodeSpec where
         netNodeType <- maybe (return NetAST.Other) (transform context) nodeType
         netAccept <- transform context accept
         netTranslate <- transform context translate
+        let
+            mapBlocks = map NetAST.srcBlock netTranslate
+            nodeContext = context
+                { mappedBlocks = netAccept ++ mapBlocks }
         netOverlay <- case overlay of
-                Nothing -> return Nothing
-                Just o  -> do 
-                    t <- transform context o
-                    return $ Just t
+                Nothing -> return []
+                Just o  -> transform nodeContext o
         return NetAST.NodeSpec
             { NetAST.nodeType  = netNodeType
             , NetAST.accept    = netAccept
-            , NetAST.translate = netTranslate
-            , NetAST.overlay   = netOverlay
+            , NetAST.translate = netTranslate ++ netOverlay
             }
 
 instance NetTransformable AST.NodeType NetAST.NodeType where
@@ -344,6 +363,52 @@ instance NetTransformable AST.MapSpec NetAST.MapSpec where
             , NetAST.destNode = netDestNode
             , NetAST.destBase = netDestBase
             }
+
+instance NetTransformable AST.OverlaySpec [NetAST.MapSpec] where
+    transform context ast = do
+        let
+            over = AST.over ast
+            width = AST.width ast
+            blocks = mappedBlocks context
+            blockPoints = concat $ map toScanPoints blocks
+            overStart = BlockEnd 0
+            overStop  = BlockStart $ 2^width
+            scanPoints = overStart:overStop:blockPoints
+        netOver <- transform context over
+        return $ overlayMaps netOver scanPoints
+        where
+            toScanPoints (NetAST.BlockSpec base limit) =
+                [ BlockStart $ NetAST.address base
+                , BlockEnd   $ NetAST.address limit
+                ]
+
+overlayMaps :: NetAST.NodeId -> [ScanPoint] -> [NetAST.MapSpec]
+overlayMaps destId scanPoints =
+    let
+        sorted = sort scanPoints
+    in foldl pointAction [] scanPoints
+    where
+        pointAction _ _ = []
+
+data ScanPoint
+    = BlockStart { address :: !Word }
+    | BlockEnd   { address :: !Word }
+    deriving (Eq, Show)
+
+instance Ord ScanPoint where
+    (<=) (BlockStart a1) (BlockEnd   a2)
+        | a1 == a2 = True
+        | otherwise = a1 <= a2
+    (<=) (BlockEnd   a1) (BlockStart a2)
+        | a1 == a2 = False
+        | otherwise = a1 <= a2
+    (<=) sp1 sp2 = (address sp1) <= (address sp2)
+
+data ScanLineState
+    = ScanLineState
+        { insideBlocks   :: !Word
+        , lastEndAddress :: Maybe Word
+        }
 
 instance NetTransformable AST.Address NetAST.Address where
     transform _ (AST.LiteralAddress value) = do
@@ -426,9 +491,7 @@ instance NetCheckable NetAST.NodeSpec where
     check context net = do
         let
             translate = NetAST.translate net
-            overlay = NetAST.overlay net
         check context translate
-        maybe (return ()) (check context) overlay
 
 instance NetCheckable NetAST.MapSpec where
     check context net = do

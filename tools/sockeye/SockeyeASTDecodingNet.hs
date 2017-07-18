@@ -46,7 +46,6 @@ data NodeSpec
         { nodeType  :: NodeType
         , accept    :: [BlockSpec]
         , translate :: [MapSpec]
-        , overlay   :: Maybe NodeId
         }
     deriving (Show)
 

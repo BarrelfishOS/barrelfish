@@ -41,8 +41,14 @@ instance Show ModuleParamType where
     show AddressParam = "addr"
 
 data Port
-    = InputPort Identifier
-    | OutputPort Identifier
+    = InputPort 
+        { portId    :: Identifier
+        , portWidth :: !Word
+        }
+    | OutputPort
+        { portId    :: Identifier
+        , portWidth :: !Word
+        }
     | MultiPort (For Port)
     deriving (Show)
 
@@ -92,7 +98,7 @@ data NodeSpec = NodeSpec
     { nodeType  :: Maybe NodeType
     , accept    :: [BlockSpec]
     , translate :: [MapSpec]
-    , overlay   :: Maybe Identifier
+    , overlay   :: Maybe OverlaySpec
     } deriving (Show)
 
 data NodeType
@@ -118,6 +124,12 @@ data MapSpec
         { block    :: BlockSpec
         , destNode :: Identifier
         , destBase :: Maybe Address
+        } deriving (Show)
+
+data OverlaySpec
+    = OverlaySpec
+        { over  :: Identifier
+        , width :: !Word
         } deriving (Show)
 
 data Address

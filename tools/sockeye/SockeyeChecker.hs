@@ -197,18 +197,18 @@ instance Checkable ParseAST.Module AST.Module where
             , AST.moduleInsts = checkedModuleInsts
             }
         where
-            isInPort (ParseAST.InputPortDef _) = True
+            isInPort (ParseAST.InputPortDef _ _) = True
             isInPort (ParseAST.MultiPortDef for) = isInPort $ ParseAST.body for
             isInPort _ = False
             isOutPort = not . isInPort
 
 instance Checkable ParseAST.PortDef AST.Port where
-    check context (ParseAST.InputPortDef ident) = do
-        checkedId <- check context ident
-        return $ AST.InputPort checkedId
-    check context (ParseAST.OutputPortDef ident) = do
-        checkedId <- check context ident
-        return $ AST.OutputPort checkedId
+    check context (ParseAST.InputPortDef portId portWidth) = do
+        checkedId <- check context portId
+        return $ AST.InputPort checkedId portWidth
+    check context (ParseAST.OutputPortDef portId portWidth) = do
+        checkedId <- check context portId
+        return $ AST.OutputPort checkedId portWidth
     check context (ParseAST.MultiPortDef for) = do
         checkedFor <- check context for
         return $ AST.MultiPort checkedFor
@@ -392,6 +392,11 @@ instance Checkable ParseAST.MapSpec AST.MapSpec where
             , AST.destNode = checkedDestNode
             , AST.destBase = checkedDestBase
             }
+
+instance Checkable ParseAST.OverlaySpec AST.OverlaySpec where
+    check context (ParseAST.OverlaySpec over width) = do
+        checkedOver <- check context over
+        return $ AST.OverlaySpec checkedOver width
 
 instance Checkable ParseAST.Address AST.Address where
     check _ (ParseAST.LiteralAddress value) = do

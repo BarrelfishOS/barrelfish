@@ -58,10 +58,7 @@ instance PrologGenerator AST.NodeSpec where
         nodeType = generate $ AST.nodeType ast
         accept = generate $ AST.accept ast
         translate = generate $ AST.translate ast
-        overlay = case AST.overlay ast of
-            Nothing -> atom "@none"
-            Just id -> generate id
-        in predicate "node" [nodeType, accept, translate, overlay]
+        in predicate "node" [nodeType, accept, translate]
 
 instance PrologGenerator AST.BlockSpec where
     generate blockSpec = let

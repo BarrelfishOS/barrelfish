@@ -80,35 +80,39 @@ moduleParam = do
             return AST.AddressParam
 
 moduleBody = do
-    ports <- many $ portDef
+    ports <- many portDefs
     net <- many netSpecs
     return AST.ModuleBody
         { AST.ports     = concat ports
         , AST.moduleNet = concat net
         }
 
-portDef = choice [inputPorts, outputPorts]
+portDefs = choice [inputPorts, outputPorts]
     where
         inputPorts = do
             reserved "input"
-            ports <- commaSep1 identifierFor
-            return $ map toInDef ports
-        toInDef (forFn, iden) =
+            commaSep1 inDef
+        inDef = do
+            (forFn, portId) <- identifierFor
+            symbol "/"
+            portWidth <- decimal <?> "number of bits"
             let
-                portDef = AST.InputPortDef iden
-            in case forFn of
-                Nothing -> portDef
-                Just f  -> AST.MultiPortDef $ f portDef
+                portDef = AST.InputPortDef portId $ fromIntegral portWidth
+            case forFn of
+                Nothing -> return portDef
+                Just f  -> return $ AST.MultiPortDef (f portDef)
         outputPorts = do
             reserved "output"
-            ports <- commaSep1 identifierFor
-            return $ map toOutDef ports
-        toOutDef (forFn, iden) =
+            commaSep1 outDef
+        outDef = do
+            (forFn, portId) <- identifierFor
+            symbol "/"
+            portWidth <- decimal <?> "number of bits"
             let
-                portDef = AST.OutputPortDef iden
-            in case forFn of
-            Nothing -> portDef
-            Just f  -> AST.MultiPortDef $ f portDef
+                portDef = AST.OutputPortDef portId $ fromIntegral portWidth
+            case forFn of
+                Nothing -> return portDef
+                Just f  -> return $ AST.MultiPortDef (f portDef)
 
 netSpecs = choice [ inst <?> "module instantiation"
                  , decl <?> "node declaration"
@@ -222,9 +226,6 @@ nodeSpec = do
             reserved "map"
             specs <- brackets $ many mapSpecs
             return $ concat specs
-        overlay = do
-            reserved "over"
-            identifier
 
 nodeType = choice [memory, device]
     where memory = do
@@ -272,6 +273,16 @@ mapSpecs = do
             , AST.destNode = destNode
             , AST.destBase = destBase
             }
+
+overlay = do
+    reserved "over"
+    over <- identifier
+    symbol "/"
+    width <- decimal <?> "number of bits"
+    return AST.OverlaySpec
+        { AST.over  = over
+        , AST.width = fromIntegral width
+        }
 
 identifierFor = identifierHelper True
 

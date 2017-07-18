@@ -29,6 +29,8 @@ import SockeyeAST
     , BlockSpec(SingletonBlock, RangeBlock, LengthBlock)
     , base, limit, bits
     , MapSpec(MapSpec)
+    , OverlaySpec(OverlaySpec)
+    , over, width
     , block, destNode, destBase
     , Address(LiteralAddress, ParamAddress)
     , ForLimit(LiteralLimit, ParamLimit)
@@ -62,8 +64,14 @@ data ModuleBody = ModuleBody
     } deriving (Show)
 
 data PortDef
-    = InputPortDef Identifier
-    | OutputPortDef Identifier
+    = InputPortDef
+        { portId    :: Identifier
+        , portWidth :: !Word
+        }
+    | OutputPortDef
+        { portId    :: Identifier
+        , portWidth :: !Word
+        }
     | MultiPortDef (For PortDef)
     deriving (Show)
 
