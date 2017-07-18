@@ -35,9 +35,15 @@ import SockeyeAST
     )
 
 data SockeyeSpec = SockeyeSpec
-    { modules :: [Module]
+    { imports :: [Import]
+    , modules :: [Module]
     , net     :: [NetSpec]
     } deriving (Show)
+
+
+data Import = Import 
+    { filePath :: !FilePath }
+    deriving (Show)
 
 data Module = Module
     { name       :: String

@@ -16,6 +16,8 @@ module Main where
 import Control.Monad
 
 import Data.List
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 import System.Console.GetOpt
 import System.Exit
@@ -31,6 +33,9 @@ import SockeyeChecker
 import SockeyeNetBuilder
 
 import qualified SockeyeBackendProlog as Prolog
+
+import Debug.Trace
+import Text.Groom(groom)
 
 {- Exit codes -}
 usageError :: ExitCode
@@ -120,7 +125,36 @@ compilerOpts argv =
             usage errors
             exitWith $ usageError
 
-{- Runs the parser -}
+{- Parse Sockeye and resolve imports -}
+parseSpec :: FilePath -> IO (ParseAST.SockeyeSpec)
+parseSpec file = do
+    let
+        rootImport = ParseAST.Import file
+    specMap <- parseWithImports Map.empty rootImport
+    let
+        specs = Map.elems specMap
+        topLevelSpec = specMap Map.! file
+        modules = concat $ map ParseAST.modules specs
+    return topLevelSpec
+        { ParseAST.imports = []
+        , ParseAST.modules = modules
+        }
+    where
+        parseWithImports importMap (ParseAST.Import fileName) = do
+            let
+                file = if '.' `elem` fileName
+                    then fileName
+                    else fileName ++ ".soc"
+            if file `Map.member` importMap
+                then return importMap
+                else do
+                    ast <- parseFile file
+                    let
+                        specMap = Map.insert file ast importMap
+                        imports = ParseAST.imports ast
+                    foldM parseWithImports specMap imports
+
+{- Runs the parser on a single file -}
 parseFile :: FilePath -> IO (ParseAST.SockeyeSpec)
 parseFile file = do
     src <- readFile file
@@ -164,7 +198,8 @@ main = do
     args <- getArgs
     opts <- compilerOpts args
     let inFile = optInputFile opts
-    parsedAst <- parseFile inFile
+    parsedAst <- parseSpec inFile
+    -- trace (groom parsedAst) $ return ()
     ast <- checkAST parsedAst
     netAst <- buildNet ast
     out <- compile (optTarget opts) netAst

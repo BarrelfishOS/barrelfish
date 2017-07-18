@@ -38,12 +38,20 @@ sockeyeFile = do
     return spec
 
 sockeyeSpec = do
+    imports <- many imports
     modules <- many sockeyeModule
     net <- many netSpecs
     return AST.SockeyeSpec
-        { AST.modules = modules
+        { AST.imports = imports
+        , AST.modules = modules
         , AST.net     = concat net
         }
+
+imports = do
+    reserved "import"
+    path <- try importPath <?> "import path"
+    return $ AST.Import path
+
 
 sockeyeModule = do
     reserved "module"
@@ -325,7 +333,7 @@ identString    = P.identifier lexer
 hexadecimal   = symbol "0" *> P.hexadecimal lexer <* whiteSpace
 decimal       = P.decimal lexer <* whiteSpace
 
-keywords = ["module",
+keywords = ["import", "module",
             "input", "output",
             "in",
             "as", "with",
@@ -337,6 +345,7 @@ keywords = ["module",
 identStart     = letter
 identLetter    = alphaNum <|> char '_' <|> char '-'
 
+importPath     = many (identLetter <|> char '/') <* whiteSpace
 moduleName     = identString <?> "module name"
 parameterName  = identString <?> "parameter name"
 variableName   = identString <?> "variable name"
