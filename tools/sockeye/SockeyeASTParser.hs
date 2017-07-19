@@ -66,11 +66,11 @@ data ModuleBody = ModuleBody
 data PortDef
     = InputPortDef
         { portId    :: Identifier
-        , portWidth :: !Word
+        , portWidth :: !Integer
         }
     | OutputPortDef
         { portId    :: Identifier
-        , portWidth :: !Word
+        , portWidth :: !Integer
         }
     | MultiPortDef (For PortDef)
     deriving (Show)

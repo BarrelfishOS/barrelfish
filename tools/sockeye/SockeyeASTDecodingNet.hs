@@ -68,5 +68,5 @@ data MapSpec = MapSpec
 
 newtype Address =
     Address
-        { address :: Word }
+        { address :: Integer }
     deriving (Show)

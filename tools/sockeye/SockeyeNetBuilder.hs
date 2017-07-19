@@ -74,8 +74,8 @@ data Context = Context
     { spec         :: AST.SockeyeSpec
     , modulePath   :: [String]
     , curNamespace :: NetAST.Namespace
-    , paramValues  :: Map String Word
-    , varValues    :: Map String Word
+    , paramValues  :: Map String Integer
+    , varValues    :: Map String Integer
     , inPortMaps   :: Map String NetAST.NodeId
     , outPortMaps  :: Map String NetAST.NodeId
     , mappedBlocks :: [NetAST.BlockSpec]
@@ -171,7 +171,7 @@ instance NetTransformable AST.Port NetList where
                     node = portNode ident portWidth
                 return [(netPortId, node)]
 
-portNode :: NetAST.NodeId -> Word -> NetAST.NodeSpec
+portNode :: NetAST.NodeId -> Integer -> NetAST.NodeSpec
 portNode destNode width =
     let
         base = NetAST.Address 0
@@ -260,7 +260,7 @@ instance NetTransformable AST.PortMap PortMap where
         netMappedPort <- transform context mappedPort
         return [(NetAST.name netMappedPort, netMappedId)]
 
-instance NetTransformable AST.ModuleArg Word where
+instance NetTransformable AST.ModuleArg Integer where
     transform context (AST.AddressArg value) = return value
     transform context (AST.NaturalArg value) = return value
     transform context (AST.ParamArg name) = return $ getParamValue context name
@@ -377,7 +377,7 @@ instance NetTransformable AST.OverlaySpec [NetAST.MapSpec] where
             maps = overlayMaps netOver width blocks
         return maps
 
-overlayMaps :: NetAST.NodeId -> Word ->[NetAST.BlockSpec] -> [NetAST.MapSpec]
+overlayMaps :: NetAST.NodeId -> Integer ->[NetAST.BlockSpec] -> [NetAST.MapSpec]
 overlayMaps destId width blocks =
     let
         blockPoints = concat $ map toScanPoints blocks
@@ -423,8 +423,8 @@ overlayMaps destId width blocks =
             return ms
 
 data StoppingPoint
-    = BlockStart { address :: !Word }
-    | BlockEnd   { address :: !Word }
+    = BlockStart { address :: !Integer }
+    | BlockEnd   { address :: !Integer }
     deriving (Eq, Show)
 
 instance Ord StoppingPoint where
@@ -438,8 +438,8 @@ instance Ord StoppingPoint where
 
 data ScanLineState
     = ScanLineState
-        { insideBlocks :: !Word
-        , startAddress :: !Word
+        { insideBlocks :: !Integer
+        , startAddress :: !Integer
         } deriving (Show)
 
 instance NetTransformable AST.Address NetAST.Address where
@@ -476,7 +476,7 @@ instance NetTransformable a b => NetTransformable (AST.For a) [b] where
                 in context
                     { varValues = values `Map.union` varMap }
 
-instance NetTransformable AST.ForRange [Word] where
+instance NetTransformable AST.ForRange [Integer] where
     transform context ast = do
         let
             start = AST.start ast
@@ -485,7 +485,7 @@ instance NetTransformable AST.ForRange [Word] where
         endVal <- transform context end
         return [startVal..endVal]
 
-instance NetTransformable AST.ForLimit Word where
+instance NetTransformable AST.ForLimit Integer where
     transform _ (AST.LiteralLimit value) = return value
     transform context (AST.ParamLimit name) = return $ getParamValue context name
 
@@ -552,13 +552,13 @@ getModule context name =
         modules = AST.modules $ spec context
     in modules Map.! name
 
-getParamValue :: Context -> String -> Word
+getParamValue :: Context -> String -> Integer
 getParamValue context name =
     let
         params = paramValues context
     in params Map.! name
 
-getVarValue :: Context -> String -> Word
+getVarValue :: Context -> String -> Integer
 getVarValue context name =
     let
         vars = varValues context

@@ -97,7 +97,7 @@ portDefs = choice [inputPorts, outputPorts]
             symbol "/"
             portWidth <- decimal <?> "number of bits"
             let
-                portDef = AST.InputPortDef portId $ fromIntegral portWidth
+                portDef = AST.InputPortDef portId portWidth
             case forFn of
                 Nothing -> return portDef
                 Just f  -> return $ AST.MultiPortDef (f portDef)
@@ -109,7 +109,7 @@ portDefs = choice [inputPorts, outputPorts]
             symbol "/"
             portWidth <- decimal <?> "number of bits"
             let
-                portDef = AST.OutputPortDef portId $ fromIntegral portWidth
+                portDef = AST.OutputPortDef portId portWidth
             case forFn of
                 Nothing -> return portDef
                 Just f  -> return $ AST.MultiPortDef (f portDef)
@@ -148,10 +148,10 @@ moduleArg = choice [addressArg, numberArg, paramArg]
     where
         addressArg = do
             addr <- addressLiteral
-            return $ AST.AddressArg (fromIntegral addr)
+            return $ AST.AddressArg addr
         numberArg = do
             num <- numberLiteral
-            return $ AST.NaturalArg (fromIntegral num)
+            return $ AST.NaturalArg num
         paramArg = do
             name <- parameterName
             return $ AST.ParamArg name
@@ -247,13 +247,13 @@ blockSpec = choice [range, length, singleton]
         length = do
             base <- try $ address <* symbol "/"
             bits <- decimal <?> "number of bits"
-            return $ AST.LengthBlock base (fromIntegral bits)
+            return $ AST.LengthBlock base bits
 
 address = choice [address, param]
     where
         address = do
             addr <- addressLiteral
-            return $ AST.LiteralAddress (fromIntegral addr)
+            return $ AST.LiteralAddress addr
         param = do
             name <- parameterName
             return $ AST.ParamAddress name
@@ -281,7 +281,7 @@ overlay = do
     width <- decimal <?> "number of bits"
     return AST.OverlaySpec
         { AST.over  = over
-        , AST.width = fromIntegral width
+        , AST.width = width
         }
 
 identifierFor = identifierHelper True
@@ -309,7 +309,7 @@ forVarRange optVarName
         index = choice [numberIndex, paramIndex]
         numberIndex = do
             num <- numberLiteral
-            return $ AST.LiteralLimit (fromIntegral num)
+            return $ AST.LiteralLimit num
         paramIndex = do
             name <- parameterName
             return $ AST.ParamLimit name

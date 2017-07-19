@@ -43,11 +43,11 @@ instance Show ModuleParamType where
 data Port
     = InputPort 
         { portId    :: Identifier
-        , portWidth :: !Word
+        , portWidth :: !Integer
         }
     | OutputPort
         { portId    :: Identifier
-        , portWidth :: !Word
+        , portWidth :: !Integer
         }
     | MultiPort (For Port)
     deriving (Show)
@@ -64,8 +64,8 @@ data ModuleInst
     deriving (Show)
 
 data ModuleArg
-    = AddressArg !Word
-    | NaturalArg !Word
+    = AddressArg !Integer
+    | NaturalArg !Integer
     | ParamArg !String
     deriving (Show)
 
@@ -115,7 +115,7 @@ data BlockSpec
         }
     | LengthBlock
         { base :: Address
-        , bits :: !Word
+        , bits :: !Integer
         }
     deriving (Show)
 
@@ -129,11 +129,11 @@ data MapSpec
 data OverlaySpec
     = OverlaySpec
         { over  :: Identifier
-        , width :: !Word
+        , width :: !Integer
         } deriving (Show)
 
 data Address
-    = LiteralAddress !Word
+    = LiteralAddress !Integer
     | ParamAddress !String
     deriving (Show)
 
@@ -150,6 +150,6 @@ data ForRange
     } deriving (Show)
 
 data ForLimit 
-    = LiteralLimit !Word
+    = LiteralLimit !Integer
     | ParamLimit !String
     deriving (Show)
