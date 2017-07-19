@@ -26,20 +26,15 @@ import Data.Either
 import Data.List (nub, intercalate, sort)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (catMaybes, fromMaybe, maybe)
+import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
-
-import Numeric (showHex)
 
 import qualified SockeyeAST as AST
 import qualified SockeyeASTDecodingNet as NetAST
 
-import Debug.Trace
-
 type NetNodeDecl = (NetAST.NodeId, NetAST.NodeSpec)
 type NetList = [NetNodeDecl]
-type PortList = [NetAST.NodeId]
 type PortMap = [(String, NetAST.NodeId)]
 
 data FailedCheck
@@ -261,8 +256,8 @@ instance NetTransformable AST.PortMap PortMap where
         return [(NetAST.name netMappedPort, netMappedId)]
 
 instance NetTransformable AST.ModuleArg Integer where
-    transform context (AST.AddressArg value) = return value
-    transform context (AST.NaturalArg value) = return value
+    transform _ (AST.AddressArg value) = return value
+    transform _ (AST.NaturalArg value) = return value
     transform context (AST.ParamArg name) = return $ getParamValue context name
 
 instance NetTransformable AST.Identifier NetAST.NodeId where
@@ -514,7 +509,7 @@ class NetCheckable a where
     check :: Set NetAST.NodeId -> a -> Either CheckFailure ()
 
 instance NetCheckable NetAST.NetSpec where
-    check context (NetAST.NetSpec net) = do
+    check _ (NetAST.NetSpec net) = do
         let
             specContext = Map.keysSet net
         check specContext $ Map.elems net

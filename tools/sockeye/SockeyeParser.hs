@@ -16,10 +16,6 @@
 module SockeyeParser
 ( parseSockeye ) where
 
-import Control.Monad
-
-import Data.Maybe (fromMaybe)
-
 import Text.Parsec
 import qualified Text.Parsec.Token as P
 import Text.Parsec.Language (javaStyle)
@@ -337,7 +333,6 @@ parens        = P.parens lexer
 brackets      = P.brackets lexer
 braces        = P.braces lexer
 symbol        = P.symbol lexer
-stringLiteral = P.stringLiteral lexer
 commaSep      = P.commaSep lexer
 commaSep1     = P.commaSep1 lexer
 identString    = P.identifier lexer

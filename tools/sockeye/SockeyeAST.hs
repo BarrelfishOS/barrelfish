@@ -16,7 +16,6 @@
 module SockeyeAST where
 
 import Data.Map (Map)
-import Data.Set (Set)
 
 newtype SockeyeSpec = SockeyeSpec
     { modules :: Map String Module }

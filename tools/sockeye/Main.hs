@@ -15,8 +15,6 @@ module Main where
 
 import Control.Monad
 
-import Data.List
-import Data.Map (Map)
 import qualified Data.Map as Map
 
 import System.Console.GetOpt
@@ -33,9 +31,6 @@ import SockeyeChecker
 import SockeyeNetBuilder
 
 import qualified SockeyeBackendProlog as Prolog
-
-import Debug.Trace
-import Text.Groom(groom)
 
 {- Exit codes -}
 usageError :: ExitCode
@@ -199,7 +194,6 @@ main = do
     opts <- compilerOpts args
     let inFile = optInputFile opts
     parsedAst <- parseSpec inFile
-    -- trace (groom parsedAst) $ return ()
     ast <- checkAST parsedAst
     netAst <- buildNet ast
     out <- compile (optTarget opts) netAst

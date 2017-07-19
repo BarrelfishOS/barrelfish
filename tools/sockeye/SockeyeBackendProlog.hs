@@ -19,7 +19,6 @@ module SockeyeBackendProlog
 import Data.Char
 import Data.List
 import qualified Data.Map as Map
-import Data.Maybe
 import Numeric (showHex)
 
 import qualified SockeyeASTDecodingNet as AST
@@ -88,6 +87,7 @@ instance PrologGenerator a => PrologGenerator [a] where
 
 {- Helper functions -}
 atom :: String -> String
+atom "" = ""
 atom name@(c:cs)
     | isLower c && allAlphaNum cs = name
     | otherwise = quotes name
