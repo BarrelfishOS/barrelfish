@@ -35,6 +35,8 @@ import Numeric (showHex)
 import qualified SockeyeAST as AST
 import qualified SockeyeASTDecodingNet as NetAST
 
+import Debug.Trace
+
 type NetNodeDecl = (NetAST.NodeId, NetAST.NodeSpec)
 type NetList = [NetNodeDecl]
 type PortList = [NetAST.NodeId]
@@ -370,32 +372,62 @@ instance NetTransformable AST.OverlaySpec [NetAST.MapSpec] where
             over = AST.over ast
             width = AST.width ast
             blocks = mappedBlocks context
-            blockPoints = concat $ map toScanPoints blocks
-            overStart = BlockEnd 0
-            overStop  = BlockStart $ 2^width
-            scanPoints = overStart:overStop:blockPoints
         netOver <- transform context over
-        return $ overlayMaps netOver scanPoints
-        where
-            toScanPoints (NetAST.BlockSpec base limit) =
+        let
+            maps = overlayMaps netOver width blocks
+        return maps
+
+overlayMaps :: NetAST.NodeId -> Word ->[NetAST.BlockSpec] -> [NetAST.MapSpec]
+overlayMaps destId width blocks =
+    let
+        blockPoints = concat $ map toScanPoints blocks
+        maxAddress = 2^width
+        overStop  = BlockStart $ maxAddress
+        scanPoints = filter ((maxAddress >=) . address) $ sort (overStop:blockPoints)
+        startState = ScanLineState
+            { insideBlocks    = 0
+            , startAddress    = 0
+            }
+    in evalState (scanLine scanPoints []) startState
+    where
+        toScanPoints (NetAST.BlockSpec base limit) =
                 [ BlockStart $ NetAST.address base
                 , BlockEnd   $ NetAST.address limit
                 ]
+        scanLine [] ms = return ms
+        scanLine (p:ps) ms = do
+            maps <- pointAction p ms
+            scanLine ps maps
+        pointAction (BlockStart a) ms = do
+            s <- get       
+            let
+                i = insideBlocks s
+                base = startAddress s
+                limit = a - 1
+            maps <- if (i == 0) && (base <= limit)
+                then
+                    let
+                        baseAddress = NetAST.Address $ startAddress s
+                        limitAddress = NetAST.Address $ a - 1
+                        srcBlock = NetAST.BlockSpec baseAddress limitAddress
+                        m = NetAST.MapSpec srcBlock destId baseAddress
+                    in return $ m:ms
+                else return ms
+            modify (\s -> s { insideBlocks = i + 1})
+            return maps
+        pointAction (BlockEnd a) ms = do
+            s <- get
+            let
+                i = insideBlocks s
+            put $ ScanLineState (i - 1) (a + 1)
+            return ms
 
-overlayMaps :: NetAST.NodeId -> [ScanPoint] -> [NetAST.MapSpec]
-overlayMaps destId scanPoints =
-    let
-        sorted = sort scanPoints
-    in foldl pointAction [] scanPoints
-    where
-        pointAction _ _ = []
-
-data ScanPoint
+data StoppingPoint
     = BlockStart { address :: !Word }
     | BlockEnd   { address :: !Word }
     deriving (Eq, Show)
 
-instance Ord ScanPoint where
+instance Ord StoppingPoint where
     (<=) (BlockStart a1) (BlockEnd   a2)
         | a1 == a2 = True
         | otherwise = a1 <= a2
@@ -406,9 +438,9 @@ instance Ord ScanPoint where
 
 data ScanLineState
     = ScanLineState
-        { insideBlocks   :: !Word
-        , lastEndAddress :: Maybe Word
-        }
+        { insideBlocks :: !Word
+        , startAddress :: !Word
+        } deriving (Show)
 
 instance NetTransformable AST.Address NetAST.Address where
     transform _ (AST.LiteralAddress value) = do
