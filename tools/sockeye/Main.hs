@@ -20,6 +20,7 @@ import qualified Data.Map as Map
 import System.Console.GetOpt
 import System.Exit
 import System.Environment
+import System.FilePath
 import System.IO
 
 import qualified SockeyeASTParser as ParseAST
@@ -125,7 +126,7 @@ parseSpec :: FilePath -> IO (ParseAST.SockeyeSpec)
 parseSpec file = do
     let
         rootImport = ParseAST.Import file
-    specMap <- parseWithImports Map.empty rootImport
+    specMap <- parseWithImports "" Map.empty rootImport
     let
         specs = Map.elems specMap
         topLevelSpec = specMap Map.! file
@@ -135,11 +136,15 @@ parseSpec file = do
         , ParseAST.modules = modules
         }
     where
-        parseWithImports importMap (ParseAST.Import fileName) = do
+        parseWithImports pwd importMap (ParseAST.Import filePath) = do
             let
+                dir = case pwd of
+                    "" -> takeDirectory filePath
+                    _  -> pwd </> takeDirectory filePath
+                fileName = takeFileName filePath
                 file = if '.' `elem` fileName
-                    then fileName
-                    else fileName ++ ".soc"
+                    then dir </> fileName
+                    else dir </> fileName <.> "soc"
             if file `Map.member` importMap
                 then return importMap
                 else do
@@ -147,7 +152,7 @@ parseSpec file = do
                     let
                         specMap = Map.insert file ast importMap
                         imports = ParseAST.imports ast
-                    foldM parseWithImports specMap imports
+                    foldM (parseWithImports dir) specMap imports
 
 {- Runs the parser on a single file -}
 parseFile :: FilePath -> IO (ParseAST.SockeyeSpec)
