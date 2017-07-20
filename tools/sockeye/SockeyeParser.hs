@@ -206,22 +206,27 @@ identifier = do
 nodeSpec = do
     nodeType <- optionMaybe $ try nodeType
     accept <- option [] accept 
-    translate <- option [] tranlsate 
+    translate <- option [] tranlsate
+    reserve <- option [] reserve
     overlay <- optionMaybe overlay
     return AST.NodeSpec 
         { AST.nodeType  = nodeType
         , AST.accept    = accept
         , AST.translate = translate
+        , AST.reserved  = reserve
         , AST.overlay   = overlay
         }
     where
         accept = do
-            reserved "accept"
+            try $ reserved "accept"
             brackets $ many blockSpec
         tranlsate = do
-            reserved "map"
+            try $ reserved "map"
             specs <- brackets $ many mapSpecs
             return $ concat specs
+        reserve = do
+            try $ reserved "reserved"
+            brackets $ many blockSpec
 
 nodeType = choice [memory, device]
     where memory = do
@@ -345,7 +350,7 @@ keywords = ["import", "module",
             "as", "with",
             "is", "are",
             "accept", "map",
-            "over",
+            "reserved", "over",
             "to", "at"]   
 
 identStart     = letter

@@ -342,8 +342,10 @@ instance Checkable ParseAST.NodeSpec AST.NodeSpec where
             accept = ParseAST.accept ast
             translate = ParseAST.translate ast
             overlay = ParseAST.overlay ast
+            reserved = ParseAST.reserved ast
         checkedAccept <- check context accept
         checkedTranslate <- check context translate
+        checkedReserved <- check context reserved
         checkedOverlay <- case overlay of
             Nothing    -> return Nothing
             Just ident -> do
@@ -353,6 +355,7 @@ instance Checkable ParseAST.NodeSpec AST.NodeSpec where
             { AST.nodeType  = nodeType
             , AST.accept    = checkedAccept
             , AST.translate = checkedTranslate
+            , AST.reserved  = checkedReserved
             , AST.overlay   = checkedOverlay
             }
 

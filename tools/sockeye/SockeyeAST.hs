@@ -97,6 +97,7 @@ data NodeSpec = NodeSpec
     { nodeType  :: Maybe NodeType
     , accept    :: [BlockSpec]
     , translate :: [MapSpec]
+    , reserved  :: [BlockSpec]
     , overlay   :: Maybe OverlaySpec
     } deriving (Show)
 

@@ -300,14 +300,16 @@ instance NetTransformable AST.NodeSpec NetAST.NodeSpec where
             nodeType = AST.nodeType ast
             accept = AST.accept ast
             translate = AST.translate ast
+            reserved = AST.reserved ast
             overlay = AST.overlay ast
         netNodeType <- maybe (return NetAST.Other) (transform context) nodeType
         netAccept <- transform context accept
         netTranslate <- transform context translate
+        netReserved <- transform context reserved
         let
             mapBlocks = map NetAST.srcBlock netTranslate
             nodeContext = context
-                { mappedBlocks = netAccept ++ mapBlocks }
+                { mappedBlocks = netAccept ++ mapBlocks ++ netReserved }
         netOverlay <- case overlay of
                 Nothing -> return []
                 Just o  -> transform nodeContext o
