@@ -15,6 +15,7 @@ module Main where
 
 import Control.Monad
 
+import Data.List (intercalate)
 import qualified Data.Map as Map
 
 import System.Console.GetOpt
@@ -47,19 +48,19 @@ buildError :: ExitCode
 buildError = ExitFailure 4
 
 {- Compilation targets -}
-data Target = None | Prolog
+data Target = Prolog | Make
 
 {- Possible options for the Sockeye Compiler -}
 data Options = Options { optInputFile  :: FilePath
                        , optTarget     :: Target
-                       , optOutputFile :: Maybe FilePath
+                       , optOutputFile :: FilePath
                        }
 
 {- Default options -}
 defaultOptions :: Options
 defaultOptions = Options { optInputFile  = ""
                          , optTarget     = Prolog
-                         , optOutputFile = Nothing
+                         , optOutputFile = ""
                          }
 
 {- Set the input file name -}
@@ -71,7 +72,7 @@ optSetTarget :: Target -> Options -> Options
 optSetTarget t o = o { optTarget = t }
 
 {- Set the outpue file name -}
-optSetOutputFile :: Maybe String -> Options -> Options
+optSetOutputFile :: FilePath -> Options -> Options
 optSetOutputFile f o = o { optOutputFile = f }
 
 {- Prints usage information possibly with usage errors -}
@@ -79,7 +80,10 @@ usage :: [String] -> IO ()
 usage errors = do
     prg <- getProgName
     let usageString = "Usage: " ++ prg ++ " [options] file\nOptions:"
-    hPutStrLn stderr $ usageInfo (concat errors ++ usageString) options
+    case errors of
+        [] -> return ()
+        _  -> hPutStrLn stderr $ concat errors
+    hPutStrLn stderr $ usageInfo usageString options
     hPutStrLn stderr "The backend (capital letter options) specified last takes precedence."
 
 
@@ -89,12 +93,12 @@ options =
     [ Option "P" ["Prolog"]
         (NoArg (\opts -> return $ optSetTarget Prolog opts))
         "Generate a prolog file that can be loaded into the SKB (default)."
-    , Option "C" ["Check"]
-        (NoArg (\opts -> return $ optSetTarget None opts))
-        "Just check the file, do not compile."
+    , Option "D" ["DepFile"]
+        (NoArg (\opts -> return $ optSetTarget Make opts))
+        "Generate a dependency file for GNU make"
     , Option "o" ["output-file"]
-        (ReqArg (\f opts -> return $ optSetOutputFile (Just f) opts) "FILE")
-        "If no output file is specified the compilation result is written to stdout."
+        (ReqArg (\f opts -> return $ optSetOutputFile f opts) "FILE")
+        "Output file in which to store the compilation result (required)."
     , Option "h" ["help"]
         (NoArg (\_ -> do
                     usage []
@@ -104,8 +108,8 @@ options =
 
 {- evaluates the compiler options -}
 compilerOpts :: [String] -> IO (Options)
-compilerOpts argv =
-    case getOpt Permute options argv of
+compilerOpts argv = do
+    opts <- case getOpt Permute options argv of
         (actions, fs, []) -> do
             opts <- foldl (>>=) (return defaultOptions) actions
             case fs of
@@ -120,21 +124,29 @@ compilerOpts argv =
         (_, _, errors) -> do
             usage errors
             exitWith $ usageError
+    case optOutputFile opts of
+        "" -> do
+            usage ["No output file\n"]
+            exitWith $ usageError
+        _  -> return opts
 
 {- Parse Sockeye and resolve imports -}
-parseSpec :: FilePath -> IO (ParseAST.SockeyeSpec)
+parseSpec :: FilePath -> IO (ParseAST.SockeyeSpec, [FilePath])
 parseSpec file = do
     let
         rootImport = ParseAST.Import file
     specMap <- parseWithImports "" Map.empty rootImport
     let
         specs = Map.elems specMap
+        deps = Map.keys specMap
         topLevelSpec = specMap Map.! file
         modules = concat $ map ParseAST.modules specs
-    return topLevelSpec
-        { ParseAST.imports = []
-        , ParseAST.modules = modules
-        }
+        spec = topLevelSpec
+            { ParseAST.imports = []
+            , ParseAST.modules = modules
+            }
+    return (spec, deps)
+        
     where
         parseWithImports pwd importMap (ParseAST.Import filePath) = do
             let
@@ -184,23 +196,35 @@ buildNet ast = do
 
 {- Compiles the AST with the appropriate backend -}
 compile :: Target -> NetAST.NetSpec -> IO String
-compile None     _   = return ""
-compile Prolog   ast = return $ Prolog.compile ast
+compile Prolog ast = return $ Prolog.compile ast
+
+{- Writes a dependency file for GNU make -}
+depFile :: FilePath -> [FilePath] -> IO String
+depFile outFile deps = do
+    let
+        targets = outFile ++ " " ++ outFile <.> "depend" ++ ":"
+        lines = targets:deps
+    return $ intercalate " \\\n " lines
 
 {- Outputs the compilation result -}
-output :: Maybe FilePath -> String -> IO ()
-output outFile out = do
-    case outFile of
-        Nothing -> putStr out
-        Just f  -> writeFile f out
+output :: FilePath -> String -> IO ()
+output outFile out = writeFile outFile out
 
 main = do
     args <- getArgs
     opts <- compilerOpts args
-    let inFile = optInputFile opts
-    parsedAst <- parseSpec inFile
-    ast <- checkAST parsedAst
-    netAst <- buildNet ast
-    out <- compile (optTarget opts) netAst
-    output (optOutputFile opts) out
+    let
+        inFile = optInputFile opts
+        outFile = optOutputFile opts
+        target = optTarget opts
+    (parsedAst, deps) <- parseSpec inFile
+    case target of
+        Make -> do
+            out <- depFile outFile deps
+            output (outFile <.> "depend") out
+        _ -> do
+            ast <- checkAST parsedAst
+            netAst <- buildNet ast
+            out <- compile (optTarget opts) netAst
+            output outFile out
     
