@@ -1,0 +1,49 @@
+/*
+ * Copyright (c) 2017, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich.
+ * Attn: Systems Group.
+ */
+
+module CortexA9-Core(addr periphbase) {
+    input CPU/32
+    output SCU/8, Global_Timer/8
+    output GIC_PROC/8, GIC_DISTR/12
+    output L2/32
+
+    PERIPHBASE is map [
+            0x0000-0x00FC to SCU
+            0x0100/8 to GIC_PROC
+            0x0200/8 to Global_Timer
+            0x0600/8 to Private_Timers
+            0x1000/12 to GIC_DISTR
+        ]
+
+    CPU is map [
+            periphbase/13 to PERIPHBASE
+        ]
+        over L2/32
+
+    Private_Timers is device accept [0x0/8]
+}
+
+module CortexA9-MPCore(nat cores, addr periphbase) {
+    input CPU_{[1..cores]}/32
+    output L2/32
+
+    SCU is device accept [0x0-0xFC]
+    Global_Timer is device accept [0x0/8]
+
+    GIC_PROC is device accept [0x0/8]
+    GIC_DISTR is device accept [0x0/12]
+
+    CortexA9-Core(periphbase) as Core_{c in [1..cores]} with
+        CPU_{c} > CPU
+        SCU < SCU
+        Global_Timer < Global_Timer
+        GIC_PROC < GIC_PROC
+        GIC_DISTR < GIC_DISTR
+        L2 < L2
+}

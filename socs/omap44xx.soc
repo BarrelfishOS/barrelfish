@@ -16,6 +16,8 @@
  *
  */
 
+import omap44xx/cortexA9-subsystem
+
 /*
  * 2.2 L3 Memory space mapping
  */
@@ -23,7 +25,6 @@
 SRAM is memory accept [0x0/30]
 
 /* Q1 */
-BOOT_ROM is memory accept [0x0-0xBFFF]
 L3_OCM_RAM is memory accept [0x0-0xDFFF]
 
 /* Q2 */
@@ -34,7 +35,7 @@ SDRAM is memory accept [0x0/30]
 L3 is map [
         0x00000000/30 to SRAM
         /* 0x40000000-0x4002FFFF reserved */
-        0x40030000-0x4003BFFF to BOOT_ROM
+        /* 0x40030000-0x4003BFFF Cortex-A9 ROM */
         /* 0x4003C000-0x400FFFFF reserved */ //TRM: 0x40034000-0x400FFFFF?
         /* 0x40100000/20 L4_ABE private access for Cortex A9
         /* 0x40200000/20 reserved */
@@ -389,19 +390,10 @@ L4_ABE is accept [0x00000/14] // XXX: First 16KB do what?
 /*
  * Cortex A9 Memory Space Mapping
  */
-CORTEXA9 is map [
-        0x40100000/20 to L4_ABE
-        0x48240000/13 to PERIPHBASE
-        0x48242000/12 to PL310
-        0x48243000/9 to CORTEXA9_SOCKET_PRCM
-        0x48243200/9 to CORTEXA9_PRM
-        0x48243400/10 to CORTEXA9_CPU0
-        0x48243800/10 to CORTEXA9_CPU1
-        0x48281000/12 to CORTEXA9_WUGEN
-        0x48290000/16 to CMU
-        0x482A0000/12 to Local_interconnect
-        0x482AF000/12 to MA
-    ] over L3/32
+CortexA9-Subsystem as CortexA9_SS with
+    CORTEXA9_{c in [1..2]} > CPU_{c}
+    L3 < L3
+    L4_ABE < L4_ABE
 
 /*
  * 2.4 Dual Cortex-M3 Subsystem Memory Space Mapping
@@ -532,32 +524,6 @@ SCRM is device accept [0x0/12]
 SR_MPU is device accept [0x0/8]
 SR_IVA is device accept [0x0/8]
 SR_CORE is device accept [0x0/8]
-
-/*
- * 4 Dual Cortex-A9 MPU Subsystem
- */
-SCU is device accept [0x00-0xFC]
-GIC_PROC is device accept [0x0/8]
-Global_Timer is device accept [0x0/8]
-Timer is device accept [0x0/8]
-GIC_DIST is device accept [0x0/12]
-PL310 is device accept [0x0/12]
-CORTEXA9_SOCKET_PRCM is device accept [0x0/9]
-CORTEXA9_PRM is device accept [0x0/9]
-CORTEXA9_CPU0,
-CORTEXA9_CPU1 are device accept [0x0/10]
-CORTEXA9_WUGEN is device accept [0x0/12]
-CMU is device accept [0x0/16]
-Local_interconnect is device accept [0x0/12]
-MA is device accept [0x0/12]
-
-PERIPHBASE is map [
-                0x0000/8 to SCU
-                0x0100/8 to GIC_PROC
-                0x0200/9 to Global_Timer
-                0x0600/8 to Timer
-                0x1000/12 to GIC_DIST
-              ]
 
 /*
  * 5 DSP Subsystem
