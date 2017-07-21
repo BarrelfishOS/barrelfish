@@ -48,12 +48,13 @@ buildError :: ExitCode
 buildError = ExitFailure 4
 
 {- Compilation targets -}
-data Target = Prolog | Make
+data Target = Prolog
 
 {- Possible options for the Sockeye Compiler -}
 data Options = Options { optInputFile  :: FilePath
                        , optTarget     :: Target
                        , optOutputFile :: FilePath
+                       , optDepFile    :: Maybe FilePath
                        }
 
 {- Default options -}
@@ -61,6 +62,7 @@ defaultOptions :: Options
 defaultOptions = Options { optInputFile  = ""
                          , optTarget     = Prolog
                          , optOutputFile = ""
+                         , optDepFile    = Nothing
                          }
 
 {- Set the input file name -}
@@ -71,9 +73,13 @@ optSetInputFileName f o = o { optInputFile = f }
 optSetTarget :: Target -> Options -> Options
 optSetTarget t o = o { optTarget = t }
 
-{- Set the outpue file name -}
+{- Set the output file name -}
 optSetOutputFile :: FilePath -> Options -> Options
 optSetOutputFile f o = o { optOutputFile = f }
+
+{- Set the dependency file name -}
+optSetDepFile :: FilePath -> Options -> Options
+optSetDepFile f o = o { optDepFile = Just f }
 
 {- Prints usage information possibly with usage errors -}
 usage :: [String] -> IO ()
@@ -93,12 +99,12 @@ options =
     [ Option "P" ["Prolog"]
         (NoArg (\opts -> return $ optSetTarget Prolog opts))
         "Generate a prolog file that can be loaded into the SKB (default)."
-    , Option "D" ["DepFile"]
-        (NoArg (\opts -> return $ optSetTarget Make opts))
-        "Generate a dependency file for GNU make"
     , Option "o" ["output-file"]
         (ReqArg (\f opts -> return $ optSetOutputFile f opts) "FILE")
         "Output file in which to store the compilation result (required)."
+    , Option "d" ["dep-file"]
+        (ReqArg (\f opts -> return $ optSetDepFile f opts) "FILE")
+        "Generate a dependency file for GNU make"
     , Option "h" ["help"]
         (NoArg (\_ -> do
                     usage []
@@ -199,10 +205,10 @@ compile :: Target -> NetAST.NetSpec -> IO String
 compile Prolog ast = return $ Prolog.compile ast
 
 {- Writes a dependency file for GNU make -}
-depFile :: FilePath -> [FilePath] -> IO String
-depFile outFile deps = do
+dependencyFile :: FilePath -> FilePath -> [FilePath] -> IO String
+dependencyFile outFile depFile deps = do
     let
-        targets = outFile ++ " " ++ outFile <.> "depend" ++ ":"
+        targets = outFile ++ " " ++ depFile ++ ":"
         lines = targets:deps
     return $ intercalate " \\\n " lines
 
@@ -216,15 +222,16 @@ main = do
     let
         inFile = optInputFile opts
         outFile = optOutputFile opts
+        depFile = optDepFile opts
         target = optTarget opts
     (parsedAst, deps) <- parseSpec inFile
-    case target of
-        Make -> do
-            out <- depFile outFile deps
-            output (outFile <.> "depend") out
-        _ -> do
-            ast <- checkAST parsedAst
-            netAst <- buildNet ast
-            out <- compile (optTarget opts) netAst
-            output outFile out
+    case depFile of
+        Nothing -> return ()
+        Just f  -> do
+            out <- dependencyFile outFile f deps
+            output f out
+    ast <- checkAST parsedAst
+    netAst <- buildNet ast
+    out <- compile (optTarget opts) netAst
+    output outFile out
     
