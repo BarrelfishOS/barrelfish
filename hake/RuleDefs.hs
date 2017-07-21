@@ -784,14 +784,24 @@ skateGenSchemas opts schema =
 -- Build SKB facts from Sockeye file
 --
 sockeyeProgLoc = In InstallTree "tools" "/bin/sockeye"
-sockeyeSpecFileLoc d = In SrcTree "src" ("/socs" </> (d ++ ".soc"))
+sockeyeSocFileLoc d = In SrcTree "src" ("/socs" </> (d ++ ".soc"))
 sockeyeFactFilePath d = "/sockeyefacts" </> (d ++ ".pl")
+sockeyeFactFileLoc d = In BuildTree "" $ sockeyeFactFilePath d
 
 sockeye :: String -> HRule
-sockeye net = Rule [ sockeyeProgLoc,
-                     sockeyeSpecFileLoc net,
-                     Str "-o", Out "" (sockeyeFactFilePath net)
-                   ]
+sockeye net = 
+    let
+        factFile = sockeyeFactFilePath net
+        depFile = dependFilePath factFile
+    in Rules
+        [ Rule
+            [ sockeyeProgLoc
+            , Str "-o", Out "" factFile
+            , Str "-d", Out "" depFile
+            , sockeyeSocFileLoc net
+            ]
+        , Include (Out "" depFile)
+        ]
 
 --
 -- Build a Fugu library
