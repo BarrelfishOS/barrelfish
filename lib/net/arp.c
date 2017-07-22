@@ -24,8 +24,8 @@
 
 #include <netif/etharp.h>
 
+#include <if/octopus_defs.h>
 #include <octopus/octopus.h>
-#include <octopus_server/service.h>
 #include <octopus/trigger.h>
 
 

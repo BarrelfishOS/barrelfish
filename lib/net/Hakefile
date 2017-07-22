@@ -15,7 +15,7 @@
     cFiles       = [ "net.c", "netbufs.c",  "netif.c", "pbuf.c", "dhcp.c",
                      "net_filter.c", "arp.c" ],
     flounderBindings = [ "net_filter"],
-    flounderDefs = [ "net_filter" ],
+    flounderDefs = [ "net_filter", "octopus" ],
     flounderExtraDefs = [ ("net_filter",["rpcclient"]) ],
     addLibraries = libDeps [ "lwip2", "devif", "devif_backend_idc",
                              "devif_backend_solarflare", "devif_backend_e10k",

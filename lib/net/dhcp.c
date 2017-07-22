@@ -21,7 +21,7 @@
 #include <lwip/timeouts.h>
 
 #include <octopus/octopus.h>
-#include <octopus_server/service.h>
+
 
 #include <net_interfaces/flags.h>
 #include "networking_internal.h"
