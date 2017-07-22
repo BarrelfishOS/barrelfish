@@ -413,7 +413,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       "Xeon Phi build with benchmarks and test suites",
 
     platform "QEMU" [ "armv8" ]
-      ([ ("armv8", "/sbin/cpu_a57v") ]
+      ([ ("armv8", "/sbin/cpu_a57v"), ("armv8", "/sbin/boot_armv8_generic")  ]
        ++
        [ ("armv8", f) | f <- armv8_modules ]
        ++
@@ -621,6 +621,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--hagfish", Str Config.hagfish_location ]
       ++ [(Dep BuildTree "armv8" f) | f <- armv8_modules ]
       ++ [(Dep BuildTree "armv8" "/sbin/cpu_a57v")]
+      ++ [(Dep BuildTree "armv8" "/sbin/boot_armv8_generic")]
       ++ [(Dep BuildTree "" f) | f <- modules_generic ])
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
@@ -632,6 +633,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--debug", In SrcTree "tools" "/tools/debug.armv8.gdb" ]
       ++ [(Dep BuildTree "armv8" f) | f <- armv8_modules ]
       ++ [(Dep BuildTree "armv8" "/sbin/cpu_a57v")]
+      ++ [(Dep BuildTree "armv8" "/sbin/boot_armv8_generic")]
       ++ [(Dep BuildTree "" f) | f <- modules_generic ])
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 

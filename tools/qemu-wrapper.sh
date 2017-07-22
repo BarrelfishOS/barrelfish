@@ -180,7 +180,7 @@ case "$ARCH" in
        mkdir -p qemu-efi/armv8/sbin
        # create the startup script
        echo "\\Hagfish.efi Hagfish.cfg" > qemu-efi/startup.nsh
-       chmod +x startup.nsh
+       chmod +x qemu-efi/startup.nsh
        # setup hagfish location
        cp $HAGFISH_LOCATION qemu-efi/Hagfish.efi
        cp platforms/arm/menu.lst.armv8_a57v qemu-efi/Hagfish.cfg

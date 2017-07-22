@@ -2,8 +2,8 @@
 # This script is used to describe the commands to start at
 # boot-time and the arguments they should receive.
 #
-
-kernel /armv8/sbin/cpu_a57v loglevel=3 serial=0x1c090000 gicdist=0x8000000 gic=0x8010000 timeslice=80
+bootdriver  /armv8/sbin/boot_armv8_generic
+cpudriver /armv8/sbin/cpu_a57v loglevel=3 serial=0x1c090000 gicdist=0x8000000 gic=0x8010000 timeslice=80
 stack 131072
 module /armv8/sbin/init
 

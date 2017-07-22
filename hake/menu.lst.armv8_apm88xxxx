@@ -3,7 +3,7 @@
 # boot-time and the arguments they should receive.
 #
 
-bootdrive /armv8/sbin/boot_armv8_generic
+bootdriver /armv8/sbin/boot_armv8_generic
 cpudriver /armv8/sbin/cpu_apm88xxxx loglevel=3
 
 module /armv8/sbin/init
