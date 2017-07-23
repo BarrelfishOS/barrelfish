@@ -362,8 +362,14 @@
 #endif
 
 #if __GNUC_PREREQ__(3, 3)
+/*
+    the nonnull attribute caused some problems with the posixcompat library
+    as null-checks in the function will trigger an error. -RA 2017-07-22
 #define	__nonnull(x)	__attribute__((__nonnull__(x)))
 #define	__nonnull_all	__attribute__((__nonnull__))
+*/
+#define	__nonnull(x)
+#define	__nonnull_all
 #else
 #define	__nonnull(x)
 #define	__nonnull_all
