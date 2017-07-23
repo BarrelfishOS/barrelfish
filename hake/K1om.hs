@@ -194,7 +194,7 @@ linkKernel opts objs libs kbin =
                     ++
                     [ In BuildTree arch l | l <- libs ]
                     ++
-                    [ NL, NStr "echo -e '\\0002' | dd of=",
+                    [ NL, NStr "bash -c \"echo -e '\\0002'\" | dd of=",
                       Out arch kbin,
                       Str "bs=1 seek=16 count=1 conv=notrunc status=noxfer"
                     ]
