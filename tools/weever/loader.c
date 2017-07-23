@@ -256,7 +256,23 @@ loader(uint64_t magic,
                      NULL);
 
     if (err_is_fail(err)) {
-        eabort('E', '5');
+        switch(err_no(err)) {
+            case ELF_ERR_FILESZ :
+                eabort('E', '5');
+                break;
+            case ELF_ERR_HEADER:
+                eabort('E', '6');
+                break;
+            case ELF_ERR_PROGHDR:
+                eabort('E', '7');
+                break;
+            case ELF_ERR_ALLOCATE:
+                eabort('E', '8');
+                break;
+            default:
+                eabort('E', '9');
+                break;
+        }
     }
 
     struct Elf64_Ehdr *cpu_head = (struct Elf64_Ehdr *) (uint64_t) kernel->mod_start;
