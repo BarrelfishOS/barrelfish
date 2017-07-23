@@ -17,7 +17,7 @@
                       flounderBindings = [ "sfn5122f_devif", "net_filter"],
                       flounderExtraBindings = [ ("sfn5122f_devif", ["rpcclient"]),  
                                                 ("net_filter", ["rpcclient"])],
-                      flounderDefs = [ "sfn5122f_devif", "net_filter"],
+                      flounderDefs = [ "sfn5122f_devif", "net_filter", "sfn5122f"],
                       flounderExtraDefs = [
                         ("sfn5122f_devif",["rpcclient"]),
                         ("net_filter",["rpcclient"])
