@@ -19,6 +19,7 @@ import Data.List (intercalate)
 import qualified Data.Map as Map
 
 import System.Console.GetOpt
+import System.Directory
 import System.Exit
 import System.Environment
 import System.FilePath
@@ -38,36 +39,46 @@ import qualified SockeyeBackendProlog as Prolog
 usageError :: ExitCode
 usageError = ExitFailure 1
 
+fileError :: ExitCode
+fileError = ExitFailure 2
+
 parseError :: ExitCode
-parseError = ExitFailure 2
+parseError = ExitFailure 3
 
 checkError :: ExitCode
-checkError = ExitFailure 3
+checkError = ExitFailure 4
 
 buildError :: ExitCode
-buildError = ExitFailure 4
+buildError = ExitFailure 5
 
 {- Compilation targets -}
 data Target = Prolog
 
 {- Possible options for the Sockeye Compiler -}
-data Options = Options { optInputFile  :: FilePath
-                       , optTarget     :: Target
-                       , optOutputFile :: FilePath
-                       , optDepFile    :: Maybe FilePath
-                       }
+data Options = Options
+    { optInputFile  :: FilePath
+    , optInclDirs   :: [FilePath]
+    , optTarget     :: Target
+    , optOutputFile :: FilePath
+    , optDepFile    :: Maybe FilePath
+    }
 
 {- Default options -}
 defaultOptions :: Options
-defaultOptions = Options { optInputFile  = ""
-                         , optTarget     = Prolog
-                         , optOutputFile = ""
-                         , optDepFile    = Nothing
-                         }
+defaultOptions = Options
+    { optInputFile  = ""
+    , optInclDirs   = [""]
+    , optTarget     = Prolog
+    , optOutputFile = ""
+    , optDepFile    = Nothing
+    }
 
 {- Set the input file name -}
 optSetInputFileName :: FilePath -> Options -> Options
 optSetInputFileName f o = o { optInputFile = f }
+
+optAddInclDir :: FilePath -> Options -> Options
+optAddInclDir f o = o { optInclDirs = optInclDirs o ++ [f] }
 
 {- Set the target -}
 optSetTarget :: Target -> Options -> Options
@@ -99,6 +110,9 @@ options =
     [ Option "P" ["Prolog"]
         (NoArg (\opts -> return $ optSetTarget Prolog opts))
         "Generate a prolog file that can be loaded into the SKB (default)."
+    , Option "i" ["include"]
+        (ReqArg (\f opts -> return $ optAddInclDir f opts) "DIR")
+        "Add a directory to the search path where Sockeye looks for imports."
     , Option "o" ["output-file"]
         (ReqArg (\f opts -> return $ optSetOutputFile f opts) "FILE")
         "Output file in which to store the compilation result (required)."
@@ -137,11 +151,10 @@ compilerOpts argv = do
         _  -> return opts
 
 {- Parse Sockeye and resolve imports -}
-parseSpec :: FilePath -> IO (ParseAST.SockeyeSpec, [FilePath])
-parseSpec file = do
-    let
-        rootImport = ParseAST.Import file
-    specMap <- parseWithImports "" Map.empty rootImport
+parseSpec :: [FilePath] -> FilePath -> IO (ParseAST.SockeyeSpec, [FilePath])
+parseSpec inclDirs fileName = do
+    file <- resolveFile fileName
+    specMap <- parseWithImports Map.empty file
     let
         specs = Map.elems specMap
         deps = Map.keys specMap
@@ -152,17 +165,9 @@ parseSpec file = do
             , ParseAST.modules = modules
             }
     return (spec, deps)
-        
     where
-        parseWithImports pwd importMap (ParseAST.Import filePath) = do
-            let
-                dir = case pwd of
-                    "" -> takeDirectory filePath
-                    _  -> pwd </> takeDirectory filePath
-                fileName = takeFileName filePath
-                file = if '.' `elem` fileName
-                    then dir </> fileName
-                    else dir </> fileName <.> "soc"
+        parseWithImports importMap importPath = do
+            file <- resolveFile importPath
             if file `Map.member` importMap
                 then return importMap
                 else do
@@ -170,7 +175,22 @@ parseSpec file = do
                     let
                         specMap = Map.insert file ast importMap
                         imports = ParseAST.imports ast
-                    foldM (parseWithImports dir) specMap imports
+                        importFiles = map ParseAST.filePath imports
+                    foldM parseWithImports specMap importFiles
+        resolveFile path = do
+            let
+                subDir = takeDirectory path
+                name = takeFileName path
+                dirs = map (</> subDir) inclDirs
+            file <- findFile dirs name
+            extFile <- findFile dirs (name <.> "soc")
+            case (file, extFile) of
+                (Just f, _) -> return f
+                (_, Just f) -> return f
+                _ -> do
+                    hPutStrLn stderr $ "'" ++ path ++ "' not on import path"
+                    exitWith fileError
+
 
 {- Runs the parser on a single file -}
 parseFile :: FilePath -> IO (ParseAST.SockeyeSpec)
@@ -221,10 +241,10 @@ main = do
     opts <- compilerOpts args
     let
         inFile = optInputFile opts
+        inclDirs = optInclDirs opts
         outFile = optOutputFile opts
         depFile = optDepFile opts
-        target = optTarget opts
-    (parsedAst, deps) <- parseSpec inFile
+    (parsedAst, deps) <- parseSpec inclDirs inFile
     case depFile of
         Nothing -> return ()
         Just f  -> do

@@ -356,7 +356,7 @@ keywords = ["import", "module",
 identStart     = letter
 identLetter    = alphaNum <|> char '_' <|> char '-'
 
-importPath     = many (identLetter <|> char '/' <|> char '.') <* whiteSpace
+importPath     = many (identLetter <|> char '/') <* whiteSpace
 moduleName     = identString <?> "module name"
 parameterName  = identString <?> "parameter name"
 variableName   = identString <?> "variable name"

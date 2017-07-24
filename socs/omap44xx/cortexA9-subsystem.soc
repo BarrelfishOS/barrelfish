@@ -18,7 +18,7 @@
  *
  */
 
-import ../cortex/cortexA9
+import cortex/cortexA9
 
 module CortexA9-Subsystem {
     input CPU_{[1..2]}/32
