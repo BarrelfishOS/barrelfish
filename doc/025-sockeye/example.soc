@@ -1,12 +1,11 @@
-device1
-device2 are device accept [0x0/12]
+device{[1..2]} are device accept [0x0/12]
 
 RAM is memory accept [0x0/16]
 
 Interconnect is map [
-	0x00000/12 to device1 at 0
-	0x02000/12 to device2 at 0
-	0x10000/16 to RAM at 0
+	0x00000/12 to device1
+	0x02000/12 to device2
+	0x10000/16 to RAM
 ]
 
-CPU is over Interconnect
+CPU is over Interconnect/32
