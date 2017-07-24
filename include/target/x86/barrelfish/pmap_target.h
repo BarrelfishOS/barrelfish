@@ -47,6 +47,7 @@ struct pmap_x86 {
     struct slab_allocator slab;     ///< Slab allocator for the vnode lists
     genvaddr_t min_mappable_va; ///< Minimum mappable virtual address
     genvaddr_t max_mappable_va; ///< Maximum mappable virtual address
+    size_t used_cap_slots;      ///< Current count of capability slots allocated by pmap code
     uint8_t slab_buffer[512];   ///< Initial buffer to back the allocator
 };
 

@@ -18,6 +18,7 @@
 struct pmap_dump_info;
 struct pmap;
 struct pmap_mapping_info;
+struct pmap_res_info;
 struct pmap_funcs {
     errval_t (*determine_addr)(struct pmap *pmap, struct memobj *memobj,
                                size_t alignment, genvaddr_t *vaddr);
@@ -36,6 +37,7 @@ struct pmap_funcs {
 
     errval_t (*dump)(struct pmap *pmap, struct pmap_dump_info *buf, size_t buflen,
 		     size_t *items_written);
+    errval_t (*measure_res)(struct pmap *pmap, struct pmap_res_info *buf);
 };
 
 struct pmap {
@@ -51,6 +53,12 @@ struct pmap_mapping_info {
     genvaddr_t offset;       ///< Offset into the frame
     vregion_flags_t flags;   ///< Mapping flags
     struct capref mapping;   ///< Mapping cap
+};
+
+struct pmap_res_info {
+    size_t vnode_used;       ///< Amount of memory in use for vnodes in bytes
+    size_t vnode_free;       ///< Amount of memory allocated for vnodes in bytes
+    size_t slots_used;       ///< Number of capability slots in use by pmap
 };
 
 #endif // LIBBARRELFISH_PMAP_H
