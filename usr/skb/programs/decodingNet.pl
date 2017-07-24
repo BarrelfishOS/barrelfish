@@ -56,22 +56,13 @@ listMapsToName([M|Maps],Addr,Name) :-
     mapsToName(M,Addr,Name);
     listMapsToName(Maps,Addr,Name).    
 
-translateMap(node(_,_,Translate,_),Addr,Name) :-
+translateMap(node(_,_,Translate),Addr,Name) :-
     listMapsToName(Translate,Addr,Name).
 
-translateOverlay(node(_,Accept,Translate,Overlay),Addr,Name) :-
-    not(Overlay = '@none'),
-    blockListRanges(Accept,ARanges),
-    neg(Addr :: ARanges),
-    mapListRanges(Translate,TRanges),
-    neg(Addr :: TRanges),
-    Name = name(Overlay,Addr).
-
 translate(Node,Addr,Name) :-
-    translateMap(Node,Addr,Name);
-    translateOverlay(Node,Addr,Name).
+    translateMap(Node,Addr,Name).
 
-accept(node(_,Accept,_,_),Addr) :-
+accept(node(_,Accept,_),Addr) :-
     blockListRanges(Accept,Ranges),
     Addr :: Ranges.
 

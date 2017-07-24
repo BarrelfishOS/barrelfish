@@ -46,14 +46,14 @@ findOriginRegion(NodeId,Result) :-
 findDeviceRegion(NodeId,DeviceId,Result) :-
     SrcName = name(NodeId,_),
     DestName = name(DeviceId,_),
-    net(DeviceId,node(device,_,_,_)),
+    net(DeviceId,node(device,_,_)),
     resolveToRegion(SrcName,DestName,SrcRegion,DestRegion),
     Result = (SrcRegion,DestRegion).
 
 findMemoryRegion(NodeId,MemoryId,Result) :-
     SrcName = name(NodeId,_),
     DestName = name(MemoryId,_),
-    net(MemoryId,node(memory,_,_,_)),
+    net(MemoryId,node(memory,_,_)),
     resolveToRegion(SrcName,DestName,SrcRegion,DestRegion),
     Result = (SrcRegion,DestRegion).
 
@@ -61,7 +61,7 @@ findSharedMemoryRegion(NodeId,DeviceId,Result) :-
     NodeName = name(NodeId,_),
     DeviceName = name(DeviceId,_),
     SharedName = name(SharedId,_),
-    net(SharedId,node(memory,_,_,_)),
+    net(SharedId,node(memory,_,_)),
     resolve(NodeName,SharedName),
     resolve(DeviceName,SharedName),
     toRegion(NodeName,NodeRegion),

@@ -14,32 +14,55 @@
 module Main where
 
 import Control.Monad
-import Data.List
+
+import Data.List (intercalate)
+import qualified Data.Map as Map
+
 import System.Console.GetOpt
 import System.Exit
 import System.Environment
+import System.FilePath
 import System.IO
 
-import SockeyeAST as AST
+import qualified SockeyeASTParser as ParseAST
+import qualified SockeyeAST as AST
+import qualified SockeyeASTDecodingNet as NetAST
+
 import SockeyeParser
 import SockeyeChecker
-import qualified SockeyeBackendPrintAST as PrintAST
+import SockeyeNetBuilder
+
 import qualified SockeyeBackendProlog as Prolog
 
+{- Exit codes -}
+usageError :: ExitCode
+usageError = ExitFailure 1
+
+parseError :: ExitCode
+parseError = ExitFailure 2
+
+checkError :: ExitCode
+checkError = ExitFailure 3
+
+buildError :: ExitCode
+buildError = ExitFailure 4
+
 {- Compilation targets -}
-data Target = None | PrintAST | Prolog
+data Target = Prolog
 
 {- Possible options for the Sockeye Compiler -}
 data Options = Options { optInputFile  :: FilePath
                        , optTarget     :: Target
-                       , optOutputFile :: Maybe FilePath
+                       , optOutputFile :: FilePath
+                       , optDepFile    :: Maybe FilePath
                        }
 
 {- Default options -}
 defaultOptions :: Options
 defaultOptions = Options { optInputFile  = ""
                          , optTarget     = Prolog
-                         , optOutputFile = Nothing
+                         , optOutputFile = ""
+                         , optDepFile    = Nothing
                          }
 
 {- Set the input file name -}
@@ -50,16 +73,23 @@ optSetInputFileName f o = o { optInputFile = f }
 optSetTarget :: Target -> Options -> Options
 optSetTarget t o = o { optTarget = t }
 
-{- Set the outpue file name -}
-optSetOutputFile :: Maybe String -> Options -> Options
+{- Set the output file name -}
+optSetOutputFile :: FilePath -> Options -> Options
 optSetOutputFile f o = o { optOutputFile = f }
+
+{- Set the dependency file name -}
+optSetDepFile :: FilePath -> Options -> Options
+optSetDepFile f o = o { optDepFile = Just f }
 
 {- Prints usage information possibly with usage errors -}
 usage :: [String] -> IO ()
 usage errors = do
     prg <- getProgName
     let usageString = "Usage: " ++ prg ++ " [options] file\nOptions:"
-    hPutStrLn stderr $ usageInfo (concat errors ++ usageString) options
+    case errors of
+        [] -> return ()
+        _  -> hPutStrLn stderr $ concat errors
+    hPutStrLn stderr $ usageInfo usageString options
     hPutStrLn stderr "The backend (capital letter options) specified last takes precedence."
 
 
@@ -69,15 +99,12 @@ options =
     [ Option "P" ["Prolog"]
         (NoArg (\opts -> return $ optSetTarget Prolog opts))
         "Generate a prolog file that can be loaded into the SKB (default)."
-    , Option "A" ["AST"]
-        (NoArg (\opts -> return $ optSetTarget PrintAST opts))
-        "Print the AST."
-    , Option "C" ["Check"]
-        (NoArg (\opts -> return $ optSetTarget None opts))
-        "Just check the file, do not compile."
     , Option "o" ["output-file"]
-        (ReqArg (\f opts -> return $ optSetOutputFile (Just f) opts) "FILE")
-        "If no output file is specified the compilation result is written to stdout."
+        (ReqArg (\f opts -> return $ optSetOutputFile f opts) "FILE")
+        "Output file in which to store the compilation result (required)."
+    , Option "d" ["dep-file"]
+        (ReqArg (\f opts -> return $ optSetDepFile f opts) "FILE")
+        "Generate a dependency file for GNU make"
     , Option "h" ["help"]
         (NoArg (\_ -> do
                     usage []
@@ -87,63 +114,124 @@ options =
 
 {- evaluates the compiler options -}
 compilerOpts :: [String] -> IO (Options)
-compilerOpts argv =
-    case getOpt Permute options argv of
+compilerOpts argv = do
+    opts <- case getOpt Permute options argv of
         (actions, fs, []) -> do
             opts <- foldl (>>=) (return defaultOptions) actions
-            case fs of []  -> do
-                                usage ["No input file\n"]
-                                exitWith $ ExitFailure 1
-                       [f] -> return $ optSetInputFileName f opts
-                       _   -> do
-                                usage ["Multiple input files not supported\n"]
-                                exitWith $ ExitFailure 1
+            case fs of
+                []  -> do
+                    usage ["No input file\n"]
+                    exitWith usageError
+                [f] -> return $ optSetInputFileName f opts
+                _   -> do
+                    usage ["Multiple input files not supported\n"]
+                    exitWith usageError
 
         (_, _, errors) -> do
             usage errors
-            exitWith $ ExitFailure 1
+            exitWith $ usageError
+    case optOutputFile opts of
+        "" -> do
+            usage ["No output file\n"]
+            exitWith $ usageError
+        _  -> return opts
 
-{- Runs the parser -}
-parseFile :: FilePath -> IO (AST.NetSpec)
+{- Parse Sockeye and resolve imports -}
+parseSpec :: FilePath -> IO (ParseAST.SockeyeSpec, [FilePath])
+parseSpec file = do
+    let
+        rootImport = ParseAST.Import file
+    specMap <- parseWithImports "" Map.empty rootImport
+    let
+        specs = Map.elems specMap
+        deps = Map.keys specMap
+        topLevelSpec = specMap Map.! file
+        modules = concat $ map ParseAST.modules specs
+        spec = topLevelSpec
+            { ParseAST.imports = []
+            , ParseAST.modules = modules
+            }
+    return (spec, deps)
+        
+    where
+        parseWithImports pwd importMap (ParseAST.Import filePath) = do
+            let
+                dir = case pwd of
+                    "" -> takeDirectory filePath
+                    _  -> pwd </> takeDirectory filePath
+                fileName = takeFileName filePath
+                file = if '.' `elem` fileName
+                    then dir </> fileName
+                    else dir </> fileName <.> "soc"
+            if file `Map.member` importMap
+                then return importMap
+                else do
+                    ast <- parseFile file
+                    let
+                        specMap = Map.insert file ast importMap
+                        imports = ParseAST.imports ast
+                    foldM (parseWithImports dir) specMap imports
+
+{- Runs the parser on a single file -}
+parseFile :: FilePath -> IO (ParseAST.SockeyeSpec)
 parseFile file = do
     src <- readFile file
     case parseSockeye file src of
         Left err -> do
             hPutStrLn stderr $ "Parse error at " ++ show err
-            exitWith $ ExitFailure 2
+            exitWith parseError
         Right ast -> return ast
 
 {- Runs the checker -}
-checkAST :: AST.NetSpec -> IO ()
-checkAST ast = do
-    case checkSockeye ast of 
-        [] -> return ()
-        errors -> do
-            hPutStr stderr $ unlines (foldl flattenErrors ["Failed checks:"] errors)
-            exitWith $ ExitFailure 3
-        where flattenErrors es (key, errors)
-                = let indented = map ((replicate 4 ' ') ++) errors
-                  in es ++ case key of Nothing     -> errors
-                                       Just nodeId -> ("In specification of node '" ++ show nodeId ++ "':"):indented
+checkAST :: ParseAST.SockeyeSpec -> IO AST.SockeyeSpec
+checkAST parsedAst = do
+    case checkSockeye parsedAst of 
+        Left fail -> do
+            hPutStr stderr $ show fail
+            exitWith checkError
+        Right intermAst -> return intermAst
+
+{- Builds the decoding net from the Sockeye AST -}
+buildNet :: AST.SockeyeSpec -> IO NetAST.NetSpec
+buildNet ast = do
+    case sockeyeBuildNet ast of 
+        Left fail -> do
+            hPutStr stderr $ show fail
+            exitWith buildError
+        Right netAst -> return netAst
 
 {- Compiles the AST with the appropriate backend -}
-compile :: Target -> AST.NetSpec -> IO String
-compile None     _   = return ""
-compile PrintAST ast = return $ PrintAST.compile ast
-compile Prolog   ast = return $ Prolog.compile ast
+compile :: Target -> NetAST.NetSpec -> IO String
+compile Prolog ast = return $ Prolog.compile ast
+
+{- Writes a dependency file for GNU make -}
+dependencyFile :: FilePath -> FilePath -> [FilePath] -> IO String
+dependencyFile outFile depFile deps = do
+    let
+        targets = outFile ++ " " ++ depFile ++ ":"
+        lines = targets:deps
+    return $ intercalate " \\\n " lines
 
 {- Outputs the compilation result -}
-output :: Maybe FilePath -> String -> IO ()
-output outFile out = do
-    case outFile of Nothing -> putStr out
-                    Just f  -> writeFile f out
+output :: FilePath -> String -> IO ()
+output outFile out = writeFile outFile out
 
 main = do
     args <- getArgs
     opts <- compilerOpts args
-    let inFile = optInputFile opts
-    ast <- parseFile inFile
-    checkAST ast
-    out <- compile (optTarget opts) ast
-    output (optOutputFile opts) out
+    let
+        inFile = optInputFile opts
+        outFile = optOutputFile opts
+        depFile = optDepFile opts
+        target = optTarget opts
+    (parsedAst, deps) <- parseSpec inFile
+    case depFile of
+        Nothing -> return ()
+        Just f  -> do
+            out <- dependencyFile outFile f deps
+            output f out
+    ast <- checkAST parsedAst
+    netAst <- buildNet ast
+    out <- compile (optTarget opts) netAst
+    output outFile out
     

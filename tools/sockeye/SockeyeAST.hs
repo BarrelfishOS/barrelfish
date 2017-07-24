@@ -15,89 +15,141 @@
 
 module SockeyeAST where
 
-import Data.List
-import Numeric (showHex)
+import Data.Map (Map)
 
-{-
-Nodes are identfied by strings
--}
-newtype NodeId = NodeId String deriving (Eq, Ord)
+newtype SockeyeSpec = SockeyeSpec
+    { modules :: Map String Module }
+    deriving (Show)
 
-{-
-Addresses are natural numbers
--}
-newtype Addr = Addr Word deriving (Eq, Ord)
+data Module = Module
+    { paramNames   :: [String]
+    , paramTypeMap :: Map String ModuleParamType
+    , inputPorts   :: [Port]
+    , outputPorts  :: [Port]
+    , nodeDecls    :: [NodeDecl]
+    , moduleInsts  :: [ModuleInst]
+    } deriving (Show)
 
-{-
-A block is a contigous set of addresses
--}
-data BlockSpec = BlockSpec
-    { base  :: Addr
-    , limit :: Addr
-    } deriving (Eq, Ord)
+data ModuleParamType 
+    = NaturalParam
+    | AddressParam
+    deriving (Eq)
 
-{-
-A mapping of a source address block to a destination node
-at a base address
--}
-data MapSpec = MapSpec { srcBlock :: BlockSpec
-                       , destNode :: NodeId
-                       , destBase :: Addr
-                       }
+instance Show ModuleParamType where
+    show NaturalParam = "nat"
+    show AddressParam = "addr"
 
-{-
-Node can either be memory, device or other
--}
-data NodeType = Memory
-              | Device
-              | Other
+data Port
+    = InputPort 
+        { portId    :: Identifier
+        , portWidth :: !Integer
+        }
+    | OutputPort
+        { portId    :: Identifier
+        , portWidth :: !Integer
+        }
+    | MultiPort (For Port)
+    deriving (Show)
 
-{-
-A node is specified as a list of blocks it accepts,
-a list of mappings and possibly an overlay on another block
--}
-data NodeSpec = NodeSpec { nodeType  :: NodeType
-                         , accept    :: [BlockSpec]
-                         , translate :: [MapSpec]
-                         , overlay   :: Maybe NodeId
-                         }
+data ModuleInst
+    = ModuleInst
+        { namespace  :: Identifier
+        , moduleName :: String
+        , arguments  :: Map String ModuleArg
+        , inPortMap  :: [PortMap]
+        , outPortMap :: [PortMap]
+        }
+    | MultiModuleInst (For ModuleInst)
+    deriving (Show)
 
-{-
-A decoding net is specified as a list 
-of Node IDs mapped to Nodes
--}
-newtype NetSpec = NetSpec [(NodeId, NodeSpec)]
+data ModuleArg
+    = AddressArg !Integer
+    | NaturalArg !Integer
+    | ParamArg !String
+    deriving (Show)
 
-{- Pretty Printing -}
-instance Show NodeId where
-    show (NodeId id) = id
+data PortMap
+    = PortMap
+        { mappedId   :: Identifier
+        , mappedPort :: Identifier
+        }
+    | MultiPortMap (For PortMap)
+    deriving (Show)
 
-instance Show Addr where
-    show (Addr addr) = "0x" ++ showHex addr ""
+data NodeDecl
+    = NodeDecl
+        { nodeId   :: Identifier
+        , nodeSpec :: NodeSpec
+        }
+    | MultiNodeDecl (For NodeDecl)
+    deriving (Show)
 
-instance Show BlockSpec where
-    show blockSpec = show (base blockSpec) ++ "-" ++ show (limit blockSpec)
+data Identifier
+    = SimpleIdent !String
+    | TemplateIdent
+        { prefix  :: !String
+        , varName :: !String
+        , suffix  :: Maybe Identifier
+        }
+    deriving (Show)
 
-instance Show MapSpec where
-    show mapSpec = let srcStr  = show $ srcBlock mapSpec
-                       nodeStr = show $ destNode mapSpec
-                       baseStr = show $ destBase mapSpec
-                   in srcStr ++ " to " ++ nodeStr ++ " at " ++ baseStr
+data NodeSpec = NodeSpec
+    { nodeType  :: Maybe NodeType
+    , accept    :: [BlockSpec]
+    , translate :: [MapSpec]
+    , reserved  :: [BlockSpec]
+    , overlay   :: Maybe OverlaySpec
+    } deriving (Show)
 
-instance Show NodeType where
-  show Memory = "memory"
-  show Device = "device"
-  show Other  = "other"
+data NodeType
+    = Memory
+    | Device
+    deriving (Show)
 
-instance Show NodeSpec where
-    show nodeSpec = let typeStr      = show $ nodeType nodeSpec
-                        acceptStr    = "accept [" ++ intercalate ", " (map show (accept nodeSpec)) ++ "]"
-                        translateStr = "map [" ++ intercalate ", " (map show (translate nodeSpec)) ++ "]"
-                        overlayStr   = case overlay nodeSpec of
-                                        Nothing     -> ""
-                                        Just nodeId -> "over " ++ show nodeId
-                    in intercalate " " [typeStr, acceptStr, translateStr, overlayStr]
+data BlockSpec 
+    = SingletonBlock
+        { base :: Address }
+    | RangeBlock
+        { base  :: Address
+        , limit :: Address
+        }
+    | LengthBlock
+        { base :: Address
+        , bits :: !Integer
+        }
+    deriving (Show)
 
-instance Show NetSpec where
-    show (NetSpec netSpec) = unlines $ map nodeStr netSpec
-                             where nodeStr (id, node) = show id ++ " is " ++ show node
+data MapSpec 
+    = MapSpec
+        { block    :: BlockSpec
+        , destNode :: Identifier
+        , destBase :: Maybe Address
+        } deriving (Show)
+
+data OverlaySpec
+    = OverlaySpec
+        { over  :: Identifier
+        , width :: !Integer
+        } deriving (Show)
+
+data Address
+    = LiteralAddress !Integer
+    | ParamAddress !String
+    deriving (Show)
+
+data For a 
+    = For
+        { varRanges :: Map String ForRange
+        , body      :: a
+        } deriving (Show)
+
+data ForRange
+    = ForRange
+    { start :: ForLimit
+    , end   :: ForLimit
+    } deriving (Show)
+
+data ForLimit 
+    = LiteralLimit !Integer
+    | ParamLimit !String
+    deriving (Show)

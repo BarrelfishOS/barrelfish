@@ -15,10 +15,16 @@
 %%%%%%%%%%%%%%
 %% Printing %%
 %%%%%%%%%%%%%%
+printNodeid(nodeId(Name, Namespace)) :-
+    reverse([Name|Namespace], IdList),
+    join_string(IdList,".",String),
+    write(String).
+
 printRegion((Id,Addr,Size)) :-
     End is Addr + Size - 1,
-    printf("%a [0x%16R..0x%16R]",
-        [ Id,Addr,End ]
+    printNodeid(Id),
+    printf(" [0x%16R..0x%16R]",
+        [ Addr,End ]
     ).
 
 printSrcDestRegions((SrcRegion,DestRegion)) :-
