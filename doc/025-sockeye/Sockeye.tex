@@ -87,12 +87,19 @@
 \emph{Sockeye}\footnote{Sockeye salmon (Oncorhynchus nerka), also called red salmon, kokanee salmon, or blueback salmon, is an anadromous species of salmon found in the Northern Pacific Ocean and rivers discharging into it. This species is a Pacific salmon that is primarily red in hue during spawning. They can grow up to 84 cm in length and weigh 2.3 to 7 kg. 
 Source: \href{https://en.wikipedia.org/wiki/Sockeye_salmon}{Wikipedia}}
 is a domain specific language to describe SoCs (Systems on a Chip).
-It is an implementation of the language introduced in \cite{achermann:mars17} but adds some features to address issues encountered in practise.
 
-\todo{Add short introduction on decoding nets.}
+Achermann~et~al.~\cite{achermann:mars17} propose a formal model to describe address spaces and interrupt routes in a system as a directed graph.
+They call such a graph a ``decoding net''.
+Each node in the graph can accept a set of addresses and translate another (not necessarily disjunct) set of addresses (when describing interrupt routes the accept or translate interrupt vectors).
+Starting at a specific node addresses can be resolved by following the appropriate edges in the decoding net.
+When a node translates an address, resolution is continued on that node.
+When a node accepts an address, resolution terminates
+
+Achermann~et~al.~\cite{achermann:mars17} also propose a concrete syntax for specifying decoding nets.
+Sockeye is an implementation of the language introduced in but adds some features to address issues encountered in practice.
 
 The Sockeye compiler is written in Haskell using the Parsec parsing library. It
-generates Prolog files from the Sockeye files. These Prolog files contain facts that represent a decoding net as defined in \cite{achermann:mars17}.
+generates Prolog files from the Sockeye files. These Prolog files contain facts that represent a decoding net (see Chapter~\ref{chap:prolog}).
 The Prolog files can then be loaded into Barrelfish's System Knowledgebase (SKB).
 
 The source code for Sockeye can be found in \pathname{SOURCE/tools/sockeye}.
