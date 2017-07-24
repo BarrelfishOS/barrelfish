@@ -308,6 +308,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
+    pmap->used_cap_slots ++;
 
     // do map
     assert(!capref_is_null(ptable->u.vnode.invokable));
@@ -736,6 +737,8 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_SLOT_FREE);
         }
+        assert(pmap->used_cap_slots > 0);
+        pmap->used_cap_slots --;
         // Free up the resources
         remove_vnode(info.page_table, info.page);
         slab_free(&pmap->slab, info.page);
@@ -1089,6 +1092,7 @@ static struct pmap_funcs pmap_funcs = {
     .serialise = pmap_x86_serialise,
     .deserialise = pmap_x86_deserialise,
     .dump = dump,
+    .measure_res = pmap_x86_measure_res,
 };
 
 /**
@@ -1111,6 +1115,7 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     } else { /* use default allocator for this dispatcher */
         pmap->slot_alloc = get_default_slot_allocator();
     }
+    x86->used_cap_slots = 0;
 
     /* x86 specific portion */
     slab_init(&x86->slab, sizeof(struct vnode), NULL);
@@ -1124,6 +1129,7 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     if (get_croot_addr(vnode) != CPTR_ROOTCN) {
         errval_t err = slot_alloc(&x86->root.u.vnode.invokable);
         assert(err_is_ok(err));
+        x86->used_cap_slots ++;
         err = cap_copy(x86->root.u.vnode.invokable, vnode);
         assert(err_is_ok(err));
     }
