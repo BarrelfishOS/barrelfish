@@ -352,20 +352,13 @@ Listings~\ref{lst:prolog_example} shows the generated Prolog code for the Sockey
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Limitations}
-\label{chap:limitations}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Modularity}
-\label{sec:modularity}
-\todo{Add description of challenges}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Compiling Sockeye files with Hake}
 \label{chap:hake}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-SoC descriptions are placed in the directory \pathname{SOURCE/socs} with the file extension \pathname{.soc}.
-Each Sockeye file has to be added to the list of SoCs in the Hakefile in the same directory.
+SoC descriptions are placed in the directory \pathname{SOURCE/socs} with the file extension \pathname{soc}.
+Each top-level Sockeye file has to be added to the list of SoCs in the Hakefile in the same directory.
 The Hake rule for Sockeye files compiles all the listed files to \pathname{BUILD/sockeyefacts/<filename>.pl} if they are specified as a dependency in some Hakefile.
+The rule will also generate a \pathname{.depend} file so that make recompiles the file also when imported files are changed.
 To add a compiled Sockeye specification to the SKB RAM-disk, the filename can be added to the \varname{sockeyeFiles} list in the SKBs Hakefile.
 
 
