@@ -35,6 +35,11 @@ static struct timestamps timestamps[ITERATIONS];
 static struct timestamps overhead[ITERATIONS];
 static int currentiter;
 
+
+#ifndef __x86_64__
+#define rdpmc(x) bench_tsc() 
+#endif
+
 // server side handler
 static void lrpc_bench_handler(void *arg)
 {
