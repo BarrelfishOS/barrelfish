@@ -208,15 +208,15 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     }
 
     debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n", id.base,
-                 1UL << id.bits);
+                 id.bytes);
 
     host_frame = msgframe;
 
     host_base = id.base;
 
-    host_frame_sz = (1UL << id.bits);
+    host_frame_sz = id.bytes;
 
-    err = vspace_map_one_frame(&host_buf, 1UL << id.bits, msgframe, NULL, NULL);
+    err = vspace_map_one_frame(&host_buf, id.bytes, msgframe, NULL, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not map the frame");
     }
@@ -394,4 +394,3 @@ int main(int argc,
                     host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);
 #endif
 }
-

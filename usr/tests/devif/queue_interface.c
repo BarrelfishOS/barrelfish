@@ -166,7 +166,7 @@ static struct devq* create_net_queue(char* card_name)
         struct e10k_queue* q;
         
         err = e10k_queue_create(&q, event_cb, /*VFs */ false,
-                                /*MSIX interrupts*/ false);
+                                /*MSIX interrupts*/ false, false);
         if (err_is_fail(err)){
             USER_PANIC("Allocating devq failed \n");
         }

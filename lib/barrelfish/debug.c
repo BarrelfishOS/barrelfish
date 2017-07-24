@@ -25,7 +25,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
-#include "../newlib/newlib/libc/include/stdio.h"
+#include <stdio.h>
 
 #define DISP_MEMORY_SIZE            1024 // size of memory dump in bytes
 
@@ -421,7 +421,7 @@ static void walk_cspace_l2(struct capref l2cnode){
 
     for(int i=0; i<L2_CNODE_SLOTS; i++){
         struct capref pos = {
-            .cnode = cnode, .slot = i 
+            .cnode = cnode, .slot = i
         };
 
         // Get cap data
@@ -450,10 +450,10 @@ static void walk_cspace_l2(struct capref l2cnode){
 
 /**
  * \brief Dump an arbitrary cspace, given the root
- * 
- * \bug Works correct only for own cspace. (to fix this cap_identify must 
+ *
+ * \bug Works correct only for own cspace. (to fix this cap_identify must
  * be made to work with all caps)
- * 
+ *
  */
 void debug_cspace(struct capref root)
 {

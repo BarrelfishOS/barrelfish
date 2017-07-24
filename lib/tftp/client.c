@@ -19,8 +19,8 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
 
-#include <lwip/udp.h>
-#include <lwip/init.h>
+#include <net_sockets/net_sockets.h>
+#include <arpa/inet.h>
 
 #include <tftp/tftp.h>
 
@@ -43,7 +43,7 @@ struct tftp_client
     tftp_st_t state;
 
     /* connection information */
-    struct ip_addr server_ip;
+    struct in_addr server_ip;
     uint16_t server_port;
     tftp_mode_t mode;
 
@@ -54,39 +54,29 @@ struct tftp_client
     size_t buflen;
 
     /* connection information */
-    struct udp_pcb *pcb;
-    struct pbuf *p;
+    struct net_socket *pcb;
     void *ppayload;
-    struct udp_pcb *rcv_pcb;
 };
 
 
 struct tftp_client tftp_client;
 
 
-static errval_t tftp_client_send_data(struct udp_pcb *pcb, uint32_t blockno, void *buf,
-                                      uint32_t length, struct ip_addr *addr, u16_t port,
-                                      struct pbuf *p)
+static errval_t tftp_client_send_data(struct net_socket *socket, uint32_t blockno, void *buf,
+                                      uint32_t length, struct in_addr addr, uint16_t port)
 {
-    p->len = TFTP_MAX_MSGSIZE;
-    p->tot_len = TFTP_MAX_MSGSIZE;
-    p->payload = tftp_client.ppayload;
+    void *payload = tftp_client.ppayload;
+    errval_t err;
 
-    size_t offset = set_opcode(p->payload, TFTP_OP_DATA);
-    offset += set_block_no(p->payload + offset, blockno);
+    size_t offset = set_opcode(payload, TFTP_OP_DATA);
+    offset += set_block_no(payload + offset, blockno);
     if (length > TFTP_BLOCKSIZE) {
         length = TFTP_BLOCKSIZE;
     }
 
-    memcpy(p->payload + offset, buf, length);
-    p->len = (uint16_t)length + offset;
-    p->tot_len = (uint16_t)length + offset;
-
-    int r = udp_sendto(pcb, p, addr, port);
-    if (r != ERR_OK) {
-        USER_PANIC("send failed");
-    }
-
+    memcpy(payload + offset, buf, length);
+    err = net_send_to(socket, payload, length + offset, addr, port);
+    assert(err_is_ok(err));
     return SYS_ERR_OK;
 }
 
@@ -97,16 +87,15 @@ static errval_t tftp_client_send_data(struct udp_pcb *pcb, uint32_t blockno, voi
  * ------------------------------------------------------------------------------
  */
 
-static void tftp_client_handle_write(struct udp_pcb *pcb, struct pbuf *pbuf,
-                                     struct ip_addr *addr, u16_t port)
+static void tftp_client_handle_write(struct net_socket *socket, void *data,
+    size_t size, struct in_addr ip_address, uint16_t port)
 {
     USER_PANIC("NYI");
-    tpft_op_t op = get_opcode(pbuf->payload);
+    tpft_op_t op = get_opcode(data);
     uint32_t blockno;
     switch(op) {
         case TFTP_OP_ACK :
-            blockno = get_block_no(pbuf->payload, pbuf->len);
-            assert(pbuf->len == pbuf->tot_len);
+            blockno = get_block_no(data, size);
             if (blockno == TFTP_ERR_INVALID_BUFFER) {
                 TFTP_DEBUG("failed to decode block number in data packet\n");
                 break;
@@ -127,8 +116,8 @@ static void tftp_client_handle_write(struct udp_pcb *pcb, struct pbuf *pbuf,
 
                 tftp_client.block++;
 
-                tftp_client_send_data(pcb, tftp_client.block, tftp_client.buf + offset, length,
-                                      addr, port, tftp_client.p);
+                tftp_client_send_data(socket, tftp_client.block, tftp_client.buf + offset, length,
+                                      ip_address, port);
                 tftp_client.state = TFTP_ST_DATA_SENT;
             } else  {
                 TFTP_DEBUG("got double packet: %u\n", blockno);
@@ -142,31 +131,28 @@ static void tftp_client_handle_write(struct udp_pcb *pcb, struct pbuf *pbuf,
             tftp_client.state = TFTP_ST_ERROR;
             break;
     }
-
-    pbuf_free(pbuf);
 }
 
-static void tftp_client_handle_read(struct udp_pcb *pcb, struct pbuf *pbuf,
-                                    struct ip_addr *addr, u16_t port)
+static void tftp_client_handle_read(struct net_socket *socket, void *data,
+    size_t size, struct in_addr ip_address, uint16_t port)
 {
-    tpft_op_t op = get_opcode(pbuf->payload);
+    tpft_op_t op = get_opcode(data);
     uint32_t blockno;
     switch(op) {
         case TFTP_OP_DATA :
-            blockno = get_block_no(pbuf->payload, pbuf->len);
-            assert(pbuf->len == pbuf->tot_len);
+            blockno = get_block_no(data, size);
             if (blockno == TFTP_ERR_INVALID_BUFFER) {
                 TFTP_DEBUG("failed to decode block number in data packet\n");
                 break;
             }
 
             if (blockno == tftp_client.block) {
-                if (pbuf->len < 5) {
+                if (size < 5) {
                     TFTP_DEBUG("too small pbuf lenth\n");
                 }
 
-                void *buf = pbuf->payload + 4;
-                size_t length = pbuf->len - 4;
+                void *buf = data + 4;
+                size_t length = size - 4;
                 TFTP_DEBUG_PACKETS("received block %u of size %lu bytes\n", blockno, length);
 
                 if (tftp_client.buflen < tftp_client.bytes + length) {
@@ -175,9 +161,9 @@ static void tftp_client_handle_read(struct udp_pcb *pcb, struct pbuf *pbuf,
                 }
                 memcpy(tftp_client.buf + tftp_client.bytes, buf, length);
 
-                int r = tftp_send_ack(pcb, blockno, addr, port, tftp_client.p,
+                int r = tftp_send_ack(socket, blockno, ip_address, port,
                                       tftp_client.ppayload);
-                if (r != ERR_OK) {
+                if (r != SYS_ERR_OK) {
                     tftp_client.state = TFTP_ST_ERROR;
                     break;
                 }
@@ -190,9 +176,9 @@ static void tftp_client_handle_read(struct udp_pcb *pcb, struct pbuf *pbuf,
                 }
             } else  {
                 TFTP_DEBUG("got double packet: %u\n", blockno);
-                int r = tftp_send_ack(pcb, blockno, addr, port, tftp_client.p,
+                int r = tftp_send_ack(socket, blockno, ip_address, port,
                                       tftp_client.ppayload);
-                if (r != ERR_OK) {
+                if (r != SYS_ERR_OK) {
                     tftp_client.state = TFTP_ST_ERROR;
                     break;
                 }
@@ -202,7 +188,7 @@ static void tftp_client_handle_read(struct udp_pcb *pcb, struct pbuf *pbuf,
             break;
         case TFTP_OP_ERROR :
             TFTP_DEBUG("got a error packet\n");
-            get_error(pbuf->payload, pbuf->len);
+            get_error(data, size);
             tftp_client.state = TFTP_ST_ERROR;
             break;
         default:
@@ -210,23 +196,21 @@ static void tftp_client_handle_read(struct udp_pcb *pcb, struct pbuf *pbuf,
             TFTP_DEBUG("unexpected packet\n");
             break;
     }
-
-    pbuf_free(pbuf);
 }
 
 
-static void tftp_client_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
-                             struct ip_addr *addr, u16_t port)
+static void tftp_client_recv_handler(void *user_state, struct net_socket *socket,
+    void *data, size_t size, struct in_addr ip_address, uint16_t port)
 {
     switch(tftp_client.state) {
         case TFTP_ST_WRITE_REQ_SENT:
         case TFTP_ST_DATA_SENT :
         case TFTP_ST_LAST_DATA_SENT :
-            tftp_client_handle_write(pcb, pbuf, addr, port);
+            tftp_client_handle_write(socket, data, size, ip_address, port);
             break;
         case TFTP_ST_READ_REQ_SENT :
         case TFTP_ST_ACK_SENT :
-            tftp_client_handle_read(pcb, pbuf, addr, port);
+            tftp_client_handle_read(socket, data, size, ip_address, port);
             break;
         default:
             TFTP_DEBUG("unexpected state: %u\n", tftp_client.state);
@@ -239,29 +223,20 @@ static void new_request(char *path, tpft_op_t opcode)
     size_t path_length = strlen(path);
     assert(strlen(path) + 14 < TFTP_MAX_MSGSIZE);
 
-    struct pbuf *p = tftp_client.p;
-    assert(p);
+    void *payload = tftp_client.ppayload;
 
-    p->len = TFTP_MAX_MSGSIZE;
-    p->tot_len = TFTP_MAX_MSGSIZE;
-    p->payload = tftp_client.ppayload;
+    memset(payload, 0, path_length + 16);
 
-    memset(p->payload, 0, path_length + 16);
+    size_t length = set_opcode(payload, opcode);
 
-    size_t length = set_opcode(p->payload, opcode);
-
-    length += snprintf(p->payload + length, path_length + 1, "%s", path) + 1;
-    length += set_mode(p->payload + length, tftp_client.mode);
-
-    p->len = (uint16_t)length;
-    p->tot_len = (uint16_t)length;
+    length += snprintf(payload + length, path_length + 1, "%s", path) + 1;
+    length += set_mode(payload + length, tftp_client.mode);
 
     TFTP_DEBUG("sending udp payload of %lu bytes\n", length);
 
-
-
-    int r = udp_send(tftp_client.pcb, p);
-    if (r != ERR_OK) {
+    errval_t err;
+    err = net_send_to(tftp_client.pcb, payload, length, tftp_client.server_ip, tftp_client.server_port);
+    if (err != SYS_ERR_OK) {
         TFTP_DEBUG("send failed\n");
     }
 }
@@ -342,13 +317,13 @@ errval_t tftp_client_connect(char *ip, uint16_t port)
 {
     switch(tftp_client.state) {
         case TFTP_ST_INVALID :
-            lwip_init_auto();
-            tftp_client.pcb = udp_new();
+            net_sockets_init();
+            tftp_client.pcb = net_udp_socket();
             TFTP_DEBUG("new connection from uninitialized state\n");
             break;
         case TFTP_ST_CLOSED :
             TFTP_DEBUG("new connection from closed state\n");
-            tftp_client.pcb = udp_new();
+            tftp_client.pcb = net_udp_socket();
             break;
         default:
             TFTP_DEBUG("connection already established, cannot connect\n");
@@ -361,50 +336,40 @@ errval_t tftp_client_connect(char *ip, uint16_t port)
 
     tftp_client.server_port = port;
 
-    struct in_addr peer_ip_gen;
-    int ret = inet_aton(ip, &peer_ip_gen);
+    int ret = inet_aton(ip, &tftp_client.server_ip);
     if (ret == 0) {
         TFTP_DEBUG("Invalid IP addr: %s\n", ip);
         return 1;
     }
-    tftp_client.server_ip.addr = peer_ip_gen.s_addr;
 
     TFTP_DEBUG("connecting to %s:%" PRIu16 "\n", ip, port);
-    tftp_client.rcv_pcb = udp_new();
 
-    int r = udp_bind(tftp_client.rcv_pcb, IP_ADDR_ANY, 0);
-    if (r != ERR_OK) {
+    errval_t r;
+    r = net_bind(tftp_client.pcb, (struct in_addr){(INADDR_ANY)}, 0);
+    if (r != SYS_ERR_OK) {
         USER_PANIC("UDP bind failed");
     }
+    debug_printf("bound to %d\n", tftp_client.pcb->bound_port);
 
-    r = udp_connect(tftp_client.pcb, &tftp_client.server_ip, tftp_client.server_port);
-    if (r != ERR_OK) {
-        USER_PANIC("UDP connect failed");
-    }
-    tftp_client.pcb->local_port = tftp_client.rcv_pcb->local_port;
+    // r = net_connect(tftp_client.pcb, tftp_client.server_ip, tftp_client.server_port, NULL);
+    // if (r != SYS_ERR_OK) {
+    //     USER_PANIC("UDP connect failed");
+    // }
 
     TFTP_DEBUG("registering recv handler\n");
-    udp_recv(tftp_client.pcb, tftp_client_recv_handler, NULL);
-    udp_recv(tftp_client.rcv_pcb, tftp_client_recv_handler, NULL);
+    net_set_on_received(tftp_client.pcb, tftp_client_recv_handler);
 
     tftp_client.state = TFTP_ST_IDLE;
     tftp_client.mode = TFTP_MODE_OCTET;
-    tftp_client.p = pbuf_alloc(PBUF_TRANSPORT, TFTP_MAX_MSGSIZE, PBUF_POOL);
-    if (!tftp_client.p) {
-        USER_PANIC("no buffer");
-    }
-    tftp_client.ppayload = tftp_client.p->payload;
+    tftp_client.ppayload = net_alloc(TFTP_MAX_MSGSIZE);
     TFTP_DEBUG("all set up. connection idle\n");
     return SYS_ERR_OK;
 }
 
 errval_t tftp_client_disconnect(void)
 {
-    pbuf_free(tftp_client.p);
-    udp_remove(tftp_client.pcb);
-    udp_remove(tftp_client.rcv_pcb);
+    net_free(tftp_client.ppayload);
+    net_close(tftp_client.pcb);
     tftp_client.state = TFTP_ST_CLOSED;
     return SYS_ERR_OK;
 }
-
-

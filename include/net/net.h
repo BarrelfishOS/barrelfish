@@ -1,5 +1,5 @@
 /**
- * @brief 
+ * @brief
  *  net.h
  */
 
@@ -15,6 +15,9 @@
 
 #ifndef LIB_NET_INCLUDE_NETWORKING_H_
 #define LIB_NET_INCLUDE_NETWORKING_H_
+
+#include <netinet/in.h>
+#include <errors/errno.h>
 
 // forward declarations
 struct devq;
@@ -39,6 +42,9 @@ struct eth_addr;
 
 ///< initalize with default queue
 #define NET_FLAGS_DEFAULT_QUEUE          (1 << 3)
+
+///< do not initalize the net filter
+#define NET_FLAGS_NO_NET_FILTER          (1 << 4)
 
 ///< networking flags
 typedef uint32_t net_flags_t;
@@ -129,11 +135,11 @@ errval_t networking_get_defaults(uint64_t *queue, const char **cardname, uint32_
  * @param tcp       should TCP packets be filtered or UPD
  * @param src_ip    source ip of the filter, 0 for wildcard
  * @param src_port  source port of the filter, 0 for wildcard
- * @param dst_port  destination port fo the filter       
+ * @param dst_port  destination port fo the filter
  *
  * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
  */
-errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src, 
+errval_t networking_install_ip_filter(bool tcp, struct in_addr *src,
                                       uint16_t src_port, uint16_t dst_port);
 
 /**
@@ -142,11 +148,22 @@ errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
  * @param tcp       should TCP packets be filtered or UPD
  * @param src_ip    source ip of the filter, 0 for wildcard
  * @param src_port  source port of the filter, 0 for wildcard
- * @param dst_port  destination port fo the filter       
+ * @param dst_port  destination port fo the filter
  *
  * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
  */
-errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src, 
+errval_t networking_remove_ip_filter(bool tcp, struct in_addr *src,
                                      uint16_t src_port, uint16_t dst_port);
+
+
+/**
+ * @brief Trigger a poll of the loopback interface
+ */
+void net_if_trigger_loopback(void);
+
+/**
+ * @brief Process LWIP timeouts
+ */
+void net_lwip_timeout(void);
 
 #endif /* LIB_NET_INCLUDE_NETWORKING_H_ */

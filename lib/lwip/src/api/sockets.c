@@ -42,6 +42,9 @@
 
 #if LWIP_SOCKET                 /* don't build if not configured for use in lwipopts.h */
 
+#include <netinet/tcp.h>
+#include <sys/filio.h>
+
 #include "lwip/sockets.h"
 #include "lwip/api.h"
 #include "lwip/sys.h"

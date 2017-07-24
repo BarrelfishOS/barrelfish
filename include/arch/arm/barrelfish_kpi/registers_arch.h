@@ -42,7 +42,7 @@
 #define LR_REG   15
 #define PC_REG   16
 
-#define NUM_REGS 17            /* cpsr, r0-r15 */
+#define NUM_REGS 82            /* cpsr, r0-r15 */
 #define NUM_FPU_REGS 0
 #define ARCH_NUMREGS NUM_REGS
 
@@ -72,6 +72,11 @@ union registers_arm {
         uint32_t stack;
         uint32_t link;
         uint32_t pc;
+        uint32_t _align;
+        uint64_t d0, d1, d2, d3, d4, d5, d6, d7;
+        uint64_t d8, d9, d10, d11, d12, d13, d14, d15;
+        uint64_t d16, d17, d18, d19, d20, d21, d22, d23;
+        uint64_t d24, d25, d26, d27, d28, d29, d30, d31;
     } named;
     struct registers_arm_syscall_args {
         uint32_t cpsr;
@@ -88,7 +93,7 @@ union registers_arm {
     uint32_t regs[sizeof(struct registers_arm_named) / sizeof(uint32_t)];
 };
 
-STATIC_ASSERT_SIZEOF(union registers_arm, 17 * 4);
+STATIC_ASSERT_SIZEOF(union registers_arm, (17 + 64 + 1) * 4);
 
 ///< Opaque handle for the register state
 typedef union registers_arm arch_registers_state_t;

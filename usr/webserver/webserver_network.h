@@ -15,6 +15,6 @@
 #ifndef WEBSERVER_NETWORK_H
 #define WEBSERVER_NETWORK_H
 
-void http_server_init(struct ip_addr server, const char *path);
+void http_server_init(struct in_addr server, const char *path);
 
 #endif // WEBSERVER_NETWORK_H

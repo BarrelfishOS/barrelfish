@@ -12,7 +12,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include <bulk_transfer/bulk_transfer.h>
-#include <ipv4/lwip/inet.h>
 
 #include "bulk_net_backend.h"
 
@@ -735,4 +734,3 @@ errval_t bulk_net_proxy_connect(struct bulk_net_proxy           *p,
     DEBUG("Sent bind request\n");
     return SYS_ERR_OK;
 }
-

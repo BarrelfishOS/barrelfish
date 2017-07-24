@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 #define UINT64_T_HEX_LENGTH 18
 #define SEP_LENGTH 1

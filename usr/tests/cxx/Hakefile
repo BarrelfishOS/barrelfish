@@ -7,12 +7,12 @@
 -- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for cxxtest
--- 
+--
 --------------------------------------------------------------------------
 
-[ build application { 
+[ build application {
     target = "tests/cxxtest",
-    cxxFiles = [ 
+    cxxFiles = [
         "test.cpp",
         "stl_list.cpp",
         "stl_vector.cpp",
@@ -26,17 +26,18 @@
         "stl_chrono.cpp",
         "cxx11.cpp"
     ],
-    --addLibraries = [ 
-        --"vfs", 
-        --"nfs", 
-        --"ahci", 
-        --"lwip", 
-        --"timer" 
+    --addLibraries = [
+        --"vfs",
+        --"nfs",
+        --"ahci",
+        --"lwip",
+        --"timer"
     --],
-	architectures = [ 
+    architectures = [
         "x86_64",
         "k1om"
-    ]
+    ],
+    omitCxxFlags = [ "-Werror" ]
   },
   build application {
     target = "tests/cxxtest_inc_bf",

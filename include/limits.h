@@ -10,7 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -26,95 +26,122 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/sys/sys/limits.h,v 1.10 2005/12/02 07:45:28 davidxu Exp $
+ *	@(#)limits.h	8.2 (Berkeley) 1/4/94
+ * $FreeBSD$
  */
 
 #ifndef _LIMITS_H_
 #define	_LIMITS_H_
 
 #include <sys/cdefs.h>
-#include <machine/_limits.h>
 
-#define	CHAR_BIT	__CHAR_BIT	/* number of bits in a char */
+#if __POSIX_VISIBLE
+#define	_POSIX_ARG_MAX		4096
+#define	_POSIX_LINK_MAX		8
+#define	_POSIX_MAX_CANON	255
+#define	_POSIX_MAX_INPUT	255
+#define	_POSIX_NAME_MAX		14
+#define	_POSIX_PIPE_BUF		512
+#define	_POSIX_SSIZE_MAX	32767
+#define	_POSIX_STREAM_MAX	8
 
-#define	SCHAR_MAX	__SCHAR_MAX	/* max value for a signed char */
-#define	SCHAR_MIN	__SCHAR_MIN	/* min value for a signed char */
-
-#define	UCHAR_MAX	__UCHAR_MAX	/* max value for an unsigned char */
-
-#ifdef __CHAR_UNSIGNED__
-#define	CHAR_MAX	UCHAR_MAX	/* max value for a char */
-#define	CHAR_MIN	0		/* min value for a char */
+#if __POSIX_VISIBLE >= 200112
+#define	_POSIX_CHILD_MAX	25
+#define	_POSIX_NGROUPS_MAX	8
+#define	_POSIX_OPEN_MAX		20
+#define	_POSIX_PATH_MAX		256
+#define	_POSIX_TZNAME_MAX	6
 #else
-#define	CHAR_MAX	SCHAR_MAX
-#define	CHAR_MIN	SCHAR_MIN
+#define	_POSIX_CHILD_MAX	6
+#define	_POSIX_NGROUPS_MAX	0
+#define	_POSIX_OPEN_MAX		16
+#define	_POSIX_PATH_MAX		255
+#define	_POSIX_TZNAME_MAX	3
 #endif
 
-#define	USHRT_MAX	__USHRT_MAX	/* max value for an unsigned short */
-#define	SHRT_MAX	__SHRT_MAX	/* max value for a short */
-#define	SHRT_MIN	__SHRT_MIN	/* min value for a short */
+#if __POSIX_VISIBLE >= 200112
+#define	BC_BASE_MAX		   99	/* max ibase/obase values in bc(1) */
+#define	BC_DIM_MAX		 2048	/* max array elements in bc(1) */
+#define	BC_SCALE_MAX		   99	/* max scale value in bc(1) */
+#define	BC_STRING_MAX		 1000	/* max const string length in bc(1) */
+#define	CHARCLASS_NAME_MAX	   14	/* max character class name size */
+#define	COLL_WEIGHTS_MAX	   10	/* max weights for order keyword */
+#define	EXPR_NEST_MAX		   32	/* max expressions nested in expr(1) */
+#define	LINE_MAX		 2048	/* max bytes in an input line */
+#define	RE_DUP_MAX		  255	/* max RE's in interval notation */
 
-#define	UINT_MAX	__UINT_MAX	/* max value for an unsigned int */
-#define	INT_MAX		__INT_MAX	/* max value for an int */
-#define	INT_MIN		__INT_MIN	/* min value for an int */
-
-#define	ULONG_MAX	__ULONG_MAX	/* max for an unsigned long */
-#define	LONG_MAX	__LONG_MAX	/* max for a long */
-#define	LONG_MIN	__LONG_MIN	/* min for a long */
-
-#ifdef __LONG_LONG_SUPPORTED
-#define	ULLONG_MAX	__ULLONG_MAX	/* max for an unsigned long long */
-#define	LLONG_MAX	__LLONG_MAX	/* max for a long long */
-#define	LLONG_MIN	__LLONG_MIN	/* min for a long long */
+#define	_POSIX2_BC_BASE_MAX	99
+#define	_POSIX2_BC_DIM_MAX	2048
+#define	_POSIX2_BC_SCALE_MAX	99
+#define	_POSIX2_BC_STRING_MAX	1000
+#define	_POSIX2_CHARCLASS_NAME_MAX 14
+#define	_POSIX2_COLL_WEIGHTS_MAX 2
+#define	_POSIX2_EQUIV_CLASS_MAX	2
+#define	_POSIX2_EXPR_NEST_MAX	32
+#define	_POSIX2_LINE_MAX	2048
+#define	_POSIX2_RE_DUP_MAX	255
+#endif
 #endif
 
-#if __POSIX_VISIBLE || __XSI_VISIBLE
-#define	SSIZE_MAX	__SSIZE_MAX	/* max value for an ssize_t */
+#if __POSIX_VISIBLE >= 199309
+#define	_POSIX_AIO_LISTIO_MAX	2
+#define	_POSIX_AIO_MAX		1
+#define	_POSIX_DELAYTIMER_MAX	32
+#define	_POSIX_MQ_OPEN_MAX	8
+#define	_POSIX_MQ_PRIO_MAX	32
+#define	_POSIX_RTSIG_MAX	8
+#define	_POSIX_SEM_NSEMS_MAX	256
+#define	_POSIX_SEM_VALUE_MAX	32767
+#define	_POSIX_SIGQUEUE_MAX	32
+#define	_POSIX_TIMER_MAX	32
+
+#define	_POSIX_CLOCKRES_MIN	20000000
 #endif
 
-#if __POSIX_VISIBLE >= 200112 || __XSI_VISIBLE
-#define	SIZE_T_MAX	__SIZE_T_MAX	/* max value for a size_t */
-
-#define	OFF_MAX		__OFF_MAX	/* max value for an off_t */
-#define	OFF_MIN		__OFF_MIN	/* min value for an off_t */
+#if __POSIX_VISIBLE >= 199506
+#define	_POSIX_THREAD_DESTRUCTOR_ITERATIONS 4
+#define	_POSIX_THREAD_KEYS_MAX	128
+#define	_POSIX_THREAD_THREADS_MAX 64
 #endif
 
-#if __BSD_VISIBLE
-#define	GID_MAX		UINT_MAX	/* max value for a gid_t */
-#define	UID_MAX		UINT_MAX	/* max value for a uid_t */
+#if __POSIX_VISIBLE >= 200112
+#define	_POSIX_HOST_NAME_MAX	255
+#define	_POSIX_LOGIN_NAME_MAX	9
+#define	_POSIX_SS_REPL_MAX	4
+#define	_POSIX_SYMLINK_MAX	255
+#define	_POSIX_SYMLOOP_MAX	8
+#define	_POSIX_TRACE_EVENT_NAME_MAX 30
+#define	_POSIX_TRACE_NAME_MAX	8
+#define	_POSIX_TRACE_SYS_MAX	8
+#define	_POSIX_TRACE_USER_EVENT_MAX 32
+#define	_POSIX_TTY_NAME_MAX	9
 
-#define	UQUAD_MAX	(__UQUAD_MAX)	/* max value for a uquad_t */
-#define	QUAD_MAX	(__QUAD_MAX)	/* max value for a quad_t */
-#define	QUAD_MIN	(__QUAD_MIN)	/* min value for a quad_t */
+#define	_POSIX_RE_DUP_MAX	_POSIX2_RE_DUP_MAX
+#endif
+
+#if __XSI_VISIBLE || __POSIX_VISIBLE >= 200809
+#define	NL_ARGMAX		99	/* max # of position args for printf */
+#define	NL_MSGMAX		32767
+#define	NL_SETMAX		255
+#define	NL_TEXTMAX		2048
 #endif
 
 #if __XSI_VISIBLE
-#define	LONG_BIT	__LONG_BIT
-#define	WORD_BIT	__WORD_BIT
+#define	_XOPEN_IOV_MAX		16
+#define	_XOPEN_NAME_MAX		255
+#define	_XOPEN_PATH_MAX		1024
+#define	PASS_MAX		128	/* _PASSWORD_LEN from <pwd.h> */
+
+#define	NL_LANGMAX		31	/* max LANG name length */
+#define	NL_NMAX			1
 #endif
 
-#if __POSIX_VISIBLE
-#define	MQ_PRIO_MAX	64
-#endif
+#define	MB_LEN_MAX		6	/* 31-bit UTF-8 */
 
-# ifdef _MB_LEN_MAX
-#  define MB_LEN_MAX  _MB_LEN_MAX
-# else
-#  define MB_LEN_MAX    16    // XXX: Bogus value
-# endif
-
-/* Minimum and maximum values a `signed long long int' can hold.  */
-#undef LONG_LONG_MIN
-#define LONG_LONG_MIN (-LONG_LONG_MAX - 1LL)
-#undef LONG_LONG_MAX
-#define LONG_LONG_MAX __LONG_LONG_MAX__
-
-/* Maximum value an `unsigned long long int' can hold.  (Minimum is 0).  */
-#undef ULONG_LONG_MAX
-#define ULONG_LONG_MAX (LONG_LONG_MAX * 2ULL + 1ULL)
+#include <sys/limits.h>
 
 #if __POSIX_VISIBLE
 #include <sys/syslimits.h>
 #endif
 
-#endif /* !_SYS_LIMITS_H_ */
+#endif /* !_LIMITS_H_ */

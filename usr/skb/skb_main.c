@@ -41,18 +41,18 @@ typedef void (*alt_free_t)(void *p);
 extern alt_free_t alt_free;
 typedef void *(*alt_realloc_t)(void *p, size_t bytes);
 extern alt_realloc_t alt_realloc;
-static void init_dmalloc(void)
-{
-    alt_malloc = &dlmalloc;
-    alt_free = &dlfree;
-    alt_realloc = &dlrealloc;
-}
+//static void init_dmalloc(void)
+//{
+//    alt_malloc = &dlmalloc;
+//    alt_free = &dlfree;
+//    alt_realloc = &dlrealloc;
+//}
 
 int main(int argc, char**argv)
 {
     errval_t err;
     vfs_init();
-    init_dmalloc();
+//    init_dmalloc();
     // we'll be needing this...
     vfs_mkdir("/tmp");
     chdir(ECLIPSE_DIR);

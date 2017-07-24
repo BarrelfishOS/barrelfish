@@ -26,8 +26,9 @@
   build application {
     target = "driverdomain",
     cFiles = [ "main.c"],
-    addModules = ["drivermodule"],
     addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-    addLibraries = libDeps [ "driverkit" ]
+    addLibraries = libDeps [ "driverkit", "thc" ],
+    addModules = ["fdif_module", "sdma_module", "cm2_module", "twl6030_module", "mmchs_module"],
+    architectures = ["armv7"]
   }
 ]

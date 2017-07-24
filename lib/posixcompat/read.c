@@ -10,13 +10,15 @@
 
 #include <unistd.h>
 #include <vfs/vfs_fd.h>
+#include <sys/socket.h>
 #include <lwip/sys.h>
 #include <lwip/sockets.h>
 #include <vfs/fdtab.h>
 #include "posixcompat.h"
 #include "pty.h"
 
-int read(int fd, void *buf, size_t len)
+__weak_reference(read, _read);
+ssize_t read(int fd, void *buf, size_t len)
 {
     int ret;
     struct fdtab_entry *e = fdtab_get(fd);

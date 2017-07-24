@@ -263,7 +263,7 @@ static inline uint32_t good_rand(int32_t x)
  * introduced by the L.C.R.N.G.  Note that the initialization of randtbl[]
  * for default usage relies on values produced by this routine.
  */
-void srandom(unsigned long x)
+void srandom(unsigned int x)
 {
 	int i, lim;
 
@@ -350,7 +350,7 @@ void srandomdev(void)
  * word boundary; otherwise a bus error will occur. Even so, lint will
  * complain about mis-alignment, but you should disregard these messages.
  */
-char *initstate(unsigned long seed, char *arg_state, long n)
+char *initstate(unsigned int seed, char *arg_state, size_t n)
 	/* unsigned long seed;		/\* seed for R.N.G. *\/ */
 	/* char *arg_state;		/\* pointer to state array *\/ */
 	/* long n;				/\* # bytes of state info *\/ */

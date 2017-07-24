@@ -8,6 +8,7 @@
  */
 
 #include <unistd.h>
+#include <sys/socket.h>
 #include <barrelfish/barrelfish.h>
 
 int pipe(int pipefd[2])

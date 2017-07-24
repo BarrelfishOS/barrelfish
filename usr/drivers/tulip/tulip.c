@@ -19,7 +19,7 @@
 #include <dev/tulip_dev.h>
 #include <pci/pci.h>
 #include <net_queue_manager/net_queue_manager.h>
-#include <ipv4/lwip/inet.h>
+#include <lwip/inet.h>
 
 #include "tulip.h"
 
@@ -58,7 +58,7 @@ static void print_csrs(void)
 {
     char buf[4096];
     if (tulip_pr(buf, 4095, &csrs) < 4095) {
-	printf("Not enough buffer to print registers: edit %s line %d", 
+	printf("Not enough buffer to print registers: edit %s line %d",
 	       __FILE__, __LINE__ -2);
     } else {
 	printf("%s\n", buf);
@@ -109,10 +109,10 @@ static uint16_t srom_read16(uint32_t addr, uint32_t addrBits)
         uint8_t b = srom_read_preamble[i];
 	// srom_base_cmd | (uint32_t)(b >> 4));    delay(3);
 	csr9 = tulip_CSR9_DATA_insert(csr9, b >> 4);
-        tulip_CSR9_wr(&csrs, csr9); 
+        tulip_CSR9_wr(&csrs, csr9);
 	// srom_base_cmd | (uint32_t)(b & 0x0f));  delay(3);
 	csr9 = tulip_CSR9_DATA_insert(csr9, b & 0x0f);
-        tulip_CSR9_wr(&csrs, csr9); 
+        tulip_CSR9_wr(&csrs, csr9);
     }
 
     // Write address to be read
@@ -122,13 +122,13 @@ static uint16_t srom_read16(uint32_t addr, uint32_t addrBits)
         bit <<= 2;
         
 	csr9 = tulip_CSR9_DATA_insert(csr9, bit | 0x01);
-        tulip_CSR9_wr(&csrs, csr9); // srom_base_cmd | bit | 0x01);        
+        tulip_CSR9_wr(&csrs, csr9); // srom_base_cmd | bit | 0x01);
         delay(3);
 	csr9 = tulip_CSR9_DATA_insert(csr9, bit | 0x03);
-        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | bit | 0x03);        
+        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | bit | 0x03);
         delay(3);
 	csr9 = tulip_CSR9_DATA_insert(csr9, bit | 0x01);
-        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | bit | 0x01);        
+        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | bit | 0x01);
         delay(3);
     }
 
@@ -137,12 +137,12 @@ static uint16_t srom_read16(uint32_t addr, uint32_t addrBits)
     for (i = 7; i >= 0; --i)
     {
 	csr9 = tulip_CSR9_DATA_insert(csr9, 0x03);
-        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x03);              
+        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x03);
         delay(3);
-        r |= ((tulip_CSR9_DATA_rdf(&csrs) & 0x08) >> 3) << i;         
+        r |= ((tulip_CSR9_DATA_rdf(&csrs) & 0x08) >> 3) << i;
         delay(3);
 	csr9 = tulip_CSR9_DATA_insert(csr9, 0x01);
-        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x01);              
+        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x01);
         delay(3);
     }
 
@@ -150,18 +150,18 @@ static uint16_t srom_read16(uint32_t addr, uint32_t addrBits)
     for (i = 15; i >= 8; --i)
     {
 	csr9 = tulip_CSR9_DATA_insert(csr9, 0x03);
-        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x03);              
+        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x03);
         delay(3);
-        r |= ((tulip_CSR9_DATA_rdf(&csrs) & 0x08) >> 3) << i;         
+        r |= ((tulip_CSR9_DATA_rdf(&csrs) & 0x08) >> 3) << i;
         delay(3);
 	csr9 = tulip_CSR9_DATA_insert(csr9, 0x01);
-        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x01);              
+        tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd | 0x01);
         delay(3);
     }
 
     // Finish up
     csr9 = tulip_CSR9_DATA_insert(csr9, 0x00);
-    tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd);                         
+    tulip_CSR9_wr(&csrs, csr9); //srom_base_cmd);
     delay(3);
 
     return (uint16_t)r;
@@ -215,7 +215,7 @@ static void *contig_alloc(size_t bufsize, lpaddr_t *pa)
         return NULL;
     }
     
-    r = vspace_map_one_frame_attr(&va, bufsize, frame, 
+    r = vspace_map_one_frame_attr(&va, bufsize, frame,
 				  VREGION_FLAGS_READ_WRITE, NULL, NULL);
     if (err_is_fail(r)) {
         TU_DEBUG(r, "vspace_map_one_frame_attr");
@@ -355,13 +355,13 @@ static errval_t ethernet_send_packets(struct client_closure* cl)
 #if 0
     // What is all this?  The next three lines pull information out of
     // the client closure, and are part of the *new* networking design
-    // (as of 3/2013). 
+    // (as of 3/2013).
     struct shared_pool_private *spp = cl->spp_ptr;
     struct slot_data *sld = &spp->sp->slot_list[cl->tx_index].d;
     uint64_t rtpbuf = sld->no_pbufs;
 
     // This is the legacy code, which dealt directly with pbufs.  This
-    // needs to be converted. 
+    // needs to be converted.
     TU_DEBUG("tulip: send_packet %d called\n", p->tot_len);
     tulip_TDES_t volatile tdes = TXDESC_AT(0);
     uint8_t * volatile txpkt = txbufs + BUFFER_OFFSET(0, 1);
@@ -384,7 +384,7 @@ static errval_t ethernet_send_packets(struct client_closure* cl)
         thread_yield();
     }
     TU_DEBUG("tulip: send complete\n");
-#endif 
+#endif
     return SYS_ERR_OK;
 }
 
@@ -438,7 +438,7 @@ static void tulip_handle_interrupt(void *arg)
                 uint8_t * volatile rxpkt = rxbufs + BUFFER_OFFSET(0, 1);
 #if 0
                 dump_pkt(rxpkt, tulip_RDES_FL_extract(rdes0));
-#endif            
+#endif
         	/* Ensures that netd is up and running */
         	if(waiting_for_netd()){
 		    TU_DEBUG("still waiting for netd to reg buf\n");
@@ -452,7 +452,7 @@ static void tulip_handle_interrupt(void *arg)
         }
         
         csr5 = tulip_CSR5_rd(&csrs);
-    } while(tulip_CSR5_NIS_extract(csr5));    
+    } while(tulip_CSR5_NIS_extract(csr5));
     
     //print_csrs();
 }
@@ -486,7 +486,7 @@ static void tulip_init(void)
     srom = read_srom();
     memcpy(mac_address, srom+20, 6);
     TU_DEBUG("MAC Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
-        mac_address[0], mac_address[1], mac_address[2], 
+        mac_address[0], mac_address[1], mac_address[2],
         mac_address[3], mac_address[4], mac_address[5]);
 
     // Build the transmit and receive descriptors
@@ -524,11 +524,11 @@ static void tulip_init(void)
         
     }
 #endif
-    ethersrv_init("tulip", 
+    ethersrv_init("tulip",
 		  0, // assumed queue id
 		  ethernet_get_mac_address,
 		  ethernet_send_packets,
-		  ethernet_tx_slots_count, 
+		  ethernet_tx_slots_count,
 		  ethernet_handle_free_tx_slot);
 }
 
@@ -548,11 +548,11 @@ static errval_t legacy_tulip_driver_init(void)
     }
     TU_DEBUG("connected to pci\n");
 
-    return pci_register_legacy_driver_irq(tulip_init, 
+    return pci_register_legacy_driver_irq(tulip_init,
 					  TULIP_PORTBASE,
-					  TULIP_PORTEND, 
+					  TULIP_PORTEND,
 					  TULIP_IRQ,
-					  tulip_handle_interrupt, 
+					  tulip_handle_interrupt,
 					  NULL);
 }
 
@@ -578,4 +578,3 @@ int main(int argc, char *argv[])
         }
     }
 }
-

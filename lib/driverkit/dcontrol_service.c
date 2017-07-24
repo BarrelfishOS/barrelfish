@@ -115,7 +115,7 @@ static void rpc_export_cb(void *st, errval_t err, iref_t iref) {
     assert(bfi->name != NULL);
 
     if (err_is_fail(err)) {
-        DRIVERKIT_DEBUG("Exporting control interface for %s failed.", bfi->name);
+        DRIVERKIT_DEBUG("Exporting control interface for %s failed.\n", bfi->name);
         err = err_push(err, DRIVERKIT_ERR_CONTROL_IFACE_EXPORT);
     }
     else {
@@ -124,7 +124,7 @@ static void rpc_export_cb(void *st, errval_t err, iref_t iref) {
         assert (r > 0);
         err = nameservice_register(service_name, iref);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Can't register control interface with nameserver.");
+            DEBUG_ERR(err, "Can't register control interface with nameserver.\n");
             err = err_push(err, DRIVERKIT_ERR_CONTROL_IFACE_EXPORT);
         }
         else {
@@ -151,6 +151,8 @@ static void rpc_export_cb(void *st, errval_t err, iref_t iref) {
 static errval_t rpc_connect_cb(void *st, struct dcontrol_binding *b)
 {
     struct bfdriver_instance* bfi = (struct bfdriver_instance*) st;
+    assert(bfi != NULL);
+    
     DRIVERKIT_DEBUG("Got a new connection for controlling driver instance %s.\n", bfi->name);
     b->rx_vtbl = rpc_rx_vtbl;
     b->st = st;

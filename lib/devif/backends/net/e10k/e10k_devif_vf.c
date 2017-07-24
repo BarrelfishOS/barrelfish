@@ -16,7 +16,6 @@
 #include <pci/pci.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/debug.h>
-#include <ipv4/lwip/inet.h>
 #include <acpi_client/acpi_client.h>
 
 
@@ -635,5 +634,3 @@ bool e10k_vf_can_create_queue(void)
     }
     return false;
 }
-
-

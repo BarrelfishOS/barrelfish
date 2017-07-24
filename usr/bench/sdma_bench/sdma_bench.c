@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
+
 #define MIN_FRAME_BITS 12 // 4KB
 #define MAX_FRAME_BITS 25 // 32MB
 

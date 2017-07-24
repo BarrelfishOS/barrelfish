@@ -280,6 +280,20 @@ arch_init(struct arm_core_data *boot_core_data,
     /* disable counter overflow interrupts (just in case) */
     __asm volatile ("mcr p15, 0, %0, C9, C14, 2\n\t" :: "r"(0x8000000f));
 
+    MSG("Enabling VFP\n");
+    // full access to cp10 and cp11
+    __asm volatile ("ldr r0, =(0xf << 20)\n"
+                    "mcr p15, 0, r0, c1, c0, 2\n");
+    // enable floating-point extensions
+    __asm volatile ("mov r3, #0x40000000\n"
+                    "vmsr fpexc, r3\n");
+
+    // uint32_t mvfr0, mvfr1;
+    // __asm volatile ("vmrs %0, mvfr0\n"
+    //                 "vmrs %1, mvfr1\n"
+    //                 : "=r" (mvfr0), "=r" (mvfr1));
+    // MSG("VFP:  MVFR0=%08x  MVFR1=%08x\n", mvfr0, mvfr1);
+
     MSG("Setting coreboot spawn handler\n");
     coreboot_set_spawn_handler(CPU_ARM7, platform_boot_aps);
 

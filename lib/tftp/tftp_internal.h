@@ -265,7 +265,7 @@ static inline size_t set_block_no(void *buf, uint16_t blockno) {
  * Sending generic messages
  * ------------------------------------------------------------------------------
  */
-errval_t tftp_send_ack(struct udp_pcb *pcb, uint32_t blockno,
-                       struct ip_addr *addr, u16_t port,
-                       struct pbuf *p, void *payload);
+errval_t tftp_send_ack(struct net_socket *socket, uint32_t blockno,
+                       struct in_addr addr, uint16_t port,
+                       void *payload);
 #endif /* TFTP_INTERNAL_H_ */

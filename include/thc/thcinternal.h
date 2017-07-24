@@ -40,7 +40,7 @@ struct awe_t {
   enum awe_status status;
 
   // Stack which is allocated if awe is caller yields to this AWE.
-  void  *lazy_stack; 
+  void  *lazy_stack;
 
   // Link from an AWE to the per-thread state for the thread it
   // runs in.
@@ -58,7 +58,7 @@ struct awe_t {
 
 /***********************************************************************/
 
-// Definition of a finish block's data structure.  
+// Definition of a finish block's data structure.
 //
 // Finish blocks are held on a linked list threaded through the start_node
 // and end_node fields.  The blocks dynamically nested within a given
@@ -74,7 +74,7 @@ struct finish_list_t {
 };
 
 struct finish_t {
-  void           *old_sp;    /* stack pointer when entering do {} finish */ 
+  void           *old_sp;    /* stack pointer when entering do {} finish */
   unsigned long   count;
   awe_t          *finish_awe;
   int             fb_kind;
@@ -197,7 +197,7 @@ extern int _end_text_nx;
 
 /* Macro to force callee-saves to be spilled to the stack */
 
-#if defined(__x86_64__) 
+#if defined(__x86_64__)
 #define KILL_CALLEE_SAVES()						\
   __asm__ volatile ("" : : : "rbx", "r12", "r13", "r14", "r15",         \
 		    "memory", "cc")
@@ -242,7 +242,7 @@ extern int _end_text_nx;
                          "memory")
 
 #else
-#error "Need definition of KILL_CALLEE_SAVES" 
+#error "Need definition of KILL_CALLEE_SAVES"
 #endif
 
 #define __WORD_SIZE (sizeof(void*))
@@ -254,15 +254,15 @@ extern int _end_text_nx;
 
 /***********************************************************************/
 
-#if defined(__x86_64__) 
+#if defined(__x86_64__)
 /* Force args on stack - there must be a better way of doing this, but */
 /* regparam(0) doesn't work on x86_64                                  */
 #define FORCE_ARGS_STACK      void*__a, void*__b, void*__c, void*__d, \
                               void*__e, void*__f,
 #define FORCE_ARGS_STACK_CALL NULL, NULL, NULL, NULL, NULL, NULL,
-#elif defined(__i386__)                             
-#define FORCE_ARGS_STACK      
-#define FORCE_ARGS_STACK_CALL 
+#elif defined(__i386__)
+#define FORCE_ARGS_STACK
+#define FORCE_ARGS_STACK_CALL
 #elif defined(__arm__) || defined(__aarch64__)
 #define FORCE_ARGS_STACK assert(0 && "THC not yet implemented on ARM")
 #define FORCE_ARGS_STACK_CALL assert(0 && "THC not yet implemented on ARM")
@@ -276,9 +276,9 @@ extern int _end_text_nx;
 #define FORCE_FRAME_POINTER_USE                                         \
     /* Do a zero byte alloca to force local variable access via ebp  */ \
     /* Note, this does not add any code (even with -O0.              */ \
-    __builtin_alloca(0)                                                
+    __builtin_alloca(0)
 
-#if defined(__x86_64__) 
+#if defined(__x86_64__)
 #define GET_STACK_POINTER(STACK_PTR)					\
   __asm__ volatile ("movq %%rsp, %0       \n\t"				\
 		    : "=m"(STACK_PTR) : )

@@ -17,15 +17,20 @@
 #include "lwip/ip.h"
 #include "lwip/dhcp.h"
 #include "lwip/prot/ethernet.h"
+#include "lwip/timeouts.h"
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
+#include <barrelfish/waitset.h>
+#include <barrelfish/waitset_chan.h>
 
 #include <net/net_filter.h>
 #include <net_interfaces/flags.h>
 #include "networking_internal.h"
 
 struct net_state state = {0};
+struct waitset_chanstate net_loopback_poll_channel;
+struct deferred_event net_lwip_timer;
 
 #define NETWORKING_DEFAULT_QUEUE_ID 0
 #define NETWORKING_BUFFER_COUNT (4096 * 3)
@@ -61,6 +66,35 @@ static void int_handler(void* args)
     struct net_state *st = devq_get_state(args);
 
     net_if_poll(&st->netif);
+    net_lwip_timeout();
+}
+
+static void net_loopback_poll(void *arg)
+{
+    netif_poll_all();
+    net_lwip_timeout();
+}
+
+void net_if_trigger_loopback(void)
+{
+    errval_t err;
+    
+    err = waitset_chan_trigger(&net_loopback_poll_channel);
+    assert(err_is_ok(err));
+}
+
+void net_lwip_timeout(void)
+{
+    errval_t err;
+
+    sys_check_timeouts();
+    deferred_event_cancel(&net_lwip_timer);
+    uint32_t delay = sys_timeouts_sleeptime();
+    if (delay != 0xffffffff) {
+        err = deferred_event_register(&net_lwip_timer, get_default_waitset(),
+            delay * 1000, MKCLOSURE((void (*)(void *))net_lwip_timeout, NULL));
+        assert(err_is_ok(err));
+    }
 }
 
 static errval_t create_loopback_queue (struct net_state *st, uint64_t* queueid,
@@ -214,7 +248,7 @@ static errval_t networking_poll_st(struct net_state *st)
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *q,
+static errval_t networking_init_with_queue_st(struct net_state *st, struct devq *q,
                                               net_flags_t flags)
 {
     errval_t err;
@@ -244,6 +278,7 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
         goto out_err1;
     }
 
+    deferred_event_init(&net_lwip_timer);
     /* initialize the device queue */
     NETDEBUG("initializing LWIP...\n");
     lwip_init();
@@ -260,16 +295,17 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
         goto out_err1;
     }
 
+    if (!(flags & NET_FLAGS_NO_NET_FILTER)) {
+        NETDEBUG("initializing hw filter...\n");
 
-    NETDEBUG("initializing hw filter...\n");
-
-    err = net_filter_init(&st->filter, st->cardname);
-    if (err_is_fail(err)) {
-        USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+        err = net_filter_init(&st->filter, st->cardname);
+        if (err_is_fail(err)) {
+            USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+        }
     }
 
     NETDEBUG("setting default netif...\n");
-   // netif_set_default(&st->netif);
+    netif_set_default(&st->netif);
 
     NETDEBUG("adding RX buffers\n");
     for (int i = 0; i < NETWORKING_BUFFER_RX_POPULATE; i++) {
@@ -295,10 +331,10 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
             DEBUG_ERR(err,  "failed to start the ARP service\n");
         }
     } else {
-        /* get IP from dhcpd */
-        err = dhcpd_query(flags);
+        /* get static IP config */
+        err = net_config_static_ip_query(flags);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to start DHCP.\n");
+            DEBUG_ERR(err, "failed to set IP.\n");
         }
 
         err = arp_service_subscribe();
@@ -306,6 +342,11 @@ static errval_t networking_init_with_queue_st(struct net_state *st,struct devq *
             DEBUG_ERR(err, "failed to subscribte the ARP service\n");
         }
     }
+
+    waitset_chanstate_init(&net_loopback_poll_channel, CHANTYPE_OTHER);
+    net_loopback_poll_channel.persistent = true;
+    err = waitset_chan_register(get_default_waitset(), &net_loopback_poll_channel,
+                               MKCLOSURE(net_loopback_poll, NULL));
 
     NETDEBUG("initialization complete.\n");
 
@@ -455,7 +496,7 @@ errval_t networking_poll(void)
  *
  * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
  */
-errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
+errval_t networking_install_ip_filter(bool tcp, struct in_addr *src,
                                       uint16_t src_port, uint16_t dst_port)
 {
     errval_t err;
@@ -466,16 +507,16 @@ errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
     struct net_filter_state *st = state.filter;
 
     // get current config
-    ip_addr_t dst_ip;
-    err = dhcpd_get_ipconfig(&dst_ip, NULL, NULL);
+    struct in_addr dst_ip;
+    err = netif_get_ipconfig(&dst_ip, NULL, NULL);
     if (err_is_fail(err)) {
         return err;
     }
     
     struct net_filter_ip ip = {
         .qid = state.queueid,
-        .ip_src = (uint32_t) src->addr,
-        .ip_dst = (uint32_t) dst_ip.addr,
+        .ip_src = (uint32_t) src->s_addr,
+        .ip_dst = (uint32_t) dst_ip.s_addr,
         .port_dst = dst_port,
         .port_src = src_port,
     };
@@ -499,7 +540,7 @@ errval_t networking_install_ip_filter(bool tcp, ip_addr_t* src,
  *
  * @return SYS_ERR_OK on success, NET_FILTER_ERR_* on failure
  */
-errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src,
+errval_t networking_remove_ip_filter(bool tcp, struct in_addr *src,
                                      uint16_t src_port, uint16_t dst_port)
 {
 
@@ -511,16 +552,16 @@ errval_t networking_remove_ip_filter(bool tcp, ip_addr_t* src,
     struct net_filter_state *st = state.filter;
 
     // get current config
-    ip_addr_t dst_ip;
-    err = dhcpd_get_ipconfig(&dst_ip, NULL, NULL);
+    struct in_addr dst_ip;
+    err = netif_get_ipconfig(&dst_ip, NULL, NULL);
     if (err_is_fail(err)) {
         return err;
     }
     
     struct net_filter_ip ip = {
         .qid = state.queueid,
-        .ip_src = (uint32_t) src->addr,
-        .ip_dst = (uint32_t) dst_ip.addr,
+        .ip_src = (uint32_t) src->s_addr,
+        .ip_dst = (uint32_t) dst_ip.s_addr,
         .port_dst = dst_port,
         .port_src = src_port,
     };

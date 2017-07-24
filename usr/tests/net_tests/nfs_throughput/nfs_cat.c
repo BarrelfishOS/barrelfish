@@ -22,7 +22,6 @@
 // Specific for barrelfish
 #include <barrelfish/barrelfish.h>
 #include <vfs/vfs.h>
-#include <lwip/init.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/waitset.h>
 #include <netbench/netbench.h>
@@ -49,25 +48,26 @@ static int cat(char *path)
     	printf("Could not stat file %s\n", path);
     }
     printf("Reading %d bytes from %s.\n", (int)info.size, path);
-    void *buf = malloc(info.size);
+    void *buf = malloc(10485760);
     assert(buf);
 
     uint64_t start = rdtsc();
-    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);
 
-	err = vfs_read(vh, buf, info.size, &size);
-	if (err_is_fail(err)) {
-		// XXX: Close any files that might be open
-		DEBUG_ERR(err, "error reading file");
-		return 0;
-	}
-	assert(info.size == size);
-	filesize += size;
+    for (; filesize != info.size;) {
+    	err = vfs_read(vh, buf, 10485760, &size);
+    	if (err_is_fail(err)) {
+    		// XXX: Close any files that might be open
+    		DEBUG_ERR(err, "error reading file");
+    		return 0;
+    	}
+        debug_printf("%s: %ld:%ld\n", __func__, filesize, info.size);
+    	filesize += size;
+    }
+    assert(info.size == filesize);
 
     // record stop time
     uint64_t stop = rdtsc();
     printf("Everything done\n");
-    lwip_print_interesting_stats();
     double speed = ((filesize/in_seconds(stop - start))/(1024 * 1024));
     if (speed < 50) {
         printf("Warning: NFS throughput too low!! [%f]\n", speed);
@@ -86,6 +86,7 @@ static int cat(char *path)
 
 int main(int argc, char**argv)
 {
+    errval_t err;
     vfs_init();
 
     if(argc < 3) {
@@ -95,10 +96,11 @@ int main(int argc, char**argv)
         exit(EXIT_FAILURE);
     }
 
-    errval_t err = vfs_mkdir(MOUNT_DIR);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "vfs_mount");
-    }
+// don't have to do this, MOUNT_DIR is already there
+//    err = vfs_mkdir(MOUNT_DIR);
+//    if (err_is_fail(err)) {
+//        DEBUG_ERR(err, "vfs_mount");
+//    }
 
     err = vfs_mount(MOUNT_DIR, argv[1]);
     if(err_is_fail(err)) {

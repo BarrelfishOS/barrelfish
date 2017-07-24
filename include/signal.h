@@ -1,20 +1,6 @@
-/*
- * Copyright (c) 2007, 2008, 2009, 2011, ETH Zurich.
- * All rights reserved.
- *
- * This file is distributed under the terms in the attached LICENSE file.
- * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
- */
-
 /*-
- * Copyright (c) 1982, 1986, 1989, 1991, 1993
- *      The Regents of the University of California.  All rights reserved.
- * (c) UNIX System Laboratories, Inc.
- * All or some portions of this file are derived from material licensed
- * to the University of California by American Telephone and Telegraph
- * Co. or Unix System Laboratories, Inc. and are reproduced herein with
- * the permission of UNIX System Laboratories, Inc.
+ * Copyright (c) 1991, 1993
+ *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,7 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -40,190 +26,103 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *      @(#)signal.h    8.4 (Berkeley) 5/4/95
+ *	@(#)signal.h	8.3 (Berkeley) 3/30/94
  * $FreeBSD$
  */
 
-#ifndef BARRELFISH_SIGNAL_H_
-#define BARRELFISH_SIGNAL_H_
+#ifndef _SIGNAL_H_
+#define	_SIGNAL_H_
 
 #include <sys/cdefs.h>
 #include <sys/_types.h>
-#include <sys/_sigset.h>
-
-__BEGIN_DECLS
-
-#define SIGHUP          1       /* hangup */
-#define SIGINT          2       /* interrupt */
-#define SIGQUIT         3       /* quit */
-#define SIGILL          4       /* illegal instr. (not reset when caught) */
-#define SIGTRAP         5       /* trace trap (not reset when caught) */
-#define SIGABRT         6       /* abort() */
-#define SIGIOT          SIGABRT /* compatibility */
-#define SIGEMT          7       /* EMT instruction */
-#define SIGFPE          8       /* floating point exception */
-#define SIGKILL         9       /* kill (cannot be caught or ignored) */
-#define SIGBUS          10      /* bus error */
-#define SIGSEGV         11      /* segmentation violation */
-#define SIGSYS          12      /* non-existent system call invoked */
-#define SIGPIPE         13      /* write on a pipe with no one to read it */
-#define SIGALRM         14      /* alarm clock */
-#define SIGTERM         15      /* software termination signal from kill */
-#define SIGURG          16      /* urgent condition on IO channel */
-#define SIGSTOP         17      /* sendable stop signal not from tty */
-#define SIGTSTP         18      /* stop signal from tty */
-#define SIGCONT         19      /* continue a stopped process */
-#define SIGCHLD         20      /* to parent on child stop or exit */
-#define SIGTTIN         21      /* to readers pgrp upon background tty read */
-#define SIGTTOU         22      /* like TTIN if (tp->t_local&LTOSTOP) */
-#define SIGIO           23      /* input/output possible signal */
-#define SIGXCPU         24      /* exceeded CPU time limit */
-#define SIGXFSZ         25      /* exceeded file size limit */
-#define SIGVTALRM       26      /* virtual time alarm */
-#define SIGPROF         27      /* profiling time alarm */
-#define SIGWINCH        28      /* window size changes */
-#define SIGINFO         29      /* information request */
-#define SIGUSR1         30      /* user defined signal 1 */
-#define SIGUSR2         31      /* user defined signal 2 */
-#define SIGTHR          32      /* reserved by thread library. */
-#define SIGLWP          SIGTHR
-
-#define SIGRTMIN        65
-#define SIGRTMAX        126
-
-#define NSIG            32      /* number of old signals (counting 0) */
-
-#if __POSIX_VISIBLE || __XSI_VISIBLE
-#define SA_NOCLDSTOP    0x0008  /* do not generate SIGCHLD on child stop */
-#endif /* __POSIX_VISIBLE || __XSI_VISIBLE */
-
-#if __XSI_VISIBLE
-#define SA_ONSTACK      0x0001  /* take signal on signal stack */
-#define SA_RESTART      0x0002  /* restart system call on signal return */
-#define SA_RESETHAND    0x0004  /* reset to SIG_DFL when taking signal */
-#define SA_NODEFER      0x0010  /* don't mask the signal we're delivering */
-#define SA_NOCLDWAIT    0x0020  /* don't keep zombies around */
-#define SA_SIGINFO      0x0040  /* signal handler with SA_SIGINFO args */
+#include <sys/signal.h>
+#if __POSIX_VISIBLE >= 200112 || __XSI_VISIBLE
+#include <machine/ucontext.h>
+#include <sys/_ucontext.h>
 #endif
 
-/* Adjusted to linux, has unused sa_restorer field and unsigned long
-   sa_flags; relatively unimportant though.  */
-/* Type of a signal handler.  */
-typedef void (*__sighandler_t)(int);
+#if __BSD_VISIBLE
+/*
+ * XXX should enlarge these, if only to give empty names instead of bounds
+ * errors for large signal numbers.
+ */
+extern const char * const sys_signame[NSIG];
+extern const char * const sys_siglist[NSIG];
+extern const int sys_nsig;
+#endif
 
-/* The type used in newlib sources.  */
-typedef __sighandler_t _sig_func_ptr;
-
-#define SIG_ERR ((_sig_func_ptr) -1)
-#define SIG_DFL ((_sig_func_ptr) 0)
-#define SIG_IGN ((_sig_func_ptr) 1)
-#define SIG_HOLD ((_sig_func_ptr)3)
-
+#if __POSIX_VISIBLE >= 200112 || __XSI_VISIBLE
 #ifndef _PID_T_DECLARED
 typedef	__pid_t		pid_t;
 #define	_PID_T_DECLARED
 #endif
-
-typedef void (*signalhandler_t)(int);
-
-#ifndef _SIGSET_T_DECLARED
-#define _SIGSET_T_DECLARED
-typedef __sigset_t      sigset_t;
 #endif
 
-union sigval {
-        /* Members as suggested by Annex C of POSIX 1003.1b. */
-        int     sival_int;
-        void    *sival_ptr;
-        /* 6.0 compatibility */
-        int     sigval_int;
-        void    *sigval_ptr;
-};
+#if __POSIX_VISIBLE || __XSI_VISIBLE
+struct pthread;		/* XXX */
+typedef struct pthread *__pthread_t;
+#if !defined(_PTHREAD_T_DECLARED) && __POSIX_VISIBLE >= 200809
+typedef __pthread_t pthread_t;
+#define	_PTHREAD_T_DECLARED
+#endif
+#endif /* __POSIX_VISIBLE || __XSI_VISIBLE */
 
-typedef struct __siginfo {
-        int     si_signo;               /* signal number */
-        int     si_errno;               /* errno association */
-        /*
-         * Cause of signal, one of the SI_ macros or signal-specific
-         * values, i.e. one of the FPE_... values for SIGFPE.  This
-         * value is equivalent to the second argument to an old-style
-         * FreeBSD signal handler.
-         */
-        int     si_code;                /* signal code */
-        __pid_t si_pid;                 /* sending process */
-        __uid_t si_uid;                 /* sender's ruid */
-        int     si_status;              /* exit value */
-        void    *si_addr;               /* faulting instruction */
-        union sigval si_value;          /* signal value */
-        union   {
-                struct {
-                        int     _trapno;/* machine specific trap code */
-                } _fault;
-                struct {
-                        int     _timerid;
-                        int     _overrun;
-                } _timer;
-                struct {
-                        int     _mqd;
-                } _mesgq;
-                struct {
-                        long    _band;          /* band event for SIGPOLL */
-                } _poll;                        /* was this ever used ? */
-                struct {
-                        long    __spare1__;
-                        int     __spare2__[7];
-                } __spare__;
-        } _reason;
-} siginfo_t;
+__BEGIN_DECLS
+int	raise(int);
 
-#define si_trapno       _reason._fault._trapno
-#define si_timerid      _reason._timer._timerid
-#define si_overrun      _reason._timer._overrun
-#define si_mqd          _reason._mesgq._mqd
-#define si_band         _reason._poll._band
+#if __POSIX_VISIBLE || __XSI_VISIBLE
+int	kill(__pid_t, int);
+int	pthread_kill(__pthread_t, int);
+int	pthread_sigmask(int, const __sigset_t * __restrict,
+	    __sigset_t * __restrict);
+int	sigaction(int, const struct sigaction * __restrict,
+	    struct sigaction * __restrict);
+int	sigaddset(sigset_t *, int);
+int	sigdelset(sigset_t *, int);
+int	sigemptyset(sigset_t *);
+int	sigfillset(sigset_t *);
+int	sigismember(const sigset_t *, int);
+int	sigpending(sigset_t *) __nonnull(1);
+int	sigprocmask(int, const sigset_t * __restrict, sigset_t * __restrict);
+int	sigsuspend(const sigset_t *) __nonnull(1);
+int	sigwait(const sigset_t * __restrict, int * __restrict) __nonnull_all;
+#endif
 
-/* struct sigaction notes from POSIX:
- *
- *  (1) Routines stored in sa_handler should take a single int as
- *      their argument although the POSIX standard does not require this.
- *  (2) The fields sa_handler and sa_sigaction may overlap, and a conforming
- *      application should not use both simultaneously.
- */
-struct sigaction {
-  int         sa_flags;       /* Special flags to affect behavior of signal */
-  sigset_t    sa_mask;        /* Additional set of signals to be blocked */
-                              /*   during execution of signal-catching */
-                              /*   function. */
-  union {
-    _sig_func_ptr _handler;  /* SIG_DFL, SIG_IGN, or pointer to a function */
-    void      (*_sigaction)( int, siginfo_t *, void * );
-  } _signal_handlers;
-};
+#if __POSIX_VISIBLE >= 199506 || __XSI_VISIBLE >= 600
+int	sigqueue(__pid_t, int, const union sigval);
 
-#define sa_handler    _signal_handlers._handler
-#define sa_sigaction  _signal_handlers._sigaction
+struct timespec;
+int	sigtimedwait(const sigset_t * __restrict, siginfo_t * __restrict,
+	    const struct timespec * __restrict);
+int	sigwaitinfo(const sigset_t * __restrict, siginfo_t * __restrict);
+#endif
 
-/*
- * Flags for sigprocmask:
- */
-#define SIG_BLOCK       1       /* block specified signal set */
-#define SIG_UNBLOCK     2       /* unblock specified signal set */
-#define SIG_SETMASK     3       /* set specified signal set */
+#if __XSI_VISIBLE
+int	killpg(__pid_t, int);
+int	sigaltstack(const stack_t * __restrict, stack_t * __restrict); 
+int	sighold(int);
+int	sigignore(int);
+int	sigpause(int);
+int	sigrelse(int);
+void	(*sigset(int, void (*)(int)))(int);
+int	xsi_sigpause(int);
+#endif
 
-signalhandler_t signal(int sugnum, signalhandler_t handler);
-int kill(pid_t pid, int sig);
-int sigprocmask(int how, const sigset_t *set, sigset_t *oset);
+#if __XSI_VISIBLE >= 600
+int	siginterrupt(int, int);
+#endif
 
-int sigaddset(sigset_t *set, int signo);
-int sigdelset(sigset_t *set, int signo);
-int sigemptyset(sigset_t *set);
-int sigfillset(sigset_t *set);
-int sigismember(const sigset_t *set, int signo);
-int __sigaction(int signum, const struct sigaction *act,
-              struct sigaction *oldact);
-#define sigaction(a,b,c) __sigaction(a,b,c)
-int raise(int sig);
-int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
+#if __POSIX_VISIBLE >= 200809
+void	psignal(int, const char *);
+#endif
+
+#if __BSD_VISIBLE
+int	sigblock(int);
+int	sigreturn(const struct __ucontext *);
+int	sigsetmask(int);
+int	sigstack(const struct sigstack *, struct sigstack *);
+int	sigvec(int, struct sigvec *, struct sigvec *);
+#endif
 __END_DECLS
 
-#endif // BARRELFISH_SIGNAL_H_
+#endif /* !_SIGNAL_H_ */

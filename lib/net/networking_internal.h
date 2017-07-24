@@ -57,7 +57,6 @@ struct net_state {
 
     /* DHCP timer events */
     uint64_t dhcp_ticks;
-    uint64_t dhcp_triggerid;
     struct periodic_event dhcp_timer;
     bool dhcp_done;
     bool dhcp_running;

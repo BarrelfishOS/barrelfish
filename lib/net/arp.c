@@ -20,12 +20,12 @@
 #include <lwip/opt.h>
 #include <lwip/netif.h>
 #include <lwip/timeouts.h>
-#include "include/net/netif.h"
+#include <net/netif.h>
 
 #include <netif/etharp.h>
 
+#include <if/octopus_defs.h>
 #include <octopus/octopus.h>
-#include <octopus_server/service.h>
 #include <octopus/trigger.h>
 
 

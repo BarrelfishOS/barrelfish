@@ -433,7 +433,7 @@ out:
     return reterr;
 }
 
-static errval_t truncate(void *st, vfs_handle_t handle, size_t bytes)
+static errval_t ramfs_truncate(void *st, vfs_handle_t handle, size_t bytes)
 {
     struct ramfs_handle *h = handle;
     struct ramfs_client *cl = st;
@@ -714,7 +714,7 @@ static struct vfs_ops ramfsops_non_bulk = {
     .remove = ramfs_remove,
     .read = read,
     .write = write,
-    .truncate = truncate,
+    .truncate = ramfs_truncate,
     .seek = seek,
     .tell = tell,
     .stat = stat,
@@ -732,7 +732,7 @@ static struct vfs_ops ramfsops_bulk = {
     .remove = ramfs_remove,
     .read = read_bulk,
     .write = write_bulk,
-    .truncate = truncate,
+    .truncate = ramfs_truncate,
     .seek = seek,
     .tell = tell,
     .stat = stat,

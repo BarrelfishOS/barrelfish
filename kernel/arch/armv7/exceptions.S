@@ -86,8 +86,11 @@
     .endif
     str     \spsr_reg, [\context, #(CPSR_REG * 4)]
     str     lr, [\context, #(PC_REG * 4)]
-    add     \spsr_reg, \context, #(LR_REG * 4)
-    stmda   \spsr_reg, {r4-r14}^
+    add     \spsr_reg, \context, #(R4_REG * 4)
+    stmia   \spsr_reg!, {r4-r14}^
+    add     \spsr_reg, #8
+    vstmia  \spsr_reg!, {d0-d15}
+    vstmia  \spsr_reg!, {d16-d31}
     add     \spsr_reg, \context, #(R3_REG * 4)
     pop     {r4-r7}                         // Pop spilled scratch registers
     stmda   \spsr_reg!, {r4-r7}             // And Save them
@@ -278,12 +281,12 @@ $swi_user:
     save_context r0, r3                     // r0 = save area, r3 = scratch
     enter_sys r3
     // Removing these two instructions: they don't do anything
-    // useful. 
+    // useful.
     //  ldr     r11, [r0, #48]                  // context->fp
     //  ldr     lr, [r0, #60]                   // context->lr
     // Now we call sys_syscall:
     // __attribute__((noreturn))
-    // void sys_syscall(arch_registers_state_t* context, 
+    // void sys_syscall(arch_registers_state_t* context,
     //                  uint32_t disabled,
     //                  struct dispatcher_shared_generic *disp);
     //  r0  = address of area context was saved to
@@ -322,7 +325,7 @@ $pabt_kernel:
     // {r0-r3} spilled to stack
     sub     r2, sp, #(NUM_REGS * 4)         // Reserve stack space for save
     save_context r2, r3                     // r2 = save_area
-    mov     r1, lr                          // r1 = faulting pc        
+    mov     r1, lr                          // r1 = faulting pc
     mov     r0, #ARM_EVECTOR_PABT
     enter_sys r3
     ldr r3, got_fatal_kernel
@@ -381,8 +384,8 @@ $irq_user:
     addne   r0, r2, #OFFSETOF_DISP_DISABLED_AREA
     save_context    r0, r3                  // r0 = save area
     enter_sys       r3
-    // Call: void handle_irq(arch_registers_state_t* save_area, 
-    //                       uintptr_t fault_pc, 
+    // Call: void handle_irq(arch_registers_state_t* save_area,
+    //                       uintptr_t fault_pc,
     //                       struct dispatcher_shared_generic *disp)
     //     __attribute__((noreturn));
     ldr r3, got_handle_irq
@@ -393,8 +396,8 @@ $irq_kernel:
     mov r0, #0
     add sp, sp, #16                         // Discard scratch registers
     enter_sys r3
-    // Call: void handle_irq_kernel(arch_registers_state_t* NULL, 
-    //                              uintptr_t fault_pc, 
+    // Call: void handle_irq_kernel(arch_registers_state_t* NULL,
+    //                              uintptr_t fault_pc,
     //                              struct dispatcher_shared_generic *disp)
     //     __attribute__((noreturn));
     ldr r3, got_kernel_irq
@@ -422,8 +425,8 @@ $fiq_user:
     enter_sys       r3
     mov     lr, #0
     mov     r11, #0
-    // Call: void handle_fiq(arch_registers_state_t* save_area, 
-    //                       uintptr_t fault_pc, 
+    // Call: void handle_fiq(arch_registers_state_t* save_area,
+    //                       uintptr_t fault_pc,
     //                       struct dispatcher_shared_generic *disp)
     //     __attribute__((noreturn));
     ldr r3, got_handle_fiq
@@ -434,11 +437,50 @@ $fiq_kernel:
     add sp, sp, #16                         // Discard scratch registers
     mov r1, lr
     enter_sys       r3
-    // Call: void handle_fiq_kernel(arch_registers_state_t* save_area, 
+    // Call: void handle_fiq_kernel(arch_registers_state_t* save_area,
     //                              uintptr_t fault_pc)
     //     __attribute__((noreturn));
     ldr r3, got_kernel_fiq
     ldr pc, [PIC_REGISTER, r3]              // f(save_area, fault_pc)
+
+    .global do_resume
+do_resume:
+    clrex
+    // There is no SPSR in system mode, so switch to supervisor.
+    msr    CPSR_c, #(CPSR_IF_MASK | ARM_MODE_SVC)
+    // Load cpsr into LR and move regs to next entry (postindex op)
+    // LR = r14, used as scratch register.
+    // LDR = read word from memory
+    //        target register
+    //        /   use register containing "regs" as base register
+    //       /   /     post index: only base register is used for
+    //      /   /     /   addressing and the offset added afterwards
+    ldr    lr, [r0], #4
+    // set SPSR to value of lr == regs.cpsr
+    // restore cpsr
+    //        bits indicating SPSR
+    //       /      read from register lr
+    //      /      /
+    msr    spsr, lr
+    // Restore register r0 to r15, "^" means: cpsr := spsr
+    // Restore the non-banked registers.  Use LR as the index.
+    mov    lr, r0
+    //          will increment the base pointer
+    //         /
+    ldmia  lr!, {r0-r12}
+    // Restore the user stack pointer and link register.  n.b. LR is
+    // banked in SVC mode, so *our* LR isn't affected.  Also, this can't
+    // write back, so we've got to add the offset ourselves.
+    add lr, #5*4
+    vldmia lr!, {d0-d15}
+    vldmia lr, {d16-d31}
+    sub lr, #(5+32)*4
+    ldmia  lr, {r13, r14}^
+    // Load the (banked SVC) LR with the return address (add the offset
+    // that the last ldmia couldn't).
+    ldr    lr, [lr, #8]
+    // Exception return - LR_svc -> PC_usr, SPSR_svc -> CPSR
+    movs pc, lr
 
 /* Any load targets for the instructions above must be within the same 4k
  * page, so we flush constants here to make sure. */

@@ -820,6 +820,7 @@ errors driverkit DRIVERKIT_ERR_ {
     failure DRIVER_INIT          "There was a problem initializing the driver.",
     failure CONTROL_IFACE_EXPORT "Can't export control interface.",
     failure CONTROL_SERVICE_INIT "Failed to initialize control service.",
+    failure CAP_CAPACITY         "Cap capacity reached, can't send more.",
 };
 
 // errors in PCI/device handling

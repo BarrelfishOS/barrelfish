@@ -23,7 +23,7 @@ in
                     omitCFlags = [ "-Werror" ],
                     addCFlags =  [ "-Wno-redundant-decls",
                                    "-DBF_LWIP_CHAN_SUPPORT" ],
-                    addIncludes = [ "src/barrelfish" ],
+                    addIncludes = [ "src/barrelfish", "/include/lwip" ],
                     addLibraries = [ "netbench", "procon", "net_if_raw" ]
                   }
   ]

@@ -21,6 +21,7 @@
 #ifndef __ARMv8_TIMER_H_
 #define __ARMv8_TIMER_H_
 
+#include <barrelfish/types.h>
 #include <barrelfish_kpi/types.h>
 #include <barrelfish_kpi/platform.h>
 

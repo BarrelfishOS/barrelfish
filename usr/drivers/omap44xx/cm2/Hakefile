@@ -1,0 +1,25 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2013, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for omap44xx sd-card driver
+--
+--------------------------------------------------------------------------
+
+[
+    build library { target = "cm2_module",
+                    cFiles = [
+                        "cm2.c", "module.c", "service.c"
+                    ],
+                    mackerelDevices = [
+                        "omap/omap44xx_l3init_cm2"
+                    ],
+                    flounderDefs = [ "cm2" ],
+                    flounderBindings = [ "cm2" ],
+                    architectures = ["armv7"]
+    }
+]

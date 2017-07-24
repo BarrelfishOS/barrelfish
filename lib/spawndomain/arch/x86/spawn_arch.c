@@ -18,8 +18,8 @@
 #include <barrelfish/barrelfish.h>
 #include <spawndomain/spawndomain.h>
 #include <barrelfish/dispatcher_arch.h>
-#include "spawn.h"
 #include <elf/elf.h>
+#include "../../spawn.h"
 #include "../../arch.h"
 
 #if defined(__i386__)

@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include <barrelfish_kpi/types.h>
 #include <init.h>
 #include <offsets.h>
 #include <sysreg.h>
@@ -181,11 +182,11 @@ static void armv8_set_ttbr0(uint8_t el, lpaddr_t addr)
         case 3:
             //sysreg_write_ttbr0_el2(addr);
         case 2:
-            armv8_TTBR0_EL2_BADDR_wrf(NULL, addr);
-            armv8_TTBR0_EL1_BADDR_wrf(NULL, addr);
+            armv8_TTBR0_EL2_wr(NULL, addr);
+            armv8_TTBR0_EL1_wr(NULL, addr);
             break;
         case 1:
-            armv8_TTBR0_EL1_BADDR_wrf(NULL, addr);
+            armv8_TTBR0_EL1_wr(NULL, addr);
             break;
         default:
             assert("should not happen");
@@ -647,5 +648,3 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
         __asm volatile("wfi \n");
     }
 }
-
-

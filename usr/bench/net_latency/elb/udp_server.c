@@ -15,6 +15,7 @@
 #include <lwip/ip_addr.h>
 #include <netif/bfeth.h>
 #include <trace/trace.h>
+#include <arpa/inet.h>
 #include "tcp_server_bm.h"
 
 //called whenever a new datagram for that pcb arrived
@@ -154,4 +155,3 @@ int send_udp_message_client(void)
     }
     return 0;
 } // end function: send_message_client
-

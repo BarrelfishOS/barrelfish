@@ -147,8 +147,9 @@ errval_t driverkit_destroy(const char* name) {
  * \return      Error status of driver creation.
  */
 errval_t driverkit_create_driver(const char* cls, const char* name,
-                                 struct capref caps, uint64_t flags,
-                                 iref_t* device, iref_t* control)
+                                 struct capref* caps, size_t caps_len,
+                                 char** args, size_t args_len,
+                                 uint64_t flags, iref_t* device, iref_t* control)
 {
     assert(cls != NULL);
     assert(name != NULL);
@@ -174,7 +175,7 @@ errval_t driverkit_create_driver(const char* cls, const char* name,
     }
     inst->driver = drv;
 
-    err = drv->init(inst, name, flags, caps, device);
+    err = drv->init(inst, name, flags, caps, caps_len, args, args_len, device);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can't initialize the device");
         free_driver_instance(inst);
@@ -197,4 +198,17 @@ errval_t driverkit_create_driver(const char* cls, const char* name,
     collections_list_insert(instances, inst);
 
     return err;
+}
+
+
+errval_t driverkit_local_service_register(char* name, void* tbl)
+{
+    
+    return SYS_ERR_OK;
+}
+
+void* driverkit_local_service_lookup(char* name)
+{
+
+    return NULL;
 }

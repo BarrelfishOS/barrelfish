@@ -1,0 +1,31 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2007-2009, 2011, 2013, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+-- Attn: Systems Group.
+--
+-- Hakefile for lib/lwip
+--
+--------------------------------------------------------------------------
+
+
+let
+    subdirs = [ "src/core", "src/core/ipv4",  "src/netif",  "src/api" ]
+    
+    srcs = concat [ find cInDir sd | sd <- subdirs ]
+            ++ ["src/sys_arch.c", "src/barrelfish/pbuf_barrelfish.c" ]
+    --   ++ [ "src/netif/bfeth.c", "src/netif/etharp.c", "src/sys_arch.c" ]
+    srcs2 = filter (\x ->  not (Data.List.isInfixOf "pbuf.c" x)) srcs
+in
+  [ build library {
+        target = "lwip2",
+        cFiles = srcs2,
+        -- omitCFlags = [ "-Werror" ],
+        -- addCFlags =  [ "-Wno-redundant-decls", "-DBF_LWIP_CHAN_SUPPORT" ],
+        flounderBindings = [ "net_queue_manager", "net_ports", "net_ARP" ],
+        addIncludes = [ "src/include", "/include/lwip2" ]
+    }
+  ]

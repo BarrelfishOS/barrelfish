@@ -18,9 +18,10 @@
 #define PBIAS_IRQ (32+75)
 
 // initialize registers
-void ctrlmod_init(void);
+struct mmchs_driver_state;
+void ctrlmod_init(struct mmchs_driver_state*);
 // turn on sdmmc1 power
-void sdmmc1_enable_power(void);
+void sdmmc1_enable_power(struct mmchs_driver_state*);
 
 void pbias_handle_irq(void *args);
 

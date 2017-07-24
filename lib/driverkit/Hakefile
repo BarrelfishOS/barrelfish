@@ -17,6 +17,7 @@
         target = "driverkit",
         flounderDefs = ["ddomain", "dcontrol"],
         flounderBindings = ["ddomain", "dcontrol"],
+        flounderExtraBindings = [ ("ddomain", ["rpcclient"])],
         addLibraries = ["collections"],
         cFiles = (find withSuffices [".c"])
     }

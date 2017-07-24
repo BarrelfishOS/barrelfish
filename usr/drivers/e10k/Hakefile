@@ -16,7 +16,7 @@
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       flounderDefs = [ "e10k_vf", "e10k"],
                       addLibraries = libDeps [ "netQmng", "trace", "skb",
-                                               "pci" ]
+                                               "pci", "lwip" ]
                     },
 
   build application { target = "e10k_monolithic",
@@ -29,7 +29,7 @@
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = libDeps [ "netQmng", "pci", "contmng",
                                                "net_device_manager", "bench",
-                                               "trace", "skb" ]
+                                               "trace", "skb", "lwip" ]
                     },
   
   build library { target = "e10k",
@@ -38,7 +38,7 @@
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       flounderBindings = [ "net_queue_manager", "e10k", "e10k_vf" ],
                       flounderDefs = [ "e10k_vf", "e10k" ],
-                      addLibraries = libDeps [ "pci", "bench", "trace", "skb" ],
+                      addLibraries = libDeps [ "pci", "bench", "trace", "skb", "lwip" ],
                       addCFlags = [ "-DLIBRARY" ]
                     },
 
@@ -50,7 +50,7 @@
                       flounderExtraBindings = [ ("e10k_vf", ["rpcclient"]) ],
                       flounderDefs = [ "e10k_vf", "e10k"],
                       flounderExtraDefs = [ ("e10k_vf",["rpcclient"]) ],
-                      addLibraries = libDeps [ "pci", "bench", "trace", "skb" ],
+                      addLibraries = libDeps [ "pci", "bench", "trace", "skb", "lwip" ],
                       addCFlags = [ "-DLIBRARY", "-DVF" ]
                     },
 
@@ -66,7 +66,7 @@
                       mackerelDevices = [ "e10k", "e10k_q", "e10k_vf" ],
                       addLibraries = libDeps [ "netQmng", "pci", "contmng",
                                                "net_device_manager", "bench",
-                                               "trace", "skb" ],
+                                               "trace", "skb", "lwip" ],
                       addCFlags = [ "-DVF" ]
                     },
 
@@ -82,7 +82,7 @@
                       addIncludes  = [ "/lib/lwip-2.0.2/src/include/" ],
 
                       addLibraries = [ "pci", "contmng", "net_device_manager",
-                                       "bench", "trace", "skb" , "net"]
+                                       "bench", "trace", "skb" , "net", "lwip" ]
                     },
 
   build application { target = "e10k_queue_elb",
@@ -92,7 +92,7 @@
                       --flounderBindings = [ "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = libDeps ["ethernet_latency_benchmark", "bench",
-                                              "trace", "skb", "pci" ] },
+                                              "trace", "skb", "pci", "lwip" ] },
 
   build application { target = "e10k_mono_elb",
                       cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c",
@@ -104,7 +104,7 @@
                       addLibraries = libDeps [ "ethernet_latency_benchmark",
                                                "pci", "contmng", "trace",
                                                "net_device_manager", "bench",
-                                               "skb", "pci" ]
+                                               "skb", "pci", "lwip" ]
                     },
 
   build application { target = "e10k_queue_tlb",
@@ -114,8 +114,7 @@
                       --flounderBindings = [ "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = [ "tcp_latency_benchmark", "trace", "bench",
-                                       "lwip", "skb", "pci" ]
+                                       "lwip", "skb", "pci", "lwip" ]
                     }
 
 ]
-

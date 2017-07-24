@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <time.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
 #include <assert.h>

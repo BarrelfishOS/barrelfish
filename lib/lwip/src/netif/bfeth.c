@@ -69,6 +69,8 @@
 #include <idc_barrelfish.h>
 #include <mem_barrelfish.h>
 
+#include <arpa/inet.h>
+
 // 10MBit interface
 #define BFETH_NETSPEED  10000000
 

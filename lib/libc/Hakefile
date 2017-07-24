@@ -1,0 +1,56 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2017, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for libc
+--
+--------------------------------------------------------------------------
+
+let
+    arch_srcs "x86_64"  = [ "amd64/" ++ x | x <- ["gen/fabs.S", "gen/setjmp.S", "gen/_setjmp.S", "string/memcpy.S", "string/memset.S"]]
+    arch_srcs "k1om"    = [ "amd64/" ++ x | x <- ["gen/setjmp.S", "gen/_setjmp.S", "string/memcpy.S", "string/memset.S"]]
+    arch_srcs "armv7"   = [ "arm/" ++ x | x <- ["gen/setjmp.S", "string/memcpy.S", "string/memset.S", "aeabi/aeabi_vfp_double.S", "aeabi/aeabi_vfp_float.S"]]
+    arch_srcs "armv8"   = [ "aarch64/" ++ x | x <- ["gen/setjmp.S", "gen/fabs.S"]]
+    arch_srcs  x        = error ("Unknown architecture for libc: " ++ x)
+in
+
+[
+    build library {
+        target = "c",
+        assemblyFiles = arch_srcs arch,
+        addIncludes = [ "sys" ] ++ (case arch of
+                        "x86_64" ->  [ "amd64" ]
+                        "k1om" ->  [ "amd64" ]
+                        "armv7" ->  [ "arm" ]
+                        "armv8" ->  [ "aarch64" ]),
+        cFiles = [ "gen/assert.c" ] ++ case arch of
+                        "x86_64" ->  [ "amd64/gen/flt_rounds.c" ]
+                        "k1om" ->  [ "amd64/gen/flt_rounds.c", "arm/gen/fabs.c" ]
+                        "armv7" ->  [ "arm/gen/flt_rounds.c", "arm/gen/fabs.c", "arm/gen/arm_initfini.c",
+                            "arm/aeabi/aeabi_atexit.c", "arm/aeabi/aeabi_unwind_cpp.c",
+                            "arm/aeabi/aeabi_unwind_exidx.c" ]
+                        "armv8" ->  [ "aarch64/gen/flt_rounds.c" ],
+        addLibraries = [ "locale", "stdio", "string", "sys", "gdtoa", "libc_gdtoa", "stdlib", "libc_sys", "libc_gen", "vis", "libc_stdtime", "tzcode", "libc_inet" ],
+--        addLibraries = [
+--        "machine" -- put this first, so machine-specific symbols are found before generic ones
+--        , "ctype"
+--        , "search"
+--        , "string"
+--        , "argz"
+--        , "stdlib"
+--        , "stdio"
+        --  , "signal"
+--        , "time"
+--        , "locale"
+--        , "reent"
+--        , "errno"
+--        , "misc"
+--        , "sys"
+--        ],
+        omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ],
+        architectures = [arch]
+} | arch <- [ "x86_64", "k1om", "armv7", "armv8" ] ]

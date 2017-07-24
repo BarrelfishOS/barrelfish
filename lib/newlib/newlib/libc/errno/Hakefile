@@ -1,9 +1,0 @@
-[ build library {
-  target = "errno",
-  cFiles = [ "errno.c" ],
-  addCFlags = Config.newlibAddCFlags,
-  omitCFlags = [ "-Wmissing-prototypes",
-                 "-Wmissing-declarations",
-                 "-Wimplicit-function-declaration",
-                 "-Werror" ]
-}]

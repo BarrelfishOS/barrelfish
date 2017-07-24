@@ -18,7 +18,7 @@
 #include <debug.h>
 
 /* helper macros */
-#define ALIGN(val, align) (((val) + (align)-1) & ~((align)-1))
+#define DMA_ALIGN(val, align) (((val) + (align)-1) & ~((align)-1))
 
 /* DMA Descriptor flags */
 
@@ -92,7 +92,7 @@ errval_t dma_desc_alloc(uint32_t size,
 
     uint32_t ndesc = (1 << count);
 
-    size = ALIGN(size, align);
+    size = DMA_ALIGN(size, align);
 
     struct dma_descriptor *dma_desc = calloc(ndesc, sizeof(*dma_desc));
     if (dma_desc == NULL) {
@@ -271,4 +271,3 @@ struct dma_descriptor *dma_desc_get_next(struct dma_descriptor *desc)
 {
     return desc->next;
 }
-

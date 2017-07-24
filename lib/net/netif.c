@@ -15,12 +15,13 @@
 #include <barrelfish/barrelfish.h>
 #include <devif/queue_interface.h>
 #include <net_interfaces/flags.h>
+#include <octopus/octopus.h>
 
 
 #include <lwip/opt.h>
 #include <lwip/netif.h>
 #include <lwip/timeouts.h>
-#include "include/net/netif.h"
+#include <net/netif.h>
 
 #include <netif/etharp.h>
 
@@ -92,18 +93,26 @@ static err_t net_if_linkoutput(struct netif *netif, struct pbuf *p)
 
 static void net_if_status_cb(struct netif *netif)
 {
-    printf("ip_addr_cmp(&netif->ip_addr, IP_ADDR_ANY)=%u\n",
-            ip_addr_cmp(&netif->ip_addr, IP_ADDR_ANY));
     if (!ip_addr_cmp(&netif->ip_addr, IP_ADDR_ANY)) {
-
-        debug_printf("######################################\n");
-        debug_printf("# IP Addr %s\n", ip4addr_ntoa(netif_ip4_addr(netif)));
-        debug_printf("# GW Addr %s\n", ip4addr_ntoa(netif_ip4_gw(netif)));
-        debug_printf("# Netmask %s\n", ip4addr_ntoa(netif_ip4_netmask(netif)));
-        debug_printf("######################################\n");
+        printf("######################################\n");
+        printf("# IP Addr %s\n", ip4addr_ntoa(netif_ip4_addr(netif)));
+        printf("# GW Addr %s\n", ip4addr_ntoa(netif_ip4_gw(netif)));
+        printf("# Netmask %s\n", ip4addr_ntoa(netif_ip4_netmask(netif)));
+        printf("######################################\n");
 
         netif_set_default(netif);
         printf("setting default interface\n");
+
+        NETDEBUG("setting system ip config record to IP: %s\n",
+                ip4addr_ntoa(netif_ip4_addr(netif)));
+        /* register IP with octopus */
+        errval_t err;
+        err = oct_set(NET_CONFIG_CURRENT_IP_RECORD_FORMAT, netif_ip4_addr(netif)->addr,
+                      netif_ip4_gw(netif)->addr,
+                      netif_ip4_netmask(netif)->addr);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to set the DHCP record\n");
+        }
     }
 }
 
@@ -390,8 +399,6 @@ errval_t net_if_poll(struct netif *netif)
 
     errval_t err;
 
-    sys_check_timeouts();
-
     struct net_state *st = netif->state;
     if (st == NULL) {
         /* XXX: return an error code ?? */
@@ -515,10 +522,6 @@ errval_t net_if_poll(struct netif *netif)
             debug_printf("WARNING: got buffer without a flag\n");
         }
     }
-
-
-
-
     return SYS_ERR_OK;
 }
 
@@ -533,11 +536,13 @@ errval_t net_if_poll_all(void)
 
     errval_t err;
     struct netif *netif = netif_list;
-    while(netif) {
+    while (netif) {
         err = net_if_poll(netif);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to poll network interface");
         }
     }
+    netif_poll_all();
+    net_lwip_timeout();
     return SYS_ERR_OK;
 }

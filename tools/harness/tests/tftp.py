@@ -29,9 +29,7 @@ class TftpClientTest(TestCommon):
         modules.add_module("tests/tftpclient",
                 ['--server=tftp://10.110.4.4:69',
                  '--file=/%s/hello.txt' % tftpdir ])
-        modules.add_module("e1000n", ["auto"])
-        modules.add_module("NGD_mng", ["auto"])
-        modules.add_module("netd", ["auto"])
+        modules.add_module("e1000_net_sockets_server", ["auto"])
         return modules
 
     def get_finish_string(self):

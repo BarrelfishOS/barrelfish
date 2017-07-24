@@ -112,7 +112,7 @@ void handle_user_undef(lvaddr_t fault_address,
     union registers_arm resume_area;
 
     assert(dcb_current->disp_cte.cap.type == ObjType_Frame);
-    printk(LOG_WARN, "user undef fault%s in '%.*s': IP %" PRIuPTR "\n",
+    printk(LOG_WARN, "user undef fault%s in '%.*s': IP %p\n",
            dcb_current->disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
            disp->d.name, fault_address);
 

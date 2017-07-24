@@ -18,7 +18,7 @@ int getgroups(int size, gid_t grouplist[])
     return -1;
 }
 
-int setgroups(int size, gid_t grouplist[])
+int setgroups(int size, const gid_t grouplist[])
 {
     POSIXCOMPAT_DEBUG("Warning: setgroups(%d, ...) ignored\n", size);
     return 0;

@@ -15,8 +15,9 @@
 #ifndef KALUGA_DEBUG_H_
 #define KALUGA_DEBUG_H_
 
+//#define KALUGA_DEBUG_ON
 
-#if defined(KALUGA_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
+#if defined(KALUGA_DEBUG_ON) || defined(GLOBAL_DEBUG)
 #define KALUGA_DEBUG(x...) debug_printf(x)
 #else
 #define KALUGA_DEBUG(x...) ((void)0)

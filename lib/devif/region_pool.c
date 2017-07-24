@@ -55,7 +55,7 @@ errval_t region_pool_init(struct region_pool** pool)
 
     // Initialize region id offset
     (*pool)->region_offset = (rand() >> 12) ;
-    (*pool)->size = INIT_POOL_SIZE;    
+    (*pool)->size = INIT_POOL_SIZE;
 
     (*pool)->pool = calloc(INIT_POOL_SIZE, sizeof(struct region*));
     if ((*pool)->pool == NULL) {
@@ -152,12 +152,12 @@ static errval_t region_pool_grow(struct region_pool* pool)
  *
  * @param pool          The pool to add the region to
  * @param cap           The cap of the region
- * @param region_id     Return pointer to the region id 
+ * @param region_id     Return pointer to the region id
  *                      that is assigned by the pool
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
-errval_t region_pool_add_region(struct region_pool* pool, 
+errval_t region_pool_add_region(struct region_pool* pool,
                                 struct capref cap,
                                 regionid_t* region_id)
 {
@@ -173,7 +173,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
     // for now just loop over all entries
     for (int i = 0; i < pool->size; i++) {
         struct region* tmp;
-        tmp = pool->pool[i]; 
+        tmp = pool->pool[i];
    
         if (tmp == NULL) {
             continue;
@@ -243,7 +243,7 @@ errval_t region_pool_add_region(struct region_pool* pool,
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
-errval_t region_pool_add_region_with_id(struct region_pool* pool, 
+errval_t region_pool_add_region_with_id(struct region_pool* pool,
                                         struct capref cap,
                                         regionid_t region_id)
 {
@@ -282,7 +282,7 @@ errval_t region_pool_add_region_with_id(struct region_pool* pool,
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
-errval_t region_pool_remove_region(struct region_pool* pool, 
+errval_t region_pool_remove_region(struct region_pool* pool,
                                    regionid_t region_id,
                                    struct capref* cap)
 {
@@ -366,5 +366,3 @@ bool region_pool_buffer_check_bounds(struct region_pool* pool,
 
     return true;
 }
-
-

@@ -1,16 +1,6 @@
-/*
- * Copyright (c) 2012, ETH Zurich.
- * All rights reserved.
- *
- * This file is distributed under the terms in the attached LICENSE file.
- * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
- * Attn: Systems Group.
- */
-
 /*-
  * Copyright (c) 1992, 1993
- *  The Regents of the University of California.  All rights reserved.
+ *	The Regents of the University of California.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,73 +30,79 @@
  */
 
 #ifndef _SYS_SELECT_H_
-#define _SYS_SELECT_H_
-
-#include <vfs/fdtab.h> /* For FD_MAX */
+#define	_SYS_SELECT_H_
 
 #include <sys/cdefs.h>
-#include <sys/time.h>
 #include <sys/_types.h>
 
 #include <sys/_sigset.h>
+#include <sys/_timeval.h>
+#include <sys/timespec.h>
 
-typedef unsigned long   __fd_mask;
+typedef	unsigned long	__fd_mask;
 #if __BSD_VISIBLE
-typedef __fd_mask   fd_mask;
+typedef	__fd_mask	fd_mask;
 #endif
 
 #ifndef _SIGSET_T_DECLARED
-#define _SIGSET_T_DECLARED
-typedef __sigset_t  sigset_t;
+#define	_SIGSET_T_DECLARED
+typedef	__sigset_t	sigset_t;
 #endif
 
 /*
  * Select uses bit masks of file descriptors in longs.  These macros
  * manipulate such bit fields (the filesystem macros use chars).
+ * FD_SETSIZE may be defined by the user, but the default here should
+ * be enough for most uses.
  */
-#ifndef FD_SETSIZE
-#define FD_SETSIZE  MAX_FD
+#ifndef	FD_SETSIZE
+#define	FD_SETSIZE	1024
 #endif
 
-#define _NFDBITS    (sizeof(__fd_mask) * 8) /* bits per mask */
+#define	_NFDBITS	(sizeof(__fd_mask) * 8)	/* bits per mask */
 #if __BSD_VISIBLE
-#define NFDBITS     _NFDBITS
+#define	NFDBITS		_NFDBITS
 #endif
 
 #ifndef _howmany
-#define _howmany(x, y)  (((x) + ((y) - 1)) / (y))
+#define	_howmany(x, y)	(((x) + ((y) - 1)) / (y))
 #endif
 
-typedef struct fd_set {
-    __fd_mask   __fds_bits[_howmany(FD_SETSIZE, _NFDBITS)];
+typedef	struct fd_set {
+	__fd_mask	__fds_bits[_howmany(FD_SETSIZE, _NFDBITS)];
 } fd_set;
 #if __BSD_VISIBLE
-#define fds_bits    __fds_bits
+#define	fds_bits	__fds_bits
 #endif
 
-#define __fdset_mask(n) ((__fd_mask)1 << ((n) % _NFDBITS))
-#define FD_CLR(n, p)    ((p)->__fds_bits[(n)/_NFDBITS] &= ~__fdset_mask(n))
+#define	__fdset_mask(n)	((__fd_mask)1 << ((n) % _NFDBITS))
+#define	FD_CLR(n, p)	((p)->__fds_bits[(n)/_NFDBITS] &= ~__fdset_mask(n))
 #if __BSD_VISIBLE
-#define FD_COPY(f, t)   (void)(*(t) = *(f))
+#define	FD_COPY(f, t)	(void)(*(t) = *(f))
 #endif
-#define FD_ISSET(n, p)  (((p)->__fds_bits[(n)/_NFDBITS] & __fdset_mask(n)) != 0)
-#define FD_SET(n, p)    ((p)->__fds_bits[(n)/_NFDBITS] |= __fdset_mask(n))
-#define FD_ZERO(p) do {                 \
-    fd_set *_p;                         \
-    __size_t _n;                        \
-                                        \
-    _p = (p);                           \
-    _n = _howmany(FD_SETSIZE, _NFDBITS);\
-    while (_n > 0)                      \
-        _p->__fds_bits[--_n] = 0;       \
+#define	FD_ISSET(n, p)	(((p)->__fds_bits[(n)/_NFDBITS] & __fdset_mask(n)) != 0)
+#define	FD_SET(n, p)	((p)->__fds_bits[(n)/_NFDBITS] |= __fdset_mask(n))
+#define	FD_ZERO(p) do {					\
+	fd_set *_p;					\
+	__size_t _n;					\
+							\
+	_p = (p);					\
+	_n = _howmany(FD_SETSIZE, _NFDBITS);		\
+	while (_n > 0)					\
+		_p->__fds_bits[--_n] = 0;		\
 } while (0)
 
+#ifndef _KERNEL
+
 __BEGIN_DECLS
+int pselect(int, fd_set *__restrict, fd_set *__restrict, fd_set *__restrict,
+	const struct timespec *__restrict, const sigset_t *__restrict);
 #ifndef _SELECT_DECLARED
-#define _SELECT_DECLARED
-int select(int maxfdp1, fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
-           struct timeval *timeout);
+#define	_SELECT_DECLARED
+/* XXX missing restrict type-qualifier */
+int	select(int, fd_set *, fd_set *, fd_set *, struct timeval *);
 #endif
 __END_DECLS
+#endif /* !_KERNEL */
 
 #endif /* _SYS_SELECT_H_ */

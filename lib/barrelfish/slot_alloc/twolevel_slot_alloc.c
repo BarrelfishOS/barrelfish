@@ -15,7 +15,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/core_state.h>
 #include "internal.h"
-#include "../../newlib/newlib/libc/include/stdlib.h"
+#include <stdlib.h>
 
 /**
  * \brief slot allocator

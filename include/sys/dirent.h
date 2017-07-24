@@ -12,28 +12,20 @@
 
 #include <sys/cdefs.h>
 
-// Depending on header include order, this may collide with the definition in
-// newlib's <dirent.h>  See open issue: https://code.systems.ethz.ch/T58#1169
-#ifndef NAME_MAX
-#define NAME_MAX 512
+#ifndef MAXNAMLEN
+#define MAXNAMLEN 512
 #endif
 
 struct dirent {
 //    long d_ino;
 //    off_t d_off;
 //    unsigned short d_reclen;
-    char d_name[NAME_MAX + 1];
+    char d_name[MAXNAMLEN + 1];
 };
 
 typedef struct {
     struct dirent dirent;
     void *vh; // really a vfs_handle_t
 } DIR;
-
-__BEGIN_DECLS
-DIR *opendir(const char *pathname);
-struct dirent *readdir(DIR* dir);
-int closedir(DIR *dir);
-__END_DECLS
 
 #endif

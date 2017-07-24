@@ -17,8 +17,7 @@
 
 #include <sys/cdefs.h>
 
-#include <lwip/err.h> // for err_t
-#include <lwip/ip_addr.h> // for struct ip_addr
+#include <net_sockets/net_sockets.h>
 #include <errors/errno.h>
 
 #include <nfs/xdr.h>
@@ -193,34 +192,34 @@ typedef void (*nfs_mkdir_callback_t)(void *arg, struct nfs_client *client,
 typedef void (*nfs_remove_callback_t)(void *arg, struct nfs_client *client,
                                       REMOVE3res *result);
 
-struct nfs_client *nfs_mount(struct ip_addr server, const char *path,
+struct nfs_client *nfs_mount(struct in_addr server, const char *path,
                              nfs_mount_callback_t callback, void *cbarg);
-err_t nfs_getattr(struct nfs_client *client, struct nfs_fh3 fh,
+errval_t nfs_getattr(struct nfs_client *client, struct nfs_fh3 fh,
                   nfs_getattr_callback_t callback, void *cbarg);
-err_t nfs_setattr(struct nfs_client *client, struct nfs_fh3 fh,
+errval_t nfs_setattr(struct nfs_client *client, struct nfs_fh3 fh,
                   sattr3 new_attributes, bool guarded,
                   nfs_setattr_callback_t callback, void *cbarg);
-err_t nfs_readdir(struct nfs_client *client, struct nfs_fh3 fh,
+errval_t nfs_readdir(struct nfs_client *client, struct nfs_fh3 fh,
                   cookie3 cookie, cookieverf3 cookieverf,
                   nfs_readdir_callback_t callback, void *cbarg);
-err_t nfs_readdirplus(struct nfs_client *client, struct nfs_fh3 fh,
+errval_t nfs_readdirplus(struct nfs_client *client, struct nfs_fh3 fh,
                       cookie3 cookie, cookieverf3 cookieverf,
                       nfs_readdirplus_callback_t callback, void *cbarg);
-err_t nfs_lookup(struct nfs_client *client, struct nfs_fh3 dirfh,
+errval_t nfs_lookup(struct nfs_client *client, struct nfs_fh3 dirfh,
                  const char *name, nfs_lookup_callback_t callback, void *cbarg);
-err_t nfs_access(struct nfs_client *client, struct nfs_fh3 fh, uint32_t access,
+errval_t nfs_access(struct nfs_client *client, struct nfs_fh3 fh, uint32_t access,
                  nfs_access_callback_t callback, void *cbarg);
-err_t nfs_read(struct nfs_client *client, struct nfs_fh3 fh, offset3 offset,
+errval_t nfs_read(struct nfs_client *client, struct nfs_fh3 fh, offset3 offset,
                count3 count, nfs_read_callback_t callback, void *cbarg);
-err_t nfs_write(struct nfs_client *client, struct nfs_fh3 fh, offset3 offset,
+errval_t nfs_write(struct nfs_client *client, struct nfs_fh3 fh, offset3 offset,
                 const void *data, count3 count, stable_how stable,
                 nfs_write_callback_t callback, void *cbarg);
-err_t nfs_create(struct nfs_client *client, struct nfs_fh3 dir,
+errval_t nfs_create(struct nfs_client *client, struct nfs_fh3 dir,
                  const char *name, bool guarded, sattr3 attributes,
                  nfs_create_callback_t callback, void *cbarg);
-err_t nfs_mkdir(struct nfs_client *client, struct nfs_fh3 dir, const char *name,
+errval_t nfs_mkdir(struct nfs_client *client, struct nfs_fh3 dir, const char *name,
                 sattr3 attributes, nfs_mkdir_callback_t callback, void *cbarg);
-err_t nfs_remove(struct nfs_client *client, struct nfs_fh3 dir,
+errval_t nfs_remove(struct nfs_client *client, struct nfs_fh3 dir,
                  const char *name, nfs_remove_callback_t callback,
                  void *cbarg);
 void nfs_destroy(struct nfs_client *client);

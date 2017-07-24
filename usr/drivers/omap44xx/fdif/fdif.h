@@ -18,10 +18,17 @@ void play_with_fdif(void);
 struct gimage {
   uint32_t       width;
   uint32_t       height;
-  uint32_t       bytes_per_pixel; /* 2:RGB16, 3:RGB, 4:RGBA */ 
+  uint32_t       bytes_per_pixel; /* 2:RGB16, 3:RGB, 4:RGBA */
   uint8_t    pixel_data[320 * 240];
 };
 
-#define FDIF_DEBUG(x...) printf("fdif: " x)
+//#define FDIF_DEBUG_ON 1
+
+#if defined(FDIF_DEBUG_ON) || defined(GLOBAL_DEBUG)
+#define FDIF_DEBUG(x...) debug_printf(x)
+#else
+#define FDIF_DEBUG(x...) ((void)0)
+#endif
+
 
 #endif // FDIF_H_

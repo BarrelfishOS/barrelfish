@@ -35,10 +35,9 @@
 
 // XXX: Global defs for Barrelfish: revisit for archs other than x86
 #ifdef BARRELFISH
-#   define _C99_SOURCE 1
-#   define _GLIBCXX_USE_C99_DYNAMIC 1
+//#   define _C99_SOURCE 1
 #	define __LITTLE_ENDIAN__	1
-#	define LIBCPP_HAS_NO_UNICODE_CHARS
+// #	define LIBCPP_HAS_NO_UNICODE_CHARS
 #endif
 
 #ifdef __LITTLE_ENDIAN__

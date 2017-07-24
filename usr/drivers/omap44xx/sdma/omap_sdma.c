@@ -25,11 +25,6 @@
 #include "omap_sdma.h"
 #include <maps/omap44xx_map.h>
 
-static omap44xx_sdma_t devsdma;
-static bool allocated_channel[OMAP44XX_SDMA_NUM_CHANNEL];
-
-static omap_sdma_irq_handler_t irq_callback;
-
 static inline errval_t omap_sdma_read_csr(omap44xx_sdma_dma4_csr_t csr)
 {
     if (omap44xx_sdma_dma4_csr_misaligned_adrs_err_extract(csr)) {
@@ -45,7 +40,8 @@ static inline errval_t omap_sdma_read_csr(omap44xx_sdma_dma4_csr_t csr)
 
 static void omap_sdma_irq_handler(void *arg)
 {
-    uint32_t irqstatus = omap44xx_sdma_dma4_irqstatus_line_rd(&devsdma, OMAP44XX_SDMA_IRQ_LINE);
+    struct sdma_driver_state* st = (struct sdma_driver_state*) arg;
+    uint32_t irqstatus = omap44xx_sdma_dma4_irqstatus_line_rd(&st->devsdma, OMAP44XX_SDMA_IRQ_LINE);
 
     for (omap_sdma_channel_t channel=0; channel<OMAP44XX_SDMA_NUM_CHANNEL; channel++) {
         bool active = (irqstatus >> channel) & 0x1;
@@ -54,7 +50,7 @@ static void omap_sdma_irq_handler(void *arg)
         SDMA_PRINT("interrupt on channel %u\n", channel);
 
         // read out status flags
-        omap44xx_sdma_dma4_csr_t csr = omap44xx_sdma_dma4_csr_rd(&devsdma, channel);
+        omap44xx_sdma_dma4_csr_t csr = omap44xx_sdma_dma4_csr_rd(&st->devsdma, channel);
 
         // check for errors
         errval_t err = omap_sdma_read_csr(csr);
@@ -62,27 +58,27 @@ static void omap_sdma_irq_handler(void *arg)
         if (err_is_ok(err)) {
             // no error found, check for "End of Block" event
             if(omap44xx_sdma_dma4_csr_block_extract(csr)) {
-                irq_callback(channel, err);
+                st->irq_callback(st, channel, err);
             }
         } else {
             // OMAP4460 Multimedia Device Silicon Errata, Revision A:
             // 1.7 sDMA Channel Is Not Disabled After A Transaction Error
             if (err_no(err) == OMAP_SDMA_ERR_TRANSACTION) {
                 // Workaround: disable channel by software
-                omap44xx_sdma_dma4_ccr_enable_wrf(&devsdma, channel, 0);
+                omap44xx_sdma_dma4_ccr_enable_wrf(&st->devsdma, channel, 0);
             }
 
-            irq_callback(channel, err);
+            st->irq_callback(st, channel, err);
         }
 
         // clear all read status flags
-        omap44xx_sdma_dma4_csr_wr(&devsdma, channel, csr);
+        omap44xx_sdma_dma4_csr_wr(&st->devsdma, channel, csr);
     }
 
     SDMA_PRINT("interrupt finished\n");
 
     // clear all set status bits
-    omap44xx_sdma_dma4_irqstatus_line_wr(&devsdma, OMAP44XX_SDMA_IRQ_LINE, irqstatus);
+    omap44xx_sdma_dma4_irqstatus_line_wr(&st->devsdma, OMAP44XX_SDMA_IRQ_LINE, irqstatus);
 }
 
 
@@ -103,9 +99,9 @@ static void omap_sdma_kernel_irq_handler(void)
 }
 #endif
 
-static void omap_sdma_irq_config(omap_sdma_channel_t channel)
+static void omap_sdma_irq_config(struct sdma_driver_state* st, omap_sdma_channel_t channel)
 {
-    omap44xx_sdma_dma4_cicr_t dma4_cicr = omap44xx_sdma_dma4_cicr_rd(&devsdma, channel);
+    omap44xx_sdma_dma4_cicr_t dma4_cicr = omap44xx_sdma_dma4_cicr_rd(&st->devsdma, channel);
 
     dma4_cicr = omap44xx_sdma_dma4_cicr_super_block_ie_insert(dma4_cicr, 0x0);
     dma4_cicr = omap44xx_sdma_dma4_cicr_drain_ie_insert(dma4_cicr, 0x0);
@@ -119,7 +115,7 @@ static void omap_sdma_irq_config(omap_sdma_channel_t channel)
     dma4_cicr = omap44xx_sdma_dma4_cicr_half_ie_insert(dma4_cicr, 0x0);
     dma4_cicr = omap44xx_sdma_dma4_cicr_drop_ie_insert(dma4_cicr, 0x0);
 
-    omap44xx_sdma_dma4_cicr_wr(&devsdma, channel, dma4_cicr);
+    omap44xx_sdma_dma4_cicr_wr(&st->devsdma, channel, dma4_cicr);
 }
 
 /**
@@ -307,7 +303,7 @@ static void inline omap_sdma_channel_conf_assert_transfer_conf(
  * but is it the callers responsibility to ensure that the configuration is
  * sane and valid.
  */
-void omap_sdma_set_channel_conf(omap_sdma_channel_t channel,
+void omap_sdma_set_channel_conf(struct sdma_driver_state* st, omap_sdma_channel_t channel,
                                 struct omap_sdma_channel_conf *conf)
 {
     // check transfer config and size parameters
@@ -321,48 +317,48 @@ void omap_sdma_set_channel_conf(omap_sdma_channel_t channel,
 
     // Channel Control Register
     omap44xx_sdma_dma4_ccr_t dma4_ccr;
-    dma4_ccr = omap44xx_sdma_dma4_ccr_rd(&devsdma, channel);
+    dma4_ccr = omap44xx_sdma_dma4_ccr_rd(&st->devsdma, channel);
     dma4_ccr = omap_sdma_channel_conf_ccr(dma4_ccr, conf);
-    omap44xx_sdma_dma4_ccr_wr(&devsdma, channel, dma4_ccr);
+    omap44xx_sdma_dma4_ccr_wr(&st->devsdma, channel, dma4_ccr);
 
     // Channel Color Register
     omap44xx_sdma_dma4_color_t dma4_color;
-    dma4_color = omap44xx_sdma_dma4_color_rd(&devsdma, channel);
+    dma4_color = omap44xx_sdma_dma4_color_rd(&st->devsdma, channel);
     dma4_color = omap_sdma_channel_conf_color(channel, conf);
-    omap44xx_sdma_dma4_color_wr(&devsdma, channel, dma4_color);
+    omap44xx_sdma_dma4_color_wr(&st->devsdma, channel, dma4_color);
 
     // Channel Link Control Register
     omap44xx_sdma_dma4_clnk_ctrl_t dma4_clnk_ctrl;
-    dma4_clnk_ctrl = omap44xx_sdma_dma4_clnk_ctrl_rd(&devsdma, channel);
+    dma4_clnk_ctrl = omap44xx_sdma_dma4_clnk_ctrl_rd(&st->devsdma, channel);
     dma4_clnk_ctrl = omap_sdma_channel_conf_clnk_ctrl(channel, conf);
-    omap44xx_sdma_dma4_clnk_ctrl_wr(&devsdma, channel, dma4_clnk_ctrl);
+    omap44xx_sdma_dma4_clnk_ctrl_wr(&st->devsdma, channel, dma4_clnk_ctrl);
 
     // Channel Source Destination Parameters
     omap44xx_sdma_dma4_csdp_t dma4_csdp;
-    dma4_csdp = omap44xx_sdma_dma4_csdp_rd(&devsdma, channel);
+    dma4_csdp = omap44xx_sdma_dma4_csdp_rd(&st->devsdma, channel);
     dma4_csdp = omap_sdma_channel_conf_csdp(channel, conf);
-    omap44xx_sdma_dma4_csdp_wr(&devsdma, channel, dma4_csdp);
+    omap44xx_sdma_dma4_csdp_wr(&st->devsdma, channel, dma4_csdp);
 
     // Channel Element Number
-    omap44xx_sdma_dma4_cen_wr(&devsdma, channel, conf->transfer_size.element_number);
+    omap44xx_sdma_dma4_cen_wr(&st->devsdma, channel, conf->transfer_size.element_number);
 
     // Channel Frame Number
-    omap44xx_sdma_dma4_cfn_wr(&devsdma, channel, conf->transfer_size.frame_number);
+    omap44xx_sdma_dma4_cfn_wr(&st->devsdma, channel, conf->transfer_size.frame_number);
 
     // Channel Source Element Index
-    omap44xx_sdma_dma4_csei_wr(&devsdma, channel, conf->src_conf.element_index);
+    omap44xx_sdma_dma4_csei_wr(&st->devsdma, channel, conf->src_conf.element_index);
     // Channel Source Frame Index
-    omap44xx_sdma_dma4_csfi_wr(&devsdma, channel, conf->src_conf.frame_index);
+    omap44xx_sdma_dma4_csfi_wr(&st->devsdma, channel, conf->src_conf.frame_index);
     // Channel Destination Element Index
-    omap44xx_sdma_dma4_cdei_wr(&devsdma, channel, conf->dst_conf.element_index);
+    omap44xx_sdma_dma4_cdei_wr(&st->devsdma, channel, conf->dst_conf.element_index);
     // Channel Destination Frame Index
-    omap44xx_sdma_dma4_cdfi_wr(&devsdma, channel, conf->dst_conf.frame_index);
+    omap44xx_sdma_dma4_cdfi_wr(&st->devsdma, channel, conf->dst_conf.frame_index);
 
     // Channel Source Start Address
-    omap44xx_sdma_dma4_cssa_wr(&devsdma, channel, conf->src_conf.start_address);
+    omap44xx_sdma_dma4_cssa_wr(&st->devsdma, channel, conf->src_conf.start_address);
 
     // Channel Source Destination Address
-    omap44xx_sdma_dma4_cdsa_wr(&devsdma, channel, conf->dst_conf.start_address);
+    omap44xx_sdma_dma4_cdsa_wr(&st->devsdma, channel, conf->dst_conf.start_address);
 }
 
 /**
@@ -374,42 +370,42 @@ void omap_sdma_set_channel_conf(omap_sdma_channel_t channel,
  * It is the callers responsibility to ensure that the channel was configured
  * properly before this function is called.
  */
-void omap_sdma_enable_channel(omap_sdma_channel_t channel, bool interrupt)
+void omap_sdma_enable_channel(struct sdma_driver_state* st, omap_sdma_channel_t channel, bool interrupt)
 {
     assert(channel < OMAP44XX_SDMA_NUM_CHANNEL);
 
     // clear all channel status flags
-    omap44xx_sdma_dma4_csr_wr(&devsdma, channel, 0xFFFFFFFF);
+    omap44xx_sdma_dma4_csr_wr(&st->devsdma, channel, 0xFFFFFFFF);
 
-    uint32_t irqenable = omap44xx_sdma_dma4_irqenable_rd(&devsdma, OMAP44XX_SDMA_IRQ_LINE);
+    uint32_t irqenable = omap44xx_sdma_dma4_irqenable_rd(&st->devsdma, OMAP44XX_SDMA_IRQ_LINE);
     if (interrupt) {
         // set channel
         irqenable |= 1 << channel;
         // reset irq status for this channel
-        omap44xx_sdma_dma4_irqstatus_line_wr(&devsdma, OMAP44XX_SDMA_IRQ_LINE, 1 << channel);
+        omap44xx_sdma_dma4_irqstatus_line_wr(&st->devsdma, OMAP44XX_SDMA_IRQ_LINE, 1 << channel);
     } else {
         // clear channel
         irqenable &= ~(1 << channel);
     }
-    omap44xx_sdma_dma4_irqenable_wr(&devsdma, OMAP44XX_SDMA_IRQ_LINE, irqenable);
+    omap44xx_sdma_dma4_irqenable_wr(&st->devsdma, OMAP44XX_SDMA_IRQ_LINE, irqenable);
 
-    omap44xx_sdma_dma4_ccr_enable_wrf(&devsdma, channel, 1);
+    omap44xx_sdma_dma4_ccr_enable_wrf(&st->devsdma, channel, 1);
 }
 
 /**
  * \brief Poll a enabled channel for completion of the transfer.
  */
-errval_t omap_sdma_poll_channel(omap_sdma_channel_t channel)
+errval_t omap_sdma_poll_channel(struct sdma_driver_state* st, omap_sdma_channel_t channel)
 {
     assert(channel < OMAP44XX_SDMA_NUM_CHANNEL);
 
     // interrupts should be disabled in polling mode
     assert((omap44xx_sdma_dma4_irqenable_rd(
-                &devsdma, OMAP44XX_SDMA_IRQ_LINE) & 1 << channel) == 0x0
+                &st->devsdma, OMAP44XX_SDMA_IRQ_LINE) & 1 << channel) == 0x0
     );
 
     for (;;) {
-        omap44xx_sdma_dma4_csr_t csr = omap44xx_sdma_dma4_csr_rd(&devsdma, channel);
+        omap44xx_sdma_dma4_csr_t csr = omap44xx_sdma_dma4_csr_rd(&st->devsdma, channel);
 
         errval_t err = omap_sdma_read_csr(csr);
 
@@ -425,13 +421,13 @@ errval_t omap_sdma_poll_channel(omap_sdma_channel_t channel)
  * \brief Allocate a SDMA channel. Will return an error if there are no channels
  * available.
  */
-errval_t omap_sdma_allocate_channel(omap_sdma_channel_t *channel)
+errval_t omap_sdma_allocate_channel(struct sdma_driver_state* st, omap_sdma_channel_t *channel)
 {
     assert(channel != NULL);
 
     for (omap_sdma_channel_t c = 0; c<OMAP44XX_SDMA_NUM_CHANNEL; c++) {
-        if (!allocated_channel[c]) {
-            allocated_channel[c] = true;
+        if (!st->allocated_channel[c]) {
+            st->allocated_channel[c] = true;
             *channel = c;
             return SYS_ERR_OK;
         }
@@ -442,10 +438,10 @@ errval_t omap_sdma_allocate_channel(omap_sdma_channel_t *channel)
 /**
  * \brief Frees a previously allocated SDMA channel.
  */
-void omap_sdma_free_channel(omap_sdma_channel_t channel)
+void omap_sdma_free_channel(struct sdma_driver_state* st, omap_sdma_channel_t channel)
 {
-    assert(allocated_channel[channel]);
-    allocated_channel[channel] = false;
+    assert(st->allocated_channel[channel]);
+    st->allocated_channel[channel] = false;
 }
 
 /**
@@ -459,19 +455,19 @@ void omap_sdma_free_channel(omap_sdma_channel_t channel)
  * an interrupt. The source channel and the the reason of the interrupt are
  * passed to the callback as an the argument.
  */
-errval_t omap_sdma_init(mackerel_addr_t dev_base, omap_sdma_irq_handler_t irq_cb)
+errval_t omap_sdma_init(struct sdma_driver_state* st, mackerel_addr_t dev_base, omap_sdma_irq_handler_t irq_cb)
 {
     // init global variables
     STATIC_ASSERT_SIZEOF(bool, 1);
-    memset(allocated_channel, false, OMAP44XX_SDMA_NUM_CHANNEL);
+    memset(st->allocated_channel, false, OMAP44XX_SDMA_NUM_CHANNEL);
 
-    omap44xx_sdma_initialize(&devsdma, dev_base);
+    omap44xx_sdma_initialize(&st->devsdma, dev_base);
 
     // check if we can read the revision
-    assert(omap44xx_sdma_dma4_revision_rd(&devsdma) == 0x10900);
+    assert(omap44xx_sdma_dma4_revision_rd(&st->devsdma) == 0x10900);
 
     assert(irq_cb != NULL);
-    irq_callback = irq_cb;
+    st->irq_callback = irq_cb;
 
     errval_t err = SYS_ERR_OK;
 #ifdef OMAP_SDMA_KERNELBENCH
@@ -489,18 +485,18 @@ errval_t omap_sdma_init(mackerel_addr_t dev_base, omap_sdma_irq_handler_t irq_cb
                             GIC_IRQ_EDGE_TRIGGERED, GIC_IRQ_N_TO_N);
 #else
     // in userspace, register normal interrupt handler
-    err = inthandler_setup_arm(omap_sdma_irq_handler, NULL, OMAP44XX_SDMA_IRQ);
+    err = inthandler_setup_arm(omap_sdma_irq_handler, st, OMAP44XX_SDMA_IRQ);
 #endif
 
     // set fifo depth to maximum burst size
-    omap44xx_sdma_dma4_gcr_max_channel_fifo_depth_wrf(&devsdma, 64);
+    omap44xx_sdma_dma4_gcr_max_channel_fifo_depth_wrf(&st->devsdma, 64);
 
     // configure error and interrupt handling of the device
     for(omap_sdma_channel_t channel = 0;
         channel < OMAP44XX_SDMA_NUM_CHANNEL;
         channel++)
     {
-        omap_sdma_irq_config(channel);
+        omap_sdma_irq_config(st, channel);
     }
 
     return err;

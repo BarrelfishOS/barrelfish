@@ -48,18 +48,44 @@ static struct bind_state {
  * \param flags   Flags for the driver instance.
  */
 static void create_handler(struct ddomain_binding* binding, const char* cls, size_t cls_len,
-                           const char* name, size_t nlen, struct capref cap, uint64_t flags) {
+                           const char* name, size_t nlen,
+                           const char* a1, size_t a1len, const char* a2, size_t a2len,
+                           const char* a3, size_t a3len, const char* a4, size_t a4len,
+                           struct capref cap1, struct capref cap2, struct capref cap3,
+                           struct capref cap4, struct capref cap5,  struct capref cap6,
+                           uint64_t flags) {
     DRIVERKIT_DEBUG("Driver domain got create message from kaluga for %s\n", cls);
 
     iref_t dev = 0, ctrl = 0;
-    errval_t err = driverkit_create_driver(cls, name, cap, flags, &dev, &ctrl);
+
+    static size_t NR_CAPS  = 6;
+    static size_t NR_ARGS = 4;
+
+    // This array is owned by the driver after create:
+    struct capref* cap_array = calloc(sizeof(struct capref), NR_CAPS);
+    cap_array[0] = cap1;
+    cap_array[1] = cap2;
+    cap_array[2] = cap3;
+    cap_array[3] = cap4;
+    cap_array[4] = cap5;
+    cap_array[5] = cap6;
+
+    char** args_array = calloc(sizeof(char*), 4);
+    args_array[0] = a1 != NULL ? strdup(a1) : NULL;
+    args_array[1] = a2 != NULL ? strdup(a2) : NULL;
+    args_array[2] = a3 != NULL ? strdup(a3) : NULL;
+    args_array[3] = a4 != NULL ? strdup(a4) : NULL;
+
+    DRIVERKIT_DEBUG("Instantiate driver\n");
+    errval_t err = driverkit_create_driver(cls, name, cap_array, NR_CAPS, args_array, NR_ARGS, flags, &dev, &ctrl);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga.");
+        DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga.\n");
     }
 
-    err = binding->tx_vtbl.create_response(binding, NOP_CONT, dev, ctrl, err);
+    DRIVERKIT_DEBUG("sending create response to kaluga\n");
+    err = ddomain_create_response__tx(binding, NOP_CONT, dev, ctrl, err);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Sending reply failed.");
+        USER_PANIC_ERR(err, "Sending reply failed.\n");
     }
 }
 
@@ -87,7 +113,7 @@ static void destroy_handler(struct ddomain_binding* binding, const char* name, s
  * Stubs table for functions to call on driver instance.
  */
 static const struct ddomain_rx_vtbl rpc_rx_vtbl = {
-    .create = create_handler,
+    .create_call = create_handler,
     .destroy_call = destroy_handler,
 };
 
@@ -122,7 +148,7 @@ out:
  * \param  connect_to iref where to connect.
  * \retval SYS_ERR_OK Connected to the driver manager.
  */
-errval_t ddomain_communication_init(iref_t connect_to)
+errval_t ddomain_communication_init(iref_t connect_to, uint64_t ident)
 {
     rpc_bind.err = SYS_ERR_OK;
     rpc_bind.is_done = false;
@@ -131,11 +157,15 @@ errval_t ddomain_communication_init(iref_t connect_to)
     if (err_is_fail(err)) {
         return err;
     }
-
+    DRIVERKIT_DEBUG("%s:%s:%d: Trying to connect to kaluga...\n", __FILE__, __FUNCTION__, __LINE__);
     // XXX: broken
     while (!rpc_bind.is_done) {
         messages_wait_and_handle_next();
     }
+
+    DRIVERKIT_DEBUG("%s:%s:%d: Send identify %"PRIu64"\n", __FILE__, __FUNCTION__, __LINE__, ident);
+    errval_t send_err = rpc_bind.binding->tx_vtbl.identify(rpc_bind.binding, NOP_CONT, ident);
+    assert(err_is_ok(send_err));
 
     return rpc_bind.err;
 }

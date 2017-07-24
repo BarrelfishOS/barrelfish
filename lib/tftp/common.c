@@ -13,7 +13,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
-#include <lwip/udp.h>
+#include <net_sockets/net_sockets.h>
 
 #include <tftp/tftp.h>
 #include "tftp_internal.h"
@@ -25,29 +25,20 @@
  * ------------------------------------------------------------------------------
  */
 
-errval_t tftp_send_ack(struct udp_pcb *pcb, uint32_t blockno,
-                       struct ip_addr *addr, u16_t port,
-                       struct pbuf *p, void *payload)
+errval_t tftp_send_ack(struct net_socket *socket, uint32_t blockno,
+                       struct in_addr addr, uint16_t port,
+                       void *payload)
 {
     TFTP_DEBUG_PACKETS("sending ack(%u)\n", blockno);
 
-    p->len = TFTP_MAX_MSGSIZE;
-    p->tot_len = TFTP_MAX_MSGSIZE;
-    p->payload = payload;
+    memset(payload, 0, sizeof(uint32_t) + sizeof(uint16_t));
 
-    memset(p->payload, 0, sizeof(uint32_t) + sizeof(uint16_t));
+    size_t length = set_opcode(payload, TFTP_OP_ACK);
+    length += set_block_no(payload + length, blockno);
 
-    size_t length = set_opcode(p->payload, TFTP_OP_ACK);
-    length += set_block_no(p->payload + length, blockno);
-
-    p->len = (uint16_t)length +1;
-    p->tot_len = (uint16_t)length+1;
-
-    int r = udp_sendto(pcb, p, addr, port);
-    if (r != ERR_OK) {
-        TFTP_DEBUG("send failed\n");
-    }
+    errval_t err;
+    err = net_send_to(socket, payload, length + 1, addr, port);
+    assert(err_is_ok(err));
 
     return SYS_ERR_OK;
 }
-
