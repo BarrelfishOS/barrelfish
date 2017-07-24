@@ -115,14 +115,17 @@ $ sockeye [options] file
 The available options are:
 \begin{description}
 \item[-P] Generate a Prolog file that can be loaded into the SKB.
-\item[-C] Just perform checks, do not compile.
-\item[-o] \varname{filename} The path to the output file (including the file extension)
+\item[-i] Add a Add a directory to the search path where Sockeye looks for imports.
+\item[-o] \varname{filename} The path to the output file
 \item[-h] show usage information
 \end{description}
 
 The backend (capital letter options) specified last takes precedence.
 
-The Sockeye file to compile is given via the \textit{file} parameter.
+Multiple directories can be added by giving the \texttt{-i} options multiple times.
+Sockeye will first look for files in the current directory and then check the given directories in the order they were given.
+
+The Sockeye file to compile is given via the \texttt{file} parameter.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
