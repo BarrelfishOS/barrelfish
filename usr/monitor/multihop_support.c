@@ -1281,7 +1281,7 @@ static void multihop_cap_send_request_handler(
     errval_t err;
     struct capability capability;
     intermon_caprep_t caprep;
-    coreid_t capowner;
+    coreid_t capowner = 0;
     memset(&caprep, 0, sizeof(caprep));
     bool null_cap = capref_is_null(cap);
 

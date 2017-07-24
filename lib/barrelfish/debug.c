@@ -138,8 +138,9 @@ void debug_printf(const char *fmt, ...)
     char str[256];
     size_t len;
 
-    if (me)
+    if (me) {
         snprintf(id, sizeof(id), "%"PRIuPTR, thread_get_id(me));
+    }
     len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%s\033[0m: ",
                    DISP_NAME_LEN, disp_name(), disp_get_core_id(), id);
     if (len < sizeof(str)) {

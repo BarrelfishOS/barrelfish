@@ -436,6 +436,7 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error allocating LDT segment for new thread");
         free_thread(newthread);
+        free(stack);
         return NULL;
     }
 #endif
@@ -1285,7 +1286,6 @@ void threads_prepare_to_span(dispatcher_handle_t newdh)
         acquire_spinlock(&thread_slabs_spinlock);
 
         while (slab_freecount(&thread_slabs) < MAX_THREADS - 1) {
-            struct capref frame;
             size_t size;
             void *buf;
             errval_t err;
@@ -1294,7 +1294,6 @@ void threads_prepare_to_span(dispatcher_handle_t newdh)
             err = vspace_mmu_aware_map(&thread_slabs_vm, blocksize,
                                        &buf, &size);
             if (err_is_fail(err)) {
-                slot_free(frame);
                 if (err_no(err) == LIB_ERR_VSPACE_MMU_AWARE_NO_SPACE) {
                     // we've wasted space with fragmentation
                     // cross our fingers and hope for the best...
