@@ -760,18 +760,21 @@ static void e1000_interrupt_handler(void *arg)
     e1000_queue_t *device = arg;
     e1000_t *hw_device = &device->hw_device;
     /* Read interrupt cause, this also acknowledges the interrupt */
-    e1000_intreg_t icr;
-    e1000_eintreg_t eicr;
+    e1000_intreg_t icr = 0;
+    e1000_eintreg_t eicr = 0;
     
-    icr = e1000_icr_rd(hw_device);
-    if (device->extended_interrupts) {
+    if (device->extended_interrupts) { // mask interrupts
         eicr = e1000_eicr_rd(hw_device);
-        // debug_print_to_log("IRQ %x:%x", icr, eicr);
-        // debug_printf("IRQ %x:%x\n", icr, eicr);
     } else {
-        // debug_print_to_log("IRQ %x", icr);
-        // debug_printf("IRQ %x\n", icr);
+        e1000_intreg_t intreg = 0;
+        /* Activate link change interrupt */
+        intreg = e1000_intreg_lsc_insert(intreg, 1);
+        /* Activate rx0 interrupt */
+        intreg = e1000_intreg_rxt0_insert(intreg, 1);
+        intreg = e1000_intreg_txdw_insert(intreg, 1);
+        e1000_imc_wr(hw_device, intreg);
     }
+    icr = e1000_icr_rd(hw_device);
 
     if (e1000_intreg_lsc_extract(icr) != 0) {
         if (e1000_check_link_up(device)) {
@@ -781,18 +784,20 @@ static void e1000_interrupt_handler(void *arg)
         }
     }
     device->isr(device);
-    // debug_printf("%s: E1k RX:%d:%d(%d:%d)  TX:%d:%d(%d:%d)\n",
-    //     device->name,
-    //     device->receive_head, device->receive_tail,
-    //     e1000_rdh_rd(hw_device, 0), e1000_rdt_rd(hw_device, 0),
-    //     device->transmit_head, device->transmit_tail,
-    //     e1000_tdh_rd(hw_device, 0), e1000_tdt_rd(hw_device, 0));
     if (device->extended_interrupts) { // unmask interrupts
         e1000_eintreg_t eintreg = 0;
         eintreg = e1000_eintreg_rxtxq0_insert(eintreg, 1);
         eintreg = e1000_eintreg_rxtxq1_insert(eintreg, 1);
 
         e1000_eims_wr(hw_device, eintreg);
+    } else {
+        e1000_intreg_t intreg = 0;
+        /* Activate link change interrupt */
+        intreg = e1000_intreg_lsc_insert(intreg, 1);
+        /* Activate rx0 interrupt */
+        intreg = e1000_intreg_rxt0_insert(intreg, 1);
+        intreg = e1000_intreg_txdw_insert(intreg, 1);
+        e1000_ims_wr(hw_device, intreg);
     }
 }
 
