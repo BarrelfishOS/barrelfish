@@ -522,6 +522,8 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, size_t request)
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_FRAME_ALLOC);
         }
+        // Count slots for frames backing slab allocator in pmap statistics
+        pmap->used_cap_slots ++;
 
         /* If we do not have enough slabs to map the frame in, recurse */
         size_t required_slabs_for_frame = max_slabs_for_mapping(bytes);
