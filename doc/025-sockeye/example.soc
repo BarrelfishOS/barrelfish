@@ -1,11 +1,46 @@
-device{[1..2]} are device accept [0x0/12]
+module Core(addr timer_base) {
+    input CPU/16
+    output L2/16
+    output GLOBAL_TIMER/8
 
-RAM is memory accept [0x0/16]
+    TIMER is device accept [0x0/8]
 
-Interconnect is map [
-	0x00000/12 to device1
-	0x02000/12 to device2
-	0x10000/16 to RAM
+    TIMERS is map [
+            0x000/8 to TIMER
+            0x100/8 to GLOBAL_TIMER
+        ]
+        reserved [
+            0x200/8
+            0x300/8
+        ]
+
+    CPU is map [
+            timer_base/10 to TIMERS
+        ]
+        over L2/16
+}
+
+module MultiProcessorCore(nat cores, addr timer_base) {
+    input CPU_{[1..cores]}/16
+    output L3/16
+
+    TIMER is device accept [0x0/8]
+
+    Core(timer_base) as Core_{c in [1..cores]} with
+        CPU_{c} > CPU
+        L3 < L2
+        TIMER < GLOBAL_TIMER
+}
+
+DEVICE_{[1..2]} are device accept [0x0/10]
+RAM is memory accept [0x0/12]
+
+L3 is map [
+	0x0000/10 to DEVICE_1
+	0x0100/10 to DEVICE_1
+	0x1000/12 to RAM
 ]
 
-CPU is over Interconnect/32
+MultiProcessorCore(2, 0x200) as MPCore{mp in [1..2]} with
+    CPU_{mp}_{c in [1..2]} > CPU_{c}
+    L3 < L3

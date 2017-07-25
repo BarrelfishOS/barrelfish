@@ -115,7 +115,7 @@ $ sockeye [options] file
 The available options are:
 \begin{description}
 \item[-P] Generate a Prolog file that can be loaded into the SKB.
-\item[-i] Add a Add a directory to the search path where Sockeye looks for imports.
+\item[-i] Add a directory to the search path where Sockeye looks for imports.
 \item[-o] \varname{filename} The path to the output file
 \item[-h] show usage information
 \end{description}
@@ -146,7 +146,7 @@ parser based on the Haskell Parsec Library. The following conventions are used:
 \item[Comments:] Sockeye supports C-style comments.  Single line comments
   start with \texttt{//} and continue until the end of the line.
   Multiline comments are enclosed between \texttt{/*} and \texttt{*/};
-  anything inbetween is ignored and treated as white space.
+  anything in between is ignored and treated as white space.
   Nested comments are not supported.
 
 \item[Identifiers:] Valid Sockeye identifiers are sequences of numbers
@@ -156,113 +156,128 @@ parser based on the Haskell Parsec Library. The following conventions are used:
   identifier & \rightarrow letter (letter \mid digit \mid \text{\_} \mid \text{\textendash})^{\textrm{*}} \\
   letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
   digit & \rightarrow (\textsf{0 \ldots 9})
-	\end{align*}
+    \end{align*}
 
 \item[Case sensitivity:] Sockeye is case sensitive hence identifiers \Sockeye{node1} and \Sockeye{Node2} are not the same.
   
 \item[Integer Literals:] A Sockeye integer literal is a sequence of
   digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
   literals have no specifier and hexadecimal literals start with
-  \texttt{0x}. Octal literals start with \texttt{0o}.
+  \texttt{0x}.
 
 \begin{align*}
 decimal & \rightarrow (\textsf{0 \ldots 9})^{\textrm{1}}\\
 hexadecimal & \rightarrow (\textsf{0x})(\textsf{0 \ldots 9} \mid \textsf{A \ldots F} \mid \textsf{a \ldots f})^{\textrm{1}}\\
-octal & \rightarrow (\textsf{0o})(\textsf{0 \ldots 7})^{\textrm{1}}\\
 \end{align*}
 
 \item[Reserved words:] The following are reserved words in Sockeye:
 \begin{verbatim}
-is, are, accept, map, over, to, at
+accept, are, as, at, import, in, input, is, map,
+module, output, over, reserved, to, with
 \end{verbatim}
 
 \end{description}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Decoding Net Declaration}
+\chapter{Decoding Net }
 \label{chap:declaration}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-In this chapter we define the layout of a Sockeye file. Each Sockeye file contains the declaration of a single decoding net.
-An SoC can be split into multiple decoding nets e.g. one for the address spaces and another one for the interrupt routes.
-However a node in a decoding net can not reference a node in a different decoding net (see also Section~\ref{sec:modularity} for further information).
+In this chapter we define the layout of a Sockeye file.
+The node declarations in a Sockeye file describe a single decoding net.
+Parts of a decoding net can be packaged into reusable modules (see Section~\ref{sec:modules}).
+With imports (see Section~\ref{sec:imports}) modules can also be put into separate files.
+Also an SoC can be split into multiple decoding nets e.g. one for the address spaces and another one for the interrupt routes.
 
-\section{Syntax}
+In the following sections we use EBNF to specify the Sockeye syntax. Terminals are \textbf{bold} while non-terminals are \textit{italic}.
+The non-terminals \textit{iden}, \textit{letter}, \textit{decimal} and \textit{hexadecimal} correspond to the ones defined in Chapter~\ref{chap:lexer}.
 
-\subsection{Syntax Specification}
-We use EBNF to specify the Sockeye syntax. Terminals are \textbf{bold}.
-The non-terminals \textit{iden}, \textit{integer} and \textit{decimal} correspond to identifiers, integer literals and decimal literals from Chapter~\ref{chap:lexer}.
+\section{Basic Syntax}
 
-\subsection{Net specification}
-A net consists of one or more node declarations.
+\subsection{Node declarations}
 A node declaration contains one or more identifiers and the node specification.
 The order in which the nodes are declared does not matter.
 
 \begin{align*}
 \textit{net}_s & \mathop{=}
-	\Big\{
-		\textit{iden}\ \textbf{is}\ \textit{node}_s\
-	\Big|\
-		\bigl\{ \textit{iden}\bigr\}\ \textbf{are}\ \textit{node}_s
-	\Big\} \\
+    \Big\{
+        \textit{iden}\ \textbf{is}\ \textit{node}_s\
+    \Big|\
+        \bigl\{ \textit{iden}\bigr\}\ \textbf{are}\ \textit{node}_s
+    \Big\} \\
 \end{align*}
 
 \paragraph{Example}
 \begin{syntax}
-	node1 \textbf{is} \ldots
+    node1 \textbf{is} \ldots
 
-	node2
-	node3 \textbf{are} \ldots
+    node2
+    node3 \textbf{are} \ldots
 \end{syntax}
 
 \subsection{Node specifications}
-A node specification consists of a type, a set of accepted addresses, a set of translated addresses and an overlay.
+A node specification consists of a type, a set of accepted address blocks, a set of address mappings to other nodes, a set of reserved address blocks and an overlay.
 All of these are optional.
+The reserved address blocks are only relevant in conjunction with overlays and are used to exclude some addresses from the overlay.
+The overlay is specified as a node identifier and a number of address bits.
+The overlay will take effect from \texttt{0x0} to \(\texttt{0x2}^\texttt{bits} - \texttt{1}\).
 
 \begin{align*}
 \textit{node}_s & \mathop{=}
-	\Big[
-		\textit{type}
-	\Big]\ 	
-	\Big[
-		\textbf{accept [}\ \big\{\textit{block}_s\big\}\ \textbf{]}\ 
-	\Big]\ 
-	\Big[
-		\textbf{map [}\ \big\{\textit{map}_s\big\}\ \textbf{]}\ 
-	\Big]\ 
-	\Big[
-		\textbf{over}\ \textit{iden}
-	\Big] \\
+    \Big[\ 
+       \textit{type}\ 
+    \Big]\  
+    \Big[
+       \textit{accept}\ 
+    \Big]\ 
+    \Big[\ 
+       \textit{map}\ 
+    \Big]\ 
+    \Big[\ 
+        \textit{reserved}\ 
+    \Big]\ 
+    \Big[\ 
+        \textit{overlay}\ 
+    \Big]\\
+\textit{accept} & \mathop{=}
+    \textbf{accept [}\ \big[\ \textit{block}_s\big\{\textbf{,}\ \textit{block}_s\big\}\ \big]\ \textbf{]}\\
+\textit{map} & \mathop{=}
+    \textbf{map [}\ \big[\ \textit{map}_s\big\{\textbf{,}\ \textit{map}_s\big\}\ \big]\ \textbf{]}\\
+\textit{reserved} & \mathop{=}
+    \textbf{reserved [}\ \big[\textit{block}_s\big\{\textbf{,}\ \textit{block}_s\big\}\ \big]\ \textbf{]}\\
+\textit{overlay} & \mathop{=}
+    \textbf{over}\ \textit{iden}\textbf{/}\textit{decimal}\\
 \end{align*}
 
 \paragraph{Example}
 \begin{syntax}
-	node1 \textbf{is} \textit{<type>} \textbf{accept} [\ldots]
-	node2 \textbf{is} \textbf{map} [\ldots] \textbf{over} node1
+    node1 \textbf{is} \textit{<type>} \textbf{accept} [\ldots]
+    node2 \textbf{is} \textbf{map} [\ldots]
+    node3 \textbf{is} \textbf{reserved} [\ldots] \textbf{over} node2/32
 \end{syntax}
 
 \subsection{Node type}
 Currently there are two types: \Sockeye{device} and \Sockeye{memory}. A third internal type \Sockeye{other} is given to nodes for which no type is specified.
-The \verb|device|-type specifies that the accepted addresses are device registers while the \Sockeye{memory}-type is for memory nodes like RAM or ROM.
+The \Sockeye{device}-type specifies that the accepted addresses are device registers while the \Sockeye{memory}-type is for memory nodes like RAM or ROM.
 
 \begin{align*}
 \textit{type} & \mathop{=}
-	\textbf{device}\
-	|\
-	\textbf{memory} \\
+    \textbf{device}\
+    |\
+    \textbf{memory} \\
 \end{align*}
 
 \paragraph{Example}
 \begin{syntax}
-	node1 \textbf{is} memory \textbf{accept} [\ldots]
-	node2 \textbf{is} device \textbf{accept} [\ldots]
+    node1 \textbf{is} memory \textbf{accept} [\ldots]
+    node2 \textbf{is} device \textbf{accept} [\ldots]
 \end{syntax}
 
 \subsection{Addresses}
-Addresses can be given as hexadecimal, octal or decimal integers.
+Addresses are specified as hexadecimal literals.
 \begin{align*}
-\textit{addr} & \mathop{=} \textit{integer} \\
+\textit{addr} & \mathop{=} \textit{hexadecimal} \\
 \end{align*}
 
 \clearpage
@@ -270,63 +285,133 @@ Addresses can be given as hexadecimal, octal or decimal integers.
 A block is specified by its start and end address.
 If the start and end address are the same, the end address can be omitted.
 Sockeye also supports specifying a block as its base address and the number of address bits the block spans:
-A block from \texttt{0x0} to \texttt{0xFFF} with a size of 4kB can be specified as \Sockeye|0x0/12|.
+A block from \Sockeye{0x0} to \Sockeye{0xFFF} with a size of 4kB can be specified as \Sockeye{0x0/12}.
 
 \begin{align*}
 \textit{block}_s & \mathop{=} \textit{addr}\
-	\Big[
-		\textbf{-}\ \textit{addr}\ 
-	\Big|\
-		\textbf{/}decimal
-	\Big] \\
+    \Big[
+        \textbf{-}\ \textit{addr}\ 
+    \Big|\
+        \textbf{/}decimal
+    \Big] \\
 \end{align*}
 
 \paragraph{Example}
 \begin{syntax}
-	node1 is \textbf{accept} [0x42-0x51]
-	node2 is \textbf{accept} [0x42]      // \textit{same as \textup{0x42-0x42}}
-	node3 is \textbf{accept} [0x0/12]    // \textit{same as \textup{0x00-0xFFF}}
+    node1 is \textbf{accept} [0x42-0x51]
+    node2 is \textbf{accept} [0x42]      // \textit{same as \textup{0x42-0x42}}
+    node3 is \textbf{accept} [0x0/12]    // \textit{same as \textup{0x00-0xFFF}}
 \end{syntax}
 
 \subsection{Map specification}
 A map specification is a source address block, a target node identifier and optionally a target base address to which the source block is translated within the target node.
-If no target base address is given, the block is translated to the same addresses within the target node.
+If no target base address is given, the block is translated to the target node starting at \Sockeye{0x0}.
+Note that this is different from the concrete syntax described in \cite{achermann:mars17} where unspecified base address means use the base address of the source block.
+This was changed due to the mapping to \Sockeye{0x0} being used more often in practice.
 Multiple translation targets can be specified by giving a comma-separated list of targets.
 
 \begin{align*}
 \textit{map}_s & \mathop{=}
 \textit{block}_s\ \textbf{to}\ \textit{iden}\ 
-	\Big[
-		\textbf{at}\ \textit{addr}
-	\Big]\
-	\Big\{
-		\textbf{,}\ \textit{iden}\ 
-		\Big[
-			\textbf{at}\ \textit{addr}
-		\Big]
-	\Big\} \\
+    \Big[
+        \textbf{at}\ \textit{addr}
+    \Big]\
+    \Big\{
+        \textbf{,}\ \textit{iden}\ 
+        \Big[
+            \textbf{at}\ \textit{addr}
+        \Big]
+    \Big\}\\
 \end{align*}
 
 \paragraph{Example}
 \begin{syntax}
-	/* \textit{Translate \textup{0x0-0xFF} to \textup{node2} at \textup{0x300-0x3FF}:} */
-	node1 is \textbf{map} [0x0/8 \textbf{to} node2 \textbf{at} 0x300] 
+    /* \textit{Translate \textup{0x0-0xFF} to \textup{node2} at \textup{0x300-0x3FF}:} */
+    node1 is \textbf{map} [0x0/8 \textbf{to} node2 \textbf{at} 0x300] 
 
-	/* \textit{This is the same as \textup{0x300/8 \textbf{to} node1 \textbf{at} 0x300}:} */
-	node2 is \textbf{map} [0x300/8 \textbf{to} node1]
+    /* \textit{This is the same as \textup{0x300/8 \textbf{to} node1 \textbf{at} 0x0}:} */
+    node2 is \textbf{map} [0x300/8 \textbf{to} node1]
 
-	/* \textit{Multiple translation targets, \textup{0x0-0xFF} is translated to
-	   - \textup{node1} at \textup{0x0-0xFF}
-	   - \textup{node2} at \textup{0x300-0x3FF}:} */
-	node3 is \textbf{map} [0x0/8 \textbf{to} node1, node2 \textbf{at} 0x300]
+    /* \textit{Multiple translation targets, \textup{0x0-0xFF} is translated to
+       - \textup{node1} at \textup{0x0-0xFF}
+       - \textup{node2} at \textup{0x300-0x3FF}:} */
+    node3 is \textbf{map} [0x0/8 \textbf{to} node1, node2 \textbf{at} 0x300]
 \end{syntax}
 
+\section{Modules}
+\label{sec:modules}
+
+\section{Templated Identifiers}
+
+\begin{align*}
+    \textit{interval}_s & \mathop{=}
+        \textbf{[}\textit{limit}\textbf{..}\textit{limit}\textbf{]}\\
+    \textit{for\_iden}_s & \mathop{=}
+        \textit{iden}\textbf{\{}\textit{var}\ \textbf{in}\ \textit{interval}_s\textbf{\}}
+        \Big[
+            \textit{iden}\ |\ \textit{templ\_iden}_s\ |\ \textit{for\_iden}_s
+        \Big]\\
+    \textit{var} & \mathop{=}
+        \textit{iden}\\
+    \textit{templ\_iden}_s & \mathop{=}
+        \textit{iden}\textbf{\{}\textit{var}\textbf{\}}\Big[\textit{iden}\ |\ \textit{templ\_iden}_s\Big]\\
+    \textit{limit} & \mathop{=}
+        \textit{decimal} | \textit{iden} \\
+\end{align*}
+
+\paragraph{Example}
+\begin{syntax}
+    /* Declare similar nodes */
+    Device_\verb+{+[1..5]\verb+}+ \textbf{are} device \textbf{accept} [0x0/8]
+
+    /* Use the index in the node definition */
+    Map_\verb+{+m in [1..5]\verb+}+ \textbf{is} \textbf{map} [0x100/8 to Device_\verb+{+m\verb+}+]
+
+    /* Declare similar module ports
+       (possibly depending on module parameters) */
+    \textbf{module} SomeModule(nat num) \verb+{+
+        output Out_\verb+{+[1..num]\verb+}+
+        \ldots
+    \verb+}+
+
+    /* Instantiate module multiple times
+       and use index variable in port mappings*/
+    SomeModule(3) \textbf{as} sub_module_\verb+{+m in [1..2]\verb+}+ \textbf{with}
+        Node_\verb+{+m\verb+}+_\verb+{+o in [1..3]\verb+}+ > Out_\verb+{+o\verb+}+
+\end{syntax}
+
+\section{Imports}
+\label{sec:imports}
+Imports allow a specification to be divided over several files.
+They also allow the reuse of declared modules.
+Imports have to be specified at the very top of a Sockeye file.
+An import will cause the compiler to load all modules from \pathname{<import\_path>.soc}
+Nodes declared outside of modules will not be loaded.
+The compiler will first look for files in the current directory and then check the directories passed with the \texttt{-i} option in the order they were given.
+
+\begin{align*}
+\textit{import}_s & \mathop{=}
+    \textbf{import}\ \big\{\ \textit{letter}\ |\ \textbf{/}\ \big\}
+\end{align*}
+
+\paragraph{Example}
+\begin{syntax}
+    /* Invoked with 'sockeye -i imports -i modules' this will cause
+       the compiler to look for the files
+       - ./subdir/core.soc
+       - imports/subdir/core.soc
+       - modules/subdir/core.soc
+       and import all modules from the first one that exists. */
+    \textbf{import} subdir/core
+\end{syntax}
+
+\clearpage
 \section{Example Specification}
 Listing~\ref{lst:sockeye_example} shows an example Sockeye specification.
 
 \lstinputlisting[caption={Example Sockeye specification}, label={lst:sockeye_example}, language=Sockeye]{example.soc}
 
-The specification for the Texas Instruments OMAP4460 SoC used on the PandaboardES can serve as a real world example. It is located in \pathname{SOURCE/socs/omap4460.soc}.
+The specification for the Texas Instruments OMAP4460 SoC used on the PandaboardES can serve as a real world example. It is located in \pathname{SOURCE/socs/omap44xx.soc}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -339,7 +424,7 @@ The Sockeye compiler performs some sanity checks on the parsed AST.
 This check makes sure that there aren't two node declarations with the same identifier.
 
 \section{No References to Undefined Nodes}
-This check makes sure that all nodes referenced in translation sets and overlays are declared in the same file.
+This check makes sure that all nodes referenced in translation sets and overlays are declared.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -347,13 +432,14 @@ This check makes sure that all nodes referenced in translation sets and overlays
 \label{chap:prolog}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The Sockeye compiler generates \(\text{ECL}^i\text{PS}^e\)-Prolog\footnote{\href{http://eclipseclp.org/}{http://eclipseclp.org/}} to be used within the SKB.
-A decoding net is expressed by the predicate \Prolog{net/2}. The first argument to the predicate is the node identifier represented as a Prolog atom.
-The second argument is the node specification, a Prolog functor with the name \Prolog{node} and an arity of four. The arguments of the functor are the node type, the list of accepted addresses, the list of translated addresses and the overlay.
+A decoding net is expressed by the predicate \Prolog{net/2}. The first argument to the predicate is the node identifier represented as a functor \Prolog{nodeId} with the first argument being the node's name represented as an atom and the second the (possibly nested) namespace it is in, represented as a list of atoms.
+The second argument is the node specification, a Prolog functor with the name \Prolog{node} and an arity of three.
+The arguments of the functor are the node type, the list of accepted addresses and the list of translated addresses.
+The overlay is translated to address mappings and added to the list of translated addresses during compilation.
 
 The node type is one of three atoms: \Prolog{device}, \Prolog{memory} or \Prolog{other}.
 The accepted addresses are a list of address blocks where each block is represented through the functor \Prolog{block/2} with the start and end addresses as arguments.
 The translated addresses are a list of mappings to other nodes, represented by the functor \Prolog{map/3} where the first argument is the translated address block, the second one is the node identifier of the target node and the third one is the base address for the mapping in the target node.
-The overlay is represented as an atom which is either the node identifier of the overlay node or \Prolog{'@none'} for nodes with no overlay.
 
 There is a predicate clause for \Prolog{net/2} for every node specified. 
 Listings~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}.
@@ -368,7 +454,7 @@ Listings~\ref{lst:prolog_example} shows the generated Prolog code for the Sockey
 SoC descriptions are placed in the directory \pathname{SOURCE/socs} with the file extension \pathname{soc}.
 Each top-level Sockeye file has to be added to the list of SoCs in the Hakefile in the same directory.
 The Hake rule for Sockeye files compiles all the listed files to \pathname{BUILD/sockeyefacts/<filename>.pl} if they are specified as a dependency in some Hakefile.
-The rule will also generate a \pathname{.depend} file so that make recompiles the file also when imported files are changed.
+The rule will also generate a \pathname{.depend} file (with the \texttt{-d} option of the Sockeye compiler) so that \texttt{make} recompiles the file also when imported files are changed.
 To add a compiled Sockeye specification to the SKB RAM-disk, the filename can be added to the \varname{sockeyeFiles} list in the SKBs Hakefile.
 
 

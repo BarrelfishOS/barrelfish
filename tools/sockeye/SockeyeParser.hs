@@ -340,7 +340,7 @@ braces        = P.braces lexer
 symbol        = P.symbol lexer
 commaSep      = P.commaSep lexer
 commaSep1     = P.commaSep1 lexer
-identString    = P.identifier lexer
+identString   = P.identifier lexer
 hexadecimal   = symbol "0" *> P.hexadecimal lexer <* whiteSpace
 decimal       = P.decimal lexer <* whiteSpace
 
