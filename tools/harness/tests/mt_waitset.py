@@ -20,8 +20,8 @@ class MultithreadedWaitsetTest(TestCommon):
 
     def setup(self, build, machine, testdir):
         super(MultithreadedWaitsetTest, self).setup(build, machine, testdir)
-        self.test_timeout_delta *= 2
-        debug.verbose("%s: increasing test timeout delta by factor 2: new = %s" %
+        self.test_timeout_delta *= 3
+        debug.verbose("%s: increasing test timeout delta by factor 3: new = %s" %
                 (self.name, self.test_timeout_delta))
 
     def get_modules(self, build, machine):
