@@ -24,11 +24,6 @@ static errval_t armv8_startup_common(void)
 {
     errval_t err = SYS_ERR_OK;
 
-    // Since we don't seem to be able to boot cores on the ARMv8 platforms yet,
-    // we just set all_spawnds_up here. -RA,2017-02-24.
-    err = oct_set("all_spawnds_up { iref: 0 }");
-    assert(err_is_ok(err));
-
     // We need to run on core 0
     // (we are responsible for booting all the other cores)
     assert(my_core_id == BSP_CORE_ID);
