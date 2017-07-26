@@ -199,6 +199,7 @@ The non-terminals \textit{iden}, \textit{letter}, \textit{decimal} and \textit{h
 A node declaration contains one or more identifiers and the node specification.
 The order in which the nodes are declared does not matter.
 
+\paragraph{Syntax}
 \begin{align*}
 \textit{net}_s & \mathop{=}
     \Big\{
@@ -223,6 +224,7 @@ The reserved address blocks are only relevant in conjunction with overlays and a
 The overlay is specified as a node identifier and a number of address bits.
 The overlay will take effect from \texttt{0x0} to \(\texttt{0x2}^\texttt{bits} - \texttt{1}\).
 
+\paragraph{Syntax}
 \begin{align*}
 \textit{node}_s & \mathop{=}
     \Big[\ 
@@ -261,6 +263,7 @@ The overlay will take effect from \texttt{0x0} to \(\texttt{0x2}^\texttt{bits} -
 Currently there are two types: \Sockeye{device} and \Sockeye{memory}. A third internal type \Sockeye{other} is given to nodes for which no type is specified.
 The \Sockeye{device}-type specifies that the accepted addresses are device registers while the \Sockeye{memory}-type is for memory nodes like RAM or ROM.
 
+\paragraph{Syntax}
 \begin{align*}
 \textit{type} & \mathop{=}
     \textbf{device}\
@@ -274,19 +277,22 @@ The \Sockeye{device}-type specifies that the accepted addresses are device regis
     node2 \textbf{is} device \textbf{accept} [\ldots]
 \end{syntax}
 
+\clearpage
 \subsection{Addresses}
 Addresses are specified as hexadecimal literals.
+
+\paragraph{Syntax}
 \begin{align*}
 \textit{addr} & \mathop{=} \textit{hexadecimal} \\
 \end{align*}
 
-\clearpage
 \subsection{Block specification}{}
 A block is specified by its start and end address.
 If the start and end address are the same, the end address can be omitted.
 Sockeye also supports specifying a block as its base address and the number of address bits the block spans:
 A block from \Sockeye{0x0} to \Sockeye{0xFFF} with a size of 4kB can be specified as \Sockeye{0x0/12}.
 
+\paragraph{Syntax}
 \begin{align*}
 \textit{block}_s & \mathop{=} \textit{addr}\
     \Big[
@@ -310,6 +316,7 @@ Note that this is different from the concrete syntax described in \cite{acherman
 This was changed due to the mapping to \Sockeye{0x0} being used more often in practice.
 Multiple translation targets can be specified by giving a comma-separated list of targets.
 
+\paragraph{Syntax}
 \begin{align*}
 \textit{map}_s & \mathop{=}
 \textit{block}_s\ \textbf{to}\ \textit{iden}\ 
@@ -342,8 +349,30 @@ Multiple translation targets can be specified by giving a comma-separated list o
 \label{sec:modules}
 
 \section{Templated Identifiers}
+Templated identifiers allow to declare multiple nodes and ports at once and instantiate a module multiple times at once.
+There are two forms of templated identifiers:
+\begin{description}
+    \item[Interval template]
+        The template contains one or several intervals.
+        The identifier will be instantiated for all possible combinations of values in the intervals.
+        Index variables can optionally be named so they can be referenced later.
+    \item[Simple template]
+        Simple templates work very similar to interval templates.
+        The only difference is, that a simple template can only reference index variables declared in the same context.
+        It can not contain intervals which declare new index variables.
+\end{description}
 
+Interval templates can be used in identifiers of node declarations (to declare multiple nodes at once), port declarations (to declare multiple ports at once) and namespaces of module instantiations (to instantiate a module multiple times).
+The scope of index variables is the corresponding syntactic construct the interval template was used in.
+Simple templates can be used in any place a node identifier is expected.
+
+An important thing to note is that the limits of an interval can reference module parameters of type \Sockeye{nat}.
+This allows module parameters to control the number of certain nodes in a module declaration.
+
+\paragraph{Syntax}
 \begin{align*}
+    \textit{limit} & \mathop{=}
+        \textit{decimal}\ |\ \textit{iden} \\
     \textit{interval}_s & \mathop{=}
         \textbf{[}\textit{limit}\textbf{..}\textit{limit}\textbf{]}\\
     \textit{for\_iden}_s & \mathop{=}
@@ -355,13 +384,12 @@ Multiple translation targets can be specified by giving a comma-separated list o
         \textit{iden}\\
     \textit{templ\_iden}_s & \mathop{=}
         \textit{iden}\textbf{\{}\textit{var}\textbf{\}}\Big[\textit{iden}\ |\ \textit{templ\_iden}_s\Big]\\
-    \textit{limit} & \mathop{=}
-        \textit{decimal} | \textit{iden} \\
 \end{align*}
 
 \paragraph{Example}
 \begin{syntax}
-    /* Declare similar nodes */
+    /* Declare similar nodes
+       (Note that interval templates always require the usage of 'are' */
     Device_\verb+{+[1..5]\verb+}+ \textbf{are} device \textbf{accept} [0x0/8]
 
     /* Use the index in the node definition */
@@ -389,6 +417,7 @@ An import will cause the compiler to load all modules from \pathname{<import\_pa
 Nodes declared outside of modules will not be loaded.
 The compiler will first look for files in the current directory and then check the directories passed with the \texttt{-i} option in the order they were given.
 
+\paragraph{Syntax}
 \begin{align*}
 \textit{import}_s & \mathop{=}
     \textbf{import}\ \big\{\ \textit{letter}\ |\ \textbf{/}\ \big\}
