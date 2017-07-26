@@ -47,6 +47,7 @@
 
 \begin{versionhistory}
 \vhEntry{0.1}{15.06.2017}{DS}{Initial Version}
+\vhEntry{0.2}{26.07.2017}{DS}{Describe Modularity Features}
 \end{versionhistory}
 
 % \intro{Abstract}    % Insert abstract here
@@ -81,7 +82,7 @@
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Introduction and usage}
+\chapter{Introduction and Usage}
 \label{chap:introduction}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -92,12 +93,12 @@ is a domain specific language to describe SoCs (Systems on a Chip).
 Achermann~et~al.~\cite{achermann:mars17} propose a formal model to describe address spaces and interrupt routes in a system as a directed graph.
 They call such a graph a ``decoding net''.
 Each node in the graph can accept a set of addresses and translate another (not necessarily disjunct) set of addresses (when describing interrupt routes the accept or translate interrupt vectors).
-Starting at a specific node addresses can be resolved by following the appropriate edges in the decoding net.
+Starting at a specific node, addresses can be resolved by following the appropriate edges in the decoding net.
 When a node translates an address, resolution is continued on that node.
 When a node accepts an address, resolution terminates
 
 Achermann~et~al.~\cite{achermann:mars17} also propose a concrete syntax for specifying decoding nets.
-Sockeye is an implementation of the language introduced in but adds some features to address issues encountered in practice.
+Sockeye is an implementation of the proposed language but adds some features to address issues encountered in practice.
 
 The Sockeye compiler is written in Haskell using the Parsec parsing library. It
 generates Prolog files from the Sockeye files. These Prolog files contain facts that represent a decoding net (see Chapter~\ref{chap:prolog}).
@@ -106,7 +107,7 @@ The Prolog files can then be loaded into Barrelfish's System Knowledgebase (SKB)
 The source code for Sockeye can be found in \pathname{SOURCE/tools/sockeye}.
 
 
-\section{Command line options}
+\section{Command Line Options}
 
 \begin{verbatim}
 $ sockeye [options] file
@@ -199,7 +200,7 @@ This section describes the basic syntax for Sockeye.
 It closely corresponds to the concrete syntax described in \cite{achermann:mars17}.
 If there are important syntactic or semantic differences it is stated so in the description of the respective syntactical construct.
 
-\subsection{Node declarations}
+\subsection{Node Declarations}
 A node declaration contains one or more identifiers and the node specification.
 The order in which the nodes are declared does not matter.
 
@@ -222,7 +223,7 @@ The order in which the nodes are declared does not matter.
     node3 \textbf{are} \ldots
 \end{syntax}
 
-\subsection{Node specifications}
+\subsection{Node Specifications}
 A node specification consists of a type, a set of accepted address blocks, a set of address mappings to other nodes, a set of reserved address blocks and an overlay.
 All of these are optional.
 The reserved address blocks are only relevant in conjunction with overlays and are used to exclude some addresses from the overlay.
@@ -264,7 +265,7 @@ The overlay will span addresses from \texttt{0x0} to \(\texttt{0x2}^\texttt{bits
     node3 \textbf{is} \textbf{reserved} [\ldots] \textbf{over} node2/32
 \end{syntax}
 
-\subsection{Node type}
+\subsection{Node Type}
 Currently there are two types: \Sockeye{device} and \Sockeye{memory}. A third internal type \Sockeye{other} is given to nodes for which no type is specified.
 The \Sockeye{device}-type specifies that the accepted addresses are device registers while the \Sockeye{memory}-type is for memory nodes like RAM or ROM.
 
@@ -290,7 +291,7 @@ Addresses are specified as hexadecimal literals.
 \textit{addr} & \mathop{=} \textit{hexadecimal} \\
 \end{align*}
 
-\subsection{Block specifications}
+\subsection{Block Specifications}
 A block is specified by its start and end address.
 If the start and end address are the same, the end address can be omitted.
 Sockeye also supports specifying a block as its base address and the number of address bits the block spans:
@@ -313,7 +314,7 @@ A block from \Sockeye{0x0} to \Sockeye{0xFFF} with a size of 4kB can be specifie
     node3 is \textbf{accept} [0x0/12]    // \textit{same as \textup{0x0-0xFFF}}
 \end{syntax}
 
-\subsection{Map specification}
+\subsection{Map Specification}
 A map specification is a source address block, a target node identifier and optionally a target base address to which the source block is translated within the target node.
 If no target base address is given, the block is translated to the target node starting at \Sockeye{0x0}.
 Note that this is different from the concrete syntax described in \cite{achermann:mars17} where in this case the base address of the source block is used.
@@ -600,7 +601,7 @@ Listings~\ref{lst:prolog_example} shows the generated Prolog code for the Sockey
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Compiling Sockeye files with Hake}
+\chapter{Compiling Sockeye Files with Hake}
 \label{chap:hake}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 SoC descriptions are placed in the directory \pathname{SOURCE/socs} with the file extension \pathname{soc}.
