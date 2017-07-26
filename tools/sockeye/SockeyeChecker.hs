@@ -21,6 +21,7 @@ module SockeyeChecker
 ( checkSockeye ) where
 
 import Data.List (nub)
+import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -231,21 +232,16 @@ instance Checkable ParseAST.ModuleInst AST.ModuleInst where
             name = ParseAST.moduleName ast
             arguments = ParseAST.arguments ast
             portMaps = ParseAST.portMappings ast
-        mod <- getModule context name
-        let
-            paramNames = AST.paramNames mod
             instContext = context
                 { instModule = name }
-        checkedArgs <- checkArgs instContext arguments
+        checkedArgs <- check instContext arguments
         checkedNamespace <- check instContext namespace
         inPortMap  <- check instContext $ filter isInMap  portMaps
         outPortMap <- check instContext $ filter isOutMap portMaps
-        let
-            argMap = Map.fromList $ zip paramNames checkedArgs
         return AST.ModuleInst
             { AST.namespace  = checkedNamespace
             , AST.moduleName = name
-            , AST.arguments  = argMap
+            , AST.arguments  = checkedArgs
             , AST.inPortMap  = inPortMap
             , AST.outPortMap = outPortMap
             }
@@ -254,38 +250,41 @@ instance Checkable ParseAST.ModuleInst AST.ModuleInst where
             isInMap (ParseAST.MultiPortMap for) = isInMap $ ParseAST.body for
             isInMap _ = False
             isOutMap = not . isInMap
-            checkArgs context args = do
-                mod <- getInstantiatedModule context
+
+instance Checkable [ParseAST.ModuleArg] (Map String AST.ModuleArg) where
+    check context args = do
+        mod <- getInstantiatedModule context
+        let
+            typeMap = AST.paramTypeMap mod
+            paramNames = AST.paramNames mod
+            paramTypes = map (typeMap Map.!) paramNames
+            params = zip paramNames paramTypes
+        checkArgCount paramNames args
+        checkedArgs <- forAll id $ zipWith checkArgType params args
+        return $ Map.fromList $ zip paramNames checkedArgs
+        where
+            checkArgCount params args = do
                 let
-                    typeMap = AST.paramTypeMap mod
-                    paramNames = AST.paramNames mod
-                    paramTypes = map (typeMap Map.!) paramNames
-                    params = zip paramNames paramTypes
-                checkArgCount paramNames args
-                forAll id $ zipWith checkArgType params args
+                    paramc = length params
+                    argc = length args
+                if argc == paramc
+                    then return ()
+                    else Left $ checkFailure context [WrongNumberOfArgs (instModule context) paramc argc]
+            checkArgType (name, expected) arg = do
+                case arg of
+                    ParseAST.AddressArg value -> do
+                        if expected == AST.AddressParam
+                            then return $ AST.AddressArg value
+                            else Left $ mismatch AST.AddressParam
+                    ParseAST.NaturalArg value -> do
+                        if expected == AST.NaturalParam
+                            then return $ AST.NaturalArg value
+                            else Left $ mismatch AST.NaturalParam
+                    ParseAST.ParamArg pName -> do
+                        checkParamType context pName expected
+                        return $ AST.ParamArg pName
                 where
-                    checkArgCount params args = do
-                        let
-                            paramc = length params
-                            argc = length args
-                        if argc == paramc
-                            then return ()
-                            else Left $ checkFailure context [WrongNumberOfArgs (instModule context) paramc argc]
-                    checkArgType (name, expected) arg = do
-                        case arg of
-                            ParseAST.AddressArg value -> do
-                                if expected == AST.AddressParam
-                                    then return $ AST.AddressArg value
-                                    else Left $ mismatch AST.AddressParam
-                            ParseAST.NaturalArg value -> do
-                                if expected == AST.NaturalParam
-                                    then return $ AST.NaturalArg value
-                                    else Left $ mismatch AST.NaturalParam
-                            ParseAST.ParamArg pName -> do
-                                checkParamType context pName expected
-                                return $ AST.ParamArg pName
-                        where
-                            mismatch t = checkFailure context [ArgTypeMismatch (instModule context) name expected t]
+                    mismatch t = checkFailure context [ArgTypeMismatch (instModule context) name expected t]
 
 instance Checkable ParseAST.PortMap AST.PortMap where
     check context (ParseAST.MultiPortMap for) = do
