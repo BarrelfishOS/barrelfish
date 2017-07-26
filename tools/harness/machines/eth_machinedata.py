@@ -425,7 +425,7 @@ machines = dict({
                      'cores_per_socket': 48,
                      'perfcount_type': 'arm',
                      'tickrate'    : 1950,
-                     'boot_timeout': 360,
+                     'boot_timeout': 720,
                      'platform': 'cn88xx',
                      'serial_binary': 'serial_kernel',
                      'boot_driver' : 'boot_armv8_generic'},
