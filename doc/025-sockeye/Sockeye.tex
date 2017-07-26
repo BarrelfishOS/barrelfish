@@ -363,7 +363,7 @@ All declared input ports must have a corresponding node declaration in the modul
 When a module is instantiated a list of port mappings can be specified.
 An input port mapping creates a node outside the module that overlays the node inside the module.
 An output port mapping creates a node inside the module that overlays the node outside the module.
-Not all ports a module defines have to be mapped.
+Not all ports a module declares have to be mapped.
 Not mapping an input port simply means there is no connection to the corresponding node inside the module.
 For unmapped output ports there will be an empty node inside the module, which is a dead end for address resolution.
 
@@ -571,12 +571,41 @@ The specification for the Texas Instruments OMAP4460 SoC used on the PandaboardE
 \chapter{Checks on the AST}
 \label{chap:checks}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The Sockeye compiler performs some sanity checks on the parsed AST.
+The Sockeye compiler performs two sets of checks.
+The first checks are on a module level.
+Without concrete arguments to the modules not everything can be checked at module level.
+That is why the second set of checks is run when the modules are fully instantiated.
 
-\section{No Duplicate Identifiers}
+\section{Module Level Checks}
+
+
+\section{Decoding Net Level Checks}
+\subsection{No Module Instantiation Loops}
+This check makes sure, that there are no loops in module instantiations which would cause the compiler to not terminate.
+
+\subsection{No Duplicate Ports}
+This check makes sure, that there are no duplicate input or output ports.
+Not that having the same node declared as an input and an output port is allowed and results in the node being passed through the module.
+
+\todo{This check is currently not implemented.
+For input ports the error will go unnoticed but it also has no effect on the well-formedness of the decoding net.
+For output ports it will result in a \texttt{DuplicateIdentifier} error (see Section~\ref{sec:check_dupl_ident}).}
+
+\subsection{No Duplicate Port Mapping}
+This check makes sure that a port is not mapped twice in the same module instantiation.
+
+\subsection{No Map to Undefined Port}
+This check makes sure that there are no port mappings to ports not declared by the instantiated module.
+
+\todo{This check is currently not implemented.
+For input ports the error will result in a \texttt{UndefinedReference} error.
+For output ports the error will go unnoticed}
+
+\subsection{No Duplicate Identifiers}
+\label{sec:check_dupl_ident}
 This check makes sure that there aren't two node declarations with the same identifier.
 
-\section{No References to Undefined Nodes}
+\subsection{No References to Undefined Nodes}
 This check makes sure that all nodes referenced in translation sets and overlays are declared.
 
 
