@@ -17,6 +17,10 @@
 #include <barrelfish/pmap.h>
 #include "target/x86/pmap_x86.h"
 
+// For tracing
+#include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
+
 // this should work for x86_64 and x86_32.
 bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
                bool only_pages)
@@ -461,6 +465,7 @@ errval_t pmap_x86_deserialise(struct pmap *pmap, void *buf, size_t buflen)
 errval_t pmap_x86_determine_addr(struct pmap *pmap, struct memobj *memobj,
                                  size_t alignment, genvaddr_t *retvaddr)
 {
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DETADDR, 0);
     struct pmap_x86 *pmapx = (struct pmap_x86 *)pmap;
     genvaddr_t vaddr;
 
@@ -507,12 +512,14 @@ errval_t pmap_x86_determine_addr(struct pmap *pmap, struct memobj *memobj,
  out:
     // Ensure that we haven't run out of address space
     if (vaddr + memobj->size > pmapx->max_mappable_va) {
+        trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DETADDR, 1);
         return LIB_ERR_OUT_OF_VIRTUAL_ADDR;
     }
 
     assert(retvaddr != NULL);
     *retvaddr = vaddr;
 
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DETADDR, 1);
     return SYS_ERR_OK;
 }
 
