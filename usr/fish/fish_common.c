@@ -142,6 +142,35 @@ static int dump_caps(int argc, char *argv[]) {
     return EXIT_SUCCESS;
 }
 
+struct humanreadable {
+    double num;
+    const char *suffix;
+};
+static struct humanreadable humanify(size_t bytes)
+{
+    static const char *units[] = {"B", "kB", "MB", "GB", "TB"};
+    double size = bytes;
+    int i = 0;
+    for (; size > 1024; size /= 1024, i++);
+    return (struct humanreadable){ .num = size, .suffix = units[i] };
+}
+
+static int measure_pmap_res(int argc, char *argv[]) {
+    errval_t err;
+    struct pmap *p = get_current_pmap();
+    struct pmap_res_info resbuf;
+    err = p->f.measure_res(p, &resbuf);
+    assert(err_is_ok(err));
+    struct humanreadable hf;
+    hf = humanify(resbuf.vnode_used);
+    printf("slab bytes in use: %.2lf%s\n", hf.num, hf.suffix);
+    hf = humanify(resbuf.vnode_free);
+    printf("slab bytes free: %.2lf%s\n", hf.num, hf.suffix);
+    printf("capability slots in use: %zu\n", resbuf.slots_used);
+
+    return EXIT_SUCCESS;
+}
+
 static int setenvcmd(int argc, char *argv[])
 {
     if (argc <= 1) {
@@ -1239,6 +1268,7 @@ static struct cmd commands[] = {
     {"printenv", printenv, "Display environment variables"},
     {"free", freecmd, "Display amount of free memory in the system"},
     {"dump_caps", dump_caps, "Display cspace debug information"},
+    {"measure_pmap_res", measure_pmap_res, "Display pmap resource usage for shell"},
 };
 
 static struct cmd *find_command(const char *name)
