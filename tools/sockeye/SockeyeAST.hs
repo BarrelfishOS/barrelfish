@@ -85,7 +85,8 @@ data NodeDecl
     deriving (Show)
 
 data Identifier
-    = SimpleIdent !String
+    = SimpleIdent 
+        { prefix  :: !String }
     | TemplateIdent
         { prefix  :: !String
         , varName :: !String

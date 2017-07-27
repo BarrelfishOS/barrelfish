@@ -33,7 +33,12 @@ import SockeyeParser
 import SockeyeChecker
 import SockeyeNetBuilder
 
+import SockeyeSimplifier
+
 import qualified SockeyeBackendProlog as Prolog
+
+import Debug.Trace
+import Text.Groom(groom)
 
 {- Exit codes -}
 usageError :: ExitCode
@@ -211,6 +216,14 @@ checkAST parsedAst = do
             exitWith checkError
         Right intermAst -> return intermAst
 
+simplifyAST :: AST.SockeyeSpec -> IO AST.SockeyeSpec
+simplifyAST ast = do
+        case sockeyeSimplify ast of 
+            Left fail -> do
+                hPutStr stderr $ show fail
+                exitWith buildError
+            Right simpleAST -> return simpleAST
+
 {- Builds the decoding net from the Sockeye AST -}
 buildNet :: AST.SockeyeSpec -> IO NetAST.NetSpec
 buildNet ast = do
@@ -251,6 +264,8 @@ main = do
             out <- dependencyFile outFile f deps
             output f out
     ast <- checkAST parsedAst
+    simpleAST <- simplifyAST ast
+    putStrLn $ groom simpleAST
     netAst <- buildNet ast
     out <- compile (optTarget opts) netAst
     output outFile out
