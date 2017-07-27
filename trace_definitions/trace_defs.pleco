@@ -340,3 +340,12 @@ subsystem cores {
     event ALL_UP           "Everything has booted",
     event BOOT_INITIALIZE_USER "User sends boot initialize to monitor",
 };
+
+// Trace events for libbf memory subsystem and adjacent stuff
+subsystem memory {
+    event DETADDR           "pmap->f.determine_addr()",
+    event DO_MAP            "pmap: do_map()",
+    event UNMAP             "pmap->f.unmap()",
+    event MODIFY            "pmap->f.modify_flags()",
+    event LOOKUP            "pmap->f.lookup()",
+};
