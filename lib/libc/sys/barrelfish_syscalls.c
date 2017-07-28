@@ -134,17 +134,7 @@ int issetugid(void)
     return 0;
 }
 
-void * mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset)
-{
-    *__error() = EBADF;
-    return MAP_FAILED;
-}
-
-int munmap(void *addr, size_t len)
-{
-    *__error() = EINVAL;
-    return -1;
-}
+// mmap/munmap moved to own source file lib/libc/barrelfish_mmap.c.
 
 ssize_t _writev(int fd, const struct iovec *iov, int iovcnt)
 {
