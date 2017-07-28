@@ -225,7 +225,7 @@ instanitateModules ast = do
         Right simpleAST -> return simpleAST
 
 {- Builds the decoding net from the Sockeye AST -}
-buildNet :: AST.SockeyeSpec -> IO NetAST.NetSpec
+buildNet :: InstAST.SockeyeSpec -> IO NetAST.NetSpec
 buildNet ast = do
     case sockeyeBuildNet ast of 
         Left fail -> do
@@ -264,9 +264,10 @@ main = do
             out <- dependencyFile outFile f deps
             output f out
     ast <- checkAST parsedAst
-    instAST <- instanitateModules ast
-    putStrLn $ groom instAST
-    netAst <- buildNet ast
+    instAst <- instanitateModules ast
+    -- putStrLn $ groom instAST
+    netAst <- buildNet instAst
+    putStrLn $ groom netAst
     out <- compile (optTarget opts) netAst
     output outFile out
     

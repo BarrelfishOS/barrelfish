@@ -13,9 +13,15 @@
   Attn: Systems Group.
 -}
 
-module SockeyeAST where
+module SockeyeAST 
+ ( module SockeyeAST
+ , module SockeyeASTInstantiator
+ ) where
 
 import Data.Map (Map)
+
+import SockeyeASTInstantiator
+    ( NodeType(Other, Device, Memory) )
 
 newtype SockeyeSpec = SockeyeSpec
     { modules :: Map String Module }
@@ -101,12 +107,6 @@ data NodeSpec = NodeSpec
     , reserved  :: [BlockSpec]
     , overlay   :: Maybe OverlaySpec
     } deriving (Show)
-
-data NodeType
-    = Memory
-    | Device
-    | Other
-    deriving (Show)
 
 data BlockSpec 
     = SingletonBlock

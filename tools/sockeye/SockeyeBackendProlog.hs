@@ -13,6 +13,9 @@
   Attn: Systems Group.
 -}
 
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances #-}
+
 module SockeyeBackendProlog
 ( compile ) where
 
@@ -31,7 +34,7 @@ class PrologGenerator a where
     generate :: a -> String
 
 instance PrologGenerator AST.NetSpec where
-    generate (AST.NetSpec net) = let
+    generate net = let
         mapped = Map.mapWithKey toFact net
         facts = Map.elems mapped
         in unlines facts
@@ -45,12 +48,7 @@ instance PrologGenerator AST.NodeId where
     generate ast = let
         name = AST.name ast
         namespace = AST.namespace ast
-        in predicate "nodeId" [atom name, generate namespace]
-
-instance PrologGenerator AST.Namespace where
-    generate ast = let
-        ns = AST.ns ast
-        in list $ map atom ns
+        in predicate "nodeId" [atom name, list $ map atom namespace]
 
 instance PrologGenerator AST.NodeSpec where
     generate ast = let
@@ -78,7 +76,7 @@ instance PrologGenerator AST.NodeType where
     generate AST.Other  = atom "other"
 
 instance PrologGenerator AST.Address where
-    generate (AST.Address addr) = "16'" ++ showHex addr ""
+    generate addr = "16'" ++ showHex addr ""
 
 instance PrologGenerator a => PrologGenerator [a] where
     generate ast = let

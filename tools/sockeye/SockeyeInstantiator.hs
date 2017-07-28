@@ -63,6 +63,11 @@ instance Show InstFails where
     show (UndefinedOutPort inst port)    = concat ["Mapping to undefined output port '",  port, "' in module instantiation '", inst, "'"]
     show (UndefinedReference decl ident) = concat ["Reference to undefined node '", ident, "' in declaration of node '", decl, "'"]
 
+type Port = (InstAST.Identifier, Integer)
+type NodeDecl = (InstAST.Identifier, InstAST.NodeSpec)
+type ModuleInst = (InstAST.Identifier, InstAST.ModuleInst)
+type PortMapping = (InstAST.Identifier, InstAST.Identifier)
+
 data Context = Context
     { spec        :: AST.SockeyeSpec
     , modulePath  :: [String]
@@ -129,16 +134,16 @@ instance Instantiatable AST.Module InstAST.Module where
                 modify $ Map.insert modName sentinel
                 instInPorts <- do
                     instPorts <- instantiate context inPorts
-                    return $ concat (instPorts :: [[(String, Integer)]])
+                    return $ concat (instPorts :: [[Port]])
                 instOutPorts <- do
                     instPorts <- instantiate context outPorts
-                    return $ concat (instPorts :: [[(String, Integer)]])
+                    return $ concat (instPorts :: [[Port]])
                 instDecls <- do
                     decls <- instantiate context nodeDecls
-                    return $ concat (decls :: [[(String, InstAST.NodeSpec)]])
+                    return $ concat (decls :: [[NodeDecl]])
                 instInsts <- do
                     insts <- instantiate context moduleInsts
-                    return $ concat (insts :: [[(String, InstAST.ModuleInst)]])
+                    return $ concat (insts :: [[ModuleInst]])
                 lift $ checkDuplicates modName DuplicateInPort    $ (map fst instInPorts)
                 lift $ checkDuplicates modName DuplicateOutPort   $ (map fst instOutPorts)
                 lift $ checkDuplicates modName DuplicateIdentifer $ (map fst instDecls)
@@ -150,10 +155,10 @@ instance Instantiatable AST.Module InstAST.Module where
                     , InstAST.moduleInsts  = Map.fromList instInsts
                     }
 
-instance Instantiatable AST.Port [(String, Integer)] where
+instance Instantiatable AST.Port [Port] where
     instantiate context (AST.MultiPort for) = do
         instFor <- instantiate context for
-        return $ concat (instFor :: [[(String, Integer)]])
+        return $ concat (instFor :: [[Port]])
     instantiate context ast = do
         let
             ident = AST.portId ast
@@ -161,10 +166,10 @@ instance Instantiatable AST.Port [(String, Integer)] where
         instIdent <- instantiate context ident
         return [(instIdent, width)]
 
-instance Instantiatable AST.ModuleInst [(String, InstAST.ModuleInst)] where
+instance Instantiatable AST.ModuleInst [ModuleInst] where
     instantiate context (AST.MultiModuleInst for) = do 
         simpleFor <- instantiate context for
-        return $ concat (simpleFor :: [[(String, InstAST.ModuleInst)]])
+        return $ concat (simpleFor :: [[ModuleInst]])
     instantiate context ast = do
         let
             namespace = AST.namespace ast
@@ -177,10 +182,10 @@ instance Instantiatable AST.ModuleInst [(String, InstAST.ModuleInst)] where
         instNs <- instantiate context namespace
         instInMap <- do
             inMaps <- instantiate context inPortMap
-            return $ concat (inMaps :: [[(String, String)]])
+            return $ concat (inMaps :: [[PortMapping]])
         instOutMap <- do
             outMaps <- instantiate context outPortMap
-            return $ concat (outMaps :: [[(String, String)]])
+            return $ concat (outMaps :: [[PortMapping]])
         instArgs <- instantiate context args
         let
             instName = concat [name, "(", intercalate ", " $ argStrings instArgs mod, ")"]
@@ -226,10 +231,10 @@ instance Instantiatable AST.ModuleArg Integer where
     instantiate _ (AST.NaturalArg v) = return v
     instantiate context (AST.ParamArg name) = return $ getParamValue context name
 
-instance Instantiatable AST.PortMap [(String, String)] where
+instance Instantiatable AST.PortMap [PortMapping] where
     instantiate context (AST.MultiPortMap for) = do
         instFor <- instantiate context for
-        return $ concat (instFor :: [[(String, String)]])
+        return $ concat (instFor :: [[PortMapping]])
     instantiate context ast = do
         let
             mappedId = AST.mappedId ast
@@ -238,10 +243,10 @@ instance Instantiatable AST.PortMap [(String, String)] where
         instPort <- instantiate context mappedPort
         return [(instPort, instId)]
 
-instance Instantiatable AST.NodeDecl [(String, InstAST.NodeSpec)] where
+instance Instantiatable AST.NodeDecl [NodeDecl] where
     instantiate context (AST.MultiNodeDecl for) = do
         instFor <- instantiate context for
-        return $ concat (instFor :: [[(String, InstAST.NodeSpec)]])
+        return $ concat (instFor :: [[NodeDecl]])
     instantiate context ast = do
         let
             nodeId = AST.nodeId ast
@@ -250,7 +255,7 @@ instance Instantiatable AST.NodeDecl [(String, InstAST.NodeSpec)] where
         instNodeSpec <- instantiate context nodeSpec
         return [(instNodeId, instNodeSpec)]
 
-instance Instantiatable AST.Identifier String where
+instance Instantiatable AST.Identifier InstAST.Identifier where
     instantiate context (AST.SimpleIdent name) = do
         return name
     instantiate context ast = do
@@ -322,7 +327,7 @@ instance Instantiatable AST.MapSpec InstAST.MapSpec where
         instDestNode <- instantiate context destNode
         instDestBase <- instantiate context destBase
         return InstAST.MapSpec
-            { InstAST.block    = instBlock
+            { InstAST.srcBlock    = instBlock
             , InstAST.destNode = instDestNode
             , InstAST.destBase = instDestBase
             }
@@ -338,7 +343,7 @@ instance Instantiatable AST.OverlaySpec InstAST.OverlaySpec where
             , InstAST.width = width
             }
 
-instance Instantiatable AST.Address Integer where
+instance Instantiatable AST.Address InstAST.Address where
     instantiate context (AST.ParamAddress name) = do
         let value = getParamValue context name
         return value

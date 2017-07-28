@@ -15,13 +15,17 @@
 
 module SockeyeASTInstantiator
     ( module SockeyeASTInstantiator
-    , module SockeyeAST
+    , module SockeyeASTDecodingNet
     ) where
 
 import Data.Map (Map)
 
-import SockeyeAST
-    ( NodeType(Other, Memory, Device) )
+import SockeyeASTDecodingNet
+    ( NodeType(Other, Memory, Device)
+    , BlockSpec(BlockSpec)
+    , base, limit
+    , Address
+    )
 
 data SockeyeSpec = SockeyeSpec
     { root :: ModuleInst
@@ -29,18 +33,26 @@ data SockeyeSpec = SockeyeSpec
     } deriving (Show)
 
 data Module = Module
-    { inputPorts   :: Map String Integer
-    , outputPorts  :: Map String Integer
-    , nodeDecls    :: Map String NodeSpec
-    , moduleInsts  :: Map String ModuleInst
+    { inputPorts   :: PortMap
+    , outputPorts  :: PortMap
+    , moduleInsts  :: ModuleInstMap
+    , nodeDecls    :: NodeDeclMap
     } deriving (Show)
+
+type PortMap = Map Identifier Integer
+type ModuleInstMap = Map String ModuleInst
+type NodeDeclMap = Map Identifier NodeSpec
 
 data ModuleInst
     = ModuleInst
-        { moduleName :: String
-        , inPortMap  :: Map String String
-        , outPortMap :: Map String String
+        { moduleName :: Identifier
+        , inPortMap  :: PortMappingMap
+        , outPortMap :: PortMappingMap
         } deriving (Show)
+
+type PortMappingMap = Map Identifier Identifier
+
+type Identifier = String
 
 data NodeSpec = NodeSpec
     { nodeType  :: NodeType
@@ -50,22 +62,16 @@ data NodeSpec = NodeSpec
     , overlay   :: Maybe OverlaySpec
     } deriving (Show)
 
-data BlockSpec 
-    = BlockSpec
-        { base  :: !Integer
-        , limit :: !Integer
-        } deriving (Show)
-
 data MapSpec 
     = MapSpec
-        { block    :: BlockSpec
-        , destNode :: !String
-        , destBase :: !Integer
+        { srcBlock :: BlockSpec
+        , destNode :: !Identifier
+        , destBase :: !Address
         } deriving (Show)
 
 data OverlaySpec
     = OverlaySpec
-        { over  :: !String
+        { over  :: !Identifier
         , width :: !Integer
         } deriving (Show)
 

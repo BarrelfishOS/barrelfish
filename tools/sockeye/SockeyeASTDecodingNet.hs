@@ -18,28 +18,15 @@ module SockeyeASTDecodingNet where
 import Data.List (intercalate)
 import Data.Map (Map)
 
-newtype NetSpec =
-    NetSpec
-        { net :: Map NodeId NodeSpec }
-    deriving (Show)
+type NetSpec = Map NodeId NodeSpec
 
 data NodeId = NodeId
-    { namespace :: Namespace
+    { namespace :: [String]
     , name      :: !String
     } deriving (Eq, Ord)
 
 instance Show NodeId where
-    show (NodeId namespace name) = 
-        case ns namespace of
-            [] -> name
-            _  -> concat [show namespace, ".", name]
-
-newtype Namespace = Namespace
-    { ns :: [String] }
-    deriving (Eq, Ord)
-
-instance Show Namespace where
-    show (Namespace ns) = intercalate "." $ reverse ns
+    show (NodeId ns n) = intercalate "." $ reverse (n:ns)
 
 data NodeSpec
     = NodeSpec
@@ -66,7 +53,4 @@ data MapSpec = MapSpec
     , destBase :: Address
     } deriving (Show)
 
-newtype Address =
-    Address
-        { address :: Integer }
-    deriving (Show)
+type Address = Integer
