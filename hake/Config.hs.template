@@ -137,6 +137,10 @@ newlib_malloc :: String
 --newlib_malloc = "dlmalloc" -- use dlmalloc
 newlib_malloc = "oldmalloc"
 
+-- Print NYI mmap() flags for each call
+libc_mmap_nyi_flags :: Bool
+libc_mmap_nyi_flags = False
+
 -- Configure pagesize for libbarrelfish's morecore implementation
 -- x86_64 accepts "small", "large", and "huge" for 4kB, 2MB and 1GB pages
 -- respectively. x86_32 accepts "small" and "large" for 4kB and 2MB/4MB pages
