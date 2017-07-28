@@ -27,13 +27,13 @@ import System.IO
 
 import qualified SockeyeASTParser as ParseAST
 import qualified SockeyeAST as AST
+import qualified SockeyeASTInstantiator as InstAST
 import qualified SockeyeASTDecodingNet as NetAST
 
 import SockeyeParser
 import SockeyeChecker
+import SockeyeInstantiator
 import SockeyeNetBuilder
-
-import SockeyeSimplifier
 
 import qualified SockeyeBackendProlog as Prolog
 
@@ -216,13 +216,13 @@ checkAST parsedAst = do
             exitWith checkError
         Right intermAst -> return intermAst
 
-simplifyAST :: AST.SockeyeSpec -> IO AST.SockeyeSpec
-simplifyAST ast = do
-        case sockeyeSimplify ast of 
-            Left fail -> do
-                hPutStr stderr $ show fail
-                exitWith buildError
-            Right simpleAST -> return simpleAST
+instanitateModules :: AST.SockeyeSpec -> IO InstAST.SockeyeSpec
+instanitateModules ast = do
+    case sockeyeInstantiate ast of 
+        Left fail -> do
+            hPutStr stderr $ show fail
+            exitWith buildError
+        Right simpleAST -> return simpleAST
 
 {- Builds the decoding net from the Sockeye AST -}
 buildNet :: AST.SockeyeSpec -> IO NetAST.NetSpec
@@ -264,8 +264,8 @@ main = do
             out <- dependencyFile outFile f deps
             output f out
     ast <- checkAST parsedAst
-    simpleAST <- simplifyAST ast
-    putStrLn $ groom simpleAST
+    instAST <- instanitateModules ast
+    putStrLn $ groom instAST
     netAst <- buildNet ast
     out <- compile (optTarget opts) netAst
     output outFile out

@@ -25,7 +25,7 @@ import SockeyeAST
     , ModuleArg(AddressArg, NaturalArg, ParamArg)
     , NodeSpec(NodeSpec)
     , nodeType, accept, translate, reserved, overlay
-    , NodeType(Memory, Device)
+    , NodeType(Other, Memory, Device)
     , BlockSpec(SingletonBlock, RangeBlock, LengthBlock)
     , base, limit, bits
     , MapSpec(MapSpec)

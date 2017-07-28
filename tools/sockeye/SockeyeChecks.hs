@@ -1,21 +1,72 @@
+{-
+    SockeyeChecks.hs: Helpers to run checks for Sockeye
+
+    Part of Sockeye
+
+    Copyright (c) 2017, ETH Zurich.
+
+    All rights reserved.
+
+    This file is distributed under the terms in the attached LICENSE file.
+    If you do not find this file, copies can be found by writing to:
+    ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
+    Attn: Systems Group.
+-}
+
 module SockeyeChecks where
 
 import Control.Monad.Writer
 
-type Checks f = Writer [f]
+import Data.List (nub)
 
-newtype CheckFailure f = CheckFailure [f]
+data FailedCheck t = FailedCheck
+    { inModule :: !String
+    , failed   :: t
+    }
 
-instance (Show f) => Show (CheckFailure f) where
-    show (CheckFailure fs) = unlines $ "":(map show fs)
+newtype FailedChecks t = FailedChecks [FailedCheck t]
 
-failure :: f -> Checks f ()
-failure f = tell [f]
+instance (Show t) => Show (FailedChecks t) where
+    show (FailedChecks fs) = 
+        let modules = nub $ map inModule fs
+        in unlines $ concat (map showFailsForModule modules)
+        where
+            showFailsForModule name =
+                let
+                    title = "\nIn module '" ++ name ++ "':"
+                    fails = filter (\f -> name == inModule f) fs
+                in case name of
+                    ""      -> "":showFails 0 fails
+                    ('@':_) -> "":showFails 0 fails
+                    _       -> title:showFails 1 fails
+            showFails indentLevel fs =
+                let
+                    indent = replicate (indentLevel * 4) ' '
+                in map ((indent ++) . showFail) fs
+            showFail f = (show $ failed f)
 
-runChecks :: Checks f a -> Either (CheckFailure f) a
+type Checks f = Writer [FailedCheck f]
+
+failCheck :: String -> t -> Checks t ()
+failCheck context f = tell [FailedCheck context f]
+
+runChecks :: Checks f a -> Either (FailedChecks f) a
 runChecks checks = do
     let
         (a, fs) = runWriter checks
     case fs of
         [] -> return a
-        _  -> Left $ CheckFailure fs
+        _  -> Left $ FailedChecks fs
+
+checkDuplicates :: (Eq a) => String  -> (a -> t) -> [a] -> (Checks t) ()
+checkDuplicates context fail xs = do
+    let
+        ds = duplicates xs
+    case ds of
+        [] -> return ()
+        _  -> mapM_ (failCheck context . fail) ds
+    where
+        duplicates [] = []
+        duplicates (x:xs)
+            | x `elem` xs = nub $ [x] ++ duplicates xs
+            | otherwise = duplicates xs

@@ -302,7 +302,7 @@ instance NetTransformable AST.NodeSpec NetAST.NodeSpec where
             translate = AST.translate ast
             reserved = AST.reserved ast
             overlay = AST.overlay ast
-        netNodeType <- maybe (return NetAST.Other) (transform context) nodeType
+        netNodeType <- transform context nodeType
         netAccept <- transform context accept
         netTranslate <- transform context translate
         netReserved <- transform context reserved
@@ -322,6 +322,7 @@ instance NetTransformable AST.NodeSpec NetAST.NodeSpec where
 instance NetTransformable AST.NodeType NetAST.NodeType where
     transform _ AST.Memory = return NetAST.Memory
     transform _ AST.Device = return NetAST.Device
+    transform _ AST.Other  = return NetAST.Other
 
 instance NetTransformable AST.BlockSpec NetAST.BlockSpec where
     transform context (AST.SingletonBlock address) = do

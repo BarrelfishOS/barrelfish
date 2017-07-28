@@ -95,7 +95,7 @@ data Identifier
     deriving (Show)
 
 data NodeSpec = NodeSpec
-    { nodeType  :: Maybe NodeType
+    { nodeType  :: NodeType
     , accept    :: [BlockSpec]
     , translate :: [MapSpec]
     , reserved  :: [BlockSpec]
@@ -105,6 +105,7 @@ data NodeSpec = NodeSpec
 data NodeType
     = Memory
     | Device
+    | Other
     deriving (Show)
 
 data BlockSpec 

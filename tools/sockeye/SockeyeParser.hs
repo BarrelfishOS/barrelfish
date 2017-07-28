@@ -204,7 +204,7 @@ identifier = do
     return ident
 
 nodeSpec = do
-    nodeType <- optionMaybe $ try nodeType
+    nodeType <- option AST.Other $ try nodeType
     accept <- option [] accept 
     translate <- option [] tranlsate
     reserve <- option [] reserve
