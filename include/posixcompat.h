@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, 2012, ETH Zurich.
+ * Copyright (c) 2011, 2012, 2017 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -29,6 +29,9 @@ enum pthread_action {
 };
 typedef int (*pthread_placement_fn)(enum pthread_action action, int coreid);
 errval_t posixcompat_pthread_set_placement_fn(pthread_placement_fn fn);
+
+// To propagate BF errors through POSIX layer, like errno.
+errval_t posixcompat_get_bf_error(void);
 
 __END_DECLS
 

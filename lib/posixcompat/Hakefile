@@ -14,6 +14,7 @@
 let cFiles = [ "access.c",
                "alarm.c",
                "basename.c",
+               "bferrno.c",
                "chdir.c",
                "chmod.c",
                "chroot.c",
