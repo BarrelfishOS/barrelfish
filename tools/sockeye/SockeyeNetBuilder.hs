@@ -37,12 +37,12 @@ import qualified SockeyeASTDecodingNet as NetAST
 
 import Debug.Trace
 
-data NetBuildFails
+data NetBuildFail
     = UndefinedOutPort   !String !String
     | UndefinedInPort    !String !String
     | UndefinedReference !String !String
 
-instance Show NetBuildFails where
+instance Show NetBuildFail where
     show (UndefinedInPort  inst port)    = concat ["Mapping to undefined input port '",   port, "' in module instantiation '", inst, "'"]
     show (UndefinedOutPort inst port)    = concat ["Mapping to undefined output port '",  port, "' in module instantiation '", inst, "'"]
     show (UndefinedReference decl ident) = concat ["Reference to undefined node '", ident, "' in declaration of node '", decl, "'"]
@@ -57,7 +57,7 @@ data Context = Context
     , mappedBlocks :: [InstAST.BlockSpec]
     }
 
-buildSockeyeNet :: InstAST.SockeyeSpec -> Either (FailedChecks NetBuildFails) NetAST.NetSpec
+buildSockeyeNet :: InstAST.SockeyeSpec -> Either (FailedChecks NetBuildFail) NetAST.NetSpec
 buildSockeyeNet ast = do
     let
         context = Context
@@ -75,7 +75,7 @@ buildSockeyeNet ast = do
 -- Build net
 --
 class NetTransformable a b where
-    transform :: Context -> a -> Checks NetBuildFails b
+    transform :: Context -> a -> Checks NetBuildFail b
 
 instance NetTransformable InstAST.SockeyeSpec NetAST.NetSpec where
     transform context ast = do

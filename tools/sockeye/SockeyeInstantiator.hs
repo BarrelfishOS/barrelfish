@@ -39,7 +39,7 @@ import qualified SockeyeASTInstantiator as InstAST
 import Text.Groom (groom)
 import Debug.Trace
 
-data InstFails
+data InstFail
     = ModuleInstLoop     [String]
     | DuplicateNamespace !String
     | DuplicateIdentifer !String
@@ -51,7 +51,7 @@ data InstFails
     | UndefinedInPort    !String !String
     | UndefinedReference !String !String
 
-instance Show InstFails where
+instance Show InstFail where
     show (ModuleInstLoop     loop)       = concat ["Module instantiation loop: '", intercalate "' -> '" loop, "'"]
     show (DuplicateInPort    port)       = concat ["Multiple declarations of input port '", port, "'"]
     show (DuplicateOutPort   port)       = concat ["Multiple declarations of output port '", port, "'"]
@@ -72,7 +72,7 @@ data Context = Context
     , varValues   :: Map String Integer
     }
 
-instantiateSockeye :: CheckAST.SockeyeSpec -> Either (FailedChecks InstFails) InstAST.SockeyeSpec
+instantiateSockeye :: CheckAST.SockeyeSpec -> Either (FailedChecks InstFail) InstAST.SockeyeSpec
 instantiateSockeye ast = do
     let emptySpec = CheckAST.SockeyeSpec 
         context = Context
@@ -87,7 +87,7 @@ instantiateSockeye ast = do
 -- Instantiate Module Templates
 --
 class Instantiatable a b where
-    instantiate :: Context -> a -> StateT (Map String InstAST.Module) (Checks InstFails) b
+    instantiate :: Context -> a -> StateT (Map String InstAST.Module) (Checks InstFail) b
 
 instance Instantiatable CheckAST.SockeyeSpec InstAST.SockeyeSpec where
     instantiate context ast = do
