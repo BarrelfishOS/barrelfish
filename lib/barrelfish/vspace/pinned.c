@@ -144,6 +144,7 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
         if (buf == NULL) {
             buf = slab_alloc(slab);
         }
+        state->refill_count ++;
         is_refilling = false;
     }
 
