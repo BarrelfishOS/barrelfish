@@ -396,10 +396,10 @@ instance Checkable a b => Checkable (ParseAST.For a) (CheckAST.For b) where
             varRanges = ParseAST.varRanges ast
             varNames = map ParseAST.var varRanges
             body = ParseAST.body ast
-        checkDuplicates (curModule context) DuplicateVariable varNames
+            currentVars = vars context
+        checkDuplicates (curModule context) DuplicateVariable (varNames ++ Set.elems currentVars)
         ranges <- check context varRanges
         let
-            currentVars = vars context
             bodyVars = currentVars `Set.union` (Set.fromList varNames)
             bodyContext = context
                 { vars = bodyVars }
