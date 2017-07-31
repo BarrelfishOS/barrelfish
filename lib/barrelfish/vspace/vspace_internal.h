@@ -16,7 +16,8 @@
 #define VSPACE_INTERNAL_H_
 
 #define VSPACE_PINNED_UNIT 5
-#define VSPACE_PINNED_SIZE (BASE_PAGE_SIZE * 1024)
+// reserve 128MB for vspace backing memory
+#define VSPACE_PINNED_SIZE (BASE_PAGE_SIZE * 32768)
 
 enum slab_type {
     VREGION_LIST,
