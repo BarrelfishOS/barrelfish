@@ -170,8 +170,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             // cleanup mapping info
             // TODO: cleanup already mapped pages
             memset(mapping_cte, 0, sizeof(*mapping_cte));
-            debug(SUBSYS_PAGING, "slot in use\n");
-            printk(LOG_NOTE, "slot = 0x%016"PRIx64"\n", entry->raw);
+            debug(SUBSYS_PAGING, "slot in use, slot = 0x%016"PRIx64"\n", entry->raw);
             return SYS_ERR_VNODE_SLOT_INUSE;
         }
 
