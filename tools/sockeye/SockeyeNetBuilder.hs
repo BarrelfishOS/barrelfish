@@ -47,11 +47,13 @@ instance Show NetBuildFails where
     show (UndefinedOutPort inst port)    = concat ["Mapping to undefined output port '",  port, "' in module instantiation '", inst, "'"]
     show (UndefinedReference decl ident) = concat ["Reference to undefined node '", ident, "' in declaration of node '", decl, "'"]
 
+type PortMap = Map InstAST.Identifier NetAST.NodeId
+
 data Context = Context
     { modules      :: Map String InstAST.Module
     , curNamespace :: [String]
-    -- , inPortMaps   :: Map String NetAST.NodeId
-    -- , outPortMaps  :: Map String NetAST.NodeId
+    , inPortMap    :: PortMap
+    , outPortMap   :: PortMap
     , mappedBlocks :: [InstAST.BlockSpec]
     }
 
@@ -61,13 +63,14 @@ sockeyeBuildNet ast = do
         context = Context
             { modules      = Map.empty
             , curNamespace = []
-            -- , inPortMaps   = Map.empty
-            -- , outPortMaps  = Map.empty
+            , inPortMap    = Map.empty
+            , outPortMap   = Map.empty
             , mappedBlocks = []
             }        
     net <- runChecks $ transform context ast
     -- check Set.empty net
     return net
+
 --            
 -- Build net
 --
@@ -85,125 +88,92 @@ instance NetTransformable InstAST.SockeyeSpec NetAST.NetSpec where
 
 instance NetTransformable InstAST.Module NetAST.NetSpec where
     transform context ast = do
-        let inPorts = InstAST.inputPorts ast
-            outPorts = InstAST.outputPorts ast
+        let ports = InstAST.ports ast
             nodeDecls = InstAST.nodeDecls ast
             moduleInsts = InstAST.moduleInsts ast
-        -- inDecls <- transform context inPorts
-        -- outDecls <- transform context outPorts
         -- TODO check mappings to non existing port
+        portDecls <- transform context ports
         netDecls <- transform context nodeDecls
-        netInsts <- transform context moduleInsts
-        -- return $ concat (inDecls:outDecls:netDecls ++ netInsts)            
-        return $ Map.unions [netDecls, netInsts]
+        netInsts <- transform context moduleInsts     
+        return $ Map.unions (portDecls ++ netDecls ++ netInsts)
 
--- instance NetTransformable InstAST.Port NetList where
---     transform context (AST.MultiPort for) = do
---         netPorts <- transform context for
---         return $ concat (netPorts :: [NetList])
---     transform context (AST.InputPort portId portWidth) = do
---         netPortId <- transform context portId
---         let
---             portMap = inPortMaps context
---             name = NetAST.name netPortId
---             mappedId = Map.lookup name portMap
---         case mappedId of
---             Nothing    -> return []
---             Just ident -> do
---                 let
---                     node = portNode netPortId portWidth
---                 return [(ident, node)]
---     transform context (AST.OutputPort portId portWidth) = do
---         netPortId <- transform context portId
---         let
---             portMap = outPortMaps context
---             name = NetAST.name netPortId
---             mappedId = Map.lookup name portMap
---         case mappedId of
---             Nothing    -> return [(netPortId, portNodeTemplate)]
---             Just ident -> do
---                 let
---                     node = portNode ident portWidth
---                 return [(netPortId, node)]
+instance NetTransformable InstAST.Port NetAST.NetSpec where
+    transform context ast@(InstAST.InputPort {}) = do
+        let portId = InstAST.portId ast
+            portWidth = InstAST.portWidth ast
+            portMap = inPortMap context
+            mappedId = Map.lookup portId portMap
+        netPortId <- transform context portId
+        case mappedId of
+            Nothing    -> return Map.empty
+            Just ident -> do
+                let node = portNode netPortId portWidth
+                return $ Map.fromList [(ident, node)]
+    transform context ast@(InstAST.OutputPort {}) = do
+        let portId = InstAST.portId ast
+            portWidth = InstAST.portWidth ast
+            portMap = outPortMap context
+            mappedId = Map.lookup portId portMap
+        netPortId <- transform context portId
+        case mappedId of
+            Nothing    -> return $ Map.fromList [(netPortId, portNodeTemplate)]
+            Just ident -> do
+                let node = portNode ident portWidth
+                return $ Map.fromList $ [(netPortId, node)]
 
--- portNode :: NetAST.NodeId -> Integer -> NetAST.NodeSpec
--- portNode destNode width =
---     let
---         base = NetAST.Address 0
---         limit = NetAST.Address $ 2^width - 1
---         srcBlock = NetAST.BlockSpec
---             { NetAST.base  = base
---             , NetAST.limit = limit
---             }
---         map = NetAST.MapSpec
---                 { NetAST.srcBlock = srcBlock
---                 , NetAST.destNode = destNode
---                 , NetAST.destBase = base
---                 }
---     in portNodeTemplate { NetAST.translate = [map] }
+portNode :: NetAST.NodeId -> Integer -> NetAST.NodeSpec
+portNode destNode width =
+    let base = 0
+        limit = 2^width - 1
+        srcBlock = NetAST.BlockSpec
+            { NetAST.base  = base
+            , NetAST.limit = limit
+            }
+        map = NetAST.MapSpec
+                { NetAST.srcBlock = srcBlock
+                , NetAST.destNode = destNode
+                , NetAST.destBase = base
+                }
+    in portNodeTemplate { NetAST.translate = [map] }
 
--- portNodeTemplate :: NetAST.NodeSpec
--- portNodeTemplate = NetAST.NodeSpec
---     { NetAST.nodeType  = NetAST.Other
---     , NetAST.accept    = []
---     , NetAST.translate = []
---     }
-
-instance NetTransformable InstAST.ModuleInstMap NetAST.NetSpec where
-        transform context ast = do
-            let namespaces = Map.keys ast
-                modInsts = Map.elems ast
-            let
-                contexts = map addNamespace namespaces
-            netModInsts <- mapM (uncurry transform) $ zip contexts modInsts
-            return $ Map.unions netModInsts
-            where
-                addNamespace n =
-                    let ns = curNamespace context
-                    in context
-                        { curNamespace = n:ns }
-
+portNodeTemplate :: NetAST.NodeSpec
+portNodeTemplate = NetAST.NodeSpec
+    { NetAST.nodeType  = NetAST.Other
+    , NetAST.accept    = []
+    , NetAST.translate = []
+    }
 
 instance NetTransformable InstAST.ModuleInst NetAST.NetSpec where
     transform context ast = do
         let name = InstAST.moduleName ast
+            namespace = InstAST.namespace ast
             inPortMap = InstAST.inPortMap ast
             outPortMap = InstAST.outPortMap ast
             mod = getModule context name
-        -- netInMap <- transform context inPortMap
-        -- netOutMap <- transform context outPortMap
-        transform context mod
+        netInMap <- transform context inPortMap
+        netOutMap <- transform context outPortMap
+        let instContext = context
+                { curNamespace = namespace:(curNamespace context)
+                , inPortMap    = netInMap
+                , outPortMap   = netOutMap
+                }
+        transform instContext mod
 
--- instance NetTransformable AST.PortMap PortMap where
---     transform context (AST.MultiPortMap for) = do
---         ts <- transform context for
---         return $ concat (ts :: [PortMap])
---     transform context ast = do
---         let
---             mappedId = AST.mappedId ast
---             mappedPort = AST.mappedPort ast
---         netMappedId <- transform context mappedId
---         netMappedPort <- transform context mappedPort
---         return [(NetAST.name netMappedPort, netMappedId)]
-
--- instance NetTransformable AST.ModuleArg Integer where
---     transform _ (AST.AddressArg value) = return value
---     transform _ (AST.NaturalArg value) = return value
---     transform context (AST.ParamArg name) = return $ getParamValue context name
-
-instance NetTransformable InstAST.NodeDeclMap NetAST.NetSpec where
+instance NetTransformable InstAST.PortMap PortMap where
     transform context ast = do
-        let
-            idents = Map.keys ast
-            nodeSpecs = Map.elems ast
-        netNodeIds <- transform context idents
-        netNodeSpec <- transform context nodeSpecs
-        return $ Map.fromList (zip netNodeIds netNodeSpec)
+        mapM (transform context) ast
+
+instance NetTransformable InstAST.NodeDecl NetAST.NetSpec where
+    transform context ast = do
+        let nodeId = InstAST.nodeId ast
+            nodeSpec = InstAST.nodeSpec ast
+        netNodeId <- transform context nodeId
+        netNodeSpec <- transform context nodeSpec
+        return $ Map.fromList [(netNodeId, netNodeSpec)]
 
 instance NetTransformable InstAST.Identifier NetAST.NodeId where
     transform context ast = do
-        let
-            namespace = curNamespace context
+        let namespace = curNamespace context
         return NetAST.NodeId
             { NetAST.namespace = namespace
             , NetAST.name      = ast
@@ -251,8 +221,7 @@ instance NetTransformable InstAST.OverlaySpec [NetAST.MapSpec] where
             width = InstAST.width ast
             blocks = mappedBlocks context
         netOver <- transform context over
-        let
-            maps = overlayMaps netOver width blocks
+        let maps = overlayMaps netOver width blocks
         return maps
 
 overlayMaps :: NetAST.NodeId -> Integer -> [NetAST.BlockSpec] -> [NetAST.MapSpec]

@@ -33,24 +33,37 @@ data SockeyeSpec = SockeyeSpec
     } deriving (Show)
 
 data Module = Module
-    { inputPorts   :: PortMap
-    , outputPorts  :: PortMap
-    , moduleInsts  :: ModuleInstMap
-    , nodeDecls    :: NodeDeclMap
+    { ports        :: [Port]
+    , moduleInsts  :: [ModuleInst]
+    , nodeDecls    :: [NodeDecl]
     } deriving (Show)
 
-type PortMap = Map Identifier Integer
-type ModuleInstMap = Map String ModuleInst
-type NodeDeclMap = Map Identifier NodeSpec
+data Port
+    = InputPort 
+        { portId    :: Identifier
+        , portWidth :: !Integer
+        }
+    | OutputPort
+        { portId    :: Identifier
+        , portWidth :: !Integer
+        }
+    deriving (Show)
 
 data ModuleInst
     = ModuleInst
         { moduleName :: Identifier
-        , inPortMap  :: PortMappingMap
-        , outPortMap :: PortMappingMap
+        , namespace  :: Identifier
+        , inPortMap  :: PortMap
+        , outPortMap :: PortMap
         } deriving (Show)
 
-type PortMappingMap = Map Identifier Identifier
+type PortMap = Map Identifier Identifier
+
+data NodeDecl
+    = NodeDecl
+        { nodeId   :: Identifier
+        , nodeSpec :: NodeSpec
+        } deriving (Show)
 
 type Identifier = String
 
@@ -74,4 +87,3 @@ data OverlaySpec
         { over  :: !Identifier
         , width :: !Integer
         } deriving (Show)
-

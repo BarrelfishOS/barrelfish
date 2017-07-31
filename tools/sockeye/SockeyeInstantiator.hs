@@ -63,9 +63,6 @@ instance Show InstFails where
     show (UndefinedOutPort inst port)    = concat ["Mapping to undefined output port '",  port, "' in module instantiation '", inst, "'"]
     show (UndefinedReference decl ident) = concat ["Reference to undefined node '", ident, "' in declaration of node '", decl, "'"]
 
-type Port = (InstAST.Identifier, Integer)
-type NodeDecl = (InstAST.Identifier, InstAST.NodeSpec)
-type ModuleInst = (InstAST.Identifier, InstAST.ModuleInst)
 type PortMapping = (InstAST.Identifier, InstAST.Identifier)
 
 data Context = Context
@@ -77,8 +74,7 @@ data Context = Context
 
 sockeyeInstantiate :: AST.SockeyeSpec -> Either (FailedChecks InstFails) InstAST.SockeyeSpec
 sockeyeInstantiate ast = do
-    let
-        emptySpec = AST.SockeyeSpec Map.empty
+    let emptySpec = AST.SockeyeSpec Map.empty
         context = Context
             { spec        = emptySpec
             , modulePath  = []
@@ -95,8 +91,7 @@ class Instantiatable a b where
 
 instance Instantiatable AST.SockeyeSpec InstAST.SockeyeSpec where
     instantiate context ast = do
-        let
-            rootInst = AST.ModuleInst
+        let rootInst = AST.ModuleInst
                 { AST.namespace  = AST.SimpleIdent ""
                 , AST.moduleName = "@root"
                 , AST.arguments  = Map.empty
@@ -105,7 +100,7 @@ instance Instantiatable AST.SockeyeSpec InstAST.SockeyeSpec where
                 }
             specContext = context
                 { spec = ast }
-        [("", instRoot)] <- instantiate specContext rootInst
+        [instRoot] <- instantiate specContext rootInst
         modules <- get
         return InstAST.SockeyeSpec
             { InstAST.root = instRoot
@@ -114,8 +109,7 @@ instance Instantiatable AST.SockeyeSpec InstAST.SockeyeSpec where
 
 instance Instantiatable AST.Module InstAST.Module where
     instantiate context ast = do
-        let
-            inPorts = AST.inputPorts ast
+        let inPorts = AST.inputPorts ast
             outPorts = AST.outputPorts ast
             nodeDecls = AST.nodeDecls ast
             moduleInsts = AST.moduleInsts ast
@@ -126,53 +120,65 @@ instance Instantiatable AST.Module InstAST.Module where
                 return $ modules Map.! modName
             else do
                 let sentinel = InstAST.Module
-                        { InstAST.inputPorts   = Map.empty
-                        , InstAST.outputPorts  = Map.empty
-                        , InstAST.nodeDecls    = Map.empty
-                        , InstAST.moduleInsts  = Map.empty
+                        { InstAST.ports       = []
+                        , InstAST.nodeDecls   = []
+                        , InstAST.moduleInsts = []
                         }
                 modify $ Map.insert modName sentinel
-                instInPorts <- do
-                    instPorts <- instantiate context inPorts
-                    return $ concat (instPorts :: [[Port]])
-                instOutPorts <- do
-                    instPorts <- instantiate context outPorts
-                    return $ concat (instPorts :: [[Port]])
+                instPorts <- do
+                    instPorts <- instantiate context (inPorts ++ outPorts)
+                    return $ concat (instPorts :: [[InstAST.Port]])
                 instDecls <- do
                     decls <- instantiate context nodeDecls
-                    return $ concat (decls :: [[NodeDecl]])
+                    return $ concat (decls :: [[InstAST.NodeDecl]])
                 instInsts <- do
                     insts <- instantiate context moduleInsts
-                    return $ concat (insts :: [[ModuleInst]])
-                lift $ checkDuplicates modName DuplicateInPort    $ (map fst instInPorts)
-                lift $ checkDuplicates modName DuplicateOutPort   $ (map fst instOutPorts)
-                lift $ checkDuplicates modName DuplicateIdentifer $ (map fst instDecls)
-                lift $ checkDuplicates modName DuplicateNamespace $ (map fst instInsts)
+                    return $ concat (insts :: [[InstAST.ModuleInst]])
+                lift $ checkDuplicates modName DuplicateInPort    $ (map InstAST.portId $ filter isInPort  instPorts)
+                lift $ checkDuplicates modName DuplicateOutPort   $ (map InstAST.portId $ filter isOutPort instPorts)
+                lift $ checkDuplicates modName DuplicateIdentifer $ (map InstAST.nodeId instDecls)
+                lift $ checkDuplicates modName DuplicateNamespace $ (map InstAST.namespace instInsts)
+                -- TODO: check duplicates with input/output ports
                 return InstAST.Module
-                    { InstAST.inputPorts   = Map.fromList instInPorts
-                    , InstAST.outputPorts  = Map.fromList instOutPorts
-                    , InstAST.nodeDecls    = Map.fromList instDecls
-                    , InstAST.moduleInsts  = Map.fromList instInsts
+                    { InstAST.ports       = instPorts
+                    , InstAST.nodeDecls   = instDecls
+                    , InstAST.moduleInsts = instInsts
                     }
+        where
+            isInPort  (InstAST.InputPort  {}) = True
+            isInPort  (InstAST.OutputPort {}) = False
+            isOutPort (InstAST.InputPort  {}) = False
+            isOutPort (InstAST.OutputPort {}) = True
 
-instance Instantiatable AST.Port [Port] where
+instance Instantiatable AST.Port [InstAST.Port] where
     instantiate context (AST.MultiPort for) = do
         instFor <- instantiate context for
-        return $ concat (instFor :: [[Port]])
-    instantiate context ast = do
-        let
-            ident = AST.portId ast
+        return $ concat (instFor :: [[InstAST.Port]])
+    instantiate context ast@(AST.InputPort {}) = do
+        let ident = AST.portId ast
             width = AST.portWidth ast
         instIdent <- instantiate context ident
-        return [(instIdent, width)]
+        let instPort = InstAST.InputPort
+                { InstAST.portId    = instIdent
+                , InstAST.portWidth = width
+                }
+        return [instPort]
+    instantiate context ast@(AST.OutputPort {}) = do
+        let ident = AST.portId ast
+            width = AST.portWidth ast
+        instIdent <- instantiate context ident
+        let instPort = InstAST.OutputPort
+                { InstAST.portId    = instIdent
+                , InstAST.portWidth = width
+                }
+        return [instPort]
 
-instance Instantiatable AST.ModuleInst [ModuleInst] where
+instance Instantiatable AST.ModuleInst [InstAST.ModuleInst] where
     instantiate context (AST.MultiModuleInst for) = do 
         simpleFor <- instantiate context for
-        return $ concat (simpleFor :: [[ModuleInst]])
+        return $ concat (simpleFor :: [[InstAST.ModuleInst]])
     instantiate context ast = do
-        let
-            namespace = AST.namespace ast
+        let namespace = AST.namespace ast
             name = AST.moduleName ast
             args = AST.arguments ast
             inPortMap = AST.inPortMap ast
@@ -187,8 +193,7 @@ instance Instantiatable AST.ModuleInst [ModuleInst] where
             outMaps <- instantiate context outPortMap
             return $ concat (outMaps :: [[PortMapping]])
         instArgs <- instantiate context args
-        let
-            instName = concat [name, "(", intercalate ", " $ argStrings instArgs mod, ")"]
+        let instName = concat [name, "(", intercalate ", " $ argStrings instArgs mod, ")"]
             moduleContext = context
                     { modulePath  = instName:modPath
                     , paramValues = instArgs
@@ -197,19 +202,18 @@ instance Instantiatable AST.ModuleInst [ModuleInst] where
         lift $ checkSelfInst modPath instName
         lift $ checkDuplicates name (DuplicateInMap  instName) $ map fst instInMap
         lift $ checkDuplicates name (DuplicateOutMap instName) $ map fst instOutMap
-        let
-            simplified = InstAST.ModuleInst
+        let instantiated = InstAST.ModuleInst
                 { InstAST.moduleName = instName
+                , InstAST.namespace  = instNs
                 , InstAST.inPortMap  = Map.fromList instInMap
                 , InstAST.outPortMap = Map.fromList instOutMap
                 }
         instModule <- instantiate moduleContext mod
         modify $ Map.insert instName instModule
-        return [(instNs, simplified)]
+        return [instantiated]
         where
             argStrings args mod =
-                let
-                    paramNames = AST.paramNames mod
+                let paramNames = AST.paramNames mod
                     paramTypes = AST.paramTypeMap mod
                     params = map (\p -> (p, paramTypes Map.! p)) paramNames
                 in map showValue params
@@ -236,31 +240,32 @@ instance Instantiatable AST.PortMap [PortMapping] where
         instFor <- instantiate context for
         return $ concat (instFor :: [[PortMapping]])
     instantiate context ast = do
-        let
-            mappedId = AST.mappedId ast
+        let mappedId = AST.mappedId ast
             mappedPort = AST.mappedPort ast
         instId <- instantiate context mappedId
         instPort <- instantiate context mappedPort
         return [(instPort, instId)]
 
-instance Instantiatable AST.NodeDecl [NodeDecl] where
+instance Instantiatable AST.NodeDecl [InstAST.NodeDecl] where
     instantiate context (AST.MultiNodeDecl for) = do
         instFor <- instantiate context for
-        return $ concat (instFor :: [[NodeDecl]])
+        return $ concat (instFor :: [[InstAST.NodeDecl]])
     instantiate context ast = do
-        let
-            nodeId = AST.nodeId ast
+        let nodeId = AST.nodeId ast
             nodeSpec = AST.nodeSpec ast
         instNodeId <- instantiate context nodeId
         instNodeSpec <- instantiate context nodeSpec
-        return [(instNodeId, instNodeSpec)]
+        let instDecl = InstAST.NodeDecl
+                { InstAST.nodeId   = instNodeId
+                , InstAST.nodeSpec = instNodeSpec
+                }
+        return $ [instDecl]
 
 instance Instantiatable AST.Identifier InstAST.Identifier where
     instantiate context (AST.SimpleIdent name) = do
         return name
     instantiate context ast = do
-        let
-            prefix = AST.prefix ast
+        let prefix = AST.prefix ast
             varName = AST.varName ast
             suffix = AST.suffix ast
             varValue = show $ getVarValue context varName
@@ -271,8 +276,7 @@ instance Instantiatable AST.Identifier InstAST.Identifier where
 
 instance Instantiatable AST.NodeSpec InstAST.NodeSpec where
     instantiate context ast = do
-        let
-            nodeType = AST.nodeType ast
+        let nodeType = AST.nodeType ast
             accept = AST.accept ast
             translate = AST.translate ast
             reserved = AST.reserved ast
@@ -310,8 +314,7 @@ instance Instantiatable AST.BlockSpec InstAST.BlockSpec where
             }
     instantiate context (AST.LengthBlock base bits) = do
         instBase <- instantiate context base
-        let
-            instLimit = instBase + 2^bits - 1
+        let instLimit = instBase + 2^bits - 1
         return InstAST.BlockSpec
             { InstAST.base  = instBase
             , InstAST.limit = instLimit
@@ -319,8 +322,7 @@ instance Instantiatable AST.BlockSpec InstAST.BlockSpec where
 
 instance Instantiatable AST.MapSpec InstAST.MapSpec where
     instantiate context ast = do
-        let
-            block = AST.block ast
+        let block = AST.block ast
             destNode = AST.destNode ast
             destBase = fromMaybe (AST.base block) (AST.destBase ast)
         instBlock <- instantiate context block
@@ -334,8 +336,7 @@ instance Instantiatable AST.MapSpec InstAST.MapSpec where
 
 instance Instantiatable AST.OverlaySpec InstAST.OverlaySpec where
     instantiate context ast = do
-        let
-            over = AST.over ast
+        let over = AST.over ast
             width = AST.width ast
         instOver <- instantiate context over
         return InstAST.OverlaySpec
@@ -351,12 +352,10 @@ instance Instantiatable AST.Address InstAST.Address where
 
 instance Instantiatable a b => Instantiatable (AST.For a) [b] where
     instantiate context ast = do
-        let
-            body = AST.body ast
+        let body = AST.body ast
             varRanges = AST.varRanges ast
         concreteRanges <- instantiate context varRanges
-        let
-            valueList = Map.foldWithKey iterations [] concreteRanges
+        let valueList = Map.foldWithKey iterations [] concreteRanges
             iterContexts = map iterationContext valueList
         mapM (\c -> instantiate c body) iterContexts
         where
@@ -372,8 +371,7 @@ instance Instantiatable a b => Instantiatable (AST.For a) [b] where
 
 instance Instantiatable AST.ForRange [Integer] where
     instantiate context ast = do
-        let
-            start = AST.start ast
+        let start = AST.start ast
             end = AST.end ast
         simpleStart <- instantiate context start
         simpleEnd <- instantiate context end
@@ -389,18 +387,15 @@ instance (Traversable t, Instantiatable a b) => Instantiatable (t a) (t b) where
 
 getModule :: Context -> String -> AST.Module
 getModule context name =
-    let
-        modules = AST.modules $ spec context
+    let modules = AST.modules $ spec context
     in modules Map.! name
 
 getParamValue :: Context -> String -> Integer
 getParamValue context name =
-    let
-        params = paramValues context
+    let params = paramValues context
     in params Map.! name
 
 getVarValue :: Context -> String -> Integer
 getVarValue context name =
-    let
-        vars = varValues context
+    let vars = varValues context
     in vars Map.! name

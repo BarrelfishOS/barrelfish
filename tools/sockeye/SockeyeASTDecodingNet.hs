@@ -21,12 +21,14 @@ import Data.Map (Map)
 type NetSpec = Map NodeId NodeSpec
 
 data NodeId = NodeId
-    { namespace :: [String]
-    , name      :: !String
+    { name      :: !String
+    , namespace :: [String]
     } deriving (Eq, Ord)
 
 instance Show NodeId where
-    show (NodeId ns n) = intercalate "." $ reverse (n:ns)
+    show (NodeId n ns) =
+        let noEmpty = filter ((> 0) . length) ns
+        in intercalate "." $ reverse (n:noEmpty)
 
 data NodeSpec
     = NodeSpec
