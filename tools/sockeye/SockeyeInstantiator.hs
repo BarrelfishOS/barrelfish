@@ -18,7 +18,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module SockeyeInstantiator
-( sockeyeInstantiate ) where
+( instantiateSockeye ) where
 
 import Control.Monad.State
 
@@ -33,7 +33,7 @@ import Numeric (showHex)
 
 import SockeyeChecks
 
-import qualified SockeyeAST as AST
+import qualified SockeyeASTTypeChecker as CheckAST
 import qualified SockeyeASTInstantiator as InstAST
 
 import Text.Groom (groom)
@@ -66,15 +66,15 @@ instance Show InstFails where
 type PortMapping = (InstAST.Identifier, InstAST.Identifier)
 
 data Context = Context
-    { spec        :: AST.SockeyeSpec
+    { spec        :: CheckAST.SockeyeSpec
     , modulePath  :: [String]
     , paramValues :: Map String Integer
     , varValues   :: Map String Integer
     }
 
-sockeyeInstantiate :: AST.SockeyeSpec -> Either (FailedChecks InstFails) InstAST.SockeyeSpec
-sockeyeInstantiate ast = do
-    let emptySpec = AST.SockeyeSpec Map.empty
+instantiateSockeye :: CheckAST.SockeyeSpec -> Either (FailedChecks InstFails) InstAST.SockeyeSpec
+instantiateSockeye ast = do
+    let emptySpec = CheckAST.SockeyeSpec Map.empty
         context = Context
             { spec        = emptySpec
             , modulePath  = []
@@ -89,14 +89,14 @@ sockeyeInstantiate ast = do
 class Instantiatable a b where
     instantiate :: Context -> a -> StateT (Map String InstAST.Module) (Checks InstFails) b
 
-instance Instantiatable AST.SockeyeSpec InstAST.SockeyeSpec where
+instance Instantiatable CheckAST.SockeyeSpec InstAST.SockeyeSpec where
     instantiate context ast = do
-        let rootInst = AST.ModuleInst
-                { AST.namespace  = AST.SimpleIdent ""
-                , AST.moduleName = "@root"
-                , AST.arguments  = Map.empty
-                , AST.inPortMap  = []
-                , AST.outPortMap = []
+        let rootInst = CheckAST.ModuleInst
+                { CheckAST.namespace  = CheckAST.SimpleIdent ""
+                , CheckAST.moduleName = "@root"
+                , CheckAST.arguments  = Map.empty
+                , CheckAST.inPortMap  = []
+                , CheckAST.outPortMap = []
                 }
             specContext = context
                 { spec = ast }
@@ -107,12 +107,12 @@ instance Instantiatable AST.SockeyeSpec InstAST.SockeyeSpec where
             , InstAST.modules = modules
             }
 
-instance Instantiatable AST.Module InstAST.Module where
+instance Instantiatable CheckAST.Module InstAST.Module where
     instantiate context ast = do
-        let inPorts = AST.inputPorts ast
-            outPorts = AST.outputPorts ast
-            nodeDecls = AST.nodeDecls ast
-            moduleInsts = AST.moduleInsts ast
+        let inPorts = CheckAST.inputPorts ast
+            outPorts = CheckAST.outputPorts ast
+            nodeDecls = CheckAST.nodeDecls ast
+            moduleInsts = CheckAST.moduleInsts ast
             modName = head $ modulePath context
         modules <- get
         if modName `Map.member` modules
@@ -150,22 +150,22 @@ instance Instantiatable AST.Module InstAST.Module where
             isOutPort (InstAST.InputPort  {}) = False
             isOutPort (InstAST.OutputPort {}) = True
 
-instance Instantiatable AST.Port [InstAST.Port] where
-    instantiate context (AST.MultiPort for) = do
+instance Instantiatable CheckAST.Port [InstAST.Port] where
+    instantiate context (CheckAST.MultiPort for) = do
         instFor <- instantiate context for
         return $ concat (instFor :: [[InstAST.Port]])
-    instantiate context ast@(AST.InputPort {}) = do
-        let ident = AST.portId ast
-            width = AST.portWidth ast
+    instantiate context ast@(CheckAST.InputPort {}) = do
+        let ident = CheckAST.portId ast
+            width = CheckAST.portWidth ast
         instIdent <- instantiate context ident
         let instPort = InstAST.InputPort
                 { InstAST.portId    = instIdent
                 , InstAST.portWidth = width
                 }
         return [instPort]
-    instantiate context ast@(AST.OutputPort {}) = do
-        let ident = AST.portId ast
-            width = AST.portWidth ast
+    instantiate context ast@(CheckAST.OutputPort {}) = do
+        let ident = CheckAST.portId ast
+            width = CheckAST.portWidth ast
         instIdent <- instantiate context ident
         let instPort = InstAST.OutputPort
                 { InstAST.portId    = instIdent
@@ -173,16 +173,16 @@ instance Instantiatable AST.Port [InstAST.Port] where
                 }
         return [instPort]
 
-instance Instantiatable AST.ModuleInst [InstAST.ModuleInst] where
-    instantiate context (AST.MultiModuleInst for) = do 
+instance Instantiatable CheckAST.ModuleInst [InstAST.ModuleInst] where
+    instantiate context (CheckAST.MultiModuleInst for) = do 
         simpleFor <- instantiate context for
         return $ concat (simpleFor :: [[InstAST.ModuleInst]])
     instantiate context ast = do
-        let namespace = AST.namespace ast
-            name = AST.moduleName ast
-            args = AST.arguments ast
-            inPortMap = AST.inPortMap ast
-            outPortMap = AST.outPortMap ast
+        let namespace = CheckAST.namespace ast
+            name = CheckAST.moduleName ast
+            args = CheckAST.arguments ast
+            inPortMap = CheckAST.inPortMap ast
+            outPortMap = CheckAST.outPortMap ast
             modPath = modulePath context
             mod = getModule context name
         instNs <- instantiate context namespace
@@ -213,13 +213,13 @@ instance Instantiatable AST.ModuleInst [InstAST.ModuleInst] where
         return [instantiated]
         where
             argStrings args mod =
-                let paramNames = AST.paramNames mod
-                    paramTypes = AST.paramTypeMap mod
+                let paramNames = CheckAST.paramNames mod
+                    paramTypes = CheckAST.paramTypeMap mod
                     params = map (\p -> (p, paramTypes Map.! p)) paramNames
                 in map showValue params
                     where
-                        showValue (name, AST.AddressParam)  = "0x" ++ showHex (args Map.! name) ""
-                        showValue (name, AST.NaturalParam) = show (args Map.! name)
+                        showValue (name, CheckAST.AddressParam)  = "0x" ++ showHex (args Map.! name) ""
+                        showValue (name, CheckAST.NaturalParam) = show (args Map.! name)
             checkSelfInst path name = do
                 case loop path of
                     [] -> return ()
@@ -230,29 +230,29 @@ instance Instantiatable AST.ModuleInst [InstAST.ModuleInst] where
                             | name `elem` path = p:(loop ps)
                             | otherwise = []
 
-instance Instantiatable AST.ModuleArg Integer where
-    instantiate _ (AST.AddressArg v) = return v
-    instantiate _ (AST.NaturalArg v) = return v
-    instantiate context (AST.ParamArg name) = return $ getParamValue context name
+instance Instantiatable CheckAST.ModuleArg Integer where
+    instantiate _ (CheckAST.AddressArg value) = return value
+    instantiate _ (CheckAST.NaturalArg value) = return value
+    instantiate context (CheckAST.ParamArg name) = return $ getParamValue context name
 
-instance Instantiatable AST.PortMap [PortMapping] where
-    instantiate context (AST.MultiPortMap for) = do
+instance Instantiatable CheckAST.PortMap [PortMapping] where
+    instantiate context (CheckAST.MultiPortMap for) = do
         instFor <- instantiate context for
         return $ concat (instFor :: [[PortMapping]])
     instantiate context ast = do
-        let mappedId = AST.mappedId ast
-            mappedPort = AST.mappedPort ast
+        let mappedId = CheckAST.mappedId ast
+            mappedPort = CheckAST.mappedPort ast
         instId <- instantiate context mappedId
         instPort <- instantiate context mappedPort
         return [(instPort, instId)]
 
-instance Instantiatable AST.NodeDecl [InstAST.NodeDecl] where
-    instantiate context (AST.MultiNodeDecl for) = do
+instance Instantiatable CheckAST.NodeDecl [InstAST.NodeDecl] where
+    instantiate context (CheckAST.MultiNodeDecl for) = do
         instFor <- instantiate context for
         return $ concat (instFor :: [[InstAST.NodeDecl]])
     instantiate context ast = do
-        let nodeId = AST.nodeId ast
-            nodeSpec = AST.nodeSpec ast
+        let nodeId = CheckAST.nodeId ast
+            nodeSpec = CheckAST.nodeSpec ast
         instNodeId <- instantiate context nodeId
         instNodeSpec <- instantiate context nodeSpec
         let instDecl = InstAST.NodeDecl
@@ -261,26 +261,26 @@ instance Instantiatable AST.NodeDecl [InstAST.NodeDecl] where
                 }
         return $ [instDecl]
 
-instance Instantiatable AST.Identifier InstAST.Identifier where
-    instantiate context (AST.SimpleIdent name) = do
+instance Instantiatable CheckAST.Identifier InstAST.Identifier where
+    instantiate context (CheckAST.SimpleIdent name) = do
         return name
     instantiate context ast = do
-        let prefix = AST.prefix ast
-            varName = AST.varName ast
-            suffix = AST.suffix ast
+        let prefix = CheckAST.prefix ast
+            varName = CheckAST.varName ast
+            suffix = CheckAST.suffix ast
             varValue = show $ getVarValue context varName
         suffixName <- case suffix of
             Nothing -> return ""
             Just s  -> instantiate context s
         return $ prefix ++ varValue ++ suffixName
 
-instance Instantiatable AST.NodeSpec InstAST.NodeSpec where
+instance Instantiatable CheckAST.NodeSpec InstAST.NodeSpec where
     instantiate context ast = do
-        let nodeType = AST.nodeType ast
-            accept = AST.accept ast
-            translate = AST.translate ast
-            reserved = AST.reserved ast
-            overlay = AST.overlay ast
+        let nodeType = CheckAST.nodeType ast
+            accept = CheckAST.accept ast
+            translate = CheckAST.translate ast
+            reserved = CheckAST.reserved ast
+            overlay = CheckAST.overlay ast
         instAccept <- instantiate context accept
         instTranslate <- instantiate context translate
         instReserved <- instantiate context reserved
@@ -293,26 +293,26 @@ instance Instantiatable AST.NodeSpec InstAST.NodeSpec where
             , InstAST.overlay   = instOverlay
             }
 
-instance Instantiatable AST.NodeType InstAST.NodeType where
-    instantiate _ AST.Memory = return InstAST.Memory
-    instantiate _ AST.Device = return InstAST.Device
-    instantiate _ AST.Other  = return InstAST.Other
+instance Instantiatable CheckAST.NodeType InstAST.NodeType where
+    instantiate _ CheckAST.Memory = return InstAST.Memory
+    instantiate _ CheckAST.Device = return InstAST.Device
+    instantiate _ CheckAST.Other  = return InstAST.Other
 
-instance Instantiatable AST.BlockSpec InstAST.BlockSpec where
-    instantiate context (AST.SingletonBlock base) = do
+instance Instantiatable CheckAST.BlockSpec InstAST.BlockSpec where
+    instantiate context (CheckAST.SingletonBlock base) = do
         instBase <- instantiate context base
         return InstAST.BlockSpec
             { InstAST.base  = instBase
             , InstAST.limit = instBase
             }
-    instantiate context (AST.RangeBlock base limit) = do
+    instantiate context (CheckAST.RangeBlock base limit) = do
         instBase <- instantiate context base
         instLimit <- instantiate context limit
         return InstAST.BlockSpec
             { InstAST.base  = instBase
             , InstAST.limit = instLimit
             }
-    instantiate context (AST.LengthBlock base bits) = do
+    instantiate context (CheckAST.LengthBlock base bits) = do
         instBase <- instantiate context base
         let instLimit = instBase + 2^bits - 1
         return InstAST.BlockSpec
@@ -320,11 +320,11 @@ instance Instantiatable AST.BlockSpec InstAST.BlockSpec where
             , InstAST.limit = instLimit
             }
 
-instance Instantiatable AST.MapSpec InstAST.MapSpec where
+instance Instantiatable CheckAST.MapSpec InstAST.MapSpec where
     instantiate context ast = do
-        let block = AST.block ast
-            destNode = AST.destNode ast
-            destBase = fromMaybe (AST.base block) (AST.destBase ast)
+        let block = CheckAST.block ast
+            destNode = CheckAST.destNode ast
+            destBase = fromMaybe (CheckAST.base block) (CheckAST.destBase ast)
         instBlock <- instantiate context block
         instDestNode <- instantiate context destNode
         instDestBase <- instantiate context destBase
@@ -334,26 +334,26 @@ instance Instantiatable AST.MapSpec InstAST.MapSpec where
             , InstAST.destBase = instDestBase
             }
 
-instance Instantiatable AST.OverlaySpec InstAST.OverlaySpec where
+instance Instantiatable CheckAST.OverlaySpec InstAST.OverlaySpec where
     instantiate context ast = do
-        let over = AST.over ast
-            width = AST.width ast
+        let over = CheckAST.over ast
+            width = CheckAST.width ast
         instOver <- instantiate context over
         return InstAST.OverlaySpec
             { InstAST.over  = instOver
             , InstAST.width = width
             }
 
-instance Instantiatable AST.Address InstAST.Address where
-    instantiate context (AST.ParamAddress name) = do
+instance Instantiatable CheckAST.Address InstAST.Address where
+    instantiate context (CheckAST.ParamAddress name) = do
         let value = getParamValue context name
         return value
-    instantiate _ (AST.LiteralAddress value) = return value
+    instantiate _ (CheckAST.LiteralAddress value) = return value
 
-instance Instantiatable a b => Instantiatable (AST.For a) [b] where
+instance Instantiatable a b => Instantiatable (CheckAST.For a) [b] where
     instantiate context ast = do
-        let body = AST.body ast
-            varRanges = AST.varRanges ast
+        let body = CheckAST.body ast
+            varRanges = CheckAST.varRanges ast
         concreteRanges <- instantiate context varRanges
         let valueList = Map.foldWithKey iterations [] concreteRanges
             iterContexts = map iterationContext valueList
@@ -369,25 +369,25 @@ instance Instantiatable a b => Instantiatable (AST.For a) [b] where
                 in context
                     { varValues = values `Map.union` varMap }
 
-instance Instantiatable AST.ForRange [Integer] where
+instance Instantiatable CheckAST.ForRange [Integer] where
     instantiate context ast = do
-        let start = AST.start ast
-            end = AST.end ast
+        let start = CheckAST.start ast
+            end = CheckAST.end ast
         simpleStart <- instantiate context start
         simpleEnd <- instantiate context end
         return [simpleStart..simpleEnd]
 
-instance Instantiatable AST.ForLimit Integer where
-    instantiate _ (AST.LiteralLimit value) = return value
-    instantiate context (AST.ParamLimit name) = return $ getParamValue context name
+instance Instantiatable CheckAST.ForLimit Integer where
+    instantiate _ (CheckAST.LiteralLimit value) = return value
+    instantiate context (CheckAST.ParamLimit name) = return $ getParamValue context name
 
 instance (Traversable t, Instantiatable a b) => Instantiatable (t a) (t b) where
     instantiate context ast = mapM (instantiate context) ast
 
 
-getModule :: Context -> String -> AST.Module
+getModule :: Context -> String -> CheckAST.Module
 getModule context name =
-    let modules = AST.modules $ spec context
+    let modules = CheckAST.modules $ spec context
     in modules Map.! name
 
 getParamValue :: Context -> String -> Integer

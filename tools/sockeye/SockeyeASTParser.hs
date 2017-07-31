@@ -15,10 +15,10 @@
 
 module SockeyeASTParser 
 ( module SockeyeASTParser
-, module SockeyeAST
+, module SockeyeASTTypeChecker
 ) where
 
-import SockeyeAST
+import SockeyeASTTypeChecker
     ( Identifier(SimpleIdent, TemplateIdent)
     , prefix, varName, suffix
     , ModuleParamType(NaturalParam, AddressParam)

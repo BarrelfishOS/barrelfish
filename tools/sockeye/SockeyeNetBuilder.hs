@@ -18,7 +18,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module SockeyeNetBuilder
-( sockeyeBuildNet ) where
+( buildSockeyeNet ) where
 
 import Control.Monad.State
 
@@ -57,8 +57,8 @@ data Context = Context
     , mappedBlocks :: [InstAST.BlockSpec]
     }
 
-sockeyeBuildNet :: InstAST.SockeyeSpec -> Either (FailedChecks NetBuildFails) NetAST.NetSpec
-sockeyeBuildNet ast = do
+buildSockeyeNet :: InstAST.SockeyeSpec -> Either (FailedChecks NetBuildFails) NetAST.NetSpec
+buildSockeyeNet ast = do
     let
         context = Context
             { modules      = Map.empty

@@ -26,12 +26,12 @@ import System.FilePath
 import System.IO
 
 import qualified SockeyeASTParser as ParseAST
-import qualified SockeyeAST as AST
+import qualified SockeyeASTTypeChecker as CheckAST
 import qualified SockeyeASTInstantiator as InstAST
 import qualified SockeyeASTDecodingNet as NetAST
 
 import SockeyeParser
-import SockeyeChecker
+import SockeyeTypeChecker
 import SockeyeInstantiator
 import SockeyeNetBuilder
 
@@ -208,17 +208,17 @@ parseFile file = do
         Right ast -> return ast
 
 {- Runs the checker -}
-checkAST :: ParseAST.SockeyeSpec -> IO AST.SockeyeSpec
-checkAST parsedAst = do
-    case checkSockeye parsedAst of 
+typeCheck :: ParseAST.SockeyeSpec -> IO CheckAST.SockeyeSpec
+typeCheck parsedAst = do
+    case typeCheckSockeye parsedAst of 
         Left fail -> do
             hPutStr stderr $ show fail
             exitWith checkError
         Right intermAst -> return intermAst
 
-instanitateModules :: AST.SockeyeSpec -> IO InstAST.SockeyeSpec
+instanitateModules :: CheckAST.SockeyeSpec -> IO InstAST.SockeyeSpec
 instanitateModules ast = do
-    case sockeyeInstantiate ast of 
+    case instantiateSockeye ast of 
         Left fail -> do
             hPutStr stderr $ show fail
             exitWith buildError
@@ -227,7 +227,7 @@ instanitateModules ast = do
 {- Builds the decoding net from the Sockeye AST -}
 buildNet :: InstAST.SockeyeSpec -> IO NetAST.NetSpec
 buildNet ast = do
-    case sockeyeBuildNet ast of 
+    case buildSockeyeNet ast of 
         Left fail -> do
             hPutStr stderr $ show fail
             exitWith buildError
@@ -237,7 +237,7 @@ buildNet ast = do
 compile :: Target -> NetAST.NetSpec -> IO String
 compile Prolog ast = return $ Prolog.compile ast
 
-{- Writes a dependency file for GNU make -}
+{- Generates a dependency file for GNU make -}
 dependencyFile :: FilePath -> FilePath -> [FilePath] -> IO String
 dependencyFile outFile depFile deps = do
     let
@@ -263,11 +263,11 @@ main = do
         Just f  -> do
             out <- dependencyFile outFile f deps
             output f out
-    ast <- checkAST parsedAst
+    ast <- typeCheck parsedAst
     instAst <- instanitateModules ast
     -- putStrLn $ groom instAST
     netAst <- buildNet instAst
-    putStrLn $ groom netAst
+    -- putStrLn $ groom netAst
     out <- compile (optTarget opts) netAst
     output outFile out
     
