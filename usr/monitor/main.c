@@ -372,6 +372,11 @@ int main(int argc, char *argv[])
 
 #if defined(TRACING_EXISTS) && defined(CONFIG_TRACE)
     err = trace_my_setup();
+    if (err_no(err) == TRACE_ERR_UNAVAIL) {
+        debug_printf("Tracing not available for core %d, consider increasing TRACE_COREID_LIMIT\n",
+                my_core_id);
+        goto tracing_not_available;
+    }
     assert(err_is_ok(err));
     trace_reset_buffer();
 
@@ -389,6 +394,7 @@ int main(int argc, char *argv[])
             printf("Warning: tracing not available on core %d\n", my_core_id);
         }
     }
+tracing_not_available:
 #endif // tracing
 
     domain_mgmt_init();
