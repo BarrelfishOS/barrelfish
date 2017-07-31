@@ -113,6 +113,12 @@ static inline errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
     if((*pdpt = find_vnode(root, X86_64_PML4_BASE(base))) == NULL) {
         err = alloc_vnode(pmap, root, ObjType_VNode_x86_64_pdpt,
                             X86_64_PML4_BASE(base), pdpt);
+        errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
+        if (err == expected_concurrent) {
+            if ((*pdpt = find_vnode(root, X86_64_PML4_BASE(base))) != NULL) {
+                return SYS_ERR_OK;
+            }
+        }
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "alloc_vnode for pdpt");
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
@@ -141,6 +147,12 @@ static inline errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
     if((*pdir = find_vnode(pdpt, X86_64_PDPT_BASE(base))) == NULL) {
         err = alloc_vnode(pmap, pdpt, ObjType_VNode_x86_64_pdir,
                             X86_64_PDPT_BASE(base), pdir);
+        errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
+        if (err == expected_concurrent) {
+            if ((*pdir = find_vnode(pdpt, X86_64_PDPT_BASE(base))) != NULL) {
+                return SYS_ERR_OK;
+            }
+        }
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "alloc_vnode for pdir");
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
@@ -168,6 +180,12 @@ static inline errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
     if((*ptable = find_vnode(pdir, X86_64_PDIR_BASE(base))) == NULL) {
         err = alloc_vnode(pmap, pdir, ObjType_VNode_x86_64_ptable,
                             X86_64_PDIR_BASE(base), ptable);
+        errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
+        if (err == expected_concurrent) {
+            if ((*ptable = find_vnode(pdir, X86_64_PDIR_BASE(base))) != NULL) {
+                return SYS_ERR_OK;
+            }
+        }
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "alloc_vnode for ptable");
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
