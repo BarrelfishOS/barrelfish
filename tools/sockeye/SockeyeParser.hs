@@ -76,14 +76,14 @@ moduleParam = do
             return AST.AddressParam
 
 moduleBody = do
-    ports <- many portDefs
+    ports <- many ports
     net <- many netSpecs
     return AST.ModuleBody
         { AST.ports     = concat ports
         , AST.moduleNet = concat net
         }
 
-portDefs = choice [inputPorts, outputPorts]
+ports = choice [inputPorts, outputPorts]
     where
         inputPorts = do
             reserved "input"
@@ -92,11 +92,10 @@ portDefs = choice [inputPorts, outputPorts]
             (forFn, portId) <- identifierFor
             symbol "/"
             portWidth <- decimal <?> "number of bits"
-            let
-                portDef = AST.InputPortDef portId portWidth
+            let port = AST.InputPort portId portWidth
             case forFn of
-                Nothing -> return portDef
-                Just f  -> return $ AST.MultiPortDef (f portDef)
+                Nothing -> return port
+                Just f  -> return $ AST.MultiPort (f port)
         outputPorts = do
             reserved "output"
             commaSep1 outDef
@@ -104,11 +103,10 @@ portDefs = choice [inputPorts, outputPorts]
             (forFn, portId) <- identifierFor
             symbol "/"
             portWidth <- decimal <?> "number of bits"
-            let
-                portDef = AST.OutputPortDef portId portWidth
+            let port = AST.OutputPort portId portWidth
             case forFn of
-                Nothing -> return portDef
-                Just f  -> return $ AST.MultiPortDef (f portDef)
+                Nothing -> return port
+                Just f  -> return $ AST.MultiPort (f port)
 
 netSpecs = choice [ inst <?> "module instantiation"
                  , decl <?> "node declaration"

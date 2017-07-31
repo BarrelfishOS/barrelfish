@@ -50,7 +50,7 @@ instance Show NetBuildFails where
 type PortMap = Map InstAST.Identifier NetAST.NodeId
 
 data Context = Context
-    { modules      :: Map String InstAST.Module
+    { modules      :: Map InstAST.Identifier InstAST.Module
     , curNamespace :: [String]
     , inPortMap    :: PortMap
     , outPortMap   :: PortMap

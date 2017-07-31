@@ -42,7 +42,6 @@ data SockeyeSpec = SockeyeSpec
     , net     :: [NetSpec]
     } deriving (Show)
 
-
 data Import = Import 
     { filePath :: !FilePath }
     deriving (Show)
@@ -59,25 +58,25 @@ data ModuleParam = ModuleParam
     } deriving (Show)
 
 data ModuleBody = ModuleBody
-    { ports     :: [PortDef]
+    { ports     :: [Port]
     , moduleNet :: [NetSpec]
     } deriving (Show)
-
-data PortDef
-    = InputPortDef
-        { portId    :: Identifier
-        , portWidth :: !Integer
-        }
-    | OutputPortDef
-        { portId    :: Identifier
-        , portWidth :: !Integer
-        }
-    | MultiPortDef (For PortDef)
-    deriving (Show)
 
 data NetSpec
     = NodeDeclSpec NodeDecl
     | ModuleInstSpec ModuleInst
+    deriving (Show)
+
+data Port
+    = InputPort 
+        { portId    :: Identifier
+        , portWidth :: !Integer
+        }
+    | OutputPort
+        { portId    :: Identifier
+        , portWidth :: !Integer
+        }
+    | MultiPort (For Port)
     deriving (Show)
 
 data ModuleInst

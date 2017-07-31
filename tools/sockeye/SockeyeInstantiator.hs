@@ -66,7 +66,7 @@ instance Show InstFails where
 type PortMapping = (InstAST.Identifier, InstAST.Identifier)
 
 data Context = Context
-    { spec        :: CheckAST.SockeyeSpec
+    { modules     :: Map String CheckAST.Module
     , modulePath  :: [String]
     , paramValues :: Map String Integer
     , varValues   :: Map String Integer
@@ -74,9 +74,9 @@ data Context = Context
 
 instantiateSockeye :: CheckAST.SockeyeSpec -> Either (FailedChecks InstFails) InstAST.SockeyeSpec
 instantiateSockeye ast = do
-    let emptySpec = CheckAST.SockeyeSpec Map.empty
+    let emptySpec = CheckAST.SockeyeSpec 
         context = Context
-            { spec        = emptySpec
+            { modules     = Map.empty
             , modulePath  = []
             , paramValues = Map.empty
             , varValues   = Map.empty
@@ -91,16 +91,11 @@ class Instantiatable a b where
 
 instance Instantiatable CheckAST.SockeyeSpec InstAST.SockeyeSpec where
     instantiate context ast = do
-        let rootInst = CheckAST.ModuleInst
-                { CheckAST.namespace  = CheckAST.SimpleIdent ""
-                , CheckAST.moduleName = "@root"
-                , CheckAST.arguments  = Map.empty
-                , CheckAST.inPortMap  = []
-                , CheckAST.outPortMap = []
-                }
+        let root = CheckAST.root ast
+            mods  = CheckAST.modules ast
             specContext = context
-                { spec = ast }
-        [instRoot] <- instantiate specContext rootInst
+                { modules = mods }
+        [instRoot] <- instantiate specContext root
         modules <- get
         return InstAST.SockeyeSpec
             { InstAST.root = instRoot
@@ -109,8 +104,7 @@ instance Instantiatable CheckAST.SockeyeSpec InstAST.SockeyeSpec where
 
 instance Instantiatable CheckAST.Module InstAST.Module where
     instantiate context ast = do
-        let inPorts = CheckAST.inputPorts ast
-            outPorts = CheckAST.outputPorts ast
+        let ports = CheckAST.ports ast
             nodeDecls = CheckAST.nodeDecls ast
             moduleInsts = CheckAST.moduleInsts ast
             modName = head $ modulePath context
@@ -126,7 +120,7 @@ instance Instantiatable CheckAST.Module InstAST.Module where
                         }
                 modify $ Map.insert modName sentinel
                 instPorts <- do
-                    instPorts <- instantiate context (inPorts ++ outPorts)
+                    instPorts <- instantiate context ports
                     return $ concat (instPorts :: [[InstAST.Port]])
                 instDecls <- do
                     decls <- instantiate context nodeDecls
@@ -386,9 +380,7 @@ instance (Traversable t, Instantiatable a b) => Instantiatable (t a) (t b) where
 
 
 getModule :: Context -> String -> CheckAST.Module
-getModule context name =
-    let modules = CheckAST.modules $ spec context
-    in modules Map.! name
+getModule context name = (modules context) Map.! name
 
 getParamValue :: Context -> String -> Integer
 getParamValue context name =

@@ -29,7 +29,7 @@ import SockeyeASTDecodingNet
 
 data SockeyeSpec = SockeyeSpec
     { root :: ModuleInst
-    , modules :: Map String Module
+    , modules :: Map Identifier Module
     } deriving (Show)
 
 data Module = Module
@@ -51,8 +51,8 @@ data Port
 
 data ModuleInst
     = ModuleInst
-        { moduleName :: Identifier
-        , namespace  :: Identifier
+        { namespace  :: Identifier
+        , moduleName :: Identifier
         , inPortMap  :: PortMap
         , outPortMap :: PortMap
         } deriving (Show)
