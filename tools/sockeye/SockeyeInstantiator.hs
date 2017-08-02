@@ -47,9 +47,6 @@ data InstFail
     | DuplicateOutPort   !String
     | DuplicateInMap     !String !String
     | DuplicateOutMap    !String !String
-    | UndefinedOutPort   !String !String
-    | UndefinedInPort    !String !String
-    | UndefinedReference !String !String
 
 instance Show InstFail where
     show (ModuleInstLoop     loop)       = concat ["Module instantiation loop: '", intercalate "' -> '" loop, "'"]
@@ -59,9 +56,6 @@ instance Show InstFail where
     show (DuplicateIdentifer ident)      = concat ["Multiple declarations of node '", ident, "'"]
     show (DuplicateInMap   inst port)    = concat ["Multiple mappings for input port '",  port, "' in module instantiation '", inst, "'"]
     show (DuplicateOutMap  inst port)    = concat ["Multiple mappings for output port '", port, "' in module instantiation '", inst, "'"]
-    show (UndefinedInPort  inst port)    = concat ["Mapping to undefined input port '",   port, "' in module instantiation '", inst, "'"]
-    show (UndefinedOutPort inst port)    = concat ["Mapping to undefined output port '",  port, "' in module instantiation '", inst, "'"]
-    show (UndefinedReference decl ident) = concat ["Reference to undefined node '", ident, "' in port or declaration of node '", decl, "'"]
 
 type PortMapping = (InstAST.Identifier, InstAST.Identifier)
 
@@ -114,14 +108,18 @@ instance Instantiatable CheckAST.Module InstAST.Module where
                 return $ modules Map.! modName
             else do
                 let sentinel = InstAST.Module
-                        { InstAST.ports       = []
+                        { InstAST.inputPorts  = []
+                        , InstAST.outputPorts = []
                         , InstAST.nodeDecls   = []
                         , InstAST.moduleInsts = []
                         }
                 modify $ Map.insert modName sentinel
-                instPorts <- do
+                (instInPorts, instOutPorts) <- do
                     instPorts <- instantiate context ports
-                    return $ concat (instPorts :: [[InstAST.Port]])
+                    let allPorts = concat (instPorts :: [[InstAST.Port]])
+                        inPorts = filter isInPort allPorts
+                        outPorts = filter isOutPort allPorts
+                    return (inPorts, outPorts)
                 instInsts <- do
                     insts <- instantiate context moduleInsts
                     return $ concat (insts :: [[InstAST.ModuleInst]])
@@ -129,17 +127,17 @@ instance Instantiatable CheckAST.Module InstAST.Module where
                     decls <- instantiate context nodeDecls
                     return $ concat (decls :: [[InstAST.NodeDecl]])
                 let
-                    inPortIds = map InstAST.portId $ filter isInPort instPorts
-                    outPortIds = map InstAST.portId $ filter isOutPort instPorts
+                    inPortIds = map InstAST.portId instInPorts
+                    outPortIds = map InstAST.portId instOutPorts
                     inMapNodeIds = concat $ map (Map.elems . InstAST.inPortMap) instInsts
                     declNodeIds = map InstAST.nodeId instDecls
                 lift $ checkDuplicates modName DuplicateInPort  inPortIds
                 lift $ checkDuplicates modName DuplicateOutPort outPortIds
                 lift $ checkDuplicates modName DuplicateNamespace $ (map InstAST.namespace instInsts)
                 lift $ checkDuplicates modName DuplicateIdentifer $ outPortIds ++ inMapNodeIds ++ declNodeIds
-                -- TODO: check duplicates with input/output ports
                 return InstAST.Module
-                    { InstAST.ports       = instPorts
+                    { InstAST.inputPorts  = instInPorts
+                    , InstAST.outputPorts = instOutPorts
                     , InstAST.nodeDecls   = instDecls
                     , InstAST.moduleInsts = instInsts
                     }
@@ -382,7 +380,6 @@ instance Instantiatable CheckAST.ForLimit Integer where
 
 instance (Traversable t, Instantiatable a b) => Instantiatable (t a) (t b) where
     instantiate context ast = mapM (instantiate context) ast
-
 
 getModule :: Context -> String -> CheckAST.Module
 getModule context name = (modules context) Map.! name

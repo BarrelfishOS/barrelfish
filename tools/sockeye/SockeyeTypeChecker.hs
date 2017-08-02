@@ -430,7 +430,7 @@ instance Checkable ParseAST.ForLimit CheckAST.ForLimit where
         checkParamType context name CheckAST.NaturalParam
         return $ CheckAST.ParamLimit name
 
-instance Checkable a b => Checkable [a] [b] where
+instance (Traversable t, Checkable a b) => Checkable (t a) (t b) where
     check context as = mapM (check context) as
 
 --

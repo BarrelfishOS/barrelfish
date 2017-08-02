@@ -38,22 +38,27 @@ import qualified SockeyeASTDecodingNet as NetAST
 import Debug.Trace
 
 data NetBuildFail
-    = UndefinedOutPort   !String !String
-    | UndefinedInPort    !String !String
-    | UndefinedReference !String !String
+    = UndefinedOutPort !String !String
+    | UndefinedInPort  !String !String
+    | UndefinedRefPort !String
+    | UndefinedRefNode !String !String
 
 instance Show NetBuildFail where
-    show (UndefinedInPort  inst port)    = concat ["Mapping to undefined input port '",   port, "' in module instantiation '", inst, "'"]
-    show (UndefinedOutPort inst port)    = concat ["Mapping to undefined output port '",  port, "' in module instantiation '", inst, "'"]
-    show (UndefinedReference decl ident) = concat ["Reference to undefined node '", ident, "' in input port or node declaration'", decl, "'"]
+    show (UndefinedInPort  inst port)  = concat ["Mapping to undefined input port '",   port, "' in module instantiation '", inst, "'"]
+    show (UndefinedOutPort inst port)  = concat ["Mapping to undefined output port '",  port, "' in module instantiation '", inst, "'"]
+    show (UndefinedRefPort      port)  = concat ["Input port '", port, "' declared but corresponding node not defined"]
+    show (UndefinedRefNode context ident) = concat ["Reference to undefined node '", ident, "' in ", context]
 
 type PortMap = Map InstAST.Identifier NetAST.NodeId
 
 data Context = Context
     { modules      :: Map InstAST.Identifier InstAST.Module
+    , curModule    :: !String
     , curNamespace :: [String]
+    , curNode      :: !String
     , inPortMap    :: PortMap
     , outPortMap   :: PortMap
+    , nodes        :: Set String
     , mappedBlocks :: [InstAST.BlockSpec]
     }
 
@@ -62,13 +67,15 @@ buildSockeyeNet ast = do
     let
         context = Context
             { modules      = Map.empty
+            , curModule    = ""
             , curNamespace = []
+            , curNode      = ""
             , inPortMap    = Map.empty
             , outPortMap   = Map.empty
+            , nodes        = Set.empty
             , mappedBlocks = []
             }        
     net <- runChecks $ transform context ast
-    -- check Set.empty net
     return net
 
 --            
@@ -88,14 +95,20 @@ instance NetTransformable InstAST.SockeyeSpec NetAST.NetSpec where
 
 instance NetTransformable InstAST.Module NetAST.NetSpec where
     transform context ast = do
-        let ports = InstAST.ports ast
-            nodeDecls = InstAST.nodeDecls ast
+        let inPorts = InstAST.inputPorts ast
+            outPorts = InstAST.outputPorts ast
             moduleInsts = InstAST.moduleInsts ast
-        -- TODO check mappings to non existing port
-        portDecls <- transform context ports
-        netDecls <- transform context nodeDecls
-        netInsts <- transform context moduleInsts     
-        return $ Map.unions (portDecls ++ netDecls ++ netInsts)
+            nodeDecls = InstAST.nodeDecls ast
+            outPortIds = map InstAST.portId outPorts
+            inMapIds = concatMap Map.elems $ map InstAST.inPortMap moduleInsts
+            declIds = map InstAST.nodeId nodeDecls
+            modContext = context
+                { nodes = Set.fromList $ outPortIds ++ inMapIds ++ declIds }
+        inPortDecls <- transform modContext inPorts
+        outPortDecls <- transform modContext outPorts
+        netDecls <- transform modContext nodeDecls
+        netInsts <- transform modContext moduleInsts     
+        return $ Map.unions (inPortDecls ++ outPortDecls ++ netDecls ++ netInsts)
 
 instance NetTransformable InstAST.Port NetAST.NetSpec where
     transform context ast@(InstAST.InputPort {}) = do
@@ -149,26 +162,25 @@ instance NetTransformable InstAST.ModuleInst NetAST.NetSpec where
             namespace = InstAST.namespace ast
             inPortMap = InstAST.inPortMap ast
             outPortMap = InstAST.outPortMap ast
-            mod = getModule context name
+            mod = (modules context) Map.! name
         netInMap <- transform context inPortMap
         netOutMap <- transform context outPortMap
         let instContext = context
-                { curNamespace = namespace:(curNamespace context)
+                { curModule    = name
+                , curNamespace = namespace:(curNamespace context)
                 , inPortMap    = netInMap
                 , outPortMap   = netOutMap
                 }
         transform instContext mod
 
-instance NetTransformable InstAST.PortMap PortMap where
-    transform context ast = do
-        mapM (transform context) ast
-
 instance NetTransformable InstAST.NodeDecl NetAST.NetSpec where
     transform context ast = do
         let nodeId = InstAST.nodeId ast
             nodeSpec = InstAST.nodeSpec ast
+            nodeContext = context
+                { curNode = nodeId }
         netNodeId <- transform context nodeId
-        netNodeSpec <- transform context nodeSpec
+        netNodeSpec <- transform nodeContext nodeSpec
         return $ Map.fromList [(netNodeId, netNodeSpec)]
 
 instance NetTransformable InstAST.Identifier NetAST.NodeId where
@@ -207,6 +219,8 @@ instance NetTransformable InstAST.MapSpec NetAST.MapSpec where
             srcBlock = InstAST.srcBlock ast
             destNode = InstAST.destNode ast
             destBase = InstAST.destBase ast
+            errorContext = "tranlate set of node '" ++ curNode context ++ "'"
+        checkReference context (UndefinedRefNode errorContext) destNode
         netDestNode <- transform context destNode
         return NetAST.MapSpec
             { NetAST.srcBlock = srcBlock
@@ -220,6 +234,8 @@ instance NetTransformable InstAST.OverlaySpec [NetAST.MapSpec] where
             over = InstAST.over ast
             width = InstAST.width ast
             blocks = mappedBlocks context
+            errorContext = "overlay of node '" ++ curNode context ++ "'"
+        checkReference context (UndefinedRefNode errorContext) over
         netOver <- transform context over
         let maps = overlayMaps netOver width blocks
         return maps
@@ -289,55 +305,11 @@ data ScanLineState
         , startAddress :: !NetAST.Address
         } deriving (Show)
 
-instance NetTransformable a b => NetTransformable [a] [b] where
+instance (Traversable t, NetTransformable a b) => NetTransformable (t a)  (t b) where
     transform context as = mapM (transform context) as
 
--- instance (Ord k, NetTransformable a b) => NetTransformable (Map k a) (Map k b) where
---     transform context ast = do
---         let
---             ks = Map.keys ast
---             es = Map.elems ast
---         ts <- transform context es
---         return $ Map.fromList (zip ks ts)
-
--- --
--- -- Checks
--- --
--- class NetCheckable a where
---     check :: Set NetAST.NodeId -> a -> Either CheckFailure ()
-
--- instance NetCheckable NetAST.NetSpec where
---     check _ (NetAST.NetSpec net) = do
---         let
---             specContext = Map.keysSet net
---         check specContext $ Map.elems net
-
--- instance NetCheckable NetAST.NodeSpec where
---     check context net = do
---         let
---             translate = NetAST.translate net
---         check context translate
-
--- instance NetCheckable NetAST.MapSpec where
---     check context net = do
---         let
---            destNode = NetAST.destNode net
---         check context destNode
-
--- instance NetCheckable NetAST.NodeId where
---     check context net = do
---         if net `Set.member` context
---             then return ()
---             else Left $ CheckFailure [UndefinedReference $ show net]
-
--- instance NetCheckable a => NetCheckable [a] where
---     check context net = do
---         let
---             checked = map (check context) net
---             fs = lefts $ checked
---         case fs of
---             [] -> return ()
---             _  -> Left $ CheckFailure (concat $ map failures fs)
-
-getModule :: Context -> String -> InstAST.Module
-getModule context name = (modules context) Map.! name
+checkReference :: Context -> (String -> NetBuildFail) -> String -> (Checks NetBuildFail) ()
+checkReference context fail name =
+    if name `Set.member` (nodes context)
+        then return ()
+        else failCheck (curModule context) (fail name)

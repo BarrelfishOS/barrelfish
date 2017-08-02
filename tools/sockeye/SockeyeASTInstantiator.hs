@@ -33,7 +33,8 @@ data SockeyeSpec = SockeyeSpec
     } deriving (Show)
 
 data Module = Module
-    { ports        :: [Port]
+    { inputPorts   :: [Port]
+    , outputPorts  :: [Port]
     , moduleInsts  :: [ModuleInst]
     , nodeDecls    :: [NodeDecl]
     } deriving (Show)
