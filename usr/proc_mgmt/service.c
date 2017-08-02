@@ -59,8 +59,42 @@ static void add_spawnd_handler_non_monitor(struct proc_mgmt_binding *b,
 
 static bool cleanup_request_sender(struct msg_queue_elem *m);
 
+
+#define PROC_MGMT_BENCH 1
+#define PROC_MGMT_BENCH_MIN_RUNS 100
+
+#ifdef PROC_MGMT_BENCH
+#include <bench/bench.h>
+
+static inline cycles_t calculate_time(cycles_t tsc_start, cycles_t tsc_end)
+{
+    cycles_t result;
+    if (tsc_end < tsc_start) {
+        result = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
+    } else {
+        result = (tsc_end - tsc_start - bench_tscoverhead());
+    }
+    return result;
+}
+
+static bench_ctl_t *req_ctl_1;
+static bench_ctl_t *req_ctl_2;
+static bench_ctl_t *req_ctl_3;
+static bench_ctl_t *req_ctl_4;
+static bench_ctl_t *req_ctl_5;
+static bench_ctl_t *resp_ctl;
+static uint64_t tscperus;
+#endif
+
 static void spawn_reply_handler(struct spawn_binding *b, errval_t spawn_err)
 {
+#ifdef PROC_MGMT_BENCH
+    cycles_t tsc_start, tsc_end;
+    cycles_t result;
+
+    tsc_start = bench_tsc();
+#endif
+
     struct pending_client *cl =
             (struct pending_client*) spawnd_state_dequeue_recv(b->st);
 
@@ -78,20 +112,32 @@ static void spawn_reply_handler(struct spawn_binding *b, errval_t spawn_err)
             spawn = (struct pending_spawn*) cl->st;
             err = spawn_err;
             if (err_is_ok(spawn_err)) {
-                err = domain_spawn(spawn->domain_cap, spawn->core_id);
+                err = domain_spawn(spawn->cap_node, spawn->core_id);
                 if (cl->type == ClientType_Spawn) {
                     resp_err = cl->b->tx_vtbl.spawn_response(cl->b, NOP_CONT,
                                                              err,
-                                                             spawn->domain_cap);
+                                                             spawn->cap_node->domain_cap);
                 } else {
                     resp_err = cl->b->tx_vtbl.spawn_with_caps_response(cl->b,
                                                                        NOP_CONT,
                                                                        err,
-                                                                       spawn->domain_cap);
+                                                                       spawn->cap_node->domain_cap);
                 }
             }
 
             free(spawn);
+
+#ifdef PROC_MGMT_BENCH
+            tsc_end = bench_tsc();
+            result = calculate_time(tsc_start, tsc_end);
+
+            if (resp_ctl != NULL && bench_ctl_add_run(resp_ctl, &result)) {
+                bench_ctl_dump_analysis(resp_ctl, 0, "proc_mgmt_resp",
+                                        tscperus);
+                bench_ctl_destroy(resp_ctl);
+                resp_ctl = NULL;
+            }
+#endif
             break;
 
         case ClientType_Span:
@@ -215,7 +261,7 @@ static bool spawn_request_sender(struct msg_queue_elem *m)
     if (with_caps) {
         err = spawn->b->tx_vtbl.spawn_with_caps_request(spawn->b, NOP_CONT,
                                                         cap_procmng,
-                                                        spawn->domain_cap,
+                                                        spawn->cap_node->domain_cap,
                                                         spawn->path,
                                                         spawn->argvbuf,
                                                         spawn->argvbytes,
@@ -226,10 +272,10 @@ static bool spawn_request_sender(struct msg_queue_elem *m)
                                                         spawn->flags);
     } else {
         err = spawn->b->tx_vtbl.spawn_request(spawn->b, NOP_CONT, cap_procmng,
-                                              spawn->domain_cap, spawn->path,
-                                              spawn->argvbuf, spawn->argvbytes,
-                                              spawn->envbuf, spawn->envbytes,
-                                              spawn->flags);
+                                              spawn->cap_node->domain_cap,
+                                              spawn->path, spawn->argvbuf,
+                                              spawn->argvbytes, spawn->envbuf,
+                                              spawn->envbytes, spawn->flags);
     }
 
     if (err_is_fail(err)) {
@@ -324,30 +370,81 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
                                      struct capref inheritcn_cap,
                                      struct capref argcn_cap, uint8_t flags)
 {
+#ifdef PROC_MGMT_BENCH
+    cycles_t tsc_start, tsc_end;
+    cycles_t result;
+
+    tsc_start = bench_tsc();
+#endif
     if (!spawnd_state_exists(core_id)) {
         return PROC_MGMT_ERR_INVALID_SPAWND;
     }
+#ifdef PROC_MGMT_BENCH
+    tsc_end = bench_tsc();
+    result = calculate_time(tsc_start, tsc_end);
 
+    if (req_ctl_1 != NULL && bench_ctl_add_run(req_ctl_1, &result)) {
+        bench_ctl_dump_analysis(req_ctl_1, 0, "proc_mgmt_req 1", tscperus);
+        bench_ctl_destroy(req_ctl_1);
+        req_ctl_1 = NULL;
+    }
+#endif
+
+#ifdef PROC_MGMT_BENCH
+    tsc_start = bench_tsc();
+#endif
     struct spawnd_state *spawnd = spawnd_state_get(core_id);
     assert(spawnd != NULL);
     struct spawn_binding *cl = spawnd->b;
     assert(cl != NULL);
+#ifdef PROC_MGMT_BENCH
+    tsc_end = bench_tsc();
+    result = calculate_time(tsc_start, tsc_end);
 
-    struct capref domain_cap;
-    errval_t err = slot_alloc(&domain_cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc domain_cap");
-        return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
+    if (req_ctl_2 != NULL && bench_ctl_add_run(req_ctl_2, &result)) {
+        bench_ctl_dump_analysis(req_ctl_2, 0, "proc_mgmt_req 2", tscperus);
+        bench_ctl_destroy(req_ctl_2);
+        req_ctl_2 = NULL;
     }
-    err = cap_retype(domain_cap, cap_procmng, 0, ObjType_Domain, 0, 1);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cap_retype domain_cap");
-        return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
+#endif
+
+#ifdef PROC_MGMT_BENCH
+    tsc_start = bench_tsc();
+#endif
+    errval_t err;
+    if (domain_should_refill_caps()) {
+        err = domain_prealloc_caps();
+        if (err_is_fail(err)) {
+            return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
+        }
     }
 
+    struct domain_cap_node *cap_node = next_cap_node();
+
+    // struct capref domain_cap;
+    // errval_t err = slot_alloc(&domain_cap);
+    // if (err_is_fail(err)) {
+    //     DEBUG_ERR(err, "slot_alloc domain_cap");
+    //     return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
+    // }
+#ifdef PROC_MGMT_BENCH
+    tsc_end = bench_tsc();
+    result = calculate_time(tsc_start, tsc_end);
+
+    if (req_ctl_3 != NULL && bench_ctl_add_run(req_ctl_3, &result)) {
+        bench_ctl_dump_analysis(req_ctl_3, 0, "proc_mgmt_req 3", tscperus);
+        bench_ctl_destroy(req_ctl_3);
+        req_ctl_3 = NULL;
+    }
+#endif
+
+#ifdef PROC_MGMT_BENCH
+    tsc_start = bench_tsc();
+#endif
     struct pending_spawn *spawn = (struct pending_spawn*) malloc(
             sizeof(struct pending_spawn));
-    spawn->domain_cap = domain_cap;
+    spawn->cap_node = cap_node;
+    // spawn->domain_cap = domain_cap;
     spawn->b = cl;
     spawn->core_id = core_id;
     spawn->path = path;
@@ -371,13 +468,23 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
     msg->cont = spawn_request_sender;
 
     err = spawnd_state_enqueue_send(spawnd, msg);
-
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "enqueuing spawn request");
         free(spawn);
         free(spawn_cl);
         free(msg);
     }
+
+#ifdef PROC_MGMT_BENCH
+    tsc_end = bench_tsc();
+    result = calculate_time(tsc_start, tsc_end);
+
+    if (req_ctl_5 != NULL && bench_ctl_add_run(req_ctl_5, &result)) {
+        bench_ctl_dump_analysis(req_ctl_5, 0, "proc_mgmt_req 5", tscperus);
+        bench_ctl_destroy(req_ctl_5);
+        req_ctl_5 = NULL;
+    }
+#endif
 
     return SYS_ERR_OK;
 }
@@ -391,14 +498,12 @@ static void spawn_handler(struct proc_mgmt_binding *b, coreid_t core_id,
     err = spawn_handler_common(b, ClientType_Spawn, core_id, path, argvbuf,
                                argvbytes, envbuf, envbytes, NULL_CAP, NULL_CAP,
                                flags);
-    if (err_is_ok(err)) {
-        // Will respond to client when we get the reply from spawnd.
-        return;
-    }
 
-    resp_err = b->tx_vtbl.spawn_response(b, NOP_CONT, err, NULL_CAP);
-    if (err_is_fail(resp_err)) {
-        DEBUG_ERR(resp_err, "failed to send spawn_response");
+    if (err_is_fail(err)) {
+        resp_err = b->tx_vtbl.spawn_response(b, NOP_CONT, err, NULL_CAP);
+        if (err_is_fail(resp_err)) {
+            DEBUG_ERR(resp_err, "failed to send spawn_response");
+        }
     }
 }
 
@@ -677,6 +782,63 @@ static errval_t connect_cb(void *st, struct proc_mgmt_binding *b)
 
 errval_t start_service(void)
 {
+    errval_t err;
+#ifdef PROC_MGMT_BENCH
+    bench_init();
+
+    req_ctl_1 = calloc(1, sizeof(*req_ctl_1));
+    req_ctl_1->mode = BENCH_MODE_FIXEDRUNS;
+    req_ctl_1->result_dimensions = 1;
+    req_ctl_1->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
+    req_ctl_1->data = calloc(req_ctl_1->min_runs * req_ctl_1->result_dimensions,
+                           sizeof(*req_ctl_1->data));
+
+    req_ctl_2 = calloc(1, sizeof(*req_ctl_2));
+    req_ctl_2->mode = BENCH_MODE_FIXEDRUNS;
+    req_ctl_2->result_dimensions = 1;
+    req_ctl_2->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
+    req_ctl_2->data = calloc(req_ctl_2->min_runs * req_ctl_2->result_dimensions,
+                           sizeof(*req_ctl_2->data));
+
+    req_ctl_3 = calloc(1, sizeof(*req_ctl_3));
+    req_ctl_3->mode = BENCH_MODE_FIXEDRUNS;
+    req_ctl_3->result_dimensions = 1;
+    req_ctl_3->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
+    req_ctl_3->data = calloc(req_ctl_3->min_runs * req_ctl_3->result_dimensions,
+                           sizeof(*req_ctl_3->data));
+
+    req_ctl_4 = calloc(1, sizeof(*req_ctl_4));
+    req_ctl_4->mode = BENCH_MODE_FIXEDRUNS;
+    req_ctl_4->result_dimensions = 1;
+    req_ctl_4->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
+    req_ctl_4->data = calloc(req_ctl_4->min_runs * req_ctl_4->result_dimensions,
+                           sizeof(*req_ctl_4->data));
+
+    req_ctl_5 = calloc(1, sizeof(*req_ctl_5));
+    req_ctl_5->mode = BENCH_MODE_FIXEDRUNS;
+    req_ctl_5->result_dimensions = 1;
+    req_ctl_5->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
+    req_ctl_5->data = calloc(req_ctl_5->min_runs * req_ctl_5->result_dimensions,
+                           sizeof(*req_ctl_5->data));
+
+    resp_ctl = calloc(1, sizeof(*resp_ctl));
+    resp_ctl->mode = BENCH_MODE_FIXEDRUNS;
+    resp_ctl->result_dimensions = 1;
+    resp_ctl->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
+    resp_ctl->data = calloc(resp_ctl->min_runs * resp_ctl->result_dimensions,
+                            sizeof(*resp_ctl->data));
+
+    err = sys_debug_get_tsc_per_ms(&tscperus);
+    assert(err_is_ok(err));
+    tscperus /= 1000;
+#endif
+
+    err = domain_prealloc_caps();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP),
+                       "domain_prealloc_caps in start_service");
+    }
+
     return proc_mgmt_export(NULL, export_cb, connect_cb, get_default_waitset(),
             IDC_EXPORT_FLAGS_DEFAULT);
 }

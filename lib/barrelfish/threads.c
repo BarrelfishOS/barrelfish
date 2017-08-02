@@ -1285,13 +1285,14 @@ void threads_prepare_to_span(dispatcher_handle_t newdh)
         acquire_spinlock(&thread_slabs_spinlock);
 
         while (slab_freecount(&thread_slabs) < MAX_THREADS - 1) {
+            printf("HEP\n");
             struct capref frame;
             size_t size;
             void *buf;
             errval_t err;
 
             size_t blocksize = sizeof(struct thread) + tls_block_total_len;
-            err = vspace_mmu_aware_map(&thread_slabs_vm, blocksize,
+            err = vspace_mmu_aware_map(&thread_slabs_vm, 64 * blocksize,
                                        &buf, &size);
             if (err_is_fail(err)) {
                 slot_free(frame);

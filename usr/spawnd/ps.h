@@ -38,6 +38,7 @@ struct ps_entry {
     uint64_t domain_cap_hash;
     
     struct capref rootcn_cap;
+    struct capref dispframe;
     struct capref dcb;
     struct cnoderef rootcn;
     uint8_t exitcode;

@@ -234,6 +234,7 @@ class Machine(object):
         m.add_module("monitor")
         m.add_module("ramfsd", ["boot"])
         m.add_module("skb", ["boot"])
+        m.add_module("proc_mgmt", ["boot"])
         m.add_module("spawnd", ["boot"])
         m.add_module("startd", ["boot"])
         m.add_module("/eclipseclp_ramfs.cpio.gz", ["nospawn"])

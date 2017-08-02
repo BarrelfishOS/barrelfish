@@ -31,7 +31,7 @@ enum ClientType {
 };
 
 struct pending_spawn {
-    struct capref domain_cap;
+    struct domain_cap_node *cap_node;
 
 	struct spawn_binding *b;
 	coreid_t core_id;

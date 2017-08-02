@@ -32,8 +32,15 @@ struct domain_waiter {
     struct domain_waiter *next;
 };
 
+struct domain_cap_node {
+    struct capref domain_cap;
+    uint64_t hash;
+
+    struct domain_cap_node *next;
+};
+
 struct domain_entry {
-    struct capref domain_cap;   // Unique domain ID cap.
+    struct domain_cap_node *cap_node;
     enum domain_status status;  // Current domain state.
 
     struct spawnd_state *spawnds[MAX_COREID];  // Spawnds running this domain.
@@ -45,12 +52,17 @@ struct domain_entry {
     uint8_t exit_status;
 };
 
-errval_t domain_new(struct capref domain_cap, struct domain_entry **ret_entry);
+bool domain_should_refill_caps(void);
+errval_t domain_prealloc_caps(void);
+struct domain_cap_node *next_cap_node(void);
+
+errval_t domain_new(struct domain_cap_node *cap_node,
+                    struct domain_entry **ret_entry);
 errval_t domain_get_by_cap(struct capref domain_cap,
                            struct domain_entry **ret_entry);
 void domain_run_on_core(struct domain_entry *entry, coreid_t core_id);
 
-errval_t domain_spawn(struct capref domain_cap, coreid_t core_id);
+errval_t domain_spawn(struct domain_cap_node *cap_node, coreid_t core_id);
 errval_t domain_can_span(struct capref domain_cap, coreid_t core_id);
 errval_t domain_span(struct capref domain_cap, coreid_t core_id);
 static inline void domain_stop_pending(struct domain_entry *entry)
