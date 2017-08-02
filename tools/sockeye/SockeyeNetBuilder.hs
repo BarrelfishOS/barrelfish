@@ -38,16 +38,14 @@ import qualified SockeyeASTDecodingNet as NetAST
 import Debug.Trace
 
 data NetBuildFail
-    = UndefinedOutPort !String !String
-    | UndefinedInPort  !String !String
-    | UndefinedRefPort !String
-    | UndefinedRefNode !String !String
+    = UndefinedOutPort   !String !String
+    | UndefinedInPort    !String !String
+    | UndefinedReference !String !String
 
 instance Show NetBuildFail where
     show (UndefinedInPort  inst port)  = concat ["Mapping to undefined input port '",   port, "' in module instantiation '", inst, "'"]
     show (UndefinedOutPort inst port)  = concat ["Mapping to undefined output port '",  port, "' in module instantiation '", inst, "'"]
-    show (UndefinedRefPort      port)  = concat ["Input port '", port, "' declared but corresponding node not defined"]
-    show (UndefinedRefNode context ident) = concat ["Reference to undefined node '", ident, "' in ", context]
+    show (UndefinedReference context ident) = concat ["Reference to undefined node '", ident, "' in ", context]
 
 type PortMap = Map InstAST.Identifier NetAST.NodeId
 
@@ -104,6 +102,7 @@ instance NetTransformable InstAST.Module NetAST.NetSpec where
             declIds = map InstAST.nodeId nodeDecls
             modContext = context
                 { nodes = Set.fromList $ outPortIds ++ inMapIds ++ declIds }
+        -- TODO: check mapping to undefined port
         inPortDecls <- transform modContext inPorts
         outPortDecls <- transform modContext outPorts
         netDecls <- transform modContext nodeDecls
@@ -163,6 +162,8 @@ instance NetTransformable InstAST.ModuleInst NetAST.NetSpec where
             inPortMap = InstAST.inPortMap ast
             outPortMap = InstAST.outPortMap ast
             mod = (modules context) Map.! name
+            errorContext = concat ["port mapping for '", name, " as ", namespace, "'"]
+        mapM_ (checkReference context $ UndefinedReference errorContext) $ (Map.elems inPortMap) ++ (Map.elems outPortMap)
         netInMap <- transform context inPortMap
         netOutMap <- transform context outPortMap
         let instContext = context
@@ -220,7 +221,7 @@ instance NetTransformable InstAST.MapSpec NetAST.MapSpec where
             destNode = InstAST.destNode ast
             destBase = InstAST.destBase ast
             errorContext = "tranlate set of node '" ++ curNode context ++ "'"
-        checkReference context (UndefinedRefNode errorContext) destNode
+        checkReference context (UndefinedReference errorContext) destNode
         netDestNode <- transform context destNode
         return NetAST.MapSpec
             { NetAST.srcBlock = srcBlock
@@ -235,7 +236,7 @@ instance NetTransformable InstAST.OverlaySpec [NetAST.MapSpec] where
             width = InstAST.width ast
             blocks = mappedBlocks context
             errorContext = "overlay of node '" ++ curNode context ++ "'"
-        checkReference context (UndefinedRefNode errorContext) over
+        checkReference context (UndefinedReference errorContext) over
         netOver <- transform context over
         let maps = overlayMaps netOver width blocks
         return maps
