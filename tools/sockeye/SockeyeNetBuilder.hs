@@ -43,8 +43,8 @@ data NetBuildFail
     | UndefinedReference !String !String
 
 instance Show NetBuildFail where
-    show (UndefinedInPort  inst port)  = concat ["Mapping to undefined input port '",   port, "' in module instantiation '", inst, "'"]
-    show (UndefinedOutPort inst port)  = concat ["Mapping to undefined output port '",  port, "' in module instantiation '", inst, "'"]
+    show (UndefinedInPort  inst port)  = concat ["Undefined input port '",   port, "' in module instantiation '", inst, "'"]
+    show (UndefinedOutPort inst port)  = concat ["Undefined output port '",  port, "' in module instantiation '", inst, "'"]
     show (UndefinedReference context ident) = concat ["Reference to undefined node '", ident, "' in ", context]
 
 type PortMap = Map InstAST.Identifier NetAST.NodeId
@@ -102,7 +102,6 @@ instance NetTransformable InstAST.Module NetAST.NetSpec where
             declIds = map InstAST.nodeId nodeDecls
             modContext = context
                 { nodes = Set.fromList $ outPortIds ++ inMapIds ++ declIds }
-        -- TODO: check mapping to undefined port
         inPortDecls <- transform modContext inPorts
         outPortDecls <- transform modContext outPorts
         netDecls <- transform modContext nodeDecls
@@ -164,8 +163,13 @@ instance NetTransformable InstAST.ModuleInst NetAST.NetSpec where
             inPortMap = InstAST.inPortMap ast
             outPortMap = InstAST.outPortMap ast
             mod = (modules context) Map.! name
-            errorContext = concat ["port mapping for '", name, " as ", namespace, "'"]
+            inPortIds = Set.fromList $ map InstAST.portId (InstAST.inputPorts mod)
+            outPortIds = Set.fromList $ map InstAST.portId (InstAST.outputPorts mod)
+            instString = concat [name, " as ", namespace]
+            errorContext = concat ["port mapping for '", instString, "'"]
         mapM_ (checkReference context $ UndefinedReference errorContext) $ (Map.elems inPortMap) ++ (Map.elems outPortMap)
+        checkAllExist (UndefinedInPort instString) inPortIds $ Map.keysSet inPortMap
+        checkAllExist (UndefinedOutPort instString) outPortIds $ Map.keysSet outPortMap
         netInMap <- transform context inPortMap
         netOutMap <- transform context outPortMap
         let instContext = context
@@ -175,6 +179,12 @@ instance NetTransformable InstAST.ModuleInst NetAST.NetSpec where
                 , outPortMap   = netOutMap
                 }
         transform instContext mod
+        where
+            checkAllExist fail existing xs = do
+                let undef = xs Set.\\ existing
+                if Set.null undef
+                    then return ()
+                    else mapM_ (failCheck (curModule context) . fail) undef
 
 instance NetTransformable InstAST.NodeDecl NetAST.NetSpec where
     transform context ast = do
