@@ -217,7 +217,7 @@ instance Instantiatable CheckAST.ModuleInst [InstAST.ModuleInst] where
             checkSelfInst path name = do
                 case loop path of
                     [] -> return ()
-                    l  -> failCheck "" $ ModuleInstLoop (reverse $ name:l)
+                    l  -> failCheck "@all" $ ModuleInstLoop (reverse $ name:l)
                     where
                         loop [] = []
                         loop path@(p:ps)

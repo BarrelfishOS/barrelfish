@@ -17,7 +17,7 @@ module SockeyeChecks where
 
 import Control.Monad.Writer
 
-import Data.List (nub)
+import Data.List (nub, sort)
 
 data FailedCheck t = FailedCheck
     { inModule :: !String
@@ -28,7 +28,7 @@ newtype FailedChecks t = FailedChecks [FailedCheck t]
 
 instance (Show t) => Show (FailedChecks t) where
     show (FailedChecks fs) = 
-        let modules = nub $ map inModule fs
+        let modules = sort  (nub $  map inModule fs)
         in unlines $ concat (map showFailsForModule modules)
         where
             showFailsForModule name =
@@ -36,7 +36,6 @@ instance (Show t) => Show (FailedChecks t) where
                     title = "\nIn module '" ++ name ++ "':"
                     fails = filter (\f -> name == inModule f) fs
                 in case name of
-                    ""      -> "":showFails 0 fails
                     ('@':_) -> "":showFails 0 fails
                     _       -> title:showFails 1 fails
             showFails indentLevel fs =

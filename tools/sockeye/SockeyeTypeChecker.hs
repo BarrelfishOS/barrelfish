@@ -95,7 +95,7 @@ instance SymbolSource ParseAST.SockeyeSpec where
         let mods = ParseAST.modules ast
         symbolTables <- mapM buildSymbolTable mods
         let names = concat $ map Map.keys symbolTables
-        checkDuplicates "" DuplicateModule names
+        checkDuplicates "@all" DuplicateModule names
         return $ Map.unions symbolTables
         
 instance SymbolSource ParseAST.Module where
