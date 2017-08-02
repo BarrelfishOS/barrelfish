@@ -138,7 +138,6 @@ static void test_enqueue_dequeue(void)
     errval_t err;
     num_tx = 0;
     num_rx = 0;
-
     // enqueue from the beginning of the region
     for (int i = 0; i < NUM_BUFS/8; i++) {
         err = devq_enqueue(que, regid, i*BUF_SIZE, BUF_SIZE, 
@@ -223,7 +222,7 @@ static void test_failures(void)
         USER_PANIC("Enqueue failed: %s \n", err_getstring(err));
     }
 
-    while(num_rx < 1) {
+    while(num_rx < 2) {
         event_dispatch(get_default_waitset());
     }
 

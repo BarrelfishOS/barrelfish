@@ -81,6 +81,8 @@ struct debug_q {
     struct operation history[HIST_SIZE];
 };
 
+
+
 static void dump_list(struct memory_list* region)
 {  
     struct memory_ele* ele = region->buffers;
@@ -180,6 +182,7 @@ static errval_t debug_register(struct devq* q, struct capref cap,
         que->regions->next = NULL;
         // add the whole regions as a buffer
         que->regions->buffers = slab_alloc(&que->alloc);
+        memset(que->regions->buffers, 0, sizeof(que->regions->buffers));
         que->regions->buffers->offset = 0;
         que->regions->buffers->length = id.bytes;
         que->regions->buffers->next = NULL;
@@ -207,6 +210,7 @@ static errval_t debug_register(struct devq* q, struct capref cap,
     ele->length = id.bytes;
     // add the whole regions as a buffer
     ele->buffers = slab_alloc(&que->alloc);
+    memset(ele->buffers, 0, sizeof(ele->buffers));
     ele->buffers->offset = 0;
     ele->buffers->length = id.bytes;
     ele->buffers->next = NULL;
@@ -403,6 +407,7 @@ static void remove_split_buffer(struct debug_q* que,
 
     struct memory_ele* after = NULL;
     after = slab_alloc(&que->alloc);
+    memset(after, 0, sizeof(after));
     after->offset = buffer->offset + buffer->length + length;
     after->length = old_len - buffer->length - length;
 
@@ -575,6 +580,7 @@ static void insert_merge_buffer(struct debug_q* que,
 
                 // insert in between
                 struct memory_ele* ele = slab_alloc(&que->alloc);
+                memset(ele, 0, sizeof(ele));
                 assert(ele != NULL);
                 
                 ele->offset = offset;
@@ -804,3 +810,24 @@ errval_t debug_destroy(struct debug_q* q, struct devq* devq)
     return SYS_ERR_OK;
 }
 
+
+errval_t debug_dump_region(struct debug_q* que, regionid_t rid) 
+{
+    errval_t err;
+    // find region
+    struct memory_list* region = NULL;
+
+    err = find_region(que, &region, rid);
+    if (err_is_fail(err)){
+        return err;
+    }
+
+    dump_list(region);
+    return SYS_ERR_OK;
+}
+
+
+void debug_dump_history(struct debug_q* q)
+{
+    dump_history(q);
+}
