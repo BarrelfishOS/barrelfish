@@ -22,11 +22,9 @@ module SockeyeNetBuilder
 
 import Control.Monad.State
 
-import Data.Either
-import Data.List (nub, intercalate, sort)
+import Data.List (sort)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
 import Data.Set (Set)
 import qualified Data.Set as Set
 
@@ -34,8 +32,6 @@ import SockeyeChecks
 
 import qualified SockeyeASTInstantiator as InstAST
 import qualified SockeyeASTDecodingNet as NetAST
-
-import Debug.Trace
 
 data NetBuildFail
     = UndefinedOutPort   !String !String

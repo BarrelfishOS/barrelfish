@@ -25,9 +25,7 @@ import Control.Monad.State
 import Data.List (intercalate)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe, maybe)
-import Data.Set (Set)
-import qualified Data.Set as Set
+import Data.Maybe (fromMaybe)
 
 import Numeric (showHex)
 
@@ -35,9 +33,6 @@ import SockeyeChecks
 
 import qualified SockeyeASTTypeChecker as CheckAST
 import qualified SockeyeASTInstantiator as InstAST
-
-import Text.Groom (groom)
-import Debug.Trace
 
 data InstFail
     = ModuleInstLoop     [String]
@@ -68,8 +63,7 @@ data Context = Context
 
 instantiateSockeye :: CheckAST.SockeyeSpec -> Either (FailedChecks InstFail) InstAST.SockeyeSpec
 instantiateSockeye ast = do
-    let emptySpec = CheckAST.SockeyeSpec 
-        context = Context
+    let context = Context
             { modules     = Map.empty
             , modulePath  = []
             , paramValues = Map.empty
@@ -259,7 +253,7 @@ instance Instantiatable CheckAST.NodeDecl [InstAST.NodeDecl] where
         return $ [instDecl]
 
 instance Instantiatable CheckAST.Identifier InstAST.Identifier where
-    instantiate context (CheckAST.SimpleIdent name) = do
+    instantiate _ (CheckAST.SimpleIdent name) = do
         return name
     instantiate context ast = do
         let prefix = CheckAST.prefix ast
@@ -321,7 +315,7 @@ instance Instantiatable CheckAST.MapSpec InstAST.MapSpec where
     instantiate context ast = do
         let block = CheckAST.block ast
             destNode = CheckAST.destNode ast
-            destBase = fromMaybe (CheckAST.base block) (CheckAST.destBase ast)
+            destBase = fromMaybe (CheckAST.LiteralAddress 0) (CheckAST.destBase ast)
         instBlock <- instantiate context block
         instDestNode <- instantiate context destNode
         instDestBase <- instantiate context destBase

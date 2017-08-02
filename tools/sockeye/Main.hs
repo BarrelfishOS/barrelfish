@@ -37,9 +37,6 @@ import SockeyeNetBuilder
 
 import qualified SockeyeBackendProlog as Prolog
 
-import Debug.Trace
-import Text.Groom(groom)
-
 {- Exit codes -}
 usageError :: ExitCode
 usageError = ExitFailure 1
@@ -265,9 +262,7 @@ main = do
             output f out
     ast <- typeCheck parsedAst
     instAst <- instanitateModules ast
-    -- putStrLn $ groom instAst
     netAst <- buildNet instAst
-    -- putStrLn $ groom netAst
     out <- compile (optTarget opts) netAst
     output outFile out
     

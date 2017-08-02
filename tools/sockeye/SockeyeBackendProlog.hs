@@ -47,7 +47,7 @@ instance PrologGenerator AST.NetSpec where
 instance PrologGenerator AST.NodeId where
     generate ast = let
         name = AST.name ast
-        namespace = AST.namespace ast
+        namespace = filter ((> 0) . length) $ AST.namespace ast
         in predicate "nodeId" [atom name, list $ map atom namespace]
 
 instance PrologGenerator AST.NodeSpec where

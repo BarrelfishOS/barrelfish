@@ -22,7 +22,6 @@ module SockeyeTypeChecker
 
 import Control.Monad
 
-import Data.List (nub)
 import Data.Map(Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -33,8 +32,6 @@ import SockeyeChecks
 
 import qualified SockeyeASTParser as ParseAST
 import qualified SockeyeASTTypeChecker as CheckAST
-
-import Debug.Trace
 
 data TypeCheckFail
     = DuplicateModule String
