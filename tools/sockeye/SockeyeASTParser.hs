@@ -63,8 +63,8 @@ data ModuleBody = ModuleBody
     } deriving (Show)
 
 data NetSpec
-    = NodeDeclSpec NodeDecl
-    | ModuleInstSpec ModuleInst
+    = ModuleInstSpec ModuleInst
+    | NodeDeclSpec NodeDecl
     deriving (Show)
 
 data Port

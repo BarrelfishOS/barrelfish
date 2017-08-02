@@ -61,7 +61,7 @@ instance Show InstFail where
     show (DuplicateOutMap  inst port)    = concat ["Multiple mappings for output port '", port, "' in module instantiation '", inst, "'"]
     show (UndefinedInPort  inst port)    = concat ["Mapping to undefined input port '",   port, "' in module instantiation '", inst, "'"]
     show (UndefinedOutPort inst port)    = concat ["Mapping to undefined output port '",  port, "' in module instantiation '", inst, "'"]
-    show (UndefinedReference decl ident) = concat ["Reference to undefined node '", ident, "' in declaration of node '", decl, "'"]
+    show (UndefinedReference decl ident) = concat ["Reference to undefined node '", ident, "' in port or declaration of node '", decl, "'"]
 
 type PortMapping = (InstAST.Identifier, InstAST.Identifier)
 
@@ -105,8 +105,8 @@ instance Instantiatable CheckAST.SockeyeSpec InstAST.SockeyeSpec where
 instance Instantiatable CheckAST.Module InstAST.Module where
     instantiate context ast = do
         let ports = CheckAST.ports ast
-            nodeDecls = CheckAST.nodeDecls ast
             moduleInsts = CheckAST.moduleInsts ast
+            nodeDecls = CheckAST.nodeDecls ast
             modName = head $ modulePath context
         modules <- get
         if modName `Map.member` modules
@@ -122,16 +122,21 @@ instance Instantiatable CheckAST.Module InstAST.Module where
                 instPorts <- do
                     instPorts <- instantiate context ports
                     return $ concat (instPorts :: [[InstAST.Port]])
-                instDecls <- do
-                    decls <- instantiate context nodeDecls
-                    return $ concat (decls :: [[InstAST.NodeDecl]])
                 instInsts <- do
                     insts <- instantiate context moduleInsts
                     return $ concat (insts :: [[InstAST.ModuleInst]])
-                lift $ checkDuplicates modName DuplicateInPort    $ (map InstAST.portId $ filter isInPort  instPorts)
-                lift $ checkDuplicates modName DuplicateOutPort   $ (map InstAST.portId $ filter isOutPort instPorts)
-                lift $ checkDuplicates modName DuplicateIdentifer $ (map InstAST.nodeId instDecls)
+                instDecls <- do
+                    decls <- instantiate context nodeDecls
+                    return $ concat (decls :: [[InstAST.NodeDecl]])
+                let
+                    inPortIds = map InstAST.portId $ filter isInPort instPorts
+                    outPortIds = map InstAST.portId $ filter isOutPort instPorts
+                    inMapNodeIds = concat $ map (Map.elems . InstAST.inPortMap) instInsts
+                    declNodeIds = map InstAST.nodeId instDecls
+                lift $ checkDuplicates modName DuplicateInPort  inPortIds
+                lift $ checkDuplicates modName DuplicateOutPort outPortIds
                 lift $ checkDuplicates modName DuplicateNamespace $ (map InstAST.namespace instInsts)
+                lift $ checkDuplicates modName DuplicateIdentifer $ outPortIds ++ inMapNodeIds ++ declNodeIds
                 -- TODO: check duplicates with input/output ports
                 return InstAST.Module
                     { InstAST.ports       = instPorts
@@ -194,8 +199,8 @@ instance Instantiatable CheckAST.ModuleInst [InstAST.ModuleInst] where
                     , varValues   = Map.empty
                     }
         lift $ checkSelfInst modPath instName
-        lift $ checkDuplicates name (DuplicateInMap  instName) $ map fst instInMap
-        lift $ checkDuplicates name (DuplicateOutMap instName) $ map fst instOutMap
+        lift $ checkDuplicates (head modPath) (DuplicateInMap  instName) $ map fst instInMap
+        lift $ checkDuplicates (head modPath) (DuplicateOutMap instName) $ map fst instOutMap
         let instantiated = InstAST.ModuleInst
                 { InstAST.moduleName = instName
                 , InstAST.namespace  = instNs

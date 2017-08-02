@@ -265,7 +265,7 @@ main = do
             output f out
     ast <- typeCheck parsedAst
     instAst <- instanitateModules ast
-    -- putStrLn $ groom instAST
+    -- putStrLn $ groom instAst
     netAst <- buildNet instAst
     -- putStrLn $ groom netAst
     out <- compile (optTarget opts) netAst

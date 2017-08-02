@@ -32,8 +32,8 @@ data Module = Module
     { paramNames   :: [String]
     , paramTypeMap :: Map String ModuleParamType
     , ports        :: [Port]
-    , nodeDecls    :: [NodeDecl]
     , moduleInsts  :: [ModuleInst]
+    , nodeDecls    :: [NodeDecl]
     } deriving (Show)
 
 data ModuleParamType 

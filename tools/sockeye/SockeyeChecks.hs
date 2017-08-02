@@ -41,7 +41,8 @@ instance (Show t) => Show (FailedChecks t) where
             showFails indentLevel fs =
                 let
                     indent = replicate (indentLevel * 4) ' '
-                in map ((indent ++) . showFail) fs
+                    failStrings = nub $ map showFail fs
+                in map (indent ++) failStrings
             showFail f = (show $ failed f)
 
 type Checks f = Writer [FailedCheck f]

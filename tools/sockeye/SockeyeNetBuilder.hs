@@ -45,7 +45,7 @@ data NetBuildFail
 instance Show NetBuildFail where
     show (UndefinedInPort  inst port)    = concat ["Mapping to undefined input port '",   port, "' in module instantiation '", inst, "'"]
     show (UndefinedOutPort inst port)    = concat ["Mapping to undefined output port '",  port, "' in module instantiation '", inst, "'"]
-    show (UndefinedReference decl ident) = concat ["Reference to undefined node '", ident, "' in declaration of node '", decl, "'"]
+    show (UndefinedReference decl ident) = concat ["Reference to undefined node '", ident, "' in input port or node declaration'", decl, "'"]
 
 type PortMap = Map InstAST.Identifier NetAST.NodeId
 
