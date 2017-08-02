@@ -59,7 +59,7 @@ data Port
 
 data ModuleInst
     = ModuleInst
-        { namespace  :: Identifier
+        { namespace  :: Maybe Identifier
         , moduleName :: String
         , arguments  :: Map String ModuleArg
         , inPortMap  :: [PortMap]

@@ -161,16 +161,17 @@ instance NetTransformable InstAST.ModuleInst NetAST.NetSpec where
             mod = (modules context) Map.! name
             inPortIds = Set.fromList $ map InstAST.portId (InstAST.inputPorts mod)
             outPortIds = Set.fromList $ map InstAST.portId (InstAST.outputPorts mod)
-            instString = concat [name, " as ", namespace]
+            instString = concat [name, maybe  "" (" as " ++ ) namespace]
             errorContext = concat ["port mapping for '", instString, "'"]
         mapM_ (checkReference context $ UndefinedReference errorContext) $ (Map.elems inPortMap) ++ (Map.elems outPortMap)
         checkAllExist (UndefinedInPort instString) inPortIds $ Map.keysSet inPortMap
         checkAllExist (UndefinedOutPort instString) outPortIds $ Map.keysSet outPortMap
         netInMap <- transform context inPortMap
         netOutMap <- transform context outPortMap
-        let instContext = context
+        let curNs = curNamespace context
+            instContext = context
                 { curModule    = name
-                , curNamespace = namespace:(curNamespace context)
+                , curNamespace = maybe curNs (:curNs) namespace
                 , inPortMap    = netInMap
                 , outPortMap   = netOutMap
                 }

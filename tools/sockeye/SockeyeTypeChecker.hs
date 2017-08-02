@@ -132,7 +132,7 @@ instance Checkable ParseAST.SockeyeSpec CheckAST.SockeyeSpec where
         checkedRootNetSpecs <- check rootModContext rootNetSpecs
         checkedModules <- check context mods
         let root = CheckAST.ModuleInst
-                { CheckAST.namespace  = CheckAST.SimpleIdent ""
+                { CheckAST.namespace  = Nothing
                 , CheckAST.moduleName = rootName
                 , CheckAST.arguments  = Map.empty
                 , CheckAST.inPortMap  = []
@@ -212,7 +212,7 @@ instance Checkable ParseAST.ModuleInst CheckAST.ModuleInst where
         inPortMap  <- check context $ filter isInMap  portMaps
         outPortMap <- check context $ filter isOutMap portMaps
         return CheckAST.ModuleInst
-            { CheckAST.namespace  = checkedNamespace
+            { CheckAST.namespace  = Just checkedNamespace
             , CheckAST.moduleName = name
             , CheckAST.arguments  = checkedArgs
             , CheckAST.inPortMap  = inPortMap

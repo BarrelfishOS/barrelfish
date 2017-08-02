@@ -52,7 +52,7 @@ data Port
 
 data ModuleInst
     = ModuleInst
-        { namespace  :: Identifier
+        { namespace  :: Maybe Identifier
         , moduleName :: Identifier
         , inPortMap  :: PortMap
         , outPortMap :: PortMap

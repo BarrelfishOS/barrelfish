@@ -25,7 +25,7 @@ import Control.Monad.State
 import Data.List (intercalate)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
+import Data.Maybe (catMaybes, fromMaybe)
 
 import Numeric (showHex)
 
@@ -127,7 +127,7 @@ instance Instantiatable CheckAST.Module InstAST.Module where
                     declNodeIds = map InstAST.nodeId instDecls
                 lift $ checkDuplicates modName DuplicateInPort  inPortIds
                 lift $ checkDuplicates modName DuplicateOutPort outPortIds
-                lift $ checkDuplicates modName DuplicateNamespace $ (map InstAST.namespace instInsts)
+                lift $ checkDuplicates modName DuplicateNamespace (catMaybes $ map InstAST.namespace instInsts)
                 lift $ checkDuplicates modName DuplicateIdentifer $ outPortIds ++ inMapNodeIds ++ declNodeIds
                 return InstAST.Module
                     { InstAST.inputPorts  = instInPorts
@@ -176,7 +176,7 @@ instance Instantiatable CheckAST.ModuleInst [InstAST.ModuleInst] where
             outPortMap = CheckAST.outPortMap ast
             modPath = modulePath context
             mod = getModule context name
-        instNs <- instantiate context namespace
+        instNs <- maybe (return Nothing) (\ns -> instantiate context ns >>= return . Just) namespace
         instInMap <- do
             inMaps <- instantiate context inPortMap
             return $ concat (inMaps :: [[PortMapping]])
