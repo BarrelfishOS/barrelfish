@@ -115,6 +115,8 @@ instance NetTransformable InstAST.Port NetAST.NetSpec where
             portWidth = InstAST.portWidth ast
             portMap = inPortMap context
             mappedId = Map.lookup portId portMap
+            errorContext = "input port declaration"
+        checkReference context (UndefinedReference errorContext) portId
         netPortId <- transform context portId
         case mappedId of
             Nothing    -> return Map.empty
