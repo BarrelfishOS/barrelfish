@@ -47,7 +47,7 @@
 
 \begin{versionhistory}
 \vhEntry{0.1}{15.06.2017}{DS}{Initial Version}
-\vhEntry{0.2}{26.07.2017}{DS}{Describe Modularity Features}
+\vhEntry{0.2}{03.08.2017}{DS}{Describe Modularity Features}
 \end{versionhistory}
 
 % \intro{Abstract}    % Insert abstract here
@@ -92,9 +92,9 @@ is a domain specific language to describe SoCs (Systems on a Chip).
 
 Achermann~et~al.~\cite{achermann:mars17} propose a formal model to describe address spaces and interrupt routes in a system as a directed graph.
 They call such a graph a ``decoding net''.
-Each node in the graph can accept a set of addresses and translate another (not necessarily disjunct) set of addresses (when describing interrupt routes the accept or translate interrupt vectors).
+Each node in the graph can accept a set of addresses and translate another (not necessarily disjunct) set of addresses (when describing interrupt routes they accept or translate interrupt vectors).
 Starting at a specific node, addresses can be resolved by following the appropriate edges in the decoding net.
-When a node translates an address, resolution is continued on that node.
+When a node translates an address, resolution is continued at the referenced node.
 When a node accepts an address, resolution terminates
 
 Achermann~et~al.~\cite{achermann:mars17} also propose a concrete syntax for specifying decoding nets.
@@ -104,9 +104,11 @@ The Sockeye compiler is written in Haskell using the Parsec parsing library. It
 generates Prolog files from the Sockeye files. These Prolog files contain facts that represent a decoding net (see Chapter~\ref{chap:prolog}).
 The Prolog files can then be loaded into Barrelfish's System Knowledgebase (SKB).
 
+In the future the compiler should also be able to generate Isabelle code from Sockeye specifications to be able to verify hardware designs.
+
 The source code for Sockeye can be found in \pathname{SOURCE/tools/sockeye}.
 
-
+\clearpage
 \section{Command Line Options}
 
 \begin{verbatim}
@@ -116,16 +118,20 @@ $ sockeye [options] file
 
 The available options are:
 \begin{description}
-\item[-P] Generate a Prolog file that can be loaded into the SKB.
+\item[-P] Generate a Prolog file that can be loaded into the SKB (default).
 \item[-i] Add a directory to the search path where Sockeye looks for imports.
-\item[-o] \varname{filename} The path to the output file
+\item[-o] \varname{filename} The path to the output file (required)
+\item[-d] \varname{filename} The path to the dependency output file (optional)
 \item[-h] show usage information
 \end{description}
 
 The backend (capital letter options) specified last takes precedence.
+At the moment there is only a backend for generating Prolog for use in Barrelfish's SKB.
 
 Multiple directories can be added by giving the \texttt{-i} options multiple times.
 Sockeye will first look for files in the current directory and then check the given directories in the order they were given.
+
+When invoked with the \texttt{-d} option, the compiler will generate a dependency file for GNU make to be able to track changes in imported files.
 
 The Sockeye file to compile is given via the \texttt{file} parameter.
 
@@ -190,15 +196,14 @@ In this chapter we define the layout of a Sockeye file.
 The node declarations in a Sockeye file describe a single decoding net.
 Parts of a decoding net can be packaged into reusable modules (see Section~\ref{sec:modules}).
 With imports (see Section~\ref{sec:imports}) modules can also be put into separate files.
-Also, a SoC can be split into multiple decoding nets e.g. one for the address spaces and another one for the interrupt routes.
 
-In the following sections we use EBNF to specify the Sockeye syntax. Terminals are \textbf{bold} while non-terminals are \textit{italic}.
+In the following sections we use EBNF to describe the Sockeye syntax. Terminals are \textbf{bold} while non-terminals are \textit{italic}.
 The non-terminals \textit{iden}, \textit{letter}, \textit{decimal} and \textit{hexadecimal} correspond to the ones defined in Chapter~\ref{chap:lexer}.
 
 \section{Basic Syntax}
 This section describes the basic syntax for Sockeye.
 It closely corresponds to the concrete syntax described in \cite{achermann:mars17}.
-If there are important syntactic or semantic differences it is stated so in the description of the respective syntactical construct.
+If there are important syntactic or semantic differences it is stated explicitly in the description of the respective syntactical construct.
 
 \subsection{Node Declarations}
 A node declaration contains one or more identifiers and the node specification.
@@ -267,7 +272,7 @@ The overlay will span addresses from \texttt{0x0} to \(\texttt{0x2}^\texttt{bits
 
 \subsection{Node Type}
 Currently there are two types: \Sockeye{device} and \Sockeye{memory}. A third internal type \Sockeye{other} is given to nodes for which no type is specified.
-The \Sockeye{device}-type specifies that the accepted addresses are device registers while the \Sockeye{memory}-type is for memory nodes like RAM or ROM.
+The \Sockeye{device} type specifies that the accepted addresses are device registers while the \Sockeye{memory} type is for memory nodes like RAM or ROM.
 
 \paragraph{Syntax}
 \begin{align*}
@@ -354,7 +359,8 @@ Multiple translation targets can be specified by giving a comma-separated list o
 \label{sec:modules}
 A module encapsulates a decoding net which can be integrated into a larger decoding net.
 A module instantiation always creates a namespace inside the current one.
-Normally nodes can only be referenced by nodes in the same namespace but there needs to be away to reference nodes inside a module and also a way for nodes inside the module to reference nodes outside of it.
+Normally nodes can only be referenced by nodes in the same namespace.
+To properly integrate a module into a larger decoding net we need a mechanism to connect the module to the enclosing decoding net.
 This is done via ports.
 There are input ports, which create a connection into the module and output ports which create connections from the module to outside nodes.
 A port has always a width, specified as the number of address bits the port spans.
@@ -365,12 +371,12 @@ An input port mapping creates a node outside the module that overlays the node i
 An output port mapping creates a node inside the module that overlays the node outside the module.
 Not all ports a module declares have to be mapped.
 Not mapping an input port simply means there is no connection to the corresponding node inside the module.
-For unmapped output ports there will be an empty node inside the module, which is a dead end for address resolution.
+For unmapped output ports an empty node inside the module will be generated, acting as a dead end for address resolution.
 
-Additionally a module can also be parametrized.
+Additionally a module can be parametrized.
 It will then be a module template that only becomes a fully defined module when instantiated with concrete arguments.
 Module parameters are typed and the Sockeye compiler checks that they are used in a type safe way.
-There are two types of parameters, address parameters and natural parameters.
+There are two types of parameters: address parameters and natural parameters.
 Address parameters allow to parametrize addresses in node specifications.
 Natural parameters are used in combination with interval template identifiers (see Section~\ref{sec:template_idens}).
 Parameters can also be passed as arguments to module template instantiations in the module body.
@@ -471,7 +477,7 @@ There are two forms of templated identifiers:
 Interval templates can be used in identifiers of node declarations (to declare multiple nodes), port declarations (to declare multiple ports) and namespace identifiers of module instantiations (to instantiate a module multiple times).
 The scope of index variables is the corresponding syntactic construct the interval template was used in.
 Simple templates can be used in any place a node identifier is expected.
-This includes the places where interval templates can be used, translation destination node identifiers and overlays but not module parameter or index variable names.
+This includes the places where interval templates can be used, identifiers of translation destination nodes and overlays but not module parameter or index variable names.
 
 An important thing to note is that the limits of an interval can reference module parameters of type \Sockeye{nat}.
 This allows module parameters to control how many ports or nodes are instantiated from a certain interval template.
@@ -518,8 +524,8 @@ This allows module parameters to control how many ports or nodes are instantiate
 
 \section{Imports}
 \label{sec:imports}
-Imports allow a specification to be divided over several files.
-They also allow the reuse of declared modules.
+Imports allow a specification to be split across several files.
+They also allow the reuse of modules.
 Imports have to be specified at the very top of a Sockeye file.
 An import will cause the compiler to load all modules from \pathname{<import\_path>.soc}
 Nodes declared outside of modules will not be loaded.
@@ -571,42 +577,72 @@ The specification for the Texas Instruments OMAP4460 SoC used on the PandaboardE
 \chapter{Checks on the AST}
 \label{chap:checks}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The Sockeye compiler performs two sets of checks.
-The first checks are on a module level.
-Without concrete arguments to the modules not everything can be checked at module level.
-That is why the second set of checks is run when the modules are fully instantiated.
+The compiler performs the transformation from parsed Sockeye to decoding nets in three steps:
+\begin{enumerate}
+    \item Type checker
+    \item Instantiator
+    \item Net builder
+\end{enumerate}
+In each of the steps some checks are performed.
+The type checker checks that all referenced symbols (modules, parameters and index variables) are defined and ensures module template parameter type safety.
+The instantiator instantiates module and identifier templates and ensures that each identifier is declared only once.
+The net builder instantiates the modules and ensures referential integrity in the generated decoding net. It also transforms overlays to translation sets.
+The checks are detailed in the following sections.
 
-\section{Module Level Checks}
+\section{Type Checker}
+\subsection{Duplicate Modules}
+This check makes sure that all module names in any of the imported files are unique.
 
+\subsection{Duplicate Parameters}
+This check makes sure that no module has two parameters with the same name.
 
-\section{Decoding Net Level Checks}
-\subsection{No Module Instantiation Loops}
-This check makes sure, that there are no loops in module instantiations which would cause the compiler to not terminate.
+\subsection{Duplicate Index Variables}
+This check makes sure that no two index variables in the same scope have the same name.
 
-\subsection{No Duplicate Ports}
+\subsection{Undefined Modules}
+This check makes sure that all modules being instantiated actually exist.
+
+\subsection{Undefined Parameters}
+This check makes sure that all referenced parameters are in scope.
+
+\subsection{Undefined Index Variables}
+This check makes sure that all index variables referenced in templated identifiers are in scope. 
+
+\subsection{Parameter Type Mismatch}
+This check makes sure that parameters are used in a type safe way.
+
+\subsection{Argument Count Mismatch}
+This check makes sure that module instantiations give the correct number of arguments to the module template being instantiated.
+
+\subsection{Argument Type Mismatch}
+This check makes sure that the arguments passed to module templates have the correct type.
+
+\section{Instantiator}
+\subsection{Module Instantiation Loops}
+This check makes sure that there are no loops in module instantiations which would result in an infinite nesting of decoding subnets.
+
+\subsection{Duplicate Namespaces}
+This check makes sure that all module instantiations in a module have a unique namespace.
+
+\subsection{Duplicate Identifiers}
+This check makes sure that all node identifiers are unique.
+This includes output ports, declared nodes and nodes mapped to input ports of instantiated modules.
+
+\subsection{Duplicate Ports}
 This check makes sure, that there are no duplicate input or output ports.
-Not that having the same node declared as an input and an output port is allowed and results in the node being passed through the module.
+Note that declaring an output port with the same identifier as an input port is allowed and results in all address resolutions going through the input port being passed through the module to the output port.
 
-\todo{This check is currently not implemented.
-For input ports the error will go unnoticed but it also has no effect on the well-formedness of the decoding net.
-For output ports it will result in a \texttt{DuplicateIdentifier} error (see Section~\ref{sec:check_dupl_ident}).}
+\subsection{Duplicate Port Mapping}
+This check makes sure that no port is mapped twice in the same module instantiation.
 
-\subsection{No Duplicate Port Mapping}
-This check makes sure that a port is not mapped twice in the same module instantiation.
+\section{Net Builder}
 
-\subsection{No Map to Undefined Port}
+\subsection{Mapping to Undefined Port}
 This check makes sure that there are no port mappings to ports not declared by the instantiated module.
 
-\todo{This check is currently not implemented.
-For input ports the error will result in a \texttt{UndefinedReference} error.
-For output ports the error will go unnoticed}
-
-\subsection{No Duplicate Identifiers}
-\label{sec:check_dupl_ident}
-This check makes sure that there aren't two node declarations with the same identifier.
-
-\subsection{No References to Undefined Nodes}
-This check makes sure that all nodes referenced in translation sets and overlays are declared.
+\subsection{References to Undefined Nodes}
+This check makes sure that all nodes referenced in translation sets, overlays and port mappings exist.
+It also checks that every input port has a corresponding node declaration.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -614,14 +650,20 @@ This check makes sure that all nodes referenced in translation sets and overlays
 \label{chap:prolog}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The Sockeye compiler generates \(\text{ECL}^i\text{PS}^e\)-Prolog\footnote{\href{http://eclipseclp.org/}{http://eclipseclp.org/}} to be used within the SKB.
-A decoding net is expressed by the predicate \Prolog{net/2}. The first argument to the predicate is the node identifier represented as a functor \Prolog{nodeId} with the first argument being the node's name represented as an atom and the second the (possibly nested) namespace it is in, represented as a list of atoms.
-The second argument is the node specification, a Prolog functor with the name \Prolog{node} and an arity of three.
-The arguments of the functor are the node type, the list of accepted addresses and the list of translated addresses.
+A decoding net is expressed by the predicate \Prolog{net/2}.
+The first argument to the predicate is the node identifier and the second one the node specification.
+
+Node identifiers are represented as a functor \Prolog{nodeId/2}.
+The first argument is the node's name, represented as an atom, and the second one is the (possibly nested) namespace it is in.
+The namespace is represented as a list of atoms where the head is the innermost namespace component.
+
+Node specifications are represented by a Prolog functor \Prolog{node/3}.
+The arguments to the functor are the node type, the list of accepted addresses and the list of translated addresses.
 The overlay is translated to address mappings and added to the list of translated addresses during compilation.
 
 The node type is one of three atoms: \Prolog{device}, \Prolog{memory} or \Prolog{other}.
 The accepted addresses are a list of address blocks where each block is represented through the functor \Prolog{block/2} with the start and end addresses as arguments.
-The translated addresses are a list of mappings to other nodes, represented by the functor \Prolog{map/3} where the first argument is the translated address block, the second one is the node identifier of the target node and the third one is the base address for the mapping in the target node.
+The translated addresses are a list of mappings to other nodes, represented by the functor \Prolog{map/3} where the first argument is the translated address block, the second one is the target node's identifier and the third one is the base address for the mapping in the target node.
 
 There is a predicate clause for \Prolog{net/2} for every node specified. 
 Listings~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}.
@@ -638,7 +680,7 @@ Each top-level Sockeye file has to be added to the list of SoCs in the Hakefile 
 When passed a filename (without extension), the function \verb|sockeye :: String -> HRule| creates a rule to compile the file \pathname{SOURCE/socs/<filename>.soc} to \pathname{BUILD/sockeyefacts/<filename>.pl}.
 The rule will also generate \pathname{BUILD/sockeyefacts/<filename>.pl.depend} (with the \texttt{-d} option of the Sockeye compiler) and include it in the Makefile.
 This causes \texttt{make} to rebuild the file also when imported files are changed.
-To add a compiled Sockeye specification to the SKB RAM-disk, the filename can be added to the \varname{sockeyeFiles} list in the SKBs Hakefile.
+To add a compiled Sockeye specification to the SKB RAM disk, the filename can be added to the \varname{sockeyeFiles} list in the SKBs Hakefile.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
