@@ -318,6 +318,10 @@ data ScanLineState
 instance (Traversable t, NetTransformable a b) => NetTransformable (t a)  (t b) where
     transform context as = mapM (transform context) as
 
+
+---
+--- Helpers
+---
 checkReference :: Context -> (String -> NetBuildFail) -> String -> (Checks NetBuildFail) ()
 checkReference context fail name =
     if name `Set.member` (nodes context)

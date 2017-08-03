@@ -1,5 +1,5 @@
 {-
-  SockeyeAST.hs: AST for Sockeye
+  SockeyeASTTypeChecker.hs: Type checked AST for Sockeye
 
   Part of Sockeye
 

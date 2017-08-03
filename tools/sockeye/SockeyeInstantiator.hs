@@ -1,5 +1,5 @@
 {-
-    SockeyeModuleInstantiator.hs: Module instantiator for Sockeye
+    SockeyeInstantiator.hs: Module instantiator for Sockeye
 
     Part of Sockeye
 
@@ -44,13 +44,13 @@ data InstFail
     | DuplicateOutMap    !String !String
 
 instance Show InstFail where
-    show (ModuleInstLoop     loop)       = concat ["Module instantiation loop: '", intercalate "' -> '" loop, "'"]
-    show (DuplicateInPort    port)       = concat ["Multiple declarations of input port '", port, "'"]
-    show (DuplicateOutPort   port)       = concat ["Multiple declarations of output port '", port, "'"]
-    show (DuplicateNamespace ident)      = concat ["Multiple usage of namespace '", ident, "'"]
-    show (DuplicateIdentifer ident)      = concat ["Multiple declarations of node '", ident, "'"]
-    show (DuplicateInMap   inst port)    = concat ["Multiple mappings for input port '",  port, "' in module instantiation '", inst, "'"]
-    show (DuplicateOutMap  inst port)    = concat ["Multiple mappings for output port '", port, "' in module instantiation '", inst, "'"]
+    show (ModuleInstLoop     loop)    = concat ["Module instantiation loop: '", intercalate "' -> '" loop, "'"]
+    show (DuplicateInPort    port)    = concat ["Multiple declarations of input port '", port, "'"]
+    show (DuplicateOutPort   port)    = concat ["Multiple declarations of output port '", port, "'"]
+    show (DuplicateNamespace ident)   = concat ["Multiple usage of namespace '", ident, "'"]
+    show (DuplicateIdentifer ident)   = concat ["Multiple declarations of node '", ident, "'"]
+    show (DuplicateInMap   inst port) = concat ["Multiple mappings for input port '",  port, "' in module instantiation '", inst, "'"]
+    show (DuplicateOutMap  inst port) = concat ["Multiple mappings for output port '", port, "' in module instantiation '", inst, "'"]
 
 type PortMapping = (InstAST.Identifier, InstAST.Identifier)
 
@@ -375,6 +375,9 @@ instance Instantiatable CheckAST.ForLimit Integer where
 instance (Traversable t, Instantiatable a b) => Instantiatable (t a) (t b) where
     instantiate context ast = mapM (instantiate context) ast
 
+---
+--- Helpers
+---
 getModule :: Context -> String -> CheckAST.Module
 getModule context name = (modules context) Map.! name
 

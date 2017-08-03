@@ -1,5 +1,5 @@
 {-
-  SockeyeBackendProlog.hs: Backend for generating Prolog facts for Sockeye
+  SockeyeBackendProlog.hs: Backend for generating ECLiPSe-Prolog facts for Sockeye
 
   Part of Sockeye
 

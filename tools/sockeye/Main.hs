@@ -255,14 +255,14 @@ main = do
         outFile = optOutputFile opts
         depFile = optDepFile opts
     (parsedAst, deps) <- parseSpec inclDirs inFile
-    case depFile of
-        Nothing -> return ()
-        Just f  -> do
-            out <- dependencyFile outFile f deps
-            output f out
     ast <- typeCheck parsedAst
     instAst <- instanitateModules ast
     netAst <- buildNet instAst
     out <- compile (optTarget opts) netAst
     output outFile out
+    case depFile of
+        Nothing -> return ()
+        Just f  -> do
+            out <- dependencyFile outFile f deps
+            output f out
     
