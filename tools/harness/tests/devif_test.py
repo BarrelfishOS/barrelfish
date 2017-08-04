@@ -63,12 +63,16 @@ class DevifTests(TestCommon):
 
 
     def process_data(self, testdir, rawiter):
-        passed = False
+
+        if not (self.loop is None):
+            self.loop.kill()
+
         for line in rawiter:
             if "SUCCESS" in line:
-                passed = True
-        self.loop.kill()
-        return PassFailResult(passed)
+                return PassFailResult(True)
+
+        return PassFailResult(False)
+
 
 @tests.add_test
 class DevifNetTxSF(DevifTests):
@@ -122,4 +126,11 @@ class DevifDebug(DevifTests):
         modules.add_module("devif_debug_test")
 
         return modules
+
+    def process_data(self, testdir, rawiter):
+        for line in rawiter:
+            if "SUCCESS" in line:
+                return PassFailResult(True)
+
+        return PassFailResult(False)
 
