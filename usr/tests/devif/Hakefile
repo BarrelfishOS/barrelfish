@@ -14,7 +14,7 @@
                       cFiles = [ "queue_interface.c" ],
                       addLibraries = [ "devif" , "devif_backend_solarflare",
                                        "devif_backend_idc", "devif_backend_e10k", 
-                                       "bench" ] },
+                                       "bench", "net"]},
 
   build application { target = "devif_idc", 
                       cFiles = [ "idc_endpoint.c" ],

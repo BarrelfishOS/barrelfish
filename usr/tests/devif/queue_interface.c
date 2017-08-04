@@ -20,10 +20,10 @@
 #include <devif/backends/descq.h>
 #include <bench/bench.h>
 #include <net_interfaces/flags.h>
+#include <net/net_filter.h>
 
-
-//#define DEBUG(x...) printf("devif_test: " x)
-#define DEBUG(x...) do {} while (0)
+#define DEBUG(x...) printf("devif_test: " x)
+//#define DEBUG(x...) do {} while (0)
 
 #define TX_BUF_SIZE 2048
 #define RX_BUF_SIZE 2048
@@ -34,6 +34,8 @@
 #define MEMORY_SIZE BASE_PAGE_SIZE*512
 
 static char* card;
+static uint32_t ip_dst;
+static uint32_t ip_src;
 
 static struct capref memory_rx;
 static struct capref memory_tx;
@@ -42,6 +44,8 @@ static regionid_t regid_tx;
 static struct frame_identity id;
 static lpaddr_t phys_rx;
 static lpaddr_t phys_tx;
+static struct net_filter_state* filter;
+
 
 static volatile uint32_t num_tx = 0;
 static volatile uint32_t num_rx = 0;
@@ -148,17 +152,19 @@ static void event_cb(void* queue)
 }
 
 static struct devq* create_net_queue(char* card_name)
-{
+{   
     errval_t err;
+
     if (strcmp(card_name, "sfn5122f") == 0) {
         struct sfn5122f_queue* q;
         
         err = sfn5122f_queue_create(&q, event_cb, /* userlevel*/ true,
-                                    /*MSIX interrupts*/ false,
-                                    /*default queue*/ true);
+                                    /*interrupts*/ false,
+                                    /*default queue*/ false);
         if (err_is_fail(err)){
             USER_PANIC("Allocating devq failed \n");
         }
+
         return (struct devq*) q;
     }
 
@@ -332,6 +338,25 @@ static void test_net_rx(void)
         USER_PANIC_ERR(err, "trigger failed.");
     }
 
+    err = net_filter_init(&filter, card);
+    if (err_is_fail(err)) {
+        USER_PANIC("Installing filter failed \n");
+    }
+
+    struct net_filter_ip ip_filt ={
+        .qid = 1,
+        .ip_dst = ip_dst,
+        .ip_src = ip_src, 
+        .port_src = 0,
+        .port_dst = 7,
+        .type = NET_FILTER_UDP,
+    };
+
+    err = net_filter_ip_install(filter, &ip_filt);
+    if (err_is_fail(err)){
+        USER_PANIC("Allocating devq failed \n");
+    }
+
     err = devq_register(q, memory_rx, &regid_rx);
     if (err_is_fail(err)){
         USER_PANIC("Registering memory to devq failed \n");
@@ -355,9 +380,9 @@ static void test_net_rx(void)
             break;
         }
     }
-
-
-    err = devq_control(q, 1, 1, NULL);
+ 
+    uint64_t ret;   
+    err = devq_control(q, 1, 1, &ret);
     if (err_is_fail(err)){
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq control failed \n");
@@ -411,7 +436,7 @@ static void test_idc_queue(void)
     struct descq* queue;
     struct descq_func_pointer f;
     f.notify = descq_notify;
-    
+   
     debug_printf("Descriptor queue test started \n");
     err = descq_create(&queue, DESCQ_DEFAULT_SIZE, "test_queue",
                        false, true, true, NULL, &f);
@@ -518,8 +543,15 @@ int main(int argc, char *argv[])
 
     phys_tx = id.base;
 
-    if (argc > 2) {
-        card = argv[2];
+    if (argc > 3) {
+        ip_src = atoi(argv[2]);
+        ip_dst = atoi(argv[3]);
+    } else {
+        USER_PANIC("NO src or dst IP given \n");
+    }
+
+    if (argc > 4) {
+        card = argv[4];
         printf("Card =%s \n", card);
     } else {
         card = "e10k";
