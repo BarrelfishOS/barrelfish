@@ -17,7 +17,6 @@
 #define LIB_NET_INCLUDE_NETWORKING_DHCP_H_
 
 #include <net/net.h>
-#include <lwip/ip_addr.h>
 
 #define NET_CONFIG_IP_RECORD_FIELDS "{ ip: %d, gw: %d, netmask: %d }"
 #define NET_CONFIG_CURRENT_IP_RECORD_FORMAT "net.ipconfig " NET_CONFIG_IP_RECORD_FIELDS
