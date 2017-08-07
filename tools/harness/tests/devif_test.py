@@ -28,8 +28,11 @@ class DevifTests(TestCommon):
     def boot(self, *args):
         super(DevifTests, self).boot(*args)
         self.set_timeout(TEST_TIMEOUT)
-       
 
+    def get_decimal_ip(self, hostname):
+        iphex = subprocess.check_output('gethostip -x %s' % hostname, shell=True)
+        return '%d' % int(iphex, 16)
+      
     def get_modules(self, build, machine):
         self.machine = machine.name
         modules = super(DevifTests, self).get_modules(build, machine)
@@ -37,18 +40,13 @@ class DevifTests(TestCommon):
         modules.add_module("sfn5122f", ["auto", "function=0"])
         modules.add_module("devif_idc", ["core=1"])
 
-        f = os.popen('ifconfig eno2 | grep "inet\ addr" | cut -d: -f2 | cut -d" " -f1')
-        ip_string = f.read()
-        packedIP = socket.inet_aton(ip_string)
-        src_ip = struct.unpack("!L", packedIP)[0]
+        hostname = '%s.in.barrelfish.org' % subprocess.check_output('hostname -s', shell=True).rstrip()
+        src_ip = self.get_decimal_ip(hostname)
 
         if self.CARD == "sfn5122f":
-            dst_string = subprocess.check_output('nslookup %s-sf.in.barrelfish.org | grep Address | sed -n 2p | awk -F\" \" \'{print $NF}\'' % machine.name, shell=True)
+            dst_ip = self.get_decimal_ip('%s-sf.in.barrelfish.org' % machine.name)
         else:
-            dst_string = subprocess.check_output('nslookup %s-e10k.in.barrelfish.org | grep Address | sed -n 2p | awk -F\" \" \'{print $NF}\'' % machine.name, shell=True)
-
-        packedIP = socket.inet_aton(dst_string)
-        dst_ip = struct.unpack("!L", packedIP)[0]
+            dst_ip = self.get_decimal_ip('%s-e10k.in.barrelfish.org' % machine.name)
 
         modules.add_module(self.get_module_name(), ["core=2", self.OP, src_ip, dst_ip, self.CARD])
         return modules
@@ -101,10 +99,6 @@ class DevifNetRxE10k(DevifTests):
     name = "devif_netrx_e10k"
     OP = "net_rx"
     CARD = "e10k"
-    f = os.popen('ifconfig eno2 | grep "inet\ addr" | cut -d: -f2 | cut -d" " -f1')
-    ip_string = f.read()
-    packedIP = socket.inet_aton(ip_string)
-    src_ip = struct.unpack("!L", packedIP)[0]
 
 @tests.add_test
 class DevifIdcTest(DevifTests):
@@ -112,7 +106,6 @@ class DevifIdcTest(DevifTests):
     name = "devif_idc_test"
     OP = "idc"
     CARD = "none"
-    src_ip = 0
 
 @tests.add_test
 class DevifDebug(DevifTests):
