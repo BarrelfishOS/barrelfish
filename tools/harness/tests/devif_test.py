@@ -43,9 +43,9 @@ class DevifTests(TestCommon):
         src_ip = struct.unpack("!L", packedIP)[0]
 
         if self.CARD == "sfn5122f":
-            dst_string = subprocess.check_output('nslookup %s-sf.in.barrelfish.org | sed -n 5p | awk -F\" \" \'{print $NF}\'' % machine.name, shell=True)
+            dst_string = subprocess.check_output('nslookup %s-sf.in.barrelfish.org | grep Address | sed -n 2p | awk -F\" \" \'{print $NF}\'' % machine.name, shell=True)
         else:
-            dst_string = subprocess.check_output('nslookup %s-e10k.in.barrelfish.org | sed -n 5p | awk -F\" \" \'{print $NF}\'' % machine.name, shell=True)
+            dst_string = subprocess.check_output('nslookup %s-e10k.in.barrelfish.org | grep Address | sed -n 2p | awk -F\" \" \'{print $NF}\'' % machine.name, shell=True)
 
         packedIP = socket.inet_aton(dst_string)
         dst_ip = struct.unpack("!L", packedIP)[0]
