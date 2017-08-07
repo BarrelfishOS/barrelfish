@@ -76,7 +76,7 @@ instance PrologGenerator AST.NodeType where
     generate AST.Other  = atom "other"
 
 instance PrologGenerator AST.Address where
-    generate addr = show addr -- Use decimal integers, ECLiPSe treats hex integers as word length signed
+    generate addr = "16'" ++ showHex addr ""
 
 instance PrologGenerator a => PrologGenerator [a] where
     generate ast = let
