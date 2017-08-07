@@ -16,6 +16,9 @@
 
 :- lib(ic).
 
+:- set_flag(syntax_option,based_bignums).
+:- set_flag(syntax_option,iso_base_prefix).
+
 :- dynamic net/2.
 
 %% Load a precompiled decoding net

@@ -76,7 +76,7 @@ instance PrologGenerator AST.NodeType where
     generate AST.Other  = atom "other"
 
 instance PrologGenerator AST.Address where
-    generate addr = "16'" ++ showHex addr ""
+    generate addr = "0x" ++ showHex addr ""
 
 instance PrologGenerator a => PrologGenerator [a] where
     generate ast = let
