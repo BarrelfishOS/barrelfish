@@ -22,8 +22,8 @@
 #include <net_interfaces/flags.h>
 #include <net/net_filter.h>
 
-#define DEBUG(x...) printf("devif_test: " x)
-//#define DEBUG(x...) do {} while (0)
+//#define DEBUG(x...) printf("devif_test: " x)
+#define DEBUG(x...) do {} while (0)
 
 #define TX_BUF_SIZE 2048
 #define RX_BUF_SIZE 2048
