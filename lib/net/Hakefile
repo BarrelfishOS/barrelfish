@@ -13,7 +13,7 @@
 [ build library {
     target       = "net",
     cFiles       = [ "net.c", "netbufs.c",  "netif.c", "pbuf.c", "dhcp.c",
-                     "net_filter.c", "arp.c" ],
+                     "net_filter.c", "arp.c", "net_queue.c"],
     flounderBindings = [ "net_filter"],
     flounderDefs = [ "net_filter", "octopus" ],
     flounderExtraDefs = [ ("net_filter",["rpcclient"]) ],
