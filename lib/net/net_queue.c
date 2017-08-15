@@ -56,9 +56,12 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, 
                                   bool default_q, bool poll, struct devq **retqueue)
 {
     errval_t err;
+
+    printf("Default Q %d Interrupt %d \n", default_q, !poll);
+
     err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
                             false /*virtual functions*/,
-                            poll, /* user interrupts*/
+                            !poll, /* user interrupts*/
                             default_q);
     *queueid = e10k_queue_get_id((struct e10k_queue*)*retqueue);
     assert(retqueue != NULL);
@@ -71,7 +74,7 @@ static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interru
     errval_t err;
     err = sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, interrupt,
                                 false /*userlevel network feature*/,
-                                poll /* user interrupts*/,
+                                !poll /* user interrupts*/,
                                 default_q);
     *queueid = sfn5122f_queue_get_id((struct sfn5122f_queue*)*retqueue);
     return err;

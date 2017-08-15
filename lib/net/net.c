@@ -111,8 +111,10 @@ errval_t networking_create_queue(const char *cardname, uint64_t* queueid,
                                  struct devq **retqueue)
 {
     struct net_state *st = get_default_net_state();
-    return net_queue_internal_create(int_handler, cardname, queueid, st->flags & NET_FLAGS_DEFAULT_QUEUE,
-                                     st->flags & NET_FLAGS_POLLING, retqueue); 
+    bool poll = st->flags & NET_FLAGS_POLLING;
+    bool default_q = st->flags & NET_FLAGS_DEFAULT_QUEUE;
+    return net_queue_internal_create(int_handler, cardname, queueid, default_q,
+                                     poll, retqueue); 
 }
 
 
