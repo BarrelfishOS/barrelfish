@@ -12,12 +12,14 @@
 #include <stdbool.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
+#include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
-#include <devif/backends/net/udp.h>
+#include <devif/backends/net/ip.h>
 #include <lwip/inet_chksum.h>
 #include <lwip/lwip/inet.h>
 #include <net_interfaces/flags.h>
 #include <net/net.h>
+#include <net/net_queue.h>
 #include <net/net_filter.h>
 #include "../../../queue_interface_internal.h"
 #include "../headers.h"
@@ -27,7 +29,7 @@
 //#define DEBUG_ENABLED
 
 #if defined(DEBUG_ENABLED) 
-#define DEBUG(x...) do { printf("UDP_QUEUE: %s.%d:%s:%d: ", \
+#define DEBUG(x...) do { printf("IP_QUEUE: %s.%d:%s:%d: ", \
             disp_name(), disp_get_core_id(), __func__, __LINE__); \
                 printf(x);\
         } while (0)
@@ -41,17 +43,23 @@ struct region_vaddr {
     regionid_t rid;
 };
 
-struct udp_q {
+struct pkt_ip_headers {
+    struct eth_hdr eth;
+    struct ip_hdr ip;
+} __attribute__ ((packed));
+
+struct ip_q {
     struct devq my_q;
     struct devq* q;
-    struct udp_hdr header; // can fill in this header and reuse it by copying
+    struct pkt_ip_headers header; // can fill in this header and reuse it by copying
     struct region_vaddr regions[MAX_NUM_REGIONS];
     struct net_filter_state* filter;
+    uint16_t hdr_len;
 };
 
 
 #ifdef DEBUG_ENABLED
-static void print_buffer(struct udp_q* q, void* start, uint64_t len)
+static void print_buffer(struct ip_q* q, void* start, uint64_t len)
 {
     uint8_t* buf = (uint8_t*) start;
     printf("Packet in region at address %p len %zu \n",
@@ -67,14 +75,14 @@ static void print_buffer(struct udp_q* q, void* start, uint64_t len)
 }
 #endif
 
-static errval_t udp_register(struct devq* q, struct capref cap,
+static errval_t ip_register(struct devq* q, struct capref cap,
                             regionid_t rid) 
 {
        
     errval_t err;
     struct frame_identity frameid = { .base = 0, .bytes = 0 };
 
-    struct udp_q* que = (struct udp_q*) q;
+    struct ip_q* que = (struct ip_q*) q;
 
     // Map device registers
     invoke_frame_identify(cap, &frameid);
@@ -93,31 +101,31 @@ static errval_t udp_register(struct devq* q, struct capref cap,
     return que->q->f.reg(que->q, cap, rid);
 }
 
-static errval_t udp_deregister(struct devq* q, regionid_t rid) 
+static errval_t ip_deregister(struct devq* q, regionid_t rid) 
 {
     
-    struct udp_q* que = (struct udp_q*) q;
+    struct ip_q* que = (struct ip_q*) q;
     que->regions[rid % MAX_NUM_REGIONS].va = NULL;
     que->regions[rid % MAX_NUM_REGIONS].rid = 0;
     return que->q->f.dereg(que->q, rid);
 }
 
 
-static errval_t udp_control(struct devq* q, uint64_t cmd, uint64_t value,
+static errval_t ip_control(struct devq* q, uint64_t cmd, uint64_t value,
                            uint64_t* result)
 {
-    struct udp_q* que = (struct udp_q*) q;
+    struct ip_q* que = (struct ip_q*) q;
     return que->q->f.ctrl(que->q, cmd, value, result);
 }
 
 
-static errval_t udp_notify(struct devq* q)
+static errval_t ip_notify(struct devq* q)
 {
-    struct udp_q* que = (struct udp_q*) q;
+    struct ip_q* que = (struct ip_q*) q;
     return que->q->f.notify(que->q);
 }
 
-static errval_t udp_enqueue(struct devq* q, regionid_t rid, 
+static errval_t ip_enqueue(struct devq* q, regionid_t rid, 
                            genoffset_t offset, genoffset_t length,
                            genoffset_t valid_data, genoffset_t valid_length,
                            uint64_t flags)
@@ -126,23 +134,24 @@ static errval_t udp_enqueue(struct devq* q, regionid_t rid,
     // for now limit length
     //  TODO fragmentation
 
-    struct udp_q* que = (struct udp_q*) q;
+    struct ip_q* que = (struct ip_q*) q;
     if (flags & NETIF_TXFLAG) {
         
         DEBUG("TX rid: %d offset %ld length %ld valid_length %ld \n", rid, offset, 
               length, valid_length);
         assert(valid_length <= 1500);    
-        que->header.len = htons(valid_length + UDP_HLEN);
+        que->header.ip._len = htons(valid_length + IP_HLEN);   
+        que->header.ip._chksum = inet_chksum(&que->header, IP_HLEN);
 
         assert(que->regions[rid % MAX_NUM_REGIONS].va != NULL);
 
         uint8_t* start = (uint8_t*) que->regions[rid % MAX_NUM_REGIONS].va + 
-                         offset + valid_data + ETH_HLEN + IP_HLEN;   
+                         offset + valid_data;   
 
         memcpy(start, &que->header, sizeof(que->header));   
 
         return que->q->f.enq(que->q, rid, offset, length, valid_data, 
-                             valid_length + UDP_HLEN, flags);
+                             valid_length+sizeof(struct pkt_ip_headers), flags);
     } 
 
     if (flags & NETIF_RXFLAG) {
@@ -156,15 +165,15 @@ static errval_t udp_enqueue(struct devq* q, regionid_t rid,
     return NET_QUEUE_ERR_UNKNOWN_BUF_TYPE;
 }
 
-static errval_t udp_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset,
+static errval_t ip_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset,
                            genoffset_t* length, genoffset_t* valid_data,
                            genoffset_t* valid_length, uint64_t* flags)
 {
     errval_t err;
-    struct udp_q* que = (struct udp_q*) q;
+    struct ip_q* que = (struct ip_q*) q;
 
     err = que->q->f.deq(que->q, rid, offset, length, valid_data, valid_length, flags);
-    if (err_is_fail(err)) {    
+    if (err_is_fail(err)) {  
         return err;
     }
 
@@ -173,24 +182,31 @@ static errval_t udp_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset
               *offset, *valid_data, 
               *valid_length, que->regions[*rid % MAX_NUM_REGIONS].va + *offset + *valid_data);
 
-        struct udp_hdr* header = (struct udp_hdr*) 
-                                 (que->regions[*rid % MAX_NUM_REGIONS].va +
-                                 *offset + *valid_data);
+        struct pkt_ip_headers* header = (struct pkt_ip_headers*) 
+                                         (que->regions[*rid % MAX_NUM_REGIONS].va +
+                                         *offset + *valid_data);
  
-        // Correct port for this queue?
-        if (header->dest != que->header.dest) {
-            printf("UDP queue: dropping packet, wrong port %d %d \n",
-                   header->dest, que->header.dest);
+        // IP checksum
+        if (header->ip._chksum == inet_chksum(&header->ip, IP_HLEN)) {
+            printf("IP queue: dropping packet wrong checksum \n");
             err = que->q->f.enq(que->q, *rid, *offset, *length, 0, 0, NETIF_RXFLAG);
-            return err_push(err, NET_QUEUE_ERR_WRONG_PORT);
+            return err_push(err, NET_QUEUE_ERR_CHECKSUM);
+        }
+
+        // Correct ip for this queue?
+        if (header->ip.src != que->header.ip.dest) {
+            printf("IP queue: dropping packet, wrong IP is %lu should be %lu\n",
+                   header->ip.src, que->header.ip.dest);
+            err = que->q->f.enq(que->q, *rid, *offset, *length, 0, 0, NETIF_RXFLAG);
+            return err_push(err, NET_QUEUE_ERR_WRONG_IP);
         }
         
 #ifdef DEBUG_ENABLED
         print_buffer(que, que->regions[*rid % MAX_NUM_REGIONS].va + *offset, *valid_length);
 #endif
 
-        *valid_length = ntohs(header->len) - UDP_HLEN - IP_HLEN - ETH_HLEN;
-        *valid_data += UDP_HLEN;
+        *valid_data = IP_HLEN + ETH_HLEN;
+        *valid_length = ntohs(header->ip._len) - IP_HLEN;
         //print_buffer(que, que->regions[*rid % MAX_NUM_REGIONS].va + *offset+ *valid_data, *valid_length);
         return SYS_ERR_OK;
     }
@@ -207,90 +223,75 @@ static errval_t udp_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset
  * Public functions
  *
  */
-errval_t udp_create(struct udp_q** q, const char* card_name, 
-                    uint16_t src_port, uint16_t dst_port,
-                    uint32_t src_ip, uint32_t dst_ip,
-                    struct eth_addr src_mac, struct eth_addr dst_mac,
-                    void(*interrupt)(void*), bool poll)
+errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
+                   uint8_t prot, uint32_t src_ip, uint32_t dst_ip,
+                   struct eth_addr src_mac, struct eth_addr dst_mac,
+                   inthandler_t interrupt, bool poll)
 {
     errval_t err;
-    struct udp_q* que;
-    que = calloc(1, sizeof(struct udp_q));
+    struct ip_q* que;
+    que = calloc(1, sizeof(struct ip_q));
     assert(que);
 
     // init other queue
-    uint64_t qid;
-    err = ip_create((struct ip_q**) &que->q, card_name, &qid, UDP_PROT, src_ip, dst_ip, 
-                    src_mac, dst_mac, interrupt, poll);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    err = net_filter_init(&que->filter, card_name);
-    if (err_is_fail(err)) {
-        return err;
-    }  
-    
-    struct net_filter_ip ip = {
-        .qid = qid,
-        .ip_src = dst_ip,
-        .ip_dst = src_ip,
-        .port_dst = dst_port,
-        .type = NET_FILTER_UDP,    
-    };
-
-    err = net_filter_ip_install(que->filter, &ip);
+    err = net_queue_create(interrupt, card_name, qid, poll, &que->q);
     if (err_is_fail(err)) {
         return err;
     }
 
     err = devq_init(&que->my_q, false);
     if (err_is_fail(err)) {
-        errval_t err2;
-        err2 = net_filter_ip_remove(que->filter, &ip);
-        if (err_is_fail(err)) {
-            return err_push(err2, err);
-        }
+        // TODO net queue destroy
         return err;
     }   
 
-    // UDP fields
-    que->header.src = htons(src_port);
-    que->header.dest = htons(dst_port);
-    que->header.chksum = 0x0;
+    // fill in header that is reused for each packet
+    // Ethernet
+    memcpy(&(que->header.eth.dest.addr), &dst_mac, ETH_HWADDR_LEN);
+    memcpy(&(que->header.eth.src.addr), &src_mac, ETH_HWADDR_LEN);
+    que->header.eth.type = htons(ETHTYPE_IP);
 
-    que->my_q.f.reg = udp_register;
-    que->my_q.f.dereg = udp_deregister;
-    que->my_q.f.ctrl = udp_control;
-    que->my_q.f.notify = udp_notify;
-    que->my_q.f.enq = udp_enqueue;
-    que->my_q.f.deq = udp_dequeue;
+    // IP
+    que->header.ip._v_hl = 69;
+    IPH_TOS_SET(&que->header.ip, 0x0);
+    IPH_ID_SET(&que->header.ip, htons(0x3));
+    que->header.ip._offset = htons(IP_DF);
+    que->header.ip._proto = 0x11; // IP
+    que->header.ip._ttl = 0x40; // 64
+    que->header.ip.src = htonl(src_ip);
+    que->header.ip.dest = htonl(dst_ip);
+
+    que->my_q.f.reg = ip_register;
+    que->my_q.f.dereg = ip_deregister;
+    que->my_q.f.ctrl = ip_control;
+    que->my_q.f.notify = ip_notify;
+    que->my_q.f.enq = ip_enqueue;
+    que->my_q.f.deq = ip_dequeue;
     *q = que;
+
+    /*
+    switch(prot) {
+        case UDP_PROT:
+            que->hdr_len = IP_HLEN + sizeof(struct udp_hdr);
+            break;
+        case TCP_PROT:
+            // TODO
+            break;
+        default:
+            USER_PANIC("Unkown protocol specified when creating IP queue \n");
+
+    }
+    */
+
     return SYS_ERR_OK;
 }
 
-errval_t udp_destroy(struct udp_q* q)
+errval_t ip_destroy(struct ip_q* q)
 {
     // TODO destroy q->q;
     free(q);    
 
     return SYS_ERR_OK;
-}
-
-errval_t udp_write_buffer(struct udp_q* q, regionid_t rid, genoffset_t offset,
-                          void* data, uint16_t len) 
-{
-    assert(len <= 1500);
-    if (q->regions[rid % MAX_NUM_REGIONS].va != NULL) {
-        uint8_t* start = q->regions[rid % MAX_NUM_REGIONS].va + offset 
-                         + sizeof (struct udp_hdr) 
-                         + sizeof (struct ip_hdr)
-                         + sizeof (struct eth_hdr);
-        memcpy(start, data, len);
-        return SYS_ERR_OK;
-    } else {
-        return DEVQ_ERR_INVALID_REGION_ARGS;
-    }
 }
 
 

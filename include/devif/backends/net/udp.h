@@ -11,12 +11,9 @@
 
 
 #include <barrelfish/barrelfish.h>
+#include <devif/backends/net/ip.h>
 
 struct udp_q;
-    
-struct __attribute__((packed)) eth_addr {
-  uint8_t addr[6];
-};
 
 /**
  *  @param q        udp queue to destroy

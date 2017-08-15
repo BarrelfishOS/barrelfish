@@ -27,7 +27,7 @@ struct eth_hdr {
 } PACK_STRUCT_STRUCT;
 PACK_STRUCT_END
 
-#define ETH_HEADER_LEN 14
+#define ETH_HLEN 14
 
 #define ETHTYPE_IP        0x0800U
 
@@ -82,6 +82,8 @@ PACK_STRUCT_END
 
 #define IP_PROTO_IP      0
 #define IP_PROTO_UDP     17
+
+#define UDP_HLEN 8
 
 PACK_STRUCT_BEGIN
 struct udp_hdr {
