@@ -11,11 +11,20 @@ import re, datetime
 import debug, tests
 import subprocess
 import os
-import socket, struct
+import socket, struct, fcntl
+import thread
 from common import TestCommon, TimeoutError
 from results import RowResults, PassFailResult
 
 TEST_TIMEOUT = datetime.timedelta(minutes=8)
+
+mac = {'babybel1': 130587495626, 
+       'babybel2': 130587510022,
+       'babybel3': 130587512798,
+       'babybel4': 130589790232,
+       'ziger2': 65817495764,
+       'ziger1': 116527143012, }
+
 
 class DevifTests(TestCommon):
 
@@ -33,6 +42,12 @@ class DevifTests(TestCommon):
         iphex = subprocess.check_output('gethostip -x %s' % hostname, shell=True)
         return '%d' % int(iphex, 16)
       
+    def get_local_mac(self, ifname):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        info = fcntl.ioctl(s.fileno(), 0x8927,  struct.pack('256s', ifname[:15]))
+        hexmac = ''.join(['%02x' % ord(char) for char in info[18:24]])
+        return '%d' % int(hexmac, 16)
+
     def get_modules(self, build, machine):
         self.machine = machine.name
         modules = super(DevifTests, self).get_modules(build, machine)
@@ -43,7 +58,7 @@ class DevifTests(TestCommon):
         hostname = '%s.in.barrelfish.org' % subprocess.check_output('hostname -s', shell=True).rstrip()
         src_ip = self.get_decimal_ip(hostname)
 
-        if self.CARD == "sfn5122f":
+        if 'ziger2' in machine.name:
             dst_ip = self.get_decimal_ip('%s-sf.in.barrelfish.org' % machine.name)
         else:
             dst_ip = self.get_decimal_ip('%s-e10k.in.barrelfish.org' % machine.name)
@@ -54,17 +69,23 @@ class DevifTests(TestCommon):
     def get_finish_string(self):
         return "SUCCESS"
 
+
+    def thread_func (self, dummy, dummy2):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        while True:
+            s.sendto("Data Data Data", (self.ip, 7))
+            
+    def start_loop(self):
+        self.thread = thread.start_new_thread(self.thread_func, (self, 0))
+
     def process_line(self, line):
         m = re.match(r'# IP Addr (\d+\.\d+\.\d+\.\d+)', line)
         if m:
-            self.loop = subprocess.Popen('while :; do echo -n "Data Data Data" | nc -4u -q1 %s 7; done' % m.group(1), shell=True)
+            self.start_loop()
+            self.ip = m.group(1)
 
 
     def process_data(self, testdir, rawiter):
-
-        if not (self.loop is None):
-            self.loop.kill()
-
         for line in rawiter:
             if "SUCCESS" in line:
                 return PassFailResult(True)
@@ -119,6 +140,52 @@ class DevifDebug(DevifTests):
         modules.add_module("devif_debug_test")
 
         return modules
+
+@tests.add_test
+class DevifUDP(DevifTests):
+    ''' Devif UDP Backend Test'''
+    name = "devif_udp"
+
+    def get_module_name(self):
+        return "devif_udp"
+
+    def get_modules(self, build, machine):
+        self.machine = machine.name
+        modules = super(DevifTests, self).get_modules(build, machine)
+        hostname = '%s.in.barrelfish.org' % subprocess.check_output('hostname -s', shell=True).rstrip()
+        dst_ip = self.get_decimal_ip(hostname)
+        dst_mac = self.get_local_mac('eno2')
+
+        if 'ziger2' in machine.name:
+            src_ip = self.get_decimal_ip('%s-sf.in.barrelfish.org' % machine.name)
+            modules.add_module("sfn5122f", ["auto", "function=0"])
+            self.cardname = "sfn5122f"
+        else:
+            modules.add_module("e10k", ["auto", "function=0"])
+            src_ip = self.get_decimal_ip('%s-e10k.in.barrelfish.org' % machine.name)
+            self.cardname = "e10k"
+
+        src_mac =  mac[machine.name]
+
+        modules.add_module(self.get_module_name(), ["core=2", src_ip, dst_ip, src_mac, dst_mac, 20000, 20000, self.cardname])
+        return modules
+
+    def thread_func (self, dummy, dummy2):
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        while True:
+            s.sendto("Data Data Data", (self.ip, 20000))
+            
+    def start_loop(self):
+        self.thread = thread.start_new_thread(self.thread_func, (self, 0))
+
+    def process_line(self, line):
+        m = re.match(r'# IP Addr (\d+\.\d+\.\d+\.\d+)', line)
+        if m:
+            self.ip = m.group(1)
+
+        m1 = re.match(r'Testing receiving UDP packets', line)
+        if m1:
+            self.start_loop()
 
     def process_data(self, testdir, rawiter):
         for line in rawiter:
