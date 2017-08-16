@@ -14,7 +14,8 @@
                       cFiles = [ "queue_interface.c" ],
                       addLibraries = [ "devif" , "devif_backend_solarflare",
                                        "devif_backend_idc", "devif_backend_e10k", 
-                                       "bench", "net"]},
+                                       "bench", "net",
+                                       "devif_backend_udp"]},
 
   build application { target = "devif_idc", 
                       cFiles = [ "idc_endpoint.c" ],
@@ -24,5 +25,9 @@
   build application { target = "devif_debug_test", 
                       cFiles = [ "debug_test.c" ],
                       addLibraries = [ "devif" , "devif_backend_idc",
-                                       "devif_backend_debug"] }
+                                       "devif_backend_debug"] },
+
+  build application { target = "devif_udp", 
+                      cFiles = [ "udp_queue.c" ],
+                      addLibraries = [ "devif" , "devif_backend_udp"] }
 ]
