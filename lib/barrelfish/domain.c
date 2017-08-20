@@ -19,6 +19,7 @@
  * Attn: Systems Group.
  */
 
+#include <limits.h>
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/curdispatcher_arch.h>
@@ -1437,10 +1438,12 @@ errval_t domain_cap_hash(struct capref domain_cap, uint64_t *ret_hash)
     if (err_is_fail(err)) {
         return err_push(err, PROC_MGMT_ERR_DOMAIN_CAP_HASH);
     }
-    assert(ret_cap.type == ObjType_Domain);
+    if (ret_cap.type != ObjType_Domain) {
+        return PROC_MGMT_ERR_DOMAIN_CAP_HASH;
+    }
 
-    static uint64_t base = 1 + (uint64_t) MAX_COREID;
-    *ret_hash = base * ret_cap.u.domain.coreid + ret_cap.u.domain.core_local_id;
+    static uint64_t base = 1 + (uint64_t) MAX_DOMAINID;
+    *ret_hash = base * ret_cap.u.domain.core_local_id + ret_cap.u.domain.coreid;
 
     return SYS_ERR_OK;
 }
