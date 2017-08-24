@@ -189,7 +189,7 @@ static errval_t udp_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset
         print_buffer(que, que->regions[*rid % MAX_NUM_REGIONS].va + *offset, *valid_length);
 #endif
 
-        *valid_length = ntohs(header->len) - UDP_HLEN - IP_HLEN - ETH_HLEN;
+        *valid_length = ntohs(header->len) - UDP_HLEN;
         *valid_data += UDP_HLEN;
         //print_buffer(que, que->regions[*rid % MAX_NUM_REGIONS].va + *offset+ *valid_data, *valid_length);
         return SYS_ERR_OK;
