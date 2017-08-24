@@ -45,11 +45,12 @@ errval_t dhcpd_stop(void);
 /**
  * @brief queries the current ip setting of the machine
  *
- * @param flags flags to provide
+ * @param flags         flags to provide
+ * @param ip_address    Current Ip address
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t net_config_current_ip_query(net_flags_t flags);
+errval_t net_config_current_ip_query(net_flags_t flags, uint32_t* ip_address);
 
 
 /**
