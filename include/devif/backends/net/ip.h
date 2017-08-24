@@ -37,16 +37,13 @@ errval_t ip_destroy(struct ip_q* q);
  *                      the card_name will be initalized
  * @param qid          the id of the hardware queue (used for filters)
  * @param prot         The protocol that is running on top of IP
- * @param src_ip       Source IP
  * @param dst_ip       Destination IP
- * @param src_mac      Source MAC addressy              
  * @param dst_mac      Destination MAC address
  * @param interrupt    Interrupt handler
  * @param poll         If the queue is polled or should use interrupts             
  *
  */
 errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
-                   uint8_t prot, uint32_t src_ip, uint32_t dst_ip,
-                   struct eth_addr src_mac, struct eth_addr dst_mac,
+                   uint8_t prot, uint32_t dst_ip, struct eth_addr dst_mac, 
                    void(*interrupt)(void*), bool poll);
 #endif /* DEVIF_IP_H_ */

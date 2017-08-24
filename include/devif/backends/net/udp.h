@@ -30,9 +30,7 @@ errval_t udp_destroy(struct udp_q* q);
  *                      the card_name will be initalized
  * @param src_port     UDP source port
  * @param dst_port     UPD destination port
- * @param src_ip       Source IP
  * @param dst_ip       Destination IP
- * @param src_mac      Source MAC addressy              
  * @param dst_mac      Destination MAC address
  * @param interrupt    Interrupt handler
  * @param poll         If the queue is polled or should use interrupts             
@@ -40,8 +38,7 @@ errval_t udp_destroy(struct udp_q* q);
  */
 errval_t udp_create(struct udp_q** q, const char* card_name, 
                     uint16_t src_port, uint16_t dst_port,
-                    uint32_t src_ip, uint32_t dst_ip,
-                    struct eth_addr src_mac, struct eth_addr dst_mac,
+                    uint32_t dst_ip, struct eth_addr dst_mac,
                     void(*interrupt)(void*), bool poll);
 /*
  * @brief  Writes into a buffer so that we still have space to add the headers

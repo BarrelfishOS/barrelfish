@@ -21,6 +21,7 @@
 #include <net/net.h>
 #include <net/net_queue.h>
 #include <net/net_filter.h>
+#include <net/dhcp.h>
 #include "../../../queue_interface_internal.h"
 #include "../headers.h"
 
@@ -224,9 +225,8 @@ static errval_t ip_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset,
  *
  */
 errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
-                   uint8_t prot, uint32_t src_ip, uint32_t dst_ip,
-                   struct eth_addr src_mac, struct eth_addr dst_mac,
-                   inthandler_t interrupt, bool poll)
+                   uint8_t prot, uint32_t dst_ip,
+                   struct eth_addr dst_mac, inthandler_t interrupt, bool poll)
 {
     errval_t err;
     struct ip_q* que;
@@ -245,6 +245,18 @@ errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
         return err;
     }   
 
+    uint64_t src_mac;
+    err = devq_control(que->q, 0, 0, &src_mac);
+    if (err_is_fail(err)) {
+        return err;
+    }
+   
+    uint32_t src_ip;
+    err = net_config_current_ip_query(NET_FLAGS_BLOCKING_INIT, &src_ip);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     // fill in header that is reused for each packet
     // Ethernet
     memcpy(&(que->header.eth.dest.addr), &dst_mac, ETH_HWADDR_LEN);
@@ -258,7 +270,7 @@ errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
     que->header.ip._offset = htons(IP_DF);
     que->header.ip._proto = 0x11; // IP
     que->header.ip._ttl = 0x40; // 64
-    que->header.ip.src = htonl(src_ip);
+    que->header.ip.src = src_ip;
     que->header.ip.dest = htonl(dst_ip);
 
     que->my_q.f.reg = ip_register;

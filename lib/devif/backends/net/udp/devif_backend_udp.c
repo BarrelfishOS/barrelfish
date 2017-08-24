@@ -19,6 +19,7 @@
 #include <net_interfaces/flags.h>
 #include <net/net.h>
 #include <net/net_filter.h>
+#include <net/dhcp.h>
 #include "../../../queue_interface_internal.h"
 #include "../headers.h"
 
@@ -209,8 +210,7 @@ static errval_t udp_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset
  */
 errval_t udp_create(struct udp_q** q, const char* card_name, 
                     uint16_t src_port, uint16_t dst_port,
-                    uint32_t src_ip, uint32_t dst_ip,
-                    struct eth_addr src_mac, struct eth_addr dst_mac,
+                    uint32_t dst_ip, struct eth_addr dst_mac,
                     void(*interrupt)(void*), bool poll)
 {
     errval_t err;
@@ -218,10 +218,16 @@ errval_t udp_create(struct udp_q** q, const char* card_name,
     que = calloc(1, sizeof(struct udp_q));
     assert(que);
 
+    uint32_t src_ip;
+    err = net_config_current_ip_query(NET_FLAGS_BLOCKING_INIT, &src_ip);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     // init other queue
     uint64_t qid;
-    err = ip_create((struct ip_q**) &que->q, card_name, &qid, UDP_PROT, src_ip, dst_ip, 
-                    src_mac, dst_mac, interrupt, poll);
+    err = ip_create((struct ip_q**) &que->q, card_name, &qid, UDP_PROT, dst_ip, 
+                    dst_mac, interrupt, poll);
     if (err_is_fail(err)) {
         return err;
     }
@@ -231,6 +237,7 @@ errval_t udp_create(struct udp_q** q, const char* card_name,
         return err;
     }  
     
+    src_ip = htonl(src_ip);
     struct net_filter_ip ip = {
         .qid = qid,
         .ip_src = dst_ip,
@@ -266,6 +273,7 @@ errval_t udp_create(struct udp_q** q, const char* card_name,
     que->my_q.f.enq = udp_enqueue;
     que->my_q.f.deq = udp_dequeue;
     *q = que;
+
     return SYS_ERR_OK;
 }
 

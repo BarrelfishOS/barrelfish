@@ -30,12 +30,9 @@
 #define RX_BUF_SIZE 2048
 
 static uint32_t ip_dst;
-static uint32_t ip_src;
-static uint64_t mac_src;
 static uint64_t mac_dst;
 static uint16_t port_src;
 static uint16_t port_dst;
-static struct eth_addr src_mac;
 static struct eth_addr dst_mac;
 
 static struct capref memory_rx;
@@ -132,13 +129,12 @@ static void test_udp(void)
     errval_t err;
     struct devq* q;
 
-    convert_mac(mac_src, &src_mac);
     convert_mac(mac_dst, &dst_mac);
 
    
     // create queue with interrupts
     udp_create(&udp_q, cardname, port_src, port_dst, 
-               ip_src, ip_dst, src_mac, dst_mac, event_cb, !use_interrupts);
+               ip_dst, dst_mac, event_cb, !use_interrupts);
 
     q = (struct devq*) udp_q;
 
@@ -272,16 +268,13 @@ int main(int argc, char *argv[])
         USER_PANIC("Frame mapping failed \n");
     }
 
-    if (argc > 7) {
+    if (argc > 5) {
         char* end;
-        ip_src = atoi(argv[1]);
-        ip_dst = atoi(argv[2]);
-        mac_src = strtoull(argv[3], &end, 10);
-        mac_dst = strtoull(argv[4], &end, 10);
-
-        port_src = atoi(argv[5]);
-        port_dst = atoi(argv[6]);
-        cardname = argv[7];
+        ip_dst = atoi(argv[1]);
+        mac_dst = strtoull(argv[2], &end, 10);
+        port_src = atoi(argv[3]);
+        port_dst = atoi(argv[4]);
+        cardname = argv[5];
     } else {
         USER_PANIC("NO src or dst IP given \n");
     }
