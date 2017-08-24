@@ -25,9 +25,18 @@
   build application { target = "devif_debug_test", 
                       cFiles = [ "debug_test.c" ],
                       addLibraries = [ "devif" , "devif_backend_idc",
-                                       "devif_backend_debug"] },
+                                       "devif_backend_debug", "devif_backend_null", 
+                                       "bench"] },
 
   build application { target = "devif_udp", 
                       cFiles = [ "udp_queue.c" ],
-                      addLibraries = [ "devif" , "devif_backend_udp"] }
+                      addLibraries = [ "devif" , "devif_backend_udp"] },
+
+  build application { target = "devif_echo", 
+                      cFiles = [ "echo.c" ],
+                      addLibraries = [ "devif" , "devif_backend_udp", "bench"] },
+
+  build application { target = "devif_echo_client", 
+                      cFiles = [ "client.c" ],
+                      addLibraries = [ "devif" , "devif_backend_udp", "bench"] }
 ]
