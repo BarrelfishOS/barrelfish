@@ -145,6 +145,7 @@ class DevifDebug(DevifTests):
 class DevifUDP(DevifTests):
     ''' Devif UDP Backend Test'''
     name = "devif_udp"
+    data = ("Data Data Data Data")
 
     def get_module_name(self):
         return "devif_udp"
@@ -167,13 +168,13 @@ class DevifUDP(DevifTests):
 
         src_mac =  mac[machine.name]
 
-        modules.add_module(self.get_module_name(), ["core=2", src_ip, dst_ip, src_mac, dst_mac, 20000, 20000, self.cardname])
+        modules.add_module(self.get_module_name(), ["core=2", dst_ip, dst_mac, 20000, 20000, self.cardname])
         return modules
 
     def thread_func (self, dummy, dummy2):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         while True:
-            s.sendto("Data Data Data", (self.ip, 20000))
+            s.sendto(self.data, (self.ip, 20000))
             
     def start_loop(self):
         self.thread = thread.start_new_thread(self.thread_func, (self, 0))
@@ -193,4 +194,12 @@ class DevifUDP(DevifTests):
                 return PassFailResult(True)
 
         return PassFailResult(False)
+
+#@tests.add_test
+#class DevifUPDecho(DevifUDP):
+#    ''' Devif Debug Backend Test'''
+#    name = "devif_udp_echo"
+#
+#    def get_module_name(self):
+#        return "devif_echo"
 
