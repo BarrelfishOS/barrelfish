@@ -19,7 +19,7 @@
 #define HASH_INDEX_BUCKETS 6151
 static collections_hash_table* domain_table = NULL;
 
-#define DOMAIN_CAP_REFILL_COUNT 128
+#define DOMAIN_CAP_REFILL_COUNT L2_CNODE_SLOTS//1
 static struct domain_cap_node *domain_cap_list = NULL;
 static uint32_t free_domain_caps = 0;
 
@@ -50,24 +50,63 @@ inline bool domain_should_refill_caps(void) {
 
 errval_t domain_prealloc_caps(void)
 {
-    for (size_t i = 0; i < DOMAIN_CAP_REFILL_COUNT; ++i) {
+    // for (size_t i = 0; i < DOMAIN_CAP_REFILL_COUNT; ++i) {
+    //     struct domain_cap_node *node = (struct domain_cap_node*) malloc(
+    //             sizeof(struct domain_cap_node));
+    //     errval_t err = slot_alloc(&node->domain_cap);
+    //     if (err_is_fail(err)) {
+    //         DEBUG_ERR(err, "slot_alloc domain_cap");
+    //         return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
+    //     }
+
+    //     err = cap_retype(node->domain_cap, cap_procmng, 0, ObjType_Domain, 0, 1);
+    //     if (err_is_fail(err)) {
+    //         DEBUG_ERR(err, "cap_retype domain_cap");
+    //         return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
+    //     }
+
+    //     err = domain_cap_hash(node->domain_cap, &node->hash);
+    //     if (err_is_fail(err)) {
+    //         DEBUG_ERR(err, "domain_cap_hash");
+    //         return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
+    //     }
+
+    //     node->next = domain_cap_list;
+    //     domain_cap_list = node;
+    //     ++free_domain_caps;
+    // }
+
+    // return SYS_ERR_OK;
+
+
+    struct capref new_cnode_cap;
+    struct cnoderef new_cnode;
+    errval_t err = cnode_create_l2(&new_cnode_cap, &new_cnode);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cnode_create_l2");
+        return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
+    }
+
+    struct capref cap_iter = {
+        .cnode = new_cnode,
+        .slot = 0
+    };
+    err = cap_retype(cap_iter, cap_procmng, 0, ObjType_Domain, 0,
+                     DOMAIN_CAP_REFILL_COUNT);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cap_retype");
+        return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
+    }
+
+    for (cap_iter.slot = 0; cap_iter.slot < DOMAIN_CAP_REFILL_COUNT; ++cap_iter.slot) {
         struct domain_cap_node *node = (struct domain_cap_node*) malloc(
                 sizeof(struct domain_cap_node));
-        errval_t err = slot_alloc(&node->domain_cap);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "slot_alloc domain_cap");
-            return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
-        }
-
-        err = cap_retype(node->domain_cap, cap_procmng, 0, ObjType_Domain, 0, 1);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "cap_retype domain_cap");
-            return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
-        }
+        node->domain_cap = cap_iter;
 
         err = domain_cap_hash(node->domain_cap, &node->hash);
         if (err_is_fail(err)) {
-            return err;
+            DEBUG_ERR(err, "domain_cap_hash");
+            return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
         }
 
         node->next = domain_cap_list;

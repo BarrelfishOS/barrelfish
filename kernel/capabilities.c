@@ -440,6 +440,9 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
             return srcsize / OBJSIZE_KCB;
         }
 
+    case ObjType_Domain:
+        return L2_CNODE_SLOTS;
+
     case ObjType_Kernel:
     case ObjType_IRQTable:
     case ObjType_IRQDest:
@@ -451,7 +454,6 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_PerfMon:
     case ObjType_IPI:
     case ObjType_ProcessManager:
-    case ObjType_Domain:
     case ObjType_VNode_ARM_l1_Mapping:
     case ObjType_VNode_ARM_l2_Mapping:
     case ObjType_VNode_AARCH64_l0_Mapping:
@@ -1024,19 +1026,23 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         assert(lpaddr  == 0);
         assert(size    == 0);
         assert(objsize == 0);
-        assert(count   == 1);
+        assert(count   <= L2_CNODE_SLOTS);
 
         // Prevent wrap around
-        if (domain_cap_counter >= UINT32_MAX) {
+        if (domain_cap_counter + count >= UINT32_MAX) {
             return SYS_ERR_DOMAIN_SPACE_EXHAUSTED;
         }
 
-        // Generate a new ID, core_local_id monotonically increases
-        temp_cap.u.domain.coreid = my_core_id;
-        temp_cap.u.domain.core_local_id = domain_cap_counter++;
-
-        // Insert the capability
-        err = set_cap(&dest_caps->cap, &temp_cap);
+        for(size_t i = 0; i < count; i++) {
+            // Initialize type specific fields
+            temp_cap.u.domain.coreid = my_core_id;
+            temp_cap.u.domain.core_local_id = domain_cap_counter++;
+            // Insert the capability
+            err = set_cap(&dest_caps[i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
         break;
     case ObjType_IO:
         temp_cap.u.io.start = 0;
