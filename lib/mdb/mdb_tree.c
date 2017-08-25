@@ -1346,3 +1346,16 @@ mdb_traverse_subtree(struct cte *cte, enum mdb_tree_traversal_order order,
     }
     return SYS_ERR_OK;
 }
+
+static errval_t count_nodes(struct cte *cte, void *data)
+{
+    size_t *counter = data;
+    *counter = *counter + 1;
+    return SYS_ERR_OK;
+}
+
+errval_t
+mdb_size(size_t *count)
+{
+    return mdb_traverse(MDB_TRAVERSAL_ORDER_ASCENDING, count_nodes, count);
+}
