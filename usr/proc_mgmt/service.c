@@ -61,7 +61,7 @@ static bool cleanup_request_sender(struct msg_queue_elem *m);
 
 
 #define PROC_MGMT_BENCH 1
-#define PROC_MGMT_BENCH_MIN_RUNS 100
+#define PROC_MGMT_BENCH_MIN_RUNS 150
 
 #ifdef PROC_MGMT_BENCH
 #include <bench/bench.h>
@@ -710,7 +710,8 @@ static struct proc_mgmt_rx_vtbl monitor_vtbl = {
     .spawn_with_caps_call = spawn_with_caps_handler,
     .span_call            = span_handler,
     .kill_call            = kill_handler,
-    .exit_call            = exit_handler,
+    // .exit_call            = exit_handler,
+    .exit                 = exit_handler,
     .wait_call            = wait_handler
 };
 
@@ -720,7 +721,8 @@ static struct proc_mgmt_rx_vtbl non_monitor_vtbl = {
     .spawn_with_caps_call = spawn_with_caps_handler,
     .span_call            = span_handler,
     .kill_call            = kill_handler,
-    .exit_call            = exit_handler,
+    // .exit_call            = exit_handler,
+    .exit                 = exit_handler,
     .wait_call            = wait_handler
 };
 

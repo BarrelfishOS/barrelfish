@@ -501,7 +501,7 @@ errval_t proc_mgmt_exit(uint8_t status)
     struct proc_mgmt_binding *b = get_proc_mgmt_binding();
     assert(b != NULL);
 
-    err = b->rpc_tx_vtbl.exit(b, cap_domainid, status);
+    err = b->tx_vtbl.exit(b, NOP_CONT, cap_domainid, status);
     if (err_is_fail(err)) {
         return err;
     }
