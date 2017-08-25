@@ -62,17 +62,17 @@ void mgmt_run_benchmark(void *st)
     printf("NOOP Benchmark test done!\n");
 }
 
-void mgmt_cmd(uint32_t cmd, struct bench_distops_binding *b)
+void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
 {
-    printf("mgmt node got command %d over binding %p\n", cmd, b);
+    printf("mgmt node got command %d(arg = %d) over binding %p\n", cmd, arg, b);
 }
 
-void mgmt_cmd_caps(uint32_t cmd, struct capref cap1, struct capref cap2,
+void mgmt_cmd_caps(uint32_t cmd, uint32_t arg, struct capref cap1,
                    struct bench_distops_binding *b)
 {
-    printf("mgmt node got caps + command %"PRIu32" over binding %p:\n", cmd, b);
+    printf("mgmt node got caps + command %"PRIu32", arg=%d over binding %p:\n",
+            cmd, arg, b);
     debug_capref("cap1:", cap1);
-    debug_capref("cap2:", cap2);
 }
 
 //{{{1 Node
@@ -96,15 +96,14 @@ void init_node(struct bench_distops_binding *b)
     }
 }
 
-void node_cmd(uint32_t cmd, struct bench_distops_binding *b)
+void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
 {
-    printf("node %d got command %"PRIu32"\n", my_core_id, cmd);
+    printf("node %d got command %"PRIu32", arg=%d\n", my_core_id, cmd, arg);
 }
 
-void node_cmd_caps(uint32_t cmd, struct capref cap1, struct capref cap2,
+void node_cmd_caps(uint32_t cmd, uint32_t arg, struct capref cap1,
                    struct bench_distops_binding *b)
 {
-    printf("node %d got caps + command %"PRIu32":\n", my_core_id, cmd);
+    printf("node %d got caps + command %"PRIu32", arg=%d:\n", my_core_id, cmd, arg);
     debug_capref("cap1:", cap1);
-    debug_capref("cap2:", cap2);
 }

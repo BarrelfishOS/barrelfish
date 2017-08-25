@@ -18,6 +18,12 @@
 
 #include "benchapi.h"
 
+#ifdef DEBUG_PROTOCOL
+#define DEBUG(x...) printf(x)
+#else
+#define DEBUG(x...)
+#endif
+
 static const char *service_name = "bench_distops_svc";
 static coreid_t my_core_id = -1;
 
@@ -43,7 +49,7 @@ static struct benchmark_state *bench_state = NULL;
 
 //{{{2 Mgmt node: broadcast helper functions
 
-void broadcast_cmd(uint32_t cmd)
+void broadcast_cmd(uint32_t cmd, uint32_t arg)
 {
     errval_t err;
     if (!bench_state) {
@@ -56,15 +62,15 @@ void broadcast_cmd(uint32_t cmd)
     }
     for (int i = 0; i < bench_state->clients_total; i++) {
         assert(bench_state->nodes[i]);
-        err = bench_distops_basic__tx(bench_state->nodes[i], NOP_CONT, cmd);
+        err = bench_distops_cmd__tx(bench_state->nodes[i], NOP_CONT, cmd, arg);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "sending basic msg to binding %p\n", bench_state->nodes[i]);
+            DEBUG_ERR(err, "sending cmd msg to binding %p\n", bench_state->nodes[i]);
         }
     }
     return;
 }
 
-void broadcast_caps(uint32_t cmd, struct capref cap1, struct capref cap2)
+void broadcast_caps(uint32_t cmd, uint32_t arg, struct capref cap1)
 {
     errval_t err;
     if (!bench_state) {
@@ -77,9 +83,33 @@ void broadcast_caps(uint32_t cmd, struct capref cap1, struct capref cap2)
     }
     for (int i = 0; i < bench_state->clients_total; i++) {
         assert(bench_state->nodes[i]);
-        err = bench_distops_caps__tx(bench_state->nodes[i], NOP_CONT, cmd, cap1, cap2);
+        err = bench_distops_caps__tx(bench_state->nodes[i], NOP_CONT, cmd, arg, cap1);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "sending caps msg to binding %p\n", bench_state->nodes[i]);
+        }
+    }
+    return;
+}
+
+//{{{2 Mgmt node unicast helper functions
+void unicast_cmd(coreid_t nodeid, uint32_t cmd, uint32_t arg)
+{
+    errval_t err;
+    if (!bench_state) {
+        printf("Benchmark not initialized, cannot unicast\n");
+        return;
+    }
+    if (bench_state->clients_seen < bench_state->clients_total) {
+        printf("Not all clients registered, unicast not yet possible\n");
+        return;
+    }
+    for (int i = 0; i < bench_state->clients_total; i++) {
+        assert(bench_state->nodes[i]);
+        struct mgmt_node_state *ns = bench_state->nodes[i]->st;
+        if (ns->coreid == nodeid) {
+            err = bench_distops_cmd__tx(bench_state->nodes[i], NOP_CONT, cmd, arg);
+            PANIC_IF_ERR(err, "cmd unicast");
+            break;
         }
     }
     return;
@@ -89,7 +119,7 @@ void broadcast_caps(uint32_t cmd, struct capref cap1, struct capref cap2)
 
 static void mgmt_rx_hello(struct bench_distops_binding *b, uint32_t coreid)
 {
-    printf("mgmt rx_hello from core %"PRIu32"\n", coreid);
+    DEBUG("mgmt rx_hello from core %"PRIu32"\n", coreid);
 
     bench_state->clients_seen ++;
 
@@ -101,24 +131,24 @@ static void mgmt_rx_hello(struct bench_distops_binding *b, uint32_t coreid)
     }
 }
 
-static void mgmt_rx_basic(struct bench_distops_binding *b, uint32_t arg)
+static void mgmt_rx_cmd(struct bench_distops_binding *b, uint32_t cmd, uint32_t arg)
 {
-    printf("server rx_basic %"PRIu32"\n", arg);
+    DEBUG("server rx_cmd %"PRIu32"\n", arg);
 
     // Execute command requested by node: implemented in <distop.c>
-    mgmt_cmd(arg, b);
+    mgmt_cmd(cmd, arg, b);
 }
 
-static void mgmt_rx_caps(struct bench_distops_binding *b, uint32_t arg, struct capref cap1,
-                         struct capref cap2)
+static void mgmt_rx_caps(struct bench_distops_binding *b, uint32_t cmd, uint32_t arg,
+                         struct capref cap1)
 {
     // Execute receive caps sent by node: implemented in <distop.c>
-    mgmt_cmd_caps(arg, cap1, cap2, b);
+    mgmt_cmd_caps(cmd, arg, cap1, b);
 }
 
 static struct bench_distops_rx_vtbl mgmt_rx_vtbl = {
     .hello = mgmt_rx_hello,
-    .basic = mgmt_rx_basic,
+    .cmd = mgmt_rx_cmd,
     .caps = mgmt_rx_caps,
 };
 
@@ -202,25 +232,25 @@ void *get_global_state(struct bench_distops_binding *b)
 //{{{2 Node message handlers
 
 // We use test.basic to signal that server has done it's retypes
-static void node_rx_basic(struct bench_distops_binding *b, uint32_t arg)
+static void node_rx_cmd(struct bench_distops_binding *b, uint32_t cmd, uint32_t arg)
 {
-    printf("client rx_basic %"PRIu32": b->st = %p\n", arg, b->st);
+    DEBUG("client rx_cmd %"PRIu32": b->st = %p\n", arg, b->st);
 
-    // handle basic message on node: implemented in <distop.c>
-    node_cmd(arg, b);
+    // handle cmd message on node: implemented in <distop.c>
+    node_cmd(cmd, arg, b);
 }
 
-static void node_rx_caps(struct bench_distops_binding *b, uint32_t arg, struct capref cap1,
-                         struct capref cap2)
+static void node_rx_caps(struct bench_distops_binding *b, uint32_t cmd, uint32_t arg,
+                         struct capref cap1)
 {
-    printf("node %d rx_caps: arg=%"PRIu32"\n", my_core_id, arg);
+    DEBUG("node %d rx_caps: cmd=%"PRIu32"\n", my_core_id, cmd);
 
     // handle rx_caps message on node: implemented in <distop.c>
-    node_cmd_caps(arg, cap1, cap2, b);
+    node_cmd_caps(cmd, arg, cap1, b);
 }
 
 static struct bench_distops_rx_vtbl client_rx_vtbl = {
-    .basic = node_rx_basic,
+    .cmd = node_rx_cmd,
     .caps = node_rx_caps,
 };
 
@@ -266,6 +296,10 @@ int main(int argc, char *argv[])
     char *role;
 
     my_core_id = disp_get_core_id();
+
+#ifndef DNDEBUG
+    printf("Running with assertions ENABLED!!!\n");
+#endif
 
     // TODO: more args
     if (argc < 2) {
