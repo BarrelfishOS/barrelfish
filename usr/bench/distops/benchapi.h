@@ -24,9 +24,11 @@ do { \
 
 //{{{1 Mgmt node API
 
-void broadcast_cmd(uint32_t cmd);
+void broadcast_cmd(uint32_t cmd, uint32_t arg);
 
-void broadcast_caps(uint32_t cmd, struct capref cap1, struct capref cap2);
+void broadcast_caps(uint32_t cmd, uint32_t arg, struct capref cap1);
+
+void unicast_cmd(coreid_t nodeid, uint32_t cmd, uint32_t arg);
 
 errval_t mgmt_init_benchmark(void **st, int nodecount);
 
@@ -34,10 +36,10 @@ errval_t mgmt_init_node(void **st);
 
 void mgmt_run_benchmark(void *st);
 
-void mgmt_cmd(uint32_t cmd, struct bench_distops_binding *b);
+void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b);
 
-void mgmt_cmd_caps(uint32_t cmd, struct capref cap1, struct capref cap2,
-                  struct bench_distops_binding *b);
+void mgmt_cmd_caps(uint32_t cmd, uint32_t arg, struct capref cap1,
+                   struct bench_distops_binding *b);
 
 void *get_global_state(struct bench_distops_binding *b);
 
@@ -45,9 +47,9 @@ void *get_global_state(struct bench_distops_binding *b);
 
 void init_node(struct bench_distops_binding *b);
 
-void node_cmd(uint32_t cmd, struct bench_distops_binding *b);
+void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b);
 
-void node_cmd_caps(uint32_t cmd, struct capref cap1, struct capref cap2,
+void node_cmd_caps(uint32_t cmd, uint32_t arg, struct capref cap1,
                    struct bench_distops_binding *b);
 
 #endif // BENCH_DISTOPS_BENCHAPI_H

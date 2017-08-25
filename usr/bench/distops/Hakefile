@@ -19,4 +19,8 @@ test name = build application { target = "bench_" ++ name,
                                 addLibraries = [ "bench" ]
                               }
 in
-[ test "noop", test "delete" ]
+[ test "noop",
+  test "delete_foreign_copy",
+  test "delete_local_copy",
+  test "delete_last_copy"
+]
