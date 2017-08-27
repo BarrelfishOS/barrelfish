@@ -23,62 +23,15 @@ static collections_hash_table* domain_table = NULL;
 static struct domain_cap_node *domain_cap_list = NULL;
 static uint32_t free_domain_caps = 0;
 
-#define PROC_MGMT_BENCH 1
-#define PROC_MGMT_BENCH_MIN_RUNS 100
-
-#ifdef PROC_MGMT_BENCH
-#include <bench/bench.h>
-
-static inline cycles_t calculate_time(cycles_t tsc_start, cycles_t tsc_end)
-{
-    cycles_t result;
-    if (tsc_end < tsc_start) {
-        result = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
-    } else {
-        result = (tsc_end - tsc_start - bench_tscoverhead());
-    }
-    return result;
-}
-
-static bench_ctl_t *hash_ctl;
-static uint64_t tscperus;
-#endif
-
 inline bool domain_should_refill_caps(void) {
     return free_domain_caps == 0;
 }
 
+/**
+ * \brief Allocates a new L2 cnode and fills it with domain capabilities.
+ */
 errval_t domain_prealloc_caps(void)
 {
-    // for (size_t i = 0; i < DOMAIN_CAP_REFILL_COUNT; ++i) {
-    //     struct domain_cap_node *node = (struct domain_cap_node*) malloc(
-    //             sizeof(struct domain_cap_node));
-    //     errval_t err = slot_alloc(&node->domain_cap);
-    //     if (err_is_fail(err)) {
-    //         DEBUG_ERR(err, "slot_alloc domain_cap");
-    //         return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
-    //     }
-
-    //     err = cap_retype(node->domain_cap, cap_procmng, 0, ObjType_Domain, 0, 1);
-    //     if (err_is_fail(err)) {
-    //         DEBUG_ERR(err, "cap_retype domain_cap");
-    //         return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
-    //     }
-
-    //     err = domain_cap_hash(node->domain_cap, &node->hash);
-    //     if (err_is_fail(err)) {
-    //         DEBUG_ERR(err, "domain_cap_hash");
-    //         return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
-    //     }
-
-    //     node->next = domain_cap_list;
-    //     domain_cap_list = node;
-    //     ++free_domain_caps;
-    // }
-
-    // return SYS_ERR_OK;
-
-
     struct capref new_cnode_cap;
     struct cnoderef new_cnode;
     errval_t err = cnode_create_l2(&new_cnode_cap, &new_cnode);
@@ -117,6 +70,9 @@ errval_t domain_prealloc_caps(void)
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief Returns the next node in the list of available domain caps.
+ */
 struct domain_cap_node *next_cap_node(void)
 {
     assert(domain_cap_list != NULL);
@@ -129,6 +85,12 @@ struct domain_cap_node *next_cap_node(void)
     return tmp;
 }
 
+/**
+ * \brief Creates and returns a new domain entry.
+ *
+ * \param cap_node  preallocated domain cap node.
+ * \param ret_entry returned domain entry, must be passed in non-NULL.
+ */
 errval_t domain_new(struct domain_cap_node *cap_node,
                     struct domain_entry **ret_entry)
 {
@@ -148,20 +110,6 @@ errval_t domain_new(struct domain_cap_node *cap_node,
     entry->waiters = NULL;
 
     if (domain_table == NULL) {
-#ifdef PROC_MGMT_BENCH
-        bench_init();
-
-        hash_ctl = calloc(1, sizeof(*hash_ctl));
-        hash_ctl->mode = BENCH_MODE_FIXEDRUNS;
-        hash_ctl->result_dimensions = 1;
-        hash_ctl->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
-        hash_ctl->data = calloc(hash_ctl->min_runs * hash_ctl->result_dimensions,
-                               sizeof(*hash_ctl->data));
-
-        errval_t err = sys_debug_get_tsc_per_ms(&tscperus);
-        assert(err_is_ok(err));
-        tscperus /= 1000;
-#endif
         collections_hash_create_with_buckets(&domain_table, HASH_INDEX_BUCKETS,
                                              NULL);
         if (domain_table == NULL) {
@@ -176,6 +124,12 @@ errval_t domain_new(struct domain_cap_node *cap_node,
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief Returns the domain entry associated with the given domain cap.
+ *
+ * \param domain_cap identifying cap for which to look up the domain entry.
+ * \param returned domain entry, must be passed in non-NULL.
+ */
 errval_t domain_get_by_cap(struct capref domain_cap,
                            struct domain_entry **ret_entry)
 {
@@ -196,6 +150,12 @@ errval_t domain_get_by_cap(struct capref domain_cap,
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief Adds a new core to the list of cores where the given domain runs.
+ *
+ * \param entry   domain entry to add a new core for.
+ * \param core_id new core running a dispatcher for the domain.
+ */
 void domain_run_on_core(struct domain_entry *entry, coreid_t core_id)
 {
     assert(entry != NULL);
@@ -210,6 +170,12 @@ void domain_run_on_core(struct domain_entry *entry, coreid_t core_id)
     ++entry->num_spawnds_resources;
 }
 
+/**
+ * \brief Creates a new domain entry for the given cap node and core.
+ *
+ * \param cap_node preallocated capability node for the new domain.
+ * \param core_id  core that runs the new domain.
+ */
 errval_t domain_spawn(struct domain_cap_node *cap_node, coreid_t core_id)
 {
     struct domain_entry *entry = NULL;
@@ -226,6 +192,12 @@ errval_t domain_spawn(struct domain_cap_node *cap_node, coreid_t core_id)
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief Marks that the domain identified by the given cap spans a new core.
+ *
+ * \param domain_cap identifying capability for the spanning domain.
+ * \param core_id    new core which the domain spans.
+ */
 errval_t domain_span(struct capref domain_cap, coreid_t core_id)
 {
     struct domain_entry *entry = NULL;

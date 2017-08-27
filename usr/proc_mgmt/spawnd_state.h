@@ -41,7 +41,6 @@ struct spawnd_state {
 };
 
 errval_t spawnd_state_alloc(coreid_t core_id, struct spawn_binding *b);
-void spawnd_state_free(coreid_t core_id);
 bool spawnd_state_exists(coreid_t core_id);
 struct spawnd_state *spawnd_state_get(coreid_t core_id);
 

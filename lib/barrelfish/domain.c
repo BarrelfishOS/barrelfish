@@ -432,7 +432,6 @@ static int interdisp_msg_handler(void *arg)
     struct waitset *ws = arg;
     assert(ws != NULL);
 
-    debug_printf("Looping on inter-dispatcher message handler\n");
     for(;;) {
         errval_t err = event_dispatch(ws);
         if(err_is_fail(err)) {

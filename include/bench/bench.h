@@ -21,7 +21,7 @@
 
 #define BENCH_IGNORE_WATERMARK 0XDEADBEEF
 
-#define BENCH_DUMP_OCTAVE 1
+#define BENCH_DUMP_OCTAVE 0
 
 __BEGIN_DECLS
 void bench_init(void);

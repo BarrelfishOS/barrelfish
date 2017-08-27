@@ -27,7 +27,6 @@ enum ClientType {
 	ClientType_Kill,
 	ClientType_Exit,
 	ClientType_Cleanup
-	// TODO(razvan): Others?
 };
 
 struct pending_spawn {

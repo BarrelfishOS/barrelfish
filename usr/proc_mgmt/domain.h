@@ -70,6 +70,5 @@ static inline void domain_stop_pending(struct domain_entry *entry)
     assert(entry != NULL);
     entry->status = DOMAIN_STATUS_STOP_PEND;
 }
-// TODO(razvan): domain_exists, domain_remove etc.
 
 #endif  // PROC_MGMT_DOMAIN_H

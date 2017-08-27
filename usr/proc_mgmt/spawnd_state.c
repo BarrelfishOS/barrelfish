@@ -15,6 +15,12 @@
 
 static struct spawnd_state *spawnds[MAX_COREID];
 
+/**
+ * \brief Allocates a state structure for a new spawnd binding.
+ *
+ * \param core_id       core where the spawnd newly bound with runs.
+ * \param spawn_binding Flounder binding structure for the spawnd.
+ */
 errval_t spawnd_state_alloc(coreid_t core_id, struct spawn_binding *b)
 {
     spawnds[core_id] = (struct spawnd_state*) malloc(
@@ -35,18 +41,17 @@ errval_t spawnd_state_alloc(coreid_t core_id, struct spawn_binding *b)
     return SYS_ERR_OK;
 }
 
-void spawnd_state_free(coreid_t core_id)
-{
-    if (spawnds[core_id] != NULL) {
-        free(spawnds[core_id]);
-    }
-}
-
+/**
+ * \brief Returns whether connected to spawnd on the given core.
+ */
 inline bool spawnd_state_exists(coreid_t core_id)
 {
     return spawnds[core_id] != NULL;
 }
 
+/**
+ * \brief Returns the state element for the spawnd on the given core.
+ */
 inline struct spawnd_state *spawnd_state_get(coreid_t core_id)
 {
     return spawnds[core_id];
@@ -119,6 +124,16 @@ static bool enqueue_at_front(struct msg_queue *q, struct msg_queue_elem *m)
     return q->head == q->tail ? true : false;
 }
 
+/**
+ * \brief Event-based handler for sending requests to spawnd.
+ *
+ * This function pops the next request from the send queue of the targeted
+ * spawnd (wrapped inside arg). It attempts to send the request, re-enqueuing
+ * it at front if sending fails. It then re-registers a new send if the queue
+ * still has pending requests.
+ *
+ * \param arg Wrapper over the spawnd_state structure for the target spawnd.
+ */
 static void spawnd_send_handler(void *arg)
 {
     struct spawnd_state *spawnd = (struct spawnd_state*) arg;
@@ -137,8 +152,6 @@ static void spawnd_send_handler(void *arg)
         enqueue(&spawnd->recvq, recvm);
     } else {
         // Send continuation failed, need to re-enqueue message.
-        // TODO(razvan): Re-enqueuing at the front of the queue, to preserve
-        // original message order. Could a different strategy be preferrable?
         enqueue_at_front(q, m);
     }
 
@@ -154,6 +167,12 @@ static void spawnd_send_handler(void *arg)
     }
 }
 
+/**
+ * \brief Enqueues a new send request event.
+ *
+ * \param spawnd target spawnd to send the request to.
+ * \param msg    request to enqueue.
+ */
 errval_t spawnd_state_enqueue_send(struct spawnd_state *spawnd,
                                    struct msg_queue_elem *msg)
 {
@@ -168,6 +187,11 @@ errval_t spawnd_state_enqueue_send(struct spawnd_state *spawnd,
     }
 }
 
+/**
+ * \brief Dequeues and returns the next message in a receive queue.
+ *
+ * \param spawnd spawnd instance whose receive queue to pop.
+ */
 void *spawnd_state_dequeue_recv(struct spawnd_state *spawnd)
 {
     struct msg_queue_elem *m = dequeue(&spawnd->recvq);

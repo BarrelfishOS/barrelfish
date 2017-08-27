@@ -14,7 +14,7 @@
                       cFiles = [ "main.c", "service.c", "spawnd_state.c", 
                                  "domain.c" ],
                       addLibraries = libDeps [ "skb", "dist", "lwip",
-                                               "collections", "bench" ],
+                                               "collections" ],
                       flounderDefs = [ "monitor", "monitor_blocking" ],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]), 
                                             ("spawn",["rpcclient"]) ],

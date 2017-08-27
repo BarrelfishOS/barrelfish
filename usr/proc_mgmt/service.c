@@ -25,6 +25,9 @@
 #include "pending_clients.h"
 #include "spawnd_state.h"
 
+/**
+ * \brief Handler for message add_spawnd, for the local monitor binding.
+ */
 static void add_spawnd_handler(struct proc_mgmt_binding *b, coreid_t core_id,
                                iref_t iref)
 {
@@ -50,6 +53,9 @@ static void add_spawnd_handler(struct proc_mgmt_binding *b, coreid_t core_id,
             iref);
 }
 
+/**
+ * \brief Handler for message add_spawnd, for non-monitor bindings.
+ */
 static void add_spawnd_handler_non_monitor(struct proc_mgmt_binding *b,
                                            coreid_t core_id, iref_t iref)
 {
@@ -59,42 +65,11 @@ static void add_spawnd_handler_non_monitor(struct proc_mgmt_binding *b,
 
 static bool cleanup_request_sender(struct msg_queue_elem *m);
 
-
-#define PROC_MGMT_BENCH 1
-#define PROC_MGMT_BENCH_MIN_RUNS 150
-
-#ifdef PROC_MGMT_BENCH
-#include <bench/bench.h>
-
-static inline cycles_t calculate_time(cycles_t tsc_start, cycles_t tsc_end)
-{
-    cycles_t result;
-    if (tsc_end < tsc_start) {
-        result = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
-    } else {
-        result = (tsc_end - tsc_start - bench_tscoverhead());
-    }
-    return result;
-}
-
-static bench_ctl_t *req_ctl_1;
-static bench_ctl_t *req_ctl_2;
-static bench_ctl_t *req_ctl_3;
-static bench_ctl_t *req_ctl_4;
-static bench_ctl_t *req_ctl_5;
-static bench_ctl_t *resp_ctl;
-static uint64_t tscperus;
-#endif
-
+/**
+ * General-purpose handler for replies from spawnd.
+ */
 static void spawn_reply_handler(struct spawn_binding *b, errval_t spawn_err)
 {
-#ifdef PROC_MGMT_BENCH
-    cycles_t tsc_start, tsc_end;
-    cycles_t result;
-
-    tsc_start = bench_tsc();
-#endif
-
     struct pending_client *cl =
             (struct pending_client*) spawnd_state_dequeue_recv(b->st);
 
@@ -115,29 +90,14 @@ static void spawn_reply_handler(struct spawn_binding *b, errval_t spawn_err)
                 err = domain_spawn(spawn->cap_node, spawn->core_id);
                 if (cl->type == ClientType_Spawn) {
                     resp_err = cl->b->tx_vtbl.spawn_response(cl->b, NOP_CONT,
-                                                             err,
-                                                             spawn->cap_node->domain_cap);
+                            err, spawn->cap_node->domain_cap);
                 } else {
                     resp_err = cl->b->tx_vtbl.spawn_with_caps_response(cl->b,
-                                                                       NOP_CONT,
-                                                                       err,
-                                                                       spawn->cap_node->domain_cap);
+                            NOP_CONT, err, spawn->cap_node->domain_cap);
                 }
             }
 
             free(spawn);
-
-#ifdef PROC_MGMT_BENCH
-            tsc_end = bench_tsc();
-            result = calculate_time(tsc_start, tsc_end);
-
-            if (resp_ctl != NULL && bench_ctl_add_run(resp_ctl, &result)) {
-                bench_ctl_dump_analysis(resp_ctl, 0, "proc_mgmt_resp",
-                                        tscperus);
-                bench_ctl_destroy(resp_ctl);
-                resp_ctl = NULL;
-            }
-#endif
             break;
 
         case ClientType_Span:
@@ -249,6 +209,9 @@ static void spawn_reply_handler(struct spawn_binding *b, errval_t spawn_err)
     free(cl);
 }
 
+/**
+ * \brief Handler for sending spawn requests.
+ */
 static bool spawn_request_sender(struct msg_queue_elem *m)
 {
     struct pending_client *cl = (struct pending_client*) m->st;
@@ -291,6 +254,9 @@ static bool spawn_request_sender(struct msg_queue_elem *m)
     return true;
 }
 
+/**
+ * \brief Handler for sending span requests.
+ */
 static bool span_request_sender(struct msg_queue_elem *m)
 {
     struct pending_client *cl = (struct pending_client*) m->st;
@@ -315,6 +281,9 @@ static bool span_request_sender(struct msg_queue_elem *m)
     return true;
 }
 
+/**
+ * \brief Handler for sending kill requests.
+ */
 static bool kill_request_sender(struct msg_queue_elem *m)
 {
     struct pending_client *cl = (struct pending_client*) m->st;
@@ -338,6 +307,9 @@ static bool kill_request_sender(struct msg_queue_elem *m)
     return true;
 }
 
+/**
+ * \brief Handler for sending cleanup requests.
+ */
 static bool cleanup_request_sender(struct msg_queue_elem *m)
 {
     struct pending_client *cl = (struct pending_client*) m->st;
@@ -362,6 +334,9 @@ static bool cleanup_request_sender(struct msg_queue_elem *m)
     return true;
 }
 
+/**
+ * \brief Common bits of the spawn and spawn_with_caps handlers.
+ */
 static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
                                      enum ClientType type,
                                      coreid_t core_id, const char *path,
@@ -370,47 +345,15 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
                                      struct capref inheritcn_cap,
                                      struct capref argcn_cap, uint8_t flags)
 {
-#ifdef PROC_MGMT_BENCH
-    cycles_t tsc_start, tsc_end;
-    cycles_t result;
-
-    tsc_start = bench_tsc();
-#endif
     if (!spawnd_state_exists(core_id)) {
         return PROC_MGMT_ERR_INVALID_SPAWND;
     }
-#ifdef PROC_MGMT_BENCH
-    tsc_end = bench_tsc();
-    result = calculate_time(tsc_start, tsc_end);
 
-    if (req_ctl_1 != NULL && bench_ctl_add_run(req_ctl_1, &result)) {
-        bench_ctl_dump_analysis(req_ctl_1, 0, "proc_mgmt_req 1", tscperus);
-        bench_ctl_destroy(req_ctl_1);
-        req_ctl_1 = NULL;
-    }
-#endif
-
-#ifdef PROC_MGMT_BENCH
-    tsc_start = bench_tsc();
-#endif
     struct spawnd_state *spawnd = spawnd_state_get(core_id);
     assert(spawnd != NULL);
     struct spawn_binding *cl = spawnd->b;
     assert(cl != NULL);
-#ifdef PROC_MGMT_BENCH
-    tsc_end = bench_tsc();
-    result = calculate_time(tsc_start, tsc_end);
 
-    if (req_ctl_2 != NULL && bench_ctl_add_run(req_ctl_2, &result)) {
-        bench_ctl_dump_analysis(req_ctl_2, 0, "proc_mgmt_req 2", tscperus);
-        bench_ctl_destroy(req_ctl_2);
-        req_ctl_2 = NULL;
-    }
-#endif
-
-#ifdef PROC_MGMT_BENCH
-    tsc_start = bench_tsc();
-#endif
     errval_t err;
     if (domain_should_refill_caps()) {
         err = domain_prealloc_caps();
@@ -421,26 +364,6 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
 
     struct domain_cap_node *cap_node = next_cap_node();
 
-    // struct capref domain_cap;
-    // errval_t err = slot_alloc(&domain_cap);
-    // if (err_is_fail(err)) {
-    //     DEBUG_ERR(err, "slot_alloc domain_cap");
-    //     return err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP);
-    // }
-#ifdef PROC_MGMT_BENCH
-    tsc_end = bench_tsc();
-    result = calculate_time(tsc_start, tsc_end);
-
-    if (req_ctl_3 != NULL && bench_ctl_add_run(req_ctl_3, &result)) {
-        bench_ctl_dump_analysis(req_ctl_3, 0, "proc_mgmt_req 3", tscperus);
-        bench_ctl_destroy(req_ctl_3);
-        req_ctl_3 = NULL;
-    }
-#endif
-
-#ifdef PROC_MGMT_BENCH
-    tsc_start = bench_tsc();
-#endif
     struct pending_spawn *spawn = (struct pending_spawn*) malloc(
             sizeof(struct pending_spawn));
     spawn->cap_node = cap_node;
@@ -475,20 +398,12 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
         free(msg);
     }
 
-#ifdef PROC_MGMT_BENCH
-    tsc_end = bench_tsc();
-    result = calculate_time(tsc_start, tsc_end);
-
-    if (req_ctl_5 != NULL && bench_ctl_add_run(req_ctl_5, &result)) {
-        bench_ctl_dump_analysis(req_ctl_5, 0, "proc_mgmt_req 5", tscperus);
-        bench_ctl_destroy(req_ctl_5);
-        req_ctl_5 = NULL;
-    }
-#endif
-
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief Handler for rpc spawn.
+ */
 static void spawn_handler(struct proc_mgmt_binding *b, coreid_t core_id,
                           const char *path, const char *argvbuf,
                           size_t argvbytes, const char *envbuf, size_t envbytes,
@@ -507,6 +422,9 @@ static void spawn_handler(struct proc_mgmt_binding *b, coreid_t core_id,
     }
 }
 
+/**
+ * \brief Handler for rpc spawn_with_caps.
+ */
 static void spawn_with_caps_handler(struct proc_mgmt_binding *b,
                                     coreid_t core_id, const char *path,
                                     const char *argvbuf, size_t argvbytes,
@@ -530,6 +448,9 @@ static void spawn_with_caps_handler(struct proc_mgmt_binding *b,
     }
 }
 
+/**
+ * \brief Handler for rpc span.
+ */
 static void span_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
                          coreid_t core_id, struct capref vroot,
                          struct capref dispframe)
@@ -600,6 +521,9 @@ respond_with_err:
     }
 }
 
+/**
+ * \brief Common bits of the kill and exit handlers.
+ */
 static errval_t kill_handler_common(struct proc_mgmt_binding *b,
                                     struct capref domain_cap,
                                     enum ClientType type,
@@ -650,6 +574,9 @@ static errval_t kill_handler_common(struct proc_mgmt_binding *b,
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief Handler for rpc kill.
+ */
 static void kill_handler(struct proc_mgmt_binding *b,
                          struct capref victim_domain_cap)
 {
@@ -663,6 +590,9 @@ static void kill_handler(struct proc_mgmt_binding *b,
     }
 }
 
+/**
+ * \brief Handler for message exit.
+ */
 static void exit_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
                          uint8_t exit_status)
 {
@@ -675,6 +605,9 @@ static void exit_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
     // Error or not, there's no client to respond to anymore.
 }
 
+/**
+ * \brief Handler for rpc wait.
+ */
 static void wait_handler(struct proc_mgmt_binding *b, struct capref domain_cap)
 {
     errval_t err, resp_err;
@@ -710,7 +643,6 @@ static struct proc_mgmt_rx_vtbl monitor_vtbl = {
     .spawn_with_caps_call = spawn_with_caps_handler,
     .span_call            = span_handler,
     .kill_call            = kill_handler,
-    // .exit_call            = exit_handler,
     .exit                 = exit_handler,
     .wait_call            = wait_handler
 };
@@ -721,11 +653,13 @@ static struct proc_mgmt_rx_vtbl non_monitor_vtbl = {
     .spawn_with_caps_call = spawn_with_caps_handler,
     .span_call            = span_handler,
     .kill_call            = kill_handler,
-    // .exit_call            = exit_handler,
     .exit                 = exit_handler,
     .wait_call            = wait_handler
 };
 
+/**
+ * \brief Allocates a special LMP endpoint for authenticating with the monitor.
+ */
 static errval_t alloc_ep_for_monitor(struct capref *ep)
 {
     struct proc_mgmt_lmp_binding *lmpb =
@@ -784,58 +718,7 @@ static errval_t connect_cb(void *st, struct proc_mgmt_binding *b)
 
 errval_t start_service(void)
 {
-    errval_t err;
-#ifdef PROC_MGMT_BENCH
-    bench_init();
-
-    req_ctl_1 = calloc(1, sizeof(*req_ctl_1));
-    req_ctl_1->mode = BENCH_MODE_FIXEDRUNS;
-    req_ctl_1->result_dimensions = 1;
-    req_ctl_1->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
-    req_ctl_1->data = calloc(req_ctl_1->min_runs * req_ctl_1->result_dimensions,
-                           sizeof(*req_ctl_1->data));
-
-    req_ctl_2 = calloc(1, sizeof(*req_ctl_2));
-    req_ctl_2->mode = BENCH_MODE_FIXEDRUNS;
-    req_ctl_2->result_dimensions = 1;
-    req_ctl_2->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
-    req_ctl_2->data = calloc(req_ctl_2->min_runs * req_ctl_2->result_dimensions,
-                           sizeof(*req_ctl_2->data));
-
-    req_ctl_3 = calloc(1, sizeof(*req_ctl_3));
-    req_ctl_3->mode = BENCH_MODE_FIXEDRUNS;
-    req_ctl_3->result_dimensions = 1;
-    req_ctl_3->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
-    req_ctl_3->data = calloc(req_ctl_3->min_runs * req_ctl_3->result_dimensions,
-                           sizeof(*req_ctl_3->data));
-
-    req_ctl_4 = calloc(1, sizeof(*req_ctl_4));
-    req_ctl_4->mode = BENCH_MODE_FIXEDRUNS;
-    req_ctl_4->result_dimensions = 1;
-    req_ctl_4->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
-    req_ctl_4->data = calloc(req_ctl_4->min_runs * req_ctl_4->result_dimensions,
-                           sizeof(*req_ctl_4->data));
-
-    req_ctl_5 = calloc(1, sizeof(*req_ctl_5));
-    req_ctl_5->mode = BENCH_MODE_FIXEDRUNS;
-    req_ctl_5->result_dimensions = 1;
-    req_ctl_5->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
-    req_ctl_5->data = calloc(req_ctl_5->min_runs * req_ctl_5->result_dimensions,
-                           sizeof(*req_ctl_5->data));
-
-    resp_ctl = calloc(1, sizeof(*resp_ctl));
-    resp_ctl->mode = BENCH_MODE_FIXEDRUNS;
-    resp_ctl->result_dimensions = 1;
-    resp_ctl->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
-    resp_ctl->data = calloc(resp_ctl->min_runs * resp_ctl->result_dimensions,
-                            sizeof(*resp_ctl->data));
-
-    err = sys_debug_get_tsc_per_ms(&tscperus);
-    assert(err_is_ok(err));
-    tscperus /= 1000;
-#endif
-
-    err = domain_prealloc_caps();
+    errval_t err = domain_prealloc_caps();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err_push(err, PROC_MGMT_ERR_CREATE_DOMAIN_CAP),
                        "domain_prealloc_caps in start_service");

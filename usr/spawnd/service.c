@@ -392,27 +392,6 @@ reply:
     }
 }
 
-#define PROC_MGMT_BENCH 1
-#define PROC_MGMT_BENCH_MIN_RUNS 100
-
-#ifdef PROC_MGMT_BENCH
-#include <bench/bench.h>
-
-static inline cycles_t calculate_time(cycles_t tsc_start, cycles_t tsc_end)
-{
-    cycles_t result;
-    if (tsc_end < tsc_start) {
-        result = (LONG_MAX - tsc_start) + tsc_end - bench_tscoverhead();
-    } else {
-        result = (tsc_end - tsc_start - bench_tscoverhead());
-    }
-    return result;
-}
-
-static bench_ctl_t *ctl;
-static uint64_t tscperus;
-#endif
-
 static void spawn_request_handler(struct spawn_binding *b,
                                   struct capref procmng_cap,
                                   struct capref domain_cap, const char *path,
@@ -420,13 +399,6 @@ static void spawn_request_handler(struct spawn_binding *b,
                                   const char *envbuf, size_t envbytes,
                                   uint8_t flags)
 {
-#ifdef PROC_MGMT_BENCH
-    cycles_t tsc_start, tsc_end;
-    cycles_t result;
-
-    tsc_start = bench_tsc();
-#endif
-
     errval_t err, reply_err;
     struct capability ret;
     err = monitor_cap_identify_remote(procmng_cap, &ret);
@@ -450,17 +422,6 @@ reply:
     if (err_is_fail(reply_err)) {
         DEBUG_ERR(err, "failed to send spawn_reply");
     }
-
-#ifdef PROC_MGMT_BENCH
-    tsc_end = bench_tsc();
-    result = calculate_time(tsc_start, tsc_end);
-
-    if (ctl != NULL && bench_ctl_add_run(ctl, &result)) {
-        bench_ctl_dump_analysis(ctl, 0, "spawnd", tscperus);
-        bench_ctl_destroy(ctl);
-        ctl = NULL;
-    }
-#endif
 }
 
 static void span_request_handler(struct spawn_binding *b,
@@ -951,21 +912,6 @@ static errval_t connect_cb(void *st, struct spawn_binding *b)
 
 errval_t start_service(void)
 {
-#ifdef PROC_MGMT_BENCH
-    bench_init();
-
-    ctl = calloc(1, sizeof(*ctl));
-    ctl->mode = BENCH_MODE_FIXEDRUNS;
-    ctl->result_dimensions = 1;
-    ctl->min_runs = PROC_MGMT_BENCH_MIN_RUNS;
-    ctl->data = calloc(ctl->min_runs * ctl->result_dimensions,
-                       sizeof(*ctl->data));
-
-    errval_t err = sys_debug_get_tsc_per_ms(&tscperus);
-    assert(err_is_ok(err));
-    tscperus /= 1000;
-#endif
-
     return spawn_export(NULL, export_cb, connect_cb, get_default_waitset(),
                          IDC_EXPORT_FLAGS_DEFAULT);
 }
