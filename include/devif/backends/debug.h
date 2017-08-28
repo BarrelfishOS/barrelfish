@@ -20,10 +20,6 @@ struct debug_q;
 errval_t debug_create(struct debug_q** q,
                       struct devq* other_q);
 
-/**
- */
-errval_t debug_destroy(struct debug_q* q, struct devq* other_q);
-
 errval_t debug_dump_region(struct debug_q* que, regionid_t rid);
 
 void debug_dump_history(struct debug_q* q);

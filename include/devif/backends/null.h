@@ -22,10 +22,4 @@ struct null_q;
  */
 errval_t null_create(struct null_q** q,
                      struct devq* other_q);
-
-/**
- */
-errval_t null_destroy(struct null_q* q, struct devq* other_q);
-
-
 #endif /* NULL_H_ */

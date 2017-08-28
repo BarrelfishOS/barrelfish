@@ -13,7 +13,6 @@
 struct loopback_queue;
 
 errval_t loopback_queue_create(struct loopback_queue** q);
-errval_t loopback_queue_destroy(struct loopback_queue* q);
 
 
 #endif // _LOOPBACK_DEVQ_H_

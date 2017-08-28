@@ -64,6 +64,14 @@ static errval_t null_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offse
     return que->q->f.deq(que->q, rid, offset, len, valid_data, valid_length, flags);
 }
 
+static errval_t null_destroy(struct devq* devq)
+{
+    free(devq);    
+
+    // TODO cleanup
+    return SYS_ERR_OK;
+}
+
 /**
  * Public functions
  *
@@ -87,14 +95,7 @@ errval_t null_create(struct null_q** q, struct devq* other_q)
     (*q)->my_q.f.notify = null_notify;
     (*q)->my_q.f.enq = null_enqueue;
     (*q)->my_q.f.deq = null_dequeue;
-    return SYS_ERR_OK;
-}
-
-errval_t null_destroy(struct null_q* q, struct devq* devq)
-{
-    devq = q->q;
-    free(q);    
-
+    (*q)->my_q.f.destroy = null_destroy;
     return SYS_ERR_OK;
 }
 

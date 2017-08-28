@@ -829,6 +829,12 @@ static errval_t debug_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
     return DEVQ_ERR_BUFFER_NOT_IN_USE;
 }
 
+static errval_t debug_destroy(struct devq* devq)
+{
+    // TODO cleanup
+    return SYS_ERR_OK;
+}
+
 /**
  * Public functions
  *
@@ -856,18 +862,10 @@ errval_t debug_create(struct debug_q** q, struct devq* other_q)
     que->my_q.f.notify = debug_notify;
     que->my_q.f.enq = debug_enqueue;
     que->my_q.f.deq = debug_dequeue;
+    que->my_q.f.destroy = debug_destroy;
     *q = que;
     return SYS_ERR_OK;
 }
-
-errval_t debug_destroy(struct debug_q* q, struct devq* devq)
-{
-    devq = q->q;
-    free(q);    
-
-    return SYS_ERR_OK;
-}
-
 
 errval_t debug_dump_region(struct debug_q* que, regionid_t rid) 
 {
