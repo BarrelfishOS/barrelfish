@@ -191,7 +191,7 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
 
     // create new rpc state to associate return message
     struct cap_copy_rpc_st *rpc_st;
-    err = malloce(sizeof(struct cap_copy_rpc_st), &rpc_st);
+    err = calloce(1, sizeof(struct cap_copy_rpc_st), &rpc_st);
     if (err_is_fail(err)) {
         // rpc_st hasn't been set up so we have to do failure handling manually
         if (from == my_core_id) {
@@ -219,6 +219,7 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
 
     // XXX: short-circuit out if cap we're sending is null cap
     if (cap->type == ObjType_Null) {
+        rpc_st->cap = NULL_CAP;
         goto null_shortcircuit;
     }
 
@@ -358,7 +359,7 @@ request_copy__enq(struct capref capref, coreid_t dest, bool give_away,
 
     // create new rpc state to associate return message
     struct cap_copy_rpc_st *rpc_st;
-    err = malloce(sizeof(struct cap_copy_rpc_st), &rpc_st);
+    err = calloce(1, sizeof(struct cap_copy_rpc_st), &rpc_st);
     if (err_is_fail(err)) {
         result_handler(err, 0, 0, 0, st);
         return;
@@ -412,6 +413,7 @@ recv_copy_result__fwd(errval_t status, capaddr_t capaddr, uint8_t level,
 
     err = cap_destroy(rpc_st->cap);
     PANIC_IF_ERR(err, "destroying temp cap for f-to-f copy");
+    rpc_st->cap = NULL_CAP;
     err = recv_copy_result__enq(rpc_st->from, status, capaddr, level, slot,
                                 rpc_st->st);
     PANIC_IF_ERR2(err, "failed to send recv_copy_result",
