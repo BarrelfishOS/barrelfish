@@ -184,30 +184,6 @@ static struct devq* create_net_queue(char* card_name)
     return NULL;
 }
 
-static errval_t destroy_net_queue(struct devq* q, char* card_name)
-{
-    errval_t err;
-    if (strcmp(card_name, "sfn5122f") == 0) {
-        err = sfn5122f_queue_destroy((struct sfn5122f_queue*)q);
-        if (err_is_fail(err)){
-            USER_PANIC("Destroying devq failed \n");
-        }
-        return err;
-    }
-
-    if (strcmp(card_name, "e10k") == 0) {
-        err = e10k_queue_destroy((struct e10k_queue*)q);
-        if (err_is_fail(err)){
-            USER_PANIC("Destroying devq failed \n");
-        }
-        return err;
-    }
-
-    USER_PANIC("Unknown card name\n");
-
-    return SYS_ERR_OK;
-}
-
 static void test_net_tx(void)
 {
     num_tx = 0;
@@ -300,7 +276,7 @@ static void test_net_tx(void)
         USER_PANIC("Devq deregister tx failed \n");
     }
     
-    err = destroy_net_queue(q, card);
+    err = devq_destroy(q);
     if (err_is_fail(err)){
         printf("%s \n", err_getstring(err));
         USER_PANIC("Destroying %s queue failed \n", card);
@@ -394,7 +370,7 @@ static void test_net_rx(void)
         USER_PANIC("Devq deregister rx failed \n");
     }
    
-    err = destroy_net_queue(q, card);
+    err = devq_destroy(q);
     if (err_is_fail(err)){
         printf("%s \n", err_getstring(err));
         USER_PANIC("Destroying %s queue failed \n", card);

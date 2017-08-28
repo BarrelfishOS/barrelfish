@@ -31,8 +31,6 @@ typedef void (*e10k_event_cb_t)(void* q);
 */
 errval_t e10k_queue_create(struct e10k_queue** q, e10k_event_cb_t cb, 
                            bool use_vf, bool interrupts, bool default_q);
-errval_t e10k_queue_destroy(struct e10k_queue* q);
-
 
 /**
 * @brief get the queue id of this queue handle. The returned id corresponds

@@ -232,6 +232,14 @@ static errval_t e1000_notify(struct devq* q)
     return SYS_ERR_OK;
 }
 
+static errval_t e1000_destroy(struct devq * queue)
+{
+    e1000_queue_t* q = (e1000_queue_t *) queue;
+    free(q);
+    // TODO rest of the cleanup
+    return SYS_ERR_OK;
+}
+
 /*****************************************************************
  * Reset the device and disable interrupts.
  *
@@ -851,7 +859,6 @@ static void e1000_init(e1000_queue_t *device, unsigned interrupt_mode)
     }
 }
 
-
 errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t deviceid,
     uint32_t bus, uint32_t pci_device, uint32_t function, unsigned interrupt_mode,
     void (*isr)(void *))
@@ -896,17 +903,12 @@ errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t device
     device->q.f.dereg = e1000_deregister;
     device->q.f.ctrl = e1000_control;
     device->q.f.notify = e1000_notify;
+    device->q.f.destroy = e1000_destroy;
     
     *q = device;
 
     return SYS_ERR_OK;
 }
-
-errval_t e1000_queue_destroy(e1000_queue_t * q)
-{
-    return SYS_ERR_OK;
-}
-
 
 e1000_mac_type_t e1000_get_mac_type(uint32_t vendor, uint32_t device_id)
 {
