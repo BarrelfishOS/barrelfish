@@ -70,7 +70,8 @@ handle_err:
 }
 
 static errval_t
-move_request(struct domcapref capref, struct capability *cap, uint8_t relations, coreid_t dest, move_result_handler_t result_handler, void *st)
+move_request(struct domcapref capref, struct capability *cap, uint8_t relations,
+             coreid_t dest, move_result_handler_t result_handler, void *st)
 {
     errval_t err;
 
@@ -274,7 +275,8 @@ move_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t 
  */
 
 errval_t
-capops_move(struct domcapref capref, coreid_t dest, move_result_handler_t result_handler, void *st)
+capops_move(struct domcapref capref, coreid_t dest, move_result_handler_t result_handler,
+            void *st)
 {
     errval_t err;
     distcap_state_t state;
