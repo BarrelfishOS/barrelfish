@@ -496,11 +496,6 @@ static errval_t sfn5122f_destroy(struct devq* queue)
     free(q->device);
     free(q->b);
 
-    err = devq_destroy(&(q->q));
-    if (err_is_fail(err)){
-        return err;
-    }
-
     err = sfn5122f_queue_free(q);
     if (err_is_fail(err)) {
         return err;
