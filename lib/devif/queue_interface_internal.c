@@ -39,25 +39,6 @@ errval_t devq_init(struct devq *q, bool exp)
     return err;
 }
 
-
- /**
-  * @brief destroys the device queue
-  *
-  * @param q           The queue state to free (and the device queue to be 
-                       shut down in the driver)
-  *
-  * @returns error on failure or SYS_ERR_OK on success
-  */
-errval_t devq_destroy(struct devq *q)
-{
-    errval_t err;
-
-    err = region_pool_destroy(q->pool);
-
-    return err;
-}
-
-
 errval_t devq_add_region(struct devq* q, struct capref cap,
                          regionid_t rid)
 {

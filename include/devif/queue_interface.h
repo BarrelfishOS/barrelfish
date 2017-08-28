@@ -159,6 +159,17 @@ errval_t devq_control(struct devq *q,
                       uint64_t value,
                       uint64_t *result);
 
+
+ /**
+  * @brief destroys the device queue
+  *
+  * @param q           The queue state to free (and the device queue to be 
+                       shut down)
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+errval_t devq_destroy(struct devq *q);
+
 void devq_set_state(struct devq *q, void *state);
 void * devq_get_state(struct devq *q);
 
