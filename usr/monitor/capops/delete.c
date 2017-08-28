@@ -52,6 +52,9 @@ delete_result__rx(errval_t status, struct delete_st *del_st, bool locked)
     delete_result_handler_t handler = del_st->result_handler;
     void *st = del_st->st;
     free(del_st);
+    // Delete our copy of domain's rootcn
+    err = cap_destroy(del_st->capref.croot);
+    PANIC_IF_ERR(err, "cleaning up domain's rootcn");
     handler(status, st);
 }
 

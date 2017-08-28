@@ -367,12 +367,12 @@ retype_check__rx(errval_t status, struct retype_check_st* check,
                  struct retype_output_st *output, void *to_free)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
-    errval_t err = status;
-    if (err_is_ok(err)) {
+    errval_t err;
+    struct domcapref *src = &check->src;
+    struct domcapref *destcn = &output->destcn;
+    if (err_is_ok(status)) {
         // the retype may procede
-        struct domcapref *src = &check->src;
-        struct domcapref *destcn = &output->destcn;
-        err = monitor_create_caps(src->croot, destcn->croot, check->type,
+        status = monitor_create_caps(src->croot, destcn->croot, check->type,
                                   check->objsize, check->count, src->cptr,
                                   src->level, check->offset, destcn->cptr,
                                   destcn->level, output->start_slot);
@@ -380,7 +380,12 @@ retype_check__rx(errval_t status, struct retype_check_st* check,
     struct result_closure cont = output->cont;
     assert(cont.handler);
     free(to_free);
-    CALLRESCONT(cont, err);
+    // Delete copies of domain's src/dest root cnodes
+    err = cap_destroy(src->croot);
+    PANIC_IF_ERR(err, "deleting monitor's copy of src rootcn");
+    err = cap_destroy(destcn->croot);
+    PANIC_IF_ERR(err, "deleting monitor's copy dest rootcn");
+    CALLRESCONT(cont, status);
 }
 
 /**
