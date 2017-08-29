@@ -168,7 +168,7 @@ static void test_udp(void)
     char* data = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
                  "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    printf("Data length %d \n", strlen(data));
+    printf("Data length %zu \n", strlen(data));
 
     for (int i = 0; i < NUM_ENQ; i++) {
         udp_write_buffer(udp_q, regid_tx, i*(TX_BUF_SIZE), 

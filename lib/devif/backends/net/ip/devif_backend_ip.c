@@ -196,7 +196,7 @@ static errval_t ip_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset,
 
         // Correct ip for this queue?
         if (header->ip.src != que->header.ip.dest) {
-            printf("IP queue: dropping packet, wrong IP is %lu should be %lu\n",
+            printf("IP queue: dropping packet, wrong IP is %"PRIu32" should be %"PRIu32"\n",
                    header->ip.src, que->header.ip.dest);
             err = que->q->f.enq(que->q, *rid, *offset, *length, 0, 0, NETIF_RXFLAG);
             return err_push(err, NET_QUEUE_ERR_WRONG_IP);

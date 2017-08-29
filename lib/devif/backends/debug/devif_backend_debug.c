@@ -736,7 +736,7 @@ static errval_t debug_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
         //
         // Add region
         if (que->regions == NULL) {
-            printf("Adding region frirst %d len \n", *offset + *length);
+            printf("Adding region frirst %lu len \n", *offset + *length);
             que->regions = calloc(1, sizeof(struct memory_list));
             que->regions->rid = *rid;
             que->regions->not_consistent = true;
@@ -757,7 +757,7 @@ static errval_t debug_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
             ele = ele->next;
         }
 
-        printf("Adding region second %d len \n", *offset + *length);
+        printf("Adding region second %lu len \n", *offset + *length);
         // add the reigon
         ele->next = calloc(1,sizeof(struct memory_list));
         ele = ele->next;
