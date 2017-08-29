@@ -496,8 +496,8 @@ errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
         caps_mark_revoke_copy(next);
     }
     // Mark copies (forward), use updated "prev". When we're done with this
-    // step next should be == revoked(?), and succ(next) should be the first
-    // descendant.
+    // step next should be == revoked, if revoked != NULL, and succ(next)
+    // should be the first descendant.
     for (next = mdb_successor(prev);
          next && is_copy(base, &next->cap);
          next = mdb_successor(prev))
@@ -513,7 +513,8 @@ errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
         caps_mark_revoke_copy(next);
     }
 
-    assert(prev == revoked);
+    assert(!revoked || prev == revoked);
+    assert(is_copy(&prev->cap, base));
 
     // Mark descendants
     for (next = mdb_successor(prev);
