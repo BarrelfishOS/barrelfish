@@ -22,5 +22,6 @@ in
 [ test "noop",
   test "delete_foreign_copy",
   test "delete_local_copy",
-  test "delete_last_copy"
+  test "delete_last_copy",
+  test "delete_last_copy_remote"
 ]
