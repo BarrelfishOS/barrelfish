@@ -22,11 +22,20 @@ do { \
     } \
 } while(0)
 
+#ifdef DEBUG_PROTOCOL
+#define DEBUG(x...) printf(x)
+#else
+#define DEBUG(x...)
+#endif
+
 //{{{1 Mgmt node API
 
 void broadcast_cmd(uint32_t cmd, uint32_t arg);
 
 void broadcast_caps(uint32_t cmd, uint32_t arg, struct capref cap1);
+
+void multicast_caps(uint32_t cmd, uint32_t arg, struct capref cap1,
+                    coreid_t *cores, int corecount);
 
 void unicast_cmd(coreid_t nodeid, uint32_t cmd, uint32_t arg);
 

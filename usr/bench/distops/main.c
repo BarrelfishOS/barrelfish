@@ -18,12 +18,6 @@
 
 #include "benchapi.h"
 
-#ifdef DEBUG_PROTOCOL
-#define DEBUG(x...) printf(x)
-#else
-#define DEBUG(x...)
-#endif
-
 static const char *service_name = "bench_distops_svc";
 static coreid_t my_core_id = -1;
 
@@ -86,6 +80,35 @@ void broadcast_caps(uint32_t cmd, uint32_t arg, struct capref cap1)
         err = bench_distops_caps__tx(bench_state->nodes[i], NOP_CONT, cmd, arg, cap1);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "sending caps msg to binding %p\n", bench_state->nodes[i]);
+        }
+    }
+    return;
+}
+
+//{{{2 Mgmt node multicast helper functions
+void multicast_caps(uint32_t cmd, uint32_t arg, struct capref cap1,
+                    coreid_t *cores, int corecount)
+{
+    errval_t err;
+    if (!bench_state) {
+        printf("Benchmark not initialized, cannot multicast\n");
+        return;
+    }
+    if (bench_state->clients_seen < bench_state->clients_total) {
+        printf("Not all clients registered, multicast not yet possible\n");
+        return;
+    }
+    for (int i = 0; i < bench_state->clients_total; i++) {
+        assert(bench_state->nodes[i]);
+        struct mgmt_node_state *ns = bench_state->nodes[i]->st;
+        for (int c = 0; c < corecount; c++) {
+            if (cores[c] == ns->coreid) {
+                err = bench_distops_caps__tx(bench_state->nodes[i], NOP_CONT,
+                        cmd, arg, cap1);
+                if (err_is_fail(err)) {
+                    DEBUG_ERR(err, "sending caps msg to binding %p\n", bench_state->nodes[i]);
+                }
+            }
         }
     }
     return;

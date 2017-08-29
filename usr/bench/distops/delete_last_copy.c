@@ -89,7 +89,7 @@ void mgmt_run_benchmark(void *st)
 
     printf("All clients sent hello! Benchmark starting...\n");
 
-    printf("# Benchmarking DELETE LAST: nodes=%d\n", gs->nodecount);
+    printf("# Benchmarking DELETE LAST NO REMOTE: nodes=%d\n", gs->nodecount);
 
     printf("# Starting out with %d copies, will by powers of 2 up to %d...\n",
             NUM_COPIES_START, NUM_COPIES_END);

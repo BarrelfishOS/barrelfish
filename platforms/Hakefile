@@ -140,6 +140,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "bulkbench_micro_throughput",
                         "bench_delete_foreign_copy",
                         "bench_delete_last_copy",
+                        "bench_delete_last_copy_remote",
                         "bench_delete_local_copy",
                         "bench_noop",
                         "elb_app",
