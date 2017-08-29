@@ -100,6 +100,8 @@ class ETHMachine(ETHBaseMachine):
         super(ETHMachine, self).__init__(options, ETHMachineOperations(self), **kwargs)
 
     def get_buildall_target(self):
+        if 'buildall_target' in self._machines[self.name]:
+            return self._machines[self.name]['buildall_target']
         return self.get_bootarch().upper() + "_Full"
 
     def get_xphi_ncores(self):

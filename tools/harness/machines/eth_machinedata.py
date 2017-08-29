@@ -393,6 +393,7 @@ machines = dict({
                  'tickrate'    : 2400,
                  'boot_timeout': 360,
                  'platform': 'apm88xxxx',
+                 'buildall_target': 'APM88xxxx',
                  'serial_binary': 'serial_kernel',
                  'boot_driver' : 'boot_armv8_generic'},
 
@@ -405,6 +406,7 @@ machines = dict({
                     'tickrate'    : 1950,
                     'boot_timeout': 360,
                     'platform': 'cn88xx',
+                    'buildall_target': 'ThunderX',
                     'serial_binary': 'serial_kernel',
                     'boot_driver' : 'boot_armv8_generic'},
     'gorgonzola2': {'ncores'      : 48,
@@ -416,6 +418,7 @@ machines = dict({
                     'tickrate'    : 1950,
                     'boot_timeout': 360,
                     'platform': 'cn88xx',
+                    'buildall_target': 'ThunderX',
                     'serial_binary': 'serial_kernel',
                     'boot_driver' : 'boot_armv8_generic'},
     'roquefort':    {'ncores'      : 96,
@@ -427,6 +430,7 @@ machines = dict({
                      'tickrate'    : 1950,
                      'boot_timeout': 720,
                      'platform': 'cn88xx',
+                     'buildall_target': 'ThunderX',
                      'serial_binary': 'serial_kernel',
                      'boot_driver' : 'boot_armv8_generic'},
 

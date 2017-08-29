@@ -74,7 +74,8 @@ class Machine(object):
         self._tick_rate = tickrate
 
         if bool(kwargs):
-            debug.error("Fix machine definition, unknown args: %s" % str(kwargs))
+            debug.warning("Machine base class does not understand the " +
+                    "following machine arguments: %s" % str(kwargs))
 
     def get_machine_name(self):
         return self._machine_name

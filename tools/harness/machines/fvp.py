@@ -129,6 +129,10 @@ class FVPMachineEFI(FVPMachineBase):
         efi.addFile("/home/netos/tftpboot/Hagfish.efi", "Hagfish.efi")
         efi.addFile(menulst_fullpath, "hagfish.cfg")
 
+    def get_buildall_target(self):
+        # XXX: this is a misnomer in hake for the a57v platform
+        return "QEMU"
+
 class FVPMachineEFIOperations(FVPMachineBaseOperations):
 
 
