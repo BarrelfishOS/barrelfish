@@ -30,4 +30,7 @@ sys_debug_print_capabilities(void);
 errval_t
 debug_print_cababilities(struct dcb *dispatcher);
 
+errval_t
+debug_get_mdb_size(size_t *retval);
+
 #endif
