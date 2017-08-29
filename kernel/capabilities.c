@@ -1296,6 +1296,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 
 /// check arguments, return true iff ok
 STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+#ifndef NDEBUG
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
                                         bool exact)
@@ -1371,6 +1372,7 @@ static bool check_caps_create_arguments(enum objtype type,
     // All other types do not need special alignments/offsets
     return true;
 }
+#endif
 
 /** Create caps to new kernel objects.
  * This takes the size of the memory region in bytes, and the size of
