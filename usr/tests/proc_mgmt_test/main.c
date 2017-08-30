@@ -19,7 +19,7 @@
 #include <bench/bench.h>
 
 #define PROC_MGMT_BENCH 1
-#define PROC_MGMT_BENCH_MIN_RUNS 120
+#define PROC_MGMT_BENCH_MIN_RUNS 150
 
 int my_id;
 // int total_ids;
@@ -102,13 +102,13 @@ int main(int argc, char **argv)
 	    assert(err_is_ok(err));
 	    tscperus /= 1000;
 
-		coreid_t target_core = 0;//strcmp(argv[1], "1") == 0 ? 1 : 2;
+		coreid_t target_core = 7;//strcmp(argv[1], "1") == 0 ? 1 : 2;
 		char *spawn_argv[] = { "proc_mgmt_test", "noop", NULL };
 		my_id = atoi(argv[1]);
         struct capref domain_cap;
 		// total_ids = atoi(argv[2]);
 
-        barrelfish_usleep((0 - 10 * my_id) * 1000 * 1000);
+        barrelfish_usleep((0 - 1 * my_id) * 100 * 1000);
 
 	    // ctl = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, 100);
 	    do {
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
 	        tsc_end = bench_tsc();
 	        result = calculate_time(tsc_start, tsc_end);
 
-			barrelfish_usleep(2 * 1000 * 1000);
+			barrelfish_usleep(0 * 1000 * 1000);
 	    }while (!bench_ctl_add_run(ctl, &result));
 	    // } while (true);
 
@@ -130,7 +130,6 @@ int main(int argc, char **argv)
     	bench_ctl_destroy(ctl);
 
 		barrelfish_usleep(5 * 1000 * 1000);
-		while (true);
 
 		printf("TEST DONE\n");
 	} else {

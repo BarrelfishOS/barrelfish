@@ -23,7 +23,7 @@ class ProcMgmtTest(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(ProcMgmtTest, self).get_modules(build, machine)
-        n = 3
+        n = 1
         for i in range(n):
             modules.add_module("proc_mgmt_test", ["core=3", str(i), str(n)])
             # modules.add_module("proc_mgmt_test", ["core=3", "1"])
