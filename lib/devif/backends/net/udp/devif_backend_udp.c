@@ -210,8 +210,7 @@ static errval_t udp_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset
  */
 errval_t udp_create(struct udp_q** q, const char* card_name, 
                     uint16_t src_port, uint16_t dst_port,
-                    uint32_t dst_ip, struct eth_addr dst_mac,
-                    void(*interrupt)(void*), bool poll)
+                    uint32_t dst_ip, void(*interrupt)(void*), bool poll)
 {
     errval_t err;
     struct udp_q* que;
@@ -227,7 +226,7 @@ errval_t udp_create(struct udp_q** q, const char* card_name,
     // init other queue
     uint64_t qid;
     err = ip_create((struct ip_q**) &que->q, card_name, &qid, UDP_PROT, dst_ip, 
-                    dst_mac, interrupt, poll);
+                    interrupt, poll);
     if (err_is_fail(err)) {
         return err;
     }

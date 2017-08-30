@@ -64,17 +64,6 @@ static uint64_t tsc_per_ms;
 
 static bool use_irq = false;
 
-static void convert_mac(uint64_t int_mac, struct eth_addr* mac)
-{
-    // Also convert to network byte order
-    mac->addr[5] = int_mac & 0xFF;
-    mac->addr[4] = (int_mac & 0xFF00) >> 8;
-    mac->addr[3] = (int_mac & 0xFF0000) >> 16;
-    mac->addr[2] = (int_mac & 0xFF000000) >> 24;
-    mac->addr[1] = (int_mac & 0xFF00000000) >> 32;
-    mac->addr[0] = (int_mac & 0xFF0000000000) >> 40;
-}
-
 static void event_cb(void* queue)
 {
     struct devq* q = (struct devq*) udp_q;
@@ -212,12 +201,8 @@ int main(int argc, char *argv[])
 
     phys_rx = id.base;
 
-    struct eth_addr dst_mac;
-    
-    convert_mac(mac_dst, &dst_mac);
-
     err = udp_create((struct udp_q**) &udp_q, cardname, port_src, port_dst,
-                     ip_dst, dst_mac, event_cb, true);
+                     ip_dst, event_cb, true);
     if (err_is_fail(err)) {
         USER_PANIC("Queue creation failed \n");
     }

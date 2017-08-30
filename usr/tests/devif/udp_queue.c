@@ -33,7 +33,6 @@ static uint32_t ip_dst;
 static uint64_t mac_dst;
 static uint16_t port_src;
 static uint16_t port_dst;
-static struct eth_addr dst_mac;
 
 static struct capref memory_rx;
 static struct capref memory_tx;
@@ -113,28 +112,14 @@ static void event_cb(void* queue)
     }
 }
 
-static void convert_mac(uint64_t int_mac, struct eth_addr* mac)
-{
-    // Also convert to network byte order
-    mac->addr[5] = int_mac & 0xFF;
-    mac->addr[4] = (int_mac & 0xFF00) >> 8;
-    mac->addr[3] = (int_mac & 0xFF0000) >> 16;
-    mac->addr[2] = (int_mac & 0xFF000000) >> 24;
-    mac->addr[1] = (int_mac & 0xFF00000000) >> 32;
-    mac->addr[0] = (int_mac & 0xFF0000000000) >> 40;
-}
-
 static void test_udp(void)
 {
     errval_t err;
     struct devq* q;
-
-    convert_mac(mac_dst, &dst_mac);
-
    
     // create queue with interrupts
     udp_create(&udp_q, cardname, port_src, port_dst, 
-               ip_dst, dst_mac, event_cb, !use_interrupts);
+               ip_dst, event_cb, !use_interrupts);
 
     q = (struct devq*) udp_q;
 

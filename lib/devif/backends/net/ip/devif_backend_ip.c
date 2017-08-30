@@ -22,6 +22,7 @@
 #include <net/net_queue.h>
 #include <net/net_filter.h>
 #include <net/dhcp.h>
+#include <net/arp.h>
 #include "../../../queue_interface_internal.h"
 #include "../headers.h"
 
@@ -225,8 +226,7 @@ static errval_t ip_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset,
  *
  */
 errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
-                   uint8_t prot, uint32_t dst_ip,
-                   struct eth_addr dst_mac, inthandler_t interrupt, bool poll)
+                   uint8_t prot, uint32_t dst_ip, inthandler_t interrupt, bool poll)
 {
     errval_t err;
     struct ip_q* que;
@@ -257,9 +257,15 @@ errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
         return err;
     }
 
+    uint64_t mac;
+    err = arp_service_get_mac(htonl(dst_ip), &mac);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     // fill in header that is reused for each packet
     // Ethernet
-    memcpy(&(que->header.eth.dest.addr), &dst_mac, ETH_HWADDR_LEN);
+    memcpy(&(que->header.eth.dest.addr), &mac, ETH_HWADDR_LEN);
     memcpy(&(que->header.eth.src.addr), &src_mac, ETH_HWADDR_LEN);
     que->header.eth.type = htons(ETHTYPE_IP);
 
