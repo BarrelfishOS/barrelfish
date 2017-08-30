@@ -21,5 +21,6 @@ interface net_ARP "ARP Table" {
                     in bool force,
                     out errval err,
                     out uint64 mac);
+    message arp_force_lookup(ipv4addr ip);
 };
 
