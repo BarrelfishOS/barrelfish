@@ -13,16 +13,17 @@
 --------------------------------------------------------------------------
 
 let
-test name = build application { target = "bench_" ++ name,
+bench name = build application { target = "bench_" ++ name,
                                 cFiles = [ "main.c", name ++ ".c" ],
                                 flounderBindings = [ "bench_distops" ],
                                 addLibraries = [ "bench" ]
                               }
 in
-[ test "noop",
-  test "delete_foreign_copy",
-  test "delete_local_copy",
-  test "delete_last_copy",
-  test "delete_last_copy_remote",
-  test "revoke_no_remote"
+[ bench "noop",
+  bench "delete_foreign_copy",
+  bench "delete_local_copy",
+  bench "delete_last_copy",
+  bench "delete_last_copy_remote",
+  bench "revoke_no_remote",
+  bench "revoke_with_remote_copies"
 ]
