@@ -1536,7 +1536,6 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     err = is_retypeable(src_cte, src_cap->type, type, from_monitor);
     if (err_is_fail(err)) {
         if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
-            printk(LOG_NOTE, "caps_retype: is_retypeable failed: %"PRIuERRV"\n", err);
             debug(SUBSYS_CAPS, "caps_retype: is_retypeable failed\n");
             return err;
         } else {
