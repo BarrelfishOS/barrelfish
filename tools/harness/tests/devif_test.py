@@ -25,6 +25,13 @@ mac = {'babybel1': 130587495626,
        'ziger2': 65817495764,
        'ziger1': 116527143012, }
 
+# Fallback if gethostip does not work
+ip = {'babybel1': 174982272, 
+       'babybel2': 174982270,
+       'babybel3': 174982271,
+       'ziger2': 174982183,
+       'ziger1': 174982183, }
+
 
 class DevifTests(TestCommon):
 
@@ -39,8 +46,11 @@ class DevifTests(TestCommon):
         self.set_timeout(TEST_TIMEOUT)
 
     def get_decimal_ip(self, hostname):
-        iphex = subprocess.check_output('gethostip -x %s' % hostname, shell=True)
-        return '%d' % int(iphex, 16)
+        try:
+            iphex = subprocess.check_output('gethostip -x %s' % hostname, shell=True)
+            return '%d' % int(iphex, 16)
+        except:
+            return ip[hostname.split('-')[0]]
       
     def get_local_mac(self, ifname):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -175,7 +185,7 @@ class DevifUDP(DevifTests):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         while True:
             s.sendto(self.data, (self.ip, 20000))
-            
+
     def start_loop(self):
         self.thread = thread.start_new_thread(self.thread_func, (self, 0))
 
@@ -202,4 +212,6 @@ class DevifUDP(DevifTests):
 #
 #    def get_module_name(self):
 #        return "devif_echo"
+
+
 
