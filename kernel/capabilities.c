@@ -1151,8 +1151,10 @@ errval_t caps_lookup_slot(struct capability *rootcn, capaddr_t cptr,
     }
     assert(rootcn->type == ObjType_L1CNode);
 
-    if (l1index > cnode_get_slots(rootcn)) {
+    if (l1index >= cnode_get_slots(rootcn)) {
         TRACE(KERNEL, CAP_LOOKUP_SLOT, 1);
+        debug(SUBSYS_CAPS, "%s: l1index = %"PRIuCSLOT", slots= %zu\n",
+                __FUNCTION__, l1index, cnode_get_slots(rootcn));
         return SYS_ERR_L1_CNODE_INDEX;
     }
 
@@ -1334,6 +1336,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 
 /// check arguments, return true iff ok
 STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+#ifndef NDEBUG
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
                                         bool exact)
@@ -1409,6 +1412,7 @@ static bool check_caps_create_arguments(enum objtype type,
     // All other types do not need special alignments/offsets
     return true;
 }
+#endif
 
 /** Create caps to new kernel objects.
  * This takes the size of the memory region in bytes, and the size of

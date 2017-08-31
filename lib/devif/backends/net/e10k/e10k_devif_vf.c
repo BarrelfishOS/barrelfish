@@ -16,7 +16,6 @@
 #include <pci/pci.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/debug.h>
-#include <ipv4/lwip/inet.h>
 #include <acpi_client/acpi_client.h>
 
 
@@ -203,11 +202,11 @@ static void device_init(void)
     if (vf->msix) {
         // Allocate msix vector for cdriver and set up handler
         if (vf->vdriver_msix == -1) {
-            err = pci_setup_inthandler(interrupt_handler_msix, NULL, 
+            err = pci_setup_inthandler(interrupt_handler_msix, NULL,
                                        &vf->vdriver_vector);
             assert(err_is_ok(err));
 
-            setup_interrupt(&vf->vdriver_msix, disp_get_core_id(), 
+            setup_interrupt(&vf->vdriver_msix, disp_get_core_id(),
                             vf->vdriver_vector);
         }
 
@@ -421,7 +420,7 @@ static void interrupt_handler(void* arg)
 /* Initialization code for driver */
 
 /** Callback from pci to initialize a specific PCI device. */
-static void pci_init_card(struct device_mem* bar_info, int bar_count)
+static void pci_init_card(void *arg, struct device_mem* bar_info, int bar_count)
 {
 
     DEBUG_VF("pci init card\n");
@@ -492,7 +491,7 @@ static errval_t pci_register(void)
         inthandler = NULL;
     }
 
-    r = pci_register_driver_noirq(pci_init_card, PCI_CLASS_ETHERNET,
+    r = pci_register_driver_noirq(pci_init_card, NULL, PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
                                 PCI_VENDOR_INTEL, E10K_PCI_DEVID,
                                 7, 16, vf->pci_function);
@@ -553,7 +552,7 @@ errval_t e10k_vf_init_queue_hw(struct e10k_queue* q)
 
     uint8_t q_idx = 0;
     // check which queue to initalize
-    for (int i = 0; i < 2; i++) {   
+    for (int i = 0; i < 2; i++) {
         if (!vf->q_enabled[i]) {
             q_idx = i;
             vf->q_enabled[i] = true;
@@ -569,7 +568,7 @@ errval_t e10k_vf_init_queue_hw(struct e10k_queue* q)
     return SYS_ERR_OK;
 }
 
-errval_t e10k_init_vf_driver(uint8_t pci_function, 
+errval_t e10k_init_vf_driver(uint8_t pci_function,
                              bool interrupts)
 {
     
@@ -591,18 +590,18 @@ errval_t e10k_init_vf_driver(uint8_t pci_function,
     err = e10k_vf_client_connect(pci_function);
     if (err_is_fail(err)) {
         return err;
-    }  
+    }
 
     DEBUG_VF("Requesting VF number from PF...\n");
-    err = vf->binding->rpc_tx_vtbl.request_vf_number(vf->binding, 
-                                                     (uint8_t*) &vf->vf_num, 
-                                                     &err2); 
+    err = vf->binding->rpc_tx_vtbl.request_vf_number(vf->binding,
+                                                     (uint8_t*) &vf->vf_num,
+                                                     &err2);
     if (err_is_fail(err) || err_is_fail(err2)) {
         return err_is_fail(err) ? err: err2;
     }
  
     DEBUG_VF("Requesting MAC from PF...\n");
-    err = vf->binding->rpc_tx_vtbl.get_mac_address(vf->binding, vf->vf_num, 
+    err = vf->binding->rpc_tx_vtbl.get_mac_address(vf->binding, vf->vf_num,
                                                    &vf->d_mac);
     assert(err_is_ok(err));
 
@@ -620,7 +619,7 @@ errval_t e10k_init_vf_driver(uint8_t pci_function,
     return SYS_ERR_OK;
 }
 
-bool e10k_vf_started(void) 
+bool e10k_vf_started(void)
 {
     return !(vf == NULL);
 }
@@ -631,9 +630,7 @@ bool e10k_vf_can_create_queue(void)
     for (int i = 0; i < POOL_SIZE; i++) {
         if (!vf->q_enabled[i]) {
             return true;
-        }            
+        }
     }
     return false;
 }
-
-

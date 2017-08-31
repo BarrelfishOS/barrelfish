@@ -23,6 +23,14 @@
 
 #include "kaluga.h"
 
+static void start_driverdomain(char* record) {
+    struct module_info* mi = find_module("driverdomain");
+    if (mi != NULL) {
+        errval_t err = mi->start_function(0, mi, record, NULL);
+        assert(err_is_ok(err));
+    }
+}
+
 static errval_t omap44xx_startup(void)
 {
     errval_t err;
@@ -30,34 +38,19 @@ static errval_t omap44xx_startup(void)
     err = init_cap_manager();
     assert(err_is_ok(err));
 
-    struct module_info* mi = find_module("fdif");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.fdif {}", NULL);
-        assert(err_is_ok(err));
-    }
-    mi = find_module("mmchs");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}", NULL);
-        assert(err_is_ok(err));
-    }
-    mi = find_module("mmchs2");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.mmchs {}", NULL);
-        assert(err_is_ok(err));
-    }
-    mi = find_module("prcm");
+    start_driverdomain("fdif {}");
+    start_driverdomain("sdma {}");
+    start_driverdomain("mmchs { dep1: 'cm2', dep2: 'twl6030' }");
+
+    struct module_info* mi = find_module("prcm");
     if (mi != NULL) {
         err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}", NULL);
         assert(err_is_ok(err));
     }
+
     mi = find_module("serial");
     if (mi != NULL) {
         err = mi->start_function(0, mi, "hw.arm.omap44xx.uart {}", NULL);
-        assert(err_is_ok(err));
-    }
-    mi = find_module("sdma");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.sdma {}", NULL);
         assert(err_is_ok(err));
     }
 

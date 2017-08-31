@@ -12,7 +12,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include <bulk_transfer/bulk_transfer.h>
-#include <ipv4/lwip/inet.h>
 
 #include "bulk_net_backend.h"
 #include "bulk_net_e10k.h"

@@ -35,7 +35,6 @@ let cFiles = [ "access.c",
                "gethostname.c",
                "getpid.c",
                "getpwent.c",
-               "gettimeofday.c",
                "grp.c",
                "inheritance.c",
                "getpagesize.c",
@@ -94,7 +93,7 @@ in
         flounderBindings = [ "unixsock", "octopus" ],
         flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
         flounderTHCStubs = [ "octopus" ],
-        addLibraries = libDeps [ "vfs",  "term_server", "octopus" ],
+        addLibraries = libDeps [ "vfs_nonfs",  "term_server", "octopus", "lwip" ],
         architectures = [ "x86_64" ]
     },
     build library {
@@ -104,7 +103,7 @@ in
         flounderBindings = [ "unixsock", "octopus" ],
         flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
         flounderTHCStubs = [ "octopus" ],
-        addLibraries = libDeps [ "vfs_noblockdev",  "term_server", "octopus" ],
+        addLibraries = libDeps [ "vfs_ramfs",  "term_server", "octopus", "lwip" ],
         architectures = [ "x86_32", "k1om", "armv7", "armv8" ]
     }
 ]

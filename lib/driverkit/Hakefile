@@ -7,14 +7,18 @@
 -- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for lib/driverkit
--- 
+--
 -- Provides common functions used to build device drivers.
 --
 --------------------------------------------------------------------------
 
 [
-    build library { 
+    build library {
         target = "driverkit",
+        flounderDefs = ["ddomain", "dcontrol"],
+        flounderBindings = ["ddomain", "dcontrol"],
+        flounderExtraBindings = [ ("ddomain", ["rpcclient"])],
+        addLibraries = ["collections"],
         cFiles = (find withSuffices [".c"])
     }
 ]

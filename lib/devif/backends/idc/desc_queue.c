@@ -14,7 +14,9 @@
 #include <if/descq_defs.h>
 #include "../../queue_interface_internal.h"
 #include "descq_debug.h"
-
+#include <barrelfish/systime.h>
+#include <barrelfish/notificator.h>
+#include <barrelfish/waitset_chan.h>
 
 struct __attribute__((aligned(DESCQ_ALIGNMENT))) desc {
     genoffset_t offset; // 8
@@ -55,14 +57,13 @@ struct descq {
     // Flounder
     struct descq_binding* binding;
     bool local_bind;
-    bool lmp_bind;
-    bool ump_bind;
     uint64_t resend_args;
   
     // linked list
     struct descq* next;
     uint64_t qid;
     
+    struct notificator notificator;
     bool notifications;
 };
 
@@ -74,6 +75,29 @@ struct descq_endpoint_state {
     struct descq* tail;
     uint64_t qid;
 };
+
+// Check if there's anything to read from the queue
+static bool descq_can_read(void *arg)
+{
+    struct descq *q = arg;
+    uint64_t seq = q->rx_descs[q->rx_seq % q->slots].seq;
+
+    if (q->rx_seq > seq) { // the queue is empty
+        return false;
+    }
+    return true;
+}
+
+// Check if we can write to the queue
+static bool descq_can_write(void *arg)
+{
+    struct descq *q = arg;
+
+    if ((q->tx_seq - q->tx_seq_ack->value) >= q->slots) { // the queue is full
+        return false;
+    }
+    return true;
+}
 
 
 /**
@@ -101,12 +125,10 @@ static errval_t descq_enqueue(struct devq* queue,
 {
     struct descq* q = (struct descq*) queue;
     size_t head = q->tx_seq % q->slots;
-    if ((q->tx_seq - q->tx_seq_ack->value) > (q->slots-1)) {
+
+    if (!descq_can_write(queue)) {
         return DEVQ_ERR_QUEUE_FULL;
     }
-    
- 
-    //assert(length > 0);
 
     q->tx_descs[head].rid = region_id;
     q->tx_descs[head].offset = offset;
@@ -124,9 +146,6 @@ static errval_t descq_enqueue(struct devq* queue,
 
     DESCQ_DEBUG("tx_seq=%lu tx_seq_ack=%lu \n",
                     q->tx_seq, q->tx_seq_ack->value);
-    // if (q->local_bind) {
-    //q->binding->tx_vtbl.notify(q->binding, NOP_CONT);
-    // }
     return SYS_ERR_OK;
 }
 
@@ -157,9 +176,8 @@ static errval_t descq_dequeue(struct devq* queue,
                               uint64_t* misc_flags)
 {
     struct descq* q = (struct descq*) queue;
-    uint64_t seq = q->rx_descs[q->rx_seq % q->slots].seq;
-    
-    if (!(q->rx_seq == seq)) {
+
+    if (!descq_can_read(queue)) {
         return DEVQ_ERR_QUEUE_EMPTY;
     }
 
@@ -171,7 +189,7 @@ static errval_t descq_dequeue(struct devq* queue,
     *valid_length = q->rx_descs[tail].valid_length;
     *misc_flags = q->rx_descs[tail].flags;
 
-    //assert(*length > 0);       
+    //assert(*length > 0);
 
     q->rx_seq++;
     q->rx_seq_ack->value = q->rx_seq;
@@ -180,32 +198,25 @@ static errval_t descq_dequeue(struct devq* queue,
     return SYS_ERR_OK;
 }
 
-static void resend_notify(void* a)
-{
-    errval_t err;
-    struct descq* queue = (struct descq*) a;
-    err = queue->binding->tx_vtbl.notify(queue->binding, NOP_CONT);
-}
-
 static errval_t descq_notify(struct devq* q)
 {
-    errval_t err;
+    // errval_t err;
     //errval_t err2;
-    struct descq* queue = (struct descq*) q;
-
-    err = queue->binding->tx_vtbl.notify(queue->binding, NOP_CONT);
-    if (err_is_fail(err)) {
-        
-        err = queue->binding->register_send(queue->binding, get_default_waitset(),
-                                            MKCONT(resend_notify, queue));
-        if (err == LIB_ERR_CHAN_ALREADY_REGISTERED) {
-            // dont care about this failure since there is an oustanding message
-            // anyway if this fails 
-            return SYS_ERR_OK;
-        } else {
-            return err;     
-        }
-    }
+    // struct descq* queue = (struct descq*) q;
+    //
+    // err = queue->binding->tx_vtbl.notify(queue->binding, NOP_CONT);
+    // if (err_is_fail(err)) {
+    //
+    //     err = queue->binding->register_send(queue->binding, get_default_waitset(),
+    //                                         MKCONT(resend_notify, queue));
+    //     if (err == LIB_ERR_CHAN_ALREADY_REGISTERED) {
+    //         // dont care about this failure since there is an oustanding message
+    //         // anyway if this fails
+    //         return SYS_ERR_OK;
+    //     } else {
+    //         return err;
+    //     }
+    // }
     return SYS_ERR_OK;
 }
 
@@ -235,12 +246,42 @@ static errval_t descq_register(struct devq* q, struct capref cap,
     return err;
 }
 
+
+
+/**
+ * @brief Destroys a descriptor queue and frees its resources
+ *
+ * @param que                     The descriptor queue
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+static errval_t descq_destroy(struct devq* que)
+{
+    errval_t err;
+    
+    struct descq* q = (struct descq*) que;
+
+    err = vspace_unmap(q->tx_descs);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = vspace_unmap(q->rx_descs);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    free(q->name);
+    free(q);
+
+    return SYS_ERR_OK;
+}
+
 static void try_deregister(void* a)
 {
     errval_t err, err2;
     struct descq* queue = (struct descq*) a;
     
-    err = queue->binding->rpc_tx_vtbl.deregister_region(queue->binding, queue->resend_args, 
+    err = queue->binding->rpc_tx_vtbl.deregister_region(queue->binding, queue->resend_args,
                                                         &err2);
     assert(err_is_ok(err2) && err_is_ok(err));
 }
@@ -270,10 +311,10 @@ static errval_t descq_deregister(struct devq* q, regionid_t rid)
  * Flounder interface implementation
  */
 
-static void mp_notify(struct descq_binding* b) {
+static void mp_notify(void *arg) {
     DESCQ_DEBUG("start \n");
     errval_t err;
-    struct descq* q = (struct descq*) b->st;
+    struct descq* q = arg;
 
     DESCQ_DEBUG("%p \n",q->f.notify);
     err = q->f.notify(q);
@@ -359,8 +400,8 @@ static errval_t mp_create(struct descq_binding* b, uint32_t slots,
     q->tx_descs++;
     q->rx_descs++;
     q->slots = slots-1;
-    q->rx_seq = 0;
-    q->tx_seq = 0;
+    q->rx_seq = 1;
+    q->tx_seq = 1;
 
     devq_init(&q->q, true);
 
@@ -370,7 +411,12 @@ static errval_t mp_create(struct descq_binding* b, uint32_t slots,
     q->q.f.reg = descq_register;
     q->q.f.dereg = descq_deregister;
     q->q.f.ctrl = descq_control;
-     
+    q->q.f.destroy = descq_destroy;
+
+    notificator_init(&q->notificator, q, descq_can_read, descq_can_write);
+    *err = waitset_chan_register(get_default_waitset(), &q->notificator.ready_to_read, MKCLOSURE(mp_notify, q));
+    assert(err_is_ok(*err));
+
     *err = q->f.create(q, notifications, role, queue_id);
     if (err_is_ok(*err)) {
         goto end2;
@@ -390,10 +436,6 @@ static struct descq_rpc_rx_vtbl rpc_rx_vtbl = {
     .register_region_call = mp_reg,
     .deregister_region_call = mp_dereg,
     .control_call = mp_control,
-};
-
-static struct descq_rx_vtbl rx_vtbl = {
-    .notify = mp_notify,
 };
 
 static void export_cb(void *st, errval_t err, iref_t iref)
@@ -439,16 +481,8 @@ static errval_t connect_cb(void *st, struct descq_binding* b)
     }
 
     b->rpc_rx_vtbl = rpc_rx_vtbl;
-    b->rx_vtbl = rx_vtbl;
     b->st = q;
     q->local_bind = b->local_binding != NULL;
-    // if (q->local_bind) {
-        q->ump_bind = false;
-        q->lmp_bind = false;
-    // } else {
-    //     q->ump_bind = b->get_receiving_chanstate(b)->chantype == CHANTYPE_UMP_IN;
-    //     q->lmp_bind = !q->ump_bind;
-    // }
 
     return SYS_ERR_OK;
 }
@@ -457,11 +491,9 @@ static errval_t connect_cb(void *st, struct descq_binding* b)
 static void bind_cb(void *st, errval_t err, struct descq_binding* b)
 
 {
-
     struct descq* q = (struct descq*) st;
     DESCQ_DEBUG("Interface bound \n");
     q->binding = b;
-    b->rx_vtbl = rx_vtbl;
     descq_rpc_client_init(q->binding);
 
     q->bound_done = true;
@@ -471,7 +503,6 @@ static void bind_cb(void *st, errval_t err, struct descq_binding* b)
 /**
  * @brief initialized a descriptor queue
  */
-
 errval_t descq_create(struct descq** q,
                       size_t slots,
                       char* name,
@@ -575,14 +606,7 @@ errval_t descq_create(struct descq** q,
         }
 
         tmp->local_bind = tmp->binding->local_binding != NULL;
-        // if (tmp->local_bind) {
-            tmp->ump_bind = false;
-            tmp->lmp_bind = false;
-        // } else {
-        //     tmp->ump_bind = tmp->binding->get_receiving_chanstate(tmp->binding)->chantype == CHANTYPE_UMP_IN;
-        //     tmp->lmp_bind = !tmp->ump_bind;
-        // }
-        
+
         errval_t err2;
         err = tmp->binding->rpc_tx_vtbl.create_queue(tmp->binding, slots, rx, tx,
             notifications, role, &err2, queue_id);
@@ -598,9 +622,9 @@ errval_t descq_create(struct descq** q,
         tmp->tx_descs++;
         tmp->rx_descs++;
         tmp->slots = slots-1;
-        tmp->rx_seq = 0;
-        tmp->tx_seq = 0;
-        
+        tmp->rx_seq = 1;
+        tmp->tx_seq = 1;
+
         devq_init(&tmp->q, false);
 
         tmp->q.f.enq = descq_enqueue;
@@ -609,8 +633,12 @@ errval_t descq_create(struct descq** q,
         tmp->q.f.reg = descq_register;
         tmp->q.f.dereg = descq_deregister;
         tmp->q.f.ctrl = descq_control;
-        
+
         tmp->notifications = notifications;
+
+        notificator_init(&tmp->notificator, tmp, descq_can_read, descq_can_write);
+        err = waitset_chan_register(get_default_waitset(), &tmp->notificator.ready_to_read, MKCLOSURE(mp_notify, tmp));
+        assert(err_is_ok(err));
     }
 
 
@@ -636,28 +664,3 @@ cleanup1:
 }
 
 
-
-/**
- * @brief Destroys a descriptor queue and frees its resources
- *
- * @param q                     The descriptor queue
- *
- * @returns error on failure or SYS_ERR_OK on success
- */
-errval_t descq_destroy(struct descq* q)
-{
-    errval_t err;
-    err = vspace_unmap(q->tx_descs);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    err = vspace_unmap(q->rx_descs);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    free(q->name);
-    free(q);
-
-    return SYS_ERR_OK;
-}

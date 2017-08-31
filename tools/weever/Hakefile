@@ -14,14 +14,14 @@
 -- This has to be rather low-level, since elver is indeed a module for
 -- x86_64, but is built for 32-bits, so it's easiest to do this rather
 -- explicitly.
--- 
+--
 let arch = "k1om"
-    opts = (options arch) { 
+    opts = (options arch) {
              optFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-nostdinc",
                                 "-std=c99",
                                 "-m64",
-                                "-fPIC", 
+                                "-fPIC",
                                 "-e startup_32",
                                 "-mno-red-zone",
                                 "-Wa,-march=k1om+noavx",
@@ -60,10 +60,10 @@ let arch = "k1om"
                                NoDep SrcTree "src" "/include/deputy/nodeputy.h" ],
              optIncludes = [ NoDep SrcTree "src" "/include",
                              NoDep SrcTree "src" "/lib/newlib/newlib/libc/include",
-                             NoDep SrcTree "src" "/include/c", 
+                             NoDep SrcTree "src" "/include/c",
                              NoDep SrcTree "src" "/include/arch/k1om",
-                             NoDep SrcTree "src" "/tools/weever",   
-                             NoDep BuildTree arch "/include", 
+                             NoDep SrcTree "src" "/tools/weever",
+                             NoDep BuildTree arch "/include",
                              NoDep SrcTree "src" "/include/arch/x86_64" ],
              optDefines = [],
              optLibs = [],
@@ -76,15 +76,15 @@ let arch = "k1om"
                                  "-m64 ",
                                  "-e startup_32",
                                  "-Wl,--build-id=none" ] ] ++
-                                 [Str "-T", In SrcTree "src" "/tools/weever/linker.lds"], 
-             optSuffix = "_for_weever" 
+                                 [Str "-T", In SrcTree "src" "/tools/weever/linker.lds"],
+             optSuffix = "_for_weever"
            }
     objs = [ objectFilePath opts f | f <- [ "boot.S", "loader.c", "lib.c", "elf64.c" ] ]
-                                            
-in 
+
+in
   [ compileCFiles opts [ "loader.c", "lib.c", "elf64.c" ],
     assembleSFiles opts [ "boot.S" ],
-    link opts objs [] "weever_elf",
+    link opts objs [] [] "weever_elf",
     Rule [ Str Config.k1om_objcopy,
            Str "-O binary",
            Str "-R .note",
@@ -92,4 +92,3 @@ in
            In BuildTree "k1om" "/sbin/weever_elf",
            Out "k1om" "/sbin/weever" ]
   ]
-  

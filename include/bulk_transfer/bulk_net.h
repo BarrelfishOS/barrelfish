@@ -18,9 +18,10 @@
 #include <bulk_transfer/bulk_transfer.h>
 #include <barrelfish/event_queue.h>
 
-#include <lwip/tcp.h>
+#include <netinet/in.h>
 
 #include <dev/e10k_dev.h>
+#include <lwip/ip_addr.h>
 
 struct bulk_net_msgdesc;
 struct e10k_binding;

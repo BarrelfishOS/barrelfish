@@ -41,7 +41,6 @@ class NetCommon(TestCommon):
     def setup(self, build, machine, testdir):
         super(NetCommon, self).setup(build, machine, testdir)
         self.testdir = testdir
-        self.finished = False
         self.ip = None
         self.traceLogsON = False
         self.traceLogs = []
@@ -50,9 +49,7 @@ class NetCommon(TestCommon):
     def get_modules(self, build, machine):
         cardName = "e1000"
         modules = super(NetCommon, self).get_modules(build, machine)
-        modules.add_module("e1000n", ["auto"])
-        modules.add_module("NGD_mng", ["auto"])
-        modules.add_module("netd", ["auto"])
+        modules.add_module("e1000_net_sockets_server", ["auto"])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         modules.add_module("webserver", ["core=%d" % machine.get_coreids()[0], #2
 				cardName, nfsip,
@@ -68,15 +65,12 @@ class NetCommon(TestCommon):
         if line.startswith('dump trac buffers: Start') :
             self.traceLogsON = True
         elif line.startswith('dump trac buffers: Stop') :
-            self.finished = True
             self.traceLogsON = False
         elif  self.traceLogsON :
             self.traceLogs.append(line);
 
-
-    def is_finished(self, line):
-        return self.finished
-
+    def get_finish_string(self):
+        return 'dump trac buffers: Stop'
 
 @tests.add_test
 class NetdTraceTest(NetCommon):

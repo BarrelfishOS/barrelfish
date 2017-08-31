@@ -191,7 +191,7 @@ static errval_t write(void *st, vfs_handle_t handle, const void *buffer, size_t
 }
 
 // truncate is not allowed in blockdevfs
-static errval_t truncate(void *st, vfs_handle_t handle, size_t bytes)
+static errval_t blockdevfs_truncate(void *st, vfs_handle_t handle, size_t bytes)
 {
     return FS_ERR_NOTFILE; //FIXME: more suitable error code
 }
@@ -324,7 +324,7 @@ static struct vfs_ops blockdevfsops = {
     .remove = blockdevfs_remove,
     .read = read,
     .write = write,
-    .truncate = truncate,
+    .truncate = blockdevfs_truncate,
     .seek = seek,
     .tell = tell,
     .stat = stat,

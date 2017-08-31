@@ -1,0 +1,222 @@
+/*
+  ACPI MADT Facts
+   
+  Copyright (c) 2017, ETH Zurich.
+  All rights reserved.
+  
+  This file is distributed under the terms in the attached LICENSE file.
+  If you do not find this file, copies can be found by writing to:
+  ETH Zurich D-INFK, Universit\"atstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+schema acpimadt "ACPI Multiple APIC Description Table (MADT)" {
+    
+    section "Introduction" {
+
+    text {
+        "The ACPI interrupt model describes all interrupts for the entire "
+        "system in a uniform interrupt model implementation. Supported  "
+        "interrupt models include the PC-AT-compatible dual 8259 interrupt "
+         "controller, for Intel processor-based systems, the Intel Advanced  "
+         "programmable Interrupt Controller (APIC) and Intel Streamlined  "
+         "Advanced Programmable Interrupt Controller (SAPIC), and, for ARM "
+         "processor-based systems, the Generic Interrupt Controller (GIC) "
+
+         "ACPI represents all interrupts as 'flat' values known as global  "
+         "system interrupts. Therefore to support APICs, SAPICs or GICs on an "
+         "ACPI-enabled system, each used interrupt input must be mapped to  the  "
+         "global system interrupt value used by ACPI. "
+        };
+    };
+
+
+    /*
+     * MADT Subtables, correspond to Type in ACPI_SUBTABLE_HEADER
+     */
+    
+    /* 0: Processor Local APIC */
+
+    namespace local "x86 Local Namespace" {
+    
+        fact apic "Processor Local APIC" {
+            uint8   ProcessorId  "ACPI processor id";
+            uint8   Id           "Processor's local APIC id";
+            uint32  LapicFlags   "Local APIC flags";
+        };
+
+        flags apicflags 32 "Local APIC Flags" {
+            0 enabled  "If zero, this processor is unusable";
+        };
+
+        /* 4: Local APIC NMI */
+
+        fact apicnmi "Local APIC NMI" {
+            uint8   ProcessorId "ACPI processor id";
+            uint16  IntiFlags   "Interrupt Flags";
+            uint8   Lint        "LINTn to which NMI is connected";
+        };
+        
+        
+        /* 5: Address Override */
+        
+        fact apicoverride "Address Override" {
+            uint16                  Reserved "Reserved";
+            uint64                  Address "APIC physical address";
+        };
+        
+    
+        /* 7: Local Sapic */
+        
+        fact sapic "Local Sapic" {
+            uint8                   ProcessorId "ACPI processor id";
+            uint8                   Id          "SAPIC ID";
+            uint8                   Eid        "SAPIC EID";
+            uint8                   Reserved "Reserved";
+            uint16                  Reserved2 "Reserved";
+            uint32                  LapicFlags "LapicFlags";
+            uint32                  Uid "Numeric UID - ACPI 3.0";
+            string                  UidString "String UID  - ACPI 3.0";
+        };
+
+    
+        /* 9: Processor Local X2APIC (ACPI 4.0) */
+
+
+        fact x2apic "Processor Local X2APIC (ACPI 4.0)" {
+            uint16                  Reserved "Reserved";
+            uint32                  LocalApicId "Processor x2APIC ID";
+            uint32                  LapicFlags "Lapic Flags";
+            uint32                  Uid "ACPI processor UID";
+        };
+        
+        
+        /* 10: Local X2APIC NMI (ACPI 4.0) */
+        
+        fact x2apicnmi "Local X2APIC NMI (ACPI 4.0)" {
+            uint16                  IntiFlags "IntFlags";
+            uint32                  Uid "ACPI processor UID";
+            uint8                   Lint "LINTn to which NMI is connected";
+        };
+        
+    };
+
+    namespace io "x86 IO Nanespace" {
+        /* 1: IO APIC */
+
+        text {"In an APIC implementation, there are one or more I/O APICs. Each I/O APIC has a series of interrupt inputs, referred to as INTIn, where the value of n is from 0 to the number of the last interrupt input on the I/O APIC"};
+        
+        fact apic "I/O APIC Structure" {
+            uint8    Id              "The I/O APIC's ID.";
+            uint8    Reserved       "Reserved. Must be zero.";
+            uint32   Address        "The 32-bit unique physical address to access this I/O APIC";
+            uint32   GlobalIrqBase "The global system interrupt number where this I/O APIC's interrupt inputs start.";        
+        };
+
+            /* 6: I/O Sapic */
+    
+        fact sapic "I/O Sapic" {
+            uint8                   Id "I/O SAPIC ID";
+            uint8                   Reserved "Reserved";
+            uint32                  GlobalIrqBase "Global interrupt for SAPIC start";
+            uint64                  Address "SAPIC physical address";
+        };
+
+    };
+    
+    namespace interrupt "Interrupt Namespace" {
+
+        /* 2: Interrupt Override */
+        
+        fact override "Interrupt Override" {
+            uint8                   Bus "0 - ISA";
+            uint8                   SourceIrq "Interrupt source (IRQ)";
+            uint32                  GlobalIrq "Global system interrupt";
+            uint16                  IntiFlags "IntiFlags";
+        };
+
+            /* 8: Platform Interrupt Source */
+        
+        fact source "Platform Interrupt Source " {
+            uint16                  IntiFlags "IntiFlags";
+            uint8                   Type         "1=PMI, 2=INIT, 3=corrected";
+            uint8                   Id           "Processor ID";
+            uint8                   Eid          "Processor EID ";
+            uint8                   IoSapicVector "Vector value for PMI interrupts";
+            uint32                  GlobalIrq "Global system interrupt";
+            uint32                  SFlags "Interrupt Source Flags";
+        };
+
+    };
+    
+    namespace nmi "NMI" {
+        /* 3: NMI Source */
+        
+        fact source "NMI Source" {
+            uint16                  IntiFlags "IntIflags";
+            uint32                  GlobalIrq "Global system interrupt";
+        };
+    };
+    
+
+    namespace generic "ARM Generic Interrupt Controllers" {
+ 
+        /* 11: Generic Interrupt (ACPI 5.0 + ACPI 6.0 changes) */
+        
+        fact interrupt "Generic Interrupt (ACPI 5.0 + ACPI 6.0 changes)" {
+            uint32                  CpuInterfaceNumber "";
+            uint32                  Uid "";
+            uint32                  GICFlags "";
+            uint32                  ParkingVersion "";
+            uint32                  PerformanceInterrupt "";
+            uint64                  ParkedAddress "";
+            uint64                  BaseAddress "";
+            uint64                  GicvBaseAddress "";
+            uint64                  GichBaseAddress "";
+            uint32                  VgicInterrupt "";
+            uint64                  GicrBaseAddress "";
+            uint64                  ArmMpidr "";
+            uint8                   EfficiencyClass "";
+        };
+        
+        
+        /* 12: Generic Distributor (ACPI 5.0 + ACPI 6.0 changes) */
+        
+        fact distributor "Generic Distributor (ACPI 5.0 + ACPI 6.0 changes)" {
+            uint32                  GicId "";
+            uint64                  BaseAddress "";
+            uint32                  GlobalIrqBase "";
+            uint8                   Version "";
+        };
+        
+           
+        
+        /* 13: Generic MSI Frame (ACPI 5.1) */
+        
+        fact msiframe "Generic MSI Frame (ACPI 5.1)" {
+            uint32                  MsiFrameId "";
+            uint64                  BaseAddress "";
+            uint32                  MSIFlags "";
+            uint16                  SpiCount "";
+            uint16                  SpiBase "";
+        } ;
+        
+        /* Masks for Flags field above */
+        
+            
+        /* 14: Generic Redistributor (ACPI 5.1) */
+        
+        fact redistributor "Generic Redistributor (ACPI 5.1)" {
+            uint64                  BaseAddress "";
+            uint32                  Length "";
+        } ;
+        
+        
+        /* 15: Generic Translator (ACPI 6.0) */
+        
+        fact translator "Generic Translator (ACPI 6.0)" {
+            uint32                  TranslationId "";
+            uint64                  BaseAddress "";
+        } ;
+    
+    };
+};

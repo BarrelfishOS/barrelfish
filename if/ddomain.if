@@ -1,0 +1,29 @@
+/*
+ * Copyright (c) 2017, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface ddomain "Kaluga <-> Driver Domain Interface" {
+
+    /**
+     * XXX: Make sure kaluga knows what domain this is.
+     * ideally we could set-up endpoints before spawning something
+     */
+    message identify(uint64 id);
+
+    /**
+     * Creates a new driver within the driver domain.
+     */
+    rpc create(in char cls[clen, 256], in char name[nlen, 256],
+               in char a1[a1len, 256], in char a2[a2len, 256], in char a3[a3len, 256], in char a4[a4len, 256],
+               in cap cap1, in cap cap2, in cap cap3, in cap cap4, in cap cap5, in cap cap6, in uint64 flags,
+               out iref devif, out iref control, out errval err);
+    /**
+     * Destroys a driver inside a domain.
+     */
+    rpc destroy(in char cls[length, 256], out errval err);
+};

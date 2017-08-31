@@ -7,7 +7,7 @@
 -- ETH Zurich D-INFK, Universitaetstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Arguments to major Hake targets
--- 
+--
 --------------------------------------------------------------------------
 
 module Args where
@@ -15,7 +15,7 @@ module Args where
 import HakeTypes
 import TreeDB
 
-data Args = Args { 
+data Args = Args {
       buildFunction :: TreeDB -> String -> Args -> HRule,
       target :: String,
       driverType :: String,
@@ -40,9 +40,11 @@ data Args = Args {
       omitIncludes :: [String],
       addLinkFlags :: [String],
       addLibraries :: [String],
+      addModules :: [String],
       addGeneratedDependencies :: [String],
       architectures :: [String],
-      sockeyeSchema :: [String],
+      skateSchemaDefs :: [String],  -- just the Skate Schema headers
+      skateSchemas :: [String],      -- Schema headers and functions
       installDirs :: InstallDirs
 }
 
@@ -51,7 +53,7 @@ data InstallDirs = InstallDirs {
     libdir :: String
 }
 
-defaultArgs = Args { 
+defaultArgs = Args {
       buildFunction = defaultBuildFn,
       target = "",
       driverType = "",
@@ -76,9 +78,11 @@ defaultArgs = Args {
       omitIncludes = [],
       addLinkFlags = [],
       addLibraries = [],
+      addModules = [],
       addGeneratedDependencies = [],
       architectures = allArchitectures,
-      sockeyeSchema = [],
+      skateSchemaDefs = [],
+      skateSchemas = [],
       installDirs = InstallDirs {
             bindir = "/sbin",
             libdir = "/lib"
@@ -95,12 +99,12 @@ allFlounderBackends
     = [ "lmp", "ump", "ump_ipi", "loopback", "rpcclient", "msgbuf", "multihop", "ahci", "local" ]
 
 defaultBuildFn :: TreeDB -> String -> Args -> HRule
-defaultBuildFn _ f _ = 
+defaultBuildFn _ f _ =
     Error ("Bad use of default Args in " ++ f)
 
 showArgs :: String -> Args -> String
 showArgs prefix a =
-    prefix ++ "Args:" 
+    prefix ++ "Args:"
     ++ "\n  target:                " ++ (show $ target a)
     ++ "\n  cFiles:                " ++ (show $ cFiles a)
     ++ "\n  generatedCFiles:       " ++ (show $ generatedCFiles a)
@@ -121,7 +125,9 @@ showArgs prefix a =
     ++ "\n  omitIncludes:          " ++ (show $ omitIncludes a)
     ++ "\n  addLinkFlags:          " ++ (show $ addLinkFlags a)
     ++ "\n  addLibraries:          " ++ (show $ addLibraries a)
+    ++ "\n  addModules:            " ++ (show $ addModules a)
     ++ "\n  addDeps:               " ++ (show $ addGeneratedDependencies a)
     ++ "\n  architectures:         " ++ (show $ architectures a)
-    ++ "\n  sockeyeSchema:         " ++ (show $ sockeyeSchema a)
+    ++ "\n  skateSchemaDefs:       " ++ (show $ skateSchemaDefs a)
+    ++ "\n  skateSchemas:          " ++ (show $ skateSchemas a)
     ++ "\n"

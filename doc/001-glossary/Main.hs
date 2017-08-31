@@ -33,6 +33,20 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
              "The kernel object representing all per-core state. KCBs are \
              \referred to by special capability types.",
 
+             Entry "Driver Domain" []
+             "A driver domain executes one or more drivers. It is special in the sense that \
+             \it communicates with Kaluga to act on requests to spawn or destroy new driver \
+             \instances.",
+
+             Entry "Driver Module" []
+             "A Barrelfish driver module is a piece of code (typically a library) that describes the logic \
+             \for interacting with a device. It follows a well defined structure that allows Kaluga to interface with an \
+             \instantiated driver (see Driver Instance) to control its life-cycle.",
+
+             Entry "Driver Instance" []
+             "A driver is the runtime object instantiated from a given driver module. In practice any number of instances\
+             \can be created from a driver module and executed within one or more driver domains.",
+
              Entry "Boot driver" []
 
              "A piece of code running on a ``home core'' to manage a ``target core''. \
@@ -436,34 +450,34 @@ glossary = [ Entry "dispatcher control block" [ "DCB" ]
 
              Entry "Domain" []
 
-             "The word domain is used to refer to the user-level\
-             \code sharing a protection domain and (usually) an address space.\
+             "The word domain is used to refer to the user-level \
+             \code sharing a protection domain and (usually) an address space. \
              \A domain consists of one or more dispatchers.",
 
              Entry "Channel" []
 
-             "A uni-directional kernel-mediated communication path\
-             \between dispatchers. All messages travel over channels. Holding a\
-             \capability for a channel guarantees the right to send a message to it\
-             \(although the message may not be sent for reasons other than\
+             "A uni-directional kernel-mediated communication path \
+             \between dispatchers. All messages travel over channels. Holding a \
+             \capability for a channel guarantees the right to send a message to it \
+             \(although the message may not be sent for reasons other than \
              \protection).",
 
              Entry "Mapping Database" []
 
-             "The mapping database is used to facilitate retype and revoke operations.\
-             \A capability that is not of type dispatcher, can only be retyped once.\
-             \The mapping database facilitates this check.\
-             \When a capability is revoked, all its descendants and copies are deleted.\
-             \The mapping database keeps track of descendants and copies of a capability\
-             \allowing for proper execution of a revoke operation.\
-             \Each core has a single private mapping database.\
+             "The mapping database is used to facilitate retype and revoke operations. \
+             \A capability that is not of type dispatcher, can only be retyped once. \
+             \The mapping database facilitates this check. \
+             \When a capability is revoked, all its descendants and copies are deleted. \
+             \The mapping database keeps track of descendants and copies of a capability \
+             \allowing for proper execution of a revoke operation. \
+             \Each core has a single private mapping database. \
              \All capabilities on the core must be included in the database.",
 
              Entry "Descendant" []
-             "A capability X is a descendant of a capability A if:\
-             \X was retyped from A,\
-             \or X is a descendant of A1 and A1 is a copy of A,\
-             \or X is a descendant of B and B is a descendant of A,\
+             "A capability X is a descendant of a capability A if: \
+             \X was retyped from A, \
+             \or X is a descendant of A1 and A1 is a copy of A, \
+             \or X is a descendant of B and B is a descendant of A, \
              \or X is a copy of X1 and X1 is a descendant of A.",
 
              Entry "Ancestor" []

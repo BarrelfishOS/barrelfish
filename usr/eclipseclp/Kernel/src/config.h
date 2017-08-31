@@ -319,7 +319,7 @@
 #undef HAVE_PTHREAD_H
 
 /* Define if you have the <string.h> header file.  */
-#undef HAVE_STRING_H
+#define HAVE_STRING_H 1
 
 /* Define if you have the <sys/param.h> header file.  */
 #undef HAVE_SYS_PARAM_H
@@ -346,7 +346,7 @@
 #undef N_NAME
 
 /* Do we have the GMP (or compatible) multi precision library */
-#define HAVE_LIBGMP 1
+#undef HAVE_LIBGMP
 
 /* Are we using MPIR as the GMP compatible multi precision library */
 #undef USING_MPIR

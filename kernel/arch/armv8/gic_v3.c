@@ -43,7 +43,7 @@ errval_t gicv3_init(void)
  */
 uint32_t gicv3_get_active_irq(void)
 {
-    return armv8_ICC_IAR1_EL1_intid_rdf(NULL);
+    return armv8_ICC_IAR1_EL1_INTID_rdf(NULL);
 }
 
 /*
@@ -61,12 +61,12 @@ void gicv3_raise_softirq(coreid_t cpuid, uint8_t irq)
 {
     assert(irq <= 15);
     armv8_ICC_SGI1R_EL1_t reg = 0;
-    reg = armv8_ICC_SGI1R_EL1_intid_insert(reg, 1);
+    reg = armv8_ICC_SGI1R_EL1_INTID_insert(reg, 1);
     // TODO: make that work for cpuids > 15
-    reg = armv8_ICC_SGI1R_EL1_target_insert(reg, 1<<cpuid);
-    reg = armv8_ICC_SGI1R_EL1_aff3_insert(reg, 0);
-    reg = armv8_ICC_SGI1R_EL1_aff2_insert(reg, 0);
-    reg = armv8_ICC_SGI1R_EL1_aff1_insert(reg, 0);
+    reg = armv8_ICC_SGI1R_EL1_TargetList_insert(reg, 1<<cpuid);
+    reg = armv8_ICC_SGI1R_EL1_Aff3_insert(reg, 0);
+    reg = armv8_ICC_SGI1R_EL1_Aff2_insert(reg, 0);
+    reg = armv8_ICC_SGI1R_EL1_Aff1_insert(reg, 0);
     armv8_ICC_SGI1R_EL1_wr(NULL, reg);
 }
 

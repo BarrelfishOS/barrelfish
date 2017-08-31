@@ -135,13 +135,13 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     }
 
     debug_printf("msg_open_cb | Frame base: %016lx, size=%lx, ud:%lx\n", id.base,
-                 1UL << id.bits, usrdata);
+                 id.bytes, usrdata);
 
     remote_frame = msgframe;
 
     remote_base = id.base;
 
-    remote_frame_sz = (1UL << id.bits);
+    remote_frame_sz = id.bytes;
 
     err = vspace_map_one_frame(&remote_buf, remote_frame_sz, msgframe,
     NULL,
@@ -323,4 +323,3 @@ int main(int argc,
         messages_wait_and_handle_next();
     }
 }
-

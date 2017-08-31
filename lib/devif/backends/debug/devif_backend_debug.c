@@ -44,7 +44,13 @@
  * If a buffer is dequeued the buffer is added to the existing memory
  * chunks if possible, otherwise a new memory chunk is added to the
  * list of chunks. If a buffer is dequeued that is in between two
- * memory chunks, the memory chunks are merged to one big chunk. 
+ * memory chunks, the memory chunks are merged to one big chunk.
+ * We might fail to find the region id in our list of regions. In this
+ * case we add the region with the deqeued offset+length as a size.
+ * We can be sure that this region exists since the devq library itself
+ * does these checks if the region is known to the endpoint. This simply
+ * means the debugging queue on top of the other queue does not have a 
+ * consistant view of the registered regions (but the queue below does)
  *
  * When a region is deregistered, the list of chunks has to only 
  * contain a single chunk that descirbes the whole region. Otherwise
@@ -62,6 +68,8 @@ struct memory_ele {
 struct memory_list {
     regionid_t rid;
     genoffset_t length;
+    // is a region that we did not register ourselves
+    bool not_consistent;
     struct memory_ele* buffers;
     struct memory_list* next; // next in list of lists
 };
@@ -80,6 +88,8 @@ struct debug_q {
     uint16_t hist_head;
     struct operation history[HIST_SIZE];
 };
+
+
 
 static void dump_list(struct memory_list* region)
 {  
@@ -177,9 +187,11 @@ static errval_t debug_register(struct devq* q, struct capref cap,
         que->regions = calloc(1, sizeof(struct memory_list));
         que->regions->rid = rid;
         que->regions->length = id.bytes;
+        que->regions->not_consistent = false;
         que->regions->next = NULL;
         // add the whole regions as a buffer
         que->regions->buffers = slab_alloc(&que->alloc);
+        memset(que->regions->buffers, 0, sizeof(que->regions->buffers));
         que->regions->buffers->offset = 0;
         que->regions->buffers->length = id.bytes;
         que->regions->buffers->next = NULL;
@@ -205,8 +217,10 @@ static errval_t debug_register(struct devq* q, struct capref cap,
     ele->rid = rid;
     ele->next = NULL;
     ele->length = id.bytes;
+    ele->not_consistent = false;
     // add the whole regions as a buffer
     ele->buffers = slab_alloc(&que->alloc);
+    memset(ele->buffers, 0, sizeof(ele->buffers));
     ele->buffers->offset = 0;
     ele->buffers->length = id.bytes;
     ele->buffers->next = NULL;
@@ -403,6 +417,7 @@ static void remove_split_buffer(struct debug_q* que,
 
     struct memory_ele* after = NULL;
     after = slab_alloc(&que->alloc);
+    memset(after, 0, sizeof(after));
     after->offset = buffer->offset + buffer->length + length;
     after->length = old_len - buffer->length - length;
 
@@ -575,6 +590,7 @@ static void insert_merge_buffer(struct debug_q* que,
 
                 // insert in between
                 struct memory_ele* ele = slab_alloc(&que->alloc);
+                memset(ele, 0, sizeof(ele));
                 assert(ele != NULL);
                 
                 ele->offset = offset;
@@ -702,22 +718,70 @@ static errval_t debug_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
 {
     errval_t err;
     struct debug_q* que = (struct debug_q*) q;
+    assert(que->q->f.deq != NULL);
     err = que->q->f.deq(que->q, rid, offset, length, valid_data,
                         valid_length, flags);
     if (err_is_fail(err)) {
         return err;
     }
-
     DEBUG("dequeued offset=%lu \n", *offset);
 
     struct memory_list* region = NULL;
 
     err = find_region(que, &region, *rid);
     if (err_is_fail(err)){
-        return err;
+        // region ids are checked bythe devq library, if we do not find
+        // the region id when dequeueing here we do not have a consistant
+        // view of two endpoints
+        //
+        // Add region
+        if (que->regions == NULL) {
+            printf("Adding region frirst %lu len \n", *offset + *length);
+            que->regions = calloc(1, sizeof(struct memory_list));
+            que->regions->rid = *rid;
+            que->regions->not_consistent = true;
+            // region is at least offset + length
+            que->regions->length = *offset + *length;
+            que->regions->next = NULL;
+            // add the whole regions as a buffer
+            que->regions->buffers = slab_alloc(&que->alloc);
+            memset(que->regions->buffers, 0, sizeof(que->regions->buffers));
+            que->regions->buffers->offset = 0;
+            que->regions->buffers->length = *offset + *length;
+            que->regions->buffers->next = NULL;
+            return SYS_ERR_OK;
+        }
+
+        struct memory_list* ele = que->regions;
+        while (ele->next != NULL) {
+            ele = ele->next;
+        }
+
+        printf("Adding region second %lu len \n", *offset + *length);
+        // add the reigon
+        ele->next = calloc(1,sizeof(struct memory_list));
+        ele = ele->next;
+
+        ele->rid = *rid;
+        ele->next = NULL;
+        ele->not_consistent = true;
+        ele->length = *offset + *length;
+        // add the whole regions as a buffer
+        ele->buffers = slab_alloc(&que->alloc);
+        memset(ele->buffers, 0, sizeof(ele->buffers));
+        ele->buffers->offset = 0;
+        ele->buffers->length = *offset + *length;
+        ele->buffers->next = NULL;
+        return SYS_ERR_OK;
     }
 
-    check_consistency(region);
+    if (region->not_consistent) {
+        if ((*offset + *length) > region->length) {
+            region->length = *offset + *length;
+        }
+    }
+
+    //check_consistency(region);
 
     // find the buffer 
     struct memory_ele* buffer = region->buffers;
@@ -765,6 +829,12 @@ static errval_t debug_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
     return DEVQ_ERR_BUFFER_NOT_IN_USE;
 }
 
+static errval_t debug_destroy(struct devq* devq)
+{
+    // TODO cleanup
+    return SYS_ERR_OK;
+}
+
 /**
  * Public functions
  *
@@ -792,15 +862,39 @@ errval_t debug_create(struct debug_q** q, struct devq* other_q)
     que->my_q.f.notify = debug_notify;
     que->my_q.f.enq = debug_enqueue;
     que->my_q.f.deq = debug_dequeue;
+    que->my_q.f.destroy = debug_destroy;
     *q = que;
     return SYS_ERR_OK;
 }
 
-errval_t debug_destroy(struct debug_q* q, struct devq* devq)
+errval_t debug_dump_region(struct debug_q* que, regionid_t rid) 
 {
-    devq = q->q;
-    free(q);    
+    errval_t err;
+    // find region
+    struct memory_list* region = NULL;
 
+    err = find_region(que, &region, rid);
+    if (err_is_fail(err)){
+        return err;
+    }
+
+    dump_list(region);
     return SYS_ERR_OK;
 }
 
+
+void debug_dump_history(struct debug_q* q)
+{
+    dump_history(q);
+}
+
+errval_t debug_add_region(struct debug_q* q, struct capref cap,
+                         regionid_t rid)
+{
+    return devq_add_region((struct devq*) q, cap, rid);
+}
+
+errval_t debug_remove_region(struct debug_q* q, regionid_t rid)
+{
+    return devq_remove_region((struct devq*) q, rid);
+}

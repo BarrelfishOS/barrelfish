@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/param.h>
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
@@ -824,13 +825,20 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                  *      I350 network card (device id 0x152x),
                                  *      the configuration fails when VF are
                                  *      enabled: Legacy descriptors are ignored
-                                 *      when VF are enabled.
+                                 *      when VF are enabled. Same goes for e10k
                                  */
                                 if (vendor == 0x8086 && (device_id & 0xFFF0) == 0x1520) {
                                     debug_printf("skipping SR IOV initialization"
                                                     "for e1000 card.\n");
                                     break;
                                 }
+                
+                                if (vendor == 0x8086 && (device_id  == 0x10FB)) {
+                                    debug_printf("skipping SR IOV initialization"
+                                                    "for e10k card.\n");
+                                    break;
+                                }
+
                                 pci_sr_iov_cap_t sr_iov_cap;
                                 pci_sr_iov_cap_initialize(&sr_iov_cap,
                                      (mackerel_addr_t) (ad + (cap_ptr / 4)));

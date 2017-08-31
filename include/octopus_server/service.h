@@ -17,7 +17,6 @@
 #define OCTOPUS_SERVICE_H_
 
 #include <barrelfish/barrelfish.h>
-#include <if/octopus_defs.h>
 #include <octopus/definitions.h>
 
 struct oct_reply_state;

@@ -20,11 +20,11 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include <barrelfish_kpi/types.h>
 #include <init.h>
 #include <offsets.h>
 #include <sysreg.h>
 #include <dev/armv8_dev.h>
-#include <dev/armv8/armv8_generic_timer_dev.h>
 
 #include <multiboot2.h>
 #include <barrelfish_kpi/arm_core_data.h>
@@ -182,11 +182,11 @@ static void armv8_set_ttbr0(uint8_t el, lpaddr_t addr)
         case 3:
             //sysreg_write_ttbr0_el2(addr);
         case 2:
-            armv8_TTBR0_EL2_baddr_wrf(NULL, addr);
-            armv8_TTBR0_EL1_baddr_wrf(NULL, addr);
+            armv8_TTBR0_EL2_wr(NULL, addr);
+            armv8_TTBR0_EL1_wr(NULL, addr);
             break;
         case 1:
-            armv8_TTBR0_EL1_baddr_wrf(NULL, addr);
+            armv8_TTBR0_EL1_wr(NULL, addr);
             break;
         default:
             assert("should not happen");
@@ -254,18 +254,15 @@ static void armv8_instruction_synchronization_barrier(void)
 }
 
 static void configure_spsr(uint8_t el) {
-    uint32_t spsr = 0;
+    armv8_SPSR_EL2_t spsr = 0;
     /* mask the exceptions */
     spsr = armv8_SPSR_EL2_D_insert(spsr, 1);
     spsr = armv8_SPSR_EL2_A_insert(spsr, 1);
     spsr = armv8_SPSR_EL2_I_insert(spsr, 1);
     spsr = armv8_SPSR_EL2_F_insert(spsr, 1);
 
-    /* set el1 */
-    spsr = armv8_SPSR_EL2_EL_insert(spsr, 1);
-
-    /* use the SP_ELx stack */
-    spsr = armv8_SPSR_EL2_SP_insert(spsr, 1);
+    /* set el1 and use the SP_ELx stack */
+    spsr = armv8_SPSR_EL2_M_lo_insert(spsr, (1<<2) | 1);
 
     switch(el) {
     case 3:
@@ -421,7 +418,7 @@ static void configure_el2_traps(void)
      * Cacheability of the location, there might be a loss of coherency if the
      * Inner Cacheability attribute for those accesses differs from the Outer
      * Cacheability attribute.*/
-    val = armv8_HCR_EL2_MIOCNC_insert(val, 1);
+    val = armv8_HCR_EL2_MIOCNCE_insert(val, 1);
 
     /* Set the mode to be AARCH64 */
     val = armv8_HCR_EL2_RW_insert(val, 1);
@@ -439,11 +436,11 @@ static void configure_el2_traps(void)
 
     /* disable traps to EL2 for timer accesses */
 
-    armv8_generic_timer_hvc_ctrl_el2_t cnthctl;
-    cnthctl = armv8_generic_timer_hvc_ctrl_el2_rd(NULL);
-    cnthctl = armv8_generic_timer_hvc_ctrl_el2_EL1PCEN_insert(cnthctl, 0x1);
-    cnthctl = armv8_generic_timer_hvc_ctrl_el2_EL1PCTEN_insert(cnthctl, 0x1);
-    armv8_generic_timer_hvc_ctrl_el2_wr(NULL, cnthctl);
+    armv8_CNTHCTL_EL2_t cnthctl;
+    cnthctl = armv8_CNTHCTL_EL2_rd(NULL);
+    cnthctl = armv8_CNTHCTL_EL2_EL1PCEN_insert(cnthctl, 0x1);
+    cnthctl = armv8_CNTHCTL_EL2_EL1PCTEN_insert(cnthctl, 0x1);
+    armv8_CNTHCTL_EL2_wr(NULL, cnthctl);
 }
 
 static void configure_el1_traps(void)
@@ -651,5 +648,3 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
         __asm volatile("wfi \n");
     }
 }
-
-

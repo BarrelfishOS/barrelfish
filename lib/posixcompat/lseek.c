@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <vfs/vfs_fd.h>
 
-off_t lseek(int fd, off_t offset, int whence)
-{
-    return vfsfd_lseek(fd, offset, whence);
-}
+//off_t lseek(int fd, off_t offset, int whence)
+//{
+//    return vfsfd_lseek(fd, offset, whence);
+//}

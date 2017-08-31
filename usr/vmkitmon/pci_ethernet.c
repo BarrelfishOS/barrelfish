@@ -101,7 +101,7 @@ static void confspace_read(struct pci_device *dev,
     }
 }
 
-static void pci_ethernet_init(void *bar_info, int nr_allocated_bars)
+static void pci_ethernet_init(void *arg, void *bar_info, int nr_allocated_bars)
 {
 	VMKIT_PCI_DEBUG("pci_ethernet_init. nr_allocated_bars: %d!\n", nr_allocated_bars);
     struct device_mem *bar = (struct device_mem *)bar_info;
@@ -279,7 +279,7 @@ struct pci_device *pci_ethernet_new(struct lpc *lpc, struct guest *g)
 	VMKIT_PCI_DEBUG("connected to pci\n");
 
     //Register as driver
-	r = pci_register_driver_irq((pci_driver_init_fn)pci_ethernet_init,
+	r = pci_register_driver_irq((pci_driver_init_fn)pci_ethernet_init, NULL,
                                 PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
 								PCI_VENDOR_INTEL, deviceid,

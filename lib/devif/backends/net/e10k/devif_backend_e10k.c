@@ -9,13 +9,11 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <devif/backends/net/e10k_devif.h>
 #include <devif/queue_interface.h>
 #include <dev/e10k_q_dev.h>
 #include <dev/e10k_dev.h>
 #include <dev/e10k_vf_dev.h>
 #include <skb/skb.h>
-
 
 #include <if/e10k_vf_defs.h>
 #include <if/e10k_vf_rpcclient_defs.h>
@@ -32,6 +30,101 @@
 #define IPHDR_LEN 20
 #define UDPHDR_LEN 8
 
+
+
+// for debugging
+static e10k_t* d;
+
+// TODO only required for legacy interrupts
+struct e10k_queue* queues[128];
+
+/*
+static void queue_debug(const char* fmt, ...)
+{
+    va_list va;
+    va_start(va, fmt);
+    printf("e10k.queue_handle%d: ", 0);
+    vprintf(fmt, va);
+    va_end(va);
+}
+
+#define prnonz(x) uint32_t x = e10k_##x##_rd(d); if (x) snprintf(str[cnt++], 32, #x "=%x", x)
+#define prnonzary(x, n)			      \
+  for(int i = 0; i < n; i++) {		      \
+    uint32_t reg = e10k_##x##_rd(d, i);	      \
+    if (reg) snprintf(str[cnt++], 32, #x ".%d=%x", i, reg);	\
+  }
+static void stats_dump(void)
+{
+  char str[256][32];
+  int cnt = 0;
+  memset(str, 0, 256 * 32);
+
+  prnonzary(pfvfte, 2);
+  prnonz(picause);
+  prnonz(rttdcs);
+
+  prnonz(fwsm);
+  prnonz(eicr);
+
+  prnonz(dmatxctl);
+  prnonzary(tdbal, 128);
+  prnonzary(tdbah, 128);
+  prnonzary(tdlen, 128);
+  prnonzary(tdh, 128);
+  prnonzary(tdt, 128);
+  prnonzary(txdctl, 128);
+  prnonzary(tdwbal, 128);
+  prnonzary(tdwbah, 128);
+  prnonz(mtqc);
+
+    prnonz(crcerrs);
+    prnonz(illerrc);
+    prnonz(errbc);
+    prnonzary(rxmpc, 8);
+    prnonz(mlfc);
+    prnonz(mrfc);
+    prnonz(rlec);
+    prnonz(ssvpc);
+    // ...
+    prnonz(gprc);
+    prnonz(gorcl);
+    prnonz(gorch);
+    prnonz(rxnfgpc);
+    // ...
+    prnonz(rxdgpc);
+    // ...
+    prnonz(gptc);
+    prnonz(gotcl);
+    prnonz(gotch);
+    prnonz(txdgpc);
+    // ...
+    prnonz(ruc);
+    prnonz(rfc);
+    prnonz(roc);
+    prnonz(rjc);
+    prnonz(mngprc);
+    prnonz(mngpdc);
+    prnonz(torl);
+    prnonz(torh);
+    prnonz(tpr);
+    prnonz(tpt);
+    // ...
+    prnonz(mspdc);
+    // ...
+    prnonzary(qprc, 16);
+    prnonzary(qprdc, 16);
+    // ...
+
+    if(cnt > 0) {
+      queue_debug("");
+      for(int i = 0; i < cnt; i++) {
+	printf("%s ", str[i]);
+      }
+      printf("\n");
+    }
+}
+*/
 /******************************************************************************/
 /* Misc functions */
 
@@ -95,6 +188,20 @@ static struct region_entry* get_region(struct e10k_queue* q, regionid_t rid)
     return NULL;
 }
 
+/*
+static void print_packet(lvaddr_t addr, genoffset_t length)
+{
+    uint8_t* buf = (uint8_t*) addr;
+    for (int i = 0; i < length; i++) {
+        
+        if ((i % 8) == 0) {
+            printf(" \n");
+        }
+        printf("%2X ", buf[i]);
+    }
+    printf(" \n");
+}
+*/
 
 static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
                                genoffset_t offset,
@@ -115,6 +222,7 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
     bool last = flags & NETIF_TXFLAG_LAST;
     bool first = flags & NETIF_TXFLAG_FIRST;
     // Prepare checksum offload
+
     if (buf_use_ipxsm(flags)) {
         e10k_q_l4_type_t l4t = 0;
         uint8_t l4len = 0;
@@ -126,6 +234,7 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
             l4t = e10k_q_udp;
             l4len = UDPHDR_LEN;
         }
+
         e10k_queue_add_txcontext(q, 0, ETHHDR_LEN, IPHDR_LEN, l4len, l4t);
 
 	    if (q->use_vtd) {
@@ -134,10 +243,10 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
             assert(entry != NULL);
 
             lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->virt + offset;
+            addr = (lpaddr_t) entry->virt + offset + valid_data;
             e10k_queue_add_txbuf_ctx(q, addr, rid, offset, length,
                                      valid_data, valid_length, flags,
-                                     first, last, length, 0, true, l4len !=0);
+                                     first, last, valid_length, 0, true, l4len !=0);
 	    } else {
 
             // get virtual address of buffer
@@ -145,10 +254,10 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
             assert(entry != NULL);
 
             lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->phys + offset;
+            addr = (lpaddr_t) entry->phys + offset + valid_data;
             e10k_queue_add_txbuf_ctx(q, addr, rid, offset, length,
                                      valid_data, valid_length, flags,
-                                     first, last, length, 0, true, l4len != 0);
+                                     first, last, valid_length, 0, true, l4len != 0);
         }
     } else {
         if (q->use_vtd) {
@@ -157,18 +266,18 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
             assert(entry != NULL);
 
             lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->virt + offset;
+            addr = (lpaddr_t) entry->virt + offset + valid_data;
             e10k_queue_add_txbuf(q, addr, rid, offset, length, valid_data,
                                  valid_length, flags,
-                                 first, last, length);
+                                 first, last, valid_length);
         } else {
             struct region_entry* entry = get_region(q, rid);
             assert(entry != NULL);
 
-            lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->phys + offset;
+            lpaddr_t addr;
+            addr = (lpaddr_t) entry->phys + offset + valid_data;
             e10k_queue_add_txbuf(q, addr, rid, offset, length, valid_data,
-                                 valid_length, flags, first, last, length);
+                                 valid_length, flags, first, last, valid_length);
         }
     }
     e10k_queue_bump_txtail(q);
@@ -242,6 +351,10 @@ static errval_t e10k_enqueue(struct devq* q, regionid_t rid, genoffset_t offset,
 
         assert(length <= 2048);
         
+        DEBUG_QUEUE("Enqueuing offset=%lu valid_data=%lu txhwb=%d tx_tail=%zu tx_head=%zu \n", 
+               offset, valid_data, *((uint32_t*)queue->tx_hwb), queue->tx_tail,
+               queue->tx_head);
+
         err = enqueue_tx_buf(queue, rid, offset, length, valid_data,
                              valid_length, flags);
         if (err_is_fail(err)) {
@@ -262,19 +375,24 @@ static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
     int last;
     errval_t err = SYS_ERR_OK;
 
-    if (!e10k_queue_get_rxbuf(que, rid, offset, length, valid_data,
-                             valid_length, flags, &last)) {
-        err = DEVQ_ERR_QUEUE_EMPTY;
-    } else {
-        return SYS_ERR_OK;
-    }
-     
     if (!e10k_queue_get_txbuf(que, rid, offset, length, valid_data,
                               valid_length, flags)) {
         err = DEVQ_ERR_QUEUE_EMPTY;
     }  else {
+        DEBUG_QUEUE("Queue %d sent offset=%lu valid_length=%lu \n", 
+               que->id, *offset, *valid_length);
         return SYS_ERR_OK;
     }
+
+    if (!e10k_queue_get_rxbuf(que, rid, offset, length, valid_data,
+                             valid_length, flags, &last)) {
+        err = DEVQ_ERR_QUEUE_EMPTY;
+    } else {
+        DEBUG_QUEUE("Queue %d received offset=%lu valid_length=%lu \n", 
+               que->id, *offset, *valid_length);
+        return SYS_ERR_OK;
+    }
+     
 
     return err;
 }
@@ -303,7 +421,7 @@ static errval_t e10k_register(struct devq* q, struct capref cap, regionid_t rid)
 
     void* va;
     err = vspace_map_one_frame_attr(&va, id.bytes, cr,
-                                    VREGION_FLAGS_READ_WRITE_NOCACHE,
+                                    VREGION_FLAGS_READ_WRITE,
                                     NULL, NULL);
     if (err_is_fail(err)) {
         return err;
@@ -341,6 +459,9 @@ static errval_t e10k_deregister(struct devq* q, regionid_t rid)
 
 static errval_t e10k_control(struct devq* q, uint64_t cmd, uint64_t value, uint64_t *result)
 {
+    struct e10k_queue* queue = (struct e10k_queue*) q;
+    *result = queue->mac;
+    DEBUG_QUEUE("Control cmd=%lu value=%lu \n", cmd, value);
     return SYS_ERR_OK;
 }
 
@@ -350,10 +471,34 @@ static errval_t e10k_notify(struct devq* q)
     return SYS_ERR_OK;
 }
 
+static errval_t e10k_destroy(struct devq* queue)
+{
+    struct e10k_queue* q = (struct e10k_queue*) queue;
+    free(q);
+    //TODO: rest of the cleanup
+    return SYS_ERR_OK;
+}
+
 /******************************************************************
  * Management functions
  *
  */
+
+static void interrupt_cb(struct e10k_vf_binding *b, uint16_t qid)
+{
+    struct e10k_queue* q = queues[qid];
+
+    if (q != b->st) {
+        debug_printf("STATE MISMATCH!\n %p %p\n", q, b->st);
+        q = b->st;
+    }
+
+    q->cb(q);
+}
+
+static struct e10k_vf_rx_vtbl rx_vtbl = {
+    .interrupt = interrupt_cb,
+};
 
 static void bind_cb(void *st, errval_t err, struct e10k_vf_binding *b)
 {
@@ -364,6 +509,7 @@ static void bind_cb(void *st, errval_t err, struct e10k_vf_binding *b)
 
     b->st = q;
     q->binding = b;
+    b->rx_vtbl = rx_vtbl;
     e10k_vf_rpc_client_init(q->binding);
     q->bound = true;
 }
@@ -396,15 +542,8 @@ static void connect_to_mngif(struct e10k_queue* q)
 }
 
 /*********************************************************
- * Queue creation and destruction
+ * Queue creation 
  */
-
-
-errval_t e10k_queue_destroy(struct e10k_queue* queue)
-{
-    //TODO: do the cleanup
-    return SYS_ERR_OK;
-}
 
 static errval_t map_device_memory(struct e10k_queue* q,
                                   struct capref regs)
@@ -431,11 +570,13 @@ static errval_t map_device_memory(struct e10k_queue* q,
     q->d = malloc(sizeof(e10k_t));
     assert(q->d != NULL);
     e10k_initialize(q->d, va);
+    d = q->d;
     return SYS_ERR_OK;
 }
+
 // TODO mostly cleanup when fail
 errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
-                           bool use_vf, bool interrupts)
+                           bool use_vf, bool interrupts, bool qzero)
 {
 
     errval_t err;
@@ -445,6 +586,10 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
     q = malloc(sizeof(struct e10k_queue));
     q->pci_function = 0; // TODO allow also function 1
 
+    // txhwb
+    q->use_txhwb = true;
+    q->cb = cb;
+    
     if (use_vf) {
         USER_PANIC("NOT YET WORKING \n");
         // Start VF
@@ -463,7 +608,6 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
             }
         }
 
-        // TODO: VF queues only work with VT-d enabled?
         err = skb_client_connect();
         assert(err_is_ok(err));
         err = skb_execute_query("vtd_enabled(0,_).");
@@ -483,15 +627,14 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
 
     // allocate memory for RX/TX rings
     struct capref tx_frame;
-    size_t tx_size = e10k_q_tdesc_legacy_size*NUM_TX_DESC;
+    size_t tx_size = e10k_q_tdesc_adv_wb_size*NUM_TX_DESC;
     void* tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, tx_size, &tx_frame);
     if (tx_virt == NULL) {
         return DEVQ_ERR_INIT_QUEUE;
     }
 
-
     struct capref rx_frame;
-    size_t rx_size = e10k_q_tdesc_legacy_size*NUM_TX_DESC;
+    size_t rx_size = e10k_q_rdesc_adv_wb_size*NUM_RX_DESC;
     void* rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, rx_size, &rx_frame);
     if (rx_virt == NULL) {
         return DEVQ_ERR_INIT_QUEUE;
@@ -502,18 +645,18 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
         .update_rxtail = update_rxtail,
     };
 
-    struct capref txhwb_frame = NULL_CAP;
+    struct capref txhwb_frame;
     void* txhwb_virt = NULL;
-#if 0
-    if (use_txhwb) {
+
+    if (q->use_txhwb) {
         txhwb_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, BASE_PAGE_SIZE,
         &txhwb_frame);
-        if (txhwb_virt == NULL) {
+        if (txhwb_virt == NULL) {   
             return DEVQ_ERR_INIT_QUEUE;
         }
         memset(txhwb_virt, 0, sizeof(uint32_t));
     }
-#endif
+
     e10k_queue_init(q, tx_virt, NUM_TX_DESC, txhwb_virt,
                     rx_virt, NUM_RX_DESC, &ops);
 
@@ -526,7 +669,6 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
     q->use_irq = interrupts;
 
     // XXX:disable by default for now
-    q->use_txhwb = false;
     q->use_rsc = false;
 
     if (q->use_vf) {
@@ -535,13 +677,10 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
             return err;
         }
     } else {
-        struct capref regs;
 
-        // Inform card driver about new queue and get the registers/queue id
-        err = slot_alloc(&regs);
-        if (err_is_fail(err)) {
-            return err;
-        }
+        int qid;
+        errval_t err2;
+        struct capref regs;
 
         if (q->use_irq) {
             /*
@@ -552,26 +691,39 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
             // TODO setup MSI-X interrupts
         }
 
-        int q_id;
-        err = q->binding->rpc_tx_vtbl.create_queue(q->binding, tx_frame, txhwb_frame,
-                                            rx_frame, 2048, q->msix_intvec,
-                                            q->msix_intdest, false, false, &q_id,
-                                            &regs);
+        // Inform card driver about new queue and get the registers/queue id
+        err = slot_alloc(&regs);
         if (err_is_fail(err)) {
             return err;
         }
 
-        assert(q_id >= 0);
-        q->id = (uint16_t)q_id;
+        err = q->binding->rpc_tx_vtbl.create_queue(q->binding, tx_frame, txhwb_frame,
+                                            rx_frame, 2048, q->msix_intvec,
+                                            q->msix_intdest, q->use_irq, false, qzero,
+                                            &q->mac, &qid,
+                                            &regs, &err2);
+        if (err_is_fail(err) || err_is_fail(err2)) {
+            DEBUG_QUEUE("e10k rpc error\n");
+            return err_is_fail(err)? err: err2;
+        }
+
+        assert(qid >= 0);
+        q->id = (uint16_t)qid;
 
         err = map_device_memory(q, regs);
         if (err_is_fail(err)) {
+            DEBUG_QUEUE("e10k map device error\n");
             return err;
         }
+            
+        update_txtail(q, 0);
+        update_rxtail(q, 0);
+        
     }
 
     err = devq_init(&q->q, false);
     if (err_is_fail(err)) {
+        DEBUG_QUEUE("e10k devq_init error\n");
         return err;
     }
     
@@ -581,10 +733,17 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
     q->q.f.dereg = e10k_deregister;
     q->q.f.ctrl = e10k_control;
     q->q.f.notify = e10k_notify;
+    q->q.f.destroy = e10k_destroy;
 
 
     *queue = q;
+    queues[q->id] = q;
 
+    DEBUG_QUEUE("e10k queue init done\n");
     return SYS_ERR_OK;
 }
 
+uint64_t e10k_queue_get_id(struct e10k_queue* q)
+{
+    return q->id;
+}

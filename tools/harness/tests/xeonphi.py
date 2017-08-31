@@ -23,7 +23,7 @@ from results import PassFailResult
 class XeonPhi_Boot_Test(TestCommon):
     '''Xeon Phi Spawn test'''
     name = "xeon_phi_boot"
-    nphi = 0;
+    nphi = 2;
 
     def set_xeon_phi_bootmodules(self, build_dir, machine):
         fullpath = os.path.join(machine.get_tftp_dir(), 'menu.lst.k1om')
@@ -69,7 +69,7 @@ class XeonPhi_Boot_Test(TestCommon):
         if (os.path.isfile(menulst)) :
             os.remove(menulst)
         self.set_xeon_phi_bootmodules(build.build_dir, machine)
-        self.nphi = machine.get_xphi_ncards()
+#        self.nphi = machine.get_xphi_ncards()
         
 
     def get_build_targets(self, build, machine):
@@ -104,23 +104,13 @@ class XeonPhi_Boot_Test(TestCommon):
         modules.add_module("xeon_phi", ["auto", 
                                         "--tftp=tftp://10.110.4.4:69",
                                         "--modlist=/" + tftpdir + "/menu.lst.k1om"])
-        modules.add_module("e1000n", ["auto", "noirq"])
-        modules.add_module("NGD_mng", ["auto"])
-        modules.add_module("netd", ["auto"])
+        modules.add_module("e1000_net_sockets_server", ["auto"])
         modules.add_module("dma_mgr", [""])
 
         return modules
 
-    def is_finished(self, line):
-        #m = re.search("Xeon Phi operational: xeon_phi.([0-9]).ready", line)
-        m = re.search("Xeon Phi operational: xeon_phi." + str(self.nphi - 1) + ".ready", line)
-        if m :
-            return True
-        else :
-            return False        
-
     def get_finish_string(self):
-        return "Xeon Phi operational: xeon_phi.([0-9]).ready"
+        return "Xeon Phi operational: xeon_phi." + str(self.nphi - 1) + ".ready"
 
     def boot(self, *args):
         super(XeonPhi_Boot_Test, self).boot(*args)
@@ -128,12 +118,11 @@ class XeonPhi_Boot_Test(TestCommon):
 
     def process_data(self, testdir, rawiter):
         # the test passed iff the last line is the finish string
-        lastline = ''
-        passed = False;
-        phi_up_count = 0
+        print "PROCESS DATA"
+        passed=False
         for line in rawiter:
             m = re.search("Xeon Phi operational: xeon_phi." + str(self.nphi - 1) + ".ready", line)
             if m:
-                phi_count_up = phi_count_up + 1
-
-        return PassFailResult(phi_count_up == self.nphi)
+                passed=True
+                
+        return PassFailResult(passed)

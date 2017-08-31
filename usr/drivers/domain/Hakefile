@@ -1,0 +1,34 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2017, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/drivers/domain
+--
+--------------------------------------------------------------------------
+
+
+[
+  -- Builds a driver module: this is identical to building a
+  -- library, the only difference is in how this is linked with the domain
+  build library {
+    target = "drivermodule",
+    cFiles = [ "drivertpl.c"]
+  },
+
+  -- Builds a driver domain: Use addModules instead of addLibraries to
+  -- link with driver modules.
+  -- The custom linker script is used to add the section where the modules
+  -- are stored.
+  build application {
+    target = "driverdomain",
+    cFiles = [ "main.c"],
+    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+    addLibraries = libDeps [ "driverkit", "thc" ],
+    addModules = ["fdif_module", "sdma_module", "cm2_module", "twl6030_module", "mmchs_module"],
+    architectures = ["armv7"]
+  }
+]

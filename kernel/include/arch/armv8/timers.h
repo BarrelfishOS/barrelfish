@@ -21,11 +21,12 @@
 #ifndef __ARMv8_TIMER_H_
 #define __ARMv8_TIMER_H_
 
+#include <barrelfish/types.h>
 #include <barrelfish_kpi/types.h>
 #include <barrelfish_kpi/platform.h>
 
 #include <sysreg.h>
-#include <dev/armv8/armv8_generic_timer_dev.h>
+#include <dev/armv8_dev.h>
 
 /*
  * Timers
@@ -51,7 +52,7 @@ void timer_reset(uint64_t ms);
  */
 static inline cycles_t timer_get_frequency(void)
 {
-    return armv8_generic_timer_frequency_el0_rd(NULL);
+    return armv8_CNTFRQ_EL0_rd(NULL);
 }
 
 /**
@@ -61,7 +62,7 @@ static inline cycles_t timer_get_frequency(void)
  */
 static inline cycles_t timer_get_timestamp(void)
 {
-    return armv8_generic_timer_count_el0_rd(NULL);
+    return armv8_CNTPCT_EL0_rd(NULL);
 }
 
 /**
@@ -71,7 +72,7 @@ static inline cycles_t timer_get_timestamp(void)
  */
 static inline volatile bool timer_is_set(void)
 {
-    return (armv8_generic_timer_ctrl_el0_ISTATUS_rdf(NULL) == 0);
+    return (armv8_CNTP_CTL_EL0_ISTATUS_rdf(NULL) == 0);
 }
 
 #endif // __ARMv8_TIMER_H_

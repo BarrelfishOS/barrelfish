@@ -186,11 +186,11 @@ let
     "-Wno-redundant-decls"
     ]
 
-  arch_cFlags arch = case arch of "x86_64"  -> [ ]
-                                  "k1om"    -> [ ]
-                                  "x86_32"  -> [ ]
-                                  "armv7"   -> [ "-D__ARM_EABI__" ]
-                                  "armv8"   -> [ ]
+  arch_cFlags arch = case arch of "x86_64"  -> common_cFlags
+                                  "k1om"    -> common_cFlags
+                                  "x86_32"  -> common_cFlags
+                                  "armv7"   -> common_cFlags ++ [ "-D__ARM_EABI__" ]
+                                  "armv8"   -> common_cFlags
 
   builtins_unittest_dir = "test/builtins/Unit/"
 
@@ -198,12 +198,15 @@ in [ build application {
         target = "compiler-rt/" ++ builtins_unittest_dir ++
                                    (take ((length f) - 2) f),
         cFiles = [ f ],
-        addCFlags = common_cFlags,
+        addCFlags = arch_cFlags arch,
         addLibraries = libDeps [
             "compiler-rt",
             "m"
         ],
+        architectures = [
+            arch
+        ],
         addIncludes = [
             "/lib/compiler-rt/builtins/"
         ]
-    } | f <- builtins_unittest_files ]
+    } | f <- builtins_unittest_files, arch <- allArchitectures ]

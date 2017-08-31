@@ -415,7 +415,7 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
     errval_t err;
 
     // initialize the memory allcator
-    XSYSMEM_DEBUG("Initializing slot allocator of %i slots\n", NUM_SLOTS);
+    XSYSMEM_DEBUG("Initializing slot allocator of %" PRIu64 " slots\n", NUM_SLOTS);
     err = range_slot_alloc_init(&sysmem_allocator, NUM_SLOTS, NULL);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC_INIT);

@@ -46,14 +46,14 @@ int main()
     if (test__udivmodsi4(2, 1, 2, 0))
         return 1;
 
-	if (test__udivmodsi4(19, 5, 3, 4))
+    if (test__udivmodsi4(19, 5, 3, 4))
         return 1;
 
-	if (test__udivmodsi4(0x80000000, 8, 0x10000000, 0))
-        return 1;
-  	
- 	if (test__udivmodsi4(0x80000003, 8, 0x10000000, 3))
+    if (test__udivmodsi4(0x80000000, 8, 0x10000000, 0))
         return 1;
 
-	return 0;
+    if (test__udivmodsi4(0x80000003, 8, 0x10000000, 3))
+        return 1;
+
+    return 0;
 }

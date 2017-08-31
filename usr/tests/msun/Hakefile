@@ -1,0 +1,22 @@
+[
+    build application {
+        target = "cexp_test",
+        cFiles = [ "cexp_test.c" ],
+        omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
+    },
+    build application {
+        target = "csqrt_test",
+        cFiles = [ "csqrt_test.c" ],
+        omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
+    },
+    build application {
+        target = "invtrig_test",
+        cFiles = [ "invtrig_test.c" ],
+        omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
+    },
+    build application {
+        target = "lround_test",
+        cFiles = [ "lround_test.c" ],
+        omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ]
+    }
+]

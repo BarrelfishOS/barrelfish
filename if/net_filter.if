@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2017, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface net_filter "Network Filter Interface" {
+    typedef enum {PORT_TCP, PORT_UDP, MAC} filter_type;
+
+    rpc install_filter_ip(in filter_type type,
+                          in uint64 qid,
+                          in uint32 src_ip,
+                          in uint32 dst_ip,
+                          in uint16 src_port,
+                          in uint16 dst_port,
+                          out uint64 filter_id);
+
+    rpc install_filter_mac(in uint64 dst_mac,
+                           in uint64 vlan_id,
+                           out errval err,
+                           out uint64 filter_id);
+
+    rpc remove_filter(in filter_type type,
+                      in uint64 filter_id,
+                      out errval err);
+
+};
+

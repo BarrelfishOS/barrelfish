@@ -139,6 +139,8 @@ revoke_result__rx(errval_t result,
     DEBUG_CAPOPS("%s ## revocation completed, calling %p\n", __FUNCTION__,
                  st->result_handler);
 
+    err = cap_destroy(st->cap.croot);
+    PANIC_IF_ERR(err, "deleting monitor's copy of rootcn");
     st->result_handler(result, st->st);
     free(st);
 }

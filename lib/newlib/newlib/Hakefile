@@ -1,5 +1,0 @@
-[ build library { 
-  target = "newlib_",
-  addLibraries = [ "newc", "m" ]
-   }
-]

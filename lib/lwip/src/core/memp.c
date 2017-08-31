@@ -55,6 +55,7 @@
 #include "lwip/ip_frag.h"
 
 #include <string.h>
+#include <inttypes.h>
 
 #if !MEMP_MEM_MALLOC            /* don't build if not configured for use in lwipopts.h */
 

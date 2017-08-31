@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2012, ETH Zurich.
+ * Copyright (c) 2017 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -15,12 +15,16 @@
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/descq.h>
+#include <devif/backends/debug.h>
 
 
 static uint16_t qid = 0;
 
 static struct ele* list = NULL;
 static struct ele* end = NULL;
+static struct devq* descq;
+static struct devq* debug;
+
 
 struct ele {
     struct  descq* q;
@@ -45,7 +49,14 @@ static errval_t create(struct descq* q, bool notifications, uint8_t role,
         end->next = item;
         end = item;
     }
-    
+
+    // stack debug queue on top
+    errval_t err;
+    err = debug_create((struct debug_q**) &debug, (struct devq*) q);
+    if (err_is_fail(err)) {
+        USER_PANIC("Allocating debug q failed \n");
+    }
+   
     qid++;
     return SYS_ERR_OK;
 }
@@ -59,7 +70,8 @@ static errval_t destroy(struct descq* q)
 static errval_t notify(struct descq* q)
 {
 
-    struct devq* queue = (struct devq*) q;
+    //struct devq* queue = (struct devq*) q;
+    struct devq* queue = (struct devq*) debug;
     errval_t err = SYS_ERR_OK;
     //errval_t err2 = SYS_ERR_OK;
     regionid_t rid;
@@ -100,13 +112,13 @@ static errval_t notify(struct descq* q)
 static errval_t reg(struct descq* q, struct capref cap,
                     regionid_t rid)
 {
-    return SYS_ERR_OK;
+    return debug_add_region((struct debug_q*) debug, cap, rid);
 }
 
 
 static errval_t dereg(struct descq* q, regionid_t rid)
 {
-    return SYS_ERR_OK;
+    return debug_remove_region((struct debug_q*) debug, rid);
 }
 
 
@@ -129,13 +141,13 @@ int main(int argc, char *argv[])
     f->dereg = dereg;
     f->control = control;
 
-    struct descq* exp_queue;
-
-    err = descq_create(&exp_queue, DESCQ_DEFAULT_SIZE, "test_queue", 
+    err = descq_create((struct descq**)&descq, DESCQ_DEFAULT_SIZE, "test_queue", 
                        true, true, 0, &id, f);
+    if (err_is_fail(err)) {
+        USER_PANIC("Allocating debug q failed \n");
+    }
 
     assert(err_is_ok(err));
-
     while(true) {
         event_dispatch(get_default_waitset());
     }

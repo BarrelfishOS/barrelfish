@@ -13,12 +13,14 @@
 /**
  * \brief Read a vector.
  */
+__weak_reference(readv, _readv);
 ssize_t readv(int fd, const struct iovec *iov, int iovcnt)
 {
     assert(!"NYI");
     return -1;
 }
 
+__weak_reference(writev, _writev);
 ssize_t writev(int fd, const struct iovec *iov, int iovcnt)
 {
     assert(!"NYI");

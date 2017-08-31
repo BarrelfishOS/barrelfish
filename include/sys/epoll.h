@@ -38,6 +38,7 @@
 #define _SYS_EPOLL_H_
 
 #include <stdint.h>
+#include <signal.h>
 
 #define EPOLL_CLOEXEC    02000000
 #define EPOLL_NONBLOCK   04000

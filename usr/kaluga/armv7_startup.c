@@ -52,7 +52,7 @@ static struct allowed_registers usb = {
 };
 
 static struct allowed_registers fdif = {
-    .binary = "hw.arm.omap44xx.fdif",
+    .binary = "fdif",
     .registers =
     {
         {OMAP44XX_CAM_CM2, 0x1000},
@@ -63,29 +63,31 @@ static struct allowed_registers fdif = {
     }
 };
 
-static struct allowed_registers mmchs = {
-    .binary = "hw.arm.omap44xx.mmchs",
+static struct allowed_registers twl6030 = {
+    .binary = "twl6030",
+    .registers =
+    {
+        {OMAP44XX_MAP_L4_PER_I2C1, OMAP44XX_MAP_L4_PER_I2C1_SIZE},
+        {0x0, 0x0}
+    }
+};
+
+static struct allowed_registers cm2 = {
+    .binary = "cm2",
     .registers =
     {
         {OMAP44XX_CM2,        0x1000},
-        {OMAP44XX_CLKGEN_CM2, 0x1000},
-        {OMAP44XX_L4PER_CM2,  0x1000},
-        // i2c
-        {OMAP44XX_MAP_L4_PER_I2C1, OMAP44XX_MAP_L4_PER_I2C1_SIZE},
-        {OMAP44XX_MAP_L4_PER_I2C2, OMAP44XX_MAP_L4_PER_I2C2_SIZE},
-        {OMAP44XX_MAP_L4_PER_I2C3, OMAP44XX_MAP_L4_PER_I2C3_SIZE},
-        {OMAP44XX_MAP_L4_PER_I2C4, OMAP44XX_MAP_L4_PER_I2C4_SIZE},
-        // ctrlmodules
-        {OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE, OMAP44XX_MAP_L4_CFG_SYSCTRL_GENERAL_CORE_SIZE},
-        {OMAP44XX_MAP_L4_WKUP_SYSCTRL_GENERAL_WKUP, OMAP44XX_MAP_L4_WKUP_SYSCTRL_GENERAL_WKUP_SIZE},
+        {0x0, 0x0}
+    }
+};
+
+
+static struct allowed_registers mmchs = {
+    .binary = "mmchs",
+    .registers =
+    {
         {OMAP44XX_MAP_L4_CFG_SYSCTRL_PADCONF_CORE, OMAP44XX_MAP_L4_CFG_SYSCTRL_PADCONF_CORE_SIZE},
-        {OMAP44XX_MAP_L4_WKUP_SYSCTRL_PADCONF_WKUP, OMAP44XX_MAP_L4_WKUP_SYSCTRL_PADCONF_WKUP_SIZE},
-        // MMCHS
         {OMAP44XX_MAP_L4_PER_HSMMC1, OMAP44XX_MAP_L4_PER_HSMMC1_SIZE},
-        {OMAP44XX_MAP_L4_PER_HSMMC2, OMAP44XX_MAP_L4_PER_HSMMC2_SIZE},
-        {OMAP44XX_MAP_L4_PER_MMC_SD3, OMAP44XX_MAP_L4_PER_MMC_SD3_SIZE},
-        {OMAP44XX_MAP_L4_PER_MMC_SD4, OMAP44XX_MAP_L4_PER_MMC_SD4_SIZE},
-        {OMAP44XX_MAP_L4_PER_MMC_SD5, OMAP44XX_MAP_L4_PER_MMC_SD5_SIZE},
         {0x0, 0x0}
     }
 };
@@ -117,7 +119,7 @@ static struct allowed_registers omap_uart = {
 };
 
 static struct allowed_registers sdma = {
-    .binary = "hw.arm.omap44xx.sdma",
+    .binary = "sdma",
     .registers =
     {
         {OMAP44XX_MAP_L4_CFG_SDMA, OMAP44XX_MAP_L4_CFG_SDMA_SIZE},
@@ -128,6 +130,8 @@ static struct allowed_registers sdma = {
 static struct allowed_registers* omap44xx[] = {
     &usb,
     &fdif,
+    &twl6030,
+    &cm2,
     &mmchs,
     &prcm,
     &omap_uart,
@@ -237,5 +241,100 @@ default_start_function(coreid_t where, struct module_info* driver,
         return err;
     }
 
+    return SYS_ERR_OK;
+}
+
+static void provide_driver_with_caps(struct driver_instance* drv, char* name) {
+    errval_t err;
+
+    struct monitor_blocking_binding *m = get_monitor_blocking_binding();
+    assert(m != NULL);
+
+    uint32_t arch, platform;
+    err = m->rpc_tx_vtbl.get_platform(m, &arch, &platform);
+    assert(err_is_ok(err));
+    assert(arch == PI_ARCH_ARMV7A);
+
+    struct allowed_registers **regs= NULL;
+    switch(platform) {
+    case PI_PLATFORM_OMAP44XX:
+        regs= omap44xx;
+        break;
+    case PI_PLATFORM_VEXPRESS:
+        regs= vexpress;
+        break;
+    default:
+        printf("Unrecognised ARMv7 platform\n");
+        abort();
+    }
+
+
+    KALUGA_DEBUG("%s:%d: Finding caps for driver for %s\n", __FUNCTION__, __LINE__, name);
+    for (size_t i=0; regs[i] != NULL; i++) {
+        if(strcmp(name, regs[i]->binary) != 0) {
+            continue;
+        }
+
+        // Get the device cap from the managed capability tree
+        // put them all in a single cnode
+        for (size_t j=0; regs[i]->registers[j][0] != 0x0; j++) {
+            struct capref device_frame;
+            KALUGA_DEBUG("%s:%d: mapping 0x%"PRIxLPADDR" %"PRIuLPADDR"\n", __FUNCTION__, __LINE__,
+            regs[i]->registers[j][0], regs[i]->registers[j][1]);
+
+            lpaddr_t base = regs[i]->registers[j][0] & ~(BASE_PAGE_SIZE-1);
+            err = get_device_cap(base, regs[i]->registers[j][1], &device_frame);
+            assert(err_is_ok(err));
+
+            KALUGA_DEBUG("get_device_cap worked\n");
+            err = ddomain_driver_add_cap(drv, device_frame);
+            assert(err_is_ok(err));
+        }
+    }
+}
+
+
+/**
+ * \brief Startup function for new-style ARMv7 drivers.
+ *
+ * Launches the driver instance in a driver domain instead.
+ */
+errval_t
+newstyle_start_function(coreid_t where, struct module_info* driver, char* record,
+                        struct driver_argument* int_arg)
+{
+    assert(driver != NULL);
+    assert(record != NULL);
+    errval_t err;
+
+    struct domain_instance* inst = instantiate_driver_domain(where);
+
+    char* dep1;
+    err = oct_read(record, "_ { dep1: %s }", &dep1);
+    if (err_is_ok(err)) {
+        struct driver_instance* drv1 = ddomain_create_driver_instance(dep1, dep1);
+        provide_driver_with_caps(drv1, dep1);
+        free(dep1);
+        ddomain_instantiate_driver(inst, drv1);
+    }
+
+    char* dep2;
+    err = oct_read(record, "_ { dep2: %s }", &dep2);
+    if (err_is_ok(err)) {
+        struct driver_instance* drv2 = ddomain_create_driver_instance(dep2, dep2);
+        provide_driver_with_caps(drv2, dep2);
+        free(dep2);
+        ddomain_instantiate_driver(inst, drv2);
+    }
+
+    char* name;
+    err = oct_read(record, "%s", &name);
+    assert(err_is_ok(err));
+
+    struct driver_instance* drv = ddomain_create_driver_instance(name, name);
+    provide_driver_with_caps(drv, name);
+    free(name);
+
+    ddomain_instantiate_driver(inst, drv);
     return SYS_ERR_OK;
 }

@@ -4,7 +4,7 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich. 
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich.
  * Attn: Systems Group.
  */
 
@@ -13,6 +13,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/types.h>
 #ifdef BARRELFISH
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/inthandler.h>
@@ -241,8 +242,8 @@ void *user_alloc(size_t size, uintptr_t *paddr)
 }
 #endif
 
-/** 
- * Interrupt Disable/Enable/Clear Functions 
+/**
+ * Interrupt Disable/Enable/Clear Functions
  *
  */
 static void mrsas_disable_intr(void)
@@ -258,11 +259,11 @@ static void mrsas_disable_intr(void)
  *                     request descriptor address low
  *                     request descriptor address high
  *
- * This functions fires the command to Firmware by writing to the 
+ * This functions fires the command to Firmware by writing to the
  * inbound_low_queue_port and inbound_high_queue_port.
  */
 void mrsas_fire_cmd(u_int32_t req_desc_lo, u_int32_t req_desc_hi)
-{ 
+{
     /* mtx_lock(&sc->pci_lock); */
     megaraid_inbound_low_queue_port_wr(&sc->d, req_desc_lo);
     megaraid_inbound_high_queue_port_wr(&sc->d, req_desc_hi);
@@ -273,8 +274,8 @@ void mrsas_fire_cmd(u_int32_t req_desc_lo, u_int32_t req_desc_hi)
  * mrsas_alloc_frame -   Allocates MFI Frames
  * input:                Adapter soft state
  *
- * Create bus DMA memory tag and dmamap and load memory for MFI frames. 
- * Returns virtual memory pointer to allocated region. 
+ * Create bus DMA memory tag and dmamap and load memory for MFI frames.
+ * Returns virtual memory pointer to allocated region.
  */
 static void *mrsas_alloc_frame(struct mrsas_mfi_cmd *cmd)
 {
@@ -297,8 +298,8 @@ static void *mrsas_alloc_frame(struct mrsas_mfi_cmd *cmd)
  * input:                 Adapter instance soft state
  *
  * Each IOCTL or passthru command that is issued to the FW are wrapped in a
- * local data structure called mrsas_mfi_cmd.  The frame embedded in this 
- * mrsas_mfi is issued to FW. The array is used only to look up the 
+ * local data structure called mrsas_mfi_cmd.  The frame embedded in this
+ * mrsas_mfi is issued to FW. The array is used only to look up the
  * mrsas_mfi_cmd given the context. The free commands are maintained in a
  * linked list.
  */
@@ -327,7 +328,7 @@ static int mrsas_alloc_mfi_cmds(void)
         memset(cmd, 0, sizeof(struct mrsas_mfi_cmd));
         cmd->index = i;
         cmd->ccb_ptr = NULL;
-        cmd->sc = sc; 
+        cmd->sc = sc;
         TAILQ_INSERT_TAIL(&(sc->mrsas_mfi_cmd_list_head), cmd, next);
     }
 
@@ -335,7 +336,7 @@ static int mrsas_alloc_mfi_cmds(void)
         cmd = sc->mfi_cmd_list[i];
         cmd->frame = mrsas_alloc_frame(cmd);
 	assert(cmd->frame != NULL);
-        memset(cmd->frame, 0, MRSAS_MFI_FRAME_SIZE); 
+        memset(cmd->frame, 0, MRSAS_MFI_FRAME_SIZE);
         cmd->frame->io.context = cmd->index;
         cmd->frame->io.pad_0 = 0;
     }
@@ -349,7 +350,7 @@ static int mrsas_alloc_mfi_cmds(void)
  *
  * This function allocates the internal commands for IOs. Each command that is
  * issued to FW is wrapped in a local data structure called mrsas_mpt_cmd.
- * An array is allocated with mrsas_mpt_cmd context.  The free commands are 
+ * An array is allocated with mrsas_mpt_cmd context.  The free commands are
  * maintained in a linked list (cmd pool). SMID value range is from 1 to
  * max_fw_cmds.
  */
@@ -382,7 +383,7 @@ static int mrsas_alloc_mpt_cmds(void)
     }
 
     io_req_base = (u_int8_t*)sc->io_request_mem + MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE;
-    io_req_base_phys = (lpaddr_t)sc->io_request_phys_addr + MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE; 
+    io_req_base_phys = (lpaddr_t)sc->io_request_phys_addr + MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE;
     chain_frame_base = (u_int8_t*)sc->chain_frame_mem;
     chain_frame_base_phys = (lpaddr_t)sc->chain_frame_phys_addr;
     sense_base = (u_int8_t*)sc->sense_mem;
@@ -441,10 +442,10 @@ static struct mrsas_mfi_cmd* mrsas_get_mfi_cmd(void)
 }
 
 /**
- * mrsas_get_mpt_cmd:            Get a cmd from free command pool  
- * input:                        Adapter instance soft state 
+ * mrsas_get_mpt_cmd:            Get a cmd from free command pool
+ * input:                        Adapter instance soft state
  *
- * This function removes an MPT command from the command free list and 
+ * This function removes an MPT command from the command free list and
  * initializes it.
  */
 struct mrsas_mpt_cmd* mrsas_get_mpt_cmd(void)
@@ -469,12 +470,12 @@ struct mrsas_mpt_cmd* mrsas_get_mpt_cmd(void)
 }
 
 /**
- * mrsas_build_mptmfi_passthru - Builds a MPT MFI Passthru command 
+ * mrsas_build_mptmfi_passthru - Builds a MPT MFI Passthru command
  * input:                        Adapter soft state
- *                               mfi cmd pointer 
+ *                               mfi cmd pointer
  *
- * The MPT command and the io_request are setup as a passthru command. 
- * The SGE chain address is set to frame_phys_addr of the MFI command. 
+ * The MPT command and the io_request are setup as a passthru command.
+ * The SGE chain address is set to frame_phys_addr of the MFI command.
  */
 static u_int8_t
 mrsas_build_mptmfi_passthru(struct mrsas_mfi_cmd *mfi_cmd)
@@ -533,9 +534,9 @@ mrsas_build_mptmfi_passthru(struct mrsas_mfi_cmd *mfi_cmd)
 }
 
 /**
- * mrsas_get_request_desc:     Get request descriptor from array  
+ * mrsas_get_request_desc:     Get request descriptor from array
  * input:                      Adapter instance soft state
- *                             SMID index 
+ *                             SMID index
  *
  * This function returns a pointer to the request descriptor.
  */
@@ -591,8 +592,8 @@ mrsas_build_mpt_cmd(struct mrsas_mfi_cmd *cmd)
  *                        mfi cmd pointer
  *
  * This function is called by mrsas_issued_blocked_cmd() and
- * mrsas_issued_polled(), to build the MPT command and then fire the 
- * command to Firmware. 
+ * mrsas_issued_polled(), to build the MPT command and then fire the
+ * command to Firmware.
  */
 static int
 mrsas_issue_dcmd(struct mrsas_mfi_cmd *cmd)
@@ -615,7 +616,7 @@ mrsas_issue_dcmd(struct mrsas_mfi_cmd *cmd)
  * inputs:                    Adapter soft state
  *                            Command packet to be issued
  *
- * This function is for posting of internal commands to Firmware.  MFI 
+ * This function is for posting of internal commands to Firmware.  MFI
  * requires the cmd_status to be set to 0xFF before posting.  The maximun
  * wait time of the poll response timer is 180 seconds.
  */
@@ -636,10 +637,10 @@ static int mrsas_issue_polled(struct mrsas_mfi_cmd *cmd)
 
     DEBUG("Waiting for return of polled command...\n");
 
-    /* 
-     * Poll response timer to wait for Firmware response.  While this   
-     * timer with the DELAY call could block CPU, the time interval for 
-     * this is only 1 millisecond. 
+    /*
+     * Poll response timer to wait for Firmware response.  While this
+     * timer with the DELAY call could block CPU, the time interval for
+     * this is only 1 millisecond.
      */
     if (frame_hdr->cmd_status == 0xFF) {
         for (i=0; i < (max_wait * 1000); i++){
@@ -647,7 +648,7 @@ static int mrsas_issue_polled(struct mrsas_mfi_cmd *cmd)
                 DELAY(1000);
             else
                 break;
-        } 
+        }
     }
 
     DEBUG("Polled command returned.\n");
@@ -655,7 +656,7 @@ static int mrsas_issue_polled(struct mrsas_mfi_cmd *cmd)
     if (frame_hdr->cmd_status != 0)
     {
         if (frame_hdr->cmd_status == 0xFF)
-            DEBUG("DCMD timed out after %d seconds.\n", max_wait); 
+            DEBUG("DCMD timed out after %d seconds.\n", max_wait);
         else
             DEBUG("DCMD failed, status = 0x%x\n", frame_hdr->cmd_status);
         retcode = 1;
@@ -666,7 +667,7 @@ static int mrsas_issue_polled(struct mrsas_mfi_cmd *cmd)
 
 /**
  * mrsas_release_mfi_cmd: Return a cmd to free command pool
- * input:                 Command packet for return to free cmd pool 
+ * input:                 Command packet for return to free cmd pool
  *
  * This function returns the MFI command to the command list.
  */
@@ -687,7 +688,7 @@ static void mrsas_release_mfi_cmd(struct mrsas_mfi_cmd *cmd)
  * MR_ValidateMapInfo:        Validate RAID map
  * input:                     Adapter instance soft state
  *
- * This function checks and validates the loaded RAID map. It returns 0 if 
+ * This function checks and validates the loaded RAID map. It returns 0 if
  * successful, and 1 otherwise.
  */
 static u_int8_t MR_ValidateMapInfo(void)
@@ -721,7 +722,7 @@ static u_int8_t MR_ValidateMapInfo(void)
 
 /*
  * Various RAID map access functions.  These functions access the various
- * parts of the RAID map and returns the appropriate parameters. 
+ * parts of the RAID map and returns the appropriate parameters.
  */
 
 static MR_LD_RAID *MR_LdRaidGet(u_int32_t ld, MR_FW_RAID_MAP_ALL *map)
@@ -739,7 +740,7 @@ static u_int16_t MR_GetLDTgtId(u_int32_t ld, MR_FW_RAID_MAP_ALL *map)
  * input:                      Adapter instance soft state
  *
  * Issues an internal command (DCMD) to get the FW's controller PD
- * list structure.  
+ * list structure.
  */
 static int mrsas_sync_map_info(void)
 {
@@ -803,7 +804,7 @@ static int mrsas_sync_map_info(void)
  *                             Size of alloction
  *
  * Allocates DMAable memory for a temporary internal command. The allocated
- * memory is initialized to all zeros upon successful loading of the dma 
+ * memory is initialized to all zeros upon successful loading of the dma
  * mapped memory.
  */
 static int mrsas_alloc_tmp_dcmd(struct mrsas_tmp_dcmd *tcmd, int size)
@@ -890,9 +891,9 @@ static int mrsas_get_ctrl_info(struct mrsas_ctrl_info *ctrl_info)
     dcmd->sgl.sge32[0].phys_addr = sc->ctlr_info_phys_addr;
     dcmd->sgl.sge32[0].length = sizeof(struct mrsas_ctrl_info);
 
-    if (!mrsas_issue_polled(cmd)) 
+    if (!mrsas_issue_polled(cmd))
         memcpy(ctrl_info, sc->ctlr_info_mem, sizeof(struct mrsas_ctrl_info));
-    else 
+    else
         retcode = 1;
 
     /* mrsas_free_ctlr_info_cmd(sc); */
@@ -946,15 +947,15 @@ static int mrsas_get_ld_list(void)
     dcmd->sgl.sge32[0].length = sizeof(struct MR_LD_LIST);
     dcmd->pad_0  = 0;
 
-    if (!mrsas_issue_polled(cmd)) 
+    if (!mrsas_issue_polled(cmd))
         retcode = 0;
-    else 
+    else
         retcode = 1;
 
     DEBUG("Logical drive list: retcode = %d, ldcount = %d\n",
 	  retcode, ld_list_mem->ldCount);
 
-     /* Get the instance LD list */ 
+     /* Get the instance LD list */
      if ((retcode == 0) && (ld_list_mem->ldCount <= (MAX_LOGICAL_DRIVES))){
         sc->CurLdCount = ld_list_mem->ldCount;
         memset(sc->ld_ids, 0xff, MRSAS_MAX_LD);
@@ -968,7 +969,7 @@ static int mrsas_get_ld_list(void)
 		      ld_list_mem->ldList[ld_index].size);
             }
         }
-    } 
+    }
 
     /* mrsas_free_tmp_dcmd(tcmd); */
     mrsas_release_mfi_cmd(cmd);
@@ -992,7 +993,7 @@ static void mrsas_enable_intr(void)
 }
 
 #ifdef BARRELFISH
-static void pci_init_card(struct device_mem *bar_info, int bar_count)
+static void pci_init_card(void *arg, struct device_mem *bar_info, int bar_count)
 #else
 static void pci_init_card(int bar_count)
 #endif
@@ -1096,7 +1097,7 @@ static void pci_init_card(int bar_count)
     sc->reply_alloc_sz = sizeof(MPI2_REPLY_DESCRIPTORS_UNION) * (sc->reply_q_depth);
     sc->io_frames_alloc_sz = MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE + (MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE * (sc->max_fw_cmds + 1));
     sc->chain_frames_alloc_sz = 1024 * sc->max_fw_cmds;
-    sc->max_sge_in_main_msg = (MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE - 
+    sc->max_sge_in_main_msg = (MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE -
         offsetof(MRSAS_RAID_SCSI_IO_REQUEST, SGL))/16;
 
     sc->max_sge_in_chain = MRSAS_MAX_SZ_CHAIN_FRAME / sizeof(MPI2_SGE_IO_UNION);
@@ -1105,7 +1106,7 @@ static void pci_init_card(int bar_count)
     /* Used for pass thru MFI frame (DCMD) */
     sc->chain_offset_mfi_pthru = offsetof(MRSAS_RAID_SCSI_IO_REQUEST, SGL)/16;
 
-    sc->chain_offset_io_request = (MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE - 
+    sc->chain_offset_io_request = (MRSAS_MPI2_RAID_DEFAULT_IO_FRAME_SIZE -
         sizeof(MPI2_SGE_IO_UNION))/16;
 
     sc->last_reply_idx = 0;
@@ -1129,8 +1130,8 @@ static void pci_init_card(int bar_count)
 
     /*
      * Allocate IO Request Frames
-     */ 
-    io_req_size = sc->io_frames_alloc_sz; 
+     */
+    io_req_size = sc->io_frames_alloc_sz;
     sc->io_request_mem = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, io_req_size, &cap);
     if(use_vtd) {
         sc->io_request_phys_addr = (lpaddr_t)sc->io_request_mem;
@@ -1155,8 +1156,8 @@ static void pci_init_card(int bar_count)
 
     /*
      * Allocate Reply Descriptor Array
-     */ 
-    reply_desc_size = sc->reply_alloc_sz; 
+     */
+    reply_desc_size = sc->reply_alloc_sz;
     sc->reply_desc_mem = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, reply_desc_size, &cap);
     if(use_vtd) {
         sc->reply_desc_phys_addr = (lpaddr_t)sc->reply_desc_mem;
@@ -1167,7 +1168,7 @@ static void pci_init_card(int bar_count)
     }
 
     /*
-     * Allocate Sense Buffer Array.  Keep in lower 4GB 
+     * Allocate Sense Buffer Array.  Keep in lower 4GB
      */
     sense_size = sc->max_fw_cmds * MRSAS_SENSE_LEN;
     sc->sense_mem = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, sense_size, &cap);
@@ -1181,8 +1182,8 @@ static void pci_init_card(int bar_count)
 
     /*
      * Allocate for Event detail structure
-     */ 
-    evt_detail_size = sizeof(struct mrsas_evt_detail); 
+     */
+    evt_detail_size = sizeof(struct mrsas_evt_detail);
     sc->evt_detail_mem = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, evt_detail_size, &cap);
     if(use_vtd) {
         sc->evt_detail_phys_addr = (lpaddr_t)sc->evt_detail_mem;
@@ -1196,7 +1197,7 @@ static void pci_init_card(int bar_count)
 
     /* Allocate memory for the IOC INIT command */
     int ioc_init_size;
-    ioc_init_size = 1024 + sizeof(MPI2_IOC_INIT_REQUEST); 
+    ioc_init_size = 1024 + sizeof(MPI2_IOC_INIT_REQUEST);
     sc->ioc_init_mem = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, ioc_init_size, &cap);
     memset(sc->ioc_init_mem, 0, ioc_init_size);
     if(use_vtd) {
@@ -1241,7 +1242,7 @@ static void pci_init_card(int bar_count)
 
     MRSAS_REQUEST_DESCRIPTOR_UNION req_desc;
     req_desc.addr.Words = (lpaddr_t)sc->ioc_init_phys_mem;
-    req_desc.MFAIo.RequestFlags = 
+    req_desc.MFAIo.RequestFlags =
         (MRSAS_REQ_DESCRIPT_FLAGS_MFA << MRSAS_REQ_DESCRIPT_FLAGS_TYPE_SHIFT);
 
     mrsas_disable_intr();
@@ -1268,7 +1269,7 @@ static void pci_init_card(int bar_count)
                 DELAY(1000);
             else
                 break;
-        } 
+        }
     }
 
     if (init_frame->cmd_status == 0)
@@ -1350,9 +1351,9 @@ static void pci_init_card(int bar_count)
                     ctrl_info->max_strips_per_io;
         max_sectors_2 = ctrl_info->max_request_size;
         tmp_sectors = MIN(max_sectors_1 , max_sectors_2);
-        sc->disableOnlineCtrlReset = 
+        sc->disableOnlineCtrlReset =
             ctrl_info->properties.OnOffProperties.disableOnlineCtrlReset;
-        sc->UnevenSpanSupport = 
+        sc->UnevenSpanSupport =
             ctrl_info->adapterOperations2.supportUnevenSpans;
         if(sc->UnevenSpanSupport) {
 	  DEBUG("FW supports: UnevenSpanSupport=%x\n",
@@ -1388,7 +1389,7 @@ int megaraid_driver_init(int argc, const char **argv)
     assert(err_is_ok(r));
     DEBUG("connected to pci\n");
 
-    r = pci_register_driver_irq(pci_init_card, PCI_CLASS_MASS_STORAGE,
+    r = pci_register_driver_irq(pci_init_card, NULL, PCI_CLASS_MASS_STORAGE,
                                 PCI_SUB_RAID, PCI_DONT_CARE,
                                 PCI_VENDOR_LSI, pci_deviceid,
                                 pci_bus, pci_device, pci_function,
@@ -1453,12 +1454,12 @@ int megaraid_driver_init(int argc, const char **argv)
 }
 
 /**
- * mrsas_release_mpt_cmd:      Return a cmd to free command pool  
- * input:                      Command packet for return to free command pool 
+ * mrsas_release_mpt_cmd:      Return a cmd to free command pool
+ * input:                      Command packet for return to free command pool
  *
  * This function returns an MPT command to the free command list.
  */
-static void mrsas_release_mpt_cmd(struct mrsas_mpt_cmd *cmd) 
+static void mrsas_release_mpt_cmd(struct mrsas_mpt_cmd *cmd)
 {
     /* struct mrsas_softc *sc = cmd->sc; */
 
@@ -1467,7 +1468,7 @@ static void mrsas_release_mpt_cmd(struct mrsas_mpt_cmd *cmd)
     TAILQ_INSERT_TAIL(&(sc->mrsas_mpt_cmd_list_head), cmd, next);
     /* mtx_unlock(&sc->mpt_cmd_pool_lock); */
 
-    return; 
+    return;
 }
 
 /**
@@ -1476,7 +1477,7 @@ static void mrsas_release_mpt_cmd(struct mrsas_mpt_cmd *cmd)
  *                            Cmd that was issued to abort another cmd
  *
  * The mrsas_issue_blocked_abort_cmd() function waits for the command status
- * to change after sending the command.  This function is called from 
+ * to change after sending the command.  This function is called from
  * mrsas_complete_mptmfi_passthru() to wake up the sleep thread associated.
  */
 static void mrsas_complete_abort(struct mrsas_mfi_cmd *cmd)
@@ -1496,7 +1497,7 @@ static void mrsas_complete_abort(struct mrsas_mfi_cmd *cmd)
  * input:                     	Adapter soft state
  *                            	Cmd that was issued to abort another cmd
  *
- * 								This function will be called from ISR and will continue 
+ * 								This function will be called from ISR and will continue
  * 								event processing from thread context by enqueuing task
  * 								in ev_tq (callback function "mrsas_aen_handler").
  */
@@ -1525,8 +1526,8 @@ static void mrsas_complete_aen(struct mrsas_mfi_cmd *cmd)
  * input:                 Adapter soft state
  *                        Command to be completed
  *
- * In mrsas_issue_blocked_cmd(), after a command is issued to Firmware, 
- * a wait timer is started.  This function is called from  
+ * In mrsas_issue_blocked_cmd(), after a command is issued to Firmware,
+ * a wait timer is started.  This function is called from
  * mrsas_complete_mptmfi_passthru() as it completes the command,
  * to wake up from the command wait.
  */
@@ -1534,10 +1535,10 @@ static void mrsas_wakeup(struct mrsas_mfi_cmd *cmd)
 {
     cmd->cmd_status = cmd->frame->io.cmd_status;
 
-    if (cmd->cmd_status == ECONNREFUSED) 
+    if (cmd->cmd_status == ECONNREFUSED)
         cmd->cmd_status = 0;
 
-    /* For debug only ... */ 
+    /* For debug only ... */
     //device_printf(sc->mrsas_dev,"DCMD rec'd for wakeup, sc->chan=%p\n", sc->chan);
 
     sc->chan = (void*)&cmd;
@@ -1549,10 +1550,10 @@ static void mrsas_wakeup(struct mrsas_mfi_cmd *cmd)
  * mrsas_complete_mptmfi_passthru - Completes a command
  * input:                           sc: Adapter soft state
  *                                  cmd: Command to be completed
- *                                  status: cmd completion status 
+ *                                  status: cmd completion status
  *
- * This function is called from mrsas_complete_cmd() after an interrupt 
- * is received from Firmware, and io_request->Function is 
+ * This function is called from mrsas_complete_cmd() after an interrupt
+ * is received from Firmware, and io_request->Function is
  * MRSAS_MPI2_FUNCTION_PASSTHRU_IO_REQUEST.
  */
 static void
@@ -1562,7 +1563,7 @@ mrsas_complete_mptmfi_passthru(struct mrsas_mfi_cmd *cmd,
     struct mrsas_header *hdr = &cmd->frame->hdr;
     u_int8_t cmd_status = cmd->frame->hdr.cmd_status;
 
-    /* Reset the retry counter for future re-tries */ 
+    /* Reset the retry counter for future re-tries */
     cmd->retry_for_fw_reset = 0;
 
     if (cmd->ccb_ptr)
@@ -1589,7 +1590,7 @@ mrsas_complete_mptmfi_passthru(struct mrsas_mfi_cmd *cmd,
         case MFI_CMD_STP:
         case MFI_CMD_DCMD:
             /* Check for LD map update */
-            if ((cmd->frame->dcmd.opcode == MR_DCMD_LD_MAP_GET_INFO) && 
+            if ((cmd->frame->dcmd.opcode == MR_DCMD_LD_MAP_GET_INFO) &&
                 (cmd->frame->dcmd.mbox.b[1] == 1)) {
                 sc->fast_path_io = 0;
 		/* mtx_lock(&sc->raidmap_lock); */
@@ -1601,8 +1602,8 @@ mrsas_complete_mptmfi_passthru(struct mrsas_mfi_cmd *cmd,
 		        /* mtx_unlock(&sc->raidmap_lock); */
                         break;
                     }
-                } 
-                else 
+                }
+                else
                     sc->map_id++;
                 mrsas_release_mfi_cmd(cmd);
                 if (MR_ValidateMapInfo())
@@ -1632,12 +1633,12 @@ mrsas_complete_mptmfi_passthru(struct mrsas_mfi_cmd *cmd,
 bool poll_mode = false;
 
 /*
- * mrsas_complete_cmd:        Process reply request  
+ * mrsas_complete_cmd:        Process reply request
  * input:                     Adapter instance soft state
  *
- * This function is called from mrsas_isr() to process reply request and 
+ * This function is called from mrsas_isr() to process reply request and
  * clear response interrupt. Processing of the reply request entails
- * walking through the reply descriptor array for the command request  
+ * walking through the reply descriptor array for the command request
  * pended from Firmware.  We look at the Function field to determine
  * the command type and perform the appropriate action.  Before we
  * return, we clear the response interrupt.
@@ -1668,7 +1669,7 @@ int mrsas_complete_cmd(void)
     reply_descript_type = reply_desc->ReplyFlags & MPI2_RPY_DESCRIPT_FLAGS_TYPE_MASK;
 
     /* Find our reply descriptor for the command and process */
-    while((desc_val.u.low != 0xFFFFFFFF) && (desc_val.u.high != 0xFFFFFFFF)) 
+    while((desc_val.u.low != 0xFFFFFFFF) && (desc_val.u.high != 0xFFFFFFFF))
     {
         smid = reply_desc->SMID;
         cmd_mpt = sc->mpt_cmd_list[smid -1];
@@ -1735,9 +1736,9 @@ int mrsas_complete_cmd(void)
         if(reply_descript_type == MPI2_RPY_DESCRIPT_FLAGS_UNUSED)
             break;
 
-        /* 
-         * Write to reply post index after completing threshold reply count 
-         * and still there are more replies in reply queue pending to be 
+        /*
+         * Write to reply post index after completing threshold reply count
+         * and still there are more replies in reply queue pending to be
          * completed.
          */
         if (threshold_reply_count >= THRESHOLD_REPLY_COUNT) {

@@ -13,6 +13,7 @@
 
 #include "vmkitmon.h"
 #include <x86emu.h>
+#include <stdarg.h>
 #include "realmode.h"
 #include "svm.h"
 #include "x86.h"

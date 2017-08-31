@@ -20,6 +20,7 @@
 
 #include <lwip/tcp.h>
 #include <lwip/init.h>
+#include <arpa/inet.h>
 
 #include "block_server.h"
 #include "network_common.h"
@@ -754,4 +755,3 @@ struct block_net_server *block_net_server_lookup(size_t block_start)
     assert(!"NYI: block_net_server_lookup");
     return NULL;
 }
-

@@ -17,7 +17,6 @@
 struct ahci_queue;
 
 errval_t ahci_create(struct ahci_queue** q, void* st, uint64_t flags);
-errval_t ahci_destroy(struct ahci_queue* q);
 void ahci_interrupt_handler(void* q);
 
 

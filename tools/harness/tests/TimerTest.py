@@ -46,9 +46,8 @@ class TimerTest(TestCommon):
             self.saw_line_A = True
         if line.startswith(self.get_test_B_finish_string()):
             self.saw_line_B = True
-        if self.saw_line_A and self.saw_line_B:
-            return True
-        return False
+        return (self.saw_line_A and self.saw_line_B) or \
+                super(TimerTest, self).is_finished(line)
     
 
     
@@ -69,7 +68,4 @@ class TimerTest(TestCommon):
             if test_A_passed and test_B_passed:
                 return PassFailResult(True)
 
-        if test_A_passed and test_B_passed:
-            return PassFailResult(True)
-        else:
-            return PassFailResult(False)
+        return PassFailResult(test_A_passed and test_B_passed)

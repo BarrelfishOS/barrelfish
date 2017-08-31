@@ -50,16 +50,17 @@ int main(int argc, char** argv)
     struct frame_identity f2;
     err = invoke_frame_identify(c2, &f2);
     assert(err_is_ok(err));
-    printf("%s:%s:%d:\n", __FILE__, __FUNCTION__, __LINE__);
+    printf("%s:%s:%d: storing cap with caddr=%#"PRIxCADDR" in SKB\n",
+            __FILE__, __FUNCTION__, __LINE__, get_cap_addr(c1));
 
     // Store them in the SKB
-    err = skb_add_fact("cap(frame(%s, p(%zu, %Q))).", "cap1", f1.base, c1);
+    err = skb_add_fact("cap(frame(%s, p(%"PRIuGENPADDR", %Q))).", "cap1", f1.base, c1);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Cap storage in SKB failed.");
     }
     printf("%s:%s:%d:\n", __FILE__, __FUNCTION__, __LINE__);
 
-    err = skb_add_fact("cap(frame(%s, p(%zu, %Q))).", "cap2", f2.base, c2);
+    err = skb_add_fact("cap(frame(%s, p(%"PRIuGENPADDR", %Q))).", "cap2", f2.base, c2);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Cap storage in SKB failed.");
     }

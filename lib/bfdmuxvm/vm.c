@@ -17,6 +17,7 @@
 #include <bfdmuxtools/bfdmux.h>
 
 #include <barrelfish/barrelfish.h>
+#include <arpa/inet.h>
 
 /*
  * Take compiled filter and run data through it.

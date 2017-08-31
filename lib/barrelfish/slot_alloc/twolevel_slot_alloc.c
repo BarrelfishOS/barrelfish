@@ -15,7 +15,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/core_state.h>
 #include "internal.h"
-#include "../../newlib/newlib/libc/include/stdlib.h"
+#include <stdlib.h>
 
 /**
  * \brief slot allocator
@@ -226,11 +226,6 @@ errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret)
     errval_t err;
     size_t bufsize = SINGLE_SLOT_ALLOC_BUFLEN(L2_CNODE_SLOTS); // XXX?
 
-    void *top_buf = malloc(bufsize);
-    if (!top_buf) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-
     ret->head = malloc(sizeof(struct slot_allocator_list));
     if (!ret->head) {
         return LIB_ERR_MALLOC_FAIL;
@@ -238,21 +233,32 @@ errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret)
     ret->head->next = NULL;
     void *head_buf = malloc(bufsize);
     if (!head_buf) {
+        free(ret->head);
         return LIB_ERR_MALLOC_FAIL;
     }
 
     ret->reserve = malloc(sizeof(struct slot_allocator_list));
     if (!ret->reserve) {
+        free(ret->head);
+        free(head_buf);
         return LIB_ERR_MALLOC_FAIL;
     }
     void *reserve_buf = malloc(bufsize);
     if (!reserve_buf) {
+        free(ret->head);
+        free(head_buf);
+        free(ret->reserve);
         return LIB_ERR_MALLOC_FAIL;
     }
+
 
     size_t allocation_unit = sizeof(struct slot_allocator_list) + bufsize;
     err = vspace_mmu_aware_init(&ret->mmu_state, allocation_unit * L2_CNODE_SLOTS * 2);
     if (err_is_fail(err)) {
+        free(ret->head);
+        free(head_buf);
+        free(ret->reserve);
+        free(reserve_buf);
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }
 
@@ -260,10 +266,21 @@ errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret)
     struct cnoderef initial_cnode, reserve_cnode;
     err = cnode_create_l2(&initial_cap, &initial_cnode);
     if (err_is_fail(err)) {
+        free(ret->head);
+        free(head_buf);
+        free(ret->reserve);
+        free(reserve_buf);
+        vregion_destroy(&ret->mmu_state.vregion);
         return err_push(err, LIB_ERR_CNODE_CREATE);
     }
     err = cnode_create_l2(&reserve_cap, &reserve_cnode);
     if (err_is_fail(err)) {
+        free(head_buf);
+        free(ret->head);
+        free(reserve_buf);
+        free(ret->reserve);
+        vregion_destroy(&ret->mmu_state.vregion);
+        cap_destroy(initial_cap);
         return err_push(err, LIB_ERR_CNODE_CREATE);
     }
     err = two_level_slot_alloc_init_raw(ret, initial_cap, initial_cnode,

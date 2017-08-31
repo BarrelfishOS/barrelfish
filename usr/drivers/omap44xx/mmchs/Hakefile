@@ -7,31 +7,25 @@
 -- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Hakefile for omap44xx sd-card driver
--- 
+--
 --------------------------------------------------------------------------
 
 [
-    build application { target = "mmchs",
-                        cFiles = [
-                            "main.c", "cm2.c", "ctrlmod.c", 
-                            "i2c.c", "mmchs.c", "twl6030.c",
-                            "service.c"
-                        ],
-                        mackerelDevices = [
-                            "ti_i2c",
-                            "ti_twl6030",
-                            "omap/omap44xx_mmchs1",
-                            "omap/omap44xx_sysctrl_padconf_core",
-                            "omap/omap44xx_l3init_cm2",
-                            "omap/omap44xx_ckgen_cm2",
-                            "omap/omap44xx_l4per_cm2"
-                        ],
+    build library { target = "mmchs_module",
+                    cFiles = [
+                        "main.c", "ctrlmod.c",
+                        "mmchs.c", "service.c"
+                    ],
+                    mackerelDevices = [
+                        "omap/omap44xx_mmchs1",
+                        "omap/omap44xx_sysctrl_padconf_core"
+                    ],
 
-                        flounderDefs = [ "ata_rw28" ],
-                        flounderBindings = [ "ata_rw28" ],
-                        flounderTHCStubs = [ "ata_rw28" ],
+                    flounderDefs = [ "ata_rw28", "cm2", "twl6030" ],
+                    flounderBindings = [ "ata_rw28" ],
+                    flounderTHCStubs = [ "ata_rw28" ],
 
-                        addLibraries = [ "driverkit", "thc" ],
-                        architectures = ["armv7"]
+                    architectures = ["armv7"]
     }
+
 ]

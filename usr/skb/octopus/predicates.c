@@ -21,6 +21,7 @@
 #include <include/skb_server.h>
 #include <collections/hash_table.h>
 
+#include <if/octopus_defs.h>
 #include <octopus_server/debug.h>
 #include <octopus_server/service.h>
 #include <octopus/trigger.h> // for trigger modes

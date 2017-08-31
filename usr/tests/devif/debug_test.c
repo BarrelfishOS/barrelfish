@@ -19,9 +19,11 @@
 #include <devif/backends/net/e10k_devif.h>
 #include <devif/backends/debug.h>
 #include <devif/backends/descq.h>
+#include <devif/backends/null.h>
 #include <bench/bench.h>
 #include <net_interfaces/flags.h>
 
+//#define BENCH
 
 //#define DEBUG(x...) printf("devif_test: " x)
 #define DEBUG(x...) do {} while (0)
@@ -55,9 +57,26 @@ struct list_ele{
     struct list_ele* next;
 };
 
-struct devq* que;
+static struct descq* queue;
+static struct debug_q* debug_q;
+static struct null_q* null_q;
+static struct devq* que;
 
 static volatile bool enq[NUM_BUFS];
+
+#ifdef BENCH
+static uint64_t tot_deq = 0;
+static uint64_t tot_enq = 0;
+static uint64_t tot_notify = 0;
+static uint64_t start_enq = 0, end_enq = 0;
+static uint64_t start_deq = 0, end_deq = 0;
+static uint64_t start_not = 0, end_not = 0;
+
+static double avg_deq, avg_enq, avg_not;
+static double avg_deq_d, avg_enq_d, avg_not_d;
+static double avg_deq_n, avg_enq_n, avg_not_n;
+#endif
+
 
 static errval_t descq_notify(struct descq* q)
 {
@@ -71,9 +90,17 @@ static errval_t descq_notify(struct descq* q)
     uint64_t flags;
 
     while(err_is_ok(err)) {
+
+#ifdef BENCH
+        start_deq = rdtsc();
+#endif
         err = devq_dequeue(que, &rid, &offset, &length, &valid_data,
                            &valid_length, &flags);
         if (err_is_ok(err)){
+#ifdef BENCH
+            end_deq = rdtsc();
+            tot_deq += end_deq - start_deq;
+#endif
             num_rx++;
             enq[offset/BUF_SIZE] = false;
         } 
@@ -81,9 +108,9 @@ static errval_t descq_notify(struct descq* q)
     return SYS_ERR_OK;
 }
 
-#define NUM_REGIONS 32
+#define NUM_REGIONS 128
 
-#define NUM_ROUNDS 10000
+#define NUM_ROUNDS 1000000
 
 static void test_register(void)
 {
@@ -103,7 +130,7 @@ static void test_register(void)
     srand(rdtsc());
     int idx = 0;
     struct capref ret;
-    for (int i = 0; i < NUM_ROUNDS; i++) {
+    for (int i = 0; i < NUM_ROUNDS/10; i++) {
         idx = rand() % NUM_REGIONS;   
         if (is_reg[idx]) {
             err = devq_deregister(que, rids[idx], &ret);
@@ -138,7 +165,6 @@ static void test_enqueue_dequeue(void)
     errval_t err;
     num_tx = 0;
     num_rx = 0;
-
     // enqueue from the beginning of the region
     for (int i = 0; i < NUM_BUFS/8; i++) {
         err = devq_enqueue(que, regid, i*BUF_SIZE, BUF_SIZE, 
@@ -223,7 +249,7 @@ static void test_failures(void)
         USER_PANIC("Enqueue failed: %s \n", err_getstring(err));
     }
 
-    while(num_rx < 1) {
+    while(num_rx < 2) {
         event_dispatch(get_default_waitset());
     }
 
@@ -243,22 +269,39 @@ static void test_randomized_test(void)
     num_tx = 0;
     num_rx = 0;
     memset((void*)enq, 0, sizeof(bool)*NUM_BUFS);
-    
+
+#ifdef BENCH
+    tot_enq = 0;
+    tot_deq = 0;
+    tot_notify = 0;
+#endif    
+
+    for (int i = 0; i < NUM_BUFS; i++) {
+        enq[i] = false;
+    }
+
     srand(rdtsc());
     int idx = 0;
     // enqueue from the beginning of the region
-    for (int i = 0; i < 1000000; i++) {
+    for (int i = 0; i < NUM_ROUNDS; i++) {
         for (int j = 0; j < NUM_BUFS/2; j++) {
             idx = rand() % NUM_BUFS;
             while (enq[idx]) {
                 idx = rand() % NUM_BUFS;
             }            
 
+#ifdef BENCH
+            start_enq = rdtsc();
+#endif
             err = devq_enqueue(que, regid, idx*BUF_SIZE, BUF_SIZE, 
                                0, BUF_SIZE, 0);
             if (err_is_fail(err)){
                 USER_PANIC("Enqueue failed: %s \n", err_getstring(err));
             } else {
+#ifdef BENCH
+                end_enq = rdtsc();
+                tot_enq += end_enq - start_enq;
+#endif
                 enq[idx] = true;
                 num_tx++;
             }
@@ -268,11 +311,17 @@ static void test_randomized_test(void)
             printf("Round %d \n", i);
         }
 
+#ifdef BENCH
+        start_not = rdtsc();
+#endif
         err = devq_notify(que);
         if (err_is_fail(err)) {
             USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
         }
-
+#ifdef BENCH
+        end_not = rdtsc();
+        tot_notify += end_not - start_not;
+#endif
         while(num_rx < ((i+1)*NUM_BUFS/2)) {
             event_dispatch(get_default_waitset());
         }
@@ -303,8 +352,6 @@ int main(int argc, char *argv[])
 
     phys = id.base;
 
-    struct descq* queue;
-    struct debug_q* debug_q;
     struct descq_func_pointer f;
     f.notify = descq_notify;
     
@@ -321,6 +368,12 @@ int main(int argc, char *argv[])
         USER_PANIC("Allocating debug q failed \n");
     }
   
+    // stack null queue on top
+    err = null_create(&null_q, (struct devq*) debug_q);
+    if (err_is_fail(err)) {
+        USER_PANIC("Allocating null q failed \n");
+    }
+
     que = (struct devq*) debug_q;
 
     err = devq_register(que, memory, &regid);
@@ -337,8 +390,82 @@ int main(int argc, char *argv[])
     printf("Starting enqueue/dequeue test \n");
     test_enqueue_dequeue();
 
-    printf("Starting randomized test \n");
+    printf("Starting randomized test debug\n");
+    que = (struct devq*) debug_q;
     test_randomized_test();
+
+#ifdef BENCH
+    avg_enq_d = ((double) tot_deq)/(NUM_ROUNDS*NUM_BUFS/2);
+    avg_deq_d = ((double) tot_enq)/(NUM_ROUNDS*NUM_BUFS/2);
+    avg_not_d = ((double) tot_notify)/NUM_ROUNDS;
+
+    printf("AVG deq debug %f \n", avg_enq_d);
+    printf("AVG enq debug %f \n", avg_deq_d);
+    printf("AVG notify debug %f \n", avg_not_d);
+    printf("############################################################ \n");
+
+
+    err = devq_deregister(que, regid, &memory);
+    if (err_is_fail(err)){
+        USER_PANIC("Deregistering memory from devq failed: %s \n",
+                   err_getstring(err));
+    }
+
+    printf("Starting randomized test non debug\n");
+    que = (struct devq*) queue;
+    
+    err = devq_register(que, memory, &regid);
+    if (err_is_fail(err)){
+        USER_PANIC("Registering memory to devq failed \n");
+    }
+
+    test_randomized_test();
+
+    avg_enq = ((double) tot_deq)/(NUM_ROUNDS*NUM_BUFS/2);
+    avg_deq = ((double) tot_enq)/(NUM_ROUNDS*NUM_BUFS/2);
+    avg_not = ((double) tot_notify)/NUM_ROUNDS;
+
+    printf("AVG deq %f \n", avg_enq);
+    printf("AVG enq %f \n", avg_deq);
+    printf("AVG notify %f \n", avg_not);
+    printf("############################################################ \n");
+
+    err = devq_deregister(que, regid, &memory);
+    if (err_is_fail(err)){
+        USER_PANIC("Deregistering memory from devq failed: %s \n",
+                   err_getstring(err));
+    }
+
+    printf("Starting randomized test debug + null\n");
+    que = (struct devq*) null_q;
+
+    err = devq_register(que, memory, &regid);
+    if (err_is_fail(err)){
+        USER_PANIC("Registering memory to devq failed \n");
+    }
+
+    test_randomized_test();
+
+    avg_enq_n = ((double) tot_deq)/(NUM_ROUNDS*NUM_BUFS/2);
+    avg_deq_n = ((double) tot_enq)/(NUM_ROUNDS*NUM_BUFS/2);
+    avg_not_n = ((double) tot_notify)/NUM_ROUNDS;
+
+    printf("AVG deq debug + null %f \n", avg_enq_n);
+    printf("AVG enq debug + null %f \n", avg_deq_n);
+    printf("AVG notify debug + null %f \n", avg_not_n);
+
+    printf("############################################################ \n");
+
+    printf("AVG enq overhead null %f \n", avg_enq_n - avg_enq_d);
+    printf("AVG deq overhead null %f \n", avg_deq_n - avg_deq_d);
+    printf("AVG notify overhead null %f \n", avg_not_n - avg_not_d);
+
+    printf("############################################################ \n");
+
+    printf("AVG enq overhead debug %f \n", avg_enq_d-avg_enq);
+    printf("AVG deq overhead debug %f \n", avg_deq_d - avg_deq);
+    printf("AVG notify overhead debug %f \n", avg_not_d - avg_not);
+#endif
 
     err = devq_deregister(que, regid, &memory);
     if (err_is_fail(err)){

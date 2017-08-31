@@ -12,6 +12,6 @@
 
 [ build application { target = "netthroughput",
                       cFiles = [ "nfs_cat.c"],
-                      addLibraries = libDeps ["vfs", "lwip"]
+                      addLibraries = libDeps ["vfs"]
                     }
 ]

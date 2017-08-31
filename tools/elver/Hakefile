@@ -14,9 +14,9 @@
 -- This has to be rather low-level, since elver is indeed a module for
 -- x86_64, but is built for 32-bits, so it's easiest to do this rather
 -- explicitly.
--- 
+--
 let arch = "x86_64"
-    opts = (options arch) { 
+    opts = (options arch) {
              optFlags = [ Str s | s <- [ "-fno-builtin",
                                            "-nostdinc",
                                            "-std=gnu99",
@@ -52,20 +52,20 @@ let arch = "x86_64"
                              NoDep BuildTree arch "/include" ],
              optDefines = [],
              optLibs = [],
-             optLdFlags = [ Str s | s <- [ "-m32", 
-                                        "-fno-builtin", 
+             optLdFlags = [ Str s | s <- [ "-m32",
+                                        "-fno-builtin",
                                         "-nostdlib",
                                         "-Wl,--fatal-warnings",
-                                        "-e start", 
+                                        "-e start",
                                         "-Wl,-Ttext,0x100000",
                                         "-static",
                                         "-Wl,--build-id=none" ]],
-             optSuffix = "_for_elver" 
+             optSuffix = "_for_elver"
            }
     objs = [ objectFilePath opts f | f <- [ "boot.S", "elver.c", "lib.c",
                                             "../../lib/elf/elf64.c" ] ]
-in 
+in
   [ compileCFiles opts [ "elver.c", "lib.c", "../../lib/elf/elf64.c" ],
     assembleSFiles opts [ "boot.S" ],
-    link opts objs [] "elver"
+    link opts objs [] [] "elver"
   ]

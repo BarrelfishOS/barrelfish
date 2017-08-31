@@ -22,9 +22,7 @@ class NFSTest(TestCommon):
     def get_modules(self, build, machine):
         cardName = "e1000"
         modules = super(NFSTest, self).get_modules(build, machine)
-        modules.add_module("e1000n", ["auto"])
-        modules.add_module("NGD_mng", ["auto"])
-        modules.add_module("netd", ["auto"])
+        modules.add_module("e1000_net_sockets_server", ["auto"])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         nfspath = siteconfig.get('WEBSERVER_1G_PATH')
         nfsfile = siteconfig.get('WEBSERVER_1G_FILE')

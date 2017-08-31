@@ -5,7 +5,7 @@
     core_offset,        % Core offset where to start the drivers (multi instance)
     multi_instance,     % Allow multi instances of the driver
     interrupt_load,     % Expected Interrupt load
-    interrupt_model,    % List of supported int models. legacy,msi,msix 
+    interrupt_model,    % List of supported int models. legacy,msi,msix
     platforms,          % List of architectures the driver runs on
     priority            % When more than one driver matches, the higher prio gets started
 )).
@@ -37,7 +37,7 @@
 %
 
 pci_driver{
-    binary: "e1000n",
+    binary: "e1000_net_sockets_server",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'1521, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'107d, function: _, subvendor: _, subdevice: _ },
@@ -64,7 +64,7 @@ pci_driver{
     supported_cards:
     [ pci_card{ vendor: 16'1924, device: 16'0803, function: _, subvendor: _, subdevice: _ }],
     core_hint: 0,
-    core_offset: 0,
+    core_offset: 1,
     multi_instance: 0,
     interrupt_load: 0.5,
     platforms: ['x86_64']
@@ -76,9 +76,10 @@ pci_driver{
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'10fb, function: _, subvendor: _, subdevice: _ }],
     core_hint: 0,
-    core_offset: 0,
+    core_offset: 1,
     multi_instance: 0,
     interrupt_load: 0.5,
+    interrupt_model: ['legacy'],
     platforms: ['x86_64']
 }.
 
@@ -157,7 +158,7 @@ int_model_enum(msix, 3).
 get_interrupt_model(IntModels, Model) :-
     ((var(IntModels) -> ModelAtom = none);
     IntModels = [ModelAtom | _]),
-    int_model_enum(ModelAtom, Model). 
+    int_model_enum(ModelAtom, Model).
 
 find_pci_driver(PciInfo, DriverInfo) :-
     PciInfo = pci_card{vendor:VId, device: DId, function: Fun, subvendor: SVId,
@@ -177,7 +178,7 @@ find_pci_driver(PciInfo, DriverInfo) :-
 
 find_cpu_driver(ApicId, DriverInfo) :-
     cpu_driver{binary: Binary, platforms: Platforms},
-    % TODO: In future use ApicId to select cpu driver that has listed the correct 
+    % TODO: In future use ApicId to select cpu driver that has listed the correct
     % platform
     DriverInfo = driver(Binary).
 
@@ -185,4 +186,3 @@ find_ioapic_driver(IOApicId, DriverInfo) :-
     bus_driver{binary: Binary, core_hint: Core, platforms: Platforms},
     % TODO: Select appropriate Core based on core_hint, platform, ioapic id
     DriverInfo = driver(Core, Binary).
-

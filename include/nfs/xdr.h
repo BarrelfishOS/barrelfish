@@ -45,7 +45,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <lwip/inet.h> /* for ntohl/htonl */
+#include <arpa/inet.h> /* for ntohl/htonl */
 #include <sys/types.h>
 #include <sys/cdefs.h>
 
@@ -136,6 +136,7 @@ typedef struct __rpc_xdr {
     //void *    x_public;   /* users' data (unused) */
     void *      x_private;  /* pointer to private data */
     void *      x_base;     /* private used for position info */
+    size_t      size;
     uintptr_t   x_handy;    /* extra private word */
 } XDR;
 

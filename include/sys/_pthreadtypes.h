@@ -14,20 +14,20 @@
  * 3. All advertising materials mentioning features or use of this software
  *    must display the following acknowledgement:
  *  This product includes software developed by Chris Provenzano.
- * 4. The name of Chris Provenzano may not be used to endorse or promote
+ * 4. The name of Chris Provenzano may not be used to endorse or promote 
  *	  products derived from this software without specific prior written
  *	  permission.
  *
  * THIS SOFTWARE IS PROVIDED BY CHRIS PROVENZANO ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL CHRIS PROVENZANO BE LIABLE FOR ANY
+ * ARE DISCLAIMED.  IN NO EVENT SHALL CHRIS PROVENZANO BE LIABLE FOR ANY 
  * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
- * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
  * SUCH DAMAGE.
  *
  * $FreeBSD$
@@ -36,34 +36,21 @@
 #ifndef _SYS__PTHREADTYPES_H_
 #define _SYS__PTHREADTYPES_H_
 
-#include <sched.h>
-#include <stdbool.h>
-#include <barrelfish/thread_sync.h> // for thread_once_t
-
 /*
  * Forward structure definitions.
  *
  * These are mostly opaque to the user.
  */
 struct pthread;
-struct pthread_attr {
-    int stacksize;
-    bool affinity_set;
-    cpu_set_t affinity;
-};
+struct pthread_attr;
 struct pthread_cond;
 struct pthread_cond_attr;
 struct pthread_mutex;
 struct pthread_mutex_attr;
+struct pthread_once;
 struct pthread_rwlock;
 struct pthread_rwlockattr;
-typedef struct {
-	int count;
-	int max_count;
-	struct thread_sem mutex;
-	struct thread_sem barrier;
-	struct thread_sem reset;
-} pthread_barrier_t;
+struct pthread_barrier;
 struct pthread_barrier_attr;
 struct pthread_spinlock;
 
@@ -84,10 +71,10 @@ typedef struct	pthread_mutex_attr	*pthread_mutexattr_t;
 typedef struct	pthread_cond		*pthread_cond_t;
 typedef struct	pthread_cond_attr	*pthread_condattr_t;
 typedef int     			pthread_key_t;
-typedef thread_once_t			pthread_once_t;
+typedef struct	pthread_once		pthread_once_t;
 typedef struct	pthread_rwlock		*pthread_rwlock_t;
 typedef struct	pthread_rwlockattr	*pthread_rwlockattr_t;
-//typedef struct	pthread_barrier		*pthread_barrier_t;
+typedef struct	pthread_barrier		pthread_barrier_t;
 typedef struct	pthread_barrierattr	*pthread_barrierattr_t;
 typedef struct	pthread_spinlock	*pthread_spinlock_t;
 
@@ -99,5 +86,13 @@ typedef struct	pthread_spinlock	*pthread_spinlock_t;
  */
 typedef void	*pthread_addr_t;
 typedef void	*(*pthread_startroutine_t)(void *);
+
+/*
+ * Once definitions.
+ */
+struct pthread_once {
+	int		state;
+	pthread_mutex_t	mutex;
+};
 
 #endif /* ! _SYS__PTHREADTYPES_H_ */

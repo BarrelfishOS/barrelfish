@@ -1,0 +1,21 @@
+/*
+ * Copyright (c) 2017 ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface net_sockets "Interface for network sockets" {
+    rpc register_queue(in uint64 queue_id);
+
+    rpc new_udp_socket(out uint32 descriptor);
+    rpc new_tcp_socket(out uint32 descriptor);
+
+    rpc bind(in uint32 descriptor, in uint32 host_address, in uint16 port, out errval error, out uint16 bound_port);
+    rpc listen(in uint32 descriptor, in uint8 backlog, out errval error);
+
+    rpc connect(in uint32 descriptor, in uint32 host_address, in uint16 port, out errval error);
+    message connected(uint32 descriptor, errval error, uint32 connected_address, uint16 connected_port);
+};

@@ -20,8 +20,8 @@ class MultithreadedWaitsetTest(TestCommon):
 
     def setup(self, build, machine, testdir):
         super(MultithreadedWaitsetTest, self).setup(build, machine, testdir)
-        self.test_timeout_delta *= 2
-        debug.verbose("%s: increasing test timeout delta by factor 2: new = %s" %
+        self.test_timeout_delta *= 3
+        debug.verbose("%s: increasing test timeout delta by factor 3: new = %s" %
                 (self.name, self.test_timeout_delta))
 
     def get_modules(self, build, machine):
@@ -29,8 +29,9 @@ class MultithreadedWaitsetTest(TestCommon):
         modules.add_module("mt_waitset", ["10", "10", "10000"])
         return modules
 
-    def is_finished(self, line):
-        return "Test PASSED" in line or "Test FAILED" in line
+    def get_finish_string(self):
+        # Finish line is "Test PASSED" or "Test FAILED"
+        return "Test "
 
     def process_data(self, testdir, rawiter):
         passed = False

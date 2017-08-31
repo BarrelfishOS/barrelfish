@@ -8,6 +8,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/deferred.h>
 #include "capsend.h"
 #include "monitor.h"
 #include "capops.h"
@@ -823,6 +824,39 @@ owner_updated__rx_handler(struct intermon_binding *b, genvaddr_t st)
     free(uo_bc_st);
 }
 
+struct delayed_cleanup_st {
+    struct deferred_event d;
+    struct event_closure ev;
+    struct capref capref;
+    delayus_t delay;
+};
+
+static void defer_free_owner_rx_cap(struct delayed_cleanup_st *st)
+{
+    errval_t err;
+    deferred_event_init(&st->d);
+    err = deferred_event_register(&st->d, get_default_waitset(), st->delay, st->ev);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "unable to register deferred event, leaking cap");
+        free(st);
+    }
+}
+
+static void free_owner_rx_cap(void *st_)
+{
+    errval_t err;
+    struct delayed_cleanup_st *st = st_;
+    err = cap_destroy(st->capref);
+    if (err_no(err) == SYS_ERR_CAP_LOCKED) {
+        // exponential backoff
+        st->delay *= 2;
+        defer_free_owner_rx_cap(st);
+        return;
+    }
+    PANIC_IF_ERR(err, "cap cleanup after update_owner_rx");
+    free(st);
+}
+
 void
 update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, genvaddr_t st)
 {
@@ -845,14 +879,26 @@ update_owner__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, g
     }
     if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
         err = SYS_ERR_OK;
+        slot_free(capref);
+        goto reply;
     }
 
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to update cap ownership");
     }
 
-    cap_destroy(capref);
+    err = cap_destroy(capref);
+    if (err_no(err) == SYS_ERR_CAP_LOCKED) {
+        // ownership updates still in flight, delete cap later
+        struct delayed_cleanup_st *dst = malloc(sizeof(*dst));
+        assert(dst);
+        dst->capref = capref;
+        dst->ev = MKCLOSURE(free_owner_rx_cap, dst);
+        dst->delay = 1000; // 1ms delay
+        defer_free_owner_rx_cap(dst);
+    }
 
+reply:
     err = owner_updated(from, st);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to send ownership update response");

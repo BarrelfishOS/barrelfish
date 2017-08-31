@@ -13,6 +13,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 

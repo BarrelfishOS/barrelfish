@@ -12,10 +12,9 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <lwip/pbuf.h>
-#include <lwip/udp.h>
+#include <nfs/xdr.h>
 #include <assert.h>
-#include <lwip/init.h>
+#include <net_sockets/net_sockets.h>
 
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
@@ -29,7 +28,6 @@ bool rdtscp_flag;
 #define FALSE   false
 #define TRUE    true
 
-#include <nfs/xdr.h>
 #include "rpc.h"
 #include "rpc_debug.h"
 #include "xdr_pbuf.h"
@@ -63,10 +61,6 @@ enum rpc_msg_type {
 /// bytes needed for full RPC call header
 #define RPC_CALL_HEADER_LEN (10 * BYTES_PER_XDR_UNIT + AUTH_SIZE)
 
-// XXX: lwip synchronisation kludges
-extern struct thread_mutex *lwip_mutex;
-extern struct waitset *lwip_waitset;
-
 static uint8_t net_debug_state = 0;
 
 static int hash_function(uint32_t xid)
@@ -78,14 +72,15 @@ static int hash_function(uint32_t xid)
 struct rpc_call {
     uint32_t xid;               ///< Transaction ID (XID)
     uint16_t timers, retries;   ///< Number of timer expiries and retries
-    struct pbuf *pbuf;          ///< LWIP pbuf pointer for packet data
+    uint8_t *data;              ///< Pointer for packet data
+    size_t size;
     rpc_callback_t callback;    ///< Callback function pointer
     void *cbarg1, *cbarg2;      ///< Callback function opaque arguments
     struct rpc_call *next;      ///< Next call in queue
 };
 
 /// Utility function to prepare an outgoing packet buffer with the RPC call header
-static err_t rpc_call_init(XDR *xdr, uint32_t xid, uint32_t prog, uint32_t vers,
+static errval_t rpc_call_init(XDR *xdr, uint32_t xid, uint32_t prog, uint32_t vers,
                            uint32_t proc)
 {
     int32_t *buf;
@@ -93,7 +88,7 @@ static err_t rpc_call_init(XDR *xdr, uint32_t xid, uint32_t prog, uint32_t vers,
 
     /* reserve space for the first part of the header */
     if ((buf = XDR_INLINE(xdr, 9 * BYTES_PER_XDR_UNIT)) == NULL) {
-        return ERR_BUF;
+        return LWIP_ERR_BUF;
     }
 
     // XID comes first
@@ -119,12 +114,12 @@ static err_t rpc_call_init(XDR *xdr, uint32_t xid, uint32_t prog, uint32_t vers,
     char *machname = AUTH_MACHINE_NAME;
     rb = xdr_string(xdr, &machname, AUTH_MACHINE_NAME_LEN);
     if (!rb) {
-        return ERR_BUF;
+        return LWIP_ERR_BUF;
     }
 
     /* reserve some more space for the rest, which is done inline again */
     if ((buf = XDR_INLINE(xdr, 5 * BYTES_PER_XDR_UNIT)) == NULL) {
-        return ERR_BUF;
+        return LWIP_ERR_BUF;
     }
 
     // Rest of the CRED
@@ -136,16 +131,16 @@ static err_t rpc_call_init(XDR *xdr, uint32_t xid, uint32_t prog, uint32_t vers,
     IXDR_PUT_UINT32(buf, RPC_AUTH_NULL);
     IXDR_PUT_UINT32(buf, 0);
 
-    return ERR_OK;
+    return SYS_ERR_OK;
 }
 
 /// Utility function to skip over variable-sized authentication data in a reply
-static err_t xdr_skip_auth(XDR *xdr)
+static errval_t xdr_skip_auth(XDR *xdr)
 {
     int32_t *buf;
 
     if ((buf = XDR_INLINE(xdr, 2 * BYTES_PER_XDR_UNIT)) == NULL) {
-        return ERR_BUF;
+        return LWIP_ERR_BUF;
     }
 
     (void) IXDR_GET_UINT32(buf); // skip auth flavour
@@ -156,29 +151,28 @@ static err_t xdr_skip_auth(XDR *xdr)
     if (auth_size > 0) {
         buf = XDR_INLINE(xdr, auth_size);
         if (buf == NULL) {
-            return ERR_BUF;
+            return LWIP_ERR_BUF;
         }
     }
 
-    return ERR_OK;
+    return SYS_ERR_OK;
 }
 
 /// Generic handler for all incoming RPC messages. Finds the appropriate call
 /// instance, checks arguments, and notifies the callback.
-static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
-                             struct ip_addr *addr, u16_t port)
+static void rpc_recv_handler(void *user_state, struct net_socket *socket,
+    void *data, size_t size, struct in_addr ip_address, uint16_t port)
 {
 
 //    uint64_t ts = rdtsc();
     uint32_t replystat, acceptstat;
     XDR xdr;
-    err_t r;
+    errval_t r;
     bool rb;
-
-    struct rpc_client *client = arg;
+    struct rpc_client *client = user_state;
     struct rpc_call *call = NULL;
 
-    xdr_pbuf_create_recv(&xdr, pbuf);
+    xdr_create_recv(&xdr, data, size);
 
     int32_t *buf;
     if ((buf = XDR_INLINE(&xdr, 3 * BYTES_PER_XDR_UNIT)) == NULL) {
@@ -219,7 +213,7 @@ static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
     replystat = IXDR_GET_UINT32(buf);
     if (replystat == RPC_MSG_ACCEPTED) {
         r = xdr_skip_auth(&xdr);
-        if (r != ERR_OK) {
+        if (r != SYS_ERR_OK) {
             fprintf(stderr, "RPC: Error in incoming auth data, dropped\n");
             goto out;
         }
@@ -233,22 +227,16 @@ static void rpc_recv_handler(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
         acceptstat = -1;
     }
 
-//    lwip_record_event_simple(RPC_RECV_T, ts);
-//    ts = rdtsc();
     call->callback(client, call->cbarg1, call->cbarg2, replystat, acceptstat,
                    &xdr);
-//    lwip_record_event_simple(RPC_CALLBACK_T, ts);
 
 out:
-//    ts = rdtsc();
-    pbuf_free(pbuf); // freeing the pbuf from RX packet
     if (call != NULL) {
         // We got reply, so there is not need for keeping TX packet saved
         // here for retransmission.  Lets free it up.
-        pbuf_free(call->pbuf);
+        net_free(call->data);
         free(call);
     }
-//    lwip_record_event_simple(RPC_RECV_OUT_T, ts);
 }
 
 static void traverse_hash_bucket(int hid, struct rpc_client *client)
@@ -264,7 +252,7 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                 printf("##### [%d][%"PRIuDOMAINID"] "
                        "RPC: timeout for XID 0x%"PRIu32"\n",
                        disp_get_core_id(), disp_get_domain_id(), call->xid);
-                pbuf_free(call->pbuf);
+                free(call->data);
                 if (prev == NULL) {
                     client->call_hash[hid] = call->next;
                 } else {
@@ -293,12 +281,12 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                        disp_get_core_id(), disp_get_domain_id(), call->xid);
 
                 // throw away (hide) UDP/IP/ARP headers from previous transmission
-                err_t e = pbuf_header(call->pbuf,
-                                      -UDP_HLEN - IP_HLEN - PBUF_LINK_HLEN);
-                assert(e == ERR_OK);
+                // err_t e = pbuf_header(call->pbuf,
+                //                       -UDP_HLEN - IP_HLEN - PBUF_LINK_HLEN);
+                // assert(e == SYS_ERR_OK);
 
-                e = udp_send(client->pcb, call->pbuf);
-                if (e != ERR_OK) {
+                errval_t e = net_send_to(client->socket, call->data, call->size, client->connected_address, client->connected_port);
+                if (e != SYS_ERR_OK) {
                     /* XXX: assume that this is a transient condition, retry */
                     fprintf(stderr, "RPC: retransmit failed! will retry...\n");
                     call->timers--;
@@ -318,16 +306,10 @@ static void rpc_timer(void *arg)
 {
     struct rpc_client *client = arg;
     RPC_DEBUGP("rpc_timer fired\n");
-    if (lwip_mutex != NULL) {
-        thread_mutex_lock(lwip_mutex);
-    }
     for (int i = 0; i < RPC_HTABLE_SIZE; ++i) {
     	if (client->call_hash[i] != NULL) {
             traverse_hash_bucket(i, client);
     	}
-    }
-    if (lwip_mutex != NULL) {
-        thread_mutex_unlock(lwip_mutex);
     }
 }
 
@@ -338,19 +320,22 @@ static void rpc_timer(void *arg)
  * \param client Pointer to memory for RPC client data, to be initialised
  * \param server IP address of server to be called
  *
- * \returns Error code (ERR_OK on success)
+ * \returns Error code (SYS_ERR_OK on success)
  */
-err_t rpc_init(struct rpc_client *client, struct ip_addr server)
+errval_t rpc_init(struct rpc_client *client, struct in_addr server)
 {
     errval_t err;
-    client->pcb = udp_new();
-    if (client->pcb == NULL) {
-        return ERR_MEM;
-    }
+    
+    client->socket = net_udp_socket();
+    assert(client->socket);
+    net_set_user_state(client->socket, client);
+    net_set_on_received(client->socket, rpc_recv_handler);
 
     net_debug_state = 0;
 
     client->server = server;
+    client->connected_address.s_addr = INADDR_NONE;
+    client->connected_port = 0;
 
     for (int i = 0; i < RPC_HTABLE_SIZE; ++i) {
     	client->call_hash[i] = NULL;
@@ -361,19 +346,17 @@ err_t rpc_init(struct rpc_client *client, struct ip_addr server)
 
     RPC_DEBUGP("###### Initial sequence no. is %"PRIu32" 0x%"PRIx32"\n",
     		client->nextxid, client->nextxid);
-    udp_recv(client->pcb, rpc_recv_handler, client);
-
-    err = periodic_event_create(&client->timer, lwip_waitset,
+    err = periodic_event_create(&client->timer, get_default_waitset(),
                                 RPC_TIMER_PERIOD, MKCLOSURE(rpc_timer, client));
     assert(err_is_ok(err));
     if (err_is_fail(err)) {
     	printf("rpc timer creation failed\n");
-        udp_remove(client->pcb);
-        return ERR_MEM;
+        net_close(client->socket);
+        return LWIP_ERR_MEM;
     }
     RPC_DEBUGP("rpc timer created\n");
 
-    return ERR_OK;
+    return SYS_ERR_OK;
 }
 
 
@@ -392,38 +375,30 @@ err_t rpc_init(struct rpc_client *client, struct ip_addr server)
  * \param callback Callback function to be invoked when call either completes or fails
  * \param cbarg1,cbarg2 Opaque arguments to be passed to callback function
  *
- * \returns Error code (ERR_OK on success)
+ * \returns Error code (SYS_ERR_OK on success)
  */
-err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
+errval_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
                uint32_t vers, uint32_t proc, xdrproc_t args_xdrproc, void *args,
                size_t args_size, rpc_callback_t callback, void *cbarg1,
                void *cbarg2)
 {
 
-    uint64_t ts = rdtsc();
     XDR xdr;
-    err_t r;
+    errval_t r;
     bool rb;
     uint32_t xid;
-    RPC_DEBUGP("rpc_call: started, trying to get a lock\n");
-    if (lwip_mutex != NULL) {
-        if(thread_mutex_trylock(lwip_mutex)) {
-           printf("rpc_call: thread_mutex_trylock failed\n");
-           abort();
-        }
-    }
 
-    RPC_DEBUGP("rpc_call:  calling xdr_pbuf_create_send\n");
-    rb = xdr_pbuf_create_send(&xdr, args_size + RPC_CALL_HEADER_LEN);
+    RPC_DEBUGP("rpc_call:  calling xdr_create_send\n");
+    rb = xdr_create_send(&xdr, args_size + RPC_CALL_HEADER_LEN);
     if (!rb) {
-        return ERR_MEM;
+        return LWIP_ERR_MEM;
     }
 
     xid = client->nextxid++;
 
     RPC_DEBUGP("rpc_call: calling rpc_call_init\n");
     r = rpc_call_init(&xdr, xid, prog, vers, proc);
-    if (r != ERR_OK) {
+    if (r != SYS_ERR_OK) {
         XDR_DESTROY(&xdr);
         return r;
     }
@@ -432,36 +407,27 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
     rb = args_xdrproc(&xdr, args);
     if (!rb) {
         XDR_DESTROY(&xdr);
-        return ERR_BUF;
+        return LWIP_ERR_BUF;
     }
 
     struct rpc_call *call = malloc(sizeof(struct rpc_call));
     if (call == NULL) {
         XDR_DESTROY(&xdr);
-        return ERR_MEM;
+        return LWIP_ERR_MEM;
     }
     call->xid = xid;
     call->retries = call->timers = 0;
-    call->pbuf = (struct pbuf *)xdr.x_private;
+    call->data = xdr.x_private;
+    call->size = xdr.size;
     call->callback = callback;
     call->cbarg1 = cbarg1;
     call->cbarg2 = cbarg2;
     call->next = NULL;
 
     RPC_DEBUGP("rpc_call: RPC call for xid %u x0%x\n", xid, xid);
-    /* XXX: fix size on pbuf in case the buffer was too big */
-    if (((struct pbuf *)xdr.x_base)->len > xdr.x_handy) {
-        /* FIXME: intermediate pbufs will have the wrong tot_len */
-        call->pbuf->tot_len -= ((struct pbuf *)xdr.x_base)->len - xdr.x_handy;
-        ((struct pbuf *)xdr.x_base)->len = xdr.x_handy;
-    }
     RPC_DEBUGP("rpc_call: calling UPD_connect\n");
-    r = udp_connect(client->pcb, &client->server, port);
-    if (r != ERR_OK) {
-        XDR_DESTROY(&xdr);
-        free(call);
-        return r;
-    }
+    client->connected_address = client->server;
+    client->connected_port = port;
 
     /* enqueue */
     int hid = hash_function(xid);
@@ -469,8 +435,8 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
     client->call_hash[hid] = call;
 
     RPC_DEBUGP("rpc_call: calling UPD_send\n");
-    r = udp_send(client->pcb, call->pbuf);
-    if (r != ERR_OK) {
+    r = net_send_to(client->socket, call->data, call->size, client->connected_address, client->connected_port);
+    if (r != SYS_ERR_OK) {
         /* dequeue */
         assert(client->call_hash[hid] == call);
         client->call_hash[hid] = call->next;
@@ -480,7 +446,6 @@ err_t rpc_call(struct rpc_client *client, uint16_t port, uint32_t prog,
     }
 
     RPC_DEBUGP("rpc_call: rpc_call done\n");
-    lwip_record_event_simple(RPC_CALL_T, ts);
     return r;
 }
 
@@ -493,12 +458,11 @@ void rpc_destroy(struct rpc_client *client)
     struct rpc_call *call, *next;
     for(int i = 0; i < RPC_HTABLE_SIZE; ++i) {
         for (call = client->call_hash[i]; call != NULL; call = next) {
-            pbuf_free(call->pbuf);
+            free(call->data);
             next = call->next;
             free(call);
         }
         client->call_hash[i] = NULL;
     }
-
-    udp_remove(client->pcb);
+    net_close(client->socket);
 }

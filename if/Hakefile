@@ -93,7 +93,13 @@
                "xomp_gateway",
                "sfn5122f",
                "sfn5122f_devif",
-               "descq"
+               "descq",
+               "ddomain",
+               "dcontrol",
+               "net_filter",
+               "twl6030",
+               "cm2",
+               "net_sockets"
            ],
              arch <- allArchitectures
 ] ++
@@ -106,6 +112,8 @@
                "octopus",
                "omap_sdma",
                "ping_pong",
-               "xmplthc" ],
+               "xmplthc",
+               "ddomain",
+               "dcontrol" ],
              arch <- allArchitectures
 ]

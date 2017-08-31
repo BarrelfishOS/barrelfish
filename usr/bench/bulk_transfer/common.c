@@ -1,7 +1,7 @@
 #include "common.h"
 
 #include <barrelfish/nameservice_client.h>
-#include <ipv4/lwip/inet.h>
+#include <lwip/inet.h>
 
 #include <bulk_transfer/bulk_local.h>
 #include <bulk_transfer/bulk_net_proxy.h>

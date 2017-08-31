@@ -14,7 +14,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <bitmacros.h> // for MIN
 #include "vmkitmon.h"
 #include <barrelfish/lmp_endpoints.h>
 #include "x86.h"
@@ -54,7 +53,7 @@ extern uint16_t saved_exit_reason;
 extern uint64_t saved_exit_qual, saved_rip;
 
 // List of MSRs that are saved on VM-exit and loaded on VM-entry.
-static uint32_t msr_list[VMX_MSR_COUNT] = 
+static uint32_t msr_list[VMX_MSR_COUNT] =
     {X86_MSR_KERNEL_GS_BASE, X86_MSR_STAR, X86_MSR_LSTAR, X86_MSR_CSTAR, X86_MSR_SFMASK};
 
 // Saved priority of the most recent irq that is asserted.
@@ -73,8 +72,8 @@ static inline int vmx_guest_msr_index(uint32_t msr_index)
 }
 
 static void initialize_guest_msr_area(struct guest *g)
-{ 
-    struct msr_entry *guest_msr_area = (struct msr_entry *)g->msr_area_va;  
+{
+    struct msr_entry *guest_msr_area = (struct msr_entry *)g->msr_area_va;
     
     // The values of the MSRs in the guest MSR area are all set to 0.
     for (int i = 0; i < VMX_MSR_COUNT; i++) {
@@ -277,7 +276,7 @@ initialize_iopm (struct guest *self) {
     // intercept all IO port accesses (for now)
 #ifdef CONFIG_SVM
     memset((void*)self->iopm_va, 0xFF, IOPM_SIZE);
-#else 
+#else
     memset((void*)self->iobmp_a_va, 0xFF, IOBMP_A_SIZE);
     memset((void*)self->iobmp_b_va, 0xFF, IOBMP_B_SIZE);
 #endif
@@ -556,10 +555,10 @@ install_grub_stage2 (struct guest *g, void *img, size_t img_size)
     amd_vmcb_cs_base_wr(&g->vmcb, 0x0);
     amd_vmcb_cs_limit_wr(&g->vmcb, 0xffff);
 #else
-    errval_t err = invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, 0x8200);    
+    errval_t err = invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, 0x8200);
     err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_CS_SEL, 0x0);
     err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_CS_BASE, 0x0);
-    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_CS_LIM, 0xffff); 
+    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_CS_LIM, 0xffff);
     assert(err_is_ok(err));
 #endif
 
@@ -623,7 +622,7 @@ virq_pending (void *ud, uint8_t *irq, uint8_t *irq_prio)
 }
 
 #ifndef CONFIG_SVM
-static bool 
+static bool
 virq_accepting (void *ud)
 {
     assert(ud != NULL);
@@ -651,7 +650,7 @@ virq_handler (void *ud, uint8_t irq, uint8_t irq_prio)
     amd_vmcb_vintr_vintr_vector_wrf(&g->vmcb, irq);
     amd_vmcb_vintr_v_ign_tpr_wrf(&g->vmcb, 1);
 #else
-    uint64_t guest_rflags;    
+    uint64_t guest_rflags;
     errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RFLAGS, &guest_rflags);
     assert(guest_rflags & (1UL << 9));
 
@@ -795,7 +794,7 @@ guest_setup (struct guest *g)
     g->lpc = lpc_new(virq_handler, virq_pending,
 #ifndef CONFIG_SVM
 		     virq_accepting,
-#endif 
+#endif
 		     g, g->apic);
     if (hdd0_image != NULL) {
         g->hdds[0] = hdd_new_from_memory(hdd0_image, hdd0_image_size);
@@ -869,7 +868,7 @@ run_realmode (struct guest *g)
 };
 
 #ifndef CONFIG_SVM
-// Return true if the "Enable EPT" Secondary Processor-based control is 
+// Return true if the "Enable EPT" Secondary Processor-based control is
 // set in the VMCS, else false.
 static inline bool vmx_ept_enabled(struct guest *g)
 {
@@ -879,7 +878,7 @@ static inline bool vmx_ept_enabled(struct guest *g)
     return ((sp_controls & SP_CLTS_ENABLE_EPT) != 0);
 }
 
-// Set or clear the "Descriptor-table exiting" Secondary Processor-based 
+// Set or clear the "Descriptor-table exiting" Secondary Processor-based
 // control if val is 1 or 0, respectively.
 static inline void vmx_intercept_desc_table_wrf(struct guest *g, int val)
 {
@@ -891,17 +890,17 @@ static inline void vmx_intercept_desc_table_wrf(struct guest *g, int val)
         uint64_t prim_proc_ctrls;
 	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_EXEC_PRIM_PROC, &prim_proc_ctrls);
 	assert(prim_proc_ctrls & PP_CLTS_SEC_CTLS);
-	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_EXEC_SEC_PROC, 
+	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_EXEC_SEC_PROC,
 					 sec_proc_ctrls | SP_CLTS_DESC_TABLE);
     } else {
-        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_EXEC_SEC_PROC, 
+        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_EXEC_SEC_PROC,
 					 sec_proc_ctrls & ~SP_CLTS_DESC_TABLE);
     }
     assert(err_is_ok(err));
 }
 
 
-// Before entering the guest, synchronize the CR0 shadow with the guest 
+// Before entering the guest, synchronize the CR0 shadow with the guest
 // CR0 value that is potentially changed in the real-mode emulator.
 static inline void vmx_set_cr0_shadow(struct guest *g)
 {
@@ -1081,7 +1080,7 @@ handle_vmexit_unhandeled (struct guest *g)
     printf(" guest physical-address:\t %"PRIx64"\n", gpaddr);
 
     uint64_t guest_cr0, guest_cr3, guest_cr4;
-    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR0, &guest_cr0);    
+    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR0, &guest_cr0);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR3, &guest_cr3);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR4, &guest_cr4);
 
@@ -1089,28 +1088,28 @@ handle_vmexit_unhandeled (struct guest *g)
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_EFER_F, &guest_efer);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
 
-    uint64_t guest_cs_sel, guest_cs_base, guest_cs_lim, 
+    uint64_t guest_cs_sel, guest_cs_base, guest_cs_lim,
         guest_cs_access;
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_SEL, &guest_cs_sel);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_BASE, &guest_cs_base);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_LIM, &guest_cs_lim);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_ACCESS, &guest_cs_access);
 
-    uint64_t guest_ds_sel, guest_ds_base, guest_ds_lim, 
+    uint64_t guest_ds_sel, guest_ds_base, guest_ds_lim,
         guest_ds_access;
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_SEL, &guest_ds_sel);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_BASE, &guest_ds_base);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_LIM, &guest_ds_lim);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_ACCESS, &guest_ds_access);
 
-    uint64_t guest_es_sel, guest_es_base, guest_es_lim, 
+    uint64_t guest_es_sel, guest_es_base, guest_es_lim,
         guest_es_access;
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_ES_SEL, &guest_es_sel);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_ES_BASE, &guest_es_base);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_ES_LIM, &guest_es_lim);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_ES_ACCESS, &guest_es_access);
 
-    uint64_t guest_ss_sel, guest_ss_base, guest_ss_lim, 
+    uint64_t guest_ss_sel, guest_ss_base, guest_ss_lim,
         guest_ss_access;
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_SS_SEL, &guest_ss_sel);
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_SS_BASE, &guest_ss_base);
@@ -1139,7 +1138,7 @@ handle_vmexit_unhandeled (struct guest *g)
     printf(" rsi:\t%lx\n", g->ctrl->regs.rsi);
     printf(" rdi:\t%lx\n", g->ctrl->regs.rdi);
 
-    return HANDLER_ERR_FATAL;  
+    return HANDLER_ERR_FATAL;
 }
 #endif
 
@@ -1177,7 +1176,7 @@ lookup_paddr_long_mode (struct guest *g, uint64_t vaddr)
     // get pd entry
     union x86_lm_pd_entry pde = { .raw = page_table[va.u.pd_idx] };
     if (pde.u.p == 0) {
-        printf("g2h %lx, pml4e %p %lx, pdpe %p %lx, pde %p %lx\n", 
+        printf("g2h %lx, pml4e %p %lx, pdpe %p %lx, pde %p %lx\n",
 	       guest_to_host(0), &pml4e, pml4e.raw, &pdpe, pdpe.raw, &pde, pde.raw);
     }
     assert(pde.u.p == 1);
@@ -1255,12 +1254,12 @@ get_instr_arr (struct guest *g, uint8_t **arr)
         *arr = (uint8_t *)(guest_to_host(g->mem_low_va) +
                amd_vmcb_cs_base_rd(&g->vmcb) +
                amd_vmcb_rip_rd(&g->vmcb));
-#else 
+#else
 	uint64_t guest_cs_base, guest_rip;
 	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CS_BASE, &guest_cs_base);
 	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
         *arr = (uint8_t *)(guest_to_host(g->mem_low_va) +
-			   guest_cs_base + guest_rip);	
+			   guest_cs_base + guest_rip);
 #endif
     } else {
         // with paging
@@ -1283,7 +1282,7 @@ get_instr_arr (struct guest *g, uint8_t **arr)
 	    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
 	    if (cs_access_rights & ACCESS_RIGHTS_LONG_MODE) {
                 *arr = (uint8_t *)guest_to_host(lookup_paddr_long_mode(g,
-                                                guest_rip));	       
+                                                guest_rip));
 #endif
             } else {
                 // cmpatibility mode
@@ -1302,7 +1301,7 @@ get_instr_arr (struct guest *g, uint8_t **arr)
 	    uint64_t guest_rip;
 	    err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
             *arr = (uint8_t *)guest_to_host(lookup_paddr_legacy_mode(g,
-                                            guest_rip));	    
+                                            guest_rip));
 #endif
         }
     }
@@ -1533,9 +1532,9 @@ handle_vmexit_ldt (struct guest *g)
         amd_vmcb_gdtr_limit_wr(&g->vmcb, *(uint16_t*)(mem + addr));
         amd_vmcb_gdtr_base_wr(&g->vmcb, *(uint32_t*)(mem + addr + 2));
 #else
-	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_GDTR_LIM, 
+	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_GDTR_LIM,
 					 *(uint16_t*)(mem + addr));
-        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_GDTR_BASE, 
+        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_GDTR_BASE,
 					 *(uint32_t*)(mem + addr + 2));
 #endif
 
@@ -1545,9 +1544,9 @@ handle_vmexit_ldt (struct guest *g)
         amd_vmcb_idtr_limit_wr(&g->vmcb, *(uint16_t*)(mem + addr));
         amd_vmcb_idtr_base_wr(&g->vmcb, *(uint32_t*)(mem + addr + 2));
 #else
-	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_IDTR_LIM, 
+	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_IDTR_LIM,
 					 *(uint16_t*)(mem + addr));
-	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_IDTR_BASE, 
+	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_IDTR_BASE,
 					 *(uint32_t*)(mem + addr + 2));
 #endif
     } else {
@@ -1575,15 +1574,15 @@ handle_vmexit_ldt (struct guest *g)
 }
 
 #ifndef CONFIG_SVM
-static inline void vmx_vmcs_rflags_cf_wrf(struct guest *g, int val) { 
+static inline void vmx_vmcs_rflags_cf_wrf(struct guest *g, int val) {
     assert(val == 0 || val == 1);
     uint64_t guest_rflags;
     errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RFLAGS, &guest_rflags);
     if (val) {
-        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RFLAGS, 
+        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RFLAGS,
 					 guest_rflags | RFLAGS_CF);
     } else {
-        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RFLAGS, 
+        err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RFLAGS,
 					 guest_rflags & (~RFLAGS_CF));
     }
     assert(err_is_ok(err));
@@ -1613,7 +1612,7 @@ handle_vmexit_swint (struct guest *g)
     if (amd_vmcb_cr0_rd(&g->vmcb).pe == 0) {
 #else
     uint64_t guest_ds_base, es_guest_base;
-    uint64_t guest_cr0, guest_rip; 
+    uint64_t guest_cr0, guest_rip;
     errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_CR0, &guest_cr0);
     if ((guest_cr0 & CR0_PE) == 0) {
 #endif
@@ -1731,10 +1730,10 @@ handle_vmexit_swint (struct guest *g)
                         uintptr_t mem = guest_to_host(g->mem_low_va) +
                                         amd_vmcb_ds_base_rd(&g->vmcb) +
                                         guest_get_si(g);
-#else 
+#else
 			err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_BASE, &guest_ds_base);
                         uintptr_t mem = guest_to_host(g->mem_low_va) +
-                                        guest_ds_base + guest_get_si(g);			
+                                        guest_ds_base + guest_get_si(g);
 #endif
 
                         struct disk_access_block *dap = (void *)mem;
@@ -1804,7 +1803,7 @@ handle_vmexit_swint (struct guest *g)
 #else
 			err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_DS_BASE, &guest_ds_base);
                         uintptr_t mem = guest_to_host(g->mem_low_va) +
-                                        guest_ds_base + guest_get_si(g);			
+                                        guest_ds_base + guest_get_si(g);
 #endif
 
                         struct drive_params *drp = (void *)mem;
@@ -2084,7 +2083,7 @@ handle_vmexit_ioio (struct guest *g)
 #else
     errval_t err = 0;
     if (!g->emulated_before_exit) {
-        err += invoke_dispatcher_vmread(g->dcb_cap, VMX_EXIT_QUAL, &saved_exit_qual); 
+        err += invoke_dispatcher_vmread(g->dcb_cap, VMX_EXIT_QUAL, &saved_exit_qual);
 	uint64_t instr_len, guest_rip;
 	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_EXIT_INSTR_LEN, &instr_len);
 	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
@@ -2332,7 +2331,7 @@ handle_vmexit_msr (struct guest *g) {
 #ifdef CONFIG_SVM
             amd_vmcb_sysenter_esp_wr(&g->vmcb, val);
 #else
-	    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_SYSENTER_ESP, val);	    
+	    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_SYSENTER_ESP, val);
 #endif
             break;
         case X86_MSR_SYSENTER_EIP:
@@ -2387,8 +2386,8 @@ handle_vmexit_msr (struct guest *g) {
 	    msr_index = vmx_guest_msr_index(msr);
 	    if (msr_index == -1) {
 	        printf("MSR: unhandeled MSR write access to %x\n", msr);
-		return handle_vmexit_unhandeled(g);	    
-	    }	
+		return handle_vmexit_unhandeled(g);
+	    }
 	    guest_msr_area[msr_index].val = val;
 	    break;
 #endif
@@ -2462,8 +2461,8 @@ handle_vmexit_msr (struct guest *g) {
 	    msr_index = vmx_guest_msr_index(msr);
 	    if (msr_index == -1) {
 	      printf("MSR: unhandeled MSR read access to %x\n", msr);
-	      return handle_vmexit_unhandeled(g);	    
-	    }	
+	      return handle_vmexit_unhandeled(g);
+	    }
 	    val = guest_msr_area[msr_index].val;
 	    break;
 #endif
@@ -2797,7 +2796,7 @@ handle_vmexit_npf (struct guest *g) {
                         decode_mov_instr_length(g, code));
 #else
 	err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
-	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 
+	err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip +
 					 decode_mov_instr_length(g, code));
 	assert(err_is_ok(err));
 #endif
@@ -2837,7 +2836,7 @@ handle_vmexit_npf (struct guest *g) {
 							                        decode_mov_instr_length(g, code));
 #else
 							err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
-							err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip + 
+							err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_RIP, guest_rip +
 											 decode_mov_instr_length(g, code));
 							assert(err_is_ok(err));
 #endif
@@ -2902,7 +2901,7 @@ guest_handle_vmexit (struct guest *g) {
     }
 #else
     if (!g->emulated_before_exit) {
-        errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_EXIT_REASON, 
+        errval_t err = invoke_dispatcher_vmread(g->dcb_cap, VMX_EXIT_REASON,
 						(uint64_t *)&saved_exit_reason);
 	assert(err_is_ok(err));
     }
@@ -2921,4 +2920,3 @@ guest_handle_vmexit (struct guest *g) {
         }
     }
 }
-

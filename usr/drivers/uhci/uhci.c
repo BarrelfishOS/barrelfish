@@ -28,7 +28,7 @@
 
 static const uint16_t device_ids[] = {
     0x7020,
-    0x7112, 
+    0x7112,
     0x0000 // Sentinel
 };
 
@@ -55,7 +55,8 @@ static void uhci_legacy_init(void)
 
 
 
-static void uhci_init(struct device_mem *bar_info, int nr_allocated_bars)
+static void uhci_init(void *arg, struct device_mem *bar_info,
+                      int nr_allocated_bars)
 {
     int i;
     uint16_t portbase;
@@ -67,7 +68,7 @@ static void uhci_init(struct device_mem *bar_info, int nr_allocated_bars)
 	UHCI_DEBUG(" vaddr=%p, paddr=%"PRIx64"\n", b->vaddr, b->paddr);
     }
 
-    if (nr_allocated_bars != 1) { 
+    if (nr_allocated_bars != 1) {
 	UHCI_DEBUG("Warning: more than 1 bar (ignoring others)\n");
     }
     memcpy(&bar, &bar_info[0], sizeof(&bar));
@@ -108,10 +109,10 @@ int main(int argc, char **argv)
     assert(err_is_ok(r));
     UHCI_DEBUG("connected to PCI\n");
 
-    r = pci_register_legacy_driver_irq(uhci_legacy_init, 
+    r = pci_register_legacy_driver_irq(uhci_legacy_init,
 				       UHCI_PORTBASE,
 				       UHCI_PORTEND,
-				       UHCI_IRQ, 
+				       UHCI_IRQ,
 				       uhci_interrupt_handler,
 				       NULL );
     if (err_is_ok(r)) {
@@ -122,6 +123,7 @@ int main(int argc, char **argv)
     int i;
     for( i=0; device_ids[i] != 0; i++) {
 	r = pci_register_driver_irq(uhci_init,	// Init. fn
+                    NULL, // User state
 				    PCI_CLASS_SERIAL,	// Class
 				    PCI_SUB_USB,	// Subclass
 				    PCI_IF_USB_UHCI,	// Prog. if
@@ -134,7 +136,7 @@ int main(int argc, char **argv)
 				    NULL		// IRQ argument
 				    );
 	if (err_is_ok(r)) {
-	    UHCI_DEBUG("uhci: found controller %" PRIx16 ":%" PRIx16 ".\n", 
+	    UHCI_DEBUG("uhci: found controller %" PRIx16 ":%" PRIx16 ".\n",
 		       PCI_VENDOR_INTEL, device_ids[i]);
 	    goto finish;
 	}

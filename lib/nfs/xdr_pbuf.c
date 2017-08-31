@@ -17,42 +17,20 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <lwip/pbuf.h>
 #include <assert.h>
 #include <nfs/xdr.h>
 #include "xdr_pbuf.h"
-
-/* move to the next pbuf in the chain */
-static bool nextbuf(XDR *xdr)
-{
-    // shouldn't leave anything behind in previous pbuf
-    assert(xdr->x_handy == ((struct pbuf *)xdr->x_base)->len);
-
-    struct pbuf *nextpbuf;
-    if ((nextpbuf = ((struct pbuf *)xdr->x_base)->next) != NULL) {
-        assert(nextpbuf->len % BYTES_PER_XDR_UNIT == 0);
-        xdr->x_base = nextpbuf;
-        xdr->x_handy = 0;
-        return true;
-    } else {
-        return false;
-    }
-}
+#include <net_sockets/net_sockets.h>
 
 /* make space within the buffer, returns NULL if it won't fit */
 static inline int32_t *make_space(XDR *xdr, size_t size)
 {
-    if (((struct pbuf *)xdr->x_base)->len == xdr->x_handy) {
-        if (!nextbuf(xdr)) {
-            return NULL;
-        }
-    }
-    if (xdr->x_handy + size > ((struct pbuf *)xdr->x_base)->len) {
+    if (xdr->x_handy + size > xdr->size) {
         fprintf(stderr, "xdr_pbuf: make_space(%zu) failing (%zu available)\n",
-                size, ((size_t)((struct pbuf *)xdr->x_base)->len) - (size_t)xdr->x_handy);
+                size, xdr->size - (size_t)xdr->x_handy);
         return NULL;
     } else {
-        int32_t *ret = (int32_t *)((char *)((struct pbuf *)xdr->x_base)->payload + xdr->x_handy);
+        int32_t *ret = (int32_t *)((char *)xdr->x_base + xdr->x_handy);
         xdr->x_handy += size;
         return ret;
     }
@@ -86,13 +64,7 @@ static bool xdr_pbuf_putint32(XDR *xdr, const int32_t *val)
 static bool movebytes(bool copyin, XDR *xdr, char *callerbuf, size_t nbytes)
 {
     while (nbytes > 0) {
-        if (xdr->x_handy == ((struct pbuf *)xdr->x_base)->len) {
-            if (!nextbuf(xdr)) {
-                return false;
-            }
-        }
-
-        size_t space = ((struct pbuf *)xdr->x_base)->len - xdr->x_handy;
+        size_t space = xdr->size - xdr->x_handy;
         if (space > nbytes) {
             space = nbytes;
         }
@@ -124,27 +96,16 @@ static bool xdr_pbuf_putbytes(XDR *xdr, const char *inbuf, size_t nbytes)
 /* returns bytes off from beginning */
 static size_t xdr_pbuf_getpostn(XDR *xdr)
 {
-    struct pbuf *pbuf = xdr->x_private;
-    size_t len = 0;
-    while (xdr->x_base != pbuf) {
-        len += pbuf->len;
-        pbuf = pbuf->next;
-    }
-    return len + xdr->x_handy;
+    return xdr->x_handy;
 }
 
 /* lets you reposition the stream */
 static bool xdr_pbuf_setpostn(XDR *xdr, size_t pos)
 {
-    struct pbuf *pbuf = xdr->x_private;
-    if (pos > pbuf->tot_len) {
+    if (pos > xdr->size) {
         return false;
     } else {
-        for (; pos > pbuf->len; pbuf=pbuf->next) {
-            assert(pbuf != NULL); // or tot_len is wrong!
-            pos -= pbuf->len;
-        }
-        xdr->x_base = pbuf;
+        xdr->x_base = xdr->x_private;
         xdr->x_handy = pos;
         return true;
     }
@@ -160,7 +121,7 @@ static int32_t *xdr_pbuf_inline(XDR *xdr, size_t nbytes)
 /* free privates of this xdr_stream */
 static void xdr_pbuf_destroy(XDR *xdr)
 {
-    pbuf_free((struct pbuf *)xdr->x_private);
+    net_free(xdr->x_private);
 }
 
 /// XDR operations table
@@ -183,16 +144,13 @@ static struct xdr_ops xdr_pbuf_ops = {
  *
  * \returns True on success, false on error
  */
-bool xdr_pbuf_create_send(XDR *xdr, size_t size)
+bool xdr_create_send(XDR *xdr, size_t size)
 {
     assert(xdr != NULL);
-    struct pbuf *pbuf = pbuf_alloc(PBUF_TRANSPORT, size, PBUF_RAM);
-    if (pbuf == NULL) {
-        return false;
-    }
     assert(size % BYTES_PER_XDR_UNIT == 0);
-    assert(pbuf->len % BYTES_PER_XDR_UNIT == 0);
-    xdr->x_base = xdr->x_private = pbuf;
+    xdr->x_base = xdr->x_private = net_alloc(size);
+    xdr->size = size;
+    assert(xdr->x_private);
     xdr->x_op = XDR_ENCODE;
     xdr->x_ops = &xdr_pbuf_ops;
     xdr->x_handy = 0;
@@ -207,12 +165,14 @@ bool xdr_pbuf_create_send(XDR *xdr, size_t size)
  *
  * \returns True on success, false on error
  */
-void xdr_pbuf_create_recv(XDR *xdr, struct pbuf *pbuf)
+void xdr_create_recv(XDR *xdr, void *data, size_t size)
 {
     assert(xdr != NULL);
-    assert(pbuf->len % BYTES_PER_XDR_UNIT == 0);
-    assert(pbuf->tot_len % BYTES_PER_XDR_UNIT == 0);
-    xdr->x_private = xdr->x_base = pbuf;
+    assert(size % BYTES_PER_XDR_UNIT == 0);
+    xdr->x_base = xdr->x_private = data;
+    xdr->size = size;
+    assert(xdr->x_private);
+    memcpy(xdr->x_private, data, size);
     xdr->x_op = XDR_DECODE;
     xdr->x_ops = &xdr_pbuf_ops;
     xdr->x_handy = 0;

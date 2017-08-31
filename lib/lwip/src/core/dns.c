@@ -81,6 +81,8 @@
 #include "lwip/dns.h"
 
 #include <string.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 
 /** DNS server IP address */
 #ifndef DNS_SERVER_ADDRESS

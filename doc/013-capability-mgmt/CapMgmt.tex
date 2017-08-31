@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Copyright (c) 2011, ETH Zurich.
+% Copyright (c) 2011-2017, ETH Zurich.
 % All rights reserved.
 %
 % This file is distributed under the terms in the attached LICENSE file.
@@ -14,7 +14,7 @@
 \usepackage{color,listings,ctable}
 
 \title{Capability Management in Barrelfish}   % title of report
-\author{Akhilesh Singhania, Ihor Kuz, Mark Nevill}	% author
+\author{Akhilesh Singhania, Ihor Kuz, Mark Nevill, Simon Gerber}	% author
 \tnnumber{013}  % give the number of the tech report
 \tnkey{Capability Management} % Short title, will appear in footer
 
@@ -60,6 +60,7 @@
 \vhEntry{2.0}{27.1.2012}{MN}{New capability system design}
 \vhEntry{2.1}{8.7.2013}{SK}{Updates}
 \vhEntry{2.2}{1.12.2013}{TR}{Fixed missing references/citations}
+\vhEntry{3.0}{2.06.2017}{SG}{Update to new CSpace design and remove outdated info}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -91,7 +92,7 @@ highlights issues not yet covered in this document.
 \begin{itemize}
 
 \item Kernel operations should not take longer than $O(1)$.  Some
-  capability operations are not constant time but can take $O(n)$
+  capability operations are not constant time but can take $O(log n)$
   where $n$ is the size of the mapping database. Spending so much time
   in the kernel is detrimental for good scheduling as when in the
   kernel, interrupts are disabled. All non constant time operations
@@ -101,29 +102,11 @@ highlights issues not yet covered in this document.
   backing ump channels is deleted, should it initiate a connection
   tear down?
 
-\item We have no mechanics for tracking frames mapped into VNodes. So
-  that if either is deleted, the entries are properly cleaned up.
-
-\item Multicore capability management. We have an implementation on
-  the tip. It is not enabled and has some shortcomings. Not all
-  shortcomings are not known however some missing details are
-  known. As discussed in chapter~\ref{chap:solutions}, all remote
-  relations including descendants, copies, and ancestors must be
-  tracked. The implementation only tracks ancestors.
-
 \item Fragmentation of memory. Example: a ram capability of 4GB is
   retyped into two capabilities of 2GB each. One of the 2GB capability
   is deleted. The only way to get a capability to that 2GB back is to
   also delete the other 2GB capability and then retype the 4GB
   capability again.
-
-\item The mapping database is maintained as a doubly linked
-  list. Implementing Boolean operations like ``has\_descendants'' and
-  ``has\_copies'' require walking the database and testing type
-  specific data structures. We feel that these are not efficient or
-  robust. If we move the mapping database into the monitor, we think
-  that this should at worse become a performance issue and not a
-  correctness one.
 
 \item IO space can be treated in a same way as physical memory. So
   instead of using mint operations to update ranges, we use retype
@@ -134,30 +117,13 @@ highlights issues not yet covered in this document.
 
 \item When a new capability is introduced in a core via cross-core
   send, the kernel must walk the entire mapping database to find the
-  appropriate place to insert the capability. The operation is linear
-  time. This operation must either happen in the monitor or must be
-  made more efficient. If we move the mapping database into the
-  monitor, we think that this should at worse become a performance
-  issue and not a correctness one.
+  appropriate place to insert the capability. The operation is
+  logarithmic time in the size of the mapping database. This
+  operation must either happen in the monitor or must be made more
+  efficient. If we move the mapping database into the monitor, we
+  think that this should at worse become a performance issue and not
+  a correctness one.
 
-\item Simon and I had envisioned a memory server mechanism where it
-  would delete all ram capabilities after handing them out. This
-  allows Simon to implement his version of domain shutdown (discussed
-  in a supporting document). In a nutshell, in his system, the spawn
-  daemon saves all user dispatcher capabilities and revokes them to
-  kill a user dispatcher and repossess its memory. However, there is a
-  subtle problem with this mechanism. A malicious dispatcher can
-  create loops in its CSpace. E.g. root cnode contains a capability to
-  cnode1, cnode1 contains a capability to cnode2, and cnode2 contains
-  another capability to cnode1. When a dispatcher does this and the OS
-  tries to kill it, root cnode will be deleted and all capabilities
-  within it as well. When the OS deletes cnode1, it will check if it
-  has copies, which it does so cnode1 will not be deleted. This will
-  leak memory in the system.
-
-  To avoid this problem, the OS must maintain ancestors of all
-  capabilities that are handed out to user applications and to kill
-  the user application, it must revoke the ancestor capabilities.
 \end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -182,10 +148,10 @@ separate databases:
   associated with a ``root CNode'' that contains all capabilities the
   dispatcher has.
 \item Each core has a mapping database that holds all the capabilities on the
-	core. The mapping database is implemented using a tree of the capabilities.
-	As discussed later in the chapter, the mapping database stores the
-	capabilities in a particular order to facilitate different capability
-	operations.
+      core. The mapping database is implemented using a tree of the capabilities.
+      As discussed later in the chapter, the mapping database stores the
+      capabilities in a particular order to facilitate different capability
+      operations.
 \end{itemize}
 
 \section{Capability invocation}\label{sec:sys_invoke}
@@ -335,10 +301,10 @@ descendants of the specified capability and deletes them.
 \subsection{Looking up local copies and descendants}
 
 Due to the capability ordering used by the mapping database, copies are located
-adjacant to a capabality and descendants immediately thereafter. Therefore, it
+adjacent to a capability and descendants immediately thereafter. Therefore, it
 is easy to look up all related copies of a capability on the same core. This
 facilitates revocation by looking up all copies and descendants, retypes by
-checking for existing descendants, and deltes by checking for copies.
+checking for existing descendants, and deletes by checking for copies.
 
 The following pseudo-code looks up all descendants and copies of a
 capability given the existence of type specific is\_copy and
@@ -391,21 +357,18 @@ is\_descendant functions.
 
 \section{Multicore extensions}
 
-The model above only works for a single core system. We have already
+The model above works for a single core system. We have already
 extended it to work on multiple cores. Here we discuss these
 extensions.
+
+We implement the multi-core extension based on the system discussed in detail
+in chapters 2 and 3 of Mark Nevill's master's thesis, ``An Evaluation of
+Capabilities for a Multikernel''~\cite{Nevill2012}.
 
 \subsection{Cross-core transfer}
 
 This is a special operation available only to the monitors. This sends
 a capability from one core to another.
-
-\subsection{Missing operations}
-
-When a capability is sent to another core, no state is maintained
-about it. When checking for capability relations in capability
-operations, only the current core is checked. Therefore these
-operations are not implemented correctly right now.
 
 \section{Summary}
 
@@ -710,6 +673,33 @@ dynamically update the type of caching used.  For this, we need to
 identify the cross-over point where one approach is preferred over the
 other.
 
+\section{Implementation}
+
+As summarized, the current implementation uses a partitioned database which
+caches remote relations of capabilities with three bits, one each for remote
+copies, ancestors, and descendants.
+
+Each database partition is associated with a kernel control block, and keeps
+track of all the capabilities in the CSpaces of all the dispatchers associated
+with that kernel control block.
+The database is implemented as a binary search tree.
+We chose the AA tree~\cite{Andersson1993}, which is a variation of the
+red-black tree where red nodes can only be added as right subchildren.
+This results in a greatly simplified implementation of the maintenance
+operations while conserving the red-black tree's invariants.
+
+The particular variation we implement for the capability database is an
+interval tree as described by
+Cormen et al.~\cite[section~14.3, pp~348-354]{Cormen2001} which uses the AA
+tree as its basis.
+
+It is noteworthy that we embed the tree nodes into each kernel capability
+object to avoid any dynamic allocations in the CPU driver.
+
+The choice of tree, the database implementation and its performance are more
+extensively discussed in chapter 4 of Mark Nevill's master's
+thesis~\cite{Nevill2012}.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \chapter{Solutions}\label{chap:solutions}
@@ -909,6 +899,7 @@ We will discuss and compare the following four solutions.
 \item Total order broadcast
 \item Two phase commit
 \item Sequencer
+\item Hybrid implementation with locks and 2PC
 \end{itemize}
 
 \subsection{Locks}\label{subsec:locks}
@@ -1530,15 +1521,69 @@ delete_transferred_cap_reply(struct data *data) {
 \note{Caching NYI}
 
 \subsection{Two phase commit}
-\note{NYI}
-Use 2pc.
+Use two-phase commit to synchronize operations that would otherwise conflict.
+We do not discuss this solution in detail, as we incorporate two-phase commit
+into the delete and revoke operations for the hybrid solution discussed in
+section~\ref{sec:sol:hybrid}.
 
 \subsection{Sequencer}
-\note{NYI}
-Use a sequencer. This will order whole operations.
+Use a sequencer. This will order whole operations. We do not discuss this
+solution in depth, as the sequencer idea is incorporated into the hybrid
+solution in section~\ref{sec:sol:hybrid}.
+
+\subsection{Hybrid}
+\label{sec:sol:hybrid}
+
+We can, of course, combine facets of each of the previously discussed
+approaches to build a hybrid approach which combines some (or all) of them.
+
+The solution discussed in chapters two and three of Mark Nevill's master's
+thesis~\cite{Nevill2012}, is one such hybrid approach, which combines locking,
+per capability sequencing, and two-phase commit.
+Additionally, Mark's solution does not require any additional requirements on
+Barrelfish's message channels, and works flawlessly with SSF message
+semantics.
+
+We only give a brief overview of the solution here, and refer to Mark's thesis
+which discusses the solution in depth, giving invariants, pre- and
+post-conditions, and algorithm sketches for each operation.
+
+The key concept for this solution is that, for each capability, of which there
+can exist arbitrarily many copies, one core in the system is chosen as the
+capability's owner, or sequencer.
+All operations on any copy of a capability that need synchronization have to
+be proxied through the capability's owner -- this is the sequencer aspect of
+the solution.
+
+We use locks to eliminate possible conflicts between operations, and merge
+overlapping deletes and revokes to avoid deadlocks.
+
+Delete and revoke employ a form of two-phase commit, which is implemented as a
+\emph{mark} and \emph{sweep} algorithm.
+Other operations treat capabilities that have been marked for deletion as
+already deleted, which avoids many otherwise conflicting operation sequences.
+
+\subsubsection{Caching}
+Caching for this solution is implemented using a bitfield which has one bit
+each indicating the presence of remote copies, descendants, and ancestors
+respectively.
+
+\subsection{Multicast vs Broadcast}
+To implement two-phase commit, this solution could use multicast messages to
+all cores that have remote copies/descendants/ancestors or simply use
+broadcast and have cores that do not have any copies reply with a success
+reply for the mark phase.
 
 \subsection{Comparison}
-Compare the approaches
+\note{TODO: Compare the approaches}
+
+\subsection{Implementation}
+
+Currently, the capability operations are implemented using the hybrid
+technique outlined above.
+The implementation uses broadcasts to implement 2PC, because the this way, the
+implementation does not have to keep, and update, a list of remote cores that
+have copies, descendants or ancestors for each capability.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

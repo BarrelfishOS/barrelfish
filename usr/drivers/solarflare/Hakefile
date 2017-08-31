@@ -13,18 +13,20 @@
   [
   build application { target = "sfn5122f",
                       cFiles = [ "sfn5122f_cdriver.c", "mcdi_rpc.c", "helper.c", 
-                                 "buffer_tbl.c", "sfn5122f_qdriver.c"],
-                      flounderBindings = [ "sfn5122f", "net_ARP", "sfn5122f_devif"],
-                      flounderExtraBindings = [ ("sfn5122f_devif", ["rpcclient"]) ],
-                      flounderDefs = [ "sfn5122f", "sfn5122f_devif" ],
+                                 "buffer_tbl.c" ],
+                      flounderBindings = [ "sfn5122f_devif", "net_filter"],
+                      flounderExtraBindings = [ ("sfn5122f_devif", ["rpcclient"]),  
+                                                ("net_filter", ["rpcclient"])],
+                      flounderDefs = [ "sfn5122f_devif", "net_filter", "sfn5122f"],
                       flounderExtraDefs = [
-                        ("net_ARP",["rpcclient"]),
-                        ("sfn5122f_devif",["rpcclient"])
-                        ],
+                        ("sfn5122f_devif",["rpcclient"]),
+                        ("net_filter",["rpcclient"])
+                      ],
                       mackerelDevices = [ "sfn5122f"],
+                      addIncludes  = [ "/lib/net/include/", "/lib/lwip-2.0.2/src/include/" ],
                       addLibraries = libDeps["netQmng", "pci", "contmng", 
                                              "net_device_manager", "bench", "trace", "skb",
-                                             "spawndomain", "netd" ]
+                                             "spawndomain", "netd" , "net", "lwip2"]
                     }
   ]
 

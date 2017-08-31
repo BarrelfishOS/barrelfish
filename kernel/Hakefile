@@ -512,7 +512,6 @@ let
         "armv8",
         "gic_v3",
         "gic_v2_cpu",
-        "armv8/armv8_generic_timer",
         "armv8/armv8_cache_ctrl",
         "pl130_gic",
         "arm_icp_pit",
@@ -563,7 +562,6 @@ let
     mackerelDevices = [
       "arm",
         "armv8",
-        "armv8/armv8_generic_timer",
         "armv8/armv8_cache_ctrl",
         "arm_icp_pit",
         "gic_v3",
@@ -620,7 +618,6 @@ let
         "arm",
         "armv8",
         "gic_v3",
-        "armv8/armv8_generic_timer",
         "armv8/armv8_cache_ctrl",
         "pl011_uart",
         "pl130_gic",

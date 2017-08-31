@@ -28,6 +28,7 @@
 
 #include <bitmacros.h> // for MIN
 
+#include <lwip/ip_addr.h>
 
 enum block_net_msg_type
 {
@@ -112,4 +113,3 @@ struct block_net_service {
 };
 
 #endif /* BLOCK_NETWORK_COMMON_H */
-

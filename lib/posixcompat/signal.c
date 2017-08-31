@@ -14,12 +14,13 @@
 #include <stdio.h>
 #include "posixcompat.h"
 
-signalhandler_t signal(int signum, signalhandler_t handler)
+__sighandler_t *signal(int signum, __sighandler_t *handler)
 {
     POSIXCOMPAT_DEBUG("Warning: signal(%d, %p) ignored\n", signum, handler);
     return SIG_DFL;
 }
 
+__weak_reference(sigprocmask, __libc_sigprocmask);
 int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset)
 {
     POSIXCOMPAT_DEBUG("Warning: sigprocmask(%d, %p, %p) ignored\n",
@@ -64,54 +65,7 @@ int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset)
  *      @(#)sigsetops.c 8.1 (Berkeley) 6/4/93
  */
 
-int sigaddset(sigset_t *set, int signo)
-{
-    if (signo <= 0 || signo > _SIG_MAXSIG) {
-        errno = EINVAL;
-        return (-1);
-    }
-    set->__bits[_SIG_WORD(signo)] |= _SIG_BIT(signo);
-    return (0);
-}
-
-int sigdelset(sigset_t *set, int signo)
-{
-    if (signo <= 0 || signo > _SIG_MAXSIG) {
-        errno = EINVAL;
-        return (-1);
-    }
-    set->__bits[_SIG_WORD(signo)] &= ~_SIG_BIT(signo);
-    return (0);
-}
-
-int sigemptyset(sigset_t *set)
-{
-    int i;
-
-    for (i = 0; i < _SIG_WORDS; i++)
-        set->__bits[i] = 0;
-    return (0);
-}
-
-int sigfillset(sigset_t *set)
-{
-    int i;
-
-    for (i = 0; i < _SIG_WORDS; i++)
-        set->__bits[i] = ~0U;
-    return (0);
-}
-
-int sigismember(const sigset_t *set, int signo)
-{
-    if (signo <= 0 || signo > _SIG_MAXSIG) {
-        errno = EINVAL;
-        return (-1);
-    }
-    return ((set->__bits[_SIG_WORD(signo)] & _SIG_BIT(signo)) ? 1 : 0);
-}
-
-int __sigaction(int signum, const struct sigaction *act,
+int sigaction(int signum, const struct sigaction *act,
               struct sigaction *oldact)
 {
     POSIXCOMPAT_DEBUG("Warning: sigaction(%d, %p, %p) ignored\n",

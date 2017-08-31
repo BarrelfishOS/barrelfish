@@ -36,6 +36,12 @@
 #define TX_ENTRIES 4096
 #define RX_ENTRIES 4096
 #define EV_ENTRIES 32768
+
+STATIC_ASSERT((TX_ENTRIES & (TX_ENTRIES - 1)) == 0, "must be a power of two");
+STATIC_ASSERT((RX_ENTRIES & (RX_ENTRIES - 1)) == 0, "must be a power of two");
+STATIC_ASSERT((EV_ENTRIES & (EV_ENTRIES - 1)) == 0, "must be a power of two");
+
+
 // Event Queue
 #define EV_CODE_RX 0
 #define EV_CODE_TX 2
@@ -62,7 +68,7 @@ static errval_t update_rxtail(struct sfn5122f_queue* q, size_t tail)
 
     q->rx_batch_size++;
 
-    if (q->rx_batch_size > 31) { 
+    if (q->rx_batch_size > 31) {
         /* Write to this register is very very expensive (2500 cycles +) 
            So we batch the updates together*/
         reg = sfn5122f_rx_desc_upd_reg_hi_rx_desc_wptr_insert(reg, tail);
@@ -95,6 +101,12 @@ static errval_t update_txtail(struct sfn5122f_queue* q, size_t tail)
 static void interrupt_cb(struct sfn5122f_devif_binding *b, uint16_t qid)
 {
     struct sfn5122f_queue* q = queues[qid];
+
+    if (q != b->st) {
+        debug_printf("STATE MISMATCH!\n %p %p\n", q, b->st);
+        q = b->st;
+    }
+
     q->cb(q);
 }
 
@@ -387,26 +399,40 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
             err = sfn5122f_queue_handle_rx_ev_devif(queue, rid, offset, length,
                                                     valid_data, valid_length,
                                                     flags);
+
             DEBUG_QUEUE("RX_EV Q_ID: %d len %ld OK %s \n", queue->id, *valid_length,
                         err_getstring(err));
 
+            sfn5122f_queue_bump_evhead(queue);
+
             if (err_is_fail(err)) {
+                debug_printf("enqueue again: rid=%u, off=%lx\n", *rid, *offset);
                 err = enqueue_rx_buf(queue, *rid, *offset, *length,
                                      *valid_data, *valid_length,
                                      *flags);
                 if (err_is_fail(err)) {
                     printf("Error receiving packet, could not enqueue buffer\n");
+                    /* we need to return the buffer here, and let the networkstack
+                     * deal with it */
+                    return SYS_ERR_OK;
                 }
-                sfn5122f_queue_bump_evhead(queue);
-                continue;
+
+                /* the packet has been discarded and enqueued successfully,
+                 * return emtpy queue */
+                err = DEVQ_ERR_QUEUE_EMPTY;
+            } else {
+                assert(*valid_length > 0);
+                return SYS_ERR_OK;
             }
-            sfn5122f_queue_bump_evhead(queue);
-            assert(*valid_length > 0);
-            return SYS_ERR_OK;
+            break;
         case EV_CODE_TX:
             err = sfn5122f_queue_handle_tx_ev_devif(queue, rid, offset, length,
                                                     valid_data, valid_length,
                                                     flags);
+            if (*flags & NETIF_RXFLAG) {
+                            printf("HUH: reiceived rx buffer in tx event???\n");
+                        }
+
             if (err_is_ok(err)) {
                 DEBUG_QUEUE("TX EVENT OK %d \n", queue->id);
             } else {
@@ -438,14 +464,48 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
             sfn5122f_queue_bump_evhead(queue);
             break;
         case EV_CODE_NONE:
-            sfn5122f_evq_rptr_reg_wr(queue->device, queue->id,
-                                     queue->ev_head);
+            if(queue->use_interrupts || ((queue->ev_head & ((EV_ENTRIES / 8) - 1)) == 0)) {
+                sfn5122f_evq_rptr_reg_wr(queue->device, queue->id, queue->ev_head);
+            }
+
             return err;
         }
     }
 
     return err;
 }
+
+static errval_t sfn5122f_destroy(struct devq* queue)
+{
+    errval_t err, err2;
+    struct sfn5122f_queue* q;
+
+    q = (struct sfn5122f_queue*) queue;
+
+    err = q->b->rpc_tx_vtbl.destroy_queue(q->b, q->id, &err2);
+    if (err_is_fail(err) || err_is_fail(err2)) {
+        err = err_is_fail(err) ? err: err2;
+        return err;
+    }
+
+    err = vspace_unmap(q->device_va);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    free(q->device);
+    free(q->b);
+
+    err = sfn5122f_queue_free(q);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+
+
 
 static void interrupt_handler(void* arg)
 {
@@ -455,14 +515,13 @@ static void interrupt_handler(void* arg)
 }
 
 
-
 /**
  * Public functions
  *
  */
 
-errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb,
-                               bool userlevel, bool interrupts)
+errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb, 
+                               bool userlevel, bool interrupts, bool qzero)
 {
     DEBUG_QUEUE("create called \n");
 
@@ -499,6 +558,7 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     queue->frame = frame;
     queue->bound = false;
     queue->cb = cb;
+    queue->use_interrupts = interrupts;
 
     
     iref_t iref;
@@ -534,9 +594,9 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     }
 
     if (!interrupts) {
-        printf("Solarflare queue used in polling mode \n");
+        printf("Solarflare queue used in polling mode (default %d) \n", qzero);
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
-                                                 interrupts,
+                                                 interrupts, qzero,
                                                  0, 0, &queue->mac ,&queue->id, 
                                                  &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
@@ -551,7 +611,7 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
         queue->core = disp_get_core_id();
         
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
-                                                 interrupts, queue->core,
+                                                 interrupts, qzero, queue->core,
                                                  queue->vector, &queue->mac, 
                                                  &queue->id, &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
@@ -589,7 +649,8 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     queue->q.f.dereg = sfn5122f_deregister;
     queue->q.f.ctrl = sfn5122f_control;
     queue->q.f.notify = sfn5122f_notify;
-    
+    queue->q.f.destroy = sfn5122f_destroy; 
+   
     *q = queue;
 
     queues[queue->id] = queue;
@@ -597,32 +658,7 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     return SYS_ERR_OK;
 }
 
-errval_t sfn5122f_queue_destroy(struct sfn5122f_queue* q)
+uint64_t sfn5122f_queue_get_id(struct sfn5122f_queue* q)
 {
-    errval_t err, err2;
-    err = q->b->rpc_tx_vtbl.destroy_queue(q->b, q->id, &err2);
-    if (err_is_fail(err) || err_is_fail(err2)) {
-        err = err_is_fail(err) ? err: err2;
-        return err;
-    }
-
-    err = vspace_unmap(q->device_va);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    free(q->device);
-    free(q->b);
-
-    err = devq_destroy(&(q->q));
-    if (err_is_fail(err)){
-        return err;
-    }
-
-    err = sfn5122f_queue_free(q);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return SYS_ERR_OK;
+    return q->id;    
 }

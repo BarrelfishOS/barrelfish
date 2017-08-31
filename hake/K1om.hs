@@ -9,7 +9,7 @@
 -- Architectural definitions for Barrelfish on x86_mic.
 --
 -- This architecture is used to build for the Intel Xeon Phi architecture.
--- 
+--
 --------------------------------------------------------------------------
 
 module K1om where
@@ -37,7 +37,7 @@ cxxcompiler = Config.k1om_cxx
 ourCommonFlags = [ Str "-m64",
                    Str "-mno-red-zone",
                    Str "-fPIE",
-                   Str "-fno-stack-protector", 
+                   Str "-fno-stack-protector",
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat",
                    Str "-fno-tree-vectorize",
@@ -53,7 +53,7 @@ ourCommonFlags = [ Str "-m64",
                    Str "-mno-sse4.2",
                    Str "-mno-sse4",
                    Str "-mno-sse4a",
-                   Str "-mno-3dnow", 
+                   Str "-mno-3dnow",
 -- Apparently the MPSS gcc somehow incudes CMOVES?
                    Str "-fno-if-conversion",
 -- specific Xeon Phi architecture
@@ -85,20 +85,20 @@ ldCxxFlags = ArchDefaults.ldCxxFlags arch ++ ourLdFlags
 
 -- adding x86_64 includes to the K1OM architecture
 kernelOptIncludes = [NoDep SrcTree "src" ("/kernel/include/arch/x86_64"),
-                     NoDep SrcTree "src" ("/include/target/x86_64"), 
-                     NoDep SrcTree "src" ("/include/arch/x86_64")] 
+                     NoDep SrcTree "src" ("/include/target/x86_64"),
+                     NoDep SrcTree "src" ("/include/arch/x86_64")]
 
-options = (ArchDefaults.options arch archFamily) { 
+options = (ArchDefaults.options arch archFamily) {
             optFlags = cFlags,
             optCxxFlags = cxxFlags,
             optDefines = cDefines,
             optLdFlags = ldFlags,
             optLdCxxFlags = ldCxxFlags,
-            optInterconnectDrivers = ["lmp", "ump", "multihop"],
-            optFlounderBackends = ["lmp", "ump", "multihop"],
+            optInterconnectDrivers = ["lmp", "ump", "multihop", "local"],
+            optFlounderBackends = ["lmp", "ump", "multihop", "local"],
             optIncludes = ArchDefaults.cStdIncs arch archFamily
                           ++
-                          [NoDep SrcTree "src" ("/include/target/x86_64"), 
+                          [NoDep SrcTree "src" ("/include/target/x86_64"),
                            NoDep SrcTree "src" ("/include/arch/x86_64")]
           }
 
@@ -110,7 +110,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-nostdinc",
                                 "-std=c99",
                                 "-m64",
-                                "-fPIE", 
+                                "-fPIE",
                                 "-e start",
                                 "-mno-red-zone",
                                 "-Wa,-march=k1om",
@@ -141,7 +141,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mno-sse4.2",
                                 "-mno-sse4",
                                 "-mno-sse4a",
-                                "-mno-3dnow", 
+                                "-mno-3dnow",
 -- Apparently the MPSS gcc somehow incudes CMOVES?
                                 "-fno-if-conversion" ] ]
 
@@ -178,32 +178,32 @@ cxxlinker = ArchDefaults.cxxlinker arch cxxcompiler
 
 --
 -- Link the kernel (CPU Driver)
--- 
+--
 linkKernel :: Options -> [String] -> [String]  -> String -> HRule
-linkKernel opts objs libs kbin = 
+linkKernel opts objs libs kbin =
     let linkscript = "/kernel/linker.lds"
     in
       Rules [ Rule ([ Str compiler ] ++
                     map Str Config.cOptFlags ++
                     [ NStr "-T", In BuildTree arch "/kernel/linker.lds",
-                      Str "-o", Out arch kbin 
+                      Str "-o", Out arch kbin
                     ]
                     ++ (optLdFlags opts)
                     ++
                     [ In BuildTree arch o | o <- objs ]
                     ++
                     [ In BuildTree arch l | l <- libs ]
-                    ++ 
-                    [ NL, NStr "echo -e '\\0002' | dd of=",
-                      Out arch kbin, 
+                    ++
+                    [ NL, NStr "bash -c \"echo -e '\\0002'\" | dd of=",
+                      Out arch kbin,
                       Str "bs=1 seek=16 count=1 conv=notrunc status=noxfer"
                     ]
                    ),
-              Rule [ Str "cpp", 
+              Rule [ Str "cpp",
                      NStr "-I", NoDep SrcTree "src" "/kernel/include/",
-                     Str "-D__ASSEMBLER__", 
+                     Str "-D__ASSEMBLER__",
                      Str "-P", In SrcTree "src" "/kernel/arch/k1om/linker.lds.in",
-                     Out arch linkscript 
+                     Out arch linkscript
                    ],
               -- Produce a stripped binary
               Rule [ Str objcopy,

@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief ARM pl011 UART kernel-level driver. 
+ * \brief ARM pl011 UART kernel-level driver.
  */
 
 /*
@@ -12,13 +12,13 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#include <dev/pl011_uart_dev.h>
 #include <arch/arm/pl011.h>
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 #include <arch/arm/arm.h>
 #include <platform.h>
 #include <serial.h>
+#include <dev/pl011_uart_dev.h>
 
 // We can provide a maximum of 6 UARTs
 #define MAX_PORTS 6
@@ -33,10 +33,10 @@ static pl011_uart_t uarts[ MAX_PORTS ];
 
 #define MSG(format, ...) printk( LOG_NOTE, "pl011: "format, ## __VA_ARGS__ )
 
-/** 
+/**
  * \brief Configure the serial interface, from a caller that knows
  * that this is a bunch of PL011s, and furthermore where they are in
- * the physical address space. 
+ * the physical address space.
  */
 errval_t serial_early_init(unsigned n)
 {
@@ -135,7 +135,7 @@ void pl011_init(unsigned port, lvaddr_t base, bool hwinit)
 /*
  * \brief Put a character to the port
  */
-void serial_putchar(unsigned port, char c) 
+void serial_putchar(unsigned port, char c)
 {
     assert(port < MAX_PORTS);
     pl011_uart_t *u = &uarts[port];

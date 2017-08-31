@@ -25,7 +25,7 @@ struct pci_address {
     uint8_t function;
 };
 
-typedef void (*pci_driver_init_fn)(struct device_mem *bar_info,
+typedef void (*pci_driver_init_fn)(void *user_state, struct device_mem *bar_info,
                                    int nr_mapped_bars);
 typedef void (*legacy_driver_init_fn)(void);
 
@@ -40,12 +40,14 @@ errval_t pci_reregister_irq_for_device(uint32_t class, uint32_t subclass, uint32
                                        interrupt_handler_fn reloc_handler,
                                        void *reloc_handler_arg);
 
-errval_t pci_register_driver_noirq(pci_driver_init_fn init_func, uint32_t class,
+errval_t pci_register_driver_noirq(pci_driver_init_fn init_func,
+                                   void *user_state, uint32_t class,
                                    uint32_t subclass, uint32_t prog_if,
                                    uint32_t vendor, uint32_t device,
                                    uint32_t bus, uint32_t dev, uint32_t fun);
 
-errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t class,
+errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func,
+                                         void *user_state, uint32_t class,
                                          uint32_t subclass, uint32_t prog_if,
                                          uint32_t vendor, uint32_t device,
                                          uint32_t bus, uint32_t dev, uint32_t fun,
@@ -54,7 +56,8 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func, uint32_t 
                                          interrupt_handler_fn reloc_handler,
                                          void *reloc_handler_arg);
 
-errval_t pci_register_driver_irq(pci_driver_init_fn init_func, uint32_t class,
+errval_t pci_register_driver_irq(pci_driver_init_fn init_func,
+                                 void *user_state, uint32_t class,
                                  uint32_t subclass, uint32_t prog_if,
                                  uint32_t vendor, uint32_t device,
                                  uint32_t bus, uint32_t dev, uint32_t fun,

@@ -19,8 +19,7 @@
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
 #include <nfs/nfs.h>
-#include <lwip/init.h>
-#include <lwip/ip_addr.h>
+#include <net_sockets/net_sockets.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <timer/timer.h>
@@ -290,9 +289,9 @@ static void read_callback (void *arg, struct nfs_client *client,
 
     if (!res->eof) {
         // more data to come, read the next chunk
-        err_t err = nfs_read(client, e->file_handle, e->copied, MAX_NFS_READ,
+        errval_t err = nfs_read(client, e->file_handle, e->copied, MAX_NFS_READ,
                         read_callback, e);
-        assert(err == ERR_OK);
+        assert(err == SYS_ERR_OK);
         return;
     }
 
@@ -323,7 +322,7 @@ static void lookup_callback (void *arg, struct nfs_client *client,
                             LOOKUP3res *result)
 {
     LOOKUP3resok *resok = &result->LOOKUP3res_u.resok;
-    err_t r;
+    errval_t r;
     struct http_cache_entry *e = arg;
 
     DEBUGPRINT ("inside lookup_callback_file for file %s\n", e->name);
@@ -360,9 +359,9 @@ static void lookup_callback (void *arg, struct nfs_client *client,
         /* Set the size of the how much data is read till now. */
         e->copied = 0;
 
-        r = nfs_read (client, e->file_handle, 0, MAX_NFS_READ,
+        r = nfs_read(client, e->file_handle, 0, MAX_NFS_READ,
                 read_callback, e);
-        assert (r == ERR_OK);
+        assert (r == SYS_ERR_OK);
 
         // free arguments
         xdr_LOOKUP3res(&xdr_free, result);
@@ -402,9 +401,9 @@ static void lookup_callback (void *arg, struct nfs_client *client,
     return;
 } /* end function: lookup_callback_file */
 
-static err_t async_load_cache_entry(struct http_cache_entry *e)
+static errval_t async_load_cache_entry(struct http_cache_entry *e)
 {
-    err_t r;
+    errval_t r;
     assert(e != NULL);
 
     // FIXME: currently only works for files in root directory.
@@ -412,12 +411,12 @@ static err_t async_load_cache_entry(struct http_cache_entry *e)
     DEBUGPRINT ("pageloading starting with nfs_lookup\n");
     r = nfs_lookup(my_nfs_client, nfs_root_fh, e->name,
                 lookup_callback, e);
-    assert(r == ERR_OK);
-    return ERR_OK;
+    assert(r == SYS_ERR_OK);
+    return SYS_ERR_OK;
 } /* end function : async_load_cache_entry */
 
 
-err_t http_cache_lookup (const char *name, struct http_conn *cs)
+errval_t http_cache_lookup (const char *name, struct http_conn *cs)
 {
     struct http_cache_entry *e;
     assert(cs != NULL);
@@ -428,7 +427,7 @@ err_t http_cache_lookup (const char *name, struct http_conn *cs)
         DEBUGPRINT ("%d: Fresh cache-entry, returning page [%s]\n",
                 cs->request_no, name);
         trigger_callback (cs, e);
-        return ERR_OK;
+        return SYS_ERR_OK;
     } /* end if: valid cacheline */
 
     /* data not in cache */
@@ -446,7 +445,7 @@ err_t http_cache_lookup (const char *name, struct http_conn *cs)
             cs->request_no);
     }
 
-    return ERR_OK;
+    return SYS_ERR_OK;
 } /* end function: http_cache_lookup */
 
 
@@ -481,7 +480,7 @@ static void readdir_callback(void *arg, struct nfs_client *client,
     READDIR3resok *resok = &result->READDIR3res_u.resok;
     struct http_cache_entry *ce;
     entry3 *last = NULL;
-    err_t r;
+    errval_t r;
 
     DEBUGPRINT ("readdir_callback came in\n");
     assert(result != NULL && result->status == NFS3_OK);
@@ -545,7 +544,7 @@ static void readdir_callback(void *arg, struct nfs_client *client,
         assert(last != NULL);
         r = nfs_readdir(client, nfs_root_fh, last->cookie,
                         resok->cookieverf, readdir_callback, NULL);
-        assert(r == ERR_OK);
+        assert(r == SYS_ERR_OK);
     } else {
         readdir_complete = true;
         handle_cache_load_done();
@@ -611,7 +610,7 @@ static void handle_cache_load_done(void)
 
 static void initial_cache_load(struct nfs_client *client)
 {
-    err_t r;
+    errval_t r;
 	cache_loading_phase = true;
 	cache_lookups_started = 0;
 	cache_loaded_counter = 0;
@@ -620,7 +619,7 @@ static void initial_cache_load(struct nfs_client *client)
 	//my_nfs_client
     r = nfs_readdir(client, nfs_root_fh, NFS_READDIR_COOKIE,
                          NFS_READDIR_COOKIEVERF, readdir_callback, NULL);
-    assert(r == ERR_OK);
+    assert(r == SYS_ERR_OK);
 }
 
 #endif // PRELOAD_WEB_CACHE
@@ -640,7 +639,7 @@ static void mount_callback(void *arg, struct nfs_client *client,
 #endif // PRELOAD_WEB_CACHE
 } /* end function: mount_callback */
 
-err_t http_cache_init(struct ip_addr server, const char *path,
+errval_t http_cache_init(struct in_addr server, const char *path,
                      void (*callback)(void))
 {
     struct timer *cache_timer;      /* timer for triggering cache timeouts */
@@ -661,11 +660,9 @@ err_t http_cache_init(struct ip_addr server, const char *path,
     assert (cache_timer != NULL);
     if (cache_timer == NULL) {
         printf ("http_cache_init failed in timer_create\n");
-        return ERR_MEM;
+        return LWIP_ERR_MEM;
     }
     timer_start(cache_timer);
     DEBUGPRINT ("http_cache_init done\n");
-    return ERR_OK;
+    return SYS_ERR_OK;
 } /* end function: http_cache_init */
-
-

@@ -21,7 +21,7 @@
 static inline uint64_t
 curgotbase(void)
 {
-    uint32_t ret;
+    uint64_t ret;
     __asm (
         "mov %[ret], x10" : [ret] "=r" (ret)
           );
@@ -31,8 +31,8 @@ curgotbase(void)
 
 static inline void
 registers_set_initial(arch_registers_state_t *regs, struct thread *thread,
-                      lvaddr_t entry, lvaddr_t stack, uint32_t arg1,
-                      uint32_t arg2, uint32_t arg3, uint32_t arg4)
+                      lvaddr_t entry, lvaddr_t stack, uint64_t arg1,
+                      uint64_t arg2, uint64_t arg3, uint64_t arg4)
 {
     regs->named.x0 = arg1;
     regs->named.x1 = arg2;

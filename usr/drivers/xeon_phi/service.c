@@ -354,7 +354,7 @@ static errval_t svc_connect_cb(void *st,
                                struct xeon_phi_driver_binding *b)
 {
     XSERVICE_DEBUG("Xeon Phi Node %u got a new connection to other node.\n",
-                   (struct xeon_phi * st)->id);
+                   ((struct xeon_phi *)st)->id);
 
     b->st = st;
     b->rx_vtbl = xps_rx_vtbl;

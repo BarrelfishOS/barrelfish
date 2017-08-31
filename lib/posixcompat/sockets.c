@@ -9,14 +9,17 @@
 
 #include <assert.h>
 #include <sys/socket.h>
+#include <sys/param.h>
 #include <netdb.h>
 #include <errno.h>
 #include <unistd.h>
 #include <barrelfish/barrelfish.h>
-#include <lwip/sys.h>
 #include "posixcompat.h"
 #include <vfs/fdtab.h>
 #include "unixsock.h"
+#include <lwip/sockets.h>
+#include <lwip/sys.h>
+#include <lwip/netdb.h>
 
 ssize_t recv(int sockfd, void *buf, size_t len, int flags)
 {

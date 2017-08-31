@@ -16,7 +16,7 @@
         "client.c", 
         "common.c" 
     ],
-    addLibraries = [ "lwip", "contmng", "net_if_raw"]
+    addLibraries = [ "net_sockets" ]
   },
   build library { 
     target = "tftp_server",
@@ -24,6 +24,6 @@
         "server.c", 
         "common.c" 
     ],
-    addLibraries = [ "lwip", "contmng", "net_if_raw"]
+    addLibraries = [ "net_sockets" ]
   }
 ]

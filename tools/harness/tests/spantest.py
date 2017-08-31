@@ -24,10 +24,6 @@ class SpanTest(TestCommon):
     def setup(self, build, machine, testdir):
         super(SpanTest, self).setup(build, machine, testdir)
 
-        # XXX: track number of cores booted and seen for is_finished()
-        self._ncores = machine.get_ncores()
-        self._nseen = 0
-
     def get_modules(self, build, machine):
         modules = super(SpanTest, self).get_modules(build, machine)
         # span on all cores other than 0 -- matches spantest code
@@ -35,7 +31,7 @@ class SpanTest(TestCommon):
         return modules
 
     def is_finished(self, line):
-        return re.match(MATCH, line)
+        return re.match(MATCH, line) or super(SpanTest, self).is_finished(line)
 
     def process_data(self, testdir, rawiter):
         result = False
@@ -52,18 +48,14 @@ class SpanTestInterleaved(TestCommon):
     def setup(self, build, machine, testdir):
         super(SpanTestInterleaved, self).setup(build, machine, testdir)
 
-        # XXX: track number of cores booted and seen for is_finished()
-        self._ncores = machine.get_ncores()
-        self._nseen = 0
-
     def get_modules(self, build, machine):
         modules = super(SpanTestInterleaved, self).get_modules(build, machine)
         # span on all cores other than 0 -- matches spantest code
         modules.add_module("tests/span-interleaved", [ machine.get_ncores() ])
         return modules
 
-    def is_finished(self, line):
-        return re.search('SPAN_TEST_SUCCESS.', line)
+    def get_finish_string(self):
+        return 'SPAN_TEST_SUCCESS.'
 
     def process_data(self, testdir, rawiter):
         result = False
@@ -82,10 +74,6 @@ class SpanTestExit(TestCommon):
     def setup(self, build, machine, testdir):
         super(SpanTestExit, self).setup(build, machine, testdir)
 
-        # XXX: track number of cores booted and seen for is_finished()
-        self._ncores = machine.get_ncores()
-        self._nseen = 0
-
     def get_modules(self, build, machine):
         modules = super(SpanTestExit, self).get_modules(build, machine)
         # span on all cores other than 0 -- matches spantest code
@@ -95,7 +83,8 @@ class SpanTestExit(TestCommon):
     def is_finished(self, line):
         if re.search('SPAN_TEST_DONE.', line) :
             self.is_done = True
-        return re.match('kernel [0-9]*: user page fault WHILE DISABLED', line) 
+        return re.match('kernel [0-9]*: user page fault WHILE DISABLED', line) or \
+                super(SpanTestExit, self).is_finished(line)
 
     def process_data(self, testdir, rawiter):
         result = True

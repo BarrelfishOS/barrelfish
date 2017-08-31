@@ -123,8 +123,6 @@ kernelIncludes arch = [ NoDep BuildTree arch f | f <- [
                     "/kernel/include",
                     "/include",
                     "/include/arch" </> archFamily arch,
-                    "/lib/newlib/newlib/libc/include",
-                    "/include/c",
                     "/include/target" </> archFamily arch]]
                  ++ kernelOptIncludes arch
 
@@ -263,13 +261,13 @@ archive opts objs libs name libname
     | optArch opts == "armv8" = ARMv8.archive opts objs libs name libname
     | otherwise = [ ErrorMsg ("Can't build a library for " ++ (optArch opts)) ]
 
-linker :: Options -> [String] -> [String] -> String -> [RuleToken]
-linker opts objs libs bin
-    | optArch opts == "x86_64" = X86_64.linker opts objs libs bin
-    | optArch opts == "k1om" = K1om.linker opts objs libs bin
-    | optArch opts == "x86_32" = X86_32.linker opts objs libs bin
-    | optArch opts == "armv7" = ARMv7.linker opts objs libs bin
-    | optArch opts == "armv8" = ARMv8.linker opts objs libs bin
+linker :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
+linker opts objs libs mods bin
+    | optArch opts == "x86_64" = X86_64.linker opts objs libs mods bin
+    | optArch opts == "k1om" = K1om.linker opts objs libs mods bin
+    | optArch opts == "x86_32" = X86_32.linker opts objs libs mods bin
+    | optArch opts == "armv7" = ARMv7.linker opts objs libs mods bin
+    | optArch opts == "armv8" = ARMv8.linker opts objs libs mods bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
 strip :: Options -> String -> String -> String -> [RuleToken]
@@ -290,10 +288,10 @@ debug opts src target
     | optArch opts == "armv8" = ARMv8.debug opts src target
     | otherwise = [ ErrorMsg ("Can't extract debug symbols for " ++ (optArch opts)) ]
 
-cxxlinker :: Options -> [String] -> [String] -> String -> [RuleToken]
-cxxlinker opts objs libs bin
-    | optArch opts == "x86_64" = X86_64.cxxlinker opts objs libs bin
-    | optArch opts == "k1om" = K1om.cxxlinker opts objs libs bin
+cxxlinker :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
+cxxlinker opts objs libs mods bin
+    | optArch opts == "x86_64" = X86_64.cxxlinker opts objs libs mods bin
+    | optArch opts == "k1om" = K1om.cxxlinker opts objs libs mods bin
     | otherwise = [ ErrorMsg ("Can't link C++ executables for " ++ (optArch opts)) ]
 
 --
@@ -407,9 +405,9 @@ archiveLibrary opts name objs libs =
 --
 -- Link an executable
 --
-linkExecutable :: Options -> [String] -> [String] -> String -> [RuleToken]
-linkExecutable opts objs libs bin =
-    linker opts objs libs (applicationPath opts bin)
+linkExecutable :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
+linkExecutable opts objs libs mods bin =
+    linker opts objs libs mods (applicationPath opts bin)
 
 --
 -- Strip debug symbols from an executable
@@ -429,9 +427,9 @@ debugExecutable opts src target =
 --
 -- Link a C++ executable
 --
-linkCxxExecutable :: Options -> [String] -> [String] -> String -> [RuleToken]
-linkCxxExecutable opts objs libs bin =
-    cxxlinker opts objs libs (applicationPath opts bin)
+linkCxxExecutable :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
+linkCxxExecutable opts objs libs mods bin =
+    cxxlinker opts objs libs mods (applicationPath opts bin)
 
 -------------------------------------------------------------------------
 
@@ -722,36 +720,64 @@ flounderRules opts args csrcs =
       allIf = nub $ Args.flounderDefs args ++ [f | (f,_) <- Args.flounderExtraDefs args]
 
 
---
--- Build a Sockeye library
---
-
-sockeyeSchemaCPath :: Options -> String -> String
-sockeyeSchemaCPath opts schema =
-    ((optSuffix opts)) </> (schema ++ ".c")
-
-sockeyeCompileFile :: String -> String -> String -> String -> HRule
-sockeyeCompileFile arch opt in_file out_file =
-    Rule [
-        In InstallTree "tools" "/bin/sockeye",
-        Str opt,
-        In SrcTree "src" (in_file ++ ".sockeye"),
-        Out arch out_file
-    ]
+ --
+ -- Build a Skate library and header file
+ --
 
 
-sockeyeCompileSchema :: Options -> Args.Args -> String -> HRule
-sockeyeCompileSchema opts args file =
-    let arch = optArch opts
-        cfile = sockeyeSchemaCPath opts file
-        hfile = "/include/schema" </> file ++ ".h"
-        opts' = opts { extraDependencies = [ Dep BuildTree arch hfile ] }
-    in
-        Rules [
-            sockeyeCompileFile arch "-H" file hfile,
-            sockeyeCompileFile arch "-C" file cfile,
-            compileGeneratedCFile opts' cfile
-         ]
+skateSchemaPath opts ifn = (optSuffix opts) </> (ifn ++ "_skate_schema.c")
+skateProgLoc = In InstallTree "tools" "/bin/skate"
+skateSksFileLoc schema = In SrcTree "src" ("/schemas" </> (schema ++ ".sks"))
+skateSchemaDefsPath schema = "/include/schemas" </> (schema ++ "_schema.h")
+
+
+skateSchemaHelper :: Options -> String -> String -> [String] -> HRule
+skateSchemaHelper opts ifn cfile srcs = Rules $
+    [ skateRule opts $ args ++ [
+        Str "-o", Out arch cfile, skateSksFileLoc ifn],
+        compileGeneratedCFile opts cfile,
+        skateDefsDepend opts ifn srcs]
+    ++ [extraGeneratedCDependency opts (skateSchemaDefsPath ifn) cfile]
+    where
+        arch = optArch opts
+        archfam = optArchFamily opts
+        args = [Str "-a", Str arch, Str "-C"]
+
+
+skateSchema :: Options -> String -> [String] -> HRule
+skateSchema opts schema =
+    skateSchemaHelper opts schema (skateSchemaPath opts schema)
+
+
+skateDefsDepend :: Options -> String -> [String] -> HRule
+skateDefsDepend opts schema srcs = Rules $
+    [(extraCDependencies opts (skateSchemaDefsPath schema) srcs)]
+
+
+skateRules :: Options -> Args.Args -> [String] -> [HRule]
+skateRules opts args csrcs =
+    ([ skateSchema opts f csrcs | f <- Args.skateSchemas args ]
+     ++
+     [ skateDefsDepend opts f csrcs | f <- nub $ Args.skateSchemaDefs args ])
+
+
+skateIncludes :: Options -> [RuleToken]
+skateIncludes opts = []
+
+
+skateRule :: Options -> [RuleToken] -> HRule
+skateRule opts args = Rule $ [ skateProgLoc ] ++ (skateIncludes opts) ++ args
+
+
+skateGenSchemas :: Options -> String -> HRule
+skateGenSchemas opts schema =
+ Rules $ [skateRule opts [
+        Str "-H",
+        Str "-o", Out (optArch opts) (skateSchemaDefsPath schema),
+        skateSksFileLoc schema
+      ]]
+
+
 
 --
 -- Build a Fugu library
@@ -821,12 +847,12 @@ hamletFile opts file =
 --
 -- Link a set of object files and libraries together
 --
-link :: Options -> [String] -> [ String ] -> String -> HRule
-link opts objs libs bin =
+link :: Options -> [String] -> [String] -> [String] -> String -> HRule
+link opts objs libs mods bin =
     let full = bin ++ ".full"
         debug = bin ++ ".debug"
     in Rules [
-        Rule $ linkExecutable opts objs libs full,
+        Rule $ linkExecutable opts objs libs mods full,
         Rule $ debugExecutable opts full debug,
         Rule $ stripExecutable opts full debug bin
     ]
@@ -834,9 +860,9 @@ link opts objs libs bin =
 --
 -- Link a set of C++ object files and libraries together
 --
-linkCxx :: Options -> [String] -> [ String ] -> String -> HRule
-linkCxx opts objs libs bin =
-    Rule (linkCxxExecutable opts objs libs bin)
+linkCxx :: Options -> [String] -> [String] -> [String] -> String -> HRule
+linkCxx opts objs libs mods bin =
+    Rule (linkCxxExecutable opts objs libs mods bin)
 
 --
 -- Link a CPU driver.  This is where it gets distinctly architecture-specific.
@@ -1015,8 +1041,8 @@ allObjectPaths opts args =
                 [ flounderTHCStubPath opts f
                       | f <- (Args.flounderTHCStubs args)]
                 ++
-                [ sockeyeSchemaCPath opts f
-                      | f <- (Args.sockeyeSchema args)]
+                [ skateSchemaPath opts f
+                      | f <- (Args.skateSchemas args)]
                 ++
                 (Args.generatedCFiles args) ++ (Args.generatedCxxFiles args)
     ]
@@ -1025,6 +1051,10 @@ allLibraryPaths :: Options -> Args.Args -> [String]
 allLibraryPaths opts args =
     [ libraryPath opts l | l <- Args.addLibraries args ]
 
+
+allModulesPaths :: Options -> Args.Args -> [String]
+allModulesPaths opts args =
+    [ libraryPath opts l | l <- Args.addModules args ]
 
 ---------------------------------------------------------------------
 --
@@ -1053,7 +1083,9 @@ appGetOptionsForArch arch args =
     (options arch) { extraIncludes =
                          [ NoDep SrcTree "src" a | a <- Args.addIncludes args]
                          ++
-                         [ NoDep BuildTree arch a | a <- Args.addGeneratedIncludes args],
+                         [ NoDep BuildTree arch a | a <- Args.addGeneratedIncludes args]
+                         ++
+                         [ NoDep SrcTree "src" ("/include" </> l) | l <- Args.addLibraries args ],
                      optIncludes = (optIncludes $ options arch) \\
                          [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
                      optFlags = (optFlags $ options arch) \\
@@ -1094,6 +1126,8 @@ appBuildArch tdb tf args arch =
     in
       Rules ( flounderRules opts args csrcs
               ++
+              skateRules opts args csrcs
+              ++
               [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
               ++
               [ compileCFiles opts csrcs,
@@ -1101,7 +1135,7 @@ appBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args)
+                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args) (allModulesPaths opts args)
                        appname,
                 fullTarget opts arch appname
               ]
@@ -1155,6 +1189,8 @@ arrakisAppBuildArch tdb tf args arch =
     in
       Rules ( flounderRules opts args csrcs
               ++
+              skateRules opts args csrcs
+              ++
               [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
               ++
               [ compileCFiles opts csrcs,
@@ -1162,7 +1198,7 @@ arrakisAppBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args) appname
+                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args) (allModulesPaths opts args) appname
               ]
             )
 
@@ -1180,7 +1216,9 @@ libraryBuildFn tdb tf args =
 
 libGetOptionsForArch arch args =
     (options arch) { extraIncludes =
-                         [ NoDep SrcTree "src" a | a <- Args.addIncludes args],
+                         [ NoDep SrcTree "src" a | a <- Args.addIncludes args]
+                         ++
+                         [ NoDep SrcTree "src" ("/include" </> l) | l <- Args.addLibraries args ],
                      optIncludes = (optIncludes $ options arch) \\
                          [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
                      optFlags = (optFlags $ options arch) \\
@@ -1204,7 +1242,7 @@ libBuildArch tdb tf args arch =
     in
       Rules ( flounderRules opts args csrcs
               ++
-              [ sockeyeCompileSchema opts args schema | schema <- Args.sockeyeSchema args ]
+              skateRules opts args csrcs
               ++
               [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
               ++
@@ -1234,10 +1272,6 @@ liblwip_deps          = LibDeps $ [ LibDep x | x <- deps ]
 libnetQmng_deps       = LibDeps $ [ LibDep x | x <- deps ]
     where deps = ["net_queue_manager"]
 libnfs_deps           = LibDeps $ [ LibDep "nfs", liblwip_deps]
-libssh_deps           = LibDeps [ libposixcompat_deps, libopenbsdcompat_deps,
-                                  LibDep "zlib", LibDep "crypto", LibDep "ssh" ]
-libopenbsdcompat_deps = LibDeps [ libposixcompat_deps, LibDep "crypto",
-                                  LibDep "openbsdcompat" ]
 
 -- we need to make vfs more modular to make this actually useful
 data VFSModules = VFS_RamFS | VFS_NFS | VFS_BlockdevFS | VFS_FAT
@@ -1271,17 +1305,13 @@ str2dep  str
     | str == "vfs_noblockdev"= libvfs_deps_noblockdev str
     | str == "lwip"          = liblwip_deps
     | str == "netQmng"       = libnetQmng_deps
-    | str == "ssh"           = libssh_deps
-    | str == "openbsdcompat" = libopenbsdcompat_deps
     | otherwise              = LibDep str
 
 -- get library depdencies
 --   we need a specific order for the .a, so we define a total order
 libDeps :: [String] -> [String]
 libDeps xs = [x | (LibDep x) <- (sortBy xcmp) . nub . flat $ map str2dep xs ]
-    where xord = [ "ssh"
-                  , "openbsdcompat"
-                  , "crypto"
+    where xord = [  "crypto"
                   , "zlib"
                   , "posixcompat"
                   , "term_server"

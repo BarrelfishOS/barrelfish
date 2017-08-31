@@ -1,0 +1,1030 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (c) 2015, ETH Zurich.
+% All rights reserved.
+%
+% This file is distributed under the terms in the attached LICENSE file.
+% If you do not find this file, copies can be found by writing to:
+% ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\providecommand{\pgfsyspdfmark}[3]{}
+
+\documentclass[a4paper,11pt,twoside]{report}
+\usepackage{amsmath}
+\usepackage{bftn}
+\usepackage{calc}
+\usepackage{verbatim}
+\usepackage{xspace}
+\usepackage{pifont}
+\usepackage{pxfonts}
+\usepackage{textcomp}
+
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{todonotes}
+\usepackage{hyperref}
+
+\title{Skate in Barrelfish}
+\author{Barrelfish project}
+% \date{\today}   % Uncomment (if needed) - date is automatic
+\tnnumber{020}
+\tnkey{Skate}
+
+
+\lstdefinelanguage{skate}{
+    morekeywords={schema,typedef,fact,enum},
+    sensitive=true,
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]",
+}
+
+\presetkeys{todonotes}{inline}{}
+
+\begin{document}
+\maketitle      % Uncomment for final draft
+
+\begin{versionhistory}
+\vhEntry{0.1}{16.11.2015}{MH}{Initial Version}
+\vhEntry{0.2}{20.04.2017}{RA}{Renaming ot Skate and expanding.}
+\end{versionhistory}
+
+% \intro{Abstract}    % Insert abstract here
+% \intro{Acknowledgements}  % Uncomment (if needed) for acknowledgements
+\tableofcontents    % Uncomment (if needed) for final draft
+% \listoffigures    % Uncomment (if needed) for final draft
+% \listoftables     % Uncomment (if needed) for final draft
+\cleardoublepage
+\setcounter{secnumdepth}{2}
+
+\newcommand{\fnname}[1]{\textit{\texttt{#1}}}%
+\newcommand{\datatype}[1]{\textit{\texttt{#1}}}%
+\newcommand{\varname}[1]{\texttt{#1}}%
+\newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
+\newcommand{\pathname}[1]{\texttt{#1}}%
+\newcommand{\tabindent}{\hspace*{3ex}}%
+\newcommand{\Skate}{\lstinline[language=skate]}
+\newcommand{\ccode}{\lstinline[language=C]}
+
+\lstset{
+  language=C,
+  basicstyle=\ttfamily \small,
+  keywordstyle=\bfseries,
+  flexiblecolumns=false,
+  basewidth={0.5em,0.45em},
+  boxpos=t,
+  captionpos=b
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction and usage}
+\label{chap:introduction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\emph{Skate}\footnote{Skates are cartilaginous fish belonging to the family 
+Rajidae in the superorder Batoidea of rays. More than 200 species have been 
+described, in 32 genera. The two subfamilies are Rajinae (hardnose skates) and 
+Arhynchobatinae (softnose skates). 
+Source: \href{https://en.wikipedia.org/wiki/Skate_(fish)}{Wikipedia}}
+is a domain specific language to describe the schema of 
+Barrelfish's System Knowledge Base (SKB)~\cite{skb}. The SKB stores all 
+statically or dynamically discovered facts about the system. Static facts are 
+known and exist already at compile time of the SKB ramdisk or are added through
+an initialization script or program. 
+
+Examples for static facts include the device database, that associates known 
+drivers with devices or the devices of a wellknown SoC. Dynamic facts, on the 
+otherhand, are added to the SKB during and based on hardware discovery. 
+Examples for dynamic facts include the number of processors or PCI Express 
+devices. 
+
+Inside the SKB, a prolog based constraint solver takes the added facts and 
+computes a solution for hardware configuration such as PCI bridge programming,
+NUMA information for memory allocation or device driver lookup. Programs can 
+query the SKB using Prolog statements and obtain device configuration and PCI 
+bridge programming, interrupt routing and constructing routing trees for IPC. 
+Applications can use information to determine hardware characteristics such as 
+cores, nodes, caches and memory as well as their affinity.
+
+
+The Skate language is used to define format of those facts. The DSL is then 
+compiled into a set of fact definitions and functions that are wrappers arround
+the SKB client functions, in particular \texttt{skb\_add\_fact()}, to ensure
+the correct format of the added facts.  
+
+The intention when designing Skate is that the contents of system descriptor
+tables such as ACPI, hardware information obtained by CPUID or PCI discovery
+can be extracted from the respective manuals and easily specified in a Skate 
+file. 
+
+Skate complements the SKB by defining a \emph{schema} of the data stored in
+the SKB. A schema defines facts and their structure, which is similar to Prolog
+facts and their arity. A code-generation tool generates a C-API to populate the
+SKB according to a specific schema instance.
+
+The Skate compiler is written in Haskell using the Parsec parsing library. It
+generates C header files from the Skate files. In addition it supports the 
+generation of Schema documentation.
+
+The source code for Skate can be found in \texttt{SOURCE/tools/skate}.
+
+
+\section{Use cases}
+
+We envision the following non exhausting list of possible use cases for Skate:
+
+\begin{itemize}
+    \item A programmer is writing PCI discovery code or a device driver. The
+    program inserts various facts about the discovered devices and the state
+    of them into the SKB. To make the inserted facts usable to other programs
+    running on the system, the format of the facts have to be known. For this 
+    purpose we need a common to specify the format of those facts and their 
+    meaning.
+    
+    \item Each program needs to ultimately deal with the issue of actually 
+    inserting the facts into the SKB or query them. For this purpose, the fact 
+    strings need to be formatted accordingly, and this may be done differently 
+    for various languages and is error prone to typos. Skate is intended to 
+    remove the burden from the programmer by providing a language native (e.g. 
+    C or Rust) to ensure a safe way of inserting facts into the SKB. 
+    
+    \item Just knowing the format and the existence of certain facts is 
+    useless. A programmer needs to understand the meaning of them and their 
+    fields. It's not enough just to list the facts with the fields. Skate 
+    provides a way to generate a documentation about the specified facts. This 
+    enables programmers to reason about which facts should be used in 
+    particular selecting the right level of abstraction. This is important 
+    given that facts entered into the SKB from hardware discovery are 
+    intentionally as un-abstracted as possible.
+    
+    \item Documenting the available inference rules that the SKB implements
+    to abstract facts into useful concepts for the OS. 
+\end{itemize}
+
+
+
+
+\section{Command line options}
+\label{sec:cmdline}
+
+\begin{verbatim}
+$ skate <options> INFILE.skt
+\end{verbatim}
+
+
+Where options is one of
+\begin{description}
+  \item[-o] \textit{filename} The output file name
+  \item[-L] generate latex documentation
+  \item[-H] generate headerfile
+  \item[-W] generate Wiki syntax documentation
+\end{description}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Lexical Conventions}
+\label{chap:lexer}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The Skate parser follows a similar convention as opted by modern day 
+programming languages like C and Java. Hence, Skate uses a java-style-like
+parser based on the Haskell Parsec Library. The following conventions are used:
+
+\begin{description}
+\item[Encoding] The file should be encoded using plain text.
+\item[Whitespace:]  As in C and Java, Skate considers sequences of
+  space, newline, tab, and carriage return characters to be
+  whitespace.  Whitespace is generally not significant. 
+
+\item[Comments:] Skate supports C-style comments.  Single line comments
+  start with \texttt{//} and continue until the end of the line.
+  Multiline comments are enclosed between \texttt{/*} and \texttt{*/};
+  anything inbetween is ignored and treated as white space.
+
+\item[Identifiers:] Valid Skate identifiers are sequences of numbers
+  (0-9), letters (a-z, A-Z) and the underscore character ``\texttt{\_}''.  They
+  must start with a letter or ``\texttt{\_}''.  
+  \begin{align*}
+    identifier & \rightarrow ( letter \mid \_ ) (letter \mid digit \mid \_)^{\textrm{*}} \\
+    letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
+    digit & \rightarrow (\textsf{0 \ldots 9})
+\end{align*}
+
+  Note that a single underscore ``\texttt{\_}'' by itself is a special,
+  ``don't care'' or anonymous identifier which is treated differently
+  inside the language. 
+  
+\item[Case Sensitivity] Skate is not case sensitive hence identifiers 
+\texttt{foo} and \texttt{Foo} will be the same.  
+  
+\item[Integer Literals:] A Skate integer literal is a sequence of
+  digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
+  literals have no specifier and hexadecimal literals start with
+  \texttt{0x}.  Binary literals start with \texttt{0b}. 
+
+  In addition, as a special case the string \texttt{1s} can be used to
+  indicate an integer which is composed entirely of binary 1's. 
+
+\begin{align*}
+digit & \rightarrow (\textsf{0 \ldots 9})^{\textrm{1}}\\
+hexadecimal & \rightarrow (\textsf{0x})(\textsf{0 \ldots 9} \mid \textsf{A \ldots F} \mid \textsf{a \ldots f})^{\textrm{1}}\\
+binary & \rightarrow (\textsf{0b})(\textsf{0, 1})^{\textrm{1}}\\
+\end{align*}
+
+\item[String Literals] String literals are enclosed in double quotes and should 
+  not span multiple lines.
+
+
+\item[Reserved words:] The following are reserved words in Skate:
+\begin{verbatim}
+schema, fact, flags, constants, enumeration, text, section
+\end{verbatim}
+
+
+\item[Special characters:] The following characters are used as operators,
+  separators, terminators or other special purposes in Skate:
+\begin{alltt}
+
+  \{ \} [ ] ( ) + - * / ; , . = 
+
+\end{alltt}
+
+\end{description}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Schema Declaration}
+\label{chap:declaration}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this chapter we define the layout of a Skate schema file, which declarations 
+it must contain and what other declarations it can have. Each Skate schema file
+defines exactly one schema, which may refer to other schemas.
+
+\section{Syntax Highlights}
+In the following sections we use the syntax highlighting as follows:
+\begin{syntax}
+\synbf{bold}:      Keywords  
+\synit{italic}:      Identifiers / strings chosen by the user
+\verb+verbatim+   constructs, symbols etc
+\end{syntax}
+
+
+
+\section{Conventions}
+There are a some conventions that should be followed when writing a schema 
+declaration. Following the conventions ensures consistency among different
+schemas and allows generating a readable and well structured documentation.
+
+\begin{description}
+    \item[Identifiers] Either camelcase or underscore can be used to separate 
+    words. Identifiers must be unique i.e. their fully qualified identifier must
+    be unique. A fully qualified identifier can be constructed as 
+    $schema.(namespace.)*name.$
+    \item[Descriptions] The description fields of the declarations should be 
+    used as a more human readable representation of the identifier. No use of
+    abbreviations or  
+    \item[Hierarchy/Grouping] Declarations of the same concept should be grouped
+    in a schema file (e.g. a single ACPI table). The declarations may be 
+    grouped further using namespaces (e.g. IO or local interrupt controllers)
+    \item[Sections/Text] Additional information can be provided using text 
+    blocks and sections. Each declaration can be wrapped in a section. 
+\end{description}
+
+\todo{which conventions do we actually want}
+
+\section{The Skate File}
+A Skate file must consist of zero or more \emph{import} declarations (see
+Section~\ref{sec:decl:schema}) followed by a single \emph{schema} declaration 
+(see Section~\ref{sec:decl:schema}) which contains the actual definitions. The 
+Skate file typically has the extension \emph{*.sks}, referring to a Skate (or 
+SKB) schema.
+
+\begin{syntax}
+/* Header comments */
+(\synbf{import} schema)*
+
+/* the actual schema declaration */
+\synbf{schema} theschema "" \verb+{+...\verb+}+
+\end{syntax}
+
+Note that all imports must be stated at the beginning of the file. Comments can
+be inserted at any place.
+
+%\begin{align*}
+%    skatefile & \rightarrow ( Import )^{\textrm{*}} (Schema)
+%\end{align*}
+
+\section{Imports}\label{sec:decl:import}
+An import statement makes the definitions in a different schema file
+available in the current schema definition, as described below.  The
+syntax of an import declaration is as follows:
+
+\paragraph{Syntax}
+
+\begin{syntax}
+\synbf{import} \synit{schema};
+\end{syntax}
+
+\paragraph{Fields}
+
+\begin{description}
+\item[schema] is the name of the schema to import definitions from.  
+\end{description}
+
+The order of the imports does not matter to skate. At compile time, the Skate 
+compiler will try to resolve the imports by searching the include paths and the 
+path of the current schema file for an appropriate schema file. Imported files 
+are parsed at the same time as the main schema file. The Skate compiler will 
+attempt to parse all the imports of the imported files transitively. Cyclic 
+dependencies between device files will not cause errors, but at present are 
+unlikely to result in C header files which will successfully compile. 
+
+\section{Types}\label{sec:decl:types}
+
+The Skate type system consists of a set of built in types and a set of implicit 
+type definitions based on the declarations of the schema. Skate performs some
+checks on the use of types.
+
+\subsection{BuiltIn Types}
+
+Skate supports the common C-like types such as integers, floats, chars as well 
+as boolean values and Strings (character arrays). In addition, Skate treats
+the Barrelfish capability reference (\texttt{struct capref}) as a built in 
+type.
+
+\begin{syntax}
+    UInt8, UInt16, UInt32, UInt64, UIntPtr
+    Int8, Int16, Int32, Int64, IntPtr
+    Float, Double
+    Char, String
+    Bool
+    Capref
+\end{syntax}
+
+
+\subsection{Declaring Types}
+All declarations stated in Section~\ref{sec:decl:decls} are implicitly types 
+and can be used within the fact declarations. This can restrict the values
+that are valid in a field. The syntax of the declarations enforces certain
+restrictions on which types can be used in the given context. 
+
+In particular, fact declarations allow fields to be of type fact which allows 
+a notion of inheritance and common abstractions. For example, PCI devices and
+USB devices may implement a specialization of the device abstraction. Note, 
+cicular dependencies must be avoided.
+
+Defining type aliases using a a C-Like typedef is currently not supported.
+
+\section{Schema}\label{sec:decl:schema}
+
+A schema groups all the facts of a particular topic together. For example, 
+a schema could be the PCI Express devices, memory regions or an ACPI table. 
+Each schema must have a unique name, which must match the name of the file, and
+it must have at least one declaration to be considered a valid file. All checks
+that are being executed by Skate are stated in Chapter~\ref{chap:astops}.
+There can only be one schema declaration in a single Schema file.
+
+\paragraph{Syntax}
+
+\begin{syntax}
+\synbf{schema} \synit{name} "\synit{description}" \verb+{+
+  \synit{declaration};
+  \ldots
+\verb+}+;
+\end{syntax}
+
+\paragraph{Fields}
+
+\begin{description}
+\item[name] is an identifier for the Schema type, and will be used to
+  generate identifiers in the target language (typically C).  
+  The name of the schema \emph{must} correspond to the
+  filename of the file, including case sensitivity: for example, 
+  the file \texttt{cpuid.sks} will define a schema type
+  of name \texttt{cpuid}. 
+
+\item [description] is a string literal in double quotes, which
+  describes the schema type being specified, for example \texttt{"CPUID 
+  Information Schema"}. 
+
+\item [declaration] must contain at least one of the following declarations:
+    \begin{itemize}
+        \item namespace -- Section \ref{sec:decl:namespace}
+        \item flags -- Section \ref{sec:decl:flags}
+        \item constants -- Section \ref{sec:decl:constants}
+        \item enumeration -- Section \ref{sec:decl:enums}
+        \item facts -- Section \ref{sec:decl:facts}
+        \item section -- Section \ref{sec:doc:section}
+        \item text -- Section \ref{sec:doc:text}
+    \end{itemize}
+
+\end{description}
+
+
+
+\section{Namespaces}
+\label{sec:decl:namespace}
+
+The idea of a namespaces is to provide more hierarchical structure similar to 
+Java packages or URIs (schema.namespace.namespace) For example, a PCI devices 
+may have virtual and physical functions or a processor has multiple cores. 
+Namespaces can be nested within a schema to build a deeper hierarchy. 
+Namespaces will have an effect on the code generation.
+
+\todo{does everything has to live in a namespace?, or is there an implicit
+default namespace?}
+
+\paragraph{Syntax}
+
+\begin{syntax}
+\synbf{namespace} \synit{name} "\synit{description}" \verb+{+
+    \synit{declaration};
+    \ldots
+\verb+}+;
+\end{syntax}
+
+\paragraph{Fields}
+
+\begin{description}
+    \item[name] the identifier of this namespace.
+    
+    \item[description] human readable description of this namespace
+    
+    \item[declarations] One or more declarations that are valid a schema 
+    definition.
+\end{description}
+
+
+
+\section{Declarations}\label{sec:decl:decls}
+
+In this section we define the syntax for the possible fact, constant, flags
+and enumeration declarations in Skate. Each of the following declarations will
+define a type and can be used.
+
+\subsection{Flags}
+\label{sec:decl:flags}
+
+Flags are bit fields of a fixed size (8, 16, 32, 64 bits) where each bit 
+position has a specific meaning e.g. the CPU is enabled or an interrupt
+is edge-triggered. 
+
+In contrast to constants and enumerations, the bit positions of the flags have 
+a particular meaning and two flags can be combined effectively enabling both
+options whereas the combination of enumeration values or constants may not be 
+defined. Bit positions that are not defined in the flag group are treated as 
+zero.
+
+As an example of where to use the flags use case we take the GICC CPU Interface 
+flags as defined in the MADT Table of the ACPI specification.
+
+
+\begin{tabular}{lll}
+    \textbf{Flag}      & \textbf{Bit} & \textbf{Description} \\
+    \hline
+    Enabled   & 0   & If zero, this processor is unusable.\\
+    Performance Interrupt Mode & 1 &  0 - Level-triggered,\\
+    VGIC Maintenance Interrupt Mode & 2 & 0 - Level-triggered, 1 - 
+    Edge-Triggered \\
+    Reserved & 3..31 & Reserved \\
+    \hline
+\end{tabular}
+
+
+
+\subsubsection{Syntax}
+
+\begin{syntax}
+\synbf{flags} \synit{name} \synit{width} "\synit{description}" \verb+{+
+    \synit{position1} \synit{name1} "\synit{description1}" ;
+    \ldots
+\verb+}+;
+\end{syntax}
+
+\subsubsection{Fields}
+
+\begin{description}
+    \item[name] the identifier of this flag group. Must be unique for all 
+                declarations.
+    
+    \item [width] The width in bits of this flag group. Defines the maximum 
+                  number of flags supported. This is one of 8, 16, 32, 64.
+    
+    \item [description] description in double quotes is a short explanation of
+                        what the flag group represents.
+    
+    \item [name1] identifier of the flag. Must be unique within the flag 
+                  group. 
+    
+    \item [position1] integer defining which bit position the flag sets
+    
+    \item [description1] description of this particular flag.
+\end{description}
+
+\subsubsection{Type}
+Flags with identifier $name$ define the following type:
+\begin{syntax}
+\synbf{flag} \synit{name};
+\end{syntax}
+
+\subsubsection{Example}
+
+The example from the ACPI table can be expressed in Skate as follows:
+
+\begin{syntax}
+\synbf{flags} CPUInterfaceFlags \synit{32} "\synit{GICC CPU Interface Flags}"\
+\verb+{+
+    0 Enabled         "\synit{The CPU is enabled and can be used}" ;
+    1 Performance     "\synit{Performance Interrupt Mode Edge-Triggered }" ;
+    1 VGICMaintenance "\synit{VGIC Maintenance Interrupt Mode Edge-Triggered}" ;
+\verb+}+;
+\end{syntax}
+
+
+\subsection{Constants}
+\label{sec:decl:constants}
+
+Constants provide a way to specify a set of predefined values of a particular 
+type. They are defined in a constant group and every constant of this group
+needs to be of the same type.
+
+Compared to flags, the combination of two constants has no meaning (e.g.
+adding two version numbers). In addition, constants only define a set of known 
+values, but do not rule out the possibility of observing other values. As an 
+example for this may be the vendor ID of a PCI Expess device, where the 
+constant group contains the known vendor IDs.
+
+As an example where constants ca be used we take the GIC version field of the
+GICD entry of the ACPI MADT Table.
+
+\begin{tabular}{ll}
+    \textbf{Value} & \textbf{Meaning} \\
+    \hline
+    \texttt{0x00} & No GIC version is specified, fall back to hardware 
+    discovery for GIC version \\
+    \texttt{0x01} & Controller is a GICv1 \\
+    \texttt{0x02} & Controller is a GICv2 \\
+    \texttt{0x03} & Controller is a GICv3 \\
+    \texttt{0x04} & Controller is a GICv4 \\
+    \texttt{0x05-0xFF} & Reserved for future use. \\
+    \hline
+\end{tabular}
+
+\subsubsection{Syntax}
+
+\begin{syntax}
+\synbf{constants} \synit{name} \synit{builtintype} "\synit{description}" \verb+{+
+    \synit{name1} = \synit{value1} "\synit{description1}" ;
+    \ldots
+\verb+}+;
+\end{syntax}
+
+\subsubsection{Fields}
+
+\begin{description}
+    \item[name] the identifier of this constants group. Must be unique for all 
+                declarations.
+    
+    \item [builtintype] the type of the constant group. Must be one of the 
+                        builtin types as defined in~\ref{sec:decl:types}
+    
+    \item [description] description in double quotes is a short explanation of
+                        what the constant group represents.
+    
+    \item [name1] identifier of the constant. Must be unique within the 
+                  constant group. 
+    
+    \item [value1] the value of the constant. Must match the declared type.
+    
+    \item [description1] description of this particular constant
+    
+\end{description}
+
+\subsubsection{Type}
+Constants with identifier $name$ define the following type:
+\begin{syntax}
+\synbf{const} \synit{name};
+\end{syntax}
+
+
+\subsubsection{Example}
+The GIC version of our example can be expressed in the syntax as follows: 
+
+\begin{syntax}
+\synbf{constants} GICVersion \synit{uint8} "\synit{The GIC Version}" \verb+{+
+    unspecified = 0x00 "\synit{No GIC version is specified}" ;    
+    GICv1       = 0x01 "\synit{Controller is a GICv1}" ;
+    GICv2       = 0x02 "\synit{Controller is a GICv2}" ;
+    GICv3       = 0x03 "\synit{Controller is a GICv3}" ;
+    GICv4       = 0x04 "\synit{Controller is a GICv4}" ;
+\verb+}+;
+\end{syntax}
+
+\subsection{Enumerations}
+\label{sec:decl:enums}
+
+Enumerations model a finite set of states effectively constants that only allow
+the specified values. However, in contrast to constants they are not assigned
+an specific value. Two enumeration values cannot be combined. As an example, 
+the enumeration construct can be used to express the state of a device in the
+system which can be in one of the following states: \emph{uninitialized, 
+operational, suspended, halted.} It's obvious, that the combination of the 
+states operational
+and suspended is meaning less.
+
+
+\subsubsection{Syntax}
+
+\begin{syntax}
+\synbf{enumeration} \synit{name} "\synit{description}" \verb+{+
+    \synit{name1} "\synit{description1}";
+    \ldots
+\verb+}+;
+\end{syntax}
+
+\subsubsection{Fields}
+
+\begin{description}
+    \item[name] the identifier of this enumeration group. Must be unique for 
+                all declarations.
+    
+    \item [description] description in double quotes is a short explanation of
+                        what the enumeration group represents.
+    
+    \item [name1] identifier of the element. Must be unique within the 
+                  enumeration group.   
+    
+    \item [description1] description of this particular element
+    
+\end{description}
+
+\subsubsection{Type}
+Enumerations with identifier $name$ define the following type:
+\begin{syntax}
+\synbf{enum} \synit{name};
+\end{syntax}
+
+\subsubsection{Example}
+\begin{syntax}
+\synbf{enumeration} DeviceState "\synit{Possible device states}" \verb+{+
+    uninitialized "\synit{The device is uninitialized}";
+    operational   "\synit{The device is operaetional}";
+    suspended     "\synit{The device is suspended}";
+    halted        "\synit{The device is halted}";
+\verb+}+;
+\end{syntax}
+
+\subsection{Facts}
+\label{sec:decl:facts}
+
+The fact is the central element of Skate. It defines the actual facts about the
+system that are put into the SKB. Each fact has a name and one or more fields
+of a given type. Facts should be defined such that they do not require any 
+transformation. For example, take the entries of an ACPI table and define a
+fact for each of the entry types. 
+
+\subsubsection{Syntax}
+
+\begin{syntax}
+\synbf{fact} \synit{name}  "\synit{description}" \verb+{+
+    \synit{type1} \synit{name1} "\synit{description1}" ;
+    \ldots
+\verb+}+;
+\end{syntax}
+
+\subsubsection{Fields}
+
+\begin{description}
+    \item[name] the identifier of this fact. Must be unique for all 
+                declarations.
+    
+    \item[description] description in double quotes is a short English          
+                       explanation of what the fact defines. (e.g. Local APIC)
+    
+    \item[type1] the type of the fact field. Must be one of the BuiltIn types
+                 or one of the constants, flags or other facts. When using 
+                 facts as field types, there must be no recursive nesting.
+
+    \item [name1] identifier of a fact field. Must be unique within the 
+                  Fact group.   
+    
+    \item [description1] description of this particular field
+\end{description}
+
+\subsubsection{Type}
+Facts with identifier $name$ define the following type.
+
+\begin{syntax}
+\synbf{fact} \synit{name};
+\end{syntax}
+
+
+\section{Documentation}
+
+The schema declaration may contain \emph{section} and \emph{text} blocks that
+allow providing an introduction or additional information for the schema 
+declared in the Skate file. The two constructs are for documentation purpose 
+only and do not affect code generation. The section and text blocks can appear
+at any place in the Schema declaration. There is no type being defined for 
+documentation blocks.
+
+\subsection{Schema}
+The generated documentation will contain all the schemas declared in the source 
+tree. The different schema files correspond to chapters in the resulting 
+documentation or form a page of a Wiki for instance.
+
+\subsection{Text}
+\label{sec:doc:text}
+
+By adding \texttt{text} blocks, additional content can be added to the generated
+documentation. This includes examples and additional information of the
+declarations of the schema. The text blocks are omitted when generating code. 
+Note, each of the text lines must be wrapped in double quotes. Generally, a 
+block of text will translate to a paragraph.
+
+\subsubsection{Syntax}
+
+\begin{syntax}
+\synbf{text} \verb+{+
+    "\synit{text}"
+    ...
+\verb+};+
+\end{syntax}
+
+\subsubsection{Fields}
+
+\begin{description}
+    \item[text] A line of text in double quotes.
+\end{description}
+
+\subsection{Sections}
+\label{sec:doc:section}
+The \texttt{section} construct allows to insert section headings into the 
+documentation. A section logically groups the declarations and text blocks 
+together to allow expressing a logical hierarchy. 
+
+\subsubsection{Syntax}
+
+\begin{syntax}
+\synbf{section} "\synit{name}"  \verb+{+
+    \synit{declaration};
+    \ldots
+\verb+};+
+\end{syntax}
+
+\subsubsection{Fields}
+
+\begin{description}
+    \item[name] the name will be used as the section heading
+    \item[declaration] declarations belonging to this section. 
+\end{description}
+
+Note, nested sections will result into (sub)subheadings or heading 2, 3, ...
+Namespaces will appear as sections in the documentation.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Operations and checks on the AST}
+\label{chap:astops}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The following checks are executed after the parser has consumed the entire
+Skate file and created the AST.
+
+\section{Filename Check}
+As already stated, the name of the Skate (without extension) must match the 
+identifier of the declared schema in the Skate file. This is required for 
+resolving imports of other Schemas. 
+
+\section{Uniqueness of declarations / fields}
+Skate ensures that all declarations within a namespace are unique no matter 
+which type they are i.e. there cannot be a fact and a constant definition with 
+the same identifier. Moreover, the same check is applied to the fact attributes 
+as well as flags, enumerations and constant values.
+
+Checks are based on the qualified identifier.
+
+\section{Type Checks}
+
+
+
+\section{Sorting of Declarations}
+\todo{This requires generated a dependency graph for the facts etc. }
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{C mapping for Schema Definitions}
+\label{chap:cmapping}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+For each schema specification, Skate generates ....
+
+\paragraph{Abbrevations}
+In all the sections of this chapter, we use the follwing abbrevations, where 
+the actual value may be upper or lower case depending on the conventions:
+
+\begin{description}
+  \item[SN] The schema name as used in the schema declaration.
+  \item[DN] The declaration name as used in the flags / constants / 
+            enumeration / facts declaration
+  \item[FN] The field name as used in field declaration of flags / constants / 
+            enumeration / facts
+\end{description}
+
+In general all defined functions, types and macros are prefixed with the schema
+name SN.
+
+\paragraph{Conventions}
+We use the follwing conventions for the generated code:
+\begin{itemize}
+  \item macro definitions and enumerations are uppercase.
+  \item type definitions, function names are lowercase.
+  \item use of the underscore \texttt{'\_'} to separate words
+\end{itemize}
+
+\todo{just a header file (cf mackerel), or also C functions (cf. flounder)?}
+
+\section{Using Schemas}
+
+Developers can use the schemas by including the generated header file of a 
+schema. All header files are placed in the schema subdirectory of the main 
+include folder of the build tree. For example, the 
+schema \texttt{SN} would generate the file \texttt{SN\_schema.h} and can 
+be included by a C program with:
+\begin{quote}
+\texttt{\#include <schema/SN\_schema.h}
+\end{quote}
+
+\section{Preamble}
+
+The generated headerfile is protected by a include guard that depends on the
+schema name. For example, the schema \texttt{SN} will be guarded by the
+macro definition \texttt{\_\_SCHEMADEF\_\_SN\_H\_}. The header file will 
+include the folling header files:
+\begin{enumerate}
+  \item a common header \texttt{skate.h} providing the missing macro and 
+        function definitions for correct C generation.
+  \item an include for each of the imported schema devices.
+\end{enumerate}
+
+\section{Constants}
+
+For any declared constant group, Skate will generate the following:
+
+\paragraph{Type and macro definitions}
+\begin{enumerate}
+  \item A type definition for the declared type of the constant group. The 
+        type  typename will be \texttt{SN\_DN\_t}.
+  \item A set of CPP macro definitions, one for each of the declared constants.
+        Each macro will have the name as in \texttt{SN\_DN\_FN} and expands to the field value cast to the type of the field.
+\end{enumerate}
+
+\paragraph{Function definitions}
+\begin{enumerate}
+  \item A function to describe the value 
+        \begin{quote}
+          \texttt{SN\_DN\_describe(SN\_DN\_t);}
+        \end{quote}
+
+  \item An snprintf-like function to pretty-print values of type SN\_DN\_t, 
+        with prototype:
+        \begin{quote}
+          \texttt{int SN\_DN\_print(char *s, size\_t sz);}
+        \end{quote}
+
+\end{enumerate}
+\todo{Do we need more ?}
+
+\section{Flags}
+
+\paragraph{Type and macro definitions}
+\begin{enumerate}
+  \item A type definition for the declared type of the flag group. The 
+        type typename will be \texttt{SN\_DN\_t}.
+\end{enumerate}
+
+\paragraph{Function definitions}
+\begin{enumerate}
+  \item A function to describe the value 
+        \begin{quote}
+          \texttt{SN\_DN\_describe(SN\_DN\_t);}
+        \end{quote}
+\end{enumerate}
+\todo{Do we need more ?}
+
+\section{Enumerations}
+Enumerations translate one-to-one to the C enumeration type in a straight 
+forward manner:
+
+\begin{quote}
+  \texttt{typdef enum \{ SN\_DN\_FN1, ... \} SN\_DN\_t; }
+\end{quote}
+
+\paragraph{Function definitions}
+\begin{enumerate}
+  \item A function to describe the value 
+        \begin{quote}
+          \texttt{SN\_DN\_describe(SN\_DN\_t);}
+        \end{quote}
+  \item A function to pretty-print the value
+        \begin{quote}
+          \texttt{SN\_DN\_print(char *b, size\_t sz, SN\_DN\_t val);}
+        \end{quote}
+\end{enumerate}
+
+\section{Facts}
+
+
+\paragraph{Type and macro definitions}
+\begin{enumerate}
+  \item A type definition for the declared type of the flag group. The 
+        type typename will be \texttt{SN\_DN\_t}.
+\end{enumerate}
+
+\paragraph{Function definitions}
+\begin{enumerate}
+  \item A function to describe the value 
+        \begin{quote}
+          \texttt{SN\_DN\_describe(SN\_DN\_t);}
+        \end{quote}
+  \item A function to add a fact to the SKB
+  \item A function to retrieve all the facts of this type from the SKB
+  \item A function to delete the fact from the SKB
+\end{enumerate}
+
+\todo{Provide some way of wildcard values. e.g. list all facts with this 
+filter or delete all facts that match the filter.}
+
+\section{Namespaces}
+
+\paragraph{Function definitions}
+\begin{enumerate}
+    \item A function to retrieve all the facts belonging to a name space
+\end{enumerate}
+
+
+\section{Sections and text blocks}
+For the \texttt{section} and \texttt{text} blocks in the schema file, there
+won't be any visible C constructs generated, but rather turned into comment
+blocks in the generated C files.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Prolog mapping for Schema Definitions}
+\label{chap:prologmapping}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Each fact added to the SKB using Skate is represented by a single Prolog
+functor.  The functor name in Prolog consist of the schema and fact name.  The
+fact defined in Listing \ref{lst:sample_schema} is represented by the functor
+\lstinline!cpuid_vendor!~and has an arity of three.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Generated Documentation}
+\label{chap:documentation}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Access Control}
+\label{chap:accesscontrol}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+on the level of schema or namespaces.
+
+
+\chapter{Integration into the Hake build system}
+
+Skate is a tool that is integrated with Hake. Add the attribute
+\lstinline!SkateSchema!~to a Hakefile to invoke Skate as shown in Listing
+\ref{lst:Skate_hake}.
+
+\begin{lstlisting}[caption={Including Skate schemata in Hake},
+label={lst:Skate_hake}, language=Haskell]
+[ build application {
+    SkateSchema = [ "cpu" ]
+    ... 
+} ]
+\end{lstlisting}
+
+Adding an entry for \varname{SkateSchema} to a Hakefile will generate both
+header and implementation and adds it to the list of compiled resources. A
+Skate schema is referred to by its name and Skate will look for a file
+ending with \varname{.Skate} containing the schema definition.
+
+The header file is placed in \pathname{include/schema} in the build tree, the C
+implementation is stored in the Hakefile application or library directory.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{abbrv}
+\bibliography{barrelfish}
+
+\end{document}

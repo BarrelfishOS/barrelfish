@@ -25,7 +25,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
-#include "../newlib/newlib/libc/include/stdio.h"
+#include <stdio.h>
 
 #define DISP_MEMORY_SIZE            1024 // size of memory dump in bytes
 
@@ -116,8 +116,9 @@ void debug_printf(const char *fmt, ...)
     char str[256];
     size_t len;
 
-    if (me)
+    if (me) {
         snprintf(id, sizeof(id), "%"PRIuPTR, thread_get_id(me));
+    }
     len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%s\033[0m: ",
                    DISP_NAME_LEN, disp_name(), disp_get_core_id(), id);
     if (len < sizeof(str)) {
@@ -407,7 +408,7 @@ static void walk_cspace_l2(struct capref l2cnode){
 
     for(int i=0; i<L2_CNODE_SLOTS; i++){
         struct capref pos = {
-            .cnode = cnode, .slot = i 
+            .cnode = cnode, .slot = i
         };
 
         // Get cap data
@@ -436,10 +437,10 @@ static void walk_cspace_l2(struct capref l2cnode){
 
 /**
  * \brief Dump an arbitrary cspace, given the root
- * 
- * \bug Works correct only for own cspace. (to fix this cap_identify must 
+ *
+ * \bug Works correct only for own cspace. (to fix this cap_identify must
  * be made to work with all caps)
- * 
+ *
  */
 void debug_cspace(struct capref root)
 {

@@ -1,0 +1,37 @@
+schema pci "" {
+
+    fact memoryregion "" {
+        uintptr BaseAddress "";
+        uint8 Bits "";
+        uintptr Size "";
+    };
+
+    /* We want to mark this as a non-top level fact */
+    fact addr "" {
+        uint8 bus "";
+        uint8 device "";
+        uint8 function "";
+    };
+
+    fact childbus "" {
+        uint8 min "";
+        uint8 max "";
+    };
+
+    fact mem "" {
+        uintptr start "";
+        uintptr end "";
+    };
+
+    fact core "" {
+        uint8 acpiid "";
+    };
+
+
+
+    /*fact rootbridge "" {
+        fact addr addr "";
+        fact childbus child "";
+        fact mem range "";
+    };*/
+};

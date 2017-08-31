@@ -45,7 +45,7 @@ class RetypeMultiTest(TestCommon):
     def is_finished(self, line):
         if line.startswith("retype: result:"):
             self._nseen += 1
-        return self._nseen == self._ncores
+        return self._nseen == self._ncores or super(RetypeMultiTest, self).is_finished(line)
 
     def process_data(self, testdir, rawiter):
         # the test passed iff the last line is the finish string
@@ -84,3 +84,25 @@ class RootCNResize(TestCommon):
                 passed  = "passed" in results
         return PassFailResult(passed)
 
+@tests.add_test
+class CreateL1L2(TestCommon):
+    '''test L1/L2 cnode creation'''
+    name = "capops_create_l1l2"
+
+    def get_modules(self, build, machine):
+        modules = super(CreateL1L2, self).get_modules(build, machine)
+        modules.add_module("test_create_l1l2_cnodes")
+        return modules
+
+    def get_finish_string(self):
+        return "L1/L2 CNode creation: "
+
+    def process_data(self, testdir, rawiter):
+        # the test passed iff the last line is the finish string
+        passed = False
+        for line in rawiter:
+            if line.startswith(self.get_finish_string()):
+                results =line.split(':')
+                results = map(str.strip, results)
+                passed  = "passed" in results
+        return PassFailResult(passed)

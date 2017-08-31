@@ -23,12 +23,6 @@
 #include "sdma.h"
 #include "omap_sdma.h"
 
-// Channel State. Filled by the interrupt callback, read by the request task.
-static struct {
-    awe_t *request;
-    errval_t err;
-} channel_state[OMAP44XX_SDMA_NUM_CHANNEL];
-
 /**
  * \brief Interrupt callback which will be called when a channel interrupt
  * occurs.
@@ -36,10 +30,10 @@ static struct {
  * \param channel   Channel which triggered the interrupt
  * \param err       State of the channel, SYS_ERR_OK if transfer completed
  */
-static void sdma_irq_handler(omap_sdma_channel_t channel, errval_t err)
+static void sdma_irq_handler(struct sdma_driver_state* st, omap_sdma_channel_t channel, errval_t err)
 {
-    channel_state[channel].err = err;
-    THCSchedule(channel_state[channel].request);
+    st->channel_state[channel].err = err;
+    THCSchedule(st->channel_state[channel].request);
 }
 
 /**
@@ -48,25 +42,25 @@ static void sdma_irq_handler(omap_sdma_channel_t channel, errval_t err)
  *
  * \param conf   Pointer to valid & initialized channel configuration
  */
-static errval_t run_omap_sdma_transfer(struct omap_sdma_channel_conf *conf)
+static errval_t run_omap_sdma_transfer(struct sdma_driver_state* st, struct omap_sdma_channel_conf *conf)
 {
     errval_t err;
     omap_sdma_channel_t channel;
 
-    err = omap_sdma_allocate_channel(&channel);
+    err = omap_sdma_allocate_channel(st, &channel);
     if (err_is_fail(err)) return err;
 
     // configure and enable allocated channel
-    omap_sdma_set_channel_conf(channel, conf);
-    omap_sdma_enable_channel(channel, true);
+    omap_sdma_set_channel_conf(st, channel, conf);
+    omap_sdma_enable_channel(st, channel, true);
 
     // this task will be rescheduled by the IRQ handler
-    THCSuspend(&channel_state[channel].request);
+    THCSuspend(&st->channel_state[channel].request);
 
     // read status flag set by IRQ handler
-    err = channel_state[channel].err;
+    err = st->channel_state[channel].err;
 
-    omap_sdma_free_channel(channel);
+    omap_sdma_free_channel(st, channel);
 
     return err;
 }
@@ -311,7 +305,7 @@ static errval_t frame_address_2d(struct capref cap, omap_sdma_addr_2d_t *addr,
  * \brief Stub to perform simple frame-to-frame memory copy
  * \see   Flounder definition in if/omap_sdma.if
  */
-errval_t mem_copy(struct capref dst_cap, struct capref src_cap)
+errval_t mem_copy(struct sdma_driver_state* st, struct capref dst_cap, struct capref src_cap)
 {
     errval_t err;
     omap_sdma_count_2d_t count;
@@ -331,7 +325,7 @@ errval_t mem_copy(struct capref dst_cap, struct capref src_cap)
     struct omap_sdma_channel_conf conf;
     init_channel_conf(&conf, dst_id.base, src_id.base, 1, 1, 1, 1, count,
                          omap44xx_sdma_DISABLE_COLOR_MODE, 0);
-    err = run_omap_sdma_transfer(&conf);
+    err = run_omap_sdma_transfer(st, &conf);
 
     return err;
 }
@@ -340,7 +334,7 @@ errval_t mem_copy(struct capref dst_cap, struct capref src_cap)
  * \brief Stub to fill a memory frame with a constant value
  * \see   Flounder definition in if/omap_sdma.if
  */
-errval_t mem_fill(struct capref dst_cap, uint8_t color)
+errval_t mem_fill(struct sdma_driver_state* st, struct capref dst_cap, uint8_t color)
 {
     errval_t err;
     omap_sdma_count_2d_t count;
@@ -355,7 +349,7 @@ errval_t mem_fill(struct capref dst_cap, uint8_t color)
     struct omap_sdma_channel_conf conf;
     init_channel_conf(&conf, dst_id.base, 0, 1, 1, 1, 1, count,
                          omap44xx_sdma_CONSTANT_FILL, color);
-    err = run_omap_sdma_transfer(&conf);
+    err = run_omap_sdma_transfer(st, &conf);
 
     return err;
 }
@@ -364,8 +358,8 @@ errval_t mem_fill(struct capref dst_cap, uint8_t color)
  * \brief Stub to perform a two-dimensional memory copy
  * \see   Flounder definition in if/omap_sdma.if
  */
-errval_t mem_copy_2d(omap_sdma_addr_2d_t dst, omap_sdma_addr_2d_t src,
-                omap_sdma_count_2d_t count, bool transparent, uint32_t color)
+errval_t mem_copy_2d(struct sdma_driver_state* st, omap_sdma_addr_2d_t dst, omap_sdma_addr_2d_t src,
+                     omap_sdma_count_2d_t count, bool transparent, uint32_t color)
 {
     errval_t err;
     lpaddr_t src_start, dst_start;
@@ -388,7 +382,7 @@ errval_t mem_copy_2d(omap_sdma_addr_2d_t dst, omap_sdma_addr_2d_t src,
                          src.x_modify, src.y_modify,
                          count, color_mode, color);
 
-    err = run_omap_sdma_transfer(&conf);
+    err = run_omap_sdma_transfer(st, &conf);
     return err;
 }
 
@@ -396,7 +390,7 @@ errval_t mem_copy_2d(omap_sdma_addr_2d_t dst, omap_sdma_addr_2d_t src,
  * \brief Stub to fill parts of a frame using two-dimensional indeces
  * \see   Flounder definition in if/omap_sdma.if
  */
-errval_t mem_fill_2d(omap_sdma_addr_2d_t dst, omap_sdma_count_2d_t count, uint32_t color)
+errval_t mem_fill_2d(struct sdma_driver_state* st, omap_sdma_addr_2d_t dst, omap_sdma_count_2d_t count, uint32_t color)
 {
     errval_t err;
     lpaddr_t  dst_start;
@@ -409,24 +403,57 @@ errval_t mem_fill_2d(omap_sdma_addr_2d_t dst, omap_sdma_count_2d_t count, uint32
                          dst.x_modify, dst.y_modify, 0, 0,
                          count, omap44xx_sdma_CONSTANT_FILL, color);
 
-    err = run_omap_sdma_transfer(&conf);
+    err = run_omap_sdma_transfer(st, &conf);
     return err;
 }
 
-int main(int argc, char **argv)
-{
+
+static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t flags,
+                     struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) {
+
+    bfi->dstate = malloc(sizeof(struct sdma_driver_state));
+    if (bfi->dstate == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+    assert(bfi->dstate != NULL);
+
+    // 1. Initialize the device:
     errval_t err;
     lvaddr_t dev_base;
-
-    err = map_device_register( OMAP44XX_MAP_L4_CFG_SDMA, 
-			       OMAP44XX_MAP_L4_CFG_SDMA_SIZE, 
-			       &dev_base);
+    err = map_device_cap(caps[0], &dev_base);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "unable to map SDMA registers");
     }
+    omap_sdma_init(bfi->dstate, (mackerel_addr_t)dev_base, sdma_irq_handler);
 
-    omap_sdma_init((mackerel_addr_t)dev_base, sdma_irq_handler);
-    start_service();
+    // 2. Export service to talk to the device:
+    sdma_init_service(bfi->dstate, dev);
 
-    return 0;
+    return SYS_ERR_OK;
 }
+
+static errval_t attach(struct bfdriver_instance* bfi) {
+    return SYS_ERR_OK;
+}
+
+static errval_t detach(struct bfdriver_instance* bfi) {
+    return SYS_ERR_OK;
+}
+
+static errval_t set_sleep_level(struct bfdriver_instance* bfi, uint32_t level) {
+    struct sdma_driver_state* uds = bfi->dstate;
+    uds->level = level;
+    return SYS_ERR_OK;
+}
+
+static errval_t destroy(struct bfdriver_instance* bfi) {
+    struct sdma_driver_state* uds = bfi->dstate;
+    free(uds);
+    bfi->dstate = NULL;
+    // XXX: Tear-down the service
+    bfi->device = 0x0;
+    return SYS_ERR_OK;
+}
+
+
+DEFINE_MODULE(sdma, init, attach, detach, set_sleep_level, destroy);

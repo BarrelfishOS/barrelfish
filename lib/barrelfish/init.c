@@ -45,6 +45,7 @@ extern void (*_libc_assert_func)(const char *, const char *, const char *, int);
 
 void libc_exit(int);
 
+__weak_reference(libc_exit, _exit);
 void libc_exit(int status)
 {
     errval_t err;

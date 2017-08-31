@@ -19,7 +19,7 @@
 #define OCTOPUS_QUERY_H_
 
 #include <barrelfish/barrelfish.h>
-#include <if/octopus_defs.h>
+
 
 #include <octopus_server/service.h>
 #include <octopus/parser/ast.h>

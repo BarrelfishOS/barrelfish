@@ -1,0 +1,5 @@
+interface cm2 "Controlling CM2" {
+    rpc enable_i2c(in uint32 index);
+    rpc enable_hsmmc1();
+    rpc get_hsmmc1_base_clock(out uint32 clock);
+};

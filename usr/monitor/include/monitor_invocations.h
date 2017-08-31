@@ -217,8 +217,6 @@ errval_t monitor_cap_has_relations(struct capref cap, uint8_t mask,
                                    uint8_t *res);
 errval_t monitor_cap_create(struct capref dest, struct capability *cap,
                             coreid_t owner);
-errval_t monitor_identify_cnode_get_cap(struct capability *cnode_raw, 
-                                        capaddr_t slot, struct capability *ret);
 errval_t monitor_nullify_cap(struct capref cap);
 errval_t monitor_retype_remote_cap(struct capref croot, capaddr_t src, gensize_t offset,
                                    enum objtype newtype, gensize_t objsize,

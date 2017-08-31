@@ -164,6 +164,9 @@ class QEMUMachineARMv7Uniproc(ARMMachineBase):
     def get_ncores(self):
         return 1
 
+    def get_buildall_target(self):
+        return "VExpressEMM-A15"
+
     def get_bootarch(self):
         return "armv7"
 
@@ -207,6 +210,9 @@ class QEMUMachineZynq7(ARMMachineBase):
         self._set_kernel_image()
         # XXX: change this once we have proper zynq7 configurations
         self.menulst_template = "menu.lst.armv7_zynq7"
+
+    def get_buildall_target(self):
+        return "Zynq7000"
 
     def get_ncores(self):
         return 1

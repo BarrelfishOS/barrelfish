@@ -56,18 +56,15 @@ class WebCommon(TestCommon):
     def get_modules(self, build, machine):
         cardName = "e1000"
         modules = super(WebCommon, self).get_modules(build, machine)
-        modules.add_module("e1000n", ["auto"])
-        modules.add_module("NGD_mng", ["auto"])
-        modules.add_module("netd", ["auto"])
+        modules.add_module("e1000_net_sockets_server", ["auto"])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         modules.add_module("webserver", ["core=%d" % machine.get_coreids()[0], #2
-				cardName, nfsip,
-                                         siteconfig.get('WEBSERVER_NFS_PATH')])
+				nfsip, siteconfig.get('WEBSERVER_NFS_PATH')])
 #                                         siteconfig.get('WEBSERVER_NFS_TEST_PATH')])
         return modules
 
     def process_line(self, line):
-        m = re.match(r'Interface up! IP address (\d+\.\d+\.\d+\.\d+)', line)
+        m = re.match(r'# IP Addr (\d+\.\d+\.\d+\.\d+)', line)
         if m:
             self.ip = m.group(1)
         elif self.ip and 'Starting webserver' in line:
@@ -91,7 +88,7 @@ class WebCommon(TestCommon):
         return len(self.server_failures) == 0
 
     def is_finished(self, line):
-        return self.finished
+        return self.finished or super(WebCommon, self).is_finished(line)
 
 
 @tests.add_test
@@ -115,7 +112,7 @@ class WebserverTest(WebCommon):
                 if (r.status / 100) != 2 :
                     print "HTTP request failed for %d" % (i)
                 assert((r.status / 100) == 2) # check for success response
-
+                data = r.read()
                 # Reset failure count after sucessful retrival
                 failure_count = 0
                 c.close()
