@@ -24,6 +24,7 @@ modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
 modulenounzip /skb_ramfs.cpio.gz nospawn
 module /armv7/sbin/kaluga boot add_device_db=plat_VE_A15x1
 module /armv7/sbin/spawnd boot
+module /armv7/sbin/proc_mgmt boot
 module /armv7/sbin/startd boot
 
 # Device drivers

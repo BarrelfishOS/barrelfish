@@ -24,6 +24,7 @@ module  /k1om/sbin/ramfsd boot
 module  /k1om/sbin/skb boot
 module  /k1om/sbin/xeon_phi boot
 module  /k1om/sbin/spawnd boot
+module  /k1om/sbin/proc_mgmt boot
 module  /k1om/sbin/startd boot
 
 # drivers
