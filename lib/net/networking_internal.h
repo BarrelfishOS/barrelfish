@@ -35,6 +35,8 @@
 #include <net/dhcp.h>
 #include <net/arp.h>
 
+#include <collections/list.h>
+
 #include <if/net_ARP_defs.h>
 
 #include "debug.h"
@@ -67,6 +69,8 @@ struct net_state {
     bool arp_connected;
     uint64_t arp_triggerid;
     struct net_ARP_binding* arp;
+    collections_listnode *outstanding_arp;
+    struct periodic_event arp_send;
 
     struct waitset *waitset;
 

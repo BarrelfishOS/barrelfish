@@ -16,6 +16,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+#include <collections/list.h>
 
 
 #include <lwip/opt.h>       
@@ -41,26 +42,78 @@
 #define ARP_ENTRY "net.arp.%d {mac: %lu, ip: %d}"
 
 #define ARP_ENTRY_REGEX "r'net\\.arp\\.[0-9]+' { mac: _, ip: _}"
+#define ARP_RESEND_FREQ 500*1000
 
+struct arp_request {
+    uint32_t ip;
+};
+
+static void arp_timer_callback(void *data)
+{
+    errval_t err;
+    char* record;
+    char query[128];
+
+    struct net_state *st = (struct net_state*) data;
+
+    // remove all the outstanding ARPs that are finished
+    for (int i = 0; i < collections_list_size(st->outstanding_arp) ; i++) {
+        struct arp_request* req = (struct arp_request*) collections_list_get_ith_item(st->outstanding_arp, i);
+        sprintf(query, "net.arp.%d {mac: _ , ip: %d }", req->ip, req->ip);
+        err = oct_get(&record, query);
+        if (err_is_ok(err)) {
+            // remove from outstanding arps
+            collections_list_remove_ith_item(st->outstanding_arp, i);
+        }
+    }
+    
+    // no outstanding ARPs
+    if (collections_list_size(st->outstanding_arp) == 0) {
+        NETDEBUG("Stopping ARP periodic event \n");
+        err = periodic_event_cancel(&st->arp_send);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    // Resend all other outstanding ARPs
+    for (int i = 0; i < collections_list_size(st->outstanding_arp) ; i++) {
+        struct arp_request* req = (struct arp_request*) collections_list_get_ith_item(st->outstanding_arp, i);
+        NETDEBUG("Starting ARP for ip %u \n", req->ip);
+        err = etharp_request(&st->netif, (ip4_addr_t*) &req->ip);
+        assert(err_is_ok(err));
+    }
+}
+
+static void arp_request_free(void *data)
+{
+    free(data);
+}
 
 // Reuse existing Flounder interface
 static void arp_force_lookup(struct net_ARP_binding *b,
-                                 uint32_t ip)
+                             uint32_t ip)
 {
     errval_t err;
     struct net_state *sta = (struct net_state*) b->st;
 
-    // send it multiple times 
-    // (TODO deferred event instead of sending multiple times)
+    if (sta->outstanding_arp == NULL) {
+       collections_list_create(&sta->outstanding_arp, arp_request_free);
+       assert(sta->outstanding_arp != NULL); 
+    }    
+
+    if (collections_list_size(sta->outstanding_arp) == 0) {
+        NETDEBUG("Starting ARP periodic event\n");
+        err = periodic_event_create(&sta->arp_send, get_default_waitset(),
+                                    ARP_RESEND_FREQ, MKCLOSURE(arp_timer_callback, sta));
+        assert(err_is_ok(err));
+    }
+
+    struct arp_request* new_arp = malloc(sizeof(struct arp_request));
+    collections_list_insert(sta->outstanding_arp, new_arp);
+
+    // send one but if it fails, periodic event will call it again
     err = etharp_request(&sta->netif, (ip4_addr_t*) &ip);
     assert(err_is_ok(err));
-
-    err = etharp_request(&sta->netif, (ip4_addr_t*) &ip);
-    assert(err_is_ok(err));
-
-    err = etharp_request(&sta->netif, (ip4_addr_t*) &ip);
-    assert(err_is_ok(err));
-
 } // end function: ARP_resolve_request
 
 
