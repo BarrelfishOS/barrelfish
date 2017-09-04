@@ -697,8 +697,9 @@ errval_t thread_get_async_error(void)
 }
 
 /**
- * \brief Store receive slot provided by rpc in thread state
+ * \brief Store receive slot provided by rpc
  */
+
 void thread_store_recv_slot(struct capref recv_slot)
 {
     dispatcher_handle_t handle = disp_disable();

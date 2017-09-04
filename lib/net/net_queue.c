@@ -57,6 +57,28 @@ static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
                               bus, device, function, 1, interrupt);
 }
 
+// cardname - "mlx4:vendor:deviceid:bus:device:function"
+static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
+                                   bool default_q, bool poll, struct devq **retqueue)
+{
+    if (cardname[4] != ':') {
+        return SYS_ERR_OK;
+    }
+    uint32_t vendor, deviceid, bus, device, function;
+    unsigned parsed = sscanf(cardname + 5, "%x:%x:%x:%x:%x", &vendor,
+                             &deviceid, &bus, &device, &function);
+    if (parsed != 5) {
+        return SYS_ERR_OK;
+    }
+
+    struct net_state* st = get_default_net_state();
+    // disable HW filter since the card does not have them
+    st->hw_filter = false;
+
+    return mlx4_queue_create((struct mlx4_queue**)retqueue, vendor, deviceid,
+                              bus, device, function, 1, interrupt);
+}
+
 static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
                                   bool default_q, bool poll, struct devq **retqueue)
 {
@@ -98,6 +120,7 @@ struct networking_card
     { "loopback", create_loopback_queue},
     { "driver", create_driver_queue},
     { "e1000", create_e1000_queue},
+    { "mlx4", create_mlx4_queue},
     { "e10k", create_e10k_queue},
     { "sfn5122f", create_sfn5122f_queue},
     { NULL, NULL}
@@ -107,7 +130,7 @@ struct networking_card
 /**
  * @brief creates a queue to the given card and the queueid
  *
- * @param interrupt interrupt handler 
+ * @param interrupt interrupt handler
  * @param cardname  network card to create the queue for
  * @param queueid   queueid of the network card
  * @param default_q get the default queue (most of the time queue 0)
@@ -117,13 +140,13 @@ struct networking_card
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t net_queue_internal_create(inthandler_t interrupt, const char *cardname,
-                                   uint64_t* queueid, bool default_q, bool poll, 
+                                   uint64_t* queueid, bool default_q, bool poll,
                                    struct devq **retqueue)
 {
     struct networking_card *nc = networking_cards;
     while(nc->cardname != NULL) {
         if (strncmp(cardname, nc->cardname, strlen(nc->cardname)) == 0) {
-            return nc->createfn(cardname, interrupt, queueid, default_q, 
+            return nc->createfn(cardname, interrupt, queueid, default_q,
                                 poll, retqueue);
         }
         nc++;
@@ -139,7 +162,7 @@ errval_t net_queue_internal_create(inthandler_t interrupt, const char *cardname,
 /**
  * @brief creates a queue to the given card and the queueid
  *
- * @param interrupt interrupt handler 
+ * @param interrupt interrupt handler
  * @param cardname  network card to create the queue for
  * @param queueid   queueid of the network card
  * @param poll      Is the queue polled or are interrupts used
