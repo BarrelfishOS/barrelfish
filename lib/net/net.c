@@ -184,7 +184,7 @@ static errval_t networking_init_with_queue_st(struct net_state *st, struct devq 
         goto out_err1;
     }
 
-    if (!(flags & NET_FLAGS_NO_NET_FILTER)) {
+    if (!(flags & NET_FLAGS_NO_NET_FILTER) || !st->hw_filter) {
         NETDEBUG("initializing hw filter...\n");
 
         err = net_filter_init(&st->filter, st->cardname);
@@ -272,6 +272,8 @@ static errval_t networking_init_st(struct net_state *st, const char *nic,
 
     st->cardname = nic;
     st->flags = flags;
+    // default no hw filters
+    st->hw_filter = false;
 
     /* create the queue wit the given nic and card name */
     err = networking_create_queue(nic, &st->queueid, &st->queue);

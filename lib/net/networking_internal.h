@@ -77,6 +77,7 @@ struct net_state {
     struct devq *queue;
     struct net_buf_pool *pool;
     struct netif netif;
+    bool hw_filter;
     struct net_filter_state* filter;
 
   //  ip4_addr_t ipaddr, netmask, gw;

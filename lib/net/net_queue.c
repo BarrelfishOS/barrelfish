@@ -48,6 +48,11 @@ static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
     if (parsed != 5) {
         return SYS_ERR_OK;
     }
+
+    struct net_state* st = get_default_net_state();
+    // disable HW filter since the card does not have them
+    st->hw_filter = false;
+
     return e1000_queue_create((struct e1000_queue**)retqueue, vendor, deviceid,
                               bus, device, function, 1, interrupt);
 }
@@ -56,9 +61,9 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, 
                                   bool default_q, bool poll, struct devq **retqueue)
 {
     errval_t err;
-
-    printf("Default Q %d Interrupt %d \n", default_q, !poll);
-
+    struct net_state* st = get_default_net_state();
+    // enable HW filter since they are enabled by default by the driver
+    st->hw_filter = true;
     err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
                             false /*virtual functions*/,
                             !poll, /* user interrupts*/
@@ -72,6 +77,9 @@ static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interru
                                       bool default_q, bool poll, struct devq **retqueue)
 {
     errval_t err;
+    struct net_state* st = get_default_net_state();
+    // enable HW filter since they are enabled by default by the driver
+    st->hw_filter = true;
     err = sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, interrupt,
                                 false /*userlevel network feature*/,
                                 !poll /* user interrupts*/,
@@ -109,7 +117,8 @@ struct networking_card
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t net_queue_internal_create(inthandler_t interrupt, const char *cardname,
-                                   uint64_t* queueid, bool default_q, bool poll, struct devq **retqueue)
+                                   uint64_t* queueid, bool default_q, bool poll, 
+                                   struct devq **retqueue)
 {
     struct networking_card *nc = networking_cards;
     while(nc->cardname != NULL) {
