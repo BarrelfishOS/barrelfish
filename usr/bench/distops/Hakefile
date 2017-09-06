@@ -26,5 +26,7 @@ in
   bench "delete_last_copy_remote",
   bench "revoke_no_remote",
   bench "revoke_with_remote_copies",
-  bench "revoke_remote_copy"
+  bench "revoke_remote_copy",
+  bench "retype_no_remote",
+  bench "retype_w_local_descendants"
 ]
