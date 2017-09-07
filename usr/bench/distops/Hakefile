@@ -28,5 +28,6 @@ in
   bench "revoke_with_remote_copies",
   bench "revoke_remote_copy",
   bench "retype_no_remote",
-  bench "retype_w_local_descendants"
+  bench "retype_w_local_descendants",
+  bench "retype_with_remote_copies"
 ]
