@@ -473,9 +473,11 @@ errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
 
     // to avoid multiple mdb_find_greater, we store the predecessor of the
     // current position.
+    // prev can already be a descendant if there are only descendants of base
+    // on this core.
     struct cte *prev = mdb_find_greater(base, true), *next = NULL;
     if (!prev || !(is_copy(base, &prev->cap)
-                   || is_ancestor(&prev->cap, base)))
+              || is_ancestor(&prev->cap, base)))
     {
         return SYS_ERR_CAP_NOT_FOUND;
     }
@@ -514,9 +516,20 @@ errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
     }
 
     assert(!revoked || prev == revoked);
-    assert(is_copy(&prev->cap, base));
+    assert(is_copy(&prev->cap, base) || is_ancestor(&prev->cap, base));
 
-    // Mark descendants
+    // Mark descendants backwards
+    for (next = mdb_predecessor(prev);
+         next && is_ancestor(&next->cap, base);
+         next = mdb_predecessor(prev))
+    {
+        caps_mark_revoke_generic(next);
+        if (next->cap.type) {
+            // the cap has not been deleted, so we must use it as the new prev
+            prev = next;
+        }
+    }
+    // Mark descendants forwards
     for (next = mdb_successor(prev);
          next && is_ancestor(&next->cap, base);
          next = mdb_successor(prev))
