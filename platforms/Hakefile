@@ -147,6 +147,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "bench_revoke_with_remote_copies",
                         "bench_retype_no_remote",
                         "bench_retype_w_local_descendants",
+                        "bench_retype_with_remote_copies",
                         "bench_noop",
                         "elb_app",
                         "elb_app_tcp",
