@@ -271,12 +271,14 @@ The overlay will span addresses from \texttt{0x0} to \(\texttt{0x2}^\texttt{bits
 \end{syntax}
 
 \subsection{Node Type}
-Currently there are two types: \Sockeye{device} and \Sockeye{memory}. A third internal type \Sockeye{other} is given to nodes for which no type is specified.
-The \Sockeye{device} type specifies that the accepted addresses are device registers while the \Sockeye{memory} type is for memory nodes like RAM or ROM.
+Currently there are three types: \Sockeye{core}, \Sockeye{device} and \Sockeye{memory}. A fourth internal type \Sockeye{other} is given to nodes for which no type is specified.
+The \Sockeye{core} type designates the node as a CPU core. The \Sockeye{device} type specifies that the accepted addresses are device registers while the \Sockeye{memory} type is for memory nodes like RAM or ROM.
 
 \paragraph{Syntax}
 \begin{align*}
 \textit{type} & \mathop{=}
+    \textbf{core}\
+    |\
     \textbf{device}\
     |\
     \textbf{memory} \\
