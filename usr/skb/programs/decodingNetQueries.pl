@@ -33,35 +33,44 @@ resolveToRegion(SrcName,DestName,SrcRegion,DestRegion) :-
 %% Queries %%
 %%%%%%%%%%%%%
 findTargetRegion(NodeId,Result) :-
-    SrcName = name(NodeId,_),
+    SrcName = name{nodeId:NodeId},
     resolveToRegion(SrcName,_,SrcRegion,DestRegion),
     Result = (SrcRegion,DestRegion).
 
 findOriginRegion(NodeId,Result) :-
-    DestName = name(NodeId,_),
+    DestName = name{nodeId:NodeId},
     resolveToRegion(_,DestName,SrcRegion,DestRegion),
     Result = (SrcRegion,DestRegion).
 
 %% Address space queries
 findDeviceRegion(NodeId,DeviceId,Result) :-
-    SrcName = name(NodeId,_),
-    DestName = name(DeviceId,_),
-    net(DeviceId,node(device,_,_)),
+    SrcName = name{nodeId:NodeId},
+    DestName = name{nodeId:DeviceId},
+    node{
+        id:DeviceId,
+        type:device
+    },
     resolveToRegion(SrcName,DestName,SrcRegion,DestRegion),
     Result = (SrcRegion,DestRegion).
 
 findMemoryRegion(NodeId,MemoryId,Result) :-
-    SrcName = name(NodeId,_),
-    DestName = name(MemoryId,_),
-    net(MemoryId,node(memory,_,_)),
+    SrcName = name{nodeId:NodeId},
+    DestName = name{nodeId:MemoryId},
+    node{
+        id:MemoryId,
+        type:memory
+    },
     resolveToRegion(SrcName,DestName,SrcRegion,DestRegion),
     Result = (SrcRegion,DestRegion).
 
 findSharedMemoryRegion(NodeId,DeviceId,Result) :-
-    NodeName = name(NodeId,_),
-    DeviceName = name(DeviceId,_),
-    SharedName = name(SharedId,_),
-    net(SharedId,node(memory,_,_)),
+    NodeName = name{nodeId:NodeId},
+    DeviceName = name{nodeId:DeviceId},
+    SharedName = name{nodeId:SharedId},
+    node{
+        id:SharedId,
+        type:memory
+    },
     resolve(NodeName,SharedName),
     resolve(DeviceName,SharedName),
     toRegion(NodeName,NodeRegion),
@@ -70,13 +79,17 @@ findSharedMemoryRegion(NodeId,DeviceId,Result) :-
     Result = (NodeRegion,DeviceRegion,SharedRegion).
 
 findDeviceId(NodeId,Addr,Result) :-
-    SrcName = name(NodeId,Addr),
-    resolve(SrcName,name(DeviceId,_)),
+    SrcName = name{
+        nodeId:NodeId,
+        address:Addr
+    },
+    DestName = name{nodeId:DeviceId},
+    resolve(SrcName,DestName),
     Result = DeviceId.
 
 %% Interrupt queries
 findInterruptLine(NodeId,DeviceId,Result) :-
-    SrcName = name(DeviceId,_),
-    DestName = name(NodeId,_),
+    SrcName = name{nodeId:DeviceId},
+    DestName = name{nodeId:NodeId},
     resolveToRegion(SrcName,DestName,SrcRegion,DestRegion),
     Result = (SrcRegion,DestRegion).

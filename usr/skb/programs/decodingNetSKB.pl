@@ -15,12 +15,21 @@
 %%%%%%%%%%%%%%
 %% Printing %%
 %%%%%%%%%%%%%%
-printNodeid(nodeId(Name, Namespace)) :-
+printNodeid(NodeId) :-
+    nodeId{
+        name:Name,
+        namespace:Namespace
+    } = NodeId,
     reverse([Name|Namespace], IdList),
     join_string(IdList,".",String),
     write(String).
 
-printRegion((Id,Addr,Size)) :-
+printRegion(Region) :-
+    region{
+        nodeId:Id,
+        base:Addr,
+        size:Size
+    } = Region,
     End is Addr + Size - 1,
     printNodeid(Id),
     printf(" [0x%16R..0x%16R]",
