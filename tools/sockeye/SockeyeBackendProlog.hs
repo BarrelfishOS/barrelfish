@@ -40,35 +40,35 @@ instance PrologGenerator AST.NetSpec where
         in unlines facts
         where
             toFact nodeId nodeSpec = let
-                atom = generate nodeId
-                node = generate nodeSpec
-                in predicate "net" [atom, node] ++ "."
+                idString = generate nodeId
+                specString = generate nodeSpec
+                in struct "node" [("id", idString), ("spec", specString)] ++ "."
 
 instance PrologGenerator AST.NodeId where
     generate ast = let
         name = AST.name ast
         namespace = AST.namespace ast
-        in predicate "nodeId" [atom name, list $ map atom namespace]
+        in struct "nodeId" [("name", atom name), ("namespace", list $ map atom namespace)]
 
 instance PrologGenerator AST.NodeSpec where
     generate ast = let
         nodeType = generate $ AST.nodeType ast
         accept = generate $ AST.accept ast
         translate = generate $ AST.translate ast
-        in predicate "node" [nodeType, accept, translate]
+        in struct "nodeSpec" [("type", nodeType), ("accept", accept), ("translate", translate)]
 
 instance PrologGenerator AST.BlockSpec where
     generate blockSpec = let
         base = generate $ AST.base blockSpec
         limit = generate $ AST.limit blockSpec
-        in predicate "block" [base, limit]
+        in struct "block" [("base", base), ("limit", limit)]
 
 instance PrologGenerator AST.MapSpec where
     generate mapSpec = let
         src  = generate $ AST.srcBlock mapSpec
         dest = generate $ AST.destNode mapSpec
         base = generate $ AST.destBase mapSpec
-        in predicate "map" [src, dest, base]
+        in struct "map" [("srcBlock", src), ("destNode", dest), ("destBase", base)]
 
 instance PrologGenerator AST.NodeType where
     generate AST.Core   = atom "core"
@@ -96,6 +96,11 @@ atom name@(c:cs)
 predicate :: String -> [String] -> String
 predicate name args = name ++ (parens $ intercalate "," args)
 
+struct :: String -> [(String, String)] -> String
+struct name fields = name ++ (braces $ intercalate "," (map toFieldString fields))
+    where
+        toFieldString (key, value) = key ++ ":" ++ value
+
 list :: [String] -> String
 list elems = brackets $ intercalate "," elems
 
@@ -107,6 +112,9 @@ parens = enclose "(" ")"
 
 brackets :: String -> String
 brackets = enclose "[" "]"
+
+braces :: String -> String
+braces = enclose "{" "}"
 
 quotes :: String -> String
 quotes = enclose "'" "'"

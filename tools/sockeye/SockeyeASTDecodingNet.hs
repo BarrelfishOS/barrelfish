@@ -30,13 +30,11 @@ instance Show NodeId where
         let noEmpty = filter ((> 0) . length) ns
         in intercalate "." $ reverse (n:noEmpty)
 
-data NodeSpec
-    = NodeSpec
-        { nodeType  :: NodeType
-        , accept    :: [BlockSpec]
-        , translate :: [MapSpec]
-        }
-    deriving (Show)
+data NodeSpec = NodeSpec
+    { nodeType  :: NodeType
+    , accept    :: [BlockSpec]
+    , translate :: [MapSpec]
+    } deriving (Show)
 
 data NodeType
     = Core
