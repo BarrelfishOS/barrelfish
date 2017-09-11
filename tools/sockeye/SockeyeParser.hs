@@ -226,13 +226,17 @@ nodeSpec = do
             try $ reserved "reserved"
             brackets $ many blockSpec
 
-nodeType = choice [memory, device]
-    where memory = do
-            symbol "memory"
-            return AST.Memory
-          device = do
+nodeType = choice [core, device, memory]
+    where
+        core = do
+            symbol "core"
+            return AST.Core
+        device = do
             symbol "device"
             return AST.Device
+        memory = do
+            symbol "memory"
+            return AST.Memory
 
 blockSpec = choice [range, length, singleton]
     where

@@ -21,7 +21,7 @@ module SockeyeASTInstantiator
 import Data.Map (Map)
 
 import SockeyeASTDecodingNet
-    ( NodeType(Other, Memory, Device)
+    ( NodeType(Core, Device, Memory, Other)
     , BlockSpec(BlockSpec)
     , base, limit
     , Address

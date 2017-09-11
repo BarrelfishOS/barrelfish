@@ -284,11 +284,6 @@ instance Instantiatable CheckAST.NodeSpec InstAST.NodeSpec where
             , InstAST.overlay   = instOverlay
             }
 
-instance Instantiatable CheckAST.NodeType InstAST.NodeType where
-    instantiate _ CheckAST.Memory = return InstAST.Memory
-    instantiate _ CheckAST.Device = return InstAST.Device
-    instantiate _ CheckAST.Other  = return InstAST.Other
-
 instance Instantiatable CheckAST.BlockSpec InstAST.BlockSpec where
     instantiate context (CheckAST.SingletonBlock base) = do
         instBase <- instantiate context base

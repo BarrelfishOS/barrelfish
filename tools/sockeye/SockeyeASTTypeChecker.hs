@@ -21,7 +21,7 @@ module SockeyeASTTypeChecker
 import Data.Map (Map)
 
 import SockeyeASTInstantiator
-    ( NodeType(Other, Device, Memory) )
+    ( NodeType(Core, Device, Memory, Other) )
 
 data SockeyeSpec = SockeyeSpec
     { root    :: ModuleInst

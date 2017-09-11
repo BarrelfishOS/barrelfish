@@ -71,8 +71,9 @@ instance PrologGenerator AST.MapSpec where
         in predicate "map" [src, dest, base]
 
 instance PrologGenerator AST.NodeType where
-    generate AST.Memory = atom "memory"
+    generate AST.Core   = atom "core"
     generate AST.Device = atom "device"
+    generate AST.Memory = atom "memory"
     generate AST.Other  = atom "other"
 
 instance PrologGenerator AST.Address where

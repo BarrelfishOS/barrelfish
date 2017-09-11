@@ -39,8 +39,9 @@ data NodeSpec
     deriving (Show)
 
 data NodeType
-    = Memory
+    = Core
     | Device
+    | Memory
     | Other
     deriving (Show)
 
