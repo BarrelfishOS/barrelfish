@@ -200,6 +200,10 @@ With imports (see Section~\ref{sec:imports}) modules can also be put into separa
 In the following sections we use EBNF to describe the Sockeye syntax. Terminals are \textbf{bold} while non-terminals are \textit{italic}.
 The non-terminals \textit{iden}, \textit{letter}, \textit{decimal} and \textit{hexadecimal} correspond to the ones defined in Chapter~\ref{chap:lexer}.
 
+The examples are all taken from the Texas Instruments OMAP4460 SoC used on the PandaboardES\footnote{The technical reference manual can be found \href{http://www.
+ti.com/lit/ug/swpu235ab/swpu235ab.pdf}{here}.}.
+A more complete specification of the SoC is located in \pathname{SOURCE/socs/omap44xx.soc}.
+
 \section{Basic Syntax}
 This section describes the basic syntax for Sockeye.
 It closely corresponds to the concrete syntax described in \cite{achermann:mars17}.
@@ -222,10 +226,10 @@ The order in which the nodes are declared does not matter.
 \clearpage
 \paragraph{Example}
 \begin{syntax}
-    node1 \textbf{is} \ldots
+    SDRAM \textbf{is} \ldots
 
-    node2,
-    node3 \textbf{are} \ldots
+    UART1,
+    UART2 \textbf{are} \ldots
 \end{syntax}
 
 \subsection{Node Specifications}
@@ -265,9 +269,9 @@ The overlay will span addresses from \texttt{0x0} to \(\texttt{0x2}^\texttt{bits
 
 \paragraph{Example}
 \begin{syntax}
-    node1 \textbf{is} \textit{<type>} \textbf{accept} [\ldots]
-    node2 \textbf{is} \textbf{map} [\ldots]
-    node3 \textbf{is} \textbf{reserved} [\ldots] \textbf{over} node2/32
+    SDRAM \textbf{is} \textbf{accept} [\ldots]
+    L3 \textbf{is} \textbf{map} [\ldots]
+    CORETEXA9_SS_Interconnect \textbf{is} \textbf{reserved} [\ldots] \textbf{over} L3/32
 \end{syntax}
 
 \subsection{Node Type}
@@ -286,8 +290,9 @@ The \Sockeye{core} type designates the node as a CPU core. The \Sockeye{device} 
 
 \paragraph{Example}
 \begin{syntax}
-    node1 \textbf{is} memory \textbf{accept} [\ldots]
-    node2 \textbf{is} device \textbf{accept} [\ldots]
+    CORETEXA9_1 \textbf{is} core \textbf{map} [\ldots]
+    UART3 \textbf{is} device \textbf{accept} [\ldots]
+    SDRAM \textbf{is} memory \textbf{accept} [\ldots]
 \end{syntax}
 
 \subsection{Addresses}
@@ -316,9 +321,9 @@ A block from \Sockeye{0x0} to \Sockeye{0xFFF} with a size of 4kB can be specifie
 
 \paragraph{Example}
 \begin{syntax}
-    node1 is \textbf{accept} [0x42-0x51]
-    node2 is \textbf{accept} [0x42]      // \textit{same as \textup{0x42-0x42}}
-    node3 is \textbf{accept} [0x0/12]    // \textit{same as \textup{0x0-0xFFF}}
+    UART1 is \textbf{accept} [0x0-0xFFF]
+    UART3 is \textbf{accept} [0x0/12]    // \textit{same as \textup{0x0-0xFFF}}
+    IF_A9_0 is \textbf{accept} [0x44]      // \textit{same as \textup{0x44-0x44}}
 \end{syntax}
 
 \subsection{Map Specification}
@@ -345,16 +350,19 @@ Multiple translation targets can be specified by giving a comma-separated list o
 
 \paragraph{Example}
 \begin{syntax}
-    /* \textit{Translate \textup{0x0-0xFF} to \textup{node2} at \textup{0x300-0x3FF}:} */
-    node1 is \textbf{map} [0x0/8 \textbf{to} node2 \textbf{at} 0x300] 
+    /* \textit{Translate \textup{0x54000000-0x0x54FFFFFF}
+     * to \textup{L3_EMU} at \textup{0x54000000-0x0x54FFFFFF}:}
+     */
+    L3 is \textbf{map} [0x54000000/24 \textbf{to} L3_EMU \textbf{at} 0x54000000] 
 
-    /* \textit{This is the same as \textup{0x300/8 \textbf{to} node1 \textbf{at} 0x0}:} */
-    node2 is \textbf{map} [0x300/8 \textbf{to} node1]
+    /* \textit{This is the same as \textup{0x80000000/30 \textbf{to} SDRAM \textbf{at} 0x0}:} */
+    L3 is \textbf{map} [0x80000000/30 \textbf{to} SDRAM]
 
-    /* \textit{Multiple translation targets, \textup{0x0-0xFF} is translated to
-       - \textup{node1} at \textup{0x0-0xFF}
-       - \textup{node2} at \textup{0x300-0x3FF}:} */
-    node3 is \textbf{map} [0x0/8 \textbf{to} node1, node2 \textbf{at} 0x300]
+    /* \textit{Multiple translation targets, interrupt vector \textup{0x2} is translated to
+     * - \textup{SPIMap} at \textup{0xC}
+     * - \textup{NVIC} at \textup{0x12}:}
+     * /
+    SDMA is \textbf{map} [0x2 \textbf{to} SPIMap \textbf{at} 0xC, NVIC \textbf{at} 0x12]
 \end{syntax}
 
 \section{Modules}
@@ -422,6 +430,9 @@ If the module has address parameters the name of the parameter can be used where
         \textbf{\}}\\
 \end{align*}
 
+\paragraph{Example}
+For some examples of module declarations see Listing~\ref{lst:sockeye_example}.
+
 \subsection{Module Instantiations}
 Module instantiations start with the module name and in the case of a module template with the list of arguments.
 After that the identifier of the namespace in which to instantiate the module has to be given followed by an optional list of port mappings.
@@ -447,18 +458,23 @@ After that the identifier of the namespace in which to instantiate the module ha
 \clearpage
 \paragraph{Example}
 \begin{syntax}
-    /* Instantiate module 'SomeModule' in namespace 'subspace' /*
-    SomeModule \textbf{as} subspace
+    /* Instantiate module 'CortexA9-Subsystem' in namespace 'CortexA9_SS' */
+    CortexA9-Subsystem as CortexA9_SS
 
-    /* Pass arguments to module template */
-    TemplModule(0x0, 42) \textbf{as} templSubspace
+    /* Pass arguments to module template e.g. to instantiate a
+     * CortexA9 MPCore module with
+     * - 2 cores
+     * - 0x48240000 as the base of the private memory region
+     */
+    CortexA9-MPCore(2, 0x48240000) \textbf{as} MPU
 
     /* Declare port mappings:
-       - map 'Node1' to ouptut port 'Out'
-       - map input port 'In' to 'Node2' */
-    SomeModule \textbf{as} subspace \textbf{with}
-        Node1 > Out
-        Node2 < In
+     * - map 'CORTEXA9_1' to input port 'CPU_1'
+     * - map output port 'Interconnect' to 'L3'
+     */
+    CortexA9-Subsystem as CortexA9_SS \textbf{with}
+        CORTEXA9_1 > CPU_1
+        L3 < Interconnect
 \end{syntax}
 
 \section{Templated Identifiers}
@@ -504,24 +520,27 @@ This allows module parameters to control how many ports or nodes are instantiate
 \paragraph{Example}
 \begin{syntax}
     /* Declare similar nodes
-       (Note that interval templates in node declarations
-       always require the usage of '\textbf{are}') */
-    Device_\verb+{+[1..5]\verb+}+ \textbf{are} device \textbf{accept} [0x0/8]
+     * Note that interval templates in node declarations
+     * always require the usage of '\textbf{are}')
+     */
+    GPTIMER_\verb+{+[1..5]\verb+}+ \textbf{are} device \textbf{accept} [0x0/12]
 
     /* Use the index in the node definition */
-    Map_\verb+{+m in [1..5]\verb+}+ \textbf{is} \textbf{map} [0x100/8 to Device_\verb+{+m\verb+}+]
+    GPTIMER_ALIAS_\verb+{+i in [1..5]\verb+}+ \textbf{is} \textbf{map} [0x100/12 to GPTIMER_\verb+{+i\verb+}+]
 
     /* Declare similar module ports
-       (possibly depending on module parameters) */
-    \textbf{module} SomeModule(nat num) \verb+{+
-        output Out_\verb+{+[1..num]\verb+}+
+     * (possibly depending on module parameters)
+     */
+    \textbf{module} module CortexA9-MPCore(nat cores, addr periphbase) \verb+{+
+        input CPU_\verb+{+[1..cores]\verb+}+
         \ldots
     \verb+}+
 
     /* Instantiate module multiple times
-       and use index variable in port mappings */
-    SomeModule(3) \textbf{as} sub_module_\verb+{+m in [1..2]\verb+}+ \textbf{with}
-        Node_\verb+{+m\verb+}+_\verb+{+o in [1..3]\verb+}+ > Out_\verb+{+o\verb+}+
+     * and use index variable in port mappings
+     */
+    CortexA9-Core \textbf{as} Core_\verb+{+c in [1..2]\verb+}+ \textbf{with}
+        CPU_\verb+{+c\verb+}+ > CPU
 \end{syntax}
 
 \section{Imports}
@@ -542,12 +561,13 @@ The compiler will first look for files in the current directory and then check t
 \paragraph{Example}
 \begin{syntax}
     /* Invoked with 'sockeye -i imports -i modules' the following
-       will cause the compiler to look for the files
-       - ./subdir/core.soc
-       - imports/subdir/core.soc
-       - modules/subdir/core.soc
-       and import all modules from the first one that exists. */
-    \textbf{import} subdir/core
+     * will cause the compiler to look for the files
+     * 1. ./cortex/cortexA9.soc
+     * 2. imports/cortex/cortexA9.soc
+     * 3. modules/cortex/cortexA9.soc
+     * and import all modules from the first one that exists.
+     */
+    \textbf{import} cortex/cortexA9
 \end{syntax}
 
 \section{Sockeye Files}
@@ -569,7 +589,6 @@ A sockeye file consists of imports, module declarations and the specification bo
 
 \paragraph{Example}
 Listing~\ref{lst:sockeye_example} shows an example Sockeye specification.
-The specification for the Texas Instruments OMAP4460 SoC used on the PandaboardES can serve as a real world example. It is located in \pathname{SOURCE/socs/omap44xx.soc}.
 
 \clearpage
 \lstinputlisting[caption={Example Sockeye specification}, label={lst:sockeye_example}, language=Sockeye]{example.soc}
@@ -672,8 +691,9 @@ There is a predicate clause for \Prolog{node/2} for every node specified.
 The code is generated using \(\text{ECL}^i\text{PS}^e\)'s structure notation.
 This enables more readable and concise notation when accessing specific arguments of the functors.
 
-Listings~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}.
+Listing~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}.
 
+\clearpage
 \lstinputlisting[caption={Generated Prolog code},label={lst:prolog_example},language=Prolog]{example.pl}
 
 
