@@ -652,22 +652,26 @@ It also checks that every input port has a corresponding node declaration.
 \label{chap:prolog}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The Sockeye compiler generates \(\text{ECL}^i\text{PS}^e\)-Prolog\footnote{\href{http://eclipseclp.org/}{http://eclipseclp.org/}} to be used within the SKB.
-A decoding net is expressed by the predicate \Prolog{net/2}.
+A decoding net is expressed by the predicate \Prolog{node/2}.
 The first argument to the predicate is the node identifier and the second one the node specification.
 
 Node identifiers are represented as a functor \Prolog{nodeId/2}.
 The first argument is the node's name, represented as an atom, and the second one is the (possibly nested) namespace it is in.
 The namespace is represented as a list of atoms where the head is the innermost namespace component.
 
-Node specifications are represented by a Prolog functor \Prolog{node/3}.
+Node specifications are represented by a Prolog functor \Prolog{nodeSpec/3}.
 The arguments to the functor are the node type, the list of accepted addresses and the list of translated addresses.
 The overlay is translated to address mappings and added to the list of translated addresses during compilation.
 
-The node type is one of three atoms: \Prolog{device}, \Prolog{memory} or \Prolog{other}.
+The node type is one of four atoms: \Prolog{core}, \Prolog{device}, \Prolog{memory} or \Prolog{other}.
 The accepted addresses are a list of address blocks where each block is represented through the functor \Prolog{block/2} with the start and end addresses as arguments.
 The translated addresses are a list of mappings to other nodes, represented by the functor \Prolog{map/3} where the first argument is the translated address block, the second one is the target node's identifier and the third one is the base address for the mapping in the target node.
 
-There is a predicate clause for \Prolog{net/2} for every node specified. 
+There is a predicate clause for \Prolog{node/2} for every node specified.
+
+The code is generated using \(\text{ECL}^i\text{PS}^e\)'s structure notation.
+This enables more readable and concise notation when accessing specific arguments of the functors.
+
 Listings~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}.
 
 \lstinputlisting[caption={Generated Prolog code},label={lst:prolog_example},language=Prolog]{example.pl}
