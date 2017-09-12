@@ -1296,6 +1296,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 
 /// check arguments, return true iff ok
 STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+#ifndef NDEBUG
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
                                         bool exact)
@@ -1371,6 +1372,7 @@ static bool check_caps_create_arguments(enum objtype type,
     // All other types do not need special alignments/offsets
     return true;
 }
+#endif
 
 /** Create caps to new kernel objects.
  * This takes the size of the memory region in bytes, and the size of
@@ -1670,6 +1672,21 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         assert(count == 1);
         struct capability *dest_cap = &dest_cte->cap;
         dest_cap->u.endpoint.listener = src_cap->u.dispatcher.dcb;
+    }
+
+    // XXX: Treat full object retypes to same type as copies as calling
+    // is_copy(dst, src) will return true for such retypes.
+    if (count == 1 && objsize == get_size(src_cap) && type == src_cap->type) {
+        // sanity check: is_copy() really returns true for the two caps
+        assert(is_copy(&dest_cte[0].cap, src_cap));
+        // If we're not owner, and type needs locality
+        if (src_cte->mdbnode.owner != my_core_id &&
+            distcap_needs_locality(dest_cte[0].cap.type))
+        {
+            // fix owner for new cap and set remote_copies bit
+            dest_cte[0].mdbnode.owner = src_cte->mdbnode.owner;
+            dest_cte[0].mdbnode.remote_copies = true;
+        }
     }
 
     /* Handle mapping */

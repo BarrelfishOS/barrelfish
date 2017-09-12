@@ -17,8 +17,6 @@
 
 #ifndef __ASSEMBLER__
 
-#include <machine/param.h>
-
 /** \brief This code reads the cycle counter */
 static inline uint64_t rdtsc(void)
 {
@@ -76,7 +74,9 @@ static inline void clflush(void *line)
     __asm volatile("clflush %0" :: "m" (line));
 }
 
-//#define CACHE_LINE_SIZE 64 /* bytes */
+#ifndef CACHE_LINE_SIZE
+#define CACHE_LINE_SIZE 64 /* bytes */
+#endif
 
 #ifndef __cplusplus
 /* flush a range of memory from the cache */

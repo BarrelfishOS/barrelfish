@@ -75,8 +75,9 @@ struct domain_instance* instantiate_driver_domain(coreid_t where) {
         USER_PANIC_ERR(err, "call failed.");
     }
     struct domain_instance* di = ddomain_create_domain_instance(did);
+    did++;
+    
     wait_for_id(di);
 
-    did++;
     return di;
 }

@@ -23,7 +23,7 @@ from results import PassFailResult
 class XeonPhi_Boot_Test(TestCommon):
     '''Xeon Phi Spawn test'''
     name = "xeon_phi_boot"
-    nphi = 0;
+    nphi = 2;
 
     def set_xeon_phi_bootmodules(self, build_dir, machine):
         fullpath = os.path.join(machine.get_tftp_dir(), 'menu.lst.k1om')
@@ -69,7 +69,7 @@ class XeonPhi_Boot_Test(TestCommon):
         if (os.path.isfile(menulst)) :
             os.remove(menulst)
         self.set_xeon_phi_bootmodules(build.build_dir, machine)
-        self.nphi = machine.get_xphi_ncards()
+#        self.nphi = machine.get_xphi_ncards()
         
 
     def get_build_targets(self, build, machine):
@@ -118,12 +118,11 @@ class XeonPhi_Boot_Test(TestCommon):
 
     def process_data(self, testdir, rawiter):
         # the test passed iff the last line is the finish string
-        lastline = ''
-        passed = False;
-        phi_up_count = 0
+        print "PROCESS DATA"
+        passed=False
         for line in rawiter:
             m = re.search("Xeon Phi operational: xeon_phi." + str(self.nphi - 1) + ".ready", line)
             if m:
-                phi_count_up = phi_count_up + 1
-
-        return PassFailResult(phi_count_up == self.nphi)
+                passed=True
+                
+        return PassFailResult(passed)

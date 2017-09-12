@@ -173,13 +173,6 @@ errval_t arch_startup(char * add_device_db_file)
         USER_PANIC_ERR(err, "Watching PCI root bridges.");
     }
 
-    KALUGA_DEBUG("Kaluga: pci_devices\n");
-
-    err = watch_for_pci_devices();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Watching PCI devices.");
-    }
-
     KALUGA_DEBUG("Kaluga: int_controller_devices\n");
 
     err = watch_for_int_controller();
@@ -192,6 +185,13 @@ errval_t arch_startup(char * add_device_db_file)
     err = wait_for_all_spawnds();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
+    }
+
+    KALUGA_DEBUG("Kaluga: pci_devices\n");
+
+    err = watch_for_pci_devices();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Watching PCI devices.");
     }
 
     KALUGA_DEBUG("Kaluga: Starting serial...\n");

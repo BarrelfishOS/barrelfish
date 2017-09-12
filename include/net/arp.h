@@ -21,4 +21,6 @@ errval_t arp_service_start(void);
 
 errval_t arp_service_subscribe(void);
 
+errval_t arp_service_get_mac(uint32_t ip, uint64_t* mac);
+
 #endif /* LIB_NET_INCLUDE_NETWORKING_ARP_H_ */

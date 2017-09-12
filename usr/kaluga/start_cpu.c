@@ -262,9 +262,9 @@ errval_t wait_for_all_spawnds(void)
     // still assumes a fixed set of cores and will deadlock
     // otherwise. Therefore we need to fix those parts first.
     errval_t err;
+    char* record = NULL;
 #if !defined(__ARM_ARCH_7A__)
     KALUGA_DEBUG("Waiting for acpi");
-    char* record = NULL;
     err = oct_wait_for(&record, "acpi { iref: _ }");
     if (err_is_fail(err)) {
         return err_push(err, KALUGA_ERR_WAITING_FOR_ACPI);
@@ -288,5 +288,10 @@ errval_t wait_for_all_spawnds(void)
 
     static char* spawnds = "r'spawn.[0-9]+' { iref: _ }";
     octopus_trigger_id_t tid;
-    return oct_trigger_existing_and_watch(spawnds, spawnd_change_event, (void*)count, &tid);
+    err = oct_trigger_existing_and_watch(spawnds, spawnd_change_event, (void*)count, &tid);
+    if (err_is_fail(err)) {
+        return err_push(err, KALUGA_ERR_QUERY_LOCAL_APIC);
+    }
+
+    return oct_wait_for(&record, "all_spawnds_up { iref: 0 }");
 }

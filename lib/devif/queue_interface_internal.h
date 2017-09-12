@@ -18,7 +18,7 @@ struct devq;
  * Backend function definitions
  * ===========================================================================
  */
-// Creation and Destruction of queues is device specific
+// Creation of queues is device specific
 
  /**
   * @brief Notifies the device of new descriptors in the queue.
@@ -118,8 +118,18 @@ typedef errval_t (*devq_dequeue_t)(struct devq *q, regionid_t* region_id,
                                    genoffset_t* valid_length,
                                    uint64_t* misc_flags);
 
+ /**
+  * @brief Destroys the queue give as an argument, first the state of the 
+  *        library, then the queue specific part by calling a function pointer
+  *
+  * @param q         The device queue
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+typedef errval_t (*devq_destroy_t) (struct devq *q);
 
-// The functions that the device driver has to export
+
+// The functions that the backend has to set
 struct devq_func_pointer {
     devq_register_t reg;
     devq_deregister_t dereg;
@@ -127,6 +137,7 @@ struct devq_func_pointer {
     devq_notify_t notify;
     devq_enqueue_t enq;
     devq_dequeue_t deq;
+    devq_destroy_t destroy;
 };
 
 struct devq {
@@ -145,9 +156,7 @@ struct devq {
     void *state;
 };
 
-
 errval_t devq_init(struct devq *q, bool exp);
-errval_t devq_destroy(struct devq *q);
 
 errval_t devq_add_region(struct devq*, struct capref cap,
                          regionid_t rid);

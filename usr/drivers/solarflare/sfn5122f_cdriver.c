@@ -1399,12 +1399,15 @@ static errval_t cb_install_filter(struct net_filter_binding *b,
     struct sfn5122f_filter_ip f = {
             .dst_port = dst_port,
             .src_port = src_port,
-            .dst_ip = htonl(dst_ip),
-            .src_ip = htonl(src_ip),
+            .dst_ip = dst_ip,
+            .src_ip = src_ip,
             .type_ip = type,
             .queue = qid,
     };
 
+    if (type == net_filter_PORT_UDP) {
+        f.src_ip = 0;
+    }
 
     errval_t err = reg_port_filter(&f, fid);
     assert(err_is_ok(err));

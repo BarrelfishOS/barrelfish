@@ -167,7 +167,7 @@ class HakeReleaseBuild(HakeBuildBase):
 
     def _get_hake_conf(self, *args):
         conf = super(HakeReleaseBuild, self)._get_hake_conf(*args)
-        conf["cOptFlags"] = "[\"-O2\", \"-DNDEBUG\"]"
+        conf["cOptFlags"] = "[\"-O2\", \"-DNDEBUG\", \"-Wno-unused-variable\"]"
         return conf
 
 class HakeTestBuild(HakeBuildBase):

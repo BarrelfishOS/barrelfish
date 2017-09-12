@@ -465,8 +465,14 @@ errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
     assert(base);
     assert(!revoked || revoked->mdbnode.owner == my_core_id);
 
+    // SG: In the following code, 'prev' is kind of a misnomer, this is all
+    // just contortions to iterate through all copies and descendants of a
+    // given capability. We update prev to be able to iterate through the tree
+    // even when we're going up and down the tree structure to find the next
+    // predecessor/successor.  -2017-08-29.
+
     // to avoid multiple mdb_find_greater, we store the predecessor of the
-    // current position
+    // current position.
     struct cte *prev = mdb_find_greater(base, true), *next = NULL;
     if (!prev || !(is_copy(base, &prev->cap)
                    || is_ancestor(&prev->cap, base)))
@@ -474,6 +480,24 @@ errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
         return SYS_ERR_CAP_NOT_FOUND;
     }
 
+    // Mark copies (backwards): we will never find descendants earlier in the
+    // ordering. However we might find copies!
+    for (next = mdb_predecessor(prev);
+         next && is_copy(base, &next->cap);
+         next = mdb_predecessor(prev))
+    {
+        if (next == revoked) {
+            // do not delete the revoked capability, use it as the new prev
+            // instead, and delete the old prev.
+            next = prev;
+            prev = revoked;
+        }
+        assert(revoked || next->mdbnode.owner != my_core_id);
+        caps_mark_revoke_copy(next);
+    }
+    // Mark copies (forward), use updated "prev". When we're done with this
+    // step next should be == revoked, if revoked != NULL, and succ(next)
+    // should be the first descendant.
     for (next = mdb_successor(prev);
          next && is_copy(base, &next->cap);
          next = mdb_successor(prev))
@@ -489,6 +513,10 @@ errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
         caps_mark_revoke_copy(next);
     }
 
+    assert(!revoked || prev == revoked);
+    assert(is_copy(&prev->cap, base));
+
+    // Mark descendants
     for (next = mdb_successor(prev);
          next && is_ancestor(&next->cap, base);
          next = mdb_successor(prev))

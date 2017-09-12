@@ -540,6 +540,7 @@ mdb_rebalance(struct cte *node)
     return node;
 }
 
+#ifndef NDEBUG
 static bool
 mdb_is_child(struct cte *child, struct cte *parent)
 {
@@ -550,6 +551,7 @@ mdb_is_child(struct cte *child, struct cte *parent)
         return N(parent)->left == child || N(parent)->right == child;
     }
 }
+#endif
 
 static bool
 mdb_is_inside(genpaddr_t outer_begin, genpaddr_t outer_end,

@@ -76,6 +76,7 @@ static cycles_t bench_devq_deq_tx = 0;
 static size_t bench_devq_deq_count_tx = 0;
 #endif
 
+#define net_if_get_net_state(netif) ((struct net_state*)netif->state)
 
 errval_t net_if_get_hwaddr(struct netif *netif);
 
@@ -95,6 +96,7 @@ static void net_if_status_cb(struct netif *netif)
 {
     if (!ip_addr_cmp(&netif->ip_addr, IP_ADDR_ANY)) {
         printf("######################################\n");
+        printf("# Cardname %s\n", net_if_get_net_state(netif)->cardname);
         printf("# IP Addr %s\n", ip4addr_ntoa(netif_ip4_addr(netif)));
         printf("# GW Addr %s\n", ip4addr_ntoa(netif_ip4_gw(netif)));
         printf("# Netmask %s\n", ip4addr_ntoa(netif_ip4_netmask(netif)));
@@ -205,8 +207,6 @@ errval_t net_if_remove(struct netif *netif)
 
     return SYS_ERR_OK;
 }
-
-#define net_if_get_net_state(netif) ((struct net_state*)netif->state)
 
 /**
  * @brief obtains the hardware address of the interface

@@ -245,6 +245,7 @@ errval_t inthandler_setup_movable(interrupt_handler_fn handler, void *handler_ar
     err = alloc_dest_irq_cap(&irq_dest_cap);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Could not allocate dest irq cap");
+        free(state);
         return err;
     }
 

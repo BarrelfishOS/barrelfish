@@ -35,6 +35,10 @@
 #include <net/dhcp.h>
 #include <net/arp.h>
 
+#include <collections/list.h>
+
+#include <if/net_ARP_defs.h>
+
 #include "debug.h"
 
 // enable benchmarking
@@ -62,13 +66,18 @@ struct net_state {
     bool dhcp_running;
 
     bool arp_running;
+    bool arp_connected;
     uint64_t arp_triggerid;
+    struct net_ARP_binding* arp;
+    collections_listnode *outstanding_arp;
+    struct periodic_event arp_send;
 
     struct waitset *waitset;
 
     struct devq *queue;
     struct net_buf_pool *pool;
     struct netif netif;
+    bool hw_filter;
     struct net_filter_state* filter;
 
   //  ip4_addr_t ipaddr, netmask, gw;

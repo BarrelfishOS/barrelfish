@@ -18,7 +18,6 @@
 #include <nfs/nfs.h>
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
-#include <sys/param.h>
 
 // networking stuff
 #include <net_sockets/net_sockets.h>

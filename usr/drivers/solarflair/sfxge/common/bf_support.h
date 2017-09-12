@@ -6,7 +6,6 @@
 
 #include <sys/endian.h>  // to find out endianess of machine
 #include <sys/times.h>
-#include <sys/param.h>
 #include <string.h>  // for memcpy, memset
 
 #include "error_list.h"
