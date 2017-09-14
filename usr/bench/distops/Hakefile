@@ -24,6 +24,7 @@ in
   bench "delete_local_copy",
   bench "delete_last_copy",
   bench "delete_last_copy_remote",
+  bench "delete_cnode_last_copy",
   bench "revoke_no_remote",
   bench "revoke_with_remote_copies",
   bench "revoke_remote_copy",
