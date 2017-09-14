@@ -518,17 +518,9 @@ errval_t caps_mark_revoke(struct capability *base, struct cte *revoked)
     assert(!revoked || prev == revoked);
     assert(is_copy(&prev->cap, base) || is_ancestor(&prev->cap, base));
 
-    // Mark descendants backwards
-    for (next = mdb_predecessor(prev);
-         next && is_ancestor(&next->cap, base);
-         next = mdb_predecessor(prev))
-    {
-        caps_mark_revoke_generic(next);
-        if (next->cap.type) {
-            // the cap has not been deleted, so we must use it as the new prev
-            prev = next;
-        }
-    }
+    // mdb_find_greater() will always find the first descendant if there's no
+    // copies on the core, so we can just mark descendants forwards.
+    // XXX: check that this is true! -SG, 2017-09-08.
     // Mark descendants forwards
     for (next = mdb_successor(prev);
          next && is_ancestor(&next->cap, base);
