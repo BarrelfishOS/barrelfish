@@ -48,14 +48,14 @@ instance PrologGenerator AST.NodeId where
     generate ast = let
         name = AST.name ast
         namespace = AST.namespace ast
-        in struct "nodeId" [("name", atom name), ("namespace", list $ map atom namespace)]
+        in struct "node_id" [("name", atom name), ("namespace", list $ map atom namespace)]
 
 instance PrologGenerator AST.NodeSpec where
     generate ast = let
         nodeType = generate $ AST.nodeType ast
         accept = generate $ AST.accept ast
         translate = generate $ AST.translate ast
-        in struct "nodeSpec" [("type", nodeType), ("accept", accept), ("translate", translate)]
+        in struct "node_spec" [("type", nodeType), ("accept", accept), ("translate", translate)]
 
 instance PrologGenerator AST.BlockSpec where
     generate blockSpec = let
@@ -68,7 +68,7 @@ instance PrologGenerator AST.MapSpec where
         src  = generate $ AST.srcBlock mapSpec
         dest = generate $ AST.destNode mapSpec
         base = generate $ AST.destBase mapSpec
-        in struct "map" [("srcBlock", src), ("destNode", dest), ("destBase", base)]
+        in struct "map" [("src_block", src), ("dest_node", dest), ("dest_base", base)]
 
 instance PrologGenerator AST.NodeType where
     generate AST.Core   = atom "core"

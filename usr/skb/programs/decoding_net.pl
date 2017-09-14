@@ -8,22 +8,22 @@
 % Attn: Systems Group.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-:- module(decodingNet).
-:- export loadnet/1.
+:- module(decoding_net).
+:- export load_net/1.
 :- export resolve/2.
-:- export toRegion/2.
+:- export to_region/2.
 :- export node/2.
 
 :- dynamic node/2.
 
-:- export struct(node(id:nodeId,spec:nodeSpec)).
-:- export struct(nodeId(name,namespace)).
-:- export struct(nodeSpec(type,accept,translate)).
-:- local struct(map(srcBlock,destNode,destBase)).
+:- export struct(node(id:node_id,spec:node_spec)).
+:- export struct(node_id(name,namespace)).
+:- export struct(node_spec(type,accept,translate)).
+:- local struct(map(src_block,dest_node,dest_base)).
 :- local struct(block(base,limit)).
 
-:- export struct(name(nodeId:nodeId,address)).
-:- export struct(region(nodeId:nodeId,base,size)).
+:- export struct(name(node_id:node_id,address)).
+:- export struct(region(node_id:node_id,base,size)).
 
 :- lib(ic).
 
@@ -31,10 +31,10 @@
 :- set_flag(syntax_option,iso_base_prefix).
 
 %% Load a precompiled decoding net
-loadnet(File) :- [File].
+load_net(File) :- [File].
 
 %% Address range in block
-blockRange(Block,Range) :-
+block_range(Block,Range) :-
     block{
         base:Base,
         limit:Limit
@@ -42,59 +42,59 @@ blockRange(Block,Range) :-
     Range = Base..Limit.
 
 %% Address ranges in block list
-blockListRanges(Blocks,Ranges) :-
+block_list_ranges(Blocks,Ranges) :-
     (
         foreach(Block,Blocks),
         fromto([],Prev,Next,Ranges)
     do
-        blockRange(Block,Range),
+        block_range(Block,Range),
         Next = [Range|Prev]
     ).
     
 %% Extract block ranges from map list
-mapListRanges(Maps,Ranges) :-
+map_list_ranges(Maps,Ranges) :-
     (
-        foreach(map{srcBlock:Block},Maps),
+        foreach(map{src_block:Block},Maps),
         fromto([],Prev,Next,Blocks)
     do
         Next = [Block|Prev]
     ),
-    blockListRanges(Blocks,Ranges).
+    block_list_ranges(Blocks,Ranges).
 
-mapsToName(Map,Addr,Name) :-
+maps_to_name(Map,Addr,Name) :-
     map{
-        srcBlock:SrcBlock,
-        destNode:Dest,
-        destBase:DestBase
+        src_block:SrcBlock,
+        dest_node:Dest,
+        dest_base:DestBase
     } = Map,
     name{
-        nodeId:Dest,
+        node_id:Dest,
         address:DestAddr
     } = Name,
-    blockRange(SrcBlock,Range),
+    block_range(SrcBlock,Range),
     Addr :: Range,
     block{base:SrcBase} = SrcBlock,
     DestAddr #= Addr - SrcBase + DestBase.
 
-listMapsToName([M|Maps],Addr,Name) :-
-    mapsToName(M,Addr,Name);
-    listMapsToName(Maps,Addr,Name).    
+list_maps_to_name([M|Maps],Addr,Name) :-
+    maps_to_name(M,Addr,Name);
+    list_maps_to_name(Maps,Addr,Name).    
 
-translateMap(NodeSpec,Addr,Name) :-
-    nodeSpec{translate:Translate} = NodeSpec,
-    listMapsToName(Translate,Addr,Name).
+translate_map(NodeSpec,Addr,Name) :-
+    node_spec{translate:Translate} = NodeSpec,
+    list_maps_to_name(Translate,Addr,Name).
 
 translate(Node,Addr,Name) :-
-    translateMap(Node,Addr,Name).
+    translate_map(Node,Addr,Name).
 
 accept(NodeSpec,Addr) :-
-    nodeSpec{accept:Accept} = NodeSpec,
-    blockListRanges(Accept,Ranges),
+    node_spec{accept:Accept} = NodeSpec,
+    block_list_ranges(Accept,Ranges),
     Addr :: Ranges.
 
-acceptedName(Name) :-
+accepted_name(Name) :-
     name{
-        nodeId:NodeId,
+        node_id:NodeId,
         address:Addr
     } = Name,
     node{
@@ -103,9 +103,9 @@ acceptedName(Name) :-
     },
     accept(NodeSpec,Addr).
 
-decodeStep(SrcName,DestName) :-
+decode_step(SrcName,DestName) :-
     name{
-        nodeId:NodeId,
+        node_id:NodeId,
         address:Addr
     } = SrcName,
     node{
@@ -114,26 +114,26 @@ decodeStep(SrcName,DestName) :-
     },
     translate(NodeSpec,Addr,DestName).
 
-decodesTo(SrcName,DestName) :-
+decodes_to(SrcName,DestName) :-
     SrcName = DestName.
 
-decodesTo(SrcName,DestName) :-
-    decodeStep(SrcName,Name),
-    decodesTo(Name,DestName).
+decodes_to(SrcName,DestName) :-
+    decode_step(SrcName,Name),
+    decodes_to(Name,DestName).
 
 resolve(SrcName,DestName) :-
-    decodesTo(SrcName,DestName),
-    acceptedName(DestName).
+    decodes_to(SrcName,DestName),
+    accepted_name(DestName).
 
-toRegion(Name,Region) :-
+to_region(Name,Region) :-
     name{
-        nodeId:Id,
+        node_id:Id,
         address:Addr
     } = Name,
     get_min(Addr,Min),get_max(Addr,Max),
     Size is Max - Min + 1,
     Region = region{
-        nodeId:Id,
+        node_id:Id,
         base:Min,
         size:Size
     }.
