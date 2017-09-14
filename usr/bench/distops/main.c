@@ -320,7 +320,7 @@ int main(int argc, char *argv[])
 
     my_core_id = disp_get_core_id();
 
-#ifndef DNDEBUG
+#ifndef NDEBUG
     printf("Running with assertions ENABLED!!!\n");
 #endif
 
