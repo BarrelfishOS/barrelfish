@@ -10,8 +10,8 @@
 
 :- module(decoding_net).
 :- export load_net/1.
+:- export decodes_to/2.
 :- export resolve/2.
-:- export to_region/2.
 :- export node/2.
 
 :- dynamic node/2.
@@ -31,7 +31,36 @@
 :- set_flag(syntax_option,iso_base_prefix).
 
 %% Load a precompiled decoding net
-load_net(File) :- [File].
+load_net(File) :-
+    ensure_loaded(File).
+
+%% Convert from regions to names
+to_name(Region,Name) :-
+    region{
+        node_id:Id,
+        base:Base,
+        size:Size
+    } = Region,
+    Addr #>= Base,
+    Addr #< Base + Size,
+    Name = name{
+        node_id:Id,
+        address:Addr
+    }.
+
+%% Convert from names to regions
+to_region(Name,Region) :-
+    name{
+        node_id:Id,
+        address:Addr
+    } = Name,
+    get_min(Addr,Min),get_max(Addr,Max),
+    Size is Max - Min + 1,
+    Region = region{
+        node_id:Id,
+        base:Min,
+        size:Size
+    }.
 
 %% Address range in block
 block_range(Block,Range) :-
@@ -122,19 +151,15 @@ decodes_to(SrcName,DestName) :-
     decodes_to(Name,DestName).
 
 resolve(SrcName,DestName) :-
+    name{} = SrcName,
+    name{} = DestName,
     decodes_to(SrcName,DestName),
     accepted_name(DestName).
 
-to_region(Name,Region) :-
-    name{
-        node_id:Id,
-        address:Addr
-    } = Name,
-    get_min(Addr,Min),get_max(Addr,Max),
-    Size is Max - Min + 1,
-    Region = region{
-        node_id:Id,
-        base:Min,
-        size:Size
-    }.
+resolve(SrcRegion,DestRegion) :-
+    to_name(SrcRegion,SrcName),
+    to_name(DestRegion,DestName),
+    resolve(SrcName,DestName),
+    to_region(SrcName,SrcRegion),
+    to_region(DestName,DestRegion).
   
