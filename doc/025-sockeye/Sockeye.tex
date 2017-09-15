@@ -674,11 +674,11 @@ The Sockeye compiler generates \(\text{ECL}^i\text{PS}^e\)-Prolog\footnote{\href
 A decoding net is expressed by the predicate \Prolog{node/2}.
 The first argument to the predicate is the node identifier and the second one the node specification.
 
-Node identifiers are represented as a functor \Prolog{nodeId/2}.
+Node identifiers are represented as a functor \Prolog{node_id/2}.
 The first argument is the node's name, represented as an atom, and the second one is the (possibly nested) namespace it is in.
 The namespace is represented as a list of atoms where the head is the innermost namespace component.
 
-Node specifications are represented by a Prolog functor \Prolog{nodeSpec/3}.
+Node specifications are represented by a Prolog functor \Prolog{node_spec/3}.
 The arguments to the functor are the node type, the list of accepted addresses and the list of translated addresses.
 The overlay is translated to address mappings and added to the list of translated addresses during compilation.
 
