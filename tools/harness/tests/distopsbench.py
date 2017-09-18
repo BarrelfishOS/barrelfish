@@ -1,6 +1,6 @@
 import tests, debug
 from common import TestCommon
-from results import PassFailResult, RowResults
+from results import PassFailResult, RawResults
 import sys, re, numpy, os, copy
 
 import matplotlib.pyplot as plt
@@ -63,7 +63,6 @@ class DistopsPlot(object):
         if fix_xticks:
             ax = plt.gca()
             assert(1 in self.nodedata.keys())
-            debug.verbose(">>> nodedata[1].keys = %r" % self.nodedata[1].keys())
             xlabels = plt.setp(ax, xticklabels=sorted(self.nodedata[1].keys()))
             plt.setp(xlabels, rotation=90)
         # TODO: think about using numpy.percentile to figure out sensible ylim
@@ -110,6 +109,15 @@ class DistopsPlot(object):
         #plt.xscale('log', basex=2)
         self._finalize_plot(outfile, xlabel, ylabel, ylim, draw_legend=True)
 
+    def get_raw_results(self, name):
+        rr = dict()
+        for nodeid in self.nodedata.keys():
+            r = RawResults('mdbsize', name="%s_node%d" % (name, nodeid))
+            for d in self.nodedata[nodeid].keys():
+                r.add_group(d, self.nodedata[nodeid][d])
+            rr[nodeid] = r
+        return rr
+
 @tests.add_test
 class DistopsBenchDeleteForeign(TestCommon):
     '''Benchmark latency of deleting foreign copy of capability'''
@@ -138,4 +146,5 @@ class DistopsBenchDeleteForeign(TestCommon):
         plotf = "%s/plot_%s" % (testdir, self.name)
         debug.verbose(">>> Saving plot to %s.pdf" % plotf)
         plot.plot(plotf)
-        return PassFailResult(passed)
+        rr = plot.get_raw_results(self.name)
+        return [ rr[k] for k in sorted(rr.keys()) ]
