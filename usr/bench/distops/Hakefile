@@ -20,6 +20,7 @@ bench name = build application { target = "bench_" ++ name,
                               }
 in
 [ bench "noop",
+  bench "noop_invocation",
   bench "delete_foreign_copy",
   bench "delete_local_copy",
   bench "delete_last_copy",
