@@ -9,6 +9,11 @@
 
 #include <barrelfish/waitset_chan.h>
 #include <barrelfish/waitset.h>
+#include <barrelfish/deferred.h>
+
+#include <if/octopus_defs.h>
+#include <octopus/octopus.h>
+#include <octopus/getset.h>
 
 #include <devif/queue_interface.h>
 #include <devif/backends/descq.h>
@@ -438,7 +443,9 @@ static errval_t q_notify(struct descq* q)
     return SYS_ERR_OK;
 }
 
-errval_t net_sockets_init(void)
+
+
+errval_t net_sockets_init_with_card(char* cardname) 
 {
     errval_t err;
     iref_t iref;
@@ -453,11 +460,19 @@ errval_t net_sockets_init(void)
     f.notify = q_notify;
 
     debug_printf("net socket client started \n");
-    err = descq_create(&descq_queue, DESCQ_DEFAULT_SIZE, "net_sockets_queue",
+    char service_name[64];
+    char queue_name[64];
+
+    sprintf(service_name, "net_sockets_service_%s", cardname);
+    sprintf(queue_name, "net_sockets_queue_%s", cardname);
+
+    printf("Client connecting to: %s \n", service_name);
+    printf("Client init queue: %s \n", queue_name);
+    err = descq_create(&descq_queue, DESCQ_DEFAULT_SIZE, queue_name,
                        false, true, true, &queue_id, &f);
     assert(err_is_ok(err));
 
-    err = nameservice_blocking_lookup("net_sockets", &iref);
+    err = nameservice_blocking_lookup(service_name, &iref);
     assert(err_is_ok(err));
     err = net_sockets_bind(iref, bind_cb, NULL, get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
     assert(err_is_ok(err));
@@ -487,4 +502,44 @@ errval_t net_sockets_init(void)
     assert(err_is_ok(err));
 
     return SYS_ERR_OK;
+
+}
+
+
+#define NAMESERVICE_ENTRY "r'net\\_sockets\\_service\\_.*' { iref: _ }"
+#define OFFSET 20
+
+errval_t net_sockets_init(void)
+{   
+    errval_t err;
+    char* record;
+    // lookup cards that are available
+    err = oct_init();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    // Wait for an entry in the namserver to pop up
+    //
+    err = oct_wait_for(&record, NAMESERVICE_ENTRY);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    // Get all of them
+    char** records;
+    size_t len;
+    err = oct_get_names(&records, &len ,NAMESERVICE_ENTRY);
+    if (err_is_fail(err)) {
+        return err;
+    }
+ 
+    for (int i = 0; i < len; i++) {
+        // if we find any card other than e1000 start it with
+        // this card since in our case it is a 10G card
+        if (strcmp(&records[i][OFFSET],"e1000") != 0) {
+            return net_sockets_init_with_card(&records[i][OFFSET]);
+        }
+    }
+    return net_sockets_init_with_card("e1000");
 }
