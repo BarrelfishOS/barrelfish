@@ -160,7 +160,7 @@ static void net_udp_receive(void *arg, struct udp_pcb *pcb, struct pbuf *p, cons
     nb->host_address.s_addr = addr->addr;
     nb->port = port;
     // debug_printf("%s(%d): %p -> %p %p %d\n", __func__, connection->descriptor, buffer, nb->user_callback, nb->user_state, nb->size);
-
+    
     void *shb_data = buffer + sizeof(struct net_buffer);
     
     struct pbuf *it;
@@ -174,13 +174,11 @@ static void net_udp_receive(void *arg, struct udp_pcb *pcb, struct pbuf *p, cons
         it = it->next;
     }
     pbuf_free(p);
-    // debug_printf("%s.%d: enqueue 1 %lx:%ld\n", __func__, __LINE__, buffer - nc->buffer_start, sizeof(struct net_buffer) + length);
     err = devq_enqueue((struct devq *)nc->queue, nc->region_id, buffer - nc->buffer_start, sizeof(struct net_buffer) + length,
                        0, 0, NET_EVENT_RECEIVED);
     assert(err_is_ok(err));
     err = devq_notify((struct devq *)nc->queue);
     assert(err_is_ok(err));
-
     // debug_printf("%s: notifing\n", __func__);
     // struct net_sockets_binding *binding = connection->connection->binding;
     // debug_printf("%s: done\n", __func__);
@@ -201,6 +199,7 @@ static err_t net_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
         // debug_printf("%s(%d): %d\n", __func__, socket->descriptor, p->tot_len);
         assert(p->len == p->tot_len);
         length = p->tot_len;
+
         if (!buffer) {
             debug_printf("%s: drop\n", __func__);
             pbuf_free(p);
@@ -238,6 +237,7 @@ static err_t net_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
     // debug_printf("%s.%d: enqueue 1 %lx:%ld %d\n", __func__, __LINE__, buffer - nc->buffer_start, sizeof(struct net_buffer) + length, nb->descriptor);
     err = devq_enqueue((struct devq *)nc->queue, nc->region_id, buffer - nc->buffer_start, sizeof(struct net_buffer) + length,
                        0, 0, NET_EVENT_RECEIVED);
+
     assert(err_is_ok(err));
     err = devq_notify((struct devq *)nc->queue);
     assert(err_is_ok(err));
@@ -328,6 +328,7 @@ static err_t net_tcp_sent(void *arg, struct tcp_pcb *pcb, uint16_t len)
             
             socket->send_frames[0].length += sizeof(struct net_buffer);
             // debug_printf_to_log("%s.%d: enqueue %lx:%zd\n", __func__, __LINE__, socket->send_frames[0].offset, socket->send_frames[0].length);
+            //
             err = devq_enqueue((struct devq *)nc->queue, nc->region_id, socket->send_frames[0].offset, socket->send_frames[0].length, 0, 0, NET_EVENT_SENT);
             if (!err_is_ok(err))
                 debug_printf("%s: err %zd\n", __func__, err);
@@ -658,7 +659,8 @@ static errval_t q_notify(struct descq* q)
             buffer = offset + nc->buffer_start;
             struct net_buffer *nb = buffer;
 
-            // debug_printf_to_log("%s: dequeue %lx:%ld %ld  %d:%d", __func__, offset, length, event, nb->descriptor, nb->size);
+            //debug_printf_to_log("%s: dequeue %lx:%ld %ld  %d:%d", __func__, offset, length, event, nb->descriptor, nb->size);
+            //debug_printf(" offset %lu length %lu \n", offset, length);
             if (event == NET_EVENT_RECEIVE) {
                 assert(!nc->buffers[nc->next_used]);
                 nc->buffers[nc->next_used] = nc->buffer_start + offset;
@@ -821,23 +823,25 @@ static errval_t connect_cb(void *st, struct net_sockets_binding *binding)
 
 static void export_cb(void *st, errval_t err, iref_t iref)
 {
+    char* service_name = (char* ) st;
     assert(err_is_ok(err));
-    err = nameservice_register("net_sockets", iref);
+    err = nameservice_register(service_name, iref);
     assert(err_is_ok(err));
 }
 
 int main(int argc, char *argv[])
 {
     errval_t err;
-
-    if (argc < 1) {
-        printf("%s: missing card argument!\n", argv[0]);
+    
+    if (argc < 4) {
+        printf("%s: missing arguments! \n", argv[0]);
         return -1;
     }
-    debug_printf("Net socket server started for e1000 %s.\n", argv[argc - 1]);
 
-    char servicename[64];
-    snprintf(servicename, sizeof(servicename), "e1000:%s", argv[argc - 1]);
+    debug_printf("Net socket server started for %s.\n", argv[2]);
+
+    char card_name[64];
+    snprintf(card_name, sizeof(card_name), "%s:%s", argv[2], argv[argc - 1]);
 
     char *ip = NULL;
     char *netmask = NULL;
@@ -886,7 +890,7 @@ int main(int argc, char *argv[])
     }
 
     /* connect to the network */
-    err = networking_init(servicename, (!ip ? NET_FLAGS_DO_DHCP: 0) | NET_FLAGS_NO_NET_FILTER | NET_FLAGS_BLOCKING_INIT);
+    err = networking_init(card_name, (!ip ? NET_FLAGS_DO_DHCP: 0) | NET_FLAGS_DEFAULT_QUEUE | NET_FLAGS_BLOCKING_INIT );
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to initialize the network");
     }
@@ -901,12 +905,17 @@ int main(int argc, char *argv[])
     f.dereg = q_dereg;
     f.control = q_control;
 
-    err = descq_create(&exp_queue, DESCQ_DEFAULT_SIZE, "net_sockets_queue",
+    char queue_name[64];
+    char service_name[64];
+    sprintf(queue_name, "net_sockets_queue_%s", argv[2]);
+    sprintf(service_name, "net_sockets_service_%s", argv[2]);
+
+    err = descq_create(&exp_queue, DESCQ_DEFAULT_SIZE, queue_name,
                        true, true, 0, NULL, &f);
     assert(err_is_ok(err));
 
 
-    err = net_sockets_export(NULL, export_cb, connect_cb, get_default_waitset(),
+    err = net_sockets_export(service_name, export_cb, connect_cb, get_default_waitset(),
                             IDC_EXPORT_FLAGS_DEFAULT);
     assert(err_is_ok(err));
 
