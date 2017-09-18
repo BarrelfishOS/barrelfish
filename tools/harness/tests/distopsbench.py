@@ -1,7 +1,7 @@
 import tests, debug
 from common import TestCommon
 from results import PassFailResult, RawResults
-import sys, re, numpy, os, copy
+import sys, re, numpy, os, datetime
 
 import matplotlib.pyplot as plt
 
@@ -73,10 +73,14 @@ class DistopsPlot(object):
 
     def boxplot(self, outfile, all_nodes=False, xlabel=None, ylabel=None, ylim=None):
         fig = plt.figure()
-        nodecount = self.nodecount
+        # grab first node id with data
+        startn = sorted(self.tscperus.keys())[0]
+        # count #nodes with data
+        nodecount = len(self.tscperus.keys())
+        assert(nodecount >= 1)
         if not all_nodes:
             nodecount=1
-        for nodeid in xrange(1, nodecount+1):
+        for nodeid in xrange(startn, startn+nodecount):
             nodedata = self.nodedata[nodeid]
             if nodeid not in self.tscperus.keys():
                 continue;
@@ -112,14 +116,46 @@ class DistopsPlot(object):
     def get_raw_results(self, name):
         rr = dict()
         for nodeid in self.nodedata.keys():
+            if nodeid not in self.tscperus.keys():
+                # skip nodes that aren't running benchmark for some cases
+                continue
             r = RawResults('mdbsize', name="%s_node%d" % (name, nodeid))
             for d in self.nodedata[nodeid].keys():
                 r.add_group(d, self.nodedata[nodeid][d])
             rr[nodeid] = r
         return rr
 
+class DistopsBench(TestCommon):
+    '''Base class for common code for distops benchmarks'''
+    def __init__(self, options):
+        super(DistopsBench, self).__init__(options)
+        self.xlabel = None
+        self.ylabel = None
+        self.plot_ylim = None
+        self.boxplot_ylim = None
+        self.boxplot_all_nodes = False
+
+    def get_finish_string(self):
+        return "# Benchmark done!"
+
+    def process_data(self, testdir, rawiter):
+        debug.verbose("Processing data for %s" % self.name)
+        plot = DistopsPlot(self.machine)
+        debug.verbose(">>> Reading data for plotting")
+        passed = plot.read_data(rawiter)
+        plotf = "%s/boxplot_%s" % (testdir, self.name)
+        debug.verbose(">>> Saving boxplot to %s.pdf" % plotf)
+        plot.boxplot(plotf, all_nodes=self.boxplot_all_nodes,
+                     xlabel=self.xlabel, ylabel=self.ylabel,
+                     ylim=self.boxplot_ylim)
+        plotf = "%s/plot_%s" % (testdir, self.name)
+        debug.verbose(">>> Saving plot to %s.pdf" % plotf)
+        plot.plot(plotf, ylabel=self.ylabel, ylim=self.plot_ylim)
+        rr = plot.get_raw_results(self.name)
+        return [ rr[k] for k in sorted(rr.keys()) ]
+
 @tests.add_test
-class DistopsBenchDeleteForeign(TestCommon):
+class DistopsBenchDeleteForeign(DistopsBench):
     '''Benchmark latency of deleting foreign copy of capability'''
     name = 'distops_bench_delete_foreign'
 
@@ -132,19 +168,176 @@ class DistopsBenchDeleteForeign(TestCommon):
                            ["core=1-%d" % (machine.get_ncores()-1), "node"])
         return modules
 
-    def get_finish_string(self):
-        return "# Benchmark done!"
+@tests.add_test
+class DistopsBenchDeleteLast(DistopsBench):
+    '''Benchmark latency of deleting last copy of capability'''
+    name = 'distops_bench_delete_last'
 
-    def process_data(self, testdir, rawiter):
-        debug.verbose("Processing data for %s" % self.name)
-        plot = DistopsPlot(self.machine)
-        debug.verbose(">>> Reading data for plotting")
-        passed = plot.read_data(rawiter)
-        plotf = "%s/boxplot_%s" % (testdir, self.name)
-        debug.verbose(">>> Saving boxplot to %s.pdf" % plotf)
-        plot.boxplot(plotf)
-        plotf = "%s/plot_%s" % (testdir, self.name)
-        debug.verbose(">>> Saving plot to %s.pdf" % plotf)
-        plot.plot(plotf)
-        rr = plot.get_raw_results(self.name)
-        return [ rr[k] for k in sorted(rr.keys()) ]
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBenchDeleteLast, self).get_modules(build, machine)
+        modules.add_module("bench_delete_last_copy",
+                           ["core=0", "mgmt", "%d" % (machine.get_ncores()-1)])
+        modules.add_module("bench_delete_last_copy",
+                           ["core=1-%d" % (machine.get_ncores()-1), "node"])
+        return modules
+
+@tests.add_test
+class DistopsBenchDeleteLastRemote(DistopsBench):
+    '''Benchmark latency of deleting last local copy of capability with remote copies'''
+    name = 'distops_bench_delete_last_remote'
+
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBenchDeleteLastRemote, self).get_modules(build, machine)
+        modules.add_module("bench_delete_last_copy_remote",
+                           ["core=0", "mgmt", "%d" % (machine.get_ncores()-1)])
+        modules.add_module("bench_delete_last_copy_remote",
+                           ["core=1-%d" % (machine.get_ncores()-1), "node"])
+        return modules
+
+@tests.add_test
+class DistopsBenchRevokeNoRemote(DistopsBench):
+    '''Benchmark latency of revoking capability with no remote relations'''
+    name = 'distops_bench_revoke_no_remote'
+
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBenchRevokeNoRemote, self).get_modules(build, machine)
+        modules.add_module("bench_revoke_no_remote",
+                           ["core=0", "mgmt", "%d" % (machine.get_ncores()-1)])
+        modules.add_module("bench_revoke_no_remote",
+                           ["core=1-%d" % (machine.get_ncores()-1), "node"])
+        return modules
+
+@tests.add_test
+class DistopsBenchRevokeRemoteCopy(DistopsBench):
+    '''Benchmark latency of revoking foreign copy of capability'''
+    name = 'distops_bench_revoke_remote_copy'
+
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBenchRevokeRemoteCopy, self).get_modules(build, machine)
+        modules.add_module("bench_revoke_remote_copy",
+                           ["core=0", "mgmt", "%d" % (machine.get_ncores()-1)])
+        modules.add_module("bench_revoke_remote_copy",
+                           ["core=1-%d" % (machine.get_ncores()-1), "node"])
+        return modules
+
+@tests.add_test
+class DistopsBenchRevokeWithRemoteCopies(DistopsBench):
+    '''Benchmark latency of revoking a capability with remote copies/descendants'''
+    name = 'distops_bench_revoke_with_remote_copies'
+
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBenchRevokeWithRemoteCopies, self).get_modules(build, machine)
+        modules.add_module("bench_revoke_with_remote_copies",
+                           ["core=0", "mgmt", "%d" % (machine.get_ncores()-1)])
+        modules.add_module("bench_revoke_with_remote_copies",
+                           ["core=1-%d" % (machine.get_ncores()-1), "node"])
+        return modules
+
+@tests.add_test
+class DistopsBenchRetypeNoRemote(DistopsBench):
+    '''Benchmark latency of retyping capability with no remote relations'''
+    name = 'distops_bench_retype_no_remote'
+
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBenchRetypeNoRemote, self).get_modules(build, machine)
+        modules.add_module("bench_retype_no_remote",
+                           ["core=0", "mgmt", "%d" % (machine.get_ncores()-1)])
+        modules.add_module("bench_retype_no_remote",
+                           ["core=1-%d" % (machine.get_ncores()-1), "node"])
+        return modules
+
+@tests.add_test
+class DistopsBenchRetypeWithLocalDescs(DistopsBench):
+    '''Benchmark latency of retyping capability with local descendants but no remote relations'''
+    name = 'distops_bench_retype_with_local_descs'
+
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBenchRetypeWithLocalDescs, self).get_modules(build, machine)
+        modules.add_module("bench_retype_w_local_descendants",
+                           ["core=0", "mgmt", "%d" % (machine.get_ncores()-1)])
+        modules.add_module("bench_retype_w_local_descendants",
+                           ["core=1-%d" % (machine.get_ncores()-1), "node"])
+        return modules
+
+@tests.add_test
+class DistopsBenchRetypeWithRemoteCopies(DistopsBench):
+    '''Benchmark latency of retyping capability with remote copies'''
+    name = 'distops_bench_retype_with_local_descs'
+
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBenchRetypeWithRemoteCopies, self).get_modules(build, machine)
+        modules.add_module("bench_retype_with_remote_copies",
+                           ["core=0", "mgmt", "%d" % (machine.get_ncores()-1)])
+        modules.add_module("bench_retype_with_remote_copies",
+                           ["core=1-%d" % (machine.get_ncores()-1), "node"])
+        return modules
+
+@tests.add_test
+class DistopsBenchNoopInvocation(DistopsBench):
+    '''Benchmark latency of noop invocation'''
+    name = 'distops_bench_noop_invocation'
+
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBenchNoopInvocation, self).get_modules(build, machine)
+        modules.add_module("bench_noop_invocation",
+                           ["core=0", "mgmt", "%d" % (machine.get_ncores()-1)])
+        modules.add_module("bench_noop_invocation",
+                           ["core=1-%d" % (machine.get_ncores()-1), "node"])
+        return modules
+
+@tests.add_test
+class DistopsBenchDeleteCNodeLast(DistopsBench):
+    '''Benchmark latency of deleting last copy of cnode with 4 slots occupied'''
+    name = 'distops_bench_delete_cnode_last'
+
+    def __init__(self, options):
+        super(DistopsBenchDeleteCNodeLast, self).__init__(options)
+        # make boxplot useful
+        self.boxplot_ylim = [0, 100]
+
+    def setup(self, build, machine, testdir):
+        super(DistopsBenchDeleteCNodeLast, self).setup(build, machine, testdir)
+        # set timeout for this test to 10min
+        self.test_timeout_delta = datetime.timedelta(seconds=20*60)
+
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBenchDeleteCNodeLast, self).get_modules(build, machine)
+        modules.add_module("bench_delete_cnode_last_copy",
+                           ["core=0", "mgmt", "%d" % (machine.get_ncores()-1)])
+        modules.add_module("bench_delete_cnode_last_copy",
+                           ["core=1-%d" % (machine.get_ncores()-1), "node"])
+        return modules
+
+@tests.add_test
+class DistopsBenchDeleteCNodeVary(DistopsBench):
+    '''Benchmark latency of deleting cnode with varying number of slots occupied'''
+    name = 'distops_bench_delete_cnode_slots_occupied'
+
+    def __init__(self, options):
+        super(DistopsBenchDeleteCNodeVary, self).__init__(options)
+        # make boxplot useful
+        self.boxplot_ylim = [0, 2000]
+
+    def setup(self, build, machine, testdir):
+        super(DistopsBenchDeleteCNodeVary, self).setup(build, machine, testdir)
+        # XXX: figure out timeout for this test. 7 days is probably a bit much :)
+        self.test_timeout_delta = datetime.timedelta(seconds=7*86400)
+
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBenchDeleteCNodeVary, self).get_modules(build, machine)
+        modules.add_module("bench_delete_cnode_last_copy_2",
+                           ["core=0", "mgmt", "%d" % (machine.get_ncores()-1)])
+        modules.add_module("bench_delete_cnode_last_copy_2",
+                           ["core=1-%d" % (machine.get_ncores()-1), "node"])
+        return modules
