@@ -457,6 +457,7 @@ enum kcb_cmd {
  */
 enum ram_cmd {
     RAMCmd_Identify,      ///< Return physical address of frame
+    RAMCmd_Noop,          ///< Noop invocation for benchmark
 };
 
 /**
