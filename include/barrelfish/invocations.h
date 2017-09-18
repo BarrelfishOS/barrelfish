@@ -21,6 +21,11 @@
 
 #include <barrelfish/invocations_arch.h>
 
+static inline errval_t invoke_ram_noop(struct capref ram)
+{
+    return cap_invoke1(ram, RAMCmd_Noop).error;
+}
+
 /**
  * \brief Create a capability.
  *

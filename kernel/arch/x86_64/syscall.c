@@ -46,6 +46,14 @@
 
 extern uint64_t user_stack_save;
 
+/**
+ * For benchmarking only
+ */
+static struct sysret handle_noop(struct capability *to, int cmd, uintptr_t *args)
+{
+    return SYSRET(SYS_ERR_OK);
+}
+
 /* FIXME: lots of missing argument checks in this function */
 static struct sysret handle_dispatcher_setup(struct capability *to,
                                              int cmd, uintptr_t *args)
@@ -1141,6 +1149,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_RAM] = {
         [RAMCmd_Identify] = handle_frame_identify,
+        [RAMCmd_Noop] = handle_noop,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
