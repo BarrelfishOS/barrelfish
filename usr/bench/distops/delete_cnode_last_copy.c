@@ -23,8 +23,8 @@
 
 #include "benchapi.h"
 
-#define NUM_COPIES_START 1
-#define NUM_COPIES_END 32768
+#define NUM_COPIES_START 256
+#define NUM_COPIES_END 65536
 #define ITERS 1000
 
 //{{{1 debugging helpers
@@ -88,7 +88,7 @@ void mgmt_run_benchmark(void *st)
 
     printf("All clients sent hello! Benchmark starting...\n");
 
-    printf("# Benchmarking DELETE CNODE NO REMOTE 16: nodes=%d\n", gs->nodecount);
+    printf("# Benchmarking DELETE CNODE NO REMOTE 4: nodes=%d\n", gs->nodecount);
 
     printf("# Starting out with %d copies, will by powers of 2 up to %d...\n",
             NUM_COPIES_START, NUM_COPIES_END);
@@ -223,7 +223,7 @@ void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                 err = cnode_create_from_mem(cn, ns->cap, ObjType_L2CNode, &slot.cnode, L2_CNODE_SLOTS);
                 assert(err_is_ok(err));
                 // put caps in
-                for (slot.slot = 0; slot.slot < 16; slot.slot++) {
+                for (slot.slot = 0; slot.slot < 4; slot.slot++) {
                     err = ram_alloc(&tmp, BASE_PAGE_BITS);
                     assert(err_is_ok(err));
                     err = cap_copy(slot, tmp);

@@ -24,7 +24,6 @@
 #include "benchapi.h"
 
 #define NUM_COPIES_START 1
-#define NUM_COPIES_STEP 250
 #define NUM_COPIES_END 32768
 #define ITERS 1000
 

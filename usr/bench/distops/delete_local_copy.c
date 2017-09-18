@@ -23,9 +23,8 @@
 
 #include "benchapi.h"
 
-#define NUM_COPIES_START 0
-#define NUM_COPIES_STEP 250
-#define NUM_COPIES_END 5000
+#define NUM_COPIES_START 1
+#define NUM_COPIES_END 32768
 #define ITERS 1000
 
 //{{{1 debugging helpers
@@ -91,8 +90,8 @@ void mgmt_run_benchmark(void *st)
 
     printf("# Benchmarking DELETE LOCAL COPY: nodes=%d\n", gs->nodecount);
 
-    printf("# Starting out with %d copies, will increase by %d up to %d...\n",
-            NUM_COPIES_START, NUM_COPIES_STEP, NUM_COPIES_END);
+    printf("# Starting out with %d copies, will increase by factors of two up to %d...\n",
+            NUM_COPIES_START, NUM_COPIES_END);
 
     gs->currcopies = NUM_COPIES_START;
     broadcast_caps(BENCH_CMD_CREATE_COPIES, NUM_COPIES_START, gs->ram);
@@ -118,7 +117,7 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                 }
                 printf("# Round done!\n");
                 // Reset counters for next round
-                gs->currcopies += NUM_COPIES_STEP;
+                gs->currcopies *= 2;
                 gs->copies_done = 0;
                 gs->printnode = 1;
                 // Start new round
