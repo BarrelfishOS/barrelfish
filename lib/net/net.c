@@ -124,7 +124,7 @@ static errval_t networking_poll_st(struct net_state *st)
     if (st->flags & NET_FLAGS_POLLING) {
         return net_if_poll(&st->netif);
     } else {
-        return event_dispatch_non_block(get_default_waitset());
+        return event_dispatch(get_default_waitset());
     }
 }
 
