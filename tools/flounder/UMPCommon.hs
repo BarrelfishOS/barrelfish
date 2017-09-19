@@ -901,7 +901,7 @@ tx_bind_msg p ifn =
           [C.Return (C.Variable "FLOUNDER_ERR_TX_BUSY")] [],
       C.SBlank,
       C.Ex $ C.Call "flounder_stub_ump_control_fill"
-                  [chanst, ctrladdr, C.Variable $ "FL_UMP_BIND" ], 
+                  [chanst, ctrladdr, C.Variable $ "FL_UMP_BIND" ],
 --      C.StmtList
 --          [C.Ex $ C.Assignment (msgword n) (fragment_word_to_expr (ump_arch p) ifn "___bind" (words !! n))
 --           | n <- [0 .. length(words) - 1], words !! n  /= []],
@@ -941,7 +941,7 @@ tx_bind_reply p ifn =
       C.If (C.Unary C.Not msgvar)
           [C.Return (C.Variable "FLOUNDER_ERR_TX_BUSY")] [],
       C.Ex $ C.Call "flounder_stub_ump_control_fill"
-                  [chanst, ctrladdr, C.Variable $ "FL_UMP_BIND_REPLY" ], 
+                  [chanst, ctrladdr, C.Variable $ "FL_UMP_BIND_REPLY" ],
 --      C.StmtList
 --          [C.Ex $ C.Assignment (msgword n) (fragment_word_to_expr (ump_arch p) ifn "___bind" (words !! n))
 --           | n <- [0 .. length(words) - 1], words !! n  /= []],
@@ -1445,6 +1445,7 @@ rx_handler p ifn typedefs msgdefs msgs =
 
         msgfrag_case msg@(Message _ mn _ _) (OverflowFragment (BufferFragment _ afn afl)) caps isFirst isLast = [
             C.Ex $ C.Assignment errvar (C.Call "flounder_stub_ump_recv_buf" args),
+            (if isFirst then C.Ex $ C.Assignment binding_incoming_token ump_token else C.SBlank),
             C.Ex $ C.Call "ump_chan_free_message" [C.Variable "msg"],
             C.If (C.Call "err_is_ok" [errvar])
                 (msgfrag_case_prolog msg caps isLast)
