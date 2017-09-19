@@ -187,6 +187,11 @@ class DistopsBenchDeleteLastRemote(DistopsBench):
     '''Benchmark latency of deleting last local copy of capability with remote copies'''
     name = 'distops_bench_delete_last_remote'
 
+    def __init__(self, options):
+        super(DistopsBenchDeleteLastRemote, self).__init__(options)
+        # make boxplot useful
+        self.boxplot_ylim = [0, 100]
+
     def get_modules(self, build, machine):
         self.machine = machine.get_machine_name()
         modules = super(DistopsBenchDeleteLastRemote, self).get_modules(build, machine)
@@ -330,8 +335,8 @@ class DistopsBenchDeleteCNodeVary(DistopsBench):
 
     def setup(self, build, machine, testdir):
         super(DistopsBenchDeleteCNodeVary, self).setup(build, machine, testdir)
-        # XXX: figure out timeout for this test. 7 days is probably a bit much :)
-        self.test_timeout_delta = datetime.timedelta(seconds=7*86400)
+        # XXX: figure out timeout for this test. 24h might not be enough...
+        self.test_timeout_delta = datetime.timedelta(seconds=86400)
 
     def get_modules(self, build, machine):
         self.machine = machine.get_machine_name()
