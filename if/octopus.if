@@ -41,7 +41,7 @@ interface octopus "octopus RPC Interface" {
      * \param tid Id of registered trigger (0 in case no trigger registered).
      * \param error_code Error value of request.
      */
-    rpc get_names(in String query[4096], in trigger t, out String output[4096],
+    rpc get_names(in String query[8192], in trigger t, out String output[8192],
                   out trigger_id tid, out errval error_code);
 
     /**
@@ -51,7 +51,7 @@ interface octopus "octopus RPC Interface" {
      * \param tid Id of registered trigger (0 in case no trigger registered).
      * \param error_code Error value of request.
      */
-    rpc get(in String query[4096], in trigger t, out String output[4096],
+    rpc get(in String query[8192], in trigger t, out String output[8192],
             out trigger_id tid, out errval error_code);
 
     /**
@@ -64,8 +64,8 @@ interface octopus "octopus RPC Interface" {
      * \param tid Id of registered trigger (0 in case no trigger registered).
      * \param error_code Error value of request
      */
-    rpc set(in String query[4096], in uint64 mode, in trigger t, in bool get,
-            out String record[4096], out trigger_id tid, out errval error_code);
+    rpc set(in String query[8192], in uint64 mode, in trigger t, in bool get,
+            out String record[8192], out trigger_id tid, out errval error_code);
 
     /**
      * Find a record using an ID capability as the key/name of the record.
@@ -76,7 +76,7 @@ interface octopus "octopus RPC Interface" {
      * \param tid Id of registered trigger (0 in case no trigger registered).
      * \param error_code Error value of request.
      */
-    rpc get_with_idcap(in cap idcap, in trigger t, out String output[4096],
+    rpc get_with_idcap(in cap idcap, in trigger t, out String output[8192],
                        out trigger_id tid, out errval error_code);
 
     /**
@@ -102,7 +102,7 @@ interface octopus "octopus RPC Interface" {
      * \param tid Id of registered trigger (0 in case no trigger registered).
      * \param error_code Error value of request
      */
-    rpc del(in String query[4096], in trigger t, out trigger_id tid,
+    rpc del(in String query[8192], in trigger t, out trigger_id tid,
             out errval error_code);
 
     /**
@@ -111,7 +111,7 @@ interface octopus "octopus RPC Interface" {
      * \param tid Id of registered trigger (0 in case no trigger registered).
      * \param error_code Error value of request.
      */
-    rpc exists(in String query[4096], in trigger t, out trigger_id tid,
+    rpc exists(in String query[8192], in trigger t, out trigger_id tid,
                out errval error_code);
 
     /**
@@ -127,7 +127,7 @@ interface octopus "octopus RPC Interface" {
      * \param record
      * \param error_code
      */
-    rpc wait_for(in String query[4096], out String record[2048], out errval error_code);
+    rpc wait_for(in String query[8192], out String record[2048], out errval error_code);
 
     /**
      * \brief Used to remove Triggers in case they are not needed anymore.
@@ -153,7 +153,7 @@ interface octopus "octopus RPC Interface" {
      * \param id Identifier for this subscription supplied by server.
      * \param error_code Status of request.
      */
-    rpc subscribe(in String query[4096], in uint64 trigger_fn, in uint64 state,
+    rpc subscribe(in String query[8192], in uint64 trigger_fn, in uint64 state,
                   out uint64 id, out errval error_code);
 
     /**
