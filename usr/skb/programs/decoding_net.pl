@@ -70,28 +70,8 @@ block_range(Block,Range) :-
     } = Block,
     Range = Base..Limit.
 
-%% Address ranges in block list
-block_list_ranges(Blocks,Ranges) :-
-    (
-        foreach(Block,Blocks),
-        fromto([],Prev,Next,Ranges)
-    do
-        block_range(Block,Range),
-        Next = [Range|Prev]
-    ).
-    
-%% Extract block ranges from map list
-map_list_ranges(Maps,Ranges) :-
-    (
-        foreach(map{src_block:Block},Maps),
-        fromto([],Prev,Next,Blocks)
-    do
-        Next = [Block|Prev]
-    ),
-    block_list_ranges(Blocks,Ranges).
-
-maps_to_name(Map,Addr,Name) :-
-    map{
+maps_to_name([Map|_],Addr,Name) :-
+        map{
         src_block:SrcBlock,
         dest_node:Dest,
         dest_base:DestBase
@@ -105,20 +85,22 @@ maps_to_name(Map,Addr,Name) :-
     block{base:SrcBase} = SrcBlock,
     DestAddr #= Addr - SrcBase + DestBase.
 
-list_maps_to_name([M|Maps],Addr,Name) :-
-    maps_to_name(M,Addr,Name);
-    list_maps_to_name(Maps,Addr,Name).    
+maps_to_name([_|Maps],Addr,Name) :-
+    maps_to_name(Maps,Addr,Name).    
 
-translate_map(NodeSpec,Addr,Name) :-
+translate(NodeSpec,Addr,Name) :-
     node_spec{translate:Translate} = NodeSpec,
-    list_maps_to_name(Translate,Addr,Name).
-
-translate(Node,Addr,Name) :-
-    translate_map(Node,Addr,Name).
+    maps_to_name(Translate,Addr,Name).
 
 accept(NodeSpec,Addr) :-
     node_spec{accept:Accept} = NodeSpec,
-    block_list_ranges(Accept,Ranges),
+    (
+        foreach(Block,Accept),
+        fromto([],Prev,Next,Ranges)
+    do
+        block_range(Block,Range),
+        Next = [Range|Prev]
+    ),
     Addr :: Ranges.
 
 accepted_name(Name) :-
@@ -143,6 +125,7 @@ decode_step(SrcName,DestName) :-
     },
     translate(NodeSpec,Addr,DestName).
 
+% Reflexive, transitive closure of decode_step
 decodes_to(SrcName,DestName) :-
     SrcName = DestName.
 
