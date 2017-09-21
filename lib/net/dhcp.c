@@ -27,7 +27,8 @@
 #include "networking_internal.h"
 
 ///< the debug subsystem
-#define debug_printf_SUBSYSTEM "dhcpd"
+//
+#define NETDEBUG_SUBSYSTEM "dhcpd"
 
 ///< the DHCP timeout in milli seconds
 #define DHCP_TIMEOUT_MSECS (120UL * 1000)
