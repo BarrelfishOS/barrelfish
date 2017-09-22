@@ -11,6 +11,8 @@
 #ifndef ARCH_K1OM_BARRELFISH_KPI_ASM_INLINES_H
 #define ARCH_K1OM_BARRELFISH_KPI_ASM_INLINES_H 1
 
+#include <machine/param.h>
+
 #ifndef __ASSEMBLER__
 
 #include <target/x86_64/barrelfish_kpi/registers_target.h>
@@ -191,8 +193,6 @@ clflush(void *line)
 {
     __asm volatile("clflush %0" :: "m" (line));
 }
-
-#define CACHE_LINE_SIZE 64 /* bytes */
 
 #ifndef __cplusplus
 /* flush a range of memory from the cache */
