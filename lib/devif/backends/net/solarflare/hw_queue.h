@@ -400,8 +400,13 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
             printf("Card error while parsing \n");
             err = NIC_ERR_RX_PKT;
         } else if (sfn5122f_q_rx_ev_rx_ev_ip_frag_err_extract(ev)) {
-            printf("IP header ckecksum error (Fragment)\n");
-            err = NIC_ERR_RX_PKT;
+            /*
+             * Seems like this should not really be handeled as an error even
+             * if the event itself seems to suggest so. Not even handeled in linux. 
+             * (pkt_ok()) is not even read out ...
+             */ 
+            err = SYS_ERR_OK;
+            *valid_length = sfn5122f_q_rx_ev_rx_ev_byte_ctn_extract(ev);
         } else if (sfn5122f_q_rx_ev_rx_ev_ip_hdr_chksum_err_extract(ev)) {
             printf("IP header ckecksum error \n");
             err = NIC_ERR_RX_PKT;
@@ -416,7 +421,6 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
             *valid_length = 16384;
         }
     }
-
     /*
     if (q->userspace){
         d_user = q->tx_ring.user[q->tx_head];  
