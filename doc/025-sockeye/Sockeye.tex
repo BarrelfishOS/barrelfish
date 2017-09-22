@@ -225,12 +225,12 @@ The order in which the nodes are declared does not matter.
 
 \clearpage
 \paragraph{Example}
-\begin{syntax}
+\begin{example}
     SDRAM \textbf{is} \ldots
 
     UART1,
     UART2 \textbf{are} \ldots
-\end{syntax}
+\end{example}
 
 \subsection{Node Specifications}
 A node specification consists of a type, a set of accepted address blocks, a set of address mappings to other nodes, a set of reserved address blocks and an overlay.
@@ -268,11 +268,11 @@ The overlay will span addresses from \texttt{0x0} to \(\texttt{0x2}^\texttt{bits
 \end{align*}
 
 \paragraph{Example}
-\begin{syntax}
+\begin{example}
     SDRAM \textbf{is} \textbf{accept} [\ldots]
     L3 \textbf{is} \textbf{map} [\ldots]
     CORETEXA9_SS_Interconnect \textbf{is} \textbf{reserved} [\ldots] \textbf{over} L3/32
-\end{syntax}
+\end{example}
 
 \subsection{Node Type}
 Currently there are three types: \Sockeye{core}, \Sockeye{device} and \Sockeye{memory}. A fourth internal type \Sockeye{other} is given to nodes for which no type is specified.
@@ -289,11 +289,11 @@ The \Sockeye{core} type designates the node as a CPU core. The \Sockeye{device} 
 \end{align*}
 
 \paragraph{Example}
-\begin{syntax}
+\begin{example}
     CORETEXA9_1 \textbf{is} core \textbf{map} [\ldots]
     UART3 \textbf{is} device \textbf{accept} [\ldots]
     SDRAM \textbf{is} memory \textbf{accept} [\ldots]
-\end{syntax}
+\end{example}
 
 \subsection{Addresses}
 Addresses are specified as hexadecimal literals.
@@ -320,11 +320,11 @@ A block from \Sockeye{0x0} to \Sockeye{0xFFF} with a size of 4kB can be specifie
 \end{align*}
 
 \paragraph{Example}
-\begin{syntax}
+\begin{example}
     UART1 is \textbf{accept} [0x0-0xFFF]
     UART3 is \textbf{accept} [0x0/12]    // \textit{same as \textup{0x0-0xFFF}}
     IF_A9_0 is \textbf{accept} [0x44]      // \textit{same as \textup{0x44-0x44}}
-\end{syntax}
+\end{example}
 
 \subsection{Map Specification}
 A map specification is a source address block, a target node identifier and optionally a target base address to which the source block is translated within the target node.
@@ -349,7 +349,7 @@ Multiple translation targets can be specified by giving a comma-separated list o
 \end{align*}
 
 \paragraph{Example}
-\begin{syntax}
+\begin{example}
     /* \textit{Translate \textup{0x54000000-0x0x54FFFFFF}
      * to \textup{L3_EMU} at \textup{0x54000000-0x0x54FFFFFF}:}
      */
@@ -363,7 +363,7 @@ Multiple translation targets can be specified by giving a comma-separated list o
      * - \textup{NVIC} at \textup{0x12}:}
      * /
     SDMA is \textbf{map} [0x2 \textbf{to} SPIMap \textbf{at} 0xC, NVIC \textbf{at} 0x12]
-\end{syntax}
+\end{example}
 
 \section{Modules}
 \label{sec:modules}
@@ -457,7 +457,7 @@ After that the identifier of the namespace in which to instantiate the module ha
 
 \clearpage
 \paragraph{Example}
-\begin{syntax}
+\begin{example}
     /* Instantiate module 'CortexA9-Subsystem' in namespace 'CortexA9_SS' */
     CortexA9-Subsystem as CortexA9_SS
 
@@ -475,7 +475,7 @@ After that the identifier of the namespace in which to instantiate the module ha
     CortexA9-Subsystem as CortexA9_SS \textbf{with}
         CORTEXA9_1 > CPU_1
         L3 < Interconnect
-\end{syntax}
+\end{example}
 
 \section{Templated Identifiers}
 \label{sec:template_idens}
@@ -518,10 +518,10 @@ This allows module parameters to control how many ports or nodes are instantiate
 \end{align*}
 
 \paragraph{Example}
-\begin{syntax}
+\begin{example}
     /* Declare similar nodes
      * Note that interval templates in node declarations
-     * always require the usage of '\textbf{are}')
+     * always require the usage of '\textbf{are}'
      */
     GPTIMER_\verb+{+[1..5]\verb+}+ \textbf{are} device \textbf{accept} [0x0/12]
 
@@ -541,7 +541,7 @@ This allows module parameters to control how many ports or nodes are instantiate
      */
     CortexA9-Core \textbf{as} Core_\verb+{+c in [1..2]\verb+}+ \textbf{with}
         CPU_\verb+{+c\verb+}+ > CPU
-\end{syntax}
+\end{example}
 
 \section{Imports}
 \label{sec:imports}
@@ -559,7 +559,7 @@ The compiler will first look for files in the current directory and then check t
 \end{align*}
 
 \paragraph{Example}
-\begin{syntax}
+\begin{example}
     /* Invoked with 'sockeye -i imports -i modules' the following
      * will cause the compiler to look for the files
      * 1. ./cortex/cortexA9.soc
@@ -568,7 +568,7 @@ The compiler will first look for files in the current directory and then check t
      * and import all modules from the first one that exists.
      */
     \textbf{import} cortex/cortexA9
-\end{syntax}
+\end{example}
 
 \section{Sockeye Files}
 A sockeye file consists of imports, module declarations and the specification body (node declarations and module instantiations).
