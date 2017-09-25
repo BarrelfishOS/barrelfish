@@ -54,13 +54,18 @@ to_region(Name,Region) :-
         node_id:Id,
         address:Addr
     } = Name,
-    get_min(Addr,Min),get_max(Addr,Max),
+    get_bounds(Addr,Min,Max),
     Size is Max - Min + 1,
-    Region = region{
-        node_id:Id,
-        base:Min,
-        size:Size
-    }.
+    ( get_domain_size(Addr,Size) ->
+            Region = region{
+            node_id:Id,
+            base:Min,
+            size:Size
+        }
+    ;
+        writeln(stderr,"Name conversion to region failed: Non continuous domain for address"),
+        fail
+    ).
 
 %% Address range in block
 block_range(Block,Range) :-
