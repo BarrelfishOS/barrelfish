@@ -28,6 +28,11 @@ do { \
 #define DEBUG(x...)
 #endif
 
+//{{{1 benchmark controls, defined in main.c
+extern uint32_t NUM_COPIES_START;
+extern uint32_t NUM_COPIES_END;
+extern uint32_t ITERS;
+
 //{{{1 Mgmt node API
 
 void broadcast_cmd(uint32_t cmd, uint32_t arg);

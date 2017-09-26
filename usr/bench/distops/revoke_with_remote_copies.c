@@ -1,8 +1,6 @@
 /**
  * \file
- * \brief no-op dummy for testing the benchmark framework
- *
- * Use this as a template if you want to write your own benchmark
+ * \brief Benchmark revoke of local cap which has remote relations
  */
 
 /*
@@ -23,9 +21,6 @@
 
 #include "benchapi.h"
 
-#define NUM_COPIES_START 1
-#define NUM_COPIES_END 32768
-#define ITERS 1000
 #define REVOKE_COPIES 10
 
 //{{{1 debugging helpers
