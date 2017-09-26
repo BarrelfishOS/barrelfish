@@ -60,6 +60,7 @@
                "pci",
                "ping_pong",
                "pixels",
+               "proc_mgmt",
                "rcce",
                "replay",
                "routing",

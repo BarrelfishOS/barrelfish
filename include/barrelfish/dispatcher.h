@@ -25,6 +25,9 @@ struct ump_chan;
 struct deferred_event;
 struct notificator;
 
+/// Maximum number of buffered capability receive slots
+#define MAX_RECV_SLOTS   4
+
 // Architecture generic user only dispatcher struct
 struct dispatcher_generic {
     /// stack for traps and disabled pagefaults
@@ -92,6 +95,10 @@ struct dispatcher_generic {
     struct waitset_chanstate *polled_channels;
     
     struct notificator *notificators;
+
+    struct capref recv_slots[MAX_RECV_SLOTS];///< Queued cap recv slots
+    int8_t recv_slot_count;                 ///< number of currently queued recv slots
+
 };
 
 #endif // BARRELFISH_DISPATCHER_H

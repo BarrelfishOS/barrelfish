@@ -305,6 +305,13 @@ struct dcb *spawn_module(struct spawn_state *st,
     err = caps_create_new(ObjType_IPI, 0, 0, 0, my_core_id, ipicap_cte);
     assert(err_is_ok(err));
 
+    // Create process manager capability
+    struct cte *procmngcap_cte = caps_locate_slot(CNODE(st->taskcn),
+                                                  TASKCN_SLOT_PROC_MNG);
+    err = caps_create_new(ObjType_ProcessManager, 0, 0, 0, my_core_id,
+                          procmngcap_cte);
+    assert(err_is_ok(err));
+
     /* Initialize dispatcher */
     dispatcher_handle_t init_handle
         = local_phys_to_mem(init_dispframe_cte->cap.u.frame.base);

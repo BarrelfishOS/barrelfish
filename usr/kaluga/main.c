@@ -46,7 +46,10 @@ size_t cpu_count = 0;
 
 static void add_start_function_overrides(void)
 {
-    set_start_function("e1000n", start_networking);
+
+    set_start_function("e10k", start_networking);
+    set_start_function("net_sockets_server", start_networking);
+    set_start_function("sfn5122f", start_networking);
     set_start_function("rtl8029", start_networking);
     set_start_function("corectrl", start_boot_driver);
 #ifdef __ARM_ARCH_7A__
@@ -110,6 +113,7 @@ int main(int argc, char** argv)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Parse boot modules.");
     }
+
     add_start_function_overrides();
 
     err = arch_startup(add_device_db_file);

@@ -16,9 +16,6 @@
 /// Maximum number of thread-local storage keys
 #define MAX_TLS         16
 
-/// Maximum number of buffered capability receive slots
-#define MAX_RECV_SLOTS   4
-
 /** \brief TLS dynamic thread vector data structure
  *
  * See: ELF handling for thread-local storage. Ulrich Drepper, Dec 2005.
@@ -84,8 +81,6 @@ struct thread {
     bool    rpc_in_progress;	            ///< RPC in progress
     errval_t    async_error;                ///< RPC async error
     uint32_t    outgoing_token;             ///< Token of outgoing message
-    struct capref recv_slots[MAX_RECV_SLOTS];///< Queued cap recv slots
-    int8_t recv_slot_count;                 ///< number of currently queued recv slots
     struct waitset_chanstate *local_trigger; ///< Trigger for a local thread event
 };
 

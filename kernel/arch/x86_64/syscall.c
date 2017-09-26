@@ -44,8 +44,6 @@
 #include <dev/amd_vmcb_dev.h>
 #endif
 
-#define MIN(a,b)        ((a) < (b) ? (a) : (b))
-
 extern uint64_t user_stack_save;
 
 /* FIXME: lots of missing argument checks in this function */

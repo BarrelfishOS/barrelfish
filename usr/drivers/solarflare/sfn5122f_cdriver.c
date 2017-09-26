@@ -1262,7 +1262,7 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     struct capref regs;
 
 
-    cd_create_queue_rpc(b, frame, user, interrupt, false, core,
+    cd_create_queue_rpc(b, frame, user, interrupt, qzero, core,
                         msix_vector, &mac, &queueid, &regs, &err);
 
     err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, err);
@@ -1619,11 +1619,7 @@ static void eventloop(void)
     ws = get_default_waitset();
     DEBUG("SFN5122F enter event loop \n");
     while (1) {
-        if (use_interrupt) {
-            event_dispatch(ws);
-        } else {
-            networking_poll();
-        }
+        event_dispatch(ws);
     }
 }
 
@@ -1660,7 +1656,6 @@ int main(int argc, char** argv)
 
     parse_cmdline(argc, argv);
 
-
     /* Register our device driver */
     err = pci_client_connect();
     assert(err_is_ok(err));
@@ -1674,17 +1669,6 @@ int main(int argc, char** argv)
         event_dispatch(get_default_waitset());
     }
     
-    DEBUG("SFN5122F driver networking init \n");
-    if (use_interrupt) {
-        err = networking_init("sfn5122f", NET_FLAGS_DO_DHCP |
-                              NET_FLAGS_DEFAULT_QUEUE);
-    } else {
-        err = networking_init("sfn5122f", NET_FLAGS_DO_DHCP | NET_FLAGS_POLLING |
-                              NET_FLAGS_DEFAULT_QUEUE);
-    }
-    assert(err_is_ok(err));
-
-    DEBUG("SFN5122F driver networking init done\n");
     start_all();
     
     /* loop myself */

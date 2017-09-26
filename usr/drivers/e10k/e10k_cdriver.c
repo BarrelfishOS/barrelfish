@@ -170,7 +170,6 @@ static bool exported = false;
 static e10k_t *d = NULL;
 static struct capref *regframe;
 
-static bool use_interrupts = true;
 static bool msix = false;
 
 /** Specifies if RX/TX is currently enabled on the device. */
@@ -1893,11 +1892,7 @@ static void eventloop(void)
     printf("Entering polling loop\n");
     ws = get_default_waitset();
     while (1) {
-        if (use_interrupts) {
-            event_dispatch(ws);
-        } else {
-            networking_poll();
-        }
+        event_dispatch(ws);
     }
 }
 
@@ -1934,17 +1929,6 @@ int e1000n_driver_init(int argc, char *argv[])
     while (!initialized || !exported) {
         event_dispatch(get_default_waitset());
     }
-
-    DEBUG("e10k driver networking init \n");
-    errval_t err;
-    if (use_interrupts){
-        err = networking_init("e10k", NET_FLAGS_DO_DHCP | NET_FLAGS_DEFAULT_QUEUE);
-    } else {
-        err = networking_init("e10k", NET_FLAGS_DO_DHCP | NET_FLAGS_POLLING |
-                              NET_FLAGS_DEFAULT_QUEUE);
-    }
-    DEBUG("e10k driver networking init done with error: %s \n", err_getstring(err));
-    assert(err_is_ok(err));
 
     qd_main();
     return 1;

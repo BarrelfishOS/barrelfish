@@ -317,3 +317,12 @@ cap KernelControlBlock from RAM {
 };
 
 cap IPI is_always_copy {};
+
+cap ProcessManager is_always_copy {
+    // Capability to act as process manager, i.e. create new domain caps.
+};
+
+cap Domain from ProcessManager {
+    eq coreid coreid;  /* Core where the domain was created. */
+    eq uint32 core_local_id;  /* Core-local ID of the domain. */
+};

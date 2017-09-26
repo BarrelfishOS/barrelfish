@@ -20,6 +20,50 @@ interface spawn "Interface to spawn domains" {
                                in cap argcn_cap, in uint8 flags, out errval err,
                                out domainid domain_id);
 
+    // Messages for the async interface with the process manager.
+    message spawn_request(cap procmng_cap,
+                          cap domain_cap,
+                          String path[2048],
+                          char argvbuf[argvbytes, 2048],
+                          char envbuf[envbytes, 2048],
+                          uint8 flags);
+
+    message spawn_with_caps_request(cap procmng_cap,
+                                    cap domain_cap,
+                                    String path[2048],
+                                    char argvbuf[argvbytes, 2048],
+                                    char envbuf[envbytes, 2048],
+                                    cap inheritcn_cap,
+                                    cap argcn_cap,
+                                    uint8 flags);
+
+    message span_request(cap procmng_cap, cap domain_cap, cap vroot,
+                         cap dispframe);
+
+    message kill_request(cap procmng_cap, cap domain_cap);
+
+    message cleanup_request(cap procmng_cap, cap domain_cap);
+    
+    message spawn_reply(errval err);
+
+    rpc spawn_proc_mgmt_domain(in cap domain_cap,
+                               in String path[2048],
+                               in char argvbuf[argvbytes, 2048],
+                               in char envbuf[envbytes, 2048],
+                               in uint8 flags,
+                               out errval err);
+
+    rpc spawn_proc_mgmt_domain_with_caps(in cap domain_cap,
+                                         in String path[2048],
+                                         in char argvbuf[argvbytes, 2048],
+                                         in char envbuf[envbytes, 2048],
+                                         in cap inheritcn_cap,
+                                         in cap argcn_cap,
+                                         in uint8 flags,
+                                         out errval err);
+
+    rpc span(in cap domain_cap, in cap vroot, in cap dispframe, out errval err);
+
     rpc use_local_memserv();
     rpc kill(in domainid domain_id, out errval err);
 

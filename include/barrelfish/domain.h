@@ -17,11 +17,26 @@
 #define BARRELFISH_DOMAIN_H
 
 #include <sys/cdefs.h>
+#include <barrelfish/event_queue.h>
 #include <barrelfish/threads.h>
 
 __BEGIN_DECLS
 
 typedef void (*domain_spanned_callback_t)(void *arg, errval_t err);
+
+///< Struct for spanning domains state machine
+struct span_domain_state {
+    struct thread *thread;              ///< Thread to run on remote core
+    uint8_t core_id;                    ///< Id of the remote core
+    errval_t err;                       ///< To propagate error value
+    domain_spanned_callback_t callback; ///< Callback for when domain has spanned
+    void *callback_arg;                 ///< Optional argument to pass with callback
+    struct capref frame;                ///< Dispatcher frame
+    struct capref vroot;                ///< VRoot cap
+    struct event_queue_node event_qnode;       ///< Event queue node
+    struct waitset_chanstate initev;    ///< Dispatcher initialized event
+    bool initialized;                   ///< True if remote initialized
+};
 
 struct mem_binding;
 struct octopus_binding;
@@ -30,6 +45,7 @@ struct monitor_blocking_binding;
 struct waitset;
 struct spawn_binding;
 struct arrakis_binding;
+struct proc_mgmt_binding;
 
 struct waitset *get_default_waitset(void);
 void disp_set_core_id(coreid_t core_id);
@@ -65,11 +81,15 @@ struct spawn_state *get_spawn_state(void);
 void set_spawn_state(struct spawn_state *st);
 struct slot_alloc_state *get_slot_alloc_state(void);
 struct skb_state *get_skb_state(void);
+struct proc_mgmt_binding *get_proc_mgmt_binding(void);
+void set_proc_mgmt_binding(struct proc_mgmt_binding *st);
 
 errval_t domain_init(void);
 errval_t domain_new_dispatcher(coreid_t core_id,
                                domain_spanned_callback_t callback,
                                void *callback_arg);
+errval_t domain_new_dispatcher_setup_only(coreid_t core_id,
+                                          struct span_domain_state **ret_state);
 errval_t domain_thread_create_on(coreid_t core_id, thread_func_t start_func,
                                  void *arg, struct thread **newthread);
 errval_t domain_thread_create_on_varstack(coreid_t core_id,
@@ -83,6 +103,7 @@ errval_t domain_wakeup_on_disabled(dispatcher_handle_t disp,
                                    struct thread *thread,
                                    dispatcher_handle_t mydisp);
 errval_t domain_thread_move_to(struct thread *thread, coreid_t core_id);
+errval_t domain_cap_hash(struct capref domain_cap, uint64_t *ret_hash);
 
 __END_DECLS
 

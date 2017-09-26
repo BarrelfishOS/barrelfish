@@ -16,12 +16,14 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <spawndomain/spawndomain.h>
+#include <barrelfish/monitor_client.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/cpu_arch.h>
 #include <vfs/vfs.h>
 #include <vfs/vfs_path.h>
 #include <dist/barrier.h>
 #include <if/spawn_defs.h>
+#include <if/monitor_defs.h>
 #include <if/monitor_blocking_defs.h>
 #include <barrelfish/dispatcher_arch.h>
 #include <barrelfish/invocations_arch.h>
@@ -30,10 +32,11 @@
 #include "ps.h"
 
 
-static errval_t spawn(const char *path, char *const argv[], const char *argbuf,
-                      size_t argbytes, char *const envp[],
-                      struct capref inheritcn_cap, struct capref argcn_cap,
-                      uint8_t flags, domainid_t *domainid)
+static errval_t spawn(struct capref domain_cap, const char *path,
+                      char *const argv[], const char *argbuf, size_t argbytes,
+                      char *const envp[], struct capref inheritcn_cap,
+                      struct capref argcn_cap, uint8_t flags,
+                      domainid_t *domainid)
 {
     errval_t err, msgerr;
 
@@ -141,7 +144,17 @@ static errval_t spawn(const char *path, char *const argv[], const char *argbuf,
     src.slot = TASKCN_SLOT_PERF_MON;
     err = cap_copy(dest, src);
     if (err_is_fail(err)) {
-        return err_push(err, INIT_ERR_COPY_PERF_MON);
+        return err_push(err, SPAWN_ERR_COPY_PERF_MON);
+    }
+
+    if (!capref_is_null(domain_cap)) {
+        // Pass over the domain cap.
+        dest.cnode = si.taskcn;
+        dest.slot = TASKCN_SLOT_DOMAINID;
+        err = cap_copy(dest, domain_cap);
+        if (err_is_fail(err)) {
+            return err_push(err, SPAWN_ERR_COPY_DOMAIN_CAP);
+        }
     }
 
     /* run the domain */
@@ -176,6 +189,16 @@ static errval_t spawn(const char *path, char *const argv[], const char *argbuf,
     err = cap_copy(pe->dcb, si.dcb);
     assert(err_is_ok(err));
     pe->status = PS_STATUS_RUNNING;
+    
+    if (!capref_is_null(domain_cap)) {
+        err = ps_hash_domain(pe, domain_cap);
+        if (err_is_fail(err)) {
+            free(pe);
+            spawn_free(&si);
+            return err_push(err, SPAWN_ERR_DOMAIN_CAP_HASH);
+        }
+    }
+
     err = ps_allocate(pe, domainid);
     if(err_is_fail(err)) {
         free(pe);
@@ -239,7 +262,8 @@ struct pending_spawn_response {
     domainid_t domainid;
 };
 
-static errval_t spawn_with_caps_common(const char *path, const char *argbuf,
+static errval_t spawn_with_caps_common(struct capref domain_cap,
+                                       const char *path, const char *argbuf,
                                        size_t argbytes, const char *envbuf,
                                        size_t envbytes,
                                        struct capref inheritcn_cap,
@@ -287,8 +311,8 @@ static errval_t spawn_with_caps_common(const char *path, const char *argbuf,
     strcpy(npath, path);
     vfs_path_normalise(npath);
 
-    err = spawn(npath, argv, argbuf, argbytes, envp, inheritcn_cap, argcn_cap,
-                flags, domainid);
+    err = spawn(domain_cap, npath, argv, argbuf, argbytes, envp, inheritcn_cap,
+                argcn_cap, flags, domainid);
     // XXX: do we really want to delete the inheritcn and the argcn here? iaw:
     // do we copy these somewhere? -SG
     if (!capref_is_null(inheritcn_cap)) {
@@ -315,8 +339,9 @@ static errval_t spawn_with_caps_handler(struct spawn_binding *b, const char *pat
     struct capref inheritcn_cap, struct capref argcn_cap, uint8_t flags,
     errval_t *err, spawn_domainid_t *domain_id)
 {
-    *err = spawn_with_caps_common(path, argvbuf, argvbytes, envbuf, envbytes,
-                                 inheritcn_cap, argcn_cap, flags, domain_id);
+    *err = spawn_with_caps_common(NULL_CAP, path, argvbuf, argvbytes, envbuf,
+                                  envbytes, inheritcn_cap, argcn_cap, flags,
+                                  domain_id);
     return SYS_ERR_OK;
 }
 
@@ -324,9 +349,310 @@ static errval_t spawn_handler(struct spawn_binding *b, const char *path,
     const char *argvbuf, size_t argvbytes, const char *envbuf, size_t envbytes,
     uint8_t flags, errval_t *err, spawn_domainid_t *domain_id)
 {
-    *err = spawn_with_caps_common(path, argvbuf, argvbytes, envbuf, envbytes,
-                                 NULL_CAP, NULL_CAP, flags, domain_id);
+    *err = spawn_with_caps_common(NULL_CAP, path, argvbuf, argvbytes, envbuf,
+                                  envbytes, NULL_CAP, NULL_CAP, flags,
+                                  domain_id);
     return SYS_ERR_OK;
+}
+
+static void spawn_with_caps_request_handler(struct spawn_binding *b,
+                                            struct capref procmng_cap,
+                                            struct capref domain_cap,
+                                            const char *path,
+                                            const char *argvbuf,
+                                            size_t argvbytes,
+                                            const char *envbuf,
+                                            size_t envbytes,
+                                            struct capref inheritcn_cap,
+                                            struct capref argcn_cap,
+                                            uint8_t flags)
+{
+    errval_t err, reply_err;
+    struct capability ret;
+    err = monitor_cap_identify_remote(procmng_cap, &ret);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
+        goto reply;
+    }
+
+    if (ret.type != ObjType_ProcessManager) {
+        err = SPAWN_ERR_NOT_PROC_MNGR;
+        goto reply;
+    }
+
+    spawn_domainid_t dummy_domain_id;
+    err = spawn_with_caps_common(domain_cap, path, argvbuf, argvbytes, envbuf,
+                                 envbytes, inheritcn_cap, argcn_cap, flags,
+                                 &dummy_domain_id);
+
+reply:
+    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, err);
+    if (err_is_fail(reply_err)) {
+        DEBUG_ERR(err, "failed to send spawn_with_caps_reply");
+    }
+}
+
+static void spawn_request_handler(struct spawn_binding *b,
+                                  struct capref procmng_cap,
+                                  struct capref domain_cap, const char *path,
+                                  const char *argvbuf, size_t argvbytes,
+                                  const char *envbuf, size_t envbytes,
+                                  uint8_t flags)
+{
+    errval_t err, reply_err;
+    struct capability ret;
+    err = monitor_cap_identify_remote(procmng_cap, &ret);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
+        goto reply;
+    }
+
+    if (ret.type != ObjType_ProcessManager) {
+        err = SPAWN_ERR_NOT_PROC_MNGR;
+        goto reply;
+    }
+    
+    spawn_domainid_t dummy_domain_id;
+    err = spawn_with_caps_common(domain_cap, path, argvbuf, argvbytes, envbuf,
+                                 envbytes, NULL_CAP, NULL_CAP, flags,
+                                 &dummy_domain_id);
+
+reply:
+    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, err);
+    if (err_is_fail(reply_err)) {
+        DEBUG_ERR(err, "failed to send spawn_reply");
+    }
+}
+
+static void span_request_handler(struct spawn_binding *b,
+                                 struct capref procmng_cap,
+                                 struct capref domain_cap, struct capref vroot,
+                                 struct capref dispframe)
+{
+    errval_t err, mon_err, reply_err;
+    struct capability ret;
+    err = monitor_cap_identify_remote(procmng_cap, &ret);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
+        goto reply;
+    }
+
+    if (ret.type != ObjType_ProcessManager) {
+        err = SPAWN_ERR_NOT_PROC_MNGR;
+        goto reply;
+    }
+
+    struct spawninfo si;
+    memset(&si, 0, sizeof(si));
+
+    debug_printf("Spanning domain to core %d\n", disp_get_core_id());
+
+    // Span domain
+    err = spawn_span_domain(&si, vroot, dispframe);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_SPAN);
+        goto reply;
+    }
+
+    // Set connection to monitor.
+    struct monitor_blocking_binding *mrpc = get_monitor_blocking_binding();
+    struct capref monep;
+    err = slot_alloc(&monep);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_MONEP_SLOT_ALLOC);
+        goto reply;
+    }
+    err = mrpc->rpc_tx_vtbl.alloc_monitor_ep(mrpc, &mon_err, &monep);
+    if (err_is_ok(err)) {
+        err = mon_err;
+    }
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_MONITOR_CLIENT);
+        goto reply;
+    }
+
+    /* copy connection into the new domain */
+    struct capref destep = {
+        .cnode = si.taskcn,
+        .slot  = TASKCN_SLOT_MONITOREP,
+    };
+    err = cap_copy(destep, monep);
+    if (err_is_fail(err)) {
+        spawn_free(&si);
+        cap_destroy(monep);
+        err = err_push(err, SPAWN_ERR_MONITOR_CLIENT);
+        goto reply;
+    }
+
+    err = cap_destroy(monep);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_MONITOR_CLIENT);
+        goto reply;
+    }
+
+    /* give the perfmon capability */
+    struct capref dest, src;
+    dest.cnode = si.taskcn;
+    dest.slot = TASKCN_SLOT_PERF_MON;
+    src.cnode = cnode_task;
+    src.slot = TASKCN_SLOT_PERF_MON;
+    err = cap_copy(dest, src);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_COPY_PERF_MON);
+        goto reply;
+    }
+
+    // Pass over the domain cap.
+    dest.cnode = si.taskcn;
+    dest.slot = TASKCN_SLOT_DOMAINID;
+    err = cap_copy(dest, domain_cap);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_COPY_DOMAIN_CAP);
+        goto reply;
+    }
+
+    // Make runnable
+    err = spawn_run(&si);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_RUN);
+        goto reply;
+    }
+
+    // Allocate an id for this dispatcher.
+    struct ps_entry *pe = malloc(sizeof(struct ps_entry));
+    assert(pe != NULL);
+    memset(pe, 0, sizeof(struct ps_entry));
+    /*
+     * NB: It's important to keep a copy of the DCB *and* the root
+     * CNode around.  We need to revoke both (in the right order, see
+     * kill_domain() below), so that we ensure no one else is
+     * referring to the domain's CSpace anymore. Especially the loop
+     * created by placing rootcn into its own address space becomes a
+     * problem here.
+     */
+    // TODO(razvan): The following code is here to comply with spawn().
+    err = slot_alloc(&pe->rootcn_cap);
+    assert(err_is_ok(err));
+    err = cap_copy(pe->rootcn_cap, si.rootcn_cap);
+    pe->rootcn = si.rootcn;
+    assert(err_is_ok(err));
+    err = slot_alloc(&pe->dcb);
+    assert(err_is_ok(err));
+    err = cap_copy(pe->dcb, si.dcb);
+    assert(err_is_ok(err));
+    pe->status = PS_STATUS_RUNNING;
+
+    err = ps_hash_domain(pe, domain_cap);
+    if (err_is_fail(err)) {
+        free(pe);
+        spawn_free(&si);
+        err = err_push(err, SPAWN_ERR_DOMAIN_CAP_HASH);
+        goto reply;
+    }
+
+    domainid_t domainid;
+    err = ps_allocate(pe, &domainid);
+    if(err_is_fail(err)) {
+        free(pe);
+    }
+
+    // Cleanup
+    err = spawn_free(&si);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_FREE);
+    }
+
+reply:
+    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, err);
+    if (err_is_fail(reply_err)) {
+        DEBUG_ERR(err, "failed to send span_reply");
+    }
+}
+
+static void cleanup_cap(struct capref cap)
+{
+    errval_t err;
+
+    err = cap_revoke(cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cap_revoke");
+    }
+    err = cap_destroy(cap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cap_destroy");
+    }
+}
+
+static void kill_request_handler(struct spawn_binding *b,
+                                 struct capref procmng_cap,
+                                 struct capref victim_domain_cap)
+{
+    errval_t err, reply_err;
+    struct capability ret;
+    err = monitor_cap_identify_remote(procmng_cap, &ret);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
+        goto reply;
+    }
+
+    if (ret.type != ObjType_ProcessManager) {
+        err = SPAWN_ERR_NOT_PROC_MNGR;
+        goto reply;
+    }
+
+    struct ps_entry *pe;
+    err = ps_get_domain(victim_domain_cap, &pe, NULL);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_DOMAIN_NOTFOUND);
+        goto reply;
+    }
+
+    cleanup_cap(pe->dcb);
+
+reply:
+    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, err);
+    if (err_is_fail(reply_err)) {
+        DEBUG_ERR(err, "failed to send kill_reply");
+    }
+}
+
+static void cleanup_request_handler(struct spawn_binding *b,
+                                    struct capref procmng_cap,
+                                    struct capref domain_cap)
+{
+    errval_t err, reply_err;
+    struct capability ret;
+    err = monitor_cap_identify_remote(procmng_cap, &ret);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_IDENTIFY_PROC_MNGR_CAP);
+        goto reply;
+    }
+
+    if (ret.type != ObjType_ProcessManager) {
+        err = SPAWN_ERR_NOT_PROC_MNGR;
+        goto reply;
+    }
+
+    struct ps_entry *pe;
+    err = ps_release_domain(domain_cap, &pe);
+    if (err_is_fail(err)) {
+        err = err_push(err, SPAWN_ERR_DOMAIN_NOTFOUND);
+        goto reply;
+    }
+
+    cleanup_cap(pe->rootcn_cap);
+
+    // Cleanup struct ps_entry. Note that waiters will be handled by the process
+    // manager, as opposed to the old protocol of handling them here.
+    free(pe->argbuf);
+    ps_remove(pe->domain_id);
+    free(pe);
+
+reply:
+    reply_err = b->tx_vtbl.spawn_reply(b, NOP_CONT, err);
+    if (err_is_fail(reply_err)) {
+        DEBUG_ERR(err, "failed to send cleanup_reply");
+    }
 }
 
 /**
@@ -356,20 +682,6 @@ static void cleanup_domain(domainid_t domainid)
     free(ps->argbuf);
 
     ps_remove(domainid);
-}
-
-static void cleanup_cap(struct capref cap)
-{
-    errval_t err;
-
-    err = cap_revoke(cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cap_revoke");
-    }
-    err = cap_destroy(cap);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "cap_destroy");
-    }
 }
 
 static errval_t kill_domain(domainid_t domainid, uint8_t exitcode)
@@ -532,6 +844,14 @@ static void dump_capabilities_handler(struct spawn_binding *b, domainid_t domain
 static struct spawn_rx_vtbl rx_vtbl = {
     // .spawn_domain_call = spawn_handler,
     // .spawn_domain_with_caps_call = spawn_with_caps_handler,
+
+    // Async messages for the process manager.
+    .spawn_request           = spawn_request_handler,
+    .spawn_with_caps_request = spawn_with_caps_request_handler,
+    .span_request            = span_request_handler,
+    .kill_request            = kill_request_handler,
+    .cleanup_request         = cleanup_request_handler,
+
     .use_local_memserv_call = use_local_memserv_handler,
     .kill_call = kill_handler,
     .exit_call = exit_handler,
@@ -557,6 +877,14 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 {
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "export failed");
+    }
+
+    // Send iref back to monitor, which will forward it to the process manager.
+    struct monitor_binding *mb = get_monitor_binding();
+    err = mb->tx_vtbl.set_spawn_iref_request(mb, NOP_CONT, iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to send set_spawn_iref_request to "
+                "monitor");
     }
 
     // construct name

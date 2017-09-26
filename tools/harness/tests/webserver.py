@@ -54,9 +54,8 @@ class WebCommon(TestCommon):
         self.ip = None
 
     def get_modules(self, build, machine):
-        cardName = "e1000"
         modules = super(WebCommon, self).get_modules(build, machine)
-        modules.add_module("e1000_net_sockets_server", ["auto"])
+        modules.add_module("net_sockets_server", ["auto"])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         modules.add_module("webserver", ["core=%d" % machine.get_coreids()[0], #2
 				nfsip, siteconfig.get('WEBSERVER_NFS_PATH')])
@@ -101,7 +100,7 @@ class WebserverTest(WebCommon):
         self.testlog = None
 
     def getpage_stress(self, server, page, count):
-        debug.verbose('requesting http://%s/%s' % (server, page))
+        debug.verbose('requesting http://%s/%s' % (server, page))  
         failure_count = 0;
         #c = httplib.HTTPConnection(server, timeout=WEBSERVER_TIMEOUT)
         for i in range(count):
@@ -211,6 +210,35 @@ class WebserverTest(WebCommon):
         testlog.close()
         server_ok = super(WebserverTest, self).passed()
         return PassFailResult(passed and server_ok)
+
+
+@tests.add_test
+class WebserverTestSf(WebserverTest):
+    '''tests webserver functionality solarflare'''
+    name = "webserver_sf"
+ 
+    def get_modules(self, build, machine):
+        modules = super(WebCommon, self).get_modules(build, machine)
+        modules.add_module("sfn5122f", ["auto"])
+        modules.add_module("net_sockets_server", ["nospawn"])
+        nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
+        modules.add_module("webserver", ["core=%d" % machine.get_coreids()[0], #2
+				nfsip, siteconfig.get('WEBSERVER_NFS_PATH')])
+        return modules
+   
+@tests.add_test
+class WebserverTestE10k(WebserverTest):
+    '''tests webserver functionality e10k'''
+    name = "webserver_e10k"
+ 
+    def get_modules(self, build, machine):
+        modules = super(WebCommon, self).get_modules(build, machine)
+        modules.add_module("e10k", ["auto"])
+        modules.add_module("net_sockets_server", ["nospawn"])
+        nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
+        modules.add_module("webserver", ["core=%d" % machine.get_coreids()[0], #2
+				nfsip, siteconfig.get('WEBSERVER_NFS_PATH')])
+        return modules
 
 
 @tests.add_test
@@ -378,7 +406,6 @@ class HTTPerfTest(WebCommon):
             final.mark_failed('\n'.join(self.server_failures))
 
         return final
-
 
 class HTTPerfResults(ResultsBase):
     _err_fields = 'fd_unavail addrunavail ftab_full other_err'.split()

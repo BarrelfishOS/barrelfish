@@ -71,9 +71,6 @@
  */
 #define BETA            (SPECTRUM / 10)
 
-#define MAX(a, b)       ((a) > (b) ? (a) : (b))
-#define MIN(a, b)       ((a) < (b) ? (a) : (b))
-
 
 // queue_tail has to be global, as its used from assembly
 // this is always kept in sync with kcb_current->queue_tail

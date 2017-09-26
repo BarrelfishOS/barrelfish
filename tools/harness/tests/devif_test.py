@@ -62,6 +62,7 @@ class DevifTests(TestCommon):
         self.machine = machine.name
         modules = super(DevifTests, self).get_modules(build, machine)
         modules.add_module("e10k", ["auto", "function=0"])
+        modules.add_module("net_sockets_server", ["nospawn"])
         modules.add_module("sfn5122f", ["auto", "function=0"])
         modules.add_module("devif_idc", ["core=1"])
 
@@ -163,6 +164,7 @@ class DevifUDP(DevifTests):
     def get_modules(self, build, machine):
         self.machine = machine.name
         modules = super(DevifTests, self).get_modules(build, machine)
+        modules.add_module("net_sockets_server", ["nospawn"])
         hostname = '%s.in.barrelfish.org' % subprocess.check_output('hostname -s', shell=True).rstrip()
         dst_ip = self.get_decimal_ip(hostname)
         dst_mac = self.get_local_mac('eno2')

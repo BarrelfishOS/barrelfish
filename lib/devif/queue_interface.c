@@ -111,7 +111,7 @@ errval_t devq_dequeue(struct devq *q,
         return DEVQ_ERR_INVALID_BUFFER_ARGS;
     }
 
-    DQI_DEBUG("Dequeue q=%p rid=%d, bid=%d \n", q, *region_id, *buffer_id);
+    DQI_DEBUG("Dequeue q=%p rid=%u, offset=%lu \n", q, *region_id, *offset);
 
     return SYS_ERR_OK;
 }

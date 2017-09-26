@@ -366,6 +366,7 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
         descriptor per packet  */
     struct devq_buf* buf;
     size_t rx_head;
+
     sfn5122f_q_rx_ev_t ev;
     //sfn5122f_q_rx_user_desc_t d_user= 0;
     //sfn5122f_q_rx_ker_desc_t d = 0;
@@ -382,13 +383,37 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
     *flags = buf->flags;
 
     if(!sfn5122f_q_rx_ev_rx_ev_pkt_ok_extract(ev)) {   
-         if (sfn5122f_q_rx_ev_rx_ev_tobe_disc_extract(ev)) {
-            // packet discared by softare -> ok
+        if (sfn5122f_q_rx_ev_rx_ev_tobe_disc_extract(ev)) {
+            // packet discared by software -> ok
+            printf("Discard \n");
             err = NIC_ERR_RX_DISCARD;
-         } else if (sfn5122f_q_rx_ev_rx_ev_buf_owner_id_extract(ev)) {
-             printf("Wrong owner \n");
-             err = NIC_ERR_RX_PKT;
-         }
+        } else if (sfn5122f_q_rx_ev_rx_ev_buf_owner_id_extract(ev)) {
+            printf("Wrong owner \n");
+            err = NIC_ERR_RX_PKT;
+        } else if (sfn5122f_q_rx_ev_rx_ev_frm_trunc_extract(ev)) {
+            printf("Frame truncated \n");
+            err = NIC_ERR_RX_PKT;
+        } else if (sfn5122f_q_rx_ev_rx_ev_tcp_udp_chksum_err_extract(ev)) {
+            printf("UDP/TCP checksum error \n");
+            err = NIC_ERR_RX_PKT;
+        } else if (sfn5122f_q_rx_ev_rx_ev_pkt_not_parsed_extract(ev)) {
+            printf("Card error while parsing \n");
+            err = NIC_ERR_RX_PKT;
+        } else if (sfn5122f_q_rx_ev_rx_ev_ip_frag_err_extract(ev)) {
+            /*
+             * Seems like this should not really be handeled as an error even
+             * if the event itself seems to suggest so. Not even handeled in linux. 
+             * (pkt_ok()) is not even read out ...
+             */ 
+            err = SYS_ERR_OK;
+            *valid_length = sfn5122f_q_rx_ev_rx_ev_byte_ctn_extract(ev);
+        } else if (sfn5122f_q_rx_ev_rx_ev_ip_hdr_chksum_err_extract(ev)) {
+            printf("IP header ckecksum error \n");
+            err = NIC_ERR_RX_PKT;
+        } else {
+            printf("Unknown error \n");
+            err = NIC_ERR_RX_PKT;
+        }
     } else {
         *valid_length = sfn5122f_q_rx_ev_rx_ev_byte_ctn_extract(ev);
         /* Length of 0 is treated as 16384 bytes */
@@ -396,7 +421,6 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
             *valid_length = 16384;
         }
     }
-
     /*
     if (q->userspace){
         d_user = q->tx_ring.user[q->tx_head];  
@@ -408,7 +432,6 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
     */
     /* only have to reset event entry */
     sfn5122f_queue_clear_ev(ev);
-
     sfn5122f_queue_bump_rxhead(q);
     return err;
 }
