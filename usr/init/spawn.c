@@ -83,6 +83,16 @@ errval_t initialize_monitor(struct spawninfo *si)
         return err_push(err, INIT_ERR_COPY_IPI);
     }
 
+    /* Give monitor the ProcessManager capability */
+    dest.cnode = si->taskcn;
+    dest.slot = TASKCN_SLOT_PROC_MNG;
+    src.cnode = cnode_task;
+    src.slot = TASKCN_SLOT_PROC_MNG;
+    err = cap_copy(dest, src);
+    if (err_is_fail(err)) {
+        return err_push(err, INIT_ERR_COPY_PROC_MNG_CAP);
+    }
+
     /* Give monitor modulecn */
     dest.cnode = si->rootcn;
     dest.slot  = ROOTCN_SLOT_MODULECN;

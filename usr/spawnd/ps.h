@@ -31,7 +31,15 @@ struct ps_entry {
     char *argv[MAX_CMDLINE_ARGS];
     char *argbuf;
     size_t argbytes;
-    struct capref rootcn_cap, dcb;
+
+    domainid_t domain_id;
+
+    struct capref domain_cap;
+    uint64_t domain_cap_hash;
+    
+    struct capref rootcn_cap;
+    struct capref dispframe;
+    struct capref dcb;
     struct cnoderef rootcn;
     uint8_t exitcode;
     enum ps_status status;
@@ -42,5 +50,11 @@ errval_t ps_allocate(struct ps_entry *entry, domainid_t *domainid);
 void ps_remove(domainid_t domain_id);
 bool ps_exists(domainid_t domain_id);
 struct ps_entry *ps_get(domainid_t domain_id);
+
+errval_t ps_hash_domain(struct ps_entry *entry, struct capref domain_cap);
+errval_t ps_get_domain(struct capref domain_cap, struct ps_entry **ret_entry,
+                       uint64_t *ret_hash_key);
+errval_t ps_release_domain(struct capref domain_cap,
+                           struct ps_entry **ret_entry);
 
 #endif

@@ -115,6 +115,33 @@ static errval_t bind_client(coreid_t coreid)
     return err;
 }
 
+errval_t spawn_bind_iref(iref_t iref, struct spawn_binding **ret_client)
+{
+    assert(ret_client != NULL);
+
+    struct spawn_bind_retst bindst = { .present = false };
+    errval_t err = spawn_bind(iref, spawn_bind_cont, &bindst,
+                              get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "spawn_bind failed");
+        return err;
+    }
+
+    // XXX: block for bind completion
+    while (!bindst.present) {
+        messages_wait_and_handle_next();
+    }
+
+    if (err_is_fail(bindst.err)) {
+        return bindst.err;
+    }
+
+    spawn_rpc_client_init(bindst.b);
+    *ret_client = bindst.b;
+    // set_spawn_binding(coreid, bindst.b);
+
+    return err;
+}
 
 /**
  * \brief Request the spawn daemon on a specific core to spawn a program

@@ -162,6 +162,9 @@ errors kernel SYS_ERR_ {
     // ID capability
     failure ID_SPACE_EXHAUSTED  "ID space exhausted",
 
+    // Domain capability
+    failure DOMAIN_SPACE_EXHAUSTED "Domain space exhausted",
+
     // I2C driver
     // XXX: should not be in kernel
     failure I2C_UNINITIALIZED           "Trying to use uninitialized i2c controller",
@@ -419,6 +422,9 @@ errors libbarrelfish LIB_ERR_ {
     failure SEGBASE_OVER_4G_LIMIT  "Segment base address is above 32-bit boundary",
     failure LDT_FULL               "LDT is out of space",
     failure LDT_SELECTOR_INVALID   "Segment selector is invalid for LDT",
+
+    // Process management client library
+    failure PROC_MGMT_CLIENT_ACCEPT "Error in proc_mgmt_client_lmp_accept()",
 };
 
 // errors in Flounder-generated bindings
@@ -647,6 +653,8 @@ errors spawn SPAWN_ERR_ {
     failure COPY_PERF_MON	"Error copying performance monitoring cap",
     failure COPY_KERNEL_CAP     "Error copying Kernel cap",
     failure COPY_INHERITCN_CAP  "Error copying capability from inherited cnode",
+    failure COPY_PROC_MNG_CAP   "Error copying ProcessManager cap",
+    failure COPY_DOMAIN_CAP     "Error copying domain cap",
 
     // make_runnable
     failure DISPATCHER_SETUP    "Dispatcher setup",
@@ -655,9 +663,33 @@ errors spawn SPAWN_ERR_ {
     failure DOMAIN_ALLOCATE    "No more domain descriptors",
     failure DOMAIN_NOTFOUND    "Domain not found",
     failure DOMAIN_RUNNING    "Domain is running",
+    
+    failure IDENTIFY_PROC_MNGR_CAP "Failed to identify process manager cap",
+    failure NOT_PROC_MNGR          "Request did not come from the process manager",
+
+    failure CREATE_DOMAIN_TABLE  "Failed to create domain hash table",
+    failure DOMAIN_CAP_HASH      "Failed to compute hash code for domain cap",
+    failure DOMAIN_TABLE_FIND    "Failed to find requested domain in domain table",
 
     failure FIND_SPAWNDS       "Unable to find spawn daemons",
     failure MALFORMED_SPAWND_RECORD "Spawn record without ID found?",
+};
+
+// errors related to the process manager
+errors proc_mgmt PROC_MGMT_ERR_ {
+    failure NOT_MONITOR          "Received monitor-only request from non-monitor domain",
+    failure SPAWND_EXISTS        "Requested spawnd slot already exists",
+    failure INVALID_SPAWND       "Not connected to spawnd on the requested core",
+    failure CREATE_DOMAIN_CAP    "Failed to create new domain cap",
+    failure SPAWND_REQUEST       "Failed to send request to spawnd",
+    failure DOMAIN_CAP_HASH      "Failed to compute hash code for domain cap",
+    failure CREATE_CLIENTS_TABLE "Failed to create pending clients hash table",
+    failure CLIENTS_TABLE_FIND   "Failed to find requested client in pending clients table",
+    failure CREATE_DOMAIN_TABLE  "Failed to create domain hash table",
+    failure DOMAIN_TABLE_FIND    "Failed to find requested domain in domain table",
+    failure DOMAIN_NOT_RUNNING   "Domain is not currently running",
+    failure ALREADY_SPANNED      "Domain has already been spanned to the given core",
+    failure KILL                 "Failed to kill requested domain",
 };
 
 // errors from ELF library
@@ -710,6 +742,7 @@ errors init INIT_ERR_ {
     failure COPY_KERNEL_CAP     "Failed to copy kernel cap to monitor",
     failure COPY_BSP_KCB        "Error copying BSP KernelControlBlock",
     failure COPY_IPI            "Failed to copy IPI cap to monitor",
+    failure COPY_PROC_MNG_CAP   "Failed to copy ProcessManager cap to monitor",
     failure COPY_PERF_MON       "Failed to copy performance monitoring cap to monitor",
     failure COPY_MODULECN_CAP   "Failed to copy module CNode cap to monitor",
     failure COPY_PACN_CAP       "Failed to copy phys addr CNode cap to monitor",

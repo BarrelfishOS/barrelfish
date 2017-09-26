@@ -18,6 +18,7 @@
 #include <sys/param.h>
 #include <monitor.h>
 #include <barrelfish/dispatch.h>
+#include <barrelfish/proc_mgmt_client.h>
 #include <trace/trace.h>
 #include "send_cap.h"
 #include "capops.h"
@@ -424,6 +425,15 @@ static void span_domain_reply(struct intermon_binding *b,
     }
 }
 
+static void add_spawnd(struct intermon_binding *b, iref_t iref)
+{
+    struct intermon_state *st = (struct intermon_state*) b->st;
+    errval_t err = proc_mgmt_add_spawnd(iref, st->core_id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Sending proc_mgmt_add_spawnd request failed");
+    }
+}
+
 static void trace_caps_request(struct intermon_binding *b)
 {
     errval_t err;
@@ -730,6 +740,8 @@ static struct intermon_rx_vtbl the_intermon_vtable = {
 
     .span_domain_request       = span_domain_request,
     .span_domain_reply         = span_domain_reply,
+
+    .add_spawnd                = add_spawnd,
 
     .rsrc_join                 = inter_rsrc_join,
     .rsrc_join_complete        = inter_rsrc_join_complete,

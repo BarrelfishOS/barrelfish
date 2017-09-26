@@ -1291,7 +1291,7 @@ void threads_prepare_to_span(dispatcher_handle_t newdh)
             errval_t err;
 
             size_t blocksize = sizeof(struct thread) + tls_block_total_len;
-            err = vspace_mmu_aware_map(&thread_slabs_vm, blocksize,
+            err = vspace_mmu_aware_map(&thread_slabs_vm, 64 * blocksize,
                                        &buf, &size);
             if (err_is_fail(err)) {
                 if (err_no(err) == LIB_ERR_VSPACE_MMU_AWARE_NO_SPACE) {

@@ -49,6 +49,8 @@ errval_t monitor_cap_set_remote(struct capref cap, bool remote);
 
 errval_t monitor_debug_print_cababilities(void);
 
+errval_t monitor_cap_identify_remote(struct capref cap, struct capability *ret);
+
 __END_DECLS
 
 #endif // BARRELFISH_MONITOR_CLIENT_H

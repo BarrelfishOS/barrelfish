@@ -410,3 +410,32 @@ errval_t monitor_debug_print_cababilities(void)
 
     return err;
 }
+
+/**
+ * \brief Ask the monitor to remotely identify the given cap.
+ */
+errval_t monitor_cap_identify_remote(struct capref cap, struct capability *ret)
+{
+    errval_t err, msgerr;
+
+    union {
+        monitor_blocking_caprep_t caprep;
+        struct capability capability;
+    } u;
+
+    struct monitor_blocking_binding *r = get_monitor_blocking_binding();
+    if (!r) {
+        return LIB_ERR_MONITOR_RPC_NULL;
+    }
+    err = r->rpc_tx_vtbl.cap_identify(r, cap, &msgerr, &u.caprep);
+    if (err_is_fail(err)){
+        return err;
+    } else if (err_is_fail(msgerr)) {
+        return msgerr;
+    }
+
+    assert(ret != NULL);
+    *ret = u.capability;
+
+    return msgerr;
+}

@@ -118,7 +118,8 @@ typedef uint32_t rsrcid_t;
 #define PRIxRSRCID  PRIx32
 
 /* Domain ID */
-typedef uint32_t domainid_t;
+typedef uint32_t     domainid_t;
+#define MAX_DOMAINID 0xffffffff
 #define PRIuDOMAINID    PRIu32
 #define PRIxDOMAINID    PRIx32
 
