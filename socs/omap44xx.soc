@@ -1,0 +1,778 @@
+/*
+ * Copyright (c) 2017, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich.
+ * Attn: Systems Group.
+ */
+
+/**
+ * Physical memory map for TI OMAP4460 SoC
+ *
+ * This is derived from:
+ * OMAP4460 Multimedia Device Silicon Revision 1.x Technical Reference
+ * Manual Version Q
+ *
+ */
+
+import omap44xx/cortexA9-subsystem
+
+/*
+ * 2.2 L3 Memory space mapping
+ */
+/* Q0 */
+SRAM is memory accept [0x0/30]
+
+/* Q1 */
+L3_OCM_RAM is memory accept [0x0-0xDFFF]
+
+/* Q2 */
+SDRAM is memory accept [0x0/30]
+
+/* TODO: Tiler view */
+
+L3 is map [
+        0x00000000/30 to SRAM
+        /* 0x40000000-0x4002FFFF reserved */
+        /* 0x40030000-0x4003BFFF Cortex-A9 ROM */
+        /* 0x4003C000-0x400FFFFF reserved */ //TRM: 0x40034000-0x400FFFFF?
+        /* 0x40100000/20 L4_ABE private access for Cortex A9
+        /* 0x40200000/20 reserved */
+        0x40300000-0x4030DFFF to L3_OCM_RAM
+        /* 0x4030E000-0x43FFFFFF reserved */
+        0x44000000/26 to L3_config
+        0x48000000/24 to L4_PER at 0x48000000
+        0x49000000/24 to L4_ABE
+        0x4A000000/24 to L4_CFG at 0x4A000000
+        /* 0x4B000000/24 reserved */
+        0x4C000000/24 to EMIF1
+        0x4D000000/24 to EMIF2
+        0x4E000000/25 to DMM
+        0x50000000/25 to GPMC
+        0x52000000/25 to ISS
+        0x54000000/24 to L3_EMU at 0x54000000
+        0x55000000/24 to CORTEXM3
+        0x56000000/25 to SGX
+        0x58000000/24 to Display
+        /* 0x59000000/24 reserved */
+        // 0x5A000000/24 IVA-HD configuration
+        // 0x5B000000/24 IVA-HD SL2
+        /* 0x5C000000/26 reserved */
+        // 0x60000000/28 Tiler address mapping
+        0x80000000/30 to SDRAM
+      ]
+
+/*
+ * 2.2.1 L3_EMU Memory Space Mapping
+ */
+L3_EMU is map [
+            0x54000000/20 to MIPI_STM_0
+            0x54100000/18 to MIPI_STM_1
+            0x54140000/13 to A9_CPU0_debug_PMU
+            0x54142000/13 to A9_CPU1_debug_PMU
+            /* 0x54144000/14 reserved */
+            0x54148000/12 to CTI0
+            0x54149000/12 to CTI1
+            /* 0x5414A000/13 reserved */
+            0x5414C000/12 to PTM0
+            0x5414D000/12 to PTM1
+            /* 0x5414E000/13 reserved */
+            0x54158000/12 to A9_CS-TF
+            0x54159000/12 to DAP_PC
+            /* 0x5415A000-0x5415EFFF reserved */
+            0x5416F000/12 to APB
+            0x54160000/12 to DRM
+            0x54161000/12 to MIPI_STM
+            0x54162000/12 to CS-ETB
+            0x54163000/12 to CS-TPIU
+            0x54164000/12 to CS-TF
+            /* 0x54165000/13 reserved */
+            // 0x54167000/12 Technology specific registers
+            /* 0x54168000-0x5417FFFF reserved */
+            // 0x54180000/12 Technology specific registers
+            /* 0x54181000-0x541FFFFF reserved */
+            // XXX: What about 0x54200000-0x54FFFFFF?
+          ]
+
+/*
+ * 2.3.1 L4_CFG Memory Space Mapping
+ */
+SAR_ROM is device accept [0x0/13]
+
+L4_CFG is map [
+            0x4A000000/11 to CFG_AP
+            0x4A000800/11 to CFG_LA
+            0x4A001000/12 to CFG_IP0
+            0x4A002000/12 to SYSCTRL_GENERAL_CORE
+            // 0x4A003000/12 L4 interconnect
+            0x4A004000/12 to CM1
+            // 0x4A005000/12 L4 interconnect
+            /* 0x4A006000/13 reserved
+            0x4A008000/13 to CM2
+            // 0x4A00A000/12 L4 interconnect
+            /* 0x4A00B000-0x4A055FFF reserved */
+            0x4A056000/12 to SDMA
+            // 0x4A057000/12 L4 interconnect
+            0x4A058000/12 to HSI
+            // 0x4A05C000/12 L4 interconnect
+            /* 0x4A05D000/12 reserved */
+            0x4A05E000/13 to SAR_ROM
+            // 0x4A060000/12 L4 interconnect
+            /* 0x4A061000/12 reserved */
+            0x4A062000/12 to HSUSBTLL
+            // 0x4A063000/12 L4 interconnect
+            0x4A064000/12 to HSUSBHOST
+            // 0x4A065000/12 L4 interconnect
+            0x4A066000/12 to DSP at 0x01C20000
+            // 0x4A067000/12 L4 interconnect
+            /* 0x4A068000-0x4A0A8FFF reserved */
+            0x4A0A9000/12 to FSUSBHOST
+            // 0x4A0AA000/12 L4 interconnect
+            0x4A0AB000/12 to HSUSBOTG
+            // 0x4A0AC000/12 L4 interconnect
+            0x4A0AD000/12 to USBPHY
+            // 0x4A0AE000/12 L4 interconnect
+            /* 0x4A0AF000-0x4A0D8FFF reserved */
+            0x4A0D9000/12 to SR_MPU
+            // 0x4A0DA000/12 L4 interconnect
+            0x4A0DB000/12 to SR_IVA
+            // 0x4A0DC000/12 L4 interconnect
+            0x4A0DD000/12 to SR_CORE
+            // 0x4A0DE000/12 L4 interconnect
+            /* 0x4A0DF000-0x4A0F3FFF reserved */
+            0x4A0F4000/12 to System_Mailbox
+            // 0x4A0F5000/12 L4 interconnect
+            0x4A0F6000/12 to Spinlock
+            // 0x4A0F7000/12 L4 interconnect
+            /* 0x4A0F8000/15 reserved */
+            0x4A100000/12 to SYSCTRL_PADCONF_CORE
+            // 0x4A101000/12 L4 interconnect
+            0x4A102000/12 to OCP-WP
+            // 0x4A103000/12 L4 interconnect
+            /* 0x4A104000-0x4A109FFF reserved */
+            0x4A10A000/12 to FDIF
+            // 0x4A10B000/12 L4 interconnect
+            /* 0x4A10C000-0x4A203FFF reserved */
+            0x4A204000/12 to C2C_INIT_firewall
+            // 0x4A205000/12 L4 interconnect
+            0x4A206000/12 to C2C_TARGET_firewall
+            // 0x4A207000/12 L4 interconnect
+            /* 0x4A208000/13 reserved */
+            0x4A20A000/12 to MA_firewall
+            // 0x4A20B000/12 L4 interconnect
+            0x4A20C000/12 to EMIF_firewall
+            // 0x4A20D000/12 L4 interconnect
+            /* 0x4A20E000/13 reserved */
+            0x4A210000/12 to GPMC_firewall
+            // 0x4A211000/12 L4 interconnect
+            0x4A212000/12 to L3_OCMC_RAM_firewall
+            // 0x4A213000/12 L4 interconnect
+            0x4A214000/12 to SGX_firewall
+            // 0x4A215000/12 L4 interconnect
+            0x4A216000/12 to ISS_firewall
+            // 0x4A217000/12 L4 interconnect
+            0x4A218000/12 to M3_firewall
+            // 0x4A219000/12 L4 interconnect
+            /* 0x4A21A000/13 reserved */
+            0x4A21C000/12 to DSS_firewall
+            // 0x4A21D000/12 L4 interconnect
+            0x4A21E000/12 to SL2_firewall
+            // 0x4A21F000/12 L4 interconnect
+            0x4A220000/12 to IVA-HD_firewall
+            // 0x4A221000/12 L4 interconnect
+            /* 0x4A222000/14 reserved */
+            0x4A226000/12 to L4-EMU_firewall
+            // 0x4A227000/12 L4 interconnect
+            0x4A228000/12 to L4-ABE_firewall
+            // 0x4A229000/12 L4 interconnect
+            /* 0x4A22A000-0x4A2FFFFF reserved */
+            0x4A300000/18 to L4_WKUP at 0x4A300000
+            // 0x4A340000/12 L4 interconnect
+            /* 0x4A341000-0x4AFFFFFF reserved */
+          ]
+
+
+/*
+ * 2.3.2 L4_WKUP Memory Space Mapping
+ */
+SAR_RAM1 is memory accept [0x0/12]
+SAR_RAM2 is memory accept [0x0/10]
+SAR_RAM3 is memory accept [0x0/11]
+SAR_RAM4 is memory accept [0x0/10]
+
+L4_WKUP is map [
+                0x4A300000/11 to WKUP_AP
+                0x4A300800/11 to WKUP_LA
+                0x4A301000/12 to WKUP_IP0
+                /* 0x4A302000/13 reserved */
+                0x4A304000/12 to S32KTIMER
+                // 0x4A305000/12 L4 interconnect
+                0x4A306000/13 to PRM
+                // 0x4A308000/12 L4 interconnect
+                /* 0x4A309000/12 reserved */
+                0x4A30A000/12 to SCRM
+                // 0x4A30B000/12 L4 interconnect
+                0x4A30C000/12 to SYSCTRL_GENERAL_WKUP
+                // 0x4A30D000/12 L4 interconnect
+                /* 0x4A30E000/13 reserved */
+                0x4A310000/12 to GPIO1
+                // 0x4A311000/12 L4 interconnect
+                /* 0x4A312000/13 reserved */
+                0x4A314000/12 to WDTIMER2
+                // 0x4A315000/12 L4 interconnect
+                /* 0x4A316000/13 reserved */
+                0x4A318000/12 to GPTIMER1
+                // 0x4A319000/12 L4 interconnect
+                /* 0x4A31A000/13 reserved (XXX: 'Module - Address space 0'?) */
+                0x4A31C000/12 to Keyboard
+                // 0x4A31D000/12 L4 interconnect
+                0x4A31E000/12 to SYSCTRL_PADCONF_WKUP
+                // 0x4A31F000/12 L4 interconnect
+                /* 0x4A320000-0x4A325FFF reserved */
+                0x4A326000/12 to SAR_RAM1
+                0x4A327000/10 to SAR_RAM2
+                /* 0x4A327400-0x4A327FFF reserved */
+                0x4A328000/11 to SAR_RAM3
+                /* 0x4A328800-0x4A328FFF reserved */
+                0x4A329000/10 to SAR_RAM4
+                /* 0x4A329400-0x4A329FFF reserved */
+                // 0x4A32A000/12 L4 interconnect
+                /* 0x4A32B000-0x4A33FFFF reserved */
+           ]
+
+/*
+ * 2.3.3 L4_PER Memory Space Mapping
+ */
+L4_PER is map [
+            0x48000000/11 to PER_AP
+            0x48000800/11 to PER_LA
+            0x48001000/10 to PER_IP0
+            0x48001400/10 to PER_IP1
+            0x48001800/10 to PER_IP2
+            0x48001C00/10 to PER_IP3
+            /* 0x48002000-0x4801FFFF reserved */
+            0x48020000/12 to UART3
+            // 0x48021000/12 L4 interconnect
+            /* 0x48022000/16 reserved */
+            0x48032000/12 to GPTIMER2
+            // 0x48033000/12 L4 interconnect
+            0x48034000/12 to GPTIMER3
+            // 0x48035000/12 L4 interconnect
+            0x48036000/12 to GPTIMER4
+            // 0x48037000/12 L4 interconnect
+            /* 0x48038000-0x4803DFFF reserved */
+            0x4803E000/12 to GPTIMER9
+            // 0x4803F000/12 L4 interconnect
+            0x48040000/16 to Display
+            // 0x48050000/12 L4 interconnect
+            /* 0x48051000/14 reserved */
+            0x48055000/12 to GPIO2
+            // 0x48056000/12 L4 interconnect
+            0x48057000/12 to GPIO3
+            // 0x48058000/12 L4 interconnect
+            0x48059000/12 to GPIO4
+            // 0x4805A000/12 L4 interconnect
+            0x4805B000/12 to GPIO5
+            // 0x4805C000/12 L4 interconnect
+            0x4805D000/12 to GPIO6
+            // 0x4805E000/12 L4 interconnect
+            /* 0x4805F000/12 reserved */
+            0x48060000/12 to I2C3
+            // 0x48061000/12 L4 interconnect
+            /* 0x48062000/15 reserved */
+            0x4806A000/12 to UART1
+            // 0x4806B000/12 L4 interconnect
+            0x4806C000/12 to UART2
+            // 0x4806D000/12 L4 interconnect
+            0x4806E000/12 to UART4
+            // 0x4806F000/12 L4 interconnect
+            0x48070000/12 to I2C1
+            // 0x48071000/12 L4 interconnect
+            0x48072000/12 to I2C2
+            // 0x48073000/12 L4 interconnect
+            /* 0x48074000/13 reserved */
+            0x48076000/12 to SLIMBUS2
+            // 0x48077000/12 L4 interconnect
+            0x48078000/12 to ELM
+            // 0x48079000/12 L4 interconnect
+            /* 0x4807A000-0x48085FFF reserved */
+            0x48086000/12 to GPTIMER10
+            // 0x48087000/12 L4 interconnect
+            0x48088000/12 to GPTIMER11
+            // 0x48089000/12 L4 interconnect
+            /* 0x4808A000-0x48095FFF reserved */
+            0x48096000/12 to McBSP4
+            // 0x48097000/12 L4 interconnect
+            0x48098000/12 to McSPI1
+            // 0x48099000/12 L4 interconnect
+            0x4809A000/12 to McSPI2
+            // 0x4809B000/12 L4 interconnect
+            0x4809C000/12 to HSMMC1
+            // 0x4809D000/12 L4 interconnect
+            /* 0x4809E000-0x480ACFFF reserved */
+            0x480AD000/12 to MMC_SD3
+            // 0x480AE000/12 L4 interconnect
+            /* 0x480AF000-0x480B1FFF reserved */
+            0x480B2000/12 to HDQ
+            // 0x480B3000/12 L4 interconnect
+            0x480B4000/12 to HSMMC2
+            // 0x480B5000/12 L4 interconnect
+            /* 0x480B6000/13 reserved */
+            0x480B8000/12 to McSPI3
+            // 0x480B9000/12 L4 interconnect
+            0x480BA000/12 to McSPI4
+            // 0x480BB000/12 L4 interconnect
+            /* 0x480BC000-0x480D0FFF reserved */
+            0x480D1000/12 to MMC_SD4
+            // 0x480D2000/12 L4 interconnect
+            /* 0x480D3000/13 reserved */
+            0x480D5000/12 to MMC_SD5
+            // 0x480D6000/12 L4 interconnect
+            /* 0x480D7000-0x4834FFFF reserved */
+            0x48350000/12 to I2C4
+            // 0x48351000/12 L4 interconnect
+            /* 0x48352000-0x48FFFFFF reserved */
+          ]
+
+/*
+ * 2.3.4 L4_ABE Memory Space Mapping
+ */
+DMEM,
+CMEM,
+SMEM are memory accept [0x0/16]
+
+L4_ABE is accept [0x00000/14] // XXX: First 16KB do what?
+          map [
+            /* 0x04000-0x021FFF reserved */
+            0x22000/12 to McBSP1
+            // 0x23000/12 L4 interconnect
+            0x24000/12 to McBSP2
+            // 0x25000/12 L4 interconnect
+            0x26000/12 to McBSP3
+            // 0x27000/12 L4 interconnect
+            0x28000/12 to McASP
+            // 0x29000/12 L4 interconnect
+            0x2A000/12 to McASP_DATA
+            // 0x2B000/12 L4 interconnect
+            0x2C000/12 to SLIMBUS1
+            // 0x2D000/12 L4 interconnect
+            0x2E000/12 to DMIC
+            // 0x2F000/12 L4 interconnect
+            0x30000/12 to WDTIMER3
+            // 0x31000/12 L4 interconnect
+            0x32000/12 to McPDM
+            // 0x33000/12 L4 interconnect
+            /* 0x34000/14 reserved */
+            0x38000/12 to GPTIMER5
+            // 0x39000/12 L4 interconnect
+            0x3A000/12 to GPTIMER6
+            // 0x3B000/12 L4 interconnect
+            0x3C000/12 to GPTIMER7
+            // 0x3D000/12 L4 interconnect
+            0x3E000/12 to GPTIMER8
+            // 0x3F000/12 L4 interconnect
+            /* 0x40000/18 reserved */
+            0x80000/16 to DMEM
+            // 0x90000/12 L4 interconnect
+            /* 0x91000-0x9FFFF reserved */
+            0xA0000/16 to CMEM
+            // 0xB0000/12 L4 interconnect
+            /* 0xB1000-0xBFFFF reserved */
+            0xC0000/16 to SMEM
+            // 0xD0000/12 L4 interconnect
+            /* 0xD1000/17 reserved */
+            0xF1000/12 to AESS
+            // 0xF2000/12 L4 interconnect
+            /* 0xF3000-0xFFFFF reserved */
+          ]
+
+/*
+ * Cortex A9 Memory Space Mapping
+ */
+CortexA9-Subsystem as CortexA9_SS with
+    CORTEXA9_{c in [1..2]} > CPU_{c}
+    L3 < L3
+    L4_ABE < L4_ABE
+
+/*
+ * 2.4 Dual Cortex-M3 Subsystem Memory Space Mapping
+ */
+CORTEXM3_ROM is memory accept [0x0/14]
+CORTEXM3_RAM is memory accept [0x0/16]
+
+// TODO: address space not accessible from L3
+CORTEXM3 is map [
+                    0x00000000-0x54FFFFFF to L3
+                    0x55000000/14 to CORTEXM3_ROM
+                    0x55020000/16 to CORTEXM3_RAM
+                    /* 0x55030000/16 reserved */
+                    0x55040000/18 to ISS at 0x10000 // XXX: Not accessible from L3?
+                    0x55080000/12 to M3_MMU
+                    0x55081000/12 to M3_WUGEN
+                    /* 0x55082000-0x55FFFFFF reserved */
+                    0x56000000/25 to L3
+                ]
+
+/*
+ * 2.5 DSP Subsystem Memory Space Mapping
+ */
+ // TODO: address space not accessible from L4_CFG
+ DSP is map [
+            0x01C20000/12 to SYSC
+        ]
+
+/*
+ * 2.6 Display Subsystem Memory Space Mapping
+ */
+Display is map [
+                // 0x0000/12 Display subsystem registers
+                0x1000/12 to DISPC
+                0x2000/12 to RFBI
+                0x3000/12 to VENC
+                0x4000/12 to DSI1
+                0x5000/12 to DSI2
+                0x6000/12 to HDMI
+                0x7000/12 to HDCP
+           ]
+
+/*
+ * 3 Power, Reset and Clock Management
+ */
+/*
+/* 3.11.1 PRM Instance Summary */
+INTRCONN_SOCKET_PRM is device accept [0x0/8]
+CKGEN_PRM is device accept [0x0/8]
+MPU_PRM is device accept [0x0/8]
+DSP_PRM is device accept [0x0/8]
+ABE_PRM is device accept [0x0/8]
+ALWAYS_ON_PRM is device accept [0x0/8]
+CORE_PRM is device accept [0x0/11]
+IVAHD_PRM is device accept [0x0/8]
+CAM_PRM is device accept [0x0/8]
+DSS_PRM is device accept [0x0/8]
+SGX_PRM is device accept [0x0/8]
+L3INIT_PRM is device accept [0x0/8]
+L4PER_PRM is device accept [0x0/9]
+WKUP_PRM is device accept [0x0/8]
+WKUP_CM is device accept [0x0/8]
+EMU_PRM is device accept [0x0/8]
+EMU_CM is device accept [0x0/8]
+DEVICE_PRM is device accept [0x0/8]
+INSTR_PRM is device accept [0x0/8]
+PRM is map [
+            0x0000/8 to INTRCONN_SOCKET_PRM
+            0x0100/8 to CKGEN_PRM
+            0x0300/8 to MPU_PRM
+            0x0400/8 to DSP_PRM
+            0x0500/8 to ABE_PRM
+            0x0600/8 to ALWAYS_ON_PRM
+            0x0700/11 to CORE_PRM
+            0x0F00/8 to IVAHD_PRM
+            0x1000/8 to CAM_PRM
+            0x1100/8 to DSS_PRM
+            0x1200/8 to SGX_PRM
+            0x1300/8 to L3INIT_PRM
+            0x1400/9 to L4PER_PRM
+            0x1700/8 to WKUP_PRM
+            0x1800/8 to WKUP_CM
+            0x1900/8 to EMU_PRM
+            0x1A00/8 to EMU_CM
+            0x1B00/8 to DEVICE_PRM
+            0x1F00/8 to INSTR_PRM
+       ]
+
+/* 3.11.21 CM1 Instance Summary */
+INTERCONN_SOCKET_CM1 is device accept [0x0/8]
+CKGEN_CM1 is device accept [0x0/9]
+CM1 is map [
+        0x000/8 to INTERCONN_SOCKET_CM1
+        0x100/9 to CKGEN_CM1
+       ]
+
+/* 3.11.29 CM2 Instance Summary */
+INTRCONN_SOCKET_CM2 is device accept [0x0/8]
+CKGEN_CM2 is device accept [0x0/8]
+ALWAYS_ON_CM2 is device accept [0x0/8]
+CORE_CM2 is device accept [0x0/11]
+IVAHD_CM2 is device accept [0x0/8]
+CAM_CM2 is device accept [0x0/8]
+DSS_CM2 is device accept [0x0/8]
+SGX_CM2 is device accept [0x0/8]
+L3INIT_CM2 is device accept [0x0/8]
+L4PER_CM2 is device accept [0x0/9]
+RESTORE_CM2 is device accept [0x0/8]
+INSTR_CM2 is device accept [0x0/8]
+CM2 is map [
+        0x0000/8 to INTRCONN_SOCKET_CM2
+        0x0100/8 to CKGEN_CM2
+        0x0600/8 to ALWAYS_ON_CM2
+        0x0700/11 to CORE_CM2
+        0x0F00/8 to IVAHD_CM2
+        0x1000/8 to CAM_CM2
+        0x1200/8 to SGX_CM2
+        0x1300/8 to L3INIT_CM2
+        0x1400/9 to L4PER_CM2
+        0x1E00/8 to RESTORE_CM2
+        0x1F00/8 to INSTR_CM2
+       ]
+
+/* 3.12 SCRM Register Manual */
+SCRM is device accept [0x0/12]
+
+/* 3.13 SR Register Manual */
+SR_MPU is device accept [0x0/8]
+SR_IVA is device accept [0x0/8]
+SR_CORE is device accept [0x0/8]
+
+/*
+ * 5 DSP Subsystem
+ */
+SYS_INTC is device accept [0x0/16]
+SYS_PD is device accept [0x0/16]
+EDM is device accept [0x0/12]
+TPCC is device accept [0x0/16]
+TPTC0,
+TPTC1 are device accept [0x0/10]
+SYSC is device accept [0x0/12]
+WUGEN is device accept [0x0/12]
+L1_SCACHE,
+L2_SCACHE are device accept [0x0/8]
+SCACHE_SCTM is device accept [0x0/9]
+SCACHE_MMU is device accept [0x0/11]
+
+/*
+ * 6 IVA-HD Subsystem
+ */
+SYSCTRL is device accept [0x0/10]
+
+/*
+ * 7 Dual Cortex-M3 MPU Subsystem
+ */
+M3_WUGEN is device accept [0x0/12]
+
+/*
+ * 8 Imaging Subsystem
+ */
+ISS_TOP is device accept [0x0/8]
+ISP5 is device accept [0x0/16]
+SIMCOP is device accept [0x0/17]
+ISS is map [
+            0x00000/8 to ISS_TOP
+            // TODO: Interfaces
+            0x10000/17 to ISP5
+            0x20000/17 to SIMCOP
+          ]
+
+/*
+ * 9 Face Detect
+ */
+FDIF is device accept [0x0/12]
+
+/*
+ * 10 Display Subsystem
+ */
+DISPC,
+RFBI,
+VENC,
+DSI1,
+DSI2,
+HDMI,
+HDCP are device accept [0x0/12]
+
+/*
+ * 11 2D/3D Graphics Accelerator
+ */
+SGX is device accept [0x0/25]
+
+/*
+ * 12 Audio Backend
+ */
+AESS is device accept [0x0/12]
+
+/*
+ * 13 Interconnect
+ */
+/* 13.2 L3 Interconnect */
+L3_config is device accept [0x0/26]
+C2C_INIT_firewall is device accept [0x0/12] // not in TRM, from omap44xx_map.h
+C2C_TARGET_firewall is device accept [0x0/12] // not in TRM, from omap44xx_map.h
+MA_firewall is device accept[0x0/12]
+EMIF_firewall is device accept [0x0/12]
+GPMC_firewall is device accept [0x0/12]
+L3_OCMC_RAM_firewall is device accept [0x0/12]
+SGX_firewall is device accept [0x0/12]
+ISS_firewall is device accept [0x0/12]
+M3_firewall is device accept [0x0/12]
+DSS_firewall is device accept [0x0/12]
+SL2_firewall is device accept [0x0/12]
+IVA-HD_firewall is device accept [0x0/12]
+L4-EMU_firewall is device accept [0x0/12]
+L4-ABE_firewall is device accept [0x0/12]
+
+/* 13.3 L4 Interconnects */
+PER_AP is device accept [0x0/11]
+PER_LA is device accept [0x0/11]
+PER_IP0 is device accept [0x0/10]
+PER_IP1 is device accept [0x0/10]
+PER_IP2 is device accept [0x0/10]
+PER_IP3 is device accept [0x0/10]
+
+CFG_AP is device accept [0x0/11]
+CFG_LA is device accept [0x0/11]
+CFG_IP0 is device accept [0x0/12]
+
+WKUP_AP is device accept [0x0/11]
+WKUP_LA is device accept [0x0/11]
+WKUP_IP0 is device accept [0x0/12]
+
+/*
+ * 15 Memory Subsystem
+ */
+DMM is device accept [0x0/25]
+EMIF1,
+EMIF2 are device accept [0x4D000000/24]
+GPMC is device accept [0x0/25]
+ELM is device accept [0x48078000/12]
+
+/*
+ * 16 SDMA
+ */
+SDMA is device accept [0x0/12]
+
+/*
+ * 17 Interrupt Controllers
+ */
+// TODO
+
+/*
+ * 18 Control Module
+ */
+SYSCTRL_GENERAL_CORE,
+SYSCTRL_GENERAL_WKUP,
+SYSCTRL_PADCONF_CORE,
+SYSCTRL_PADCONF_WKUP are device accept [0x0/12]
+
+
+/*
+ * 19 Mailbox
+ */
+System_Mailbox,
+IVAHD_Mailbox are device accept[0x0/12]
+
+/*
+ * 20 Memory Management Units
+ */
+M3_MMU,
+DSP_MMU are device accept [0x0/12]
+
+/*
+ * 21 Spinlock
+ */
+Spinlock is device accept [0x0/12]
+
+/*
+ * 22 Timers
+ */
+/* 22.2 General Purpose Timers */
+GPTIMER{[1..11]} are device accept [0x0/12]
+
+/* 22.3 Watchdog Timers */
+WDTIMER{[2..3]} are device accept [0x0/12]
+
+/* 22.4 32-KHz Synchronized Timer */
+S32KTIMER is device accept [0x0/12]
+
+/*
+ * 23 Serial Communication Interface
+ */
+
+/* 23.1 Multimaster High-Speed I2C Controller */
+I2C{[1..4]} are device accept [0x0/8]
+
+/* 23.2 HDQ/1-Wire */
+HDQ is device accept [0x0/12]
+
+/* 23.3.1 UART/IrDA/CIR */
+UART{[1..4]} are device accept [0x0/10]
+
+/* 23.4 Mulitchannel Serial Port Interface */
+McSPI{[1..4]} are device accept [0x0/12]
+
+/* 23.5 Multichannel Buffered Serial Port */
+McBSP{[1..4]} are device accept [0x0/12]
+
+/* 23.6 Multichannel PDM Controller */
+McPDM is device accept [0x0/12]
+
+/* 23.7 Digital Microphone Module */
+DMIC is device accept [0x0/12]
+
+/* 23.8 Multichannel Audio Serial Port */
+McASP is device accept [0x0/12]
+McASP_DATA is device accept [0x0/12]
+
+/* 23.9 Serial Low-Power Inter-Chip Media Bus Controller */
+SLIMBUS{[1..2]} are device accept [0x0/12]
+
+/* 23.10 MIPI-HSI */
+HSI_TOP is device accept [0x0-0x1400]
+HSI_DMA_CHANNELS is device accept [0x0/10]
+HSI_PORTS is device accept [0x0/13]
+
+HSI is map [
+        0x0000-0x1400 to HSI_TOP
+        0x1800/10 to HSI_DMA_CHANNELS
+        0x000/13 to HSI_PORTS
+       ]
+
+/* 23.11 High-Speed Multiport USB Host Subsystem */
+HSUSBTLL is device accept [0x0/12]
+HSUSBHOST is device accept [0x0/12]
+
+/* 23.12 High-Speed USB OTG Controller */
+HSUSBOTG is device accept [0x0/12]
+USBPHY is device accept [0x0/12]
+
+/* 23.13 Full-speed USB Host Controller */
+FSUSBHOST is device accept[0x0/12]
+
+/*
+ * 24 MMC/SD/SDIO
+ */
+HSMMC{[1..2]},
+MMC_SD{[3..5]} are device accept [0x0/12]
+
+/*
+ * 25 General Purpose Interface
+ */
+GPIO{[1..6]} are device accept [0x0/12]
+
+/*
+ * 26 Keyboard Controller
+ */
+Keyboard is device accept [0x0/12]
+
+/*
+ * 28.10 On-Chip Debug Support Memory Mapping
+ */
+MIPI_STM_0 is device accept [0x0/20]
+MIPI_STM_1 is device accept [0x0/18]
+A9_CPU0_debug_PMU is device accept [0x0/13]
+A9_CPU1_debug_PMU is device accept [0x0/13]
+CTI0 is device accept [0x0/12]
+CTI1 is device accept [0x0/12]
+PTM0 is device accept [0x0/12]
+PTM1 is device accept [0x0/12]
+A9_CS-TF is device accept [0x0/12]
+DAP_PC is device accept [0x0/12]
+APB is device accept [0x0/12]
+DRM is device accept [0x0/12]
+MIPI_STM is device accept [0x0/12]
+CS-ETB is device accept [0x0/12]
+CS-TPIU is device accept [0x0/12]
+CS-TF is device accept [0x0/12]
+
+OCP-WP is device accept [0x0/12]
+
+PMI is device accept [0x0/8]

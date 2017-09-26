@@ -1,0 +1,716 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Copyright (c) 2017, ETH Zurich.
+% All rights reserved.
+%
+% This file is distributed under the terms in the attached LICENSE file.
+% If you do not find this file, copies can be found by writing to:
+% ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\providecommand{\pgfsyspdfmark}[3]{}
+
+\documentclass[a4paper,11pt,twoside]{report}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{bftn}
+\usepackage{calc}
+\usepackage{verbatim}
+\usepackage{xspace}
+\usepackage{pifont}
+\usepackage{pxfonts}
+\usepackage{textcomp}
+
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{todonotes}
+\usepackage{hyperref}
+
+\title{Sockeye in Barrelfish}
+\author{Barrelfish project}
+% \date{\today}   % Uncomment (if needed) - date is automatic
+\tnnumber{025}
+\tnkey{Sockeye}
+
+
+\lstdefinelanguage{Sockeye}{
+    morekeywords={accept, are, as, at, import, in, input, is, map, module, output, over, reserved, to, with},
+    sensitive=true,
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]",
+}
+
+\presetkeys{todonotes}{inline}{}
+
+\begin{document}
+\maketitle      % Uncomment for final draft
+
+\begin{versionhistory}
+\vhEntry{0.1}{15.06.2017}{DS}{Initial Version}
+\vhEntry{0.2}{03.08.2017}{DS}{Describe Modularity Features}
+\end{versionhistory}
+
+% \intro{Abstract}    % Insert abstract here
+% \intro{Acknowledgements}  % Uncomment (if needed) for acknowledgements
+\tableofcontents    % Uncomment (if needed) for final draft
+% \listoffigures    % Uncomment (if needed) for final draft
+% \listoftables     % Uncomment (if needed) for final draft
+\cleardoublepage
+\setcounter{secnumdepth}{2}
+
+\newcommand{\fnname}[1]{\textit{\texttt{#1}}}%
+\newcommand{\datatype}[1]{\textit{\texttt{#1}}}%
+\newcommand{\varname}[1]{\texttt{#1}}%
+\newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
+\newcommand{\pathname}[1]{\texttt{#1}}%
+\newcommand{\tabindent}{\hspace*{3ex}}%
+\newcommand{\Sockeye}{\lstinline[language=Sockeye]}
+\newcommand{\Prolog}{\lstinline[language=Prolog]}
+\newcommand{\ccode}{\lstinline[language=C]}
+
+\lstset{
+  basicstyle=\ttfamily \small,
+  keywordstyle=\bfseries,
+  flexiblecolumns=false,
+  basewidth={0.5em,0.45em},
+  boxpos=t,
+  captionpos=b,
+  frame=single,
+  breaklines=true,
+  postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space}
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Introduction and Usage}
+\label{chap:introduction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\emph{Sockeye}\footnote{Sockeye salmon (Oncorhynchus nerka), also called red salmon, kokanee salmon, or blueback salmon, is an anadromous species of salmon found in the Northern Pacific Ocean and rivers discharging into it. This species is a Pacific salmon that is primarily red in hue during spawning. They can grow up to 84 cm in length and weigh 2.3 to 7 kg. 
+Source: \href{https://en.wikipedia.org/wiki/Sockeye_salmon}{Wikipedia}}
+is a domain specific language to describe SoCs (Systems on a Chip).
+
+Achermann~et~al.~\cite{achermann:mars17} propose a formal model to describe address spaces and interrupt routes in a system as a directed graph.
+They call such a graph a ``decoding net''.
+Each node in the graph can accept a set of addresses and translate another (not necessarily disjunct) set of addresses (when describing interrupt routes they accept or translate interrupt vectors).
+Starting at a specific node, addresses can be resolved by following the appropriate edges in the decoding net.
+When a node translates an address, resolution is continued at the referenced node.
+When a node accepts an address, resolution terminates
+
+Achermann~et~al.~\cite{achermann:mars17} also propose a concrete syntax for specifying decoding nets.
+Sockeye is an implementation of the proposed language but adds some features to address issues encountered in practice.
+
+The Sockeye compiler is written in Haskell using the Parsec parsing library. It
+generates Prolog files from the Sockeye files. These Prolog files contain facts that represent a decoding net (see Chapter~\ref{chap:prolog}).
+The Prolog files can then be loaded into Barrelfish's System Knowledgebase (SKB).
+
+In the future the compiler should also be able to generate Isabelle code from Sockeye specifications to be able to verify hardware designs.
+
+The source code for Sockeye can be found in \pathname{SOURCE/tools/sockeye}.
+
+\clearpage
+\section{Command Line Options}
+
+\begin{verbatim}
+$ sockeye [options] file
+\end{verbatim}
+
+
+The available options are:
+\begin{description}
+\item[-P] Generate a Prolog file that can be loaded into the SKB (default).
+\item[-i] Add a directory to the search path where Sockeye looks for imports.
+\item[-o] \varname{filename} The path to the output file (required)
+\item[-d] \varname{filename} The path to the dependency output file (optional)
+\item[-h] show usage information
+\end{description}
+
+The backend (capital letter options) specified last takes precedence.
+At the moment there is only a backend for generating Prolog for use in Barrelfish's SKB.
+
+Multiple directories can be added by giving the \texttt{-i} options multiple times.
+Sockeye will first look for files in the current directory and then check the given directories in the order they were given.
+
+When invoked with the \texttt{-d} option, the compiler will generate a dependency file for GNU make to be able to track changes in imported files.
+
+The Sockeye file to compile is given via the \texttt{file} parameter.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Lexical Conventions}
+\label{chap:lexer}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+The Sockeye parser follows a similar convention as opted by modern day 
+programming languages like C and Java. Hence, Sockeye uses a Java-style-like
+parser based on the Haskell Parsec Library. The following conventions are used:
+
+\begin{description}
+\item[Encoding] The file should be encoded using plain text.
+\item[Whitespace:]  As in C and Java, Sockeye considers sequences of
+  space, newline, tab, and carriage return characters to be
+  whitespace.  Whitespace is generally not significant. 
+
+\item[Comments:] Sockeye supports C-style comments.  Single line comments
+  start with \texttt{//} and continue until the end of the line.
+  Multiline comments are enclosed between \texttt{/*} and \texttt{*/};
+  anything in between is ignored and treated as white space.
+  Nested comments are not supported.
+
+\item[Identifiers:] Valid Sockeye identifiers are sequences of numbers
+  (0-9), letters (a-z, A-Z), the underscore character ``\texttt{\_}'' and the dash character ``\textendash''. They
+  must start with a letter.
+  \begin{align*}
+  identifier & \rightarrow letter (letter \mid digit \mid \text{\_} \mid \text{\textendash})^{\textrm{*}} \\
+  letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
+  digit & \rightarrow (\textsf{0 \ldots 9})
+    \end{align*}
+
+\item[Case sensitivity:] Sockeye is case sensitive hence identifiers \Sockeye{node1} and \Sockeye{Node2} are not the same.
+  
+\item[Integer Literals:] A Sockeye integer literal is a sequence of
+  digits, optionally preceded by a radix specifier.  As in C, decimal (base 10)
+  literals have no specifier and hexadecimal literals start with
+  \texttt{0x}.
+
+\begin{align*}
+decimal & \rightarrow (\textsf{0 \ldots 9})^{\textrm{1}}\\
+hexadecimal & \rightarrow (\textsf{0x})(\textsf{0 \ldots 9} \mid \textsf{A \ldots F} \mid \textsf{a \ldots f})^{\textrm{1}}\\
+\end{align*}
+
+\item[Reserved words:] The following are reserved words in Sockeye:
+\begin{verbatim}
+accept, are, as, at, import, in, input, is, map,
+module, output, over, reserved, to, with
+\end{verbatim}
+
+\end{description}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Syntax}
+\label{chap:declaration}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+In this chapter we define the layout of a Sockeye file.
+The node declarations in a Sockeye file describe a single decoding net.
+Parts of a decoding net can be packaged into reusable modules (see Section~\ref{sec:modules}).
+With imports (see Section~\ref{sec:imports}) modules can also be put into separate files.
+
+In the following sections we use EBNF to describe the Sockeye syntax. Terminals are \textbf{bold} while non-terminals are \textit{italic}.
+The non-terminals \textit{iden}, \textit{letter}, \textit{decimal} and \textit{hexadecimal} correspond to the ones defined in Chapter~\ref{chap:lexer}.
+
+The examples are all taken from the Texas Instruments OMAP4460 SoC used on the PandaboardES\footnote{The technical reference manual can be found \href{http://www.
+ti.com/lit/ug/swpu235ab/swpu235ab.pdf}{here}.}.
+A more complete specification of the SoC is located in \pathname{SOURCE/socs/omap44xx.soc}.
+
+\section{Basic Syntax}
+This section describes the basic syntax for Sockeye.
+It closely corresponds to the concrete syntax described in \cite{achermann:mars17}.
+If there are important syntactic or semantic differences it is stated explicitly in the description of the respective syntactical construct.
+
+\subsection{Node Declarations}
+A node declaration contains one or more identifiers and the node specification.
+The order in which the nodes are declared does not matter.
+
+\paragraph{Syntax}
+\begin{align*}
+\textit{net}_s & \mathop{=}
+    \Big\{
+        \textit{iden}\ \textbf{is}\ \textit{node}_s\
+    \Big|\
+        \textit{iden}\bigl\{\textbf{,}\ \textit{iden}\bigr\}\ \textbf{are}\ \textit{node}_s
+    \Big\} \\
+\end{align*}
+
+\clearpage
+\paragraph{Example}
+\begin{example}
+    SDRAM \textbf{is} \ldots
+
+    UART1,
+    UART2 \textbf{are} \ldots
+\end{example}
+
+\subsection{Node Specifications}
+A node specification consists of a type, a set of accepted address blocks, a set of address mappings to other nodes, a set of reserved address blocks and an overlay.
+All of these are optional.
+The reserved address blocks are only relevant in conjunction with overlays and are used to exclude some addresses from the overlay.
+The overlay is specified as a node identifier and a number of address bits.
+The overlay will span addresses from \texttt{0x0} to \(\texttt{0x2}^\texttt{bits} - \texttt{1}\).
+
+\paragraph{Syntax}
+\begin{align*}
+\textit{node}_s & \mathop{=}
+    \Big[\ 
+       \textit{type}\ 
+    \Big]\  
+    \Big[
+       \textit{accept}\ 
+    \Big]\ 
+    \Big[\ 
+       \textit{map}\ 
+    \Big]\ 
+    \Big[\ 
+        \textit{reserved}\ 
+    \Big]\ 
+    \Big[\ 
+        \textit{overlay}\ 
+    \Big]\\
+\textit{accept} & \mathop{=}
+    \textbf{accept [}\ \big\{\ \textit{block}_s\ \big\}\ \textbf{]}\\
+\textit{map} & \mathop{=}
+    \textbf{map [}\ \big\{\ \textit{map}_s\ \big\}\ \textbf{]}\\
+\textit{reserved} & \mathop{=}
+    \textbf{reserved [}\ \big\{\ \textit{block}_s\ \big\}\ \textbf{]}\\
+\textit{overlay} & \mathop{=}
+    \textbf{over}\ \textit{iden}\textbf{/}\textit{decimal}\\
+\end{align*}
+
+\paragraph{Example}
+\begin{example}
+    SDRAM \textbf{is} \textbf{accept} [\ldots]
+    L3 \textbf{is} \textbf{map} [\ldots]
+    CORETEXA9_SS_Interconnect \textbf{is} \textbf{reserved} [\ldots] \textbf{over} L3/32
+\end{example}
+
+\subsection{Node Type}
+Currently there are three types: \Sockeye{core}, \Sockeye{device} and \Sockeye{memory}. A fourth internal type \Sockeye{other} is given to nodes for which no type is specified.
+The \Sockeye{core} type designates the node as a CPU core. The \Sockeye{device} type specifies that the accepted addresses are device registers while the \Sockeye{memory} type is for memory nodes like RAM or ROM.
+
+\paragraph{Syntax}
+\begin{align*}
+\textit{type} & \mathop{=}
+    \textbf{core}\
+    |\
+    \textbf{device}\
+    |\
+    \textbf{memory} \\
+\end{align*}
+
+\paragraph{Example}
+\begin{example}
+    CORETEXA9_1 \textbf{is} core \textbf{map} [\ldots]
+    UART3 \textbf{is} device \textbf{accept} [\ldots]
+    SDRAM \textbf{is} memory \textbf{accept} [\ldots]
+\end{example}
+
+\subsection{Addresses}
+Addresses are specified as hexadecimal literals.
+
+\paragraph{Syntax}
+\begin{align*}
+\textit{addr} & \mathop{=} \textit{hexadecimal} \\
+\end{align*}
+
+\subsection{Block Specifications}
+A block is specified by its start and end address.
+If the start and end address are the same, the end address can be omitted.
+Sockeye also supports specifying a block as its base address and the number of address bits the block spans:
+A block from \Sockeye{0x0} to \Sockeye{0xFFF} with a size of 4kB can be specified as \Sockeye{0x0/12}.
+
+\paragraph{Syntax}
+\begin{align*}
+\textit{block}_s & \mathop{=} \textit{addr}\
+    \Big[
+        \textbf{-}\ \textit{addr}\ 
+    \Big|\
+        \textbf{/}\textit{decimal}
+    \Big] \\
+\end{align*}
+
+\paragraph{Example}
+\begin{example}
+    UART1 is \textbf{accept} [0x0-0xFFF]
+    UART3 is \textbf{accept} [0x0/12]    // \textit{same as \textup{0x0-0xFFF}}
+    IF_A9_0 is \textbf{accept} [0x44]      // \textit{same as \textup{0x44-0x44}}
+\end{example}
+
+\subsection{Map Specification}
+A map specification is a source address block, a target node identifier and optionally a target base address to which the source block is translated within the target node.
+If no target base address is given, the block is translated to the target node starting at \Sockeye{0x0}.
+Note that this is different from the concrete syntax described in \cite{achermann:mars17} where in this case the base address of the source block is used.
+This was changed due to the mapping to \Sockeye{0x0} being used more often in practice.
+Multiple translation targets can be specified by giving a comma-separated list of targets.
+
+\paragraph{Syntax}
+\begin{align*}
+\textit{map}_s & \mathop{=}
+\textit{block}_s\ \textbf{to}\ \textit{iden}\ 
+    \Big[
+        \textbf{at}\ \textit{addr}
+    \Big]\
+    \Big\{
+        \textbf{,}\ \textit{iden}\ 
+        \Big[
+            \textbf{at}\ \textit{addr}
+        \Big]
+    \Big\}\\
+\end{align*}
+
+\paragraph{Example}
+\begin{example}
+    /* \textit{Translate \textup{0x54000000-0x0x54FFFFFF}
+     * to \textup{L3_EMU} at \textup{0x54000000-0x0x54FFFFFF}:}
+     */
+    L3 is \textbf{map} [0x54000000/24 \textbf{to} L3_EMU \textbf{at} 0x54000000] 
+
+    /* \textit{This is the same as \textup{0x80000000/30 \textbf{to} SDRAM \textbf{at} 0x0}:} */
+    L3 is \textbf{map} [0x80000000/30 \textbf{to} SDRAM]
+
+    /* \textit{Multiple translation targets, interrupt vector \textup{0x2} is translated to
+     * - \textup{SPIMap} at \textup{0xC}
+     * - \textup{NVIC} at \textup{0x12}:}
+     * /
+    SDMA is \textbf{map} [0x2 \textbf{to} SPIMap \textbf{at} 0xC, NVIC \textbf{at} 0x12]
+\end{example}
+
+\section{Modules}
+\label{sec:modules}
+A module encapsulates a decoding net which can be integrated into a larger decoding net.
+A module instantiation always creates a namespace inside the current one.
+Normally nodes can only be referenced by nodes in the same namespace.
+To properly integrate a module into a larger decoding net we need a mechanism to connect the module to the enclosing decoding net.
+This is done via ports.
+There are input ports, which create a connection into the module and output ports which create connections from the module to outside nodes.
+A port has always a width, specified as the number of address bits the port spans.
+All declared input ports must have a corresponding node declaration in the module body.
+
+When a module is instantiated a list of port mappings can be specified.
+An input port mapping creates a node outside the module that overlays the node inside the module.
+An output port mapping creates a node inside the module that overlays the node outside the module.
+Not all ports a module declares have to be mapped.
+Not mapping an input port simply means there is no connection to the corresponding node inside the module.
+For unmapped output ports an empty node inside the module will be generated, acting as a dead end for address resolution.
+
+Additionally a module can be parametrized.
+It will then be a module template that only becomes a fully defined module when instantiated with concrete arguments.
+Module parameters are typed and the Sockeye compiler checks that they are used in a type safe way.
+There are two types of parameters: address parameters and natural parameters.
+Address parameters allow to parametrize addresses in node specifications.
+Natural parameters are used in combination with interval template identifiers (see Section~\ref{sec:template_idens}).
+Parameters can also be passed as arguments to module template instantiations in the module body.
+
+\subsection{Module Declarations}
+A module declaration starts with the keyword \Sockeye{module} and a unique module name.
+If the module is a template, a list of typed parameters can be specified.
+The module body is enclosed in curly braces and starts with the port definitions.
+The rest of the body are node declarations and module instantiations.
+If the module has address parameters the name of the parameter can be used wherever in the body an address is expected.
+
+\paragraph{Syntax}
+\begin{align*}
+    \textit{param\_type} & \mathop{=}
+        \textbf{addr}\ |\ \textbf{nat}\\
+    \textit{parameter} & \mathop{=}
+        \textit{param\_type}\ \textit{iden}\\
+    \textit{param\_list} & \mathop{=}
+        \textbf{(}\big[\ 
+            \textit{parameter}\big\{\textbf{,}\ \textit{parameter}\big\}\ 
+        \big] \textbf{)}\\
+    \textit{input\_port} & \mathop{=}
+        \textbf{input}\ \textit{iden}\textbf{/}\textit{decimal}
+        \big\{
+            \textbf{,}\ \textit{iden}\textbf{/}\textit{decimal}
+        \big\}\\
+    \textit{output\_port} & \mathop{=}
+        \textbf{output}\ \textit{iden}\textbf{/}\textit{decimal}
+        \big\{
+            \textbf{,}\ \textit{iden}\textbf{/}\textit{decimal}
+        \big\}\\
+    \textit{body}_s & \mathop{=}
+        \big\{\ 
+            \textit{net}_s\ |\ \textit{mod\_inst}_s\ 
+        \big\}\\
+    \textit{mod\_decl}_s & \mathop{=}
+        \textbf{module}\ \textit{iden} \big[\textit{param\_list}\big]\ 
+        \textbf{\{}\ 
+            \big\{\textit{input\_port}\ |\ \textit{output\_port}\big\}\ 
+            \textit{body}_s\ 
+        \textbf{\}}\\
+\end{align*}
+
+\paragraph{Example}
+For some examples of module declarations see Listing~\ref{lst:sockeye_example}.
+
+\subsection{Module Instantiations}
+Module instantiations start with the module name and in the case of a module template with the list of arguments.
+After that the identifier of the namespace in which to instantiate the module has to be given followed by an optional list of port mappings.
+
+\paragraph{Syntax}
+\begin{align*}
+    \textit{argument} & \mathop{=}
+        \textit{decimal}\ |\ \textit{hexadecimal}\ |\ \textit{iden}\\
+    \textit{arg\_list} & \mathop{=}
+        \textbf{(}\big[\ 
+            \textit{argument}\big\{\textbf{,}\ \textit{argument}\big\}\ 
+        \big] \textbf{)}\\
+    \textit{mod\_inst}_s & \mathop{=}
+        \textit{iden} \big[\textit{arg\_list}\big]\ \textbf{as}\ \textit{iden}\ \big[\ 
+            \textbf{with}\ \big\{\textit{input\_map}\ |\ \textit{output\_map}\big\}\ 
+        \big]\\
+    \textit{input\_map} & \mathop{=}
+        \textit{iden}\ \textbf{>}\ \textit{iden}\\
+    \textit{output\_map} & \mathop{=}
+        \textit{iden}\ \textbf{<}\ \textit{iden}\\
+\end{align*}
+
+\clearpage
+\paragraph{Example}
+\begin{example}
+    /* Instantiate module 'CortexA9-Subsystem' in namespace 'CortexA9_SS' */
+    CortexA9-Subsystem as CortexA9_SS
+
+    /* Pass arguments to module template e.g. to instantiate a
+     * CortexA9 MPCore module with
+     * - 2 cores
+     * - 0x48240000 as the base of the private memory region
+     */
+    CortexA9-MPCore(2, 0x48240000) \textbf{as} MPU
+
+    /* Declare port mappings:
+     * - map 'CORTEXA9_1' to input port 'CPU_1'
+     * - map output port 'Interconnect' to 'L3'
+     */
+    CortexA9-Subsystem as CortexA9_SS \textbf{with}
+        CORTEXA9_1 > CPU_1
+        L3 < Interconnect
+\end{example}
+
+\section{Templated Identifiers}
+\label{sec:template_idens}
+Templated identifiers allow to declare multiple nodes and ports at once and instantiate a module multiple times at once.
+There are two forms of templated identifiers:
+\begin{description}
+    \item[Interval template]
+        The template contains one or several intervals.
+        The identifier will be instantiated for all possible combinations of values in the intervals.
+        Index variables can optionally be named so they can be referenced later.
+    \item[Simple template]
+        Simple templates work very similar to interval templates.
+        The only difference is, that a simple template can only reference index variables declared in the same context.
+        It can not contain intervals to declare new index variables.
+\end{description}
+
+Interval templates can be used in identifiers of node declarations (to declare multiple nodes), port declarations (to declare multiple ports) and namespace identifiers of module instantiations (to instantiate a module multiple times).
+The scope of index variables is the corresponding syntactic construct the interval template was used in.
+Simple templates can be used in any place a node identifier is expected.
+This includes the places where interval templates can be used, identifiers of translation destination nodes and overlays but not module parameter or index variable names.
+
+An important thing to note is that the limits of an interval can reference module parameters of type \Sockeye{nat}.
+This allows module parameters to control how many ports or nodes are instantiated from a certain interval template.
+
+\paragraph{Syntax}
+\begin{align*}
+    \textit{var} & \mathop{=}
+        \textit{iden}\\
+    \textit{limit} & \mathop{=}
+        \textit{decimal}\ |\ \textit{iden} \\
+    \textit{interval} & \mathop{=}
+        \textbf{[}\textit{limit}\textbf{..}\textit{limit}\textbf{]}\\
+    \textit{interval\_templ}_s & \mathop{=}
+        \textit{iden}\textbf{\{}\textit{var}\ \textbf{in}\ \textit{interval}\textbf{\}}
+        \Big[
+            \textit{iden}\ |\ \textit{templ\_iden}_s\ |\ \textit{for\_iden}_s
+        \Big]\\
+    \textit{simple\_templ}_s & \mathop{=}
+        \textit{iden}\textbf{\{}\textit{var}\textbf{\}}\Big[\textit{iden}\ |\ \textit{templ\_iden}_s\Big]\\
+\end{align*}
+
+\paragraph{Example}
+\begin{example}
+    /* Declare similar nodes
+     * Note that interval templates in node declarations
+     * always require the usage of '\textbf{are}'
+     */
+    GPTIMER_\verb+{+[1..5]\verb+}+ \textbf{are} device \textbf{accept} [0x0/12]
+
+    /* Use the index in the node definition */
+    GPTIMER_ALIAS_\verb+{+i in [1..5]\verb+}+ \textbf{is} \textbf{map} [0x100/12 to GPTIMER_\verb+{+i\verb+}+]
+
+    /* Declare similar module ports
+     * (possibly depending on module parameters)
+     */
+    \textbf{module} module CortexA9-MPCore(nat cores, addr periphbase) \verb+{+
+        input CPU_\verb+{+[1..cores]\verb+}+
+        \ldots
+    \verb+}+
+
+    /* Instantiate module multiple times
+     * and use index variable in port mappings
+     */
+    CortexA9-Core \textbf{as} Core_\verb+{+c in [1..2]\verb+}+ \textbf{with}
+        CPU_\verb+{+c\verb+}+ > CPU
+\end{example}
+
+\section{Imports}
+\label{sec:imports}
+Imports allow a specification to be split across several files.
+They also allow the reuse of modules.
+Imports have to be specified at the very top of a Sockeye file.
+An import will cause the compiler to load all modules from \pathname{<import\_path>.soc}
+Nodes declared outside of modules will not be loaded.
+The compiler will first look for files in the current directory and then check the directories passed with the \texttt{-i} option in the order they were given.
+
+\paragraph{Syntax}
+\begin{align*}
+\textit{import}_s & \mathop{=}
+    \textbf{import}\ \big\{\ \textit{letter}\ |\ \textbf{/}\ \big\}
+\end{align*}
+
+\paragraph{Example}
+\begin{example}
+    /* Invoked with 'sockeye -i imports -i modules' the following
+     * will cause the compiler to look for the files
+     * 1. ./cortex/cortexA9.soc
+     * 2. imports/cortex/cortexA9.soc
+     * 3. modules/cortex/cortexA9.soc
+     * and import all modules from the first one that exists.
+     */
+    \textbf{import} cortex/cortexA9
+\end{example}
+
+\section{Sockeye Files}
+A sockeye file consists of imports, module declarations and the specification body (node declarations and module instantiations).
+
+\paragraph{Syntax}
+\begin{align*}
+    \textit{sockeye}_s & \mathop{=}
+        \big\{\ 
+            \textit{import}_s\ 
+        \big\}\ 
+        \big\{\ 
+            \textit{mod\_decl}_s\ 
+        \big\}\ 
+        \big\{\ 
+            \textit{net}_s\ |\ \textit{mod\_inst}_s\ 
+        \big\}
+\end{align*}
+
+\paragraph{Example}
+Listing~\ref{lst:sockeye_example} shows an example Sockeye specification.
+
+\clearpage
+\lstinputlisting[caption={Example Sockeye specification}, label={lst:sockeye_example}, language=Sockeye]{example.soc}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Checks on the AST}
+\label{chap:checks}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The compiler performs the transformation from parsed Sockeye to decoding nets in three steps:
+\begin{enumerate}
+    \item Type checker
+    \item Instantiator
+    \item Net builder
+\end{enumerate}
+In each of the steps some checks are performed.
+The type checker checks that all referenced symbols (modules, parameters and index variables) are defined and ensures module template parameter type safety.
+The instantiator instantiates module and identifier templates and ensures that each identifier is declared only once.
+The net builder instantiates the modules and ensures referential integrity in the generated decoding net. It also transforms overlays to translation sets.
+The checks are detailed in the following sections.
+
+\section{Type Checker}
+\subsection{Duplicate Modules}
+This check makes sure that all module names in any of the imported files are unique.
+
+\subsection{Duplicate Parameters}
+This check makes sure that no module has two parameters with the same name.
+
+\subsection{Duplicate Index Variables}
+This check makes sure that no two index variables in the same scope have the same name.
+
+\subsection{Undefined Modules}
+This check makes sure that all modules being instantiated actually exist.
+
+\subsection{Undefined Parameters}
+This check makes sure that all referenced parameters are in scope.
+
+\subsection{Undefined Index Variables}
+This check makes sure that all index variables referenced in templated identifiers are in scope. 
+
+\subsection{Parameter Type Mismatch}
+This check makes sure that parameters are used in a type safe way.
+
+\subsection{Argument Count Mismatch}
+This check makes sure that module instantiations give the correct number of arguments to the module template being instantiated.
+
+\subsection{Argument Type Mismatch}
+This check makes sure that the arguments passed to module templates have the correct type.
+
+\section{Instantiator}
+\subsection{Module Instantiation Loops}
+This check makes sure that there are no loops in module instantiations which would result in an infinite nesting of decoding subnets.
+
+\subsection{Duplicate Namespaces}
+This check makes sure that all module instantiations in a module have a unique namespace.
+
+\subsection{Duplicate Identifiers}
+This check makes sure that all node identifiers are unique.
+This includes output ports, declared nodes and nodes mapped to input ports of instantiated modules.
+
+\subsection{Duplicate Ports}
+This check makes sure, that there are no duplicate input or output ports.
+Note that declaring an output port with the same identifier as an input port is allowed and results in all address resolutions going through the input port being passed through the module to the output port.
+
+\subsection{Duplicate Port Mapping}
+This check makes sure that no port is mapped twice in the same module instantiation.
+
+\section{Net Builder}
+
+\subsection{Mapping to Undefined Port}
+This check makes sure that there are no port mappings to ports not declared by the instantiated module.
+
+\subsection{References to Undefined Nodes}
+This check makes sure that all nodes referenced in translation sets, overlays and port mappings exist.
+It also checks that every input port has a corresponding node declaration.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Prolog Mapping for Sockeye}
+\label{chap:prolog}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The Sockeye compiler generates \(\text{ECL}^i\text{PS}^e\)-Prolog\footnote{\href{http://eclipseclp.org/}{http://eclipseclp.org/}} to be used within the SKB.
+A decoding net is expressed by the predicate \Prolog{node/2}.
+The first argument to the predicate is the node identifier and the second one the node specification.
+
+Node identifiers are represented as a functor \Prolog{node_id/2}.
+The first argument is the node's name, represented as an atom, and the second one is the (possibly nested) namespace it is in.
+The namespace is represented as a list of atoms where the head is the innermost namespace component.
+
+Node specifications are represented by a Prolog functor \Prolog{node_spec/3}.
+The arguments to the functor are the node type, the list of accepted addresses and the list of translated addresses.
+The overlay is translated to address mappings and added to the list of translated addresses during compilation.
+
+The node type is one of four atoms: \Prolog{core}, \Prolog{device}, \Prolog{memory} or \Prolog{other}.
+The accepted addresses are a list of address blocks where each block is represented through the functor \Prolog{block/2} with the start and end addresses as arguments.
+The translated addresses are a list of mappings to other nodes, represented by the functor \Prolog{map/3} where the first argument is the translated address block, the second one is the target node's identifier and the third one is the base address for the mapping in the target node.
+
+There is a predicate clause for \Prolog{node/2} for every node specified.
+
+The code is generated using \(\text{ECL}^i\text{PS}^e\)'s structure notation.
+This enables more readable and concise notation when accessing specific arguments of the functors.
+
+Listing~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}.
+
+\clearpage
+\lstinputlisting[caption={Generated Prolog code},label={lst:prolog_example},language=Prolog]{example.pl}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Compiling Sockeye Files with Hake}
+\label{chap:hake}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+SoC descriptions are placed in the directory \pathname{SOURCE/socs} with the file extension \pathname{soc}.
+Each top-level Sockeye file has to be added to the list of SoCs in the Hakefile in the same directory.
+When passed a filename (without extension), the function \verb|sockeye :: String -> HRule| creates a rule to compile the file \pathname{SOURCE/socs/<filename>.soc} to \pathname{BUILD/sockeyefacts/<filename>.pl}.
+The rule will also generate \pathname{BUILD/sockeyefacts/<filename>.pl.depend} (with the \texttt{-d} option of the Sockeye compiler) and include it in the Makefile.
+This causes \texttt{make} to rebuild the file also when imported files are changed.
+To add a compiled Sockeye specification to the SKB RAM disk, the filename can be added to the \varname{sockeyeFiles} list in the SKBs Hakefile.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\bibliographystyle{abbrv}
+\bibliography{defs,barrelfish}
+
+\end{document}
