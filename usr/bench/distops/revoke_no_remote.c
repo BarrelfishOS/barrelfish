@@ -1,8 +1,6 @@
 /**
  * \file
- * \brief no-op dummy for testing the benchmark framework
- *
- * Use this as a template if you want to write your own benchmark
+ * \brief Benchmark revoke of cap with no remote relations
  */
 
 /*
@@ -23,9 +21,6 @@
 
 #include "benchapi.h"
 
-#define NUM_COPIES_START 1
-#define NUM_COPIES_END 32768
-#define ITERS 1000
 #define REVOKE_COPIES 10
 
 //{{{1 debugging helpers
@@ -125,6 +120,7 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                 broadcast_cmd(BENCH_CMD_CREATE_COPIES, gs->currcopies);
                 return;
             }
+            printf("# sending print command to next node\n");
             unicast_cmd(++gs->printnode, BENCH_CMD_PRINT_STATS, 0);
             break;
         default:

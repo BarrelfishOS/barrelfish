@@ -1,8 +1,6 @@
 /**
  * \file
- * \brief no-op dummy for testing the benchmark framework
- *
- * Use this as a template if you want to write your own benchmark
+ * \brief Benchmark empty invocation for baseline
  */
 
 /*
@@ -22,10 +20,6 @@
 #include <bench/bench.h>
 
 #include "benchapi.h"
-
-#define NUM_COPIES_START 256
-#define NUM_COPIES_END 65536
-#define ITERS 1000
 
 //{{{1 debugging helpers
 static void debug_capref(const char *prefix, struct capref cap)

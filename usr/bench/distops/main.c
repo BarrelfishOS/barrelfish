@@ -18,6 +18,15 @@
 
 #include "benchapi.h"
 
+//{{{1 Benchmark controls
+
+// set default values here, override if necessary
+uint32_t NUM_COPIES_START = 256;
+uint32_t NUM_COPIES_END = 65536;
+uint32_t ITERS = 1000;
+
+//{{{1 Shared local state
+
 static const char *service_name = "bench_distops_svc";
 static coreid_t my_core_id = -1;
 
@@ -126,6 +135,7 @@ void unicast_cmd(coreid_t nodeid, uint32_t cmd, uint32_t arg)
         printf("Not all clients registered, unicast not yet possible\n");
         return;
     }
+    /*
     for (int i = 0; i < bench_state->clients_total; i++) {
         assert(bench_state->nodes[i]);
         struct mgmt_node_state *ns = bench_state->nodes[i]->st;
@@ -135,6 +145,9 @@ void unicast_cmd(coreid_t nodeid, uint32_t cmd, uint32_t arg)
             break;
         }
     }
+    */
+    // use local index, to keep client code unchanged
+    err = bench_distops_cmd__tx(bench_state->nodes[nodeid-1], NOP_CONT, cmd, arg);
     return;
 }
 

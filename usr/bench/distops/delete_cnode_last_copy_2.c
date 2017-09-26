@@ -1,8 +1,6 @@
 /**
  * \file
- * \brief no-op dummy for testing the benchmark framework
- *
- * Use this as a template if you want to write your own benchmark
+ * \brief Benchmark deleting cnode with varying number of occupied slots
  */
 
 /*
@@ -22,10 +20,6 @@
 #include <bench/bench.h>
 
 #include "benchapi.h"
-
-#define NUM_COPIES_START 1
-#define NUM_COPIES_END 256
-#define ITERS 1000
 
 //{{{1 debugging helpers
 static void debug_capref(const char *prefix, struct capref cap)
@@ -56,6 +50,9 @@ struct global_state {
 
 errval_t mgmt_init_benchmark(void **st, int nodecount)
 {
+    NUM_COPIES_START = 1;
+    NUM_COPIES_END = 256;
+
      *st = malloc(sizeof(struct global_state));
      if (!*st) {
          return LIB_ERR_MALLOC_FAIL;
@@ -227,9 +224,6 @@ void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
 void node_cmd_caps(uint32_t cmd, uint32_t arg, struct capref cap1,
                    struct bench_distops_binding *b)
 {
-    errval_t err;
-    struct node_state *ns = b->st;
-
     switch (cmd) {
         default:
             printf("node %d got caps + command %"PRIu32", arg=%d:\n",
