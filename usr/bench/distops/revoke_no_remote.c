@@ -49,6 +49,7 @@ struct global_state {
     int nodecount;
     int copies_done;
     int printnode;
+    int print_count;
     int currcopies;
 };
 
@@ -61,6 +62,7 @@ errval_t mgmt_init_benchmark(void **st, int nodecount)
      struct global_state *gs = *st;
      gs->nodecount = nodecount;
      gs->copies_done = 0;
+     gs->print_count = 0;
      gs->printnode = 1;
      return ram_alloc(&gs->ram, BASE_PAGE_BITS);
 }
@@ -102,11 +104,13 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
             if (gs->copies_done == gs->nodecount) {
                 printf("# All copies made!\n");
                 broadcast_cmd(BENCH_CMD_DO_REVOKE, ITERS);
+                printf("# sending initial print command to %d\n", gs->printnode);
                 unicast_cmd(gs->printnode, BENCH_CMD_PRINT_STATS, 0);
             }
             break;
         case BENCH_CMD_PRINT_DONE:
-            if (gs->printnode == gs->nodecount) {
+            gs->print_count++;
+            if (gs->print_count == gs->nodecount) {
                 if (gs->currcopies == NUM_COPIES_END) {
                     printf("# Benchmark done!\n");
                     return;
@@ -116,11 +120,12 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                 gs->currcopies *= 2;
                 gs->copies_done = 0;
                 gs->printnode = 1;
+                gs->print_count = 0;
                 // Start new round
                 broadcast_cmd(BENCH_CMD_CREATE_COPIES, gs->currcopies);
                 return;
             }
-            printf("# sending print command to next node\n");
+            printf("# sending print command to node %d\n", gs->printnode+1);
             unicast_cmd(++gs->printnode, BENCH_CMD_PRINT_STATS, 0);
             break;
         default:
@@ -202,39 +207,53 @@ void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
             PANIC_IF_ERR(err, "signaling cap_copy() done\n");
             break;
         case BENCH_CMD_DO_REVOKE:
+            // printf("# node %d: doing %d revokes\n", my_core_id, arg);
             ns->benchcount = arg;
             ns->delcycles = calloc(arg, sizeof(uint64_t));
             assert(ns->delcycles);
+            // printf("# node %d: allocated delcycles array\n", my_core_id);
             struct capref cap;
             err = ram_alloc(&cap, BASE_PAGE_BITS);
             assert(err_is_ok(err));
             // TODO: parametrize
+            ns->benchcount = arg;
+            // printf("# node %d: creating %d slots for copies of cap-to-revoke\n",
+            //        my_core_id, REVOKE_COPIES);
             struct capref copies[REVOKE_COPIES];
             for (int c = 0; c < REVOKE_COPIES; c++) {
                 err = slot_alloc(&copies[c]);
                 assert(err_is_ok(err));
             }
+            // printf("# node %d: starting benchmark iterations\n", my_core_id);
             for (int i = 0; i < ns->benchcount; i++) {
                 uint64_t start, end;
                 // Make some copies to be deleted during revoke
+                // printf("# node %d: creating copies\n", my_core_id);
                 for (int c = 0; c < REVOKE_COPIES; c++) {
                     err = cap_copy(copies[c], cap);
                     PANIC_IF_ERR(err, "creating copy for revoke");
                     assert(err_is_ok(err));
                 }
+                // printf("# node %d: doing revoke\n", my_core_id);
                 start = bench_tsc();
                 err = cap_revoke(cap);
                 end = bench_tsc();
                 ns->delcycles[i] = end - start;
                 assert(err_is_ok(err));
+                PANIC_IF_ERR(err, "# core %d: revoke failed", my_core_id);
+                if (i % (ns->benchcount / 10) == 0) {
+                    // printf("# node %d: %d percent done\n", my_core_id, i / (ns->benchcount/100));
+                }
             }
             err = cap_destroy(cap);
             assert(err_is_ok(err));
+            PANIC_IF_ERR(err, "# core %d: final cap_destroy", my_core_id);
             for (int c = 0; c < REVOKE_COPIES; c++) {
                 err = slot_free(copies[c]);
+                PANIC_IF_ERR(err, "# core %d: slot_free", my_core_id);
                 assert(err_is_ok(err));
             }
-            //printf("node %d: deletes done\n", my_core_id);
+            // printf("# node %d: revokes done\n", my_core_id);
             break;
         case BENCH_CMD_PRINT_STATS:
             printf("# node %d: tsc_per_us = %ld; numcopies = %d\n",
@@ -243,6 +262,8 @@ void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
             for (int i = 0; i < ns->benchcount; i++) {
                 printf("%ld\n", ns->delcycles[i]);
             }
+            err = bench_distops_cmd__tx(b, NOP_CONT, BENCH_CMD_PRINT_DONE, 0);
+            assert(err_is_ok(err));
             // Cleanup before next round
             for (int i = 0; i < ns->numcopies; i++) {
                 err = cap_destroy(ns->copies[i]);
@@ -250,8 +271,6 @@ void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
             }
             free(ns->copies);
             free(ns->delcycles);
-            err = bench_distops_cmd__tx(b, NOP_CONT, BENCH_CMD_PRINT_DONE, 0);
-            assert(err_is_ok(err));
             break;
         default:
             printf("node %d got command %"PRIu32"\n", my_core_id, cmd);
