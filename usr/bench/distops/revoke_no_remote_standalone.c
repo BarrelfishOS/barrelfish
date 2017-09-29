@@ -82,10 +82,12 @@ static size_t get_mdb_size(void)
 
 int main(int argc, char *argv[])
 {
-    printf("# Benchmarking REVOKE NO REMOTE: nodes=%d\n", 1);
+    if (argc > 1) {
+        printf("# Benchmarking REVOKE NO REMOTE: nodes=%d\n", atoi(argv[1]));
 
-    printf("# Starting out with %d copies, will double up to %d...\n",
-            NUM_COPIES_START, NUM_COPIES_END);
+        printf("# Starting out with %d copies, will double up to %d...\n",
+                NUM_COPIES_START, NUM_COPIES_END);
+    }
 
     struct global_state *gs;
     errval_t err;

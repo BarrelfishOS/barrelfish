@@ -203,6 +203,16 @@ class DistopsBenchRevokeNoRemote(DistopsBench):
         # set timeout for this test to 20min
         self.test_timeout_delta = datetime.timedelta(seconds=20*60)
 
+    # Use standalone version of benchmark, as distributed version has some bug
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBench, self).get_modules(build, machine)
+        modules.add_module("distops_standalone_runner",
+                           ["core=0", "bench_revoke_no_remote_standalone" ] +
+                            ("%d %d %d %d" % (3, 1, 2, machine.get_ncores()-1)).split(" "))
+        modules.add_module("bench_revoke_no_remote_standalone", ["nospawn"])
+        return modules
+
 @tests.add_test
 class DistopsBenchRevokeRemoteCopy(DistopsBench):
     '''Benchmark latency of revoking foreign copy of capability'''
