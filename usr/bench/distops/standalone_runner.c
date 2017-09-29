@@ -42,9 +42,12 @@ int main(int argc, char *argv[])
         domainid_t domid;
         uint8_t exitcode;
         coreid_t core = atoi(argv[i+3]);
-        char *newargv[] = { NULL };
+        // Get first run of benchmark to print the benchmark prologue with the
+        // right amount of cores
+        char *newargv[] = { argv[1], i==0?argv[2]:NULL, NULL };
+        char *newenvp[] = { NULL };
         printf("# Spawning benchmark program %s on core %d\n", argv[1], core);
-        err = spawn_program(core, argv[1], newargv, newargv, SPAWN_FLAGS_DEFAULT, &domid);
+        err = spawn_program(core, argv[1], newargv, newenvp, SPAWN_FLAGS_DEFAULT, &domid);
         PANIC_IF_ERR(err, "spawning benchmark on core %d", core);
         printf("# waiting for benchmark to complete on core %d\n", core);
         err = spawn_wait_core(core, domid, &exitcode, false);
