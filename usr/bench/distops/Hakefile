@@ -14,10 +14,15 @@
 
 let
 bench name = build application { target = "bench_" ++ name,
-                                cFiles = [ "main.c", name ++ ".c" ],
+                                cFiles = [ "main.c", "globals.c", name ++ ".c" ],
                                 flounderBindings = [ "bench_distops" ],
                                 addLibraries = [ "bench" ]
                               }
+standalone_bench name = build application { target = "bench_" ++ name,
+                                            cFiles = [ "globals.c", name ++ ".c" ],
+                                            flounderBindings = [ "bench_distops" ],
+                                            addLibraries = [ "bench" ]
+                                          }
 in
 [ bench "noop",
   bench "noop_invocation",
@@ -32,5 +37,7 @@ in
   bench "revoke_remote_copy",
   bench "retype_no_remote",
   bench "retype_w_local_descendants",
-  bench "retype_with_remote_copies"
+  bench "retype_with_remote_copies",
+  standalone_bench "revoke_no_remote_standalone"
 ]
+
