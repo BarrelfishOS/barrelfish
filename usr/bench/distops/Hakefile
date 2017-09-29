@@ -20,7 +20,6 @@ bench name = build application { target = "bench_" ++ name,
                               }
 standalone_bench name = build application { target = "bench_" ++ name,
                                             cFiles = [ "globals.c", name ++ ".c" ],
-                                            flounderBindings = [ "bench_distops" ],
                                             addLibraries = [ "bench" ]
                                           }
 in
@@ -38,6 +37,9 @@ in
   bench "retype_no_remote",
   bench "retype_w_local_descendants",
   bench "retype_with_remote_copies",
-  standalone_bench "revoke_no_remote_standalone"
+  standalone_bench "revoke_no_remote_standalone",
+  build application { target = "distops_standalone_runner",
+                      cFiles = [ "standalone_runner.c" ]
+                    }
 ]
 

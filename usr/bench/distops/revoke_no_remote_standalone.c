@@ -163,6 +163,9 @@ int main(int argc, char *argv[])
         free(ns->copies);
         printf("# Round done!\n");
     }
-    printf("# Benchmark done!\n");
+    // We're not printing this line here, as it's printed from the standalone
+    // runner, that allows us to run single-core benchmarks sequentially on
+    // multiple cores
+    // printf("# Benchmark done!\n");
     return 0;
 }
