@@ -23,6 +23,7 @@ struct proc_mgmt_bind_retst {
     errval_t err;
     struct proc_mgmt_binding *b;
     bool present;
+    bool kill_sent;
 };
 
 extern char **environ;
@@ -50,6 +51,7 @@ static void proc_mgmt_bind_cont(void *st, errval_t err,
     retst->err = err;
     retst->b = b;
     retst->present = true;
+    b->st = retst;
 }
 
 static void proc_mgmt_accept_recv_handler(void *arg)
@@ -323,6 +325,7 @@ errval_t proc_mgmt_spawn_program_with_caps(coreid_t core_id, const char *path,
     // \0-separated strings in contiguous character buffer
     // this is needed, as flounder can't send variable-length arrays of strings
     size_t argstrlen = 0;
+
     for (int i = 0; argv[i] != NULL; i++) {
         argstrlen += strlen(argv[i]) + 1;
     }
@@ -488,6 +491,13 @@ errval_t proc_mgmt_kill(struct capref domain_cap)
     return msgerr;
 }
 
+static void cont(void* arg) 
+{
+    struct proc_mgmt_binding *b = get_proc_mgmt_binding();
+    struct proc_mgmt_bind_retst *st = (struct proc_mgmt_bind_retst*) b->st;
+    st->kill_sent = true;
+}
+
 /**
  * \brief Inform the process manager about exiting execution.
  */
@@ -501,11 +511,22 @@ errval_t proc_mgmt_exit(uint8_t status)
     struct proc_mgmt_binding *b = get_proc_mgmt_binding();
     assert(b != NULL);
 
-    err = b->tx_vtbl.exit(b, NOP_CONT, cap_domainid, status);
+
+    struct proc_mgmt_bind_retst *st = (struct proc_mgmt_bind_retst*) b->st;
+    st->kill_sent = false;
+    err = b->tx_vtbl.exit(b, MKCLOSURE(cont, 0), cap_domainid, status);
     if (err_is_fail(err)) {
         return err;
     }
-
+    
+    /* We have to make sure that the kill message is sent, otherwise
+     * we might cleanup the channel BEFORE the messages is actually sent 
+     * to the process manager
+     */
+    while(!st->kill_sent) {
+        event_dispatch(get_default_waitset());
+    }
+    
     return SYS_ERR_OK;
 }
 
