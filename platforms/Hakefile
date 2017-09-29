@@ -145,6 +145,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "bench_delete_cnode_last_copy_2",
                         "bench_delete_local_copy",
                         "bench_revoke_no_remote",
+                        "bench_revoke_no_remote_standalone",
                         "bench_revoke_remote_copy",
                         "bench_revoke_with_remote_copies",
                         "bench_retype_no_remote",
