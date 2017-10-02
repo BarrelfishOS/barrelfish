@@ -15,7 +15,7 @@
 #include <string.h>
 
 #include <barrelfish/barrelfish.h>
-#include <barrelfish/spawn_client.h>
+#include <barrelfish/proc_mgmt_client.h>
 
 #define MAXPATH 256
 
@@ -36,25 +36,24 @@ int main(int argc, char *argv[])
         snprintf(path, MAXPATH, "examples/%s", argv[0]);
         argv[1] = NULL;
 
-        domainid_t new_domain = -1;
+        struct capref ret_domain_cap;
 
         coreid_t core = 0;
         for (int i = 0; i < num_spawns; i++, core++) {
             core %= num_cores;
             /*
-              Signature for spawn_program is:
+              Signature for proc_mgmt_spawn_program is:
 
-              errval_t spawn_program(coreid_t coreid, const char *path,
+              errval_t proc_mgmt_spawn_program(coreid_t coreid, const char *path,
               	char *const argv[], char *const envp[],
-                spawn_flags_t flags, domainid_t *ret_domainid)
+                spawn_flags_t flags, struct capref *ret_domain_cap)
             */
-            err = spawn_program(core, path, argv, NULL, 0, &new_domain);
-
+	        err = proc_mgmt_spawn_program(core, path, argv, NULL, 0, 
+		                                  &ret_domain_cap);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed spawn %d on core %d", i, core);
             } else {
-                debug_printf("program %d on core %"PRIuCOREID" spawned "
-                             "with domain id %"PRIuDOMAINID"\n", i, core, new_domain);
+                debug_printf("program %d on core %"PRIuCOREID" spawned \n", i, core);
             }
         }
     } else {
