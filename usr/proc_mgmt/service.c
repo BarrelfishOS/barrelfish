@@ -643,7 +643,7 @@ static struct proc_mgmt_rx_vtbl monitor_vtbl = {
     .spawn_with_caps_call = spawn_with_caps_handler,
     .span_call            = span_handler,
     .kill_call            = kill_handler,
-    .exit                 = exit_handler,
+    .exit_call            = exit_handler,
     .wait_call            = wait_handler
 };
 
@@ -653,7 +653,7 @@ static struct proc_mgmt_rx_vtbl non_monitor_vtbl = {
     .spawn_with_caps_call = spawn_with_caps_handler,
     .span_call            = span_handler,
     .kill_call            = kill_handler,
-    .exit                 = exit_handler,
+    .exit_call            = exit_handler,
     .wait_call            = wait_handler
 };
 

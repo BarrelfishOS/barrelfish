@@ -39,8 +39,8 @@ interface proc_mgmt "Process management service" {
   rpc kill(in cap domain_cap, out errval err);
 
   // Let the process manager know the caller has finished execution.
-  message exit(cap domain_cap, uint8 status);
-  //rpc exit(in cap domain_cap, in uint8 status);
+  //message exit(cap domain_cap, uint8 status);
+  rpc exit(in cap domain_cap, in uint8 status);
 
   rpc wait(in cap domain_cap, out errval err, out uint8 status);
 };

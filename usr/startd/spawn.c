@@ -21,6 +21,7 @@
 
 #include <barrelfish/spawn_client.h>
 #include <spawndomain/spawndomain.h>
+#include <barrelfish/proc_mgmt_client.h>
 #include <dist/barrier.h>
 
 #include "internal.h"
@@ -363,9 +364,10 @@ void spawn_app_domains(void)
                         debug_printf("starting app %s on core %d\n",
                                      si.name, i);
 
-                        domainid_t new_domain;
-                        err = spawn_program(i, si.name, si.argv, environ,
-                                            spawn_flags, &new_domain);
+                        struct capref ret_domain_cap;
+                        err = proc_mgmt_spawn_program(i, si.name,
+                                                      si.argv, environ, spawn_flags, 
+                                                      &ret_domain_cap);
                         if (err_is_fail(err)) {
                             DEBUG_ERR(err, "spawn of %s failed", si.name);
                         }
@@ -377,9 +379,10 @@ void spawn_app_domains(void)
 
                 debug_printf("starting app %s on core %d\n", si.name, coreid);
 
-                domainid_t new_domain;
-                err = spawn_program(coreid, si.name, si.argv, environ,
-                                    spawn_flags, &new_domain);
+                struct capref ret_domain_cap;
+                err = proc_mgmt_spawn_program(coreid, si.name,
+                                              si.argv, environ, spawn_flags, 
+                                              &ret_domain_cap);
                 if (err_is_fail(err)) {
                     DEBUG_ERR(err, "spawn of %s failed", si.name);
                 }

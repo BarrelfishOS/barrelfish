@@ -23,7 +23,6 @@ struct proc_mgmt_bind_retst {
     errval_t err;
     struct proc_mgmt_binding *b;
     bool present;
-    bool kill_sent;
 };
 
 extern char **environ;
@@ -366,6 +365,10 @@ errval_t proc_mgmt_spawn_program_with_caps(coreid_t core_id, const char *path,
     }
 
     struct capref domain_cap;
+    err = slot_alloc(&domain_cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     if (capref_is_null(inheritcn_cap) && capref_is_null(argcn_cap)) {
         err = b->rpc_tx_vtbl.spawn(b, core_id, path, argstr, argstrlen, envstr,
@@ -487,13 +490,6 @@ errval_t proc_mgmt_kill(struct capref domain_cap)
     return msgerr;
 }
 
-static void cont(void* arg) 
-{
-    struct proc_mgmt_binding *b = get_proc_mgmt_binding();
-    struct proc_mgmt_bind_retst *st = (struct proc_mgmt_bind_retst*) b->st;
-    st->kill_sent = true;
-}
-
 /**
  * \brief Inform the process manager about exiting execution.
  */
@@ -507,22 +503,11 @@ errval_t proc_mgmt_exit(uint8_t status)
     struct proc_mgmt_binding *b = get_proc_mgmt_binding();
     assert(b != NULL);
 
-
-    struct proc_mgmt_bind_retst *st = (struct proc_mgmt_bind_retst*) b->st;
-    st->kill_sent = false;
-    err = b->tx_vtbl.exit(b, MKCLOSURE(cont, 0), cap_domainid, status);
+    err = b->rpc_tx_vtbl.exit(b, cap_domainid, status);
     if (err_is_fail(err)) {
         return err;
     }
-    
-    /* We have to make sure that the kill message is sent, otherwise
-     * we might cleanup the channel BEFORE the messages is actually sent 
-     * to the process manager
-     */
-    while(!st->kill_sent) {
-        event_dispatch(get_default_waitset());
-    }
-    
+
     return SYS_ERR_OK;
 }
 
