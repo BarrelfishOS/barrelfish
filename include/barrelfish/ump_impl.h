@@ -194,14 +194,8 @@ static inline volatile struct ump_message *ump_impl_get_next(
 
 #ifdef __x86_64__
     if(debug_notify_syscall) {
-        printf("ump_impl_get_next while forbidden from %p, %p, %p, %p, %p, %p, %p\n",
-               __builtin_return_address(0),
-               __builtin_return_address(1),
-               __builtin_return_address(2),
-               __builtin_return_address(3),
-               __builtin_return_address(4),
-               __builtin_return_address(5),
-               __builtin_return_address(6));
+        printf("ump_impl_get_next while forbidden from %p\n",
+               __builtin_return_address(0));
     }
 #endif
 
