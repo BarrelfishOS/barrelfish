@@ -21,7 +21,6 @@
 
 #define PROC_MGMT_BENCH 1
 #define PROC_MGMT_BENCH_MIN_RUNS 20
-// int total_ids;
 
 static errval_t test_spawn(coreid_t core_id, char *argv[],
 	                       struct capref *ret_domain_cap)
@@ -61,6 +60,7 @@ static void test_wait(struct capref domain_cap)
         USER_PANIC("Failed waiting for domain");
  	}
 }
+*/
 
 static inline cycles_t calculate_time(cycles_t tsc_start, cycles_t tsc_end)
 {
@@ -109,7 +109,6 @@ static void run_benchmark_spawn(coreid_t target_core)
 
     bench_ctl_destroy(ctl);
 }
-*/
 
 int main(int argc, char **argv)
 {   
@@ -232,12 +231,11 @@ int main(int argc, char **argv)
  	}
     printf("Unblocked \n");
 
-    /*
     printf("Running benchmarks core 0 \n");
     run_benchmark_spawn(0);
     printf("Running benchmarks core 3 \n");
     run_benchmark_spawn(3);
-    */
+
     printf("TEST DONE\n");
     return 0;
 }

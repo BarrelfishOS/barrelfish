@@ -9,6 +9,7 @@
 
 import datetime
 import tests
+import re
 from common import TestCommon
 from results import PassFailResult
 
@@ -23,18 +24,32 @@ class ProcMgmtTest(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(ProcMgmtTest, self).get_modules(build, machine)
-        n = 1
-        for i in range(n):
-            modules.add_module("proc_mgmt_test", ["core=3", str(i), str(n)])
-            # modules.add_module("proc_mgmt_test", ["core=3", "1"])
+        modules.add_module("proc_mgmt_test", ["core=3", "0", "starter"])
         return modules
 
     def get_finish_string(self):
         return "TEST DONE"
 
     def process_data(self, testdir, rawiter):
+        sleeper = False
+        num_wait = 0        
+
         for line in rawiter:
-            if line.startswith("FAIL:"):
+
+            if line.startswith("Unblocked") and sleeper:
+                num_wait += 1
+                sleeper = False
+            else:
+                sleeper = False
+
+            if line.startswith("Sleeper exit"):
+                sleeper = True
+            
+
+            if line.startswith("Failed"):
                 return PassFailResult(False)
 
-        return PassFailResult(True)
+        if num_wait == 2:
+            return PassFailResult(True)
+        else:
+            return PassFailResult(False)
