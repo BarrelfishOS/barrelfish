@@ -145,6 +145,9 @@ void init_node(struct bench_distops_binding *b)
 
     my_core_id = disp_get_core_id();
 
+    NUM_COPIES_START = 1;
+    NUM_COPIES_END = 256;
+
     bench_init();
 
     // Allocate client state struct
