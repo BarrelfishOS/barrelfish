@@ -14,7 +14,7 @@
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
-//#define E1000_SERVICE_DEBUG 1
+#define E1000_SERVICE_DEBUG 1
 
 #if defined(E1000_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define E1000_DEBUG(fmt, ...) printf(DRIVER_STRING fmt, ##__VA_ARGS__)

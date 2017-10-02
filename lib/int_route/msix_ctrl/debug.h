@@ -15,7 +15,7 @@
  * Debug printer and its power-switch:
  *****************************************************************/
 
-//#define MSIX_CTRL_DEBUG 1
+#define MSIX_CTRL_DEBUG 1
 
 #if defined(MSIX_CTRL_DEBUG) || defined(GLOBAL_DEBUG)
 #define CTRL_DEBUG(x...) printf("msix_ctrl: " x)

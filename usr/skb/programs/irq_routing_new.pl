@@ -147,6 +147,11 @@ subword(Word,Subword, Range) :-
 
         
 
+%>> ARM
+% Controller constraints
+
+mapf_valid_class(gicv2, CtrlLabel, InPort, InMsg, OutPort, OutMsg) :-
+    OutMsg = InMsg.
 
 %>> X86
 % Controller constraints
