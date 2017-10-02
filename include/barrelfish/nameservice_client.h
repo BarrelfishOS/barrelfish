@@ -19,10 +19,6 @@ errval_t nameservice_blocking_lookup(const char *iface, iref_t *retiref);
 errval_t nameservice_register(const char *iface, iref_t iref);
 errval_t nameservice_client_blocking_bind(void);
 
-errval_t nameservice_get_capability(const char *key, struct capref *retcap);
-errval_t nameservice_put_capability(const char *key, struct capref cap);
-errval_t nameservice_remove_capability(const char *key);
-
 __END_DECLS
 
 #endif // BARRELFISH_NAMESERVICE_CLIENT_H
