@@ -54,6 +54,7 @@
            "lpc_pci_config",
            "lpc_rtc",
            "lpc_rtc_spaces",
+           "msix",
            "ohci",
            "pc16550d",
            "rtl8029as",

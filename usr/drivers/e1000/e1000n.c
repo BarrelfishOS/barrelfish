@@ -49,6 +49,8 @@
 #include <octopus/trigger.h>
 #include <net_queue_manager/net_queue_manager.h>
 #include <trace/trace.h>
+#include <int_route/msix_ctrl.h>
+
 #ifdef LIBRARY
 #       include <netif/e1000.h>
 #endif
@@ -686,6 +688,37 @@ static uint64_t rx_find_free_slot_count_fn(void)
 }
 
 
+/*
+ * Start a MSIx controller client, if possible and requested.
+ */
+static errval_t e1000_init_msix_client(struct device_mem *bar_info,
+        int nr_allocated_bars) {
+
+    errval_t err;
+    if(nr_allocated_bars < 3){
+        E1000_DEBUG("Less than 3 BARs received. No MSIx support. #bars=%d\n",
+                nr_allocated_bars);
+        return PCI_ERR_MSIX_NOTSUP;
+    }
+
+    E1000_DEBUG("MSIx BAR received. Instantiating ctrl client\n");
+    err = map_device(&bar_info[2]);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "map_device");
+        E1000_PRINT_ERROR("Error: map_device failed. Will not initialize"
+                " MSIx controller.\n");
+        return err;
+    }
+
+    err = msix_client_init("johnny", bar_info[2].vaddr);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "msix_client_init");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
 
 /*****************************************************************
  * PCI init callback.
@@ -700,6 +733,9 @@ static void e1000_init_fn(void *arg, struct device_mem *bar_info, int nr_allocat
                  &receive_ring, DRIVER_RECEIVE_BUFFERS, DRIVER_TRANSMIT_BUFFERS,
                  mac_address, user_mac_address, use_interrupt);
     E1000_DEBUG("Hardware initialization complete.\n");
+
+    // Ignore return value for now
+    e1000_init_msix_client(bar_info, nr_allocated_bars);
 
     setup_internal_memory();
 

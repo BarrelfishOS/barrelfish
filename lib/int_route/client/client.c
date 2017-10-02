@@ -1,6 +1,7 @@
 /**
  * \file
- * \brief Contains helper functions for clients of the interrupt routing service
+ * \brief Contains helper functions for clients (such as devce drivers) of
+ *        the interrupt routing service.
  */
 
 /*
