@@ -46,8 +46,8 @@
 #undef _assert
 
 #ifdef NDEBUG
-#define	assert(e)	((void)0)
-#define	_assert(e)	((void)0)
+#define	assert(e)	 ((void)sizeof (e))
+#define	_assert(e)	((void)sizeof (e))
 #else
 #define	_assert(e)	assert(e)
 

@@ -551,6 +551,8 @@ mdb_is_child(struct cte *child, struct cte *parent)
         return N(parent)->left == child || N(parent)->right == child;
     }
 }
+#else
+#define mdb_is_child(a, b) 0
 #endif
 
 static bool

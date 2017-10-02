@@ -1412,6 +1412,8 @@ static bool check_caps_create_arguments(enum objtype type,
     // All other types do not need special alignments/offsets
     return true;
 }
+#else
+#define check_caps_create_arguments(a,b,c,d) 0
 #endif
 
 /** Create caps to new kernel objects.
@@ -1427,6 +1429,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     assert(type != ObjType_EndPoint); // Cap of this type cannot be created
     debug(SUBSYS_CAPS, "caps_create_new: type = %d, addr = %#"PRIxLPADDR
             ", bytes=%zu, objsize=%zu\n", type, addr, bytes, objsize);
+
     assert(check_caps_create_arguments(type, bytes, objsize, false));
     assert(addr == 0 || check_caps_create_arguments(type, bytes, objsize, true));
 
