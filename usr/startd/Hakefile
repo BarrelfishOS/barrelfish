@@ -14,18 +14,24 @@
                       cFiles = [ "main.c", "spawn.c" ],
                       addLibraries = libDeps [ "spawndomain", "elf", "trace",
                                        "dist", "vfs" ],
+                      flounderDefs = [ "proc_mgmt" ],
+                      flounderExtraDefs = [ ("proc_mgmt",["rpcclient"]) ],
                       architectures = [ "x86_64", "x86_32" ]
                    },
  build application { target = "startd",
                       cFiles = [ "main.c", "spawn.c" ],
                       addLibraries = libDeps [ "spawndomain", "elf", "trace",
                                        "dist", "vfs_noblockdev" ],
+                      flounderDefs = [ "proc_mgmt" ],
+                      flounderExtraDefs = [ ("proc_mgmt",["rpcclient"]) ],
                       architectures = [ "k1om" ]
                    },
  build application { target = "startd",
                      cFiles = [ "main.c", "spawn.c" ],
                      addLibraries = libDeps [ "spawndomain", "elf", "trace",
                                        "dist", "vfs_ramfs" ],
+                     flounderDefs = [ "proc_mgmt" ],
+                     flounderExtraDefs = [ ("proc_mgmt",["rpcclient"]) ],
                      architectures = [ "armv7", "armv8" ]
                    }
 ]
