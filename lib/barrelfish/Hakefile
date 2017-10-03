@@ -112,6 +112,7 @@ in
                     cFiles = arch_srcs arch ++ archfam_srcs (archFamily arch)
                              ++ common_srcs ++ idc_srcs,
                     assemblyFiles = arch_assembly (archFamily arch),
+                    flounderDefs = [ "proc_mgmt" ],
                     flounderBindings = [ "mem", "octopus", "interdisp", "spawn",
                                          "proc_mgmt", "terminal", "arrakis",
                                          "terminal_config" ],

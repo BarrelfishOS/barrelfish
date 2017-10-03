@@ -15,12 +15,16 @@
 #ifndef BARRELFISH_PROC_MGMT_CLIENT_H
 #define BARRELFISH_PROC_MGMT_CLIENT_H
 
-#include <if/proc_mgmt_defs.h>
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
 
 struct proc_mgmt_lmp_binding;
+
+
+/* XXX: duplicate of proc_mgmt_bind_continuation_fn in generated code */
+typedef void proc_mgmt_bind_continuation_fn(void *st, errval_t err,
+                                            struct proc_mgmt_binding *_binding);
 
 errval_t proc_mgmt_client_lmp_accept(struct proc_mgmt_lmp_binding *lmpb,
                                      struct waitset *ws,

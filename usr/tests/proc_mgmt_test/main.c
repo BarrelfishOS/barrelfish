@@ -15,6 +15,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
+#include <barrelfish/sys_debug.h>
 #include <barrelfish/proc_mgmt_client.h>
 #include <barrelfish/spawn_client.h>
 #include <bench/bench.h>

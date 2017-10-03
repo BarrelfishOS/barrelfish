@@ -18,6 +18,7 @@
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <if/mem_defs.h>
+#include <if/proc_mgmt_defs.h>
 #include <barrelfish/monitor_client.h>
 #include <barrelfish/proc_mgmt_client.h>
 #include <barrelfish/syscalls.h>
