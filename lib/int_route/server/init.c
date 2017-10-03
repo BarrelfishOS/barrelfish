@@ -127,29 +127,6 @@ struct controller_add_mapping_data {
     struct int_route_controller_binding *binding;
 };
 
-static void send_controller_add_mapping(void * arg) {
-    struct controller_add_mapping_data * msg = arg;
-
-    errval_t err;
-    err = int_route_controller_add_mapping__tx(msg->binding,
-            NOP_CONT, msg->lbl, msg->class,
-            msg->in_msg, msg->out_msg);
-
-    if(err_is_fail(err)){
-       if(err_no(err) == FLOUNDER_ERR_TX_BUSY){
-           INT_DEBUG("FLOUNDER_ERR_TX_BUSY, registering re-send");
-           msg->binding->register_send(msg->binding,get_default_waitset(),
-                   MKCONT(send_controller_add_mapping, arg));
-       } else {
-           USER_PANIC_ERR(err, "send_controller_add_mapping");
-       }
-    } else { //err_is_ok
-        free(msg->lbl);
-        free(msg->class);
-        free(msg);
-    }
-}
-
 /**
  * Reads a int message spec, returns 1 on success (ie parsed one
  * element). Zero on failure. 
