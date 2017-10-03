@@ -276,7 +276,7 @@ class DistopsBenchDeleteCNodeVary(DistopsBench):
         super(DistopsBenchDeleteCNodeVary, self).__init__(options)
         # make boxplot useful
         self.boxplot_ylim = [0, 1000]
-        self.ylabel = "#occupied slots in CNode"
+        self.xlabel = "#occupied slots in CNode"
 
     def setup(self, build, machine, testdir):
         super(DistopsBenchDeleteCNodeVary, self).setup(build, machine, testdir)
