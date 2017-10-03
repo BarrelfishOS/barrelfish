@@ -16,6 +16,7 @@
 interface int_route_controller "Interrupt Routing Controller interface" {
     
     typedef struct {
+        uint64 port;  // The port of the controller
         uint64 msg;   // This is either the data word to be written or the interrupt index.
         uint64 addr;  // In case of a memory write, this is the address to be written to, otherwise 0
     } int_message;

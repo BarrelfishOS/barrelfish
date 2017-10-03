@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
+#include <errno.h>
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
@@ -39,16 +40,6 @@ struct controller_driver {
 
 struct controller_driver * controller_head;
 static int exported = 0;
-
-//static struct controller_driver * find_controller(char * lbl, struct controller_driver *d){
-//    if(d == NULL){
-//        return NULL;
-//    } else if(strcmp(d->lbl, lbl) == 0){
-//        return d;
-//    } else {
-//        return find_controller(lbl, d->next);
-//    }
-//}
 
 static struct controller_driver * add_controller(struct controller_driver * d){
     INT_DEBUG("%s: enter\n", __FUNCTION__);
@@ -95,30 +86,6 @@ static struct controller_driver * find_controller(char * label, char * class){
     return NULL;
 }
 
-static int_route_controller_int_message_t build_int_message(uint64_t port, char * in){
-    int_route_controller_int_message_t ret = {0,0};
-
-    if(strcmp(in,"nullMsg") == 0){
-        ret.addr = port;
-        ret.msg = 0;
-        return ret;
-    }
-
-    if(strncmp(in, "mem_write", strlen("mem_write")) == 0){
-        sscanf(in, "mem_write(%"SCNu64",%"SCNu64")", &ret.addr, &ret.msg);
-        assert(port == 0);
-        return ret;
-    }
-
-    if(sscanf(in,"%"SCNu64,&ret.msg) == 1){
-        ret.addr = port;
-        return ret;
-    }
-
-    INT_DEBUG("Could not parse int_message: %s\n", in);
-    return ret;
-}
-
 struct controller_add_mapping_data {
     char * lbl;
     char * class;
@@ -127,123 +94,142 @@ struct controller_add_mapping_data {
     struct int_route_controller_binding *binding;
 };
 
-/**
- * Reads a int message spec, returns 1 on success (ie parsed one
- * element). Zero on failure. 
+/*
+ * Parse string at pos, write parsed message into out. If pos_after is 
+ * not null, the pointer after the parsing will be written there.
+ * Returns success value
  *
- * pos will be incremented such that it points to the first 
- * character after the int message.
- *
- * The result will be stored as string in out
+ * Example: 23,nullMsg        -> {23,0,0}
+ *          23,52             -> {23,52,0}
+ *          23,mem_write(1,2) -> {23,1,2}
  */
-static int read_int_message(char ** pos, char *out){ 
-    debug_printf("read_int_message at: '%s'", *pos);
-    int after = 0;
-    int matches = 0;
-    if(strncmp(*pos, "mem_write", strlen("mem_write")) == 0){
-        //matches = sscanf(*pos, "mem_write(%*d,%*d)%n", &after);
-        char dummy[255];
-        matches = sscanf(*pos, "mem_write(%[^)])%n", dummy, &after);
-        printf("dummy='%s'\n", dummy);
-        strncpy(out, *pos, after);
-        out[after] = 0;
-    } if(strcmp(*pos, "nullMsg")==0) {
-        matches = 1;
-        after = strlen("nullMsg"); 
+static int parse_int_message(char *pos, int_route_controller_int_message_t *out,
+        char **pos_after){ 
+
+    out->port = atoll(pos);
+    char * n_pos = strchr(pos, ',');
+    if(n_pos == NULL){
+        return 1;
+    }
+    n_pos++;
+    // n_pos points to after first comma
+
+    if(strncmp(n_pos, "mem_write", strlen("mem_write")) == 0){
+        char * int_1 = strchr(n_pos, '(');
+        if(int_1 == NULL){
+            return 1;
+        }
+        int_1++;
+        out->msg = atoll(int_1);
+
+        char * int_2 = strchr(int_1, ',');
+        if(int_2 == NULL){
+            return 1;
+        }
+        int_2++;
+        out->addr = atoll(int_2);
+
+        char * after = strchr(int_2, ')');
+        if(after == NULL){
+            return 1;
+        }
+        if(pos_after != NULL) *pos_after = after + 1;
+    } else if(strncmp(n_pos, "nullMsg", strlen("nullMsg"))==0) {
+        if(pos_after != NULL) *pos_after = n_pos + strlen("nullMsg"); 
+        out->msg = 0;
+        out->addr = 0;
     } else {
-        matches = sscanf(*pos, "%[^,\n]%n", out, &after);
-    }
-    *pos += after;
-    return matches;
-}
-
-
-static int test_read(char *in, char *exp_out, char *exp_rem){
-    char * pos = in;
-    char output[128];
-    read_int_message(&pos, output);
-    if(strcmp(pos, exp_rem) != 0){
-        printf("Test fail: %s != %s", pos, exp_rem);
-        return 1;
-    }
-    if(strcmp(output, exp_out) != 0){
-        printf("Test fail: %s != %s", output, exp_out);
-        return 1;
+        out->msg = strtoll(n_pos, pos_after, 0);
+        out->addr = 0;
+        if(errno == EINVAL) {
+            return 1;
+        }
     }
     return 0;
 }
 
-static void test_read_all(void){
-    test_read("23\n", "23", "\n");
-    test_read("42,peace", "42", ",peace");
-    test_read("mem_write(1,2)\n", "mem_write(1,2)", "\n");
-    test_read("mem_write(3,4),peace", "mem_write(3,4)", ",peace");
-    test_read("mem_write(4276092928,34)\nmsi_rcv", "mem_write(4276092928,34)",
-            "\nmsi_rcv");
-    test_read("nullMsg,peace", "nullMsg", ",peace");
-};
+//static int test_read(char *in, int_route_controller_int_message_t expected){
+//    int_route_controller_int_message_t actual;
+//    char * after = NULL;
+//    int err = parse_int_message(in, &actual, &after);
+//    if(err){
+//        printf("Returned error code %d\n", err);
+//    }
+//    if(memcmp(&actual, &expected, sizeof(actual)) != 0){
+//        printf("Parsing %s failed!\n", in);
+//    }
+//    if(*after != '\n'){
+//        printf("After pointer set wrong\n");
+//    }
+//    return 0;
+//}
+//}
+//
+//static void test_read_all(void){
+//    test_read("23,nullMsg\n", (int_route_controller_int_message_t){23,0,0});
+//    test_read("23,42\n", (int_route_controller_int_message_t){23,42,0});
+//    test_read("22,mem_write(33,44)\n", (int_route_controller_int_message_t){22,33,44});
+//};
 
 
 #define INVALID_PORT -1
 static errval_t read_route_output_and_tell_controllers(void){
-    test_read_all();
+    //test_read_all();
     char * out = skb_get_output();
     INT_DEBUG("skb output: %s\n", out);
+    errval_t err;
 
     // Parse output and instruct controller
-    int inport = INVALID_PORT, outport = INVALID_PORT;
     char * class = malloc(255);
     char * lbl = malloc(255);
-    char inmsg[255], outmsg[255];
 
     for(char * pos = out; pos-1 != NULL && *pos != 0; pos = strchr(pos,'\n')+1 ) {
         // Sample output line: msix_0,msix,0,nullMsg,0,mem_write(4276092928,34)
                
-        int offset = -1;
         int matches = 0;  
         // lbl and class must not contain spaces:
-        matches = sscanf(pos, "%[^,\n],%[^,\n],%d,%n",
-                lbl, class, &inport, &offset); // inmsg, &outport, outmsg);
+        matches = sscanf(pos, "%[^,\n],%[^,\n]", lbl, class); 
         
-        if(matches != 3 || offset==-1){
+        if(matches != 2) {
             debug_printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
             continue;
         }
 
-        pos += offset;
-        matches = read_int_message(&pos, inmsg);
-        if(matches != 1){
+        char * pos_1 = strchr(pos,',');
+        if(pos_1 == NULL){
+            debug_printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
+        }
+        pos = strchr(pos_1 + 1,',');
+        if(pos == NULL){
+            debug_printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
+        }
+
+        int_route_controller_int_message_t in_msg;
+        err = parse_int_message(pos, &in_msg, &pos);
+        if(err_is_fail(err)){
             debug_printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
             continue;
         }
 
-        debug_printf("sscanf (%d): '%s'\n", __LINE__, pos);
-        offset = -1;
-        matches = sscanf(pos, ",%d,%n", 
-                &outport, &offset); // inmsg, &outport, outmsg);
-        if(matches != 1 || offset==-1){
+        int_route_controller_int_message_t out_msg;
+        err = parse_int_message(pos, &out_msg, &pos);
+        if(err_is_fail(err)){
             debug_printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
             continue;
         }
 
-        pos += offset;
-        matches = read_int_message(&pos, outmsg);
-        if(matches != 1){
-            debug_printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
-            continue;
-        }
-
-        INT_DEBUG("Scanned args: '%s' '%s' %d '%s' %d '%s'\n", lbl, class,
-                inport, inmsg, outport, outmsg );
+        INT_DEBUG("Scanned args: '%s' '%s': (%"PRIu64",%"PRIu64",%"PRIu64") -> "
+                "(%"PRIu64",%"PRIu64",%"PRIu64")\n", lbl, class,
+                in_msg.port, in_msg.msg, in_msg.addr,
+                out_msg.port, out_msg.msg, out_msg.addr);
 
         struct controller_driver * dest = find_controller(lbl, class);
         if(dest == NULL){
             INT_DEBUG("No controller driver found.\n");
         } else {
-            errval_t err;
             err = int_route_controller_add_mapping__tx(dest->binding,
-                    BLOCKING_CONT, lbl, class, build_int_message(inport, inmsg),
-                    build_int_message(outport, outmsg));
+                    BLOCKING_CONT, lbl, class, in_msg,
+                    out_msg);
             assert(err_is_ok(err));
         }
     }
