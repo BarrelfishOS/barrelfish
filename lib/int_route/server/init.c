@@ -105,6 +105,7 @@ struct controller_add_mapping_data {
  */
 static int parse_int_message(char *pos, int_route_controller_int_message_t *out,
         char **pos_after){ 
+    if(*pos == ',') return 1;
 
     out->port = atoll(pos);
     char * n_pos = strchr(pos, ',');
@@ -203,6 +204,7 @@ static errval_t read_route_output_and_tell_controllers(void){
         if(pos == NULL){
             debug_printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
         }
+        pos += 1;
 
         int_route_controller_int_message_t in_msg;
         err = parse_int_message(pos, &in_msg, &pos);
@@ -210,6 +212,7 @@ static errval_t read_route_output_and_tell_controllers(void){
             debug_printf("WARNING: Invalid SKB response. (%d)\n", __LINE__);
             continue;
         }
+        pos += 1;
 
         int_route_controller_int_message_t out_msg;
         err = parse_int_message(pos, &out_msg, &pos);
