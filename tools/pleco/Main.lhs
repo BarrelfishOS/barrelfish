@@ -34,7 +34,7 @@
 
 > printEventJSON :: (String, (EventField, Integer)) -> String
 > printEventJSON (subsystemName, (EventField name desc, number)) =
->	"\t\t" ++ show number ++ " : [\"" ++ name ++ "\", \"" ++ theDesc ++ "\" ]"
+>	"\t\t\"" ++ show number ++ "\" : [\"" ++ name ++ "\", \"" ++ theDesc ++ "\" ]"
 >	where
 >		theDesc =
 >			if length desc == 0
@@ -43,7 +43,7 @@
 
 > printSubsysJSON :: (SubsystemClass, Integer) -> String
 > printSubsysJSON (SubsystemClass name events, number) =
->	show number ++ " : {\n\t" ++ subsysString ++ ",\n\t\"events\" : {\n" ++ eventStrings ++ "\n\t}\n}"
+>	"\"" ++ show number ++ "\" : {\n\t" ++ subsysString ++ ",\n\t\"events\" : {\n" ++ eventStrings ++ "\n\t}\n}"
 >	where
 > 		subsysString = "\"name\" : \"" ++ name ++ "\""
 >		eventStrings = concat (addInBetween ",\n" (map printEventJSON (zip (repeat name) (zip events [0..]))))
@@ -54,7 +54,7 @@ in Aquarium, we need to add the corresponding information here with the function
 
 > addFlounder :: [String]
 > addFlounder  =
->	[",\n-5632 : {\n\t\"name\" : \"ump send\"\n\t},\n-5376 : {\n\t\"name\" : \"ump receive\"\n\t}"]
+>	[",\n\"-5632\" : {\n\t\"name\" : \"ump send\"\n\t},\n\"-5376\" : {\n\t\"name\" : \"ump receive\"\n\t}"]
 
 > printTraceFileJSON :: [SubsystemClass] -> String
 > printTraceFileJSON subsystems =
