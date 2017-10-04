@@ -105,12 +105,14 @@ static void delete_wait__fin(void *st_)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct delete_st *st = (struct delete_st*)st_;
+    TRACE(CAPOPS, DELETE_CALL_RX, 5);
     delete_result__rx(SYS_ERR_OK, st, false);
 }
 
 static void delete_last(struct delete_st* del_st)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    TRACE(CAPOPS, DELETE_LAST, 0);
     errval_t err;
     bool locked = true;
 
@@ -132,6 +134,7 @@ static void delete_last(struct delete_st* del_st)
         goto report_error;
     }
 
+    TRACE(CAPOPS, DELETE_QUEUE_FIN, 0);
     DEBUG_CAPOPS("%s: waiting on delete queue\n", __FUNCTION__);
     delete_queue_wait(&del_st->qn, MKCLOSURE(delete_wait__fin, del_st));
 
@@ -140,6 +143,7 @@ static void delete_last(struct delete_st* del_st)
 report_error:
     DEBUG_CAPOPS("%s: reporting error: %s\n", __FUNCTION__,
             err_getstring(err));
+    TRACE(CAPOPS, DELETE_CALL_RX, 1);
     delete_result__rx(err, del_st, locked);
 }
 
@@ -160,6 +164,7 @@ static void
 delete_remote__enq(struct capability *cap, struct delete_st *st)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    TRACE(CAPOPS, DELETE_REMOTE_ENQ, 0);
     errval_t err;
     struct delete_remote_mc_st *mc_st;
 
@@ -175,6 +180,7 @@ delete_remote__enq(struct capability *cap, struct delete_st *st)
     return;
 
 report_error:
+    TRACE(CAPOPS, DELETE_CALL_RX, 6);
     delete_result__rx(err, st, true);
 }
 
@@ -223,6 +229,7 @@ delete_remote__rx(struct intermon_binding *b, intermon_caprep_t caprep,
                   genvaddr_t st)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    TRACE(CAPOPS, DELETE_REMOTE_RX, 0);
     errval_t err, err2;
     struct capability cap;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
@@ -265,6 +272,7 @@ delete_remote_result__rx(struct intermon_binding *b, errval_t status,
                          genvaddr_t st)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    TRACE(CAPOPS, DELETE_REMOTE_RESULT_RX, 0);
     errval_t err;
     struct delete_remote_mc_st *mc_st = (struct delete_remote_mc_st*)(lvaddr_t)st;
     struct delete_st *del_st = mc_st->del_st;
@@ -320,6 +328,7 @@ delete_remote_result__rx(struct intermon_binding *b, errval_t status,
         err = status;
     }
 
+    TRACE(CAPOPS, DELETE_CALL_RX, 7);
     delete_result__rx(err, del_st, false);
 }
 
@@ -333,6 +342,7 @@ static void
 find_core_cont(errval_t status, coreid_t core, void *st)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    TRACE(CAPOPS, DELETE_FIND_CORE_CONT, 0);
     // called with the result of "find core with cap" when trying to move the
     // last cap
     errval_t err = status;
@@ -369,6 +379,7 @@ find_core_cont(errval_t status, coreid_t core, void *st)
     return;
 
 report_error:
+    TRACE(CAPOPS, DELETE_CALL_RX, 2);
     delete_result__rx(err, del_st, false);
 }
 
@@ -376,6 +387,7 @@ static void
 move_result_cont(errval_t status, void *st)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    TRACE(CAPOPS, DELETE_MOVE_RESULT_CONT, 0);
     errval_t err = status;
     struct delete_st *del_st = (struct delete_st*)st;
     assert(distcap_is_moveable(del_st->cap.type));
@@ -385,6 +397,7 @@ move_result_cont(errval_t status, void *st)
         delete_trylock_cont(del_st);
     }
     else if (err_is_fail(err)) {
+        TRACE(CAPOPS, DELETE_CALL_RX, 3);
         delete_result__rx(err, del_st, false);
     }
     else {
@@ -393,6 +406,7 @@ move_result_cont(errval_t status, void *st)
         if (err_no(err) == SYS_ERR_CAP_NOT_FOUND) {
             err = SYS_ERR_OK;
         }
+        TRACE(CAPOPS, DELETE_CALL_RX, 4);
         delete_result__rx(err, del_st, false);
     }
 }
@@ -405,6 +419,7 @@ static void
 delete_trylock_cont(void *st)
 {
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    TRACE(CAPOPS, DELETE_LOCK, 0);
     errval_t err;
     bool locked = false;
     struct delete_st *del_st = (struct delete_st*)st;
@@ -417,6 +432,7 @@ delete_trylock_cont(void *st)
         // If cap is already locked, just enqueue for retry
         if (err_no(err) == SYS_ERR_CAP_LOCKED) {
             DEBUG_CAPOPS("%s: from cnode_delete(): cap already locked, queuing retry\n", __FUNCTION__);
+            TRACE(CAPOPS, DELETE_QUEUE_RETRY, 0);
             caplock_wait(del_st->capref, &del_st->lock_qn,
                          MKCLOSURE(delete_trylock_cont, del_st));
             return;
@@ -433,6 +449,7 @@ delete_trylock_cont(void *st)
                            del_st->capref.level);
     if (err_no(err) == SYS_ERR_CAP_LOCKED) {
         DEBUG_CAPOPS("%s: from lock(): cap already locked, queuing retry\n", __FUNCTION__);
+        TRACE(CAPOPS, DELETE_QUEUE_RETRY, 1);
         caplock_wait(del_st->capref, &del_st->lock_qn,
                      MKCLOSURE(delete_trylock_cont, del_st));
         return;
@@ -452,6 +469,7 @@ delete_trylock_cont(void *st)
         locked = true;
     }
 
+    TRACE(CAPOPS, DELETE_DO_WORK, 0);
     // check if there could be any remote relations
     uint8_t relations;
     err = monitor_domcap_remote_relations(del_st->capref.croot,
@@ -482,6 +500,7 @@ delete_trylock_cont(void *st)
 
 report_error:
     DEBUG_CAPOPS("%s: reporting error: %s\n", __FUNCTION__, err_getcode(err));
+    TRACE(CAPOPS, DELETE_CALL_RX, 0);
     delete_result__rx(err, del_st, locked);
 }
 
@@ -499,6 +518,7 @@ capops_delete(struct domcapref cap,
 {
     errval_t err;
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
+    TRACE(CAPOPS, DELETE_ENTER, 0);
 
     // try a simple delete
     DEBUG_CAPOPS("%s: trying simple delete\n", __FUNCTION__);
@@ -545,5 +565,6 @@ free_st:
 
 err_cont:
     DEBUG_CAPOPS("%s: calling result handler with err=%"PRIuERRV"\n", __FUNCTION__, err);
+    TRACE(CAPOPS, DELETE_DONE, 0);
     result_handler(err, st);
 }

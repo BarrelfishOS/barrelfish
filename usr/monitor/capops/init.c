@@ -36,5 +36,7 @@ errval_t capops_init(struct waitset *ws, struct intermon_binding *b)
 
     delete_steps_init(ws);
 
+    TRACE(CAPOPS, START, 0);
+
     return SYS_ERR_OK;
 }
