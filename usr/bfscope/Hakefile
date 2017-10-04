@@ -14,5 +14,10 @@
                       cFiles = [ "bfscope.c" ],
                       addLibraries = [ "lwip", "contmng", "net_if_raw", "trace" ],
                       flounderBindings = [ "empty" ]
+                    },
+  build application { target = "bfscope_nfs",
+                      cFiles = [ "bfscope_nfs.c" ],
+                      addLibraries = libDeps [ "trace", "vfs" ],
+                      flounderBindings = [ "empty" ]
                     }
 ]
