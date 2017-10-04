@@ -1103,13 +1103,23 @@ applicationBuildFn tdb tf args
 applicationBuildFn tdb tf args =
     Rules [ appBuildArch tdb tf args arch | arch <- Args.architectures args ]
 
+extraIncs libs =
+    [ NoDep SrcTree "src" ("/include" </> l) | l <- filter libNeedsInc libs ]
+    where
+        libNeedsInc lib
+           | lib == "lwip"  = True
+           | lib == "lwip2" = True
+           | otherwise      = False
+
 appGetOptionsForArch arch args =
     (options arch) { extraIncludes =
                          [ NoDep SrcTree "src" a | a <- Args.addIncludes args]
                          ++
                          [ NoDep BuildTree arch a | a <- Args.addGeneratedIncludes args]
                          ++
-                         [ NoDep SrcTree "src" ("/include" </> l) | l <- Args.addLibraries args ],
+                         -- Only add extra include directory for libraries
+                         -- that actually need it. -SG,2017-09-19.
+                         extraIncs (Args.addLibraries args),
                      optIncludes = (optIncludes $ options arch) \\
                          [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
                      optFlags = (optFlags $ options arch) \\
