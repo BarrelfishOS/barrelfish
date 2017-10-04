@@ -276,7 +276,7 @@ static void traverse_hash_bucket(int hid, struct rpc_client *client)
                 */
 
                 /* retransmit */
-                printf("###### [%d][%"PRIuDOMAINID"] "
+                RPC_DEBUGP("###### [%d][%"PRIuDOMAINID"] "
                        "RPC: retransmit XID 0x%"PRIu32"\n",
                        disp_get_core_id(), disp_get_domain_id(), call->xid);
 
