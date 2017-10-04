@@ -42,16 +42,16 @@ static void add_mapping(struct int_route_controller_binding *b,
 
     errval_t err = SYS_ERR_OK;
 
-    ACPI_DEBUG("ioapic add_mapping: label:%s, class:%s (%"PRIu64", %"PRIu64") to"
-            "(%"PRIu64", %"PRIu64")\n", label, class, from.addr, from.msg, to.addr, to.msg);
+    ACPI_DEBUG("ioapic add_mapping: label:%s, class:%s (port=%"PRIu64") to"
+            "(%"PRIu64", %"PRIu64")\n", label, class, from.port, to.port, to.msg);
     struct ioapic* ioapic = find_ioapic_for_label(label);
     if(ioapic == NULL){
         debug_printf("No ioapic found for label: %s\n", label);
         goto err_out;
     }
 
-    // to.addr is a barrelfish cpu id. Need  to translate this to apic id
-    err = skb_execute_query("corename(%"PRIu64",_,apic(A)),writeln(A).", to.addr);
+    // to.port is a barrelfish cpu id. Need  to translate this to apic id
+    err = skb_execute_query("corename(%"PRIu64",_,apic(A)),writeln(A).", to.port);
     if(err_is_fail(err)){
         DEBUG_SKB_ERR(err, "ACPI id lookup failed");
         goto err_out;
@@ -64,7 +64,7 @@ static void add_mapping(struct int_route_controller_binding *b,
         goto err_out;
     }
 
-    int inti = from.addr;
+    int inti = from.port;
     // route
     ACPI_DEBUG("ioapic_route_inti(irqbase=%d, inti=%d, dest_vec=%"PRIu64","
             " dest_apic=%d)\n",
