@@ -39,8 +39,10 @@
 //#define NONBLOCKING_NFS_READ   1
 #define MAX_NFS_READ_BYTES   1330 /*14000*//*workaround for breakage in lwip*/
 
-#define MAX_NFS_WRITE_BYTES  1330 /* workaround for breakage in lwip */
-#define MAX_NFS_WRITE_CHUNKS 1    /* workaround for breakage in lwip */
+/* SG,2017-10-04: lowered from 1330, now works with e1000_net_sockets_server */
+#define MAX_NFS_WRITE_BYTES  1300
+/* SG,2017-10-04: raised from 1, still works with e1000_net_sockets_server */
+#define MAX_NFS_WRITE_CHUNKS 4
 #define NFS_WRITE_STABILITY  UNSTABLE
 
 #define assert_err(e,m)     \
@@ -426,6 +428,8 @@ static void create_resolve_cont(void *st, errval_t err, struct nfs_fh3 fh,
     }
 
     static struct sattr3 nulattr;
+    nulattr.mode.set_it = true;
+    nulattr.mode.set_mode3_u.mode = 0666;
     errval_t r = nfs_create(h->nfs->client, fh, h->st, false, nulattr,
                          create_callback, h);
     assert(r == SYS_ERR_OK);
