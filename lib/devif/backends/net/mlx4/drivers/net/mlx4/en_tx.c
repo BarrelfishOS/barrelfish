@@ -61,6 +61,7 @@
 #include <debug.h>
 
 #include "mlx4_en.h"
+#include "mlx4_devif_queue.h"
 /*#include "utils.h"*/
 
 enum {
@@ -787,7 +788,7 @@ int mlx4_en_xmit(struct mlx4_en_priv *priv, int tx_ind, genpaddr_t buffer_data, 
 	__be32 owner_bit;
 
     
-    // debug_printf("%s.%d: %lx:%zd\n", __func__, __LINE__, buffer_data, length);
+    debug_printf("%s.%d: %lx:%zd %p\n", __func__, __LINE__, buffer_data, length, priv);
     
     if (!priv->port_up) {
     	goto tx_drop;
@@ -855,6 +856,8 @@ int mlx4_en_xmit(struct mlx4_en_priv *priv, int tx_ind, genpaddr_t buffer_data, 
 	// }
 	op_own |= owner_bit;
 	ring->prod += nr_txbb;
+    
+    debug_printf("%s.%d: index=%d bf_index=%d prod=%d\n", __func__, __LINE__, index, bf_index, ring->prod);
 
     cq = priv->tx_cq[tx_ind];
     mlx4_en_arm_cq(priv, cq);

@@ -140,7 +140,7 @@ enum mlx4_en_alloc_type {
 					MLX4_EN_NUM_UP)
 
 #define MLX4_EN_DEF_TX_RING_SIZE	1024
-#define MLX4_EN_DEF_RX_RING_SIZE  	1024
+#define MLX4_EN_DEF_RX_RING_SIZE  4096
 
 /*Target number of bytes to coalesce with interrupt moderation*/
 #define MLX4_EN_RX_COAL_TARGET	0x20000
@@ -299,6 +299,7 @@ struct mlx4_en_rx_mbuf {
 	/*bus_dmamap_t dma_map;*/
 	// struct mbuf *mbuf;
 	void *buffer;
+    uint64_t offset, length;
 };
 
 struct mlx4_en_rx_spare {
@@ -429,7 +430,7 @@ struct mlx4_en_dev {
 struct mlx4_dev *dev;
 struct pci_dev *pdev;
 /*struct mutex state_lock;*/
-struct net_device *pndev[MLX4_MAX_PORTS + 1];
+struct mlx4_queue *port_queue[MLX4_MAX_PORTS + 1];
 u32 port_cnt;
 bool device_up;
 struct mlx4_en_profile profile;
@@ -505,10 +506,13 @@ MLX4_EN_FLAG_DCB_ENABLED = (1 << 5)
  u8			vport_num;
  };
  */
+
+struct mlx4_queue;
+
 struct mlx4_en_priv {
     struct mlx4_en_dev *mdev;
     struct mlx4_en_port_profile *prof;
-    struct net_device *dev;
+    struct mlx4_queue *devif_queue;
     unsigned long active_vlans[BITS_TO_LONGS(VLAN_N_VID)];
     struct mlx4_en_port_state port_state;
     spinlock_t stats_lock;
@@ -739,8 +743,10 @@ struct mlx4_en_priv {
 
  void mlx4_en_destroy_netdev(struct net_device *dev);
  */
+
+struct mlx4_queue;
 int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
-struct mlx4_en_port_profile *prof);
+struct mlx4_en_port_profile *prof, struct mlx4_queue *queue);
 int mlx4_en_start_port(struct mlx4_en_priv *priv);
 /*
  void mlx4_en_stop_port(struct net_device *dev);
@@ -825,8 +831,8 @@ int mlx4_en_create_drop_qp(struct mlx4_en_priv *priv);
  int mlx4_SET_VLAN_FLTR(struct mlx4_dev *dev, struct mlx4_en_priv *priv);
  */
 int mlx4_en_DUMP_ETH_STATS(struct mlx4_en_priv *priv, u8 port, u8 reset);
+int mlx4_en_QUERY_PORT(struct mlx4_en_dev *mdev, u8 port);
 /*
- int mlx4_en_QUERY_PORT(struct mlx4_en_dev *mdev, u8 port);
  int mlx4_en_get_vport_stats(struct mlx4_en_dev *mdev, u8 port);
  void mlx4_en_create_debug_files(struct mlx4_en_priv *priv);
  void mlx4_en_delete_debug_files(struct mlx4_en_priv *priv);
@@ -931,9 +937,5 @@ do {								\
 	pr_warning("%s %s: " format, DRV_NAME,		\
 		   dev_name(&mdev->pdev->dev), ##arg)
  */
-
-/*VLAD*/
-int mlx4_en_xmit(struct mlx4_en_priv *priv, int tx_ind, genpaddr_t buffer_data, size_t length);
-void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_ind);
 
 #endif

@@ -1441,12 +1441,12 @@ static int mlx4_init_port_info(int port) {
 
 static void mlx4_init_fn(void *user_state, struct device_mem *bar_info,
                          int nr_allocated_bars) {
-    mlx4_queue_t *device;
+    mlx4_queue_t *queue;
     // struct mlx4_priv *priv;
 	errval_t err;
 	int port;
 
-    device = user_state;
+    queue = user_state;
     // priv = device->priv;
 	MLX4_DEBUG("Starting hardware initialization.\n");
 	err = map_bars(bar_info, nr_allocated_bars);
@@ -1630,7 +1630,7 @@ static void mlx4_init_fn(void *user_state, struct device_mem *bar_info,
 	// mlx4_ib_add(&priv->dev);
 
 	/*ETHERNET----------------------------------------------------------------------*/
-	mlx4_en_add(&priv->dev);
+	mlx4_en_add(&priv->dev, queue);
 }
 
 int __mlx4_counter_alloc(struct mlx4_dev *dev, int slave, int port, int *idx) {
@@ -2464,7 +2464,10 @@ static errval_t mlx4_register(struct devq* q, struct capref cap,
     device->region_id = rid;
     device->region_base = id.base;
     device->region_size = id.bytes;
-    debug_printf("%s:%s:  rid:%d:%lx:%lx\n", device->name, __func__, rid, device->region_base, device->region_size);
+    
+    err = vspace_map_one_frame_attr(&device->region_mapped, id.bytes, cap, VREGION_FLAGS_READ_WRITE, NULL, NULL);
+    assert(err_is_ok(err));
+    debug_printf("%s:%s:  rid:%d:%lx:%lx:%p\n", device->name, __func__, rid, device->region_base, device->region_size, device->region_mapped);
     return SYS_ERR_OK;
 }
 
@@ -2480,19 +2483,45 @@ static errval_t mlx4_control(struct devq* q, uint64_t cmd, uint64_t value,
                                  uint64_t *result)
 {
     mlx4_queue_t *device = (mlx4_queue_t *)q;
-    debug_printf("%s:%s:\n", device->name, __func__);
+    debug_printf("%s:%s: %06lx\n", device->name, __func__, device->mac_address);
     *result = device->mac_address;
     return SYS_ERR_OK;
 }
 
-static errval_t mlx4_enqueue_tx(mlx4_queue_t *device, regionid_t rid,
+
+static errval_t mlx4_enqueue_tx(mlx4_queue_t *queue, regionid_t rid,
                                genoffset_t offset, genoffset_t length,
                                genoffset_t valid_data, genoffset_t valid_length,
                                uint64_t flags)
 {
-    debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", device->name, __func__, offset, length, valid_data, valid_length, flags);
-    // struct mlx4_en_priv *priv =
-    // mlx4_en_xmit(device->priv, 0, device->region_base + offset + valid_data, valid_length);
+    debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", queue->name, __func__, offset, length, valid_data, valid_length, flags);
+    // uint8_t *packet = queue->region_mapped + offset + valid_data;
+    // int i;
+    // packet[6] = 0;
+    // packet[7] = 0;
+    // packet[8] = 0;
+    // packet[9] = 0;
+    // packet[10] = 0;
+    // packet[11] = 0;
+    // packet[0x28] = 0xe4;
+    // packet[0x29] = 0x17;
+    // packet[0x2e] = 0x42;
+    // packet[0x2f] = 0x6a;
+    // packet[0x30] = 0x61;
+    // packet[0x31] = 0x6b;
+    // packet[0x46] = 0;
+    // packet[0x47] = 0;
+    // packet[0x48] = 0;
+    // packet[0x49] = 0;
+    // packet[0x4a] = 0;
+    // packet[0x4b] = 0;
+
+    // for (i = 0; i < valid_length; i += 16) {
+    //     debug_printf("%s: %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx  %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n", __func__, packet[0], packet[1], packet[2], packet[3], packet[4], packet[5], packet[6], packet[7],
+    //         packet[8], packet[9], packet[10], packet[11], packet[12], packet[13], packet[14], packet[15]);
+    //     packet += 16;
+    // }
+    mlx4_en_xmit(queue->priv, 0, queue->region_base + offset + valid_data, valid_length);
     return SYS_ERR_OK;
 }
 
@@ -2507,13 +2536,13 @@ static errval_t mlx4_enqueue(struct devq* q, regionid_t rid,
     // debug_printf("%s: %lx:%ld:%ld:%ld\n", __func__, offset, length, valid_data, valid_length);
     if (flags & NETIF_RXFLAG) {
         /* can not enqueue receive buffer larger than 2048 bytes */
-        // assert(length <= 2048);
-        //
-        // err = mlx4_enqueue_rx(device, rid, offset, length, valid_data, valid_length,
-        //                      flags);
-        // if (err_is_fail(err)) {
-        //     return err;
-        // }
+        assert(length <= 2048);
+        
+        err = mlx4_en_enqueue_rx(device, rid, offset, length, valid_data, valid_length,
+                             flags);
+        if (err_is_fail(err)) {
+            return err;
+        }
     } else if (flags & NETIF_TXFLAG) {
         assert(length <= BASE_PAGE_SIZE);
     

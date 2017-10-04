@@ -68,6 +68,7 @@
 
 #include <debug.h>
 
+#include "mlx4_devif_queue.h"
 #include "mlx4_en.h"
 /*
  #include "en_port.h"
@@ -556,7 +557,8 @@ static int mlx4_en_get_qp(struct mlx4_en_priv *priv) {
 	int *qpn = &priv->base_qpn;
 
 	/*HARDWIRE*/
-	u64 mac = 0xf4521463a181;/*mlx4_mac_to_u64(IF_LLADDR(priv->dev));*/
+    debug_printf("%s: devif_queue:%p\n", __func__, priv->devif_queue);
+	u64 mac = priv->devif_queue->mac_address;
 
 	MLX4_DEBUG("Registering MAC: pM for adding\n"/*, IF_LLADDR(priv->dev)*/);
 	index = mlx4_register_mac(dev, priv->port, mac);
@@ -1936,12 +1938,10 @@ static void mlx4_en_open(void* arg) {
 
 	struct mlx4_en_priv *priv;
 	struct mlx4_en_dev *mdev;
-	struct net_device *dev;
 	int err = 0;
 
 	priv = arg;
 	mdev = priv->mdev;
-	dev = priv->dev;
 
 	/*mutex_lock(&mdev->state_lock);*/
 
@@ -2385,16 +2385,18 @@ struct en_port_attribute en_port_attr_##_name = __ATTR(_name, _mode, _show, _sto
  */
 
 int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
-		struct mlx4_en_port_profile *prof) {
+		struct mlx4_en_port_profile *prof, struct mlx4_queue *queue) {
 	/*struct net_device *dev;*/
 	struct mlx4_en_priv *priv;
-	uint8_t dev_addr[ETHER_ADDR_LEN];
+	// uint8_t dev_addr[ETHER_ADDR_LEN];
 	int err;
 	int i;
 	struct thread *thread;
 	systime_t current;
 
 	priv = calloc(1, sizeof(*priv));
+    queue->priv = priv;
+    priv->devif_queue = queue;
 	/*dev = priv->dev = if_alloc(IFT_ETHER);
 	 if (dev == NULL) {
 	 MLX4_ERR( "Net device allocation failed\n");
@@ -2536,15 +2538,16 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
 	 priv->vlan_detach = EVENTHANDLER_REGISTER(vlan_unconfig,
 	 mlx4_en_vlan_rx_kill_vid, priv, EVENTHANDLER_PRI_FIRST);*/
 
-	/*mdev->pndev[priv->port] = dev;*/
+	mdev->port_queue[priv->port] = queue;
 
 	priv->last_link_state = MLX4_DEV_EVENT_PORT_DOWN;
 	/*mlx4_en_set_default_moderation(priv);*/
 
 	/*Set default MAC*/
-	for (i = 0; i < ETHER_ADDR_LEN; i++)
-		dev_addr[ETHER_ADDR_LEN - 1 - i] = (u8)(priv->mac >> (8 * i));
-
+	// for (i = 0; i < ETHER_ADDR_LEN; i++)
+	// 	dev_addr[ETHER_ADDR_LEN - 1 - i] = (u8)(priv->mac >> (8 * i));
+    queue->mac_address = bswap64(priv->mac) >> 16;
+    
 	/*ether_ifattach(dev, dev_addr);
 	 if_link_state_change(dev, LINK_STATE_DOWN);
 	 ifmedia_init(&priv->media, IFM_IMASK | IFM_ETH_FMASK, mlx4_en_media_change,

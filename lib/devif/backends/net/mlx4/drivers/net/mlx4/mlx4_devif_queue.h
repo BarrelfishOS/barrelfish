@@ -12,11 +12,12 @@
 
 #include "../../../queue_interface_internal.h"
 
-struct mlx4_priv;
+struct mlx4_en_priv;
 
 typedef struct mlx4_queue {
     struct devq q;
-    struct mlx4_priv *priv;
+    // struct mlx4_dev *dev;
+    struct mlx4_en_priv *priv;
 
     uint32_t pci_vendor, pci_deviceid, pci_bus, pci_device, pci_function;
     char *name;
@@ -25,9 +26,18 @@ typedef struct mlx4_queue {
     regionid_t region_id;
     genpaddr_t region_base;
     gensize_t  region_size;
-
+    void *region_mapped;
+    
     unsigned interrupt_mode;
     void (*isr)(void *);
 } mlx4_queue_t;
+
+int mlx4_en_xmit(struct mlx4_en_priv *priv, int tx_ind, genpaddr_t buffer_data, size_t length);
+void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_ind);
+
+errval_t mlx4_en_enqueue_rx(mlx4_queue_t *queue, regionid_t rid,
+                               genoffset_t offset, genoffset_t length,
+                               genoffset_t valid_data, genoffset_t valid_length,
+                               uint64_t flags);
 
 #endif

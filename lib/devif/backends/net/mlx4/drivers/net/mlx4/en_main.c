@@ -101,8 +101,8 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev) {
 		params->prof[i].tx_ppp = pfctx;
 		params->prof[i].tx_ring_size = MLX4_EN_DEF_TX_RING_SIZE;
 		params->prof[i].rx_ring_size = MLX4_EN_DEF_RX_RING_SIZE;
-		params->prof[i].tx_ring_num =
-				params->num_tx_rings_p_up * MLX4_EN_NUM_UP;
+		params->prof[i].tx_ring_num = 1;
+				//params->num_tx_rings_p_up * MLX4_EN_NUM_UP;
 		params->prof[i].rss_rings = 0;
 	}
 
@@ -174,7 +174,7 @@ static int mlx4_en_get_profile(struct mlx4_en_dev *mdev) {
  kfree(mdev);
  }*/
 
-void *mlx4_en_add(struct mlx4_dev *dev) {
+void *mlx4_en_add(struct mlx4_dev *dev, struct mlx4_queue *queue) {
 	struct mlx4_en_dev *mdev;
 	int i;
 	int err;
@@ -233,11 +233,11 @@ void *mlx4_en_add(struct mlx4_dev *dev) {
 	mlx4_foreach_port(i, dev, MLX4_PORT_TYPE_ETH)
 	{
 		if (!dev->caps.comp_pool) {
-		mdev->profile.prof[i].rx_ring_num =
-		rounddown_pow_of_two(max_t(int, MIN_RX_RINGS,
-						min_t(int,
-								dev->caps.num_comp_vectors,
-								DEF_RX_RINGS)));
+		mdev->profile.prof[i].rx_ring_num = 1;
+		// rounddown_pow_of_two(max_t(int, MIN_RX_RINGS,
+		// 				min_t(int,
+		// 						dev->caps.num_comp_vectors,
+		// 						DEF_RX_RINGS)));
     	} else {
     	mdev->profile.prof[i].rx_ring_num = rounddown_pow_of_two(
     			min_t(int, dev->caps.comp_pool /
@@ -266,8 +266,8 @@ void *mlx4_en_add(struct mlx4_dev *dev) {
      {*/
     i = 1;
     MLX4_DEBUG("Activating port:%d\n", i);
-    if (mlx4_en_init_netdev(mdev, i, &mdev->profile.prof[i]))
-    mdev->pndev[i] = NULL;
+    if (mlx4_en_init_netdev(mdev, i, &mdev->profile.prof[i], queue))
+        mdev->port_queue[i] = NULL;
     /*}*/
 
     return mdev;
