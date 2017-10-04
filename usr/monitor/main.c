@@ -394,6 +394,22 @@ int main(int argc, char *argv[])
             printf("Warning: tracing not available on core %d\n", my_core_id);
         }
     }
+
+    // if we get here, we assume that we can enable monitor capops tracing
+    trace_reset_all();
+    trace_set_autoflush(true);
+    err = trace_control(TRACE_EVENT(TRACE_SUBSYS_CAPOPS,
+                                    TRACE_EVENT_CAPOPS_START, 0),
+                        TRACE_EVENT(TRACE_SUBSYS_CAPOPS,
+                                    TRACE_EVENT_CAPOPS_STOP, 0),
+                        0);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "unable to enable capops tracing in monitor %d", my_core_id);
+    } else {
+        // Disable all tracing that's not monitor
+        trace_set_all_subsys_enabled(false);
+        trace_set_subsys_enabled(TRACE_SUBSYS_CAPOPS, true);
+    }
 tracing_not_available:
 #endif // tracing
 
