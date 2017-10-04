@@ -19,7 +19,9 @@
 #include <bitmacros.h>
 
 #include <bench/bench.h>
+#include <trace/trace.h>
 
+//#define DEBUG_PROTOCOL
 #include "benchapi.h"
 
 //{{{1 debugging helpers
@@ -102,6 +104,9 @@ void mgmt_run_benchmark(void *st)
 
     printf("# Benchmarking DELETE LAST: nodes=%d\n", gs->nodecount);
 
+    // only for tracing
+    NUM_COPIES_END = NUM_COPIES_START;
+
     printf("# Starting out with %d copies, will by powers of 2 up to %d...\n",
             NUM_COPIES_START, NUM_COPIES_END);
 
@@ -141,6 +146,8 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
         case BENCH_CMD_PRINT_DONE:
             if (gs->currcopies == NUM_COPIES_END) {
                 printf("# Benchmark done!\n");
+                // make sure last chunk of traces is flushed
+                trace_flush(NOP_CONT);
                 return;
             }
             printf("# Round done!\n");
@@ -165,7 +172,8 @@ void mgmt_cmd_caps(uint32_t cmd, uint32_t arg, struct capref cap1,
     switch (cmd) {
         case BENCH_CMD_FORWARD_COPIES:
             {
-            coreid_t cores[] = {2};
+            // XXX:!
+            coreid_t cores[] = {4};
             gs->copycount = 1;
             gs->fwdcap = cap1;
             multicast_caps(BENCH_CMD_FORWARD_COPIES, arg, cap1, cores, gs->copycount);

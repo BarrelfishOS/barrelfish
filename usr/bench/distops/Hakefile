@@ -16,7 +16,7 @@ let
 bench name = build application { target = "bench_" ++ name,
                                 cFiles = [ "main.c", "globals.c", name ++ ".c" ],
                                 flounderBindings = [ "bench_distops" ],
-                                addLibraries = [ "bench" ]
+                                addLibraries = [ "bench", "trace" ]
                               }
 standalone_bench name = build application { target = "bench_" ++ name,
                                             cFiles = [ "globals.c", name ++ ".c" ],
