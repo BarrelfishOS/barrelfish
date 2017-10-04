@@ -79,9 +79,9 @@
 
 struct trace_buffer;
 
-#define TRACE_COREID_LIMIT        4
+#define TRACE_COREID_LIMIT        10
 #define TRACE_EVENT_SIZE          16
-#define TRACE_MAX_EVENTS          30000        // max number of events
+#define TRACE_MAX_EVENTS          8000        // max number of events
 #define TRACE_MAX_APPLICATIONS    128
 //#define TRACE_PERCORE_BUF_SIZE    0x1ff00
 #define TRACE_PERCORE_BUF_SIZE    (TRACE_EVENT_SIZE * TRACE_MAX_EVENTS + (sizeof (struct trace_buffer)))
