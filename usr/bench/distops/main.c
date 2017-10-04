@@ -142,8 +142,7 @@ void unicast_cmd(coreid_t nodeid, uint32_t cmd, uint32_t arg)
 #else
     // use local index, to keep client code unchanged
     struct mgmt_node_state *ns = bench_state->nodes[nodeid-1]->st;
-    printf("# %s: sending cmd %d, to node %d\n",
-            __FUNCTION__, cmd, ns->coreid);
+    //printf("# %s: sending cmd %d, to node %d\n", __FUNCTION__, cmd, ns->coreid);
     err = bench_distops_cmd__tx(bench_state->nodes[nodeid-1], NOP_CONT, cmd, arg);
 #endif
     return;
