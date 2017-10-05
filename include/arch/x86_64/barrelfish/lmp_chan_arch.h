@@ -43,8 +43,10 @@ static inline errval_t lmp_ep_send(struct capref ep, lmp_send_flags_t flags,
     capaddr_t send_cptr = get_cap_addr(send_cap);
 
     if(debug_notify_syscall) {
-        printf("memcached: lmp_ep_send while forbidden from %p\n",
-               __builtin_return_address(0));
+        printf("memcached: lmp_ep_send while forbidden from %p, %p, %p\n",
+               __builtin_return_address(0),
+               __builtin_return_address(1),
+               __builtin_return_address(2));
     }
 
 #ifndef TRACE_DISABLE_LRPC

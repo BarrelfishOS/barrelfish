@@ -652,7 +652,8 @@ static int add_desc(uint64_t paddr, void *opaque)
     	//E1000_DEBUG("no space to add a new receive pbuf\n");
     	printf("no space to add a new receive pbuf [%"PRIu32"], [%"PRIu32"]\n",
                 receive_free, receive_index);
-        printf("%p\n", __builtin_return_address(0));
+        printf("%p\n%p\n%p\n", __builtin_return_address(0),
+                __builtin_return_address(1), __builtin_return_address(2));
         abort();
     	/* FIXME: how can you return -1 as error here
     	 * when return type is unsigned?? */

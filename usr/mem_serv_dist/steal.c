@@ -222,7 +222,12 @@ void try_steal(errval_t *ret, struct capref *cap, uint8_t bits,
 {
     printf("[%d][%"PRIuDOMAINID"]: failed percore alloc request: bits: %d going to STEAL\n",
             disp_get_core_id(), disp_get_domain_id(), bits);
-	printf("%p\n",	__builtin_return_address(0));
+	printf("%p %p %p %p %p %p\n",	__builtin_return_address(0),
+								 	__builtin_return_address(1),
+									__builtin_return_address(2),
+									__builtin_return_address(3),
+									__builtin_return_address(4),
+									__builtin_return_address(5));
     //DEBUG_ERR(*ret, "allocation of %d bits in 0x%" PRIxGENPADDR
     //           "-0x%" PRIxGENPADDR " failed", bits, minbase, maxlimit);
     *ret = steal_and_alloc(cap, bits+1, bits, minbase, maxlimit);

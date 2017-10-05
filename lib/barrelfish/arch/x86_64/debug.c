@@ -99,4 +99,8 @@ void debug_print_save_area(arch_registers_state_t *state)
 void debug_return_addresses(void)
 {
     printf("return address = %p\n", __builtin_return_address(0));
+    printf("return address = %p\n", __builtin_return_address(1));
+    printf("return address = %p\n", __builtin_return_address(2));
+    printf("return address = %p\n", __builtin_return_address(3));
+    printf("return address = %p\n", __builtin_return_address(4));
 }
