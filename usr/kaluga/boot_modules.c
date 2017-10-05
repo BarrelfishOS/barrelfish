@@ -54,7 +54,7 @@ void set_core_id_offset(struct module_info* mi, coreid_t offset)
     mi->coreoffset = offset;
 }
 
-domainid_t *get_did_ptr(struct module_info *mi)
+struct capref *get_did_ptr(struct module_info *mi)
 {
     return (mi->did + mi->num_started);
 }

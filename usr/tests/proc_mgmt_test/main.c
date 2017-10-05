@@ -28,9 +28,8 @@ static errval_t test_spawn(coreid_t core_id, char *argv[],
 {
 	assert(ret_domain_cap != NULL);
 
-	errval_t err = proc_mgmt_spawn_program(core_id,
-		                                   "/x86_64/sbin/proc_mgmt_test",
-		                                   argv, NULL, 0, ret_domain_cap);
+	errval_t err = spawn_program(core_id, "/x86_64/sbin/proc_mgmt_test",
+		                         argv, NULL, 0, ret_domain_cap);
 	if (err_is_fail(err)) {
         return err;
 	}
@@ -164,7 +163,7 @@ int main(int argc, char **argv)
     barrelfish_usleep(5*1000*1000);
 
     printf("Killing process \n");
- 	err = proc_mgmt_kill(domain_cap);
+ 	err = spawn_kill(domain_cap);
  	if (err_is_fail(err)) {
         USER_PANIC("Failed waiting for domain \n");
  	}
@@ -181,7 +180,7 @@ int main(int argc, char **argv)
     barrelfish_usleep(5*1000*1000);
 
     printf("Killing process \n");
- 	err = proc_mgmt_kill(domain_cap);
+ 	err = spawn_kill(domain_cap);
  	if (err_is_fail(err)) {
         USER_PANIC("Failed waiting for domain \n");
  	}
@@ -211,7 +210,7 @@ int main(int argc, char **argv)
     
  	uint8_t code;
     printf("Waiting for process on different core to finish \n");
- 	err = proc_mgmt_wait(domain_cap, &code);
+ 	err = spawn_wait(domain_cap, &code, false);
  	if (err_is_fail(err)) {
         USER_PANIC("Failed waiting for domain \n");
  	}
@@ -226,7 +225,7 @@ int main(int argc, char **argv)
     barrelfish_usleep(5*1000*1000);
     
     printf("Waiting for process on same core to finish \n");
- 	err = proc_mgmt_wait(domain_cap, &code);
+ 	err = spawn_wait(domain_cap, &code, false);
  	if (err_is_fail(err)) {
         USER_PANIC("Failed waiting for domain \n");
  	}

@@ -174,7 +174,7 @@ void spawn_dist_domains(void)
 
             debug_printf("starting dist-serv %s on core %d\n", si.name, coreid);
 
-            domainid_t new_domain;
+            struct capref new_domain;
             err = spawn_program(coreid, si.name, si.argv, environ,
                                 0, &new_domain);
             if (err_is_fail(err)) {
@@ -452,7 +452,7 @@ void spawn_bootscript_domains(void)
                 for(int i = id_from; i <= id_to; i++) {
                     debug_printf("starting app %s on core %d\n", name, i);
 
-                    domainid_t new_domain;
+                    struct capref new_domain;
                     err = spawn_program(i, name, argv, environ,
                                         0, &new_domain);
                     if (err_is_fail(err)) {
@@ -463,7 +463,7 @@ void spawn_bootscript_domains(void)
         } else {
             debug_printf("starting app %s on core %d\n", name, my_coreid);
 
-            domainid_t new_domain;
+            struct capref new_domain;
             err = spawn_program(my_coreid, name, argv, environ,
                                 0, &new_domain);
             if (err_is_fail(err)) {

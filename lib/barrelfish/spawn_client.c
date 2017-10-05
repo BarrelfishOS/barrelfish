@@ -20,6 +20,7 @@
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/cpu_arch.h>
+#include <barrelfish/proc_mgmt_client.h>
 #include <if/spawn_defs.h>
 #include <if/arrakis_defs.h>
 #include <if/monitor_defs.h>
@@ -156,7 +157,7 @@ errval_t spawn_bind_iref(iref_t iref, struct spawn_binding **ret_client)
  * \param argcn_cap     Cap to a CNode containing capabilities passed as
  *                      arguments
  * \param flags         Flags to spawn
- * \param ret_domainid  If non-NULL, filled in with domain ID of program
+ * \param domain_Cap  If non-NULL, filled in with domain cap of program
  *
  * \bug flags are currently ignored
  */
@@ -164,94 +165,10 @@ errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                  char *const argv[], char *const envp[],
                                  struct capref inheritcn_cap,
                                  struct capref argcn_cap, spawn_flags_t flags,
-                                 domainid_t *ret_domainid)
+                                 struct capref *domain_cap)
 {
-    errval_t err, msgerr;
-
-    // default to copying our environment
-    if (envp == NULL) {
-        envp = environ;
-    }
-
-    err = bind_client(coreid);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    struct spawn_binding *cl = get_spawn_binding(coreid);
-    assert(cl != NULL);
-
-    // construct argument "string"
-    // \0-separated strings in contiguous character buffer
-    // this is needed, as flounder can't send variable-length arrays of strings
-    size_t argstrlen = 0;
-    for (int i = 0; argv[i] != NULL; i++) {
-        argstrlen += strlen(argv[i]) + 1;
-    }
-
-    char argstr[argstrlen];
-    size_t argstrpos = 0;
-    for (int i = 0; argv[i] != NULL; i++) {
-        strcpy(&argstr[argstrpos], argv[i]);
-        argstrpos += strlen(argv[i]);
-        argstr[argstrpos++] = '\0';
-    }
-    assert(argstrpos == argstrlen);
-
-    // repeat for environment
-    size_t envstrlen = 0;
-    for (int i = 0; envp[i] != NULL; i++) {
-        envstrlen += strlen(envp[i]) + 1;
-    }
-
-    char envstr[envstrlen];
-    size_t envstrpos = 0;
-    for (int i = 0; envp[i] != NULL; i++) {
-        strcpy(&envstr[envstrpos], envp[i]);
-        envstrpos += strlen(envp[i]);
-        envstr[envstrpos++] = '\0';
-    }
-    assert(envstrpos == envstrlen);
-
-
-    domainid_t domain_id;
-
-    // make an unqualified path absolute using the $PATH variable
-    // TODO: implement search (currently assumes PATH is a single directory)
-    char *searchpath = getenv("PATH");
-    if (searchpath == NULL) {
-        searchpath = VFS_PATH_SEP_STR; // XXX: just put it in the root
-    }
-    size_t buflen = strlen(path) + strlen(searchpath) + 2;
-    char pathbuf[buflen];
-    if (path[0] != VFS_PATH_SEP) {
-        snprintf(pathbuf, buflen, "%s%c%s", searchpath, VFS_PATH_SEP, path);
-        pathbuf[buflen - 1] = '\0';
-        //vfs_path_normalise(pathbuf);
-        path = pathbuf;
-    }
-
-    if (capref_is_null(inheritcn_cap) && capref_is_null(argcn_cap)) {
-        err = cl->rpc_tx_vtbl.spawn_domain(cl, path, argstr, argstrlen,
-                                    envstr, envstrlen, flags,
-                                    &msgerr, &domain_id);
-    } else {
-        err = cl->rpc_tx_vtbl.spawn_domain_with_caps(cl, path, argstr, argstrlen,
-                                              envstr, envstrlen, inheritcn_cap,
-                                              argcn_cap, flags, &msgerr, &domain_id);
-    }
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "error sending spawn request");
-    } else if (err_is_fail(msgerr)) {
-        goto out;
-    }
-
-    if (ret_domainid != NULL) {
-        *ret_domainid = domain_id;
-    }
-
-out:
-    return msgerr;
+    return proc_mgmt_spawn_program_with_caps(coreid, path, argv, envp, inheritcn_cap, 
+                                             argcn_cap, flags, domain_cap);
 }
 
 errval_t spawn_arrakis_program(coreid_t coreid, const char *path,
@@ -380,16 +297,16 @@ errval_t spawn_arrakis_program(coreid_t coreid, const char *path,
  * \param argv   Command-line arguments, NULL-terminated
  * \param envp   Optional environment, NULL-terminated (pass NULL to inherit)
  * \param flags  Flags to spawn
- * \param ret_domainid If non-NULL, filled in with domain ID of program
+ * \param ret_domain_cap If non-NULL, filled in with domain cap of program
  *
  * \bug flags are currently ignored
  */
 errval_t spawn_program(coreid_t coreid, const char *path,
                        char *const argv[], char *const envp[],
-                       spawn_flags_t flags, domainid_t *ret_domainid)
+                       spawn_flags_t flags, struct capref* ret_domain_cap)
 {
     return spawn_program_with_caps(coreid, path, argv, envp, NULL_CAP,
-                                   NULL_CAP, flags, ret_domainid);
+                                   NULL_CAP, flags, ret_domain_cap);
 }
 
 
@@ -413,7 +330,7 @@ errval_t spawn_program(coreid_t coreid, const char *path,
  */
 errval_t spawn_program_on_all_cores(bool same_core, const char *path,
                                     char *const argv[], char *const envp[],
-                                    spawn_flags_t flags, domainid_t *ret_domainid,
+                                    spawn_flags_t flags, struct capref *ret_domain_cap,
                                     coreid_t* spawn_count)
 {
     // TODO: handle flags, domain ID
@@ -454,10 +371,11 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
             continue;
         }
 
-        err = spawn_program(c, path, argv, envp, flags, NULL);
+        err = proc_mgmt_spawn_program(c, path, argv, envp, flags, NULL);
         if (err_is_ok(err) && spawn_count != NULL) {
             *spawn_count += 1;
         }
+
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "error spawning %s on core %u\n", path, c);
             goto out;
@@ -483,69 +401,21 @@ errval_t spawn_binding(coreid_t coreid, struct spawn_binding **ret_client)
 /**
  * \brief Kill a domain.
  */
-errval_t spawn_kill(domainid_t domainid)
+errval_t spawn_kill(struct capref domain_cap)
 {
-    errval_t err, reterr;
-
-    err = bind_client(disp_get_core_id());
-    if (err_is_fail(err)) {
-        return err;
-    }
-    struct spawn_binding *cl = get_spawn_binding(disp_get_core_id());
-    assert(cl != NULL);
-
-    err = cl->rpc_tx_vtbl.kill(cl, domainid, &reterr);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return reterr;
+    return proc_mgmt_kill(domain_cap);
 }
 
-/**
- * \brief Exit this domain.
- */
-errval_t spawn_exit(uint8_t exitcode)
-{
-    errval_t err;
-
-    err = bind_client(disp_get_core_id());
-    if (err_is_fail(err)) {
-        return err;
-    }
-    struct spawn_binding *cl = get_spawn_binding(disp_get_core_id());
-    assert(cl != NULL);
-
-    err = cl->rpc_tx_vtbl.exit(cl, disp_get_domain_id(), exitcode);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return SYS_ERR_OK;
-}
-
-/**
- * \brief Wait for spawned proccess to exit on core.
- */
-errval_t spawn_wait_coreid(coreid_t coreid, domainid_t domainid,
+errval_t spawn_wait_compat(uint8_t domainid,
                            uint8_t *exitcode, bool nohang)
-{
-    return spawn_wait_core(disp_get_core_id(), domainid, exitcode, nohang);
-}
-
-/**
- * \brief Wait for the termination of a domain on a remote core.
- */
-errval_t spawn_wait_core(coreid_t coreid, domainid_t domainid,
-                         uint8_t *exitcode, bool nohang)
-{
+ {
     errval_t err, reterr;
 
-    err = bind_client(coreid);
+    err = bind_client(disp_get_core_id());
     if (err_is_fail(err)) {
         return err;
     }
-    struct spawn_binding *cl = get_spawn_binding(coreid);
+    struct spawn_binding *cl = get_spawn_binding(disp_get_core_id());
     assert(cl != NULL);
 
     err = cl->rpc_tx_vtbl.wait(cl, domainid, nohang, exitcode, &reterr);
@@ -554,14 +424,40 @@ errval_t spawn_wait_core(coreid_t coreid, domainid_t domainid,
     }
 
     return reterr;
+ }
+
+/**
+ * \brief Exit this domain.
+ */
+errval_t spawn_exit(uint8_t exitcode)
+{
+    return proc_mgmt_exit(exitcode);
+}
+
+/**
+ * \brief Wait for spawned proccess to exit on core.
+ */
+errval_t spawn_wait_coreid(coreid_t coreid, struct capref domain_cap,
+                           uint8_t *exitcode, bool nohang)
+{
+    return spawn_wait_core(disp_get_core_id(), domain_cap, exitcode, nohang);
+}
+
+/**
+ * \brief Wait for the termination of a domain on a remote core.
+ */
+errval_t spawn_wait_core(coreid_t coreid, struct capref domain_cap,
+                         uint8_t *exitcode, bool nohang)
+{
+    return proc_mgmt_wait(domain_cap, exitcode);
 }
 
 /**
  * \brief Wait for spawned proccess to exit on current core.
  */
-errval_t spawn_wait(domainid_t domainid, uint8_t *exitcode, bool nohang)
+errval_t spawn_wait(struct capref domain_cap, uint8_t *exitcode, bool nohang)
 {
-    return spawn_wait_coreid(disp_get_core_id(), domainid, exitcode, nohang);
+    return spawn_wait_coreid(disp_get_core_id(), domain_cap, exitcode, nohang);
 }
 
 /**
@@ -617,7 +513,7 @@ errval_t spawn_get_status(uint8_t domain, struct spawn_ps_entry *pse,
 /**
  * \brief Dump capabilities for a given domain
  */
-errval_t spawn_dump_capabilities(domainid_t domainid)
+errval_t spawn_dump_capabilities_compat(domainid_t domainid)
 {
     errval_t err, reterr;
 
