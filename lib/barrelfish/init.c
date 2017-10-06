@@ -25,7 +25,6 @@
 #include <barrelfish/morecore.h>
 #include <barrelfish/monitor_client.h>
 #include <barrelfish/nameservice_client.h>
-#include <barrelfish/proc_mgmt_client.h>
 #include <barrelfish/spawn_client.h>
 #include <barrelfish/systime.h>
 #include <barrelfish_kpi/domain_params.h>
@@ -70,14 +69,9 @@ void libc_exit(int status)
 
         // XXX: Leak all other domain allocations
     } else {
-        err = proc_mgmt_exit(status);
+        err = spawn_exit(status);
         if (err_is_fail(err)) {
-            // Maybe we have not been spawned through the process manager, but
-            // through spawnd directly (we're some bootstrap domain).
-            err = spawn_exit(status);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "spawn_exit");
-            }
+            DEBUG_ERR(err, "spawn_exit");
         }
     }
 

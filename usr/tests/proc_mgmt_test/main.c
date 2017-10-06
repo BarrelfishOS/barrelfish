@@ -16,7 +16,6 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish/sys_debug.h>
-#include <barrelfish/proc_mgmt_client.h>
 #include <barrelfish/spawn_client.h>
 #include <bench/bench.h>
 
@@ -136,9 +135,9 @@ int main(int argc, char **argv)
         } else if (strcmp("span", argv[2]) == 0) {
             // Process that spans domains
             if (disp_get_core_id() == 0) {
-                proc_mgmt_span(1);
+                spawn_span(1);
             } else {
-                proc_mgmt_span(0);
+                spawn_span(0);
             }
             while(true) {
                 event_dispatch(get_default_waitset());

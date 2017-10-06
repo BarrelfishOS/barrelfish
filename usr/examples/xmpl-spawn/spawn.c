@@ -15,7 +15,7 @@
 #include <string.h>
 
 #include <barrelfish/barrelfish.h>
-#include <barrelfish/proc_mgmt_client.h>
+#include <barrelfish/spawn_client.h>
 
 #define MAXPATH 256
 
@@ -42,13 +42,13 @@ int main(int argc, char *argv[])
         for (int i = 0; i < num_spawns; i++, core++) {
             core %= num_cores;
             /*
-              Signature for proc_mgmt_spawn_program is:
+              Signature for spawn_program is:
 
-              errval_t proc_mgmt_spawn_program(coreid_t coreid, const char *path,
+              errval_t spawn_program(coreid_t coreid, const char *path,
               	char *const argv[], char *const envp[],
                 spawn_flags_t flags, struct capref *ret_domain_cap)
             */
-	        err = proc_mgmt_spawn_program(core, path, argv, NULL, 0, 
+	        err = spawn_program(core, path, argv, NULL, 0, 
 		                                  &ret_domain_cap);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "failed spawn %d on core %d", i, core);

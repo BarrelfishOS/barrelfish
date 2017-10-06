@@ -26,6 +26,25 @@ struct spawn_ps_entry {
 #define INHERITCN_SLOT_SESSIONID 2  ///< Session ID domain belongs to
 #define INHERITCN_SLOT_KERNELCAP 3     ///< Kernel capability for core boot
 
+struct proc_mgmt_lmp_binding;
+
+
+/* XXX: duplicate of proc_mgmt_bind_continuation_fn in generated code */
+typedef void proc_mgmt_bind_continuation_fn(void *st, errval_t err,
+                                            struct proc_mgmt_binding *_binding);
+
+errval_t proc_mgmt_client_lmp_accept(struct proc_mgmt_lmp_binding *lmpb,
+                                     struct waitset *ws,
+                                     size_t lmp_buflen_words);
+errval_t proc_mgmt_client_lmp_bind(struct proc_mgmt_lmp_binding *lmpb,
+                                   struct capref ep,
+                                   proc_mgmt_bind_continuation_fn *cont,
+                                   void *st,
+                                   struct waitset *ws,
+                                   size_t lmp_buflen_words);
+errval_t proc_mgmt_bind_client(void);
+
+errval_t proc_mgmt_add_spawnd(iref_t iref, coreid_t core_id);
 errval_t spawn_program_with_caps(coreid_t coreid, const char *path,
                                  char *const argv[], char *const envp[],
                                  struct capref inheritcn_cap,
@@ -43,6 +62,7 @@ errval_t spawn_program_on_all_cores(bool same_core, const char *path,
                                     char *const argv[], char *const envp[],
                                     spawn_flags_t flags, struct capref *ret_domain_cap,
                                     coreid_t* spawn_count);
+errval_t spawn_span(coreid_t core_id);
 errval_t spawn_kill(struct capref domain_cap);
 errval_t spawn_exit(uint8_t exitcode);
 errval_t spawn_wait_coreid(coreid_t coreid, struct capref domain_cap, uint8_t *exitcode, bool nohang);

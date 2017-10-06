@@ -14,7 +14,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <barrelfish/proc_mgmt_client.h>
 #include <barrelfish/spawn_client.h>
 #include <if/monitor_defs.h>
 #include <if/proc_mgmt_defs.h>
