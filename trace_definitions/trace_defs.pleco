@@ -158,6 +158,7 @@ subsystem capops {
     event DELETE_DO_WORK		"Initiate delete work",
     event DELETE_ENTER			"Entry point to distributed delete",
     event DELETE_FIND_CORE_CONT		"Callback from find_core broadcast",
+    event DELETE_FIND_NEW_OWNER		"Do broadcast to find new owner",
     event DELETE_LAST			"Delete last copy",
     event DELETE_LOCK			"Delete needs agreement/serialzation",
     event DELETE_MOVE_RESULT_CONT	"Callback from capops_move() call",
@@ -166,6 +167,8 @@ subsystem capops {
     event DELETE_REMOTE_ENQ		"Enqueue remote deletes for non-moveable",
     event DELETE_REMOTE_RX		"RX handler for remote delete",
     event DELETE_REMOTE_RESULT_RX	"RX handler for remote delete result",
+    event USER_DELETE_CALL		"Before call to cap_delete() in user code",
+    event USER_DELETE_RESP		"After call to cap_delete() in user code",
 };
 
 subsystem chips {
