@@ -159,6 +159,22 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "benchmarks/xphi_ump_bench",
                         "benchmarks/xphi_xump_bench" ] ] ++ bench_x86
 
+    -- Example program modules
+    modules_xmpl = [ "/sbin/" ++ f | f <- [
+        --"examples/xmpl-call-response",
+        "examples/xmpl-cow",
+        "examples/xmpl-hello",
+        --"examples/xmpl-msg",
+        --"examples/xmpl-rpc_msg",
+        --"examples/xmpl-rpc_rpc",
+        "examples/xmpl-span",
+        "examples/xmpl-spawn",
+        "examples/xmpl-thc-binding",
+        --"examples/xmpl-thc-lang",
+        "examples/xmpl-thread",
+        "examples/xmpl-thread-min",
+        "examples/xmpl-trace" ] ]
+
     -- Default list of modules to build/install for all enabled architectures
     modules_common = [ "/sbin/" ++ f | f <- [
                           "init",
@@ -395,7 +411,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       "64-bit x86 PC build with benchmarks",
 
     platform "X86_64_Full" [ "x86_64" ]
-      ([ ("x86_64", f) | f <- modules_x86_64 ++ bench_x86_64 ++ tests_x86_64 ]
+      ([ ("x86_64", f) | f <- modules_x86_64 ++ bench_x86_64 ++ tests_x86_64 ++ modules_xmpl ]
        ++
        [ ("",       f) | f <- modules_generic])
       "64-bit x86 PC build with benchmarks and test suites",
