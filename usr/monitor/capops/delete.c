@@ -32,6 +32,8 @@ struct delete_remote_result_msg_st {
     genvaddr_t st;
 };
 
+static uint64_t delete_seqnum = 0;
+
 static void delete_trylock_cont(void *st);
 
 static void
@@ -56,6 +58,7 @@ delete_result__rx(errval_t status, struct delete_st *del_st, bool locked)
     delete_result_handler_t handler = del_st->result_handler;
     void *st = del_st->st;
     free(del_st);
+    TRACE(CAPOPS, DELETE_DONE, delete_seqnum);
     handler(status, st);
 }
 
@@ -486,6 +489,7 @@ delete_trylock_cont(void *st)
     else if (distcap_is_moveable(del_st->cap.type)) {
         // if cap is moveable, move ownership so cap can then be deleted
         DEBUG_CAPOPS("%s: move ownership\n", __FUNCTION__);
+        TRACE(CAPOPS, DELETE_FIND_NEW_OWNER, 0);
         err = capsend_find_cap(&del_st->cap, find_core_cont, del_st);
         GOTO_IF_ERR(err, report_error);
     }
@@ -518,7 +522,7 @@ capops_delete(struct domcapref cap,
 {
     errval_t err;
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
-    TRACE(CAPOPS, DELETE_ENTER, 0);
+    TRACE(CAPOPS, DELETE_ENTER, ++delete_seqnum);
 
     // try a simple delete
     DEBUG_CAPOPS("%s: trying simple delete\n", __FUNCTION__);
@@ -565,6 +569,6 @@ free_st:
 
 err_cont:
     DEBUG_CAPOPS("%s: calling result handler with err=%"PRIuERRV"\n", __FUNCTION__, err);
-    TRACE(CAPOPS, DELETE_DONE, 0);
+    TRACE(CAPOPS, DELETE_DONE, delete_seqnum);
     result_handler(err, st);
 }
