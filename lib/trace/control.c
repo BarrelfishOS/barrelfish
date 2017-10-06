@@ -127,28 +127,29 @@ errval_t trace_wait(void)
  * buflen : Length of buf.
  * number_of_events_dumped : (optional) Returns how many events have been
  * 	written into the buffer.
- *
+ * \returns number of bytes written, if return value equals `buflen` the user
+ *          must check whether dump needs to be called again
  */
 size_t trace_dump(char *buf, size_t buflen, int *number_of_events_dumped)
 {
     bool isfirst = true;
     bool isOnlyOne = false;
-    size_t total_buflen = buflen;
-    size_t buf_pos = 0;
+    assert(buflen < INT64_MAX);
+    int64_t remaining_buflen = buflen;
     size_t retval_total = 0;
     size_t ev_dumped_total = 0;
 
-    for (coreid_t core = 0; core < TRACE_COREID_LIMIT; core++) {
-        total_buflen = total_buflen - buf_pos;
+    for (coreid_t core = 0; core < TRACE_COREID_LIMIT && remaining_buflen > 0; core++) {
         int ev_dumped = 0;
         size_t used_bytes = 0;
-        size_t retval = trace_dump_core(buf, total_buflen, &used_bytes,
+        size_t retval = trace_dump_core(buf, remaining_buflen, &used_bytes,
                 &ev_dumped, core, isfirst, isOnlyOne);
 //        assert(used_bytes != 0);
 //        assert(ev_dumped != 0);
         retval_total += retval; // adding up the return value
         ev_dumped_total += ev_dumped; // adding up the ptr argument
         buf = buf +  used_bytes;
+        remaining_buflen -= used_bytes;
         isfirst = false;
     }
 
