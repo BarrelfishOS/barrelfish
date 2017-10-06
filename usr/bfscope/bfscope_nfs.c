@@ -110,8 +110,6 @@ static void bfscope_trace_dump(void)
         return;
     }
 
-dump_again:
-    number_of_events = 0;
     // Acquire the trace buffer
     trace_length = trace_dump(trace_buf, BFSCOPE_BUFLEN, &number_of_events);
 
@@ -142,11 +140,6 @@ dump_again:
         DEBUG("dumping to NFS share: %zu/%zu bytes written\n", total_written, trace_length);
     }
     DEBUG("dump to NFS share done!\n");
-
-    if (trace_length == BFSCOPE_BUFLEN) {
-        debug_printf("got full buffer from first call to trace_dump()... calling again\n");
-        goto dump_again;
-    }
 
     bfscope_trace_dump_finished();
 }

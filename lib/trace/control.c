@@ -127,8 +127,7 @@ errval_t trace_wait(void)
  * buflen : Length of buf.
  * number_of_events_dumped : (optional) Returns how many events have been
  * 	written into the buffer.
- * \returns number of bytes written, if return value equals `buflen` the user
- *          must check whether dump needs to be called again
+ * \returns number of bytes written
  */
 size_t trace_dump(char *buf, size_t buflen, int *number_of_events_dumped)
 {
