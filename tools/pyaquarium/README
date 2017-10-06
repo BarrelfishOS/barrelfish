@@ -1,0 +1,6 @@
+A python library and demo application to process Barrelfish traces generated
+by libtrace.
+
+Goals:
+ * Enable use of tracing infrastructure to export benchmark data from
+   Barrelfish
