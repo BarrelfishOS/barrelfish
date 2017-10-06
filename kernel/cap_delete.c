@@ -710,7 +710,7 @@ errval_t caps_delete(struct cte *cte)
     TRACE_CAP_MSG("deleting", cte);
 
     if (cte->mdbnode.locked) {
-        return SYS_ERR_CAP_LOCKED;
+        return err_push(SYS_ERR_CAP_LOCKED, SYS_ERR_RETRY_THROUGH_MONITOR);
     }
 
     err = caps_try_delete(cte);
