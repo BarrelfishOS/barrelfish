@@ -17,7 +17,8 @@
 
 /* parameters for local memory allocator used until we spawn mem_serv */
 #define OBJBITS_DISPATCHER (10)
-#define MM_REQUIREDBITS    24          ///< Required size of memory to boot (16MB)
+// XXX: 16MB is not enough to create tracing buffers on babybel for all cores
+#define MM_REQUIREDBITS    27          ///< Required size of memory to boot (128MB)
 #define MM_REQUIREDBYTES   (1UL << MM_REQUIREDBITS)
 #define MM_MAXSIZEBITS     (MM_REQUIREDBITS + 3) ///< Max size of memory in allocator
 #define MM_MINSIZEBITS     BASE_PAGE_BITS ///< Min size of allocation

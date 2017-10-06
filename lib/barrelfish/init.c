@@ -132,9 +132,10 @@ errval_t trace_my_setup(void)
     err = vspace_map_one_frame((void**)&trace_buffer_master, TRACE_ALLOC_SIZE,
                                cap, NULL, NULL);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "vspace_map_one_frame failed");
+        DEBUG_ERR(err, "vspace_map_one_frame for master trace buffer failed");
         return err;
     }
+    assert(trace_buffer_master != 0);
 
     trace_buffer_va = trace_buffer_master +
         (disp_get_core_id() * TRACE_PERCORE_BUF_SIZE);
