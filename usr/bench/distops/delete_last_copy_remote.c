@@ -69,8 +69,42 @@ struct global_state {
     int currcopies;
 };
 
+static void after_prepare(void *arg)
+{
+    bool *done = arg;
+    *done = true;
+}
+
 errval_t mgmt_init_benchmark(void **st, int nodecount)
 {
+    errval_t err;
+    // Initialize benchmarking
+    bench_init();
+    // Initialize tracing
+    printf("# mgmt node: initializing tracing\n");
+    trace_reset_all();
+    trace_set_autoflush(true);
+    // Trace everything
+    trace_set_all_subsys_enabled(false);
+    trace_set_subsys_enabled(TRACE_SUBSYS_CAPOPS, true);
+    err = trace_control(TRACE_EVENT(TRACE_SUBSYS_CAPOPS,
+                                    TRACE_EVENT_CAPOPS_START, 0),
+                        TRACE_EVENT(TRACE_SUBSYS_CAPOPS,
+                                    TRACE_EVENT_CAPOPS_STOP, 0),
+                        0);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "unable to enable capops tracing");
+    }
+    bool trace_prepare_done = false;
+    trace_prepare(MKCLOSURE(after_prepare, &trace_prepare_done));
+
+    while (!trace_prepare_done) {
+        err = event_dispatch(get_default_waitset());
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "event_dispatch while waiting for trace_prepare");
+        }
+    }
+
     *st = malloc(sizeof(struct global_state));
     if (!*st) {
         return LIB_ERR_MALLOC_FAIL;
@@ -110,6 +144,9 @@ void mgmt_run_benchmark(void *st)
     printf("# Starting out with %d copies, will by powers of 2 up to %d...\n",
             NUM_COPIES_START, NUM_COPIES_END);
 
+    TRACE(CAPOPS, START, 0);
+    printf("# bench_tsc() just after CAPOPS_START: %"PRIu64"\n", bench_tsc());
+
     gs->currcopies = NUM_COPIES_START;
     broadcast_caps(BENCH_CMD_CREATE_COPIES, NUM_COPIES_START, gs->ram);
 }
@@ -124,11 +161,7 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
             gs->copies_done++;
             if (gs->copies_done == gs->nodecount) {
                 printf("# All copies made!\n");
-                if (gs->currcopies < 10000) {
-                    unicast_cmd(gs->masternode, BENCH_CMD_DO_ALLOC, 2*ITERS);
-                } else {
-                    unicast_cmd(gs->masternode, BENCH_CMD_DO_ALLOC, ITERS);
-                }
+                unicast_cmd(gs->masternode, BENCH_CMD_DO_ALLOC, ITERS);
             }
             break;
         case BENCH_CMD_COPIES_RX_DONE:
@@ -147,6 +180,7 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
             if (gs->currcopies == NUM_COPIES_END) {
                 printf("# Benchmark done!\n");
                 // make sure last chunk of traces is flushed
+                TRACE(CAPOPS, STOP, 0);
                 trace_flush(NOP_CONT);
                 return;
             }
@@ -265,7 +299,9 @@ void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                     my_core_id, get_mdb_size());
             uint64_t start, end;
             start = bench_tsc();
+            TRACE(CAPOPS, USER_DELETE_CALL, (ns->numcopies << 16) | ns->iter);
             err = cap_delete(ns->cap);
+            TRACE(CAPOPS, USER_DELETE_RESP, (ns->numcopies << 16) | ns->iter);
             end = bench_tsc();
             ns->delcycles[ns->iter] = end - start;
             assert(err_is_ok(err));
@@ -345,6 +381,9 @@ void node_cmd_caps(uint32_t cmd, uint32_t arg, struct capref cap1,
                             my_core_id, ns->numramcopies);
                     for (int i = 0; i < ns->numramcopies; i++) {
                         err = cap_destroy(ns->ramcopies[i]);
+                        if (err_is_fail(err)) {
+                            DEBUG_ERR(err, "cap_destroy on node %d", my_core_id);
+                        }
                         assert(err_is_ok(err));
                     }
                 }
