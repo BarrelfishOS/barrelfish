@@ -35,6 +35,11 @@ class DeleteBreakdown(object):
     def compute_overall_latency(self):
         return self.last_event()._timestamp - self._start_ts
 
+    def __str__(self):
+        evdata = [ (ev._coreid, ev._evname, ev._timestamp) for ev in self._events ]
+        return "Breakdown { startts %d, seqnum %d, events=%r }" \
+                % (self._start_ts, self._seqnum, evdata)
+
 
 
 
@@ -47,17 +52,21 @@ if __name__ == "__main__":
     aq = aquarium.Aquarium(sys.argv[1])
 
     t = aq.load_trace(sys.argv[2])
-    print len(t._events)
+
+    print "Processing %d events" % len(t._events)
+
     evtypes = aq.get_event_types()
     curdel_overall_start_ts=dict()
     curdel_overall_seqnum = -1
-    curdel_monitor_start_ts=dict()
     overall_del_lats=dict()
     found_start = False
 
+    # XXX: this is not very nice, as we're flattening a partial order by hand
+    # here in order to make queries about event ordering to skip partially
+    # recorded inner trace points that don't carry the sequence number yet :)
     event_order = [ 'delete_enter', 'delete_lock', 'delete_queue_retry',
-            'delete_do_work', 'delete_remote_enq', 'delete_find_core_cont',
-            'delete_move_result_cont', 'delete_last',
+            'delete_do_work', 'delete_remote_enq', 'delete_find_new_owner',
+            'delete_find_core_cont', 'delete_move_result_cont', 'delete_last',
             'delete_queue_fin', 'delete_call_rx', 'delete_done' ]
 
     # current breakdown object indexed by coreid
@@ -66,6 +75,9 @@ if __name__ == "__main__":
     breakdowns = dict()
 
     with open("raw_parsed.txt", 'w') as rawf:
+        # we seem to get better results without presorting events by
+        # timestamp, so we leave that out for now; events should be sorted by
+        # (coreid, timestamp) anyway.
         for e in [ e for e in t._events if e.subsys.get_name() == "capops" ]:
             rawf.write("%r,%d,%d\n" % (e,e._coreid,e._timestamp))
             # find START signal
@@ -129,5 +141,16 @@ if __name__ == "__main__":
         print "core %d:" % core
         with open("core%d_monitor_latencies.data" % core, 'w') as rawf:
             for b in breakdowns[core]:
+                off = 0
+                for ev in b._events:
+                    off = ev._timestamp - b._start_ts
+                    if (off < 0):
+                        print "Breakdown has negative components?"
+                        print b
+                        break
+                if off < 0:
+                    # don't process breakdowns with negative components
+                    # further
+                    continue
                 rawf.write('\n'.join(list(b.generate_breakdown_data())))
                 rawf.write('\n')

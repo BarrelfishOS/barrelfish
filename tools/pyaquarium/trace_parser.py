@@ -162,6 +162,9 @@ class Trace(object):
                 return
             # coreid, and timestamp are base10, data is base16
             elems = line.split(' ')
+            if len(elems) < 3:
+                print "Skipping line '%s'" % line
+                return
             coreid = int(elems[0])
             ts = long(elems[1])
             data = int(elems[2], 16)
