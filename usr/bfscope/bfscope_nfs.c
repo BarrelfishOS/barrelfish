@@ -32,8 +32,8 @@
 
 #define DEBUG if (0) printf
 
-/// Buffer size for temp buffer during dumping
-#define BFSCOPE_BUFLEN (2<<20)
+/// Buffer size for temp buffer during dumping: 128MB
+#define BFSCOPE_BUFLEN (128UL * 1024 * 1024)
 
 /// Use /bfscope as mount point for NFS share
 #define MOUNT_DIR "/bfscope"
@@ -46,8 +46,6 @@ static vfs_handle_t dump_file_vh;
 static bool local_flush = false;
 
 static char *trace_buf = NULL;
-static size_t trace_length = 0;
-static size_t trace_sent = 0;
 static bool dump_in_progress = false;
 
 struct bfscope_ack_send_state {
@@ -91,8 +89,6 @@ static void bfscope_send_flush_ack_to_monitor(void)
 
 static void bfscope_trace_dump_finished(void)
 {
-    trace_length = 0;
-    trace_sent = 0;
     dump_in_progress = false;
 
     if (!local_flush) {
@@ -106,13 +102,16 @@ static void bfscope_trace_dump_finished(void)
 static void bfscope_trace_dump(void)
 {
     errval_t err;
+    int number_of_events = 0;
+    size_t trace_length = 0;
 
     if(dump_in_progress) {
         // Currently there is already a dump in progress, do nothing.
         return;
     }
 
-    int number_of_events = 0;
+dump_again:
+    number_of_events = 0;
     // Acquire the trace buffer
     trace_length = trace_dump(trace_buf, BFSCOPE_BUFLEN, &number_of_events);
 
@@ -143,6 +142,11 @@ static void bfscope_trace_dump(void)
         DEBUG("dumping to NFS share: %zu/%zu bytes written\n", total_written, trace_length);
     }
     DEBUG("dump to NFS share done!\n");
+
+    if (trace_length == BFSCOPE_BUFLEN) {
+        debug_printf("got full buffer from first call to trace_dump()... calling again\n");
+        goto dump_again;
+    }
 
     bfscope_trace_dump_finished();
 }
