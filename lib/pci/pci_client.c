@@ -121,7 +121,7 @@ static errval_t check_src_capability(struct capref irq_src_cap){
  * capability.
  * Finally, it instructs the PCI service to activate interrupts for this card.
  */
-static errval_t setup_int_routing(int irq_idx, interrupt_handler_fn handler,
+errval_t pci_setup_int_routing(int irq_idx, interrupt_handler_fn handler,
                                          void *handler_arg,
                                          interrupt_handler_fn reloc_handler,
                                          void *reloc_handler_arg){
@@ -219,9 +219,9 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func,
     // Set-up int routing.
     // We use the first passed vector of the device,
     // for backward compatibility with function interface.
-    PCI_CLIENT_DEBUG("Calling setup_int_routing\n");
-    if (!(handler == NULL)) {
-        err = setup_int_routing(0, handler, handler_arg, reloc_handler, reloc_handler_arg);
+    if (handler != NULL) {
+        PCI_CLIENT_DEBUG("Calling pci_setup_int_routing\n");
+        err = pci_setup_int_routing(0, handler, handler_arg, reloc_handler, reloc_handler_arg);
         if(err_is_fail(err)){
            DEBUG_ERR(err, "Could not set up int routing. Continuing w/o interrupts");
         }
@@ -347,11 +347,11 @@ errval_t pci_register_legacy_driver_irq_cap(legacy_driver_init_fn init_func,
     assert(err_is_ok(err));
 
     // Setup int routing
-    err = setup_int_routing(irq_cap_idx, handler, handler_arg, NULL, NULL);
+    err = pci_setup_int_routing(irq_cap_idx, handler, handler_arg, NULL, NULL);
     if(err_is_fail(err)){
        DEBUG_ERR(err, "Could not set up int routing. Continuing w/o interrupts");
     } else {
-        PCI_CLIENT_DEBUG("setup_int_routing successful.\n");
+        PCI_CLIENT_DEBUG("pci_setup_int_routing successful.\n");
     }
 
     // Run init function

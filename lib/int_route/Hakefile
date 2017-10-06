@@ -26,7 +26,7 @@
     build library { target = "int_msix_ctrl",
                     cFiles = [ "msix_ctrl/client.c" ],
                     flounderBindings =["int_route_controller"],
-                    mackerelDevices = ["msix"]
+                    mackerelDevices = ["msix", "msix_e1000"]
                    },
 
 

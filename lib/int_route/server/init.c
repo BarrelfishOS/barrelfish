@@ -121,14 +121,14 @@ static int parse_int_message(char *pos, int_route_controller_int_message_t *out,
             return 1;
         }
         int_1++;
-        out->msg = atoll(int_1);
+        out->addr = atoll(int_1);
 
         char * int_2 = strchr(int_1, ',');
         if(int_2 == NULL){
             return 1;
         }
         int_2++;
-        out->addr = atoll(int_2);
+        out->msg = atoll(int_2);
 
         char * after = strchr(int_2, ')');
         if(after == NULL){
@@ -228,7 +228,8 @@ static errval_t read_route_output_and_tell_controllers(void){
 
         struct controller_driver * dest = find_controller(lbl, class);
         if(dest == NULL){
-            INT_DEBUG("No controller driver found.\n");
+            INT_DEBUG("No ctrl driver found (lbl=%s,class=%s). Ignoring.\n",lbl,
+                    class);
         } else {
             err = int_route_controller_add_mapping__tx(dest->binding,
                     BLOCKING_CONT, lbl, class, in_msg,

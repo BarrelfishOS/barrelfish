@@ -64,6 +64,19 @@ errval_t pci_register_driver_irq(pci_driver_init_fn init_func,
                                  interrupt_handler_fn handler, void *handler_arg);
 
 /**
+ * Setup interrupt routing manually. If interrupt handler
+ * function is passed to register_driver it will be called called from there.
+ * Use this in your init function (or any later point) if you want to:
+ *  * MSIx
+ *  * Unusual interrupt routing.
+ *  * Activate interrupts later
+ */
+errval_t pci_setup_int_routing(int irq_idx, interrupt_handler_fn handler,
+                                         void *handler_arg,
+                                         interrupt_handler_fn reloc_handler,
+                                         void *reloc_handler_arg);
+
+/**
  * Deprecated. Use pci_register_legacy_driver_irq_cap.
  */
 errval_t pci_register_legacy_driver_irq(legacy_driver_init_fn init_func,

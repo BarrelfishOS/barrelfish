@@ -55,6 +55,7 @@
            "lpc_rtc",
            "lpc_rtc_spaces",
            "msix",
+           "msix_e1000",
            "ohci",
            "pc16550d",
            "rtl8029as",

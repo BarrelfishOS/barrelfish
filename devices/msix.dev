@@ -18,3 +18,4 @@ device msix lsbfirst ( addr base ) "MSIx Table Structure" {
   regarray msg_data addr(base, 0x4)[2048;0x10] "Msg Data" type(uint32);
   regarray msg_addr addr(base, 0x8)[2048;0x10] "Msg Addr" type(uint64);
 };
+
