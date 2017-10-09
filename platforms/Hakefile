@@ -180,8 +180,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- Example program modules
     modules_xmpl = [ "/sbin/" ++ f | f <- [
         --"examples/xmpl-call-response",
-        --"examples/xmpl-caps-kvstore-posix",
-        --"examples/xmpl-caps-kvstore-client",
         "examples/xmpl-cow",
         "examples/xmpl-hello",
         --"examples/xmpl-msg",
@@ -193,8 +191,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
         --"examples/xmpl-thc-lang",
         "examples/xmpl-thread",
         "examples/xmpl-thread-min",
-        "examples/xmpl-trace",
-        "examples/xmpl-vregion" ] ]
+        "examples/xmpl-trace" ] ]
 
     -- Default list of modules to build/install for all enabled architectures
     modules_common = [ "/sbin/" ++ f | f <- [
