@@ -224,12 +224,22 @@ int main(int argc, char **argv)
     barrelfish_usleep(5*1000*1000);
     
     printf("Waiting for process on same core to finish \n");
+ 	err = spawn_wait(domain_cap, &code, true);
+ 	if (err_is_fail(err)) {
+        USER_PANIC("Failed waiting for domain \n");
+ 	}
+    printf("Nowait hang return code %d \n", code);
  	err = spawn_wait(domain_cap, &code, false);
  	if (err_is_fail(err)) {
         USER_PANIC("Failed waiting for domain \n");
  	}
     printf("Unblocked \n");
 
+ 	err = spawn_wait(domain_cap, &code, true);
+ 	if (err_is_fail(err)) {
+        USER_PANIC("Failed waiting for domain \n");
+ 	}
+    printf("Nowait hang return code %d \n", code);
     printf("Running benchmarks core 0 \n");
     run_benchmark_spawn(0);
     printf("Running benchmarks core 3 \n");

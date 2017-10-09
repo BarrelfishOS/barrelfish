@@ -72,7 +72,7 @@ errval_t spawn_wait_core(coreid_t coreid, struct capref domainid,
 errval_t spawn_binding(coreid_t coreid, struct spawn_binding **ret_client);
 errval_t spawn_bind_iref(iref_t iref, struct spawn_binding **ret_client);
 errval_t spawn_get_domain_list(uint8_t **domains, size_t *len);
-errval_t spawn_get_status(uint8_t domainid, struct spawn_ps_entry *pse,
+errval_t spawn_get_status(domainid_t domain_id, struct spawn_ps_entry *pse,
                           char **argbuf, size_t *arglen, errval_t *reterr);
 
 errval_t alloc_inheritcn_with_caps(struct capref *inheritcn_capp,

@@ -607,7 +607,7 @@ static void exit_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
 /**
  * \brief Handler for rpc wait.
  */
-static void wait_handler(struct proc_mgmt_binding *b, struct capref domain_cap)
+static void wait_handler(struct proc_mgmt_binding *b, struct capref domain_cap, bool nohang)
 {
     errval_t err, resp_err;
     struct domain_entry *entry;
@@ -620,6 +620,11 @@ static void wait_handler(struct proc_mgmt_binding *b, struct capref domain_cap)
         // Domain has already been stopped, so just reply with exit status.
         goto respond;
     }
+
+    if (nohang) {
+        entry->exit_status = -1;
+        goto respond;   
+    } 
 
     struct domain_waiter *waiter = (struct domain_waiter*) malloc(
             sizeof(struct domain_waiter));
@@ -634,6 +639,14 @@ respond:
     if (err_is_fail(resp_err)) {
         DEBUG_ERR(resp_err, "failed to send wait_response");
     }
+}
+
+/**
+ * \brief Handler for rpc get_domainlist.
+ */
+static void get_domainlist_handler(struct proc_mgmt_binding *b)
+{
+    
 }
 
 static struct proc_mgmt_rx_vtbl monitor_vtbl = {
@@ -653,7 +666,8 @@ static struct proc_mgmt_rx_vtbl non_monitor_vtbl = {
     .span_call            = span_handler,
     .kill_call            = kill_handler,
     .exit_call            = exit_handler,
-    .wait_call            = wait_handler
+    .wait_call            = wait_handler,
+    .get_domainlist_call  = get_domainlist_handler
 };
 
 /**
