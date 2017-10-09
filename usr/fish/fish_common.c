@@ -403,11 +403,19 @@ static int ps(int argc, char *argv[])
 
         switch(pse.status) {
         case 0:
-            status = 'R';
+            status = 'N';
             break;
 
         case 1:
-            status = 'Z';
+            status = 'R';
+            break;
+
+        case 2:
+            status = 'S';
+            break;
+
+        case 3:
+            status = 'S';
             break;
 
         default:

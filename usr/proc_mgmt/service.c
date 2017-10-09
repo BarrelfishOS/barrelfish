@@ -86,7 +86,8 @@ static void spawn_reply_handler(struct spawn_binding *b, errval_t spawn_err)
             spawn = (struct pending_spawn*) cl->st;
             err = spawn_err;
             if (err_is_ok(spawn_err)) {
-                err = domain_spawn(spawn->cap_node, spawn->core_id);
+                err = domain_spawn(spawn->cap_node, spawn->core_id, spawn->argvbuf,
+                                   spawn->argvbytes);
                 if (cl->type == ClientType_Spawn) {
                     resp_err = cl->b->tx_vtbl.spawn_response(cl->b, NOP_CONT,
                             err, spawn->cap_node->domain_cap);
@@ -662,6 +663,34 @@ static void get_domainlist_handler(struct proc_mgmt_binding *b)
     }
 }
 
+/**
+ * \brief Handler for rpc get_status.
+ */
+static void get_status_handler(struct proc_mgmt_binding *b, domainid_t domain)
+{
+    errval_t err;
+    struct domain_entry* entry;
+    proc_mgmt_ps_entry_t pse;
+    memset(&pse, 0, sizeof(pse));
+
+    err = domain_get_by_id(domain, &entry);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.get_status_response(b, NOP_CONT, pse, NULL, 0,
+                                             err);
+        if(err_is_fail(err)) {
+            DEBUG_ERR(err, "status_response");
+        }
+    }
+
+    pse.status = entry->status;
+
+    err = b->tx_vtbl.get_status_response(b, NOP_CONT, pse, entry->argbuf, entry->argbytes,
+                                         SYS_ERR_OK);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "status_response");
+    }
+}
+
 static struct proc_mgmt_rx_vtbl monitor_vtbl = {
     .add_spawnd           = add_spawnd_handler,
     .spawn_call           = spawn_handler,
@@ -680,7 +709,8 @@ static struct proc_mgmt_rx_vtbl non_monitor_vtbl = {
     .kill_call            = kill_handler,
     .exit_call            = exit_handler,
     .wait_call            = wait_handler,
-    .get_domainlist_call  = get_domainlist_handler
+    .get_domainlist_call  = get_domainlist_handler,
+    .get_status_call      = get_status_handler
 };
 
 /**

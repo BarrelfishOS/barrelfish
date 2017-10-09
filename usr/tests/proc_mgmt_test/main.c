@@ -72,6 +72,59 @@ static inline cycles_t calculate_time(cycles_t tsc_start, cycles_t tsc_end)
     return result;
 }
 
+static void print_ps(domainid_t* domains, size_t len)
+{
+    errval_t err;
+    for(size_t i = 0; i < len; i++) {
+        struct spawn_ps_entry pse;
+        char *argbuf, status;
+        size_t arglen;
+        errval_t reterr;
+
+        err = spawn_get_status(domains[i], &pse, &argbuf, &arglen, &reterr);
+        if (err_is_fail(err)) {
+            USER_PANIC("PS FAILED \n");
+        }
+        if(err_is_fail(reterr)) {
+            USER_PANIC("PS FAILED \n");
+        }
+
+        switch(pse.status) {
+        case 0:
+            status = 'N';
+            break;
+
+        case 1:
+            status = 'R';
+            break;
+
+        case 2:
+            status = 'S';
+            break;
+
+        case 3:
+            status = 'S';
+            break;
+
+        default:
+            status = '?';
+            break;
+        }
+
+        printf("%-8u\t%c\t", domains[i], status);
+        size_t pos = 0;
+        for(int p = 0; pos < arglen && p < MAX_CMDLINE_ARGS;) {
+            printf("%s ", &argbuf[pos]);
+            char *end = memchr(&argbuf[pos], '\0', arglen - pos);
+            assert(end != NULL);
+            pos = end - argbuf + 1;
+        }
+        printf("\n");
+
+        free(argbuf);
+    }
+}
+
 static void run_benchmark_spawn(coreid_t target_core)
 {
     bench_init();
@@ -245,30 +298,28 @@ int main(int argc, char **argv)
     printf("Running benchmarks core 3 \n");
     run_benchmark_spawn(3);
 
-    domainid_t* domains;
-    size_t len;
-    printf("Get domain list sorted \n");
-    err = spawn_get_domain_list(true, &domains, &len);
-    if (err_is_fail(err)){
-        USER_PANIC("Failed getting domain ids \n");
+    for (int j = 0; j < 10; j++) {
+        domainid_t* domains;
+        size_t len;
+        printf("Get domain list sorted \n");
+        err = spawn_get_domain_list(true, &domains, &len);
+        if (err_is_fail(err)){
+            USER_PANIC("Failed getting domain ids \n");
+        }
+
+        print_ps(domains, len);
+        free(domains);
+
+        printf("Get domain list unsorted \n");
+        err = spawn_get_domain_list(false, &domains, &len);
+        if (err_is_fail(err)){
+            USER_PANIC("Failed getting domain ids \n");
+        }
+
+        print_ps(domains, len);
+
+        free(domains);
     }
-
-    for (int i = 0; i < len; i++) {
-        printf("Domain id %d \n", domains[i]);
-    }
-
-    free(domains);
-
-    printf("Get domain list unsorted \n");
-    err = spawn_get_domain_list(false, &domains, &len);
-    if (err_is_fail(err)){
-        USER_PANIC("Failed getting domain ids \n");
-    }
-
-    for (int i = 0; i < len; i++) {
-        printf("Domain id %d \n", domains[i]);
-    }
-
     printf("TEST DONE\n");
     return 0;
 }

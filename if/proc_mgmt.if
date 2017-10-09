@@ -49,8 +49,8 @@ interface proc_mgmt "Process management service" {
   rpc wait(in cap domain_cap, in bool nohang, out errval err, out uint8 status);
 
 
-  rpc status(in uint32 domainid, out ps_entry ps_entry, out char argv[len, 2048],
-    	     out errval err);
+  rpc get_status(in uint32 domainid, out ps_entry ps_entry, 
+                 out char argv[len, 2048], out errval err);
 
   // 4 uint8 are merged to a 32 bit domaind.
   rpc get_domainlist(out uint8 domains[len, 4096]);

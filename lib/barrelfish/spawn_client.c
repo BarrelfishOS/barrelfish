@@ -920,7 +920,7 @@ errval_t spawn_get_domain_list(bool sorted, domainid_t **domains, size_t *len)
     size_t length;
     err = b->rpc_tx_vtbl.get_domainlist(b, reply.domains, &length);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "get_domainlist");
+        return err;
     }
 
     // length is in bytes
@@ -940,26 +940,25 @@ errval_t spawn_get_domain_list(bool sorted, domainid_t **domains, size_t *len)
 errval_t spawn_get_status(domainid_t domain_id, struct spawn_ps_entry *pse,
                           char **argbuf, size_t *arglen, errval_t *reterr)
 {
-/*
+
     errval_t err;
-
-    struct spawn_binding *cl;
-    err = spawn_binding(disp_get_core_id(), &cl);
+    err = proc_mgmt_bind_client();
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "spawn_binding");
+        return err;
     }
-    assert(cl != NULL);
 
-    struct spawn_status_response__rx_args reply;
-    err = cl->rpc_tx_vtbl.status(cl, domain, (spawn_ps_entry_t *)pse, reply.argv,
-                          arglen, reterr);
+    struct proc_mgmt_binding *b = get_proc_mgmt_binding();
+    assert(b != NULL);
+
+    struct proc_mgmt_get_status_response__rx_args reply;
+    err = b->rpc_tx_vtbl.get_status(b, domain_id, (proc_mgmt_ps_entry_t*) pse, 
+                                    reply.argv, arglen, reterr);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "status");
+        return err;
     }
 
     *argbuf = memdup(reply.argv, *arglen);
-    
-*/
+
     return SYS_ERR_OK;
 }
 
