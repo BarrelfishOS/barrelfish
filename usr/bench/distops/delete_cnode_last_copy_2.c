@@ -63,7 +63,7 @@ errval_t mgmt_init_benchmark(void **st, int nodecount)
      gs->nodes = calloc(nodecount, sizeof(coreid_t));
      gs->nodecount = nodecount;
      gs->copies_done = 0;
-     gs->printnode = -1;
+     gs->printnode = 0;
      gs->currcopies = NUM_COPIES_START;
      return ram_alloc(&gs->ram, BASE_PAGE_BITS);
 }
@@ -84,7 +84,6 @@ void mgmt_register_node(void *st, coreid_t nodeid)
     // if we've seen all nodes, sort nodes array and configure printnode
     if (gs->nodes_seen == gs->nodecount) {
         qsort(gs->nodes, gs->nodecount, sizeof(coreid_t), sort_coreid);
-        gs->printnode = gs->nodes[0];
     }
 }
 
@@ -110,7 +109,7 @@ void mgmt_run_benchmark(void *st)
     printf("# Benchmarking DELETE CNODE NO REMOTE CONTENTS: nodes=%d\n", gs->nodecount);
 
     broadcast_cmd(BENCH_CMD_DO_DELETE, ITERS);
-    unicast_cmd(gs->printnode, BENCH_CMD_PRINT_STATS, 0);
+    unicast_cmd(gs->printnode++, BENCH_CMD_PRINT_STATS, 0);
 }
 
 void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
@@ -127,13 +126,13 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                 // Reset counters for next round
                 gs->currcopies *= 2;
                 gs->copies_done = 0;
-                gs->printnode = 1;
+                gs->printnode = 0;
                 // Start new round
                 broadcast_cmd(BENCH_CMD_DO_DELETE, ITERS);
-                unicast_cmd(gs->printnode, BENCH_CMD_PRINT_STATS, 0);
+                unicast_cmd(gs->nodes[gs->printnode++], BENCH_CMD_PRINT_STATS, 0);
                 return;
             }
-            unicast_cmd(++gs->printnode, BENCH_CMD_PRINT_STATS, 0);
+            unicast_cmd(gs->nodes[gs->printnode++], BENCH_CMD_PRINT_STATS, 0);
             break;
         default:
             printf("mgmt node got unknown command %d over binding %p\n", cmd, b);

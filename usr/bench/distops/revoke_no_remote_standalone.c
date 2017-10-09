@@ -29,8 +29,6 @@ struct global_state {
     struct capref ram;
     int nodecount;
     int copies_done;
-    int printnode;
-    int print_count;
     int currcopies;
 };
 
@@ -43,8 +41,6 @@ errval_t mgmt_init_benchmark(void **st, int nodecount)
      struct global_state *gs = *st;
      gs->nodecount = nodecount;
      gs->copies_done = 0;
-     gs->print_count = 0;
-     gs->printnode = 1;
      return ram_alloc(&gs->ram, BASE_PAGE_BITS);
 }
 
