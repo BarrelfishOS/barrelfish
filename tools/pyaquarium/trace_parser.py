@@ -88,7 +88,7 @@ class Trace(object):
             return
         key = elems[1].lower()
         if key == "min_timestamp":
-            self._first_timestamp = int(elems[2])
+            self._first_timestamp = long(elems[2])
         if key == "core":
             # clear list of applications
             self._applications = dict()
@@ -169,7 +169,9 @@ class Trace(object):
             ts = long(elems[1])
             data = int(elems[2], 16)
 
-            ts -= self._first_timestamp
+            # Skip this normalization, this does not work across multiple
+            # iterations of trace_dump().
+            #ts -= self._first_timestamp
 
             if coreid not in self._running_applications:
                 self._running_applications[coreid] = dict()
