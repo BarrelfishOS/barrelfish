@@ -86,19 +86,15 @@ subsystem kernel {
 // not see the regular kernel events.
 subsystem kernel_capops {
     event DELETE_ENTER		"Entering caps_delete()",
-    event DELETE_EXIT		"Exiting caps_delete()",
+    event DELETE_DONE		"Exiting caps_delete()",
     event TRY_DELETE		"Entering caps_try_delete()",
     event CLEANUP_COPY		"Entering cleanup_copy()",
     event CLEANUP_LAST		"Entering cleanup_last()",
     event CREATE_RAM		"cleanup_last: creating RAM cap in provided slot",
     event CREATE_RAM_LMP	"cleanup_last: putting RAM cap in monitorEP",
     event UNMAP_CAPABILITY	"Entering unmap_capability()",
-};
-
-// Mapping database tracing
-subsystem mdb {
-    event ENTER_REMOVE		"Entering mdb_remove()",
-    event EXIT_REMOVE		"Exiting mdb_remove()",
+    event MDB_REMOVE		"Calling mdb_remove()",
+    event HAS_COPIES		"Calling has_copies()",
 };
 
 subsystem threads {
