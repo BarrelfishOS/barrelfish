@@ -46,6 +46,8 @@ void unicast_cmd(coreid_t nodeid, uint32_t cmd, uint32_t arg);
 
 errval_t mgmt_init_benchmark(void **st, int nodecount);
 
+void mgmt_register_node(void *st, coreid_t nodeid);
+
 errval_t mgmt_init_node(void **st);
 
 void mgmt_run_benchmark(void *st);

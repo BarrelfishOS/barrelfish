@@ -60,6 +60,8 @@ static size_t get_mdb_size(void)
 struct global_state {
     struct capref ram;
     struct capref fwdcap;
+    coreid_t *nodes;
+    int nodes_seen;
     int nodecount;
     int copies_done;
     int copycount;
@@ -70,16 +72,37 @@ struct global_state {
 
 errval_t mgmt_init_benchmark(void **st, int nodecount)
 {
-    *st = malloc(sizeof(struct global_state));
+    *st = calloc(1, sizeof(struct global_state));
     if (!*st) {
         return LIB_ERR_MALLOC_FAIL;
     }
     struct global_state *gs = *st;
+    gs->nodes = calloc(nodecount, sizeof(coreid_t));
     gs->nodecount = nodecount;
     gs->copies_done = 0;
     gs->rx_seen = 0;
-    gs->masternode = 1; // TODO
+    gs->masternode = -1;
     return ram_alloc(&gs->ram, BASE_PAGE_BITS);
+}
+
+static int sort_coreid(const void *a_, const void *b_)
+{
+    // deref pointers as coreids, store as ints
+    int a = *((coreid_t*)a_);
+    int b = *((coreid_t*)b_);
+    // subtract as ints
+    return a-b;
+}
+
+void mgmt_register_node(void *st, coreid_t nodeid)
+{
+    struct global_state *gs = st;
+    gs->nodes[gs->nodes_seen++] = nodeid;
+    // if we've seen all nodes, sort nodes array and configure printnode
+    if (gs->nodes_seen == gs->nodecount) {
+        qsort(gs->nodes, gs->nodecount, sizeof(coreid_t), sort_coreid);
+        gs->masternode = gs->nodes[0];
+    }
 }
 
 struct mgmt_node_state {
@@ -162,7 +185,7 @@ void mgmt_cmd_caps(uint32_t cmd, uint32_t arg, struct capref cap1,
     switch (cmd) {
         case BENCH_CMD_FORWARD_COPIES:
             {
-            coreid_t cores[] = {2};
+            coreid_t cores[] = { gs->nodes[1] };
             gs->copycount = 1;
             gs->fwdcap = cap1;
             multicast_caps(BENCH_CMD_FORWARD_COPIES, arg, cap1, cores, gs->copycount);

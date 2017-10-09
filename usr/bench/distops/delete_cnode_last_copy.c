@@ -44,6 +44,8 @@ enum bench_cmd {
 
 struct global_state {
     struct capref ram;
+    coreid_t *nodes;
+    int nodes_seen;
     int nodecount;
     int copies_done;
     int printnode;
@@ -52,16 +54,38 @@ struct global_state {
 
 errval_t mgmt_init_benchmark(void **st, int nodecount)
 {
-     *st = malloc(sizeof(struct global_state));
+     *st = calloc(1, sizeof(struct global_state));
      if (!*st) {
          return LIB_ERR_MALLOC_FAIL;
      }
      struct global_state *gs = *st;
+     gs->nodes = calloc(nodecount, sizeof(coreid_t));
      gs->nodecount = nodecount;
      gs->copies_done = 0;
-     gs->printnode = 1;
+     gs->printnode = -1;
      return ram_alloc(&gs->ram, BASE_PAGE_BITS);
 }
+
+static int sort_coreid(const void *a_, const void *b_)
+{
+    // deref pointers as coreids, store as ints
+    int a = *((coreid_t*)a_);
+    int b = *((coreid_t*)b_);
+    // subtract as ints
+    return a-b;
+}
+
+void mgmt_register_node(void *st, coreid_t nodeid)
+{
+    struct global_state *gs = st;
+    gs->nodes[gs->nodes_seen++] = nodeid;
+    // if we've seen all nodes, sort nodes array and configure printnode
+    if (gs->nodes_seen == gs->nodecount) {
+        qsort(gs->nodes, gs->nodecount, sizeof(coreid_t), sort_coreid);
+        gs->printnode = gs->nodes[0];
+    }
+}
+
 
 struct mgmt_node_state {
 };

@@ -116,7 +116,6 @@ void multicast_caps(uint32_t cmd, uint32_t arg, struct capref cap1,
     return;
 }
 
-//#define USE_NODEID_AS_ID
 //{{{2 Mgmt node unicast helper functions
 void unicast_cmd(coreid_t nodeid, uint32_t cmd, uint32_t arg)
 {
@@ -129,7 +128,6 @@ void unicast_cmd(coreid_t nodeid, uint32_t cmd, uint32_t arg)
         printf("Not all clients registered, unicast not yet possible\n");
         return;
     }
-#ifdef USE_NODEID_AS_ID
     for (int i = 0; i < bench_state->clients_total; i++) {
         assert(bench_state->nodes[i]);
         struct mgmt_node_state *ns = bench_state->nodes[i]->st;
@@ -139,12 +137,6 @@ void unicast_cmd(coreid_t nodeid, uint32_t cmd, uint32_t arg)
             break;
         }
     }
-#else
-    // use local index, to keep client code unchanged
-    struct mgmt_node_state *ns = bench_state->nodes[nodeid-1]->st;
-    //printf("# %s: sending cmd %d, to node %d\n", __FUNCTION__, cmd, ns->coreid);
-    err = bench_distops_cmd__tx(bench_state->nodes[nodeid-1], NOP_CONT, cmd, arg);
-#endif
     return;
 }
 
@@ -158,6 +150,8 @@ static void mgmt_rx_hello(struct bench_distops_binding *b, uint32_t coreid)
 
     struct mgmt_node_state *ns = b->st;
     ns->coreid = coreid;
+
+    mgmt_register_node(bench_state->st, coreid);
 
     if (bench_state->clients_seen == bench_state->clients_total) {
         mgmt_run_benchmark(bench_state->st);
