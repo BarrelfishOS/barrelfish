@@ -176,6 +176,12 @@ class DistopsBenchDeleteForeign(DistopsBench):
     binary_name = "bench_delete_foreign_copy"
 
 @tests.add_test
+class DistopsBenchDeleteLocal(DistopsBench):
+    '''Benchmark latency of deleting local copy of capability'''
+    name = 'distops_bench_delete_local'
+    binary_name = "bench_delete_local_copy"
+
+@tests.add_test
 class DistopsBenchDeleteLast(DistopsBench):
     '''Benchmark latency of deleting last copy of capability'''
     name = 'distops_bench_delete_last'
