@@ -1122,6 +1122,7 @@ errors omap_sdma OMAP_SDMA_ERR_ {
 
 // common/generic errors
 errors common ERR_ {
+    failure INVALID_ARGS        "Invalid arguments",
     failure NOTIMP              "Not implemented",
 };
 

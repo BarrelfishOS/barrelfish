@@ -32,15 +32,27 @@ static void debug_capref(const char *prefix, struct capref cap)
 //{{{2 Management node: state management
 
 struct global_state {
+    coreid_t *nodes;
+    int nodecount;
+    int nodes_seen;
 };
 
 errval_t mgmt_init_benchmark(void **st, int nodecount)
 {
-     *st = malloc(sizeof(struct global_state));
+     *st = calloc(1, sizeof(struct global_state));
      if (!*st) {
          return LIB_ERR_MALLOC_FAIL;
      }
+     struct  global_state *gs = *st;
+     gs->nodes = calloc(nodecount, sizeof(coreid_t));
+     gs->nodecount = nodecount;
      return SYS_ERR_OK;
+}
+
+void mgmt_register_node(void *st, coreid_t nodeid)
+{
+    struct global_state *gs = st;
+    gs->nodes[gs->nodes_seen++] = nodeid;
 }
 
 struct mgmt_node_state {
