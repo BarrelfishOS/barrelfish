@@ -9,6 +9,8 @@
 #include <kernel.h>
 #include <kcb.h>
 #endif
+// XXX: this has to be included after <kernel.h> for the in-kernel build!
+#include <trace/trace.h>
 
 #ifndef MIN
 #define MIN(a, b) ((a)<(b)?(a):(b))
@@ -847,6 +849,7 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
 errval_t
 mdb_remove(struct cte *target)
 {
+    TRACE_CTE(MDB, ENTER_REMOVE, target);
     MDB_TRACE_ENTER(mdb_root, "%p", target);
     CHECK_INVARIANTS(mdb_root, target, true);
 #ifdef IN_KERNEL
@@ -858,6 +861,7 @@ mdb_remove(struct cte *target)
 #endif
     errval_t err = mdb_subtree_remove(target, &mdb_root, NULL);
     CHECK_INVARIANTS(mdb_root, target, false);
+    TRACE_CTE(MDB, EXIT_REMOVE, target);
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, mdb_root);
 }
 

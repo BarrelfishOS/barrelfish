@@ -40,12 +40,16 @@ static void caps_mark_revoke_generic(struct cte *cte);
 static void clear_list_prepend(struct cte *cte);
 static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte);
 
+#ifdef CONFIG_TRACE
+#endif
+
 /**
  * \brief Try a "simple" delete of a cap. If this fails, the monitor needs to
  * negotiate a delete across the system.
  */
 static errval_t caps_try_delete(struct cte *cte)
 {
+    TRACE_CTE(KERNEL_CAPOPS, TRY_DELETE, cte);
     TRACE_CAP_MSG("trying simple delete", cte);
     if (distcap_is_in_delete(cte) || cte->mdbnode.locked) {
         // locked or already in process of being deleted
@@ -166,6 +170,8 @@ cleanup_copy(struct cte *cte)
 {
     errval_t err;
 
+    TRACE_CTE(KERNEL_CAPOPS, CLEANUP_COPY, cte);
+
     TRACE_CAP_MSG("cleaning up copy", cte);
 
     struct capability *cap = &cte->cap;
@@ -206,6 +212,7 @@ static errval_t
 cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
 {
     errval_t err;
+    TRACE_CTE(KERNEL_CAPOPS, CLEANUP_LAST, cte);
 
     TRACE_CAP_MSG("cleaning up last copy", cte);
     struct capability *cap = &cte->cap;
@@ -269,6 +276,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
     if(ram.bytes > 0) {
         // Send back as RAM cap to monitor
         if (ret_ram_cap) {
+            TRACE_CTE(KERNEL_CAPOPS, CREATE_RAM, cte);
             if (dcb_current != monitor_ep.u.endpoint.listener) {
                 printk(LOG_WARN, "sending fresh ram cap to non-monitor?\n");
             }
@@ -289,6 +297,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
             ramcte.cap.type = ObjType_RAM;
             TRACE_CAP_MSG("reclaimed", &ramcte);
 #endif
+            TRACE_CTE(KERNEL_CAPOPS, CREATE_RAM_LMP, cte);
             // XXX: This looks pretty ugly. We need an interface.
             err = lmp_deliver_payload(&monitor_ep, NULL,
                                       (uintptr_t *)&ram,
@@ -711,11 +720,17 @@ static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte)
 errval_t caps_delete(struct cte *cte)
 {
     errval_t err;
+    // we use the cte pointer as identifier for a set of trace points. This
+    // works fine, as we cannot have interleaved cpu driver trace streams on a
+    // single core.
+    TRACE_CTE(KERNEL_CAPOPS, DELETE_ENTER, cte);
 
     TRACE_CAP_MSG("deleting", cte);
 
     if (cte->mdbnode.locked) {
-        return err_push(SYS_ERR_CAP_LOCKED, SYS_ERR_RETRY_THROUGH_MONITOR);
+        err = err_push(SYS_ERR_CAP_LOCKED, SYS_ERR_RETRY_THROUGH_MONITOR);
+        TRACE_CTE(KERNEL_CAPOPS, DELETE_EXIT, cte);
+        return err;
     }
 
     err = caps_try_delete(cte);
@@ -723,6 +738,7 @@ errval_t caps_delete(struct cte *cte)
         err = err_push(err, SYS_ERR_RETRY_THROUGH_MONITOR);
     }
 
+    TRACE_CTE(KERNEL_CAPOPS, DELETE_EXIT, cte);
     return err;
 }
 
