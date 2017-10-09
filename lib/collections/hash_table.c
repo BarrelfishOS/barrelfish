@@ -277,6 +277,9 @@ int32_t	collections_hash_traverse_end(collections_hash_table* t)
 		return -1;
 	}
 
+    // XXX The bucktes (list) are not reset here which may cause errors when the
+    // hash table is only traversed half way. 
+
 	t->cur_bucket_num = -1;
 	return 1;
 }
