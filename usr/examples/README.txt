@@ -1,15 +1,20 @@
 This directory contains some simple example programs that show how to
 do specific things in barrelfish. 
 
-In order to build an example you add it to platforms/Hakefile under
-modules_common.  For example for the hello example:
+The example programs are now available as modules_xmpl in
+platforms/Hakefile.  The X86_64_Full target builds the example programs
+by default now.
 
+For other architectures you may have to add either the modules_xmpl list
+or just the individual example you wish to build to the architecture's
+build target.  For example to build the hello example for the
+PandaboardES:
 
-modules_common = [ "/sbin/" ++ f | f <- [
+pandaModules = [ "/sbin/" ++ f | f <- [
+    "cpu_omap44xx",
     "init"
-	...
-	"examples/xmpl-hello"
-    ... ]]
+    ...
+    "examples/xmpl-hello" ]]
 
 (Note there is an exception for xmpl-thc-lang.  See the README.txt file 
 in that directory for more information).
