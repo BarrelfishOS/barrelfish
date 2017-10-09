@@ -51,7 +51,6 @@ struct global_state {
     int nodecount;
     int copies_done;
     int printnode;
-    int print_count;
     int currcopies;
 };
 
@@ -65,8 +64,7 @@ errval_t mgmt_init_benchmark(void **st, int nodecount)
      gs->nodes = calloc(nodecount, sizeof(coreid_t));
      gs->nodecount = nodecount;
      gs->copies_done = 0;
-     gs->print_count = 0;
-     gs->printnode = -1;
+     gs->printnode = 0;
      return ram_alloc(&gs->ram, BASE_PAGE_BITS);
 }
 
@@ -86,7 +84,6 @@ void mgmt_register_node(void *st, coreid_t nodeid)
     // if we've seen all nodes, sort nodes array and configure printnode
     if (gs->nodes_seen == gs->nodecount) {
         qsort(gs->nodes, gs->nodecount, sizeof(coreid_t), sort_coreid);
-        gs->printnode = gs->nodes[0];
     }
 }
 
@@ -128,12 +125,11 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                 printf("# All copies made!\n");
                 broadcast_cmd(BENCH_CMD_DO_REVOKE, ITERS);
                 printf("# sending initial print command to %d\n", gs->printnode);
-                unicast_cmd(gs->printnode, BENCH_CMD_PRINT_STATS, 0);
+                unicast_cmd(gs->nodes[gs->printnode++], BENCH_CMD_PRINT_STATS, 0);
             }
             break;
         case BENCH_CMD_PRINT_DONE:
-            gs->print_count++;
-            if (gs->print_count == gs->nodecount) {
+            if (gs->printnode == gs->nodecount) {
                 if (gs->currcopies == NUM_COPIES_END) {
                     printf("# Benchmark done!\n");
                     return;
@@ -142,14 +138,13 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                 // Reset counters for next round
                 gs->currcopies *= 2;
                 gs->copies_done = 0;
-                gs->printnode = 1;
-                gs->print_count = 0;
+                gs->printnode = 0;
                 // Start new round
                 broadcast_cmd(BENCH_CMD_CREATE_COPIES, gs->currcopies);
                 return;
             }
-            printf("# sending print command to node %d\n", gs->printnode+1);
-            unicast_cmd(++gs->printnode, BENCH_CMD_PRINT_STATS, 0);
+            printf("# sending print command to node %d\n", gs->printnode);
+            unicast_cmd(gs->nodes[gs->printnode++], BENCH_CMD_PRINT_STATS, 0);
             break;
         default:
             printf("mgmt node got unknown command %d over binding %p\n", cmd, b);
