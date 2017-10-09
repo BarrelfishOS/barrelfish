@@ -371,11 +371,11 @@ static int spawnpixels(int argc, char *argv[])
 
 static int ps(int argc, char *argv[])
 {
-    uint8_t *domains;
+    domainid_t *domains;
     size_t len;
     errval_t err;
 
-    err = spawn_get_domain_list(&domains, &len);
+    err = spawn_get_domain_list(true, &domains, &len);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "spawn_get_domain_list");
         return EXIT_FAILURE;

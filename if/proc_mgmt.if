@@ -49,9 +49,9 @@ interface proc_mgmt "Process management service" {
   rpc wait(in cap domain_cap, in bool nohang, out errval err, out uint8 status);
 
 
-  rpc status(in domainid domain_id, out ps_entry ps_entry, out char argv[len, 2048],
+  rpc status(in uint32 domainid, out ps_entry ps_entry, out char argv[len, 2048],
     	     out errval err);
 
-  // XXX: Should be domainid instead of uint8, but it's not yet supported
-  rpc get_domainlist(out uint8 domains[len, 2048]);
+  // 4 uint8 are merged to a 32 bit domaind.
+  rpc get_domainlist(out uint8 domains[len, 4096]);
 };

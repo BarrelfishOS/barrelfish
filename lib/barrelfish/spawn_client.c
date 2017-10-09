@@ -894,10 +894,18 @@ errval_t spawn_wait_compat(uint8_t domainid,
     return reterr;
 }
 
+static int compare_domainid(const void *a, const void *b)
+{
+  const domainid_t *da = (const domainid_t *) a;
+  const domainid_t *db = (const domainid_t *) b;
+
+  return (*da > *db) - (*da < *db);
+}
+
 /**
  * \brief Get the list of domains for ps like implementation
  */
-errval_t spawn_get_domain_list(uint8_t **domains, size_t *len)
+errval_t spawn_get_domain_list(bool sorted, domainid_t **domains, size_t *len)
 {
     errval_t err;
     err = proc_mgmt_bind_client();
@@ -909,12 +917,20 @@ errval_t spawn_get_domain_list(uint8_t **domains, size_t *len)
     assert(b != NULL);
 
     struct proc_mgmt_get_domainlist_response__rx_args reply;
-    err = b->rpc_tx_vtbl.get_domainlist(b, reply.domains, len);
+    size_t length;
+    err = b->rpc_tx_vtbl.get_domainlist(b, reply.domains, &length);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_domainlist");
     }
 
-    *domains = memdup(reply.domains, *len);
+    // length is in bytes
+    *len = length/sizeof(domainid_t);
+    if (sorted) {
+        qsort(reply.domains, *len, sizeof(domainid_t), compare_domainid);
+    }
+
+    *domains = memdup(reply.domains, length);
+
     return SYS_ERR_OK;
 }
 
@@ -924,7 +940,7 @@ errval_t spawn_get_domain_list(uint8_t **domains, size_t *len)
 errval_t spawn_get_status(domainid_t domain_id, struct spawn_ps_entry *pse,
                           char **argbuf, size_t *arglen, errval_t *reterr)
 {
-    /*
+/*
     errval_t err;
 
     struct spawn_binding *cl;

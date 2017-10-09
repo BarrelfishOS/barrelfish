@@ -245,6 +245,30 @@ int main(int argc, char **argv)
     printf("Running benchmarks core 3 \n");
     run_benchmark_spawn(3);
 
+    domainid_t* domains;
+    size_t len;
+    printf("Get domain list sorted \n");
+    err = spawn_get_domain_list(true, &domains, &len);
+    if (err_is_fail(err)){
+        USER_PANIC("Failed getting domain ids \n");
+    }
+
+    for (int i = 0; i < len; i++) {
+        printf("Domain id %d \n", domains[i]);
+    }
+
+    free(domains);
+
+    printf("Get domain list unsorted \n");
+    err = spawn_get_domain_list(false, &domains, &len);
+    if (err_is_fail(err)){
+        USER_PANIC("Failed getting domain ids \n");
+    }
+
+    for (int i = 0; i < len; i++) {
+        printf("Domain id %d \n", domains[i]);
+    }
+
     printf("TEST DONE\n");
     return 0;
 }

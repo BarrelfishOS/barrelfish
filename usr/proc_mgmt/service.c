@@ -646,7 +646,20 @@ respond:
  */
 static void get_domainlist_handler(struct proc_mgmt_binding *b)
 {
-    
+    errval_t resp_err;
+    size_t len;
+    domainid_t* domains;
+
+    domain_get_all_ids(&domains, &len);
+
+    // 4096 hardcoded limit in flounder interface
+    assert(sizeof(domainid_t)/sizeof(uint8_t)*len < 4096);
+
+    resp_err = b->tx_vtbl.get_domainlist_response(b, NOP_CONT, (uint8_t*) domains, 
+                                                  sizeof(domainid_t)/sizeof(uint8_t)*len);
+    if (err_is_fail(resp_err)) {
+        DEBUG_ERR(resp_err, "failed to send wait_response");
+    }
 }
 
 static struct proc_mgmt_rx_vtbl monitor_vtbl = {

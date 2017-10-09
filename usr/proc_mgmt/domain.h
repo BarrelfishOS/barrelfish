@@ -47,6 +47,8 @@ struct domain_entry {
     coreid_t num_spawnds_running;
     coreid_t num_spawnds_resources;
 
+    domainid_t domainid; // Mainly used for ps like command
+
     struct domain_waiter *waiters;  // Clients waiting after this domain.
 
     uint8_t exit_status;
@@ -65,10 +67,12 @@ void domain_run_on_core(struct domain_entry *entry, coreid_t core_id);
 errval_t domain_spawn(struct domain_cap_node *cap_node, coreid_t core_id);
 errval_t domain_can_span(struct capref domain_cap, coreid_t core_id);
 errval_t domain_span(struct capref domain_cap, coreid_t core_id);
+void domain_get_all_ids(domainid_t** domains, size_t* len);
 static inline void domain_stop_pending(struct domain_entry *entry)
 {
     assert(entry != NULL);
     entry->status = DOMAIN_STATUS_STOP_PEND;
 }
+
 
 #endif  // PROC_MGMT_DOMAIN_H

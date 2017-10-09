@@ -11,6 +11,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <collections/hash_table.h>
+#include <collections/list.h>
 #include <if/spawn_defs.h>
 
 #include "domain.h"
@@ -22,6 +23,7 @@ static collections_hash_table* domain_table = NULL;
 #define DOMAIN_CAP_REFILL_COUNT L2_CNODE_SLOTS//1
 static struct domain_cap_node *domain_cap_list = NULL;
 static uint32_t free_domain_caps = 0;
+static domainid_t domain_alloc = 0;
 
 inline bool domain_should_refill_caps(void) {
     return free_domain_caps == 0;
@@ -108,6 +110,9 @@ errval_t domain_new(struct domain_cap_node *cap_node,
     entry->num_spawnds_running = 0;
     entry->num_spawnds_resources = 0;
     entry->waiters = NULL;
+
+    entry->domainid = domain_alloc;
+    domain_alloc++;
 
     if (domain_table == NULL) {
         collections_hash_create_with_buckets(&domain_table, HASH_INDEX_BUCKETS,
@@ -210,4 +215,49 @@ errval_t domain_span(struct capref domain_cap, coreid_t core_id)
     domain_run_on_core(entry, core_id);
 
     return SYS_ERR_OK;
+}
+
+void domain_get_all_ids(domainid_t** domains, size_t* len)
+{
+    if (domain_table == NULL) {
+        *len = 0;
+        return;
+    }
+
+    if (collections_hash_traverse_start(domain_table) > 0) {
+    
+        collections_listnode* start;
+        collections_list_create(&start, NULL);
+    
+        uint64_t key;
+        void* ele = collections_hash_traverse_next(domain_table, &key);
+        
+        // get all domain ids and store in list
+        while (ele != NULL) {
+            struct domain_entry *entry = (struct domain_entry*) ele;
+        
+            if (entry->status != DOMAIN_STATUS_CLEANED) {
+                collections_list_insert(start, &entry->domainid);
+            }
+
+            ele = collections_hash_traverse_next(domain_table, &key);
+        }
+
+        collections_hash_traverse_end(domain_table);
+
+        domainid_t* doms = (domainid_t*) calloc(1, sizeof(domainid_t)*
+                                                 collections_list_size(start));
+
+        *len = collections_list_size(start);
+        // copy domain ids
+        for (int i = 0; i < collections_list_size(start); i++) {
+            doms[i] = *((domainid_t*) collections_list_get_ith_item(start, i));
+        }
+    
+        collections_list_release(start);        
+        *domains = doms;
+
+    } else {
+        *len = 0;
+    }
 }
