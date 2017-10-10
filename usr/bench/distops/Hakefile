@@ -20,6 +20,8 @@ bench name = build application { target = "bench_" ++ name,
                               }
 standalone_bench name = build application { target = "bench_" ++ name,
                                             cFiles = [ "globals.c", name ++ ".c" ],
+                                            -- XXX: need flounder bindings, because code is not cleaned up
+                                            flounderBindings = [ "bench_distops" ],
                                             addLibraries = [ "bench" ]
                                           }
 in
