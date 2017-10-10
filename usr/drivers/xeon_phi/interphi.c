@@ -595,22 +595,23 @@ static void spawn_call_rx(struct interphi_binding *_binding,
     argv[MAX_CMDLINE_ARGS] = NULL;
 
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
-
-    domainid_t domid;
+    struct capref* domain = (struct capref*) malloc(sizeof(struct capref));
 
     /*
      * TODO: check if we have that core present...
      */
 
-    msg_st->err = spawn_program(core, cmdline, argv, NULL, flags, &domid);
+    msg_st->err = spawn_program(core, cmdline, argv, NULL, flags, domain);
     if (err_is_ok(msg_st->err)) {
+        phi->current_key++;
 #ifdef __k1om__
         uint8_t is_host = 0x0;
 #else
         uint8_t is_host = 0x1;
 #endif
         st->args.spawn_reply.domainid = xeon_phi_domain_build_id(phi->id, core,
-                                                                 is_host, domid);
+                                                                 is_host, phi->current_key);
+        collections_hash_insert(phi->did_to_cap, st->args.spawn_reply.domainid,  domain);
     }
     txq_send(msg_st);
 }
@@ -669,17 +670,19 @@ static void spawn_with_cap_call_rx(struct interphi_binding *_binding,
         return;
     }
 
-    domainid_t domid;
+    struct capref* domain = (struct capref*) malloc(sizeof(struct capref));
     msg_st->err = spawn_program_with_caps(core, cmdline, argv, NULL, NULL_CAP,
-                                          cap, flags, &domid);
+                                          cap, flags, domain);
     if (err_is_ok(msg_st->err)) {
+        phi->current_key++;
 #ifdef __k1om__
         st->args.spawn_reply.domainid = xeon_phi_domain_build_id(
-                        disp_xeon_phi_id(), core, 0, domid);
+                        disp_xeon_phi_id(), core, 0, phi->current_key);
 #else
         st->args.spawn_reply.domainid = xeon_phi_domain_build_id(
-                        XEON_PHI_DOMAIN_HOST, core, 1, domid);
+                        XEON_PHI_DOMAIN_HOST, core, 1, phi->current_key);
 #endif
+        collections_hash_insert(phi->did_to_cap, st->args.spawn_reply.domainid,  domain);
     }
     txq_send(msg_st);
 }
@@ -716,8 +719,11 @@ static void kill_call_rx(struct interphi_binding *_binding,
     msg_st->err = SYS_ERR_OK;
     msg_st->send = kill_response_tx;
     msg_st->cleanup = NULL;
+    
+    struct capref* domain = (struct capref*) collections_hash_find(phi->did_to_cap, domainid);
+    assert(domain);
 
-    msg_st->err = spawn_kill(domainid);
+    msg_st->err = spawn_kill(*domain);
 
     txq_send(msg_st);
 }
@@ -1200,6 +1206,9 @@ errval_t interphi_init(struct xeon_phi *phi,
         assert((1UL << log2ceil(id.bytes)) == id.bytes);
         bp->msg_size_bits = log2ceil(id.bytes);
     }
+
+    collections_hash_create(&phi->did_to_cap, NULL);
+    phi->current_key = 0;
 
     return SYS_ERR_OK;
 }
