@@ -201,6 +201,11 @@ static errval_t boot_cores(void)
     err = cap_copy(coreboot_cap_in_argcn, coreboot_cap);
     assert(err_is_ok(err));
 
+    // Wait until spawnd 0 is up (since we go over proc_mgmt 
+    // that might throw a error if spawnd 0 is not up)
+    err = nameservice_blocking_lookup("spawn.0", NULL);
+    assert(err_is_ok(err));
+
     err = spawn_program_with_caps(0, "k1om/sbin/corectrl", arg, NULL, NULL_CAP,
                                   argcn_cap, 0, &new_domain);
     assert(err_is_ok(err));
