@@ -733,6 +733,9 @@ static __attribute__ ((used,noreturn))
     printf(" rip: 0x%016lx  r15: 0x%016lx\n",
            gdb_save_frame[GDB_X86_64_RIP_REG],
            gdb_save_frame[GDB_X86_64_R15_REG]);
+    printf(" rsp: 0x%016lx  rbp: 0x%016lx\n",
+           gdb_save_frame[GDB_X86_64_RSP_REG],
+           gdb_save_frame[GDB_X86_64_RBP_REG]);
 
     // Print the top 10 stack words
     printf("Top o' stack:\n");
