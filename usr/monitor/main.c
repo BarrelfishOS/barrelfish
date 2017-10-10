@@ -17,7 +17,7 @@
 #include <barrelfish/dispatch.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish/domain.h>
-#include <barrelfish/proc_mgmt_client.h>
+#include <barrelfish/spawn_client.h>
 #include <trace/trace.h>
 
 #ifdef __k1om__

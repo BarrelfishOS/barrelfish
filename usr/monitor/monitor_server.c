@@ -20,7 +20,7 @@
 #include <if/mem_defs.h>
 #include <if/proc_mgmt_defs.h>
 #include <barrelfish/monitor_client.h>
-#include <barrelfish/proc_mgmt_client.h>
+#include <barrelfish/spawn_client.h>
 #include <barrelfish/syscalls.h>
 #include <barrelfish_kpi/distcaps.h>
 #include <if/monitor_loopback_defs.h>

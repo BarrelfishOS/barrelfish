@@ -14,7 +14,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
-#include <barrelfish/proc_mgmt_client.h>
 #include <barrelfish/spawn_client.h>
 #include <if/monitor_defs.h>
 #include <if/proc_mgmt_defs.h>
@@ -87,7 +86,8 @@ static void spawn_reply_handler(struct spawn_binding *b, errval_t spawn_err)
             spawn = (struct pending_spawn*) cl->st;
             err = spawn_err;
             if (err_is_ok(spawn_err)) {
-                err = domain_spawn(spawn->cap_node, spawn->core_id);
+                err = domain_spawn(spawn->cap_node, spawn->core_id, spawn->argvbuf,
+                                   spawn->argvbytes);
                 if (cl->type == ClientType_Spawn) {
                     resp_err = cl->b->tx_vtbl.spawn_response(cl->b, NOP_CONT,
                             err, spawn->cap_node->domain_cap);
@@ -608,7 +608,7 @@ static void exit_handler(struct proc_mgmt_binding *b, struct capref domain_cap,
 /**
  * \brief Handler for rpc wait.
  */
-static void wait_handler(struct proc_mgmt_binding *b, struct capref domain_cap)
+static void wait_handler(struct proc_mgmt_binding *b, struct capref domain_cap, bool nohang)
 {
     errval_t err, resp_err;
     struct domain_entry *entry;
@@ -622,6 +622,11 @@ static void wait_handler(struct proc_mgmt_binding *b, struct capref domain_cap)
         goto respond;
     }
 
+    if (nohang) {
+        entry->exit_status = -1;
+        goto respond;   
+    } 
+
     struct domain_waiter *waiter = (struct domain_waiter*) malloc(
             sizeof(struct domain_waiter));
     waiter->b = b;
@@ -634,6 +639,55 @@ respond:
     resp_err = b->tx_vtbl.wait_response(b, NOP_CONT, err, entry->exit_status);
     if (err_is_fail(resp_err)) {
         DEBUG_ERR(resp_err, "failed to send wait_response");
+    }
+}
+
+/**
+ * \brief Handler for rpc get_domainlist.
+ */
+static void get_domainlist_handler(struct proc_mgmt_binding *b)
+{
+    errval_t resp_err;
+    size_t len;
+    domainid_t* domains;
+
+    domain_get_all_ids(&domains, &len);
+
+    // 4096 hardcoded limit in flounder interface
+    assert(sizeof(domainid_t)/sizeof(uint8_t)*len < 4096);
+
+    resp_err = b->tx_vtbl.get_domainlist_response(b, NOP_CONT, (uint8_t*) domains, 
+                                                  sizeof(domainid_t)/sizeof(uint8_t)*len);
+    if (err_is_fail(resp_err)) {
+        DEBUG_ERR(resp_err, "failed to send wait_response");
+    }
+}
+
+/**
+ * \brief Handler for rpc get_status.
+ */
+static void get_status_handler(struct proc_mgmt_binding *b, domainid_t domain)
+{
+    errval_t err;
+    struct domain_entry* entry;
+    proc_mgmt_ps_entry_t pse;
+    memset(&pse, 0, sizeof(pse));
+
+    err = domain_get_by_id(domain, &entry);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.get_status_response(b, NOP_CONT, pse, NULL, 0,
+                                             err);
+        if(err_is_fail(err)) {
+            DEBUG_ERR(err, "status_response");
+        }
+    }
+
+    pse.status = entry->status;
+
+    err = b->tx_vtbl.get_status_response(b, NOP_CONT, pse, entry->argbuf, entry->argbytes,
+                                         SYS_ERR_OK);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "status_response");
     }
 }
 
@@ -654,7 +708,9 @@ static struct proc_mgmt_rx_vtbl non_monitor_vtbl = {
     .span_call            = span_handler,
     .kill_call            = kill_handler,
     .exit_call            = exit_handler,
-    .wait_call            = wait_handler
+    .wait_call            = wait_handler,
+    .get_domainlist_call  = get_domainlist_handler,
+    .get_status_call      = get_status_handler
 };
 
 /**

@@ -16,7 +16,6 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish/sys_debug.h>
-#include <barrelfish/proc_mgmt_client.h>
 #include <barrelfish/spawn_client.h>
 #include <bench/bench.h>
 
@@ -28,9 +27,8 @@ static errval_t test_spawn(coreid_t core_id, char *argv[],
 {
 	assert(ret_domain_cap != NULL);
 
-	errval_t err = proc_mgmt_spawn_program(core_id,
-		                                   "/x86_64/sbin/proc_mgmt_test",
-		                                   argv, NULL, 0, ret_domain_cap);
+	errval_t err = spawn_program(core_id, "/x86_64/sbin/proc_mgmt_test",
+		                         argv, NULL, 0, ret_domain_cap);
 	if (err_is_fail(err)) {
         return err;
 	}
@@ -72,6 +70,59 @@ static inline cycles_t calculate_time(cycles_t tsc_start, cycles_t tsc_end)
         result = (tsc_end - tsc_start - bench_tscoverhead());
     }
     return result;
+}
+
+static void print_ps(domainid_t* domains, size_t len)
+{
+    errval_t err;
+    for(size_t i = 0; i < len; i++) {
+        struct spawn_ps_entry pse;
+        char *argbuf, status;
+        size_t arglen;
+        errval_t reterr;
+
+        err = spawn_get_status(domains[i], &pse, &argbuf, &arglen, &reterr);
+        if (err_is_fail(err)) {
+            USER_PANIC("PS FAILED \n");
+        }
+        if(err_is_fail(reterr)) {
+            USER_PANIC("PS FAILED \n");
+        }
+
+        switch(pse.status) {
+        case 0:
+            status = 'N';
+            break;
+
+        case 1:
+            status = 'R';
+            break;
+
+        case 2:
+            status = 'S';
+            break;
+
+        case 3:
+            status = 'S';
+            break;
+
+        default:
+            status = '?';
+            break;
+        }
+
+        printf("%-8u\t%c\t", domains[i], status);
+        size_t pos = 0;
+        for(int p = 0; pos < arglen && p < MAX_CMDLINE_ARGS;) {
+            printf("%s ", &argbuf[pos]);
+            char *end = memchr(&argbuf[pos], '\0', arglen - pos);
+            assert(end != NULL);
+            pos = end - argbuf + 1;
+        }
+        printf("\n");
+
+        free(argbuf);
+    }
 }
 
 static void run_benchmark_spawn(coreid_t target_core)
@@ -137,9 +188,9 @@ int main(int argc, char **argv)
         } else if (strcmp("span", argv[2]) == 0) {
             // Process that spans domains
             if (disp_get_core_id() == 0) {
-                proc_mgmt_span(1);
+                spawn_span(1);
             } else {
-                proc_mgmt_span(0);
+                spawn_span(0);
             }
             while(true) {
                 event_dispatch(get_default_waitset());
@@ -164,7 +215,7 @@ int main(int argc, char **argv)
     barrelfish_usleep(5*1000*1000);
 
     printf("Killing process \n");
- 	err = proc_mgmt_kill(domain_cap);
+ 	err = spawn_kill(domain_cap);
  	if (err_is_fail(err)) {
         USER_PANIC("Failed waiting for domain \n");
  	}
@@ -181,7 +232,7 @@ int main(int argc, char **argv)
     barrelfish_usleep(5*1000*1000);
 
     printf("Killing process \n");
- 	err = proc_mgmt_kill(domain_cap);
+ 	err = spawn_kill(domain_cap);
  	if (err_is_fail(err)) {
         USER_PANIC("Failed waiting for domain \n");
  	}
@@ -211,7 +262,7 @@ int main(int argc, char **argv)
     
  	uint8_t code;
     printf("Waiting for process on different core to finish \n");
- 	err = proc_mgmt_wait(domain_cap, &code);
+ 	err = spawn_wait(domain_cap, &code, false);
  	if (err_is_fail(err)) {
         USER_PANIC("Failed waiting for domain \n");
  	}
@@ -226,17 +277,49 @@ int main(int argc, char **argv)
     barrelfish_usleep(5*1000*1000);
     
     printf("Waiting for process on same core to finish \n");
- 	err = proc_mgmt_wait(domain_cap, &code);
+ 	err = spawn_wait(domain_cap, &code, true);
+ 	if (err_is_fail(err)) {
+        USER_PANIC("Failed waiting for domain \n");
+ 	}
+    printf("Nowait hang return code %d \n", code);
+ 	err = spawn_wait(domain_cap, &code, false);
  	if (err_is_fail(err)) {
         USER_PANIC("Failed waiting for domain \n");
  	}
     printf("Unblocked \n");
 
+ 	err = spawn_wait(domain_cap, &code, true);
+ 	if (err_is_fail(err)) {
+        USER_PANIC("Failed waiting for domain \n");
+ 	}
+    printf("Nowait hang return code %d \n", code);
     printf("Running benchmarks core 0 \n");
     run_benchmark_spawn(0);
     printf("Running benchmarks core 3 \n");
     run_benchmark_spawn(3);
 
+    for (int j = 0; j < 10; j++) {
+        domainid_t* domains;
+        size_t len;
+        printf("Get domain list sorted \n");
+        err = spawn_get_domain_list(true, &domains, &len);
+        if (err_is_fail(err)){
+            USER_PANIC("Failed getting domain ids \n");
+        }
+
+        print_ps(domains, len);
+        free(domains);
+
+        printf("Get domain list unsorted \n");
+        err = spawn_get_domain_list(false, &domains, &len);
+        if (err_is_fail(err)){
+            USER_PANIC("Failed getting domain ids \n");
+        }
+
+        print_ps(domains, len);
+
+        free(domains);
+    }
     printf("TEST DONE\n");
     return 0;
 }

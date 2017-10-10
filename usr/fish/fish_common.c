@@ -70,7 +70,7 @@ static struct capref inheritcn_cap;
 static int help(int argc, char *argv[]);
 
 static int execute_program(coreid_t coreid, int argc, char *argv[],
-                           domainid_t *retdomainid)
+                           struct capref *ret_domain_cap)
 {
     vfs_handle_t vh;
     errval_t err;
@@ -90,11 +90,11 @@ static int execute_program(coreid_t coreid, int argc, char *argv[],
         vfs_close(vh);
     }
 
-    assert(retdomainid != NULL);
+    assert(ret_domain_cap != NULL);
 
     argv[argc] = NULL;
     err = spawn_program_with_caps(coreid, prog, argv, NULL, inheritcn_cap,
-                                  NULL_CAP, SPAWN_FLAGS_NEW_DOMAIN, retdomainid);
+                                  NULL_CAP, SPAWN_FLAGS_NEW_DOMAIN, ret_domain_cap);
 
     if (prog != argv[0]) {
         free(prog);
@@ -126,7 +126,7 @@ static int dump_caps(int argc, char *argv[]) {
     errval_t err;
     if (argc > 1) {
         domainid_t domain = strtol(argv[1], NULL, 10);
-        err = spawn_dump_capabilities(domain);
+        err = spawn_dump_capabilities_compat(domain);
     } else {
         dispatcher_handle_t handle = curdispatcher();
         struct capref dcb = get_dispatcher_generic(handle)->dcb_cap;
@@ -344,8 +344,8 @@ static int oncore(int argc, char *argv[])
     argc -= 2;
     argv += 2;
 
-    domainid_t domain_id;
-    int ret = execute_program(core, argc, argv, &domain_id);
+    struct capref domain_cap;
+    int ret = execute_program(core, argc, argv, &domain_cap);
 
     // TODO: do something with domain_id
 
@@ -371,11 +371,11 @@ static int spawnpixels(int argc, char *argv[])
 
 static int ps(int argc, char *argv[])
 {
-    uint8_t *domains;
+    domainid_t *domains;
     size_t len;
     errval_t err;
 
-    err = spawn_get_domain_list(&domains, &len);
+    err = spawn_get_domain_list(true, &domains, &len);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "spawn_get_domain_list");
         return EXIT_FAILURE;
@@ -403,11 +403,19 @@ static int ps(int argc, char *argv[])
 
         switch(pse.status) {
         case 0:
-            status = 'R';
+            status = 'N';
             break;
 
         case 1:
-            status = 'Z';
+            status = 'R';
+            break;
+
+        case 2:
+            status = 'S';
+            break;
+
+        case 3:
+            status = 'S';
             break;
 
         default:
@@ -1312,7 +1320,7 @@ static int makeargs(char *cmdline, char *argv[])
     return argc;
 }
 
-static uint8_t wait_domain_id(domainid_t domainid)
+static uint8_t wait_domain_id(struct capref domainid)
 {
     uint8_t exitcode;
     errval_t err = spawn_wait(domainid, &exitcode, false);
@@ -1407,12 +1415,12 @@ int main(int argc, const char *argv[])
             exitcode = cmd->cmd(cmd_argc, cmd_argv);
         } else {
             // Try loading a program off disk if VFS is initialized
-            domainid_t domain_id;
-            exitcode = execute_program(my_core_id, cmd_argc, cmd_argv, &domain_id);
+            struct capref domain_cap;
+            exitcode = execute_program(my_core_id, cmd_argc, cmd_argv, &domain_cap);
 
             // wait if it succeeds
             if (exitcode == 0 && wait) {
-                exitcode = wait_domain_id(domain_id);
+                exitcode = wait_domain_id(domain_cap);
                 char exitstr[128];
                 snprintf(exitstr, 128, "%u", exitcode);
                 int r = setenv("EXITCODE", exitstr, 1);

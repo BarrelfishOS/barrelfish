@@ -18,7 +18,7 @@
 #include <sys/param.h>
 #include <monitor.h>
 #include <barrelfish/dispatch.h>
-#include <barrelfish/proc_mgmt_client.h>
+#include <barrelfish/spawn_client.h>
 #include <trace/trace.h>
 #include "send_cap.h"
 #include "capops.h"

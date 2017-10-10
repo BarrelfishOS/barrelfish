@@ -69,7 +69,7 @@ pid_t waitpid(pid_t pid, int *status, int options)
 
     // We got a child to wait for
     uint8_t exitcode;
-    errval_t err = spawn_wait(children[i], &exitcode, nohang);
+    errval_t err = spawn_wait_compat(children[i], &exitcode, nohang);
     if(err_is_fail(err)) {
         if(err_no(err) == SPAWN_ERR_DOMAIN_RUNNING) {
             return 0;

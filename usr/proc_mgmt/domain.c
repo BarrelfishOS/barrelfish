@@ -11,6 +11,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <collections/hash_table.h>
+#include <collections/list.h>
 #include <if/spawn_defs.h>
 
 #include "domain.h"
@@ -22,6 +23,7 @@ static collections_hash_table* domain_table = NULL;
 #define DOMAIN_CAP_REFILL_COUNT L2_CNODE_SLOTS//1
 static struct domain_cap_node *domain_cap_list = NULL;
 static uint32_t free_domain_caps = 0;
+static domainid_t domain_alloc = 0;
 
 inline bool domain_should_refill_caps(void) {
     return free_domain_caps == 0;
@@ -91,8 +93,8 @@ struct domain_cap_node *next_cap_node(void)
  * \param cap_node  preallocated domain cap node.
  * \param ret_entry returned domain entry, must be passed in non-NULL.
  */
-errval_t domain_new(struct domain_cap_node *cap_node,
-                    struct domain_entry **ret_entry)
+errval_t domain_new(struct domain_cap_node *cap_node, const char* argbuf, 
+                    size_t argbytes, struct domain_entry **ret_entry)
 {
     assert(ret_entry != NULL);
 
@@ -108,6 +110,12 @@ errval_t domain_new(struct domain_cap_node *cap_node,
     entry->num_spawnds_running = 0;
     entry->num_spawnds_resources = 0;
     entry->waiters = NULL;
+
+    entry->domainid = domain_alloc;
+    domain_alloc++;
+
+    entry->argbuf = memdup(argbuf, argbytes);
+    entry->argbytes = argbytes;
 
     if (domain_table == NULL) {
         collections_hash_create_with_buckets(&domain_table, HASH_INDEX_BUCKETS,
@@ -150,6 +158,36 @@ errval_t domain_get_by_cap(struct capref domain_cap,
     return SYS_ERR_OK;
 }
 
+errval_t domain_get_by_id(domainid_t domain_id,
+                          struct domain_entry **ret_entry)
+{
+    // XXX slow since we traverse the whole hash map 
+    collections_hash_traverse_start(domain_table);
+
+    uint64_t key;
+    void* ele = collections_hash_traverse_next(domain_table, &key);
+    
+    // get all domain ids and store in list
+    // XXX traverse whole hash table since it seems to not
+    // reset the internal lists when resetting the traversal of the hash table
+    while (ele != NULL) {
+        struct domain_entry *entry = (struct domain_entry*) ele;
+    
+        if (entry->domainid == domain_id) {
+            *ret_entry = entry;
+        }
+
+        ele = collections_hash_traverse_next(domain_table, &key);
+    }
+
+    collections_hash_traverse_end(domain_table);
+    if (ret_entry == NULL) {
+        return PROC_MGMT_ERR_DOMAIN_TABLE_FIND;
+    } else {
+        return SYS_ERR_OK;
+    }
+}
+
 /**
  * \brief Adds a new core to the list of cores where the given domain runs.
  *
@@ -170,16 +208,18 @@ void domain_run_on_core(struct domain_entry *entry, coreid_t core_id)
     ++entry->num_spawnds_resources;
 }
 
+
 /**
  * \brief Creates a new domain entry for the given cap node and core.
  *
  * \param cap_node preallocated capability node for the new domain.
  * \param core_id  core that runs the new domain.
  */
-errval_t domain_spawn(struct domain_cap_node *cap_node, coreid_t core_id)
+errval_t domain_spawn(struct domain_cap_node *cap_node, coreid_t core_id,
+                      const char* argbuf, size_t argbytes)
 {
     struct domain_entry *entry = NULL;
-    errval_t err = domain_new(cap_node, &entry);
+    errval_t err = domain_new(cap_node, argbuf, argbytes, &entry);
     if (err_is_fail(err)) {
         if (entry != NULL) {
             free(entry);
@@ -210,4 +250,44 @@ errval_t domain_span(struct capref domain_cap, coreid_t core_id)
     domain_run_on_core(entry, core_id);
 
     return SYS_ERR_OK;
+}
+
+void domain_get_all_ids(domainid_t** domains, size_t* len)
+{
+    if (domain_table == NULL) {
+        *len = 0;
+        return;
+    }
+
+    collections_hash_traverse_start(domain_table);
+    
+    collections_listnode* start;
+    collections_list_create(&start, NULL);
+
+    uint64_t key;
+    void* ele = collections_hash_traverse_next(domain_table, &key);
+ 
+    // get all domain ids and store in list
+    while (ele != NULL) {
+        struct domain_entry *entry = (struct domain_entry*) ele;
+    
+        if (entry->status != DOMAIN_STATUS_CLEANED) {
+            collections_list_insert(start, &entry->domainid);
+        }
+
+        ele = collections_hash_traverse_next(domain_table, &key);
+    }
+
+    domainid_t* doms = (domainid_t*) calloc(1, sizeof(domainid_t)*
+                                             collections_list_size(start));
+
+    *len = collections_list_size(start);
+    // copy domain ids
+    for (int i = 0; i < collections_list_size(start); i++) {
+        doms[i] = *((domainid_t*) collections_list_get_ith_item(start, i));
+    }
+
+    collections_list_release(start);        
+    *domains = doms;
+    collections_hash_traverse_end(domain_table);
 }

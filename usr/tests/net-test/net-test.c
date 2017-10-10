@@ -46,7 +46,7 @@ static errval_t spawn_child(int rfd)
 {
     errval_t err;
     char *argv[2] = { "net-test", NULL };
-    domainid_t new_domain = -1;
+    struct capref new_domain;
     coreid_t core = 0;
     struct capref fdcap;
 

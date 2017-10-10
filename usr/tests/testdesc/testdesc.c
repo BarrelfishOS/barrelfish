@@ -160,7 +160,7 @@ static errval_t spawn_child(struct capref fdcap)
 
     char *argv[2] = { "testdesc-child", NULL };
 
-    domainid_t new_domain = -1;
+    struct capref new_domain;
 
     coreid_t core = 0;
 
