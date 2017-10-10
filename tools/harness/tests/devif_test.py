@@ -61,15 +61,15 @@ class DevifTests(TestCommon):
     def get_modules(self, build, machine):
         self.machine = machine.name
         modules = super(DevifTests, self).get_modules(build, machine)
-        modules.add_module("e10k", ["auto", "function=0"])
         modules.add_module("net_sockets_server", ["nospawn"])
-        modules.add_module("sfn5122f", ["auto", "function=0"])
         modules.add_module("devif_idc", ["core=1"])
+        modules.add_module("e10k", ["auto", "function=0"])
 
         hostname = '%s.in.barrelfish.org' % subprocess.check_output('hostname -s', shell=True).rstrip()
         src_ip = self.get_decimal_ip(hostname)
 
         if 'ziger2' in machine.name:
+            modules.add_module("sfn5122f", ["auto", "function=0"])
             dst_ip = self.get_decimal_ip('%s-sf.in.barrelfish.org' % machine.name)
         else:
             dst_ip = self.get_decimal_ip('%s-e10k.in.barrelfish.org' % machine.name)
@@ -117,6 +117,7 @@ class DevifNetTxE10k(DevifTests):
     name = "devif_nettx_e10k"
     OP = "net_tx"
     CARD = "e10k"
+
 
 @tests.add_test
 class DevifNetRxSF(DevifTests):
