@@ -190,7 +190,7 @@ static errval_t boot_cores(void)
 #endif
     debug_printf("spawning corectrl...\n");
 
-    domainid_t new_domain;
+    struct capref new_domain;
     struct capref coreboot_cap = {cnode_task, TASKCN_SLOT_COREBOOT};
 
     /* Create argument cnode to pass coreboot cap */
