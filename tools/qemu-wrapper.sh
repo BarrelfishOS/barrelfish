@@ -23,6 +23,8 @@ DEBUG_SCRIPT=""
 SMP=${SMP:-2}
 # Grab NIC_MODEL from env, if unset default to e1000
 NIC_MODEL="${NIC_MODEL:-e1000}"
+DEBUGCON="debugcon.out"
+NO_DISPLAY="-display none"
 
 
 usage () {
@@ -40,6 +42,8 @@ usage () {
     echo "    --smp <cores>      (number of cores to use, defaults to $SMP)"
     echo "    --nic-model <name> (nic model to use, defaults to $NIC_MODEL)"
     echo "    --hagfish <file>   (Hagfish boot loader, defaults to $HAGFISH_LOCATION)"
+    echo "    --debugcon <file>  (Enable QEMU debug port & qemu_debug_puts() (x86-*-only))"
+    echo "    --display          (Do not disable QEMU display)"
     echo "  "
     echo "  The following environment variables are considered:"
     echo "    QEMU_PATH         (Path for qemu-system-* binary)"
@@ -88,6 +92,12 @@ while test $# != 0; do
         ;;
     "--nic-model")
         shift; NIC_MODEL="$1"
+        ;;
+    "--debugcon")
+        shift; DEBUGCON="$1"
+        ;;
+    "--display")
+        NO_DISPLAY=""
         ;;
     *)
         echo "Unknown option $1 (try: --help)" >&2
@@ -140,8 +150,19 @@ fi
 echo "Kernel command line arguments: $KERNEL_CMDS"
 echo "Requested architecture is $ARCH."
 
+tool_variant () {
+    while test $# -ge 1
+    do if test ! -z "$(type -P $1)"
+       then echo $1; return
+       else shift
+       fi
+    done
+}
+
 case "$ARCH" in
     "x86_64")
+    rm -f ${DEBUGCON}
+    touch ${DEBUGCON}
     QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
         -machine type=q35 \
         -smp $SMP \
@@ -150,9 +171,10 @@ case "$ARCH" in
         -net user \
         -device ahci,id=ahci \
         -device ide-drive,drive=disk,bus=ahci.0 \
-        -drive id=disk,file="$HDFILE",if=none"
+        -drive id=disk,file="$HDFILE",if=none \
+        -debugcon file:${DEBUGCON}"
     QEMU_NONDEBUG=-nographic
-    GDB=gdb-multiarch
+    GDB=$(tool_variant "gdb-multiarch" "gdb")
     echo "Creating hard disk image $HDFILE"
     qemu-img create "$HDFILE" 10M
     ;;
@@ -196,7 +218,7 @@ case "$ARCH" in
                 -pflash $EFI_FLASH1 \
                 -drive if=none,file=fat:rw:qemu-efi,id=drv \
                 -device virtio-blk-device,drive=drv"
-       GDB=gdb-multiarch
+       GDB=$(tool_variant "gdb-multiarch" "gdb")
        QEMU_NONDEBUG=-nographic
        # Now you'll need to create pflash volumes for UEFI. Two volumes are required,
        # one static one for the UEFI firmware, and another dynamic one to store variables.
@@ -281,7 +303,7 @@ if test -z "$EFI"; then
             -serial $SERIAL_OUTPUT \
             -gdb tcp::$PORT \
             -S \
-            -display none \
+            ${NO_DISPLAY} \
             -daemonize \
             -pidfile $PIDFILE"
     else
@@ -291,7 +313,7 @@ if test -z "$EFI"; then
             -serial $SERIAL_OUTPUT \
             -gdb tcp::$PORT \
             -S \
-            -display none \
+            ${NO_DISPLAY} \
             -daemonize \
             -pidfile $PIDFILE"
     fi
@@ -300,7 +322,7 @@ else
         -serial $SERIAL_OUTPUT \
         -gdb tcp::$PORT \
         -S \
-        -display none \
+        ${NO_DISPLAY} \
         -daemonize \
         -pidfile $PIDFILE"
 fi

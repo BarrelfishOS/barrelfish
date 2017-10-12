@@ -57,9 +57,9 @@ static inline bool local_phys_is_valid(lpaddr_t addr)
  * Takes "physical memory address space" address and returns
  * corresponding physical address.
  *
- * \param addr  Absolute physical address
+ * \param addr "Physical memory address space" address.
  *
- * \return Corresponding "physical memory address space" address.
+ * \return Corresponding absolute physical address.
  */
 static inline lpaddr_t mem_to_local_phys(lvaddr_t addr)
 {

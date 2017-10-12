@@ -160,6 +160,10 @@ microbenchmarks = False
 trace :: Bool
 trace = False
 
+-- Include code for a runtime stacktrace
+stack_trace :: Bool
+stack_trace = True
+
 -- Enable QEMU networking. (ie. make network work in small memory)
 support_qemu_networking :: Bool
 support_qemu_networking  = False
@@ -368,6 +372,7 @@ defines :: [RuleToken]
 defines = [ Str ("-D" ++ d) | d <- [
              if microbenchmarks then "CONFIG_MICROBENCHMARKS" else "",
              if trace then "CONFIG_TRACE" else "",
+             if stack_trace then "CONFIG_KERNEL_STACK_TRACE" else "",
              if support_qemu_networking then "CONFIG_QEMU_NETWORK" else "",
              if trace_network_subsystem then "NETWORK_STACK_TRACE" else "",
              if trace_disable_lrpc then "TRACE_DISABLE_LRPC" else "",

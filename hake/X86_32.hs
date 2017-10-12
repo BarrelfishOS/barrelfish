@@ -99,14 +99,16 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-mno-sse4.2",
                                 "-mno-sse4",
                                 "-mno-sse4a",
-                                "-mno-3dnow" ]]
+                                "-mno-3dnow" ]
+                                ++ [ "-fno-omit-frame-pointer" | Config.stack_trace ]]
 
 kernelLdFlags = [ Str s | s <- [ "-Wl,-N",
                                  "-pie",
                                  "-fno-builtin",
                                  "-nostdlib",
                                  "-Wl,--fatal-warnings",
-                                 "-m32" ] ]
+                                 "-m32" ]
+                                 ++ [ "-rdynamic" | Config.stack_trace ] ]
 
 --
 -- Compilers

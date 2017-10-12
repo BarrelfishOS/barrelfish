@@ -7,7 +7,7 @@
 , cpio
 , curl
 , gcc5
-, gdb
+, gdb-multitarget
 , git
 , gmp
 , gnugrep
@@ -47,7 +47,7 @@ let src-repo = fetchgit {
 	cpio
 	curl
 	gcc5
-	gdb
+	gdb-multitarget
 	git
 	gmp
 	gnugrep
