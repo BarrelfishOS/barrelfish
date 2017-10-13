@@ -111,7 +111,7 @@ static void bfscope_monitor_flush_send_continue(void* arg)
  */
 static void bfscope_monitor_flush_send_handler(struct monitor_binding *mb, iref_t iref)
 {
-	printf("bfscope_monitor_flush_send_handler\n");
+	//printf("bfscope_monitor_flush_send_handler\n");
 
 	requester_monitor_binding = mb;
 
@@ -125,10 +125,10 @@ static void bfscope_monitor_flush_send_handler(struct monitor_binding *mb, iref_
 		USER_PANIC_ERR(err, "iref_get_core_id for bfscope failed");
 	}
 
-	printf("bfscope runs on core: %d\n", coreid);
+	//printf("bfscope runs on core: %d\n", coreid);
 
 	if(coreid == my_core_id) {
-		printf("bfscope runs on the same core as the initiator of the flush request\n");
+		//printf("bfscope runs on the same core as the initiator of the flush request\n");
 
                 // we don't need the state in this case
                 free(state);
@@ -207,7 +207,7 @@ static void bfscope_send_flush_msg_to_bfscope(void* arg)
  */
 static void bfscope_intermon_flush_forward_handler(struct intermon_binding *imb, iref_t iref)
 {
-	printf("bfscope_intermon_flush_forward_handler on core %d.\n", my_core_id);
+	//printf("bfscope_intermon_flush_forward_handler on core %d.\n", my_core_id);
 
 	// Store the intermonitor binding so that we can later reply
 	requester_intermon_binding = imb;
@@ -251,7 +251,7 @@ static void bfscope_monitor_flush_forward_ack_to_requester(void *arg)
 // This function is automatically called when the initiating monitor receives an ack from another monitor
 static void bfscope_intermon_flush_ack(struct intermon_binding *ib)
 {
-	printf("bfscope_intermon_flush_ack\n");
+	//printf("bfscope_intermon_flush_ack\n");
 
 	bfscope_monitor_flush_forward_ack_to_requester(NULL);
 }
