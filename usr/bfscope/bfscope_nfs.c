@@ -117,7 +117,7 @@ static void bfscope_trace_dump(void)
 
     if (trace_length <= 0 || number_of_events <= 0) {
         DEBUG("bfscope: trace length too small, not dumping.\n");
-        return;
+        goto finish;
     }
 
     dump_in_progress = true;
@@ -141,6 +141,7 @@ static void bfscope_trace_dump(void)
     }
     DEBUG("dump to NFS share done!\n");
 
+finish:
     bfscope_trace_dump_finished();
 }
 
