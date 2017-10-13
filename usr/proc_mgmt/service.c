@@ -346,7 +346,13 @@ static errval_t spawn_handler_common(struct proc_mgmt_binding *b,
                                      struct capref argcn_cap, uint8_t flags)
 {
     if (!spawnd_state_exists(core_id)) {
-        return PROC_MGMT_ERR_INVALID_SPAWND;
+        // XXX fixes race condition for between proc_mgmt and spawnd for 
+        // now, but is a problem when spawnd on a certain core is not started 
+        // because the cpu driver on that core is not started
+        while(!spawnd_state_exists(core_id)) {
+            event_dispatch(get_default_waitset());
+        }
+        //return PROC_MGMT_ERR_INVALID_SPAWND;
     }
 
     struct spawnd_state *spawnd = spawnd_state_get(core_id);
