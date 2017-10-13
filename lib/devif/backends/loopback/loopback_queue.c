@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 ETH Zurich.
+ * Copyright (c) 2016,2017 ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -14,7 +14,7 @@
 
 #include "../../queue_interface_internal.h"
 
-#define LOOPBACK_QUEUE_SIZE 128
+#define LOOPBACK_QUEUE_SIZE 256
 
 struct loopback_queue
 {
@@ -22,24 +22,8 @@ struct loopback_queue
     struct devq_buf queue[LOOPBACK_QUEUE_SIZE];
     size_t head;
     size_t tail;
-
+    size_t num_ele;
 };
-
-/*
-// Loopback device functions
-errval_t devq_loopback_setup(uint32_t coreid, uint64_t flags,   
-                             uint64_t *features, uint32_t* default_qsize, 
-                             uint32_t* default_bufsize, bool* reconnect, 
-                             char* name)
-{
-    *features = 0;
-    *default_qsize = 0;
-    *default_bufsize = 0;
-    *reconnect = false;
-    name = "loopback";
-    return SYS_ERR_OK;
-}
-*/
 
 static errval_t loopback_enqueue(struct devq* q, regionid_t rid, genoffset_t offset,
                              genoffset_t length, genoffset_t valid_data,
@@ -47,24 +31,22 @@ static errval_t loopback_enqueue(struct devq* q, regionid_t rid, genoffset_t off
 {
     struct loopback_queue *lq = (struct loopback_queue *)q;
 
-    size_t head_next = lq->head + 1;
-    if (head_next == LOOPBACK_QUEUE_SIZE) {
-        head_next = 0;
-    }
 
-
-    if (head_next == lq->tail) {
+    if (lq->num_ele == LOOPBACK_QUEUE_SIZE) {
+        //debug_printf("enqueue: head=%lu tail=%lu full\n", lq->head, lq->tail);
         return DEVQ_ERR_QUEUE_FULL;
     }
 
-    lq->queue[head_next].offset = offset; // 8
-    lq->queue[head_next].length = length; // 16
-    lq->queue[head_next].valid_data = valid_data; // 24
-    lq->queue[head_next].valid_length = valid_length; // 32
-    lq->queue[head_next].flags = flags; // 40
-    lq->queue[head_next].rid = rid; // 44
+    //debug_printf("enqueue: head=%lu tail=%lu \n", lq->head, lq->tail);
+    lq->queue[lq->head].offset = offset; // 8
+    lq->queue[lq->head].length = length; // 16
+    lq->queue[lq->head].valid_data = valid_data; // 24
+    lq->queue[lq->head].valid_length = valid_length; // 32
+    lq->queue[lq->head].flags = flags; // 40
+    lq->queue[lq->head].rid = rid; // 44
 
-    lq->head = head_next;
+    lq->head = (lq->head + 1) % LOOPBACK_QUEUE_SIZE;
+    lq->num_ele++;
 
     return SYS_ERR_OK;
 }
@@ -76,24 +58,22 @@ static errval_t loopback_dequeue(struct devq* q, regionid_t* rid,
 {
     struct loopback_queue *lq = (struct loopback_queue *)q;
 
-    size_t tail_next = lq->tail + 1;
-    if (tail_next == LOOPBACK_QUEUE_SIZE) {
-        tail_next = 0;
-    }
-
-    if (tail_next == lq->head) {
+    if (lq->num_ele == 0) {
+        //debug_printf("dequeue: head=%lu tail=%lu emtpy\n", lq->head, lq->tail);
         return DEVQ_ERR_QUEUE_EMPTY;
     }
 
-    *offset = lq->queue[tail_next].offset; // 8
-    *length = lq->queue[tail_next].length; // 16
-    *valid_data = lq->queue[tail_next].valid_data; // 24
-    *valid_length  =lq->queue[tail_next].valid_length; // 32
-    *flags  = lq->queue[tail_next].flags; // 40
-    *rid = lq->queue[tail_next].rid; // 44
+    //debug_printf("dequeue: head=%lu tail=%lu \n", lq->head, lq->tail);
 
-    lq->tail = tail_next;
+    *offset = lq->queue[lq->tail].offset; // 8
+    *length = lq->queue[lq->tail].length; // 16
+    *valid_data = lq->queue[lq->tail].valid_data; // 24
+    *valid_length  =lq->queue[lq->tail].valid_length; // 32
+    *flags  = lq->queue[lq->tail].flags; // 40
+    *rid = lq->queue[lq->tail].rid; // 44
 
+    lq->tail = (lq->tail + 1) % LOOPBACK_QUEUE_SIZE;
+    lq->num_ele--;
     return SYS_ERR_OK;
 }
 
@@ -161,8 +141,9 @@ errval_t loopback_queue_create(struct loopback_queue** q)
         return err;
     }
 
-    lq->head = 1;
+    lq->head = 0;
     lq->tail = 0;
+    lq->num_ele = 0;
 
     lq->q.f.enq = loopback_enqueue;
     lq->q.f.deq = loopback_dequeue;
