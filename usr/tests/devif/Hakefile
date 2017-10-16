@@ -38,5 +38,12 @@
 
   build application { target = "devif_echo_client", 
                       cFiles = [ "client.c" ],
-                      addLibraries = [ "devif" , "devif_backend_udp", "bench"] }
+                      addLibraries = [ "devif" , "devif_backend_udp", "bench"] },
+
+  build application { target = "devif_bench", 
+                      cFiles = [ "bench.c" ],
+                      addLibraries = [ "devif" , "devif_backend_loopback", 
+                                       "devif_backend_null", "devif_backend_debug",
+                                       "bench"] }
+
 ]
