@@ -798,18 +798,19 @@ static void e1000_init_fn(void *arg, struct device_mem *bar_info, int nr_allocat
                  mac_address, user_mac_address, use_interrupt);
     E1000_DEBUG("Hardware initialization complete.\n");
 
-    // Ignore return value for now
-    // TODO get int model arg and do this only when MSIX
     errval_t err = e1000_init_msix_client(bar_info, nr_allocated_bars);
     if(err_is_ok(err)){
+        // Can use MSIX
         E1000_DEBUG("Successfully instantiated MSIx, setup int routing\n");
         err = pci_setup_int_routing(0, e1000_interrupt_handler_fn, NULL, NULL, NULL);
         if(err_is_fail(err)) USER_PANIC_ERR(err, "Could not set-up int routing");
         e1000_enable_msix();
     } else {
-        DEBUG_ERR(err, "Could not instantiate MSIx controller. No interrupts"); 
+        // Try to use legacy
+        err = pci_setup_int_routing(0, e1000_interrupt_handler_fn, NULL, NULL, NULL);
+        if(err_is_fail(err)) USER_PANIC_ERR(err, "Could not set-up int routing "
+               " using legacy interrupts");
     }
-
 
     setup_internal_memory();
 
