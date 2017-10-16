@@ -763,12 +763,23 @@ static void e1000_interrupt_handler_fn(void *arg)
 
 /* Configure the card to trigger MSI-x interrupts */
 static void e1000_enable_msix(void){
-    // enable all the msix interrupt thingies
+    // enable all the msix interrupts and map those to MSI vector 0
+    e1000_ivar_82574_int_alloc0_wrf(&e1000, 0);
     e1000_ivar_82574_int_alloc_val0_wrf(&e1000, 1);
+
+    e1000_ivar_82574_int_alloc1_wrf(&e1000, 0);
     e1000_ivar_82574_int_alloc_val1_wrf(&e1000, 1);
+
+    e1000_ivar_82574_int_alloc2_wrf(&e1000, 0);
     e1000_ivar_82574_int_alloc_val2_wrf(&e1000, 1);
+
+    e1000_ivar_82574_int_alloc3_wrf(&e1000, 0);
     e1000_ivar_82574_int_alloc_val3_wrf(&e1000, 1);
+
+    e1000_ivar_82574_int_alloc4_wrf(&e1000, 0);
     e1000_ivar_82574_int_alloc_val4_wrf(&e1000, 1);
+
+    e1000_ivar_82574_int_on_all_wb_wrf(&e1000, 1);
     uint16_t count = 4;
     pci_msix_enable(&count);
 }

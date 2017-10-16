@@ -32,6 +32,8 @@ void test_instr_interrupt(e1000_device_t *dev, e1000_intreg_t icr){
     }
 };
 
+#define ICR_E1000E_OTHER 24
+
 void test_instr_periodic(e1000_device_t *dev){
 
     if(int_trigger_counter >= 50){
@@ -53,10 +55,13 @@ void test_instr_periodic(e1000_device_t *dev){
             last_int_trigger_ticks = current_tick;
             printf("Creating Link change interrupt...\n");
 
-            // Cause an (artificial) interrupt
+            // Cause an (artificial) interrupt. Trigger LSC for legacy
+            // and 'other' for MSIx
             e1000_intreg_t ics = 0;
             ics = e1000_intreg_lsc_insert(ics, 1);
-            e1000_ics_wr(dev->device, ics);
+            ics |= 1 << ICR_E1000E_OTHER;
+
+            e1000_ics_rawwr(dev->device, ics);
             int_trigger_counter++;
         }
     }

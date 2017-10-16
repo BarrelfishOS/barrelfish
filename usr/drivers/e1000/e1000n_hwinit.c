@@ -1078,7 +1078,13 @@ void e1000_hwinit(e1000_device_t *dev, struct device_mem *bar_info,
         intreg = e1000_intreg_lsc_insert(intreg, 1);
         /* Activate rx0 interrupt */
         intreg = e1000_intreg_rxt0_insert(intreg, 1);
-        e1000_ims_wr(dev->device, intreg);
+        if(dev->mac_type == e1000_82574){
+            /* Activate othe' MSIx causes, unfortunately, mackerel has a
+             * conflicting definition so set the bitmask manually for now */
+            #define ICR_E1000E_OTHER 24
+            intreg |= 1 << ICR_E1000E_OTHER;
+        }
+        e1000_ims_rawwr(dev->device, intreg);
 
         /* In case of the 82574, we explicitly activate int cause auto clear to
          * get the same behaviour as the other cards */
