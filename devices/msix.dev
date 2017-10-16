@@ -1,0 +1,21 @@
+/*
+ * Copyright (c) 2016, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * msix.dev
+ *
+ * DESCRIPTION: MSIx Table specification
+ * 
+ * According to PCI Spec V3, section, 6.8.2
+ */
+device msix lsbfirst ( addr base ) "MSIx Table Structure" {
+  regarray vec_control addr(base, 0x0)[2048;0x10] "Vector Control" type(uint32);
+  regarray msg_data addr(base, 0x4)[2048;0x10] "Msg Data" type(uint32);
+  regarray msg_addr addr(base, 0x8)[2048;0x10] "Msg Addr" type(uint64);
+};
+

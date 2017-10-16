@@ -160,17 +160,16 @@ bus_driver{
 % Driver selection logic
 %
 
-% Picks from a list of IntModels one that is feasible on this system
-% Currently, return first entry
 int_model_enum(none, 0).
 int_model_enum(legacy, 1).
 int_model_enum(msi, 2).
 int_model_enum(msix, 3).
 
+% Picks from a list of IntModels one that is feasible on this system
+% Currently, we use the the highest entry in interrupt_model
 get_interrupt_model(IntModels, Model) :-
-    ((var(IntModels) -> ModelAtom = none);
-    IntModels = [ModelAtom | _]),
-    int_model_enum(ModelAtom, Model).
+    ((var(IntModels) -> Model = 0);
+    (maplist(int_model_enum,IntModels, Mpd), sort(0,>,Mpd,[Model | _]))).
 
 find_pci_driver(PciInfo, DriverInfo) :-
     PciInfo = pci_card{vendor:VId, device: DId, function: Fun, subvendor: SVId,
@@ -180,12 +179,13 @@ find_pci_driver(PciInfo, DriverInfo) :-
         interrupt_load: IRQLoad, platforms: Platforms, interrupt_model: IntModels},
 
     % We find the highest priority matching driver.
-    % TODO: The binary name is used as an identifier. Thus, multiple entries with the same
-    % binary are not supported
-    findall((Prio,X), (pci_driver{ supported_cards: Cards, binary: X, priority: Prio },
+    % TODO: binary name-intmodel is used as an identifier. Thus, multiple entries with the same
+    % intmodel-binary are not supported
+    findall((Prio,X, IM), (pci_driver{ supported_cards: Cards, binary: X,
+        interrupt_model: IM, priority: Prio },
         member(PciInfo, Cards)), LiU),
-    sort(0,>,LiU, [(_,Binary)|_]),
-    get_interrupt_model(IntModels, IntModel),
+    sort(0,>,LiU, [(_,Binary,BinIM)|_]),
+    get_interrupt_model(BinIM, IntModel),
     DriverInfo = driver(Core, Multi, Offset, Binary, IntModel).
 
 find_cpu_driver(ApicId, DriverInfo) :-

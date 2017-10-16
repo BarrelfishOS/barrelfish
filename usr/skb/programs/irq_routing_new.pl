@@ -147,6 +147,11 @@ subword(Word,Subword, Range) :-
 
         
 
+%>> ARM
+% Controller constraints
+
+mapf_valid_class(gicv2, CtrlLabel, InPort, InMsg, OutPort, OutMsg) :-
+    OutMsg = InMsg.
 
 %>> X86
 % Controller constraints
@@ -684,12 +689,9 @@ print_controller_class_details(_, _) :- true.
 % controller_driver_binary(ioapic_iommu, "ioapic").
 % controller_driver_binary(iommu, "iommu").
 
-% This function prints a CSV file in the following format:
-% Lbl,Class,InRangeLow,InRangeHigh,OutRangeLow,OutRangeHigh
-% followed by controller specific details needed for controller
-% driver startup (such as a MMIO base address for the IOMMU)
 find_int_controller_driver(Lbl) :-
     controller(Lbl, Class, InRange, OutRange),
+    %Binary = "None",
     controller_driver_binary(Class, Binary),
     get_min_range(InRange,InLo),
     get_max_range(InRange,InHi),
@@ -697,6 +699,20 @@ find_int_controller_driver(Lbl) :-
     get_max_range(OutRange,OutHi),
 
     printf("%s,%w,%w,%u,%u,%u,%u", [Binary,Lbl, Class, InLo, InHi, OutLo, OutHi]),
+    print_controller_class_details(Lbl, Class),
+    printf("\n",[]).
+
+% This function prints a CSV file in the following format:
+% Lbl,Class,InRangeLow,InRangeHigh,OutRangeLow,OutRangeHigh
+% followed by controller specific details needed for controller
+% driver startup (such as a MMIO base address for the IOMMU)
+print_int_controller(Lbl) :-
+    controller(Lbl, Class, InRange, OutRange),
+    get_min_range(InRange,InLo),
+    get_max_range(InRange,InHi),
+    get_min_range(OutRange,OutLo),
+    get_max_range(OutRange,OutHi),
+    printf("%w,%w,%u,%u,%u,%u", [Lbl, Class, InLo, InHi, OutLo, OutHi]),
     print_controller_class_details(Lbl, Class),
     printf("\n",[]).
 

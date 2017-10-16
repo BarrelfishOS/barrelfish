@@ -1,0 +1,17 @@
+/*
+ * Copyright (c) 2016, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * msix_e1000.dev
+ * According to Intel 82574 gigabit ethernet card
+ */
+device msix_e1000 lsbfirst ( addr base ) "E1000 MSIx Table Structure" {
+  regarray msg_addr addr(base, 0x0)[4;0x10] "Address" type(uint64);
+  regarray msg_data addr(base, 0x8)[4;0x10] "Message" type(uint32);
+  regarray vec_control addr(base, 0xC)[4;0x10] "Vector Control" type(uint32);
+};

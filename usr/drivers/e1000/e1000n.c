@@ -49,6 +49,8 @@
 #include <octopus/trigger.h>
 #include <net_queue_manager/net_queue_manager.h>
 #include <trace/trace.h>
+#include <int_route/msix_ctrl.h>
+
 #ifdef LIBRARY
 #       include <netif/e1000.h>
 #endif
@@ -75,6 +77,10 @@
  *****************************************************************/
 static uint64_t minbase = -1;
 static uint64_t maxbase = -1;
+
+// We need a better way to pass arguments to pci_init_fn...
+static int argc_g = -1;
+static char ** argv_g = NULL;
 
 /*****************************************************************
  * External declarations for net_queue_manager
@@ -687,47 +693,36 @@ static uint64_t rx_find_free_slot_count_fn(void)
 }
 
 
+/*
+ * Start a MSIx controller client, if possible and requested.
+ */
+static errval_t e1000_init_msix_client(struct device_mem *bar_info,
+        int nr_allocated_bars) {
 
-/*****************************************************************
- * PCI init callback.
- *
- * Setup device, create receive ring and connect to Ethernet server.
- *
- ****************************************************************/
-static void e1000_init_fn(void *arg, struct device_mem *bar_info, int nr_allocated_bars)
-{
-    E1000_DEBUG("Starting hardware initialization.\n");
-    e1000_hwinit(&e1000_device, bar_info, nr_allocated_bars, &transmit_ring,
-                 &receive_ring, DRIVER_RECEIVE_BUFFERS, DRIVER_TRANSMIT_BUFFERS,
-                 mac_address, user_mac_address, use_interrupt);
-    E1000_DEBUG("Hardware initialization complete.\n");
+    errval_t err;
+    if(nr_allocated_bars < 3){
+        E1000_DEBUG("Less than 3 BARs received. No MSIx support. #bars=%d\n",
+                nr_allocated_bars);
+        return PCI_ERR_MSIX_NOTSUP;
+    }
 
-    setup_internal_memory();
+    E1000_DEBUG("MSIx BAR received. Instantiating ctrl client\n");
+    err = map_device(&bar_info[2]);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "map_device");
+        E1000_PRINT_ERROR("Error: map_device failed. Will not initialize"
+                " MSIx controller.\n");
+        return err;
+    }
 
-#ifndef LIBRARY
-    ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
-                  NULL, transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
-                  handle_free_TX_slot_fn, receive_buffer_size,rx_register_buffer_fn,
-                  rx_find_free_slot_count_fn);
-    update_e1000_rdt();
-#else
-    ethernetif_backend_init(global_service_name, assumed_queue_id, get_mac_address_fn,
-		  NULL,
-                  transmit_pbuf_list_fn,
-                  find_tx_free_slot_count_fn,
-                  handle_free_TX_slot_fn,
-                  receive_buffer_size,
-                  rx_register_buffer_fn,
-                  rx_find_free_slot_count_fn);
+    err = msix_client_init_by_args(argc_g, argv_g, bar_info[2].vaddr);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "msix_client_init");
+        return err;
+    }
 
-#endif
-
-#if TRACE_ETHERSRV_MODE
-    set_cond_termination(trace_conditional_termination);
-#endif
-    test_instr_init(&e1000_device);
+    return SYS_ERR_OK;
 }
-
 
 /*****************************************************************
  * e1000 interrupt handler
@@ -766,6 +761,85 @@ static void e1000_interrupt_handler_fn(void *arg)
     }
     while(handle_free_TX_slot_fn());
 }
+
+/* Configure the card to trigger MSI-x interrupts */
+static void e1000_enable_msix(void){
+    // enable all the msix interrupts and map those to MSI vector 0
+    e1000_ivar_82574_int_alloc0_wrf(&e1000, 0);
+    e1000_ivar_82574_int_alloc_val0_wrf(&e1000, 1);
+
+    e1000_ivar_82574_int_alloc1_wrf(&e1000, 0);
+    e1000_ivar_82574_int_alloc_val1_wrf(&e1000, 1);
+
+    e1000_ivar_82574_int_alloc2_wrf(&e1000, 0);
+    e1000_ivar_82574_int_alloc_val2_wrf(&e1000, 1);
+
+    e1000_ivar_82574_int_alloc3_wrf(&e1000, 0);
+    e1000_ivar_82574_int_alloc_val3_wrf(&e1000, 1);
+
+    e1000_ivar_82574_int_alloc4_wrf(&e1000, 0);
+    e1000_ivar_82574_int_alloc_val4_wrf(&e1000, 1);
+
+    e1000_ivar_82574_int_on_all_wb_wrf(&e1000, 1);
+    uint16_t count = 4;
+    pci_msix_enable(&count);
+}
+
+/*****************************************************************
+ * PCI init callback.
+ *
+ * Setup device, create receive ring and connect to Ethernet server.
+ *
+ ****************************************************************/
+static void e1000_init_fn(void *arg, struct device_mem *bar_info, int nr_allocated_bars)
+{
+    E1000_DEBUG("Starting hardware initialization.\n");
+    e1000_hwinit(&e1000_device, bar_info, nr_allocated_bars, &transmit_ring,
+                 &receive_ring, DRIVER_RECEIVE_BUFFERS, DRIVER_TRANSMIT_BUFFERS,
+                 mac_address, user_mac_address, use_interrupt);
+    E1000_DEBUG("Hardware initialization complete.\n");
+
+    errval_t err = e1000_init_msix_client(bar_info, nr_allocated_bars);
+    if(err_is_ok(err)){
+        // Can use MSIX
+        E1000_DEBUG("Successfully instantiated MSIx, setup int routing\n");
+        err = pci_setup_int_routing(0, e1000_interrupt_handler_fn, NULL, NULL, NULL);
+        if(err_is_fail(err)) USER_PANIC_ERR(err, "Could not set-up int routing");
+        e1000_enable_msix();
+    } else {
+        // Try to use legacy
+        err = pci_setup_int_routing(0, e1000_interrupt_handler_fn, NULL, NULL, NULL);
+        if(err_is_fail(err)) USER_PANIC_ERR(err, "Could not set-up int routing "
+               " using legacy interrupts");
+    }
+
+    setup_internal_memory();
+
+#ifndef LIBRARY
+    ethersrv_init(global_service_name, assumed_queue_id, get_mac_address_fn,
+                  NULL, transmit_pbuf_list_fn, find_tx_free_slot_count_fn,
+                  handle_free_TX_slot_fn, receive_buffer_size,rx_register_buffer_fn,
+                  rx_find_free_slot_count_fn);
+    update_e1000_rdt();
+#else
+    ethernetif_backend_init(global_service_name, assumed_queue_id, get_mac_address_fn,
+		  NULL,
+                  transmit_pbuf_list_fn,
+                  find_tx_free_slot_count_fn,
+                  handle_free_TX_slot_fn,
+                  receive_buffer_size,
+                  rx_register_buffer_fn,
+                  rx_find_free_slot_count_fn);
+
+#endif
+
+#if TRACE_ETHERSRV_MODE
+    set_cond_termination(trace_conditional_termination);
+#endif
+    test_instr_init(&e1000_device);
+}
+
+
 
 
 /*****************************************************************
@@ -859,6 +933,9 @@ int e1000n_driver_init(int argc, char **argv)
 {
     char *service_name = 0;
     errval_t err;
+
+    argc_g = argc;
+    argv_g = argv;
 
     /** Parse command line arguments. */
     E1000_DEBUG("e1000 standalone driver started.\n");
@@ -1013,7 +1090,7 @@ int e1000n_driver_init(int argc, char **argv)
     if (use_interrupt) {
         err = pci_register_driver_movable_irq(e1000_init_fn, NULL, class, subclass, program_interface,
                                               vendor, deviceid, bus, device, function,
-                                              e1000_interrupt_handler_fn, NULL,
+                                              NULL, NULL,
                                               e1000_reregister_handler,
                                               NULL);
         printf("########### Driver with interrupts ###########\n");

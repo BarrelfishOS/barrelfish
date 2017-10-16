@@ -572,6 +572,23 @@ device e1000 lsbfirst ( addr base ) "Intel e1000 Gigabit Ethernet" {
   // 13.3.32
   register iam rw addr(base, 0x00e0) "Interrupt ack auto mask" type(intreg);
 
+
+  // 82574: 10.2.4.9
+  register ivar_82574 rw addr(base, 0x00e4) "Interrupt Vector Allocation" {
+    int_alloc0      3   "MSI-X vector RxQ0";
+    int_alloc_val0  1   "Enable RxQ0";
+    int_alloc1      3   "MSI-X vector RxQ1";
+    int_alloc_val1  1   "Enable RxQ1";
+    int_alloc2      3   "MSI-X vector TxQ0";
+    int_alloc_val2  1   "Enable TxQ0";
+    int_alloc3      3   "MSI-X vector TxQ1";
+    int_alloc_val3  1   "Enable TxQ1";
+    int_alloc4      3   "MSI-X vector Other";
+    int_alloc_val4  1   "Enable Other";
+    _              11   mbz;
+    int_on_all_wb   1   "Int on every writeback";
+
+  };
   // 82574: 10.2.4.3
   regarray eitr_82574 addr(base, 0x00e8)[4;0x4] "Extended Interrupt Throttle" {
     interval	16 "Minimum inter-interrupt interval (x256ns)";

@@ -1,6 +1,7 @@
 /**
  * \file
- * \brief Contains helper functions for clients of the interrupt routing service
+ * \brief Contains helper functions for clients (such as devce drivers) of
+ *        the interrupt routing service.
  */
 
 /*
@@ -60,11 +61,12 @@ static void bind_cb(void *st, errval_t binderr, struct int_route_service_binding
 //    return b->tx_vtbl.route_call(b, NULL, intin, dest);
 //}
 
-errval_t int_route_client_route(struct capref intsrc, struct capref intdest){
+errval_t int_route_client_route(struct capref intsrc, int irq_idx,
+        struct capref intdest){
     assert(int_route_state_st.request_done);
     struct int_route_service_binding * cl = int_route_state_st.binding;
     errval_t msgerr, err;
-    msgerr = cl->rpc_tx_vtbl.route(cl, intsrc, intdest, &err);
+    msgerr = cl->rpc_tx_vtbl.route(cl, intsrc, irq_idx, intdest, &err);
     if(err_is_fail(msgerr)){
         return msgerr;
     }

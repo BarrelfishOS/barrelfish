@@ -142,10 +142,14 @@ static inline int count_expected_conversions(char *s, int len)
     int expected_conversions = 0;
     //count the number of single occurences of '%' to calculate the expected
     //number of conversions made by sscanf
+    //if % is followed by % -> escapes % and hence not a conversion
+    //if % is followed by * -> ignore output hence not a conversion
     for (int i = 0; i < len; i++) {
-        if ((s[i] == '%') &&
-            (((i + 1 < len) && (s[i + 1] != '%')) ||
-            (i + 1 >= len))) {
+        if ((s[i] == '%') && 
+            (
+             ((i + 1 < len) && (s[i + 1] != '%') && (s[i + 1] != '*')) ||
+             (i + 1 >= len))
+            ) {
             expected_conversions++;
         }
     }

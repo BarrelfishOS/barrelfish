@@ -554,7 +554,7 @@ AcpiOsMapMemory (
     lpaddr_t pend  = pbase + length - 1;
 
     ACPI_DEBUG("AcpiOsMapMemory: aligned request: 0x%" PRIxLPADDR "..0x%"
-                PRIxLPADDR", %d\n", pbase, pend, npages);
+                PRIxLPADDR", %"PRIu64"\n", pbase, pend, npages);
 
     struct capref am_pages[npages];
     memset(&am_pages, 0, npages*sizeof(struct capref));

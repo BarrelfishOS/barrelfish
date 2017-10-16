@@ -6,7 +6,7 @@
 -- If you do not find this file, copies can be found by writing to:
 -- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
 --
--- Hakefile for lib/octopus
+-- Hakefile for lib/int_route
 -- 
 --------------------------------------------------------------------------
 
@@ -18,6 +18,15 @@
                     flounderBindings = [ "int_route_service", "int_route_controller" ],
                     flounderExtraBindings = [ ("int_route_service", ["rpcclient"]) ],
                     addLibraries = [ "skb", "hashtable" ] 
+                   },
+
+    -- Build the library that contains a msix_controller driver
+    -- This does only exist in library form for MSIx controller,
+    -- as they (sometimes) have to be co-located with device drivers.
+    build library { target = "int_msix_ctrl",
+                    cFiles = [ "msix_ctrl/client.c" ],
+                    flounderBindings =["int_route_controller"],
+                    mackerelDevices = ["msix", "msix_e1000"]
                    },
 
 

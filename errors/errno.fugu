@@ -115,6 +115,7 @@ errors kernel SYS_ERR_ {
     failure IRQ_LOOKUP_EP           "Specified endpoint capability was not found while connecting IRQ",
     failure IRQ_NOT_IRQ_TYPE        "Specified capability is not an IRQ cap",
     failure IRQ_WRONG_CONTROLLER    "Specified IRQ capability does not target local controller",
+    failure IRQ_NO_ARG              "No int_model argument passed",
 
     // IO capability
     failure IO_PORT_INVALID     "IO port out of range",
