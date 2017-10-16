@@ -40,9 +40,7 @@ static void caps_mark_revoke_generic(struct cte *cte);
 static void clear_list_prepend(struct cte *cte);
 static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte);
 
-#ifdef CONFIG_TRACE
 static uint32_t seqnum = 0;
-#endif
 
 /**
  * \brief Try a "simple" delete of a cap. If this fails, the monitor needs to
