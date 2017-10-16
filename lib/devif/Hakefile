@@ -13,10 +13,12 @@
 --------------------------------------------------------------------------
 
 [
+    -- Libarary bench added to measured devif libarary overhead
     build library { 
         target = "devif",
         cFiles = ["queue_interface.c", "region_pool.c", 
                   "region.c"],
+        addLibraries = libDeps ["bench"],
         addCFlags = [ "-DLIBRARY" ]
     },
 
@@ -24,6 +26,7 @@
         target = "devif_internal",
         cFiles = ["queue_interface_internal.c", "region_pool.c", 
                   "region.c"],
+        addLibraries = libDeps ["bench"],
         addCFlags = [ "-DLIBRARY" ]
     }
 ]
