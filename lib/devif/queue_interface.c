@@ -16,6 +16,70 @@
 #include "dqi_debug.h"
 #include "queue_interface_internal.h"
 
+//#define BENCH
+#include <bench/bench.h>
+
+#ifdef BENCH
+#define NUM_ROUNDS 50000
+static cycles_t enq[NUM_ROUNDS];
+static cycles_t deq[NUM_ROUNDS];
+static cycles_t reg[NUM_ROUNDS];
+static cycles_t dereg[NUM_ROUNDS];
+static bench_ctl_t ctl_enq;
+static bench_ctl_t ctl_deq;
+static bench_ctl_t ctl_reg;
+static bench_ctl_t ctl_dereg;
+static uint64_t start;
+static uint64_t end;
+static bool init_done;
+
+static void add_bench_entry(bench_ctl_t* ctl, cycles_t diff, char* prefix) {
+
+    if (init_done) {
+        if (ctl->result_count == NUM_ROUNDS) {
+            bench_ctl_dump_analysis(ctl, 1, prefix, 1);
+            ctl->result_count = 0;
+            memset(ctl->data, 0, sizeof(ctl->data));
+        }
+        bench_ctl_add_run(ctl, &diff);
+    } else {
+        memset(enq, 0, sizeof(enq));
+        memset(deq, 0, sizeof(deq));
+        memset(reg, 0, sizeof(reg));
+        memset(dereg, 0, sizeof(dereg));
+
+        memset(&ctl_enq, 0, sizeof(ctl_enq));
+        memset(&ctl_deq, 0, sizeof(ctl_deq));
+        memset(&ctl_reg, 0, sizeof(ctl_reg));
+        memset(&ctl_dereg, 0, sizeof(ctl_dereg));
+        
+        ctl_enq.mode = BENCH_MODE_FIXEDRUNS;
+        ctl_enq.result_dimensions = 1;
+        ctl_enq.min_runs = NUM_ROUNDS;
+        ctl_enq.data = enq;
+
+        ctl_deq.mode = BENCH_MODE_FIXEDRUNS;
+        ctl_deq.result_dimensions = 1;
+        ctl_deq.min_runs = NUM_ROUNDS;
+        ctl_deq.data = deq;
+
+        ctl_reg.mode = BENCH_MODE_FIXEDRUNS;
+        ctl_reg.result_dimensions = 1;
+        ctl_reg.min_runs = NUM_ROUNDS;
+        ctl_reg.data = reg;
+
+        ctl_dereg.mode = BENCH_MODE_FIXEDRUNS;
+        ctl_dereg.result_dimensions = 1;
+        ctl_dereg.min_runs = NUM_ROUNDS;
+        ctl_dereg.data = dereg;
+
+        init_done = true;
+
+        add_bench_entry(ctl, diff, prefix);
+    }
+}
+
+#endif
 
 /*
  * ===========================================================================
@@ -57,10 +121,15 @@ errval_t devq_enqueue(struct devq *q,
         return DEVQ_ERR_INVALID_BUFFER_ARGS;
     }
 
-
+#ifdef BENCH
+    start = bench_tsc();
+#endif  
     err = q->f.enq(q, region_id, offset, length, valid_data,
                    valid_length, misc_flags);
-
+#ifdef BENCH
+    end = bench_tsc();
+    add_bench_entry(&ctl_enq, end - start, "backend_enqueue");
+#endif  
     DQI_DEBUG("Enqueue q=%p rid=%d, offset=%lu, lenght=%lu, err=%s \n",
               q, region_id, offset, length, err_getstring(err));
 
@@ -98,13 +167,18 @@ errval_t devq_dequeue(struct devq *q,
     assert(q != NULL);
     assert(offset != NULL);
     assert(length != NULL);
-
+#ifdef BENCH
+    start = bench_tsc();
+#endif  
     err = q->f.deq(q, region_id, offset, length, valid_data,
                    valid_length, misc_flags);
     if (err_is_fail(err)) {
         return err;
     }
-
+#ifdef BENCH
+    end = bench_tsc();
+    add_bench_entry(&ctl_deq, end - start, "backend_dequeue");
+#endif  
     // check if the dequeue buffer is valid
     if (!region_pool_buffer_check_bounds(q->pool, *region_id, *offset,
         *length, *valid_data, *valid_length)) {
@@ -148,8 +222,15 @@ errval_t devq_register(struct devq *q,
     DQI_DEBUG("register q=%p, cap=%p, regionid=%d \n", (void*) q,
               (void*) &cap, *region_id);
 
+#ifdef BENCH
+    start = bench_tsc();
+#endif  
     err = q->f.reg(q, cap, *region_id);
 
+#ifdef BENCH
+    end = bench_tsc();
+    add_bench_entry(&ctl_reg, end - start, "backend_register");
+#endif  
     return err;
 }
 
@@ -177,8 +258,14 @@ errval_t devq_deregister(struct devq *q,
     DQI_DEBUG("deregister q=%p, cap=%p, regionid=%d \n", (void*) q,
               (void*) cap, region_id);
     
+#ifdef BENCH
+    start = bench_tsc();
+#endif  
     err = q->f.dereg(q, region_id);
-
+#ifdef BENCH
+    end = bench_tsc();
+    add_bench_entry(&ctl_dereg, end - start, "backend_deregister");
+#endif  
     return err;
 }
 
