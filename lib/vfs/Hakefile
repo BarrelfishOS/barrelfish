@@ -18,7 +18,7 @@
                              "vfs_fat_conv.c", "fdtab.c", "vfs_fd.c",
                              "vfs_blockdevfs_megaraid.c"
                            ],
-                  addLibraries = [ "nfs", "net_sockets" ],
+                  addLibraries = [ "nfs", "net_sockets" , "ahci", "megaraid"],
                   mackerelDevices = [ "ata_identify", "fat_bpb", "fat16_ebpb",
                                       "fat32_ebpb", "fat_direntry", "ahci_port",
                                       "ahci_hba"
