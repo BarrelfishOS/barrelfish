@@ -15,9 +15,12 @@
 
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module SockeyeBackendProlog
 ( compile ) where
+
+import Control.Monad.State
 
 import Data.Char
 import Data.List
@@ -52,10 +55,90 @@ instance PrologGenerator AST.NodeId where
 
 instance PrologGenerator AST.NodeSpec where
     generate ast = let
-        nodeType = generate $ AST.nodeType ast
-        accept = generate $ AST.accept ast
-        translate = generate $ AST.translate ast
-        in struct "node_spec" [("type", nodeType), ("accept", accept), ("translate", translate)]
+        nodeType = AST.nodeType ast
+        accept = AST.accept ast
+        translate = AST.translate ast
+        reserved = AST.reserved ast
+        overlay = AST.overlay ast
+        mapBlocks = map AST.srcBlock translate
+        overMaps = case overlay of
+            Nothing -> []
+            Just o -> overlayMaps (AST.over o) (AST.width o) (accept ++ mapBlocks ++ reserved)
+        nodeTypeString = generate nodeType 
+        acceptString = generate accept
+        translateString = generate (translate ++ overMaps)
+        in struct "node_spec" [("type", nodeTypeString), ("accept", acceptString), ("translate", translateString)]
+
+overlayMaps :: AST.NodeId -> Integer -> [AST.BlockSpec] -> [AST.MapSpec]
+overlayMaps destId width blocks =
+    let
+        blockPoints = concat $ map toScanPoints blocks
+        maxAddress = 2^width
+        overStop  = BlockStart $ maxAddress
+        scanPoints = filter ((maxAddress >=) . address) $ sort (overStop:blockPoints)
+        startState = ScanLineState
+            { insideBlocks    = 0
+            , startAddress    = 0
+            }
+    in evalState (scanLine scanPoints []) startState
+    where
+        toScanPoints (AST.BlockSpec base limit) =
+                [ BlockStart base
+                , BlockEnd   limit
+                ]
+        scanLine [] ms = return ms
+        scanLine (p:ps) ms = do
+            maps <- pointAction p ms
+            scanLine ps maps
+        pointAction (BlockStart a) ms = do
+            s <- get       
+            let
+                i = insideBlocks s
+                base = startAddress s
+                limit = a - 1
+            maps <- if (i == 0) && (base <= limit)
+                then
+                    let
+                        baseAddress = startAddress s
+                        limitAddress = a - 1
+                        srcBlock = AST.BlockSpec baseAddress limitAddress
+                        m = AST.MapSpec srcBlock destId baseAddress
+                    in return $ m:ms
+                else return ms
+            modify (\s -> s { insideBlocks = i + 1})
+            return maps
+        pointAction (BlockEnd a) ms = do
+            s <- get
+            let
+                i = insideBlocks s
+            put $ ScanLineState (i - 1) (a + 1)
+            return ms
+
+data StoppingPoint
+    = BlockStart { address :: !AST.Address }
+    | BlockEnd   { address :: !AST.Address }
+    deriving (Eq, Show)
+
+instance Ord StoppingPoint where
+    (<=) (BlockStart a1) (BlockEnd   a2)
+        | a1 == a2 = True
+        | otherwise = a1 <= a2
+    (<=) (BlockEnd   a1) (BlockStart a2)
+        | a1 == a2 = False
+        | otherwise = a1 <= a2
+    (<=) sp1 sp2 = (address sp1) <= (address sp2)
+
+data ScanLineState
+    = ScanLineState
+        { insideBlocks :: !Integer
+        , startAddress :: !AST.Address
+        } deriving (Show)
+
+instance PrologGenerator AST.NodeType where
+    generate AST.Core   = atom "core"
+    generate AST.Device = atom "device"
+    generate AST.Memory = atom "memory"
+    generate AST.Other  = atom "other"
 
 instance PrologGenerator AST.BlockSpec where
     generate blockSpec = let
@@ -69,12 +152,6 @@ instance PrologGenerator AST.MapSpec where
         dest = generate $ AST.destNode mapSpec
         base = generate $ AST.destBase mapSpec
         in struct "map" [("src_block", src), ("dest_node", dest), ("dest_base", base)]
-
-instance PrologGenerator AST.NodeType where
-    generate AST.Core   = atom "core"
-    generate AST.Device = atom "device"
-    generate AST.Memory = atom "memory"
-    generate AST.Other  = atom "other"
 
 instance PrologGenerator AST.Address where
     generate addr = "0x" ++ showHex addr ""

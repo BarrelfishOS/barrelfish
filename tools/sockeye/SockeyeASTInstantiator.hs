@@ -1,5 +1,5 @@
 {-
-  SockeyeASTInstantiator.hs: AST with instantiated modules for Sockeye
+  SockeyeASTInstantiator.hs: AST with instantiated module templates for Sockeye
 
   Part of Sockeye
 

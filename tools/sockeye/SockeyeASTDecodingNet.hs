@@ -34,6 +34,8 @@ data NodeSpec = NodeSpec
     { nodeType  :: NodeType
     , accept    :: [BlockSpec]
     , translate :: [MapSpec]
+    , reserved  :: [BlockSpec]
+    , overlay   :: Maybe OverlaySpec
     } deriving (Show)
 
 data NodeType
@@ -53,5 +55,11 @@ data MapSpec = MapSpec
     , destNode :: NodeId
     , destBase :: Address
     } deriving (Show)
+
+data OverlaySpec
+    = OverlaySpec
+        { over  :: NodeId
+        , width :: !Integer
+        } deriving (Show)
 
 type Address = Integer
