@@ -85,6 +85,7 @@ struct debug_q {
     struct devq* q;
     struct memory_list* regions; // list of lists
     struct slab_allocator alloc;
+    struct slab_allocator alloc_list;
     uint16_t hist_head;
     struct operation history[HIST_SIZE];
 };
@@ -184,13 +185,17 @@ static errval_t debug_register(struct devq* q, struct capref cap,
             return err;
         }
 
-        que->regions = calloc(1, sizeof(struct memory_list));
+        que->regions = slab_alloc(&que->alloc_list);
+        assert(que->regions != NULL);
+
         que->regions->rid = rid;
         que->regions->length = id.bytes;
         que->regions->not_consistent = false;
         que->regions->next = NULL;
         // add the whole regions as a buffer
         que->regions->buffers = slab_alloc(&que->alloc);
+        assert(que->regions->buffers != NULL);
+
         memset(que->regions->buffers, 0, sizeof(que->regions->buffers));
         que->regions->buffers->offset = 0;
         que->regions->buffers->length = id.bytes;
@@ -211,15 +216,18 @@ static errval_t debug_register(struct devq* q, struct capref cap,
     }
 
     // add the reigon
-    ele->next = calloc(1,sizeof(struct memory_list));
-    ele = ele->next;
+    ele->next = slab_alloc(&que->alloc_list);
+    assert(ele->next != NULL);
 
+    ele = ele->next;
     ele->rid = rid;
     ele->next = NULL;
     ele->length = id.bytes;
     ele->not_consistent = false;
     // add the whole regions as a buffer
     ele->buffers = slab_alloc(&que->alloc);
+    assert(ele->buffers != NULL);
+
     memset(ele->buffers, 0, sizeof(ele->buffers));
     ele->buffers->offset = 0;
     ele->buffers->length = id.bytes;
@@ -259,7 +267,7 @@ static errval_t debug_deregister(struct devq* q, regionid_t rid)
                   ele->length);
 
             slab_free(&que->alloc, ele->buffers);
-            free(ele);
+            slab_free(&que->alloc_list, ele);
 
             return SYS_ERR_OK;
         } else {
@@ -291,7 +299,7 @@ static errval_t debug_deregister(struct devq* q, regionid_t rid)
                       next->length);
             
                 slab_free(&que->alloc, next->buffers);
-                free(next);
+                slab_free(&que->alloc_list, next);
 
                 return SYS_ERR_OK;
             } else {
@@ -417,6 +425,8 @@ static void remove_split_buffer(struct debug_q* que,
 
     struct memory_ele* after = NULL;
     after = slab_alloc(&que->alloc);
+    assert(after != NULL);
+
     memset(after, 0, sizeof(after));
     after->offset = buffer->offset + buffer->length + length;
     after->length = old_len - buffer->length - length;
@@ -590,9 +600,9 @@ static void insert_merge_buffer(struct debug_q* que,
 
                 // insert in between
                 struct memory_ele* ele = slab_alloc(&que->alloc);
-                memset(ele, 0, sizeof(ele));
                 assert(ele != NULL);
-                
+
+                memset(ele, 0, sizeof(ele));               
                 ele->offset = offset;
                 ele->length = length;
                 ele->next = buffer;
@@ -737,7 +747,10 @@ static errval_t debug_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
         // Add region
         if (que->regions == NULL) {
             printf("Adding region frirst %lu len \n", *offset + *length);
-            que->regions = calloc(1, sizeof(struct memory_list));
+
+            que->regions = slab_alloc(&que->alloc_list);
+            assert(que->regions != NULL);
+
             que->regions->rid = *rid;
             que->regions->not_consistent = true;
             // region is at least offset + length
@@ -745,6 +758,8 @@ static errval_t debug_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
             que->regions->next = NULL;
             // add the whole regions as a buffer
             que->regions->buffers = slab_alloc(&que->alloc);
+            assert(que->regions->buffers != NULL);
+
             memset(que->regions->buffers, 0, sizeof(que->regions->buffers));
             que->regions->buffers->offset = 0;
             que->regions->buffers->length = *offset + *length;
@@ -759,7 +774,10 @@ static errval_t debug_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
 
         printf("Adding region second %lu len \n", *offset + *length);
         // add the reigon
-        ele->next = calloc(1,sizeof(struct memory_list));
+        ele->next = slab_alloc(&que->alloc_list);
+        assert(ele->next != NULL);
+
+        memset(que->regions->buffers, 0, sizeof(ele->next));
         ele = ele->next;
 
         ele->rid = *rid;
@@ -768,6 +786,8 @@ static errval_t debug_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
         ele->length = *offset + *length;
         // add the whole regions as a buffer
         ele->buffers = slab_alloc(&que->alloc);
+        assert(ele->buffers != NULL);
+
         memset(ele->buffers, 0, sizeof(ele->buffers));
         ele->buffers->offset = 0;
         ele->buffers->length = *offset + *length;
@@ -787,6 +807,8 @@ static errval_t debug_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
     struct memory_ele* buffer = region->buffers;
     if (buffer == NULL) {
         region->buffers = slab_alloc(&que->alloc);
+        assert(region->buffers != NULL);
+
         region->buffers->offset = *offset;
         region->buffers->length = *length;
         region->buffers->next = NULL;
@@ -850,6 +872,9 @@ errval_t debug_create(struct debug_q** q, struct devq* other_q)
     slab_init(&que->alloc, sizeof(struct memory_ele),
               slab_default_refill);
    
+    slab_init(&que->alloc_list, sizeof(struct memory_list),
+              slab_default_refill);
+
     que->q = other_q;
     err = devq_init(&que->my_q, false);
     if (err_is_fail(err)) {
