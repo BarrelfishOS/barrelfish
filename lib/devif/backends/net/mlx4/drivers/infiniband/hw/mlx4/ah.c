@@ -165,6 +165,7 @@ struct ib_ah *mlx4_ib_create_ah(struct ib_pd *pd, struct ib_ah_attr *ah_attr) {
 		 kfree(ah);
 
 		 return ret;*/
+        return NULL;
 	} else
 		return create_ib_ah(pd, ah_attr, ah); /*never fails*/
 }
