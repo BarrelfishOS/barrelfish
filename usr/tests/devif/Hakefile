@@ -44,6 +44,6 @@
                       cFiles = [ "bench.c" ],
                       addLibraries = [ "devif" , "devif_backend_loopback", 
                                        "devif_backend_null", "devif_backend_debug",
-                                       "bench"] }
+                                       "bench", "vfs"] }
 
 ]
