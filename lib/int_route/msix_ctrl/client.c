@@ -62,6 +62,9 @@ errval_t msix_client_init_by_args(int argc, char **argv, void* msix_tab) {
         if(err_is_ok(err)) break;
     }
     if(!err_is_ok(err)) return err;
+    if(arg->model != INT_MODEL_MSIX) {
+        return SYS_ERR_IRQ_INVALID;
+    }
     return msix_client_init(arg, msix_tab);
 };
 

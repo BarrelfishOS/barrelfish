@@ -22,7 +22,7 @@ DEBUG_SCRIPT=""
 # Grab SMP from env, if unset default to 2
 SMP=${SMP:-2}
 # Grab NIC_MODEL from env, if unset default to e1000
-NIC_MODEL="${NIC_MODEL:-e1000}"
+NIC_MODEL="${NIC_MODEL:-e1000e}"
 
 
 usage () {
@@ -46,6 +46,11 @@ usage () {
     echo "    NIC_MODEL         (Same as --nic-model)"
     echo "    SMP               (Same as --smp)"
     exit 1
+}
+
+# Result in $?
+qemu_supports_device() {
+    ${QEMU_PATH}qemu-system-x86_64 -device help 2>&1 | grep \"$1\" > /dev/null
 }
 
 
@@ -142,12 +147,18 @@ echo "Requested architecture is $ARCH."
 
 case "$ARCH" in
     "x86_64")
+    qemu_supports_device $NIC_MODEL
+    if [ $? = 1 ] ; then
+        echo "$NIC_MODEL not supported. Fall back to e1000"
+        NIC_MODEL=e1000 ;
+    fi
+    
     QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
         -machine type=q35 \
         -smp $SMP \
         -m 1024 \
-        -net nic,model=$NIC_MODEL \
-        -net user \
+        -netdev user,id=network0 \
+        -device $NIC_MODEL,netdev=network0
         -device ahci,id=ahci \
         -device ide-drive,drive=disk,bus=ahci.0 \
         -drive id=disk,file="$HDFILE",if=none"

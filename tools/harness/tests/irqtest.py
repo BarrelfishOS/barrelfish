@@ -14,15 +14,12 @@ from results import PassFailResult
 
 #IRQTEST_TIMEOUT = datetime.timedelta(minutes=5)
 
-@tests.add_test
-class IRQTest(TestCommon):
+class IRQTestCommon(TestCommon):
     '''PCI IRQ test'''
-    name = "irqtest"
     
     def get_modules(self, build, machine):
-        modules = super(IRQTest, self).get_modules(build, machine)
+        modules = super(IRQTestCommon, self).get_modules(build, machine)
         # This makes kaluga start the irqtest binary for e1000 cards
-        modules.add_module_arg("kaluga","add_device_db=device_db_irqtest")
         modules.add_module("e1000n_irqtest", ["auto"])
         return modules
 
@@ -34,3 +31,34 @@ class IRQTest(TestCommon):
             if line.startswith("TEST SUCCESS"):
                 return PassFailResult(True)
         return PassFailResult(False)
+
+@tests.add_test
+class IRQTestLegacy(IRQTestCommon):
+    '''PCI Legacy IRQ test'''
+    name = "irqtestlegacy"
+    
+    def get_modules(self, build, machine):
+        modules = super(IRQTestLegacy, self).get_modules(build, machine)
+        # This makes kaluga start the irqtest binary for e1000 cards
+        modules.add_module_arg("kaluga","add_device_db=device_db_irqtest_legacy")
+        return modules
+
+    def get_finish_string(self):
+        return "TEST "
+    
+    def process_data(self, testdir, rawiter):
+        for line in rawiter:
+            if line.startswith("TEST SUCCESS"):
+                return PassFailResult(True)
+        return PassFailResult(False)
+
+@tests.add_test
+class IRQTestMSIX(IRQTestCommon):
+    '''PCI MSIX IRQ test'''
+    name = "irqtestmsix"
+    
+    def get_modules(self, build, machine):
+        modules = super(IRQTestMSIX, self).get_modules(build, machine)
+        # This makes kaluga start the irqtest binary for e1000 cards
+        modules.add_module_arg("kaluga","add_device_db=device_db_irqtest_msix")
+        return modules

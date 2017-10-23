@@ -716,6 +716,10 @@ static errval_t e1000_init_msix_client(struct device_mem *bar_info,
     }
 
     err = msix_client_init_by_args(argc_g, argv_g, bar_info[2].vaddr);
+    if(err == SYS_ERR_IRQ_INVALID){
+        E1000_DEBUG("Card supports MSI-x but legacy interrupt requested by Kaluga");
+        return err;
+    }
     if(err_is_fail(err)){
         DEBUG_ERR(err, "msix_client_init");
         return err;
