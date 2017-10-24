@@ -12,6 +12,9 @@
 
 #include <barrelfish/barrelfish.h>
 
+
+#define DEVQ_FLAG_LAST (1UL << 30)
+
 typedef uint32_t regionid_t;
 typedef uint32_t bufferid_t;
 typedef uint64_t genoffset_t;
