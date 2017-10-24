@@ -10,4 +10,4 @@
 --
 ----------------------------------------------------------------------
 
-[ buildTechNote "devif.tex" "TN-026-Device-Queues.pdf" False False [] ]
+[ buildTechNote "devif.tex" "TN-026-Device-Queues.pdf" True False [] ]

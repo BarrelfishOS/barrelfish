@@ -68,6 +68,13 @@ Note that this file will not compile without defs.bib; ie. you need to do:
   url = {http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.den0029/index.html}
 }
 
+@article{arm:mm,
+  title={A Tutorial Introduction to the {ARM} and {POWER} Relaxed Memory Models},
+  author={Maranget, Luc and Sarkar, Susmit and Sewell, Peter},
+  journal={},
+  year={2012},
+}
+
 @techreport{acpi,
   author = {UEFI},
   title = {Advanced Configuration and Power Interface Specification},
@@ -138,7 +145,7 @@ Note that this file will not compile without defs.bib; ie. you need to do:
   year = 2017,
   location = {Upsala, Sweden},
   pages = {66--116}
-} 
+}
 
 @inproceedings{adya:stackripping:usenix02,
   author = {Atul Adya and John Howell and Marvin Theimer and William J. Bolosky
@@ -676,7 +683,7 @@ Henry M. Levy},
  acmid = {323645},
  publisher = {ACM},
  address = {New York, NY, USA},
-} 
+}
 @inproceedings{marlow:runtime,
  author = {Marlow, Simon and Peyton Jones, Simon and Singh, Satnam},
  title = {Runtime support for multicore {H}askell},
@@ -756,7 +763,7 @@ Henry M. Levy},
 }
 
 @inproceedings{peter:osdi14,
-  title = {{Arrakis: The Operating System is the Control Plane}}, 
+  title = {{Arrakis: The Operating System is the Control Plane}},
   author = {Simon Peter and Jialin Li and Irene Zhang and
             Dan R. K. Ports and Doug Woos and Arvind Krishnamurthy and
             Thomas Anderson and Timothy Roscoe},
@@ -778,6 +785,15 @@ Henry M. Levy},
  pages = {284--299},
  doi = {http://dx.doi.org/10.1177/1094342009106195},
  publisher = {Sage Publications, Inc.},
+}
+
+@misc{portals,
+  author = {Brian W. Barrett et. al.},
+  title = {{The Portals 4.0.2 Network Programming
+Interface}},
+  howpublished = {Online. \url{http://www.cs.sandia.gov/Portals/portals4-spec.html}},
+  note = {Accessed 03/05/2017},
+  OPTannote = {annote},
 }
 
 @inproceedings{rashid:accent:sosp81,
@@ -862,6 +878,33 @@ Henry M. Levy},
   year = 2001,
   pages = {44--52},
   doi = {http://doi.acm.org/10.1145/379539.379566}
+}
+
+@article{swell:cacm2010,
+ author = {Sewell, Peter and Sarkar, Susmit and Owens, Scott and Nardelli, Francesco Zappa and Myreen, Magnus O.},
+ title = {X86-TSO: A Rigorous and Usable Programmer's Model for x86 Multiprocessors},
+ journal = {Commun. ACM},
+ issue_date = {July 2010},
+ volume = {53},
+ number = {7},
+ month = jul,
+ year = {2010},
+ issn = {0001-0782},
+ pages = {89--97},
+ numpages = {9},
+ url = {http://doi.acm.org/10.1145/1785414.1785443},
+ doi = {10.1145/1785414.1785443},
+ acmid = {1785443},
+ publisher = {ACM},
+ address = {New York, NY, USA},
+}
+
+@InProceedings{swell:cacm2016,
+  author =       {Shaked Flur and Kathryn E. Gray and Christopher Pulte and Susmit Sarkar and Ali Sezgin and  Luc Maranget and Will Deacon and Peter Sewell},
+  title =        {Modelling the {ARMv8} Architecture, Operationally: Concurrency and {ISA}},
+  booktitle =    {Proceedings of POPL: the 43rd ACM SIGPLAN-SIGACT Symposium on Principles of Programming Languages},
+  year =         {2016},
+
 }
 
 @inproceedings{sel4:iies08,
@@ -956,6 +999,27 @@ multiprocessors},
   doi = {http://doi.acm.org/10.1145/103720.114701}
 }
 
+@article{virtio:sigops,
+ author = {Russell, Rusty},
+ title = {Virtio: Towards a De-facto Standard for Virtual I/O Devices},
+ journal = {SIGOPS Oper. Syst. Rev.},
+ issue_date = {July 2008},
+ volume = {42},
+ number = {5},
+ month = jul,
+ year = {2008},
+ issn = {0163-5980},
+ pages = {95--103},
+ numpages = {9},
+ url = {http://doi.acm.org/10.1145/1400097.1400108},
+ doi = {10.1145/1400097.1400108},
+ acmid = {1400108},
+ publisher = {ACM},
+ address = {New York, NY, USA},
+ keywords = {I/O, KVM, Linux, lguest, ring buffer, virtio, virtio_pci, virtualization, vring},
+}
+
+
 @inproceedings{Anderson:1991:SAE:121132.121151,
  author = {Anderson, Thomas E. and Bershad, Brian N. and Lazowska, Edward D. and Levy, Henry M.},
  title = {Scheduler Activations: Effective Kernel Support for the User-level Management of Parallelism},
@@ -971,7 +1035,7 @@ multiprocessors},
  acmid = {121151},
  publisher = {ACM},
  address = {New York, NY, USA},
-} 
+}
 
 @inproceedings{Hand:1999:SNO:296806.296812,
  author = {Hand, Steven M.},
@@ -987,7 +1051,7 @@ multiprocessors},
  acmid = {296812},
  publisher = {USENIX Association},
  address = {Berkeley, CA, USA},
-} 
+}
 @inproceedings{Brandt:2003:DIS:956418.956606,
  author = {Brandt, Scott A. and Banachowski, Scott and Lin, Caixue and Bisson, Timothy},
  title = {Dynamic Integrated Scheduling of Hard Real-Time, Soft Real-Time and Non-Real-Time Processes},
@@ -1083,7 +1147,7 @@ D. E. Long and Carlos Maltzahn},
  publisher = {ACM},
  address = {New York, NY, USA},
  keywords = {fastforward, linearizability, lock-free, multicore, multiprocessors, nonblocking synchronization, pipeline parallel, queue},
-} 
+}
 @article{Ganger:2002:FFA:505452.505455,
  author = {Ganger, Gregory R. and Engler, Dawson R. and Kaashoek, M. Frans and Brice\~{n}o, Hector M. and Hunt, Russell and Pinckney, Thomas},
  title = {Fast and Flexible Application-level Networking on Exokernel Systems},
@@ -1102,7 +1166,7 @@ D. E. Long and Carlos Maltzahn},
  publisher = {ACM},
  address = {New York, NY, USA},
  keywords = {Extensible systems, OS structure, fast servers, network services},
-} 
+}
 @inproceedings{Black:1997:PIV:648046.745222,
  author = {Black, Richard and Barham, Paul T. and Donnelly, Austin and Stratford, Neil},
  title = {Protocol Implementation in a Vertically Structured Operating System},
@@ -1116,8 +1180,7 @@ D. E. Long and Carlos Maltzahn},
  acmid = {745222},
  publisher = {IEEE Computer Society},
  address = {Washington, DC, USA},
-} 
-
+}
 
 @Misc{newlib,
   author = 	 {Sourceware},
@@ -1305,7 +1368,6 @@ D. E. Long and Carlos Maltzahn},
   month =      dec}
 
 
-
 @article{Lamport:1978:TCO:359545.359563,
  author = {Lamport, Leslie},
  title = {Time, Clocks, and the Ordering of Events in a Distributed System},
@@ -1324,7 +1386,7 @@ D. E. Long and Carlos Maltzahn},
  publisher = {ACM},
  address = {New York, NY, USA},
  keywords = {clock synchronization, computer networks, distributed systems, multiprocess systems},
-} 
+}
 
 @Misc{multiboot1,
   title =    {Multiboot Specification (latest version)},

@@ -1,25 +1,32 @@
 \documentclass[a4paper,11pt,twoside]{report}
 \usepackage{bftn}
 \usepackage{calc}
+\usepackage{hyperref}
+\usepackage{hyphenat}
 \usepackage{verbatim}
 \usepackage{xspace}
 \usepackage{pifont}
 \usepackage{pxfonts}
 \usepackage{textcomp}
 \usepackage{amsmath}
-\usepackage{multirow}
 \usepackage{listings}
 \usepackage[framemethod=default]{mdframed}
 \usepackage[shortlabels]{enumitem}
 \usepackage{parskip}
 \usepackage{xparse}
+\usepackage{natbib}
 
-\newcommand{\todo}[1]{[\textcolor{red}{\emph{#1}}]}
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usetikzlibrary{automata,positioning}
+\tikzset{every node/.append style={font=\Large}}
+
+
 
 \title{Device Queues in Barrelfish}
 \author{Barrelfish project}
-\tnnumber{23}
-\tnkey{Coreboot}
+\tnnumber{26}
+\tnkey{DeviceQueues}
 
 \begin{document}
 	\maketitle			% Uncomment for final draft
@@ -35,16 +42,14 @@
 	% \listoftables			% Uncomment (if needed) for final draft
 	\cleardoublepage
 	\setcounter{secnumdepth}{2}
-	
-	\newcommand{\fnname}[1]{\textit{\texttt{#1}}}%
-	\newcommand{\datatype}[1]{\textit{\texttt{#1}}}%
-	\newcommand{\varname}[1]{\texttt{#1}}%
-	\newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
-	\newcommand{\pathname}[1]{\texttt{#1}}%
-	\newcommand{\tabindent}{\hspace*{3ex}}%
-	\newcommand{\sockeye}{\lstinline[language=sockeye]}
-	\newcommand{\ccode}{\lstinline[language=C]}
-	
+
+	\newcommand{\todo}[1]{[\textcolor{red}{\emph{#1}}]}
+
+	\newcommand{\virtio}{Virtio }
+	\newcommand{\devif}{Devif }
+	\newcommand{\ep}[1]{$Ep_{#1}$}
+
+
 	\lstset{
 		language=C,
 		basicstyle=\ttfamily \small,
@@ -55,11 +60,23 @@
 		captionpos=b
 	}
 	
+	\mdfdefinestyle{defi}{%
+		linecolor=black,linewidth=2pt,%
+		frametitlerule=true,%
+		frametitlebackgroundcolor=gray!20,
+		innertopmargin=\topskip,
+		nobreak=true% prevent page breaks in the middle of mystyle
+	}
+	
+	\mdtheorem[style=defi]{defi}{Definition}
+	\mdtheorem[style=defi]{op}{Operation}
+	
+	
 	\chapter{Introduction}
 	In this document we describe a queue based interface that unifies communication for 
 	devices like network cards and block devices but also between processes. 
 	The interface should fit to as many devices as possible while still being efficient.
-	The goal is similar to \virtio \cite{Russell2008}, Portals \cite{portals} or MPI \cite{mpi}, 
+	The goal is similar to \virtio \cite{virtio:sigops}, Portals \cite{portals} or MPI \cite{mpi}, 
 	but we want to take a more formal 
 	approach and define pieces that are ambiguous. These interface do not define a memory model 
 	or what preconditions/postconditions an interface function has. 
@@ -75,7 +92,9 @@
 		\item \textbf{Region}: A Region is a chunk of memory that is registered to the \devif interface. From the memory of the region, buffers can be allocated.
 		\item \textbf{Buffer}: A buffer is a chunk of memory within a region.
 		\item \textbf{Endpoint}: An endpoint is a processes or devices. 
-		\item \textbf{Ownership}: An endpoint can own a buffer and transfer ownership of a buffer to another endpoint or device. If an endpoint owns a buffer, it can alter it. If an endpoint alters a buffer that is not owned, the result is undefined and it is considered a bug. 
+		\item \textbf{Ownership}: An endpoint can own a buffer and transfer ownership of a buffer to another endpoint or device. 
+		If an endpoint owns a buffer, it can alter it. If an endpoint alters a buffer that is not owned, 
+		the result is undefined and it is considered a bug. 
 	\end{itemize}
 	
 	\section{Functionality}
@@ -86,10 +105,34 @@
 	and deallocating buffers to keep the interface and the underlying protocol simple. 
 	If we manage the variable sized buffers, we would have to implement a dynamic memory 
 	allocator which increases the complexity of the \devif interface. 
+	\\
+	Another important aspect is the idea of "stacking" queues. In this manner each 
+	queue on the stack can do an arbitrary transformation on the buffer that was enqueued 
+	and hand it down to the queue lower in the stack. 
 	
-	\chapter{Formal Model}
-	\todo{"TODO"}
+	\section{Memory Model}
+	When implementing a backend for the \devif interface, the underlying memory model 
+	has to be considered. In certain cases, a write to a buffer might not have been written back
+	to memory before the buffer is processed by a device. 
+	\\
+	There are several memory models that are used in current hardware but none of them 
+	are sequential consistent (SC). The memory models relax sequential consistency to allow 
+	instruction reordering and other optimizations. Currently X86 and Sparc can be 
+	modelled using \textit{Total Store Ordering} (TSO) ~\cite{swell:cacm2010}. TSO relaxes 
+	SC so that local writes are visible locally before they are visible to all other
+	hardware threads (multi-copy atomic). In most cases this is because of a write buffer
+	that is introduced to buffer stores and the local request are satisfied by the contents 
+	of the buffer. TSO is still a very strict memory model and only allows limited instruction
+	reordering. 
+	\\
+	Our aim with \devif is that the backends support the even more relaxed model of ARM 
+	\cite{swell:cacm2016,arm:mm} (and IBM Power). In the memory model of ARM the processor can 
+	reorder instructions very generously. Stores as well as loads and other instructions 
+	(even atomic instructions) can be reordered. The goal of \devif is to support the weakest memory
+	model so it runs on the most common hardware, but can still increase the strictness
+	of the memory model to improve performance. 
 	
+
 	\chapter{Function Definitions and Semantics}
 	In this section we describe the functions of the \devif interface in detail. 
 	Not only do we define the functions itself, 
@@ -103,11 +146,13 @@
 	The queue has to be properly initialized beforehand. 
 	The memory region has to be owned by the endpoint trying to register the region. 
 	If the region is not owned by the endpoint, the behaviour is undefined.
-	If a region is added that is already registered or overlaps with another region, an error must be returned. The returned region id must be unique for this queue and larger than or equal to 0. After the function returns, buffers from the just registered region can be enqueued and the ownership
+	If a region is added that is already registered or overlaps with another region, an error must be returned. 
+	The returned region id must be unique for this queue and larger than or equal to 0. After the function returns, 
+	buffers from the just registered region can be enqueued and the ownership
 	can be transferred. 
 	\begin{figure}[h]
-		\begin{lstlisting}[style=code]
-		errval_t devq_register(struct devq *q,
+		\begin{lstlisting}
+        errval_t devq_register(struct devq *q,
                                struct capref cap,
                                regionid_t* region_id);
 		\end{lstlisting}
@@ -147,10 +192,10 @@
 	owned by the endpoint making the call to the interface. If a region is deregistered and the 
 	region is not fully owned by the endpoint, the behaviour is undefined.  
 	\begin{figure}[h]
-		\begin{lstlisting}[style=code]
-		errval_t devq_deregister(struct devq *q,
-		                         regionid_t region_id,
-		                         struct capref* cap);
+		\begin{lstlisting}
+        errval_t devq_deregister(struct devq *q,
+                                 regionid_t region_id,
+                                 struct capref* cap);
 		\end{lstlisting}
 		\label{lst:deregister}
 	\end{figure}
@@ -165,8 +210,7 @@
 	\subsection*{Preconditions}
 	\begin{itemize}
 		\item The device queue is initialized
-		\item Memory of the region must be owned by the endpoint 
-		\item Region must be currently registered (i.e. valid region id that is currently registered)
+		\item Region must currently be registered (i.e. valid region id that is currently registered)
 	\end{itemize}
 	\subsubsection*{Postconditions}
 	On success, the following conditions on the returned value hold
@@ -177,28 +221,32 @@
 	
 	\subsection*{Reasons for Failure}
 	\begin{itemize}
-		\item Backend deregister function fails (e.g. the device has no resources to add the region to the active set)
-		\item Region was not registered beforehand 
+		\item Backend deregister function fails.
+		\item Region was not registered beforehand. 
 	\end{itemize}
 	
 	\section{Enqueue}
 	Enqueues a buffer of a region for ownership transfer. The buffers offset into the memory region 
-	has to be within the preregistered memory region matching the region id, otherwise the behaviour 
-	is undefined. The region id provided has to be valid i.e.
-	larger than 0 and is already registered. The length of the buffer must be large than 0 and must not
+	has to be within the preregistered memory region matching the region id, otherwise an error is returned. 
+	The region id provided has to be valid i.e. larger or equal than 0 and is already registered. 
+	The length of the buffer must be large than 0 and must not
 	exceed the region size minus the offset of the start address of the buffer within the 
 	region. The valid data offset has to be within the buffer and its length may not exceed
 	the buffers length. 
 	The buffer has to be currently owned by the client i.e. a buffer 
-	can not be enqueued twice without dequeuing it beforehand. 
+	can not be enqueued twice without dequeuing it beforehand, otherwise the behaviour is undefined. 
 	Enqueueing a buffer does not directly transfer the ownership, but the client
 	enqueueing the buffer has given up ownership on the buffer. Eventually the ownership
 	of the buffer will be transferred but there is no guarantee when this happens.
 	All the changes to the buffer have to be written back to memory and not only 
-	reside in the cache. Altering a buffer that a client has no ownership over, will result in undefined behaviour.
+	reside in the cache. Altering a buffer that a client has no ownership over, 
+	will result in undefined behaviour. Multiple buffers can be chained by using 
+	the argument \texttt{misc\_flags}. When chaining multiple buffers, the last buffer
+	of the chain must have the \texttt{misc\_flags} set to \texttt{DEVQ\_FLAG\_LAST}.
+	
 	
 	\begin{figure}[h]
-		\begin{lstlisting}[style=code]
+		\begin{lstlisting}
 		errval_t devq_enqueue(struct devq *q,
 		                      regionid_t region_id,
 		                      genoffset_t offset,
@@ -234,17 +282,15 @@
 	\end{itemize}
 	
 	\subsection*{Postconditions}
-	After a successful enqueue, the following conditions on the returned values hold
+	After a successful enqueue, the following conditions hold
 	\begin{itemize}
-		\item \textit{offset} does not exceed region length
-		\item \textit{length} + \textit{offset} do not exceed region length
-		\item \textit{valid\_data} does not exceed the buffer size
-		\item \textit{valid\_length} does not exceed buffer size minus valid data offset
+		\item -
 	\end{itemize}
 	
 	\subsection*{Reasons for Failure}
 	\begin{itemize}
 		\item Backend enqueue function fails (e.g. when the queue is full)
+		\item Region id is not valid.
 		\item Bounds check for buffer fails
 		\item Bounds check for valid data fails
 	\end{itemize}
@@ -254,15 +300,15 @@
 	takes ownership of the buffer. As long as the client owns a buffer, the
 	client can alter the contents of this buffer. Dequeue can be called any time,
 	and even when a notification is received there is no guarantee that the queue contains any buffers
-	to receive. If there is nothing to dequeue, the call will return an error. When a client
+	to receive. If there is nothing to dequeue, the call will return an error. When an endpoint
 	dequeues a buffer, it has to invalidate its cache of the received buffer when
 	the weaker memory model is assumed (ARM, IBM Power). The dequeued values 
 	have to represent a valid buffer as well as point to valid data. If nothing 
-	is know about the validity of the data with the buffer, the whole buffer 
+	is known about the validity of the data with the buffer, the whole buffer 
 	is considered as valid data.
 
 	\begin{figure}[h]
-		\begin{lstlisting}[style=code]
+		\begin{lstlisting}
 		errval_t devq_dequeue(struct devq *q,
 		                      regionid_t* region_id,
 		                      genoffset_t* offset,
@@ -286,10 +332,9 @@
 	\subsection*{Preconditions}
 	\begin{itemize}
 		\item The device queue is initialized
-		
 	\end{itemize}
 	\subsection*{Postconditions}
-	The returned pointer have to contain valid information about abuffer.
+	The returned pointer have to contain valid information about a buffer.
 	After a successful dequeue, the following conditions on the returned values hold
 	\begin{itemize}
 		\item \texttt{region\_id} must be larger or equal to 0
@@ -306,6 +351,7 @@
 	\subsection*{Reasons for Failure}
 	\begin{itemize}
 		\item Backend dequeue function fails (e.g. when the queue is empty)
+		\item Buffer returned by the backend is not valid.
 	\end{itemize}
 	
 	\section{Notify}
@@ -314,10 +360,10 @@
 	actually a buffer in the queue. When a buffer is enqueued, there
 	is no guarantee to when the buffer is processed. Notify ensures, that
 	all the buffers that are enqueued to this point will eventually processed and the ownership
-	is transferred. Notify is a performance optimization mechanism
+	is transferred. Notify is a performance optimization mechanism and not strictly necessary.
 	
 	\begin{figure}[h]
-		\begin{lstlisting}[style=code]
+		\begin{lstlisting}
 		errval_t devq_notify(struct devq *q);
 		\end{lstlisting}
 		\label{lst:notify}
@@ -337,5 +383,117 @@
 	\begin{itemize}
 		\item Backend notify function fails
 	\end{itemize} 
+	
+	\chapter{Formal Model}
+	\todo{TODO}
+%	In this section we model the system as a transfer of ownership of sets of addresses. We model it as a 
+%	transition system by first defining the agents, the structures, 
+%	and the operations used to do the transfer. The first model does not take into account the
+%	notification mechanism i.e. this system would be based on polling the queues. We abstract the buffers 
+%	of the ownership transfer protocol as a simple set of addresses. Consequently, we do not need to 
+%	define what a buffer is. This means in our model the smallest unit resource we transfer ownership of is a single memory address. 
+%	
+%	\todo[inline]{Describe what ownership means i.e. only by one ...}
+%	
+%	\begin{defi}[Memory Address]
+%		A \textbf{Memory Address} \textit{A} is an identifier (or a name) that abstracts 
+%		an addressable byte of a machine. 
+%	\end{defi}
+%	
+%	To go any further, we have to define on what sets an agent can operate on. In the following
+%	if we write about a set, this means a set of addresses i.e. if we mention set $S$ it is defined as $S = \{A_0, ..., A_n\}$.
+%    In our transition system we only have two agents $X$ and $Y$.
+%	
+%	\begin{defi}[Agent State]
+%		Our model consists of two Agents $X$ and $Y$. 
+%		The sets an Agent can operate on are $S_x$ for agent $X$ and $S_y$ for agent $Y$ and
+%		each of these sets consists of memory addresses.
+%	\end{defi}
+%	In this document we write about a transfer of ownership. The ownership in our model is transferred between the two agents $X$ and $Y$. 
+%	If an agent takes ownership of an address, this means that the agent can operate on these addresses. For example, it can read the 
+%	contents of the memory address or write to the memory address. 
+%	
+%	\begin{defi}[Ownership]	
+%		Agent $X$ and $Y$ can take \textbf{ownership} of an address $A$ by adding the memory address to the set $S_x$ or $S_y$ respectively.
+%		\[ \text{ownership}(S, A) \Leftrightarrow A \in S \] 
+%		where $S$ is either the state of agent $X$ or $Y$ and $A$ is any address that can be used in the transition system. 
+%	\end{defi}
+%	
+%	Ownership in the sense of our model means that only one agent can own a certain address. 
+%	To prevent two agents owning the same address, we define the following invariant that 
+%	has to hold for all operations on the transition system.
+%	
+%	\begin{inv}
+%		At any point in time an address $A$ can only be owned by one Agent at a time
+%		\[ S_x \cap S_y = \emptyset \]
+%	\end{inv}	
+%	
+%	With the current definitions, we could model the transfer of ownership by simply removing from one
+%	set and adding it to the other ($S_x$ to $S_y$ and vice versa) but this model would not 
+%	entail correctly how the transfer of an address happens. An address that is enqueued might
+%	not be direclty dequeued by the other agent which means that we require another mechanism: 
+%	the queue itself. In essence, we need to store
+%	the addresses that are currently in transfer in another set associated with a queue.
+%	
+%	\begin{defi}[Queue]
+%		A bidirectional queue $Q$ between the two agents $X$ and $Y$ consists of two sets of addresses called 
+%		$T_{xy}$ and $T_{yx}$ where $T_{xy}$ is the set of addresses that is in transfer from agent $X$ 
+%		to agent $Y$ and $T_{yx}$ vice versa. 
+%		\[Q = (T_{xy}, T_{yx})\]
+%	\end{defi}
+%	
+%	Having defined basic agents and structures of our model, but we are missing operations  on the transition system to actually
+%	transfer the ownership of addresses. To transfer ownership over a queue from agent $X$ to $Y$ and vice versa, we define
+%	the operations \textit{enqueue} and \textit{dequeue}. 
+%	
+%	\begin{op} [Enqueue]
+%		Enqueue: initiates a transfer of ownership of a set of addresses $B$ from agent $X$ to $Y$ and vice versa. Enqueue removes $B$ from either agent $X$ or $Y$'s state ($S_x$ and $S_y$) and adds it to the queue $Q$ ($Q.T_{xy}$ in case of agent $X$ and $Q.T_{yx}$ in case of agent $Y$). Enqueue requires
+%		a set of addresses to transfer $B$
+%		The function enqueue from agent $X$ is defined as
+%		\begin{align*} enqueue_{x}(B) \quad \quad S_x := S_x - B \\
+%		T_{xy} := T_{xy} \cup B  
+%		\end{align*}
+%		and for Agent $Y$
+%		\begin{align*} enqueue_{y}(B) \quad \quad S_y := S_y - B \\
+%		T_{yx} := T_{yx} \cup B 
+%		\end{align*}
+%	\end{op}
+%	
+%	\begin{op}[Dequeue]
+%		Dequeue: completes a transfer of ownership of a set of addresses $B$ from agent $X$ to $Y$ and vice versa. Dequeue removes $B$ from the queue state $Q$ ($Q.T_{xy}$ in case of $Y$ and $Q.T_{yx}$ in case of $X$) and adds it to the
+%		agents state $S$ ($S_x$ in case of $X$ and $S_y$ in case of $Y$). Dequeue requires
+%		the set of addresses to transfer $B$, the agents state $S$ and the queue state $Q$.
+%		The function enqueue from agent $X$ is defined as
+%		\begin{align*} \text{dequeue}_{x}(B) \quad \quad T_{yx} := T_{yx} - B \\
+%		S_x := S_x \cup B  
+%		\end{align*}
+%		and for Agent $Y$
+%		\begin{align*} \text{dequeue}_{y}(B) \quad \quad T_{xy} := T_{xy} - B \\
+%		S_y := S_y \cup B  
+%		\end{align*}
+%	\end{op}
+%	
+%	The transition system that we defined up to now can be seen in the picture below. The pictures how an operations move addresses between sets.  
+%	
+%	\begin{figure}[!h]
+%		\begin{center}
+%			\caption{Buffer transfer protocol sets and the operations}
+%			\centerline{\xymatrix{
+%					&&T_{xy} \ar@{->}[rrd]^{dequeue_y} \\
+%					S_x \ar@{->}[rru]^{enqueue_x} 
+%					&&&&S_y \ar@{->}[lld]^{enqueue_y}\\
+%					&&T_{yx} \ar@{->}[llu]^{dequeue_x}
+%				}}
+%			\end{center}
+%		\end{figure}
+%		
+%		Beforehand we defined our first invariant. With the state and operations we defined, 
+%		we can now show that this invariant holds for all operations.
+%
+
+
+
+\bibliographystyle{abbrv}
+\bibliography{defs,barrelfish}	
 	
 \end{document}
