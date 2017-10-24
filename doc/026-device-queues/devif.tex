@@ -1,0 +1,341 @@
+\documentclass[a4paper,11pt,twoside]{report}
+\usepackage{bftn}
+\usepackage{calc}
+\usepackage{verbatim}
+\usepackage{xspace}
+\usepackage{pifont}
+\usepackage{pxfonts}
+\usepackage{textcomp}
+\usepackage{amsmath}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage[framemethod=default]{mdframed}
+\usepackage[shortlabels]{enumitem}
+\usepackage{parskip}
+\usepackage{xparse}
+
+\newcommand{\todo}[1]{[\textcolor{red}{\emph{#1}}]}
+
+\title{Device Queues in Barrelfish}
+\author{Barrelfish project}
+\tnnumber{23}
+\tnkey{Coreboot}
+
+\begin{document}
+	\maketitle			% Uncomment for final draft
+	
+	\begin{versionhistory}
+		\vhEntry{0.1}{24.10.2017}{RH}{Initial Version}
+	\end{versionhistory}
+	
+	% \intro{Abstract}		% Insert abstract here
+	% \intro{Acknowledgements}	% Uncomment (if needed) for acknowledgements
+	\tableofcontents		% Uncomment (if needed) for final draft
+	% \listoffigures		% Uncomment (if needed) for final draft
+	% \listoftables			% Uncomment (if needed) for final draft
+	\cleardoublepage
+	\setcounter{secnumdepth}{2}
+	
+	\newcommand{\fnname}[1]{\textit{\texttt{#1}}}%
+	\newcommand{\datatype}[1]{\textit{\texttt{#1}}}%
+	\newcommand{\varname}[1]{\texttt{#1}}%
+	\newcommand{\keywname}[1]{\textbf{\texttt{#1}}}%
+	\newcommand{\pathname}[1]{\texttt{#1}}%
+	\newcommand{\tabindent}{\hspace*{3ex}}%
+	\newcommand{\sockeye}{\lstinline[language=sockeye]}
+	\newcommand{\ccode}{\lstinline[language=C]}
+	
+	\lstset{
+		language=C,
+		basicstyle=\ttfamily \small,
+		keywordstyle=\bfseries,
+		flexiblecolumns=false,
+		basewidth={0.5em,0.45em},
+		boxpos=t,
+		captionpos=b
+	}
+	
+	\chapter{Introduction}
+	In this document we describe a queue based interface that unifies communication for 
+	devices like network cards and block devices but also between processes. 
+	The interface should fit to as many devices as possible while still being efficient.
+	The goal is similar to \virtio \cite{Russell2008}, Portals \cite{portals} or MPI \cite{mpi}, 
+	but we want to take a more formal 
+	approach and define pieces that are ambiguous. These interface do not define a memory model 
+	or what preconditions/postconditions an interface function has. 
+	For example, what happens when a guest accesses a memory buffer that is handed off 
+	to the host? These interfaces are clearly implementation driven where 
+	we want to document the interface as clearly as possible, and see the implementation and
+	its code as two separate things.
+	
+	\section{Terminology}
+	In this section, we explain the terms and the meaning of them as they are used in the following sections.
+	\begin{itemize}
+		
+		\item \textbf{Region}: A Region is a chunk of memory that is registered to the \devif interface. From the memory of the region, buffers can be allocated.
+		\item \textbf{Buffer}: A buffer is a chunk of memory within a region.
+		\item \textbf{Endpoint}: An endpoint is a processes or devices. 
+		\item \textbf{Ownership}: An endpoint can own a buffer and transfer ownership of a buffer to another endpoint or device. If an endpoint owns a buffer, it can alter it. If an endpoint alters a buffer that is not owned, the result is undefined and it is considered a bug. 
+	\end{itemize}
+	
+	\section{Functionality}
+	The basic functionality of our queue based device interface (from now on called \devif) 
+	should be transferring ownership of buffers between two endpoints of a queue.  
+	A buffer is a variable sized piece of memory within a previously to the \devif interface 
+	register region of memory. We exclude managing the buffers themselves i.e. allocating 
+	and deallocating buffers to keep the interface and the underlying protocol simple. 
+	If we manage the variable sized buffers, we would have to implement a dynamic memory 
+	allocator which increases the complexity of the \devif interface. 
+	
+	\chapter{Formal Model}
+	\todo{"TODO"}
+	
+	\chapter{Function Definitions and Semantics}
+	In this section we describe the functions of the \devif interface in detail. 
+	Not only do we define the functions itself, 
+	but the give additional information to the semantics. We use the term 
+	\textit{undefined behaviour} for calls on the interface that we consider
+	bugs and that must not happen. The creation and destruction of queues 
+	are device specific and are not part of the interface itself. 
+	
+	\section{Registering Region}
+	Adds a region of memory to the active set of this queue. 
+	The queue has to be properly initialized beforehand. 
+	The memory region has to be owned by the endpoint trying to register the region. 
+	If the region is not owned by the endpoint, the behaviour is undefined.
+	If a region is added that is already registered or overlaps with another region, an error must be returned. The returned region id must be unique for this queue and larger than or equal to 0. After the function returns, buffers from the just registered region can be enqueued and the ownership
+	can be transferred. 
+	\begin{figure}[h]
+		\begin{lstlisting}[style=code]
+		errval_t devq_register(struct devq *q,
+                               struct capref cap,
+                               regionid_t* region_id);
+		\end{lstlisting}
+		\label{lst:register}
+	\end{figure}
+	
+	\subsection*{Arguments}
+	\begin{itemize}
+		\item \texttt{devq *q}: handle to the device queue.
+		\item \texttt{struct capref cap}: the capability representing the memory region to register.
+		\item \texttt{regionid\_t* region}: return pointer to the region id of the newly registered region.
+	\end{itemize}
+	\subsection*{Preconditions}
+	\begin{itemize}
+		\item The device queue is initialized
+		\item The memory has to be allocated
+		\item Memory of the region must be owned by endpoint 
+		\item The region must not be currently registered
+		\item Region must not overlap with other already registered regions 
+	\end{itemize}
+	\subsection*{Postconditions}
+	On success, the following conditions on the returned value hold
+	\begin{itemize}
+		\item \texttt{region\_id} must be unique for this queue and larger or equal to 0
+	\end{itemize}
+	
+	\subsection*{Reasons for Failure}
+	\begin{itemize}
+		\item Register function of backend fails.
+		\item Region to register is already registered.
+	\end{itemize}
+	
+	\section{Deregister Region}
+	Removes a memory region from the registered regions of a queue. 
+	If a region is deregisterd that was not registered before, an error is returned. 
+	To deregister a region, every buffer of the region i.e. the whole region has to be 
+	owned by the endpoint making the call to the interface. If a region is deregistered and the 
+	region is not fully owned by the endpoint, the behaviour is undefined.  
+	\begin{figure}[h]
+		\begin{lstlisting}[style=code]
+		errval_t devq_deregister(struct devq *q,
+		                         regionid_t region_id,
+		                         struct capref* cap);
+		\end{lstlisting}
+		\label{lst:deregister}
+	\end{figure}
+	
+	\subsection*{Arguments}
+	\begin{itemize}
+		\item \texttt{devq *q}: handle to the device queue
+		\item \texttt{regionid\_t region\_id}: the id of the region to deregister
+		\item \texttt{struct capref cap}: return pointer to the cap of the deregistered region
+	\end{itemize}
+	
+	\subsection*{Preconditions}
+	\begin{itemize}
+		\item The device queue is initialized
+		\item Memory of the region must be owned by the endpoint 
+		\item Region must be currently registered (i.e. valid region id that is currently registered)
+	\end{itemize}
+	\subsubsection*{Postconditions}
+	On success, the following conditions on the returned value hold
+	\begin{itemize}
+		\item \texttt{cap} must not be NULL
+		\item \texttt{cap} is a capability referencing a memory region that was once registered.
+	\end{itemize}
+	
+	\subsection*{Reasons for Failure}
+	\begin{itemize}
+		\item Backend deregister function fails (e.g. the device has no resources to add the region to the active set)
+		\item Region was not registered beforehand 
+	\end{itemize}
+	
+	\section{Enqueue}
+	Enqueues a buffer of a region for ownership transfer. The buffers offset into the memory region 
+	has to be within the preregistered memory region matching the region id, otherwise the behaviour 
+	is undefined. The region id provided has to be valid i.e.
+	larger than 0 and is already registered. The length of the buffer must be large than 0 and must not
+	exceed the region size minus the offset of the start address of the buffer within the 
+	region. The valid data offset has to be within the buffer and its length may not exceed
+	the buffers length. 
+	The buffer has to be currently owned by the client i.e. a buffer 
+	can not be enqueued twice without dequeuing it beforehand. 
+	Enqueueing a buffer does not directly transfer the ownership, but the client
+	enqueueing the buffer has given up ownership on the buffer. Eventually the ownership
+	of the buffer will be transferred but there is no guarantee when this happens.
+	All the changes to the buffer have to be written back to memory and not only 
+	reside in the cache. Altering a buffer that a client has no ownership over, will result in undefined behaviour.
+	
+	\begin{figure}[h]
+		\begin{lstlisting}[style=code]
+		errval_t devq_enqueue(struct devq *q,
+		                      regionid_t region_id,
+		                      genoffset_t offset,
+		                      genoffset_t length,
+		                      genoffset_t valid_data,
+		                      genoffset_t valid_length,
+		                      uint64_t misc_flags);
+		\end{lstlisting}
+		\label{lst:enqueue}
+	\end{figure}
+	
+	\subsection*{Arguments}
+	\begin{itemize}
+		\item \texttt{devq *q}: handle to the device queue.
+		\item \texttt{regionid\_t region\_id}: the id of a memory region the enqueued buffer belongs to.
+		\item \texttt{genoffset\_t offset}: the offset within the memory region where the buffers starts. 
+		\item \texttt{genoffset\_t length}: the length of the enqueued buffer.
+		\item \texttt{genoffset\_t valid\_data}: the offset within the buffer where the valid data starts.
+		\item \texttt{genoffset\_t valid\_length}: the length of the valid data within the buffer.
+		\item \texttt{uint64\_t flags}: flags of the buffer. 
+	\end{itemize}
+	
+	\subsection*{Preconditions}
+	\begin{itemize}
+		\item The device queue is initialized
+		\item The region id must match with an already registered region
+		\item The buffer must be owned by the client of the interface 
+		\item The offset must be within the bounds of a memory region
+		\item The length must not exceed the region size minus the offset of the buffer within the region
+		\item The valid\_data offset must be within the buffers bounds
+		\item The valid\_length must not exceed the length minus the valid\_data offset
+		\item Changes to the buffer are written back to memory
+	\end{itemize}
+	
+	\subsection*{Postconditions}
+	After a successful enqueue, the following conditions on the returned values hold
+	\begin{itemize}
+		\item \textit{offset} does not exceed region length
+		\item \textit{length} + \textit{offset} do not exceed region length
+		\item \textit{valid\_data} does not exceed the buffer size
+		\item \textit{valid\_length} does not exceed buffer size minus valid data offset
+	\end{itemize}
+	
+	\subsection*{Reasons for Failure}
+	\begin{itemize}
+		\item Backend enqueue function fails (e.g. when the queue is full)
+		\item Bounds check for buffer fails
+		\item Bounds check for valid data fails
+	\end{itemize}
+	
+	\section{Dequeue}
+	Dequeues a buffer from the queue. After a buffer is dequeued, the client
+	takes ownership of the buffer. As long as the client owns a buffer, the
+	client can alter the contents of this buffer. Dequeue can be called any time,
+	and even when a notification is received there is no guarantee that the queue contains any buffers
+	to receive. If there is nothing to dequeue, the call will return an error. When a client
+	dequeues a buffer, it has to invalidate its cache of the received buffer when
+	the weaker memory model is assumed (ARM, IBM Power). The dequeued values 
+	have to represent a valid buffer as well as point to valid data. If nothing 
+	is know about the validity of the data with the buffer, the whole buffer 
+	is considered as valid data.
+
+	\begin{figure}[h]
+		\begin{lstlisting}[style=code]
+		errval_t devq_dequeue(struct devq *q,
+		                      regionid_t* region_id,
+		                      genoffset_t* offset,
+		                      genoffset_t* length,
+		                      genoffset_t* valid_data,
+		                      genoffset_t* valid_length,
+		                      uint64_t* flags);
+		\end{lstlisting}
+		\label{lst:dequeue}
+	\end{figure}
+	\subsection*{Arguments}
+	\begin{itemize}
+		\item \texttt{devq *q}: handle to the device queue.
+		\item \texttt{regionid\_t* region\_id}: return pointer to the region id of the dequeued buffer.
+		\item \texttt{genoffset\_t* offset}: return pointer to the offset within the memory region where the buffers starts. 
+		\item \texttt{genoffset\_t* length}: return pointer to the length of the enqueued buffer.
+		\item \texttt{genoffset\_t* valid\_data}: return pointer to the offset within the buffer where the valid data starts.
+		\item \texttt{genoffset\_t* valid\_length}: return pointer to the length of the valid data within the buffer.
+		\item \texttt{uint64\_t flags}: flags of the buffer. 
+	\end{itemize}
+	\subsection*{Preconditions}
+	\begin{itemize}
+		\item The device queue is initialized
+		
+	\end{itemize}
+	\subsection*{Postconditions}
+	The returned pointer have to contain valid information about abuffer.
+	After a successful dequeue, the following conditions on the returned values hold
+	\begin{itemize}
+		\item \texttt{region\_id} must be larger or equal to 0
+		\item \texttt{offset} is not equal to \textit{NULL}
+		\item \texttt{length} is not equal to \textit{NULL}
+		\item \texttt{valid\_data} is not equal to \textit{NULL}
+		\item \texttt{valid\_length} is not equal to \textit{NULL}
+		\item \textit{offset} does not exceed region length
+		\item \textit{length} + \textit{offset} do not exceed region length
+		\item \textit{valid\_data} does not exceed the buffer size
+		\item \textit{valid\_length} does not exceed buffer size minus valid data offset
+	\end{itemize}
+	
+	\subsection*{Reasons for Failure}
+	\begin{itemize}
+		\item Backend dequeue function fails (e.g. when the queue is empty)
+	\end{itemize}
+	
+	\section{Notify}
+	Notify informs the client on the other side of the queue that there might be buffers 
+	buffers in the queue that are ready for processing. There is no guarantee that there is 
+	actually a buffer in the queue. When a buffer is enqueued, there
+	is no guarantee to when the buffer is processed. Notify ensures, that
+	all the buffers that are enqueued to this point will eventually processed and the ownership
+	is transferred. Notify is a performance optimization mechanism
+	
+	\begin{figure}[h]
+		\begin{lstlisting}[style=code]
+		errval_t devq_notify(struct devq *q);
+		\end{lstlisting}
+		\label{lst:notify}
+	\end{figure}
+	
+	\subsection*{Arguments}
+	\begin{itemize}
+		\item \texttt{devq *q}: handle to the device queue.
+	\end{itemize}
+	\subsection*{Preconditions}
+	\begin{itemize}
+		\item The device queue is initialized
+	\end{itemize}
+	\subsection*{Postconditions}
+	-- 
+	\subsection*{Reasons for Failure}
+	\begin{itemize}
+		\item Backend notify function fails
+	\end{itemize} 
+	
+\end{document}

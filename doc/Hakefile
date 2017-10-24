@@ -35,6 +35,9 @@
          "TN-021-CPUDriver.pdf",
          "TN-022-ARMv8.pdf",
          "TN-023-Coreboot.pdf",
-         "TN-024-FiletOFish.pdf" ]]
+         "TN-024-FiletOFish.pdf",
+         "TN-025-Sockeye.pdf",
+         "TN-026-Device-Queues.pdf"
+ ]]
     "Documentation for Barrelfish"
 ]
