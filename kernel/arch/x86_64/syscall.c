@@ -1579,6 +1579,10 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             retval.error = debug_get_mdb_size(&retval.value);
             break;
 
+        case DEBUG_PRINT_MDB_COUNTERS:
+            retval.error = debug_print_mdb_counters();
+            break;
+
         default:
             printk(LOG_ERR, "invalid sys_debug msg type\n");
         }

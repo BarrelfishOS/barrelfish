@@ -46,6 +46,7 @@ errval_t sys_debug_hardware_global_timer_read(uint64_t *ret);
 errval_t sys_debug_get_apic_ticks_per_sec(uint32_t *ret);
 errval_t sys_debug_create_irq_src_cap(struct capref cap, uint64_t start, uint64_t end);
 errval_t sys_debug_get_mdb_size(size_t *size);
+errval_t sys_debug_print_mdb_counters(void);
 
 #ifdef ENABLE_FEIGN_FRAME_CAP
 errval_t sys_debug_feign_frame_cap(struct capref slot, lpaddr_t base,
