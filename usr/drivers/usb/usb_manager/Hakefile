@@ -61,7 +61,8 @@ in
                       flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
                       
                       mackerelDevices = [ "ohci", "omap/ohci", 
-                                          "ehci", "omap/ehci"],
+                                          "ehci", "omap/ehci",
+                                          "omap/omap44xx_hsusbhost"],
                       addIncludes = [ "include"],
                       addLibraries = ["usb", "driverkit"],
                       architectures = [ "armv7" ]
