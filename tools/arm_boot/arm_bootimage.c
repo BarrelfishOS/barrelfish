@@ -243,10 +243,10 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
     if(!shdr_sym) fail("Didn't find a dynamic symbol table.\n");
 
     /* Find the got_base symbol, and its unrelocated address. */
-    uint32_t got_base, got_base_reloc;
+    uint32_t got_base = 0, got_base_reloc = 0;
     int got_symidx= -1;
     /* If the caller asked us to locate another symbol, this is it. */
-    uint32_t extrasym_initaddr;
+    uint32_t extrasym_initaddr = 0;
     {
         int found_extrasym= 0;
 
@@ -440,28 +440,28 @@ load(int in_fd, uint32_t vp_offset, struct loaded_image *image,
 
 /*** Output ELF Creation ***/
 
-static char *strings;
-static size_t strings_size= 0;
+static char *global_strings;
+static size_t global_strings_size= 0;
 
 static void
 init_strings(void) {
-    strings_size= 1;
-    strings= calloc(strings_size, 1);
-    if(!strings) fail_errno("malloc");
+    global_strings_size= 1;
+    global_strings= calloc(global_strings_size, 1);
+    if(!global_strings) fail_errno("malloc");
 }
 
 static size_t
 add_string(const char *s) {
     /* The new string begins just past the current end. */
-    size_t start= strings_size;
+    size_t start= global_strings_size;
 
     /* Extend the buffer. */
-    strings_size+= strlen(s) + 1;
-    strings= realloc(strings, strings_size);
-    if(!strings) fail_errno("realloc");
+    global_strings_size+= strlen(s) + 1;
+    global_strings= realloc(global_strings, global_strings_size);
+    if(!global_strings) fail_errno("realloc");
 
     /* Copy the new string in. */
-    strcpy(strings + start, s);
+    strcpy(global_strings + start, s);
 
     /* Return the index of the new string. */
     return start;
@@ -812,9 +812,9 @@ add_strings(Elf *elf) {
     if(!data) fail_elf("elf_newdata");
 
     data->d_align=   1;
-    data->d_buf=     strings;
+    data->d_buf=     global_strings;
     data->d_off=     0;
-    data->d_size=    strings_size;
+    data->d_size=    global_strings_size;
     data->d_type=    ELF_T_BYTE;
     data->d_version= EV_CURRENT;
 
@@ -825,8 +825,8 @@ add_strings(Elf *elf) {
     shdr->sh_name=      nameidx;
     shdr->sh_type=      SHT_STRTAB;
     shdr->sh_flags=     SHF_STRINGS;
-    shdr->sh_offset=    increase_elf_offset(strings_size);
-    shdr->sh_size=      strings_size;
+    shdr->sh_offset=    increase_elf_offset(global_strings_size);
+    shdr->sh_size=      global_strings_size;
     shdr->sh_addralign= 1;
 
     elf_setshstrndx(elf, elf_ndxscn(scn));
@@ -1030,7 +1030,7 @@ main(int argc, char **argv) {
     if(!ram_region) fail("No RAM regions defined.\n");
     if(ram_region->base > (uint64_t)UINT32_MAX)
         fail("This seems to be a 64-bit memory map.\n");
-    if(phys_base < ram_region->base |
+    if(phys_base < ram_region->base ||
        phys_base >= ram_region->base + ram_region->length) {
         fail("Requested base address %08x is outside the first RAM region.\n",
              phys_base);
@@ -1060,6 +1060,7 @@ main(int argc, char **argv) {
         load(bd_fd, 0, /* The boot driver executes in physical space. */
              &bd_image,
              1);       /* Copy section and symbol data. */
+    assert(bd_loaded != NULL);
 
     printf("Boot driver entry point: PA %08x\n",
            (paddr_t)bd_image.relocated_entry);
@@ -1081,6 +1082,7 @@ main(int argc, char **argv) {
     cpu_image.extrasym_name= NULL;
     void *cpu_loaded=
         load(cpu_fd, kernel_offset, &cpu_image, 0);
+    assert(cpu_loaded != NULL);
 
     printf("CPU driver entry point: VA %08x\n", cpu_image.relocated_entry);
 
@@ -1161,8 +1163,10 @@ main(int argc, char **argv) {
      * sections. */
     size_t loadable_segment_offset= get_elf_offset();
     Elf32_Shdr *fst_shdr= add_image_with_sections(out_elf, &bd_image);
+    assert(fst_shdr != NULL);
     advance_elf_offset(cpu_image.loaded_paddr - phys_base);
     Elf32_Shdr *cpu_shdr= add_image(out_elf, ".cpudriver", &cpu_image);
+    assert(cpu_shdr != NULL);
     for(size_t i= 0; i < menu->nmodules; i++) {
         char name[32];
         snprintf(name, 32, ".elf.%s", modules[i].shortname);
