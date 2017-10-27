@@ -37,7 +37,9 @@ static vregion_flags_t prot_to_vregion_flags(int flags)
 static const char *flag_to_str(int flag)
 {
     switch(flag) {
+#ifdef __x86_64__
         case MAP_32BIT        : return "MAP_32BIT";
+#endif
         case MAP_ALIGNED_SUPER: return "MAP_ALIGNED_SUPER";
         case MAP_ANON         : return "MAP_ANON|MAP_ANONYMOUS";
         case MAP_EXCL         : return "MAP_EXCL";
@@ -101,7 +103,7 @@ void * mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset)
         return MAP_FAILED;
     }
 
-    genvaddr_t vaddr = (genvaddr_t) addr;
+    genvaddr_t vaddr = (genvaddr_t)(lvaddr_t) addr;
 
     if (flag_is_set(flags, MAP_FIXED) && !flag_is_set(flags, MAP_EXCL)) {
         // We currently do not support MAP_FIXED without MAP_EXCL, as we do
@@ -138,10 +140,12 @@ void * mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset)
         }
 
         err = vspace_map_anon_fixed(vaddr, len, vflags, &vregion, &memobj);
+#ifdef __x86_64__
     } else if (is_anon_mapping(flags) && !flag_is_set(flags, MAP_32BIT)) {
         // For anonymous mappings without constraints we let libbarrelfish
         // find a suitable region of virtual address space.
         err = vspace_map_anon_attr(&addr, &memobj, &vregion, len, NULL, vflags);
+#endif
     } else {
         // Fail on other combinations of flags for now
         debug_printf("mmap(): mapping with given set of flags NYI!\n");
