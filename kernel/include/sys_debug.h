@@ -33,4 +33,7 @@ debug_print_cababilities(struct dcb *dispatcher);
 errval_t
 debug_get_mdb_size(size_t *retval);
 
+errval_t
+debug_print_mdb_counters(void);
+
 #endif

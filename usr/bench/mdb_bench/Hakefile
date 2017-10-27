@@ -21,5 +21,8 @@
                       addLibraries = [ "mdb", "cap_predicates", "bench" ],
                       addIncludes = [ "/include/barrelfish" ],
                       addCFlags = [ "-DOLD_MDB" ]
+                    },
+  build application { target = "mdb_bench_frequency",
+                      cFiles = [ "frequency_bench.c" ]
                     }
 ]

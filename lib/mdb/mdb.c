@@ -22,6 +22,7 @@
 #include <cap_predicates.h>
 #include <mdb/mdb.h>
 #include <mdb/mdb_tree.h>
+#include <mdb/mdb_counters.h>
 
 static void
 mdb_set_cte_relations(struct cte *cte, uint8_t relations, uint8_t mask)
@@ -94,8 +95,10 @@ void mdb_set_relations(struct cte *cte, uint8_t relations, uint8_t mask)
 }
 
 /// Check if #cte has any descendants
+uint64_t mdb_has_descendants_count;
 bool has_descendants(struct cte *cte)
 {
+    mdb_has_descendants_count++;
     assert(cte != NULL);
 
     struct cte *next = mdb_find_greater(&cte->cap, false);
@@ -108,11 +111,13 @@ bool has_ancestors(struct cte *cte) {
     return mdb_find_ancestor(cte) != NULL;
 }
 
+uint64_t mdb_find_ancestor_count = 0;
 struct cte *mdb_find_ancestor(struct cte *cte)
 {
     assert(cte != NULL);
     struct cte *result = NULL;
 
+    mdb_find_ancestor_count++;
 #if 0
     // XXX: this check should have its own predicate
     if (!get_address(&cte->cap) && !get_size(&cte->cap)) {
@@ -154,6 +159,8 @@ struct cte *mdb_find_ancestor(struct cte *cte)
         assert(get_address(&result->cap) <= get_address(&cte->cap));
         assert(get_address(&result->cap) + get_size(&result->cap)
                >= get_address(&cte->cap) + get_size(&cte->cap));
+        // don't cound find_ancestor range queries for range query counter
+        mdb_find_range_count--;
     }
     else {
         assert(!result);
@@ -162,17 +169,23 @@ struct cte *mdb_find_ancestor(struct cte *cte)
     return result;
 }
 
+uint64_t mdb_has_copies_count;
 /// Checks if #cte has any copies
 bool has_copies(struct cte *cte)
 {
+    mdb_has_copies_count++;
     assert(cte != NULL);
 
     struct cte *next = mdb_successor(cte);
+    // don't count calls to mdb_successor() from has_copies()
+    mdb_successor_count--;
     if (next && is_copy(&next->cap, &cte->cap)) {
         return true;
     }
 
     struct cte *prev = mdb_predecessor(cte);
+    // don't count calls to mdb_predecessor() from has_copies()
+    mdb_predecessor_count--;
     if (prev && is_copy(&prev->cap, &cte->cap)) {
         return true;
     }
@@ -229,4 +242,33 @@ void set_init_mapping(struct cte *dest_start, size_t num)
 void remove_mapping(struct cte *cte)
 {
     mdb_remove(cte);
+}
+
+void mdb_print_counters(coreid_t core)
+{
+    // create variables that match naming of microbenchmarks
+    uint64_t insert_one_count = mdb_insert_count;
+    uint64_t remove_one_count =  mdb_remove_count;
+    uint64_t iterate_1_count = mdb_predecessor_count + mdb_successor_count;
+    uint64_t has_copies_count = mdb_has_copies_count;
+    uint64_t has_ancestors_count = mdb_find_ancestor_count;
+    uint64_t has_descendants_count = mdb_has_descendants_count;
+    uint64_t query_address_count = mdb_find_range_count;
+
+    static uint64_t uid = 0;
+
+    printf("[core %d][%"PRIu64"] MDB operation counts:\n", core, uid);
+#define PRINT_OP(op) printf("[core %d][%"PRIu64"] " #op "=%"PRIu64"\n", core, uid, op##_count);
+    PRINT_OP(insert_one);
+    PRINT_OP(remove_one);
+    //PRINT_OP(mdb_find_equal);
+    //PRINT_OP(mdb_find_less);
+    //PRINT_OP(mdb_find_greater);
+    PRINT_OP(iterate_1);
+    PRINT_OP(has_copies);
+    PRINT_OP(has_ancestors);
+    PRINT_OP(has_descendants);
+    PRINT_OP(query_address);
+#undef PRINT_OP
+    uid++;
 }

@@ -107,3 +107,32 @@ class MdbBench(TestCommon):
         if dumping:
             results.append(caps)
         return results
+
+@tests.add_test
+class MdbBenchFreq(TestCommon):
+    '''Benchmark that gathers statistics on frequency of MDB operations'''
+    name = 'mdbbench_frequency'
+
+    def get_modules(self, build, machine):
+        modules = super(MdbBenchFreq, self).get_modules(build, machine)
+        modules.add_module("memtest", [ "nospawn" ])
+        modules.add_module("mdb_bench_frequency", [ "memtest", "5", "8" ])
+        return modules
+
+    def get_finish_string(self):
+        return "frequency_bench done"
+
+    def process_data(self, testdir, rawiter):
+        results = RowResults(['workload', 'uid', 'operation', 'count'])
+        resultline = re.compile("\[core \d+\]\[(\d+)\] (\w+)=(\d+)")
+        found_bench = False
+        for line in rawiter:
+            if line.startswith("frequency_bench starting"):
+                found_bench = True
+            if found_bench:
+                m = resultline.match(line)
+                if m:
+                    results.add_row(['procmgmt', m.group(1), m.group(2), m.group(3)])
+
+        return results
+
