@@ -37,7 +37,7 @@ int mprotect(void *memptr, size_t size, int flags)
     struct vspace *vs = get_current_vspace();
     struct vregion *v = vspace_get_region(vs, memptr);
 
-    genvaddr_t vaddr = (genvaddr_t)memptr;
+    genvaddr_t vaddr = (genvaddr_t)(lvaddr_t)memptr;
 
     if (vaddr == 0 || vaddr & BASE_PAGE_SIZE) {
         *__error() = EINVAL;
