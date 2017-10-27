@@ -1484,11 +1484,20 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             ", objsize=%" PRIuGENSIZE ", count=%zu\n",
             __FUNCTION__, type, offset, objsize, count);
 
-    /* check that offset into source cap is multiple of BASE_PAGE_SIZE */
-    if (src_cap->type != ObjType_IRQSrc && offset % BASE_PAGE_SIZE != 0) {
+    /*
+     * check that offset into source cap is multiple of destination object
+     * size, or base page size, whichever is smaller.
+     */
+    gensize_t dest_obj_alignment = BASE_PAGE_SIZE;
+    if (type_is_vnode(type) && vnode_objsize(type) < BASE_PAGE_SIZE) {
+        dest_obj_alignment = vnode_objsize(type);
+    } else if (type == ObjType_Dispatcher) {
+        dest_obj_alignment = OBJSIZE_DISPATCHER;
+    }
+    if (src_cap->type != ObjType_IRQSrc && offset % dest_obj_alignment != 0) {
         return SYS_ERR_RETYPE_INVALID_OFFSET;
     }
-    assert(offset % BASE_PAGE_SIZE == 0 || src_cap->type == ObjType_IRQSrc);
+    assert(offset % dest_obj_alignment == 0 || src_cap->type == ObjType_IRQSrc);
 
     // check that size is multiple of BASE_PAGE_SIZE for mappable types
     gensize_t base_size = BASE_PAGE_SIZE;
