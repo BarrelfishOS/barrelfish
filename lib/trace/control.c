@@ -133,7 +133,7 @@ size_t trace_dump(char *buf, size_t buflen, int *number_of_events_dumped)
 {
     bool isfirst = true;
     bool isOnlyOne = false;
-    assert(buflen < INT64_MAX);
+    assert(buflen < SIZE_MAX);
     int64_t remaining_buflen = buflen;
     size_t retval_total = 0;
     size_t ev_dumped_total = 0;

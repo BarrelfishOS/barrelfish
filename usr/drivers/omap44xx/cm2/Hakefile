@@ -16,7 +16,8 @@
                         "cm2.c", "module.c", "service.c"
                     ],
                     mackerelDevices = [
-                        "omap/omap44xx_l3init_cm2"
+                        "omap/omap44xx_l3init_cm2",
+                        "omap/omap44xx_l4per_cm2"
                     ],
                     flounderDefs = [ "cm2" ],
                     flounderBindings = [ "cm2" ],
