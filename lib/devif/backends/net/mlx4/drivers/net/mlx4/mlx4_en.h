@@ -46,6 +46,8 @@
 #include "mlx4_stats.h"
 #include "en_port.h"
 
+#include <devif/queue_interface.h>
+
 /*
  #include <linux/bitops.h>
  #include <linux/compiler.h>
@@ -218,6 +220,8 @@ struct mlx4_en_tx_info {
 	// struct mbuf *mb;
 	u32 nr_txbb;
 	u32 nr_bytes;
+    genoffset_t offset;
+    genoffset_t length;
 };
 
 #define MLX4_EN_BIT_DESC_OWN	0x80000000

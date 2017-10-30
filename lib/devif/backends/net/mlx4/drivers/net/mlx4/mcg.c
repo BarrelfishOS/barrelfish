@@ -1200,36 +1200,37 @@ int mlx4_qp_attach_common(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
  mlx4_free_cmd_mailbox(dev, mailbox);
  return err;
  }
+*/
 
- static int mlx4_QP_ATTACH(struct mlx4_dev *dev, struct mlx4_qp *qp,
- u8 gid[16], u8 attach, u8 block_loopback,
- enum mlx4_protocol prot)
- {
- struct mlx4_cmd_mailbox *mailbox;
- int err = 0;
- int qpn;
+static int mlx4_QP_ATTACH(struct mlx4_dev *dev, struct mlx4_qp *qp,
+                          u8 gid[16], u8 attach, u8 block_loopback,
+                          enum mlx4_protocol prot)
+{
+    struct mlx4_cmd_mailbox *mailbox;
+    int err = 0;
+    int qpn;
 
- if (!mlx4_is_mfunc(dev))
- return -EBADF;
+    if (!mlx4_is_mfunc(dev))
+        return -EBADF;
 
- mailbox = mlx4_alloc_cmd_mailbox(dev);
- if (IS_ERR(mailbox))
- return PTR_ERR(mailbox);
+    mailbox = mlx4_alloc_cmd_mailbox();
+    if (IS_ERR(mailbox))
+        return PTR_ERR(mailbox);
 
- memcpy(mailbox->buf, gid, 16);
- qpn = qp->qpn;
- qpn |= (prot << 28);
- if (attach && block_loopback)
- qpn |= (1 << 31);
+    memcpy(mailbox->buf, gid, 16);
+    qpn = qp->qpn;
+    qpn |= (prot << 28);
+    if (attach && block_loopback)
+    qpn |= (1 << 31);
 
- err = mlx4_cmd(dev, mailbox->dma, qpn, attach,
- MLX4_CMD_QP_ATTACH, MLX4_CMD_TIME_CLASS_A,
- MLX4_CMD_WRAPPED);
+    err = mlx4_cmd(dev, mailbox->dma, qpn, attach,
+    MLX4_CMD_QP_ATTACH, MLX4_CMD_TIME_CLASS_A,
+    MLX4_CMD_WRAPPED);
 
- mlx4_free_cmd_mailbox(dev, mailbox);
- return err;
- }
- */
+    mlx4_free_cmd_mailbox(mailbox);
+    return err;
+}
+
 int mlx4_trans_to_dmfs_attach(struct mlx4_dev *dev, struct mlx4_qp *qp,
 		u8 gid[16], u8 port, int block_mcast_loopback, enum mlx4_protocol prot,
 		u64 *reg_id) {
@@ -1384,23 +1385,23 @@ int mlx4_multicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
  return ret;
  }
  EXPORT_SYMBOL_GPL(mlx4_flow_steer_promisc_remove);
+*/
+int mlx4_unicast_attach(struct mlx4_dev *dev, struct mlx4_qp *qp, u8 gid[16],
+                        int block_mcast_loopback, enum mlx4_protocol prot)
+{
+    if (prot == MLX4_PROT_ETH)
+        gid[7] |= (MLX4_UC_STEER << 1);
 
- int mlx4_unicast_attach(struct mlx4_dev *dev,
- struct mlx4_qp *qp, u8 gid[16],
- int block_mcast_loopback, enum mlx4_protocol prot)
- {
- if (prot == MLX4_PROT_ETH)
- gid[7] |= (MLX4_UC_STEER << 1);
+    if (mlx4_is_mfunc(dev)) {
+        return mlx4_QP_ATTACH(dev, qp, gid, 1, block_mcast_loopback, prot);
+    }
+    
+    return mlx4_qp_attach_common(dev, qp, gid, block_mcast_loopback,
+                                 prot, MLX4_UC_STEER);
+}
+// EXPORT_SYMBOL_GPL(mlx4_unicast_attach);
 
- if (mlx4_is_mfunc(dev))
- return mlx4_QP_ATTACH(dev, qp, gid, 1,
- block_mcast_loopback, prot);
-
- return mlx4_qp_attach_common(dev, qp, gid, block_mcast_loopback,
- prot, MLX4_UC_STEER);
- }
- EXPORT_SYMBOL_GPL(mlx4_unicast_attach);
-
+/*
  int mlx4_unicast_detach(struct mlx4_dev *dev, struct mlx4_qp *qp,
  u8 gid[16], enum mlx4_protocol prot)
  {

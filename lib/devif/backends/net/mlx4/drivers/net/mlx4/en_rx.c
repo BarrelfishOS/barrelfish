@@ -9,7 +9,7 @@
  * OpenIB.org BSD license below:
  *
  *     Redistribution and use in source and binary forms, with or
- *     without modification, are permitted provided that the following
+ *     without modification, are permitted p`rovided that the following
  *     conditions are met:
  *
  *      - Redistributions of source code must retain the above
@@ -55,6 +55,7 @@
 
 #include "mlx4_en.h"
 #include "mlx4_devif_queue.h"
+#include <net_interfaces/flags.h>
 
 static void mlx4_en_init_rx_desc(struct mlx4_en_priv *priv,
 		struct mlx4_en_rx_ring *ring, int index) {
@@ -368,7 +369,7 @@ errval_t mlx4_en_enqueue_rx(mlx4_queue_t *queue, regionid_t rid,
                                genoffset_t valid_data, genoffset_t valid_length,
                                uint64_t flags)
 {
-    debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", queue->name, __func__, offset, length, valid_data, valid_length, flags);
+    // debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", queue->name, __func__, offset, length, valid_data, valid_length, flags);
     struct mlx4_en_priv *priv = queue->priv;
     unsigned rx_ind = 0;
 	struct mlx4_en_rx_ring *ring = priv->rx_ring[rx_ind];
@@ -377,7 +378,7 @@ errval_t mlx4_en_enqueue_rx(mlx4_queue_t *queue, regionid_t rid,
 			+ (index * ring->stride));
 	struct mlx4_en_rx_mbuf *mb_list = ring->mbuf + index;
     
-    rx_desc->data[0].addr = queue->region_base + offset + valid_data;
+    rx_desc->data[0].addr = cpu_to_be64(queue->region_base + offset + valid_data);
     rx_desc->data[0].byte_count = cpu_to_be32(valid_length);
 	mb_list->buffer = queue->region_mapped + offset + valid_data;
     mb_list->offset = offset;
@@ -386,7 +387,7 @@ errval_t mlx4_en_enqueue_rx(mlx4_queue_t *queue, regionid_t rid,
 	ring->prod++;
 	mlx4_en_update_rx_prod_db(ring);
     
-    debug_printf("%s: [%d] %d:%d   %d:%d   %lx:%p\n", __func__, rx_ind, ring->cons, ring->prod, ring->size, ring->size_mask, queue->region_base + offset + valid_data, queue->region_mapped + offset + valid_data);
+    // debug_printf("%s: [%d] %d:%d   %d:%d   %lx:%p\n", __func__, rx_ind, ring->cons, ring->prod, ring->size, ring->size_mask, queue->region_base + offset + valid_data, queue->region_mapped + offset + valid_data);
     return SYS_ERR_OK;
 }
 
@@ -557,6 +558,75 @@ mlx4_en_rx_mb(struct mlx4_en_priv *priv, struct mlx4_en_rx_ring *ring,
 	// mb->m_len = mb->m_pkthdr.len = length;
 	return (mb);
 }
+
+#define CQE_FACTOR_INDEX(index, factor) ((index << factor) + factor)
+
+errval_t mlx4_en_dequeue_rx(mlx4_queue_t *queue, regionid_t* rid, genoffset_t* offset,
+                            genoffset_t* length, genoffset_t* valid_data,
+                            genoffset_t* valid_length, uint64_t* flags)
+{
+    struct mlx4_en_priv *priv = queue->priv;
+    struct mlx4_en_cq *cq = priv->rx_cq[0];
+    struct mlx4_cqe *buf = cq->buf;
+	struct mlx4_en_rx_ring *ring = priv->rx_ring[0];
+    struct mlx4_cq *mcq = &cq->mcq;
+	u32 cons_index = mcq->cons_index;
+	u32 size_mask = ring->size_mask;
+	int size = cq->size;
+	int factor = priv->cqe_factor;
+    int index;
+    struct mlx4_cqe *cqe;
+    
+	index = cons_index & size_mask;
+	cqe = &buf[CQE_FACTOR_INDEX(index, factor)];
+
+	// printf("cqe->owner_sr_opcode %d; cons_index %d:%d; size %d; cq->buf %p; index %d; qpn %x\n",
+	// 		cqe->owner_sr_opcode, cons_index, ring->prod, size, cq->buf, index, cqe->vlan_my_qpn);
+	// debug_printf("%s: qpn %x\n", __func__, cqe->vlan_my_qpn);
+
+	if (XNOR(cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK, cons_index & size)) {
+    	struct mlx4_en_rx_mbuf *mb_list;
+    	struct mlx4_en_rx_desc *rx_desc;
+        
+		mb_list = ring->mbuf + index;
+		rx_desc = (struct mlx4_en_rx_desc *) (ring->buf
+				+ (index << ring->log_stride));
+		rmb();
+		if (invalid_cqe(priv, cqe)) {
+			assert(0);
+		}
+
+        *rid = queue->region_id;
+        *offset = mb_list->offset;
+        *length = mb_list->length;
+        *valid_data = 0;
+        *valid_length = be32_to_cpu(cqe->byte_cnt) - ring->fcs_del;
+        *flags = NETIF_RXFLAG;
+		ring->bytes += *valid_length;
+		ring->packets++;
+
+        // uint16_t *data;
+		// data = (uint16_t *)mb_list->buffer;
+        // debug_printf("Got packet: %p %04x:%04x %04x:%04x %04x:%04x %04x:%04x, %04x:%04x %04x:%04x %04x:%04x %04x:%04x, %04x:%04x %04x:%04x %04x:%04x %04x:%04x, %04x:%04x %04x:%04x %04x:%04x %04x:%04x\n", mb_list->buffer,
+        //     data[0x0], data[0x1], data[0x2], data[0x3], data[0x4], data[0x5], data[0x6], data[0x7],
+        //     data[0x8], data[0x9], data[0xa], data[0xb], data[0xc], data[0xd], data[0xe], data[0xf],
+        //     data[0x10], data[0x11], data[0x12], data[0x13], data[0x14], data[0x15], data[0x16], data[0x17],
+        //     data[0x18], data[0x19], data[0x1a], data[0x1b], data[0x1c], data[0x1d], data[0x1e], data[0x1f]);
+
+        mcq->cons_index = cons_index + 1;
+        mlx4_cq_set_ci(mcq);
+        wmb();
+    	/*ensure HW sees CQ consumer before we post new buffers*/
+    	ring->cons = mcq->cons_index;
+    } else {
+        return DEVQ_ERR_QUEUE_EMPTY;
+    }
+    // debug_print_to_log("DEQRX %d", *valid_length);
+    // debug_printf("%s: [%d] %d:%d   %d:%d   %lx:%p\n", __func__, 0, ring->cons, ring->prod, ring->size, ring->size_mask, queue->region_base + offset + valid_data, queue->region_mapped + offset + valid_data);
+    // debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", queue->name, __func__, *offset, *length, *valid_data, *valid_length, *flags);
+    return SYS_ERR_OK;
+}
+
 /*
  For cpu arch with cache line of 64B the performance is better when cqe size==64B
  * To enlarge cqe size from 32B to 64B --> 32B of garbage (i.e. 0xccccccc)
@@ -564,7 +634,6 @@ mlx4_en_rx_mb(struct mlx4_en_priv *priv, struct mlx4_en_rx_ring *ring,
  * The following calc ensures that when factor==1, it means we are alligned to 64B
  * and we get the real cqe data
  */
-#define CQE_FACTOR_INDEX(index, factor) ((index << factor) + factor)
 int mlx4_en_process_rx_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
 		int budget) {
 	/*struct mlx4_en_priv *priv = netdev_priv(dev);*/
@@ -586,7 +655,7 @@ int mlx4_en_process_rx_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
 	int size = cq->size;
 	int factor = priv->cqe_factor;
 
-	uint16_t *data;
+	// uint16_t *data;
 	// int i;
 	/*data = (uint32_t *) ring->buf;
 	 for (i = 0; i < ring->buf_size / 4; ++i) {
@@ -628,7 +697,6 @@ int mlx4_en_process_rx_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
                 line[s++] = ' ';
         }
         line[s] = 0;
-        debug_printf("CQE: %s\n", line);
 		/** Packet is OK - process it.*/
 
 		length = be32_to_cpu(cqe->byte_cnt);
@@ -643,12 +711,12 @@ int mlx4_en_process_rx_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
 		ring->bytes += length;
 		ring->packets++;
 
-		data = (uint16_t *) mb;
-        debug_printf("Got packet: %p:%d: %04x:%04x %04x:%04x %04x:%04x %04x:%04x, %04x:%04x %04x:%04x %04x:%04x %04x:%04x, %04x:%04x %04x:%04x %04x:%04x %04x:%04x, %04x:%04x %04x:%04x %04x:%04x %04x:%04x\n", data, length,
-            data[0x0], data[0x1], data[0x2], data[0x3], data[0x4], data[0x5], data[0x6], data[0x7],
-            data[0x8], data[0x9], data[0xa], data[0xb], data[0xc], data[0xd], data[0xe], data[0xf],
-            data[0x10], data[0x11], data[0x12], data[0x13], data[0x14], data[0x15], data[0x16], data[0x17],
-            data[0x18], data[0x19], data[0x1a], data[0x1b], data[0x1c], data[0x1d], data[0x1e], data[0x1f]);
+		// data = (uint16_t *) mb;
+        // debug_printf("Got packet: %p:%d: %04x:%04x %04x:%04x %04x:%04x %04x:%04x, %04x:%04x %04x:%04x %04x:%04x %04x:%04x, %04x:%04x %04x:%04x %04x:%04x %04x:%04x, %04x:%04x %04x:%04x %04x:%04x %04x:%04x\n", data, length,
+        //     data[0x0], data[0x1], data[0x2], data[0x3], data[0x4], data[0x5], data[0x6], data[0x7],
+        //     data[0x8], data[0x9], data[0xa], data[0xb], data[0xc], data[0xd], data[0xe], data[0xf],
+        //     data[0x10], data[0x11], data[0x12], data[0x13], data[0x14], data[0x15], data[0x16], data[0x17],
+        //     data[0x18], data[0x19], data[0x1a], data[0x1b], data[0x1c], data[0x1d], data[0x1e], data[0x1f]);
 		/*if (unlikely(priv->validate_loopback)) {
 		 validate_loopback(priv, mb);
 		 goto next;
@@ -729,12 +797,12 @@ int mlx4_en_process_rx_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq *cq,
 void mlx4_en_rx_irq(struct mlx4_cq *mcq) {
     struct mlx4_en_cq *cq = container_of(mcq, struct mlx4_en_cq, mcq);
     struct mlx4_en_priv *priv = cq->dev;
-    int done;
+    // int done;
 
     // Shoot one within the irq context
     // Because there is no NAPI in freeBSD
-    done = mlx4_en_process_rx_cq(priv, cq, MLX4_EN_RX_BUDGET);
-    cq->tot_rx += done;
+    // done = mlx4_en_process_rx_cq(priv, cq, MLX4_EN_RX_BUDGET);
+    // cq->tot_rx += done;
     // if (priv->port_up && (done == MLX4_EN_RX_BUDGET)) {
     //         cq->curr_poll_rx_cpu_id = curcpu;
     //         taskqueue_enqueue(cq->tq, &cq->cq_task);
