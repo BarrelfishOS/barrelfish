@@ -36,8 +36,18 @@ int mlx4_en_xmit(struct mlx4_en_priv *priv, int tx_ind, genpaddr_t buffer_data, 
 void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_ind);
 
 errval_t mlx4_en_enqueue_rx(mlx4_queue_t *queue, regionid_t rid,
-                               genoffset_t offset, genoffset_t length,
-                               genoffset_t valid_data, genoffset_t valid_length,
-                               uint64_t flags);
+                            genoffset_t offset, genoffset_t length,
+                            genoffset_t valid_data, genoffset_t valid_length,
+                            uint64_t flags);
+errval_t mlx4_en_dequeue_rx(mlx4_queue_t *queue, regionid_t* rid, genoffset_t* offset,
+                            genoffset_t* length, genoffset_t* valid_data,
+                            genoffset_t* valid_length, uint64_t* flags);
+errval_t mlx4_en_enqueue_tx(mlx4_queue_t *queue, regionid_t rid,
+                            genoffset_t offset, genoffset_t length,
+                            genoffset_t valid_data, genoffset_t valid_length,
+                            uint64_t flags);
+errval_t mlx4_en_dequeue_tx(mlx4_queue_t *queue, regionid_t* rid, genoffset_t* offset,
+                            genoffset_t* length, genoffset_t* valid_data,
+                            genoffset_t* valid_length, uint64_t* flags);
 
 #endif

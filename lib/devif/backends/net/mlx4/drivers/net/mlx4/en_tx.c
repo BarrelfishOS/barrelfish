@@ -62,6 +62,7 @@
 
 #include "mlx4_en.h"
 #include "mlx4_devif_queue.h"
+#include <net_interfaces/flags.h>
 /*#include "utils.h"*/
 
 enum {
@@ -242,7 +243,6 @@ int mlx4_en_activate_tx_ring(struct mlx4_en_priv *priv,
 	struct mlx4_en_dev *mdev = priv->mdev;
 	int err;
 
-    debug_printf("%s.%d:\n", __func__, __LINE__);
 	ring->cqn = cq;
 	ring->prod = 0;
 	ring->cons = 0xffffffff;
@@ -385,6 +385,104 @@ static bool mlx4_en_tx_ring_is_full(struct mlx4_en_tx_ring *ring) {
 	return (wqs < (HEADROOM + (2 * MLX4_EN_TX_WQE_MAX_WQEBBS)));
 }
 
+errval_t mlx4_en_dequeue_tx(mlx4_queue_t *queue, regionid_t* rid, genoffset_t* offset,
+                            genoffset_t* length, genoffset_t* valid_data,
+                            genoffset_t* valid_length, uint64_t* flags)
+{
+	struct mlx4_en_priv *priv = queue->priv;
+    struct mlx4_en_cq *cq = priv->tx_cq[0];
+	struct mlx4_cq *mcq = &cq->mcq;
+	struct mlx4_en_tx_ring *ring = priv->tx_ring[cq->ring];
+	struct mlx4_cqe *cqe;
+	u16 index;
+	u16 new_index, ring_index, stamp_index;
+	u32 txbbs_skipped = 0;
+	u32 txbbs_stamp = 0;
+	u32 cons_index = mcq->cons_index;
+	int size = cq->size;
+	u32 size_mask = ring->size_mask;
+	struct mlx4_cqe *buf = cq->buf;
+	int factor = priv->cqe_factor;
+
+	if (!priv->port_up)
+		return 0;
+
+	index = cons_index & size_mask;
+	cqe = &buf[(index << factor) + factor];
+	ring_index = ring->cons & size_mask;
+	stamp_index = ring_index;
+
+	/*Process all completed CQEs*/
+	if (XNOR(cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK, cons_index & size)) {
+
+		/* make sure we read the CQE after we read the
+		 * ownership bit*/
+
+
+		rmb();
+
+		if (/*unlikely(*/
+		(cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK)
+				== MLX4_CQE_OPCODE_ERROR/*)*/) {
+			MLX4_ERR(
+					"CQE completed in error - vendor syndrom: 0x%x syndrom: 0x%x\n",
+					((struct mlx4_err_cqe * ) cqe)->vendor_err_syndrome,
+					((struct mlx4_err_cqe * ) cqe)->syndrome);
+		}
+
+		/*Skip over last polled CQE*/
+		new_index = be16_to_cpu(cqe->wqe_index) & size_mask;
+
+		if (ring_index != new_index) {
+			txbbs_skipped += ring->last_nr_txbb;
+			ring_index = (ring_index + ring->last_nr_txbb) & size_mask;
+			/*free next descriptor*/
+
+	        struct mlx4_en_tx_info *tx_info;
+	        tx_info = &ring->tx_info[ring_index];
+			ring->last_nr_txbb = tx_info->nr_txbb;
+            
+			mlx4_en_stamp_wqe(priv, ring, stamp_index,
+					!!((ring->cons + txbbs_stamp) & ring->size));
+			stamp_index = ring_index;
+			txbbs_stamp = txbbs_skipped;
+            
+            *rid = queue->region_id;
+            *offset = tx_info->offset;
+            *length = tx_info->length;
+            *valid_data = 0;
+            *valid_length = tx_info->nr_bytes;
+            *flags = NETIF_TXFLAG | NETIF_TXFLAG_LAST;
+		}
+
+		++cons_index;
+		index = cons_index & size_mask;
+		cqe = &buf[(index << factor) + factor];
+	} else {
+        // debug_printf("%s: NONE\n", __func__);
+        return DEVQ_ERR_QUEUE_EMPTY;
+    }
+
+	/* To prevent CQ overflow we first update CQ consumer and only then
+	 * the ring consumer.*/
+
+	mcq->cons_index = cons_index;
+	mlx4_cq_set_ci(mcq);
+	wmb();
+	ring->cons += txbbs_skipped;
+
+	/*Wakeup Tx queue if it was stopped and ring is not full*/
+	if (/*unlikely(*/ring->blocked/*)*/&& !mlx4_en_tx_ring_is_full(ring)) {
+		ring->blocked = 0;
+		/*if (atomic_fetchadd_int(&priv->blocked, -1) == 1)
+		 atomic_clear_int(&dev->if_drv_flags, IFF_DRV_OACTIVE);*/
+		ring->wake_queue++;
+		priv->port_stats.wake_queue++;
+	}
+    // debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", queue->name, __func__, *offset, *length, *valid_data, *valid_length, *flags);
+    return SYS_ERR_OK;
+}
+
 static int mlx4_en_process_tx_cq(struct mlx4_en_priv *priv,
 		struct mlx4_en_cq *cq) {
 	/*struct mlx4_en_priv *priv = netdev_priv(dev);*/
@@ -468,14 +566,14 @@ static int mlx4_en_process_tx_cq(struct mlx4_en_priv *priv,
 }
 
 void mlx4_en_tx_irq(struct mlx4_cq *mcq) {
-    struct mlx4_en_cq *cq = container_of(mcq, struct mlx4_en_cq, mcq);
-    struct mlx4_en_priv *priv = cq->dev;
+    // struct mlx4_en_cq *cq = container_of(mcq, struct mlx4_en_cq, mcq);
+    // struct mlx4_en_priv *priv = cq->dev;
     // struct mlx4_en_tx_ring *ring = priv->tx_ring[cq->ring];
 
-    debug_printf("%s.%d:\n", __func__, __LINE__);
-    if (priv->port_up == 0/* || !spin_trylock(&ring->comp_lock)*/)
-        return;
-    mlx4_en_process_tx_cq(priv, cq);
+    // debug_printf("%s.%d:\n", __func__, __LINE__);
+    // if (priv->port_up == 0/* || !spin_trylock(&ring->comp_lock)*/)
+    //     return;
+    // mlx4_en_process_tx_cq(priv, cq);
     // mod_timer(&cq->timer, jiffies + 1);
     // spin_unlock(&ring->comp_lock);
 }
@@ -747,9 +845,42 @@ inline void mlx4_en_xmit_poll(struct mlx4_en_priv *priv, int tx_ind) {
 // }
 // }
 
-/*VLAD: now it works only for packets smaller than 256 which are written directly to MMIO (BlueFlame)*/
-int mlx4_en_xmit(struct mlx4_en_priv *priv, int tx_ind, genpaddr_t buffer_data, size_t length)
+errval_t mlx4_en_enqueue_tx(mlx4_queue_t *queue, regionid_t rid,
+                               genoffset_t offset, genoffset_t length,
+                               genoffset_t valid_data, genoffset_t valid_length,
+                               uint64_t flags)
 {
+    // debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", queue->name, __func__, offset, length, valid_data, valid_length, flags);
+    // uint8_t *packet = queue->region_mapped + offset + valid_data;
+    // int i;
+    // packet[6] = 0;
+    // packet[7] = 0;
+    // packet[8] = 0;
+    // packet[9] = 0;
+    // packet[10] = 0;
+    // packet[11] = 0;
+    // packet[0x28] = 0xe4;
+    // packet[0x29] = 0x17;
+    // packet[0x2e] = 0x42;
+    // packet[0x2f] = 0x6a;
+    // packet[0x30] = 0x61;
+    // packet[0x31] = 0x6b;
+    // packet[0x46] = 0;
+    // packet[0x47] = 0;
+    // packet[0x48] = 0;
+    // packet[0x49] = 0;
+    // packet[0x4a] = 0;
+    // packet[0x4b] = 0;
+
+    // for (i = 0; i < valid_length; i += 16) {
+    //     debug_printf("%s: %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx  %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n", __func__, packet[0], packet[1], packet[2], packet[3], packet[4], packet[5], packet[6], packet[7],
+    //         packet[8], packet[9], packet[10], packet[11], packet[12], packet[13], packet[14], packet[15]);
+    //     packet += 16;
+    // }
+    struct mlx4_en_priv *priv = queue->priv;
+    int tx_ind = 0;
+    genpaddr_t buffer_data = queue->region_base + offset + valid_data;
+    
     /*bus_dma_segment_t segs[MLX4_EN_TX_MAX_MBUF_FRAGS];*/
     // volatile struct mlx4_wqe_data_seg *dseg;
     // volatile struct mlx4_wqe_data_seg *dseg_inline;
@@ -787,9 +918,6 @@ int mlx4_en_xmit(struct mlx4_en_priv *priv, int tx_ind, genpaddr_t buffer_data, 
 	bool inl = false;
 	__be32 owner_bit;
 
-    
-    debug_printf("%s.%d: %lx:%zd %p\n", __func__, __LINE__, buffer_data, length, priv);
-    
     if (!priv->port_up) {
     	goto tx_drop;
     }
@@ -826,7 +954,9 @@ int mlx4_en_xmit(struct mlx4_en_priv *priv, int tx_ind, genpaddr_t buffer_data, 
 	// tx_info->mb = mb;
 	tx_info->nr_txbb = nr_txbb;
 	// tx_info->nr_segs = nr_segs;
-
+    tx_info->offset = offset;
+    tx_info->length = length;
+    
     data = &tx_desc->data;
     
 	/* valid only for none inline segments */
@@ -836,7 +966,8 @@ int mlx4_en_xmit(struct mlx4_en_priv *priv, int tx_ind, genpaddr_t buffer_data, 
 	if (!inl) {
 		data->addr = cpu_to_be64(buffer_data);
 		data->lkey = cpu_to_be32(priv->mdev->mr.key);
-		data->byte_count = SET_BYTE_COUNT(length);
+		data->byte_count = SET_BYTE_COUNT(valid_length);
+        tx_info->nr_bytes = valid_length;
     }
     
 	tx_desc->ctrl.vlan_tag = cpu_to_be16(0);
@@ -857,7 +988,7 @@ int mlx4_en_xmit(struct mlx4_en_priv *priv, int tx_ind, genpaddr_t buffer_data, 
 	op_own |= owner_bit;
 	ring->prod += nr_txbb;
     
-    debug_printf("%s.%d: index=%d bf_index=%d prod=%d\n", __func__, __LINE__, index, bf_index, ring->prod);
+    // debug_printf("%s.%d: index=%d bf_index=%d prod=%d\n", __func__, __LINE__, index, bf_index, ring->prod);
 
     cq = priv->tx_cq[tx_ind];
     mlx4_en_arm_cq(priv, cq);

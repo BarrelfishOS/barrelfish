@@ -66,8 +66,10 @@ static void int_handler(void* args)
 {
     struct net_state *st = devq_get_state(args);
 
-    net_if_poll(&st->netif);
-    net_lwip_timeout();
+    if (st) {
+        net_if_poll(&st->netif);
+        net_lwip_timeout();
+    }
 }
 
 static void net_loopback_poll(void *arg)
@@ -114,7 +116,7 @@ errval_t networking_create_queue(const char *cardname, uint64_t* queueid,
     bool poll = st->flags & NET_FLAGS_POLLING;
     bool default_q = st->flags & NET_FLAGS_DEFAULT_QUEUE;
     return net_queue_internal_create(int_handler, cardname, queueid, default_q,
-                                     poll, retqueue); 
+                                     poll, retqueue);
 }
 
 
