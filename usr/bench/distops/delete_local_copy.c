@@ -20,6 +20,8 @@
 #include <bench/bench.h>
 #include <trace/trace.h>
 
+#include <barrelfish/nameservice_client.h>
+
 #include "benchapi.h"
 
 //{{{1 debugging helpers
@@ -87,6 +89,13 @@ errval_t mgmt_init_benchmark(void **st, int nodecount)
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "event_dispatch while waiting for trace_prepare");
         }
+    }
+
+    printf("# mgmt node: waiting for bfscope\n");
+    iref_t bfscope;
+    err = nameservice_blocking_lookup("bfscope", &bfscope);
+    if (err_is_fail(err)) {
+        return err;
     }
 
      *st = calloc(1, sizeof(struct global_state));
