@@ -17,7 +17,18 @@ def parse_args():
     p = optparse.OptionParser(usage='Usage: %prog [options] RESULTDIR...',
             description='Reprocess raw results from scalebench/harness runs')
     debug.addopts(p, 'debuglevel')
+    p.add_option('-e', '--existingbuild', dest='existingbuild', metavar='DIR',
+                 help='existing build directory (may not be used with -b)')
+    p.add_option('-S', '--sourcedir', dest='sourcedir', metavar='DIR',
+                 help='source directory')
+    p.add_option('-A', '--arch', dest='arch', metavar='ARCH',
+            help='architecture to use')
     options, dirs = p.parse_args()
+
+    print "options.existingbuild:",options.existingbuild
+    options.buildbase = options.existingbuild
+    print "options.buildbase:",options.buildbase
+    options.machines = None
 
     if len(dirs) == 0:
         p.error('no result directories specified')
@@ -29,10 +40,10 @@ def parse_args():
             p.error('invalid results directory %s' % d)
 
     debug.current_level = options.debuglevel
-    return dirs
+    return dirs,options
 
 
-def main(dirs):
+def main(dirs, options=None):
     for dirname in dirs:
         debug.log('reprocessing %s' % dirname)
         debug.verbose('parse %s/description.txt for test' % dirname)
@@ -52,7 +63,7 @@ def main(dirs):
         debug.verbose('locate test "%s"' % testname)
         for t in tests.all_tests:
             if t.name.lower() == testname.lower():
-                test = t(None) # XXX: dummy options
+                test = t(options)
         if not test:
             debug.error('unknown test "%s" in %s, skipped' % (testname, dirname))
             continue
@@ -62,4 +73,5 @@ def main(dirs):
         h.process_results(test, dirname)
 
 if __name__ == "__main__":
-    main(parse_args())
+    dirs, options = parse_args()
+    main(dirs, options=options)
