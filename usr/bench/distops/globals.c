@@ -21,3 +21,8 @@ uint32_t NUM_COPIES_START = 256;
 uint32_t NUM_COPIES_END = 65536;
 uint32_t ITERS = 1000;
 
+void bench_enable_tracing(void);
+void bench_enable_tracing(void)
+{
+    NUM_COPIES_START = NUM_COPIES_END = 4096;
+}

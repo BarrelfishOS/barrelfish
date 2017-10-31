@@ -20,8 +20,6 @@
 #include <bench/bench.h>
 #include <trace/trace.h>
 
-#include <barrelfish/nameservice_client.h>
-
 #include "benchapi.h"
 
 //{{{1 debugging helpers
@@ -55,59 +53,18 @@ struct global_state {
     int currcopies;
 };
 
-static void after_prepare(void *arg)
-{
-    bool *done = arg;
-    *done = true;
-}
-
 errval_t mgmt_init_benchmark(void **st, int nodecount)
 {
-    errval_t err;
-    // Initialize tracing
-    printf("# mgmt node: initializing tracing\n");
-    trace_reset_all();
-    trace_set_autoflush(true);
-    // Trace everything
-    trace_set_all_subsys_enabled(false);
-    trace_set_subsys_enabled(TRACE_SUBSYS_CAPOPS, true);
-    trace_set_subsys_enabled(TRACE_SUBSYS_KERNEL_CAPOPS, true);
-    //trace_set_subsys_enabled(TRACE_SUBSYS_MDB, true);
-    err = trace_control(TRACE_EVENT(TRACE_SUBSYS_CAPOPS,
-                                    TRACE_EVENT_CAPOPS_START, 0),
-                        TRACE_EVENT(TRACE_SUBSYS_CAPOPS,
-                                    TRACE_EVENT_CAPOPS_STOP, 0),
-                        0);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "unable to enable capops tracing");
+    *st = calloc(1, sizeof(struct global_state));
+    if (!*st) {
+        return LIB_ERR_MALLOC_FAIL;
     }
-    bool trace_prepare_done = false;
-    trace_prepare(MKCLOSURE(after_prepare, &trace_prepare_done));
-
-    while (!trace_prepare_done) {
-        err = event_dispatch(get_default_waitset());
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "event_dispatch while waiting for trace_prepare");
-        }
-    }
-
-    printf("# mgmt node: waiting for bfscope\n");
-    iref_t bfscope;
-    err = nameservice_blocking_lookup("bfscope", &bfscope);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-     *st = calloc(1, sizeof(struct global_state));
-     if (!*st) {
-         return LIB_ERR_MALLOC_FAIL;
-     }
-     struct global_state *gs = *st;
-     gs->nodes = calloc(nodecount, sizeof(coreid_t));
-     gs->nodecount = nodecount;
-     gs->copies_done = 0;
-     gs->printnode = 0;
-     return ram_alloc(&gs->ram, BASE_PAGE_BITS);
+    struct global_state *gs = *st;
+    gs->nodes = calloc(nodecount, sizeof(coreid_t));
+    gs->nodecount = nodecount;
+    gs->copies_done = 0;
+    gs->printnode = 0;
+    return ram_alloc(&gs->ram, BASE_PAGE_BITS);
 }
 
 static int sort_coreid(const void *a_, const void *b_)
@@ -153,10 +110,6 @@ void mgmt_run_benchmark(void *st)
         printf("%d ", gs->nodes[i]);
     }
     printf("\n");
-
-    // XXX: figure this out
-    NUM_COPIES_START = 4096;
-    NUM_COPIES_END = 4096;
 
     printf("# Starting out with %d copies, will increase by factors of two up to %d...\n",
             NUM_COPIES_START, NUM_COPIES_END);

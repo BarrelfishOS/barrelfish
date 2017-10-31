@@ -16,6 +16,8 @@
 #include <barrelfish/nameservice_client.h>
 #include <if/bench_distops_defs.h>
 
+#include <trace/trace.h>
+
 #include "benchapi.h"
 
 //{{{1 Shared local state
@@ -32,6 +34,7 @@ struct benchmark_state {
     int clients_total;
     struct bench_distops_binding **nodes;
     void *st;
+    bool tracing;
 };
 
 struct mgmt_node_state {
@@ -236,6 +239,11 @@ static void run_benchmark(int nodecount)
     bench_state->nodes = malloc(nodecount * sizeof(struct bench_distops_binding *));
     if (!bench_state->nodes) {
         USER_PANIC("malloc failed");
+    }
+
+    err = mgmt_init_tracing();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "initializing tracing");
     }
 
     err = mgmt_init_benchmark(&bench_state->st, nodecount);
