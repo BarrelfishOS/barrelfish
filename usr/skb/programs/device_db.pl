@@ -50,7 +50,8 @@ pci_driver{
       pci_card{ vendor: 16'8086, device: 16'10a7, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'10d3, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'1079, function: _, subvendor: _, subdevice: _ },
-      pci_card{ vendor: 16'8086, device: 16'1533, function: _, subvendor: _, subdevice: _ } ],
+      pci_card{ vendor: 16'8086, device: 16'1533, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'15b3, device: 16'1003, function: _, subvendor: _, subdevice: _ } ],
     core_hint: 0,
     core_offset: 0,
     multi_instance: 0,
@@ -97,8 +98,7 @@ pci_driver{
 pci_driver{
     binary: "mxl4_core",
     supported_cards:
-    [ pci_card{ vendor: 16'15b3, device: 16'0050, function: _, subvendor: _, subdevice: _ },
-      pci_card{ vendor: 16'15b3, device: 16'1003, function: _, subvendor: _, subdevice: _ } ],
+    [ pci_card{ vendor: 16'15b3, device: 16'0050, function: _, subvendor: _, subdevice: _ } ],
     core_hint: 0,
     core_offset: 0,
     multi_instance: 0,
