@@ -239,6 +239,8 @@ class DistopsBreakdownDeleteLocal(DistopsBreakdown):
     name = 'distops_breakdown_delete_local'
     binary_name = 'bench_delete_local_copy'
 
-    def __init__(self, options):
-        super(DistopsBreakdownDeleteLocal, self).__init__(options)
-
+@tests.add_test
+class DistopsBreakdownDeleteForeign(DistopsBreakdown):
+    '''Benchmark latency of deleting foreign copy of capability'''
+    name = 'distops_breakdown_delete_foreign'
+    binary_name = "bench_delete_foreign_copy"
