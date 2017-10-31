@@ -18,6 +18,7 @@
 #include <bitmacros.h>
 
 #include <bench/bench.h>
+#include <trace/trace.h>
 
 #include "benchapi.h"
 
@@ -92,6 +93,10 @@ int main(int argc, char *argv[])
     err = mgmt_init_benchmark((void**)&gs, 1);
     assert(err_is_ok(err));
 
+    // Initialize tracing
+    err = mgmt_init_tracing();
+    assert(err_is_ok(err));
+
     // Initialize node state
     struct node_state ns_;
     struct node_state *ns = &ns_;
@@ -110,6 +115,8 @@ int main(int argc, char *argv[])
         err = slot_alloc(&copies[c]);
         assert(err_is_ok(err));
     }
+
+    TRACE(CAPOPS, START, 0);
 
     for (gs->currcopies = NUM_COPIES_START;
          gs->currcopies <= NUM_COPIES_END;
@@ -134,7 +141,9 @@ int main(int argc, char *argv[])
             }
             // printf("# node %d: doing revoke\n", my_core_id);
             start = bench_tsc();
+            TRACE(CAPOPS, USER_DELETE_CALL, (ns->numcopies << 16) | i);
             err = cap_revoke(cap);
+            TRACE(CAPOPS, USER_DELETE_RESP, (ns->numcopies << 16) | i);
             end = bench_tsc();
             ns->delcycles[i] = end - start;
             assert(err_is_ok(err));
@@ -161,6 +170,10 @@ int main(int argc, char *argv[])
         free(ns->copies);
         printf("# Round done!\n");
     }
+
+    TRACE(CAPOPS, STOP, 0);
+    trace_flush(NOP_CONT);
+
     // We're not printing this line here, as it's printed from the standalone
     // runner, that allows us to run single-core benchmarks sequentially on
     // multiple cores

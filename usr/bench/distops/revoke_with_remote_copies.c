@@ -18,6 +18,7 @@
 #include <bitmacros.h>
 
 #include <bench/bench.h>
+#include <trace/trace.h>
 
 #include "benchapi.h"
 
@@ -129,6 +130,8 @@ void mgmt_run_benchmark(void *st)
     printf("# Starting out with %d copies, will by powers of 2 up to %d...\n",
             NUM_COPIES_START, NUM_COPIES_END);
 
+    TRACE(CAPOPS, START, 0);
+
     gs->currcopies = NUM_COPIES_START;
     broadcast_caps(BENCH_CMD_CREATE_COPIES, NUM_COPIES_START, gs->ram);
 }
@@ -161,6 +164,8 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
         case BENCH_CMD_PRINT_DONE:
             if (gs->currcopies == NUM_COPIES_END) {
                 printf("# Benchmark done!\n");
+                TRACE(CAPOPS, STOP, 0);
+                trace_flush(NOP_CONT);
                 return;
             }
             printf("# Round done!\n");
@@ -289,7 +294,9 @@ void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                     my_core_id, get_mdb_size());
             uint64_t start, end;
             start = bench_tsc();
+            TRACE(CAPOPS, USER_DELETE_CALL, (ns->numcopies << 16) | ns->iter);
             err = cap_revoke(ns->cap);
+            TRACE(CAPOPS, USER_DELETE_RESP, (ns->numcopies << 16) | ns->iter);
             end = bench_tsc();
             ns->delcycles[ns->iter] = end - start;
             assert(err_is_ok(err));

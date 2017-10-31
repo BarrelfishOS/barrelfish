@@ -71,42 +71,8 @@ struct global_state {
     int currcopies;
 };
 
-static void after_prepare(void *arg)
-{
-    bool *done = arg;
-    *done = true;
-}
-
 errval_t mgmt_init_benchmark(void **st, int nodecount)
 {
-    errval_t err;
-    // Initialize benchmarking
-    bench_init();
-    // Initialize tracing
-    printf("# mgmt node: initializing tracing\n");
-    trace_reset_all();
-    trace_set_autoflush(true);
-    // Trace everything
-    trace_set_all_subsys_enabled(false);
-    trace_set_subsys_enabled(TRACE_SUBSYS_CAPOPS, true);
-    err = trace_control(TRACE_EVENT(TRACE_SUBSYS_CAPOPS,
-                                    TRACE_EVENT_CAPOPS_START, 0),
-                        TRACE_EVENT(TRACE_SUBSYS_CAPOPS,
-                                    TRACE_EVENT_CAPOPS_STOP, 0),
-                        0);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "unable to enable capops tracing");
-    }
-    bool trace_prepare_done = false;
-    trace_prepare(MKCLOSURE(after_prepare, &trace_prepare_done));
-
-    while (!trace_prepare_done) {
-        err = event_dispatch(get_default_waitset());
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "event_dispatch while waiting for trace_prepare");
-        }
-    }
-
     *st = calloc(1, sizeof(struct global_state));
     if (!*st) {
         return LIB_ERR_MALLOC_FAIL;
@@ -161,14 +127,10 @@ void mgmt_run_benchmark(void *st)
 
     printf("# Benchmarking DELETE LAST: nodes=%d\n", gs->nodecount);
 
-    // only for tracing
-    NUM_COPIES_END = NUM_COPIES_START;
-
     printf("# Starting out with %d copies, will by powers of 2 up to %d...\n",
             NUM_COPIES_START, NUM_COPIES_END);
 
     TRACE(CAPOPS, START, 0);
-    printf("# bench_tsc() just after CAPOPS_START: %"PRIu64"\n", bench_tsc());
 
     gs->currcopies = NUM_COPIES_START;
     broadcast_caps(BENCH_CMD_CREATE_COPIES, NUM_COPIES_START, gs->ram);
