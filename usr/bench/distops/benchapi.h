@@ -28,10 +28,15 @@ do { \
 #define DEBUG(x...)
 #endif
 
-//{{{1 benchmark controls, defined in main.c
+//{{{1 benchmark controls, defined in globals.c
 extern uint32_t NUM_COPIES_START;
 extern uint32_t NUM_COPIES_END;
 extern uint32_t ITERS;
+
+void bench_enable_tracing(void);
+
+//{{{1 Tracing helpers
+errval_t mgmt_init_tracing(void);
 
 //{{{1 Mgmt node API
 
