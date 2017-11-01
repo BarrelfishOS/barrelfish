@@ -77,10 +77,13 @@ class DistopsBreakdownTraceParser(object):
         # XXX: this is not very nice, as we're flattening a partial order by hand
         # here in order to make queries about event ordering to skip partially
         # recorded inner trace points that don't carry the sequence number yet :)
-        event_order = [ 'user_delete_call', 'delete_enter', 'try_delete',
-                'has_copies', 'cleanup_copy', 'cleanup_last', 'unmap_capability',
-                'mdb_remove', 'mdb_rebalance', 'mdb_update_end', 'create_ram',
-                'create_ram_lmp', 'delete_done', 'user_delete_resp' ]
+        #
+        # 2017-11-01: this seems to be unnecessary, as trace points are
+        # recorded in-order anyway.
+        # event_order = [ 'user_delete_call', 'delete_enter', 'try_delete',
+        #         'has_copies', 'cleanup_copy', 'cleanup_last', 'unmap_capability',
+        #         'mdb_remove', 'mdb_rebalance', 'mdb_update_end', 'create_ram',
+        #         'create_ram_lmp', 'delete_done', 'user_delete_resp' ]
 
         # current breakdown object indexed by coreid
         currbreak = dict()
@@ -118,12 +121,8 @@ class DistopsBreakdownTraceParser(object):
                     # so other code can check whether we're in the middle of a breakdown
                     # by checking whether the coreid is in the keyset of the dict
                     del currbreak[e._coreid]
-            elif e._evname in event_order and \
-                 e._coreid in currbreak.keys():
-                if event_order.index(e._evname) > \
-                   event_order.index(currbreak[e._coreid].last_event._evname):
-                       currbreak[e._coreid].append_event(e)
-
+            elif e._coreid in currbreak.keys():
+                currbreak[e._coreid].append_event(e)
 
             # handle trace point before call to cap_delete() in user code
             if e._evname == "user_delete_call":
