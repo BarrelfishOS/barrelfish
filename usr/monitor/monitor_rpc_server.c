@@ -45,6 +45,7 @@ static void remote_cap_retype(struct monitor_blocking_binding *b,
 
 static void delete_reply_status(errval_t status, void *st)
 {
+    TRACE(CAPOPS, MONITOR_DELETE_REPLY, 0);
     DEBUG_CAPOPS("sending cap_delete reply msg: %s\n", err_getstring(status));
     struct monitor_blocking_binding *b = (struct monitor_blocking_binding*)st;
     errval_t err = b->tx_vtbl.remote_cap_delete_response(b, NOP_CONT, status);
@@ -54,6 +55,7 @@ static void delete_reply_status(errval_t status, void *st)
 static void remote_cap_delete(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src, uint8_t level)
 {
+    TRACE(CAPOPS, MONITOR_DELETE_ENTER, 0);
     struct domcapref cap = { .croot = croot, .cptr = src, .level = level };
     capops_delete(cap, delete_reply_status, (void*)b);
 }

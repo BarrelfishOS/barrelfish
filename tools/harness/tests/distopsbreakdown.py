@@ -35,10 +35,10 @@ class OpBreakdown(object):
 
 
     def generate_breakdown_data(self):
-        '''Generator that produces a tuple (seqnum,eventname,tscoff) for each
+        '''Generator that produces a tuple (seqnum,eventname,tscoff,core,evarg) for each
         chunk of work done inside the monitor for a delete call'''
         for e in self._events:
-            yield (self._seqnum, e._evname, e._timestamp - self._start_ts)
+            yield (self._seqnum, e._evname, e._timestamp - self._start_ts, e._coreid, e._arg)
 
     def compute_overall_latency(self):
         return self.last_event()._timestamp - self._start_ts
@@ -65,7 +65,7 @@ class DistopsBreakdownTraceParser(object):
     def parse_trace_file(self, tracef):
         self.trace = self.aq.load_trace(tracef)
 
-    def process_trace(self):
+    def process_trace(self, start_evname, end_evname):
         t = self.trace
 
         evtypes = self.aq.get_event_types()
@@ -102,14 +102,14 @@ class DistopsBreakdownTraceParser(object):
                 continue
 
             # delete_enter is signalling start of new delete in monitor.
-            if e._evname == "user_delete_call":
-                currbreak[e._coreid] = OpBreakdown(e, "user_delete_resp", self.evcmp)
+            if e._evname == start_evname:
+                currbreak[e._coreid] = OpBreakdown(e, end_evname, self.evcmp)
                 if e._coreid not in breakdowns.keys():
                     breakdowns[e._coreid] = []
 
             # delete_done is signalling end of delete in monitor
             # just skip delete_done events for which we're not tracking a breakdown
-            elif e._evname == "user_delete_resp" and e._coreid in currbreak.keys():
+            elif e._evname == end_evname and e._coreid in currbreak.keys():
                 if e._arg != currbreak[e._coreid].seqnum:
                     print "[core %d] found delete_done with seqnum %d, last delete_enter was %d" \
                             % (e._coreid, e._arg, currbreak[e._coreid].seqnum)
@@ -125,15 +125,15 @@ class DistopsBreakdownTraceParser(object):
                 currbreak[e._coreid].append_event(e)
 
             # handle trace point before call to cap_delete() in user code
-            if e._evname == "user_delete_call":
+            if e._evname == start_evname:
                 curdel_overall_start_ts[e._coreid] = e._timestamp
                 curdel_overall_seqnum = e._arg
                 if e._coreid not in overall_del_lats.keys():
                     overall_del_lats[e._coreid] = []
             # handle trace point after call to cap_delete() in user code
-            if e._evname == "user_delete_resp":
+            if e._evname == end_evname:
                 if curdel_overall_seqnum != e._arg:
-                    print "[core %d] got delete_resp with seqnum %d, last delete_call was %d" \
+                    print "[core %d] got end event with seqnum %d, last start event was %d" \
                             % (e._coreid, e._arg & 0xFF, curdel_overall_seqnum & 0xFF)
                     print "skipping this set of trace points"
                 else:
@@ -146,6 +146,8 @@ class DistopsBreakdownTraceParser(object):
 class DistopsBreakdown(TestCommon):
     name = None
     binary_name = None
+    start_evname = None
+    end_evname = None
 
     '''Base class for common code for distops breakdown benchmarks'''
     def __init__(self, options):
@@ -191,15 +193,19 @@ class DistopsBreakdown(TestCommon):
         return localpath
 
     def process_data(self, testdir, rawiter):
+        assert(self.start_evname is not None)
+        assert(self.end_evname is not None)
         debug.verbose("Processing data for %s" % self.name)
-        results = RowResults(['core', 'seqnum', 'event', 'latency'])
+        results = RowResults(['core', 'seqnum', 'event', 'latency',
+                              'event core', 'event arg'])
 
         tracef = self._get_trace_file(testdir)
 
         self.traceprocessor = DistopsBreakdownTraceParser(self.pyaquarium,
                 self.tracedefs)
         self.traceprocessor.parse_trace_file(tracef)
-        breakdowns = self.traceprocessor.process_trace()
+        breakdowns = self.traceprocessor.process_trace(
+                self.start_evname, self.end_evname)
 
         for core in breakdowns.keys():
             for b in breakdowns[core]:
@@ -214,8 +220,8 @@ class DistopsBreakdown(TestCommon):
                     # don't process breakdowns with negative components
                     # further
                     continue
-                for seqnum, evname, tsoff in b.generate_breakdown_data():
-                    results.add_row([core, seqnum, evname, tsoff])
+                for seqnum, evname, tsoff, ecore, earg in b.generate_breakdown_data():
+                    results.add_row([core, seqnum, evname, tsoff, ecore, earg])
 
         return results
 
@@ -237,9 +243,29 @@ class DistopsBreakdownDeleteLocal(DistopsBreakdown):
     '''Breakdown latency benchmark for deleting local copy'''
     name = 'distops_breakdown_delete_local'
     binary_name = 'bench_delete_local_copy'
+    start_evname = "user_delete_call"
+    end_evname = "user_delete_resp"
 
 @tests.add_test
 class DistopsBreakdownDeleteForeign(DistopsBreakdown):
     '''Benchmark latency of deleting foreign copy of capability'''
     name = 'distops_breakdown_delete_foreign'
     binary_name = "bench_delete_foreign_copy"
+    start_evname = "user_delete_call"
+    end_evname = "user_delete_resp"
+
+@tests.add_test
+class DistopsBreakdownDeleteLast(DistopsBreakdown):
+    '''Benchmark latency of deleting last copy of capability'''
+    name = 'distops_breakdown_delete_last'
+    binary_name = "bench_delete_last_copy"
+    start_evname = "user_delete_call"
+    end_evname = "user_delete_resp"
+
+@tests.add_test
+class DistopsBreakdownDeleteLastRemote(DistopsBreakdown):
+    '''Benchmark latency of deleting last local copy of capability with remote copies'''
+    name = 'distops_breakdown_delete_last_remote'
+    binary_name = "bench_delete_last_copy_remote"
+    start_evname = "user_delete_call"
+    end_evname = "user_delete_resp"
