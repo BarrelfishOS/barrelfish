@@ -184,6 +184,8 @@ subsystem capops {
     event DELETE_REMOTE_RESULT_RX	"RX handler for remote delete result",
     event USER_DELETE_CALL		"Before call to cap_delete() in user code",
     event USER_DELETE_RESP		"After call to cap_delete() in user code",
+    event MONITOR_DELETE_ENTER		"Entering monitor delete code",
+    event MONITOR_DELETE_REPLY		"Exiting monitor delete code",
 };
 
 subsystem chips {
