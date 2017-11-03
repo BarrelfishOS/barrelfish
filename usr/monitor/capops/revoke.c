@@ -190,6 +190,7 @@ revoke_local(struct revoke_master_st *st)
     PANIC_IF_ERR(err, "marking revoke");
 
 
+    TRACE(CAPOPS, REVOKE_DO_MARK, 0);
     DEBUG_CAPOPS("%s ## revocation: mark phase\n", __FUNCTION__);
     // XXX: could check whether remote copies exist here(?), -SG, 2014-11-05
     err = capsend_relations(&st->rawcap, revoke_mark__send,
@@ -334,6 +335,7 @@ revoke_ready__rx(struct intermon_binding *b, genvaddr_t st)
         return;
     }
 
+    TRACE(CAPOPS, REVOKE_DO_COMMIT, 0);
     DEBUG_CAPOPS("%s ## revocation: commit phase\n", __FUNCTION__);
     err = capsend_relations(&rvk_st->rawcap, revoke_commit__send,
             &rvk_st->revoke_mc_st, &rvk_st->dests);
