@@ -259,9 +259,9 @@ void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                 }
                 // printf("# node %d: doing revoke\n", my_core_id);
                 start = bench_tsc();
-                TRACE(CAPOPS, USER_DELETE_CALL, (ns->numcopies << 16) | i);
+                TRACE(CAPOPS, USER_REVOKE_CALL, (ns->numcopies << 16) | i);
                 err = cap_revoke(cap);
-                TRACE(CAPOPS, USER_DELETE_RESP, (ns->numcopies << 16) | i);
+                TRACE(CAPOPS, USER_REVOKE_RESP, (ns->numcopies << 16) | i);
                 end = bench_tsc();
                 ns->delcycles[i] = end - start;
                 assert(err_is_ok(err));
