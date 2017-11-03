@@ -28,6 +28,7 @@
 
 static void retype_reply_status(errval_t status, void *st)
 {
+    TRACE(CAPOPS, MONITOR_RETYPE_REPLY, 0);
     struct monitor_blocking_binding *b = (struct monitor_blocking_binding*)st;
     errval_t err = b->tx_vtbl.remote_cap_retype_response(b, NOP_CONT, status);
     assert(err_is_ok(err));
@@ -39,6 +40,7 @@ static void remote_cap_retype(struct monitor_blocking_binding *b,
                               uint64_t objsize, uint64_t count, capaddr_t to,
                               capaddr_t slot, int32_t to_level)
 {
+    TRACE(CAPOPS, MONITOR_RETYPE_ENTER, 0);
     capops_retype(new_type, objsize, count, dest_root, to, to_level,
                   slot, src_root, src, 2, offset, retype_reply_status, (void*)b);
 }

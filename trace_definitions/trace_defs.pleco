@@ -213,6 +213,30 @@ subsystem capops {
     event DELSTEPS_STEP			"Execute a delete step",
     event DELSTEPS_STEP_DONE		"Execution of a delete step done",
     event DELSTEPS_CLEAR		"Execute a clear step",
+
+    event MONITOR_RETYPE_ENTER		"Entering monitor revoke code",
+    event MONITOR_RETYPE_REPLY		"Exiting monitor revoke code",
+    event RETYPE_START			"Starting retype",
+    event RETYPE_REQUEST_ENQ		"Retype: enqueue request to owner",
+    event RETYPE_REQUEST_SEND		"Retype: send request to owner",
+    event RETYPE_REQUEST_RX		"Retype: request RX on owner",
+    event RETYPE_CHECK_ENQ		"Retype: enqueue global check",
+    event CAPSEND_CHECK_RETYPEABLE	"Retype: do broadcast",
+    event CAPSEND_CHECK_RETYPEABLE_RX	"Retype: non-owner check RX",
+    event CAPSEND_CHECK_RETYPEABLE_RESULT_RX	"Retype: node reply",
+    event RETYPE_CHECK_RETYPEABLE_RX	"Retype: broadcast reply",
+    event RETYPE_CHECK_RX		"Retype: merge node replies",
+    event RETYPE_RESPONSE_RX		"Retype: original node got check reply",
+    event RETYPE_CALL_RESULT		"Retype: calling result handler",
+
+    event RETYPE_LOCAL_CHECK_RX		"Retype: check continuation (local path)",
+    event RETYPE_RESULT_RX		"Retype: handle error result (?)",
+
+    event RETYPE_RESULT_ENQ		"Retype: enqueue check result",
+    event RETYPE_RESULT_SEND		"Retype: send check result",
+
+    event RETYPE_DEL_TMPCAP		"Retype: delete temporary copy",
+    event RETYPE_DEL_TMPCAP_DONE	"Retype: delete temporary copy done",
 };
 
 subsystem chips {
