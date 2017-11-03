@@ -187,6 +187,8 @@ subsystem capops {
     event MONITOR_DELETE_ENTER		"Entering monitor delete code",
     event MONITOR_DELETE_REPLY		"Exiting monitor delete code",
 
+    event USER_REVOKE_CALL		"Before call to cap_revoke() in user code",
+    event USER_REVOKE_RESP		"After call to cap_revoke() in user code",
     event MONITOR_REVOKE_ENTER		"Entering monitor revoke code",
     event MONITOR_REVOKE_REPLY		"Exiting monitor revoke code",
     event REVOKE_START			"Starting revocation",

@@ -294,9 +294,9 @@ void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                     my_core_id, get_mdb_size());
             uint64_t start, end;
             start = bench_tsc();
-            TRACE(CAPOPS, USER_DELETE_CALL, (ns->numcopies << 16) | ns->iter);
+            TRACE(CAPOPS, USER_REVOKE_CALL, (ns->numcopies << 16) | ns->iter);
             err = cap_revoke(ns->cap);
-            TRACE(CAPOPS, USER_DELETE_RESP, (ns->numcopies << 16) | ns->iter);
+            TRACE(CAPOPS, USER_REVOKE_RESP, (ns->numcopies << 16) | ns->iter);
             end = bench_tsc();
             ns->delcycles[ns->iter] = end - start;
             assert(err_is_ok(err));
