@@ -69,8 +69,6 @@ class DistopsBreakdownTraceParser(object):
         t = self.trace
 
         evtypes = self.aq.get_event_types()
-        curdel_overall_start_ts=dict()
-        curdel_overall_seqnum = -1
         overall_del_lats=dict()
         found_start = False
 
@@ -101,17 +99,17 @@ class DistopsBreakdownTraceParser(object):
                 # ignore events before start event
                 continue
 
-            # delete_enter is signalling start of new delete in monitor.
+            # start_evname is signalling start of new operation.
             if e._evname == start_evname:
                 currbreak[e._coreid] = OpBreakdown(e, end_evname, self.evcmp)
                 if e._coreid not in breakdowns.keys():
                     breakdowns[e._coreid] = []
 
-            # delete_done is signalling end of delete in monitor
-            # just skip delete_done events for which we're not tracking a breakdown
+            # end_evname is signalling end of operation.
+            # just skip end_evname events for which we're not tracking a breakdown
             elif e._evname == end_evname and e._coreid in currbreak.keys():
                 if e._arg != currbreak[e._coreid].seqnum:
-                    print "[core %d] found delete_done with seqnum %d, last delete_enter was %d" \
+                    print "[core %d] got end event with seqnum %d, last start event was %d" \
                             % (e._coreid, e._arg, currbreak[e._coreid].seqnum)
                     print "skipping this set of trace points"
                 else:
@@ -123,23 +121,6 @@ class DistopsBreakdownTraceParser(object):
                     del currbreak[e._coreid]
             elif e._coreid in currbreak.keys():
                 currbreak[e._coreid].append_event(e)
-
-            # handle trace point before call to cap_delete() in user code
-            if e._evname == start_evname:
-                curdel_overall_start_ts[e._coreid] = e._timestamp
-                curdel_overall_seqnum = e._arg
-                if e._coreid not in overall_del_lats.keys():
-                    overall_del_lats[e._coreid] = []
-            # handle trace point after call to cap_delete() in user code
-            if e._evname == end_evname:
-                if curdel_overall_seqnum != e._arg:
-                    print "[core %d] got end event with seqnum %d, last start event was %d" \
-                            % (e._coreid, e._arg & 0xFF, curdel_overall_seqnum & 0xFF)
-                    print "skipping this set of trace points"
-                else:
-                    if e._coreid in curdel_overall_start_ts.keys():
-                        overall_del_lats[e._coreid].append(
-                                e._timestamp - curdel_overall_start_ts[e._coreid])
 
         return breakdowns
 
@@ -199,14 +180,18 @@ class DistopsBreakdown(TestCommon):
         results = RowResults(['core', 'seqnum', 'event', 'latency',
                               'event core', 'event arg'])
 
+        debug.verbose("Copying trace from NFS server")
         tracef = self._get_trace_file(testdir)
 
         self.traceprocessor = DistopsBreakdownTraceParser(self.pyaquarium,
                 self.tracedefs)
+        debug.verbose("Parsing trace file")
         self.traceprocessor.parse_trace_file(tracef)
+        debug.verbose("Processing trace")
         breakdowns = self.traceprocessor.process_trace(
                 self.start_evname, self.end_evname)
 
+        debug.verbose("Creating results")
         for core in breakdowns.keys():
             for b in breakdowns[core]:
                 off = 0
@@ -226,16 +211,16 @@ class DistopsBreakdown(TestCommon):
         return results
 
     def get_modules(self, build, machine):
-        assert(self.binary_name is not None)
         self.machine = machine.get_machine_name()
         modules = super(DistopsBreakdown, self).get_modules(build, machine)
         modules.add_module("net_sockets_server", ["auto"])
         # dump trace via nfs to /nfspath/<benchname>.trace
         modules.add_module("bfscope_nfs", [ "core=1", "nfs://" + self.nfsip +
             self.nfspath, os.path.join("/bfscope", self.tracefile) ])
-        modules.add_module(self.binary_name,
-                           ["core=2", "mgmt", "%d" % 3])
-        modules.add_module(self.binary_name, ["core=3-5", "node"])
+        if self.binary_name is not None:
+            modules.add_module(self.binary_name,
+                               ["core=2", "mgmt", "%d" % 3])
+            modules.add_module(self.binary_name, ["core=3-5", "node"])
         return modules
 
 @tests.add_test
@@ -269,3 +254,20 @@ class DistopsBreakdownDeleteLastRemote(DistopsBreakdown):
     binary_name = "bench_delete_last_copy_remote"
     start_evname = "user_delete_call"
     end_evname = "user_delete_resp"
+
+@tests.add_test
+class DistopsBreakdownRevokeNoRemote(DistopsBreakdown):
+    '''Breakdown latency benchmark for revoking cap w/o remote relations'''
+    name = 'distops_breakdown_revoke_no_remote'
+    start_evname = "user_revoke_call"
+    end_evname = "user_revoke_resp"
+
+    # Use standalone version of benchmark, as distributed version has some bug
+    def get_modules(self, build, machine):
+        self.machine = machine.get_machine_name()
+        modules = super(DistopsBreakdownRevokeNoRemote, self).get_modules(build, machine)
+        modules.add_module("distops_standalone_runner",
+                           ["core=2", "bench_revoke_no_remote_standalone" ] +
+                            ("%d %d %d %d" % (3, 3, 4, 5)).split(" "))
+        modules.add_module("bench_revoke_no_remote_standalone", ["nospawn"])
+        return modules
