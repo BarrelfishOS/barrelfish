@@ -186,6 +186,13 @@ subsystem capops {
     event USER_DELETE_RESP		"After call to cap_delete() in user code",
     event MONITOR_DELETE_ENTER		"Entering monitor delete code",
     event MONITOR_DELETE_REPLY		"Exiting monitor delete code",
+
+    event DELSTEPS_TRIGGER		"Trigger delete stepping",
+    event DELSTEPS_PAUSE		"Pause delete stepping",
+    event DELSTEPS_RESUME		"Resume delete stepping",
+    event DELSTEPS_STEP			"Execute a delete step",
+    event DELSTEPS_STEP_DONE		"Execution of a delete step done",
+    event DELSTEPS_CLEAR		"Execute a clear step",
 };
 
 subsystem chips {
