@@ -58,6 +58,8 @@ struct retype_request_st {
     struct retype_output_st output;
 };
 
+static uint64_t retype_seqnum = 0;
+
 /*
  * Prototypes for static functions so ordering does not matter
  */
@@ -72,6 +74,7 @@ static void retype_check__rx(errval_t status, struct retype_check_st* check,
 static void
 retype_result__send(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
 {
+    TRACE(CAPOPS, RETYPE_RESULT_SEND, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct requested_retype_st *req_st = (struct requested_retype_st*)e;
@@ -99,6 +102,7 @@ handle_err:
 static void
 retype_result__enq(struct requested_retype_st *req_st)
 {
+    TRACE(CAPOPS, RETYPE_RESULT_ENQ, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     req_st->queue_elem.cont = retype_result__send;
     errval_t err = capsend_target(req_st->from, (struct msg_queue_elem*)req_st);
@@ -114,6 +118,7 @@ retype_result__enq(struct requested_retype_st *req_st)
 static void
 retype_tmpcap_delete__cont(errval_t status, void *st)
 {
+    TRACE(CAPOPS, RETYPE_DEL_TMPCAP_DONE, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct requested_retype_st *req_st = (struct requested_retype_st*)st;
@@ -148,6 +153,7 @@ retype_request_check__rx(errval_t status, void *st)
 
     if (!capref_is_null(req_st->src)) {
         DEBUG_CAPOPS("capops_retype: cleaning up our copy of src\n");
+        TRACE(CAPOPS, RETYPE_DEL_TMPCAP, 0);
         capops_delete(req_st->check.src, retype_tmpcap_delete__cont, req_st);
     }
     else {
@@ -159,6 +165,7 @@ void
 retype_request__rx(struct intermon_binding *b, intermon_caprep_t srcrep, uint64_t offset,
                    uint32_t desttype, uint64_t destsize, uint64_t count, genvaddr_t st)
 {
+    TRACE(CAPOPS, RETYPE_REQUEST_RX, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
@@ -221,6 +228,7 @@ cont_err:
 static void
 retype_result__rx(errval_t status, struct retype_request_st *req_st)
 {
+    TRACE(CAPOPS, RETYPE_RESULT_RX, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     retype_check__rx(status, &req_st->check, &req_st->output, req_st);
 }
@@ -231,6 +239,7 @@ retype_result__rx(errval_t status, struct retype_request_st *req_st)
 void
 retype_response__rx(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
+    TRACE(CAPOPS, RETYPE_RESPONSE_RX, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct retype_request_st *req_st = (struct retype_request_st*)(lvaddr_t)st;
     retype_result__rx(status, req_st);
@@ -242,6 +251,7 @@ retype_response__rx(struct intermon_binding *b, errval_t status, genvaddr_t st)
 static void
 retype_request__send(struct intermon_binding *b, struct intermon_msg_queue_elem *e)
 {
+    TRACE(CAPOPS, RETYPE_REQUEST_SEND, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct retype_request_st *req_st = (struct retype_request_st*)e;
     errval_t err;
@@ -276,6 +286,7 @@ handle_err:
 static void
 retype_request__enq(struct retype_request_st *req_st)
 {
+    TRACE(CAPOPS, RETYPE_REQUEST_ENQ, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct capability cap;
@@ -302,6 +313,7 @@ err_cont:
 static void
 check_retypeable__rx(errval_t status, void *st)
 {
+    TRACE(CAPOPS, RETYPE_CHECK_RETYPEABLE_RX, 0);
     DEBUG_CAPOPS("%s: status=%s\n", __FUNCTION__, err_getcode(status));
     struct retype_check_st *check_st = (struct retype_check_st*)st;
 
@@ -314,6 +326,7 @@ check_retypeable__rx(errval_t status, void *st)
 
     // unlock cap and procede with check result continuation
     caplock_unlock(check_st->src);
+    TRACE(CAPOPS, RETYPE_CALL_RESULT, retype_seqnum);
     CALLRESCONT(check_st->cont, status);
 }
 
@@ -323,6 +336,7 @@ check_retypeable__rx(errval_t status, void *st)
 static void
 check_retype__enq(struct retype_check_st *check_st)
 {
+    TRACE(CAPOPS, RETYPE_CHECK_ENQ, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
@@ -356,6 +370,7 @@ unlock_cap:
     caplock_unlock(check_st->src);
 
 cont_err:
+    TRACE(CAPOPS, RETYPE_CALL_RESULT, retype_seqnum);
     CALLRESCONT(check_st->cont, err);
 }
 
@@ -366,6 +381,7 @@ static void
 retype_check__rx(errval_t status, struct retype_check_st* check,
                  struct retype_output_st *output, void *to_free)
 {
+    TRACE(CAPOPS, RETYPE_CHECK_RX, retype_seqnum);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct domcapref *src = &check->src;
@@ -385,6 +401,7 @@ retype_check__rx(errval_t status, struct retype_check_st* check,
     PANIC_IF_ERR(err, "deleting monitor's copy of src rootcn");
     err = cap_destroy(destcn->croot);
     PANIC_IF_ERR(err, "deleting monitor's copy dest rootcn");
+    TRACE(CAPOPS, RETYPE_CALL_RESULT, retype_seqnum);
     CALLRESCONT(cont, status);
 }
 
@@ -394,6 +411,7 @@ retype_check__rx(errval_t status, struct retype_check_st* check,
 static void
 local_retype_check__rx(errval_t status, void *st)
 {
+    TRACE(CAPOPS, RETYPE_LOCAL_CHECK_RX, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     struct local_retype_st *rtp_st = (struct local_retype_st*)st;
     retype_check__rx(status, &rtp_st->check, &rtp_st->output, rtp_st);
@@ -409,6 +427,7 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref des
               struct capref src_root, capaddr_t src, uint8_t src_level,
               gensize_t offset, retype_result_handler_t result_handler, void *st)
 {
+    TRACE(CAPOPS, RETYPE_START, ++retype_seqnum);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     distcap_state_t src_state;
@@ -497,6 +516,7 @@ capops_retype(enum objtype type, size_t objsize, size_t count, struct capref des
     return;
 
 err_cont:
+    TRACE(CAPOPS, RETYPE_CALL_RESULT, retype_seqnum);
     result_handler(err, st);
 }
 
