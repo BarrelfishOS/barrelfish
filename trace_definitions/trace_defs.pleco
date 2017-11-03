@@ -216,6 +216,8 @@ subsystem capops {
     event DELSTEPS_STEP_DONE		"Execution of a delete step done",
     event DELSTEPS_CLEAR		"Execute a clear step",
 
+    event USER_RETYPE_CALL		"Before call to cap_retype() in user code",
+    event USER_RETYPE_RESP		"After call to cap_retype() in user code",
     event MONITOR_RETYPE_ENTER		"Entering monitor revoke code",
     event MONITOR_RETYPE_REPLY		"Exiting monitor revoke code",
     event RETYPE_START			"Starting retype",

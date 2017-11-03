@@ -238,11 +238,11 @@ void node_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                 uint64_t start, end;
                 start = bench_tsc();
                 // Cycle through pages in source cap
-                TRACE(CAPOPS, USER_DELETE_CALL, (ns->numcopies << 16) | i);
+                TRACE(CAPOPS, USER_RETYPE_CALL, (ns->numcopies << 16) | i);
                 err = cap_retype(slot, ns->cap,
                         (i*BASE_PAGE_SIZE) % LARGE_PAGE_SIZE,
                         ObjType_Frame, BASE_PAGE_SIZE, 1);
-                TRACE(CAPOPS, USER_DELETE_RESP, (ns->numcopies << 16) | i);
+                TRACE(CAPOPS, USER_RETYPE_RESP, (ns->numcopies << 16) | i);
                 end = bench_tsc();
                 ns->delcycles[i] = end - start;
                 assert(err_is_ok(err));
