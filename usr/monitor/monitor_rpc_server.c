@@ -41,6 +41,9 @@ static void remote_cap_retype(struct monitor_blocking_binding *b,
                               capaddr_t slot, int32_t to_level)
 {
     TRACE(CAPOPS, MONITOR_RETYPE_ENTER, 0);
+    if (capref_is_null(dest_root)) {
+        dest_root = src_root;
+    }
     capops_retype(new_type, objsize, count, dest_root, to, to_level,
                   slot, src_root, src, 2, offset, retype_reply_status, (void*)b);
 }
