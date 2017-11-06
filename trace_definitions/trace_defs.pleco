@@ -95,6 +95,20 @@ subsystem kernel_capops {
     event UNMAP_CAPABILITY	"Entering unmap_capability()",
     event MDB_REMOVE		"Calling mdb_remove()",
     event HAS_COPIES		"Calling has_copies()",
+
+    event RETYPE_ENTER		"Entering caps_retype()",
+    event RETYPE_IS_RETYPEABLE	"Checking retypeability",
+    event RETYPE_IS_RETYPEABLE_DONE	"Checking retypeability done",
+    event RETYPE_RANGE_CHECK	"Checking retypeability with range query",
+    event RETYPE_RANGE_CHECK_DONE	"Range query done",
+    event RETYPE_CREATE_CAPS	"Create new capabilities",
+    event RETYPE_CREATE_CAPS_DONE	"Create new capabilities done",
+    event RETYPE_MDB_INSERT	"Calling mdb_insert() for new capabilities",
+    event RETYPE_MDB_INSERT_DONE	"mdb_insert() for new capabilities done",
+    event RETYPE_DONE		"Exiting caps_retype()",
+
+    event ZERO_OBJECTS		"Zeroing capabilities",
+    event ZERO_OBJECTS_DONE	"Zeroing capabilities done",
 };
 
 subsystem threads {
