@@ -322,9 +322,12 @@ errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offse
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         struct capref src_root = get_croot_capref(src);
         struct capref dest_root = get_croot_capref(dest_start);
-        return cap_retype_remote(src_root, dest_root, scp_addr, offset, new_type,
-                                 objsize, count, dcn_addr, dest_start.slot,
-                                 dcn_level);
+        TRACE(CAPOPS, USER_RETYPE_RPC, 0);
+        err = cap_retype_remote(src_root, dest_root, scp_addr, offset, new_type,
+                                objsize, count, dcn_addr, dest_start.slot,
+                                dcn_level);
+        TRACE(CAPOPS, USER_RETYPE_RPC_DONE, 0);
+        return err;
     } else {
         return err;
     }
