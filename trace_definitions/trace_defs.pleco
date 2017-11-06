@@ -247,6 +247,8 @@ subsystem capops {
     event RETYPE_CHECK_RETYPEABLE_RX	"Retype: broadcast reply",
     event RETYPE_CHECK_RX		"Retype: merge node replies",
     event RETYPE_RESPONSE_RX		"Retype: original node got check reply",
+    event MONITOR_RETYPE_CREATE_CAPS	"Retype: monitor_create_caps()",
+    event MONITOR_RETYPE_CREATE_CAPS_DONE	"Retype: monitor_create_caps() done",
     event RETYPE_CALL_RESULT		"Retype: calling result handler",
 
     event RETYPE_LOCAL_CHECK_RX		"Retype: check continuation (local path)",
