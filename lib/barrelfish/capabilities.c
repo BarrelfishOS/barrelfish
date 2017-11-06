@@ -197,6 +197,9 @@ static errval_t cap_retype_remote(struct capref src_root, struct capref dest_roo
 
     int send_count = 0;
     do {
+        if (capcmp(src_root, dest_root)) {
+            dest_root = NULL_CAP;
+        }
         err = mrc->rpc_tx_vtbl.remote_cap_retype(mrc, src_root, dest_root, src,
                                           offset, (uint64_t)new_type, objsize,
                                           count, to, slot, to_level, &remote_cap_err);
