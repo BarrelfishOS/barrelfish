@@ -240,7 +240,8 @@ revoke_mark__send(struct intermon_binding *b,
                   intermon_caprep_t *caprep,
                   struct capsend_mc_st *mc_st)
 {
-    TRACE(CAPOPS, REVOKE_MARK_SEND, 0);
+    struct intermon_state *ist = b->st;
+    TRACE(CAPOPS, REVOKE_MARK_SEND, ist->core_id);
     struct revoke_master_st *st;
     ptrdiff_t off = offsetof(struct revoke_master_st, revoke_mc_st);
     st = (struct revoke_master_st*)((uintptr_t)mc_st - off);
@@ -324,7 +325,8 @@ handle_err:
 void
 revoke_ready__rx(struct intermon_binding *b, genvaddr_t st)
 {
-    TRACE(CAPOPS, REVOKE_READY_RX, 0);
+    struct intermon_state *ist = b->st;
+    TRACE(CAPOPS, REVOKE_READY_RX, ist->core_id);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
@@ -353,7 +355,8 @@ revoke_commit__send(struct intermon_binding *b,
                     intermon_caprep_t *caprep,
                     struct capsend_mc_st *mc_st)
 {
-    TRACE(CAPOPS, REVOKE_COMMIT_SEND, 0);
+    struct intermon_state *ist = b->st;
+    TRACE(CAPOPS, REVOKE_COMMIT_SEND, ist->core_id);
     struct revoke_master_st *st;
     ptrdiff_t off = offsetof(struct revoke_master_st, revoke_mc_st);
     st = (struct revoke_master_st*)((char*)mc_st - off);
@@ -455,7 +458,8 @@ void
 revoke_done__rx(struct intermon_binding *b,
                 genvaddr_t st)
 {
-    TRACE(CAPOPS, REVOKE_DONE_RX, 0);
+    struct intermon_state *ist = b->st;
+    TRACE(CAPOPS, REVOKE_DONE_RX, ist->core_id);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
 
     struct revoke_master_st *rvk_st = (struct revoke_master_st*)(lvaddr_t)st;

@@ -326,7 +326,6 @@ check_retypeable__rx(errval_t status, void *st)
 
     // unlock cap and procede with check result continuation
     caplock_unlock(check_st->src);
-    TRACE(CAPOPS, RETYPE_CALL_RESULT, retype_seqnum);
     CALLRESCONT(check_st->cont, status);
 }
 
@@ -388,10 +387,12 @@ retype_check__rx(errval_t status, struct retype_check_st* check,
     struct domcapref *destcn = &output->destcn;
     if (err_is_ok(status)) {
         // the retype may procede
+        TRACE(CAPOPS, MONITOR_RETYPE_CREATE_CAPS, retype_seqnum);
         status = monitor_create_caps(src->croot, destcn->croot, check->type,
                                   check->objsize, check->count, src->cptr,
                                   src->level, check->offset, destcn->cptr,
                                   destcn->level, output->start_slot);
+        TRACE(CAPOPS, MONITOR_RETYPE_CREATE_CAPS_DONE, retype_seqnum);
     }
     struct result_closure cont = output->cont;
     assert(cont.handler);
