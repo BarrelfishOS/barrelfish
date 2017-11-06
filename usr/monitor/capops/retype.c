@@ -381,10 +381,12 @@ retype_check__rx(errval_t status, struct retype_check_st* check,
     assert(cont.handler);
     free(to_free);
     // Delete copies of domain's src/dest root cnodes
+    if (!capcmp(destcn->croot, src->croot)) {
+        err = cap_destroy(destcn->croot);
+        PANIC_IF_ERR(err, "deleting monitor's copy dest rootcn");
+    }
     err = cap_destroy(src->croot);
     PANIC_IF_ERR(err, "deleting monitor's copy of src rootcn");
-    err = cap_destroy(destcn->croot);
-    PANIC_IF_ERR(err, "deleting monitor's copy dest rootcn");
     CALLRESCONT(cont, status);
 }
 
