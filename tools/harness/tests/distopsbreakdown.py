@@ -38,7 +38,8 @@ class OpBreakdown(object):
         '''Generator that produces a tuple (seqnum,eventname,tscoff,core,evarg) for each
         chunk of work done inside the monitor for a delete call'''
         for e in self._events:
-            yield (self._seqnum, e._evname, e._timestamp - self._start_ts, e._coreid, e._arg)
+            yield (self._seqnum, e.subsys.get_name(), e._evname,
+                   e._timestamp - self._start_ts, e._coreid, e._arg)
 
     def compute_overall_latency(self):
         return self.last_event()._timestamp - self._start_ts
@@ -56,7 +57,7 @@ class DistopsBreakdownTraceParser(object):
         import aquarium
         self.aq = aquarium.Aquarium(tracedefs)
         import trace_parser
-        self.evcmp = trace_parser.cmp_events_by_timestamp
+        self._evcmp = trace_parser.cmp_events_by_timestamp
 
     def _event_filter(self, ev):
         name = ev.subsys.get_name()
@@ -71,17 +72,6 @@ class DistopsBreakdownTraceParser(object):
         evtypes = self.aq.get_event_types()
         overall_del_lats=dict()
         found_start = False
-
-        # XXX: this is not very nice, as we're flattening a partial order by hand
-        # here in order to make queries about event ordering to skip partially
-        # recorded inner trace points that don't carry the sequence number yet :)
-        #
-        # 2017-11-01: this seems to be unnecessary, as trace points are
-        # recorded in-order anyway.
-        # event_order = [ 'user_delete_call', 'delete_enter', 'try_delete',
-        #         'has_copies', 'cleanup_copy', 'cleanup_last', 'unmap_capability',
-        #         'mdb_remove', 'mdb_rebalance', 'mdb_update_end', 'create_ram',
-        #         'create_ram_lmp', 'delete_done', 'user_delete_resp' ]
 
         # current breakdown object indexed by coreid
         currbreak = dict()
@@ -101,7 +91,7 @@ class DistopsBreakdownTraceParser(object):
 
             # start_evname is signalling start of new operation.
             if e._evname == start_evname:
-                currbreak[e._coreid] = OpBreakdown(e, end_evname, self.evcmp)
+                currbreak[e._coreid] = OpBreakdown(e, end_evname, self._evcmp)
                 if e._coreid not in breakdowns.keys():
                     breakdowns[e._coreid] = []
 
@@ -153,6 +143,10 @@ class DistopsBreakdown(TestCommon):
         return "# Benchmark done!"
 
     def _get_trace_file(self, testdir):
+        localpath = os.path.join(testdir, self.tracefile)
+        if os.path.isfile(localpath):
+            debug.verbose("Tracefile already in results directory, not copying new version")
+            return localpath
         # get trace file from emmentaler1
         from paramiko import SSHClient
         from paramiko.client import WarningPolicy
@@ -164,7 +158,6 @@ class DistopsBreakdown(TestCommon):
         ssh.connect(siteconfig.get('NFS_SSH_HOST'),
                 port=siteconfig.get('NFS_SSH_PORT'))
         scp = SCPClient(ssh.get_transport())
-        localpath = os.path.join(testdir, self.tracefile)
         try:
             scp.get(os.path.join(self.nfspath, self.tracefile),
                     local_path=localpath)
@@ -176,9 +169,16 @@ class DistopsBreakdown(TestCommon):
     def process_data(self, testdir, rawiter):
         assert(self.start_evname is not None)
         assert(self.end_evname is not None)
-        debug.verbose("Processing data for %s" % self.name)
-        results = RowResults(['core', 'seqnum', 'event', 'latency',
+
+        results = RowResults(['core', 'seqnum', 'subsys','event', 'latency',
                               'event core', 'event arg'])
+        # Handle case where we crash
+        for line in rawiter:
+            if line.startswith("Assertion failed on core") or \
+               line.startswith("Aborted"):
+                   return results
+
+        debug.verbose("Processing data for %s" % self.name)
 
         debug.verbose("Copying trace from NFS server")
         tracef = self._get_trace_file(testdir)
@@ -205,8 +205,8 @@ class DistopsBreakdown(TestCommon):
                     # don't process breakdowns with negative components
                     # further
                     continue
-                for seqnum, evname, tsoff, ecore, earg in b.generate_breakdown_data():
-                    results.add_row([core, seqnum, evname, tsoff, ecore, earg])
+                for seqnum, subsys, evname, tsoff, ecore, earg in b.generate_breakdown_data():
+                    results.add_row([core, seqnum, subsys, evname, tsoff, ecore, earg])
 
         return results
 
@@ -271,3 +271,43 @@ class DistopsBreakdownRevokeNoRemote(DistopsBreakdown):
                             ("%d %d %d %d" % (3, 3, 4, 5)).split(" "))
         modules.add_module("bench_revoke_no_remote_standalone", ["nospawn"])
         return modules
+
+@tests.add_test
+class DistopsBreakdownRevokeRemoteCopy(DistopsBreakdown):
+    '''Breakdown latency of revoking foreign copy of capability'''
+    name = 'distops_breakdown_revoke_remote_copy'
+    binary_name = "bench_revoke_remote_copy"
+    start_evname = "user_revoke_call"
+    end_evname = "user_revoke_resp"
+
+@tests.add_test
+class DistopsBreakdownRevokeWithRemoteCopies(DistopsBreakdown):
+    '''Breakdown latency of revoking a capability with remote copies/descendants'''
+    name = 'distops_breakdown_revoke_with_remote_copies'
+    binary_name = "bench_revoke_with_remote_copies"
+    start_evname = "user_revoke_call"
+    end_evname = "user_revoke_resp"
+
+@tests.add_test
+class DistopsBreakdownRetypeNoRemote(DistopsBreakdown):
+    '''Breakdown latency of retyping capability with no remote relations'''
+    name = 'distops_breakdown_retype_no_remote'
+    binary_name = "bench_retype_no_remote"
+    start_evname = "user_retype_call"
+    end_evname = "user_retype_resp"
+
+@tests.add_test
+class DistopsBreakdownRetypeWithLocalDescs(DistopsBreakdown):
+    '''Breakdown latency of retyping capability with local descendants but no remote relations'''
+    name = 'distops_breakdown_retype_with_local_descs'
+    binary_name = "bench_retype_w_local_descendants"
+    start_evname = "user_retype_call"
+    end_evname = "user_retype_resp"
+
+@tests.add_test
+class DistopsBreakdownRetypeWithRemoteCopies(DistopsBreakdown):
+    '''Breakdown latency of retyping capability with remote copies'''
+    name = 'distops_breakdown_retype_with_remote_copies'
+    binary_name = "bench_retype_with_remote_copies"
+    start_evname = "user_retype_call"
+    end_evname = "user_retype_resp"
