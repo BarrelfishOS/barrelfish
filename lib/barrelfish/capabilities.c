@@ -382,7 +382,10 @@ errval_t cap_delete(struct capref cap)
     err = invoke_cnode_delete(croot, caddr, level);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return cap_delete_remote(croot, caddr, level);
+        TRACE(CAPOPS, USER_DELETE_RPC, 0);
+        err = cap_delete_remote(croot, caddr, level);
+        TRACE(CAPOPS, USER_DELETE_RPC_DONE, 0);
+        return err;
     } else {
         return err;
     }
@@ -407,7 +410,10 @@ errval_t cap_revoke(struct capref cap)
     err = invoke_cnode_revoke(croot, caddr, level);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return cap_revoke_remote(croot, caddr, level);
+        TRACE(CAPOPS, USER_REVOKE_RPC, 0);
+        err = cap_revoke_remote(croot, caddr, level);
+        TRACE(CAPOPS, USER_REVOKE_RPC_DONE, 0);
+        return err;
     } else {
         return err;
     }
