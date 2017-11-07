@@ -23,7 +23,7 @@
 #include "benchapi.h"
 
 //{{{1 Tracing init
-#ifdef TRACING_EXISTS
+#ifdef CONFIG_TRACE
 static void after_prepare(void *arg)
 {
     bool *done = arg;
