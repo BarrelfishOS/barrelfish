@@ -67,9 +67,18 @@ errval_t mgmt_init_tracing(void)
     iref_t bfscope;
     return nameservice_blocking_lookup("bfscope", &bfscope);
 }
+
+void mgmt_trace_flush(struct event_closure cont)
+{
+    trace_flush(cont);
+}
 #else
 errval_t mgmt_init_tracing(void)
 {
     return SYS_ERR_OK;
+}
+void mgmt_trace_flush(struct event_closure cont)
+{
+    return;
 }
 #endif

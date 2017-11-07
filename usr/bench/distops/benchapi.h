@@ -37,6 +37,7 @@ void bench_enable_tracing(void);
 
 //{{{1 Tracing helpers
 errval_t mgmt_init_tracing(void);
+void mgmt_trace_flush(struct event_closure cont);
 
 //{{{1 Mgmt node API
 
