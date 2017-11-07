@@ -1,11 +1,11 @@
 import tests, debug
 from common import TestCommon
-from results import PassFailResult, RawResults
+from results import PassFailResult, RowResults
 import sys, re, numpy, os, datetime
 
 import matplotlib.pyplot as plt
 
-OPERATIONHEADER = re.compile("^# Benchmarking ([A-Z 0-9]+): nodes=(\d+)$")
+OPERATIONHEADER = re.compile("^# Benchmarking ([A-Z 0-9]+): nodes=(\d+).*$")
 DATAHEADER = re.compile("^# node (\d+): tsc_per_us = (\d+); numcopies = (\d+).*")
 DATALINE = re.compile("^\d+$")
 
@@ -13,12 +13,11 @@ def tsc_to_us(ts, tscperus):
     return ts / float(tscperus)
 
 class DistopsPlot(object):
-    def __init__(self, machine):
+    def __init__(self):
         self.nodecount = -1
         self.nodedata = dict()
         self.tscperus = dict()
         self.operation = "n/a"
-        self.machine = machine
 
     def read_data(self, rawiter):
         currnode = -1
@@ -115,17 +114,16 @@ class DistopsPlot(object):
         #plt.xscale('log', basex=2)
         self._finalize_plot(outfile, xlabel, ylabel, ylim, draw_legend=True)
 
-    def get_raw_results(self, name):
-        rr = dict()
-        for nodeid in self.nodedata.keys():
+    def get_row_results(self, name):
+        results = RowResults(['nodeid', 'mdbsize', 'oplatency'])
+        for nodeid in sorted(self.nodedata.keys()):
             if nodeid not in self.tscperus.keys():
                 # skip nodes that aren't running benchmark for some cases
                 continue
-            r = RawResults('mdbsize', name="%s_node%d" % (name, nodeid))
-            for d in self.nodedata[nodeid].keys():
-                r.add_group(d, self.nodedata[nodeid][d])
-            rr[nodeid] = r
-        return rr
+            for d in sorted(self.nodedata[nodeid].keys()):
+                for v in self.nodedata[nodeid][d]:
+                    results.add_row([nodeid, d, v])
+        return results
 
 class DistopsBench(TestCommon):
     name = None
@@ -145,7 +143,7 @@ class DistopsBench(TestCommon):
 
     def process_data(self, testdir, rawiter):
         debug.verbose("Processing data for %s" % self.name)
-        plot = DistopsPlot(self.machine)
+        plot = DistopsPlot()
         debug.verbose(">>> Reading data for plotting")
         passed = plot.read_data(rawiter)
         plotf = "%s/boxplot_%s" % (testdir, self.name)
@@ -154,12 +152,10 @@ class DistopsBench(TestCommon):
                      ylim=self.boxplot_ylim)
         plotf = "%s/plot_%s" % (testdir, self.name)
         plot.plot(plotf, ylabel=self.ylabel, ylim=self.plot_ylim)
-        rr = plot.get_raw_results(self.name)
-        return [ rr[k] for k in sorted(rr.keys()) ]
+        return plot.get_row_results(self.name)
 
     def get_modules(self, build, machine):
         assert(self.binary_name is not None)
-        self.machine = machine.get_machine_name()
         modules = super(DistopsBench, self).get_modules(build, machine)
         modules.add_module(self.binary_name,
                            ["core=0", "mgmt", "%d" % 3])
@@ -211,7 +207,6 @@ class DistopsBenchRevokeNoRemote(DistopsBench):
 
     # Use standalone version of benchmark, as distributed version has some bug
     def get_modules(self, build, machine):
-        self.machine = machine.get_machine_name()
         modules = super(DistopsBench, self).get_modules(build, machine)
         modules.add_module("distops_standalone_runner",
                            ["core=0", "bench_revoke_no_remote_standalone" ] +
@@ -290,7 +285,6 @@ class DistopsBenchDeleteCNodeVary(DistopsBench):
         self.test_timeout_delta = datetime.timedelta(seconds=86400)
 
     def get_modules(self, build, machine):
-        self.machine = machine.get_machine_name()
         modules = super(DistopsBench, self).get_modules(build, machine)
         modules.add_module("bench_delete_cnode_last_copy_2",
                            ["core=0", "mgmt", "1"])
