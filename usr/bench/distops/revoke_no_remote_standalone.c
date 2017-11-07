@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
     }
 
     TRACE(CAPOPS, STOP, 0);
-    trace_flush(NOP_CONT);
+    mgmt_trace_flush(NOP_CONT);
 
     // We're not printing this line here, as it's printed from the standalone
     // runner, that allows us to run single-core benchmarks sequentially on

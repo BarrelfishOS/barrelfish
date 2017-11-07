@@ -136,7 +136,7 @@ void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
                 if (gs->currcopies == NUM_COPIES_END) {
                     printf("# Benchmark done!\n");
                     TRACE(CAPOPS, STOP, 0);
-                    trace_flush(NOP_CONT);
+                    mgmt_trace_flush(NOP_CONT);
                     return;
                 }
                 printf("# Round done!\n");
