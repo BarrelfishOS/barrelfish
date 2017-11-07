@@ -311,3 +311,11 @@ class DistopsBreakdownRetypeWithRemoteCopies(DistopsBreakdown):
     binary_name = "bench_retype_with_remote_copies"
     start_evname = "user_retype_call"
     end_evname = "user_retype_resp"
+
+@tests.add_test
+class DistopsBreakdownDeleteCNodeLast(DistopsBreakdown):
+    '''Breakdown latency of deleting last copy of cnode with 4 slots occupied'''
+    name = 'distops_breakdown_delete_cnode_last'
+    binary_name = "bench_delete_cnode_last_copy"
+    start_evname = "user_delete_call"
+    end_evname = "user_delete_resp"
