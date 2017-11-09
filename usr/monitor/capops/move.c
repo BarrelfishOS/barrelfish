@@ -218,8 +218,10 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, u
         goto reset_owner;
     }
 
-    // If broadcast doesn't fail, unlock cap only after all nodes have
+    // If broadcast send doesn't fail, unlock cap only after all nodes have
     // acknowledged ownership change, see free_owner_recv_cap().
+    // XXX: should we wait to signal move completion until broadcast really
+    // completes? -SG,2017-11-09.
     err = capsend_update_owner(domcapref, MKCONT(free_owner_recv_cap, capref));
     if (err_is_fail(err)) {
         goto reset_owner;
