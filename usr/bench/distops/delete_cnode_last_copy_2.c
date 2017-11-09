@@ -109,7 +109,7 @@ void mgmt_run_benchmark(void *st)
     printf("# Benchmarking DELETE CNODE NO REMOTE CONTENTS: nodes=%d\n", gs->nodecount);
 
     broadcast_cmd(BENCH_CMD_DO_DELETE, ITERS);
-    unicast_cmd(gs->printnode++, BENCH_CMD_PRINT_STATS, 0);
+    unicast_cmd(gs->nodes[gs->printnode++], BENCH_CMD_PRINT_STATS, 0);
 }
 
 void mgmt_cmd(uint32_t cmd, uint32_t arg, struct bench_distops_binding *b)
