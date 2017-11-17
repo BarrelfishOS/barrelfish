@@ -148,7 +148,20 @@ errval_t net_filter_init(struct net_filter_state** st,
     tmp->filters_mac.start = NULL;
     tmp->filters_mac.num_ele = 0;
 
-    err = connect_to_net_filter(tmp, cardname);
+    // cardname are of the form name:vendor:device:bus:function ..
+    int end = 0;
+    for (; end < strlen(cardname); end++) {
+        if (cardname[end] == ':') {
+            break;
+        }
+    }
+
+    char name[64];
+    strncpy(name, cardname, end);
+    name[end] = '\0';
+
+    printf("cardname %s \n", name);
+    err = connect_to_net_filter(tmp, name);
     *st = tmp;
     return err;
 }

@@ -66,6 +66,10 @@ errval_t vspace_pinned_init(void)
     return SYS_ERR_OK;
 }
 
+// Amount of memory to allocate when we have to refill one of the slab
+// allocators backing the pinned vspace state
+#define PINNED_REFILL_SIZE (64 * BASE_PAGE_SIZE)
+
 /**
  * \brief Allocate some slabs
  *
@@ -109,7 +113,13 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
         is_refilling = true;
         // Out of memory, grow
         struct capref frame;
-        err = frame_alloc(&frame, BASE_PAGE_SIZE, NULL);
+        size_t alloc_size = PINNED_REFILL_SIZE;
+        err = frame_alloc(&frame, alloc_size, &alloc_size);
+        if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
+            // Handle early refills, before memserv connection established
+            alloc_size = BASE_PAGE_SIZE;
+            err = frame_alloc(&frame, alloc_size, &alloc_size);
+        }
         if (err_is_fail(err)) {
             thread_mutex_unlock(&state->mutex);
             DEBUG_ERR(err, "frame_alloc in vspace_pinned_alloc");
@@ -117,18 +127,18 @@ errval_t vspace_pinned_alloc(void **retbuf, enum slab_type slab_type)
         }
         err = state->memobj.m.f.fill((struct memobj*)&state->memobj,
                                      state->offset, frame,
-                                     BASE_PAGE_SIZE);
+                                     alloc_size);
         if (err_is_fail(err)) {
             thread_mutex_unlock(&state->mutex);
-            DEBUG_ERR(err, "memobj_fill in vspace_pinned_alloc");
+            DEBUG_ERR(err, "memobj_fill in vspace_pinned_alloc: offset=%zu", state->offset);
             return err_push(err, LIB_ERR_MEMOBJ_FILL);
         }
 
         genvaddr_t gvaddr = vregion_get_base_addr(&state->vregion) +
             state->offset;
         void *slab_buf = (void*)vspace_genvaddr_to_lvaddr(gvaddr);
-        slab_grow(slab, slab_buf, BASE_PAGE_SIZE);
-        state->offset += BASE_PAGE_SIZE;
+        slab_grow(slab, slab_buf, alloc_size);
+        state->offset += alloc_size;
 
         // Try again
         if (buf == NULL) {

@@ -1,0 +1,56 @@
+/*
+ * Copyright (c) 2017, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich.
+ * Attn: Systems Group.
+ */
+
+/**
+ * CortexA9 subsystem of TI OMAP4460 SoC
+ *
+ * This is derived from:
+ * OMAP4460 Multimedia Device Silicon Revision 1.x Technical Reference
+ * Manual Version Q
+ *
+ * Section 4
+ *
+ */
+
+import cortex/cortexA9
+
+module CortexA9-Subsystem {
+    input CPU_{[1..2]}/32
+    output L3/32, L4_ABE/20
+
+    ROM is memory accept [0x0-0xBFFF]
+
+    PL310 is device accept [0x0/12]
+    CORTEXA9_SOCKET_PRCM is device accept [0x0/9]
+    CORTEXA9_PRM is device accept [0x0/9]
+    CORTEXA9_CPU{[0..1]} are device accept [0x0/10]
+    CORTEXA9_WUGEN is device accept [0x0/12]
+    CMU is device accept [0x0/16]
+    Interconnect_config is device accept [0x0/12]
+    MA is device accept [0x0/12]
+
+    Interconnect is map [
+        0x40030000-0x4003BFFF to ROM
+        0x40100000/20 to L4_ABE
+        0x48242000/12 to PL310
+        0x48243000/9 to CORTEXA9_SOCKET_PRCM
+        0x48243200/9 to CORTEXA9_PRM
+        0x48243400/10 to CORTEXA9_CPU0
+        0x48243800/10 to CORTEXA9_CPU1
+        0x48281000/12 to CORTEXA9_WUGEN
+        0x48290000/16 to CMU
+        0x482A0000/12 to Interconnect_config
+        0x482AF000/12 to MA
+    ] over L3/32
+    
+
+    CortexA9-MPCore(2, 0x48240000) as MPU with
+        CPU_{c in [1..2]} > CPU_{c}
+        Interconnect < L2
+}

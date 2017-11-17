@@ -61,7 +61,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
-#include <sys/param.h>
+#include <sys/types.h>
 
 #include "skb_internal.h"
 #include <barrelfish/barrelfish.h>

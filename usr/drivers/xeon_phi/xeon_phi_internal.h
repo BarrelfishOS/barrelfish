@@ -11,6 +11,7 @@
 #define XEON_PHI_H_
 
 #include <xeon_phi/xeon_phi.h>
+#include <collections/hash_table.h>
 
 #include "debug.h"
 
@@ -125,6 +126,9 @@ struct xeon_phi
     uint8_t connected;      ///< number of connected xphis
     struct xnode topology[XEON_PHI_NUM_MAX];
 
+    domainid_t current_key;
+    collections_hash_table* did_to_cap; ///< hash table to translate caps to dids
+    
     uint8_t is_client;
 
     iref_t xphi_svc_iref;

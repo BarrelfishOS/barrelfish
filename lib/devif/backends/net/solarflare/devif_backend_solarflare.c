@@ -475,13 +475,44 @@ static errval_t sfn5122f_dequeue(struct devq* q, regionid_t* rid, genoffset_t* o
     return err;
 }
 
+static errval_t sfn5122f_destroy(struct devq* queue)
+{
+    errval_t err, err2;
+    struct sfn5122f_queue* q;
+
+    q = (struct sfn5122f_queue*) queue;
+
+    err = q->b->rpc_tx_vtbl.destroy_queue(q->b, q->id, &err2);
+    if (err_is_fail(err) || err_is_fail(err2)) {
+        err = err_is_fail(err) ? err: err2;
+        return err;
+    }
+
+    err = vspace_unmap(q->device_va);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    free(q->device);
+    free(q->b);
+
+    err = sfn5122f_queue_free(q);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+
+
+
 static void interrupt_handler(void* arg)
 {
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) arg;
 
     queue->cb(queue);
 }
-
 
 
 /**
@@ -618,44 +649,14 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     queue->q.f.dereg = sfn5122f_deregister;
     queue->q.f.ctrl = sfn5122f_control;
     queue->q.f.notify = sfn5122f_notify;
-    
+    queue->q.f.destroy = sfn5122f_destroy; 
+   
     *q = queue;
 
     queues[queue->id] = queue;
 
     return SYS_ERR_OK;
 }
-
-errval_t sfn5122f_queue_destroy(struct sfn5122f_queue* q)
-{
-    errval_t err, err2;
-    err = q->b->rpc_tx_vtbl.destroy_queue(q->b, q->id, &err2);
-    if (err_is_fail(err) || err_is_fail(err2)) {
-        err = err_is_fail(err) ? err: err2;
-        return err;
-    }
-
-    err = vspace_unmap(q->device_va);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    free(q->device);
-    free(q->b);
-
-    err = devq_destroy(&(q->q));
-    if (err_is_fail(err)){
-        return err;
-    }
-
-    err = sfn5122f_queue_free(q);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return SYS_ERR_OK;
-}
-
 
 uint64_t sfn5122f_queue_get_id(struct sfn5122f_queue* q)
 {

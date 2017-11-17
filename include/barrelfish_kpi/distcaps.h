@@ -40,7 +40,7 @@ distcap_state_is_foreign(distcap_state_t state)
  * Predicates related to sharing capabilities
  */
 
-STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
 static inline bool
 distcap_needs_locality(enum objtype type)
 {
@@ -90,7 +90,7 @@ distcap_needs_locality(enum objtype type)
     }
 }
 
-STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
 static inline bool
 distcap_is_moveable(enum objtype type)
 {

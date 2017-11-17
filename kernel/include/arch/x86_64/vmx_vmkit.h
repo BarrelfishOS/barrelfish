@@ -9,7 +9,7 @@
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich. 
+ * ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich.
  * Attn: Systems Group.
  */
 
@@ -37,10 +37,9 @@
 #define MSR_CSTAR          0xc0000083
 #define MSR_SFMASK         0xc0000084
 
-#define PAGE_SIZE 0x1000
 #define CPUID_PA_WIDTH (0x80000008)
 #define VMX_PA_WIDTH_MASK (0xFF)
-#define CPUID_VMX (0x1) 
+#define CPUID_VMX (0x1)
 #define VMX_SUPPORT (1 << 5)
 
 #define TYPE_EXT_INTR (0)
@@ -78,7 +77,7 @@ union vmcs_prelude {
     } p;
 };
 
-// Represents a VMCS structure which is comprised of up to 4-KB, 
+// Represents a VMCS structure which is comprised of up to 4-KB,
 // the data portion of the structure is implemenation-specific.
 struct vmcs {
     union vmcs_prelude prelude;
@@ -104,9 +103,9 @@ static inline bool contributory_exception(int vector)
     return false;
 }
 
-// Returns true if secondary processor-based VM-execution controls 
+// Returns true if secondary processor-based VM-execution controls
 // are used.
-static inline bool sec_ctls_used(uint64_t pp_controls) 
+static inline bool sec_ctls_used(uint64_t pp_controls)
 {
     return !!(pp_controls & PP_CLTS_SEC_CTLS);
 }
@@ -115,13 +114,13 @@ static inline bool sec_ctls_used(uint64_t pp_controls)
 static inline uint64_t canonical_form(uint64_t addr)
 {
     if ((addr >> 47) & 0x1) {
-        return (addr | ~0xffffffffffffUL); 
+        return (addr | ~0xffffffffffffUL);
     } else {
         return (addr & 0xffffffffffffUL);
     }
 }
 
-// Functions for reading segment registers are used in saving the 
+// Functions for reading segment registers are used in saving the
 // host state (via vmwrite instructions) prior to VM-entry
 
 static inline uint16_t rd_es(void)
@@ -209,7 +208,7 @@ static inline uint64_t idtr_addr(uint64_t idtr)
     return canonical_form(idtr >> 16);
 }
 
-// Return true if the segment selector is in the the LDT (the TI flag 
+// Return true if the segment selector is in the the LDT (the TI flag
 // is set), else false, meaning that it's contained in the GDT.
 static inline int seg_in_ldt(uint16_t seg_sel)
 {
@@ -244,7 +243,7 @@ static inline void vmlaunch(void)
 
 static inline void vmresume(void)
 {
-    __asm volatile("vmresume"); 
+    __asm volatile("vmresume");
 }
 
 static inline void enable_vmx(void)
@@ -262,8 +261,8 @@ static inline void disable_vmx(void)
     wrcr4(rdcr4() & ~CR4_VMXE);
 }
 
-static inline uint64_t vmx_fixed_cr0(void) 
-{ 
+static inline uint64_t vmx_fixed_cr0(void)
+{
     uint64_t cr0_fixed0 = ia32_vmx_cr0_fixed0_rd(NULL);
     uint64_t cr0_fixed1 = ia32_vmx_cr0_fixed1_rd(NULL);
 
@@ -272,8 +271,8 @@ static inline uint64_t vmx_fixed_cr0(void)
     return ((rdcr0() | cr0_1s_mask) & ~cr0_0s_mask);
 }
 
-static inline uint64_t vmx_fixed_cr4(void) 
-{ 
+static inline uint64_t vmx_fixed_cr4(void)
+{
     uint64_t cr4_fixed0 = ia32_vmx_cr4_fixed0_rd(NULL);
     uint64_t cr4_fixed1 = ia32_vmx_cr4_fixed1_rd(NULL);
 

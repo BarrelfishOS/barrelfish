@@ -47,3 +47,4 @@ bin/
 
 # clang
 .clang_complete
+compile_commands.json

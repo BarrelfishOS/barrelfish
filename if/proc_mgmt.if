@@ -1,0 +1,57 @@
+/*
+ * Copyright (c) 2017, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface proc_mgmt "Process management service" {
+  
+    typedef struct {
+        uint8 status;
+    } ps_entry;
+
+  // Add a new spawnd to the process manager's list.
+  message add_spawnd(coreid core, iref iref);
+
+  // Spawn a new domain, returning its domain cap.
+  rpc spawn(in coreid core,
+            in String path[2048],
+            in char argvbuf[argvbytes, 2048],
+            in char envbuf[envbytes, 2048],
+            in uint8 flags,
+            out errval err,
+            out cap domain_cap);
+
+  rpc spawn_with_caps(in coreid core,
+                      in String path[2048],
+                      in char argvbuf[argvbytes, 2048],
+                      in char envbuf[envbytes, 2048],
+                      in cap inheritcn_cap,
+                      in cap argcn_cap,
+                      in uint8 flags,
+                      out errval err,
+                      out cap domain_cap);
+
+  // Span a new core for a given domain, based on provided vroot and dispframe.
+  rpc span(in cap domain_cap, in coreid core, in cap vroot, in cap dispframe,
+           out errval err);
+
+  // Kill a domain for which the caller has a domain cap.
+  rpc kill(in cap domain_cap, out errval err);
+
+  // Let the process manager know the caller has finished execution.
+  //message exit(cap domain_cap, uint8 status);
+  rpc exit(in cap domain_cap, in uint8 status);
+
+  rpc wait(in cap domain_cap, in bool nohang, out errval err, out uint8 status);
+
+
+  rpc get_status(in uint32 domainid, out ps_entry ps_entry, 
+                 out char argv[len, 2048], out errval err);
+
+  // 4 uint8 are merged to a 32 bit domaind.
+  rpc get_domainlist(out uint8 domains[len, 4096]);
+};

@@ -27,7 +27,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)endian.h	7.8 (Berkeley) 4/3/91
- * $FreeBSD: src/sys/amd64/include/endian.h,v 1.8 2005/03/11 21:46:01 peter Exp $
+ * $FreeBSD$
  */
 
 #ifndef _MACHINE_ENDIAN_H_
@@ -35,10 +35,6 @@
 
 #include <sys/cdefs.h>
 #include <sys/_types.h>
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /*
  * Define the order of 32-bit words in 64-bit words.
@@ -61,143 +57,75 @@ extern "C" {
  * strict namespaces.
  */
 #if __BSD_VISIBLE
-#ifndef LITTLE_ENDIAN
 #define	LITTLE_ENDIAN	_LITTLE_ENDIAN
-#endif
-#ifndef BIG_ENDIAN
 #define	BIG_ENDIAN	_BIG_ENDIAN
-#endif
 #define	PDP_ENDIAN	_PDP_ENDIAN
 #define	BYTE_ORDER	_BYTE_ORDER
 #endif
 
-#if defined(__GNUCLIKE_ASM) && defined(__GNUCLIKE_BUILTIN_CONSTANT_P)
+#define	__bswap16_gen(x)	(__uint16_t)((x) << 8 | (x) >> 8)
+#define	__bswap32_gen(x)		\
+	(((__uint32_t)__bswap16((x) & 0xffff) << 16) | __bswap16((x) >> 16))
+#define	__bswap64_gen(x)		\
+	(((__uint64_t)__bswap32((x) & 0xffffffff) << 32) | __bswap32((x) >> 32))
 
-#define __word_swap_int_var(x) \
-__extension__ ({ register __uint32_t __X = (x); \
-   __asm ("rorl $16, %0" : "+r" (__X)); \
-   __X; })
+#ifdef __GNUCLIKE_BUILTIN_CONSTANT_P
+#define	__bswap16(x)				\
+	((__uint16_t)(__builtin_constant_p(x) ?	\
+	    __bswap16_gen((__uint16_t)(x)) : __bswap16_var(x)))
+#define	__bswap32(x)			\
+	(__builtin_constant_p(x) ?	\
+	    __bswap32_gen((__uint32_t)(x)) : __bswap32_var(x))
+#define	__bswap64(x)			\
+	(__builtin_constant_p(x) ?	\
+	    __bswap64_gen((__uint64_t)(x)) : __bswap64_var(x))
+#else
+/* XXX these are broken for use in static initializers. */
+#define	__bswap16(x)	__bswap16_var(x)
+#define	__bswap32(x)	__bswap32_var(x)
+#define	__bswap64(x)	__bswap64_var(x)
+#endif
 
-#ifdef __OPTIMIZE__
+/* These are defined as functions to avoid multiple evaluation of x. */
 
-#define	__word_swap_int_const(x) \
-	((((x) & 0xffff0000) >> 16) | \
-	 (((x) & 0x0000ffff) << 16))
-#define	__word_swap_int(x) (__builtin_constant_p(x) ? \
-	__word_swap_int_const(x) : __word_swap_int_var(x))
-
-#else	/* __OPTIMIZE__ */
-
-#define	__word_swap_int(x) __word_swap_int_var(x)
-
-#endif	/* __OPTIMIZE__ */
-
-#define __byte_swap_int_var(x) \
-__extension__ ({ register __uint32_t __X = (x); \
-   __asm ("bswap %0" : "+r" (__X)); \
-   __X; })
-
-#ifdef __OPTIMIZE__
-
-#define	__byte_swap_int_const(x) \
-	((((x) & 0xff000000) >> 24) | \
-	 (((x) & 0x00ff0000) >>  8) | \
-	 (((x) & 0x0000ff00) <<  8) | \
-	 (((x) & 0x000000ff) << 24))
-#define	__byte_swap_int(x) (__builtin_constant_p(x) ? \
-	__byte_swap_int_const(x) : __byte_swap_int_var(x))
-
-#else	/* __OPTIMIZE__ */
-
-#define	__byte_swap_int(x) __byte_swap_int_var(x)
-
-#endif	/* __OPTIMIZE__ */
-
-#define __byte_swap_long_var(x) \
-__extension__ ({ register __uint64_t __X = (x); \
-   __asm ("bswap %0" : "+r" (__X)); \
-   __X; })
-
-#ifdef __OPTIMIZE__
-
-#define	__byte_swap_long_const(x) \
-	(((x >> 56) | \
-	 ((x >> 40) & 0xff00) | \
-	 ((x >> 24) & 0xff0000) | \
-	 ((x >> 8) & 0xff000000) | \
-	 ((x << 8) & (0xfful << 32)) | \
-	 ((x << 24) & (0xfful << 40)) | \
-	 ((x << 40) & (0xfful << 48)) | \
-	 ((x << 56))))
-
-#define	__byte_swap_long(x) (__builtin_constant_p(x) ? \
-	__byte_swap_long_const(x) : __byte_swap_long_var(x))
-
-#else	/* __OPTIMIZE__ */
-
-#define	__byte_swap_long(x) __byte_swap_long_var(x)
-
-#endif	/* __OPTIMIZE__ */
-
-#define __byte_swap_word_var(x) \
-__extension__ ({ register __uint16_t __X = (x); \
-   __asm ("xchgb %h0, %b0" : "+Q" (__X)); \
-   __X; })
-
-#ifdef __OPTIMIZE__
-
-#define	__byte_swap_word_const(x) \
-	((((x) & 0xff00) >> 8) | \
-	 (((x) & 0x00ff) << 8))
-
-#define	__byte_swap_word(x) (__builtin_constant_p(x) ? \
-	__byte_swap_word_const(x) : __byte_swap_word_var(x))
-
-#else	/* __OPTIMIZE__ */
-
-#define	__byte_swap_word(x) __byte_swap_word_var(x)
-
-#endif	/* __OPTIMIZE__ */
-
-static __inline __uint64_t
-__bswap64(__uint64_t _x)
+static __inline __uint16_t
+__bswap16_var(__uint16_t _x)
 {
 
-	return (__byte_swap_long(_x));
+	return (__bswap16_gen(_x));
 }
 
 static __inline __uint32_t
-__bswap32(__uint32_t _x)
+__bswap32_var(__uint32_t _x)
 {
 
-	return (__byte_swap_int(_x));
+#ifdef __GNUCLIKE_ASM
+	__asm("bswap %0" : "+r" (_x));
+	return (_x);
+#else
+	return (__bswap32_gen(_x));
+#endif
 }
 
-static __inline __uint16_t
-__bswap16(__uint16_t _x)
+static __inline __uint64_t
+__bswap64_var(__uint64_t _x)
 {
 
-	return (__byte_swap_word(_x));
+#if defined(__amd64__) && defined(__GNUCLIKE_ASM)
+	__asm("bswap %0" : "+r" (_x));
+	return (_x);
+#else
+	/*
+	 * It is important for the optimizations that the following is not
+	 * really generic, but expands to 2 __bswap32_var()'s.
+	 */
+	return (__bswap64_gen(_x));
+#endif
 }
 
 #define	__htonl(x)	__bswap32(x)
 #define	__htons(x)	__bswap16(x)
 #define	__ntohl(x)	__bswap32(x)
 #define	__ntohs(x)	__bswap16(x)
-
-#else /* !(__GNUCLIKE_ASM && __GNUCLIKE_BUILTIN_CONSTANT_P) */
-
-/*
- * No optimizations are available for this compiler.  Fall back to
- * non-optimized functions by defining the constant usually used to prevent
- * redefinition.
- */
-#define	_BYTEORDER_FUNC_DEFINED
-
-#endif /* __GNUCLIKE_ASM && __GNUCLIKE_BUILTIN_CONSTANT_P */
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* !_MACHINE_ENDIAN_H_ */

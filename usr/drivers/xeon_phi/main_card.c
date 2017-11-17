@@ -190,7 +190,7 @@ static errval_t boot_cores(void)
 #endif
     debug_printf("spawning corectrl...\n");
 
-    domainid_t new_domain;
+    struct capref new_domain;
     struct capref coreboot_cap = {cnode_task, TASKCN_SLOT_COREBOOT};
 
     /* Create argument cnode to pass coreboot cap */
@@ -199,6 +199,11 @@ static errval_t boot_cores(void)
     assert(err_is_ok(err));
     coreboot_cap_in_argcn.slot = 0;
     err = cap_copy(coreboot_cap_in_argcn, coreboot_cap);
+    assert(err_is_ok(err));
+
+    // Wait until spawnd 0 is up (since we go over proc_mgmt 
+    // that might throw a error if spawnd 0 is not up)
+    err = nameservice_blocking_lookup("spawn.0", NULL);
     assert(err_is_ok(err));
 
     err = spawn_program_with_caps(0, "k1om/sbin/corectrl", arg, NULL, NULL_CAP,

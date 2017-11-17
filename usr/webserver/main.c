@@ -62,7 +62,10 @@ int main(int argc, char**argv)
 
     DEBUGPRINT("lwip_demo: lwip setup\n");
     printf("webserver:%u: initializing networking \n", disp_get_core_id());
-    net_sockets_init();
+    err = net_sockets_init();
+    if (err_is_fail(err)) {
+        USER_PANIC("Failed init %s \n", err_getstring(err));
+    }
     printf("webserver:%u: networking initialized\n", disp_get_core_id());
 
 //    lwip_benchmark_control(1, BMS_START_REQUEST, 0, 0);

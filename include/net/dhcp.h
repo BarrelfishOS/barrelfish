@@ -17,7 +17,6 @@
 #define LIB_NET_INCLUDE_NETWORKING_DHCP_H_
 
 #include <net/net.h>
-#include <lwip/ip_addr.h>
 
 #define NET_CONFIG_IP_RECORD_FIELDS "{ ip: %d, gw: %d, netmask: %d }"
 #define NET_CONFIG_CURRENT_IP_RECORD_FORMAT "net.ipconfig " NET_CONFIG_IP_RECORD_FIELDS
@@ -46,11 +45,12 @@ errval_t dhcpd_stop(void);
 /**
  * @brief queries the current ip setting of the machine
  *
- * @param flags flags to provide
+ * @param flags         flags to provide
+ * @param ip_address    Current Ip address
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t net_config_current_ip_query(net_flags_t flags);
+errval_t net_config_current_ip_query(net_flags_t flags, uint32_t* ip_address);
 
 
 /**

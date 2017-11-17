@@ -1,9 +1,10 @@
 /*
- * Copyright (c) 2017, ETH Zurich. All rights reserved.
+ * Copyright (c) 2017 ETH Zurich.
+ * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
 #include <barrelfish/barrelfish.h>
@@ -229,6 +230,14 @@ static errval_t e1000_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offs
 static errval_t e1000_notify(struct devq* q)
 {
     assert(0);
+    return SYS_ERR_OK;
+}
+
+static errval_t e1000_destroy(struct devq * queue)
+{
+    e1000_queue_t* q = (e1000_queue_t *) queue;
+    free(q);
+    // TODO rest of the cleanup
     return SYS_ERR_OK;
 }
 
@@ -851,7 +860,6 @@ static void e1000_init(e1000_queue_t *device, unsigned interrupt_mode)
     }
 }
 
-
 errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t deviceid,
     uint32_t bus, uint32_t pci_device, uint32_t function, unsigned interrupt_mode,
     void (*isr)(void *))
@@ -896,17 +904,12 @@ errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t device
     device->q.f.dereg = e1000_deregister;
     device->q.f.ctrl = e1000_control;
     device->q.f.notify = e1000_notify;
+    device->q.f.destroy = e1000_destroy;
     
     *q = device;
 
     return SYS_ERR_OK;
 }
-
-errval_t e1000_queue_destroy(e1000_queue_t * q)
-{
-    return SYS_ERR_OK;
-}
-
 
 e1000_mac_type_t e1000_get_mac_type(uint32_t vendor, uint32_t device_id)
 {

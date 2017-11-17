@@ -18,6 +18,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <sys/param.h>
+
 
 /***** Prerequisite definitions copied from Barrelfish headers *****/
 

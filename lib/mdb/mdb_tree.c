@@ -170,7 +170,7 @@ mdb_dump_all_the_things(void)
     mdb_dump(mdb_root, 0);
 }
 
-STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
 static void print_cte(struct cte *cte, char *indent_buff)
 {
     struct mdbnode *node = N(cte);
@@ -540,6 +540,7 @@ mdb_rebalance(struct cte *node)
     return node;
 }
 
+#ifndef NDEBUG
 static bool
 mdb_is_child(struct cte *child, struct cte *parent)
 {
@@ -550,6 +551,9 @@ mdb_is_child(struct cte *child, struct cte *parent)
         return N(parent)->left == child || N(parent)->right == child;
     }
 }
+#else
+#define mdb_is_child(a, b) 0
+#endif
 
 static bool
 mdb_is_inside(genpaddr_t outer_begin, genpaddr_t outer_end,

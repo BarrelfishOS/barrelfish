@@ -63,7 +63,8 @@ struct xomp_worker
     xomp_wid_t id;                  ///< worker ID
     xomp_worker_type_t type;        ///< worker type
     xomp_worker_st_t state;         ///< worker state
-    xphi_dom_id_t domainid;         ///< domain ID of the worker
+    struct capref domain;           ///< domain cap of the worker
+    xphi_dom_id_t domainid;         ///< domain ID of the worker  
 
     struct xomp_binding *binding;   ///< Control channel binding
     struct tx_queue txq;            ///< Flounder TX queue
@@ -744,7 +745,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
             spawn_timer = bench_tsc();
 #endif
 
-            domainid_t did;
+            struct capref did;
             err = spawn_program_with_caps(core, spawn_args_local.path,
                                           spawn_args_local.argv, NULL, NULL_CAP,
                                           worker->msgframe, SPAWN_FLAGS_OMP,
@@ -753,7 +754,7 @@ errval_t xomp_master_spawn_workers(uint32_t nworkers)
             local_spawn_timer += bench_tsc() - spawn_timer;
             spawn_timer = bench_tsc();
 #endif
-            worker->domainid = did;
+            worker->domain = did;
             worker->type = XOMP_WORKER_TYPE_LOCAL;
             if (err_is_fail(err)) {
                 /* TODO: cleanup */

@@ -1,0 +1,19 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2017, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /lib/net
+--
+--------------------------------------------------------------------------
+
+[  build application {
+    target       = "net_sockets_server",
+    cFiles       = [ "net_sockets_server.c" ],
+    flounderBindings = [ "net_sockets" ],
+    addLibraries = libDeps [ "net", "lwip2", "octopus", "debug_log" ]
+  }
+]

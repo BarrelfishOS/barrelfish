@@ -99,6 +99,10 @@ interface intermon "The Interface between monitors" {
                                 uint64 framebytes);
     message span_domain_reply(state_id state_id, errval err);
 
+    // Inform the monitor connected to the process manager about the spawnd
+    // that the caller just spawned.
+    message add_spawnd(iref iref);
+
     // Resource control
     message rsrc_join(rsrcid id, coreid coreid);
     message rsrc_join_complete(rsrcid id);

@@ -140,8 +140,9 @@ static errval_t loopback_control(struct devq *q,
 }
 
 
-errval_t loopback_queue_destroy(struct loopback_queue* q)
+static errval_t loopback_destroy(struct devq* q)
 {
+    free((struct loopback_queue*)q);
     return SYS_ERR_OK;
 }
 
@@ -169,6 +170,7 @@ errval_t loopback_queue_create(struct loopback_queue** q)
     lq->q.f.dereg = loopback_deregister;
     lq->q.f.ctrl = loopback_control;
     lq->q.f.notify = loopback_notify;
+    lq->q.f.destroy = loopback_destroy;
 
     *q = lq;
 

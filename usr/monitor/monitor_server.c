@@ -18,7 +18,9 @@
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <if/mem_defs.h>
+#include <if/proc_mgmt_defs.h>
 #include <barrelfish/monitor_client.h>
+#include <barrelfish/spawn_client.h>
 #include <barrelfish/syscalls.h>
 #include <barrelfish_kpi/distcaps.h>
 #include <if/monitor_loopback_defs.h>
@@ -34,6 +36,11 @@ static struct monitor_binding monitor_self_binding;
 struct multiboot_cap_state {
     struct monitor_msg_queue_elem elem;
     cslot_t slot;
+};
+
+struct proc_mgmt_bind_st {
+    errval_t err;
+    bool present;
 };
 
 static void ms_multiboot_cap_request(struct monitor_binding *b, cslot_t slot);
@@ -704,6 +711,66 @@ static void set_ramfs_iref_request(struct monitor_binding *b,
     ramfs_serv_iref = iref;
 }
 
+static void proc_mgmt_bind_cont(void *st,
+                                errval_t err,
+                                struct proc_mgmt_binding *b)
+{
+    struct proc_mgmt_bind_st* bind_st = (struct proc_mgmt_bind_st*) st;
+    assert(!bind_st->present);
+    bind_st->err = err;
+    bind_st->present = true;
+}
+
+static void set_proc_mgmt_ep_request(struct monitor_binding *b,
+                                     struct capref ep)
+{
+    // We got the endpoint which the process manager has allocated for us.
+    // Time to set up our part of the LMP connection and finish the handshake.
+    struct proc_mgmt_lmp_binding *lmpb =
+        malloc(sizeof(struct proc_mgmt_lmp_binding));
+    assert(lmpb != NULL);
+
+    set_proc_mgmt_binding(&lmpb->b);
+
+    struct proc_mgmt_bind_st bind_st = {
+        .present = false
+    };
+    errval_t err = proc_mgmt_client_lmp_bind(lmpb,
+                                             ep,
+                                             proc_mgmt_bind_cont,
+                                             &bind_st,
+                                             get_default_waitset(),
+                                             DEFAULT_LMP_BUF_WORDS);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "proc_mgmt_client_lmp_bind");
+    }
+
+    // Dispatch events on the waitset until proc_mgmt binding completes.
+    while (!bind_st.present) {
+        err = event_dispatch(get_default_waitset());
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "monitor event dispatch");
+        }
+    }
+
+    if(err_is_fail(bind_st.err)) {
+        USER_PANIC_ERR(err, "during proc_mgmt bind initialization");
+    }
+
+    proc_mgmt_rpc_client_init(&lmpb->b);
+}
+
+static void set_spawn_iref_request(struct monitor_binding *b, iref_t iref)
+{
+    if (spawn_iref != 0) {
+        // Called multiple times, return error
+        DEBUG_ERR(0, "Attempt to reset spawn IREF ignored");
+        return;
+    }
+
+    spawn_iref = iref;
+}
+
 struct send_cap_st {
     struct intermon_msg_queue_elem qe; // must be first
     uintptr_t my_mon_id;
@@ -908,6 +975,8 @@ struct monitor_rx_vtbl the_table = {
     .set_mem_iref_request  = set_mem_iref_request,
     .set_name_iref_request = set_name_iref_request,
     .set_ramfs_iref_request = set_ramfs_iref_request,
+    .set_proc_mgmt_ep_request = set_proc_mgmt_ep_request,
+    .set_spawn_iref_request = set_spawn_iref_request,
     .get_monitor_rpc_iref_request  = get_monitor_rpc_iref_request,
 
     .cap_send_request = cap_send_request,

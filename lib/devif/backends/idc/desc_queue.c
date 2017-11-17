@@ -246,6 +246,36 @@ static errval_t descq_register(struct devq* q, struct capref cap,
     return err;
 }
 
+
+
+/**
+ * @brief Destroys a descriptor queue and frees its resources
+ *
+ * @param que                     The descriptor queue
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+static errval_t descq_destroy(struct devq* que)
+{
+    errval_t err;
+    
+    struct descq* q = (struct descq*) que;
+
+    err = vspace_unmap(q->tx_descs);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = vspace_unmap(q->rx_descs);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    free(q->name);
+    free(q);
+
+    return SYS_ERR_OK;
+}
+
 static void try_deregister(void* a)
 {
     errval_t err, err2;
@@ -381,6 +411,7 @@ static errval_t mp_create(struct descq_binding* b, uint32_t slots,
     q->q.f.reg = descq_register;
     q->q.f.dereg = descq_deregister;
     q->q.f.ctrl = descq_control;
+    q->q.f.destroy = descq_destroy;
 
     notificator_init(&q->notificator, q, descq_can_read, descq_can_write);
     *err = waitset_chan_register(get_default_waitset(), &q->notificator.ready_to_read, MKCLOSURE(mp_notify, q));
@@ -472,7 +503,6 @@ static void bind_cb(void *st, errval_t err, struct descq_binding* b)
 /**
  * @brief initialized a descriptor queue
  */
-
 errval_t descq_create(struct descq** q,
                       size_t slots,
                       char* name,
@@ -634,28 +664,3 @@ cleanup1:
 }
 
 
-
-/**
- * @brief Destroys a descriptor queue and frees its resources
- *
- * @param q                     The descriptor queue
- *
- * @returns error on failure or SYS_ERR_OK on success
- */
-errval_t descq_destroy(struct descq* q)
-{
-    errval_t err;
-    err = vspace_unmap(q->tx_descs);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    err = vspace_unmap(q->rx_descs);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    free(q->name);
-    free(q);
-
-    return SYS_ERR_OK;
-}

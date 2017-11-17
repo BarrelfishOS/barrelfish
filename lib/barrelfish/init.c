@@ -70,7 +70,7 @@ void libc_exit(int status)
         // XXX: Leak all other domain allocations
     } else {
         err = spawn_exit(status);
-        if(err_is_fail(err)) {
+        if (err_is_fail(err)) {
             DEBUG_ERR(err, "spawn_exit");
         }
     }

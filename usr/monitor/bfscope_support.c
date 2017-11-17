@@ -130,6 +130,8 @@ static void bfscope_monitor_flush_send_handler(struct monitor_binding *mb, iref_
 	if(coreid == my_core_id) {
 		printf("bfscope runs on the same core as the initiator of the flush request\n");
 
+                // we don't need the state in this case
+                free(state);
 		// Send message to bfscope directly
 		bfscope_intermon_flush_forward_handler(NULL, iref);
 		return;

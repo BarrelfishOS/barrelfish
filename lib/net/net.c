@@ -27,6 +27,7 @@
 #include <net/net_filter.h>
 #include <net_interfaces/flags.h>
 #include "networking_internal.h"
+#include "net_queue_internal.h"
 
 struct net_state state = {0};
 struct waitset_chanstate net_loopback_poll_channel;
@@ -97,116 +98,6 @@ void net_lwip_timeout(void)
     }
 }
 
-static errval_t create_loopback_queue (struct net_state *st, uint64_t* queueid,
-                                       struct devq **retqueue)
-{
-    errval_t err;
-
-    debug_printf("net: creating loopback queue.\n");
-
-    *queueid = 0;
-    err = loopback_queue_create((struct loopback_queue **)retqueue);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return SYS_ERR_OK;
-}
-
-static errval_t create_driver_queue (struct net_state *st, uint64_t* queueid,
-                                     struct devq **retqueue)
-{
-    *queueid = 0;
-    return SYS_ERR_OK;
-}
-
-// cardname - "e1000:vendor:deviceid:bus:device:function"
-static errval_t create_e1000_queue(struct net_state *st, uint64_t *queueid,
-                                   struct devq **retqueue)
-{
-    if (st->cardname[5] != ':') {
-        return SYS_ERR_OK;
-    }
-    uint32_t vendor, deviceid, bus, device, function;
-    unsigned parsed = sscanf(st->cardname + 6, "%x:%x:%x:%x:%x", &vendor,
-                             &deviceid, &bus, &device, &function);
-    if (parsed != 5) {
-        return SYS_ERR_OK;
-    }
-
-    return e1000_queue_create((struct e1000_queue**)retqueue, vendor, deviceid,
-                              bus, device, function, 1, int_handler);
-}
-
-static errval_t create_e10k_queue (struct net_state *st, uint64_t* queueid,
-                                   struct devq **retqueue)
-{
-    errval_t err;
-    err = e10k_queue_create((struct e10k_queue**)retqueue, int_handler,
-                            false /*virtual functions*/,
-                            !(st->flags & NET_FLAGS_POLLING), /* user interrupts*/
-                            (st->flags & NET_FLAGS_DEFAULT_QUEUE));
-    *queueid = e10k_queue_get_id((struct e10k_queue*)*retqueue);
-    return err;
-}
-
-static errval_t create_sfn5122f_queue (struct net_state *st, uint64_t* queueid,
-                                       struct devq **retqueue)
-{
-    errval_t err;
-    err = sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, int_handler,
-                                false /*userlevel network feature*/,
-                                !(st->flags & NET_FLAGS_POLLING) /* user interrupts*/,
-                                (st->flags & NET_FLAGS_DEFAULT_QUEUE));
-    *queueid = sfn5122f_queue_get_id((struct sfn5122f_queue*)*retqueue);
-    return err;
-}
-
-
-typedef errval_t (*queue_create_fn)(struct net_state *, uint64_t*, struct devq **);
-struct networking_card
-{
-    char *cardname;
-    queue_create_fn createfn;
-} networking_cards [] = {
-    { "loopback", create_loopback_queue},
-    { "driver", create_driver_queue},
-    { "e1000", create_e1000_queue},
-    { "e10k", create_e10k_queue},
-    { "sfn5122f", create_sfn5122f_queue},
-    { NULL, NULL}
-};
-
-
-/**
- * @brief creates a queue to the given card and the queueid
- *
- * @param cardname  network card to create the queue for
- * @param queueid   queueid of the network card
- * @param retqueue  returns the pointer to the queue
- *
- * @return SYS_ERR_OK on success, errval on failure
- */
-static errval_t net_create_queue(struct net_state *st, const char *cardname,
-                                 uint64_t* queueid, struct devq **retqueue)
-{
-    debug_printf("net: creating queue for card='%s'...\n",
-                  cardname);
-
-    struct networking_card *nc = networking_cards;
-    while(nc->cardname != NULL) {
-        if (strncmp(cardname, nc->cardname, strlen(nc->cardname)) == 0) {
-            return nc->createfn(st, queueid, retqueue);
-        }
-        nc++;
-    }
-
-    debug_printf("net: ERROR unknown queue. card='%s', queueid=%" PRIu64 "\n",
-                  cardname, *queueid);
-
-    return -1;
-}
-
 /**
  * @brief creates a queue to the given card and the queueid
  *
@@ -220,10 +111,11 @@ errval_t networking_create_queue(const char *cardname, uint64_t* queueid,
                                  struct devq **retqueue)
 {
     struct net_state *st = get_default_net_state();
-
-    return net_create_queue(st, cardname, queueid, retqueue);
+    bool poll = st->flags & NET_FLAGS_POLLING;
+    bool default_q = st->flags & NET_FLAGS_DEFAULT_QUEUE;
+    return net_queue_internal_create(int_handler, cardname, queueid, default_q,
+                                     poll, retqueue); 
 }
-
 
 
 static errval_t networking_poll_st(struct net_state *st)
@@ -232,12 +124,9 @@ static errval_t networking_poll_st(struct net_state *st)
     if (st->flags & NET_FLAGS_POLLING) {
         return net_if_poll(&st->netif);
     } else {
-        return event_dispatch_non_block(get_default_waitset());
+        return event_dispatch(get_default_waitset());
     }
 }
-
-
-
 
 /**
  * @brief initializes the networking library with a given device queue
@@ -295,7 +184,7 @@ static errval_t networking_init_with_queue_st(struct net_state *st, struct devq 
         goto out_err1;
     }
 
-    if (!(flags & NET_FLAGS_NO_NET_FILTER)) {
+    if (!(flags & NET_FLAGS_NO_NET_FILTER) && st->hw_filter) {
         NETDEBUG("initializing hw filter...\n");
 
         err = net_filter_init(&st->filter, st->cardname);
@@ -383,12 +272,16 @@ static errval_t networking_init_st(struct net_state *st, const char *nic,
 
     st->cardname = nic;
     st->flags = flags;
+    // default no hw filters
+    st->hw_filter = false;
 
     /* create the queue wit the given nic and card name */
-    err = networking_create_queue(st->cardname, &st->queueid, &st->queue);
+    err = networking_create_queue(nic, &st->queueid, &st->queue);
     if (err_is_fail(err)) {
         return err;
     }
+
+    assert(st->queue != NULL);
 
     err = networking_init_with_queue_st(st, st->queue, flags);
     if (err_is_fail(err)) {

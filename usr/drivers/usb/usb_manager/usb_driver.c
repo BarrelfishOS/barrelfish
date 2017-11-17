@@ -308,7 +308,7 @@ static void usb_driver_spawn(void)
     assert(device_process != NULL);
     assert(device_process->path != NULL);
 
-    domainid_t new_domain = -1;
+    struct capref new_domain;
 
     char *argv[1] = {
         [0] = NULL,

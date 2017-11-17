@@ -436,6 +436,7 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "error allocating LDT segment for new thread");
         free_thread(newthread);
+        free(stack);
         return NULL;
     }
 #endif
@@ -696,29 +697,35 @@ errval_t thread_get_async_error(void)
 }
 
 /**
- * \brief Store receive slot provided by rpc in thread state
+ * \brief Store receive slot provided by rpc
  */
+
 void thread_store_recv_slot(struct capref recv_slot)
 {
-    struct thread *me = thread_self();
-    assert(me);
+    dispatcher_handle_t handle = disp_disable();
+    struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
 
-    assert(me->recv_slot_count < MAX_RECV_SLOTS);
-    assert(me->recv_slot_count >= 0);
+    assert(disp_gen->recv_slot_count < MAX_RECV_SLOTS);
+    assert(disp_gen->recv_slot_count >= 0);
+    disp_gen->recv_slots[disp_gen->recv_slot_count++] = recv_slot;
 
-    me->recv_slots[me->recv_slot_count++] = recv_slot;
+    disp_enable(handle);
 }
 
 struct capref thread_get_next_recv_slot(void)
 {
-    struct thread *me = thread_self();
+    dispatcher_handle_t handle = disp_disable();
+    struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
+    struct capref retcap;
 
     // HERE: recv_slot_count is > 0 if we have one+ caps stored
-    if (me->recv_slot_count <= 0) {
-        return NULL_CAP;
+    if (disp_gen->recv_slot_count <= 0) {
+        retcap = NULL_CAP;
+    } else {
+        retcap = disp_gen->recv_slots[--disp_gen->recv_slot_count];
     }
-
-    return me->recv_slots[--me->recv_slot_count];
+    disp_enable(handle);
+    return retcap;
 }
 
 void thread_set_status(int status) {
@@ -1285,16 +1292,14 @@ void threads_prepare_to_span(dispatcher_handle_t newdh)
         acquire_spinlock(&thread_slabs_spinlock);
 
         while (slab_freecount(&thread_slabs) < MAX_THREADS - 1) {
-            struct capref frame;
             size_t size;
             void *buf;
             errval_t err;
 
             size_t blocksize = sizeof(struct thread) + tls_block_total_len;
-            err = vspace_mmu_aware_map(&thread_slabs_vm, blocksize,
+            err = vspace_mmu_aware_map(&thread_slabs_vm, 64 * blocksize,
                                        &buf, &size);
             if (err_is_fail(err)) {
-                slot_free(frame);
                 if (err_no(err) == LIB_ERR_VSPACE_MMU_AWARE_NO_SPACE) {
                     // we've wasted space with fragmentation
                     // cross our fingers and hope for the best...

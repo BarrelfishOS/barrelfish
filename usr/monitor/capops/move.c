@@ -70,7 +70,8 @@ handle_err:
 }
 
 static errval_t
-move_request(struct domcapref capref, struct capability *cap, uint8_t relations, coreid_t dest, move_result_handler_t result_handler, void *st)
+move_request(struct domcapref capref, struct capability *cap, uint8_t relations,
+             coreid_t dest, move_result_handler_t result_handler, void *st)
 {
     errval_t err;
 
@@ -217,6 +218,8 @@ move_request__rx_handler(struct intermon_binding *b, intermon_caprep_t caprep, u
         goto reset_owner;
     }
 
+    // If broadcast doesn't fail, unlock cap only after all nodes have
+    // acknowledged ownership change, see free_owner_recv_cap().
     err = capsend_update_owner(domcapref, MKCONT(free_owner_recv_cap, capref));
     if (err_is_fail(err)) {
         goto reset_owner;
@@ -272,7 +275,8 @@ move_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t 
  */
 
 errval_t
-capops_move(struct domcapref capref, coreid_t dest, move_result_handler_t result_handler, void *st)
+capops_move(struct domcapref capref, coreid_t dest, move_result_handler_t result_handler,
+            void *st)
 {
     errval_t err;
     distcap_state_t state;

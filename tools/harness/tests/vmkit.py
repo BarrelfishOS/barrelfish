@@ -25,6 +25,7 @@ class VMKitTest(TestCommon):
         modules.add_module("serial_pc16550d", ["auto"])
         modules.add_module("lpc_timer", ["auto"])
         modules.add_module("e1000n", ["auto"])
+        modules.add_module("net_sockets_server", ["auto"])
         modules.add_module("NGD_mng", ["auto"])
         modules.add_module("netd", ["auto"])
 

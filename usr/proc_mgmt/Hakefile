@@ -1,0 +1,25 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2017, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/proc_mgmt
+--
+--------------------------------------------------------------------------
+
+[ build application { target = "proc_mgmt",
+                      cFiles = [ "main.c", "service.c", "spawnd_state.c", 
+                                 "domain.c" ],
+                      addLibraries = libDeps [ "skb", "dist", "lwip",
+                                               "collections" ],
+                      flounderDefs = [ "monitor", "monitor_blocking" ],
+                      flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]), 
+                                            ("spawn",["rpcclient"]) ],
+                      flounderBindings = [ "proc_mgmt" ],
+                      architectures = [ "x86_64", "x86_32" , "k1om", "armv7", 
+                                        "armv8"]
+                    }
+]

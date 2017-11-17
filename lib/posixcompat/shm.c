@@ -143,7 +143,7 @@ int shmget(key_t key, size_t size, int shmflg)
         // XXX: Not multi-processing safe!
         errval_t err = oct_get_capability(skey, &s->frame);
         if(err_is_fail(err) && err_no(err) != OCT_ERR_CAP_NAME_UNKNOWN) {
-            USER_PANIC_ERR(err, "nameservice_get_capability");
+            USER_PANIC_ERR(err, "oct_get_capability");
         }
         if(err == OCT_ERR_CAP_NAME_UNKNOWN) {
             if(!(shmflg & IPC_CREAT)) {
@@ -168,7 +168,7 @@ int shmget(key_t key, size_t size, int shmflg)
             // XXX: This can fail if someone else won the race
             err = oct_put_capability(skey, s->frame);
             if(err_is_fail(err)) {
-                USER_PANIC_ERR(err, "nameservice_put_capability");
+                USER_PANIC_ERR(err, "oct_put_capability");
             }
 
             s->ds.shm_nattch = 0;

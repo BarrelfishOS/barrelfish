@@ -24,7 +24,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <sys/param.h>
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
 #include <net_queue_manager/net_queue_manager.h>

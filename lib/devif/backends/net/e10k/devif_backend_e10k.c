@@ -471,6 +471,14 @@ static errval_t e10k_notify(struct devq* q)
     return SYS_ERR_OK;
 }
 
+static errval_t e10k_destroy(struct devq* queue)
+{
+    struct e10k_queue* q = (struct e10k_queue*) queue;
+    free(q);
+    //TODO: rest of the cleanup
+    return SYS_ERR_OK;
+}
+
 /******************************************************************
  * Management functions
  *
@@ -534,15 +542,8 @@ static void connect_to_mngif(struct e10k_queue* q)
 }
 
 /*********************************************************
- * Queue creation and destruction
+ * Queue creation 
  */
-
-
-errval_t e10k_queue_destroy(struct e10k_queue* queue)
-{
-    //TODO: do the cleanup
-    return SYS_ERR_OK;
-}
 
 static errval_t map_device_memory(struct e10k_queue* q,
                                   struct capref regs)
@@ -732,6 +733,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
     q->q.f.dereg = e10k_deregister;
     q->q.f.ctrl = e10k_control;
     q->q.f.notify = e10k_notify;
+    q->q.f.destroy = e10k_destroy;
 
 
     *queue = q;

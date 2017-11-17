@@ -42,10 +42,10 @@ struct result_closure {
     } \
 } while (0)
 
-#define PANIC_IF_ERR(err, msg) do { \
+#define PANIC_IF_ERR(err, msg...) do { \
     errval_t tmp_err__ = (err); \
     if (err_is_fail(tmp_err__)) { \
-        USER_PANIC_ERR(tmp_err__, (msg)); \
+        USER_PANIC_ERR(tmp_err__, msg); \
     } \
 } while (0)
 

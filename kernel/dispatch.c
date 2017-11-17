@@ -42,8 +42,6 @@
 #  include <fpu.h>
 #endif
 
-#define MIN(a,b)        ((a) < (b) ? (a) : (b))
-
 /**
  * \brief The kernel timeslice given in system ticks
  */

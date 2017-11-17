@@ -138,8 +138,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "bulkbench_micro_echo",
                         "bulkbench_micro_rtt",
                         "bulkbench_micro_throughput",
-                        "elb_app",
-                        "elb_app_tcp",
                         "lrpc_bench",
                         "mdb_bench",
                         "mdb_bench_old",
@@ -166,6 +164,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                           "init",
                           "skb",
                           "spawnd",
+                          "proc_mgmt",
                           "startd",
                           "mem_serv",
                           "monitor",
@@ -226,7 +225,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "vnode_map_test",
                            "webserver",
                            "xeon_phi",
-                           "xeon_phi_mgr"
+                           "xeon_phi_mgr",
+                           "net_sockets_server"
                            ]] ++ modules_common
 
     -- the following are broken in the newidc system
@@ -250,6 +250,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "init",
                         "mem_serv",
                         "monitor",
+                        "proc_mgmt",
                         "ramfsd",
                         "spawnd",
                         "startd",
@@ -276,6 +277,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                                "kaluga",
                                "mem_serv",
                                "monitor",
+                               "proc_mgmt",
                                "ramfsd",
                                "serial_pl011",
                                "serial_kernel",
@@ -295,6 +297,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                               "kaluga",
                               "mem_serv",
                               "monitor",
+                              "proc_mgmt",
                               "ramfsd",
                               "serial_pl011",
                               "serial_kernel",
@@ -314,6 +317,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "kaluga",
                      "mem_serv",
                      "monitor",
+                     "proc_mgmt",
                      "ramfsd",
                      "serial_kernel",
                      "spawnd",
@@ -331,6 +335,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                        "init",
                        "mem_serv",
                        "monitor",
+                       "proc_mgmt",
                        "ramfsd",
                        "spawnd",
                        "startd",

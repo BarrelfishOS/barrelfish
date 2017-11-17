@@ -191,7 +191,7 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
 
     // create new rpc state to associate return message
     struct cap_copy_rpc_st *rpc_st;
-    err = malloce(sizeof(struct cap_copy_rpc_st), &rpc_st);
+    err = calloce(1, sizeof(struct cap_copy_rpc_st), &rpc_st);
     if (err_is_fail(err)) {
         // rpc_st hasn't been set up so we have to do failure handling manually
         if (from == my_core_id) {
@@ -219,6 +219,7 @@ owner_copy__enq(struct capref capref, struct capability *cap, coreid_t from,
 
     // XXX: short-circuit out if cap we're sending is null cap
     if (cap->type == ObjType_Null) {
+        rpc_st->cap = NULL_CAP;
         goto null_shortcircuit;
     }
 
@@ -358,7 +359,7 @@ request_copy__enq(struct capref capref, coreid_t dest, bool give_away,
 
     // create new rpc state to associate return message
     struct cap_copy_rpc_st *rpc_st;
-    err = malloce(sizeof(struct cap_copy_rpc_st), &rpc_st);
+    err = calloce(1, sizeof(struct cap_copy_rpc_st), &rpc_st);
     if (err_is_fail(err)) {
         result_handler(err, 0, 0, 0, st);
         return;
@@ -412,6 +413,7 @@ recv_copy_result__fwd(errval_t status, capaddr_t capaddr, uint8_t level,
 
     err = cap_destroy(rpc_st->cap);
     PANIC_IF_ERR(err, "destroying temp cap for f-to-f copy");
+    rpc_st->cap = NULL_CAP;
     err = recv_copy_result__enq(rpc_st->from, status, capaddr, level, slot,
                                 rpc_st->st);
     PANIC_IF_ERR2(err, "failed to send recv_copy_result",
@@ -444,8 +446,12 @@ recv_copy_result__src(errval_t status, capaddr_t capaddr, uint8_t level,
             }
             // this should always succeed either because there are local
             // copies or because the cap is now foreign
+            DEBUG_CAPOPS("%s st=%p, cap = %#"PRIxCADDR"\n", __FUNCTION__,
+                    rpc_st, get_cap_addr(rpc_st->cap));
             err = cap_destroy(rpc_st->cap);
-            PANIC_IF_ERR(err, "cap_destroy after give_away failed");
+            PANIC_IF_ERR(err, "cap_destroy after give_away failed (st=%p)", rpc_st);
+        } else if (err_is_ok(status)) {
+            debug_printf("copy succeeded but we're leaving monitor's copy alone?\n");
         }
     }
     // call result handler
@@ -466,7 +472,8 @@ recv_copy_result__rx(struct intermon_binding *b, errval_t status,
                      genvaddr_t st)
 {
     assert(st);
-    DEBUG_CAPOPS("recv_copy_result__rx: %p, %s\n", b, err_getstring(status));
+    DEBUG_CAPOPS("recv_copy_result__rx: %p, st=%p, %s\n", b, (void*)st,
+            err_getstring(status));
     struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)((lvaddr_t)st);
     rpc_st->recv_handler(status, capaddr, level, slot, rpc_st);
 }
@@ -597,6 +604,8 @@ request_copy__rx(struct intermon_binding *b, coreid_t dest,
     }
     else {
         // forward copy to destination core
+        DEBUG_CAPOPS("%s: owner_copy__enq(st=%p) capref = %#"PRIxCADDR"\n",
+            __FUNCTION__, (void *)st, get_cap_addr(capref));
         owner_copy__enq(capref, &cap, from, dest, true, NULL, st);
     }
 
@@ -639,6 +648,8 @@ capops_copy(struct capref capref, coreid_t dest, bool give_away,
     if (capref_is_null(capref)) {
         memset(&cap, sizeof(cap), 0);
         cap.type = ObjType_Null;
+        DEBUG_CAPOPS("%s: owner_copy__enq(st=%p) capref = %#"PRIxCADDR"\n",
+            __FUNCTION__, st, get_cap_addr(capref));
         owner_copy__enq(capref, &cap, my_core_id, dest, give_away,
                 result_handler, (lvaddr_t)st);
         return;
@@ -680,11 +691,15 @@ capops_copy(struct capref capref, coreid_t dest, bool give_away,
         DEBUG_CAPOPS("capops_copy: sending copy from non-owner, forward request to owner\n");
 
         // sending copy from non-owner, send copy request to owner
+        DEBUG_CAPOPS("%s: request_copy__enq(st=%p) capref = %#"PRIxCADDR"\n",
+            __FUNCTION__, st, get_cap_addr(capref));
         request_copy__enq(capref, dest, give_away, result_handler, st);
     } else {
         DEBUG_CAPOPS("capops_copy: sending copy from here/owner\n");
 
         // sending copy from here/owner
+        DEBUG_CAPOPS("%s: owner_copy__enq(st=%p) capref = %#"PRIxCADDR"\n",
+            __FUNCTION__, st, get_cap_addr(capref));
         owner_copy__enq(capref, &cap, my_core_id, dest, give_away,
                         result_handler, (lvaddr_t)st);
     }

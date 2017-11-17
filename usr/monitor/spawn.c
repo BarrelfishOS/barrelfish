@@ -59,6 +59,18 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
         }
 	}
 
+    if (!strcmp(name, "proc_mgmt")) {
+        // Pass ProcessManager cap.
+        dest.cnode = si->taskcn;
+        dest.slot = TASKCN_SLOT_PROC_MNG;
+        src = cap_procmng;
+        err = cap_copy(dest, src);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not give ProcessManager cap");
+            return err_push(err, SPAWN_ERR_COPY_PROC_MNG_CAP);
+        }
+    }
+
 #ifdef __k1om__
     if (!strcmp(name, "xeon_phi")) {
         dest.cnode = si->taskcn;
@@ -256,6 +268,7 @@ errval_t spawn_all_domains(void)
            || !strcmp(short_name, "monitor")
            || !strcmp(short_name, "mem_serv")
            || !strcmp(short_name, "xeon_phi")
+           || !strcmp(short_name, "proc_mgmt")
           )
         {
             continue;

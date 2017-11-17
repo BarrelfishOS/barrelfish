@@ -14,7 +14,6 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <sys/param.h> // for MIN
 #include "vmkitmon.h"
 #include <barrelfish/lmp_endpoints.h>
 #include "x86.h"

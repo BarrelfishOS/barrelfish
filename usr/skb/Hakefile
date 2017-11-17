@@ -12,6 +12,7 @@
 
 let ramfs_files = find inDir "programs" ".pl" ++
                   find inDir ("programs" </> "platforms") ".pl"
+    sockeyeFiles = [ "omap44xx" ]
     ramdisk = "/skb_ramfs.cpio.gz"
     args arch = application {
                         target = "skb",
@@ -37,5 +38,6 @@ in
     Rule ( [ Str "bash",
              In SrcTree "src" "skripts/mkcpio",
              NoDep SrcTree "src" "", Out "root" ramdisk]
-             ++ [ In SrcTree "src" f | f <- ramfs_files ] )
+             ++ [ In SrcTree "src" f | f <- ramfs_files ]
+             ++ [ In BuildTree "" (sockeyeFactFilePath f) | f <- sockeyeFiles ] )
   ]

@@ -27,7 +27,8 @@
 #include "networking_internal.h"
 
 ///< the debug subsystem
-#define debug_printf_SUBSYSTEM "dhcpd"
+//
+#define NETDEBUG_SUBSYSTEM "dhcpd"
 
 ///< the DHCP timeout in milli seconds
 #define DHCP_TIMEOUT_MSECS (120UL * 1000)
@@ -140,7 +141,7 @@ errval_t dhcpd_stop(void)
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t net_config_current_ip_query(net_flags_t flags)
+errval_t net_config_current_ip_query(net_flags_t flags, uint32_t* ip_address)
 {
     errval_t err;
 
@@ -155,7 +156,7 @@ errval_t net_config_current_ip_query(net_flags_t flags)
     char* record = NULL;
     err = oct_get(&record, "net.current_ip");
     if (err_no(err) == OCT_ERR_NO_RECORD && (flags & NET_FLAGS_BLOCKING_INIT)) {
-        printf("waiting for DHCP to complete");
+        printf("waiting for DHCP to complete \n");
         err = oct_wait_for(&record, NET_CONFIG_CURRENT_IP_RECORD_REGEX);
         if (err_is_fail(err)) {
             return err;
@@ -178,6 +179,7 @@ errval_t net_config_current_ip_query(net_flags_t flags)
     ipaddr.s_addr = (uint32_t)ip;
     netmask.s_addr = (uint32_t)nm;
     gateway.s_addr = (uint32_t)gw;
+    *ip_address = (uint32_t)ip;
 
     debug_printf("Got current IP set: %s\n", inet_ntoa(ipaddr));
     debug_printf("Got current GW set: %s\n", inet_ntoa(gateway));

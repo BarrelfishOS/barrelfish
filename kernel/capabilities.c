@@ -55,7 +55,7 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     switch (cap->type) {
@@ -277,6 +277,13 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "ID capability (coreid 0x%" PRIxCOREID
                         " core_local_id 0x%" PRIx32 ")", cap->u.id.coreid,
                         cap->u.id.core_local_id);
+    case ObjType_ProcessManager:
+        return snprintf(buf, len, "Process manager capability");
+
+    case ObjType_Domain:
+        return snprintf(buf, len, "Domain capability (coreid 0x%" PRIxCOREID
+                        " core_local_id 0x%" PRIx32 ")", cap->u.domain.coreid,
+                        cap->u.domain.core_local_id);
 
     case ObjType_PerfMon:
         return snprintf(buf, len, "PerfMon cap");
@@ -321,6 +328,11 @@ void caps_trace(const char *func, int line, struct cte *cte, const char *msg)
 static uint32_t id_cap_counter = 1;
 
 /**
+ * Domain capability core_local_id counter.
+ */
+static uint32_t domain_cap_counter = 1;
+
+/**
  *  Sets #dest equal to #src
  *
  * #dest cannot be in use.
@@ -362,7 +374,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
 static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t objsize)
 {
     switch(type) {
@@ -428,6 +440,9 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
             return srcsize / OBJSIZE_KCB;
         }
 
+    case ObjType_Domain:
+        return L2_CNODE_SLOTS;
+
     case ObjType_Kernel:
     case ObjType_IRQTable:
     case ObjType_IRQDest:
@@ -438,6 +453,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_Notify_IPI:
     case ObjType_PerfMon:
     case ObjType_IPI:
+    case ObjType_ProcessManager:
     case ObjType_VNode_ARM_l1_Mapping:
     case ObjType_VNode_ARM_l2_Mapping:
     case ObjType_VNode_AARCH64_l0_Mapping:
@@ -466,7 +482,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
@@ -574,7 +590,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                             gensize_t objsize, size_t count, coreid_t owner,
@@ -1005,6 +1021,29 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         err = set_cap(&dest_caps->cap, &temp_cap);
         break;
 
+    case ObjType_Domain:
+        // Domain type does not refer to a kernel object
+        assert(lpaddr  == 0);
+        assert(size    == 0);
+        assert(objsize == 0);
+        assert(count   <= L2_CNODE_SLOTS);
+
+        // Prevent wrap around
+        if (domain_cap_counter + count >= UINT32_MAX) {
+            return SYS_ERR_DOMAIN_SPACE_EXHAUSTED;
+        }
+
+        for(size_t i = 0; i < count; i++) {
+            // Initialize type specific fields
+            temp_cap.u.domain.coreid = my_core_id;
+            temp_cap.u.domain.core_local_id = domain_cap_counter++;
+            // Insert the capability
+            err = set_cap(&dest_caps[i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
     case ObjType_IO:
         temp_cap.u.io.start = 0;
         temp_cap.u.io.end   = 65535;
@@ -1019,6 +1058,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     case ObjType_EndPoint:
     case ObjType_Notify_IPI:
     case ObjType_PerfMon:
+    case ObjType_ProcessManager:
         // These types do not refer to a kernel object
         assert(lpaddr  == 0);
         assert(size    == 0);
@@ -1295,7 +1335,8 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 //{{{1 Capability creation
 
 /// check arguments, return true iff ok
-STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+#ifndef NDEBUG
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
                                         bool exact)
@@ -1371,6 +1412,9 @@ static bool check_caps_create_arguments(enum objtype type,
     // All other types do not need special alignments/offsets
     return true;
 }
+#else
+#define check_caps_create_arguments(a,b,c,d) 0
+#endif
 
 /** Create caps to new kernel objects.
  * This takes the size of the memory region in bytes, and the size of
@@ -1385,6 +1429,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     assert(type != ObjType_EndPoint); // Cap of this type cannot be created
     debug(SUBSYS_CAPS, "caps_create_new: type = %d, addr = %#"PRIxLPADDR
             ", bytes=%zu, objsize=%zu\n", type, addr, bytes, objsize);
+
     assert(check_caps_create_arguments(type, bytes, objsize, false));
     assert(addr == 0 || check_caps_create_arguments(type, bytes, objsize, true));
 
@@ -1411,7 +1456,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     return SYS_ERR_OK;
 }
 
-STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
@@ -1502,7 +1547,8 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
            src_cap->type == ObjType_Dispatcher ||
            src_cap->type == ObjType_Frame ||
            src_cap->type == ObjType_DevFrame ||
-           src_cap->type == ObjType_IRQSrc);
+           src_cap->type == ObjType_IRQSrc ||
+           src_cap->type == ObjType_ProcessManager);
 
     if (src_cap->type != ObjType_Dispatcher && src_cap->type != ObjType_IRQSrc) {
         base = get_address(src_cap);
@@ -1531,7 +1577,8 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
 
     /* check that we can create `count` objs from `offset` in source, and
      * update base accordingly */
-    if (src_cap->type != ObjType_Dispatcher && src_cap->type != ObjType_IRQSrc) {
+    if (src_cap->type != ObjType_Dispatcher && src_cap->type != ObjType_IRQSrc
+            && src_cap->type != ObjType_Domain) {
         // TODO: convince ourselves that this is the only condition on offset
         if (offset + count * objsize > get_size(src_cap)) {
             debug(SUBSYS_CAPS, "caps_retype: cannot create all %zu objects"
@@ -1672,6 +1719,21 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         dest_cap->u.endpoint.listener = src_cap->u.dispatcher.dcb;
     }
 
+    // XXX: Treat full object retypes to same type as copies as calling
+    // is_copy(dst, src) will return true for such retypes.
+    if (count == 1 && objsize == get_size(src_cap) && type == src_cap->type) {
+        // sanity check: is_copy() really returns true for the two caps
+        assert(is_copy(&dest_cte[0].cap, src_cap));
+        // If we're not owner, and type needs locality
+        if (src_cte->mdbnode.owner != my_core_id &&
+            distcap_needs_locality(dest_cte[0].cap.type))
+        {
+            // fix owner for new cap and set remote_copies bit
+            dest_cte[0].mdbnode.owner = src_cte->mdbnode.owner;
+            dest_cte[0].mdbnode.remote_copies = true;
+        }
+    }
+
     /* Handle mapping */
     for (size_t i = 0; i < count; i++) {
         mdb_insert(&dest_cte[i]);
@@ -1738,7 +1800,7 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
 }
 
 /// Create copies to a cte
-STATIC_ASSERT(48 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2)
 {

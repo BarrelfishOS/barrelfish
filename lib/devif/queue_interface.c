@@ -111,7 +111,7 @@ errval_t devq_dequeue(struct devq *q,
         return DEVQ_ERR_INVALID_BUFFER_ARGS;
     }
 
-    DQI_DEBUG("Dequeue q=%p rid=%d, bid=%d \n", q, *region_id, *buffer_id);
+    DQI_DEBUG("Dequeue q=%p rid=%u, offset=%lu \n", q, *region_id, *offset);
 
     return SYS_ERR_OK;
 }
@@ -237,6 +237,27 @@ errval_t devq_control(struct devq *q,
     return err;
 
 }
+
+ /**
+  * @brief destroys the device queue
+  *
+  * @param q           The queue state to free (and the device queue to be 
+                       shut down)
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+errval_t devq_destroy(struct devq *q)
+{
+    errval_t err;
+
+    err = region_pool_destroy(q->pool);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return q->f.destroy(q);
+}
+
 
 void devq_set_state(struct devq *q, void *state)
 {

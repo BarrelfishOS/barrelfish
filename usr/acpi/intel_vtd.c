@@ -15,7 +15,6 @@
 #include <mm/mm.h>
 #include <skb/skb.h>
 #include <pci/confspace/pci_confspace.h>
-#include <sys/param.h>
 
 #include "intel_vtd.h"
 #include "vtd_debug.h"

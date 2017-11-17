@@ -18,7 +18,6 @@
 #include <arch/x86/start_aps.h>
 #include <paging_kernel_arch.h>
 #include <x86.h>
-#include <sys/param.h>
 
 #include <dev/ia32_dev.h>
 #include <dev/xapic_dev.h>

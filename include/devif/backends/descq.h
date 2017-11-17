@@ -60,14 +60,5 @@ errval_t descq_create(struct descq** q,
                       uint64_t *queue_id,
                       struct descq_func_pointer* f);
 
-/**
- * @brief Destroys a descriptor queue and frees its resources
- *
- * @param q                     The descriptor queue
- *
- * @returns error on failure or SYS_ERR_OK on success
- */
-errval_t descq_destroy(struct descq* q);
-
 
 #endif /* DESCQ_H_ */

@@ -35,6 +35,7 @@ ourCommonFlags = [ Str "-m64",
                    Str "-fno-stack-protector",
                    Str "-Wno-unused-but-set-variable",
                    Str "-Wno-packed-bitfield-compat",
+                   Str "-Wno-frame-address",
                    Str "-D__x86__" ]
 
 cFlags = ArchDefaults.commonCFlags
@@ -89,7 +90,7 @@ kernelCFlags = [ Str s | s <- [ "-fno-builtin",
                                 "-Wredundant-decls",
                                 "-Wno-packed-bitfield-compat",
                                 "-Wno-unused-but-set-variable",
---                                "-Werror",
+                                "-Werror",
                                 "-imacros deputy/nodeputy.h",
                                 "-mno-mmx",
                                 "-mno-sse",

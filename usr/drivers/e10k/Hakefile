@@ -12,11 +12,12 @@
 
 [ build application { target = "e10k_queue",
                       cFiles = [ "e10k_qdriver.c", "helper.c"],
-                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k"  ],
+                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "net_filter", 
+                                           "e10k"  ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
-                      flounderDefs = [ "e10k_vf", "e10k"],
+                      flounderDefs = [ "e10k_vf", "e10k", "net_filter"],
                       addLibraries = libDeps [ "netQmng", "trace", "skb",
-                                               "pci", "lwip" ]
+                                               "pci", "lwip"]
                     },
 
   build application { target = "e10k_monolithic",
@@ -24,6 +25,7 @@
                                  "e10k_qdriver.c", "helper.c"],
                       flounderBindings = [ "net_queue_manager",
                                            "net_soft_filters",
+                                           "net_filter",
                                            "e10k", "e10k_vf" ],
                       flounderDefs = [ "e10k_vf", "e10k"],
                       mackerelDevices = [ "e10k", "e10k_q" ],
@@ -36,9 +38,10 @@
                       cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c",
                                  "e10k_qdriver.c", "helper.c"],
                       mackerelDevices = [ "e10k", "e10k_q" ],
-                      flounderBindings = [ "net_queue_manager", "e10k", "e10k_vf" ],
-                      flounderDefs = [ "e10k_vf", "e10k" ],
-                      addLibraries = libDeps [ "pci", "bench", "trace", "skb", "lwip" ],
+                      flounderBindings = [ "net_queue_manager", "e10k", "e10k_vf",
+                                           "net_soft_filters", "net_filter"],
+                      flounderDefs = [ "e10k_vf", "e10k", "net_filter"],
+                      addLibraries = libDeps [ "pci", "bench", "trace", "skb", "lwip", "net" ],
                       addCFlags = [ "-DLIBRARY" ]
                     },
 
@@ -46,9 +49,9 @@
                       cFiles = [ "e10k_vf.c", "e10k_phy.c", "sleep.c",
                                  "e10k_qdriver.c", "helper.c"],
                       mackerelDevices = [ "e10k", "e10k_q", "e10k_vf" ],
-                      flounderBindings = [ "e10k_vf", "net_queue_manager" ],
+                      flounderBindings = [ "e10k_vf", "net_queue_manager"],
                       flounderExtraBindings = [ ("e10k_vf", ["rpcclient"]) ],
-                      flounderDefs = [ "e10k_vf", "e10k"],
+                      flounderDefs = [ "e10k_vf", "e10k", "net_filter"],
                       flounderExtraDefs = [ ("e10k_vf",["rpcclient"]) ],
                       addLibraries = libDeps [ "pci", "bench", "trace", "skb", "lwip" ],
                       addCFlags = [ "-DLIBRARY", "-DVF" ]
@@ -66,14 +69,15 @@
                       mackerelDevices = [ "e10k", "e10k_q", "e10k_vf" ],
                       addLibraries = libDeps [ "netQmng", "pci", "contmng",
                                                "net_device_manager", "bench",
-                                               "trace", "skb", "lwip" ],
+                                               "trace", "skb", "lwip" , "net"],
                       addCFlags = [ "-DVF" ]
                     },
 
   build application { target = "e10k",
                       cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c",
                                  "helper.c"],
-                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k", "e10k_vf" ],
+                      flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k", 
+                                           "e10k_vf", "net_filter" ],
                       flounderDefs = [ "e10k_vf" , "net_filter"],
                       --flounderBindings = [ "e10k"],
                       flounderExtraBindings = [ ("net_filter", ["rpcclient"])],
@@ -98,13 +102,13 @@
                       cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c",
                                  "e10k_qdriver.c", "helper.c"],
                       flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k", "e10k_vf" ],
-                      flounderDefs = [ "e10k_vf", "e10k"],
+                      flounderDefs = [ "e10k_vf", "e10k", "net_filter"],
                       --flounderBindings = [ "net_queue_manager", "e10k" ],
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = libDeps [ "ethernet_latency_benchmark",
                                                "pci", "contmng", "trace",
                                                "net_device_manager", "bench",
-                                               "skb", "pci", "lwip" ]
+                                               "skb", "pci", "lwip", "net" ]
                     },
 
   build application { target = "e10k_queue_tlb",

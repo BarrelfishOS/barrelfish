@@ -47,7 +47,7 @@ class XeonPhi_Boot_Test(TestCommon):
         f.write("module  /" + tftpdir + "/k1om/sbin/xeon_phi boot \n")
         f.write("module  /" + tftpdir + "/k1om/sbin/spawnd boot \n")
         f.write("module  /" + tftpdir + "/k1om/sbin/startd boot \n")
-
+        f.write("module  /" + tftpdir + "/k1om/sbin/proc_mgmt boot \n")
         # drivers
         f.write("module  /" + tftpdir + "/k1om/sbin/corectrl auto \n")
 
@@ -84,6 +84,7 @@ class XeonPhi_Boot_Test(TestCommon):
         targets.append('k1om/sbin/spawnd')
         targets.append("k1om/sbin/skb")
         targets.append('k1om/sbin/startd')
+        targets.append('k1om/sbin/proc_mgmt')
         targets.append('k1om/sbin/corectrl')
         return targets
 
@@ -104,7 +105,7 @@ class XeonPhi_Boot_Test(TestCommon):
         modules.add_module("xeon_phi", ["auto", 
                                         "--tftp=tftp://10.110.4.4:69",
                                         "--modlist=/" + tftpdir + "/menu.lst.k1om"])
-        modules.add_module("e1000_net_sockets_server", ["auto"])
+        modules.add_module("net_sockets_server", ["auto"])
         modules.add_module("dma_mgr", [""])
 
         return modules

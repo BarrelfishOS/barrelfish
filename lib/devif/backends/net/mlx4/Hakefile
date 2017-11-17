@@ -1,0 +1,74 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2015, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /lib/devif/backends/net/mlx4
+-- 
+--------------------------------------------------------------------------
+
+[ build library {
+    target = "devif_backend_mlx4",
+    cFiles = [
+        "drivers/net/mlx4/mlx4_devif_queue.c",
+        "drivers/net/mlx4/reset.c",
+        "drivers/net/mlx4/fw.c",
+        "drivers/net/mlx4/cmd.c",
+        "drivers/net/mlx4/mcg.c",
+        "drivers/net/mlx4/profile.c",
+        "drivers/net/mlx4/eq.c",
+        "drivers/net/mlx4/pd.c",
+        "drivers/net/mlx4/mr.c",
+        "drivers/net/mlx4/cq.c",
+        "drivers/net/mlx4/alloc.c",
+        "drivers/net/mlx4/icm.c",
+        "drivers/net/mlx4/srq.c",
+        "drivers/net/mlx4/qp.c",
+        "drivers/net/mlx4/port.c",
+        "drivers/net/mlx4/resource_tracker.c",
+        "include/linux/linux_radix.c",
+
+       	"drivers/net/mlx4/en_main.c",
+       	"drivers/net/mlx4/en_netdev.c",
+       	"drivers/net/mlx4/en_rx.c",
+       	"drivers/net/mlx4/en_tx.c",
+       	"drivers/net/mlx4/en_cq.c",
+       	"drivers/net/mlx4/en_resources.c",
+       	"drivers/net/mlx4/en_port.c",
+        
+        --"libibverbs/src/device.c",
+        --"libibverbs/src/init.c",
+        --"libibverbs/src/verbs.c",
+        
+        --"libmlx4/src/mlx4.c",
+        --"libmlx4/src/verbs.c",
+        --"libmlx4/src/dbrec.c",
+        --"libmlx4/src/buf.c",
+        --"libmlx4/src/qp.c",
+        
+        "drivers/infiniband/hw/mlx4/main.c",
+        "drivers/infiniband/hw/mlx4/mad.c",
+        "drivers/infiniband/hw/mlx4/cq.c",
+        "drivers/infiniband/hw/mlx4/mr.c",
+        "drivers/infiniband/hw/mlx4/qp.c",
+        "drivers/infiniband/hw/mlx4/ah.c",
+        
+        --"drivers/test_wq.c"
+        "drivers/test_ib.c",
+        
+        "drivers/infiniband/core/ud_header.c",
+        "drivers/infiniband/core/packer.c",
+        "drivers/infiniband/core/mad.c",
+        "drivers/infiniband/core/cache.c",
+        "drivers/infiniband/core/verbs.c",
+        "drivers/infiniband/core/device.c",
+        "drivers/infiniband/core/agent.c",
+        "drivers/infiniband/core/smi.c"
+    ],
+    addLibraries = [ "pci", "pciconfspace" ],
+    addIncludes = [ "include" ]
+  }
+]

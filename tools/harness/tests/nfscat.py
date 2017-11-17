@@ -22,7 +22,7 @@ class NFSTest(TestCommon):
     def get_modules(self, build, machine):
         cardName = "e1000"
         modules = super(NFSTest, self).get_modules(build, machine)
-        modules.add_module("e1000_net_sockets_server", ["auto"])
+        modules.add_module("net_sockets_server", ["auto"])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         nfspath = siteconfig.get('WEBSERVER_1G_PATH')
         nfsfile = siteconfig.get('WEBSERVER_1G_FILE')
@@ -46,3 +46,39 @@ class NFSTest(TestCommon):
             lastline = line
         passed = lastline.startswith(self.get_finish_string())
         return PassFailResult(passed)
+
+@tests.add_test
+class NFSTestE10k(NFSTest):
+    '''NFS benchmark'''
+    name = "nfscat_e10k"
+
+    def get_modules(self, build, machine):
+        modules = super(NFSTest, self).get_modules(build, machine)
+        modules.add_module("e10k", ["auto"])
+        modules.add_module("net_sockets_server", ["nospawn"])
+        nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
+        nfspath = siteconfig.get('WEBSERVER_1G_PATH')
+        nfsfile = siteconfig.get('WEBSERVER_1G_FILE')
+
+        modules.add_module("netthroughput",
+                ["core=%d" % machine.get_coreids()[2], "nfs://" + nfsip +
+                          nfspath , "/nfs/" + nfsfile])
+        return modules
+
+@tests.add_test
+class NFSTestSf(NFSTest):
+    '''NFS benchmark'''
+    name = "nfscat_sf"
+
+    def get_modules(self, build, machine):
+        modules = super(NFSTest, self).get_modules(build, machine)
+        modules.add_module("sfn5122f", ["auto"])
+        modules.add_module("net_sockets_server", ["nospawn"])
+        nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
+        nfspath = siteconfig.get('WEBSERVER_1G_PATH')
+        nfsfile = siteconfig.get('WEBSERVER_1G_FILE')
+
+        modules.add_module("netthroughput",
+                ["core=%d" % machine.get_coreids()[2], "nfs://" + nfsip +
+                          nfspath , "/nfs/" + nfsfile])
+        return modules

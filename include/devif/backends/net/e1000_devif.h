@@ -16,6 +16,5 @@ struct e1000_queue;
 errval_t e1000_queue_create(struct e1000_queue** q, uint32_t vendor, uint32_t deviceid,
     uint32_t bus, uint32_t device, uint32_t function, unsigned interrupt_mode,
     void (*isr)(void *));
-errval_t e1000_queue_destroy(struct e1000_queue* q);
 
 #endif

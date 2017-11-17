@@ -74,7 +74,8 @@ class Machine(object):
         self._tick_rate = tickrate
 
         if bool(kwargs):
-            debug.error("Fix machine definition, unknown args: %s" % str(kwargs))
+            debug.warning("Machine base class does not understand the " +
+                    "following machine arguments: %s" % str(kwargs))
 
     def get_machine_name(self):
         return self._machine_name
@@ -234,6 +235,7 @@ class Machine(object):
         m.add_module("monitor")
         m.add_module("ramfsd", ["boot"])
         m.add_module("skb", ["boot"])
+        m.add_module("proc_mgmt", ["boot"])
         m.add_module("spawnd", ["boot"])
         m.add_module("startd", ["boot"])
         m.add_module("/eclipseclp_ramfs.cpio.gz", ["nospawn"])

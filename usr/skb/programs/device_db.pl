@@ -37,7 +37,7 @@
 %
 
 pci_driver{
-    binary: "e1000_net_sockets_server",
+    binary: "net_sockets_server",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'1521, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'107d, function: _, subvendor: _, subdevice: _ },
@@ -92,6 +92,18 @@ pci_driver{
     multi_instance: 0,
     interrupt_load: 0.5,
     platforms: ['x86_64', 'x86_32']
+}.
+
+pci_driver{
+    binary: "mxl4_core",
+    supported_cards:
+    [ pci_card{ vendor: 16'15b3, device: 16'0050, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'15b3, device: 16'1003, function: _, subvendor: _, subdevice: _ } ],
+    core_hint: 0,
+    core_offset: 0,
+    multi_instance: 0,
+    interrupt_load: 0.5,
+    platforms: ['x86_64' ]
 }.
 
 pci_driver{

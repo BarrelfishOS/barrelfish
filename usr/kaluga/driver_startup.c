@@ -49,6 +49,7 @@ errval_t default_start_function(coreid_t where,
     assert(mi != NULL);
     errval_t err = SYS_ERR_OK;
     coreid_t core;
+
     /*
      *  XXX: there may be more device using this driver, so starting it a second time
      *       may be needed.
@@ -128,9 +129,9 @@ errval_t start_networking(coreid_t core,
     assert(driver != NULL);
     errval_t err = SYS_ERR_OK;
 
-    uint64_t vendor_id, device_id, bus, dev, fun;
 
     /* check if we are using the supplied pci address of eth0 */
+    /*
     if (eth0.bus != 0xff || eth0.device != 0xff || eth0.function != 0xff) {
         err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
                             &bus, &dev, &fun, &vendor_id, &device_id);
@@ -139,56 +140,75 @@ errval_t start_networking(coreid_t core,
         if ((eth0.bus != (uint8_t)bus)
              | (eth0.device != (uint8_t)dev)
              | (eth0.function != (uint8_t)fun)) {
-            KALUGA_DEBUG("start_networking: skipping card %" PRIu64 ":%" PRIu64 ":%"
-                         PRIu64"\n", bus, dev, fun);
+            printf("start_networking: skipping card %" PRIu64 ":%" PRIu64 ":%"
+                    PRIu64"\n", bus, dev, fun);
+            printf("eth0 %" PRIu8 ":%" PRIu8 ":%"
+                    PRIu8"\n", eth0.bus, eth0.device, eth0.function);
             return KALUGA_ERR_DRIVER_NOT_AUTO;
         }
     }
+    */
+
 
     if (is_started(driver)) {
+        printf("Already started %s\n", driver->binary);
         return KALUGA_ERR_DRIVER_ALREADY_STARTED;
     }
 
     if (!is_auto_driver(driver)) {
+        printf("Not auto %s\n", driver->binary);
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
-    struct module_info* netd = find_module("netd");
-    if (netd == NULL || !is_auto_driver(netd)) {
-        printf("Kaluga: netd not found or not declared as auto.\n");
-        return KALUGA_ERR_DRIVER_NOT_AUTO;
+
+    if (!(strcmp(driver->binary, "net_sockets_server") == 0)) {
+        
+        err = default_start_function(core, driver, record, arg);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Spawning %s failed.", driver->path);
+            return err;
+        }
+
+        // cards with driver in seperate process
+        struct module_info* net_sockets = find_module("net_sockets_server");
+        if (net_sockets == NULL) {
+            printf("Net sockets server not found\n");
+            return KALUGA_ERR_DRIVER_NOT_AUTO;
+        }
+
+        uint64_t vendor_id, device_id, bus, dev, fun;
+        err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                       &bus, &dev, &fun, &vendor_id, &device_id);
+
+        char* pci_arg_str = malloc(26);
+        snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
+                        PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
+
+        // Spawn net_sockets_server
+        net_sockets->argv[0] = "net_sockets_server";
+        net_sockets->argv[1] = "auto";
+        net_sockets->argv[2] = driver->binary;
+        net_sockets->argv[3] = pci_arg_str;
+
+        err = spawn_program(core, net_sockets->path, net_sockets->argv, environ, 0,
+                            get_did_ptr(net_sockets));
+        free (pci_arg_str);
+    } else {
+        // TODO currently only for e1000, might be other cards that 
+        // start the driver by creating a queue
+        for (int i = 0; i < driver->argc; i++) {
+            printf("argv[%d]=%s \n", i, driver->argv[i]);
+        }        
+
+        if (!(driver->argc > 2)) {
+            driver->argv[driver->argc] = "e1000";        
+            driver->argc++;
+        }
+
+        // All cards that start the driver by creating a device queue
+        err = default_start_function(core, driver, record, arg);
     }
 
-    struct module_info* ngd_mng = find_module("NGD_mng");
-    if (ngd_mng == NULL || !is_auto_driver(ngd_mng)) {
-        printf("Kaluga: NGD_mng not found or not declared as auto.\n");
-        return KALUGA_ERR_DRIVER_NOT_AUTO;
-    }
-
-    err = default_start_function(core, driver, record, arg);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Spawning %s failed.", driver->path);
-        return err;
-    }
-
-    // XXX: Manually add cardname (overwrite first (auto) argument)
-    // +Weird convention, e1000n binary but cardname=e1000
-    char* cardname = strcmp(driver->binary, "e1000n") == 0 ? "e1000" : driver->binary;
-
-    size_t name_len = strlen("cardname=") + strlen(cardname) + 1;
-    char* card_argument = malloc(name_len);
-    sprintf(card_argument, "cardname=%s", cardname);
-    printf("############# starting network with arguments %s\n", card_argument);
-
-    // Spawn netd and ngd_mng
-    netd->argv[0] = card_argument;
-    err = spawn_program(core, netd->path, netd->argv, environ, 0, get_did_ptr(netd));
-
-    ngd_mng->argv[0] = card_argument;
-    err = spawn_program(core, ngd_mng->path, ngd_mng->argv, environ, 0,
-                        get_did_ptr(ngd_mng));
-
-    free(card_argument);
     return err;
 }
 
