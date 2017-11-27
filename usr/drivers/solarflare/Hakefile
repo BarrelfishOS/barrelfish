@@ -27,6 +27,17 @@
                       addLibraries = libDeps["netQmng", "pci", "contmng", 
                                              "net_device_manager", "bench", "trace", "skb",
                                              "spawndomain", "netd" , "net", "lwip2"]
+                    },
+
+    build library { target = "devif_backend_solarflare",
+                      cFiles = [ "devif_backend_solarflare.c", "helper.c"],
+                      flounderBindings = [ "sfn5122f_devif"],
+                      flounderExtraBindings = [ ("sfn5122f_devif", ["rpcclient"])],
+                      flounderDefs = [ "sfn5122f_devif" ],
+                      flounderExtraDefs = [ ("sfn5122f_devif",["rpcclient"]) ],
+                      mackerelDevices = [ "sfn5122f", "sfn5122f_q"],
+                      addLibraries = libDeps ["pci", "skb", "devif_internal"],
+                      addIncludes = ["/lib/devif/"]
                     }
   ]
 

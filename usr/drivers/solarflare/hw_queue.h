@@ -10,8 +10,6 @@
 #ifndef SFN5122F_CHANNEL_H_
 #define SFN5122F_CHANNEL_H_
 
-
-
 #include <string.h>
 #include <stdlib.h>
 
