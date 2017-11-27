@@ -6,8 +6,8 @@
  * If you do not find this file, copies can be found by writing to:
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
-#ifndef QUEUE_INTERFACE_INTERNAL_H_
-#define QUEUE_INTERFACE_INTERNAL_H_ 1
+#ifndef QUEUE_INTERFACE_BACKEND_H_
+#define QUEUE_INTERFACE_BACKEND_H_ 1
 
 #include <devif/queue_interface.h>
 struct region_pool;
@@ -163,4 +163,4 @@ errval_t devq_add_region(struct devq*, struct capref cap,
 
 errval_t devq_remove_region(struct devq*, regionid_t rid);
 
-#endif /* QUEUE_INTERFACE_INTERNAL_H_ */
+#endif /* QUEUE_INTERFACE_BACKEND_H_ */

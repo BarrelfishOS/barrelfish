@@ -17,8 +17,8 @@
 
 #include <net_interfaces/net_interfaces.h>
 #include <devif/queue_interface.h>
+#include <devif/queue_interface_backend.h>
 #include <devif/backends/net/e10k_devif.h>
-#include "../../../queue_interface_internal.h"
 #include <dev/e10k_dev.h>
 #include <dev/e10k_q_dev.h>
 

@@ -12,7 +12,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
 #include <devif/queue_interface.h>
-#include "../../queue_interface_internal.h"
+#include <devif/queue_interface_backend.h>
 #include <devif/backends/null.h>
 
 struct null_q {

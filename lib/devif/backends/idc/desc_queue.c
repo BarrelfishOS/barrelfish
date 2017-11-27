@@ -11,8 +11,8 @@
 #include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/descq.h>
+#include <devif/queue_interface_backend.h>
 #include <if/descq_defs.h>
-#include "../../queue_interface_internal.h"
 #include "descq_debug.h"
 #include <barrelfish/systime.h>
 #include <barrelfish/notificator.h>

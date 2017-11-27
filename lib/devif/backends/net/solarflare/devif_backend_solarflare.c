@@ -18,7 +18,7 @@
 #include <if/sfn5122f_devif_defs.h>
 #include <if/sfn5122f_devif_defs.h>
 #include <devif/backends/net/sfn5122f_devif.h>
-#include "../../../queue_interface_internal.h"
+#include <devif/queue_interface_backend.h>
 #include "hw_queue.h"
 #include "helper.h"
 

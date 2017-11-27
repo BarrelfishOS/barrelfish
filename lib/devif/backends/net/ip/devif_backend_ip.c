@@ -14,6 +14,7 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
+#include <devif/queue_interface_backend.h>
 #include <devif/backends/net/ip.h>
 #include <lwip/inet_chksum.h>
 #include <lwip/lwip/inet.h>
@@ -23,7 +24,6 @@
 #include <net/net_filter.h>
 #include <net/dhcp.h>
 #include <net/arp.h>
-#include "../../../queue_interface_internal.h"
 #include "../headers.h"
 
 #define MAX_NUM_REGIONS 64

@@ -11,8 +11,7 @@
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/loopback_devif.h>
-
-#include "../../queue_interface_internal.h"
+#include <devif/queue_interface_backend.h>
 
 #define LOOPBACK_QUEUE_SIZE 256
 

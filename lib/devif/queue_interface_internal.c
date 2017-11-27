@@ -9,10 +9,9 @@
 
 #include <barrelfish/barrelfish.h>
 #include <devif/queue_interface.h>
-
+#include <devif/queue_interface_backend.h>
 
 #include "region_pool.h"
-#include "queue_interface_internal.h"
 
  /*
  * ===========================================================================

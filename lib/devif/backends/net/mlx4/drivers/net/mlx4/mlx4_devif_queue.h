@@ -10,7 +10,7 @@
 #ifndef MLX4_DEVIF_QUEUE_H
 #define MLX4_DEVIF_QUEUE_H
 
-#include "../../../queue_interface_internal.h"
+#include <devif/queue_interface_backend.h>
 
 struct mlx4_en_priv;
 

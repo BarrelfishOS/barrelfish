@@ -9,8 +9,8 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
+#include <devif/queue_interface_backend.h>
 #include <devif/backends/net/e1000_devif.h>
-#include "../../../queue_interface_internal.h"
 #include "e1000.h"
 #include <net_interfaces/flags.h>
 #include <debug_log/debug_log.h>
