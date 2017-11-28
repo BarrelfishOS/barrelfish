@@ -14,5 +14,9 @@
   build application { target = "pagetable",
                       cFiles = [ "pagetable.c" ],
                       addLibraries = libDeps ["posixcompat"]
+                    },
+  build application { target = "pagefaults",
+                      cFiles = [ "protect.c" ],
+                      addLibraries = libDeps ["posixcompat"]
                     }
 ]
