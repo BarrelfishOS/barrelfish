@@ -315,12 +315,12 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
     }
 
     debug_printf("%s:%d\n",__FUNCTION__, __LINE__);
-    struct frame_identity frameid = { .base = 0, .bits = 0 };
+    struct frame_identity frameid = { .base = 0, .bytes = 0 };
     errval_t r = invoke_frame_identify(cap, &frameid);
     assert(err_is_ok(r));
-    debug_printf("alloc_guest_mem: frameid.base: 0x%lx, frameid.bits: %d,"
+    debug_printf("alloc_guest_mem: frameid.base: 0x%lx, frameid.bytes: %zu,"
             " g->mem_low_va: 0x%lx, g->mem_high_va: 0x%lx\n",
-            frameid.base, frameid.bits, g->mem_low_va, g->mem_high_va);
+            frameid.base, frameid.bytes, g->mem_low_va, g->mem_high_va);
 
     return SYS_ERR_OK;
 }
@@ -627,9 +627,9 @@ static void ept_map(struct guest *g, struct capref cap)
     err = invoke_frame_identify(ept_copy, &fi);
 
     printf("%s: creating identity mapping for 0x%"PRIxGENPADDR", %lu bytes\n",
-            __FUNCTION__, fi.base, (1ul<<fi.bits));
+            __FUNCTION__, fi.base, fi.bytes);
 
-    err = ept_map_one_frame_fixed_attr(g, fi.base, 1ull << fi.bits,
+    err = ept_map_one_frame_fixed_attr(g, fi.base, fi.bytes,
             ept_copy, VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_EXECUTE,
             NULL, NULL);
     assert(err_is_ok(err));
@@ -669,12 +669,12 @@ static void ept_force_mapping(struct guest *g, struct capref mem)
     assert(err_is_ok(err));
 
     printf("%s: creating identity mapping for 0x%"PRIxGENPADDR", %lu bytes\n",
-            __FUNCTION__, fi.base, (1ul << fi.bits));
+            __FUNCTION__, fi.base, fi.bytes);
 
     // mark off region in vspace
     struct vregion *v = malloc(sizeof(*v));
     v->base = fi.base;
-    v->size = 1ull<<fi.bits;
+    v->size = fi.bytes;
     err = vspace_add_vregion(g->vspace, v);
     assert(err_is_ok(err));
 
@@ -683,7 +683,12 @@ static void ept_force_mapping(struct guest *g, struct capref mem)
     paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(VREGION_FLAGS_ALL);
     size_t npages = 0;
 
-    if (fi.bits >= 30) {
+    /* XXX: properly keep track of mappings */
+    struct capref mapping;
+    err = slot_alloc(&mapping);
+    assert(err_is_ok(err));
+
+    if (fi.bytes >= X86_64_HUGE_PAGE_SIZE && fi.bytes % X86_64_HUGE_PAGE_SIZE == 0) {
         // do huge page mappings
         // get pdpt through pmap
         err = get_pdpt(pmap, v->base, &pt);
@@ -693,8 +698,8 @@ static void ept_force_mapping(struct guest *g, struct capref mem)
         printf("     %zu 1G pages\n", npages);
         assert(npages <= 512);
         err = vnode_map(pt->u.vnode.cap, mem, X86_64_PDPT_BASE(v->base),
-                pmap_flags, 0, npages);
-    } else if (fi.bits >= 21) {
+                pmap_flags, 0, npages, mapping);
+    } else if (fi.bytes >= X86_64_LARGE_PAGE_SIZE && fi.bytes % X86_64_LARGE_PAGE_SIZE == 0) {
         // do large page mappings
         err = get_pdir(pmap, v->base, &pt);
         assert(err_is_ok(err));
@@ -703,7 +708,7 @@ static void ept_force_mapping(struct guest *g, struct capref mem)
         printf("     %zu 2M pages\n", npages);
         assert(npages < 512);
         err = vnode_map(pt->u.vnode.cap, mem, X86_64_PDIR_BASE(v->base),
-                pmap_flags, 0, npages);
+                pmap_flags, 0, npages, mapping);
     } else {
         // get leaf pt through pmap
         err = get_ptable(pmap, v->base, &pt);
@@ -713,7 +718,7 @@ static void ept_force_mapping(struct guest *g, struct capref mem)
         // should never be full ptable
         assert(npages < 512);
         err = vnode_map(pt->u.vnode.cap, mem, X86_64_PTABLE_BASE(v->base),
-                pmap_flags, 0, npages);
+                pmap_flags, 0, npages, mapping);
         assert(err_is_ok(err));
     }
 }
