@@ -1263,6 +1263,7 @@ static errval_t create_pts_pinned(struct pmap *pmap, genvaddr_t vaddr, size_t by
                vregion_get_size(&x86->vregion));
 
         /* copy the page-table capability */
+        /* XXX: this should be somewhere in struct vnode */
         struct capref slot;
         err = x86->p.slot_alloc->alloc(x86->p.slot_alloc, &slot);
         if (err_is_fail(err)) {
@@ -1275,11 +1276,19 @@ static errval_t create_pts_pinned(struct pmap *pmap, genvaddr_t vaddr, size_t by
             return err;
         }
 
+        /* get slot for mapping */
+        /* XXX: this should be in struct vnode somewhere! */
+        struct capref mapping;
+        err = x86->p.slot_alloc->alloc(x86->p.slot_alloc, &mapping);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLOT_ALLOC);
+        }
+
         /* get the page table of the reserved range and map the PT */
         struct vnode *ptable;
         err = get_ptable(x86, genvaddr, &ptable);
         err = vnode_map(ptable->u.vnode.cap, slot, X86_64_PTABLE_BASE(genvaddr),
-                        vregion_to_pmap_flag(VREGION_FLAGS_READ), 0, 1);
+                        vregion_to_pmap_flag(VREGION_FLAGS_READ), 0, 1, mapping);
 
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_DO_MAP);
