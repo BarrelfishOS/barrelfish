@@ -450,6 +450,11 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
         for (int i = 0; i < pages; i++) {
             do_one_tlb_flush(va_hint + i * pagesize);
         }
+    } else if (va_hint == 1) {
+        // XXX: remove this or cleanup interface, -SG, 2015-03-11
+        // do computed selective flush
+        debug(SUBSYS_PAGING, "computed selective flush\n");
+        return paging_tlb_flush_range(cte_for_cap(mapping), offset, pages);
     } else {
         debug(SUBSYS_PAGING, "full flush\n");
         /* do full TLB flush */
