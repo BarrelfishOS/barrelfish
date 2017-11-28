@@ -297,7 +297,7 @@ static errval_t fill(struct memobj *memobj,
 
     append->frames[slot] = frame;
     append->offsets[slot] = offset;
-    append->frame_sizes[slot] = 1ULL << fi.bits;
+    append->frame_sizes[slot] = fi.bytes;
     append->frame_offsets[slot] = frame_offset;
     append->first_free_frame++;
 
