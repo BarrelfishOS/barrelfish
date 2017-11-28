@@ -882,7 +882,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 }
 
 #ifdef PMAP_SELECTIVE_FLUSH_DEBUG
-int pmap_selective_flush = 0;
+int pmap_selective_flush = 2;
 #endif
 static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
                                        size_t pages, vregion_flags_t flags)
