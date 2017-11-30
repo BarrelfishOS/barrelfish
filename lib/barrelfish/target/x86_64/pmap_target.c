@@ -1414,11 +1414,22 @@ static struct pmap_funcs pmap_funcs = {
  *
  * \param pmap Pmap object of type x86
  */
+#define INIT_SLAB_BUFFER_SIZE SLAB_STATIC_SIZE(128, sizeof(struct vnode))
+static uint8_t static_slab_buffer[INIT_SLAB_BUFFER_SIZE];
 errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
                           struct capref vnode,
                           struct slot_allocator *opt_slot_alloc)
 {
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
+
+    if (get_current_pmap() == pmap) {
+        // use static buffer
+        x86->slab_buffer = static_slab_buffer;
+    } else {
+        // malloc() initial slab buffer
+        x86->slab_buffer = malloc(INIT_SLAB_BUFFER_SIZE);
+    }
+    assert(x86->slab_buffer);
 
     /* Generic portion */
     pmap->f = pmap_funcs;
@@ -1433,8 +1444,7 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
 
     /* x86 specific portion */
     slab_init(&x86->slab, sizeof(struct vnode), NULL);
-    slab_grow(&x86->slab, x86->slab_buffer,
-              sizeof(x86->slab_buffer));
+    slab_grow(&x86->slab, x86->slab_buffer, INIT_SLAB_BUFFER_SIZE);
     x86->refill_slabs = min_refill_slabs;
 
     x86->root.type = ObjType_VNode_x86_64_pml4;
