@@ -535,9 +535,11 @@ static inline void read_pt_entry(struct capability *pgtable, size_t slot,
 
 errval_t paging_copy_remap(struct cte *dest_vnode_cte, cslot_t dest_slot,
                            struct cte *src_cte, uintptr_t flags,
-                           uintptr_t offset, uintptr_t pte_count)
+                           uintptr_t offset, uintptr_t pte_count,
+                           struct cte *mapping_cte)
 {
     assert(type_is_vnode(dest_vnode_cte->cap.type));
+    assert(mapping_cte->cap.type == ObjType_Null);
 
     struct capability *src_cap  = &src_cte->cap;
     struct capability *dest_cap = &dest_vnode_cte->cap;
@@ -545,26 +547,12 @@ errval_t paging_copy_remap(struct cte *dest_vnode_cte, cslot_t dest_slot,
 
     assert(handler_func != NULL);
 
-    if (src_cte->mapping_info.pte) {
-        // this cap is already mapped
-#if DIAGNOSTIC_ON_ERROR
-        printf("caps_copy_to_vnode: this copy is already mapped @pte 0x%lx (paddr = 0x%"PRIxGENPADDR")\n", src_cte->mapping_info.pte, get_address(src_cap));
-#endif
-#if RETURN_ON_ERROR
-        return SYS_ERR_VM_ALREADY_MAPPED;
-#endif
-    }
-
     cslot_t last_slot = dest_slot + pte_count;
 
     if (last_slot > X86_64_PTABLE_SIZE) {
         // requested map overlaps leaf page table
-#if DIAGNOSTIC_ON_ERROR
         printf("caps_copy_to_vnode: requested mapping spans multiple leaf page tables\n");
-#endif
-#if RETURN_ON_ERROR
         return SYS_ERR_VM_RETRY_SINGLE;
-#endif
     }
 
     size_t page_size = BASE_PAGE_SIZE;
@@ -598,10 +586,26 @@ errval_t paging_copy_remap(struct cte *dest_vnode_cte, cslot_t dest_slot,
     fromaddr = local_phys_to_mem(gen_phys_to_local_phys(gpfromaddr));
     memcpy((void*)toaddr, (void*)fromaddr, pte_count*page_size);
 
-    err = handler_func(dest_cap, dest_slot, src_cap, flags, offset, pte_count);
+    err = handler_func(dest_cap, dest_slot, src_cap, flags, offset, pte_count,
+                       mapping_cte);
     if (err_is_fail(err)) {
         printf("%s: handler func returned %ld\n", __FUNCTION__, err);
+        if (err_no(err) == SYS_ERR_WRONG_MAPPING) {
+            printk(LOG_NOTE, "dest->type = %d, src->type = %d\n",
+                    dest_cap->type, src_cap->type);
+        }
+        memset(mapping_cte, 0, sizeof(*mapping_cte));
+        return err;
     }
+
+    /* insert mapping cap into mdb */
+    assert(type_is_mapping(mapping_cte->cap.type));
+    err = mdb_insert(mapping_cte);
+    if (err_is_fail(err)) {
+        printk(LOG_ERR, "%s: mdb_insert: %"PRIuERRV"\n", __FUNCTION__, err);
+        return err;
+    }
+
     return err;
 }
 
