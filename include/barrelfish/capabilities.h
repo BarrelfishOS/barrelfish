@@ -188,10 +188,10 @@ static inline errval_t vnode_inherit_attr(struct capref dest, struct capref src,
                                           cslot_t start, cslot_t end,
                                           paging_x86_64_flags_t newflags)
 {
-    uint8_t svbits = get_cap_valid_bits(src);
-    capaddr_t saddr = get_cap_addr(src) >> (CPTR_BITS - svbits);
+    enum cnode_type slevel = get_cap_level(src);
+    capaddr_t saddr = get_cap_addr(src);
 
-    return invoke_vnode_inherit(dest, saddr, svbits, start, end, newflags);
+    return invoke_vnode_inherit(dest, saddr, slevel, start, end, newflags);
 }
 
 static inline errval_t vnode_inherit(struct capref dest, struct capref src,
