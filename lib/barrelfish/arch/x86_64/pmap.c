@@ -1322,7 +1322,7 @@ static errval_t create_pts_pinned(struct pmap *pmap, genvaddr_t vaddr, size_t by
     if (slabs_free < max_slabs) {
         struct pmap *mypmap = get_current_pmap();
         if (pmap == mypmap) {
-            err = refill_slabs(x86, max_slabs);
+            err = refill_vnode_slabs(x86, max_slabs);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_SLAB_REFILL);
             }
