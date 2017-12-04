@@ -354,6 +354,24 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
     return unmapped_pages;
 }
 
+static size_t ptable_type_get_page_size(enum objtype type)
+{
+    switch(type) {
+        case ObjType_VNode_x86_64_ptable:
+            return BASE_PAGE_SIZE;
+        case ObjType_VNode_x86_64_pdir:
+            return LARGE_PAGE_SIZE;
+        case ObjType_VNode_x86_64_pdpt:
+            return HUGE_PAGE_SIZE;
+        case ObjType_VNode_x86_64_pml4:
+            return 0;
+
+        default:
+            assert(!"Type not x86_64 vnode");
+    }
+    return 0;
+}
+
 /**
  * \brief modify flags of entries in `leaf_pt`.
  *
@@ -366,10 +384,8 @@ size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)
  */
 static errval_t generic_modify_flags(struct cte *leaf_pt, size_t offset,
                                      size_t pages,
-                                     paging_x86_64_flags_t flags,
-                                     genvaddr_t va_hint)
+                                     paging_x86_64_flags_t flags)
 {
-    /* Calculate location of first pt entry we need to modify */
     lvaddr_t base = local_phys_to_mem(get_address(&leaf_pt->cap)) +
         offset * sizeof(union x86_64_ptable_entry);
 
@@ -379,7 +395,7 @@ static errval_t generic_modify_flags(struct cte *leaf_pt, size_t offset,
             for (int i = 0; i < pages; i++) {
                 union x86_64_ptable_entry *entry =
                     (union x86_64_ptable_entry *)base + i;
-                if (entry->small.present) {
+                if (entry->base.present) {
                     paging_x86_64_modify_flags(entry, flags);
                 }
             }
@@ -408,23 +424,19 @@ static errval_t generic_modify_flags(struct cte *leaf_pt, size_t offset,
             return SYS_ERR_WRONG_MAPPING;
     }
 
-    if (va_hint != 0 && va_hint > BASE_PAGE_SIZE) {
-        debug(SUBSYS_PAGING,
-                "selective flush: 0x%"PRIxGENVADDR"--0x%"PRIxGENVADDR"\n",
-                va_hint, va_hint + pages * pagesize);
-        // use as direct hint
-        // invlpg should work for large/huge pages
-        for (int i = 0; i < pages; i++) {
-            do_one_tlb_flush(va_hint + i * pagesize);
-        }
-    } else {
-        debug(SUBSYS_PAGING, "full flush\n");
-        /* do full TLB flush */
-        do_full_tlb_flush();
-    }
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief modify flags of mapping `mapping`.
+ *
+ * \arg mapping the mapping to modify
+ * \arg offset the offset from the first page table entry in entries
+ * \arg pages the number of pages to modify
+ * \arg flags the new flags
+ * \arg va_hint a user-supplied virtual address for hinting selective TLB
+ *              flushing
+ */
 errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
                                     size_t pages, size_t mflags, genvaddr_t va_hint)
 {
@@ -458,15 +470,38 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
         return err;
     }
 
-    return generic_modify_flags(leaf_pt, offset, pages, flags, va_hint);
+    err = generic_modify_flags(leaf_pt, offset, pages, flags);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    size_t pagesize = ptable_type_get_page_size(leaf_pt->cap.type);
+    if (va_hint != 0 && va_hint > BASE_PAGE_SIZE) {
+        debug(SUBSYS_PAGING,
+                "selective flush: 0x%"PRIxGENVADDR"--0x%"PRIxGENVADDR"\n",
+                va_hint, va_hint + pages * pagesize);
+        // use as direct hint
+        // invlpg should work for large/huge pages
+        for (int i = 0; i < pages; i++) {
+            do_one_tlb_flush(va_hint + i * pagesize);
+        }
+    } else if (va_hint == 1) {
+        // XXX: remove this or cleanup interface, -SG, 2015-03-11
+        // do computed selective flush
+        debug(SUBSYS_PAGING, "computed selective flush\n");
+        return paging_tlb_flush_range(cte_for_cap(mapping), offset, pages);
+    } else {
+        debug(SUBSYS_PAGING, "full flush\n");
+        /* do full TLB flush */
+        do_full_tlb_flush();
+    }
+
+    return SYS_ERR_OK;
 }
 
 errval_t ptable_modify_flags(struct capability *leaf_pt, size_t offset,
                                     size_t pages, size_t mflags)
 {
-    lvaddr_t base = local_phys_to_mem(get_address(leaf_pt)) +
-        offset * sizeof(union x86_64_ptable_entry);
-
     /* Calculate page access protection flags */
     // Mask with provided access rights mask
     paging_x86_64_flags_t flags = X86_64_PTABLE_USER_SUPERVISOR;
@@ -484,15 +519,11 @@ errval_t ptable_modify_flags(struct capability *leaf_pt, size_t offset,
         return SYS_ERR_VM_MAP_SIZE;
     }
 
-    for (int i = 0; i < pages; i++) {
-        union x86_64_pdir_entry *entry =
-            (union x86_64_pdir_entry *)base + i;
-        if (entry->d.present) {
-            paging_x86_64_pdir_modify_flags(entry, flags);
-        }
-    }
+    errval_t err = generic_modify_flags(cte_for_cap(leaf_pt), offset, pages, flags);
+
     do_full_tlb_flush();
-    return SYS_ERR_OK;
+
+    return err;
 }
 
 void paging_dump_tables(struct dcb *dispatcher)
