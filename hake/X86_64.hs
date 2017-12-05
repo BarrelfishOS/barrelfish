@@ -51,7 +51,6 @@ cDefines = ArchDefaults.cDefines options
 
 ourLdFlags = [ Str "-Wl,-z,max-page-size=0x1000",
                Str "-Wl,--build-id=none",
-               Str "-Wl,--verbose",
                Str "-static",
                Str "-m64" ]
 
