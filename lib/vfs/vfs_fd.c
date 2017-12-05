@@ -113,6 +113,7 @@ int vfsfd_read(int fd, void *buf, size_t len)
     case FDTAB_TYPE_STDERR:
     case FDTAB_TYPE_AVAILABLE:
     default:
+        errno = EBADF;
         return -1;
     }
 
@@ -122,10 +123,6 @@ int vfsfd_read(int fd, void *buf, size_t len)
 int vfsfd_write(int fd, const void *buf, size_t len)
 {
     struct fdtab_entry *e = fdtab_get(fd);
-    if (e->type == FDTAB_TYPE_AVAILABLE) {
-        return -1;
-    }
-
     size_t retlen = 0;
 
     switch(e->type) {
@@ -152,6 +149,7 @@ int vfsfd_write(int fd, const void *buf, size_t len)
     case FDTAB_TYPE_STDIN:
     case FDTAB_TYPE_AVAILABLE:
     default:
+        errno = EBADF;
         return -1;
     }
 
@@ -163,6 +161,7 @@ int vfsfd_close(int fd)
     errval_t err;
     struct fdtab_entry *e = fdtab_get(fd);
     if (e->type == FDTAB_TYPE_AVAILABLE) {
+        errno = EBADF;
         return -1;
     }
 
@@ -173,6 +172,7 @@ int vfsfd_close(int fd)
         err = vfs_close((vfs_handle_t)e->handle);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "error in vfs_close");
+            errno = EINVAL;
             return -1;
         }
         break;
@@ -184,6 +184,7 @@ int vfsfd_close(int fd)
         break;
 
     default:
+        errno = EINVAL;
         return -1;
     } // end switch
 
@@ -215,6 +216,7 @@ off_t vfsfd_lseek(int fd, off_t offset, int whence)
                 break;
 
             default:
+                errno = EINVAL;
                 return -1;
             }
 
@@ -238,6 +240,8 @@ off_t vfsfd_lseek(int fd, off_t offset, int whence)
         break;
 
     default:
+        // XXX
+        errno = EBADF;
         return -1;
     }
 }
