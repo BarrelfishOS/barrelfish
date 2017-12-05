@@ -43,6 +43,12 @@ static struct {
     .lseek = lseek_fail
 };
 
+/**
+ * \brief register fs operation handlers
+ *
+ * The handlers are expected to follow POSIX conventions, i.e. they
+ * should return -1 on error and setting errno according to the actual error.
+ */
 void newlib_register_fsops__(fsopen_fn_t *open_fn,
                         fsread_fn_t *read_fn,
                         fswrite_fn_t *write_fn,
@@ -59,62 +65,27 @@ void newlib_register_fsops__(fsopen_fn_t *open_fn,
 
 ssize_t _write(int fd, const void *buf, size_t nbytes)
 {
-    ssize_t ret;
-
-    ret = fs_ops.write(fd, buf, nbytes);
-    if (ret < 0) {
-        *__error() = ret;
-        ret = -1;
-    }
-    return ret;
+    return fs_ops.write(fd, buf, nbytes);
 }
 
 ssize_t _read(int fd, void *buf, size_t nbytes)
 {
-    ssize_t ret;
-
-    ret = fs_ops.read(fd, buf, nbytes);
-    if (ret < 0) {
-        *__error() = ret;
-        ret = -1;
-    }
-    return ret;
+    return fs_ops.read(fd, buf, nbytes);
 }
 
 int _close(int fd)
 {
-    int ret;
-
-    ret = fs_ops.close(fd);
-    if (ret < 0) {
-        *__error() = ret;
-        ret = -1;
-    }
-    return ret;
+    return fs_ops.close(fd);
 }
 
 int _open(const char *pathname, int flags, ...)
 {
-    int ret;
-
-    ret = fs_ops.open(pathname, flags);
-    if (ret < 0) {
-        *__error() = ret;
-        ret = -1;
-    }
-    return ret;
+    return fs_ops.open(pathname, flags);
 }
 
 off_t lseek(int fd, off_t offset, int whence)
 {
-    off_t ret;
-
-    ret = fs_ops.lseek(fd, offset, whence);
-    if (ret < 0) {
-        *__error() = ret;
-        ret = -1;
-    }
-    return ret;
+    return fs_ops.lseek(fd, offset, whence);
 }
 
 /* we don't provide an fstat function.  It's only use seems to be in:
