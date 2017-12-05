@@ -609,13 +609,16 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab,
         size_t bytes = SLAB_STATIC_SIZE(slabs_req,
                                         slab->blocksize);
         bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
-        bytes *= 4;
 
-        // debug_printf("%s: req=%zu, bytes=%zu\n", __FUNCTION__, slabs_req, bytes);
+        /*
+        debug_printf("%s: req=%zu, bytes=%zu, slab->blocksize=%zu\n",
+                __FUNCTION__, slabs_req, bytes, slab->blocksize);
+                */
 
         /* Get a frame of that size */
         struct capref cap;
-        err = frame_alloc(&cap, bytes, &bytes);
+        size_t retbytes = 0;
+        err = frame_alloc(&cap, bytes, &retbytes);
         if (err_is_fail(err)) {
             if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
                 return refill_slabs_fixed_allocator(pmap, slab, bytes);
@@ -624,6 +627,7 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab,
                 return err_push(err, LIB_ERR_FRAME_ALLOC);
             }
         }
+        bytes = retbytes;
         // Count slots for frames backing slab allocator in pmap statistics
         pmap->used_cap_slots ++;
 

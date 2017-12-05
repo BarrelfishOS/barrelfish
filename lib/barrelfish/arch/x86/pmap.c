@@ -343,6 +343,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     // The VNode meta data
     newvnode->is_vnode  = true;
     newvnode->is_cloned = false;
+    newvnode->is_pinned = false;
     newvnode->entry     = entry;
     newvnode->type      = type;
 #if defined(PMAP_LL)
@@ -567,7 +568,7 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
          parent->u.vnode.children = n;
 #elif defined(PMAP_ARRAY)
         n->next = NULL;
-        if (slab_freecount(&pmapx->ptslab) < 4) {
+        if (slab_freecount(&pmapx->ptslab) < 8) {
             err = pmapx->refill_ptslab(pmapx, 32);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_SLAB_REFILL);
