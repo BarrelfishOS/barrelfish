@@ -96,7 +96,12 @@ errval_t ram_alloc_fixed(struct capref *ret, uint8_t size_bits,
 
     if (size_bits == BASE_PAGE_BITS) {
         // XXX: Return error if check to see if out of slots
-        assert(state->base_capnum < OBJSPERPAGE_CTE);
+        if (state->base_capnum >= L2_CNODE_SLOTS) {
+            debug_printf("%s: state->base_capnum = %d\n", __FUNCTION__,
+                    state->base_capnum);
+            return LIB_ERR_RAM_ALLOC_FIXED_EXHAUSTED;
+        }
+        assert(state->base_capnum < L2_CNODE_SLOTS);
         ret->cnode = cnode_base;
         ret->slot  = state->base_capnum++;
         return SYS_ERR_OK;

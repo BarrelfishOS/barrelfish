@@ -223,6 +223,7 @@ errors libbarrelfish LIB_ERR_ {
     failure RAM_ALLOC           "Failure in ram_alloc()",
     failure RAM_ALLOC_WRONG_SIZE "Wrong size of memory requested in ram alloc",
     failure RAM_ALLOC_MS_CONSTRAINTS "Ram alloc failed due to constraints to mem_serv",
+    failure RAM_ALLOC_FIXED_EXHAUSTED "No more RAM available in early allocator",
     failure CAP_MINT            "Failure in cap_mint()",
     failure CAP_COPY            "Failure in cap_copy()",
     failure CAP_RETYPE          "Failure in cap_retype()",
