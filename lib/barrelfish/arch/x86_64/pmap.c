@@ -1514,22 +1514,36 @@ static struct pmap_funcs pmap_funcs = {
  *
  * \param pmap Pmap object of type x86
  */
-#define INIT_SLAB_BUFFER_SIZE SLAB_STATIC_SIZE(128, sizeof(struct vnode))
+#if 0
 static uint8_t static_slab_buffer[INIT_SLAB_BUFFER_SIZE];
+static uint8_t static_ptslab_buffer[INIT_PTSLAB_BUFFER_SIZE];
+#endif
 errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
                           struct capref vnode,
                           struct slot_allocator *opt_slot_alloc)
 {
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
 
+#if 0
     if (get_current_pmap() == pmap) {
+        debug_printf("%s for own pmap, using static buffer\n", __FUNCTION__);
         // use static buffer
         x86->slab_buffer = static_slab_buffer;
+#ifdef PMAP_ARRAY
+        x86->pt_slab_buffer = static_ptslab_buffer;
+#endif
     } else {
         // malloc() initial slab buffer
         x86->slab_buffer = malloc(INIT_SLAB_BUFFER_SIZE);
+#ifdef PMAP_ARRAY
+        x86->pt_slab_buffer = malloc(INIT_PTSLAB_BUFFER_SIZE);
+#endif
     }
     assert(x86->slab_buffer);
+#ifdef PMAP_ARRAY
+    assert(x86->pt_slab_buffer);
+#endif
+#endif
 
     /* Generic portion */
     pmap->f = pmap_funcs;
@@ -1549,8 +1563,8 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
 
 #ifdef PMAP_ARRAY
     /* Initialize slab allocator for child arrays */
-    slab_init(&x86->ptslab, BASE_PAGE_SIZE, NULL);
-    slab_grow(&x86->ptslab, x86->pt_slab_buffer, sizeof(x86->pt_slab_buffer));
+    slab_init(&x86->ptslab, PTSLAB_SLABSIZE, NULL);
+    slab_grow(&x86->ptslab, x86->pt_slab_buffer, INIT_PTSLAB_BUFFER_SIZE);
     x86->refill_ptslab = refill_pt_slabs;
 #endif
 
