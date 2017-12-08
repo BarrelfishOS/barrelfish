@@ -29,6 +29,15 @@
   build application { target = "nkmtest_map_offset",
                       cFiles = [ "map_offset.c" ]
                     },
+  build application { target = "nkmtest_vnode_inherit_no_delete",
+                      cFiles = [ "vnode_inherit.c" ],
+                      architectures = [ "x86_64" ]
+                    },
+  build application { target = "nkmtest_vnode_inherit",
+                      cFiles = [ "vnode_inherit.c" ],
+                      addCFlags = [ "-DDELETE_FRAME" ],
+                      architectures = [ "x86_64" ]
+                    },
   build application { target = "nkmtest_all",
                       cFiles = [ "invalid_mappings.c", "main.c",
                                  "modify_flags.c", "nkmtest.c",
