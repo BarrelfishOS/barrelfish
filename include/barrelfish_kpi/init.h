@@ -66,12 +66,14 @@
 #define ROOTCN_SLOT_SEGCN        4   ///< SegCN slot in root cnode
 #define ROOTCN_SLOT_PACN         5   ///< PhysAddr cnode slot in root cnode
 #define ROOTCN_SLOT_MODULECN     6   ///< Multiboot modules cnode slot in root cnode
-#define ROOTCN_SLOT_SLOT_ALLOC0  7   ///< Root of slot alloc0
+#define ROOTCN_SLOT_SLOT_ALLOC0  7   ///< Used for base cn slot allocator in early code
 #define ROOTCN_SLOT_SLOT_ALLOC1  8   ///< Root of slot alloc1
 #define ROOTCN_SLOT_SLOT_ALLOC2  9   ///< Root of slot alloc2
-#define ROOTCN_SLOT_ARGCN        10  ///< Argcn slot in root cnode
-#define ROOTCN_SLOT_BSPKCB       11  ///< BSP KCB cap to fix reverse lookup issues
-#define ROOTCN_SLOTS_USER        12  ///< First free slot in root cnode for user
+#define ROOTCN_SLOT_ROOT_MAPPING 10  ///< Slot for a cnode for the root vnode mappings
+#define ROOTCN_SLOT_ARGCN        11  ///< Argcn slot in root cnode
+#define ROOTCN_SLOT_BSPKCB       12  ///< BSP KCB cap to fix reverse lookup issues
+#define ROOTCN_SLOT_EARLY_CN_CN  13  ///< Slot for a cnode of L2_CNODE_SIZE frames
+#define ROOTCN_SLOTS_USER        14  ///< First free slot in root cnode for user
 
 /* Size of CNodes in Root CNode if not the default size */
 #define SLOT_ALLOC_CNODE_BITS   L2_CNODE_BITS

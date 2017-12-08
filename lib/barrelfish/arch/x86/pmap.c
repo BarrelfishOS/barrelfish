@@ -326,11 +326,10 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     assert(!capref_is_null(newvnode->u.vnode.cap));
     assert(!capref_is_null(newvnode->u.vnode.invokable));
 
-    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &newvnode->mapping);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
+    newvnode->mapping.cnode = root->u.vnode.mcnode[entry / L2_CNODE_SLOTS];
+    newvnode->mapping.slot = entry % L2_CNODE_SLOTS;
     pmap->used_cap_slots ++;
+    assert(!capref_is_null(newvnode->mapping));
 
     // Map it
     err = vnode_map(root->u.vnode.invokable, newvnode->u.vnode.cap, entry,
@@ -362,6 +361,14 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     newvnode->u.vnode.virt_base = 0;
     newvnode->u.vnode.page_table_frame  = NULL_CAP;
     newvnode->u.vnode.base = base;
+
+    /* allocate mapping cnodes */
+    for (int i = 0; i < MCN_COUNT; i++) {
+        err = cnode_create_l2(&newvnode->u.vnode.mcn[i], &newvnode->u.vnode.mcnode[i]);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
+        }
+    }
 
     *retvnode = newvnode;
     return SYS_ERR_OK;
@@ -440,7 +447,16 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
 
             // remove vnode from list
             remove_vnode(root, n);
-        slab_free(&pmap->ptslab, n->u.vnode.children);
+
+            /* delete mapping cap cnodes */
+            for (int x = 0; x < MCN_COUNT; x++) {
+                err = cap_destroy(n->u.vnode.mcn[x]);
+                if (err_is_fail(err)) {
+                    debug_printf("%s: cap_destroy(mapping cn %d): %s\n",
+                            __FUNCTION__, x, err_getcode(err));
+                }
+            }
+            slab_free(&pmap->ptslab, n->u.vnode.children);
             slab_free(&pmap->slab, n);
         }
     }
@@ -510,6 +526,8 @@ static errval_t serialise_tree(int depth, struct vnode *v,
 /**
  * \brief Serialise vtree to a flat structure, for passing to another process
  *
+ * XXX: handle mappings!
+ *
  * This is used by spawn_vspace to communicate the vnode capabilities to the child.
  */
 errval_t pmap_x86_serialise(struct pmap *pmap, void *buf, size_t buflen)
@@ -534,6 +552,9 @@ errval_t pmap_x86_serialise(struct pmap *pmap, void *buf, size_t buflen)
     return err;
 }
 
+/*
+ * XXX: handle mappings!
+ */
 static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
                                  size_t *inlen, int depth, struct vnode *parent)
 {
@@ -591,6 +612,14 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
         // Count cnode_page slots that are in use
         pmapx->used_cap_slots ++;
 
+        /* allocate mapping cnodes */
+        for (int i = 0; i < MCN_COUNT; i++) {
+            err = cnode_create_l2(&n->u.vnode.mcn[i], &n->u.vnode.mcnode[i]);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
+            }
+        }
+
         (*in)++;
         (*inlen)--;
 
@@ -610,6 +639,8 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
 
 /**
  * \brief Deserialise vtree from a flat structure, for importing from another process
+ *
+ * XXX: handle mappings!
  *
  * This is used in a newly-spawned child
  */

@@ -341,14 +341,13 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     page->u.frame.vaddr = vaddr;
     page->u.frame.cloned_count = 0;
 
-    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &page->mapping);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
+    page->mapping.cnode = ptable->u.vnode.mcnode[table_base / L2_CNODE_SLOTS];
+    page->mapping.slot  = table_base % L2_CNODE_SLOTS;
     pmap->used_cap_slots ++;
 
     // do map
     assert(!capref_is_null(ptable->u.vnode.invokable));
+    assert(!capref_is_null(page->mapping));
     err = vnode_map(ptable->u.vnode.invokable, frame, table_base,
                     pmap_flags, offset, pte_count, page->mapping);
     if (err_is_fail(err)) {
@@ -880,10 +879,6 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
         err = cap_delete(info.page->mapping);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_CAP_DELETE);
-        }
-        err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, info.page->mapping);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_SLOT_FREE);
         }
         assert(pmap->used_cap_slots > 0);
         pmap->used_cap_slots --;
@@ -1593,6 +1588,35 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
 #endif
     x86->root.u.vnode.virt_base = 0;
     x86->root.u.vnode.page_table_frame  = NULL_CAP;
+
+    /* allocate Mapping cnodes */
+    /*
+    for (int i = 0; i < MCN_COUNT; i++) {
+        err = cnode_create_l2(&x86->root.u.vnode.mcn[i], &x86->root.u.vnode.mcnode[i]);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
+        }
+    }
+    */
+    if (pmap == get_current_pmap()) {
+        /*
+         * for now, for our own pmap, we use the left over slot allocator cnode to
+         * provide the mapping cnode for the first half of the root page table as
+         * we cannot allocate CNodes before establishing a connection to the
+         * memory server!
+         */
+        x86->root.u.vnode.mcn[0].cnode = cnode_root;
+        x86->root.u.vnode.mcn[0].slot = ROOTCN_SLOT_ROOT_MAPPING;
+        x86->root.u.vnode.mcnode[0].croot = CPTR_ROOTCN;
+        x86->root.u.vnode.mcnode[0].cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_ROOT_MAPPING);
+        x86->root.u.vnode.mcnode[0].level = CNODE_TYPE_OTHER;
+    } else {
+        errval_t err;
+        err = cnode_create_l2(&x86->root.u.vnode.mcn[0], &x86->root.u.vnode.mcnode[0]);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
+        }
+    }
 
     // choose a minimum mappable VA for most domains; enough to catch NULL
     // pointer derefs with suitably large offsets

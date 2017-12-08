@@ -19,6 +19,8 @@
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/paging_arch.h> // for PTABLE_SIZE
 
+#define MCN_COUNT DIVIDE_ROUND_UP(PTABLE_SIZE, L2_CNODE_SLOTS)
+
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode { // NB: misnomer :)
     uint16_t      entry;       ///< Page table entry of this VNode
@@ -28,12 +30,14 @@ struct vnode { // NB: misnomer :)
     bool          is_pinned;   ///< is this a pinned vnode (do not reclaim automatically)
     enum objtype  type;        ///< Type of cap in the vnode
     struct vnode  *next;       ///< Next entry in list of siblings
-    struct capref mapping;     ///< mapping cap associated with this node
+    struct capref mapping;     ///< mapping cap associated with this node (stored in parent's mapping cnode)
     union {
         struct {
             lvaddr_t base;             ///< Virtual address start of page (upper level bits)
             struct capref cap;         ///< VNode cap
             struct capref invokable;    ///< Copy of VNode cap that is invokable
+            struct capref mcn[MCN_COUNT]; ///< CNodes to store mappings (caprefs)
+            struct cnoderef mcnode[MCN_COUNT]; ///< CNodeRefs of mapping cnodes
 #ifdef PMAP_LL
             struct vnode *children;
 #elif defined(PMAP_ARRAY)

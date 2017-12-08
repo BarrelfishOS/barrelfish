@@ -194,6 +194,17 @@ errval_t slot_alloc_init(void)
     def->reserve = &state->reserve;
     def->reserve->next = NULL;
 
+    /* Init root allocator first */
+    err = single_slot_alloc_init_raw(&state->rootca, cap_root, cnode_root,
+                                     L2_CNODE_SLOTS, state->root_buf,
+                                     sizeof(state->root_buf));
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT_RAW);
+    }
+    state->rootca.a.space     = L2_CNODE_SLOTS - ROOTCN_FREE_SLOTS;
+    state->rootca.head->space = L2_CNODE_SLOTS - ROOTCN_FREE_SLOTS;
+    state->rootca.head->slot  = ROOTCN_FREE_SLOTS;
+
     // Head
     cap.cnode = cnode_root;
     cap.slot  = ROOTCN_SLOT_SLOT_ALLOC1;
@@ -230,17 +241,6 @@ errval_t slot_alloc_init(void)
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }
-
-    /* Root allocator */
-    err = single_slot_alloc_init_raw(&state->rootca, cap_root, cnode_root,
-                                     L2_CNODE_SLOTS, state->root_buf,
-                                     sizeof(state->root_buf));
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SINGLE_SLOT_ALLOC_INIT_RAW);
-    }
-    state->rootca.a.space     = L2_CNODE_SLOTS - ROOTCN_FREE_SLOTS;
-    state->rootca.head->space = L2_CNODE_SLOTS - ROOTCN_FREE_SLOTS;
-    state->rootca.head->slot  = ROOTCN_FREE_SLOTS;
 
     return SYS_ERR_OK;
 }

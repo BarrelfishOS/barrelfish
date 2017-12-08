@@ -133,15 +133,17 @@ errval_t slot_alloc_basecn_init(struct slot_alloc_basecn *this)
     return SYS_ERR_OK;
 }
 
+errval_t ram_alloc_fixed_cn(struct capref *retcap);
 errval_t slot_alloc_basecn(void *inst, uint64_t nslots, struct capref *ret)
 {
     struct slot_alloc_basecn *this = inst;
     errval_t err;
 
     if (nslots > this->free) {
-        /* XXX: Special case for init, need to get memory from basecn */
+        /* Special case for init, need to get memory for L2 Cnode from
+         * EARLY_CN_CN */
         struct capref ram;
-        err = ram_alloc(&ram, L2_CNODE_BITS + OBJBITS_CTE);
+        err = ram_alloc_fixed_cn(&ram);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "ram_alloc in slot_alloc_basecn cannot allocate L2 "
                            "CNode-sized ram cap");

@@ -617,6 +617,35 @@ errval_t cnode_create_foreign_l2(struct capref dest_l1, cslot_t dest_slot,
 }
 
 /**
+ * \brief early allocator for L2 CNode sized RAM caps
+ *
+ * This function returns the preallocated RAM caps stored in
+ * ROOTCN_SLOT_EARLY_CN_CN.
+ */
+/// Base CNode
+static struct cnoderef cnode_earlycn = {
+    .cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_EARLY_CN_CN),
+    .level = CNODE_TYPE_OTHER,
+    .croot = CPTR_ROOTCN,
+};
+
+errval_t ram_alloc_fixed_cn(struct capref *retcap);
+errval_t ram_alloc_fixed_cn(struct capref *retcap)
+{
+    // We use a static local variable here to keep track of the early cn
+    // slots we have returned so far.
+    static cslot_t next_slot = 0;
+    if (next_slot >= L2_CNODE_SLOTS) {
+        return LIB_ERR_RAM_ALLOC_FIXED_EXHAUSTED;
+    }
+
+    retcap->cnode = cnode_earlycn;
+    retcap->slot = next_slot++;
+
+    return SYS_ERR_OK;
+}
+
+/**
  * \brief Create a CNode from newly-allocated RAM in the given slot
  *
  * \param dest location in which to place CNode cap
@@ -659,6 +688,10 @@ errval_t cnode_create_raw(struct capref dest, struct cnoderef *cnoderef,
 
     // Allocate some memory
     err = ram_alloc(&ram, bits + OBJBITS_CTE);
+    if (err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
+        // early cnode alloc request, use special allocator
+        err = ram_alloc_fixed_cn(&ram);
+    }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }

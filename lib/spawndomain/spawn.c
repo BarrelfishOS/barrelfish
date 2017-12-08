@@ -63,6 +63,10 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
     }
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_ROOT_MAPPING, NULL);
+    if (err_is_fail(err)) {
+        return err_push(err, SPAWN_ERR_CREATE_SLOTALLOC_CNODE);
+    }
 
     // Create DCB: make si->dcb invokable
     err = slot_alloc(&si->dcb);
@@ -135,6 +139,37 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
         .slot = 0,
     };
     err = cap_retype(base, ram, 0, ObjType_RAM, BASE_PAGE_SIZE, L2_CNODE_SLOTS);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_RETYPE);
+    }
+
+    // delete big RAM cap
+    err = cap_destroy(ram);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DESTROY);
+    }
+
+    /* Fill up early_cn cnode */
+    struct cnoderef earlycn;
+
+    // Create basecn in our rootcn so we can copy stuff in there
+    err = cnode_create_foreign_l2(si->rootcn_cap, ROOTCN_SLOT_EARLY_CN_CN, &earlycn);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CNODE_CREATE);
+    }
+
+    // get big RAM cap for L2_CNODE_SLOTS L2_CNODE_SIZEd caps
+    err = ram_alloc(&ram, L2_CNODE_BITS + (L2_CNODE_BITS + OBJBITS_CTE));
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_RAM_ALLOC);
+    }
+
+    // retype big RAM cap into small caps in new basecn
+    base = (struct capref){
+        .cnode = earlycn,
+        .slot = 0,
+    };
+    err = cap_retype(base, ram, 0, ObjType_RAM, OBJSIZE_L2CNODE, L2_CNODE_SLOTS);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
