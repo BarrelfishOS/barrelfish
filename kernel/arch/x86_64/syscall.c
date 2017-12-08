@@ -369,6 +369,7 @@ static struct sysret handle_inherit(struct capability *dest,
             " from %p to %p, new flags = %"PRIx64"\n",
             start, end, src_entry, dst_entry, flags);
 
+    // XXX: this should create mapping caps for copied range!
     for (uint64_t i = start; i < end; ++i) {
         //printf("kernel: cpy: %p -> %p\n", src_entry+i, dst_entry+i);
         //printf("kernel: cpy: [%016lx] -> [%016lx]\n", src_entry[i], dst_entry[i]);
