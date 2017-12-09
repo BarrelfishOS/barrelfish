@@ -65,14 +65,14 @@ moduleParam = do
     paramName <- parameterName
     return AST.ModuleParam
         { AST.paramName = paramName
-        , AST.paramType = paramType 
+        , AST.paramType = paramType
         }
     where
         intType = do
             symbol "nat"
             return AST.NaturalParam
         addrType = do
-            symbol "addr" 
+            symbol "addr"
             return AST.AddressParam
 
 moduleBody = do
@@ -131,7 +131,7 @@ moduleInst = do
         moduleInst = AST.ModuleInst
             { AST.moduleName = name
             , AST.namespace  = namespace
-            , AST.arguments  = args 
+            , AST.arguments  = args
             , AST.portMappings = portMappings
             }
         in case forFn of
@@ -200,11 +200,11 @@ identifier = do
 
 nodeSpec = do
     nodeType <- option AST.Other $ try nodeType
-    accept <- option [] accept 
+    accept <- option [] accept
     translate <- option [] tranlsate
     reserve <- option [] reserve
     overlay <- optionMaybe overlay
-    return AST.NodeSpec 
+    return AST.NodeSpec
         { AST.nodeType  = nodeType
         , AST.accept    = accept
         , AST.translate = translate
@@ -235,19 +235,35 @@ nodeType = choice [core, device, memory]
             symbol "memory"
             return AST.Memory
 
-blockSpec = choice [range, length, singleton]
+blockSpec = do
+    bs <- choice [range, length, singleton]
+
+    return bs
     where
         singleton = do
             address <- address
-            return $ AST.SingletonBlock address
+            ps <- propSpec
+            return $ AST.SingletonBlock address ps
         range = do
             base <- try $ address <* symbol "-"
             limit <- address
-            return $ AST.RangeBlock base limit
+            ps <- propSpec
+            return $ AST.RangeBlock base limit ps
         length = do
             base <- try $ address <* symbol "/"
             bits <- decimal <?> "number of bits"
-            return $ AST.LengthBlock base bits
+            ps <- propSpec
+            return $ AST.LengthBlock base bits ps
+
+propSpec = do
+    props <- option [] propList
+    return $ AST.PropSpec props
+    where
+      propList = do
+        symbol "("
+        propIds <- commaSep1 $ propertyName
+        symbol ")"
+        return propIds
 
 address = choice [address, param]
     where
@@ -267,11 +283,13 @@ mapSpecs = do
         mapDest = do
             destNode <- identifier
             destBase <- optionMaybe $ reserved "at" *> address
-            return (destNode, destBase)
-        toMapSpec block (destNode, destBase) = AST.MapSpec
+            destProps <- propSpec
+            return (destNode, destBase, destProps)
+        toMapSpec block (destNode, destBase, destProps) = AST.MapSpec
             { AST.block    = block
             , AST.destNode = destNode
             , AST.destBase = destBase
+            , AST.destProps = destProps
             }
 
 overlay = do
@@ -287,7 +305,7 @@ overlay = do
 identifierFor = identifierHelper True
 
 forVarRange optVarName
-    | optVarName = do 
+    | optVarName = do
         var <- option "#" (try $ variableName <* reserved "in")
         range var
     | otherwise = do
@@ -351,7 +369,7 @@ keywords = ["import", "module",
             "is", "are",
             "accept", "map",
             "reserved", "over",
-            "to", "at"]   
+            "to", "at"]
 
 identStart     = letter
 identLetter    = alphaNum <|> char '_' <|> char '-'
@@ -360,6 +378,7 @@ importPath     = many (identLetter <|> char '/') <* whiteSpace
 moduleName     = identString <?> "module name"
 parameterName  = identString <?> "parameter name"
 variableName   = identString <?> "variable name"
+propertyName   = identString <?> "property name"
 identifierName = try ident <?> "identifier"
     where
         ident = do
@@ -389,7 +408,7 @@ identifierHelper inlineFor = do
             return $ ([], Just $ AST.SimpleIdent name)
         template ident = do
             prefix <- try $ ident <* symbol "{"
-            (ranges, varName, suffix) <- if inlineFor 
+            (ranges, varName, suffix) <- if inlineFor
                 then choice [forTemplate, varTemplate]
                 else varTemplate
             let

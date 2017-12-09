@@ -13,7 +13,7 @@
     Attn: Systems Group.
 -}
 
-module SockeyeASTParser 
+module SockeyeASTParser
 ( module SockeyeASTParser
 , module SockeyeASTTypeChecker
 ) where
@@ -27,11 +27,12 @@ import SockeyeASTTypeChecker
     , nodeType, accept, translate, reserved, overlay
     , NodeType(Core, Device, Memory, Other)
     , BlockSpec(SingletonBlock, RangeBlock, LengthBlock)
+    , PropSpec(PropSpec)
     , base, limit, bits
     , MapSpec(MapSpec)
     , OverlaySpec(OverlaySpec)
     , over, width
-    , block, destNode, destBase
+    , block, destNode, destBase, destProps
     , Address(LiteralAddress, ParamAddress)
     , ForLimit(LiteralLimit, ParamLimit)
     )
@@ -42,7 +43,7 @@ data SockeyeSpec = SockeyeSpec
     , net     :: [NetSpec]
     } deriving (Show)
 
-data Import = Import 
+data Import = Import
     { filePath :: !FilePath }
     deriving (Show)
 
@@ -68,7 +69,7 @@ data NetSpec
     deriving (Show)
 
 data Port
-    = InputPort 
+    = InputPort
         { portId    :: Identifier
         , portWidth :: !Integer
         }
@@ -109,7 +110,7 @@ data NodeDecl
     | MultiNodeDecl (For NodeDecl)
     deriving (Show)
 
-data For a 
+data For a
     = For
         { varRanges :: [ForVarRange]
         , body      :: a

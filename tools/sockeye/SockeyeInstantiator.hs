@@ -165,7 +165,7 @@ instance Instantiatable CheckAST.Port [InstAST.Port] where
         return [instPort]
 
 instance Instantiatable CheckAST.ModuleInst [InstAST.ModuleInst] where
-    instantiate context (CheckAST.MultiModuleInst for) = do 
+    instantiate context (CheckAST.MultiModuleInst for) = do
         simpleFor <- instantiate context for
         return $ concat (simpleFor :: [[InstAST.ModuleInst]])
     instantiate context ast = do
@@ -284,39 +284,48 @@ instance Instantiatable CheckAST.NodeSpec InstAST.NodeSpec where
             }
 
 instance Instantiatable CheckAST.BlockSpec InstAST.BlockSpec where
-    instantiate context (CheckAST.SingletonBlock base) = do
+    instantiate context (CheckAST.SingletonBlock base props) = do
         instBase <- instantiate context base
+        instProps <- instantiate context props
         return InstAST.BlockSpec
             { InstAST.base  = instBase
             , InstAST.limit = instBase
+            , InstAST.props = instProps
             }
-    instantiate context (CheckAST.RangeBlock base limit) = do
+    instantiate context (CheckAST.RangeBlock base limit props) = do
         instBase <- instantiate context base
         instLimit <- instantiate context limit
+        instProps <- instantiate context props
         return InstAST.BlockSpec
             { InstAST.base  = instBase
             , InstAST.limit = instLimit
+            , InstAST.props = instProps
             }
-    instantiate context (CheckAST.LengthBlock base bits) = do
+    instantiate context (CheckAST.LengthBlock base bits props) = do
         instBase <- instantiate context base
+        instProps <- instantiate context props
         let instLimit = instBase + 2^bits - 1
         return InstAST.BlockSpec
             { InstAST.base  = instBase
             , InstAST.limit = instLimit
+            , InstAST.props = instProps
             }
 
 instance Instantiatable CheckAST.MapSpec InstAST.MapSpec where
     instantiate context ast = do
         let block = CheckAST.block ast
             destNode = CheckAST.destNode ast
+            destProps = CheckAST.destProps ast
             destBase = fromMaybe (CheckAST.LiteralAddress 0) (CheckAST.destBase ast)
         instBlock <- instantiate context block
         instDestNode <- instantiate context destNode
         instDestBase <- instantiate context destBase
+        instDestProps <- instantiate context destProps
         return InstAST.MapSpec
             { InstAST.srcBlock    = instBlock
             , InstAST.destNode = instDestNode
             , InstAST.destBase = instDestBase
+            , InstAST.destProps = instDestProps
             }
 
 instance Instantiatable CheckAST.OverlaySpec InstAST.OverlaySpec where
@@ -328,6 +337,10 @@ instance Instantiatable CheckAST.OverlaySpec InstAST.OverlaySpec where
             { InstAST.over  = instOver
             , InstAST.width = width
             }
+
+instance Instantiatable CheckAST.PropSpec InstAST.PropSpec where
+    instantiate _ (CheckAST.PropSpec ids) =
+      return InstAST.PropSpec { InstAST.identifiers = ids }
 
 instance Instantiatable CheckAST.Address InstAST.Address where
     instantiate context (CheckAST.ParamAddress name) = do

@@ -48,12 +48,19 @@ data NodeType
 data BlockSpec = BlockSpec
     { base  :: Address
     , limit :: Address
+    , props :: PropSpec
     } deriving (Show)
+
+data PropSpec
+    = PropSpec
+      { identifiers :: [String] }
+    deriving(Show)
 
 data MapSpec = MapSpec
     { srcBlock :: BlockSpec
     , destNode :: NodeId
     , destBase :: Address
+    , destProps :: PropSpec
     } deriving (Show)
 
 data OverlaySpec

@@ -94,7 +94,7 @@ instance SymbolSource ParseAST.SockeyeSpec where
         let names = concat $ map Map.keys symbolTables
         checkDuplicates "@all" DuplicateModule names
         return $ Map.unions symbolTables
-        
+
 instance SymbolSource ParseAST.Module where
     buildSymbolTable ast = do
         let modName = ParseAST.name ast
@@ -305,7 +305,7 @@ instance Checkable ParseAST.Identifier CheckAST.Identifier where
 
 instance Checkable ParseAST.NodeSpec CheckAST.NodeSpec where
     check context ast = do
-        let 
+        let
             nodeType = ParseAST.nodeType ast
             accept = ParseAST.accept ast
             translate = ParseAST.translate ast
@@ -328,22 +328,25 @@ instance Checkable ParseAST.NodeSpec CheckAST.NodeSpec where
             }
 
 instance Checkable ParseAST.BlockSpec CheckAST.BlockSpec where
-    check context (ParseAST.SingletonBlock address) = do
+    check context (ParseAST.SingletonBlock address props) = do
         checkedAddress <- check context address
         return CheckAST.SingletonBlock
-            { CheckAST.base = checkedAddress }
-    check context (ParseAST.RangeBlock base limit) = do
+            { CheckAST.base = checkedAddress
+            , CheckAST.props = props }
+    check context (ParseAST.RangeBlock base limit props) = do
         checkedBase <- check context base
         checkedLimit <- check context limit
         return CheckAST.RangeBlock
             { CheckAST.base  = checkedBase
             , CheckAST.limit = checkedLimit
+            , CheckAST.props = props
             }
-    check context (ParseAST.LengthBlock base bits) = do
+    check context (ParseAST.LengthBlock base bits props) = do
         checkedBase <- check context base
         return CheckAST.LengthBlock
             { CheckAST.base = checkedBase
             , CheckAST.bits = bits
+            , CheckAST.props = props
             }
 
 instance Checkable ParseAST.MapSpec CheckAST.MapSpec where
@@ -352,6 +355,7 @@ instance Checkable ParseAST.MapSpec CheckAST.MapSpec where
             block = ParseAST.block ast
             destNode = ParseAST.destNode ast
             destBase = ParseAST.destBase ast
+            destProps = ParseAST.destProps ast
         checkedBlock <- check context block
         checkedDestNode <- check context destNode
         checkedDestBase <- case destBase of
@@ -363,6 +367,7 @@ instance Checkable ParseAST.MapSpec CheckAST.MapSpec where
             { CheckAST.block    = checkedBlock
             , CheckAST.destNode = checkedDestNode
             , CheckAST.destBase = checkedDestBase
+            , CheckAST.destProps = destProps
             }
 
 instance Checkable ParseAST.OverlaySpec CheckAST.OverlaySpec where
@@ -400,7 +405,7 @@ instance Checkable a b => Checkable (ParseAST.For a) (CheckAST.For b) where
 
 instance Checkable ParseAST.ForVarRange CheckAST.ForRange where
     check context ast = do
-        let 
+        let
             start = ParseAST.start ast
             end = ParseAST.end ast
         checkedStart <- check context start
@@ -422,7 +427,7 @@ instance (Traversable t, Checkable a b) => Checkable (t a) (t b) where
 
 --
 -- Helpers
---    
+--
 checkVarInScope :: Context -> String -> Checks TypeCheckFail ()
 checkVarInScope context name = do
     if name `Set.member` (vars context)

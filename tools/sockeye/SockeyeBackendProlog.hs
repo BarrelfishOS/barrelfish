@@ -64,7 +64,7 @@ instance PrologGenerator AST.NodeSpec where
         overMaps = case overlay of
             Nothing -> []
             Just o -> overlayMaps (AST.over o) (AST.width o) (accept ++ mapBlocks ++ reserved)
-        nodeTypeString = generate nodeType 
+        nodeTypeString = generate nodeType
         acceptString = generate accept
         translateString = generate (translate ++ overMaps)
         in struct "node_spec" [("type", nodeTypeString), ("accept", acceptString), ("translate", translateString)]
@@ -82,7 +82,7 @@ overlayMaps destId width blocks =
             }
     in evalState (scanLine scanPoints []) startState
     where
-        toScanPoints (AST.BlockSpec base limit) =
+        toScanPoints (AST.BlockSpec base limit _) =
                 [ BlockStart base
                 , BlockEnd   limit
                 ]
@@ -91,7 +91,7 @@ overlayMaps destId width blocks =
             maps <- pointAction p ms
             scanLine ps maps
         pointAction (BlockStart a) ms = do
-            s <- get       
+            s <- get
             let
                 i = insideBlocks s
                 base = startAddress s
@@ -101,8 +101,8 @@ overlayMaps destId width blocks =
                     let
                         baseAddress = startAddress s
                         limitAddress = a - 1
-                        srcBlock = AST.BlockSpec baseAddress limitAddress
-                        m = AST.MapSpec srcBlock destId baseAddress
+                        srcBlock = AST.BlockSpec baseAddress limitAddress (AST.PropSpec [])
+                        m = AST.MapSpec srcBlock destId baseAddress (AST.PropSpec [])
                     in return $ m:ms
                 else return ms
             modify (\s -> s { insideBlocks = i + 1})
@@ -140,18 +140,25 @@ instance PrologGenerator AST.NodeType where
     generate AST.Memory = atom "memory"
     generate AST.Other  = atom "other"
 
+instance PrologGenerator AST.PropSpec where
+    generate propSpec =
+      list $ map atom (AST.identifiers propSpec)
+
 instance PrologGenerator AST.BlockSpec where
     generate blockSpec = let
         base = generate $ AST.base blockSpec
         limit = generate $ AST.limit blockSpec
-        in struct "block" [("base", base), ("limit", limit)]
+        props = generate $ AST.props blockSpec
+        in struct "block" [("base", base), ("limit", limit), ("props", props)]
 
 instance PrologGenerator AST.MapSpec where
     generate mapSpec = let
         src  = generate $ AST.srcBlock mapSpec
         dest = generate $ AST.destNode mapSpec
         base = generate $ AST.destBase mapSpec
-        in struct "map" [("src_block", src), ("dest_node", dest), ("dest_base", base)]
+        destProps = generate $ AST.destProps mapSpec
+        in struct "map" [("src_block", src), ("dest_node", dest),
+          ("dest_base", base), ("dest_props", destProps)]
 
 instance PrologGenerator AST.Address where
     generate addr = "0x" ++ showHex addr ""

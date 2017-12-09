@@ -23,7 +23,9 @@ import Data.Map (Map)
 import SockeyeASTDecodingNet
     ( NodeType(Core, Device, Memory, Other)
     , BlockSpec(BlockSpec)
-    , base, limit
+    , base, limit, props
+    , PropSpec(PropSpec)
+    , identifiers
     , Address
     )
 
@@ -40,7 +42,7 @@ data Module = Module
     } deriving (Show)
 
 data Port
-    = InputPort 
+    = InputPort
         { portId    :: Identifier
         , portWidth :: !Integer
         }
@@ -76,11 +78,12 @@ data NodeSpec = NodeSpec
     , overlay   :: Maybe OverlaySpec
     } deriving (Show)
 
-data MapSpec 
+data MapSpec
     = MapSpec
         { srcBlock :: BlockSpec
         , destNode :: !Identifier
         , destBase :: !Address
+        , destProps :: PropSpec
         } deriving (Show)
 
 data OverlaySpec

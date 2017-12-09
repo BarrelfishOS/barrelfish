@@ -63,11 +63,11 @@ buildSockeyeNet ast = do
             , inPortMap    = Map.empty
             , outPortMap   = Map.empty
             , nodes        = Set.empty
-            }        
+            }
     net <- runChecks $ transform context ast
     return net
 
---            
+--
 -- Build net
 --
 class NetTransformable a b where
@@ -96,7 +96,7 @@ instance NetTransformable InstAST.Module NetAST.NetSpec where
         inPortDecls <- transform modContext inPorts
         outPortDecls <- transform modContext outPorts
         netDecls <- transform modContext nodeDecls
-        netInsts <- transform modContext moduleInsts     
+        netInsts <- transform modContext moduleInsts
         return $ Map.unions (inPortDecls ++ outPortDecls ++ netDecls ++ netInsts)
 
 instance NetTransformable InstAST.Port NetAST.NetSpec where
@@ -129,14 +129,17 @@ portNode :: NetAST.NodeId -> Integer -> NetAST.NodeSpec
 portNode destNode width =
     let base = 0
         limit = 2^width - 1
+        props = NetAST.PropSpec {NetAST.identifiers = [] } {- TODO: LH what is this? -}
         srcBlock = NetAST.BlockSpec
             { NetAST.base  = base
             , NetAST.limit = limit
+            , NetAST.props = props
             }
         map = NetAST.MapSpec
                 { NetAST.srcBlock = srcBlock
                 , NetAST.destNode = destNode
                 , NetAST.destBase = base
+                , NetAST.destProps = props {- TODO: LH what is this? -}
                 }
     in portNodeTemplate { NetAST.translate = [map] }
 
@@ -226,6 +229,7 @@ instance NetTransformable InstAST.MapSpec NetAST.MapSpec where
             srcBlock = InstAST.srcBlock ast
             destNode = InstAST.destNode ast
             destBase = InstAST.destBase ast
+            destProps = InstAST.destProps ast
             errorContext = "tranlate set of node '" ++ curNode context ++ "'"
         checkReference context (UndefinedReference errorContext) destNode
         netDestNode <- transform context destNode
@@ -233,6 +237,7 @@ instance NetTransformable InstAST.MapSpec NetAST.MapSpec where
             { NetAST.srcBlock = srcBlock
             , NetAST.destNode = netDestNode
             , NetAST.destBase = destBase
+            , NetAST.destProps = destProps
             }
 
 instance NetTransformable InstAST.OverlaySpec NetAST.OverlaySpec where
