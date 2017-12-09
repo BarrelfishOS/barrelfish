@@ -95,7 +95,7 @@ static inline size_t get_offset(struct cte *mapping, struct cte *next)
  * 'set_cap()' for mapping caps
  */
 void create_mapping_cap(struct cte *mapping_cte, struct capability *cap,
-                        lvaddr_t pte, size_t offset, size_t pte_count)
+                        lpaddr_t pte, size_t offset, size_t pte_count)
 {
     assert(mapping_cte->cap.type == ObjType_Null);
     // Currently, we have 32 bit offsets with 10 bit minimum page size, hence
