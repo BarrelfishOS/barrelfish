@@ -334,6 +334,10 @@ static struct sysret handle_inherit(struct capability *dest,
     uint64_t  start         = args[2];
     uint64_t  end           = args[3];
     uint64_t  flags         = args[4];
+    capaddr_t src_mcn0_cptr = (args[5] >> CPTR_BITS) & MASK(CPTR_BITS);
+    capaddr_t src_mcn1_cptr = args[5] & MASK(CPTR_BITS);
+    capaddr_t dst_mcn0_cptr = (args[6] >> CPTR_BITS) & MASK(CPTR_BITS);
+    capaddr_t dst_mcn1_cptr = args[6] & MASK(CPTR_BITS);
 
     if (start > PTABLE_SIZE || end > PTABLE_SIZE) {
         return SYSRET(SYS_ERR_SLOTS_INVALID);
@@ -356,6 +360,53 @@ static struct sysret handle_inherit(struct capability *dest,
         return SYSRET(SYS_ERR_CNODE_TYPE);
     }
 
+    /* lookup src mapping cnodes */
+    struct cte *src_mcn0;
+    err = caps_lookup_slot(root, src_mcn0_cptr, CNODE_TYPE_OTHER, &src_mcn0,
+                           CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: looking up cte for src mcn0 (%#"PRIxCADDR"): %d\n",
+                __FUNCTION__, src_mcn0_cptr, err_no(err));
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+    if (src_mcn0->cap.type != ObjType_L2CNode) {
+        return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
+    }
+    struct cte *src_mcn1;
+    err = caps_lookup_slot(root, src_mcn1_cptr, CNODE_TYPE_OTHER, &src_mcn1,
+                           CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: looking up cte for src mcn1 (%#"PRIxCADDR"): %d\n",
+                __FUNCTION__, src_mcn1_cptr, err_no(err));
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+    if (src_mcn1->cap.type != ObjType_L2CNode) {
+        return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
+    }
+    /* lookup src mapping cnodes */
+    struct cte *dst_mcn0;
+    err = caps_lookup_slot(root, dst_mcn0_cptr, CNODE_TYPE_OTHER, &dst_mcn0,
+                           CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: looking up cte for dest mcn0 (%#"PRIxCADDR"): %d\n",
+                __FUNCTION__, dst_mcn0_cptr, err_no(err));
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+    if (dst_mcn0->cap.type != ObjType_L2CNode) {
+        return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
+    }
+    struct cte *dst_mcn1;
+    err = caps_lookup_slot(root, dst_mcn1_cptr, CNODE_TYPE_OTHER, &dst_mcn1,
+                           CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: looking up cte for dest mcn1 (%#"PRIxCADDR"): %d\n",
+                __FUNCTION__, dst_mcn1_cptr, err_no(err));
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+    if (dst_mcn1->cap.type != ObjType_L2CNode) {
+        return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
+    }
+
     genpaddr_t dst_addr = get_address(dest);
     genpaddr_t src_addr = get_address(src);
     if (!type_is_vnode(dest->type)) {
@@ -369,11 +420,29 @@ static struct sysret handle_inherit(struct capability *dest,
             " from %p to %p, new flags = %"PRIx64"\n",
             start, end, src_entry, dst_entry, flags);
 
-    // XXX: this should create mapping caps for copied range!
+    struct cte *src_mapping = NULL, *dst_mapping = NULL;
+    struct capability *src_mcn[PTABLE_SIZE / L2_CNODE_SLOTS] = { &src_mcn0->cap, &src_mcn1->cap };
+    struct capability *dst_mcn[PTABLE_SIZE / L2_CNODE_SLOTS] = { &dst_mcn0->cap, &dst_mcn1->cap };
     for (uint64_t i = start; i < end; ++i) {
+        int mcn_idx = i / L2_CNODE_SLOTS;
+        assert(mcn_idx == 0 || mcn_idx == 1);
+        cslot_t mslot = i % L2_CNODE_SLOTS;
+        src_mapping = caps_locate_slot(get_address(src_mcn[mcn_idx]), mslot);
+        dst_mapping = caps_locate_slot(get_address(dst_mcn[mcn_idx]), mslot);
         //printf("kernel: cpy: %p -> %p\n", src_entry+i, dst_entry+i);
         //printf("kernel: cpy: [%016lx] -> [%016lx]\n", src_entry[i], dst_entry[i]);
+        assert(dst_entry[i] == 0);
+        // clone entry
         dst_entry[i] = src_entry[i];
+        // create mapping cap for cloned entry if src mapping cap not null
+        if (src_mapping->cap.type != ObjType_Null) {
+            struct Frame_Mapping *sm = &src_mapping->cap.u.frame_mapping;
+            lpaddr_t dst_lp = mem_to_local_phys((lvaddr_t)&dst_entry[i]);
+            create_mapping_cap(dst_mapping, sm->cap, dst_lp,
+                               sm->offset, sm->pte_count);
+            err = mdb_insert(dst_mapping);
+            assert(err_is_ok(err));
+        }
     }
 
     if (flags) {

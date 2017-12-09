@@ -288,7 +288,8 @@ static errval_t find_or_clone_vnode(struct pmap_x86 *pmap,
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
         err = vnode_inherit_attr(newptable->u.vnode.cap,
-                (*ptable)->u.vnode.cap, 0, PTABLE_SIZE, PTABLE_ACCESS_READONLY);
+                (*ptable)->u.vnode.cap, 0, PTABLE_SIZE, PTABLE_ACCESS_READONLY,
+                (*ptable)->u.vnode.mcn, newptable->u.vnode.mcn);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_CLONE_VNODE);
         }
@@ -323,7 +324,8 @@ static errval_t cow_get_pdpt(struct pmap_x86 *pmap,
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
         err = vnode_inherit_attr(newptable->u.vnode.cap,
-                (*pdpt)->u.vnode.cap, 0, PTABLE_SIZE, PTABLE_ACCESS_READONLY);
+                (*pdpt)->u.vnode.cap, 0, PTABLE_SIZE, PTABLE_ACCESS_READONLY,
+                (*pdpt)->u.vnode.mcn, newptable->u.vnode.mcn);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_CLONE_VNODE);
         }
