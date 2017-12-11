@@ -42,9 +42,10 @@ static inline errval_t find_mapping_for_cap(struct cte *cap, struct cte **mappin
 // TODO: XXX: multiple mappings?
 static inline errval_t find_next_ptable(struct cte *mapping_cte, struct cte **next)
 {
-    errval_t err;
     assert(mapping_cte);
     struct Frame_Mapping *mapping = &mapping_cte->cap.u.frame_mapping;
+    /*
+    errval_t err;
     err = mdb_find_cap_for_address(
             local_phys_to_gen_phys(mapping->pte), next);
     if (err_no(err) == CAPS_ERR_CAP_NOT_FOUND ||
@@ -59,6 +60,13 @@ static inline errval_t find_next_ptable(struct cte *mapping_cte, struct cte **ne
                 " mdb_find_range: 0x%"PRIxERRV"\n", err);
         return err;
     }
+    */
+    if (!mapping->ptable || mapping->ptable->cap.type == ObjType_Null)
+    {
+        return SYS_ERR_VNODE_NOT_INSTALLED;
+    }
+    *next = mapping->ptable;
+
     if (!type_is_vnode((*next)->cap.type)) {
         struct cte *tmp = mdb_predecessor(*next);
         // check if there's a copy of *next that is a vnode, and return that
@@ -86,26 +94,31 @@ static inline errval_t find_next_ptable(struct cte *mapping_cte, struct cte **ne
     return SYS_ERR_OK;
 }
 
+/*
 static inline size_t get_offset(struct cte *mapping, struct cte *next)
 {
     return (mapping->cap.u.frame_mapping.pte - get_address(&next->cap)) / get_pte_size();
 }
+*/
 
 /*
  * 'set_cap()' for mapping caps
  */
 void create_mapping_cap(struct cte *mapping_cte, struct capability *cap,
-                        lpaddr_t pte, size_t offset, size_t pte_count)
+                        struct cte *ptable, cslot_t entry, size_t pte_count)
 {
     assert(mapping_cte->cap.type == ObjType_Null);
+    assert(type_is_vnode(ptable->cap.type));
+    assert(entry < UINT16_MAX);
     // Currently, we have 32 bit offsets with 10 bit minimum page size, hence
     // the offset needs to have no more than 42 significant bits. FIXME
-    assert((offset & ~MASK(42)) == 0);
+    //assert((offset & ~MASK(42)) == 0);
 
     mapping_cte->cap.type = get_mapping_type(cap->type);
     mapping_cte->cap.u.frame_mapping.cap = cap;
-    mapping_cte->cap.u.frame_mapping.pte = pte;
-    mapping_cte->cap.u.frame_mapping.offset = offset >> 10;
+    mapping_cte->cap.u.frame_mapping.ptable = ptable;
+    mapping_cte->cap.u.frame_mapping.entry = entry;
+    //mapping_cte->cap.u.frame_mapping.offset = offset >> 10;
     mapping_cte->cap.u.frame_mapping.pte_count = pte_count;
 }
 
@@ -189,7 +202,7 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
             return err;
         }
         // calculate offset into next level ptable
-        size_t offset = get_offset(mapping, next);
+        size_t offset = mapping->cap.u.frame_mapping.entry * get_pte_size();
         // shift new part of vaddr by old shiftwidth + #entries of old ptable
         shift += vnode_entry_bits(old->cap.type);
 
@@ -227,24 +240,23 @@ errval_t unmap_capability(struct cte *mem)
 
             // do unmap
             struct Frame_Mapping *mapping = &next->cap.u.frame_mapping;
-            if (!mapping->pte) {
-                debug(SUBSYS_PAGING, "mapping->pte == 0: just deleting mapping\n");
+            struct cte *pgtable = mapping->ptable;
+            if (!pgtable) {
+                debug(SUBSYS_PAGING, "mapping->ptable == 0: just deleting mapping\n");
                 // mem is not mapped, so just return
                 goto delete_mapping;
             }
-
-            // get leaf pt cap
-            struct cte *pgtable;
-            err = mdb_find_cap_for_address(mapping->pte, &pgtable);
-            if (err_is_fail(err)) {
-                debug(SUBSYS_PAGING, "page table not found: just deleting mapping\n");
-                // no page table found, should be ok.
+            if (!type_is_vnode(pgtable->cap.type)) {
+                debug(SUBSYS_PAGING,
+                        "mapping->ptable.type not vnode (%d): just deleting mapping\n",
+                        mapping->ptable->cap.type);
+                // mem is not mapped, so just return
                 goto delete_mapping;
             }
 
             lpaddr_t ptable_lp = gen_phys_to_local_phys(get_address(&pgtable->cap));
             lvaddr_t ptable_lv = local_phys_to_mem(ptable_lp);
-            cslot_t slot = (mapping->pte - ptable_lp) / PTABLE_ENTRY_SIZE;
+            cslot_t slot = mapping->entry;
 
             // unmap
             do_unmap(ptable_lv, slot, mapping->pte_count);
@@ -301,7 +313,7 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping)
     // calculate page table address
     lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
 
-    cslot_t slot = (local_phys_to_mem(info->pte) - pt) / get_pte_size();
+    cslot_t slot = info->entry;
     // get virtual address of first page
     genvaddr_t vaddr;
     bool tlb_flush_necessary = true;
@@ -342,15 +354,14 @@ errval_t paging_tlb_flush_range(struct cte *mapping_cte, size_t offset, size_t p
     struct Frame_Mapping *mapping = &mapping_cte->cap.u.frame_mapping;
 
     // reconstruct first virtual address for TLB flushing
-    struct cte *leaf_pt;
-    errval_t err;
-    err = mdb_find_cap_for_address(mapping->pte, &leaf_pt);
-    if (err_is_fail(err)) {
-        return err;
+    struct cte *leaf_pt = mapping->ptable;
+    if (!type_is_vnode(leaf_pt->cap.type)) {
+        return SYS_ERR_VNODE_TYPE;
     }
+    assert(type_is_vnode(leaf_pt->cap.type));
+    errval_t err;
     genvaddr_t vaddr;
-    size_t entry = (mapping->pte - get_address(&leaf_pt->cap)) /
-        PTABLE_ENTRY_SIZE;
+    size_t entry = mapping->entry;
     entry += offset;
     err = compile_vaddr(leaf_pt, entry, &vaddr);
     if (err_is_fail(err)) {

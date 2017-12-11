@@ -156,10 +156,8 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
     lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
 
     // set metadata
-    create_mapping_cap(mapping_cte, src,
-                       dest_lp + slot * sizeof(union x86_64_ptable_entry),
-                       offset,
-                       pte_count);
+    create_mapping_cap(mapping_cte, src, cte_for_cap(dest),
+                       slot, pte_count);
 
     cslot_t last_slot = slot + pte_count;
     for (; slot < last_slot; slot++, offset += page_size) {
@@ -248,10 +246,8 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     genpaddr_t src_gp   = get_address(src);
     lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
     // Set metadata
-    create_mapping_cap(mapping_cte, src,
-                       dest_lp + slot * sizeof(union x86_64_ptable_entry),
-                       offset,
-                       pte_count);
+    create_mapping_cap(mapping_cte, src, cte_for_cap(dest),
+                       slot, pte_count);
 
     cslot_t last_slot = slot + pte_count;
     for (; slot < last_slot; slot++, offset += X86_64_BASE_PAGE_SIZE) {
@@ -463,13 +459,13 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
     }
 
     // get pt cap to figure out page size
-    struct cte *leaf_pt;
-    errval_t err;
-    err = mdb_find_cap_for_address(info->pte, &leaf_pt);
-    if (err_is_fail(err)) {
-        return err;
+    struct cte *leaf_pt = info->ptable;
+    if (!type_is_vnode(leaf_pt->cap.type)) {
+        return SYS_ERR_VNODE_TYPE;
     }
+    assert(type_is_vnode(leaf_pt->cap.type));
 
+    errval_t err;
     err = generic_modify_flags(leaf_pt, offset, pages, flags);
     if (err_is_fail(err)) {
         return err;

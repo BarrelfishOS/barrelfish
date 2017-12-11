@@ -82,6 +82,7 @@ static inline struct cte *cte_for_cap(struct capability *cap)
  *
  * Return the offset at which the mapping cap maps the backing frame.
  */
+/*
 static inline size_t caps_get_mapping_offset(struct capability *cap) {
 
     // This function should be emitted by hamlet or somesuch.
@@ -108,6 +109,7 @@ static inline size_t caps_get_mapping_offset(struct capability *cap) {
         return 0;
     }
 }
+*/
 
 int sprint_cap(char *buf, size_t len, struct capability *cap);
 void caps_trace(const char *func, int line, struct cte *cte, const char *msg);

@@ -26,8 +26,8 @@ struct mapping_info {
 
 struct cte;
 struct capability;
-void create_mapping_cap(struct cte *mapping_cte, struct capability *frame,
-                        lpaddr_t pte, size_t offset, size_t pte_count);
+void create_mapping_cap(struct cte *mapping_cte, struct capability *cap,
+                        struct cte *ptable, cslot_t entry, size_t pte_count);
 errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr);
 errval_t unmap_capability(struct cte *mem);
 errval_t paging_tlb_flush_range(struct cte *frame, size_t offset, size_t pages);

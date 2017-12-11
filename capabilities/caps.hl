@@ -72,8 +72,11 @@ cap PhysAddr from_self inherit Memory;
 
 cap Mapping abstract {
     "struct capability" cap;
-    eq lvaddr pte;
-    uint32 offset;
+    eq "struct cte" ptable;
+    /* We currently never use the offset into the source capability, so remove
+     * it to make room for a more expressive way of referring to the pte */
+    /* uint32 offset; */
+    eq uint16 entry;
     uint16 pte_count;
 
     address { get_address(cap) };
