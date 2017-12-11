@@ -1,0 +1,509 @@
+/*
+ * Copyright (c) 2017, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich.
+ * Attn: Systems Group.
+ */
+
+/**
+ * Interrupt map for TI OMAP4460 SoC
+ *
+ * This is derived from:
+ * OMAP4460 Multimedia Device Silicon Revision 1.x Technical Reference
+ * Manual Version Q
+ *
+ */
+
+/* software generated interrupt domain (SGI) = 0-15 */
+/* private peripheral interrupts domain (PPI) = 16-31 */
+/* shared peripheral interrupts (SPI) = 32-.. */
+
+
+A9_C0 is accept [
+    0-15    
+]
+
+A9_C1 is accept [
+    0-15    
+]
+
+A9_C0_IPI is map [
+    0-15 to A9_C0    
+]
+
+
+A9_C1_ipi is map [
+    0-15 to A9_C1    
+]
+
+GIC is map [
+    32-1019 to A9_C0
+]
+
+/* Shared peripheral interrupts map */
+SPIMap is map [
+    0-987 to GIC at 32
+]
+
+/* M3 Subsystem */
+
+M3INTC is accept [
+    0-987
+]
+
+
+/*
+ * For A9:
+ *  Section 17.3.1: Table 17-2.
+ * For M3:
+ *  Section 17.3.3: Table 17-3.
+ */
+L2_CACHE is map [
+    0 to SPIMap at 0 
+]
+
+CTI_0 is map [
+    0 to SPIMap at 1 
+]
+
+CTI_1 is map [
+    0 to SPIMap at 2 
+]
+
+ELM is map [
+    0 to SPIMap at 4 
+]
+
+CMU_P is map [
+    0 to SPIMap at 5 
+]
+
+
+SYS_NIRQ1 is map [
+    0 to SPIMap at 7 
+]
+
+
+L3_DBG is map [
+    0 to SPIMap at 9 
+]
+
+L3_APP is map [
+    0 to SPIMap at 10 
+]
+
+PRCM_MPU is map [
+    0 to SPIMap at 11 
+]
+
+/* four interrupts */
+SDMA is map [
+    0-3 to SPIMap at 12, M3INTC at 18 
+]
+
+MCBSP4 is map [
+    0 to SPIMap at 16 
+]
+
+MCBSP1 is map [
+    0 to SPIMap at 17 
+]
+
+SR_MPU is map [
+    0 to SPIMap at 18 
+]
+
+SR_CORE is map [
+    0 to SPIMap at 19 
+]
+
+GPMC is map [
+    0 to SPIMap at 20 
+]
+
+SGX is map [
+    0 to SPIMap at 21 
+]
+
+MCBSP2 is map [
+    0 to SPIMap at 22 
+]
+
+MCBSP3 is map [
+    0 to SPIMap at 23 
+]
+
+ISS5 is map [
+    0 to SPIMap at 24, M3INTC at 16
+]
+
+DSS_DISPC is map [
+    0 to SPIMap at 25, M3INTC at 7
+]
+
+MAIL_U0_MPU is map [
+    0 to SPIMap at 26 
+]
+
+C2C_SSCM is map [
+    0 to SPIMap at 27, M3INTC at 46 
+    1 to SPIMap at 88, M3INTC at 47 
+]
+
+DSP_MMU is map [
+    0 to SPIMap at 28 
+]
+
+GPIO1_MPU is map [
+    0 to SPIMap at 29, M3INTC at 35 
+]
+
+GPIO2_MPU is map [
+    0 to SPIMap at 30, M3INTC at 36 
+]
+
+GPIO3_MPU is map [
+    0 to SPIMap at 31 
+]
+
+GPIO4_MPU is map [
+    0 to SPIMap at 32 
+]
+
+GPIO5_MPU is map [
+    0 to SPIMap at 33 
+]
+
+GPIO6_MPU is map [
+    0 to SPIMap at 34 
+]
+
+
+WDT3 is map [
+    0 to SPIMap at 36 
+]
+
+GPT1 is map [
+    0 to SPIMap at 37 
+]
+
+GPT2 is map [
+    0 to SPIMap at 38 
+]
+
+GPT3 is map [
+    0 to SPIMap at 39, M3INTC at 37 
+]
+
+GPT4 is map [
+    0 to SPIMap at 40, M3INTC at 38 
+]
+
+GPT5 is map [
+    0 to SPIMap at 41 
+]
+
+GPT6 is map [
+    0 to SPIMap at 42 
+]
+
+GPT7 is map [
+    0 to SPIMap at 43 
+]
+
+GPT8 is map [
+    0 to SPIMap at 44 
+]
+
+GPT9 is map [
+    0 to SPIMap at 45, M3INTC at 39 
+]
+
+GPT10 is map [
+    0 to SPIMap at 46 
+]
+
+GPT11 is map [
+    0 to SPIMap at 47, M3INTC at 40 
+]
+
+DSS_DSI1 is map [
+    0 to SPIMap at 53, M3INTC at 8  
+]
+
+CORTEXA9_CPU0_PMU is map [
+    0 to SPIMap at 54 
+]
+
+CORTEXA9_CPU1_PMU is map [
+    0 to SPIMap at 55 
+]
+
+I2C is map [
+    0 to SPIMap at 56, M3INTC at 25   
+    1 to SPIMap at 57, M3INTC at 26   
+    2 to SPIMap at 61, M3INTC at 27  
+    3 to SPIMap at 62, M3INTC at 28  
+]
+
+I2C2 is map [
+]
+
+HDQ is map [
+    0 to SPIMap at 58 
+]
+
+MMC5 is map [
+    0 to SPIMap at 59, M3INTC at 54 
+]
+
+MCSPI is map [
+    0 to SPIMap at 65, M3INTC at 41  
+    1 to SPIMap at 66, M3INTC at 42 
+    2 to SPIMap at 91 
+    3 to SPIMap at 48 
+]
+
+HSI_P1_MPU is map [
+    0 to SPIMap at 67, M3INTC at 62 
+]
+
+HSI_P2_MPU is map [
+    0 to SPIMap at 68, M3INTC at 63 
+]
+
+FDIF_3 is map [
+    0 to SPIMap at 69 
+]
+
+UART4 is map [
+    0 to SPIMap at 70 
+]
+
+HSI_DMA_MPU is map [
+    0 to SPIMap at 71 
+]
+
+UART1 is map [
+    0 to SPIMap at 72 
+]
+
+UART2 is map [
+    0 to SPIMap at 73 
+]
+
+UART3 is map [
+    0 to SPIMap at 74, M3INTC at 29 
+]
+
+PBIAS is map [
+    0 to SPIMap at 75 
+]
+
+HSUSB_OHCI is map [
+    0 to SPIMap at 76 
+]
+
+HSUSB_EHCI is map [
+    0 to SPIMap at 77, M3INTC at 57  
+]
+
+HSUSB_TLL is map [
+    0 to SPIMap at 78, M3INTC at 58 
+]
+
+
+WDT2 is map [
+    0 to SPIMap at 80 
+]
+
+
+
+MMC1 is map [
+    0 to SPIMap at 83, M3INTC at 50 
+]
+
+DSS_DSI2 is map [
+    0 to SPIMap at 84, M3INTC at 9 
+]
+
+
+MMC2 is map [
+    0 to SPIMap at 86, M3INTC at 51  
+]
+
+MPU_ICR is map [
+    0 to SPIMap at 87 
+]
+
+C2C_SSCM1 is map [
+    0 to SPIMap at 88 
+]
+
+FSUSB is map [
+    0 to SPIMap at 89, M3INTC at 59 
+]
+
+FSUSB_SMI is map [
+    0 to SPIMap at 90, M3INTC at 56 
+]
+
+HSUSB_OTG is map [
+    0 to SPIMap at 92, M3INTC at 60  
+]
+
+HSUSB_OTG_DMA is map [
+    0 to SPIMap at 93, M3INTC at 61  
+]
+
+MMC3 is map [
+    0 to SPIMap at 94, M3INTC at 52 
+]
+
+MMC4 is map [
+    0 to SPIMap at 96, M3INTC at 53  
+]
+
+SLIMBUS1 is map [
+    0 to SPIMap at 97 
+]
+
+SLIMBUS2 is map [
+    0 to SPIMap at 98 
+]
+
+ABE_MPU is map [
+    0 to SPIMap at 99 
+]
+
+CORTEXM3_MMU is map [
+    0 to SPIMap at 100 
+]
+
+DSS_HDMI is map [
+    0 to SPIMap at 101, M3INTC at 10 
+]
+
+SR_IVA is map [
+    0 to SPIMap at 102 
+]
+
+IVAHD2 is map [
+    0 to SPIMap at 103, M3INTC at 23  
+]
+
+IVAHD1 is map [
+    0 to SPIMap at 104, M3INTC at 24  
+]
+
+
+IVAHD_MAILBOX_0 is map [
+    0 to SPIMap at 107 
+]
+
+
+MCASP1_AXINT is map [
+    0 to SPIMap at 109 
+]
+
+EMIF1 is map [
+    0 to SPIMap at 110 
+]
+
+EMIF2 is map [
+    0 to SPIMap at 111 
+]
+
+MCPDM is map [
+    0 to SPIMap at 112 
+]
+
+DMM is map [
+    0 to SPIMap at 113, M3INTC at 48  
+]
+
+DMIC is map [
+    0 to SPIMap at 114 
+]
+
+SYS_NIRQ2 is map [
+    0 to SPIMap at 119 
+]
+
+KBD_CTL is map [
+    0 to SPIMap at 120 
+]
+
+THERMAL_ALERT is map [
+    0 to SPIMap at 126 
+]
+
+/* 
+ * M3 Specific interrupts
+ */ 
+XLATE_MMU_FAULT is map [
+    0 to M3INTC at 0 
+]
+
+SHARED_CACHE_MMU_CPU_INT is map [
+    0 to M3INTC at 1 
+]
+
+CTM_TIM_EVENT_1 is map [
+    0 to M3INTC at 2 
+]
+
+HWSEM_M3 is map [
+    0 to M3INTC at 3 
+]
+
+IC_NEMUINTR is map [
+    0 to M3INTC at 4 
+]
+
+IMP_FAULT is map [
+    0 to M3INTC at 5 
+]
+
+CTM_TIM_EVENT_2 is map [
+    0 to M3INTC at 6 
+]
+
+ISS0 is map [
+    0 to M3INTC at 11 
+]
+
+ISS1 is map [
+    0 to M3INTC at 12 
+]
+
+ISS2 is map [
+    0 to M3INTC at 13 
+]
+
+ISS3 is map [
+    0 to M3INTC at 14 
+]
+
+ISS4 is map [
+    0 to M3INTC at 15 
+]
+
+FDIF_1 is map [
+    0(bla) to M3INTC at 17(blu)
+]
+
+IVAHD_MAILBOX_2 is map [
+    0 to M3INTC at 22 
+]
+
+PRCM_M3 is map [
+    0 to M3INTC at 31 
+]
+
+MAIL_U2_M3 is map [
+    0 to M3INTC at 34 
+]
+
