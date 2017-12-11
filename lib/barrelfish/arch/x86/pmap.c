@@ -469,11 +469,13 @@ struct serial_entry {
     uint16_t entry;     ///< Entry #
     uint8_t depth;      ///< Depth of this node (0 = root)
     cslot_t slot;       ///< Slot number (in page cnode) of vnode cap
+    cslot_t mapping;    ///< Slot number (in page cnode) of mapping cap for vnode
     enum objtype type;  ///< Type of the vnode cap
     lvaddr_t base;
 };
 
-static errval_t serialise_tree(int depth, struct vnode *v,
+static errval_t serialise_tree(int depth, struct pmap_x86 *pmap,
+                               struct vnode *v,
                                struct serial_entry *out,
                                size_t outlen, size_t *outpos)
 {
@@ -496,6 +498,7 @@ static errval_t serialise_tree(int depth, struct vnode *v,
         .type = v->type,
         .base = v->u.vnode.base,
         .slot = v->u.vnode.cap.slot,
+        .mapping = v->mapping.slot,
     };
 
     // depth-first walk
@@ -508,7 +511,33 @@ static errval_t serialise_tree(int depth, struct vnode *v,
 #error Invalid pmap datastructure
 #endif
         if (c) {
-            err = serialise_tree(depth + 1, c, out, outlen, outpos);
+            /* allocate slot in pagecn for mapping */
+            struct capref mapping;
+#ifdef PMAP_ARRAY
+            if (i == c->entry) {
+                // only copy each mapping cap once
+                err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &mapping);
+                if (err_is_fail(err)) {
+                    return err;
+                }
+                err = cap_copy(mapping, c->mapping);
+                if (err_is_fail(err)) {
+                    return err;
+                }
+                c->mapping = mapping;
+            }
+#else
+            err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &mapping);
+            if (err_is_fail(err)) {
+                return err;
+            }
+            err = cap_copy(mapping, c->mapping);
+            if (err_is_fail(err)) {
+                return err;
+            }
+            c->mapping = mapping;
+#endif
+            err = serialise_tree(depth + 1, pmap, c, out, outlen, outpos);
             if (err_is_fail(err)) {
                 return err;
             }
@@ -520,8 +549,6 @@ static errval_t serialise_tree(int depth, struct vnode *v,
 
 /**
  * \brief Serialise vtree to a flat structure, for passing to another process
- *
- * XXX: handle mappings!
  *
  * This is used by spawn_vspace to communicate the vnode capabilities to the child.
  */
@@ -537,7 +564,7 @@ errval_t pmap_x86_serialise(struct pmap *pmap, void *buf, size_t buflen)
     size_t outlen = buflen / sizeof(struct serial_entry);
     size_t outpos = 0;
 
-    err = serialise_tree(0, &pmapx->root, out, outlen, &outpos);
+    err = serialise_tree(0, pmapx, &pmapx->root, out, outlen, &outpos);
     if (err_is_ok(err)) {
         // store length in first entry's slot number
         assert(out[0].slot == 0);
@@ -547,9 +574,6 @@ errval_t pmap_x86_serialise(struct pmap *pmap, void *buf, size_t buflen)
     return err;
 }
 
-/*
- * XXX: handle mappings!
- */
 static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
                                  size_t *inlen, int depth, struct vnode *parent)
 {
@@ -614,6 +638,16 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
                 return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
             }
         }
+        struct capref mapping;
+        mapping.cnode = parent->u.vnode.mcnode[n->entry / L2_CNODE_SLOTS];
+        mapping.slot  = n->entry % L2_CNODE_SLOTS;
+        struct capref orig;
+        orig.cnode = cnode_page;
+        orig.slot  = (*in)->mapping;
+        err = cap_copy(mapping, orig);
+        if (err_is_fail(err)) {
+            return err;
+        }
 
         (*in)++;
         (*inlen)--;
@@ -634,8 +668,6 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
 
 /**
  * \brief Deserialise vtree from a flat structure, for importing from another process
- *
- * XXX: handle mappings!
  *
  * This is used in a newly-spawned child
  */
