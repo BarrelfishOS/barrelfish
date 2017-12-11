@@ -161,6 +161,11 @@ static errval_t boot_bsp_core(int argc, char *argv[])
         USER_PANIC_ERR(err, "error sending spawnd iref to process manager");
     }
 
+    // initialize delete stepping, because we might get delete requests that
+    // need steps before any intermon bindings are up.
+    void delete_steps_init(struct waitset *ws);
+    delete_steps_init(get_default_waitset());
+
     return SYS_ERR_OK;
 }
 
