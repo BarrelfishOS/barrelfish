@@ -61,6 +61,11 @@ delete_steps_init(struct waitset *ws)
 void
 delete_steps_trigger(void)
 {
+    struct waitset *myws = delete_steps_get_waitset();
+    if (myws == NULL) {
+        debug_printf("%s: ws == NULL?\n", __FUNCTION__);
+        return;
+    }
     TRACE(CAPOPS, DELSTEPS_TRIGGER, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     if (!triggered) {
