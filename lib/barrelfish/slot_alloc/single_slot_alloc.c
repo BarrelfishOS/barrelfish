@@ -169,6 +169,15 @@ errval_t single_slot_alloc_resize(struct single_slot_allocator *this,
 {
     errval_t err;
 
+
+    if (newslotcount <= this->a.nslots) {
+        debug_printf("%s: newcount = %"PRIuCSLOT", currcount = %"PRIuCSLOT"\n",
+                __FUNCTION__, newslotcount, this->a.nslots);
+        return SYS_ERR_OK;
+    }
+
+    assert(newslotcount > this->a.nslots);
+
     cslot_t grow = newslotcount - this->a.nslots;
 
     // Refill slab allocator
