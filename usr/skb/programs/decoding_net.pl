@@ -19,8 +19,8 @@
 :- export struct(node(id:node_id,spec:node_spec)).
 :- export struct(node_id(name,namespace)).
 :- export struct(node_spec(type,accept,translate)).
-:- local struct(map(src_block,dest_node,dest_base)).
-:- local struct(block(base,limit)).
+:- local struct(map(src_block,dest_node,dest_base,dest_props)).
+:- local struct(block(base,limit,props)).
 
 :- export struct(name(node_id:node_id,address)).
 :- export struct(region(node_id:node_id,base,size)).
