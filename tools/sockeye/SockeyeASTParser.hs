@@ -22,7 +22,7 @@ import SockeyeASTTypeChecker
     ( Identifier(SimpleIdent, TemplateIdent)
     , prefix, varName, suffix
     , ModuleParamType(NaturalParam, AddressParam)
-    , ModuleArg(AddressArg, NaturalArg, ParamArg)
+    , ModuleArg(NumericalArg, ParamArg)
     , NodeSpec(NodeSpec)
     , nodeType, accept, translate, reserved, overlay
     , NodeType(Core, Device, Memory, Other)

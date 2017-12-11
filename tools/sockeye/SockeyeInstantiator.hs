@@ -222,8 +222,7 @@ instance Instantiatable CheckAST.ModuleInst [InstAST.ModuleInst] where
                             | otherwise = []
 
 instance Instantiatable CheckAST.ModuleArg Integer where
-    instantiate _ (CheckAST.AddressArg value) = return value
-    instantiate _ (CheckAST.NaturalArg value) = return value
+    instantiate _ (CheckAST.NumericalArg value) = return value
     instantiate context (CheckAST.ParamArg name) = return $ getParamValue context name
 
 instance Instantiatable CheckAST.PortMap [PortMapping] where
