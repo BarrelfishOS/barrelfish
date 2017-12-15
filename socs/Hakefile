@@ -13,3 +13,12 @@
 [ sockeye f
   | f <- [ "omap44xx" ]
 ]
+++
+[
+    sockeyeNS f "Int"
+    |  f <- ["omap44xx-int"]
+]
+++
+[ copyFile SrcTree "src" f "" ("/sockeyefacts" </> f)
+  | f <- [ "omap44xx_meta.pl", "omap44xx-int_meta.pl" ]
+]

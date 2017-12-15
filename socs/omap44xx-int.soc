@@ -22,11 +22,11 @@
 
 
 A9_C0 is accept [
-    0-15    
+    0-1024    
 ]
 
 A9_C1 is accept [
-    0-15    
+    0-1024    
 ]
 
 A9_C0_IPI is map [

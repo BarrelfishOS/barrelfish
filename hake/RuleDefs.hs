@@ -787,6 +787,23 @@ sockeyeSocFileLoc d = In SrcTree "src" ("/socs" </> d <.> "soc")
 sockeyeFactFilePath d = "/sockeyefacts" </> d <.> "pl"
 sockeyeFactFileLoc d = In BuildTree "" $ sockeyeFactFilePath d
 
+sockeyeNS :: String -> String -> HRule
+sockeyeNS net rootns = 
+    let
+        factFile = sockeyeFactFilePath net
+        depFile = dependFilePath factFile
+    in Rules
+        [ Rule
+            [ sockeyeProgLoc
+            , Str "-i", sockeyeSocDir
+            , Str "-o", Out "" factFile
+            , Str "-d", Out "" depFile
+            , Str "-r", Str rootns
+            , sockeyeSocFileLoc net
+            ]
+        , Include (Out "" depFile)
+        ]
+
 sockeye :: String -> HRule
 sockeye net = 
     let
