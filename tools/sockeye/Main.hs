@@ -63,7 +63,8 @@ data Options = Options
     , optTarget     :: Target
     , optOutputFile :: FilePath
     , optDepFile    :: Maybe FilePath
-    }
+    , optRootNs     :: Maybe String
+     }
 
 {- Default options -}
 defaultOptions :: Options
@@ -73,6 +74,7 @@ defaultOptions = Options
     , optTarget     = Prolog
     , optOutputFile = ""
     , optDepFile    = Nothing
+    , optRootNs     = Nothing
     }
 
 {- Set the input file name -}
@@ -94,6 +96,10 @@ optSetOutputFile f o = o { optOutputFile = f }
 optSetDepFile :: FilePath -> Options -> Options
 optSetDepFile f o = o { optDepFile = Just f }
 
+{- Set the root namespace -}
+optSetRootNs :: FilePath -> Options -> Options
+optSetRootNs f o = o { optRootNs = Just f }
+
 {- Prints usage information possibly with usage errors -}
 usage :: [String] -> IO ()
 usage errors = do
@@ -108,7 +114,7 @@ usage errors = do
 
 {- Setup option parser -}
 options :: [OptDescr (Options -> IO Options)]
-options = 
+options =
     [ Option "P" ["Prolog"]
         (NoArg (\opts -> return $ optSetTarget Prolog opts))
         "Generate a prolog file that can be loaded into the SKB (default)."
@@ -121,6 +127,9 @@ options =
     , Option "d" ["dep-file"]
         (ReqArg (\f opts -> return $ optSetDepFile f opts) "FILE")
         "Generate a dependency file for GNU make"
+    , Option "r" ["root-ns"]
+        (ReqArg (\f opts -> return $ optSetRootNs f opts) "IDENT")
+        "Root namespace for generated nodes"
     , Option "h" ["help"]
         (NoArg (\_ -> do
                     usage []
@@ -207,7 +216,7 @@ parseFile file = do
 {- Runs the checker -}
 typeCheck :: ParseAST.SockeyeSpec -> IO CheckAST.SockeyeSpec
 typeCheck parsedAst = do
-    case typeCheckSockeye parsedAst of 
+    case typeCheckSockeye parsedAst of
         Left fail -> do
             hPutStr stderr $ show fail
             exitWith checkError
@@ -215,16 +224,16 @@ typeCheck parsedAst = do
 
 instanitateModules :: CheckAST.SockeyeSpec -> IO InstAST.SockeyeSpec
 instanitateModules ast = do
-    case instantiateSockeye ast of 
+    case instantiateSockeye ast of
         Left fail -> do
             hPutStr stderr $ show fail
             exitWith buildError
         Right simpleAST -> return simpleAST
 
 {- Builds the decoding net from the Sockeye AST -}
-buildNet :: InstAST.SockeyeSpec -> IO NetAST.NetSpec
-buildNet ast = do
-    case buildSockeyeNet ast of 
+buildNet :: InstAST.SockeyeSpec -> Maybe String -> IO NetAST.NetSpec
+buildNet ast rootNs = do
+    case buildSockeyeNet ast rootNs of
         Left fail -> do
             hPutStr stderr $ show fail
             exitWith buildError
@@ -257,7 +266,7 @@ main = do
     (parsedAst, deps) <- parseSpec inclDirs inFile
     ast <- typeCheck parsedAst
     instAst <- instanitateModules ast
-    netAst <- buildNet instAst
+    netAst <- buildNet instAst (optRootNs opts)
     out <- compile (optTarget opts) netAst
     output outFile out
     case depFile of
@@ -265,4 +274,3 @@ main = do
         Just f  -> do
             out <- dependencyFile outFile f deps
             output f out
-    
