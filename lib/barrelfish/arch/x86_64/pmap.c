@@ -580,7 +580,7 @@ static errval_t refill_slabs_fixed_allocator(struct pmap_x86 *pmap, struct slab_
 
     /* Grow the slab */
     lvaddr_t buf = vspace_genvaddr_to_lvaddr(vbase);
-    debug_printf("%s: Calling slab_grow with %#zx bytes\n", __FUNCTION__, bytes);
+    //debug_printf("%s: Calling slab_grow with %#zx bytes\n", __FUNCTION__, bytes);
     slab_grow(slab, (void*)buf, bytes);
 
     return SYS_ERR_OK;
@@ -638,15 +638,18 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab,
         // Here we need to check that we have enough vnode slabs, not whatever
         // slabs we're refilling
         if (slab_freecount(&pmap->slab) < required_slabs_for_frame) {
-            /*
-            debug_printf("%s: recursing while refilling %s\n",
-                    __FUNCTION__, slab == &pmap->slab ? "vnode slabs" : "child slabs");
-            debug_printf("required_slabs_for_frame: %zu\n", required_slabs_for_frame);
-            debug_printf("vnode slab_freecount: %zu\n", slab_freecount(&pmap->slab));
-            debug_printf("child slab_freecount: %zu\n", slab_freecount(&pmap->ptslab));
-            */
+            debug_printf("%s: called from %p %p %p %p\n", __FUNCTION__,
+                    __builtin_return_address(0),
+                    __builtin_return_address(1),
+                    __builtin_return_address(2),
+                    __builtin_return_address(3));
             // If we recurse, we require more slabs than to map a single page
-            assert(required_slabs_for_frame > 4);
+            assert(required_slabs_for_frame > max_slabs_for_mapping(X86_64_BASE_PAGE_SIZE));
+            if (required_slabs_for_frame <= max_slabs_for_mapping(X86_64_BASE_PAGE_SIZE)) {
+                USER_PANIC(
+                    "%s: cannot handle this recursion: required slabs = %zu > max slabs for a mapping (%zu)\n",
+                    __FUNCTION__, required_slabs_for_frame, max_slabs_for_mapping(X86_64_BASE_PAGE_SIZE));
+            }
 
             err = refill_slabs(pmap, slab, required_slabs_for_frame);
             if (err_is_fail(err)) {
