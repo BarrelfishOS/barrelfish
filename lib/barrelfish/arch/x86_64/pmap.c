@@ -600,6 +600,7 @@ static errval_t refill_slabs_fixed_allocator(struct pmap_x86 *pmap, struct slab_
  * Can only be called for the current pmap
  * Will recursively call into itself till it has enough slabs
  */
+bool debug_refill = false;
 static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab, size_t request)
 {
     errval_t err;
@@ -612,10 +613,10 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab,
                                         slab->blocksize);
         bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
 
-        /*
-        debug_printf("%s: req=%zu, bytes=%zu, slab->blocksize=%zu\n",
-                __FUNCTION__, slabs_req, bytes, slab->blocksize);
-                */
+        if (debug_refill) {
+        debug_printf("%s: req=%zu, bytes=%zu, slab->blocksize=%zu, slab->freecount=%zu\n",
+                __FUNCTION__, slabs_req, bytes, slab->blocksize, slab_freecount(slab));
+        }
 
         /* Get a frame of that size */
         struct capref cap;
