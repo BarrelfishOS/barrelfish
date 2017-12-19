@@ -12,7 +12,7 @@
 
 let ramfs_files = find inDir "programs" ".pl" ++
                   find inDir ("programs" </> "platforms") ".pl"
-    sockeyeFiles = [ "omap44xx" ]
+    sockeyeFiles = [ "omap44xx", "omap44xx_meta", "omap44xx-int", "omap44xx-int_meta" ]
     ramdisk = "/skb_ramfs.cpio.gz"
     args arch = application {
                         target = "skb",

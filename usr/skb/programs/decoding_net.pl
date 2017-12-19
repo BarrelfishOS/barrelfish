@@ -15,6 +15,9 @@
 :- export node/2.
 
 :- dynamic node/2.
+:- export enum_translate_range/3.
+:- export name_to_enum/2.
+
 
 :- export struct(node(id:node_id,spec:node_spec)).
 :- export struct(node_id(name,namespace)).
@@ -24,11 +27,19 @@
 
 :- export struct(name(node_id:node_id,address)).
 :- export struct(region(node_id:node_id,base,size)).
+:- export struct(meta(node_id:node_id,key,value)).
+
+%% Used to enumerate names on nodes, to use them in capabilities.
+:- local struct(region_enum_block(node_id:node_id, in_base, in_limit, enum_base, enum_limit)).
+
 
 :- lib(ic).
 
 :- set_flag(syntax_option,based_bignums).
 :- set_flag(syntax_option,iso_base_prefix).
+
+:- dynamic meta/3.
+:- dynamic region_enum_block/5.
 
 %% Load a precompiled decoding net
 load_net(File) :-
@@ -150,4 +161,60 @@ resolve(SrcRegion,DestRegion) :-
     resolve(SrcName,DestName),
     to_region(SrcName,SrcRegion),
     to_region(DestName,DestRegion).
-  
+
+ic_add_pred(A,B, R) :-
+    R #= A + B.
+
+enum_translate_range_block(NodeId, InBase, InLimit, EnumBase, EnumLimit) :-
+    region_enum_block(NodeId, InBase, InLimit, EnumBase, EnumLimit) ;
+    (
+        findall((B,L), region_enum_block(_,_,_,B,L), LiPair),
+        ( 
+            foreach((_,InL), LiPair),
+            foreach(InBound, LiBound)
+        do
+            InBound #= InL + 1
+        ),
+        maxlist([0|LiBound], MaxEnumBase),
+
+        EnumBase = MaxEnumBase,
+        EnumLimit #= EnumBase + InLimit - InBase,
+        assert(region_enum_block(NodeId, InBase, InLimit, EnumBase, EnumLimit))
+    ).
+
+
+% enumerate all inputs of the nodeid. If one exists, return existing enumeration.
+% Assumes that accept and translate blocks are non overlapping.
+enum_translate_range(NodeId, Base, Limit) :-
+        node{id:NodeId, spec: node_spec{translate:TS}},
+        %% Extract blocks from translate set 
+        (
+            foreach(TSSpec,TS),
+            foreach(RSSpec, RS)
+        do
+            TSSpec = map(block(Base, Limit, _), _, _, _),
+            RSSpec = (Base, Limit)
+        ),
+
+        %% TODO extract blocks from accept and append to Blocks
+
+        %% Pass blocks into enum_translate_range_block, return aggregate in 
+        %% EnumBase and EnumLimit
+        (
+            foreach((Base, Limit),RS),
+            param(NodeId),
+            foreach(EBase, EBaseList),
+            foreach(EMax, EMaxList)
+        do
+            enum_translate_range_block(NodeId, Base, Limit, EBase, ELimit),
+            EMax #= ELimit
+        ),
+        maxlist(EMaxList, Limit),
+        minlist(EBaseList, Base).
+
+name_to_enum(Name, EnumInt) :-
+    EBase #=< EnumInt,
+    EnumInt #=< ELimit,
+    region_enum_block(NodeId, Base, Limit, EBase, ELimit),
+    Addr #= Base + EnumInt - EBase,
+    Name = name{node_id:NodeId, address: Addr}.

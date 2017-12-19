@@ -130,6 +130,27 @@ errval_t arch_startup(char * add_device_db_file)
         }
     }
 
+    err = skb_execute_query("decoding_net(N),load_net(N).");
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "No decoding net loaded.");
+    }
+
+    err = skb_execute_query("decoding_net_meta(M),load_net(M).");
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "No decoding net metadata loaded.");
+    }
+
+    err = skb_execute_query("decoding_net_irq(N),load_net(N).");
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "No irq decoding net loaded.");
+    }
+    printf("Decoding net irq successfully loaded!\n");
+
+    err = skb_execute_query("decoding_net_irq_meta(M),load_net(M).");
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "No irq decoding net metadata loaded.");
+    }
+
     struct monitor_blocking_binding *m = get_monitor_blocking_binding();
     assert(m != NULL);
 
