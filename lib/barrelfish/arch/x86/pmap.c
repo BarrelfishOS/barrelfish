@@ -590,6 +590,13 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_SLAB_REFILL);
         }
+#if defined(PMAP_ARRAY)
+        // ensure slab allocator has sufficient space
+        err = pmapx->refill_ptslab(pmapx, 16);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_SLAB_REFILL);
+        }
+#endif
 
         // allocate storage for the new vnode
         struct vnode *n = slab_alloc(&pmapx->slab);
