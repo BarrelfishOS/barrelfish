@@ -519,7 +519,8 @@ static size_t max_slabs_for_mapping(size_t bytes)
     size_t max_ptable = DIVIDE_ROUND_UP(max_pages, X86_64_PTABLE_SIZE);
     size_t max_pdir   = DIVIDE_ROUND_UP(max_ptable, X86_64_PTABLE_SIZE);
     size_t max_pdpt   = DIVIDE_ROUND_UP(max_pdir, X86_64_PTABLE_SIZE);
-    return 2 * max_ptable + max_pdir + max_pdpt;
+    // Worst case, our mapping spans over two pdpts
+    return 2 * (max_ptable + max_pdir + max_pdpt);
 }
 
 static size_t max_slabs_for_mapping_large(size_t bytes)
@@ -527,13 +528,15 @@ static size_t max_slabs_for_mapping_large(size_t bytes)
     size_t max_pages  = DIVIDE_ROUND_UP(bytes, X86_64_LARGE_PAGE_SIZE);
     size_t max_pdir   = DIVIDE_ROUND_UP(max_pages, X86_64_PTABLE_SIZE);
     size_t max_pdpt   = DIVIDE_ROUND_UP(max_pdir, X86_64_PTABLE_SIZE);
-    return 2 * max_pdir + max_pdpt;
+    // Worst case, our mapping spans over two pdpts
+    return 2 * (max_pdir + max_pdpt);
 }
 
 static size_t max_slabs_for_mapping_huge(size_t bytes)
 {
     size_t max_pages  = DIVIDE_ROUND_UP(bytes, X86_64_HUGE_PAGE_SIZE);
     size_t max_pdpt   = DIVIDE_ROUND_UP(max_pages, X86_64_PTABLE_SIZE);
+    // Worst case, our mapping spans over two pdpts
     return 2 * max_pdpt;
 }
 
