@@ -215,6 +215,21 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
         printk(LOG_WARN, "cleanup_last but remote_copies is set\n");
     }
 
+    // When deleting the last copy of a mapping cap, destroy the mapping
+    if (type_is_mapping(cte->cap.type)) {
+        struct Frame_Mapping *mapping = &cte->cap.u.frame_mapping;
+        // Only if the ptable the mapping is pointing to is a vnode type
+        if (type_is_vnode(mapping->ptable->cap.type)) {
+            err = page_mappings_unmap(&mapping->ptable->cap, cte);
+            if (err_is_fail(err)) {
+                char buf[256];
+                sprint_cap(buf, 256, &cte->cap);
+                printk(LOG_WARN, "page_mappings_unmap failed for %s\n", buf);
+                return err;
+            }
+        }
+    }
+
     if (ret_ram_cap && ret_ram_cap->cap.type != ObjType_Null) {
         return SYS_ERR_SLOT_IN_USE;
     }
