@@ -307,7 +307,7 @@ newstyle_start_function(coreid_t where, struct module_info* driver, char* record
     assert(record != NULL);
     errval_t err;
 
-    struct domain_instance* inst = instantiate_driver_domain(where);
+    struct domain_instance* inst = instantiate_driver_domain(driver->binary, where);
 
     char* dep1;
     err = oct_read(record, "_ { dep1: %s }", &dep1);
