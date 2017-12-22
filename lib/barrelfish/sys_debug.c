@@ -92,3 +92,15 @@ errval_t sys_debug_cap_trace_ctrl(uintptr_t types, genpaddr_t start, gensize_t s
                     DEBUG_TRACE_PMEM_CTRL, types, start, size).error;
 }
 
+
+errval_t sys_debug_create_irq_src_cap(struct capref cap, uint64_t start,
+        uint64_t end)
+{
+    uint8_t dcn_level = get_cnode_level(cap);
+    capaddr_t dcn_addr = get_cnode_addr(cap);
+
+    struct sysret sr = syscall7(SYSCALL_DEBUG, DEBUG_CREATE_IRQ_SRC_CAP,
+                                dcn_level, dcn_addr, cap.slot, start, end);
+    return sr.error;
+}
+

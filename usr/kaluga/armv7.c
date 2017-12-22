@@ -38,9 +38,6 @@ static errval_t omap44xx_startup(void)
     err = init_device_caps_manager();
     assert(err_is_ok(err));
 
-    err = init_device_caps_manager();
-    assert(err_is_ok(err));
-
     start_driverdomain("fdif {}");
     start_driverdomain("sdma {}");
     start_driverdomain("mmchs { dep1: 'cm2', dep2: 'twl6030' }");
@@ -85,9 +82,6 @@ static errval_t omap44xx_startup(void)
 static errval_t vexpress_startup(void)
 {
     errval_t err;
-    err = init_cap_manager();
-    assert(err_is_ok(err));
-
     struct module_info* mi = find_module("serial_pl011");
     if (mi != NULL) {
         err = mi->start_function(0, mi, "hw.arm.vexpress.uart {}", NULL);

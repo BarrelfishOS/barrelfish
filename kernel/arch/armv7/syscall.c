@@ -1208,8 +1208,9 @@ handle_invoke(arch_registers_state_t *context, int argc)
     return r;
 }
 
-static struct sysret handle_debug_syscall(int msg)
+static struct sysret handle_debug_syscall(struct registers_arm_syscall_args* sa)
 {
+    int msg = sa->arg1;
     struct sysret retval = { .error = SYS_ERR_OK };
     switch (msg) {
 
@@ -1245,6 +1246,11 @@ static struct sysret handle_debug_syscall(int msg)
 
         case DEBUG_HARDWARE_GLOBAL_TIMER_HIGH:
             retval.value = (uint32_t)(timestamp_read() >> 32);
+            break;
+
+        case DEBUG_CREATE_IRQ_SRC_CAP:
+            retval.error = irq_debug_create_src_cap(sa->arg2, sa->arg3, sa->arg4,
+                    sa->arg5, sa->arg6);
             break;
 
         default:
@@ -1326,9 +1332,7 @@ void sys_syscall(arch_registers_state_t* context,
             break;
 
         case SYSCALL_DEBUG:
-            if (argc == 2) {
-                r = handle_debug_syscall(sa->arg1);
-            }
+            r = handle_debug_syscall(sa);
             break;
 
         case SYSCALL_ARMv7_CACHE_CLEAN:

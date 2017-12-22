@@ -166,7 +166,5 @@ struct kcb;
 errval_t irq_table_notify_domains(struct kcb *kcb);
 errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn,
         capaddr_t out_cap_addr);
-errval_t irq_debug_create_src_cap(uint8_t dcn_vbits, capaddr_t dcn,
-        capaddr_t out_cap_addr, uint64_t start, uint64_t end);
 
 #endif

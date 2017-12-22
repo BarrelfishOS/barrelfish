@@ -62,11 +62,3 @@ errval_t sys_debug_hardware_global_timer_read(uint64_t *ret)
 
     return sr.error;
 }
-
-errval_t sys_debug_create_irq_src_cap(struct capref cap, uint64_t start,
-        uint64_t end)
-{
-    assert(!"NYI");
-    return SYS_ERR_OK;
-}
-
