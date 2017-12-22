@@ -85,8 +85,8 @@ static void start_driver_for_device(struct domain_instance *inst, char* device) 
     lpaddr_t addr, size;
 
     skb_read_list_init(&status);
-    while(skb_read_list(&status, "reg(%d,%d)", &addr, &size)) {
-        KALUGA_DEBUG("Get cap for registers: %x, %x\n", addr, size);
+    while(skb_read_list(&status, "reg(%" SCNuLPADDR",%" SCNuLPADDR ")", &addr, &size)) {
+        KALUGA_DEBUG("Get cap for registers: %"PRIxLPADDR", %"PRIxLPADDR"\n", addr, size);
 
         struct capref device_frame;
         err = get_device_cap(ROUND_DOWN(addr, BASE_PAGE_SIZE), ROUND_UP(size, BASE_PAGE_SIZE), &device_frame);

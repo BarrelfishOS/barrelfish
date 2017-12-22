@@ -75,9 +75,9 @@ errval_t get_device_cap(lpaddr_t address, size_t size, struct capref* devframe)
     return SYS_ERR_OK;
 }
 
-errval_t init_cap_manager(void)
+errval_t init_device_caps_manager(void)
 {
-    KALUGA_DEBUG("init_cap_manager\n");
+    KALUGA_DEBUG("init_device_caps_manager\n");
     errval_t err, error_code;
 
     // Request I/O Cap

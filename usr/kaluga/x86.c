@@ -34,6 +34,11 @@ static errval_t start_serial(void){
     if (mi != NULL) {
         // Get internal int number. COM1 uses ISA nr. 4
         struct driver_argument arg;
+        err = init_driver_argument(&arg);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "init_driver_argument failed\n");
+            return err;
+        }
         err = skb_execute_query("isa_irq_to_int(%d,N), writeln(N).", SERIAL_IRQ);
         if(err_is_fail(err)){
             DEBUG_SKB_ERR(err, "skb_execute_query");
@@ -50,21 +55,9 @@ static errval_t start_serial(void){
         arg.int_arg.int_range_end = int_nr;
         arg.int_arg.model = INT_MODEL_LEGACY;
 
-        struct cnoderef argnode_ref;
-        err = cnode_create_l2(&arg.arg_caps, &argnode_ref);
+        err = store_int_cap(int_nr, int_nr, &arg);
         if(err_is_fail(err)){
-            DEBUG_ERR(err, "cnode_create_l2");
-            return err;
-        }
-
-        // Build irq src cap
-        struct capref cap;
-        cap.cnode = argnode_ref;
-        cap.slot = 0;
-        err = sys_debug_create_irq_src_cap(cap, int_nr, int_nr);
-
-        if(err_is_fail(err)){
-            DEBUG_ERR(err, "Could not create int_src cap");
+            DEBUG_ERR(err, "int_src_cap");
             return err;
         }
         err = mi->start_function(0, mi, "hw.legacy.uart.1 {}", &arg);
@@ -84,6 +77,8 @@ static errval_t start_lpc_timer(void){
     if (mi != NULL) {
         // Get internal int number.
         struct driver_argument arg;
+        init_driver_argument(&arg);
+        
         err = skb_execute_query("isa_irq_to_int(%d,N), writeln(N).", LPC_TIMER_IRQ);
         if(err_is_fail(err)){
             DEBUG_SKB_ERR(err, "skb_execute");
@@ -100,23 +95,12 @@ static errval_t start_lpc_timer(void){
         arg.int_arg.int_range_end = int_nr;
         arg.int_arg.model = INT_MODEL_LEGACY;
 
-        struct cnoderef argnode_ref;
-        err = cnode_create_l2(&arg.arg_caps, &argnode_ref);
+        err = store_int_cap(int_nr, int_nr, &arg);
         if(err_is_fail(err)){
-            DEBUG_ERR(err, "cnode_create_l2");
+            DEBUG_ERR(err, "store_int_cap");
             return err;
         }
 
-        // Build irq src cap
-        struct capref cap;
-        cap.cnode = argnode_ref;
-        cap.slot = 0;
-        err = sys_debug_create_irq_src_cap(cap, int_nr, int_nr);
-
-        if(err_is_fail(err)){
-            DEBUG_ERR(err, "Could not create int_src cap");
-            return err;
-        }
         err = mi->start_function(0, mi, "hw.legacy.timer.1 {}", &arg);
         if(err_is_fail(err)){
             USER_PANIC_ERR(err, "serial->start_function");

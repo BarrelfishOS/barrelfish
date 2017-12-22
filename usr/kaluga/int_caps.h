@@ -7,10 +7,10 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef DEVICE_CAPS_H
-#define DEVICE_CAPS_H
- 
-errval_t get_device_cap(lpaddr_t address, size_t size, struct capref* devframe);
-errval_t init_device_caps_manager(void);
- 
-#endif // DEVICE_CAPS_H
+#ifndef INT_CAPS_H
+#define INT_CAPS_H
+
+errval_t store_int_cap(int start, int end, struct driver_argument *arg); 
+errval_t init_int_caps_manager(struct capref all_irq);
+
+#endif

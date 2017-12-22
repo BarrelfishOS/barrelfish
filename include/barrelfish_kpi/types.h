@@ -36,6 +36,7 @@ typedef unsigned int    uword_t;
 typedef uintptr_t lpaddr_t;
 #define PRIuLPADDR PRIuPTR
 #define PRIxLPADDR PRIxPTR
+#define SCNuLPADDR SCNuPTR
 
 /* Global (system-wide) physical address, currently 64 bits */
 typedef uint64_t genpaddr_t;

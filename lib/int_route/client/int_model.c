@@ -9,6 +9,11 @@
 #define SEP_LENGTH 1
 #define PARAM_NAME "int_model="
 
+errval_t int_startup_argument_init(struct int_startup_argument * arg) {
+    memset(arg, 0, sizeof(struct int_startup_argument));
+    return SYS_ERR_OK;
+}
+
 /*
  *  Turn an int_startup_argument into a string
  *  out must be free'd by the caller.

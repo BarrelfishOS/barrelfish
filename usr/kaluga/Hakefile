@@ -12,6 +12,7 @@
 
 let commonCFiles = [ "boot_modules.c",
                     "device_caps.c",
+                    "int_caps.c",
                     "driver_startup.c",
                     "main.c",
                     "queue.c",

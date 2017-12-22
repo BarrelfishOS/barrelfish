@@ -10,6 +10,7 @@ struct int_startup_argument;
 struct driver_argument {
     struct capref arg_caps;
     struct int_startup_argument int_arg;
+    struct cnoderef argnode_ref;
 
 };
 typedef errval_t(*module_start_fn)(coreid_t where, struct module_info* mi,
@@ -37,6 +38,8 @@ struct module_info {
     struct capref did[MAX_DRIVER_INSTANCES];
 };
 
+
+errval_t init_driver_argument(struct driver_argument *arg);
 
 void init_environ(void);
 errval_t init_boot_modules(void);

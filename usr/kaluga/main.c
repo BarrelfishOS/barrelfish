@@ -117,6 +117,22 @@ int main(int argc, char** argv)
 
     add_start_function_overrides();
 
+    // TODO: Check if this is supported by all plattforms
+    // TODO: Get cap from somewhere else.
+    struct capref all_irq_cap;
+    err = slot_alloc(&all_irq_cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "slot alloc");
+    }
+    err = sys_debug_create_irq_src_cap(all_irq_cap, 0, 65536);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "create all_irq_cap");
+    }
+    err = init_int_caps_manager(all_irq_cap);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "init device caps manager");
+    }
+
     err = arch_startup(add_device_db_file);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "arch startup");

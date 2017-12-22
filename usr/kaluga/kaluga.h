@@ -20,6 +20,7 @@ extern char **environ;
 #include "start_cpu.h"
 #include "driver_startup.h"
 #include "device_caps.h"
+#include "int_caps.h"
 #include "driver_domains.h"
 #include "int_route/int_model.h"
 

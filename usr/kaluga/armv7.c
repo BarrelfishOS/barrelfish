@@ -35,7 +35,10 @@ static errval_t omap44xx_startup(void)
 {
     errval_t err;
 
-    err = init_cap_manager();
+    err = init_device_caps_manager();
+    assert(err_is_ok(err));
+
+    err = init_device_caps_manager();
     assert(err_is_ok(err));
 
     start_driverdomain("fdif {}");
