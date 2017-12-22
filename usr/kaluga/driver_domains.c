@@ -67,10 +67,10 @@ static void wait_for_id(struct domain_instance* di) {
     KALUGA_DEBUG("%s:%s:%d: done with waiting for ID\n", __FILE__, __FUNCTION__, __LINE__);
 }
 
-struct domain_instance* instantiate_driver_domain(coreid_t where) {
+struct domain_instance* instantiate_driver_domain(char* name, coreid_t where) {
     static uint64_t did = 1;
 
-    errval_t err = launch_driver_domain(0, did, find_module(DRIVER_DOMAIN_NAME));
+    errval_t err = launch_driver_domain(where, did, find_module(name));
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "call failed.");
     }

@@ -68,6 +68,7 @@ pci_driver{
     core_offset: 1,
     multi_instance: 0,
     interrupt_load: 0.5,
+    interrupt_model: ['legacy'],
     platforms: ['x86_64']
 }.
 

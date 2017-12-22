@@ -28,6 +28,8 @@ struct module_info {
     int argc;
     char* argv[MAX_CMDLINE_ARGS + 1];
 
+    struct domain_instance* driverinstance;
+
     module_start_fn start_function;
     uint8_t allow_multi;    ///< allow multiple driver instances
     uint8_t num_started;    ///< keeps track of the number of started domains

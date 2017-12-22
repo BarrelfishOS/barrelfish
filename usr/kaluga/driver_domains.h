@@ -5,6 +5,6 @@
 
 #include "boot_modules.h"
 
-struct domain_instance* instantiate_driver_domain(coreid_t where);
+struct domain_instance* instantiate_driver_domain(char* name, coreid_t where);
 
 #endif /* DRIVER_DOMAIN_H_ */

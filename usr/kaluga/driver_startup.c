@@ -120,6 +120,166 @@ errval_t default_start_function(coreid_t where,
 
     return err;
 }
+
+/*
+static void handler(void* arg) {
+    return ;
+}
+*/
+
+/**
+ * \brief Startup function for new-style drivers.
+ *
+ * Launches the driver instance in a driver domain instead.
+ */
+errval_t
+default_start_function_new(coreid_t where, struct module_info* mi, char* record,
+                           struct driver_argument* arg)
+{
+    assert(mi != NULL);
+    errval_t err;
+    static struct domain_instance* inst;
+
+    if (!is_auto_driver(mi)) {
+        return KALUGA_ERR_DRIVER_NOT_AUTO;
+    }
+
+    uint64_t vendor_id, device_id, bus, dev, fun;
+    err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                    &bus, &dev, &fun, &vendor_id, &device_id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    // If driver instance not yet started, start. 
+    if (mi->driverinstance == NULL) {
+        inst = instantiate_driver_domain(mi->binary, where);
+        if (inst == NULL) {
+            return DRIVERKIT_ERR_DRIVER_INIT;
+        }
+
+        mi->driverinstance = inst;
+        
+        while (inst->b == NULL) {
+            event_dispatch(get_default_waitset());
+        }   
+
+        //set_started(mi);
+    }
+
+    char module_name[100];
+    sprintf(module_name, "%s_module", mi->binary);
+
+    struct driver_instance* drv = ddomain_create_driver_instance(module_name, record);
+
+    char **argv = NULL;
+    int argc = mi->argc;
+    argv = malloc((argc+1)*sizeof(char* )); // +1 trailing NULL
+    assert(argv != NULL);
+    memcpy(argv, mi->argv, (argc+1)*sizeof(char*));
+    assert(argv[argc] == NULL);
+
+    char * pci_arg_str = NULL;
+    if (err_is_ok(err)) {
+        // We assume that we're starting a device if the query above succeeds
+        // and therefore append the pci vendor and device id to the argument
+        // list.
+        pci_arg_str = malloc(26);
+        // Make sure pci vendor and device id fit into our argument
+        assert(vendor_id < 0xFFFF && device_id < 0xFFFF);
+        snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
+                        PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
+
+        argv_push(&argc, &argv, pci_arg_str);
+    }
+
+    /*err = pci_setup_int_routing_with_cap(0, &(arg->arg_caps), handler,
+                                         NULL, NULL, NULL);
+    */
+
+    drv->args = argv;
+    drv->caps[0] = arg->arg_caps; // Interrupt cap
+
+    ddomain_instantiate_driver(inst, drv);
+    return SYS_ERR_OK;
+}
+
+/**
+ * \brief Startup function for new-style ARMv7 drivers.
+ *
+ * Launches the driver instance in a driver domain instead.
+ */
+
+errval_t start_networking_new(coreid_t where,
+                              struct module_info* driver,
+                              char* record, struct driver_argument * int_arg)
+{
+    assert(driver != NULL);
+    errval_t err = SYS_ERR_OK;
+
+    if (is_started(driver)) {
+        printf("Already started %s\n", driver->binary);
+        return KALUGA_ERR_DRIVER_ALREADY_STARTED;
+    }
+
+    if (!is_auto_driver(driver)) {
+        printf("Not auto %s\n", driver->binary);
+        return KALUGA_ERR_DRIVER_NOT_AUTO;
+    }
+
+
+    if (!(strcmp(driver->binary, "net_sockets_server") == 0)) {
+        
+        err = default_start_function_new(where, driver, record, int_arg);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Spawning %s failed.", driver->path);
+            return err;
+        }
+
+        // cards with driver in seperate process
+        struct module_info* net_sockets = find_module("net_sockets_server");
+        if (net_sockets == NULL) {
+            printf("Net sockets server not found\n");
+            return KALUGA_ERR_DRIVER_NOT_AUTO;
+        }
+
+        uint64_t vendor_id, device_id, bus, dev, fun;
+        err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                       &bus, &dev, &fun, &vendor_id, &device_id);
+
+        char* pci_arg_str = malloc(26);
+        snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
+                        PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
+
+        // Spawn net_sockets_server
+        net_sockets->argv[0] = "net_sockets_server";
+        net_sockets->argv[1] = "auto";
+        net_sockets->argv[2] = driver->binary;
+        net_sockets->argv[3] = pci_arg_str;
+
+        err = spawn_program(where, net_sockets->path, net_sockets->argv, environ, 0,
+                            get_did_ptr(net_sockets));
+        free (pci_arg_str);
+    } else {
+        USER_PANIC("NIY e1000 not yet ported to new driver framework");
+        // TODO 
+        /*
+        for (int i = 0; i < driver->argc; i++) {
+            printf("argv[%d]=%s \n", i, driver->argv[i]);
+        }        
+
+        if (!(driver->argc > 2)) {
+            driver->argv[driver->argc] = "e1000";        
+            driver->argc++;
+        }
+
+        // All cards that start the driver by creating a device queue
+        err = default_start_function(core, driver, record, arg);
+        */
+    }
+
+    return err;
+}
 #endif
 
 errval_t start_networking(coreid_t core,
@@ -163,6 +323,15 @@ errval_t start_networking(coreid_t core,
 
     if (!(strcmp(driver->binary, "net_sockets_server") == 0)) {
         
+        driver->allow_multi = 1;
+        uint64_t vendor_id, device_id, bus, dev, fun;
+        err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                       &bus, &dev, &fun, &vendor_id, &device_id);
+
+        char* pci_arg_str = malloc(26);
+        snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
+                        PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
+
         err = default_start_function(core, driver, record, arg);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Spawning %s failed.", driver->path);
@@ -175,14 +344,6 @@ errval_t start_networking(coreid_t core,
             printf("Net sockets server not found\n");
             return KALUGA_ERR_DRIVER_NOT_AUTO;
         }
-
-        uint64_t vendor_id, device_id, bus, dev, fun;
-        err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
-                       &bus, &dev, &fun, &vendor_id, &device_id);
-
-        char* pci_arg_str = malloc(26);
-        snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
-                        PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
 
         // Spawn net_sockets_server
         net_sockets->argv[0] = "net_sockets_server";
