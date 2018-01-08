@@ -37,7 +37,8 @@
 %
 
 pci_driver{
-    binary: "net_sockets_server",
+    %binary: "net_sockets_server",
+    binary: "driverdomain",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'1521, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'107d, function: _, subvendor: _, subdevice: _ },
