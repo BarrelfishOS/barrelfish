@@ -23,7 +23,7 @@
 static uint8_t device_count = 0;
 struct ioat_dma_device **devices;
 static uint8_t device_next = 0;
-static struct pci_address pci_addr;
+static struct pci_addr pci_addr;
 
 static void handle_device_interrupt(void *arg)
 {

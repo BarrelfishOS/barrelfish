@@ -11,6 +11,7 @@
 #define IOAT_DEVICE_H_
 
 #include <dma/dma_device.h>
+#include <pci/pci_types.h>
 
 enum device_type {
     IOAT_DEVICE_INVAL,

@@ -458,7 +458,7 @@ errval_t pci_write_conf_header(uint32_t dword, uint32_t val)
     return err_is_fail(err) ? err : msgerr;
 }
 
-errval_t pci_msix_enable_addr(struct pci_address *addr, uint16_t *count)
+errval_t pci_msix_enable_addr(struct pci_addr *addr, uint16_t *count)
 {
     errval_t err, msgerr;
     if (addr == NULL) {
@@ -475,7 +475,7 @@ errval_t pci_msix_enable(uint16_t *count)
     return pci_msix_enable_addr(NULL, count);
 }
 
-errval_t pci_msix_vector_init_addr(struct pci_address *addr, uint16_t idx,
+errval_t pci_msix_vector_init_addr(struct pci_addr *addr, uint16_t idx,
                                    uint8_t destination, uint8_t vector)
 {
     errval_t err, msgerr;
