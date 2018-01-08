@@ -18,6 +18,7 @@
 #include <barrelfish/inthandler.h>
 #include <pci/mem.h>
 #include <pci/devids.h>
+#include <pci/pci_types.h>
 
 /**
  * Kaluga passes a CNode with capabilities to the pci driver. The offset
@@ -30,11 +31,6 @@
 #define PCIARG_SLOT_BAR2   4
 #define PCIARG_SLOT_BAR3   5
 
-struct pci_address {
-    uint8_t bus;
-    uint8_t device;
-    uint8_t function;
-};
 
 typedef void (*pci_driver_init_fn)(void *user_state, struct device_mem *bar_info,
                                    int nr_mapped_bars);
@@ -138,7 +134,7 @@ errval_t pci_msix_enable(uint16_t *count);
  * \returns SYS_ERR_OK on success
  *          errval on FAILURE
  */
-errval_t pci_msix_enable_addr(struct pci_address *addr, uint16_t *count);
+errval_t pci_msix_enable_addr(struct pci_addr *addr, uint16_t *count);
 
 /**
  * Configure an MSI-X vector
@@ -155,7 +151,7 @@ errval_t pci_msix_vector_init(uint16_t index, uint8_t destination,
  * \param destination Destination APIC where the interrupt should be sent
  * \param vector      Interrupt vector to send
  */
-errval_t pci_msix_vector_init_addr(struct pci_address *addr, uint16_t index,
+errval_t pci_msix_vector_init_addr(struct pci_addr *addr, uint16_t index,
                                    uint8_t destination, uint8_t vector);
 
 errval_t pci_setup_int_routing_with_cap(int irq_idx, 

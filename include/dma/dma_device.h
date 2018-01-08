@@ -13,15 +13,6 @@
 struct dma_device;
 struct dma_channel;
 
-#define PCI_ADDR_DONT_CARE 0x10000
-
-/// representation of a PCI address (with more bits than libpci)
-struct pci_addr {
-    uint32_t bus;
-    uint32_t device;
-    uint32_t function;
-};
-
 /**
  * Device State Enumeration
  */

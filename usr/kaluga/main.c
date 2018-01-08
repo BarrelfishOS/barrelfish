@@ -30,7 +30,7 @@
 #include <if/monitor_defs.h>
 
 #include <vfs/vfs.h>
-#include <pci/pci.h> // for pci_addr
+#include <pci/pci_types.h> // for pci_addr
 #include <octopus/octopus.h>
 #include <thc/thc.h>
 
@@ -41,7 +41,7 @@
 
 coreid_t my_core_id = 0;  // Core ID
 uint32_t my_arch_id = 0;  // APIC ID
-struct pci_address eth0 = {0xff, 0xff, 0xff};
+struct pci_addr eth0 = {0xff, 0xff, 0xff};
 size_t cpu_count = 0;
 
 static void add_start_function_overrides(void)
