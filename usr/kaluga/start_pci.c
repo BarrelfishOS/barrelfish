@@ -159,7 +159,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
                 goto out;
             }
             
-            err = store_int_cap(start,end,&driver_arg);
+            err = store_int_cap(start, end, &driver_arg);
             if(err_is_fail(err)){
                 USER_PANIC_ERR(err, "store_int_cap");
             }

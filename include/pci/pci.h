@@ -19,6 +19,17 @@
 #include <pci/mem.h>
 #include <pci/devids.h>
 
+/**
+ * Kaluga passes a CNode with capabilities to the pci driver. The offset
+ * in this CNode are defined here
+ */
+#define PCIARG_SLOT_INT    0
+#define PCIARG_SLOT_PCI_EP 1
+#define PCIARG_SLOT_BAR0   2
+#define PCIARG_SLOT_BAR1   3
+#define PCIARG_SLOT_BAR2   4
+#define PCIARG_SLOT_BAR3   5
+
 struct pci_address {
     uint8_t bus;
     uint8_t device;
@@ -148,7 +159,7 @@ errval_t pci_msix_vector_init_addr(struct pci_address *addr, uint16_t index,
                                    uint8_t destination, uint8_t vector);
 
 errval_t pci_setup_int_routing_with_cap(int irq_idx, 
-                                        struct capref* irq_src_cap,
+                                        struct capref irq_src_cap,
                                         interrupt_handler_fn handler,
                                         void *handler_arg,
                                         interrupt_handler_fn reloc_handler,

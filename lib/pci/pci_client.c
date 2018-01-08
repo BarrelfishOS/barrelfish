@@ -108,86 +108,6 @@ static errval_t check_src_capability(struct capref irq_src_cap){
     return SYS_ERR_OK;
 }
 
-
-/**
- * This function does all the interrupt routing setup. It uses the interrupt source
- * capability passed from kaluga out of the cspace.
- * The source capability contains a range of vectors, irq_idx is an offset into
- * this range, making it convenient for the clients, as they don't have 
- * to care about the absolute value, but get their local view on interrupt numbers.
- * It allocates an interrupt destination capability from the monitor.
- * It sets up a route between these two using the interrupt routing service
- * It registers the handler passed as an argument as handler for the int destination
- * capability.
- * Finally, it instructs the PCI service to activate interrupts for this card.
- */
-errval_t pci_setup_int_routing_with_cap(int irq_idx, 
-                                        struct capref* irq_src_cap,
-                                        interrupt_handler_fn handler,
-                                        void *handler_arg,
-                                        interrupt_handler_fn reloc_handler,
-                                        void *reloc_handler_arg){
-
-    errval_t err;
-    errval_t msgerr;
-    err = check_src_capability(*irq_src_cap);
-    if(err_is_fail(err)){
-        USER_PANIC_ERR(err, "No interrupt capability");
-        return err;
-    }
-
-    // For now, we just use the first vector passed to the driver.
-    uint64_t gsi = INVALID_VECTOR;
-    err = invoke_irqsrc_get_vec_start(*irq_src_cap, &gsi);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not lookup GSI vector");
-        return err;
-    }
-    PCI_CLIENT_DEBUG("Got irqsrc cap, gsi: %"PRIu64"\n", gsi);
-
-    // Get irq_dest_cap from monitor
-    struct capref irq_dest_cap;
-    err = alloc_dest_irq_cap(&irq_dest_cap);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "Could not allocate dest irq cap");
-        return err;
-    }
-    uint64_t irq_dest_vec = INVALID_VECTOR;
-    err = invoke_irqdest_get_vector(irq_dest_cap, &irq_dest_vec);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not lookup irq vector");
-        return err;
-    }
-    PCI_CLIENT_DEBUG("Got dest cap, vector: %"PRIu64"\n", irq_dest_vec);
-
-
-    err = int_route_client_route(*irq_src_cap, irq_idx, irq_dest_cap);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "Could not set up route.");
-        return err;
-    } else {
-        PCI_CLIENT_DEBUG("Int route set-up success.\n");
-    }
-
-    if(handler != NULL){
-        err = inthandler_setup_movable_cap(irq_dest_cap, handler, handler_arg,
-                reloc_handler, reloc_handler_arg);
-        if (err_is_fail(err)) {
-            return err;
-        }
-    }
-
-    // Activate PCI interrupt
-    err = pci_client->rpc_tx_vtbl.irq_enable(pci_client, &msgerr);
-    assert(err_is_ok(err));
-    if(err_is_fail(msgerr)){
-        DEBUG_ERR(msgerr, "irq_enable");
-        return msgerr;
-    }
-    return err;
-}
-
-
 /**
  * This function does all the interrupt routing setup. It uses the interrupt source
  * capability passed from kaluga out of the cspace.
@@ -204,11 +124,36 @@ errval_t pci_setup_int_routing(int irq_idx, interrupt_handler_fn handler,
                                          void *handler_arg,
                                          interrupt_handler_fn reloc_handler,
                                          void *reloc_handler_arg){
-    errval_t err, msgerr;
     struct capref irq_src_cap;
     irq_src_cap.cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER);
     irq_src_cap.slot = 0;
 
+    return pci_setup_int_routing_with_cap(irq_idx, irq_src_cap, handler,
+            handler_arg, reloc_handler, reloc_handler_arg);
+}
+
+
+/**
+ * This function does all the interrupt routing setup. It uses the interrupt source
+ * capability passed from kaluga out of the cspace.
+ * The source capability contains a range of vectors, irq_idx is an offset into
+ * this range, making it convenient for the clients, as they don't have 
+ * to care about the absolute value, but get their local view on interrupt numbers.
+ * It allocates an interrupt destination capability from the monitor.
+ * It sets up a route between these two using the interrupt routing service
+ * It registers the handler passed as an argument as handler for the int destination
+ * capability.
+ * Finally, it instructs the PCI service to activate interrupts for this card.
+ */
+errval_t pci_setup_int_routing_with_cap(int irq_idx, 
+                                        struct capref irq_src_cap,
+                                        interrupt_handler_fn handler,
+                                        void *handler_arg,
+                                        interrupt_handler_fn reloc_handler,
+                                        void *reloc_handler_arg){
+
+    errval_t err;
+    errval_t msgerr;
     err = check_src_capability(irq_src_cap);
     if(err_is_fail(err)){
         USER_PANIC_ERR(err, "No interrupt capability");
@@ -362,7 +307,7 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func,
 
     // initialize the device. We have all the caps now
     PCI_CLIENT_DEBUG("Succesfully done with pci init.\n");
-    init_func(user_state, bars, nbars);
+    if(init_func) init_func(user_state, bars, nbars);
 
     err = SYS_ERR_OK;
 

@@ -104,6 +104,13 @@
 #define E1000_DEFAULT_INT_THROTTLE_RATE 130
 #define E1000_INT_THROTTLE_RATE_DISABLED 0
 
+/**
+ * Fixed buffer sizes
+ */
+/* Transmit and receive buffers must be multiples of 8 */
+#define DRIVER_RECEIVE_BUFFERS      (1024 * 8)
+#define DRIVER_TRANSMIT_BUFFERS     (1024 * 8)
+
 
 /**
  * Group definitions for cards that share specification and quirks.
@@ -164,49 +171,100 @@ typedef enum {
 } e1000_media_type_t;
 
 
+/**
+ * Data-structure to map sent buffer slots back to application slots 
+ */
+struct pbuf_desc {
+    void *opaque;
+};
+
+struct pci_info {
+    uint32_t class; 
+    uint32_t subclass; 
+    uint32_t bus;
+    uint32_t device;
+    uint32_t function;
+    uint32_t deviceid;
+    uint32_t vendor;
+    uint32_t program_interface;
+};
 
 /**
- * Internal device info.
+ * Per device state
  */
-typedef struct {
-    e1000_t *device;
-    uint32_t device_id;
+struct e1000_driver_state {
+    /* Kaluga args */
+    char **args;
+    int args_len;
+    struct cnoderef pci_cnode; // A cnode filled with according to pci.h
+
+    /* Internal device info */
     e1000_media_type_t media_type;
     e1000_mac_type_t mac_type;
-    e1000_rx_bsize_t rx_bsize;
     bool tbi_combaility;
-} e1000_device_t ;
+    uint32_t level;
+
+    /* PCI fields */
+    struct pci_info pci;
+
+    bool user_mac_address; /* True if the user specified the MAC address */
+    bool use_interrupt; /* don't use card polling mode */
+    bool use_force; /* don't attempt to find card force load */
+
+    /* e1000 states */
+    e1000_t device_inst;
+    e1000_t *device; //pointer to device_inst
+    uint8_t mac_address[MAC_ADDRESS_LEN]; /* buffers the card's MAC address upon card reset */
+
+    /* For use with the net_queue_manager */
+    char *service_name;
+    uint64_t assumed_queue_id;   /* what net queue to bind to */
+    uint32_t ether_transmit_index;
+    uint32_t ether_transmit_bufptr;
+
+    /* RAM affinity */
+    uint64_t minbase;
+    uint64_t maxbase;
+
+    /* transmit */
+    volatile struct tx_desc *transmit_ring; //set by _hwinit
+    struct pbuf_desc pbuf_list_tx[DRIVER_TRANSMIT_BUFFERS];
+
+    /* receive */
+    e1000_rx_bsize_t rx_bsize;
+    volatile union rx_desc *receive_ring; //set by _hwinit
+    uint32_t receive_bufptr;
+    uint32_t receive_index;
+    uint32_t receive_free;
+    void **receive_opaque;
+};
+
+void e1000_driver_state_init(struct e1000_driver_state * eds);
 
 
 e1000_mac_type_t e1000_get_mac_type(uint32_t vendor, uint32_t device_id);
 char * e1000_mac_type_to_str(e1000_mac_type_t mt);
 bool e1000_supported_device(uint32_t vendor, uint32_t device_id);
-bool e1000_link_up_led_status(e1000_device_t *dev);
-bool e1000_check_link_up(e1000_device_t *dev);
-bool e1000_auto_negotiate_link(e1000_device_t *dev);
+bool e1000_link_up_led_status(struct e1000_driver_state *eds);
+bool e1000_check_link_up(struct e1000_driver_state *eds);
+bool e1000_auto_negotiate_link(struct e1000_driver_state *eds);
 void *alloc_map_frame(vregion_flags_t attr, size_t size, struct capref *retcap);
-void e1000_set_interrupt_throttle(e1000_device_t *dev, uint16_t rate);
-void e1000_hwinit(e1000_device_t *device, struct device_mem *bar_info,
-                  int nr_allocated_bars,
-                  volatile struct tx_desc **transmit_ring,
-                  volatile union rx_desc **receive_ring,
-                  int receive_buffers, int transmit_buffers,
-                  uint8_t *macaddr,
-                  bool user_macaddr, bool use_interrupt);
+void e1000_set_interrupt_throttle(struct e1000_driver_state *eds, uint16_t usec);
 
+void e1000_hwinit(struct e1000_driver_state *eds, struct device_mem *bar_info,
+        int nr_allocated_bars, int receive_buffers, int transmit_buffers);
 
 /*****************************************************************
  * On the i82541xx GPI_SP2 and GPI_SP3 are merged into one register
  * value of bits.
  *
  ****************************************************************/
-static inline uint8_t i82541xx_get_icr_gpi_sdp(e1000_t *dev)
+static inline uint8_t i82541xx_get_icr_gpi_sdp(struct e1000_driver_state *eds)
 {
-    e1000_intreg_t intreg = e1000_icr_rawrd(dev);
+    e1000_intreg_t intreg = e1000_icr_rawrd(eds->device);
     uint8_t sdp2 = e1000_intreg_gpi_sdp2_extract(intreg);
     uint8_t sdp3 = e1000_intreg_gpi_sdp3_extract(intreg);
     uint8_t sdp = sdp2 | (sdp3 << 1);
-
     return sdp;
 }
 

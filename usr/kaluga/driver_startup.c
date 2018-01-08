@@ -169,38 +169,39 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
 
     char module_name[100];
     sprintf(module_name, "%s_module", mi->binary);
+    //BEGIN HACK
+    sprintf(module_name, "e1000");
+    //END HACK
 
     struct driver_instance* drv = ddomain_create_driver_instance(module_name, record);
 
-    char **argv = NULL;
-    int argc = mi->argc;
-    argv = malloc((argc+1)*sizeof(char* )); // +1 trailing NULL
-    assert(argv != NULL);
-    memcpy(argv, mi->argv, (argc+1)*sizeof(char*));
-    assert(argv[argc] == NULL);
+    char *args[4] = {NULL, NULL, NULL, NULL};
+    int args_len = 0;
 
-    char * pci_arg_str = NULL;
-    if (err_is_ok(err)) {
-        // We assume that we're starting a device if the query above succeeds
-        // and therefore append the pci vendor and device id to the argument
-        // list.
-        pci_arg_str = malloc(26);
-        // Make sure pci vendor and device id fit into our argument
-        assert(vendor_id < 0xFFFF && device_id < 0xFFFF);
-        snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
-                        PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
-
-        argv_push(&argc, &argv, pci_arg_str);
+    // Build interrupt argument
+    char * int_arg_str = NULL;
+    if(arg != NULL && arg->int_arg.model != 0){
+        // This mallocs int_arg_str
+        int_startup_argument_to_string(&(arg->int_arg), &int_arg_str);
+        KALUGA_DEBUG("Adding int_arg_str: %s\n", int_arg_str);
+        args[args_len++] = int_arg_str;
     }
 
-    /*err = pci_setup_int_routing_with_cap(0, &(arg->arg_caps), handler,
-                                         NULL, NULL, NULL);
-    */
+    // Build PCI address argument
+    char pci_arg_str[26];
+    assert(vendor_id < 0xFFFF && device_id < 0xFFFF);
+    snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
+                    PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
 
-    drv->args = argv;
+    args[args_len++] = pci_arg_str;
+
+    drv->args = args;
     drv->caps[0] = arg->arg_caps; // Interrupt cap
 
+
     ddomain_instantiate_driver(inst, drv);
+
+    free(int_arg_str);
     return SYS_ERR_OK;
 }
 
