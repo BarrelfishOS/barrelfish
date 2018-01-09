@@ -64,7 +64,7 @@ static void* d_virt;
 //static sfn5122f_msix_t *d_msix = NULL;
 static uint64_t d_mac[2];
 static int initialized = 0;
-static struct capref *regframe;
+static struct capref regframe;
 /* Interrupt state  */
 static struct capref int_ker;
 static void* int_ker_virt;
@@ -1240,7 +1240,7 @@ static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct cap
 
     err = slot_alloc(regs);
     assert(err_is_ok(err));
-    err = cap_copy(*regs, *regframe);
+    err = cap_copy(*regs, regframe);
     assert(err_is_ok(err));
 
     *ret_err = SYS_ERR_OK;

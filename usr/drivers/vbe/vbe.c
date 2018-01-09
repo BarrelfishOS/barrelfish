@@ -127,8 +127,7 @@ uint16_t *vbe_getmodes(void)
     return modes;
 }
 
-// FIXME: this API is broken, because it assumes that the entire framebuffer
-// can be mapped by a single cap. in the long run we probably don't want to be
+// FIXME: in the long run we probably don't want to be
 // handing out the raw hardware cap anyway...
 errval_t vbe_get_framebuffer_cap(struct capref *cap, size_t *retoffset)
 {
@@ -156,18 +155,11 @@ errval_t vbe_get_framebuffer_cap(struct capref *cap, size_t *retoffset)
                 && bars[i].paddr + bars[i].bytes >= fbphys + fbsize) {
                 // it's in this BAR, but do we have a single cap that covers it?
                 // XXX: assume uniformly-sized caps
-                size_t bytes_per_cap = bars[i].bytes / bars[i].nr_caps;
                 size_t fboffset = fbphys - bars[i].paddr;
 
-                if (fboffset / bytes_per_cap
-                    != (fboffset + fbsize - 1) / bytes_per_cap) {
-                    USER_PANIC("can't return multiple caps to framebuffer from"
-                               " broken API");
-                }
-
                 // does framebuf start at cap boundary?
-                *cap = bars[i].frame_cap[fboffset / bytes_per_cap];
-                *retoffset = fboffset % bytes_per_cap;
+                *cap = bars[i].frame_cap;
+                *retoffset = fboffset;
                 return SYS_ERR_OK;
             }
         } else {
@@ -175,11 +167,10 @@ errval_t vbe_get_framebuffer_cap(struct capref *cap, size_t *retoffset)
         }
     }
 
-    // XXX: Hack to get right framebuffer (usually it's the first memory BAR)
+    // XXX: Hack to get right framebuffer
     printf("vbe: not found, falling back to %d: %" PRIxGENPADDR "\n",
            first_mem_bar, bars[first_mem_bar].paddr);
-    assert(bars[first_mem_bar].nr_caps == 1);
-    *cap = bars[first_mem_bar].frame_cap[0];
+    *cap = bars[first_mem_bar].frame_cap;
 
     return SYS_ERR_OK;
 }

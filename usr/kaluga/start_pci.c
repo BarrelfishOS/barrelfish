@@ -29,7 +29,7 @@
 #include <thc/thc.h>
 
 #include "kaluga.h"
-#include <pci/pci_types.h>
+#include <pci/pci.h>
 
 
 static void pci_change_event(octopus_mode_t mode, const char* device_record,
@@ -73,6 +73,44 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     }
 
     return error_code;
+};
+
+/**
+ * For device at addr, finds and stores the interrupt arguments and caps
+ * into driver_arg.
+ */
+static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
+        *driver_arg, char *debug)
+{
+    errval_t err;
+
+    static bool pci_initialized = false;
+    if(!pci_initialized){
+        KALUGA_DEBUG("HACK: lazy connection PCI client\n"); 
+        err = pci_client_connect();
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "Connect to PCI.");
+        }
+        pci_initialized = true;
+    }
+
+
+    struct device_mem *bars;
+    size_t bars_len;
+
+    err = pci_get_bar_caps_for_device(addr, &bars, &bars_len);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "pci_get_caps_for_device");
+        return err;
+    }
+
+    // Copy the caps into the argument cnode
+    for(int i=0; i<bars_len; i++){
+        //TODO
+    }
+
+    KALUGA_DEBUG("Received %zu bars\n", bars_len);
+    return err;
 };
 
 /**
@@ -240,9 +278,11 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
 
         // Build up the driver argument
         char intcaps_debug_msg[100];
+        char memcaps_debug_msg[100];
         err = add_int_args(addr, &driver_arg, intcaps_debug_msg);
         assert(err_is_ok(err));
-        //add_mem_args(addr, &driver_arg);
+        err = add_mem_args(addr, &driver_arg, memcaps_debug_msg);
+        assert(err_is_ok(err));
 
         // Wait until the core where we start the driver
         // is ready

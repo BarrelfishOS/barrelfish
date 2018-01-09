@@ -15,15 +15,24 @@
 #ifndef PCI_TYPES_H
 #define PCI_TYPES_H
 
+/* Most of the members are smaller, but to allow PCI_DONT_CARE, everything
+ * is expressed as uint32_t */
+
 struct pci_addr {
-    uint8_t bus;
-    uint8_t device;
-    uint8_t function;
+    uint32_t bus;        
+    uint32_t device;
+    uint32_t function;
 };
 
 struct pci_id {
-    uint16_t device;
-    uint16_t vendor;
+    uint32_t device;
+    uint32_t vendor;
+};
+
+struct pci_class {
+    uint32_t class_code;
+    uint32_t subclass;
+    uint32_t prog_if; 
 };
 
 #endif

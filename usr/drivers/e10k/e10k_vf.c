@@ -134,7 +134,7 @@ static const char *service_name = "e10k";
 uint64_t d_mac;
 static int initialized = 0;
 static e10k_vf_t *d = NULL;
-static struct capref *regframe;
+static struct capref regframe;
 static bool msix = false;
 
 // Management of MSI-X vectors
@@ -572,12 +572,12 @@ void cd_request_device_info(struct e10k_binding *b)
         struct capref cr;
         errval_t err = slot_alloc(&cr);
         assert(err_is_ok(err));
-        err = cap_copy(cr, *regframe);
+        err = cap_copy(cr, regframe);
         assert(err_is_ok(err));
         qd_queue_init_data(b, cr, d_mac);
         return;
     }
-    idc_queue_init_data(b, *regframe, d_mac);
+    idc_queue_init_data(b, regframe, d_mac);
 }
 
 /** Request from queue driver to initialize hardware queue. */

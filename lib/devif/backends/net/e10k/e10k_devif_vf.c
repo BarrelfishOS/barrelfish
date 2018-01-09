@@ -54,7 +54,7 @@ struct vf_state {
     // device info
     int initialized;
     e10k_vf_t *d;
-    struct capref *regframe;
+    struct capref regframe;
     uint64_t d_mac;
     uint32_t pci_function;
 

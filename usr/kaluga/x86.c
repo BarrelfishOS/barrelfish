@@ -20,6 +20,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <skb/skb.h>
+#include <pci/pci.h>
 #include "kaluga.h"
 
 #define SERIAL_IRQ 4
@@ -119,6 +120,7 @@ errval_t arch_startup(char * add_device_db_file)
     // (we are responsible for booting all the other cores)
     assert(my_core_id == BSP_CORE_ID);
     KALUGA_DEBUG("Kaluga running on x86.\n");
+
 
     err = skb_client_connect();
     if (err_is_fail(err)) {
