@@ -73,22 +73,26 @@ int main(int argc, char *argv[])
         }
     }
 
+    PCI_DEBUG("oct_init.\n");
     err = oct_init();
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "dist initialization failed.");
     }
 
+    PCI_DEBUG("skb_client_connect.\n");
     err = skb_client_connect();
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "Connecting to SKB failed.");
     }
 
+    PCI_DEBUG("int_route_service_init.\n");
     err = int_route_service_init();
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "int_route_service_init failed");
         abort();
     }
 
+    PCI_DEBUG("connect_to_acpi.\n");
     err = connect_to_acpi();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "ACPI Connection failed.");
@@ -104,7 +108,7 @@ int main(int argc, char *argv[])
     err = pcie_setup_confspace();
     if (err_is_fail(err)) {
         if (err_no(err) == ACPI_ERR_NO_MCFG_TABLE) {
-            debug_printf("No PCIe found, continue.\n");
+            PCI_DEBUG("No PCIe found, continue.\n");
         }
         else {
             USER_PANIC_ERR(err, "Setup PCIe confspace failed.");

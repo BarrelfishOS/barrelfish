@@ -37,6 +37,12 @@ typedef void (*pci_driver_init_fn)(void *user_state, struct device_mem *bar_info
 typedef void (*legacy_driver_init_fn)(void);
 
 
+errval_t pci_get_bar_caps_for_device(
+        struct pci_addr addr,
+        struct device_mem **bars_out,
+        size_t *bars_len
+        );
+
 errval_t pci_parse_int_arg(int argc, char ** argv);
 
 errval_t pci_reregister_irq_for_device(uint32_t class, uint32_t subclass, uint32_t prog_if,

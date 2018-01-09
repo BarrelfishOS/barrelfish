@@ -79,7 +79,7 @@ int pci_bar_to_caps_index(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t BAR);
 int pci_get_bar_nr_for_index(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t idx);
 int pci_get_nr_caps_for_bar(uint8_t bus, uint8_t dev, uint8_t fun, uint8_t index);
 struct capref pci_get_bar_cap_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
-                                     uint8_t index, int cap_nr);
+                                     uint8_t index);
 uint8_t pci_get_bar_cap_type_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
                                     uint8_t index);
 void pci_enable_interrupt_for_device(uint32_t bus, uint32_t dev, uint32_t fun,

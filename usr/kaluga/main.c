@@ -65,7 +65,7 @@ static void parse_arguments(int argc, char** argv, char ** add_device_db_file, s
         if (strncmp(argv[i], "apicid=", 7) == 0) {
             my_arch_id = strtol(argv[i] + 7, NULL, 10);
         } else if (strncmp(argv[i], "eth0=", 5) == 0) {
-            int parsed = sscanf(argv[i], "eth0=%" SCNu8 ":%" SCNu8 ":%" SCNu8,
+            int parsed = sscanf(argv[i], "eth0=%" SCNu32 ":%" SCNu32 ":%" SCNu32,
                                 &eth0.bus, &eth0.device, &eth0.function);
             printf("Kaluga using eth0=%u:%u:%u as network device\n", eth0.bus,
                          eth0.device, eth0.function);

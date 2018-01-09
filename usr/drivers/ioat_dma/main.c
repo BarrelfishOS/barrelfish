@@ -119,7 +119,7 @@ int main(int argc,
 
     if (argc > 1) {
         uint32_t parsed = sscanf(argv[argc - 1],
-                "%x:%x:%"SCNx8":%"SCNx8":%"SCNx8, &vendor_id, &device_id,
+                "%x:%x:%"SCNx32":%"SCNx32":%"SCNx32, &vendor_id, &device_id,
                 &addr.bus, &addr.device, &addr.function);
         if (parsed != 5) {
             DEBUGPRINT("WARNING: cmdline parsing failed. Using PCI Address [0,0,0]");

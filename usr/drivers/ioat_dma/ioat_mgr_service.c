@@ -31,14 +31,14 @@ errval_t ioat_mgr_svc_init(void)
     return SYS_ERR_OK;
 }
 
-errval_t ioat_mgr_svc_add_device(struct capref *frame)
+errval_t ioat_mgr_svc_add_device(struct capref frame)
 {
     struct ioat_dev_handle *dev = calloc(1, sizeof(*dev));
     if (dev == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    dev->devframe = *frame;
+    dev->devframe = frame;
 
     dev->next = avail_devices;
     avail_devices = dev;

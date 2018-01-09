@@ -42,9 +42,8 @@
 
 struct device_caps
 {
-    struct capref *phys_cap;
-    struct capref *frame_cap;
-    size_t nr_caps;
+    struct capref phys_cap;
+    struct capref frame_cap;
     uint8_t bar_nr;
     uint8_t bits;
     bool assigned;  //false => this entry is not in use
@@ -126,21 +125,13 @@ int pci_get_bar_nr_for_index(uint8_t bus,
     return (dev_caps[bus][dev][fun][idx].bar_nr);
 }
 
-int pci_get_nr_caps_for_bar(uint8_t bus,
-                            uint8_t dev,
-                            uint8_t fun,
-                            uint8_t idx)
-{
-    return (dev_caps[bus][dev][fun][idx].nr_caps);
-}
-
 struct capref pci_get_bar_cap_for_device(uint8_t bus,
                                      uint8_t dev,
                                      uint8_t fun,
-                                     uint8_t idx,
-                                     int cap_nr)
+                                     uint8_t idx
+                                     )
 {
-    return (dev_caps[bus][dev][fun][idx].frame_cap[cap_nr]);
+    return (dev_caps[bus][dev][fun][idx].frame_cap);
 }
 uint8_t pci_get_bar_cap_type_for_device(uint8_t bus,
                                     uint8_t dev,
@@ -165,67 +156,31 @@ static errval_t alloc_device_bar(uint8_t idx,
     errval_t err;
     size = ROUND_UP(size, BASE_PAGE_SIZE); // Some BARs are less than 4 KiB
 
-    // first try with maximally-sized caps (we'll reduce this if it doesn't work)
     uint8_t bits = log2ceil(size);
-
-    restart: ;
     pcisize_t framesize = 1UL << bits;
-    c->nr_caps = size / framesize;
-    PCI_DEBUG("nr caps for one BAR of size %"PRIuPCISIZE": %lu\n", size,
-              c->nr_caps);
 
-    c->phys_cap = malloc(c->nr_caps * sizeof(struct capref));
-    if (c->phys_cap == NULL) {
-        return PCI_ERR_MEM_ALLOC;
+    PCI_DEBUG("getting cap for BAR of size %"PRIuPCISIZE"\n", size);
+
+    errval_t error_code;
+    err = slot_alloc(&c->phys_cap);
+    assert(err_is_ok(err));
+    err = acl->rpc_tx_vtbl.mm_alloc_range_proxy(acl, bits, base,
+                                         base + framesize,
+                                         &c->phys_cap, &error_code);
+    assert(err_is_ok(err));
+    err = error_code;
+    if (err_is_fail(err)) {
+        PCI_DEBUG("mm_alloc_range() failed: bits = %hhu, base = %"PRIxPCIADDR","
+                  " end = %"PRIxPCIADDR"\n", bits, base,
+                  base + framesize);
+        return err;
     }
 
-    for (int i = 0; i < c->nr_caps; i++) {
-        /*err = mm_alloc_range(&pci_mm_physaddr, bits, base + i * framesize,
-         base + (i + 1) * framesize, &c->phys_cap[i], NULL);*/
-        errval_t error_code;
-        err = slot_alloc(&c->phys_cap[i]);
-        assert(err_is_ok(err));
-        err = acl->rpc_tx_vtbl.mm_alloc_range_proxy(acl, bits, base + i * framesize,
-                                             base + (i + 1) * framesize,
-                                             &c->phys_cap[i], &error_code);
-        assert(err_is_ok(err));
-        err = error_code;
-        if (err_is_fail(err)) {
-            PCI_DEBUG("mm_alloc_range() failed: bits = %hhu, base = %"PRIxPCIADDR","
-                      " end = %"PRIxPCIADDR"\n", bits, base + i * framesize,
-                      base + (i + 1) * framesize);
-            if (err_no(err) == MM_ERR_MISSING_CAPS && bits > PAGE_BITS) {
-                /* try again with smaller page-sized caps */
-                for (int j = 0; j < i; j++) {
-                    err = acl->rpc_tx_vtbl.mm_free_proxy(acl, c->phys_cap[i],
-                                                  base + j * framesize, bits,
-                                                  &error_code);
-                    assert(err_is_ok(err) && err_is_ok(error_code));
-                }
-
-                free(c->phys_cap);
-                bits = PAGE_BITS;
-                goto restart;
-            } else {
-                return err;
-            }
-        }
-    }
-
-    c->frame_cap = malloc(c->nr_caps * sizeof(struct capref));
-    if (c->frame_cap == NULL) {
-        /* TODO: mm_free() */
-        free(c->phys_cap);
-        return PCI_ERR_MEM_ALLOC;
-    }
-
-    for (int i = 0; i < c->nr_caps; i++) {
-        err = devframe_type(&c->frame_cap[i], c->phys_cap[i], bits);
-        if (err_is_fail(err)) {
-            PCI_DEBUG("devframe_type() failed: bits = %hhu, base = %"PRIxPCIADDR
-                      ", doba = %"PRIxPCIADDR"\n", bits, base, base + (1UL << bits));
-            return err;
-        }
+    err = devframe_type(&c->frame_cap, c->phys_cap, bits);
+    if (err_is_fail(err)) {
+        PCI_DEBUG("devframe_type() failed: bits = %hhu, base = %"PRIxPCIADDR
+                  ", doba = %"PRIxPCIADDR"\n", bits, base, base + (1UL << bits));
+        return err;
     }
 
     c->bits = bits;
@@ -244,18 +199,15 @@ static errval_t assign_complete_io_range(uint8_t idx,
                                          uint8_t fun,
                                          uint8_t BAR)
 {
-    dev_caps[bus][dev][fun][idx].frame_cap = (struct capref*) malloc(
-                    sizeof(struct capref));
-    errval_t err = slot_alloc(&(dev_caps[bus][dev][fun][idx].frame_cap[0]));
+    errval_t err = slot_alloc(&(dev_caps[bus][dev][fun][idx].frame_cap));
     assert(err_is_ok(err));
-    err = cap_copy(dev_caps[bus][dev][fun][idx].frame_cap[0], cap_io);
+    err = cap_copy(dev_caps[bus][dev][fun][idx].frame_cap, cap_io);
     assert(err_is_ok(err));
 
     dev_caps[bus][dev][fun][idx].bits = 16;
     dev_caps[bus][dev][fun][idx].bar_nr = BAR;
     dev_caps[bus][dev][fun][idx].assigned = true;
     dev_caps[bus][dev][fun][idx].type = 1;
-    dev_caps[bus][dev][fun][idx].nr_caps = 1;
     return SYS_ERR_OK;
 }
 
