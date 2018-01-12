@@ -38,7 +38,6 @@
 /* Per-client state
  * XXX: this assumes only one driver per client */
 struct client_state {
-//    struct device_mem *bar_info;
     uint8_t initialized;
     int nr_allocated_bars;
     uint32_t bus;
@@ -211,23 +210,17 @@ static void get_bar_cap_handler(struct pci_binding *b, uint32_t idx)
                                         NULL_CAP, 0, 0);
         assert(err_is_ok(e));
     } else {
-        struct capref cap = pci_get_bar_cap_for_device(st->bus, st->dev,
-                                                   st->fun, idx);
         uint8_t type = pci_get_bar_cap_type_for_device(st->bus, st->dev,
                                                    st->fun, idx);
         uint8_t bar_nr = pci_get_bar_nr_for_index(st->bus, st->dev,
                                                    st->fun, idx);
-/*
-XXX: I/O-Cap??
-        uint8_t type = st->bar_info[idx].type;
-        struct capref cap = NULL_CAP;
 
+        struct capref cap;
         if(type == 0) {
-            cap = st->bar_info[idx].frame_cap;
+            cap = pci_get_bar_cap_for_device(st->bus, st->dev, st->fun, idx);
         } else {
-            cap = st->bar_info[idx].io_cap;
+            cap = NULL_CAP; //TODO: Get this io_cap from somewhere...
         }
-*/
 
         get_bar_cap_response_cont(b, SYS_ERR_OK, cap, type, bar_nr);
     }

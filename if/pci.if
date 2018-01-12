@@ -39,9 +39,6 @@ interface pci "The PCI Interface" {
                     out uint8 type,
                     out uint8 bar_nr);
 
-    /* request an io cap for a previously-initialised device */
-    rpc get_io_cap(in uint16 idx, out errval err, out cap cap);
-
     /* request an irq cap for a previously-initialised device */
     rpc get_irq_cap(in uint16 idx, out errval err, out cap cap);
 

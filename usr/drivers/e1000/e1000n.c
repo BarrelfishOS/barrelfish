@@ -52,6 +52,8 @@
 #include <trace/trace.h>
 #include <int_route/msix_ctrl.h>
 
+#include <pci/pci_driver_client.h>
+
 #include "e1000n.h"
 #include "test_instr.h"
 
@@ -156,26 +158,27 @@ static void setup_internal_memory(struct e1000_driver_state * eds)
 /*
  * Start a MSIx controller client, if possible and requested.
  */
-static errval_t e1000_init_msix_client(struct e1000_driver_state * eds, struct
-        device_mem *bar_info, int nr_allocated_bars) {
+static errval_t e1000_init_msix_client(struct e1000_driver_state * eds) {
 
     errval_t err;
-    if(nr_allocated_bars < 3){
+    int num_bars = pcid_get_bar_num(&eds->pdc);
+    if(num_bars < 3){
         E1000_DEBUG("Less than 3 BARs received. No MSIx support. #bars=%d\n",
-                nr_allocated_bars);
+                num_bars);
         return PCI_ERR_MSIX_NOTSUP;
     }
 
     E1000_DEBUG("MSIx BAR received. Instantiating ctrl client\n");
-    err = map_device(&bar_info[2]);
+    struct pcid_mapped_bar_info bi;
+    err = pcid_map_bar(&eds->pdc, 2, &bi);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "map_device");
+        DEBUG_ERR(err, "pcid_map_bar");
         E1000_PRINT_ERROR("Error: map_device failed. Will not initialize"
                 " MSIx controller.\n");
         return err;
     }
 
-    err = msix_client_init_by_args(eds->args_len, eds->args, bar_info[2].vaddr);
+    err = msix_client_init_by_args(eds->args_len, eds->args, bi.vaddr);
     if(err == SYS_ERR_IRQ_INVALID){
         E1000_DEBUG("Card supports MSI-x but legacy interrupt requested by Kaluga");
         return err;
@@ -238,8 +241,8 @@ static void e1000_enable_msix(struct e1000_driver_state * eds){
     e1000_ivar_82574_int_alloc_val4_wrf(eds->device, 1);
 
     e1000_ivar_82574_int_on_all_wb_wrf(eds->device, 1);
-    uint16_t count = 4;
-    pci_msix_enable(&count);
+    int count = 4;
+    pcid_enable_msix(&count);
 }
 
 /*****************************************************************
@@ -248,34 +251,20 @@ static void e1000_enable_msix(struct e1000_driver_state * eds){
  * Setup device, create receive ring and connect to Ethernet server.
  *
  ****************************************************************/
-static void e1000_init_fn(void *arg, struct device_mem *bar_info, int nr_allocated_bars)
+static void e1000_init_fn(struct e1000_driver_state * eds)
 {
-    struct e1000_driver_state * eds = arg;
     E1000_DEBUG("Starting hardware initialization.\n");
-    e1000_hwinit(eds, bar_info, nr_allocated_bars, 
-                 DRIVER_RECEIVE_BUFFERS, DRIVER_TRANSMIT_BUFFERS);
+    e1000_hwinit(eds, DRIVER_RECEIVE_BUFFERS, DRIVER_TRANSMIT_BUFFERS);
     E1000_DEBUG("Hardware initialization complete.\n");
 
-    struct capref int_src_cap = {
-        .slot = PCIARG_SLOT_INT,
-        .cnode = eds->pci_cnode
-    };
 
-    errval_t err = e1000_init_msix_client(eds, bar_info, nr_allocated_bars);
+    errval_t err = e1000_init_msix_client(eds);
     if(err_is_ok(err)){
         // Can use MSIX
         E1000_DEBUG("Successfully instantiated MSIx, setup int routing\n");
-        err = pci_setup_int_routing_with_cap(0, int_src_cap,
-                e1000_interrupt_handler_fn, eds, NULL, NULL);
-        if(err_is_fail(err)) USER_PANIC_ERR(err, "Could not set-up int routing");
         e1000_enable_msix(eds);
-    } else {
-        // Try to use legacy
-        err = pci_setup_int_routing_with_cap(0, int_src_cap,
-                e1000_interrupt_handler_fn, eds, NULL, NULL);
-        if(err_is_fail(err)) USER_PANIC_ERR(err, "Could not set-up int routing "
-               " using legacy interrupts");
     }
+    err = pcid_connect_int(&eds->pdc, 0, e1000_interrupt_handler_fn, eds);
 
     setup_internal_memory(eds);
 
@@ -328,14 +317,6 @@ static void e1000_reregister_handler(void *arg)
 void e1000_driver_state_init(struct e1000_driver_state * eds){
     memset(eds, 0, sizeof(struct e1000_driver_state));
     eds->use_interrupt = true;
-    eds->pci.class = PCI_CLASS_ETHERNET;
-    eds->pci.subclass = PCI_DONT_CARE;
-    eds->pci.bus = PCI_DONT_CARE;
-    eds->pci.device = PCI_DONT_CARE;
-    eds->pci.function = PCI_DONT_CARE;
-    eds->pci.deviceid = PCI_DONT_CARE;
-    eds->pci.vendor = PCI_VENDOR_INTEL;
-    eds->pci.program_interface = PCI_DONT_CARE;
     eds->mac_type = e1000_undefined;
     eds->user_mac_address = false;
     eds->use_interrupt = true;
@@ -346,6 +327,7 @@ void e1000_driver_state_init(struct e1000_driver_state * eds){
     eds->minbase = -1;
     eds->maxbase = -1;
 }
+
 
 
 static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
@@ -362,36 +344,14 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
     e1000_driver_state_init(eds);
     bfi->dstate = eds;
 
+    err = pcid_init(&eds->pdc, caps, caps_len, args, args_len, get_default_waitset());
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "pcid_init");
+        goto err_out;
+    }
+
     eds->args = args;
     eds->args_len = args_len;
-
-    struct capref cnodecap;
-    err = slot_alloc_root(&cnodecap);
-    assert(err_is_ok(err));
-    assert(caps_len >= 1);
-    err = cap_copy(cnodecap, caps[0]);
-    eds->pci_cnode = build_cnoderef(cnodecap, CNODE_TYPE_OTHER); 
-
-    /* try parse Kaluga information which is located at the last argument */
-    if (args_len > 0) {
-        uint32_t parsed = sscanf(args[args_len - 1], "%x:%x:%x:%x:%x",
-                                 &eds->pci.vendor,
-                                 &eds->pci.deviceid,
-                                 &eds->pci.bus,
-                                 &eds->pci.device,
-                                 &eds->pci.function
-                                 );
-        if (parsed != 5) {
-            E1000_DEBUG("Invalid PCI address argument: %s\n", args[args_len -1]);
-            exit_help();
-        } 
-        eds->use_force = true;
-        E1000_DEBUG("PCI Device (%u, %u, %u) Vendor: 0x%04x, Device 0x%04x\n",
-                    eds->pci.bus, eds->pci.device, eds->pci.function,
-                    eds->pci.vendor, eds->pci.deviceid);
-        // remove the last argument
-        args_len--;
-    }
 
     for (int i = 1; i < args_len; i++) {
         E1000_DEBUG("arg %d = %s\n", i, args[i]);
@@ -436,7 +396,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
 
     E1000_DEBUG("Starting e1000 driver.\n");
 
-    eds->mac_type = e1000_get_mac_type(eds->pci.vendor, eds->pci.deviceid);
+    eds->mac_type = e1000_get_mac_type(eds->pdc.id.vendor, eds->pdc.id.device);
     E1000_DEBUG("mac_type is: %s\n", e1000_mac_type_to_str(eds->mac_type));
 
     /* Setup known device info */
@@ -456,28 +416,28 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
     }
     eds->media_type = e1000_media_type_undefined;
 
-    E1000_DEBUG("Connecting to PCI.\n");
-
-    err = pci_client_connect();
-    assert(err_is_ok(err));
-
-
     // Setup int routing in init_fn
-    err = pci_register_driver_noirq(e1000_init_fn, eds,
-            eds->pci.class, eds->pci.subclass, eds->pci.program_interface,
-            eds->pci.vendor, eds->pci.deviceid, eds->pci.bus, eds->pci.device,
-            eds->pci.function);
+    e1000_init_fn(eds);
+    //err = pci_register_driver_noirq(e1000_init_fn, eds,
+    //        eds->pci.class, eds->pci.subclass, eds->pci.program_interface,
+    //        eds->pci.vendor, eds->pci.deviceid, eds->pci.bus, eds->pci.device,
+    //        eds->pci.function);
 
-    if (err_is_fail(err)) {
-        E1000_PRINT_ERROR("Error: %u, pci_register_driver failed\n", (unsigned int)err);
-        exit(err);
-    }
+    //if (err_is_fail(err)) {
+    //    E1000_PRINT_ERROR("Error: %u, pci_register_driver failed\n", (unsigned int)err);
+    //    exit(err);
+    //}
 
-    assert(err_is_ok(err));
+    //assert(err_is_ok(err));
 
-    E1000_DEBUG("Registered driver.\n");
-    e1000_print_link_status(eds);
+    //E1000_DEBUG("Registered driver.\n");
+    if(false) e1000_print_link_status(eds);
+
     return SYS_ERR_OK;
+
+err_out:
+    free(eds);
+    return err;
 }
 
 static errval_t attach(struct bfdriver_instance* bfi) {

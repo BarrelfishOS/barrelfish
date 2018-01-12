@@ -17,6 +17,8 @@
 #include "e1000n.h"
 #include "e1000n_hwinit.h"
 
+#include <pci/pci_driver_client.h>
+
 
 /*****************************************************************
  * PHY
@@ -467,7 +469,7 @@ static void e1000_set_media_type(struct e1000_driver_state *eds)
         eds->tbi_combaility = false;
     }
 
-    switch (eds->pci.deviceid) {
+    switch (eds->pdc.id.device) {
     case E1000_DEVICE_82545GM_SERDES:
     case E1000_DEVICE_82546GB_SERDES:
     case E1000_DEVICE_82571EB_SERDES:
@@ -754,27 +756,28 @@ void e1000_set_interrupt_throttle(struct e1000_driver_state *eds, uint16_t usec)
  * Initialize the hardware
  *
  ****************************************************************/
-void e1000_hwinit(struct e1000_driver_state *eds, struct device_mem *bar_info,
-        int nr_allocated_bars, int receive_buffers, int transmit_buffers)
+void e1000_hwinit(struct e1000_driver_state *eds, int receive_buffers, int transmit_buffers)
 {
     struct frame_identity frameid = { .base = 0, .bytes = 0 };
     struct capref frame;
     errval_t err;
+    int num_bars = pcid_get_bar_num(&eds->pdc);
 
     E1000_DEBUG("Initializing network device.\n");
 
-    if (nr_allocated_bars < 1) {
+    if (num_bars < 1) {
         E1000_PRINT_ERROR("Error: Not enough PCI bars allocated. Can not initialize network device.\n");
         exit(1);
     }
 
-    err = map_device(&bar_info[0]);
+    struct pcid_mapped_bar_info bi;
+    err = pcid_map_bar(&eds->pdc, 0, &bi);
     if (err_is_fail(err)) {
         E1000_PRINT_ERROR("Error: map_device failed. Can not initialize network device.\n");
         exit(err);
     }
 
-    e1000_initialize(&eds->device_inst, (void *) bar_info[0].vaddr);
+    e1000_initialize(&eds->device_inst, (void *) bi.vaddr);
     eds->device = &eds->device_inst;
 
 	/*

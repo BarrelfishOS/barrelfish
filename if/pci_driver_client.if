@@ -1,0 +1,38 @@
+/*
+ * Copyright (c) 2007, 2008, 2009, 2010, 2011, 2018 ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface pci_driver_client "PCI driver <-> PCI server interface" {
+    /* read PCI conf header */
+    rpc read_conf_header(in uint32 dword, out errval err, out uint32 val);
+
+    /* write PCI conf header */
+    rpc write_conf_header(in uint32 dword, in uint32 val, out errval err);
+    
+    /* Enable (legacy) interrupt */
+    rpc irq_enable(out errval err);
+
+    /* Enable MSI-X for the specified PCI device. */
+    rpc msix_enable_addr(in uint8 bus, in uint8 dev, in uint8 fn,
+                         out errval err,
+                         out uint16 vec_count);
+    rpc msix_enable(out errval err,
+                    out uint16 vec_count);
+
+    /* Configure specified MSI-X vector */
+    rpc msix_vector_init_addr(in uint8 bus, in uint8 dev, in uint8 fn,
+                              in uint16 idx,        /* Index of MSI-X vector */
+                              in uint8 destination, /* Interrupt Destination */
+                              in uint8 vector,      /* Interrupt Vector */
+                              out errval err);
+
+    rpc msix_vector_init(in uint16 idx,        /* Index of MSI-X vector */
+                         in uint8 destination, /* Interrupt Destination */
+                         in uint8 vector,      /* Interrupt Vector */
+                         out errval err);
+};

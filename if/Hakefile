@@ -58,6 +58,7 @@
                "octopus",
                "omap_sdma",
                "pci",
+               "pci_driver_client",
                "ping_pong",
                "pixels",
                "proc_mgmt",

@@ -138,17 +138,41 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
 {
     assert(mi != NULL);
     errval_t err;
+
+    // Construct additional command line arguments containing pci-id.
+    // We need one extra entry for the new argument.
+    char **argv = NULL;
+    int argc = mi->argc;
+    argv = malloc((argc+1) * sizeof(char *)); // +1 for trailing NULL
+    assert(argv != NULL);
+    memcpy(argv, mi->argv, (argc+1) * sizeof(char *));
+    assert(argv[argc] == NULL);
+
+    struct pci_addr addr;
+    struct pci_id id;
+    struct pci_class cls = {0, 0, 0};
     static struct domain_instance* inst;
 
     if (!is_auto_driver(mi)) {
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
-    uint64_t vendor_id, device_id, bus, dev, fun;
-    err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
-                    &bus, &dev, &fun, &vendor_id, &device_id);
-    if (err_is_fail(err)) {
-        return err;
+    // TODO: Determine cls here as well
+    {
+        int64_t vendor_id, device_id, bus, dev, fun;
+        err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                        &bus, &dev, &fun,
+                        &vendor_id, &device_id);
+
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "oct_read");
+            return err;
+        }
+        addr.bus = bus;
+        addr.device = dev;
+        addr.function = fun;
+        id.device = device_id;
+        id.vendor = vendor_id;
     }
 
     // If driver instance not yet started, start. 
@@ -188,16 +212,16 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
     }
 
     // Build PCI address argument
-    char pci_arg_str[26];
-    assert(vendor_id < 0xFFFF && device_id < 0xFFFF);
-    snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
-                    PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
+    char * pci_arg_str = malloc(strlen("pci=") + PCI_OCTET_LEN);
+    assert(pci_arg_str);
+    strcpy(pci_arg_str, "pci=");
+    pci_serialize_octet(addr, id, cls, pci_arg_str + strlen("pci="));
+    argv_push(&argc, &argv, pci_arg_str);
 
     args[args_len++] = pci_arg_str;
 
     drv->args = args;
     drv->caps[0] = arg->arg_caps; // Interrupt cap
-
 
     ddomain_instantiate_driver(inst, drv);
 

@@ -30,6 +30,9 @@
 #define PCIARG_SLOT_BAR1   3
 #define PCIARG_SLOT_BAR2   4
 #define PCIARG_SLOT_BAR3   5
+#define PCIARG_SLOT_BAR4   6
+#define PCIARG_SLOT_BAR5   7
+#define PCIARG_SLOT_BAR6   8
 
 
 typedef void (*pci_driver_init_fn)(void *user_state, struct device_mem *bar_info,
