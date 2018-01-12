@@ -22,6 +22,12 @@
 #include <if/octopus_defs.h>
 #include <if/octopus_thc.h>
 
+//Manual channel setup includes
+#include <if/pci_defs.h>
+#include <flounder/flounder_txqueue.h>
+//END
+#include <pci/pci.h>
+
 #include <octopus/octopus.h>
 #include <octopus/trigger.h>
 
@@ -29,7 +35,7 @@
 #include <thc/thc.h>
 
 #include "kaluga.h"
-#include <pci/pci.h>
+#include <acpi_client/acpi_client.h>
 
 
 static void pci_change_event(octopus_mode_t mode, const char* device_record,
@@ -75,6 +81,123 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     return error_code;
 };
 
+
+
+static void init_pci_device_handler(struct pci_binding *b,
+                                    uint32_t class_code, uint32_t sub_class,
+                                    uint32_t prog_if, uint32_t vendor_id,
+                                    uint32_t device_id,
+                                    uint32_t bus, uint32_t dev, uint32_t fun)
+{
+
+    KALUGA_DEBUG("init_pci_device_handler!!! %"PRIu32", %"PRIu32","
+            "%"PRIu32"\n", bus, dev, fun);
+
+}
+struct pci_rx_vtbl pci_rx_vtbl = {
+    .init_pci_device_call = init_pci_device_handler
+};
+
+/**
+ * \brief callback when the PCI client connects 
+ *
+ * \param st    state pointer
+ * \param err   status of the connect
+ * \param _b    created PCI binding
+ */
+static void pci_accept_cb(void *st,
+                                  errval_t err,
+                                  struct pci_binding *_b)
+{
+    KALUGA_DEBUG("connection accepted.");
+    _b->rx_vtbl = pci_rx_vtbl;
+}
+
+const int PCI_CHANNEL_SIZE = 2048;
+
+static errval_t frame_to_pci_frameinfo(struct capref frame, struct pci_frameinfo *fi){
+    struct frame_identity fid;
+    errval_t err;
+    err = invoke_frame_identify(frame, &fid);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "invoke_frame_identify");        
+        return err;
+    }
+    KALUGA_DEBUG("pci ep frame base=0x%lx, size=0x%lx\n", fid.base, fid.bytes);
+
+    void *msg_buf;
+    err = vspace_map_one_frame(&msg_buf, fid.bytes, frame,
+                               NULL, NULL);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map_one_frame");
+        return err;
+    }
+
+    *fi = (struct pci_frameinfo) {
+        .sendbase = (lpaddr_t)msg_buf + PCI_CHANNEL_SIZE,
+        .inbuf = msg_buf,
+        .inbufsize = PCI_CHANNEL_SIZE,
+        .outbuf = ((uint8_t *) msg_buf) + PCI_CHANNEL_SIZE,
+        .outbufsize = PCI_CHANNEL_SIZE
+    };
+
+    return SYS_ERR_OK;
+} 
+
+static errval_t start_pci_ump_accept(struct capref out_frame){
+    assert(!capref_is_null(out_frame));
+
+    size_t msg_frame_size;
+    errval_t err;
+    //err = frame_alloc(out_frame, 2 * PCI_CHANNEL_SIZE, &msg_frame_size);
+    err = frame_create(out_frame, 2 * PCI_CHANNEL_SIZE, &msg_frame_size);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "frame_create");
+        return err;
+    }
+
+    struct pci_frameinfo fi;
+    err = frame_to_pci_frameinfo(out_frame, &fi);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "frame_to_frameinfo");
+        return err;
+    }
+
+    KALUGA_DEBUG("creating channel on %p\n", fi.inbuf);
+
+    err = pci_accept(&fi, NULL, pci_accept_cb,
+                      get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "pci_accept");
+        return err;
+    }
+    return SYS_ERR_OK;
+}
+
+/**
+ * For device at addr, finds and stores the interrupt arguments and caps
+ * into driver_arg.
+ */
+static errval_t add_pci_ep(struct pci_addr addr, struct driver_argument
+        *driver_arg)
+{
+    errval_t err;
+
+    struct capref cap = {
+        .cnode = driver_arg->argnode_ref,
+        .slot = PCIARG_SLOT_PCI_EP
+    };
+
+    err = start_pci_ump_accept(cap);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "start_pci_ump_accept");
+        return err;
+    }
+
+    return err;
+};
+
 /**
  * For device at addr, finds and stores the interrupt arguments and caps
  * into driver_arg.
@@ -84,19 +207,16 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
 {
     errval_t err;
 
-    static bool pci_initialized = false;
-    if(!pci_initialized){
-        KALUGA_DEBUG("HACK: lazy connection PCI client\n"); 
-        err = pci_client_connect();
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "Connect to PCI.");
-        }
-        pci_initialized = true;
-    }
-
-
     struct device_mem *bars;
     size_t bars_len;
+
+    //NOT VERY BEAUTIFUL
+    static bool pci_init=false;
+    if(!pci_init){
+        pci_client_connect();
+        pci_init = true;
+    }
+    //
 
     err = pci_get_bar_caps_for_device(addr, &bars, &bars_len);
     if(err_is_fail(err)){
@@ -106,11 +226,19 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
 
     // Copy the caps into the argument cnode
     for(int i=0; i<bars_len; i++){
-        //TODO
+        struct capref cap = {
+            .cnode = driver_arg->argnode_ref,
+            .slot = PCIARG_SLOT_BAR0 + i
+        };
+        if(bars[i].type == 0){
+            cap_copy(bars[i].frame_cap, cap);
+        } else {
+            return KALUGA_ERR_CAP_ACQUIRE;
+        }
     }
 
     KALUGA_DEBUG("Received %zu bars\n", bars_len);
-    return err;
+    return SYS_ERR_OK;
 };
 
 /**
@@ -170,7 +298,6 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
         if(nl) *nl = '\0';
         debug_msg[sizeof(debug_msg)-1] = '\0';
 
-        driver_arg->int_arg.msix_ctrl_name = malloc(64);
         uint64_t start=0, end=0;
         // Format is: Lbl,Class,InLo,InHi,....
         err = skb_read_output("%*[^\n]\n%64[^,],%*[^,],%"SCNu64",%"SCNu64,
@@ -265,6 +392,21 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         if(err_is_fail(err)){
             USER_PANIC_SKB_ERR(err, "Could not parse SKB output.\n");
         }
+        // HACK
+        if(strcmp(binary_name, "driverdomain") != 0) {
+            KALUGA_DEBUG("HACK Skipping PCI driver startupt for %s\n", binary_name); 
+            return;
+        } else {
+            KALUGA_DEBUG("HACK Starting binary_name=%s\n", binary_name); 
+        }
+        static bool first = true;
+        if(!first){
+            KALUGA_DEBUG("HACK Skipping PCI driver startupt for %s, because "
+                    "already started\n",binary_name); 
+            return;
+        }
+        first = false;
+        //ENDHACK
         driver_arg.int_arg.model = int_model_in;
 
         struct module_info* mi = find_module(binary_name);
@@ -277,12 +419,17 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         set_core_id_offset(mi, offset);
 
         // Build up the driver argument
+        err = add_pci_ep(addr, &driver_arg);
+        assert(err_is_ok(err));
+
         char intcaps_debug_msg[100];
-        char memcaps_debug_msg[100];
         err = add_int_args(addr, &driver_arg, intcaps_debug_msg);
         assert(err_is_ok(err));
+
+        char memcaps_debug_msg[100];
         err = add_mem_args(addr, &driver_arg, memcaps_debug_msg);
         assert(err_is_ok(err));
+
 
         // Wait until the core where we start the driver
         // is ready

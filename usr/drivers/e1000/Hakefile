@@ -28,7 +28,7 @@
                       cFiles = [ "e1000n.c", "e1000n_hwinit.c", "e1000n_helpers.c" ],
                       flounderDefs = [ "octopus", "net_queue_manager" ],
                       mackerelDevices = [ "e1000" ],
-                      addLibraries = libDeps [ "pci", 
+                      addLibraries = libDeps [ "pci_driver_client", 
                         "int_msix_ctrl" ],
                       --addLibraries = libDeps [ "pci", "trace", "lwip",
                       --  "int_msix_ctrl" ],
