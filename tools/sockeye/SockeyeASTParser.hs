@@ -22,53 +22,18 @@ data Sockeye = Sockeye
     deriving (Show)
 
 data Module = Module
-    { moduleName :: !String
-    , parameters :: [ModuleParameter]
-    , moduleBody :: [Statement]
+    { moduleName  :: !String
+    , parameters  :: [ModuleParameter]
+    , constDecls  :: [NamedConstant]
+    , instDecls   :: [InstanceDeclaration]
+    , nodeDecls   :: [NodeDeclaration]
+    , definitions :: [Definition]
     } deriving (Show)
 
 data ModuleParameter = ModuleParameter
     { paramName  :: !String
     , paramRange :: NaturalSet
     } deriving (Show)
-
-data Statement
-    = DeclStmt
-        { declStmt :: Declaration }
-    | DefStmt 
-        { defStmt :: Definition }
-    deriving (Show)
-
-data Declaration
-    = NodeDecl
-        { nodeDecl :: NodeDeclaration }
-    | InstanceDecl
-        { instDecl :: InstanceDeclaration }
-    deriving (Show)
-
-data NodeDeclaration
-    = SingleNode
-        { nodeKind   :: !NodeKind
-        , nodeOrigin :: Domain
-        , nodeTarget :: Domain
-        , nodeName   :: !String
-        , nodeType   :: AddressType
-        }
-    | ArrayNode
-        { nodeKind    :: !NodeKind
-        , nodeOrigin  :: Domain
-        , nodeTarget  :: Domain
-        , nodeName    :: !String
-        , nodeType    :: AddressType
-        , nodeArrSize :: [NaturalSet]
-        }
-    deriving (Show)
-
-data NodeKind
-    = InputPort
-    | OutputPort
-    | InternalNode
-    deriving (Show)
 
 data InstanceDeclaration
     = SingleInstance
@@ -82,27 +47,60 @@ data InstanceDeclaration
         }
     deriving (Show)
 
+data NodeDeclaration
+    = SingleNode
+        { nodeKind     :: !NodeKind
+        , originDomain :: !Domain
+        , originType   :: AddressType
+        , targetDomain :: !Domain
+        , targetType   :: Maybe AddressType
+        , nodeName     :: !String
+        }
+    | ArrayNode
+        { nodeKind     :: !NodeKind
+        , originDomain :: !Domain
+        , originType   :: AddressType
+        , targetDomain :: !Domain
+        , targetType   :: Maybe AddressType
+        , nodeName     :: !String
+        , nodeArrSize  :: [NaturalSet]
+        }
+    deriving (Show)
+
+data NodeKind
+    = InputPort
+    | OutputPort
+    | InternalNode
+    deriving (Show)
+
+data Domain
+    = Memory
+    | Interrupt
+    | Power
+    | Clock
+    deriving (Show)
+
 data Definition
     = Accepts
-    { node   :: UnqualifiedNodeRef
-    , accept :: [AddressBlock]
-    }
+        { node   :: UnqualifiedNodeRef
+        , accept :: [AddressBlock]
+        }
     | Maps
-    { node :: UnqualifiedNodeRef
-    , maps :: [MapSpec]
-    }
+        { node :: UnqualifiedNodeRef
+        , maps :: [MapSpec]
+        }
     | Converts
-    { node     :: UnqualifiedNodeRef
-    , converts :: [ConvertSpec]
-    }
+        { node     :: UnqualifiedNodeRef
+        , converts :: [ConvertSpec]
+        }
     | Overlays
-    { node     :: UnqualifiedNodeRef
-    , overlays :: NodeReference
-    }
+        { node     :: UnqualifiedNodeRef
+        , overlays :: NodeReference
+        }
     | Binds
-    { inst  :: InstReference
-    , binds :: [PortBinding]
-    }
+        { inst  :: InstReference
+        , binds :: [PortBinding]
+        }
     | Forall
         { boundVarName   :: !String
         , varRange       :: [NaturalSet]
@@ -127,6 +125,15 @@ data PortBinding = PortBinding
     }
     deriving (Show)
 
+data InstReference
+    = SingleInstRef
+        { instanceRef :: !String }
+    | ArrayInstRef
+        { instanceRef   :: !String
+        , instanceRange :: [NaturalSet]
+        }
+    deriving (Show)
+
 data UnqualifiedNodeRef
     = SingleNodeRef
         { refName   :: !String }
@@ -147,31 +154,17 @@ data NodeReference
         }
     deriving (Show)
 
-data InstReference
-    = SingleInstRef
-        { instanceRef :: !String }
-    | ArrayInstRef
-        { instanceRef   :: !String
-        , instanceRange :: [NaturalSet]
-        }
-    deriving (Show)
-
-data Domain
-    = Memory
-    | Interrupt
-    | Power
-    | Clock
-    deriving (Show)
-
 data NamedType = NamedType
     { typeName  :: !String
     , namedType :: AddressType
-    } deriving (Show)
+    }
+    deriving (Show)
 
 data NamedConstant = NamedConstant
     { constName  :: !String
     , namedConst :: !Integer
     }
+    deriving (Show)
 
 type AddressType = [NaturalSet]
 
@@ -187,11 +180,11 @@ data NaturalSet
         { element  :: NaturalExpr }
     | SparseSet
         { elements :: [NaturalExpr] }
-    | Range
+    | RangeSet
         { base  :: NaturalExpr
         , limit :: NaturalExpr
         }
-    | BitRange
+    | BitRangeSet
         { base :: NaturalExpr
         , bits :: NaturalExpr
         }

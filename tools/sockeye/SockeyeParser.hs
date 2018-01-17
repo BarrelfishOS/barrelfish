@@ -26,9 +26,15 @@ import qualified SockeyeASTParser as AST
 parseSockeye :: String -> String -> Either ParseError AST.Sockeye
 parseSockeye = parse sockeyeFile
 
-data TopLevelDecl
+data TopLevel
     = ModuleDecl AST.Module
     | TypeDecl AST.NamedType
+
+data ModuleBody
+    = ConstDecl AST.NamedConstant
+    | InstDecl AST.InstanceDeclaration
+    | NodeDecl AST.NodeDeclaration
+    | Def AST.Definition
 
 {- Sockeye parsing -}
 sockeyeFile = do
@@ -51,30 +57,18 @@ sockeyeFile = do
         splitDecl (ModuleDecl m) (ms, ts) = (m:ms, ts)
         splitDecl (TypeDecl t)   (ms, ts) = (ms, t:ts)
 
-
--- imports = do
---     reserved "import"
---     path <- try importPath <?> "import path"
---     return $ AST.Import path
-
-namedType = do
-    reserved "type"
-    name <- typeName
-    namedType <- addressType
-    return $ AST.NamedType
-        { AST.typeName  = name
-        , AST.namedType = namedType
-        }
-
 sockeyeModule = do
     reserved "module"
     name <- moduleName
     params <- option [] (parens $ commaSep moduleParam)
-    body <- braces moduleBody
+    (consts, insts, nodes, defs) <- braces moduleBody
     return AST.Module
-        { AST.moduleName = name
-        , AST.parameters = params
-        , AST.moduleBody = body
+        { AST.moduleName  = name
+        , AST.parameters  = params
+        , AST.constDecls  = consts
+        , AST.instDecls   = insts
+        , AST.nodeDecls   = nodes
+        , AST.definitions = defs
         }
 
 moduleParam = do
@@ -86,274 +80,145 @@ moduleParam = do
         }
 
 moduleBody = do
-    many $ do
-        noneOf "{}"
-        optional $ braces moduleBody
-    return []
+    body <- many $ choice [constDecl, instDecl, nodeDecl]
+    return $ foldr splitBody ([], [], [], []) body
+    where
+        constDecl = do
+            c <- namedConstant <?> "constant declaration"
+            return $ ConstDecl c
+        instDecl = do
+            i <- instanceDeclaration <?> "instance declaration"
+            return $ InstDecl i
+        nodeDecl = do
+            n <- nodeDeclaration <?> "node declaration"
+            return $ NodeDecl n
+        splitBody (ConstDecl c) (cs, is, ns, ds) = (c:cs, is, ns, ds)
+        splitBody (InstDecl i)  (cs, is, ns, ds) = (cs, i:is, ns, ds)
+        splitBody (NodeDecl n)  (cs, is, ns, ds) = (cs, is, n:ns, ds)
+        splitBody (Def d)       (cs, is, ns, ds) = (cs, is, ns, d:ds)
+
+instanceDeclaration = do
+    reserved "instance"
+    (name, size) <- arrayDecl
+    reserved "of"
+    modName <- moduleName
+    return $ case size of
+        Nothing -> AST.SingleInstance
+            { AST.instanceName   = name
+            , AST.instanceModule = modName
+            }
+        Just s -> AST.ArrayInstance
+            { AST.instanceName   = name
+            , AST.instanceModule = modName
+            , AST.instArrSize = s
+            }
+
+nodeDeclaration = do
+    kind <- nodeKind
+    originDomain <- domain
+    originType <- addressType
+    (targetDomain, targetType) <- option (originDomain, Nothing) $ do
+        reserved "to"
+        d <- domain
+        t <- optionMaybe addressType
+        return (d, t)
+    (name, size) <- arrayDecl
+    return $ case size of
+        Nothing -> AST.SingleNode
+            { AST.nodeKind     = kind
+            , AST.originDomain = originDomain
+            , AST.originType   = originType
+            , AST.targetDomain = targetDomain
+            , AST.targetType   = targetType
+            , AST.nodeName     = name
+            }
+        Just s -> AST.ArrayNode
+            { AST.nodeKind     = kind
+            , AST.originDomain = originDomain
+            , AST.originType   = originType
+            , AST.targetDomain = targetDomain
+            , AST.targetType   = targetType
+            , AST.nodeName     = name
+            , AST.nodeArrSize  = s 
+            }
+
+nodeKind = option AST.InternalNode $ choice [input, output]
+    where
+        input = do
+            reserved "input"
+            return AST.InputPort
+        output = do
+            reserved "output"
+            return AST.OutputPort
+
+domain = choice [memory, intr, power, clock] <?> "domain"
+    where
+        memory = do
+            reserved "memory"
+            return AST.Memory
+        intr = do
+            reserved "intr"
+            return AST.Interrupt
+        power = do
+            reserved "power"
+            return AST.Power
+        clock = do
+            reserved "clock"
+            return AST.Clock
+
+arrayDecl = do
+    name <- identifierName
+    size <- optionMaybe (brackets $ semiSep1 naturalSet)
+    whiteSpace
+    return (name, size)
+
+namedType = do
+    reserved "type"
+    name <- typeName
+    namedType <- addressType
+    return AST.NamedType
+        { AST.typeName  = name
+        , AST.namedType = namedType
+        }
+
+namedConstant = do
+    reserved "const"
+    name <- constName
+    value <- natural
+    return AST.NamedConstant
+        { AST.constName  = name
+        , AST.namedConst = value
+        }
 
 addressType = do
     parens $ semiSep1 naturalSet
 
 naturalSet = do
-    many $ noneOf "(;)"
-    return $ AST.SingletonSet (AST.NaturalLeaf $ AST.Literal 0)
+    elements <- commaSep1 naturalLeaf
+    if length elements > 1
+        then return $ AST.SparseSet elements
+        else 
+            let base = elements !! 0
+            in choice [range base, bitRange base]
+    where
+        range base = do 
+            reserved "to"
+            limit <- naturalLeaf
+            return $ AST.RangeSet
+                { AST.base = base
+                , AST.limit = limit
+                }
+        bitRange base = do
+            reserved "bits"
+            bits <- naturalLeaf
+            return $ AST.BitRangeSet
+                { AST.base = base
+                , AST.bits = bits
+                }
 
--- moduleBody = do
---     ports <- many ports
---     net <- many netSpecs
---     return AST.ModuleBody
---         { AST.ports     = concat ports
---         , AST.moduleNet = concat net
---         }
-
--- ports = choice [inputPorts, outputPorts]
---     where
---         inputPorts = do
---             reserved "input"
---             commaSep1 inDef
---         inDef = do
---             (forFn, portId) <- identifierFor
---             symbol "/"
---             portWidth <- decimal <?> "number of bits"
---             let port = AST.InputPort portId portWidth
---             case forFn of
---                 Nothing -> return port
---                 Just f  -> return $ AST.MultiPort (f port)
---         outputPorts = do
---             reserved "output"
---             commaSep1 outDef
---         outDef = do
---             (forFn, portId) <- identifierFor
---             symbol "/"
---             portWidth <- decimal <?> "number of bits"
---             let port = AST.OutputPort portId portWidth
---             case forFn of
---                 Nothing -> return port
---                 Just f  -> return $ AST.MultiPort (f port)
-
--- netSpecs = choice [ inst <?> "module instantiation"
---                  , decl <?> "node declaration"
---                  ]
---     where
---         inst = do
---             moduleInst <- moduleInst
---             return $ [AST.ModuleInstSpec moduleInst]
---         decl = do
---             nodeDecls <- nodeDecls
---             return $ [AST.NodeDeclSpec decl | decl <- nodeDecls]
-
--- moduleInst = do
---     (name, args) <- try $ do
---         name <- moduleName
---         args <- option [] $ parens (commaSep moduleArg)
---         symbol "as"
---         return (name, args)
---     (forFn, namespace) <- identifierFor
---     portMappings <- option [] $ symbol "with" *> many1 portMapping
---     return $ let
---         moduleInst = AST.ModuleInst
---             { AST.moduleName = name
---             , AST.namespace  = namespace
---             , AST.arguments  = args
---             , AST.portMappings = portMappings
---             }
---         in case forFn of
---             Nothing -> moduleInst
---             Just f  -> AST.MultiModuleInst $ f moduleInst
-
--- moduleArg = choice [numericalArg, paramArg]
---     where
---         numericalArg = do
---             num <- addressLiteral
---             return $ AST.NumericalArg num
---         paramArg = do
---             name <- parameterName
---             return $ AST.ParamArg name
-
--- portMapping = choice [inputMapping, outputMapping]
---     where
---         inputMapping = do
---             (forFn, mappedId) <- try $ identifierFor <* symbol ">"
---             portId <- identifier
---             return $ let
---                 portMap = AST.InputPortMap
---                     { AST.mappedId   = mappedId
---                     , AST.mappedPort = portId
---                     }
---                 in case forFn of
---                     Nothing -> portMap
---                     Just f  -> AST.MultiPortMap $ f portMap
---         outputMapping = do
---             (forFn, mappedId) <- try $ identifierFor <* symbol "<"
---             portId <- identifier
---             return $ let
---                 portMap = AST.OutputPortMap
---                     { AST.mappedId   = mappedId
---                     , AST.mappedPort = portId
---                     }
---                 in case forFn of
---                     Nothing -> portMap
---                     Just f  -> AST.MultiPortMap $ f portMap
-
--- nodeDecls = do
---     nodeIds <- choice [try single, try multiple]
---     nodeSpec <- nodeSpec
---     return $ map (toNodeDecl nodeSpec) nodeIds
---     where
---         single = do
---             nodeId <- identifier
---             reserved "is"
---             return [(Nothing, nodeId)]
---         multiple = do
---             nodeIds <- commaSep1 identifierFor
---             reserved "are"
---             return nodeIds
---         toNodeDecl nodeSpec (forFn, ident) = let
---             nodeDecl = AST.NodeDecl
---                 { AST.nodeId = ident
---                 , AST.nodeSpec = nodeSpec
---                 }
---             in case forFn of
---                 Nothing -> nodeDecl
---                 Just f  -> AST.MultiNodeDecl $ f nodeDecl
-
--- identifier = do
---     (_, ident) <- identifierHelper False
---     return ident
-
--- nodeSpec = do
---     nodeType <- option AST.Other $ try nodeType
---     accept <- option [] accept
---     translate <- option [] tranlsate
---     reserve <- option [] reserve
---     overlay <- optionMaybe overlay
---     return AST.NodeSpec
---         { AST.nodeType  = nodeType
---         , AST.accept    = accept
---         , AST.translate = translate
---         , AST.reserved  = reserve
---         , AST.overlay   = overlay
---         }
---     where
---         accept = do
---             try $ reserved "accept"
---             brackets $ many blockSpec
---         tranlsate = do
---             try $ reserved "map"
---             specs <- brackets $ many mapSpecs
---             return $ concat specs
---         reserve = do
---             try $ reserved "reserved"
---             brackets $ many blockSpec
-
--- nodeType = choice [core, device, memory]
---     where
---         core = do
---             symbol "core"
---             return AST.Core
---         device = do
---             symbol "device"
---             return AST.Device
---         memory = do
---             symbol "memory"
---             return AST.Memory
-
--- blockSpec = do
---     bs <- choice [range, length, singleton]
-
---     return bs
---     where
---         singleton = do
---             address <- address
---             ps <- propSpec
---             return $ AST.SingletonBlock address ps
---         range = do
---             base <- try $ address <* symbol "-"
---             limit <- address
---             ps <- propSpec
---             return $ AST.RangeBlock base limit ps
---         length = do
---             base <- try $ address <* symbol "/"
---             bits <- decimal <?> "number of bits"
---             ps <- propSpec
---             return $ AST.LengthBlock base bits ps
-
--- propSpec = do
---     props <- option [] propList
---     return $ AST.PropSpec props
---     where
---       propList = do
---         symbol "("
---         propIds <- commaSep1 $ propertyName
---         symbol ")"
---         return propIds
-
--- address = choice [address, param]
---     where
---         address = do
---             addr <- addressLiteral
---             return $ AST.LiteralAddress addr
---         param = do
---             name <- parameterName
---             return $ AST.ParamAddress name
-
--- mapSpecs = do
---     block <- blockSpec
---     reserved "to"
---     dests <- commaSep1 $ mapDest
---     return $ map (toMapSpec block) dests
---     where
---         mapDest = do
---             destNode <- identifier
---             destBase <- optionMaybe $ reserved "at" *> address
---             destProps <- propSpec
---             return (destNode, destBase, destProps)
---         toMapSpec block (destNode, destBase, destProps) = AST.MapSpec
---             { AST.block    = block
---             , AST.destNode = destNode
---             , AST.destBase = destBase
---             , AST.destProps = destProps
---             }
-
--- overlay = do
---     reserved "over"
---     over <- identifier
---     symbol "/"
---     width <- decimal <?> "number of bits"
---     return AST.OverlaySpec
---         { AST.over  = over
---         , AST.width = width
---         }
-
--- identifierFor = identifierHelper True
-
--- forVarRange optVarName
---     | optVarName = do
---         var <- option "#" (try $ variableName <* reserved "in")
---         range var
---     | otherwise = do
---         var <- variableName
---         reserved "in"
---         range var
---     where
---         range var = brackets (do
---             start <- index
---             symbol ".."
---             end <- index
---             return AST.ForVarRange
---                 { AST.var   = var
---                 , AST.start = start
---                 , AST.end   = end
---                 }
---             )
---             <?> "range ([a..b])"
---         index = choice [numberIndex, paramIndex]
---         numberIndex = do
---             num <- numberLiteral
---             return $ AST.LiteralLimit num
---         paramIndex = do
---             name <- parameterName
---             return $ AST.ParamLimit name
+naturalLeaf = do
+    value <- natural
+    return (AST.NaturalLeaf $ AST.Literal value)
 
 {- Helper functions -}
 lexer = P.makeTokenParser (
@@ -384,22 +249,23 @@ parens        = P.parens lexer
 brackets      = P.brackets lexer
 braces        = P.braces lexer
 symbol        = P.symbol lexer
-commaSep      = P.commaSep lexer
+commaSep      = P.commaSep lexer 
 commaSep1     = P.commaSep1 lexer
 semiSep       = P.semiSep lexer
 semiSep1      = P.semiSep1 lexer
 identString   = P.identifier lexer
-natural       = P.natural lexer <* whiteSpace
-decimal       = P.decimal lexer <* whiteSpace
+natural       = P.natural lexer
 
 keywords =
     [ "import", "module"
     , "input", "output"
     , "type", "const"
     , "memory", "intr", "power", "clock", "instance"
+    , "of"
     , "forall", "in"
     , "accepts", "maps", "converts", "overlays", "binds"
     , "to", "at"
+    , "bits"
     ]
 
 operators =
@@ -424,8 +290,5 @@ identifierName = ident <?> "identifier"
             rest <- many identLetter
             let ident = start:rest
             if ident `elem` keywords
-                then unexpected $ "reserved word \"" ++ ident ++ "\""
+                then (unexpected $ "reserved word \"" ++ ident ++ "\"")
                 else return ident
-
-numberLiteral  = decimal <?> "number literal"
-addressLiteral = natural <?> "address literal (hex)"
