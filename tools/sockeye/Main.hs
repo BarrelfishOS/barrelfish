@@ -26,16 +26,10 @@ import System.FilePath
 import System.IO
 
 import qualified SockeyeASTParser as ParseAST
-import qualified SockeyeASTTypeChecker as CheckAST
-import qualified SockeyeASTInstantiator as InstAST
-import qualified SockeyeASTDecodingNet as NetAST
+
+import Text.Pretty.Simple (pPrint)
 
 import SockeyeParser
-import SockeyeTypeChecker
-import SockeyeInstantiator
-import SockeyeNetBuilder
-
-import qualified SockeyeBackendProlog as Prolog
 
 {- Exit codes -}
 usageError :: ExitCode
@@ -137,7 +131,7 @@ options =
         "Show help."
     ]
 
-{- evaluates the compiler options -}
+{- Evaluates the compiler options -}
 compilerOpts :: [String] -> IO (Options)
 compilerOpts argv = do
     opts <- case getOpt Permute options argv of
@@ -161,50 +155,8 @@ compilerOpts argv = do
             exitWith $ usageError
         _  -> return opts
 
-{- Parse Sockeye and resolve imports -}
-parseSpec :: [FilePath] -> FilePath -> IO (ParseAST.SockeyeSpec, [FilePath])
-parseSpec inclDirs fileName = do
-    file <- resolveFile fileName
-    specMap <- parseWithImports Map.empty file
-    let
-        specs = Map.elems specMap
-        deps = Map.keys specMap
-        topLevelSpec = specMap Map.! file
-        modules = concat $ map ParseAST.modules specs
-        spec = topLevelSpec
-            { ParseAST.imports = []
-            , ParseAST.modules = modules
-            }
-    return (spec, deps)
-    where
-        parseWithImports importMap importPath = do
-            file <- resolveFile importPath
-            if file `Map.member` importMap
-                then return importMap
-                else do
-                    ast <- parseFile file
-                    let
-                        specMap = Map.insert file ast importMap
-                        imports = ParseAST.imports ast
-                        importFiles = map ParseAST.filePath imports
-                    foldM parseWithImports specMap importFiles
-        resolveFile path = do
-            let
-                subDir = takeDirectory path
-                name = takeFileName path
-                dirs = map (</> subDir) inclDirs
-            file <- findFile dirs name
-            extFile <- findFile dirs (name <.> "soc")
-            case (file, extFile) of
-                (Just f, _) -> return f
-                (_, Just f) -> return f
-                _ -> do
-                    hPutStrLn stderr $ "'" ++ path ++ "' not on import path"
-                    exitWith fileError
-
-
 {- Runs the parser on a single file -}
-parseFile :: FilePath -> IO (ParseAST.SockeyeSpec)
+parseFile :: FilePath -> IO (ParseAST.Sockeye)
 parseFile file = do
     src <- readFile file
     case parseSockeye file src of
@@ -212,48 +164,6 @@ parseFile file = do
             hPutStrLn stderr $ "Parse error at " ++ show err
             exitWith parseError
         Right ast -> return ast
-
-{- Runs the checker -}
-typeCheck :: ParseAST.SockeyeSpec -> IO CheckAST.SockeyeSpec
-typeCheck parsedAst = do
-    case typeCheckSockeye parsedAst of
-        Left fail -> do
-            hPutStr stderr $ show fail
-            exitWith checkError
-        Right intermAst -> return intermAst
-
-instanitateModules :: CheckAST.SockeyeSpec -> IO InstAST.SockeyeSpec
-instanitateModules ast = do
-    case instantiateSockeye ast of
-        Left fail -> do
-            hPutStr stderr $ show fail
-            exitWith buildError
-        Right simpleAST -> return simpleAST
-
-{- Builds the decoding net from the Sockeye AST -}
-buildNet :: InstAST.SockeyeSpec -> Maybe String -> IO NetAST.NetSpec
-buildNet ast rootNs = do
-    case buildSockeyeNet ast rootNs of
-        Left fail -> do
-            hPutStr stderr $ show fail
-            exitWith buildError
-        Right netAst -> return netAst
-
-{- Compiles the AST with the appropriate backend -}
-compile :: Target -> NetAST.NetSpec -> IO String
-compile Prolog ast = return $ Prolog.compile ast
-
-{- Generates a dependency file for GNU make -}
-dependencyFile :: FilePath -> FilePath -> [FilePath] -> IO String
-dependencyFile outFile depFile deps = do
-    let
-        targets = outFile ++ " " ++ depFile ++ ":"
-        lines = targets:deps
-    return $ intercalate " \\\n " lines
-
-{- Outputs the compilation result -}
-output :: FilePath -> String -> IO ()
-output outFile out = writeFile outFile out
 
 main = do
     args <- getArgs
@@ -263,14 +173,5 @@ main = do
         inclDirs = optInclDirs opts
         outFile = optOutputFile opts
         depFile = optDepFile opts
-    (parsedAst, deps) <- parseSpec inclDirs inFile
-    ast <- typeCheck parsedAst
-    instAst <- instanitateModules ast
-    netAst <- buildNet instAst (optRootNs opts)
-    out <- compile (optTarget opts) netAst
-    output outFile out
-    case depFile of
-        Nothing -> return ()
-        Just f  -> do
-            out <- dependencyFile outFile f deps
-            output f out
+    parsedAst <- parseFile inFile
+    pPrint parsedAst

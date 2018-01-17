@@ -13,112 +13,238 @@
     Attn: Systems Group.
 -}
 
-module SockeyeASTParser
-( module SockeyeASTParser
-, module SockeyeASTTypeChecker
-) where
+module SockeyeASTParser where
 
-import SockeyeASTTypeChecker
-    ( Identifier(SimpleIdent, TemplateIdent)
-    , prefix, varName, suffix
-    , ModuleParamType(NaturalParam, AddressParam)
-    , ModuleArg(NumericalArg, ParamArg)
-    , NodeSpec(NodeSpec)
-    , nodeType, accept, translate, reserved, overlay
-    , NodeType(Core, Device, Memory, Other)
-    , BlockSpec(SingletonBlock, RangeBlock, LengthBlock)
-    , PropSpec(PropSpec)
-    , base, limit, bits
-    , MapSpec(MapSpec)
-    , OverlaySpec(OverlaySpec)
-    , over, width
-    , block, destNode, destBase, destProps
-    , Address(LiteralAddress, ParamAddress)
-    , ForLimit(LiteralLimit, ParamLimit)
-    )
-
-data SockeyeSpec = SockeyeSpec
-    { imports :: [Import]
-    , modules :: [Module]
-    , net     :: [NetSpec]
-    } deriving (Show)
-
-data Import = Import
-    { filePath :: !FilePath }
+data Sockeye = Sockeye
+    { modules :: [Module]
+    , types   :: [NamedType]
+    }
     deriving (Show)
 
 data Module = Module
-    { name       :: String
-    , parameters :: [ModuleParam]
-    , moduleBody :: ModuleBody
+    { moduleName :: !String
+    , parameters :: [ModuleParameter]
+    , moduleBody :: [Statement]
     } deriving (Show)
 
-data ModuleParam = ModuleParam
-    { paramName :: !String
-    , paramType :: ModuleParamType
+data ModuleParameter = ModuleParameter
+    { paramName  :: !String
+    , paramRange :: NaturalSet
     } deriving (Show)
 
-data ModuleBody = ModuleBody
-    { ports     :: [Port]
-    , moduleNet :: [NetSpec]
-    } deriving (Show)
-
-data NetSpec
-    = ModuleInstSpec ModuleInst
-    | NodeDeclSpec NodeDecl
+data Statement
+    = DeclStmt
+        { declStmt :: Declaration }
+    | DefStmt 
+        { defStmt :: Definition }
     deriving (Show)
 
-data Port
-    = InputPort
-        { portId    :: Identifier
-        , portWidth :: !Integer
-        }
-    | OutputPort
-        { portId    :: Identifier
-        , portWidth :: !Integer
-        }
-    | MultiPort (For Port)
-    deriving (Show)
-
-data ModuleInst
-    = ModuleInst
-        { moduleName   :: String
-        , namespace    :: Identifier
-        , arguments    :: [ModuleArg]
-        , portMappings :: [PortMap]
-        }
-    | MultiModuleInst (For ModuleInst)
-    deriving (Show)
-
-data PortMap
-    = InputPortMap
-        { mappedId   :: Identifier
-        , mappedPort :: Identifier
-        }
-    | OutputPortMap
-        { mappedId   :: Identifier
-        , mappedPort :: Identifier
-        }
-    | MultiPortMap (For PortMap)
-    deriving (Show)
-
-data NodeDecl
+data Declaration
     = NodeDecl
-        { nodeId   :: Identifier
-        , nodeSpec :: NodeSpec
-        }
-    | MultiNodeDecl (For NodeDecl)
+        { nodeDecl :: NodeDeclaration }
+    | InstanceDecl
+        { instDecl :: InstanceDeclaration }
     deriving (Show)
 
-data For a
-    = For
-        { varRanges :: [ForVarRange]
-        , body      :: a
-        } deriving (Show)
+data NodeDeclaration
+    = SingleNode
+        { nodeKind   :: !NodeKind
+        , nodeOrigin :: Domain
+        , nodeTarget :: Domain
+        , nodeName   :: !String
+        , nodeType   :: AddressType
+        }
+    | ArrayNode
+        { nodeKind    :: !NodeKind
+        , nodeOrigin  :: Domain
+        , nodeTarget  :: Domain
+        , nodeName    :: !String
+        , nodeType    :: AddressType
+        , nodeArrSize :: [NaturalSet]
+        }
+    deriving (Show)
 
-data ForVarRange
-    = ForVarRange
-    { var   :: !String
-    , start :: ForLimit
-    , end   :: ForLimit
+data NodeKind
+    = InputPort
+    | OutputPort
+    | InternalNode
+    deriving (Show)
+
+data InstanceDeclaration
+    = SingleInstance
+        { instanceName   :: !String
+        , instanceModule :: !String
+        }
+    | ArrayInstance
+        { instanceName   :: !String
+        , instanceModule :: !String
+        , instArrSize    :: [NaturalSet]
+        }
+    deriving (Show)
+
+data Definition
+    = Accepts
+    { node   :: UnqualifiedNodeRef
+    , accept :: [AddressBlock]
+    }
+    | Maps
+    { node :: UnqualifiedNodeRef
+    , maps :: [MapSpec]
+    }
+    | Converts
+    { node     :: UnqualifiedNodeRef
+    , converts :: [ConvertSpec]
+    }
+    | Overlays
+    { node     :: UnqualifiedNodeRef
+    , overlays :: NodeReference
+    }
+    | Binds
+    { inst  :: InstReference
+    , binds :: [PortBinding]
+    }
+    | Forall
+        { boundVarName   :: !String
+        , varRange       :: [NaturalSet]
+        , quantifierBody :: [Definition]
+        }
+    deriving (Show)
+
+data MapSpec = MapSpec
+    { mapOrigin   :: AddressBlock
+    , originProps :: PropertyExpr
+    , targetNode  :: NodeReference
+    , mapTarget   :: AddressBlock
+    , targetProps :: PropertyExpr
+    }
+    deriving (Show)
+
+type ConvertSpec = MapSpec
+
+data PortBinding = PortBinding
+    { boundPort :: PortReference
+    , boundNode :: NodeReference
+    }
+    deriving (Show)
+
+data UnqualifiedNodeRef
+    = SingleNodeRef
+        { refName   :: !String }
+    | ArrayNodeRef
+        { refName   :: !String
+        , refRange :: [NaturalSet]
+        }
+    deriving (Show)
+
+type PortReference = UnqualifiedNodeRef
+
+data NodeReference
+    = InternalNodeRef
+        { nodeRef :: UnqualifiedNodeRef }
+    | InputPortRef
+        { nodeRef :: UnqualifiedNodeRef
+        , instRef :: InstReference
+        }
+    deriving (Show)
+
+data InstReference
+    = SingleInstRef
+        { instanceRef :: !String }
+    | ArrayInstRef
+        { instanceRef   :: !String
+        , instanceRange :: [NaturalSet]
+        }
+    deriving (Show)
+
+data Domain
+    = Memory
+    | Interrupt
+    | Power
+    | Clock
+    deriving (Show)
+
+data NamedType = NamedType
+    { typeName  :: !String
+    , namedType :: AddressType
     } deriving (Show)
+
+data NamedConstant = NamedConstant
+    { constName  :: !String
+    , namedConst :: !Integer
+    }
+
+type AddressType = [NaturalSet]
+
+data AddressDimension
+     = SetDimension { addressSet :: NaturalSet }
+     | Wildcard
+     deriving (Show)
+
+type AddressBlock = [AddressDimension]
+
+data NaturalSet
+    = SingletonSet
+        { element  :: NaturalExpr }
+    | SparseSet
+        { elements :: [NaturalExpr] }
+    | Range
+        { base  :: NaturalExpr
+        , limit :: NaturalExpr
+        }
+    | BitRange
+        { base :: NaturalExpr
+        , bits :: NaturalExpr
+        }
+    deriving (Show)
+
+data Natural
+    = Literal
+        { value :: !Integer }
+    | Variable
+        { varName :: !String }
+    deriving (Show)
+
+data NaturalExpr
+    = Addition
+        { nExprOp1 :: NaturalExpr
+        , nExprOp2 :: NaturalExpr
+        }
+    | Subtraction
+        { nExprOp1 :: NaturalExpr
+        , nExprOp2 :: NaturalExpr
+        }
+    | Multiplication
+        { nExprOp1 :: NaturalExpr
+        , nExprOp2 :: NaturalExpr
+        }
+    | Slice
+        { natural  :: Natural
+        , bitRange :: NaturalSet
+        }
+    | ConcatSlice
+        { nExprOp1 :: NaturalExpr
+        , natural  :: Natural
+        , bitRange :: NaturalSet
+        }
+    | NaturalLeaf
+        { natural :: Natural }
+    deriving (Show)
+
+newtype Property = Property
+    { propName :: String }
+    deriving (Show)
+
+data PropertyExpr
+    = And
+        { pExprOp1 :: PropertyExpr
+        , pExprOp2 :: PropertyExpr
+        }
+    | Or
+        { pExprOp1 :: PropertyExpr
+        , pExprOp2 :: PropertyExpr
+        }
+    | Not
+        { pExprOp1 :: PropertyExpr }
+    | PropertyLeaf
+        { property :: Property }
+    deriving (Show)
