@@ -45,11 +45,13 @@ static void dhcpd_timer_callback(void *data)
     st->dhcp_ticks++;
 }
 
+/*
 static void dhcpd_timer_callback_polling(void *data)
 {
     dhcpd_timer_callback(data);
     sys_timeout(DHCP_FINE_TIMER_MSECS, dhcpd_timer_callback_polling, data);
 }
+*/
 
 static bool dhcpd_has_ip(void)
 {
@@ -87,14 +89,10 @@ errval_t dhcpd_start(net_flags_t flags)
     st->dhcp_ticks = 1;
     st->dhcp_running = 1;
 
-    if (flags & NET_FLAGS_POLLING) {
-        sys_timeout(DHCP_FINE_TIMER_MSECS, dhcpd_timer_callback_polling, st);
-    } else {
-        /* DHCP fine timer */
-        err = periodic_event_create(&st->dhcp_timer, st->waitset,
-                                    (DHCP_FINE_TIMER_MSECS * 1000),
-                                    MKCLOSURE(dhcpd_timer_callback, st));
-    }
+    /* DHCP fine timer */
+    err = periodic_event_create(&st->dhcp_timer, st->waitset,
+                                (DHCP_FINE_TIMER_MSECS * 1000),
+                                MKCLOSURE(dhcpd_timer_callback, st));
 
 
     if (err_is_fail(err)) {
@@ -105,6 +103,7 @@ errval_t dhcpd_start(net_flags_t flags)
     if (flags & NET_FLAGS_BLOCKING_INIT) {
         printf("waiting for DHCP to complete \n");
         while (!dhcpd_has_ip()) {
+            // will call event_dispatch()/event_dispatch_nonblock()
             networking_poll();
             if (st->dhcp_ticks > DHCP_TIMEOUT_MSECS / DHCP_FINE_TIMER_MSECS) {
                 dhcpd_stop();
