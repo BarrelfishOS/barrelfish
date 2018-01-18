@@ -148,6 +148,11 @@ errval_t pcid_get_bar_info(struct pcid* pdc, int bar_index, struct pcid_bar_info
 }
 
 errval_t pcid_map_bar(struct pcid* pdc, int bar_index, struct pcid_mapped_bar_info *ret) {
+    struct capref bar_cap = {
+        .slot = PCIARG_SLOT_BAR0 + i,
+        .cnode = pdc->arg_cnode
+    };
+    // TODO map bar
     return SYS_ERR_OK;
 }
 
