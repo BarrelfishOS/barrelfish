@@ -38,7 +38,7 @@
 
 pci_driver{
     %binary: "net_sockets_server",
-    binary: "driverdomain",
+    binary: "e1000n",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'1521, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'107d, function: _, subvendor: _, subdevice: _ },
@@ -57,6 +57,7 @@ pci_driver{
     core_offset: 0,
     multi_instance: 0,
     interrupt_load: 0.75,
+    interrupt_model: ['msix'],
     platforms: ['x86_64', 'x86_32']
 }.
 
