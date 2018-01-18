@@ -85,6 +85,9 @@ errval_t pcid_init(
     errval_t err;
     pdc->ws = ws;
 
+    // all caps that are not Interrupt or PCI_EP
+    pdc->num_bars = caps_len - 2;
+
     {
         struct capref cnodecap;
         err = slot_alloc_root(&cnodecap);
@@ -139,21 +142,35 @@ errval_t pcid_init(
     return SYS_ERR_OK;
 }
 
-size_t pcid_get_bar_num(struct pcid* pdc) {
-    return 0;
-}
+errval_t pcid_get_interrupt_cap(struct pcid* pdc, struct capref *ret) {
 
-errval_t pcid_get_bar_info(struct pcid* pdc, int bar_index, struct pcid_bar_info *ret) {
-    return SYS_ERR_OK;
-}
-
-errval_t pcid_map_bar(struct pcid* pdc, int bar_index, struct pcid_mapped_bar_info *ret) {
-    struct capref bar_cap = {
-        .slot = PCIARG_SLOT_BAR0 + i,
-        .cnode = pdc->arg_cnode
+    
+    struct capref interrupt = {
+        .cnode = pdc->arg_cnode,
+        .slot = PCIARG_SLOT_INT,
     };
-    // TODO map bar
+    
+    *ret = interrupt;
+
     return SYS_ERR_OK;
+}
+
+errval_t pcid_get_bar_cap(struct pcid* pdc, int bar_index, struct capref *ret) {
+
+    assert(bar_index <= pdc->num_bars);
+    struct capref bar = {
+        .cnode = pdc->arg_cnode,
+        .slot = PCIARG_SLOT_BAR0 + bar_index,
+    };
+
+    *ret = bar;
+
+    return SYS_ERR_OK;
+}
+
+int pcid_get_bar_num(struct pcid* pdc)
+{
+    return pdc->num_bars;
 }
 
 errval_t pcid_connect_int(struct pcid* pdc, int int_index,

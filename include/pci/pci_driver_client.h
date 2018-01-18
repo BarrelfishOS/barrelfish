@@ -29,6 +29,7 @@ struct pcid {
     struct pci_id id;
     struct pci_class cls;
     struct int_startup_argument int_arg;
+    size_t num_bars;
 
     // 
     struct cnoderef arg_cnode; // CNode (in local cspace) containing the passed caps
@@ -46,39 +47,13 @@ errval_t pcid_init(
             size_t args_len,
             struct waitset *ws);
 
-
 /**
- * Memory mapped BAR interface
- */
-
-/**
- * Generic data about any (I/O, mapped or unmapped...) bar
- */
-struct pcid_bar_info {
-    uint8_t type;             // 0 = memory BAR, 1 = IO BAR
-    struct  capref phys_cap;  // phys caps 
-    struct  capref frame_cap; // frame caps
-    struct  capref io_cap;    // IO cap (only valid if type == 1)
-    uint8_t bar_nr;           // BAR number
-};
-/**
- * Contains information about a mapped bar
- */
-struct pcid_mapped_bar_info {
-    struct pcid_bar_info info;
-    void *vaddr;        // assigned by the device driver when calling map_device()
-    genpaddr_t paddr;   // physical base address of device
-    uint8_t bits;    // size of a single cap in bits
-    size_t bytes;    // size of entire region in bytes
-    struct memobj *memobj;   
-    struct vregion *vregion; 
-};
-
-size_t pcid_get_bar_num(struct pcid* pdc);
-errval_t pcid_get_bar_info(struct pcid* pdc, int bar_index, struct pcid_bar_info *ret);
-errval_t pcid_map_bar(struct pcid* pdc, int bar_index, struct pcid_mapped_bar_info *ret);
-
-
+ * Getting arguments that were passed by kaluga
+ * \param ws Used for the pci_driver_client binding and interrupts
+ * */
+errval_t pcid_get_interrupt_cap(struct pcid* pdc, struct capref *ret);
+errval_t pcid_get_bar_cap(struct pcid* pdc, int bar_index, struct capref *ret);
+int pcid_get_bar_num(struct pcid* pdc);
 /**
  * Interrupt interface
  */
