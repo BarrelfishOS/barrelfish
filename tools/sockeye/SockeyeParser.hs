@@ -70,6 +70,7 @@ sockeyeModule = do
         , AST.nodeDecls   = nodes
         , AST.definitions = defs
         }
+    <?> "module specification"
 
 moduleParam = do
     range <- parens naturalSet <?> "parameter range"
@@ -84,13 +85,13 @@ moduleBody = do
     return $ foldr splitBody ([], [], [], []) body
     where
         constDecl = do
-            c <- namedConstant <?> "constant declaration"
+            c <- namedConstant
             return $ ConstDecl c
         instDecl = do
-            i <- instanceDeclaration <?> "instance declaration"
+            i <- instanceDeclaration
             return $ InstDecl i
         nodeDecl = do
-            n <- nodeDeclaration <?> "node declaration"
+            n <- nodeDeclaration
             return $ NodeDecl n
         splitBody (ConstDecl c) (cs, is, ns, ds) = (c:cs, is, ns, ds)
         splitBody (InstDecl i)  (cs, is, ns, ds) = (cs, i:is, ns, ds)
@@ -112,6 +113,7 @@ instanceDeclaration = do
             , AST.instanceModule = modName
             , AST.instArrSize = s
             }
+    <?> "instance declaration"
 
 nodeDeclaration = do
     kind <- nodeKind
@@ -141,6 +143,7 @@ nodeDeclaration = do
             , AST.nodeName     = name
             , AST.nodeArrSize  = s 
             }
+    <?> "node declaration"
 
 nodeKind = option AST.InternalNode $ choice [input, output]
     where
@@ -180,6 +183,7 @@ namedType = do
         { AST.typeName  = name
         , AST.namedType = namedType
         }
+    <?> "named type"
 
 namedConstant = do
     reserved "const"
@@ -189,32 +193,33 @@ namedConstant = do
         { AST.constName  = name
         , AST.namedConst = value
         }
+    <?> "namedConstant"
 
 addressType = do
     parens $ semiSep1 naturalSet
 
-naturalSet = do
-    elements <- commaSep1 naturalLeaf
-    if length elements > 1
-        then return $ AST.SparseSet elements
-        else 
-            let base = elements !! 0
-            in choice [range base, bitRange base]
+naturalRange = do
+    base <- naturalLeaf
+    choice [bits base, limit base, singleton base]
+    <?> "range of naturals"
     where
-        range base = do 
-            reserved "to"
-            limit <- naturalLeaf
-            return $ AST.RangeSet
-                { AST.base = base
-                , AST.limit = limit
-                }
-        bitRange base = do
+        bits base = do
             reserved "bits"
             bits <- naturalLeaf
-            return $ AST.BitRangeSet
+            return AST.BitsRange
                 { AST.base = base
                 , AST.bits = bits
                 }
+        limit base = do
+            reserved "to"
+            limit <- naturalLeaf
+            return AST.LimitRange
+                { AST.base = base
+                , AST.limit = limit
+                }
+        singleton base = return $ AST.SingletonRange base
+
+naturalSet = commaSep1 naturalRange <?> "set of naturals"
 
 naturalLeaf = do
     value <- natural

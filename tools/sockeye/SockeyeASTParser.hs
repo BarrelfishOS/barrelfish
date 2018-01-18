@@ -175,20 +175,20 @@ data AddressDimension
 
 type AddressBlock = [AddressDimension]
 
-data NaturalSet
-    = SingletonSet
-        { element  :: NaturalExpr }
-    | SparseSet
-        { elements :: [NaturalExpr] }
-    | RangeSet
+data NaturalRange
+    = SingletonRange
+        { base :: NaturalExpr}
+    | LimitRange
         { base  :: NaturalExpr
         , limit :: NaturalExpr
         }
-    | BitRangeSet
+    | BitsRange
         { base :: NaturalExpr
         , bits :: NaturalExpr
         }
     deriving (Show)
+
+type NaturalSet = [NaturalRange]
 
 data Natural
     = Literal
