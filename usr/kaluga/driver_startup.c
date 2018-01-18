@@ -193,9 +193,6 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
 
     char module_name[100];
     sprintf(module_name, "%s_module", mi->binary);
-    //BEGIN HACK
-    sprintf(module_name, "e1000");
-    //END HACK
 
     struct driver_instance* drv = ddomain_create_driver_instance(module_name, record);
 

@@ -392,21 +392,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         if(err_is_fail(err)){
             USER_PANIC_SKB_ERR(err, "Could not parse SKB output.\n");
         }
-        // HACK
-        if(strcmp(binary_name, "driverdomain") != 0) {
-            KALUGA_DEBUG("HACK Skipping PCI driver startupt for %s\n", binary_name); 
-            return;
-        } else {
-            KALUGA_DEBUG("HACK Starting binary_name=%s\n", binary_name); 
-        }
-        static bool first = true;
-        if(!first){
-            KALUGA_DEBUG("HACK Skipping PCI driver startupt for %s, because "
-                    "already started\n",binary_name); 
-            return;
-        }
-        first = false;
-        //ENDHACK
+
         driver_arg.int_arg.model = int_model_in;
 
         struct module_info* mi = find_module(binary_name);
