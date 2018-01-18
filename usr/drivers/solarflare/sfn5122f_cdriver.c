@@ -1558,24 +1558,25 @@ static void init_card(struct sfn5122f_driver_state* st)
         USER_PANIC("Error: Not enough PCI bars allocated. Can not initialize network device.\n");
     }
 
+    struct capref bar; 
+    lvaddr_t vaddr;
     /* Map first BAR for register access */
-    struct pcid_mapped_bar_info bi;
-    err = pcid_map_bar(&st->pdc, 0, &bi);
+    err = pcid_get_bar_cap(&st->pdc, 0, &bar);
     if (err_is_fail(err)) {
-        USER_PANIC("Error: map_device failed. Can not initialize network device.\n");
+        USER_PANIC("pcid_get_bar_cap failed \n");
     }
 
-    DEBUG("BAR[0] mapped (v=%llx p=%llx l=%llx)\n",
-            (unsigned long long) bi.vaddr,
-            (unsigned long long) bi.paddr,
-            (unsigned long long) bi.bytes);
+    err = map_device_cap(bar, &vaddr);
+    if (err_is_fail(err)) {
+        USER_PANIC("map_device_cap failed \n");
+    }
 
-    sfn5122f_initialize(st->d, (void *) bi.vaddr);
+    sfn5122f_initialize(st->d, (void *) vaddr);
 
-    st->regframe = &bi.info.frame_cap;
+    st->regframe = &bar;
 
     /* Initialize Mackerel binding */
-    st->d_virt = bi.vaddr;
+    st->d_virt = (void*) vaddr;
     assert(st->d != NULL);
 
     // Initialize manager for MSI-X vectors
