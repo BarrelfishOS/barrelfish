@@ -169,8 +169,18 @@ static errval_t e1000_init_msix_client(struct e1000_driver_state * eds) {
     }
 
     E1000_DEBUG("MSIx BAR received. Instantiating ctrl client\n");
-    struct pcid_mapped_bar_info bi;
-    err = pcid_map_bar(&eds->pdc, 2, &bi);
+    struct capref bar2;
+    lvaddr_t vaddr;
+
+    err = pcid_get_bar_cap(&eds->pdc, 2, &bar2);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "pcid_get_bar_cap");
+        E1000_PRINT_ERROR("Error: pcid_get_bar_cap. Will not initialize"
+                " MSIx controller.\n");
+        return err;
+    }
+
+    err = map_device_cap(bar2, &vaddr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "pcid_map_bar");
         E1000_PRINT_ERROR("Error: map_device failed. Will not initialize"
@@ -178,7 +188,7 @@ static errval_t e1000_init_msix_client(struct e1000_driver_state * eds) {
         return err;
     }
 
-    err = msix_client_init_by_args(eds->args_len, eds->args, bi.vaddr);
+    err = msix_client_init_by_args(eds->args_len, eds->args, (void*) vaddr);
     if(err == SYS_ERR_IRQ_INVALID){
         E1000_DEBUG("Card supports MSI-x but legacy interrupt requested by Kaluga");
         return err;
@@ -463,4 +473,4 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
     return SYS_ERR_OK;
 }
 
-DEFINE_MODULE(e1000, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(e1000n_module, init, attach, detach, set_sleep_level, destroy);

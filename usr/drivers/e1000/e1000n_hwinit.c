@@ -18,6 +18,7 @@
 #include "e1000n_hwinit.h"
 
 #include <pci/pci_driver_client.h>
+#include <driverkit/driverkit.h>
 
 
 /*****************************************************************
@@ -770,14 +771,26 @@ void e1000_hwinit(struct e1000_driver_state *eds, int receive_buffers, int trans
         exit(1);
     }
 
-    struct pcid_mapped_bar_info bi;
-    err = pcid_map_bar(&eds->pdc, 0, &bi);
+    struct capref bar;
+    lvaddr_t vaddr;
+
+    err = pcid_get_bar_cap(&eds->pdc, 0, &bar);
     if (err_is_fail(err)) {
-        E1000_PRINT_ERROR("Error: map_device failed. Can not initialize network device.\n");
-        exit(err);
+        DEBUG_ERR(err, "pcid_get_bar_cap");
+        E1000_PRINT_ERROR("Error: pcid_get_bar_cap. Will not initialize"
+                " MSIx controller.\n");
+        exit(1);
     }
 
-    e1000_initialize(&eds->device_inst, (void *) bi.vaddr);
+    err = map_device_cap(bar, &vaddr);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "pcid_map_bar");
+        E1000_PRINT_ERROR("Error: map_device failed. Will not initialize"
+                " MSIx controller.\n");
+        exit(1);
+    }
+
+    e1000_initialize(&eds->device_inst, (void *) vaddr);
     eds->device = &eds->device_inst;
 
 	/*

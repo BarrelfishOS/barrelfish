@@ -24,7 +24,7 @@
                     },
 
 
-  build library { target = "e1000_module",
+  build library { target = "e1000n_module",
                       cFiles = [ "e1000n.c", "e1000n_hwinit.c", "e1000n_helpers.c" ],
                       flounderDefs = [ "octopus", "net_queue_manager" ],
                       mackerelDevices = [ "e1000" ],
@@ -41,14 +41,14 @@
     -- The custom linker script is used to add the section where the modules
     -- are stored.
     build application {
-        target = "e1000",
+        target = "e1000n",
         cFiles = [ "main.c"],
         addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
 
         addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
                                "contmng", "net_device_manager", "bench", "trace", "skb",
                                "spawndomain", "netd" , "net", "lwip2"],
-        addModules = ["e1000_module"],
+        addModules = ["e1000n_module"],
         architectures = ["x86_64"]
     }
 
