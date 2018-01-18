@@ -230,11 +230,13 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
             .cnode = driver_arg->argnode_ref,
             .slot = PCIARG_SLOT_BAR0 + i
         };
+
         if(bars[i].type == 0){
-            cap_copy(bars[i].frame_cap, cap);
+            cap_copy(cap, bars[i].frame_cap);
         } else {
             return KALUGA_ERR_CAP_ACQUIRE;
         }
+
     }
 
     KALUGA_DEBUG("Received %zu bars\n", bars_len);
