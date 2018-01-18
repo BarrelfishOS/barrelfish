@@ -197,7 +197,7 @@ definition = choice [forall, def]
 
 accepts (name, index) = do
     reserved "accepts"
-    brackets blocks
+    blocks <- brackets $ semiSep addressBlock
     let node = case index of
             Nothing -> AST.SingleNodeRef name
             Just i -> AST.ArrayNodeRef
@@ -208,8 +208,6 @@ accepts (name, index) = do
         { AST.node    = node
         , AST.accepts = []
         }
-    where
-        blocks = many (many1 (noneOf "[]") <* optional (brackets blocks))
 
 maps (name, index) = do
     reserved "maps"
@@ -324,6 +322,8 @@ namedConstant = do
     <?> "named constant"
 
 typeLiteral = parens (semiSep1 naturalSet) <?> "type literal"
+
+addressBlock = parens (semiSep1 wildcardSet) <?> "address tuple"
 
 arrayDecl = do
     name <- identifierName
