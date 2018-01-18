@@ -34,5 +34,22 @@
                       --  "int_msix_ctrl" ],
                       architectures = [ "x86_64" ],
                       addCFlags = [ "-DLIBRARY" ]
-                    }
+                    },
+
+    -- Builds a driver domain: Use addModules instead of addLibraries to
+    -- link with driver modules.
+    -- The custom linker script is used to add the section where the modules
+    -- are stored.
+    build application {
+        target = "e1000",
+        cFiles = [ "main.c"],
+        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+
+        addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
+                               "contmng", "net_device_manager", "bench", "trace", "skb",
+                               "spawndomain", "netd" , "net", "lwip2"],
+        addModules = ["e1000_module"],
+        architectures = ["x86_64"]
+    }
+
 ]
