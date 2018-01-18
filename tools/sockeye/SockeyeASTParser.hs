@@ -43,7 +43,7 @@ data InstanceDeclaration
     | ArrayInstance
         { instanceName   :: !String
         , instanceModule :: !String
-        , instArrSize    :: [NaturalSet]
+        , instArrSize    :: ArraySize
         }
     deriving (Show)
 
@@ -51,19 +51,19 @@ data NodeDeclaration
     = SingleNode
         { nodeKind     :: !NodeKind
         , originDomain :: !Domain
-        , originType   :: AddressType
+        , originType   :: NodeType
         , targetDomain :: !Domain
-        , targetType   :: Maybe AddressType
+        , targetType   :: Maybe NodeType
         , nodeName     :: !String
         }
     | ArrayNode
         { nodeKind     :: !NodeKind
         , originDomain :: !Domain
-        , originType   :: AddressType
+        , originType   :: NodeType
         , targetDomain :: !Domain
-        , targetType   :: Maybe AddressType
+        , targetType   :: Maybe NodeType
         , nodeName     :: !String
-        , nodeArrSize  :: [NaturalSet]
+        , nodeArrSize  :: ArraySize
         }
     deriving (Show)
 
@@ -80,10 +80,17 @@ data Domain
     | Clock
     deriving (Show)
 
+data NodeType
+    = TypeLiteral
+        { typeLiteral :: [NaturalSet] }
+    | TypeName
+        { typeRef :: !String }
+    deriving (Show)
+
 data Definition
     = Accepts
-        { node   :: UnqualifiedNodeRef
-        , accept :: [AddressBlock]
+        { node    :: UnqualifiedNodeRef
+        , accepts :: [AddressBlock]
         }
     | Maps
         { node :: UnqualifiedNodeRef
@@ -96,6 +103,11 @@ data Definition
     | Overlays
         { node     :: UnqualifiedNodeRef
         , overlays :: NodeReference
+        }
+    | Instantiates
+        { inst       :: InstReference
+        , instModule :: !String
+        , arguments  :: [NaturalExpr]
         }
     | Binds
         { inst  :: InstReference
@@ -130,16 +142,16 @@ data InstReference
         { instanceRef :: !String }
     | ArrayInstRef
         { instanceRef   :: !String
-        , instanceRange :: [NaturalSet]
+        , instanceRange :: ArrayRange
         }
     deriving (Show)
 
 data UnqualifiedNodeRef
     = SingleNodeRef
-        { refName   :: !String }
+        { refName :: !String }
     | ArrayNodeRef
-        { refName   :: !String
-        , refRange :: [NaturalSet]
+        { refName  :: !String
+        , refRange :: ArrayRange
         }
     deriving (Show)
 
@@ -156,7 +168,7 @@ data NodeReference
 
 data NamedType = NamedType
     { typeName  :: !String
-    , namedType :: AddressType
+    , namedType :: [NaturalSet]
     }
     deriving (Show)
 
@@ -166,14 +178,14 @@ data NamedConstant = NamedConstant
     }
     deriving (Show)
 
-type AddressType = [NaturalSet]
+type AddressBlock = [WildcardSet]
+type Address = [NaturalExpr]
 
-data AddressDimension
-     = SetDimension { addressSet :: NaturalSet }
-     | Wildcard
-     deriving (Show)
+type ArraySize = [NaturalSet]
+type ArrayRange = [WildcardSet]
+type ArrayIndex = [NaturalExpr]
 
-type AddressBlock = [AddressDimension]
+type NaturalSet = [NaturalRange]
 
 data NaturalRange
     = SingletonRange
@@ -188,7 +200,10 @@ data NaturalRange
         }
     deriving (Show)
 
-type NaturalSet = [NaturalRange]
+data WildcardSet
+    = ExplicitSet { set :: NaturalSet }
+    | Wildcard
+    deriving (Show)
 
 data Natural
     = Literal

@@ -81,7 +81,7 @@ moduleParam = do
         }
 
 moduleBody = do
-    body <- many $ choice [constDecl, instDecl, nodeDecl]
+    body <- many $ choice [constDecl, instDecl, nodeDecl, def]
     return $ foldr splitBody ([], [], [], []) body
     where
         constDecl = do
@@ -93,6 +93,9 @@ moduleBody = do
         nodeDecl = do
             n <- nodeDeclaration
             return $ NodeDecl n
+        def = do
+            d <- definition
+            return $ Def d
         splitBody (ConstDecl c) (cs, is, ns, ds) = (c:cs, is, ns, ds)
         splitBody (InstDecl i)  (cs, is, ns, ds) = (cs, i:is, ns, ds)
         splitBody (NodeDecl n)  (cs, is, ns, ds) = (cs, is, n:ns, ds)
@@ -118,11 +121,11 @@ instanceDeclaration = do
 nodeDeclaration = do
     kind <- nodeKind
     originDomain <- domain
-    originType <- addressType
+    originType <- nodeType
     (targetDomain, targetType) <- option (originDomain, Nothing) $ do
         reserved "to"
         d <- domain
-        t <- optionMaybe addressType
+        t <- optionMaybe nodeType
         return (d, t)
     (name, size) <- arrayDecl
     return $ case size of
@@ -169,16 +172,141 @@ domain = choice [memory, intr, power, clock] <?> "domain"
             reserved "clock"
             return AST.Clock
 
-arrayDecl = do
-    name <- identifierName
-    size <- optionMaybe (brackets $ semiSep1 naturalSet)
-    whiteSpace
-    return (name, size)
+nodeType = choice [literal, named]
+    where
+        literal = do
+            t <- typeLiteral
+            return $ AST.TypeLiteral t
+        named = do
+            n <- parens typeName <?> "(<type name>)"
+            return $ AST.TypeName n
+
+
+definition = choice [forall, def]
+    where
+        def = do
+            receiver <- arrayAccess
+            choice
+                [ accepts receiver
+                , maps receiver
+                , converts receiver
+                , overlays receiver
+                , instantiates receiver
+                , binds receiver
+                ]
+
+accepts (name, index) = do
+    reserved "accepts"
+    brackets blocks
+    let node = case index of
+            Nothing -> AST.SingleNodeRef name
+            Just i -> AST.ArrayNodeRef
+                { AST.refName  = name
+                , AST.refRange = i
+                }
+    return AST.Accepts
+        { AST.node    = node
+        , AST.accepts = []
+        }
+    where
+        blocks = many (many1 (noneOf "[]") <* optional (brackets blocks))
+
+maps (name, index) = do
+    reserved "maps"
+    brackets specs
+    let node = case index of
+            Nothing -> AST.SingleNodeRef name
+            Just i -> AST.ArrayNodeRef
+                { AST.refName  = name
+                , AST.refRange = i
+                }
+    return AST.Maps
+        { AST.node = node
+        , AST.maps = []
+        }
+    where
+        specs = many (many1 (noneOf "[]") <* optional (brackets specs))
+
+converts (name, index) = do
+    reserved "converts"
+    brackets specs
+    let node = case index of
+            Nothing -> AST.SingleNodeRef name
+            Just i -> AST.ArrayNodeRef
+                { AST.refName  = name
+                , AST.refRange = i
+                }
+    return AST.Converts
+        { AST.node     = node
+        , AST.converts = []
+        }
+    where
+        specs = many (many1 (noneOf "[]") <* optional (brackets specs))
+
+overlays (name, index) = do
+    reserved "overlays"
+    overlay
+    let node = case index of
+            Nothing -> AST.SingleNodeRef name
+            Just i -> AST.ArrayNodeRef
+                { AST.refName  = name
+                , AST.refRange = i
+                }
+    return AST.Overlays
+        { AST.node     = node
+        , AST.overlays = AST.InternalNodeRef node
+        }
+    where
+        overlay = many (alphaNum <|> oneOf "_.[]") <* whiteSpace
+
+instantiates (name, index) = do
+    reserved "instantiates"
+    modName <- moduleName
+    args <- option [] (parens $ commaSep naturalExpr)
+    let inst = case index of
+            Nothing -> AST.SingleInstRef name
+            Just i -> AST.ArrayInstRef
+                { AST.instanceRef   = name
+                , AST.instanceRange = i
+                }
+    return AST.Instantiates
+        { AST.inst       = inst
+        , AST.instModule = modName
+        , AST.arguments  = args
+    }
+
+binds (name, index) = do
+    reserved "binds"
+    brackets bindings
+    let inst = case index of
+            Nothing -> AST.SingleInstRef name
+            Just i -> AST.ArrayInstRef
+                { AST.instanceRef   = name
+                , AST.instanceRange = i
+                }
+    return AST.Binds
+        { AST.inst  = inst
+        , AST.binds = []
+        }
+    where
+        bindings = many (many1 (noneOf "[]") <* optional (brackets bindings))
+
+forall = do
+    reserved "forall"
+    var <- variableName
+    reserved "in"
+    range <- parens $ semiSep1 naturalSet
+    body <- braces $ many definition
+    return AST.Forall
+        { AST.boundVarName   = var
+        , AST.varRange       = range
+        , AST.quantifierBody = body
+        }
 
 namedType = do
     reserved "type"
     name <- typeName
-    namedType <- addressType
+    namedType <- typeLiteral
     return AST.NamedType
         { AST.typeName  = name
         , AST.namedType = namedType
@@ -193,37 +321,64 @@ namedConstant = do
         { AST.constName  = name
         , AST.namedConst = value
         }
-    <?> "namedConstant"
+    <?> "named constant"
 
-addressType = do
-    parens $ semiSep1 naturalSet
+typeLiteral = parens (semiSep1 naturalSet) <?> "type literal"
+
+arrayDecl = do
+    name <- identifierName
+    size <- optionMaybe (brackets $ semiSep1 naturalSet)
+    whiteSpace
+    return (name, size)
+
+arrayAccess = do
+    name <- identifierName
+    index <- optionMaybe (brackets $ semiSep1 wildcardSet)
+    whiteSpace
+    return (name, index)
+
+naturalSet = commaSep1 naturalRange <?> "set of naturals"
+
+wildcardSet = choice [explicit, wildcard]
+    where
+        explicit = do
+            set <- naturalSet
+            return $ AST.ExplicitSet set
+        wildcard = do
+            reservedOp "*"
+            return AST.Wildcard
 
 naturalRange = do
-    base <- naturalLeaf
+    base <- naturalExpr
     choice [bits base, limit base, singleton base]
     <?> "range of naturals"
     where
         bits base = do
             reserved "bits"
-            bits <- naturalLeaf
+            bits <- naturalExpr
             return AST.BitsRange
                 { AST.base = base
                 , AST.bits = bits
                 }
         limit base = do
             reserved "to"
-            limit <- naturalLeaf
+            limit <- naturalExpr
             return AST.LimitRange
                 { AST.base = base
                 , AST.limit = limit
                 }
         singleton base = return $ AST.SingletonRange base
 
-naturalSet = commaSep1 naturalRange <?> "set of naturals"
+naturalExpr = choice [naturalLeaf]
 
-naturalLeaf = do
-    value <- natural
-    return (AST.NaturalLeaf $ AST.Literal value)
+naturalLeaf = choice [literal, variable]
+    where
+        literal = do
+            value <- natural
+            return (AST.NaturalLeaf $ AST.Literal value)
+        variable = do
+            name <- variableName
+            return (AST.NaturalLeaf $ AST.Variable name)
 
 {- Helper functions -}
 lexer = P.makeTokenParser (
@@ -250,6 +405,7 @@ lexer = P.makeTokenParser (
 
 whiteSpace    = P.whiteSpace lexer
 reserved      = P.reserved lexer
+reservedOp    = P.reservedOp lexer
 parens        = P.parens lexer
 brackets      = P.brackets lexer
 braces        = P.braces lexer
@@ -268,7 +424,8 @@ keywords =
     , "memory", "intr", "power", "clock", "instance"
     , "of"
     , "forall", "in"
-    , "accepts", "maps", "converts", "overlays", "binds"
+    , "accepts", "maps", "converts", "overlays"
+    , "instantiates", "binds"
     , "to", "at"
     , "bits"
     ]
