@@ -11,9 +11,10 @@
 --------------------------------------------------------------------------
 
   [
-  build application { target = "sfn5122f",
+    build library { target = "sfn5122f_module",
                       cFiles = [ "sfn5122f_cdriver.c", "mcdi_rpc.c", "helper.c", 
                                  "buffer_tbl.c" ],
+
                       flounderBindings = [ "sfn5122f_devif", "net_filter"],
                       flounderExtraBindings = [ ("sfn5122f_devif", ["rpcclient"]),  
                                                 ("net_filter", ["rpcclient"])],
@@ -23,10 +24,7 @@
                         ("net_filter",["rpcclient"])
                       ],
                       mackerelDevices = [ "sfn5122f"],
-                      addIncludes  = [ "/lib/net/include/", "/lib/lwip-2.0.2/src/include/" ],
-                      addLibraries = libDeps["netQmng", "pci", "contmng", 
-                                             "net_device_manager", "bench", "trace", "skb",
-                                             "spawndomain", "netd" , "net", "lwip2"]
+                      addIncludes  = [ "/lib/net/include/", "/lib/lwip-2.0.2/src/include/", "/include/lwip2/"]
                     },
 
     build library { target = "devif_backend_solarflare",
@@ -38,7 +36,23 @@
                       mackerelDevices = [ "sfn5122f", "sfn5122f_q"],
                       addLibraries = libDeps ["pci", "skb", "devif_internal"],
                       addIncludes = ["/lib/devif/"]
-                    }
+                    },
+
+    -- Builds a driver domain: Use addModules instead of addLibraries to
+    -- link with driver modules.
+    -- The custom linker script is used to add the section where the modules
+    -- are stored.
+    build application {
+        target = "sfn5122f",
+        cFiles = [ "main.c"],
+        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+
+        addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
+                               "contmng", "net_device_manager", "bench", "trace", "skb",
+                                 "spawndomain", "netd" , "net", "lwip2"],
+        addModules = ["sfn5122f_module"],
+        architectures = ["x86_64"]
+    }
   ]
 
 
