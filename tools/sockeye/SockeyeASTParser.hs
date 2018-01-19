@@ -155,8 +155,8 @@ data NodeReference
     = InternalNodeRef
         { nodeRef :: UnqualifiedRef }
     | InputPortRef
-        { nodeRef :: UnqualifiedRef
-        , instRef :: UnqualifiedRef
+        { instRef :: UnqualifiedRef
+        , nodeRef :: UnqualifiedRef
         }
     deriving (Show)
 
