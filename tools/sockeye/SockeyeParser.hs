@@ -237,13 +237,20 @@ instantiates inst = do
 
 binds inst = do
     reserved "binds"
-    brackets bindings
+    bindings <- brackets $ semiSep portBinding
     return AST.Binds
         { AST.inst  = inst
-        , AST.binds = []
+        , AST.binds = bindings
         }
     where
-        bindings = many (many1 (noneOf "[]") <* optional (brackets bindings))
+        portBinding = do
+            port <- unqualifiedRef
+            reserved "to"
+            node <- nodeReference
+            return AST.PortBinding
+                { AST.boundPort = port
+                , AST.boundNode = node
+                }
 
 forall = do
     reserved "forall"
