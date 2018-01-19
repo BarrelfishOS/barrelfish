@@ -199,23 +199,37 @@ accepts node = do
 
 maps node = do
     reserved "maps"
-    brackets specs
+    maps <- brackets $ semiSep mapSpec
     return AST.Maps
         { AST.node = node
-        , AST.maps = []
+        , AST.maps = maps
         }
-    where
-        specs = many (many1 (noneOf "[]") <* optional (brackets specs))
 
 converts node = do
     reserved "converts"
-    brackets specs
+    converts <- brackets $ semiSep mapSpec
     return AST.Converts
         { AST.node     = node
-        , AST.converts = []
+        , AST.converts = converts
+        }
+
+mapSpec = do
+    addr <- addressBlock
+    reserved "to"
+    targets <- commaSep1 mapTarget
+    return AST.MapSpec
+        { AST.mapAddr    = addr
+        , AST.mapTargets = targets
         }
     where
-        specs = many (many1 (noneOf "[]") <* optional (brackets specs))
+        mapTarget = do
+            node <- nodeReference
+            reserved "at"
+            addr <- addressBlock
+            return AST.MapTarget
+                { AST.targetNode = node
+                , AST.targetAddr = addr
+                }
 
 overlays node = do
     reserved "overlays"

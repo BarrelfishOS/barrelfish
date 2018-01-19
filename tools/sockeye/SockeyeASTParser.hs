@@ -121,8 +121,8 @@ data Definition
     deriving (Show)
 
 data MapSpec = MapSpec
-    { mapOrigin   :: AddressBlock
-    , mapTargets  :: [MapTarget]
+    { mapAddr    :: AddressBlock
+    , mapTargets :: [MapTarget]
     }
     deriving (Show)
 
