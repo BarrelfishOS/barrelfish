@@ -17,6 +17,7 @@ module SockeyeParser
 ( parseSockeye ) where
 
 import Text.Parsec
+import Text.Parsec.Expr
 import qualified Text.Parsec.Token as P
 import Text.Parsec.Language (emptyDef)
 
@@ -48,12 +49,8 @@ sockeyeFile = do
         , AST.types   = types
         }
     where
-        moduleDecl = do
-            m <- sockeyeModule
-            return $ ModuleDecl m
-        typeDecl = do
-            t <- namedType
-            return $ TypeDecl t
+        moduleDecl = fmap ModuleDecl sockeyeModule
+        typeDecl = fmap TypeDecl namedType
         splitDecl (ModuleDecl m) (ms, ts) = (m:ms, ts)
         splitDecl (TypeDecl t)   (ms, ts) = (ms, t:ts)
 
@@ -84,18 +81,10 @@ moduleBody = do
     body <- many $ choice [constDecl, instDecl, nodeDecl, def]
     return $ foldr splitBody ([], [], [], []) body
     where
-        constDecl = do
-            c <- namedConstant
-            return $ ConstDecl c
-        instDecl = do
-            i <- instanceDeclaration
-            return $ InstDecl i
-        nodeDecl = do
-            n <- nodeDeclaration
-            return $ NodeDecl n
-        def = do
-            d <- definition
-            return $ Def d
+        constDecl = fmap ConstDecl namedConstant
+        instDecl = fmap InstDecl instanceDeclaration
+        nodeDecl = fmap NodeDecl nodeDeclaration
+        def = fmap Def definition
         splitBody (ConstDecl c) (cs, is, ns, ds) = (c:cs, is, ns, ds)
         splitBody (InstDecl i)  (cs, is, ns, ds) = (cs, i:is, ns, ds)
         splitBody (NodeDecl n)  (cs, is, ns, ds) = (cs, is, n:ns, ds)
@@ -206,7 +195,7 @@ accepts (name, index) = do
                 }
     return AST.Accepts
         { AST.node    = node
-        , AST.accepts = []
+        , AST.accepts = blocks
         }
 
 maps (name, index) = do
@@ -323,18 +312,22 @@ namedConstant = do
 
 typeLiteral = parens (semiSep1 naturalSet) <?> "type literal"
 
-addressBlock = parens (semiSep1 wildcardSet) <?> "address tuple"
+addressBlock = do
+    addr <- parens (semiSep1 wildcardSet) <?> "address tuple"
+    props <- option AST.True propertyExpr
+    return AST.AddressBlock
+        { AST.addresses  = addr
+        , AST.properties = props
+        }
 
 arrayDecl = do
     name <- identifierName
     size <- optionMaybe (brackets $ semiSep1 naturalSet)
-    whiteSpace
     return (name, size)
 
 arrayAccess = do
     name <- identifierName
     index <- optionMaybe (brackets $ semiSep1 wildcardSet)
-    whiteSpace
     return (name, index)
 
 naturalSet = commaSep1 naturalRange <?> "set of naturals"
@@ -369,16 +362,27 @@ naturalRange = do
                 }
         singleton base = return $ AST.SingletonRange base
 
-naturalExpr = choice [naturalLeaf]
-
-naturalLeaf = choice [literal, variable]
+naturalExpr = buildExpressionParser opTable term <?> "arithmetic expression"
     where
-        literal = do
-            value <- natural
-            return (AST.NaturalLeaf $ AST.Literal value)
-        variable = do
-            name <- variableName
-            return (AST.NaturalLeaf $ AST.Variable name)
+        term = parens naturalExpr <|> fmap AST.Variable variableName <|> fmap AST.Literal natural
+        opTable =
+            [ [ Postfix (brackets naturalSet >>= return . flip AST.Slice) ]
+            , [ Infix (reservedOp "*" >> return AST.Multiplication) AssocLeft ]
+            , [ Infix (reservedOp "+" >> return AST.Addition) AssocLeft
+              , Infix (reservedOp "-" >> return AST.Subtraction) AssocLeft
+              ]
+            , [ Infix (reservedOp "++" >> return AST.Concat) AssocLeft ]
+            ]
+
+propertyExpr = buildExpressionParser opTable term <?> "property expression"
+    where
+        term = parens propertyExpr <|> fmap AST.Property propertyName
+        opTable =
+            [ [ Prefix (reservedOp "!" >> return AST.Not) ]
+            , [ Infix (reservedOp "&&" >> return AST.And) AssocLeft
+              , Infix (reservedOp "||" >> return AST.Or) AssocLeft
+              ]
+            ]
 
 {- Helper functions -}
 lexer = P.makeTokenParser (
@@ -391,7 +395,7 @@ lexer = P.makeTokenParser (
 
         {- Valid identifiers -}
         P.identStart = letter,
-        P.identLetter = identLetter,
+        P.identLetter = alphaNum <|> char '_',
 
         {- comment start and end -}
         P.commentStart = "/*",
@@ -435,22 +439,10 @@ operators =
     , "!", "&&", "||"
     ]
 
-identStart     = letter
-identLetter    = alphaNum <|> char '_'
-
-importPath     = many (identLetter <|> char '/') <* whiteSpace
 typeName       = identString <?> "type name"
 constName      = identString <?> "constant name"
 moduleName     = identString <?> "module name"
 parameterName  = identString <?> "parameter name"
 variableName   = identString <?> "variable name"
 propertyName   = identString <?> "property name"
-identifierName = ident <?> "identifier"
-    where
-        ident = do
-            start <- identStart
-            rest <- many identLetter
-            let ident = start:rest
-            if ident `elem` keywords
-                then (unexpected $ "reserved word \"" ++ ident ++ "\"")
-                else return ident
+identifierName = identString <?> "identifier"

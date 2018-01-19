@@ -178,12 +178,14 @@ data NamedConstant = NamedConstant
     }
     deriving (Show)
 
-type AddressBlock = [WildcardSet]
-type Address = [NaturalExpr]
+data AddressBlock = AddressBlock
+    { addresses  :: [WildcardSet]
+    , properties :: PropertyExpr
+    }
+    deriving (Show)
 
 type ArraySize = [NaturalSet]
 type ArrayRange = [WildcardSet]
-type ArrayIndex = [NaturalExpr]
 
 type NaturalSet = [NaturalRange]
 
@@ -205,13 +207,6 @@ data WildcardSet
     | Wildcard
     deriving (Show)
 
-data Natural
-    = Literal
-        { value :: !Integer }
-    | Variable
-        { varName :: !String }
-    deriving (Show)
-
 data NaturalExpr
     = Addition
         { nExprOp1 :: NaturalExpr
@@ -226,20 +221,17 @@ data NaturalExpr
         , nExprOp2 :: NaturalExpr
         }
     | Slice
-        { natural  :: Natural
-        , bitRange :: NaturalSet
-        }
-    | ConcatSlice
         { nExprOp1 :: NaturalExpr
-        , natural  :: Natural
         , bitRange :: NaturalSet
         }
-    | NaturalLeaf
-        { natural :: Natural }
-    deriving (Show)
-
-newtype Property = Property
-    { propName :: String }
+    | Concat
+        { nExprOp1 :: NaturalExpr
+        , nExprOp2 :: NaturalExpr
+        }
+    | Variable
+        { varName :: !String }
+    | Literal
+        { natural :: !Integer }
     deriving (Show)
 
 data PropertyExpr
@@ -253,6 +245,8 @@ data PropertyExpr
         }
     | Not
         { pExprOp1 :: PropertyExpr }
-    | PropertyLeaf
-        { property :: Property }
+    | Property
+        { property :: !String }
+    | True
+    | False
     deriving (Show)
