@@ -42,8 +42,8 @@ data InstanceDeclaration
         }
     | ArrayInstance
         { instanceName   :: !String
-        , instanceModule :: !String
         , instArrSize    :: ArraySize
+        , instanceModule :: !String
         }
     deriving (Show)
 
@@ -89,28 +89,28 @@ data NodeType
 
 data Definition
     = Accepts
-        { node    :: UnqualifiedNodeRef
+        { node    :: UnqualifiedRef
         , accepts :: [AddressBlock]
         }
     | Maps
-        { node :: UnqualifiedNodeRef
+        { node :: UnqualifiedRef
         , maps :: [MapSpec]
         }
     | Converts
-        { node     :: UnqualifiedNodeRef
+        { node     :: UnqualifiedRef
         , converts :: [ConvertSpec]
         }
     | Overlays
-        { node     :: UnqualifiedNodeRef
+        { node     :: UnqualifiedRef
         , overlays :: NodeReference
         }
     | Instantiates
-        { inst       :: InstReference
+        { inst       :: UnqualifiedRef
         , instModule :: !String
         , arguments  :: [NaturalExpr]
         }
     | Binds
-        { inst  :: InstReference
+        { inst  :: UnqualifiedRef
         , binds :: [PortBinding]
         }
     | Forall
@@ -122,10 +122,13 @@ data Definition
 
 data MapSpec = MapSpec
     { mapOrigin   :: AddressBlock
-    , originProps :: PropertyExpr
-    , targetNode  :: NodeReference
-    , mapTarget   :: AddressBlock
-    , targetProps :: PropertyExpr
+    , mapTargets  :: [MapTarget]
+    }
+    deriving (Show)
+
+data MapTarget = MapTarget
+    { targetNode :: NodeReference
+    , targetAddr :: AddressBlock
     }
     deriving (Show)
 
@@ -137,32 +140,23 @@ data PortBinding = PortBinding
     }
     deriving (Show)
 
-data InstReference
-    = SingleInstRef
-        { instanceRef :: !String }
-    | ArrayInstRef
-        { instanceRef   :: !String
-        , instanceRange :: ArrayRange
-        }
-    deriving (Show)
-
-data UnqualifiedNodeRef
-    = SingleNodeRef
+data UnqualifiedRef
+    = SingleRef
         { refName :: !String }
-    | ArrayNodeRef
+    | ArrayRef
         { refName  :: !String
         , refRange :: ArrayRange
         }
     deriving (Show)
 
-type PortReference = UnqualifiedNodeRef
+type PortReference = UnqualifiedRef
 
 data NodeReference
     = InternalNodeRef
-        { nodeRef :: UnqualifiedNodeRef }
+        { nodeRef :: UnqualifiedRef }
     | InputPortRef
-        { nodeRef :: UnqualifiedNodeRef
-        , instRef :: InstReference
+        { nodeRef :: UnqualifiedRef
+        , instRef :: UnqualifiedRef
         }
     deriving (Show)
 

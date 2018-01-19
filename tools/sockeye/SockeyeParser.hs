@@ -137,6 +137,11 @@ nodeDeclaration = do
             }
     <?> "node declaration"
 
+arrayDecl = do
+    name <- identifierName
+    size <- optionMaybe (brackets $ semiSep1 naturalSet)
+    return (name, size)
+
 nodeKind = option AST.InternalNode $ choice [input, output]
     where
         input = do
@@ -174,7 +179,7 @@ nodeType = choice [literal, named]
 definition = choice [forall, def]
     where
         def = do
-            receiver <- arrayAccess
+            receiver <- unqualifiedRef
             choice
                 [ accepts receiver
                 , maps receiver
@@ -184,29 +189,17 @@ definition = choice [forall, def]
                 , binds receiver
                 ]
 
-accepts (name, index) = do
+accepts node = do
     reserved "accepts"
     blocks <- brackets $ semiSep addressBlock
-    let node = case index of
-            Nothing -> AST.SingleNodeRef name
-            Just i -> AST.ArrayNodeRef
-                { AST.refName  = name
-                , AST.refRange = i
-                }
     return AST.Accepts
         { AST.node    = node
         , AST.accepts = blocks
         }
 
-maps (name, index) = do
+maps node = do
     reserved "maps"
     brackets specs
-    let node = case index of
-            Nothing -> AST.SingleNodeRef name
-            Just i -> AST.ArrayNodeRef
-                { AST.refName  = name
-                , AST.refRange = i
-                }
     return AST.Maps
         { AST.node = node
         , AST.maps = []
@@ -214,15 +207,9 @@ maps (name, index) = do
     where
         specs = many (many1 (noneOf "[]") <* optional (brackets specs))
 
-converts (name, index) = do
+converts node = do
     reserved "converts"
     brackets specs
-    let node = case index of
-            Nothing -> AST.SingleNodeRef name
-            Just i -> AST.ArrayNodeRef
-                { AST.refName  = name
-                , AST.refRange = i
-                }
     return AST.Converts
         { AST.node     = node
         , AST.converts = []
@@ -230,47 +217,27 @@ converts (name, index) = do
     where
         specs = many (many1 (noneOf "[]") <* optional (brackets specs))
 
-overlays (name, index) = do
+overlays node = do
     reserved "overlays"
-    overlay
-    let node = case index of
-            Nothing -> AST.SingleNodeRef name
-            Just i -> AST.ArrayNodeRef
-                { AST.refName  = name
-                , AST.refRange = i
-                }
+    overlay <- nodeReference
     return AST.Overlays
         { AST.node     = node
-        , AST.overlays = AST.InternalNodeRef node
+        , AST.overlays = overlay
         }
-    where
-        overlay = many (alphaNum <|> oneOf "_.[]") <* whiteSpace
 
-instantiates (name, index) = do
+instantiates inst = do
     reserved "instantiates"
     modName <- moduleName
     args <- option [] (parens $ commaSep naturalExpr)
-    let inst = case index of
-            Nothing -> AST.SingleInstRef name
-            Just i -> AST.ArrayInstRef
-                { AST.instanceRef   = name
-                , AST.instanceRange = i
-                }
     return AST.Instantiates
         { AST.inst       = inst
         , AST.instModule = modName
         , AST.arguments  = args
     }
 
-binds (name, index) = do
+binds inst = do
     reserved "binds"
     brackets bindings
-    let inst = case index of
-            Nothing -> AST.SingleInstRef name
-            Just i -> AST.ArrayInstRef
-                { AST.instanceRef   = name
-                , AST.instanceRange = i
-                }
     return AST.Binds
         { AST.inst  = inst
         , AST.binds = []
@@ -289,6 +256,16 @@ forall = do
         , AST.varRange       = range
         , AST.quantifierBody = body
         }
+
+unqualifiedRef = do
+    name <- identifierName
+    index <- optionMaybe (brackets $ semiSep1 wildcardSet)
+    return $ maybe (AST.SingleRef name) (AST.ArrayRef name) index
+
+nodeReference = do
+    ref1 <- unqualifiedRef
+    ref2 <- optionMaybe (reservedOp "." >> unqualifiedRef)
+    return $ maybe (AST.InternalNodeRef ref1) (AST.InputPortRef ref1) ref2
 
 namedType = do
     reserved "type"
@@ -319,16 +296,6 @@ addressBlock = do
         { AST.addresses  = addr
         , AST.properties = props
         }
-
-arrayDecl = do
-    name <- identifierName
-    size <- optionMaybe (brackets $ semiSep1 naturalSet)
-    return (name, size)
-
-arrayAccess = do
-    name <- identifierName
-    index <- optionMaybe (brackets $ semiSep1 wildcardSet)
-    return (name, index)
 
 naturalSet = commaSep1 naturalRange <?> "set of naturals"
 
@@ -437,6 +404,7 @@ keywords =
 operators =
     [ "+", "-", "*", "/", "++"
     , "!", "&&", "||"
+    , "."
     ]
 
 typeName       = identString <?> "type name"
