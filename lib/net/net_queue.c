@@ -40,7 +40,7 @@ static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
                                    bool default_q, bool poll, struct devq **retqueue)
 {
     if (cardname[5] != ':') {
-        return SYS_ERR_OK;
+        return DEVQ_ERR_INIT_QUEUE;
     }
     uint32_t vendor, deviceid, bus, device, function;
     unsigned parsed = sscanf(cardname + 6, "%x:%x:%x:%x:%x", &vendor,
@@ -119,7 +119,7 @@ struct networking_card
 } networking_cards [] = {
     { "loopback", create_loopback_queue},
     { "driver", create_driver_queue},
-    { "e1000", create_e1000_queue},
+    { "e1000n", create_e1000_queue},
     { "mlx4", create_mlx4_queue},
     { "e10k", create_e10k_queue},
     { "sfn5122f", create_sfn5122f_queue},
