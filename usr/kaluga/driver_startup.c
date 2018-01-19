@@ -249,56 +249,37 @@ errval_t start_networking_new(coreid_t where,
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
-
-    if (!(strcmp(driver->binary, "net_sockets_server") == 0)) {
-        
-        err = default_start_function_new(where, driver, record, int_arg);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Spawning %s failed.", driver->path);
-            return err;
-        }
-
-        // cards with driver in seperate process
-        struct module_info* net_sockets = find_module("net_sockets_server");
-        if (net_sockets == NULL) {
-            printf("Net sockets server not found\n");
-            return KALUGA_ERR_DRIVER_NOT_AUTO;
-        }
-
-        uint64_t vendor_id, device_id, bus, dev, fun;
-        err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
-                       &bus, &dev, &fun, &vendor_id, &device_id);
-
-        char* pci_arg_str = malloc(26);
-        snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
-                        PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
-
-        // Spawn net_sockets_server
-        net_sockets->argv[0] = "net_sockets_server";
-        net_sockets->argv[1] = "auto";
-        net_sockets->argv[2] = driver->binary;
-        net_sockets->argv[3] = pci_arg_str;
-
-        err = spawn_program(where, net_sockets->path, net_sockets->argv, environ, 0,
-                            get_did_ptr(net_sockets));
-        free (pci_arg_str);
-    } else {
-        USER_PANIC("NIY e1000 not yet ported to new driver framework");
-        // TODO 
-        /*
-        for (int i = 0; i < driver->argc; i++) {
-            printf("argv[%d]=%s \n", i, driver->argv[i]);
-        }        
-
-        if (!(driver->argc > 2)) {
-            driver->argv[driver->argc] = "e1000";        
-            driver->argc++;
-        }
-
-        // All cards that start the driver by creating a device queue
-        err = default_start_function(core, driver, record, arg);
-        */
+    err = default_start_function_new(where, driver, record, int_arg);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Spawning %s failed.", driver->path);
+        return err;
     }
+
+
+    // cards with driver in seperate process TODO might put into same process
+    struct module_info* net_sockets = find_module("net_sockets_server");
+    if (net_sockets == NULL) {
+        printf("Net sockets server not found\n");
+        return KALUGA_ERR_DRIVER_NOT_AUTO;
+    }
+
+    uint64_t vendor_id, device_id, bus, dev, fun;
+    err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                   &bus, &dev, &fun, &vendor_id, &device_id);
+
+    char* pci_arg_str = malloc(26);
+    snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
+                    PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
+
+    // Spawn net_sockets_server
+    net_sockets->argv[0] = "net_sockets_server";
+    net_sockets->argv[1] = "auto";
+    net_sockets->argv[2] = driver->binary;
+    net_sockets->argv[3] = pci_arg_str;
+
+    err = spawn_program(where, net_sockets->path, net_sockets->argv, environ, 0,
+                        get_did_ptr(net_sockets));
+    free (pci_arg_str); 
 
     return err;
 }
