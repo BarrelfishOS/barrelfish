@@ -53,13 +53,15 @@ errval_t pcid_init(
  * */
 errval_t pcid_get_interrupt_cap(struct pcid* pdc, struct capref *ret);
 errval_t pcid_get_bar_cap(struct pcid* pdc, int bar_index, struct capref *ret);
-int pcid_get_bar_num(struct pcid* pdc);
+size_t pcid_get_bar_num(struct pcid* pdc);
 /**
  * Interrupt interface
  */
 size_t pcid_get_int_num(struct pcid* pdc);
 errval_t pcid_connect_int(struct pcid* pdc, int int_index,
-        interrupt_handler_fn handler, void *st);
+                          interrupt_handler_fn handler, void *st);
+errval_t pcid_connect_int_with_cap(struct capref src_int, int int_index,
+                                   interrupt_handler_fn handler, void *st);
 errval_t pcid_enable_msix(int *num_vectors);
 
 #endif

@@ -168,13 +168,13 @@ errval_t pcid_get_bar_cap(struct pcid* pdc, int bar_index, struct capref *ret) {
     return SYS_ERR_OK;
 }
 
-int pcid_get_bar_num(struct pcid* pdc)
+size_t pcid_get_bar_num(struct pcid* pdc)
 {
     return pdc->num_bars;
 }
 
-errval_t pcid_connect_int(struct pcid* pdc, int int_index,
-        interrupt_handler_fn handler, void *st)
+errval_t pcid_connect_int_with_cap(struct capref int_src, int int_index,
+                                   interrupt_handler_fn handler, void *st)
 {
     errval_t err;
 
@@ -191,6 +191,12 @@ errval_t pcid_connect_int(struct pcid* pdc, int int_index,
         return err;
     }
 
+    return SYS_ERR_OK;
+}
+
+errval_t pcid_connect_int(struct pcid* pdc, int int_index,
+                          interrupt_handler_fn handler, void *st)
+{
     return SYS_ERR_OK;
 }
 
