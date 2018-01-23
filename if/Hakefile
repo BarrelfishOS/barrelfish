@@ -94,6 +94,7 @@
                "xomp_gateway",
                "sfn5122f",
                "sfn5122f_devif",
+               "e1000_devif",
                "descq",
                "ddomain",
                "dcontrol",

@@ -98,19 +98,18 @@
 #define E1000_DEVICE_82546GB_QUAD_COPPER_KSP3 0x10B5
 
 /**
+ * Fixed buffer sizes
+ */
+/* Transmit and receive buffers must be multiples of 8 */
+#define DRIVER_RECEIVE_BUFFERS      (1024 * 16)
+#define DRIVER_TRANSMIT_BUFFERS     (1024 * 16)
+
+/**
  * Initial default values
  */
 
 #define E1000_DEFAULT_INT_THROTTLE_RATE 130
 #define E1000_INT_THROTTLE_RATE_DISABLED 0
-
-/**
- * Fixed buffer sizes
- */
-/* Transmit and receive buffers must be multiples of 8 */
-#define DRIVER_RECEIVE_BUFFERS      (1024 * 8)
-#define DRIVER_TRANSMIT_BUFFERS     (1024 * 8)
-
 
 /**
  * Group definitions for cards that share specification and quirks.
@@ -197,6 +196,10 @@ struct e1000_driver_state {
     bool user_mac_address; /* True if the user specified the MAC address */
     bool use_interrupt; /* don't use card polling mode */
     bool use_force; /* don't attempt to find card force load */
+    bool initialized;
+    bool queue_init_done;
+
+    struct capref regs;
 
     /* e1000 states */
     e1000_t device_inst;
@@ -216,6 +219,7 @@ struct e1000_driver_state {
     /* transmit */
     volatile struct tx_desc *transmit_ring; //set by _hwinit
     struct pbuf_desc pbuf_list_tx[DRIVER_TRANSMIT_BUFFERS];
+    size_t transmit_buffers;
 
     /* receive */
     e1000_rx_bsize_t rx_bsize;
@@ -224,6 +228,7 @@ struct e1000_driver_state {
     uint32_t receive_index;
     uint32_t receive_free;
     void **receive_opaque;
+    size_t receive_buffers;
 };
 
 void e1000_driver_state_init(struct e1000_driver_state * eds);
@@ -235,11 +240,12 @@ bool e1000_supported_device(uint32_t vendor, uint32_t device_id);
 bool e1000_link_up_led_status(struct e1000_driver_state *eds);
 bool e1000_check_link_up(struct e1000_driver_state *eds);
 bool e1000_auto_negotiate_link(struct e1000_driver_state *eds);
-void *alloc_map_frame(vregion_flags_t attr, size_t size, struct capref *retcap);
 void e1000_set_interrupt_throttle(struct e1000_driver_state *eds, uint16_t usec);
 
-void e1000_hwinit(struct e1000_driver_state *eds, int receive_buffers,
-        int transmit_buffers);
+void e1000_hwinit(struct e1000_driver_state *eds);
+
+void e1000_init_queues(struct e1000_driver_state* eds, struct capref rx, 
+                       size_t rx_bufs, struct capref tx, size_t tx_bufs);
 
 /*****************************************************************
  * On the i82541xx GPI_SP2 and GPI_SP3 are merged into one register

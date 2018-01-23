@@ -26,7 +26,8 @@
 
   build library { target = "e1000n_module",
                       cFiles = [ "e1000n.c", "e1000n_hwinit.c", "e1000n_helpers.c" ],
-                      flounderDefs = [ "octopus", "net_queue_manager" ],
+                      flounderBindings = [ "octopus", "e1000_devif" ],
+                      flounderDefs = [ "octopus", "e1000_devif" ],
                       mackerelDevices = [ "e1000" ],
                       addLibraries = libDeps [ "pci_driver_client", 
                         "int_msix_ctrl" ],
@@ -35,6 +36,15 @@
                       architectures = [ "x86_64" ],
                       addCFlags = [ "-DLIBRARY" ]
                     },
+
+    
+    build library { target = "devif_backend_e1000",
+                   cFiles = ["devif_backend_e1000.c", "e1000n_helpers.c"],
+                    flounderBindings = [ "e1000_devif" ],
+                    flounderDefs = [ "e1000_devif" ],
+                    mackerelDevices = ["e1000"],
+                    addLibraries = libDeps ["pci"]
+               },
 
     -- Builds a driver domain: Use addModules instead of addLibraries to
     -- link with driver modules.

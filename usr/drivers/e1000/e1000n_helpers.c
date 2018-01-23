@@ -145,36 +145,6 @@ char * e1000_mac_type_to_str(e1000_mac_type_t mt){
 };
 
 
-/*****************************************************************
- * allocate a single frame, mapping it into our vspace with given
- * attributes
- ****************************************************************/
-void *alloc_map_frame(vregion_flags_t attr, size_t size, struct capref *retcap)
-{
-    struct capref frame;
-    errval_t err;
-    void *va;
-
-    err = frame_alloc(&frame, size, NULL);
-    if (err_is_fail(err)) {
-        E1000_DEBUG("ERROR: frame_alloc failed.\n");
-        return NULL;
-    }
-
-    err = vspace_map_one_frame_attr(&va, size, frame, attr, NULL, NULL);
-
-    if (err_is_fail(err)) {
-        E1000_DEBUG("Error: vspace_map_one_frame failed\n");
-        return NULL;
-    }
-
-    if (retcap != NULL) {
-        *retcap = frame;
-    }
-
-    return va;
-}
-
 cycles_t tscperms;
 
 

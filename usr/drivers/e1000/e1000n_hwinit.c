@@ -693,31 +693,207 @@ static void e1000_set_tipg(struct e1000_driver_state *eds)
 }
 
 /*****************************************************************
- * Configure card transmit
- *
- ****************************************************************/
-static void e1000_configure_tx(struct e1000_driver_state *eds)
-{
-    // TODO: configure_tx
-    if (eds->mac_type >= e1000_82571 && eds->mac_type < e1000_82575) {
-        /* Reset delay timers after every interrupt */
-        e1000_ctrlext_int_tca_wrf(eds->device, 1);
-    }
-
-    /* Set Transmit Inter-Packet Gap (TIPG)*/
-    e1000_set_tipg(eds);
-}
-
-/*****************************************************************
  * Configure device receive
  *
  ****************************************************************/
-static void e1000_configure_rx(struct e1000_driver_state *eds)
+static void e1000_setup_rx(struct e1000_driver_state *device, struct capref rx)
 {
+    e1000_t *hw_device = device->device;
+    struct frame_identity frameid = { .base = 0, .bytes = 0 };
+    errval_t err;
+
+    err = invoke_frame_identify(rx, &frameid);
+    assert(err_is_ok(err));
+
+    /* clear MTA table */
+    for (int i = 0; i < e1000_mta_length; i++) {
+        e1000_mta_wr(hw_device, i, 0);
+    }
+
+    switch (device->mac_type) {
+        case e1000_82576:
+        case e1000_I210:
+        case e1000_I350: {
+            /*  Software should program RDLEN[n] register only when queue is disabled */
+            e1000_rdbal_I350_wr(hw_device, 0, frameid.base & 0xffffffff);
+            e1000_rdbah_I350_wr(hw_device, 0, (frameid.base >> 32) & 0xffffffff);
+            e1000_rdlen_I350_len_wrf(hw_device, 0, (device->receive_buffers / 8));
+
+            /* Initialize receive head and tail pointers */
+            e1000_rdh_I350_wr(hw_device, 0, 0);
+            e1000_rdt_I350_wr(hw_device, 0, 0);
+        } break;
+        default: {
+            /* tell card where receive ring is */
+            e1000_rdbal_wr(hw_device, 0, frameid.base & 0xffffffff);
+            e1000_rdbah_wr(hw_device, 0, (frameid.base >> 32) & 0xffffffff);
+            e1000_rdlen_len_wrf(hw_device, 0, (device->receive_buffers / 8));
+
+            /* Initialize receive head and tail pointers */
+            e1000_rdh_wr(hw_device, 0, 0);
+            e1000_rdt_wr(hw_device, 0, 0);
+        } break;
+    }
+
     /* set buffer size and enable receive unit */
-    e1000_set_rxbsize(eds, eds->rx_bsize);
+    e1000_set_rxbsize(device, bsize_2048);
+
+    /* receive descriptor control */
+    switch (device->mac_type) {
+        case e1000_82575:
+        {
+            e1000_rxdctl_82575_t rxdctl = 0;
+
+            rxdctl = e1000_rxdctl_82575_enable_insert(rxdctl, 1);
+            rxdctl = e1000_rxdctl_82575_wthresh_insert(rxdctl, 1);
+            e1000_rxdctl_82575_wr(hw_device, 0, rxdctl);
+            
+            debug_printf("%s: rxdctl %x\n", __func__, e1000_rxdctl_82575_rd(hw_device, 0));
+        } break;
+        case e1000_82576:
+        case e1000_I210:
+        case e1000_I350: {
+            /* If VLANs are not used, software should clear VFE. */
+            e1000_rctl_vfe_wrf(hw_device, 0);
+
+             /* Set up the MTA (Multicast Table Array) by software. This means
+              * zeroing all entries initially and adding in entries as requested. */
+            for (int i = 0; i < 128; ++i) {
+                e1000_mta_wr(hw_device, i, 0);
+            }
+
+            /* Program SRRCTL of the queue according to the size of the buffers,
+             * the required header handling and the drop policy. */
+            e1000_srrctl_t srrctl = 0;
+            srrctl = e1000_srrctl_bsizeheader_insert(srrctl, 0);
+            e1000_srrctl_wr(hw_device, 0, srrctl);
+
+            /* Enable the queue by setting RXDCTL.ENABLE. In the case of queue zero,
+             * the enable bit is set by default - so the ring parameters should be
+             * set before RCTL.RXEN is set. */
+            e1000_rxdctl_I350_t rxdctl = 0;
+            rxdctl = e1000_rxdctl_I350_enable_insert(rxdctl, 1);
+            rxdctl = e1000_rxdctl_I350_wthresh_insert(rxdctl, 1);
+            e1000_rxdctl_I350_wr(hw_device, 0, rxdctl);
+
+            /* Poll the RXDCTL register until the ENABLE bit is set. The tail should
+             * not be bumped before this bit was read as one. */
+            int timeout = 1000;
+            while (!e1000_rxdctl_I350_enable_rdf(hw_device, 0) && timeout--) {
+                // usec_delay(10);
+            }
+            debug_printf("%s.%d: timeout=%d\n", __func__, __LINE__, timeout);
+            // if (timeout <= 0) {
+            //     E1000_DEBUG("ERROR: failed to enable the RX queue\n");
+            // }
+        } break;
+        default: {
+            e1000_rxdctl_t rxdctl = 0;
+
+            rxdctl = e1000_rxdctl_gran_insert(rxdctl, 1);
+            rxdctl = e1000_rxdctl_wthresh_insert(rxdctl, 1);
+            e1000_rxdctl_wr(hw_device, 0, rxdctl);
+
+            e1000_rfctl_exsten_wrf(hw_device, 0);
+        } break;
+    }
+    
+    debug_printf("%s: rctl:%x  rxdctl:%x\n", __func__, e1000_rctl_rd(hw_device), e1000_rxdctl_rd(hw_device, 0));
 }
 
+/*****************************************************************
+ * Configure card transmit
+ *
+ ****************************************************************/
+
+static void e1000_setup_tx(struct e1000_driver_state *device, struct capref tx)
+{
+    e1000_t *hw_device = device->device;
+    struct frame_identity frameid = { .base = 0, .bytes = 0 };
+    errval_t err;
+
+    err = invoke_frame_identify(tx, &frameid);
+    assert(err_is_ok(err));
+
+    switch (device->mac_type) {
+        case e1000_82576:
+        case e1000_I210:
+        case e1000_I350: {
+            /* Software should program TDLEN[n] register only when queue is disabled */
+            e1000_tdbal_I350_wr(hw_device, 0, frameid.base & 0xffffffff);
+            e1000_tdbah_I350_wr(hw_device, 0, frameid.base >> 32);
+            e1000_tdlen_I350_len_wrf(hw_device, 0, (device->transmit_buffers / 8));
+            e1000_tdh_I350_wr(hw_device, 0, 0);
+            e1000_tdt_I350_wr(hw_device, 0, 0);
+        } break;
+        default: {
+            /* tell card about our transmit ring */
+            e1000_tdbal_wr(hw_device, 0, frameid.base & 0xffffffff);
+            e1000_tdbah_wr(hw_device, 0, frameid.base >> 32);
+            e1000_tdlen_len_wrf(hw_device, 0, (device->transmit_buffers/ 8));
+            e1000_tdh_wr(hw_device, 0, 0);
+            e1000_tdt_wr(hw_device, 0, 0);
+        } break;
+    }
+    
+    /* --------------------- transmit setup --------------------- */
+    switch (device->mac_type) {
+        case e1000_82575:
+        {
+            e1000_txdctl_82575_t txdctl = 0;
+            txdctl = e1000_txdctl_82575_enable_insert(txdctl, 1);
+            txdctl = e1000_txdctl_82575_priority_insert(txdctl, 1);
+            e1000_txdctl_82575_wr(hw_device, 0, txdctl);
+        } break;
+        case e1000_82576:
+        case e1000_I210:
+        case e1000_I350: {
+            /* Program the TXDCTL register with the desired TX descriptor write
+             * back policy. Suggested values are:
+                    — WTHRESH = 1b
+                    — All other fields 0b.
+             */
+            e1000_txdctl_I350_t txdctl = 0;
+            // txdctl = e1000_txdctl_I350_priority_insert(txdctl, 1);
+            txdctl = e1000_txdctl_I350_wthresh_insert(txdctl, 1);
+            e1000_txdctl_I350_wr(hw_device, 0, txdctl);
+
+            /* If needed, set the TDWBAL/TWDBAH to enable head write back */
+            e1000_tdwbal_wr(hw_device, 0, 0);
+            e1000_tdwbah_wr(hw_device, 0, 0);
+
+            /* Enable the queue using TXDCTL.ENABLE (queue zero is enabled by default). */
+            e1000_txdctl_I350_enable_wrf(hw_device, 0, 1);
+        } break;
+        default: {
+            e1000_txdctl_t txdctl = 0;
+            txdctl = e1000_txdctl_gran_insert(txdctl, 1);
+            txdctl = e1000_txdctl_wthresh_insert(txdctl, 1);
+            e1000_txdctl_wr(hw_device, 0, txdctl);
+        } break;
+    }
+    /* enable transmit */
+
+    e1000_tctl_t tctl = 0;
+    tctl = e1000_tctl_ct_insert(tctl, 0xf);
+    tctl = e1000_tctl_en_insert(tctl, 1);
+    tctl = e1000_tctl_psp_insert(tctl, 1);
+    e1000_tctl_wr(hw_device, tctl);
+
+    if (device->mac_type == e1000_82576 || device->mac_type == e1000_I210 || device->mac_type == e1000_I350) {
+            /* Poll the TXDCTL register until the ENABLE bit is set. */
+            int timeout = 1000;
+            while(!e1000_txdctl_I350_enable_rdf(hw_device, 0) && timeout--) {
+                // usec_delay(10);
+            }
+            debug_printf("%s.%d: timeout=%d\n", __func__, __LINE__, timeout);
+            // if (timeout <= 0) {
+            //     E1000_DEBUG("ERROR: failed to enable the TX queue\n");
+            // }
+    }
+    e1000_set_tipg(device);
+    debug_printf("%s: tctl:%x  txdctl:%x\n", __func__, e1000_tctl_rd(hw_device), e1000_txdctl_rd(hw_device, 0));
+}
 /*
  * Set interrupt throttle for all interrupts
  */
@@ -753,14 +929,24 @@ void e1000_set_interrupt_throttle(struct e1000_driver_state *eds, uint16_t usec)
     }
 }
 
+
+void e1000_init_queues(struct e1000_driver_state* eds, struct capref rx, 
+                       size_t rx_bufs, struct capref tx, size_t tx_bufs)
+{
+    eds->transmit_buffers = tx_bufs;
+    eds->receive_buffers = rx_bufs;
+    
+    e1000_setup_tx(eds, tx);
+    
+    e1000_setup_rx(eds, rx);
+}
+
 /*****************************************************************
  * Initialize the hardware
  *
  ****************************************************************/
-void e1000_hwinit(struct e1000_driver_state *eds, int receive_buffers, int transmit_buffers)
+void e1000_hwinit(struct e1000_driver_state *eds)
 {
-    struct frame_identity frameid = { .base = 0, .bytes = 0 };
-    struct capref frame;
     errval_t err;
     int num_bars = pcid_get_bar_num(&eds->pdc);
 
@@ -771,10 +957,9 @@ void e1000_hwinit(struct e1000_driver_state *eds, int receive_buffers, int trans
         exit(1);
     }
 
-    struct capref bar;
     lvaddr_t vaddr;
 
-    err = pcid_get_bar_cap(&eds->pdc, 0, &bar);
+    err = pcid_get_bar_cap(&eds->pdc, 0, &eds->regs);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "pcid_get_bar_cap");
         E1000_PRINT_ERROR("Error: pcid_get_bar_cap. Will not initialize"
@@ -782,7 +967,7 @@ void e1000_hwinit(struct e1000_driver_state *eds, int receive_buffers, int trans
         exit(1);
     }
 
-    err = map_device_cap(bar, &vaddr);
+    err = map_device_cap(eds->regs, &vaddr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "pcid_map_bar");
         E1000_PRINT_ERROR("Error: map_device failed. Will not initialize"
@@ -927,163 +1112,6 @@ void e1000_hwinit(struct e1000_driver_state *eds, int receive_buffers, int trans
 
         e1000_rfctl_exsten_wrf(eds->device, 0);
     }
-
-    /* Allocate and map frame for receive ring */
-    eds->receive_ring = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE,
-                                    sizeof(union rx_desc) * receive_buffers, &frame);
-
-    if (eds->receive_ring == NULL) {
-        E1000_PRINT_ERROR("Error: Failed to allocate map frame.\n");
-        exit(1);
-    }
-
-    err = invoke_frame_identify(frame, &frameid);
-    if (err_is_fail(err)) {
-        E1000_PRINT_ERROR("Error: Failed to invoke frame identify.\n");
-        exit(1);
-    }
-
-    if (eds->mac_type == e1000_I350) {
-        /* If VLANs are not used, software should clear VFE. */
-        e1000_rctl_vfe_wrf(eds->device, 0);
-
-         /* Set up the MTA (Multicast Table Array) by software. This means
-          * zeroing all entries initially and adding in entries as requested. */
-        for (int i = 0; i < 128; ++i) {
-            e1000_mta_wr(eds->device, i, 0);
-        }
-
-        /*  Software should program RDLEN[n] register only when queue is disabled */
-        e1000_rdbal_I350_wr(eds->device, 0, frameid.base & 0xffffffff);
-        e1000_rdbah_I350_wr(eds->device, 0, (frameid.base >> 32) & 0xffffffff);
-        e1000_rdlen_I350_len_wrf(eds->device, 0, (receive_buffers / 8));
-
-        /* Initialize receive head and tail pointers */
-        e1000_rdh_I350_wr(eds->device, 0, 0);
-        e1000_rdt_I350_wr(eds->device, 0, 0);
-
-        /* Program SRRCTL of the queue according to the size of the buffers,
-         * the required header handling and the drop policy. */
-        e1000_srrctl_t srrctl = 0;
-        srrctl = e1000_srrctl_bsizeheader_insert(srrctl, 0);
-        e1000_srrctl_wr(eds->device, 0, srrctl);
-
-        /* Enable the queue by setting RXDCTL.ENABLE. In the case of queue zero,
-         * the enable bit is set by default - so the ring parameters should be
-         * set before RCTL.RXEN is set. */
-        e1000_rxdctl_I350_t rxdctl = 0;
-        rxdctl = e1000_rxdctl_I350_enable_insert(rxdctl, 1);
-        rxdctl = e1000_rxdctl_I350_wthresh_insert(rxdctl, 1);
-        e1000_rxdctl_I350_wr(eds->device, 0, rxdctl);
-
-        /* Poll the RXDCTL register until the ENABLE bit is set. The tail should
-         * not be bumped before this bit was read as one. */
-        uint16_t timeout = 1000;
-        while(!e1000_rxdctl_I350_enable_rdf(eds->device, 0) && timeout--) {
-            usec_delay(10);
-        }
-        if (timeout <= 0) {
-            E1000_DEBUG("ERROR: failed to enable the RX queue\n");
-        }
-
-    } else {
-        /* tell card where receive ring is */
-        e1000_rdbal_wr(eds->device, 0, frameid.base & 0xffffffff);
-        e1000_rdbah_wr(eds->device, 0, (frameid.base >> 32) & 0xffffffff);
-        e1000_rdlen_len_wrf(eds->device, 0, (receive_buffers / 8));
-
-        /* Initialize receive head and tail pointers */
-        e1000_rdh_wr(eds->device, 0, 0);
-        e1000_rdt_wr(eds->device, 0, 0);
-    }
-    e1000_configure_rx(eds);
-
-
-    /* --------------------- transmit setup --------------------- */
-    if (eds->mac_type == e1000_82575
-        || eds->mac_type == e1000_82576
-        || eds->mac_type == e1000_I210) {
-        e1000_txdctl_82575_t txdctl = 0;
-        txdctl = e1000_txdctl_82575_enable_insert(txdctl, 1);
-        txdctl = e1000_txdctl_82575_priority_insert(txdctl, 1);
-        e1000_txdctl_82575_wr(eds->device, 0, txdctl);
-    } else if (eds->mac_type != e1000_I350){
-        e1000_txdctl_t txdctl = 0;
-        txdctl = e1000_txdctl_gran_insert(txdctl, 1);
-        e1000_txdctl_wr(eds->device, 0, txdctl);
-    }
-
-    /* allocate and map frame for transmit ring */
-    eds->transmit_ring = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE,
-                                     sizeof(struct tx_desc) * transmit_buffers, &frame);
-
-    if (eds->transmit_ring == NULL) {
-        E1000_PRINT_ERROR("Error: Failed to allocate map frame.\n");
-        exit(1);
-    }
-
-    err = invoke_frame_identify(frame, &frameid);
-    if (err_is_fail(err)) {
-        E1000_PRINT_ERROR("Error: Failed to invoke frame identify.\n");
-        exit(1);
-    }
-
-    if (eds->mac_type == e1000_I350) {
-        /* Software should program TDLEN[n] register only when queue is disabled */
-        e1000_tdbal_I350_wr(eds->device, 0, frameid.base & 0xffffffff);
-        e1000_tdbah_I350_wr(eds->device, 0, frameid.base >> 32);
-        e1000_tdlen_I350_len_wrf(eds->device, 0, (transmit_buffers / 8));
-        e1000_tdh_I350_wr(eds->device, 0, 0);
-        e1000_tdt_I350_wr(eds->device, 0, 0);
-
-        /* Program the TXDCTL register with the desired TX descriptor write
-         * back policy. Suggested values are:
-                — WTHRESH = 1b
-                — All other fields 0b.
-         */
-        e1000_txdctl_I350_t txdctl = 0;
-        txdctl = e1000_txdctl_I350_priority_insert(txdctl, 1);
-        txdctl = e1000_txdctl_I350_wthresh_insert(txdctl, 1);
-        e1000_txdctl_I350_wr(eds->device, 0, txdctl);
-
-        /* If needed, set the TDWBAL/TWDBAH to enable head write back */
-        e1000_tdwbal_wr(eds->device, 0, 0);
-        e1000_tdwbah_wr(eds->device, 0, 0);
-
-        /* Enable the queue using TXDCTL.ENABLE (queue zero is enabled by default). */
-        e1000_txdctl_I350_enable_wrf(eds->device, 0, 1);
-
-        /* Poll the TXDCTL register until the ENABLE bit is set. */
-        uint16_t timeout = 1000;
-        while(!e1000_txdctl_I350_enable_rdf(eds->device, 0) && timeout--) {
-            usec_delay(10);
-        }
-        if (timeout <= 0) {
-            E1000_DEBUG("ERROR: failed to enable the TX queue\n");
-        }
-
-    } else {
-        /* tell card about our transmit ring */
-        e1000_tdbal_wr(eds->device, 0, frameid.base & 0xffffffff);
-        e1000_tdbah_wr(eds->device, 0, frameid.base >> 32);
-        e1000_tdlen_len_wrf(eds->device, 0, (transmit_buffers / 8));
-        e1000_tdh_wr(eds->device, 0, 0);
-        e1000_tdt_wr(eds->device, 0, 0);
-    }
-    e1000_configure_tx(eds);
-
-    /* enable transmit */
-
-    e1000_tctl_t tctl = 0;
-    if (eds->mac_type == e1000_I350) {
-        tctl = e1000_tctl_ct_insert(tctl, 0xf);
-    } else {
-        tctl = e1000_tctl_ct_insert(tctl, 0x10);
-    }
-    tctl = e1000_tctl_en_insert(tctl, 1);
-    tctl = e1000_tctl_psp_insert(tctl, 1);
-    tctl = e1000_tctl_bst_insert(tctl, 0x40);
-    e1000_tctl_wr(eds->device, tctl);
 
     /* Enable interrupts */
     if (eds->use_interrupt) {

@@ -44,7 +44,7 @@
 #include <driverkit/driverkit.h>
 
 #include <if/octopus_defs.h>
-#include <if/net_queue_manager_defs.h>
+#include <if/e1000_devif_defs.h>
 
 #include <octopus/octopus.h>
 #include <octopus/trigger.h>
@@ -264,7 +264,7 @@ static void e1000_enable_msix(struct e1000_driver_state * eds){
 static void e1000_init_fn(struct e1000_driver_state * eds)
 {
     E1000_DEBUG("Starting hardware initialization.\n");
-    e1000_hwinit(eds, DRIVER_RECEIVE_BUFFERS, DRIVER_TRANSMIT_BUFFERS);
+    e1000_hwinit(eds);
     E1000_DEBUG("Hardware initialization complete.\n");
 
 
@@ -326,19 +326,124 @@ static void e1000_reregister_handler(void *arg)
 
 void e1000_driver_state_init(struct e1000_driver_state * eds){
     memset(eds, 0, sizeof(struct e1000_driver_state));
-    eds->use_interrupt = true;
     eds->mac_type = e1000_undefined;
     eds->user_mac_address = false;
+    //eds->use_interrupt = false;
     eds->use_interrupt = true;
     eds->use_force = false;
+    eds->queue_init_done = false;
 
     eds->rx_bsize = bsize_16384;
+    //eds->rx_bsize = bsize_2048;
 
     eds->minbase = -1;
     eds->maxbase = -1;
 }
 
 
+/******************************************************************************/
+/* Management interface implemetation */
+
+static errval_t cd_create_queue_rpc(struct e1000_devif_binding *b, 
+                                struct capref rx, struct capref tx, bool interrupt, 
+                                uint64_t *mac, struct capref *regs, errval_t* err)
+{
+    struct e1000_driver_state* driver = (struct e1000_driver_state*) b->st;
+
+    assert(driver != NULL);
+
+    if (!driver->queue_init_done) {
+        e1000_init_queues(driver, rx, DRIVER_RECEIVE_BUFFERS, tx, DRIVER_TRANSMIT_BUFFERS);
+    } else {
+        debug_printf("e1000: queue already initalized. \n");
+        return DEVQ_ERR_INIT_QUEUE;
+    }
+    memcpy(mac, driver->mac_address, sizeof(driver->mac_address));
+    *regs = driver->regs;
+    return SYS_ERR_OK;
+}
+
+
+static void cd_create_queue(struct e1000_devif_binding *b, struct capref rx,
+                            struct capref tx, bool interrupt)
+{
+    uint64_t mac = 0;
+    errval_t err = SYS_ERR_OK;
+
+    struct capref regs;
+
+    cd_create_queue_rpc(b, rx, tx, interrupt, &mac, &regs, &err);
+
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, regs, err);
+    assert(err_is_ok(err));
+    printf("cd_create_queue end\n");
+}
+
+static errval_t cd_destroy_queue_rpc(struct e1000_devif_binding *b, errval_t* err)
+{
+    USER_PANIC("NIY \n");
+    return SYS_ERR_OK;
+}
+
+
+static void cd_destroy_queue(struct e1000_devif_binding *b)
+{
+    errval_t err = SYS_ERR_OK;
+
+    cd_destroy_queue_rpc(b, &err);
+
+    err = b->tx_vtbl.destroy_queue_response(b, NOP_CONT, SYS_ERR_OK);
+    assert(err_is_ok(err));
+    printf("cd_destroy_queue end\n");
+}
+
+
+static errval_t connect_devif_cb(void *st, struct e1000_devif_binding *b)
+{
+    printf("New connection on devif management interface\n");
+
+    b->rx_vtbl.create_queue_call = cd_create_queue;
+    b->rx_vtbl.destroy_queue_call = cd_destroy_queue;
+
+    b->rpc_rx_vtbl.create_queue_call = cd_create_queue_rpc;
+    b->rpc_rx_vtbl.destroy_queue_call = cd_destroy_queue_rpc;
+    b->st = st;
+
+    return SYS_ERR_OK;
+}
+
+static void export_devif_cb(void *st, errval_t err, iref_t iref)
+{
+    struct e1000_driver_state* s = (struct e1000_driver_state*) st;
+    const char *suffix = "devif";
+    char name[256];
+
+    assert(err_is_ok(err));
+
+    // Build label for interal management service
+    sprintf(name, "%s_%x_%x_%x_%s", s->service_name, s->pdc.addr.bus, s->pdc.addr.device, 
+            s->pdc.addr.function, suffix);
+
+    err = nameservice_register(name, iref);
+    printf("%s \n", name);
+    printf("%s \n", err_getstring(err));
+    assert(err_is_ok(err));
+    printf("Devif Management interface exported\n");
+    s->initialized = true;
+}
+
+/**
+ * Initialize management interface for queue drivers.
+ * This has to be done _after_ the hardware is initialized.
+ */
+static void initialize_mngif(struct e1000_driver_state* st)
+{
+    errval_t r;
+
+    r = e1000_devif_export(st, export_devif_cb, connect_devif_cb,
+                           get_default_waitset(), 1);
+    assert(err_is_ok(r));
+}
 
 static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
         flags, struct capref* caps, size_t caps_len, char** args, size_t
@@ -362,6 +467,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
 
     eds->args = args;
     eds->args_len = args_len;
+    eds->service_name = "e1000"; // default name
 
     for (int i = 1; i < args_len; i++) {
         E1000_DEBUG("arg %d = %s\n", i, args[i]);
@@ -443,6 +549,8 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
     //E1000_DEBUG("Registered driver.\n");
     if(false) e1000_print_link_status(eds);
 
+    initialize_mngif(eds);
+    
     return SYS_ERR_OK;
 
 err_out:
