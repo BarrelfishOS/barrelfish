@@ -50,6 +50,7 @@ static void add_start_function_overrides(void)
     set_start_function("e10k", start_networking);
     set_start_function("net_sockets_server", start_networking);
     //set_start_function("sfn5122f", start_networking_new);
+    set_start_function("e1000n", start_networking_new);
     set_start_function("sfn5122f", start_networking);
     set_start_function("rtl8029", start_networking);
     set_start_function("corectrl", start_boot_driver);
