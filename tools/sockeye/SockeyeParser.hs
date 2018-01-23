@@ -18,7 +18,6 @@ module SockeyeParser
 
 import Text.Parsec
 import Text.Parsec.Expr
-import Text.Parsec.Expr
 import qualified Text.Parsec.Token as P
 import Text.Parsec.Language (emptyDef)
 
@@ -247,7 +246,7 @@ instantiates inst = do
         , AST.inst       = inst
         , AST.instModule = modName
         , AST.arguments  = args
-    }
+        }
 
 binds inst = do
     pos <- getPosition
@@ -431,11 +430,26 @@ propertyExpr = buildExpressionParser opTable term <?> "property expression"
 {- Helper functions -}
 lexer = P.makeTokenParser (
     emptyDef {
-        {- List of reserved Names -}
-        P.reservedNames = keywords,
+        {- List of reserved names -}
+        P.reservedNames =
+            [ "import", "module"
+            , "input", "output"
+            , "type", "const"
+            , "memory", "intr", "power", "clock", "instance"
+            , "of"
+            , "forall", "in"
+            , "accepts", "maps", "converts", "overlays"
+            , "instantiates", "binds"
+            , "to", "at"
+            , "bits"
+            ],
 
         {- List of operators -}
-        P.reservedOpNames = operators,
+        P.reservedOpNames = 
+            [ "+", "-", "*", "/", "++"
+            , "!", "&&", "||"
+            , "."
+            ],
 
         {- Valid identifiers -}
         P.identStart = letter,
@@ -457,32 +471,12 @@ reservedOp    = P.reservedOp lexer
 parens        = P.parens lexer
 brackets      = P.brackets lexer
 braces        = P.braces lexer
-symbol        = P.symbol lexer
 commaSep      = P.commaSep lexer 
 commaSep1     = P.commaSep1 lexer
 semiSep       = P.semiSep lexer
 semiSep1      = P.semiSep1 lexer
 identString   = P.identifier lexer
 natural       = P.natural lexer
-
-keywords =
-    [ "import", "module"
-    , "input", "output"
-    , "type", "const"
-    , "memory", "intr", "power", "clock", "instance"
-    , "of"
-    , "forall", "in"
-    , "accepts", "maps", "converts", "overlays"
-    , "instantiates", "binds"
-    , "to", "at"
-    , "bits"
-    ]
-
-operators =
-    [ "+", "-", "*", "/", "++"
-    , "!", "&&", "||"
-    , "."
-    ]
 
 typeName       = identString <?> "type name"
 constName      = identString <?> "constant name"
