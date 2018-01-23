@@ -263,14 +263,29 @@ errval_t start_networking_new(coreid_t where,
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
-    uint64_t vendor_id, device_id, bus, dev, fun;
+    // TODO: Determine cls here as well
+    struct pci_id id;
+    struct pci_addr addr;
+    struct pci_class cls = {0,0,0};
+    int64_t vendor_id, device_id, bus, dev, fun;
     err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
-                   &bus, &dev, &fun, &vendor_id, &device_id);
+                    &bus, &dev, &fun,
+                    &vendor_id, &device_id);
 
-    char* pci_arg_str = malloc(26);
-    snprintf(pci_arg_str, 26, "%04"PRIx64":%04"PRIx64":%04"PRIx64":%04"
-                    PRIx64":%04"PRIx64, vendor_id, device_id, bus, dev, fun);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "oct_read");
+        return err;
+    }
+    addr.bus = bus;
+    addr.device = dev;
+    addr.function = fun;
+    id.device = device_id;
+    id.vendor = vendor_id;
 
+    char * pci_arg_str = malloc(PCI_OCTET_LEN);
+    assert(pci_arg_str);
+    pci_serialize_octet(addr, id, cls, pci_arg_str);
+    // TODO PCI octet
     // Spawn net_sockets_server
     net_sockets->argv[0] = "net_sockets_server";
     net_sockets->argv[1] = "auto";
@@ -279,7 +294,6 @@ errval_t start_networking_new(coreid_t where,
 
     err = spawn_program(where, net_sockets->path, net_sockets->argv, environ, 0,
                         get_did_ptr(net_sockets));
-    free (pci_arg_str); 
 
     return err;
 }

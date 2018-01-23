@@ -41,7 +41,6 @@ static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
 {
     errval_t err;
     if (cardname[6] != ':') {
-        printf("Cardname %s \n cardname[5]=%c \n", cardname, cardname[5]);
         return DEVQ_ERR_INIT_QUEUE;
     }
 
@@ -49,8 +48,9 @@ static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
     struct pci_id id;
     struct pci_class cls;
 
-    err = pci_deserialize_octet((char*) cardname+6, &addr, &id, &cls);     
+    err = pci_deserialize_octet((char*) cardname+7, &addr, &id, &cls);     
     if (err_is_fail(err)) {
+        printf("%s \n", cardname+7);
         return DEVQ_ERR_INIT_QUEUE;
     }
 
@@ -75,7 +75,7 @@ static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt, 
     struct pci_id id;
     struct pci_class cls;
 
-    err = pci_deserialize_octet((char*) cardname+6, &addr, &id, &cls);     
+    err = pci_deserialize_octet((char*) cardname+5, &addr, &id, &cls);     
     if (err_is_fail(err)) {
         return DEVQ_ERR_INIT_QUEUE;
     }
