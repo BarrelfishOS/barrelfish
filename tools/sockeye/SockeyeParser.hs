@@ -18,35 +18,38 @@ module SockeyeParser
 
 import Text.Parsec
 import Text.Parsec.Expr
+import Text.Parsec.Expr
 import qualified Text.Parsec.Token as P
 import Text.Parsec.Language (emptyDef)
 
 import qualified SockeyeASTParser as AST
 
 {- Parser main function -}
-parseSockeye :: String -> String -> Either ParseError AST.Sockeye
+parseSockeye :: String -> String -> Either ParseError (AST.Sockeye AST.ParserMeta)
 parseSockeye = parse sockeyeFile
 
 data TopLevel
-    = ModuleDecl AST.Module
-    | TypeDecl AST.NamedType
+    = ModuleDecl (AST.Module AST.ParserMeta)
+    | TypeDecl (AST.NamedType AST.ParserMeta)
 
 data ModuleBody
-    = ConstDecl AST.NamedConstant
-    | InstDecl AST.InstanceDeclaration
-    | NodeDecl AST.NodeDeclaration
-    | Def AST.Definition
+    = ConstDecl (AST.NamedConstant AST.ParserMeta)
+    | InstDecl (AST.InstanceDeclaration AST.ParserMeta)
+    | NodeDecl (AST.NodeDeclaration AST.ParserMeta)
+    | Def (AST.Definition AST.ParserMeta)
 
 {- Sockeye parsing -}
 sockeyeFile = do
     whiteSpace
+    pos <- getPosition
     (modules, types) <- do
         stmts <- many $ choice [moduleDecl, typeDecl]
         return $ foldr splitDecl ([], []) stmts
     eof
     return AST.Sockeye
-        { AST.modules = modules
-        , AST.types   = types
+        { AST.sockeyeMeta = pos
+        , AST.modules     = modules
+        , AST.types       = types
         }
     where
         moduleDecl = fmap ModuleDecl sockeyeModule
@@ -55,14 +58,16 @@ sockeyeFile = do
         splitDecl (TypeDecl t)   (ms, ts) = (ms, t:ts)
 
 sockeyeModule = do
+    pos <- getPosition
     reserved "module"
     name <- moduleName
     params <- option [] (parens $ commaSep moduleParam)
     (consts, insts, nodes, defs) <- braces moduleBody
-    return AST.Module
-        { AST.moduleName  = name
+    return AST.Module 
+        { AST.moduleMeta  = pos
+        , AST.moduleName  = name
         , AST.parameters  = params
-        , AST.constDecls  = consts
+        , AST.constants   = consts
         , AST.instDecls   = insts
         , AST.nodeDecls   = nodes
         , AST.definitions = defs
@@ -70,10 +75,12 @@ sockeyeModule = do
     <?> "module specification"
 
 moduleParam = do
+    pos <- getPosition
     range <- parens naturalSet <?> "parameter range"
     paramName <- parameterName
     return AST.ModuleParameter
-        { AST.paramName = paramName
+        { AST.paramMeta  = pos
+        , AST.paramName  = paramName
         , AST.paramRange = range
         }
 
@@ -91,23 +98,24 @@ moduleBody = do
         splitBody (Def d)       (cs, is, ns, ds) = (cs, is, ns, d:ds)
 
 instanceDeclaration = do
+    pos <- getPosition
     reserved "instance"
-    (name, size) <- arrayDecl
+    name <- identifierName
+    size <- optionMaybe arraySize
     reserved "of"
     modName <- moduleName
     return $ case size of
-        Nothing -> AST.SingleInstance
-            { AST.instanceName   = name
-            , AST.instanceModule = modName
-            }
+        Nothing -> AST.SingleInstance pos name modName
         Just s -> AST.ArrayInstance
-            { AST.instanceName   = name
+            { AST.instDeclMeta = pos
+            , AST.instanceName   = name
             , AST.instanceModule = modName
             , AST.instArrSize = s
             }
     <?> "instance declaration"
 
 nodeDeclaration = do
+    pos <- getPosition
     kind <- nodeKind
     originDomain <- domain
     originType <- nodeType
@@ -116,10 +124,12 @@ nodeDeclaration = do
         d <- domain
         t <- optionMaybe nodeType
         return (d, t)
-    (name, size) <- arrayDecl
+    name <- identifierName
+    size <- optionMaybe arraySize
     return $ case size of
         Nothing -> AST.SingleNode
-            { AST.nodeKind     = kind
+            { AST.nodeDeclMeta = pos
+            , AST.nodeKind     = kind
             , AST.originDomain = originDomain
             , AST.originType   = originType
             , AST.targetDomain = targetDomain
@@ -127,7 +137,8 @@ nodeDeclaration = do
             , AST.nodeName     = name
             }
         Just s -> AST.ArrayNode
-            { AST.nodeKind     = kind
+            { AST.nodeDeclMeta = pos
+            , AST.nodeKind     = kind
             , AST.originDomain = originDomain
             , AST.originType   = originType
             , AST.targetDomain = targetDomain
@@ -136,11 +147,6 @@ nodeDeclaration = do
             , AST.nodeArrSize  = s 
             }
     <?> "node declaration"
-
-arrayDecl = do
-    name <- identifierName
-    size <- optionMaybe (brackets $ semiSep1 naturalSet)
-    return (name, size)
 
 nodeKind = option AST.InternalNode $ choice [input, output]
     where
@@ -151,7 +157,7 @@ nodeKind = option AST.InternalNode $ choice [input, output]
             reserved "output"
             return AST.OutputPort
 
-domain = choice [memory, intr, power, clock] <?> "domain"
+domain = choice [memory, intr, power, clock] <?> "node domain"
     where
         memory = do
             reserved "memory"
@@ -169,12 +175,14 @@ domain = choice [memory, intr, power, clock] <?> "domain"
 nodeType = choice [literal, named]
     where
         literal = do
-            t <- typeLiteral
-            return $ AST.TypeLiteral t
+            pos <- getPosition
+            addrType <- addressType
+            return $ AST.TypeLiteral pos addrType
         named = do
-            n <- parens typeName <?> "(<type name>)"
-            return $ AST.TypeName n
-
+            pos <- getPosition
+            name <- parens typeName
+            return $ AST.TypeName pos name
+            <?> "(<type name>)"
 
 definition = choice [forall, def]
     where
@@ -190,187 +198,235 @@ definition = choice [forall, def]
                 ]
 
 accepts node = do
+    pos <- getPosition
     reserved "accepts"
     blocks <- brackets $ semiSep addressBlock
-    return AST.Accepts
-        { AST.node    = node
-        , AST.accepts = blocks
-        }
+    return $ AST.Accepts pos node blocks
 
 maps node = do
+    pos <- getPosition
     reserved "maps"
     maps <- brackets $ semiSep mapSpec
-    return AST.Maps
-        { AST.node = node
-        , AST.maps = maps
-        }
-
-converts node = do
-    reserved "converts"
-    converts <- brackets $ semiSep mapSpec
-    return AST.Converts
-        { AST.node     = node
-        , AST.converts = converts
-        }
+    return $ AST.Maps pos node maps
 
 mapSpec = do
+    pos <- getPosition
     addr <- addressBlock
     reserved "to"
     targets <- commaSep1 mapTarget
-    return AST.MapSpec
-        { AST.mapAddr    = addr
-        , AST.mapTargets = targets
-        }
+    return $ AST.MapSpec pos addr targets
     where
         mapTarget = do
+            pos <- getPosition
             node <- nodeReference
             reserved "at"
             addr <- addressBlock
-            return AST.MapTarget
-                { AST.targetNode = node
-                , AST.targetAddr = addr
-                }
+            return $ AST.MapTarget pos node addr
+
+converts node = do
+    pos <- getPosition
+    reserved "converts"
+    converts <- brackets $ semiSep convertSpec
+    return $ AST.Converts pos node converts
+
+convertSpec = mapSpec
 
 overlays node = do
+    pos <- getPosition
     reserved "overlays"
     overlay <- nodeReference
-    return AST.Overlays
-        { AST.node     = node
-        , AST.overlays = overlay
-        }
+    return $ AST.Overlays pos node overlay
 
 instantiates inst = do
+    pos <- getPosition
     reserved "instantiates"
     modName <- moduleName
     args <- option [] (parens $ commaSep naturalExpr)
     return AST.Instantiates
-        { AST.inst       = inst
+        { AST.defMeta    = pos
+        , AST.inst       = inst
         , AST.instModule = modName
         , AST.arguments  = args
     }
 
 binds inst = do
+    pos <- getPosition
     reserved "binds"
     bindings <- brackets $ semiSep portBinding
-    return AST.Binds
-        { AST.inst  = inst
-        , AST.binds = bindings
-        }
+    return $ AST.Binds pos inst bindings
     where
         portBinding = do
+            pos <- getPosition
             port <- unqualifiedRef
             reserved "to"
             node <- nodeReference
-            return AST.PortBinding
-                { AST.boundPort = port
-                , AST.boundNode = node
-                }
+            return $ AST.PortBinding pos port node
 
 forall = do
+    pos <- getPosition
     reserved "forall"
     var <- variableName
     reserved "in"
     range <- parens $ semiSep1 naturalSet
     body <- braces $ many definition
     return AST.Forall
-        { AST.boundVarName   = var
+        { AST.defMeta        = pos
+        , AST.boundVarName   = var
         , AST.varRange       = range
         , AST.quantifierBody = body
         }
 
 unqualifiedRef = do
+    pos <- getPosition
     name <- identifierName
-    index <- optionMaybe (brackets $ semiSep1 wildcardSet)
-    return $ maybe (AST.SingleRef name) (AST.ArrayRef name) index
+    index <- optionMaybe $ arrayIndex
+    return $ maybe (AST.SingleRef pos name) (AST.ArrayRef pos name) index
 
 nodeReference = do
+    pos <- getPosition
     ref1 <- unqualifiedRef
-    ref2 <- optionMaybe (reservedOp "." >> unqualifiedRef)
-    return $ maybe (AST.InternalNodeRef ref1) (AST.InputPortRef ref1) ref2
+    ref2 <- optionMaybe $ (reservedOp "." >> unqualifiedRef)
+    return $ maybe (AST.InternalNodeRef pos ref1) (AST.InputPortRef pos ref1) ref2
 
 namedType = do
+    pos <- getPosition
     reserved "type"
     name <- typeName
-    namedType <- typeLiteral
-    return AST.NamedType
-        { AST.typeName  = name
-        , AST.namedType = namedType
-        }
+    addrType <- addressType
+    return $ AST.NamedType pos name addrType
     <?> "named type"
 
 namedConstant = do
+    pos <- getPosition
     reserved "const"
     name <- constName
     value <- natural
-    return AST.NamedConstant
-        { AST.constName  = name
-        , AST.namedConst = value
-        }
+    return $ AST.NamedConstant pos name value
     <?> "named constant"
 
-typeLiteral = parens (semiSep1 naturalSet) <?> "type literal"
+addressType = do
+    pos <- getPosition
+    addrType <- parens $ semiSep1 naturalSet
+    return $ AST.AddressType pos addrType
+    <?> "address type literal"
+
+address = do
+    pos <- getPosition 
+    addr <- parens $ semiSep1 wildcardSet
+    return $ AST.Address pos addr
+    <?> "address tuple"
 
 addressBlock = do
-    addr <- parens (semiSep1 wildcardSet) <?> "address tuple"
+    pos <- getPosition
+    addr <- address
     props <- option AST.True propertyExpr
-    return AST.AddressBlock
-        { AST.addresses  = addr
-        , AST.properties = props
-        }
+    return $ AST.AddressBlock pos addr props
 
-naturalSet = commaSep1 naturalRange <?> "set of naturals"
+arraySize = do
+    pos <- getPosition
+    size <- brackets $ semiSep1 naturalSet
+    return $ AST.ArraySize pos size
+    <?> "array size"
 
-wildcardSet = choice [explicit, wildcard]
+arrayIndex = do
+    pos <- getPosition
+    index <- brackets $ semiSep1 wildcardSet
+    return $ AST.ArrayIndex pos index
+    <?> "array index"
+
+naturalSet = do
+    pos <- getPosition
+    ranges <- commaSep1 naturalRange
+    return $ AST.NaturalSet pos ranges
+    <?> "set of naturals"
+
+wildcardSet = choice [wildcard, explicit]
     where
         explicit = do
+            pos <- getPosition
             set <- naturalSet
-            return $ AST.ExplicitSet set
+            return $ AST.ExplicitSet pos set
         wildcard = do
             reservedOp "*"
             return AST.Wildcard
 
 naturalRange = do
+    pos <- getPosition
     base <- naturalExpr
-    choice [bits base, limit base, singleton base]
+    choice [bits pos base, limit pos base, singleton pos base]
     <?> "range of naturals"
     where
-        bits base = do
+        bits pos base = do
             reserved "bits"
             bits <- naturalExpr
-            return AST.BitsRange
-                { AST.base = base
-                , AST.bits = bits
-                }
-        limit base = do
+            return $ AST.BitsRange pos base bits
+        limit pos base = do
             reserved "to"
             limit <- naturalExpr
-            return AST.LimitRange
-                { AST.base = base
-                , AST.limit = limit
-                }
-        singleton base = return $ AST.SingletonRange base
+            return $ AST.LimitRange pos base limit
+        singleton pos base = return $ AST.SingletonRange pos base
 
 naturalExpr = buildExpressionParser opTable term <?> "arithmetic expression"
     where
-        term = parens naturalExpr <|> fmap AST.Variable variableName <|> fmap AST.Literal natural
+        term = parens naturalExpr <|> var <|> lit
         opTable =
-            [ [ Postfix (brackets naturalSet >>= return . flip AST.Slice) ]
-            , [ Infix (reservedOp "*" >> return AST.Multiplication) AssocLeft ]
-            , [ Infix (reservedOp "+" >> return AST.Addition) AssocLeft
-              , Infix (reservedOp "-" >> return AST.Subtraction) AssocLeft
-              ]
-            , [ Infix (reservedOp "++" >> return AST.Concat) AssocLeft ]
+            [ [ Postfix slice ]
+            , [ Infix mult AssocLeft ]
+            , [ Infix add AssocLeft, Infix sub AssocLeft ]
+            , [ Infix concat AssocLeft ]
             ]
+        var = do
+            pos <- getPosition
+            name <- variableName
+            return $ AST.Variable pos name
+        lit = do
+            pos <- getPosition
+            value <- natural
+            return $ AST.Literal pos value
+        slice = do
+            pos <- getPosition
+            range <- brackets naturalSet
+            return $ flip (AST.Slice pos) range
+        mult = do
+            pos <- getPosition
+            reservedOp "*"
+            return $ AST.Multiplication pos
+        add = do
+            pos <- getPosition
+            reservedOp "+"
+            return $ AST.Addition pos
+        sub = do
+            pos <- getPosition
+            reservedOp "-"
+            return $ AST.Subtraction pos
+        concat = do
+            pos <- getPosition
+            reservedOp "++"
+            return $ AST.Concat pos
 
 propertyExpr = buildExpressionParser opTable term <?> "property expression"
     where
-        term = parens propertyExpr <|> fmap AST.Property propertyName
+        term = parens propertyExpr <|> prop
         opTable =
-            [ [ Prefix (reservedOp "!" >> return AST.Not) ]
-            , [ Infix (reservedOp "&&" >> return AST.And) AssocLeft
-              , Infix (reservedOp "||" >> return AST.Or) AssocLeft
-              ]
+            [ [ Prefix not ]
+            , [ Infix and AssocLeft, Infix or AssocLeft ]
             ]
+        prop = do
+            pos <- getPosition
+            name <- propertyName
+            return $ AST.Property pos name
+        not = do
+            pos <- getPosition
+            reservedOp "!"
+            return $ AST.Not pos
+        and = do
+            pos <- getPosition
+            reservedOp "&&"
+            return $ AST.And pos
+        or = do
+            pos <- getPosition
+            reservedOp "||"
+            return $ AST.Or pos
 
 {- Helper functions -}
 lexer = P.makeTokenParser (

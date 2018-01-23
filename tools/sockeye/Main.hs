@@ -156,7 +156,7 @@ compilerOpts argv = do
         _  -> return opts
 
 {- Runs the parser on a single file -}
-parseFile :: FilePath -> IO (ParseAST.Sockeye)
+parseFile :: FilePath -> IO (ParseAST.Sockeye ParseAST.ParserMeta)
 parseFile file = do
     src <- readFile file
     case parseSockeye file src of
