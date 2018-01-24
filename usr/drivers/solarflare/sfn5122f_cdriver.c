@@ -129,7 +129,7 @@ struct sfn5122f_driver_state {
     //sfn5122f_msix_t *d_msix;
     uint64_t d_mac[2];
     bool initialized;    
-    struct capref *regframe;
+    struct capref regframe;
     /* Interrupt state  */
     struct capref int_ker;
     void* int_ker_virt;
@@ -1271,7 +1271,7 @@ static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct cap
 
     err = slot_alloc(regs);
     assert(err_is_ok(err));
-    err = cap_copy(*regs, *(st->regframe));
+    err = cap_copy(*regs, st->regframe);
     assert(err_is_ok(err));
 
     *ret_err = SYS_ERR_OK;
@@ -1557,23 +1557,19 @@ static void init_card(struct sfn5122f_driver_state* st)
     if (num_bars < 1) {
         USER_PANIC("Error: Not enough PCI bars allocated. Can not initialize network device.\n");
     }
-
-    struct capref bar; 
     lvaddr_t vaddr;
     /* Map first BAR for register access */
-    err = pcid_get_bar_cap(&st->pdc, 0, &bar);
+    err = pcid_get_bar_cap(&st->pdc, 0, &st->regframe);
     if (err_is_fail(err)) {
         USER_PANIC("pcid_get_bar_cap failed \n");
     }
 
-    err = map_device_cap(bar, &vaddr);
+    err = map_device_cap(st->regframe, &vaddr);
     if (err_is_fail(err)) {
         USER_PANIC("map_device_cap failed \n");
     }
 
     sfn5122f_initialize(st->d, (void *) vaddr);
-
-    st->regframe = &bar;
 
     /* Initialize Mackerel binding */
     st->d_virt = (void*) vaddr;
