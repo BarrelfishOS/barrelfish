@@ -48,16 +48,14 @@ static void add_start_function_overrides(void)
 {
 
     set_start_function("e10k", start_networking);
-    set_start_function("net_sockets_server", start_networking);
-    //set_start_function("sfn5122f", start_networking_new);
+    set_start_function("sfn5122f", start_networking_new);
     set_start_function("e1000n", start_networking_new);
-    set_start_function("sfn5122f", start_networking);
     set_start_function("rtl8029", start_networking);
     set_start_function("corectrl", start_boot_driver);
 #ifdef __ARM_ARCH_7A__
     set_start_function("driverdomain", newstyle_start_function);
 #endif
-    set_start_function("driverdomain", default_start_function_new);
+    //set_start_function("driverdomain", default_start_function_new);
 }
 
 static void parse_arguments(int argc, char** argv, char ** add_device_db_file, size_t *cpu_count)
