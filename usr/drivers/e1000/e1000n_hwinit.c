@@ -1082,6 +1082,8 @@ void e1000_hwinit(struct e1000_driver_state *eds)
     E1000_DEBUG("MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
                 mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
 
+    memcpy(eds->mac_address, mac_addr, 6);
+
     /* clear all other filers (clear high-to-low (13.4.3)) */
     for (int i = 1; i < e1000_ral_length; i++) {
         e1000_rah_wr(eds->device, i, 0);

@@ -268,17 +268,19 @@ static void e1000_init_fn(struct e1000_driver_state * eds)
     E1000_DEBUG("Hardware initialization complete.\n");
 
 
-    errval_t err = e1000_init_msix_client(eds);
-    if(err_is_ok(err)){
-        // Can use MSIX
-        E1000_DEBUG("Successfully instantiated MSIx, setup int routing\n");
-        e1000_enable_msix(eds);
+    if (eds->extendend_interrupts) {
+        errval_t err = e1000_init_msix_client(eds);
+        if(err_is_ok(err)){
+            // Can use MSIX
+            E1000_DEBUG("Successfully instantiated MSIx, setup int routing\n");
+            e1000_enable_msix(eds);
+        }
+        err = pcid_connect_int(&eds->pdc, 0, e1000_interrupt_handler_fn, eds);
+
+        test_instr_init(eds);
     }
-    err = pcid_connect_int(&eds->pdc, 0, e1000_interrupt_handler_fn, eds);
 
     setup_internal_memory(eds);
-
-    test_instr_init(eds);
 }
 
 
@@ -376,7 +378,6 @@ static void cd_create_queue(struct e1000_devif_binding *b, struct capref rx,
 
     err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, regs, err);
     assert(err_is_ok(err));
-    printf("cd_create_queue end\n");
 }
 
 static errval_t cd_destroy_queue_rpc(struct e1000_devif_binding *b, errval_t* err)
@@ -394,13 +395,11 @@ static void cd_destroy_queue(struct e1000_devif_binding *b)
 
     err = b->tx_vtbl.destroy_queue_response(b, NOP_CONT, SYS_ERR_OK);
     assert(err_is_ok(err));
-    printf("cd_destroy_queue end\n");
 }
 
 
 static errval_t connect_devif_cb(void *st, struct e1000_devif_binding *b)
 {
-    printf("New connection on devif management interface\n");
 
     b->rx_vtbl.create_queue_call = cd_create_queue;
     b->rx_vtbl.destroy_queue_call = cd_destroy_queue;
@@ -425,10 +424,7 @@ static void export_devif_cb(void *st, errval_t err, iref_t iref)
             s->pdc.addr.function, suffix);
 
     err = nameservice_register(name, iref);
-    printf("%s \n", name);
-    printf("%s \n", err_getstring(err));
     assert(err_is_ok(err));
-    printf("Devif Management interface exported\n");
     s->initialized = true;
 }
 

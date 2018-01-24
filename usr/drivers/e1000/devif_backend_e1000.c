@@ -71,7 +71,6 @@ static errval_t e1000_register(struct devq* q, struct capref cap,
 static errval_t e1000_deregister(struct devq* q, regionid_t rid)
 {
     e1000_queue_t *device = (e1000_queue_t *)q;
-    debug_printf("%s:%s:\n", device->name, __func__);
     return SYS_ERR_OK;
 }
 
@@ -80,7 +79,6 @@ static errval_t e1000_control(struct devq* q, uint64_t cmd, uint64_t value,
                                  uint64_t *result)
 {
     e1000_queue_t *device = (e1000_queue_t *)q;
-    debug_printf("%s:%s:\n", device->name, __func__);
     *result = device->mac_address;
     return SYS_ERR_OK;
 }
@@ -143,7 +141,7 @@ static errval_t e1000_enqueue_tx(e1000_queue_t *device, regionid_t rid,
 {
     struct tx_desc tdesc;
 
-    // debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", device->name, __func__, offset, length, valid_data, valid_length, flags);
+    //debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", device->name, __func__, offset, length, valid_data, valid_length, flags);
     // debug_print_to_log("ENQTX %d", valid_length);
 
     if (device->advanced_descriptors == 3) {
@@ -208,7 +206,7 @@ static errval_t e1000_dequeue_tx(e1000_queue_t *device, regionid_t* rid, genoffs
     *flags = NETIF_TXFLAG | NETIF_TXFLAG_LAST;
     
     // debug_print_to_log("DEQTX %d", *valid_length);
-    // debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", device->name, __func__, *offset, *length, *valid_data, *valid_length, *flags);
+    //debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", device->name, __func__, *offset, *length, *valid_data, *valid_length, *flags);
 
     return SYS_ERR_OK;
 }
@@ -394,7 +392,6 @@ errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t device
         return err;
     }
 
-    printf("Queue setup done\n");
     err = invoke_frame_identify(device->regs, &id);
     if (err_is_fail(err)) {
         return err;
