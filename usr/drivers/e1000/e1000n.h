@@ -199,6 +199,10 @@ struct e1000_driver_state {
     bool initialized;
     bool queue_init_done;
 
+    bool msix;
+    bool extended_interrupts;
+    unsigned advanced_descriptors; // 0 - none, 1 - 82572/4, 3 - 82576/i210/i350
+
     struct capref regs;
 
     /* e1000 states */
@@ -234,6 +238,7 @@ struct e1000_driver_state {
 void e1000_driver_state_init(struct e1000_driver_state * eds);
 
 
+bool e1000_supports_msix(e1000_mac_type_t mt);
 e1000_mac_type_t e1000_get_mac_type(uint32_t vendor, uint32_t device_id);
 char * e1000_mac_type_to_str(e1000_mac_type_t mt);
 bool e1000_supported_device(uint32_t vendor, uint32_t device_id);

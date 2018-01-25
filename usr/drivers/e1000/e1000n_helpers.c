@@ -144,6 +144,19 @@ char * e1000_mac_type_to_str(e1000_mac_type_t mt){
     return names[mt];
 };
 
+bool e1000_supports_msix(e1000_mac_type_t mt)
+{
+        switch (mt) {
+        case e1000_82575:
+        case e1000_82576:
+        //case e1000_I350:
+        case e1000_I210:
+            return true;
+        default:
+            return false;
+        }
+}
+
 
 cycles_t tscperms;
 
