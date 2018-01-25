@@ -219,6 +219,8 @@ static void e1000_interrupt_handler_fn(void *arg)
 //    printf("#### interrupt handler called: %"PRIu64"\n", interrupt_counter);
     ++interrupt_counter;
 
+    printf("########################## Interrupt handler ######################################\n");
+
     if (e1000_intreg_lsc_extract(icr) != 0) {
         if (e1000_check_link_up(eds)) {
             e1000_auto_negotiate_link(eds);
@@ -287,8 +289,9 @@ static void e1000_init_fn(struct e1000_driver_state * device)
     E1000_DEBUG("Hardware initialization complete.\n");
 
 
+    errval_t err;
     if (device->msix) {
-        errval_t err = e1000_init_msix_client(device);
+        err = e1000_init_msix_client(device);
         if(err_is_ok(err)){
             // Can use MSIX
             E1000_DEBUG("Successfully instantiated MSIx, setup int routing\n");
@@ -297,7 +300,13 @@ static void e1000_init_fn(struct e1000_driver_state * device)
         err = pcid_connect_int(&device->pdc, 0, e1000_interrupt_handler_fn, device);
 
         test_instr_init(device);
+    } else {
+        err = pcid_connect_int(&device->pdc, 0, e1000_interrupt_handler_fn, device);
+        if(err_is_fail(err)){
+            USER_PANIC("Setting up interrupt failed \n");
+        }
     }
+    
 
     setup_internal_memory(device);
 }
