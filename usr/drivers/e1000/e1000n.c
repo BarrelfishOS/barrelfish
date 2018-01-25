@@ -261,26 +261,45 @@ static void e1000_enable_msix(struct e1000_driver_state * eds){
  * Setup device, create receive ring and connect to Ethernet server.
  *
  ****************************************************************/
-static void e1000_init_fn(struct e1000_driver_state * eds)
+static void e1000_init_fn(struct e1000_driver_state * device)
 {
+    // set features
+    switch (device->mac_type) {
+        case e1000_82571:
+        case e1000_82572:
+        case e1000_82574: {
+            device->extended_interrupts = 0;
+            device->advanced_descriptors = 1;
+        } break;
+        case e1000_82576:
+        case e1000_I210:
+        case e1000_I350: {
+            device->extended_interrupts = 1;
+            device->advanced_descriptors = 3;
+        } break;
+    default:
+        device->extended_interrupts = 0;
+        device->advanced_descriptors = 0;
+    }
+
     E1000_DEBUG("Starting hardware initialization.\n");
-    e1000_hwinit(eds);
+    e1000_hwinit(device);
     E1000_DEBUG("Hardware initialization complete.\n");
 
 
-    if (eds->extendend_interrupts) {
-        errval_t err = e1000_init_msix_client(eds);
+    if (device->msix) {
+        errval_t err = e1000_init_msix_client(device);
         if(err_is_ok(err)){
             // Can use MSIX
             E1000_DEBUG("Successfully instantiated MSIx, setup int routing\n");
-            e1000_enable_msix(eds);
+            e1000_enable_msix(device);
         }
-        err = pcid_connect_int(&eds->pdc, 0, e1000_interrupt_handler_fn, eds);
+        err = pcid_connect_int(&device->pdc, 0, e1000_interrupt_handler_fn, device);
 
-        test_instr_init(eds);
+        test_instr_init(device);
     }
 
-    setup_internal_memory(eds);
+    setup_internal_memory(device);
 }
 
 

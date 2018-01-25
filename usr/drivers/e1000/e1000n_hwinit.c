@@ -37,6 +37,7 @@
  * Returns true if EEPROM is of NVM type, else false.
  *
  ****************************************************************************/
+#if 0
 static bool e1000_is_onboard_nvm_eeprom(struct e1000_driver_state *eds)
 {
     if (eds->mac_type == e1000_82573) {
@@ -52,7 +53,7 @@ static bool e1000_is_onboard_nvm_eeprom(struct e1000_driver_state *eds)
 
     return true;
 }
-
+#endif
 /*****************************************************************
  * Read e1000 EEPROM.
  *
@@ -64,6 +65,7 @@ static bool e1000_is_onboard_nvm_eeprom(struct e1000_driver_state *eds)
  * data    - returns data read.
  * Returns:  0 on success, 1 on timeout and 2 if no eeprom.
  ****************************************************************/
+#if 0
 static errval_t e1000_read_eeprom(struct e1000_driver_state *eds, uint64_t offset,
                                   uint16_t *data)
 {
@@ -139,11 +141,12 @@ static errval_t e1000_read_eeprom(struct e1000_driver_state *eds, uint64_t offse
     e1000_eecd_ee_req_wrf(eds->device, 0);
     return 1;
 }
-
+#endif
 /*****************************************************************
  * Check for EEPROM Auto Read bit done.
  *
  ****************************************************************/
+#if 0
 static errval_t e1000_get_auto_rd_done(struct e1000_driver_state *eds)
 {
     uint16_t data;
@@ -174,12 +177,13 @@ static errval_t e1000_get_auto_rd_done(struct e1000_driver_state *eds)
 
     return err;
 }
-
+#endif
 /******************************************************************************
  * Reads the adapter's MAC address from the EEPROM and inverts the LSB for the
  * second function of dual function devices
  *
  *****************************************************************************/
+#if 0
 static errval_t e1000_read_mac_addr(struct e1000_driver_state *eds, uint8_t *mac_addr)
 {
     uint16_t offset;
@@ -211,11 +215,12 @@ static errval_t e1000_read_mac_addr(struct e1000_driver_state *eds, uint8_t *mac
 
     return 0;
 }
-
+#endif
 /*****************************************************************
  * Reset the device and disable interrupts.
  *
  ****************************************************************/
+#if 0
 static int e1000_reset(struct e1000_driver_state *eds)
 {
     errval_t err = 0;
@@ -452,6 +457,49 @@ static int e1000_reset(struct e1000_driver_state *eds)
 
     /* clear any pending interrupts */
     e1000_icr_rd(eds->device);
+
+    debug_printf("Reset done..\n");
+
+    return 0;
+}
+#endif
+
+static int e1000_reset(struct e1000_driver_state *device)
+{
+    // errval_t err = 0;
+    int timeout;
+    e1000_t *hw_device = device->device;
+
+    /* disable interrupts */
+    if (device->extended_interrupts) {
+        e1000_eimc_wr(hw_device, 0xffffffff);
+    }
+    e1000_imc_rawwr(hw_device, 0xffffffff);
+
+    /* disable receive and transmit */
+    e1000_rctl_rawwr(hw_device, 0);
+    e1000_tctl_rawwr(hw_device, 0);
+
+    /* Delay to allow outstanding PCI transactions to complete before
+     * reseting the device */
+    // usec_delay(1000);
+    e1000_ctrl_phy_rst_wrf(hw_device, 1);
+    e1000_ctrl_rst_wrf(hw_device, 1);
+    /* Wait for reset to clear */
+    timeout = 1000;
+    do {
+        // usec_delay(10);
+    } while (e1000_ctrl_rst_rdf(hw_device) != 0 && 0 < timeout--);
+    assert(timeout >= 0);
+    debug_printf("%s.%d: timeout=%d\n", __func__, __LINE__, timeout);
+
+    /* clear any pending interrupts */
+    e1000_icr_rd(hw_device);
+    if (device->extended_interrupts) {
+        e1000_eicr_rd(hw_device);
+    }
+    
+    e1000_ctrl_phy_rst_wrf(hw_device, 0);
 
     debug_printf("Reset done..\n");
 
@@ -941,6 +989,34 @@ void e1000_init_queues(struct e1000_driver_state* eds, struct capref rx,
     e1000_setup_rx(eds, rx);
 }
 
+/*
+ * setup MAC
+ */
+static void e1000_setup_mac(struct e1000_driver_state *device, uint64_t *mac_addr)
+{
+    e1000_t *hw_device = device->device;
+    
+    /* is a valid MAC already present? */
+    /* This will always return false due to hardware/software reset */
+    bool mac_present = e1000_rah_av_rdf(hw_device, 0);
+    
+    assert(mac_present);
+    /* cache MAC for stack to see */
+    uint64_t mac_hi = e1000_rah_rah_rdf(hw_device, 0);
+    uint64_t mac = e1000_ral_rd(hw_device, 0) + (mac_hi << 32);
+    *mac_addr = mac | (mac_hi << 32);
+
+    debug_printf("%s: MAC address: %lx\n", device->service_name, *mac_addr);
+    memcpy(device->mac_address, mac_addr, MAC_ADDRESS_LEN);
+
+    /* clear all other filers (clear high-to-low (13.4.3)) */
+    for (int i = 1; i < e1000_ral_length; i++) {
+        e1000_rah_wr(hw_device, i, 0);
+        e1000_ral_wr(hw_device, i, 0);
+    }
+
+}
+
 /*****************************************************************
  * Initialize the hardware
  *
@@ -1034,61 +1110,8 @@ void e1000_hwinit(struct e1000_driver_state *eds)
     /* --------------------- MAC address setup --------------------- */
     E1000_DEBUG("Setting up MAC address.\n");
 
-    /* is a valid MAC already present? */
-    /* This will always return false due to hardware/software reset */
-    bool mac_present = e1000_rah_av_rdf(eds->device, 0);
-
-    if (eds->user_mac_address || !mac_present) {
-        uint8_t* mac = eds->mac_address;
-        uint16_t mac_word0, mac_word1, mac_word2;
-        e1000_rah_t rah = 0;
-
-        if (eds->user_mac_address == false)
-            /* read MAC from EEPROM */
-        {
-            e1000_read_mac_addr(eds, mac);
-        }
-
-        mac_word0 = (((uint16_t) mac[1]) << 8) | mac[0];
-        mac_word1 = (((uint16_t) mac[3]) << 8) | mac[2];
-        mac_word2 = (((uint16_t) mac[5]) << 8) | mac[4];
-
-        if (eds->user_mac_address == false && mac_word0 == 0 && mac_word1 == 0
-                && mac_word2 == 0) {
-            E1000_PRINT_ERROR("Error: Failed to read MAC address from EEPROM.\n");
-            E1000_PRINT_ERROR("Try setting it manually. Use -h for help.\n");
-            exit(1);
-        }
-
-        /* program card's address with MAC */
-        e1000_rah_wr(eds->device, 0, 0);
-        e1000_ral_wr(eds->device, 0, (mac_word0 | ((mac_word1) << 16)));
-        rah = e1000_rah_rah_insert(rah, mac_word2);
-        rah = e1000_rah_av_insert(rah, 1);
-        e1000_rah_wr(eds->device, 0, rah);
-    }
-
-    /* cache MAC for stack to see */
-    uint8_t mac_addr[6];
-    uint64_t mac_hi = e1000_rah_rah_rdf(eds->device, 0);
-    uint64_t mac = e1000_ral_rd(eds->device, 0) + (mac_hi << 32);
-    mac_addr[0] = mac & 0xff;
-    mac_addr[1] = (mac >> 8) & 0xff;
-    mac_addr[2] = (mac >> 16) & 0xff;
-    mac_addr[3] = (mac >> 24) & 0xff;
-    mac_addr[4] = (mac >> 32) & 0xff;
-    mac_addr[5] = (mac >> 40) & 0xff;
-
-    E1000_DEBUG("MAC address: %02x:%02x:%02x:%02x:%02x:%02x\n",
-                mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
-
-    memcpy(eds->mac_address, mac_addr, 6);
-
-    /* clear all other filers (clear high-to-low (13.4.3)) */
-    for (int i = 1; i < e1000_ral_length; i++) {
-        e1000_rah_wr(eds->device, i, 0);
-        e1000_ral_wr(eds->device, i, 0);
-    }
+    uint64_t mac;
+    e1000_setup_mac(eds, &mac);
 
     /* clear MTA table */
     for (int i = 0; i < e1000_mta_length; i++) {
@@ -1138,4 +1161,6 @@ void e1000_hwinit(struct e1000_driver_state *eds)
             e1000_ctrlext_iame_wrf(eds->device, 1);
         }
     }
+
+    eds->msix = e1000_supports_msix(eds->mac_type);
 }
