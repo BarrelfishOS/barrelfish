@@ -70,7 +70,6 @@ static errval_t e1000_register(struct devq* q, struct capref cap,
 
 static errval_t e1000_deregister(struct devq* q, regionid_t rid)
 {
-    e1000_queue_t *device = (e1000_queue_t *)q;
     return SYS_ERR_OK;
 }
 
