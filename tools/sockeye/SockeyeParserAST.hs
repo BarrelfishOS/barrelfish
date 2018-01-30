@@ -13,9 +13,25 @@
     Attn: Systems Group.
 -}
 
-module SockeyeParserAST where
+module SockeyeParserAST
+    ( module SockeyeParserAST
+    , module SockeyeSymbolTable
+    , module SockeyeAST
+    ) where
 
 import SockeyeASTMeta
+
+import SockeyeSymbolTable
+    ( NodeType(NodeType)
+    , nodeTypeMeta, originDomain, originType, targetDomain, targetType
+    , Domain(Memory, Interrupt, Power, Clock)
+    , EdgeType(TypeLiteral, TypeName)
+    , edgeTypeMeta, typeLiteral, typeRef
+    , AddressType(AddressType)
+    , ArraySize(ArraySize)
+    )
+
+import SockeyeAST
 
 data Sockeye = Sockeye
     { sockeyeMeta :: ASTMeta 
@@ -52,10 +68,10 @@ instance MetaAST ModuleParameter where
     meta = paramMeta
 
 data InstanceDeclaration = InstanceDeclaration
-    { instDeclMeta   :: ASTMeta
-    , instanceName   :: !String
-    , instanceModule :: !String
-    , instArrSize    :: Maybe ArraySize
+    { instDeclMeta :: ASTMeta
+    , instName     :: !String
+    , instModName  :: !String
+    , instArrSize  :: Maybe ArraySize
     }
     deriving (Show)
 
@@ -78,40 +94,7 @@ data NodeKind
     = InputPort
     | OutputPort
     | InternalNode
-    deriving (Show) 
-
-data NodeType = NodeType
-    { nodeTypeMeta :: ASTMeta
-    , originDomain :: !Domain
-    , originType   :: EdgeType
-    , targetDomain :: !Domain
-    , targetType   :: Maybe EdgeType
-    }
-    deriving (Show)  
-
-instance MetaAST NodeType where
-    meta = nodeTypeMeta 
-
-data Domain
-    = Memory
-    | Interrupt
-    | Power
-    | Clock
-    deriving (Show)
-
-data EdgeType
-    = TypeLiteral
-        { edgeTypeMeta :: ASTMeta
-        , typeLiteral  :: AddressType
-        }
-    | TypeName
-        { edgeTypeMeta :: ASTMeta
-        , typeRef      :: !String
-        }
-    deriving (Show)
-
-instance MetaAST EdgeType where
-    meta = edgeTypeMeta
+    deriving (Eq, Show)
 
 data Definition
     = Accepts
@@ -180,45 +163,13 @@ type ConvertSpec = MapSpec
 
 data PortBinding = PortBinding
     { portBindMeta :: ASTMeta
-    , boundPort    :: PortReference
+    , boundPort    :: UnqualifiedRef
     , boundNode    :: NodeReference
     }
     deriving (Show)
 
 instance MetaAST PortBinding where
     meta = portBindMeta
-
-data UnqualifiedRef
-    = SingleRef
-        { refMeta :: ASTMeta
-        , refName :: String
-        }
-    | ArrayRef
-        { refMeta  :: ASTMeta
-        , refName  :: String
-        , refIndex :: ArrayIndex
-        }
-    deriving (Show)
-
-instance MetaAST UnqualifiedRef where
-    meta = refMeta
-
-type PortReference = UnqualifiedRef
-
-data NodeReference
-    = InternalNodeRef
-        { nodeRefMeta :: ASTMeta
-        , nodeRef     :: UnqualifiedRef
-        }
-    | InputPortRef
-        { nodeRefMeta :: ASTMeta
-        , instRef     :: UnqualifiedRef
-        , nodeRef     :: UnqualifiedRef
-        }
-    deriving (Show)
-
-instance MetaAST NodeReference where
-    meta = nodeRefMeta
 
 data NamedType = NamedType
     { namedTypeMeta :: ASTMeta
@@ -239,137 +190,3 @@ data NamedConstant = NamedConstant
 
 instance MetaAST NamedConstant where
     meta = namedConstMeta
-
-data AddressType = AddressType ASTMeta [NaturalSet]
-    deriving (Show)
-
-instance MetaAST AddressType where
-    meta (AddressType m _) = m
-
-data Address = Address ASTMeta [WildcardSet]
-    deriving (Show)
-
-instance MetaAST Address where
-    meta (Address m _) = m
-
-data AddressBlock = AddressBlock
-    { addrBlockMeta :: ASTMeta
-    , addresses     :: Address
-    , properties    :: PropertyExpr
-    }
-    deriving (Show)
-
-instance MetaAST AddressBlock where
-    meta = addrBlockMeta
-
-data ArraySize = ArraySize ASTMeta [NaturalSet]
-    deriving (Show)
-
-instance MetaAST ArraySize where
-    meta (ArraySize m _) = m
-
-data ArrayIndex = ArrayIndex ASTMeta [WildcardSet]
-    deriving (Show)
-
-instance MetaAST ArrayIndex where
-    meta (ArrayIndex m _) = m
-
-data NaturalSet = NaturalSet ASTMeta [NaturalRange]
-    deriving (Show)
-
-instance MetaAST NaturalSet where
-    meta (NaturalSet m _) = m
-
-data WildcardSet
-    = ExplicitSet ASTMeta NaturalSet
-    | Wildcard ASTMeta
-    deriving (Show)
-
-instance MetaAST WildcardSet where
-    meta (ExplicitSet m _) = m
-    meta (Wildcard m) = m
-
-data NaturalRange
-    = SingletonRange
-        { natRangeMeta :: ASTMeta
-        , base         :: NaturalExpr
-        }
-    | LimitRange
-        { natRangeMeta :: ASTMeta
-        , base         :: NaturalExpr
-        , limit        :: NaturalExpr
-        }
-    | BitsRange
-        { natRangeMeta :: ASTMeta
-        , base         :: NaturalExpr
-        , bits         :: NaturalExpr
-        }
-    deriving (Show)
-
-instance MetaAST NaturalRange where
-    meta = natRangeMeta
-
-data NaturalExpr
-    = Addition
-        { natExprMeta :: ASTMeta
-        , natExprOp1  :: NaturalExpr
-        , natExprOp2  :: NaturalExpr
-        }
-    | Subtraction
-        { natExprMeta :: ASTMeta
-        , natExprOp1  :: NaturalExpr
-        , natExprOp2  :: NaturalExpr
-        }
-    | Multiplication
-        { natExprMeta :: ASTMeta
-        , natExprOp1  :: NaturalExpr
-        , natExprOp2  :: NaturalExpr
-        }
-    | Slice
-        { natExprMeta :: ASTMeta
-        , natExprOp1  :: NaturalExpr
-        , bitRange    :: NaturalSet
-        }
-    | Concat
-        { natExprMeta :: ASTMeta
-        , natExprOp1  :: NaturalExpr
-        , natExprOp2  :: NaturalExpr
-        }
-    | Variable
-        { natExprMeta :: ASTMeta
-        , varName     :: !String
-        }
-    | Literal
-        { natExprMeta :: ASTMeta
-        , natural     :: !Integer
-        }
-    deriving (Show)
-
-instance MetaAST NaturalExpr where
-    meta = natExprMeta
-
-data PropertyExpr
-    = And
-        { propExprMeta :: ASTMeta
-        , pExprOp1     :: PropertyExpr
-        , propExprOp2  :: PropertyExpr
-        }
-    | Or
-        { propExprMeta :: ASTMeta
-        , propExprOp1  :: PropertyExpr
-        , propExprOp2  :: PropertyExpr
-        }
-    | Not
-        { propExprMeta :: ASTMeta
-        , propExprOp1  :: PropertyExpr
-        }
-    | Property
-        { propExprMeta :: ASTMeta
-        , property     :: !String
-        }
-    | True
-    | False
-    deriving (Show)
-
-instance MetaAST PropertyExpr where
-    meta = propExprMeta

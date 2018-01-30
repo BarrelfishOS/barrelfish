@@ -15,311 +15,156 @@
 
 module SockeyeAST where
 
-import Data.Set (Set)
-import Data.Map (Map)
+import SockeyeASTMeta
 
-data Sockeye m = Sockeye
-    { sockeyeMeta :: m 
-    , modules     :: Map String (Module m)
-    , types       :: Map String (NamedType m)
-    }
-    deriving (Show)
-
-data Module m = Module
-    { moduleMeta     :: m
-    , moduleName     :: !String
-    , parameters     :: Map String (ModuleParameter m)
-    , parameterOrder :: [String]
-    , inputPorts     :: Set String
-    , outputPort     :: Map String (OutputPort m)
-    , instances      :: Map String (Instance m)
-    , nodes          :: Map String (Node m)
-    } deriving (Show)
-
-data ModuleParameter m = ModuleParameter
-    { paramMeta  :: m
-    , paramName  :: !String
-    , paramRange :: NaturalSet m
-    }
-    deriving (Show)
-
-data OutputPort m = OutputPort
-    { portMeta    :: m
-    , portType    :: NodeType
-    , portName    :: !String
-    , portArrSize :: Maybe (ArraySize m)
-    }
-    deriving (Show)
-
-data Instance m
-    = SingleInstance
-        { instDeclMeta   :: m
-        , instanceName   :: !String
-        , instanceModule :: !String
-        , instSpec       :: InstanceSpec m
-        }
-    | ArrayInstance
-        { instDeclMeta   :: m
-        , instanceName   :: !String
-        , instanceModule :: !String
-        , instArrSize    :: ArraySize m
-        , instSpecs      :: Map [Integer] (InstanceSpec m)
-        }
-    deriving (Show)
-
-data InstanceSpec m = InstanceSpec
-    { modArgs :: Map String NaturalExpr
-    , binds   :: Map PortReference NodeReference
-    }
-    deriving (Show)
-
-data Node m
-    = SingleNode
-        { nodeDeclMeta :: m
-        , nodeType     :: NodeType m
-        , nodeName     :: !String
-        , nodeSpec     :: NodeSpec
-        }
-    | ArrayNode
-        { nodeDeclMeta :: m
-        , nodeType     :: NodeType m
-        , nodeName     :: !String
-        , nodeArrSize  :: ArraySize m
-        , nodeSpecs    :: Map [Integer]
-        }
-    deriving (Show)
-
-data NodeSpec m = NodeSpec
-    { accepts  :: [AddressBlock]
-    , maps     :: [MapSpec]
-    , overlays :: NodeReference
-    }
-
-data NodeType m = NodeType
-    { nodeTypeMeta :: m
-    , originDomain :: !Domain
-    , originType   :: EdgeType m
-    , targetDomain :: !Domain
-    , targetType   :: Maybe (EdgeType m)
-    }
-    deriving (Show)    
-
-data Domain
-    = Memory
-    | Interrupt
-    | Power
-    | Clock
-    deriving (Show)
-
-
-data EdgeType m = EdgeType
-    { edgeTypeMeta :: m
-    , typeLiteral  :: AddressType m
-    }
-    deriving (Show)
-
-data Definition m
-    = Accepts
-        { defMeta :: m
-        , node    :: UnqualifiedRef m
-        , accepts :: [AddressBlock m]
-        }
-    | Maps
-        { defMeta :: m
-        , node    :: UnqualifiedRef m
-        , maps    :: [MapSpec m]
-        }
-    | Converts
-        { defMeta  :: m
-        , node     :: UnqualifiedRef m
-        , converts :: [ConvertSpec m]
-        }
-    | Overlays
-        { defMeta  :: m
-        , node     :: UnqualifiedRef m
-        , overlays :: NodeReference m
-        }
-    | Instantiates
-        { defMeta    :: m
-        , inst       :: UnqualifiedRef m
-        , instModule :: !String
-        , arguments  :: [NaturalExpr m]
-        }
-    | Binds
-        { defMeta :: m
-        , inst    :: UnqualifiedRef m
-        , binds   :: [PortBinding m]
-        }
-    | Forall
-        { defMeta        :: m
-        , boundVarName   :: !String
-        , varRange       :: [NaturalSet m]
-        , quantifierBody :: [Definition m]
-        }
-    deriving (Show)
-
-data MapSpec m = MapSpec
-    { mapSpecMeta :: m
-    , mapAddr     :: AddressBlock m
-    , mapTargets  :: [MapTarget m]
-    }
-    deriving (Show)
-
-data MapTarget m = MapTarget
-    { mapTargetMeta :: m
-    , targetNode    :: NodeReference m
-    , targetAddr    :: AddressBlock m
-    }
-    deriving (Show)
-
-type ConvertSpec = MapSpec
-
-data PortBinding m = PortBinding
-    { portBindMeta :: m
-    , boundPort    :: PortReference m
-    , boundNode    :: NodeReference m
-    }
-    deriving (Show)
-
-data UnqualifiedRef m
+data UnqualifiedRef
     = SingleRef
-        { refMeta :: m
+        { refMeta :: ASTMeta
         , refName :: String
         }
     | ArrayRef
-        { refMeta  :: m
+        { refMeta  :: ASTMeta
         , refName  :: String
-        , refIndex :: ArrayIndex m
+        , refIndex :: ArrayIndex
         }
     deriving (Show)
 
-type PortReference = UnqualifiedRef
+instance MetaAST UnqualifiedRef where
+    meta = refMeta
 
-data NodeReference m
+data NodeReference
     = InternalNodeRef
-        { nodeRefMeta :: m
-        , nodeRef     :: UnqualifiedRef m
+        { nodeRefMeta :: ASTMeta
+        , nodeRef     :: UnqualifiedRef
         }
     | InputPortRef
-        { nodeRefMeta :: m
-        , instRef     :: UnqualifiedRef m
-        , nodeRef     :: UnqualifiedRef m
+        { nodeRefMeta :: ASTMeta
+        , instRef     :: UnqualifiedRef
+        , nodeRef     :: UnqualifiedRef
         }
     deriving (Show)
 
-data NamedType m = NamedType
-    { namedTypeMeta :: m
-    , typeName      :: !String
-    , namedType     :: AddressType m
+instance MetaAST NodeReference where
+    meta = nodeRefMeta
+
+data ArrayIndex = ArrayIndex ASTMeta [WildcardSet]
+    deriving (Show)
+
+instance MetaAST ArrayIndex where
+    meta (ArrayIndex m _) = m
+
+data Address = Address ASTMeta [WildcardSet]
+    deriving (Show)
+
+instance MetaAST Address where
+    meta (Address m _) = m
+
+data AddressBlock = AddressBlock
+    { addrBlockMeta :: ASTMeta
+    , addresses     :: Address
+    , properties    :: PropertyExpr
     }
     deriving (Show)
 
-data NamedConstant m = NamedConstant
-    { namedConstMeta :: m
-    , constName      :: !String
-    , namedConst     :: !Integer
-    }
+instance MetaAST AddressBlock where
+    meta = addrBlockMeta
+
+data WildcardSet
+    = ExplicitSet ASTMeta NaturalSet
+    | Wildcard ASTMeta
     deriving (Show)
 
-data AddressType m = AddressType m [NaturalSet m]
+instance MetaAST WildcardSet where
+    meta (ExplicitSet m _) = m
+    meta (Wildcard m) = m
+
+data NaturalSet = NaturalSet ASTMeta [NaturalRange]
     deriving (Show)
 
-data Address m = Address m [WildcardSet m]
-    deriving (Show)
+instance MetaAST NaturalSet where
+    meta (NaturalSet m _) = m
 
-data AddressBlock m = AddressBlock
-    { addrBlockMeta :: m
-    , addresses     :: Address m
-    , properties    :: PropertyExpr m
-    }
-    deriving (Show)
-
-data ArraySize m = ArraySize m [NaturalSet m]
-    deriving (Show)
-
-data ArrayIndex m = ArrayIndex m [WildcardSet m]
-    deriving (Show)
-
-data NaturalSet m = NaturalSet m [NaturalRange m]
-    deriving (Show)
-
-data WildcardSet m
-    = ExplicitSet m (NaturalSet m)
-    | Wildcard
-    deriving (Show)
-
-data NaturalRange m
+data NaturalRange
     = SingletonRange
-        { natRangeMeta :: m
-        , base         :: NaturalExpr m
+        { natRangeMeta :: ASTMeta
+        , base         :: NaturalExpr
         }
     | LimitRange
-        { natRangeMeta :: m
-        , base         :: NaturalExpr m
-        , limit        :: NaturalExpr m
+        { natRangeMeta :: ASTMeta
+        , base         :: NaturalExpr
+        , limit        :: NaturalExpr
         }
     | BitsRange
-        { natRangeMeta :: m
-        , base         :: NaturalExpr m
-        , bits         :: NaturalExpr m
+        { natRangeMeta :: ASTMeta
+        , base         :: NaturalExpr
+        , bits         :: NaturalExpr
         }
     deriving (Show)
 
-data NaturalExpr m
+instance MetaAST NaturalRange where
+    meta = natRangeMeta
+
+data NaturalExpr
     = Addition
-        { natExprMeta :: m
-        , natExprOp1  :: NaturalExpr m
-        , natExprOp2  :: NaturalExpr m
+        { natExprMeta :: ASTMeta
+        , natExprOp1  :: NaturalExpr
+        , natExprOp2  :: NaturalExpr
         }
     | Subtraction
-        { natExprMeta :: m
-        , natExprOp1  :: NaturalExpr m
-        , natExprOp2  :: NaturalExpr m
+        { natExprMeta :: ASTMeta
+        , natExprOp1  :: NaturalExpr
+        , natExprOp2  :: NaturalExpr
         }
     | Multiplication
-        { natExprMeta :: m
-        , natExprOp1  :: NaturalExpr m
-        , natExprOp2  :: NaturalExpr m
+        { natExprMeta :: ASTMeta
+        , natExprOp1  :: NaturalExpr
+        , natExprOp2  :: NaturalExpr
         }
     | Slice
-        { natExprMeta :: m
-        , natExprOp1  :: NaturalExpr m
-        , bitRange    :: NaturalSet m
+        { natExprMeta :: ASTMeta
+        , natExprOp1  :: NaturalExpr
+        , bitRange    :: NaturalSet
         }
     | Concat
-        { natExprMeta :: m
-        , natExprOp1  :: NaturalExpr m
-        , natExprOp2  :: NaturalExpr m
+        { natExprMeta :: ASTMeta
+        , natExprOp1  :: NaturalExpr
+        , natExprOp2  :: NaturalExpr
         }
     | Variable
-        { natExprMeta :: m
+        { natExprMeta :: ASTMeta
         , varName     :: !String
         }
     | Literal
-        { natExprMeta :: m
+        { natExprMeta :: ASTMeta
         , natural     :: !Integer
         }
     deriving (Show)
 
-data PropertyExpr m
+instance MetaAST NaturalExpr where
+    meta = natExprMeta
+
+data PropertyExpr
     = And
-        { propExprMeta :: m
-        , pExprOp1     :: PropertyExpr m
-        , propExprOp2  :: PropertyExpr m
+        { propExprMeta :: ASTMeta
+        , pExprOp1     :: PropertyExpr
+        , propExprOp2  :: PropertyExpr
         }
     | Or
-        { propExprMeta :: m
-        , propExprOp1  :: PropertyExpr m
-        , propExprOp2  :: PropertyExpr m
+        { propExprMeta :: ASTMeta
+        , propExprOp1  :: PropertyExpr
+        , propExprOp2  :: PropertyExpr
         }
     | Not
-        { propExprMeta :: m
-        , propExprOp1  :: PropertyExpr m
+        { propExprMeta :: ASTMeta
+        , propExprOp1  :: PropertyExpr
         }
     | Property
-        { propExprMeta :: m
+        { propExprMeta :: ASTMeta
         , property     :: !String
         }
     | True
     | False
     deriving (Show)
+
+instance MetaAST PropertyExpr where
+    meta = propExprMeta

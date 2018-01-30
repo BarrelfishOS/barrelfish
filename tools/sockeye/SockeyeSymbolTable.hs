@@ -13,12 +13,23 @@
     Attn: Systems Group.
 -}
 
-module SockeyeSymbolTable where
+module SockeyeSymbolTable
+    ( module SockeyeSymbolTable
+    , module SockeyeAST
+    ) where
 
 import Data.Set (Set)
 import Data.Map (Map)
 
 import SockeyeASTMeta
+
+import SockeyeAST
+    ( NaturalSet(NaturalSet)
+    , NaturalRange(SingletonRange, LimitRange, BitsRange)
+    , natRangeMeta, base, limit, bits
+    , NaturalExpr(Addition, Subtraction, Multiplication, Slice, Concat, Variable, Literal)
+    , natExprMeta, natExprOp1, natExprOp2, bitRange, varName, natural
+    )
 
 data Sockeye = Sockeye
     { sockeyeMeta :: ASTMeta 
@@ -36,7 +47,7 @@ data Module = Module
     , parameterOrder :: [String]
     , constants      :: Map String NamedConstant
     , inputPorts     :: Set String
-    , outputPorts    :: Map String OutputPort
+    , outputPorts    :: Map String Node
     , instances      :: Map String Instance
     , nodes          :: Map String Node
     }
@@ -54,33 +65,21 @@ data ModuleParameter = ModuleParameter
 instance MetaAST ModuleParameter where
     meta = paramMeta
 
-data OutputPort = OutputPort
-    { portMeta    :: ASTMeta
-    , portType    :: NodeType
-    , portArrSize :: Maybe ArraySize
+data Instance = Instance
+    { instMeta    :: ASTMeta
+    , instModule  :: !String
+    , instArrSize :: Maybe ArraySize
     }
-    deriving (Show)
-
-instance MetaAST OutputPort where
-    meta = portMeta
-
-data Instance
-    = SingleInstance
-        { instMeta       :: ASTMeta
-        , instanceModule :: !String
-        , instArrSize    :: Maybe ArraySize
-        }
     deriving (Show)
 
 instance MetaAST Instance where
     meta = instMeta
 
-data Node
-    = SingleNode
-        { nodeMeta    :: ASTMeta
-        , nodeType    :: NodeType
-        , nodeArrSize :: Maybe ArraySize
-        }
+data Node = Node
+    { nodeMeta    :: ASTMeta
+    , nodeType    :: NodeType
+    , nodeArrSize :: Maybe ArraySize
+    }
     deriving (Show)
 
 instance MetaAST Node where
@@ -103,12 +102,17 @@ data Domain
     | Interrupt
     | Power
     | Clock
-    deriving (Show)
+    deriving (Eq, Show)
 
-data EdgeType = EdgeType
-    { edgeTypeMeta :: ASTMeta
-    , typeLiteral  :: AddressType
-    }
+data EdgeType
+    = TypeLiteral
+        { edgeTypeMeta :: ASTMeta
+        , typeLiteral  :: AddressType
+        }
+    | TypeName
+        { edgeTypeMeta :: ASTMeta
+        , typeRef      :: !String
+        }
     deriving (Show)
 
 instance MetaAST EdgeType where
@@ -132,79 +136,14 @@ data NamedConstant = NamedConstant
 instance MetaAST NamedConstant where
     meta = namedConstMeta
 
-data AddressType = AddressType ASTMeta [NaturalSet]
-    deriving (Show)
-
-instance MetaAST AddressType where
-    meta (AddressType m _) = m
-
 data ArraySize = ArraySize ASTMeta [NaturalSet]
     deriving (Show)
 
 instance MetaAST ArraySize where
     meta (ArraySize m _) = m
 
-data NaturalSet = NaturalSet ASTMeta [NaturalRange]
+data AddressType = AddressType ASTMeta [NaturalSet]
     deriving (Show)
 
-instance MetaAST NaturalSet where
-    meta (NaturalSet m _) = m
-
-data NaturalRange
-    = SingletonRange
-        { natRangeMeta :: ASTMeta
-        , base         :: NaturalExpr
-        }
-    | LimitRange
-        { natRangeMeta :: ASTMeta
-        , base         :: NaturalExpr
-        , limit        :: NaturalExpr
-        }
-    | BitsRange
-        { natRangeMeta :: ASTMeta
-        , base         :: NaturalExpr
-        , bits         :: NaturalExpr
-        }
-    deriving (Show)
-
-instance MetaAST NaturalRange where
-    meta = natRangeMeta
-
-data NaturalExpr
-    = Addition
-        { natExprMeta :: ASTMeta
-        , natExprOp1  :: NaturalExpr
-        , natExprOp2  :: NaturalExpr
-        }
-    | Subtraction
-        { natExprMeta :: ASTMeta
-        , natExprOp1  :: NaturalExpr
-        , natExprOp2  :: NaturalExpr
-        }
-    | Multiplication
-        { natExprMeta :: ASTMeta
-        , natExprOp1  :: NaturalExpr
-        , natExprOp2  :: NaturalExpr
-        }
-    | Slice
-        { natExprMeta :: ASTMeta
-        , natExprOp1  :: NaturalExpr
-        , bitRange    :: NaturalSet
-        }
-    | Concat
-        { natExprMeta :: ASTMeta
-        , natExprOp1  :: NaturalExpr
-        , natExprOp2  :: NaturalExpr
-        }
-    | Variable
-        { natExprMeta :: ASTMeta
-        , varName     :: !String
-        }
-    | Literal
-        { natExprMeta :: ASTMeta
-        , natural     :: !Integer
-        }
-    deriving (Show)
-
-instance MetaAST NaturalExpr where
-    meta = natExprMeta
+instance MetaAST AddressType where
+    meta (AddressType m _) = m

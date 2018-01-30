@@ -105,10 +105,10 @@ instanceDeclaration = do
     reserved "of"
     modName <- moduleName
     return AST.InstanceDeclaration
-        { AST.instDeclMeta   = pos
-        , AST.instanceName   = name
-        , AST.instanceModule = modName
-        , AST.instArrSize    = size
+        { AST.instDeclMeta = pos
+        , AST.instName     = name
+        , AST.instModName  = modName
+        , AST.instArrSize  = size
         }
     <?> "instance declaration"
 

@@ -43,7 +43,7 @@ runChecks checks =
         [] -> Right a
         _  -> Left $ FailedChecks fs
 
-foldChecks :: (a -> b -> Checks f b) -> b -> [a] -> Checks f b
+foldChecks :: (Foldable t) => (a -> b -> Checks f b) -> b -> t a -> Checks f b
 foldChecks fn acc as = foldl foldfn (return acc) as
     where
         foldfn m a = do

@@ -28,7 +28,8 @@ import System.IO
 import qualified SockeyeParserAST as ParseAST
 import qualified SockeyeSymbolTable as SymTable
 
-import Text.Pretty.Simple (pPrint)
+import Text.Pretty.Simple (pPrint, pShowNoColor)
+import Data.Text.Lazy (unpack)
 
 import SockeyeParser
 import SockeyeSymbolTableBuilder
@@ -46,31 +47,37 @@ parseError = ExitFailure 3
 checkError :: ExitCode
 checkError = ExitFailure 4
 
-buildError :: ExitCode
-buildError = ExitFailure 5
+compileError :: ExitCode
+compileError = ExitFailure 5
 
 {- Compilation targets -}
-data Target = Prolog
+data Target
+    = Prolog
+    | Isabelle
 
 {- Possible options for the Sockeye Compiler -}
 data Options = Options
-    { optInputFile  :: FilePath
-    , optInclDirs   :: [FilePath]
-    , optTarget     :: Target
-    , optOutputFile :: FilePath
-    , optDepFile    :: Maybe FilePath
-    , optRootNs     :: Maybe String
-     }
+    { optInputFile    :: FilePath
+    , optInclDirs     :: [FilePath]
+    , optTarget       :: Target
+    , optOutputFile   :: FilePath
+    , optDepFile      :: Maybe FilePath
+    , optParseAstDump :: String
+    , optSymTableDump :: String
+    , optAstDump      :: String
+    }
 
 {- Default options -}
 defaultOptions :: Options
 defaultOptions = Options
-    { optInputFile  = ""
-    , optInclDirs   = [""]
-    , optTarget     = Prolog
-    , optOutputFile = ""
-    , optDepFile    = Nothing
-    , optRootNs     = Nothing
+    { optInputFile    = ""
+    , optInclDirs     = [""]
+    , optTarget       = Prolog
+    , optOutputFile   = ""
+    , optDepFile      = Nothing
+    , optParseAstDump = ""
+    , optSymTableDump = ""
+    , optAstDump      = ""
     }
 
 {- Set the input file name -}
@@ -92,9 +99,17 @@ optSetOutputFile f o = o { optOutputFile = f }
 optSetDepFile :: FilePath -> Options -> Options
 optSetDepFile f o = o { optDepFile = Just f }
 
-{- Set the root namespace -}
-optSetRootNs :: FilePath -> Options -> Options
-optSetRootNs f o = o { optRootNs = Just f }
+{- Set dump target for AST -}
+optSetParseAstDump :: String -> Options -> Options
+optSetParseAstDump t o = o { optParseAstDump = t }
+
+{- Set dump target for symbol table -}
+optSetSymTableDump :: String -> Options -> Options
+optSetSymTableDump t o = o { optSymTableDump = t }
+
+{- Set dump target for AST -}
+optSetAstDump :: String -> Options -> Options
+optSetAstDump t o = o { optAstDump = t }
 
 {- Prints usage information possibly with usage errors -}
 usage :: [String] -> IO ()
@@ -114,6 +129,9 @@ options =
     [ Option "P" ["Prolog"]
         (NoArg (\opts -> return $ optSetTarget Prolog opts))
         "Generate a prolog file that can be loaded into the SKB (default)."
+    , Option "I" ["Isabelle"]
+        (NoArg (\opts -> return $ optSetTarget Isabelle opts))
+        "Generate Isabelle/HOL code."
     , Option "i" ["include"]
         (ReqArg (\f opts -> return $ optAddInclDir f opts) "DIR")
         "Add a directory to the search path where Sockeye looks for imports."
@@ -123,13 +141,17 @@ options =
     , Option "d" ["dep-file"]
         (ReqArg (\f opts -> return $ optSetDepFile f opts) "FILE")
         "Generate a dependency file for GNU make"
-    , Option "r" ["root-ns"]
-        (ReqArg (\f opts -> return $ optSetRootNs f opts) "IDENT")
-        "Root namespace for generated nodes"
+    , Option "" ["parser-dump"]
+        (ReqArg (\f opts -> return $ optSetParseAstDump f opts) "'c'|'f'")
+        "Dump parser AST to console ('c') or file ('f')."
+    , Option "" ["st-dump"]
+        (ReqArg (\f opts -> return $ optSetSymTableDump f opts) "'c'|'f'")
+        "Dump symbol table to console ('c') or file ('f')."
+    , Option "" ["ast-dump"]
+        (ReqArg (\f opts -> return $ optSetAstDump f opts) "'c'|'f'")
+        "Dump AST to console ('c') or file ('f')."
     , Option "h" ["help"]
-        (NoArg (\_ -> do
-                    usage []
-                    exitWith ExitSuccess))
+        (NoArg (\_ -> usage [] >> exitWith ExitSuccess))
         "Show help."
     ]
 
@@ -167,6 +189,7 @@ parseFile file = do
             exitWith parseError
         Right ast -> return ast
 
+{- Builds the symbol table from the parsed AST -}
 buildSymTable :: ParseAST.Sockeye -> IO SymTable.Sockeye
 buildSymTable ast = do
     case buildSymbolTable ast of
@@ -175,6 +198,32 @@ buildSymTable ast = do
             exitWith checkError
         Right symTable -> return symTable
 
+{- Compiles the AST with the selected backend -}
+compile :: Target -> SymTable.Sockeye -> ParseAST.Sockeye -> IO String
+compile Prolog symTable ast = hPutStrLn stderr "Prolog backend NYI" >> exitWith compileError
+compile Isabelle symTable ast = hPutStrLn stderr "Isabelle backend NYI" >> exitWith compileError
+
+{- Outputs the compilation result -}
+output :: FilePath -> String -> IO ()
+output outFile out = writeFile outFile out
+
+{- Produce debug output -}
+debugOutput :: Options -> SymTable.Sockeye -> ParseAST.Sockeye -> IO ()
+debugOutput opts symTable ast = do
+    let
+        inFile = optInputFile opts
+        astDump = optAstDump opts
+        stDump = optSymTableDump opts
+    case stDump of
+        "c" -> putStrLn "Dumping Symbol Table..." >> putStrLn "***********************" >> pPrint symTable
+        "f" -> writeFile (inFile <.> "st" <.> "txt") (unpack $ pShowNoColor symTable)
+        _ -> return ()
+    case astDump of
+        "c" -> putStrLn "Dumping AST..." >> putStrLn "**************" >> pPrint ast
+        "f" -> writeFile (inFile <.> "ast" <.> "txt") (unpack $ pShowNoColor ast)
+        _ -> return ()
+
+main :: IO ()
 main = do
     args <- getArgs
     opts <- compilerOpts args
@@ -183,6 +232,9 @@ main = do
         inclDirs = optInclDirs opts
         outFile = optOutputFile opts
         depFile = optDepFile opts
+        target = optTarget opts
     parsedAst <- parseFile inFile
     symTable <- buildSymTable parsedAst
-    pPrint symTable
+    debugOutput opts symTable parsedAst
+    out <- compile target symTable parsedAst
+    output outFile out
