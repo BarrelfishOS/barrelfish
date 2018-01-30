@@ -1,7 +1,7 @@
 {-
   SockeyeMain.hs: Sockeye
 
-  Copyright (c) 2017, ETH Zurich.
+  Copyright (c) 2018, ETH Zurich.
 
   All rights reserved.
 
@@ -25,11 +25,13 @@ import System.Environment
 import System.FilePath
 import System.IO
 
-import qualified SockeyeASTParser as ParseAST
+import qualified SockeyeParserAST as ParseAST
+import qualified SockeyeSymbolTable as SymTable
 
 import Text.Pretty.Simple (pPrint)
 
 import SockeyeParser
+import SockeyeSymbolTableBuilder
 
 {- Exit codes -}
 usageError :: ExitCode
@@ -156,7 +158,7 @@ compilerOpts argv = do
         _  -> return opts
 
 {- Runs the parser on a single file -}
-parseFile :: FilePath -> IO (ParseAST.Sockeye ParseAST.ParserMeta)
+parseFile :: FilePath -> IO ParseAST.Sockeye
 parseFile file = do
     src <- readFile file
     case parseSockeye file src of
@@ -164,6 +166,14 @@ parseFile file = do
             hPutStrLn stderr $ "Parse error at " ++ show err
             exitWith parseError
         Right ast -> return ast
+
+buildSymTable :: ParseAST.Sockeye -> IO SymTable.Sockeye
+buildSymTable ast = do
+    case buildSymbolTable ast of
+        Left fail -> do
+            hPutStr stderr $ show fail
+            exitWith checkError
+        Right symTable -> return symTable
 
 main = do
     args <- getArgs
@@ -174,4 +184,5 @@ main = do
         outFile = optOutputFile opts
         depFile = optDepFile opts
     parsedAst <- parseFile inFile
-    pPrint parsedAst
+    symTable <- buildSymTable parsedAst
+    pPrint symTable

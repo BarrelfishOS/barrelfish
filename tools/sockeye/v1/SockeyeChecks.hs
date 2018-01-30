@@ -19,14 +19,14 @@ import Control.Monad.Writer
 
 import Data.List (nub, sort)
 
-data FailedCheck t = FailedCheck
-    { inModule :: !String
-    , failed   :: t
+data FailedCheck c t = FailedCheck
+    { context :: c
+    , failed  :: t
     }
 
 newtype FailedChecks t = FailedChecks [FailedCheck t]
 
-instance (Show t) => Show (FailedChecks t) where
+instance (Show c, Show t) => Show (FailedChecks t) where
     show (FailedChecks fs) = 
         let modules = sort  (nub $  map inModule fs)
         in unlines $ concat (map showFailsForModule modules)
