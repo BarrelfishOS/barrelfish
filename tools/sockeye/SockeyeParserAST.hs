@@ -19,6 +19,8 @@ module SockeyeParserAST
     , module SockeyeAST
     ) where
 
+import Data.Map (Map)
+
 import SockeyeASTMeta
 
 import SockeyeSymbolTable
@@ -50,14 +52,41 @@ import SockeyeAST
     )
 
 data Sockeye = Sockeye
-    { sockeyeMeta :: ASTMeta 
-    , modules     :: [Module]
-    , types       :: [NamedType]
+    { entryPoint :: FilePath
+    , files      :: Map FilePath SockeyeFile
     }
     deriving (Show)
 
-instance MetaAST Sockeye where
-    meta = sockeyeMeta
+data SockeyeFile = SockeyeFile
+    { sockeyeFileMeta :: ASTMeta
+    , imports         :: [Import] 
+    , modules         :: [Module]
+    , types           :: [NamedType]
+    }
+    deriving (Show)
+
+instance MetaAST SockeyeFile where
+    meta = sockeyeFileMeta
+
+data Import = Import
+    { importMeta  :: ASTMeta
+    , importFile  :: !FilePath
+    , explImports :: Maybe [ImportAlias]
+    }
+    deriving (Show)
+
+instance MetaAST Import where
+    meta = importMeta
+
+data ImportAlias = ImportAlias
+    { importAliasMeta :: ASTMeta
+    , originalName    :: !String
+    , importAlias     :: !String
+    }
+    deriving (Show)
+
+instance MetaAST ImportAlias where
+    meta = importAliasMeta
 
 data Module = Module
     { moduleMeta  :: ASTMeta

@@ -181,8 +181,45 @@ compilerOpts argv = do
             exitWith $ usageError
         _  -> return opts
 
+{- Parse Sockeye and resolve imports -}
+parse :: [FilePath] -> FilePath -> IO ParseAST.Sockeye
+parse inclDirs fileName = do
+    entryPoint <- resolveFile fileName
+    files <- resolveImports Map.empty entryPoint
+    return ParseAST.Sockeye
+        { ParseAST.entryPoint = entryPoint
+        , ParseAST.files      = files
+        }
+    where
+        resolveImports fileMap file = do
+            if file `Map.member` fileMap
+                then return fileMap
+                else do
+                    ast <- parseFile file
+                    resolvedImports <- mapM rewriteFilePath $ ParseAST.imports ast
+                    let
+                        importPaths = map ParseAST.importFile resolvedImports
+                        ast' = ast { ParseAST.imports = resolvedImports }
+                        fileMap' = Map.insert file ast' fileMap 
+                    foldM resolveImports fileMap' importPaths
+        rewriteFilePath i = do
+            let fileName = ParseAST.importFile i
+            file <- resolveFile fileName
+            return i { ParseAST.importFile = file }
+        resolveFile path = do
+            let
+                subDir = takeDirectory path
+                name = takeFileName path
+                dirs = map (</> subDir) inclDirs
+            file <- findFile dirs name
+            case file of
+                Just f -> return $ normalise f
+                _ -> do
+                    hPutStrLn stderr $ "'" ++ path ++ "' not on import path"
+                    exitWith fileError
+
 {- Runs the parser on a single file -}
-parseFile :: FilePath -> IO ParseAST.Sockeye
+parseFile :: FilePath -> IO ParseAST.SockeyeFile
 parseFile file = do
     src <- readFile file
     case parseSockeye file src of
@@ -218,6 +255,14 @@ compile Isabelle symTable ast = hPutStrLn stderr "Isabelle backend not yet imple
 output :: FilePath -> String -> IO ()
 output outFile out = writeFile outFile out
 
+{- Generates a dependency file for GNU make -}
+dependencyFile :: FilePath -> FilePath -> [FilePath] -> IO String
+dependencyFile outFile depFile deps = do
+    let
+        targets = outFile ++ " " ++ depFile ++ ":"
+        lines = targets:deps
+    return $ intercalate " \\\n " lines
+
 {- Produces debug output -}
 debugOutput :: Options -> ParseAST.Sockeye -> SymTable.Sockeye -> AST.Sockeye -> IO ()
 debugOutput opts pAst symTable ast = do
@@ -249,9 +294,14 @@ main = do
         outFile = optOutputFile opts
         depFile = optDepFile opts
         target = optTarget opts
-    parsedAst <- parseFile inFile
+    parsedAst <- parse inclDirs inFile
     symTable <- buildSymTable parsedAst
     ast <- check symTable parsedAst
     debugOutput opts parsedAst symTable ast
-    out <- compile target symTable ast
-    output outFile out
+    -- out <- compile target symTable ast
+    -- output outFile out
+    case depFile of
+        Nothing -> return ()
+        Just f  -> do
+            out <- dependencyFile outFile f (Map.keys $ ParseAST.files parsedAst)
+            output f out

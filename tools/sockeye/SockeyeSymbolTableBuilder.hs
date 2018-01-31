@@ -57,10 +57,19 @@ class SymbolSource a b where
 
 instance SymbolSource AST.Sockeye ST.Sockeye where
     symbol ast = do
+        let entryPoint = AST.entryPoint ast
+        entryFile <- symbol $ (AST.files ast) Map.! entryPoint
+        return ST.Sockeye
+            { ST.entryPoint = entryPoint
+            , ST.files      = Map.singleton entryPoint entryFile
+            }
+
+instance SymbolSource AST.SockeyeFile ST.SockeyeFile where
+    symbol ast = do
         modules <- symbolMap AST.moduleName moduleDupFail $ AST.modules ast
         types <- symbolMap AST.typeName typeDupFail $ AST.types ast
-        return ST.Sockeye
-            { ST.sockeyeMeta = AST.sockeyeMeta ast
+        return ST.SockeyeFile
+            { ST.sockeyeFileMeta = AST.sockeyeFileMeta ast
             , ST.modules = modules
             , ST.types = types
             }

@@ -32,25 +32,37 @@ import SockeyeAST
     )
 
 data Sockeye = Sockeye
-    { sockeyeMeta :: ASTMeta 
-    , modules     :: Map String Module
-    , types       :: Map String NamedType
+    { entryPoint :: FilePath
+    , files      :: Map FilePath SockeyeFile
     }
     deriving (Show)
 
-instance MetaAST Sockeye where
-    meta = sockeyeMeta
-
-data Module = Module
-    { moduleMeta     :: ASTMeta
-    , parameters     :: Map String ModuleParameter
-    , parameterOrder :: [String]
-    , constants      :: Map String NamedConstant
-    , inputPorts     :: Set String
-    , outputPorts    :: Map String Node
-    , instances      :: Map String Instance
-    , nodes          :: Map String Node
+data SockeyeFile = SockeyeFile
+    { sockeyeFileMeta :: ASTMeta 
+    , modules         :: Map String Module
+    , types           :: Map String NamedType
     }
+    deriving (Show)
+
+instance MetaAST SockeyeFile where
+    meta = sockeyeFileMeta
+
+data Module
+    = Module
+        { moduleMeta     :: ASTMeta
+        , parameters     :: Map String ModuleParameter
+        , parameterOrder :: [String]
+        , constants      :: Map String NamedConstant
+        , inputPorts     :: Set String
+        , outputPorts    :: Map String Node
+        , instances      :: Map String Instance
+        , nodes          :: Map String Node
+        }
+    | ImportedModule
+        { moduleMeta  :: ASTMeta
+        , moduleFile  :: !FilePath
+        , origModName :: !String
+        }
     deriving (Show)
 
 instance MetaAST Module where
@@ -118,10 +130,16 @@ data EdgeType
 instance MetaAST EdgeType where
     meta = edgeTypeMeta
 
-data NamedType = NamedType
-    { namedTypeMeta :: ASTMeta
-    , namedType     :: AddressType
-    }
+data NamedType
+    = NamedType
+        { namedTypeMeta :: ASTMeta
+        , namedType     :: AddressType
+        }
+    | ImportedType
+        { namedTypeMeta :: ASTMeta
+        , typeFile      :: !FilePath
+        , origTypeName  :: !String
+        }
     deriving (Show)
 
 instance MetaAST NamedType where

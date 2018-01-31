@@ -16,6 +16,8 @@
 module SockeyeParser
 ( parseSockeye ) where
 
+import System.FilePath
+
 import Text.Parsec
 import Text.Parsec.Expr
 import qualified Text.Parsec.Token as P
@@ -25,7 +27,7 @@ import SockeyeASTMeta
 import qualified SockeyeParserAST as AST
 
 {- Parser main function -}
-parseSockeye :: String -> String -> Either ParseError AST.Sockeye
+parseSockeye :: String -> String -> Either ParseError AST.SockeyeFile
 parseSockeye = parse sockeyeFile
 
 data TopLevel
@@ -42,20 +44,48 @@ data ModuleBody
 sockeyeFile = do
     whiteSpace
     pos <- getPositionMeta
+    imports <- many sockeyeImport
     (modules, types) <- do
         stmts <- many $ choice [moduleDecl, typeDecl]
         return $ foldr splitDecl ([], []) stmts
     eof
-    return AST.Sockeye
-        { AST.sockeyeMeta = pos
-        , AST.modules     = modules
-        , AST.types       = types
+    return AST.SockeyeFile
+        { AST.sockeyeFileMeta = pos
+        , AST.imports         = imports
+        , AST.modules         = modules
+        , AST.types           = types
         }
     where
         moduleDecl = fmap ModuleDecl sockeyeModule
         typeDecl = fmap TypeDecl namedType
         splitDecl (ModuleDecl m) (ms, ts) = (m:ms, ts)
         splitDecl (TypeDecl t)   (ms, ts) = (ms, t:ts)
+
+sockeyeImport = do
+    pos <- getPositionMeta
+    reserved "import"
+    path <- many1 (alphaNum <|> char '_' <|> char '-' <|> char '/') <* whiteSpace
+    explImports <- optionMaybe (parens $ commaSep1 importAlias)
+    return AST.Import
+        { AST.importMeta  = pos
+        , AST.importFile  = path <.> "soc"
+        , AST.explImports = explImports
+        }
+    <?> "import"
+
+importAlias = do
+    pos <- getPositionMeta
+    origName <- identString <?> "module or type to import"
+    alias <- option origName importAlias
+    return AST.ImportAlias
+        { AST.importAliasMeta = pos
+        , AST.originalName    = origName
+        , AST.importAlias     = alias
+        }
+    where
+        importAlias = do
+            reserved "as"
+            identString <?> "import alias"
 
 sockeyeModule = do
     pos <- getPositionMeta
@@ -435,7 +465,8 @@ lexer = P.makeTokenParser (
     emptyDef {
         {- List of reserved names -}
         P.reservedNames =
-            [ "import", "module"
+            [ "import", "as"
+            , "module"
             , "input", "output"
             , "type", "const"
             , "memory", "intr", "power", "clock", "instance"
