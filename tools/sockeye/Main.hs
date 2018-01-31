@@ -27,12 +27,14 @@ import System.IO
 
 import qualified SockeyeParserAST as ParseAST
 import qualified SockeyeSymbolTable as SymTable
+import qualified SockeyeAST as AST
 
 import Text.Pretty.Simple (pPrint, pShowNoColor)
 import Data.Text.Lazy (unpack)
 
 import SockeyeParser
 import SockeyeSymbolTableBuilder
+import SockeyeChecker
 
 {- Exit codes -}
 usageError :: ExitCode
@@ -191,29 +193,43 @@ parseFile file = do
 
 {- Builds the symbol table from the parsed AST -}
 buildSymTable :: ParseAST.Sockeye -> IO SymTable.Sockeye
-buildSymTable ast = do
+buildSymTable ast =
     case buildSymbolTable ast of
         Left fail -> do
             hPutStr stderr $ show fail
             exitWith checkError
         Right symTable -> return symTable
 
+{- Checks the AST -}
+check :: SymTable.Sockeye -> ParseAST.Sockeye -> IO AST.Sockeye
+check symTable pAst =
+    case checkSockeye symTable pAst of
+        Left fail -> do
+            hPutStr stderr $ show fail
+            exitWith checkError
+        Right ast -> return ast
+
 {- Compiles the AST with the selected backend -}
-compile :: Target -> SymTable.Sockeye -> ParseAST.Sockeye -> IO String
-compile Prolog symTable ast = hPutStrLn stderr "Prolog backend NYI" >> exitWith compileError
-compile Isabelle symTable ast = hPutStrLn stderr "Isabelle backend NYI" >> exitWith compileError
+compile :: Target -> SymTable.Sockeye -> AST.Sockeye -> IO String
+compile Prolog symTable ast = hPutStrLn stderr "Prolog backend not yet implemented" >> exitWith compileError
+compile Isabelle symTable ast = hPutStrLn stderr "Isabelle backend not yet implemented" >> exitWith compileError
 
 {- Outputs the compilation result -}
 output :: FilePath -> String -> IO ()
 output outFile out = writeFile outFile out
 
-{- Produce debug output -}
-debugOutput :: Options -> SymTable.Sockeye -> ParseAST.Sockeye -> IO ()
-debugOutput opts symTable ast = do
+{- Produces debug output -}
+debugOutput :: Options -> ParseAST.Sockeye -> SymTable.Sockeye -> AST.Sockeye -> IO ()
+debugOutput opts pAst symTable ast = do
     let
         inFile = optInputFile opts
-        astDump = optAstDump opts
+        pAstDump = optParseAstDump opts
         stDump = optSymTableDump opts
+        astDump = optAstDump opts
+    case pAstDump of
+        "c" -> putStrLn "Dumping Parse AST..." >> putStrLn "********************" >> pPrint pAst
+        "f" -> writeFile (inFile <.> "st" <.> "txt") (unpack $ pShowNoColor pAst)
+        _ -> return ()
     case stDump of
         "c" -> putStrLn "Dumping Symbol Table..." >> putStrLn "***********************" >> pPrint symTable
         "f" -> writeFile (inFile <.> "st" <.> "txt") (unpack $ pShowNoColor symTable)
@@ -235,6 +251,7 @@ main = do
         target = optTarget opts
     parsedAst <- parseFile inFile
     symTable <- buildSymTable parsedAst
-    debugOutput opts symTable parsedAst
-    out <- compile target symTable parsedAst
+    ast <- check symTable parsedAst
+    debugOutput opts parsedAst symTable ast
+    out <- compile target symTable ast
     output outFile out

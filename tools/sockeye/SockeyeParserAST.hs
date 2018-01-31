@@ -32,6 +32,22 @@ import SockeyeSymbolTable
     )
 
 import SockeyeAST
+    ( UnqualifiedRef(UnqualifiedRef)
+    , refMeta, refName, refIndex
+    , NodeReference(InternalNodeRef, InputPortRef)
+    , nodeRefMeta, instRef, nodeRef
+    , ArrayIndex(ArrayIndex)
+    , Address(Address)
+    , AddressBlock(AddressBlock)
+    , WildcardSet(ExplicitSet, Wildcard)
+    , NaturalSet(NaturalSet)
+    , NaturalRange(SingletonRange, LimitRange, BitsRange)
+    , natRangeMeta, base, limit, bits
+    , NaturalExpr(Addition, Subtraction, Multiplication, Slice, Concat, Variable, Literal)
+    , natExprMeta, natExprOp1, natExprOp2, bitRange, varName, natural
+    , PropertyExpr(And, Or, Not, Property, True, False)
+    , propExprMeta, propExprOp1, propExprOp2, property
+    )
 
 data Sockeye = Sockeye
     { sockeyeMeta :: ASTMeta 

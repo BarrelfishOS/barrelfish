@@ -276,8 +276,12 @@ forall = do
 unqualifiedRef = do
     pos <- getPositionMeta
     name <- identifierName
-    index <- optionMaybe $ arrayIndex
-    return $ maybe (AST.SingleRef pos name) (AST.ArrayRef pos name) index
+    index <- optionMaybe arrayIndex
+    return AST.UnqualifiedRef
+        { AST.refMeta  = pos
+        , AST.refName  = name
+        , AST.refIndex = index
+        }
 
 nodeReference = do
     pos <- getPositionMeta

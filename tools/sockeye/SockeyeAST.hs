@@ -17,22 +17,20 @@ module SockeyeAST where
 
 import SockeyeASTMeta
 
-data UnqualifiedRef
-    = SingleRef
-        { refMeta :: ASTMeta
-        , refName :: String
-        }
-    | ArrayRef
-        { refMeta  :: ASTMeta
-        , refName  :: String
-        , refIndex :: ArrayIndex
-        }
+data Sockeye = Sockeye
+    deriving (Show)
+
+data UnqualifiedRef = UnqualifiedRef
+    { refMeta  :: ASTMeta
+    , refName  :: String
+    , refIndex :: Maybe ArrayIndex
+    }
     deriving (Show)
 
 instance MetaAST UnqualifiedRef where
     meta = refMeta
 
-data NodeReference
+data NodeReference 
     = InternalNodeRef
         { nodeRefMeta :: ASTMeta
         , nodeRef     :: UnqualifiedRef
@@ -146,7 +144,7 @@ instance MetaAST NaturalExpr where
 data PropertyExpr
     = And
         { propExprMeta :: ASTMeta
-        , pExprOp1     :: PropertyExpr
+        , propExprOp1     :: PropertyExpr
         , propExprOp2  :: PropertyExpr
         }
     | Or
