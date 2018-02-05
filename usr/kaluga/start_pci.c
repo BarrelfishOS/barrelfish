@@ -248,7 +248,7 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
  * into driver_arg.
  */
 static errval_t add_int_args(struct pci_addr addr, struct driver_argument *driver_arg, char *debug){
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
     char debug_msg[100];
     strcpy(debug_msg, "none");
     // TODO: every driver should specify the int_model in device_db
@@ -258,29 +258,14 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
        driver_arg->int_arg.model == INT_MODEL_NONE) {
         KALUGA_DEBUG("Starting driver with legacy interrupts\n");
         // No controller has to instantiated, but we need to get caps for the int numbers
-        err = skb_execute_query("get_pci_legacy_int_range(addr(%"PRIu8",%"PRIu8",%"PRIu8"),Li),"
-                "writeln(Li).", addr.bus, addr.device, addr.function);
-        KALUGA_DEBUG("(bus=%"PRIu16",dev=%"PRIu16",fun=%"PRIu16") "
-                "int_range skb reply: %s\n",
-                addr.bus, addr.device, addr.function, skb_get_output() );
+        //err = skb_execute_query("get_pci_legacy_int_range(addr(%"PRIu8",%"PRIu8",%"PRIu8"),Li),"
+        //        "writeln(Li).", addr.bus, addr.device, addr.function);
+        err = skb_execute_query(
+                "add_pci_controller(Lbl, addr(%"PRIu8",%"PRIu8",%"PRIu8")),"
+                "write('\n'), print_int_controller(Lbl).",
+                addr.bus, addr.device, addr.function);
+        DEBUG_SKB_ERR(err, "add/print pci controller");
 
-        // For debugging
-        strncpy(debug_msg, skb_get_output(), sizeof(debug_msg));
-        char * nl = strchr(debug_msg, '\n');
-        if(nl) *nl = '\0';
-        debug_msg[sizeof(debug_msg)-1] = '\0';
-
-        uint64_t start=0, end=0;
-        err = skb_read_output("%"SCNu64", %"SCNu64, &start, &end);
-        if(err_is_fail(err)){
-            DEBUG_SKB_ERR(err, "Could not parse SKB output. Not starting driver.\n");
-            return err;
-        }
-        
-        err = store_int_cap(start, end, driver_arg);
-        if(err_is_fail(err)){
-            USER_PANIC_ERR(err, "store_int_cap");
-        }
     } else if(driver_arg->int_arg.model == INT_MODEL_MSI){
         printf("Kaluga: Starting driver with MSI interrupts\n");
         printf("Kaluga: MSI interrupts are not supported.\n");
@@ -292,37 +277,40 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
         // add_controller prints one line we have to ignore it.
         err = skb_execute_query("add_controller(4, msix, Lbl), write('\n'),"
                 "print_int_controller(Lbl).");
-        if(!err_is_ok(err)) DEBUG_SKB_ERR(err, "add/print msix controller");
+        if(err_is_fail(err)) DEBUG_SKB_ERR(err, "add/print msix controller");
 
-        // For debugging
-        strncpy(debug_msg, skb_get_output(), sizeof(debug_msg));
-        char * nl = strchr(debug_msg, '\n');
-        if(nl) *nl = '\0';
-        debug_msg[sizeof(debug_msg)-1] = '\0';
-
-        uint64_t start=0, end=0;
-        // Format is: Lbl,Class,InLo,InHi,....
-        err = skb_read_output("%*[^\n]\n%64[^,],%*[^,],%"SCNu64",%"SCNu64,
-                driver_arg->int_arg.msix_ctrl_name,
-                &start, &end);
-        if(err_is_fail(err)) DEBUG_SKB_ERR(err, "read response");
-
-        driver_arg->int_arg.int_range_start = start;
-        driver_arg->int_arg.int_range_end = end;
-        
-        //Debug message
-        snprintf(debug_msg, sizeof(debug_msg),
-                "lbl=%s,lo=%"PRIu64",hi=%"PRIu64,
-                driver_arg->int_arg.msix_ctrl_name,
-                start, end);
-
-        err = store_int_cap(start, end, driver_arg);
-        if(err_is_fail(err)){
-                USER_PANIC_ERR(err, "store_int_cap");
-        }
     } else {
         KALUGA_DEBUG("No interrupt model specified. No interrupts"
                 " for this driver.\n");
+    }
+
+    if(err_is_fail(err)) return err;
+
+    // For debugging
+    strncpy(debug_msg, skb_get_output(), sizeof(debug_msg));
+    char * nl = strchr(debug_msg, '\n');
+    if(nl) *nl = '\0';
+    debug_msg[sizeof(debug_msg)-1] = '\0';
+
+    uint64_t start=0, end=0;
+    // Format is: Lbl,Class,InLo,InHi,....
+    err = skb_read_output("%*[^\n]\n%64[^,],%*[^,],%"SCNu64",%"SCNu64,
+            driver_arg->int_arg.msix_ctrl_name,
+            &start, &end);
+    if(err_is_fail(err)) DEBUG_SKB_ERR(err, "read response");
+
+    driver_arg->int_arg.int_range_start = start;
+    driver_arg->int_arg.int_range_end = end;
+    
+    //Debug message
+    snprintf(debug_msg, sizeof(debug_msg),
+            "lbl=%s,lo=%"PRIu64",hi=%"PRIu64,
+            driver_arg->int_arg.msix_ctrl_name,
+            start, end);
+
+    err = store_int_cap(start, end, driver_arg);
+    if(err_is_fail(err)){
+        USER_PANIC_ERR(err, "store_int_cap");
     }
     if(debug) strcpy(debug, debug_msg);
     return SYS_ERR_OK;

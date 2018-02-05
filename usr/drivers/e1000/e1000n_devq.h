@@ -18,6 +18,7 @@ typedef struct e1000_queue {
     char *name;
     uint64_t mac_address;
     struct capref regs;
+    struct capref irq;
 
     volatile union rx_desc *receive_ring;
     volatile struct tx_desc *transmit_ring;

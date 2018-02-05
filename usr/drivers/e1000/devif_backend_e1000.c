@@ -10,11 +10,13 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/deferred.h>
 #include <barrelfish/nameservice_client.h>
+#include <barrelfish/inthandler.h>
 #include <devif/queue_interface_backend.h>
 #include <devif/backends/net/e1000_devif.h>
 #include <net_interfaces/flags.h>
 #include <debug_log/debug_log.h>
 #include <if/e1000_devif_defs.h>
+#include <int_route/int_route_client.h>
 
 #include "e1000n.h"
 #include "e1000n_devq.h"
@@ -320,7 +322,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t device
 
     device->mac_type = e1000_get_mac_type(device->pci_vendor, device->pci_deviceid);
 
-    printf("MAC tpye %d \n", device->mac_type);
+    printf("MAC type %d \n", device->mac_type);
     switch (device->mac_type) {
         case e1000_82571:
         case e1000_82572:
@@ -384,7 +386,8 @@ errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t device
     errval_t err2;
     err = device->b->rpc_tx_vtbl.create_queue(device->b, device->rx, device->tx, 
                                              (bool) interrupt_mode,
-                                              &device->mac_address, &device->regs, 
+                                              &device->mac_address, &device->regs,
+                                              &device->irq,
                                               &err2);
     if (err_is_fail(err) || err_is_fail(err2)) {
         err = err_is_fail(err) ? err: err2;
@@ -407,6 +410,21 @@ errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t device
 
     err = devq_init(&device->q, false);
     assert(err_is_ok(err));
+
+    E1000_DEBUG("interrupt_mode=%s\n", interrupt_mode ? "on" : "off");
+    if(interrupt_mode){
+        err = int_route_client_connect(); //Multiple calls are OK
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "int_route_client_connect");
+            return err;
+        }
+
+        err = int_route_client_route_and_connect(device->irq, 0,
+                get_default_waitset(), device->isr, device);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "int_route_client_route_and_connect");
+        }
+    }
     
     device->q.f.enq = e1000_enqueue;
     device->q.f.deq = e1000_dequeue;

@@ -197,7 +197,14 @@ errval_t pcid_connect_int_with_cap(struct capref int_src, int int_index,
 errval_t pcid_connect_int(struct pcid* pdc, int int_index,
                           interrupt_handler_fn handler, void *st)
 {
-    return SYS_ERR_OK;
+    errval_t err;
+    struct capref irq_cap;
+    err = pcid_get_interrupt_cap(pdc, &irq_cap); 
+    if(err_is_fail(err)){
+        return err;
+    }
+
+    return pcid_connect_int_with_cap(irq_cap, int_index, handler, st);
 }
 
 errval_t pcid_enable_msix(int *num_vectors) {

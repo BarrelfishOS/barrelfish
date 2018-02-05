@@ -376,7 +376,8 @@ void e1000_driver_state_init(struct e1000_driver_state * eds){
 
 static errval_t cd_create_queue_rpc(struct e1000_devif_binding *b, 
                                 struct capref rx, struct capref tx, bool interrupt, 
-                                uint64_t *mac, struct capref *regs, errval_t* err)
+                                uint64_t *mac, struct capref *regs,
+                                struct capref *irq, errval_t* err)
 {
     struct e1000_driver_state* driver = (struct e1000_driver_state*) b->st;
 
@@ -390,6 +391,8 @@ static errval_t cd_create_queue_rpc(struct e1000_devif_binding *b,
     }
     memcpy(mac, driver->mac_address, sizeof(driver->mac_address));
     *regs = driver->regs;
+
+    *err = pcid_get_interrupt_cap(&driver->pdc, irq);
     return SYS_ERR_OK;
 }
 
@@ -397,14 +400,21 @@ static errval_t cd_create_queue_rpc(struct e1000_devif_binding *b,
 static void cd_create_queue(struct e1000_devif_binding *b, struct capref rx,
                             struct capref tx, bool interrupt)
 {
+    debug_printf("in cd_create_queue\n");
     uint64_t mac = 0;
     errval_t err = SYS_ERR_OK;
 
     struct capref regs;
+    struct capref irq;
 
-    cd_create_queue_rpc(b, rx, tx, interrupt, &mac, &regs, &err);
+    cd_create_queue_rpc(b, rx, tx, interrupt, &mac, &regs, &irq, &err);
+    
+    //if(interrupt){
+        // enable interrupts for that queue
+        // send back interrupt cap
+   //}
 
-    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, regs, err);
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, regs, irq, err);
     assert(err_is_ok(err));
 }
 

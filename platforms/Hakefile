@@ -212,7 +212,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "corectrl",
                            "datagatherer",
                            "dma_mgr",
-                           "driverdomain",
+                           "e1000n",
                            "e10k",
                            "e10k_queue",
                            "echoserver",

@@ -23,6 +23,7 @@
 
 #include <if/int_route_service_defs.h>
 #include <if/int_route_service_defs.h>
+#include <if/monitor_blocking_defs.h>
 
 static struct int_route_state {
     bool request_done;
@@ -71,6 +72,69 @@ errval_t int_route_client_route(struct capref intsrc, int irq_idx,
         return msgerr;
     }
     return err;
+}
+
+static errval_t alloc_dest_irq_cap(struct capref *retcap)
+{
+    errval_t err, msgerr;
+
+    struct monitor_blocking_binding *r = get_monitor_blocking_binding();
+    err = slot_alloc(retcap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = r->rpc_tx_vtbl.get_irq_dest_cap(r, retcap, &msgerr);
+    if (err_is_fail(err)){
+        return err;
+    } else {
+        return msgerr;
+    }
+}
+
+errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
+        struct waitset * ws, interrupt_handler_fn handler, void *handler_arg)
+{
+    errval_t err;
+    /* allocate irq dest cap */
+    struct capref irq_dest_cap;
+    err = alloc_dest_irq_cap(&irq_dest_cap);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "alloc_dest_irq_cap");
+        return err;
+    }
+
+    /* create endpoint to handle interrupts */
+    struct capref epcap;
+
+    /* use minimum-sized endpoint, because we don't need to buffer >1 interrupt */
+    struct lmp_endpoint *idcep;
+    err = endpoint_create(LMP_RECV_LENGTH, &epcap, &idcep);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_ENDPOINT_CREATE);
+    }
+
+    /* register to receive on this endpoint */
+    struct event_closure cl = {
+        .handler = handler,
+        .arg = handler_arg
+    };
+    err = lmp_endpoint_register(idcep, ws, cl);
+
+    /* connect irq_dest with EP */
+    err = invoke_irqdest_connect(irq_dest_cap, epcap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not connect irq_cap and endpoint");
+        return err;
+    }
+
+    /* add route from int_src_cap to irq_dest_cap */
+    err = int_route_client_route(intsrc, 0, irq_dest_cap);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "int_route_client_route");
+        return err;
+    }
+
+    return SYS_ERR_OK;
 }
 
 errval_t int_route_client_connect(void){
