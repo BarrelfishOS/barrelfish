@@ -32,6 +32,9 @@
 % ioapic_gsi_base(Label, Base)
 :- dynamic(ioapic_gsi_base/2).
 
+% Link the PCI controller label with an addr(...)
+:- dynamic(pci_lbl_addr/2).
+
 % X86 int model with one argument with a single atom that indicates
 % the system is using one of the interrupt models.
 % atoms currently used is 
@@ -641,6 +644,8 @@ add_pci_controller(Lbl, A) :-
     find_prt_entry(Pin, A, X),
     prt_entry_to_num(X, IntNu),
     OutRange :: [IntNu, IntNu],
+
+    assert(pci_lbl_addr(Lbl, A)),
 
     assert_controller(Lbl, pci, PciInRange, OutRange).
 

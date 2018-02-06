@@ -30,6 +30,7 @@
 
 #include "pci.h"
 #include "pci_debug.h"
+#include "pci_int_ctrl.h"
 
 #if !defined(__ARM_ARCH_8A__)
 static errval_t init_io_ports(void)
@@ -119,6 +120,12 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "Setup PCI root complex failed.");
     }
+
+    err = pci_int_ctrl_init();
+    if (err_is_fail(err)) {
+    	USER_PANIC_ERR(err, "Initializing pci_int_ctrl failed");
+    }
+
 
     // Start configuring PCI
     PCI_DEBUG("Programming PCI BARs and bridge windows\n");
