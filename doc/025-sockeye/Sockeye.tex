@@ -1,5 +1,5 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Copyright (c) 2017, ETH Zurich.
+% Copyright (c) 2018, ETH Zurich.
 % All rights reserved.
 %
 % This file is distributed under the terms in the attached LICENSE file.
@@ -19,6 +19,7 @@
 \usepackage{pifont}
 \usepackage{pxfonts}
 \usepackage{textcomp}
+\usepackage[xindy,nowarn]{glossaries}
 
 \usepackage{multirow}
 \usepackage{listings}
@@ -40,6 +41,14 @@
     morestring=[b]",
 }
 
+\newacronym{ast}{AST}{abstract syntax tree}
+\newacronym{dsl}{DSL}{domain specific language}
+\newacronym{hdn}{HDN}{hardware decoding net}
+\newacronym{skb}{SKB}{System Knowledge Base}
+\newacronym[longplural={systems on a chip}]{soc}{SoC}{system on a chip}
+
+\makeglossaries
+
 \presetkeys{todonotes}{inline}{}
 
 \begin{document}
@@ -48,6 +57,7 @@
 \begin{versionhistory}
 \vhEntry{0.1}{15.06.2017}{DS}{Initial Version}
 \vhEntry{0.2}{03.08.2017}{DS}{Describe Modularity Features}
+\vhEntry{0.3}{09.02.2018}{DS}{Sockeye 2.0}
 \end{versionhistory}
 
 % \intro{Abstract}    % Insert abstract here
@@ -88,25 +98,35 @@
 
 \emph{Sockeye}\footnote{Sockeye salmon (Oncorhynchus nerka), also called red salmon, kokanee salmon, or blueback salmon, is an anadromous species of salmon found in the Northern Pacific Ocean and rivers discharging into it. This species is a Pacific salmon that is primarily red in hue during spawning. They can grow up to 84 cm in length and weigh 2.3 to 7 kg. 
 Source: \href{https://en.wikipedia.org/wiki/Sockeye_salmon}{Wikipedia}}
-is a domain specific language to describe SoCs (Systems on a Chip).
+is a \gls{dsl} to describe \glspl{soc}
 
-Achermann~et~al.~\cite{achermann:mars17} propose a formal model to describe address spaces and interrupt routes in a system as a directed graph.
-They call such a graph a ``decoding net''.
+Achermann~et~al. propose a formal model to describe hardware as a directed graph~\cite{achermann:mars17}.
+For the rest of this technote we'll call such a graph a \gls{hdn}.
+The model captures the complex interactions within an between address translation hardware and the interrupt system.
+There is also work being done to extend the model to include clock distribution and power management.
+
 Each node in the graph can accept a set of addresses and translate another (not necessarily disjunct) set of addresses (when describing interrupt routes they accept or translate interrupt vectors).
-Starting at a specific node, addresses can be resolved by following the appropriate edges in the decoding net.
+While the nodes are modeled explicitly, the edges are implicitly given by the translation sets of the nodes.
+
+Starting at a specific node, addresses can be resolved by following the appropriate edges in the \gls{hdn}.
 When a node translates an address, resolution is continued at the referenced node.
 When a node accepts an address, resolution terminates
 
-Achermann~et~al.~\cite{achermann:mars17} also propose a concrete syntax for specifying decoding nets.
-Sockeye is an implementation of the proposed language but adds some features to address issues encountered in practice.
+Sockeye uses \glspl{hdn} as its underlying model.
+If offers language features to efficiently describe real hardware.
 
-The Sockeye compiler is written in Haskell using the Parsec parsing library. It
-generates Prolog files from the Sockeye files. These Prolog files contain facts that represent a decoding net (see Chapter~\ref{chap:prolog}).
-The Prolog files can then be loaded into Barrelfish's System Knowledgebase (SKB).
+We currently envision two main use cases for Sockeye:
+\begin{itemize}
+  \item Generate Isabell/HOL code from Sockeye specifications to be able to formally reason about the described hardware.
+  \item Generate Prolog files that can be loaded into Barrelfish's \gls{skb} for the system to be able to reason about the hardware it's running on.
+\end{itemize}
 
-In the future the compiler should also be able to generate Isabelle code from Sockeye specifications to be able to verify hardware designs.
+The Sockeye compiler is written in Haskell using the Parsec parsing library.
+The source code for the compiler can be found in \pathname{SOURCE/tools/sockeye}.
+\todo{DS: The code for the old version is in the subdirectory \pathname{v1}.
+To not break building the tree \pathname{BUILD/tools/bin/sockeye} is compiled from the old code.
+The new code is compiled to \pathname{BUILD/tools/bin/sockeye2}.}
 
-The source code for Sockeye can be found in \pathname{SOURCE/tools/sockeye}.
 
 \clearpage
 \section{Command Line Options}
@@ -118,7 +138,8 @@ $ sockeye [options] file
 
 The available options are:
 \begin{description}
-\item[-P] Generate a Prolog file that can be loaded into the SKB (default).
+\item[-P] Generate a Prolog file that can be loaded into the \gls{skb} (default).
+\item[-I] Generate Isabelle/HOL code to formally reason about hardware.
 \item[-i] Add a directory to the search path where Sockeye looks for imports.
 \item[-o] \varname{filename} The path to the output file (required)
 \item[-d] \varname{filename} The path to the dependency output file (optional)
@@ -126,7 +147,9 @@ The available options are:
 \end{description}
 
 The backend (capital letter options) specified last takes precedence.
-At the moment there is only a backend for generating Prolog for use in Barrelfish's SKB.
+\todo{DS: The backends are not yet implemented in the new compiler version.
+For debugging purposes there are command line options to dump various internal data structures.
+Use -h for more info.}
 
 Multiple directories can be added by giving the \texttt{-i} options multiple times.
 Sockeye will first look for files in the current directory and then check the given directories in the order they were given.
@@ -137,13 +160,35 @@ The Sockeye file to compile is given via the \texttt{file} parameter.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Language Constructs \& Syntax}
+\label{chap:syntax}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+This chapter describes the language constructs in Sockeye and their syntax.
+We use EBNF to describe the Sockeye syntax. Terminals are \textbf{bold} while non-terminals are \textit{italic}.
+The non-terminal \textit{iden} denotes an identifier.
+The non-terminals \textit{letter}, \textit{decimal} and \textit{hexadecimal} are defined as expected (see Chapter~\ref{chap:lexer}).
+
+\section{Nodes}
+Nodes are the fundamental construct in Sockeye.
+A Sockeye nodes closely correspond to nodes in an \gls{hdn}:
+They have a set of addresses that is accepted, and a set of translations.
+Sockeye also allows
+Sockeye separates the declaration of a node and its definition.
+
+\subsection{Domains}
+
+\subsection{Types}
+
+\section{Modules}
+
+\section{Import System}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Lexical Conventions}
 \label{chap:lexer}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-The Sockeye parser follows a similar convention as opted by modern day 
-programming languages like C and Java. Hence, Sockeye uses a Java-style-like
-parser based on the Haskell Parsec Library. The following conventions are used:
+The Sockeye parser uses the following conventions:
 
 \begin{description}
 \item[Encoding] The file should be encoded using plain text.
@@ -161,7 +206,7 @@ parser based on the Haskell Parsec Library. The following conventions are used:
   (0-9), letters (a-z, A-Z), the underscore character ``\texttt{\_}'' and the dash character ``\textendash''. They
   must start with a letter.
   \begin{align*}
-  identifier & \rightarrow letter (letter \mid digit \mid \text{\_} \mid \text{\textendash})^{\textrm{*}} \\
+  identifier & \rightarrow letter (letter \mid digit \mid \text{\_})^{\textrm{*}} \\
   letter & \rightarrow (\textsf{A \ldots Z} \mid  \textsf{a \ldots z})\\
   digit & \rightarrow (\textsf{0 \ldots 9})
     \end{align*}
@@ -180,12 +225,14 @@ hexadecimal & \rightarrow (\textsf{0x})(\textsf{0 \ldots 9} \mid \textsf{A \ldot
 
 \item[Reserved words:] The following are reserved words in Sockeye:
 \begin{verbatim}
-accept, are, as, at, import, in, input, is, map,
-module, output, over, reserved, to, with
+import, as, module, input, output, type, const,
+memory, intr, power, clock,
+instance, of, forall, in,
+accepts, maps, converts, overlays, instantiates, binds,
+to, at, bits
 \end{verbatim}
 
 \end{description}
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Syntax}
@@ -193,8 +240,8 @@ module, output, over, reserved, to, with
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 In this chapter we define the layout of a Sockeye file.
-The node declarations in a Sockeye file describe a single decoding net.
-Parts of a decoding net can be packaged into reusable modules (see Section~\ref{sec:modules}).
+The node declarations in a Sockeye file describe a single \gls{hdn}.
+Parts of a \gls{hdn} can be packaged into reusable modules (see Section~\ref{sec:modules}).
 With imports (see Section~\ref{sec:imports}) modules can also be put into separate files.
 
 In the following sections we use EBNF to describe the Sockeye syntax. Terminals are \textbf{bold} while non-terminals are \textit{italic}.
@@ -206,8 +253,7 @@ A more complete specification of the SoC is located in \pathname{SOURCE/socs/oma
 
 \section{Basic Syntax}
 This section describes the basic syntax for Sockeye.
-It closely corresponds to the concrete syntax described in \cite{achermann:mars17}.
-If there are important syntactic or semantic differences it is stated explicitly in the description of the respective syntactical construct.
+
 
 \subsection{Node Declarations}
 A node declaration contains one or more identifiers and the node specification.
@@ -367,10 +413,10 @@ Multiple translation targets can be specified by giving a comma-separated list o
 
 \section{Modules}
 \label{sec:modules}
-A module encapsulates a decoding net which can be integrated into a larger decoding net.
+A module encapsulates a \gls{hdn} which can be integrated into a larger \gls{hdn}.
 A module instantiation always creates a namespace inside the current one.
 Normally nodes can only be referenced by nodes in the same namespace.
-To properly integrate a module into a larger decoding net we need a mechanism to connect the module to the enclosing decoding net.
+To properly integrate a module into a larger \gls{hdn} we need a mechanism to connect the module to the enclosing \gls{hdn}.
 This is done via ports.
 There are input ports, which create a connection into the module and output ports which create connections from the module to outside nodes.
 A port has always a width, specified as the number of address bits the port spans.
@@ -598,7 +644,7 @@ Listing~\ref{lst:sockeye_example} shows an example Sockeye specification.
 \chapter{Checks on the AST}
 \label{chap:checks}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The compiler performs the transformation from parsed Sockeye to decoding nets in three steps:
+The compiler performs the transformation from parsed Sockeye to \gls{hdn}s in three steps:
 \begin{enumerate}
     \item Type checker
     \item Instantiator
@@ -607,7 +653,7 @@ The compiler performs the transformation from parsed Sockeye to decoding nets in
 In each of the steps some checks are performed.
 The type checker checks that all referenced symbols (modules, parameters and index variables) are defined and ensures module template parameter type safety.
 The instantiator instantiates module and identifier templates and ensures that each identifier is declared only once.
-The net builder instantiates the modules and ensures referential integrity in the generated decoding net. It also transforms overlays to translation sets.
+The net builder instantiates the modules and ensures referential integrity in the generated \gls{hdn}. It also transforms overlays to translation sets.
 The checks are detailed in the following sections.
 
 \section{Type Checker}
@@ -670,8 +716,13 @@ It also checks that every input port has a corresponding node declaration.
 \chapter{Prolog Mapping for Sockeye}
 \label{chap:prolog}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The Sockeye compiler generates \(\text{ECL}^i\text{PS}^e\)-Prolog\footnote{\href{http://eclipseclp.org/}{http://eclipseclp.org/}} to be used within the SKB.
-A decoding net is expressed by the predicate \Prolog{node/2}.
+\todo{DS: This describes the mapping in the initial draft for Sockeye.
+The new version of the compiler does not yet implement the Prolog backend.
+If PicoSAT will indeed be used in the future to query \glspl{hdn}, this will impose currently unknown requirements on the Prolog representation.
+We probably also want modules represented in the \gls{skb} such that they can be instantiated at runtime, meaning Sockeye should be compiled to a colleciton of inference rules rather than facts.}
+
+The Sockeye compiler generates \(\text{ECL}^i\text{PS}^e\)-Prolog\footnote{\href{http://eclipseclp.org/}{http://eclipseclp.org/}} to be used within the \gls{skb}.
+A \gls{hdn} is expressed by the predicate \Prolog{node/2}.
 The first argument to the predicate is the node identifier and the second one the node specification.
 
 Node identifiers are represented as a functor \Prolog{node_id/2}.
@@ -698,6 +749,12 @@ Listing~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\chapter{Compiler Implementation}
+\label{chap:compiler}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\todo{DS: Needed?}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Compiling Sockeye Files with Hake}
 \label{chap:hake}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -706,7 +763,7 @@ Each top-level Sockeye file has to be added to the list of SoCs in the Hakefile 
 When passed a filename (without extension), the function \verb|sockeye :: String -> HRule| creates a rule to compile the file \pathname{SOURCE/socs/<filename>.soc} to \pathname{BUILD/sockeyefacts/<filename>.pl}.
 The rule will also generate \pathname{BUILD/sockeyefacts/<filename>.pl.depend} (with the \texttt{-d} option of the Sockeye compiler) and include it in the Makefile.
 This causes \texttt{make} to rebuild the file also when imported files are changed.
-To add a compiled Sockeye specification to the SKB RAM disk, the filename can be added to the \varname{sockeyeFiles} list in the SKBs Hakefile.
+To add a compiled Sockeye specification to the \gls{skb} RAM disk, the filename can be added to the \varname{sockeyeFiles} list in the \gls{skb}'s Hakefile.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
