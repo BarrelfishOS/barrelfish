@@ -157,11 +157,13 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
+    char *oct_id;
+
     // TODO: Determine cls here as well
     {
         int64_t vendor_id, device_id, bus, dev, fun;
-        err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
-                        &bus, &dev, &fun,
+        err = oct_read(record, "%s { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                        &oct_id, &bus, &dev, &fun,
                         &vendor_id, &device_id);
 
         if(err_is_fail(err)){
@@ -194,7 +196,7 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
     char module_name[100];
     sprintf(module_name, "%s_module", mi->binary);
 
-    struct driver_instance* drv = ddomain_create_driver_instance(module_name, record);
+    struct driver_instance* drv = ddomain_create_driver_instance(module_name, oct_id);
 
     char *args[4] = {NULL, NULL, NULL, NULL};
     int args_len = 0;
