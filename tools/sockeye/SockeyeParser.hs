@@ -417,7 +417,7 @@ naturalExpr = buildExpressionParser opTable term <?> "arithmetic expression"
             return $ AST.Literal pos value
         slice = do
             pos <- getPositionMeta
-            range <- brackets naturalSet
+            range <- brackets naturalRange
             return $ flip (AST.Slice pos) range
         mult = do
             pos <- getPositionMeta

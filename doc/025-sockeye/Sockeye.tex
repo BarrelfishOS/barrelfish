@@ -165,23 +165,206 @@ The Sockeye file to compile is given via the \texttt{file} parameter.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 This chapter describes the language constructs in Sockeye and their syntax.
 We use EBNF to describe the Sockeye syntax. Terminals are \textbf{bold} while non-terminals are \textit{italic}.
+\todo{Do we really need a formal syntax description here? Aren't examples enough?}
 The non-terminal \textit{iden} denotes an identifier.
-The non-terminals \textit{letter}, \textit{decimal} and \textit{hexadecimal} are defined as expected (see Chapter~\ref{chap:lexer}).
+The non-terminals \textit{letter}, \textit{decimal} and \textit{hexadecimal} are defined as expected.
+The precise definition of these non-terminals is found in Chapter~\ref{chap:lexer}.
+
+Most of the examples are taken from the Texas Instruments OMAP44xx SoC as used on the PandaboardES\footnote{The technical reference manual can be found \href{http://www.ti.com/lit/ug/swpu235ab/swpu235ab.pdf}{here}.}.
+
+\section{Natural Numbers}
+Sockeye supports addition, subtraction and multiplication of natural numbers.
+Additionally natural numbers can be interpreted as bit arrays and can then be \emph{sliced} (selecting a contiguous range of bits of a number's binary representation) and \emph{concatenated}.
+\begin{example}
+  /* Slicing: */
+  4[0] = 0
+  4[1] = 0
+  4[2] = 14
+  5[1 to 2] = 0b10 = 2
+
+  /* Concatenation: */
+  8 ++ 0xF[1 to 2] = 0b100011 = 35
+\end{example}
+
+The concatenation operator is left associative and the right hand side has to be a slice expression for the concatenation to be defined (the number of bits the left hand side has to be shifted has to be known). The operator precedence for the standard operations is as expected, slicing has higher precedence than the standard operations and concatenation has lower precedence.
+
+Sockeye also has syntax to describe contiguous ranges of natural numbers:
+\begin{example}
+  /* Singleton range */
+  42
+
+  /* Base and limit */
+  0 to 8 // 0 up to and including 8
+  5 to 11
+
+  /* Base base and a number of variable bits */
+  (0 bits 2) // 0 up to and excluding 2^4
+
+  /* The variable bits have to be 0 in the base */
+  (0x100 bits 8) // OK
+  (0x110 bits 8) // Error
+\end{example}
+
+A (possibly sparse) set of natural numbers can be expressed as a comma-separated list of contiguous ranges.
+\begin{example}
+  /* These are equivalent */
+  (0 bits 2, 5 to 7, 11)
+  (0, 1, 2, 3, 5, 6, 7, 11)
+\end{example}
+
+\section{Addresses}
+\todo{DS: Do we call them addresses, although might be interrupt vectors, clock signals etc?}
+In \glspl{hdn} addresses are natural numbers.
+Sockeye models them as tuples of natural numbers.
+This allows easier modeling of cases where different parts of an address are used for different purposes.
+An example for this would e.g. be a lookup table that uses some bits as an index and prepends the rest of the incoming address with the value indexed by these bits.
+Note that this is not more powerful than the underlying model as there is a bijection between tuples of natural numbers and natural numbers (e.g. diagonalisation).
+
+Sockeye syntax not only allows to specify single addresses but address sets.
+The dimensions of an address tuple are separated by semicolons:
+\begin{example}
+  (0; 8; 15)
+  (0x0; 0x8; 0xF)
+  (0 bits 12; 0 bits 8; 0 bits 12)
+\end{example}
+
+An address set contains all addresses in the Cartesian product of its dimensions.
 
 \section{Nodes}
-Nodes are the fundamental construct in Sockeye.
-A Sockeye nodes closely correspond to nodes in an \gls{hdn}:
-They have a set of addresses that is accepted, and a set of translations.
-Sockeye also allows
+Sockeye nodes closely correspond to nodes in an \gls{hdn}:
+They have a set of addresses that they accept, and a set of translations of incoming addresses to other nodes.
+In addition Sockeye nodes have an input and output \emph{domain} and \emph{type}.
+
+\paragraph{Domains}
+There are the following node domains in Sockeye:
+\begin{itemize}
+  \item \textit{memory}: Nodes in this domain are part of the memory system. 
+  \item \textit{intr}: Nodes in this domain are part of the interrupt system.
+  \item \textit{power}: Nodes in this domain are part of the power management system.
+  \item \textit{clock}: Nodes in this domain are part of the clock distribution system.
+\end{itemize}
+Standard nodes have the same input and output domain.
+Nodes with different input and output domains are called \emph{conversion nodes}.
+They offer a controlled way of crossing the boundaries between domains e.g. to model message signaled interrupts.
+\todo{DS: Do we allow all combinations of input/output domains or do we want to e.g. disallow crossing from memory to clock?}
+
+\paragraph{Types} The types in Sockeye allow to constrain the addresses.
+A type is simply an address set that the address has to be an element of.
+
 Sockeye separates the declaration of a node and its definition.
+However, to keep specifications as readable as possible the definition should immediately follow the declaration whenever possible.
 
-\subsection{Domains}
+\paragraph{Node Declarations} A node is declared by giving its input domain and type and optionally its output domain and type.
 
-\subsection{Types}
+Nodes can either be declared as single nodes or (sparse) node arrays.
+The possible array indexes are a set of natural numbers.
+\begin{example}
+  /* Declare 32bit addressed RAM node */
+  \textit{memory} (0 bits 32) SDRAM
+
+  /* If the output domain is not given it defaults to the input domain */
+  \textit{memory} (0 bits 32) \textit{memory} SDRAM // Equivalent to the above
+
+  /* 
+   * Declare the physical address space of 4 cores
+   * (Array indexes do not have to be contiguous)
+   */
+  \textit{memory} (0 bits 12; 0 bits 8; 0 bits 12) CPU_Physical[1, 3, 5, 7]
+
+  /* Declare a MSIx controller converting memory accesses to interrupts */
+  \textit{memory} (0 bits 32) \textit{intr} MSIx_CTRL
+
+  /*
+   * Give output type to limit translation range
+   * to interrupt vectors 0 ... 1023
+   */
+  \textit{memory} (0 bits 32) \textit{intr} (0 to 1023) MSIx_CTRL
+\end{example}
+
+\paragraph{Node Definitions}
+There are four types of statements to define nodes:
+\begin{itemize}
+  \item \textbf{accepts} is used to define the accepted addresses of a node
+  \item \textbf{maps} is used to define the translations done by a node
+  \item \textbf{converts} is the same as \textbf{maps} but for conversion nodes.
+  This definition statement is only allowed for conversion nodes.
+  It is also the only one allowed for conversion nodes.
+  \todo{DS: Do we need/want to allow others?}
+  \item \textbf{overlays} is used to define a default translation for a node.
+  Any address that is neither accepted nor translated explicitly is translated to the overlay node at the same address.
+\end{itemize}
+A node's definition is given by the union of all the statements about the node.
+The definition can contain multiple statements of the same type.
+
+Accepting addresses are defined by giving a list of semicolon-separated address sets.
+Address sets are tuples of sets of natural numbers.
+All accepted addresses have to be elements of the nodes input type.
+\begin{example}
+  /*
+   * SDRAM accepts all 32bit addresses
+   */
+  \textit{memory} (0 bits 32) SDRAM
+  SDRAM \textbf{accepts} [(0 bits 32)]
+
+ /* Multiple entries (equivalent to above) */
+  SDRAM \textbf{accepts} [
+    (0x00000000 bits 30);
+    (0x40000000 bits 30);
+    (0x80000000 bits 30);
+    (0xC0000000 bits 30)
+  ]
+
+/* Multiple statements (equivalent to above) */
+SDRAM \textbf{accepts} [(0x00000000 bits 31)]
+SDRAM \textbf{accepts} [(0x80000000 bits 31)]
+\end{example}
+
+Translations are defined by giving a semicolon-separated list of origin addresses and translation targets.
+A translation targets consists of a node reference and a target address.
+The origin addresses have to elements of the node's input type.
+The target node has to have the same input domain as the node's output domain.
+The target address has to be within the target nodes input type.
+If the node has an output type, the target address additionally needs to be in the output type.
+\begin{example}
+Translation examples
+\end{example}
+
+To translate contiguous ranges of addresses, an address set can be given instead of the origin address.
+To translate all addresses in a dimension of the node's input type, a wildcard can be used.
+If all dimensions of the address set are contiguous, the target address can also be a set with all dimensions being contiguous ranges.
+\begin{example}
+Advanced translation examples
+\end{example}
+
+An overlay represents a default translation target for all addresses that are neither accepted nor explicitly translated.
+Nodes can only have overlays if their output type is either unspecified or the same as the input type.
+The overlay node's input type has to be the same as the one of the node.
+\begin{example}
+Overlay examples
+\end{example}
+
+\todo{Describe properties}
+
+\section{Named Types}
+Sockeye allows to define named types (similar to typedefs in C).
+When declaring nodes, these types can then be referenced by name.
 
 \section{Modules}
 
+\section{Sockeye Files}
+A Sockeye file consists of named type and module definitions.
+
 \section{Import System}
+The import system in Sockeye allows to split the definition of a \gls{hdn} over several files and reuse files in a library like fashion.
+A file can either be imported as a whole, meaning all modules and named types from the imported file become available inside the imported file.
+Alternatively modules and types can be selectively imported.
+With selective imports, modules and types can also be renamed to avoid name clashes.
+Imported modules and types are not re-exported.
+
+Imports have to be specified at the top of a Sockeye file.
+\begin{example}
+Import examples
+\end{example}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Lexical Conventions}

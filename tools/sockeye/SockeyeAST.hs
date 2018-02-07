@@ -121,7 +121,7 @@ data NaturalExpr
     | Slice
         { natExprMeta :: ASTMeta
         , natExprOp1  :: NaturalExpr
-        , bitRange    :: NaturalSet
+        , bitRange    :: NaturalRange
         }
     | Concat
         { natExprMeta :: ASTMeta
