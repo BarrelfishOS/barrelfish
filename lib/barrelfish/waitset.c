@@ -347,10 +347,11 @@ errval_t get_next_event_disabled(struct waitset *ws,
             *retclosure = chan->closure;
             chan->wait_for = NULL;
             chan->token = 0;
-            if (chan->persistent)
+            if (chan->persistent) {
                 reregister_channel(ws, chan, handle);
-            else
+            } else {
                 waitset_chan_deregister_disabled(chan, handle);
+            }
             wake_up_other_thread(handle, ws);
     // debug_printf("%s.%d: %p\n", __func__, __LINE__, retclosure->handler);
             return SYS_ERR_OK;

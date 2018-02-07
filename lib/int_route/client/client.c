@@ -45,23 +45,6 @@ static void bind_cb(void *st, errval_t binderr, struct int_route_service_binding
     int_route_service_rpc_client_init(b);
 }
 
-//errval_t int_route_add_controller(int bus, int dev, int fun,
-//        int_route_service_controller_type_t type) {
-//    struct int_route_service_binding * b = get_int_route_state()->binding;
-//    assert(b != null);
-//    // int_route_service_pci_address_t addr, int_route_service_controller_type_t type
-//    int_route_service_pci_address_t addr = {.bus = bus, .device = device, .fun = fun}
-//    b->rx_vtbl.add_controller_call(b, addr, type);
-//}
-//
-//
-//errval_t int_route_route(struct capref intin, struct capref dest){
-//    errval_t err;
-//    struct int_route_service_binding * b = get_int_route_state()->binding;
-//    assert(b != null);
-//    return b->tx_vtbl.route_call(b, NULL, intin, dest);
-//}
-
 errval_t int_route_client_route(struct capref intsrc, int irq_idx,
         struct capref intdest){
     assert(int_route_state_st.request_done);
@@ -91,6 +74,25 @@ static errval_t alloc_dest_irq_cap(struct capref *retcap)
     }
 }
 
+struct irq_handler_arg { 
+    struct lmp_endpoint *ep;
+    struct event_closure uc;
+};
+
+static void irq_handler(void *arg)
+{
+    printf("in irq_handler!\n");
+    struct irq_handler_arg *irqarg = (struct irq_handler_arg *)arg;
+    struct lmp_recv_buf dummy = { .buflen = 0 };
+
+    /* Consume the endpoint message */
+    errval_t err = lmp_endpoint_recv(irqarg->ep, &dummy, NULL);
+    assert(err_is_ok(err));
+
+    /* Call user's closure */
+    irqarg->uc.handler(irqarg->uc.arg);
+}
+
 errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
         struct waitset * ws, interrupt_handler_fn handler, void *handler_arg)
 {
@@ -112,13 +114,13 @@ errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_ENDPOINT_CREATE);
     }
+    idcep->waitset_state.persistent = true;
 
-    /* register to receive on this endpoint */
-    struct event_closure cl = {
-        .handler = handler,
-        .arg = handler_arg
-    };
-    err = lmp_endpoint_register(idcep, ws, cl);
+    /* Wrap the user callback in a call that receives the lmp message */
+    struct irq_handler_arg * ag = malloc(sizeof(struct irq_handler_arg));
+    ag->uc = MKCLOSURE(handler, handler_arg); 
+    ag->ep = idcep;
+    err = lmp_endpoint_register(idcep, ws, MKCLOSURE(irq_handler, ag));
 
     /* connect irq_dest with EP */
     err = invoke_irqdest_connect(irq_dest_cap, epcap);

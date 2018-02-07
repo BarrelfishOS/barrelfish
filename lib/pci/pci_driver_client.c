@@ -3,6 +3,7 @@
 #include <if/pci_driver_client_defs.h>
 #include <barrelfish/capabilities.h>
 #include <barrelfish/debug.h>
+#include <int_route/int_route_client.h>
 
 // This is only here for PCIARG defines, remove me!
 #include <pci/pci.h>
@@ -138,6 +139,14 @@ errval_t pcid_init(
         err = bind_to_pci(ep, pdc);
         assert(err_is_ok(err));
     }
+
+    // Connect to interrupt service
+    err = int_route_client_connect();
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "int_route_client_connect");
+        return err;
+
+    }
     
     return SYS_ERR_OK;
 }
@@ -178,20 +187,14 @@ errval_t pcid_connect_int_with_cap(struct capref int_src, int int_index,
 {
     errval_t err;
 
-    //struct capref int_src_cap = {
-    //    .slot = PCIARG_SLOT_INT,
-    //    .cnode = pdc->arg_cnode
-    //};
-    err = SYS_ERR_OK;
-        
-    // TODO: move the function to this file: pci_setup_int_routing_with_cap(0, int_src_cap,
-    //        handler, st, NULL, NULL);
+    err = int_route_client_route_and_connect(int_src, int_index,
+        get_default_waitset(), handler, st);
+
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "set-up int routing");
-        return err;
     }
 
-    return SYS_ERR_OK;
+    return err;
 }
 
 errval_t pcid_connect_int(struct pcid* pdc, int int_index,
