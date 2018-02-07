@@ -81,7 +81,6 @@ struct irq_handler_arg {
 
 static void irq_handler(void *arg)
 {
-    printf("in irq_handler!\n");
     struct irq_handler_arg *irqarg = (struct irq_handler_arg *)arg;
     struct lmp_recv_buf dummy = { .buflen = 0 };
 
@@ -114,6 +113,7 @@ errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_ENDPOINT_CREATE);
     }
+    // TODO LH: Don't use persistent, but reregister in irq_handler
     idcep->waitset_state.persistent = true;
 
     /* Wrap the user callback in a call that receives the lmp message */

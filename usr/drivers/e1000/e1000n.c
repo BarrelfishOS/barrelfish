@@ -299,14 +299,14 @@ static void e1000_init_fn(struct e1000_driver_state * device)
         }
         err = pcid_connect_int(&device->pdc, 0, e1000_interrupt_handler_fn, device);
 
-        test_instr_init(device);
     } else {
         err = pcid_connect_int(&device->pdc, 0, e1000_interrupt_handler_fn, device);
         if(err_is_fail(err)){
             USER_PANIC("Setting up interrupt failed \n");
         }
     }
-    
+
+    test_instr_init(device);
 
     setup_internal_memory(device);
 }
@@ -568,24 +568,12 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
 
     // Setup int routing in init_fn
     e1000_init_fn(eds);
-    //err = pci_register_driver_noirq(e1000_init_fn, eds,
-    //        eds->pci.class, eds->pci.subclass, eds->pci.program_interface,
-    //        eds->pci.vendor, eds->pci.deviceid, eds->pci.bus, eds->pci.device,
-    //        eds->pci.function);
 
-    //if (err_is_fail(err)) {
-    //    E1000_PRINT_ERROR("Error: %u, pci_register_driver failed\n", (unsigned int)err);
-    //    exit(err);
-    //}
-
-    //assert(err_is_ok(err));
-
-    //E1000_DEBUG("Registered driver.\n");
     if(false) e1000_print_link_status(eds);
 
     initialize_mngif(eds);
-    
-    return SYS_ERR_OK;
+
+    return err;
 
 err_out:
     free(eds);
@@ -615,4 +603,8 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
     return SYS_ERR_OK;
 }
 
+#ifdef UNDER_TEST
+DEFINE_MODULE(e1000n_irqtest_module, init, attach, detach, set_sleep_level, destroy);
+#else
 DEFINE_MODULE(e1000n_module, init, attach, detach, set_sleep_level, destroy);
+#endif

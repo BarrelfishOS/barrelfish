@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <barrelfish/deferred.h>
 
 #include "test_instr.h"
 
@@ -23,19 +24,41 @@ void test_instr_init(struct e1000_driver_state *eds){
     e1000_initialized = true;
 
     printf("e1000_irqtest: Disabled interrupt throttling\n");
+
+    static struct periodic_event test_periodic;
+    err = periodic_event_create(&test_periodic, get_default_waitset(), 
+            300*1000, MKCLOSURE(test_instr_periodic, eds));
+
+    assert(err_is_ok(err));
+    printf("e1000_irqtest: Registered periodic event\n");
 };
 
+#define ICR_E1000E_OTHER 24
+
+static void trigger_lsc_interrupt(struct e1000_driver_state * eds){
+    printf("Creating Link change interrupt...\n");
+
+    // Cause an (artificial) interrupt. Trigger LSC for legacy
+    // and 'other' for MSIx
+    e1000_intreg_t ics = 0;
+    ics = e1000_intreg_lsc_insert(ics, 1);
+    ics |= 1 << ICR_E1000E_OTHER;
+
+    e1000_ics_rawwr(eds->device, ics);
+    int_trigger_counter++;
+}
+
+
 void test_instr_interrupt(struct e1000_driver_state *eds, e1000_intreg_t icr){
+    printf("e1000_irqtest: got interrupt!!!\n");
     if (e1000_intreg_lsc_extract(icr) != 0) {
         printf("link-state interrupt\n");
         lsc_interrupt_counter++;
     }
 };
 
-#define ICR_E1000E_OTHER 24
-
-void test_instr_periodic(struct e1000_driver_state *eds){
-
+void test_instr_periodic(void *arg){
+    struct e1000_driver_state *eds = arg;
     if(int_trigger_counter >= 50){
         if (abs(int_trigger_counter - lsc_interrupt_counter) <= 5) {
             printf("triggerred: %"PRIi64" and received %"PRIi64" interrupts. (+-5 is okay).\n",
@@ -53,16 +76,7 @@ void test_instr_periodic(struct e1000_driver_state *eds){
         current_tick = rdtsc();
         if(last_int_trigger_ticks + ticks_per_msec*300 < current_tick){
             last_int_trigger_ticks = current_tick;
-            printf("Creating Link change interrupt...\n");
-
-            // Cause an (artificial) interrupt. Trigger LSC for legacy
-            // and 'other' for MSIx
-            e1000_intreg_t ics = 0;
-            ics = e1000_intreg_lsc_insert(ics, 1);
-            ics |= 1 << ICR_E1000E_OTHER;
-
-            e1000_ics_rawwr(eds->device, ics);
-            int_trigger_counter++;
+            trigger_lsc_interrupt(eds);
         }
     }
 };

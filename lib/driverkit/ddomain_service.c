@@ -105,7 +105,8 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
     DRIVERKIT_DEBUG("Instantiate driver\n");
     err = driverkit_create_driver(cls, name, cap_array, NR_CAPS, args_array, args_len, flags, &dev, &ctrl);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga.\n");
+        DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
+                "name=%s, cls=%s\n", name, cls);
     }
 
     DRIVERKIT_DEBUG("sending create response to kaluga\n");

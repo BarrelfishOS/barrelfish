@@ -11,21 +11,20 @@ void test_instr_init(struct e1000_driver_state *eds);
 /**
  * Called periodically
  */
-void test_instr_periodic(struct e1000_driver_state *eds);
+void test_instr_periodic(void *arg);
 
 /**
  * Called on every interrupt.
  */
 void test_instr_interrupt(struct e1000_driver_state *eds, e1000_intreg_t icr);
 
-
 #ifndef UNDER_TEST
 /**
  * Provide No-op stubs.
  */
-inline void test_instr_init(struct e1000_driver_state *eds){};
-inline void test_instr_periodic(struct e1000_driver_state *eds){};
-inline void test_instr_interrupt(struct e1000_driver_state *eds, e1000_intreg_t icr){};
+void test_instr_init(struct e1000_driver_state *eds){};
+void test_instr_periodic(void *eds){};
+void test_instr_interrupt(struct e1000_driver_state *eds, e1000_intreg_t icr){};
 #endif
 
 #endif
