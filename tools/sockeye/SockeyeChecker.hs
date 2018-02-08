@@ -35,7 +35,7 @@ instance CheckFailure CheckFail where
 checkSockeye :: ST.Sockeye -> ParseAST.Sockeye -> Either (FailedChecks CheckFail) AST.Sockeye
 checkSockeye symTable ast = runChecks $ check symTable ast
 
-
+{- This should have a similar structure as the SymbolTableBuilder, see also transformations in old compiler -}
 class Checkable a b where
     check :: ST.Sockeye -> a -> Checks CheckFail b
 

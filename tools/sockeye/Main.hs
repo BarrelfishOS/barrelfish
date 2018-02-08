@@ -25,16 +25,19 @@ import System.Environment
 import System.FilePath
 import System.IO
 
+import Text.Pretty.Simple (pPrint, pShowNoColor)
+import Data.Text.Lazy (unpack)
+
 import qualified SockeyeParserAST as ParseAST
 import qualified SockeyeSymbolTable as SymTable
 import qualified SockeyeAST as AST
 
-import Text.Pretty.Simple (pPrint, pShowNoColor)
-import Data.Text.Lazy (unpack)
-
 import SockeyeParser
 import SockeyeSymbolTableBuilder
 import SockeyeChecker
+
+import qualified SockeyeBackendProlog as Prolog
+import qualified SockeyeBackendIsabelle as Isabelle
 
 {- Exit codes -}
 usageError :: ExitCode
@@ -248,8 +251,8 @@ check symTable pAst =
 
 {- Compiles the AST with the selected backend -}
 compile :: Target -> SymTable.Sockeye -> AST.Sockeye -> IO String
-compile Prolog symTable ast = hPutStrLn stderr "Prolog backend not yet implemented" >> exitWith compileError
-compile Isabelle symTable ast = hPutStrLn stderr "Isabelle backend not yet implemented" >> exitWith compileError
+compile Prolog symTable ast = return $ Prolog.compile symTable ast
+compile Isabelle symTable ast = return $ Isabelle.compile symTable ast
 
 {- Outputs the compilation result -}
 output :: FilePath -> String -> IO ()
@@ -273,7 +276,7 @@ debugOutput opts pAst symTable ast = do
         astDump = optAstDump opts
     case pAstDump of
         "c" -> putStrLn "Dumping Parse AST..." >> putStrLn "********************" >> pPrint pAst
-        "f" -> writeFile (inFile <.> "st" <.> "txt") (unpack $ pShowNoColor pAst)
+        "f" -> writeFile (inFile <.> "past" <.> "txt") (unpack $ pShowNoColor pAst)
         _ -> return ()
     case stDump of
         "c" -> putStrLn "Dumping Symbol Table..." >> putStrLn "***********************" >> pPrint symTable

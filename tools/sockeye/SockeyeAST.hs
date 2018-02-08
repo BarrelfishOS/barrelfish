@@ -17,9 +17,15 @@ module SockeyeAST where
 
 import SockeyeASTMeta
 
+{- TODO: This is just a dummy -}
 data Sockeye = Sockeye
     deriving (Show)
 
+{-
+ - From here the data structures are shared with the Parse AST
+ - If they should be different, either change the parser to directly parse them differently
+ - or move them to the ParserAST
+ -}
 data UnqualifiedRef = UnqualifiedRef
     { refMeta  :: ASTMeta
     , refName  :: String
