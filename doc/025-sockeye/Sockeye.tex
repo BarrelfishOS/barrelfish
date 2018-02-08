@@ -98,7 +98,7 @@
 
 \emph{Sockeye}\footnote{Sockeye salmon (Oncorhynchus nerka), also called red salmon, kokanee salmon, or blueback salmon, is an anadromous species of salmon found in the Northern Pacific Ocean and rivers discharging into it. This species is a Pacific salmon that is primarily red in hue during spawning. They can grow up to 84 cm in length and weigh 2.3 to 7 kg. 
 Source: \href{https://en.wikipedia.org/wiki/Sockeye_salmon}{Wikipedia}}
-is a \gls{dsl} to describe \glspl{soc}
+is a declarative \gls{dsl} to describe \glspl{soc}
 
 Achermann~et~al. propose a formal model to describe hardware as a directed graph~\cite{achermann:mars17}.
 For the rest of this technote we'll call such a graph a \gls{hdn}.
@@ -252,7 +252,7 @@ They offer a controlled way of crossing the boundaries between domains e.g. to m
 A type is simply an address set that the address has to be an element of.
 
 Sockeye separates the declaration of a node and its definition.
-However, to keep specifications as readable as possible the definition should immediately follow the declaration whenever possible.
+However, to keep specifications as readable as possible, the definition should immediately follow the declaration whenever possible.
 
 \paragraph{Node Declarations} A node is declared by giving its input domain and type and optionally its output domain and type.
 
@@ -295,10 +295,13 @@ There are four types of statements to define nodes:
 \end{itemize}
 A node's definition is given by the union of all the statements about the node.
 The definition can contain multiple statements of the same type.
+The order of the statements does not matter.
 
+\paragraph{Accepts}
 Accepting addresses are defined by giving a list of semicolon-separated address sets.
 Address sets are tuples of sets of natural numbers.
 All accepted addresses have to be elements of the nodes input type.
+To accept all addresses in a dimension of the node's input type, a wildcard can be used.
 \begin{example}
   /*
    * SDRAM accepts all 32bit addresses
@@ -317,30 +320,92 @@ All accepted addresses have to be elements of the nodes input type.
 /* Multiple statements (equivalent to above) */
 SDRAM \textbf{accepts} [(0x00000000 bits 31)]
 SDRAM \textbf{accepts} [(0x80000000 bits 31)]
+
+/* Wildcard (equivalent to above) */
+SDRAM \textbf{accepts} [(*)]
 \end{example}
 
+\paragraph{Maps/Converts}
 Translations are defined by giving a semicolon-separated list of origin addresses and translation targets.
 A translation targets consists of a node reference and a target address.
-The origin addresses have to elements of the node's input type.
+The origin addresses have to be elements of the node's input type.
 The target node has to have the same input domain as the node's output domain.
 The target address has to be within the target nodes input type.
-If the node has an output type, the target address additionally needs to be in the output type.
-\begin{example}
-Translation examples
-\end{example}
-
+If the node has an output type, the target address additionally needs to be within the output type.
 To translate contiguous ranges of addresses, an address set can be given instead of the origin address.
 To translate all addresses in a dimension of the node's input type, a wildcard can be used.
-If all dimensions of the address set are contiguous, the target address can also be a set with all dimensions being contiguous ranges.
 \begin{example}
-Advanced translation examples
+\textit{memory} (0 bits 8) SCU
+\textit{memory} (0 bits 8) Global_Timer 
+\textit{memory} (0 bits 8) Private_Timers
+\textit{memory} (0 bits 8) GIC_PROC
+
+\textit{memory} (0 bits 13) PRIVATE_PERIPH
+
+/* Map single address */
+  PRIVATE_PERIPH \textbf{maps} [
+    (0x100) to GIC_PROC at (0x0)
+  ]
+
+/* Map contiguous range to single address */
+  PRIVATE_PERIPH \textbf{maps} [
+    (0x200 bits 8) to Global_Timer at (0x0)
+  ]
+
+/* Use wildcard */
+  PRIVATE_PERIPH \textbf{maps} [
+    (*) to GIC_PROC at (0x0)
+  ]
 \end{example}
 
+If some dimensions of the address set are contiguous, the target address can also be a set with these dimensions being contiguous ranges of the same cardinality.
+The number of variable dimensions in the origin target has to be the same.
+\begin{example}
+  \textit{memory} (0 bits 2; 0 bits 2) BUS_2D;
+  \textit{memory} (0 bits 2; 0 bits 2) RAM_2D;
+
+  /* The following are equivalent */
+  BUS_2D \textbf{maps} [
+    (0; 0) to RAM_2D at (0; 0);
+    (1; 1) to RAM_2D at (1; 1);
+    (2; 2) to RAM_2D at (2; 2);
+    (3; 3) to RAM_2D at (3; 3);
+  ]
+  BUS_2D \textbf{maps} [
+    (0 to 3; 0 to 3) to RAM_2D at (0 to 3; 0 to 3)
+  ]
+  BUS_2D \textbf{maps} [
+    (*; *) to RAM_2D at (*; *)
+  ]
+\end{example}
+
+When modeling conversion nodes like MSIx controllers translating from the memory domain to the interrupt domain, the data word can be modeled as an address dimension to make the translation dependent on the data.
+
+\begin{example}
+  \textit{memory} (0 bits 32; 0 bits 32) \textit{intr} (0 to 1023) MSIx_CTRL
+  \textit{intr} (0 to 1023) CPU_INTR
+
+  /* Make translation dependent on data word (2nd dimension) */
+  MSIx_CTRL converts [
+    (0x0, 0 to 1023) to CPU_INTR at (*)
+  ]
+
+\end{example}
+
+\paragraph{Overlays}
 An overlay represents a default translation target for all addresses that are neither accepted nor explicitly translated.
 Nodes can only have overlays if their output type is either unspecified or the same as the input type.
 The overlay node's input type has to be the same as the one of the node.
 \begin{example}
-Overlay examples
+/* Map everything 1:1 to the L2 bus except the private peripherals region */
+\textit{memory} (0 bits 32) L2
+
+\textit{memory} (0 bits 32) CORTEXA9_PHYS
+  CORTEXA9_PHYS \textbf{maps} [
+    (0x48240000 bits 13) to PRIVATE_PERIPH at (*)
+  ]
+
+  CORTEXA9_PHYS \textbf{overlays} L2
 \end{example}
 
 \todo{Describe properties}
@@ -348,13 +413,117 @@ Overlay examples
 \section{Named Types}
 Sockeye allows to define named types (similar to typedefs in C).
 When declaring nodes, these types can then be referenced by name.
+\begin{example}
+\textbf{type} BUS_TYPE (0 bits 32)
+\textit{memory} (BUS_TYPE) L2
+\end{example}
+
+\section{Quantifiers}
+Sockeye supports quantifying definition statements over sets of natural numbers.
+Origin addresses may not contain bound variables in arithmetic expressions.
+\begin{example}
+  /* Modelling a lookup table (LUT) */
+  \textit{memory} (0 bits 32) CPU_Phys
+  \textit{memory} (0 bits 8; 0 bits 24) LUT
+  \textit{memory} (0 bits 32) BUS;
+  
+  forall a in (0 bits 32) {
+    CPU_Phys \textbf{maps} [
+      (a) to LUT at (a[24 to 31]; a[0 to 23])
+    ]
+  }
+
+  forall a in (0 bits 24) {
+    LUT \textbf{maps} [
+      (0x0000; a) to BUS at (0x1234 ++ a[0 to 24]);
+      (0x0001; a) to BUS at (0x4321 ++ a[0 to 24]);
+      /* ... */
+    ]
+  }
+\end{example}
+Declaration statements are not allowed in the body of a quantifier.
 
 \section{Modules}
+A module encapsulates a (partial) \gls{hdn}.
+In fact all \glspl{hdn} are modules in Sockeye.
+Modules can be instantiated to integrate the contained \gls{hdn} into a larger \gls{hdn}.
+To connect a module instance with its environment, a module defines its interface in the form of ports.
+There are two types of ports:
+\begin{itemize}
+  \item \textbf{Input Ports} are nodes \emph{defined} within the module that can be referenced from outside the module.
+  \item \textbf{Output Ports} are nodes \emph{declared} within the module but not \emph{defined}.
+    Nodes in the module can reference these nodes.
+    When a module is instantiated, all the output ports have to be bound to nodes with the same domains and types.
+    A module can also e parametrized.
+    All module parameters are natural numbers and a module defines the allowed range of each parameter.
+    The parameters can be used to parametrise addresses or array sizes.
+    Module instances, like nodes, can be declared as single instances or instance arrays.
+    Module instantiation and port binding statements can also be quantified over a sets.
+\end{itemize}
+
+\begin{example}
+  \textbf{module} CortexA9_Core((0 bits 32) periphbase) {
+    \textbf{output} \textit{memory} (0 bits 32) L2
+
+    \textbf{input} \textit{intr} (0 to 1023) CPU_INTR
+
+    \textit{memory} PRIVATE_PERIPH
+
+    CPU_PHYS overlays L2
+  }
+
+  \textbf{module} CortexA9_MPCore((1 to 4) num_cores) {
+    /* Declare a module instance array */
+    \textbf{instance} Core[0 to num_cores-1] of CortexA9_Core
+
+    \textit{memory} (0 bits 32) Internal_BUS
+
+    /* Instantiate the module and bind ports with quantifier */
+    forall c in (0 to num_cores-1) {
+      Core[c] \textbf{instantiates} CortexA9_Core(0x48240000)
+      Core[c] \textbf{binds} [
+        /* Format: <output port> to <declared node> */
+        L2 to Internal_BUS
+      ]
+    }
+
+    /* Or equivalently with wildcards */
+    Core[*] \textbf{instantiates} CortexA9_Core(0x48240000)
+    Core[*] \textbf{binds} [
+      /* Format: <output port> to <declared node> */
+      L2 to Internal_BUS
+    ]
+  }
+\end{example}
+
+\todo{DS: For the compiler to be able to enforce the port interface, it should be the same for all instances in an array
+This means that parameters used in array declarations must be the same for all array elements.}
+
+In addition to declarations, quantifiers and definitions a module body can also contain named constants.
+Constants are natural numbers and can be used wherever a natural number is expected.
+Constants must not shadow module parameters.
+\begin{example}
+  \textbf{module} CortexA9_MPCore((1 to 4) num_cores) {
+
+    /* Define constant */
+    const PERIPHBASE 0x48240000
+
+    \textbf{instance} Core[0 to num_cores-1] of CortexA9_Core
+
+    /* Use constant */
+    Core[*] \textbf{instantiates} CortexA9_Core(PERIPHBASE)
+  }
+\end{example}
+
+Declarations, definitions, quantifiers and constant definitions may appear in any order in the body of a module.
 
 \section{Sockeye Files}
 A Sockeye file consists of named type and module definitions.
+The order does not matter.
+Due to how the import system works (see Section~\ref{sec:imports}), modules and types share a namespace.
 
 \section{Import System}
+\label{sec:imports}
 The import system in Sockeye allows to split the definition of a \gls{hdn} over several files and reuse files in a library like fashion.
 A file can either be imported as a whole, meaning all modules and named types from the imported file become available inside the imported file.
 Alternatively modules and types can be selectively imported.
@@ -362,8 +531,22 @@ With selective imports, modules and types can also be renamed to avoid name clas
 Imported modules and types are not re-exported.
 
 Imports have to be specified at the top of a Sockeye file.
+Imported files must have the extension \pathname{soc}.
+Imported files are resolved relative to
+\begin{enumerate}
+  \item The working directory of the compiler.
+  \item The directories given with the \verb|-i| option, in the order they were given
+\end{enumerate}
+
 \begin{example}
-Import examples
+/* Import all symbols defined in file cortexA9.soc */
+\textbf{import} cortexA9
+
+/* Only import symbol CortexA9_Core and CortexA9_MPCore */
+\textbf{import} cortexA9 (CortexA9_Core, CortexA9_MPCore)
+
+/* Only import symbol CortexA9_Core and rename it */
+\textbf{import} cortexA9 (CortexA9_Core as Core)
 \end{example}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -417,416 +600,12 @@ to, at, bits
 
 \end{description}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Syntax}
-\label{chap:declaration}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-In this chapter we define the layout of a Sockeye file.
-The node declarations in a Sockeye file describe a single \gls{hdn}.
-Parts of a \gls{hdn} can be packaged into reusable modules (see Section~\ref{sec:modules}).
-With imports (see Section~\ref{sec:imports}) modules can also be put into separate files.
-
-In the following sections we use EBNF to describe the Sockeye syntax. Terminals are \textbf{bold} while non-terminals are \textit{italic}.
-The non-terminals \textit{iden}, \textit{letter}, \textit{decimal} and \textit{hexadecimal} correspond to the ones defined in Chapter~\ref{chap:lexer}.
-
-The examples are all taken from the Texas Instruments OMAP4460 SoC used on the PandaboardES\footnote{The technical reference manual can be found \href{http://www.
-ti.com/lit/ug/swpu235ab/swpu235ab.pdf}{here}.}.
-A more complete specification of the SoC is located in \pathname{SOURCE/socs/omap44xx.soc}.
-
-\section{Basic Syntax}
-This section describes the basic syntax for Sockeye.
-
-
-\subsection{Node Declarations}
-A node declaration contains one or more identifiers and the node specification.
-The order in which the nodes are declared does not matter.
-
-\paragraph{Syntax}
-\begin{align*}
-\textit{net}_s & \mathop{=}
-    \Big\{
-        \textit{iden}\ \textbf{is}\ \textit{node}_s\
-    \Big|\
-        \textit{iden}\bigl\{\textbf{,}\ \textit{iden}\bigr\}\ \textbf{are}\ \textit{node}_s
-    \Big\} \\
-\end{align*}
-
-\clearpage
-\paragraph{Example}
-\begin{example}
-    SDRAM \textbf{is} \ldots
-
-    UART1,
-    UART2 \textbf{are} \ldots
-\end{example}
-
-\subsection{Node Specifications}
-A node specification consists of a type, a set of accepted address blocks, a set of address mappings to other nodes, a set of reserved address blocks and an overlay.
-All of these are optional.
-The reserved address blocks are only relevant in conjunction with overlays and are used to exclude some addresses from the overlay.
-The overlay is specified as a node identifier and a number of address bits.
-The overlay will span addresses from \texttt{0x0} to \(\texttt{0x2}^\texttt{bits} - \texttt{1}\).
-
-\paragraph{Syntax}
-\begin{align*}
-\textit{node}_s & \mathop{=}
-    \Big[\ 
-       \textit{type}\ 
-    \Big]\  
-    \Big[
-       \textit{accept}\ 
-    \Big]\ 
-    \Big[\ 
-       \textit{map}\ 
-    \Big]\ 
-    \Big[\ 
-        \textit{reserved}\ 
-    \Big]\ 
-    \Big[\ 
-        \textit{overlay}\ 
-    \Big]\\
-\textit{accept} & \mathop{=}
-    \textbf{accept [}\ \big\{\ \textit{block}_s\ \big\}\ \textbf{]}\\
-\textit{map} & \mathop{=}
-    \textbf{map [}\ \big\{\ \textit{map}_s\ \big\}\ \textbf{]}\\
-\textit{reserved} & \mathop{=}
-    \textbf{reserved [}\ \big\{\ \textit{block}_s\ \big\}\ \textbf{]}\\
-\textit{overlay} & \mathop{=}
-    \textbf{over}\ \textit{iden}\textbf{/}\textit{decimal}\\
-\end{align*}
-
-\paragraph{Example}
-\begin{example}
-    SDRAM \textbf{is} \textbf{accept} [\ldots]
-    L3 \textbf{is} \textbf{map} [\ldots]
-    CORETEXA9_SS_Interconnect \textbf{is} \textbf{reserved} [\ldots] \textbf{over} L3/32
-\end{example}
-
-\subsection{Node Type}
-Currently there are three types: \Sockeye{core}, \Sockeye{device} and \Sockeye{memory}. A fourth internal type \Sockeye{other} is given to nodes for which no type is specified.
-The \Sockeye{core} type designates the node as a CPU core. The \Sockeye{device} type specifies that the accepted addresses are device registers while the \Sockeye{memory} type is for memory nodes like RAM or ROM.
-
-\paragraph{Syntax}
-\begin{align*}
-\textit{type} & \mathop{=}
-    \textbf{core}\
-    |\
-    \textbf{device}\
-    |\
-    \textbf{memory} \\
-\end{align*}
-
-\paragraph{Example}
-\begin{example}
-    CORETEXA9_1 \textbf{is} core \textbf{map} [\ldots]
-    UART3 \textbf{is} device \textbf{accept} [\ldots]
-    SDRAM \textbf{is} memory \textbf{accept} [\ldots]
-\end{example}
-
-\subsection{Addresses}
-Addresses are specified as hexadecimal literals.
-
-\paragraph{Syntax}
-\begin{align*}
-\textit{addr} & \mathop{=} \textit{hexadecimal} \\
-\end{align*}
-
-\subsection{Block Specifications}
-A block is specified by its start and end address.
-If the start and end address are the same, the end address can be omitted.
-Sockeye also supports specifying a block as its base address and the number of address bits the block spans:
-A block from \Sockeye{0x0} to \Sockeye{0xFFF} with a size of 4kB can be specified as \Sockeye{0x0/12}.
-
-\paragraph{Syntax}
-\begin{align*}
-\textit{block}_s & \mathop{=} \textit{addr}\
-    \Big[
-        \textbf{-}\ \textit{addr}\ 
-    \Big|\
-        \textbf{/}\textit{decimal}
-    \Big] \\
-\end{align*}
-
-\paragraph{Example}
-\begin{example}
-    UART1 is \textbf{accept} [0x0-0xFFF]
-    UART3 is \textbf{accept} [0x0/12]    // \textit{same as \textup{0x0-0xFFF}}
-    IF_A9_0 is \textbf{accept} [0x44]      // \textit{same as \textup{0x44-0x44}}
-\end{example}
-
-\subsection{Map Specification}
-A map specification is a source address block, a target node identifier and optionally a target base address to which the source block is translated within the target node.
-If no target base address is given, the block is translated to the target node starting at \Sockeye{0x0}.
-Note that this is different from the concrete syntax described in \cite{achermann:mars17} where in this case the base address of the source block is used.
-This was changed due to the mapping to \Sockeye{0x0} being used more often in practice.
-Multiple translation targets can be specified by giving a comma-separated list of targets.
-
-\paragraph{Syntax}
-\begin{align*}
-\textit{map}_s & \mathop{=}
-\textit{block}_s\ \textbf{to}\ \textit{iden}\ 
-    \Big[
-        \textbf{at}\ \textit{addr}
-    \Big]\
-    \Big\{
-        \textbf{,}\ \textit{iden}\ 
-        \Big[
-            \textbf{at}\ \textit{addr}
-        \Big]
-    \Big\}\\
-\end{align*}
-
-\paragraph{Example}
-\begin{example}
-    /* \textit{Translate \textup{0x54000000-0x0x54FFFFFF}
-     * to \textup{L3_EMU} at \textup{0x54000000-0x0x54FFFFFF}:}
-     */
-    L3 is \textbf{map} [0x54000000/24 \textbf{to} L3_EMU \textbf{at} 0x54000000] 
-
-    /* \textit{This is the same as \textup{0x80000000/30 \textbf{to} SDRAM \textbf{at} 0x0}:} */
-    L3 is \textbf{map} [0x80000000/30 \textbf{to} SDRAM]
-
-    /* \textit{Multiple translation targets, interrupt vector \textup{0x2} is translated to
-     * - \textup{SPIMap} at \textup{0xC}
-     * - \textup{NVIC} at \textup{0x12}:}
-     * /
-    SDMA is \textbf{map} [0x2 \textbf{to} SPIMap \textbf{at} 0xC, NVIC \textbf{at} 0x12]
-\end{example}
-
-\section{Modules}
-\label{sec:modules}
-A module encapsulates a \gls{hdn} which can be integrated into a larger \gls{hdn}.
-A module instantiation always creates a namespace inside the current one.
-Normally nodes can only be referenced by nodes in the same namespace.
-To properly integrate a module into a larger \gls{hdn} we need a mechanism to connect the module to the enclosing \gls{hdn}.
-This is done via ports.
-There are input ports, which create a connection into the module and output ports which create connections from the module to outside nodes.
-A port has always a width, specified as the number of address bits the port spans.
-All declared input ports must have a corresponding node declaration in the module body.
-
-When a module is instantiated a list of port mappings can be specified.
-An input port mapping creates a node outside the module that overlays the node inside the module.
-An output port mapping creates a node inside the module that overlays the node outside the module.
-Not all ports a module declares have to be mapped.
-Not mapping an input port simply means there is no connection to the corresponding node inside the module.
-For unmapped output ports an empty node inside the module will be generated, acting as a dead end for address resolution.
-
-Additionally a module can be parametrized.
-It will then be a module template that only becomes a fully defined module when instantiated with concrete arguments.
-Module parameters are typed and the Sockeye compiler checks that they are used in a type safe way.
-There are two types of parameters: address parameters and natural parameters.
-Address parameters allow to parametrize addresses in node specifications.
-Natural parameters are used in combination with interval template identifiers (see Section~\ref{sec:template_idens}).
-Parameters can also be passed as arguments to module template instantiations in the module body.
-
-\subsection{Module Declarations}
-A module declaration starts with the keyword \Sockeye{module} and a unique module name.
-If the module is a template, a list of typed parameters can be specified.
-The module body is enclosed in curly braces and starts with the port definitions.
-The rest of the body are node declarations and module instantiations.
-If the module has address parameters the name of the parameter can be used wherever in the body an address is expected.
-
-\paragraph{Syntax}
-\begin{align*}
-    \textit{param\_type} & \mathop{=}
-        \textbf{addr}\ |\ \textbf{nat}\\
-    \textit{parameter} & \mathop{=}
-        \textit{param\_type}\ \textit{iden}\\
-    \textit{param\_list} & \mathop{=}
-        \textbf{(}\big[\ 
-            \textit{parameter}\big\{\textbf{,}\ \textit{parameter}\big\}\ 
-        \big] \textbf{)}\\
-    \textit{input\_port} & \mathop{=}
-        \textbf{input}\ \textit{iden}\textbf{/}\textit{decimal}
-        \big\{
-            \textbf{,}\ \textit{iden}\textbf{/}\textit{decimal}
-        \big\}\\
-    \textit{output\_port} & \mathop{=}
-        \textbf{output}\ \textit{iden}\textbf{/}\textit{decimal}
-        \big\{
-            \textbf{,}\ \textit{iden}\textbf{/}\textit{decimal}
-        \big\}\\
-    \textit{body}_s & \mathop{=}
-        \big\{\ 
-            \textit{net}_s\ |\ \textit{mod\_inst}_s\ 
-        \big\}\\
-    \textit{mod\_decl}_s & \mathop{=}
-        \textbf{module}\ \textit{iden} \big[\textit{param\_list}\big]\ 
-        \textbf{\{}\ 
-            \big\{\textit{input\_port}\ |\ \textit{output\_port}\big\}\ 
-            \textit{body}_s\ 
-        \textbf{\}}\\
-\end{align*}
-
-\paragraph{Example}
-For some examples of module declarations see Listing~\ref{lst:sockeye_example}.
-
-\subsection{Module Instantiations}
-Module instantiations start with the module name and in the case of a module template with the list of arguments.
-After that the identifier of the namespace in which to instantiate the module has to be given followed by an optional list of port mappings.
-
-\paragraph{Syntax}
-\begin{align*}
-    \textit{argument} & \mathop{=}
-        \textit{decimal}\ |\ \textit{hexadecimal}\ |\ \textit{iden}\\
-    \textit{arg\_list} & \mathop{=}
-        \textbf{(}\big[\ 
-            \textit{argument}\big\{\textbf{,}\ \textit{argument}\big\}\ 
-        \big] \textbf{)}\\
-    \textit{mod\_inst}_s & \mathop{=}
-        \textit{iden} \big[\textit{arg\_list}\big]\ \textbf{as}\ \textit{iden}\ \big[\ 
-            \textbf{with}\ \big\{\textit{input\_map}\ |\ \textit{output\_map}\big\}\ 
-        \big]\\
-    \textit{input\_map} & \mathop{=}
-        \textit{iden}\ \textbf{>}\ \textit{iden}\\
-    \textit{output\_map} & \mathop{=}
-        \textit{iden}\ \textbf{<}\ \textit{iden}\\
-\end{align*}
-
-\clearpage
-\paragraph{Example}
-\begin{example}
-    /* Instantiate module 'CortexA9-Subsystem' in namespace 'CortexA9_SS' */
-    CortexA9-Subsystem as CortexA9_SS
-
-    /* Pass arguments to module template e.g. to instantiate a
-     * CortexA9 MPCore module with
-     * - 2 cores
-     * - 0x48240000 as the base of the private memory region
-     */
-    CortexA9-MPCore(2, 0x48240000) \textbf{as} MPU
-
-    /* Declare port mappings:
-     * - map 'CORTEXA9_1' to input port 'CPU_1'
-     * - map output port 'Interconnect' to 'L3'
-     */
-    CortexA9-Subsystem as CortexA9_SS \textbf{with}
-        CORTEXA9_1 > CPU_1
-        L3 < Interconnect
-\end{example}
-
-\section{Templated Identifiers}
-\label{sec:template_idens}
-Templated identifiers allow to declare multiple nodes and ports at once and instantiate a module multiple times at once.
-There are two forms of templated identifiers:
-\begin{description}
-    \item[Interval template]
-        The template contains one or several intervals.
-        The identifier will be instantiated for all possible combinations of values in the intervals.
-        Index variables can optionally be named so they can be referenced later.
-    \item[Simple template]
-        Simple templates work very similar to interval templates.
-        The only difference is, that a simple template can only reference index variables declared in the same context.
-        It can not contain intervals to declare new index variables.
-\end{description}
-
-Interval templates can be used in identifiers of node declarations (to declare multiple nodes), port declarations (to declare multiple ports) and namespace identifiers of module instantiations (to instantiate a module multiple times).
-The scope of index variables is the corresponding syntactic construct the interval template was used in.
-Simple templates can be used in any place a node identifier is expected.
-This includes the places where interval templates can be used, identifiers of translation destination nodes and overlays but not module parameter or index variable names.
-
-An important thing to note is that the limits of an interval can reference module parameters of type \Sockeye{nat}.
-This allows module parameters to control how many ports or nodes are instantiated from a certain interval template.
-
-\paragraph{Syntax}
-\begin{align*}
-    \textit{var} & \mathop{=}
-        \textit{iden}\\
-    \textit{limit} & \mathop{=}
-        \textit{decimal}\ |\ \textit{iden} \\
-    \textit{interval} & \mathop{=}
-        \textbf{[}\textit{limit}\textbf{..}\textit{limit}\textbf{]}\\
-    \textit{interval\_templ}_s & \mathop{=}
-        \textit{iden}\textbf{\{}\textit{var}\ \textbf{in}\ \textit{interval}\textbf{\}}
-        \Big[
-            \textit{iden}\ |\ \textit{templ\_iden}_s\ |\ \textit{for\_iden}_s
-        \Big]\\
-    \textit{simple\_templ}_s & \mathop{=}
-        \textit{iden}\textbf{\{}\textit{var}\textbf{\}}\Big[\textit{iden}\ |\ \textit{templ\_iden}_s\Big]\\
-\end{align*}
-
-\paragraph{Example}
-\begin{example}
-    /* Declare similar nodes
-     * Note that interval templates in node declarations
-     * always require the usage of '\textbf{are}'
-     */
-    GPTIMER_\verb+{+[1..5]\verb+}+ \textbf{are} device \textbf{accept} [0x0/12]
-
-    /* Use the index in the node definition */
-    GPTIMER_ALIAS_\verb+{+i in [1..5]\verb+}+ \textbf{is} \textbf{map} [0x100/12 to GPTIMER_\verb+{+i\verb+}+]
-
-    /* Declare similar module ports
-     * (possibly depending on module parameters)
-     */
-    \textbf{module} module CortexA9-MPCore(nat cores, addr periphbase) \verb+{+
-        input CPU_\verb+{+[1..cores]\verb+}+
-        \ldots
-    \verb+}+
-
-    /* Instantiate module multiple times
-     * and use index variable in port mappings
-     */
-    CortexA9-Core \textbf{as} Core_\verb+{+c in [1..2]\verb+}+ \textbf{with}
-        CPU_\verb+{+c\verb+}+ > CPU
-\end{example}
-
-\section{Imports}
-\label{sec:imports}
-Imports allow a specification to be split across several files.
-They also allow the reuse of modules.
-Imports have to be specified at the very top of a Sockeye file.
-An import will cause the compiler to load all modules from \pathname{<import\_path>.soc}
-Nodes declared outside of modules will not be loaded.
-The compiler will first look for files in the current directory and then check the directories passed with the \texttt{-i} option in the order they were given.
-
-\paragraph{Syntax}
-\begin{align*}
-\textit{import}_s & \mathop{=}
-    \textbf{import}\ \big\{\ \textit{letter}\ |\ \textbf{/}\ \big\}
-\end{align*}
-
-\paragraph{Example}
-\begin{example}
-    /* Invoked with 'sockeye -i imports -i modules' the following
-     * will cause the compiler to look for the files
-     * 1. ./cortex/cortexA9.soc
-     * 2. imports/cortex/cortexA9.soc
-     * 3. modules/cortex/cortexA9.soc
-     * and import all modules from the first one that exists.
-     */
-    \textbf{import} cortex/cortexA9
-\end{example}
-
-\section{Sockeye Files}
-A sockeye file consists of imports, module declarations and the specification body (node declarations and module instantiations).
-
-\paragraph{Syntax}
-\begin{align*}
-    \textit{sockeye}_s & \mathop{=}
-        \big\{\ 
-            \textit{import}_s\ 
-        \big\}\ 
-        \big\{\ 
-            \textit{mod\_decl}_s\ 
-        \big\}\ 
-        \big\{\ 
-            \textit{net}_s\ |\ \textit{mod\_inst}_s\ 
-        \big\}
-\end{align*}
-
-\paragraph{Example}
-Listing~\ref{lst:sockeye_example} shows an example Sockeye specification.
-
-\clearpage
-\lstinputlisting[caption={Example Sockeye specification}, label={lst:sockeye_example}, language=Sockeye]{example.soc}
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Checks on the AST}
 \label{chap:checks}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\todo{Update this section to reflect Sockeye 2.0}
 The compiler performs the transformation from parsed Sockeye to \gls{hdn}s in three steps:
 \begin{enumerate}
     \item Type checker
