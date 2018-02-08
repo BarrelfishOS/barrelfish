@@ -294,7 +294,7 @@ forall = do
     reserved "forall"
     var <- variableName
     reserved "in"
-    range <- parens $ semiSep1 naturalSet
+    range <- parens naturalSet
     body <- braces $ many definition
     return AST.Forall
         { AST.defMeta        = pos

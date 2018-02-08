@@ -176,7 +176,7 @@ data Definition
     | Forall
         { defMeta        :: ASTMeta
         , boundVarName   :: !String
-        , varRange       :: [NaturalSet]
+        , varRange       :: NaturalSet
         , quantifierBody :: [Definition]
         }
     deriving (Show)
