@@ -128,6 +128,14 @@ data NaturalExpr
         , natExprOp1  :: NaturalExpr
         , natExprOp2  :: NaturalExpr
         }
+    | Parameter
+        { natExprMeta :: ASTMeta
+        , varName     :: !String
+        }
+    | Constant
+        { natExprMeta :: ASTMeta
+        , varName     :: !String
+        }
     | Variable
         { natExprMeta :: ASTMeta
         , varName     :: !String

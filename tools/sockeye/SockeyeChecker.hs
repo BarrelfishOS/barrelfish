@@ -13,7 +13,11 @@
   Attn: Systems Group.
 -}
 
-module SockeyeChecker where
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+
+module SockeyeChecker
+    (checkSockeye) where
 
 import SockeyeChecks
 
@@ -29,4 +33,11 @@ instance CheckFailure CheckFail where
     errorLines NotYetImplemented = ["Sockeye Checker not yet implemented"]
 
 checkSockeye :: ST.Sockeye -> ParseAST.Sockeye -> Either (FailedChecks CheckFail) AST.Sockeye
-checkSockeye symTable ast = Right AST.Sockeye
+checkSockeye symTable ast = runChecks $ check symTable ast
+
+
+class Checkable a b where
+    check :: ST.Sockeye -> a -> Checks CheckFail b
+
+instance Checkable ParseAST.Sockeye AST.Sockeye where
+    check symTable ast = return AST.Sockeye

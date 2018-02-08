@@ -298,8 +298,8 @@ main = do
     symTable <- buildSymTable parsedAst
     ast <- check symTable parsedAst
     debugOutput opts parsedAst symTable ast
-    -- out <- compile target symTable ast
-    -- output outFile out
+    out <- compile target symTable ast
+    output outFile out
     case depFile of
         Nothing -> return ()
         Just f  -> do

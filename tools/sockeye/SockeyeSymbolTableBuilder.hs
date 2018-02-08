@@ -198,7 +198,6 @@ addImportSymbol (name, ModuleImport i) fileSymbol = do
         Nothing -> return $ fileSymbol { ST.modules = Map.insert name i ms }
         Just m -> failCheck (meta m) (ImportShadowing name "Module" "module" (meta i)) >> return fileSymbol
                     
-
 instance SymbolSource AST.SockeyeFile ST.SockeyeFile where
     symbol ast = do
         modules <- symbolMap AST.moduleName moduleDupFail $ AST.modules ast
@@ -219,7 +218,6 @@ instance SymbolSource AST.SockeyeFile ST.SockeyeFile where
                         tMeta = meta t
                     failCheck (max mMeta tMeta) $ ModuleTypeClash name mMeta tMeta
                     return $ Map.delete name ts
-
 
 instance SymbolSource AST.Module ST.Module where
     symbol ast = do
