@@ -602,77 +602,175 @@ to, at, bits
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Checks on the AST}
+\chapter{Checks}
 \label{chap:checks}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\todo{Update this section to reflect Sockeye 2.0}
-The compiler performs the transformation from parsed Sockeye to \gls{hdn}s in three steps:
-\begin{enumerate}
-    \item Type checker
-    \item Instantiator
-    \item Net builder
-\end{enumerate}
-In each of the steps some checks are performed.
-The type checker checks that all referenced symbols (modules, parameters and index variables) are defined and ensures module template parameter type safety.
-The instantiator instantiates module and identifier templates and ensures that each identifier is declared only once.
-The net builder instantiates the modules and ensures referential integrity in the generated \gls{hdn}. It also transforms overlays to translation sets.
-The checks are detailed in the following sections.
+The following is a list of checks the Sockeye compiler performs.
+The goal is to have modular type checking, such that modules are save to instantiate at runtime with any parameters in the corresponding range.
+However, with parametrised sets of natural numbers this needs more involved static analysis.
+It might prove easier to check some of the properties in Isabelle.
 
-\section{Type Checker}
-\subsection{Duplicate Modules}
-This check makes sure that all module names in any of the imported files are unique.
+\section{Uniqueness Checks}
+\paragraph{Circular Imports}
+Throws an error if there are cycles in the import graph.
 
-\subsection{Duplicate Parameters}
-This check makes sure that no module has two parameters with the same name.
+\paragraph{Duplicate Import}
+Throws an error two symbols with the same name are imported or two symbols are renamed to the same name while importing them.s
 
-\subsection{Duplicate Index Variables}
-This check makes sure that no two index variables in the same scope have the same name.
+\paragraph{No Such Export}
+Throws an error if a selective import tries to import a symbol that does not exist in the imported file.
 
-\subsection{Undefined Modules}
-This check makes sure that all modules being instantiated actually exist.
+\paragraph{Import Shadowing}
+Throws an error if a type or module defined in a file has the same name as an imported symbol.
 
-\subsection{Undefined Parameters}
-This check makes sure that all referenced parameters are in scope.
+\paragraph{Duplicate Module}
+Throws an error if two modules with the same name are defined in the same file.
 
-\subsection{Undefined Index Variables}
-This check makes sure that all index variables referenced in templated identifiers are in scope. 
+\paragraph{Duplicate Type}
+Throws an error if two types with same name are defined in the same file.
 
-\subsection{Parameter Type Mismatch}
-This check makes sure that parameters are used in a type safe way.
+\paragraph{Module/Type Clash}
+Throws an error if a type and a module defined in the same file have the same name.
 
-\subsection{Argument Count Mismatch}
-This check makes sure that module instantiations give the correct number of arguments to the module template being instantiated.
+\paragraph{Duplicate Parameter}
+Throws an error if a module has two parameters with the same name.
 
-\subsection{Argument Type Mismatch}
-This check makes sure that the arguments passed to module templates have the correct type.
+\paragraph{Duplicate Constant}
+Throws an error if two constants defined in the same module have the same name.
 
-\section{Instantiator}
-\subsection{Module Instantiation Loops}
-This check makes sure that there are no loops in module instantiations which would result in an infinite nesting of decoding subnets.
+\paragraph{Duplicate Variable}
+Throws an error if there are two bound variables with the same name in the same scope.
 
-\subsection{Duplicate Namespaces}
-This check makes sure that all module instantiations in a module have a unique namespace.
+\paragraph{Parameter Shadowing}
+Throws an error if a constant or bound variable has the same name as a module parameter of the module in which it is defined.
+\todo{Check only implemented for constants, not for bound variables}
 
-\subsection{Duplicate Identifiers}
-This check makes sure that all node identifiers are unique.
-This includes output ports, declared nodes and nodes mapped to input ports of instantiated modules.
+\paragraph{Constant Shadowing}
+Throws an error if a bound variable has the same name as a named constant.
+\todo{Not yet implemented}
 
-\subsection{Duplicate Ports}
-This check makes sure, that there are no duplicate input or output ports.
-Note that declaring an output port with the same identifier as an input port is allowed and results in all address resolutions going through the input port being passed through the module to the output port.
+\paragraph{Duplicate Instance}
+Throws an error if there are two module instance declarations with the same name in the same module.
 
-\subsection{Duplicate Port Mapping}
-This check makes sure that no port is mapped twice in the same module instantiation.
+\paragraph{Duplicate Node}
+Throws an error if there are two node declarations with the same name in the same module.
 
-\section{Net Builder}
+\paragraph{Instance/Node Clash}
+Throws an error if there is an instance and a node declaration with the same name in the same module.
+\todo{Not yet implemented}
 
-\subsection{Mapping to Undefined Port}
-This check makes sure that there are no port mappings to ports not declared by the instantiated module.
+\section{Integrity Checks}
+\paragraph{Undefined Type}
+Throws an error if a named type that is neither defined in the same file nor imported is referenced.
+\todo{Not yet implemented}
 
-\subsection{References to Undefined Nodes}
-This check makes sure that all nodes referenced in translation sets, overlays and port mappings exist.
-It also checks that every input port has a corresponding node declaration.
+\paragraph{Undefined Module}
+Throws an error if a module that is neither defined in the same file nor imported is instantiated.
+\todo{Not yet implemented}
 
+\paragraph{Undefined Instance Reference}
+Throws an error if an undefined instance is referenced
+Note that this only checks whether the name exists and whether an instance array is treated as a single instance or vice versa.
+It does not check whether the array index exists.
+\todo{Not yet implemented}
+
+\paragraph{Module Instantiation Mismatch}
+Throws an error if the instantiated module in an \textbf{instantiates} statement does not match the module of the declared instance.
+\todo{Not yet implemented}
+
+\paragraph{Argument Count Mismatch}
+Throws an error if a module is instantiated with the wrong number of arguments.
+\todo{Not yet implemented}
+
+\paragraph{Undefined Output Port}
+Throws an error if an output port being bound does not exist on the module.
+Note that this only checks whether there is an output port with the referenced name and whether a output port array is treated as a single port or vice versa.
+It does not check whether the array index exists.
+\todo{Not yet implemented}
+
+\paragraph{Undefined Node Reference}
+Throws an error if an \emph{internal node} is referenced that does not exist.
+Note that this only checks whether there is an internal node with the referenced name and whether a node array is treated as a single node or vice versa.
+It does not check whether the array index exists.
+\todo{Not yet implemented}
+
+\paragraph{Undefined Input Port}
+Throws an error if an input port is referenced that does not exist.
+Note that this only checks whether there is an input port with the referenced name and whether an input port array is treated as a single port or vice versa.
+It does not check whether the array index exists.
+\todo{Not yet implemented}
+
+\paragraph{Undefined Variable}
+Throws an error if a variable is referenced and there is neither a module parameter, constant or bound variable with that name.
+\todo{Not yet implemented}
+
+\section{Semantic Checks}
+\todo{None of these checks are currently implemented}
+
+Note concerning all the checks that involve analysing sets and arithmetic expressions.
+With parametrised sets and variables in arithmetic expressions this will not be feasible exactly.
+Depending on how precise the approximation should be, it might be easier to perform the checks in Isabelle.
+
+\paragraph{Argument not in Range}
+Throws an error if an argument to a module instantiation is not in the allowed range of the corresponding parameter.
+
+\paragraph{Array Index Does not Exist}
+Throws an error when an array is indexed with an index it does not contain.
+
+\paragraph{Uninstantiated Instance}
+Throws an error if a declared instance is never instantiated.
+
+\paragraph{Duplicate Instantiation}
+Throws an error if a declared instance is instantiated twice.
+
+\paragraph{Module Instantiation Loop}
+Throws an error if there is a loop in module instantiations and therefore potentially infinite nesting of \glspl{hdn}.
+\todo{Might also just be a warning}
+
+\paragraph{Unbound Output Port}
+Throws an error if an output port of a module instance is never bound.
+
+\paragraph{Duplicate Port Binding}
+Throws an error if an output port of a module instance is bound twice.
+
+\paragraph{Empty Node}
+Throws an error if a node is declared but no definition statement ever references it.
+\todo{Might also just be a warning}
+
+\paragraph{Domain Mismatch}
+Throws an error if
+\begin{itemize}
+  \item A target node's input domain in a translation does not match the output domain of the origin node.
+  \item An output ports input or output domain are different from the node it is bound to.
+  \item An overlay nodes input or output domain are different from the node.
+\end{itemize}
+
+\paragraph{Node Type Mismatch}
+Throws an error if
+\begin{itemize}
+  \item An origin address in a translation is not in the origin node's input type.
+  \item A target address in a translation is not in the origin node's output type (if given).
+  \item A target address in a translation is not in the target node's input type.
+  \item An output port is bound to a node with a different type.
+  \item An overlay node does not have the same type as the node itself.
+\end{itemize}
+
+\paragraph{Illegal Translation}
+Throws an error if a translation is specified using address sets and on of the following is violated:
+\begin{itemize}
+  \item A dimension's range is not contiguous
+  \item The number of variable dimensions in the target address does not match the number of variable dimensions in the origin address
+  \item The cardinality of corresponding variable dimensions does not match.
+\end{itemize}
+
+\paragraph{Bound Variable in Arithmetic Expression}
+Throws an error if an origin address of a translation contains an arithmetic expressions with bound variables.
+Bound variables can only occur in origin addresses if no arithmetic is done with them.
+\todo{Not yet implemented}
+
+\paragraph{Unknown Bit Width for Concatenation}
+Throws an error if the right hand side of a concatenation operator is not a slice expression and the bit width can therefore not be inferred.
+\todo{Not yet implemented}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Prolog Mapping for Sockeye}
@@ -681,7 +779,7 @@ It also checks that every input port has a corresponding node declaration.
 \todo{DS: This describes the mapping in the initial draft for Sockeye.
 The new version of the compiler does not yet implement the Prolog backend.
 If PicoSAT will indeed be used in the future to query \glspl{hdn}, this will impose currently unknown requirements on the Prolog representation.
-We probably also want modules represented in the \gls{skb} such that they can be instantiated at runtime, meaning Sockeye should be compiled to a colleciton of inference rules rather than facts.}
+We probably also want modules represented in the \gls{skb} such that they can be instantiated at runtime, meaning Sockeye should be compiled to a collection of inference rules rather than facts.}
 
 The Sockeye compiler generates \(\text{ECL}^i\text{PS}^e\)-Prolog\footnote{\href{http://eclipseclp.org/}{http://eclipseclp.org/}} to be used within the \gls{skb}.
 A \gls{hdn} is expressed by the predicate \Prolog{node/2}.
@@ -705,6 +803,9 @@ The code is generated using \(\text{ECL}^i\text{PS}^e\)'s structure notation.
 This enables more readable and concise notation when accessing specific arguments of the functors.
 
 Listing~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}.
+
+\clearpage
+\lstinputlisting[caption={Sockeye Example},label={lst:sockeye_example},language=Sockeye]{example.soc}
 
 \clearpage
 \lstinputlisting[caption={Generated Prolog code},label={lst:prolog_example},language=Prolog]{example.pl}
