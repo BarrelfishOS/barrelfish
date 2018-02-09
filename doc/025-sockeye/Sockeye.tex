@@ -34,7 +34,11 @@
 
 
 \lstdefinelanguage{Sockeye}{
-    morekeywords={accept, are, as, at, import, in, input, is, map, module, output, over, reserved, to, with},
+    morekeywords={import, as, module, input, output, type, const,
+      memory, intr, power, clock,
+      instance, of, forall, in,
+      accepts, maps, converts, overlays, instantiates, binds,
+      to, at, bits},
     sensitive=true,
     morecomment=[l]{//},
     morecomment=[s]{/*}{*/},
@@ -164,11 +168,6 @@ The Sockeye file to compile is given via the \texttt{file} parameter.
 \label{chap:syntax}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 This chapter describes the language constructs in Sockeye and their syntax.
-We use EBNF to describe the Sockeye syntax. Terminals are \textbf{bold} while non-terminals are \textit{italic}.
-\todo{Do we really need a formal syntax description here? Aren't examples enough?}
-The non-terminal \textit{iden} denotes an identifier.
-The non-terminals \textit{letter}, \textit{decimal} and \textit{hexadecimal} are defined as expected.
-The precise definition of these non-terminals is found in Chapter~\ref{chap:lexer}.
 
 Most of the examples are taken from the Texas Instruments OMAP44xx SoC as used on the PandaboardES\footnote{The technical reference manual can be found \href{http://www.ti.com/lit/ug/swpu235ab/swpu235ab.pdf}{here}.}.
 
@@ -497,7 +496,8 @@ There are two types of ports:
 \end{example}
 
 \todo{DS: For the compiler to be able to enforce the port interface, it should be the same for all instances in an array
-This means that parameters used in array declarations must be the same for all array elements.}
+This means that parameters used in array declarations must be the same for all array elements.
+We could enforce this with a check, but maybe we should bake it into the syntax and have different constructs for the tow parameter classes.}
 
 In addition to declarations, quantifiers and definitions a module body can also contain named constants.
 Constants are natural numbers and can be used wherever a natural number is expected.
@@ -548,6 +548,10 @@ Imported files are resolved relative to
 /* Only import symbol CortexA9_Core and rename it */
 \textbf{import} cortexA9 (CortexA9_Core as Core)
 \end{example}
+
+\section{Extended Example}
+The following is an extended example showcasing all the syntactic constructs.
+\lstinputlisting[caption={Sockeye Example},language=Sockeye]{sockeye_syntax.soc}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Lexical Conventions}
@@ -660,57 +664,49 @@ Throws an error if there is an instance and a node declaration with the same nam
 \todo{Not yet implemented}
 
 \section{Integrity Checks}
+\todo{None of these checks are currently implemented}
+
 \paragraph{Undefined Type}
 Throws an error if a named type that is neither defined in the same file nor imported is referenced.
-\todo{Not yet implemented}
 
 \paragraph{Undefined Module}
 Throws an error if a module that is neither defined in the same file nor imported is instantiated.
-\todo{Not yet implemented}
 
 \paragraph{Undefined Instance Reference}
 Throws an error if an undefined instance is referenced
 Note that this only checks whether the name exists and whether an instance array is treated as a single instance or vice versa.
 It does not check whether the array index exists.
-\todo{Not yet implemented}
 
 \paragraph{Module Instantiation Mismatch}
 Throws an error if the instantiated module in an \textbf{instantiates} statement does not match the module of the declared instance.
-\todo{Not yet implemented}
 
 \paragraph{Argument Count Mismatch}
 Throws an error if a module is instantiated with the wrong number of arguments.
-\todo{Not yet implemented}
 
 \paragraph{Undefined Output Port}
 Throws an error if an output port being bound does not exist on the module.
 Note that this only checks whether there is an output port with the referenced name and whether a output port array is treated as a single port or vice versa.
 It does not check whether the array index exists.
-\todo{Not yet implemented}
 
 \paragraph{Undefined Node Reference}
 Throws an error if an \emph{internal node} is referenced that does not exist.
 Note that this only checks whether there is an internal node with the referenced name and whether a node array is treated as a single node or vice versa.
 It does not check whether the array index exists.
-\todo{Not yet implemented}
 
 \paragraph{Undefined Input Port}
 Throws an error if an input port is referenced that does not exist.
 Note that this only checks whether there is an input port with the referenced name and whether an input port array is treated as a single port or vice versa.
 It does not check whether the array index exists.
-\todo{Not yet implemented}
 
 \paragraph{Undefined Variable}
 Throws an error if a variable is referenced and there is neither a module parameter, constant or bound variable with that name.
-\todo{Not yet implemented}
 
 \section{Semantic Checks}
 \todo{None of these checks are currently implemented}
 
-Note concerning all the checks that involve analysing sets and arithmetic expressions.
+\todo{DS: Note concerning all the checks that involve analysing sets and arithmetic expressions.
 With parametrised sets and variables in arithmetic expressions this will not be feasible exactly.
-Depending on how precise the approximation should be, it might be easier to perform the checks in Isabelle.
-
+Depending on how precise the approximation should be, it might be easier to perform the checks in Isabelle.}
 \paragraph{Argument not in Range}
 Throws an error if an argument to a module instantiation is not in the allowed range of the corresponding parameter.
 
@@ -809,13 +805,6 @@ Listing~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye
 
 \clearpage
 \lstinputlisting[caption={Generated Prolog code},label={lst:prolog_example},language=Prolog]{example.pl}
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\chapter{Compiler Implementation}
-\label{chap:compiler}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\todo{DS: Needed?}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Compiling Sockeye Files with Hake}
