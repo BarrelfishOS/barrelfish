@@ -203,7 +203,7 @@ parse inclDirs fileName = do
                     let
                         importPaths = map ParseAST.importFile resolvedImports
                         ast' = ast { ParseAST.imports = resolvedImports }
-                        fileMap' = Map.insert file ast' fileMap 
+                        fileMap' = Map.insert file ast' fileMap
                     foldM resolveImports fileMap' importPaths
         rewriteFilePath i = do
             let fileName = ParseAST.importFile i
@@ -254,6 +254,10 @@ compile :: Target -> SymTable.Sockeye -> AST.Sockeye -> IO String
 compile Prolog symTable ast = return $ Prolog.compile symTable ast
 compile Isabelle symTable ast = return $ Isabelle.compile symTable ast
 
+{- Try to generate Prolog without any intermediate AST -}
+compileDirect :: ParseAST.Sockeye -> IO String
+compileDirect ast = return $ Prolog.compileDirect ast
+
 {- Outputs the compilation result -}
 output :: FilePath -> String -> IO ()
 output outFile out = writeFile outFile out
@@ -301,7 +305,7 @@ main = do
     symTable <- buildSymTable parsedAst
     ast <- check symTable parsedAst
     debugOutput opts parsedAst symTable ast
-    out <- compile target symTable ast
+    out <- compileDirect parsedAst
     output outFile out
     case depFile of
         Nothing -> return ()

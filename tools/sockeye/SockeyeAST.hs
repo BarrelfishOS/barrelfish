@@ -17,9 +17,48 @@ module SockeyeAST where
 
 import SockeyeASTMeta
 
-{- TODO: This is just a dummy -}
+{- This transformation should do +/- linking for modules:
+  - Resolve multiple files
+    by using the symbol table to resolve module names
+  - Inserts constants
+  - Returns a list module declartions, no more info about file
+  - Group NodeDeclarations with their Definitions
+-}
+
+{- TODO: This is just a placeholder -}
 data Sockeye = Sockeye
-    deriving (Show)
+  deriving (Show)
+
+{- TODO: This is very rough -}
+{-
+data Sockeye = Sockeye {
+    modules :: Map UniqueModuleId ModuleSpec
+  }
+  deriving (Show)
+
+data UniqueModuleId = UniqueModuleId {
+  name :: !String,
+  file :: !String
+}
+
+data ModuleSpec = ModuleSpec
+    { moduleMeta  :: ASTMeta
+    , name :: String
+    , parameters  :: [ModuleParameter]
+    , nodeDecls   :: [NodeDeclaration]
+    , instDecls   :: [QualifiedInstanceDeclaration]
+    , definitions :: [Definition]
+    }
+
+data QualifiedInstanceDeclaration = QualifiedInstanceDeclaration
+  { instDeclMeta :: ASTMeta
+  , instName :: !String
+  , instModName :: !String -- CHANGE ME
+  }
+  -}
+
+
+
 
 {-
  - From here the data structures are shared with the Parse AST
@@ -36,7 +75,7 @@ data UnqualifiedRef = UnqualifiedRef
 instance MetaAST UnqualifiedRef where
     meta = refMeta
 
-data NodeReference 
+data NodeReference
     = InternalNodeRef
         { nodeRefMeta :: ASTMeta
         , nodeRef     :: UnqualifiedRef
