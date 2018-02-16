@@ -563,9 +563,9 @@ static void e1000_set_media_type(struct e1000_driver_state *eds)
  * Check link connection status.
  *
  ****************************************************************/
-bool e1000_check_link_up(struct e1000_driver_state *eds)
+bool e1000_check_link_up(e1000_t *device)
 {
-    e1000_status_t status = e1000_status_rd(eds->device);
+    e1000_status_t status = e1000_status_rd(device);
 
     if (e1000_status_lu_extract(status)) {
         return true;
@@ -578,18 +578,18 @@ bool e1000_check_link_up(struct e1000_driver_state *eds)
  * Setup link auto-negotiation.
  *
  ****************************************************************/
-bool e1000_auto_negotiate_link(struct e1000_driver_state *eds)
+bool e1000_auto_negotiate_link(e1000_t *device, e1000_mac_type_t mac)
 {
     bool link_up = false;
 
-    e1000_ctrlext_t ctrlext = e1000_ctrlext_rd(eds->device);
+    e1000_ctrlext_t ctrlext = e1000_ctrlext_rd(device);
     if (e1000_ctrlext_link_mode_extract(ctrlext) == e1000_serdes) {
         E1000_DEBUG("Auto-negotiation: serdes mode");
         int timeout = 4000;
-        e1000_txcw_ane_wrf(eds->device, 1);
-        e1000_ctrl_lrst_wrf(eds->device, 1);
+        e1000_txcw_ane_wrf(device, 1);
+        e1000_ctrl_lrst_wrf(device, 1);
 
-        while (e1000_rxcw_anc_rdf(eds->device) == 0 && 0 < timeout--) {
+        while (e1000_rxcw_anc_rdf(device) == 0 && 0 < timeout--) {
             usec_delay(10);
         }
 
@@ -598,30 +598,30 @@ bool e1000_auto_negotiate_link(struct e1000_driver_state *eds)
         }
 
         if (!link_up) {
-            e1000_txcw_ane_wrf(eds->device, 0);
+            e1000_txcw_ane_wrf(device, 0);
         }
     } else {
         int timeout = 4000;
 
         // XXX: find out which cards really need this?
-        if (eds->mac_type < e1000_82571) {
-            e1000_ctrl_asde_wrf(eds->device, 1);
+        if (mac < e1000_82571) {
+            e1000_ctrl_asde_wrf(device, 1);
         }
 
-        if (eds->mac_type == e1000_I350) {
-            e1000_ctrl_slu_wrf(eds->device, 1);
-            e1000_ctrl_frcspd_wrf(eds->device, 0);
-            e1000_ctrl_frcdplx_wrf(eds->device, 0);
+        if (mac == e1000_I350) {
+            e1000_ctrl_slu_wrf(device, 1);
+            e1000_ctrl_frcspd_wrf(device, 0);
+            e1000_ctrl_frcdplx_wrf(device, 0);
         }
 
-        while (e1000_check_link_up(eds) == false && 0 < timeout--) {
+        while (e1000_check_link_up(device) == false && 0 < timeout--) {
             usec_delay(10);
         }
 
-        link_up = e1000_check_link_up(eds);
+        link_up = e1000_check_link_up(device);
     }
 
-    E1000_DEBUG("Auto-negotiate link status: %s\n", e1000_check_link_up(eds) ? "link-up" : "link-down");
+    E1000_DEBUG("Auto-negotiate link status: %s\n", e1000_check_link_up(device) ? "link-up" : "link-down");
     return link_up;
 }
 
@@ -1085,7 +1085,7 @@ void e1000_hwinit(struct e1000_driver_state *eds)
     e1000_set_serial_interface_mode(eds);
 
     E1000_DEBUG("Auto negotiating link.\n");
-    if (!e1000_auto_negotiate_link(eds)) {
+    if (!e1000_auto_negotiate_link(eds->device, eds->mac_type)) {
         E1000_DEBUG("Auto negotiating link failed, force link-up in driver.\n");
         e1000_ctrl_slu_wrf(eds->device, 0x1);
         //set full-duplex

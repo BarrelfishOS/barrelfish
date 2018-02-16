@@ -130,7 +130,7 @@ static errval_t e1000_dequeue_rx(e1000_queue_t *device, regionid_t* rid,
     *valid_length = rxd->rx_read_format.info.length;
     *flags = NETIF_RXFLAG;
     
-    debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", device->name, __func__, *offset, *length, *valid_data, *valid_length, *flags);
+    //debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", device->name, __func__, *offset, *length, *valid_data, *valid_length, *flags);
 
     return SYS_ERR_OK;
 }
@@ -285,6 +285,24 @@ static void bind_cb(void *st, errval_t err, struct e1000_devif_binding *b)
     queue->bound = true;
 }
 
+static void interrupt_handler(void* arg) {
+    e1000_queue_t *device = (e1000_queue_t*) arg;
+    e1000_intreg_t icr = e1000_icr_rd(&device->hw_device);
+
+    icr = 0;
+    /*
+    if (e1000_intreg_lsc_extract(icr) != 0) {
+        if (e1000_check_link_up(&device->hw_device)) {
+            e1000_auto_negotiate_link(&device->hw_device, device->mac_type);
+        } else {
+            E1000_DEBUG("Link status change to down.\n");
+        }
+    }
+    */
+    device->isr(arg);
+}
+
+
 errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t deviceid,
     uint32_t bus, uint32_t pci_device, uint32_t function, unsigned interrupt_mode,
     void (*isr)(void *))
@@ -420,7 +438,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t device
         }
 
         err = int_route_client_route_and_connect(device->irq, 0,
-                get_default_waitset(), device->isr, device);
+                get_default_waitset(), interrupt_handler, device);
         if(err_is_fail(err)){
             DEBUG_ERR(err, "int_route_client_route_and_connect");
         }

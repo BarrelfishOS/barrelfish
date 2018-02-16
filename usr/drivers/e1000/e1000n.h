@@ -243,8 +243,8 @@ e1000_mac_type_t e1000_get_mac_type(uint32_t vendor, uint32_t device_id);
 char * e1000_mac_type_to_str(e1000_mac_type_t mt);
 bool e1000_supported_device(uint32_t vendor, uint32_t device_id);
 bool e1000_link_up_led_status(struct e1000_driver_state *eds);
-bool e1000_check_link_up(struct e1000_driver_state *eds);
-bool e1000_auto_negotiate_link(struct e1000_driver_state *eds);
+bool e1000_check_link_up(e1000_t *device);
+bool e1000_auto_negotiate_link(e1000_t *device, e1000_mac_type_t mac);
 void e1000_set_interrupt_throttle(struct e1000_driver_state *eds, uint16_t usec);
 
 void e1000_hwinit(struct e1000_driver_state *eds);

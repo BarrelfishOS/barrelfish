@@ -97,7 +97,7 @@ static void e1000_print_link_status(struct e1000_driver_state *eds)
         break;
     }
 
-    if (e1000_check_link_up(eds)) {
+    if (e1000_check_link_up(eds->device)) {
         const char *duplex;
 
         if (e1000_status_fd_extract(status)) {
@@ -222,8 +222,8 @@ static void e1000_interrupt_handler_fn(void *arg)
     printf("########################## Interrupt handler ######################################\n");
 
     if (e1000_intreg_lsc_extract(icr) != 0) {
-        if (e1000_check_link_up(eds)) {
-            e1000_auto_negotiate_link(eds);
+        if (e1000_check_link_up(eds->device)) {
+            e1000_auto_negotiate_link(eds->device, eds->mac_type);
         } else {
             E1000_DEBUG("Link status change to down.\n");
         }
@@ -300,10 +300,12 @@ static void e1000_init_fn(struct e1000_driver_state * device)
         err = pcid_connect_int(&device->pdc, 0, e1000_interrupt_handler_fn, device);
 
     } else {
+#ifdef UNDER_TEST
         err = pcid_connect_int(&device->pdc, 0, e1000_interrupt_handler_fn, device);
         if(err_is_fail(err)){
             USER_PANIC("Setting up interrupt failed \n");
         }
+#endif
     }
 
     test_instr_init(device);
