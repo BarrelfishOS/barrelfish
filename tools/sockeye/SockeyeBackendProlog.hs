@@ -51,17 +51,18 @@ gen_nat_param_list pp = map AST.paramName pp
 
 instance PrologGenerator AST.Module where
   generate m = let
-    name = AST.moduleName m
+    name = "add_" ++ AST.moduleName m
     p1 = gen_nat_param_list (AST.parameters m)
     p2 = gen_node_param_list inp_node_decls
     p3 = gen_node_param_list out_node_decls
+    bodyChecks = ["is_list(Id)"]
     bodyDecls = map gen_body_decls (AST.nodeDecls m)
-    bodyDefs = map gen_body_defs (AST.definitions m)
-    body = intercalate ",\n    " $ bodyDecls ++ bodyDefs
-    in name ++ stringify (p1 ++ p2 ++ p3) ++ " :- " ++ body ++ "."
+    bodyDefs = concat $ map gen_body_defs (AST.definitions m)
+    body = intercalate ",\n    " $ bodyChecks ++ bodyDecls ++ bodyDefs
+    in name ++ stringify (["Id"] ++ p1 ++ p2 ++ p3) ++ " :- \n    " ++ body ++ "."
     where
       stringify [] = ""
-      stringify pp = braces $ intercalate "," pp
+      stringify pp = parens $ intercalate "," pp
       inp_node_decls = filter (\x -> (AST.nodeKind x) == AST.InputPort) (AST.nodeDecls m)
       out_node_decls = filter (\x -> (AST.nodeKind x) == AST.OutputPort) (AST.nodeDecls m)
 
@@ -71,7 +72,7 @@ instance PrologGenerator AST.Module where
 --  * constants
 -- This will return the name of these variables
 local_nodeid_name :: String -> String
-local_nodeid_name x = "LOCAL_" ++ x
+local_nodeid_name x = "ID_" ++ x
 
 -- Prefix tat as well?
 local_param_name :: String -> String
@@ -87,25 +88,62 @@ gen_dom_atom d = case d of
   AST.Power -> atom "power"
   AST.Clock -> atom "clock"
 
+-- Generates something a la:
+-- (ID_RAM, INKIND_RAM, OUTKIND_RAM) = (['ram', Id], memory, memory)
 gen_body_decls :: AST.NodeDeclaration -> String
 gen_body_decls x =
   let
     var = local_nodeid_name $ AST.nodeName x
-    kind = gen_dom_atom ( AST.originDomain (AST.nodeType x))
-    decl = struct "node_id" [("name", quotes $ AST.nodeName x), ("namespace","[]"),
-      ("kind", kind)]
-    in var ++ " = " ++ decl
+    decl_kind_in = gen_dom_atom (AST.originDomain (AST.nodeType x))
+    decl_kind_out = gen_dom_atom (AST.targetDomain (AST.nodeType x))
+    decl_id = list_prepend (doublequotes $ AST.nodeName x) (local_param_name "Id")
+    decl_tup = tuple [decl_id, decl_kind_in, decl_kind_out]
 
-gen_body_defs :: AST.Definition -> String
+    -- Build the variable list
+    pf = AST.nodeName x
+    var_tup = tuple [local_nodeid_name pf, "INKIND_" ++ pf, "OUTKIND_" ++ pf]
+    in var_tup ++ " = " ++ decl_tup
+
+-- gen_body_defs :: AST.Definition -> String
+-- gen_body_defs x = case x of
+--   (AST.Accepts _ n accepts) -> assert $ struct "node" [the_id n,
+--     ("spec", struct "node_spec" [("accept", list $ map generate accepts), ("translate", list [])])]
+--   (AST.Maps _ n maps)    -> assert $ struct "node" [the_id n,
+--     ("spec", struct "node_spec" [("accept", list []), ("translate", list $ map generate maps )])]
+--   _                   -> "NYI"
+--   where
+--     the_id n = ("id", "ID_" ++ (AST.refName (n)))
+
+
+-- This transformation is probably better to be in an AST transform
+data OneMapSpec = OneMapSpec
+  {
+  srcNode :: AST.UnqualifiedRef,
+  srcAddr :: AST.AddressBlock,
+  targetNode :: AST.NodeReference,
+  targetAddr :: AST.AddressBlock
+  }
+
+
+map_spec_flatten :: AST.Definition -> [OneMapSpec]
+map_spec_flatten def = case def of
+  (AST.Maps _ n maps) ->
+    [OneMapSpec n (AST.mapAddr map_spec) (AST.targetNode map_target) (AST.targetAddr map_target)
+      | map_spec <- maps, map_target <- (AST.mapTargets map_spec)]
+  _ -> []
+
+
+gen_body_defs :: AST.Definition -> [String]
 gen_body_defs x = case x of
-  (AST.Accepts _ n accepts) -> struct "node" [the_id n,
-    ("spec", struct "node_spec" [("accept", list $ map generate accepts), ("translate", list [])])]
-  (AST.Maps _ n maps)    -> struct "node" [the_id n,
-    ("spec", struct "node_spec" [("accept", list []), ("translate", list $ map generate maps )])]
-  _                   -> "NYI"
-  where
-    the_id n = ("id", local_nodeid_name (AST.refName (n)))
+  (AST.Accepts _ n accepts) -> [(assert $ predicate "node_accept" [generate n, generate acc])
+    | acc <- accepts]
+  (AST.Maps _ _ _) -> [(assert $ predicate "node_translate"
+    [generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
+    | om <- map_spec_flatten x]
+  _ -> []
 
+instance PrologGenerator AST.UnqualifiedRef where
+  generate uq = local_nodeid_name $ AST.refName uq
 
 instance PrologGenerator AST.MapSpec where
   generate ms = struct "map" [("src_block", generate (AST.mapAddr ms)),
@@ -117,7 +155,7 @@ instance PrologGenerator AST.MapTarget where
 
 instance PrologGenerator AST.NodeReference where
   generate nr = case nr of
-    AST.InternalNodeRef _ nn -> local_nodeid_name (AST.refName nn)
+    AST.InternalNodeRef _ nn -> local_nodeid_name $ AST.refName nn
     AST.InputPortRef _ _ _ -> "NYI"
 
 instance PrologGenerator AST.AddressBlock where
@@ -126,7 +164,7 @@ instance PrologGenerator AST.AddressBlock where
 
 instance PrologGenerator AST.Address where
   generate a = case a of
-    AST.Address _ ws -> list $ map generate ws
+    AST.Address _ ws -> tuple $ map generate ws
 
 instance PrologGenerator AST.WildcardSet where
   generate a = case a of
@@ -175,8 +213,14 @@ struct name fields = name ++ (braces $ intercalate "," (map toFieldString fields
     where
         toFieldString (key, value) = key ++ ":" ++ value
 
+tuple :: [String] -> String
+tuple elems = parens $ intercalate "," elems
+
 list :: [String] -> String
 list elems = brackets $ intercalate "," elems
+
+list_prepend :: String -> String -> String
+list_prepend a li = brackets $ a ++ " | " ++ li
 
 enclose :: String -> String -> String -> String
 enclose start end string = start ++ string ++ end
@@ -192,3 +236,9 @@ braces = enclose "{" "}"
 
 quotes :: String -> String
 quotes = enclose "'" "'"
+
+doublequotes :: String -> String
+doublequotes = enclose "\"" "\""
+
+assert :: String -> String
+assert x = "assert" ++ parens x
