@@ -264,7 +264,7 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
                 "add_pci_controller(Lbl, addr(%"PRIu8",%"PRIu8",%"PRIu8")),"
                 "write('\n'), print_int_controller(Lbl).",
                 addr.bus, addr.device, addr.function);
-        DEBUG_SKB_ERR(err, "add/print pci controller");
+        if(err_is_fail(err)) DEBUG_SKB_ERR(err, "add/print pci controller");
 
     } else if(driver_arg->int_arg.model == INT_MODEL_MSI){
         printf("Kaluga: Starting driver with MSI interrupts\n");
