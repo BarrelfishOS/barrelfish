@@ -20,7 +20,7 @@
 #include <pci/pci_driver_client.h>
 
 // TODO only required for htonl
-#include <lwip/ip.h>
+//#include <lwip/ip.h>
 #include <net/net.h>
 
 #include <if/sfn5122f_defs.h>
@@ -839,6 +839,14 @@ static void start_all(struct sfn5122f_driver_state* st)
     sfn5122f_int_en_reg_ker_lo_wr(st->d, reg);
     sfn5122f_int_en_reg_ker_hi_wr(st->d, sfn5122f_int_en_reg_ker_hi_rd(st->d));
 
+    errval_t err;
+    if (st->use_interrupt) {
+        err = pcid_connect_int(&st->pdc, 0, global_interrupt_handler, st);
+        if(err_is_fail(err)){
+            USER_PANIC("Setting up interrupt failed \n");
+        }
+    }
+
     /* Start MAC stats            */
     /*
     uint8_t in[CMD_MAC_STATS_IN_LEN];
@@ -858,6 +866,8 @@ static void start_all(struct sfn5122f_driver_state* st)
                             NULL, 0, NULL, pci_function, d);
     assert(err_is_ok(err));
     */
+
+
 }
 
 /**************************************************************************
@@ -1688,7 +1698,7 @@ static void init_default_values(struct sfn5122f_driver_state* st)
     st->pci_vendor = PCI_DONT_CARE;
     st->pci_devid = PCI_DONT_CARE;
     st->cdriver_msix = -1;
-    st->use_interrupt = false;
+    st->use_interrupt = true;
     st->first = 1;
     st->rss_en = 0;
     st->scatter_en = 0;
@@ -1766,10 +1776,6 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
     while (!st->initialized) {
         event_dispatch(get_default_waitset());
     }
- 
-    
-
-    start_all(st);
     /* loop myself */
     //cd_main();
     return SYS_ERR_OK;
