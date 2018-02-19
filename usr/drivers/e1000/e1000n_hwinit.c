@@ -1162,5 +1162,9 @@ void e1000_hwinit(struct e1000_driver_state *eds)
         }
     }
 
+#ifdef UNDER_TEST
     eds->msix = e1000_supports_msix(eds->mac_type);
+#else 
+    eds->msix = false;
+#endif
 }
