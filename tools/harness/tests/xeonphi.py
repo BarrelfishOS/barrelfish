@@ -105,7 +105,8 @@ class XeonPhi_Boot_Test(TestCommon):
         modules.add_module("xeon_phi", ["auto", 
                                         "--tftp=tftp://10.110.4.4:69",
                                         "--modlist=/" + tftpdir + "/menu.lst.k1om"])
-        modules.add_module("net_sockets_server", ["auto"])
+        modules.add_module("e1000n", ["auto"])
+        modules.add_module("net_sockets_server", ["nospawn"])
         modules.add_module("dma_mgr", [""])
 
         return modules
