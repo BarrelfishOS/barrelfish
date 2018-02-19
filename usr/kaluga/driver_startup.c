@@ -68,10 +68,10 @@ errval_t default_start_function(coreid_t where,
     // We need one extra entry for the new argument.
     char **argv = NULL;
     int argc = mi->argc;
-    argv = malloc((argc+1) * sizeof(char *)); // +1 for trailing NULL
+    argv = calloc((argc+1) * sizeof(char *), 1); // +1 for trailing NULL
     assert(argv != NULL);
     memcpy(argv, mi->argv, (argc+1) * sizeof(char *));
-    assert(argv[argc] == NULL);
+    //assert(argv[argc] == NULL);
 
     uint64_t vendor_id, device_id, bus, dev, fun;
     err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
@@ -374,14 +374,14 @@ errval_t start_networking(coreid_t core,
                             get_did_ptr(net_sockets));
         free (pci_arg_str);
     } else {
-        // TODO currently only for e1000, might be other cards that 
+        // TODO currently only for mxl4, might be other cards that 
         // start the driver by creating a queue
         for (int i = 0; i < driver->argc; i++) {
             printf("argv[%d]=%s \n", i, driver->argv[i]);
         }        
 
         if (!(driver->argc > 2)) {
-            driver->argv[driver->argc] = "e1000";        
+            driver->argv[driver->argc] = "mlx4";        
             driver->argc++;
         }
 
