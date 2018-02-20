@@ -20,6 +20,9 @@
 %% node_translate(InNodeId, InAddr :: block, OutNodeId, OutAddr :: block).
 :- dynamic node_translate/4.
 
+%% node_overlay(InNodeId, OutNodeId).
+:- dynamic node_overlay/2.
+
 :- export struct(block(base,limit,props)).
 
 :- lib(ic).

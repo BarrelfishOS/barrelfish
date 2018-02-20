@@ -53,13 +53,14 @@ instance PrologGenerator AST.Module where
   generate m = let
     name = "add_" ++ AST.moduleName m
     p1 = gen_nat_param_list (AST.parameters m)
-    p2 = gen_node_param_list inp_node_decls
-    p3 = gen_node_param_list out_node_decls
+    p2 = gen_node_param_list out_node_decls
     bodyChecks = ["is_list(Id)"]
-    bodyDecls = map gen_body_decls (AST.nodeDecls m)
+    nodeDecls = map gen_node_decls (AST.nodeDecls m)
+    instDecls = map gen_inst_decls (AST.instDecls m)
     bodyDefs = concat $ map gen_body_defs (AST.definitions m)
-    body = intercalate ",\n    " $ bodyChecks ++ bodyDecls ++ bodyDefs
-    in name ++ stringify (["Id"] ++ p1 ++ p2 ++ p3) ++ " :- \n    " ++ body ++ "."
+
+    body = intercalate ",\n    " $ bodyChecks ++ nodeDecls ++ instDecls ++ bodyDefs
+    in name ++ stringify (["Id"] ++ p1 ++ p2) ++ " :- \n    " ++ body ++ ".\n\n"
     where
       stringify [] = ""
       stringify pp = parens $ intercalate "," pp
@@ -89,9 +90,18 @@ gen_dom_atom d = case d of
   AST.Clock -> atom "clock"
 
 -- Generates something a la:
+-- (ID_RAM) = (['ram', Id])
+gen_inst_decls :: AST.InstanceDeclaration -> String
+gen_inst_decls x =
+  let
+    var = local_nodeid_name $ AST.instName x
+    decl = list_prepend (doublequotes $ AST.instName x) (local_param_name "Id")
+    in var ++ " = " ++ decl
+
+-- Generates something a la:
 -- (ID_RAM, INKIND_RAM, OUTKIND_RAM) = (['ram', Id], memory, memory)
-gen_body_decls :: AST.NodeDeclaration -> String
-gen_body_decls x =
+gen_node_decls :: AST.NodeDeclaration -> String
+gen_node_decls x =
   let
     var = local_nodeid_name $ AST.nodeName x
     decl_kind_in = gen_dom_atom (AST.originDomain (AST.nodeType x))
@@ -132,7 +142,6 @@ map_spec_flatten def = case def of
       | map_spec <- maps, map_target <- (AST.mapTargets map_spec)]
   _ -> []
 
-
 gen_body_defs :: AST.Definition -> [String]
 gen_body_defs x = case x of
   (AST.Accepts _ n accepts) -> [(assert $ predicate "node_accept" [generate n, generate acc])
@@ -140,6 +149,8 @@ gen_body_defs x = case x of
   (AST.Maps _ _ _) -> [(assert $ predicate "node_translate"
     [generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
     | om <- map_spec_flatten x]
+  (AST.Overlays _ src dest) -> [assert $ predicate "node_overlay" [generate src, generate dest]]
+  (AST.Instantiates _ i im args) -> [predicate ("add_" ++ im) [generate i]]
   _ -> []
 
 instance PrologGenerator AST.UnqualifiedRef where
@@ -156,7 +167,7 @@ instance PrologGenerator AST.MapTarget where
 instance PrologGenerator AST.NodeReference where
   generate nr = case nr of
     AST.InternalNodeRef _ nn -> local_nodeid_name $ AST.refName nn
-    AST.InputPortRef _ _ _ -> "NYI"
+    AST.InputPortRef _ inst node -> list_prepend (doublequotes $ AST.refName node) (local_nodeid_name $ AST.refName inst)
 
 instance PrologGenerator AST.AddressBlock where
   -- TODO: add properties
@@ -181,7 +192,7 @@ instance PrologGenerator AST.NaturalRange where
       [("base", generate b), ("limit", generate b)]
     AST.LimitRange _ b l -> struct "block"
       [("base", generate b), ("limit", generate l)]
-    AST.BitsRange _ b bits -> "NYI"
+    AST.BitsRange _ b bits -> "BITSRANGE NYI"
       -- struct "block" [("base", generate b), ("limit", show 666)]
 
 instance PrologGenerator AST.NaturalExpr where

@@ -1,0 +1,14 @@
+module DRAM {
+    input memory (0 bits 40) GDDR0
+    GDDR0 accepts [(0x000000000 to 0x0fedfffff)]
+}
+
+module SOCKET {
+    instance RAM of DRAM 
+    RAM instantiates DRAM
+   
+    memory (0 bits 40) SOCKET
+    SOCKET maps [
+        (0x000000000 to 0x0fedfffff) to RAM.GDDR0 at (0x000000000 to 0x0fedfffff)
+    ]
+}
