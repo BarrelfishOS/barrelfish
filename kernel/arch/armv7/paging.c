@@ -384,10 +384,7 @@ caps_map_l1(struct capability* dest,
             panic("Invalid target");
         }
 
-        create_mapping_cap(mapping_cte, src,
-                           dest_lpaddr + slot * sizeof(union arm_l1_entry),
-                           offset,
-                           pte_count);
+        create_mapping_cap(mapping_cte, src, cte_for_cap(dest), slot, pte_count);
 
         for (int i = 0; i < pte_count; i++) {
             entry->raw = 0;
@@ -457,10 +454,7 @@ caps_map_l1(struct capability* dest,
     assert(aligned(src_lpaddr, 1u << 10));
     assert((src_lpaddr < dest_lpaddr) || (src_lpaddr >= dest_lpaddr + 16384));
 
-    create_mapping_cap(mapping_cte, src,
-                       dest_lpaddr + slot * sizeof(union arm_l1_entry),
-                       offset,
-                       pte_count);
+    create_mapping_cap(mapping_cte, src, cte_for_cap(dest), slot, pte_count);
 
     for (int i = 0; i < pte_count; i++, entry++)
     {
@@ -528,10 +522,7 @@ caps_map_l2(struct capability* dest,
         panic("Invalid target");
     }
 
-    create_mapping_cap(mapping_cte, src,
-                       dest_lpaddr + slot * sizeof(union arm_l2_entry),
-                       offset,
-                       pte_count);
+    create_mapping_cap(mapping_cte, src, cte_for_cap(dest), slot, pte_count);
 
     for (int i = 0; i < pte_count; i++) {
         entry->raw = 0;
@@ -626,8 +617,8 @@ errval_t paging_modify_flags(struct capability *mapping, uintptr_t offset,
     struct Frame_Mapping *info = &mapping->u.frame_mapping;
 
     /* Calculate location of page table entries we need to modify */
-    lvaddr_t base = local_phys_to_mem(info->pte) +
-        offset * sizeof(union arm_l2_entry);
+    lvaddr_t base = local_phys_to_mem(get_address(&info->ptable->cap)) +
+        (info->entry + offset) * sizeof(union arm_l2_entry);
 
     for (int i = 0; i < pages; i++) {
         union arm_l2_entry *entry =
