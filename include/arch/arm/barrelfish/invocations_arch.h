@@ -164,6 +164,13 @@ invoke_vnode_map(struct capref ptable, capaddr_t slot,
                        pte_count, mcnroot, mcnaddr, small_values).error;
 }
 
+static inline errval_t invoke_vnode_modify_flags(struct capref cap,
+                                          size_t entry, size_t num_pages,
+                                          size_t attr)
+{
+    return cap_invoke4(cap, VNodeCmd_ModifyFlags, entry, num_pages, attr).error;
+}
+
 /**
  * \brief Duplicate ARMv7 core_data into the supplied frame.
  *
