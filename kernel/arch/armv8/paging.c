@@ -393,10 +393,7 @@ caps_map_l0(struct capability* dest,
         return SYS_ERR_VNODE_SLOT_INUSE;
     }
 
-    create_mapping_cap(mapping_cte, src,
-                       dest_lpaddr + slot * get_pte_size(),
-                       offset,
-                       pte_count);
+    create_mapping_cap(mapping_cte, src, cte_for_cap(dest), slot, pte_count);
 
     entry->raw = 0;
     entry->d.valid = 1;
@@ -469,10 +466,7 @@ caps_map_l1(struct capability* dest,
     assert(aligned(src_lpaddr, 1u << 12));
     assert((src_lpaddr < dest_lpaddr) || (src_lpaddr >= dest_lpaddr + 32));
 
-    create_mapping_cap(mapping_cte, src,
-                       dest_lpaddr + slot * get_pte_size(),
-                       offset,
-                       pte_count);
+    create_mapping_cap(mapping_cte, src, cte_for_cap(dest), slot, pte_count);
 
     entry->raw = 0;
     entry->d.valid = 1;
@@ -542,10 +536,7 @@ caps_map_l2(struct capability* dest,
     assert(aligned(src_lpaddr, 1u << 12));
     assert((src_lpaddr < dest_lpaddr) || (src_lpaddr >= dest_lpaddr + 4096));
 
-    create_mapping_cap(mapping_cte, src,
-                       dest_lpaddr + slot * get_pte_size(),
-                       offset,
-                       pte_count);
+    create_mapping_cap(mapping_cte, src, cte_for_cap(dest), slot, pte_count);
 
     entry->raw = 0;
     entry->d.valid = 1;
@@ -609,10 +600,7 @@ caps_map_l3(struct capability* dest,
         panic("Invalid target");
     }
 
-    create_mapping_cap(mapping_cte, src,
-                       dest_lpaddr + slot * get_pte_size(),
-                       offset,
-                       pte_count);
+    create_mapping_cap(mapping_cte, src, cte_for_cap(dest), slot, pte_count);
 
     for (int i = 0; i < pte_count; i++) {
         entry->raw = 0;
@@ -747,8 +735,8 @@ errval_t paging_modify_flags(struct capability *mapping, uintptr_t offset,
     assert(0 == (kpi_paging_flags & ~KPI_PAGING_FLAGS_MASK));
 
     /* Calculate location of page table entries we need to modify */
-    lvaddr_t base = local_phys_to_mem(info->pte) +
-        offset * sizeof(union armv8_ttable_entry *);
+    lvaddr_t base = local_phys_to_mem(get_address(&info->ptable->cap)) +
+        (info->entry + offset) * sizeof(union armv8_ttable_entry *);
 
     for (int i = 0; i < pages; i++) {
         union armv8_ttable_entry *entry =
