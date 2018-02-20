@@ -53,19 +53,16 @@ instance PrologGenerator AST.Module where
   generate m = let
     name = "add_" ++ AST.moduleName m
     p1 = gen_nat_param_list (AST.parameters m)
-    p2 = gen_node_param_list out_node_decls
     bodyChecks = ["is_list(Id)"]
     nodeDecls = map gen_node_decls (AST.nodeDecls m)
     instDecls = map gen_inst_decls (AST.instDecls m)
     bodyDefs = concat $ map gen_body_defs (AST.definitions m)
 
     body = intercalate ",\n    " $ bodyChecks ++ nodeDecls ++ instDecls ++ bodyDefs
-    in name ++ stringify (["Id"] ++ p1 ++ p2) ++ " :- \n    " ++ body ++ ".\n\n"
+    in name ++ stringify (["Id"] ++ p1) ++ " :- \n    " ++ body ++ ".\n\n"
     where
       stringify [] = ""
       stringify pp = parens $ intercalate "," pp
-      inp_node_decls = filter (\x -> (AST.nodeKind x) == AST.InputPort) (AST.nodeDecls m)
-      out_node_decls = filter (\x -> (AST.nodeKind x) == AST.OutputPort) (AST.nodeDecls m)
 
 -- Inside each function we add variable that contains
 --  * nodeId
@@ -151,6 +148,8 @@ gen_body_defs x = case x of
     | om <- map_spec_flatten x]
   (AST.Overlays _ src dest) -> [assert $ predicate "node_overlay" [generate src, generate dest]]
   (AST.Instantiates _ i im args) -> [predicate ("add_" ++ im) [generate i]]
+  (AST.Binds _ inst binds) -> [assert $ predicate "node_overlay" [paramId,
+    (generate $ AST.boundNode bind)] | bind <- binds, let paramId = list_prepend (doublequotes $ AST.refName $ AST.boundPort bind) (generate inst)]
   _ -> []
 
 instance PrologGenerator AST.UnqualifiedRef where
