@@ -355,14 +355,27 @@ errval_t start_networking(coreid_t core,
                             get_did_ptr(net_sockets));
         free (pci_arg_str);
     } else {
-        // TODO currently only for e1000, might be other cards that 
+        driver->allow_multi = 1;
+        // TODO currently only for e1000 and mlx4, might be other cards that 
         // start the driver by creating a queue
         for (int i = 0; i < driver->argc; i++) {
             printf("argv[%d]=%s \n", i, driver->argv[i]);
         }        
 
         if (!(driver->argc > 2)) {
-            driver->argv[driver->argc] = "e1000";        
+
+            uint64_t vendor_id, device_id, bus, dev, fun;
+            err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                           &bus, &dev, &fun, &vendor_id, &device_id);
+            if (err_is_fail(err)) {
+                return err;
+            }
+
+            if (vendor_id == 0x8086) {
+                driver->argv[driver->argc] = "e1000";        
+            } else {
+                driver->argv[driver->argc] = "mlx4";        
+            }
             driver->argc++;
         }
 
