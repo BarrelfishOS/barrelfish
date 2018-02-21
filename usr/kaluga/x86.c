@@ -178,6 +178,12 @@ errval_t arch_startup(char * add_device_db_file)
         USER_PANIC_ERR(err, "Watching PCI devices.");
     }
 
+
+    err = watch_for_iommu();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Watching for IOMMUS.");
+    }
+
     KALUGA_DEBUG("Kaluga: Starting serial...\n");
     err = start_serial();
     if (err_is_fail(err) && err != KALUGA_ERR_MODULE_NOT_FOUND) {

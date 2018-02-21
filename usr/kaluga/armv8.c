@@ -66,6 +66,11 @@ static errval_t armv8_startup_common(void)
         USER_PANIC_ERR(err, "Watching PCI devices.");
     }
 
+    err = watch_for_iommu();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Watching for IOMMUS.");
+    }
+
     KALUGA_DEBUG("Kaluga: wait_for_all_spawnds\n");
 
     err = wait_for_all_spawnds();
