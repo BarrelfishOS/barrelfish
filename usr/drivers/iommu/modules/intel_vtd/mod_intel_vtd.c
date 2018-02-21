@@ -20,15 +20,40 @@
 
 #define DRIVER_DEBUG(x...) debug_printf("[iommu] " x)
 
-struct iommu {
+
+#define VTD_NUM_ROOT_ENTRIES	512
+
+typedef enum {
+    VTD_ENTRY_TYPE_BASE,
+    VTD_ENTRY_TYPE_EXTENDED,
+} vtd_entry_type_t;
+
+union vtd_root_table {
+    vtd_root_entry_array_t      *base;
+    vtd_ext_root_entry_array_t  *extended;
+};
+
+union vtd_context_table {
+    vtd_context_entry_array_t     *base [VTD_NUM_ROOT_ENTRIES];
+    vtd_ext_context_entry_array_t *extended[VTD_NUM_ROOT_ENTRIES];
+};
+
+struct vtd {
     struct {
-        vtd_t        vtd;
-        vtd_iotlb_t iotlb;
+        vtd_t               vtd;
+        vtd_iotlb_t         iotlb;
     } registers;
 
-    uint16_t pci_segment;
+    uint16_t                pci_segment;
+    vtd_entry_type_t        entry_type;
 
+    /* The root table */
+    struct capref           root_table_cap;
+    union vtd_root_table    root_table
 
+    /* the context descriptor tables */
+    struct capref           context_table_caps[VTD_NUM_ROOT_ENTRIES];
+    union vtd_context_table context_table;
 };
 
 /**
@@ -51,22 +76,51 @@ struct iommu {
  */
 static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t flags,
                      struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) {
-    DRIVER_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
+    errval_t err;
 
-    bfi->dstate = malloc(sizeof(struct uart_driver_state));
-    if (bfi->dstate == NULL) {
+    DRIVER_DEBUG("Initialize: %s\n", name);
+
+    if (capref_is_null(caps[0])) {
+        return DRIVERKIT_ERR_NO_CAP_FOUND;
+    }
+
+    struct vtd *vtd = calloc(sizeof(*vtd), 1);
+    if (vtd == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    assert(bfi->dstate != NULL);
 
-    // 1. Initialize the device:
+    /* map the registers */
+    void *registers_vbase;
+    err = vspace_map_one_frame_attr(&registers_vbase, BASE_PAGE_SIZE, caps[0],
+                                    VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
+    if (err_is_fail(err)) {
+        goto err_out;
+    }
+    DRIVER_DEBUG("Registers mapped at: %p\n", registers_vbase);
 
-    // 2. Export service to talk to the device:
+    vtd_initialize(&vtd->registers.vtd, registers_vbase);
+    size_t iro = vtd_ECAP_iro_rdf(&vtd->registers.vtd);
+
+    vtd_iotlb_initialize(&vtd->registers.iotlb, registers_vbase + iro);
+
+    DRIVER_DEBUG("Mackerel initalized\n");
+
+    /* TODO: set these according to the record or args */
+    vtd->entry_type = VTD_ENTRY_TYPE_BASE;
+    vtd->pci_segment = 0;
+
+
+    bfi->dstate = vtd;
+
 
     // 3. Set iref of your exported service (this is reported back to Kaluga)
     *dev = 0x00;
 
     return SYS_ERR_OK;
+
+err_out:
+    free(vtd);
+    return err;
 }
 
 /**
