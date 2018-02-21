@@ -33,25 +33,32 @@ class BootModules(object):
             self.kernel = None
         else: 
             self.kernel = os.path.join(self.prefix, kernel)
+        if args is None:
+            args = []
         self.kernelArgs = args
 
     def add_kernel_args(self, args):
-        self.kernelArgs.extend(args)
-    
+        if args:
+            self.kernelArgs.extend(args)
+
     def set_cpu_driver(self, cpu_driver, args=[]):
         if cpu_driver == None :
             self.cpu_driver = None
             self.kernelArgs = []
         else :
             self.cpu_driver = os.path.join(self.prefix, cpu_driver)
+            if args is None:
+                args = []
             self.kernelArgs = args
-            
+
     def set_boot_driver(self, boot_driver,  args=[]):
         if boot_driver == None :
             self.boot_driver = None
             self.boot_driver_args = []
         else :
             self.boot_driver = os.path.join(self.prefix, boot_driver);
+            if args is None:
+                args = []
             self.boot_driver_args = args
     
     def set_boot_driver_args(self, args):
