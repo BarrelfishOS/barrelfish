@@ -45,5 +45,40 @@
                                       "hw_id: _, " \
                                       "type: _ }"
 
+/*
+ * ===========================================================================
+ * PCI Root Bridge Records
+ * ===========================================================================
+ */
+#define HW_PCI_ROOTBRIDGE_RECORD_FIELDS \
+"bus: %d, device: %d, function: %d, maxbus: %d, acpi_node: '%s'
+
+#define HW_PCI_ROOTBRIDGE_RECORD_FORMAT \
+"hw.pci.rootbridge. { " HW_PCI_ROOTBRIDGE_RECORD_FIELDS " }";
+
+#define HW_PCI_ROOTBRIDGE_RECORD_REGEX \
+"r'hw\\.pci\\.rootbridge\\.[0-9]+' { bus: _, device: _, function: _," \
+" maxbus: _, acpi_node: _ }"
+
+/*
+ * ===========================================================================
+ * IOMMU hardware records
+ * ===========================================================================
+ */
+
+enum {
+    HW_PCI_IOMMU_INTEL = 1,
+    HW_PCI_IOMMU_AMD   = 2,
+    HW_PCI_IOMMU_ARM   = 3
+};
+
+#define HW_PCI_IOMMU_RECORD_FIELDS \
+"type: %d, flags: %d, segment: %d, address=%" PRIu64
+
+#define HW_PCI_IOMMU_RECORD_FORMAT \
+"hw.pci.iommu. {" HW_PCI_IOMMU_RECORD_FIELDS " }"
+
+#define HW_PCI_IOMMU_RECORD_REGEX \
+"r'hw\\.pci\\.iommu\\.[0-9]+ {type: _, flags: _, segment: _, address=_ }'
 
 #endif /* INCLUDE_HW_RECORDS_ARCH_H_ */
