@@ -53,6 +53,7 @@ static void add_start_function_overrides(void)
     set_start_function("sfn5122f", start_networking);
     set_start_function("rtl8029", start_networking);
     set_start_function("corectrl", start_boot_driver);
+    set_start_function("iommu", start_iommu_driver);
 #ifdef __ARM_ARCH_7A__
     set_start_function("driverdomain", newstyle_start_function);
 #endif

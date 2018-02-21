@@ -28,6 +28,8 @@
 #include <skb/skb.h>
 #include <thc/thc.h>
 
+#include <hw_records.h>
+
 #include "kaluga.h"
 
 
@@ -318,4 +320,99 @@ errval_t watch_for_pci_root_bridge(void)
     octopus_trigger_id_t tid;
     return oct_trigger_existing_and_watch(root_bridge, bridge_change_event,
             NULL, &tid);
+}
+
+
+errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
+                        char* record, struct driver_argument* int_arg)
+{
+    errval_t err;
+
+    static struct domain_instance* inst;
+    struct driver_instance *drv;
+
+    if (!is_auto_driver(driver)) {
+        return KALUGA_ERR_DRIVER_NOT_AUTO;
+    }
+
+    char *key;
+    uint64_t type, flags, segment, address;
+    err = oct_read(record, "%s { " HW_PCI_IOMMU_RECORD_FIELDS " }",
+                   &key, &type, &flags, &segment, &address);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    /* record is no longer needed */
+    free(record);
+
+    char *iommu_module = NULL;
+    switch(type) {
+        case HW_PCI_IOMMU_INTEL :
+            iommu_module = "iommu_intel_module";
+            break;
+        case HW_PCI_IOMMU_AMD :
+            iommu_module = "iommu_amd_module";
+            break;
+        case HW_PCI_IOMMU_ARM :
+            iommu_module = "iommu_arm_module";
+            break;
+        default :
+            free(key);
+            return DRIVERKIT_ERR_NO_DRIVER_FOUND;
+    }
+
+
+
+    /* we currently start all IOMMUss in the same domain */
+    if (driver->driverinstance == NULL) {
+        inst = instantiate_driver_domain(driver->binary, where);
+        if (inst == NULL) {
+            return DRIVERKIT_ERR_DRIVER_INIT;
+        }
+
+        driver->driverinstance = inst;
+
+        while (inst->b == NULL) {
+            event_dispatch(get_default_waitset());
+        }
+    }
+
+    drv = ddomain_create_driver_instance(iommu_module, key);
+    if (drv == NULL) {
+        err = DRIVERKIT_ERR_DRIVER_INIT;
+        goto out;
+    }
+
+    struct capref devcap = NULL_CAP;
+    /* TODO: get capability to the device registers */
+    drv->caps[0] = devcap;
+
+    err = ddomain_instantiate_driver(inst, drv);
+out:
+    free(key);
+    return err;
+
+
+}
+static void iommu_change_event(octopus_mode_t mode, const char* record,
+                                void* st)
+{
+    debug_printf("Kaluga: iommu event %s\n", record);
+    if (mode & OCT_ON_SET) {
+
+        struct module_info* mi = find_module("iommu");
+        if (mi == NULL) {
+            KALUGA_DEBUG("IOMMU driver not found or not declared as auto.");
+            return;
+        }
+
+    }
+}
+
+errval_t watch_for_iommu(void)
+{
+    octopus_trigger_id_t tid;
+    return oct_trigger_existing_and_watch(HW_PCI_IOMMU_RECORD_REGEX,
+                                          iommu_change_event, NULL, &tid);
 }
