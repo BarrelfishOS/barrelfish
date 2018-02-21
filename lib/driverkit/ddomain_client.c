@@ -120,6 +120,8 @@ errval_t ddomain_instantiate_driver(struct domain_instance* di, struct driver_in
         }
         collections_list_insert(di->spawned, drv);
     }
+
+    return SYS_ERR_OK;
 }
 
 void ddomain_free_domain_inst(void* arg) {
