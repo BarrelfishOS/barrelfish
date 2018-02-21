@@ -26,7 +26,7 @@ device vtd msbfirst ( addr base ) "VT-d" {
         lcpt  52        "Lower Context-table Pointer";
         _     11 mbz;
         lp     1        "Lower present";
-    }
+    };
 
     constants translation_type "Translation Type for requests-without-PASID" {
         hmd = 0b00 "Host mode with Device-TLBs disabled";
@@ -68,7 +68,7 @@ device vtd msbfirst ( addr base ) "VT-d" {
         _           4 mbz  "Reserved";
         slee        1      "Second-LEvel Execute Enable";
         ere         1      "Execute Requests Enable";
-        eafe        1      "Extended Accessed Flag Enable"
+        eafe        1      "Extended Accessed Flag Enable";
         semp        1      "Supervisor Mode Execute Protection";
         did        16      "Domain Identifier";
         emte        1      "Extended Memory Type Enable";
