@@ -1,0 +1,37 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2018, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/drivers/iommu
+--
+--------------------------------------------------------------------------
+
+
+[
+  build library {
+    target = "intel_vtd_module",
+    cFiles = [ "modules/intel_vtd/mod_intel_vtd.c"]
+    mackerelDevices = ["vtd", "vtd_iotlb" ],
+  },
+  build library {
+    target = "amd_iommu_module",
+    cFiles = [ "modules/amd_iommu/mod_amd_iommu.c"]
+  },
+  build library {
+    target = "arm_smmu_module",
+    cFiles = [ "modules/arm_smmu/mod_arm_smmu.c"]
+  },
+
+  build application {
+    target = "iommu",
+    cFiles = [ "main.c"],
+    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+    addLibraries = libDeps [ "driverkit", "thc", "skb", "octopus" ],
+    addModules = [ "intel_vtd_module", "arm_smmu_module", "amd_iommu_module" ],
+    architectures = [ "armv8", "x86_64" ]
+  }
+]
