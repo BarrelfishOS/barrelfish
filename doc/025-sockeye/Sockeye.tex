@@ -772,33 +772,45 @@ Throws an error if the right hand side of a concatenation operator is not a slic
 \chapter{Prolog Mapping for Sockeye}
 \label{chap:prolog}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\todo{DS: This describes the mapping in the initial draft for Sockeye.
-The new version of the compiler does not yet implement the Prolog backend.
-If PicoSAT will indeed be used in the future to query \glspl{hdn}, this will impose currently unknown requirements on the Prolog representation.
-We probably also want modules represented in the \gls{skb} such that they can be instantiated at runtime, meaning Sockeye should be compiled to a collection of inference rules rather than facts.}
+\todo{LH: Work in progress for the new Prolog backend.}
+
+The definitions of the struct and dynamic facts (and queries, once we implement
+them) can be found in the Barrelfish SKB file \texttt{usr/skb/programs/decoding\_net2.pl}.
 
 The Sockeye compiler generates \(\text{ECL}^i\text{PS}^e\)-Prolog\footnote{\href{http://eclipseclp.org/}{http://eclipseclp.org/}} to be used within the \gls{skb}.
-A \gls{hdn} is expressed by the predicate \Prolog{node/2}.
-The first argument to the predicate is the node identifier and the second one the node specification.
 
-Node identifiers are represented as a functor \Prolog{node_id/2}.
-The first argument is the node's name, represented as an atom, and the second one is the (possibly nested) namespace it is in.
-The namespace is represented as a list of atoms where the head is the innermost namespace component.
+The \textit{address domain} is represented as an atom (one of memory, intr,
+power, clock).
 
-Node specifications are represented by a Prolog functor \Prolog{node_spec/3}.
-The arguments to the functor are the node type, the list of accepted addresses and the list of translated addresses.
-The overlay is translated to address mappings and added to the list of translated addresses during compilation.
+An \textit{address} is a tuple of first, an address domain, followed by
+an integer corresponding to each address dimension.
 
-The node type is one of four atoms: \Prolog{core}, \Prolog{device}, \Prolog{memory} or \Prolog{other}.
-The accepted addresses are a list of address blocks where each block is represented through the functor \Prolog{block/2} with the start and end addresses as arguments.
-The translated addresses are a list of mappings to other nodes, represented by the functor \Prolog{map/3} where the first argument is the translated address block, the second one is the target node's identifier and the third one is the base address for the mapping in the target node.
+Since we allow multi dimensional and non-zero based arrays, an \textit{array
+index} is represented as a tuple of integers.
 
-There is a predicate clause for \Prolog{node/2} for every node specified.
+\textit{Node identifiers} are represented as a list of strings and integers.
+The list of creates a hiearchical name, each module instance name will be
+prepended to the list until it ends at a local node name. In case of arrays,
+the array name is added prepended by the array index.
+
+According to the encoding of addresses, \textit{Address blocks} are tuples of
+an address domain, followed by for each dimension, a \Prolog{block} functor is
+instantiated. A \Prolog{block} functor takes two arguments, base and limit,
+restricting the corresponding address dimension.
+
+We then use these definitions to express a \gls{hdn} with the following predicates
+\begin{itemize}
+    \item \Prolog{node_translate(src_node :: node_id, src_address_block :: address_block, dest_node :: node_id, dest_address_block :: address_block)}
+    \item \Prolog{node_accepts(node :: node_id, address_block :: address_block)}
+    \item \Prolog{node_overlays(src_node :: node_id, dest_node :: node_id)}
+\end{itemize}
+
+To assert these predicates, the compiler generates a predicate for each module.
 
 The code is generated using \(\text{ECL}^i\text{PS}^e\)'s structure notation.
 This enables more readable and concise notation when accessing specific arguments of the functors.
 
-Listing~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}.
+Listing~\ref{lst:prolog_example}\todo{Example still for SoC1} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}\todo{Example still for SoC1}.
 
 \clearpage
 \lstinputlisting[caption={Sockeye Example},label={lst:sockeye_example},language=Sockeye]{example.soc}
