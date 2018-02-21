@@ -51,7 +51,7 @@
  * ===========================================================================
  */
 #define HW_PCI_ROOTBRIDGE_RECORD_FIELDS \
-"bus: %d, device: %d, function: %d, maxbus: %d, acpi_node: '%s'
+"bus: %d, device: %d, function: %d, maxbus: %d, acpi_node: '%s'"
 
 #define HW_PCI_ROOTBRIDGE_RECORD_FORMAT \
 "hw.pci.rootbridge. { " HW_PCI_ROOTBRIDGE_RECORD_FIELDS " }";
@@ -79,6 +79,6 @@ enum {
 "hw.pci.iommu. {" HW_PCI_IOMMU_RECORD_FIELDS " }"
 
 #define HW_PCI_IOMMU_RECORD_REGEX \
-"r'hw\\.pci\\.iommu\\.[0-9]+ {type: _, flags: _, segment: _, address=_ }'
+"r'hw\\.pci\\.iommu\\.[0-9]+ {type: _, flags: _, segment: _, address=_ }'"
 
 #endif /* INCLUDE_HW_RECORDS_ARCH_H_ */
