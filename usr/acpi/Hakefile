@@ -18,7 +18,8 @@ let commonCFiles = [
         "pcilnk_controller_client.c",
         "acpi_service.c",
         "acpi_main.c",
-        "buttons.c"
+        "buttons.c",
+        "acpi_parse_dmar.c"
         ]
 
     archCFiles arch = case arch of

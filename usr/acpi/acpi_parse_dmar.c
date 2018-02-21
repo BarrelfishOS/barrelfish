@@ -26,8 +26,6 @@
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 
-static coreid_t barrelfish_id_counter = 1;
-
 
 /*
  * local_apic(proc_id:8, apicid:8, flags:32);
@@ -72,32 +70,10 @@ static coreid_t barrelfish_id_counter = 1;
      "dmar_andd(%" PRIu8 ", %s)."
 
 #define SKB_SCHEMA_DMAR_DEVSC \
-    "dmar_devsc(%" PRIu8 ", %" PRIu16 ", %" PRIu8  "%" PRIu8 \
+    "dmar_devsc(%" PRIu8 ", %" PRIu8 ", %" PRIu16 ", %" PRIu8  "%" PRIu8 \
                 ", %" PRIu8 ", %" PRIu8  ")."
 
 
-static errval_t parse_pci_path(ACPI_DMAR_PCI_PATH *p, void *end,
-                               uint8_t bus, uint16_t segment,
-                               enum AcpiDmarScopeType type)
-{
-    errval_t err;
-
-    uint8_t bus,dev,fun;
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to obtain PCI path.");
-    } else {
-        /* add device */
-
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Failed to insert into the SKB: "
-                    SKB_SCHEMA_DMAR_DEVSC "\n", type, dsc->EntryType,
-                      segment, bus, dev, fun, dsc->EnumerationId);
-        }
-    }
-
-
-}
 
 static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
                                    uint16_t segment, enum AcpiDmarScopeType type)
@@ -105,14 +81,13 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
     errval_t err;
     ACPI_DMAR_PCI_PATH *pcip;
 
-    debug_printf("[dmar] [drhd]" SKB_SCHEMA_DMAR_DEVSC "\n",
-                 dsc->EntryType, dsc->EnumerationId, dsc->Bus);
+    debug_printf("[dmar] [drhd]\n");
 
-    while(dsc < end) {
+    while((void *)dsc < end) {
         assert(dsc->Length - sizeof(ACPI_DMAR_DEVICE_SCOPE) == 2);
         pcip = (ACPI_DMAR_PCI_PATH *)((uint8_t *)dsc + sizeof(ACPI_DMAR_DEVICE_SCOPE));
         void *pcip_end = ((uint8_t *) dsc + dsc->Length);
-        while(pcip < pcip_end) {
+        while((void *)pcip < pcip_end) {
             err = skb_execute_query("bridge(PCIE,addr(%d,%d,%d),_,_,_,_,_,secondary(BUS)),"
                                     "write(secondary_bus(BUS)).", dsc->Bus,
                                     pcip->Device, pcip->Function);
@@ -121,7 +96,7 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
             }
 
             uint64_t bus;
-            err = skb_read_output("secondary_bus(%d)", &bus);
+            err = skb_read_output("secondary_bus(%" SCNu64 ")", &bus);
             if (err_is_fail(err)) {
                 goto loop_next_pcip;
             }
@@ -145,6 +120,8 @@ loop_next_pcip:
 
         dsc = (ACPI_DMAR_DEVICE_SCOPE *) ((uint8_t *) dsc + dsc->Length);
     }
+
+    return SYS_ERR_OK;
 }
 
 
@@ -185,7 +162,7 @@ static errval_t parse_reserved_memory(ACPI_DMAR_RESERVED_MEMORY *rmem, void *end
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to insert into SKB: "
                   SKB_SCHEMA_DMAR_RESERVED_MEMORY "\n",
-                  rmem->Segment, rmem->BaseAddress, rmem->EndAddress))
+                  rmem->Segment, rmem->BaseAddress, rmem->EndAddress);
     }
 
     void *sub = ((uint8_t *)rmem) + sizeof(ACPI_DMAR_ATSR);
@@ -197,7 +174,7 @@ static errval_t parse_root_ats_capabilities(ACPI_DMAR_ATSR *atsr, void *end)
 {
     errval_t err;
 
-    debug_printf("[dmar] [atsr]" SKB_SCHEMA_DMAR_RHSA "\n",
+    debug_printf("[dmar] [atsr]" SKB_SCHEMA_DMAR_ATSR "\n",
                  atsr->Flags, atsr->Segment);
     err = skb_add_fact(SKB_SCHEMA_DMAR_ATSR, atsr->Flags, atsr->Segment);
     if (err_is_fail(err)) {
@@ -245,7 +222,7 @@ errval_t acpi_parse_dmar(void)
 
     if(ACPI_FAILURE(as)) {
         debug_printf("No DMAR found in ACPI! Cannot initialize IO MMUs.\n");
-        return ACPI_ERR_OBJECT_NOT_FOUND
+        return ACPI_ERR_OBJECT_NOT_FOUND;
     }
     else {
         dmar = (ACPI_TABLE_DMAR*)ath;

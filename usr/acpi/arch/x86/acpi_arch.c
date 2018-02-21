@@ -49,10 +49,6 @@ int acpi_arch_init(void)
         return -1;
     }
 
-    if (!vtd_force_off) {
-        vtd_init();
-    }
-
     return 0;
 }
 
