@@ -107,7 +107,7 @@ static errval_t create_call(struct ddomain_binding *b, struct driver_instance* d
     }
 }
 
-void ddomain_instantiate_driver(struct domain_instance* di, struct driver_instance* drv) {
+errval_t ddomain_instantiate_driver(struct domain_instance* di, struct driver_instance* drv) {
     // Driver domain not up, make sure we spawn drivers later
     if (di->b == NULL) {
         collections_list_insert(di->to_spawn, drv);
@@ -116,7 +116,7 @@ void ddomain_instantiate_driver(struct domain_instance* di, struct driver_instan
     else {
         errval_t err = create_call(di->b, drv);
         if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "create driver instance failed.");
+            return err;
         }
         collections_list_insert(di->spawned, drv);
     }

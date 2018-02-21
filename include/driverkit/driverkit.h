@@ -68,7 +68,7 @@ errval_t ddomain_communication_init(iref_t kaluga_iref, uint64_t id);
 errval_t ddomain_controller_init(void);
 struct domain_instance* ddomain_create_domain_instance(uint64_t id);
 struct driver_instance* ddomain_create_driver_instance(char* driver_name, char* inst_name);
-void ddomain_instantiate_driver(struct domain_instance* di, struct driver_instance* drv);
+errval_t ddomain_instantiate_driver(struct domain_instance* di, struct driver_instance* drv);
 void ddomain_free_driver_inst(void* arg);
 void ddomain_free_domain_inst(void* arg);
 errval_t ddomain_driver_add_cap(struct driver_instance* drv, struct capref cap);
