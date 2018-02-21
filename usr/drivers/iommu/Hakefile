@@ -14,8 +14,8 @@
 [
   build library {
     target = "intel_vtd_module",
-    cFiles = [ "modules/intel_vtd/mod_intel_vtd.c"]
-    mackerelDevices = ["vtd", "vtd_iotlb" ],
+    cFiles = [ "modules/intel_vtd/mod_intel_vtd.c"],
+    mackerelDevices = ["vtd", "vtd_iotlb" ]
   },
   build library {
     target = "amd_iommu_module",

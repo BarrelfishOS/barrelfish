@@ -49,7 +49,7 @@ struct vtd {
 
     /* The root table */
     struct capref           root_table_cap;
-    union vtd_root_table    root_table
+    union vtd_root_table    root_table;
 
     /* the context descriptor tables */
     struct capref           context_table_caps[VTD_NUM_ROOT_ENTRIES];
@@ -164,9 +164,6 @@ static errval_t detach(struct bfdriver_instance* bfi) {
 static errval_t set_sleep_level(struct bfdriver_instance* bfi, uint32_t level) {
     DRIVER_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
-    struct uart_driver_state* uds = bfi->dstate;
-    uds->level = level;
-
     return SYS_ERR_OK;
 }
 
@@ -179,12 +176,7 @@ static errval_t set_sleep_level(struct bfdriver_instance* bfi, uint32_t level) {
  */
 static errval_t destroy(struct bfdriver_instance* bfi) {
     DRIVER_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
-    struct uart_driver_state* uds = bfi->dstate;
-    free(uds);
-    bfi->dstate = NULL;
 
-    // XXX: Tear-down the service
-    bfi->device = 0x0;
 
     return SYS_ERR_OK;
 }

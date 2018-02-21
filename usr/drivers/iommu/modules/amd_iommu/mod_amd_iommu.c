@@ -43,11 +43,6 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
                      struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) {
     DRIVER_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
-    bfi->dstate = malloc(sizeof(struct uart_driver_state));
-    if (bfi->dstate == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-    assert(bfi->dstate != NULL);
 
     // 1. Initialize the device:
 
@@ -100,8 +95,6 @@ static errval_t detach(struct bfdriver_instance* bfi) {
 static errval_t set_sleep_level(struct bfdriver_instance* bfi, uint32_t level) {
     DRIVER_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
-    struct uart_driver_state* uds = bfi->dstate;
-    uds->level = level;
 
     return SYS_ERR_OK;
 }
@@ -115,12 +108,6 @@ static errval_t set_sleep_level(struct bfdriver_instance* bfi, uint32_t level) {
  */
 static errval_t destroy(struct bfdriver_instance* bfi) {
     DRIVER_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
-    struct uart_driver_state* uds = bfi->dstate;
-    free(uds);
-    bfi->dstate = NULL;
-
-    // XXX: Tear-down the service
-    bfi->device = 0x0;
 
     return SYS_ERR_OK;
 }
