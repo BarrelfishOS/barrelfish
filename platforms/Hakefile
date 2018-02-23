@@ -220,6 +220,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "fish",
                            "hpet",
                            "ioat_dma",
+                           "iommu",
                            "kaluga",
                            "lo_queue",
                            "lpc_kbd",
