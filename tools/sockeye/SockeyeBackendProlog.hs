@@ -19,10 +19,19 @@ module SockeyeBackendProlog
 import qualified Data.Map as Map
 import Data.Char
 import Data.List
+import Text.Printf
+import Control.Exception (throw, Exception)
 
 import qualified SockeyeSymbolTable as ST
 import qualified SockeyeAST as SAST
 import qualified SockeyeParserAST as AST
+
+data PrologBackendException
+  = MultiDimensionalQuantifierException
+  | NYIException String
+  deriving(Show)
+
+instance Exception PrologBackendException
 
 {- The structure of the code generator should be very similar to the old Prolog Backend -}
 compile :: ST.Sockeye -> SAST.Sockeye -> String
@@ -52,11 +61,12 @@ gen_nat_param_list pp = map AST.paramName pp
 instance PrologGenerator AST.Module where
   generate m = let
     name = "add_" ++ AST.moduleName m
+    mi = gen_module_info m
     p1 = gen_nat_param_list (AST.parameters m)
     bodyChecks = ["is_list(Id)"]
     nodeDecls = map gen_node_decls (AST.nodeDecls m)
     instDecls = map gen_inst_decls (AST.instDecls m)
-    bodyDefs = concat $ map gen_body_defs (AST.definitions m)
+    bodyDefs = concat $ map (gen_body_defs mi) (AST.definitions m)
 
     body = intercalate ",\n    " $ bodyChecks ++ nodeDecls ++ instDecls ++ bodyDefs
     in name ++ stringify (["Id"] ++ p1) ++ " :- \n    " ++ body ++ ".\n\n"
@@ -71,6 +81,9 @@ instance PrologGenerator AST.Module where
 -- This will return the name of these variables
 local_nodeid_name :: String -> String
 local_nodeid_name x = "ID_" ++ x
+
+local_inst_name :: String -> String
+local_inst_name x = "ID_" ++ x
 
 -- Prefix tat as well?
 local_param_name :: String -> String
@@ -139,21 +152,141 @@ map_spec_flatten def = case def of
       | map_spec <- maps, map_target <- (AST.mapTargets map_spec)]
   _ -> []
 
-gen_body_defs :: AST.Definition -> [String]
-gen_body_defs x = case x of
+data IterationState = IterationState
+  {
+    -- Map a sockeye name to a prolog variable
+    vars :: Map.Map String String
+  }
+
+data ModuleInfo = ModuleInfo
+  {
+    params :: [String]
+  }
+
+gen_module_info :: AST.Module -> ModuleInfo
+gen_module_info x =
+  ModuleInfo { params = ["Id"] ++ params ++ nodes ++ insts}
+  where
+    insts = [local_inst_name $ AST.instName d | d <- AST.instDecls x]
+    params = (gen_nat_param_list $ AST.parameters x)
+    nodes = [local_nodeid_name $ AST.nodeName d | d <- AST.nodeDecls x]
+
+add_param :: ModuleInfo -> String -> ModuleInfo
+add_param mi s = ModuleInfo { params = (params mi) ++ [s]}
+
+param_str :: ModuleInfo -> String
+param_str mi = case params mi of
+  [] -> ""
+  li -> "," ++ intercalate "," [predicate "param" [p] | p <- li]
+
+
+generate_conj :: ModuleInfo -> [AST.Definition] -> String
+generate_conj mi li =
+   intercalate ",\n" $ concat [gen_body_defs mi inn | inn <- li]
+
+-- generate forall with a explicit variable name
+forall_qual :: ModuleInfo -> String -> AST.NaturalSet -> [AST.Definition] -> String
+forall_qual mi varName ns body =
+  "(" ++
+   predicate "block_values" [generate ns, it_list] ++ "," ++
+   "(" ++
+   predicate "foreach" [it_var, it_list]
+   ++ param_str mi
+   ++ " do \n" ++
+   body_str ++ "\n))"
+   where
+     id_var = "ID_" ++ varName
+     it_var = "IDT_" ++ varName
+     it_list = "IDL_" ++ varName
+     body_str = generate_conj (add_param mi it_var) body
+
+forall_uqr :: ModuleInfo -> AST.UnqualifiedRef -> String -> String
+forall_uqr mi ref body_str = case (AST.refIndex ref) of
+  Nothing -> printf "(%s = %s, %s)" it_var id_var body_str
+  Just ai -> "(" ++
+                predicate "block_values" [generate ai, it_list] ++ "," ++
+                "(" ++
+                predicate "foreach" [it_var, it_list]
+                ++ param_str mi
+                ++ " do " ++
+                itid_var ++ " = " ++ list_prepend it_var id_var ++ "," ++
+                body_str ++ "))"
+  where
+    id_var = "ID_" ++ (AST.refName ref)
+    it_var = "IDT_" ++ (AST.refName ref)
+    itid_var = "IDI_" ++ (AST.refName ref)
+    it_list = "IDL_" ++ (AST.refName ref)
+
+gen_bind_defs :: String -> [AST.PortBinding] -> String
+gen_bind_defs uql_var binds =
+  let
+      dest bind = generate $ AST.boundNode bind
+      src bind = list_prepend (doublequotes $ AST.refName $ AST.boundPort $ bind) uql_var
+      pb bind = assert $ predicate "node_overlay" [src bind, dest bind]
+      preds = [pb bind | bind <- binds]
+  in intercalate "," preds
+
+gen_index :: AST.UnqualifiedRef -> String
+gen_index uqr =
+  case (AST.refIndex uqr) of
+    Nothing -> local_nodeid_name $ AST.refName uqr
+    Just ai -> list_prepend (gen_ai ai) (local_nodeid_name $ AST.refName uqr)
+  where
+    gen_ai (AST.ArrayIndex _ ws) =  list [gen_wildcard_simple w | w <- ws]
+    gen_wildcard_simple (AST.ExplicitSet _ ns) = gen_natural_set ns
+    gen_natural_set (ST.NaturalSet _ nrs) = gen_natural_ranges nrs
+    gen_natural_ranges [nr] = gen_ns_simple nr
+    gen_ns_simple (ST.SingletonRange _ base) = gen_exp_simple base
+    gen_exp_simple (AST.Variable _ vn) = "IDT_" ++ vn
+    gen_exp_simple (AST.Literal _ int) = show int
+
+
+
+gen_body_defs :: ModuleInfo -> AST.Definition -> [String]
+gen_body_defs mi x = case x of
   (AST.Accepts _ n accepts) -> [(assert $ predicate "node_accept" [generate n, generate acc])
     | acc <- accepts]
   (AST.Maps _ _ _) -> [(assert $ predicate "node_translate"
     [generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
     | om <- map_spec_flatten x]
   (AST.Overlays _ src dest) -> [assert $ predicate "node_overlay" [generate src, generate dest]]
-  (AST.Instantiates _ i im args) -> [predicate ("add_" ++ im) [generate i]]
-  (AST.Binds _ inst binds) -> [assert $ predicate "node_overlay" [paramId,
-    (generate $ AST.boundNode bind)] | bind <- binds, let paramId = list_prepend (doublequotes $ AST.refName $ AST.boundPort bind) (generate inst)]
-  _ -> []
+  -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
+  (AST.Instantiates _ i im args) -> [ predicate ("add_" ++ im) [gen_index i] ]
+  -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
+  (AST.Binds _ i binds) -> [gen_bind_defs (gen_index i) binds]
+  (AST.Forall _ varName varRange body) -> [forall_qual mi varName varRange body]
+  (AST.Converts _ _ _ ) -> throw $ NYIException "Converts"
 
 instance PrologGenerator AST.UnqualifiedRef where
-  generate uq = local_nodeid_name $ AST.refName uq
+  generate uq = case (AST.refIndex uq) of
+    Nothing -> local_nodeid_name $ AST.refName uq
+    Just ai -> list_prepend (generate ai) (local_nodeid_name $ AST.refName uq)
+
+-- Different modes of generating the wildcard set, either as block spec, or
+-- to be used in array index generate_index
+{-
+generate_block :: AST.WildcardSet -> String
+generate_block a = case a of
+  AST.ExplicitSet _ ns -> generate ns
+  AST.Wildcard _ -> "_"
+
+
+generate_index_ns :: AST.NaturalSet -> String
+generate_index_ns ns  = ""
+
+generate_index :: AST.WildcardSet -> String
+generate_index a = case a of
+  AST.ExplicitSet _ ns -> generate ns
+  AST.Wildcard _ -> "NYI!?"
+  -}
+
+instance PrologGenerator AST.WildcardSet where
+  generate a = case a of
+    AST.ExplicitSet _ ns -> generate ns
+    AST.Wildcard _ -> "NYI!?"
+
+instance PrologGenerator AST.ArrayIndex where
+  generate (AST.ArrayIndex _ wcs) = brackets $ intercalate "," [generate x | x <- wcs]
 
 instance PrologGenerator AST.MapSpec where
   generate ms = struct "map" [("src_block", generate (AST.mapAddr ms)),
@@ -165,8 +298,8 @@ instance PrologGenerator AST.MapTarget where
 
 instance PrologGenerator AST.NodeReference where
   generate nr = case nr of
-    AST.InternalNodeRef _ nn -> local_nodeid_name $ AST.refName nn
-    AST.InputPortRef _ inst node -> list_prepend (doublequotes $ AST.refName node) (local_nodeid_name $ AST.refName inst)
+    AST.InternalNodeRef _ nn -> gen_index nn
+    AST.InputPortRef _ inst node -> list_prepend (doublequotes $ AST.refName node) (gen_index inst)
 
 instance PrologGenerator AST.AddressBlock where
   -- TODO: add properties
@@ -176,14 +309,11 @@ instance PrologGenerator AST.Address where
   generate a = case a of
     AST.Address _ ws -> tuple $ map generate ws
 
-instance PrologGenerator AST.WildcardSet where
-  generate a = case a of
-    AST.ExplicitSet _ ns -> generate ns
-    AST.Wildcard _ -> "_"
+
 
 instance PrologGenerator AST.NaturalSet where
   generate a = case a of
-    AST.NaturalSet _ nrs -> intercalate "::" $ map generate nrs {- horribly wrong -}
+    AST.NaturalSet _ nrs -> list $ map generate nrs
 
 instance PrologGenerator AST.NaturalRange where
   generate nr = case nr of
@@ -197,6 +327,7 @@ instance PrologGenerator AST.NaturalRange where
 instance PrologGenerator AST.NaturalExpr where
   generate nr = case nr of
     SAST.Constant _ v -> local_const_name v
+    SAST.Variable _ v -> "IDT_" ++ v
     SAST.Parameter _ v -> local_param_name v
     SAST.Literal _ n -> show n
     SAST.Addition _ a b -> "(" ++ generate a ++ ")+(" ++ generate b ++ ")"
@@ -249,6 +380,42 @@ quotes = enclose "'" "'"
 
 doublequotes :: String -> String
 doublequotes = enclose "\"" "\""
+
+
+nat_range_from :: AST.NaturalRange -> String
+nat_range_from nr = case nr of
+  AST.SingletonRange _ b -> generate b
+  AST.LimitRange _ b _ -> generate b
+  AST.BitsRange _ _ _ -> "BitsRange NOT IMPLEMENTED"
+
+nat_range_to :: AST.NaturalRange -> String
+nat_range_to nr = case nr of
+  AST.SingletonRange _ b -> generate b
+  AST.LimitRange _ _ l -> generate l
+  AST.BitsRange _ _ _ -> "BitsRange NOT IMPLEMENTED"
+
+-- Params are variables passed into the for body
+for_body_inner :: [String] -> String -> String -> (Int, AST.NaturalRange)  -> String
+for_body_inner params itvar body itrange  =
+  let
+    itvar_local = itvar ++ (show $ fst itrange)
+    from = nat_range_from $ (snd itrange)
+    to = nat_range_to $ (snd itrange)
+    for = printf "for(%s,%s,%s)" itvar_local from to :: String
+    paramf x  = printf "param(%s)" x :: String
+    header = intercalate "," ([for] ++ map paramf params)
+    in printf "(%s \ndo\n %s \n)" header body
+
+enumerate = zip [0..]
+
+for_body :: [String] -> String -> AST.NaturalSet -> String -> String
+for_body params itvar (AST.NaturalSet _ ranges) body =
+  foldl fbi body (enumerate ranges)
+  where
+    fbi = for_body_inner params itvar
+
+
+
 
 assert :: String -> String
 assert x = "assert" ++ parens x

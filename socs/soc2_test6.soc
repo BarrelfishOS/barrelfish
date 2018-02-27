@@ -1,0 +1,33 @@
+module DRAM {
+    input memory (0 bits 40) GDDR0
+    output memory (0 bits 40) RAMOUT
+    GDDR0 accepts [(0x000000000 to 0x0fedfffff)]
+
+    memory (0 bits 40) DRAMMAP
+    DRAMMAP maps [
+        (0x000000000 to 0x0fedfffff) to RAMOUT at (0x000000000 to 0x0fedfffff)
+    ]
+}
+
+module SOCKET {
+    instance RAM[1 to 2; 10 to 11] of DRAM
+
+    memory (0 bits 40) LOCAL
+    LOCAL accepts [(0x000000000 to 0x0fedfffff)]
+
+    memory (0 bits 40) LOCAL_SRC
+
+    forall x in (1 to 2, 10 to 11) {
+        forall y in (10 to 11) {
+            RAM[x; y] instantiates DRAM
+            RAM[x; y] binds [
+                RAMOUT to LOCAL
+            ]
+
+            LOCAL_SRC maps [
+                (0x1000 to 0x2000) to RAM[x; y].GDDR0 at (0x1000 to 0x2000)
+            ]
+        }
+    }
+   
+}
