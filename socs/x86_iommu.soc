@@ -1,0 +1,78 @@
+module IOMMU {
+    input memory (0 bits 40) IN
+    output memory (0 bits 40) OUT
+
+    IN maps [
+        (0x000000 to 0xffffff) to OUT at (0x000000 to 0xffffff)   // Add/change IOMMU translations here
+    ]
+
+}
+
+// Instantiate this module for a vanilla PCI device
+module PCI {
+    input memory (0 bits 40) BAR0
+    output memory (0 bits 40) OUT           // Addresses issued by device
+    BAR0 accepts [(0x000000 to 0xffffff)]
+}
+
+// Instantiate this module for a IOMMU protected PCI device
+module PCI_IOMMU {
+    input memory (0 bits 40) BAR0
+    output memory (0 bits 40) OUT
+
+    instance PCI0 of PCI 
+    PCI0 instantiates PCI
+    
+    instance IOMMU0 of IOMMU
+    IOMMU0 instantiates IOMMU
+
+    PCI0 binds [
+        OUT to IOMMU.IN
+    ]
+
+    BAR0 overlays PCI0.BAR0
+    IOMMU0 binds [
+        OUT to OUT
+    ]
+}
+
+module PROC {
+   output memory (0 bits 40) OUT //Virtual address bits
+}
+
+module MMU {
+    input memory (0 bits 40) IN
+    output memory (0 bits 40) OUT
+    IN maps [
+        (0x000000 to 0xffffff) to OUT at (0x000000 to 0xffffff)   // Add/change IOMMU translations here
+    ]
+}
+
+module PROC_MMU {
+    output memory (0 bits 40) OUT
+
+    instance PROC0 of PROC
+    PROC0 instantiates PROC
+
+    instance MMU0 of MMU
+    MMU0 instantiates MMU
+
+    PROC0 binds [
+        OUT to MMU.IN 
+    ]
+
+    MMU0 binds [
+        OUT to OUT
+    ]
+}
+
+module SYSTEM {
+    memory (0 bits 40) DRAM
+    DRAM accepts [(0 to 0x1ffffffff)]
+
+    memory (0 bits 40) PCIBUS
+    PCIBUS overlays DRAM
+
+    // Mappings from PCIBUS to PCI devices will be added dynamically
+    // Adding processes and MMUs will be dynamically
+}
