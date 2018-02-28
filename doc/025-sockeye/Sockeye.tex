@@ -810,13 +810,18 @@ To assert these predicates, the compiler generates a predicate for each module.
 The code is generated using \(\text{ECL}^i\text{PS}^e\)'s structure notation.
 This enables more readable and concise notation when accessing specific arguments of the functors.
 
-Listing~\ref{lst:prolog_example}\todo{Example still for SoC1} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}\todo{Example still for SoC1}.
+Listing~\ref{lst:prolog_example} shows the generated Prolog code for the Sockeye example in Listing~\ref{lst:sockeye_example}.
+Listing~\ref{lst:prolog_example_facts} shows the facts that are instantiated after calling
+\lstinline{add_SOCKET(["root"])}.
 
 \clearpage
 \lstinputlisting[caption={Sockeye Example},label={lst:sockeye_example},language=Sockeye]{example.soc}
 
 \clearpage
-\lstinputlisting[caption={Generated Prolog code},label={lst:prolog_example},language=Prolog]{example.pl}
+\lstinputlisting[caption={Generated Prolog code},label={lst:prolog_example},language=Prolog]{example-out.pl}
+
+\clearpage
+\lstinputlisting[caption={Asserted Prolog facts},label={lst:prolog_example_facts},language=Prolog]{example-facts.pl}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \chapter{Compiling Sockeye Files with Hake}

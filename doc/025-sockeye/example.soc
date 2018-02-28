@@ -1,43 +1,33 @@
-module CortexA9-Core(addr periphbase) {
-    input CPU/32
-    output SCU/8
-    output L2/32
+module DRAM {
+    input memory (0 bits 40) GDDR0
+    output memory (0 bits 40) RAMOUT
+    GDDR0 accepts [(0x000000000 to 0x0fedfffff)]
 
-    PERIPHBASE is map [
-            0x0000-0x00FC to SCU
-            0x0600/8 to Private_Timers
-        ]
-
-    CPU is map [
-            periphbase/13 to PERIPHBASE
-        ]
-        over L2/32
-
-    Private_Timers is device accept [0x0/8]
+    memory (0 bits 40) DRAMMAP
+    DRAMMAP maps [
+        (0x000000000 to 0x0fedfffff) to RAMOUT at (0x000000000 to 0x0fedfffff)
+    ]
 }
 
-module CortexA9-MPCore(nat cores, addr periphbase) {
-    input CPU_{[1..cores]}/32
-    output L2/32
+module SOCKET {
+    instance RAM[1 to 2; 10 to 11] of DRAM
 
-    SCU is device accept [0x0-0xFC]
+    memory (0 bits 40) LOCAL
+    LOCAL accepts [(0x000000000 to 0x0fedfffff)]
 
-    CortexA9-Core(periphbase) as Core_{c in [1..cores]} with
-        CPU_{c} > CPU
-        SCU < SCU
-        L2 < L2
+    memory (0 bits 40) LOCAL_SRC
+
+    forall x in (1 to 2, 10 to 11) {
+        forall y in (10 to 11) {
+            RAM[x; y] instantiates DRAM
+            RAM[x; y] binds [
+                RAMOUT to LOCAL
+            ]
+
+            LOCAL_SRC maps [
+                (0x1000 to 0x2000) to RAM[x; y].GDDR0 at (0x1000 to 0x2000)
+            ]
+        }
+    }
+   
 }
-
-UART{[1..3]} are device accept [0x0/12]
-SDRAM is memory accept [0x0/30]
-
-L3 is map [
-    0x48020000/12 to UART3
-    0x4806A000/12 to UART1
-    0x4806C000/12 to UART2
-    0x80000000/30 to SDRAM
-]
-
-CortexA9-MPCore(2, 0x48240000) as CORTEXA9_SS with
-    CORTEXA9_{c in [1..2]} > CPU_{c}
-    L3 < L2
