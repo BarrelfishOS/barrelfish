@@ -1,4 +1,4 @@
-{-
+  {-
   SockeyeBackendProlog.hs: Backend for generating ECLiPSe-Prolog for Sockeye
 
   Part of Sockeye
@@ -11,6 +11,18 @@
   If you do not find this file, copies can be found by writing to:
   ETH Zurich D-INFK, CAB F.78, Universitaetstr. 6, CH-8092 Zurich,
   Attn: Systems Group.
+-}
+
+
+{-
+  TODO: This currently works on a subset of the parser AST. Ideally, there would be
+  a transformation first that:
+  * Removes wildcards and replaces it with forall loops (introducing a new variable)
+  * Expands natural expression into a seperate definition blocks (introducing new local
+    variable for each block)
+  * Everytime a range is encountered, it's passed to a natural limit/base range (no more bit ops)
+  * Pushes the type of accepted/translated blocks own to the specific blocks, this should
+    also merge the translte/convert types into one.
 -}
 
 module SockeyeBackendProlog
@@ -109,7 +121,7 @@ gen_inst_decls x =
     in var ++ " = " ++ decl
 
 -- Generates something a la:
--- (ID_RAM, INKIND_RAM, OUTKIND_RAM) = (['ram', Id], memory, memory)
+-- (ID_RAM, INKIND_RAM, OUTKIND_RAM) = (['ram' | Id], memory, memory)
 gen_node_decls :: AST.NodeDeclaration -> String
 gen_node_decls x =
   let
@@ -123,16 +135,6 @@ gen_node_decls x =
     pf = AST.nodeName x
     var_tup = tuple [local_nodeid_name pf, "INKIND_" ++ pf, "OUTKIND_" ++ pf]
     in var_tup ++ " = " ++ decl_tup
-
--- gen_body_defs :: AST.Definition -> String
--- gen_body_defs x = case x of
---   (AST.Accepts _ n accepts) -> assert $ struct "node" [the_id n,
---     ("spec", struct "node_spec" [("accept", list $ map generate accepts), ("translate", list [])])]
---   (AST.Maps _ n maps)    -> assert $ struct "node" [the_id n,
---     ("spec", struct "node_spec" [("accept", list []), ("translate", list $ map generate maps )])]
---   _                   -> "NYI"
---   where
---     the_id n = ("id", "ID_" ++ (AST.refName (n)))
 
 
 -- This transformation is probably better to be in an AST transform
@@ -262,24 +264,6 @@ instance PrologGenerator AST.UnqualifiedRef where
     Nothing -> local_nodeid_name $ AST.refName uq
     Just ai -> list_prepend (generate ai) (local_nodeid_name $ AST.refName uq)
 
--- Different modes of generating the wildcard set, either as block spec, or
--- to be used in array index generate_index
-{-
-generate_block :: AST.WildcardSet -> String
-generate_block a = case a of
-  AST.ExplicitSet _ ns -> generate ns
-  AST.Wildcard _ -> "_"
-
-
-generate_index_ns :: AST.NaturalSet -> String
-generate_index_ns ns  = ""
-
-generate_index :: AST.WildcardSet -> String
-generate_index a = case a of
-  AST.ExplicitSet _ ns -> generate ns
-  AST.Wildcard _ -> "NYI!?"
-  -}
-
 instance PrologGenerator AST.WildcardSet where
   generate a = case a of
     AST.ExplicitSet _ ns -> generate ns
@@ -303,13 +287,16 @@ instance PrologGenerator AST.NodeReference where
 
 instance PrologGenerator AST.AddressBlock where
   -- TODO: add properties
+  -- We have to generate something like this, probably involves an extra step in the AST.
+  -- pred_99(propspec) :- member(prop1, propspec), member(prop2, propspec
+  -- node_accept( ..., block{propspec: pred_99}).
+  -- to check: B = block{propspec: PS}, call(PS, current_properties)
   generate ab = generate $ SAST.addresses ab
+
 
 instance PrologGenerator AST.Address where
   generate a = case a of
     AST.Address _ ws -> tuple $ map generate ws
-
-
 
 instance PrologGenerator AST.NaturalSet where
   generate a = case a of
@@ -413,8 +400,6 @@ for_body params itvar (AST.NaturalSet _ ranges) body =
   foldl fbi body (enumerate ranges)
   where
     fbi = for_body_inner params itvar
-
-
 
 
 assert :: String -> String
