@@ -45,7 +45,7 @@ device vtd msbfirst ( addr base ) "VT-d" {
     };
     
     // Context-entries have the same DID iff their SLPTPTR values are the same.
-    datatype context_entry "Context Entry" {
+    datatype ctxt_entry "Context Entry" {
         _        40 mbz;
         did        16                 "Domain Identifier";
         _        1 mbz;
@@ -58,7 +58,7 @@ device vtd msbfirst ( addr base ) "VT-d" {
         p        1                 "Present";
     };
 
-    datatype ext_context_entry "Extended Context Entry" {
+    datatype ext_ctxt_entry "Extended Context Entry" {
         pasidstptr 52      "PASID State Table Pointer";
         _          12 mbz  "Reserved";
         pasidptr   52      "PASID Pointer Table";
@@ -110,36 +110,42 @@ device vtd msbfirst ( addr base ) "VT-d" {
     };
 
     register CAP addr(base, 0x008) "Capability Register" {
-        _        7              mbz;
-        fl1gp   1            ro   "First Level 1-GByte Page Support";
-        drd        1                  ro   "Read Draining";
-        dwd        1                  ro   "Write Draining";
-        mamv    6                  ro   "Maximum Address Mask Value";
-        nfr        8                  ro   "Number of Fault-recording Registers";
-        psi        1                  ro   "Page Selective Invalidation";
-        _        1                  mbz;
-            _       2            mbz  "Second Level Large Page Support - Reserved";
-            sllps30 1                  ro   "Second Level Large Page Support - 1GB page size (30-bit offset to page frame)";
-        sllps21 1                  ro   "Second Level Large Page Support - 2MB page size (21-bit offset to page frame)";
-        fro        10                 ro   "Fault-recording Register offset";
-        _        1                  rsvd;
-        zlr        1            ro   "Zero Length Read";
-        mgaw    6                  ro   "Maximum Guest Address Width";
-        _        3                  mbz;
-            _       2            mbz  "Supported Adjusted Guest Address Widths - reserved";
-        sagaw48 1                  ro   "Supported Adjusted Guest Address Widths - 48-bit AGAW (4-level page-table)";
-               sagaw39 1                  ro   "Supported Adjusted Guest Address Widths - 39-bit AGAW (3-level page-table)";
-               _       1                  mbz  "Supported Adjusted Guest Address Widths - reserved";
-        cm        1                  ro   "Caching Mode";
-        phmr    1              ro   "Protected High-Memory Region";
-        plmr    1                  ro   "Protected Low-Memory Region";
-        rwbf    1                  ro   "Required Write-Buffer Flushing";
-        afl        1                  ro   "Advanced Fault Logging";
-        nd        3  ro type(numdom)    "Number of domains supported";
+        _        3 rsvd;
+        lp5      1 ro    "Supports 5-level paging";
+        pi       1 ro    "Posted Interrupts Supported";
+        _        2 rsvd;
+        fl1gp    1 ro    "First Level 1-GByte Page Support";
+        drd      1 ro    "Read Draining";
+        dwd      1 ro    "Write Draining";
+        mamv     6 ro    "Maximum Address Mask Value";
+        nfr      8 ro    "Number of Fault-recording Registers";
+        psi      1 ro    "Page Selective Invalidation";
+        _        1 mbz;
+        _        2 mbz   "Second Level Large Page Support - Reserved";
+        sllps30  1 ro    "Second Level Large Page Support - 1GB page size (30-bit offset to page frame)";
+        sllps21  1 ro    "Second Level Large Page Support - 2MB page size (21-bit offset to page frame)";
+        fro     10 ro    "Fault-recording Register offset";
+        _        1 rsvd;
+        zlr      1 ro    "Zero Length Read";
+        mgaw     6 ro    "Maximum Guest Address Width";
+        _        3 mbz;
+        _        1 mbz   "Supported Adjusted Guest Address Widths - reserved";
+        sagaw57  1 ro    "Supported Adjusted Guest Address Widths - 57-bit AGAW (5-level page-table)";
+        sagaw48  1 ro    "Supported Adjusted Guest Address Widths - 48-bit AGAW (4-level page-table)";
+        sagaw39  1 ro    "Supported Adjusted Guest Address Widths - 39-bit AGAW (3-level page-table)";
+        _        1 mbz   "Supported Adjusted Guest Address Widths - reserved";
+        cm       1 ro    "Caching Mode";
+        phmr     1 ro    "Protected High-Memory Region";
+        plmr     1 ro    "Protected Low-Memory Region";
+        rwbf     1 ro    "Required Write-Buffer Flushing";
+        afl      1 ro    "Advanced Fault Logging";
+        nd       3 ro type(numdom)    "Number of domains supported";
     };    
 
     register ECAP addr(base, 0x010) "Extended Capability Register" {
-        _     24 mbz;
+        _     22 mbz;
+        pdf   1  ro       "Page-request drain";
+        dit   1  ro       "device TLB invalidation throttle";
         pss   5  ro       "PASID Size Supported";
         eafs  1  ro       "Extended Accessed Flag Support";
         nwfs  1  ro       "No Write Flag Support";
@@ -152,16 +158,16 @@ device vtd msbfirst ( addr base ) "VT-d" {
         nest  1  ro       "Nested Translation Support";
         mts   1  ro       "Memory Type Support";
         ecs   1  ro       "Extended Context Support";
-        mhmv  4  ro    "Maximum Handle Mask Value";
+        mhmv  4  ro       "Maximum Handle Mask Value";
         _     2  mbz;
         iro   10 ro       "IOTLB Register Offset";
         sc    1  ro       "Snoop Control";
         pt    1  ro       "Pass Through";
         _     1  rsvd;
-        eim   1  ro    "Extended Interrupt Mode";
-        ir    1  ro    "Interrupt Remapping support";
-        dt    1  ro    "Device-TLB support";
-        qis   1  ro    "Queued Invalidation support";
+        eim   1  ro       "Extended Interrupt Mode";
+        ir    1  ro       "Interrupt Remapping support";
+        dt    1  ro       "Device-TLB support";
+        qis   1  ro       "Queued Invalidation support";
         pwc   1  ro       "Page-walk Coherency";
     };
 
