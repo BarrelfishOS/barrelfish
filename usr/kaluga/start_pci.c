@@ -323,10 +323,15 @@ errval_t watch_for_pci_root_bridge(void)
 }
 
 
+#include <acpi_client/acpi_client.h>
+#include <if/acpi_defs.h>
+
 errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
                         char* record, struct driver_argument* int_arg)
 {
     errval_t err;
+
+    debug_printf("Kaluga: starting driver for IOMMU '%s'\n", record);
 
     static struct domain_instance* inst;
     struct driver_instance *drv;
@@ -335,13 +340,16 @@ errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
         return KALUGA_ERR_DRIVER_NOT_AUTO;
     }
 
-    char *key;
+    char *key = NULL;
     uint64_t type, flags, segment, address;
-    err = oct_read(record, "%s { " HW_PCI_IOMMU_RECORD_FIELDS " }",
+    err = oct_read(record, "%s { " HW_PCI_IOMMU_RECORD_FIELDS_READ " }",
                    &key, &type, &flags, &segment, &address);
     if (err_is_fail(err)) {
         return err;
     }
+
+    debug_printf("Kaluga: iommu key: '%s', segment: %" PRIu64 ", address: 0x%"
+                  PRIx64 "\n", key, segment, address);
 
     /* record is no longer needed */
     free(record);
@@ -358,17 +366,20 @@ errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
             iommu_module = "iommu_arm_module";
             break;
         default :
-            free(key);
-            return DRIVERKIT_ERR_NO_DRIVER_FOUND;
+            err = DRIVERKIT_ERR_NO_DRIVER_FOUND;
+            goto out;
     }
 
-
+    debug_printf("Kaluga: iommu module '%s'\n", iommu_module);
 
     /* we currently start all IOMMUss in the same domain */
     if (driver->driverinstance == NULL) {
+        debug_printf("Driver instance not running, starting...\n");
+
         inst = instantiate_driver_domain(driver->binary, where);
-        if (inst == NULL) {
-            return DRIVERKIT_ERR_DRIVER_INIT;
+        if (inst == NULL) {\
+            err = DRIVERKIT_ERR_DRIVER_INIT;
+            goto out;
         }
 
         driver->driverinstance = inst;
@@ -376,6 +387,26 @@ errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
         while (inst->b == NULL) {
             event_dispatch(get_default_waitset());
         }
+
+        err = connect_to_acpi();
+        assert(err_is_ok(err));
+    }
+
+    struct acpi_binding* acpi = get_acpi_binding();
+
+    errval_t msgerr;
+    struct capref devcap = NULL_CAP;
+    err = acpi->rpc_tx_vtbl.mm_alloc_range_proxy(acpi, BASE_PAGE_BITS, address,
+                                                 address + BASE_PAGE_SIZE,
+                                                 &devcap, &msgerr);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to allocate cap\n");
+        goto out;
+    }
+    if (err_is_fail(msgerr)) {
+        DEBUG_ERR(msgerr, "failed to allocate cap\n");
+        err = msgerr;
+        goto out;
     }
 
     drv = ddomain_create_driver_instance(iommu_module, key);
@@ -384,21 +415,18 @@ errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
         goto out;
     }
 
-    struct capref devcap = NULL_CAP;
-    /* TODO: get capability to the device registers */
-    drv->caps[0] = devcap;
+    debug_printf("Kaluga: iommu with stubbed device cap\n");
+    ddomain_driver_add_cap(drv, devcap);
 
     err = ddomain_instantiate_driver(inst, drv);
 out:
     free(key);
     return err;
-
-
 }
+
 static void iommu_change_event(octopus_mode_t mode, const char* record,
                                 void* st)
 {
-    debug_printf("Kaluga: iommu event %s\n", record);
     if (mode & OCT_ON_SET) {
 
         struct module_info* mi = find_module("iommu");
@@ -407,11 +435,33 @@ static void iommu_change_event(octopus_mode_t mode, const char* record,
             return;
         }
 
+        // XXX: always spawn on my_core_id; otherwise we need to check that
+        // the other core is already up
+        errval_t err = mi->start_function(my_core_id, mi, (CONST_CAST)record, NULL);
+        switch (err_no(err)) {
+            case SYS_ERR_OK:
+                KALUGA_DEBUG("Spawned IOMMU driver: %s\n", mi->binary);
+                set_started(mi);
+                break;
+
+            case KALUGA_ERR_DRIVER_ALREADY_STARTED:
+                KALUGA_DEBUG("%s already running.\n", mi->binary);
+                break;
+
+            case KALUGA_ERR_DRIVER_NOT_AUTO:
+                KALUGA_DEBUG("%s not declared as auto, ignore.\n", mi->binary);
+                break;
+
+            default:
+                DEBUG_ERR(err, "Unhandled error while starting %s\n", mi->binary);
+                break;
+        }
     }
 }
 
 errval_t watch_for_iommu(void)
 {
+    debug_printf("Kaluga: watching for IOMMU %s\n", HW_PCI_IOMMU_RECORD_REGEX);
     octopus_trigger_id_t tid;
     return oct_trigger_existing_and_watch(HW_PCI_IOMMU_RECORD_REGEX,
                                           iommu_change_event, NULL, &tid);
