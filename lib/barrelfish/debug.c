@@ -132,7 +132,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -225,13 +225,27 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "x86_64 PML4 at 0x%" PRIxGENPADDR,
                         cap->u.vnode_x86_64_pml4.base);
 
+    case ObjType_VNode_x86_64_pml5:
+        return snprintf(buf, len, "x86_64 PML5 at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_pml5.base);
+
+    case ObjType_VNode_VTd_root_table:
+        return snprintf(buf, len, "VTd Root Table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_vtd_root_table.base);
+
+    case ObjType_VNode_VTd_ctxt_table:
+        return snprintf(buf, len, "VTd Ctxt Table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_vtd_ctxt_table.base);
+
     case ObjType_Frame_Mapping:
         mappingtype = "Frame";
         goto ObjType_Mapping;
     case ObjType_DevFrame_Mapping:
         mappingtype = "DevFrame";
         goto ObjType_Mapping;
-
+    case ObjType_VNode_x86_64_pml5_Mapping:
+        mappingtype = "x86_64 PML5";
+        goto ObjType_Mapping;
     case ObjType_VNode_x86_64_pml4_Mapping:
         mappingtype = "x86_64 PML4";
         goto ObjType_Mapping;
@@ -273,6 +287,13 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         goto ObjType_Mapping;
     case ObjType_VNode_AARCH64_l3_Mapping:
         mappingtype = "AARCH64 l3";
+        goto ObjType_Mapping;
+
+    case ObjType_VNode_VTd_root_table_Mapping:
+        mappingtype = "VTd root table";
+        goto ObjType_Mapping;
+    case ObjType_VNode_VTd_ctxt_table_Mapping:
+        mappingtype = "VTd ctxt table";
         goto ObjType_Mapping;
 
 ObjType_Mapping:

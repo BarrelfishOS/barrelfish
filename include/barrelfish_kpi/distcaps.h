@@ -40,7 +40,7 @@ distcap_state_is_foreign(distcap_state_t state)
  * Predicates related to sharing capabilities
  */
 
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
 static inline bool
 distcap_needs_locality(enum objtype type)
 {
@@ -54,6 +54,9 @@ distcap_needs_locality(enum objtype type)
     case ObjType_EndPoint:
     case ObjType_Frame:
     case ObjType_DevFrame:
+    case ObjType_VNode_VTd_root_table:
+    case ObjType_VNode_VTd_ctxt_table:
+    case ObjType_VNode_x86_64_pml5:
     case ObjType_VNode_x86_64_pml4:
     case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pdir:
@@ -90,7 +93,7 @@ distcap_needs_locality(enum objtype type)
     }
 }
 
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
 static inline bool
 distcap_is_moveable(enum objtype type)
 {

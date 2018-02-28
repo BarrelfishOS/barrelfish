@@ -580,7 +580,10 @@ static struct sysret handle_vnode_identify(struct capability *to,
     assert(to->type == ObjType_VNode_x86_64_pml4 ||
 	   to->type == ObjType_VNode_x86_64_pdpt ||
 	   to->type == ObjType_VNode_x86_64_pdir ||
-	   to->type == ObjType_VNode_x86_64_ptable);
+	   to->type == ObjType_VNode_x86_64_ptable ||
+       to->type == ObjType_VNode_x86_64_pml5 ||
+       to->type == ObjType_VNode_VTd_root_table ||
+       to->type == ObjType_VNode_VTd_ctxt_table);
 
     genpaddr_t base_addr = get_address(to);
     assert((base_addr & BASE_PAGE_MASK) == 0);
@@ -1178,6 +1181,24 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_GetState] = handle_get_state,
         [CNodeCmd_Resize] = handle_resize,
     },
+    [ObjType_VNode_VTd_root_table] = {
+        [VNodeCmd_Identify]    = handle_vnode_identify,
+        [VNodeCmd_Map]         = handle_map,
+        [VNodeCmd_Unmap]       = handle_unmap,
+        [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+    },
+    [ObjType_VNode_VTd_ctxt_table] = {
+        [VNodeCmd_Identify]    = handle_vnode_identify,
+        [VNodeCmd_Map]         = handle_map,
+        [VNodeCmd_Unmap]       = handle_unmap,
+        [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+    },
+    [ObjType_VNode_x86_64_pml5] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+    },
     [ObjType_VNode_x86_64_pml4] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
@@ -1207,6 +1228,18 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MappingCmd_Modify] = handle_mapping_modify,
     },
     [ObjType_DevFrame_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_VTd_root_table_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify]  = handle_mapping_modify,
+    },
+    [ObjType_VNode_VTd_ctxt_table_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify]  = handle_mapping_modify,
+    },
+    [ObjType_VNode_x86_64_pml5_Mapping] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
         [MappingCmd_Modify] = handle_mapping_modify,
     },

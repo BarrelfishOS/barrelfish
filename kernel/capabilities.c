@@ -55,7 +55,7 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -147,6 +147,15 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_VNode_x86_64_pml4:
         return snprintf(buf, len, "x86_64 PML4 at 0x%" PRIxGENPADDR,
                         cap->u.vnode_x86_64_pml4.base);
+    case ObjType_VNode_x86_64_pml5:
+        return snprintf(buf, len, "x86_64 PML5 at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_pml4.base);
+    case ObjType_VNode_VTd_root_table:
+        return snprintf(buf, len, "VTd root table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_pml4.base);
+    case ObjType_VNode_VTd_ctxt_table:
+        return snprintf(buf, len, "VTd ctxt table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_pml4.base);
 
     case ObjType_Frame_Mapping:
         mappingtype = "Frame";
@@ -155,6 +164,9 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         mappingtype = "DevFrame";
         goto ObjType_Mapping;
 
+    case ObjType_VNode_x86_64_pml5_Mapping:
+        mappingtype = "x86_64 PML4";
+        goto ObjType_Mapping;
     case ObjType_VNode_x86_64_pml4_Mapping:
         mappingtype = "x86_64 PML4";
         goto ObjType_Mapping;
@@ -198,6 +210,12 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         mappingtype = "AARCH64 l3";
         goto ObjType_Mapping;
 
+    case ObjType_VNode_VTd_root_table_Mapping:
+        mappingtype = "VTd root table";
+        goto ObjType_Mapping;
+    case ObjType_VNode_VTd_ctxt_table_Mapping:
+        mappingtype = "VTd ctxt table";
+        goto ObjType_Mapping;
 ObjType_Mapping:
         return snprintf(buf, len, "%s Mapping (%s cap @%p, "
                                   "ptable cap @0x%p, entry=%hu, pte_count=%hu)",
@@ -329,7 +347,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
 static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t objsize)
 {
     switch(type) {
@@ -358,8 +376,9 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
         } else {
             return srcsize / objsize;
         }
-
-
+    case ObjType_VNode_VTd_root_table :
+    case ObjType_VNode_VTd_ctxt_table :
+    case ObjType_VNode_x86_64_pml5:
     case ObjType_VNode_x86_64_pml4:
     case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pdir:
@@ -437,7 +456,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
@@ -488,6 +507,9 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
     case ObjType_VNode_x86_64_pdir:
     case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pml4:
+    case ObjType_VNode_x86_64_pml5:
+    case ObjType_VNode_VTd_root_table:
+    case ObjType_VNode_VTd_ctxt_table:
         // objsize is size of VNode; but not given as such
         objsize = vnode_objsize(type);
         debug(SUBSYS_CAPS, "VNode: zeroing %zu bytes @%#"PRIxLPADDR"\n",
@@ -545,7 +567,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                             gensize_t objsize, size_t count, coreid_t owner,
@@ -940,6 +962,60 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
         break;
     }
+    case ObjType_VNode_x86_64_pml5:
+    {
+        size_t objsize_vnode = vnode_objsize(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_x86_64_pml5.base =
+                    genpaddr + dest_i * objsize_vnode;
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
+        break;
+    }
+    case ObjType_VNode_VTd_root_table:
+    {
+        size_t objsize_vnode = vnode_objsize(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_vtd_root_table.base =
+                    genpaddr + dest_i * objsize_vnode;
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
+        break;
+    }
+    case ObjType_VNode_VTd_ctxt_table:
+    {
+        size_t objsize_vnode = vnode_objsize(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_vtd_ctxt_table.base =
+                    genpaddr + dest_i * objsize_vnode;
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
+        break;
+    }
 
     case ObjType_Dispatcher:
         assert(OBJSIZE_DISPATCHER >= sizeof(struct dcb));
@@ -1290,7 +1366,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 //{{{1 Capability creation
 
 /// check arguments, return true iff ok
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
 #ifndef NDEBUG
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
@@ -1411,7 +1487,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     return SYS_ERR_OK;
 }
 
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
@@ -1764,7 +1840,7 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
 }
 
 /// Create copies to a cte
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2)
 {

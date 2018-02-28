@@ -272,6 +272,132 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     return SYS_ERR_OK;
 }
 
+#include <dev/vtd_dev.h>
+
+/// Map within a x86_64 non leaf ptable
+static errval_t x86_64_vtd_table(struct capability *dest, cslot_t slot,
+                                  struct capability *src, uintptr_t flags,
+                                  uintptr_t offset, size_t pte_count,
+                                  struct cte *mapping_cte)
+{
+    printf("page_mappings_arch:x86_64_vtd_table\n");
+    if (slot >= 256) { // Within pagetable
+        return SYS_ERR_VNODE_SLOT_INVALID;
+    }
+
+    if (pte_count != 1) {
+        // only allow single ptable mappings
+        debug(SUBSYS_PAGING, "src type and count mismatch\n");
+        return SYS_ERR_VM_MAP_SIZE;
+    }
+
+    vtd_addr_width_t agaw = 0;
+    switch (dest->type) {
+        case ObjType_VNode_VTd_root_table :
+            if (src->type != ObjType_VNode_VTd_ctxt_table) {
+                debug(SUBSYS_PAGING, "src type invalid: %d\n", src->type);
+                return SYS_ERR_WRONG_MAPPING;
+            }
+
+            break;
+        case ObjType_VNode_VTd_ctxt_table :
+            switch(src->type) {
+                case ObjType_VNode_x86_64_pml4:
+                    agaw = vtd_agaw48;
+                    break;
+                case ObjType_VNode_x86_64_pml5:
+                    agaw = vtd_agaw57;
+                    break;
+                case ObjType_VNode_x86_64_pdpt:
+                    agaw = vtd_agaw39;
+                    break;
+                default:
+                    debug(SUBSYS_PAGING, "src type invalid: %d\n", src->type);
+                    return SYS_ERR_WRONG_MAPPING;
+            }
+            break;
+        default:
+            debug(SUBSYS_PAGING, "dest type invalid\n");
+            return SYS_ERR_DEST_TYPE_INVALID;
+    }
+
+    // Convert destination base address
+    genpaddr_t dest_gp   = get_address(dest);
+    lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
+    lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
+    // Convert source base address
+    genpaddr_t src_gp   = get_address(src);
+    lpaddr_t src_lp     = gen_phys_to_local_phys(src_gp);
+
+    switch (dest->type) {
+        case ObjType_VNode_VTd_root_table : {
+            vtd_root_entry_t rt = (vtd_root_entry_t) (dest_lv + slot *
+                                                                vtd_root_entry_size);
+
+            if (vtd_root_entry_p_extract(rt)) {
+                return SYS_ERR_VNODE_SLOT_INUSE;
+            }
+            vtd_root_entry_ctp_insert(rt, src_lp >> BASE_PAGE_BITS);
+            vtd_root_entry_p_insert(rt, 1);
+
+            break;
+        }
+        case ObjType_VNode_VTd_ctxt_table : {
+
+            vtd_ctxt_entry_t ct = (vtd_ctxt_entry_t)(
+                    dest_lv + slot * vtd_ctxt_entry_size);
+            if (vtd_ctxt_entry_p_extract(ct)) {
+                return SYS_ERR_VNODE_SLOT_INUSE;
+            }
+
+            uint16_t domid = flags & 0xffff;
+
+            vtd_ctxt_entry_aw_insert(ct, agaw);
+            vtd_ctxt_entry_did_insert(ct, domid);
+
+            #if 0
+            if (device_tlbs_supported) {
+             00b: Untranslated requests are translated using second-level
+                  paging structures referenced through SLPTPTR field. Translated
+                  requests and Translation Requests are blocked.
+             01b: Untranslated, Translated and Translation Requests are
+                  supported. This encoding is treated as reserved by hardware
+                  implementations not supporting Device-TLBs (DT=0 in Extended
+                  Capability Register).
+             10b: Untranslated requests are processed as pass-through.
+                  SLPTPTR field is ignored by hardware. Translated and Translation
+                  Requests are blocked. This encoding is treated by hardware as
+                  reserved for hardware implementations not supporting Pass Through
+            #define vtd_hmd ((vtd_translation_type_t)0x0)
+            #define vtd_hme ((vtd_translation_type_t)0x1)
+            #define vtd_ptm ((vtd_translation_type_t)0x2)
+                vtd_ctxt_entry_t_insert(ct, vtd_hme);
+            }
+            #endif
+            vtd_ctxt_entry_t_insert(ct, vtd_hmd);
+
+            /* flush the cache */
+            wbinvd();
+
+            vtd_ctxt_entry_slptptr_insert(ct, (src_lp >> BASE_PAGE_BITS));
+            vtd_ctxt_entry_p_insert(ct, 1);
+
+            break;
+        }
+        default:
+            debug(SUBSYS_PAGING, "dest type invalid\n");
+            return SYS_ERR_DEST_TYPE_INVALID;
+    }
+
+    // set metadata
+    create_mapping_cap(mapping_cte, src, cte_for_cap(dest),
+                       slot, pte_count);
+
+
+    return SYS_ERR_OK;
+}
+
+
 typedef errval_t (*mapping_handler_t)(struct capability *dest_cap,
                                       cslot_t dest_slot,
                                       struct capability *src_cap,
@@ -281,10 +407,13 @@ typedef errval_t (*mapping_handler_t)(struct capability *dest_cap,
 
 /// Dispatcher table for the type of mapping to create
 static mapping_handler_t handler[ObjType_Num] = {
-    [ObjType_VNode_x86_64_pml4]   = x86_64_non_ptable,
-    [ObjType_VNode_x86_64_pdpt]   = x86_64_non_ptable,
-    [ObjType_VNode_x86_64_pdir]   = x86_64_non_ptable,
-    [ObjType_VNode_x86_64_ptable] = x86_64_ptable,
+    [ObjType_VNode_VTd_root_table]  = x86_64_vtd_table,
+    [ObjType_VNode_VTd_ctxt_table]  = x86_64_vtd_table,
+    [ObjType_VNode_x86_64_pml5]     = x86_64_non_ptable,
+    [ObjType_VNode_x86_64_pml4]     = x86_64_non_ptable,
+    [ObjType_VNode_x86_64_pdpt]     = x86_64_non_ptable,
+    [ObjType_VNode_x86_64_pdir]     = x86_64_non_ptable,
+    [ObjType_VNode_x86_64_ptable]   = x86_64_ptable,
 };
 
 
