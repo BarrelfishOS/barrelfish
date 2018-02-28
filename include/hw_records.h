@@ -73,12 +73,15 @@ enum {
 };
 
 #define HW_PCI_IOMMU_RECORD_FIELDS \
-"type: %d, flags: %d, segment: %d, address=%" PRIu64
+"type: %d, flags: %d, segment: %d, address: %" PRIu64
+
+#define HW_PCI_IOMMU_RECORD_FIELDS_READ \
+"type: %d, flags: %d, segment: %d, address: %d"
 
 #define HW_PCI_IOMMU_RECORD_FORMAT \
-"hw.pci.iommu. {" HW_PCI_IOMMU_RECORD_FIELDS " }"
+"hw.pci.iommu. { " HW_PCI_IOMMU_RECORD_FIELDS " }"
 
 #define HW_PCI_IOMMU_RECORD_REGEX \
-"r'hw\\.pci\\.iommu\\.[0-9]+ {type: _, flags: _, segment: _, address=_ }'"
+"r'hw\\.pci\\.iommu\\.[0-9]+' { type: _, flags: _, segment: _, address: _ }"
 
 #endif /* INCLUDE_HW_RECORDS_ARCH_H_ */
