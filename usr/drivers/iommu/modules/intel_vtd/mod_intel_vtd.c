@@ -15,46 +15,12 @@
 #include <barrelfish/barrelfish.h>
 #include <driverkit/driverkit.h>
 
-#include <dev/vtd_dev.h>
-#include <dev/vtd_iotlb_dev.h>
+#include "intel_vtd.h"
 
 #define DRIVER_DEBUG(x...) debug_printf("[iommu] " x)
 
 
-#define VTD_NUM_ROOT_ENTRIES	512
-
-typedef enum {
-    VTD_ENTRY_TYPE_BASE,
-    VTD_ENTRY_TYPE_EXTENDED,
-} vtd_entry_type_t;
-
-union vtd_root_table {
-    vtd_root_entry_array_t      *base;
-    vtd_ext_root_entry_array_t  *extended;
-};
-
-union vtd_context_table {
-    vtd_context_entry_array_t     *base [VTD_NUM_ROOT_ENTRIES];
-    vtd_ext_context_entry_array_t *extended[VTD_NUM_ROOT_ENTRIES];
-};
-
-struct vtd {
-    struct {
-        vtd_t               vtd;
-        vtd_iotlb_t         iotlb;
-    } registers;
-
-    uint16_t                pci_segment;
-    vtd_entry_type_t        entry_type;
-
-    /* The root table */
-    struct capref           root_table_cap;
-    union vtd_root_table    root_table;
-
-    /* the context descriptor tables */
-    struct capref           context_table_caps[VTD_NUM_ROOT_ENTRIES];
-    union vtd_context_table context_table;
-};
+vregion_flags_t vtd_table_map_attrs = VREGION_FLAGS_READ_WRITE;
 
 /**
  * Driver initialization function. This function is called by the driver domain
@@ -89,29 +55,16 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    /* map the registers */
-    void *registers_vbase;
-    err = vspace_map_one_frame_attr(&registers_vbase, BASE_PAGE_SIZE, caps[0],
-                                    VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
+    /* XXX: get the correct one */
+    uint16_t segment =0;
+    nodeid_t proximity = 0;
+
+    err = vtd_create(vtd, caps[0], segment, proximity);
     if (err_is_fail(err)) {
         goto err_out;
     }
-    DRIVER_DEBUG("Registers mapped at: %p\n", registers_vbase);
-
-    vtd_initialize(&vtd->registers.vtd, registers_vbase);
-    size_t iro = vtd_ECAP_iro_rdf(&vtd->registers.vtd);
-
-    vtd_iotlb_initialize(&vtd->registers.iotlb, registers_vbase + iro);
-
-    DRIVER_DEBUG("Mackerel initalized\n");
-
-    /* TODO: set these according to the record or args */
-    vtd->entry_type = VTD_ENTRY_TYPE_BASE;
-    vtd->pci_segment = 0;
-
 
     bfi->dstate = vtd;
-
 
     // 3. Set iref of your exported service (this is reported back to Kaluga)
     *dev = 0x00;
