@@ -15,7 +15,7 @@ add_pci :-
     % connect the output to the systems pci bus
     assert(node_overlay(PCIOUT_ID, PCIBUS_ID)),
     % Now insert the BAR into the PCI bus address space
-    assert(node_translate(PCIBUS_ID, [block{base:1024,limit:2048}], PCIIN_ID, [block{base:1024,limit:2048}])).
+    assert(node_translate(PCIBUS_ID, [memory,[block{base:1024,limit:2048}]], PCIIN_ID, [memory, [block{base:1024,limit:2048}]])).
 
 % Make ID argument if we want to add multiple.
 add_process :-
@@ -34,4 +34,4 @@ add_process_mapping :-
     MMU_ID = ["MMU","PROC0"],
     IN_ID = ["IN" | MMU_ID],
     OUT_ID = ["OUT" | MMU_ID],
-    assert(node_translate(IN_ID, [block{base:1024,limit:2048}], OUT_ID, [block{base:1024,limit:2048}])).
+    assert(node_translate(IN_ID, [memory, [block{base:1024,limit:2048}]], OUT_ID, [memory, [block{base:1024,limit:2048}]])).

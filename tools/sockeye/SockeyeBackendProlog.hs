@@ -104,13 +104,6 @@ local_param_name x = x
 local_const_name :: String -> String
 local_const_name x = "CONST_" ++ x
 
-gen_dom_atom :: AST.Domain -> String
-gen_dom_atom d = case d of
-  AST.Memory -> atom "memory"
-  AST.Interrupt -> atom "interrupt"
-  AST.Power -> atom "power"
-  AST.Clock -> atom "clock"
-
 -- Generates something a la:
 -- (ID_RAM) = (['ram', Id])
 gen_inst_decls :: AST.InstanceDeclaration -> String
@@ -126,8 +119,8 @@ gen_node_decls :: AST.NodeDeclaration -> String
 gen_node_decls x =
   let
     var = local_nodeid_name $ AST.nodeName x
-    decl_kind_in = gen_dom_atom (AST.originDomain (AST.nodeType x))
-    decl_kind_out = gen_dom_atom (AST.targetDomain (AST.nodeType x))
+    decl_kind_in = generate (AST.originDomain (AST.nodeType x))
+    decl_kind_out = generate (AST.targetDomain (AST.nodeType x))
     decl_id = list_prepend (doublequotes $ AST.nodeName x) (local_param_name "Id")
     decl_tup = tuple [decl_id, decl_kind_in, decl_kind_out]
 
@@ -138,43 +131,66 @@ gen_node_decls x =
 
 
 -- This transformation is probably better to be in an AST transform
+data MyAddressBlock = MyAddressBlock {
+  domain :: !AST.Domain,
+  addresses     :: AST.Address,
+  properties    :: AST.PropertyExpr
+  }
+
+pack_address_block :: ModuleInfo -> AST.AddressBlock -> MyAddressBlock
+pack_address_block mi ab = MyAddressBlock {
+  domain = AST.Memory,
+  addresses = SAST.addresses ab,
+  properties = SAST.properties ab
+}
+
 data OneMapSpec = OneMapSpec
   {
   srcNode :: AST.UnqualifiedRef,
-  srcAddr :: AST.AddressBlock,
+  srcAddr :: MyAddressBlock,
   targetNode :: AST.NodeReference,
-  targetAddr :: AST.AddressBlock
+  targetAddr :: MyAddressBlock
   }
 
 
-map_spec_flatten :: AST.Definition -> [OneMapSpec]
-map_spec_flatten def = case def of
+map_spec_flatten :: ModuleInfo -> AST.Definition -> [OneMapSpec]
+map_spec_flatten mi def = case def of
   (AST.Maps _ n maps) ->
-    [OneMapSpec n (AST.mapAddr map_spec) (AST.targetNode map_target) (AST.targetAddr map_target)
+    [OneMapSpec n (src_ab n $ AST.mapAddr map_spec) (AST.targetNode map_target) (dest_ab n $ AST.targetAddr map_target)
       | map_spec <- maps, map_target <- (AST.mapTargets map_spec)]
   _ -> []
-
-data IterationState = IterationState
-  {
-    -- Map a sockeye name to a prolog variable
-    vars :: Map.Map String String
-  }
+  where
+    nt uqr = (node_type mi) Map.! (AST.refName uqr)
+    src_ab uqr ab = MyAddressBlock {
+      domain = ST.originDomain $ nt uqr,
+      properties = SAST.properties ab,
+      addresses = SAST.addresses ab
+    }
+    dest_ab uqr ab = MyAddressBlock {
+      domain = ST.targetDomain $ nt uqr,
+      addresses = SAST.addresses ab,
+      properties = SAST.properties ab
+    }
 
 data ModuleInfo = ModuleInfo
   {
-    params :: [String]
+    params :: [String],
+    node_type :: Map.Map String ST.NodeType
   }
 
 gen_module_info :: AST.Module -> ModuleInfo
 gen_module_info x =
-  ModuleInfo { params = ["Id"] ++ params ++ nodes ++ insts}
+  ModuleInfo {
+    params = ["Id"] ++ mparams ++ nodes ++ insts,
+    node_type = Map.fromList [(AST.nodeName z, AST.nodeType $ z) | z <- AST.nodeDecls x]
+  }
   where
     insts = [local_inst_name $ AST.instName d | d <- AST.instDecls x]
-    params = (gen_nat_param_list $ AST.parameters x)
+    mparams = (gen_nat_param_list $ AST.parameters x)
     nodes = [local_nodeid_name $ AST.nodeName d | d <- AST.nodeDecls x]
 
 add_param :: ModuleInfo -> String -> ModuleInfo
-add_param mi s = ModuleInfo { params = (params mi) ++ [s]}
+add_param mi s = ModuleInfo { params = (params mi) ++ [s], node_type = node_type mi}
 
 param_str :: ModuleInfo -> String
 param_str mi = case params mi of
@@ -246,11 +262,11 @@ gen_index uqr =
 
 gen_body_defs :: ModuleInfo -> AST.Definition -> [String]
 gen_body_defs mi x = case x of
-  (AST.Accepts _ n accepts) -> [(assert $ predicate "node_accept" [generate n, generate acc])
+  (AST.Accepts _ n accepts) -> [(assert $ predicate "node_accept" [generate n, generate (new_ab acc)])
     | acc <- accepts]
   (AST.Maps _ _ _) -> [(assert $ predicate "node_translate"
     [generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
-    | om <- map_spec_flatten x]
+    | om <- map_spec_flatten mi x]
   (AST.Overlays _ src dest) -> [assert $ predicate "node_overlay" [generate src, generate dest]]
   -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
   (AST.Instantiates _ i im args) -> [ predicate ("add_" ++ im) [gen_index i] ]
@@ -258,6 +274,8 @@ gen_body_defs mi x = case x of
   (AST.Binds _ i binds) -> [gen_bind_defs (gen_index i) binds]
   (AST.Forall _ varName varRange body) -> [forall_qual mi varName varRange body]
   (AST.Converts _ _ _ ) -> throw $ NYIException "Converts"
+  where
+    new_ab ab = pack_address_block mi ab
 
 instance PrologGenerator AST.UnqualifiedRef where
   generate uq = case (AST.refIndex uq) of
@@ -284,6 +302,26 @@ instance PrologGenerator AST.NodeReference where
   generate nr = case nr of
     AST.InternalNodeRef _ nn -> gen_index nn
     AST.InputPortRef _ inst node -> list_prepend (doublequotes $ AST.refName node) (gen_index inst)
+
+instance PrologGenerator MyAddressBlock where
+  -- TODO: add properties
+  -- We have to generate something like this, probably involves an extra step in the AST.
+  -- pred_99(propspec) :- member(prop1, propspec), member(prop2, propspec
+  -- node_accept( ..., block{propspec: pred_99}).
+  -- to check: B = block{propspec: PS}, call(PS, current_properties)
+  generate ab = list $ [generate $ domain ab] ++ blocks
+    where
+      blocks = gen_a $ addresses ab
+      gen_a (AST.Address _ ws) = map gen_ws ws
+      gen_ws (AST.ExplicitSet _ ns) = generate ns
+      gen_ws (AST.Wildcard _ ) = "NYI"
+
+instance PrologGenerator AST.Domain where
+  generate d = case d of
+    AST.Memory -> atom "memory"
+    AST.Interrupt -> atom "interrupt"
+    AST.Power -> atom "power"
+    AST.Clock -> atom "clock"
 
 instance PrologGenerator AST.AddressBlock where
   -- TODO: add properties
