@@ -233,19 +233,19 @@ errval_t vtd_domain_remove_device(int seg, int bus, int dev, int func, struct ca
     struct vtd_unit *u = NULL;
     VTD_FOR_EACH(u, dom->units) {
         if (u->pci_seg == seg) {
-            vtd_context_entry_array_t *context_table = u->context_tables[bus];
+            vtd_ctxt_entry_array_t *context_table = u->context_tables[bus];
             uint8_t id = (dev << 3) | func;
 
             // The device doesn't belong to this domain
-            if (!vtd_context_entry_p_extract(context_table[id])) {
+            if (!vtd_ctxt_entry_p_extract(context_table[id])) {
                 return VTD_ERR_DEV_NOT_FOUND;
             }
 
-            vtd_context_entry_p_insert(context_table[id], 0);
-            vtd_context_entry_t_insert(context_table[id], 0);
-            vtd_context_entry_slptptr_insert(context_table[id], 0);
-            vtd_context_entry_did_insert(context_table[id], 0);
-            vtd_context_entry_aw_insert(context_table[id], 0);
+            vtd_ctxt_entry_p_insert(context_table[id], 0);
+            vtd_ctxt_entry_t_insert(context_table[id], 0);
+            vtd_ctxt_entry_slptptr_insert(context_table[id], 0);
+            vtd_ctxt_entry_did_insert(context_table[id], 0);
+            vtd_ctxt_entry_aw_insert(context_table[id], 0);
 
             // After removing the devices, we perform a context-cache device-selective
             // invalidation followed by an IOTLB domain-selective invalidation.
@@ -286,13 +286,13 @@ errval_t vtd_domain_add_device(int seg, int bus, int dev, int func, struct capre
     VTD_FOR_EACH(u, dom->units) {
         if (u->pci_seg == seg) {
 
-            vtd_context_entry_array_t *context_table = u->context_tables[bus];
+            vtd_ctxt_entry_array_t *context_table = u->context_tables[bus];
             uint8_t id = (dev << 3) | func;
 
             // When a request is made for a device, if it belongs to the identity domain,
             // we remove it before adding it to the domain specified by pml4
-            if (vtd_context_entry_p_extract(context_table[id])) {
-                int did = vtd_context_entry_did_extract(context_table[id]);
+            if (vtd_ctxt_entry_p_extract(context_table[id])) {
+                int did = vtd_ctxt_entry_did_extract(context_table[id]);
                 if (did == identity_domain->did && (pt != identity_domain->pt_gp)) {
                     err = vtd_domain_remove_device(seg, bus, dev, func, identity_domain->pml4);
                     assert(err_is_ok(err));
@@ -303,15 +303,15 @@ errval_t vtd_domain_add_device(int seg, int bus, int dev, int func, struct capre
 
             // If device-TLBs are supported, allow translated and translation requests
             if (vtd_ECAP_dt_rdf(u->regset)) {
-                vtd_context_entry_t_insert(context_table[id], vtd_hme);
+                vtd_ctxt_entry_t_insert(context_table[id], vtd_hme);
             }
-            vtd_context_entry_aw_insert(context_table[id], vtd_agaw48);
-            vtd_context_entry_did_insert(context_table[id], dom->did);
+            vtd_ctxt_entry_aw_insert(context_table[id], vtd_agaw48);
+            vtd_ctxt_entry_did_insert(context_table[id], dom->did);
 
             sys_debug_flush_cache();
 
-            vtd_context_entry_slptptr_insert(context_table[id], (pt >> 12));
-            vtd_context_entry_p_insert(context_table[id], 1);
+            vtd_ctxt_entry_slptptr_insert(context_table[id], (pt >> 12));
+            vtd_ctxt_entry_p_insert(context_table[id], 1);
 
             err = SYS_ERR_OK;
         }

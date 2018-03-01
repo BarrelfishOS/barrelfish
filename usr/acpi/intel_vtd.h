@@ -41,7 +41,7 @@ struct vtd_unit {
   
     // array of capabilities of context table frames
     struct capref               ct_frame_caps[NUM_ROOT_ENTRIES]; 
-    vtd_context_entry_array_t * context_tables[NUM_ROOT_ENTRIES];
+    vtd_ctxt_entry_array_t * context_tables[NUM_ROOT_ENTRIES];
 
     struct vtd_unit *  next;
 };
