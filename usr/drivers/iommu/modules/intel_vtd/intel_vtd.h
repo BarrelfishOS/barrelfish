@@ -13,7 +13,7 @@
 #include <dev/vtd_dev.h>
 #include <dev/vtd_iotlb_dev.h>
 
-#define INTEL_VTD_DEBUG(X...) debug_printf("[vtd] " X);
+#include "intel_vtd_debug.h"
 
 struct vtd;
 
@@ -68,12 +68,20 @@ struct vtd_domain_mapping {
 #define vtd_dev_fun_to_ctxt_id(dev, fun) ((dev << 3) | fun)
 
 
+typedef enum {
+    VTD_VERSION_INVALID = 0,
+    VTD_VERSION_1_0     = 1,
+    VTD_VERSION_MAX     = 2,
+} vtd_version_t;
 
 struct vtd {
     struct {
         vtd_t               vtd;
         vtd_iotlb_t         iotlb;
     } registers;
+
+    vtd_version_t           version;
+
 
     uint16_t                pci_segment;
     vtd_entry_type_t        entry_type;
@@ -89,7 +97,39 @@ struct vtd {
 
     uint8_t                  address_width_max;
 
-    bool                     device_tlb_present;
+    struct {
+        bool                     device_tlb;
+        bool                     queued_invalidation;
+        bool                     tlb_page_invalidation;
+        bool                     interrupt_remapping;
+        bool                     interrupt_extended;
+        bool                     interrupt_posting;
+        bool                     page_walk_coherency;
+        bool                     snoop_control;
+        bool                     pass_through;
+        bool                     extended_context;
+        bool                     nested_translation;
+        bool                     memory_types;
+        bool                     pasid;
+        bool                     page_requests;
+        bool                     page_requiest_drain;
+        bool                     execute_requests;
+        bool                     supervisor_requests;
+        bool                     nowrite_flag;
+        bool                     extended_access_flag;
+        bool                     adv_fault_logging;
+        bool                     prot_mem_hi;
+        bool                     prot_mem_lo;
+        bool                     huge_pages;
+        bool                     write_draining;
+        bool                     read_draining;
+        bool                     req_wb_flush;
+        bool                     paging_3_level;
+        bool                     paging_4_level;
+        bool                     paging_5_level;
+        bool                     cachingmode;
+    } capabilities;
+
 };
 
 
@@ -100,7 +140,7 @@ errval_t vtd_set_root_table(struct vtd *vtd);
 
 static inline bool vtd_device_tlb_present(struct vtd *v)
 {
-    return v->device_tlb_present;
+    return v->capabilities.device_tlb;
 }
 
 static inline struct vtd *vtd_get_for_device(uint8_t bus, uint8_t dev,
@@ -146,6 +186,10 @@ static inline vtd_domid_t vtd_domains_get_id(struct vtd_domain *d)
 {
     return d->id;
 }
+
+
+errval_t vtd_interrupt_remapping_init(struct vtd *vtd);
+
 /* some proxies to allocate memory */
 
 static inline errval_t iommu_allocate_memory_page(struct capref *frame,

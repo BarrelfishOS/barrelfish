@@ -19,7 +19,8 @@
         "modules/intel_vtd/intel_vtd.c",
         "modules/intel_vtd/intel_vtd_domains.c",
         "modules/intel_vtd/intel_vtd_root_table.c",
-        "modules/intel_vtd/intel_vtd_ctxt_table.c"
+        "modules/intel_vtd/intel_vtd_ctxt_table.c",
+        "modules/intel_vtd/intel_vtd_interrupts.c"
     ],
     mackerelDevices = ["vtd", "vtd_iotlb" ]
   },

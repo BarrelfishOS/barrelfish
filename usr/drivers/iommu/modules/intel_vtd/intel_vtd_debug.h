@@ -16,6 +16,10 @@
 #define INTEL_VTD_DEBUG_COMMANDS_ENABLE 1
 #define INTEL_VTD_DEBUG_IOTLB_ENABLE 1
 
+#define INTEL_VTD_DEBUG(X...) debug_printf("[vtd] " X);
+
+
+#define INTEL_VTD_ERROR(x...) debug_printf("[vtd] [error] " x)
 
 #if INTEL_VTD_DEBUG_ENABLED
 #define INTEL_VTD_DEBUG_PRINT(x...) debug_printf("[vtd] " x)

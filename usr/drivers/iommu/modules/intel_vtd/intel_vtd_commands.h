@@ -42,25 +42,28 @@ static inline void vtd_cmd_translation_enable(struct vtd *vtd)
 
 static inline void vtd_cmd_set_root_table_ptr(struct vtd *vtd, genpaddr_t addr)
 {
+    bool pending;
 
     vtd_RTADDR_rta_wrf(&vtd->registers.vtd, (addr >> BASE_PAGE_BITS));
 
-    bool pending;
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
     vtd_GCMD_srtp_wrf(&vtd->registers.vtd, 1);
     do {
         pending = vtd_GSTS_rtps_rdf(&vtd->registers.vtd);
     } while((pending == 0) && timeout--);
+    assert(vtd_GSTS_rtps_rdf(&vtd->registers.vtd));
 }
 
 static inline void vtd_cmd_set_fault_log(struct vtd *vtd)
 {
     bool pending;
+
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
     vtd_GCMD_sfl_wrf(&vtd->registers.vtd, 1);
     do {
         pending = vtd_GSTS_fls_rdf(&vtd->registers.vtd);
     } while((pending == 0) && timeout--);
+    assert(vtd_GSTS_fls_rdf(&vtd->registers.vtd));
 }
 
 static inline void vtd_cmd_adv_fault_logging_toggle(struct vtd *vtd, bool toggle)
@@ -71,6 +74,7 @@ static inline void vtd_cmd_adv_fault_logging_toggle(struct vtd *vtd, bool toggle
     do {
         pending = vtd_GSTS_afls_rdf(&vtd->registers.vtd);
     } while((pending != toggle) && timeout--);
+    assert(vtd_GSTS_afls_rdf(&vtd->registers.vtd) == toggle);
 }
 
 static inline void vtd_cmd_adv_fault_logging_enable(struct vtd *vtd)
@@ -91,6 +95,7 @@ static inline void vtd_cmd_write_buffer_flush(struct vtd *vtd)
     do {
         pending = vtd_GSTS_wbfs_rdf(&vtd->registers.vtd);
     } while((pending != 0) && timeout--);
+    assert(vtd_GSTS_wbfs_rdf(&vtd->registers.vtd) == 0);
 }
 
 static inline void vtd_cmd_queued_invalidation_toggle(struct vtd *vtd, bool toggle)
@@ -101,6 +106,7 @@ static inline void vtd_cmd_queued_invalidation_toggle(struct vtd *vtd, bool togg
     do {
         pending = vtd_GSTS_qies_rdf(&vtd->registers.vtd);
     } while((pending != toggle) && timeout--);
+    assert(vtd_GSTS_qies_rdf(&vtd->registers.vtd) == toggle);
 }
 
 static inline void vtd_cmd_queued_invalidation_enable(struct vtd *vtd)
@@ -121,6 +127,7 @@ static inline void vtd_cmd_interrupt_remapping_toggle(struct vtd *vtd, bool togg
     do {
         pending = vtd_GSTS_ires_rdf(&vtd->registers.vtd);
     } while((pending != toggle) && timeout--);
+    assert(vtd_GSTS_ires_rdf(&vtd->registers.vtd) == toggle);
 }
 
 static inline void vtd_cmd_interrupt_remapping_enable(struct vtd *vtd)
@@ -141,6 +148,7 @@ static inline void vtd_cmd_set_interrupt_remap_table_ptr(struct vtd *vtd)
     do {
         pending = vtd_GSTS_irtps_rdf(&vtd->registers.vtd);
     } while((pending == 0) && timeout--);
+    assert(vtd_GSTS_irtps_rdf(&vtd->registers.vtd));
 }
 
 static inline void vtd_cmd_compat_format_interrupt_toggle(struct vtd *vtd, bool toggle)
@@ -151,6 +159,7 @@ static inline void vtd_cmd_compat_format_interrupt_toggle(struct vtd *vtd, bool 
     do {
         pending = vtd_GSTS_cfis_rdf(&vtd->registers.vtd);
     } while((pending != toggle) && timeout--);
+    assert(vtd_GSTS_cfis_rdf(&vtd->registers.vtd) == toggle);
 }
 
 static inline void vtd_cmd_compat_format_interrupt_enable(struct vtd *vtd)
@@ -164,9 +173,4 @@ static inline void vtd_cmd_compat_format_interrupt_disable(struct vtd *vtd)
 }
 
 
-
-
-
-
-
-#endif /// INTEL_VTD_H_
+#endif /// INTEL_VTD_COMMANDS_H_
