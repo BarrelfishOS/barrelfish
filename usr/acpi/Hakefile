@@ -25,7 +25,6 @@ let commonCFiles = [
     archCFiles arch = case arch of
         "x86_32" -> archCFiles "x86_64"
         "x86_64" -> [
-            "intel_vtd.c",
             "acpi_ec.c",
             "arch/x86/ioapic.c",
             "arch/x86/ioapic_controller_client.c",
