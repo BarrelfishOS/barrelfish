@@ -28,7 +28,7 @@ device vtd msbfirst ( addr base ) "VT-d" {
         lp     1        "Lower present";
     };
 
-    constants translation_type "Translation Type for requests-without-PASID" {
+    constants ttype "Translation Type for requests-without-PASID" {
         hmd = 0b00 "Host mode with Device-TLBs disabled";
         hme = 0b01 "Host mode with Device-TLBs enabled";
         ptm = 0b10 "Pass-through mode";
@@ -46,54 +46,54 @@ device vtd msbfirst ( addr base ) "VT-d" {
     
     // Context-entries have the same DID iff their SLPTPTR values are the same.
     datatype ctxt_entry "Context Entry" {
-        _        40 mbz;
-        did        16                 "Domain Identifier";
-        _        1 mbz;
-        _        4;
-        aw        3 type(addr_width)       "Address Width";
-        slptptr 52                 "Second Level Page Translation Pointer";
-        _        8 mbz;
-        t        2 type(translation_type) "Translation Type";
-        fpd        1                 "Fault Processing Disable";
-        p        1                 "Present";
+        _        40  mbz;
+        did      16                    "Domain Identifier";
+        _         1  mbz;
+        _         4;
+        aw        3  type(addr_width)  "Address Width";
+        slptptr  52                    "Second Level Page Translation Pointer";
+        _         8  mbz;
+        t         2  type(ttype)       "Translation Type";
+        fpd       1                    "Fault Processing Disable";
+        p         1                    "Present";
     };
 
     datatype ext_ctxt_entry "Extended Context Entry" {
-        pasidstptr 52      "PASID State Table Pointer";
-        _          12 mbz  "Reserved";
-        pasidptr   52      "PASID Pointer Table";
-        _           8 mbz  "Reserved";
-        pts         4      "PASID Table Size";
-        pat        32      "Page Attribute Table";
-        _           4 mbz  "Reserved";
-        slee        1      "Second-LEvel Execute Enable";
-        ere         1      "Execute Requests Enable";
-        eafe        1      "Extended Accessed Flag Enable";
-        semp        1      "Supervisor Mode Execute Protection";
-        did        16      "Domain Identifier";
-        emte        1      "Extended Memory Type Enable";
-        cd          1      "Cache Disable";
-        wpe         1      "Write Protect Enable";
-        nxe         1      "No Execute Enable";
-        pge         1      "Page Global Enable";
-        aw          3      "Address Width";
-        slptptr    52      "Second Level Page Table Pointer";
-        paside      1      "PASID Enable";
-        neste       1      "NExted Translation Enable";
-        pre         1      "Page Requeset Enable";
-        dinve       1      "Deferred Invalidate Enable";
-        emt         3      "Extended Memory Type";
-        t           3      "Translatin Type";
-        fpd         1      "Fault Processing Disable";
-        p           1      "Present";
+        pasidstptr  52      "PASID State Table Pointer";
+        _           12 mbz;
+        pasidptr    52      "PASID Pointer Table";
+        _            8 mbz;
+        pts          4      "PASID Table Size";
+        pat         32      "Page Attribute Table";
+        _            4 mbz;
+        slee         1      "Second-LEvel Execute Enable";
+        ere          1      "Execute Requests Enable";
+        eafe         1      "Extended Accessed Flag Enable";
+        semp         1      "Supervisor Mode Execute Protection";
+        did         16      "Domain Identifier";
+        emte         1      "Extended Memory Type Enable";
+        cd           1      "Cache Disable";
+        wpe          1      "Write Protect Enable";
+        nxe          1      "No Execute Enable";
+        pge          1      "Page Global Enable";
+        aw           3      "Address Width";
+        slptptr     52      "Second Level Page Table Pointer";
+        paside       1      "PASID Enable";
+        neste        1      "NExted Translation Enable";
+        pre          1      "Page Requeset Enable";
+        dinve        1      "Deferred Invalidate Enable";
+        emt          3      "Extended Memory Type";
+        t            3      "Translatin Type";
+        fpd          1      "Fault Processing Disable";
+        p            1      "Present";
     };
 
 
     //////////////////////////// Remapping Registers ////////////////////////////
 
     register VER addr(base, 0x000) "Version Register" {
-        _    24 mbz;
-        max    4  ro   "Major Version number";
+        _     24  mbz;
+        max    4  ro    "Major Version number";
         min    4  ro    "Minor Version number";
     };
 
@@ -104,112 +104,112 @@ device vtd msbfirst ( addr base ) "VT-d" {
         nd8  = 0b010 "Hardware supports 8-bit (256 domains)";
         nd10 = 0b011 "Hardware supports 10-bit (1024 domains)";
         nd12 = 0b100 "Hardware supports 12-bit (4096 domains)";
-            nd14 = 0b101 "Hardware supports 14-bit (16384 domains)";
+        nd14 = 0b101 "Hardware supports 14-bit (16384 domains)";
         nd16 = 0b110 "Hardware supports 16-bit (65536 domains)";
         // 0b111 reserved
     };
 
     register CAP addr(base, 0x008) "Capability Register" {
-        _        3 rsvd;
-        lp5      1 ro    "Supports 5-level paging";
-        pi       1 ro    "Posted Interrupts Supported";
-        _        2 rsvd;
-        fl1gp    1 ro    "First Level 1-GByte Page Support";
-        drd      1 ro    "Read Draining";
-        dwd      1 ro    "Write Draining";
-        mamv     6 ro    "Maximum Address Mask Value";
-        nfr      8 ro    "Number of Fault-recording Registers";
-        psi      1 ro    "Page Selective Invalidation";
-        _        1 mbz;
-        _        2 mbz   "Second Level Large Page Support - Reserved";
-        sllps30  1 ro    "Second Level Large Page Support - 1GB page size (30-bit offset to page frame)";
-        sllps21  1 ro    "Second Level Large Page Support - 2MB page size (21-bit offset to page frame)";
-        fro     10 ro    "Fault-recording Register offset";
-        _        1 rsvd;
-        zlr      1 ro    "Zero Length Read";
-        mgaw     6 ro    "Maximum Guest Address Width";
-        _        3 mbz;
-        _        1 mbz   "Supported Adjusted Guest Address Widths - reserved";
-        sagaw57  1 ro    "Supported Adjusted Guest Address Widths - 57-bit AGAW (5-level page-table)";
-        sagaw48  1 ro    "Supported Adjusted Guest Address Widths - 48-bit AGAW (4-level page-table)";
-        sagaw39  1 ro    "Supported Adjusted Guest Address Widths - 39-bit AGAW (3-level page-table)";
-        _        1 mbz   "Supported Adjusted Guest Address Widths - reserved";
-        cm       1 ro    "Caching Mode";
-        phmr     1 ro    "Protected High-Memory Region";
-        plmr     1 ro    "Protected Low-Memory Region";
-        rwbf     1 ro    "Required Write-Buffer Flushing";
-        afl      1 ro    "Advanced Fault Logging";
-        nd       3 ro type(numdom)    "Number of domains supported";
+        _         3  rsvd;
+        lp5       1  ro    "Supports 5-level paging";
+        pi        1  ro    "Posted Interrupts Supported";
+        _         2  rsvd;
+        fl1gp     1  ro    "First Level 1-GByte Page Support";
+        drd       1  ro    "Read Draining";
+        dwd       1  ro    "Write Draining";
+        mamv      6  ro    "Maximum Address Mask Value";
+        nfr       8  ro    "Number of Fault-recording Registers";
+        psi       1  ro    "Page Selective Invalidation";
+        _         1  mbz;
+        _         2  mbz   "Second Level Large Page Support - Reserved";
+        sllps30   1  ro    "Second Level Large Page Support - 1GB page size (30-bit offset to page frame)";
+        sllps21   1  ro    "Second Level Large Page Support - 2MB page size (21-bit offset to page frame)";
+        fro      10  ro    "Fault-recording Register offset";
+        _         1  rsvd;
+        zlr       1  ro    "Zero Length Read";
+        mgaw      6  ro    "Maximum Guest Address Width";
+        _         3  mbz;
+        _         1  mbz   "Supported Adjusted Guest Address Widths - reserved";
+        sagaw57   1  ro    "Supported Adjusted Guest Address Widths - 57-bit AGAW (5-level page-table)";
+        sagaw48   1  ro    "Supported Adjusted Guest Address Widths - 48-bit AGAW (4-level page-table)";
+        sagaw39   1  ro    "Supported Adjusted Guest Address Widths - 39-bit AGAW (3-level page-table)";
+        _         1  mbz   "Supported Adjusted Guest Address Widths - reserved";
+        cm        1  ro    "Caching Mode";
+        phmr      1  ro    "Protected High-Memory Region";
+        plmr      1  ro    "Protected Low-Memory Region";
+        rwbf      1  ro    "Required Write-Buffer Flushing";
+        afl       1  ro    "Advanced Fault Logging";
+        nd        3  ro type(numdom)    "Number of domains supported";
     };    
 
     register ECAP addr(base, 0x010) "Extended Capability Register" {
         _     22 mbz;
-        pdf   1  ro       "Page-request drain";
-        dit   1  ro       "device TLB invalidation throttle";
-        pss   5  ro       "PASID Size Supported";
-        eafs  1  ro       "Extended Accessed Flag Support";
-        nwfs  1  ro       "No Write Flag Support";
-        pot   1  ro       "PASID-Only Translations";
-        srs   1  ro       "Supervisor Request Support";
-        ers   1  ro       "Execute Request Support";
-        prs   1  ro       "Page Request Support";
-        pasid 1  ro       "Process Address Space ID Support";
-        dis   1  ro       "Deferred Invalidate Support";
-        nest  1  ro       "Nested Translation Support";
-        mts   1  ro       "Memory Type Support";
-        ecs   1  ro       "Extended Context Support";
-        mhmv  4  ro       "Maximum Handle Mask Value";
-        _     2  mbz;
-        iro   10 ro       "IOTLB Register Offset";
-        sc    1  ro       "Snoop Control";
-        pt    1  ro       "Pass Through";
-        _     1  rsvd;
-        eim   1  ro       "Extended Interrupt Mode";
-        ir    1  ro       "Interrupt Remapping support";
-        dt    1  ro       "Device-TLB support";
-        qis   1  ro       "Queued Invalidation support";
-        pwc   1  ro       "Page-walk Coherency";
+        pdf    1  ro       "Page-request drain";
+        dit    1  ro       "device TLB invalidation throttle";
+        pss    5  ro       "PASID Size Supported";
+        eafs   1  ro       "Extended Accessed Flag Support";
+        nwfs   1  ro       "No Write Flag Support";
+        pot    1  ro       "PASID-Only Translations";
+        srs    1  ro       "Supervisor Request Support";
+        ers    1  ro       "Execute Request Support";
+        prs    1  ro       "Page Request Support";
+        pasid  1  ro       "Process Address Space ID Support";
+        dis    1  ro       "Deferred Invalidate Support";
+        nest   1  ro       "Nested Translation Support";
+        mts    1  ro       "Memory Type Support";
+        ecs    1  ro       "Extended Context Support";
+        mhmv   4  ro       "Maximum Handle Mask Value";
+        _      2  mbz;
+        iro   10  ro       "IOTLB Register Offset";
+        sc     1  ro       "Snoop Control";
+        pt     1  ro       "Pass Through";
+        _      1  rsvd;
+        eim    1  ro       "Extended Interrupt Mode";
+        ir     1  ro       "Interrupt Remapping support";
+        dt     1  ro       "Device-TLB support";
+        qis    1  ro       "Queued Invalidation support";
+        pwc    1  ro       "Page-walk Coherency";
     };
 
     register GCMD addr(base, 0x018) "Global Command Register" {
-        te      1  wo      "Translation Enable";
-        srtp  1  wo      "Set Root Table Pointer";
-        sfl      1  wo      "Set Fault Log";
-        eafl  1  wo      "Enable Advanced Fault Logging";
-        wbf      1  wo      "Write Buffer Flush";
-        qie      1  wo      "Queued Invalidation Enable";
-        ire      1  wo   "Interrupt Remapping Enable";
-        sirtp 1  wo      "Set Interrupt Remap Table Pointer";
-        cfi      1  wo      "Compatibility Format Interrupt";
-        _      23 mbz;
+        te      1  wo    "Translation Enable";
+        srtp    1  wo    "Set Root Table Pointer";
+        sfl     1  wo    "Set Fault Log";
+        eafl    1  wo    "Enable Advanced Fault Logging";
+        wbf     1  wo    "Write Buffer Flush";
+        qie     1  wo    "Queued Invalidation Enable";
+        ire     1  wo    "Interrupt Remapping Enable";
+        sirtp   1  wo    "Set Interrupt Remap Table Pointer";
+        cfi     1  wo    "Compatibility Format Interrupt";
+        _      23  mbz;
     };
 
     register GSTS addr(base, 0x01C) "Global Status Register" {
-        tes      1  ro      "Translation Enable Status";
-        rtps  1  ro      "Root Table Pointer Status";
-        fls      1  ro      "Fault Log Status";
-        afls  1  ro      "Advanced Fault Logging Status";
-        wbfs  1  ro      "Write Buffer Flash Status";
-        qies  1  ro      "Queued Invalidation Enable Status";
-        ires  1  ro   "Interrupt Remapping Enable Status";
-        irtps 1  ro      "Interrupt Remaping Table Pointer Status";
-        cfis  1  ro      "Compatibility Format Interrupt Status";
-        _      23 mbz;
+        tes    1  ro    "Translation Enable Status";
+        rtps   1  ro    "Root Table Pointer Status";
+        fls    1  ro    "Fault Log Status";
+        afls   1  ro    "Advanced Fault Logging Status";
+        wbfs   1  ro    "Write Buffer Flash Status";
+        qies   1  ro    "Queued Invalidation Enable Status";
+        ires   1  ro    "Interrupt Remapping Enable Status";
+        irtps  1  ro    "Interrupt Remaping Table Pointer Status";
+        cfis   1  ro    "Compatibility Format Interrupt Status";
+        _     23  mbz;
     };
     
-        constants rtt_ "Root Table Type" {
+    constants rtt_ "Root Table Type" {
         rt  = 0x0 "Root Table"; 
         ert = 0x1 "Extended Root Table";
     };
 
     register RTADDR addr(base, 0x020) "Root Table Address Register" {
-        rta    52 rw    "Root Table Address";
-        rtt    1  rw    "Root Table Type";
-        _    11 mbz;
+        rta    52  rw    "Root Table Address";
+        rtt     1  rw    "Root Table Type";
+        _      11  mbz;
         
     };
 
-        constants cirg_ "Context Invalidation Request Granularity" {
+    constants cirg_ "Context Invalidation Request Granularity" {
         rsvd_ir = 0b00 "Reserved";
         gir     = 0b01 "Global Invalidation request";
         domir   = 0b10 "Domain-selective invalidation request";
@@ -230,13 +230,188 @@ device vtd msbfirst ( addr base ) "VT-d" {
         mask012 = 0b11 "Mask bits 2:0 in the SID field";
     };
 
+
     register CCMD addr(base, 0x028) "Context Command Register" {
-        icc     1              rw      "Invalidate Context-Cache";
-        cirg 2   rw type(cirg_)       "Context Invalidation Request Granularity";
-        caig 2   ro type(caig_)       "Context Actual Invalidation Granularity";
-        _     25             mbz;
-        fm     2   wo type(functmask)   "Function Mask";
-        sid     16             wo      "Source-ID";
-        did  16             rw      "Domain-ID";
+        icc     1  rw                   "Invalidate Context-Cache";
+        cirg    2  rw type(cirg_)       "Context Invalidation Request Granularity";
+        caig    2  ro type(caig_)       "Context Actual Invalidation Granularity";
+        _      25  mbz;
+        fm      2  wo type(functmask)   "Function Mask";
+        sid    16  wo                   "Source-ID";
+        did    16  rw                   "Domain-ID";
     };
+
+
+    register FSTS addr(base, 0x034) "Fault Status Register " {
+        _     16  rsvd;
+        fri    8  rw1cs  "Fault Record Index";
+        pro    1  rw1cs  "Page Request Overflow";
+        ite    1  rw1cs  "Invalidation Timeout Error";
+        ice    1  rw1cs  "Invalidation Completion Error";
+        iqe    1  rw1cs  "Invalidation Queue Error";
+        apf    1  rw1cs  "Advanced Pending Fault";
+        afo    1  rw1cs  "Advanced Fault Overflow";
+        ppf    1  rw1cs  "Primary Pending Fault";
+        pfo    1  rw1cs  "Primary Fault Overflow";
+    };
+
+
+    register FECTL addr(base, 0x038) "Fault Event Control Register" {
+        im   1  rw    "Interrupt mask";
+        ip   1  ro    "Interrupt Pending";
+        _   30  rsvd;
+    };
+
+
+    register FEDATA addr(base, 0x03C) "Fault Event Data Register" {
+        eimd  16  rw  "Extended Interrupt Message Data";
+        imd   16  rw  "Interrupt Message Data";
+    };
+
+    register FEADDR addr(base, 0x040) "Fault Event Address Register" {
+        ma  30 rw     "Message address";
+        _    2 rsvd;
+    };
+
+    register FEUADDR addr(base, 0x044) "Fault Event Upper Address Register" {
+        mua 32  rw  "Message upper address";
+    };
+
+
+    register AFLOG addr(base, 0x058) "Advanced Fault Log Register" {
+        fla  52 rw      "Fault log address";
+        fls   3 rw      "Fault log size in bits x 4K pages";
+        _     9 rsvd;
+    };
+
+    register PMEN addr(base, 0x064) "Protected Memory Enable Register" {
+        epm   1 rw      "Enable Protected memory";
+        _    30 rsvd;
+        prs   1 ro      "Protected Region Status";
+    };
+
+    register PLMBASE addr(base, 0x068) "Protected Low Memory Base Register" {
+        plmb  20 rw     "Protected Low-Memory Base";
+        _     12 rsvd;
+    };
+
+    register PLMLIMIT addr(base, 0x06C) "Protected Low Memory Limit Register" {
+        plmb  20 rw     "Protected Low-Memory Limit";
+        _     12 rsvd;
+    };
+
+    register PHMBASE addr(base, 0x070) "Protected High Memory Base Register" {
+        phmb  52 rw     "Protected High-Memory Base";
+        _     12 rsvd;
+    };
+
+    register PHMLIMIT addr(base, 0x078) "Protected High Memory Limit Register" {
+        phml  52 rw     "Protected High-Memory Limit";
+        _     12 rsvd;
+    };
+
+    register IQH addr(base, 0x080) "Invalidation Queue Head" {
+        _  46 rsvd;
+        qh 14 ro    "Queue Head";
+        _   4 rsvd;
+    };
+
+    register IQT addr(base, 0x088) "Invalidation Queue Tail" {
+        _   46 rsvd;
+        qt  14 rw    "Queue Tail";
+        _    4 rsvd;
+    };
+
+    register IQA  addr(base, 0x090) "Invalidation Queue Address" {
+        iqa  52 rw     "Ivalidation Queue Base Address";
+        _     9 rsvd;
+        qs    3 rw     "Queue Size";
+    };
+
+    register ICS addr(base, 0x09C) "Invalidation Completion Status" {
+        _    31 rsvd;
+        iwc   1 rw1cs "Invalidation Wait Descriptor Complete";
+    };
+
+
+    register IECTL addr(base, 0x0A0) "Invalidation Completion Event" {
+        im   1 rw   "Interrupt Mask";
+        ip   1 ro   "Interrupt Pending";
+        _   30 rsvd;
+    };
+
+    register IEDATA addr(base, 0x0A4) "Invalidation Completion Event Data" {
+        eimd 16 rw  "Extended Interrupt Message Data";
+        imd  16 rw  "Interrupt Message data";
+    };
+
+
+    register IEADDR addr(base, 0x0A8) "Invalidation Completion Event Address" {
+        ma 30 rw    "Message address";
+        _   2 rsvd;
+    };
+
+
+    register IEUADDR addr(base, 0x0AC) "Invalidation Completion Event Upper Address Register" {
+        mua 32 rw   "Message upper address";
+    };
+
+    register IRTA  addr(base, 0x0B8) "Interrupt Remapping Table Address Register" {
+        irta 52 rw     "Interrupt Remapping Table Address";
+        eime  1 rw     "Extended Interrupt Mode Enable";
+        _     7 rsvd;
+        s     4 rw     "Size";
+    };
+
+    register PQH addr(base, 0x0C0) "Page Request Queue Head Register" {
+        _    46 rsvd;
+        pqh  14 rw    "Page Queue Head";
+        _     4 rsvd;
+    };
+
+    register PQT addr(base, 0x0C8) "Page Request Queue Tail Register" {
+        _    46 rsvd;
+        pqt  14 rw    "Page Queue Tail";
+        _     4 rsvd;
+    };
+
+    register PQA addr(base, 0x0D0) "Page Request Queue Address Register" {
+        pqa  52 rw      "Page Request Queue Base Address";
+        _     9 rsvd;
+        pqs   3 rw      "Pgae Queue Size";
+    };
+
+    register PRS addr(base, 0x0DC) "Page Request Status Register" {
+        _   31 rsvd;
+        ppr  1 rw1cs "Pending Page Request";
+    };
+
+    register PECTL addr(base, 0x0E0) "Page Request Event Control Register" {
+        im  1 rw     "Interrupt mask";
+        pe  1 ro     "Interrupt Pending";
+        _  30 rsvd;
+    };
+
+    register PEDATA addr(base, 0x0E4) "Page Request Event Data Register" {
+        eimd  16 rw "Extended Interrupt Message Data";
+        imd   16 rw "Interrupt Message Data";
+    };
+
+    register PEADDR  addr(base, 0x0E8) "Page Request Event Address Register" {
+        ma  30 rw    "Message address";
+        _    2 rsvd;
+    };
+
+    register PEUADDR addr(base, 0x0EC) "Page Request Event Upper Address Register" {
+        mua 32 rw   "Message upper address";
+    };
+
+
+    /* TODO: Memory Type Range Registers */
+
+    /* TODO: Fault recording registers
+    regarray ()
+
+
+    */
 };
