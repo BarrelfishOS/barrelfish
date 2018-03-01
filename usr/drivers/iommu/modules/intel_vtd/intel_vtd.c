@@ -9,6 +9,8 @@
 
 #include <barrelfish/barrelfish.h>
 #include "intel_vtd.h"
+#include "intel_vtd_commands.h"
+#include "intel_vtd_iotlb.h"
 
 static inline uint8_t vtd_get_supported_bits(struct vtd *vtd)
 {
@@ -118,22 +120,21 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs, uint16_t segment,
         goto err_out_1;
     }
 
-
-
-    return SYS_ERR_OK;
-
     /* inserting context tables */
     err = vtd_root_table_map_all(&vtd->root_table, vtd->ctxt_tables);
     if (err_is_fail(err)) {
         goto err_out_2;
     }
 
+    vtd_set_root_table(vtd);
+
+    vtd_cmd_translation_enable(vtd);
+
+
+//    skb_add_fact("vtd_enabled(%"PRIu16",%"PRIu8").", u->pci_seg, vtd_coherency(u));
+
     return SYS_ERR_OK;
-/*
-    new_unit = vtd_create_unit(vtd_map_registers(drhd->Address), drhd->Segment);
-    vtd_insert_context_tables(new_unit);
-    VTD_ADD_UNIT(new_unit, vtd_units);
-*/
+
     err_out_2:
     vtd_ctxt_table_destroy_all(vtd->ctxt_tables);
     err_out_1:
@@ -174,16 +175,14 @@ errval_t vtd_set_root_table(struct vtd *v)
             return VTD_ERR_INVALID_CAP;
     }
 
-    // Set the physical address of the root-table
-    vtd_RTADDR_rta_wrf(&v->registers.vtd, (id.base >> BASE_PAGE_BITS));
-
     // Update the root-table pointer
-    vtd_cmd_set_root_table_ptr(v);
+    vtd_cmd_set_root_table_ptr(v, id.base);
 
     // Globally invalidate the context-cache and then globally invalidate
     // the IOTLB (only in this order).
     //vtd_context_cache_glob_inval(unit);
-    //vtd_iotlb_invalidate(v);
+
+    vtd_iotlb_invalidate(v);
 
     return SYS_ERR_OK;
 }
