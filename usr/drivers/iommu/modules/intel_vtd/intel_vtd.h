@@ -75,10 +75,7 @@ typedef enum {
 } vtd_version_t;
 
 struct vtd {
-    struct {
-        vtd_t               vtd;
-        vtd_iotlb_t         iotlb;
-    } registers;
+    vtd_t                   vtd_dev;
 
     vtd_version_t           version;
 
@@ -93,16 +90,19 @@ struct vtd {
     struct vtd_ctxt_table    ctxt_tables[VTD_NUM_ROOT_ENTRIES];
 
     struct vtd_domain        **domains;
-    uint16_t                 domains_max;
+    uint16_t                 max_domains;
 
-    uint8_t                  address_width_max;
+    uint8_t                  max_guest_address_width;
 
+    uint8_t                  max_page_size_bits;
+    uint8_t                  max_fault_recording_regs;
     struct {
+
         bool                     device_tlb;
         bool                     queued_invalidation;
         bool                     tlb_page_invalidation;
         bool                     interrupt_remapping;
-        bool                     interrupt_extended;
+        bool                     extended_interrupt_mode;
         bool                     interrupt_posting;
         bool                     page_walk_coherency;
         bool                     snoop_control;
@@ -120,7 +120,6 @@ struct vtd {
         bool                     adv_fault_logging;
         bool                     prot_mem_hi;
         bool                     prot_mem_lo;
-        bool                     huge_pages;
         bool                     write_draining;
         bool                     read_draining;
         bool                     req_wb_flush;
