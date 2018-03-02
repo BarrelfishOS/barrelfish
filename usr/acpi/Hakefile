@@ -45,10 +45,7 @@ let commonCFiles = [
 
     archDevices arch = case arch of
         "x86_32" -> archDevices "x86_64"
-        "x86_64" -> [
-            "acpi_ec",
-            "vtd",
-            "vtd_iotlb" ]
+        "x86_64" -> ["acpi_ec"]
         "armv8" -> [ ]
 
     commonCFlags = [

@@ -21,11 +21,11 @@ static inline void vtd_cmd_translation_toggle(struct vtd *vtd, bool toggle)
 {
     bool pending;
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
-    vtd_GCMD_te_wrf(&vtd->registers.vtd, toggle);
+    vtd_GCMD_te_wrf(&vtd->vtd_dev, toggle);
     do {
-        pending = vtd_GSTS_tes_rdf(&vtd->registers.vtd);
+        pending = vtd_GSTS_tes_rdf(&vtd->vtd_dev);
     } while((pending != toggle) && timeout--);
-    assert(vtd_GSTS_tes_rdf(&vtd->registers.vtd) == toggle);
+    assert(vtd_GSTS_tes_rdf(&vtd->vtd_dev) == toggle);
 }
 
 static inline void vtd_cmd_translation_disable(struct vtd *vtd)
@@ -44,14 +44,14 @@ static inline void vtd_cmd_set_root_table_ptr(struct vtd *vtd, genpaddr_t addr)
 {
     bool pending;
 
-    vtd_RTADDR_rta_wrf(&vtd->registers.vtd, (addr >> BASE_PAGE_BITS));
+    vtd_RTADDR_rta_wrf(&vtd->vtd_dev, (addr >> BASE_PAGE_BITS));
 
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
-    vtd_GCMD_srtp_wrf(&vtd->registers.vtd, 1);
+    vtd_GCMD_srtp_wrf(&vtd->vtd_dev, 1);
     do {
-        pending = vtd_GSTS_rtps_rdf(&vtd->registers.vtd);
+        pending = vtd_GSTS_rtps_rdf(&vtd->vtd_dev);
     } while((pending == 0) && timeout--);
-    assert(vtd_GSTS_rtps_rdf(&vtd->registers.vtd));
+    assert(vtd_GSTS_rtps_rdf(&vtd->vtd_dev));
 }
 
 static inline void vtd_cmd_set_fault_log(struct vtd *vtd)
@@ -59,22 +59,22 @@ static inline void vtd_cmd_set_fault_log(struct vtd *vtd)
     bool pending;
 
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
-    vtd_GCMD_sfl_wrf(&vtd->registers.vtd, 1);
+    vtd_GCMD_sfl_wrf(&vtd->vtd_dev, 1);
     do {
-        pending = vtd_GSTS_fls_rdf(&vtd->registers.vtd);
+        pending = vtd_GSTS_fls_rdf(&vtd->vtd_dev);
     } while((pending == 0) && timeout--);
-    assert(vtd_GSTS_fls_rdf(&vtd->registers.vtd));
+    assert(vtd_GSTS_fls_rdf(&vtd->vtd_dev));
 }
 
 static inline void vtd_cmd_adv_fault_logging_toggle(struct vtd *vtd, bool toggle)
 {
     bool pending;
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
-    vtd_GCMD_eafl_wrf(&vtd->registers.vtd, toggle);
+    vtd_GCMD_eafl_wrf(&vtd->vtd_dev, toggle);
     do {
-        pending = vtd_GSTS_afls_rdf(&vtd->registers.vtd);
+        pending = vtd_GSTS_afls_rdf(&vtd->vtd_dev);
     } while((pending != toggle) && timeout--);
-    assert(vtd_GSTS_afls_rdf(&vtd->registers.vtd) == toggle);
+    assert(vtd_GSTS_afls_rdf(&vtd->vtd_dev) == toggle);
 }
 
 static inline void vtd_cmd_adv_fault_logging_enable(struct vtd *vtd)
@@ -91,22 +91,22 @@ static inline void vtd_cmd_write_buffer_flush(struct vtd *vtd)
 {
     bool pending;
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
-    vtd_GCMD_wbf_wrf(&vtd->registers.vtd, 1);
+    vtd_GCMD_wbf_wrf(&vtd->vtd_dev, 1);
     do {
-        pending = vtd_GSTS_wbfs_rdf(&vtd->registers.vtd);
+        pending = vtd_GSTS_wbfs_rdf(&vtd->vtd_dev);
     } while((pending != 0) && timeout--);
-    assert(vtd_GSTS_wbfs_rdf(&vtd->registers.vtd) == 0);
+    assert(vtd_GSTS_wbfs_rdf(&vtd->vtd_dev) == 0);
 }
 
 static inline void vtd_cmd_queued_invalidation_toggle(struct vtd *vtd, bool toggle)
 {
     bool pending;
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
-    vtd_GCMD_qie_wrf(&vtd->registers.vtd, toggle);
+    vtd_GCMD_qie_wrf(&vtd->vtd_dev, toggle);
     do {
-        pending = vtd_GSTS_qies_rdf(&vtd->registers.vtd);
+        pending = vtd_GSTS_qies_rdf(&vtd->vtd_dev);
     } while((pending != toggle) && timeout--);
-    assert(vtd_GSTS_qies_rdf(&vtd->registers.vtd) == toggle);
+    assert(vtd_GSTS_qies_rdf(&vtd->vtd_dev) == toggle);
 }
 
 static inline void vtd_cmd_queued_invalidation_enable(struct vtd *vtd)
@@ -123,11 +123,11 @@ static inline void vtd_cmd_interrupt_remapping_toggle(struct vtd *vtd, bool togg
 {
     bool pending;
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
-    vtd_GCMD_ire_wrf(&vtd->registers.vtd, toggle);
+    vtd_GCMD_ire_wrf(&vtd->vtd_dev, toggle);
     do {
-        pending = vtd_GSTS_ires_rdf(&vtd->registers.vtd);
+        pending = vtd_GSTS_ires_rdf(&vtd->vtd_dev);
     } while((pending != toggle) && timeout--);
-    assert(vtd_GSTS_ires_rdf(&vtd->registers.vtd) == toggle);
+    assert(vtd_GSTS_ires_rdf(&vtd->vtd_dev) == toggle);
 }
 
 static inline void vtd_cmd_interrupt_remapping_enable(struct vtd *vtd)
@@ -144,22 +144,22 @@ static inline void vtd_cmd_set_interrupt_remap_table_ptr(struct vtd *vtd)
 {
     bool pending;
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
-    vtd_GCMD_sirtp_wrf(&vtd->registers.vtd, 1);
+    vtd_GCMD_sirtp_wrf(&vtd->vtd_dev, 1);
     do {
-        pending = vtd_GSTS_irtps_rdf(&vtd->registers.vtd);
+        pending = vtd_GSTS_irtps_rdf(&vtd->vtd_dev);
     } while((pending == 0) && timeout--);
-    assert(vtd_GSTS_irtps_rdf(&vtd->registers.vtd));
+    assert(vtd_GSTS_irtps_rdf(&vtd->vtd_dev));
 }
 
 static inline void vtd_cmd_compat_format_interrupt_toggle(struct vtd *vtd, bool toggle)
 {
     bool pending;
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
-    vtd_GCMD_cfi_wrf(&vtd->registers.vtd, toggle);
+    vtd_GCMD_cfi_wrf(&vtd->vtd_dev, toggle);
     do {
-        pending = vtd_GSTS_cfis_rdf(&vtd->registers.vtd);
+        pending = vtd_GSTS_cfis_rdf(&vtd->vtd_dev);
     } while((pending != toggle) && timeout--);
-    assert(vtd_GSTS_cfis_rdf(&vtd->registers.vtd) == toggle);
+    assert(vtd_GSTS_cfis_rdf(&vtd->vtd_dev) == toggle);
 }
 
 static inline void vtd_cmd_compat_format_interrupt_enable(struct vtd *vtd)

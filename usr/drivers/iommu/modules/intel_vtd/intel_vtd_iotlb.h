@@ -23,19 +23,19 @@ static inline void vtd_flush_write_buffer(struct vtd *vtd)
     return;
 }
 
-static inline void vtd_iotlb_do_invalidate(vtd_iotlb_t *iotlb)
+static inline void vtd_iotlb_do_invalidate(vtd_t *iotlb)
 {
     // perform the invalidate
-    vtd_iotlb_iotlb_reg_ivt_wrf(iotlb, 1);
+    vtd_IOTLB_ivt_wrf(iotlb, 1);
 
     size_t timeout = IOTLB_INVALIDATE_TIMEOUT;
     volatile uint8_t pending;
     do {
-        pending = vtd_iotlb_iotlb_reg_ivt_rdf(iotlb);
+        pending = vtd_IOTLB_ivt_rdf(iotlb);
     } while(pending && timeout--);
 
     // should have been cleared by now
-    assert(vtd_iotlb_iotlb_reg_ivt_rdf(iotlb));
+    assert(vtd_IOTLB_ivt_rdf(iotlb));
 }
 
 
@@ -47,14 +47,14 @@ static inline void vtd_iotlb_invalidate(struct vtd *vtd)
     vtd_flush_write_buffer(vtd);
 
     // set global invalidation
-    vtd_iotlb_iotlb_reg_iirg_wrf(&vtd->registers.iotlb, vtd_iotlb_gir);
+    vtd_IOTLB_iirg_wrf(&vtd->vtd_dev, vtd_iotlb_gir);
 
     // drain oustanding write and read requests
-    vtd_iotlb_iotlb_reg_dw_wrf(&vtd->registers.iotlb, 1);
-    vtd_iotlb_iotlb_reg_dr_wrf(&vtd->registers.iotlb, 1);
+    vtd_IOTLB_dw_wrf(&vtd->vtd_dev, 1);
+    vtd_IOTLB_dr_wrf(&vtd->vtd_dev, 1);
 
     // perform the invalidate
-    vtd_iotlb_do_invalidate(&vtd->registers.iotlb);
+    vtd_iotlb_do_invalidate(&vtd->vtd_dev);
 }
 
 
@@ -66,20 +66,18 @@ static inline void vtd_iotlb_invalidate_domain(struct vtd_domain *dom)
     while(dm) {
         vtd_flush_write_buffer(dm->vtd);
 
-        vtd_iotlb_t* iotlb = &dm->vtd->registers.iotlb;
-
         // set domain invalidation
-        vtd_iotlb_iotlb_reg_iirg_wrf(iotlb, vtd_iotlb_domir);
+        vtd_IOTLB_iirg_wrf(&dm->vtd->vtd_dev, vtd_iotlb_domir);
 
         // set the domain id field
-        vtd_iotlb_iotlb_reg_did_wrf(iotlb, dom->id);
+        vtd_IOTLB_did_wrf(&dm->vtd->vtd_dev, dom->id);
 
         // drain oustanding write and read requests
-        vtd_iotlb_iotlb_reg_dw_wrf(iotlb, 1);
-        vtd_iotlb_iotlb_reg_dr_wrf(iotlb, 1);
+        vtd_IOTLB_dw_wrf(&dm->vtd->vtd_dev, 1);
+        vtd_IOTLB_dr_wrf(&dm->vtd->vtd_dev, 1);
 
         // perform the invalidate
-        vtd_iotlb_do_invalidate(iotlb);
+        vtd_iotlb_do_invalidate(&dm->vtd->vtd_dev);
 
         dm = dm->next;
     }
@@ -99,29 +97,27 @@ static inline void vtd_iotlb_invalidate_page_attr(struct vtd_domain *dom,
     while(dm) {
         vtd_flush_write_buffer(dm->vtd);
 
-        vtd_iotlb_t* iotlb = &dm->vtd->registers.iotlb;
-        
         // set domain invalidation
-        vtd_iotlb_iotlb_reg_iirg_wrf(iotlb, vtd_iotlb_pir);
+        vtd_IOTLB_iirg_wrf(&dm->vtd->vtd_dev, vtd_iotlb_pir);
 
         // set the domain id field
-        vtd_iotlb_iotlb_reg_did_wrf(iotlb, dom->id);
+        vtd_IOTLB_did_wrf(&dm->vtd->vtd_dev, dom->id);
 
         // drain oustanding write and read requests
-        vtd_iotlb_iotlb_reg_dw_wrf(iotlb, 1);
-        vtd_iotlb_iotlb_reg_dr_wrf(iotlb, 1);
+        vtd_IOTLB_dw_wrf(&dm->vtd->vtd_dev, 1);
+        vtd_IOTLB_dr_wrf(&dm->vtd->vtd_dev, 1);
 
         // write the address hint
-        vtd_iotlb_iva_reg_ih_wrf(iotlb, hint);
+        vtd_IVA_ih_wrf(&dm->vtd->vtd_dev, hint);
 
         // set the address
-        vtd_iotlb_iva_reg_addr_wrf(iotlb, (addr >> 12));
+        vtd_IVA_addr_wrf(&dm->vtd->vtd_dev, (addr >> 12));
 
         // set the address mask
-        vtd_iotlb_iva_reg_am_wrf(iotlb, mask);
+        vtd_IVA_am_wrf(&dm->vtd->vtd_dev, mask);
 
         // perform the invalidate
-        vtd_iotlb_do_invalidate(iotlb);
+        vtd_iotlb_do_invalidate(&dm->vtd->vtd_dev);
 
         dm = dm->next;
     }

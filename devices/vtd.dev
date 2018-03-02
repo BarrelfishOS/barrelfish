@@ -9,7 +9,7 @@
  * Attn: Systems Group.
  */
 
-device vtd msbfirst ( addr base ) "VT-d" {
+device vtd msbfirst ( addr base, addr iotlb, addr frr) "VT-d" {
     //////////////////////////// Translation Structure Formats ////////////////////////////
 
     datatype root_entry "Root Entry" {
@@ -144,7 +144,7 @@ device vtd msbfirst ( addr base ) "VT-d" {
 
     register ECAP addr(base, 0x010) "Extended Capability Register" {
         _     22 mbz;
-        pdf    1  ro       "Page-request drain";
+        pds    1  ro       "Page-request drain";
         dit    1  ro       "device TLB invalidation throttle";
         pss    5  ro       "PASID Size Supported";
         eafs   1  ro       "Extended Accessed Flag Support";
@@ -209,14 +209,14 @@ device vtd msbfirst ( addr base ) "VT-d" {
         
     };
 
-    constants cirg_ "Context Invalidation Request Granularity" {
+    constants irg_ "Context Invalidation Request Granularity" {
         rsvd_ir = 0b00 "Reserved";
         gir     = 0b01 "Global Invalidation request";
         domir   = 0b10 "Domain-selective invalidation request";
         devir   = 0b11 "Device-selective invalidation request";
     };
 
-    constants caig_ "Context Actual Request Granularity" {
+    constants aig_ "Context Actual Request Granularity" {
         rsvd_ip = 0b00 "Reserved";
         gip     = 0b01 "Global Invalidation performed";
         domip   = 0b10 "Domain-selective invalidation performed";
@@ -233,8 +233,8 @@ device vtd msbfirst ( addr base ) "VT-d" {
 
     register CCMD addr(base, 0x028) "Context Command Register" {
         icc     1  rw                   "Invalidate Context-Cache";
-        cirg    2  rw type(cirg_)       "Context Invalidation Request Granularity";
-        caig    2  ro type(caig_)       "Context Actual Invalidation Granularity";
+        cirg    2  rw type(irg_)       "Context Invalidation Request Granularity";
+        caig    2  ro type(aig_)       "Context Actual Invalidation Granularity";
         _      25  mbz;
         fm      2  wo type(functmask)   "Function Mask";
         sid    16  wo                   "Source-ID";
@@ -409,9 +409,46 @@ device vtd msbfirst ( addr base ) "VT-d" {
 
     /* TODO: Memory Type Range Registers */
 
-    /* TODO: Fault recording registers
-    regarray ()
 
+    ////////////////////////////// IOTLB Registers //////////////////////////////
 
-    */
+    register IVA addr(iotlb, 0x000) "Invalidate Address Register" {
+        addr  52  wo    "Address";
+        _      5  mbz;
+        ih     1  wo    "Invalidation Hint";
+        am     6  wo    "Address Mask";
+    };
+
+    register IOTLB addr(iotlb, 0x008) "IOTLB Invalidate Register" {
+        ivt    1  rw               "Invalidate IOTLB";
+        _      1  mbz;
+        iirg   2  rw   type(irg_) "IOTLB Invalidation Request Granularity";
+        _      1  mbz;
+        iaig   2  ro   type(aig_) "IOTLB Actual Invalidation Granularity";
+        _      7  mbz;
+        dr     1  rw               "Drain Reads";
+        dw     1  rw               "Drain Writes";
+        did   16  rw               "Domain-ID";
+        _     32  mbz;
+    };
+
+    ///////////////////////// Fault Recording Registers /////////////////////////
+
+    regarray FRCD_Lo addr(frr, 0x0) [256;16] "Fault Recording Register Lo" {
+        fi    52 ros   "Fault Info";
+        _     12 rsvd;
+    };
+
+    regarray FRCD_Hi addr(frr, 0x8) [256;16] "Fault Recording Register Hi" {
+        f      1 rw1cs "Fault";
+        t      1 ros   "Type";
+        at     2 ros   "Address Type";
+        pv    20 ros   "PASID Value";
+        fr     8 ros   "Fault reason";
+        pp     1 ros   "PASID Present";
+        exe    1 ros   "Execute Permission Requested";
+        priv   1 ros   "Privilege Mode Requested";
+        _     13 rsvd;
+        sid   16 ros   "Source Identifier";
+    };
 };
