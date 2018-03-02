@@ -37,7 +37,6 @@ static errval_t vtd_parse_capabilities(struct vtd *vtd)
      * first-level translation.
      *
      * TODO: MAMV: Maximum Address Mask Value
-     * TODO: FRO: Fault-recording Register offset
      *
      * TODO: DIT: Device-TLB Invalidation Throttle
      * TODO: PSS: PASID Size Supported
