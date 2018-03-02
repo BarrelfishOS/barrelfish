@@ -17,7 +17,7 @@ errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, nodeid_t proximity)
 
     errval_t err;
 
-    INTEL_VTD_DEBUG("creating context table\n");
+    INTEL_VTD_DEBUG_CTABLE("creating context table\n");
 
     /* allocate slots for capability and */
 
@@ -91,7 +91,7 @@ errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, nodeid_t proximity)
 
 errval_t vtd_ctxt_table_destroy(struct vtd_ctxt_table *ct)
 {
-    INTEL_VTD_DEBUG("destroying context table\n");
+    INTEL_VTD_DEBUG_CTABLE("destroying context table\n");
     errval_t err;
 
     /* delete the cnode cap */

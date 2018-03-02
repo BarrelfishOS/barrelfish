@@ -16,7 +16,7 @@ errval_t vtd_root_table_create(struct vtd_root_table *rt, nodeid_t proximity)
 {
     errval_t err;
 
-    INTEL_VTD_DEBUG("creating root table\n");
+    INTEL_VTD_DEBUG_RTABLE("creating root table\n");
 
     /* allocate slots for capability and */
 
@@ -91,7 +91,7 @@ errval_t vtd_root_table_create(struct vtd_root_table *rt, nodeid_t proximity)
 
 errval_t vtd_root_table_destroy(struct vtd_root_table *rt)
 {
-    INTEL_VTD_DEBUG("destroying root table\n");
+    INTEL_VTD_DEBUG_RTABLE("destroying root table\n");
 
     errval_t err;
 
@@ -127,7 +127,7 @@ errval_t vtd_root_table_map(struct vtd_root_table *rt, size_t idx,
     struct vnode_identity id;
     err = invoke_vnode_identify(ctx->ctcap, &id);
 
-    INTEL_VTD_DEBUG("mapping root table [%zu] -> 0x%" PRIx64 "\n",
+    INTEL_VTD_DEBUG_RTABLE("mapping root table [%zu] -> 0x%" PRIx64 "\n",
                     idx, id.base);
 
     return vnode_map(rt->rtcap, ctx->ctcap, idx, 0, 0, 1, mappingcap);

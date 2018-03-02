@@ -15,11 +15,18 @@
 
 #define INTEL_VTD_DEBUG_COMMANDS_ENABLE 1
 #define INTEL_VTD_DEBUG_IOTLB_ENABLE 1
+#define INTEL_VTD_DEBUG_CAP_ENABLE 1
+
+#define INTEL_VTD_DEBUG_CTXT_ENABLED 1
+#define INTEL_VTD_DEBUG_ROOT_ENABLED 1
 
 #define INTEL_VTD_DEBUG(X...) debug_printf("[vtd] " X);
 
 
 #define INTEL_VTD_ERROR(x...) debug_printf("[vtd] [error] " x)
+#define INTEL_VTD_NOTICE(x...) debug_printf("[vtd] [notice] " x)
+
+
 
 #if INTEL_VTD_DEBUG_ENABLED
 #define INTEL_VTD_DEBUG_PRINT(x...) debug_printf("[vtd] " x)
@@ -38,5 +45,24 @@
 #else
 #define INTEL_VTD_DEBUG_IOTLB(x...)
 #endif
+
+#if INTEL_VTD_DEBUG_CAP_ENABLE
+#define INTEL_VTD_DEBUG_CAP(x...) INTEL_VTD_DEBUG_PRINT("[cap] " x)
+#else
+#define INTEL_VTD_DEBUG_CAP(x...)
+#endif
+
+#if INTEL_VTD_DEBUG_CTXT_ENABLE
+#define INTEL_VTD_DEBUG_CTABLE(x...) INTEL_VTD_DEBUG_PRINT("[ctxt] " x)
+#else
+#define INTEL_VTD_DEBUG_CTABLE(x...)
+#endif
+
+#if INTEL_VTD_DEBUG_ROOT_ENABLE
+#define INTEL_VTD_DEBUG_RTABLE(x...) INTEL_VTD_DEBUG_PRINT("[root] " x)
+#else
+#define INTEL_VTD_DEBUG_RTABLE(x...)
+#endif
+
 
 #endif /// INTEL_VTD_H_
