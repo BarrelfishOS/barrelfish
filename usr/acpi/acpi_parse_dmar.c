@@ -1,8 +1,11 @@
 /**
  * \file acpi_parse_dmar.c
- * \brief 
+ * \brief ACPI DMA REMAPPING STRUCTURE
+ *
+ * Intel Virtualization Technology for Directed I/O Architecture Specification,
+ * Rev. 2.5 November 2017, Chapter 8 BIOS Considerations
+ * https://software.intel.com/sites/default/files/managed/c5/15/vt-directed-io-spec.pdf
  */
-
 
 /*
  * Copyright (c) 2017 ETH Zurich.
@@ -15,13 +18,10 @@
 
 #include <barrelfish/barrelfish.h>
 
-#include <arch/aarch64/hw_records_arch.h>
-#include <arch/x86_64/hw_records_arch.h>
-
 #include <skb/skb.h>
 #include <octopus/getset.h>
-#include <trace/trace.h>
 
+#include <hw_records.h>
 
 #include "acpi_debug.h"
 #include "acpi_shared.h"
@@ -29,7 +29,7 @@
 
 
 #define SKB_SCHEMA_DMAR \
-    "dmar(%" PRIu8 ")."
+    "dmar(%" PRIu8 ", %" PRIu8 ")."
 
 #define SKB_SCHEMA_DMAR_HW_UNIT \
     "dmar_drhd(%" PRIu8 ", %" PRIu16 ", %" PRIu64 ")."
@@ -52,7 +52,16 @@
                 ", %" PRIu8 ", %" PRIu8  ")."
 
 
-
+/*
+ * The Device Scope Structure is made up of Device Scope Entries. Each Device
+ * Scope Entry may be used to indicate a PCI endpoint device, a PCI sub-hierarchy,
+ * or devices such as I/OxAPICs or HPET (High Precision Event Timer).
+ *
+ * A PCI sub-hierarchy is defined as the collection of PCI controllers that are
+ * downstream to a specific PCI-PCI bridge. To identify a PCI sub-hierarchy,
+ * the Device Scope Entry needs to identify only the parent PCI-PCI bridge of
+ * the sub-hierarchy.
+ */
 static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
                                    uint16_t segment, enum AcpiDmarScopeType type)
 {
@@ -60,49 +69,133 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
     ACPI_DMAR_PCI_PATH *pcip;
 
     while((void *)dsc < end) {
-        debug_printf("[dmar] [dscp] parsing device scope. length %u, segment %u, "
-                             "memory [%p..%p]\n",
-                     dsc->Length, segment, dsc, end);
-
+        if ((dsc->Length - sizeof(ACPI_DMAR_DEVICE_SCOPE))
+                > sizeof(ACPI_DMAR_PCI_PATH)) {
+            debug_printf("  > [dmar] [dscp] Too deep in the hierarchy, we curently "
+                         "only handle path length of 1.\n");
+            dsc = (ACPI_DMAR_DEVICE_SCOPE *) ((uint8_t *) dsc + dsc->Length);
+            continue;
+        }
+        assert((dsc->Length - sizeof(ACPI_DMAR_DEVICE_SCOPE)) == sizeof(ACPI_DMAR_PCI_PATH));
         pcip = (ACPI_DMAR_PCI_PATH *)((uint8_t *)dsc + sizeof(ACPI_DMAR_DEVICE_SCOPE));
-        void *pcip_end = ((uint8_t *) dsc + dsc->Length);
-        while((void *)pcip < pcip_end) {
-            uint64_t bus = 0xffff;
 
-            debug_printf("[dmar] [dscp] parsing PCI path of PCI Addr=[%u.%u.%u]\n",
-                         dsc->Bus, pcip->Function, pcip->Device);
+        switch(dsc->EntryType) {
+            case ACPI_DMAR_SCOPE_TYPE_ENDPOINT:
+                /*
+                 * 0x01: PCI Endpoint Device - The device identified by the 'Path'
+                 * field is a PCI endpoint device. This type must not be used in
+                 * Device Scope of DRHD structures with INCLUDE_PCI_ALL flag Set.
+                 */
+                debug_printf("  > [dmar] [dscp] PCI Endpoint Device. Enumeration ID=%u,"
+                                     "Start Bus: %u, Path Length: %u\n",
+                             dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
 
-            #if 0
-            err = skb_execute_query("bridge(PCIE,addr(%d,%d,%d),_,_,_,_,_,secondary(BUS)),"
-                                    "write(secondary_bus(BUS)).", dsc->Bus,
-                                    pcip->Device, pcip->Function);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "[dmar] [dscp] SKB query failed\n");
-                goto loop_next_pcip;
-            }
+                break;
+            case ACPI_DMAR_SCOPE_TYPE_BRIDGE:
+                /*
+                 * 0x02: PCI Sub-hierarchy - The device identified by the 'Path'
+                 * field is a PCI-PCI bridge. In this case, the specified bridge
+                 * device and all its downstream devices are included in the scope.
+                 * This type must not be in Device Scope of DRHD structures with
+                 * INCLUDE_PCI_ALL flag Set.
+                 */
+                debug_printf("  > [dmar] [dscp] PCI-PCI Bridge. Enumeration ID=%u,"
+                                     "Start Bus: %u, Path Length: %u\n",
+                             dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
+
+                break;
+            case ACPI_DMAR_SCOPE_TYPE_IOAPIC:
+                /*
+                 * 0x03: IOAPIC - The device identified by the 'Path' field is
+                 * an I/O APIC (or I/O SAPIC) device, enumerated through the
+                 * ACPI MADT I/O APIC (or I/O SAPIC) structure.
+                 */
+
+                debug_printf("  > [dmar] [dscp] IOAPIC. Enumeration ID=%u,"
+                                     "Start Bus: %u, Path Length: %u\n",
+                             dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
+
+                break;
+            case ACPI_DMAR_SCOPE_TYPE_HPET:
+                /* 0x04: MSI_CAPABLE_HPET1 - The device identified by the 'Path'
+                 * field is an HPET Timer Block capable of generating MSI (Message
+                 * Signaled interrupts). HPET hardware is reported through ACPI
+                 * HPET structure.
+                 */
+                debug_printf("  > [dmar] [dscp] MSI HPET Device. Enumeration ID=%u,"
+                                     "Start Bus: %u, Path Length: %u\n",
+                             dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
+                break;
+            case ACPI_DMAR_SCOPE_TYPE_NAMESPACE:
+                /*
+                 * 0x05: ACPI_NAMESPACE_DEVICE - The device identified by the
+                 * 'Path' field is an ACPI namespace enumerated device capable
+                 * of generating DMA requests.
+                 */
+                debug_printf("  > [dmar] [dscp] ACPI Namespace device. Enumeration ID=%u,"
+                                     "Start Bus: %u, Path Length: %u\n",
+                             dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
+            default:
+                return ACPI_ERR_INVALID_HANDLE;
+        }
+
+        /*
+         * When the 'Type' field indicates 'IOAPIC', this field provides the
+         * I/O APICID as provided in the I/O APIC (or I/O SAPIC) structure in
+         * the ACPI MADT (Multiple APIC Descriptor Table).
+         *
+         * When the 'Type' field indicates 'MSI_CAPABLE_HPET', this field
+         * provides the 'HPET Number' as provided in the ACPI HPET structure
+         * for the corresponding Timer Block.
+         *
+         * When the 'Type' field indicates 'ACPI_NAMESPACE_DEVICE', this
+         * field provides the "ACPI Device Number" as provided in the ACPI
+         * Name-space Device Declaration (ANDD) structure for the corresponding
+         * ACPI device. This field is treated reserved (0) for all other 'Type'
+         * fields.
+         */
+
+        /*
+         * This field describes the bus number (bus number of the first PCI Bus
+         * produced by the PCI Host Bridge) under which the device identified
+         * by this Device Scope resides.
+         */
 
 
-            err = skb_read_output("secondary_bus(%" SCNu64 ")", &bus);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "[dmar] [dscp] reading query result\n");
-                goto loop_next_pcip;
-            }
-            #endif
-            debug_printf("[dmar] [dscp] " SKB_SCHEMA_DMAR_DEVSC "\n",
-                         type, dsc->EntryType, segment, (uint8_t)bus, pcip->Device,
-                         pcip->Function, dsc->EnumerationId);
 
-            err = skb_add_fact(SKB_SCHEMA_DMAR_DEVSC, type, dsc->EntryType,
-                               segment, (uint8_t)bus, pcip->Device, pcip->Function,
-                               dsc->EnumerationId);
-            if (err_is_fail(err)) {
-                DEBUG_ERR(err, "Failed to insert fact into the SKB"
-                          SKB_SCHEMA_DMAR_DEVSC "\n", type, dsc->EntryType,
-                          segment, (uint8_t)bus, pcip->Device, pcip->Function,
-                          dsc->EnumerationId);
-            }
-//loop_next_pcip:
-            pcip += 1;
+        uint64_t bus = 0xffff;
+
+        debug_printf("  > [dmar] [dscp] parsing PCI path of PCI Addr=[%u.%u.%u]\n",
+                     dsc->Bus, pcip->Device, pcip->Function);
+
+        #if 0
+        err = skb_execute_query("bridge(PCIE,addr(%d,%d,%d),_,_,_,_,_,secondary(BUS)),"
+                                "write(secondary_bus(BUS)).", dsc->Bus,
+                                pcip->Device, pcip->Function);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "[dmar] [dscp] SKB query failed\n");
+            goto loop_next_pcip;
+        }
+
+
+        err = skb_read_output("secondary_bus(%" SCNu64 ")", &bus);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "[dmar] [dscp] reading query result\n");
+            goto loop_next_pcip;
+        }
+        #endif
+        debug_printf("  > [dmar] [dscp] " SKB_SCHEMA_DMAR_DEVSC "\n",
+                     type, dsc->EntryType, segment, (uint8_t)bus, pcip->Device,
+                     pcip->Function, dsc->EnumerationId);
+
+        err = skb_add_fact(SKB_SCHEMA_DMAR_DEVSC, type, dsc->EntryType,
+                           segment, (uint8_t)bus, pcip->Device, pcip->Function,
+                           dsc->EnumerationId);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Failed to insert fact into the SKB"
+                    SKB_SCHEMA_DMAR_DEVSC "\n", type, dsc->EntryType,
+                      segment, (uint8_t)bus, pcip->Device, pcip->Function,
+                      dsc->EnumerationId);
         }
 
         dsc = (ACPI_DMAR_DEVICE_SCOPE *) ((uint8_t *) dsc + dsc->Length);
@@ -111,7 +204,17 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
     return SYS_ERR_OK;
 }
 
-
+/**
+ * @brief parses the DMA remapping hardware unit structure
+ *
+ * @param drhd  pointer to the ACPI DRHD sub table
+ * @param end   pointer to the end of the sub table
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ *
+ * Each remapping hardware unit is reported by such a structure. there is
+ * at least one structure per segment.
+ */
 static errval_t parse_hardware_unit(ACPI_DMAR_HARDWARE_UNIT *drhd, void *end)
 {
     errval_t err;
@@ -126,6 +229,26 @@ static errval_t parse_hardware_unit(ACPI_DMAR_HARDWARE_UNIT *drhd, void *end)
                   drhd->Flags, drhd->Segment, drhd->Address);
     }
 
+    /*
+     * If Set, this remapping hardware unit has under its scope all PCI
+     * compatible devices in the specified Segment, except devices reported
+     * under the scope of other remapping hardware units for the same Segment.
+     * If a DRHD structure with INCLUDE_PCI_ALL flag Set is reported for a
+     * Segment, it must be enumerated by BIOS after all other DRHD structures
+     * for the same Segment1. A DRHD structure with INCLUDE_PCI_ALL flag Set
+     * may use the 'DeviceScope' field to enumerate I/OxAPIC and HPET
+     * devices under its scope.
+     */
+    if (drhd->Flags & ACPI_DMAR_INCLUDE_ALL) {
+        debug_printf("[dmar] [drhd] ACPI_DMAR_INCLUDE_ALL set for segment %u\n",
+                     drhd->Segment);
+    }
+
+    /*
+     * The Device Scope structure contains zero or more Device Scope Entries
+     * that identify devices in the specified segment and under the scope of
+     * this remapping hardware unit.
+     */
     void *sub = ((uint8_t *)drhd) + sizeof(ACPI_DMAR_HARDWARE_UNIT);
     err = parse_device_scope(sub, end, drhd->Segment, ACPI_DMAR_TYPE_HARDWARE_UNIT);
     if (err_is_fail(err)) {
@@ -139,6 +262,21 @@ static errval_t parse_hardware_unit(ACPI_DMAR_HARDWARE_UNIT *drhd, void *end)
                     drhd->Flags, drhd->Segment, drhd->Address);
 }
 
+
+/**
+ * @brief parses the reserved memory region (RMRR) structures
+ *
+ * @param rmem  pointer ot the ACIP RMRR sub table
+ * @param end   pointer to the end of the table
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ *
+ * The RMRR regions are expected to be used for legacy usages
+ * (such as USB, UMA Graphics, etc.) requiring reserved memory.
+ *
+ * The BIOS reports each memory region through a RMRR structure and a list of
+ * devices that require access to the specified reserved memory region.
+ */
 static errval_t parse_reserved_memory(ACPI_DMAR_RESERVED_MEMORY *rmem, void *end)
 {
     errval_t err;
@@ -146,8 +284,8 @@ static errval_t parse_reserved_memory(ACPI_DMAR_RESERVED_MEMORY *rmem, void *end
     debug_printf("[dmar] [rmem] " SKB_SCHEMA_DMAR_RESERVED_MEMORY "\n",
                  rmem->Segment, rmem->BaseAddress, rmem->EndAddress);
 
-    err = skb_add_fact(SKB_SCHEMA_DMAR_RESERVED_MEMORY,
-                        rmem->Segment, rmem->BaseAddress, rmem->EndAddress);
+    err = skb_add_fact(SKB_SCHEMA_DMAR_RESERVED_MEMORY, rmem->Segment,
+                       rmem->BaseAddress, rmem->EndAddress);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to insert into SKB: "
                   SKB_SCHEMA_DMAR_RESERVED_MEMORY "\n",
@@ -159,26 +297,66 @@ static errval_t parse_reserved_memory(ACPI_DMAR_RESERVED_MEMORY *rmem, void *end
                               ACPI_DMAR_TYPE_RESERVED_MEMORY);
 }
 
+
+/**
+ * @brief parses the root-port address translation services (ATSR) structure
+ *
+ * @param atsr      pointer to the ACPI sub table
+ * @param end       end address of the table
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ *
+ * This structure is only for platforms supporting device TLBs. For each
+ * PCI segment there shall be one ATSR structure. The structure identifies
+ * which PCI Express root ports supporting ATS transactions
+ */
 static errval_t parse_root_ats_capabilities(ACPI_DMAR_ATSR *atsr, void *end)
 {
     errval_t err;
 
     debug_printf("[dmar] [atsr] " SKB_SCHEMA_DMAR_ATSR "\n",
                  atsr->Flags, atsr->Segment);
+
     err = skb_add_fact(SKB_SCHEMA_DMAR_ATSR, atsr->Flags, atsr->Segment);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to insert into the SKB: " SKB_SCHEMA_DMAR_ATSR "\n",
                   atsr->Flags, atsr->Segment);
     }
 
+    /*
+     *  Bit 0: ALL_PORTS:
+     *      If Set, PCI-Express Root Ports in the segment support ATS transactions.
+     *      If Clear, only root-ports indicated by the device scope fields support
+     *                ATS transactions
+     */
     if (atsr->Flags & ACPI_DMAR_ALL_PORTS) {
-        return err;
+        debug_printf("[dmar] [atsr] ACPI_DMAR_ALL_PORTS flag is set. "
+                      "Omitting device scope structures\n");
+        return SYS_ERR_OK;
     }
 
+    /*
+     * The Device Scope structure is described in Section 8.3.1. All Device Scope
+     * Entries in this structure must have a Device Scope Entry Type of
+     * 02h
+     */
     void *sub = ((uint8_t *)atsr) + sizeof(ACPI_DMAR_ATSR);
     return parse_device_scope(sub, end, atsr->Segment, ACPI_DMAR_TYPE_ROOT_ATS);
 }
 
+
+/**
+ * @brief parses the Remapping Hardware Static Affinity Structure
+ *
+ * @param rhsa  pointer to the ACPI sub table
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ *
+ * On systems with NUMA nodes, it may be better peformance wise to allocate
+ * translation structures on the NUMA node close by the hardware unit.
+ * This RHSA structure provides proximity information similar to the SRAT
+ * table.
+ */
 static errval_t parse_hardware_resource_affinity(ACPI_DMAR_RHSA *rhsa)
 {
     debug_printf("[dmar] [rhsa] " SKB_SCHEMA_DMAR_RHSA "\n",
@@ -188,9 +366,18 @@ static errval_t parse_hardware_resource_affinity(ACPI_DMAR_RHSA *rhsa)
                         rhsa->ProximityDomain);
 }
 
+/**
+ * @brief parses ACPI name-space device declarations
+ *
+ * @param andd  pointer to the ACPI namespace table
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ *
+ * NOTE: This is not yet implemented.
+ */
 static errval_t parse_namespace_device_declaration(ACPI_DMAR_ANDD *andd)
 {
-    debug_printf("[dmar] [andd] " SKB_SCHEMA_DMAR_ANDD "\n",
+    debug_printf("[dmar] [andd] NYI! " SKB_SCHEMA_DMAR_ANDD "\n",
                  andd->DeviceNumber, andd->DeviceName);
 
     return skb_add_fact(SKB_SCHEMA_DMAR_ANDD, andd->DeviceNumber,
@@ -198,6 +385,11 @@ static errval_t parse_namespace_device_declaration(ACPI_DMAR_ANDD *andd)
 }
 
 
+/**
+ * @brief  Parses the DMA Remapping Reporting Table (DMAR)
+ *
+ * @return SYS_ERR_OK on success, error value on failure
+ */
 errval_t acpi_parse_dmar(void)
 {
     errval_t err;
@@ -206,7 +398,7 @@ errval_t acpi_parse_dmar(void)
     ACPI_TABLE_DMAR     *dmar;
     ACPI_TABLE_HEADER   *ath;
 
-    // Get the ACPI DMAR table (the DMAR)
+    /* Get the ACPI DMAR table (the DMAR) */
     as = AcpiGetTable(ACPI_SIG_DMAR, 1, (ACPI_TABLE_HEADER **)&ath);
 
     if(ACPI_FAILURE(as)) {
@@ -221,11 +413,22 @@ errval_t acpi_parse_dmar(void)
         dmar = (ACPI_TABLE_DMAR*)ath;
     }
 
-    skb_add_fact(SKB_SCHEMA_DMAR, dmar->Flags);
+    /*
+     * Width: Number of bits that can be addressed by the platform in DMA.
+     *        the field is stored as W = Width + 1.
+     *
+     * Flags:
+     * Bit 0: INTR_REMAP
+     * Bit 1: X2APIC_OPT_OUT
+     * Bit 2: DMA_CTRL_PLATFORM_OPT_IN_FLAG
+     */
+    skb_add_fact(SKB_SCHEMA_DMAR, dmar->Width + 1, dmar->Flags);
 
 
-    debug_printf("DMAR Revision: %u, Size=%u, OEM=%s\n", dmar->Header.Revision,
-               dmar->Header.Length, dmar->Header.OemId);
+    debug_printf("DMAR Revision: %u, Size=%u, OEM=%s, HAW=%u, flags=%x\n",
+                 dmar->Header.Revision, dmar->Header.Length, dmar->Header.OemId,
+                 dmar->Width + 1, dmar->Flags);
+
 
     void *p = (void *)dmar + sizeof(ACPI_TABLE_DMAR);
     void *table_end = (void *)dmar + dmar->Header.Length;
@@ -235,41 +438,42 @@ errval_t acpi_parse_dmar(void)
         assert(sh->Length);
         void *p_end = p + sh->Length;
 
-        debug_printf("parsing region: [%p...%p]\n", p, p_end -1);
-
         switch (sh->Type) {
             case ACPI_DMAR_TYPE_HARDWARE_UNIT:
                 err = parse_hardware_unit(p, p_end);
                 if (err_is_fail(err)) {
-                    DEBUG_ERR(err, "parsing hardware unit failed\n");
+                    DEBUG_ERR(err, "parsing hardware unit failed. Continuing...\n");
                 }
                 break;
             case ACPI_DMAR_TYPE_RESERVED_MEMORY:
                 err = parse_reserved_memory(p, p_end);
                 if (err_is_fail(err)) {
-                    DEBUG_ERR(err, "reserved memory failed\n");
+                    DEBUG_ERR(err, "reserved memory failed. Continuing...\n");
                 }
                 break;
             case ACPI_DMAR_TYPE_ROOT_ATS:
                 err = parse_root_ats_capabilities(p, p_end);
                 if (err_is_fail(err)) {
-                    DEBUG_ERR(err, "parsing root ats caps failed\n");
+                    DEBUG_ERR(err, "parsing root ats caps failed. Continuing...\n");
                 }
                 break;
             case ACPI_DMAR_TYPE_HARDWARE_AFFINITY:
                 err = parse_hardware_resource_affinity(p);
                 if (err_is_fail(err)) {
-                    DEBUG_ERR(err, "parsing resource affinity failed\n");
+                    DEBUG_ERR(err, "parsing resource affinity failed. "
+                                   "Continuing...\n");
                 }
                 break;
             case ACPI_DMAR_TYPE_NAMESPACE:
                 err = parse_namespace_device_declaration(p);
                 if (err_is_fail(err)) {
-                    DEBUG_ERR(err, "parsing namespace declarations failed\n");
+                    DEBUG_ERR(err, "parsing namespace declarations failed. "
+                                   "Continuing...\n");
                 }
                 break;
             default:
-                assert(!"Reserved for future use!\n");
+                USER_PANIC("Discovered unknown subtable %u. Consider updating"
+                           "ACPI. Skipping\n", sh->Type);
         }
         p = p_end;
     }
