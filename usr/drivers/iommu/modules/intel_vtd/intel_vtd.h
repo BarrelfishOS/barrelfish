@@ -11,7 +11,6 @@
 #define INTEL_VTD_H_ 1
 
 #include <dev/vtd_dev.h>
-#include <dev/vtd_iotlb_dev.h>
 
 #include "intel_vtd_debug.h"
 

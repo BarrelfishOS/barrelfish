@@ -11,8 +11,6 @@
 #define INTEL_VTD_IOTLB_H_ 1
 
 
-#include <dev/vtd_iotlb_dev.h>
-
 #include "intel_vtd.h"
 #include "intel_vtd_debug.h"
 
@@ -47,7 +45,7 @@ static inline void vtd_iotlb_invalidate(struct vtd *vtd)
     vtd_flush_write_buffer(vtd);
 
     // set global invalidation
-    vtd_IOTLB_iirg_wrf(&vtd->vtd_dev, vtd_iotlb_gir);
+    vtd_IOTLB_iirg_wrf(&vtd->vtd_dev, vtd_gir);
 
     // drain oustanding write and read requests
     vtd_IOTLB_dw_wrf(&vtd->vtd_dev, 1);
@@ -67,7 +65,7 @@ static inline void vtd_iotlb_invalidate_domain(struct vtd_domain *dom)
         vtd_flush_write_buffer(dm->vtd);
 
         // set domain invalidation
-        vtd_IOTLB_iirg_wrf(&dm->vtd->vtd_dev, vtd_iotlb_domir);
+        vtd_IOTLB_iirg_wrf(&dm->vtd->vtd_dev, vtd_domir);
 
         // set the domain id field
         vtd_IOTLB_did_wrf(&dm->vtd->vtd_dev, dom->id);
@@ -98,7 +96,7 @@ static inline void vtd_iotlb_invalidate_page_attr(struct vtd_domain *dom,
         vtd_flush_write_buffer(dm->vtd);
 
         // set domain invalidation
-        vtd_IOTLB_iirg_wrf(&dm->vtd->vtd_dev, vtd_iotlb_pir);
+//        vtd_IOTLB_iirg_wrf(&dm->vtd->vtd_dev, vtd_pir);
 
         // set the domain id field
         vtd_IOTLB_did_wrf(&dm->vtd->vtd_dev, dom->id);
