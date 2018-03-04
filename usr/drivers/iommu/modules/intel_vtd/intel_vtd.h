@@ -23,33 +23,88 @@ extern vregion_flags_t vtd_table_map_attrs;
 typedef uint16_t vtd_domid_t;
 
 
+/**
+ * @brief the number of entries in the root table. this corresponds to the
+ *        maximum possible number of PCI busses which is an 8-bit number,
+ *        hence 256 entries
+ */
 #define VTD_NUM_ROOT_ENTRIES	256
 
+/**
+ * @brief the entry format of the root and context tables.
+ *
+ * There exist two different entry types. a base version and the extended
+ * representation
+ */
 typedef enum {
     VTD_ENTRY_TYPE_BASE,
     VTD_ENTRY_TYPE_EXTENDED,
 } vtd_entry_type_t;
 
+
+/**
+ * @brief structure to hold the software representation of the VT-d root table
+ */
 struct vtd_root_table {
+    ///< capability of the root table
     struct capref   rtcap;
+
+    ///< capability of the mapping cap CNODE
     struct capref   mappingcncap;
+
+    ////< cnode reference of the mapping cap
     struct cnoderef mappigncn;
+
+    ///< the VT-d unit this root tabel belongs
+    struct vtd  *vtd;
+    /*
+     * TODO: currently we use one root table per VT-d unit. However, we might
+     * share a single root table between multiple VT-d units, if applicable
+     */
 };
 
-
+/**
+ * @brief structure represent a VT-d context table
+ *
+ * each context table has one root table.
+ */
 struct vtd_ctxt_table {
-    struct capref   ctcap;
-    struct capref   mappingcncap;
-    struct cnoderef mappigncn;
-    uint8_t         rt_idx;
+    ///< capability of the context table
+    struct capref           ctcap;
+
+    ///< capability of the CNODE for this context table
+    struct capref           mappingcncap;
+
+    ///< cnode for the mapping caps
+    struct cnoderef         mappigncn;
+
+    ///< pointer to the parent root table.
+    struct vtd_root_table  *root_table;
+
+    ///< index of the context table in the root tbale
+    uint8_t                 root_table_idx;
 };
 
+
+/**
+ * @brief represents a protection domain of the VT-d unit
+ */
 struct vtd_domain {
-    vtd_domid_t                id;
-    struct capref              ptroot;
-    lpaddr_t                   ptroot_base;
-    struct vtd_domain_mapping *devmappings;
+    ///< the domain id
+    vtd_domid_t                 id;
+
+    ///< the root page table of the domain
+    struct capref               ptroot;
+
+    ///< the physical base address of the root page table
+    lpaddr_t                    ptroot_base;
+
+
+    ///< list of mappings
+    struct vtd_domain_mapping  *devmappings;
 };
+
+
 
 struct vtd_domain_mapping {
     struct vtd_domain_mapping *next;
@@ -61,6 +116,8 @@ struct vtd_domain_mapping {
     uint8_t             bus;
     uint8_t             idx;
 };
+
+
 
 #define vtd_ctxt_id_to_dev(idx) (idx >> 3)
 #define vtd_ctxt_id_to_fun(idx) (idx & 0x7)
