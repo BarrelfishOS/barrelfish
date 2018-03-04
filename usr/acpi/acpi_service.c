@@ -21,9 +21,6 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 
-#ifdef ACPI_HAVE_VTD
-#   include "intel_vtd.h"
-#endif
 extern bool mm_debug;
 
 // XXX: proper cap handling (del etc.)

@@ -25,7 +25,6 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic.h"
-#include "intel_vtd.h"
 #include <trace/trace.h>
 
 #include "pcilnk_controller_client.h"

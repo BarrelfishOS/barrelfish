@@ -21,7 +21,6 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include "ioapic.h"
-#include "intel_vtd.h"
 
 extern struct capref biosmem;
 static void get_vbe_bios_cap(struct acpi_binding *b)
