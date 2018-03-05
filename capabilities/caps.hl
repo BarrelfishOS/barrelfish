@@ -347,3 +347,26 @@ cap Domain from ProcessManager {
     eq coreid coreid;  /* Core where the domain was created. */
     eq uint32 core_local_id;  /* Core-local ID of the domain. */
 };
+
+
+/*
+cap ProtectionDomainManager is_always_copy {
+    // Capability to act as device manager, i.e. create new device id caps
+};
+
+cap ProtectionDomain from IOMMUDomainManager {
+    uint16 id;
+    uint16 type
+};
+*/
+
+cap DeviceIDManager is_always_copy {
+    // Capability to act as device manager, i.e. create new device id caps
+};
+
+cap DeviceID from DeviceIDManager {
+    uint16 bus;
+    uint16 device;
+    uint16 function;
+    uint16 flags;
+};

@@ -132,7 +132,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -342,8 +342,14 @@ ObjType_Mapping:
         return snprintf(buf, len, "Domain capability (coreid 0x%" PRIxCOREID
                         " core_local_id 0x%" PRIx32 ")", cap->u.domain.coreid,
                         cap->u.domain.core_local_id);
+    case ObjType_DeviceIDManager:
+        return snprintf(buf, len, "DeviceID manager capability");
+    case ObjType_DeviceID:
+        return snprintf(buf, len, "DeviceID capability (%u.%u.%u",
+                        cap->u.deviceid.bus, cap->u.deviceid.device,
+                        cap->u.deviceid.function);
 
-    case ObjType_PerfMon:
+        case ObjType_PerfMon:
         return snprintf(buf, len, "PerfMon cap");
 
     case ObjType_Null:

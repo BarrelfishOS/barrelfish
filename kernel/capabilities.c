@@ -55,7 +55,7 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -267,7 +267,15 @@ ObjType_Mapping:
     case ObjType_IPI:
         return snprintf(buf, len, "IPI cap");
 
-    default:
+    case ObjType_DeviceID:
+        return snprintf(buf, len, "DeviceID %u.%u.%u",
+                        cap->u.deviceid.bus, cap->u.deviceid.device,
+                        cap->u.deviceid.function);
+    case ObjType_DeviceIDManager:
+        return snprintf(buf, len, "DeviceID Manager cap");
+
+
+        default:
         return snprintf(buf, len, "UNKNOWN TYPE! (%d)", cap->type);
     }
 }
@@ -347,7 +355,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t objsize)
 {
     switch(type) {
@@ -428,6 +436,8 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_PerfMon:
     case ObjType_IPI:
     case ObjType_ProcessManager:
+    case ObjType_DeviceID:
+    case ObjType_DeviceIDManager:
     case ObjType_VNode_ARM_l1_Mapping:
     case ObjType_VNode_ARM_l2_Mapping:
     case ObjType_VNode_AARCH64_l0_Mapping:
@@ -456,7 +466,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
@@ -567,7 +577,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                             gensize_t objsize, size_t count, coreid_t owner,
@@ -1090,6 +1100,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     case ObjType_Notify_IPI:
     case ObjType_PerfMon:
     case ObjType_ProcessManager:
+    case ObjType_DeviceID :
+    case ObjType_DeviceIDManager :
         // These types do not refer to a kernel object
         assert(lpaddr  == 0);
         assert(size    == 0);
@@ -1366,7 +1378,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 //{{{1 Capability creation
 
 /// check arguments, return true iff ok
-STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 #ifndef NDEBUG
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
@@ -1487,7 +1499,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     return SYS_ERR_OK;
 }
 
-STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
@@ -1588,7 +1600,8 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
            src_cap->type == ObjType_Frame ||
            src_cap->type == ObjType_DevFrame ||
            src_cap->type == ObjType_IRQSrc ||
-           src_cap->type == ObjType_ProcessManager);
+           src_cap->type == ObjType_ProcessManager ||
+           src_cap->type == ObjType_DeviceIDManager);
 
     if (src_cap->type != ObjType_Dispatcher && src_cap->type != ObjType_IRQSrc) {
         base = get_address(src_cap);
@@ -1840,7 +1853,7 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
 }
 
 /// Create copies to a cte
-STATIC_ASSERT(56 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2)
 {
