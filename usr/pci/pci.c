@@ -832,7 +832,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                                     "for e1000 card.\n");
                                     break;
                                 }
-                
+
                                 if (vendor == 0x8086 && (device_id  == 0x10FB)) {
                                     debug_printf("skipping SR IOV initialization"
                                                     "for e10k card.\n");
@@ -853,30 +853,31 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                        == 1);
 
 #if 0	// Dump cap contents
+                                char str[256];
                                 pci_sr_iov_cap_caps_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
                                 pci_sr_iov_cap_ctrl_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
                                 pci_sr_iov_cap_status_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
                                 pci_sr_iov_cap_initialvfs_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
                                 pci_sr_iov_cap_totalvfs_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
                                 pci_sr_iov_cap_numvfs_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
                                 pci_sr_iov_cap_fdl_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
                                 pci_sr_iov_cap_offset_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
                                 pci_sr_iov_cap_stride_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
                                 pci_sr_iov_cap_devid_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
                                 pci_sr_iov_cap_sup_psize_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
                                 pci_sr_iov_cap_sys_psize_pr(str, 256, &sr_iov_cap);
-                                PCI_DEBUG("%s\n", str);
+                                printf("%s\n", str);
 #endif
 
                                 if (max_numvfs > 0) {
@@ -895,15 +896,6 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                     PCI_DEBUG("VF offset is 0x%x, stride is 0x%x, "
                                               "device ID is 0x%x\n",
                                               offset, stride, vf_devid);
-
-#if 0
-                                    // Make sure we enable the PF
-                                    cmd = pci_hdr0_command_rd(&hdr);
-                                    cmd.mem_space = 1;
-                                    cmd.io_space = 1;
-                                    /* cmd.master = 1; */
-                                    pci_hdr0_command_wr(&hdr, cmd);
-#endif
 
                                     // Start VFs (including memory spaces)
                                     pci_sr_iov_cap_ctrl_vf_mse_wrf(&sr_iov_cap, 1);
@@ -971,7 +963,6 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                             union pci_hdr0_bar32_un orig_value;
                                             orig_value.raw = pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap, i);
                                             barorigaddr = orig_value.val;
-
                                             // probe BAR to see if it is implemented
                                             pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap, i, BAR_PROBE);
 
@@ -1007,43 +998,44 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                             }
 
                                             if (bar.tpe == pci_hdr0_bar_64bit) {
+
+                                                //we must take the next BAR into account and do the same
+                                                //tests like in the 32bit case, but this time with the combined
+                                                //value from the current and the next BAR, since a 64bit BAR
+                                                //is constructed out of two consequtive 32bit BARs
+
                                                 //read the upper 32bits of the address
-                                                pci_hdr0_bar32_t bar_high, barorigaddr_high;
-                                                union pci_hdr0_bar32_un orig_value_high;
-                                                orig_value_high.raw = pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap, i + 1);
-                                                barorigaddr_high = orig_value_high.val;
+                                                uint32_t orig_value_high = pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap, i + 1);
 
                                                 // probe BAR to determine the mapping size
                                                 pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap, i + 1, BAR_PROBE);
 
-                                                bar_high = (union pci_hdr0_bar32_un ) {
-                                                              .raw =pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap,i + 1)
-                                                            }.val;
+                                                // read the size information of the bar
+                                                uint32_t bar_value_high = pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap, i + 1);
 
                                                 //write original value back to the BAR
-                                                pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap,
-                                                          i + 1, orig_value_high.raw);
+                                                pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap, i + 1, orig_value_high);
 
-                                                pciaddr_t base64 = bar_high.base;
+                                                pciaddr_t base64 = 0, origbase64 = 0;
+                                                base64 = bar_value_high;
                                                 base64 <<= 32;
-                                                base64 |= bar.base << 7;
+                                                base64 |= (uint32_t) (bar.base << 7);
 
-                                                pciaddr_t origbase64 = barorigaddr_high.base;
+                                                origbase64 = orig_value_high;
                                                 origbase64 <<= 32;
-                                                origbase64 |= barorigaddr.base << 7;
+                                                origbase64 |= (uint32_t) (barorigaddr.base << 7);
 
-                                                PCI_DEBUG("(%u,%u,%u): 64bit BAR %d at 0x%"
-                                                          PRIxPCIADDR ", size %" PRIx64 ", %s\n",
-                                                          vf_addr.bus, vf_addr.device,
-                                                          vf_addr.function, i,
-                                                          (origbase64 << 7) + bar_mapping_size64(base64) * vfn,
+                                                PCI_DEBUG("(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %"
+                                                          PRIx64 ", %s\n", vf_addr.bus, vf_addr.device, 
+                                                          vf_addr.function, i, 
+                                                          origbase64 + bar_mapping_size64(base64)*vfn, 
                                                           bar_mapping_size64(base64),
                                                           (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
 
-                                                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"
-                                                             PRIxPCIADDR", ""16'%" PRIx64 ", vf, %s, %d).",
-                                                             vf_addr.bus, vf_addr.device, vf_addr.function, i,
-                                                             (origbase64 << 7) + bar_mapping_size64(base64) * vfn,
+                                                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
+                                                             "16'%" PRIx64 ", mem, %s, %d).", vf_addr.bus,
+                                                             vf_addr.device, vf_addr.function, i, 
+                                                             origbase64 + bar_mapping_size64(base64)*vfn,
                                                              bar_mapping_size64(base64),
                                                              (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
                                                              type);
