@@ -1059,6 +1059,48 @@ static struct sysret handle_idcap_identify(struct capability *cap, int cmd,
     return sysret;
 }
 
+static struct sysret handle_devid_create(struct capability *cap, int cmd,
+                                           uintptr_t *args)
+{
+    assert(cap->type == ObjType_DeviceIDManager);
+
+    capaddr_t cnode_cptr = args[0];
+    capaddr_t cnode_level = args[1];
+    cslot_t slot = args[2];
+
+    struct capability devid;
+    devid.type = ObjType_DeviceID;
+    devid.u.deviceid.bus = args[3];
+    devid.u.deviceid.device = args[4];
+    devid.u.deviceid.function = args[5];
+
+    return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
+                                            cnode_cptr, cnode_level,
+                                            slot, my_core_id, &devid));
+}
+
+static struct sysret handle_devid_identify(struct capability *cap, int cmd,
+                                           uintptr_t *args)
+{
+    // Return with physical base address of frame
+    printf("Cap->type == %u\n", cap->type);
+
+    assert(cap->type == ObjType_DeviceID);
+
+    struct device_identity *di = (struct device_identity *)args[0];
+
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)di, sizeof(struct device_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    di->bus = cap->u.deviceid.bus;
+    di->device = cap->u.deviceid.device;
+    di->function = cap->u.deviceid.function;
+    di->flags = cap->u.deviceid.flags;
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
                                           uintptr_t *args)
 {
@@ -1331,7 +1373,13 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_ID] = {
         [IDCmd_Identify] = handle_idcap_identify,
-    }
+    },
+    [ObjType_DeviceIDManager] = {
+        [DeviceIDManager_CreateID] = handle_devid_create,
+    },
+    [ObjType_DeviceID] = {
+        [DeviceID_Identify] = handle_devid_identify,
+    },
 };
 
 /* syscall C entry point; called only from entry.S so no prototype in header */

@@ -233,6 +233,25 @@ static inline errval_t invoke_vnode_identify(struct capref vnode,
     return sysret.error;
 }
 
+static inline errval_t invoke_device_identify(struct capref deviceid,
+                                              struct device_identity *ret)
+{
+    assert(ret != NULL);
+    assert(get_croot_addr(deviceid) == CPTR_ROOTCN);
+
+    struct sysret sysret = cap_invoke2(deviceid, DeviceID_Identify, (uintptr_t)ret);
+
+    if (err_is_ok(sysret.error)) {
+        return sysret.error;
+    }
+
+    ret->bus = 0;
+    ret->device = 0;
+    ret->function = 0;
+    ret->flags = 0;
+    return sysret.error;
+}
+
 /**
  * \brief Modify mapping flags on parts of a mapping
  *

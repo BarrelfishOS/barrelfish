@@ -840,6 +840,53 @@ static struct sysret handle_idcap_identify(struct capability *to,
     return sys_idcap_identify(to, idp);
 }
 
+static struct sysret handle_devid_create(struct capability *cap,
+                                         arch_registers_state_t *context,
+                                         int argc)
+{
+    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
+
+    assert(cap->type == ObjType_DeviceIDManager);
+
+    capaddr_t cnode_cptr = sa->arg2;
+    capaddr_t cnode_level = sa->arg3;
+    uint16_t slot = sa->arg4;
+
+    struct capability devid;
+    devid.type = ObjType_DeviceID;
+    devid.u.deviceid.bus = sa->arg5;
+    devid.u.deviceid.device = sa->arg6;
+    devid.u.deviceid.function = sa->arg7;
+
+    return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
+                                            cnode_cptr, cnode_level,
+                                            slot, my_core_id, &devid));
+}
+
+static struct sysret handle_devid_identify(struct capability *cap,
+                                           arch_registers_state_t *context,
+                                           int argc)
+{
+    struct sysret sysret;
+
+    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
+
+    // Return with physical base address of frame
+    assert(cap->type == ObjType_DeviceID);
+
+    struct device_identity *di = (struct device_identity *)sa->arg2;
+
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct device_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    di->bus = cap->u.deviceid.bus;
+    di->device = cap->u.deviceid.device;
+    di->function = cap->u.deviceid.function;
+    di->flags = cap->u.deviceid.flags;
+
+    return SYSRET(SYS_ERR_OK);
+}
 
 static struct sysret handle_kcb_identify(struct capability *to,
                                   arch_registers_state_t *context,
@@ -974,7 +1021,13 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_ID] = {
         [IDCmd_Identify] = handle_idcap_identify
-    }
+    },
+    [ObjType_DeviceIDManager] = {
+            [DeviceIDManager_CreateID] = handle_devid_create,
+    },
+    [ObjType_DeviceID] = {
+            [DeviceID_Identify] = handle_devid_identify,
+    },
 };
 
 static struct sysret
