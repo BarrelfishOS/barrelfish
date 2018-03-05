@@ -53,7 +53,6 @@ extern uint64_t x86_32_init_ap_global;
 volatile uint64_t *ap_dispatch;
 extern coreid_t my_arch_id;
 extern struct capref ipi_cap;
-extern uint64_t end;
 
 errval_t get_core_info(coreid_t core_id, hwid_t* apic_id, enum cpu_type* cpu_type)
 {
@@ -259,8 +258,6 @@ int start_aps_x86_64_start(uint8_t core_id, genvaddr_t entry)
 
     *ap_wait = AP_STARTING_UP;
 
-    end = bench_tsc();
-
 #if  defined(__k1om__)
     delay_ms(10);
 #endif
@@ -378,7 +375,6 @@ int start_aps_x86_32_start(uint8_t core_id, genvaddr_t entry)
 
     *ap_wait = AP_STARTING_UP;
 
-    end = bench_tsc();
     err = invoke_send_init_ipi(ipi_cap, core_id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke send init ipi");
