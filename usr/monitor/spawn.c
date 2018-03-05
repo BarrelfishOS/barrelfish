@@ -16,6 +16,8 @@
 
 #include <monitor.h>
 #include <barrelfish/cpu_arch.h>
+#include <barrelfish/caddr.h>
+
 
 extern char **environ;
 
@@ -57,6 +59,28 @@ static errval_t set_special_caps(struct spawninfo *si, const char *pname)
             DEBUG_ERR(err, "Can not give kernel cap to kaluga");
             return err_push(err, SPAWN_ERR_COPY_KERNEL_CAP);
         }
+
+        debug_printf("Handing over device manager cap to Kaluga\n");
+        dest.cnode = cnode_task,
+        dest.slot  = TASKCN_SLOT_DEVMAN;
+        struct capability cap = {
+            .type = ObjType_DeviceIDManager,
+            .rights = CAPRIGHTS_READ_WRITE
+        };
+        err = monitor_cap_create(dest, &cap, my_core_id);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not give kernel cap to kaluga");
+            return err_push(err, SPAWN_ERR_COPY_DEVMAN_CAP);
+        }
+        dest.cnode = si->taskcn;
+        dest.slot  = TASKCN_SLOT_DEVMAN;
+        src.slot = TASKCN_SLOT_DEVMAN;
+        err = cap_copy(dest, src);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Can not give kernel cap to kaluga");
+            return err_push(err, SPAWN_ERR_COPY_DEVMAN_CAP);
+        }
+
 	}
 
     if (!strcmp(name, "proc_mgmt")) {
