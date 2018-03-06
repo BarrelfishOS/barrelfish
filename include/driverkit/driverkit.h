@@ -57,6 +57,7 @@ struct domain_instance {
 struct driver_instance {
     char* driver_name;
     char* inst_name;
+    size_t arg_idx;
     char** args;
     size_t cap_idx;
     struct capref* caps;
@@ -72,6 +73,7 @@ errval_t ddomain_instantiate_driver(struct domain_instance* di, struct driver_in
 void ddomain_free_driver_inst(void* arg);
 void ddomain_free_domain_inst(void* arg);
 errval_t ddomain_driver_add_cap(struct driver_instance* drv, struct capref cap);
+errval_t ddomain_driver_add_arg(struct driver_instance* drv, char *str);
 void ddomain_wait_for_id(void);
 
 /** driver control flounder interface */

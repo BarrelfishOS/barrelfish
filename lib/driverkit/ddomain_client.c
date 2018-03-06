@@ -81,6 +81,17 @@ errval_t ddomain_driver_add_cap(struct driver_instance* drv, struct capref cap) 
         return DRIVERKIT_ERR_CAP_CAPACITY;
     }
 }
+errval_t ddomain_driver_add_arg(struct driver_instance* drv, char *str)
+{
+    assert(drv != NULL);
+    if (drv->arg_idx < MAX_ARGS) {
+        drv->args[drv->arg_idx++] = str;
+        return SYS_ERR_OK;
+    }
+    else {
+        return DRIVERKIT_ERR_CAP_CAPACITY;
+    }
+}
 
 static errval_t create_call(struct ddomain_binding *b, struct driver_instance* drv) {
     assert(b != NULL);
