@@ -178,7 +178,9 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
     }
 
     // If driver instance not yet started, start. 
-    if (mi->driverinstance == NULL) {
+    // In case of multi instance, we start a new domain every time
+    if (mi->driverinstance == NULL || mi->allow_multi) {
+        KALUGA_DEBUG("Creating new driver domain for %s\n", mi->binary);
         inst = instantiate_driver_domain(mi->binary, where);
         if (inst == NULL) {
             return DRIVERKIT_ERR_DRIVER_INIT;
@@ -190,7 +192,8 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
             event_dispatch(get_default_waitset());
         }   
 
-        //set_started(mi);
+    } else {
+        KALUGA_DEBUG("Reusing existing driver domain %s\n", mi->binary);
     }
 
     char module_name[100];

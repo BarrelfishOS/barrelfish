@@ -153,6 +153,20 @@ case "$ARCH" in
         NIC_MODEL=e1000 ;
     fi
     
+    # Two NIC qemu conf
+    #QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
+    #    -machine type=q35 \
+    #    -smp $SMP \
+    #    -enable-kvm \
+    #    -m 1024 \
+    #    -netdev user,id=network0 \
+    #    -netdev user,id=network1 \
+    #    -device $NIC_MODEL,netdev=network0
+    #    -device $NIC_MODEL,netdev=network1
+    #    -device ahci,id=ahci \
+    #    -device ide-drive,drive=disk,bus=ahci.0 \
+    #    -drive id=disk,file="$HDFILE",if=none"
+
     QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
         -machine type=q35 \
         -smp $SMP \
