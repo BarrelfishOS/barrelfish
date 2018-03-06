@@ -464,7 +464,48 @@ void numa_free(void *start, size_t size)
     assert(!"NYI");
 }
 
+/**
+ * \brief allocates RAM on a specific node
+ *
+ * \param dest      capref to store the RAM cap
+ * \param size      size of the RAM region to allocated
+ * \param node      node on which the frame should be allocated
+ * \param ret_size  returned size of the frame capability
+ *
+ * \returns SYS_ERR_OK on SUCCESS
+ *          errval on FAILURE
+ */
+errval_t numa_ram_alloc_on_node(struct capref *dest, size_t size,
+                                nodeid_t node, size_t *ret_size)
+{
+    errval_t err;
 
+    NUMA_DEBUG_ALLOC("allocating frame on node %" PRIuNODEID "\n", node);
+
+    uint64_t min_base, max_limit;
+    ram_get_affinity(&min_base, &max_limit);
+
+    if (node >= numa_topology.num_nodes) {
+        return NUMA_ERR_NODEID_INVALID;
+    }
+
+    uint64_t node_base = numa_node_base(node);
+    uint64_t node_limit = node_base + numa_node_size(node, NULL);
+
+    NUMA_DEBUG_ALLOC("setting affinity to 0x%" PRIx64 "..0x%" PRIx64 "\n",
+                     node_base, node_limit);
+
+    ram_set_affinity(node_base, node_limit);
+
+    err = ram_alloc(dest, log2ceil(size));
+
+    ram_set_affinity(min_base, max_limit);
+
+    NUMA_DEBUG_ALLOC("restore affinity to 0x%" PRIx64 "..0x%" PRIx64 "\n",
+                     min_base, max_limit);
+
+    return err;
+}
 
 /**
  * \brief allocates a frame on a specific node
