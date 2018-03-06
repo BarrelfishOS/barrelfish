@@ -142,6 +142,13 @@ errval_t arch_startup(char * add_device_db_file)
     // time in order to start-up properly.
     char* record = NULL;
     err = oct_barrier_enter("barrier.acpi", &record, 2);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not wait for ACPI Barrier '%s'\n",
+                       "barrier.acpi");
+    }
+    if (record) {
+        free(record);
+    }
 
     KALUGA_DEBUG("Kaluga: watch_for_cores\n");
 
@@ -159,6 +166,24 @@ errval_t arch_startup(char * add_device_db_file)
 
     KALUGA_DEBUG("Kaluga: int_controller_devices\n");
 
+    /* The IOMMU needs to have knowledge of the PCI Bridges and devices. */
+
+    record = NULL;
+    debug_printf("barrier.pci.bridges");
+    err = oct_barrier_enter("barrier.pci.bridges", &record, 2);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not wait for PCI Barrier 'barrier.pci.bridges'\n");
+    }
+
+    if (record) {
+        free(record);
+    }
+
+    err = watch_for_iommu();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Watching for IOMMUS.");
+    }
+
     err = watch_for_int_controller();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching interrupt controllers.");
@@ -171,17 +196,14 @@ errval_t arch_startup(char * add_device_db_file)
         USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
     }
 
+    KALUGA_DEBUG("Kaluga: iommus\n");
+
+
     KALUGA_DEBUG("Kaluga: pci_devices\n");
 
     err = watch_for_pci_devices();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching PCI devices.");
-    }
-
-
-    err = watch_for_iommu();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Watching for IOMMUS.");
     }
 
     KALUGA_DEBUG("Kaluga: Starting serial...\n");

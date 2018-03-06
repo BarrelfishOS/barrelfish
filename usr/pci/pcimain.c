@@ -23,6 +23,7 @@
 
 #include <mm/mm.h>
 #include <octopus/init.h>
+#include <octopus/barrier.h>
 #include <skb/skb.h>
 #include <acpi_client/acpi_client.h>
 #include <int_route/int_route_server.h>
@@ -119,6 +120,13 @@ int main(int argc, char *argv[])
     // Start configuring PCI
     PCI_DEBUG("Programming PCI BARs and bridge windows\n");
     pci_program_bridges();
+    #ifdef USE_KALUGA_DVM
+    char* record;
+    debug_printf("barrier.pci.bridges");
+    err = oct_barrier_enter("barrier.pci.bridges", &record, 2);
+    assert(err_is_ok(err));
+    free(record);
+    #endif
     PCI_DEBUG("PCI programming completed\n");
     pci_init_datastructures();
     pci_init();
@@ -144,12 +152,6 @@ int main(int argc, char *argv[])
     err = nameservice_register("pci_discovery_done", 0);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "nameservice_register failed");
-        abort();
-    }
-
-    err = vtd_add_devices();
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "vtd_add_devices failed");
         abort();
     }
 
