@@ -89,14 +89,8 @@ struct vtd_ctxt_table {
  * @brief represents a device context in the VT-d
  */
 struct vtd_device {
-    ///< pci bus
-    uint8_t                 bus;
-
-    ///< pci device
-    uint8_t                 device;
-
-    ///< pci function
-    uint8_t                 function;
+    ///< the iommu binding
+    struct iommu_binding   *binding;
 
     ///< the mapping cap for this device
     struct capref           mappingcap;
@@ -106,6 +100,18 @@ struct vtd_device {
 
     ///< the protection domain of the device
     struct vtd_domain      *domain;
+
+    ///< pci segmnet
+    uint16_t                pciseg;
+
+    ///< pci bus
+    uint8_t                 bus;
+
+    ///< pci device
+    uint8_t                 device;
+
+    ///< pci function
+    uint8_t                 function;
 };
 
 /**
@@ -124,7 +130,6 @@ struct vtd_domain {
     ///< list of mappings
     struct vtd_domain_mapping  *devmappings;
 };
-
 
 
 struct vtd_domain_mapping {
@@ -152,6 +157,7 @@ typedef enum {
 } vtd_version_t;
 
 struct vtd {
+    struct vtd              *next;
     vtd_t                   vtd_dev;
 
     vtd_version_t           version;
@@ -211,9 +217,88 @@ struct vtd {
 };
 
 
+/*
+ * ===========================================================================
+ * Intel VT-d Units
+ * ===========================================================================
+ */
+
 errval_t vtd_create(struct vtd *v, struct capref regs);
 errval_t vtd_destroy(struct vtd *v);
 errval_t vtd_set_root_table(struct vtd *vtd);
+errval_t vtd_lookup_by_device(uint8_t bus, uint8_t dev, uint8_t fun,
+                              uint16_t pciseg, struct vtd **vtd);
+errval_t vtd_get_ctxt_table_by_id(struct vtd *vtd, uint8_t idx,
+                                  struct vtd_ctxt_table **table);
+
+/*
+ * ===========================================================================
+ * Intel VT-d Root Table
+ * ===========================================================================
+ */
+
+errval_t vtd_root_table_create(struct vtd_root_table *rt, struct vtd *vtd);
+errval_t vtd_root_table_destroy(struct vtd_root_table *rt);
+errval_t vtd_root_table_map(struct vtd_root_table *rt, uint8_t idx,
+                            struct vtd_ctxt_table *ctx);
+errval_t vtd_root_table_unmap(struct vtd_root_table *rt, size_t idx);
+
+/*
+ * ===========================================================================
+ * Intel VT-d Context Table
+ * ===========================================================================
+ */
+
+errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, struct vtd *vtd);
+errval_t vtd_ctxt_table_destroy(struct vtd_ctxt_table *ct);
+errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt,
+                            struct vtd_domain *dom,
+                            struct vtd_domain_mapping *mapping);
+errval_t vtd_ctxt_table_unmap(struct vtd_domain_mapping *mapping);
+bool vtd_ctxt_table_valid(struct vtd_ctxt_table *ct);
+/*
+ * ===========================================================================
+ * Intel VT-d Domains
+ * ===========================================================================
+ */
+
+
+errval_t vtd_domains_init(vtd_domid_t max_domains);
+errval_t vtd_domains_create(struct vtd_domain **domain, struct capref rootpt);
+errval_t vtd_domains_destroy(struct vtd_domain *domain);
+errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev);
+errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *dev);
+
+
+/*
+ * ===========================================================================
+ * Intel VT-d Devices
+ * ===========================================================================
+ */
+errval_t vtd_devices_init(void);
+errval_t vtd_devices_create(uint8_t bus, uint8_t dev,
+                            uint8_t fun, struct iommu_binding *binding,
+                            struct vtd_device **rdev);
+errval_t vtd_devices_destroy(struct vtd_device *dev);
+errval_t vtd_devices_remove_from_domain(struct vtd_device *dev);
+struct vtd_device *vtd_devices_get(uint8_t bus, uint8_t dev, uint8_t fun);
+struct vtd_device *vtd_devices_get_by_cap(struct capref cap);
+
+
+
+/*
+ * ===========================================================================
+ * Intel VT-d Interrupt Remapping
+ * ===========================================================================
+ */
+
+
+errval_t vtd_interrupt_remapping_init(struct vtd *vtd);
+
+
+
+
+
 
 static inline bool vtd_device_tlb_present(struct vtd *v)
 {
@@ -226,42 +311,12 @@ static inline struct vtd *vtd_get_for_device(uint8_t bus, uint8_t dev,
     return NULL;
 }
 
-static inline struct vtd_ctxt_table *vtd_get_ctxt_table(struct vtd *vtd, uint8_t idx)
-{
-    return &vtd->ctxt_tables[idx];
-}
-
-/* root table */
-errval_t vtd_root_table_create(struct vtd_root_table *rt, struct vtd *vtd);
-errval_t vtd_root_table_destroy(struct vtd_root_table *rt);
 
 
 
 
-errval_t vtd_root_table_map(struct vtd_root_table *rt, uint8_t idx,
-                            struct vtd_ctxt_table *ctx);
-errval_t vtd_root_table_unmap(struct vtd_root_table *rt, size_t idx);
 
 
-
-/* context table */
-errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, struct vtd *vtd);
-errval_t vtd_ctxt_table_destroy(struct vtd_ctxt_table *ct);
-errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt,
-                            struct vtd_domain *dom,
-                            struct vtd_domain_mapping *mapping);
-errval_t vtd_ctxt_table_unmap(struct vtd_domain_mapping *mapping);
-
-
-
-
-errval_t vtd_domains_init(vtd_domid_t max_domains);
-errval_t vtd_domains_create(struct vtd_domain **domain, struct capref rootpt);
-errval_t vtd_domains_destroy(struct vtd_domain *domain);
-errval_t vtd_domains_add_device(struct vtd_domain *d, uint8_t bus, uint8_t dev,
-                                uint8_t fun);
-errval_t vtd_domains_remove_device(struct vtd_domain *d, uint8_t bus, uint8_t dev,
-                                   uint8_t fun);
 
 static inline vtd_domid_t vtd_domains_get_id(struct vtd_domain *d)
 {
@@ -271,8 +326,6 @@ static inline vtd_domid_t vtd_domains_get_id(struct vtd_domain *d)
 
 
 
-
-errval_t vtd_interrupt_remapping_init(struct vtd *vtd);
 
 
 

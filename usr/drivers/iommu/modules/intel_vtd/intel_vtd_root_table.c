@@ -126,10 +126,6 @@ errval_t vtd_root_table_map(struct vtd_root_table *rt, uint8_t idx,
 {
     errval_t err;
 
-    if (ctx->root_table_idx >= VTD_NUM_ROOT_ENTRIES) {
-        return SYS_ERR_SLOTS_INVALID;
-    }
-
     struct capref mappingcap = {
         .cnode =rt->mappigncn,
         .slot = idx
@@ -154,6 +150,6 @@ errval_t vtd_root_table_unmap(struct vtd_root_table *rt, size_t idx)
         .slot = idx
     };
 
-    return vnode_unmap(rt->rtcap, mappingcap)
+    return vnode_unmap(rt->rtcap, mappingcap);
 }
 

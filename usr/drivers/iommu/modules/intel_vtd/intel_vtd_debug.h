@@ -19,6 +19,8 @@
 
 #define INTEL_VTD_DEBUG_CTXT_ENABLED 1
 #define INTEL_VTD_DEBUG_ROOT_ENABLED 1
+#define INTEL_VTD_DEBUG_DEVICES_ENABLED 1
+#define INTEL_VTD_DEBUG_DOMAINS_ENABLED 1
 
 #define INTEL_VTD_DEBUG(X...) debug_printf("[vtd] " X);
 
@@ -62,6 +64,18 @@
 #define INTEL_VTD_DEBUG_RTABLE(x...) INTEL_VTD_DEBUG_PRINT("[root] " x)
 #else
 #define INTEL_VTD_DEBUG_RTABLE(x...)
+#endif
+
+#if INTEL_VTD_DEBUG_DEVICES_ENABLED
+#define INTEL_VTD_DEBUG_DEVICES(x...) INTEL_VTD_DEBUG_PRINT("[devs] " x)
+#else
+#define INTEL_VTD_DEBUG_DEVICES(x...)
+#endif
+
+#if INTEL_VTD_DEBUG_DOMAINS_ENABLED
+#define INTEL_VTD_DEBUG_DOMAINS(x...) INTEL_VTD_DEBUG_PRINT("[doms] " x)
+#else
+#define INTEL_VTD_DEBUG_DOMAINS(x...)
 #endif
 
 

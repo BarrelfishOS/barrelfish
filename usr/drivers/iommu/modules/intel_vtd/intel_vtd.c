@@ -16,6 +16,16 @@
 #include "intel_vtd_iotlb.h"
 
 
+static struct vtd *vtd_unit_list = NULL;
+
+static void vtd_unit_insert(struct vtd *vtd)
+{
+    vtd->next = vtd_unit_list;
+    vtd_unit_list = vtd;
+}
+
+
+
 static errval_t vtd_parse_capabilities(struct vtd *vtd)
 {
     /*
@@ -613,6 +623,8 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs)
         goto err_out;
     }
 
+    vtd_unit_insert(vtd);
+
     return SYS_ERR_OK;
 
     err_out:
@@ -655,6 +667,28 @@ errval_t vtd_set_root_table(struct vtd *v)
     vtd_cmd_set_root_table_ptr(v, id.base);
 
     vtd_iotlb_invalidate(v);
+
+    return SYS_ERR_OK;
+}
+
+
+errval_t vtd_get_ctxt_table_by_id(struct vtd *vtd, uint8_t idx,
+                                  struct vtd_ctxt_table **table)
+{
+    errval_t err;
+
+    if (!vtd_ctxt_table_valid(&vtd->ctxt_tables[idx])) {
+        err = vtd_ctxt_table_create(&vtd->ctxt_tables[idx], vtd);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        err = vtd_root_table_map(&vtd->root_table, idx, &vtd->ctxt_tables[idx]);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    *table = &vtd->ctxt_tables[idx];
 
     return SYS_ERR_OK;
 }

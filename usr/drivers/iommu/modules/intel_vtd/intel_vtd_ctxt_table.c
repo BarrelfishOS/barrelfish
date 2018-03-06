@@ -162,6 +162,7 @@ errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt, struct vtd_domain *dom,
 
 errval_t vtd_ctxt_table_unmap(struct vtd_domain_mapping *mapping)
 {
+#if 0
     errval_t err;
 
     struct vtd_ctxt_table *ct = vtd_get_ctxt_table(mapping->vtd, mapping->idx);
@@ -172,8 +173,12 @@ errval_t vtd_ctxt_table_unmap(struct vtd_domain_mapping *mapping)
     }
 
     mapping->mappingcap = NULL_CAP;
-
+#endif
     return SYS_ERR_OK;
 }
 
 
+bool vtd_ctxt_table_valid(struct vtd_ctxt_table *ct)
+{
+    return ct->root_table && !capref_is_null(ct->ctcap);
+}

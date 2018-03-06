@@ -17,7 +17,7 @@ vtd_domid_t domains_next = 1;
 struct vtd_domain **domains_all = NULL;
 
 #define PCI_DEVICES_MAX 256
-
+#if 0
 static struct vtd_domain_mapping *device_mappings[PCI_DEVICES_MAX] = {0};
 
 
@@ -37,6 +37,7 @@ vtd_domains_get_device_mapping(uint8_t bus, uint8_t dev, uint8_t fun)
 
     return &device_mappings[bus][vtd_dev_fun_to_ctxt_id(dev, fun)];
 }
+#endif
 
 
 errval_t vtd_domains_init(vtd_domid_t num_domains)
@@ -164,10 +165,10 @@ errval_t vtd_domains_destroy(struct vtd_domain *domain)
     return SYS_ERR_OK;
 }
 
-errval_t vtd_domains_add_device(struct vtd_domain *d, uint8_t bus, uint8_t dev,
-                                uint8_t fun)
+errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev)
 {
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
+    #if 0
 
     //if (!valid_device(bus, dev, func)) ;
     struct vtd *vtd = vtd_get_for_device(bus, dev, fun);
@@ -194,15 +195,15 @@ errval_t vtd_domains_add_device(struct vtd_domain *d, uint8_t bus, uint8_t dev,
     d->devmappings->prev = devmap;
     devmap->next         = d->devmappings;
     d->devmappings       = devmap;
-
+#endif
     return err;
 }
 
-errval_t vtd_domains_remove_device(struct vtd_domain *d, uint8_t bus,
-                                   uint8_t dev, uint8_t fun)
+errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *dev)
 {
-    errval_t err;
+    errval_t err = SYS_ERR_OK;
 
+    #if 0
     struct vtd_domain_mapping *devmap;
     devmap = vtd_domains_get_device_mapping(bus, dev, fun);
     if (!capref_is_null(devmap->mappingcap)) {
@@ -224,6 +225,7 @@ errval_t vtd_domains_remove_device(struct vtd_domain *d, uint8_t bus,
     } else {
         devmap->domain->devmappings = devmap->next;
     }
+    #endif
 
     return err;
 }
