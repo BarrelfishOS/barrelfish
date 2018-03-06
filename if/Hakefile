@@ -46,6 +46,7 @@
                "intermon",
                "interphi",
                "ioat_dma_mgr",
+               "iommu",
                "keyboard",
                "lock",
                "mem",

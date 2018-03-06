@@ -1,0 +1,22 @@
+/*
+ * Copyright (c) 2018, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich.
+ * Attn: Systems Group.
+ */
+
+interface iommu "IOMMU Service " {
+
+    rpc create_domain(in cap pml4, out errval err);
+
+    rpc delete_domain(in cap pml4, out errval err);
+
+    rpc add_device(in uint32 seg, in uint32 bus, in uint32 dev, in uint32 funct, in cap pml4, out errval err);
+
+    rpc remove_device(in uint32 seg, in uint32 bus, in uint32 dev, in uint32 funct, in cap pml4, out errval err);
+
+    rpc id_dom_add_devices(out errval err);
+};
