@@ -37,7 +37,7 @@
     target = "iommu",
     cFiles = [ "main.c"],
     addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-    addLibraries = libDeps [ "driverkit", "thc", "skb", "octopus" ],
+    addLibraries = libDeps [ "driverkit", "numa", "skb", "octopus" ],
     addModules = [ "intel_vtd_module", "arm_smmu_module", "amd_iommu_module" ],
     architectures = [ "armv8", "x86_64" ]
   }

@@ -8,19 +8,21 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <numa.h>
+
 #include "intel_vtd.h"
 
-/* XXX: have this as caps, VTD_ROOT_TABLE and VTD_CTX_TABLE */
 
-errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, nodeid_t proximity)
+errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, struct vtd *vtd)
 {
 
     errval_t err;
 
     INTEL_VTD_DEBUG_CTABLE("creating context table\n");
+    assert(capref_is_null(ct->ctcap));
+    assert(capref_is_null(ct->mappingcncap));
 
     /* allocate slots for capability and */
-
     err = slot_alloc_root(&ct->mappingcncap);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
@@ -33,14 +35,16 @@ errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, nodeid_t proximity)
     }
 
     struct capref ramcap;
-    err = iommu_allocate_ram(&ramcap, BASE_PAGE_BITS, proximity);
+    err = numa_ram_alloc_on_node(&ramcap, BASE_PAGE_SIZE, vtd->proximity_domain,
+                                 NULL);
     if (err_is_fail(err)) {
         err = err_push(err, LIB_ERR_RAM_ALLOC);
         goto err_out_2;
     }
 
     struct capref ramcap2;
-    err = iommu_allocate_ram(&ramcap2, L2_CNODE_BITS + OBJBITS_CTE, proximity);
+    err = numa_ram_alloc_on_node(&ramcap2, (1UL << (L2_CNODE_BITS + OBJBITS_CTE)),
+                                 vtd->proximity_domain, NULL);
     if (err_is_fail(err)) {
         err = err_push(err, LIB_ERR_RAM_ALLOC);
         goto err_out_3;
@@ -61,7 +65,6 @@ errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, nodeid_t proximity)
     }
 
     /* clean up */
-
     err = cap_destroy(ramcap);
     if (err_is_fail(err)) {
         err = err_push(err, LIB_ERR_CAP_DESTROY);
@@ -89,6 +92,7 @@ errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, nodeid_t proximity)
     return err;
 }
 
+
 errval_t vtd_ctxt_table_destroy(struct vtd_ctxt_table *ct)
 {
     INTEL_VTD_DEBUG_CTABLE("destroying context table\n");
@@ -105,44 +109,16 @@ errval_t vtd_ctxt_table_destroy(struct vtd_ctxt_table *ct)
         assert(err_is_ok(err));
     }
 
-    return SYS_ERR_OK;
-}
-
-errval_t vtd_ctxt_table_create_all(struct vtd_ctxt_table *ct, nodeid_t proximity)
-{
-    errval_t err;
-
-    size_t i;
-    for (i = 0; i < VTD_NUM_ROOT_ENTRIES; i++) {
-        err = vtd_ctxt_table_create(&ct[i], proximity);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "TODO: fix me\n");
-        }
-    }
+    memset(ct, 0, sizeof(*ct));
 
     return SYS_ERR_OK;
 }
 
-errval_t vtd_ctxt_table_destroy_all(struct vtd_ctxt_table *ct)
-{
-    errval_t err;
-
-    size_t i;
-    for (i = 0; i < VTD_NUM_ROOT_ENTRIES; i++) {
-        err = vtd_ctxt_table_destroy(&ct[i]);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "TODO: fix me\n");
-        }
-    }
-
-    return SYS_ERR_OK;
-}
 
 errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt, struct vtd_domain *dom,
                             struct vtd_domain_mapping *mapping)
 {
     errval_t err;
-
 
     struct vnode_identity id;
     err = invoke_vnode_identify(dom->ptroot, &id);
@@ -178,6 +154,7 @@ errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt, struct vtd_domain *dom,
     }
 
     mapping->mappingcap = mappingcap;
+
 
     USER_PANIC("NYI");
     return SYS_ERR_OK;

@@ -8,15 +8,20 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <numa.h>
+
 #include "intel_vtd.h"
 
 /* XXX: have this as caps, VTD_ROOT_TABLE and VTD_CTX_TABLE */
 
-errval_t vtd_root_table_create(struct vtd_root_table *rt, nodeid_t proximity)
+errval_t vtd_root_table_create(struct vtd_root_table *rt, struct vtd *vtd)
 {
     errval_t err;
 
     INTEL_VTD_DEBUG_RTABLE("creating root table\n");
+
+    assert(capref_is_null(rt->rtcap));
+    assert(capref_is_null(rt->mappingcncap));
 
     /* allocate slots for capability and */
 
@@ -32,14 +37,16 @@ errval_t vtd_root_table_create(struct vtd_root_table *rt, nodeid_t proximity)
     }
 
     struct capref ramcap;
-    err = iommu_allocate_ram(&ramcap, BASE_PAGE_BITS, proximity);
+    err = numa_ram_alloc_on_node(&ramcap, BASE_PAGE_SIZE, vtd->proximity_domain,
+                                 NULL);
     if (err_is_fail(err)) {
         err = err_push(err, LIB_ERR_RAM_ALLOC);
         goto err_out_2;
     }
 
     struct capref ramcap2;
-    err = iommu_allocate_ram(&ramcap2, L2_CNODE_BITS + OBJBITS_CTE, proximity);
+    err = numa_ram_alloc_on_node(&ramcap2, (1UL << (L2_CNODE_BITS + OBJBITS_CTE)),
+                                 vtd->proximity_domain, NULL);
     if (err_is_fail(err)) {
         err = err_push(err, LIB_ERR_RAM_ALLOC);
         goto err_out_3;
@@ -72,6 +79,8 @@ errval_t vtd_root_table_create(struct vtd_root_table *rt, nodeid_t proximity)
         err = err_push(err, LIB_ERR_CAP_DESTROY);
         DEBUG_ERR(err, "ignoring destorying of ramcap\n");
     }
+
+    rt->vtd = vtd;
 
     return SYS_ERR_OK;
 
@@ -106,16 +115,18 @@ errval_t vtd_root_table_destroy(struct vtd_root_table *rt)
         assert(err_is_ok(err));
     }
 
+    memset(rt, 0, sizeof(*rt));
+
     return SYS_ERR_OK;
 }
 
 
-errval_t vtd_root_table_map(struct vtd_root_table *rt, size_t idx,
+errval_t vtd_root_table_map(struct vtd_root_table *rt, uint8_t idx,
                             struct vtd_ctxt_table *ctx)
 {
     errval_t err;
 
-    if (!(idx < VTD_NUM_ROOT_ENTRIES)) {
+    if (ctx->root_table_idx >= VTD_NUM_ROOT_ENTRIES) {
         return SYS_ERR_SLOTS_INVALID;
     }
 
@@ -124,34 +135,25 @@ errval_t vtd_root_table_map(struct vtd_root_table *rt, size_t idx,
         .slot = idx
     };
 
-    struct vnode_identity id;
-    err = invoke_vnode_identify(ctx->ctcap, &id);
-
-    INTEL_VTD_DEBUG_RTABLE("mapping root table [%zu] -> 0x%" PRIx64 "\n",
-                    idx, id.base);
-
-    return vnode_map(rt->rtcap, ctx->ctcap, idx, 0, 0, 1, mappingcap);
-}
-
-errval_t vtd_root_table_map_all(struct vtd_root_table *rt,
-                                struct vtd_ctxt_table *ctx)
-{
-    errval_t err;
-
-    size_t i;
-    for (i = 0; i < VTD_NUM_ROOT_ENTRIES; i++) {
-        err = vtd_root_table_map(rt, i, &ctx[i]);
-        if (err_is_fail(err)) {
-            return err;
-        }
+    err =vnode_map(rt->rtcap, ctx->ctcap, idx, 0, 0, 1, mappingcap);
+    if (err_is_fail(err)) {
+        return err;
     }
+
+    ctx->root_table = rt;
+    ctx->root_table_idx = idx;
 
     return SYS_ERR_OK;
 }
+
 
 errval_t vtd_root_table_unmap(struct vtd_root_table *rt, size_t idx)
 {
-    USER_PANIC("NYI");
-    return SYS_ERR_OK;
+    struct capref mappingcap = {
+        .cnode =rt->mappigncn,
+        .slot = idx
+    };
+
+    return vnode_unmap(rt->rtcap, mappingcap)
 }
 

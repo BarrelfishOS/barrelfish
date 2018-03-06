@@ -8,20 +8,13 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <skb/skb.h>
+#include <numa.h>
+
 #include "intel_vtd.h"
 #include "intel_vtd_commands.h"
 #include "intel_vtd_iotlb.h"
 
-static inline uint8_t vtd_get_supported_bits(struct vtd *vtd)
-{
-    if (vtd_CAP_sllps30_rdf(&vtd->vtd_dev)) {
-        return 30;
-    } else if (vtd_CAP_sllps21_rdf(&vtd->vtd_dev)) {
-        return 21;
-    } else {
-        return 12;
-    }
-}
 
 static errval_t vtd_parse_capabilities(struct vtd *vtd)
 {
@@ -353,6 +346,11 @@ static errval_t vtd_parse_capabilities(struct vtd *vtd)
            (vtd->capabilities.page_requests && vtd->capabilities.extended_context));
     INTEL_VTD_DEBUG_CAP("Extended context support: %u\n",
                         vtd->capabilities.extended_context);
+    if (vtd->capabilities.extended_context) {
+        vtd->entry_type = VTD_ENTRY_TYPE_EXTENDED;
+    } else {
+        vtd->entry_type = VTD_ENTRY_TYPE_BASE;
+    }
 
     /*
      * MTS: Memory Type Support
@@ -468,14 +466,89 @@ static errval_t vtd_check_version(struct vtd *vtd)
     return SYS_ERR_OK;
 }
 
+static errval_t vtd_get_proximity(genpaddr_t base, nodeid_t *prox)
+{
+    INTEL_VTD_DEBUG("Obtaining proximity for 0x%" PRIxGENPADDR "\n", base);
+
+    errval_t err;
+    err = skb_execute_query("dmar_rhsa(P, %" PRIuGENPADDR "),write(proximity(P)).",
+                            base);
+    if (err_is_fail(err)) {
+        if (numa_num_configured_nodes() == 1) {
+            INTEL_VTD_DEBUG("no proximity information. Setting to 0");
+            *prox = 0;
+            return SYS_ERR_OK;
+        }
+        DEBUG_ERR(err, "SKB query failed: %s\n ", skb_get_error_output());
+
+        return err;
+    }
+    uint32_t p;
+    err = skb_read_output("proximity(%d)", &p);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Extracting proximity failed. '%s'\n", skb_get_output());
+        return err;
+    }
+
+    INTEL_VTD_DEBUG("Proximity is %" PRIu32 "\n", p);
+
+    *prox = (nodeid_t)p;
+
+    return SYS_ERR_OK;
+}
+
+static errval_t vtd_get_segment_and_flags(genpaddr_t base, uint8_t *flags,
+                                          uint16_t *seg)
+{
+    INTEL_VTD_DEBUG("Obtaining PCI Segment and flags for 0x%" PRIxGENPADDR "\n",
+                    base);
+
+    errval_t err;
+    err = skb_execute_query("dmar_drhd(F,S,%" PRIuGENPADDR "),write(segflags(F,S)).",
+                            base);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Getting segment and flags failed. '%s'\n",
+                  skb_get_output());
+        return err;
+    }
+    uint32_t f, s;
+    err = skb_read_output("segflags(%d,%d)", &f, &s);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Extracting segment and flags failed. '%s'\n",
+                  skb_get_output());
+        return err;
+    }
+
+    INTEL_VTD_DEBUG("Segment is %" PRIu32 ", Flags are %" PRIu32 "\n", s, f);
+
+    *flags = (uint8_t)f;
+    *seg = (uint16_t)s;
+
+    return SYS_ERR_OK;
+}
 
 
-errval_t vtd_create(struct vtd *vtd, struct capref regs, uint16_t segment,
-                    nodeid_t proximity)
+errval_t vtd_create(struct vtd *vtd, struct capref regs)
 {
     errval_t err;
 
-    INTEL_VTD_DEBUG("initializing iommu for segment %u\n", segment);
+    INTEL_VTD_DEBUG("initializing iommu\n");
+
+    struct frame_identity id;
+    err = invoke_frame_identify(regs, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = vtd_get_segment_and_flags(id.base, &vtd->flags, &vtd->pci_segment);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = vtd_get_proximity(id.base, &vtd->proximity_domain);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     /* map the registers */
     void *registers_vbase;
@@ -498,10 +571,6 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs, uint16_t segment,
     vtd_initialize(&vtd->vtd_dev, registers_vbase,
                    registers_vbase + iro, registers_vbase + fro);
 
-
-    vtd->pci_segment = segment;
-
-
     err = vtd_check_version(vtd);
     if (err_is_fail(err)) {
         return err;
@@ -510,65 +579,44 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs, uint16_t segment,
     /* parse the capability and extended capability register */
     vtd_parse_capabilities(vtd);
 
-
-    /* TODO: set these according to the record or args */
-
-    if (vtd_ECAP_ecs_rdf(&vtd->vtd_dev)) {
-        INTEL_VTD_DEBUG("Extended Context Entry Supported\n");
-        vtd->entry_type = VTD_ENTRY_TYPE_EXTENDED;
-        INTEL_VTD_DEBUG("Override: Use base entries\n");
-        vtd->entry_type = VTD_ENTRY_TYPE_BASE;
-    } else {
-        INTEL_VTD_DEBUG("Using base contex entries\n");
-        vtd->entry_type = VTD_ENTRY_TYPE_BASE;
-    }
-
-
+    /* initialize the domains */
     err = vtd_domains_init(vtd->max_domains);
     if (err_is_fail(err)) {
         goto err_out;
     }
 
+    /* initialize the interrupt remapping unit */
     err = vtd_interrupt_remapping_init(vtd);
     if (err_is_fail(err)) {
         goto err_out;
     }
 
-
-
-
     /* create the root table */
-    err = vtd_root_table_create(&vtd->root_table, proximity);
+    err = vtd_root_table_create(&vtd->root_table, vtd);
     if (err_is_fail(err)) {
         goto err_out;
     }
 
-    err = vtd_ctxt_table_create_all(vtd->ctxt_tables, proximity);
-    if (err_is_fail(err)) {
-        goto err_out_1;
-    }
-
-    /* inserting context tables */
-    err = vtd_root_table_map_all(&vtd->root_table, vtd->ctxt_tables);
-    if (err_is_fail(err)) {
-        goto err_out_2;
-    }
-
+    INTEL_VTD_DEBUG("Setting root table\n");
     vtd_set_root_table(vtd);
 
+    INTEL_VTD_DEBUG("Enabling translation unit\n");
     vtd_cmd_translation_enable(vtd);
 
+    if (!(vtd->capabilities.page_walk_coherency & vtd->capabilities.snoop_control)) {
+        INTEL_VTD_NOTICE("VT-d is not coherent with processor caches!");
+    }
 
-//    skb_add_fact("vtd_enabled(%"PRIu16",%"PRIu8").", u->pci_seg, vtd_coherency(u));
+    err = skb_add_fact("iommu_enabled(%"PRIu16",%"PRIu8").", vtd->pci_segment,
+                       vtd->capabilities.page_walk_coherency & vtd->capabilities.snoop_control);
+    if (err_is_fail(err)) {
+        goto err_out;
+    }
 
     return SYS_ERR_OK;
 
-    err_out_2:
-    vtd_ctxt_table_destroy_all(vtd->ctxt_tables);
-    err_out_1:
-    vtd_root_table_destroy(&vtd->root_table);
     err_out:
-    vspace_unmap(registers_vbase);
+    vtd_destroy(vtd);
     return err;
 
 }
@@ -606,42 +654,7 @@ errval_t vtd_set_root_table(struct vtd *v)
     // Update the root-table pointer
     vtd_cmd_set_root_table_ptr(v, id.base);
 
-    // Globally invalidate the context-cache and then globally invalidate
-    // the IOTLB (only in this order).
-    //vtd_context_cache_glob_inval(unit);
-
     vtd_iotlb_invalidate(v);
 
     return SYS_ERR_OK;
 }
-
-#if 0
-
-
-#define VTD_ENABLE_DISABLE_TIMEOUT 10000
-
-static errval_t vtd_toggle_translation(struct vtd *vtd, bool enable)
-{
-    vtd_GCMD_te_wrf(&vtd->vtd_dev, 1);
-    for (size_t i = 0; i < VTD_ENABLE_DISABLE_TIMEOUT; i++) {
-        if (vtd_GSTS_tes_rdf(&vtd->vtd_dev) == enable) {
-            return SYS_ERR_OK;
-        }
-    }
-    if (vtd_GSTS_tes_rdf(&vtd->vtd_dev) == enable) {
-        return SYS_ERR_OK;
-    }
-    USER_PANIC("ENABLE TRANSLATION TIMEOUT\n");
-    return -1;
-}
-
-errval_t vtd_enable_translation(struct vtd *vtd)
-{
-    return vtd_toggle_translation(vtd, true);
-}
-
-errval_t vtd_disable_translation(struct vtd *vtd)
-{
-    return vtd_toggle_translation(vtd, false);
-}
-#endif

@@ -14,6 +14,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <driverkit/driverkit.h>
+#include <skb/skb.h>
 
 #include "intel_vtd.h"
 
@@ -21,6 +22,7 @@
 
 
 vregion_flags_t vtd_table_map_attrs = VREGION_FLAGS_READ_WRITE;
+
 
 /**
  * Driver initialization function. This function is called by the driver domain
@@ -46,20 +48,30 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
 
     DRIVER_DEBUG("Initialize: %s\n", name);
 
+    debug_printf("Initializing Intel VT-d driver module...\n");
+
     if (capref_is_null(caps[0])) {
         return DRIVERKIT_ERR_NO_CAP_FOUND;
     }
+
+    struct frame_identity id;
+    err = invoke_frame_identify(caps[0], &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    for (size_t i = 0; i < args_len; i++) {
+        debug_printf("ARG[%zu]=%s\n", i, args[i]);
+    }
+
+    debug_printf("NAME=%s\n", name);
 
     struct vtd *vtd = calloc(sizeof(*vtd), 1);
     if (vtd == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    /* XXX: get the correct one */
-    uint16_t segment =0;
-    nodeid_t proximity = 0;
-
-    err = vtd_create(vtd, caps[0], segment, proximity);
+    err = vtd_create(vtd, caps[0]);
     if (err_is_fail(err)) {
         goto err_out;
     }

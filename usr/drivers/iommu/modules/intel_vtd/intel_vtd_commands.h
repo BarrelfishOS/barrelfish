@@ -13,6 +13,7 @@
 #include <dev/vtd_dev.h>
 
 #include "intel_vtd_debug.h"
+#include "intel_vtd.h"
 
 #define INTEL_VTD_COMMAND_TIMEOUT 0x1000
 
@@ -88,6 +89,9 @@ static inline void vtd_cmd_adv_fault_logging_disable(struct vtd *vtd)
 
 static inline void vtd_cmd_write_buffer_flush(struct vtd *vtd)
 {
+    if (!vtd->capabilities.req_wb_flush) {
+        return;
+    }
     bool pending;
     uint32_t timeout = INTEL_VTD_COMMAND_TIMEOUT;
     vtd_GCMD_wbf_wrf(&vtd->vtd_dev, 1);

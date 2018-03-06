@@ -1,27 +1,6 @@
 /**
  * \file
- * \brief Driver domain example.
- *
- * Implements a simple driver domain. This domain does two things:
- *
- * (a) it prints all the driver modules found
- *     There are a three things necessary for the driver module system to work:
- *     - A custom ELF section in the driver domain called .bfdrivers where
- *       all bfdriver structs are located.
- *     - A linker script that defines the section and two symbols
- *       `bfdrivers_start` and `bfdrivers_end` that mark the end and beginning
- *       of the section.
- *     - A special way to link the driver modules (using addModules) in hake,
- *       which makes sure the symbols are included in the binary without explicitly
- *       referencing them.
- *     For more information on how works, check the driverkit.h file as well
- *     along with modules.c in lib/driverkit.
- *
- * (b) it connects to the driver domain controller (Kaluga) and makes
- *     sure it handles it's requests (defined in ddomain.if) to create,
- *     destroy driver instances.
- *     The corresponding code for (b) is found in the driverkit library
- *     specifically in file ddomain_service.c
+ * \brief IOMMU Driver
  */
 /*
  * Copyright (c) 2016, ETH Zurich.
@@ -38,8 +17,16 @@
 #include <assert.h>
 
 #include <barrelfish/barrelfish.h>
-#include <driverkit/driverkit.h>
 #include <barrelfish/nameservice_client.h>
+#include <driverkit/driverkit.h>
+#include <driverkit/iommu.h>
+#include <skb/skb.h>
+
+#include <numa.h>
+
+
+
+
 
 /**
  * Instantiate the driver domain.
@@ -48,24 +35,46 @@
  */
 int main(int argc, char** argv)
 {
-    size_t drivers = 0;
+    errval_t err;
+
+
+    /*
+     size_t drivers = 0;
     struct bfdriver* cur = NULL;
     driverkit_list(&cur, &drivers);
     for (size_t i=0; i<drivers; i++) {
         printf("%s:%s:%d: Found device driver class = %s\n", __FILE__, __FUNCTION__, __LINE__, cur->name);
         cur += 1;
     }
-    /*for (size_t i=0; i<argc; i++) {
+    for (size_t i=0; i<argc; i++) {
         printf("%s:%s:%d: argv[i] = %s\n", __FILE__, __FUNCTION__, __LINE__, argv[i]);
     }*/
 
+    err = skb_client_connect();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to connect to the SKB.");
+    }
 
+    err = numa_available();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Failed to initialize libnuma");
+    }
+
+    err = driverkit_iommu_service_init();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Failed to create the IOMMU service\n");
+    }
 
     iref_t kaluga_iref = 0;
-    errval_t err = nameservice_blocking_lookup("ddomain_controller", &kaluga_iref);
-    assert(err_is_ok(err));
+    err = nameservice_blocking_lookup("ddomain_controller", &kaluga_iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Failed to connect to ddomain controller");
+    }
+
     err = ddomain_communication_init(kaluga_iref, atoi(argv[2]));
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Failed to initiate communication with Kaluga");
+    }
 
     while(1) {
         err = event_dispatch(get_default_waitset());

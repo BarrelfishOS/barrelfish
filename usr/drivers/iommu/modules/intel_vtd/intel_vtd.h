@@ -85,6 +85,28 @@ struct vtd_ctxt_table {
     uint8_t                 root_table_idx;
 };
 
+/**
+ * @brief represents a device context in the VT-d
+ */
+struct vtd_device {
+    ///< pci bus
+    uint8_t                 bus;
+
+    ///< pci device
+    uint8_t                 device;
+
+    ///< pci function
+    uint8_t                 function;
+
+    ///< the mapping cap for this device
+    struct capref           mappingcap;
+
+    ///< the context table this device is mapped in
+    struct vtd_ctxt_table  *ctxt_table;
+
+    ///< the protection domain of the device
+    struct vtd_domain      *domain;
+};
 
 /**
  * @brief represents a protection domain of the VT-d unit
@@ -98,7 +120,6 @@ struct vtd_domain {
 
     ///< the physical base address of the root page table
     lpaddr_t                    ptroot_base;
-
 
     ///< list of mappings
     struct vtd_domain_mapping  *devmappings;
@@ -134,7 +155,7 @@ struct vtd {
     vtd_t                   vtd_dev;
 
     vtd_version_t           version;
-
+    uint8_t                 flags;
 
     uint16_t                pci_segment;
     vtd_entry_type_t        entry_type;
@@ -144,6 +165,8 @@ struct vtd {
 
     /* the context descriptor tables */
     struct vtd_ctxt_table    ctxt_tables[VTD_NUM_ROOT_ENTRIES];
+
+    nodeid_t proximity_domain;
 
     struct vtd_domain        **domains;
     uint16_t                 max_domains;
@@ -188,8 +211,7 @@ struct vtd {
 };
 
 
-errval_t vtd_create(struct vtd *v, struct capref regs, uint16_t segment,
-                    nodeid_t proximity);
+errval_t vtd_create(struct vtd *v, struct capref regs);
 errval_t vtd_destroy(struct vtd *v);
 errval_t vtd_set_root_table(struct vtd *vtd);
 
@@ -210,23 +232,27 @@ static inline struct vtd_ctxt_table *vtd_get_ctxt_table(struct vtd *vtd, uint8_t
 }
 
 /* root table */
-errval_t vtd_root_table_create(struct vtd_root_table *rt, nodeid_t proximity);
+errval_t vtd_root_table_create(struct vtd_root_table *rt, struct vtd *vtd);
 errval_t vtd_root_table_destroy(struct vtd_root_table *rt);
-errval_t vtd_root_table_map(struct vtd_root_table *rt, size_t idx,
+
+
+
+
+errval_t vtd_root_table_map(struct vtd_root_table *rt, uint8_t idx,
                             struct vtd_ctxt_table *ctx);
-errval_t vtd_root_table_map_all(struct vtd_root_table *rt,
-                                struct vtd_ctxt_table *ctx);
 errval_t vtd_root_table_unmap(struct vtd_root_table *rt, size_t idx);
 
+
+
 /* context table */
-errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, nodeid_t proximity);
-errval_t vtd_ctxt_table_create_all(struct vtd_ctxt_table *ct, nodeid_t proximity);
+errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, struct vtd *vtd);
 errval_t vtd_ctxt_table_destroy(struct vtd_ctxt_table *ct);
-errval_t vtd_ctxt_table_destroy_all(struct vtd_ctxt_table *ct);
 errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt,
                             struct vtd_domain *dom,
                             struct vtd_domain_mapping *mapping);
 errval_t vtd_ctxt_table_unmap(struct vtd_domain_mapping *mapping);
+
+
 
 
 errval_t vtd_domains_init(vtd_domid_t max_domains);
@@ -243,21 +269,11 @@ static inline vtd_domid_t vtd_domains_get_id(struct vtd_domain *d)
 }
 
 
+
+
+
 errval_t vtd_interrupt_remapping_init(struct vtd *vtd);
 
-/* some proxies to allocate memory */
-
-static inline errval_t iommu_allocate_memory_page(struct capref *frame,
-                                                  size_t bytes, nodeid_t proximity)
-{
-    return frame_alloc(frame, bytes, NULL);
-}
-
-static inline errval_t iommu_allocate_ram(struct capref *frame,
-                                          uint8_t bits, nodeid_t proximity)
-{
-    return ram_alloc(frame, bits);
-}
 
 
 
