@@ -598,9 +598,11 @@ struct vnode_identity {
  * \brief Values returned from the DeviceID identify invocation
  */
 struct device_identity {
-    uint16_t bus;
-    uint16_t device;
-    uint16_t function;
+    uint16_t segment;
+    uint8_t  bus;
+    uint8_t  device;
+    uint8_t  function;
+    uint8_t  type;
     uint16_t flags;
 };
 #endif // __ASSEMBLER__

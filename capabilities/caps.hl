@@ -365,8 +365,10 @@ cap DeviceIDManager is_always_copy {
 };
 
 cap DeviceID from DeviceIDManager {
-    uint16 bus;
-    uint16 device;
-    uint16 function;
+    uint16 segment;
+    uint8  bus;
+    uint8  device;
+    uint8  function;
+    uint8  type;
     uint16 flags;
 };

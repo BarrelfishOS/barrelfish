@@ -16,12 +16,6 @@
 
 #define DRIVERKIT_IOMMU_SERVICE_NAME "iommu_svc"
 
-/**
- * @brief initializes the IOMMU client library
- *
- * @return SYS_ERR_OK on success, errval on failure
- */
-errval_t driverkit_iommu_service_init(void);
 
 /**
  * @brief initializes the IOMMU client library
@@ -46,14 +40,14 @@ bool driverkit_iommu_present(void);
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_create_domain(void);
+errval_t driverkit_iommu_create_domain(struct capref rootpt);
 
 /**
  * @brief deletes a previously created protection domain
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_delete_domain(void);
+errval_t driverkit_iommu_delete_domain(struct capref rootpt);
 
 
 
@@ -62,16 +56,17 @@ errval_t driverkit_iommu_delete_domain(void);
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_add_device(void);
+errval_t driverkit_iommu_add_device(struct capref rootpt, struct capref dev);
 
 /**
  * @brief removes a device from a protection domain
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_remove_device(void);
+errval_t driverkit_iommu_remove_device(struct capref rootpt, struct capref dev);
 
 
+errval_t driverkit_iommu_clone_vspace(struct capref rootpt);
 
 
 #endif // DRIVERKIT_IOMMU_H
