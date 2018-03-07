@@ -242,8 +242,8 @@ void net_if_init(const char* cardname, uint64_t qid)
     } else if ((strcmp(cardname, "e10k") == 0) && (qid != 0)) {
         USER_PANIC("e10k queue NIY \n"); 
         struct e10k_queue* e10k;
-        err = e10k_queue_create(&e10k, int_handler, false, true, false);
-        assert(err_is_ok(err));
+        //err = e10k_queue_create(&e10k, int_handler, false, true, false);
+        //assert(err_is_ok(err));
 
         devq = (struct devq*) e10k; 
         card_mac = 0x1; // TODO 
