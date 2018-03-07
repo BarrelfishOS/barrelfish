@@ -23,6 +23,8 @@
 #       include <netif/e1000.h>
 #endif
 #include <arpa/inet.h>
+#include <skb/skb.h>
+#include <acpi_client/acpi_client.h>
 
 #include <if/e10k_defs.h>
 #include <if/e10k_vf_defs.h>
@@ -33,7 +35,7 @@
 #include "sleep.h"
 #include "helper.h"
 
-//#define VTON_DCBOFF TODO use if VFs are enabled
+#define VTON_DCBOFF
 //#define DCA_ENABLED
 
 //#define DEBUG(x...) printf("e10k: " x)
@@ -194,9 +196,42 @@ static uint32_t pci_device = PCI_DONT_CARE;
 static uint32_t pci_function = 0;
 static uint32_t pci_deviceid = E10K_PCI_DEVID;
 
+//static bool link_up = false;
+
+
 /* VFs alloacation data*/
 static bool vf_used[63];
 
+/*
+#define prnonz(x)                                               \
+    uint32_t x = e10k_##x##_rd(d);                           \
+    snprintf(str[cnt++], 32, #x "=%x \n", x);                      \
+
+static void stats_dump(void)
+{
+  char str[256][32];
+  int cnt = 0;
+  memset(str, 0, 256 * 32);
+
+    prnonz(ctrl);
+    prnonz(status);
+    prnonz(links);
+    prnonz(rxmemwrap);
+    prnonz(eicr);
+    prnonz(eics);
+    prnonz(eims);
+    prnonz(ssvpc);
+    prnonz(txdgpc);
+    prnonz(gptc);
+
+    if(cnt > 0) {
+      for(int i = 0; i < cnt; i++) {
+	    printf("PF: %s ", str[i]);
+      }
+      printf("\n");
+    }
+}
+*/
 static void e10k_flt_ftqf_setup(int idx, struct e10k_filter* filter)
 {
     uint16_t m = filter->mask;
@@ -530,6 +565,16 @@ static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector)
             *msix_index, core, dest, vector);
 }
 
+/*
+static void force_up(void* args)
+{
+    if (!link_up) {
+        e10k_autoc_flu_wrf(d, 1);
+        link_up = true;
+    }
+};
+*/
+
 /**
  * Initialize hardware registers.
  * Is also called after a reset of the device.
@@ -611,8 +656,26 @@ static void device_init(void)
     // Wait for DMA initialization
     while (e10k_rdrxctl_dma_initok_rdf(d) == 0); // TODO: Timeout
 
+    DEBUG("DMA UP\n");
     // Wait for link to come up
-    while (e10k_links_lnk_up_rdf(d) == 0); // TODO: Timeout
+    /*
+    struct deferred_event event;
+    deferred_event_init(&event);
+    err = deferred_event_register(&event, get_default_waitset(), 1000*1000*10,
+                                  MKCLOSURE(force_up, NULL));
+    if (err_is_fail(err)) {
+        USER_PANIC("Timeout setup failed \n");
+    }
+
+    while (!link_up) {
+        if (e10k_links_lnk_up_rdf(d) == 0) {    
+            link_up = true;
+        }
+        event_dispatch(get_default_waitset());
+    }
+    */
+    while(e10k_links_lnk_up_rdf(d) == 0);
+
     DEBUG("Link Up\n");
     milli_sleep(50);
 
@@ -780,7 +843,7 @@ static void device_init(void)
     e10k_mrqc_mrque_wrf(d, e10k_vrt_only);
     e10k_mtqc_rt_en_wrf(d, 0);
     e10k_mtqc_vt_en_wrf(d, 1);
-    e10k_mtqc_num_tc_wrf(d, 1);
+    e10k_mtqc_num_tc_wrf(d, 2);
     e10k_pfvtctl_vt_en_wrf(d, 1);
 #else
     e10k_rxpbsize_size_wrf(d, 0, 0x200);
@@ -819,7 +882,7 @@ static void device_init(void)
 
 #ifdef VTON_DCBOFF
     e10k_mflcn_rpfce_wrf(d, 0);
-    e10k_mflcn_rfce_wrf(d, 0);
+    e10k_mflcn_rfce_wrf(d, 1);
     e10k_fccfg_tfce_wrf(d, e10k_lfc_en);
 #else
     e10k_mflcn_rpfce_wrf(d, 1);
@@ -827,6 +890,20 @@ static void device_init(void)
     e10k_fccfg_tfce_wrf(d, e10k_pfc_en);
 #endif
 
+
+#ifdef VTON_DCBOFF
+    /* Causes ECC error (could be same problem as with l34timir (see e10k.dev) */
+    e10k_rttdqsel_txdq_idx_wrf(d, 0);
+    e10k_rttdt1c_wr(d, 0x3FFF);
+    e10k_rttbcnrc_wr(d, 0);
+
+    for (i = 1; i < 64; i++) {
+        e10k_rttdqsel_txdq_idx_wrf(d, i);
+        e10k_rttdt1c_wr(d, credit_refill[i]);   // Credit refill x 64 bytes
+        e10k_rttbcnrc_wr(d, 0);
+    }
+
+#else
     /* Causes ECC error (could be same problem as with l34timir (see e10k.dev) */
     for (i = 0; i < 128; i++) {
         e10k_rttdqsel_txdq_idx_wrf(d, i);
@@ -846,6 +923,7 @@ static void device_init(void)
             printf("Setting rate for queue %d to %u\n", i, tx_rate[i]);
         }
     }
+#endif
 
     for (i = 0; i < 8; i++) {
         e10k_rttdt2c_wr(d, i, 0);
@@ -997,8 +1075,8 @@ static void queue_hw_init(uint8_t n, bool set_tail)
         e10k_psrtype_split_ip6_wrf(d, n, 1);
         e10k_psrtype_split_l2_wrf(d, n, 1);
     } else {
-        //e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
-        e10k_srrctl_1_desctype_wrf(d, n, e10k_legacy);
+        e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
+        //e10k_srrctl_1_desctype_wrf(d, n, e10k_legacy);
     }
     e10k_srrctl_1_bsz_hdr_wrf(d, n, 128 / 64); // TODO: Do 128 bytes suffice in
                                                //       all cases?
@@ -1276,6 +1354,7 @@ static void resend_interrupt(void* arg)
 /** Here are the global interrupts handled. */
 static void interrupt_handler(void* arg)
 {
+    printf("Interrupt ############################################ \n");
     errval_t err;
     e10k_eicr_t eicr = e10k_eicr_rd(d);
 
@@ -1540,6 +1619,12 @@ static void initialize_mngif(void)
 
 static void init_done_vf(struct e10k_vf_binding *b, uint8_t vfn)
 {
+    if (!rxtx_enabled) {
+        rx_enable();
+        tx_enable();
+        rxtx_enabled = true;
+    } 
+
     assert(vfn < 64);
 
     DEBUG("VF %d init done\n", vfn);
@@ -1587,6 +1672,26 @@ static void request_vf_number(struct e10k_vf_binding *b)
 
     err = b->tx_vtbl.request_vf_number_response(b, NOP_CONT, vf_num, err);
     assert(err_is_ok(err));
+}
+
+
+static errval_t request_vf_number_rpc(struct e10k_vf_binding *b, uint8_t* vf_num, errval_t* err)
+{
+    DEBUG("VF allocated\n");
+    for (int i = 0; i < 64; i++) {
+        if (!vf_used[i]) {
+            *vf_num = i;
+            break;
+        }
+    }
+
+    if (*vf_num == 255){
+        //TODO better error
+        *err = NIC_ERR_ALLOC_QUEUE;
+    } else {
+        *err = SYS_ERR_OK;
+    }
+    return SYS_ERR_OK;
 }
 
 
@@ -1712,6 +1817,7 @@ static errval_t vf_connect_cb(void *st, struct e10k_vf_binding *b)
     b->rx_vtbl.get_mac_address_call = get_mac_address_vf;
 
     b->rpc_rx_vtbl.create_queue_call = cd_create_queue_rpc;
+    b->rpc_rx_vtbl.request_vf_number_call = request_vf_number_rpc;
 
 
     return SYS_ERR_OK;
@@ -1798,7 +1904,9 @@ static void pci_init_card(void *arg, struct device_mem* bar_info, int bar_count)
     e10k_pfvtctl_wr(d, pfvtctl);
 
     // Enable L2 loopback
-    e10k_pfdtxgswc_lbe_wrf(d, 1);
+    // TODO set to 1 again, 
+    // for now disabled advanced for descirptors without offloading functionality
+    e10k_pfdtxgswc_lbe_wrf(d, 0); 
 
     // TODO: Accept untagged packets in all VMDQ pools
     // TODO: Broadcast accept mode
@@ -1913,17 +2021,33 @@ int main(int argc, char **argv)
 int e1000n_driver_init(int argc, char *argv[])
 #endif
 {
+    errval_t err;
     //barrelfish_usleep(10*1000*1000);
     DEBUG("PF driver started\n");
     // credit_refill value must be >= 1 for a queue to be able to send.
     // Set them all to 1 here. May be overridden via commandline.
     for(int i = 0; i < 128; i++) {
-        credit_refill[i] = 1;
+        credit_refill[i] = 0xFF;
     }
 
     memset(tx_rate, 0, sizeof(tx_rate));
 
     parse_cmdline(argc, argv);
+    
+    err = skb_client_connect();
+    assert(err_is_ok(err));
+    err = skb_execute_query("vtd_enabled(0,_).");
+    if (err_is_ok(err)) {
+        uint32_t vendor, deviceid, bus, device, function;
+        sscanf(argv[3], "%x:%x:%x:%x:%x", &vendor, &deviceid, &bus, &device, &function);
+        err = connect_to_acpi();
+        assert(err_is_ok(err));
+        err = vtd_create_domain(cap_vroot);
+        assert(err_is_ok(err));
+        err = vtd_domain_add_device(0, bus, device, function, cap_vroot);
+        assert(err_is_ok(err));
+    }
+
     pci_register();
 
     while (!initialized || !exported) {

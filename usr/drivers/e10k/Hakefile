@@ -41,7 +41,8 @@
                       flounderBindings = [ "net_queue_manager", "e10k", "e10k_vf",
                                            "net_soft_filters", "net_filter"],
                       flounderDefs = [ "e10k_vf", "e10k", "net_filter"],
-                      addLibraries = libDeps [ "pci", "bench", "trace", "skb", "lwip", "net" ],
+                      addLibraries = libDeps [ "pci", "bench", "trace", "skb", "lwip", "net",
+                                               "acpi_client"],
                       addCFlags = [ "-DLIBRARY" ]
                     },
 
