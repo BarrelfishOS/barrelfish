@@ -64,3 +64,7 @@ pcie_bridges(DevList) :- findall(address(Bus,Dev,Func),
 dmar_devices(DevList) :- findall(address(Seg,Bus,Dev,Func),
 				 dmar_device(_,_,_,addr(Seg,Bus,Dev,Func),_),
 				 DevList).
+
+dmar_devscopes(DevList) :- findall(dmar_dev(A,B,C,addr(D,E,F,G),H),
+				 dmar_devsc(A,B,C,addr(D,E,F,G),H),
+				 DevList).
