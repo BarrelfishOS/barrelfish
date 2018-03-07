@@ -358,10 +358,6 @@ errval_t start_networking(coreid_t core,
         driver->allow_multi = 1;
         // TODO currently only for e1000 and mlx4, might be other cards that 
         // start the driver by creating a queue
-        for (int i = 0; i < driver->argc; i++) {
-            printf("argv[%d]=%s \n", i, driver->argv[i]);
-        }        
-
         if (!(driver->argc > 2)) {
 
             uint64_t vendor_id, device_id, bus, dev, fun;
@@ -377,6 +373,7 @@ errval_t start_networking(coreid_t core,
                 driver->argv[driver->argc] = "mlx4";        
             }
             driver->argc++;
+            driver->argv[driver->argc] = NULL;
         }
 
         // All cards that start the driver by creating a device queue
