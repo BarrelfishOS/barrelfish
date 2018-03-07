@@ -86,8 +86,20 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, 
     struct net_state* st = get_default_net_state();
     // enable HW filter since they are enabled by default by the driver
     st->hw_filter = true;
+
+    if (cardname[4] != ':') {
+        return SYS_ERR_OK;
+    }
+    uint32_t vendor, deviceid, bus, device, function;
+    unsigned parsed = sscanf(cardname + 5, "%x:%x:%x:%x:%x", &vendor,
+                             &deviceid, &bus, &device, &function);
+    if (parsed != 5) {
+        return SYS_ERR_OK;
+    }
+
     err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
-                            false /*virtual functions*/,
+                            bus, function, deviceid, device, 
+                            false/*virtual functions*/,
                             !poll, /* user interrupts*/
                             default_q);
     *queueid = e10k_queue_get_id((struct e10k_queue*)*retqueue);
