@@ -31,7 +31,7 @@
     "dmar(%" PRIu8 ", %" PRIu8 ")."
 
 #define SKB_SCHEMA_DMAR_HW_UNIT \
-    "dmar_drhd(%" PRIu8 ", %" PRIu16 ", %" PRIu64 ")."
+    "dmar_drhd(%" PRIu32 ", %" PRIu8 ", %" PRIu16 ", %" PRIu64 ")."
 
 #define SKB_SCHEMA_DMAR_RESERVED_MEMORY \
     "dmar_rmem(%" PRIu16 ", %" PRIu64 ", %" PRIu64 ")."
@@ -46,8 +46,9 @@
      "dmar_andd(%" PRIu8 ", %s)."
 
 #define SKB_SCHEMA_DMAR_DEVSC \
-    "dmar_devsc(%" PRIu8 ", %" PRIu8 ", %" PRIu16 ", %" PRIu8  "%" PRIu8 \
-                ", %" PRIu8 ", %" PRIu8  ")."
+    "dmar_devsc(%" PRIu32 ", %" PRIu8 ", %" PRIu8 ", "\
+                "addr(%" PRIu16 ", %" PRIu8 ", %" PRIu8 ", %" PRIu8 "), "\
+                "%" PRIu8  ")."
 
 
 /*
@@ -61,8 +62,8 @@
  * the sub-hierarchy.
  */
 static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
-                                   uint16_t segment, enum AcpiDmarScopeType type,
-                                   bool include_all_flag)
+                                   uint16_t segment, enum AcpiDmarType type,
+                                   bool include_all_flag, uint32_t unit_idx)
 {
     errval_t err;
     ACPI_DMAR_PCI_PATH *pcip;
@@ -78,13 +79,17 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
         assert((dsc->Length - sizeof(ACPI_DMAR_DEVICE_SCOPE)) == sizeof(ACPI_DMAR_PCI_PATH));
         pcip = (ACPI_DMAR_PCI_PATH *)((uint8_t *)dsc + sizeof(ACPI_DMAR_DEVICE_SCOPE));
 
-        /* we currently just put the raw entry into the SKB */
-        err = skb_add_fact(SKB_SCHEMA_DMAR_DEVSC, type, dsc->EntryType,
+        debug_printf(SKB_SCHEMA_DMAR_DEVSC "\n", unit_idx, type, dsc->EntryType,
+                           segment, dsc->Bus, pcip->Device, pcip->Function,
+                           dsc->EnumerationId);
+
+        /* we put the raw entry into the SKB */
+        err = skb_add_fact(SKB_SCHEMA_DMAR_DEVSC, unit_idx, type, dsc->EntryType,
                            segment, dsc->Bus, pcip->Device, pcip->Function,
                            dsc->EnumerationId);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "Failed to insert fact into the SKB"
-                    SKB_SCHEMA_DMAR_DEVSC "\n", type, dsc->EntryType,
+                    SKB_SCHEMA_DMAR_DEVSC "\n", unit_idx, type, dsc->EntryType,
                       segment, dsc->Bus, pcip->Device, pcip->Function,
                       dsc->EnumerationId);
         }
@@ -100,7 +105,7 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
                                      "Start Bus: %u, Path Length: %u\n",
                              dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
                 assert(dsc->EnumerationId == 0);
-               // assert(!(type == ACPI_DMAR_TYPE_HARDWARE_UNIT && include_all_flag));
+                assert(!(type == ACPI_DMAR_TYPE_HARDWARE_UNIT && include_all_flag));
 
                 break;
             case ACPI_DMAR_SCOPE_TYPE_BRIDGE:
@@ -115,7 +120,7 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
                                      "Start Bus: %u, Path Length: %u\n",
                              dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
                 assert(dsc->EnumerationId == 0);
-                //assert(!(type == ACPI_DMAR_TYPE_HARDWARE_UNIT && include_all_flag));
+                assert(!(type == ACPI_DMAR_TYPE_HARDWARE_UNIT && include_all_flag));
                 break;
             case ACPI_DMAR_SCOPE_TYPE_IOAPIC:
                 /*
@@ -169,24 +174,26 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
  *
  * @param drhd  pointer to the ACPI DRHD sub table
  * @param end   pointer to the end of the sub table
+ * @param idx   hardware unit index
  *
  * @return SYS_ERR_OK on success, errval on failure
  *
  * Each remapping hardware unit is reported by such a structure. there is
  * at least one structure per segment.
  */
-static errval_t parse_hardware_unit(ACPI_DMAR_HARDWARE_UNIT *drhd, void *end)
+static errval_t parse_hardware_unit(ACPI_DMAR_HARDWARE_UNIT *drhd, void *end,
+                                    uint32_t idx)
 {
     errval_t err;
 
     debug_printf("[dmar] [drhd] " SKB_SCHEMA_DMAR_HW_UNIT "\n",
-                 drhd->Flags, drhd->Segment, drhd->Address);
+                 idx, drhd->Flags, drhd->Segment, drhd->Address);
 
-    err = skb_add_fact(SKB_SCHEMA_DMAR_HW_UNIT, drhd->Flags, drhd->Segment,
+    err = skb_add_fact(SKB_SCHEMA_DMAR_HW_UNIT, idx, drhd->Flags, drhd->Segment,
                        drhd->Address);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to insert into SKB: " SKB_SCHEMA_DMAR_HW_UNIT "\n",
-                  drhd->Flags, drhd->Segment, drhd->Address);
+                  idx, drhd->Flags, drhd->Segment, drhd->Address);
     }
 
     /*
@@ -211,16 +218,17 @@ static errval_t parse_hardware_unit(ACPI_DMAR_HARDWARE_UNIT *drhd, void *end)
      */
     void *sub = ((uint8_t *)drhd) + sizeof(ACPI_DMAR_HARDWARE_UNIT);
     err = parse_device_scope(sub, end, drhd->Segment, ACPI_DMAR_TYPE_HARDWARE_UNIT,
-                             drhd->Flags & ACPI_DMAR_INCLUDE_ALL);
+                             drhd->Flags & ACPI_DMAR_INCLUDE_ALL, idx);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to parse device scope: " SKB_SCHEMA_DMAR_HW_UNIT "\n",
-                  drhd->Flags, drhd->Segment, drhd->Address);
+                  idx, drhd->Flags, drhd->Segment, drhd->Address);
     }
 
     debug_printf("[dmar] [drhd] set " HW_PCI_IOMMU_RECORD_FORMAT "\n",
-                 HW_PCI_IOMMU_INTEL, drhd->Flags, drhd->Segment, drhd->Address);
-    return oct_mset(SET_SEQUENTIAL, HW_PCI_IOMMU_RECORD_FORMAT, HW_PCI_IOMMU_INTEL,
-                    drhd->Flags, drhd->Segment, drhd->Address);
+                 idx, HW_PCI_IOMMU_INTEL, drhd->Flags, drhd->Segment, drhd->Address);
+    return oct_mset(SET_SEQUENTIAL, HW_PCI_IOMMU_RECORD_FORMAT, idx,
+                    HW_PCI_IOMMU_INTEL, drhd->Flags, drhd->Segment,
+                    drhd->Address);
 }
 
 
@@ -255,7 +263,7 @@ static errval_t parse_reserved_memory(ACPI_DMAR_RESERVED_MEMORY *rmem, void *end
 
     void *sub = ((uint8_t *)rmem) + sizeof(ACPI_DMAR_RESERVED_MEMORY);
     return parse_device_scope(sub, end, rmem->Segment,
-                              ACPI_DMAR_TYPE_RESERVED_MEMORY, false);
+                              ACPI_DMAR_TYPE_RESERVED_MEMORY, false, 0);
 }
 
 
@@ -303,7 +311,7 @@ static errval_t parse_root_ats_capabilities(ACPI_DMAR_ATSR *atsr, void *end)
      */
     void *sub = ((uint8_t *)atsr) + sizeof(ACPI_DMAR_ATSR);
     return parse_device_scope(sub, end, atsr->Segment, ACPI_DMAR_TYPE_ROOT_ATS,
-                              false);
+                              false, 0);
 }
 
 
@@ -394,7 +402,7 @@ errval_t acpi_parse_dmar(void)
 
     void *p = (void *)dmar + sizeof(ACPI_TABLE_DMAR);
     void *table_end = (void *)dmar + dmar->Header.Length;
-
+    uint32_t vtd_unit_idx = 0;
     while(p < table_end) {
         ACPI_DMAR_HEADER *sh = (ACPI_DMAR_HEADER *)p;
         assert(sh->Length);
@@ -402,10 +410,11 @@ errval_t acpi_parse_dmar(void)
 
         switch (sh->Type) {
             case ACPI_DMAR_TYPE_HARDWARE_UNIT:
-                err = parse_hardware_unit(p, p_end);
+                err = parse_hardware_unit(p, p_end, vtd_unit_idx);
                 if (err_is_fail(err)) {
                     DEBUG_ERR(err, "parsing hardware unit failed. Continuing...\n");
                 }
+                vtd_unit_idx++;
                 break;
             case ACPI_DMAR_TYPE_RESERVED_MEMORY:
                 err = parse_reserved_memory(p, p_end);

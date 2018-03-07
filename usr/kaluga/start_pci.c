@@ -341,15 +341,15 @@ errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
     }
 
     char *key = NULL;
-    uint64_t type, flags, segment, address;
+    uint64_t type, flags, segment, address, idx;
     err = oct_read(record, "%s { " HW_PCI_IOMMU_RECORD_FIELDS_READ " }",
-                   &key, &type, &flags, &segment, &address);
+                   &key, &idx, &type, &flags, &segment, &address);
     if (err_is_fail(err)) {
         return err;
     }
 
-    debug_printf("Kaluga: iommu key: '%s', segment: %" PRIu64 ", address: 0x%"
-                  PRIx64 "\n", key, segment, address);
+    debug_printf("Kaluga: iommu idx: %" PRIu64 ", key: '%s', segment: %" PRIu64 ", address: 0x%"
+                  PRIx64 "\n", idx, key, segment, address);
 
     /* record is no longer needed */
     free(record);
