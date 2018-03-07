@@ -15,15 +15,11 @@
 #include "intel_vtd_commands.h"
 #include "intel_vtd_iotlb.h"
 
+#define VTD_UNITS_MAX 4
+#define VTD_SEGMENTS_MAX 2
 
-static struct vtd *vtd_unit_list = NULL;
-
-static void vtd_unit_insert(struct vtd *vtd)
-{
-    vtd->next = vtd_unit_list;
-    vtd_unit_list = vtd;
-}
-
+static struct vtd *vtd_units[VTD_UNITS_MAX] = {0};
+static struct vtd *vtd_units_by_segment[VTD_SEGMENTS_MAX] = {0};
 
 
 static errval_t vtd_parse_capabilities(struct vtd *vtd)
@@ -507,22 +503,22 @@ static errval_t vtd_get_proximity(genpaddr_t base, nodeid_t *prox)
     return SYS_ERR_OK;
 }
 
-static errval_t vtd_get_segment_and_flags(genpaddr_t base, uint8_t *flags,
-                                          uint16_t *seg)
+static errval_t vtd_get_segment_and_flags(genpaddr_t base, uint32_t *idx,
+                                          uint8_t *flags, uint16_t *seg)
 {
     INTEL_VTD_DEBUG("Obtaining PCI Segment and flags for 0x%" PRIxGENPADDR "\n",
                     base);
 
     errval_t err;
-    err = skb_execute_query("dmar_drhd(F,S,%" PRIuGENPADDR "),write(segflags(F,S)).",
+    err = skb_execute_query("dmar_drhd(I,F,S,%" PRIuGENPADDR "),write(segflags(I,F,S)).",
                             base);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Getting segment and flags failed. '%s'\n",
                   skb_get_output());
         return err;
     }
-    uint32_t f, s;
-    err = skb_read_output("segflags(%d,%d)", &f, &s);
+    uint32_t f, s, i;
+    err = skb_read_output("segflags(%d, %d,%d)", &i, &f, &s);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Extracting segment and flags failed. '%s'\n",
                   skb_get_output());
@@ -533,6 +529,7 @@ static errval_t vtd_get_segment_and_flags(genpaddr_t base, uint8_t *flags,
 
     *flags = (uint8_t)f;
     *seg = (uint16_t)s;
+    *idx = i;
 
     return SYS_ERR_OK;
 }
@@ -550,10 +547,18 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs)
         return err;
     }
 
-    err = vtd_get_segment_and_flags(id.base, &vtd->flags, &vtd->pci_segment);
+    uint8_t flags;
+    err = vtd_get_segment_and_flags(id.base, &vtd->index, &flags,
+                                    &vtd->pci_segment);
     if (err_is_fail(err)) {
         return err;
     }
+
+    assert(vtd->index < VTD_UNITS_MAX);
+    assert(vtd->pci_segment < VTD_SEGMENTS_MAX);
+
+    /* is the scope_all flag set */
+    vtd->scope_all = (flags & 0x1);
 
     err = vtd_get_proximity(id.base, &vtd->proximity_domain);
     if (err_is_fail(err)) {
@@ -623,7 +628,11 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs)
         goto err_out;
     }
 
-    vtd_unit_insert(vtd);
+    vtd_units[vtd->index] = vtd;
+    if (vtd_units_by_segment[vtd->pci_segment]) {
+        vtd->next_in_seg = vtd_units_by_segment[vtd->pci_segment];
+    }
+    vtd_units_by_segment[vtd->pci_segment] = vtd;
 
     return SYS_ERR_OK;
 
@@ -671,6 +680,36 @@ errval_t vtd_set_root_table(struct vtd *v)
     return SYS_ERR_OK;
 }
 
+errval_t vtd_lookup_by_device(uint8_t bus, uint8_t dev, uint8_t fun,
+                              uint16_t seg, struct vtd **vtd)
+{
+    errval_t err;
+
+    err = skb_execute_query( "dmar_device(IDX, _, _, "\
+                "addr(%" PRIu16 ", %" PRIu8 ", %" PRIu8 ", %" PRIu8 "), _),"
+                "write(index(IDX)).", seg, bus, dev, fun);
+    if (err_is_ok(err)) {
+        uint32_t idx;
+        err = skb_read_output("index(%d)", &idx);
+        assert(err_is_ok(err));
+        assert(idx < VTD_UNITS_MAX);
+        assert(vtd_units[idx]);
+        *vtd = vtd_units[idx];
+        return SYS_ERR_OK;
+    }
+    /* not reported, find the unit of the segment, that has all in scope */
+    assert(seg < VTD_SEGMENTS_MAX);
+    struct vtd *v = vtd_units_by_segment[seg];
+    while(v) {
+        if (v->scope_all) {
+            *vtd = v;
+            return SYS_ERR_OK;
+        }
+        v = v->next_in_seg;
+    }
+
+    return VTD_ERR_DEV_NOT_FOUND;
+}
 
 errval_t vtd_get_ctxt_table_by_id(struct vtd *vtd, uint8_t idx,
                                   struct vtd_ctxt_table **table)

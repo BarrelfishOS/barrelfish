@@ -157,11 +157,12 @@ typedef enum {
 } vtd_version_t;
 
 struct vtd {
-    struct vtd              *next;
+    struct vtd              *next_in_seg;
     vtd_t                   vtd_dev;
 
     vtd_version_t           version;
-    uint8_t                 flags;
+    uint32_t                index;
+    bool                    scope_all;
 
     uint16_t                pci_segment;
     vtd_entry_type_t        entry_type;

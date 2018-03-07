@@ -24,6 +24,71 @@
 
 #include <numa.h>
 
+#include "common.h"
+
+#define SKB_SCHEMA_DMAR_DEVSC \
+    "dmar_dev(%" SCNu32 ", %" SCNu8 ", %" SCNu8 ", "\
+                "addr(%" SCNu16 ", %" SCNu8 ", %" SCNu8 ", %" SCNu8 "), "\
+                "%" SCNu8  ")"
+
+#define SKB_SCHEMA_DMAR_DEVICE \
+    "dmar_device(%" PRIu32 ", %" PRIu8 ", %" PRIu8 ", "\
+                "addr(%" PRIu16 ", %" PRIu8 ", %" PRIu8 ", %" PRIu8 "), "\
+                "%" PRIu8  ")."
+
+static errval_t parse_devices_scopes(void)
+{
+    errval_t err;
+
+    debug_printf("Parsing device scrope\n");
+
+    err = skb_execute_query("dmar_devscopes(L),length(L,Len),writeln(L)");
+    assert(err_is_ok(err));
+
+    char *skb_list_output = strdup(skb_get_output());
+
+    struct list_parser_status status;
+    skb_read_list_init_offset(&status, skb_list_output, 0);
+
+    printf("==============\n%s\n================\n", skb_get_output());
+
+    uint32_t unit_idx;
+    uint8_t type, entrytype, enumid;
+    uint16_t seg;
+    uint8_t bus, dev, fun;
+    while(skb_read_list(&status, SKB_SCHEMA_DMAR_DEVSC,
+                        &unit_idx, &type, &entrytype, &seg, &bus,
+                        &dev, &fun, &enumid)) {
+        debug_printf("%u.%u.%u\n", bus, dev, fun);
+        if (entrytype > 2) {
+            debug_printf("not a PCI endpoint or bridge, continue\n");
+            continue;
+        }
+
+        err = skb_execute_query("bridge(pcie,addr(%d,%d,%d),_,_,_,_,_,secondary(BUS)),"
+                                        "write(secondary_bus(BUS)).", bus, dev, fun);
+        if (err_is_fail(err)) {
+            continue;
+        }
+
+        uint32_t next_bus;
+        err = skb_read_output("secondary_bus(%d)", &next_bus);
+        assert(err_is_ok(err));
+
+        debug_printf(SKB_SCHEMA_DMAR_DEVICE "\n", unit_idx, type, entrytype,
+                     seg, next_bus, dev, fun, enumid);
+
+        err = skb_add_fact(SKB_SCHEMA_DMAR_DEVICE, unit_idx, type, entrytype,
+                           seg, next_bus, dev, fun, enumid);
+        if (err_is_fail(err)) {
+            continue;
+        }
+    }
+
+    free(skb_list_output);
+
+    return SYS_ERR_OK;
+}
 
 
 
@@ -60,7 +125,12 @@ int main(int argc, char** argv)
         USER_PANIC_ERR(err, "Failed to initialize libnuma");
     }
 
-    err = driverkit_iommu_service_init();
+    err = parse_devices_scopes();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Failed to initialize libnuma");
+    }
+
+    err = iommu_service_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to create the IOMMU service\n");
     }

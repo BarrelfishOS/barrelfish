@@ -35,7 +35,16 @@
 
   build application {
     target = "iommu",
-    cFiles = [ "main.c"],
+    cFiles = [
+        "main.c",
+        "iommu_service.c"
+    ],
+    flounderDefs = [
+        "iommu"
+    ],
+    flounderBindings = [
+        "iommu"
+    ],
     addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
     addLibraries = libDeps [ "driverkit", "numa", "skb", "octopus" ],
     addModules = [ "intel_vtd_module", "arm_smmu_module", "amd_iommu_module" ],

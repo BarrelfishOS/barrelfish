@@ -41,7 +41,6 @@ static void iommu_bind_cb(void *st,  errval_t err, struct iommu_binding *ib)
 
     iommu_rpc_client_init(ib);
     iommu_binding = ib;
-
 }
 
 errval_t driverkit_iommu_client_init(void)
@@ -109,28 +108,95 @@ bool driverkit_iommu_present(void)
     return iommu_enabled;
 }
 
-
-errval_t driverkit_iommu_create_domain(void)
+static bool root_pt_valid(struct capref rootpt)
 {
-    USER_PANIC("NYI");
-    return SYS_ERR_OK;
+    errval_t err;
+
+    struct vnode_identity vi;
+    err = invoke_vnode_identify(rootpt, &vi);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get vnode identity\n");
+    }
+    switch(vi.type) {
+        case ObjType_VNode_x86_64_pml4 :
+        case ObjType_VNode_x86_64_pml5 :
+            return true;
+        default:
+            return false;
+    }
 }
 
-errval_t driverkit_iommu_delete_domain(void)
+
+
+errval_t driverkit_iommu_create_domain(struct capref rootpt)
 {
-    USER_PANIC("NYI");
-    return SYS_ERR_OK;
+    errval_t err, msgerr;
+
+    assert(iommu_binding);
+
+    debug_printf("[iommu client] Creating a new domain.\n");
+
+    if (!root_pt_valid(rootpt)) {
+        return SYS_ERR_VNODE_TYPE;
+    }
+
+    err = iommu_binding->rpc_tx_vtbl.create_domain(iommu_binding, rootpt, &msgerr);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return msgerr;
 }
 
-errval_t driverkit_iommu_add_device(void)
+errval_t driverkit_iommu_delete_domain(struct capref rootpt)
 {
-    USER_PANIC("NYI");
-    return SYS_ERR_OK;
+    errval_t err, msgerr;
+
+    assert(iommu_binding);
+
+    debug_printf("[iommu client] Creating a new domain.\n");
+
+    if (!root_pt_valid(rootpt)) {
+        return SYS_ERR_VNODE_TYPE;
+    }
+
+    err = iommu_binding->rpc_tx_vtbl.delete_domain(iommu_binding, rootpt, &msgerr);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return msgerr;
 }
 
-errval_t driverkit_iommu_remove_device(void)
+errval_t driverkit_iommu_add_device(struct capref rootpt, struct capref dev)
 {
-    USER_PANIC("NYI");
-    return SYS_ERR_OK;
+    errval_t err, msgerr;
+
+    assert(iommu_binding);
+
+    debug_printf("[iommu client] Adding device to domain\n");
+
+    err = iommu_binding->rpc_tx_vtbl.add_device(iommu_binding, rootpt, dev, &msgerr);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return msgerr;
 }
+
+errval_t driverkit_iommu_remove_device(struct capref rootpt, struct capref dev)
+{
+    errval_t err, msgerr;
+
+    assert(iommu_binding);
+    debug_printf("[iommu client] Remove device\n");
+
+    err = iommu_binding->rpc_tx_vtbl.add_device(iommu_binding, rootpt, dev, &msgerr);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return msgerr;
+}
+
 
