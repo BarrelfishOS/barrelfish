@@ -10,7 +10,9 @@
 
 interface iommu "IOMMU Service " {
 
-    rpc create_domain(in cap pml4, out errval err);
+    rpc init_device(in cap dev, out errval err);
+
+    rpc create_domain(in cap pml4, in cap dev, out errval err);
 
     rpc delete_domain(in cap pml4, out errval err);
 

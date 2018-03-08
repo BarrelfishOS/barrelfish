@@ -462,7 +462,7 @@ static errval_t vtd_check_version(struct vtd *vtd)
 
     if (version != 0x10) {
         INTEL_VTD_DEBUG("Intel VT-d Version v%x not supported.\n", version);
-        return VTD_ERR_NO_UNITS;
+        return IOMMU_ERR_IOMMU_NOT_FOUND;
     }
 
     INTEL_VTD_DEBUG("Initializing Intel VT-d IOMMU v%x\n",  version);
@@ -669,7 +669,7 @@ errval_t vtd_set_root_table(struct vtd *v)
          *   break;
          */
         default:
-            return VTD_ERR_INVALID_CAP;
+            return IOMMU_ERR_INVALID_CAP;
     }
 
     // Update the root-table pointer
@@ -708,7 +708,7 @@ errval_t vtd_lookup_by_device(uint8_t bus, uint8_t dev, uint8_t fun,
         v = v->next_in_seg;
     }
 
-    return VTD_ERR_DEV_NOT_FOUND;
+    return IOMMU_ERR_DEV_NOT_FOUND;
 }
 
 errval_t vtd_get_ctxt_table_by_id(struct vtd *vtd, uint8_t idx,

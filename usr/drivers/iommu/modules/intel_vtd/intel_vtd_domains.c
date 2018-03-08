@@ -71,10 +71,10 @@ errval_t vtd_domains_get_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
 {
     struct vtd_domain_mapping *dm = vtd_domains_get_device_mapping(bus, dev, fun);
     if (dm == NULL) {
-        return VTD_ERR_DOM_NOT_FOUND;
+        return IOMMU_ERR_DOM_NOT_FOUND;
     }
     if (dm->domain == NULL) {
-        return VTD_ERR_DOM_NOT_FOUND;
+        return IOMMU_ERR_DOM_NOT_FOUND;
     }
 
     if (dom) {
@@ -94,13 +94,13 @@ errval_t vtd_domains_create(struct vtd_domain **domain, struct capref rootpt)
     vtd_domid_t slot = 0;
 
     if (domains_free == 0) {
-        return VTD_ERR_FULL;
+        return IOMMU_ERR_DOM_FULL;
     }
 
     struct vnode_identity id;
     err = invoke_vnode_identify(rootpt, &id);
     if (err_is_fail(err)) {
-        return err_push(err, VTD_ERR_INVALID_CAP);
+        return err_push(err, IOMMU_ERR_INVALID_CAP);
     }
 
     switch(id.type) {
@@ -173,13 +173,13 @@ errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev)
     //if (!valid_device(bus, dev, func)) ;
     struct vtd *vtd = vtd_get_for_device(bus, dev, fun);
     if (vtd == NULL) {
-        return VTD_ERR_DEV_NOT_FOUND;
+        return IOMMU_ERR_DEV_NOT_FOUND;
     }
 
     struct vtd_domain_mapping *devmap;
     devmap = vtd_domains_get_device_mapping(bus, dev, fun);
     if (!capref_is_null(devmap->mappingcap)) {
-        return VTD_ERR_DEV_USED;
+        return IOMMU_ERR_DEV_USED;
     }
 
     /* map the devices into the domain */
@@ -230,13 +230,18 @@ errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *dev)
     return err;
 }
 
-#if 0
-errval_t vtd_domain_lookup(struct capref rootcap)
-{
-    err = VTD_ERR_DEV_NOT_FOUND;
-}
-#endif
 
+struct vtd_domain *vtd_domains_get_by_id(vtd_domid_t id)
+{
+    USER_PANIC("NYI");
+    return NULL;
+}
+
+struct vtd_domain *vtd_domains_get_by_cap(struct capref rootpt)
+{
+    USER_PANIC("NYI");
+    return NULL;
+}
 
 #if 0
 
@@ -248,7 +253,7 @@ errval_t vtd_domains_remove_device()
 
 
     genpaddr_t pt = pml4_base(pml4);
-    if (pt == 0) return VTD_ERR_INVALID_CAP;
+    if (pt == 0) return IOMMU_ERR_INVALID_CAP;
 
     // Find the domain in the list of domains
     struct vtd_domain *dom = NULL;
@@ -256,9 +261,9 @@ errval_t vtd_domains_remove_device()
         if (dom->pt_gp == pt) break;
     }
 
-    if (dom == NULL) return VTD_ERR_DOM_NOT_FOUND;
+    if (dom == NULL) return IOMMU_ERR_DOM_NOT_FOUND;
 
-    errval_t err =  VTD_ERR_DEV_NOT_FOUND;
+    errval_t err =  IOMMU_ERR_DEV_NOT_FOUND;
 
     // Find the unit containing the device under its scope
     struct vtd_unit *u = NULL;
@@ -269,7 +274,7 @@ errval_t vtd_domains_remove_device()
 
             // The device doesn't belong to this domain
             if (!vtd_context_entry_p_extract(context_table[id])) {
-                return VTD_ERR_DEV_NOT_FOUND;
+                return IOMMU_ERR_DEV_NOT_FOUND;
             }
 
             vtd_context_entry_p_insert(context_table[id], 0);

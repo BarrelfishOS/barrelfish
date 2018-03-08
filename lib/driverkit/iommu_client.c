@@ -128,7 +128,7 @@ static bool root_pt_valid(struct capref rootpt)
 
 
 
-errval_t driverkit_iommu_create_domain(struct capref rootpt)
+errval_t driverkit_iommu_create_domain(struct capref rootpt, struct capref dev)
 {
     errval_t err, msgerr;
 
@@ -140,7 +140,8 @@ errval_t driverkit_iommu_create_domain(struct capref rootpt)
         return SYS_ERR_VNODE_TYPE;
     }
 
-    err = iommu_binding->rpc_tx_vtbl.create_domain(iommu_binding, rootpt, &msgerr);
+    err = iommu_binding->rpc_tx_vtbl.create_domain(iommu_binding, rootpt, dev,
+                                                   &msgerr);
     if (err_is_fail(err)) {
         return err;
     }

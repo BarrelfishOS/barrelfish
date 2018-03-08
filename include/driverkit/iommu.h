@@ -40,7 +40,7 @@ bool driverkit_iommu_present(void);
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_create_domain(struct capref rootpt);
+errval_t driverkit_iommu_create_domain(struct capref rootpt, struct capref dev);
 
 /**
  * @brief deletes a previously created protection domain

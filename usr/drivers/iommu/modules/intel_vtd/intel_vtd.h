@@ -269,7 +269,8 @@ errval_t vtd_domains_create(struct vtd_domain **domain, struct capref rootpt);
 errval_t vtd_domains_destroy(struct vtd_domain *domain);
 errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev);
 errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *dev);
-
+struct vtd_domain *vtd_domains_get_by_id(vtd_domid_t id);
+struct vtd_domain *vtd_domains_get_by_cap(struct capref rootpt);
 
 /*
  * ===========================================================================
@@ -277,7 +278,7 @@ errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *dev)
  * ===========================================================================
  */
 errval_t vtd_devices_init(void);
-errval_t vtd_devices_create(uint8_t bus, uint8_t dev,
+errval_t vtd_devices_create(uint16_t pciseg, uint8_t bus, uint8_t dev,
                             uint8_t fun, struct iommu_binding *binding,
                             struct vtd_device **rdev);
 errval_t vtd_devices_destroy(struct vtd_device *dev);

@@ -1,16 +1,25 @@
+/**
+ * \file
+ * \brief IOMMU Devices
+ */
 /*
  * Copyright (c) 2018, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
- * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich.
+ * Attn: Systems Group.
  */
 
+#include <stdlib.h>
+
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
+#include <skb/skb.h>
 #include <numa.h>
 
-#include "intel_vtd.h"
+#include "common.h"
 
 static struct vtd_device  *vtd_devices[VTD_NUM_ROOT_ENTRIES];
 
@@ -112,3 +121,86 @@ struct vtd_device *vtd_devices_get_by_cap(struct capref cap)
     USER_PANIC("NYI");
     return NULL;
 }
+
+
+
+static errval_t iommu_device_put(struct iommu_dev *dev)
+{
+
+}
+
+static struct iommu_dev *iommu_device_get(uint16_t seg, uint8_t bus, uint8_t dev,
+                                                 uint8_t fun)
+{
+
+}
+
+
+
+
+errval_t iommu_device_create(struct capref dev, struct iommu_dev *iodev)
+{
+    errval_t err;
+
+    struct device_identity id;
+    err = invoke_device_identify(dev, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+
+    err = iommu_device_get_iommu_by_pci(id.seg, id.bus, id.device, id.function,
+                                        &iommu_type, &iommu);
+
+
+}
+
+errval_t iommu_device_get_iommu_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
+                                       uint8_t fun, struct iommu **iommu)
+{
+
+}
+
+
+errval_t iommu_device_get_iommu(struct capref dev, struct iommu **iommu)
+{
+    errval_t err;
+
+    struct device_identity id;
+    err = invoke_device_identify(dev, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return iommu_device_get_iommu_by_pci(id.segment, id.bus, id.device,
+                                         id.function, iommu);
+}
+
+errval_t iommu_device_destroy(struct iommu_dev *iodev)
+{
+
+}
+
+
+
+
+errval_t iommu_device_lookup_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
+                                    uint8_t fun, struct iommu_dev **rdev);
+{
+
+}
+
+errval_t iommu_device_lookup(struct capref dev, struct iommu_dev **rdev)
+{
+    errval_t err;
+
+    struct device_identity id;
+    err = invoke_device_identify(dev, &id);
+    if (err_is_fail(err)) {
+        return NULL;
+    }
+
+    return iommu_device_lookup_by_pci(id.segment, id.bus, id.device,
+                                      id.function, rdev);
+}
+

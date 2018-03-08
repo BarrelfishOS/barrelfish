@@ -123,7 +123,7 @@ errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt, struct vtd_domain *dom,
     struct vnode_identity id;
     err = invoke_vnode_identify(dom->ptroot, &id);
     if (err_is_fail(err)) {
-        return err_push(err, VTD_ERR_INVALID_CAP);
+        return err_push(err, IOMMU_ERR_INVALID_CAP);
     }
 
     switch(id.type) {
