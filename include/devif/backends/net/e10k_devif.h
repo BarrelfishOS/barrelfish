@@ -30,6 +30,7 @@ typedef void (*e10k_event_cb_t)(void* q);
 *
 */
 errval_t e10k_queue_create(struct e10k_queue** q, e10k_event_cb_t cb, 
+                           uint32_t bus, uint32_t function, uint32_t devid, uint32_t dev,
                            bool use_vf, bool interrupts, bool default_q);
 
 /**

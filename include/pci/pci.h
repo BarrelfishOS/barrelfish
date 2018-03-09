@@ -18,17 +18,33 @@
 #include <barrelfish/inthandler.h>
 #include <pci/mem.h>
 #include <pci/devids.h>
+#include <pci/pci_types.h>
 
-struct pci_address {
-    uint8_t bus;
-    uint8_t device;
-    uint8_t function;
-};
+/**
+ * Kaluga passes a CNode with capabilities to the pci driver. The offset
+ * in this CNode are defined here
+ */
+#define PCIARG_SLOT_INT    0
+#define PCIARG_SLOT_PCI_EP 1
+#define PCIARG_SLOT_BAR0   2
+#define PCIARG_SLOT_BAR1   3
+#define PCIARG_SLOT_BAR2   4
+#define PCIARG_SLOT_BAR3   5
+#define PCIARG_SLOT_BAR4   6
+#define PCIARG_SLOT_BAR5   7
+#define PCIARG_SLOT_BAR6   8
+
 
 typedef void (*pci_driver_init_fn)(void *user_state, struct device_mem *bar_info,
                                    int nr_mapped_bars);
 typedef void (*legacy_driver_init_fn)(void);
 
+
+errval_t pci_get_bar_caps_for_device(
+        struct pci_addr addr,
+        struct device_mem **bars_out,
+        size_t *bars_len
+        );
 
 errval_t pci_parse_int_arg(int argc, char ** argv);
 
@@ -127,7 +143,7 @@ errval_t pci_msix_enable(uint16_t *count);
  * \returns SYS_ERR_OK on success
  *          errval on FAILURE
  */
-errval_t pci_msix_enable_addr(struct pci_address *addr, uint16_t *count);
+errval_t pci_msix_enable_addr(struct pci_addr *addr, uint16_t *count);
 
 /**
  * Configure an MSI-X vector
@@ -144,11 +160,11 @@ errval_t pci_msix_vector_init(uint16_t index, uint8_t destination,
  * \param destination Destination APIC where the interrupt should be sent
  * \param vector      Interrupt vector to send
  */
-errval_t pci_msix_vector_init_addr(struct pci_address *addr, uint16_t index,
+errval_t pci_msix_vector_init_addr(struct pci_addr *addr, uint16_t index,
                                    uint8_t destination, uint8_t vector);
 
 errval_t pci_setup_int_routing_with_cap(int irq_idx, 
-                                        struct capref* irq_src_cap,
+                                        struct capref irq_src_cap,
                                         interrupt_handler_fn handler,
                                         void *handler_arg,
                                         interrupt_handler_fn reloc_handler,

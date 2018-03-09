@@ -55,7 +55,8 @@ class WebCommon(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(WebCommon, self).get_modules(build, machine)
-        modules.add_module("net_sockets_server", ["auto"])
+        modules.add_module("e1000n", ["auto"])
+        modules.add_module("net_sockets_server", ["nospawn"])
         nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         modules.add_module("webserver", ["core=%d" % machine.get_coreids()[0], #2
 				nfsip, siteconfig.get('WEBSERVER_NFS_PATH')])

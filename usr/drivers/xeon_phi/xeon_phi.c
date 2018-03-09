@@ -125,9 +125,8 @@ static void pci_init_card(void *arg, struct device_mem* bar_info,
     assert(bar_info[XEON_PHI_APT_BAR].type == XEON_PHI_BAR_TYPE);
 
     struct frame_identity id;
-    assert(bar_info[XEON_PHI_APT_BAR].nr_caps == 1);
-    assert(!capref_is_null(bar_info[XEON_PHI_APT_BAR].frame_cap[0]));
-    card->apt.cap = bar_info[XEON_PHI_APT_BAR].frame_cap[0];
+    assert(!capref_is_null(bar_info[XEON_PHI_APT_BAR].frame_cap));
+    card->apt.cap = bar_info[XEON_PHI_APT_BAR].frame_cap;
     err = invoke_frame_identify(card->apt.cap, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to identify the aperture cap");
@@ -136,9 +135,8 @@ static void pci_init_card(void *arg, struct device_mem* bar_info,
     card->apt.pbase = id.base;
     card->apt.bytes = bar_info[XEON_PHI_APT_BAR].bytes;
 
-    assert(bar_info[XEON_PHI_MMIO_BAR].nr_caps == 1);
-    assert(!capref_is_null(bar_info[XEON_PHI_MMIO_BAR].frame_cap[0]));
-    card->mmio.cap = bar_info[XEON_PHI_MMIO_BAR].frame_cap[0];
+    assert(!capref_is_null(bar_info[XEON_PHI_MMIO_BAR].frame_cap));
+    card->mmio.cap = bar_info[XEON_PHI_MMIO_BAR].frame_cap;
 
     err = invoke_frame_identify(card->mmio.cap, &id);
     if (err_is_fail(err)) {

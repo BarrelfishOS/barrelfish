@@ -12,6 +12,7 @@
  *      Author: mao
  */
 #include "e1000n.h"
+#include <pci/devids.h>
 
 /*****************************************************************
  *
@@ -97,6 +98,7 @@ e1000_mac_type_t e1000_get_mac_type(uint32_t vendor, uint32_t device_id)
         case E1000_DEVICE_82576EG:
             return e1000_82576;
         case E1000_DEVICE_I210:
+        case E1000_DEVICE_I219:
             return e1000_I210;
         case E1000_DEVICE_I350_EEPROM_LESS:
         case E1000_DEVICE_I350_COPPER:
@@ -137,42 +139,26 @@ char * e1000_mac_type_to_str(e1000_mac_type_t mt){
         "82575",
         "82576",
         "I210",
+        "I219",
         "I350"
     };
     if(mt >= e1000_num_macs) return NULL;
     return names[mt];
 };
 
-
-/*****************************************************************
- * allocate a single frame, mapping it into our vspace with given
- * attributes
- ****************************************************************/
-void *alloc_map_frame(vregion_flags_t attr, size_t size, struct capref *retcap)
+bool e1000_supports_msix(e1000_mac_type_t mt)
 {
-    struct capref frame;
-    errval_t err;
-    void *va;
-
-    err = frame_alloc(&frame, size, NULL);
-    if (err_is_fail(err)) {
-        E1000_DEBUG("ERROR: frame_alloc failed.\n");
-        return NULL;
-    }
-
-    err = vspace_map_one_frame_attr(&va, size, frame, attr, NULL, NULL);
-
-    if (err_is_fail(err)) {
-        E1000_DEBUG("Error: vspace_map_one_frame failed\n");
-        return NULL;
-    }
-
-    if (retcap != NULL) {
-        *retcap = frame;
-    }
-
-    return va;
+        switch (mt) {
+        case e1000_82575:
+        case e1000_82576:
+        //case e1000_I350:
+        case e1000_I210:
+            return true;
+        default:
+            return false;
+        }
 }
+
 
 cycles_t tscperms;
 

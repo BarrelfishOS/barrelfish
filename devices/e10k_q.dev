@@ -213,8 +213,7 @@ device e10k_q lsbfirst () "Intel 82599 10 GbE Controller Queues" {
     dd          1 "Descriptor Done";
     _           3;
 
-    idx         1 "Index into the hardware context table";
-    _           2;
+    idx         3 "Index into the hardware context table";
     cc          1 "Check Context bit";
 
     // POPTS

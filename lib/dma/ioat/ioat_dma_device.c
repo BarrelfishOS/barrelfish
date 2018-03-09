@@ -31,7 +31,7 @@ struct ioat_dma_device
     ioat_dma_cbver_t version;           ///< Crystal Beach version number
 
     struct dma_mem complstatus;         ///< memory region for channels CHANSTS
-    struct pci_address pci_addr;        ///< the PCI address of the device
+    struct pci_addr pci_addr;        ///< the PCI address of the device
 
     uint8_t irq_msix_vector;
     uint16_t irq_msix_count;
@@ -358,7 +358,7 @@ errval_t ioat_dma_device_irq_setup(struct ioat_dma_device *dev,
  *          errval on error
  */
 errval_t ioat_dma_device_init(struct capref mmio,
-                              struct pci_address *pci_addr,
+                              struct pci_addr *pci_addr,
                               struct ioat_dma_device **dev)
 {
     errval_t err;

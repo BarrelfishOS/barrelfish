@@ -33,8 +33,8 @@ struct e10k_queue;
   *
   * @returns error on failure or SYS_ERR_OK on success
   */
-errval_t e10k_init_vf_driver(uint8_t pci_function, 
-                             bool interrupts);
+errval_t e10k_init_vf_driver(uint8_t pci_function, uint8_t seg, uint32_t bus,
+                             uint32_t dev, uint32_t device_id, bool interrupts);
 
  /**
   * @brief Checks if the state of the library initalized

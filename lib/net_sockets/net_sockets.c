@@ -72,7 +72,7 @@ static struct net_socket * allocate_socket(uint32_t descriptor)
 {
     struct net_socket *socket;
 
-    socket = malloc(sizeof(struct net_socket));
+    socket = calloc(1, sizeof(struct net_socket));
     assert(socket);
 
     socket->descriptor = descriptor;

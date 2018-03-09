@@ -35,12 +35,10 @@
 #define POOL_SIZE 2
 
 
-#define E10K_PCI_DEVID 0x10ED
-
-
 #define QUEUE_INTRX 0
 #define QUEUE_INTTX 1
 
+#define E10K_VF_DEVID 0x10ED
 
 struct vf_state {
     uint8_t vf_num;
@@ -54,10 +52,13 @@ struct vf_state {
     // device info
     int initialized;
     e10k_vf_t *d;
-    struct capref *regframe;
+    struct capref regframe;
     uint64_t d_mac;
     uint32_t pci_function;
-
+    uint32_t bus;
+    uint32_t segment;
+    uint32_t device;
+    uint32_t device_id;
 
     // interrupt related
     bool msix;
@@ -73,7 +74,7 @@ struct vf_state {
 
 static struct vf_state* vf;
 
-
+/*
 #define prnonz(x)                                               \
     uint32_t x = e10k_vf_##x##_rd(vf->d);                           \
     snprintf(str[cnt++], 32, #x "=%x \n", x);                      \
@@ -92,15 +93,16 @@ static void stats_dump(void)
     prnonz(vfeics);
     prnonz(vfeims);
     prnonz(vfpsrtype);
+    prnonz(vfgptc);
 
     if(cnt > 0) {
       for(int i = 0; i < cnt; i++) {
-	    printf("%s ", str[i]);
+	    printf("VF: %s ", str[i]);
       }
       printf("\n");
     }
 }
-
+*/
 static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector)
 {
     bool res;
@@ -171,8 +173,6 @@ static void device_init(void)
 
     vf->initialized = 0;
 
-    stats_dump();
-
     stop_device(vf);
 
     assert(!initialized_before);
@@ -180,7 +180,7 @@ static void device_init(void)
     // Issue Global reset
     e10k_vf_vfctrl_rst_wrf(vf->d, 1);
     // Spec says 10, fbsd driver 50
-    milli_sleep(5000);
+    milli_sleep(50);
     DEBUG_VF("Global reset done\n");
 
     // Disable interrupts
@@ -189,8 +189,7 @@ static void device_init(void)
 
     // Wait for link to come up
     DEBUG_VF("Waiting for Link\n");
-    stats_dump();
-    //while (e10k_vf_vflinks_lnk_up_rdf(vf->d) == 0); // TODO: Timeout and Uncomment
+    while (e10k_vf_vflinks_lnk_up_rdf(vf->d) == 0); // TODO: Timeout and Uncomment
     DEBUG_VF("Link Up\n");
     milli_sleep(50);
 
@@ -245,7 +244,8 @@ static void queue_hw_init(struct e10k_queue* q)
 {
     errval_t r;
     struct frame_identity frameid = { .base = 0, .bytes = 0 };
-    uint64_t tx_phys, txhwb_phys, rx_phys;
+    uint64_t tx_phys, rx_phys;
+    uint64_t txhwb_phys;
     size_t tx_size, rx_size;
     uint8_t n = q->id;
     e10k_vf_t* d = q->d;
@@ -262,13 +262,19 @@ static void queue_hw_init(struct e10k_queue* q)
     rx_size = frameid.bytes;
 
 
-    DEBUG_VF("tx.phys=%"PRIx64" tx.size=%"PRIu64"\n", tx_phys, tx_size);
-    DEBUG_VF("rx.phys=%"PRIx64" rx.size=%"PRIu64"\n", rx_phys, rx_size);
+    DEBUG_VF("tx.phys=%"PRIx64" tx.virt=%p tx.size=%"PRIu64"\n", tx_phys, q->tx_ring, tx_size);
+    DEBUG_VF("rx.phys=%"PRIx64" rx.virt=%p rx.size=%"PRIu64"\n", rx_phys, q->rx_ring, rx_size);
 
 
     // Initialize RX queue in HW
-    e10k_vf_vfrdbal_wr(d, n, rx_phys);
-    e10k_vf_vfrdbah_wr(d, n, rx_phys >> 32);
+    if (q->use_vtd) {
+        e10k_vf_vfrdbal_wr(d, n, (lvaddr_t) q->rx_ring);
+        e10k_vf_vfrdbah_wr(d, n, ((lvaddr_t)q->rx_ring) >> 32);
+    } else {
+        e10k_vf_vfrdbal_wr(d, n, rx_phys);
+        e10k_vf_vfrdbah_wr(d, n, rx_phys >> 32);
+    }
+
     e10k_vf_vfrdlen_wr(d, n, rx_size);
 
     e10k_vf_vfsrrctl_bsz_pkt_wrf(d, n, q->rxbufsz / 1024);
@@ -291,6 +297,8 @@ static void queue_hw_init(struct e10k_queue* q)
         uint8_t rxv, txv;
         // Look for interrupt vector
         if (q->msix_intvec != 0) {
+
+            DEBUG_VF("[%x] Setting up MSI-X\n", n);
             if (q->msix_index == -1) {
                 setup_interrupt(&q->msix_index, q->msix_intdest,
                                 q->msix_intvec);
@@ -341,13 +349,14 @@ static void queue_hw_init(struct e10k_queue* q)
 
     // Initialize TX head index write back
     if (!capref_is_null(q->txhwb_frame)) {
+        DEBUG_VF("[%x] tx_hwb enabled\n", n);
         r = invoke_frame_identify(q->txhwb_frame, &frameid);
         assert(err_is_ok(r));
         txhwb_phys = frameid.base;
 
-	if (q->use_vtd) {
-	    e10k_vf_vftdwbal_headwb_low_wrf(d, n, ((lvaddr_t)q->tx_hwb) >> 2);
-	    e10k_vf_vftdwbah_headwb_high_wrf(d, n, ((lvaddr_t)q->tx_hwb) >> 32);
+	    if (q->use_vtd) {
+	        e10k_vf_vftdwbal_headwb_low_wrf(d, n, ((lvaddr_t)q->tx_hwb) >> 2);
+	        e10k_vf_vftdwbah_headwb_high_wrf(d, n, ((lvaddr_t)q->tx_hwb) >> 32);
         } else {
             e10k_vf_vftdwbal_headwb_low_wrf(d, n, txhwb_phys >> 2);
             e10k_vf_vftdwbah_headwb_high_wrf(d, n, txhwb_phys >> 32);
@@ -355,25 +364,26 @@ static void queue_hw_init(struct e10k_queue* q)
         e10k_vf_vftdwbal_headwb_en_wrf(d, n, 1);
     }
 
-    // Initialized by queue driver to avoid race conditions
     // Initialize queue pointers
     assert(q->tx_head == 0);
-    e10k_vf_vftdh_wr(d, n, q->tx_head);
-    e10k_vf_vftdt_wr(d, n, q->tx_head);
+    e10k_vf_vftdh_wr(d, n, 0);
+    e10k_vf_vftdt_wr(d, n, 0);
 
     // Configure prefetch and writeback threshhold
-    e10k_vf_vftxdctl_pthresh_wrf(d, n, 8); // FIXME: Figure out what the right number
+    e10k_vf_vftxdctl_pthresh_wrf(d, n, 32); // FIXME: Figure out what the right number
                                       //        is here.
-    e10k_vf_vftxdctl_hthresh_wrf(d, n, 0);
-    e10k_vf_vftxdctl_wthresh_wrf(d, n, 0);      // Needs to be 0 for TXHWB
+    e10k_vf_vftxdctl_hthresh_wrf(d, n, 1);
+    e10k_vf_vftxdctl_wthresh_wrf(d, n, 1);      // Needs to be 0 for TXHWB (but not enabled anyway)
 
     e10k_vf_vftxdctl_enable_wrf(d, n, 1);
 
+    DEBUG_VF("[%x] Waiting until TX queue enabled\n", n);
     while (e10k_vf_vftxdctl_enable_rdf(d, n) == 0); // TODO: Timeout
     DEBUG_VF("[%x] TX queue enabled\n", n);
 
     // Some initialization stuff from BSD driver
     e10k_vf_vfdca_txctrl_txdesc_wbro_wrf(d, n, 0);
+    e10k_vf_vfdca_txctrl_txdesc_dca_wrf(d, n, 0);
 }
 
 #if 0
@@ -493,12 +503,12 @@ static errval_t pci_register(void)
 
     r = pci_register_driver_noirq(pci_init_card, NULL, PCI_CLASS_ETHERNET,
                                 PCI_DONT_CARE, PCI_DONT_CARE,
-                                PCI_VENDOR_INTEL, E10K_PCI_DEVID,
-                                7, 16, vf->pci_function);
+                                PCI_VENDOR_INTEL, E10K_VF_DEVID,
+                                vf->bus, vf->device, vf->pci_function);
 
     DEBUG_VF("pci registered\n");
     if (err_is_fail(r)) {
-        DEBUG_VF("err\n");
+        DEBUG_VF("err %s\n", err_getstring(r));
         return r;
     }
     return SYS_ERR_OK;
@@ -510,6 +520,7 @@ static void vf_bind_cont(void *st, errval_t err, struct e10k_vf_binding *b)
     assert(err_is_ok(err));
 
     vf->binding = b;
+    e10k_vf_rpc_client_init(vf->binding);
 }
 
 static errval_t e10k_vf_client_connect(int pci_function)
@@ -537,9 +548,8 @@ static errval_t e10k_vf_client_connect(int pci_function)
 
     /* XXX: Wait for connection establishment */
     while (vf->binding == NULL && err2 == SYS_ERR_OK) {
-        messages_wait_and_handle_next();
+        event_dispatch(get_default_waitset());
     }
-
     return err2;
 }
 
@@ -556,11 +566,13 @@ errval_t e10k_vf_init_queue_hw(struct e10k_queue* q)
         if (!vf->q_enabled[i]) {
             q_idx = i;
             vf->q_enabled[i] = true;
+            q->id = q_idx;
             break;
         }
     }
 
     q->d = vf->d;
+    q->mac = vf->d_mac;
     DEBUG_VF("Enabled queue %d of VF in hardware\n", q_idx);
     // initialize queue in hardware
     queue_hw_init(q);
@@ -568,10 +580,10 @@ errval_t e10k_vf_init_queue_hw(struct e10k_queue* q)
     return SYS_ERR_OK;
 }
 
-errval_t e10k_init_vf_driver(uint8_t pci_function,
-                             bool interrupts)
+
+errval_t e10k_init_vf_driver(uint8_t pci_function, uint8_t seg, uint32_t bus,
+                             uint32_t dev, uint32_t device_id, bool interrupts)
 {
-    
     errval_t err, err2;
     // crate vtd domain for VF driver
     // XXX: might not be the best idea to do it here
@@ -579,13 +591,17 @@ errval_t e10k_init_vf_driver(uint8_t pci_function,
     assert(err_is_ok(err));
     err = vtd_create_domain(cap_vroot);
     assert(err_is_ok(err));
-    err = vtd_domain_add_device(0, 7, 16, 0, cap_vroot);
+    err = vtd_domain_add_device(seg, bus, dev, pci_function, cap_vroot);
     assert(err_is_ok(err));
 
     DEBUG_VF("VF driver started\n");
-    vf = malloc(sizeof(struct vf_state));
+    vf = calloc(sizeof(struct vf_state), 1);
     vf->use_interrupts = interrupts;
-   
+    vf->segment = seg;
+    vf->bus = bus;
+    vf->device = dev;   
+    vf->device_id = device_id;   
+
     DEBUG_VF("Connecting to PF driver...\n");
     err = e10k_vf_client_connect(pci_function);
     if (err_is_fail(err)) {
@@ -599,12 +615,10 @@ errval_t e10k_init_vf_driver(uint8_t pci_function,
     if (err_is_fail(err) || err_is_fail(err2)) {
         return err_is_fail(err) ? err: err2;
     }
- 
     DEBUG_VF("Requesting MAC from PF...\n");
     err = vf->binding->rpc_tx_vtbl.get_mac_address(vf->binding, vf->vf_num,
                                                    &vf->d_mac);
     assert(err_is_ok(err));
-
     DEBUG_VF("VF num %d initalize...\n", vf->vf_num);
     err = pci_register();
     if (err_is_fail(err)) {
@@ -614,7 +628,6 @@ errval_t e10k_init_vf_driver(uint8_t pci_function,
     while (!vf->initialized) {
         event_dispatch(get_default_waitset());
     }
-
     DEBUG_VF("VF init done\n");
     return SYS_ERR_OK;
 }

@@ -138,14 +138,11 @@ errval_t pci_msix_enable(struct pci_address *addr, uint16_t *count)
 
         // Find BAR for MSI-X table and map memory
         bir = cap[1] & 0x7;
-        // TODO map all caps
         bar_index = pci_bar_to_caps_index(addr->bus, addr->device,
                                           addr->function, bir);
         assert(bar_index >= 0);
-        assert(pci_get_nr_caps_for_bar(addr->bus, addr->device, addr->function,
-                                        bar_index) == 1);
         tablecap = pci_get_bar_cap_for_device(addr->bus, addr->device, addr->function,
-                                          bar_index, 0);
+                                          bar_index);
         invoke_frame_identify(tablecap, &frameid);
         err = vspace_map_one_frame_attr(&virt, frameid.bytes, tablecap,
                     VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);

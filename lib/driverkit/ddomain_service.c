@@ -37,6 +37,13 @@ static struct bind_state {
 } rpc_bind;
 
 /**
+ * Check if the argument is non-null and of non zero length
+ */
+static bool arg_valid(const char * a){
+    return a != NULL && strlen(a) > 0;
+}
+
+/**
  * Act upon request to create a driver instance.
  *
  * \param binding Controller binding
@@ -54,7 +61,9 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
                            struct capref cap1, struct capref cap2, struct capref cap3,
                            struct capref cap4, struct capref cap5,  struct capref cap6,
                            uint64_t flags) {
-    DRIVERKIT_DEBUG("Driver domain got create message from kaluga for %s\n", cls);
+    errval_t err;
+    DRIVERKIT_DEBUG("Driver domain got create message from kaluga for cls=%s,"
+            "name=%s\n", cls, name);
 
     iref_t dev = 0, ctrl = 0;
 
@@ -70,16 +79,34 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
     cap_array[4] = cap5;
     cap_array[5] = cap6;
 
+    struct capref cnodecap;
+    err = slot_alloc_root(&cnodecap);
+    assert(err_is_ok(err));
+    err = cap_copy(cnodecap, cap_array[0]);
+    struct capref cap0_0 = {
+            .slot = 0,
+            .cnode = build_cnoderef(cnodecap, CNODE_TYPE_OTHER)
+    }; 
+    char debug_msg[100];
+    debug_print_cap_at_capref(debug_msg, sizeof(debug_msg), cap0_0);
+    DRIVERKIT_DEBUG("Received cap0_0=%s\n", debug_msg);
+
     char** args_array = calloc(sizeof(char*), 4);
-    args_array[0] = a1 != NULL ? strdup(a1) : NULL;
-    args_array[1] = a2 != NULL ? strdup(a2) : NULL;
-    args_array[2] = a3 != NULL ? strdup(a3) : NULL;
-    args_array[3] = a4 != NULL ? strdup(a4) : NULL;
+    args_array[0] = arg_valid(a1) ? strdup(a1) : NULL;
+    args_array[1] = arg_valid(a2) ? strdup(a2) : NULL;
+    args_array[2] = arg_valid(a3) ? strdup(a3) : NULL;
+    args_array[3] = arg_valid(a4) ? strdup(a4) : NULL;
+
+    int args_len;
+    for(args_len=0; args_len<NR_ARGS; args_len++) {
+        if(args_array[args_len] == NULL) break;
+    }
 
     DRIVERKIT_DEBUG("Instantiate driver\n");
-    errval_t err = driverkit_create_driver(cls, name, cap_array, NR_CAPS, args_array, NR_ARGS, flags, &dev, &ctrl);
+    err = driverkit_create_driver(cls, name, cap_array, NR_CAPS, args_array, args_len, flags, &dev, &ctrl);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga.\n");
+        DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
+                "name=%s, cls=%s\n", name, cls);
     }
 
     DRIVERKIT_DEBUG("sending create response to kaluga\n");

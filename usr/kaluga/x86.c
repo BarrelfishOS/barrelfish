@@ -20,6 +20,8 @@
 
 #include <barrelfish/barrelfish.h>
 #include <skb/skb.h>
+#include <pci/pci.h>
+#include <acpi_client/acpi_client.h>
 #include "kaluga.h"
 
 #define SERIAL_IRQ 4
@@ -120,6 +122,7 @@ errval_t arch_startup(char * add_device_db_file)
     assert(my_core_id == BSP_CORE_ID);
     KALUGA_DEBUG("Kaluga running on x86.\n");
 
+
     err = skb_client_connect();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Connect to SKB.");
@@ -179,6 +182,13 @@ errval_t arch_startup(char * add_device_db_file)
         free(record);
     }
 
+    KALUGA_DEBUG("Kaluga: ACPI connect...\n");
+    err = connect_to_acpi();
+    if (err_is_fail(err) && err != KALUGA_ERR_MODULE_NOT_FOUND) {
+        USER_PANIC_ERR(err, "start_lpc_timer");
+    }
+
+
     err = watch_for_iommu();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching for IOMMUS.");
@@ -195,8 +205,6 @@ errval_t arch_startup(char * add_device_db_file)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
     }
-
-    KALUGA_DEBUG("Kaluga: iommus\n");
 
 
     KALUGA_DEBUG("Kaluga: pci_devices\n");

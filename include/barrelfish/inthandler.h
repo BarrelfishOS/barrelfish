@@ -11,6 +11,9 @@
 #define _BARRELFISH_INTHANDLER_H
 
 #include <sys/cdefs.h>
+#include <barrelfish/caddr.h>
+#include <barrelfish/waitset.h>
+#include <errors/errno.h>
 
 __BEGIN_DECLS
 

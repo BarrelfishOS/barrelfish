@@ -9,6 +9,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <net/net_queue.h>
+#include <pci/pci_types.h>
 #include "networking_internal.h"
 #include "net_queue_internal.h"
 
@@ -35,32 +36,66 @@ static errval_t create_driver_queue(const char* cardname, inthandler_t interrupt
     return SYS_ERR_OK;
 }
 
-// cardname - "e1000:vendor:deviceid:bus:device:function"
 static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
                                    bool default_q, bool poll, struct devq **retqueue)
 {
-    if (cardname[5] != ':') {
-        return SYS_ERR_OK;
+    errval_t err;
+    if (cardname[6] != ':') {
+        return DEVQ_ERR_INIT_QUEUE;
     }
-    uint32_t vendor, deviceid, bus, device, function;
-    unsigned parsed = sscanf(cardname + 6, "%x:%x:%x:%x:%x", &vendor,
-                             &deviceid, &bus, &device, &function);
-    if (parsed != 5) {
-        return SYS_ERR_OK;
+
+    struct pci_addr addr;
+    struct pci_id id;
+    struct pci_class cls;
+
+    err = pci_deserialize_octet((char*) cardname+7, &addr, &id, &cls);     
+    if (err_is_fail(err)) {
+        printf("%s \n", cardname+7);
+        return DEVQ_ERR_INIT_QUEUE;
     }
 
     struct net_state* st = get_default_net_state();
     // disable HW filter since the card does not have them
     st->hw_filter = false;
 
-    return e1000_queue_create((struct e1000_queue**)retqueue, vendor, deviceid,
-                              bus, device, function, 1, interrupt);
+    return e1000_queue_create((struct e1000_queue**)retqueue, id.vendor, id.device,
+                              addr.bus, addr.device, addr.function, 1, interrupt);
 }
 
 // cardname - "mlx4:vendor:deviceid:bus:device:function"
 static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
                                    bool default_q, bool poll, struct devq **retqueue)
 {
+    errval_t err;
+    if (cardname[4] != ':') {
+        return SYS_ERR_OK;
+    }
+
+    struct pci_addr addr;
+    struct pci_id id;
+    struct pci_class cls;
+
+    err = pci_deserialize_octet((char*) cardname+5, &addr, &id, &cls);     
+    if (err_is_fail(err)) {
+        return DEVQ_ERR_INIT_QUEUE;
+    }
+
+    struct net_state* st = get_default_net_state();
+    // disable HW filter since the card does not have them
+    st->hw_filter = false;
+
+    return mlx4_queue_create((struct mlx4_queue**)retqueue, id.vendor, id.device,
+                              addr.bus, addr.device, addr.function, 1, interrupt);
+}
+
+static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
+                                  bool default_q, bool poll, struct devq **retqueue)
+{
+    errval_t err;
+    struct net_state* st = get_default_net_state();
+    // enable HW filter since they are enabled by default by the driver
+    st->hw_filter = true;
+
     if (cardname[4] != ':') {
         return SYS_ERR_OK;
     }
@@ -71,23 +106,9 @@ static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt, 
         return SYS_ERR_OK;
     }
 
-    struct net_state* st = get_default_net_state();
-    // disable HW filter since the card does not have them
-    st->hw_filter = false;
-
-    return mlx4_queue_create((struct mlx4_queue**)retqueue, vendor, deviceid,
-                              bus, device, function, 1, interrupt);
-}
-
-static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
-                                  bool default_q, bool poll, struct devq **retqueue)
-{
-    errval_t err;
-    struct net_state* st = get_default_net_state();
-    // enable HW filter since they are enabled by default by the driver
-    st->hw_filter = true;
     err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
-                            false /*virtual functions*/,
+                            bus, function, deviceid, device, 
+                            false/*virtual functions*/,
                             !poll, /* user interrupts*/
                             default_q);
     *queueid = e10k_queue_get_id((struct e10k_queue*)*retqueue);
@@ -119,7 +140,7 @@ struct networking_card
 } networking_cards [] = {
     { "loopback", create_loopback_queue},
     { "driver", create_driver_queue},
-    { "e1000", create_e1000_queue},
+    { "e1000n", create_e1000_queue},
     { "mlx4", create_mlx4_queue},
     { "e10k", create_e10k_queue},
     { "sfn5122f", create_sfn5122f_queue},

@@ -463,7 +463,7 @@ static void send_user_interrupt(int irq)
         if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
             struct dispatcher_shared_generic *disp =
                 get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
-            printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow on IRQ %d\n",
+            printk(LOG_WARN, "%.*s: IRQ message buffer overflow on IRQ %d\n",
                    DISP_NAME_LEN, disp->name, irq);
         } else {
             printk(LOG_ERR, "Unexpected error delivering IRQ\n");

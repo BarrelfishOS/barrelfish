@@ -64,6 +64,7 @@ errval_t networking_get_defaults(uint64_t *queue, const char **cardname, uint32_
 
 static void int_handler(void* args)
 {
+    NETDEBUG("Enter int_handler!\n");
     struct net_state *st = devq_get_state(args);
 
     if (st) {

@@ -61,6 +61,7 @@ class DevifTests(TestCommon):
     def get_modules(self, build, machine):
         self.machine = machine.name
         modules = super(DevifTests, self).get_modules(build, machine)
+        modules.add_module("e1000n", ["auto"])
         modules.add_module("net_sockets_server", ["nospawn"])
         modules.add_module("devif_idc", ["core=1"])
         modules.add_module("e10k", ["auto", "function=0"])

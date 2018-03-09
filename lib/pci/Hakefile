@@ -11,7 +11,20 @@
 -- 
 --------------------------------------------------------------------------
 
-[ build library { target = "pci",
+[ 
+
+  build library { target = "pci_driver_client",
+                  cFiles = [ "pci_driver_client.c" ],
+                  flounderBindings = [ "pci_driver_client" ],
+                  flounderExtraBindings = [ ("pci_driver_client", ["rpcclient"]) ],
+                  flounderExtraDefs = [  ],
+                  architectures = [ "x86_64", "x86_32", "armv8" ],
+                  addLibraries = libDeps [ "int_route_client" ]
+                },
+
+  -- This is the (legacy) fully privileged interface. PCI drivers written
+  -- newstyle should use the pci_driver_client library.
+  build library { target = "pci",
                   cFiles = [ "mem.c", "pci_client.c" ],
                   flounderBindings = [ "pci" ],
                   flounderExtraBindings = [ ("pci", ["rpcclient"]) ],
