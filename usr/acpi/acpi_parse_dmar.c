@@ -33,6 +33,9 @@
 #define SKB_SCHEMA_DMAR_HW_UNIT \
     "dmar_drhd(%" PRIu32 ", %" PRIu8 ", %" PRIu16 ", %" PRIu64 ")."
 
+#define SKB_SCHEMA_IOMMU \
+    "iommu(%" PRIu32 ", %" PRIu32 ", %" PRIu8 ", %" PRIu16 ")."
+
 #define SKB_SCHEMA_DMAR_RESERVED_MEMORY \
     "dmar_rmem(%" PRIu16 ", %" PRIu64 ", %" PRIu64 ")."
 
@@ -191,6 +194,13 @@ static errval_t parse_hardware_unit(ACPI_DMAR_HARDWARE_UNIT *drhd, void *end,
 
     err = skb_add_fact(SKB_SCHEMA_DMAR_HW_UNIT, idx, drhd->Flags, drhd->Segment,
                        drhd->Address);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to insert into SKB: " SKB_SCHEMA_DMAR_HW_UNIT "\n",
+                  idx, drhd->Flags, drhd->Segment, drhd->Address);
+    }
+
+    err = skb_add_fact(SKB_SCHEMA_IOMMU, HW_PCI_IOMMU_INTEL, idx,
+                       drhd->Flags & ACPI_DMAR_INCLUDE_ALL, drhd->Segment);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to insert into SKB: " SKB_SCHEMA_DMAR_HW_UNIT "\n",
                   idx, drhd->Flags, drhd->Segment, drhd->Address);
