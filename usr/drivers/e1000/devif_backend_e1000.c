@@ -340,7 +340,6 @@ errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t device
 
     device->mac_type = e1000_get_mac_type(device->pci_vendor, device->pci_deviceid);
 
-    printf("MAC type %d \n", device->mac_type);
     switch (device->mac_type) {
         case e1000_82571:
         case e1000_82572:
@@ -350,6 +349,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t device
         } break;
         case e1000_82576:
         case e1000_I210:
+        case e1000_I219:
         case e1000_I350: {
             device->extended_interrupts = 1;
             device->advanced_descriptors = 3;

@@ -89,6 +89,7 @@
 #define E1000_DEVICE_82575EB             0x10A7 // TODO(gz): This cards needs more work
 #define E1000_DEVICE_82576EG             0x10C9 // TODO(gz): This cards needs more work
 #define E1000_DEVICE_I210                0x1533
+#define E1000_DEVICE_I219                0x15b8
 #define E1000_DEVICE_I350_EEPROM_LESS    0x151F
 #define E1000_DEVICE_I350_COPPER         0x1521
 #define E1000_DEVICE_I350_FIBER          0x1522
@@ -140,6 +141,7 @@ typedef enum {
     e1000_82575,
     e1000_82576,
     e1000_I210,
+    e1000_I219,
     e1000_I350,
     e1000_num_macs
 } e1000_mac_type_t;

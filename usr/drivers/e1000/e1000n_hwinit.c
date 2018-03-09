@@ -487,8 +487,9 @@ static int e1000_reset(struct e1000_driver_state *device)
     e1000_ctrl_rst_wrf(hw_device, 1);
     /* Wait for reset to clear */
     timeout = 1000;
+
     do {
-        // usec_delay(10);
+        usec_delay(10);
     } while (e1000_ctrl_rst_rdf(hw_device) != 0 && 0 < timeout--);
     assert(timeout >= 0);
     debug_printf("%s.%d: timeout=%d\n", __func__, __LINE__, timeout);
@@ -727,6 +728,7 @@ static void e1000_set_tipg(struct e1000_driver_state *eds)
     case e1000_82575:
     case e1000_82576:
     case e1000_I210:
+    case e1000_I219:
     case e1000_I350:
         tipg = e1000_tipg_ipgr1_insert(tipg, DEFAULT_82575_TIPG_IPGR1);
         tipg = e1000_tipg_ipgr2_insert(tipg, DEFAULT_82575_TIPG_IPGR2);
@@ -761,6 +763,7 @@ static void e1000_setup_rx(struct e1000_driver_state *device, struct capref rx)
     switch (device->mac_type) {
         case e1000_82576:
         case e1000_I210:
+        case e1000_I219:
         case e1000_I350: {
             /*  Software should program RDLEN[n] register only when queue is disabled */
             e1000_rdbal_I350_wr(hw_device, 0, frameid.base & 0xffffffff);
@@ -800,6 +803,7 @@ static void e1000_setup_rx(struct e1000_driver_state *device, struct capref rx)
         } break;
         case e1000_82576:
         case e1000_I210:
+        case e1000_I219:
         case e1000_I350: {
             /* If VLANs are not used, software should clear VFE. */
             e1000_rctl_vfe_wrf(hw_device, 0);
@@ -866,6 +870,7 @@ static void e1000_setup_tx(struct e1000_driver_state *device, struct capref tx)
     switch (device->mac_type) {
         case e1000_82576:
         case e1000_I210:
+        case e1000_I219:
         case e1000_I350: {
             /* Software should program TDLEN[n] register only when queue is disabled */
             e1000_tdbal_I350_wr(hw_device, 0, frameid.base & 0xffffffff);
@@ -895,6 +900,7 @@ static void e1000_setup_tx(struct e1000_driver_state *device, struct capref tx)
         } break;
         case e1000_82576:
         case e1000_I210:
+        case e1000_I219:
         case e1000_I350: {
             /* Program the TXDCTL register with the desired TX descriptor write
              * back policy. Suggested values are:
@@ -928,7 +934,8 @@ static void e1000_setup_tx(struct e1000_driver_state *device, struct capref tx)
     tctl = e1000_tctl_psp_insert(tctl, 1);
     e1000_tctl_wr(hw_device, tctl);
 
-    if (device->mac_type == e1000_82576 || device->mac_type == e1000_I210 || device->mac_type == e1000_I350) {
+    if (device->mac_type == e1000_82576 || device->mac_type == e1000_I210 || 
+        device->mac_type == e1000_I350  || device->mac_type == e1000_I219 ) {
             /* Poll the TXDCTL register until the ENABLE bit is set. */
             int timeout = 1000;
             while(!e1000_txdctl_I350_enable_rdf(hw_device, 0) && timeout--) {
@@ -958,6 +965,7 @@ void e1000_set_interrupt_throttle(struct e1000_driver_state *eds, uint16_t usec)
     if (eds->mac_type == e1000_82575
         || eds->mac_type == e1000_82576
         || eds->mac_type == e1000_I210
+        || eds->mac_type == e1000_I219
         || eds->mac_type == e1000_I350) {
         // TODO(lh): Check if these cards really dont need the itr set as well.
         e1000_eitr_interval_wrf(eds->device, 0, rate);
@@ -1122,7 +1130,8 @@ void e1000_hwinit(struct e1000_driver_state *eds)
     /* receive descriptor control */
     if (eds->mac_type == e1000_82575
         || eds->mac_type == e1000_82576
-        || eds->mac_type == e1000_I210) {
+        || eds->mac_type == e1000_I210
+        || eds->mac_type == e1000_I219) {
         e1000_rxdctl_82575_t rxdctl = 0;
 
         rxdctl = e1000_rxdctl_82575_enable_insert(rxdctl, 1);

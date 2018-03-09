@@ -98,6 +98,7 @@ e1000_mac_type_t e1000_get_mac_type(uint32_t vendor, uint32_t device_id)
         case E1000_DEVICE_82576EG:
             return e1000_82576;
         case E1000_DEVICE_I210:
+        case E1000_DEVICE_I219:
             return e1000_I210;
         case E1000_DEVICE_I350_EEPROM_LESS:
         case E1000_DEVICE_I350_COPPER:
@@ -138,6 +139,7 @@ char * e1000_mac_type_to_str(e1000_mac_type_t mt){
         "82575",
         "82576",
         "I210",
+        "I219",
         "I350"
     };
     if(mt >= e1000_num_macs) return NULL;

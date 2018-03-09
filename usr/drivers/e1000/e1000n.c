@@ -275,6 +275,7 @@ static void e1000_init_fn(struct e1000_driver_state * device)
         } break;
         case e1000_82576:
         case e1000_I210:
+        case e1000_I219:
         case e1000_I350: {
             device->extended_interrupts = 1;
             device->advanced_descriptors = 3;
@@ -555,6 +556,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
     if (eds->mac_type == e1000_82575
         || eds->mac_type == e1000_82576
         || eds->mac_type == e1000_I210
+        || eds->mac_type == e1000_I219
         || eds->mac_type == e1000_I350) {
         // These cards do not have a bsex reg entry
         // therefore, we can't use 16384 buffer size.
