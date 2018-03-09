@@ -876,14 +876,15 @@ errors acpi ACPI_ERR_ {
     failure OBJECT_NOT_FOUND    "Could not locate ACPI object.",
 };
 
-errors vtd VTD_ERR_ {
-    failure INVALID_CAP     "Cap is not for a x86-64 PML4 VNode",
+errors iommu IOMMU_ERR_ {
+    failure INVALID_CAP     "Cap is not a suitable VNode",
+    failure IOMMU_NOT_FOUND "The IOMMU for the devices was not found",
     failure DOM_NOT_FOUND   "Domain for cap was not found",
     failure DEV_NOT_FOUND   "Device does not belong to the domain",
     failure DEV_USED        "The device is currently used by another domain",
-    failure FULL            "No more domains can be created",
+    failure DOM_FULL        "No more domains can be created",
     failure NO_UNITS	    "Hardware doesn't contain any VT-d hardware units",
-    failure NOT_ENABLED     "VT-d not enabled",
+    failure NOT_ENABLED     "IOMMU is not enabled",
 };
 
 // errors in the SKB
