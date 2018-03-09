@@ -31,7 +31,7 @@
                       mackerelDevices = [ "e10k", "e10k_q" ],
                       addLibraries = libDeps [ "netQmng", "pci", "contmng",
                                                "net_device_manager", "bench",
-                                               "trace", "skb", "lwip" ]
+                                               "trace", "skb", "lwip", "driverkit" ]
                     },
   
   build library { target = "e10k",
@@ -42,7 +42,7 @@
                                            "net_soft_filters", "net_filter"],
                       flounderDefs = [ "e10k_vf", "e10k", "net_filter"],
                       addLibraries = libDeps [ "pci", "bench", "trace", "skb", "lwip", "net",
-                                               "acpi_client"],
+                                               "driverkit"],
                       addCFlags = [ "-DLIBRARY" ]
                     },
 

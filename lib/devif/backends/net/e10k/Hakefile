@@ -21,6 +21,6 @@
                       flounderDefs = [ "e10k_vf", "e10k" ],
                       flounderExtraDefs = [ ("e10k_vf",["rpcclient"]) ],
                       mackerelDevices = [ "e10k_vf", "e10k", "e10k_q"],
-                      addLibraries = libDeps ["pci", "skb", "acpi_client"]
+                      addLibraries = libDeps ["pci", "skb", "driverkit" ]
                   }
   ]

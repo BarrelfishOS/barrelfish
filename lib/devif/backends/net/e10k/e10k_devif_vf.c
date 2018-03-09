@@ -16,8 +16,7 @@
 #include <pci/pci.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/debug.h>
-#include <acpi_client/acpi_client.h>
-
+#include <driverkit/iommu.h>
 
 #include <if/e10k_defs.h>
 #include <if/e10k_vf_defs.h>
@@ -587,12 +586,30 @@ errval_t e10k_init_vf_driver(uint8_t pci_function, uint8_t seg, uint32_t bus,
     errval_t err, err2;
     // crate vtd domain for VF driver
     // XXX: might not be the best idea to do it here
-    err = connect_to_acpi();
-    assert(err_is_ok(err));
-    err = vtd_create_domain(cap_vroot);
-    assert(err_is_ok(err));
-    err = vtd_domain_add_device(seg, bus, dev, pci_function, cap_vroot);
-    assert(err_is_ok(err));
+
+    /*
+     * TODO: move this to the queue manager!
+     */
+    err = driverkit_iommu_client_init();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (!driverkit_iommu_present()) {
+        USER_PANIC("IOMMU SHOULD BE ENABLED!\n");
+    }
+
+    struct capref devcap = NULL_CAP;
+    err = driverkit_iommu_create_domain(cap_vroot, devcap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = driverkit_iommu_add_device(cap_vroot, devcap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
 
     DEBUG_VF("VF driver started\n");
     vf = calloc(sizeof(struct vf_state), 1);

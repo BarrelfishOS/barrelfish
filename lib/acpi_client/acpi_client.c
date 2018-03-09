@@ -80,45 +80,6 @@ errval_t acpi_get_vbe_bios_cap(struct capref *retcap, size_t *retsize)
     return err_is_fail(err) ? err : msgerr;
 }
 
-errval_t vtd_create_domain(struct capref pml4)
-{
-    assert(binding != NULL);
-    errval_t err, msgerr;
-    err = binding->rpc_tx_vtbl.create_domain(binding, pml4, &msgerr);
-    return err_is_fail(err) ? err : msgerr;
-}
-
-errval_t vtd_delete_domain(struct capref pml4)
-{
-    assert(binding != NULL);
-    errval_t err, msgerr;
-    err = binding->rpc_tx_vtbl.delete_domain(binding, pml4, &msgerr);
-    return err_is_fail(err) ? err : msgerr;
-}
-
-errval_t vtd_domain_add_device(int seg, int bus, int dev, int func, struct capref pml4)
-{
-    assert(binding != NULL);
-    errval_t err, msgerr;
-    err = binding->rpc_tx_vtbl.vtd_add_device(binding, seg, bus, dev, func, pml4, &msgerr);
-    return err_is_fail(err) ? err : msgerr;
-}
-
-errval_t vtd_domain_remove_device(int seg, int bus, int dev, int func, struct capref pml4)
-{
-    assert(binding != NULL);
-    errval_t err, msgerr;
-    err = binding->rpc_tx_vtbl.vtd_remove_device(binding, seg, bus, dev, func, pml4, &msgerr);
-    return err_is_fail(err) ? err : msgerr;
-}
-
-errval_t vtd_add_devices(void)
-{
-    assert(binding != NULL);
-    errval_t err, msgerr;
-    err = binding->rpc_tx_vtbl.vtd_id_dom_add_devices(binding, &msgerr);
-    return err_is_fail(err) ? err : msgerr;
-}
 
 struct acpi_binding* get_acpi_binding(void)
 {

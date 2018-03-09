@@ -18,6 +18,7 @@
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/debug.h>
 #include <barrelfish/deferred.h>
+#include <driverkit/iommu.h>
 #include <lwip/ip.h>
 #ifdef LIBRARY
 #       include <netif/e1000.h>
@@ -2040,12 +2041,26 @@ int e1000n_driver_init(int argc, char *argv[])
     if (err_is_ok(err)) {
         uint32_t vendor, deviceid, bus, device, function;
         sscanf(argv[3], "%x:%x:%x:%x:%x", &vendor, &deviceid, &bus, &device, &function);
-        err = connect_to_acpi();
-        assert(err_is_ok(err));
-        err = vtd_create_domain(cap_vroot);
-        assert(err_is_ok(err));
-        err = vtd_domain_add_device(0, bus, device, function, cap_vroot);
-        assert(err_is_ok(err));
+        err = driverkit_iommu_client_init();
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        if (!driverkit_iommu_present()) {
+            USER_PANIC("IOMMU SHOULD BE ENABLED!\n");
+        }
+
+        struct capref devcap = NULL_CAP;
+        err = driverkit_iommu_create_domain(cap_vroot, devcap);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        err = driverkit_iommu_add_device(cap_vroot, devcap);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
     }
 
     pci_register();
