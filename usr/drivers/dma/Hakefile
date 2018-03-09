@@ -25,7 +25,7 @@
   -- are stored.
   build application {
     target = "dma",
-    cFiles = [ "main.c" ],
+    cFiles = [ "main.c", "queue_manager.c" ],
     addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
     addLibraries = libDeps [ "driverkit" ],
     addModules = [ "mod_ioat" ],

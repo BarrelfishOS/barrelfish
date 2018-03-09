@@ -14,12 +14,12 @@
 
 #include <barrelfish/barrelfish.h>
 #include <driverkit/driverkit.h>
+#include <driverkit/iommu.h>
+
+#include "queue_manager.h"
 
 #define DRIVER_DEBUG(x...) debug_printf("[ioat] " x)
 
-struct ioat_dma_queue {
-
-};
 
 /**
  * Driver initialization function. This function is called by the driver domain
@@ -41,7 +41,30 @@ struct ioat_dma_queue {
  */
 static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t flags,
                      struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) {
+    errval_t err;
+
+
     DRIVER_DEBUG("%s:%d: %s\n", __FUNCTION__, __LINE__, bfi->driver->name);
+
+    /* TODO: obtain these values */
+    struct capref devcap = NULL_CAP;
+    uint64_t id = 0x0;
+
+    /* */
+    struct device_queue *q = calloc(1, sizeof(*q));
+    if (q == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    err = dqm_init_queue(devcap, id, QUEUE_TYPE_IOAT_DMA, q);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+
+    err = dqm_add_queue(q);
+    assert(err_is_ok(err));
+
 
     // 1. Initialize the device:
 
