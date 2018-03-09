@@ -60,17 +60,19 @@
 "r'hw\\.pci\\.rootbridge\\.[0-9]+' { bus: _, device: _, function: _," \
 " maxbus: _, acpi_node: _ }"
 
+
 /*
  * ===========================================================================
  * IOMMU hardware records
  * ===========================================================================
  */
 
-enum {
-    HW_PCI_IOMMU_INTEL = 1,
-    HW_PCI_IOMMU_AMD   = 2,
-    HW_PCI_IOMMU_ARM   = 3
-};
+typedef enum {
+    HW_PCI_IOMMU_UNKNOWN = 0,
+    HW_PCI_IOMMU_INTEL   = 1,
+    HW_PCI_IOMMU_AMD     = 2,
+    HW_PCI_IOMMU_ARM     = 3
+} hw_pci_iommu_t;
 
 #define HW_PCI_IOMMU_RECORD_FIELDS \
 "index: %d, type: %d, flags: %d, segment: %d, address: %" PRIu64
