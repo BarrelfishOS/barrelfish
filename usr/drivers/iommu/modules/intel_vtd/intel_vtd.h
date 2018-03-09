@@ -12,10 +12,12 @@
 
 #include <dev/vtd_dev.h>
 
+#include "../../common.h"
 #include "intel_vtd_debug.h"
 
 struct vtd;
 
+#define INTEL_VTD_MAX_DOMAINS 128
 
 extern vregion_flags_t vtd_table_map_attrs;
 
@@ -89,11 +91,9 @@ struct vtd_ctxt_table {
  * @brief represents a device context in the VT-d
  */
 struct vtd_device {
-    ///< the iommu binding
-    struct iommu_binding   *binding;
 
-    ///< the mapping cap for this device
-    struct capref           mappingcap;
+    ///< the generic iommu device
+    struct iommu_device     dev;
 
     ///< the context table this device is mapped in
     struct vtd_ctxt_table  *ctxt_table;
@@ -101,17 +101,6 @@ struct vtd_device {
     ///< the protection domain of the device
     struct vtd_domain      *domain;
 
-    ///< pci segmnet
-    uint16_t                pciseg;
-
-    ///< pci bus
-    uint8_t                 bus;
-
-    ///< pci device
-    uint8_t                 device;
-
-    ///< pci function
-    uint8_t                 function;
 };
 
 /**
@@ -134,13 +123,8 @@ struct vtd_domain {
 
 struct vtd_domain_mapping {
     struct vtd_domain_mapping *next;
-    struct vtd_domain_mapping *prev;
-    struct vtd                *vtd;
+    struct vtd_device         *dev;
     struct vtd_domain         *domain;
-    struct capref              mappingcap;
-
-    uint8_t             bus;
-    uint8_t             idx;
 };
 
 
@@ -252,10 +236,12 @@ errval_t vtd_root_table_unmap(struct vtd_root_table *rt, size_t idx);
 
 errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, struct vtd *vtd);
 errval_t vtd_ctxt_table_destroy(struct vtd_ctxt_table *ct);
-errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt,
+errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt, uint8_t idx,
                             struct vtd_domain *dom,
-                            struct vtd_domain_mapping *mapping);
-errval_t vtd_ctxt_table_unmap(struct vtd_domain_mapping *mapping);
+                            struct capref *mapping);
+
+
+errval_t vtd_ctxt_table_unmap(struct vtd_ctxt_table *ctxt, struct capref mapping);
 bool vtd_ctxt_table_valid(struct vtd_ctxt_table *ct);
 /*
  * ===========================================================================
@@ -265,27 +251,31 @@ bool vtd_ctxt_table_valid(struct vtd_ctxt_table *ct);
 
 
 errval_t vtd_domains_init(vtd_domid_t max_domains);
-errval_t vtd_domains_create(struct vtd_domain **domain, struct capref rootpt);
+errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
+                            struct vtd_domain **domain);
 errval_t vtd_domains_destroy(struct vtd_domain *domain);
 errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev);
 errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *dev);
 struct vtd_domain *vtd_domains_get_by_id(vtd_domid_t id);
 struct vtd_domain *vtd_domains_get_by_cap(struct capref rootpt);
 
+
 /*
  * ===========================================================================
  * Intel VT-d Devices
  * ===========================================================================
  */
-errval_t vtd_devices_init(void);
-errval_t vtd_devices_create(uint16_t pciseg, uint8_t bus, uint8_t dev,
-                            uint8_t fun, struct iommu_binding *binding,
-                            struct vtd_device **rdev);
-errval_t vtd_devices_destroy(struct vtd_device *dev);
-errval_t vtd_devices_remove_from_domain(struct vtd_device *dev);
-struct vtd_device *vtd_devices_get(uint8_t bus, uint8_t dev, uint8_t fun);
-struct vtd_device *vtd_devices_get_by_cap(struct capref cap);
+errval_t vtd_device_create(struct device_identity id,
+                           struct vtd *vtd,
+                           struct vtd_device **rdev);
+errval_t vtd_device_create_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
+                                  uint8_t fun, struct vtd *vtd,
+                                  struct vtd_device **rdev);
+errval_t vtd_device_destroy(struct vtd_device *dev);
 
+errval_t vtd_device_remove_from_domain(struct vtd_device *dev);
+errval_t vtd_device_add_to_domain(struct vtd_device *dev, struct vtd_domain *dom);
+struct vtd_domain *vtd_device_get_domain(struct vtd_device *dev);
 
 
 /*
@@ -312,12 +302,6 @@ static inline struct vtd *vtd_get_for_device(uint8_t bus, uint8_t dev,
 {
     return NULL;
 }
-
-
-
-
-
-
 
 
 static inline vtd_domid_t vtd_domains_get_id(struct vtd_domain *d)

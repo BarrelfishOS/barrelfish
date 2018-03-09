@@ -16,34 +16,17 @@ vtd_domid_t domains_free = 0;
 vtd_domid_t domains_next = 1;
 struct vtd_domain **domains_all = NULL;
 
-#define PCI_DEVICES_MAX 256
-#if 0
-static struct vtd_domain_mapping *device_mappings[PCI_DEVICES_MAX] = {0};
-
-
-static struct vtd_domain_mapping *
-vtd_domains_get_device_mapping(uint8_t bus, uint8_t dev, uint8_t fun)
-{
-    if (device_mappings[bus] == NULL) {
-        device_mappings[bus] = calloc(PCI_DEVICES_MAX,
-                                      sizeof(struct vtd_domain_mapping));
-        for (size_t i = 0; i < PCI_DEVICES_MAX; i++) {
-            device_mappings[bus][i].bus = bus;
-            device_mappings[bus][i].idx = i;
-        }
-
-        assert(device_mappings[bus]);
-    }
-
-    return &device_mappings[bus][vtd_dev_fun_to_ctxt_id(dev, fun)];
-}
-#endif
 
 
 errval_t vtd_domains_init(vtd_domid_t num_domains)
 {
     if (domains_all != NULL) {
         return SYS_ERR_OK;
+    }
+
+    if (num_domains > INTEL_VTD_MAX_DOMAINS) {
+        INTEL_VTD_DEBUG("[domains] setting domain to %u\n", INTEL_VTD_MAX_DOMAINS);
+        num_domains = INTEL_VTD_MAX_DOMAINS;
     }
 
     INTEL_VTD_DEBUG("[domains] initialize with %u domains\n", num_domains);
@@ -85,7 +68,8 @@ errval_t vtd_domains_get_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
 }
 #endif
 
-errval_t vtd_domains_create(struct vtd_domain **domain, struct capref rootpt)
+errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
+                            struct vtd_domain **domain)
 {
     errval_t err;
 
@@ -126,6 +110,12 @@ errval_t vtd_domains_create(struct vtd_domain **domain, struct capref rootpt)
             break;
         }
     }
+
+    if (domains_all[slot] != dom) {
+        free(dom);
+        return IOMMU_ERR_DOM_FULL;
+    }
+
     assert(slot != 0);
 
     INTEL_VTD_DEBUG("[domains] allocated domain id %u\n", slot);
@@ -136,6 +126,10 @@ errval_t vtd_domains_create(struct vtd_domain **domain, struct capref rootpt)
     dom->ptroot      = rootpt;
     dom->ptroot_base = id.base;
     dom->devmappings = NULL;
+
+    if (domain) {
+        *domain = dom;
+    }
 
     return SYS_ERR_OK;
 }
@@ -150,12 +144,17 @@ errval_t vtd_domains_destroy(struct vtd_domain *domain)
     assert(domains_all[domain->id] = domain);
 
     /* we need to remove all mappings from the domain */
-    while (domain->devmappings) {
-        err = vtd_ctxt_table_unmap(domain->devmappings);
+    struct vtd_domain_mapping *m = domain->devmappings;
+    while (m) {
+        err = vtd_ctxt_table_unmap(m->dev->ctxt_table, m->dev->dev.mappingcap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to remove mappings");
         }
-        domain->devmappings = domain->devmappings->next;
+
+        domain->devmappings = m->next;
+        m = domain->devmappings;
+
+        free(m);
     }
 
     domains_all[domain->id] = NULL;
@@ -167,67 +166,60 @@ errval_t vtd_domains_destroy(struct vtd_domain *domain)
 
 errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev)
 {
-    errval_t err = SYS_ERR_OK;
-    #if 0
 
-    //if (!valid_device(bus, dev, func)) ;
-    struct vtd *vtd = vtd_get_for_device(bus, dev, fun);
-    if (vtd == NULL) {
-        return IOMMU_ERR_DEV_NOT_FOUND;
-    }
+    errval_t err;
 
-    struct vtd_domain_mapping *devmap;
-    devmap = vtd_domains_get_device_mapping(bus, dev, fun);
-    if (!capref_is_null(devmap->mappingcap)) {
+    assert(dev->ctxt_table);
+
+    if (dev->domain) {
         return IOMMU_ERR_DEV_USED;
     }
 
-    /* map the devices into the domain */
-    err = vtd_ctxt_table_map(&vtd->ctxt_tables[bus], d, devmap);
+    struct vtd_domain_mapping *map = calloc(1, sizeof(*map));
+    if (map == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    uint8_t idx = iommu_devfn_to_idx(dev->dev.id.device, dev->dev.id.function);
+    err = vtd_ctxt_table_map(dev->ctxt_table, idx, d, &dev->dev.mappingcap);
     if (err_is_fail(err)) {
+        free(map);
         return err;
     }
 
-    devmap->domain = d;
-    devmap->vtd    = vtd;
+    map->domain = d;
+    map->dev = dev;
 
-    /* store the devmap in the list of devices for this domain */
-    d->devmappings->prev = devmap;
-    devmap->next         = d->devmappings;
-    d->devmappings       = devmap;
-#endif
-    return err;
+    map->next = d->devmappings;
+    d->devmappings = map;
+
+    return SYS_ERR_OK;
 }
 
 errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *dev)
 {
     errval_t err = SYS_ERR_OK;
 
-    #if 0
-    struct vtd_domain_mapping *devmap;
-    devmap = vtd_domains_get_device_mapping(bus, dev, fun);
-    if (!capref_is_null(devmap->mappingcap)) {
-        return SYS_ERR_OK;
+    struct vtd_domain_mapping *map = d->devmappings;
+    struct vtd_domain_mapping **prev = &d->devmappings;
+    while(map) {
+        if (map->dev == dev) {
+            err = vtd_ctxt_table_unmap(dev->ctxt_table, dev->dev.mappingcap);
+            if (err_is_fail(err)) {
+                return err;
+            }
+            dev->dev.mappingcap = NULL_CAP;
+
+            *prev = map->next;
+
+            free(map);
+            return SYS_ERR_OK;
+        }
+        prev = &map->next;
+        map = map->next;
     }
 
-    /* map the devices into the domain */
-    err = vtd_ctxt_table_unmap(devmap);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    /* remove the devmap from this domain */
-    if (devmap->next) {
-        devmap->next->prev = devmap->prev;
-    }
-    if (devmap->prev) {
-        devmap->prev->next = devmap->next;
-    } else {
-        devmap->domain->devmappings = devmap->next;
-    }
-    #endif
-
-    return err;
+    return IOMMU_ERR_DEV_NOT_FOUND;
 }
 
 

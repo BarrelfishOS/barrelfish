@@ -12,76 +12,46 @@
 
 #include "intel_vtd.h"
 
-static struct vtd_device  *vtd_devices[VTD_NUM_ROOT_ENTRIES];
-
-errval_t vtd_devices_init(void)
+errval_t vtd_device_create_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
+                                  uint8_t fun, struct vtd *vtd,
+                                  struct vtd_device **rdev)
 {
-    INTEL_VTD_DEBUG_DEVICES("Initialize. \n");
+    errval_t err;
 
-    memset(vtd_devices, 0, sizeof(vtd_devices));
+    assert(rdev);
 
-    return SYS_ERR_OK;
-}
-
-
-static struct vtd_device *get_device(uint16_t pciseg, uint8_t bus, uint8_t dev,
-                                     uint8_t fun)
-{
-    assert(pciseg == 0);
-
-    if (vtd_devices[bus]) {
-        return &vtd_devices[bus][vtd_dev_fun_to_ctxt_id(dev, fun)];
-    }
-
-    vtd_devices[bus] = calloc(VTD_NUM_ROOT_ENTRIES, sizeof(struct vtd_device));
-    if (vtd_devices[bus] == NULL) {
-        return NULL;
-    }
-
-    return &vtd_devices[bus][vtd_dev_fun_to_ctxt_id(dev, fun)];
-}
-
-
-errval_t vtd_devices_create(uint16_t pciseg, uint8_t bus, uint8_t dev,
-                            uint8_t fun, struct iommu_binding *binding,
-                            struct vtd_device **rdev)
-{
-    errval_t err ;
-
-    struct vtd *vtd;
-    err = vtd_lookup_by_device(bus, dev, fun, pciseg, &vtd);
+    struct vtd_ctxt_table *ct;
+    err = vtd_get_ctxt_table_by_id(vtd, bus, &ct);
     if (err_is_fail(err)) {
         return err;
     }
 
-    struct vtd_device *vdev = get_device(pciseg, bus, dev, fun);
+    struct vtd_device *vdev = calloc(1, sizeof(*vdev));
     if (vdev == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    vdev->bus = bus;
-    vdev->function = fun;
-    vdev->device = dev;
-    vdev->pciseg = pciseg;
-    vdev->binding = binding;
-
-    vdev->domain = NULL;
-    vdev->mappingcap = NULL_CAP;
-
-    err = vtd_get_ctxt_table_by_id(vtd, bus, &vdev->ctxt_table);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    vdev->ctxt_table = ct;
 
     *rdev = vdev;
 
     return SYS_ERR_OK;
 }
 
-errval_t vtd_devices_destroy(struct vtd_device *dev)
+errval_t vtd_device_create(struct device_identity id,
+                           struct vtd *vtd, struct vtd_device **rdev)
+{
+
+    return vtd_device_create_by_pci(id.segment, id.bus, id.device, id.function,
+                                    vtd, rdev);
+}
+
+
+
+errval_t vtd_device_destroy(struct vtd_device *dev)
 {
     errval_t err;
-    err = vtd_devices_remove_from_domain(dev);
+    err = vtd_device_remove_from_domain(dev);
     if (err_is_fail(err)) {
         return err;
     }
@@ -91,24 +61,27 @@ errval_t vtd_devices_destroy(struct vtd_device *dev)
     return SYS_ERR_OK;
 }
 
-errval_t vtd_devices_remove_from_domain(struct vtd_device *dev)
+
+
+
+errval_t vtd_device_remove_from_domain(struct vtd_device *dev)
 {
-    errval_t err = SYS_ERR_OK;
-    if (dev->domain != NULL) {
-        err = vtd_domains_remove_device(dev->domain, dev);
+    if (dev->domain == NULL) {
+        return SYS_ERR_OK;
     }
 
-    return err;
+    return vtd_domains_remove_device(dev->domain, dev);
 }
 
-struct vtd_device *vtd_devices_get(uint8_t bus, uint8_t dev, uint8_t fun)
+errval_t vtd_device_add_to_domain(struct vtd_device *dev, struct vtd_domain *dom)
 {
-    USER_PANIC("NYI");
-    return NULL;
+    if (dev->domain != NULL) {
+        return IOMMU_ERR_DEV_USED;
+    }
+    return vtd_domains_add_device(dom, dev);
 }
 
-struct vtd_device *vtd_devices_get_by_cap(struct capref cap)
+struct vtd_domain *vtd_device_get_domain(struct vtd_device *dev)
 {
-    USER_PANIC("NYI");
-    return NULL;
+    return dev->domain;
 }

@@ -30,24 +30,27 @@
 
 #include "modules/intel_vtd/intel_vtd.h"
 
-/*
- * TODO: make this work with other types of IOMMUs!
- */
-
-static hw_pci_iommu_t find_iommu_for_device(struct capref dev)
-{
-    assert(!capref_is_null(dev));
-    return HW_PCI_IOMMU_INTEL;
-}
 
 static void create_domain(struct iommu_binding *b, struct capref rootpt,
                           struct capref dev)
 {
     errval_t err;
-    switch(find_iommu_for_device(dev)) {
+
+    struct iommu_device *d;
+    err = iommu_device_get(dev, &d);
+    if (err_is_fail(err)) {
+        debug_printf("Obtaining the device failed\n");
+        goto out;
+    }
+
+    struct iommu *iommu = iommu_device_get_iommu(d);
+    assert(iommu);
+
+    switch(iommu_get_type(iommu)) {
         case HW_PCI_IOMMU_INTEL: {
-            struct vtd_domain * d;
-            err = vtd_domains_create(&d, rootpt);
+
+            struct vtd_domain * dom;
+            err = vtd_domains_create((struct vtd *)iommu, rootpt, &dom);
             break;
         }
         case HW_PCI_IOMMU_AMD: {
@@ -62,9 +65,16 @@ static void create_domain(struct iommu_binding *b, struct capref rootpt,
             err = IOMMU_ERR_IOMMU_NOT_FOUND;
             break;
         }
-
     }
 
+    if (err_is_fail(err)) {
+        cap_destroy(rootpt);
+    }
+
+    /* clear slot */
+    cap_destroy(dev);
+
+    out:
     err = b->tx_vtbl.create_domain_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
 }
@@ -72,32 +82,11 @@ static void create_domain(struct iommu_binding *b, struct capref rootpt,
 static void delete_domain(struct iommu_binding *b, struct capref rootpt)
 {
     errval_t err;
-    /* XXX: we need to distinguish this somehow */
-    switch(find_iommu_for_device(rootpt)) {
-        case HW_PCI_IOMMU_INTEL: {
-            struct vtd_domain * d = vtd_domains_get_by_cap(rootpt);
-            if (d != NULL) {
-                err = vtd_domains_destroy(d);
-            } else {
-                err = IOMMU_ERR_DOM_NOT_FOUND;
-            }
 
-            break;
-        }
-        case HW_PCI_IOMMU_AMD: {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
-        case HW_PCI_IOMMU_ARM: {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
-        default : {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
+    USER_PANIC("NYi!\n");
 
-    }
+    /* clear slot */
+    cap_destroy(rootpt);
 
     err = b->tx_vtbl.delete_domain_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
@@ -107,19 +96,27 @@ static void add_device(struct iommu_binding *b, struct capref rootpt,
                        struct capref dev)
 {
     errval_t err;
-    switch(find_iommu_for_device(dev)) {
+
+    struct iommu_device *d;
+    err = iommu_device_get(dev, &d);
+    if (err_is_fail(err)) {
+        debug_printf("Obtaining the device failed\n");
+        goto out;
+    }
+
+    struct iommu *iommu = iommu_device_get_iommu(d);
+    assert(iommu);
+
+    switch(iommu_get_type(iommu)) {
         case HW_PCI_IOMMU_INTEL: {
-            struct vtd_domain * dom = vtd_domains_get_by_cap(rootpt);
-            if (dom != NULL) {
-                struct vtd_device *d = vtd_devices_get_by_cap(dev);
-                if (d != NULL) {
-                    err = vtd_domains_add_device(dom, d);
-                } else {
-                    err = IOMMU_ERR_DEV_NOT_FOUND;
-                };
-            } else {
+            struct vtd_domain *dom = vtd_domains_get_by_cap(rootpt);
+            if (dom == NULL) {
                 err = IOMMU_ERR_DOM_NOT_FOUND;
+                goto out;
             }
+
+            err = vtd_device_add_to_domain((struct vtd_device *)d, dom);
+
             break;
         }
         case HW_PCI_IOMMU_AMD: {
@@ -135,6 +132,12 @@ static void add_device(struct iommu_binding *b, struct capref rootpt,
             break;
         }
     }
+
+    out:
+
+    cap_destroy(dev);
+    cap_destroy(rootpt);
+
     err = b->tx_vtbl.add_device_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
 }
@@ -143,20 +146,20 @@ static void remove_device(struct iommu_binding *b, struct capref rootpt,
                           struct capref dev)
 {
     errval_t err;
-    switch(find_iommu_for_device(dev)) {
-        case HW_PCI_IOMMU_INTEL: {
-            struct vtd_domain * dom = vtd_domains_get_by_cap(rootpt);
-            if (dom != NULL) {
-                struct vtd_device *d = vtd_devices_get_by_cap(dev);
-                if (d != NULL) {
-                    err = vtd_domains_add_device(dom, d);
-                } else {
-                    err = IOMMU_ERR_DEV_NOT_FOUND;
-                };
 
-            } else {
-                err = IOMMU_ERR_DOM_NOT_FOUND;
-            }
+    struct iommu_device *d;
+    err = iommu_device_get(dev, &d);
+    if (err_is_fail(err)) {
+        debug_printf("Obtaining the device failed\n");
+        goto out;
+    }
+
+    struct iommu *iommu = iommu_device_get_iommu(d);
+    assert(iommu);
+
+    switch(iommu_get_type(iommu)) {
+        case HW_PCI_IOMMU_INTEL: {
+            err = vtd_device_remove_from_domain((struct vtd_device *)d);
             break;
         }
         case HW_PCI_IOMMU_AMD: {
@@ -171,8 +174,12 @@ static void remove_device(struct iommu_binding *b, struct capref rootpt,
             err = IOMMU_ERR_IOMMU_NOT_FOUND;
             break;
         }
-
     }
+    out:
+
+    cap_destroy(dev);
+    cap_destroy(rootpt);
+
     err = b->tx_vtbl.remove_device_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
 }

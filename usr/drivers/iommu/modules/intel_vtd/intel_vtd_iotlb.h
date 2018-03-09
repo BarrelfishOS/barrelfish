@@ -58,20 +58,22 @@ static inline void vtd_iotlb_invalidate_domain(struct vtd_domain *dom)
 
     struct vtd_domain_mapping *dm = dom->devmappings;
     while(dm) {
-        vtd_cmd_write_buffer_flush(dm->vtd);
+        struct vtd *vtd = (struct vtd *)dm->dev->dev.iommu;
+
+        vtd_cmd_write_buffer_flush(vtd);
 
         // set domain invalidation
-        vtd_IOTLB_iirg_wrf(&dm->vtd->vtd_dev, vtd_domir);
+        vtd_IOTLB_iirg_wrf(&vtd->vtd_dev, vtd_domir);
 
         // set the domain id field
-        vtd_IOTLB_did_wrf(&dm->vtd->vtd_dev, dom->id);
+        vtd_IOTLB_did_wrf(&vtd->vtd_dev, dom->id);
 
         // drain oustanding write and read requests
-        vtd_IOTLB_dw_wrf(&dm->vtd->vtd_dev, 1);
-        vtd_IOTLB_dr_wrf(&dm->vtd->vtd_dev, 1);
+        vtd_IOTLB_dw_wrf(&vtd->vtd_dev, 1);
+        vtd_IOTLB_dr_wrf(&vtd->vtd_dev, 1);
 
         // perform the invalidate
-        vtd_iotlb_do_invalidate(&dm->vtd->vtd_dev);
+        vtd_iotlb_do_invalidate(&vtd->vtd_dev);
 
         dm = dm->next;
     }
@@ -89,29 +91,31 @@ static inline void vtd_iotlb_invalidate_page_attr(struct vtd_domain *dom,
 
     struct vtd_domain_mapping *dm = dom->devmappings;
     while(dm) {
-        vtd_cmd_write_buffer_flush(dm->vtd);
+        struct vtd *vtd = (struct vtd *)dm->dev->dev.iommu;
+
+        vtd_cmd_write_buffer_flush(vtd);
 
         // set domain invalidation
-//        vtd_IOTLB_iirg_wrf(&dm->vtd->vtd_dev, vtd_pir);
+         vtd_IOTLB_iirg_wrf(&vtd->vtd_dev, vtd_domir);
 
         // set the domain id field
-        vtd_IOTLB_did_wrf(&dm->vtd->vtd_dev, dom->id);
+        vtd_IOTLB_did_wrf(&vtd->vtd_dev, dom->id);
 
         // drain oustanding write and read requests
-        vtd_IOTLB_dw_wrf(&dm->vtd->vtd_dev, 1);
-        vtd_IOTLB_dr_wrf(&dm->vtd->vtd_dev, 1);
+        vtd_IOTLB_dw_wrf(&vtd->vtd_dev, 1);
+        vtd_IOTLB_dr_wrf(&vtd->vtd_dev, 1);
 
         // write the address hint
-        vtd_IVA_ih_wrf(&dm->vtd->vtd_dev, hint);
+        vtd_IVA_ih_wrf(&vtd->vtd_dev, hint);
 
         // set the address
-        vtd_IVA_addr_wrf(&dm->vtd->vtd_dev, (addr >> 12));
+        vtd_IVA_addr_wrf(&vtd->vtd_dev, (addr >> 12));
 
         // set the address mask
-        vtd_IVA_am_wrf(&dm->vtd->vtd_dev, mask);
+        vtd_IVA_am_wrf(&vtd->vtd_dev, mask);
 
         // perform the invalidate
-        vtd_iotlb_do_invalidate(&dm->vtd->vtd_dev);
+        vtd_iotlb_do_invalidate(&vtd->vtd_dev);
 
         dm = dm->next;
     }

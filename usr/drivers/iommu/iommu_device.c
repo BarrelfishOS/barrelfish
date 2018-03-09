@@ -20,125 +20,95 @@
 #include <numa.h>
 
 #include "common.h"
+#include "modules/intel_vtd/intel_vtd.h"
 
-static struct vtd_device  *vtd_devices[VTD_NUM_ROOT_ENTRIES];
+static struct iommu_device **iommu_devices[IOMMU_BUS_MAX];
 
-errval_t vtd_devices_init(void)
+
+
+static errval_t device_put(struct iommu_device *dev)
 {
-    INTEL_VTD_DEBUG_DEVICES("Initialize. \n");
+    assert(dev->id.segment < IOMMU_SEGMENTS_MAX);
+    if (iommu_devices[dev->id.bus] == NULL) {
+        iommu_devices[dev->id.bus] = calloc(IOMMU_DEVFUN_MAX, sizeof(void *));
+        if (iommu_devices[dev->id.bus] == NULL) {
+            return LIB_ERR_MALLOC_FAIL;
+        }
+    }
 
-    memset(vtd_devices, 0, sizeof(vtd_devices));
+    uint8_t idx = iommu_devfn_to_idx(dev->id.device, dev->id.function);
+    if (iommu_devices[dev->id.bus][idx]) {
+        return IOMMU_ERR_DEV_USED;
+    }
 
+    iommu_devices[dev->id.bus][idx] = dev;
     return SYS_ERR_OK;
 }
 
-
-static struct vtd_device *get_device(uint16_t pciseg, uint8_t bus, uint8_t dev,
-                                     uint8_t fun)
-{
-    assert(pciseg == 0);
-
-    if (vtd_devices[bus]) {
-        return &vtd_devices[bus][vtd_dev_fun_to_ctxt_id(dev, fun)];
-    }
-
-    vtd_devices[bus] = calloc(VTD_NUM_ROOT_ENTRIES, sizeof(struct vtd_device));
-    if (vtd_devices[bus] == NULL) {
-        return NULL;
-    }
-
-    return &vtd_devices[bus][vtd_dev_fun_to_ctxt_id(dev, fun)];
-}
-
-
-errval_t vtd_devices_create(uint16_t pciseg, uint8_t bus, uint8_t dev,
-                            uint8_t fun, struct iommu_binding *binding,
-                            struct vtd_device **rdev)
-{
-    errval_t err ;
-
-    struct vtd *vtd;
-    err = vtd_lookup_by_device(bus, dev, fun, pciseg, &vtd);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    struct vtd_device *vdev = get_device(pciseg, bus, dev, fun);
-    if (vdev == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-
-    vdev->bus = bus;
-    vdev->function = fun;
-    vdev->device = dev;
-    vdev->pciseg = pciseg;
-    vdev->binding = binding;
-
-    vdev->domain = NULL;
-    vdev->mappingcap = NULL_CAP;
-
-    err = vtd_get_ctxt_table_by_id(vtd, bus, &vdev->ctxt_table);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    *rdev = vdev;
-
-    return SYS_ERR_OK;
-}
-
-errval_t vtd_devices_destroy(struct vtd_device *dev)
-{
-    errval_t err;
-    err = vtd_devices_remove_from_domain(dev);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    memset(dev, 0, sizeof(*dev));
-
-    return SYS_ERR_OK;
-}
-
-errval_t vtd_devices_remove_from_domain(struct vtd_device *dev)
-{
-    errval_t err = SYS_ERR_OK;
-    if (dev->domain != NULL) {
-        err = vtd_domains_remove_device(dev->domain, dev);
-    }
-
-    return err;
-}
-
-struct vtd_device *vtd_devices_get(uint8_t bus, uint8_t dev, uint8_t fun)
-{
-    USER_PANIC("NYI");
-    return NULL;
-}
-
-struct vtd_device *vtd_devices_get_by_cap(struct capref cap)
-{
-    USER_PANIC("NYI");
-    return NULL;
-}
-
-
-
-static errval_t iommu_device_put(struct iommu_dev *dev)
-{
-
-}
-
-static struct iommu_dev *iommu_device_get(uint16_t seg, uint8_t bus, uint8_t dev,
+static struct iommu_device *device_get(uint16_t seg, uint8_t bus, uint8_t dev,
                                                  uint8_t fun)
 {
-
+    assert(seg < IOMMU_SEGMENTS_MAX);
+    if (iommu_devices[bus] == NULL) {
+        return NULL;
+    }
+    return iommu_devices[bus][iommu_devfn_to_idx(dev, fun)];
 }
 
 
+static errval_t iommu_device_create_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
+                                           uint8_t fun, struct iommu_device **iodev)
+{
+    errval_t err;
+
+    struct iommu_device *device;
+
+    device = device_get(seg, bus, dev, fun);
+    if (device) {
+        /* XXX: should not create the same device 2*/
+        debug_printf("XXX: created the same device twice: %u.%u.%u.%u\n",
+                     seg, bus, dev, fun);
+
+        assert(!device);
+        return SYS_ERR_OK;
+    }
 
 
-errval_t iommu_device_create(struct capref dev, struct iommu_dev *iodev)
+    struct iommu *iommu;
+    err = iommu_device_lookup_iommu_by_pci(seg, bus, dev, fun, &iommu);
+    if (err_is_fail(err)) {
+        return IOMMU_ERR_IOMMU_NOT_FOUND;
+    }
+
+
+    switch(iommu->type) {
+        case HW_PCI_IOMMU_INTEL:
+            err = vtd_device_create_by_pci(seg, bus, dev, fun, (struct vtd*)iommu,
+                                    (struct vtd_device **)&device);
+            break;
+        case HW_PCI_IOMMU_AMD:
+        case HW_PCI_IOMMU_ARM:
+            return LIB_ERR_NOT_IMPLEMENTED;
+        default:
+            return IOMMU_ERR_IOMMU_NOT_FOUND;
+    }
+
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    device->iommu = iommu;
+    device->id.segment  = seg;
+    device->id.bus      = bus;
+    device->id.device   = dev;
+    device->id.function = fun;
+    /* TODO: device->id.type     = 0; */
+
+    return device_put(*iodev);
+}
+
+
+errval_t iommu_device_create(struct capref dev, struct iommu_device **iodev)
 {
     errval_t err;
 
@@ -148,21 +118,51 @@ errval_t iommu_device_create(struct capref dev, struct iommu_dev *iodev)
         return err;
     }
 
-
-    err = iommu_device_get_iommu_by_pci(id.seg, id.bus, id.device, id.function,
-                                        &iommu_type, &iommu);
-
-
+    return iommu_device_create_by_pci(id.segment, id.bus, id.device,
+                                      id.function, iodev);
 }
 
-errval_t iommu_device_get_iommu_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
+
+errval_t iommu_device_destroy(struct iommu_device *iodev)
+{
+    USER_PANIC("NYI");
+    return SYS_ERR_OK;
+}
+
+
+errval_t iommu_device_lookup_iommu_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
                                        uint8_t fun, struct iommu **iommu)
 {
+    /* find the device scope */
+    errval_t err;
+    uint32_t idx, type;
 
+    debug_printf("[iommu] look-up iommu by device scope information\n");
+
+    err = skb_execute_query("iommu_device(T,I, _, _, addr(%" PRIu16 ", "
+                            "%" PRIu8 ", %" PRIu8 ", %" PRIu8 "), _),"
+                            "write(u(T,I)).", seg, bus, dev, fun);
+    if (err_is_ok(err)) {
+        err = skb_read_output("u(%d,%d)", &type, &idx);
+        assert(err_is_ok(err));
+        return iommu_get_by_idx(type, idx, iommu);
+    }
+
+    debug_printf("[iommu] look-up iommu by PCI segment\n");
+    err = skb_execute_query("iommu(T,I,F, %" PRIu16 "),write(u(T,I,F)).", seg);
+    if (err_is_fail(err)) {
+        return IOMMU_ERR_IOMMU_NOT_FOUND;
+    }
+
+    uint32_t flags;
+    err = skb_read_output("u(%d,%d,%d)", &type, &idx, &flags);
+    assert(err_is_ok(err));
+
+    return iommu_get_by_idx(type, idx, iommu);
 }
 
 
-errval_t iommu_device_get_iommu(struct capref dev, struct iommu **iommu)
+errval_t iommu_device_lookup_iommu(struct capref dev, struct iommu **iommu)
 {
     errval_t err;
 
@@ -172,35 +172,67 @@ errval_t iommu_device_get_iommu(struct capref dev, struct iommu **iommu)
         return err;
     }
 
-    return iommu_device_get_iommu_by_pci(id.segment, id.bus, id.device,
+    return iommu_device_lookup_iommu_by_pci(id.segment, id.bus, id.device,
                                          id.function, iommu);
 }
 
-errval_t iommu_device_destroy(struct iommu_dev *iodev)
-{
-
-}
-
-
-
 
 errval_t iommu_device_lookup_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
-                                    uint8_t fun, struct iommu_dev **rdev);
+                                    uint8_t fun, struct iommu_device **rdev)
 {
+    struct iommu_device *d = device_get(seg, bus, dev, fun);
+    if (d == NULL) {
+        return IOMMU_ERR_DEV_NOT_FOUND;
+    }
 
+    if (rdev) {
+        *rdev = d;
+    }
+
+    return SYS_ERR_OK;
 }
 
-errval_t iommu_device_lookup(struct capref dev, struct iommu_dev **rdev)
+
+errval_t iommu_device_lookup(struct capref dev, struct iommu_device **rdev)
 {
     errval_t err;
 
     struct device_identity id;
     err = invoke_device_identify(dev, &id);
     if (err_is_fail(err)) {
-        return NULL;
+        return IOMMU_ERR_DEV_NOT_FOUND;
     }
 
     return iommu_device_lookup_by_pci(id.segment, id.bus, id.device,
                                       id.function, rdev);
+}
+
+
+errval_t iommu_device_get_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
+                                 uint8_t fun, struct iommu_device **rdev)
+{
+    errval_t err;
+
+    err = iommu_device_lookup_by_pci(seg, bus, dev, fun, rdev);
+    if (err_is_ok(err)) {
+        return SYS_ERR_OK;
+    }
+
+    return iommu_device_create_by_pci(seg, bus, dev, fun, rdev);
+
+
+}
+
+errval_t iommu_device_get(struct capref dev, struct iommu_device **rdev)
+{
+    errval_t err;
+
+    struct device_identity id;
+    err = invoke_device_identify(dev, &id);
+    if (err_is_fail(err)) {
+        return IOMMU_ERR_DEV_NOT_FOUND;
+    }
+    return iommu_device_get_by_pci(id.segment, id.bus, id.device, id.function,
+                                   rdev);
 }
 

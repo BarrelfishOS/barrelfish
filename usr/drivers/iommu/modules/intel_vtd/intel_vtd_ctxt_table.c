@@ -115,8 +115,8 @@ errval_t vtd_ctxt_table_destroy(struct vtd_ctxt_table *ct)
 }
 
 
-errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt, struct vtd_domain *dom,
-                            struct vtd_domain_mapping *mapping)
+errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt, uint8_t idx,
+                            struct vtd_domain *dom, struct capref *mapping)
 {
     errval_t err;
 
@@ -136,7 +136,7 @@ errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt, struct vtd_domain *dom,
     }
 
     uintptr_t flags = (uintptr_t)vtd_domains_get_id(dom) << 8;
-    if (vtd_device_tlb_present(mapping->vtd)) {
+    if (vtd_device_tlb_present(ctxt->root_table->vtd)) {
         flags |= 1;
     }
 
@@ -144,36 +144,29 @@ errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt, struct vtd_domain *dom,
 
     struct capref mappingcap = {
         .cnode =ctxt->mappigncn,
-        .slot = mapping->idx
+        .slot = idx
     };
 
-    err = vnode_map(ctxt->ctcap, dom->ptroot, mapping->idx, flags, 0, 1,
+    err = vnode_map(ctxt->ctcap, dom->ptroot, idx, flags, 0, 1,
                     mappingcap);
     if (err_is_fail(err))  {
         return err;
     }
 
-    mapping->mappingcap = mappingcap;
+    *mapping = mappingcap;
 
-
-    USER_PANIC("NYI");
     return SYS_ERR_OK;
 }
 
-errval_t vtd_ctxt_table_unmap(struct vtd_domain_mapping *mapping)
+errval_t vtd_ctxt_table_unmap(struct vtd_ctxt_table *ctxt, struct capref mapping)
 {
-#if 0
     errval_t err;
 
-    struct vtd_ctxt_table *ct = vtd_get_ctxt_table(mapping->vtd, mapping->idx);
-
-    err = vnode_unmap(ct->ctcap, mapping->mappingcap);
+    err = vnode_unmap(ctxt->ctcap, mapping);
     if (err_is_fail(err)) {
         return err;
     }
 
-    mapping->mappingcap = NULL_CAP;
-#endif
     return SYS_ERR_OK;
 }
 

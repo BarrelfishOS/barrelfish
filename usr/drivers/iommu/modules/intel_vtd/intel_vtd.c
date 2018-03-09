@@ -133,10 +133,11 @@ static errval_t vtd_parse_capabilities(struct vtd *vtd)
      * invalidation for first-level translation.
      */
     vtd->capabilities.tlb_page_invalidation = vtd_CAP_psi_rdf(&vtd->vtd_dev);
-    assert(!vtd->capabilities.pasid ||
-           (vtd->capabilities.pasid && vtd->capabilities.tlb_page_invalidation));
     INTEL_VTD_DEBUG_CAP("TLB - page selective invalidation: %u\n",
                         vtd->capabilities.tlb_page_invalidation);
+    //assert(!vtd->capabilities.pasid ||
+    //       (vtd->capabilities.pasid && vtd->capabilities.tlb_page_invalidation));
+
 
     /*
      * SLLPS: Second Level Large Page Support
@@ -383,6 +384,8 @@ static errval_t vtd_parse_capabilities(struct vtd *vtd)
     vtd->capabilities.snoop_control = vtd_ECAP_sc_rdf(&vtd->vtd_dev);
     if (!vtd->capabilities.snoop_control) {
         INTEL_VTD_NOTICE("Snoop Control is not supported\n");
+    } else {
+        INTEL_VTD_NOTICE("Snoop Control is supported\n");
     }
 
 

@@ -31,10 +31,7 @@
                 "addr(%" SCNu16 ", %" SCNu8 ", %" SCNu8 ", %" SCNu8 "), "\
                 "%" SCNu8  ")"
 
-#define SKB_SCHEMA_DMAR_DEVICE \
-    "dmar_device(%" PRIu32 ", %" PRIu8 ", %" PRIu8 ", "\
-                "addr(%" PRIu16 ", %" PRIu8 ", %" PRIu8 ", %" PRIu8 "), "\
-                "%" PRIu8  ")."
+
 
 static errval_t parse_devices_scopes(void)
 {
@@ -67,19 +64,24 @@ static errval_t parse_devices_scopes(void)
 
         err = skb_execute_query("bridge(pcie,addr(%d,%d,%d),_,_,_,_,_,secondary(BUS)),"
                                         "write(secondary_bus(BUS)).", bus, dev, fun);
-        if (err_is_fail(err)) {
-            continue;
+        uint32_t next_bus;
+        if (err_is_ok(err)) {
+            err = skb_read_output("secondary_bus(%d)", &next_bus);
+
+
+            debug_printf("Bus %u -> %u\n", bus,next_bus);
+
+            assert(err_is_ok(err));
+        } else {
+            next_bus = bus;
+            debug_printf("Bus %u == %u\n", bus,next_bus);
         }
 
-        uint32_t next_bus;
-        err = skb_read_output("secondary_bus(%d)", &next_bus);
-        assert(err_is_ok(err));
+        debug_printf(SKB_SCHEMA_IOMMU_DEVICE "\n", HW_PCI_IOMMU_INTEL, unit_idx, type,
+                     entrytype, seg, next_bus, dev, fun, enumid);
 
-        debug_printf(SKB_SCHEMA_DMAR_DEVICE "\n", unit_idx, type, entrytype,
-                     seg, next_bus, dev, fun, enumid);
-
-        err = skb_add_fact(SKB_SCHEMA_DMAR_DEVICE, unit_idx, type, entrytype,
-                           seg, next_bus, dev, fun, enumid);
+        err = skb_add_fact(SKB_SCHEMA_IOMMU_DEVICE, HW_PCI_IOMMU_INTEL, unit_idx, type,
+                           entrytype, seg, next_bus, dev, fun, enumid);
         if (err_is_fail(err)) {
             continue;
         }

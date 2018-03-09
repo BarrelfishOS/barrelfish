@@ -38,6 +38,8 @@
     target = "iommu",
     cFiles = [
         "main.c",
+        "iommu.c",
+        "iommu_device.c",
         "iommu_service.c"
     ],
     flounderDefs = [
