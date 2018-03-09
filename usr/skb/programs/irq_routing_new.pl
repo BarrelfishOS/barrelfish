@@ -32,6 +32,9 @@
 % ioapic_gsi_base(Label, Base)
 :- dynamic(ioapic_gsi_base/2).
 
+% Link the PCI controller label with an addr(...)
+:- dynamic(pci_lbl_addr/2).
+
 % X86 int model with one argument with a single atom that indicates
 % the system is using one of the interrupt models.
 % atoms currently used is 
@@ -156,6 +159,10 @@ mapf_valid_class(gicv2, CtrlLabel, InPort, InMsg, OutPort, OutMsg) :-
 %>> X86
 % Controller constraints
 % ======================
+
+% The PCI controller simply forwards (or discards) nullMsg
+mapf_valid_class(pci, _, _, nullMsg, _, nullMsg) :-
+    true.
 
 %% A MSI controller must output to the same port, and there must be consecutive
 %% data words for all inputs.
@@ -623,6 +630,24 @@ add_pcilnk_controller_by_name(Name, Lbl) :-
     add_pcilnk_controller(GSIList, Name, Lbl).
 
 
+% The PCI controller can not route interrupts to different destinations,
+% however, it will enable/disable interrupts in the PCI conf space. This controller
+% is only instantiated for legacy interrupts.
+% A = addr(Bus,Device,Function)
+add_pci_controller(Lbl, A) :-
+    % get fresh inputs 
+    get_unused_range(1, PciInRange),
+    get_unused_controller_label(pci, 0, Lbl),
+
+    % now, determine the output range, using the pci address
+    device(_, A, _, _, _, _, _, Pin),
+    find_prt_entry(Pin, A, X),
+    prt_entry_to_num(X, IntNu),
+    OutRange :: [IntNu, IntNu],
+
+    assert(pci_lbl_addr(Lbl, A)),
+
+    assert_controller(Lbl, pci, PciInRange, OutRange).
 
 add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
     ((

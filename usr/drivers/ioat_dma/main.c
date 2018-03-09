@@ -27,6 +27,7 @@
 #include "debug.h"
 
 #include <barrelfish/waitset.h>
+#include <pci/pci_types.h>
 
 #define IOAT_BENCHMARK_CORE 20
 
@@ -109,17 +110,17 @@ int main(int argc,
     uint32_t vendor_id, device_id;
 
     struct pci_addr addr = {
-        .bus = PCI_ADDR_DONT_CARE,
-        .device = PCI_ADDR_DONT_CARE,
-        .device = PCI_ADDR_DONT_CARE
+        .bus = 0,
+        .device = 0,
+        .function = 0
     };
 
     enum device_type devtype = IOAT_DEVICE_INVAL;
 
     if (argc > 1) {
-        uint32_t parsed = sscanf(argv[argc - 1], "%x:%x:%x:%x:%x", &vendor_id,
-                                 &device_id, &addr.bus, &addr.device,
-                                 &addr.function);
+        uint32_t parsed = sscanf(argv[argc - 1],
+                "%x:%x:%"SCNx32":%"SCNx32":%"SCNx32, &vendor_id, &device_id,
+                &addr.bus, &addr.device, &addr.function);
         if (parsed != 5) {
             DEBUGPRINT("WARNING: cmdline parsing failed. Using PCI Address [0,0,0]");
         } else {

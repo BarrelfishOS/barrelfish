@@ -10,35 +10,72 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { target = "e1000n",
-                      cFiles = [ "e1000n.c", "e1000n_hwinit.c", "e1000n_helpers.c" ],
-                      flounderBindings = [ "net_queue_manager" ],
-                      flounderDefs = [ "octopus", "net_queue_manager" ],
-                      mackerelDevices = [ "e1000" ],
-                      addLibraries = libDeps [ "pci", "netQmng", "trace", "octopus",
-                        "lwip", "int_msix_ctrl" ],
-                      architectures = [ "x86_64" ]
-                    },
+[ 
+    build library {
+        target = "e1000n_module",
+        cFiles = [ "e1000n.c", "e1000n_hwinit.c", "e1000n_helpers.c"],
+        flounderBindings = [ "octopus", "e1000_devif" ],
+        flounderDefs = [ "octopus", "e1000_devif" ],
+        mackerelDevices = [ "e1000" ],
+        addLibraries = libDeps [ "pci_driver_client", 
+            "int_msix_ctrl" ],
+        architectures = [ "x86_64" ],
+        addCFlags = [ "-DLIBRARY" ]
+    },
 
-  build application { target = "e1000n_irqtest",
-                      cFiles = [ "e1000n.c", "e1000n_hwinit.c",
-                        "e1000n_helpers.c", "test_instr_irqtest.c" ],
-                      flounderBindings = [ "net_queue_manager" ],
-                      flounderDefs = [ "octopus", "net_queue_manager" ],
-                      mackerelDevices = [ "e1000" ],
-                      addLibraries = libDeps [ "pci", "netQmng", "trace",
-                        "octopus", "int_msix_ctrl" ],
-                      architectures = [ "x86_64" ],
-                      addCFlags = [ "-DUNDER_TEST" ]
-                    },
+    
+    build library {
+        target = "devif_backend_e1000",
+        cFiles = ["devif_backend_e1000.c", "e1000n_helpers.c"],
+                    flounderBindings = [ "e1000_devif" ],
+                    flounderDefs = [ "e1000_devif" ],
+                    mackerelDevices = ["e1000"],
+                    addLibraries = libDeps ["pci"]
+    },
 
-  build library { target = "e1000n",
-                      cFiles = [ "e1000n.c", "e1000n_hwinit.c", "e1000n_helpers.c" ],
-                      flounderDefs = [ "octopus", "net_queue_manager" ],
-                      mackerelDevices = [ "e1000" ],
-                      addLibraries = libDeps [ "pci", "trace", "octopus", "lwip",
-                        "int_msix_ctrl" ],
-                      architectures = [ "x86_64" ],
-                      addCFlags = [ "-DLIBRARY" ]
-                    }
+    -- Builds a driver domain: Use addModules instead of addLibraries to
+    -- link with driver modules.
+    -- The custom linker script is used to add the section where the modules
+    -- are stored.
+    build application {
+        target = "e1000n",
+        cFiles = [ "main.c"],
+        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+
+        addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
+                               "contmng", "net_device_manager", "bench", "trace", "skb",
+                               "spawndomain", "netd" , "net", "lwip2"],
+        addModules = ["e1000n_module"],
+        architectures = ["x86_64"]
+    },
+
+
+    --- irqtest
+
+    build library {
+        target = "e1000n_irqtest_module",
+        cFiles = [ "e1000n.c", "e1000n_hwinit.c", "e1000n_helpers.c",
+            "test_instr_irqtest.c"],
+        flounderBindings = [ "octopus", "e1000_devif" ],
+        flounderDefs = [ "octopus", "e1000_devif" ],
+        mackerelDevices = [ "e1000" ],
+        addLibraries = libDeps [ "pci_driver_client", 
+            "int_msix_ctrl" ],
+        architectures = [ "x86_64" ],
+        addCFlags = [ "-DLIBRARY", "-DUNDER_TEST" ]
+    },
+
+    build application {
+        target = "e1000n_irqtest",
+        cFiles = [ "main.c"],
+        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+
+        addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
+                               "contmng", "net_device_manager", "bench", "trace", "skb",
+                               "spawndomain", "netd" , "net", "lwip2"],
+        addModules = ["e1000n_irqtest_module"],
+        architectures = ["x86_64"],
+        addCFlags = [ "-DUNDER_TEST"]
+    }
+
 ]

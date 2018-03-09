@@ -38,10 +38,8 @@
 /* Per-client state
  * XXX: this assumes only one driver per client */
 struct client_state {
-//    struct device_mem *bar_info;
     uint8_t initialized;
     int nr_allocated_bars;
-    uint32_t nr_caps_bar[PCI_NBARS];
     uint32_t bus;
     uint32_t dev;
     uint32_t fun;
@@ -65,7 +63,6 @@ static void init_pci_device_handler(struct pci_binding *b,
     struct client_state *cc = (struct client_state *) b->st;
     errval_t err;
 
-
     err = device_init(class_code, sub_class, prog_if, vendor_id, device_id,
                       &bus, &dev, &fun, &(cc->pcie), &(cc->nr_allocated_bars));
 
@@ -73,30 +70,8 @@ static void init_pci_device_handler(struct pci_binding *b,
     cc->dev = dev;
     cc->fun = fun;
 
-    for (int i = 0; i < cc->nr_allocated_bars; i++) {
-        cc->nr_caps_bar[i] = pci_get_nr_caps_for_bar(bus, dev, fun, i);
-    }
-
-    if (err_is_fail(err)) {
-        err = b->tx_vtbl.init_pci_device_response(b, NOP_CONT, err, 0,
-                                                  cc->nr_caps_bar[0],
-                                                  cc->nr_caps_bar[1],
-                                                  cc->nr_caps_bar[2],
-                                                  cc->nr_caps_bar[3],
-                                                  cc->nr_caps_bar[4],
-                                                  cc->nr_caps_bar[5]);
-
-    } else {
-        err = b->tx_vtbl.init_pci_device_response(b, NOP_CONT, err,
-                                                  cc->nr_allocated_bars,
-                                                  cc->nr_caps_bar[0],
-                                                  cc->nr_caps_bar[1],
-                                                  cc->nr_caps_bar[2],
-                                                  cc->nr_caps_bar[3],
-                                                  cc->nr_caps_bar[4],
-                                                  cc->nr_caps_bar[5]);
-
-    }
+    err = b->tx_vtbl.init_pci_device_response(b, NOP_CONT, err,
+                                              cc->nr_allocated_bars);
     assert(err_is_ok(err));
 }
 
@@ -224,8 +199,7 @@ static void get_irq_cap_handler(struct pci_binding *b, uint16_t idx){
     }
 }
 
-static void get_bar_cap_handler(struct pci_binding *b, uint32_t idx,
-                            uint32_t cap_nr)
+static void get_bar_cap_handler(struct pci_binding *b, uint32_t idx)
 {
     struct client_state *st = b->st;
     assert(st != NULL);
@@ -236,23 +210,17 @@ static void get_bar_cap_handler(struct pci_binding *b, uint32_t idx,
                                         NULL_CAP, 0, 0);
         assert(err_is_ok(e));
     } else {
-        struct capref cap = pci_get_bar_cap_for_device(st->bus, st->dev,
-                                                   st->fun, idx, cap_nr);
         uint8_t type = pci_get_bar_cap_type_for_device(st->bus, st->dev,
                                                    st->fun, idx);
         uint8_t bar_nr = pci_get_bar_nr_for_index(st->bus, st->dev,
                                                    st->fun, idx);
-/*
-XXX: I/O-Cap??
-        uint8_t type = st->bar_info[idx].type;
-        struct capref cap = NULL_CAP;
 
+        struct capref cap;
         if(type == 0) {
-            cap = st->bar_info[idx].frame_cap;
+            cap = pci_get_bar_cap_for_device(st->bus, st->dev, st->fun, idx);
         } else {
-            cap = st->bar_info[idx].io_cap;
+            cap = NULL_CAP; //TODO: Get this io_cap from somewhere...
         }
-*/
 
         get_bar_cap_response_cont(b, SYS_ERR_OK, cap, type, bar_nr);
     }
@@ -421,11 +389,7 @@ static errval_t connect_callback(void *cst, struct pci_binding *b)
 
     b->rx_vtbl = pci_rx_vtbl;
     b->st = st;
-//    st->bar_info = 0;
     st->nr_allocated_bars = 0;
-    for (int i = 0; i < PCI_NBARS; i++) {
-        st->nr_caps_bar[i] = 0;
-    }
 
     return SYS_ERR_OK;
 }

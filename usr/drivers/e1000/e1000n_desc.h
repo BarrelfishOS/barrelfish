@@ -49,13 +49,9 @@ union rx_desc {
                     uint8_t rxe  :1;
                 } __attribute__ ((packed)) bits;
             } __attribute__ ((packed)) errors;
-
             vlan_tag_t vlan;
-
         } __attribute__ ((packed)) info;
-
     } __attribute__ ((packed)) rx_read_format;
-
 } __attribute__ ((packed));
 
 
@@ -94,7 +90,7 @@ struct tx_desc {
 
         struct {
             uint64_t data_len :20;
-            uint64_t dtype    :4;
+            uint64_t dtyp     :4;
             union {
                 uint8_t raw;
                 struct {
@@ -108,7 +104,6 @@ struct tx_desc {
                     uint8_t ide  :1;
                 } __attribute__ ((packed)) d;
             } __attribute__ ((packed)) dcmd;
-
             union {
                 uint8_t raw;
                 struct {
@@ -116,7 +111,6 @@ struct tx_desc {
                     uint8_t res :7;
                 } __attribute__ ((packed)) d;
             } __attribute__ ((packed)) stat_rsv;
-
             union {
                 uint8_t  raw;
                 struct {
@@ -125,10 +119,54 @@ struct tx_desc {
                     uint8_t  res : 6;
                 } __attribute__ ((packed)) d;
             } __attribute__ ((packed)) popts;
-
             vlan_tag_t vlan;
+        } __attribute__ ((packed)) extended_data;
 
-        } __attribute__ ((packed)) extended_tcpip;
+        struct {
+            uint16_t dtalen;
+            union {
+                uint8_t raw;
+                struct {
+                    uint8_t rsv  :2;
+                    uint8_t mac  :2;
+                    uint8_t dtyp :4;
+                } __attribute__ ((packed)) d;
+            } __attribute__ ((packed)) dtyp;
+            union {
+                uint8_t raw;
+                struct {
+                    uint8_t eop  :1;
+                    uint8_t ifcs :1;
+                    uint8_t rsv1 :1;
+                    uint8_t rs   :1;
+                    uint8_t rsv2 :1;
+                    uint8_t dext :1;
+                    uint8_t vle  :1;
+                    uint8_t tse  :1;
+                } __attribute__ ((packed)) d;
+            } __attribute__ ((packed)) dcmd;
+            
+            union {
+                uint8_t raw;
+                struct {
+                    uint8_t dd   :1;
+                    uint8_t rsv1 :3;
+                    uint8_t idx  :3;
+                    uint8_t rsv2 :1;
+                } __attribute__ ((packed)) d;
+            } __attribute__ ((packed)) stat_idx;
+
+            union {
+                uint8_t raw[3];
+                struct {
+                    uint8_t ixsm : 1;
+                    uint8_t txsm : 1;
+                    uint8_t ipsec: 1;
+                    uint8_t rsv  : 3;
+                    uint32_t paylen:18;
+                } __attribute__ ((packed)) d;
+            } __attribute__ ((packed)) popts_paylen;
+        } __attribute__ ((packed)) advanced_data;
     } __attribute__ ((packed)) ctrl;
 } __attribute__ ((packed));
 
@@ -179,6 +217,5 @@ union context_desc {
 
     } __attribute__ ((packed)) d;
 } __attribute__ ((packed));
-
 
 #endif

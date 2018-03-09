@@ -30,7 +30,7 @@
 #include <if/monitor_defs.h>
 
 #include <vfs/vfs.h>
-#include <pci/pci.h> // for pci_addr
+#include <pci/pci_types.h> // for pci_addr
 #include <octopus/octopus.h>
 #include <thc/thc.h>
 
@@ -41,7 +41,7 @@
 
 coreid_t my_core_id = 0;  // Core ID
 uint32_t my_arch_id = 0;  // APIC ID
-struct pci_address eth0 = {0xff, 0xff, 0xff};
+struct pci_addr eth0 = {0xff, 0xff, 0xff};
 size_t cpu_count = 0;
 
 static void add_start_function_overrides(void)
@@ -49,13 +49,19 @@ static void add_start_function_overrides(void)
 
     set_start_function("e10k", start_networking);
     set_start_function("net_sockets_server", start_networking);
-    //set_start_function("sfn5122f", start_networking_new);
-    set_start_function("sfn5122f", start_networking);
     set_start_function("rtl8029", start_networking);
     set_start_function("corectrl", start_boot_driver);
+
+#ifndef __ARM_ARCH_7A__
+    set_start_function("sfn5122f", start_networking_new);
+    set_start_function("e1000n", start_networking_new);
+    set_start_function("e1000n_irqtest", default_start_function_new);
+#endif
+
 #ifdef __ARM_ARCH_7A__
     set_start_function("driverdomain", newstyle_start_function);
 #endif
+    //set_start_function("driverdomain", default_start_function_new);
 }
 
 static void parse_arguments(int argc, char** argv, char ** add_device_db_file, size_t *cpu_count)
@@ -64,7 +70,7 @@ static void parse_arguments(int argc, char** argv, char ** add_device_db_file, s
         if (strncmp(argv[i], "apicid=", 7) == 0) {
             my_arch_id = strtol(argv[i] + 7, NULL, 10);
         } else if (strncmp(argv[i], "eth0=", 5) == 0) {
-            int parsed = sscanf(argv[i], "eth0=%" SCNu8 ":%" SCNu8 ":%" SCNu8,
+            int parsed = sscanf(argv[i], "eth0=%" SCNu32 ":%" SCNu32 ":%" SCNu32,
                                 &eth0.bus, &eth0.device, &eth0.function);
             printf("Kaluga using eth0=%u:%u:%u as network device\n", eth0.bus,
                          eth0.device, eth0.function);

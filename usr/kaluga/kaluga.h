@@ -12,7 +12,7 @@
 
 extern coreid_t my_core_id;
 extern uint32_t my_arch_id;
-extern struct pci_address eth0;
+extern struct pci_addr eth0;
 extern char **environ;
 
 #include "boot_modules.h"

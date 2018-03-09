@@ -2,6 +2,8 @@
 #include <barrelfish/capabilities.h>
 #include <barrelfish/nameservice_client.h>
 
+#include <pci/pci.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <if/monitor_blocking_defs.h>
@@ -10,16 +12,15 @@
 
 static struct capref all_irq_cap;
 
-#define ARGNODE_INT_SLOT 0
-
 errval_t store_int_cap(int start, int end, struct driver_argument *arg){
     errval_t err;
     assert(!cnoderef_is_null(arg->argnode_ref));
     assert(!capref_is_null(all_irq_cap));
 
-    struct capref cap;
-    cap.cnode = arg->argnode_ref;
-    cap.slot = ARGNODE_INT_SLOT;
+    struct capref cap = {
+        .cnode = arg->argnode_ref,
+        .slot = PCIARG_SLOT_INT
+    };
     err = cap_retype(cap, all_irq_cap, start, ObjType_IRQSrc, 
             end, 1);
     if(err_is_fail(err)){

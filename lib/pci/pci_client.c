@@ -108,86 +108,6 @@ static errval_t check_src_capability(struct capref irq_src_cap){
     return SYS_ERR_OK;
 }
 
-
-/**
- * This function does all the interrupt routing setup. It uses the interrupt source
- * capability passed from kaluga out of the cspace.
- * The source capability contains a range of vectors, irq_idx is an offset into
- * this range, making it convenient for the clients, as they don't have 
- * to care about the absolute value, but get their local view on interrupt numbers.
- * It allocates an interrupt destination capability from the monitor.
- * It sets up a route between these two using the interrupt routing service
- * It registers the handler passed as an argument as handler for the int destination
- * capability.
- * Finally, it instructs the PCI service to activate interrupts for this card.
- */
-errval_t pci_setup_int_routing_with_cap(int irq_idx, 
-                                        struct capref* irq_src_cap,
-                                        interrupt_handler_fn handler,
-                                        void *handler_arg,
-                                        interrupt_handler_fn reloc_handler,
-                                        void *reloc_handler_arg){
-
-    errval_t err;
-    errval_t msgerr;
-    err = check_src_capability(*irq_src_cap);
-    if(err_is_fail(err)){
-        USER_PANIC_ERR(err, "No interrupt capability");
-        return err;
-    }
-
-    // For now, we just use the first vector passed to the driver.
-    uint64_t gsi = INVALID_VECTOR;
-    err = invoke_irqsrc_get_vec_start(*irq_src_cap, &gsi);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not lookup GSI vector");
-        return err;
-    }
-    PCI_CLIENT_DEBUG("Got irqsrc cap, gsi: %"PRIu64"\n", gsi);
-
-    // Get irq_dest_cap from monitor
-    struct capref irq_dest_cap;
-    err = alloc_dest_irq_cap(&irq_dest_cap);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "Could not allocate dest irq cap");
-        return err;
-    }
-    uint64_t irq_dest_vec = INVALID_VECTOR;
-    err = invoke_irqdest_get_vector(irq_dest_cap, &irq_dest_vec);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Could not lookup irq vector");
-        return err;
-    }
-    PCI_CLIENT_DEBUG("Got dest cap, vector: %"PRIu64"\n", irq_dest_vec);
-
-
-    err = int_route_client_route(*irq_src_cap, irq_idx, irq_dest_cap);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "Could not set up route.");
-        return err;
-    } else {
-        PCI_CLIENT_DEBUG("Int route set-up success.\n");
-    }
-
-    if(handler != NULL){
-        err = inthandler_setup_movable_cap(irq_dest_cap, handler, handler_arg,
-                reloc_handler, reloc_handler_arg);
-        if (err_is_fail(err)) {
-            return err;
-        }
-    }
-
-    // Activate PCI interrupt
-    err = pci_client->rpc_tx_vtbl.irq_enable(pci_client, &msgerr);
-    assert(err_is_ok(err));
-    if(err_is_fail(msgerr)){
-        DEBUG_ERR(msgerr, "irq_enable");
-        return msgerr;
-    }
-    return err;
-}
-
-
 /**
  * This function does all the interrupt routing setup. It uses the interrupt source
  * capability passed from kaluga out of the cspace.
@@ -204,11 +124,36 @@ errval_t pci_setup_int_routing(int irq_idx, interrupt_handler_fn handler,
                                          void *handler_arg,
                                          interrupt_handler_fn reloc_handler,
                                          void *reloc_handler_arg){
-    errval_t err, msgerr;
     struct capref irq_src_cap;
     irq_src_cap.cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER);
     irq_src_cap.slot = 0;
 
+    return pci_setup_int_routing_with_cap(irq_idx, irq_src_cap, handler,
+            handler_arg, reloc_handler, reloc_handler_arg);
+}
+
+
+/**
+ * This function does all the interrupt routing setup. It uses the interrupt source
+ * capability passed from kaluga out of the cspace.
+ * The source capability contains a range of vectors, irq_idx is an offset into
+ * this range, making it convenient for the clients, as they don't have 
+ * to care about the absolute value, but get their local view on interrupt numbers.
+ * It allocates an interrupt destination capability from the monitor.
+ * It sets up a route between these two using the interrupt routing service
+ * It registers the handler passed as an argument as handler for the int destination
+ * capability.
+ * Finally, it instructs the PCI service to activate interrupts for this card.
+ */
+errval_t pci_setup_int_routing_with_cap(int irq_idx, 
+                                        struct capref irq_src_cap,
+                                        interrupt_handler_fn handler,
+                                        void *handler_arg,
+                                        interrupt_handler_fn reloc_handler,
+                                        void *reloc_handler_arg){
+
+    errval_t err;
+    errval_t msgerr;
     err = check_src_capability(irq_src_cap);
     if(err_is_fail(err)){
         USER_PANIC_ERR(err, "No interrupt capability");
@@ -266,6 +211,96 @@ errval_t pci_setup_int_routing(int irq_idx, interrupt_handler_fn handler,
     return err;
 }
 
+
+/**
+ * This function is used by kaluga to retrieve the caps for the specified
+ * device. This function will malloc bars and store it in bars_out & bars_len.
+ * addr is not allowed to contain dont cares
+ */
+errval_t pci_get_bar_caps_for_device(
+        struct pci_addr addr,
+        struct device_mem **bars_out,
+        size_t *bars_len)
+{
+    assert(addr.bus != PCI_DONT_CARE);
+    assert(addr.device != PCI_DONT_CARE);
+    assert(addr.function != PCI_DONT_CARE);
+    assert(bars_out);
+    assert(bars_len);
+
+    uint8_t nbars = 0;
+    errval_t err, msgerr;
+
+    err = pci_client->rpc_tx_vtbl.
+        init_pci_device(pci_client,
+                PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE,
+                PCI_DONT_CARE, PCI_DONT_CARE,
+                addr.bus, addr.device, addr.function, &msgerr,
+                &nbars);
+
+    if (err_is_fail(err)) {
+        PCI_CLIENT_DEBUG("init pci device failed.\n");
+        return err;
+    } else if (err_is_fail(msgerr)) {
+        PCI_CLIENT_DEBUG("init pci device failed.\n");
+        return msgerr;
+    }
+    assert(nbars > 0); // otherwise we should have received an error!
+
+    struct device_mem *bars = calloc(nbars, sizeof(struct device_mem));
+    assert(bars != NULL);
+
+    // request caps for all bars of device
+    for (int nb = 0; nb < nbars; nb++) {
+        struct device_mem *bar = &bars[nb];
+
+        struct capref cap;
+        uint8_t type;
+
+        err = slot_alloc(&cap);
+        assert(err_is_ok(err));
+        err = pci_client->rpc_tx_vtbl.get_bar_cap(pci_client, nb, &msgerr, &cap,
+                                       &type, &bar->bar_nr);
+        if (err_is_fail(err) || err_is_fail(msgerr)) {
+            if (err_is_ok(err)) {
+                err = msgerr;
+            }
+            DEBUG_ERR(err, "requesting cap for BAR %d of device", nb);
+            goto err_out;
+        }
+
+        if (type == 0) { // Frame cap BAR
+            bar->frame_cap = cap;
+
+            struct frame_identity fid = { .base = 0, .bytes = 0 };
+            err = frame_identify(cap, &fid);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "frame identify failed.");
+            }
+            bar->paddr = fid.base;
+            bar->bits = log2ceil(fid.bytes);
+            bar->bytes = fid.bytes;
+        } else { // IO BAR
+            bar->io_cap = cap;
+            err = cap_copy(cap_io, cap);
+            if(err_is_fail(err) && err_no(err) != SYS_ERR_SLOT_IN_USE) {
+                DEBUG_ERR(err, "cap_copy for IO cap");
+                goto err_out;
+            }
+        }
+    }
+
+    // initialize the device. We have all the caps now
+    PCI_CLIENT_DEBUG("Succesfully done with pci init.\n");
+    *bars_out = bars;
+    *bars_len = nbars;
+    return SYS_ERR_OK;
+
+ err_out:
+    free(bars);
+    return err;
+}
+
 errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func,
                                          void *user_state, uint32_t class,
                                          uint32_t subclass, uint32_t prog_if,
@@ -276,21 +311,18 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func,
                                          interrupt_handler_fn reloc_handler,
                                          void *reloc_handler_arg)
 {
-    pci_caps_per_bar_t caps_per_bar;
     uint8_t nbars;
     errval_t err, msgerr;
 
     err = pci_client->rpc_tx_vtbl.
         init_pci_device(pci_client, class, subclass, prog_if, vendor,
                         device, bus, dev, fun, &msgerr,
-                        &nbars, caps_per_bar, caps_per_bar + 1, caps_per_bar + 2,
-                        caps_per_bar + 3, caps_per_bar + 4, caps_per_bar + 5);
+                        &nbars);
 
     if (err_is_fail(err)) {
         PCI_CLIENT_DEBUG("init pci device failed.\n");
         return err;
     } else if (err_is_fail(msgerr)) {
-        free(caps_per_bar);
         return msgerr;
     }
     assert(nbars > 0); // otherwise we should have received an error!
@@ -314,60 +346,46 @@ errval_t pci_register_driver_movable_irq(pci_driver_init_fn init_func,
     for (int nb = 0; nb < nbars; nb++) {
         struct device_mem *bar = &bars[nb];
 
-        int ncaps = (caps_per_bar)[nb];
-        if (ncaps != 0) {
-            bar->nr_caps = ncaps;
-            bar->frame_cap = malloc(ncaps * sizeof(struct capref)); // FIXME: leak
-            assert(bar->frame_cap != NULL);
+        struct capref cap;
+        uint8_t type;
+
+        err = slot_alloc(&cap);
+        assert(err_is_ok(err));
+        err = pci_client->rpc_tx_vtbl.get_bar_cap(pci_client, nb, &msgerr, &cap,
+                                       &type, &bar->bar_nr);
+        if (err_is_fail(err) || err_is_fail(msgerr)) {
+            if (err_is_ok(err)) {
+                err = msgerr;
+            }
+            DEBUG_ERR(err, "requesting cap for BAR %d of device", nb);
+            return err;
         }
 
-        for (int nc = 0; nc < ncaps; nc++) {
-            struct capref cap;
-            uint8_t type;
-
-            err = slot_alloc(&cap);
-            assert(err_is_ok(err));
-            err = pci_client->rpc_tx_vtbl.get_bar_cap(pci_client, nb, nc, &msgerr, &cap,
-                                           &type, &bar->bar_nr);
-            if (err_is_fail(err) || err_is_fail(msgerr)) {
-                if (err_is_ok(err)) {
-                    err = msgerr;
-                }
-                DEBUG_ERR(err, "requesting cap %d for BAR %d of device", nc, nb);
-                goto out;
+        if (type == 0) { // Frame cap BAR
+            bar->frame_cap = cap;
+            struct frame_identity id = { .base = 0, .bytes = 0 };
+            err = frame_identify(cap, &id);
+            if (err_is_fail(err)) {
+                USER_PANIC_ERR(err, "frame identify failed.");
             }
-
-            if (type == 0) { // Frame cap BAR
-                bar->frame_cap[nc] = cap;
-                if (nc == 0) {
-                    struct frame_identity id = { .base = 0, .bytes = 0 };
-                    err = frame_identify(cap, &id);
-                    if (err_is_fail(err)) {
-                        USER_PANIC_ERR(err, "frame identify failed.");
-                    }
-                    bar->paddr = id.base;
-                    bar->bits = log2ceil(id.bytes);
-                    bar->bytes = id.bytes * ncaps;
-                }
-            } else { // IO BAR
-                bar->io_cap = cap;
-                err = cap_copy(cap_io, cap);
-                if(err_is_fail(err) && err_no(err) != SYS_ERR_SLOT_IN_USE) {
-                    DEBUG_ERR(err, "cap_copy for IO cap");
-                    goto out;
-                }
+            bar->paddr = id.base;
+            bar->bits = log2ceil(id.bytes);
+            bar->bytes = id.bytes;
+        } else { // IO BAR
+            bar->io_cap = cap;
+            err = cap_copy(cap_io, cap);
+            if(err_is_fail(err) && err_no(err) != SYS_ERR_SLOT_IN_USE) {
+                DEBUG_ERR(err, "cap_copy for IO cap");
+                return err;
             }
         }
     }
 
     // initialize the device. We have all the caps now
     PCI_CLIENT_DEBUG("Succesfully done with pci init.\n");
-    init_func(user_state, bars, nbars);
+    if(init_func) init_func(user_state, bars, nbars);
 
-    err = SYS_ERR_OK;
-
- out:
-    return err;
+    return SYS_ERR_OK;
 }
 
 errval_t pci_register_driver_irq(pci_driver_init_fn init_func,
@@ -513,7 +531,7 @@ errval_t pci_write_conf_header(uint32_t dword, uint32_t val)
     return err_is_fail(err) ? err : msgerr;
 }
 
-errval_t pci_msix_enable_addr(struct pci_address *addr, uint16_t *count)
+errval_t pci_msix_enable_addr(struct pci_addr *addr, uint16_t *count)
 {
     errval_t err, msgerr;
     if (addr == NULL) {
@@ -530,7 +548,7 @@ errval_t pci_msix_enable(uint16_t *count)
     return pci_msix_enable_addr(NULL, count);
 }
 
-errval_t pci_msix_vector_init_addr(struct pci_address *addr, uint16_t idx,
+errval_t pci_msix_vector_init_addr(struct pci_addr *addr, uint16_t idx,
                                    uint8_t destination, uint8_t vector)
 {
     errval_t err, msgerr;

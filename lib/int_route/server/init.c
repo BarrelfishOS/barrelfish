@@ -176,13 +176,15 @@ static int parse_int_message(char *pos, int_route_controller_int_message_t *out,
 #define INVALID_PORT -1
 static errval_t read_route_output_and_tell_controllers(void){
     //test_read_all();
-    char * out = skb_get_output();
+    char * out = malloc(strlen(skb_get_output())+1);
+    strcpy(out, skb_get_output());
+
     INT_DEBUG("skb output: %s\n", out);
     errval_t err;
 
     // Parse output and instruct controller
-    char * class = malloc(255);
-    char * lbl = malloc(255);
+    char class[256];
+    char lbl[256];
 
     for(char * pos = out; pos-1 != NULL && *pos != 0; pos = strchr(pos,'\n')+1 ) {
         // Sample output line: msix_0,msix,0,nullMsg,0,mem_write(4276092928,34)
@@ -237,6 +239,8 @@ static errval_t read_route_output_and_tell_controllers(void){
             assert(err_is_ok(err));
         }
     }
+
+    free(out);
     return SYS_ERR_OK;
 }
 

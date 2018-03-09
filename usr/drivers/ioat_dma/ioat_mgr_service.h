@@ -16,7 +16,7 @@ struct ioat_dev_handle;
 
 errval_t ioat_mgr_svc_init(void);
 
-errval_t ioat_mgr_svc_add_device(struct capref *frame);
+errval_t ioat_mgr_svc_add_device(struct capref frame);
 
 errval_t ioat_mgr_svc_acquire(struct ioat_dma_mgr_binding *binding,
                               struct ioat_dev_handle **handle);

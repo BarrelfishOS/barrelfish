@@ -1,0 +1,22 @@
+
+/*
+ * Copyright (c) 2018 ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitätstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+/*
+ * This interface is used in the e1000 driver for the device specific
+ * communication between the device manager and the setup for the devif device
+ * interface. The driver exposes the interface and the devif e1000 device
+ * specific part connects to it
+ */
+interface e1000_devif "e1000 devif communication interface" {
+    
+    // access configuration registers
+    rpc create_queue(in cap rx, in cap tx, in bool interrupt,
+                     out uint64 mac, out cap regs, out cap irq, out errval err);
+    rpc destroy_queue(out errval err);
+};

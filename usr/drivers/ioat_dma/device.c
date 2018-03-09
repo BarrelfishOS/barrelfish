@@ -23,7 +23,7 @@
 static uint8_t device_count = 0;
 struct ioat_dma_device **devices;
 static uint8_t device_next = 0;
-static struct pci_address pci_addr;
+static struct pci_addr pci_addr;
 
 static void handle_device_interrupt(void *arg)
 {
@@ -49,7 +49,7 @@ static void pci_dev_init_service(void *arg, struct device_mem *bar_info,
     }
 
     /* initialize the device */
-    err = ioat_dma_device_init(*bar_info->frame_cap, &pci_addr,
+    err = ioat_dma_device_init(bar_info->frame_cap, &pci_addr,
                                &devices[device_count]);
     if (err_is_fail(err)) {
         DEV_ERR("Could not initialize the device: %s\n", err_getstring(err));

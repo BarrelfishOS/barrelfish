@@ -155,10 +155,11 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
     }
 
     case ObjType_L2CNode: {
-        int ret = snprintf(buf, len, "L2 CNode cap "
+        return snprintf(buf, len, "L2 CNode cap "
+                           "(cnode=%"PRIxLPADDR")"
                            "(rights mask %#"PRIxCAPRIGHTS")",
-                           cap->u.l1cnode.rightsmask);
-        return ret;
+                           cap->u.l2cnode.cnode,
+                           cap->u.l2cnode.rightsmask);
     }
 
 
