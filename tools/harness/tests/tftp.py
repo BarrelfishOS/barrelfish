@@ -26,10 +26,11 @@ class TftpClientTest(TestCommon):
     def get_modules(self, build, machine):
         modules = super(TftpClientTest, self).get_modules(build, machine)
         tftpdir = machine._operations.get_tftp_subdir()
+        modules.add_module("e1000n", ["auto"])
+        modules.add_module("net_sockets_server", ["auto"])
         modules.add_module("tests/tftpclient",
                 ['--server=tftp://10.110.4.4:69',
                  '--file=/%s/hello.txt' % tftpdir ])
-        modules.add_module("net_sockets_server", ["auto"])
         return modules
 
     def get_finish_string(self):
