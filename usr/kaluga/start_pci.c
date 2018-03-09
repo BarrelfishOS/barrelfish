@@ -631,11 +631,6 @@ static void iommu_change_event(octopus_mode_t mode, const char* record,
         switch (err_no(err)) {
             case SYS_ERR_OK:
                 KALUGA_DEBUG("Spawned IOMMU driver: %s\n", mi->binary);
-                set_started(mi);
-                break;
-
-            case KALUGA_ERR_DRIVER_ALREADY_STARTED:
-                KALUGA_DEBUG("%s already running.\n", mi->binary);
                 break;
 
             case KALUGA_ERR_DRIVER_NOT_AUTO:
