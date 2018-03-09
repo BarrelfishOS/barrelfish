@@ -89,6 +89,12 @@ static errval_t e1000_enqueue_rx(e1000_queue_t *device, regionid_t rid,
                                genoffset_t valid_data, genoffset_t valid_length,
                                uint64_t flags)
 {
+
+    if (e1000_queue_free_rxslots(device) == 0) {
+        E1000_DEBUG("Not enough space in RX ring, not transmitting buffer \n" );
+        return DEVQ_ERR_QUEUE_FULL;
+    }
+
     union rx_desc desc;
 
     desc.raw[0] = desc.raw[1] = 0;
@@ -142,8 +148,10 @@ static errval_t e1000_enqueue_tx(e1000_queue_t *device, regionid_t rid,
 {
     struct tx_desc tdesc;
 
-    //debug_printf("%s:%s: %lx:%ld:%ld:%ld:%lx\n", device->name, __func__, offset, length, valid_data, valid_length, flags);
-    // debug_print_to_log("ENQTX %d", valid_length);
+    if (e1000_queue_free_txslots(device) == 0) {
+        E1000_DEBUG("Not enough space in TX ring, not transmitting buffer \n" );
+        return DEVQ_ERR_QUEUE_FULL;
+    }
 
     if (device->advanced_descriptors == 3) {
         tdesc.buffer_address = device->region_base + offset + valid_data;

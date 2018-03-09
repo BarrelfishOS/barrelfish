@@ -492,7 +492,7 @@ static int e1000_reset(struct e1000_driver_state *device)
         usec_delay(10);
     } while (e1000_ctrl_rst_rdf(hw_device) != 0 && 0 < timeout--);
     assert(timeout >= 0);
-    debug_printf("%s.%d: timeout=%d\n", __func__, __LINE__, timeout);
+    E1000_DEBUG("%s.%d: timeout=%d\n", __func__, __LINE__, timeout);
 
     /* clear any pending interrupts */
     e1000_icr_rd(hw_device);
@@ -799,7 +799,7 @@ static void e1000_setup_rx(struct e1000_driver_state *device, struct capref rx)
             rxdctl = e1000_rxdctl_82575_wthresh_insert(rxdctl, 1);
             e1000_rxdctl_82575_wr(hw_device, 0, rxdctl);
             
-            debug_printf("%s: rxdctl %x\n", __func__, e1000_rxdctl_82575_rd(hw_device, 0));
+            E1000_DEBUG("%s: rxdctl %x\n", __func__, e1000_rxdctl_82575_rd(hw_device, 0));
         } break;
         case e1000_82576:
         case e1000_I210:
@@ -834,7 +834,7 @@ static void e1000_setup_rx(struct e1000_driver_state *device, struct capref rx)
             while (!e1000_rxdctl_I350_enable_rdf(hw_device, 0) && timeout--) {
                 // usec_delay(10);
             }
-            debug_printf("%s.%d: timeout=%d\n", __func__, __LINE__, timeout);
+            E1000_DEBUG("%s.%d: timeout=%d\n", __func__, __LINE__, timeout);
             // if (timeout <= 0) {
             //     E1000_DEBUG("ERROR: failed to enable the RX queue\n");
             // }

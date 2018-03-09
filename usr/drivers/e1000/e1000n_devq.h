@@ -46,4 +46,35 @@ typedef struct e1000_queue {
     struct e1000_devif_binding* b;
 } e1000_queue_t;
 
+static inline size_t e1000_queue_free_rxslots(e1000_queue_t* q)
+{
+    size_t head = q->receive_head;
+    size_t tail = q->receive_tail;
+    size_t size = q->receive_buffers;
+
+    if (tail >= head) {
+        return size - (tail - head) -1; 
+    } else {
+        return size - (tail + size - head) -1; 
+    }
+}
+
+
+/*   TX       */
+static inline size_t e1000_queue_free_txslots(e1000_queue_t* q)
+{
+
+    size_t head = q->transmit_head;
+    size_t tail = q->transmit_tail;
+    size_t size = q->transmit_buffers;
+
+    if (tail >= head) {
+        return size - (tail - head) - 1; 
+    } else {
+        return size - (tail + size - head) - 1; 
+    }
+
+}
+
+
 #endif
