@@ -7,16 +7,10 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#ifndef QUEUE_MANAGER_H_
+#define QUEUE_MANAGER_H_ 1
 
-typedef enum {
-    QUEUE_TYPE_UNKNOWN  = 0,
-    QUEUE_TYPE_E1K      = 1,
-    QUEUE_TYPE_E10K     = 2,
-    QUEUE_TYPE_SFxxxx   = 3,
-    QUEUE_TYPE_IOAT_DMA = 4,
-    QUEUE_TYPE_MAX      = 5
-} queue_t;
-
+#include <queue_manager_client.h>
 
 /**
  * @brief represents a device queue or channel
@@ -56,3 +50,5 @@ errval_t dqm_add_queue(struct device_queue *q);
 errval_t dqm_alloc_by_id(queue_t type, uint64_t id, struct device_queue **q);
 errval_t dqm_alloc_queue(queue_t type, struct device_queue **q);
 errval_t dqm_free_queue(struct device_queue *q);
+
+#endif /// QUEUE_MANAGER_H_
