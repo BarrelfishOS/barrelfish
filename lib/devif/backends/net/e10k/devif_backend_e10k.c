@@ -115,7 +115,6 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
         return NIC_ERR_ENQUEUE;
     }
 
-    DEBUG_QUEUE("Enqueueing TX buf first=%d last=%d \n", first, last);
     // Prepare checksum offload
     //
     struct region_entry* entry = get_region(q, rid);
@@ -262,8 +261,8 @@ static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
                               valid_length, flags)) {
         err = DEVQ_ERR_QUEUE_EMPTY;
     }  else {
-        DEBUG_QUEUE("Queue %d sent offset=%lu valid_length=%lu transmit count %d\n", 
-               que->id, *offset, *valid_length, e10k_vf_vfgptc_rd(que->d));
+        DEBUG_QUEUE("Queue %d sent offset=%lu valid_length=%lu \n", 
+               que->id, *offset, *valid_length);
         return SYS_ERR_OK;
     }
 
@@ -359,6 +358,7 @@ static void interrupt_cb(struct e10k_vf_binding *b, uint16_t qid)
 {
     struct e10k_queue* q = queues[qid];
 
+    DEBUG_QUEUE("Interrupt on queue %d \n", qid);
     if (q != b->st) {
         debug_printf("STATE MISMATCH!\n %p %p\n", q, b->st);
         q = b->st;
@@ -462,7 +462,8 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
     if (use_vf) {
         q->use_txhwb = false;
     } else {
-        q->use_txhwb = true;
+        // TODO revert to true
+        q->use_txhwb = false;
     }
     q->cb = cb;
     
