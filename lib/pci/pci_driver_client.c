@@ -9,67 +9,6 @@
 #include <pci/pci.h>
 // End
 
-const int PCI_CHANNEL_SIZE = 2048;
-
-/*
- * Helper for constructing the pci_driver_client_frameinfo from a frame cap
- * \param frame     an existing frame cap (>=4k)
- * \param bind      create for bind or accept?  
- * \param fi        output
- */
-static errval_t frame_to_frameinfo(struct capref frame, bool bind, struct pci_driver_client_frameinfo *fi){
-    struct frame_identity fid;
-    errval_t err;
-    err = invoke_frame_identify(frame, &fid);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "invoke_frame_identify");        
-        return err;
-    }
-    PDC_DEBUG("pci ep frame base=0x%lx, size=0x%lx\n", fid.base, fid.bytes);
-
-    uint8_t *msg_buf;
-    err = vspace_map_one_frame((void*)&msg_buf, fid.bytes, frame, NULL, NULL);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "vspace_map_one_frame");
-        return err;
-    }
-
-    fi->outbufsize = PCI_CHANNEL_SIZE;
-    fi->inbufsize = PCI_CHANNEL_SIZE;
-    if(bind){
-        fi->sendbase = (lpaddr_t)msg_buf;
-        fi->inbuf = msg_buf + PCI_CHANNEL_SIZE;
-        fi->outbuf = msg_buf;
-    } else {
-        fi->sendbase = (lpaddr_t)msg_buf + PCI_CHANNEL_SIZE;
-        fi->inbuf = msg_buf;
-        fi->outbuf = msg_buf + PCI_CHANNEL_SIZE;
-    }
-
-    return SYS_ERR_OK;
-} 
-
-static void pci_bind_cont(void *st, errval_t err, struct pci_driver_client_binding *_binding) {
-    //struct pcid * pcd = (struct pcid *) st;
-}
-
-static errval_t bind_to_pci(struct capref ep, struct pcid * pdc){
-    errval_t err;
-    struct pci_driver_client_frameinfo fi;
-    err = frame_to_frameinfo(ep, true, &fi);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "frame_to_frameinfo");
-        return err;
-    }
-
-    err = pci_driver_client_connect(&fi, pci_bind_cont, pdc, get_default_waitset(),
-            IDC_BIND_FLAGS_DEFAULT);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "pci_driver_client_connect");
-        return err;
-    }
-    return SYS_ERR_OK;
-}
 
 static inline bool strbegins(char *str, char *start){
     return strncmp(str, start, strlen(start)) == 0;
@@ -127,17 +66,6 @@ errval_t pcid_init(
     if(!arg_pci_found || !arg_int_found){
         debug_printf("PCI or INT arg not found");
         return PCI_ERR_ARG_PARSE;
-    }
-
-    // Connect to PCI endpoint
-    {
-        struct capref ep = {
-            .cnode = pdc->arg_cnode,
-            .slot = PCIARG_SLOT_PCI_EP
-        };
-        PDC_DEBUG("binding to pci ...\n");
-        err = bind_to_pci(ep, pdc);
-        assert(err_is_ok(err));
     }
 
     // Connect to interrupt service

@@ -586,12 +586,9 @@ errval_t pci_client_connect(void)
     iref_t iref;
     errval_t err, err2 = SYS_ERR_OK;
 
-    PCI_CLIENT_DEBUG("Connecting to acpi\n");
-    err = connect_to_acpi();
-    if(err_is_fail(err)){
-        return err;
+    if (pci_client == NULL) {
+        return SYS_ERR_OK;
     }
-    PCI_CLIENT_DEBUG("Connected to ACPI\n");
 
     /* Connect to the pci server */
     PCI_CLIENT_DEBUG("Looking up pci iref\n");

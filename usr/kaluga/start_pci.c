@@ -85,120 +85,22 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
 
 
 
-static void init_pci_device_handler(struct pci_binding *b,
-                                    uint32_t class_code, uint32_t sub_class,
-                                    uint32_t prog_if, uint32_t vendor_id,
-                                    uint32_t device_id,
-                                    uint32_t bus, uint32_t dev, uint32_t fun)
+
+
+
+static errval_t add_device_id_cap(struct pci_addr addr,
+                                  struct driver_argument *driver_arg)
 {
-
-    KALUGA_DEBUG("init_pci_device_handler!!! %"PRIu32", %"PRIu32","
-            "%"PRIu32"\n", bus, dev, fun);
-
-}
-struct pci_rx_vtbl pci_rx_vtbl = {
-    .init_pci_device_call = init_pci_device_handler
-};
-
-/**
- * \brief callback when the PCI client connects 
- *
- * \param st    state pointer
- * \param err   status of the connect
- * \param _b    created PCI binding
- */
-static void pci_accept_cb(void *st,
-                                  errval_t err,
-                                  struct pci_binding *_b)
-{
-    KALUGA_DEBUG("connection accepted.");
-    _b->rx_vtbl = pci_rx_vtbl;
-}
-
-const int PCI_CHANNEL_SIZE = 2048;
-
-static errval_t frame_to_pci_frameinfo(struct capref frame, struct pci_frameinfo *fi){
-    struct frame_identity fid;
-    errval_t err;
-    err = invoke_frame_identify(frame, &fid);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "invoke_frame_identify");        
-        return err;
-    }
-    KALUGA_DEBUG("pci ep frame base=0x%lx, size=0x%lx\n", fid.base, fid.bytes);
-
-    void *msg_buf;
-    err = vspace_map_one_frame(&msg_buf, fid.bytes, frame,
-                               NULL, NULL);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "vspace_map_one_frame");
-        return err;
-    }
-
-    *fi = (struct pci_frameinfo) {
-        .sendbase = (lpaddr_t)msg_buf + PCI_CHANNEL_SIZE,
-        .inbuf = msg_buf,
-        .inbufsize = PCI_CHANNEL_SIZE,
-        .outbuf = ((uint8_t *) msg_buf) + PCI_CHANNEL_SIZE,
-        .outbufsize = PCI_CHANNEL_SIZE
-    };
-
-    return SYS_ERR_OK;
-} 
-
-static errval_t start_pci_ump_accept(struct capref out_frame){
-    assert(!capref_is_null(out_frame));
-
-    size_t msg_frame_size;
-    errval_t err;
-    //err = frame_alloc(out_frame, 2 * PCI_CHANNEL_SIZE, &msg_frame_size);
-    err = frame_create(out_frame, 2 * PCI_CHANNEL_SIZE, &msg_frame_size);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "frame_create");
-        return err;
-    }
-
-    struct pci_frameinfo fi;
-    err = frame_to_pci_frameinfo(out_frame, &fi);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "frame_to_frameinfo");
-        return err;
-    }
-
-    KALUGA_DEBUG("creating channel on %p\n", fi.inbuf);
-
-    err = pci_accept(&fi, NULL, pci_accept_cb,
-                      get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "pci_accept");
-        return err;
-    }
-    return SYS_ERR_OK;
-}
-
-/**
- * For device at addr, finds and stores the interrupt arguments and caps
- * into driver_arg.
- */
-static errval_t add_pci_ep(struct pci_addr addr, struct driver_argument
-        *driver_arg)
-{
-    errval_t err;
+    uint16_t pci_segment = 0;
 
     struct capref cap = {
         .cnode = driver_arg->argnode_ref,
-        .slot = PCIARG_SLOT_PCI_EP
+        .slot = PCIARG_SLOT_DEVID
     };
 
-    err = start_pci_ump_accept(cap);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "start_pci_ump_accept");
-        return err;
-    }
-
-    return err;
-};
+    return  device_id_cap_create(cap, DEVICE_ID_TYPE_PCI, pci_segment, addr.bus,
+                                 addr.device, addr.function, 0);
+}
 
 /**
  * For device at addr, finds and stores the interrupt arguments and caps
@@ -219,6 +121,7 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
         pci_init = true;
     }
     //
+
 
     err = pci_get_bar_caps_for_device(addr, &bars, &bars_len);
     if(err_is_fail(err)){
@@ -323,6 +226,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
 {
     errval_t err;
     char *binary_name = NULL;
+
     if (mode & OCT_ON_SET) {
         KALUGA_DEBUG("pci_change_event: device_record: %s\n", device_record);
         struct pci_addr addr;
@@ -347,7 +251,12 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
             };
         }
 
-        /* duplicate device record as we may need it for later */
+        /* duplicate device record as we may need it for later
+         *
+         * XXX: need to check that we are not leaking memory here
+         *      device_record might be allocated using strdup() in
+         *      oct_trigger_existing_and_watch() -> oct_get()
+         */
         device_record = strdup(device_record);
         assert(device_record);
 
@@ -397,7 +306,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         set_core_id_offset(mi, offset);
 
         // Build up the driver argument
-        err = add_pci_ep(addr, &driver_arg);
+        err = add_device_id_cap(addr, &driver_arg);
         assert(err_is_ok(err));
 
         char intcaps_debug_msg[100];

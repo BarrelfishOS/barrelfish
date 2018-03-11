@@ -24,8 +24,8 @@
  * Kaluga passes a CNode with capabilities to the pci driver. The offset
  * in this CNode are defined here
  */
-#define PCIARG_SLOT_INT    0
-#define PCIARG_SLOT_PCI_EP 1
+#define PCIARG_SLOT_DEVID  0
+#define PCIARG_SLOT_INT    1
 #define PCIARG_SLOT_BAR0   2
 #define PCIARG_SLOT_BAR1   3
 #define PCIARG_SLOT_BAR2   4
