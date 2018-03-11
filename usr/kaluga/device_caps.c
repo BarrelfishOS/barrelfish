@@ -122,13 +122,12 @@ errval_t init_device_caps_manager(void)
 
 
 
-errval_t device_id_cap_create(struct capref dest, uint16_t bus, uint16_t device,
-                              uint16_t function, uint16_t flags)
+errval_t device_id_cap_create(struct capref dest, uint8_t type, uint16_t segment,
+                              uint8_t bus, uint8_t device,
+                              uint8_t function, uint16_t flags)
 {
     errval_t err;
 
-    debug_printf("##########################################\n");
-    debug_printf("Invoking id_cap_create!\n");
     struct capref devman_cap = {
         .cnode = cnode_task,
         .slot = TASKCN_SLOT_DEVMAN
@@ -138,16 +137,11 @@ errval_t device_id_cap_create(struct capref dest, uint16_t bus, uint16_t device,
     uint8_t level = get_cnode_level(dest);
     size_t  slot  = dest.slot;
 
-    err = cap_invoke7(devman_cap, DeviceIDManager_CreateID, caddr,
-                       level, slot, bus, device, function).error;
-    DEBUG_ERR(err, "creating devcap\n");
+    uint32_t address = (((uint32_t)type) << 24) | (((uint32_t)bus) << 16)
+                            | (((uint32_t)device) << 8) | (uint32_t)function;
+    uint32_t segflags = (((uint32_t)segment) << 16) | (uint32_t) flags;
 
-    struct device_identity di;
-    invoke_device_identify(dest, &di);
-    DEBUG_ERR(err, "devcap identify\n");
-    assert(di.bus == bus);
-    assert(di.device == device);
-    assert(di.function == function);
-
-    return SYS_ERR_OK;
+    err =cap_invoke6(devman_cap, DeviceIDManager_CreateID, caddr,
+                     level, slot, address, segflags).error;
+    return err;
 }

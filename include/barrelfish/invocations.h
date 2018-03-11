@@ -249,7 +249,7 @@ static inline errval_t invoke_device_identify(struct capref deviceid,
     ret->device = 0;
     ret->function = 0;
     ret->flags = 0;
-    ret->type = 0;
+    ret->type = DEVICE_ID_TYPE_UNKNOWN;
     ret->segment = 0;
     return sysret.error;
 }

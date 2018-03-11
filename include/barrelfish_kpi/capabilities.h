@@ -595,6 +595,16 @@ struct vnode_identity {
 };
 
 /**
+ * @brief values for the type field in the device_identity struct below
+ */
+typedef enum {
+    DEVICE_ID_TYPE_UNKNOWN = 0,
+    DEVICE_ID_TYPE_PCI     = 1,
+    DEVICE_ID_TYPE_USB     = 2,
+    DEVICE_ID_TYPE_MAX     = 3,
+} device_id_type_t;
+
+/**
  * \brief Values returned from the DeviceID identify invocation
  */
 struct device_identity {
@@ -605,6 +615,7 @@ struct device_identity {
     uint8_t  type;
     uint16_t flags;
 };
+
 #endif // __ASSEMBLER__
 
 #endif // BARRELFISH_CAPABILITIES_H

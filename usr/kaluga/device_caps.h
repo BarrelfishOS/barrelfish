@@ -10,8 +10,9 @@
 #ifndef DEVICE_CAPS_H
 #define DEVICE_CAPS_H
 
-errval_t device_id_cap_create(struct capref dest, uint16_t bus, uint16_t device,
-                              uint16_t function, uint16_t flags);
+errval_t device_id_cap_create(struct capref dest, uint8_t type, uint16_t segment,
+                              uint8_t bus, uint8_t device,
+                              uint8_t function, uint16_t flags);
 errval_t get_device_cap(lpaddr_t address, size_t size, struct capref* devframe);
 errval_t init_device_caps_manager(void);
  

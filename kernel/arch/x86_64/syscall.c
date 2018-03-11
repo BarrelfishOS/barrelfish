@@ -1068,11 +1068,17 @@ static struct sysret handle_devid_create(struct capability *cap, int cmd,
     capaddr_t cnode_level = args[1];
     cslot_t slot = args[2];
 
+    uint32_t address = args[3];
+    uint32_t segflags = args[4];
+
     struct capability devid;
     devid.type = ObjType_DeviceID;
-    devid.u.deviceid.bus = args[3];
-    devid.u.deviceid.device = args[4];
-    devid.u.deviceid.function = args[5];
+    devid.u.deviceid.bus      = (uint8_t)(address >> 16);
+    devid.u.deviceid.device   = (uint8_t)(address >> 8);
+    devid.u.deviceid.function = (uint8_t)(address);
+    devid.u.deviceid.type     = (uint8_t)(address >> 24);
+    devid.u.deviceid.segment  = (uint16_t)(segflags >> 16);
+    devid.u.deviceid.flags    = (uint16_t)(segflags);
 
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_level,
