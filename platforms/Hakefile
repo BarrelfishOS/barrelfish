@@ -214,7 +214,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "dma_mgr",
                            "e1000n",
                            "e10k",
-                           "e10k_queue",
                            "echoserver",
                            "fbdemo",
                            "fish",
