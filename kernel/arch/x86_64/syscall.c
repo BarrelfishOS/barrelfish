@@ -1103,6 +1103,8 @@ static struct sysret handle_devid_identify(struct capability *cap, int cmd,
     di->device = cap->u.deviceid.device;
     di->function = cap->u.deviceid.function;
     di->flags = cap->u.deviceid.flags;
+    di->segment = cap->u.deviceid.segment;
+    di->type = cap->u.deviceid.type;
 
     return SYSRET(SYS_ERR_OK);
 }
