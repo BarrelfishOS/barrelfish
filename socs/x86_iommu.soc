@@ -27,7 +27,7 @@ module PCI_IOMMU {
     IOMMU0 instantiates IOMMU
 
     PCI0 binds [
-        OUT to IOMMU.IN
+        OUT to IOMMU0.IN
     ]
 
     BAR0 overlays PCI0.BAR0

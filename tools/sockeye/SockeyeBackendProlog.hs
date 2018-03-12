@@ -206,7 +206,7 @@ generate_conj mi li =
 forall_qual :: ModuleInfo -> String -> AST.NaturalSet -> [AST.Definition] -> String
 forall_qual mi varName ns body =
   "(" ++
-   predicate "block_values" [generate ns, it_list] ++ "," ++
+   predicate "iblock_values" [generate ns, it_list] ++ "," ++
    "(" ++
    predicate "foreach" [it_var, it_list]
    ++ param_str mi
@@ -222,7 +222,7 @@ forall_uqr :: ModuleInfo -> AST.UnqualifiedRef -> String -> String
 forall_uqr mi ref body_str = case (AST.refIndex ref) of
   Nothing -> printf "(%s = %s, %s)" it_var id_var body_str
   Just ai -> "(" ++
-                predicate "block_values" [generate ai, it_list] ++ "," ++
+                predicate "iblock_values" [generate ai, it_list] ++ "," ++
                 "(" ++
                 predicate "foreach" [it_var, it_list]
                 ++ param_str mi

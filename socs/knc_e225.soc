@@ -1,0 +1,29 @@
+module PageTable_x86_XeonPhi {
+
+    memory (0 bits 40) GDDR0
+    GDDR0 accepts [(0x000000000 to 0x0fedfffff)]
+
+    memory (0 bits 40) GDDR1
+    GDDR1 accepts [(0x0fee01000 to 0x3ffffffff)]
+
+    memory (0 bits 12) LAPIC[0 to 227]
+    LAPIC[*] accepts [(*)]
+
+    memory (0 bits 16) MMIO
+    MMIO accepts [(*)]
+
+    memory (0 bits 40) KNC_SOCKET
+    KNC_SOCKET maps [
+        (0x0000000000 to 0x00fedfffff) to GDDR0 at (0x000000000 to 0x0fedfffff);
+        (0x00fee01000 to 0x03ffffffff) to GDDR1 at (0x0fee01000 to 0x3ffffffff);
+        (0x08007D0000 bits 16) to MMIO at (*)
+    ]
+
+    memory (0 bits 40) K1OM_CORE[0 to 227]
+    K1OM_CORE[*] maps [
+        (0xfee00000 bits 12) to LAPIC at (*)
+    ]
+
+    K1OM_CORE[*] overlays KNC_SOCKET
+
+}
