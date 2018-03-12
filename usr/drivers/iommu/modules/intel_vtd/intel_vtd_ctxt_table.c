@@ -19,6 +19,7 @@ errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, struct vtd *vtd)
     errval_t err;
 
     INTEL_VTD_DEBUG_CTABLE("creating context table\n");
+    debug_printf("creating context table\n");
     assert(capref_is_null(ct->ctcap));
     assert(capref_is_null(ct->mappingcncap));
 

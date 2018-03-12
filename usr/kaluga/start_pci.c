@@ -90,7 +90,7 @@ static errval_t add_device_id_cap(struct pci_addr addr,
 
     struct capref cap = {
         .cnode = driver_arg->argnode_ref,
-        .slot = PCIARG_SLOT_DEVID
+        .slot = DRIVERKIT_ARGCN_SLOT_DEVID
     };
 
     return  device_id_cap_create(cap, DEVICE_ID_TYPE_PCI, pci_segment, addr.bus,
@@ -127,7 +127,7 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
     for(int i=0; i<bars_len; i++){
         struct capref cap = {
             .cnode = driver_arg->argnode_ref,
-            .slot = PCIARG_SLOT_BAR0 + i
+            .slot = DRIVERKIT_ARGCN_SLOT_BAR0 + i
         };
 
         if(bars[i].type == 0){
