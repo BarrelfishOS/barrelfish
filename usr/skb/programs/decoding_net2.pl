@@ -41,6 +41,10 @@ iblock_match(A, block{base: B, limit: L}) :-
     B #=< A,
     A #=< L.
 
+iblock_nomatch(A, block{base: B, limit: L}) :-
+    A #< B ;
+    A #> L.
+
 iblocks_match_any(A, [B | Bs]) :-
     iblock_match(A, B) ; iblocks_match_any(A, Bs).
 
@@ -58,6 +62,11 @@ iblocks_match([], []).
 iblocks_match([A|As], [B|Bs]) :-
     iblock_match(A,B),
     iblocks_match(As, Bs).
+
+iblocks_nomatch([], []).
+iblocks_nomatch([A|As], [B|Bs]) :-
+    iblock_nomatch(A,B),
+    iblocks_nomatch(As, Bs).
 
 
 % For a ic constrained variable
@@ -108,6 +117,20 @@ test_block_translate :-
     Dst = [memory, [101]].
     
 
+does_not_translate(NodeId, [AKind,IAddr]) :-
+    findall(B, node_translate(NodeId, B, _, _), Blocks),
+    (foreach([AKind, IBlock], Blocks),param(IAddr) do
+        iblocks_nomatch(IAddr, IBlock)
+    ).
+
+:- export test_does_not_translate/0.
+test_does_not_translate :-
+    assert(node_translate(
+        ["In"], [memory, [block{base:1000,limit:2000}]],
+        ["Out1"], [memory, [block{base:0,limit:1000}]])),
+    does_not_translate(["In"], [memory, [500]]).
+    
+
 % Takes translate and overlays predicates into account.
 :- export translate/4.
 translate(SrcNodeId, SrcAddr, DstNodeId, DstAddr) :-
@@ -115,11 +138,11 @@ translate(SrcNodeId, SrcAddr, DstNodeId, DstAddr) :-
     % exists. Only if it doesnt, we consider the overlay
     (
         node_translate(SrcNodeId, SrcBlock, CandidId, CandidBlock),
-        address_match(SrcAddr, SrcBlock)
-    ->
+        address_match(SrcAddr, SrcBlock),
         DstNodeId = CandidId,
         block_translate(SrcAddr, SrcBlock, DstAddr, CandidBlock)
     ;
+        does_not_translate(SrcNodeId, SrcAddr),
         SrcAddr = DstAddr,
         node_overlay(SrcNodeId, DstNodeId)
     ).
@@ -138,12 +161,14 @@ test_translate2 :-
         ["In"], [memory, [block{base:1000,limit:2000}]],
         ["Out1"], [memory, [block{base:0,limit:1000}]])),
     assert(node_overlay(["In"], ["Out2"])),
-    % Hit the translate block
+    % Test the translate block
     translate(["In"], [memory, [1000]], ["Out1"], [memory, [0]]),
     % Test the overlay
     translate(["In"], [memory, [0]], ["Out2"], [memory, [0]]),
     % make sure the upper limit is respected.
-    translate(["In"], [memory, [2500]], ["Out2"], [memory, [2501]]). 
+    translate(["In"], [memory, [2500]], ["Out2"], [memory, [2500]]), 
+    % make sure no within block translation to overlay exists
+    not(translate(["In"], [memory, [1000]], ["Out2"], [memory, [1000]])).
 
 
 :- export accept_dummy/2.
@@ -187,6 +212,7 @@ decodes_to(SrcName,DstName) :-
     decode_step(SrcName,Name),
     decodes_to(Name,DstName).
 
+:- export resolve/2.
 resolve(SrcName,DstName) :-
     name{} = SrcName,
     name{} = DstName,
@@ -228,14 +254,6 @@ test_resolve2(Out) :-
     resolve(
         name{node_id:["In2"], address:Out},
         R).
-        
-
-%resolve(SrcRegion,DestRegion) :-
-%    to_name(SrcRegion,SrcName),
-%    to_name(DestRegion,DestName),
-%    resolve(SrcName,DestName),
-%    to_region(SrcName,SrcRegion),
-%    to_region(DestName,DestRegion).
 
 %% Load a precompiled decoding net
 :- export load_net/1.
@@ -247,17 +265,8 @@ load_net_module(File, Mod) :-
     ensure_loaded(File),
     call(Mod, []).
 
-%test :-
-%    addr_match( (0,0), (block{base:0, limit:0})).
 
-
-% Ideas for the address thingy:
-% findall(X, addr_match(X, Constraints), XLi),
-% (forall(X,XLi) do .... )
-%
-
-
-%% DEBUG STUFF VERY UGLY
+%% FOR INTERACTIVE DEBUGGING ONLY 
 :- export assert_node_accept/2.
 assert_node_accept(A,B) :-
     assert(node_accept(A,B)).
@@ -268,7 +277,7 @@ assert_node_translate(A,B,C,D) :-
 
 
 
-%% X86 Support stuff, really does not belong here
+%% X86 Support, should really be moved into its own file
 
 :- export init/0.
 :- export add_pci/0.
@@ -311,3 +320,18 @@ add_process_mapping :-
     IN_ID = ["IN" | MMU_ID],
     OUT_ID = ["OUT" | MMU_ID],
     assert(node_translate(IN_ID, [memory, [block{base:1024,limit:2048}]], OUT_ID, [memory, [block{base:1024,limit:2048}]])).
+
+:- export process_to_pci/2.
+process_to_pci(ProcAddr, PCIAddr) :- 
+    PROC_ID = ["OUT", "PROC0", "PROC0"],
+    PCI_ID = ["OUT", "PCI0"],
+    resolve(name{node_id:PROC_ID, address: ProcAddr}, D),
+    resolve(name{node_id:PCI_ID, address: PCIAddr}, D).
+
+
+:- export test_process_to_pci/1.
+test_process_to_pci(Out) :- 
+    init, add_pci, add_process,
+    process_to_pci([memory,[0]], Out).
+
+

@@ -58,7 +58,7 @@ module PROC_MMU {
     MMU0 instantiates MMU
 
     PROC0 binds [
-        OUT to MMU.IN 
+        OUT to MMU0.IN 
     ]
 
     MMU0 binds [
