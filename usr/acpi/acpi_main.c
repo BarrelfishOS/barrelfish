@@ -28,12 +28,7 @@
 #include "acpi_allocators.h"
 
 
-
-
 uintptr_t my_hw_id;
-bool vtd_force_off;
-
-
 
 
 static errval_t setup_skb_info(void)
@@ -65,14 +60,13 @@ int main(int argc, char *argv[])
     bool got_apic_id = false;
     bool do_video_init = false;
     vtd_force_off = true;
+    //vtd_force_off = false;
 
     for (int i = 1; i < argc; i++) {
         if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_hw_id) == 1) {
             got_apic_id = true;
         } else if (strcmp(argv[i], "video_init") == 0) {
             do_video_init = true;
-        } else if (strncmp(argv[i], "vtd_force_off", strlen("vtd_force_off")) == 0) {
-            vtd_force_off = true;
         }
     }
 
