@@ -126,6 +126,8 @@ errval_t vtd_root_table_map(struct vtd_root_table *rt, uint8_t idx,
 {
     errval_t err;
 
+    debug_printf("mapping root table[%u]\n", idx);
+
     struct capref mappingcap = {
         .cnode =rt->mappigncn,
         .slot = idx
