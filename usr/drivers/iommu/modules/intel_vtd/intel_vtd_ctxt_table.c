@@ -147,6 +147,9 @@ errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt, uint8_t idx,
         .slot = idx
     };
 
+    debug_printf("[vtd] [ctxt] Mapping domaind %u in ctxttable %u\n",
+                dom->id, ctxt->root_table_idx);
+
     err = vnode_map(ctxt->ctcap, dom->ptroot, idx, flags, 0, 1,
                     mappingcap);
     if (err_is_fail(err))  {

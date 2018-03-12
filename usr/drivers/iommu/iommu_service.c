@@ -39,7 +39,7 @@ static void create_domain(struct iommu_binding *b, struct capref rootpt,
     struct iommu_device *d;
     err = iommu_device_get(dev, &d);
     if (err_is_fail(err)) {
-        debug_printf("Obtaining the device failed\n");
+        DEBUG_ERR(err, "Obtaining the device failed\n");
         goto out;
     }
 

@@ -15,10 +15,10 @@ vtd_domid_t domains_count = 0;
 vtd_domid_t domains_free = 0;
 vtd_domid_t domains_next = 1;
 struct vtd_domain **domains_all = NULL;
+struct vtd_domain *domains_allocated = NULL;
 
 
-
-errval_t vtd_domains_init(vtd_domid_t num_domains)
+errval_t vtd_domains_init(uint32_t num_domains)
 {
     if (domains_all != NULL) {
         return SYS_ERR_OK;
@@ -131,6 +131,9 @@ errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
         *domain = dom;
     }
 
+    dom->next = domains_allocated;
+    domains_allocated = dom;
+
     return SYS_ERR_OK;
 }
 
@@ -225,13 +228,28 @@ errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *dev)
 
 struct vtd_domain *vtd_domains_get_by_id(vtd_domid_t id)
 {
-    USER_PANIC("NYI");
+    if (id < domains_count) {
+        return domains_all[id];
+    }
     return NULL;
 }
 
 struct vtd_domain *vtd_domains_get_by_cap(struct capref rootpt)
 {
-    USER_PANIC("NYI");
+    errval_t err;
+
+    struct vnode_identity id;
+    err = invoke_vnode_identify(rootpt, &id);
+    if (err_is_fail(err)) {
+        return NULL;
+    }
+    struct vtd_domain *d =     domains_allocated;
+    while(d) {
+        if (d->ptroot_base == id.base) {
+            return d;
+        }
+    }
+
     return NULL;
 }
 

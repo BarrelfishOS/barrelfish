@@ -23,6 +23,7 @@ errval_t vtd_device_create_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
     struct vtd_ctxt_table *ct;
     err = vtd_get_ctxt_table_by_id(vtd, bus, &ct);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "faled to get the ctxt table\n");
         return err;
     }
 

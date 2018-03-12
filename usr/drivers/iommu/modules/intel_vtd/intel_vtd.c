@@ -255,7 +255,8 @@ static errval_t vtd_parse_capabilities(struct vtd *vtd)
      * ND: Number of domains supported
      */
     vtd->max_domains = 1 << ((2 * vtd_CAP_nd_rdf(&vtd->vtd_dev)) + 4);
-    INTEL_VTD_DEBUG_CAP("Maximum domains: %u\n", vtd->max_domains);
+    INTEL_VTD_DEBUG_CAP("Maximum domains: %u (%u)\n", vtd->max_domains,
+                        vtd_CAP_nd_rdf(&vtd->vtd_dev));
 
 
     /*
@@ -558,6 +559,9 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs)
     /* is the scope_all flag set */
     vtd->scope_all = (flags & 0x1);
 
+    /* set the IOMMU type */
+    vtd->iommu.type = HW_PCI_IOMMU_INTEL;
+
     err = vtd_get_proximity(id.base, &vtd->proximity_domain);
     if (err_is_fail(err)) {
         return err;
@@ -625,6 +629,8 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs)
     if (err_is_fail(err)) {
         goto err_out;
     }
+
+    iommu_set_by_idx(HW_PCI_IOMMU_INTEL, vtd->index, (struct iommu *)vtd);
 
     vtd_units[vtd->index] = vtd;
     if (vtd_units_by_segment[vtd->pci_segment]) {

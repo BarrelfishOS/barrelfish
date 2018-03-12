@@ -28,6 +28,9 @@ static struct iommu_device **iommu_devices[IOMMU_BUS_MAX];
 
 static errval_t device_put(struct iommu_device *dev)
 {
+    if (!(dev->id.segment < IOMMU_SEGMENTS_MAX)) {
+        debug_printf("dev->id.segment < IOMMU_SEGMENTS_MAX   %u\n", dev->id.segment);
+    }
     assert(dev->id.segment < IOMMU_SEGMENTS_MAX);
     if (iommu_devices[dev->id.bus] == NULL) {
         iommu_devices[dev->id.bus] = calloc(IOMMU_DEVFUN_MAX, sizeof(void *));
@@ -61,6 +64,8 @@ static errval_t iommu_device_create_by_pci(uint16_t seg, uint8_t bus, uint8_t de
 {
     errval_t err;
 
+    debug_printf("[iommu] create device by pci %u.%u.%u\n", bus, dev, fun);
+
     struct iommu_device *device;
 
     device = device_get(seg, bus, dev, fun);
@@ -73,16 +78,21 @@ static errval_t iommu_device_create_by_pci(uint16_t seg, uint8_t bus, uint8_t de
         return SYS_ERR_OK;
     }
 
+    debug_printf("[iommu] looking up iommu for device %u %u.%u.%u\n", seg, bus, dev, fun);
+
 
     struct iommu *iommu;
     err = iommu_device_lookup_iommu_by_pci(seg, bus, dev, fun, &iommu);
     if (err_is_fail(err)) {
+        debug_printf("failed to lookup device for IOMMU %s\n", err_getstring(err));
         return IOMMU_ERR_IOMMU_NOT_FOUND;
     }
 
+    debug_printf("[iommu] creating hw specific device\n");
 
     switch(iommu->type) {
         case HW_PCI_IOMMU_INTEL:
+            debug_printf("[iommu] creating vtd device %u %u.%u.%u\n", seg, bus, dev, fun);
             err = vtd_device_create_by_pci(seg, bus, dev, fun, (struct vtd*)iommu,
                                     (struct vtd_device **)&device);
             break;
@@ -97,12 +107,14 @@ static errval_t iommu_device_create_by_pci(uint16_t seg, uint8_t bus, uint8_t de
         return err;
     }
 
-    device->iommu = iommu;
+    device->iommu       = iommu;
     device->id.segment  = seg;
     device->id.bus      = bus;
     device->id.device   = dev;
     device->id.function = fun;
     /* TODO: device->id.type     = 0; */
+
+    *iodev = device;
 
     return device_put(*iodev);
 }
@@ -151,6 +163,7 @@ errval_t iommu_device_lookup_iommu_by_pci(uint16_t seg, uint8_t bus, uint8_t dev
     debug_printf("[iommu] look-up iommu by PCI segment\n");
     err = skb_execute_query("iommu(T,I,F, %" PRIu16 "),write(u(T,I,F)).", seg);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to obtain iommu for PCI segment");
         return IOMMU_ERR_IOMMU_NOT_FOUND;
     }
 
@@ -158,7 +171,12 @@ errval_t iommu_device_lookup_iommu_by_pci(uint16_t seg, uint8_t bus, uint8_t dev
     err = skb_read_output("u(%d,%d,%d)", &type, &idx, &flags);
     assert(err_is_ok(err));
 
-    return iommu_get_by_idx(type, idx, iommu);
+    err = iommu_get_by_idx(type, idx, iommu);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get the device\n");
+    }
+    debug_printf("iommu_device_lookup_iommu_by_pci succeeded!\n");
+    return SYS_ERR_OK;
 }
 
 
@@ -171,15 +189,17 @@ errval_t iommu_device_lookup_iommu(struct capref dev, struct iommu **iommu)
     if (err_is_fail(err)) {
         return err;
     }
-
+    debug_printf("[iommu] looking up device byu cap\n");
     return iommu_device_lookup_iommu_by_pci(id.segment, id.bus, id.device,
-                                         id.function, iommu);
+                                            id.function, iommu);
 }
 
 
 errval_t iommu_device_lookup_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
                                     uint8_t fun, struct iommu_device **rdev)
 {
+    debug_printf("[iommu] lookup device by pci %u.%u.%u\n", bus, dev, fun);
+
     struct iommu_device *d = device_get(seg, bus, dev, fun);
     if (d == NULL) {
         return IOMMU_ERR_DEV_NOT_FOUND;
@@ -213,10 +233,15 @@ errval_t iommu_device_get_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
 {
     errval_t err;
 
+    debug_printf("[iommu] get device by pci %u.%u.%u\n", bus, dev, fun);
+
     err = iommu_device_lookup_by_pci(seg, bus, dev, fun, rdev);
     if (err_is_ok(err)) {
         return SYS_ERR_OK;
     }
+
+    debug_printf("[iommu] lookup failed, creating device %u.%u.%u\n", bus,
+                 dev, fun);
 
     return iommu_device_create_by_pci(seg, bus, dev, fun, rdev);
 
@@ -227,10 +252,12 @@ errval_t iommu_device_get(struct capref dev, struct iommu_device **rdev)
 {
     errval_t err;
 
+    debug_printf("[iommu] get by cap\n");
+
     struct device_identity id;
     err = invoke_device_identify(dev, &id);
     if (err_is_fail(err)) {
-        return IOMMU_ERR_DEV_NOT_FOUND;
+        return err;
     }
     return iommu_device_get_by_pci(id.segment, id.bus, id.device, id.function,
                                    rdev);

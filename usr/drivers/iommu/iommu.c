@@ -27,12 +27,19 @@ static struct iommu *iommus[IOMMU_MAX] = {0};
 
 errval_t iommu_get_by_idx(hw_pci_iommu_t type, uint32_t idx, struct iommu **iommu)
 {
+    debug_printf("[iommu] get iommu by idx %u\n", idx);
     switch(type) {
         case HW_PCI_IOMMU_INTEL:
-            debug_printf("[iommu] get intel vtd with index %u\n", idx);
             if (idx < IOMMU_MAX) {
+                debug_printf("[iommu] get intel vtd with index %u %p\n", idx, iommus[idx]);
                 *iommu = iommus[idx];
-                return iommus[idx] ? SYS_ERR_OK : IOMMU_ERR_IOMMU_NOT_FOUND;
+                if (*iommu) {
+                    debug_printf("SYS_ERR_OK\n");
+                    return SYS_ERR_OK;
+                } else {
+                    debug_printf("IOMMU_ERR_IOMMU_NOT_FOUND\n");
+                    return IOMMU_ERR_IOMMU_NOT_FOUND;
+                }
             }
             return IOMMU_ERR_IOMMU_NOT_FOUND;
         case HW_PCI_IOMMU_AMD:
@@ -47,6 +54,7 @@ errval_t iommu_get_by_idx(hw_pci_iommu_t type, uint32_t idx, struct iommu **iomm
 errval_t iommu_set_by_idx(hw_pci_iommu_t type, uint32_t idx, struct iommu *iommu)
 {
     assert(idx < IOMMU_MAX);
+    debug_printf("[iommu] setting iommu with index %u to %p\n", idx, iommu);
     if (type != HW_PCI_IOMMU_INTEL) {
         return LIB_ERR_NOT_IMPLEMENTED;
     }

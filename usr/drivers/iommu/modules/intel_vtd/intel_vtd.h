@@ -107,6 +107,9 @@ struct vtd_device {
  * @brief represents a protection domain of the VT-d unit
  */
 struct vtd_domain {
+    ///< linked list of allocated domains
+    struct vtd_domain           *next;
+
     ///< the domain id
     vtd_domid_t                 id;
 
@@ -141,6 +144,7 @@ typedef enum {
 } vtd_version_t;
 
 struct vtd {
+    struct iommu            iommu;
     struct vtd              *next_in_seg;
     vtd_t                   vtd_dev;
 
@@ -160,7 +164,7 @@ struct vtd {
     nodeid_t proximity_domain;
 
     struct vtd_domain        **domains;
-    uint16_t                 max_domains;
+    uint32_t                 max_domains;
 
     uint8_t                  max_guest_address_width;
 
@@ -250,7 +254,7 @@ bool vtd_ctxt_table_valid(struct vtd_ctxt_table *ct);
  */
 
 
-errval_t vtd_domains_init(vtd_domid_t max_domains);
+errval_t vtd_domains_init(uint32_t max_domains);
 errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
                             struct vtd_domain **domain);
 errval_t vtd_domains_destroy(struct vtd_domain *domain);
