@@ -23,8 +23,8 @@
 #include <arpa/inet.h>
 #include <skb/skb.h>
 #include <acpi_client/acpi_client.h>
-#include <pci/pci_driver_client.h>
 #include <driverkit/driverkit.h>
+#include <int_route/int_route_client.h>
 
 #include <if/e10k_defs.h>
 #include <if/e10k_vf_defs.h>
@@ -35,8 +35,8 @@
 #include "sleep.h"
 #include "helper.h"
 
-//#define DEBUG(x...) printf("e10k: " x)
-#define DEBUG(x...) do {} while (0)
+#define DEBUG(x...) printf("e10k: " x)
+//#define DEBUG(x...) do {} while (0)
 
 #define QUEUE_INTRX 0
 #define QUEUE_INTTX 1
@@ -110,7 +110,6 @@ struct e10k_driver_state {
     bool vtdon_dcboff;
     bool dca;
     struct capref* caps;
-    struct pcid pdc;
     struct bfdriver_instance *bfi;
     // Management of MSI-X vectors
     struct bmallocator msix_alloc;
@@ -150,26 +149,26 @@ struct e10k_driver_state {
     union macentry mactable[128];
 };
 /*
-#define prnonz(x)                                               \
-    uint32_t x = e10k_##x##_rd(d);                           \
+#define prnonz(x, st)                                               \
+    uint32_t x = e10k_##x##_rd(st->d);                           \
     snprintf(str[cnt++], 32, #x "=%x \n", x);                      \
 
-static void stats_dump(void)
+static void stats_dump(struct e10k_driver_state* st)
 {
   char str[256][32];
   int cnt = 0;
   memset(str, 0, 256 * 32);
 
-    prnonz(ctrl);
-    prnonz(status);
-    prnonz(links);
-    prnonz(rxmemwrap);
-    prnonz(eicr);
-    prnonz(eics);
-    prnonz(eims);
-    prnonz(ssvpc);
-    prnonz(txdgpc);
-    prnonz(gptc);
+    prnonz(ctrl, st);
+    prnonz(status, st);
+    prnonz(links, st);
+    prnonz(rxmemwrap, st);
+    prnonz(eicr, st);
+    prnonz(eics, st);
+    prnonz(eims, st);
+    prnonz(ssvpc, st);
+    prnonz(txdgpc, st);
+    prnonz(gptc, st);
 
     if(cnt > 0) {
       for(int i = 0; i < cnt; i++) {
@@ -657,11 +656,6 @@ static void device_init(struct e10k_driver_state* st)
         // Enable interrupt
         e10k_eimsn_wr(st->d, st->cdriver_msix / 32, (1 << (st->cdriver_msix % 32)));
     } else {
-        err = pcid_connect_int(&st->pdc, 0, interrupt_handler, st);
-        if(err_is_fail(err)){
-            USER_PANIC("Setting up interrupt failed \n");
-        }
-
         e10k_gpie_msix_wrf(st->d, 0);
         // Set no Interrupt delay
         e10k_eitr_l_wr(st->d, 0, 0);
@@ -822,7 +816,7 @@ static void device_init(struct e10k_driver_state* st)
     if (st->vtdon_dcboff) {
         e10k_dtxmxszrq_max_bytes_wrf(st->d, 0xFFF);
     } else {
-       e10k_dtxmxszrq_max_bytes_wrf(st->d, 0x010);
+       e10k_dtxmxszrq_max_bytes_wrf(st->d, 0xFFF);
     }
 
     e10k_rttdcs_arbdis_wrf(st->d, 0);
@@ -840,9 +834,9 @@ static void device_init(struct e10k_driver_state* st)
         e10k_mflcn_rfce_wrf(st->d, 1);
         e10k_fccfg_tfce_wrf(st->d, e10k_lfc_en);
     } else {
-        e10k_mflcn_rpfce_wrf(st->d, 1);
-        e10k_mflcn_rfce_wrf(st->d, 0);
-        e10k_fccfg_tfce_wrf(st->d, e10k_pfc_en);
+        e10k_mflcn_rpfce_wrf(st->d, 0);
+        e10k_mflcn_rfce_wrf(st->d, 1);
+        e10k_fccfg_tfce_wrf(st->d, e10k_lfc_en);
     }
 
     if (st->vtdon_dcboff) {
@@ -1024,7 +1018,7 @@ static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail
         e10k_psrtype_split_l2_wrf(st->d, n, 1);
     } else {
         e10k_srrctl_1_desctype_wrf(st->d, n, e10k_adv_1buf);
-        //e10k_srrctl_1_desctype_wrf(d, n, e10k_legacy);
+        //e10k_srrctl_1_desctype_wrf(st->d, n, e10k_legacy);
     }
     e10k_srrctl_1_bsz_hdr_wrf(st->d, n, 128 / 64); // TODO: Do 128 bytes suffice in
                                                //       all cases?
@@ -1146,6 +1140,7 @@ static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail
 
     // Initialize TX head index write back
     if (!capref_is_null(st->queues[n].txhwb_frame)) {
+        DEBUG("[%x] TX hwb enabled ...\n", n);
         r = invoke_frame_identify(st->queues[n].txhwb_frame, &frameid);
         assert(err_is_ok(r));
         txhwb_phys = frameid.base;
@@ -1473,16 +1468,6 @@ static void init_card(struct e10k_driver_state* st)
 
     st->d = calloc(sizeof(e10k_t), 1);
 
-    int num_bars = pcid_get_bar_num(&st->pdc);
-
-    DEBUG("BAR count %d \n", num_bars);
-
-    DEBUG("Initializing network device.\n");
-
-    if (num_bars < 1) {
-        USER_PANIC("Error: Not enough PCI bars allocated. Can not initialize network device.\n");
-    }
-
     lvaddr_t vaddr;
     /* Map first BAR for register access */
     err = driverkit_get_bar_cap(st->bfi, 0, &st->regframe);
@@ -1603,7 +1588,7 @@ static void init_default_values(struct e10k_driver_state* e10k)
     e10k->service_name = "e10k";
     e10k->d = NULL;
     e10k->msix = false;
-    e10k->vtdon_dcboff = false;
+    e10k->vtdon_dcboff = true;
     e10k->dca = false;
     e10k->cdriver_msix = -1;
     e10k->initialized = 0;
@@ -1709,7 +1694,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
         struct capref devcap = NULL_CAP;
         err = driverkit_get_devid_cap(bfi, &devcap);
         assert(err_is_ok(err));
-
         err = driverkit_iommu_create_domain(cap_vroot, devcap);
         if (err_is_fail(err)) {
             return err;
@@ -1722,6 +1706,16 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     }
 
     init_card(st);
+
+    struct capref intcap = NULL_CAP;
+    err = driverkit_get_interrupt_cap(bfi, &intcap);
+    assert(err_is_ok(err));
+    err = int_route_client_route_and_connect(intcap, 0,
+                                             get_default_waitset(), 
+                                             interrupt_handler, st);
+    if (err_is_fail(err)) {
+        USER_PANIC("Interrupt setup failed!\n");
+    }
 
     while (!st->initialized || !st->exported) {
         event_dispatch(get_default_waitset());
