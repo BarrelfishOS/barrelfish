@@ -10,11 +10,11 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
+#include <driverkit/iommu.h>
+
 #include <dev/e10k_q_dev.h>
 #include <dev/e10k_dev.h>
 #include <dev/e10k_vf_dev.h>
-#include <skb/skb.h>
-
 #include <if/e10k_vf_defs.h>
 #include <if/e10k_vf_rpcclient_defs.h>
 
@@ -485,10 +485,12 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
             }
         }
 
-        err = skb_client_connect();
-        assert(err_is_ok(err));
-        err = skb_execute_query("vtd_enabled(0,_).");
+        err = driverkit_iommu_client_init();
         if (err_is_fail(err)) {
+            return err;
+        }
+
+        if (driverkit_iommu_present()) {
             DEBUG_QUEUE("Assume disabled VT-d \n");
             q->use_vtd = false;
         } else {

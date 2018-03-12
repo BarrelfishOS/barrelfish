@@ -21,7 +21,6 @@
 #include <driverkit/iommu.h>
 //#include <lwip/ip.h>
 #include <arpa/inet.h>
-#include <skb/skb.h>
 #include <acpi_client/acpi_client.h>
 #include <driverkit/driverkit.h>
 #include <int_route/int_route_client.h>
@@ -1674,26 +1673,19 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 
     parse_cmdline(st, bfi->argc, bfi->argv);
     
-    err = skb_client_connect();
-    assert(err_is_ok(err));
-    err = skb_execute_query("vtd_enabled(0,_).");
-    if (err_is_ok(err)) {
+    err = driverkit_iommu_client_init();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (driverkit_iommu_present()) {
         DEBUG("VTD-Enabled initializing with VFs enabled \n");
         st->vtdon_dcboff = true;
-        uint32_t vendor, deviceid, bus, device, function;
-        sscanf(bfi->argv[3], "%x:%x:%x:%x:%x", &vendor, &deviceid, &bus, &device, &function);
-        err = driverkit_iommu_client_init();
-        if (err_is_fail(err)) {
-            return err;
-        }
-
-        if (!driverkit_iommu_present()) {
-            USER_PANIC("IOMMU SHOULD BE ENABLED!\n");
-        }
 
         struct capref devcap = NULL_CAP;
         err = driverkit_get_devid_cap(bfi, &devcap);
         assert(err_is_ok(err));
+
         err = driverkit_iommu_create_domain(cap_vroot, devcap);
         if (err_is_fail(err)) {
             return err;
@@ -1720,6 +1712,8 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     while (!st->initialized || !st->exported) {
         event_dispatch(get_default_waitset());
     }
+
+    DEBUG("PF driver init done\n");
 
     return SYS_ERR_OK;
 }
