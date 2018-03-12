@@ -586,7 +586,7 @@ errval_t pci_client_connect(void)
     iref_t iref;
     errval_t err, err2 = SYS_ERR_OK;
 
-    if (pci_client == NULL) {
+    if (pci_client != NULL) {
         return SYS_ERR_OK;
     }
 
