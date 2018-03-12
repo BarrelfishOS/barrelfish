@@ -158,7 +158,7 @@ pci_driver{
 
 pci_driver{
     binary: "ioat_dma",
-    module: "-",
+    module: "ioat_dma_module",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'0e20, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'2f20, function: _, subvendor: _, subdevice: _ } ],
