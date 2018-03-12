@@ -1651,8 +1651,7 @@ static void init_default_values(struct e10k_driver_state* e10k)
  * \retval SYS_ERR_OK Device initialized successfully.
  * \retval LIB_ERR_MALLOC_FAIL Unable to allocate memory for the driver.
  */
-static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t flags,
-                     struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) 
+static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 {
     errval_t err;
     //barrelfish_usleep(10*1000*1000);
@@ -1665,11 +1664,11 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
     
     assert(bfi->dstate != NULL);
     struct e10k_driver_state* st = (struct e10k_driver_state*) bfi->dstate;
-    st->caps = caps;
+    st->caps = bfi->caps;
 
     init_default_values(st);
  
-    err = pcid_init(&st->pdc, caps, caps_len, args, args_len, get_default_waitset());
+    err = pcid_init(&st->pdc, bfi->caps, bfi->capc, bfi->argv, bfi->argc, get_default_waitset());
     if(err_is_fail(err)){
         USER_PANIC("pcid_init failed \n");
     }
@@ -1682,7 +1681,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
 
     memset(st->tx_rate, 0, sizeof(st->tx_rate));
 
-    parse_cmdline(st, args_len, args);
+    parse_cmdline(st, bfi->argc, bfi->argv);
     
     err = skb_client_connect();
     assert(err_is_ok(err));
@@ -1691,7 +1690,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
         DEBUG("VTD-Enabled initializing with VFs enabled \n");
         st->vtdon_dcboff = true;
         uint32_t vendor, deviceid, bus, device, function;
-        sscanf(args[3], "%x:%x:%x:%x:%x", &vendor, &deviceid, &bus, &device, &function);
+        sscanf(bfi->argv[3], "%x:%x:%x:%x:%x", &vendor, &deviceid, &bus, &device, &function);
         err = driverkit_iommu_client_init();
         if (err_is_fail(err)) {
             return err;

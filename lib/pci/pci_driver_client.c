@@ -79,22 +79,40 @@ errval_t pcid_init(
     return SYS_ERR_OK;
 }
 
-errval_t pcid_get_interrupt_cap(struct pcid* pdc, struct capref *ret) {
+static errval_t get_cap_for_slot(struct pcid* pdc, cslot_t slot,
+                                 struct capref *ret)
+{
+    if(slot >= L2_CNODE_SLOTS) {
+        return PCI_ERR_NO_CAP;
+    }
 
-    
-    struct capref interrupt = {
+    struct capref dest = {
         .cnode = pdc->arg_cnode,
-        .slot = PCIARG_SLOT_INT,
+        .slot = slot,
     };
-    
-    *ret = interrupt;
+
+    *ret = dest;
 
     return SYS_ERR_OK;
 }
 
-errval_t pcid_get_bar_cap(struct pcid* pdc, int bar_index, struct capref *ret) {
+errval_t pcid_get_interrupt_cap(struct pcid* pdc, struct capref *ret)
+{
+    return get_cap_for_slot(pdc, PCIARG_SLOT_INT, ret);
+}
 
-    assert(bar_index <= pdc->num_bars);
+errval_t pcid_get_devid_cap(struct pcid* pdc, struct capref *ret)
+{
+    return get_cap_for_slot(pdc, PCIARG_SLOT_DEVID, ret);
+}
+
+errval_t pcid_get_bar_cap(struct pcid* pdc, int bar_index, struct capref *ret)
+{
+
+    if(bar_index >= pdc->num_bars) {
+        return PCI_ERR_NO_CAP;
+    }
+
     struct capref bar = {
         .cnode = pdc->arg_cnode,
         .slot = PCIARG_SLOT_BAR0 + bar_index,

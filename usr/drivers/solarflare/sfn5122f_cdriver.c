@@ -1722,8 +1722,7 @@ static void init_default_values(struct sfn5122f_driver_state* st)
  * \retval SYS_ERR_OK Device initialized successfully.
  * \retval LIB_ERR_MALLOC_FAIL Unable to allocate memory for the driver.
  */
-static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t flags,
-                     struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) {
+static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev) {
 
     //barrelfish_usleep(10*1000*1000);
     DEBUG("SFN5122F driver started \n");
@@ -1736,23 +1735,24 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
     
     assert(bfi->dstate != NULL);
     struct sfn5122f_driver_state* st = (struct sfn5122f_driver_state*) bfi->dstate;
-    st->caps = caps;
+    st->caps = bfi->caps;
 
     init_default_values(st);
  
-    err = pcid_init(&st->pdc, caps, caps_len, args, args_len, get_default_waitset());
+    err = pcid_init(&st->pdc, bfi->caps, bfi->capc, bfi->argv, bfi->argc,
+                    get_default_waitset());
     if(err_is_fail(err)){
         USER_PANIC("pcid_init failed \n");
     }
    
-    int argc = args_len;
+    int argc = bfi->argc;
 
     for(int i = 0; i < argc; i++) {
-        printf("argv[%d] = %s \n", i, args[i]);
+        printf("argv[%d] = %s \n", i, bfi->argv[i]);
     }
 
     if (argc > 1) {
-        uint32_t parsed = sscanf(args[argc - 1], "%x:%x:%x:%x:%x", &st->pci_vendor,
+        uint32_t parsed = sscanf(bfi->argv[argc - 1], "%x:%x:%x:%x:%x", &st->pci_vendor,
                                  &st->pci_devid, &st->pci_bus, &st->pci_device, &st->pci_function);
         if (parsed != 5) {
             st->pci_vendor = PCI_DONT_CARE;
@@ -1769,7 +1769,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
         }
     }
 
-    parse_cmdline(st, args_len, args);
+    parse_cmdline(st, bfi->argc, bfi->argv);
 
     init_card(st);
 

@@ -482,63 +482,64 @@ static void initialize_mngif(struct e1000_driver_state* st)
     assert(err_is_ok(r));
 }
 
-static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
-        flags, struct capref* caps, size_t caps_len, char** args, size_t
-        args_len, iref_t* dev) {
+static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
+{
 
     errval_t err;
 
     /** Parse command line arguments. */
     E1000_DEBUG("e1000 standalone driver started.\n");
-    E1000_DEBUG("args_len=%ld, caps_len=%ld\n", args_len, caps_len);
+    E1000_DEBUG("args_len=%d, caps_len=%d\n", bfi->capc, bfi->argc);
 
     struct e1000_driver_state * eds = malloc(sizeof(struct e1000_driver_state));
     e1000_driver_state_init(eds);
     bfi->dstate = eds;
 
-    err = pcid_init(&eds->pdc, caps, caps_len, args, args_len, get_default_waitset());
+    err = pcid_init(&eds->pdc, bfi->caps, bfi->capc, bfi->argv, bfi->argc,
+                    get_default_waitset());
     if(err_is_fail(err)){
         DEBUG_ERR(err, "pcid_init");
         goto err_out;
     }
 
-    eds->args = args;
-    eds->args_len = args_len;
+    eds->args = bfi->argv;
+    eds->args_len = bfi->argc;
     eds->service_name = "e1000"; // default name
 
-    for (int i = 1; i < args_len; i++) {
-        E1000_DEBUG("arg %d = %s\n", i, args[i]);
-        if (strcmp(args[i], "auto") == 0) {
+    for (int i = 1; i < bfi->argc; i++) {
+        E1000_DEBUG("arg %d = %s\n", i, bfi->argv[i]);
+        if (strcmp(bfi->argv[i], "auto") == 0) {
             continue;
         }
-        if (strncmp(args[i], "affinitymin=", strlen("affinitymin=")) == 0) {
-            eds->minbase = atol(args[i] + strlen("affinitymin="));
+        if (strncmp(bfi->argv[i], "affinitymin=", strlen("affinitymin=")) == 0) {
+            eds->minbase = atol(bfi->argv[i] + strlen("affinitymin="));
             E1000_DEBUG("minbase = %lu\n", eds->minbase);
-        } else if (strncmp(args[i], "affinitymax=", strlen("affinitymax="))
+        } else if (strncmp(bfi->argv[i], "affinitymax=", strlen("affinitymax="))
                  == 0) {
-            eds->maxbase = atol(args[i] + strlen("affinitymax="));
+            eds->maxbase = atol(bfi->argv[i] + strlen("affinitymax="));
             E1000_DEBUG("maxbase = %lu\n", eds->maxbase);
-        } else if (strncmp(args[i], "mac=", strlen("mac=")) == 0) {
+        } else if (strncmp(bfi->argv[i], "mac=", strlen("mac=")) == 0) {
             uint8_t* mac = eds->mac_address;
-            if (parse_mac(mac, args[i] + strlen("mac="))) {
+            if (parse_mac(mac, bfi->argv[i] + strlen("mac="))) {
                 eds->user_mac_address = true;
                 E1000_DEBUG("MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
                             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
             } else {
-                E1000_PRINT_ERROR("Error: Failed parsing MAC address '%s'.\n", args[i]);
+                E1000_PRINT_ERROR("Error: Failed parsing MAC address '%s'.\n",
+                                  bfi->argv[i]);
                 exit(1);
             }
-        } else if(strncmp(args[i], "servicename=", strlen("servicename=")) == 0) {
-            eds->service_name = args[i]  + strlen("servicename=");
+        } else if(strncmp(bfi->argv[i], "servicename=", strlen("servicename=")) == 0) {
+            eds->service_name = bfi->argv[i]  + strlen("servicename=");
             E1000_DEBUG("Service name=%s.\n", eds->service_name);
-        } else if(strcmp(args[i],"noirq")==0) {
+        } else if(strcmp(bfi->argv[i],"noirq")==0) {
             E1000_DEBUG("Driver working in polling mode.\n");
             eds->use_interrupt = false;
-        } else if (strcmp(args[i], "-h") == 0 ||
-                 strcmp(args[i], "--help") == 0) {
+        } else if (strcmp(bfi->argv[i], "-h") == 0 ||
+                 strcmp(bfi->argv[i], "--help") == 0) {
             exit_help();
         } else {
-            E1000_DEBUG("Parsed Kaluga device address %s.\n", args[i]);
+            E1000_DEBUG("Parsed Kaluga device address %s.\n", bfi->argv[i]);
         }
     } // end for :
 

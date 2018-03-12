@@ -78,7 +78,6 @@ struct bfdriver* driverkit_lookup_cls(const char* name) {
 static void free_driver_instance(void* arg) {
     assert (arg != NULL);
     struct bfdriver_instance* bfi = (struct bfdriver_instance*) arg;
-    free(bfi->name);
     free(bfi);
 }
 
@@ -146,15 +145,13 @@ errval_t driverkit_destroy(const char* name) {
  * \param[out]  control iref of the control interface (created as part of this function).
  * \return      Error status of driver creation.
  */
-errval_t driverkit_create_driver(const char* cls, const char* name,
-                                 struct capref* caps, size_t caps_len,
-                                 char** args, size_t args_len,
+errval_t driverkit_create_driver(const char* cls, struct bfdriver_instance *inst,
                                  uint64_t flags, iref_t* device, iref_t* control)
 {
     assert(cls != NULL);
-    assert(name != NULL);
     assert(device != NULL);
     assert(control != NULL);
+    assert(inst != NULL);
 
     errval_t err = SYS_ERR_OK;
 
@@ -164,18 +161,9 @@ errval_t driverkit_create_driver(const char* cls, const char* name,
     }
     DRIVERKIT_DEBUG("Using driver %s for class %s\n", drv->name, cls);
 
-    struct bfdriver_instance* inst = malloc(sizeof(struct bfdriver_instance));
-    if (inst == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-    inst->name = strdup(name);
-    if(inst->name == NULL) {
-        free(inst);
-        return LIB_ERR_MALLOC_FAIL;
-    }
     inst->driver = drv;
 
-    err = drv->init(inst, name, flags, caps, caps_len, args, args_len, device);
+    err = drv->init(inst, flags, device);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can't initialize the device");
         free_driver_instance(inst);

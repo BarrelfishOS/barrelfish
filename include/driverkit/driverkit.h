@@ -18,15 +18,23 @@ struct bfdriver;
 
 // Generic struc to track all driver instance state.
 struct bfdriver_instance {
-    char* name; //< This is owned by driverkit 'modules.c'.
+    char name[256]; //< This is owned by driverkit 'modules.c'.
     struct bfdriver* driver; //< This is owned by driverkit 'modules.c'.
     iref_t control; //< This is initialized by driverkit 'dcontrol_service.c'.
 
+    struct capref caps[6];
+    uint8_t capc;
+    struct cnoderef argcn;
+    struct capref   argcn_cap;
+    char *argv[4];
+    char _argv[4][256];
+    uint8_t argc;
+
     iref_t device; //< Driver state. This is owned by the driver implementation.
-    void* dstate; //< Driver state. This is owned by the driver implementation.
+    void* dstate;  //< Driver state. This is owned by the driver implementation.
 };
 
-typedef errval_t(*driver_init_fn)(struct bfdriver_instance*, const char*, uint64_t flags, struct capref*, size_t, char**, size_t, iref_t*);
+typedef errval_t(*driver_init_fn)(struct bfdriver_instance*, uint64_t flags, iref_t*);
 typedef errval_t(*driver_attach_fn)(struct bfdriver_instance*);
 typedef errval_t(*driver_detach_fn)(struct bfdriver_instance*);
 typedef errval_t(*driver_set_sleep_level_fn)(struct bfdriver_instance*, uint32_t level);
@@ -41,7 +49,8 @@ struct bfdriver {
     driver_destroy_fn destroy;
 };
 
-errval_t driverkit_create_driver(const char* cls, const char* name, struct capref* caps, size_t caps_len, char** args, size_t args_len, uint64_t flags, iref_t* dev, iref_t* ctrl);
+errval_t driverkit_create_driver(const char* cls, struct bfdriver_instance *bfi,
+                                 uint64_t flags, iref_t* dev, iref_t* ctrl);
 errval_t driverkit_destroy(const char* name);
 void driverkit_list(struct bfdriver**, size_t*);
 struct bfdriver* driverkit_lookup_cls(const char*);
@@ -64,6 +73,8 @@ struct driver_instance {
     uint64_t flags;
     iref_t dev;
     iref_t control;
+    struct capref argcn_cap;
+    struct cnoderef argcn;
 };
 errval_t ddomain_communication_init(iref_t kaluga_iref, uint64_t id);
 errval_t ddomain_controller_init(void);

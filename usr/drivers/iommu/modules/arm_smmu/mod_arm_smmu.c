@@ -39,8 +39,7 @@ struct iommu {
  * \retval SYS_ERR_OK Device initialized successfully.
  * \retval LIB_ERR_MALLOC_FAIL Unable to allocate memory for the driver.
  */
-static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t flags,
-                     struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) {
+static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev) {
     DRIVER_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
 

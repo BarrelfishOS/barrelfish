@@ -1,5 +1,26 @@
+/**
+ * \file
+ * \brief Driver module example template.
+ *
+ * In summary, every driver (struct bfdriver) shall implement the five
+ * life-cycle functions init/set_sleep_level/attach/detach/destroy
+ * (along with additional IRQ handler functions etc.).
+ *
+ * A driver module is linked with a driver domain (see main.c in this directory).
+ * At runtime, a driver domain will instantiate a driver instance (struct bfdriver_instance)
+ * of a given module (or class if you want) using the `init` function. During the lifetime
+ * of a driver instance it may be `detached` from and re-`attach`-ed to the
+ * device, set in different sleep levels, and finally it can be `destroy`-ed.
+ *
+ * For every driver instance (i.e., struct bfdriver_instance), a corresponding
+ * control interface created and exported. The interface is defined in dcontrol.if,
+ * the corresponding code is located in the driverkit library (dcontrol_service.c).
+ *
+ * \note For more information about driver domains check the main.c file in this
+ * directory.
+ */
 /*
- * Copyright (c) 2018, ETH Zurich.
+ * Copyright (c) 2016, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -14,14 +35,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include <driverkit/driverkit.h>
-#include <skb/skb.h>
-
-#include "intel_vtd.h"
-
-#define DRIVER_DEBUG(x...) debug_printf("[iommu] " x)
-
-
-vregion_flags_t vtd_table_map_attrs = VREGION_FLAGS_READ_WRITE;
 
 
 /**
@@ -42,43 +55,21 @@ vregion_flags_t vtd_table_map_attrs = VREGION_FLAGS_READ_WRITE;
  * \retval SYS_ERR_OK Device initialized successfully.
  * \retval LIB_ERR_MALLOC_FAIL Unable to allocate memory for the driver.
  */
-static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev) {
-    errval_t err;
+static errval_t init(struct bfdriver_instance*, uint64_t flags, iref_t*) {
 
-    DRIVER_DEBUG("Initialize: %s\n", bfi->name);
+    // 1. Initialize the device:
 
-    debug_printf("Initializing Intel VT-d driver module...\n");
+    debug_printf("[ioat]: attaching device '%s'\n", name);
 
-    if (capref_is_null(bfi->caps[0])) {
-        return DRIVERKIT_ERR_NO_CAP_FOUND;
-    }
 
-    struct frame_identity id;
-    err = invoke_frame_identify(bfi->caps[0], &id);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    debug_printf("[ioat]: attaching device '%s'\n", name);
 
-    struct vtd *vtd = calloc(sizeof(*vtd), 1);
-    if (vtd == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-
-    err = vtd_create(vtd, bfi->caps[0]);
-    if (err_is_fail(err)) {
-        goto err_out;
-    }
-
-    bfi->dstate = vtd;
+    // 2. Export service to talk to the device:
 
     // 3. Set iref of your exported service (this is reported back to Kaluga)
     *dev = 0x00;
 
     return SYS_ERR_OK;
-
-err_out:
-    free(vtd);
-    return err;
 }
 
 /**
@@ -93,7 +84,6 @@ err_out:
  * \retval SYS_ERR_OK Device initialized successfully.
  */
 static errval_t attach(struct bfdriver_instance* bfi) {
-    DRIVER_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
     return SYS_ERR_OK;
 }
@@ -107,7 +97,6 @@ static errval_t attach(struct bfdriver_instance* bfi) {
  * \retval SYS_ERR_OK Device initialized successfully.
  */
 static errval_t detach(struct bfdriver_instance* bfi) {
-    DRIVER_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
     return SYS_ERR_OK;
 }
@@ -120,7 +109,6 @@ static errval_t detach(struct bfdriver_instance* bfi) {
  * \retval SYS_ERR_OK Device initialized successfully.
  */
 static errval_t set_sleep_level(struct bfdriver_instance* bfi, uint32_t level) {
-    DRIVER_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
     return SYS_ERR_OK;
 }
@@ -133,8 +121,9 @@ static errval_t set_sleep_level(struct bfdriver_instance* bfi, uint32_t level) {
  * \retval SYS_ERR_OK Device initialized successfully.
  */
 static errval_t destroy(struct bfdriver_instance* bfi) {
-    DRIVER_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
+    // XXX: Tear-down the service
+    bfi->device = 0x0;
 
     return SYS_ERR_OK;
 }
@@ -145,4 +134,4 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
  * To link this particular module in your driver domain,
  * add it to the addModules list in the Hakefile.
  */
-DEFINE_MODULE(iommu_intel_module, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(ioat_module, init, attach, detach, set_sleep_level, destroy);
