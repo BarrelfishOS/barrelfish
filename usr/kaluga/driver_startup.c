@@ -196,11 +196,7 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
         KALUGA_DEBUG("Reusing existing driver domain %s\n", mi->binary);
     }
 
-    /* XXX: this should be coming from the SKB */
-    char module_name[100];
-    sprintf(module_name, "%s_module", mi->binary);
-
-    struct driver_instance* drv = ddomain_create_driver_instance(module_name, oct_id);
+    struct driver_instance* drv = ddomain_create_driver_instance(arg->module_name, oct_id);
 
     char *args[4] = {NULL, NULL, NULL, NULL};
     int args_len = 0;
@@ -300,9 +296,10 @@ errval_t start_networking_new(coreid_t where,
     net_sockets->argv[2] = driver->binary;
     net_sockets->argv[3] = pci_arg_str;
 
+    /*
     err = spawn_program(where, net_sockets->path, net_sockets->argv, environ, 0,
                         get_did_ptr(net_sockets));
-
+    */
     return err;
 }
 #endif

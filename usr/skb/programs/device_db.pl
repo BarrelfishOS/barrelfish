@@ -1,5 +1,6 @@
 :- local struct(pci_driver(
     binary,             % Name of driver binary
+    module,             % Name of drive modulee
     supported_cards,    % List of cards this binary supports
     core_hint,          % Preferred core to start the driver
     core_offset,        % Core offset where to start the drivers (multi instance)
@@ -39,6 +40,7 @@
 pci_driver{
     %binary: "net_sockets_server",
     binary: "e1000n",
+    module: "e1000n_moduel",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'1521, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'107d, function: _, subvendor: _, subdevice: _ },
@@ -65,6 +67,7 @@ pci_driver{
 
 pci_driver{
     binary: "mlx4",
+    module: "-",
     supported_cards:
     [ pci_card{ vendor: 16'15b3, device: 16'1003, function: _, subvendor: _, subdevice: _ }],
     core_hint: 0,
@@ -78,6 +81,7 @@ pci_driver{
 
 pci_driver{
     binary: "sfn5122f",
+    module: "sfn5122f_module",
     supported_cards:
     [ pci_card{ vendor: 16'1924, device: 16'0803, function: _, subvendor: _, subdevice: _ }],
     core_hint: 0,
@@ -91,6 +95,7 @@ pci_driver{
 
 pci_driver{
     binary: "e10k",
+    module: "e10k_module",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'10fb, function: _, subvendor: _, subdevice: _ }],
     core_hint: 0,
@@ -101,8 +106,22 @@ pci_driver{
     platforms: ['x86_64']
 }.
 
+
+pci_driver{
+    binary: "e10k",
+    module: "e10k_vf_module",
+    supported_cards:
+    [ pci_card{ vendor: 16'8086, device: 16'10ed, function: _, subvendor: _, subdevice: _ }],
+    core_hint: 0,
+    core_offset: 1,
+    multi_instance: 0,
+    interrupt_load: 0.5,
+    platforms: ['x86_64']
+}.
+
 pci_driver{
     binary: "rtl8029",
+    module: "-",
     supported_cards:
     [ pci_card{ vendor: 16'10ec, device: 16'8029, function: _, subvendor: _, subdevice: _ } ],
     core_hint: 0,
@@ -114,6 +133,7 @@ pci_driver{
 
 pci_driver{
     binary: "mxl4_core",
+    module: "-",
     supported_cards:
     [ pci_card{ vendor: 16'15b3, device: 16'0050, function: _, subvendor: _, subdevice: _ } ],
     core_hint: 0,
@@ -125,6 +145,7 @@ pci_driver{
 
 pci_driver{
     binary: "xeon_phi",
+    module: "-",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'225e, function: _, subvendor: _, subdevice: _ } ],
     core_hint: 2,
@@ -137,6 +158,7 @@ pci_driver{
 
 pci_driver{
     binary: "ioat_dma",
+    module: "-",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'0e20, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'2f20, function: _, subvendor: _, subdevice: _ } ],
@@ -149,6 +171,7 @@ pci_driver{
 
 pci_driver{
     binary: "ahcid",
+    module: "-",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'2922, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'3a22, function: _, subvendor: _, subdevice: _ },
@@ -191,19 +214,19 @@ get_interrupt_model(IntModels, Model) :-
 find_pci_driver(PciInfo, DriverInfo) :-
     PciInfo = pci_card{vendor:VId, device: DId, function: Fun, subvendor: SVId,
                         subdevice: SDId},
-    pci_driver{binary: Binary, supported_cards: _, core_hint: Core,
+    pci_driver{binary: Binary, module: Module, supported_cards: _, core_hint: Core,
         core_offset: Offset, multi_instance: Multi,
         interrupt_load: IRQLoad, platforms: Platforms, interrupt_model: IntModels},
 
     % We find the highest priority matching driver.
     % TODO: binary name-intmodel is used as an identifier. Thus, multiple entries with the same
     % intmodel-binary are not supported
-    findall((Prio,X, IM), (pci_driver{ supported_cards: Cards, binary: X,
+    findall((Prio, X, M, IM), (pci_driver{ supported_cards: Cards, binary: X, module: M, 
         interrupt_model: IM, priority: Prio },
         member(PciInfo, Cards)), LiU),
-    sort(0,>,LiU, [(_,Binary,BinIM)|_]),
+    sort(0,>,LiU, [(_,Binary, Module, BinIM)|_]),
     get_interrupt_model(BinIM, IntModel),
-    DriverInfo = driver(Core, Multi, Offset, Binary, IntModel).
+    DriverInfo = driver(Core, Multi, Offset, Binary, Module, IntModel).
 
 find_cpu_driver(ApicId, DriverInfo) :-
     cpu_driver{binary: Binary, platforms: Platforms},
