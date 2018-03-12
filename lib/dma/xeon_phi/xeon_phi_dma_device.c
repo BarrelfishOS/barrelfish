@@ -246,7 +246,7 @@ errval_t xeon_phi_dma_device_init(void *mmio_base,
 
     err = dma_mem_alloc(XEON_PHI_DMA_DEVICE_DSTAT_SIZE,
                         XEON_PHI_DMA_DEVICE_DSTAT_FLAGS,
-                        &xdev->dstat);
+                        0, &xdev->dstat);
     if (err_is_fail(err)) {
         free(xdev);
         return err;

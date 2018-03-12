@@ -26,6 +26,7 @@
  */
 errval_t dma_mem_alloc(size_t bytes,
                        vregion_flags_t flags,
+                       bool iommu_present,
                        struct dma_mem *mem)
 {
     errval_t err;
@@ -57,6 +58,11 @@ errval_t dma_mem_alloc(size_t bytes,
     }
 
     mem->vaddr = (lvaddr_t)addr;
+
+    if (iommu_present) {
+        debug_printf("Overwriting the address with virtual mapped one\n");
+        mem->paddr = (lpaddr_t)addr;
+    }
 
     return SYS_ERR_OK;
 }

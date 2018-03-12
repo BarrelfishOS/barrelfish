@@ -16,6 +16,8 @@
 #include <dma_ring_internal.h>
 
 #include <debug.h>
+#include "include/dma_channel_internal.h"
+#include "include/dma_device_internal.h"
 
 /**
  * represents the IOAT DMA ring with its internal state
@@ -186,7 +188,8 @@ errval_t dma_ring_alloc(uint8_t ndesc_bits,
     ring->desc = (void *) (ring + 1);
     ring->use_modulo = use_modulo;
 
-    err = dma_desc_alloc(desc_size, desc_align, ndesc_bits, ring->desc);
+    err = dma_desc_alloc(desc_size, desc_align, ndesc_bits,
+                         chan->device->iommu_present,  ring->desc);
     if (err_is_fail(err)) {
         free(ring);
         return err;

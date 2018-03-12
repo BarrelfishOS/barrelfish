@@ -136,6 +136,8 @@ errval_t ioat_dma_request_memcpy_chan(struct dma_channel *chan,
                                       struct dma_req_setup *setup,
                                       dma_req_id_t *id)
 {
+    assert(chan);
+    assert(chan->device);
     assert(chan->device->type == DMA_DEV_TYPE_IOAT);
 
     struct ioat_dma_channel *ioat_chan = (struct ioat_dma_channel *) chan;

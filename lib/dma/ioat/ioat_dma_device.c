@@ -126,7 +126,7 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
 
     /* allocate memory for completion status writeback */
     err = dma_mem_alloc(IOAT_DMA_COMPLSTATUS_SIZE, IOAT_DMA_COMPLSTATUS_FLAGS,
-                        &dev->complstatus);
+                        dev->common.iommu_present,  &dev->complstatus);
     if (err_is_fail(err)) {
         return err;
     }
@@ -151,6 +151,10 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
         struct dma_channel **chan = &dev->common.channels.c[i];
         err = ioat_dma_channel_init(dev, i, max_xfer_size,
                                     (struct ioat_dma_channel **) chan);
+        if (err_is_fail(err)) {
+            /* TODO: cleanup! */
+            return err;
+        }
     }
 
     if (dev->flags & IOAT_DMA_DEV_F_DCA) {
@@ -359,6 +363,7 @@ errval_t ioat_dma_device_irq_setup(struct ioat_dma_device *dev,
  */
 errval_t ioat_dma_device_init(struct capref mmio,
                               struct pci_addr *pci_addr,
+                              bool iommu_present,
                               struct ioat_dma_device **dev)
 {
     errval_t err;
@@ -373,6 +378,8 @@ errval_t ioat_dma_device_init(struct capref mmio,
 #endif
 
     struct dma_device *dma_dev = &ioat_device->common;
+
+    dma_dev->iommu_present = iommu_present;
 
     struct frame_identity mmio_id;
     err = frame_identify(mmio, &mmio_id);

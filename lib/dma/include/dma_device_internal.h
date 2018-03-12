@@ -48,7 +48,7 @@ struct dma_device
     } channels;                     ///< Channel information
 
     dma_irq_t irq_type;
-
+    bool iommu_present;
     struct dma_device_fn f;
 };
 

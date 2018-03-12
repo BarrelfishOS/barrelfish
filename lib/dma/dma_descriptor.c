@@ -84,6 +84,7 @@ struct dma_descriptor
 errval_t dma_desc_alloc(uint32_t size,
                         uint16_t align,
                         uint8_t count,
+                        bool iommu_present,
                         struct dma_descriptor **desc)
 {
     errval_t err;
@@ -115,7 +116,7 @@ errval_t dma_desc_alloc(uint32_t size,
     ram_set_affinity(0, XEON_PHI_SYSMEM_SIZE-8*XEON_PHI_SYSMEM_PAGE_SIZE);
 #endif
 
-    err = dma_mem_alloc(ndesc * size, DMA_DESC_MAP_FLAGS, mem);
+    err = dma_mem_alloc(ndesc * size, DMA_DESC_MAP_FLAGS, iommu_present, mem);
     if (err_is_fail(err)) {
         free(dma_desc);
         return err;

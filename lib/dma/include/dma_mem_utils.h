@@ -25,6 +25,7 @@ struct dma_mem;
  */
 errval_t dma_mem_alloc(size_t bytes,
                        vregion_flags_t flags,
+                       bool iommu_present,
                        struct dma_mem *mem);
 
 /**

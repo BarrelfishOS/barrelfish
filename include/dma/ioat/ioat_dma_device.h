@@ -42,6 +42,7 @@ static inline struct ioat_dma_device *dma_device_to_ioat(struct dma_device *dev)
  */
 errval_t ioat_dma_device_init(struct capref mmio,
                               struct pci_addr *pci_addr,
+                              bool iommu_present,
                               struct ioat_dma_device **dev);
 
 /**

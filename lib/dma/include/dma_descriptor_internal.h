@@ -33,6 +33,7 @@
 errval_t dma_desc_alloc(uint32_t size,
                         uint16_t align,
                         uint8_t count,
+                        bool iommu_present,
                         struct dma_descriptor **desc);
 
 /**
