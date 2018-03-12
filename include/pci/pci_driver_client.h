@@ -52,6 +52,7 @@ errval_t pcid_init(
  * \param ws Used for the pci_driver_client binding and interrupts
  * */
 errval_t pcid_get_interrupt_cap(struct pcid* pdc, struct capref *ret);
+errval_t pcid_get_devid_cap(struct pcid* pdc, struct capref *ret);
 errval_t pcid_get_bar_cap(struct pcid* pdc, int bar_index, struct capref *ret);
 size_t pcid_get_bar_num(struct pcid* pdc);
 /**
