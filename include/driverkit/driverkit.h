@@ -16,6 +16,22 @@
 
 struct bfdriver;
 
+
+/**
+ * Kaluga passes a CNode with capabilities to the pci driver. The offset
+ * in this CNode are defined here
+ */
+#define DRIVERKIT_ARGCN_SLOT_DEVID  0
+#define DRIVERKIT_ARGCN_SLOT_INT    1
+#define DRIVERKIT_ARGCN_SLOT_BAR0   2
+#define DRIVERKIT_ARGCN_SLOT_BAR1   3
+#define DRIVERKIT_ARGCN_SLOT_BAR2   4
+#define DRIVERKIT_ARGCN_SLOT_BAR3   5
+#define DRIVERKIT_ARGCN_SLOT_BAR4   6
+#define DRIVERKIT_ARGCN_SLOT_BAR5   7
+#define DRIVERKIT_ARGCN_SLOT_BAR6   8
+#define DRIVERKIT_ARGCN_SLOT_MAX    9
+
 // Generic struc to track all driver instance state.
 struct bfdriver_instance {
     char name[256]; //< This is owned by driverkit 'modules.c'.
@@ -54,6 +70,13 @@ errval_t driverkit_create_driver(const char* cls, struct bfdriver_instance *bfi,
 errval_t driverkit_destroy(const char* name);
 void driverkit_list(struct bfdriver**, size_t*);
 struct bfdriver* driverkit_lookup_cls(const char*);
+
+
+errval_t driverkit_get_interrupt_cap(struct bfdriver_instance *bfi, struct capref *cap);
+errval_t driverkit_get_devid_cap(struct bfdriver_instance *bfi, struct capref *cap);
+errval_t driverkit_get_bar_cap(struct bfdriver_instance *bfi, uint8_t idx,
+                               struct capref *cap);
+
 
 /** driver domain flounder interface */
 struct domain_instance {

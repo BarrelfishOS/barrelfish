@@ -111,6 +111,7 @@ struct e10k_driver_state {
     bool dca;
     struct capref* caps;
     struct pcid pdc;
+    struct bfdriver_instance *bfi;
     // Management of MSI-X vectors
     struct bmallocator msix_alloc;
 
@@ -1484,7 +1485,7 @@ static void init_card(struct e10k_driver_state* st)
 
     lvaddr_t vaddr;
     /* Map first BAR for register access */
-    err = pcid_get_bar_cap(&st->pdc, 0, &st->regframe);
+    err = driverkit_get_bar_cap(st->bfi, 0, &st->regframe);
     if (err_is_fail(err)) {
         USER_PANIC("pcid_get_bar_cap failed \n");
     }
@@ -1667,11 +1668,16 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     st->caps = bfi->caps;
 
     init_default_values(st);
- 
+    st->bfi = bfi;
+
+    #if 0
+
     err = pcid_init(&st->pdc, bfi->caps, bfi->capc, bfi->argv, bfi->argc, get_default_waitset());
     if(err_is_fail(err)){
         USER_PANIC("pcid_init failed \n");
     }
+
+    #endif
 
     // credit_refill value must be >= 1 for a queue to be able to send.
     // Set them all to 1 here. May be overridden via commandline.
@@ -1701,6 +1707,9 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
         }
 
         struct capref devcap = NULL_CAP;
+        err = driverkit_get_devid_cap(bfi, &devcap);
+        assert(err_is_ok(err));
+
         err = driverkit_iommu_create_domain(cap_vroot, devcap);
         if (err_is_fail(err)) {
             return err;

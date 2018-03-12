@@ -86,6 +86,9 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
         inst->caps[inst->capc++] = cap6;
     }
 
+    inst->argcn_cap = NULL_CAP;
+    inst->argcn = NULL_CNODE;
+
     /* Copy the arguments to our own memory */
     inst->argc = 0;
     if (a1len) {

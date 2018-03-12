@@ -282,11 +282,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         uint8_t multi;
         uint8_t int_model_in;
 
-        struct driver_argument driver_arg;
-        err = init_driver_argument(&driver_arg);
-        if(err_is_fail(err)){
-            USER_PANIC_ERR(err, "Could not initialize driver argument.\n");
-        }
+
         coreid_t offset;
         err = skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %[^,], "
                 "%"SCNu8")", &core, &multi, &offset, binary_name, &int_model_in);
@@ -294,13 +290,36 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
             USER_PANIC_SKB_ERR(err, "Could not parse SKB output.\n");
         }
 
-        driver_arg.int_arg.model = int_model_in;
-
         struct module_info* mi = find_module(binary_name);
         if (mi == NULL) {
             KALUGA_DEBUG("Driver %s not loaded. Ignore.\n", binary_name);
             goto out;
         }
+
+        // Wait until the core where we start the driver
+        // is ready
+        if (st == NULL && core != my_core_id) {
+            err = wait_for_spawnd(core, (CONST_CAST)device_record);
+            if (err_no(err) == OCT_ERR_NO_RECORD) {
+                KALUGA_DEBUG("Core where driver %s runs is not up yet.\n",
+                             mi->binary);
+                // Don't want to free device record yet...
+                return;
+            }
+            else if (err_is_fail(err)) {
+                DEBUG_ERR(err, "Waiting for core %d failed?\n", core);
+                goto out;
+            }
+        }
+
+        struct driver_argument driver_arg;
+        err = init_driver_argument(&driver_arg);
+        if(err_is_fail(err)){
+            USER_PANIC_ERR(err, "Could not initialize driver argument.\n");
+        }
+
+        driver_arg.int_arg.model = int_model_in;
+
 
         set_multi_instance(mi, multi);
         set_core_id_offset(mi, offset);
@@ -317,22 +336,6 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         err = add_mem_args(addr, &driver_arg, memcaps_debug_msg);
         assert(err_is_ok(err));
 
-
-        // Wait until the core where we start the driver
-        // is ready
-        if (st == NULL && core != my_core_id) {
-            err = wait_for_spawnd(core, (CONST_CAST)device_record);
-            if (err_no(err) == OCT_ERR_NO_RECORD) {
-                KALUGA_DEBUG("Core where driver %s runs is not up yet.\n",
-                        mi->binary);
-                // Don't want to free device record yet...
-                return;
-            }
-            else if (err_is_fail(err)) {
-                DEBUG_ERR(err, "Waiting for core %d failed?\n", core);
-                goto out;
-            }
-        }
 
         // If we've come here the core where we spawn the driver
         // is already up

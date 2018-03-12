@@ -25,8 +25,8 @@
 
 #include "kaluga.h"
 
-#if defined(__x86__) || defined(__ARM_ARCH_8A__)
-
+//#if defined(__x86__) || defined(__ARM_ARCH_8A__)
+#if 1
 // Add an argument to argc/argv pair. argv must be mallocd!
 static void argv_push(int * argc, char *** argv, char * new_arg){
     int new_size = *argc + 1;
@@ -196,6 +196,7 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
         KALUGA_DEBUG("Reusing existing driver domain %s\n", mi->binary);
     }
 
+    /* XXX: this should be coming from the SKB */
     char module_name[100];
     sprintf(module_name, "%s_module", mi->binary);
 
@@ -223,6 +224,8 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
     args[args_len++] = pci_arg_str;
 
     drv->args = args;
+    drv->argcn_cap = arg->arg_caps;
+
     drv->caps[0] = arg->arg_caps; // Interrupt cap
 
     ddomain_instantiate_driver(inst, drv);

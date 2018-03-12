@@ -200,3 +200,38 @@ void* driverkit_local_service_lookup(char* name)
 
     return NULL;
 }
+
+static errval_t get_cap(struct bfdriver_instance *bfi, cslot_t slot, struct capref *cap)
+{
+    if (slot >= DRIVERKIT_ARGCN_SLOT_MAX) {
+        return DRIVERKIT_ERR_CAP_CAPACITY;
+    }
+
+    struct capref dest = {
+        .cnode = bfi->argcn,
+        .slot = slot
+    };
+
+    *cap = dest;
+
+    return SYS_ERR_OK;
+}
+
+errval_t driverkit_get_interrupt_cap(struct bfdriver_instance *bfi, struct capref *cap)
+{
+    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_INT, cap);
+}
+
+errval_t driverkit_get_devid_cap(struct bfdriver_instance *bfi, struct capref *cap)
+{
+    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_INT, cap);
+}
+
+errval_t driverkit_get_bar_cap(struct bfdriver_instance *bfi, uint8_t idx,
+                               struct capref *cap)
+{
+    if (idx >= 6) {
+        return DRIVERKIT_ERR_CAP_CAPACITY;
+    }
+    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_BAR0 + idx, cap);
+}

@@ -118,6 +118,35 @@ static errval_t create_call(struct ddomain_binding *b, struct driver_instance* d
     }
 }
 
+static errval_t create_with_argcn_call(struct ddomain_binding *b, struct driver_instance* drv) {
+    errval_t err;
+
+    assert(b != NULL);
+    assert(b->rpc_tx_vtbl.create != NULL);
+    assert(drv != NULL);
+
+    debug_printf("trying to spawn with argcn: %s\n", drv->driver_name);
+
+    errval_t out_err = SYS_ERR_OK;
+    DRIVERKIT_DEBUG("Trying to spawn %s (named %s)\n", drv->driver_name, drv->inst_name);
+    err = b->rpc_tx_vtbl.create_with_argcn(b, drv->driver_name, strlen(drv->driver_name)+1,
+                                           drv->inst_name, strlen(drv->inst_name)+1,
+                                           drv->args[0], (drv->args[0] != NULL) ? strlen(drv->args[0] + 1) : 0,
+                                           drv->args[1], (drv->args[1] != NULL) ? strlen(drv->args[1] + 1) : 0,
+                                           drv->args[2], (drv->args[2] != NULL) ? strlen(drv->args[2] + 1) : 0,
+                                           drv->args[3], (drv->args[3] != NULL) ? strlen(drv->args[3] + 1) : 0,
+                                           drv->argcn_cap,
+                                           drv->flags, &drv->dev, &drv->control, &out_err);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to create driver %s\n", drv->driver_name);
+        return err;
+    }
+    else {
+        printf("Driver %s created, reachable at [%"PRIuIREF", %"PRIuIREF"]\n", drv->driver_name, drv->dev, drv->control);
+        return out_err;
+    }
+}
+
 errval_t ddomain_instantiate_driver(struct domain_instance* di, struct driver_instance* drv) {
     // Driver domain not up, make sure we spawn drivers later
     if (di->b == NULL) {
@@ -125,7 +154,13 @@ errval_t ddomain_instantiate_driver(struct domain_instance* di, struct driver_in
     }
     // Driver domain up, spawn driver now
     else {
-        errval_t err = create_call(di->b, drv);
+        errval_t err;
+        if (!capref_is_null(drv->argcn_cap)) {
+            err = create_with_argcn_call(di->b, drv);
+        } else {
+            err = create_call(di->b, drv);
+        }
+
         if (err_is_fail(err)) {
             return err;
         }
@@ -179,7 +214,13 @@ static void ddomain_identify_handler(struct ddomain_binding* binding, uint64_t i
         while ( (removed = collections_list_remove_ith_item(di->to_spawn, 0)) != NULL ) {
             struct driver_instance* driver = (struct driver_instance*) removed;
             DRIVERKIT_DEBUG("Trying to spawn %s\n", driver->inst_name);
-            errval_t err = create_call(di->b, driver);
+            errval_t err;
+            if (!capref_is_null(driver->argcn_cap)) {
+                err = create_with_argcn_call(di->b, driver);
+            } else {
+                err = create_call(di->b, driver);
+            }
+
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "Can't spawn driver intstance.");
             }
