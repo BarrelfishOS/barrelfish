@@ -111,9 +111,12 @@ static errval_t create_call(struct ddomain_binding *b, struct driver_instance* d
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to create driver %s\n", drv->driver_name);
         return err;
-    }
-    else {
-        printf("Driver %s created, reachable at [%"PRIuIREF", %"PRIuIREF"]\n", drv->driver_name, drv->dev, drv->control);
+    } else {
+        if (err_is_fail(out_err)) {
+            DEBUG_ERR(out_err, "Failed to create driver %s\n", drv->driver_name);
+        } else {
+            printf("Driver %s created, reachable at [%"PRIuIREF", %"PRIuIREF"]\n", drv->driver_name, drv->dev, drv->control);
+        }
         return out_err;
     }
 }
@@ -140,9 +143,13 @@ static errval_t create_with_argcn_call(struct ddomain_binding *b, struct driver_
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to create driver %s\n", drv->driver_name);
         return err;
-    }
-    else {
-        printf("Driver %s created, reachable at [%"PRIuIREF", %"PRIuIREF"]\n", drv->driver_name, drv->dev, drv->control);
+    } else {
+        if (err_is_fail(out_err)) {
+            DEBUG_ERR(out_err, "Failed to create driver %s\n", drv->driver_name);
+        } else {
+            printf("Driver %s created, reachable at [%"PRIuIREF", %"PRIuIREF"]\n", drv->driver_name, drv->dev, drv->control);
+        }
+
         return out_err;
     }
 }

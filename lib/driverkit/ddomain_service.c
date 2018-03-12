@@ -167,6 +167,7 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
 
     err = cap_copy(inst->argcn_cap, argcn);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "cannot copy argcn cap to root node\n");
         slot_free(inst->argcn_cap);
         free(inst);
         goto send_reply;
@@ -206,7 +207,7 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
                 "name=%s, cls=%s\n", name, cls);
-        slot_free(inst->argcn_cap);
+        cap_destroy(inst->argcn_cap);
         free(inst);
     }
 
