@@ -350,7 +350,10 @@ static errval_t x86_64_vtd_table(struct capability *dest, cslot_t slot,
                 return SYS_ERR_VNODE_SLOT_INUSE;
             }
 
-            uint16_t domid = flags & 0xffff;
+            uint16_t domid = (flags >> 8) & 0xffff;
+            if(flags & 0x1) {
+                vtd_ctxt_entry_t_insert(ct, vtd_hme);
+            }
 
             vtd_ctxt_entry_aw_insert(ct, agaw);
             vtd_ctxt_entry_did_insert(ct, domid);
@@ -371,7 +374,7 @@ static errval_t x86_64_vtd_table(struct capability *dest, cslot_t slot,
             #define vtd_hmd ((vtd_translation_type_t)0x0)
             #define vtd_hme ((vtd_translation_type_t)0x1)
             #define vtd_ptm ((vtd_translation_type_t)0x2)
-                vtd_ctxt_entry_t_insert(ct, vtd_hme);
+
             }
             #endif
             vtd_ctxt_entry_t_insert(ct, vtd_hmd);
