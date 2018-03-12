@@ -224,7 +224,7 @@ errval_t driverkit_get_interrupt_cap(struct bfdriver_instance *bfi, struct capre
 
 errval_t driverkit_get_devid_cap(struct bfdriver_instance *bfi, struct capref *cap)
 {
-    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_INT, cap);
+    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_DEVID, cap);
 }
 
 errval_t driverkit_get_bar_cap(struct bfdriver_instance *bfi, uint8_t idx,
