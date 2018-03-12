@@ -156,15 +156,21 @@ errval_t iommu_device_lookup_iommu_by_pci(uint16_t seg, uint8_t bus, uint8_t dev
                             "write(u(T,I)).", seg, bus, dev, fun);
     if (err_is_ok(err)) {
         err = skb_read_output("u(%d,%d)", &type, &idx);
+        debug_printf("[iommu] found device at iommu with idx %u\n", idx);
+
         assert(err_is_ok(err));
         return iommu_get_by_idx(type, idx, iommu);
     }
 
-    debug_printf("[iommu] look-up iommu by PCI segment\n");
-    err = skb_execute_query("iommu(T,I,F, %" PRIu16 "),write(u(T,I,F)).", seg);
+    debug_printf("[iommu] look-up iommu by PCI segment with all flags\n");
+    err = skb_execute_query("iommu(T,I,1, %" PRIu16 "),write(u(T,I,1)).", seg);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to obtain iommu for PCI segment");
-        return IOMMU_ERR_IOMMU_NOT_FOUND;
+        debug_printf("[iommu] look-up iommu by PCI segment\n");
+        err = skb_execute_query("iommu(T,I,F, %" PRIu16 "),write(u(T,I,F)).", seg);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to obtain iommu for PCI segment");
+            return IOMMU_ERR_IOMMU_NOT_FOUND;
+        }
     }
 
     uint32_t flags;

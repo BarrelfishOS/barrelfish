@@ -36,6 +36,8 @@ static void create_domain(struct iommu_binding *b, struct capref rootpt,
 {
     errval_t err;
 
+    debug_printf("[iommu] creating domain\n");
+
     struct iommu_device *d;
     err = iommu_device_get(dev, &d);
     if (err_is_fail(err)) {
@@ -43,12 +45,14 @@ static void create_domain(struct iommu_binding *b, struct capref rootpt,
         goto out;
     }
 
+    debug_printf("[iommu] found the device. getting IOMMU..\n");
+
+
     struct iommu *iommu = iommu_device_get_iommu(d);
     assert(iommu);
 
     switch(iommu_get_type(iommu)) {
         case HW_PCI_IOMMU_INTEL: {
-
             struct vtd_domain * dom;
             err = vtd_domains_create((struct vtd *)iommu, rootpt, &dom);
             break;
@@ -107,8 +111,12 @@ static void add_device(struct iommu_binding *b, struct capref rootpt,
     struct iommu *iommu = iommu_device_get_iommu(d);
     assert(iommu);
 
+
     switch(iommu_get_type(iommu)) {
         case HW_PCI_IOMMU_INTEL: {
+            struct vtd *v = (struct vtd *)iommu;
+            debug_printf("obtained vtd: %u %u\n", v->index, v->scope_all);
+
             struct vtd_domain *dom = vtd_domains_get_by_cap(rootpt);
             if (dom == NULL) {
                 err = IOMMU_ERR_DOM_NOT_FOUND;

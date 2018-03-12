@@ -720,6 +720,8 @@ errval_t vtd_get_ctxt_table_by_id(struct vtd *vtd, uint8_t idx,
 {
     errval_t err;
 
+    debug_printf("[iommu] vtd_get_ctxt_table_by_id [%u]\n", idx);
+
     if (!vtd_ctxt_table_valid(&vtd->ctxt_tables[idx])) {
         err = vtd_ctxt_table_create(&vtd->ctxt_tables[idx], vtd);
         if (err_is_fail(err)) {
