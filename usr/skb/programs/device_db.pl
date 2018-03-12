@@ -162,8 +162,8 @@ pci_driver{
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'0e20, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'2f20, function: _, subvendor: _, subdevice: _ } ],
-    core_hint: 4,
-    core_offset: 20,
+    core_hint: 0,
+    core_offset: 0,
     multi_instance: 1,
     interrupt_load: 0.5,
     platforms: ['x86_64']
