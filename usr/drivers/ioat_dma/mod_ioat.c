@@ -104,14 +104,15 @@ errval_t ioat_device_poll(void)
 
 #define BUFFER_SIZE (1<<22)
 
+uint32_t done = 0;
+
 static void impl_test_cb(errval_t err, dma_req_id_t id, void *arg)
 {
     debug_printf("impl_test_cb\n");
     assert(memcmp(arg, arg + BUFFER_SIZE, BUFFER_SIZE) == 0);
     debug_printf("test ok\n");
 
-    memset(arg, 0, BUFFER_SIZE * 2);
-    memset(arg, 0xA5, BUFFER_SIZE);
+    done = 1;
 }
 
 static void impl_test(struct ioat_dma_device *dev)
@@ -132,19 +133,21 @@ static void impl_test(struct ioat_dma_device *dev)
     err = vspace_map_one_frame(&buf, id.bytes, frame, NULL, NULL);
     assert(err_is_ok(err));
 
+    uint64_t address = id.base;
     if (driverkit_iommu_present()) {
-        id.base = (lpaddr_t)buf;
+        address = (lpaddr_t)buf;
+        debug_printf("Setting id.base to %lx\n", address);
     }
 
     memset(buf, 0, id.bytes);
     memset(buf, 0xA5, BUFFER_SIZE);
 
-    assert(memcmp(buf, buf + BUFFER_SIZE, BUFFER_SIZE));
+
 
     struct dma_req_setup setup = {
             .args.memcpy = {
-                .src = id.base,
-                .dst = id.base + BUFFER_SIZE,
+                .src = address,
+                .dst = address + BUFFER_SIZE,
                 .bytes = BUFFER_SIZE,
             },
         .type = DMA_REQ_TYPE_MEMCPY,
@@ -153,17 +156,30 @@ static void impl_test(struct ioat_dma_device *dev)
     };
     int reps = 10;
     do {
+        memset(buf, 0, id.bytes);
+        memset(buf, reps + 2, BUFFER_SIZE);
+        assert(memcmp(buf, buf + BUFFER_SIZE, BUFFER_SIZE));
+
         debug_printf("!!!!!! NEW ROUND\n");
         dma_req_id_t rid;
         err = ioat_dma_request_memcpy((struct dma_device *)dev, &setup, &rid);
         assert(err_is_ok(err));
 
-        uint32_t i = 10;
-        while(i--) {
+        done = 0;
+        while(done == 0) {
             ioat_dma_device_poll_channels((struct dma_device *)dev);
         }
+#if 0
+        if (reps == 1) {
+            debug_printf("using phys addr!\n");
+            setup.args.memcpy.src = id.base;
+            setup.args.memcpy.dst = id.base + BUFFER_SIZE;
+        }
+#endif
 
-    }while(reps--);
+    } while(reps--);
+
+
 }
 #endif
 
@@ -228,6 +244,12 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
 
     debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present());
     if (driverkit_iommu_present()) {
+
+        struct vnode_identity vid;
+        err = invoke_vnode_identify(cap_vroot, &vid);
+        assert(err_is_ok(err));
+        debug_printf("[ioat] using ptable root: %lx\n", vid.base);
+
         err = driverkit_iommu_create_domain(cap_vroot, devid);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to create the iommu domain\n");
