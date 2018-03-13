@@ -1233,7 +1233,9 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
             break;
 
         case SYSCALL_DEBUG:
-            if (argc == 2) {
+            if (a1 == DEBUG_CREATE_IRQ_SRC_CAP) {
+                r.error = irq_debug_create_src_cap(a2, a3, a4, a5, a6);
+            } else if (argc == 2) {
                 r = handle_debug_syscall(a1);
             }
 
