@@ -145,11 +145,11 @@ pci_driver{
 
 pci_driver{
     binary: "xeon_phi",
-    module: "-",
+    module: "knc_module",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'225e, function: _, subvendor: _, subdevice: _ } ],
-    core_hint: 2,
-    core_offset: 10,
+    core_hint: 0,
+    core_offset: 0,
     multi_instance: 1,
     interrupt_load: 0.5,
     platforms: ['x86_64']
@@ -161,7 +161,22 @@ pci_driver{
     module: "ioat_dma_module",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'0e20, function: _, subvendor: _, subdevice: _ },
-      pci_card{ vendor: 16'8086, device: 16'2f20, function: _, subvendor: _, subdevice: _ } ],
+      pci_card{ vendor: 16'8086, device: 16'0e21, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'0e22, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'0e23, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'0e24, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'0e25, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'0e26, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'0e27, function: _, subvendor: _, subdevice: _ },
+
+      pci_card{ vendor: 16'8086, device: 16'2f20, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'2f21, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'2f22, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'2f23, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'2f24, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'2f25, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'2f26, function: _, subvendor: _, subdevice: _ },
+      pci_card{ vendor: 16'8086, device: 16'2f27, function: _, subvendor: _, subdevice: _ }],
     core_hint: 0,
     core_offset: 0,
     multi_instance: 1,

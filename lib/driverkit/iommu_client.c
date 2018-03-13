@@ -32,9 +32,11 @@ struct iommu_binding *iommu_binding = NULL;
 static void iommu_bind_cb(void *st,  errval_t err, struct iommu_binding *ib)
 {
     errval_t *binderr = st;
+    *binderr = err;
+
+    DRIVERKIT_DEBUG("[iommu client] bound to service: %s\n", err_getstring(err));
 
     if (err_is_fail(err)) {
-        *binderr = err;
         iommu_binding = (void *)0xdeadbeef;
         return;
     }
@@ -47,14 +49,14 @@ errval_t driverkit_iommu_client_init(void)
 {
     errval_t err;
 
-    debug_printf("[iommu client] Connecting to SKB.\n");
+    DRIVERKIT_DEBUG("[iommu client] Connecting to SKB.\n");
 
     err = skb_client_connect();
     if (err_is_fail(err)) {
         return err;
     }
 
-    debug_printf("[iommu client] Execute query iommu_enabled(0,_).\n");
+    DRIVERKIT_DEBUG("[iommu client] Execute query iommu_enabled(0,_).\n");
 
     err = skb_execute_query("iommu_enabled(0,_).");
     if (err_is_fail(err)) {
@@ -63,14 +65,14 @@ errval_t driverkit_iommu_client_init(void)
         iommu_enabled = true;
     }
 
-    debug_printf("[iommu client] IOMMU is %s.\n",
+    DRIVERKIT_DEBUG("[iommu client] IOMMU is %s.\n",
                  iommu_enabled ? "Enabled" : "Disabled");
 
     if (!iommu_enabled) {
         return SYS_ERR_OK;
     }
 
-    debug_printf("[iommu client] looking up '%s'\n", DRIVERKIT_IOMMU_SERVICE_NAME);
+    DRIVERKIT_DEBUG("[iommu client] looking up '%s'\n", DRIVERKIT_IOMMU_SERVICE_NAME);
 
     iref_t iref;
     err = nameservice_blocking_lookup(DRIVERKIT_IOMMU_SERVICE_NAME, &iref);
@@ -78,9 +80,9 @@ errval_t driverkit_iommu_client_init(void)
         return err;
     }
 
-    debug_printf("[iommu client] Binding to service at %" PRIuIREF "\n", iref);
+    DRIVERKIT_DEBUG("[iommu client] Binding to service at %" PRIuIREF "\n", iref);
 
-    errval_t binderr;
+    errval_t binderr = SYS_ERR_OK;
     struct waitset *ws = get_default_waitset();
     err = iommu_bind(iref, iommu_bind_cb, (void *)&binderr, ws,
                      IDC_BIND_FLAG_RPC_CAP_TRANSFER);
@@ -93,7 +95,7 @@ errval_t driverkit_iommu_client_init(void)
         event_dispatch(ws);
     }
 
-    debug_printf("[iommu client] Binding %s \n", err_getstring(binderr));
+    DRIVERKIT_DEBUG("[iommu client] Binding %s \n", err_getstring(binderr));
 
     if (err_is_fail(binderr)) {
         return binderr;
@@ -134,7 +136,7 @@ errval_t driverkit_iommu_create_domain(struct capref rootpt, struct capref dev)
 
     assert(iommu_binding);
 
-    debug_printf("[iommu client] Creating a new domain.\n");
+    DRIVERKIT_DEBUG("[iommu client] Creating a new domain.\n");
 
     if (!root_pt_valid(rootpt)) {
         return SYS_ERR_VNODE_TYPE;
@@ -155,7 +157,7 @@ errval_t driverkit_iommu_delete_domain(struct capref rootpt)
 
     assert(iommu_binding);
 
-    debug_printf("[iommu client] Creating a new domain.\n");
+    DRIVERKIT_DEBUG("[iommu client] Creating a new domain.\n");
 
     if (!root_pt_valid(rootpt)) {
         return SYS_ERR_VNODE_TYPE;
@@ -175,7 +177,7 @@ errval_t driverkit_iommu_add_device(struct capref rootpt, struct capref dev)
 
     assert(iommu_binding);
 
-    debug_printf("[iommu client] Adding device to domain\n");
+    DRIVERKIT_DEBUG("[iommu client] Adding device to domain\n");
 
     err = iommu_binding->rpc_tx_vtbl.add_device(iommu_binding, rootpt, dev, &msgerr);
     if (err_is_fail(err)) {
@@ -190,7 +192,7 @@ errval_t driverkit_iommu_remove_device(struct capref rootpt, struct capref dev)
     errval_t err, msgerr;
 
     assert(iommu_binding);
-    debug_printf("[iommu client] Remove device\n");
+    DRIVERKIT_DEBUG("[iommu client] Remove device\n");
 
     err = iommu_binding->rpc_tx_vtbl.add_device(iommu_binding, rootpt, dev, &msgerr);
     if (err_is_fail(err)) {
