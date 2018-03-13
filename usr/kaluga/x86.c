@@ -140,6 +140,21 @@ errval_t arch_startup(char * add_device_db_file)
         }
     }
 
+    err = skb_execute("use_module(decoding_net2)");
+    if (err_is_fail(err)) {
+        USER_PANIC_SKB_ERR(err, "Can't load decoding_net2 module.");
+    }
+
+    // Load the decoding net
+    const char * decoding_net_file = "sockeyefacts/x86_iommu";
+    const char * decoding_net_module = "add_SYSTEM";
+    err = skb_execute_query("load_net_module(\"%s\",%s)",
+            decoding_net_file, decoding_net_module);
+    if (err_is_fail(err)) {
+        USER_PANIC_SKB_ERR(err, "Can't load net module.");
+    }
+    
+
     // The current boot protocol needs us to have
     // knowledge about how many CPUs are available at boot
     // time in order to start-up properly.
