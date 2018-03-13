@@ -177,7 +177,7 @@ static inline errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
     assert(pdir != NULL);
 
     // PDIR mapping
-    if((*ptable = find_vnode(pdir, X86_64_PDIR_BASE(base))) == NULL) {
+    if ((*ptable = find_vnode(pdir, X86_64_PDIR_BASE(base))) == NULL) {
         err = alloc_vnode(pmap, pdir, ObjType_VNode_x86_64_ptable,
                             X86_64_PDIR_BASE(base), ptable);
         errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
@@ -260,7 +260,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     size_t table_base;
 
     // get the right paging table and address part
-    if(flags & VREGION_FLAGS_LARGE) {
+    if (flags & VREGION_FLAGS_LARGE) {
         //large 2M pages, mapped into pdir
         err = get_pdir(pmap, vaddr, &ptable);
         table_base = X86_64_PDIR_BASE(vaddr);
