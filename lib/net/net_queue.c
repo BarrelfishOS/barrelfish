@@ -111,8 +111,9 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, 
                             true/*virtual functions*/,
                             !poll, /* user interrupts*/
                             default_q);
-    *queueid = e10k_queue_get_id((struct e10k_queue*)*retqueue);
+    assert(err_is_ok(err));
     assert(retqueue != NULL);
+    *queueid = e10k_queue_get_id((struct e10k_queue*)*retqueue);
     return err;
 }
 
