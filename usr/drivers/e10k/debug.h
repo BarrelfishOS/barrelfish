@@ -7,12 +7,12 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef __DEBUG_H__
-#define __DEBUG_H__
+#ifndef __DEBUG_E10K_H__
+#define __DEBUG_E10K_H__
 
 //#define DEBUG_E10K_PF 1
 //#define DEBUG_E10K_VF 1
-#define DEBUG_E10K_QUEUE 1 
+//#define DEBUG_E10K_QUEUE 1 
 
 /*****************************************************************
  * Debug printer:

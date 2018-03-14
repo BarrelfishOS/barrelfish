@@ -486,19 +486,8 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
             }
         }
 
-        err = driverkit_iommu_client_init();
-        if (err_is_fail(err)) {
-            return err;
-        }
-
-        if (driverkit_iommu_present()) {
-            DEBUG_QUEUE("Assume disabled VT-d \n");
-            q->use_vtd = false;
-        } else {
-            DEBUG_QUEUE("Assume enabled VT-d \n");
-            q->use_vtd = true;
-        }
-
+        q->use_vtd = true;
+        DEBUG_QUEUE("Assume enabled VT-d \n");
     } else {
         q->use_vtd = false;
         // need to set up communicaton to PF
