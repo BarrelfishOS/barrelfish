@@ -41,6 +41,7 @@
 
 #define NO_OF_BUFFERS 128
 #define BUFFER_SIZE 16384
+#define POLLING
 
 struct socket_connection;
 
@@ -890,7 +891,14 @@ int main(int argc, char *argv[])
     }
 
     /* connect to the network */
-    err = networking_init(card_name, (!ip ? NET_FLAGS_DO_DHCP: 0) | NET_FLAGS_DEFAULT_QUEUE | NET_FLAGS_BLOCKING_INIT );
+#ifdef POLLING
+    debug_printf("Net socket server polling \n");
+    err = networking_init(card_name, (!ip ? NET_FLAGS_DO_DHCP: 0) | NET_FLAGS_DEFAULT_QUEUE | NET_FLAGS_BLOCKING_INIT|
+                          NET_FLAGS_POLLING );
+#else
+    debug_printf("Net socket server using interrupts \n");
+    err = networking_init(card_name, (!ip ? NET_FLAGS_DO_DHCP: 0) | NET_FLAGS_DEFAULT_QUEUE | NET_FLAGS_BLOCKING_INIT);
+#endif
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to initialize the network");
     }
@@ -920,11 +928,15 @@ int main(int argc, char *argv[])
     assert(err_is_ok(err));
 
     while(1) {
+#ifdef POLLING
+        event_dispatch_non_block(get_default_waitset());
+        networking_poll();
+#else
         event_dispatch(get_default_waitset());
-        // networking_poll();
+#endif
     }
 
-    debug_printf("UDP ECHO termiated.\n");
+    debug_printf("Net socket server termiated.\n");
 
     return 0;
 }
