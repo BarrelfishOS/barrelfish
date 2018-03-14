@@ -25,6 +25,7 @@
         ],
         addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
         flounderBindings = [ "dma", "ioat_dma_mgr" ],
+        flounderDefs = [ "dma", "ioat_dma_mgr" ],
         mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ],
         addLibraries = libDeps [ "octopus", "pci",  "dma", "dma_service", "driverkit" ],
         addModules = [ "mod_ioat" ],

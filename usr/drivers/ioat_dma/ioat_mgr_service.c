@@ -9,6 +9,7 @@
 #include <barrelfish/barrelfish.h>
 
 #include "ioat_mgr_service.h"
+#include <if/ioat_dma_mgr_defs.h>
 
 struct ioat_dev_handle
 {
