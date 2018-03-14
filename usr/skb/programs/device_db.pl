@@ -114,7 +114,7 @@ pci_driver{
     [ pci_card{ vendor: 16'8086, device: 16'10ed, function: _, subvendor: _, subdevice: _ }],
     core_hint: 0,
     core_offset: 1,
-    multi_instance: 0,
+    multi_instance: 1,
     interrupt_load: 0.5,
     platforms: ['x86_64']
 }.

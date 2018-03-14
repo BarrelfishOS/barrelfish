@@ -24,6 +24,17 @@
                       addIncludes  = [ "/lib/lwip-2.0.2/src/include/" ]
                     },
 
+  build library { target = "devif_backend_e10k",
+                      cFiles = [ "devif_backend_e10k.c", "e10k_devif_vf.c",
+                                 "helper.c", "sleep.c"],
+                      flounderBindings = [ "e10k_vf"],
+                      flounderExtraBindings = [ ("e10k_vf", ["rpcclient"])],
+                      flounderDefs = [ "e10k_vf", "e10k" ],
+                      flounderExtraDefs = [ ("e10k_vf",["rpcclient"]) ],
+                      mackerelDevices = [ "e10k_vf", "e10k", "e10k_q"],
+                      addLibraries = libDeps ["pci", "skb", "driverkit" ]
+                  },
+
   build library { target = "e10k_vf_module",
                       cFiles = [ "e10k_vf_module.c"],
                       addIncludes  = [ "/lib/lwip-2.0.2/src/include/" ]

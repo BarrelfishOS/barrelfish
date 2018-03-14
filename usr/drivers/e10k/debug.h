@@ -10,12 +10,23 @@
 #ifndef __DEBUG_H__
 #define __DEBUG_H__
 
+//#define DEBUG_E10K_PF 1
 //#define DEBUG_E10K_VF 1
-//#define DEBUG_E10K_QUEUE 1 
+#define DEBUG_E10K_QUEUE 1 
 
 /*****************************************************************
  * Debug printer:
  *****************************************************************/
+
+
+#if defined(DEBUG_E10K_PF) 
+#define DEBUG(x...) do { printf("e10k_pf:%s.%d:%s:%d: ", \
+            disp_name(), disp_get_core_id(), __func__, __LINE__); \
+                printf(x);\
+        } while (0)
+#else
+#define DEBUG(x...) ((void)0)
+#endif 
 
 #if defined(DEBUG_E10K_VF) 
 #define DEBUG_VF(x...) do { printf("e10k_vf:%s.%d:%s:%d: ", \

@@ -11,4 +11,4 @@
 --
 ----------------------------------------------------------------------
 
-[ compileHaskell "sockeye2" "Main.hs" (find withSuffices [ ".hs" ]) ]
+[ compileHaskell "sockeye" "Main.hs" (find withSuffices [ ".hs" ]) ]
