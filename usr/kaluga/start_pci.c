@@ -163,7 +163,6 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
                 "add_pci_controller(Lbl, addr(%"PRIu8",%"PRIu8",%"PRIu8")),"
                 "write('\n'), print_int_controller(Lbl).",
                 addr.bus, addr.device, addr.function);
-
         KALUGA_DEBUG("After Query.\n");
         if(err_is_fail(err)) DEBUG_SKB_ERR(err, "add/print pci controller");
 
@@ -339,8 +338,18 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
 
         KALUGA_DEBUG("Adding int args.\n");
         char intcaps_debug_msg[100];
-        err = add_int_args(addr, &driver_arg, intcaps_debug_msg);
-        assert(err_is_ok(err));
+        // XXX remove this later, currently seems to get stuck when
+        // doing this for e10k_vf_module
+        if (!(strcmp(module_name, "e10k_vf_module") == 0)) {
+            err = add_int_args(addr, &driver_arg, intcaps_debug_msg);
+            assert(err_is_ok(err));
+        } else {
+            // Create a cap for now ...
+            err = store_int_cap(0, 1, &driver_arg);
+            if(err_is_fail(err)){
+                USER_PANIC_ERR(err, "store_int_cap");
+            }
+        }
 
         KALUGA_DEBUG("Adding mem args.\n");
         char memcaps_debug_msg[100];
