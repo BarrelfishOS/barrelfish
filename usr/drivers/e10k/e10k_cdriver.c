@@ -33,9 +33,8 @@
 #include "e10k.h"
 #include "sleep.h"
 #include "helper.h"
-
-#define DEBUG(x...) printf("e10k: " x)
-//#define DEBUG(x...) do {} while (0)
+#include "debug.h"
+#include "e10k_vf_resources.h"
 
 #define QUEUE_INTRX 0
 #define QUEUE_INTTX 1
@@ -465,6 +464,7 @@ static void resend_interrupt(void* arg)
 */
 
 /** Here are the global interrupts handled. */
+/*
 static void interrupt_handler(void* arg)
 {
     struct e10k_driver_state* st = (struct e10k_driver_state*) arg;
@@ -483,19 +483,17 @@ static void interrupt_handler(void* arg)
             if (st->queues[i].use_irq && st->queues[i].devif != NULL) {
                 err = st->queues[i].devif->tx_vtbl.interrupt(st->queues[i].devif, NOP_CONT, i);
                 if (err_is_fail(err)) {
-                    /*
                     err = st->queues[i].devif->register_send(st->queues[i].devif,
                                                             get_default_waitset(),
                                                             MKCONT(resend_interrupt,
                                                                   st->queues[i].devif));
-                    */
                     // Do nothing since the interrupt is still outstanding
                 }
             }
         }
     }
 }
-
+*/
 
 /** Stop whole device. */
 static void stop_device(struct e10k_driver_state* st)
@@ -1257,18 +1255,10 @@ static void init_done_vf(struct e10k_vf_binding *b, uint8_t vfn)
     assert(err_is_ok(err));
 }
 
-static void get_mac_address_vf(struct e10k_vf_binding *b, uint8_t vfn)
-{
-    struct e10k_driver_state* st = (struct e10k_driver_state*) b->st;
-    assert(st->initialized);
-    uint64_t d_mac = e10k_ral_ral_rdf(st->d, vfn) | ((uint64_t) e10k_rah_rah_rdf(st->d, vfn) << 32);
-    errval_t err = b->tx_vtbl.get_mac_address_response(b, NOP_CONT, d_mac);
-    assert(err_is_ok(err));
-}
-
 static void request_vf_number(struct e10k_vf_binding *b)
 {
     struct e10k_driver_state* st = (struct e10k_driver_state*) b->st;
+    assert(st->initialized);
     DEBUG("VF allocated\n");
     errval_t err;
     uint8_t vf_num = 255;
@@ -1283,18 +1273,36 @@ static void request_vf_number(struct e10k_vf_binding *b)
         //TODO better error
         err = NIC_ERR_ALLOC_QUEUE;
     } else {
+        // Wait for resources to be avaialble
+        while(num_vfs() <= vf_num) {
+            event_dispatch(get_default_waitset());
+        }
         err = SYS_ERR_OK;
     }
 
-    err = b->tx_vtbl.request_vf_number_response(b, NOP_CONT, vf_num, err);
+
+    struct capref irq, devid, regs;
+    if (!get_vf_resources(vf_num, &devid, &regs, &irq)){ 
+        err = NIC_ERR_ALLOC_QUEUE;
+    }
+
+    uint64_t d_mac = e10k_ral_ral_rdf(st->d, vf_num) | ((uint64_t) e10k_rah_rah_rdf(st->d, vf_num) << 32);
+
+    DEBUG("VF sending response\n");
+    err = b->tx_vtbl.request_vf_number_response(b, NOP_CONT, vf_num, d_mac, devid, 
+                                                regs, irq, err);
     assert(err_is_ok(err));
+    DEBUG("VF sent response\n");
 }
 
 
-static errval_t request_vf_number_rpc(struct e10k_vf_binding *b, uint8_t* vf_num, errval_t* err)
+static errval_t request_vf_number_rpc(struct e10k_vf_binding *b, uint8_t* vf_num, 
+                                      uint64_t* mac, struct capref* devid,
+                                      struct capref* regs, struct capref* irq,
+                                      errval_t* err)
 {
     struct e10k_driver_state* st = (struct e10k_driver_state*) b->st;
-    DEBUG("VF allocated\n");
+    DEBUG("VF allocated RPC \n");
     for (int i = 0; i < 64; i++) {
         if (!st->vf_used[i]) {
             *vf_num = i;
@@ -1305,9 +1313,16 @@ static errval_t request_vf_number_rpc(struct e10k_vf_binding *b, uint8_t* vf_num
     if (*vf_num == 255){
         //TODO better error
         *err = NIC_ERR_ALLOC_QUEUE;
+        return SYS_ERR_OK;
     } else {
         *err = SYS_ERR_OK;
     }
+
+    if (!get_vf_resources(*vf_num, devid, regs, irq)){
+        *err = NIC_ERR_ALLOC_QUEUE;
+    }
+
+    *mac = e10k_ral_ral_rdf(st->d, *vf_num) | ((uint64_t) e10k_rah_rah_rdf(st->d, *vf_num) << 32);
     return SYS_ERR_OK;
 }
 
@@ -1432,7 +1447,6 @@ static errval_t vf_connect_cb(void *st, struct e10k_vf_binding *b)
     b->rx_vtbl.create_queue_call = cd_create_queue;
     b->rx_vtbl.request_vf_number_call = request_vf_number;
     b->rx_vtbl.init_done_call = init_done_vf;
-    b->rx_vtbl.get_mac_address_call = get_mac_address_vf;
 
     b->rpc_rx_vtbl.create_queue_call = cd_create_queue_rpc;
     b->rpc_rx_vtbl.request_vf_number_call = request_vf_number_rpc;
@@ -1699,6 +1713,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 
     init_card(st);
 
+    /*
     struct capref intcap = NULL_CAP;
     err = driverkit_get_interrupt_cap(bfi, &intcap);
     assert(err_is_ok(err));
@@ -1708,12 +1723,12 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     if (err_is_fail(err)) {
         USER_PANIC("Interrupt setup failed!\n");
     }
-
+    */
     while (!st->initialized || !st->exported) {
         event_dispatch(get_default_waitset());
     }
-
-    DEBUG("PF driver init done\n");
+    
+    debug_printf("PF driver init done\n");
 
     return SYS_ERR_OK;
 }

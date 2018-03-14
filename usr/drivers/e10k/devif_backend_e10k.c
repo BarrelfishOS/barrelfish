@@ -473,13 +473,14 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
         if (!e10k_vf_started()) {
             err = e10k_init_vf_driver(0, 0, bus+1, dev+16, devid, interrupts);
             if (err_is_fail(err)) {
+                *queue = NULL;
                 return err;
             }
         }
 
         // If i can not create any more queues -> start new VF
         if (!e10k_vf_can_create_queue()) {
-            err = e10k_init_vf_driver(0, 0, bus+1, dev+16, devid, interrupts);
+            err = e10k_init_vf_driver(0, 0, bus+2, dev+17, devid, interrupts);
             if (err_is_fail(err)) {
                 return err;
             }

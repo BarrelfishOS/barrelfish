@@ -17,6 +17,7 @@
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/debug.h>
 #include <driverkit/iommu.h>
+#include <driverkit/driverkit.h>
 
 #include <if/e10k_defs.h>
 #include <if/e10k_vf_defs.h>
@@ -41,6 +42,12 @@
 
 struct vf_state {
     uint8_t vf_num;
+
+    // resources
+    struct capref regs;
+    struct capref devid;
+    struct capref irq;
+
     // if we have 64 vfs then pool
     // size is only 2 but the maximum is 8
     struct e10k_queue* qs[POOL_SIZE];
@@ -102,6 +109,7 @@ static void stats_dump(void)
     }
 }
 */
+/*
 static void setup_interrupt(size_t *msix_index, uint8_t core, uint8_t vector)
 {
     bool res;
@@ -137,6 +145,7 @@ static void interrupt_handler_msix(void* arg)
     e10k_vf_vfeimc_msix_wrf(vf->d, 1 << (q->msix_index % 32));
     // TODO check for packets?
 }
+*/
 
 /** Stop whole device. */
 static void stop_device(struct vf_state* v)
@@ -167,7 +176,7 @@ static void device_init(void)
 {
     
     int i;
-    errval_t err;
+    //errval_t err;
     bool initialized_before = vf->initialized;
 
     vf->initialized = 0;
@@ -199,6 +208,7 @@ static void device_init(void)
 
     if (vf->msix) {
         // Allocate msix vector for cdriver and set up handler
+        /*
         if (vf->vdriver_msix == -1) {
             err = pci_setup_inthandler(interrupt_handler_msix, NULL,
                                        &vf->vdriver_vector);
@@ -214,6 +224,7 @@ static void device_init(void)
 
         // Enable interrupt
         e10k_vf_vfeitr_wr(vf->d, vf->vdriver_msix / 32, (1 << (vf->vdriver_msix % 32)));
+        */
     } else {
         // Enable all interrupts
         e10k_vf_vfeimc_wr(vf->d, e10k_vf_vfeims_rd(vf->d));
@@ -298,10 +309,12 @@ static void queue_hw_init(struct e10k_queue* q)
         if (q->msix_intvec != 0) {
 
             DEBUG_VF("[%x] Setting up MSI-X\n", n);
+            /*
             if (q->msix_index == -1) {
                 setup_interrupt(&q->msix_index, q->msix_intdest,
                                 q->msix_intvec);
             }
+            */
             rxv = txv = q->msix_index;
         }
 
@@ -412,6 +425,7 @@ static void queue_hw_stop(uint8_t n)
 #endif
 
 /** Here are the global interrupts handled. */
+/*
 static void interrupt_handler(void* arg)
 {
     e10k_vf_vfeicr_t eicr = e10k_vf_vfeicr_rd(vf->d);
@@ -420,16 +434,14 @@ static void interrupt_handler(void* arg)
     
     if (eicr & ((1 << QUEUE_INTRX) | (1 << QUEUE_INTTX))) {
         e10k_vf_vfeicr_wr(vf->d, eicr);
-        /*qd_interrupt(!!(eicr & (1 << QUEUE_INTRX)),
-                     !!(eicr & (1 << QUEUE_INTTX)));*/
     }
 }
-
+*/
 /******************************************************************************/
 /* Initialization code for driver */
 
 /** Callback from pci to initialize a specific PCI device. */
-static void pci_init_card(void *arg, struct device_mem* bar_info, int bar_count)
+static void pci_init_card(void)
 {
 
     DEBUG_VF("pci init card\n");
@@ -438,23 +450,24 @@ static void pci_init_card(void *arg, struct device_mem* bar_info, int bar_count)
 
     assert(!vf->initialized);
 
+
+    lvaddr_t vaddr;
+
+    err = map_device_cap(vf->regs, &vaddr);
+    if (err_is_fail(err)) {
+        USER_PANIC("map_device_cap failed \n");
+    }
+
     vf->d = malloc(sizeof(*(vf->d)));
+    e10k_vf_initialize(vf->d, (void *) vaddr);
 
-    // Map first BAR for register access
-    assert(bar_count >= 1);
-    map_device(&bar_info[0]);
-    vf->regframe = bar_info[0].frame_cap;
-    DEBUG_VF("BAR[0] mapped (v=%llx p=%llx l=%llx)\n",
-            (unsigned long long) bar_info[0].vaddr,
-            (unsigned long long) bar_info[0].paddr,
-            (unsigned long long) bar_info[0].bytes);
-
-    // Initialize Mackerel binding
-    e10k_vf_initialize(vf->d, (void*) bar_info[0].vaddr);
+    /* Initialize Mackerel binding */
+    assert(vf->d != NULL);
 
     // Initialize manager for MSI-X vectors
     if (vf->msix) {
         DEBUG_VF("Enabling MSI-X interrupts\n");
+        USER_PANIC("MSI-X NIY \n");
         uint16_t msix_count = 0;
         err = pci_msix_enable(&msix_count);
         assert(err_is_ok(err));
@@ -480,39 +493,6 @@ static void pci_init_card(void *arg, struct device_mem* bar_info, int bar_count)
     assert(err_is_ok(err));
 
 }
-
-
-/** Register with PCI */
-static errval_t pci_register(void)
-{
-    errval_t r;
-
-    r = pci_client_connect();
-    if (err_is_fail(r)) {
-        return r;
-    }
-
-    interrupt_handler_fn inthandler;
-
-    if(vf->use_interrupts) {
-        inthandler = interrupt_handler;
-    } else {
-        inthandler = NULL;
-    }
-
-    r = pci_register_driver_noirq(pci_init_card, NULL, PCI_CLASS_ETHERNET,
-                                PCI_DONT_CARE, PCI_DONT_CARE,
-                                PCI_VENDOR_INTEL, E10K_VF_DEVID,
-                                vf->bus, vf->device, vf->pci_function);
-
-    DEBUG_VF("pci registered\n");
-    if (err_is_fail(r)) {
-        DEBUG_VF("err %s\n", err_getstring(r));
-        return r;
-    }
-    return SYS_ERR_OK;
-}
-
 
 static void vf_bind_cont(void *st, errval_t err, struct e10k_vf_binding *b)
 {
@@ -584,32 +564,6 @@ errval_t e10k_init_vf_driver(uint8_t pci_function, uint8_t seg, uint32_t bus,
                              uint32_t dev, uint32_t device_id, bool interrupts)
 {
     errval_t err, err2;
-    // crate vtd domain for VF driver
-    // XXX: might not be the best idea to do it here
-
-    /*
-     * TODO: move this to the queue manager!
-     */
-    err = driverkit_iommu_client_init();
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    if (!driverkit_iommu_present()) {
-        USER_PANIC("IOMMU SHOULD BE ENABLED!\n");
-    }
-
-    struct capref devcap = NULL_CAP;
-    err = driverkit_iommu_create_domain(cap_vroot, devcap);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    err = driverkit_iommu_add_device(cap_vroot, devcap);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
 
     DEBUG_VF("VF driver started\n");
     vf = calloc(sizeof(struct vf_state), 1);
@@ -626,21 +580,57 @@ errval_t e10k_init_vf_driver(uint8_t pci_function, uint8_t seg, uint32_t bus,
     }
 
     DEBUG_VF("Requesting VF number from PF...\n");
+    
+    err = slot_alloc(&vf->regs);
+    assert(err_is_ok(err));
+    err = slot_alloc(&vf->devid);
+    assert(err_is_ok(err));
+    err = slot_alloc(&vf->irq);
+    assert(err_is_ok(err));
+
     err = vf->binding->rpc_tx_vtbl.request_vf_number(vf->binding,
-                                                     (uint8_t*) &vf->vf_num,
+                                                     (uint8_t*) &vf->vf_num, &vf->d_mac,
+                                                     &vf->devid, &vf->regs, &vf->irq,
                                                      &err2);
     if (err_is_fail(err) || err_is_fail(err2)) {
+        DEBUG_VF("Getting VF resources failed err1=%s err2=%s \n", 
+                 err_getstring(err), err_getstring(err2));
         return err_is_fail(err) ? err: err2;
     }
-    DEBUG_VF("Requesting MAC from PF...\n");
-    err = vf->binding->rpc_tx_vtbl.get_mac_address(vf->binding, vf->vf_num,
-                                                   &vf->d_mac);
-    assert(err_is_ok(err));
-    DEBUG_VF("VF num %d initalize...\n", vf->vf_num);
-    err = pci_register();
+
+    DEBUG_VF("Got VF resources ...\n");
+    assert(!capcmp(vf->regs, NULL_CAP));
+    assert(!capcmp(vf->irq, NULL_CAP));
+    assert(!capcmp(vf->devid, NULL_CAP));
+
+    // crate vtd domain for VF driver
+    // XXX: might not be the best idea to do it here
+
+    /*
+     * TODO: move this to the queue manager!
+     */
+    err = driverkit_iommu_client_init();
     if (err_is_fail(err)) {
         return err;
     }
+
+    if (!driverkit_iommu_present()) {
+        USER_PANIC("IOMMU SHOULD BE ENABLED!\n");
+    }
+
+    err = driverkit_iommu_create_domain(cap_vroot, vf->devid);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = driverkit_iommu_add_device(cap_vroot, vf->devid);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+
+    DEBUG_VF("VF num %d initalize...\n", vf->vf_num);
+    pci_init_card();
 
     while (!vf->initialized) {
         event_dispatch(get_default_waitset());

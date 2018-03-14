@@ -18,6 +18,7 @@
 #include <barrelfish/debug.h>
 #include <skb/skb.h>
 #include <driverkit/driverkit.h>
+#include "e10k_vf_resources.h"
 
 /**
  * Driver initialization function. This function is called by the driver domain
@@ -40,21 +41,20 @@
 static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 {
     printf("VF driver started\n");
-
-    /*
     errval_t err;
-    bfi->dstate = calloc(sizeof(struct e10k_driver_state), 1);
-    if (bfi->dstate == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
     
-    assert(bfi->dstate != NULL);
-    struct e10k_driver_state* st = (struct e10k_driver_state*) bfi->dstate;
-    st->caps = bfi->caps;
+    struct capref irq, devid, regs;
+    err = driverkit_get_bar_cap(bfi, 0, &regs);
+    assert(err_is_ok(err));
 
-    init_default_values(st);
-    st->bfi = bfi;
-    */
+    err = driverkit_get_interrupt_cap(bfi, &irq);
+    assert(err_is_ok(err));
+
+    err = driverkit_get_devid_cap(bfi, &devid);
+    assert(err_is_ok(err));
+
+    add_vf_resources(devid, regs, irq);
+
     return SYS_ERR_OK;
 }
 
