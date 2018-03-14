@@ -32,7 +32,7 @@
 :- export node_translate/4.
 :- export node_overlay/2.
 :- export struct(block(base,limit,props)).
-
+:- export struct(region(node_id,blocks)).
 :- export struct(name(node_id,address)).
 
 :- lib(ic).
@@ -49,7 +49,7 @@ iblocks_match_any(A, [B | Bs]) :-
     iblock_match(A, B) ; iblocks_match_any(A, Bs).
 
 iblocks_match_any_ic(A, B) :-
-    blocks_match_any(A,B),
+    iblocks_match_any(A,B),
     labeling([A]).
 
 :- export iblock_values/2.
@@ -82,8 +82,8 @@ iblock_crossp(Blocks, Values) :-
     findall(X, iblocks_match_ic(X, Blocks), Values).
 
 
-address_match([K, Addr], [K, Blocks]) :-
-    iblocks_match(Addr, Blocks).
+address_match([K, IAddr], [K, IBlocks]) :-
+    iblocks_match(IAddr, IBlocks).
 
 :- export accept/2.
 accept(NodeId, Addr) :-
@@ -102,6 +102,55 @@ iaddr_iblock_map([SrcAddr | A], [SrcBlock | B], [DstAddr | C], [DstBlock | D]) :
 test_iaddr_iblock_map :-
     iaddr_iblock_map([1],[block{base:0, limit:1024}], Dst, [block{base:100,limit:2000}]),
     Dst = [101].
+
+%% Convert from region (encoded as block) to names
+to_name(Region,Name) :-
+    region{
+        node_id:Id,
+        blocks: Blocks % Blocks = [Kind, [block{...},block{...}]]
+    } = Region,
+    address_match(Addr, Blocks),
+    Name = name{
+        node_id:Id,
+        address:Addr
+    }.
+
+%% Thes functions turn an IC constrained Addr to base/limit blocks
+iaddr_to_iblock_one(Addr, Block) :-
+    get_bounds(Addr,Min,Max),
+    Size is Max - Min + 1,
+    ( get_domain_size(Addr,Size) ->
+            Block = block{
+            base:Min,
+            limit:Max
+        }
+    ;
+        writeln(stderr,"Name conversion to region failed: Non continuous domain for address"),
+        fail
+    ).
+
+iaddr_to_iblocks([], []).
+iaddr_to_iblocks([A | As], [B | Bs]) :-
+    iaddr_to_iblock_one(A,B),
+    iaddr_to_iblocks(IAddr, Blocks).
+
+addr_to_blocks([K, IAddr], [K, IBlocks]) :-
+    iaddr_to_iblocks(IAddr, IBlocks).
+
+%% Convert from names to regions
+
+to_region(Name,Region) :-
+    name{
+        node_id:Id,
+        address:Addr
+    } = Name,
+    region{
+        node_id: Id,
+        blocks: Blocks
+    } = Region,
+    addr_to_blocks(Addr, Blocks).
+
+
 
 :- export block_translate/4.
 block_translate([SrcK, ISrcAddr], [SrcK, SrcBlock], [DstK, IDstAddr], [DstK, DstBlock]) :-
@@ -219,6 +268,13 @@ resolve(SrcName,DstName) :-
     decodes_to(SrcName,DstName),
     accept_name(DstName).
 
+resolve(SrcRegion,DstRegion) :-
+    to_name(SrcRegion,SrcName),
+    to_name(DstRegion,DstName),
+    resolve(SrcName,DstName),
+    to_region(SrcName,SrcRegion),
+    to_region(DstName,DstRegion).
+
 :- export test_resolve/0.
 test_resolve :-
     %Setup
@@ -255,6 +311,20 @@ test_resolve2(Out) :-
         name{node_id:["In2"], address:Out},
         R).
 
+:- export test_resolve3/1.
+test_resolve3(Out) :-
+    %Setupa
+    assert(node_translate(
+        ["In1"], [memory, [block{base:1000,limit:2000}]],
+        ["Out1"], [memory, [block{base:0,limit:1000}]])),
+    assert(node_translate(
+        ["In2"], [memory, [block{base:6000,limit:7000}]],
+        ["Out1"], [memory, [block{base:0,limit:1000}]])),
+    assert(node_accept(["Out1"], [memory,[block{base:0, limit:2000}]])),
+    InRegion = region{node_id:["In1"], blocks:[memory, [block{base:1000, limit:1500}]]},
+    resolve(InRegion,Out).
+    
+
 %% Load a precompiled decoding net
 :- export load_net/1.
 load_net(File) :-
@@ -271,7 +341,7 @@ load_net_module(File, Mod) :-
 assert_node_accept(A,B) :-
     assert(node_accept(A,B)).
 
-:- export assert_node_translate/2.
+:- export assert_node_translate/4.
 assert_node_translate(A,B,C,D) :-
     assert(node_translate(A,B,C,D)).
 
