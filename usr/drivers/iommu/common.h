@@ -16,6 +16,7 @@
 
 #include <hw_records.h>
 
+#define IOMMU_DEBUG(x...)
 
 errval_t iommu_service_init(void);
 

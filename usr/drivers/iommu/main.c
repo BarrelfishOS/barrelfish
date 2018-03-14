@@ -47,8 +47,6 @@ static errval_t parse_devices_scopes(void)
     struct list_parser_status status;
     skb_read_list_init_offset(&status, skb_list_output, 0);
 
-    printf("==============\n%s\n================\n", skb_get_output());
-
     uint32_t unit_idx;
     uint8_t type, entrytype, enumid;
     uint16_t seg;
@@ -56,7 +54,7 @@ static errval_t parse_devices_scopes(void)
     while(skb_read_list(&status, SKB_SCHEMA_DMAR_DEVSC,
                         &unit_idx, &type, &entrytype, &seg, &bus,
                         &dev, &fun, &enumid)) {
-        debug_printf("%u.%u.%u\n", bus, dev, fun);
+        IOMMU_DEBUG("%u.%u.%u\n", bus, dev, fun);
         if (entrytype > 2) {
             debug_printf("not a PCI endpoint or bridge, continue\n");
             continue;
@@ -69,15 +67,15 @@ static errval_t parse_devices_scopes(void)
             err = skb_read_output("secondary_bus(%d)", &next_bus);
 
 
-            debug_printf("Bus %u -> %u\n", bus,next_bus);
+            IOMMU_DEBUG("Bus %u -> %u\n", bus,next_bus);
 
             assert(err_is_ok(err));
         } else {
             next_bus = bus;
-            debug_printf("Bus %u == %u\n", bus,next_bus);
+            IOMMU_DEBUG("Bus %u == %u\n", bus,next_bus);
         }
 
-        debug_printf(SKB_SCHEMA_IOMMU_DEVICE "\n", HW_PCI_IOMMU_INTEL, unit_idx, type,
+        IOMMU_DEBUG(SKB_SCHEMA_IOMMU_DEVICE "\n", HW_PCI_IOMMU_INTEL, unit_idx, type,
                      entrytype, seg, next_bus, dev, fun, enumid);
 
         err = skb_add_fact(SKB_SCHEMA_IOMMU_DEVICE, HW_PCI_IOMMU_INTEL, unit_idx, type,

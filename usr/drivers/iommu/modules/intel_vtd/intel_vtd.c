@@ -484,7 +484,7 @@ static errval_t vtd_get_proximity(genpaddr_t base, nodeid_t *prox)
     err = skb_execute_query("dmar_rhsa(P, %" PRIuGENPADDR "),write(proximity(P)).",
                             base);
     if (err_is_fail(err)) {
-        INTEL_VTD_DEBUG("no proximity information. Setting to 0");
+        INTEL_VTD_DEBUG("no proximity information. Setting to 0\n");
         *prox = 0;
         return SYS_ERR_OK;
     }
