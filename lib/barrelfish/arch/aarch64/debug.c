@@ -12,20 +12,14 @@
 #include <barrelfish/caddr.h>
 #include <barrelfish/debug.h>
 #include <barrelfish/dispatch.h>
+#include <barrelfish_kpi/registers_arch.h>
 
 void debug_dump(arch_registers_state_t *archregs)
 {
-#define dpr(reg) debug_printf("%-6s 0x%08"PRIx32 "\n", #reg, archregs->named. reg)
-    dpr(x0);    dpr(x1);  dpr(x2);   dpr(x3);
-    dpr(x4);    dpr(x5);  dpr(x6);   dpr(x7);
-    dpr(x8);    dpr(x9);  dpr(x10);  dpr(x11);
-    dpr(x12);   dpr(x13); dpr(x14);  dpr(x15);
-    dpr(x16);   dpr(x17); dpr(x18);  dpr(x19);
-    dpr(x20);   dpr(x21); dpr(x22);  dpr(x23);
-    dpr(x24);   dpr(x25); dpr(x26);  dpr(x27);
-    dpr(x28);   dpr(x29); dpr(x30);
+    union registers_aarch64 *regs = archregs;
 
-    dpr(stack); dpr(pc);  dpr(spsr);
+    debug_printf("Dumping stack (0x%lx)...\n", regs->named.stack);
+    debug_dump_mem_around_addr(regs->named.stack);
 }
 
 void debug_call_chain(arch_registers_state_t *archregs)
@@ -40,5 +34,15 @@ void debug_call_chain(arch_registers_state_t *archregs)
 
 void debug_print_save_area(arch_registers_state_t *state)
 {
-    debug_dump(state);
+#define dpr(reg) debug_printf("%-6s 0x%016"PRIx64 "\n", #reg, state->named. reg)
+    dpr(x0);    dpr(x1);  dpr(x2);   dpr(x3);
+    dpr(x4);    dpr(x5);  dpr(x6);   dpr(x7);
+    dpr(x8);    dpr(x9);  dpr(x10);  dpr(x11);
+    dpr(x12);   dpr(x13); dpr(x14);  dpr(x15);
+    dpr(x16);   dpr(x17); dpr(x18);  dpr(x19);
+    dpr(x20);   dpr(x21); dpr(x22);  dpr(x23);
+    dpr(x24);   dpr(x25); dpr(x26);  dpr(x27);
+    dpr(x28);   dpr(x29); dpr(x30);
+
+    dpr(stack); dpr(pc);  dpr(spsr);
 }
