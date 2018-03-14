@@ -46,7 +46,7 @@
     -- are stored.
     build application {
         target = "e10k",
-        cFiles = [ "main.c"],
+        cFiles = [ "main.c", "e10k_vf_resources.c"],
         addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
 
         addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
