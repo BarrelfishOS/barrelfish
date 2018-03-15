@@ -243,13 +243,6 @@ errval_t start_networking_new(coreid_t where,
     assert(driver != NULL);
     errval_t err = SYS_ERR_OK;
 
-    /*
-    if (is_started(driver)) {
-        printf("Already started %s\n", driver->binary);
-        return KALUGA_ERR_DRIVER_ALREADY_STARTED;
-    }
-    */
-
     if (is_started(driver)) {
         if (strstr(int_arg->module_name, "_vf_") == NULL) {
             return KALUGA_ERR_DRIVER_ALREADY_STARTED;

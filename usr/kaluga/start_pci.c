@@ -344,7 +344,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
             err = add_int_args(addr, &driver_arg, intcaps_debug_msg);
             assert(err_is_ok(err));
         } else {
-            // Create a cap for now ...
+            // XXX: Create a cap for now ...
             err = store_int_cap(0, 1, &driver_arg);
             if(err_is_fail(err)){
                 USER_PANIC_ERR(err, "store_int_cap");
@@ -371,7 +371,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
             break;
 
         case KALUGA_ERR_DRIVER_ALREADY_STARTED:
-            KALUGA_DEBUG("%s already running.\n", mi->binary);
+            printf("%s already running. \n", mi->binary);
             break;
 
         case KALUGA_ERR_DRIVER_NOT_AUTO:
