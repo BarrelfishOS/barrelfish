@@ -82,7 +82,7 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
         assert((dsc->Length - sizeof(ACPI_DMAR_DEVICE_SCOPE)) == sizeof(ACPI_DMAR_PCI_PATH));
         pcip = (ACPI_DMAR_PCI_PATH *)((uint8_t *)dsc + sizeof(ACPI_DMAR_DEVICE_SCOPE));
 
-        debug_printf(SKB_SCHEMA_DMAR_DEVSC "\n", unit_idx, type, dsc->EntryType,
+        ACPI_DEBUG(SKB_SCHEMA_DMAR_DEVSC "\n", unit_idx, type, dsc->EntryType,
                            segment, dsc->Bus, pcip->Device, pcip->Function,
                            dsc->EnumerationId);
 
@@ -105,8 +105,9 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
                  * Device Scope of DRHD structures with INCLUDE_PCI_ALL flag Set.
                  */
                 debug_printf("  > [dmar] [dscp] PCI Endpoint Device. Enumeration ID=%u,"
-                                     "Start Bus: %u, Path Length: %u\n",
-                             dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
+                                     "Start Bus: %u.%u.%u Path Length: %u\n",
+                             dsc->EnumerationId, dsc->Bus, pcip->Device, pcip->Function,
+                             (dsc->Length - 6) >> 1);
                 assert(dsc->EnumerationId == 0);
                 assert(!(type == ACPI_DMAR_TYPE_HARDWARE_UNIT && include_all_flag));
 
@@ -120,8 +121,9 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
                  * INCLUDE_PCI_ALL flag Set.
                  */
                 debug_printf("  > [dmar] [dscp] PCI-PCI Bridge. Enumeration ID=%u,"
-                                     "Start Bus: %u, Path Length: %u\n",
-                             dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
+                                     "Start Bus: %u.%u.%u, Path Length: %u\n",
+                             dsc->EnumerationId, dsc->Bus, pcip->Device, pcip->Function,
+                             (dsc->Length - 6) >> 1);
                 assert(dsc->EnumerationId == 0);
                 assert(!(type == ACPI_DMAR_TYPE_HARDWARE_UNIT && include_all_flag));
                 break;
@@ -135,8 +137,9 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
                  */
 
                 debug_printf("  > [dmar] [dscp] IOAPIC. Enumeration ID=%u,"
-                                     "Start Bus: %u, Path Length: %u\n",
-                             dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
+                                     "Start Bus: %u.%u.%u, Path Length: %u\n",
+                             dsc->EnumerationId, dsc->Bus,pcip->Device, pcip->Function,
+                             (dsc->Length - 6) >> 1);
 
                 break;
             case ACPI_DMAR_SCOPE_TYPE_HPET:
@@ -148,8 +151,9 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
                  * Enumeration ID: HPET Number corresponding to the APCI HPET block
                  */
                 debug_printf("  > [dmar] [dscp] MSI HPET Device. Enumeration ID=%u,"
-                                     "Start Bus: %u, Path Length: %u\n",
-                             dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
+                                     "Start Bus: %u.%u.%u, Path Length: %u\n",
+                             dsc->EnumerationId, dsc->Bus, pcip->Device, pcip->Function,
+                             (dsc->Length - 6) >> 1);
                 break;
             case ACPI_DMAR_SCOPE_TYPE_NAMESPACE:
                 /*
@@ -160,8 +164,9 @@ static errval_t parse_device_scope(ACPI_DMAR_DEVICE_SCOPE *dsc, void *end,
                  * Enumeration ID is the ACPI device number as in  ANDD structure
                  */
                 debug_printf("  > [dmar] [dscp] ACPI Namespace device. Enumeration ID=%u,"
-                                     "Start Bus: %u, Path Length: %u\n",
-                             dsc->EnumerationId, dsc->Bus, (dsc->Length - 6) >> 1);
+                                     "Start Bus: %u.%u.%u, Path Length: %u\n",
+                             dsc->EnumerationId, dsc->Bus, pcip->Device, pcip->Function,
+                             (dsc->Length - 6) >> 1);
             default:
                 return ACPI_ERR_INVALID_HANDLE;
         }
@@ -189,7 +194,7 @@ static errval_t parse_hardware_unit(ACPI_DMAR_HARDWARE_UNIT *drhd, void *end,
 {
     errval_t err;
 
-    debug_printf("[dmar] [drhd] " SKB_SCHEMA_DMAR_HW_UNIT "\n",
+    ACPI_DEBUG("[dmar] [drhd] " SKB_SCHEMA_DMAR_HW_UNIT "\n",
                  idx, drhd->Flags, drhd->Segment, drhd->Address);
 
     err = skb_add_fact(SKB_SCHEMA_DMAR_HW_UNIT, idx, drhd->Flags, drhd->Segment,
@@ -260,8 +265,11 @@ static errval_t parse_reserved_memory(ACPI_DMAR_RESERVED_MEMORY *rmem, void *end
 {
     errval_t err;
 
-    debug_printf("[dmar] [rmem] " SKB_SCHEMA_DMAR_RESERVED_MEMORY "\n",
+    ACPI_DEBUG("[dmar] [rmem] " SKB_SCHEMA_DMAR_RESERVED_MEMORY "\n",
                  rmem->Segment, rmem->BaseAddress, rmem->EndAddress);
+
+    debug_printf("[dmar] [rmem] [0x%lx..0x%lx]\n", rmem->BaseAddress,
+                 rmem->EndAddress);
 
     err = skb_add_fact(SKB_SCHEMA_DMAR_RESERVED_MEMORY, rmem->Segment,
                        rmem->BaseAddress, rmem->EndAddress);
@@ -293,7 +301,7 @@ static errval_t parse_root_ats_capabilities(ACPI_DMAR_ATSR *atsr, void *end)
 {
     errval_t err;
 
-    debug_printf("[dmar] [atsr] " SKB_SCHEMA_DMAR_ATSR "\n",
+    ACPI_DEBUG("[dmar] [atsr] " SKB_SCHEMA_DMAR_ATSR "\n",
                  atsr->Flags, atsr->Segment);
 
     err = skb_add_fact(SKB_SCHEMA_DMAR_ATSR, atsr->Flags, atsr->Segment);
@@ -339,7 +347,7 @@ static errval_t parse_root_ats_capabilities(ACPI_DMAR_ATSR *atsr, void *end)
  */
 static errval_t parse_hardware_resource_affinity(ACPI_DMAR_RHSA *rhsa)
 {
-    debug_printf("[dmar] [rhsa] " SKB_SCHEMA_DMAR_RHSA "\n",
+    ACPI_DEBUG("[dmar] [rhsa] " SKB_SCHEMA_DMAR_RHSA "\n",
                  rhsa->BaseAddress, rhsa->ProximityDomain);
 
     return skb_add_fact(SKB_SCHEMA_DMAR_RHSA, rhsa->BaseAddress,
@@ -357,7 +365,7 @@ static errval_t parse_hardware_resource_affinity(ACPI_DMAR_RHSA *rhsa)
  */
 static errval_t parse_namespace_device_declaration(ACPI_DMAR_ANDD *andd)
 {
-    debug_printf("[dmar] [andd] NYI! " SKB_SCHEMA_DMAR_ANDD "\n",
+    ACPI_DEBUG("[dmar] [andd] NYI! " SKB_SCHEMA_DMAR_ANDD "\n",
                  andd->DeviceNumber, andd->DeviceName);
 
     return skb_add_fact(SKB_SCHEMA_DMAR_ANDD, andd->DeviceNumber,
