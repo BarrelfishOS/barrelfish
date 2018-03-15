@@ -594,7 +594,7 @@ ep_create_function_params n = [C.Param (C.TypeName "idc_endpoint_t") "type",
           C.Param (C.Ptr $ C.Struct "waitset") "ws",
           C.Param (C.TypeName "idc_endpoint_flags_t") "flags",
           C.Param (C.Ptr $ C.Ptr $ C.Struct $ intf_bind_type n) "binding",
-          C.Param (C.Ptr $ C.Struct "capref") "ret_ep" ]
+          C.Param (C.Struct "capref") "ret_ep" ]
 
 ep_create_function :: String -> C.Unit
 ep_create_function n =

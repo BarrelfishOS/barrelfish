@@ -45,6 +45,10 @@ lmp_ep_bind_fn_name n = ifscope n "lmp_bind_to_endpoint"
 -- Name of the bind function
 lmp_bind_fn_name n = ifscope n "lmp_bind"
 
+-- Name of the tx_bind_msg function
+tx_bind_ep_msg_fn_name n = ifscope n "tx_ep_bind_msg"
+tx_bind_ep_ack_msg_fn_name n = ifscope n "tx_ep_ack_bind_msg"
+
 -- Name of the bind continuation function
 lmp_bind_cont_fn_name n = ifscope n "lmp_bind_continuation"
 
@@ -148,7 +152,13 @@ lmp_bind_params n = [ C.Param (C.Ptr $ C.Struct (lmp_bind_type n)) "b",
                  C.Param (C.TypeName "size_t") "lmp_buflen" ]
 
 
-lmp_ep_bind_params n = [C.Param  C.Void ""]
+lmp_ep_bind_params n = [
+    C.Param (C.Struct "capref") "ep",
+    C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
+    C.Param (C.Ptr $ C.TypeName "void") "st",
+    C.Param (C.Ptr $ C.Struct "waitset") "ws",
+    C.Param (C.TypeName "size_t") "lmp_buflen",
+    C.Param (C.TypeName "idc_bind_flags_t") "flags"]
 
 lmp_ep_bind_function_proto :: String -> C.Unit
 lmp_ep_bind_function_proto n =
@@ -162,9 +172,10 @@ lmp_ep_create_params n = [
     C.Param (C.Ptr $ C.Struct $ intf_vtbl_type n RX) "rx_vtbl",
     C.Param (C.Ptr $ C.TypeName "void") "st",
     C.Param (C.Ptr $ C.Struct "waitset") "ws",
+    C.Param (C.TypeName "size_t") "buflenwords",
     C.Param (C.TypeName "idc_endpoint_flags_t") "flags",
-    C.Param (C.Ptr $ C.Ptr $ C.Struct $ intf_bind_type n) "binding",
-    C.Param (C.Ptr $ C.Struct "capref") "retep"]
+    C.Param (C.Ptr $ C.Ptr $ C.Struct $ intf_bind_type n) "ret_binding",
+    C.Param (C.Struct "capref") "ep"]
 
 lmp_ep_create_function_proto :: String -> C.Unit
 lmp_ep_create_function_proto n =
@@ -216,6 +227,8 @@ lmp_stub_body arch infile intf@(Interface ifn descr decls) = C.UnitList [
 
     C.MultiComment [ "Send handler functions" ],
     C.UnitList [ tx_handler arch ifn m | m <- msg_specs ],
+    tx_bind_ep_msg ifn,
+    tx_bind_ep_ack_msg ifn,
     C.Blank,
 
     C.MultiComment [ "Message sender functions" ],
@@ -317,21 +330,234 @@ lmp_bind_fn ifn =
 lmp_ep_create_fn :: String -> C.Unit
 lmp_ep_create_fn n =
   C.FunctionDef C.NoScope (C.TypeName "errval_t") name params [
-    C.Return $ C.Variable "LIB_ERR_NOT_IMPLEMENTED"
-  ]
+    localvar (C.TypeName "errval_t") "err" Nothing,
+    C.SBlank,
+    C.SComment "allocate storage for binding",
+    localvar (C.Ptr $ C.Struct $ lmp_bind_type n) lmp_bind_var_name
+        $ Just $ C.Call "calloc" [
+            C.NumConstant 1, C.SizeOfT $ C.Struct $ lmp_bind_type n],
+    -- check if allocation succeeded
+    C.If (C.Binary C.Equals lmp_bind_var (C.Variable "NULL"))
+        [C.Return $ C.Variable "LIB_ERR_MALLOC_FAIL"] [],
+    C.SBlank,
+
+    localvar (C.Ptr $ C.Struct $ intf_bind_type n)
+         intf_bind_var (Just $ C.AddressOf $ lmp_bind_var `C.DerefField` "b"),
+    C.Ex $ C.Call (lmp_init_fn_name n) [lmp_bind_var, param_ws ],
+    C.SBlank,
+
+    C.SComment "accept the connection and setup the channel",
+    C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_endpoint_create"
+                                [C.AddressOf $ C.DerefField lmp_bind_var "chan",
+                                 param_buflen, param_ep],
+    C.If (C.Call "err_is_fail" [errvar])
+        [C.Ex $ C.Assignment errvar $ C.Call "err_push"
+                    [errvar, C.Variable "LIB_ERR_LMP_CHAN_ACCEPT"],
+         report_user_err errvar,
+         C.Goto "err_out"] [],
+    C.SBlank,
+
+    C.SComment "allocate a cap receive slot",
+    C.Ex $ C.Assignment errvar $
+            C.Call "lmp_chan_alloc_recv_slot" [chanaddr],
+    C.If (C.Call "err_is_fail" [errvar])
+        [C.Ex $ C.Assignment errvar $ C.Call "err_push"
+                        [errvar, C.Variable "LIB_ERR_LMP_ALLOC_RECV_SLOT"],
+         report_user_err errvar,
+         C.Goto "err_out2"] [],
+    C.SBlank,
+
+    -- C.Ex $ C.Call (connect_handlers_fn_name n) [C.Variable intf_bind_var],
+    -- C.SBlank,
+
+    C.SComment "register for receive",
+    C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_register_recv"
+        [chanaddr, C.DerefField bindvar "waitset",
+         C.StructConstant "event_closure"
+            [("handler", C.Variable $ rx_handler_name n),
+             ("arg", lmp_bind_var)]],
+    C.If (C.Call "err_is_fail" [errvar])
+        [C.Ex $ C.Assignment errvar $ C.Call "err_push"
+                        [errvar, C.Variable "LIB_ERR_CHAN_REGISTER_RECV"],
+         report_user_err errvar,
+         C.Goto "err_out2"] [],
+    C.SBlank,
+
+    C.Ex $ C.Assignment (C.DerefField (C.Variable intf_bind_var) "rx_vtbl") (C.DerefPtr param_rxvtbl),
+    C.Ex $ C.Assignment (C.DerefField (C.Variable intf_bind_var) "st") (param_st),
+    C.Ex $ (C.Assignment (C.DerefPtr param_retbind) (C.Variable intf_bind_var)),
+    C.SBlank,
+    C.Return $ C.Variable "SYS_ERR_OK",
+    C.Label "err_out2",
+    C.Ex $ C.Call "cap_delete" [param_ep],
+    C.Label "err_out",
+    C.Ex $ C.Call "free" [C.Variable lmp_bind_var_name],
+    C.Return $ C.Variable "err"]
   where
       name = lmp_ep_create_fn_name n
       params = lmp_ep_create_params n
+      chanaddr = C.AddressOf $ C.DerefField lmp_bind_var "chan"
+      param_ws = C.Variable "ws"
+      param_rxvtbl = C.Variable "rx_vtbl"
+      param_st = C.Variable "st"
+      param_ep = C.Variable "ep"
+      param_buflen = C.Variable "buflenwords"
+      param_retbind = C.Variable "ret_binding"
+
 
 
 lmp_ep_bind_fn :: String -> C.Unit
 lmp_ep_bind_fn n =
   C.FunctionDef C.NoScope (C.TypeName "errval_t") name params [
-    C.Return $ C.Variable "LIB_ERR_NOT_IMPLEMENTED"
+    localvar (C.TypeName "errval_t") "err" Nothing,
+    C.SBlank,
+    C.SComment "allocate storage for binding",
+    localvar (C.Ptr $ C.Struct $ lmp_bind_type n) lmp_bind_var_name
+      $ Just $ C.Call "calloc" [
+          C.NumConstant 1, C.SizeOfT $ C.Struct $ lmp_bind_type n],
+    -- check if allocation succeeded
+    C.If (C.Binary C.Equals lmp_bind_var (C.Variable "NULL"))
+      [C.Return $ C.Variable "LIB_ERR_MALLOC_FAIL"] [],
+    C.SBlank,
+
+    localvar (C.Ptr $ C.Struct $ intf_bind_type n)
+         intf_bind_var (Just $ C.AddressOf $ lmp_bind_var `C.DerefField` "b"),
+
+    C.SBlank,
+    C.Ex $ C.Call (lmp_init_fn_name n) [lmp_bind_var, C.Variable "ws"],
+    C.Ex $ C.Assignment (intf_bind_field "st") (C.Variable "st"),
+    C.Ex $ C.Assignment (intf_bind_field "bind_cont") (C.Variable intf_cont_var),
+
+    C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_bind_to_endpoint"
+        [chanaddr, C.Variable "ep", C.Variable "lmp_buflen"],
+    C.If (C.Call "err_is_fail" [errvar])
+        [C.Ex $ C.Call (lmp_destroy_fn_name n) [lmp_bind_var],
+         C.Return errvar] [],
+
+    C.SComment "allocate a cap receive slot",
+     C.Ex $ C.Assignment errvar $
+                C.Call "lmp_chan_alloc_recv_slot" [chanaddr],
+     C.If (C.Call "err_is_fail" [errvar])
+        [C.Ex $ C.Assignment errvar $
+                C.Call "err_push"
+                        [errvar, C.Variable "LIB_ERR_LMP_ALLOC_RECV_SLOT"],
+        C.Goto "err_out"] [],
+     C.SBlank,
+
+     C.SComment "register for receive",
+     C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_register_recv"
+        [chanaddr, C.FieldOf intf_var "waitset",
+        C.StructConstant "event_closure"
+               [("handler", C.Variable $ rx_handler_name n),
+                ("arg", lmp_bind_var)]],
+
+    C.If (C.Call "err_is_fail" [errvar])
+       [C.Ex $ C.Assignment errvar $
+               C.Call "err_push" [errvar, C.Variable "LIB_ERR_CHAN_REGISTER_RECV"],
+               C.Goto "err_out"] [],
+
+    C.Ex $ C.Call (connect_handlers_fn_name n) [C.Variable intf_bind_var],
+
+    -- send the cap
+    C.SComment "Send the local endpoint cap to the other side",
+
+    C.Ex $ C.Assignment errvar $ C.Call (tx_bind_ep_msg_fn_name n) [C.AddressOf intf_var],
+    C.If (C.Call "err_is_fail" [errvar]) [
+        C.Goto "err_out"
+    ][],
+    C.Return errvar,
+    C.Label "err_out",
+    C.Ex $ C.Call (lmp_destroy_fn_name n) [lmp_bind_var],
+    C.Ex $ C.Call "free" [lmp_bind_var],
+    C.Return errvar
   ]
   where
       name = lmp_ep_bind_fn_name n
       params = lmp_ep_bind_params n
+      param_rxvtbl = C.Variable "rx_vtbl"
+      chanaddr = C.AddressOf $ lmp_bind_var `C.DerefField` "chan"
+      intf_bind_field = C.FieldOf (C.DerefField lmp_bind_var "b")
+      intf_var = C.DerefField lmp_bind_var "b"
+
+
+tx_bind_ep_msg :: String -> C.Unit
+tx_bind_ep_msg n =
+  C.FunctionDef C.Static (C.TypeName "errval_t") (tx_bind_ep_msg_fn_name n) params [
+    handler_preamble n,
+
+    C.SComment "check that we can accept an outgoing message",
+    C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+    C.Ex $ C.Assignment binding_error (C.Variable "SYS_ERR_OK"),
+    C.If (C.Binary C.NotEquals tx_msgnum_field (C.NumConstant 0))
+        [C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+         C.Return $ C.Variable "FLOUNDER_ERR_TX_BUSY"] [],
+    C.SBlank,
+    C.SComment "store message number and arguments",
+    C.Ex $ C.Assignment binding_outgoing_token (C.Binary C.BitwiseAnd binding_incoming_token (C.Variable "~1" )),
+    C.Ex $ C.Call "thread_get_outgoing_token" [C.AddressOf binding_outgoing_token],
+    C.Ex $ C.Assignment tx_msgnum_field msgnum,
+    C.Ex $ C.Assignment tx_msgfrag_field (C.NumConstant 0),
+    C.SBlank,
+    C.SComment "try to send!",
+    C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
+    C.Ex $ C.Assignment errvar (C.Call "lmp_chan_send1" [chan_arg, flag_arg, cap_arg, msgnum]),
+    C.If (C.Call "err_is_ok" [errvar]) finished_send [],
+    C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
+
+    C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+    C.SBlank,
+    C.Return binding_error
+     ]
+     where
+        params = [C.Param (C.Ptr $ C.Void) "arg"]
+        msgnum = (C.Variable $ msg_enum_elem_name n "__bind")
+        tx_msgnum_field = C.DerefField bindvar "tx_msgnum"
+        tx_msgfrag_field = C.DerefField bindvar "tx_msg_fragment"
+        binding_incoming_token = C.DerefField bindvar "incoming_token"
+        binding_outgoing_token = C.DerefField bindvar "outgoing_token"
+        chan_arg = C.AddressOf $ C.DerefField lmp_bind_var "chan"
+        cap_arg = C.DerefField chan_arg "local_cap"
+        flag_arg = C.DerefField lmp_bind_var "flags"
+
+tx_bind_ep_ack_msg :: String -> C.Unit
+tx_bind_ep_ack_msg n =
+  C.FunctionDef C.Static (C.TypeName "errval_t") (tx_bind_ep_ack_msg_fn_name n) params [
+    handler_preamble n,
+
+    C.SComment "check that we can accept an outgoing message",
+    C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+    C.Ex $ C.Assignment binding_error (C.Variable "SYS_ERR_OK"),
+    C.If (C.Binary C.NotEquals tx_msgnum_field (C.NumConstant 0))
+        [C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+         C.Return $ C.Variable "FLOUNDER_ERR_TX_BUSY"] [],
+    C.SBlank,
+    C.SComment "store message number and arguments",
+    C.Ex $ C.Assignment binding_outgoing_token (C.Binary C.BitwiseAnd binding_incoming_token (C.Variable "~1" )),
+    C.Ex $ C.Call "thread_get_outgoing_token" [C.AddressOf binding_outgoing_token],
+    C.Ex $ C.Assignment tx_msgnum_field msgnum,
+    C.Ex $ C.Assignment tx_msgfrag_field (C.NumConstant 0),
+    C.SBlank,
+    C.SComment "try to send!",
+    C.Ex $ C.Call "thread_mutex_lock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
+    C.Ex $ C.Assignment errvar (C.Call "lmp_chan_send1" [chan_arg, flag_arg, cap_arg, msgnum]),
+    C.If (C.Call "err_is_ok" [errvar]) finished_send [],
+    C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "rxtx_mutex"],
+
+    C.Ex $ C.Call "thread_mutex_unlock" [C.AddressOf $ C.DerefField bindvar "send_mutex"],
+    C.SBlank,
+    C.Return binding_error
+     ]
+     where
+        params = [C.Param (C.Ptr $ C.Void) "arg"]
+        msgnum = (C.Variable $ msg_enum_elem_name n "__bind_reply")
+        tx_msgnum_field = C.DerefField bindvar "tx_msgnum"
+        tx_msgfrag_field = C.DerefField bindvar "tx_msg_fragment"
+        binding_incoming_token = C.DerefField bindvar "incoming_token"
+        binding_outgoing_token = C.DerefField bindvar "outgoing_token"
+        chan_arg = C.AddressOf $ C.DerefField lmp_bind_var "chan"
+        cap_arg = C.DerefField chan_arg "local_cap"
+        flag_arg = C.DerefField lmp_bind_var "flags"
+
 
 lmp_bind_cont_fn :: String -> C.Unit
 lmp_bind_cont_fn ifn =
@@ -800,14 +1026,41 @@ rx_handler arch ifn typedefs msgdefs msgs =
         need_slot_alloc c = C.Binary C.And (C.Unary C.Not (capref_is_null c))
                                            (C.Unary C.Not in_rpc)
 
-        call_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (call_msgnum_case msgdef msg)
+        call_cases = call_case_bind ++ call_case_ack ++ [
+                     C.Case (C.Variable $ msg_enum_elem_name ifn mn) (call_msgnum_case msgdef msg)
                             | (msgdef, msg@(LMPMsgSpec mn _)) <- zip msgdefs msgs]
+
+        call_case_bind = [C.Case (C.Variable $ msg_enum_elem_name ifn "__bind") [
+            C.Ex $ C.Assignment errvar $ C.Call ( tx_bind_ep_ack_msg_fn_name ifn) [bindvar], 
+            C.SComment "TODO: Check for error",
+            C.Ex $ C.Call "assert" [C.Call "err_is_ok" [ errvar]],
+            C.Break
+            ]]
+        call_case_ack  = [C.Case (C.Variable $ msg_enum_elem_name ifn "__bind_reply") [
+             C.Ex $ C.CallInd (bindvar `C.DerefField` "bind_cont") [
+                bindvar `C.DerefField` "st", bindvar `C.DerefField` "error", bindvar],
+             C.Break
+            ]]
 
         call_msgnum_case msgdef@(Message mtype mn msgargs _) (LMPMsgSpec _ frags) =
             [C.StmtList $ call_handler drvname ifn typedefs mtype mn msgargs, C.Break]
 
-        msgnum_cases = [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (msgnum_case msgdef msg)
+        msgnum_cases = msgnum_bind ++ msgnum_bind_ack ++ [C.Case (C.Variable $ msg_enum_elem_name ifn mn) (msgnum_case msgdef msg)
                             | (msgdef, msg@(LMPMsgSpec mn _)) <- zip msgdefs msgs]
+
+        msgnum_bind = [C.Case (C.Variable $ msg_enum_elem_name ifn "__bind") [
+            C.SComment "store the remote EP cap",
+            C.Ex $ C.Assignment (C.FieldOf (C.DerefField lmp_bind_var "chan") "remote_cap") (C.Variable "cap"),
+            C.Ex $ C.Assignment (C.Variable "call_msgnum") (C.Variable $ msg_enum_elem_name ifn "__bind"),  
+            C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0),
+            C.Goto "out",
+            C.Break]]
+
+        msgnum_bind_ack = [C.Case (C.Variable $ msg_enum_elem_name ifn "__bind_reply") [
+            C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0),
+            C.Ex $ C.Assignment (C.Variable "call_msgnum") (C.Variable $ msg_enum_elem_name ifn "__bind_reply"),
+            C.Goto "out",
+            C.Break]]
 
         msgnum_case msgdef@(Message _ _ msgargs _) (LMPMsgSpec mn frags) = [
             C.Switch rx_msgfrag_field

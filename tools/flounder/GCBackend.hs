@@ -322,16 +322,16 @@ ep_create_fn_def :: String -> C.Unit
 ep_create_fn_def n =
    C.FunctionDef C.NoScope (C.TypeName "errval_t") (ep_create_fn_name n) params [
         C.VarDecl C.NoScope C.NonConst  (C.TypeName "errval_t") "err" Nothing,
-        C.VarDecl C.NoScope C.NonConst  (C.Struct "capref") "mem" Nothing,
+        C.VarDecl C.NoScope C.NonConst  (C.TypeName "struct capref") "mem" Nothing,
         C.Switch (C.Variable "type") [
             C.Case (C.Variable "IDC_ENDPOINT_LMP") [
                 C.SComment "Allocate Local Endpoint",
-
                 C.SComment "Call LMP endpoint create handler",
                 C.Return $ C.Call lmpcreate [
                     C.Variable "rx_vtbl",
                     C.Variable "st",
                     C.Variable "ws",
+                    C.Variable "DEFAULT_LMP_BUF_WORDS",
                     C.Variable "flags",
                     C.Variable "binding",
                     C.Variable "ret_ep"
@@ -341,7 +341,7 @@ ep_create_fn_def n =
                 C.SComment "Allocate Frame for UMP",
                 C.Ex $ C.Assignment (C.Variable "err") (C.Call "frame_alloc" [
                     C.AddressOf $ C.Variable "mem",
-                    C.Variable "BASE_PAGE_SIZE",
+                    C.Variable "(DEFAULT_UMP_BUFLEN + DEFAULT_UMP_BUFLEN)",
                     C.Variable "NULL"
                 ]),
                 C.If (C.Call "err_is_fail" [C.Variable "err"]) [
@@ -370,13 +370,40 @@ ep_create_fn_def n =
 ep_bind_fn_def :: String -> C.Unit
 ep_bind_fn_def n =
   C.FunctionDef C.NoScope (C.TypeName "errval_t") (ep_bind_fn_name n) params [
-       C.StmtList [
-           C.Return $ C.Variable "ERR_NOTIMP"
+--  C.VarDecl C.NoScope C.NonConst  (C.TypeName "errval_t") "err" Nothing,
+  C.VarDecl C.NoScope C.NonConst  (C.TypeName "idc_endpoint_t") "type" (Just $ (C.Variable "IDC_ENDPOINT_LMP")),
+
+  C.Switch (C.Variable "type") [
+      C.Case (C.Variable "IDC_ENDPOINT_LMP") [
+          C.SComment "Allocate Local Endpoint",
+          C.SComment "Call LMP endpoint create handler",
+          C.Return $ C.Call lmpcreate [
+              C.Variable "ep",
+              C.Variable "_continuation",
+              C.Variable "st",
+              C.Variable "ws",
+              C.Variable "DEFAULT_LMP_BUF_WORDS",
+              C.Variable "flags"]
+      ],
+      C.Case (C.Variable "IDC_ENDPOINT_UMP") [
+          C.SComment "Call UMP endpoint create handler",
+          C.Return $ C.Call umpcreate [
+--              C.Variable "rx_vtbl",
+--              C.Variable "st",
+--              C.Variable "ws",
+--              C.Variable "flags",
+--              C.Variable "mem",
+--              C.Variable "binding",
+--              C.Variable "ret_ep"
+          ]
       ]
+  ] defaultcase
   ]
   where
+      defaultcase = [C.Return $ C.Variable "LIB_ERR_NOT_IMPLEMENTED "]
       params = ep_bind_function_params n
-
+      lmpcreate = ifscope n "lmp_bind_to_endpoint"
+      umpcreate = ifscope n "ump_bind_to_endpoint"
 
 -- bind continuation function
 bind_cont_def :: String -> String -> [BindBackend] -> C.Unit

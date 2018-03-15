@@ -49,6 +49,8 @@ struct lmp_chan {
     enum {LMP_DISCONNECTED,     ///< Disconnected
           LMP_BIND_WAIT,        ///< Waiting for bind reply
           LMP_MONITOR_ACCEPT,   ///< Special case for monitor binding: waiting for cap
+          LMP_EP_WAIT_CAP,      ///< The Endpoint is created and waiting for cap
+          LMP_EP_WAIT_ACK,      ///< The Endpoint is initialized, waiting for ACK
           LMP_CONNECTED,        ///< Connection established
     } connstate;
 
@@ -66,6 +68,10 @@ errval_t lmp_chan_bind(struct lmp_chan *lc, struct lmp_bind_continuation cont,
                        size_t buflen_words);
 errval_t lmp_chan_accept(struct lmp_chan *lc, size_t buflen_words,
                          struct capref endpoint);
+errval_t lmp_chan_endpoint_create(struct lmp_chan *lc, size_t buflen_words,
+                                struct capref endpoint);
+errval_t lmp_chan_bind_to_endpoint(struct lmp_chan *lc, struct capref remoteep,
+                                   size_t buflen_words);
 errval_t lmp_chan_register_send(struct lmp_chan *lc, struct waitset *ws,
                                 struct event_closure closure);
 errval_t lmp_chan_deregister_send(struct lmp_chan *lc);
