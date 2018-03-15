@@ -48,12 +48,12 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
     assert(recv != NULL);
 
     // Return w/error if cap is not an endpoint
-    if (recv->cap.type != ObjType_EndPoint) {
+    if (recv->cap.type != ObjType_EndPointLMP) {
         return SYS_ERR_IRQ_NOT_ENDPOINT;
     }
 
     // Return w/error if no listener on endpoint
-    if (recv->cap.u.endpoint.listener == NULL) {
+    if (recv->cap.u.endpointlmp.listener == NULL) {
         return SYS_ERR_IRQ_NO_LISTENER;
     }
 
@@ -103,14 +103,14 @@ errval_t irq_table_notify_domains(struct kcb *kcb)
 {
     uintptr_t msg[] = { 1 };
     for (int i = 0; i < NDISPATCH; i++) {
-        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPointLMP) {
             struct capability *cap = &kcb->irq_dispatch[i].cap;
             // 1 word message as notification
             errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false, false);
             if (err_is_fail(err)) {
                 if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
                     struct dispatcher_shared_generic *disp =
-                        get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                        get_dispatcher_shared_generic(cap->u.endpointlmp.listener->disp);
                     printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
                             DISP_NAME_LEN, disp->name);
                 } else {
@@ -143,13 +143,13 @@ void send_user_interrupt(int irq)
     }
 
     // Otherwise, cap needs to be an endpoint
-    assert(cap->type == ObjType_EndPoint);
+    assert(cap->type == ObjType_EndPointLMP);
     errval_t err = lmp_deliver_notification(cap);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
             struct dispatcher_shared_generic *disp =
                     get_dispatcher_shared_generic(
-                            cap->u.endpoint.listener->disp);
+                            cap->u.endpointlmp.listener->disp);
             printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
                     DISP_NAME_LEN, disp->name);
         } else {
@@ -163,7 +163,7 @@ void send_user_interrupt(int irq)
      * our default scheduler is braindead, this is a quick hack to make sure
      * that mostly-sane things happen
      */
-    dispatch(cap->u.endpoint.listener);
+    dispatch(cap->u.endpointlmp.listener);
 #else
     dispatch(schedule());
 #endif

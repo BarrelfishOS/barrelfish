@@ -491,7 +491,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
     coreid_t owner = args[pos + 3];
 
     /* For certain types, only foreign copies can be created here */
-    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+    if ((src->type == ObjType_EndPointLMP || src->type == ObjType_Dispatcher
          || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
         && owner == my_core_id)
     {
@@ -694,7 +694,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
-    if (ep_cte->cap.type != ObjType_EndPoint) {
+    if (ep_cte->cap.type != ObjType_EndPointLMP) {
         return SYSRET(SYS_ERR_VMKIT_ENDPOINT_INVALID);
     }
     err = caps_copy_to_cte(&dcb->guest_desc.monitor_ep, ep_cte, false, 0, 0);
@@ -1438,8 +1438,8 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         assert(to->type < ObjType_Num);
 
         // Endpoint cap, do LMP
-        if (to->type == ObjType_EndPoint) {
-            struct dcb *listener = to->u.endpoint.listener;
+        if (to->type == ObjType_EndPointLMP) {
+            struct dcb *listener = to->u.endpointlmp.listener;
             assert(listener != NULL);
 
             if (listener->disp == 0) {
@@ -1535,10 +1535,10 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                     panic("VM Guests not supported on Xeon Phi");
 #endif
 		        }
-                dispatch(to->u.endpoint.listener);
+                dispatch(to->u.endpointlmp.listener);
                 panic("dispatch returned");
             } else {
-                struct dcb *dcb = to->u.endpoint.listener;
+                struct dcb *dcb = to->u.endpointlmp.listener;
 
                 schedule_now(dcb);
             }

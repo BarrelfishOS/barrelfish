@@ -130,10 +130,10 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
         wakeup_remove(dcb);
 
         // Notify monitor
-        if (monitor_ep.u.endpoint.listener == dcb) {
+        if (monitor_ep.u.endpointlmp.listener == dcb) {
             printk(LOG_ERR, "monitor terminated; expect badness!\n");
-            monitor_ep.u.endpoint.listener = NULL;
-        } else if (monitor_ep.u.endpoint.listener != NULL) {
+            monitor_ep.u.endpointlmp.listener = NULL;
+        } else if (monitor_ep.u.endpointlmp.listener != NULL) {
             uintptr_t payload = dcb->domain_id;
             err = lmp_deliver_payload(&monitor_ep, NULL, &payload, 1, false, false);
             if (err_is_fail(err)) {
@@ -201,7 +201,7 @@ cleanup_copy(struct cte *cte)
 /**
  * \brief Cleanup the last cap copy for an object and the object itself
  */
-STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all RAM-backed cap types");
+STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all RAM-backed cap types");
 static errval_t
 cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
 {
@@ -243,6 +243,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
         switch(cap->type) {
         case ObjType_RAM:
         case ObjType_Frame:
+        case ObjType_EndPointUMP :
         case ObjType_L1CNode:
         case ObjType_L2CNode:
             ram.base = get_address(cap);
@@ -269,7 +270,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
     // monitor channel; have user retry over monitor rpc interface
     if (ram.bytes > 0 &&
         !ret_ram_cap &&
-        monitor_ep.type == ObjType_EndPoint &&
+        monitor_ep.type == ObjType_EndPointLMP &&
         err_is_fail(lmp_can_deliver_payload(&monitor_ep, len)))
     {
         return SYS_ERR_RETRY_THROUGH_MONITOR;
@@ -284,7 +285,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
     if(ram.bytes > 0) {
         // Send back as RAM cap to monitor
         if (ret_ram_cap) {
-            if (dcb_current != monitor_ep.u.endpoint.listener) {
+            if (dcb_current != monitor_ep.u.endpointlmp.listener) {
                 printk(LOG_WARN, "sending fresh ram cap to non-monitor?\n");
             }
             assert(ret_ram_cap->cap.type == ObjType_Null);
@@ -296,7 +297,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
             // note: this is a "success" code!
             err = SYS_ERR_RAM_CAP_CREATED;
         }
-        else if (monitor_ep.type && monitor_ep.u.endpoint.listener != 0) {
+        else if (monitor_ep.type && monitor_ep.u.endpointlmp.listener != 0) {
 #ifdef TRACE_PMEM_CAPS
             struct cte ramcte;
             memset(&ramcte, 0, sizeof(ramcte));

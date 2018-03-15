@@ -57,7 +57,7 @@ STATIC_ASSERT((L2_CNODE_SLOTS  * (1UL << OBJBITS_CTE)) == OBJSIZE_L2CNODE,
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(58 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(60 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_VTd_root_table ||
             type == ObjType_VNode_VTd_ctxt_table ||
@@ -80,7 +80,7 @@ static inline bool type_is_vnode(enum objtype type)
 
 static inline bool type_is_vroot(enum objtype type)
 {
-    STATIC_ASSERT(58 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(60 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
 #ifdef CONFIG_PAE
@@ -102,7 +102,7 @@ static inline bool type_is_vroot(enum objtype type)
 static inline size_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(58 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(60 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_VTd_root_table ||
         type == ObjType_VNode_VTd_ctxt_table ||
@@ -150,7 +150,7 @@ static inline size_t vnode_objbits(enum objtype type)
 static inline size_t vnode_objsize(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(58 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(60 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_VTd_root_table ||
         type == ObjType_VNode_VTd_ctxt_table ||
@@ -195,7 +195,7 @@ static inline size_t vnode_objsize(enum objtype type)
  */
 static inline size_t vnode_entry_bits(enum objtype type) {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(58 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(60 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_VTd_root_table ||
         type == ObjType_VNode_VTd_ctxt_table ||
@@ -252,7 +252,7 @@ static inline size_t vnode_entry_bits(enum objtype type) {
  * @return Number of page table entries in bits
  */
 static inline size_t cnode_get_slots(struct capability *cnode) {
-    STATIC_ASSERT(58 == ObjType_Num, "Check CNode definitions");
+    STATIC_ASSERT(60 == ObjType_Num, "Check CNode definitions");
 
     switch (cnode->type) {
         case ObjType_L1CNode:
@@ -267,11 +267,13 @@ static inline size_t cnode_get_slots(struct capability *cnode) {
 
 static inline enum objtype get_mapping_type(enum objtype captype)
 {
-    STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all mapping types");
+    STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all mapping types");
 
     switch (captype) {
         case ObjType_Frame:
             return ObjType_Frame_Mapping;
+        case ObjType_EndPointUMP:
+            return ObjType_EndPointUMP_Mapping;
         case ObjType_DevFrame:
             return ObjType_DevFrame_Mapping;
         case ObjType_VNode_VTd_root_table:
@@ -314,10 +316,11 @@ static inline enum objtype get_mapping_type(enum objtype captype)
 
 static inline bool type_is_mapping(enum objtype type)
 {
-    STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all mapping types");
+    STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all mapping types");
 
     switch (type) {
         case ObjType_Frame_Mapping:
+        case ObjType_EndPointUMP_Mapping:
         case ObjType_DevFrame_Mapping:
         case ObjType_VNode_VTd_root_table_Mapping:
         case ObjType_VNode_VTd_ctxt_table_Mapping:
@@ -345,10 +348,11 @@ static inline bool type_is_mapping(enum objtype type)
 
 static inline bool type_is_mappable(enum objtype type)
 {
-    STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all mappable types");
+    STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all mappable types");
 
     switch (type) {
         case ObjType_Frame:
+        case ObjType_EndPointUMP:
         case ObjType_DevFrame:
         case ObjType_VNode_VTd_root_table:
         case ObjType_VNode_VTd_ctxt_table:

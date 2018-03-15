@@ -26,6 +26,9 @@
 #include <inttypes.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <stdio.h>
+#include "include/threads_priv.h"
+#include "../../build.x86_64/x86_64/include/barrelfish_kpi/capbits.h"
+#include "../../build.armv8/armv8/include/barrelfish_kpi/capbits.h"
 
 #define DISP_MEMORY_SIZE            1024 // size of memory dump in bytes
 
@@ -110,14 +113,21 @@ errval_t debug_dump_hw_ptables(void)
 
 void debug_printf(const char *fmt, ...)
 {
-    struct thread *me = thread_self();
+
     va_list argptr;
-    char id[32] = "-";
+
+    struct thread *me = thread_self();
+
+    char id[8] = "-";
     char str[256];
     size_t len;
 
+
+
     if (me) {
         snprintf(id, sizeof(id), "%"PRIuPTR, thread_get_id(me));
+    } else {
+        snprintf(id, sizeof(id), "-");
     }
     len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%s\033[0m: ",
                    DISP_NAME_LEN, disp_name(), disp_get_core_id(), id);
@@ -132,7 +142,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -169,6 +179,12 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_Frame:
         return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":0x%" PRIuGENSIZE ")",
                         cap->u.frame.base, cap->u.frame.bytes);
+
+    case ObjType_EndPointUMP:
+        return snprintf(buf, len, "EndPoint UMP cap (0x%" PRIxGENPADDR ":0x%"
+                                   PRIuGENSIZE "), if=%" PRIu32,
+                        cap->u.endpointump.base, cap->u.endpointump.bytes,
+                        cap->u.endpointump.iftype);
 
     case ObjType_DevFrame:
         return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":%" PRIuGENSIZE ")",
@@ -239,6 +255,9 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
                         cap->u.vnode_vtd_ctxt_table.base);
 
     case ObjType_Frame_Mapping:
+        mappingtype = "Frame";
+        goto ObjType_Mapping;
+    case ObjType_EndPointUMP_Mapping:
         mappingtype = "Frame";
         goto ObjType_Mapping;
     case ObjType_DevFrame_Mapping:
@@ -317,9 +336,9 @@ ObjType_Mapping:
         return snprintf(buf, len, "IRQDest cap (vec: %"PRIu64", cpu: %"PRIu64")",
                 cap->u.irqdest.vector, cap->u.irqdest.cpu);
 
-    case ObjType_EndPoint:
+    case ObjType_EndPointLMP:
         return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",
-                        cap->u.endpoint.listener, cap->u.endpoint.epoffset);
+                        cap->u.endpointlmp.listener, cap->u.endpointlmp.epoffset);
 
     case ObjType_IO:
         return snprintf(buf, len, "IO cap (0x%hx-0x%hx)",

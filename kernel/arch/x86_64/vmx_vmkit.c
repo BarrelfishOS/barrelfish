@@ -922,7 +922,7 @@ call_monitor(struct dcb *dcb)
     }
     
     // run the monitor
-    dispatch(dcb->guest_desc.monitor_ep.cap.u.endpoint.listener);
+    dispatch(dcb->guest_desc.monitor_ep.cap.u.endpointlmp.listener);
 }
 
 struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,

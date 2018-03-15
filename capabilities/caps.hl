@@ -61,8 +61,8 @@ cap Memory abstract {
     **/
 
     address genpaddr base;  /* Physical base address of Memory object */
-    pasid pasid;            /* Physical Address Space ID */
     size gensize bytes;     /* Size of region in bytes */
+    pasid pasid;            /* Physical Address Space ID */
 };
 
 
@@ -147,13 +147,13 @@ cap Dispatcher from RAM {
     size { objsize_dispatcher };
 };
 
-cap EndPoint from Dispatcher {
+cap EndPointLMP from Dispatcher {
     /* IDC endpoint */
 
     "struct dcb" listener;  /* Dispatcher listening on this endpoint */
     lvaddr epoffset;        /* Offset of endpoint buffer in disp frame */
     uint32 epbuflen;        /* Length of endpoint buffer in words */
-
+    uint16 iftype;          /* interface of the endpoint */
     address { mem_to_phys(listener) };
 
     /** XXX
@@ -172,6 +172,12 @@ cap EndPoint from Dispatcher {
 cap Frame from RAM from_self inherit Memory;
 
 cap Frame_Mapping from Frame inherit Mapping;
+
+cap EndPointUMP from RAM inherit Memory {
+    uint16 iftype;
+};
+
+cap EndPointUMP_Mapping from EndpointUMP inherit Mapping;
 
 cap DevFrame from PhysAddr from_self inherit Memory;
 

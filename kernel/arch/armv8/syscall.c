@@ -696,7 +696,7 @@ monitor_create_cap(
     }
 
     /* For certain types, only foreign copies can be created here */
-    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+    if ((src->type == ObjType_EndPointLMP || src->type == ObjType_Dispatcher
          || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
         && owner == my_core_id)
     {
@@ -1065,9 +1065,9 @@ handle_invoke(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
         assert(to != NULL);
         assert(to->type < ObjType_Num);
 
-        if (ObjType_EndPoint == to->type)
+        if (ObjType_EndPointLMP == to->type)
         {
-            struct dcb *listener = to->u.endpoint.listener;
+            struct dcb *listener = to->u.endpointlmp.listener;
             assert(listener != NULL);
 
             if (listener->disp) {

@@ -233,15 +233,15 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
     assert(send_cptr != CPTR_NULL);
     assert(send != NULL);
     assert(ep != NULL);
-    assert(ep->type == ObjType_EndPoint);
-    struct dcb *recv = ep->u.endpoint.listener;
+    assert(ep->type == ObjType_EndPointLMP);
+    struct dcb *recv = ep->u.endpointlmp.listener;
     assert(recv != NULL);
-    assert(ep->u.endpoint.epoffset != 0);
+    assert(ep->u.endpointlmp.epoffset != 0);
 
-    // printk(LOG_NOTE, "%s: ep->u.endpoint.epoffset = %"PRIuLVADDR"\n", __FUNCTION__, ep->u.endpoint.epoffset);
+    // printk(LOG_NOTE, "%s: ep->u.endpointlmp.epoffset = %"PRIuLVADDR"\n", __FUNCTION__, ep->u.endpointlmp.epoffset);
     /* Look up the slot receiver can receive caps in */
     struct lmp_endpoint_kern *recv_ep
-        = (void *)((uint8_t *)recv->disp + ep->u.endpoint.epoffset);
+        = (void *)((uint8_t *)recv->disp + ep->u.endpointlmp.epoffset);
 
     // Lookup cspace root for receiving
     struct capability *recv_cspace_cap;
@@ -313,21 +313,21 @@ errval_t lmp_can_deliver_payload(struct capability *ep,
                                  size_t payload_len)
 {
     assert(ep != NULL);
-    assert(ep->type == ObjType_EndPoint);
-    struct dcb *recv = ep->u.endpoint.listener;
+    assert(ep->type == ObjType_EndPointLMP);
+    struct dcb *recv = ep->u.endpointlmp.listener;
     assert(recv != NULL);
 
     /* check that receiver exists and has specified an endpoint buffer */
-    if (recv->disp == 0 || ep->u.endpoint.epoffset == 0) {
+    if (recv->disp == 0 || ep->u.endpointlmp.epoffset == 0) {
         return SYS_ERR_LMP_NO_TARGET;
     }
 
     /* locate receiver's endpoint buffer */
     struct lmp_endpoint_kern *recv_ep
-        = (void *)((uint8_t *)recv->disp + ep->u.endpoint.epoffset);
+        = (void *)((uint8_t *)recv->disp + ep->u.endpointlmp.epoffset);
 
     /* check delivered/consumed state */
-    uint32_t epbuflen = ep->u.endpoint.epbuflen;
+    uint32_t epbuflen = ep->u.endpointlmp.epbuflen;
     uint32_t pos = recv_ep->delivered;
     uint32_t consumed = recv_ep->consumed;
     if (pos >= epbuflen || consumed >= epbuflen) {
@@ -369,8 +369,8 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
                              bool captransfer, bool now)
 {
     assert(ep != NULL);
-    assert(ep->type == ObjType_EndPoint);
-    struct dcb *recv = ep->u.endpoint.listener;
+    assert(ep->type == ObjType_EndPointLMP);
+    struct dcb *recv = ep->u.endpointlmp.listener;
     assert(recv != NULL);
     assert(payload != NULL || payload_len == 0);
 
@@ -383,10 +383,10 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
 
     /* locate receiver's endpoint buffer */
     struct lmp_endpoint_kern *recv_ep
-        = (void *)((uint8_t *)recv->disp + ep->u.endpoint.epoffset);
+        = (void *)((uint8_t *)recv->disp + ep->u.endpointlmp.epoffset);
 
     /* read current pos and buflen */
-    uint32_t epbuflen = ep->u.endpoint.epbuflen;
+    uint32_t epbuflen = ep->u.endpointlmp.epbuflen;
     uint32_t pos = recv_ep->delivered;
 
     struct dispatcher_shared_generic *send_disp =
@@ -423,7 +423,7 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
     recv_disp->lmp_delivered += payload_len + LMP_RECV_HEADER_LENGTH;
 
     // ... and give it a hint which one to look at
-    recv_disp->lmp_hint = ep->u.endpoint.epoffset;
+    recv_disp->lmp_hint = ep->u.endpointlmp.epoffset;
 
     // Make target runnable
     make_runnable(recv);
@@ -449,8 +449,8 @@ errval_t lmp_deliver(struct capability *ep, struct dcb *send,
 {
     bool captransfer;
     assert(ep != NULL);
-    assert(ep->type == ObjType_EndPoint);
-    struct dcb *recv = ep->u.endpoint.listener;
+    assert(ep->type == ObjType_EndPointLMP);
+    struct dcb *recv = ep->u.endpointlmp.listener;
     assert(recv != NULL);
     assert(payload != NULL);
 

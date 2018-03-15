@@ -100,9 +100,9 @@ void dummy(void)
     DECL(DCB_RBED_NEXT, struct dcb, next);
 
     DECL(CAP_TYPE, struct capability, type);
-    DECL(CAP_ENDPOINT_EPOFFSET, struct capability, u.endpoint.epoffset);
-    DECL(CAP_ENDPOINT_EPBUFLEN, struct capability, u.endpoint.epbuflen);
-    DECL(CAP_ENDPOINT_LISTENER, struct capability, u.endpoint.listener);
+    DECL(CAP_ENDPOINT_EPOFFSET, struct capability, u.endpointlmp.epoffset);
+    DECL(CAP_ENDPOINT_EPBUFLEN, struct capability, u.endpointlmp.epbuflen);
+    DECL(CAP_ENDPOINT_LISTENER, struct capability, u.endpointlmp.listener);
 
     DECL(CAP_L1CNODE_CNODE, struct capability, u.l1cnode.cnode);
     DECL(CAP_L2CNODE_CNODE, struct capability, u.l2cnode.cnode);
@@ -166,7 +166,7 @@ void dummy(void)
     DECL(LMP_ENDPOINT_CONSUMED, struct lmp_endpoint_kern, consumed);
     DECL(LMP_ENDPOINT_KERNPART, struct lmp_endpoint, k);
 
-    EMIT(OBJTYPE_ENDPOINT, ObjType_EndPoint);
+    EMIT(OBJTYPE_ENDPOINT, ObjType_EndPointLMP);
     EMIT(OBJTYPE_L1CNODE, ObjType_L1CNode);
     EMIT(OBJTYPE_L2CNODE, ObjType_L2CNode);
 

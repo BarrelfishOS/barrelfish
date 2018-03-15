@@ -107,11 +107,11 @@ void kcb_update_core_id(struct kcb *kcb)
 
     for (int i = 0; i < NDISPATCH; i++) {
         struct capability *cap = &kcb->irq_dispatch[i].cap;
-        if (cap->type == ObjType_EndPoint) {
+        if (cap->type == ObjType_EndPointLMP) {
             printk(LOG_NOTE, "[irq] updating current core id to %d for %s\n",
-                    my_core_id, get_disp_name(cap->u.endpoint.listener));
+                    my_core_id, get_disp_name(cap->u.endpointlmp.listener));
             struct dispatcher_shared_generic *disp =
-                get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                get_dispatcher_shared_generic(cap->u.endpointlmp.listener->disp);
             disp->curr_core_id = my_core_id;
         }
     }
