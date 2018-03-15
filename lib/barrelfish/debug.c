@@ -26,9 +26,6 @@
 #include <inttypes.h>
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <stdio.h>
-#include "include/threads_priv.h"
-#include "../../build.x86_64/x86_64/include/barrelfish_kpi/capbits.h"
-#include "../../build.armv8/armv8/include/barrelfish_kpi/capbits.h"
 
 #define DISP_MEMORY_SIZE            1024 // size of memory dump in bytes
 
