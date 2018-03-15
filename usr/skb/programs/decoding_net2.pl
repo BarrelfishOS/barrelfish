@@ -115,8 +115,14 @@ to_name(Region,Name) :-
         address:Addr
     }.
 
+
+default_iaddr_constraint(Addr) :-
+    Addr #>= 0,
+    Addr #< 2147483648.
+
 %% Thes functions turn an IC constrained Addr to base/limit blocks
 iaddr_to_iblock_one(Addr, Block) :-
+    default_iaddr_constraint(Addr),
     get_bounds(Addr,Min,Max),
     Size is Max - Min + 1,
     ( get_domain_size(Addr,Size) ->
@@ -313,7 +319,7 @@ test_resolve2(Out) :-
 
 :- export test_resolve3/1.
 test_resolve3(Out) :-
-    %Setupa
+    %Setup
     assert(node_translate(
         ["In1"], [memory, [block{base:1000,limit:2000}]],
         ["Out1"], [memory, [block{base:0,limit:1000}]])),
@@ -323,7 +329,6 @@ test_resolve3(Out) :-
     assert(node_accept(["Out1"], [memory,[block{base:0, limit:2000}]])),
     InRegion = region{node_id:["In1"], blocks:[memory, [block{base:1000, limit:1500}]]},
     resolve(InRegion,Out).
-    
 
 %% Load a precompiled decoding net
 :- export load_net/1.
@@ -398,10 +403,23 @@ process_to_pci(ProcAddr, PCIAddr) :-
     resolve(name{node_id:PROC_ID, address: ProcAddr}, D),
     resolve(name{node_id:PCI_ID, address: PCIAddr}, D).
 
-
 :- export test_process_to_pci/1.
 test_process_to_pci(Out) :- 
     init, add_pci, add_process,
     process_to_pci([memory,[0]], Out).
 
 
+% Return a region accessible by both, PROC and PCI
+:- export common_dram/3.
+common_dram(DRAM, PROC_RANGE, PCI_RANGE) :- 
+    PROC_ID = ["OUT", "PROC0", "PROC0"],
+    PCI_ID = ["OUT", "PCI0"],
+    PROC_RANGE = region{node_id: PROC_ID, blocks: [memory, [block{base:0,limit:1000}]]},
+    %PCI_RANGE = region{node_id: PCI_ID, blocks: [memory, [block{base:0,limit:1000}]]},
+    resolve(PROC_RANGE, DRAM),
+    resolve(PCI_RANGE, DRAM).
+
+:- export test_common_dram/3.
+test_common_dram(A,B,C) :-
+    init, add_pci, add_process,
+    common_dram(A,B,C).
