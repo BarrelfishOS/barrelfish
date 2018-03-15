@@ -176,7 +176,7 @@ static errval_t spawn_client(char *name, coreid_t core, void *st)
 
     struct capref argcn;
     struct cnoderef argcnref;
-    err = cnode_create(&argcn, &argcnref, 1, NULL);
+    err = cnode_create_l2(&argcn, &argcnref);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to create the argcn");
         return err;
@@ -253,13 +253,10 @@ int main(int argc, char *argv[])
 {
     errval_t err;
 
-    if (argc > 1) {
+    if (argc == 2 && strcmp(argv[1], "client") == 0) {
         start_client();
-    } else if (argc == 2 && strcmp(argv[1], "server") == 0) {
+    }  else {
         start_server(argv[0]);
-    } else {
-        printf("Usage: %s [client]\n", argv[0]);
-        return EXIT_FAILURE;
     }
 
     struct waitset *ws = get_default_waitset();
