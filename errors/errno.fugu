@@ -862,6 +862,8 @@ errors pci PCI_ERR_ {
     failure MSIX_NOTSUP         "MSI-X is not sypported by the device",
     failure MSIX_BADVECTOR      "Invalid index for MSI-X vector",
     failure MSIX_DISABLED       "MSI-X is not enabled for this device",
+    failure SRIOV_NOT_SUPPORTED "SR-IOV not supported by this device",
+    failure SRIOV_MAX_VF        "SR-IOV trying to enable VF number larger than max supported",
     failure ARG_PARSE           "PCI argument parse",
     failure NO_CAP              "No capability given",
 };

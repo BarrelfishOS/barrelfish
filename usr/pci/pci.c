@@ -509,6 +509,341 @@ void pci_enable_interrupt_for_device(uint32_t bus, uint32_t dev, uint32_t fun,
     pci_hdr0_command_wr(&hdr, cmd);
 }
 
+static bool device_exists_pcie(struct pci_address* addr)
+{
+    pci_hdr0_t hdr;
+    pci_hdr0_initialize(&hdr, *addr);
+
+    pcie_enable();
+    uint16_t pcie_vendor = pci_hdr0_vendor_id_rd(&hdr);
+
+    if (pcie_vendor == 0xffff) {
+        if (addr->function == 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool check_extendned_caps_for_sriov(struct pci_address* addr, 
+                                           pci_sr_iov_cap_t* ret_sr_iov_cap)
+{
+    pci_hdr0_t devhdr;
+    pci_hdr0_initialize(&devhdr, *addr);
+
+    bool extended_caps = false;
+    
+    pcie_enable();
+
+    // Process device capabilities if existing
+    if (pci_hdr0_status_rd(&devhdr).caplist) {
+        uint8_t cap_ptr = pci_hdr0_cap_ptr_rd(&devhdr);
+
+        // Walk capabilities list
+        while (cap_ptr != 0) {
+            assert(cap_ptr % 4 == 0 && cap_ptr >= 0x40);
+            uint32_t capword = pci_read_conf_header(addr,
+                                                    cap_ptr / 4);
+
+            switch (capword & 0xff) {
+                case 0x10:	// PCI Express
+                    PCI_DEBUG("PCI Express device\n");
+                    extended_caps = true;
+                    break;
+
+                default:
+                    break;
+            }
+
+            cap_ptr = (capword >> 8) & 0xff;
+        }   
+    } else {
+        return false;
+    }   
+
+    // Process extended device capabilities if existing
+    if (extended_caps && addr->bus < pcie_get_endbus()) {
+        uint32_t *ad_int = (uint32_t *) pcie_confspace_access(*addr);
+        assert(ad_int != NULL);
+        uint16_t cap_ptr = 0x100;
+
+        while (cap_ptr != 0) {
+            uint32_t capword = *(ad_int + (cap_ptr / 4));
+            assert(cap_ptr % 4 == 0 && cap_ptr >= 0x100
+                   && cap_ptr < 0x1000);
+
+            switch (capword & 0xffff) {  // Switch on capability ID
+                case 0:
+                    // No extended caps
+                    break;
+
+                case 16: // SR-IOV
+                    pci_sr_iov_cap_initialize(ret_sr_iov_cap,
+                                    (mackerel_addr_t) (ad_int + (cap_ptr / 4)));
+                    return true;
+            }
+
+            cap_ptr = capword >> 20;
+        }
+    }
+    return false;
+}
+
+static void pci_enable_vfs(struct pci_address* addr, 
+                           pci_sr_iov_cap_t* sr_iov_cap)
+{
+    pcie_enable();
+    PCI_DEBUG("Enable Virtual Function for device bus=%d, device=%d, function %d\n",
+              addr->bus, addr->device, addr->function);
+
+    // Support version 1 for the moment
+    assert(pci_sr_iov_cap_hdr_ver_rdf(sr_iov_cap) == 1);
+
+    // Support system page size of 4K at the moment
+    assert(pci_sr_iov_cap_sys_psize_rd(sr_iov_cap) == 1);
+
+    // Set maximum number of VFs (Has to be done before enabling)
+    uint16_t totalvfs = pci_sr_iov_cap_totalvfs_rd(sr_iov_cap);
+    pci_sr_iov_cap_numvfs_wr(sr_iov_cap, MIN(max_numvfs, totalvfs));
+
+    // Start VFs (including memory spaces)
+    pci_sr_iov_cap_ctrl_vf_mse_wrf(sr_iov_cap, 1);
+    pci_sr_iov_cap_ctrl_vf_enable_wrf(sr_iov_cap, 1);
+
+    // Spec says to wait here for at least 100ms
+    errval_t err = barrelfish_usleep(100000);
+    assert(err_is_ok(err));
+}
+static void pci_add_vf_bars_to_skb(struct pci_address* vf_addr, uint32_t vfn,
+                                   pci_sr_iov_cap_t* sr_iov_cap)
+
+{
+    pcie_enable();
+    pci_hdr0_bar32_t bar, barorigaddr;
+    for (int i = 0; i < pci_sr_iov_cap_vf_bar_length; i++) {
+        union pci_hdr0_bar32_un orig_value;
+        orig_value.raw = pci_sr_iov_cap_vf_bar_rd(sr_iov_cap, i);
+        barorigaddr = orig_value.val;
+        // probe BAR to see if it is implemented
+        pci_sr_iov_cap_vf_bar_wr(sr_iov_cap, i, BAR_PROBE);
+
+        union pci_hdr0_bar32_un bar_value;
+        bar_value.raw = pci_sr_iov_cap_vf_bar_rd(sr_iov_cap, i);
+        bar = (union pci_hdr0_bar32_un ) {
+                    .raw =bar_value.raw
+               }.val;
+
+        //write original value back to the BAR
+        pci_sr_iov_cap_vf_bar_wr(sr_iov_cap,
+                                 i, orig_value.raw);
+
+        /*
+         * We need to check the entire register
+         * here to make sure the bar is not
+         * implemented as it could lie in the
+         * high 64 bit range...
+         */
+        if (bar_value.raw == 0) {
+            // BAR not implemented
+            continue;
+        }
+
+        // SR-IOV doesn't support IO space BARs
+        assert(bar.space == 0);
+        int type = -1;
+        if (bar.tpe == pci_hdr0_bar_32bit) {
+            type = 32;
+        }
+        if (bar.tpe == pci_hdr0_bar_64bit) {
+            type = 64;
+        }
+
+        if (bar.tpe == pci_hdr0_bar_64bit) {
+
+            //we must take the next BAR into account and do the same
+            //tests like in the 32bit case, but this time with the combined
+            //value from the current and the next BAR, since a 64bit BAR
+            //is constructed out of two consequtive 32bit BARs
+
+            //read the upper 32bits of the address
+            uint32_t orig_value_high = pci_sr_iov_cap_vf_bar_rd(sr_iov_cap, i + 1);
+
+            // probe BAR to determine the mapping size
+            pci_sr_iov_cap_vf_bar_wr(sr_iov_cap, i + 1, BAR_PROBE);
+
+            // read the size information of the bar
+            uint32_t bar_value_high = pci_sr_iov_cap_vf_bar_rd(sr_iov_cap, i + 1);
+
+            //write original value back to the BAR
+            pci_sr_iov_cap_vf_bar_wr(sr_iov_cap, i + 1, orig_value_high);
+
+            pciaddr_t base64 = 0, origbase64 = 0;
+            base64 = bar_value_high;
+            base64 <<= 32;
+            base64 |= (uint32_t) (bar.base << 7);
+
+            origbase64 = orig_value_high;
+            origbase64 <<= 32;
+            origbase64 |= (uint32_t) (barorigaddr.base << 7);
+
+            PCI_DEBUG("(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %"
+                      PRIx64 ", %s\n", vf_addr->bus, vf_addr->device, 
+                      vf_addr->function, i, 
+                      origbase64 + bar_mapping_size64(base64)*vfn, 
+                      bar_mapping_size64(base64),
+                      (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
+
+            skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
+                         "16'%" PRIx64 ", mem, %s, %d).", vf_addr->bus,
+                         vf_addr->device, vf_addr->function, i, 
+                         origbase64 + bar_mapping_size64(base64)*vfn,
+                         bar_mapping_size64(base64),
+                         (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
+                         type);
+
+            i++;  //step one forward, because it is a 64bit BAR
+        } else {
+            PCI_DEBUG("(%u,%u,%u): 32bit BAR %d at 0x%" PRIx32 ", size %x, %s\n",
+                      vf_addr->bus, vf_addr->device, vf_addr->function, i,
+                      (barorigaddr.base << 7) + bar_mapping_size(bar) * vfn,
+                      bar_mapping_size(bar),
+                      (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
+
+            //32bit BAR
+            skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%"
+                         PRIx32 ", vf, %s, %d).", vf_addr->bus,
+                         vf_addr->device, vf_addr->function, i,
+                         (uint32_t) ((barorigaddr.base << 7)
+                                     + bar_mapping_size( bar) * vfn),
+                         (uint32_t) bar_mapping_size(bar),
+                         (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
+                         type);
+        }
+    }
+}
+
+static errval_t pci_add_vf_to_skb(struct pci_address* addr,
+                                  uint32_t vf_number, pci_sr_iov_cap_t* sr_iov_cap, 
+                                  struct pci_address* vf_addr)
+{
+    errval_t err;
+
+    uint16_t offset = pci_sr_iov_cap_offset_rd(sr_iov_cap);
+    uint16_t stride = pci_sr_iov_cap_stride_rd(sr_iov_cap);
+    uint16_t vf_devid = pci_sr_iov_cap_devid_rd(sr_iov_cap);
+
+    PCI_DEBUG("VF offset is 0x%x, stride is 0x%x, "
+              "device ID is 0x%x\n",
+              offset, stride, vf_devid);
+
+    uint8_t busnr = addr->bus + ((((addr->device << 3)
+                             + addr->function)
+                             + offset
+                             + stride * vf_number)
+                             >> 8);
+    uint8_t devfn = (((addr->device << 3)
+                    + addr->function)
+                    + offset
+                    + stride * vf_number)
+                    & 0xff;
+
+    vf_addr->bus = busnr;
+    vf_addr->device= devfn >> 3;
+    vf_addr->function = devfn & 7;
+
+    // PCI header (classcode)
+    pci_hdr0_t devhdr;
+    pci_hdr0_initialize(&devhdr, *addr);
+    
+    pci_hdr0_class_code_t classcode = pci_hdr0_class_code_rd(&devhdr);
+    uint32_t vendor = pci_hdr0_vendor_id_rd(&devhdr);
+    
+
+    PCI_DEBUG("Adding VF (%u, %u, %u)\n",
+              vf_addr->bus, vf_addr->device,
+              vf_addr->function);
+
+    skb_add_fact("device(pcie,addr(%u,%u,%u),%u,%u,%u, %u, %u, %d).",
+                 vf_addr->bus,
+                 vf_addr->device,
+                 vf_addr->function, vendor,
+                 vf_devid, classcode.clss,
+                 classcode.subclss,
+                 classcode.prog_if, 0);
+
+    // octopus start
+    char* device_fmt ="hw.pci.device. { "
+                 "bus: %u, device: %u, function: %u, "
+                 "vendor: %u, device_id: %u, class: %u, "
+                 "subclass: %u, prog_if: %u }";
+    err = oct_mset(SET_SEQUENTIAL,
+                   device_fmt,
+                   vf_addr->bus,
+                   vf_addr->device,
+                   vf_addr->function,
+                   vendor, vf_devid,
+                   classcode.clss,
+                   classcode.subclss,
+                   classcode.prog_if);
+    return err;
+}
+
+static errval_t pci_get_max_vfs_for_device(struct pci_address* addr,
+                                           uint32_t* max_vfs)
+{
+    // PCIE always enable for SRIOV
+    pcie_enable();
+
+    // Check if device exists
+    if(!device_exists_pcie(addr)) {
+        return PCI_ERR_SRIOV_NOT_SUPPORTED;
+    }
+    // Check if SR-IOV capable
+    pci_sr_iov_cap_t sr_iov_cap;
+    if (!check_extendned_caps_for_sriov(addr, &sr_iov_cap)) {
+        return PCI_ERR_SRIOV_NOT_SUPPORTED;
+    }
+    
+    *max_vfs = pci_sr_iov_cap_totalvfs_rd(&sr_iov_cap);
+    return SYS_ERR_OK;
+}
+
+static errval_t pci_setup_virtual_function_for_device(struct pci_address* addr,
+                                                      uint32_t vf_number)
+{
+    // PCIE always enable for SRIOV
+    pcie_enable();
+
+    // Check if device exists
+    if(!device_exists_pcie(addr)) {
+        return PCI_ERR_SRIOV_NOT_SUPPORTED;
+    }
+
+    // Check if SR-IOV capable
+    pci_sr_iov_cap_t sr_iov_cap;
+    if (!check_extendned_caps_for_sriov(addr, &sr_iov_cap)) {
+        return PCI_ERR_SRIOV_NOT_SUPPORTED;
+    }
+
+    uint16_t totalvfs = pci_sr_iov_cap_totalvfs_rd(&sr_iov_cap);
+    if (vf_number >= MIN(totalvfs, max_numvfs))   {
+        PCI_DEBUG("Not Enabling VF %d for device (bus=%d, device=%d, function=%d) \n",
+                  vf_number, addr->bus, addr->device, addr->function);
+        return PCI_ERR_SRIOV_MAX_VF;
+    }
+
+    struct pci_address vf_addr;
+
+    errval_t err = pci_add_vf_to_skb(addr, vf_number, &sr_iov_cap, &vf_addr);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    pci_add_vf_bars_to_skb(&vf_addr, vf_number, &sr_iov_cap);
+
+    return SYS_ERR_OK;
+}
+
 /**
  * This function performs a recursive, depth-first search through the
  * PCI hierarchy starting at parentaddr (this should initially be a
@@ -770,252 +1105,29 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                 break;
 
                             case 16:
-                                // SR-IOV capability
-                                {
-                                /*
-                                 * XXX: When using our e1000 driver with the
-                                 *      I350 network card (device id 0x152x),
-                                 *      the configuration fails when VF are
-                                 *      enabled: Legacy descriptors are ignored
-                                 *      when VF are enabled. Same goes for e10k
-                                 */
                                 if (vendor == 0x8086 && (device_id & 0xFFF0) == 0x1520) {
                                     debug_printf("skipping SR IOV initialization"
                                                     "for e1000 card.\n");
                                     break;
                                 }
-
-                                /*
-                                if (vendor == 0x8086 && (device_id  == 0x10FB)) {
-                                    debug_printf("skipping SR IOV initialization"
-                                                    "for e10k card.\n");
-                                    break;
-                                }
-
-                                */
+                                
                                 pci_sr_iov_cap_t sr_iov_cap;
                                 pci_sr_iov_cap_initialize(&sr_iov_cap,
-                                     (mackerel_addr_t) (ad + (cap_ptr / 4)));
+                                       (mackerel_addr_t) (ad + (cap_ptr / 4)));
 
-                                PCI_DEBUG("Found SR-IOV capability\n");
+                                pci_enable_vfs(&addr, &sr_iov_cap);
 
-                                // Support version 1 for the moment
-                                assert(pci_sr_iov_cap_hdr_ver_rdf(&sr_iov_cap) == 1);
+                                uint32_t total_vfs;
+                                err = pci_get_max_vfs_for_device(&addr, &total_vfs);
+                                assert(err_is_ok(err));
 
-                                // Support system page size of 4K at the moment
-                                assert(pci_sr_iov_cap_sys_psize_rd(&sr_iov_cap)
-                                       == 1);
-
-#if 0	// Dump cap contents
-                                char str[256];
-                                pci_sr_iov_cap_caps_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-                                pci_sr_iov_cap_ctrl_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-                                pci_sr_iov_cap_status_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-                                pci_sr_iov_cap_initialvfs_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-                                pci_sr_iov_cap_totalvfs_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-                                pci_sr_iov_cap_numvfs_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-                                pci_sr_iov_cap_fdl_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-                                pci_sr_iov_cap_offset_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-                                pci_sr_iov_cap_stride_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-                                pci_sr_iov_cap_devid_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-                                pci_sr_iov_cap_sup_psize_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-                                pci_sr_iov_cap_sys_psize_pr(str, 256, &sr_iov_cap);
-                                printf("%s\n", str);
-#endif
-
-                                if (max_numvfs > 0) {
-                                    // Set maximum number of VFs
-                                    uint16_t totalvfs = pci_sr_iov_cap_totalvfs_rd( &sr_iov_cap);
-                                    uint16_t numvfs = MIN(totalvfs, max_numvfs);
-                                    //			uint16_t numvfs = 8;
-                                    PCI_DEBUG("Maximum supported VFs: %u. Enabling: %u\n",
-                                              totalvfs, numvfs);
-                                    pci_sr_iov_cap_numvfs_wr(&sr_iov_cap, numvfs);
-
-                                    uint16_t offset = pci_sr_iov_cap_offset_rd(&sr_iov_cap);
-                                    uint16_t stride = pci_sr_iov_cap_stride_rd(&sr_iov_cap);
-                                    uint16_t vf_devid = pci_sr_iov_cap_devid_rd(&sr_iov_cap);
-
-                                    PCI_DEBUG("VF offset is 0x%x, stride is 0x%x, "
-                                              "device ID is 0x%x\n",
-                                              offset, stride, vf_devid);
-
-                                    // Start VFs (including memory spaces)
-                                    pci_sr_iov_cap_ctrl_vf_mse_wrf(&sr_iov_cap, 1);
-                                    pci_sr_iov_cap_ctrl_vf_enable_wrf(&sr_iov_cap, 1);
-
-                                    // Spec says to wait here for at least 100ms
-                                    err = barrelfish_usleep(100000);
-                                    assert(err_is_ok(err));
-
-                                    // Add all VFs
-                                    for (int vfn = 0; vfn < numvfs; vfn++) {
-                                        uint8_t busnr = addr.bus + ((((addr.device << 3)
-                                                                 + addr.function)
-                                                                 + offset
-                                                                 + stride * vfn)
-                                                                 >> 8);
-                                        uint8_t devfn = (((addr.device << 3)
-                                                        + addr.function)
-                                                        + offset
-                                                        + stride * vfn)
-                                                        & 0xff;
-                                        struct pci_address vf_addr = {
-                                            .bus = busnr,
-                                            .device = devfn >> 3,
-                                            .function = devfn & 7,
-                                        };
-
-                                        PCI_DEBUG("Adding VF (%u, %u, %u)\n",
-                                                  vf_addr.bus, vf_addr.device,
-                                                  vf_addr.function);
-
-                                        skb_add_fact("device(%s,addr(%u,%u,%u),%u,%u,%u, %u, %u, %d).",
-                                                     (pcie ? "pcie" : "pci"),
-                                                     vf_addr.bus,
-                                                     vf_addr.device,
-                                                     vf_addr.function, vendor,
-                                                     vf_devid, classcode.clss,
-                                                     classcode.subclss,
-                                                     classcode.prog_if, 0);
-
-                                        // octopus start
-                                        device_fmt ="hw.pci.device. { "
-                                                     "bus: %u, device: %u, function: %u, "
-                                                     "vendor: %u, device_id: %u, class: %u, "
-                                                     "subclass: %u, prog_if: %u }";
-                                        err = oct_mset(SET_SEQUENTIAL,
-                                                       device_fmt,
-                                                       vf_addr.bus,
-                                                       vf_addr.device,
-                                                       vf_addr.function,
-                                                       vendor, vf_devid,
-                                                       classcode.clss,
-                                                       classcode.subclss,
-                                                       classcode.prog_if);
-
-                                        assert(err_is_ok(err));
-                                        // end octopus
-
-                                        // We probe the BARs several times. Strictly
-                                        // speaking, this is not necessary, as we
-                                        // can calculate all offsets, but we're
-                                        // lazy...
-                                        pci_hdr0_bar32_t bar, barorigaddr;
-                                        for (int i = 0; i < pci_sr_iov_cap_vf_bar_length; i++) {
-                                            union pci_hdr0_bar32_un orig_value;
-                                            orig_value.raw = pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap, i);
-                                            barorigaddr = orig_value.val;
-                                            // probe BAR to see if it is implemented
-                                            pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap, i, BAR_PROBE);
-
-                                            union pci_hdr0_bar32_un bar_value;
-                                            bar_value.raw = pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap, i);
-                                            bar = (union pci_hdr0_bar32_un ) {
-                                                        .raw =bar_value.raw
-                                                   }.val;
-
-                                            //write original value back to the BAR
-                                            pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap,
-                                                                 i, orig_value.raw);
-
-                                            /*
-                                             * We need to check the entire register
-                                             * here to make sure the bar is not
-                                             * implemented as it could lie in the
-                                             * high 64 bit range...
-                                             */
-                                            if (bar_value.raw == 0) {
-                                                // BAR not implemented
-                                                continue;
-                                            }
-
-                                            // SR-IOV doesn't support IO space BARs
-                                            assert(bar.space == 0);
-                                            int type = -1;
-                                            if (bar.tpe == pci_hdr0_bar_32bit) {
-                                                type = 32;
-                                            }
-                                            if (bar.tpe == pci_hdr0_bar_64bit) {
-                                                type = 64;
-                                            }
-
-                                            if (bar.tpe == pci_hdr0_bar_64bit) {
-
-                                                //we must take the next BAR into account and do the same
-                                                //tests like in the 32bit case, but this time with the combined
-                                                //value from the current and the next BAR, since a 64bit BAR
-                                                //is constructed out of two consequtive 32bit BARs
-
-                                                //read the upper 32bits of the address
-                                                uint32_t orig_value_high = pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap, i + 1);
-
-                                                // probe BAR to determine the mapping size
-                                                pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap, i + 1, BAR_PROBE);
-
-                                                // read the size information of the bar
-                                                uint32_t bar_value_high = pci_sr_iov_cap_vf_bar_rd(&sr_iov_cap, i + 1);
-
-                                                //write original value back to the BAR
-                                                pci_sr_iov_cap_vf_bar_wr(&sr_iov_cap, i + 1, orig_value_high);
-
-                                                pciaddr_t base64 = 0, origbase64 = 0;
-                                                base64 = bar_value_high;
-                                                base64 <<= 32;
-                                                base64 |= (uint32_t) (bar.base << 7);
-
-                                                origbase64 = orig_value_high;
-                                                origbase64 <<= 32;
-                                                origbase64 |= (uint32_t) (barorigaddr.base << 7);
-
-                                                PCI_DEBUG("(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %"
-                                                          PRIx64 ", %s\n", vf_addr.bus, vf_addr.device, 
-                                                          vf_addr.function, i, 
-                                                          origbase64 + bar_mapping_size64(base64)*vfn, 
-                                                          bar_mapping_size64(base64),
-                                                          (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
-
-                                                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
-                                                             "16'%" PRIx64 ", mem, %s, %d).", vf_addr.bus,
-                                                             vf_addr.device, vf_addr.function, i, 
-                                                             origbase64 + bar_mapping_size64(base64)*vfn,
-                                                             bar_mapping_size64(base64),
-                                                             (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
-                                                             type);
-
-                                                i++;  //step one forward, because it is a 64bit BAR
-                                            } else {
-                                                PCI_DEBUG("(%u,%u,%u): 32bit BAR %d at 0x%" PRIx32 ", size %x, %s\n",
-                                                          vf_addr.bus, vf_addr.device, vf_addr.function, i,
-                                                          (barorigaddr.base << 7) + bar_mapping_size(bar) * vfn,
-                                                          bar_mapping_size(bar),
-                                                          (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
-
-                                                //32bit BAR
-                                                skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%"
-                                                             PRIx32 ", vf, %s, %d).", vf_addr.bus,
-                                                             vf_addr.device, vf_addr.function, i,
-                                                             (uint32_t) ((barorigaddr.base << 7)
-                                                                         + bar_mapping_size( bar) * vfn),
-                                                             (uint32_t) bar_mapping_size(bar),
-                                                             (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
-                                                             type);
-                                            }
-                                        }
-                                    }
+                                debug_printf("Enabling %d of %d Virtual Functions for device" 
+                                             "(bus=%d, device=%d, function=%d)\n", 
+                                             max_numvfs, total_vfs, addr.bus, addr.device, addr.function);
+                                for(int i = 0; i < total_vfs; i++) {
+                                    err = pci_setup_virtual_function_for_device(&addr, i);
                                 }
-                            }
+
                                 break;
 
                             default:
