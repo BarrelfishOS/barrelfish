@@ -17,7 +17,7 @@ import Data.Char
 
 import qualified CAbsSyntax as C
 import Syntax
-import GHBackend (flounder_backends, export_fn_name, bind_fn_name, accept_fn_name, connect_fn_name, connect_handlers_fn_name, disconnect_handlers_fn_name, rpc_tx_vtbl_type, rpc_init_fn_name)
+import GHBackend (flounder_backends, export_fn_name, bind_fn_name, accept_fn_name, connect_fn_name, connect_handlers_fn_name, disconnect_handlers_fn_name, rpc_tx_vtbl_type, rpc_init_fn_name, ep_create_fn_name, ep_bind_fn_name, ep_create_function_params, ep_bind_function_params)
 import qualified Backend
 import BackendCommon
 import LMP (lmp_bind_type, lmp_bind_fn_name)
@@ -76,7 +76,11 @@ stub_body infile (Interface ifn descr decls) = C.UnitList [
     bind_cont_def ifn (bind_cont_name ifn) (bind_backends ifn (bind_cont_name ifn)),
     bind_cont_def ifn (bind_cont_name2 ifn) (multihop_bind_backends ifn (bind_cont_name2 ifn)),
     bind_fn_def ifn,
-    connect_fn_def ifn]
+    connect_fn_def ifn,
+    C.MultiComment [ "Create / Connect to endpoint Functions" ],
+    ep_create_fn_def ifn,
+    ep_bind_fn_def ifn
+    ]
 
 
 compile_message_handlers :: String -> String -> Interface -> String
@@ -115,10 +119,10 @@ stub_body_message_handlers infile (Interface ifn descr decls) = C.UnitList [
     C.MultiComment [ "RPC Vtable" ],
     rpc_vtbl ifn rpcs,
     local_rpc_vtbl ifn rpcs,
-        
+
     C.MultiComment [ "RPC init function" ],
     rpc_init_fn ifn rpcs,
-        
+
     C.Blank]
 
     where
@@ -312,6 +316,66 @@ connect_fn_def n =
                    C.Param (C.Ptr $ C.TypeName "void") "st",
                    C.Param (C.Ptr $ C.Struct "waitset") "ws",
                    C.Param (C.TypeName "idc_bind_flags_t") "flags"]
+
+
+ep_create_fn_def :: String -> C.Unit
+ep_create_fn_def n =
+   C.FunctionDef C.NoScope (C.TypeName "errval_t") (ep_create_fn_name n) params [
+        C.VarDecl C.NoScope C.NonConst  (C.TypeName "errval_t") "err" Nothing,
+        C.VarDecl C.NoScope C.NonConst  (C.Struct "capref") "mem" Nothing,
+        C.Switch (C.Variable "type") [
+            C.Case (C.Variable "IDC_ENDPOINT_LMP") [
+                C.SComment "Allocate Local Endpoint",
+
+                C.SComment "Call LMP endpoint create handler",
+                C.Return $ C.Call lmpcreate [
+                    C.Variable "rx_vtbl",
+                    C.Variable "st",
+                    C.Variable "ws",
+                    C.Variable "flags",
+                    C.Variable "binding",
+                    C.Variable "ret_ep"
+                    ]
+            ],
+            C.Case (C.Variable "IDC_ENDPOINT_UMP") [
+                C.SComment "Allocate Frame for UMP",
+                C.Ex $ C.Assignment (C.Variable "err") (C.Call "frame_alloc" [
+                    C.AddressOf $ C.Variable "mem",
+                    C.Variable "BASE_PAGE_SIZE",
+                    C.Variable "NULL"
+                ]),
+                C.If (C.Call "err_is_fail" [C.Variable "err"]) [
+                    C.Return $ C.Variable "err"
+                ] [],
+                C.SComment "Call UMP endpoint create handler",
+                C.Return $ C.Call umpcreate [
+                    C.Variable "rx_vtbl",
+                    C.Variable "st",
+                    C.Variable "ws",
+                    C.Variable "flags",
+                    C.Variable "mem",
+                    C.Variable "binding",
+                    C.Variable "ret_ep"
+                ]
+            ]
+        ] defaultcase
+   ]
+   where
+       defaultcase = [C.Return $ C.Variable "LIB_ERR_NOT_IMPLEMENTED "]
+       params = ep_create_function_params n
+       lmpcreate = ifscope n "lmp_create_endpoint"
+       umpcreate = ifscope n "ump_create_endpoint"
+
+
+ep_bind_fn_def :: String -> C.Unit
+ep_bind_fn_def n =
+  C.FunctionDef C.NoScope (C.TypeName "errval_t") (ep_bind_fn_name n) params [
+       C.StmtList [
+           C.Return $ C.Variable "ERR_NOTIMP"
+      ]
+  ]
+  where
+      params = ep_bind_function_params n
 
 
 -- bind continuation function

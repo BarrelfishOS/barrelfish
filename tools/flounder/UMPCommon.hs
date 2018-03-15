@@ -85,6 +85,10 @@ my_bindvar = C.Variable my_bind_var_name
 -- Name of the bind function
 bind_fn_name p n = ump_ifscope p n "bind"
 
+-- Names of the endpoint create/bind function
+ump_ep_create_fn_name p n = ump_ifscope p n "create_endpoint"
+ump_ep_bind_fn_name p n = ump_ifscope p n "bind_to_endpoint"
+
 -- Name of the tx_bind_msg function
 tx_bind_msg_fn_name p n = ump_ifscope p n "tx_bind_msg"
 
@@ -166,6 +170,8 @@ header_body p infile interface@(Interface name descr decls) = [
     rx_handler_proto p name,
     accept_function_proto p name,
     connect_function_proto p name,
+    ump_ep_create_function_proto p name,
+    ump_ep_bind_function_proto p name,
     C.UnitList $ ump_extra_protos p name,
     C.Blank
     ]
@@ -224,6 +230,35 @@ bind_params p n = [ C.Param (C.Ptr $ C.Struct (my_bind_type p n)) "b",
                  C.Param (C.TypeName "idc_bind_flags_t") "flags",
                  C.Param (C.TypeName "size_t") "inchanlen",
                  C.Param (C.TypeName "size_t") "outchanlen" ]
+
+
+ump_ep_bind_params p n = [C.Param  C.Void ""]
+
+ump_ep_bind_function_proto :: UMPParams -> String -> C.Unit
+ump_ep_bind_function_proto p n =
+    C.GVarDecl C.Extern C.NonConst
+        (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
+    where
+        name = ump_ep_bind_fn_name p n
+        params = ump_ep_bind_params p n
+
+ump_ep_create_params p n = [
+    C.Param (C.Ptr $ C.Struct $ intf_vtbl_type n RX) "rx_vtbl",
+    C.Param (C.Ptr $ C.TypeName "void") "st",
+    C.Param (C.Ptr $ C.Struct "waitset") "ws",
+    C.Param (C.TypeName "idc_endpoint_flags_t") "flags",
+    C.Param (C.Struct "capref") "mem",
+    C.Param (C.Ptr $ C.Ptr $ C.Struct $ intf_bind_type n) "binding",
+    C.Param (C.Ptr $ C.Struct "capref") "ret_ep" ]
+
+ump_ep_create_function_proto :: UMPParams -> String -> C.Unit
+ump_ep_create_function_proto p n =
+    C.GVarDecl C.Extern C.NonConst
+        (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
+    where
+        name = ump_ep_create_fn_name p n
+        params = ump_ep_create_params p n
+
 
 connect_handler_proto :: UMPParams -> String -> C.Unit
 connect_handler_proto p ifn = C.GVarDecl C.Extern C.NonConst
@@ -338,6 +373,11 @@ stub_body p infile intf@(Interface ifn descr decls) = C.UnitList [
       C.UnitList $ ump_extra_fns p ifn,
       new_monitor_cont_fn p ifn,
       bind_fn p ifn,
+      C.Blank,
+
+      C.MultiComment [ "Endpoint Creation and binding" ],
+      ump_ep_bind_fn p ifn,
+      ump_ep_create_fn p ifn,
       C.Blank,
 
       C.MultiComment [ "Connect callback for export" ],
@@ -571,6 +611,27 @@ bind_fn p ifn =
       intf_bind_var = C.DerefField my_bindvar "b"
       common_field f = intf_bind_var `C.FieldOf` f
       receiving_chanstate = my_bindvar `C.DerefField` "b" `C.FieldOf` "receiving_chanstate"
+
+
+
+ump_ep_create_fn :: UMPParams -> String -> C.Unit
+ump_ep_create_fn p n =
+    C.FunctionDef C.NoScope (C.TypeName "errval_t") name params [
+        C.Return $ C.Variable "LIB_ERR_NOT_IMPLEMENTED"
+    ]
+    where
+        name = ump_ep_create_fn_name p n
+        params = ump_ep_create_params p n
+
+
+ump_ep_bind_fn :: UMPParams -> String -> C.Unit
+ump_ep_bind_fn p n =
+    C.FunctionDef C.NoScope (C.TypeName "errval_t") name params [
+        C.Return $ C.Variable "LIB_ERR_NOT_IMPLEMENTED"
+    ]
+    where
+        name = ump_ep_bind_fn_name p n
+        params = ump_ep_bind_params p n
 
 
 new_monitor_cont_fn :: UMPParams -> String -> C.Unit

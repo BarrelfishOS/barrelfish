@@ -23,6 +23,9 @@ import BackendCommon
 
 accept_fn_name n = ifscope n "accept"
 connect_fn_name n = ifscope n "connect"
+ep_create_fn_name n = ifscope n "create_endpoint"
+ep_bind_fn_name n = ifscope n "bind_to_endpoint"
+
 
 export_fn_name n = ifscope n "export"
 bind_fn_name n = ifscope n "bind"
@@ -147,7 +150,7 @@ intf_header_body infile interface@(Interface name descr decls) =
         C.MultiComment [ "VTable struct definition for the rpc interface (transmit)" ],
         rpc_tx_vtbl_decl name rpcs,
         C.Blank,
-        
+
         C.MultiComment [ "Incoming connect callback type" ],
         connect_callback_fn name,
         C.Blank,
@@ -180,6 +183,15 @@ intf_header_body infile interface@(Interface name descr decls) =
         connect_function name,
         C.Blank,
 
+        C.MultiComment [ "Create Endpoint Function" ],
+        ep_create_function name,
+        C.Blank,
+
+        C.MultiComment [ "Bind to endpoint" ],
+        ep_bind_function name,
+        C.Blank,
+
+
         C.MultiComment [ "Send wrappers" ],
         C.UnitList [ tx_wrapper name m | m <- messages ],
         C.Blank,
@@ -189,7 +201,7 @@ intf_header_body infile interface@(Interface name descr decls) =
 
         C.MultiComment [ "Function to initialise an RPC client" ],
         rpc_init_fn_proto name,
-        
+
         C.MultiComment [ "And we're done" ]
       ]
 
@@ -573,6 +585,42 @@ connect_function n =
                  C.Param (C.Ptr $ C.TypeName "void") "st",
                  C.Param (C.Ptr $ C.Struct "waitset") "ws",
                  C.Param (C.TypeName "idc_bind_flags_t") "flags" ]
+
+
+ep_create_function_params :: String -> [C.Param]
+ep_create_function_params n = [C.Param (C.TypeName "idc_endpoint_t") "type",
+          C.Param (C.Ptr $ C.Struct $ intf_vtbl_type n RX) "rx_vtbl",
+          C.Param (C.Ptr $ C.TypeName "void") "st",
+          C.Param (C.Ptr $ C.Struct "waitset") "ws",
+          C.Param (C.TypeName "idc_endpoint_flags_t") "flags",
+          C.Param (C.Ptr $ C.Ptr $ C.Struct $ intf_bind_type n) "binding",
+          C.Param (C.Ptr $ C.Struct "capref") "ret_ep" ]
+
+ep_create_function :: String -> C.Unit
+ep_create_function n =
+       C.GVarDecl C.Extern C.NonConst
+      (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
+    where
+        name = ep_create_fn_name n
+        params = ep_create_function_params n
+
+ep_bind_function_params :: String -> [C.Param]
+ep_bind_function_params n = [ C.Param (C.Struct "capref") "ep",
+           C.Param (C.Ptr $ C.TypeName $ intf_bind_cont_type n) intf_cont_var,
+           C.Param (C.Ptr $ C.TypeName "void") "st",
+           C.Param (C.Ptr $ C.Struct "waitset") "ws",
+           C.Param (C.TypeName "idc_bind_flags_t") "flags" ]
+
+ep_bind_function :: String -> C.Unit
+ep_bind_function n =
+     C.GVarDecl C.Extern C.NonConst
+    (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
+    where
+         name = ep_bind_fn_name n
+         params = ep_bind_function_params n
+
+
+
 
 rpc_init_fn_proto :: String -> C.Unit
 rpc_init_fn_proto n =

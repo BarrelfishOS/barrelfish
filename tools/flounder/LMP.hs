@@ -38,6 +38,10 @@ lmp_bind_var_name :: String
 lmp_bind_var_name = "b"
 lmp_bind_var = C.Variable lmp_bind_var_name
 
+-- Names of the endpoint create/bind function
+lmp_ep_create_fn_name n = ifscope n "lmp_create_endpoint"
+lmp_ep_bind_fn_name n = ifscope n "lmp_bind_to_endpoint"
+
 -- Name of the bind function
 lmp_bind_fn_name n = ifscope n "lmp_bind"
 
@@ -95,6 +99,8 @@ lmp_header_body infile interface@(Interface name descr decls) = [
     lmp_destroy_function_proto name,
     lmp_bind_function_proto name,
     lmp_connect_handler_proto name,
+    lmp_ep_create_function_proto name,
+    lmp_ep_bind_function_proto name,
     lmp_rx_handler_proto name,
     C.Blank
     ]
@@ -140,6 +146,34 @@ lmp_bind_params n = [ C.Param (C.Ptr $ C.Struct (lmp_bind_type n)) "b",
                  C.Param (C.Ptr $ C.Struct "waitset") "waitset",
                  C.Param (C.TypeName "idc_bind_flags_t") "flags",
                  C.Param (C.TypeName "size_t") "lmp_buflen" ]
+
+
+lmp_ep_bind_params n = [C.Param  C.Void ""]
+
+lmp_ep_bind_function_proto :: String -> C.Unit
+lmp_ep_bind_function_proto n =
+    C.GVarDecl C.Extern C.NonConst
+        (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
+    where
+        name = lmp_ep_bind_fn_name n
+        params = lmp_ep_bind_params n
+
+lmp_ep_create_params n = [
+    C.Param (C.Ptr $ C.Struct $ intf_vtbl_type n RX) "rx_vtbl",
+    C.Param (C.Ptr $ C.TypeName "void") "st",
+    C.Param (C.Ptr $ C.Struct "waitset") "ws",
+    C.Param (C.TypeName "idc_endpoint_flags_t") "flags",
+    C.Param (C.Ptr $ C.Ptr $ C.Struct $ intf_bind_type n) "binding",
+    C.Param (C.Ptr $ C.Struct "capref") "retep"]
+
+lmp_ep_create_function_proto :: String -> C.Unit
+lmp_ep_create_function_proto n =
+    C.GVarDecl C.Extern C.NonConst
+        (C.Function C.NoScope (C.TypeName "errval_t") params) name Nothing
+    where
+        name = lmp_ep_create_fn_name n
+        params = lmp_ep_create_params n
+
 
 lmp_rx_handler_proto ifn = C.GVarDecl C.Extern C.NonConst
     (C.Function C.NoScope C.Void [C.Param (C.Ptr C.Void) "arg"])
@@ -214,6 +248,11 @@ lmp_stub_body arch infile intf@(Interface ifn descr decls) = C.UnitList [
     lmp_bind_fn ifn,
     C.Blank,
 
+    C.MultiComment [ "Creating and Binding to endpoints" ],
+    lmp_ep_create_fn ifn,
+    lmp_ep_bind_fn ifn,
+    C.Blank,
+
     C.MultiComment [ "Connect callback for export" ],
     lmp_connect_handler_fn ifn
     ]
@@ -273,6 +312,26 @@ lmp_bind_fn ifn =
     where
       params = lmp_bind_params ifn
       intf_bind_field = C.FieldOf (C.DerefField lmp_bind_var "b")
+
+
+lmp_ep_create_fn :: String -> C.Unit
+lmp_ep_create_fn n =
+  C.FunctionDef C.NoScope (C.TypeName "errval_t") name params [
+    C.Return $ C.Variable "LIB_ERR_NOT_IMPLEMENTED"
+  ]
+  where
+      name = lmp_ep_create_fn_name n
+      params = lmp_ep_create_params n
+
+
+lmp_ep_bind_fn :: String -> C.Unit
+lmp_ep_bind_fn n =
+  C.FunctionDef C.NoScope (C.TypeName "errval_t") name params [
+    C.Return $ C.Variable "LIB_ERR_NOT_IMPLEMENTED"
+  ]
+  where
+      name = lmp_ep_bind_fn_name n
+      params = lmp_ep_bind_params n
 
 lmp_bind_cont_fn :: String -> C.Unit
 lmp_bind_cont_fn ifn =
