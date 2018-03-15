@@ -46,6 +46,9 @@ static void tx_init(struct flounderbootstrap_binding *b, struct capref cap)
     errval_t err;
 
     struct state *state = b->st;
+    
+    debug_printf("%s Sending tx_init\n", state->name);  
+
 
     if (state->counter == 2) {
         debug_printf("stopping with cap transfers. already sent two\n");
@@ -62,6 +65,10 @@ static void tx_ack(struct flounderbootstrap_binding *b)
 {
     errval_t err;
 
+    struct state *state = b->st;
+
+    debug_printf("%s Sending tx_ack\n", state->name);
+
     err = flounderbootstrap_ack__tx(b, NOP_CONT);
     assert(err_is_ok(err));
 }
@@ -70,6 +77,10 @@ static void tx_test(struct flounderbootstrap_binding *b,
                     uint32_t arg)
 {
     errval_t err;
+
+    struct state *state = b->st;   
+
+    debug_printf("%s Sending tx_test\n", state->name);
 
     err = flounderbootstrap_test__tx(b, NOP_CONT, arg);
     assert(err_is_ok(err));
@@ -82,11 +93,18 @@ static void rx_init(struct flounderbootstrap_binding *b,
 {
     struct state *state = b->st;
 
-    debug_printf("rx_init %s\n", state->name);
 
     if (capref_is_null(cap)) {
+        debug_printf("rx_init %s NULL_CAP\n", state->name);  
         tx_test(b, 0xdeadbeef);
+
     } else {
+        errval_t err;
+
+        struct frame_identity id;
+        err = invoke_frame_identify(cap, &id);
+        assert(err_is_ok(err));
+        debug_printf("rx_init %s Frame: %lx\n", state->name, id.base);  
         tx_test(b, 0xb001b001);
     }
 }
@@ -110,7 +128,11 @@ static void rx_test(struct flounderbootstrap_binding *b,
     if (arg == 0xcafebabe) {
         tx_init(b, NULL_CAP);
     } else if (arg == 0xdeadbeef) {
-        tx_init(b, NULL_CAP);
+        errval_t err;
+        struct capref cap;
+        err = frame_alloc(&cap, BASE_PAGE_SIZE, NULL);
+        assert(err_is_ok(err));
+        tx_init(b, cap);
     } else {
         tx_test(b, 0xcafebabe);
     }
@@ -142,19 +164,35 @@ static void bind_cont(void *st, errval_t err, struct flounderbootstrap_binding *
 }
 
 
+static void dddebug_cap(char *c, struct capref cap)
+{
+
+    char buf[512];
+    debug_print_cap_at_capref(buf, 512, cap);
+
+    debug_printf("%s CAP: %s\n", c, buf);
+}
+
+
 static void start_client(void)
 {
     errval_t err;
+
+    debug_printf("Starting Client...\n");
 
     struct capref ep =  {
         .cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER),
         .slot = 0
     };
 
+    dddebug_cap("Client", ep);
+
     struct state *state = calloc(1, sizeof(*state));
     assert(state);
 
     state->name = "Client";
+
+    debug_printf("Bind to endpoint...\n");
 
     err = flounderbootstrap_bind_to_endpoint(ep, bind_cont, state,
                                              get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
@@ -188,6 +226,8 @@ static errval_t spawn_client(char *name, coreid_t core, void *st)
     state->name = st;
 
     if (core == disp_get_core_id()) {
+        debug_printf("Creating LMP Endpoint...\n");
+
         ep_lmp.cnode = argcnref;
         ep_lmp.slot  = 0;
 
@@ -197,17 +237,27 @@ static errval_t spawn_client(char *name, coreid_t core, void *st)
         err = flounderbootstrap_create_endpoint(IDC_ENDPOINT_LMP, &rx_vtbl, state,
                                                 get_default_waitset(),
                                                 IDC_ENDPOINT_FLAGS_DUMMY,
-                                                &binding_lmp, &ep_lmp);
+                                                &binding_lmp, ep_lmp);
+
+        dddebug_cap("server", ep_lmp);
     } else {
+
+        debug_printf("Creating UMP Endpoint...\n");
+
         ep_ump.cnode = argcnref;
         ep_ump.slot  = 0;
 
         dom_cap = &dom_ump;
 
+
+
         err = flounderbootstrap_create_endpoint(IDC_ENDPOINT_UMP, &rx_vtbl, state,
                                                 get_default_waitset(),
                                                 IDC_ENDPOINT_FLAGS_DUMMY,
-                                                &binding_ump, &ep_ump);
+                                                &binding_ump, ep_ump);
+
+        dddebug_cap("server", ep_ump);
+
     };
 
     if (err_is_fail(err)) {
@@ -215,11 +265,9 @@ static errval_t spawn_client(char *name, coreid_t core, void *st)
         return err;
     }
 
-    char *argv[2] = {
-            [0] = "client",
-            [1] = NULL
-    };
-
+    char *argv[2];
+    argv[0] = "client";
+    argv[1] = NULL;
 
     return spawn_program_with_caps(core, name, argv, NULL, NULL_CAP, argcn,
                                    SPAWN_FLAGS_DEFAULT, dom_cap);
@@ -236,7 +284,7 @@ static void start_server(char *path)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to start clients\n");
     }
-
+#if 0
     coreid_t target = 1;
     if (disp_get_core_id() == 1) {
         target = 0;
@@ -245,6 +293,7 @@ static void start_server(char *path)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to start clients\n");
     }
+#endif
 }
 
 /* ------------------------------ MAIN ------------------------------ */
@@ -253,11 +302,17 @@ int main(int argc, char *argv[])
 {
     errval_t err;
 
-    if (argc == 2 && strcmp(argv[1], "client") == 0) {
+    debug_printf("%s: %u %s\n", argv[0], argc, "");
+
+    uint8_t is_server =  0;
+    if (argc == 1 && strcmp(argv[0], "client") == 0) {
         start_client();
     }  else {
-        start_server(argv[0]);
+        start_server("tests/ep_basic");
+        is_server = 1;
     }
+
+    debug_printf("%s Going into message handler loop\n", is_server ? "SErver" : "Client");
 
     struct waitset *ws = get_default_waitset();
     while (1) {
@@ -267,6 +322,8 @@ int main(int argc, char *argv[])
             break;
         }
     }
+
+
 
     return EXIT_FAILURE;
 }
