@@ -1262,6 +1262,7 @@ static void request_vf_number(struct e10k_vf_binding *b)
     DEBUG("VF allocated\n");
     errval_t err;
     uint8_t vf_num = 255;
+    uint64_t d_mac = 0;
     for (int i = 0; i < 64; i++) {
         if (!st->vf_used[i]) {
             vf_num = i;
@@ -1273,6 +1274,16 @@ static void request_vf_number(struct e10k_vf_binding *b)
         //TODO better error
         err = NIC_ERR_ALLOC_QUEUE;
     } else {
+        err = pci_client_connect();
+        if (err_is_fail(err)) {
+            st->vf_used[vf_num] = 0;
+            goto out;
+        }        
+        err = pci_sriov_enable_vf(6, 0, 0 ,vf_num);
+        if (err_is_fail(err)) {
+            st->vf_used[vf_num] = 0;
+            goto out;
+        }        
         // Wait for resources to be avaialble
         while(num_vfs() <= vf_num) {
             event_dispatch(get_default_waitset());
@@ -1280,19 +1291,17 @@ static void request_vf_number(struct e10k_vf_binding *b)
         err = SYS_ERR_OK;
     }
 
-
     struct capref irq, devid, regs;
     if (!get_vf_resources(vf_num, &devid, &regs, &irq)){ 
         err = NIC_ERR_ALLOC_QUEUE;
     }
 
-    uint64_t d_mac = e10k_ral_ral_rdf(st->d, vf_num) | ((uint64_t) e10k_rah_rah_rdf(st->d, vf_num) << 32);
+    d_mac = e10k_ral_ral_rdf(st->d, vf_num) | ((uint64_t) e10k_rah_rah_rdf(st->d, vf_num) << 32);
 
-    DEBUG("VF sending response\n");
+out:
     err = b->tx_vtbl.request_vf_number_response(b, NOP_CONT, vf_num, d_mac, devid, 
                                                 regs, irq, err);
     assert(err_is_ok(err));
-    DEBUG("VF sent response\n");
 }
 
 
@@ -1667,15 +1676,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 
     init_default_values(st);
     st->bfi = bfi;
-
-    #if 0
-
-    err = pcid_init(&st->pdc, bfi->caps, bfi->capc, bfi->argv, bfi->argc, get_default_waitset());
-    if(err_is_fail(err)){
-        USER_PANIC("pcid_init failed \n");
-    }
-
-    #endif
 
     // credit_refill value must be >= 1 for a queue to be able to send.
     // Set them all to 1 here. May be overridden via commandline.
