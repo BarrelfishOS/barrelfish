@@ -547,7 +547,6 @@ static bool check_extendned_caps_for_sriov(struct pci_address* addr,
 
             switch (capword & 0xff) {
                 case 0x10:	// PCI Express
-                    PCI_DEBUG("PCI Express device\n");
                     extended_caps = true;
                     break;
 
@@ -722,15 +721,13 @@ static void pci_add_vf_bars_to_skb(struct pci_address* vf_addr, uint32_t vfn,
     }
 }
 
-static errval_t pci_add_vf_to_skb(struct pci_address* addr,
-                                  uint32_t vf_number, pci_sr_iov_cap_t* sr_iov_cap, 
-                                  struct pci_address* vf_addr)
+static void pci_get_vf_addr(struct pci_address* addr,
+                            uint32_t vf_number, 
+                            pci_sr_iov_cap_t* sr_iov_cap,
+                            struct pci_address* vf_addr)
 {
-    errval_t err;
-
     uint16_t offset = pci_sr_iov_cap_offset_rd(sr_iov_cap);
     uint16_t stride = pci_sr_iov_cap_stride_rd(sr_iov_cap);
-    uint16_t vf_devid = pci_sr_iov_cap_devid_rd(sr_iov_cap);
 
     PCI_DEBUG("VF offset is 0x%x, stride is 0x%x, "
               "device ID is 0x%x\n",
@@ -748,28 +745,22 @@ static errval_t pci_add_vf_to_skb(struct pci_address* addr,
                     & 0xff;
 
     vf_addr->bus = busnr;
-    vf_addr->device= devfn >> 3;
+    vf_addr->device = devfn >> 3;
     vf_addr->function = devfn & 7;
+}
 
+static errval_t pci_add_vf_to_skb(struct pci_address* addr,
+                                  pci_sr_iov_cap_t* sr_iov_cap,
+                                  struct pci_address* vf_addr)
+{
+    errval_t err;
     // PCI header (classcode)
     pci_hdr0_t devhdr;
     pci_hdr0_initialize(&devhdr, *addr);
     
     pci_hdr0_class_code_t classcode = pci_hdr0_class_code_rd(&devhdr);
     uint32_t vendor = pci_hdr0_vendor_id_rd(&devhdr);
-    
-
-    PCI_DEBUG("Adding VF (%u, %u, %u)\n",
-              vf_addr->bus, vf_addr->device,
-              vf_addr->function);
-
-    skb_add_fact("device(pcie,addr(%u,%u,%u),%u,%u,%u, %u, %u, %d).",
-                 vf_addr->bus,
-                 vf_addr->device,
-                 vf_addr->function, vendor,
-                 vf_devid, classcode.clss,
-                 classcode.subclss,
-                 classcode.prog_if, 0);
+    uint16_t vf_devid = pci_sr_iov_cap_devid_rd(sr_iov_cap);
 
     // octopus start
     char* device_fmt ="hw.pci.device. { "
@@ -808,8 +799,8 @@ static errval_t pci_get_max_vfs_for_device(struct pci_address* addr,
     return SYS_ERR_OK;
 }
 
-static errval_t pci_setup_virtual_function_for_device(struct pci_address* addr,
-                                                      uint32_t vf_number)
+errval_t pci_start_virtual_function_for_device(struct pci_address* addr,
+                                               uint32_t vf_number)
 {
     // PCIE always enable for SRIOV
     pcie_enable();
@@ -825,24 +816,18 @@ static errval_t pci_setup_virtual_function_for_device(struct pci_address* addr,
         return PCI_ERR_SRIOV_NOT_SUPPORTED;
     }
 
-    uint16_t totalvfs = pci_sr_iov_cap_totalvfs_rd(&sr_iov_cap);
-    if (vf_number >= MIN(totalvfs, max_numvfs))   {
-        PCI_DEBUG("Not Enabling VF %d for device (bus=%d, device=%d, function=%d) \n",
-                  vf_number, addr->bus, addr->device, addr->function);
-        return PCI_ERR_SRIOV_MAX_VF;
-    }
-
     struct pci_address vf_addr;
+    pci_get_vf_addr(addr, vf_number, &sr_iov_cap, &vf_addr);
 
-    errval_t err = pci_add_vf_to_skb(addr, vf_number, &sr_iov_cap, &vf_addr);
+    errval_t err = pci_add_vf_to_skb(addr, &sr_iov_cap, &vf_addr);
     if (err_is_fail(err)) {
         return err;
     }
 
-    pci_add_vf_bars_to_skb(&vf_addr, vf_number, &sr_iov_cap);
-
     return SYS_ERR_OK;
+
 }
+
 
 /**
  * This function performs a recursive, depth-first search through the
@@ -1120,14 +1105,24 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                 uint32_t total_vfs;
                                 err = pci_get_max_vfs_for_device(&addr, &total_vfs);
                                 assert(err_is_ok(err));
+                                
+                                struct pci_address vf_addr;
+                                for (int vfn=0; vfn < total_vfs; vfn++) {  
+                                    pci_get_vf_addr(&addr, vfn, &sr_iov_cap, &vf_addr);
+                                    uint16_t vf_devid = pci_sr_iov_cap_devid_rd(&sr_iov_cap);
 
-                                debug_printf("Enabling %d of %d Virtual Functions for device" 
-                                             "(bus=%d, device=%d, function=%d)\n", 
-                                             max_numvfs, total_vfs, addr.bus, addr.device, addr.function);
-                                for(int i = 0; i < total_vfs; i++) {
-                                    err = pci_setup_virtual_function_for_device(&addr, i);
+                                    // Add device as an SKB fact but do not add the octopus record yet, 
+                                    // required for rest of the pci code
+                                    skb_add_fact("device(pcie,addr(%u,%u,%u),%u,%u,%u, %u, %u, %d).",
+                                                 vf_addr.bus,
+                                                 vf_addr.device,
+                                                 vf_addr.function, vendor,
+                                                 vf_devid, classcode.clss,
+                                                 classcode.subclss,
+                                                 classcode.prog_if, 0);
+
+                                    pci_add_vf_bars_to_skb(&vf_addr, vfn, &sr_iov_cap);
                                 }
-
                                 break;
 
                             default:

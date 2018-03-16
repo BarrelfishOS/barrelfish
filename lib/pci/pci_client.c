@@ -517,6 +517,14 @@ errval_t pci_setup_inthandler(interrupt_handler_fn handler, void *handler_arg,
     return err;
 }
 
+errval_t pci_sriov_enable_vf(uint32_t bus, uint32_t device, uint32_t function,
+                             uint32_t vf_num)
+{
+    errval_t err, msgerr;
+    err = pci_client->rpc_tx_vtbl.sriov_enable_vf(pci_client, bus, device, function, vf_num, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
 errval_t pci_read_conf_header(uint32_t dword, uint32_t *val)
 {
     errval_t err, msgerr;

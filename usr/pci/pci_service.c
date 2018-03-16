@@ -282,6 +282,24 @@ static void write_conf_header_handler(struct pci_binding *b, uint32_t dword, uin
     assert(err_is_ok(err));
 }
 
+static void sriov_enable_vf_handler(struct pci_binding *b, uint32_t bus, 
+                                    uint32_t device, uint32_t function,
+                                    uint32_t vf_num)
+{
+    errval_t err;
+    struct pci_address addr = {
+        .bus = bus,
+        .device = device,
+        .function = function,
+    };
+
+    // Add octopus record
+    err = pci_start_virtual_function_for_device(&addr, vf_num);
+    err = b->tx_vtbl.sriov_enable_vf_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+
+}
+
 static void msix_enable_addr_handler(struct pci_binding *b, uint8_t bus,
                                       uint8_t dev, uint8_t fun)
 {
@@ -365,7 +383,7 @@ struct pci_rx_vtbl pci_rx_vtbl = {
     .read_conf_header_call = read_conf_header_handler,
     .write_conf_header_call = write_conf_header_handler,
     .irq_enable_call = irq_enable_handler,
-
+    .sriov_enable_vf_call = sriov_enable_vf_handler,
     .msix_enable_call = msix_enable_handler,
     .msix_enable_addr_call = msix_enable_addr_handler,
     .msix_vector_init_call = msix_vector_init_handler,

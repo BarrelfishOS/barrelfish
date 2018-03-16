@@ -119,7 +119,17 @@ errval_t pci_register_legacy_driver_irq_cap(legacy_driver_init_fn init_func,
 
 errval_t pci_setup_inthandler(interrupt_handler_fn handler, void *handler_arg,
                               uint8_t *ret_vector);
-
+/**
+ * Enable a Virtual function of a device
+ *
+ * @param bus           pci bus of device
+ * @param device        pci device of device
+ * @param function      pci function of device
+ * @param vf_num        VF number
+ *
+ */
+errval_t pci_sriov_enable_vf(uint32_t bus, uint32_t device, uint32_t function,
+                             uint32_t vf_num);
 
 errval_t pci_read_conf_header(uint32_t dword, uint32_t *val);
 

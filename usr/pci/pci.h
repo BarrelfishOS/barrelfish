@@ -89,7 +89,8 @@ errval_t pcie_setup_confspace(void);
 errval_t pci_msix_enable(struct pci_address *addr, uint16_t *count);
 errval_t pci_msix_vector_init(struct pci_address *addr, uint16_t idx,
                               uint8_t destination, uint8_t vector);
-
+errval_t pci_start_virtual_function_for_device(struct pci_address* addr,
+                                               uint32_t vf_number);
 extern const char *skb_bridge_program;
 extern uint16_t max_numvfs;
 
