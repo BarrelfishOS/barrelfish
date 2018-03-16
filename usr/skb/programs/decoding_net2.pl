@@ -28,9 +28,14 @@
 %% node_overlay(InNodeId, OutNodeId).
 :- dynamic node_overlay/2.
 
+%% This fact keeps track of blocks that are in use.
+%% node_in_use(NodeId, Block).
+:- dynamic node_in_use/2.
+
 :- export node_accept/2.
 :- export node_translate/4.
 :- export node_overlay/2.
+:- export node_in_use/2.
 :- export struct(block(base,limit,props)).
 :- export struct(region(node_id,blocks)).
 :- export struct(name(node_id,address)).
@@ -85,6 +90,26 @@ iblock_crossp(Blocks, Values) :-
 address_match([K, IAddr], [K, IBlocks]) :-
     iblocks_match(IAddr, IBlocks).
 
+iaddress_gt([], []).
+iaddress_gt([S | Ss], [B | Bs]) :-
+    S #< B,
+    iaddress_gt(Ss,Bs).
+
+% Will only compare addresses of the same kind
+address_gt([K, ISmaller], [K, IBigger]) :-
+    iaddress_gt(ISmaller, IBigger).
+
+iblock_iaddress_gt([], []).
+iblock_iaddress_gt([Block | Bs], [Addr | As]) :-
+    block{
+        limit: Limit
+    } = Block,
+    Addr #>  Limit,
+    iblock_iaddress_gt(Bs, As).
+
+block_address_gt([K, IBlocks], [K, IAddress]) :-
+    iblock_iaddress_gt(IBlocks, IAddress).
+
 :- export accept/2.
 accept(NodeId, Addr) :-
     node_accept(NodeId, Block),
@@ -138,7 +163,7 @@ iaddr_to_iblock_one(Addr, Block) :-
 iaddr_to_iblocks([], []).
 iaddr_to_iblocks([A | As], [B | Bs]) :-
     iaddr_to_iblock_one(A,B),
-    iaddr_to_iblocks(IAddr, Blocks).
+    iaddr_to_iblocks(As, Bs).
 
 addr_to_blocks([K, IAddr], [K, IBlocks]) :-
     iaddr_to_iblocks(IAddr, IBlocks).
@@ -337,8 +362,8 @@ load_net(File) :-
 
 :- export load_net_module/2.
 load_net_module(File, Mod) :-
-    ensure_loaded(File),
-    call(Mod, []).
+    ensure_loaded(File).
+    %call(Mod, []).
 
 
 %% FOR INTERACTIVE DEBUGGING ONLY 
@@ -362,8 +387,9 @@ assert_node_translate(A,B,C,D) :-
 
 init :-
     SYS_ID = ["SYS"],
-    add_SYSTEM(SYS_ID).
-
+    add_SYSTEM(SYS_ID),
+    % Reserver some memory
+    assert(node_in_use(["SYS","DRAM"], [memory, [block{base:0, limit:8192}]])).
 
 % Make ID argument if we want to add multiple.
 add_pci :-
@@ -382,7 +408,10 @@ add_process :-
     ID = ["PROC0"],
     DRAM_ID = ["DRAM", "SYS"],
     add_PROC_MMU(ID),
-    assert(node_overlay(["OUT" | ID], DRAM_ID)).
+    OUT_ID = ["OUT" | ID],
+    assert(node_overlay(OUT_ID, DRAM_ID)),
+    % Reserve memory for the process
+    assert(node_in_use(OUT_ID, [memory, [block{base:0, limit: 65535}]])).
 
 remove_process_mapping :-
     MMU_ID = ["MMU","PROC0"],
@@ -423,3 +452,91 @@ common_dram(DRAM, PROC_RANGE, PCI_RANGE) :-
 test_common_dram(A,B,C) :-
     init, add_pci, add_process,
     common_dram(A,B,C).
+
+
+%% Some functions for marking regions used 
+:- export free_range/3.
+free_range(NodeId, _, Out) :-
+   % Not a very smart allocator, finds the highest addr in use and append
+   % Therefore can ignore Size
+   findall(X, node_in_use(NodeId, X), UsedBlockLi),
+   (foreach(UsedBlock, UsedBlockLi), param(Out) do
+       block_address_gt(UsedBlock, Out)
+   ).
+
+:- export free_range/2.
+free_range(Name, Size) :-
+    name{
+        node_id: NodeId,
+        address: Out
+    } = Name,
+    free_range(NodeId, Size, Out).
+
+%% NodeId:: Addr, Size :: Addr, Out :: Addr
+:- export alloc_range/3.
+alloc_range(NodeId, Size, Out) :-
+   free_range(NodeId, Size, Out),
+   term_variables(Out, OutVars),
+   labeling(OutVars).
+
+
+% After finding a range with alloc range, you actually want to mark it used
+% with this function.
+mark_range_in_use(NodeId, Addr, ISize) :-
+    Addr = [Kind, IAddr],
+    (foreach(UsedBlock, UsedBlockLi), foreach(A, IAddr), foreach(S,ISize) do
+        Limit is A + S,
+        UsedBlock = block{
+            base: A,
+            limit: Limit
+        }    
+    ),
+    assert(node_in_use(NodeId, [Kind, UsedBlockLi])).
+
+mark_range_in_use(Name, ISize) :-
+    name{
+        node_id: NodeId,
+        address: Addr
+    } = Name,
+    mark_range_in_use(NodeId, Addr, ISize).
+
+:- export test_alloc_range/0.
+test_alloc_range :-
+    Id = [],
+    % Test setup
+    mark_range_in_use(Id, [memory, [0]], [1000]),
+    
+    % First allocation
+    Size = [1000],
+    alloc_range(Id, [memory, Size], Out),
+    mark_range_in_use(Id, Out, Size),
+    writeln("First allocation: "),
+    writeln(Out),
+
+    % Second allocation
+    Size2 = [5000],
+    alloc_range(Id, [memory, Size2], Out2),
+    mark_range_in_use(Id, Out2, Size2),
+    writeln("Second allocation: "),
+    writeln(Out2).
+
+% Find a unused buffer. 
+% Node1 :: Addr, Node2 :: Name, Resolved :: Name
+:- export common_free_buffer/4.
+common_free_buffer(BufferSize, Node1, Node2, Resolved)  :-
+    free_range(Node1, [memory, [BufferSize]]),
+    free_range(Node2, [memory, [BufferSize]]),
+    resolve(Node1, Resolved),
+    resolve(Node2, Resolved),
+    free_range(Resolved, BufferSize),
+    term_variables(Resolved, Vars),
+    labeling(Vars).
+
+:- export test_common_free_buffer/3.
+test_common_free_buffer(Proc,Pci,Resolved) :-
+    init, add_pci, add_process,
+    BUFFER_SIZE = 1024,
+    Proc = name{node_id: ["OUT", "PROC0"]},
+    Pci = name{node_id: ["OUT", "PCI0"]},
+    common_free_buffer(BUFFER_SIZE, Proc, Pci, Resolved).
+
