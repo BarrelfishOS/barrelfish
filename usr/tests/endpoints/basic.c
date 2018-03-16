@@ -35,10 +35,12 @@ static struct capref ep_ump;
 struct state {
     const char *name;
     uint32_t counter;
+    uint32_t acks;
 };
 
 /* */
 
+static uint8_t phase = 0;
 
 
 static void tx_init(struct flounderbootstrap_binding *b, struct capref cap)
@@ -52,6 +54,8 @@ static void tx_init(struct flounderbootstrap_binding *b, struct capref cap)
 
     if (state->counter == 2) {
         debug_printf("stopping with cap transfers. already sent two\n");
+        err = flounderbootstrap_ack__tx(b, NOP_CONT);
+        assert(err_is_ok(err));
         return;
     }
 
@@ -115,7 +119,14 @@ static void rx_ack(struct flounderbootstrap_binding *b)
 
     debug_printf("rx_ack %s\n", state->name);
 
-    tx_test(b, 0xcafebabe);
+    state->acks++;
+
+    if (state->acks == 2) {
+        phase++;
+    } else {
+        tx_test(b, 0xcafebabe);
+    }
+
 }
 
 static void rx_test(struct flounderbootstrap_binding *b,
@@ -250,7 +261,6 @@ static errval_t spawn_client(char *name, coreid_t core, void *st)
         dom_cap = &dom_ump;
 
 
-
         err = flounderbootstrap_create_endpoint(IDC_ENDPOINT_UMP, &rx_vtbl, state,
                                                 get_default_waitset(),
                                                 IDC_ENDPOINT_FLAGS_DUMMY,
@@ -278,22 +288,28 @@ static void start_server(char *path)
 {
     errval_t err;
 
-    debug_printf("Starting server...\n");
-
-    err = spawn_client(path, disp_get_core_id(), "server LMP");
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to start clients\n");
+    if (phase == 0) {
+        debug_printf("=================================\n");
+        debug_printf("LMP Test\n");
+        debug_printf("=================================\n");
+        err = spawn_client(path, disp_get_core_id(), "server LMP");
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "failed to start clients\n");
+        }
+    } else if (phase == 2) {
+        debug_printf("=================================\n");
+        debug_printf("UMP Test\n");
+        debug_printf("=================================\n");
+        coreid_t target = 1;
+        if (disp_get_core_id() == 1) {
+            target = 0;
+        }
+        err = spawn_client(path, target, "server UMP");
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "failed to start clients\n");
+        }
     }
-#if 0
-    coreid_t target = 1;
-    if (disp_get_core_id() == 1) {
-        target = 0;
-    }
-    err = spawn_client(path, target, "server UMP");
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to start clients\n");
-    }
-#endif
+    phase++;
 }
 
 /* ------------------------------ MAIN ------------------------------ */
@@ -308,7 +324,6 @@ int main(int argc, char *argv[])
     if (argc == 1 && strcmp(argv[0], "client") == 0) {
         start_client();
     }  else {
-        start_server("tests/ep_basic");
         is_server = 1;
     }
 
@@ -316,6 +331,11 @@ int main(int argc, char *argv[])
 
     struct waitset *ws = get_default_waitset();
     while (1) {
+        if (is_server && phase == 0) {
+            start_server("tests/ep_basic");
+        } else if (is_server && phase == 2) {
+            start_server("tests/ep_basic");
+        }
         err = event_dispatch(ws);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "in event_dispatch");
