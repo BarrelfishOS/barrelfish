@@ -31,7 +31,7 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t arg1,
     enum cnode_type invoke_level = get_cap_level(to);
 
     return syscall(SYSCALL_INVOKE, (uint64_t)invoke_cptr << 32 |
-                   (uint64_t)invoke_level << 16 | 10 << 8, 0,
+                   (uint64_t)invoke_level << 16 | 10 << 8 | SYSCALL_FLAG_ENDPOINT_INVOKE, 0,
                    arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9,
                    arg10);
 }

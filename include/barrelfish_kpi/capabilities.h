@@ -577,6 +577,13 @@ enum ipi_cmd {
     IPICmd_Send_Start,     ///< Send Startup IPI to a destination core
     IPICmd_Send_Init,      ///< Send Init IPI to a destination core
 };
+
+enum ep_cmd {
+    EndPointCMD_FrameIdentify, ///< Identifies Just the Frame Endpoint
+    EndPointCMD_Identify,      ///< Identifies the Endpoint
+};
+
+
 /**
  * Maximum command ordinal.
  */
@@ -618,6 +625,14 @@ struct device_identity {
     uint8_t  function;
     uint8_t  type;
     uint16_t flags;
+};
+
+
+struct endpoint_identity {
+    genpaddr_t base;   ///< Physical Address of the Endpoint
+    gensize_t  length; ///< Length of the Endpoint
+    uint16_t   iftype; ///< interface type
+    uint16_t   eptype; ///< type of the endpoint
 };
 
 #endif // __ASSEMBLER__

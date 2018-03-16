@@ -20,6 +20,7 @@
 #include <barrelfish/caddr.h>
 
 #include <barrelfish/invocations_arch.h>
+#include <barrelfish/idc.h>
 
 /**
  * \brief Create a capability.
@@ -253,6 +254,39 @@ static inline errval_t invoke_device_identify(struct capref deviceid,
     ret->segment = 0;
     return sysret.error;
 }
+
+
+static inline errval_t invoke_endpoint_identify(struct capref ep,
+                                                struct endpoint_identity *ret)
+{
+    assert(ret != NULL);
+    assert(get_croot_addr(ep) == CPTR_ROOTCN);
+
+    struct sysret sysret = cap_invoke2(ep, EndPointCMD_Identify, (uintptr_t)ret);
+
+    if (err_is_ok(sysret.error)) {
+        switch(ret->eptype) {
+            case ObjType_EndPointLMP :
+                ret->eptype = IDC_ENDPOINT_LMP;
+                break;
+            case ObjType_EndPointUMP :
+                ret->eptype = IDC_ENDPOINT_UMP;
+                break;
+            default:
+                return SYS_ERR_INVALID_SOURCE_TYPE;
+        }
+        return sysret.error;
+    }
+
+    ret->iftype = 0;
+    ret->base = 0;
+    ret->length = 0;
+    ret->eptype = 0;
+
+    return sysret.error;
+}
+
+
 
 /**
  * \brief Modify mapping flags on parts of a mapping

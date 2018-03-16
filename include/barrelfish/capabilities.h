@@ -62,6 +62,7 @@ struct lmp_endpoint;
 
 errval_t endpoint_create(size_t buflen, struct capref *retcap,
                          struct lmp_endpoint **retep);
+errval_t ump_endpoint_create(struct capref dest, size_t bytes);
 
 errval_t idcap_alloc(struct capref *dest);
 errval_t idcap_create(struct capref dest);

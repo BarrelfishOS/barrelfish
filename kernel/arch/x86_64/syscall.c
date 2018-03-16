@@ -558,7 +558,7 @@ static struct sysret handle_frame_identify(struct capability *to,
 {
     // Return with physical base address of frame
     assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame ||
-           to->type == ObjType_RAM);
+           to->type == ObjType_RAM   || to->type == ObjType_EndPointUMP);
     assert((get_address(to) & BASE_PAGE_MASK) == 0);
 
     struct frame_identity *fi = (struct frame_identity *)args[0];
@@ -1109,6 +1109,41 @@ static struct sysret handle_devid_identify(struct capability *cap, int cmd,
     return SYSRET(SYS_ERR_OK);
 }
 
+
+static struct sysret handle_endpoint_identify(struct capability *cap, int cmd,
+                                               uintptr_t *args)
+{
+    // Return with physical base address of frame
+    printf("handle_endpoint_identify (type == %u)\n", cap->type);
+
+    struct endpoint_identity *eid = (struct endpoint_identity *)args[0];
+
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)eid, sizeof(struct endpoint_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    switch(cap->type) {
+        case ObjType_EndPointUMP :
+            eid->base = cap->u.endpointump.base;
+            eid->length = cap->u.endpointump.bytes;
+            eid->iftype = cap->u.endpointump.iftype;
+            eid->eptype = cap->type;
+            break;
+        case ObjType_EndPointLMP :
+            eid->base   = (genpaddr_t)cap->u.endpointlmp.listener + cap->u.endpointlmp.epoffset;
+            eid->length = cap->u.endpointlmp.epbuflen;
+            eid->iftype = cap->u.endpointlmp.iftype;
+            eid->eptype = cap->type;
+            break;
+        default:
+            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+
+
 static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
                                           uintptr_t *args)
 {
@@ -1388,6 +1423,13 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_DeviceID] = {
         [DeviceID_Identify] = handle_devid_identify,
     },
+    [ObjType_EndPointLMP] = {
+        [EndPointCMD_Identify] = handle_endpoint_identify,
+    },
+    [ObjType_EndPointUMP] = {
+        [EndPointCMD_FrameIdentify] = handle_frame_identify,
+        [EndPointCMD_Identify] = handle_endpoint_identify,
+    }
 };
 
 /* syscall C entry point; called only from entry.S so no prototype in header */
@@ -1438,7 +1480,8 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         assert(to->type < ObjType_Num);
 
         // Endpoint cap, do LMP
-        if (to->type == ObjType_EndPointLMP) {
+        if (to->type == ObjType_EndPointLMP && !(flags & LMP_FLAG_IDENTIFY)) {
+
             struct dcb *listener = to->u.endpointlmp.listener;
             assert(listener != NULL);
 

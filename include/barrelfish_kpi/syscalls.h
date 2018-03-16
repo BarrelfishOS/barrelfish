@@ -30,6 +30,10 @@ struct sysret {
 #define SYSRET(x) (struct sysret){ /*error*/ x, /*value*/ 0 }
 #endif // __ASSEMBLER__
 
+
+/* Forces an endpoint to be invoked, rather than a LMP being delivered */
+#define SYSCALL_FLAG_ENDPOINT_INVOKE (1 << 7)
+
 /*
  * These are the system call ordinals. Please keep the space contiguous
  * as far as possible and make sure SYSCALL_COUNT is the number of system
@@ -41,6 +45,7 @@ struct sysret {
 #define SYSCALL_INVOKE              0       ///< Invoke a cap
 #define SYSCALL_YIELD               1       ///< Yield the CPU
 #define SYSCALL_LRPC                2       ///< Fast LRPC
+
 
 /* Debug/Benchmarking system calls */
 #define SYSCALL_DEBUG               3     ///< Benchmarking and debug syscalls

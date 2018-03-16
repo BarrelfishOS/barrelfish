@@ -69,7 +69,8 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             // huge page support
             if (src->type != ObjType_VNode_x86_64_pdir) { // Right mapping
                 if (src->type != ObjType_Frame &&
-                    src->type != ObjType_DevFrame) { // Right mapping
+                    src->type != ObjType_DevFrame &&
+                    src->type != ObjType_EndPointUMP) { // Right mapping
                     debug(SUBSYS_PAGING, "src type invalid: %d\n", src->type);
                     return SYS_ERR_WRONG_MAPPING;
                 }
@@ -107,7 +108,8 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
             // superpage support
             if (src->type != ObjType_VNode_x86_64_ptable) { // Right mapping
                 if (src->type != ObjType_Frame &&
-                    src->type != ObjType_DevFrame) { // Right mapping
+                    src->type != ObjType_DevFrame &&
+                    src->type != ObjType_EndPointUMP) { // Right mapping
                     debug(SUBSYS_PAGING, "src type invalid: %d\n", src->type);
                     return SYS_ERR_WRONG_MAPPING;
                 }
@@ -208,7 +210,8 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     }
 
     if (src->type != ObjType_Frame &&
-        src->type != ObjType_DevFrame) { // Right mapping
+        src->type != ObjType_DevFrame &&
+        src->type != ObjType_EndPointUMP) { // Right mapping
         debug(SUBSYS_PAGING, "src type invalid\n");
         return SYS_ERR_WRONG_MAPPING;
     }

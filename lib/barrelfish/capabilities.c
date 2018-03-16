@@ -688,6 +688,56 @@ errval_t cnode_create_with_guard(struct capref dest, struct cnoderef *cnoderef,
     USER_PANIC("%s: GPT CNodes are deprecated\n", __FUNCTION__);
 }
 
+static errval_t create_ram_descendant(struct capref dest, enum objtype type,
+                                      uint8_t bits, size_t *retbytes)
+{
+    errval_t err;
+    if (bits < BASE_PAGE_BITS) {
+        bits = BASE_PAGE_BITS;
+    }
+
+    struct capref ram;
+    err = ram_alloc(&ram, bits);
+    if (err_is_fail(err)) {
+        if (err_no(err) == MM_ERR_NOT_FOUND ||
+            err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
+            return err_push(err, LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS);
+        }
+        return err_push(err, LIB_ERR_RAM_ALLOC);
+    }
+
+    err = cap_retype(dest, ram, 0, type, (1UL << bits), 1);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_RETYPE);
+    }
+
+    err = cap_destroy(ram);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DESTROY);
+    }
+
+    if (retbytes != NULL) {
+        *retbytes = 1UL << bits;
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t create_mappable_cap(struct capref dest, enum objtype type,
+                                    size_t bytes, size_t *retbytes)
+{
+    if (!type_is_mappable(type)) {
+        return SYS_ERR_DEST_TYPE_INVALID;
+    }
+
+    assert(bytes > 0);
+    uint8_t bits = log2ceil(bytes);
+    assert((1UL << bits) >= bytes);
+
+    return create_ram_descendant(dest, type, bits, retbytes);
+
+}
+
 /**
  * \brief Create a VNode in newly-allocated memory
  *
@@ -699,34 +749,13 @@ errval_t cnode_create_with_guard(struct capref dest, struct cnoderef *cnoderef,
  */
 errval_t vnode_create(struct capref dest, enum objtype type)
 {
-    errval_t err;
-
-    struct capref ram;
-
-    size_t objbits_vnode = vnode_objbits(type);
-    err = ram_alloc(&ram, objbits_vnode);
-    if (err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE && type != ObjType_VNode_ARM_l1) {
-        // can only get 4kB pages, cannot create ARM_l1, and waste 3kB for
-        // ARM_l2
-        err = ram_alloc(&ram, BASE_PAGE_BITS);
+    if (!type_is_vnode(type)) {
+        return SYS_ERR_VNODE_TYPE;
     }
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_RAM_ALLOC);
-    }
-
-    assert(type_is_vnode(type));
-    err = cap_retype(dest, ram, 0, type, vnode_objsize(type), 1);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_RETYPE);
-    }
-
-    err = cap_destroy(ram);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_DESTROY);
-    }
-
-    return SYS_ERR_OK;
+    return create_mappable_cap(dest, type, vnode_objbits(type), NULL);
 }
+
+
 
 /**
  * \brief Create a Frame cap referring to newly-allocated RAM in a given slot
@@ -746,40 +775,7 @@ errval_t vnode_create(struct capref dest, enum objtype type)
  */
 errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
 {
-    assert(bytes > 0);
-    uint8_t bits = log2ceil(bytes);
-    assert((1UL << bits) >= bytes);
-    errval_t err;
-
-    if (bits < BASE_PAGE_BITS) {
-        bits = BASE_PAGE_BITS;
-    }
-
-    struct capref ram;
-    err = ram_alloc(&ram, bits);
-    if (err_is_fail(err)) {
-        if (err_no(err) == MM_ERR_NOT_FOUND ||
-            err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
-            return err_push(err, LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS);
-        }
-        return err_push(err, LIB_ERR_RAM_ALLOC);
-    }
-
-    err = cap_retype(dest, ram, 0, ObjType_Frame, (1UL << bits), 1);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_RETYPE);
-    }
-
-    err = cap_destroy(ram);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_DESTROY);
-    }
-
-    if (retbytes != NULL) {
-        *retbytes = 1UL << bits;
-    }
-
-    return SYS_ERR_OK;
+    return create_mappable_cap(dest, ObjType_Frame, bytes, retbytes);
 }
 
 /**
@@ -830,6 +826,17 @@ errval_t endpoint_create(size_t buflen, struct capref *retcap,
     }
 
     return lmp_endpoint_create_in_slot(buflen, *retcap, retep);
+}
+
+/**
+ * @brief allocates a memory region for a UMP endpoint
+ * @param cap   capability to store the UMP endpoint in
+ * @param bytes size of the endpoint
+ * @return  SYS_ERR_OK on success, errval on failure
+ */
+errval_t ump_endpoint_create(struct capref dest, size_t bytes)
+{
+    return create_mappable_cap(dest, ObjType_EndPointUMP, bytes, NULL);
 }
 
 /**
