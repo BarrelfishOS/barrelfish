@@ -127,6 +127,49 @@ errval_t lmp_chan_bind(struct lmp_chan *lc, struct lmp_bind_continuation cont,
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief Initialise a new LMP channel and initiate a binding
+ *
+ * \param lc  Storage for channel state
+ * \param cont Continuation for bind completion/failure
+ * \param qnode Storage for an event queue node (used for queuing bind request)
+ * \param iref IREF to which to bind
+ * \param buflen_words Size of incoming buffer, in number of words
+ */
+errval_t lmp_chan_bind_to_endpoint(struct lmp_chan *lc, struct capref remoteep,
+                                   size_t buflen_words)
+{
+    errval_t err;
+
+    lmp_chan_init(lc);
+
+    lc->remote_cap = remoteep;
+
+    /* store bind arguments */
+    lc->buflen_words = buflen_words;
+
+    /* allocate a cap slot for the new endpoint cap */
+    err = slot_alloc(&lc->local_cap);
+    if (err_is_fail(err)) {
+        waitset_chanstate_destroy(&lc->send_waitset);
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    /* allocate a local endpoint */
+    err = lmp_endpoint_create_in_slot(buflen_words, lc->local_cap,
+                                      &lc->endpoint);
+    if (err_is_fail(err)) {
+        slot_free(lc->local_cap);
+        waitset_chanstate_destroy(&lc->send_waitset);
+        return err_push(err, LIB_ERR_ENDPOINT_CREATE);
+    }
+
+    // wait for the ability to use the monitor binding
+    lc->connstate = LMP_EP_WAIT_ACK;
+
+    return SYS_ERR_OK;
+}
+
 /// Destroy the local state associated with a given channel
 void lmp_chan_destroy(struct lmp_chan *lc)
 {
@@ -271,6 +314,35 @@ errval_t lmp_chan_accept(struct lmp_chan *lc,
     return SYS_ERR_OK;
 }
 
+
+/**
+ * \brief Initialise a new LMP CHannel endpoint to accept incoming messages
+ *
+ * \param lc  Storage for channel state
+ * \param buflen_words Size of incoming buffer, in words
+ * \param endpoint Slot to store the local endpoint in
+ */
+errval_t lmp_chan_endpoint_create(struct lmp_chan *lc, size_t buflen_words,
+                                  struct capref endpoint)
+{
+    errval_t err;
+
+    lmp_chan_init(lc);
+    lc->local_cap = endpoint;
+
+    /* allocate a local endpoint */
+    err = lmp_endpoint_create_in_slot(buflen_words, lc->local_cap,
+                                      &lc->endpoint);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_ENDPOINT_CREATE);
+    }
+
+    /* mark connected */
+    lc->connstate = LMP_EP_WAIT_CAP;
+    return SYS_ERR_OK;
+}
+
+
 /**
  * \brief Register an event handler to be notified when messages can be sent
  *
@@ -378,6 +450,7 @@ errval_t lmp_chan_alloc_recv_slot(struct lmp_chan *lc)
     lmp_chan_set_recv_slot(lc, slot);
     return SYS_ERR_OK;
 }
+
 
 /**
  * \brief Trigger send events for all LMP channels that are registered
