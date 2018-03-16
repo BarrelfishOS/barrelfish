@@ -1,0 +1,12 @@
+/*
+ * Copyright (c) 2018, ETH Zürich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitätstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface kaluga "Kaluga to PCI bootstrap interface" {
+	  rpc send_pci_endpoint(in cap endpoint_cap);
+};

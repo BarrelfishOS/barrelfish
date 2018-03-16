@@ -25,6 +25,7 @@
 //Manual channel setup includes
 #include <if/pci_defs.h>
 #include <flounder/flounder_txqueue.h>
+#include <if/kaluga_defs.h>
 //END
 #include <pci/pci.h>
 
@@ -39,6 +40,10 @@
 #include "kaluga.h"
 #include <acpi_client/acpi_client.h>
 
+
+static struct capref pci_ep;
+static struct kaluga_binding* kaluga_pci;
+static struct capref kaluga_ep;
 
 static void pci_change_event(octopus_mode_t mode, const char* device_record,
                              void* st);
@@ -399,10 +404,21 @@ errval_t watch_for_pci_devices(void)
     return oct_trigger_existing_and_watch(pci_device, pci_change_event, NULL, &tid);
 }
 
+static void send_pci_endpoint_handler(struct kaluga_binding* b, struct capref pci_cap)
+{
+    pci_ep = pci_cap;
+    b->tx_vtbl.send_pci_endpoint_response(b, NOP_CONT);
+};
+
+static struct kaluga_rx_vtbl kaluga_rx_vtbl = {
+    .send_pci_endpoint_call = send_pci_endpoint_handler,
+};
+
 static void bridge_change_event(octopus_mode_t mode, const char* bridge_record,
                                 void* st)
 {
     if (mode & OCT_ON_SET) {
+        debug_printf("%s \n", bridge_record);
         // No need to ask the SKB as we always start pci for
         // in case we find a root bridge
         struct module_info* mi = find_module("pci");
@@ -411,9 +427,34 @@ static void bridge_change_event(octopus_mode_t mode, const char* bridge_record,
             return;
         }
 
+        if (is_started(mi)) {
+            printf("Already started %s\n", mi->binary);
+            return;
+        }
         // XXX: always spawn on my_core_id; otherwise we need to check that
         // the other core is already up
-        errval_t err = mi->start_function(my_core_id, mi, (CONST_CAST)bridge_record, NULL);
+    
+        // create endpoint cap for Kaluga to PCI connection and setup a connection
+        // to PCI. 
+        //
+        //
+        errval_t err;
+        struct driver_argument driver_arg;
+
+        err = init_driver_argument(&driver_arg);
+        if(err_is_fail(err)){
+            USER_PANIC_ERR(err, "Could not initialize driver argument.\n");
+        }
+
+        kaluga_ep.cnode = driver_arg.argnode_ref;
+        kaluga_ep.slot = DRIVERKIT_ARGCN_SLOT_EP;
+
+        err = kaluga_create_endpoint(IDC_ENDPOINT_LMP, &kaluga_rx_vtbl, NULL,
+                                     get_default_waitset(),
+                                     IDC_ENDPOINT_FLAGS_DUMMY,
+                                     &kaluga_pci, kaluga_ep);
+        
+        err = mi->start_function(my_core_id, mi, (CONST_CAST)bridge_record, &driver_arg);
         switch (err_no(err)) {
         case SYS_ERR_OK:
             KALUGA_DEBUG("Spawned PCI bus driver: %s\n", mi->binary);
