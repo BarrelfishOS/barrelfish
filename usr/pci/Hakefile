@@ -12,10 +12,10 @@
 --------------------------------------------------------------------------
 
 [  build application { target = "pci",
-                      flounderDefs = [ "acpi", "monitor", "monitor_blocking" ],
+                      flounderDefs = [ "acpi", "monitor", "monitor_blocking", "kaluga" ],
                       flounderExtraDefs = [ ("monitor_blocking", ["rpcclient"]) ],
                       flounderTHCStubs = [ "octopus" ],
-                      flounderBindings = [ "pci", "acpi", "octopus" ],
+                      flounderBindings = [ "pci", "acpi", "octopus", "kaluga" ],
                       flounderExtraBindings = [("acpi", ["rpcclient"])],
                                             
                       mackerelDevices = [ "pci_hdr0", "pci_hdr1", "ht_config", "pci_sr_iov_cap" ],
