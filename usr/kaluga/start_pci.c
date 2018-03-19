@@ -146,11 +146,19 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
         .slot = DRIVERKIT_ARGCN_SLOT_EP
     };
 
+    struct capref pci_cap;
+    err = slot_alloc(&pci_cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     err = kaluga_pci->rpc_tx_vtbl.request_pci_cap(kaluga_pci, addr.bus, addr.device, 
-                                                  addr.function, &cap);
+                                                  addr.function, &pci_cap);
     if (err_is_fail(err)) {
         return KALUGA_ERR_CAP_ACQUIRE;
     }
+
+    cap_copy(cap, pci_cap);
 
     KALUGA_DEBUG("Received %zu bars\n", bars_len);
     return SYS_ERR_OK;
