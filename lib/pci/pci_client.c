@@ -631,3 +631,37 @@ errval_t pci_client_connect(void)
     }
     return err2;
 }
+
+errval_t pci_client_connect_ep(struct capref ep)
+{
+    errval_t err, err2 = SYS_ERR_OK;
+
+    if (pci_client != NULL) {
+        return SYS_ERR_OK;
+    }
+
+    PCI_CLIENT_DEBUG("Connecting to pci\n");
+    /* Setup flounder connection with pci server */
+    err = pci_bind_to_endpoint(ep, bind_cont, &err2, get_default_waitset(),
+                               IDC_BIND_FLAG_RPC_CAP_TRANSFER);
+    if (err_is_fail(err)) {
+        PCI_CLIENT_DEBUG("Failed connectiong to PCI  %s \n", err_getstring(err));
+        return err;
+    }
+
+    /* XXX: Wait for connection establishment */
+    while (pci_client == NULL && err2 == SYS_ERR_OK) {
+        messages_wait_and_handle_next();
+    }
+
+    if(err_is_ok(err2)){
+        PCI_CLIENT_DEBUG("PCI connection successful, connecting to int route service\n");
+        err = int_route_client_connect();
+        if(err_is_ok(err)){
+            PCI_CLIENT_DEBUG("Int route service connected.\n");
+        } else {
+            DEBUG_ERR(err, "Could not connect to int route service\n");
+        }
+    }
+    return err2;
+}

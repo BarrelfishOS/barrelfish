@@ -139,6 +139,12 @@ errval_t pci_client_connect(void);
 
 
 /**
+ * Connect to PCI service using endpoint cap
+ * @param ep        Endpoint cap to PCI
+ */
+errval_t pci_client_connect_ep(struct capref ep);
+
+/**
  * Enable MSI-X for the PCI device
  * @param count Memory location where the number of supported vectors is written
  */
