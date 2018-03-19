@@ -799,7 +799,7 @@ ump_ep_bind_fn p ifn has_caps =
     C.StmtList $ setup_cap_handlers p ifn,
     C.SBlank,
 
-    C.Ex $ C.Call (connect_handlers_fn_name n) [C.Variable intf_bind_var],
+    C.Ex $ C.Call (connect_handlers_fn_name ifn) [C.Variable intf_bind_var],
     C.SBlank,
 
     C.StmtList $ register_recv p ifn,
