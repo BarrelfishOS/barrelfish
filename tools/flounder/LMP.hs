@@ -367,8 +367,8 @@ lmp_ep_create_fn n =
          C.Goto "err_out2"] [],
     C.SBlank,
 
-    -- C.Ex $ C.Call (connect_handlers_fn_name n) [C.Variable intf_bind_var],
-    -- C.SBlank,
+    C.Ex $ C.Call (connect_handlers_fn_name n) [C.Variable intf_bind_var],
+    C.SBlank,
 
     C.SComment "register for receive",
     C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_register_recv"
@@ -442,6 +442,9 @@ lmp_ep_bind_fn n =
                 C.Call "err_push"
                         [errvar, C.Variable "LIB_ERR_LMP_ALLOC_RECV_SLOT"],
         C.Goto "err_out"] [],
+     C.SBlank,
+
+     C.Ex $ C.Call (connect_handlers_fn_name n) [C.Variable intf_bind_var],
      C.SBlank,
 
      C.SComment "register for receive",
@@ -1031,7 +1034,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
                             | (msgdef, msg@(LMPMsgSpec mn _)) <- zip msgdefs msgs]
 
         call_case_bind = [C.Case (C.Variable $ msg_enum_elem_name ifn "__bind") [
-            C.Ex $ C.Assignment errvar $ C.Call ( tx_bind_ep_ack_msg_fn_name ifn) [bindvar], 
+            C.Ex $ C.Assignment errvar $ C.Call ( tx_bind_ep_ack_msg_fn_name ifn) [bindvar],
             C.SComment "TODO: Check for error",
             C.Ex $ C.Call "assert" [C.Call "err_is_ok" [ errvar]],
             C.Break
@@ -1051,7 +1054,7 @@ rx_handler arch ifn typedefs msgdefs msgs =
         msgnum_bind = [C.Case (C.Variable $ msg_enum_elem_name ifn "__bind") [
             C.SComment "store the remote EP cap",
             C.Ex $ C.Assignment (C.FieldOf (C.DerefField lmp_bind_var "chan") "remote_cap") (C.Variable "cap"),
-            C.Ex $ C.Assignment (C.Variable "call_msgnum") (C.Variable $ msg_enum_elem_name ifn "__bind"),  
+            C.Ex $ C.Assignment (C.Variable "call_msgnum") (C.Variable $ msg_enum_elem_name ifn "__bind"),
             C.Ex $ C.Assignment rx_msgnum_field (C.NumConstant 0),
             C.Goto "out",
             C.Break]]

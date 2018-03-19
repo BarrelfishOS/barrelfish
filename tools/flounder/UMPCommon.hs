@@ -679,6 +679,9 @@ ump_ep_create_fn p ifn has_caps =
       C.StmtList $ (ump_binding_extra_fields_init p),
       C.SBlank,
 
+      C.Ex $ C.Call (connect_handlers_fn_name ifn) [C.Variable intf_bind_var],
+      C.SBlank,
+
       C.StmtList $ register_recv p ifn,
       C.SBlank,
 
@@ -794,6 +797,9 @@ ump_ep_bind_fn p ifn has_caps =
 
     C.StmtList $ ump_store_notify_cap p ifn (C.Variable "notify_cap"),
     C.StmtList $ setup_cap_handlers p ifn,
+    C.SBlank,
+
+    C.Ex $ C.Call (connect_handlers_fn_name n) [C.Variable intf_bind_var],
     C.SBlank,
 
     C.StmtList $ register_recv p ifn,
