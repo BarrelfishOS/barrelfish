@@ -73,6 +73,7 @@ void driverkit_list(struct bfdriver**, size_t*);
 struct bfdriver* driverkit_lookup_cls(const char*);
 
 
+errval_t driverkit_get_ep_cap(struct bfdriver_instance *bfi, struct capref *cap);
 errval_t driverkit_get_interrupt_cap(struct bfdriver_instance *bfi, struct capref *cap);
 errval_t driverkit_get_devid_cap(struct bfdriver_instance *bfi, struct capref *cap);
 errval_t driverkit_get_bar_cap(struct bfdriver_instance *bfi, uint8_t idx,

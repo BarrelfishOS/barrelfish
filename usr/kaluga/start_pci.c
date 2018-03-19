@@ -40,8 +40,6 @@
 #include "kaluga.h"
 #include <acpi_client/acpi_client.h>
 
-
-static struct capref pci_ep;
 static struct kaluga_binding* kaluga_pci;
 static struct capref kaluga_ep;
 
@@ -141,6 +139,17 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
             return KALUGA_ERR_CAP_ACQUIRE;
         }
 
+    }
+
+    struct capref cap = {
+        .cnode = driver_arg->argnode_ref,
+        .slot = DRIVERKIT_ARGCN_SLOT_EP
+    };
+
+    err = kaluga_pci->rpc_tx_vtbl.request_pci_cap(kaluga_pci, addr.bus, addr.device, 
+                                                  addr.function, &cap);
+    if (err_is_fail(err)) {
+        return KALUGA_ERR_CAP_ACQUIRE;
     }
 
     KALUGA_DEBUG("Received %zu bars\n", bars_len);
@@ -404,21 +413,13 @@ errval_t watch_for_pci_devices(void)
     return oct_trigger_existing_and_watch(pci_device, pci_change_event, NULL, &tid);
 }
 
-static void send_pci_endpoint_handler(struct kaluga_binding* b, struct capref pci_cap)
-{
-    pci_ep = pci_cap;
-    b->tx_vtbl.send_pci_endpoint_response(b, NOP_CONT);
-};
-
-static struct kaluga_rx_vtbl kaluga_rx_vtbl = {
-    .send_pci_endpoint_call = send_pci_endpoint_handler,
-};
+// TODO might needs some methods
+static struct kaluga_rx_vtbl kaluga_rx_vtbl;
 
 static void bridge_change_event(octopus_mode_t mode, const char* bridge_record,
                                 void* st)
 {
     if (mode & OCT_ON_SET) {
-        debug_printf("%s \n", bridge_record);
         // No need to ask the SKB as we always start pci for
         // in case we find a root bridge
         struct module_info* mi = find_module("pci");
@@ -453,7 +454,9 @@ static void bridge_change_event(octopus_mode_t mode, const char* bridge_record,
                                      get_default_waitset(),
                                      IDC_ENDPOINT_FLAGS_DUMMY,
                                      &kaluga_pci, kaluga_ep);
-        
+ 
+        kaluga_rpc_client_init(kaluga_pci);
+
         err = mi->start_function(my_core_id, mi, (CONST_CAST)bridge_record, &driver_arg);
         switch (err_no(err)) {
         case SYS_ERR_OK:

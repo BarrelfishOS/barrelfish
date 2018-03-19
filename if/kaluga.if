@@ -8,5 +8,6 @@
  */
 
 interface kaluga "Kaluga to PCI bootstrap interface" {
-	  rpc send_pci_endpoint(in cap endpoint_cap);
+	  rpc request_pci_cap(in uint32 bus, in uint32 device, in uint32 function,
+                          out cap endpoint_cap);
 };
