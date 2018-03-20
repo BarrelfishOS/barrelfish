@@ -190,47 +190,16 @@ case "$ARCH" in
     QEMU_NONDEBUG=-nographic
     ;;
     "armv8")
-       #
-       # The next steps create the EFI directory for QEMU.
-       #    qemu-efi/
-       #        - Hagfish.efi   the UEFI bootloader
-       #        - Hagfish.cfg   'menu.lst' specifying what Hagfish should boot
-       #        - startup.nsh   script executed by the EFI shell
-       #        - ...           remaining files in the disk
-       #
-       # NOTE: Qemu is only able to support FAT16, hence the directory specified
-       #       by -drive must be smaller than 500M.
-       #       We currently copy the created binary into this directory
-       #
-       mkdir -p qemu-efi/armv8/sbin
-       # create the startup script
-       echo "\\Hagfish.efi Hagfish.cfg" > qemu-efi/startup.nsh
-       chmod +x qemu-efi/startup.nsh
-       # setup hagfish location
-       cp $HAGFISH_LOCATION qemu-efi/Hagfish.efi
-       cp platforms/arm/menu.lst.armv8_a57v qemu-efi/Hagfish.cfg
-       # copy install files
-       cp *.gz qemu-efi
-       cp -r armv8/sbin/* qemu-efi/armv8/sbin/
        QEMU_CMD="${QEMU_PATH}qemu-system-aarch64 \
                 -m 1024 \
                 -cpu cortex-a57 \
                 -M virt \
                 -smp $SMP \
-                -pflash $EFI_FLASH0 \
-                -pflash $EFI_FLASH1 \
-                -drive if=none,file=fat:rw:qemu-efi,id=drv \
-                -device virtio-blk-device,drive=drv"
+                -bios /usr/share/qemu-efi/QEMU_EFI.fd \
+                -device virtio-blk-device,drive=image \
+                -drive if=none,id=image,file=armv8_efi,format=raw"
        GDB=gdb-multiarch
        QEMU_NONDEBUG=-nographic
-       # Now you'll need to create pflash volumes for UEFI. Two volumes are required,
-       # one static one for the UEFI firmware, and another dynamic one to store variables.
-       # Both need to be exactly 64M in size. //https://wiki.ubuntu.com/ARM64/QEMU
-       if ! [ -e $EFI_FLASH0 ] ; then
-            dd if=/dev/zero of="$EFI_FLASH0" bs=1M count=64
-            dd if=/usr/share/qemu-efi/QEMU_EFI.fd of="$EFI_FLASH0" conv=notrunc
-       fi
-       [ -e $EFI_FLASH1 ] || dd if=/dev/zero of="$EFI_FLASH1" bs=1M count=64
        EFI=1
        ;;
     "zynq7")

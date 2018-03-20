@@ -788,7 +788,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
         // ensure termination
         core_data->cpu_driver_cmdline[sizeof(core_data->cpu_driver_cmdline) - 1] = '\0';
 
-        DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->kernel_cmdline);
+        DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->cpu_driver_cmdline);
     }
 
 

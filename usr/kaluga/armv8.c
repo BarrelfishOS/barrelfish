@@ -78,6 +78,25 @@ static errval_t armv8_startup_common(void)
 
 static errval_t fvp_startup(void)
 {
+    errval_t err;
+
+    err = skb_execute_query("[plat_fvp].");
+    if(err_is_fail(err)){
+        USER_PANIC_SKB_ERR(err, "Additional device db file 'plat_fvp' not loaded.");
+    }
+
+    return armv8_startup_common();
+}
+
+static errval_t qemu_startup(void)
+{
+    errval_t err;
+
+    err = skb_execute_query("[plat_qemu].");
+    if(err_is_fail(err)){
+        USER_PANIC_SKB_ERR(err, "Additional device db file 'plat_qemu' not loaded.");
+    }
+
     return armv8_startup_common();
 }
 
@@ -140,6 +159,9 @@ errval_t arch_startup(char * add_device_db_file)
     case PI_PLATFORM_FVP:
         debug_printf("Kaluga running on FVP\n");
         return fvp_startup();
+    case PI_PLATFORM_QEMU:
+        debug_printf("Kaluga running on QEMU\n");
+        return qemu_startup();
     case PI_PLATFORM_APM88XXXX:
         debug_printf("Kaluga running on APM88xxxx\n");
         return apm88xxxx_startup();

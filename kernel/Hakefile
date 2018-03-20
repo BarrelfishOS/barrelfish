@@ -524,15 +524,15 @@ let
   },
 
   --
-  -- ARM Virtual Machine Cortex-A57 ARMv8-A, (qemu)
+  -- ARM Virtual Machine Cortex-A57 ARMv8-A, (FVP)
   --
   cpuDriver {
-    target = "a57v",
+    target = "a57_fvp",
     architectures = [ "armv8" ],
     assemblyFiles = [
         "arch/armv8/sysreg.S",
         "arch/armv8/exceptions.S",
-         "arch/armv8/smc_hvc.S"
+        "arch/armv8/smc_hvc.S"
     ],
     cFiles = [
         "arch/arm/misc.c",
@@ -565,6 +565,57 @@ let
         "armv8/armv8_cache_ctrl",
         "arm_icp_pit",
         "gic_v3",
+        "pl011_uart"
+    ],
+    addLibraries = [
+        "elf",
+        "cpio"
+    ]
+    },
+  
+  --
+  -- ARM Virtual Machine Cortex-A57 ARMv8-A, (qemu)
+  --
+  cpuDriver {
+    target = "a57_qemu",
+    architectures = [ "armv8" ],
+    assemblyFiles = [
+        "arch/armv8/sysreg.S",
+        "arch/armv8/exceptions.S",
+        "arch/armv8/smc_hvc.S"
+    ],
+    cFiles = [
+        "arch/arm/misc.c",
+        "arch/arm/pl011.c",
+        "arch/arm/kputchar.c",
+        "arch/arm/gdb_arch.c",
+        "arch/armv8/plat_qemu.c",
+        "arch/armv8/plat_arm_vm_consts.c",
+        "arch/armv8/plat_a57mpcore.c",
+        "arch/armv8/init.c",
+        "arch/armv8/gic_v2.c",
+        "arch/armv8/gdb_arch.c",
+        -----
+        "arch/armv8/kernel_multiboot2.c",
+        "arch/armv8/dispatch.c",
+        "arch/armv8/exec.c",
+        "arch/armv8/exn.c",
+        "arch/armv8/psci.c",
+        "arch/armv8/paging.c",
+        "arch/armv8/startup_arch.c",
+        "arch/armv8/syscall.c",
+        "arch/armv8/timers.c",
+        "arch/arm/debug.c",
+        "arch/arm/gic.c",
+        "arch/arm/irq.c"
+    ],
+    mackerelDevices = [
+      "arm",
+        "armv8",
+        "armv8/armv8_cache_ctrl",
+        "arm_icp_pit",
+        "gic_v3",
+        "gic_v2_cpu",
         "pl011_uart"
     ],
     addLibraries = [
