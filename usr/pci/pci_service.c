@@ -234,6 +234,44 @@ static void get_bar_cap_handler(struct pci_binding *b, uint32_t idx)
         get_bar_cap_response_cont(b, SYS_ERR_OK, cap, type, bar_nr);
     }
 }
+
+static void get_vf_bar_cap_handler(struct pci_binding *b, uint32_t vf_num, uint32_t idx)
+{
+    struct client_state *st = b->st;
+    assert(st != NULL);
+    errval_t err;
+    
+    struct pci_address pci = {
+        .bus = st->bus,
+        .device =  st->dev,
+        .function = st->fun
+    };
+    
+    struct pci_address vf_addr;
+
+    err = pci_get_vf_addr_of_device(pci, vf_num, &vf_addr);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.get_bar_cap_response(b, NOP_CONT, err,
+                                              NULL_CAP, 0, 0);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    uint8_t type = pci_get_bar_cap_type_for_device(vf_addr.bus, vf_addr.device,
+                                               vf_addr.function, idx);
+    struct capref cap;
+    if(type == 0) {
+        cap = pci_get_bar_cap_for_device(vf_addr.bus, vf_addr.device, vf_addr.function, idx);
+    } else {
+        // TODO is this even possible?
+        err = PCI_ERR_SRIOV_NOT_SUPPORTED;
+        cap = NULL_CAP;
+    }
+
+    err = b->tx_vtbl.get_vf_bar_cap_response(b, NOP_CONT, cap, err);
+    assert(err_is_ok(err));
+}
+
 /*
 static void get_vbe_bios_cap(struct pci_binding *b)
 {
@@ -390,6 +428,7 @@ struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
     .get_bar_cap_call = get_bar_cap_handler,
+    .get_vf_bar_cap_call = get_vf_bar_cap_handler,
     .get_irq_cap_call = get_irq_cap_handler,
     .reregister_interrupt_call = reregister_interrupt_handler,
     //.get_vbe_bios_cap_call = get_vbe_bios_cap,

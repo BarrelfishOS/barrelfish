@@ -524,6 +524,16 @@ errval_t pci_sriov_enable_vf(uint32_t vf_num)
     return err_is_fail(err) ? err : msgerr;
 }
 
+
+errval_t pci_sriov_get_vf_bar_cap(uint32_t vf_num, uint8_t bar_num,
+                                  struct capref* bar)
+{
+    errval_t err, msgerr;
+    err = pci_client->rpc_tx_vtbl.get_vf_bar_cap(pci_client, vf_num, bar_num, 
+                                                 bar, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
 errval_t pci_read_conf_header(uint32_t dword, uint32_t *val)
 {
     errval_t err, msgerr;

@@ -46,6 +46,9 @@ errval_t pci_get_bar_caps_for_device(
         size_t *bars_len
         );
 
+errval_t pci_sriov_get_vf_bar_cap(uint32_t vf_num, uint8_t bar_num,
+                                  struct capref* bar);
+
 errval_t pci_parse_int_arg(int argc, char ** argv);
 
 errval_t pci_reregister_irq_for_device(uint32_t class, uint32_t subclass, uint32_t prog_if,

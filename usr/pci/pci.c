@@ -799,6 +799,34 @@ static errval_t pci_get_max_vfs_for_device(struct pci_address* addr,
     return SYS_ERR_OK;
 }
 
+
+errval_t pci_get_vf_addr_of_device(struct pci_address addr,
+                                   uint32_t vf_num,
+                                   struct pci_address* vf_addr)
+{
+    // PCIE always enable for SRIOV
+    pcie_enable();
+
+    // Check if device exists
+    if(!device_exists_pcie(&addr)) {
+        return PCI_ERR_SRIOV_NOT_SUPPORTED;
+    }
+    // Check if SR-IOV capable
+    pci_sr_iov_cap_t sr_iov_cap;
+    if (!check_extendned_caps_for_sriov(&addr, &sr_iov_cap)) {
+        return PCI_ERR_SRIOV_NOT_SUPPORTED;
+    }
+    
+    uint32_t max_vfs= pci_sr_iov_cap_totalvfs_rd(&sr_iov_cap);
+    if (vf_num >= max_vfs) {
+        return PCI_ERR_SRIOV_MAX_VF;
+    }
+
+    pci_get_vf_addr(&addr, vf_num, &sr_iov_cap, vf_addr);
+
+    return SYS_ERR_OK;
+}
+
 errval_t pci_start_virtual_function_for_device(struct pci_address* addr,
                                                uint32_t vf_number)
 {

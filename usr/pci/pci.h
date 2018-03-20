@@ -89,8 +89,13 @@ errval_t pcie_setup_confspace(void);
 errval_t pci_msix_enable(struct pci_address *addr, uint16_t *count);
 errval_t pci_msix_vector_init(struct pci_address *addr, uint16_t idx,
                               uint8_t destination, uint8_t vector);
+
 errval_t pci_start_virtual_function_for_device(struct pci_address* addr,
                                                uint32_t vf_number);
+errval_t pci_get_vf_addr_of_device(struct pci_address addr,
+                                   uint32_t vf_num,
+                                   struct pci_address* vf_addr);
+
 errval_t pci_setup_connection_to_kaluga(void);
 extern const char *skb_bridge_program;
 extern uint16_t max_numvfs;
