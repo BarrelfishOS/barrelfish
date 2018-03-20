@@ -15,7 +15,6 @@
 % IBlock [block{..}, block{...}]
 % Block = [kind, [block{..}, block{..}]]
 
-
 :- module(decoding_net2).
 
 
@@ -377,7 +376,9 @@ assert_node_translate(A,B,C,D) :-
 
 
 
-%% X86 Support, should really be moved into its own file
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% X86 Support. Complements the sockeye file, should really be moved into its own file
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 :- export init/0.
 :- export add_pci/0.
@@ -454,7 +455,10 @@ test_common_dram(A,B,C) :-
     common_dram(A,B,C).
 
 
-%% Some functions for marking regions used 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Mark ranges used and Query them 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 :- export free_range/3.
 free_range(NodeId, _, Out) :-
    % Not a very smart allocator, finds the highest addr in use and append
@@ -540,3 +544,147 @@ test_common_free_buffer(Proc,Pci,Resolved) :-
     Pci = name{node_id: ["OUT", "PCI0"]},
     common_free_buffer(BUFFER_SIZE, Proc, Pci, Resolved).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Bit Array Representation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Constrains word to be a N bit word
+assert_word(W, N) :-
+    dim(W,[N]), W :: [0 .. 1].
+
+% This beauty converts words (array of bit values) to a numeric representation.
+word_to_num(W, Num) :-
+    dim(W, [Len]),
+    (for(I,1,Len), fromto(0,In,Out,NumT), param(W) do
+        Out = W[I] * 2^(I-1) + In),
+    Num $= eval(NumT).
+
+% A part of word is etracted into Subword, Range specifies
+subword(Word,Subword, Range) :- 
+    SW is Word[Range],
+    array_list(Subword,SW).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Block Remappable Nodes
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+:- dynamic node_block_conf/3. %(NodeId, VPN, PPN).
+:- dynamic node_block_meta/3. %(NodeId, BlockSizeBits, OutNodeId)
+
+node_translate_block(InNodeId, [memory, [VAddr]], OutNodeId, [memory, [PAddr]]) :-
+    node_block_meta(InNodeId, BlockSizeBits, OutNodeId),
+    % Bit-Lookup Offset and VPN
+    assert_word(VAW, 48),
+    word_to_num(VAW, VAddr),
+    subword(VAW, VAOffsetW, 1 .. BlockSizeBits),
+    VPNStartBit is BlockSizeBits + 1,
+    subword(VAW, VPNW, VPNStartBit .. 48),
+    word_to_num(VPNW, VPN),
+
+    % Lookup PPN and PA offset
+    node_block_conf(InNodeId, VPN, PPN),
+    PAOffsetW = VAOffsetW,
+    
+    % Stich together PA
+    assert_word(PAW, 48), % TODO bit size for physical address?
+    subword(PAW, VAOffsetW, 1 .. 21), 
+    subword(PAW, PPNW, 22 .. 48),
+    word_to_num(PPNW, PPN),
+
+    word_to_num(PAW, PAddr).
+
+:- export assert_block_delta/2.
+assert_block_delta(NodeId, BlockDelta) :-
+    (foreach((VPN,PPN), BlockDelta),param(NodeId) do
+        assert(node_block_conf(NodeId, VPN, PPN))
+    ).
+
+:- export test_node_translate_block/0. 
+test_node_translate_block :-
+    assert(node_block_conf([], 0, 1)),
+    assert(node_block_meta([], 21, ["OUT"])),
+    node_translate_block([], [memory,[1000]], ["OUT"], [memory, [2098152]]).
+
+
+% Same signature as node_translate
+node_translate_pt(InNodeId, [K, [VAddr]], OutNodeId, [K, [PAddr]]) :-
+    node_pt(InNodeId, PtIndex, OutNodeId),
+    pt_translate(PtIndex, VAddr, PAddr).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% X86 Page table configurable nodes
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% node_pt stores the root page table for per node
+:- dynamic node_pt/3. % NodeId, RootPt, OutNodeId
+:- dynamic pt/3. % PtIndex, Offset, NextPtIndex
+:- export pt/3.
+    
+:- export split_vpn/2.
+split_vpn(VPN, Parts) :-
+    assert_word(VPNW, 27),  % 3 x 9 = 27
+    word_to_num(VPNW, VPN),
+    subword(VPNW, L1W, 1 .. 9),
+    word_to_num(L1W, L1),
+    subword(VPNW, L2W, 10 .. 18),
+    word_to_num(L2W, L2),
+    subword(VPNW, L3W, 19 .. 27),
+    word_to_num(L3W, L3),
+    Parts = [L3,L2,L1].
+
+:- export test_split_vpn/0.
+test_split_vpn :-
+    VA = 16'40201, % hex(1 | 1<<9 | 1<<18)
+    split_vpn(VA, [1,1,1]).
+
+
+pt_alloc(Idx, Idx) :-
+    not(pt(Idx,_,_)).
+
+pt_alloc(Try, Idx) :-
+    NextTry is Try + 1,
+    pt_alloc(NextTry, Idx).
+
+:- export pt_alloc/1.
+pt_alloc(Idx) :-
+    pt_alloc(0,Idx), !,
+    assert(pt(Idx,-1,-1)).
+
+% Inner function for pt_delta, better not use anywhere else.
+pt_delta_append_if_new(In, Out, pt(A,B,C)) :-
+    nonvar(A), nonvar(B),
+    % C magic: nonvar, or already installed, or it will be new allocated
+    (nonvar(C) ; (pt(A,B,C) ; pt_alloc(C))),
+    (pt(A,B,C) -> In = Out ; (Out = [pt(A,B,C) | In])).
+
+% Get the difference between the PT facts (which reflect in memory contents)
+% and the newly to be inserted block translate facts.
+% BlockDelta :: [(VPN, PPN), ...]
+% PtDelta :: [pt(Idx, Offset, NextIdx), ...]
+:- export pt_delta/3.
+pt_delta(NodeId, BlockDelta, PtDelta) :-
+    %findall((VPN, PPN), node_block_conf(NodeId, VPN, PPN), Maps),
+    (foreach((VPN,PPN), BlockDelta),param(NodeId),fromto([], In, Out, PtDelta) do
+        node_pt(NodeId, RootPt, _),
+        split_vpn(VPN, [L3,L2,L1]),
+        pt_delta_append_if_new(In,Out1,   pt(RootPt, L3, L2Idx)),
+        pt_delta_append_if_new(Out1,Out2, pt(L2Idx, L2, L1Idx)),
+        pt_delta_append_if_new(Out2,Out,  pt(L1Idx, L1, PPN))
+    ).
+
+:- export test_pt_delta/1.
+test_pt_delta(PtDelta) :-
+    pt_alloc(Root),
+    assert(node_pt([],Root,["OUT"])),
+    pt_delta([], [(0,23)], PtDelta).
+    % PtDelta = [pt(2, 0, 23), pt(1, 0, 2), pt(0, 0, 1)] module reordering.
+
+% For a list of PTs, assert the facts.
+:- export assert_pt_delta/2.
+assert_pt_delta(NodeId, PtDelta) :-
+    (foreach(X, PtDelta) do
+        assert(X)
+    ).
