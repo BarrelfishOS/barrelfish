@@ -146,7 +146,6 @@ struct e10k_driver_state {
     // VF mac?
     union macentry mactable[128];
 };
-/*
 #define prnonz(x, st)                                               \
     uint32_t x = e10k_##x##_rd(st->d);                           \
     snprintf(str[cnt++], 32, #x "=%x \n", x);                      \
@@ -175,7 +174,6 @@ static void stats_dump(struct e10k_driver_state* st)
       printf("\n");
     }
 }
-*/
 
 // some prototypes because of dependencies
 static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail);
@@ -464,7 +462,6 @@ static void resend_interrupt(void* arg)
 */
 
 /** Here are the global interrupts handled. */
-/*
 static void interrupt_handler(void* arg)
 {
     struct e10k_driver_state* st = (struct e10k_driver_state*) arg;
@@ -483,17 +480,18 @@ static void interrupt_handler(void* arg)
             if (st->queues[i].use_irq && st->queues[i].devif != NULL) {
                 err = st->queues[i].devif->tx_vtbl.interrupt(st->queues[i].devif, NOP_CONT, i);
                 if (err_is_fail(err)) {
+                    /*
                     err = st->queues[i].devif->register_send(st->queues[i].devif,
                                                             get_default_waitset(),
                                                             MKCONT(resend_interrupt,
                                                                   st->queues[i].devif));
+                    */
                     // Do nothing since the interrupt is still outstanding
                 }
             }
         }
     }
 }
-*/
 
 /** Stop whole device. */
 static void stop_device(struct e10k_driver_state* st)
@@ -562,6 +560,7 @@ static void device_init(struct e10k_driver_state* st)
         }
     }
 
+    stats_dump(st);
     // Make a double reset to be sure
     for (i = 0; i < 2; i++) {
         // Issue Global reset
@@ -1274,12 +1273,9 @@ static void request_vf_number(struct e10k_vf_binding *b)
         //TODO better error
         err = NIC_ERR_ALLOC_QUEUE;
     } else {
-        err = pci_client_connect();
-        if (err_is_fail(err)) {
-            st->vf_used[vf_num] = 0;
-            goto out;
-        }        
-        err = pci_sriov_enable_vf(6, 0, 0 ,vf_num);
+
+        debug_printf("Enable VF \n");
+        err = pci_sriov_enable_vf(vf_num);
         if (err_is_fail(err)) {
             st->vf_used[vf_num] = 0;
             goto out;
@@ -1288,6 +1284,8 @@ static void request_vf_number(struct e10k_vf_binding *b)
         while(num_vfs() <= vf_num) {
             event_dispatch(get_default_waitset());
         }
+
+        debug_printf("PCI Enabled VF \n");
         err = SYS_ERR_OK;
     }
 
@@ -1709,11 +1707,21 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
         if (err_is_fail(err)) {
             return err;
         }
+
+        struct capref cap;
+        // When started by Kaluga it handend off an endpoint cap to Kaluga
+        err = driverkit_get_ep_cap(bfi, &cap);
+        assert(err_is_ok(err));
+
+        assert(!capcmp(cap, NULL_CAP));
+    
+        debug_printf("Connect to PCI\n");
+        err = pci_client_connect_ep(cap);
+        assert(err_is_ok(err));
     }
 
     init_card(st);
 
-    /*
     struct capref intcap = NULL_CAP;
     err = driverkit_get_interrupt_cap(bfi, &intcap);
     assert(err_is_ok(err));
@@ -1723,7 +1731,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     if (err_is_fail(err)) {
         USER_PANIC("Interrupt setup failed!\n");
     }
-    */
+
     while (!st->initialized || !st->exported) {
         event_dispatch(get_default_waitset());
     }

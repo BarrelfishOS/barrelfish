@@ -517,11 +517,10 @@ errval_t pci_setup_inthandler(interrupt_handler_fn handler, void *handler_arg,
     return err;
 }
 
-errval_t pci_sriov_enable_vf(uint32_t bus, uint32_t device, uint32_t function,
-                             uint32_t vf_num)
+errval_t pci_sriov_enable_vf(uint32_t vf_num)
 {
     errval_t err, msgerr;
-    err = pci_client->rpc_tx_vtbl.sriov_enable_vf(pci_client, bus, device, function, vf_num, &msgerr);
+    err = pci_client->rpc_tx_vtbl.sriov_enable_vf(pci_client, vf_num, &msgerr);
     return err_is_fail(err) ? err : msgerr;
 }
 
@@ -643,7 +642,7 @@ errval_t pci_client_connect_ep(struct capref ep)
     PCI_CLIENT_DEBUG("Connecting to pci\n");
     /* Setup flounder connection with pci server */
     err = pci_bind_to_endpoint(ep, bind_cont, &err2, get_default_waitset(),
-                               IDC_BIND_FLAG_RPC_CAP_TRANSFER);
+                               IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         PCI_CLIENT_DEBUG("Failed connectiong to PCI  %s \n", err_getstring(err));
         return err;

@@ -20,8 +20,10 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/sys_debug.h>
+#include <driverkit/driverkit.h>
 
 #include <if/pci_defs.h>
+#include <if/kaluga_defs.h>
 #include <if/acpi_defs.h>
 
 #include <acpi_client/acpi_client.h>
@@ -46,6 +48,13 @@ struct client_state {
     bool pcie;
     void *cont_st;
 };
+
+
+// Assume one connection to kaluga over which
+// kaluga can request PCI endpoints to had off to devices
+static struct capref kaluga_ep;
+static struct kaluga_binding* kaluga;
+static bool bound;
 
 /*****************************************************************
  * Event handlers:
@@ -282,24 +291,6 @@ static void write_conf_header_handler(struct pci_binding *b, uint32_t dword, uin
     assert(err_is_ok(err));
 }
 
-static void sriov_enable_vf_handler(struct pci_binding *b, uint32_t bus, 
-                                    uint32_t device, uint32_t function,
-                                    uint32_t vf_num)
-{
-    errval_t err;
-    struct pci_address addr = {
-        .bus = bus,
-        .device = device,
-        .function = function,
-    };
-
-    // Add octopus record
-    err = pci_start_virtual_function_for_device(&addr, vf_num);
-    err = b->tx_vtbl.sriov_enable_vf_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-
-}
-
 static void msix_enable_addr_handler(struct pci_binding *b, uint8_t bus,
                                       uint8_t dev, uint8_t fun)
 {
@@ -373,6 +364,28 @@ static void msix_vector_init_handler(struct pci_binding *b, uint16_t idx,
                                   vector);
 }
 
+static void sriov_enable_vf_handler(struct pci_binding* b, uint32_t vf_num)
+{
+    errval_t err;
+
+    struct client_state* state = (struct client_state* ) b->st;
+    struct pci_address addr = {
+        .bus = state->bus,
+        .device = state->dev,
+        .function = state->fun
+    };
+
+    debug_printf("Enabling Virtual Function for device (bus=%d, device=%d, function=%d)"
+                 "binding %p state %p \n",
+                 state->bus, state->dev, state->fun, b, state);
+
+    // Add octopus record
+    err = pci_start_virtual_function_for_device(&addr, vf_num);
+    
+    err = b->tx_vtbl.sriov_enable_vf_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
 struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
@@ -412,6 +425,61 @@ static errval_t connect_callback(void *cst, struct pci_binding *b)
     return SYS_ERR_OK;
 }
 
+
+/*****************************************************************
+ * Connection to Kaluga to request PCI endpoints for devices
+ *****************************************************************/
+
+static void request_pci_cap_handler(struct kaluga_binding* b, uint32_t bus, 
+                                    uint32_t device, uint32_t function)
+{
+    errval_t err;
+    PCI_DEBUG("Kaluga requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
+              bus, device, function);
+
+    struct capref cap;    
+    err = slot_alloc(&cap);
+    assert(err_is_ok(err));
+
+    struct pci_binding* pci;
+    err = pci_create_endpoint(IDC_ENDPOINT_LMP, &pci_rx_vtbl, NULL,
+                              get_default_waitset(),
+                              IDC_ENDPOINT_FLAGS_DUMMY,
+                              &pci, cap);
+
+    pci_rpc_client_init(pci);
+    struct client_state* state = (struct client_state*) 
+                                  calloc(1, sizeof(struct client_state));
+    state->bus = bus;
+    state->dev = device;
+    state->fun = function;
+    pci->st = state;
+   
+    err = b->tx_vtbl.request_pci_cap_response(b, NOP_CONT, cap);
+    assert(err_is_ok(err));
+}
+
+static struct kaluga_rx_vtbl rx_vtbl = {
+    .request_pci_cap_call = request_pci_cap_handler
+};
+
+static void bind_cont(void *st, errval_t err, struct kaluga_binding *b)
+{
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "bind failed");
+    }
+
+    // copy my message receive handler vtable to the binding
+    b->rx_vtbl = rx_vtbl;
+    b->st = st;
+    kaluga_rpc_client_init(b);
+
+    kaluga = b;
+    bound = true;
+}
+
+
+
 /*****************************************************************
  * Boots up the PCI server:
  *****************************************************************/
@@ -425,5 +493,19 @@ void pci_init(void)
                             get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
     assert(err_is_ok(r));
 
+
+    PCI_DEBUG("pci: pci_init: connect to kaluga using endpoint cap\n");
+    // When started by Kaluga it handend off an endpoint cap to Kaluga
+    kaluga_ep.cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER);
+    kaluga_ep.slot = DRIVERKIT_ARGCN_SLOT_EP;
+ 
+    r = kaluga_bind_to_endpoint(kaluga_ep, bind_cont, NULL, get_default_waitset(), 
+                                IDC_BIND_FLAGS_DEFAULT);
+    while(!bound) {
+        event_dispatch(get_default_waitset());
+    }
+
     PCI_DEBUG("pci: pci_init: terminated\n");
 }
+
+

@@ -67,11 +67,7 @@ interface pci "The PCI Interface" {
     rpc write_conf_header(in uint32 dword, in uint32 val, out errval err);
     
     /* enable a VF */
-    rpc sriov_enable_vf(in uint32 bus, in uint32 device, in uint32 function,
-                        in uint32 vf_num, out errval err);
-
-    /* enable a VF */
-    rpc sriov_enable_vf2(in uint32 vf_num, out errval err);
+    rpc sriov_enable_vf(in uint32 vf_num, out errval err);
 
     /* Enable (legacy) interrupt */
     rpc irq_enable(out errval err);

@@ -155,12 +155,6 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    // Bootstrap kaluga connection to send confspace caps
-    err = pci_setup_connection_to_kaluga();
-    if (err_is_fail(err)) {
-    	USER_PANIC_ERR(err, "Setup connection to kaluga failed.");
-    }
-
     skb_add_fact("pci_discovery_done.");
 
     /* Using the name server as a lock server,
