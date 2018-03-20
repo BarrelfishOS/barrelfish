@@ -1294,6 +1294,12 @@ static void request_vf_number(struct e10k_vf_binding *b)
         err = NIC_ERR_ALLOC_QUEUE;
     }
 
+    debug_printf("PCI request VF bar \n");
+    err = pci_sriov_get_vf_bar_cap(vf_num, 0, &regs);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
     d_mac = e10k_ral_ral_rdf(st->d, vf_num) | ((uint64_t) e10k_rah_rah_rdf(st->d, vf_num) << 32);
 
 out:
