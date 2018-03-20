@@ -439,3 +439,82 @@ errval_t monitor_cap_identify_remote(struct capref cap, struct capability *ret)
 
     return msgerr;
 }
+
+
+
+errval_t monitor_client_prepare_new_binding(struct capref ep, bool create,
+                                            struct waitset *ws, uintptr_t domid,
+                                            size_t lmp_buflen_words,
+                                            struct monitor_binding **ret_mb)
+{
+    errval_t err;
+    assert(ret_mb);
+
+    debug_printf("Creating new monitor binding\n");
+
+    struct monitor_blocking_binding *r = get_monitor_blocking_binding();
+    if (!r) {
+        return LIB_ERR_MONITOR_RPC_NULL;
+    }
+
+    // allocate space for the binding state
+    struct monitor_lmp_binding *lmpb = calloc(1, sizeof(*lmpb));
+    if (lmpb == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    // initialize the LMP binding
+    err = init_lmp_binding(lmpb, ws, lmp_buflen_words);
+    if (err_is_fail(err)) {
+        goto out_err2;
+    }
+
+    struct capref monep= NULL_CAP;
+    err = slot_alloc(&monep);
+    if (err_is_fail(err)) {
+        goto out_err2;
+    }
+
+    /* Run the RX handler; has a side-effect of registering for receive events */
+    monitor_lmp_rx_handler(lmpb);
+
+    // copy the rx_vtbl from the main monitor binding
+    struct monitor_binding *mcb = get_monitor_binding();
+    lmpb->b.rx_vtbl = mcb->rx_vtbl;
+
+
+    assert(err_is_ok(err));
+    errval_t msgerr;
+    err = r->rpc_tx_vtbl.new_monitor_binding(r, ep, create, domid, &monep, &msgerr);
+    if (err_is_fail(err)){
+        goto out_err;
+    } else if (err_is_fail(msgerr)) {
+        err = msgerr;
+        goto out_err;
+    }
+
+    debug_printf("Got remote monitor cap\n");
+
+    // success! store the cap
+    lmpb->chan.remote_cap = monep;
+
+    /* Send the local endpoint cap to the monitor */
+    lmpb->chan.connstate = LMP_CONNECTED; /* pre-established */
+
+    debug_printf("Send local cap to the monitor\n");
+    err = lmp_chan_send0(&lmpb->chan, 0, lmpb->chan.local_cap);
+    if (err_is_fail(err)) {
+        // destroy the binding
+        goto out_err2;
+    }
+
+    *ret_mb = &lmpb->b;
+
+    return SYS_ERR_OK;
+
+    out_err:
+    monitor_lmp_destroy(lmpb);
+    out_err2:
+    free(lmpb);
+    return err;
+}

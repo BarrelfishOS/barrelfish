@@ -41,7 +41,10 @@ errval_t monitor_client_lmp_accept(struct monitor_lmp_binding *mcb,
 
 errval_t monitor_client_new_binding(monitor_bind_cont_fn *cont, void *st,
                                     struct waitset *ws, size_t lmp_buflen_words);
-
+errval_t monitor_client_prepare_new_binding(struct capref ep, bool create,
+                                            struct waitset *ws, uintptr_t domid,
+                                            size_t lmp_buflen_words,
+                                            struct monitor_binding **ret_mb);
 
 errval_t monitor_client_blocking_rpc_init(void);
 

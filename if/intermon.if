@@ -89,6 +89,10 @@ interface intermon "The Interface between monitors" {
                            errval err,
                            caprep notify);
 
+    message ump_route_setup_request(con_id conid, mon_id state, coreid core, genpaddr ep, uint16 type);
+    message ump_route_setup_reply(con_id yourconid, con_id myconid, mon_id state, errval err);
+
+
     message cap_send_request(con_id con_id,
                              capid capid,
                              captx cap);

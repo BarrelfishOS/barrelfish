@@ -16,7 +16,11 @@
 #include "monitor.h"
 #include <barrelfish/monitor_client.h>
 #include <barrelfish_kpi/platform.h>
+#include <barrelfish_kpi/capbits.h>
 #include "capops.h"
+
+
+
 
 // workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
 #if defined(__i386__) && defined(__GNUC__) \
@@ -582,6 +586,106 @@ static void get_platform_arch(struct monitor_blocking_binding *b)
     }
 }
 
+
+static void new_monitor_binding(struct monitor_blocking_binding *b,
+                                struct capref ep, bool export,
+                                uintptr_t domain_id)
+{
+    errval_t err;
+    struct capref retcap;
+    struct remote_conn_state *conn = NULL;
+    uintptr_t conn_id = 0;
+
+    struct monitor_lmp_binding *lmpb = malloc(sizeof(*lmpb));
+    if (lmpb == NULL) {
+        err = LIB_ERR_MALLOC_FAIL;
+        goto out;
+    }
+
+    // setup our end of the binding
+    err = monitor_client_lmp_accept(lmpb, get_default_waitset(),
+                                    DEFAULT_LMP_BUF_WORDS);
+    if (err_is_fail(err)) {
+        err = err_push(err, LIB_ERR_MONITOR_CLIENT_ACCEPT);
+        goto out_err2;
+    }
+
+    retcap = lmpb->chan.local_cap;
+    monitor_server_init(&lmpb->b);
+
+    if (!capref_is_null(ep)) {
+
+        struct endpoint_identity epid;
+        err = invoke_endpoint_identify(ep, &epid);
+        if (err_is_fail(err)) {
+            goto out_err3;
+        }
+
+        uint8_t level = get_cap_level(ep);
+        capaddr_t caddr = get_cap_addr(ep);
+
+        coreid_t owner;
+        err = monitor_get_cap_owner(cap_root, caddr, level, &owner);
+        if (err_is_fail(err)) {
+            goto out_err3;
+        }
+
+        if (export && owner != my_core_id) {
+            debug_printf("XXX: wrong owner\n");
+            err = -1;
+            goto out_err3;
+        }
+
+        err = remote_conn_alloc(&conn, &conn_id, REMOTE_CONN_UMP);
+        if (err_is_fail(err)) {
+            goto out_err3;
+        }
+
+        conn->x.ump.epid = epid;
+        conn->x.ump.frame = ep;
+        conn->domain_binding = &lmpb->b;
+        conn->core_id = owner;
+        conn->domain_id = domain_id;
+
+        if (export) {
+            /* set the connection state */
+            lmpb->b.st = conn;
+        } else {
+            struct intermon_binding *ib;
+            err = intermon_binding_get(owner, &ib);
+            if (err_is_fail(err)) {
+                goto out_err4;
+            }
+            assert(ib);
+
+            conn->mon_binding = ib;
+
+            err = ump_route_setup(ib, b, conn);
+            if (err_is_fail(err)) {
+                goto out_err4;
+            }
+
+            /* don't send an reply just yet */
+            return;
+        }
+    }
+
+    out:
+
+    err = b->tx_vtbl.new_monitor_binding_response(b, NOP_CONT, retcap, err);
+    assert(err_is_ok(err));
+
+    return;
+
+    out_err4:
+    free(conn);
+    out_err3:
+    monitor_lmp_destroy(lmpb);
+    out_err2:
+    free(lmpb);
+    goto out;
+}
+
 /*------------------------- Initialization functions -------------------------*/
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
@@ -615,6 +719,8 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
 
     .get_platform_call = get_platform,
     .get_platform_arch_call = get_platform_arch,
+
+    .new_monitor_binding_call = new_monitor_binding
 };
 
 static void export_callback(void *st, errval_t err, iref_t iref)

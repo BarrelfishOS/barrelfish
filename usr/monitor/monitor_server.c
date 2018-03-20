@@ -834,7 +834,15 @@ cap_send_request(struct monitor_binding *b, uintptr_t my_mon_id,
 {
     DEBUG_CAPOPS("cap_send_request\n");
     errval_t err;
-    struct remote_conn_state *conn = remote_conn_lookup(my_mon_id);
+
+    struct remote_conn_state *conn;
+    if (my_mon_id == 0x0) {
+        assert(b->st);
+        conn = b->st;
+        my_mon_id = remote_conn_get_id(conn);
+    } else {
+        conn = remote_conn_lookup(my_mon_id);
+    }
 
     struct send_cap_st *st;
     st = calloc(1, sizeof(*st));

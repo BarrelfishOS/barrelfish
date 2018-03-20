@@ -671,7 +671,12 @@ ump_ep_create_fn p ifn has_caps =
       (if has_caps then
           C.StmtList [
             C.SComment "Has cap Transfers",
-            C.Ex $ C.Call "debug_printf" [C.StringConstant "[FL] Handling of caps not yet implemented!"]
+            C.Ex $ C.Assignment errvar $ C.Call "monitor_client_prepare_new_binding" [
+              ep_var, C.Variable "true", ws_var, umpchanid,
+              C.Variable "DEFAULT_LMP_BUF_WORDS", mbinding],
+              C.If (C.Call "err_is_fail" [errvar]) [
+                C.Goto "err_out_3"
+              ][]
           ]
       else C.SComment "No cap transfers. Don't involve monitor."),
       C.SBlank,
@@ -691,6 +696,12 @@ ump_ep_create_fn p ifn has_caps =
       C.Ex $ C.Assignment (C.DerefField (C.Variable intf_bind_var) "rx_vtbl") (C.DerefPtr param_rxvtbl),
       C.Ex $ C.Assignment (C.DerefPtr $ C.Variable "binding") (C.Variable "_binding"),
       C.Return (C.Variable "SYS_ERR_OK"),
+      (if has_caps then
+          C.StmtList [
+              C.Label "err_out_3",
+              C.Ex $ C.Call "ump_chan_destroy" [C.AddressOf chanvar]
+          ]
+      else C.StmtList []),
       C.Label "err_out_2",
       C.Ex $ C.Call "vspace_unmap" [msgbuf_var],
       C.Label "err_out",
@@ -703,6 +714,7 @@ ump_ep_create_fn p ifn has_caps =
         params = ump_ep_create_params p ifn
         param_rxvtbl = C.Variable "rx_vtbl"
         ep_var = C.Variable "ret_ep"
+        ws_var = C.Variable "ws"
         msgbuf_var = C.Variable "msgbuf"
         epid_var_name = "ep_id"
         epid_address = (C.AddressOf (C.Variable epid_var_name))
@@ -714,7 +726,9 @@ ump_ep_create_fn p ifn has_caps =
         statevar = C.DerefField my_bindvar "ump_state"
         chanvar = statevar `C.FieldOf` "chan"
         sendvar = chanvar `C.FieldOf` "sendid"
+        mbinding = C.AddressOf (chanvar `C.FieldOf` "monitor_binding")
         chanaddr = C.AddressOf $ chanvar
+        umpchanid = C.Cast (C.TypeName "uintptr_t") (C.AddressOf chanvar)
         common_field f = my_bindvar `C.DerefField` "b" `C.FieldOf` f
         common_init = binding_struct_init (ump_drv p) ifn
                         (C.DerefField my_bindvar "b")
@@ -788,7 +802,12 @@ ump_ep_bind_fn p ifn has_caps =
     (if has_caps then
         C.StmtList [
           C.SComment "Has cap Transfers",
-          C.Ex $ C.Call "debug_printf" [C.StringConstant "[FL] Handling of caps not yet implemented!"]
+          C.Ex $ C.Assignment errvar $ C.Call "monitor_client_prepare_new_binding" [
+            ep_var, C.Variable "false", ws_var, umpchanid,
+            C.Variable "DEFAULT_LMP_BUF_WORDS",mbinding],
+            C.If (C.Call "err_is_fail" [errvar]) [
+              C.Goto "err_out_3"
+            ][]
         ]
     else C.SComment "No cap transfers. Don't involve monitor."),
     C.SBlank,
@@ -806,6 +825,12 @@ ump_ep_bind_fn p ifn has_caps =
     C.SBlank,
 
     C.Return  $ C.Call (tx_bind_msg_fn_name p ifn) [my_bindvar],
+    (if has_caps then
+        C.StmtList [
+            C.Label "err_out_3",
+            C.Ex $ C.Call "ump_chan_destroy" [C.AddressOf chanvar]
+        ]
+    else C.StmtList []),
     C.Label "err_out_2",
     C.Ex $ C.Call "vspace_unmap" [msgbuf_var],
     C.Label "err_out",
@@ -818,6 +843,7 @@ ump_ep_bind_fn p ifn has_caps =
       params = ump_ep_bind_params p ifn
       errvar = C.Variable "err"
       ep_var = C.Variable "ep"
+      ws_var = C.Variable "ws"
       msgbuf_var = C.Variable "msgbuf"
       epid_var_name = "ep_id"
       epid_address = (C.AddressOf (C.Variable epid_var_name))
@@ -828,7 +854,9 @@ ump_ep_bind_fn p ifn has_caps =
       statevar = C.DerefField my_bindvar "ump_state"
       chanlen = C.Binary C.RightShift ep_size (C.NumConstant 1)
       chanvar = statevar `C.FieldOf` "chan"
+      mbinding = C.AddressOf (chanvar `C.FieldOf` "monitor_binding")
       sendvar = chanvar `C.FieldOf` "sendid"
+      umpchanid = C.Cast (C.TypeName "uintptr_t") (C.AddressOf chanvar)
       common_init = binding_struct_init (ump_drv p) ifn
         (C.DerefField my_bindvar "b")
         (C.Variable "ws")

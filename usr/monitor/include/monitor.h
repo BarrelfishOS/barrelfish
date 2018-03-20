@@ -147,6 +147,10 @@ errval_t arch_intermon_init(struct intermon_binding *b);
 /* ump_support.c */
 errval_t ump_intermon_init(struct intermon_binding *ib);
 errval_t ump_monitor_init(struct monitor_binding *mb);
+errval_t ump_route_setup(struct intermon_binding *ib,
+                         struct monitor_blocking_binding *dom,
+                         struct remote_conn_state *cst);
+
 
 /* multihop_support.c */
 errval_t multihop_intermon_init(struct intermon_binding *ib);
