@@ -21,8 +21,8 @@
 %% node_accept(InNodeId, InAddr :: block).
 :- dynamic node_accept/2.
 
-%% node_translate(InNodeId, InAddr :: block, OutNodeId, OutAddr :: block).
-:- dynamic node_translate/4.
+%% node_translate_dyn(InNodeId, InAddr :: block, OutNodeId, OutAddr :: block).
+:- dynamic node_translate_dyn/4.
 
 %% node_overlay(InNodeId, OutNodeId).
 :- dynamic node_overlay/2.
@@ -40,6 +40,12 @@
 :- export struct(name(node_id,address)).
 
 :- lib(ic).
+
+% The support translate cases: 
+% 1. Backed by direct dynamic facts
+node_translate(A,B,C,D) :- node_translate_dyn(A,B,C,D).
+% 2. Backed by mapped blocks
+node_translate(A,B,C,D) :- node_translate_block(A,B,C,D).
 
 iblock_match(A, block{base: B, limit: L}) :-
     B #=< A,
@@ -98,6 +104,42 @@ iaddress_gt([S | Ss], [B | Bs]) :-
 address_gt([K, ISmaller], [K, IBigger]) :-
     iaddress_gt(ISmaller, IBigger).
 
+iaddress_gte([], []).
+iaddress_gte([S | Ss], [B | Bs]) :-
+    S #=< B,
+    iaddress_gte(Ss,Bs).
+
+% Will only compare addresses of the same kind
+address_gte([K, ISmaller], [K, IBigger]) :-
+    iaddress_gte(ISmaller, IBigger).
+
+iaddress_sub([], [], []).
+iaddress_sub([A | As], [B | Bs], [C | Cs]) :-
+    C is A - B,
+    iaddress_sub(As,Bs,Cs).
+
+% A - B = C ---> address_sub(A,B,C)
+address_sub([K, IA], [K, IB], [K, IC]) :-
+    iaddress_sub(IA, IB, IC).
+
+iaddress_add([], [], []).
+iaddress_add([A | As], [B | Bs], [C | Cs]) :-
+    C is A + B,
+    iaddress_add(As,Bs,Cs).
+
+% A + B = C ---> address_add(A,B,C)
+address_add([K, IA], [K, IB], [K, IC]) :-
+    iaddress_add(IA, IB, IC).
+
+iaddress_add_const([], _, []).
+iaddress_add_const([A | As], B, [C | Cs]) :-
+    C is A + B,
+    iaddress_add_const(As,B,Cs).
+
+% A + B = C ---> address_add(A,B,C)
+address_add_const([K, IA], B, [K, IC]) :-
+    iaddress_add_const(IA, B, IC).
+
 iblock_iaddress_gt([], []).
 iblock_iaddress_gt([Block | Bs], [Addr | As]) :-
     block{
@@ -108,6 +150,42 @@ iblock_iaddress_gt([Block | Bs], [Addr | As]) :-
 
 block_address_gt([K, IBlocks], [K, IAddress]) :-
     iblock_iaddress_gt(IBlocks, IAddress).
+
+
+iblock_limit_iaddress([], []).
+iblock_limit_iaddress([Block | Bs], [Addr | As]) :-
+    block{
+        limit: Addr
+    } = Block,
+    iblock_limit_iaddress(Bs, As).
+
+% Turn the limit of the blocks into an address
+block_limit_address([K, IBlocks], [K, IAddress]) :-
+    iblock_limit_iaddress(IBlocks, IAddress).
+
+iblock_base_iaddress([], []).
+iblock_base_iaddress([Block | Bs], [Addr | As]) :-
+    block{
+        base: Addr
+    } = Block,
+    iblock_base_iaddress(Bs, As).
+
+% Turn the base of the blocks into an address
+block_base_address([K, IBlocks], [K, IAddress]) :-
+    (var(IBlocks),var(IAddress), fail) ; 
+    iblock_base_iaddress(IBlocks, IAddress).
+
+% Turn a region into a base name
+region_base_name(Region, Name) :-
+    Region = region{node_id: NodeId, blocks: Blocks},
+    Name = name{node_id:NodeId, address: Base},
+    block_base_address(Blocks, Base).
+
+% Turn a region into a limit name
+region_limit_name(Region, Name) :-
+    Region = region{node_id: NodeId, blocks: Blocks},
+    block_limit_address(Blocks, Base),
+    Name = name{node_id:NodeId, address: Base}.
 
 :- export accept/2.
 accept(NodeId, Addr) :-
@@ -204,7 +282,7 @@ does_not_translate(NodeId, [AKind,IAddr]) :-
 
 :- export test_does_not_translate/0.
 test_does_not_translate :-
-    assert(node_translate(
+    assert(node_translate_dyn(
         ["In"], [memory, [block{base:1000,limit:2000}]],
         ["Out1"], [memory, [block{base:0,limit:1000}]])),
     does_not_translate(["In"], [memory, [500]]).
@@ -254,17 +332,23 @@ test_translate2 :-
 accept_dummy(NodeId, AcS) :-
     node_accept(NodeId, AcS).
 
-:- export accept_name/1.
-accept_name(Name) :-
+:- export accept/1.
+accept(Name) :-
     name{
         node_id:NodeId,
         address:Addr
     } = Name,
     accept(NodeId, Addr).
 
+accept(Region) :-
+    region_base_name(Region,Base),
+    accept(Base),
+    region_limit_name(Region,Limit),
+    accept(Limit).
 
-:- export decode_step/2.
-decode_step(SrcName,DstName) :-
+
+:- export translate/2.
+translate(SrcName,DstName) :-
     name{
         node_id:SrcNodeId,
         address:SrcAddr
@@ -273,22 +357,22 @@ decode_step(SrcName,DstName) :-
         node_id:DstNodeId,
         address:DstAddr
     } = DstName,
-    translate(SrcNodeId,SrcAddr,DstNodeId, DstAddr). % CHECKME
+    translate(SrcNodeId,SrcAddr,DstNodeId, DstAddr).
 
 :- export test_decode_step/0.
-test_decode_step :-
+test_translate_name :-
     add_pci,
-    decode_step(
+    translate(
         name{node_id:["IN", "IOMMU0", "PCI0"], address: [memory, [1]]},
         Out),
     Out = name{node_id: ["OUT", "IOMMU0", "PCI0"], address: [memory, [1]]}.
 
-% Reflexive, transitive closure of decode_step
+% Reflexive, transitive closure of translate
 :- export decodes_to/2.
 decodes_to(S,S).
 
 decodes_to(SrcName,DstName) :-
-    decode_step(SrcName,Name),
+    translate(SrcName,Name),
     decodes_to(Name,DstName).
 
 :- export resolve/2.
@@ -296,7 +380,7 @@ resolve(SrcName,DstName) :-
     name{} = SrcName,
     name{} = DstName,
     decodes_to(SrcName,DstName),
-    accept_name(DstName).
+    accept(DstName).
 
 resolve(SrcRegion,DstRegion) :-
     to_name(SrcRegion,SrcName),
@@ -390,7 +474,7 @@ init :-
     SYS_ID = ["SYS"],
     add_SYSTEM(SYS_ID),
     % Reserver some memory
-    assert(node_in_use(["SYS","DRAM"], [memory, [block{base:0, limit:8192}]])).
+    assert(node_in_use(["DRAM", "SYS"], [memory, [block{base:0, limit:8192}]])).
 
 % Make ID argument if we want to add multiple.
 add_pci :-
@@ -402,7 +486,7 @@ add_pci :-
     % connect the output to the systems pci bus
     assert(node_overlay(PCIOUT_ID, PCIBUS_ID)),
     % Now insert the BAR into the PCI bus address space
-    assert(node_translate(PCIBUS_ID, [memory,[block{base:1024,limit:2048}]], PCIIN_ID, [memory, [block{base:1024,limit:2048}]])).
+    assert(node_translate_dyn(PCIBUS_ID, [memory,[block{base:1024,limit:2048}]], PCIIN_ID, [memory, [block{base:1024,limit:2048}]])).
 
 % Make ID argument if we want to add multiple.
 add_process :-
@@ -418,13 +502,13 @@ remove_process_mapping :-
     MMU_ID = ["MMU","PROC0"],
     IN_ID = ["IN" | MMU_ID],
     OUT_ID = ["OUT" | MMU_ID],
-    retract(node_translate(IN_ID, _, _, _)).
+    retract(node_translate_dyn(IN_ID, _, _, _)).
 
 add_process_mapping :-
     MMU_ID = ["MMU","PROC0"],
     IN_ID = ["IN" | MMU_ID],
     OUT_ID = ["OUT" | MMU_ID],
-    assert(node_translate(IN_ID, [memory, [block{base:1024,limit:2048}]], OUT_ID, [memory, [block{base:1024,limit:2048}]])).
+    assert(node_translate_dyn(IN_ID, [memory, [block{base:1024,limit:2048}]], OUT_ID, [memory, [block{base:1024,limit:2048}]])).
 
 :- export process_to_pci/2.
 process_to_pci(ProcAddr, PCIAddr) :- 
@@ -464,6 +548,7 @@ free_range(NodeId, _, Out) :-
    % Not a very smart allocator, finds the highest addr in use and append
    % Therefore can ignore Size
    findall(X, node_in_use(NodeId, X), UsedBlockLi),
+   block_address_gt([memory, [block{limit: 0}]], Out), % TODO: Works only for 1 Dim addr.
    (foreach(UsedBlock, UsedBlockLi), param(Out) do
        block_address_gt(UsedBlock, Out)
    ).
@@ -549,6 +634,11 @@ test_common_free_buffer(Proc,Pci,Resolved) :-
 %%%% Bit Array Representation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+:- export array_all_eq/2.
+array_all_eq([], _).
+array_all_eq([A | Bs], A) :- array_all_eq(Bs,A).
+array_all_eq(Arr, A) :- array_list(Arr, ArrLi), array_all_eq(ArrLi, A).
+
 % Constrains word to be a N bit word
 assert_word(W, N) :-
     dim(W,[N]), W :: [0 .. 1].
@@ -570,9 +660,12 @@ subword(Word,Subword, Range) :-
 %%%% Block Remappable Nodes
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% As of now, block remappable implies that the node is one dimension
 :- dynamic node_block_conf/3. %(NodeId, VPN, PPN).
+:- export node_block_conf/3.
 :- dynamic node_block_meta/3. %(NodeId, BlockSizeBits, OutNodeId)
 
+% Translate using Block Conf. Same signature as node_translate
 node_translate_block(InNodeId, [memory, [VAddr]], OutNodeId, [memory, [PAddr]]) :-
     node_block_meta(InNodeId, BlockSizeBits, OutNodeId),
     % Bit-Lookup Offset and VPN
@@ -608,11 +701,252 @@ test_node_translate_block :-
     node_translate_block([], [memory,[1000]], ["OUT"], [memory, [2098152]]).
 
 
-% Same signature as node_translate
-node_translate_pt(InNodeId, [K, [VAddr]], OutNodeId, [K, [PAddr]]) :-
-    node_pt(InNodeId, PtIndex, OutNodeId),
-    pt_translate(PtIndex, VAddr, PAddr).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Routing 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+one_block_upper_limit(Name, Limit) :-
+    Name = name{
+        node_id: NodeId,
+        address: Address
+    },
+    (( % Block remappable?
+      node_block_meta(NodeId, BlockSizeBits, _),
+      Address = [K, [A]],
+      Limit = [K, [ILimit]],
+      assert_word(AW, 48),
+      word_to_num(AW, A),
+      assert_word(LimitW, 48), % TODO bit size for physical address?
+      UpperStartBit is BlockSizeBits + 1,
+      subword(AW, UpperW, UpperStartBit .. 48), 
+      subword(LimitW, UpperW, UpperStartBit .. 48),
+      subword(LimitW, LowerW, 1 .. BlockSizeBits),
+      array_all_eq(LowerW, 1),
+      word_to_num(LimitW, ILimit)
+    ) ; (
+      % In a translate block?
+      node_translate_dyn(NodeId, Block, _, _),
+      address_match(Address, Block),
+      block_limit_address(Block, Limit)
+    )).
+
+:- export test_one_block_upper_limit/0. %
+test_one_block_upper_limit :-
+    assert(node_translate_dyn(
+        ["In"], [memory, [block{base:1000,limit:2000}]],
+        ["Out1"], [memory, [block{base:0,limit:1000}]])),
+    one_block_upper_limit(name{node_id:["In"],address:[memory, [1400]]}, Limit),
+    writeln(Limit),
+
+    assert(node_block_meta(["In1"], 21, ["Out1"])),
+    one_block_upper_limit(name{node_id:["In1"],address:[memory, [1400]]}, Limit2),
+    writeln(Limit2).
+
+% Internal function for region route
+
+% Route Step for names
+route_step(SrcName, NextName, Route) :-
+    SrcName = name{},
+    NextName = name{},
+    ((
+        translate(SrcName, NextName),
+        Route = []
+    ) ; (
+        % In this case, we can assume, there is no block map existing,
+        % But, we have to check if the node supports block mapping, then
+        % we can install this
+        can_translate(SrcName, NextName, Config),
+        Route = [Config]
+    )).
+
+% Route Step for regions
+route_step(SrcRegion, NextRegion, Route) :-
+    % This will only work, if the source region will translate to the same node block
+    % this should be ensured by the block splitting of the region route
+    region_base_name(SrcRegion, SrcBase),
+    region_limit_name(SrcRegion, SrcLimit),
+    writeln(("Calling route step, SrcBase", SrcBase)),
+    route_step(SrcBase, NextBase, Route1),
+    writeln(("NextBase", NextBase)),
+    writeln(("Calling route step, SrcLimit", SrcLimit)),
+    route_step(SrcLimit, NextLimit, Route2),
+    writeln(("NextLimit", NextLimit)),
+    region_base_name(NextRegion, NextBase),
+    region_limit_name(NextRegion, NextLimit),
+    union(Route1, Route2, Route).
+
+% Routing functionality for ranges addresses (represented as region)
+% This one 
+route(SrcRegion, DstRegion, Route) :-
+    SrcRegion = region{node_id: SrcNodeId, blocks: SrcBlocks},
+    DstRegion = region{node_id: DstNodeId, blocks: DstBlocks},
+    block_base_address(SrcBlocks, SrcBase), % SrcBase = [memory, [0,1,2]]
+    block_limit_address(SrcBlocks, SrcLimit), % SrcLimit = [memory, [10,11,12]]
+    block_base_address(DstBlocks, DstBase),
+    block_limit_address(DstBlocks, DstLimit),
+    one_block_upper_limit(name{node_id:SrcNodeId, address:SrcBase}, BlockLimit),
+    % BlockLimit = [memory, [2000]]
+    ((
+        address_gte(SrcLimit , BlockLimit),
+        % Great, SrcRegion fits completly in translate block
+        route_step(SrcRegion, NextRegion, R1),
+        ( accept(NextRegion) -> (
+            Route = R1
+        ) ; (
+            route(NextRegion, DstRegion, R2),
+            union(R1, R2, Route)
+        ))
+    ) ; ( 
+        % Only allow this if the block has to be split
+        not(address_gte(SrcLimit , BlockLimit)),
+
+        % Route first block
+        block_base_address(NewSrcBlocks, SrcBase), % Keep the base
+        block_limit_address(NewSrcBlocks, BlockLimit), 
+
+        block_base_address(NewDstBlocks, DstBase), % Keep the base
+        address_sub(BlockLimit, SrcBase, BlockSize),
+        address_add(DstBase, BlockSize, NewDstLimit),
+        block_limit_address(NewDstBlocks, NewDstLimit), 
+        route(
+            region{node_id:SrcNodeId, blocks: NewSrcBlocks},
+            region{node_id:DstNodeId, blocks: NewDstBlocks},
+            R1), 
+
+        % Construct remainder
+        address_add_const(BlockLimit, 1, AfterBlock),
+        block_base_address(RemSrcBlocks, AfterBlock), 
+        block_limit_address(RemSrcBlocks, SrcLimit),  % keep limit
+
+        address_add_const(NewDstLimit, 1, AfterDstLimit), 
+        block_base_address(RemDstBlocks, AfterDstLimit), 
+        block_limit_address(RemDstBlocks, DstLimit), % keep limit
+        route(
+            region{node_id:SrcNodeId, blocks: RemSrcBlocks},
+            region{node_id:DstNodeId, blocks: RemDstBlocks},
+            R2),
+
+        % Concat routes
+        union(R1, R2, Route)
+    )).
+        
+    
+% Routing functionality for single addresses (represented as name)
+route(SrcName, DstName, Route) :-
+    SrcName = name{},
+    DstName = name{},
+    route_step(SrcName, NextName, R1),
+    ( accept(NextName) -> (
+        Route = R1
+    ) ; (
+        route(NextName, DstName, R2),
+        union(R1, R2, Route)
+    )).
+
+route_and_install(SrcName, DstName, Route) :-
+    route(SrcName,DstName, Route),
+    term_variables(Route, RouteVars),
+    labeling(RouteVars),
+    install_route(Route).
+
+
+:- export test_route/1.
+test_route(Route) :-
+    init, add_pci, add_process,
+    MMU_IN_ID = ["IN", "MMU0", "PROC0"],
+    MMU_OUT_ID = ["OUT", "MMU0", "PROC0"],
+    DRAM_ID = ["DRAM", "SYS"],
+    retract(node_translate_dyn(MMU_IN_ID,_,_,_)), % Make sure there is no route
+    assert(node_block_meta(MMU_ID, 21, MMU_OUT_ID)),
+    alloc_range(DRAM_ID, [memory, [1024]], FreeDRAM),
+    SrcName=name{node_id: MMU_IN_ID, address: [memory, [0]]},
+    DstName=name{node_id: DRAM_ID, address: FreeDRAM},
+    writeln(("Routing from", SrcName, " to ", DstName)),
+    route(SrcName, DstName, Route),
+    term_variables(Route, RouteVars),
+    labeling(RouteVars),
+    writeln(("Calculated", Route)).
+
+:- export test_route2/0.
+test_route2 :-
+    init, add_pci, add_process,
+    MMU_IN_ID = ["IN", "MMU0", "PROC0"],
+    MMU_OUT_ID = ["OUT", "MMU0", "PROC0"],
+    DRAM_ID = ["DRAM", "SYS"],
+    retract(node_translate_dyn(MMU_IN_ID,_,_,_)), % Make sure there is no route
+    assert(node_block_meta(MMU_ID, 21, MMU_OUT_ID)),
+    alloc_range(DRAM_ID, [memory, [1024]], FreeDRAM),
+    SrcName1=name{node_id: MMU_IN_ID, address: [memory, [0]]},
+    DstName1=name{node_id: DRAM_ID, address: FreeDRAM},
+    writeln(("Routing from", SrcName1, " to ", DstName1)),
+    route_and_install(SrcName1, DstName1, Route1),
+    writeln(("Calculated (1)", Route1)),
+    SrcName2=name{node_id: MMU_IN_ID, address: [memory, [0]]},
+    DstName2=name{node_id: DRAM_ID, address: FreeDRAM},
+    writeln(("Routing from", SrcName2, " to ", DstName2)),
+    route_and_install(SrcName2, DstName2, Route2),
+    writeln(("Calculated (2) ", Route2)).
+
+
+:- export test_route_region_small/0.
+test_route_region_small :-
+    assert(node_block_meta(["IN"], 21, ["OUT"])),
+    assert(node_accept(["OUT"], [memory, [block{base:0, limit:100000}]])),
+    route(
+        region{node_id:["IN"], blocks:[memory,[block{base:0, limit:1000}]]},
+        region{node_id:["OUT"], blocks:[memory,[block{base: 0, limit: 1000}]]},
+        Route),
+    term_variables(Route, RouteVars),
+    labeling(RouteVars),
+
+    % check if it worked
+    member((["IN"], 0, 0), Route),
+    writeln(("Calculated", Route)).
+
+:- export test_route_region_two/0.
+test_route_region_two :-
+    Limit = 4194302, % 0x1fffff * 2
+    assert(node_block_meta(["IN"], 21, ["OUT"])),
+    assert(node_accept(["OUT"], [memory, [block{base:0, limit:4194303}]])),
+    route(
+        region{node_id:["IN"], blocks:[memory,[block{base:0, limit:Limit}]]},
+        region{node_id:["OUT"], blocks:[memory,[block{base: 0, limit: Limit}]]},
+        Route),
+    term_variables(Route, RouteVars),
+    labeling(RouteVars),
+
+    member((["IN"], 0, 0), Route),
+    member((["IN"], 1, 1), Route),
+    writeln(("Calculated", Route)).
+
+
+:- export test_route_all/0.
+test_route_all :-
+    test_route_region_small,
+    writeln("region small: passed"),
+    test_route_region_two,
+    writeln("region two: passed").
+
+
+% It is possible, to remap SrcName to DstName using the block remapping?
+can_translate(SrcName, DstName, (SrcNodeId, VPN, PPN)) :-
+    name{ node_id: SrcNodeId, address: [K, [ISrcAddr]] } = SrcName,
+    name{ node_id: DstNodeId, address: [K, [IDstAddr]] } = DstName,
+    node_block_meta(SrcNodeId, BlockSizeBits, DstNodeId),
+    split_vaddr(ISrcAddr, BlockSizeBits, [VPN, Offset]),
+    split_vaddr(IDstAddr, BlockSizeBits, [PPN, Offset]),
+    not(node_block_conf(SrcNodeId, VPN, _)). % No mapping with this VPN
+
+:- export install_route/1.
+install_route([]).
+
+install_route([null | Ri]) :-
+    install_route(Ri).
+
+install_route([(NodeId, VPN, PPN) | Ri]) :-
+    assert(node_block_conf(NodeId, VPN, PPN)).
+
+    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% X86 Page table configurable nodes
@@ -622,6 +956,11 @@ node_translate_pt(InNodeId, [K, [VAddr]], OutNodeId, [K, [PAddr]]) :-
 :- dynamic node_pt/3. % NodeId, RootPt, OutNodeId
 :- dynamic pt/3. % PtIndex, Offset, NextPtIndex
 :- export pt/3.
+
+% Translate using PT. Same signature as node_translate
+node_translate_pt(InNodeId, [K, [VAddr]], OutNodeId, [K, [PAddr]]) :-
+    node_pt(InNodeId, PtIndex, OutNodeId),
+    pt_translate(PtIndex, VAddr, PAddr).
     
 :- export split_vpn/2.
 split_vpn(VPN, Parts) :-
@@ -634,6 +973,17 @@ split_vpn(VPN, Parts) :-
     subword(VPNW, L3W, 19 .. 27),
     word_to_num(L3W, L3),
     Parts = [L3,L2,L1].
+
+:- export split_vaddr/2.
+split_vaddr(VA, BlockSizeBits, [VPN, Offset]) :-
+    assert_word(VAW, 48),
+    word_to_num(VAW, VA),
+    subword(VAW, OffsetW, 1 .. BlockSizeBits),
+    word_to_num(OffsetW, Offset),
+    VPNWStart is BlockSizeBits + 1,
+    subword(VAW, VPNW, VPNWStart .. 48),
+    word_to_num(VPNW, VPN).
+
 
 :- export test_split_vpn/0.
 test_split_vpn :-

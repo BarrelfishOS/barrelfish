@@ -264,7 +264,7 @@ gen_body_defs :: ModuleInfo -> AST.Definition -> [String]
 gen_body_defs mi x = case x of
   (AST.Accepts _ n accepts) -> [(assert $ predicate "node_accept" [generate n, generate (new_ab acc)])
     | acc <- accepts]
-  (AST.Maps _ _ _) -> [(assert $ predicate "node_translate"
+  (AST.Maps _ _ _) -> [(assert $ predicate "node_translate_dyn"
     [generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
     | om <- map_spec_flatten mi x]
   (AST.Overlays _ src dest) -> [assert $ predicate "node_overlay" [generate src, generate dest]]
