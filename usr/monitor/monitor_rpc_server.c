@@ -18,6 +18,7 @@
 #include <barrelfish_kpi/platform.h>
 #include <barrelfish_kpi/capbits.h>
 #include "capops.h"
+#include "include/monitor.h"
 
 
 
@@ -649,7 +650,9 @@ static void new_monitor_binding(struct monitor_blocking_binding *b,
 
         if (export) {
             /* set the connection state */
-            lmpb->b.st = conn;
+
+            struct monitor_state *st = lmpb->b.st;
+            st->conn = conn;
         } else {
             struct intermon_binding *ib;
             err = intermon_binding_get(owner, &ib);

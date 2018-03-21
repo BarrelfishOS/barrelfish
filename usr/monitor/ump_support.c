@@ -370,7 +370,8 @@ static void intermon_ump_route_setup_reply(struct intermon_binding *ib,
 
     struct monitor_lmp_binding *lmpb = (struct monitor_lmp_binding *)conn->domain_binding;
 
-    lmpb->b.st = conn;
+    struct monitor_state *st = lmpb->b.st;
+    st->conn = conn;
     /* send the reply */
 
     struct monitor_blocking_binding *b = (void *)state;

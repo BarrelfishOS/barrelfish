@@ -29,6 +29,8 @@
 #include <connection.h>
 #include "monitor_debug.h"
 
+struct remote_conn_state;
+
 STATIC_ASSERT(MON_URPC_SIZE == 2*BASE_PAGE_SIZE,
               "Change #URPC_SIZE if changing channel length");
 #define MON_URPC_CHANNEL_LEN  (32 * UMP_MSG_BYTES)
@@ -59,6 +61,7 @@ struct intermon_state {
 
 struct monitor_state {
     struct msg_queue queue;
+    struct remote_conn_state *conn;
 };
 
 extern iref_t mem_serv_iref;

@@ -835,7 +835,9 @@ cap_send_request(struct monitor_binding *b, uintptr_t my_mon_id,
     struct remote_conn_state *conn;
     if (my_mon_id == 0x0) {
         assert(b->st);
-        conn = b->st;
+        struct monitor_state *st = b->st;
+        conn = st->conn;
+        assert(conn);
         my_mon_id = remote_conn_get_id(conn);
     } else {
         conn = remote_conn_lookup(my_mon_id);
