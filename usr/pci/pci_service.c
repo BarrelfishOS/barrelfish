@@ -468,8 +468,8 @@ static errval_t connect_callback(void *cst, struct pci_binding *b)
  * Connection to Kaluga to request PCI endpoints for devices
  *****************************************************************/
 
-static void request_pci_cap_handler(struct kaluga_binding* b, uint32_t bus, 
-                                    uint32_t device, uint32_t function)
+static void request_endpoint_cap_handler(struct kaluga_binding* b, uint32_t bus, 
+                                         uint32_t device, uint32_t function)
 {
     errval_t err;
     PCI_DEBUG("Kaluga requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
@@ -493,12 +493,12 @@ static void request_pci_cap_handler(struct kaluga_binding* b, uint32_t bus,
     state->fun = function;
     pci->st = state;
    
-    err = b->tx_vtbl.request_pci_cap_response(b, NOP_CONT, cap);
+    err = b->tx_vtbl.request_endpoint_cap_response(b, NOP_CONT, cap);
     assert(err_is_ok(err));
 }
 
 static struct kaluga_rx_vtbl rx_vtbl = {
-    .request_pci_cap_call = request_pci_cap_handler
+    .request_endpoint_cap_call = request_endpoint_cap_handler
 };
 
 static void bind_cont(void *st, errval_t err, struct kaluga_binding *b)

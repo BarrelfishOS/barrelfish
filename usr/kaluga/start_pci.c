@@ -152,8 +152,8 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
         return err;
     }
 
-    err = kaluga_pci->rpc_tx_vtbl.request_pci_cap(kaluga_pci, addr.bus, addr.device, 
-                                                  addr.function, &pci_cap);
+    err = kaluga_pci->rpc_tx_vtbl.request_endpoint_cap(kaluga_pci, addr.bus, addr.device, 
+                                                       addr.function, &pci_cap);
     if (err_is_fail(err)) {
         return KALUGA_ERR_CAP_ACQUIRE;
     }
