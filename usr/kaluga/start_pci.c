@@ -40,8 +40,20 @@
 #include "kaluga.h"
 #include <acpi_client/acpi_client.h>
 
-static struct kaluga_binding* kaluga_pci;
-static struct capref kaluga_ep;
+static collections_listnode* ep_list;
+static struct ep_state pci;
+
+// TODO might needs some methods
+static struct kaluga_rx_vtbl kaluga_rx_vtbl;
+
+struct ep_state {
+    struct kaluga_binding* b;
+    struct capref ep;
+    struct pci_addr addr;
+    uint16_t core;
+    char* binary_name;
+    char* module_name;
+};
 
 static void pci_change_event(octopus_mode_t mode, const char* device_record,
                              void* st);
@@ -100,12 +112,84 @@ static errval_t add_device_id_cap(struct pci_addr addr,
                                  addr.device, addr.function, 0);
 }
 
+
+/**
+ * For devices store the endpoints to PCI and Kaluga
+ * into driver_arg.
+ */
+static errval_t add_ep_args(struct pci_addr addr, coreid_t core, struct driver_argument
+                            *driver_arg, char* binary_name, char* module_name)
+{
+    errval_t err;
+    // Endpoint to PCI
+    struct capref pci_ep = {
+        .cnode = driver_arg->argnode_ref,
+        .slot = DRIVERKIT_ARGCN_SLOT_PCI_EP
+    };
+
+    struct capref pci_cap;
+    err = slot_alloc(&pci_cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = pci.b->rpc_tx_vtbl.request_endpoint_cap(pci.b, (core == my_core_id), 
+                                                  addr.bus, addr.device, 
+                                                  addr.function, &pci_cap);
+    if (err_is_fail(err)) {
+        return KALUGA_ERR_CAP_ACQUIRE;
+    }
+
+    err = cap_copy(pci_ep, pci_cap);
+    if (err_is_fail(err)) {
+        return KALUGA_ERR_CAP_ACQUIRE;
+    }
+
+    // Endpoint to PCI
+    struct capref kaluga_ep = {
+        .cnode = driver_arg->argnode_ref,
+        .slot = DRIVERKIT_ARGCN_SLOT_KALUGA_EP
+    };
+   
+    struct ep_state* state = calloc(1, sizeof(struct ep_state));
+    state->addr.bus = addr.bus;
+    state->addr.device = addr.device;
+    state->addr.function = addr.function;
+    state->core = core;
+
+    err = slot_alloc(&state->ep);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = kaluga_create_endpoint((core == my_core_id)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                                 &kaluga_rx_vtbl, NULL,
+                                 get_default_waitset(),
+                                 IDC_ENDPOINT_FLAGS_DUMMY,
+                                 &state->b, state->ep);
+ 
+    kaluga_rpc_client_init(state->b);
+
+    if (ep_list == NULL) {
+        collections_list_create(&ep_list, NULL);
+    }
+
+    collections_list_insert_tail(ep_list, state);
+
+    err = cap_copy(kaluga_ep, state->ep);
+    if (err_is_fail(err)) {
+        return KALUGA_ERR_CAP_ACQUIRE;
+    }
+
+    return err;
+}
+
 /**
  * For device at addr, finds and stores the interrupt arguments and caps
  * into driver_arg.
  */
 static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
-        *driver_arg, char *debug)
+                             *driver_arg, char *debug)
 {
     errval_t err;
 
@@ -140,25 +224,6 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
         }
 
     }
-
-    struct capref cap = {
-        .cnode = driver_arg->argnode_ref,
-        .slot = DRIVERKIT_ARGCN_SLOT_EP
-    };
-
-    struct capref pci_cap;
-    err = slot_alloc(&pci_cap);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    err = kaluga_pci->rpc_tx_vtbl.request_endpoint_cap(kaluga_pci, addr.bus, addr.device, 
-                                                       addr.function, &pci_cap);
-    if (err_is_fail(err)) {
-        return KALUGA_ERR_CAP_ACQUIRE;
-    }
-
-    cap_copy(cap, pci_cap);
 
     KALUGA_DEBUG("Received %zu bars\n", bars_len);
     return SYS_ERR_OK;
@@ -378,6 +443,9 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         err = add_mem_args(addr, &driver_arg, memcaps_debug_msg);
         assert(err_is_ok(err));
 
+        err = add_ep_args(addr, core, &driver_arg, binary_name, module_name);
+        assert(err_is_ok(err));
+
 
         // If we've come here the core where we spawn the driver
         // is already up
@@ -421,9 +489,6 @@ errval_t watch_for_pci_devices(void)
     return oct_trigger_existing_and_watch(pci_device, pci_change_event, NULL, &tid);
 }
 
-// TODO might needs some methods
-static struct kaluga_rx_vtbl kaluga_rx_vtbl;
-
 static void bridge_change_event(octopus_mode_t mode, const char* bridge_record,
                                 void* st)
 {
@@ -455,15 +520,18 @@ static void bridge_change_event(octopus_mode_t mode, const char* bridge_record,
             USER_PANIC_ERR(err, "Could not initialize driver argument.\n");
         }
 
-        kaluga_ep.cnode = driver_arg.argnode_ref;
-        kaluga_ep.slot = DRIVERKIT_ARGCN_SLOT_EP;
+        pci.ep.cnode = driver_arg.argnode_ref;
+        pci.ep.slot = DRIVERKIT_ARGCN_SLOT_KALUGA_EP;
 
         err = kaluga_create_endpoint(IDC_ENDPOINT_LMP, &kaluga_rx_vtbl, NULL,
                                      get_default_waitset(),
                                      IDC_ENDPOINT_FLAGS_DUMMY,
-                                     &kaluga_pci, kaluga_ep);
+                                     &pci.b, pci.ep);
  
-        kaluga_rpc_client_init(kaluga_pci);
+        kaluga_rpc_client_init(pci.b);
+
+        pci.binary_name = "pci";
+        pci.module_name = "pci";
 
         err = mi->start_function(my_core_id, mi, (CONST_CAST)bridge_record, &driver_arg);
         switch (err_no(err)) {

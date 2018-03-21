@@ -468,8 +468,9 @@ static errval_t connect_callback(void *cst, struct pci_binding *b)
  * Connection to Kaluga to request PCI endpoints for devices
  *****************************************************************/
 
-static void request_endpoint_cap_handler(struct kaluga_binding* b, uint32_t bus, 
-                                         uint32_t device, uint32_t function)
+static void request_endpoint_cap_handler(struct kaluga_binding* b, bool lmp, 
+                                         uint32_t bus, uint32_t device, 
+                                         uint32_t function)
 {
     errval_t err;
     PCI_DEBUG("Kaluga requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
@@ -480,7 +481,9 @@ static void request_endpoint_cap_handler(struct kaluga_binding* b, uint32_t bus,
     assert(err_is_ok(err));
 
     struct pci_binding* pci;
-    err = pci_create_endpoint(IDC_ENDPOINT_LMP, &pci_rx_vtbl, NULL,
+    idc_endpoint_t type = lmp ? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP;
+
+    err = pci_create_endpoint(type, &pci_rx_vtbl, NULL,
                               get_default_waitset(),
                               IDC_ENDPOINT_FLAGS_DUMMY,
                               &pci, cap);
@@ -535,8 +538,8 @@ void pci_init(void)
     PCI_DEBUG("pci: pci_init: connect to kaluga using endpoint cap\n");
     // When started by Kaluga it handend off an endpoint cap to Kaluga
     kaluga_ep.cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER);
-    kaluga_ep.slot = DRIVERKIT_ARGCN_SLOT_EP;
- 
+    kaluga_ep.slot = DRIVERKIT_ARGCN_SLOT_KALUGA_EP;
+
     r = kaluga_bind_to_endpoint(kaluga_ep, bind_cont, NULL, get_default_waitset(), 
                                 IDC_BIND_FLAGS_DEFAULT);
     while(!bound) {

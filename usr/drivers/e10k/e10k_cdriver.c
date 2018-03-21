@@ -1723,7 +1723,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 
         struct capref cap;
         // When started by Kaluga it handend off an endpoint cap to Kaluga
-        err = driverkit_get_ep_cap(bfi, &cap);
+        err = driverkit_get_pci_cap(bfi, &cap);
         assert(err_is_ok(err));
 
         assert(!capcmp(cap, NULL_CAP));
