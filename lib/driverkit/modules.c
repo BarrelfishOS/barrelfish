@@ -135,6 +135,36 @@ errval_t driverkit_destroy(const char* name) {
 }
 
 /**
+ * Destroys a driver instances identified by its name.
+ * \todo various tricky service clean-up issues are simply ignored here.
+ *
+ * \param  name Name of the instance
+ * \retval SYS_ER_OK Driver successfully destroyed.
+ * \retval DRIVERKIT_ERR_DRIVER_DETACH detaching failed.
+ */
+/*
+errval_t driverkit_get_ep(const char* name) {
+    assert(name != NULL);
+    if (instances == NULL) {
+        collections_list_create(&instances, free_driver_instance);
+    }
+
+    void* namearg = (void*) name; // Get rid of the const because collections_* API is not specific enough...
+    struct bfdriver_instance* bfi = collections_list_find_if(instances, match_name, namearg);
+    errval_t err = bfi->driver->destroy(bfi);
+    if (err_is_ok(err)) {
+        struct bfdriver_instance* bfi2 = (struct bfdriver_instance*) collections_list_remove_if(instances, match_name, namearg);
+        free_driver_instance(bfi2);
+    }
+    else {
+        err = err_push(err, DRIVERKIT_ERR_DRIVER_DETACH);
+    }
+
+    return err;
+}
+*/
+
+/**
  * Create a driver instance within the driver domain.
  *
  * \param[in]   cls     The class of driver (found in bfdriver).
@@ -227,9 +257,14 @@ errval_t driverkit_get_devid_cap(struct bfdriver_instance *bfi, struct capref *c
     return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_DEVID, cap);
 }
 
-errval_t driverkit_get_ep_cap(struct bfdriver_instance *bfi, struct capref *cap)
+errval_t driverkit_get_pci_cap(struct bfdriver_instance *bfi, struct capref *cap)
 {
-    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_EP, cap);
+    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_PCI_EP, cap);
+}
+
+static errval_t driverkit_get_kaluga_cap(struct bfdriver_instance *bfi, struct capref *cap)
+{
+    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_KALUGA_EP, cap);
 }
 
 errval_t driverkit_get_bar_cap(struct bfdriver_instance *bfi, uint8_t idx,
