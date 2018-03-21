@@ -193,6 +193,7 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
         }   
 
     } else {
+        inst = mi->driverinstance;
         KALUGA_DEBUG("Reusing existing driver domain %s\n", mi->binary);
     }
 
