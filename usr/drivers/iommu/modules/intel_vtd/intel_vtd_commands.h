@@ -14,6 +14,9 @@
 
 #include "intel_vtd_debug.h"
 #include "intel_vtd.h"
+#include "intel_vtd_iotlb.h"
+#include "intel_vtd_ctxt_cache.h"
+#include "intel_vtd_pasid_cache.h"
 
 #define INTEL_VTD_COMMAND_TIMEOUT 0x1000
 
@@ -40,9 +43,13 @@ static inline void vtd_cmd_translation_enable(struct vtd *vtd)
     vtd_cmd_translation_toggle(vtd, 1);
 }
 
+
+
 static inline void vtd_cmd_set_root_table_ptr(struct vtd *vtd, genpaddr_t addr)
 {
     bool pending;
+
+    assert(!vtd_GSTS_tes_rdf(&vtd->vtd_dev));
 
     vtd_RTADDR_rta_wrf(&vtd->vtd_dev, (addr >> BASE_PAGE_BITS));
 
@@ -52,6 +59,28 @@ static inline void vtd_cmd_set_root_table_ptr(struct vtd *vtd, genpaddr_t addr)
         pending = vtd_GSTS_rtps_rdf(&vtd->vtd_dev);
     } while((pending == 0) && timeout--);
     assert(vtd_GSTS_rtps_rdf(&vtd->vtd_dev));
+
+    /*
+     * On a root-table pointer set operation, software must perform an ordered
+     * global invalidate of the context-cache, PASID-cache (if applicable), and
+     * IOTLB to ensure hardware references only the new structures for further remapping.
+     */
+
+    /*
+     * global context-cache invalidate
+     */
+    vtd_ctxt_cache_invalidate(vtd);
+
+    /*
+     * pasid cache invalidate
+     */
+    vtd_pasid_cache_invalidate(vtd);
+
+    /*
+     * global iotlb invalidate
+     */
+    vtd_iotlb_invalidate(vtd);
+
 }
 
 static inline void vtd_cmd_set_fault_log(struct vtd *vtd)

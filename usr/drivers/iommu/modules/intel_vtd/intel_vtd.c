@@ -242,6 +242,9 @@ static errval_t vtd_parse_capabilities(struct vtd *vtd)
     vtd->capabilities.req_wb_flush = vtd_CAP_rwbf_rdf(&vtd->vtd_dev);
     INTEL_VTD_DEBUG_CAP("Required write-buffer flushing: %u\n",
                         vtd->capabilities.req_wb_flush);
+    if (vtd->capabilities.req_wb_flush == 1) {
+        USER_PANIC("Driver running on old hardware not supported\n");
+    }
 
     /*
      * AFL: Advanced Fault Logging
@@ -654,6 +657,11 @@ errval_t vtd_destroy(struct vtd *v)
 
 errval_t vtd_set_root_table(struct vtd *v)
 {
+    bool was_enabled = vtd_GSTS_tes_rdf(&v->vtd_dev);
+    if (was_enabled) {
+        vtd_cmd_translation_disable(v);
+    }
+
     errval_t err;
     struct vnode_identity id;
     err = invoke_vnode_identify(v->root_table.rtcap, &id);
@@ -679,7 +687,10 @@ errval_t vtd_set_root_table(struct vtd *v)
     // Update the root-table pointer
     vtd_cmd_set_root_table_ptr(v, id.base);
 
-    vtd_iotlb_invalidate(v);
+
+    if (was_enabled) {
+        vtd_cmd_translation_enable(v);
+    }
 
     return SYS_ERR_OK;
 }

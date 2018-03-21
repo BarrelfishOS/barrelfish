@@ -19,6 +19,8 @@
 
 static inline void vtd_iotlb_do_invalidate(vtd_t *iotlb)
 {
+    assert(!vtd_GSTS_tes_rdf(iotlb));
+
     // perform the invalidate
     vtd_IOTLB_ivt_wrf(iotlb, 1);
 
@@ -36,9 +38,6 @@ static inline void vtd_iotlb_do_invalidate(vtd_t *iotlb)
 static inline void vtd_iotlb_invalidate(struct vtd *vtd)
 {
     INTEL_VTD_DEBUG_IOTLB("invalidate global\n");
-
-    // Flush the Root-Complex internal write buffers
-    vtd_cmd_write_buffer_flush(vtd);
 
     // set global invalidation
     vtd_IOTLB_iirg_wrf(&vtd->vtd_dev, vtd_gir);
@@ -59,8 +58,6 @@ static inline void vtd_iotlb_invalidate_domain(struct vtd_domain *dom)
     struct vtd_domain_mapping *dm = dom->devmappings;
     while(dm) {
         struct vtd *vtd = (struct vtd *)dm->dev->dev.iommu;
-
-        vtd_cmd_write_buffer_flush(vtd);
 
         // set domain invalidation
         vtd_IOTLB_iirg_wrf(&vtd->vtd_dev, vtd_domir);
@@ -92,8 +89,6 @@ static inline void vtd_iotlb_invalidate_page_attr(struct vtd_domain *dom,
     struct vtd_domain_mapping *dm = dom->devmappings;
     while(dm) {
         struct vtd *vtd = (struct vtd *)dm->dev->dev.iommu;
-
-        vtd_cmd_write_buffer_flush(vtd);
 
         // set domain invalidation
          vtd_IOTLB_iirg_wrf(&vtd->vtd_dev, vtd_domir);
