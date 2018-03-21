@@ -729,9 +729,6 @@ static void pci_get_vf_addr(struct pci_address* addr,
     uint16_t offset = pci_sr_iov_cap_offset_rd(sr_iov_cap);
     uint16_t stride = pci_sr_iov_cap_stride_rd(sr_iov_cap);
 
-    PCI_DEBUG("VF offset is 0x%x, stride is 0x%x, "
-              "device ID is 0x%x\n",
-              offset, stride, vf_devid);
 
     uint8_t busnr = addr->bus + ((((addr->device << 3)
                              + addr->function)
@@ -747,8 +744,12 @@ static void pci_get_vf_addr(struct pci_address* addr,
     vf_addr->bus = busnr;
     vf_addr->device = devfn >> 3;
     vf_addr->function = devfn & 7;
+
+    PCI_DEBUG("VF (bus=%d, device=%d, function=%d) offset is 0x%x, stride is 0x%x\n",
+              vf_addr->bus, vf_addr->device, vf_addr->function, offset, stride);
 }
 
+/*
 static errval_t pci_add_vf_to_skb(struct pci_address* addr,
                                   pci_sr_iov_cap_t* sr_iov_cap,
                                   struct pci_address* vf_addr)
@@ -776,6 +777,32 @@ static errval_t pci_add_vf_to_skb(struct pci_address* addr,
                    classcode.clss,
                    classcode.subclss,
                    classcode.prog_if);
+    return err;
+}
+*/
+
+static errval_t pci_init_vf(struct pci_address* addr,
+                            pci_sr_iov_cap_t* sr_iov_cap,
+                            struct pci_address* vf_addr)
+{
+    errval_t err;
+    // PCI header (classcode)
+    pci_hdr0_t devhdr;
+    pci_hdr0_initialize(&devhdr, *addr);
+    
+    uint32_t vendor = pci_hdr0_vendor_id_rd(&devhdr);
+    uint16_t vf_devid = pci_sr_iov_cap_devid_rd(sr_iov_cap);
+    // TODO might need this
+    int num_bars;
+    bool pcie;
+
+    uint32_t bus = vf_addr->bus;
+    uint32_t device = vf_addr->device;
+    uint32_t function = vf_addr->function;
+
+    err = device_init(PCI_DONT_CARE, PCI_DONT_CARE, PCI_DONT_CARE, 
+                      vendor, vf_devid, &bus, &device, &function, 
+                      &pcie, &num_bars);
     return err;
 }
 
@@ -847,11 +874,11 @@ errval_t pci_start_virtual_function_for_device(struct pci_address* addr,
     struct pci_address vf_addr;
     pci_get_vf_addr(addr, vf_number, &sr_iov_cap, &vf_addr);
 
-    errval_t err = pci_add_vf_to_skb(addr, &sr_iov_cap, &vf_addr);
+    errval_t err;
+    err = pci_init_vf(addr, &sr_iov_cap, &vf_addr);
     if (err_is_fail(err)) {
         return err;
     }
-
     return SYS_ERR_OK;
 
 }

@@ -251,8 +251,7 @@ static void get_vf_bar_cap_handler(struct pci_binding *b, uint32_t vf_num, uint3
 
     err = pci_get_vf_addr_of_device(pci, vf_num, &vf_addr);
     if (err_is_fail(err)) {
-        err = b->tx_vtbl.get_bar_cap_response(b, NOP_CONT, err,
-                                              NULL_CAP, 0, 0);
+        err = b->tx_vtbl.get_vf_bar_cap_response(b, NOP_CONT, NULL_CAP, err);
         assert(err_is_ok(err));
         return;
     }

@@ -1269,17 +1269,29 @@ static void request_vf_number(struct e10k_vf_binding *b)
         }
     }
 
+
+    struct capref regs2;
+
+
     if (vf_num == 255){
         //TODO better error
         err = NIC_ERR_ALLOC_QUEUE;
     } else {
-
         debug_printf("Enable VF \n");
         err = pci_sriov_enable_vf(vf_num);
         if (err_is_fail(err)) {
             st->vf_used[vf_num] = 0;
             goto out;
         }        
+
+        debug_printf("PCI request VF bar \n");
+        err = pci_sriov_get_vf_bar_cap(vf_num, 0, &regs2);
+        if (err_is_fail(err)) {
+            st->vf_used[vf_num] = 0;
+            goto out;
+        }
+
+        debug_printf("Waiting for resources\n");
         // Wait for resources to be avaialble
         while(num_vfs() <= vf_num) {
             event_dispatch(get_default_waitset());
@@ -1294,17 +1306,12 @@ static void request_vf_number(struct e10k_vf_binding *b)
         err = NIC_ERR_ALLOC_QUEUE;
     }
 
-    debug_printf("PCI request VF bar \n");
-    err = pci_sriov_get_vf_bar_cap(vf_num, 0, &regs);
-    if (err_is_fail(err)) {
-        goto out;
-    }
 
     d_mac = e10k_ral_ral_rdf(st->d, vf_num) | ((uint64_t) e10k_rah_rah_rdf(st->d, vf_num) << 32);
 
 out:
     err = b->tx_vtbl.request_vf_number_response(b, NOP_CONT, vf_num, d_mac, devid, 
-                                                regs, irq, err);
+                                                regs2, irq, err);
     assert(err_is_ok(err));
 }
 

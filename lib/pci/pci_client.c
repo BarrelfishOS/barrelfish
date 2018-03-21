@@ -529,6 +529,12 @@ errval_t pci_sriov_get_vf_bar_cap(uint32_t vf_num, uint8_t bar_num,
                                   struct capref* bar)
 {
     errval_t err, msgerr;
+
+    err = slot_alloc(bar);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     err = pci_client->rpc_tx_vtbl.get_vf_bar_cap(pci_client, vf_num, bar_num, 
                                                  bar, &msgerr);
     return err_is_fail(err) ? err : msgerr;
