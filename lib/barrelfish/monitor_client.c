@@ -335,6 +335,7 @@ static void monitor_rpc_bind_continuation(void *st_arg, errval_t err,
                                           struct monitor_blocking_binding *b)
 {
     struct bind_state *st = st_arg;
+    assert(st);
 
     if (err_is_ok(err)) {
         monitor_blocking_rpc_client_init(b);
@@ -345,25 +346,24 @@ static void monitor_rpc_bind_continuation(void *st_arg, errval_t err,
     st->done = true;
 }
 
-static void get_monitor_rpc_iref_reply(struct monitor_binding *mb, iref_t iref,
-                                       uintptr_t st_arg)
+static void get_monitor_rpc_ep_reply(struct monitor_binding *mb, errval_t err_arg,
+                                     struct capref ep, uintptr_t st_arg)
 {
     errval_t err;
 
+    assert(st_arg != 0);
+
     struct bind_state *st = (void *)st_arg;
-    if (iref == 0) {
-        st->err = LIB_ERR_GET_MON_BLOCKING_IREF;
+    if (err_is_fail(err_arg)) {
+        st->err = err_push(err_arg, LIB_ERR_GET_MON_BLOCKING_IREF);
         st->done = true;
         return;
     }
 
-    struct monitor_blocking_lmp_binding *mbb = malloc(sizeof(*mbb));
-    assert(mbb != NULL);
-
-    err = monitor_blocking_lmp_bind(mbb, iref, monitor_rpc_bind_continuation,
-                                    st, get_default_waitset(),
-                                    IDC_BIND_FLAG_RPC_CAP_TRANSFER,
-                                    LMP_RECV_LENGTH);
+    err = monitor_blocking_lmp_bind_to_endpoint(ep, monitor_rpc_bind_continuation,
+                                                st, get_default_waitset(),
+                                                DEFAULT_LMP_BUF_WORDS,
+                                                IDC_BIND_FLAG_RPC_CAP_TRANSFER);
     if (err_is_fail(err)) {
         st->err  = err;
         st->done = true;
@@ -379,15 +379,14 @@ errval_t monitor_client_blocking_rpc_init(void)
 
     struct bind_state st = { .done = false };
 
-    /* fire off a request for the iref for monitor rpc channel */
     struct monitor_binding *mb = get_monitor_binding();
-    mb->rx_vtbl.get_monitor_rpc_iref_reply = get_monitor_rpc_iref_reply;
-    err = mb->tx_vtbl.get_monitor_rpc_iref_request(mb, NOP_CONT,
-                                                   (uintptr_t) &st);
+    assert(mb);
+
+    mb->rx_vtbl.get_monitor_rpc_ep_reply = get_monitor_rpc_ep_reply;
+    err = mb->tx_vtbl.get_monitor_rpc_ep_request(mb, NOP_CONT, (uintptr_t) &st);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_GET_MON_BLOCKING_IREF);
     }
-
     
     /* block on the default waitset until we're bound */
     struct waitset *ws = get_default_waitset();

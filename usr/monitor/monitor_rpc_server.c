@@ -723,33 +723,39 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .new_monitor_binding_call = new_monitor_binding
 };
 
-static void export_callback(void *st, errval_t err, iref_t iref)
-{
-    assert(err_is_ok(err));
-    set_monitor_rpc_iref(iref);
-}
 
-static errval_t connect_callback(void *st, struct monitor_blocking_binding *b)
-{
-    b->rx_vtbl = rx_vtbl;
 
-    // TODO: set error handler
+
+errval_t monitor_rpc_server_create_endpoint(struct capref *ep,
+                                            struct monitor_binding *mb)
+{
+    errval_t err;
+
+    assert(ep);
+    assert(mb);
+
+    struct capref monep;
+    err = slot_alloc(&monep);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+    
+    struct monitor_blocking_binding *mbb;
+    err = monitor_blocking_lmp_create_endpoint(&rx_vtbl, mb, get_default_waitset(),
+                                               DEFAULT_LMP_BUF_WORDS,
+                                               IDC_ENDPOINT_FLAGS_DUMMY,
+                                               &mbb, monep);
+    if (err_is_fail(err)) {
+        slot_free(monep);
+        monep = NULL_CAP;
+    }
+
+    *ep = monep;
+
     return SYS_ERR_OK;
 }
 
 errval_t monitor_rpc_init(void)
 {
-    static struct monitor_blocking_export e = {
-        .connect_cb = connect_callback,
-        .common = {
-            .export_callback = export_callback,
-            .flags = IDC_EXPORT_FLAGS_DEFAULT,
-            .connect_cb_st = &e,
-            .lmp_connect_callback = monitor_blocking_lmp_connect_handler,
-        }
-    };
-
-    e.waitset = get_default_waitset();
-
-    return idc_export_service(&e.common);
+    return SYS_ERR_OK;
 }

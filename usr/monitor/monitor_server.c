@@ -657,21 +657,18 @@ static void set_mem_iref_request(struct monitor_binding *b,
     update_ram_alloc_binding = true;
 }
 
-static void get_monitor_rpc_iref_request(struct monitor_binding *b,
+#include <if/monitor_blocking_defs.h>
+
+static void get_monitor_rpc_ep_request(struct monitor_binding *b,
                                          uintptr_t st_arg)
 {
     errval_t err;
 
-    if (monitor_rpc_iref == 0) {
-        // Monitor rpc not registered yet
-        DEBUG_ERR(LIB_ERR_GET_MON_BLOCKING_IREF, "got monitor rpc iref request but iref is 0");
-    }
+    struct capref ep = NULL_CAP;
+    err = monitor_rpc_server_create_endpoint(&ep, b);
 
-    err = b->tx_vtbl.get_monitor_rpc_iref_reply(b, NOP_CONT,
-                                                monitor_rpc_iref, st_arg);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "reply failed");
-    }
+    err = b->tx_vtbl.get_monitor_rpc_ep_reply(b, NOP_CONT, err, ep, st_arg);
+    assert(err_is_ok(err));
 }
 
 
@@ -985,7 +982,7 @@ struct monitor_rx_vtbl the_table = {
     .set_ramfs_iref_request = set_ramfs_iref_request,
     .set_proc_mgmt_ep_request = set_proc_mgmt_ep_request,
     .set_spawn_iref_request = set_spawn_iref_request,
-    .get_monitor_rpc_iref_request  = get_monitor_rpc_iref_request,
+    .get_monitor_rpc_ep_request  = get_monitor_rpc_ep_request,
 
     .cap_send_request = cap_send_request,
     .cap_move_request = cap_send_request,
