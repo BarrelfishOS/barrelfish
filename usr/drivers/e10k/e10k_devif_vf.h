@@ -27,14 +27,21 @@ struct e10k_queue;
  /**
   * @brief Initializes a new virtual function of the 10k.
   *
+  * @param ep               endpoint to physical function, possibly NULL
   * @param pci_function     From which physical function this virtual
   *                         function should be initalized
+  *
+  * @param seg              PCI segment
+  * @param bus              PCI bus number
+  * @param dev              PCI device
+  * @param device_id        PCI device
+  *
   * @param interrupts       Enable interrupts
   *
   * @returns error on failure or SYS_ERR_OK on success
   */
-errval_t e10k_init_vf_driver(uint8_t pci_function, uint8_t seg, uint32_t bus,
-                             uint32_t dev, uint32_t device_id, bool interrupts);
+errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t seg, uint32_t bus,
+                             uint32_t dev, bool interrupts);
 
  /**
   * @brief Checks if the state of the library initalized

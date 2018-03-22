@@ -398,11 +398,9 @@ static void connect_to_mngif(struct e10k_queue* q)
     sprintf(name, "%s%u", "e10k_vf", q->pci_function);
 
     // Connect to service
-    DEBUG_QUEUE("Looking up management interface (%s)\n", name);
     r = nameservice_blocking_lookup(name, &iref);
     assert(err_is_ok(r));
 
-    DEBUG_QUEUE("Binding to management interface\n");
     r = e10k_vf_bind(iref, bind_cb, q, get_default_waitset(),
                      IDC_BIND_FLAGS_DEFAULT);
     assert(err_is_ok(r));
@@ -410,6 +408,25 @@ static void connect_to_mngif(struct e10k_queue* q)
     while (!q->bound) {
         event_dispatch(get_default_waitset());
     }
+}
+
+/** Connect to the management interface */
+static errval_t connect_to_mngif_with_ep(struct e10k_queue* q, struct capref ep)
+{
+    errval_t err;
+
+    q->bound = false;
+
+    err = e10k_vf_bind_to_endpoint(ep, bind_cb, q, get_default_waitset(),
+                                 IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    while (!q->bound) {
+        event_dispatch(get_default_waitset());
+    }
+    return SYS_ERR_OK;
 }
 
 /*********************************************************
@@ -446,7 +463,7 @@ static errval_t map_device_memory(struct e10k_queue* q,
 }
 
 // TODO mostly cleanup when fail
-errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
+errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct capref* ep,
                            uint32_t bus, uint32_t function, uint32_t devid, uint32_t dev,
                            bool use_vf, bool interrupts, bool qzero)
 {
@@ -471,8 +488,9 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
         //USER_PANIC("NOT YET WORKING \n");
         // Start VF
         if (!e10k_vf_started()) {
-            err = e10k_init_vf_driver(0, 0, bus+1, dev+16, devid, interrupts);
+            err = e10k_init_vf_driver(ep, 0, 0, bus+1, dev+16, interrupts);
             if (err_is_fail(err)) {
+                free(q);
                 *queue = NULL;
                 return err;
             }
@@ -480,8 +498,9 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
 
         // If i can not create any more queues -> start new VF
         if (!e10k_vf_can_create_queue()) {
-            err = e10k_init_vf_driver(0, 0, bus+2, dev+17, devid, interrupts);
+            err = e10k_init_vf_driver(ep, 0, 0, bus+2, dev+17, interrupts);
             if (err_is_fail(err)) {
+                free(q);
                 return err;
             }
         }
@@ -491,7 +510,17 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb,
     } else {
         q->use_vtd = false;
         // need to set up communicaton to PF
-        connect_to_mngif(q);
+        if (ep == NULL) {
+            DEBUG_QUEUE("Connect to PF \n");
+            connect_to_mngif(q);
+        } else {
+            DEBUG_QUEUE("Connect to PF using EP\n");
+            err = connect_to_mngif_with_ep(q, *ep);
+            if (err_is_fail(err)) {
+                free(q);
+                return err;
+            }
+        }
     }
 
     // allocate memory for RX/TX rings

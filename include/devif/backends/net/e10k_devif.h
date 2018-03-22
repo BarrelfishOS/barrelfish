@@ -19,6 +19,11 @@ typedef void (*e10k_event_cb_t)(void* q);
 *
 * @param q             Return pointer to the device queue
 * @param cb            Callback function when an interrupt is raised
+* @param ep            Endpoint to physical function, possibly NULL
+* @param bus           PCI bus number
+* @param function      PCI function number
+* @param devid         PCI device id
+* @param dev           PCI device number
 * @param use_vf        Start virtual functions, otherwise the physical function
 *                      will be used
 * @param interrupts    Use interrupts, otherwise polling
@@ -29,7 +34,7 @@ typedef void (*e10k_event_cb_t)(void* q);
 * @returns error on NIC_ERR_ALLOC or SYS_ERR_OK on success
 *
 */
-errval_t e10k_queue_create(struct e10k_queue** q, e10k_event_cb_t cb, 
+errval_t e10k_queue_create(struct e10k_queue** q, e10k_event_cb_t cb, struct capref* ep,
                            uint32_t bus, uint32_t function, uint32_t devid, uint32_t dev,
                            bool use_vf, bool interrupts, bool default_q);
 

@@ -64,7 +64,6 @@ struct vf_state {
     uint32_t bus;
     uint32_t segment;
     uint32_t device;
-    uint32_t device_id;
 
     // interrupt related
     bool msix;
@@ -532,6 +531,25 @@ static errval_t e10k_vf_client_connect(int pci_function)
     return err2;
 }
 
+
+static errval_t e10k_vf_client_connect_with_ep(struct capref ep)
+{
+    errval_t err, err2 = SYS_ERR_OK;
+
+    /* Setup flounder connection with pf */
+    err = e10k_vf_bind_to_endpoint(ep, vf_bind_cont, &err, get_default_waitset(),
+                                   IDC_BIND_FLAG_RPC_CAP_TRANSFER);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    /* XXX: Wait for connection establishment */
+    while (vf->binding == NULL && err2 == SYS_ERR_OK) {
+        event_dispatch(get_default_waitset());
+    }
+    return err2;
+}
+
 errval_t e10k_vf_init_queue_hw(struct e10k_queue* q)
 {
     DEBUG_VF("VF queue init\n");
@@ -560,8 +578,8 @@ errval_t e10k_vf_init_queue_hw(struct e10k_queue* q)
 }
 
 
-errval_t e10k_init_vf_driver(uint8_t pci_function, uint8_t seg, uint32_t bus,
-                             uint32_t dev, uint32_t device_id, bool interrupts)
+errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t seg, 
+                             uint32_t bus, uint32_t dev, bool interrupts)
 {
     errval_t err, err2;
 
@@ -571,12 +589,22 @@ errval_t e10k_init_vf_driver(uint8_t pci_function, uint8_t seg, uint32_t bus,
     vf->segment = seg;
     vf->bus = bus;
     vf->device = dev;   
-    vf->device_id = device_id;   
 
-    DEBUG_VF("Connecting to PF driver...\n");
-    err = e10k_vf_client_connect(pci_function);
-    if (err_is_fail(err)) {
-        return err;
+    if (ep == NULL) {
+        DEBUG_VF("Connecting to PF driver...\n");
+        err = e10k_vf_client_connect(pci_function);
+        if (err_is_fail(err)) {
+            free(vf);
+            return err;
+        }
+    } else {
+        DEBUG_VF("Connecting to PF driver using EP...\n");
+        err = e10k_vf_client_connect_with_ep(*ep);
+        if (err_is_fail(err)) {
+            debug_printf("err=%s \n", err_getstring(err));
+            free(vf);
+            return err;
+        }
     }
 
     DEBUG_VF("Requesting VF number from PF...\n");

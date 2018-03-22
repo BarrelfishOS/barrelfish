@@ -112,7 +112,7 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt,
     }
 
     err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
-                            bus, function, deviceid, device, 
+                            ep, bus, function, deviceid, device, 
                             true/*virtual functions*/,
                             !poll, /* user interrupts*/
                             default_q);
