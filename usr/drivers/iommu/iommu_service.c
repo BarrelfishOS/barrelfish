@@ -30,7 +30,7 @@
 
 #include "modules/intel_vtd/intel_vtd.h"
 
-
+#if 0
 static void create_domain(struct iommu_binding *b, struct capref rootpt,
                           struct capref dev)
 {
@@ -191,39 +191,22 @@ static void remove_device(struct iommu_binding *b, struct capref rootpt,
     err = b->tx_vtbl.remove_device_response(b, NOP_CONT, err);
     assert(err_is_ok(err));
 }
-
-static void export_callback(void *st, errval_t err, iref_t iref)
-{
-    debug_printf("[iommu svc] Service exported: '%s'\n", err_getstring(err));
-
-    if (err_is_fail(err)) {
-        return;
-    }
-
-    debug_printf("[iommu svc] Registering %" PRIuIREF " with '%s\n",
-                 iref, DRIVERKIT_IOMMU_SERVICE_NAME);
-
-    err = nameservice_register(DRIVERKIT_IOMMU_SERVICE_NAME, iref);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "nameservice_register failed");
-    }
-}
-
-static errval_t connect_callback(void *cst, struct iommu_binding *b)
-{
-    b->rx_vtbl.add_device_call = add_device;
-    b->rx_vtbl.remove_device_call = remove_device;
-    b->rx_vtbl.create_domain_call = create_domain;
-    b->rx_vtbl.delete_domain_call = delete_domain;
-    b->st = NULL;
-    return SYS_ERR_OK;
-}
+#endif
 
 errval_t iommu_service_init(void)
 {
     debug_printf("[iommu svc] Initializing service\n");
 
+
+    return SYS_ERR_OK;
+}
+
+static struct iommu_rx_vtbl rx_vtbl;
+
+errval_t iommu_service_new_endpoint(struct capref ep, struct iommu_device *dev,
+                                    idc_endpoint_t type)
+{
     struct waitset *ws = get_default_waitset();
-    return iommu_export(NULL, export_callback, connect_callback, ws,
-                        IDC_EXPORT_FLAGS_DEFAULT);
+    return iommu_create_endpoint(type, &rx_vtbl, dev, ws,
+                                 IDC_ENDPOINT_FLAGS_DEFAULT, &dev->binding, ep);
 }

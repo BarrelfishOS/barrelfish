@@ -99,4 +99,7 @@ static inline struct iommu *iommu_device_get_iommu(struct iommu_device *d)
 
 
 
+errval_t iommu_service_new_endpoint(struct capref ep, struct iommu_device *dev,
+                                    idc_endpoint_t type);
+
 #endif //IOMMU_COMMON_H_

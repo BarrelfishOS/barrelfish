@@ -8,15 +8,25 @@
  * Attn: Systems Group.
  */
 
-interface iommu "IOMMU Service " {
+interface iommu "IOMMU" {
 
-    rpc init_device(in cap dev, out errval err);
+    /* set the root table pointer for the device */
+    rpc setroot(in cap src, out errval err);
 
-    rpc create_domain(in cap pml4, in cap dev, out errval err);
+    /* retypes the source cap into the type */
+    rpc retype(in cap src, in uint8 objtype,
+               out errval err, out cap retvnode);
 
-    rpc delete_domain(in cap pml4, out errval err);
+    /* maps the capability into the vnode */
+    rpc map(in cap vnode, in uint16 slot,
+            out errval err);
 
-    rpc add_device(in cap pml4, in cap dev, out errval err);
+    /* unmaps the slot in the vnode */
+    rpc unmap(in cap vnode, in uint16 slot,
+              out errval err);
 
-    rpc remove_device(in cap pml4, in cap dev, out errval err);
+    rpc modify(in cap vnode, in uint64 attr, in uint16 slot,
+               out errval err);
+
+
 };
