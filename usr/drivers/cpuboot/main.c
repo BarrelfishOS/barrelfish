@@ -44,7 +44,7 @@ static void load_arch_id(void)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "get_arch_core_id failed.");
     }
-    DEBUG("%s:%d: my_arch_id is %"PRIuCOREID"\n", __FILE__, __LINE__, my_arch_id);
+    DEBUG("%s:%d: my_arch_id is %"PRIuHWID"\n", __FILE__, __LINE__, my_arch_id);
 }
 
 static void setup_monitor_messaging(void)

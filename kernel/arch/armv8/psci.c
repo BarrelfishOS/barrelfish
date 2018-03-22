@@ -1,6 +1,6 @@
 /**
  * \file psci.c
- * \brief 
+ * \brief
  */
 
 
@@ -22,6 +22,7 @@
 #include <psci.h>
 
 
+static uint64_t psci_use_hvc = 0;
 
 static inline void psci_invoke(psci_fn_t fn, uintptr_t arg0, uintptr_t arg1,
                                uintptr_t arg2, struct arm_smc_hvc_retval *ret_val)
@@ -30,7 +31,10 @@ static inline void psci_invoke(psci_fn_t fn, uintptr_t arg0, uintptr_t arg1,
      * TODO: we need to distinguish between SMC and HVC instructions to
      *       call the PSCI function
      */
-    invoke_arm_smc(fn, arg0, arg1, arg2, 0, 0, 0, 0, ret_val);
+    if (psci_use_hvc)
+        invoke_arm_hvc(fn, arg0, arg1, arg2, 0, 0, 0, 0, ret_val);
+    else
+        invoke_arm_smc(fn, arg0, arg1, arg2, 0, 0, 0, 0, ret_val);
 }
 
 
@@ -445,3 +449,11 @@ errval_t psci_stat_count(uintptr_t target_cpu, uint32_t power_state,
     return err;
 }
 
+/**
+ * Change the PSCI's conduit to use hvc instead of smc
+ * @param use_hvc True, if hvc should be used
+ */
+void psci_set_use_hvc(uint64_t use_hvc)
+{
+    psci_use_hvc = use_hvc;
+}

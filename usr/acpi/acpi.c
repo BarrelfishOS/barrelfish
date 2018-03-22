@@ -900,10 +900,13 @@ int init_acpi(void)
     }
     assert(ACPI_SUCCESS(as));
 
+    // armv8,psci: check if hvc (EL2 call) should be used instead of smc (EL3 call)
+    skb_add_fact("psci_use_hvc(%"PRIu8").", !!(AcpiGbl_FADT.ArmBootFlags & ACPI_FADT_PSCI_USE_HVC));
+
     // Put system into APIC mode
     ACPI_DEBUG("Switching to APIC mode...\n");
     as = set_apic_mode();
-    if(ACPI_FAILURE(as)) {
+    if (ACPI_FAILURE(as)) {
         printf("ACPI: Warning: Could not set system to APIC mode! "
                   "Continuing anyway... status: %s\n", AcpiFormatException(as));
         skb_add_fact("x86_interrupt_model(pic).");

@@ -31,6 +31,7 @@
 #include <platform.h>
 #include <systime.h>
 #include <timers.h>
+#include <psci.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -736,7 +737,9 @@ monitor_spawn_core(
     enum cpu_type cpu_type = sa->arg3;
     genvaddr_t entry       = sa->arg4;
     genpaddr_t context_id  = sa->arg5;
+    uint64_t psci_use_hvc  = sa->arg6;
 
+    psci_set_use_hvc(psci_use_hvc);
     return sys_monitor_spawn_core(core_id, cpu_type, entry, context_id);
 }
 
