@@ -23,6 +23,6 @@
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_get_driver_ep_cap(struct driver_instance* drv, struct capref cap, bool lmp);
+errval_t driverkit_get_driver_ep_cap(struct driver_instance* drv, struct capref* cap, bool lmp);
 
 #endif // DRIVERKIT_CONTROL_H

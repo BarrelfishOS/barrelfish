@@ -14,6 +14,7 @@
 #include <barrelfish/spawn_client.h>
 #include <driverkit/driverkit.h>
 #include <driverkit/control.h>
+#include <collections/list.h>
 
 #include <pci/pci.h> // for pci_address
 
@@ -233,6 +234,32 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
     return SYS_ERR_OK;
 }
 
+static int32_t predicate(void* data, void* arg)
+{
+    struct driver_instance* drv = (struct driver_instance*) data;
+    if (strncmp(drv->inst_name, arg, strlen(drv->inst_name)) == 0) {
+        return 1;
+    }
+    return 0;
+}
+
+static errval_t get_driver_ep(coreid_t where, struct module_info* driver,
+                              char* oct_id, struct capref* ret_ep)
+{
+    errval_t err;
+    struct driver_instance* drv = (struct driver_instance*) 
+                                  collections_list_find_if(driver->driverinstance->spawned, 
+                                                           predicate, oct_id);
+
+    err = driverkit_get_driver_ep_cap(drv, ret_ep, (where == my_core_id));
+    if (err_is_fail(err)) {
+        slot_free(*ret_ep);
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
 /**
  * \brief Startup function for new-style ARMv7 drivers.
  *
@@ -277,8 +304,9 @@ errval_t start_networking_new(coreid_t where,
         struct pci_addr addr;
         struct pci_class cls = {0,0,0};
         int64_t vendor_id, device_id, bus, dev, fun;
-        err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
-                        &bus, &dev, &fun,
+        char* oct_id;
+        err = oct_read(record, "%s { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                        &oct_id, &bus, &dev, &fun,
                         &vendor_id, &device_id);
 
         if(err_is_fail(err)){
@@ -294,15 +322,35 @@ errval_t start_networking_new(coreid_t where,
         char * pci_arg_str = malloc(PCI_OCTET_LEN);
         assert(pci_arg_str);
         pci_serialize_octet(addr, id, cls, pci_arg_str);
-        // TODO PCI octet
+
         // Spawn net_sockets_server
         net_sockets->argv[0] = "net_sockets_server";
         net_sockets->argv[1] = "auto";
         net_sockets->argv[2] = driver->binary;
         net_sockets->argv[3] = pci_arg_str;
 
-        err = spawn_program(where, net_sockets->path, net_sockets->argv, environ, 0,
-                           get_did_ptr(net_sockets));
+        struct capref argcn;
+        struct cnoderef argcnref;
+        err = cnode_create_l2(&argcn, &argcnref);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to create the argcn");
+            return err;
+        }
+
+        struct capref ep = {
+            .cnode = argcnref,
+            .slot = 0
+        };
+
+        err = get_driver_ep(where, driver, oct_id, &ep);
+        if (err_is_fail(err)) {     
+            debug_printf("Failed getting EP to driver %s \n", oct_id);
+            free(pci_arg_str);
+            return err; 
+        }
+
+        err = spawn_program_with_caps(where, net_sockets->path, net_sockets->argv, 
+                            environ, NULL_CAP, argcn, 0, get_did_ptr(net_sockets));
     }
 
     return err;

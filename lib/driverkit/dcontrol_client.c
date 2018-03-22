@@ -26,7 +26,7 @@
 
 #include "debug.h"
 
-errval_t driverkit_get_driver_ep_cap(struct driver_instance* drv, struct capref cap, bool lmp)
+errval_t driverkit_get_driver_ep_cap(struct driver_instance* drv, struct capref* cap, bool lmp)
 {
     errval_t err, msgerr;
 
@@ -35,7 +35,7 @@ errval_t driverkit_get_driver_ep_cap(struct driver_instance* drv, struct capref 
         return DRIVERKIT_ERR_CONTROL_SERVICE_INIT;
     }
 
-    err = slot_alloc(&cap); 
+    err = slot_alloc(cap); 
     if (err_is_fail(err)) {
         return err;
     }
@@ -44,9 +44,9 @@ errval_t driverkit_get_driver_ep_cap(struct driver_instance* drv, struct capref 
 
     DRIVERKIT_DEBUG("[dcontrol client] Getting ep cap.\n");
 
-    err = drv->ctrl->rpc_tx_vtbl.get_ep(drv->ctrl, lmp, &cap, &msgerr);
+    err = drv->ctrl->rpc_tx_vtbl.get_ep(drv->ctrl, lmp, cap, &msgerr);
     if (err_is_fail(err)) {
-        slot_free(cap);
+        slot_free(*cap);
         return err;
     }
 
