@@ -105,18 +105,19 @@ void net_lwip_timeout(void)
  * @brief creates a queue to the given card and the queueid
  *
  * @param cardname  network card to create the queue for
+ * @param ep        endpoint to networking card, possibly null
  * @param queueid   queueid of the network card
  * @param retqueue  returns the pointer to the queue
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_create_queue(const char *cardname, uint64_t* queueid,
-                                 struct devq **retqueue)
+errval_t networking_create_queue(const char *cardname, struct capref* ep, 
+                                 uint64_t* queueid, struct devq **retqueue)
 {
     struct net_state *st = get_default_net_state();
     bool poll = st->flags & NET_FLAGS_POLLING;
     bool default_q = st->flags & NET_FLAGS_DEFAULT_QUEUE;
-    return net_queue_internal_create(int_handler, cardname, queueid, default_q,
+    return net_queue_internal_create(int_handler, cardname, ep, queueid, default_q,
                                      poll, retqueue);
 }
 
@@ -256,12 +257,12 @@ static errval_t networking_init_with_queue_st(struct net_state *st, struct devq 
  *
  * @param st        the networking state to be initalized
  * @param nic       the nic to use with the networking library
+ * @param ep        endpoint to the nic, ignored if NULL
  * @param flags     flags to use to initialize the networking library
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-static errval_t networking_init_st(struct net_state *st, const char *nic,
-                                   net_flags_t flags)
+static errval_t networking_init_st(struct net_state *st, const char *nic, net_flags_t flags)
 {
     errval_t err;
 
@@ -279,7 +280,7 @@ static errval_t networking_init_st(struct net_state *st, const char *nic,
     st->hw_filter = false;
 
     /* create the queue wit the given nic and card name */
-    err = networking_create_queue(nic, &st->queueid, &st->queue);
+    err = networking_create_queue(nic, NULL, &st->queueid, &st->queue);
     if (err_is_fail(err)) {
         return err;
     }
@@ -355,6 +356,31 @@ errval_t networking_init(const char *nic, net_flags_t flags)
 {
     struct net_state *st = get_default_net_state();
     return networking_init_st(st, nic, flags);
+}
+
+
+/**
+ * @brief initializes the networking library
+ *
+ * @param nic       the nic to use with the networking library
+ * @param ep        endpoint to the nic
+ * @param flags     flags to use to initialize the networking library
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t networking_init_with_ep(const char *nic, struct capref ep, 
+                                 net_flags_t flags)
+{
+    errval_t err;
+
+    struct net_state *st = get_default_net_state();
+    /* create the queue wit the given nic and card name */
+    err = networking_create_queue(nic, &ep, &st->queueid, &st->queue);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return networking_init_with_queue_st(st, st->queue, flags);
 }
 
 

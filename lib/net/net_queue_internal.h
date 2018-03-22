@@ -27,6 +27,7 @@ typedef void (*inthandler_t)(void*);
  *
  * @param interrupt interrupt handler 
  * @param cardname  network card to create the queue for
+ * @param ep        endpoint to NIC driver, possibly NULL
  * @param queueid   queueid of the network card
  * @param default_q Request access to default queue (only used by driver)
  * @param poll      Is the queue polled or are interrupts used
@@ -35,6 +36,6 @@ typedef void (*inthandler_t)(void*);
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t net_queue_internal_create(inthandler_t interrupt, const char *cardname,
-                                   uint64_t* queueid, bool default_q, bool poll, 
-                                   struct devq **retqueue);
+                                   struct capref* ep, uint64_t* queueid, bool default_q, 
+                                   bool poll, struct devq **retqueue);
 #endif /* LIB_NETQUEUE_INTERNAL_INCLUDE_NETWORKING_H_ */

@@ -13,7 +13,8 @@
 #include "networking_internal.h"
 #include "net_queue_internal.h"
 
-static errval_t create_loopback_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
+static errval_t create_loopback_queue(const char* cardname, inthandler_t interrupt, 
+                                      struct capref* ep, uint64_t *queueid,
                                       bool default_q, bool poll, struct devq **retqueue)
 {
     errval_t err;
@@ -29,14 +30,16 @@ static errval_t create_loopback_queue(const char* cardname, inthandler_t interru
     return SYS_ERR_OK;
 }
 
-static errval_t create_driver_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
+static errval_t create_driver_queue(const char* cardname, inthandler_t interrupt, 
+                                    struct capref* ep, uint64_t *queueid,
                                     bool default_q, bool poll, struct devq **retqueue)
 {
     *queueid = 0;
     return SYS_ERR_OK;
 }
 
-static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
+static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt, 
+                                   struct capref* ep, uint64_t *queueid,
                                    bool default_q, bool poll, struct devq **retqueue)
 {
     errval_t err;
@@ -63,8 +66,9 @@ static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
 }
 
 // cardname - "mlx4:vendor:deviceid:bus:device:function"
-static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
-                                   bool default_q, bool poll, struct devq **retqueue)
+static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt, 
+                                  struct capref* ep, uint64_t *queueid,
+                                  bool default_q, bool poll, struct devq **retqueue)
 {
     errval_t err;
     if (cardname[4] != ':') {
@@ -88,7 +92,8 @@ static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt, 
                               addr.bus, addr.device, addr.function, 1, interrupt);
 }
 
-static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
+static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, 
+                                  struct capref* ep, uint64_t *queueid,
                                   bool default_q, bool poll, struct devq **retqueue)
 {
     errval_t err;
@@ -117,8 +122,10 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, 
     return err;
 }
 
-static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interrupt, uint64_t *queueid,
-                                      bool default_q, bool poll, struct devq **retqueue)
+static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interrupt, 
+                                      struct capref* ep, uint64_t *queueid, 
+                                      bool default_q, bool poll, 
+                                      struct devq **retqueue)
 {
     errval_t err;
     struct net_state* st = get_default_net_state();
@@ -133,7 +140,8 @@ static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interru
 }
 
 
-typedef errval_t (*queue_create_fn)(const char*, inthandler_t, uint64_t*, bool, bool, struct devq **);
+typedef errval_t (*queue_create_fn)(const char*, inthandler_t, struct capref*, 
+                                    uint64_t*, bool, bool, struct devq **);
 struct networking_card
 {
     char *cardname;
@@ -154,6 +162,7 @@ struct networking_card
  *
  * @param interrupt interrupt handler
  * @param cardname  network card to create the queue for
+ * @param ep        endpoint to nic, possibly Null
  * @param queueid   queueid of the network card
  * @param default_q get the default queue (most of the time queue 0)
  * @param poll      Is the queue polled or are interrupts used
@@ -162,13 +171,13 @@ struct networking_card
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t net_queue_internal_create(inthandler_t interrupt, const char *cardname,
-                                   uint64_t* queueid, bool default_q, bool poll,
-                                   struct devq **retqueue)
+                                   struct capref* ep, uint64_t* queueid, bool default_q, 
+                                   bool poll, struct devq **retqueue)
 {
     struct networking_card *nc = networking_cards;
     while(nc->cardname != NULL) {
         if (strncmp(cardname, nc->cardname, strlen(nc->cardname)) == 0) {
-            return nc->createfn(cardname, interrupt, queueid, default_q,
+            return nc->createfn(cardname, interrupt, ep, queueid, default_q,
                                 poll, retqueue);
         }
         nc++;
@@ -186,14 +195,15 @@ errval_t net_queue_internal_create(inthandler_t interrupt, const char *cardname,
  *
  * @param interrupt interrupt handler
  * @param cardname  network card to create the queue for
+ * @param ep        endpoint to NIC driver
  * @param queueid   queueid of the network card
  * @param poll      Is the queue polled or are interrupts used
  * @param retqueue  returns the pointer to the queue
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t net_queue_create(inthandler_t interrupt, const char *cardname,
+errval_t net_queue_create(inthandler_t interrupt, const char *cardname, struct capref* ep,
                           uint64_t* queueid, bool poll, struct devq **retqueue)
 {
-    return net_queue_internal_create(interrupt, cardname, queueid, false, poll, retqueue);
+    return net_queue_internal_create(interrupt, cardname, ep, queueid, false, poll, retqueue);
 }

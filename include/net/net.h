@@ -22,6 +22,7 @@
 // forward declarations
 struct devq;
 struct eth_addr;
+struct capref;
 
 /*
  * ==============================================================================
@@ -81,6 +82,18 @@ errval_t networking_init_default(void);
 errval_t networking_init(const char *nic, net_flags_t flags);
 
 /**
+ * @brief initializes the networking library
+ *
+ * @param nic       the nic to use with the networking library
+ * @param ep        endpoint to the nic
+ * @param flags     flags to use to initialize the networking library
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t networking_init_with_ep(const char *nic, struct capref ep, 
+                                 net_flags_t flags);
+
+/**
  * @brief initializes the networking library with a given device queue
  *
  * @param q         the device queue to initialize the networking on
@@ -110,8 +123,8 @@ errval_t networking_poll(void);
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_create_queue(const char *cardname, uint64_t* queueid,
-                                 struct devq **retqueue);
+errval_t networking_create_queue(const char *cardname, struct capref* ep,
+                                 uint64_t* queueid, struct devq **retqueue);
 
 /**
  * @brief obtains the default setting for initialization of the driver
