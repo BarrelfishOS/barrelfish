@@ -233,7 +233,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "routing_setup",
                            "rtl8029",
                            "serial_pc16550d",
-                           "sfxge",
                            "sfn5122f",
                            "slideshow",
                            "vbe",
