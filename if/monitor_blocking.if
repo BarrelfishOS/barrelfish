@@ -81,4 +81,6 @@ interface monitor_blocking "The monitor to client RPC interface" {
     /* Creates a new monitor binding and associates it with the endpoint */
     rpc new_monitor_binding(in cap umpep, in bool do_bind, in uintptr id,
                             out cap ep, out errval err);
+
+    rpc cap_needs_revoke_agreement(in cap c, in uintptr st, out errval err);
 };

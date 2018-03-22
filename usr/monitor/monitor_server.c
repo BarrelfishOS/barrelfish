@@ -24,6 +24,8 @@
 #include <barrelfish/syscalls.h>
 #include <barrelfish_kpi/distcaps.h>
 #include <if/monitor_loopback_defs.h>
+#include <if/monitor_defs.h>
+#include <if/monitor_blocking_defs.h>
 #include "capops.h"
 #include "caplock.h"
 #include "send_cap.h"
@@ -657,7 +659,7 @@ static void set_mem_iref_request(struct monitor_binding *b,
     update_ram_alloc_binding = true;
 }
 
-#include <if/monitor_blocking_defs.h>
+
 
 static void get_monitor_rpc_ep_request(struct monitor_binding *b,
                                          uintptr_t st_arg)
@@ -964,6 +966,8 @@ static void migrate_dispatcher_request(struct monitor_binding *b,
    printf("%s:%d\n", __FUNCTION__, __LINE__);
 }
 
+
+
 struct monitor_rx_vtbl the_table = {
     .alloc_iref_request = alloc_iref_request,
     .get_service_id_request = get_service_id_request,
@@ -1090,7 +1094,7 @@ errval_t monitor_client_setup_monitor(void)
 
 errval_t monitor_server_init(struct monitor_binding *b)
 {
-    struct monitor_state *lst = malloc(sizeof(struct monitor_state));
+    struct monitor_state *lst = calloc(1, sizeof(struct monitor_state));
     assert(lst != NULL);
     lst->queue.head = lst->queue.tail = NULL;
 

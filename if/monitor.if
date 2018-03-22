@@ -209,4 +209,9 @@ interface monitor "The monitor to client Interface" {
 
     // Capability debugging
     message debug_print_capabilities();
+
+
+    //
+    message cap_revoke_request(uintptr cap, uintptr id);
+    message cap_revoke_response(uintptr id);
 };

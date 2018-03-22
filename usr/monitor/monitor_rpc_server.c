@@ -80,6 +80,7 @@ static void remote_cap_revoke(struct monitor_blocking_binding *b,
     capops_revoke(cap, revoke_reply_status, (void*)b);
 }
 
+
 static void rsrc_manifest(struct monitor_blocking_binding *b,
                           struct capref dispcap, const char *str)
 {
@@ -689,6 +690,36 @@ static void new_monitor_binding(struct monitor_blocking_binding *b,
     goto out;
 }
 
+
+static void cap_needs_revoke_agreement_request(struct monitor_blocking_binding *b,
+                                        struct capref cap,
+                                        uintptr_t id)
+{
+    errval_t err;
+
+    struct capability rawcap;
+    err = monitor_cap_identify(cap, &rawcap);
+    if (err_is_fail(err)) {
+        goto send_reply;
+    }
+
+    /* we don't need the cap anymore */
+    cap_destroy(cap);
+
+    if (!type_is_mappable(rawcap.type)) {
+        goto send_reply;
+    }
+
+    /* the monitor binding is in the state of the blocking binding */
+    assert(b->st);
+    err = capops_revoke_register_subscribe(&rawcap, id, b->st);
+
+    send_reply:
+    err = b->tx_vtbl.cap_needs_revoke_agreement_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
+
 /*------------------------- Initialization functions -------------------------*/
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
@@ -723,7 +754,8 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
     .get_platform_call = get_platform,
     .get_platform_arch_call = get_platform_arch,
 
-    .new_monitor_binding_call = new_monitor_binding
+    .new_monitor_binding_call = new_monitor_binding,
+    .cap_needs_revoke_agreement_call = cap_needs_revoke_agreement_request
 };
 
 

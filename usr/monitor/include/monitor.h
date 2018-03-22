@@ -59,9 +59,15 @@ struct intermon_state {
     struct monitor_binding *originating_client;
 };
 
+struct monitor_client_req {
+    struct monitor_client_req *next;
+    uint64_t                   reqid;
+};
+
 struct monitor_state {
     struct msg_queue queue;
     struct remote_conn_state *conn;
+    struct monitor_client_req *reqs;
 };
 
 extern iref_t mem_serv_iref;

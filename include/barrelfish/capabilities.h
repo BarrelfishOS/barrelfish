@@ -51,6 +51,9 @@ errval_t cap_revoke(struct capref cap);
 struct cspace_allocator;
 errval_t cap_destroy(struct capref cap);
 
+
+errval_t cap_register_revoke(struct capref cap, struct event_closure cont);
+
 errval_t vnode_create(struct capref dest, enum objtype type);
 errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes);
 errval_t frame_alloc(struct capref *dest, size_t bytes, size_t *retbytes);

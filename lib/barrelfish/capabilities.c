@@ -934,3 +934,91 @@ errval_t cnode_build_cnoderef(struct cnoderef *cnoder, struct capref capr)
 
     return SYS_ERR_OK;
 }
+
+
+struct cap_notify_st
+{
+    ///< Event Queue node for sending on the monitor binding
+    struct event_queue_node qn;
+
+    ///< the event closure to be called on an event
+    struct event_closure cont;
+
+    ///< the capability
+    struct capref cap;
+
+    ///< the cap addr of the cap
+    capaddr_t capaddr;
+};
+
+
+static void cap_revoke_ack_sender(void *arg)
+{
+    struct monitor_binding *mb = get_monitor_binding();
+    errval_t err;
+
+    /* Send request to the monitor on our existing binding */
+    err = mb->tx_vtbl.cap_revoke_response(mb, NOP_CONT, (uintptr_t)arg);
+    if (err_is_ok(err)) {
+        event_mutex_unlock(&mb->mutex);
+        free(arg);
+    } else if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        err = mb->register_send(mb, mb->waitset,
+                                MKCONT(cap_revoke_ack_sender,arg));
+        assert(err_is_ok(err)); // shouldn't fail, as we have the mutex
+    } else { // permanent error
+        event_mutex_unlock(&mb->mutex);
+        free(arg);
+    }
+}
+
+
+static void cap_revoke_request(struct monitor_binding *mb, uintptr_t cap, uintptr_t id)
+{
+    /* XXX: this trusts the monitor to send us the right ID back */
+    struct cap_notify_st *st = (struct cap_notify_st *)id;
+
+    if (st->cont.handler) {
+        st->cont.handler(st->cont.arg);
+    }
+
+    /* Wait to use the monitor binding */
+    event_mutex_enqueue_lock(&mb->mutex, &st->qn,
+                             MKCLOSURE(cap_revoke_ack_sender,st));
+}
+
+
+errval_t cap_register_revoke(struct capref cap, struct event_closure cont)
+{
+    errval_t err;
+
+    struct cap_notify_st *st = calloc(1, sizeof(*st));
+    if (st == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    struct monitor_binding *mb = get_monitor_binding();
+    mb->rx_vtbl.cap_revoke_request = cap_revoke_request;
+
+    st->cont = cont;
+    st->cap  = cap;
+    st->capaddr = get_cap_addr(cap);
+
+    struct monitor_blocking_binding *mcb = get_monitor_blocking_binding();
+    assert(mcb);
+
+    errval_t msgerr;
+    err = mcb->rpc_tx_vtbl.cap_needs_revoke_agreement(mcb, cap, (uintptr_t)st,
+                                                      &msgerr);
+    if (err_is_fail(err)) {
+        free(st);
+        return err;
+    }
+
+    if (err_is_fail(msgerr)) {
+        free(st);
+        return msgerr;
+    }
+
+    return SYS_ERR_OK;
+}
