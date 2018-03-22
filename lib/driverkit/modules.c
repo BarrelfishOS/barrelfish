@@ -172,15 +172,14 @@ errval_t driverkit_get_ep(const char* name) {
  * \param[in]   caps    Caps provided to the driver's init function.
  * \param[in]   flags   Flags provided to the driver's init function.
  * \param[out]  device  iref of the device interface (as created by the device).
- * \param[out]  control iref of the control interface (created as part of this function).
+ * \param[out]  control endpoint cap of the control interface (created as part of this function).
  * \return      Error status of driver creation.
  */
 errval_t driverkit_create_driver(const char* cls, struct bfdriver_instance *inst,
-                                 uint64_t flags, iref_t* device, iref_t* control)
+                                 uint64_t flags, iref_t* device, struct capref* control)
 {
     assert(cls != NULL);
     assert(device != NULL);
-    assert(control != NULL);
     assert(inst != NULL);
 
     errval_t err = SYS_ERR_OK;
@@ -200,16 +199,15 @@ errval_t driverkit_create_driver(const char* cls, struct bfdriver_instance *inst
         return err_push(err, DRIVERKIT_ERR_DRIVER_INIT);
     }
 
-    err = dcontrol_service_init(inst, NULL);
+    // Since Kaluga always has to be on core 0, we can do this ...
+    err = dcontrol_service_init(inst, NULL, (disp_get_core_id() == 0), control);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Can't set-up control interface for device.");
         free_driver_instance(inst);
         return err_push(err, DRIVERKIT_ERR_CONTROL_SERVICE_INIT);
     }
-    assert (inst->control > 0);
-    *control = inst->control;
 
-    DRIVERKIT_DEBUG("Driver class %s initialized successfully for driver %s.\n", drv->name, name);
+    DRIVERKIT_DEBUG("Driver class %s initialized.\n", drv->name);
     if (instances == NULL) {
         collections_list_create(&instances, free_driver_instance);
     }
@@ -260,11 +258,6 @@ errval_t driverkit_get_devid_cap(struct bfdriver_instance *bfi, struct capref *c
 errval_t driverkit_get_pci_cap(struct bfdriver_instance *bfi, struct capref *cap)
 {
     return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_PCI_EP, cap);
-}
-
-static errval_t driverkit_get_kaluga_cap(struct bfdriver_instance *bfi, struct capref *cap)
-{
-    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_KALUGA_EP, cap);
 }
 
 errval_t driverkit_get_bar_cap(struct bfdriver_instance *bfi, uint8_t idx,

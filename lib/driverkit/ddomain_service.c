@@ -58,8 +58,8 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
     DRIVERKIT_DEBUG("Driver domain got create message from kaluga for cls=%s,"
             "name=%s\n", cls, name);
 
-    iref_t dev = 0, ctrl = 0;
-
+    iref_t dev = 0;
+    
     struct bfdriver_instance* inst = calloc(1, sizeof(struct bfdriver_instance));
     if (inst == NULL) {
         err = LIB_ERR_MALLOC_FAIL;
@@ -118,12 +118,21 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
 
     strncpy(inst->name, name, sizeof(inst->name));
 
+    err = slot_alloc(&inst->ctrl);
+    if (err_is_fail(err)){
+        DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
+                "name=%s, cls=%s\n", name, cls);
+        slot_free(inst->argcn_cap);
+        free(inst);
+        goto send_reply;
+    }
 
     DRIVERKIT_DEBUG("Instantiate driver\n");
-    err = driverkit_create_driver(cls, inst, flags, &dev, &ctrl);
+    err = driverkit_create_driver(cls, inst, flags, &dev, &inst->ctrl);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
                 "name=%s, cls=%s\n", name, cls);
+        slot_free(inst->ctrl);
         slot_free(inst->argcn_cap);
         free(inst);
     }
@@ -131,7 +140,7 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
     send_reply:
 
     DRIVERKIT_DEBUG("sending create response to kaluga\n");
-    err = ddomain_create_response__tx(binding, NOP_CONT, dev, ctrl, err);
+    err = ddomain_create_response__tx(binding, NOP_CONT, dev, inst->ctrl, err);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Sending reply failed.\n");
     }
@@ -151,7 +160,7 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
     DRIVERKIT_DEBUG("Driver domain got create message from kaluga for cls=%s,"
                             "name=%s\n", cls, name);
 
-    iref_t dev = 0, ctrl = 0;
+    iref_t dev = 0;
 
     struct bfdriver_instance* inst = calloc(1, sizeof(struct bfdriver_instance));
     if (inst == NULL) {
@@ -202,8 +211,18 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
         inst->argv[3] = NULL;
     }
 
+
+    err = slot_alloc(&inst->ctrl);
+    if (err_is_fail(err)){
+        DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
+                "name=%s, cls=%s\n", name, cls);
+        slot_free(inst->argcn_cap);
+        free(inst);
+        goto send_reply;
+    }
+
     DRIVERKIT_DEBUG("Instantiate driver\n");
-    err = driverkit_create_driver(cls, inst, flags, &dev, &ctrl);
+    err = driverkit_create_driver(cls, inst, flags, &dev, &inst->ctrl);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
                 "name=%s, cls=%s\n", name, cls);
@@ -215,7 +234,7 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
 
 
     DRIVERKIT_DEBUG("sending create response to kaluga\n");
-    err = ddomain_create_with_argcn_response__tx(binding, NOP_CONT, dev, ctrl,
+    err = ddomain_create_with_argcn_response__tx(binding, NOP_CONT, dev, inst->ctrl,
                                                  err);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Sending reply failed.\n");

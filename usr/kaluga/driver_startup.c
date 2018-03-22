@@ -12,6 +12,8 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/spawn_client.h>
+#include <driverkit/driverkit.h>
+#include <driverkit/control.h>
 
 #include <pci/pci.h> // for pci_address
 

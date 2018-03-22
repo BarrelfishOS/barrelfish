@@ -24,6 +24,7 @@
 
 #include <driverkit/driverkit.h>
 #include <if/ddomain_defs.h>
+#include <if/dcontrol_defs.h>
 
 #include "debug.h"
 #define SERVICE_NAME "ddomain_controller"
@@ -93,21 +94,45 @@ errval_t ddomain_driver_add_arg(struct driver_instance* drv, char *str)
     }
 }
 
+static void bind_cont(void *st, errval_t err, struct dcontrol_binding *b)
+{
+    struct driver_instance* drv = (struct driver_instance*) st;
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "bind failed");
+    }
+
+    // copy my message receive handler vtable to the binding
+    //  TODO might need rx_vtbl?
+    b->st = st;
+    dcontrol_rpc_client_init(b);
+    drv->ctrl = b;
+    drv->bound = true;
+}
+
+
 static errval_t create_call(struct ddomain_binding *b, struct driver_instance* drv) {
     assert(b != NULL);
     assert(b->rpc_tx_vtbl.create != NULL);
     assert(drv != NULL);
 
+    errval_t err;
     errval_t out_err = SYS_ERR_OK;
     DRIVERKIT_DEBUG("Trying to spawn %s (named %s)\n", drv->driver_name, drv->inst_name);
-    errval_t err = b->rpc_tx_vtbl.create(b, drv->driver_name, strlen(drv->driver_name)+1,
-                                          drv->inst_name, strlen(drv->inst_name)+1,
-                                          drv->args[0], (drv->args[0] != NULL) ? strlen(drv->args[0]) : 0,
-                                          drv->args[1], (drv->args[1] != NULL) ? strlen(drv->args[1]) : 0,
-                                          drv->args[2], (drv->args[2] != NULL) ? strlen(drv->args[2]) : 0,
-                                          drv->args[3], (drv->args[3] != NULL) ? strlen(drv->args[3]) : 0,
-                                          drv->caps[0], drv->caps[1], drv->caps[2], drv->caps[3], drv->caps[4], drv->caps[5],
-                                          drv->flags, &drv->dev, &drv->control, &out_err);
+    
+    err = slot_alloc(&drv->control_ep);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to create driver %s\n", drv->driver_name);
+        return err;
+    }
+
+    err = b->rpc_tx_vtbl.create(b, drv->driver_name, strlen(drv->driver_name)+1,
+                                drv->inst_name, strlen(drv->inst_name)+1,
+                                drv->args[0], (drv->args[0] != NULL) ? strlen(drv->args[0]) : 0,
+                                drv->args[1], (drv->args[1] != NULL) ? strlen(drv->args[1]) : 0,
+                                drv->args[2], (drv->args[2] != NULL) ? strlen(drv->args[2]) : 0,
+                                drv->args[3], (drv->args[3] != NULL) ? strlen(drv->args[3]) : 0,
+                                drv->caps[0], drv->caps[1], drv->caps[2], drv->caps[3], drv->caps[4], drv->caps[5],
+                                drv->flags, &drv->dev, &drv->control_ep, &out_err);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to create driver %s\n", drv->driver_name);
         return err;
@@ -115,10 +140,21 @@ static errval_t create_call(struct ddomain_binding *b, struct driver_instance* d
         if (err_is_fail(out_err)) {
             DEBUG_ERR(out_err, "Failed to create driver %s\n", drv->driver_name);
         } else {
-            printf("Driver %s created, reachable at [%"PRIuIREF", %"PRIuIREF"]\n", drv->driver_name, drv->dev, drv->control);
+            printf("Driver %s created, reachable at [%"PRIuIREF"]\n", drv->driver_name, drv->dev);
         }
-        return out_err;
     }
+
+    // create control connection
+    drv->bound = false;
+    err = dcontrol_bind_to_endpoint(drv->control_ep, bind_cont, drv, get_default_waitset(), 
+                                    IDC_BIND_FLAGS_DEFAULT);
+    assert(err_is_ok(err));
+
+    while(!drv->bound) {
+        event_dispatch(get_default_waitset());
+    }
+
+    return SYS_ERR_OK;
 }
 
 static errval_t create_with_argcn_call(struct ddomain_binding *b, struct driver_instance* drv) {
@@ -131,6 +167,13 @@ static errval_t create_with_argcn_call(struct ddomain_binding *b, struct driver_
     debug_printf("trying to spawn with argcn: %s\n", drv->driver_name);
 
     errval_t out_err = SYS_ERR_OK;
+
+    err = slot_alloc(&drv->control_ep);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to create driver %s\n", drv->driver_name);
+        return err;
+    }
+
     DRIVERKIT_DEBUG("Trying to spawn %s (named %s)\n", drv->driver_name, drv->inst_name);
     err = b->rpc_tx_vtbl.create_with_argcn(b, drv->driver_name, strlen(drv->driver_name)+1,
                                            drv->inst_name, strlen(drv->inst_name)+1,
@@ -139,7 +182,7 @@ static errval_t create_with_argcn_call(struct ddomain_binding *b, struct driver_
                                            drv->args[2], (drv->args[2] != NULL) ? strlen(drv->args[2] + 1) : 0,
                                            drv->args[3], (drv->args[3] != NULL) ? strlen(drv->args[3] + 1) : 0,
                                            drv->argcn_cap,
-                                           drv->flags, &drv->dev, &drv->control, &out_err);
+                                           drv->flags, &drv->dev, &drv->control_ep, &out_err);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Failed to create driver %s\n", drv->driver_name);
         return err;
@@ -147,11 +190,20 @@ static errval_t create_with_argcn_call(struct ddomain_binding *b, struct driver_
         if (err_is_fail(out_err)) {
             DEBUG_ERR(out_err, "Failed to create driver %s\n", drv->driver_name);
         } else {
-            printf("Driver %s created, reachable at [%"PRIuIREF", %"PRIuIREF"]\n", drv->driver_name, drv->dev, drv->control);
+            printf("Driver %s created, reachable at [%"PRIuIREF"]\n", drv->driver_name, drv->dev);
         }
-
-        return out_err;
     }
+
+    drv->bound = false;
+    err = dcontrol_bind_to_endpoint(drv->control_ep, bind_cont, drv, get_default_waitset(), 
+                                    IDC_BIND_FLAGS_DEFAULT);
+    assert(err_is_ok(err));
+
+    while(!drv->bound) {
+        event_dispatch(get_default_waitset());
+    }
+
+    return SYS_ERR_OK;
 }
 
 errval_t ddomain_instantiate_driver(struct domain_instance* di, struct driver_instance* drv) {

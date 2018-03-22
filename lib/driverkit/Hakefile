@@ -25,8 +25,10 @@
             "dcontrol",
             "iommu"
         ],
+
         flounderExtraBindings = [
             ("ddomain", ["rpcclient"]),
+            ("dcontrol", ["rpcclient"]),
             ("iommu", ["rpcclient"])
         ],
         addLibraries = [ "collections", "skb" ],
