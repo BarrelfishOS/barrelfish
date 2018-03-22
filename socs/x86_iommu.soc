@@ -2,9 +2,9 @@ module IOMMU {
     input memory (0 bits 40) IN
     output memory (0 bits 40) OUT
 
-    IN maps [
-        (0x000000 to 0xffffff) to OUT at (0x000000 to 0xffffff)   // Add/change IOMMU translations here
-    ]
+    //IN maps [
+    //    (0x000000 to 0xffffff) to OUT at (0x000000 to 0xffffff)
+    //]
 
 }
 
@@ -43,9 +43,9 @@ module PROC {
 module MMU {
     input memory (0 bits 40) IN
     output memory (0 bits 40) OUT
-    IN maps [
-        (0x000000 to 0xffffff) to OUT at (0x000000 to 0xffffff)   // Add/change IOMMU translations here
-    ]
+    //IN maps [
+    //    (0x000000 to 0xffffff) to OUT at (0x000000 to 0xffffff)
+    //]
 }
 
 module PROC_MMU {
