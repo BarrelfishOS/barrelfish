@@ -23,7 +23,6 @@
 //#include <lwip/ip.h>
 #include <net/net.h>
 
-#include <if/sfn5122f_defs.h>
 #include <if/sfn5122f_devif_defs.h>
 #include <if/net_filter_defs.h>
 
