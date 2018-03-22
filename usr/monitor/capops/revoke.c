@@ -191,17 +191,6 @@ errval_t capops_revoke_register_subscribe(struct capability *cap, uintptr_t id,
 
 
 
-#if 0
-static void new_monitor_binding_reply_handler(struct monitor_binding *b,
-                                              struct monitor_msg_queue_elem *e)
-{
-    struct new_monitor_binding_reply_state *st =
-            (struct new_monitor_binding_reply_state *)e;
-    new_monitor_binding_reply_cont(b, st->args.err, st->args.ep, st->args.st);
-    free(st);
-}
-#endif
-
 static void
 revoke_agreement_request_cont(struct monitor_binding *b,
                               struct revoke_register_st *st)
@@ -209,30 +198,6 @@ revoke_agreement_request_cont(struct monitor_binding *b,
 
     errval_t err = b->tx_vtbl.cap_revoke_request(b, NOP_CONT, 0, st->req.reqid);
     assert(err_is_ok(err));
-    #if 0
-    b->tx_vtbl.new_monitor_binding_reply(b, NOP_CONT, reterr, retcap, st);
-
-    if (err_is_fail(err)) {
-        if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
-            struct monitor_state *ms = b->st;
-            struct new_monitor_binding_reply_state *me =
-                    malloc(sizeof(struct new_monitor_binding_reply_state));
-            assert(me != NULL);
-            me->args.err = reterr;
-            me->args.ep = retcap;
-            me->args.st = st;
-            me->elem.cont = new_monitor_binding_reply_handler;
-            err = monitor_enqueue_send(b, &ms->queue,
-                                       get_default_waitset(), &me->elem.queue);
-            if (err_is_fail(err)) {
-                USER_PANIC_ERR(err, "monitor_enqueue_send failed");
-            }
-            return;
-        }
-
-        USER_PANIC_ERR(err, "failed to send new_monitor_binding_reply");
-    }
-    #endif
 }
 
 static void revoke_master_cont(void *arg)
