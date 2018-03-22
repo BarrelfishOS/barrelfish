@@ -608,8 +608,28 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
     return SYS_ERR_OK;
 }
 
+// TODO local RPCs
+static struct e1000_devif_rx_vtbl vtbl = {
+    .create_queue_call = cd_create_queue,
+    .destroy_queue_call = cd_destroy_queue
+};
+
+static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
+{
+    E1000_DEBUG("Endpoint was requested \n");
+    errval_t err;
+    struct e1000_devif_binding* b;
+    err = e1000_devif_create_endpoint(lmp? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                                      &vtbl, bfi->dstate,
+                                      get_default_waitset(),
+                                      IDC_ENDPOINT_FLAGS_DUMMY,
+                                      &b, *ret_cap);
+    
+    return SYS_ERR_OK;
+}
+
 #ifdef UNDER_TEST
-DEFINE_MODULE(e1000n_irqtest_module, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(e1000n_irqtest_module, init, attach, detach, set_sleep_level, destroy, get_ep);
 #else
-DEFINE_MODULE(e1000n_module, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(e1000n_module, init, attach, detach, set_sleep_level, destroy, get_ep);
 #endif

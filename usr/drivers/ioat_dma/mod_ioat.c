@@ -343,10 +343,16 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
     return SYS_ERR_OK;
 }
 
+
+
+static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
+{
+    return SYS_ERR_OK;
+}
 /**
  * Registers the driver module with the system.
  *
  * To link this particular module in your driver domain,
  * add it to the addModules list in the Hakefile.
  */
-DEFINE_MODULE(ioat_dma_module, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(ioat_dma_module, init, attach, detach, set_sleep_level, destroy, get_ep);

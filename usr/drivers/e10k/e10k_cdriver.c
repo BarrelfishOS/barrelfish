@@ -1808,10 +1808,29 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
     return SYS_ERR_OK;
 }
 
+struct e10k_vf_rx_vtbl vtbl = {
+    .create_queue_call = cd_create_queue,
+    .request_vf_number_call = request_vf_number,
+    .init_done_call = init_done_vf
+};
+
+static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
+{
+    DEBUG("Endpoint was requested \n");
+    errval_t err;
+    struct e10k_vf_binding* b;
+    err = e10k_vf_create_endpoint(lmp? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                                  &vtbl, bfi->dstate,
+                                  get_default_waitset(),
+                                  IDC_ENDPOINT_FLAGS_DUMMY,
+                                  &b, *ret_cap);
+    
+    return err;
+}
 /**
  * Registers the driver module with the system.
  *
  * To link this particular module in your driver domain,
  * add it to the addModules list in the Hakefile.
  */
-DEFINE_MODULE(e10k_module, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(e10k_module, init, attach, detach, set_sleep_level, destroy, get_ep);
