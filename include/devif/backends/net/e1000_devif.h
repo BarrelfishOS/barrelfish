@@ -13,8 +13,7 @@
 struct e1000_queue;
 
 // interrupt_mode: 0 - none, 1 - normal, 2 - interrupt test
-errval_t e1000_queue_create(struct e1000_queue** q, uint32_t vendor, uint32_t deviceid,
-    uint32_t bus, uint32_t device, uint32_t function, unsigned interrupt_mode,
-    void (*isr)(void *));
-
+errval_t e1000_queue_create(struct e1000_queue ** q, struct capref* ep, uint32_t vendor, 
+    uint32_t deviceid, uint32_t bus, uint32_t pci_device, uint32_t function, 
+    unsigned interrupt_mode, void (*isr)(void *));
 #endif

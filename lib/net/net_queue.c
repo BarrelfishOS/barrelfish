@@ -61,7 +61,7 @@ static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
     // disable HW filter since the card does not have them
     st->hw_filter = false;
 
-    return e1000_queue_create((struct e1000_queue**)retqueue, id.vendor, id.device,
+    return e1000_queue_create((struct e1000_queue**)retqueue, ep, id.vendor, id.device,
                               addr.bus, addr.device, addr.function, 1, interrupt);
 }
 
@@ -132,7 +132,7 @@ static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interru
     // enable HW filter since they are enabled by default by the driver
     st->hw_filter = true;
     err = sfn5122f_queue_create((struct sfn5122f_queue**)retqueue, interrupt,
-                                false /*userlevel network feature*/,
+                                ep, false /*userlevel network feature*/,
                                 !poll /* user interrupts*/,
                                 default_q);
     *queueid = sfn5122f_queue_get_id((struct sfn5122f_queue*)*retqueue);

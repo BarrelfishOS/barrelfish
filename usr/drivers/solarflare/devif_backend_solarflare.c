@@ -521,7 +521,8 @@ static void interrupt_handler(void* arg)
  */
 
 errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb, 
-                               bool userlevel, bool interrupts, bool qzero)
+                               struct capref* ep, bool userlevel, bool interrupts, 
+                               bool qzero)
 {
     DEBUG_QUEUE("create called \n");
 
@@ -561,22 +562,30 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     queue->use_interrupts = interrupts;
 
     
-    iref_t iref;
-    const char *name = "sfn5122f_sfn5122fmng_devif";
+    if (ep == NULL) {
+        iref_t iref; 
+        const char *name = "sfn5122f_sfn5122fmng_devif";
 
-    // Connect to solarflare card driver
-    err = nameservice_blocking_lookup(name, &iref);
-    if (err_is_fail(err)) {
-        return err;
+        // Connect to solarflare card driver
+        err = nameservice_blocking_lookup(name, &iref);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        DEBUG_QUEUE("binding \n");
+        err = sfn5122f_devif_bind(iref, bind_cb, queue, get_default_waitset(),
+                                  1);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    } else {
+        DEBUG_QUEUE("binding \n");
+        err = sfn5122f_devif_bind_to_endpoint(*ep, bind_cb, queue, 
+                                              get_default_waitset(), 1);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
-
-    DEBUG_QUEUE("binding \n");
-    err = sfn5122f_devif_bind(iref, bind_cb, queue, get_default_waitset(),
-                              1);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
     // wait until bound
     while(!queue->bound) {
         event_dispatch(get_default_waitset());

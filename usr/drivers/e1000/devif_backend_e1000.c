@@ -311,9 +311,9 @@ static void interrupt_handler(void* arg) {
 }
 
 
-errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t deviceid,
-    uint32_t bus, uint32_t pci_device, uint32_t function, unsigned interrupt_mode,
-    void (*isr)(void *))
+errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vendor, 
+    uint32_t deviceid, uint32_t bus, uint32_t pci_device, uint32_t function, 
+    unsigned interrupt_mode, void (*isr)(void *))
 {
     errval_t err;
     e1000_queue_t *device;
@@ -369,20 +369,26 @@ errval_t e1000_queue_create(e1000_queue_t ** q, uint32_t vendor, uint32_t device
 
     //e1000_init(device, interrupt_mode);
 
-    char service[128];
-    snprintf(service, 128, "e1000_%x_%x_%x_%s", bus, pci_device, function, "devif");
-    // Connect to e1000 card driver
-    iref_t iref;
-    err = nameservice_blocking_lookup(service, &iref);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    if (ep == NULL) {
+        char service[128];
+        snprintf(service, 128, "e1000_%x_%x_%x_%s", bus, pci_device, function, "devif");
+        // Connect to e1000 card driver
+        iref_t iref;
+        err = nameservice_blocking_lookup(service, &iref);
+        if (err_is_fail(err)) {
+            return err;
+        }
 
-    err = e1000_devif_bind(iref, bind_cb, device, get_default_waitset(), 1);
-    if (err_is_fail(err)) {
-        return err;
+        err = e1000_devif_bind(iref, bind_cb, device, get_default_waitset(), 1);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    } else {
+        err = e1000_devif_bind_to_endpoint(*ep, bind_cb, device, get_default_waitset(), 1);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
-    
     // wait until bound
     while(!device->bound) {
         event_dispatch(get_default_waitset());
