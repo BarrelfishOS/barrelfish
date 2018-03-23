@@ -8,6 +8,9 @@
  */
 
 interface kaluga "Kaluga to interface to request endpoints" {
-	  rpc request_endpoint_cap(in bool type, in uint32 bus, in uint32 device, in uint32 function,
-                               out cap endpoint_cap);
+	  rpc request_endpoint_cap(in uint8 type, in uint32 bus, in uint32 device, 
+                               in uint32 function, out cap endpoint_cap);
+
+	  rpc request_endpoint_cap_for_iommu(in uint8 type, in uint32 index, 
+                                         out cap endpoint_cap);
 };

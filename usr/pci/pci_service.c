@@ -23,6 +23,7 @@
 #include <driverkit/driverkit.h>
 
 #include <if/pci_defs.h>
+#include <if/pci_iommu_defs.h>
 #include <if/kaluga_defs.h>
 #include <if/acpi_defs.h>
 
@@ -49,6 +50,10 @@ struct client_state {
     void *cont_st;
 };
 
+struct iommu_client_state {
+    uint32_t index;
+    struct pci_iommu_binding* b;
+};
 
 // Assume one connection to kaluga over which
 // kaluga can request PCI endpoints to had off to devices
@@ -465,10 +470,17 @@ static errval_t connect_callback(void *cst, struct pci_binding *b)
 
 
 /*****************************************************************
+ * Iommu PCI connection interface
+ *****************************************************************/
+
+struct pci_iommu_rx_vtbl pci_iommu_rx_vtbl;
+
+
+/*****************************************************************
  * Connection to Kaluga to request PCI endpoints for devices
  *****************************************************************/
 
-static void request_endpoint_cap_handler(struct kaluga_binding* b, bool lmp, 
+static void request_endpoint_cap_handler(struct kaluga_binding* b, uint8_t type, 
                                          uint32_t bus, uint32_t device, 
                                          uint32_t function)
 {
@@ -481,13 +493,12 @@ static void request_endpoint_cap_handler(struct kaluga_binding* b, bool lmp,
     assert(err_is_ok(err));
 
     struct pci_binding* pci;
-    idc_endpoint_t type = lmp ? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP;
 
     err = pci_create_endpoint(type, &pci_rx_vtbl, NULL,
                               get_default_waitset(),
                               IDC_ENDPOINT_FLAGS_DUMMY,
                               &pci, cap);
-
+    assert(err_is_ok(err));
     pci_rpc_client_init(pci);
     struct client_state* state = (struct client_state*) 
                                   calloc(1, sizeof(struct client_state));
@@ -500,8 +511,35 @@ static void request_endpoint_cap_handler(struct kaluga_binding* b, bool lmp,
     assert(err_is_ok(err));
 }
 
+static void request_endpoint_cap_for_iommu_handler(struct kaluga_binding* b, uint8_t type, 
+                                                   uint32_t index)
+{
+    errval_t err;
+    PCI_DEBUG("Kaluga requested pci to iommu endpoint for iommu %d\n", index);
+
+    struct capref cap;    
+    err = slot_alloc(&cap);
+    assert(err_is_ok(err));
+
+    struct iommu_client_state* state = (struct iommu_client_state*) 
+                                        calloc(1, sizeof(struct iommu_client_state));
+    err = pci_iommu_create_endpoint(type, &pci_iommu_rx_vtbl, NULL,
+                                    get_default_waitset(),
+                                    IDC_ENDPOINT_FLAGS_DUMMY,
+                                    &state->b, cap);
+    assert(err_is_ok(err));
+
+    pci_iommu_rpc_client_init(state->b);
+    state->index = index;
+    state->b->st = state;
+   
+    err = b->tx_vtbl.request_endpoint_cap_for_iommu_response(b, NOP_CONT, cap);
+    assert(err_is_ok(err));
+}
+
 static struct kaluga_rx_vtbl rx_vtbl = {
-    .request_endpoint_cap_call = request_endpoint_cap_handler
+    .request_endpoint_cap_call = request_endpoint_cap_handler,
+    .request_endpoint_cap_for_iommu_call = request_endpoint_cap_for_iommu_handler
 };
 
 static void bind_cont(void *st, errval_t err, struct kaluga_binding *b)
