@@ -10,6 +10,9 @@
 
 interface iommu "IOMMU" {
 
+    /* get the supported page size and the vnode root type */
+    rpc getvmconfig(out errval err, out uint8 type, out uint8 bits);
+
     /* set the root table pointer for the device */
     rpc setroot(in cap src, out errval err);
 

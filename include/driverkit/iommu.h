@@ -14,66 +14,58 @@
 #include <barrelfish/types.h>
 #include <errors/errno.h>
 
+/* forward declaration of the iommu client state */
+struct iommu_client;
+
 
 /**
- * @brief initializes the IOMMU client library
+ * @brief initializes the IOMMU client library with the IOMMU endpoint
+ *
+ * @param ep the IOMMU endpoint
+ * @param cl returns a pointer ot the iommu client
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ *
+ * This function initializes the connection, allocates the root vnode etc.
+ */
+errval_t driverkit_iommu_client_init(struct capref ep, struct iommu_client **cl);
+
+
+/**
+ * @brief connects to the IOMMU service
+ *
+ * @param ep the IOMMU endpoint
+ * @param cl returns a pointer ot the iommu client
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ *
+ * This just initializes the connecton to the IOMMU
+ */
+errval_t driverkit_iommu_client_connect(struct capref ep,
+                                        struct iommu_client **cl);
+
+
+/**
+ * @brief tears down a connection to the IOMMU service
+ *
+ * @param cl the iommu client
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_client_init(void);
-errval_t driverkit_iommu_client_init_with_endpoint(struct capref);
+errval_t driverkit_iommu_client_disconnect(struct iommu_client *cl);
+
 
 /**
  * @brief checks if there is an IOMMU present
  *
+ * @param the pointer ot the IOMMU client state
+ *
  * @return True if there is an IOMMU present
  *         False if there is no IOMMU present
  */
-bool driverkit_iommu_present(void);
+bool driverkit_iommu_present(struct iommu_client *cl);
 
 
-/**
- * @brief creates a new protection domain
- *
- * @return SYS_ERR_OK on success, errval on failure
- */
-static inline errval_t driverkit_iommu_create_domain(struct capref rootpt, struct capref dev)
-{
-USER_PANIC("DEPRECATED!");
-return LIB_ERR_NOT_IMPLEMENTED;
-}
-/**
- * @brief deletes a previously created protection domain
- *
- * @return SYS_ERR_OK on success, errval on failure
- */
-static inline errval_t driverkit_iommu_delete_domain(struct capref rootpt)
-{
-USER_PANIC("DEPRECATED!");
-return LIB_ERR_NOT_IMPLEMENTED;
-}
-
-
-/**
- * @brief adds a device to a protection domain
- *
- * @return SYS_ERR_OK on success, errval on failure
- */
-static inline errval_t driverkit_iommu_add_device(struct capref rootpt, struct capref dev)
-{
-    USER_PANIC("DEPRECATED!");
-    return LIB_ERR_NOT_IMPLEMENTED;
-}
-/**
- * @brief removes a device from a protection domain
- *
- * @return SYS_ERR_OK on success, errval on failure
- */
-static inline errval_t driverkit_iommu_remove_device(struct capref rootpt, struct capref dev)
-{
-    USER_PANIC("DEPRECATED!");
-    return LIB_ERR_NOT_IMPLEMENTED;
-}
 
 
 /*
@@ -90,7 +82,8 @@ static inline errval_t driverkit_iommu_remove_device(struct capref rootpt, struc
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_set_root(struct capref rootvnode);
+errval_t driverkit_iommu_set_root_vnode(struct iommu_client *cl,
+                                        struct capref rootvnode);
 
 
 /**
@@ -100,7 +93,7 @@ errval_t driverkit_iommu_set_root(struct capref rootvnode);
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_get_root_vnode_type(enum objtype *type);
+enum objtype driverkit_iommu_get_root_vnode_type(struct iommu_client *cl);
 
 
 /**
@@ -110,7 +103,7 @@ errval_t driverkit_iommu_get_root_vnode_type(enum objtype *type);
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_get_max_pagesize(size_t *pgsize);
+size_t driverkit_iommu_get_max_pagesize(struct iommu_client *cl);
 
 
 /**
@@ -121,7 +114,8 @@ errval_t driverkit_iommu_get_max_pagesize(size_t *pgsize);
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_alloc_vnode(enum objtype type, struct capref *retvnode);
+errval_t driverkit_iommu_alloc_vnode(struct iommu_client *cl, enum objtype type,
+                                     struct capref *retvnode);
 
 
 /**
@@ -211,6 +205,7 @@ errval_t driverkit_iommu_vspace_map(struct capref frame, vregion_flags_t flags,
  * @return SYS_ERR_OK on succes, errval on failure
  */
 errval_t driverkit_iommu_vspace_unmap(struct dmem *dmem);
+
 
 /**
  * @brief modifies an existing mapping
@@ -316,5 +311,61 @@ void *driverkit_iommu_calloc(size_t blocks, size_t bytes);
  */
 void driverkit_iommu_free(void *ptr);
 
+
+
+
+
+
+
+
+/**
+ * @brief creates a new protection domain
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+static inline errval_t driverkit_iommu_create_domain(struct capref rootpt, struct capref dev)
+{
+    USER_PANIC("DEPRECATED!");
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+/**
+ * @brief deletes a previously created protection domain
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+static inline errval_t driverkit_iommu_delete_domain(struct capref rootpt)
+{
+    USER_PANIC("DEPRECATED!");
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
+
+/**
+ * @brief adds a device to a protection domain
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+static inline errval_t driverkit_iommu_add_device(struct capref rootpt, struct capref dev)
+{
+    USER_PANIC("DEPRECATED!");
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+/**
+ * @brief removes a device from a protection domain
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+static inline errval_t driverkit_iommu_remove_device(struct capref rootpt, struct capref dev)
+{
+    USER_PANIC("DEPRECATED!");
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
+
+static inline errval_t driverkit_iommu_client_init2(void)
+{
+    USER_PANIC("DEPRECATED!");
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
 
 #endif // DRIVERKIT_IOMMU_H

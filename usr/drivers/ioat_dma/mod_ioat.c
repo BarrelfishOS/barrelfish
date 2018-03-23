@@ -134,7 +134,7 @@ static void impl_test(struct ioat_dma_device *dev)
     assert(err_is_ok(err));
 
     uint64_t address = id.base;
-    if (driverkit_iommu_present()) {
+    if (driverkit_iommu_present(NULL)) {
         address = (lpaddr_t)buf;
         debug_printf("Setting id.base to %lx\n", address);
     }
@@ -242,8 +242,8 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
         .function = id.function
     };
 
-    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present());
-    if (driverkit_iommu_present()) {
+    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present(NULL));
+    if (driverkit_iommu_present(NULL)) {
 
         struct vnode_identity vid;
         err = invoke_vnode_identify(cap_vroot, &vid);
@@ -265,7 +265,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
 
 
     /* initialize the device */
-    err = ioat_dma_device_init(regs, &pciaddr, driverkit_iommu_present(),
+    err = ioat_dma_device_init(regs, &pciaddr, driverkit_iommu_present(NULL),
                                &devices[device_count]);
     if (err_is_fail(err)) {
         DEV_ERR("Could not initialize the device: %s\n", err_getstring(err));

@@ -1418,12 +1418,12 @@ int megaraid_driver_init(int argc, const char **argv)
     }
 
     if (use_vtd) {
-         err = driverkit_iommu_client_init();
+         err = driverkit_iommu_client_init(NULL_CAP, NULL);
         if (err_is_fail(err)) {
             return err;
         }
 
-        if (!driverkit_iommu_present()) {
+        if (!driverkit_iommu_present(NULL)) {
             USER_PANIC("IOMMU SHOULD BE ENABLED!\n");
         }
 

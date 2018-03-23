@@ -1698,12 +1698,12 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 
     parse_cmdline(st, bfi->argc, bfi->argv);
     
-    err = driverkit_iommu_client_init();
+    err = driverkit_iommu_client_init(NULL_CAP, NULL);
     if (err_is_fail(err)) {
         return err;
     }
 
-    if (driverkit_iommu_present()) {
+    if (driverkit_iommu_present(NULL)) {
         DEBUG("VTD-Enabled initializing with VFs enabled \n");
         st->vtdon_dcboff = true;
 

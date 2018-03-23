@@ -637,12 +637,12 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
     /*
      * TODO: move this to the queue manager!
      */
-    err = driverkit_iommu_client_init();
+    err = driverkit_iommu_client_init(NULL_CAP, NULL);
     if (err_is_fail(err)) {
         return err;
     }
 
-    if (!driverkit_iommu_present()) {
+    if (!driverkit_iommu_present(NULL)) {
         USER_PANIC("IOMMU SHOULD BE ENABLED!\n");
     }
 

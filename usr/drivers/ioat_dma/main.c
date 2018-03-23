@@ -61,12 +61,12 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    err = driverkit_iommu_client_init();
+    err = driverkit_iommu_client_init(NULL_CAP, NULL);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to initialize the IOMMU library");
     }
 
-    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present());
+    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present(NULL));
 
 
     iref_t kaluga_iref = 0;
