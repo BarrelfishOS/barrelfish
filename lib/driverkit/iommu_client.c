@@ -53,6 +53,8 @@ struct iommu_client
     struct capref rootvnode;
 };
 
+///< the default iommu client
+static struct iommu_client *default_client;
 
 
 static void iommu_bind_cb(void *argst,  errval_t err, struct iommu_binding *ib)
@@ -241,6 +243,34 @@ bool driverkit_iommu_present(struct iommu_client *cl)
         return cl->enabled;
     }
     return false;
+}
+
+
+/**
+ * @brief sets the default iommu client to be used
+ *
+ * @param cl    the iommu client should be taken as default
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t driverkit_iommu_set_default_client(struct iommu_client *cl)
+{
+    if (default_client == NULL) {
+        default_client = cl;
+        return SYS_ERR_OK;
+    }
+    return -1; /// TODO set the error number
+}
+
+
+/**
+ * @brief returns the default iommu client
+ *
+ * @return pointer to the default iommu state
+ */
+struct iommu_client *driverkit_iommu_get_default_client(void)
+{
+    return default_client;
 }
 
 

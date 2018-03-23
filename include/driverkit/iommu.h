@@ -66,6 +66,22 @@ errval_t driverkit_iommu_client_disconnect(struct iommu_client *cl);
 bool driverkit_iommu_present(struct iommu_client *cl);
 
 
+/**
+ * @brief sets the default iommu client to be used
+ *
+ * @param cl    the iommu client should be taken as default
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t driverkit_iommu_set_default_client(struct iommu_client *cl);
+
+
+/**
+ * @brief returns the default iommu client
+ *
+ * @return pointer to the default iommu state
+ */
+struct iommu_client *driverkit_iommu_get_default_client(void);
 
 
 /*
@@ -109,6 +125,7 @@ size_t driverkit_iommu_get_max_pagesize(struct iommu_client *cl);
 /**
  * @brief allocates a vnode for the iommu
  *
+ * @param cl        the iommu client
  * @param type      vnode type to be allocated
  * @param retvnode  returned capability to the vnode
  *
@@ -121,24 +138,28 @@ errval_t driverkit_iommu_alloc_vnode(struct iommu_client *cl, enum objtype type,
 /**
  * @brief maps a vnode or a frame cap into a vnode cap
  *
+ * @param cl        the iommu client
  * @param dst   destination vnode to map into
  * @param slot  the slot to map into
  * @param src   the source capability to be mapped
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_map(struct capref dst, uint16_t *slot, struct capref src);
+errval_t driverkit_iommu_map(struct iommu_client *cl, struct capref dst,
+                             uint16_t *slot, struct capref src);
 
 
 /**
  * @brief unmaps a slot in a vnode
  *
+ * @param cl        the iommu client
  * @param dst   the vnode containing the mapping
  * @param slot  the slot to be unmapped
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_unmap(struct capref dst, uint16_t slot);
+errval_t driverkit_iommu_unmap(struct iommu_client *cl, struct capref dst,
+                               uint16_t slot);
 
 
 /**
