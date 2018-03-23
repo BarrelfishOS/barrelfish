@@ -1698,7 +1698,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 
     parse_cmdline(st, bfi->argc, bfi->argv);
     
-    err = driverkit_iommu_client_init(NULL_CAP, NULL);
+    err = driverkit_iommu_client_init(NULL_CAP);
     if (err_is_fail(err)) {
         return err;
     }

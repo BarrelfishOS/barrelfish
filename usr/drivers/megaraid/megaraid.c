@@ -1418,7 +1418,7 @@ int megaraid_driver_init(int argc, const char **argv)
     }
 
     if (use_vtd) {
-         err = driverkit_iommu_client_init(NULL_CAP, NULL);
+         err = driverkit_iommu_client_init(NULL_CAP);
         if (err_is_fail(err)) {
             return err;
         }

@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    err = driverkit_iommu_client_init(NULL_CAP, NULL);
+    err = driverkit_iommu_client_init(NULL_CAP);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to initialize the IOMMU library");
     }

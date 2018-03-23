@@ -28,7 +28,8 @@ struct iommu_client;
  *
  * This function initializes the connection, allocates the root vnode etc.
  */
-errval_t driverkit_iommu_client_init(struct capref ep, struct iommu_client **cl);
+errval_t driverkit_iommu_client_init_cl(struct capref ep, struct iommu_client **cl);
+errval_t driverkit_iommu_client_init(struct capref ep);
 
 
 /**
@@ -41,8 +42,9 @@ errval_t driverkit_iommu_client_init(struct capref ep, struct iommu_client **cl)
  *
  * This just initializes the connecton to the IOMMU
  */
-errval_t driverkit_iommu_client_connect(struct capref ep,
-                                        struct iommu_client **cl);
+errval_t driverkit_iommu_client_connect_cl(struct capref ep,
+                                           struct iommu_client **cl);
+errval_t driverkit_iommu_client_connect(struct capref ep);
 
 
 /**
@@ -52,7 +54,8 @@ errval_t driverkit_iommu_client_connect(struct capref ep,
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_client_disconnect(struct iommu_client *cl);
+errval_t driverkit_iommu_client_disconnect_cl(struct iommu_client *cl);
+errval_t driverkit_iommu_client_disconnect(void);
 
 
 /**
@@ -123,19 +126,6 @@ size_t driverkit_iommu_get_max_pagesize(struct iommu_client *cl);
 
 
 /**
- * @brief allocates a vnode for the iommu
- *
- * @param cl        the iommu client
- * @param type      vnode type to be allocated
- * @param retvnode  returned capability to the vnode
- *
- * @return SYS_ERR_OK on success, errval on failure
- */
-errval_t driverkit_iommu_alloc_vnode(struct iommu_client *cl, enum objtype type,
-                                     struct capref *retvnode);
-
-
-/**
  * @brief maps a vnode or a frame cap into a vnode cap
  *
  * @param cl    the iommu client
@@ -178,7 +168,7 @@ errval_t driverkit_iommu_modify(struct iommu_client *cl, struct capref dest,
 
 /*
  * ============================================================================
- * High-level Interface
+ * High-level VSpace Management Interface
  * ============================================================================
  */
 
@@ -194,16 +184,19 @@ typedef lpaddr_t dmem_daddr_t;
 struct dmem
 {
     ///< address as seen by the device
-    dmem_daddr_t    devaddr;
+    dmem_daddr_t            devaddr;
 
     ///< address as seen by the driver
-    void           *vbase;
+    lvaddr_t                vbase;
 
     ///< capability referring to the memory resource
-    struct capref   mem;
+    struct capref           mem;
 
     ///< size of the memory region in bytes
-    gensize_t       size;
+    gensize_t               size;
+
+    ///< iommu client state
+    struct iommu_client    *cl;
 };
 
 
@@ -216,6 +209,8 @@ struct dmem
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
+errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl, struct capref frame,
+                                       vregion_flags_t flags, struct dmem *dmem);
 errval_t driverkit_iommu_vspace_map(struct capref frame, vregion_flags_t flags,
                                     struct dmem *dmem);
 
@@ -241,6 +236,18 @@ errval_t driverkit_iommu_vspace_unmap(struct dmem *dmem);
 errval_t driverkit_iommu_vspace_modify_flags(struct dmem *dmem,
                                              vregion_flags_t flags);
 
+
+/**
+ * @brief allocates and maps a region of memory
+ *
+ * @param cl    the iommu client
+ * @param bytes bytes to be allocated
+ * @param mem   returned dmem
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t driverkit_iommu_mmap(struct iommu_client *cl, size_t bytes,
+                              struct dmem *mem);
 
 /**
  * @brief represents an iommu vspace management policy
@@ -270,6 +277,21 @@ errval_t driverkit_iommu_vspace_set_policy(iommu_vspace_policy_t policy);
 
 
 /**
+ * @brief allocates a vnode for the iommu
+ *
+ * @param cl        the iommu client
+ * @param type      vnode type to be allocated
+ * @param retvnode  returned capability to the vnode
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t driverkit_iommu_alloc_vnode_cl(struct iommu_client *cl,
+                                        enum objtype type,
+                                        struct capref *retvnode);
+errval_t driverkit_iommu_alloc_vnode(enum objtype type, struct capref *retvnode);
+
+
+/**
  * @brief allocates a frame to be mapped accessible by the device and the driver
  *
  * @param cl        the iommu client
@@ -282,17 +304,6 @@ errval_t driverkit_iommu_alloc_frame(struct iommu_client *cl, size_t bytes,
                                      struct capref *retframe);
 
 
-/**
- * @brief allocates and maps a region of memory
- *
- * @param cl    the iommu client
- * @param bytes bytes to be allocated
- * @param mem   returned dmem
- *
- * @return SYS_ERR_OK on success, errval on failure
- */
-errval_t driverkit_iommu_mmap(struct iommu_client *cl, size_t bytes,
-                              struct dmem *mem);
 
 
 /*
