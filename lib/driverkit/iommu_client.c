@@ -59,7 +59,8 @@ static struct iommu_client *default_client;
 
 static void iommu_bind_cb(void *argst,  errval_t err, struct iommu_binding *ib)
 {
-    DRIVERKIT_DEBUG("[iommu client] bound to service: %s\n", err_getstring(err));
+    DRIVERKIT_DEBUG("[iommu client] bound to service: %s\n",
+                    err_getstring(err));
 
     struct iommu_client *st = argst;
 
@@ -96,7 +97,8 @@ errval_t driverkit_iommu_client_init(struct capref ep, struct iommu_client **cl)
 
     errval_t msgerr;
     uint8_t type, bits;
-    err = icl->binding->rpc_tx_vtbl.getvmconfig(icl->binding, &msgerr, &type, &bits);
+    err = icl->binding->rpc_tx_vtbl.getvmconfig(icl->binding, &msgerr, &type,
+                                                &bits);
     if (err_is_fail(err)) {
         driverkit_iommu_client_disconnect(icl);
         goto err_out;
@@ -511,7 +513,8 @@ errval_t driverkit_iommu_modify(struct iommu_client *cl, struct capref dest,
     assert(cl);
 
     errval_t msgerr;
-    err = cl->binding->rpc_tx_vtbl.modify(cl->binding, dest, slot, attrs, &msgerr);
+    err = cl->binding->rpc_tx_vtbl.modify(cl->binding, dest, slot, attrs,
+                                          &msgerr);
     if (err_is_ok(err)) {
         err = msgerr;
     }
