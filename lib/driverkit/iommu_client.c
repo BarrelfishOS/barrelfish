@@ -39,7 +39,8 @@ struct iommu_vnode_l3
 {
     enum objtype           vnode_type;
     struct capref          vnode;
-    dmem_daddr_t           address;
+    dmem_daddr_t           address_start;
+    dmem_daddr_t           address_end;
     size_t                 num_children;
     struct iommu_vnode_l2 *children[];
 };
@@ -74,8 +75,11 @@ struct iommu_client
     ///< the capability to the root vnode
     struct capref rootvnode;
 
+    ///< slot used in the root vnode
+    uint16_t rootvnode_slot;
+
     ///< pointer to the vnode information
-    struct iommu_vnode_l3 *vnode_map;
+    struct iommu_vnode_l3 *vnode_l3;
 };
 
 ///< the default iommu client
@@ -129,6 +133,172 @@ static inline errval_t iommu_free_ram(struct capref ram)
     cap_destroy(ram);
     return SYS_ERR_OK;
 }
+
+static inline errval_t iommu_get_mapping_region(struct iommu_client *cl,
+                                                dmem_daddr_t *start,
+                                                dmem_daddr_t *end,
+                                                uint16_t *rootvnodeslot)
+{
+    *start = (512UL << 30);
+    *end = *start + (512UL << 30) - 1;
+    *rootvnodeslot = 1;
+    return SYS_ERR_OK;
+}
+
+
+/*
+ * ============================================================================
+ * Management of Page Tables
+ * ============================================================================
+ */
+
+#if 0
+
+static errval_t driverkit_iommu_vnode_get_l2(struct iommu_client *cl,
+                                             dmem_daddr_t addr,
+                                             struct iommu_vnode_l2 **ret_vnode)
+{
+    errval_t err;
+
+    uint16_t idx;
+
+    if (cl->vnode_l3->children[idx]) {
+        *ret_vnode = cl->vnode_l3->children[idx];
+        return SYS_ERR_OK;
+    }
+    enum objtype l3_vnode_type;
+
+    size_t l3_vnode_size = sizeof(struct iommu_vnode_l3);
+    switch(cl->root_vnode_type) {
+        case ObjType_VNode_x86_64_pml5 :
+            l3_vnode_type =ObjType_VNode_x86_64_pml4;
+            break;
+        case ObjType_VNode_x86_64_pml4 :
+            l3_vnode_type = ObjType_VNode_x86_64_pdpt;
+            break;
+        case ObjType_VNode_x86_64_pdpt :
+            l3_vnode_type = ObjType_VNode_x86_64_pdir;
+            break;
+        default:
+            return SYS_ERR_VNODE_TYPE;
+    }
+
+    size_t l3_vnode_children =(1UL << (vnode_objbits(l3_vnode_type) -
+                                       vnode_entry_bits(l3_vnode_type)));
+    l3_vnode_size += (l3_vnode_children * sizeof(void *));
+
+    cl->vnode_l3 = calloc(1, l3_vnode_size);
+    if (cl->vnode_l3 == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    cl->vnode_l3->vnode_type = l3_vnode_type;
+    cl->vnode_l3->num_children = l3_vnode_children;
+
+    err = iommu_get_mapping_region(cl, &cl->vnode_l3->address_start,
+                                   &cl->vnode_l3->address_end,
+                                   &cl->rootvnode_slot);
+    if (err_is_fail(err)) {
+        goto err_out;
+    }
+
+    err = driverkit_iommu_alloc_vnode_cl(cl, l3_vnode_type, &cl->vnode_l3->vnode);
+    if (err_is_fail(err)) {
+        goto err_out2;
+    }
+
+    err = driverkit_iommu_map(cl, cl->rootvnode, cl->rootvnode_slot,
+                              cl->vnode_l3->vnode);
+    if (err_is_fail(err)) {
+        goto err_out3;
+    }
+
+    return SYS_ERR_OK;
+
+    err_out3:
+    /* TODO: free vnode */
+    err_out2:
+    /* todo: free the mapping region */
+    err_out:
+    free(cl->vnode_l3);
+    cl->vnode_l3 = NULL;
+    return err;
+}
+
+static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl)
+{
+    errval_t err;
+
+    if (cl->vnode_l3) {
+        return SYS_ERR_OK;
+    }
+    enum objtype l3_vnode_type;
+
+    size_t l3_vnode_size = sizeof(struct iommu_vnode_l3);
+    switch(cl->root_vnode_type) {
+        case ObjType_VNode_x86_64_pml5 :
+            l3_vnode_type =ObjType_VNode_x86_64_pml4;
+            break;
+        case ObjType_VNode_x86_64_pml4 :
+            l3_vnode_type = ObjType_VNode_x86_64_pdpt;
+            break;
+        case ObjType_VNode_x86_64_pdpt :
+            l3_vnode_type = ObjType_VNode_x86_64_pdir;
+            break;
+        default:
+            return SYS_ERR_VNODE_TYPE;
+    }
+
+    size_t l3_vnode_children =(1UL << (vnode_objbits(l3_vnode_type) -
+                                         vnode_entry_bits(l3_vnode_type)));
+    l3_vnode_size += (l3_vnode_children * sizeof(void *));
+
+    cl->vnode_l3 = calloc(1, l3_vnode_size);
+    if (cl->vnode_l3 == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    cl->vnode_l3->vnode_type = l3_vnode_type;
+    cl->vnode_l3->num_children = l3_vnode_children;
+
+    err = iommu_get_mapping_region(cl, &cl->vnode_l3->address_start,
+                                   &cl->vnode_l3->address_end,
+                                   &cl->rootvnode_slot);
+    if (err_is_fail(err)) {
+        goto err_out;
+    }
+
+    err = driverkit_iommu_alloc_vnode_cl(cl, l3_vnode_type, &cl->vnode_l3->vnode);
+    if (err_is_fail(err)) {
+        goto err_out2;
+    }
+
+    err = driverkit_iommu_map(cl, cl->rootvnode, cl->rootvnode_slot,
+                              cl->vnode_l3->vnode);
+    if (err_is_fail(err)) {
+        goto err_out3;
+    }
+
+    return SYS_ERR_OK;
+
+    err_out3:
+    /* TODO: free vnode */
+    err_out2:
+    /* todo: free the mapping region */
+    err_out:
+    free(cl->vnode_l3);
+    cl->vnode_l3 = NULL;
+    return err;
+}
+
+#endif
+
+/*
+ * ============================================================================
+ * Initialization
+ * ============================================================================
+ */
+
 
 static void iommu_bind_cb(void *argst,  errval_t err, struct iommu_binding *ib)
 {
@@ -668,6 +838,8 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
             return err;
         }
     }
+
+
 
 
     return LIB_ERR_NOT_IMPLEMENTED;
