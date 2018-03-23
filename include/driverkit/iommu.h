@@ -272,23 +272,27 @@ errval_t driverkit_iommu_vspace_set_policy(iommu_vspace_policy_t policy);
 /**
  * @brief allocates a frame to be mapped accessible by the device and the driver
  *
+ * @param cl        the iommu client
  * @param bytes     number of bytes to allocate
  * @param retframe  returned frame capability
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_alloc_frame(size_t bytes, struct capref *retframe);
+errval_t driverkit_iommu_alloc_frame(struct iommu_client *cl, size_t bytes,
+                                     struct capref *retframe);
 
 
 /**
  * @brief allocates and maps a region of memory
  *
+ * @param cl    the iommu client
  * @param bytes bytes to be allocated
  * @param mem   returned dmem
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_mmap(size_t bytes, struct dmem *mem);
+errval_t driverkit_iommu_mmap(struct iommu_client *cl, size_t bytes,
+                              struct dmem *mem);
 
 
 /*

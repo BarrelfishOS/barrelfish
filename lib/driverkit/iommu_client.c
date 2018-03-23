@@ -57,6 +57,33 @@ struct iommu_client
 static struct iommu_client *default_client;
 
 
+/*
+ * TODO: proper implementation of this
+ */
+static inline bool iommu_vnode_type_supported(struct iommu_client *st,
+                                              enum objtype type)
+{
+    return type_is_vnode(type);
+}
+
+static inline errval_t iommu_alloc_ram_for_vnode(struct iommu_client *st,
+                                                 enum objtype type,
+                                                 struct capref *retcap)
+{
+    return ram_alloc(retcap, vnode_objbits(type));
+}
+
+static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
+                                                 size_t bytes,
+                                                 struct capref *retcap)
+{
+    if (bytes < (LARGE_PAGE_SIZE)) {
+        bytes = LARGE_PAGE_SIZE;
+    }
+    return frame_alloc(retcap, bytes, NULL);
+}
+
+
 static void iommu_bind_cb(void *argst,  errval_t err, struct iommu_binding *ib)
 {
     DRIVERKIT_DEBUG("[iommu client] bound to service: %s\n",
@@ -382,16 +409,7 @@ size_t driverkit_iommu_get_max_pagesize(struct iommu_client *cl)
 }
 
 
-static inline bool iommu_vnode_type_supported(enum objtype type)
-{
-    return type_is_vnode(type);
-}
 
-static inline errval_t iommu_alloc_ram_for_vnode(enum objtype type,
-                                                 struct capref *retcap)
-{
-    return ram_alloc(retcap, vnode_objbits(type));
-}
 
 static inline errval_t iommu_free_ram(struct capref ram)
 {
@@ -415,12 +433,12 @@ errval_t driverkit_iommu_alloc_vnode(struct iommu_client *cl, enum objtype type,
 
     assert(cl);
 
-    if(!iommu_vnode_type_supported(type)) {
+    if(!iommu_vnode_type_supported(cl, type)) {
         return SYS_ERR_VNODE_TYPE;
     }
 
     struct capref ram;
-    err = iommu_alloc_ram_for_vnode(type, &ram);
+    err = iommu_alloc_ram_for_vnode(cl, type, &ram);
     if (err_is_fail(err)) {
         return err;
     }
@@ -520,6 +538,56 @@ errval_t driverkit_iommu_modify(struct iommu_client *cl, struct capref dest,
     }
 
     return err;
+}
+
+
+
+/*
+ * ============================================================================
+ * Memory Allocation
+ * ============================================================================
+ */
+
+
+/**
+ * @brief allocates a frame to be mapped accessible by the device and the driver
+ *
+ * @param cl        the iommu client
+ * @param bytes     number of bytes to allocate
+ * @param retframe  returned frame capability
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t driverkit_iommu_alloc_frame(struct iommu_client *cl, size_t bytes,
+                                     struct capref *retframe)
+{
+    return iommu_alloc_ram_for_frame(cl, bytes, retframe);
+}
+
+
+/**
+ * @brief allocates and maps a region of memory
+ *
+ * @param cl    the iommu client
+ * @param bytes bytes to be allocated
+ * @param mem   returned dmem
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t driverkit_iommu_mmap(struct iommu_client *cl, size_t bytes,
+                              struct dmem *mem)
+{
+    driverkit_iommu_alloc_frame(cl, bytes, &mem->mem);
+
+    /* find free virtual address */
+
+    /* allocate the vnodes */
+
+    /* map the vnodes */
+
+    /* map the frame */
+
+    return LIB_ERR_NOT_IMPLEMENTED;
 }
 
 
