@@ -138,7 +138,7 @@ errval_t driverkit_iommu_alloc_vnode(struct iommu_client *cl, enum objtype type,
 /**
  * @brief maps a vnode or a frame cap into a vnode cap
  *
- * @param cl        the iommu client
+ * @param cl    the iommu client
  * @param dst   destination vnode to map into
  * @param slot  the slot to map into
  * @param src   the source capability to be mapped
@@ -146,13 +146,13 @@ errval_t driverkit_iommu_alloc_vnode(struct iommu_client *cl, enum objtype type,
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t driverkit_iommu_map(struct iommu_client *cl, struct capref dst,
-                             uint16_t *slot, struct capref src);
+                             uint16_t slot, struct capref src);
 
 
 /**
  * @brief unmaps a slot in a vnode
  *
- * @param cl        the iommu client
+ * @param cl    the iommu client
  * @param dst   the vnode containing the mapping
  * @param slot  the slot to be unmapped
  *
@@ -165,13 +165,15 @@ errval_t driverkit_iommu_unmap(struct iommu_client *cl, struct capref dst,
 /**
  * @brief changes the flags of the mapping
  *
+ * @param cl    the iommu client
  * @param dest  the destination vnode to change the mapping
  * @param slot  the slot to change the mapping
  * @param attrs the new attributes to set
  *
  * @return SYS_ERR_OK on success, erval on failure
  */
-errval_t driverkit_iommu_modify(struct capref dest, uint16_t slot, uint64_t attrs);
+errval_t driverkit_iommu_modify(struct iommu_client *cl, struct capref dest,
+                                uint16_t slot, uint64_t attrs);
 
 
 /*
