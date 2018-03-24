@@ -20,7 +20,7 @@
 #include <numa.h>
 
 #include "common.h"
-#include "modules/intel_vtd/intel_vtd.h"
+#include "../intel_vtd/intel_vtd.h"
 
 static struct iommu_device **iommu_devices[IOMMU_BUS_MAX];
 

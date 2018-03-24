@@ -25,29 +25,35 @@
     ],
     mackerelDevices = ["vtd"]
   },
+
   build library {
     target = "amd_iommu_module",
     cFiles = [ "modules/amd_iommu/mod_amd_iommu.c"]
   },
+
   build library {
     target = "arm_smmu_module",
     cFiles = [ "modules/arm_smmu/mod_arm_smmu.c"]
   },
 
+  build library {
+    target = "iommu_generic",
+    cFiles = [
+        "modules/generic/iommu.c",
+        "modules/generic/iommu_device.c",
+        "modules/generic/iommu_service.c"
+    ],
+    flounderDefs = [ "iommu" ],
+    flounderBindings = [ "iommu" ]
+  },
+
   build application {
     target = "iommu",
     cFiles = [
-        "main.c",
-        "iommu.c",
-        "iommu_device.c",
-        "iommu_service.c"
+        "main.c"
     ],
-    flounderDefs = [ "iommu" ],
-    flounderExtraDefs = [ ("iommu",["rpcclient"]) ],
-    flounderBindings = [ "iommu" ],
-    flounderExtraBindings = [ ("iommu", ["rpcclient"]) ],
     addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-    addLibraries = libDeps [ "driverkit", "numa", "skb", "octopus" ],
+    addLibraries = libDeps [ "driverkit", "numa", "skb", "octopus", "iommu_generic" ],
     addModules = [ "intel_vtd_module", "arm_smmu_module", "amd_iommu_module" ],
     architectures = [ "armv8", "x86_64" ]
   }

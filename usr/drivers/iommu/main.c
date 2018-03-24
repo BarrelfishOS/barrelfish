@@ -24,7 +24,7 @@
 
 #include <numa.h>
 
-#include "common.h"
+#include "modules/generic/common.h"
 
 #define SKB_SCHEMA_DMAR_DEVSC \
     "dmar_dev(%" SCNu32 ", %" SCNu8 ", %" SCNu8 ", "\

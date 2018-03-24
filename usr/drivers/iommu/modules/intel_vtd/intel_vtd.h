@@ -12,7 +12,7 @@
 
 #include <dev/vtd_dev.h>
 
-#include "../../common.h"
+#include "../generic/common.h"
 #include "intel_vtd_debug.h"
 
 struct vtd;

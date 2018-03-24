@@ -28,7 +28,7 @@
 
 #include "common.h"
 
-#include "modules/intel_vtd/intel_vtd.h"
+#include "../intel_vtd/intel_vtd.h"
 
 #if 0
 static void create_domain(struct iommu_binding *b, struct capref rootpt,
@@ -193,6 +193,78 @@ static void remove_device(struct iommu_binding *b, struct capref rootpt,
 }
 #endif
 
+#define IOMMU_SVC_DEBUG(x...) debug_printf("[iommu] [svc]" x)
+
+/*
+ * ===========================================================================
+ * Receive Handlers of the servie
+ * ===========================================================================
+ */
+static void getvmconfig_request(struct iommu_binding *ib)
+{
+    errval_t err;
+    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    err = ib->tx_vtbl.getvmconfig_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED,
+                                           0, 0);
+    /* should not fail */
+    assert(err_is_ok(err));
+}
+
+
+static void setroot_request(struct iommu_binding *ib, struct capref src)
+{
+    errval_t err;
+    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    err = ib->tx_vtbl.setroot_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED);
+    /* should not fail */
+    assert(err_is_ok(err));
+}
+
+
+static void  retype_request(struct iommu_binding *ib, struct capref src,
+                            uint8_t objtype)
+{
+    errval_t err;
+    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    err = ib->tx_vtbl.retype_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED,
+                                           NULL_CAP);
+    /* should not fail */
+    assert(err_is_ok(err));
+}
+
+
+static void map_request(struct iommu_binding *ib, struct capref vnode,
+                        uint16_t slot, struct capref src)
+{
+    errval_t err;
+    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    err = ib->tx_vtbl.map_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED);
+    /* should not fail */
+    assert(err_is_ok(err));
+}
+
+
+static void unmap_request(struct iommu_binding *ib, struct capref vnode,
+                          uint16_t slot)
+{
+    errval_t err;
+    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    err = ib->tx_vtbl.unmap_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED);
+    /* should not fail */
+    assert(err_is_ok(err));
+}
+
+static void modify_request(struct iommu_binding *ib, struct capref vnode,
+                           uint64_t attr, uint16_t slot)
+{
+    errval_t err;
+    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    err = ib->tx_vtbl.modify_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED);
+    /* should not fail */
+    assert(err_is_ok(err));
+}
+
+
 errval_t iommu_service_init(void)
 {
     debug_printf("[iommu svc] Initializing service\n");
@@ -201,7 +273,24 @@ errval_t iommu_service_init(void)
     return SYS_ERR_OK;
 }
 
-static struct iommu_rx_vtbl rx_vtbl;
+static struct iommu_rx_vtbl rx_vtbl = {
+        /* get the supported page size and the vnode root type */
+        .getvmconfig_call = getvmconfig_request,
+
+        /* set the root table pointer for the device */
+        .setroot_call = setroot_request,
+
+        /* retypes the source cap into the type */
+        .retype_call = retype_request,
+
+        /* maps the capability into the vnode */
+        .map_call = map_request,
+
+        /* unmaps the slot in the vnode */
+        .unmap_call = unmap_request,
+
+        .modify_call = modify_request,
+};
 
 errval_t iommu_service_new_endpoint(struct capref ep, struct iommu_device *dev,
                                     idc_endpoint_t type)
