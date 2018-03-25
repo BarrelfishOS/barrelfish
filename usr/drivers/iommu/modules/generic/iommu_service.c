@@ -205,9 +205,16 @@ static void remove_device(struct iommu_binding *b, struct capref rootpt,
 static void getvmconfig_request(struct iommu_binding *ib)
 {
     errval_t err;
+
     IOMMU_SVC_DEBUG("%s", __FUNCTION__);
-    err = ib->tx_vtbl.getvmconfig_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED,
-                                           0, 0);
+
+    struct iommu_device *idev = ib->st;
+    assert(idev);
+    assert(idev->iommu);
+
+    err = ib->tx_vtbl.getvmconfig_response(ib, NOP_CONT, SYS_ERR_OK,
+                                           idev->iommu->root_vnode_type,
+                                           idev->iommu->max_page_bits);
     /* should not fail */
     assert(err_is_ok(err));
 }
@@ -217,7 +224,18 @@ static void setroot_request(struct iommu_binding *ib, struct capref src)
 {
     errval_t err;
     IOMMU_SVC_DEBUG("%s", __FUNCTION__);
-    err = ib->tx_vtbl.setroot_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED);
+
+    struct iommu_device *idev = ib->st;
+    assert(idev);
+    assert(idev->iommu);
+
+    if (idev->f.set_root) {
+        err = idev->f.set_root(idev, src);
+    } else {
+        err = IOMMU_ERR_NOT_SUPPORTED;
+    }
+
+    err = ib->tx_vtbl.setroot_response(ib, NOP_CONT, err);
     /* should not fail */
     assert(err_is_ok(err));
 }
@@ -230,40 +248,79 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
     IOMMU_SVC_DEBUG("%s", __FUNCTION__);
     err = ib->tx_vtbl.retype_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED,
                                            NULL_CAP);
-    /* should not fail */
-    assert(err_is_ok(err));
+    assert(err_is_ok(err)); /* should not fail */
 }
 
 
-static void map_request(struct iommu_binding *ib, struct capref vnode,
+static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
                         uint16_t slot, struct capref src)
 {
     errval_t err;
     IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+
+    struct capref vnode;
+    err = iommu_get_writable_vnode(vnode_ro, &vnode);
+    if(err_is_fail(err)) {
+        goto out;
+    }
+
+    uint64_t attr;
+
+    struct capref mapping;
+    err = vnode_map(vnode, src, slot, attr, 0, 1, mapping);
+
+    out:
+    // delete the cap, we no longer need it
+    cap_destroy(vnode_ro);
+
     err = ib->tx_vtbl.map_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED);
-    /* should not fail */
-    assert(err_is_ok(err));
+    assert(err_is_ok(err)); /* should not fail */
 }
 
 
-static void unmap_request(struct iommu_binding *ib, struct capref vnode,
+static void unmap_request(struct iommu_binding *ib, struct capref vnode_ro,
                           uint16_t slot)
 {
     errval_t err;
     IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+
+    struct capref vnode;
+    err = iommu_get_writable_vnode(vnode_ro, &vnode);
+    if(err_is_fail(err)) {
+        goto out;
+    }
+
+    /// XXX: we need to get the mapping cap somehow
+    err = vnode_unmap(vnode, NULL_CAP);
+
+    out:
+    // delete the cap, we no longer need it
+    cap_destroy(vnode_ro);
+
     err = ib->tx_vtbl.unmap_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED);
-    /* should not fail */
-    assert(err_is_ok(err));
+    assert(err_is_ok(err)); /* should not fail */
 }
 
-static void modify_request(struct iommu_binding *ib, struct capref vnode,
+static void modify_request(struct iommu_binding *ib, struct capref vnode_ro,
                            uint64_t attr, uint16_t slot)
 {
     errval_t err;
     IOMMU_SVC_DEBUG("%s", __FUNCTION__);
-    err = ib->tx_vtbl.modify_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED);
-    /* should not fail */
-    assert(err_is_ok(err));
+
+    struct capref vnode;
+    err = iommu_get_writable_vnode(vnode_ro, &vnode);
+    if(err_is_fail(err)) {
+        goto out;
+    }
+
+    err = invoke_vnode_modify_flags(vnode, slot, 1, attr);
+
+    out:
+    // delete the cap, we no longer need it
+    cap_destroy(vnode_ro);
+
+    err = ib->tx_vtbl.modify_response(ib, NOP_CONT, err);
+    assert(err_is_ok(err)); /* should not fail */
 }
 
 
@@ -276,24 +333,23 @@ errval_t iommu_service_init(void)
 }
 
 static struct iommu_rx_vtbl rx_vtbl = {
-        /* get the supported page size and the vnode root type */
         .getvmconfig_call = getvmconfig_request,
-
-        /* set the root table pointer for the device */
         .setroot_call = setroot_request,
-
-        /* retypes the source cap into the type */
         .retype_call = retype_request,
-
-        /* maps the capability into the vnode */
         .map_call = map_request,
-
-        /* unmaps the slot in the vnode */
         .unmap_call = unmap_request,
-
         .modify_call = modify_request,
 };
 
+/**
+ * @brief creates a new endpoint for the IOMMU service
+ *
+ * @param ep    capref to create the EP in, slot must be allocated
+ * @param dev   the pointer to the iommu device for this endpoint
+ * @param type  what endpoint type to allcate
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
 errval_t iommu_service_new_endpoint(struct capref ep, struct iommu_device *dev,
                                     idc_endpoint_t type)
 {

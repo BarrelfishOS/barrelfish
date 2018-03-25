@@ -25,14 +25,27 @@ errval_t iommu_service_init(void);
                   "addr(%" PRIu16 ", %" PRIu8 ", %" PRIu8 ", %" PRIu8 "), "\
                   "%" PRIu8  ")."
 
+
+struct iommu;
+struct iommu_device;
+
 /*
  * iommus
  */
 
+typedef errval_t (*set_root_fn)(struct iommu_device *, struct capref src);
 
+/**
+ * @brief represents a generic iommu
+ */
 struct iommu
 {
     hw_pci_iommu_t type;
+
+    enum objtype root_vnode_type;
+
+    uint8_t max_page_bits;
+
 };
 
 errval_t iommu_get_by_idx(hw_pci_iommu_t type, uint32_t idx, struct iommu **iommu);
@@ -68,11 +81,18 @@ struct iommu_device
     ///< the iommu binding
     struct iommu_binding   *binding;
 
-    ///< the mapping cap for this device
+    ///< mapping cap of the root vnode into
     struct capref           mappingcap;
 
     ///< the device identity
     struct device_identity  id;
+
+    ////< the root vnode for this device
+    struct capref root_vnode;
+
+    struct {
+        set_root_fn set_root;
+    } f;
 };
 
 #include <hw_records.h>
@@ -97,6 +117,37 @@ static inline struct iommu *iommu_device_get_iommu(struct iommu_device *d)
     return d->iommu;
 }
 
+
+/**
+ * @brief retypes the provided capability into a new type, and sets it read only
+ *
+ * @param src   the source capablity to be retyped
+ * @param type  the target type
+ * @param ret   returns the capability to be retyped
+ *
+ * @return SYS_ERR_OK on sucess, errval on failure
+ */
+static inline errval_t iommu_retype_read_only(struct capref src, enum objtype type,
+                                              struct capref *ret)
+{
+    *ret = src;
+    return SYS_ERR_OK;
+}
+
+/**
+ * @brief obtains the writable version of the cap
+ *
+ * @param in    the readonly cap
+ * @param out   the writable version
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+static inline errval_t iommu_get_writable_vnode(struct capref in,
+                                                struct capref *out)
+{
+    *out = in;
+    return SYS_ERR_OK;
+}
 
 
 errval_t iommu_service_new_endpoint(struct capref ep, struct iommu_device *dev,
