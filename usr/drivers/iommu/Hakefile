@@ -43,8 +43,8 @@
         "modules/generic/iommu_device.c",
         "modules/generic/iommu_service.c"
     ],
-    flounderDefs = [ "iommu" ],
-    flounderBindings = [ "iommu" ]
+    flounderDefs = [ "iommu", "pci_iommu" ],
+    flounderBindings = [ "iommu", "pci_iommu" ]
   },
 
   build application {

@@ -24,6 +24,8 @@
 
 #include <if/iommu_defs.h>
 #include <if/iommu_rpcclient_defs.h>
+#include <if/pci_iommu_defs.h>
+#include <if/pci_iommu_rpcclient_defs.h>
 
 
 #include "common.h"
@@ -299,3 +301,45 @@ errval_t iommu_service_new_endpoint(struct capref ep, struct iommu_device *dev,
     return iommu_create_endpoint(type, &rx_vtbl, dev, ws,
                                  IDC_ENDPOINT_FLAGS_DEFAULT, &dev->binding, ep);
 }
+
+/*****************************************************************
+ * Iommu PCI connection interface
+ *****************************************************************/
+
+
+static void request_iommu_endpoint_handler(struct pci_iommu_binding *b, uint8_t type, 
+                                           uint32_t segment, uint32_t bus, 
+                                           uint32_t device, uint32_t function)
+{
+    errval_t err, out_err;
+
+    struct capref cap;
+    out_err = slot_alloc(&cap);
+    if (err_is_fail(out_err)) {
+        goto reply;
+    }
+
+    struct iommu_device* dev = calloc(1, sizeof(struct iommu_device));
+
+    dev->id.segment = segment;
+    dev->id.bus = bus;
+    dev->id.device = device;
+    dev->id.function = function;
+    dev->id.type = type;
+    
+    // TODO flags?
+
+    out_err = iommu_service_new_endpoint(cap, dev, type);
+    if (err_is_fail(out_err)) {
+        free(dev);
+        goto reply;
+    }
+
+reply:
+    err = b->tx_vtbl.request_iommu_endpoint_response(b, NOP_CONT, cap, out_err);
+    assert(err_is_ok(err));
+}
+
+struct pci_iommu_rx_vtbl pci_iommu_rx_vtbl = {
+    .request_iommu_endpoint_call = request_iommu_endpoint_handler
+};

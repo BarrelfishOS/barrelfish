@@ -21,6 +21,7 @@
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/sys_debug.h>
 #include <driverkit/driverkit.h>
+#include <collections/list.h>
 
 #include <if/pci_defs.h>
 #include <if/pci_iommu_defs.h>
@@ -51,7 +52,11 @@ struct client_state {
 };
 
 struct iommu_client_state {
+    uint32_t segment;
     uint32_t index;
+    uint32_t bus;
+    uint32_t device;
+    uint32_t function;
     struct pci_iommu_binding* b;
 };
 
@@ -60,6 +65,8 @@ struct iommu_client_state {
 static struct capref kaluga_ep;
 static struct kaluga_binding* kaluga;
 static bool bound;
+
+static collections_listnode* iommu_list;
 
 /*****************************************************************
  * Event handlers:
@@ -473,6 +480,7 @@ static errval_t connect_callback(void *cst, struct pci_binding *b)
  * Iommu PCI connection interface
  *****************************************************************/
 
+// TODO empty for now
 struct pci_iommu_rx_vtbl pci_iommu_rx_vtbl;
 
 
@@ -512,6 +520,8 @@ static void request_endpoint_cap_handler(struct kaluga_binding* b, uint8_t type,
 }
 
 static void request_endpoint_cap_for_iommu_handler(struct kaluga_binding* b, uint8_t type, 
+                                                   uint32_t segment, uint32_t bus,
+                                                   uint32_t device, uint32_t function,
                                                    uint32_t index)
 {
     errval_t err;
@@ -531,8 +541,20 @@ static void request_endpoint_cap_for_iommu_handler(struct kaluga_binding* b, uin
 
     pci_iommu_rpc_client_init(state->b);
     state->index = index;
+    state->segment = segment;
+
+    state->bus = bus;
+    state->device = device;
+    state->function = function;
     state->b->st = state;
-   
+ 
+    if (iommu_list == NULL) {
+        // TODO free function
+        collections_list_create(&iommu_list, NULL);   
+    }
+  
+    collections_list_insert_tail(iommu_list, state);
+    
     err = b->tx_vtbl.request_endpoint_cap_for_iommu_response(b, NOP_CONT, cap);
     assert(err_is_ok(err));
 }
@@ -556,8 +578,6 @@ static void bind_cont(void *st, errval_t err, struct kaluga_binding *b)
     kaluga = b;
     bound = true;
 }
-
-
 
 /*****************************************************************
  * Boots up the PCI server:

@@ -9,10 +9,7 @@
 
 interface pci_iommu "The Iommu to PCI interface" {
 
-    rpc get_iommu_endpoint(in uint32 seg,        /* PCI segment */
-                           in uint32 bus,        /* PCI bus */
-                           in uint32 device,     /* PCI device */
-                           in uint32 function,   /* PCI function */
-                           out cap ep,
-                           out errval err);
+    rpc request_iommu_endpoint(in uint8 type, in uint32 segment, 
+                               in uint32 bus, in uint32 device, in uint32 function,
+                               out cap ep, out errval err);
 };
