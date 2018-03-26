@@ -91,12 +91,20 @@ static struct iommu_client *default_client;
 /*
  * TODO: proper implementation of this
  */
+
 static inline bool iommu_vnode_type_supported(struct iommu_client *st,
                                               enum objtype type)
 {
     return type_is_vnode(type);
 }
 
+/*
+ * allocates a piece of RAM that is suitable for holdings page tables.
+ * ideally this should be in the region of "protected" or reserved memory.
+ * (see IOMMU. this region can be above 4G, there are two regions)\
+ *
+ * The ram should be accessible by the IOMMU and/or the device driver
+ */
 static inline errval_t iommu_alloc_ram_for_vnode(struct iommu_client *st,
                                                  enum objtype type,
                                                  struct capref *retcap)
@@ -104,6 +112,10 @@ static inline errval_t iommu_alloc_ram_for_vnode(struct iommu_client *st,
     return ram_alloc(retcap, vnode_objbits(type));
 }
 
+/*
+ * allocates a piece of ram to be mapped into the driver and the devices
+ * address spaces
+ */
 static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
                                                  size_t bytes,
                                                  struct capref *retcap)
@@ -114,8 +126,11 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
     return frame_alloc(retcap, bytes, NULL);
 }
 
+/*
+ * returns a region of memory
+ */
 static inline errval_t iommu_alloc_vregion(struct iommu_client *st,
-                                           size_t bytes,
+                                           struct capref mem,
                                            lvaddr_t *driver,
                                            dmem_daddr_t *device)
 {
@@ -845,7 +860,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     dmem->cl = cl;
     dmem->size = id.bytes;
 
-    err = iommu_alloc_vregion(cl, id.bytes, &dmem->vbase, &dmem->devaddr);
+    err = iommu_alloc_vregion(cl, frame, &dmem->vbase, &dmem->devaddr);
     if (err_is_fail(err)) {
         return err;
     }

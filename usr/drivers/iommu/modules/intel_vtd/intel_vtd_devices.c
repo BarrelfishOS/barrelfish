@@ -11,10 +11,20 @@
 #include <numa.h>
 
 #include "intel_vtd.h"
+#include "../generic/common.h"
 
-errval_t vtd_device_create(uint16_t seg, uint8_t bus, uint8_t dev,
-                           uint8_t fun, struct vtd *vtd,
-                           struct iommu_binding *binding,
+static errval_t vtd_device_set_root_table(struct iommu_device *idev,
+                                          struct capref src)
+{
+    /* find the domain */
+
+    /* */
+
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
+errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
+                           uint8_t dev, uint8_t fun,
                            struct vtd_device **rdev)
 {
     errval_t err;
@@ -36,12 +46,12 @@ errval_t vtd_device_create(uint16_t seg, uint8_t bus, uint8_t dev,
     vdev->ctxt_table = ct;
 
     /* common init */
-    vdev->dev.binding = binding;
     vdev->dev.iommu = &vtd->iommu;
     vdev->dev.addr.pci.segment = seg;
     vdev->dev.addr.pci.bus = bus;
     vdev->dev.addr.pci.device = dev;
     vdev->dev.addr.pci.function = fun;
+    vdev->dev.f.set_root = vtd_device_set_root_table;
 
     *rdev = vdev;
 

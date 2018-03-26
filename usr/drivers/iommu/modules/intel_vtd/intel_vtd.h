@@ -181,7 +181,6 @@ struct vtd {
 
     uint8_t                  max_guest_address_width;
 
-    uint8_t                  max_page_size_bits;
     uint8_t                  max_fault_recording_regs;
     struct {
 
@@ -272,9 +271,8 @@ bool vtd_ctxt_table_valid(struct vtd_ctxt_table *ct);
  * ===========================================================================
  */
 
-errval_t vtd_device_create(uint16_t seg, uint8_t bus, uint8_t dev,
-                           uint8_t fun, struct vtd *vtd,
-                           struct iommu_binding *binding,
+errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
+                           uint8_t dev, uint8_t fun,
                            struct vtd_device **rdev);
 
 errval_t vtd_device_destroy(struct vtd_device *dev);

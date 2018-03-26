@@ -14,6 +14,7 @@
 #include "intel_vtd.h"
 #include "intel_vtd_commands.h"
 #include "intel_vtd_iotlb.h"
+#include "../generic/common.h"
 
 #define VTD_UNITS_MAX 4
 #define VTD_SEGMENTS_MAX 2
@@ -146,12 +147,12 @@ static errval_t vtd_parse_capabilities(struct vtd *vtd)
      * are 0000b, 0001b, 0011b.
      */
     if (vtd_CAP_sllps30_rdf(&vtd->vtd_dev)) {
-        vtd->max_page_size_bits = HUGE_PAGE_BITS;
+        vtd->iommu.max_page_bits = HUGE_PAGE_BITS;
         assert(vtd_CAP_sllps21_rdf(&vtd->vtd_dev));
     } else if(vtd_CAP_sllps21_rdf(&vtd->vtd_dev)) {
-        vtd->max_page_size_bits = LARGE_PAGE_BITS;
+        vtd->iommu.max_page_bits = LARGE_PAGE_BITS;
     } else {
-        vtd->max_page_size_bits = BASE_PAGE_BITS;
+        vtd->iommu.max_page_bits = BASE_PAGE_BITS;
     }
 
     INTEL_VTD_DEBUG_CAP("Maximum page size: 2^%u\n", vtd->max_page_size_bits);
@@ -196,6 +197,14 @@ static errval_t vtd_parse_capabilities(struct vtd *vtd)
                         vtd->capabilities.paging_3_level ? "39-bits, " : "",
                         vtd->capabilities.paging_4_level ? "48-bits, " : "",
                         vtd->capabilities.paging_5_level ? "57-bits" : "");
+    if (vtd->capabilities.paging_5_level) {
+        vtd->iommu.root_vnode_type = ObjType_VNode_x86_64_pml5;
+    } else if (vtd->capabilities.paging_5_level) {
+        vtd->iommu.root_vnode_type = ObjType_VNode_x86_64_pml4;
+    } else {
+        vtd->iommu.root_vnode_type = ObjType_VNode_x86_64_pdpt;
+    }
+
 
     /*
      * CM: Caching Mode
@@ -537,11 +546,22 @@ static errval_t vtd_get_segment_and_flags(genpaddr_t base, uint32_t *idx,
 }
 
 
+static errval_t create_device_fn(struct iommu *io, uint16_t seg, uint8_t bus,
+                                 uint8_t dev, uint8_t fun,
+                                 struct iommu_device **d)
+{
+    return vtd_device_create((struct vtd *)io, seg, bus, dev, fun,
+                             (struct vtd_device **)d);
+}
+
+
 errval_t vtd_create(struct vtd *vtd, struct capref regs)
 {
     errval_t err;
 
     INTEL_VTD_DEBUG("initializing iommu\n");
+
+    memset(vtd, 0, sizeof(*vtd));
 
     struct frame_identity id;
     err = invoke_frame_identify(regs, &id);
@@ -562,8 +582,6 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs)
     /* is the scope_all flag set */
     vtd->scope_all = (flags & 0x1);
 
-    /* set the IOMMU type */
-    vtd->iommu.type = HW_PCI_IOMMU_INTEL;
 
     err = vtd_get_proximity(id.base, &vtd->proximity_domain);
     if (err_is_fail(err)) {
@@ -598,6 +616,12 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs)
 
     /* parse the capability and extended capability register */
     vtd_parse_capabilities(vtd);
+
+
+    /* set the IOMMU type */
+    vtd->iommu.type = HW_PCI_IOMMU_INTEL;
+    vtd->iommu.f.create_device = create_device_fn;
+
 
     /* initialize the domains */
     err = vtd_domains_init(vtd->max_domains);
