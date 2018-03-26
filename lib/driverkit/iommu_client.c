@@ -865,6 +865,10 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         return err;
     }
 
+    if (cl == NULL) {
+        err = vspace_map_one_frame_fixed_attr(dmem->vbase, dmem->size,
+                                              dmem->mem, flags, NULL, NULL);
+    }
     /*
      * if driver vbase is null, then we map it at any address in the driver's
      * vspace. Only if the policy is not shared, then we have to map it.
@@ -980,7 +984,11 @@ errval_t driverkit_iommu_vspace_modify_flags(struct dmem *dmem,
 errval_t driverkit_iommu_alloc_frame(struct iommu_client *cl, size_t bytes,
                                      struct capref *retframe)
 {
-    return iommu_alloc_ram_for_frame(cl, bytes, retframe);
+    if (cl == NULL) {   
+        return frame_alloc(retcap, bytes, NULL);
+    } else 
+        return iommu_alloc_ram_for_frame(cl, bytes, retframe);
+    }
 }
 
 
