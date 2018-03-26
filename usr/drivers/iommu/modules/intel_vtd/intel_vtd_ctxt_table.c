@@ -124,7 +124,7 @@ errval_t vtd_ctxt_table_map(struct vtd_root_table *rt, uint8_t idx,
 
     INTEL_VTD_DEBUG_CTABLE("mapping at [%u]\n", idx);
 
-    assert(ctx->root_table != NULL);
+    assert(ctx->root_table == NULL);
     assert(rt->ctxt_tables[idx] == NULL);
 
     struct capref mappingcap = {
