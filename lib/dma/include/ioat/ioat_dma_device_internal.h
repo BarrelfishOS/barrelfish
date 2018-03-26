@@ -40,7 +40,7 @@
  * \param mem   filled in memory information
  */
 void ioat_dma_device_get_complsts_addr(struct ioat_dma_device *dev,
-                                       struct dma_mem *mem);
+                                       struct dmem *mem);
 
 
 /**

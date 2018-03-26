@@ -12,6 +12,8 @@
 
 #include <dma/dma_descriptor.h>
 
+struct iommu_client;
+
 /*
  * ----------------------------------------------------------------------------
  * Allocation / Deallocation
@@ -33,7 +35,7 @@
 errval_t dma_desc_alloc(uint32_t size,
                         uint16_t align,
                         uint8_t count,
-                        bool iommu_present,
+                        struct iommu_client *cl,
                         struct dma_descriptor **desc);
 
 /**

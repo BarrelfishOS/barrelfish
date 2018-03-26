@@ -10,6 +10,7 @@
 #ifndef DMA_DEVICE_INTERNAL_H
 #define DMA_DEVICE_INTERNAL_H
 
+#include <driverkit/iommu.h>
 #include <dma/dma_device.h>
 
 /*
@@ -48,7 +49,7 @@ struct dma_device
     } channels;                     ///< Channel information
 
     dma_irq_t irq_type;
-    bool iommu_present;
+    struct iommu_client *iommu;     ///< pointer to the iommu client
     struct dma_device_fn f;
 };
 

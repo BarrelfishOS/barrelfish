@@ -215,20 +215,20 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     }
     devices = devices_new;
 
-    struct capref devid;
-    err = driverkit_get_iommu_cap(bfi, &devid);
+    struct capref iommuep;
+    err = driverkit_get_iommu_cap(bfi, &iommuep);
     if (err_is_fail(err)) {
         return err;
     }
 
-    struct device_identity id;
-    err = invoke_device_identify(devid, &id);
+    struct iommu_client *cl;
+    err = driverkit_iommu_client_init_cl(iommuep, &cl);
     if (err_is_fail(err)) {
-        return err;
+        USER_PANIC_ERR(err, "Failed to initialize the IOMMU library");
     }
 
-    debug_printf("[ioat]: '%s' is at %u.%u.%u\n", bfi->name, id.bus, id.device,
-                 id.function);
+    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present(NULL));
+
 
     struct capref regs;
     err = driverkit_get_bar_cap(bfi, 0, &regs);
@@ -236,37 +236,11 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
         return err;
     }
 
-    struct pci_addr pciaddr = {
-        .bus      = id.bus,
-        .device   = id.device,
-        .function = id.function
-    };
-
-    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present(NULL));
-    if (driverkit_iommu_present(NULL)) {
-
-        struct vnode_identity vid;
-        err = invoke_vnode_identify(cap_vroot, &vid);
-        assert(err_is_ok(err));
-        debug_printf("[ioat] using ptable root: %lx\n", vid.base);
-
-        err = driverkit_iommu_create_domain(cap_vroot, devid);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to create the iommu domain\n");
-            return err;
-        }
-
-        err = driverkit_iommu_add_device(cap_vroot, devid);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to add device to domain\n");
-            return err;
-        }
-    }
+    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present(cl));
 
 
     /* initialize the device */
-    err = ioat_dma_device_init(regs, &pciaddr, driverkit_iommu_present(NULL),
-                               &devices[device_count]);
+    err = ioat_dma_device_init(regs, cl, &devices[device_count]);
     if (err_is_fail(err)) {
         DEV_ERR("Could not initialize the device: %s\n", err_getstring(err));
         return err;

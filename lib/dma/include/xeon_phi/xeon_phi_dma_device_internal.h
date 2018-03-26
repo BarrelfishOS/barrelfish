@@ -30,7 +30,7 @@
  * \param mem   Memory structure to fill in
  */
 void xeon_phi_dma_device_get_dstat_addr(struct xeon_phi_dma_device *dev,
-                                        struct dma_mem *mem);
+                                        struct dmem *mem);
 
 /**
  * \brief globally enables the interrupts for the given device

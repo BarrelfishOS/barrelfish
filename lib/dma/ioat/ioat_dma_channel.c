@@ -7,10 +7,8 @@
  */
 
 #include <barrelfish/barrelfish.h>
-
+#include <driverkit/iommu.h>
 #include <dev/ioat_dma_chan_dev.h>
-
-#include <dma_mem_utils.h>
 
 #include <dma_ring_internal.h>
 #include <ioat/ioat_dma_internal.h>
@@ -28,9 +26,9 @@ struct ioat_dma_channel
     ioat_dma_chan_t channel;         ///< Mackerel address
 
     lpaddr_t last_completion;        ///<
-    struct dma_mem completion;
+    struct dmem completion;
     struct dma_ring *ring;          ///< Descriptor ring
-    uint64_t status;                 ///< channel status
+    uint64_t status;                ///< channel status
 };
 
 /**
@@ -59,7 +57,7 @@ static inline void channel_set_chain_addr(struct ioat_dma_channel *chan)
  */
 static inline lpaddr_t channel_get_completion_addr(struct ioat_dma_channel *chan)
 {
-    lpaddr_t compl_addr = *((lpaddr_t*) chan->completion.vaddr);
+    lpaddr_t compl_addr = *((lpaddr_t*) chan->completion.vbase);
 
     return (compl_addr & (~ioat_dma_chan_status_mask));
 }
@@ -205,19 +203,21 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
 
     err = ioat_dma_channel_reset(chan);
     if (err_is_fail(err)) {
+        debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
         return err;
     }
 
     ioat_dma_device_get_complsts_addr(dev, &chan->completion);
 
     /* write the completion address */
-    ioat_dma_chan_cmpl_lo_wr(&chan->channel, chan->completion.paddr);
-    ioat_dma_chan_cmpl_hi_wr(&chan->channel, chan->completion.paddr >> 32);
+    ioat_dma_chan_cmpl_lo_wr(&chan->channel, chan->completion.devaddr);
+    ioat_dma_chan_cmpl_hi_wr(&chan->channel, chan->completion.devaddr >> 32);
 
     err = dma_ring_alloc(IOAT_DMA_DESC_RING_SIZE, IOAT_DMA_DESC_ALIGN,
                          IOAT_DMA_DESC_SIZE, 0x0, dma_chan, &chan->ring);
     if (err_is_fail(err)) {
-        dma_mem_free(&chan->completion);
+        debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
+        driverkit_iommu_munmap(&chan->completion);
         return err;
     }
 
@@ -253,7 +253,8 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
     ioat_dma_request_nop_chan(chan);
     err = ioat_dma_channel_issue_pending(chan);
     if (err_is_fail(err)) {
-        dma_mem_free(&chan->completion);
+        debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
+        driverkit_iommu_munmap(&chan->completion);
         return err;
     }
 
@@ -266,13 +267,17 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
              && !ioat_dma_channel_is_idle(status));
 
     if (ioat_dma_channel_is_active(status) || ioat_dma_channel_is_idle(status)) {
-        IOATCHAN_DEBUG("channel worked properly: %016lx\n", dma_chan->id,
-                       *(uint64_t* ) chan->completion.vaddr);
+        debug_printf(" %x channel worked properly: %016lx\n", dma_chan->id,
+                       *(uint64_t* ) chan->completion.vbase);
         return SYS_ERR_OK;
     } else {
-        IOATCHAN_DEBUG(" channel error ERROR: %08x\n", dma_chan->id,
+        debug_printf(" %x channel error ERROR: %08x\n", dma_chan->id,
                        ioat_dma_chan_err_rd(&chan->channel));
-        dma_mem_free(&chan->completion);
+        static char buf[512];
+        ioat_dma_chan_err_pr(buf, 512, &chan->channel);
+        printf("ERRS:\n%s\n",buf);
+
+        driverkit_iommu_munmap(&chan->completion);
         free(chan);
         *ret_chan = NULL;
         return DMA_ERR_CHAN_ERROR;

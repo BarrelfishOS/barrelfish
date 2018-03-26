@@ -9,7 +9,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
-
+#include <driverkit/iommu.h>
 #include <dev/xeon_phi/xeon_phi_dma_dev.h>
 
 #include <dma_mem_utils.h>
@@ -28,7 +28,7 @@ struct xeon_phi_dma_device
     struct dma_device common;
 
     xeon_phi_dma_t device;          ///< mackerel device base
-    struct dma_mem dstat;     ///< memory region for channels dstat_wb
+    struct dmem dstat;     ///< memory region for channels dstat_wb
     uint32_t flags;
 };
 
@@ -49,16 +49,15 @@ static dma_dev_id_t device_id = 1;
  * \param mem   Memory structure to fill in
  */
 void xeon_phi_dma_device_get_dstat_addr(struct xeon_phi_dma_device *dev,
-                                        struct dma_mem *mem)
+                                        struct dmem *mem)
 {
-    assert(dev->dstat.vaddr);
+    assert(dev->dstat.vbase);
 
     *mem = dev->dstat;
-    mem->bytes = XEON_PHI_DMA_CHANNEL_DSTAT_SIZE;
-    mem->paddr += (XEON_PHI_DMA_CHANNEL_DSTAT_SIZE * dev->common.channels.next);
-    mem->frame = NULL_CAP
-    ;
-    mem->vaddr += (XEON_PHI_DMA_CHANNEL_DSTAT_SIZE * dev->common.channels.next++);
+    mem->size = XEON_PHI_DMA_CHANNEL_DSTAT_SIZE;
+    mem->devaddr += (XEON_PHI_DMA_CHANNEL_DSTAT_SIZE * dev->common.channels.next);
+    mem->mem = NULL_CAP;
+    mem->vbase += (XEON_PHI_DMA_CHANNEL_DSTAT_SIZE * dev->common.channels.next++);
 }
 
 /**
@@ -244,9 +243,9 @@ errval_t xeon_phi_dma_device_init(void *mmio_base,
     XPHIDEV_DEBUG("initializing Xeon Phi DMA device @ %p\n", device_id,
                   mmio_base);
 
-    err = dma_mem_alloc(XEON_PHI_DMA_DEVICE_DSTAT_SIZE,
+    err = driverkit_iommu_mmap(XEON_PHI_DMA_DEVICE_DSTAT_SIZE,
                         XEON_PHI_DMA_DEVICE_DSTAT_FLAGS,
-                        0, &xdev->dstat);
+                        &xdev->dstat);
     if (err_is_fail(err)) {
         free(xdev);
         return err;

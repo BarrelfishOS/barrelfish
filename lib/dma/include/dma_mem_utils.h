@@ -13,27 +13,4 @@
 /* forward declaration */
 struct dma_mem;
 
-/**
- * \brief allocates and maps a memory region to be used for DMA purposes
- *
- * \param bytes minimum size of the memory region in bytes
- * \param flags VREGION flags how the region gets mapped
- * \param mem   returns the mapping information
- *
-  * \returns SYS_ERR_OK on success
- *          errval on error
- */
-errval_t dma_mem_alloc(size_t bytes,
-                       vregion_flags_t flags,
-                       bool iommu_present,
-                       struct dma_mem *mem);
-
-/**
- * \brief tries to free the allocated memory region
- *
- * \returns SYS_ERR_OK on success
- *          errval on error
- */
-errval_t dma_mem_free(struct dma_mem *mem);
-
 #endif /* LIB_DMA_MEM_UTILS_H */

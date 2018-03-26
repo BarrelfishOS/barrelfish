@@ -9,6 +9,7 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <xeon_phi/xeon_phi.h>
+#include <driverkit/iommu.h>
 
 #include <dma_mem_utils.h>
 
@@ -57,7 +58,7 @@ struct dma_descriptor
     uint32_t flags;               ///< descriptor flags
     struct dma_descriptor *next;  ///< next descriptor in the list
     struct dma_request *req;      ///< pointer to the DMA request
-    struct dma_mem *mem;          ///< the dma memory information
+    struct dmem *mem;             ///< the dma memory information
 };
 
 /*
@@ -84,7 +85,7 @@ struct dma_descriptor
 errval_t dma_desc_alloc(uint32_t size,
                         uint16_t align,
                         uint8_t count,
-                        bool iommu_present,
+                        struct iommu_client *cl,
                         struct dma_descriptor **desc)
 {
     errval_t err;
@@ -100,7 +101,7 @@ errval_t dma_desc_alloc(uint32_t size,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    struct dma_mem *mem = malloc(sizeof(*mem));
+    struct dmem *mem = calloc(1, sizeof(*mem));
     if (mem == NULL) {
         free(dma_desc);
         return LIB_ERR_MALLOC_FAIL;
@@ -116,7 +117,7 @@ errval_t dma_desc_alloc(uint32_t size,
     ram_set_affinity(0, XEON_PHI_SYSMEM_SIZE-8*XEON_PHI_SYSMEM_PAGE_SIZE);
 #endif
 
-    err = dma_mem_alloc(ndesc * size, DMA_DESC_MAP_FLAGS, iommu_present, mem);
+    err = driverkit_iommu_mmap_cl(cl, ndesc * size, DMA_DESC_MAP_FLAGS, mem);
     if (err_is_fail(err)) {
         free(dma_desc);
         return err;
@@ -126,13 +127,13 @@ errval_t dma_desc_alloc(uint32_t size,
     ram_set_affinity(minbase, maxlimit);
 #endif
 
-    memset((void*) mem->vaddr, 0, ndesc * size);
+    memset((void*) mem->vbase, 0, ndesc * size);
 
     XPHIDESC_DEBUG("Allocated frame of size %lu bytes @ [%016lx]\n",
-                   (uint64_t ) mem->bytes, mem->paddr);
+                   (uint64_t ) mem->size, mem->devaddr);
 
-    lpaddr_t desc_paddr = mem->paddr;
-    uint8_t *desc_vaddr = (uint8_t*) mem->vaddr;
+    lpaddr_t desc_paddr = mem->devaddr;
+    uint8_t *desc_vaddr = (uint8_t*) mem->vbase;
 
     /* set the last virtual address pointer */
     dma_desc[ndesc - 1].desc = desc_vaddr + ((ndesc - 1) * size);
@@ -182,9 +183,9 @@ errval_t dma_desc_free(struct dma_descriptor *desc)
         return DMA_ERR_ARG_INVALID;
     }
 
-    struct dma_mem *mem = desc->mem;
+    struct dmem *mem = desc->mem;
 
-    err = dma_mem_free(mem);
+    err = driverkit_iommu_munmap(mem);
     if (err_is_fail(err)) {
         return err;
     }

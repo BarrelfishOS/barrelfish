@@ -14,6 +14,9 @@
 #include <dma_internal.h>
 #include <dma_mem_utils.h>
 
+#if 0
+static lvaddr_t addr_start = (256UL << 30);
+
 /**
  * \brief allocates and maps a memory region to be used for DMA purposes
  *
@@ -35,10 +38,16 @@ errval_t dma_mem_alloc(size_t bytes,
         return DMA_ERR_ARG_INVALID;
     }
 
+    uint64_t base, limit;
+    ram_get_affinity(&base, &limit);
+    ram_set_affinity(4UL << 30, 128UL << 32);
     err = frame_alloc(&mem->frame, bytes, &mem->bytes);
     if (err_is_fail(err)) {
         return err;
     }
+    ram_set_affinity(base, limit);
+
+
 
     struct frame_identity id;
     err = frame_identify(mem->frame, &id);
@@ -49,18 +58,29 @@ errval_t dma_mem_alloc(size_t bytes,
 
     mem->paddr = id.base;
 
+
     void *addr;
-    err = vspace_map_one_frame_attr(&addr, mem->bytes, mem->frame, flags, NULL,
-                                    NULL);
+    err = vspace_map_one_frame_fixed_attr(addr_start, mem->bytes, mem->frame, flags, NULL,
+                                          NULL);
+    //err = vspace_map_one_frame_attr(&addr, mem->bytes, mem->frame, flags, NULL,
+    //                                NULL);
     if (err_is_fail(err)) {
         dma_mem_free(mem);
         return err;
     }
 
+    addr = (void *)addr_start;
+    addr_start += mem->bytes;
+
     mem->vaddr = (lvaddr_t)addr;
 
     if (iommu_present) {
         debug_printf("Overwriting the address with virtual mapped one\n");
+
+        debug_printf("Allocated DMA memory: %lx..%lx @ %lx..%lx\n",
+                     mem->paddr, mem->paddr + mem->bytes - 1,
+                     (lpaddr_t)addr,(lpaddr_t)addr + mem->bytes - 1);
+
         mem->paddr = (lpaddr_t)addr;
     }
 
@@ -96,3 +116,5 @@ errval_t dma_mem_free(struct dma_mem *mem)
 
     return SYS_ERR_OK;
 }
+
+#endif

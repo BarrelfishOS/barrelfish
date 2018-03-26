@@ -61,14 +61,6 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    err = driverkit_iommu_client_init(NULL_CAP);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Failed to initialize the IOMMU library");
-    }
-
-    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present(NULL));
-
-
     iref_t kaluga_iref = 0;
     err = nameservice_blocking_lookup("ddomain_controller", &kaluga_iref);
     if (err_is_fail(err)) {
