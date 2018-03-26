@@ -384,7 +384,7 @@ static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf
     if (err_is_ok(err)) {
        goto reply;
     }
-    
+
 reply:
     err = b->tx_vtbl.get_vf_iommu_endpoint_cap_response(b, NOP_CONT, cap, out_err);
     assert(err_is_ok(err));
@@ -755,9 +755,9 @@ static void request_iommu_endpoint_cap_handler(struct kaluga_binding* b, uint8_t
     if (err_is_ok(err)) {
        goto reply;
     }
-    
+
 reply:
-    err = b->tx_vtbl.request_endpoint_cap_response(b, NOP_CONT, cap, out_err);
+    err = b->tx_vtbl.request_iommu_endpoint_cap_response(b, NOP_CONT, cap, out_err);
     assert(err_is_ok(err));
     slot_free(cap);
 }
