@@ -1054,8 +1054,8 @@ errval_t driverkit_iommu_alloc_vnode(enum objtype type, struct capref *retvnode)
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_mmap(struct iommu_client *cl, size_t bytes,
-                              struct dmem *mem)
+errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
+                                 vregion_flags_t flags, struct dmem *mem)
 {
     errval_t err;
 
@@ -1064,8 +1064,7 @@ errval_t driverkit_iommu_mmap(struct iommu_client *cl, size_t bytes,
         return err;
     }
 
-    err = driverkit_iommu_vspace_map_cl(cl, mem->mem, VREGION_FLAGS_READ_WRITE,
-                                        mem);
+    err = driverkit_iommu_vspace_map_cl(cl, mem->mem, flags, mem);
     if (err_is_fail(err)) {
         iommu_free_ram(mem->mem);
     }
@@ -1073,6 +1072,11 @@ errval_t driverkit_iommu_mmap(struct iommu_client *cl, size_t bytes,
     return SYS_ERR_OK;
 }
 
+errval_t driverkit_iommu_mmap(size_t bytes, vregion_flags_t flags, struct dmem *mem)
+{
+    return driverkit_iommu_mmap_cl(driverkit_iommu_get_default_client(),
+                                   bytes, flags, mem);
+}
 
 
 

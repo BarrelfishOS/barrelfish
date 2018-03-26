@@ -246,7 +246,9 @@ errval_t driverkit_iommu_vspace_modify_flags(struct dmem *dmem,
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_mmap(struct iommu_client *cl, size_t bytes,
+errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
+                                 vregion_flags_t flags, struct dmem *mem);
+errval_t driverkit_iommu_mmap(size_t bytes, vregion_flags_t flags,
                               struct dmem *mem);
 
 /**
