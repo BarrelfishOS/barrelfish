@@ -399,27 +399,41 @@ struct pci_iommu_rx_vtbl pci_iommu_rx_vtbl = {
     .request_iommu_endpoint_call = request_iommu_endpoint_handler
 };
 
+
+struct iommu_wrapper {
+    struct iommu* iommu;
+    bool bound;
+    errval_t err;    
+};
+
 static void bind_cont(void *st, errval_t err, struct pci_iommu_binding *b)
 {
+    struct iommu_wrapper* wrap = (struct iommu_wrapper*) st;
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "bind failed");
+        wrap->err = err;    
+        return;
     }
 
-    bool* bound = (bool*) st;
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = pci_iommu_rx_vtbl;
     pci_iommu_rpc_client_init(b);
+    b->st = wrap->iommu;
 
-    *bound = true;
+    wrap->bound = true;
 }
 
-errval_t iommu_bind_to_pci(struct capref ep)
+errval_t iommu_bind_to_pci(struct capref ep, struct iommu* iommu)
 {
     errval_t err;
-    bool bound = false;
-    err = pci_iommu_bind_to_endpoint(ep, bind_cont, &bound, get_default_waitset(), 
+    struct iommu_wrapper wrap;
+
+    wrap.iommu = iommu;
+    wrap.bound = false;
+    wrap.err = SYS_ERR_OK;
+
+    err = pci_iommu_bind_to_endpoint(ep, bind_cont, &wrap, get_default_waitset(), 
                                      IDC_BIND_FLAGS_DEFAULT);
-    while(!bound) {
+    while(!wrap.bound) {
         event_dispatch(get_default_waitset());
     }
 

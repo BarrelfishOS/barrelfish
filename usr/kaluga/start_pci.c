@@ -115,13 +115,49 @@ static errval_t add_ep_args(struct pci_addr addr, coreid_t core, struct driver_a
                        addr.function, &pci_cap, &out_err);
 
     if (err_is_fail(err) || err_is_fail(out_err)) {
+        slot_free(pci_cap);
         return KALUGA_ERR_CAP_ACQUIRE;
     }
 
     err = cap_copy(pci_ep, pci_cap);
     if (err_is_fail(err)) {
+        slot_free(pci_cap);
         return KALUGA_ERR_CAP_ACQUIRE;
     }
+
+
+    // Endpoint to IOMMU
+    struct capref iommu_ep = {
+        .cnode = driver_arg->argnode_ref,
+        .slot = DRIVERKIT_ARGCN_SLOT_IOMMU
+    };
+
+    struct capref iommu_cap;
+    err = slot_alloc(&iommu_cap);
+    if (err_is_fail(err)) {
+        slot_free(pci_cap);
+        return err;
+    }
+
+    err = pci_binding->rpc_tx_vtbl.request_iommu_endpoint_cap(pci_binding, 
+                       (core == my_core_id)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                       0,
+                       addr.bus, addr.device, 
+                       addr.function, &iommu_cap, &out_err);
+
+    if (err_is_fail(err) || err_is_fail(out_err)) {
+        slot_free(pci_cap);
+        slot_free(iommu_cap);
+        return KALUGA_ERR_CAP_ACQUIRE;
+    }
+
+    err = cap_copy(iommu_ep, iommu_cap);
+    if (err_is_fail(err)) {
+        slot_free(pci_cap);
+        slot_free(iommu_cap);
+        return KALUGA_ERR_CAP_ACQUIRE;
+    }
+
 
     return err;
 }

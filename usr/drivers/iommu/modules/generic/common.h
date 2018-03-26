@@ -170,5 +170,5 @@ static inline errval_t iommu_get_writable_vnode(struct capref in,
 errval_t iommu_service_new_endpoint(struct capref ep, struct iommu_device *dev,
                                     idc_endpoint_t type);
 
-errval_t iommu_bind_to_pci(struct capref ep);
+errval_t iommu_bind_to_pci(struct capref ep, struct iommu* iommu);
 #endif //IOMMU_COMMON_H_

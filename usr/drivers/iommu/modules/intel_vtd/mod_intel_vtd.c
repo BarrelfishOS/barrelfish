@@ -53,11 +53,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
         return DRIVERKIT_ERR_NO_CAP_FOUND;
     }
 
-    err = iommu_bind_to_pci(bfi->caps[1]);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
     struct frame_identity id;
     err = invoke_frame_identify(bfi->caps[0], &id);
     if (err_is_fail(err)) {
@@ -75,6 +70,11 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     }
 
     bfi->dstate = vtd;
+
+    err = iommu_bind_to_pci(bfi->caps[1], &vtd->iommu);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     // 3. Set iref of your exported service (this is reported back to Kaluga)
     *dev = 0x00;
@@ -146,7 +146,7 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
 
 static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
 {
-    return SYS_ERR_OK;
+    return IOMMU_ERR_NOT_SUPPORTED;
 }
 /**
  * Registers the driver module with the system.
