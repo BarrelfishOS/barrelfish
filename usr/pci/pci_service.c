@@ -492,7 +492,7 @@ static void request_endpoint_cap_handler(struct kaluga_binding* b, uint8_t type,
                                          uint32_t bus, uint32_t device, 
                                          uint32_t function)
 {
-    errval_t err;
+    errval_t err, out_err;
     PCI_DEBUG("Kaluga requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
               bus, device, function);
 
@@ -502,11 +502,13 @@ static void request_endpoint_cap_handler(struct kaluga_binding* b, uint8_t type,
 
     struct pci_binding* pci;
 
-    err = pci_create_endpoint(type, &pci_rx_vtbl, NULL,
+    out_err = pci_create_endpoint(type, &pci_rx_vtbl, NULL,
                               get_default_waitset(),
                               IDC_ENDPOINT_FLAGS_DUMMY,
                               &pci, cap);
-    assert(err_is_ok(err));
+    if (err_is_fail(out_err)) {
+        goto reply;
+    }
     pci_rpc_client_init(pci);
     struct client_state* state = (struct client_state*) 
                                   calloc(1, sizeof(struct client_state));
@@ -514,14 +516,13 @@ static void request_endpoint_cap_handler(struct kaluga_binding* b, uint8_t type,
     state->dev = device;
     state->fun = function;
     pci->st = state;
-   
-    err = b->tx_vtbl.request_endpoint_cap_response(b, NOP_CONT, cap);
+
+reply:
+    err = b->tx_vtbl.request_endpoint_cap_response(b, NOP_CONT, cap, out_err);
     assert(err_is_ok(err));
 }
 
 static void request_endpoint_cap_for_iommu_handler(struct kaluga_binding* b, uint8_t type, 
-                                                   uint32_t segment, uint32_t bus,
-                                                   uint32_t device, uint32_t function,
                                                    uint32_t index)
 {
     errval_t err;
@@ -541,12 +542,6 @@ static void request_endpoint_cap_for_iommu_handler(struct kaluga_binding* b, uin
 
     pci_iommu_rpc_client_init(state->b);
     state->index = index;
-    state->segment = segment;
-
-    state->bus = bus;
-    state->device = device;
-    state->function = function;
-    state->b->st = state;
  
     if (iommu_list == NULL) {
         // TODO free function
@@ -555,7 +550,7 @@ static void request_endpoint_cap_for_iommu_handler(struct kaluga_binding* b, uin
   
     collections_list_insert_tail(iommu_list, state);
     
-    err = b->tx_vtbl.request_endpoint_cap_for_iommu_response(b, NOP_CONT, cap);
+    err = b->tx_vtbl.request_endpoint_cap_for_iommu_response(b, NOP_CONT, cap, err);
     assert(err_is_ok(err));
 }
 

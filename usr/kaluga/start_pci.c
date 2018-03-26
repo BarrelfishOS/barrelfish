@@ -111,7 +111,7 @@ static errval_t add_device_id_cap(struct pci_addr addr,
 static errval_t add_ep_args(struct pci_addr addr, coreid_t core, struct driver_argument
                             *driver_arg, char* binary_name, char* module_name)
 {
-    errval_t err;
+    errval_t err, out_err;
     // Endpoint to PCI
     struct capref pci_ep = {
         .cnode = driver_arg->argnode_ref,
@@ -125,10 +125,11 @@ static errval_t add_ep_args(struct pci_addr addr, coreid_t core, struct driver_a
     }
 
     err = pci_binding->rpc_tx_vtbl.request_endpoint_cap(pci_binding, 
-                                                        (core == my_core_id), 
-                                                        addr.bus, addr.device, 
-                                                        addr.function, &pci_cap);
-    if (err_is_fail(err)) {
+                       (core == my_core_id)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                       addr.bus, addr.device, 
+                       addr.function, &pci_cap, &out_err);
+
+    if (err_is_fail(err) || err_is_fail(out_err)) {
         return KALUGA_ERR_CAP_ACQUIRE;
     }
 
@@ -523,7 +524,7 @@ errval_t watch_for_pci_root_bridge(void)
 #include <if/acpi_defs.h>
 
 errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
-                        char* record, struct driver_argument* int_arg)
+                        char* record, struct driver_argument* arg)
 {
     errval_t err;
 
@@ -605,6 +606,22 @@ errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
         goto out;
     }
 
+    struct capref pci_cap;
+    err = slot_alloc(&pci_cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    errval_t out_err;
+    err = pci_binding->rpc_tx_vtbl.request_endpoint_cap_for_iommu(pci_binding, 
+                        (where == my_core_id) ? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                        idx, &pci_cap, &out_err);
+    if (err_is_fail(err) || err_is_fail(out_err)) {
+        slot_free(pci_cap);
+        err = err_is_fail(err) ? err: out_err;
+        goto out;
+    }
+
     drv = ddomain_create_driver_instance(iommu_module, key);
     if (drv == NULL) {
         err = DRIVERKIT_ERR_DRIVER_INIT;
@@ -613,6 +630,7 @@ errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
 
     debug_printf("Kaluga: iommu with stubbed device cap\n");
     ddomain_driver_add_cap(drv, devcap);
+    ddomain_driver_add_cap(drv, pci_cap);
 
     err = ddomain_instantiate_driver(inst, drv);
 out:
@@ -624,6 +642,8 @@ static void iommu_change_event(octopus_mode_t mode, const char* record,
                                 void* st)
 {
     if (mode & OCT_ON_SET) {
+    
+        errval_t err;
 
         struct module_info* mi = find_module("iommu");
         if (mi == NULL) {
@@ -633,7 +653,7 @@ static void iommu_change_event(octopus_mode_t mode, const char* record,
 
         // XXX: always spawn on my_core_id; otherwise we need to check that
         // the other core is already up
-        errval_t err = mi->start_function(my_core_id, mi, (CONST_CAST)record, NULL);
+        err = mi->start_function(my_core_id, mi, (CONST_CAST)record, NULL);
         switch (err_no(err)) {
             case SYS_ERR_OK:
                 KALUGA_DEBUG("Spawned IOMMU driver: %s\n", mi->binary);

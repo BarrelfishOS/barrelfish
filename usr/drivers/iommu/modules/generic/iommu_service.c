@@ -323,7 +323,6 @@ static void modify_request(struct iommu_binding *ib, struct capref vnode_ro,
     assert(err_is_ok(err)); /* should not fail */
 }
 
-
 errval_t iommu_service_init(void)
 {
     debug_printf("[iommu svc] Initializing service\n");
@@ -399,3 +398,30 @@ reply:
 struct pci_iommu_rx_vtbl pci_iommu_rx_vtbl = {
     .request_iommu_endpoint_call = request_iommu_endpoint_handler
 };
+
+static void bind_cont(void *st, errval_t err, struct pci_iommu_binding *b)
+{
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "bind failed");
+    }
+
+    bool* bound = (bool*) st;
+    // copy my message receive handler vtable to the binding
+    b->rx_vtbl = pci_iommu_rx_vtbl;
+    pci_iommu_rpc_client_init(b);
+
+    *bound = true;
+}
+
+errval_t iommu_bind_to_pci(struct capref ep)
+{
+    errval_t err;
+    bool bound = false;
+    err = pci_iommu_bind_to_endpoint(ep, bind_cont, &bound, get_default_waitset(), 
+                                     IDC_BIND_FLAGS_DEFAULT);
+    while(!bound) {
+        event_dispatch(get_default_waitset());
+    }
+
+    return err;
+}
