@@ -19,8 +19,6 @@
 
 static inline void vtd_iotlb_do_invalidate(vtd_t *iotlb)
 {
-    assert(!vtd_GSTS_tes_rdf(iotlb));
-
     // perform the invalidate
     vtd_IOTLB_ivt_wrf(iotlb, 1);
 
