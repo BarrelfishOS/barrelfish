@@ -50,7 +50,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     err = driverkit_get_interrupt_cap(bfi, &irq);
     assert(err_is_ok(err));
 
-    err = driverkit_get_devid_cap(bfi, &devid);
+    err = driverkit_get_iommu_cap(bfi, &devid);
     assert(err_is_ok(err));
 
     add_vf_resources(devid, regs, irq);

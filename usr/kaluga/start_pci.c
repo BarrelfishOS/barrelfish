@@ -89,21 +89,6 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     return error_code;
 };
 
-static errval_t add_device_id_cap(struct pci_addr addr,
-                                  struct driver_argument *driver_arg)
-{
-    uint16_t pci_segment = 0;
-
-    struct capref cap = {
-        .cnode = driver_arg->argnode_ref,
-        .slot = DRIVERKIT_ARGCN_SLOT_DEVID
-    };
-
-    return  device_id_cap_create(cap, DEVICE_ID_TYPE_PCI, pci_segment, addr.bus,
-                                 addr.device, addr.function, 0);
-}
-
-
 /**
  * For devices store the endpoints to PCI and Kaluga
  * into driver_arg.
@@ -375,10 +360,6 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
 
         set_multi_instance(mi, multi);
         set_core_id_offset(mi, offset);
-
-        // Build up the driver argument
-        err = add_device_id_cap(addr, &driver_arg);
-        assert(err_is_ok(err));
 
         KALUGA_DEBUG("Adding int args.\n");
         char intcaps_debug_msg[100];

@@ -216,7 +216,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     devices = devices_new;
 
     struct capref devid;
-    err = driverkit_get_devid_cap(bfi, &devid);
+    err = driverkit_get_iommu_cap(bfi, &devid);
     if (err_is_fail(err)) {
         return err;
     }

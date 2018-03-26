@@ -21,7 +21,7 @@ struct bfdriver_instance;
  * Kaluga passes a CNode with capabilities to the pci driver. The offset
  * in this CNode are defined here
  */
-#define DRIVERKIT_ARGCN_SLOT_DEVID      0
+#define DRIVERKIT_ARGCN_SLOT_IOMMU      0
 #define DRIVERKIT_ARGCN_SLOT_INT        1
 #define DRIVERKIT_ARGCN_SLOT_PCI_EP     2
 #define DRIVERKIT_ARGCN_SLOT_KALUGA_EP  3
@@ -81,7 +81,7 @@ struct bfdriver* driverkit_lookup_cls(const char*);
 
 errval_t driverkit_get_pci_cap(struct bfdriver_instance *bfi, struct capref *cap);
 errval_t driverkit_get_interrupt_cap(struct bfdriver_instance *bfi, struct capref *cap);
-errval_t driverkit_get_devid_cap(struct bfdriver_instance *bfi, struct capref *cap);
+errval_t driverkit_get_iommu_cap(struct bfdriver_instance *bfi, struct capref *cap);
 errval_t driverkit_get_bar_cap(struct bfdriver_instance *bfi, uint8_t idx,
                                struct capref *cap);
 

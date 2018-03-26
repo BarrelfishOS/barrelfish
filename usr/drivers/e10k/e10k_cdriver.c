@@ -1708,7 +1708,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
         st->vtdon_dcboff = true;
 
         struct capref devcap = NULL_CAP;
-        err = driverkit_get_devid_cap(bfi, &devcap);
+        err = driverkit_get_iommu_cap(bfi, &devcap);
         assert(err_is_ok(err));
 
         err = driverkit_iommu_create_domain(cap_vroot, devcap);

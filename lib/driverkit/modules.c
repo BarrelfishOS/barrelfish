@@ -250,9 +250,9 @@ errval_t driverkit_get_interrupt_cap(struct bfdriver_instance *bfi, struct capre
     return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_INT, cap);
 }
 
-errval_t driverkit_get_devid_cap(struct bfdriver_instance *bfi, struct capref *cap)
+errval_t driverkit_get_iommu_cap(struct bfdriver_instance *bfi, struct capref *cap)
 {
-    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_DEVID, cap);
+    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_IOMMU, cap);
 }
 
 errval_t driverkit_get_pci_cap(struct bfdriver_instance *bfi, struct capref *cap)
