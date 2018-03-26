@@ -985,8 +985,8 @@ errval_t driverkit_iommu_alloc_frame(struct iommu_client *cl, size_t bytes,
                                      struct capref *retframe)
 {
     if (cl == NULL) {   
-        return frame_alloc(retcap, bytes, NULL);
-    } else 
+        return frame_alloc(retframe, bytes, NULL);
+    } else {
         return iommu_alloc_ram_for_frame(cl, bytes, retframe);
     }
 }
