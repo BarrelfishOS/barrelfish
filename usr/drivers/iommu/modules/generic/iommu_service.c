@@ -264,7 +264,7 @@ static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
         goto out;
     }
 
-    uint64_t attr;
+    uint64_t attr = 0;
 
     struct capref mapping;
     err = vnode_map(vnode, src, slot, attr, 0, 1, mapping);

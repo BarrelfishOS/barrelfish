@@ -889,6 +889,7 @@ errors iommu IOMMU_ERR_ {
     failure DOM_FULL        "No more domains can be created",
     failure NO_UNITS	    "Hardware doesn't contain any VT-d hardware units",
     failure NOT_ENABLED     "IOMMU is not enabled",
+    failure NOT_SUPPORTED   "The requested operation is not supported",
 };
 
 // errors in the SKB
