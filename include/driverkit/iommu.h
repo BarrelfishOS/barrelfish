@@ -251,6 +251,8 @@ errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
 errval_t driverkit_iommu_mmap(size_t bytes, vregion_flags_t flags,
                               struct dmem *mem);
 
+errval_t driverkit_iommu_munmap(struct dmem *mem);
+
 /**
  * @brief represents an iommu vspace management policy
  */

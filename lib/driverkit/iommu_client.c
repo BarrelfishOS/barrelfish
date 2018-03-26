@@ -1086,7 +1086,10 @@ errval_t driverkit_iommu_mmap(size_t bytes, vregion_flags_t flags, struct dmem *
                                    bytes, flags, mem);
 }
 
-
+errval_t driverkit_iommu_munmap(struct dmem *mem)
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
 
 /*
  * ===========================================================================
