@@ -368,26 +368,26 @@ static void request_iommu_endpoint_handler(struct pci_iommu_binding *b, uint8_t 
 {
     errval_t err, out_err;
 
-    struct capref cap;
-    out_err = slot_alloc(&cap);
+    assert(b->st);
+    struct iommu *io = (struct iommu *)b->st;
+
+    struct iommu_device* dev;
+    out_err = iommu_device_create_by_pci(io, segment, bus, device, function, &dev);
     if (err_is_fail(out_err)) {
         goto reply;
     }
 
-    struct iommu_device* dev = calloc(1, sizeof(struct iommu_device));
-
-    dev->id.segment = segment;
-    dev->id.bus = bus;
-    dev->id.device = device;
-    dev->id.function = function;
-    dev->id.type = type;
-    
-    // TODO flags?
+    struct capref cap;
+    out_err = slot_alloc(&cap);
+    if (err_is_fail(out_err)) {
+        iommu_device_destroy(dev);
+        goto reply;
+    }
 
     out_err = iommu_service_new_endpoint(cap, dev, type);
     if (err_is_fail(out_err)) {
-        free(dev);
-        goto reply;
+        slot_free(cap);
+        iommu_device_destroy(dev);
     }
 
 reply:

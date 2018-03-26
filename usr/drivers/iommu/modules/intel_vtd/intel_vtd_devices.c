@@ -12,9 +12,10 @@
 
 #include "intel_vtd.h"
 
-errval_t vtd_device_create_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
-                                  uint8_t fun, struct vtd *vtd,
-                                  struct vtd_device **rdev)
+errval_t vtd_device_create(uint16_t seg, uint8_t bus, uint8_t dev,
+                           uint8_t fun, struct vtd *vtd,
+                           struct iommu_binding *binding,
+                           struct vtd_device **rdev)
 {
     errval_t err;
 
@@ -34,19 +35,18 @@ errval_t vtd_device_create_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
 
     vdev->ctxt_table = ct;
 
+    /* common init */
+    vdev->dev.binding = binding;
+    vdev->dev.iommu = &vtd->iommu;
+    vdev->dev.addr.pci.segment = seg;
+    vdev->dev.addr.pci.bus = bus;
+    vdev->dev.addr.pci.device = dev;
+    vdev->dev.addr.pci.function = fun;
+
     *rdev = vdev;
 
     return SYS_ERR_OK;
 }
-
-errval_t vtd_device_create(struct device_identity id,
-                           struct vtd *vtd, struct vtd_device **rdev)
-{
-
-    return vtd_device_create_by_pci(id.segment, id.bus, id.device, id.function,
-                                    vtd, rdev);
-}
-
 
 
 errval_t vtd_device_destroy(struct vtd_device *dev)
@@ -85,4 +85,66 @@ errval_t vtd_device_add_to_domain(struct vtd_device *dev, struct vtd_domain *dom
 struct vtd_domain *vtd_device_get_domain(struct vtd_device *dev)
 {
     return dev->domain;
+}
+
+
+
+
+
+errval_t vtd_device_map(struct vtd_ctxt_table *ctxt, uint8_t idx,
+                            struct vtd_domain *dom, struct capref *mapping)
+{
+    errval_t err;
+
+    struct vnode_identity id;
+    err = invoke_vnode_identify(dom->ptroot, &id);
+    if (err_is_fail(err)) {
+        return err_push(err, IOMMU_ERR_INVALID_CAP);
+    }
+
+    switch(id.type) {
+        case ObjType_VNode_x86_32_pdpt:
+        case ObjType_VNode_x86_64_pml4:
+        case ObjType_VNode_x86_64_pml5:
+            break;
+        default:
+            return SYS_ERR_VNODE_TYPE;
+    }
+
+    uintptr_t flags = (uintptr_t)vtd_domains_get_id(dom) << 8;
+    if (vtd_device_tlb_present(ctxt->root_table->vtd)) {
+        flags |= 1;
+    }
+
+    ///tlb enabled
+
+    struct capref mappingcap = {
+            .cnode =ctxt->mappigncn,
+            .slot = idx
+    };
+
+    debug_printf("[vtd] [ctxt] Mapping domaind %u in ctxttable %u\n",
+                 dom->id, ctxt->root_table_idx);
+
+    err = vnode_map(ctxt->ctcap, dom->ptroot, idx, flags, 0, 1,
+                    mappingcap);
+    if (err_is_fail(err))  {
+        return err;
+    }
+
+    *mapping = mappingcap;
+
+    return SYS_ERR_OK;
+}
+
+errval_t vtd_device_unmap(struct vtd_ctxt_table *ctxt, struct capref mapping)
+{
+    errval_t err;
+
+    err = vnode_unmap(ctxt->ctcap, mapping);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
 }

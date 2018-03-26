@@ -116,60 +116,54 @@ errval_t vtd_ctxt_table_destroy(struct vtd_ctxt_table *ct)
 }
 
 
-errval_t vtd_ctxt_table_map(struct vtd_ctxt_table *ctxt, uint8_t idx,
-                            struct vtd_domain *dom, struct capref *mapping)
+errval_t vtd_ctxt_table_map(struct vtd_root_table *rt, uint8_t idx,
+                            struct vtd_ctxt_table *ctx)
 {
     errval_t err;
 
-    struct vnode_identity id;
-    err = invoke_vnode_identify(dom->ptroot, &id);
-    if (err_is_fail(err)) {
-        return err_push(err, IOMMU_ERR_INVALID_CAP);
-    }
+    INTEL_VTD_DEBUG_CTABLE("mapping at [%u]\n", idx);
 
-    switch(id.type) {
-        case ObjType_VNode_x86_32_pdpt:
-        case ObjType_VNode_x86_64_pml4:
-        case ObjType_VNode_x86_64_pml5:
-            break;
-        default:
-            return SYS_ERR_VNODE_TYPE;
-    }
-
-    uintptr_t flags = (uintptr_t)vtd_domains_get_id(dom) << 8;
-    if (vtd_device_tlb_present(ctxt->root_table->vtd)) {
-        flags |= 1;
-    }
-
-    ///tlb enabled
+    assert(ctx->root_table != NULL);
+    assert(rt->ctxt_tables[idx] == NULL);
 
     struct capref mappingcap = {
-        .cnode =ctxt->mappigncn,
+        .cnode =rt->mappigncn,
         .slot = idx
     };
 
-    debug_printf("[vtd] [ctxt] Mapping domaind %u in ctxttable %u\n",
-                dom->id, ctxt->root_table_idx);
-
-    err = vnode_map(ctxt->ctcap, dom->ptroot, idx, flags, 0, 1,
-                    mappingcap);
-    if (err_is_fail(err))  {
+    err = vnode_map(rt->rtcap, ctx->ctcap, idx, 0, 0, 1, mappingcap);
+    if (err_is_fail(err)) {
         return err;
     }
 
-    *mapping = mappingcap;
+    ctx->root_table = rt;
+    ctx->root_table_idx = idx;
+
+    rt->ctxt_tables[idx] = ctx;
 
     return SYS_ERR_OK;
 }
 
-errval_t vtd_ctxt_table_unmap(struct vtd_ctxt_table *ctxt, struct capref mapping)
+
+errval_t vtd_ctxt_table_unmap(struct vtd_ctxt_table *ct)
 {
     errval_t err;
 
-    err = vnode_unmap(ctxt->ctcap, mapping);
+    struct vtd_root_table *rt = ct->root_table;
+    assert(rt);
+    assert(rt->ctxt_tables[ct->root_table_idx] == ct);
+
+    struct capref mappingcap = {
+        .cnode =rt->mappigncn,
+        .slot = ct->root_table_idx
+    };
+
+    err = vnode_unmap(rt->rtcap, mappingcap);
     if (err_is_fail(err)) {
         return err;
     }
+
+    rt->ctxt_tables[ct->root_table_idx] = NULL;
 
     return SYS_ERR_OK;
 }

@@ -12,8 +12,6 @@
 
 #include "intel_vtd.h"
 
-/* XXX: have this as caps, VTD_ROOT_TABLE and VTD_CTX_TABLE */
-
 errval_t vtd_root_table_create(struct vtd_root_table *rt, struct vtd *vtd)
 {
     errval_t err;
@@ -121,37 +119,9 @@ errval_t vtd_root_table_destroy(struct vtd_root_table *rt)
 }
 
 
-errval_t vtd_root_table_map(struct vtd_root_table *rt, uint8_t idx,
-                            struct vtd_ctxt_table *ctx)
+struct vtd_ctxt_table *vtd_root_table_get_context_table(struct vtd_root_table *rt,
+                                                        uint8_t idx)
 {
-    errval_t err;
-
-    debug_printf("mapping root table[%u]\n", idx);
-
-    struct capref mappingcap = {
-        .cnode =rt->mappigncn,
-        .slot = idx
-    };
-
-    err =vnode_map(rt->rtcap, ctx->ctcap, idx, 0, 0, 1, mappingcap);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    ctx->root_table = rt;
-    ctx->root_table_idx = idx;
-
-    return SYS_ERR_OK;
-}
-
-
-errval_t vtd_root_table_unmap(struct vtd_root_table *rt, size_t idx)
-{
-    struct capref mappingcap = {
-        .cnode =rt->mappigncn,
-        .slot = idx
-    };
-
-    return vnode_unmap(rt->rtcap, mappingcap);
+    return rt->ctxt_tables[idx];
 }
 

@@ -140,7 +140,7 @@ errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
 
 errval_t vtd_domains_destroy(struct vtd_domain *domain)
 {
-    errval_t err;
+    //errval_t err;
 
     INTEL_VTD_DEBUG("[domains] destroying domain %u\n", domain->id);
 
@@ -149,10 +149,12 @@ errval_t vtd_domains_destroy(struct vtd_domain *domain)
     /* we need to remove all mappings from the domain */
     struct vtd_domain_mapping *m = domain->devmappings;
     while (m) {
+        #if 0
         err = vtd_ctxt_table_unmap(m->dev->ctxt_table, m->dev->dev.mappingcap);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed to remove mappings");
         }
+        #endif
 
         domain->devmappings = m->next;
         m = domain->devmappings;
@@ -183,8 +185,10 @@ errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev)
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    uint8_t idx = iommu_devfn_to_idx(dev->dev.id.device, dev->dev.id.function);
-    err = vtd_ctxt_table_map(dev->ctxt_table, idx, d, &dev->dev.mappingcap);
+    uint8_t idx = iommu_devfn_to_idx(dev->dev.addr.pci.device,
+                                     dev->dev.addr.pci.function);
+
+    err = vtd_device_map(dev->ctxt_table, idx, d, &dev->dev.mappingcap);
     if (err_is_fail(err)) {
         free(map);
         return err;
@@ -207,7 +211,7 @@ errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *dev)
     struct vtd_domain_mapping **prev = &d->devmappings;
     while(map) {
         if (map->dev == dev) {
-            err = vtd_ctxt_table_unmap(dev->ctxt_table, dev->dev.mappingcap);
+            err = vtd_device_unmap(dev->ctxt_table, dev->dev.mappingcap);
             if (err_is_fail(err)) {
                 return err;
             }

@@ -738,7 +738,7 @@ errval_t vtd_get_ctxt_table_by_id(struct vtd *vtd, uint8_t idx,
         if (err_is_fail(err)) {
             return err;
         }
-        err = vtd_root_table_map(&vtd->root_table, idx, &vtd->ctxt_tables[idx]);
+        err = vtd_ctxt_table_map(&vtd->root_table, idx, &vtd->ctxt_tables[idx]);
         if (err_is_fail(err)) {
             return err;
         }

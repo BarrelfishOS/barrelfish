@@ -34,6 +34,9 @@ struct iommu_device;
  */
 
 typedef errval_t (*set_root_fn)(struct iommu_device *, struct capref src);
+typedef errval_t (*create_dev_fn)(struct iommu *io, uint16_t seg, uint8_t bus,
+                                  uint8_t dev, uint8_t fun,
+                                  struct iommu_device **d);
 
 /**
  * @brief represents a generic iommu
@@ -41,6 +44,9 @@ typedef errval_t (*set_root_fn)(struct iommu_device *, struct capref src);
 struct iommu
 {
     hw_pci_iommu_t type;
+    struct {
+        create_dev_fn create_device;
+    } f;
 
     enum objtype root_vnode_type;
 
@@ -70,6 +76,17 @@ static inline hw_pci_iommu_t iommu_get_type(struct iommu *i)
 #define iommu_idx_to_fun(idx) (idx & 0x7)
 #define iommu_devfn_to_idx(dev, fun) ((uint8_t)((dev << 3) | fun))
 
+union iommu_devaddr
+{
+    struct {
+        uint16_t segment;
+        uint8_t  bus;
+        uint8_t  device;
+        uint8_t  function;
+    } pci;
+    uint64_t address;
+};
+
 /**
  * @brief represents a device in the IOMMU context
  */
@@ -84,8 +101,8 @@ struct iommu_device
     ///< mapping cap of the root vnode into
     struct capref           mappingcap;
 
-    ///< the device identity
-    struct device_identity  id;
+    ///< the device address
+    union iommu_devaddr addr;
 
     ////< the root vnode for this device
     struct capref root_vnode;
@@ -97,18 +114,18 @@ struct iommu_device
 
 #include <hw_records.h>
 
-errval_t iommu_device_create(struct capref dev, struct iommu_device **iodev);
+errval_t iommu_device_create_by_address(struct iommu *iommu, uint64_t addr,
+                                    struct iommu_device **iodev);
+errval_t iommu_device_create_by_pci(struct iommu *iommu, uint16_t seg,
+                                    uint8_t bus, uint8_t dev, uint8_t fun,
+                                    struct iommu_device **iodev);
 errval_t iommu_device_destroy(struct iommu_device *iodev);
 
-errval_t iommu_device_lookup(struct capref dev, struct iommu_device **rdev);
+errval_t iommu_device_lookup_by_address(uint64_t address, struct iommu_device **rdev);
 errval_t iommu_device_lookup_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
                                     uint8_t fun, struct iommu_device **rdev);
 
-errval_t iommu_device_get(struct capref dev, struct iommu_device **rdev);
-errval_t iommu_device_get_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
-                                    uint8_t fun, struct iommu_device **rdev);
-
-errval_t iommu_device_lookup_iommu(struct capref dev, struct iommu ** iommu);
+errval_t iommu_device_lookup_iommu_by_address(uint64_t address, struct iommu ** iommu);
 errval_t iommu_device_lookup_iommu_by_pci(uint16_t seg, uint8_t bus, uint8_t dev,
                                           uint8_t fun, struct iommu ** iommu);
 
