@@ -45,7 +45,8 @@ struct vf_state {
 
     // resources
     struct capref regs;
-    struct capref devid;
+    struct capref iommu_ep;
+    struct capref pci_ep;
     struct capref irq;
 
     // if we have 64 vfs then pool
@@ -611,15 +612,17 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
     
     err = slot_alloc(&vf->regs);
     assert(err_is_ok(err));
-    err = slot_alloc(&vf->devid);
+    err = slot_alloc(&vf->iommu_ep);
     assert(err_is_ok(err));
     err = slot_alloc(&vf->irq);
+    assert(err_is_ok(err));
+    err = slot_alloc(&vf->pci_ep);
     assert(err_is_ok(err));
 
     err = vf->binding->rpc_tx_vtbl.request_vf_number(vf->binding,
                                                      (uint8_t*) &vf->vf_num, &vf->d_mac,
-                                                     &vf->devid, &vf->regs, &vf->irq,
-                                                     &err2);
+                                                     &vf->regs, &vf->irq, &vf->iommu_ep,
+                                                     &vf->pci_ep, &err2);
     if (err_is_fail(err) || err_is_fail(err2)) {
         DEBUG_VF("Getting VF resources failed err1=%s err2=%s \n", 
                  err_getstring(err), err_getstring(err2));
@@ -627,9 +630,10 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
     }
 
     DEBUG_VF("Got VF resources ...\n");
-    assert(!capcmp(vf->regs, NULL_CAP));
-    assert(!capcmp(vf->irq, NULL_CAP));
-    assert(!capcmp(vf->devid, NULL_CAP));
+    assert(!capref_is_null(vf->regs));
+    //assert(!capref_is_null(vf->irq));
+    assert(!capref_is_null(vf->iommu_ep));
+    assert(!capref_is_null(vf->pci_ep));
 
     // crate vtd domain for VF driver
     // XXX: might not be the best idea to do it here
@@ -637,7 +641,7 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
     /*
      * TODO: move this to the queue manager!
      */
-    err = driverkit_iommu_client_init(NULL_CAP);
+    err = driverkit_iommu_client_init(vf->iommu_ep);
     if (err_is_fail(err)) {
         return err;
     }
@@ -646,6 +650,7 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
         USER_PANIC("IOMMU SHOULD BE ENABLED!\n");
     }
 
+    /* TODO change to new iommu client
     err = driverkit_iommu_create_domain(cap_vroot, vf->devid);
     if (err_is_fail(err)) {
         return err;
@@ -655,7 +660,7 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
     if (err_is_fail(err)) {
         return err;
     }
-
+    */
 
     DEBUG_VF("VF num %d initalize...\n", vf->vf_num);
     pci_init_card();

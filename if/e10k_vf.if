@@ -13,8 +13,9 @@ interface e10k_vf "e10k VF/PF interface" {
     /*****************************************************
      * For devif interface
      *****************************************************/
-      rpc request_vf_number(out uint8 vfn, out uint64 mac, out cap devid,
-                            out cap regs, out cap irq, out errval err);
+      rpc request_vf_number(out uint8 vfn, out uint64 mac, 
+                            out cap regs, out cap irq, out cap iommu_ep,
+                            out cap pci_ep, out errval err);
 
       // XXX: technically should not be in the VF interface
       // since it is only used withouth VFs

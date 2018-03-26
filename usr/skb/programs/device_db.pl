@@ -107,17 +107,17 @@ pci_driver{
 }.
 
 
-pci_driver{
-    binary: "e10k",
-    module: "e10k_vf_module",
-    supported_cards:
-    [ pci_card{ vendor: 16'8086, device: 16'10ed, function: _, subvendor: _, subdevice: _ }],
-    core_hint: 0,
-    core_offset: 1,
-    multi_instance: 1,
-    interrupt_load: 0.5,
-    platforms: ['x86_64']
-}.
+%pci_driver{
+%    binary: "e10k",
+%    module: "e10k_vf_module",
+%    supported_cards:
+%    [ pci_card{ vendor: 16'8086, device: 16'10ed, function: _, subvendor: _, subdevice: _ }],
+%    core_hint: 0,
+%    core_offset: 1,
+%    multi_instance: 1,
+%    interrupt_load: 0.5,
+%    platforms: ['x86_64']
+%}.
 
 pci_driver{
     binary: "rtl8029",

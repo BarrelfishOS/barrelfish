@@ -1270,9 +1270,7 @@ static void request_vf_number(struct e10k_vf_binding *b)
     }
 
 
-    struct capref regs2;
-
-
+    struct capref regs, irq, pci_ep, iommu_ep;
     if (vf_num == 255){
         //TODO better error
         err = NIC_ERR_ALLOC_QUEUE;
@@ -1285,44 +1283,36 @@ static void request_vf_number(struct e10k_vf_binding *b)
         }        
 
         debug_printf("PCI request VF bar \n");
-        err = pci_sriov_get_vf_bar_cap(vf_num, 0, &regs2);
+
+        err = pci_sriov_get_vf_resources(vf_num, &regs, &irq, &iommu_ep, 
+                                         &pci_ep);
         if (err_is_fail(err)) {
             st->vf_used[vf_num] = 0;
             goto out;
-        }
-
-        debug_printf("Waiting for resources\n");
-        // Wait for resources to be avaialble
-        while(num_vfs() <= vf_num) {
-            event_dispatch(get_default_waitset());
         }
 
         debug_printf("PCI Enabled VF \n");
         err = SYS_ERR_OK;
     }
 
-    struct capref irq, devid, regs;
-    if (!get_vf_resources(vf_num, &devid, &regs, &irq)){ 
-        err = NIC_ERR_ALLOC_QUEUE;
-    }
-
 
     d_mac = e10k_ral_ral_rdf(st->d, vf_num) | ((uint64_t) e10k_rah_rah_rdf(st->d, vf_num) << 32);
 
 out:
-    err = b->tx_vtbl.request_vf_number_response(b, NOP_CONT, vf_num, d_mac, devid, 
-                                                regs2, irq, err);
+    err = b->tx_vtbl.request_vf_number_response(b, NOP_CONT, vf_num, d_mac, 
+                                                regs, irq, iommu_ep, pci_ep, err);
     assert(err_is_ok(err));
 }
 
 
 static errval_t request_vf_number_rpc(struct e10k_vf_binding *b, uint8_t* vf_num, 
-                                      uint64_t* mac, struct capref* devid,
-                                      struct capref* regs, struct capref* irq,
+                                      uint64_t* mac, struct capref* regs, struct capref* irq,
+                                      struct capref* iommu_ep, struct capref* pci_ep,
                                       errval_t* err)
 {
     struct e10k_driver_state* st = (struct e10k_driver_state*) b->st;
     DEBUG("VF allocated RPC \n");
+
     for (int i = 0; i < 64; i++) {
         if (!st->vf_used[i]) {
             *vf_num = i;
@@ -1333,13 +1323,25 @@ static errval_t request_vf_number_rpc(struct e10k_vf_binding *b, uint8_t* vf_num
     if (*vf_num == 255){
         //TODO better error
         *err = NIC_ERR_ALLOC_QUEUE;
-        return SYS_ERR_OK;
     } else {
-        *err = SYS_ERR_OK;
-    }
+        debug_printf("Enable VF \n");
+        *err = pci_sriov_enable_vf(*vf_num);
+        if (err_is_fail(*err)) {
+            st->vf_used[*vf_num] = 0;
+            return *err;
+        }        
 
-    if (!get_vf_resources(*vf_num, devid, regs, irq)){
-        *err = NIC_ERR_ALLOC_QUEUE;
+        debug_printf("PCI request VF bar \n");
+
+        *err = pci_sriov_get_vf_resources(*vf_num, regs, irq, iommu_ep, 
+                                         pci_ep);
+        if (err_is_fail(*err)) {
+            st->vf_used[*vf_num] = 0;
+            return *err;
+        }
+
+        debug_printf("PCI Enabled VF \n");
+        *err = SYS_ERR_OK;
     }
 
     *mac = e10k_ral_ral_rdf(st->d, *vf_num) | ((uint64_t) e10k_rah_rah_rdf(st->d, *vf_num) << 32);
