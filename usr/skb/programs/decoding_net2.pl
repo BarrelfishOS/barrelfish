@@ -31,21 +31,14 @@
 %% node_in_use(NodeId, Block).
 :- dynamic node_in_use/2.
 
-:- export node_accept/2.
-:- export node_translate/4.
-:- export node_overlay/2.
-:- export node_in_use/2.
+%:- export node_accept/2.
+%:- export node_overlay/2.
+%:- export node_in_use/2.
 :- export struct(block(base,limit,props)).
 :- export struct(region(node_id,blocks)).
 :- export struct(name(node_id,address)).
 
 :- lib(ic).
-
-% The support translate cases: 
-% 1. Backed by direct dynamic facts
-node_translate(A,B,C,D) :- node_translate_dyn(A,B,C,D).
-% 2. Backed by mapped blocks
-node_translate(A,B,C,D) :- node_translate_block(A,B,C,D).
 
 %% True, if any possible matching between two node ids A and B may exist.
 %node_reachable(A,A).
@@ -57,31 +50,26 @@ node_translate(A,B,C,D) :- node_translate_block(A,B,C,D).
 %    node_block_meta(A,_,Mid),
 %    node_reachable(Mid, B).
 
-:- export iaddress_aligned/2.
 iaddress_aligned([], _).
 iaddress_aligned([A | As], Bits) :-
-    assert_word(WA, 48),
-    word_to_num(WA, A),
-    subword(WA, BlockOffsetW, 1.. Bits),
-    array_all_eq(BlockOffsetW, 0),
+    BlockSize is 2^Bits,
+    BlockNum #>= 0,
+    A #= BlockNum * BlockSize,
     iaddress_aligned(As, Bits).
 
-:- export address_aligned/2.
 address_aligned([_, IAddress], Bits) :-
     iaddress_aligned(IAddress, Bits).
 
 name_aligned(Name, Bits) :-
-    name{ node_id: NodeId, address: Addr} = Name,
+    name{address: Addr} = Name,
     address_aligned(Addr, Bits).
 
-:- export test_alignment/0.
 test_alignment :-
     iaddress_gt([536870912], IAddr),
     iaddress_aligned(IAddr, 21),
     labeling(IAddr),
     writeln(IAddr).
 
-:- export test_alignment2/0.
 test_alignment2 :-
     init, add_pci, add_process,
     Proc = region{node_id: ["OUT", "PROC0", "PROC0"]},
@@ -103,7 +91,6 @@ iblocks_match_any_ic(A, B) :-
     iblocks_match_any(A,B),
     labeling([A]).
 
-:- export iblock_values/2.
 % Union of blocks. [block{base:0,limit:5},block{base:33,limit:35}] -> 0,1,..,5,33,..,35
 iblock_values(Blocks, Values) :-
     findall(X, iblocks_match_any_ic(X, Blocks), Values).
@@ -127,7 +114,6 @@ iblocks_match_ic(X,Bs) :-
     iblocks_match(X, Bs),
     labeling(X).
 
-:- export iblock_crossp/2.
 % Cross product of blocks
 iblock_crossp(Blocks, Values) :-
     findall(X, iblocks_match_ic(X, Blocks), Values).
@@ -136,7 +122,6 @@ iblock_crossp(Blocks, Values) :-
 address_match([K, IAddr], [K, IBlocks]) :-
     iblocks_match(IAddr, IBlocks).
 
-:- export iaddress_gt/2.
 iaddress_gt([], []).
 iaddress_gt([S | Ss], [B | Bs]) :-
     S #< B,
@@ -253,7 +238,6 @@ accept(NodeId, Addr) :-
     node_accept(NodeId, Block),
     address_match(Addr, Block).
 
-:- export iaddr_iblock_map/4.
 iaddr_iblock_map([], [], [], []).
 iaddr_iblock_map([SrcAddr | A], [SrcBlock | B], [DstAddr | C], [DstBlock | D]) :-
     SrcBlock = block{base:SrcBase},
@@ -261,7 +245,6 @@ iaddr_iblock_map([SrcAddr | A], [SrcBlock | B], [DstAddr | C], [DstBlock | D]) :
     DstAddr #= SrcAddr - SrcBase + DstBase,
     iaddr_iblock_map(A,B,C,D).
 
-:- export test_iaddr_iblock_map/0.
 test_iaddr_iblock_map :-
     iaddr_iblock_map([1],[block{base:0, limit:1024}], Dst, [block{base:100,limit:2000}]),
     Dst = [101].
@@ -321,11 +304,9 @@ to_region(Name,Region) :-
 
 
 
-:- export block_translate/4.
 block_translate([SrcK, ISrcAddr], [SrcK, SrcBlock], [DstK, IDstAddr], [DstK, DstBlock]) :-
     iaddr_iblock_map(ISrcAddr, SrcBlock, IDstAddr, DstBlock).
 
-:- export test_block_translate/0.
 test_block_translate :-
     block_translate(
         [memory,[1]],
@@ -336,12 +317,12 @@ test_block_translate :-
     
 
 does_not_translate(NodeId, [AKind,IAddr]) :-
-    findall(B, node_translate(NodeId, B, _, _), Blocks),
-    (foreach([AKind, IBlock], Blocks),param(IAddr) do
+    %TODO take node_translate_block into account
+    findall(B, node_translate_dyn(NodeId, B, _, _), Blocks),
+    (foreach([AKind, IBlock], Blocks),param(IAddr),param(AKind) do
         iblocks_nomatch(IAddr, IBlock)
     ).
 
-:- export test_does_not_translate/0.
 test_does_not_translate :-
     assert(node_translate_dyn(
         ["In"], [memory, [block{base:1000,limit:2000}]],
@@ -350,32 +331,32 @@ test_does_not_translate :-
     
 
 % Takes translate and overlays predicates into account.
-:- export translate/4.
+%:- export translate/4.
 translate(SrcNodeId, SrcAddr, DstNodeId, DstAddr) :-
     % The conditions check if, independently of Dst, a matching translate block
     % exists. Only if it doesnt, we consider the overlay
     (
-        node_translate(SrcNodeId, SrcBlock, CandidId, CandidBlock),
+        node_translate_dyn(SrcNodeId, SrcBlock, CandidId, CandidBlock),
         address_match(SrcAddr, SrcBlock),
         DstNodeId = CandidId,
         block_translate(SrcAddr, SrcBlock, DstAddr, CandidBlock)
+    ;
+        node_translate_block(SrcNodeId, SrcAddr, DstNodeId, DstAddr)
     ;
         does_not_translate(SrcNodeId, SrcAddr),
         SrcAddr = DstAddr,
         node_overlay(SrcNodeId, DstNodeId)
     ).
 
-:- export test_translate/0.
 test_translate :-
     add_pci,
     translate(["IN", "IOMMU0", "PCI0"], [memory, [1]], OutNodeId, OutAddr),
     OutNodeId = ["OUT", "IOMMU0", "PCI0"],
     OutAddr = [memory, [1]].
 
-:- export test_translate2/0.
 test_translate2 :-
     %Setup
-    assert(node_translate(
+    assert(node_translate_dyn(
         ["In"], [memory, [block{base:1000,limit:2000}]],
         ["Out1"], [memory, [block{base:0,limit:1000}]])),
     assert(node_overlay(["In"], ["Out2"])),
@@ -389,7 +370,6 @@ test_translate2 :-
     not(translate(["In"], [memory, [1000]], ["Out2"], [memory, [1000]])).
 
 
-:- export accept_dummy/2.
 accept_dummy(NodeId, AcS) :-
     node_accept(NodeId, AcS).
 
@@ -420,7 +400,6 @@ translate(SrcName,DstName) :-
     } = DstName,
     translate(SrcNodeId,SrcAddr,DstNodeId, DstAddr).
 
-:- export test_decode_step/0.
 test_translate_name :-
     add_pci,
     translate(
@@ -443,6 +422,7 @@ resolve(SrcName,DstName) :-
     decodes_to(SrcName,DstName),
     accept(DstName).
 
+% TODO: Resolve on regions should work like route.
 resolve(SrcRegion,DstRegion) :-
     to_name(SrcRegion,SrcName),
     to_name(DstRegion,DstName),
@@ -450,10 +430,9 @@ resolve(SrcRegion,DstRegion) :-
     to_region(SrcName,SrcRegion),
     to_region(DstName,DstRegion).
 
-:- export test_resolve/0.
 test_resolve :-
     %Setup
-    assert(node_translate(
+    assert(node_translate_dyn(
         ["In"], [memory, [block{base:1000,limit:2000}]],
         ["Out1"], [memory, [block{base:0,limit:1000}]])),
     assert(node_overlay(["In"], ["Out2"])),
@@ -468,13 +447,12 @@ test_resolve :-
         name{node_id:["In"], address:[memory, [500]]},
         name{node_id:["Out2"], address:[memory, [500]]}).
 
-:- export test_resolve2/1.
 test_resolve2(Out) :-
     %Setup
-    assert(node_translate(
+    assert(node_translate_dyn(
         ["In1"], [memory, [block{base:1000,limit:2000}]],
         ["Out1"], [memory, [block{base:0,limit:1000}]])),
-    assert(node_translate(
+    assert(node_translate_dyn(
         ["In2"], [memory, [block{base:6000,limit:7000}]],
         ["Out1"], [memory, [block{base:0,limit:1000}]])),
     assert(node_accept(["Out1"], [memory,[block{base:0, limit:2000}]])),
@@ -486,39 +464,34 @@ test_resolve2(Out) :-
         name{node_id:["In2"], address:Out},
         R).
 
-:- export test_resolve3/1.
 test_resolve3(Out) :-
     %Setup
-    assert(node_translate(
+    assert(node_translate_dyn(
         ["In1"], [memory, [block{base:1000,limit:2000}]],
         ["Out1"], [memory, [block{base:0,limit:1000}]])),
-    assert(node_translate(
+    assert(node_translate_dyn(
         ["In2"], [memory, [block{base:6000,limit:7000}]],
         ["Out1"], [memory, [block{base:0,limit:1000}]])),
     assert(node_accept(["Out1"], [memory,[block{base:0, limit:2000}]])),
     InRegion = region{node_id:["In1"], blocks:[memory, [block{base:1000, limit:1500}]]},
     resolve(InRegion,Out).
 
-%% Load a precompiled decoding net
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Load sockeye compiled decoding nets and instantiate modules
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 :- export load_net/1.
 load_net(File) :-
     ensure_loaded(File).
 
+:- export load_module/1.
+load_module(Mod) :-
+    call(Mod, []).
+
 :- export load_net_module/2.
 load_net_module(File, Mod) :-
-    ensure_loaded(File).
-    %call(Mod, []).
-
-
-%% FOR INTERACTIVE DEBUGGING ONLY 
-:- export assert_node_accept/2.
-assert_node_accept(A,B) :-
-    assert(node_accept(A,B)).
-
-:- export assert_node_translate/4.
-assert_node_translate(A,B,C,D) :-
-    assert(node_translate(A,B,C,D)).
-
+    ensure_loaded(File),
+    call(Mod, []).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -526,24 +499,23 @@ assert_node_translate(A,B,C,D) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 :- export init/0.
-:- export add_pci/0.
-:- export add_process/0.
-:- export remove_process_mapping/0.
-:- export add_process_mapping/0.
+:- export add_pci/1.
+:- export add_process/1.
 
 init :-
-    SYS_ID = ["SYS"],
-    add_SYSTEM(SYS_ID),
+    add_SYSTEM([]),
     % Reserver lower 512Mb of DRAM
-    assert(node_in_use(["DRAM", "SYS"], [memory, [block{base:0, limit:536870911}]])). 
+    assert(node_in_use(["DRAM"], [memory, [block{base:0, limit:536870911}]])). 
 
-% Make ID argument if we want to add multiple.
 add_pci :-
-    ID = ["PCI0"],
-    PCIBUS_ID = ["PCIBUS", "SYS"],
-    PCIIN_ID = ["IN" | ID],
-    PCIOUT_ID = ["OUT" | ID],
-    add_PCI_IOMMU(ID),
+    add_pci(["PCI0"]).
+
+add_pci(Id) :-
+    Id = ["PCI0"],
+    PCIBUS_ID = ["PCIBUS"],
+    PCIIN_ID = ["IN" | Id],
+    PCIOUT_ID = ["OUT" | Id],
+    add_PCI_IOMMU(Id),
     % Mark IOMMU block remappable
     assert(node_block_meta(["IN", "IOMMU0", "PCI0"], 21, ["OUT","IOMMU0","PCI0"])), % Make MMU configurable
     % And assign a root PT
@@ -556,64 +528,28 @@ add_pci :-
 
 % Make ID argument if we want to add multiple.
 add_process :-
-    ID = ["PROC0"],
-    DRAM_ID = ["DRAM", "SYS"],
-    add_PROC_MMU(ID),
+    add_process(["PROC0"]).
+
+add_process(Id) :-
+    DRAM_ID = ["DRAM"],
+    add_PROC_MMU(Id),
 
     % Mark MMU block remappable
-    MMU_IN_ID = ["IN", "MMU0" | ID],
-    MMU_OUT_ID = ["OUT", "MMU0" | ID],
+    MMU_IN_ID = ["IN", "MMU0" | Id],
+    MMU_OUT_ID = ["OUT", "MMU0" | Id],
     assert(node_block_meta(MMU_IN_ID, 21, MMU_OUT_ID)), % Make MMU configurable
     pt_alloc(Root),
     assert(node_pt(MMU_IN_ID, Root, MMU_OUT_ID)),
 
-    OUT_ID = ["OUT" | ID],
+    OUT_ID = ["OUT" | Id],
     assert(node_overlay(OUT_ID, DRAM_ID)),
-    % Reserve memory for the process
-    assert(node_in_use(["OUT", "PROC0" | ID], [memory, [block{base:0, limit: 65535}]])).
-
-remove_process_mapping :-
-    MMU_ID = ["MMU","PROC0"],
-    IN_ID = ["IN" | MMU_ID],
-    OUT_ID = ["OUT" | MMU_ID],
-    retract(node_translate_dyn(IN_ID, _, _, _)).
-
-add_process_mapping :-
-    MMU_ID = ["MMU","PROC0"],
-    IN_ID = ["IN" | MMU_ID],
-    OUT_ID = ["OUT" | MMU_ID],
-    assert(node_translate_dyn(IN_ID, [memory, [block{base:1024,limit:2048}]], OUT_ID, [memory, [block{base:1024,limit:2048}]])).
-
-:- export process_to_pci/2.
-process_to_pci(ProcAddr, PCIAddr) :- 
-    PROC_ID = ["OUT", "PROC0", "PROC0"],
-    PCI_ID = ["OUT", "PCI0"],
-    resolve(name{node_id:PROC_ID, address: ProcAddr}, D),
-    resolve(name{node_id:PCI_ID, address: PCIAddr}, D).
-
-:- export test_process_to_pci/1.
-test_process_to_pci(Out) :- 
-    init, add_pci, add_process,
-    process_to_pci([memory,[0]], Out).
+    % Reserve memory for the process, the OUT/PROC0 node is the one where
+    % initially the process (virtual) addresses are issued.
+    assert(node_in_use(["OUT", "PROC0" | Id], [memory, [block{base:0, limit: 65535}]])).
 
 
-% Return a region accessible by both, PROC and PCI
-:- export common_dram/3.
-common_dram(DRAM, PROC_RANGE, PCI_RANGE) :- 
-    PROC_ID = ["OUT", "PROC0", "PROC0"],
-    PCI_ID = ["OUT", "PCI0"],
-    PROC_RANGE = region{node_id: PROC_ID, blocks: [memory, [block{base:0,limit:1000}]]},
-    %PCI_RANGE = region{node_id: PCI_ID, blocks: [memory, [block{base:0,limit:1000}]]},
-    resolve(PROC_RANGE, DRAM),
-    resolve(PCI_RANGE, DRAM).
 
-:- export test_common_dram/3.
-test_common_dram(A,B,C) :-
-    init, add_pci, add_process,
-    common_dram(A,B,C).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
 %%%% Mark ranges used and Query them 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -710,8 +646,7 @@ test_alloc_range :-
 
 % Find a unused buffer, using already set up routing.
 % Node1 :: Addr, Node2 :: Name, Resolved :: Name
-:- export common_free_buffer/4.
-common_free_buffer(BufferSize, Node1, Node2, Resolved)  :-
+common_free_buffer_existing(BufferSize, Node1, Node2, Resolved)  :-
     free_region(Node1, [memory, [BufferSize]]),
     free_region(Node2, [memory, [BufferSize]]),
     resolve(Node1, Resolved),
@@ -720,43 +655,49 @@ common_free_buffer(BufferSize, Node1, Node2, Resolved)  :-
     term_variables(Resolved, Vars),
     labeling(Vars).
 
-:- export test_common_free_buffer/3.
-test_common_free_buffer(Proc,Pci,Resolved) :-
+test_common_free_buffer_existing(Proc,Pci,Resolved) :-
     init, add_pci, add_process,
     BUFFER_SIZE = 1024,
     Proc = name{node_id: ["OUT", "PROC0", "PROC0"]},
     Pci = name{node_id: ["OUT", "PCI0", "PCI0"]},
-    common_free_buffer(BUFFER_SIZE, Proc, Pci, Resolved).
+    common_free_buffer_existing(BUFFER_SIZE, Proc, Pci, Resolved).
 
-% Like common_free_buffer, but allow reconfiguration of nodes (routing)
-:- export common_free_buffer_route/4.
-common_free_buffer_route(Size, N1Region, N2Region, ResRegion,Route)  :-
+% Like common_free_buffer_existing, but allow reconfiguration of nodes (routing)
+:- export common_free_buffer/5.
+common_free_buffer(Size, N1Region, N2Region, ResRegion,Route)  :-
     N1Region = region{blocks: [memory, [_]]},
     N2Region = region{blocks: [memory, [_]]},
     ResRegion = region{blocks: [memory, [block{base:Base, limit: Limit}]]},
 
     % nail down the input regions first
     free_region_aligned(N1Region, Size),
-    writeln(("N1Region",N1Region)),
-
     free_region_aligned(N2Region, Size),
-    writeln(("N2Region",N2Region)),
 
     route(N1Region, ResRegion, R1),
-    writeln(("ResRegion",ResRegion)),
     route(N2Region, ResRegion, R2),
-    writeln(("ResRegion",ResRegion)),
 
     free_region(ResRegion, Size),
-    labeling([Base,Limit]), % Can't use term_variables here, because free prop var.
+    labeling([Base,Limit]), 
     union(R1,R2,Route).
+
+% Translate a name from one Node to a name to another node, so they
+% resolve to the same ressource.
+:- export change_view/2.
+change_view(Name1, Name2) :- 
+    resolve(Name1, D),
+    resolve(Name2, D).
+
+test_change_view(pci) :- 
+    init, add_pci, add_process,
+    Proc = name{node_id: ["OUT", "PROC0", "PROC0"], address: [memory, [0]]},
+    Pci = name{node_id: ["OUT", "PCI0", "PCI0"]},
+    change_view(Proc, Pci).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Bit Array Representation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-:- export array_all_eq/2.
 array_all_eq([], _).
 array_all_eq([A | Bs], A) :- array_all_eq(Bs,A).
 array_all_eq(Arr, A) :- array_list(Arr, ArrLi), array_all_eq(ArrLi, A).
@@ -784,9 +725,7 @@ subword(Word,Subword, Range) :-
 
 % As of now, block remappable implies that the node is one dimension
 :- dynamic node_block_conf/3. %(NodeId, VPN, PPN).
-:- export node_block_conf/3.
 :- dynamic node_block_meta/3. %(NodeId, BlockSizeBits, OutNodeId)
-:- export node_block_meta/3.
 
 % Translate using Block Conf. Same signature as node_translate
 node_translate_block(InNodeId, [memory, [VAddr]], OutNodeId, [memory, [PAddr]]) :-
@@ -801,7 +740,6 @@ node_translate_block(InNodeId, [memory, [VAddr]], OutNodeId, [memory, [PAddr]]) 
 
     % Lookup PPN and PA offset
     node_block_conf(InNodeId, VPN, PPN),
-    PAOffsetW = VAOffsetW,
     
     % Stich together PA
     assert_word(PAW, 48), % TODO bit size for physical address?
@@ -811,13 +749,6 @@ node_translate_block(InNodeId, [memory, [VAddr]], OutNodeId, [memory, [PAddr]]) 
 
     word_to_num(PAW, PAddr).
 
-:- export assert_block_delta/2.
-assert_block_delta(NodeId, BlockDelta) :-
-    (foreach((VPN,PPN), BlockDelta),param(NodeId) do
-        assert(node_block_conf(NodeId, VPN, PPN))
-    ).
-
-:- export test_node_translate_block/0. 
 test_node_translate_block :-
     assert(node_block_conf([], 0, 1)),
     assert(node_block_meta([], 21, ["OUT"])),
@@ -856,7 +787,6 @@ one_block_upper_limit(Name, Limit) :-
       Limit = [memory, [281474976710656]] % Default limit
     )).
 
-:- export test_one_block_upper_limit/0. %
 test_one_block_upper_limit :-
     assert(node_translate_dyn(
         ["In"], [memory, [block{base:1000,limit:2000}]],
@@ -887,16 +817,12 @@ route_step(SrcName, NextName, Route) :-
 
 % Route Step for regions
 route_step(SrcRegion, NextRegion, Route) :-
-    % This will only work, if the source region will translate to the same node block
-    % this should be ensured by the block splitting of the region route
+    % This will only work, if the source region will translate to the same node
+    % block this should be ensured by the block splitting of the region route
     region_base_name(SrcRegion, SrcBase),
     region_limit_name(SrcRegion, SrcLimit),
-    writeln(("Calling route step, SrcBase", SrcBase)),
     route_step(SrcBase, NextBase, Route1),
-    writeln(("NextBase", NextBase)),
-    writeln(("Calling route step, SrcLimit", SrcLimit)),
     route_step(SrcLimit, NextLimit, Route2),
-    writeln(("NextLimit", NextLimit)),
     region_base_name(NextRegion, NextBase),
     region_limit_name(NextRegion, NextLimit),
     union(Route1, Route2, Route).
@@ -964,6 +890,7 @@ route(SrcName, DstName, Route) :-
     DstName = name{},
     route_step(SrcName, NextName, R1),
     ( accept(NextName) -> (
+        DstName = NextName,
         Route = R1
     ) ; (
         route(NextName, DstName, R2),
@@ -977,14 +904,13 @@ route_and_install(SrcName, DstName, Route) :-
     install_route(Route).
 
 
-:- export test_route/1.
 test_route(Route) :-
     init, add_pci, add_process,
     MMU_IN_ID = ["IN", "MMU0", "PROC0"],
     MMU_OUT_ID = ["OUT", "MMU0", "PROC0"],
-    DRAM_ID = ["DRAM", "SYS"],
+    DRAM_ID = ["DRAM"],
     retract(node_translate_dyn(MMU_IN_ID,_,_,_)), % Make sure there is no route
-    assert(node_block_meta(MMU_ID, 21, MMU_OUT_ID)),
+    assert(node_block_meta(MMU_IN_ID, 21, MMU_OUT_ID)),
     alloc_range(DRAM_ID, [memory, [1024]], FreeDRAM),
     SrcName=name{node_id: MMU_IN_ID, address: [memory, [0]]},
     DstName=name{node_id: DRAM_ID, address: FreeDRAM},
@@ -994,14 +920,13 @@ test_route(Route) :-
     labeling(RouteVars),
     writeln(("Calculated", Route)).
 
-:- export test_route2/0.
 test_route2 :-
     init, add_pci, add_process,
     MMU_IN_ID = ["IN", "MMU0", "PROC0"],
     MMU_OUT_ID = ["OUT", "MMU0", "PROC0"],
-    DRAM_ID = ["DRAM", "SYS"],
+    DRAM_ID = ["DRAM"],
     retract(node_translate_dyn(MMU_IN_ID,_,_,_)), % Make sure there is no route
-    assert(node_block_meta(MMU_ID, 21, MMU_OUT_ID)),
+    assert(node_block_meta(MMU_IN_ID, 21, MMU_OUT_ID)),
     alloc_range(DRAM_ID, [memory, [1024]], FreeDRAM),
     SrcName1=name{node_id: MMU_IN_ID, address: [memory, [0]]},
     DstName1=name{node_id: DRAM_ID, address: FreeDRAM},
@@ -1015,7 +940,6 @@ test_route2 :-
     writeln(("Calculated (2) ", Route2)).
 
 
-:- export test_route_region_small/0.
 test_route_region_small :-
     assert(node_block_meta(["IN"], 21, ["OUT"])),
     assert(node_accept(["OUT"], [memory, [block{base:0, limit:100000}]])),
@@ -1030,7 +954,6 @@ test_route_region_small :-
     member((["IN"], 0, 0), Route),
     writeln(("Calculated", Route)).
 
-:- export test_route_region_two/0.
 test_route_region_two :-
     Limit = 4194302, % 0x1fffff * 2
     assert(node_block_meta(["IN"], 21, ["OUT"])),
@@ -1047,7 +970,6 @@ test_route_region_two :-
     writeln(("Calculated", Route)).
 
 
-:- export test_route_all/0.
 test_route_all :-
     test_route_region_small,
     writeln("region small: passed"),
@@ -1056,7 +978,7 @@ test_route_all :-
 
 
 % It is possible, to remap SrcName to DstName using the block remapping?
-can_translate(SrcName, DstName, (SrcNodeId, VPN, PPN)) :-
+can_translate(SrcName, DstName, (SrcNodeId, (VPN, PPN))) :-
     name{ node_id: SrcNodeId, address: [K, [ISrcAddr]] } = SrcName,
     name{ node_id: DstNodeId, address: [K, [IDstAddr]] } = DstName,
     node_block_meta(SrcNodeId, BlockSizeBits, DstNodeId),
@@ -1071,7 +993,8 @@ install_route([null | Ri]) :-
     install_route(Ri).
 
 install_route([(NodeId, VPN, PPN) | Ri]) :-
-    assert(node_block_conf(NodeId, VPN, PPN)).
+    assert(node_block_conf(NodeId, VPN, PPN)),
+    install_route(Ri).
 
     
 
@@ -1084,12 +1007,6 @@ install_route([(NodeId, VPN, PPN) | Ri]) :-
 :- dynamic pt/3. % PtIndex, Offset, NextPtIndex
 :- export pt/3.
 
-% Translate using PT. Same signature as node_translate
-node_translate_pt(InNodeId, [K, [VAddr]], OutNodeId, [K, [PAddr]]) :-
-    node_pt(InNodeId, PtIndex, OutNodeId),
-    pt_translate(PtIndex, VAddr, PAddr).
-    
-:- export split_vpn/2.
 split_vpn(VPN, Parts) :-
     assert_word(VPNW, 27),  % 3 x 9 = 27
     word_to_num(VPNW, VPN),
@@ -1101,7 +1018,6 @@ split_vpn(VPN, Parts) :-
     word_to_num(L3W, L3),
     Parts = [L3,L2,L1].
 
-:- export split_vaddr/2.
 split_vaddr(VA, BlockSizeBits, [VPN, Offset]) :-
     assert_word(VAW, 48),
     word_to_num(VAW, VA),
@@ -1111,12 +1027,9 @@ split_vaddr(VA, BlockSizeBits, [VPN, Offset]) :-
     subword(VAW, VPNW, VPNWStart .. 48),
     word_to_num(VPNW, VPN).
 
-
-:- export test_split_vpn/0.
 test_split_vpn :-
     VA = 16'40201, % hex(1 | 1<<9 | 1<<18)
     split_vpn(VA, [1,1,1]).
-
 
 pt_alloc(Idx, Idx) :-
     not(pt(Idx,_,_)).
@@ -1160,23 +1073,23 @@ test_pt_delta(PtDelta) :-
     % PtDelta = [pt(2, 0, 23), pt(1, 0, 2), pt(0, 0, 1)] modulo reordering.
 
 % For a list of PTs, assert the facts.
-:- export assert_pt_delta/2.
-assert_pt_delta(NodeId, PtDelta) :-
+:- export assert_pt_delta/1.
+assert_pt_delta(PtDelta) :-
     (foreach(X, PtDelta) do
         assert(X)
     ).
 
 :- export route_node_ids/2.
 route_node_ids([], []).
-route_node_ids([(NodeId,_,_) | As], Res) :-
+route_node_ids([(NodeId,_) | As], Res) :-
     route_node_ids(As,Res1),
     union([NodeId], Res1, Res).
 
 :- export route_conf_for_id/3.
-route_conf_for_id([], NodeId, []).
-route_conf_for_id([(NodeId,A,B) | As], NodeId, Res) :-
+route_conf_for_id([], _, []).
+route_conf_for_id([(NodeId,Conf) | As], NodeId, Res) :-
     route_conf_for_id(As, NodeId, Res1),
-    union([(A,B)],Res1, Res).
+    union([Conf],Res1, Res).
 
 route_conf_for_id([_ | As], NodeId, Res) :-
     route_conf_for_id(As, NodeId, Res).
@@ -1188,9 +1101,11 @@ route_conf_for_id([_ | As], NodeId, Res) :-
 test_all :-
     init, add_pci, add_process,
     BUFFER_SIZE = [memory, [1024]],
-    Proc = region{node_id: ["OUT", "PROC0", "PROC0"]},
-    Pci = region{node_id: ["OUT", "PCI0", "PCI0"]},
-    common_free_buffer_route(BUFFER_SIZE, Proc, Pci, Resolved, Route),
+    ProcId = ["OUT", "PROC0", "PROC0"],
+    Proc = region{node_id: ProcId},
+    PciId = ["OUT", "PCI0", "PCI0"],
+    Pci = region{node_id: PciId},
+    common_free_buffer(BUFFER_SIZE, Proc, Pci, Resolved, Route),
     writeln(("Free buffer reachable from Proc and Pci found", Resolved)),
     writeln(("View from PCI ", Pci)),
     writeln(("View from Proc ", Proc)),
@@ -1200,5 +1115,11 @@ test_all :-
         route_conf_for_id(Route, NodeId, BlockDelta),
         pt_delta(NodeId, BlockDelta, PtDelta),
         writeln(("New PT entries for ", NodeId, " -> ", PtDelta))
-    ).
-
+    ),
+    writeln("Installing Route"),
+    install_route(Route),
+    !, % make sure not to back track past the state modifying install_route
+    region_base_name(Proc,ProcBaseAddr), % The first byte of the common region.
+    PciBaseAddr = name{node_id:PciId},
+    change_view(ProcBaseAddr, PciBaseAddr),
+    writeln(("Lookup from Proc to PCI BaseAddr", PciBaseAddr)).
