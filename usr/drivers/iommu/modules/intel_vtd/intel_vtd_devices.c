@@ -11,12 +11,16 @@
 #include <numa.h>
 
 #include "intel_vtd.h"
-#include "../generic/common.h"
+
 
 static errval_t vtd_device_set_root_vnode(struct iommu_device *idev,
                                           struct capref vnode)
 {
     errval_t err;
+
+    INTEL_VTD_DEBUG_DEVICES("setting root vnode for %u.%u.%u\n",
+                            idev->addr.pci.bus, idev->addr.pci.device,
+                            idev->addr.pci.function);
 
     /* find the domain of the vnode or create a new domain for it*/
     struct vtd_device *dev = (struct vtd_device *)idev;
@@ -44,6 +48,10 @@ static errval_t vtd_device_set_root_vnode(struct iommu_device *idev,
         goto err_out;
     }
 
+    INTEL_VTD_DEBUG_DEVICES("added device %u.%u.%u to domain %u\n",
+                            idev->addr.pci.bus, idev->addr.pci.device,
+                            idev->addr.pci.function, dom->id);
+
     return SYS_ERR_OK;
 
     err_out:
@@ -59,6 +67,8 @@ errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
                            struct vtd_device **rdev)
 {
     errval_t err;
+
+    INTEL_VTD_DEBUG_DEVICES("create %u.%u.%u\n", bus, dev, fun);
 
     assert(rdev);
 
@@ -87,6 +97,8 @@ errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
 
     *rdev = vdev;
 
+    INTEL_VTD_DEBUG_DEVICES("created %u.%u.%u @ %p\n", bus, dev, fun, vdev);
+
     return SYS_ERR_OK;
 }
 
@@ -94,6 +106,9 @@ errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
 errval_t vtd_device_destroy(struct vtd_device *dev)
 {
     errval_t err;
+
+    INTEL_VTD_DEBUG_DEVICES("destroy device %p\n", dev);
+
     err = vtd_device_remove_from_domain(dev);
     if (err_is_fail(err)) {
         return err;
@@ -107,22 +122,11 @@ errval_t vtd_device_destroy(struct vtd_device *dev)
 
 errval_t vtd_device_remove_from_domain(struct vtd_device *dev)
 {
+    INTEL_VTD_DEBUG_DEVICES("remove from domain %p\n", dev);
+
     if (dev->domain == NULL) {
         return SYS_ERR_OK;
     }
 
     return vtd_domains_remove_device(dev->domain, dev);
-}
-
-
-errval_t vtd_device_unmap(struct vtd_ctxt_table *ctxt, struct capref mapping)
-{
-    errval_t err;
-
-    err = vnode_unmap(ctxt->ctcap, mapping);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return SYS_ERR_OK;
 }

@@ -155,7 +155,7 @@ static errval_t vtd_parse_capabilities(struct vtd *vtd)
         vtd->iommu.max_page_bits = BASE_PAGE_BITS;
     }
 
-    INTEL_VTD_DEBUG_CAP("Maximum page size: 2^%u\n", vtd->max_page_size_bits);
+    INTEL_VTD_DEBUG_CAP("Maximum page size: 2^%u\n", vtd->iommu.max_page_bits);
 
 
     /*

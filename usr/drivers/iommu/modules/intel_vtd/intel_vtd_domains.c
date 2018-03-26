@@ -10,7 +10,7 @@
 #include <barrelfish/barrelfish.h>
 #include "intel_vtd.h"
 #include "intel_vtd_ctxt_cache.h"
-
+#include "../generic/common.h"
 
 
 vtd_domid_t domains_count = 0;
@@ -99,7 +99,8 @@ errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
 
     assert(slot != 0);
 
-    INTEL_VTD_DEBUG("[domains] allocated domain id %u\n", slot);
+    INTEL_VTD_DEBUG_DOMAINS("allocated domain id %u with pt 0x%" PRIxGENPADDR "\n",
+                            slot, id.base);
 
     assert(domains_all[slot] == dom);
 
@@ -149,6 +150,10 @@ errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev)
 
     assert(dev->ctxt_table);
 
+    INTEL_VTD_DEBUG_DOMAINS("adding %u.%u.%u dom %u\n",
+                            dev->dev.addr.pci.bus, dev->dev.addr.pci.device,
+                            dev->dev.addr.pci.function, d->id);
+
     if (dev->domain) {
         return IOMMU_ERR_DEV_USED;
     }
@@ -168,6 +173,7 @@ errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev)
         return err;
     }
 
+    /* invalidate context cache */
     struct vtd *v = (struct vtd *)dev->dev.iommu;
     vtd_ctxt_cache_invalidate_device(v, dev->dev.addr.pci.bus,
                                      dev->dev.addr.pci.device,
@@ -182,10 +188,10 @@ errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev)
 }
 
 
-
 errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *vdev)
 {
     errval_t err = SYS_ERR_OK;
+
 
 
     struct capref mappingcap = {
@@ -193,11 +199,16 @@ errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *vdev
         .slot  = vdev->ctxt_table_idx
     };
 
-
     struct vtd_device *dev = d->devices;
     struct vtd_device **prev = &d->devices;
     while(dev) {
         if (dev == vdev) {
+
+            INTEL_VTD_DEBUG_DOMAINS("remove %u.%u.%u found, removing...\n",
+                                    vdev->dev.addr.pci.bus,
+                                    vdev->dev.addr.pci.device,
+                                    vdev->dev.addr.pci.function);
+
             err = vnode_unmap(dev->ctxt_table->ctcap, mappingcap);
             if (err_is_fail(err)) {
                 return err;
@@ -229,6 +240,7 @@ struct vtd_domain *vtd_domains_get_by_id(vtd_domid_t id)
     }
     return NULL;
 }
+
 
 struct vtd_domain *vtd_domains_get_by_cap(struct capref rootpt)
 {
