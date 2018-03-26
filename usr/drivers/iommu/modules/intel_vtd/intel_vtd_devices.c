@@ -13,14 +13,45 @@
 #include "intel_vtd.h"
 #include "../generic/common.h"
 
-static errval_t vtd_device_set_root_table(struct iommu_device *idev,
-                                          struct capref src)
+static errval_t vtd_device_set_root_vnode(struct iommu_device *idev,
+                                          struct capref vnode)
 {
-    /* find the domain */
+    errval_t err;
 
-    /* */
+    /* find the domain of the vnode or create a new domain for it*/
+    struct vtd_device *dev = (struct vtd_device *)idev;
+    struct vtd *vtd = (struct vtd *)idev->iommu;
+    assert(vtd);
 
-    return LIB_ERR_NOT_IMPLEMENTED;
+    bool domain_created = false;
+    struct vtd_domain *dom = vtd_domains_get_by_cap(vnode);
+    if (dom == NULL) {
+        err = vtd_domains_create(vtd, vnode, &dom);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        domain_created = true;
+    }
+
+    err = vtd_device_remove_from_domain(dev);
+    if (err_is_fail(err)) {
+        goto err_out;
+    }
+
+    /* add the device to the domain */
+    err = vtd_domains_add_device(dom, dev);
+    if (err_is_fail(err)) {
+        goto err_out;
+    }
+
+    return SYS_ERR_OK;
+
+    err_out:
+    if (domain_created) {
+        vtd_domains_destroy(dom);
+    }
+
+    return err;
 }
 
 errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
@@ -32,7 +63,7 @@ errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
     assert(rdev);
 
     struct vtd_ctxt_table *ct;
-    err = vtd_get_ctxt_table_by_id(vtd, bus, &ct);
+    err = vtd_ctxt_table_get_by_id(vtd, bus, &ct);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "faled to get the ctxt table\n");
         return err;
@@ -44,6 +75,7 @@ errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
     }
 
     vdev->ctxt_table = ct;
+    vdev->ctxt_table_idx = iommu_devfn_to_idx(dev, fun);
 
     /* common init */
     vdev->dev.iommu = &vtd->iommu;
@@ -51,7 +83,7 @@ errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
     vdev->dev.addr.pci.bus = bus;
     vdev->dev.addr.pci.device = dev;
     vdev->dev.addr.pci.function = fun;
-    vdev->dev.f.set_root = vtd_device_set_root_table;
+    vdev->dev.f.set_root = vtd_device_set_root_vnode;
 
     *rdev = vdev;
 
@@ -73,8 +105,6 @@ errval_t vtd_device_destroy(struct vtd_device *dev)
 }
 
 
-
-
 errval_t vtd_device_remove_from_domain(struct vtd_device *dev)
 {
     if (dev->domain == NULL) {
@@ -84,68 +114,6 @@ errval_t vtd_device_remove_from_domain(struct vtd_device *dev)
     return vtd_domains_remove_device(dev->domain, dev);
 }
 
-errval_t vtd_device_add_to_domain(struct vtd_device *dev, struct vtd_domain *dom)
-{
-    if (dev->domain != NULL) {
-        return IOMMU_ERR_DEV_USED;
-    }
-    return vtd_domains_add_device(dom, dev);
-}
-
-struct vtd_domain *vtd_device_get_domain(struct vtd_device *dev)
-{
-    return dev->domain;
-}
-
-
-
-
-
-errval_t vtd_device_map(struct vtd_ctxt_table *ctxt, uint8_t idx,
-                            struct vtd_domain *dom, struct capref *mapping)
-{
-    errval_t err;
-
-    struct vnode_identity id;
-    err = invoke_vnode_identify(dom->ptroot, &id);
-    if (err_is_fail(err)) {
-        return err_push(err, IOMMU_ERR_INVALID_CAP);
-    }
-
-    switch(id.type) {
-        case ObjType_VNode_x86_32_pdpt:
-        case ObjType_VNode_x86_64_pml4:
-        case ObjType_VNode_x86_64_pml5:
-            break;
-        default:
-            return SYS_ERR_VNODE_TYPE;
-    }
-
-    uintptr_t flags = (uintptr_t)vtd_domains_get_id(dom) << 8;
-    if (vtd_device_tlb_present(ctxt->root_table->vtd)) {
-        flags |= 1;
-    }
-
-    ///tlb enabled
-
-    struct capref mappingcap = {
-            .cnode =ctxt->mappigncn,
-            .slot = idx
-    };
-
-    debug_printf("[vtd] [ctxt] Mapping domaind %u in ctxttable %u\n",
-                 dom->id, ctxt->root_table_idx);
-
-    err = vnode_map(ctxt->ctcap, dom->ptroot, idx, flags, 0, 1,
-                    mappingcap);
-    if (err_is_fail(err))  {
-        return err;
-    }
-
-    *mapping = mappingcap;
-
-    return SYS_ERR_OK;
-}
 
 errval_t vtd_device_unmap(struct vtd_ctxt_table *ctxt, struct capref mapping)
 {

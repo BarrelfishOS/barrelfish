@@ -223,6 +223,7 @@ static void getvmconfig_request(struct iommu_binding *ib)
 static void setroot_request(struct iommu_binding *ib, struct capref src)
 {
     errval_t err;
+
     IOMMU_SVC_DEBUG("%s", __FUNCTION__);
 
     struct iommu_device *idev = ib->st;
@@ -247,7 +248,7 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
     errval_t err;
     IOMMU_SVC_DEBUG("%s", __FUNCTION__);
     err = ib->tx_vtbl.retype_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED,
-                                           NULL_CAP);
+                                      NULL_CAP);
     assert(err_is_ok(err)); /* should not fail */
 }
 

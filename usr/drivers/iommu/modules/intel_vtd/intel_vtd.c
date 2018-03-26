@@ -719,56 +719,5 @@ errval_t vtd_set_root_table(struct vtd *v)
     return SYS_ERR_OK;
 }
 
-errval_t vtd_lookup_by_device(uint8_t bus, uint8_t dev, uint8_t fun,
-                              uint16_t seg, struct vtd **vtd)
-{
-    errval_t err;
 
-    err = skb_execute_query( "dmar_device(IDX, _, _, "\
-                "addr(%" PRIu16 ", %" PRIu8 ", %" PRIu8 ", %" PRIu8 "), _),"
-                "write(index(IDX)).", seg, bus, dev, fun);
-    if (err_is_ok(err)) {
-        uint32_t idx;
-        err = skb_read_output("index(%d)", &idx);
-        assert(err_is_ok(err));
-        assert(idx < VTD_UNITS_MAX);
-        assert(vtd_units[idx]);
-        *vtd = vtd_units[idx];
-        return SYS_ERR_OK;
-    }
-    /* not reported, find the unit of the segment, that has all in scope */
-    assert(seg < VTD_SEGMENTS_MAX);
-    struct vtd *v = vtd_units_by_segment[seg];
-    while(v) {
-        if (v->scope_all) {
-            *vtd = v;
-            return SYS_ERR_OK;
-        }
-        v = v->next_in_seg;
-    }
 
-    return IOMMU_ERR_DEV_NOT_FOUND;
-}
-
-errval_t vtd_get_ctxt_table_by_id(struct vtd *vtd, uint8_t idx,
-                                  struct vtd_ctxt_table **table)
-{
-    errval_t err;
-
-    debug_printf("[iommu] vtd_get_ctxt_table_by_id [%u]\n", idx);
-
-    if (!vtd_ctxt_table_valid(&vtd->ctxt_tables[idx])) {
-        err = vtd_ctxt_table_create(&vtd->ctxt_tables[idx], vtd);
-        if (err_is_fail(err)) {
-            return err;
-        }
-        err = vtd_ctxt_table_map(&vtd->root_table, idx, &vtd->ctxt_tables[idx]);
-        if (err_is_fail(err)) {
-            return err;
-        }
-    }
-
-    *table = &vtd->ctxt_tables[idx];
-
-    return SYS_ERR_OK;
-}

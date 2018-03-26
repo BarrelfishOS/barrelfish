@@ -9,13 +9,14 @@
 
 #include <barrelfish/barrelfish.h>
 #include "intel_vtd.h"
+#include "intel_vtd_ctxt_cache.h"
+
 
 
 vtd_domid_t domains_count = 0;
 vtd_domid_t domains_free = 0;
-vtd_domid_t domains_next = 1;
 struct vtd_domain **domains_all = NULL;
-struct vtd_domain *domains_allocated = NULL;
+
 
 
 errval_t vtd_domains_init(uint32_t num_domains)
@@ -48,25 +49,6 @@ errval_t vtd_domains_init(uint32_t num_domains)
     return SYS_ERR_OK;
 }
 
-#if 0
-errval_t vtd_domains_get_for_device(uint8_t bus, uint8_t dev, uint8_t fun,
-                                    struct vtd_domain **dom)
-{
-    struct vtd_domain_mapping *dm = vtd_domains_get_device_mapping(bus, dev, fun);
-    if (dm == NULL) {
-        return IOMMU_ERR_DOM_NOT_FOUND;
-    }
-    if (dm->domain == NULL) {
-        return IOMMU_ERR_DOM_NOT_FOUND;
-    }
-
-    if (dom) {
-        *dom = dm->domain;
-    }
-
-    return SYS_ERR_OK;
-}
-#endif
 
 errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
                             struct vtd_domain **domain)
@@ -101,11 +83,10 @@ errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    for (vtd_domid_t i = 0;  i < domains_count; i++) {
-        slot = (i + domains_next) % domains_count;
-        if (domains_all[slot] == NULL) {
+    for (vtd_domid_t i = 1;  i < domains_count; i++) {
+        if (domains_all[i] == NULL) {
             domains_all[slot] = dom;
-            domains_next = (slot + 1) % domains_count;
+            slot = i;
             domains_free--;
             break;
         }
@@ -125,14 +106,11 @@ errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
     dom->id          = slot;
     dom->ptroot      = rootpt;
     dom->ptroot_base = id.base;
-    dom->devmappings = NULL;
+    dom->devices     = NULL;
 
     if (domain) {
         *domain = dom;
     }
-
-    dom->next = domains_allocated;
-    domains_allocated = dom;
 
     return SYS_ERR_OK;
 }
@@ -140,26 +118,20 @@ errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
 
 errval_t vtd_domains_destroy(struct vtd_domain *domain)
 {
-    //errval_t err;
+    errval_t err;
 
     INTEL_VTD_DEBUG("[domains] destroying domain %u\n", domain->id);
 
     assert(domains_all[domain->id] = domain);
 
-    /* we need to remove all mappings from the domain */
-    struct vtd_domain_mapping *m = domain->devmappings;
-    while (m) {
-        #if 0
-        err = vtd_ctxt_table_unmap(m->dev->ctxt_table, m->dev->dev.mappingcap);
+    struct vtd_device *dev = domain->devices;
+    while(dev) {
+        err = vtd_domains_remove_device(domain, dev);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to remove mappings");
+            return err;
         }
-        #endif
 
-        domain->devmappings = m->next;
-        m = domain->devmappings;
-
-        free(m);
+        dev = dev->domain_next;
     }
 
     domains_all[domain->id] = NULL;
@@ -168,6 +140,7 @@ errval_t vtd_domains_destroy(struct vtd_domain *domain)
 
     return SYS_ERR_OK;
 }
+
 
 errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev)
 {
@@ -180,50 +153,69 @@ errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev)
         return IOMMU_ERR_DEV_USED;
     }
 
-    struct vtd_domain_mapping *map = calloc(1, sizeof(*map));
-    if (map == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
+    uintptr_t flags = ((uintptr_t)d->id) << 8;
+    /* we don't activate the device tlb for now */
+    /* flags |= 1; */
 
-    uint8_t idx = iommu_devfn_to_idx(dev->dev.addr.pci.device,
-                                     dev->dev.addr.pci.function);
+    struct capref mappingcap = {
+        .cnode =dev->ctxt_table->mappigncn,
+        .slot = dev->ctxt_table_idx
+    };
 
-    err = vtd_device_map(dev->ctxt_table, idx, d, &dev->dev.mappingcap);
+    err = vnode_map(dev->ctxt_table->ctcap, d->ptroot, dev->ctxt_table_idx,
+                    flags, 0, 1, mappingcap);
     if (err_is_fail(err)) {
-        free(map);
         return err;
     }
 
-    map->domain = d;
-    map->dev = dev;
+    struct vtd *v = (struct vtd *)dev->dev.iommu;
+    vtd_ctxt_cache_invalidate_device(v, dev->dev.addr.pci.bus,
+                                     dev->dev.addr.pci.device,
+                                     dev->dev.addr.pci.function,
+                                     d->id);
 
-    map->next = d->devmappings;
-    d->devmappings = map;
+    dev->domain = d;
+    dev->domain_next = d->devices;
+    d->devices = dev;
 
     return SYS_ERR_OK;
 }
 
-errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *dev)
+
+
+errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *vdev)
 {
     errval_t err = SYS_ERR_OK;
 
-    struct vtd_domain_mapping *map = d->devmappings;
-    struct vtd_domain_mapping **prev = &d->devmappings;
-    while(map) {
-        if (map->dev == dev) {
-            err = vtd_device_unmap(dev->ctxt_table, dev->dev.mappingcap);
+
+    struct capref mappingcap = {
+        .cnode = vdev->ctxt_table->mappigncn,
+        .slot  = vdev->ctxt_table_idx
+    };
+
+
+    struct vtd_device *dev = d->devices;
+    struct vtd_device **prev = &d->devices;
+    while(dev) {
+        if (dev == vdev) {
+            err = vnode_unmap(dev->ctxt_table->ctcap, mappingcap);
             if (err_is_fail(err)) {
                 return err;
             }
-            dev->dev.mappingcap = NULL_CAP;
 
-            *prev = map->next;
+            struct vtd *v = (struct vtd *)dev->dev.iommu;
+            vtd_ctxt_cache_invalidate_device(v, dev->dev.addr.pci.bus,
+                                             dev->dev.addr.pci.device,
+                                             dev->dev.addr.pci.function,
+                                             d->id);
+            *prev = dev->domain_next;
+            vdev->domain_next = NULL;
+            vdev->domain = NULL;
 
-            free(map);
             return SYS_ERR_OK;
         }
-        prev = &map->next;
-        map = map->next;
+        prev = &dev->domain_next;
+        dev = dev->domain_next;
     }
 
     return IOMMU_ERR_DEV_NOT_FOUND;
@@ -247,68 +239,13 @@ struct vtd_domain *vtd_domains_get_by_cap(struct capref rootpt)
     if (err_is_fail(err)) {
         return NULL;
     }
-    struct vtd_domain *d =     domains_allocated;
-    while(d) {
-        if (d->ptroot_base == id.base) {
-            return d;
+
+    for (vtd_domid_t i = 1; i < domains_count; i++) {
+        if (domains_all[i]->ptroot_base == id.base) {
+            return domains_all[i];
         }
     }
 
     return NULL;
 }
 
-#if 0
-
-
-
-
-errval_t vtd_domains_remove_device()
-{
-
-
-    genpaddr_t pt = pml4_base(pml4);
-    if (pt == 0) return IOMMU_ERR_INVALID_CAP;
-
-    // Find the domain in the list of domains
-    struct vtd_domain *dom = NULL;
-    VTD_FOR_EACH(dom, domains->head) {
-        if (dom->pt_gp == pt) break;
-    }
-
-    if (dom == NULL) return IOMMU_ERR_DOM_NOT_FOUND;
-
-    errval_t err =  IOMMU_ERR_DEV_NOT_FOUND;
-
-    // Find the unit containing the device under its scope
-    struct vtd_unit *u = NULL;
-    VTD_FOR_EACH(u, dom->units) {
-        if (u->pci_seg == seg) {
-            vtd_context_entry_array_t *context_table = u->context_tables[bus];
-            uint8_t id = (dev << 3) | func;
-
-            // The device doesn't belong to this domain
-            if (!vtd_context_entry_p_extract(context_table[id])) {
-                return IOMMU_ERR_DEV_NOT_FOUND;
-            }
-
-            vtd_context_entry_p_insert(context_table[id], 0);
-            vtd_context_entry_t_insert(context_table[id], 0);
-            vtd_context_entry_slptptr_insert(context_table[id], 0);
-            vtd_context_entry_did_insert(context_table[id], 0);
-            vtd_context_entry_aw_insert(context_table[id], 0);
-
-            // After removing the devices, we perform a context-cache device-selective
-            // invalidation followed by an IOTLB domain-selective invalidation.
-            int sid = (bus << 16) | id;
-            vtd_context_cache_dev_inval(dom, sid, vtd_nomask);
-            vtd_iotlb_dom_inval(dom);
-
-            err = SYS_ERR_OK;
-        }
-    }
-
-    return err;
-};
-
-
-#endif

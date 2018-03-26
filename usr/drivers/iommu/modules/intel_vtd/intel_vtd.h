@@ -110,8 +110,14 @@ struct vtd_device {
     ///< the context table this device is mapped in
     struct vtd_ctxt_table  *ctxt_table;
 
+    ///< slot in the context table for this device
+    uint8_t                 ctxt_table_idx;
+
     ///< the protection domain of the device
     struct vtd_domain      *domain;
+
+    ///< pointer ot the next device of the domain
+    struct vtd_device      *domain_next;
 
 };
 
@@ -120,8 +126,6 @@ struct vtd_device {
  * @brief represents a protection domain of the VT-d unit
  */
 struct vtd_domain {
-    ///< linked list of allocated domains
-    struct vtd_domain           *next;
 
     ///< the domain id
     vtd_domid_t                 id;
@@ -132,17 +136,10 @@ struct vtd_domain {
     ///< the physical base address of the root page table
     lpaddr_t                    ptroot_base;
 
-    ///< list of mappings
-    struct vtd_domain_mapping  *devmappings;
+    ///< list of devices in this domain
+    struct vtd_device          *devices;
+
 };
-
-
-struct vtd_domain_mapping {
-    struct vtd_domain_mapping *next;
-    struct vtd_device         *dev;
-    struct vtd_domain         *domain;
-};
-
 
 
 #define vtd_ctxt_id_to_dev(idx) (idx >> 3)
@@ -224,16 +221,11 @@ struct vtd {
  * ===========================================================================
  */
 
+
 errval_t vtd_create(struct vtd *v, struct capref regs);
 errval_t vtd_destroy(struct vtd *v);
 errval_t vtd_set_root_table(struct vtd *vtd);
-errval_t vtd_lookup_by_device(uint8_t bus, uint8_t dev, uint8_t fun,
-                              uint16_t pciseg, struct vtd **vtd);
 
-
-
-errval_t vtd_get_ctxt_table_by_id(struct vtd *vtd, uint8_t idx,
-                                  struct vtd_ctxt_table **table);
 
 /*
  * ===========================================================================
@@ -241,13 +233,13 @@ errval_t vtd_get_ctxt_table_by_id(struct vtd *vtd, uint8_t idx,
  * ===========================================================================
  */
 
+
 errval_t vtd_root_table_create(struct vtd_root_table *rt, struct vtd *vtd);
 errval_t vtd_root_table_destroy(struct vtd_root_table *rt);
 struct vtd_ctxt_table *vtd_root_table_get_context_table(struct vtd_root_table *rt,
                                                         uint8_t idx);
 void vtd_root_table_set_context_table(struct vtd_root_table *rt,
-                                      uint8_t idx,
-                                      struct vtd_ctxt_table *ctx);
+                                      uint8_t idx, struct vtd_ctxt_table *ctx);
 
 
 /*
@@ -264,6 +256,9 @@ errval_t vtd_ctxt_table_map(struct vtd_root_table *rt, uint8_t idx,
 errval_t vtd_ctxt_table_unmap(struct vtd_ctxt_table *ctxt);
 bool vtd_ctxt_table_valid(struct vtd_ctxt_table *ct);
 
+errval_t vtd_ctxt_table_get_by_id(struct vtd * vtd, uint8_t idx,
+                                  struct vtd_ctxt_table ** table);
+
 
 /*
  * ===========================================================================
@@ -271,21 +266,14 @@ bool vtd_ctxt_table_valid(struct vtd_ctxt_table *ct);
  * ===========================================================================
  */
 
+
 errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
                            uint8_t dev, uint8_t fun,
                            struct vtd_device **rdev);
-
 errval_t vtd_device_destroy(struct vtd_device *dev);
 
 errval_t vtd_device_remove_from_domain(struct vtd_device *dev);
-errval_t vtd_device_add_to_domain(struct vtd_device *dev, struct vtd_domain *dom);
 struct vtd_domain *vtd_device_get_domain(struct vtd_device *dev);
-
-
-errval_t vtd_device_map(struct vtd_ctxt_table *ctxt, uint8_t idx,
-                        struct vtd_domain *dom,
-                        struct capref *mapping);
-errval_t vtd_device_unmap(struct vtd_ctxt_table *ctxt, struct capref mapping);
 
 
 /*
@@ -295,12 +283,24 @@ errval_t vtd_device_unmap(struct vtd_ctxt_table *ctxt, struct capref mapping);
  */
 
 errval_t vtd_domains_init(uint32_t max_domains);
+
+
+
 errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
                             struct vtd_domain **domain);
 errval_t vtd_domains_destroy(struct vtd_domain *domain);
 errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev);
 errval_t vtd_domains_remove_device(struct vtd_domain *d, struct vtd_device *dev);
 struct vtd_domain *vtd_domains_get_by_id(vtd_domid_t id);
+
+
+errval_t vtd_device_map(struct vtd_ctxt_table *ctxt, uint8_t idx,
+                        struct vtd_domain *dom,
+                        struct capref *mapping);
+errval_t vtd_device_unmap(struct vtd_ctxt_table *ctxt, struct capref mapping);
+
+
+
 struct vtd_domain *vtd_domains_get_by_cap(struct capref rootpt);
 
 
@@ -316,36 +316,6 @@ struct vtd_domain *vtd_domains_get_by_cap(struct capref rootpt);
 
 
 errval_t vtd_interrupt_remapping_init(struct vtd *vtd);
-
-
-
-
-
-
-static inline bool vtd_device_tlb_present(struct vtd *v)
-{
-    return v->capabilities.device_tlb;
-}
-
-static inline struct vtd *vtd_get_for_device(uint8_t bus, uint8_t dev,
-                                            uint8_t fun)
-{
-    return NULL;
-}
-
-
-static inline vtd_domid_t vtd_domains_get_id(struct vtd_domain *d)
-{
-    return d->id;
-}
-
-
-
-
-
-
-
-
 
 
 #endif /// INTEL_VTD_H_

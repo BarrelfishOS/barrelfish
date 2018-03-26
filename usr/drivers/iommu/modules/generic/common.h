@@ -98,9 +98,6 @@ struct iommu_device
     ///< the iommu binding
     struct iommu_binding   *binding;
 
-    ///< mapping cap of the root vnode into
-    struct capref           mappingcap;
-
     ///< the device address
     union iommu_devaddr addr;
 

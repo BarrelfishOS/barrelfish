@@ -13,6 +13,7 @@
 
 #include "intel_vtd.h"
 #include "intel_vtd_debug.h"
+#include "intel_vtd_iotlb.h"
 
 #define CTXT_CACHE_INVALIDATE_TIMEOUT 0x1000
 
@@ -41,6 +42,8 @@ static inline void vtd_ctxt_cache_invalidate(struct vtd *vtd)
     reg = vtd_CCMD_cirg_insert(reg, vtd_gir);
 
     vtd_ctxt_cache_do_invalidate(&vtd->vtd_dev, reg);
+
+    vtd_iotlb_invalidate(vtd);
 }
 
 
@@ -54,6 +57,8 @@ static inline void vtd_ctxt_cache_invalidate_domain(struct vtd *vtd,
     reg = vtd_CCMD_did_insert(reg, domid);
 
     vtd_ctxt_cache_do_invalidate(&vtd->vtd_dev, reg);
+
+    vtd_iotlb_invalidate_domain(vtd, domid);
 }
 
 
@@ -72,6 +77,8 @@ static inline void vtd_ctxt_cache_invalidate_device(struct vtd *vtd, uint8_t bus
     reg = vtd_CCMD_fm_insert(reg, vtd_nomask);
 
     vtd_ctxt_cache_do_invalidate(&vtd->vtd_dev, reg);
+
+    vtd_iotlb_invalidate_domain(vtd, domid);
 }
 
 

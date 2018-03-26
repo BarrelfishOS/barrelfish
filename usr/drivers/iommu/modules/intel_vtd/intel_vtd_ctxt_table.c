@@ -11,6 +11,7 @@
 #include <numa.h>
 
 #include "intel_vtd.h"
+#include "intel_vtd_ctxt_cache.h"
 
 
 errval_t vtd_ctxt_table_create(struct vtd_ctxt_table *ct, struct vtd *vtd)
@@ -136,6 +137,8 @@ errval_t vtd_ctxt_table_map(struct vtd_root_table *rt, uint8_t idx,
         return err;
     }
 
+    vtd_ctxt_cache_invalidate(rt->vtd);
+
     ctx->root_table = rt;
     ctx->root_table_idx = idx;
 
@@ -148,6 +151,8 @@ errval_t vtd_ctxt_table_map(struct vtd_root_table *rt, uint8_t idx,
 errval_t vtd_ctxt_table_unmap(struct vtd_ctxt_table *ct)
 {
     errval_t err;
+
+    INTEL_VTD_DEBUG_CTABLE("unmapping [%u]\n", ct->root_table_idx);
 
     struct vtd_root_table *rt = ct->root_table;
     assert(rt);
@@ -163,6 +168,8 @@ errval_t vtd_ctxt_table_unmap(struct vtd_ctxt_table *ct)
         return err;
     }
 
+    vtd_ctxt_cache_invalidate(rt->vtd);
+
     rt->ctxt_tables[ct->root_table_idx] = NULL;
 
     return SYS_ERR_OK;
@@ -172,4 +179,29 @@ errval_t vtd_ctxt_table_unmap(struct vtd_ctxt_table *ct)
 bool vtd_ctxt_table_valid(struct vtd_ctxt_table *ct)
 {
     return ct->root_table && !capref_is_null(ct->ctcap);
+}
+
+
+errval_t vtd_ctxt_table_get_by_id(struct vtd *vtd, uint8_t idx,
+                                  struct vtd_ctxt_table **table)
+{
+    errval_t err;
+
+    INTEL_VTD_DEBUG_CTABLE("get [%u]\n", idx);
+
+    if (!vtd_ctxt_table_valid(&vtd->ctxt_tables[idx])) {
+        err = vtd_ctxt_table_create(&vtd->ctxt_tables[idx], vtd);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        err = vtd_ctxt_table_map(&vtd->root_table, idx, &vtd->ctxt_tables[idx]);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    *table = &vtd->ctxt_tables[idx];
+
+    return SYS_ERR_OK;
 }

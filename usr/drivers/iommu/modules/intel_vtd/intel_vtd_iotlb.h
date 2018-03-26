@@ -51,29 +51,22 @@ static inline void vtd_iotlb_invalidate(struct vtd *vtd)
 }
 
 
-static inline void vtd_iotlb_invalidate_domain(struct vtd_domain *dom)
+static inline void vtd_iotlb_invalidate_domain(struct vtd *vtd, vtd_domid_t domid)
 {
-    INTEL_VTD_DEBUG_IOTLB("invalidate domain %u\n", dom->id);
+    INTEL_VTD_DEBUG_IOTLB("invalidate domain %u\n", domid);
 
-    struct vtd_domain_mapping *dm = dom->devmappings;
-    while(dm) {
-        struct vtd *vtd = (struct vtd *)dm->dev->dev.iommu;
+    // set domain invalidation
+    vtd_IOTLB_iirg_wrf(&vtd->vtd_dev, vtd_domir);
 
-        // set domain invalidation
-        vtd_IOTLB_iirg_wrf(&vtd->vtd_dev, vtd_domir);
+    // set the domain id field
+    vtd_IOTLB_did_wrf(&vtd->vtd_dev, domid);
 
-        // set the domain id field
-        vtd_IOTLB_did_wrf(&vtd->vtd_dev, dom->id);
+    // drain oustanding write and read requests
+    vtd_IOTLB_dw_wrf(&vtd->vtd_dev, 1);
+    vtd_IOTLB_dr_wrf(&vtd->vtd_dev, 1);
 
-        // drain oustanding write and read requests
-        vtd_IOTLB_dw_wrf(&vtd->vtd_dev, 1);
-        vtd_IOTLB_dr_wrf(&vtd->vtd_dev, 1);
-
-        // perform the invalidate
-        vtd_iotlb_do_invalidate(&vtd->vtd_dev);
-
-        dm = dm->next;
-    }
+    // perform the invalidate
+    vtd_iotlb_do_invalidate(&vtd->vtd_dev);
 }
 
 
@@ -86,9 +79,9 @@ static inline void vtd_iotlb_invalidate_page_attr(struct vtd_domain *dom,
     INTEL_VTD_DEBUG_IOTLB("invalidate address domain=%u, [%lx..%lx]\n",
                            dom->id, addr, addr + (1 << mask) - 1 );
 
-    struct vtd_domain_mapping *dm = dom->devmappings;
-    while(dm) {
-        struct vtd *vtd = (struct vtd *)dm->dev->dev.iommu;
+    struct vtd_device *dev = dom->devices;
+    while(dev) {
+        struct vtd *vtd = (struct vtd *)dev->dev.iommu;
 
         // set domain invalidation
          vtd_IOTLB_iirg_wrf(&vtd->vtd_dev, vtd_domir);
@@ -112,7 +105,7 @@ static inline void vtd_iotlb_invalidate_page_attr(struct vtd_domain *dom,
         // perform the invalidate
         vtd_iotlb_do_invalidate(&vtd->vtd_dev);
 
-        dm = dm->next;
+        dev = dev->domain_next;
     }
 }
 
