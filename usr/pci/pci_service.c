@@ -574,15 +574,13 @@ static void get_vf_pci_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_n
     assert(st != NULL);
     
     errval_t err, out_err;
-    PCI_DEBUG("Requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
-              bus, device, function);
 
     struct pci_address pci = {
         .bus = st->bus,
         .device =  st->dev,
         .function = st->fun
     };
-    
+   
     struct pci_address vf_addr;
 
     err = pci_get_vf_addr_of_device(pci, vf_num, &vf_addr);
@@ -591,6 +589,10 @@ static void get_vf_pci_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_n
         assert(err_is_ok(err));
         return;
     }
+
+ 
+    PCI_DEBUG("Requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
+              vf_addr.bus, vf_addr.device, vf_addr.function);
 
     struct capref cap;    
     err = slot_alloc(&cap);
