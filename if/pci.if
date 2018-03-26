@@ -44,6 +44,16 @@ interface pci "The PCI Interface" {
                        out cap cap,
                        out errval err);
 
+    rpc get_vf_iommu_endpoint_cap(in uint32 vf_num,
+                                  in uint8 type,
+                                  out cap cap,
+                                  out errval err);
+
+    rpc get_vf_pci_endpoint_cap(in uint32 vf_num,
+                                in uint8 type,
+                                out cap cap,
+                                out errval err);
+
     /* request an irq cap for a previously-initialised device */
     rpc get_irq_cap(in uint16 idx, out errval err, out cap cap);
 

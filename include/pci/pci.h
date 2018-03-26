@@ -46,8 +46,15 @@ errval_t pci_get_bar_caps_for_device(
         size_t *bars_len
         );
 
+// Virtual Functions
 errval_t pci_sriov_get_vf_bar_cap(uint32_t vf_num, uint8_t bar_num,
                                   struct capref* bar);
+
+// Gets the "Starting package" for a VF which would normally be handed over from Kaluga
+// Required to start Arrakis style Applications that use VFs
+errval_t pci_sriov_get_vf_resources(uint32_t vf_num, struct capref* regs, struct capref* irq,
+                                    struct capref* iommu_ep, struct capref* pci_ep);
+
 
 errval_t pci_parse_int_arg(int argc, char ** argv);
 

@@ -65,6 +65,61 @@ static bool bound;
 
 static collections_listnode* iommu_list;
 
+
+/*****************************************************************
+ * Helper functions:
+ *****************************************************************/
+
+static errval_t device_lookup_iommu_by_pci(uint16_t seg, uint8_t bus, uint8_t dev, 
+                                           uint8_t fun, uint32_t* index)
+{
+    /* find the device scope */
+    errval_t err;
+    uint32_t idx, type;
+
+    err = skb_execute_query("iommu_device(T,I, _, _, addr(%" PRIu16 ", "
+                            "%" PRIu8 ", %" PRIu8 ", %" PRIu8 "), _),"
+                            "write(u(T,I)).", seg, bus, dev, fun);
+    if (err_is_ok(err)) {
+        err = skb_read_output("u(%d,%d)", &type, &idx);
+        PCI_DEBUG("[pci] found device at iommu with idx %u\n", idx);
+
+        assert(err_is_ok(err));
+    }
+
+    PCI_DEBUG("[pci] look-up iommu by PCI segment with all flags\n");
+    err = skb_execute_query("iommu(T,I,1, %" PRIu16 "),write(u(T,I,1)).", seg);
+    if (err_is_fail(err)) {
+        PCI_DEBUG("[pci] look-up iommu by PCI segment\n");
+        err = skb_execute_query("iommu(T,I,F, %" PRIu16 "),write(u(T,I,F)).", seg);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to obtain iommu for PCI segment");
+            return IOMMU_ERR_IOMMU_NOT_FOUND;
+        }
+    }
+
+    uint32_t flags;
+    err = skb_read_output("u(%d,%d,%d)", &type, &idx, &flags);
+    assert(err_is_ok(err));
+    
+    *index = idx;
+    PCI_DEBUG("iommu_device_lookup_iommu_by_pci succeeded!\n");
+    return SYS_ERR_OK;
+}
+
+static int32_t find_index(void* elem, void* idx) {
+    assert(elem != NULL);
+    assert(idx != NULL);
+
+    struct iommu_client_state* st = (struct iommu_client_state*) elem;
+    uint32_t index = *((uint32_t*) idx);
+    if (index == st->index) {
+        return 1;
+    }
+    return 0;
+}
+
+
 /*****************************************************************
  * Event handlers:
  *****************************************************************/
@@ -280,6 +335,62 @@ static void get_vf_bar_cap_handler(struct pci_binding *b, uint32_t vf_num, uint3
     assert(err_is_ok(err));
 }
 
+
+static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_num, 
+                                              uint8_t type)
+
+{
+    struct client_state *st = b->st;
+    assert(st != NULL);
+    errval_t err, out_err;
+    
+    struct pci_address pci = {
+        .bus = st->bus,
+        .device =  st->dev,
+        .function = st->fun
+    };
+    
+    struct pci_address vf_addr;
+
+    err = pci_get_vf_addr_of_device(pci, vf_num, &vf_addr);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.get_vf_iommu_endpoint_cap_response(b, NOP_CONT, NULL_CAP, err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    uint32_t idx;
+    // TODO get segemnt correct, works with 0.
+    err = device_lookup_iommu_by_pci(0, vf_addr.bus, vf_addr.device, 
+                                     vf_addr.function, &idx);
+    if (err_is_fail(err)) {
+        goto reply;
+    }
+
+    struct capref cap;    
+    out_err = slot_alloc(&cap);
+    if (err_is_fail(out_err)) {
+        goto reply;
+    }
+    
+    struct iommu_client_state* cl = collections_list_find_if(iommu_list, find_index, 
+                                                             &idx);
+    if (cl == NULL) {
+        goto reply;
+    }
+
+    err = cl->b->rpc_tx_vtbl.request_iommu_endpoint(cl->b,type, 0, vf_addr.bus, vf_addr.device, 
+                                                    vf_addr.function, &cap, &out_err);
+    if (err_is_ok(err)) {
+       goto reply;
+    }
+    
+reply:
+    err = b->tx_vtbl.get_vf_iommu_endpoint_cap_response(b, NOP_CONT, cap, out_err);
+    assert(err_is_ok(err));
+    slot_free(cap);
+}
+
 /*
 static void get_vbe_bios_cap(struct pci_binding *b)
 {
@@ -432,11 +543,16 @@ static void sriov_enable_vf_handler(struct pci_binding* b, uint32_t vf_num)
     assert(err_is_ok(err));
 }
 
+static void get_vf_pci_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_num, 
+                                            uint8_t type);
+
 struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
     .get_bar_cap_call = get_bar_cap_handler,
     .get_vf_bar_cap_call = get_vf_bar_cap_handler,
+    .get_vf_iommu_endpoint_cap_call = get_vf_iommu_endpoint_cap_handler,
+    .get_vf_pci_endpoint_cap_call = get_vf_pci_endpoint_cap_handler,
     .get_irq_cap_call = get_irq_cap_handler,
     .reregister_interrupt_call = reregister_interrupt_handler,
     //.get_vbe_bios_cap_call = get_vbe_bios_cap,
@@ -449,6 +565,59 @@ struct pci_rx_vtbl pci_rx_vtbl = {
     .msix_vector_init_call = msix_vector_init_handler,
     .msix_vector_init_addr_call = msix_vector_init_addr_handler,
 };
+
+static void get_vf_pci_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_num, 
+                                            uint8_t type)
+
+{
+    struct client_state *st = b->st;
+    assert(st != NULL);
+    
+    errval_t err, out_err;
+    PCI_DEBUG("Requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
+              bus, device, function);
+
+    struct pci_address pci = {
+        .bus = st->bus,
+        .device =  st->dev,
+        .function = st->fun
+    };
+    
+    struct pci_address vf_addr;
+
+    err = pci_get_vf_addr_of_device(pci, vf_num, &vf_addr);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.get_vf_pci_endpoint_cap_response(b, NOP_CONT, NULL_CAP, err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    struct capref cap;    
+    err = slot_alloc(&cap);
+    assert(err_is_ok(err));
+
+    struct pci_binding* pci_b;
+    struct client_state* state = (struct client_state*) 
+                                  calloc(1, sizeof(struct client_state));
+
+    out_err = pci_create_endpoint(type, &pci_rx_vtbl, state,
+                                  get_default_waitset(),
+                                  IDC_ENDPOINT_FLAGS_DUMMY,
+                                  &pci_b, cap);
+    if (err_is_fail(out_err)) {
+        goto reply;
+    }
+    pci_rpc_client_init(pci_b);
+
+    state->bus = vf_addr.bus;
+    state->dev = vf_addr.device;
+    state->fun = vf_addr.function;
+    pci_b->st = state;
+
+reply:
+    err = b->tx_vtbl.get_vf_pci_endpoint_cap_response(b, NOP_CONT, cap, out_err);
+    assert(err_is_ok(err));
+}
 
 static void export_callback(void *st, errval_t err, iref_t iref)
 {
@@ -550,56 +719,6 @@ static void request_endpoint_cap_for_iommu_handler(struct kaluga_binding* b, uin
     err = b->tx_vtbl.request_endpoint_cap_for_iommu_response(b, NOP_CONT, cap, err);
     assert(err_is_ok(err));
 }
-
-static errval_t device_lookup_iommu_by_pci(uint16_t seg, uint8_t bus, uint8_t dev, 
-                                           uint8_t fun, uint32_t* index)
-{
-    /* find the device scope */
-    errval_t err;
-    uint32_t idx, type;
-
-    err = skb_execute_query("iommu_device(T,I, _, _, addr(%" PRIu16 ", "
-                            "%" PRIu8 ", %" PRIu8 ", %" PRIu8 "), _),"
-                            "write(u(T,I)).", seg, bus, dev, fun);
-    if (err_is_ok(err)) {
-        err = skb_read_output("u(%d,%d)", &type, &idx);
-        PCI_DEBUG("[iommu] found device at iommu with idx %u\n", idx);
-
-        assert(err_is_ok(err));
-    }
-
-    PCI_DEBUG("[iommu] look-up iommu by PCI segment with all flags\n");
-    err = skb_execute_query("iommu(T,I,1, %" PRIu16 "),write(u(T,I,1)).", seg);
-    if (err_is_fail(err)) {
-        PCI_DEBUG("[iommu] look-up iommu by PCI segment\n");
-        err = skb_execute_query("iommu(T,I,F, %" PRIu16 "),write(u(T,I,F)).", seg);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to obtain iommu for PCI segment");
-            return IOMMU_ERR_IOMMU_NOT_FOUND;
-        }
-    }
-
-    uint32_t flags;
-    err = skb_read_output("u(%d,%d,%d)", &type, &idx, &flags);
-    assert(err_is_ok(err));
-    
-    *index = idx;
-    PCI_DEBUG("iommu_device_lookup_iommu_by_pci succeeded!\n");
-    return SYS_ERR_OK;
-}
-
-static int32_t find_index(void* elem, void* idx) {
-    assert(elem != NULL);
-    assert(idx != NULL);
-
-    struct iommu_client_state* st = (struct iommu_client_state*) elem;
-    uint32_t index = *((uint32_t*) idx);
-    if (index == st->index) {
-        return 1;
-    }
-    return 0;
-}
-
 
 static void request_iommu_endpoint_cap_handler(struct kaluga_binding* b, uint8_t type, 
                                                uint32_t segment,

@@ -540,6 +540,65 @@ errval_t pci_sriov_get_vf_bar_cap(uint32_t vf_num, uint8_t bar_num,
     return err_is_fail(err) ? err : msgerr;
 }
 
+errval_t pci_sriov_get_vf_resources(uint32_t vf_num, struct capref* regs, struct capref* irq,
+                                    struct capref* iommu_ep, struct capref* pci_ep)
+{
+    errval_t err, msgerr;
+
+    // BAR0 registers
+    err = slot_alloc(regs);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = pci_client->rpc_tx_vtbl.get_vf_bar_cap(pci_client, vf_num, 0, 
+                                                 regs, &msgerr);
+    if (err_is_fail(err) || err_is_fail(msgerr)) {
+        slot_free(*regs);
+        return err_is_fail(err) ? err : msgerr;
+    }
+
+    // IOMMU endpoint
+    err = slot_alloc(iommu_ep);
+    if (err_is_fail(err)) {
+        slot_free(*regs);
+        return err;
+    }
+
+    //XXX Assumes iommu driver on core 0
+    err = pci_client->rpc_tx_vtbl.get_vf_iommu_endpoint_cap(pci_client, vf_num, 
+                                     (disp_get_core_id() == 0) ? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP,
+                                     iommu_ep, &msgerr);
+    if (err_is_fail(err) || err_is_fail(msgerr)) {
+        slot_free(*regs);
+        slot_free(*iommu_ep);
+        return err_is_fail(err) ? err : msgerr;
+    }
+     
+    // PCI endpoint
+    err = slot_alloc(pci_ep);
+    if (err_is_fail(err)) {
+        slot_free(*regs);
+        slot_free(*iommu_ep);
+        return err;
+    }
+   
+    //XXX Assumes iommu driver on core 0
+    err = pci_client->rpc_tx_vtbl.get_vf_pci_endpoint_cap(pci_client, vf_num, 
+                                     (disp_get_core_id() == 0) ? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP,
+                                     iommu_ep, &msgerr);
+    if (err_is_fail(err) || err_is_fail(msgerr)) {
+        slot_free(*regs);
+        slot_free(*iommu_ep);
+        slot_free(*pci_ep);
+        return err_is_fail(err) ? err : msgerr;
+    }
+
+    
+    // TODO irq cap
+    return SYS_ERR_OK;
+}
+
 errval_t pci_read_conf_header(uint32_t dword, uint32_t *val)
 {
     errval_t err, msgerr;
