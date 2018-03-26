@@ -246,9 +246,55 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
                             uint8_t objtype)
 {
     errval_t err;
+
+    struct capref retcap = NULL_CAP;
+    struct frame_identity id;
+
     IOMMU_SVC_DEBUG("%s", __FUNCTION__);
-    err = ib->tx_vtbl.retype_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED,
-                                      NULL_CAP);
+
+    switch(objtype) {
+        case ObjType_VNode_x86_64_ptable :
+        case ObjType_VNode_x86_64_pdir :
+        case ObjType_VNode_x86_64_pdpt :
+        case ObjType_VNode_x86_64_pml4 :
+        case ObjType_VNode_x86_64_pml5 :
+
+            err = invoke_frame_identify(src, &id);
+            if (err_is_fail(err)) {
+                goto send_reply;
+            }
+
+            /* we should be the only one that has it */
+            err = cap_revoke(src);
+            if (err_is_fail(err)) {
+                goto send_reply;
+            }
+            err = slot_alloc(&retcap);
+            if (err_is_fail(err)) {
+                goto send_reply;
+            }
+
+            err = cap_retype(retcap, src, 0, objtype, 11, 1);
+            if (err_is_fail(err)) {
+                slot_free(retcap);
+                retcap = src;
+                goto send_reply;
+            }
+
+            /*
+             * TODO: mint to readonly & store original
+             */
+
+            /* delete the source cap */
+            cap_destroy(src);
+
+            break;
+        default:
+            err = SYS_ERR_VNODE_TYPE;
+
+    }
+    send_reply:
+    err = ib->tx_vtbl.retype_response(ib, NOP_CONT, err, retcap);
     assert(err_is_ok(err)); /* should not fail */
 }
 
