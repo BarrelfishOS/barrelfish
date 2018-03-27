@@ -126,6 +126,11 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
     return frame_alloc(retcap, bytes, NULL);
 }
 
+#define MAPPING_REGION_START (512UL << 31)
+#define MAPPING_REGION_SIZE (512UL << 30)
+
+static lvaddr_t vregion_map_base = MAPPING_REGION_START;
+
 /*
  * returns a region of memory
  */
@@ -134,7 +139,21 @@ static inline errval_t iommu_alloc_vregion(struct iommu_client *st,
                                            lvaddr_t *driver,
                                            dmem_daddr_t *device)
 {
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err;
+    struct frame_identity id;
+    err = invoke_frame_identify(mem, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    assert(id.bytes >= LARGE_PAGE_SIZE);
+
+    *driver = vregion_map_base;
+    *device = vregion_map_base;
+
+    vregion_map_base += id.bytes;
+
+    return SYS_ERR_OK;
 }
 
 static inline errval_t iommu_free_vregion(struct iommu_client *st,
@@ -156,9 +175,9 @@ static inline errval_t iommu_get_mapping_region(struct iommu_client *cl,
                                                 dmem_daddr_t *end,
                                                 uint16_t *rootvnodeslot)
 {
-    *start = (512UL << 30);
-    *end = *start + (512UL << 30) - 1;
-    *rootvnodeslot = 1;
+    *start = MAPPING_REGION_START;
+    *end = MAPPING_REGION_START + MAPPING_REGION_SIZE - 1;
+    *rootvnodeslot = 2;
     return SYS_ERR_OK;
 }
 
@@ -198,8 +217,11 @@ static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl)
             return SYS_ERR_VNODE_TYPE;
     }
 
-    size_t l3_vnode_children =(1UL << (vnode_objbits(l3_vnode_type) -
-                                       vnode_entry_bits(l3_vnode_type)));
+    size_t l3_vnode_children =(1UL << vnode_entry_bits(l3_vnode_type));
+
+    debug_printf("l3_vnode_children=%zu (%u - %zu)\n", l3_vnode_children,
+                 vnode_objbits(l3_vnode_type),
+                 vnode_entry_bits(l3_vnode_type));
 
     /* XXX: this should be 512 based on our assumptions */
     assert(l3_vnode_children == 512);
@@ -388,11 +410,12 @@ errval_t driverkit_iommu_client_init_cl(struct capref ep, struct iommu_client **
     err = icl->binding->rpc_tx_vtbl.getvmconfig(icl->binding, &msgerr, &type,
                                                 &bits);
     if (err_is_fail(err)) {
-        driverkit_iommu_client_disconnect_cl(icl);
+        DEBUG_ERR(err, "failed to send the message\n");
         goto err_out;
     }
 
     if (err_is_fail(msgerr)) {
+        DEBUG_ERR(msgerr, "reply failed\n");
         err = msgerr;
         goto err_out;
     }
@@ -405,11 +428,14 @@ errval_t driverkit_iommu_client_init_cl(struct capref ep, struct iommu_client **
     err = driverkit_iommu_alloc_vnode_cl(icl, icl->root_vnode_type,
                                          &icl->rootvnode);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "vnode alloc failed\n");
         goto err_out;
     }
 
     err = driverkit_iommu_set_root_vnode(icl, icl->rootvnode);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "set root vnode failed\n");
+
         /* make use of the capability protocol to release the resources */
         cap_revoke(icl->rootvnode);
         cap_destroy(icl->rootvnode);
@@ -506,6 +532,7 @@ errval_t driverkit_iommu_client_connect_cl(struct capref ep,
     icl->binding = NULL;
     icl->error = SYS_ERR_OK;
     icl->root_vnode_type = ObjType_Null;
+    icl->policy = IOMMU_VSPACE_POLICY_MIRROR;
 
     err = iommu_bind_to_endpoint(ep, iommu_bind_cb, icl,  icl->waitset ,
                                  IDC_BIND_FLAG_RPC_CAP_TRANSFER);
@@ -678,9 +705,13 @@ errval_t driverkit_iommu_set_root_vnode(struct iommu_client *cl,
         return err;
     }
 
+    if (err_is_fail(msgerr)) {
+        return msgerr;
+    }
+
     cl->rootvnode = rootvnode;
 
-    return msgerr;
+    return SYS_ERR_OK;
 }
 
 
@@ -848,6 +879,8 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
 {
     errval_t err;
 
+    debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
+
     struct frame_identity id;
     err = invoke_frame_identify(frame, &id);
     if (err_is_fail(err)) {
@@ -865,15 +898,13 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         return err;
     }
 
-    if (cl == NULL) {
-        err = vspace_map_one_frame_fixed_attr(dmem->vbase, dmem->size,
-                                              dmem->mem, flags, NULL, NULL);
-    }
     /*
      * if driver vbase is null, then we map it at any address in the driver's
      * vspace. Only if the policy is not shared, then we have to map it.
      */
-    if (cl->policy != IOMMU_VSPACE_POLICY_SHARED) {
+    if (cl == NULL || cl->policy != IOMMU_VSPACE_POLICY_SHARED) {
+        debug_printf("%s:%u mapping in driver at 0x%" PRIxLVADDR "\n",
+                     __FUNCTION__, __LINE__, dmem->vbase);
         if (dmem->vbase == 0) {
             err = vspace_map_one_frame_attr((void **)&dmem->vbase, dmem->size,
                                             dmem->mem, flags, NULL, NULL);
@@ -887,6 +918,9 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         }
     }
 
+    assert(dmem->vbase);
+    assert(dmem->devaddr);
+
     /* allocate the vnodes */
     struct iommu_vnode_l2 *vnode;
     uint64_t slot;
@@ -896,6 +930,8 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     }
 
     /* map the vnodes */
+    debug_printf("%s:%u mapping in device address space 0x%" PRIxGENVADDR "\n",
+                 __FUNCTION__, __LINE__, dmem->devaddr);
 
     err = driverkit_iommu_map(cl, vnode->vnode, slot, dmem->mem);
     if (err_is_fail(err)) {
@@ -905,7 +941,10 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     return SYS_ERR_OK;
 
     err_out2:
-    vspace_unmap((void *)dmem->vbase);
+    if (cl == NULL || cl->policy != IOMMU_VSPACE_POLICY_SHARED) {
+        vspace_unmap((void *)dmem->vbase);
+    }
+
     err_out:
     iommu_free_vregion(cl, dmem->vbase, dmem->devaddr);
     return err;
@@ -984,9 +1023,11 @@ errval_t driverkit_iommu_vspace_modify_flags(struct dmem *dmem,
 errval_t driverkit_iommu_alloc_frame(struct iommu_client *cl, size_t bytes,
                                      struct capref *retframe)
 {
-    if (cl == NULL) {   
+    if (cl == NULL) {
+        debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
         return frame_alloc(retframe, bytes, NULL);
     } else {
+        debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
         return iommu_alloc_ram_for_frame(cl, bytes, retframe);
     }
 }
@@ -1066,6 +1107,8 @@ errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
                                  vregion_flags_t flags, struct dmem *mem)
 {
     errval_t err;
+
+    debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
 
     err = driverkit_iommu_alloc_frame(cl, bytes, &mem->mem);
     if (err_is_fail(err)) {
