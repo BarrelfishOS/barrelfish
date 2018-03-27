@@ -265,6 +265,9 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
                 goto send_reply;
             }
 
+            IOMMU_SVC_DEBUG("%s retype 0x%" PRIxGENPADDR " to %d\n", __FUNCTION__,
+                             id.base, objtype);
+
             /* we should be the only one that has it */
             err = cap_revoke(src);
             if (err_is_fail(err)) {

@@ -18,6 +18,8 @@ static errval_t vtd_device_set_root_vnode(struct iommu_device *idev,
 {
     errval_t err;
 
+    assert(idev);
+
     INTEL_VTD_DEBUG_DEVICES("setting root vnode for %u.%u.%u\n",
                             idev->addr.pci.bus, idev->addr.pci.device,
                             idev->addr.pci.function);

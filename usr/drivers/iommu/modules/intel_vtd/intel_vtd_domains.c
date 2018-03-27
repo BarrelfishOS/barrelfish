@@ -55,11 +55,10 @@ errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
 {
     errval_t err;
 
-    INTEL_VTD_DEBUG("[domains] create new\n");
-
     vtd_domid_t slot = 0;
 
     if (domains_free == 0) {
+        INTEL_VTD_DEBUG_DOMAINS("cannot create new domains, no free domain IDs \n");
         return IOMMU_ERR_DOM_FULL;
     }
 
@@ -68,6 +67,9 @@ errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
     if (err_is_fail(err)) {
         return err_push(err, IOMMU_ERR_INVALID_CAP);
     }
+
+    INTEL_VTD_DEBUG_DOMAINS("create new domain with 0x%" PRIxGENPADDR "\n",
+                            id.base);
 
     switch(id.type) {
         case ObjType_VNode_x86_64_pml4:
@@ -85,19 +87,19 @@ errval_t vtd_domains_create(struct vtd *vtd, struct capref rootpt,
 
     for (vtd_domid_t i = 1;  i < domains_count; i++) {
         if (domains_all[i] == NULL) {
-            domains_all[slot] = dom;
             slot = i;
-            domains_free--;
             break;
         }
     }
 
-    if (domains_all[slot] != dom) {
+    if (slot == 0) {
         free(dom);
         return IOMMU_ERR_DOM_FULL;
     }
 
-    assert(slot != 0);
+
+    domains_all[slot] = dom;
+    domains_free--;
 
     INTEL_VTD_DEBUG_DOMAINS("allocated domain id %u with pt 0x%" PRIxGENPADDR "\n",
                             slot, id.base);
