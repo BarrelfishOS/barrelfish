@@ -199,7 +199,7 @@ static errval_t vtd_parse_capabilities(struct vtd *vtd)
                         vtd->capabilities.paging_5_level ? "57-bits" : "");
     if (vtd->capabilities.paging_5_level) {
         vtd->iommu.root_vnode_type = ObjType_VNode_x86_64_pml5;
-    } else if (vtd->capabilities.paging_5_level) {
+    } else if (vtd->capabilities.paging_4_level) {
         vtd->iommu.root_vnode_type = ObjType_VNode_x86_64_pml4;
     } else {
         vtd->iommu.root_vnode_type = ObjType_VNode_x86_64_pdpt;

@@ -148,20 +148,13 @@ static inline errval_t iommu_retype_read_only(struct capref src, enum objtype ty
     return SYS_ERR_OK;
 }
 
-/**
- * @brief obtains the writable version of the cap
- *
- * @param in    the readonly cap
- * @param out   the writable version
- *
- * @return SYS_ERR_OK on success, errval on failure
- */
-static inline errval_t iommu_get_writable_vnode(struct capref in,
-                                                struct capref *out)
+struct vnodest
 {
-    *out = in;
-    return SYS_ERR_OK;
-}
+    struct vnodest *next;
+    struct vnode_identity id;
+    struct capref cap;
+};
+
 
 
 errval_t iommu_service_new_endpoint(struct capref ep, struct iommu_device *dev,

@@ -197,6 +197,84 @@ static void remove_device(struct iommu_binding *b, struct capref rootpt,
 
 #define IOMMU_SVC_DEBUG(x...) debug_printf("[iommu] [svc] " x)
 
+
+
+static struct vnodest *vnodes_pml4;
+static struct vnodest *vnodes_pdpt;
+static struct vnodest *vnodes_pdir;
+
+
+
+/**
+ * @brief obtains the writable version of the cap
+ *
+ * @param in    the readonly cap
+ * @param out   the writable version
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+static inline errval_t iommu_get_writable_vnode(struct vnode_identity id,
+                                                struct capref *out)
+{
+    struct vnodest *vn;
+    switch(id.type) {
+        case ObjType_VNode_x86_64_pml4 :
+            vn = vnodes_pml4;
+            break;
+        case ObjType_VNode_x86_64_pdpt :
+            vn = vnodes_pdpt;
+            break;
+        case ObjType_VNode_x86_64_pdir :
+            vn = vnodes_pdir;
+            break;
+        default:
+            return SYS_ERR_VNODE_TYPE;
+    }
+
+    while(vn) {
+        if (vn->id.type == id.type && vn->id.base == id.base) {
+            *out = vn->cap;
+            return SYS_ERR_OK;
+        }
+        vn = vn->next;
+    }
+
+    return SYS_ERR_CAP_NOT_FOUND;
+}
+
+static inline errval_t iommu_put_writable_vnode(struct vnode_identity id,
+                                                struct capref in)
+{
+    struct vnodest *vn = calloc(1, sizeof(*vn));
+    if (vn == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    vn->cap = in;
+    vn->id = id;
+
+    switch(id.type) {
+        case ObjType_VNode_x86_64_pml4 :
+            vn->next = vnodes_pml4;
+            vnodes_pml4 = vn;
+            break;
+        case ObjType_VNode_x86_64_pdpt :
+            vn->next = vnodes_pdpt;
+            vnodes_pdpt = vn;
+            break;
+        case ObjType_VNode_x86_64_pdir :
+            vn->next = vnodes_pdir;
+            vnodes_pdir = vn;
+            break;
+        default:
+            return SYS_ERR_VNODE_TYPE;
+    }
+
+    return SYS_ERR_OK;
+}
+
+
+
 /*
  * ===========================================================================
  * Receive Handlers of the servie
@@ -226,6 +304,29 @@ static void setroot_request(struct iommu_binding *ib, struct capref src)
 
     IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
+    struct vnode_identity id;
+    err = invoke_vnode_identify(src, &id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed");
+    }
+    switch(id.type) {
+        case ObjType_VNode_x86_64_pml4 :
+            IOMMU_SVC_DEBUG("%s. PML4 @ 0x%lx as root vnode\n", __FUNCTION__, id.base);
+            break;
+        case ObjType_VNode_x86_64_pdpt :
+            IOMMU_SVC_DEBUG("%s. PDPT @ 0x%lx as root vnode\n", __FUNCTION__, id.base);
+            break;
+        case ObjType_VNode_x86_64_pdir :
+            IOMMU_SVC_DEBUG("%s. PDIR @ 0x%lx as root vnode\n", __FUNCTION__, id.base);
+            break;
+        case ObjType_VNode_VTd_ctxt_table :
+            IOMMU_SVC_DEBUG("%s. CTXT @ 0x%lx as root vnode\n", __FUNCTION__, id.base );
+            break;
+    }
+
+
+
+
     struct iommu_device *idev = ib->st;
     assert(idev);
     assert(idev->iommu);
@@ -248,7 +349,9 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
     errval_t err;
 
     struct capref retcap = NULL_CAP;
+    struct capref vnode = NULL_CAP;
     struct frame_identity id;
+   // struct event_closure cont = NOP_CONT;
 
     IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
@@ -276,25 +379,40 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
             }
 
             /* allocate slot to store the new cap */
+            err = slot_alloc(&vnode);
+            if (err_is_fail(err)) {
+                err = err_push(err, LIB_ERR_SLOT_ALLOC);
+                goto out_err;
+            }
+
+            /* allocate slot to store readonly version of the cap */
             err = slot_alloc(&retcap);
             if (err_is_fail(err)) {
                 err = err_push(err, LIB_ERR_SLOT_ALLOC);
-                retcap = src;
-                goto send_reply;
+                goto out_err2;
             }
 
             /* retype it to a page table */
-            err = cap_retype(retcap, src, 0, objtype, id.bytes, 1);
+            err = cap_retype(vnode, src, 0, objtype, vnode_objsize(objtype), 1);
             if (err_is_fail(err)) {
                 err = err_push(err, LIB_ERR_CAP_RETYPE);
-                slot_free(retcap);
-                retcap = src;
-                goto send_reply;
+                goto out_err2;
             }
 
-            /*
-             * TODO: mint to readonly & store original
-             */
+            struct vnode_identity vid;
+            err = invoke_vnode_identify(vnode, &vid);
+            assert(err_is_ok(err)); /// should not fail
+
+            err = cap_mint(retcap, vnode, 0x0, 0x0);
+            if (err_is_fail(err)) {
+                goto out_err3;
+            }
+
+            err = iommu_put_writable_vnode(vid, vnode);
+            if(err_is_fail(err)) {
+                err = err_push(err, LIB_ERR_CAP_RETYPE);
+                goto out_err4;
+            }
 
             /* delete the source cap */
             cap_destroy(src);
@@ -304,9 +422,27 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
             err = SYS_ERR_VNODE_TYPE;
 
     }
+
     send_reply:
     err = ib->tx_vtbl.retype_response(ib, NOP_CONT, err, retcap);
     assert(err_is_ok(err)); /* should not fail */
+
+    /*
+     * TODO: Free the return cap!
+     */
+
+    return;
+
+    out_err4:
+    cap_destroy(retcap);
+    out_err3:
+    cap_destroy(vnode);
+    out_err2:
+    slot_free(retcap);
+    out_err:
+    slot_free(vnode);
+    retcap = src;
+    goto send_reply;
 }
 
 
@@ -314,10 +450,30 @@ static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
                         uint16_t slot, struct capref src, uint16_t attr)
 {
     errval_t err;
-    IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
+
+    struct vnode_identity id;
+    err = invoke_vnode_identify(vnode_ro, &id);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    switch(id.type) {
+        case ObjType_VNode_x86_64_pml4 :
+            IOMMU_SVC_DEBUG("%s. PML4 @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot);
+            break;
+        case ObjType_VNode_x86_64_pdpt :
+            IOMMU_SVC_DEBUG("%s. PDPT @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot );
+            break;
+        case ObjType_VNode_x86_64_pdir :
+            IOMMU_SVC_DEBUG("%s. PDIR @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot);
+            break;
+        case ObjType_VNode_VTd_ctxt_table :
+            IOMMU_SVC_DEBUG("%s. CTXT @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot );
+            break;
+    }
 
     struct capref vnode;
-    err = iommu_get_writable_vnode(vnode_ro, &vnode);
+    err = iommu_get_writable_vnode(id, &vnode);
     if(err_is_fail(err)) {
         goto out;
     }
@@ -345,8 +501,29 @@ static void unmap_request(struct iommu_binding *ib, struct capref vnode_ro,
     errval_t err;
     IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
+    struct vnode_identity id;
+    err = invoke_vnode_identify(vnode_ro, &id);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    switch(id.type) {
+        case ObjType_VNode_x86_64_pml4 :
+            IOMMU_SVC_DEBUG("%s. PML4 @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot);
+            break;
+        case ObjType_VNode_x86_64_pdpt :
+            IOMMU_SVC_DEBUG("%s. PDPT @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot );
+            break;
+        case ObjType_VNode_x86_64_pdir :
+            IOMMU_SVC_DEBUG("%s. PDIR @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot);
+            break;
+        case ObjType_VNode_VTd_ctxt_table :
+            IOMMU_SVC_DEBUG("%s. CTXT @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot );
+            break;
+    }
+
     struct capref vnode;
-    err = iommu_get_writable_vnode(vnode_ro, &vnode);
+    err = iommu_get_writable_vnode(id, &vnode);
     if(err_is_fail(err)) {
         goto out;
     }
@@ -368,12 +545,33 @@ static void modify_request(struct iommu_binding *ib, struct capref vnode_ro,
     errval_t err;
     IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
-    struct capref vnode;
-    err = iommu_get_writable_vnode(vnode_ro, &vnode);
-    if(err_is_fail(err)) {
+
+    struct vnode_identity id;
+    err = invoke_vnode_identify(vnode_ro, &id);
+    if (err_is_fail(err)) {
         goto out;
     }
 
+    switch(id.type) {
+        case ObjType_VNode_x86_64_pml4 :
+            IOMMU_SVC_DEBUG("%s. PML4 @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot);
+            break;
+        case ObjType_VNode_x86_64_pdpt :
+            IOMMU_SVC_DEBUG("%s. PDPT @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot );
+            break;
+        case ObjType_VNode_x86_64_pdir :
+            IOMMU_SVC_DEBUG("%s. PDIR @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot);
+            break;
+        case ObjType_VNode_VTd_ctxt_table :
+            IOMMU_SVC_DEBUG("%s. CTXT @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot );
+            break;
+    }
+
+    struct capref vnode;
+    err = iommu_get_writable_vnode(id, &vnode);
+    if(err_is_fail(err)) {
+        goto out;
+    }
     err = invoke_vnode_modify_flags(vnode, slot, 1, attr);
 
     out:
