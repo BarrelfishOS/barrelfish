@@ -16,6 +16,7 @@
 
 struct vf_state;
 struct e10k_queue;
+struct iommu_client;
 
 
  /*
@@ -69,5 +70,7 @@ bool e10k_vf_can_create_queue(void);
   * @returns SYS_ERR_OK on success otherwise failter
   */
 errval_t e10k_vf_init_queue_hw(struct e10k_queue* q);
+
+struct iommu_client* e10k_vf_get_iommu_client(void);
 
 #endif

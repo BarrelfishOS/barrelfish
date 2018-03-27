@@ -138,6 +138,7 @@ struct e10k_driver_state {
 
     /* VFs alloacation data*/
     bool vf_used[64];
+    struct iommu_client* iommu;
 
     // transmittion rate limiting
     uint16_t credit_refill[128];
@@ -1699,26 +1700,14 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     memset(st->tx_rate, 0, sizeof(st->tx_rate));
 
     parse_cmdline(st, bfi->argc, bfi->argv);
-    
-    err = driverkit_iommu_client_init(NULL_CAP);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    if (driverkit_iommu_present(NULL)) {
+ 
+    struct capref devcap = NULL_CAP;
+    err = driverkit_get_iommu_cap(bfi, &devcap);
+    if (!capref_is_null(devcap) && err_is_ok(err)) {
         DEBUG("VTD-Enabled initializing with VFs enabled \n");
         st->vtdon_dcboff = true;
 
-        struct capref devcap = NULL_CAP;
-        err = driverkit_get_iommu_cap(bfi, &devcap);
-        assert(err_is_ok(err));
-
-        err = driverkit_iommu_create_domain(cap_vroot, devcap);
-        if (err_is_fail(err)) {
-            return err;
-        }
-
-        err = driverkit_iommu_add_device(cap_vroot, devcap);
+        err = driverkit_iommu_client_init_cl(devcap, &st->iommu);
         if (err_is_fail(err)) {
             return err;
         }
@@ -1727,8 +1716,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
         // When started by Kaluga it handend off an endpoint cap to Kaluga
         err = driverkit_get_pci_cap(bfi, &cap);
         assert(err_is_ok(err));
-
-        assert(!capcmp(cap, NULL_CAP));
+        assert(!capref_is_null(cap));
     
         debug_printf("Connect to PCI\n");
         err = pci_client_connect_ep(cap);

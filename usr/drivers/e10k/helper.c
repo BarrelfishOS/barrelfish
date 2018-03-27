@@ -13,6 +13,7 @@
 #include <stdint.h>
 
 #include <skb/skb.h>
+#include <driverkit/iommu.h>
 
 
 /* Dump bytes of memory region to stdout */
@@ -26,26 +27,18 @@ void debug_dumpmem(void* buf, size_t len)
 }
 
 /* allocate a single frame, mapping it into our vspace with given attributes */
-void* alloc_map_frame(vregion_flags_t attr, size_t size, struct capref *retcap)
+errval_t alloc_map_frame(struct iommu_client* cl, vregion_flags_t attr, size_t size, 
+                         struct dmem* mem)
 {
-    struct capref frame;
-    errval_t r;
+    errval_t err;
 
-    r = frame_alloc(&frame, size, NULL);
-    assert(err_is_ok(r));
-    void *va;
-    r = vspace_map_one_frame_attr(&va, size, frame, attr,
-                                  NULL, NULL);
-    if (err_is_fail(r)) {
-        DEBUG_ERR(r, "vspace_map_one_frame failed");
-        return NULL;
+    err = driverkit_iommu_mmap_cl(cl, size, attr, mem);
+    if (err_is_fail(err)) {
+        slot_free(mem->mem);
+        return err;
     }
 
-    if (retcap != NULL) {
-        *retcap = frame;
-    }
-
-    return va;
+    return SYS_ERR_OK;
 }
 
 /* Get APIC id for specified core */

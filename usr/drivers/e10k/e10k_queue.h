@@ -41,18 +41,19 @@ struct e10k_queue_rxctx {
 
 struct region_entry {
     uint32_t rid;
-    lpaddr_t phys;
-    lvaddr_t virt;
-    size_t size;
-    struct capref cap;
+    struct dmem mem;
     struct region_entry* next;
 };
 
 struct e10k_queue {
     struct devq q;
 
-    // queue info
+    // registers
     void* d;
+    struct capref                   regs;
+    struct dmem                     reg_mem;
+
+    // queue info
     bool enabled;
     uint16_t id;
     uint32_t rsbufsz;
@@ -81,8 +82,10 @@ struct e10k_queue {
     struct capref                   rx_frame;
     struct capref                   tx_frame;
     struct capref                   txhwb_frame;
-    
-    struct capref                   regs;
+    struct dmem                     tx;
+    struct dmem                     txhwb;
+    struct dmem                     rx;
+   
     // vf state
     struct vf_state* vf;
 

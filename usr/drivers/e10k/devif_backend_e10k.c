@@ -135,34 +135,18 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
 
         e10k_queue_add_txcontext(q, 0, ETHHDR_LEN, IPHDR_LEN, l4len, l4t);
 
-	    if (q->use_vtd) {
-            lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->virt + offset + valid_data;
-            e10k_queue_add_txbuf_ctx(q, addr, rid, offset, length,
-                                     valid_data, valid_length, flags,
-                                     valid_length, 0, true, l4len !=0);
-	    } else {
-            lpaddr_t addr = 0;
-            addr = (lpaddr_t) entry->phys + offset + valid_data;
-            e10k_queue_add_txbuf_ctx(q, addr, rid, offset, length,
-                                     valid_data, valid_length, flags,
-                                     valid_length, 0, true, l4len != 0);
-        }
+        lpaddr_t addr = 0;
+        addr = (lpaddr_t) entry->mem.devaddr + offset + valid_data;
+        e10k_queue_add_txbuf_ctx(q, addr, rid, offset, length,
+                                 valid_data, valid_length, flags,
+                                 valid_length, 0, true, l4len != 0);
     } else {
-        if (q->use_vtd) {
-            lvaddr_t addr = 0;
-            addr = (lvaddr_t) entry->virt + offset + valid_data;
-            e10k_queue_add_txbuf(q, addr, rid, offset, length, valid_data,
-                                 valid_length, flags,
-                                 valid_length);
-        } else {
-            lpaddr_t addr;
-            addr = (lpaddr_t) entry->phys + offset + valid_data;
+        lpaddr_t addr;
+        addr = (lpaddr_t) entry->mem.devaddr + offset + valid_data;
 
-            e10k_queue_add_txbuf(q, addr, rid, offset, length, valid_data,
-                                 valid_length, flags,
-                                 valid_length);
-        }
+        e10k_queue_add_txbuf(q, addr, rid, offset, length, valid_data,
+                             valid_length, flags,
+                             valid_length);
     }
     e10k_queue_bump_txtail(q);
     return SYS_ERR_OK;
@@ -185,25 +169,14 @@ static errval_t enqueue_rx_buf(struct e10k_queue* q, regionid_t rid,
         return NIC_ERR_ENQUEUE;
     }
 
-    if (q->use_vtd) {
-        // get virtual address of buffer
-        struct region_entry* entry = get_region(q, rid);
-        assert(entry != NULL);
+    // get virtual address of buffer
+    struct region_entry* entry = get_region(q, rid);
+    assert(entry != NULL);
 
-        lpaddr_t addr = 0;
-        addr = (lpaddr_t) entry->virt + offset;
-        e10k_queue_add_rxbuf(q, addr, rid, offset, length, valid_data,
-                             valid_length, flags);
-    } else {
-        // get virtual address of buffer
-        struct region_entry* entry = get_region(q, rid);
-        assert(entry != NULL);
-
-        lpaddr_t addr = 0;
-        addr = (lpaddr_t) entry->phys + offset;
-        e10k_queue_add_rxbuf(q, addr, rid, offset, length, valid_data,
-                             valid_length, flags);
-    }
+    lpaddr_t addr = 0;
+    addr = (lpaddr_t) entry->mem.devaddr + offset;
+    e10k_queue_add_rxbuf(q, addr, rid, offset, length, valid_data,
+                         valid_length, flags);
 
     e10k_queue_bump_rxtail(q);
     return SYS_ERR_OK;
@@ -290,22 +263,20 @@ static errval_t e10k_register(struct devq* q, struct capref cap, regionid_t rid)
         return err;
     }
 
-    void* va;
-    err = vspace_map_one_frame_attr(&va, id.bytes, cap,
-                                    VREGION_FLAGS_READ_WRITE_NOCACHE,
-                                    NULL, NULL);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
     // keep track of regions since we need the virtual address ...
     struct region_entry* entry = malloc(sizeof(struct region_entry));
     entry->rid = rid;
-    entry->cap = cap;
-    entry->phys = id.base;
-    entry->virt = (lvaddr_t)va;
-    entry->size = id.bytes;
     entry->next = NULL;
+
+    struct iommu_client* cl = e10k_vf_get_iommu_client();
+    err = driverkit_iommu_vspace_map_cl(cl, cap,
+                                        VREGION_FLAGS_READ_WRITE_NOCACHE,
+                                        &entry->mem);
+    if (err_is_fail(err)) {
+        free(entry);
+        return err;
+    }
+      
 
     // linked list of regions
     struct region_entry* cur = queue->regions;
@@ -445,19 +416,20 @@ static errval_t map_device_memory(struct e10k_queue* q,
         return err;
     }
 
-    void* va;
-    err = vspace_map_one_frame_attr(&va, id.bytes, regs,
-                                    VREGION_FLAGS_READ_WRITE_NOCACHE,
-                                    NULL, NULL);
+    struct iommu_client* cl = e10k_vf_get_iommu_client();
+    err = driverkit_iommu_vspace_map_cl(cl, regs,
+                                        VREGION_FLAGS_READ_WRITE_NOCACHE,
+                                        &q->reg_mem);
     if (err_is_fail(err)) {
         return err;
     }
       
 
-    DEBUG_QUEUE("mapped %zu bytes at address %p\n", id.bytes, va);
+    DEBUG_QUEUE("mapped %zu bytes at address %p\n", q->reg_mem.size, 
+                (void*) q->reg_mem.vbase);
     q->d = malloc(sizeof(e10k_t));
     assert(q->d != NULL);
-    e10k_initialize(q->d, va);
+    e10k_initialize(q->d, (void*) q->reg_mem.vbase);
     d = q->d;
     return SYS_ERR_OK;
 }
@@ -470,6 +442,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
 
     errval_t err;
     struct e10k_queue* q;
+    struct iommu_client* cl = NULL;
     // start VF driver
     
     q = malloc(sizeof(struct e10k_queue));
@@ -505,7 +478,8 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
             }
         }
 
-        q->use_vtd = true;
+        q->use_vtd = true; 
+        cl = e10k_vf_get_iommu_client();
         DEBUG_QUEUE("Assume enabled VT-d \n");
     } else {
         q->use_vtd = false;
@@ -524,17 +498,19 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
     }
 
     // allocate memory for RX/TX rings
-    struct capref tx_frame;
     size_t tx_size = e10k_q_tdesc_adv_wb_size*NUM_TX_DESC;
-    void* tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, tx_size, &tx_frame);
-    if (tx_virt == NULL) {
+
+    err = alloc_map_frame(cl, tx_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
+                                    &q->tx);
+    if (err_is_fail(err)) {
         return DEVQ_ERR_INIT_QUEUE;
     }
 
-    struct capref rx_frame;
     size_t rx_size = e10k_q_rdesc_adv_wb_size*NUM_RX_DESC;
-    void* rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE_NOCACHE, rx_size, &rx_frame);
-    if (rx_virt == NULL) {
+    err = alloc_map_frame(cl, rx_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
+                          &q->rx);
+    if (err_is_fail(err)) {
+        // TODO cleanup
         return DEVQ_ERR_INIT_QUEUE;
     }
 
@@ -543,28 +519,28 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
         .update_rxtail = update_rxtail,
     };
 
-    struct capref txhwb_frame;
     void* txhwb_virt = NULL;
 
     if (q->use_txhwb) {
-        txhwb_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, BASE_PAGE_SIZE,
-        &txhwb_frame);
-        if (txhwb_virt == NULL) {   
+        err = alloc_map_frame(cl, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE,
+                              &q->txhwb);
+        if (err_is_fail(err)) {
+            // TODO cleanup
             return DEVQ_ERR_INIT_QUEUE;
         }
         memset(txhwb_virt, 0, sizeof(uint32_t));
     }
 
-    e10k_queue_init(q, tx_virt, NUM_TX_DESC, txhwb_virt,
-                    rx_virt, NUM_RX_DESC, &ops);
+    e10k_queue_init(q, (void*) q->tx.vbase, NUM_TX_DESC, (void*) q->txhwb.vbase,
+                    (void*) q->rx.vbase, NUM_RX_DESC, &ops);
 
     DEBUG_QUEUE("Local queue init done\n");
 
     q->use_vf = use_vf;
-    q->rx_frame = rx_frame;
-    q->tx_frame = tx_frame;
-    q->txhwb_frame = txhwb_frame;
     q->use_irq = interrupts;
+    q->rx_frame = q->rx.mem;
+    q->tx_frame = q->tx.mem;
+    q->txhwb_frame = q->txhwb.mem;
 
     // XXX:disable by default for now
     q->use_rsc = false;
@@ -595,11 +571,11 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
             return err;
         }
 
-        err = q->binding->rpc_tx_vtbl.create_queue(q->binding, tx_frame, txhwb_frame,
-                                            rx_frame, 2048, q->msix_intvec,
-                                            q->msix_intdest, q->use_irq, false, qzero,
-                                            &q->mac, &qid,
-                                            &regs, &err2);
+        err = q->binding->rpc_tx_vtbl.create_queue(q->binding, q->tx_frame, q->txhwb_frame,
+                                                   q->rx_frame, 2048, q->msix_intvec,
+                                                   q->msix_intdest, q->use_irq, false, qzero,
+                                                   &q->mac, &qid,
+                                                   &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             DEBUG_QUEUE("e10k rpc error\n");
             return err_is_fail(err)? err: err2;

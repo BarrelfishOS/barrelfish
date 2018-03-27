@@ -48,6 +48,7 @@ struct vf_state {
     struct capref iommu_ep;
     struct capref pci_ep;
     struct capref irq;
+    struct iommu_client* iommu;
 
     // if we have 64 vfs then pool
     // size is only 2 but the maximum is 8
@@ -261,15 +262,11 @@ static void queue_hw_init(struct e10k_queue* q)
     e10k_vf_t* d = q->d;
 
     // Get physical addresses for rx/tx rings
-    r = invoke_frame_identify(q->tx_frame, &frameid);
-    assert(err_is_ok(r));
-    tx_phys = frameid.base;
-    tx_size = frameid.bytes;
+    tx_phys = q->tx.devaddr;
+    tx_size = q->tx.size;
 
-    r = invoke_frame_identify(q->rx_frame, &frameid);
-    assert(err_is_ok(r));
-    rx_phys = frameid.base;
-    rx_size = frameid.bytes;
+    rx_phys = q->rx.devaddr;
+    rx_size = q->rx.size;
 
 
     DEBUG_VF("tx.phys=%"PRIx64" tx.virt=%p tx.size=%"PRIu64"\n", tx_phys, q->tx_ring, tx_size);
@@ -635,32 +632,11 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
     assert(!capref_is_null(vf->iommu_ep));
     assert(!capref_is_null(vf->pci_ep));
 
-    // crate vtd domain for VF driver
-    // XXX: might not be the best idea to do it here
-
-    /*
-     * TODO: move this to the queue manager!
-     */
-    err = driverkit_iommu_client_init(vf->iommu_ep);
+    // Init iommu client
+    err = driverkit_iommu_client_init_cl(vf->iommu_ep, &vf->iommu);
     if (err_is_fail(err)) {
         return err;
     }
-
-    if (!driverkit_iommu_present(NULL)) {
-        USER_PANIC("IOMMU SHOULD BE ENABLED!\n");
-    }
-
-    /* TODO change to new iommu client
-    err = driverkit_iommu_create_domain(cap_vroot, vf->devid);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    err = driverkit_iommu_add_device(cap_vroot, vf->devid);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    */
 
     DEBUG_VF("VF num %d initalize...\n", vf->vf_num);
     pci_init_card();
@@ -675,6 +651,11 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
 bool e10k_vf_started(void)
 {
     return !(vf == NULL);
+}
+
+struct iommu_client* e10k_vf_get_iommu_client(void) 
+{
+    return vf->iommu;
 }
 
 // Check if VF queue pool has still queues that it can enable

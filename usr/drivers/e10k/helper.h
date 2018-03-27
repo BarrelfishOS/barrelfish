@@ -14,8 +14,12 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/vregion.h>
 
+struct iommu_client;
+struct dmem;
+
 void debug_dumpmem(void* buf, size_t len);
-void* alloc_map_frame(vregion_flags_t attr, size_t size, struct capref *retcap);
+errval_t alloc_map_frame(struct iommu_client* cl, vregion_flags_t attr, size_t size, 
+                         struct dmem* mem);
 errval_t get_apicid_from_core(coreid_t cid, uint8_t *apicid);
 
 /* Simple bitmap-based allocator */
