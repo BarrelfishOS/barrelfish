@@ -17,6 +17,8 @@
 
 :- module(decoding_net2).
 
+:- use_module(allocator).
+
 
 %% node_accept(InNodeId, InAddr :: block).
 :- dynamic node_accept/2.
@@ -484,14 +486,26 @@ test_resolve3(Out) :-
 load_net(File) :-
     ensure_loaded(File).
 
-:- export load_module/1.
-load_module(Mod) :-
-    call(Mod, []).
+:- export load_module/2.
+load_module(Mod, Id) :-
+    call(Mod, Id).
 
 :- export load_net_module/2.
 load_net_module(File, Mod) :-
     ensure_loaded(File),
     call(Mod, []).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Node enumeration. 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+:- export alloc_node_enum/1.
+:- dynamic enum_node_id/2.
+alloc_node_enum(N) :- alloc_one(node_enum, N).
+
+get_or_alloc_node_enum(NodeId, Enum) :-
+    enum_node_id(Enum, NodeId) ;
+    ( alloc_node_enum(Enum), assert(enum_node_id(Enum, NodeId)) ).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -499,8 +513,16 @@ load_net_module(File, Mod) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 :- export init/0.
+:- export add_pci_alloc/1.
 :- export add_pci/1.
 :- export add_process/1.
+:- export add_process_alloc/1.
+
+:- dynamic pci_address_node_id/2.
+:- export pci_address_node_id/2.
+:- dynamic process_node_id/2.
+:- export process_node_id/2.
+
 
 init :-
     add_SYSTEM([]),
@@ -511,20 +533,34 @@ add_pci :-
     add_pci(["PCI0"]).
 
 add_pci(Id) :-
-    Id = ["PCI0"],
     PCIBUS_ID = ["PCIBUS"],
     PCIIN_ID = ["IN" | Id],
     PCIOUT_ID = ["OUT" | Id],
     add_PCI_IOMMU(Id),
     % Mark IOMMU block remappable
-    assert(node_block_meta(["IN", "IOMMU0", "PCI0"], 21, ["OUT","IOMMU0","PCI0"])), % Make MMU configurable
+    assert(node_block_meta(["IN", "IOMMU0" | Id], 21, ["OUT", "IOMMU0" | Id])), % Make MMU configurable
     % And assign a root PT
     pt_alloc(Root),
-    assert(node_pt(["IN", "IOMMU0", "PCI0"],Root,["OUT","IOMMU0","PCI0"])),
+    assert(node_pt(["IN", "IOMMU0", Id], Root, ["OUT","IOMMU0",Id])),
     % connect the output to the systems pci bus
     assert(node_overlay(PCIOUT_ID, PCIBUS_ID)),
     % Now insert the BAR into the PCI bus address space
     assert(node_translate_dyn(PCIBUS_ID, [memory,[block{base:1024,limit:2048}]], PCIIN_ID, [memory, [block{base:1024,limit:2048}]])).
+
+add_pci_alloc(Addr) :-
+    alloc_node_enum(Enum),
+    add_pci([Enum]),
+    % Set it to the node id where addresses are issued from the PCI device
+    assert(enum_node_id(Enum, ["OUT", "PCI0", Enum])),
+    assert(pci_address_node_id(Addr, Enum)).
+
+add_process_alloc(ProcId) :-
+    alloc_node_enum(Enum),
+    add_process([Enum]),
+    % Set it to the node id where addresses are issued from the process
+    assert(enum_node_id(Enum, ["OUT", "PROC0", Enum])),
+    assert(process_node_id(ProcId, Enum)).
+
 
 % Make ID argument if we want to add multiple.
 add_process :-
@@ -579,6 +615,7 @@ free_region(Region, Size) :-
 
 % Resolves the variables
 free_region_aligned(Region, Size) :-
+    is_list(Size),
     region_base_name(Region, BaseName),
     free_region(BaseName, Size),
     name_aligned(BaseName, 21),
@@ -665,6 +702,8 @@ test_common_free_buffer_existing(Proc,Pci,Resolved) :-
 % Like common_free_buffer_existing, but allow reconfiguration of nodes (routing)
 :- export common_free_buffer/5.
 common_free_buffer(Size, N1Region, N2Region, ResRegion,Route)  :-
+    is_list(Size),
+    
     N1Region = region{blocks: [memory, [_]]},
     N2Region = region{blocks: [memory, [_]]},
     ResRegion = region{blocks: [memory, [block{base:Base, limit: Limit}]]},
@@ -679,6 +718,20 @@ common_free_buffer(Size, N1Region, N2Region, ResRegion,Route)  :-
     free_region(ResRegion, Size),
     labeling([Base,Limit]), 
     union(R1,R2,Route).
+
+% the function called from mem_serv
+:- export common_free_buffer_wrap/3.
+common_free_buffer_wrap(Bits, N1Enum, N2Enum)  :-
+    enum_node_id(N1Enum, N1Id),
+    enum_node_id(N2Enum, N2Id),
+    R1 = region{node_id: N1Id, blocks: [memory, [block{base:R1Addr}]]},
+    R2 = region{node_id: N2Id, blocks: [memory, [block{base:R2Addr}]]},
+    Size is 2 ^ Bits - 1,
+    common_free_buffer([memory, [Size]], R1, R2, ResR, _),
+    ResR = region{node_id: ResRId, blocks: [memory, [block{base:ResRAddr}]]},
+    get_or_alloc_node_enum(ResEnum, ResRId),
+    writeln([(R1Addr, N1Enum),(R2Addr, N2Enum),(ResRAddr, ResEnum)]).
+
 
 % Translate a name from one Node to a name to another node, so they
 % resolve to the same ressource.
@@ -1123,3 +1176,12 @@ test_all :-
     PciBaseAddr = name{node_id:PciId},
     change_view(ProcBaseAddr, PciBaseAddr),
     writeln(("Lookup from Proc to PCI BaseAddr", PciBaseAddr)).
+
+:- export test_mem_if/0.
+test_mem_if :-
+    add_pci_alloc(addr(0,1,2)),
+    pci_address_node_id(addr(0,1,2), PciEnum),
+    add_process_alloc(proc(0)),
+    process_node_id(proc(0), ProcEnum),
+    common_free_buffer_wrap(21, PciEnum, ProcEnum).
+

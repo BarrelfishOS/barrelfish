@@ -104,4 +104,7 @@ interface pci "The PCI Interface" {
                          in uint8 destination, /* Interrupt Destination */
                          in uint8 vector,      /* Interrupt Vector */
                          out errval err);
+
+    /* Get nodeid for the cards view of the system */
+    rpc get_nodeid(out int32 nodeid);
 };

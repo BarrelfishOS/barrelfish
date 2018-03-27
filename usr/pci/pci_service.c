@@ -20,6 +20,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/sys_debug.h>
+#include <skb/skb.h>
 #include <driverkit/driverkit.h>
 #include <collections/list.h>
 #include <skb/skb.h>
@@ -563,6 +564,27 @@ static void sriov_enable_vf_handler(struct pci_binding* b, uint32_t vf_num)
 static void get_vf_pci_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_num, 
                                             uint8_t type);
 
+static void get_nodeid_handler(struct pci_binding* b)
+{
+    errval_t err;
+
+    struct client_state* state = (struct client_state* ) b->st;
+
+    err = skb_execute_query(
+            "pci_address_node_id(addr(%u, %u, %u), [Id]), writeln(Id)",
+            state->bus, state->dev, state->fun);
+
+    int32_t nodeid = -1;
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "add_pci_alloc.");
+    } else {
+        skb_read_output("%"SCNi32, &nodeid);
+    }
+    
+    err = b->tx_vtbl.get_nodeid_response(b, NOP_CONT, nodeid);
+    assert(err_is_ok(err));
+}
+
 struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
@@ -581,6 +603,7 @@ struct pci_rx_vtbl pci_rx_vtbl = {
     .msix_enable_addr_call = msix_enable_addr_handler,
     .msix_vector_init_call = msix_vector_init_handler,
     .msix_vector_init_addr_call = msix_vector_init_addr_handler,
+    .get_nodeid_call = get_nodeid_handler
 };
 
 static void get_vf_pci_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_num, 

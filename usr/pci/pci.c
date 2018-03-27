@@ -1078,13 +1078,25 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                           addr.bus, addr.device, addr.function, vendor,
                           device_id);
 
+                errval_t err;
+                err = skb_execute_query("add_pci_alloc(addr(%u,%u,%u)).",
+                        addr.bus, addr.device, addr.function);
+                if(err_is_fail(err)){
+                    DEBUG_SKB_ERR(err, "add_pci_alloc.");
+                }
+                
+
                 pci_hdr0_t devhdr;
                 pci_hdr0_initialize(&devhdr, addr);
-                skb_add_fact("device(%s,addr(%u,%u,%u),%u,%u,%u, %u, %u, %d).",
+                err = skb_add_fact("device(%s,addr(%u,%u,%u),%u,%u,%u, %u, %u, %d).",
                              (pcie ? "pcie" : "pci"), addr.bus, addr.device,
                              addr.function, vendor, device_id, classcode.clss,
                              classcode.subclss, classcode.prog_if,
                              pci_hdr0_int_pin_rd(&devhdr) - 1);
+
+                if(err_is_fail(err)){
+                    DEBUG_SKB_ERR(err, "skb add_fact");
+                }
 
                 // octopus start
                 static char* device_fmt = "hw.pci.device. { "
@@ -1092,7 +1104,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                 "vendor: %u, device_id: %u, class: %u, "
                                 "subclass: %u, prog_if: %u }";
 
-                errval_t err = oct_mset(SET_SEQUENTIAL, device_fmt, addr.bus,
+                err = oct_mset(SET_SEQUENTIAL, device_fmt, addr.bus,
                                         addr.device, addr.function, vendor,
                                         device_id, classcode.clss,
                                         classcode.subclss, classcode.prog_if);

@@ -22,6 +22,7 @@
 #include <skb/skb.h>
 
 #include <if/iommu_defs.h>
+#include <if/mem_defs.h>
 #include <if/iommu_rpcclient_defs.h>
 
 #include "debug.h"
@@ -120,10 +121,24 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
                                                  size_t bytes,
                                                  struct capref *retcap)
 {
+    errval_t err, msgerr;
+
     if (bytes < (LARGE_PAGE_SIZE)) {
         bytes = LARGE_PAGE_SIZE;
     }
-    return frame_alloc(retcap, bytes, NULL);
+
+    struct mem_binding * b = get_mem_client();
+    err = b->rpc_tx_vtbl.allocate_common(b, bytes, 0, 0, &msgerr, retcap);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "allocate_common RPC");
+        return err;
+    }
+    if(err_is_fail(msgerr)){
+        DEBUG_ERR(msgerr, "allocate_common");
+        return msgerr;
+    }
+    return SYS_ERR_OK;
+    //return frame_alloc(retcap, bytes, NULL);
 }
 
 #define MAPPING_REGION_START (512UL << 31)
