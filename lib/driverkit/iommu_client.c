@@ -1075,6 +1075,7 @@ errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
     err = driverkit_iommu_vspace_map_cl(cl, mem->mem, flags, mem);
     if (err_is_fail(err)) {
         iommu_free_ram(mem->mem);
+        return err;
     }
 
     return SYS_ERR_OK;
