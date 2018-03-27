@@ -336,6 +336,20 @@ static void get_vf_bar_cap_handler(struct pci_binding *b, uint32_t vf_num, uint3
 }
 
 
+struct cap_wrapper {
+    struct capref cap;
+    bool cont_done;
+};
+
+static void cleanup_cap(void* arg)
+{
+    errval_t err;
+    struct cap_wrapper* wrap = (struct cap_wrapper*) arg;
+    err = cap_destroy(wrap->cap);
+    assert(err_is_ok(err));
+    wrap->cont_done = true;
+}
+
 static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_num, 
                                               uint8_t type)
 
@@ -361,14 +375,15 @@ static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf
 
     uint32_t idx;
     // TODO get segemnt correct, works with 0.
-    err = device_lookup_iommu_by_pci(0, vf_addr.bus, vf_addr.device, 
+    out_err = device_lookup_iommu_by_pci(0, vf_addr.bus, vf_addr.device, 
                                      vf_addr.function, &idx);
     if (err_is_fail(err)) {
         goto reply;
     }
 
-    struct capref cap;    
-    out_err = slot_alloc(&cap);
+    struct cap_wrapper wrap;   
+    wrap.cont_done = false; 
+    out_err = slot_alloc(&wrap.cap);
     if (err_is_fail(out_err)) {
         goto reply;
     }
@@ -380,15 +395,17 @@ static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf
     }
 
     err = cl->b->rpc_tx_vtbl.request_iommu_endpoint(cl->b,type, 0, vf_addr.bus, vf_addr.device, 
-                                                    vf_addr.function, &cap, &out_err);
+                                                    vf_addr.function, &wrap.cap, &out_err);
     if (err_is_ok(err)) {
        goto reply;
     }
 
 reply:
-    err = b->tx_vtbl.get_vf_iommu_endpoint_cap_response(b, NOP_CONT, cap, out_err);
+    err = b->tx_vtbl.get_vf_iommu_endpoint_cap_response(b, MKCONT(cleanup_cap, &wrap), wrap.cap, out_err);
     assert(err_is_ok(err));
-    slot_free(cap);
+    while(!wrap.cont_done) {
+        event_dispatch(get_default_waitset());
+    }
 }
 
 /*
@@ -594,8 +611,8 @@ static void get_vf_pci_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_n
     PCI_DEBUG("Requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
               vf_addr.bus, vf_addr.device, vf_addr.function);
 
-    struct capref cap;    
-    err = slot_alloc(&cap);
+    struct capref pci_cap;    
+    err = slot_alloc(&pci_cap);
     assert(err_is_ok(err));
 
     struct pci_binding* pci_b;
@@ -605,7 +622,7 @@ static void get_vf_pci_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_n
     out_err = pci_create_endpoint(type, &pci_rx_vtbl, state,
                                   get_default_waitset(),
                                   IDC_ENDPOINT_FLAGS_DUMMY,
-                                  &pci_b, cap);
+                                  &pci_b, pci_cap);
     if (err_is_fail(out_err)) {
         goto reply;
     }
@@ -617,7 +634,7 @@ static void get_vf_pci_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_n
     pci_b->st = state;
 
 reply:
-    err = b->tx_vtbl.get_vf_pci_endpoint_cap_response(b, NOP_CONT, cap, out_err);
+    err = b->tx_vtbl.get_vf_pci_endpoint_cap_response(b, NOP_CONT, pci_cap, out_err);
     assert(err_is_ok(err));
 }
 
