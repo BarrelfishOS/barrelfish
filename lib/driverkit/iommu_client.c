@@ -83,6 +83,9 @@ struct iommu_client
 
     ///< pointer to the vnode information
     struct iommu_vnode_l3 *vnode_l3;
+
+    ///< model node of the protected device
+    int32_t nodeid;
 };
 
 ///< the default iommu client
@@ -432,8 +435,9 @@ errval_t driverkit_iommu_client_init_cl(struct capref ep, struct iommu_client **
 
     errval_t msgerr;
     uint8_t type, bits;
+    int32_t nodeid;
     err = icl->binding->rpc_tx_vtbl.getvmconfig(icl->binding, &msgerr, &type,
-                                                &bits);
+                                                &bits, &nodeid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to send the message\n");
         goto err_out;
@@ -447,6 +451,7 @@ errval_t driverkit_iommu_client_init_cl(struct capref ep, struct iommu_client **
 
     icl->root_vnode_type = (enum objtype)type;
     icl->max_page_size = (1UL << bits);
+    icl->nodeid = nodeid;
 
     /* allocate memory for the vnode */
 
@@ -551,6 +556,7 @@ errval_t driverkit_iommu_client_connect_cl(struct capref ep,
     if (icl == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
+    icl->nodeid = -1;
 
     DRIVERKIT_DEBUG("[iommu client] Connecting to SKB.\n");
 
@@ -776,8 +782,9 @@ enum objtype driverkit_iommu_get_root_vnode_type(struct iommu_client *cl)
     if (cl->root_vnode_type == ObjType_Null) {
         errval_t msgerr = SYS_ERR_OK;
         uint8_t type, bits;
+        int32_t nodeid;
         err = cl->binding->rpc_tx_vtbl.getvmconfig(cl->binding, &msgerr, &type,
-                                                   &bits);
+                                                   &bits, &nodeid);
         if (err_is_fail(err) || err_is_fail(msgerr)) {
             return ObjType_Null;
         }
@@ -790,9 +797,7 @@ enum objtype driverkit_iommu_get_root_vnode_type(struct iommu_client *cl)
 
 
 /**
- * @brief obtains the maximu supported page size
- *
- * @param pgsize  the maximum supported page size
+ * @brief obtains the maximum supported page size
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
@@ -805,8 +810,9 @@ size_t driverkit_iommu_get_max_pagesize(struct iommu_client *cl)
     if (cl->max_page_size == 0) {
         errval_t msgerr = SYS_ERR_OK;
         uint8_t type, bits;
+        int32_t nodeid;
         err = cl->binding->rpc_tx_vtbl.getvmconfig(cl->binding, &msgerr, &type,
-                                                   &bits);
+                                                   &bits, &nodeid);
         if (err_is_fail(err) || err_is_fail(msgerr)) {
             return 0;
         }
@@ -815,6 +821,32 @@ size_t driverkit_iommu_get_max_pagesize(struct iommu_client *cl)
     }
 
     return cl->max_page_size;
+}
+
+/**
+ * @brief obtains the model node id for the protected device
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+int32_t driverkit_iommu_get_nodeid(struct iommu_client *cl)
+{
+    errval_t err;
+
+    assert(cl);
+
+    if (cl->nodeid == -1) {
+        errval_t msgerr = SYS_ERR_OK;
+        uint8_t type, bits;
+        int32_t nodeid;
+        err = cl->binding->rpc_tx_vtbl.getvmconfig(cl->binding, &msgerr, &type,
+                                                   &bits, &nodeid);
+        if (err_is_fail(err) || err_is_fail(msgerr)) {
+            return 0;
+        }
+        cl->nodeid = nodeid;
+    }
+
+    return cl->nodeid;
 }
 
 

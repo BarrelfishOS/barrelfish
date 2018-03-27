@@ -283,6 +283,7 @@ static inline errval_t iommu_put_writable_vnode(struct vnode_identity id,
 static void getvmconfig_request(struct iommu_binding *ib)
 {
     errval_t err;
+    int32_t nodeid = -1;
 
     IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
@@ -290,9 +291,21 @@ static void getvmconfig_request(struct iommu_binding *ib)
     assert(idev);
     assert(idev->iommu);
 
-    err = ib->tx_vtbl.getvmconfig_response(ib, NOP_CONT, SYS_ERR_OK,
+    err = skb_execute_query(
+        "pci_address_node_id(addr(%i,%i,%i), Enum), write(Enum)",
+        idev->addr.pci.bus,
+        idev->addr.pci.device,
+        idev->addr.pci.function);
+
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err,"pci node id lookup");
+    } else {
+        err = skb_read_output("%"SCNi32, &nodeid);
+    }
+
+    err = ib->tx_vtbl.getvmconfig_response(ib, NOP_CONT, err,
                                            idev->iommu->root_vnode_type,
-                                           idev->iommu->max_page_bits);
+                                           idev->iommu->max_page_bits, nodeid);
     /* should not fail */
     assert(err_is_ok(err));
 }

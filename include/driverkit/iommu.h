@@ -108,9 +108,7 @@ errval_t driverkit_iommu_set_root_vnode(struct iommu_client *cl,
 /**
  * @brief obtains the capability type for the root level vnode
  *
- * @param type returned capability type
- *
- * @return SYS_ERR_OK on success, errval on failure
+ * @return 
  */
 enum objtype driverkit_iommu_get_root_vnode_type(struct iommu_client *cl);
 
@@ -118,11 +116,16 @@ enum objtype driverkit_iommu_get_root_vnode_type(struct iommu_client *cl);
 /**
  * @brief obtains the maximu supported page size
  *
- * @param pgsize  the maximum supported page size
- *
- * @return SYS_ERR_OK on success, errval on failure
+ * @return 
  */
 size_t driverkit_iommu_get_max_pagesize(struct iommu_client *cl);
+
+/**
+ * @brief obtains the model node id of the  protected device
+ *
+ * @return the model node id
+ */
+int32_t driverkit_iommu_get_nodeid(struct iommu_client *cl);
 
 
 /**
