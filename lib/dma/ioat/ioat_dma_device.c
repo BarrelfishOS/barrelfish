@@ -154,6 +154,7 @@ static errval_t device_init_ioat_v3(struct ioat_dma_device *dev)
                                     (struct ioat_dma_channel **) chan);
         if (err_is_fail(err)) {
             /* TODO: cleanup! */
+            driverkit_iommu_munmap(&dev->complstatus);
             return err;
         }
     }
@@ -398,7 +399,7 @@ errval_t ioat_dma_device_init(struct capref mmio,
     dma_dev->mmio.frame = mmio;
     dma_dev->iommu = cl;
 
-    IOATDEV_DEBUG("init device with mmio range: {paddr=0x%016lx, size=%u kB}\n",
+    IOATDEV_DEBUG("init device with mmio range: {paddr=0x%016lx, size=%zu kB}\n",
                   dma_dev->id, mmio_id.base, mmio_id.bytes / 1024);
 
     err = vspace_map_one_frame_attr((void**) &dma_dev->mmio.vaddr,

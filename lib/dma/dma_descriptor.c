@@ -92,7 +92,7 @@ errval_t dma_desc_alloc(uint32_t size,
 
     assert(desc);
 
-    uint32_t ndesc = (1 << count);
+    size_t ndesc = (1 << count);
 
     size = DMA_ALIGN(size, align);
 
@@ -129,8 +129,9 @@ errval_t dma_desc_alloc(uint32_t size,
 
     memset((void*) mem->vbase, 0, ndesc * size);
 
-    XPHIDESC_DEBUG("Allocated frame of size %lu bytes @ [%016lx]\n",
-                   (uint64_t ) mem->size, mem->devaddr);
+
+    DMADESC_DEBUG("Allocated frame of size %lu bytes @ [%016lx]\n",
+                  (uint64_t ) mem->size, mem->devaddr);
 
     lpaddr_t desc_paddr = mem->devaddr;
     uint8_t *desc_vaddr = (uint8_t*) mem->vbase;
@@ -161,7 +162,7 @@ errval_t dma_desc_alloc(uint32_t size,
         desc_paddr += size;
     }
 
-    DMADESC_DEBUG("Allocated %u desc of size %u\n", ndesc, size);
+    DMADESC_DEBUG("Allocated %zu desc of size %u\n", ndesc, size);
 
     return SYS_ERR_OK;
 }

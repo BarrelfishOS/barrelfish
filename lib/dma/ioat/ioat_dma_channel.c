@@ -216,8 +216,6 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
     err = dma_ring_alloc(IOAT_DMA_DESC_RING_SIZE, IOAT_DMA_DESC_ALIGN,
                          IOAT_DMA_DESC_SIZE, 0x0, dma_chan, &chan->ring);
     if (err_is_fail(err)) {
-        debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
-        driverkit_iommu_munmap(&chan->completion);
         return err;
     }
 
@@ -253,8 +251,7 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
     ioat_dma_request_nop_chan(chan);
     err = ioat_dma_channel_issue_pending(chan);
     if (err_is_fail(err)) {
-        debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
-        driverkit_iommu_munmap(&chan->completion);
+        dma_ring_free(chan->ring);
         return err;
     }
 
@@ -275,9 +272,8 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
                        ioat_dma_chan_err_rd(&chan->channel));
         static char buf[512];
         ioat_dma_chan_err_pr(buf, 512, &chan->channel);
-        printf("ERRS:\n%s\n",buf);
-
-        driverkit_iommu_munmap(&chan->completion);
+        printf("Channel Error::\n%s\n",buf);
+        dma_ring_free(chan->ring);
         free(chan);
         *ret_chan = NULL;
         return DMA_ERR_CHAN_ERROR;

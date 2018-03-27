@@ -251,9 +251,8 @@ errval_t ioat_dma_request_memset_chan(struct dma_channel *chan,
 
     uint32_t num_desc = req_num_desc_needed(ioat_chan, setup->args.memset.bytes);
 
-    IOATREQ_DEBUG("DMA Memset request: [0x%016lx]->[0x%016lx] of %lu bytes (%u desc)\n",
-                  setup->args.memset.src, setup->args.memset.dst,
-                  setup->args.memset.bytes, num_desc);
+    IOATREQ_DEBUG("DMA Memset request: [0x%016lx] of %lu bytes (%u desc)\n",
+                  setup->args.memset.dst, setup->args.memset.bytes, num_desc);
 
     struct dma_ring *ring = ioat_dma_channel_get_ring(ioat_chan);
 
