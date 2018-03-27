@@ -211,7 +211,7 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
         inst->argv[3] = NULL;
     }
 
-
+    struct capref ctrl;
     err = slot_alloc(&inst->ctrl);
     if (err_is_fail(err)){
         DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
@@ -221,6 +221,8 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
         goto send_reply;
     }
 
+    ctrl = inst->ctrl;
+
     DRIVERKIT_DEBUG("Instantiate driver\n");
     err = driverkit_create_driver(cls, inst, flags, &dev, &inst->ctrl);
     if (err_is_fail(err)) {
@@ -228,13 +230,14 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
                 "name=%s, cls=%s\n", name, cls);
         cap_destroy(inst->argcn_cap);
         free(inst);
+        ctrl = NULL_CAP;
     }
 
     send_reply:
 
-
+    if (err)
     DRIVERKIT_DEBUG("sending create response to kaluga\n");
-    err = ddomain_create_with_argcn_response__tx(binding, NOP_CONT, dev, inst->ctrl,
+    err = ddomain_create_with_argcn_response__tx(binding, NOP_CONT, dev, ctrl,
                                                  err);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Sending reply failed.\n");

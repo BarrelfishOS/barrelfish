@@ -189,6 +189,7 @@ static errval_t create_with_argcn_call(struct ddomain_binding *b, struct driver_
     } else {
         if (err_is_fail(out_err)) {
             DEBUG_ERR(out_err, "Failed to create driver %s\n", drv->driver_name);
+            return out_err;
         } else {
             printf("Driver %s created, reachable at [%"PRIuIREF"]\n", drv->driver_name, drv->dev);
         }
