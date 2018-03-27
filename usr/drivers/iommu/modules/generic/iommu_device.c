@@ -98,7 +98,9 @@ errval_t iommu_device_create_by_pci(struct iommu *iommu, uint16_t seg,
 
     *iodev = device;
 
-    return device_put_by_pci(*iodev);
+    debug_printf("[iommu] storing device.\n");
+
+    return device_put_by_pci(device);
 }
 
 

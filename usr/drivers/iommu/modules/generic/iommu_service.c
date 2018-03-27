@@ -206,7 +206,7 @@ static void getvmconfig_request(struct iommu_binding *ib)
 {
     errval_t err;
 
-    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
     struct iommu_device *idev = ib->st;
     assert(idev);
@@ -224,7 +224,7 @@ static void setroot_request(struct iommu_binding *ib, struct capref src)
 {
     errval_t err;
 
-    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
     struct iommu_device *idev = ib->st;
     assert(idev);
@@ -250,7 +250,7 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
     struct capref retcap = NULL_CAP;
     struct frame_identity id;
 
-    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
     switch(objtype) {
         case ObjType_VNode_x86_64_ptable :
@@ -303,7 +303,7 @@ static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
                         uint16_t slot, struct capref src)
 {
     errval_t err;
-    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
     struct capref vnode;
     err = iommu_get_writable_vnode(vnode_ro, &vnode);
@@ -329,7 +329,7 @@ static void unmap_request(struct iommu_binding *ib, struct capref vnode_ro,
                           uint16_t slot)
 {
     errval_t err;
-    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
     struct capref vnode;
     err = iommu_get_writable_vnode(vnode_ro, &vnode);
@@ -352,7 +352,7 @@ static void modify_request(struct iommu_binding *ib, struct capref vnode_ro,
                            uint64_t attr, uint16_t slot)
 {
     errval_t err;
-    IOMMU_SVC_DEBUG("%s", __FUNCTION__);
+    IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
     struct capref vnode;
     err = iommu_get_writable_vnode(vnode_ro, &vnode);
@@ -372,7 +372,7 @@ static void modify_request(struct iommu_binding *ib, struct capref vnode_ro,
 
 errval_t iommu_service_init(void)
 {
-    debug_printf("[iommu svc] Initializing service\n");
+    IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
 
     return SYS_ERR_OK;
