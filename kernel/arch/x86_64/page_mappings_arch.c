@@ -354,10 +354,9 @@ static errval_t x86_64_vtd_table(struct capability *dest, cslot_t slot,
             }
 
             uint16_t domid = (flags >> 8) & 0xffff;
-            if(flags & 0x1) {
-                vtd_ctxt_entry_t_insert(ct, vtd_hme);
-            }
 
+            /* Don't support device TLB's */
+            vtd_ctxt_entry_t_insert(ct, vtd_hmd);
             vtd_ctxt_entry_aw_insert(ct, agaw);
             vtd_ctxt_entry_did_insert(ct, domid);
 
