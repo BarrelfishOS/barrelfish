@@ -339,6 +339,9 @@ static errval_t mem_allocate_common_handler_in(struct mem_binding *b, uint8_t bi
 
 static void mem_allocate_common_handler(struct mem_binding *b, uint8_t bits,
                                  int32_t nodeid1, int32_t nodeid2) {
+
+    debug_printf("allocate_common: bits=%d, nodeid1=%d, nodeid=%d",
+            bits, nodeid1, nodeid2);
     errval_t err = mem_allocate_common_handler_in(b, bits, nodeid1, nodeid2);
     if(err_is_fail(err)){
         b->tx_vtbl.allocate_common_response(b, NOP_CONT, err, NULL_CAP);

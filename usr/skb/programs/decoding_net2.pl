@@ -554,12 +554,12 @@ add_pci_alloc(Addr) :-
     assert(enum_node_id(Enum, ["OUT", "PCI0", Enum])),
     assert(pci_address_node_id(Addr, Enum)).
 
-add_process_alloc(ProcId) :-
+add_process_alloc(Enum) :-
     alloc_node_enum(Enum),
     add_process([Enum]),
     % Set it to the node id where addresses are issued from the process
-    assert(enum_node_id(Enum, ["OUT", "PROC0", Enum])),
-    assert(process_node_id(ProcId, Enum)).
+    assert(enum_node_id(Enum, ["OUT", "PROC0", Enum])).
+    %assert(process_node_id(ProcId, Enum)).
 
 
 % Make ID argument if we want to add multiple.

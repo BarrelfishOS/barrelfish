@@ -117,6 +117,22 @@ static inline errval_t iommu_alloc_ram_for_vnode(struct iommu_client *st,
 }
 
 /*
+ *  Returns this process nodeid. It lazily adds the process' model node
+ *  and returns it's identifier.
+ */
+static int32_t get_own_nodeid(void) {
+    static int32_t nodeid = -1;
+    errval_t err;
+    if(nodeid == -1){
+        err = skb_execute_query("add_process_alloc(X), write(X)");
+        assert(err_is_ok(err));
+        err = skb_read_output("%d", &nodeid);
+        assert(err_is_ok(err));
+    }
+    return nodeid;
+}
+
+/*
  * allocates a piece of ram to be mapped into the driver and the devices
  * address spaces
  */
@@ -131,7 +147,12 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
     }
 
     struct mem_binding * b = get_mem_client();
-    err = b->rpc_tx_vtbl.allocate_common(b, bytes, 0, 0, &msgerr, retcap);
+
+    int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
+    int32_t my_nodeid = get_own_nodeid();
+
+    err = b->rpc_tx_vtbl.allocate_common(b, bytes, device_nodeid, my_nodeid,
+            &msgerr, retcap);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "allocate_common RPC");
         return err;
@@ -141,7 +162,6 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
         return msgerr;
     }
     return SYS_ERR_OK;
-    //return frame_alloc(retcap, bytes, NULL);
 }
 
 #define MAPPING_REGION_START (512UL << 31)
