@@ -15,7 +15,7 @@
   -- Builds a driver module: this is identical to building a
   -- library, the only difference is in how this is linked with the domain
   build library {
-    target = "mod_ioat",
+    target = "mod_ioat2",
     cFiles = [ "mod_ioat.c"]
   },
 
@@ -28,7 +28,7 @@
     cFiles = [ "main.c", "queue_manager.c" ],
     addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
     addLibraries = libDeps [ "driverkit" ],
-    addModules = [ "mod_ioat" ],
+    addModules = [ "mod_ioat2" ],
     architectures = [ "x86_64" ]
   }
 ]
