@@ -1959,10 +1959,9 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
             dest_cap->u.io.end = param2;
         }
         break;
-
     default:
-        // Unhandled source type for mint
-        return SYS_ERR_INVALID_SOURCE_TYPE;
+        // Mint the caprights by default
+        dest_cap->rights = src_cap->rights & param1;
     }
 
     // Insert after doing minting operation
