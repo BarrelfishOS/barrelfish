@@ -195,7 +195,7 @@ static void remove_device(struct iommu_binding *b, struct capref rootpt,
 }
 #endif
 
-#define IOMMU_SVC_DEBUG(x...) debug_printf("[iommu] [svc]" x)
+#define IOMMU_SVC_DEBUG(x...) debug_printf("[iommu] [svc] " x)
 
 /*
  * ===========================================================================
@@ -261,21 +261,29 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
 
             err = invoke_frame_identify(src, &id);
             if (err_is_fail(err)) {
+                err = err_push(err, LIB_ERR_CAP_INVOKE);
                 goto send_reply;
             }
 
             /* we should be the only one that has it */
             err = cap_revoke(src);
             if (err_is_fail(err)) {
-                goto send_reply;
-            }
-            err = slot_alloc(&retcap);
-            if (err_is_fail(err)) {
+                err = err_push(err, LIB_ERR_CAP_DELETE_FAIL);
                 goto send_reply;
             }
 
-            err = cap_retype(retcap, src, 0, objtype, 11, 1);
+            /* allocate slot to store the new cap */
+            err = slot_alloc(&retcap);
             if (err_is_fail(err)) {
+                err = err_push(err, LIB_ERR_SLOT_ALLOC);
+                retcap = src;
+                goto send_reply;
+            }
+
+            /* retype it to a page table */
+            err = cap_retype(retcap, src, 0, objtype, id.bytes, 1);
+            if (err_is_fail(err)) {
+                err = err_push(err, LIB_ERR_CAP_RETYPE);
                 slot_free(retcap);
                 retcap = src;
                 goto send_reply;
