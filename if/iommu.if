@@ -23,7 +23,7 @@ interface iommu "IOMMU" {
                out errval err, out cap retvnode);
 
     /* maps the capability into the vnode */
-    rpc map(in cap vnode, in uint16 slot, in cap src, in uint16 attr,
+    rpc map(in cap vnode, in uint16 slot, in cap src, in uint64 attr,
             out errval err);
 
     /* unmaps the slot in the vnode */

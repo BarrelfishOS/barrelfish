@@ -416,7 +416,9 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
             err = invoke_vnode_identify(vnode, &vid);
             assert(err_is_ok(err)); /// should not fail
 
-            err = cap_mint(retcap, vnode, 0x0, 0x0);
+        #define IOMMU_VNODE_CAPRIGHTS (CAPRIGHTS_READ | CAPRIGHTS_GRANT | CAPRIGHTS_IDENTIFY)
+
+            err = cap_mint(retcap, vnode, IOMMU_VNODE_CAPRIGHTS, 0x0);
             if (err_is_fail(err)) {
                 goto out_err3;
             }
@@ -460,9 +462,17 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
 
 
 static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
-                        uint16_t slot, struct capref src, uint16_t attr)
+                        uint16_t slot, struct capref src, uint64_t attr)
 {
     errval_t err;
+
+    struct iommu_device *dev = ib->st;
+    assert(dev);
+
+    if (dev->f.map == NULL) {
+        err = IOMMU_ERR_NOT_SUPPORTED;
+        goto out;
+    }
 
     struct vnode_identity id;
     err = invoke_vnode_identify(vnode_ro, &id);
@@ -472,16 +482,16 @@ static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
 
     switch(id.type) {
         case ObjType_VNode_x86_64_pml4 :
-            IOMMU_SVC_DEBUG("%s. PML4 @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot);
+            IOMMU_SVC_DEBUG("%s. PML4 @ 0x%lx slot [%u] flags[%lx]\n", __FUNCTION__, id.base, slot, attr);
             break;
         case ObjType_VNode_x86_64_pdpt :
-            IOMMU_SVC_DEBUG("%s. PDPT @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot );
+            IOMMU_SVC_DEBUG("%s. PDPT @ 0x%lx slot [%u] flags[%lx]\n", __FUNCTION__, id.base, slot, attr );
             break;
         case ObjType_VNode_x86_64_pdir :
-            IOMMU_SVC_DEBUG("%s. PDIR @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot);
+            IOMMU_SVC_DEBUG("%s. PDIR @ 0x%lx slot [%u] flags[%lx]\n", __FUNCTION__, id.base, slot, attr);
             break;
         case ObjType_VNode_VTd_ctxt_table :
-            IOMMU_SVC_DEBUG("%s. CTXT @ 0x%lx slot [%u]\n", __FUNCTION__, id.base, slot );
+            IOMMU_SVC_DEBUG("%s. CTXT @ 0x%lx slot [%u] flags[%lx]\n", __FUNCTION__, id.base, slot, attr);
             break;
     }
 
@@ -497,7 +507,10 @@ static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
         goto out;
     }
 
-    err = vnode_map(vnode, src, slot, attr, 0, 1, mapping);
+    err = dev->f.map(dev, vnode, src, slot, attr, 1, mapping);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to map the frame\n");
+    }
 
     out:
     // delete the cap, we no longer need it
@@ -513,6 +526,14 @@ static void unmap_request(struct iommu_binding *ib, struct capref vnode_ro,
 {
     errval_t err;
     IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
+
+    struct iommu_device *dev = ib->st;
+    assert(dev);
+
+    if (dev->f.unmap == NULL) {
+        err = IOMMU_ERR_NOT_SUPPORTED;
+        goto out;
+    }
 
     struct vnode_identity id;
     err = invoke_vnode_identify(vnode_ro, &id);

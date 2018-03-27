@@ -139,7 +139,7 @@ int32_t driverkit_iommu_get_nodeid(struct iommu_client *cl);
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t driverkit_iommu_map(struct iommu_client *cl, struct capref dst,
-                             uint16_t slot, struct capref src, uint16_t attr);
+                             uint16_t slot, struct capref src, uint64_t attr);
 
 
 /**

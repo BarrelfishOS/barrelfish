@@ -11,7 +11,29 @@
 #include <numa.h>
 
 #include "intel_vtd.h"
+#include "../generic/common.h"
+#include "intel_vtd_ctxt_cache.h"
 
+static errval_t map_page_fn(struct iommu_device *io, struct capref dest, struct capref src, capaddr_t slot,
+                            uint64_t attr, uint64_t pte_count, struct capref mapping)
+{
+    errval_t err;
+
+    struct vtd_device *vdev = (struct vtd_device *)io;
+
+    err = vnode_map(dest, src, slot, attr, 0, pte_count, mapping);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    vtd_ctxt_cache_invalidate_domain((struct vtd *)io->iommu, vdev->domain->id);
+
+    return SYS_ERR_OK;
+}
+static errval_t unmap_page_fn(struct iommu_device *io, struct capref vnode, uint16_t slot)
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
 
 static errval_t vtd_device_set_root_vnode(struct iommu_device *idev,
                                           struct capref vnode)
@@ -96,6 +118,8 @@ errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
     vdev->dev.addr.pci.device = dev;
     vdev->dev.addr.pci.function = fun;
     vdev->dev.f.set_root = vtd_device_set_root_vnode;
+    vdev->dev.f.map = map_page_fn;
+    vdev->dev.f.unmap = unmap_page_fn;
 
     *rdev = vdev;
 
@@ -124,11 +148,12 @@ errval_t vtd_device_destroy(struct vtd_device *dev)
 
 errval_t vtd_device_remove_from_domain(struct vtd_device *dev)
 {
-    INTEL_VTD_DEBUG_DEVICES("remove from domain %p\n", dev);
 
     if (dev->domain == NULL) {
         return SYS_ERR_OK;
     }
+
+    INTEL_VTD_DEBUG_DEVICES("remove [%p] from domain %p\n", dev, dev->domain);
 
     return vtd_domains_remove_device(dev->domain, dev);
 }

@@ -196,6 +196,7 @@ static inline errval_t iommu_get_mapping_region(struct iommu_client *cl,
     *start = MAPPING_REGION_START;
     *end = MAPPING_REGION_START + MAPPING_REGION_SIZE - 1;
     *rootvnodeslot = 2;
+    STATIC_ASSERT(2 == X86_64_PML4_BASE(MAPPING_REGION_START), "");
     return SYS_ERR_OK;
 }
 
@@ -212,7 +213,7 @@ static inline errval_t iommu_get_mapping_region(struct iommu_client *cl,
  */
 
 #include <barrelfish_kpi/paging_arch.h>
-#define IOMMU_DEFAULT_VNODE_FLAGS (3)
+#define IOMMU_DEFAULT_VNODE_FLAGS X86_64_PTABLE_ACCESS_DEFAULT
 
 static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl)
 {
@@ -318,24 +319,24 @@ static errval_t driverkit_iommu_vnode_get_l2(struct iommu_client *cl,
         case ObjType_VNode_x86_64_pml4 :
             debug_printf("Allocate PDPT for L2 node\n");
             l2_vnode_type = ObjType_VNode_x86_64_pdpt;
-            addr = addr & ~((512UL << 30) - 1);
-            end_addr = addr + (512UL << 30) - 1;
+            addr = addr & ~X86_64_HUGE_PAGE_MASK;
+            end_addr = addr + X86_64_HUGE_PAGE_SIZE - 1;
             slot = X86_64_PML4_BASE(addr);
             *retslot = X86_64_PDPT_BASE(addr);
             break;
         case ObjType_VNode_x86_64_pdpt :
             debug_printf("Allocate PDIR for L2 node\n");
             l2_vnode_type = ObjType_VNode_x86_64_pdir;
-            addr = addr & ~X86_64_HUGE_PAGE_MASK;
-            end_addr = addr + X86_64_HUGE_PAGE_SIZE - 1;
+            addr = addr & ~X86_64_LARGE_PAGE_MASK;
+            end_addr = addr + X86_64_LARGE_PAGE_SIZE - 1;
             slot = X86_64_PDPT_BASE(addr);
             *retslot = X86_64_PDIR_BASE(addr);
             break;
         case ObjType_VNode_x86_64_pdir :
             debug_printf("Allocate PTABLE for L2 node\n");
             l2_vnode_type = ObjType_VNode_x86_64_ptable;
-            addr = addr & ~X86_64_LARGE_PAGE_MASK;
-            end_addr = addr + X86_64_LARGE_PAGE_SIZE - 1;
+            addr = addr & ~X86_64_BASE_PAGE_MASK;
+            end_addr = addr + X86_64_BASE_PAGE_SIZE - 1;
             slot = X86_64_PDIR_BASE(addr);
             *retslot = X86_64_PTABLE_BASE(addr);
             break;
@@ -861,7 +862,7 @@ int32_t driverkit_iommu_get_nodeid(struct iommu_client *cl)
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t driverkit_iommu_map(struct iommu_client *cl, struct capref dst,
-                             uint16_t slot, struct capref src, uint16_t attr)
+                             uint16_t slot, struct capref src, uint64_t attr)
 {
     errval_t err;
 
@@ -957,8 +958,6 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
 {
     errval_t err;
 
-    debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
-
     struct frame_identity id;
     err = invoke_frame_identify(frame, &id);
     if (err_is_fail(err)) {
@@ -1010,7 +1009,6 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     /* map the vnodes */
     debug_printf("%s:%u mapping in device address space 0x%" PRIxGENVADDR "\n",
                  __FUNCTION__, __LINE__, dmem->devaddr);
-    debug_printf("slot = %zu\n", slot);
     err = driverkit_iommu_map(cl, vnode->vnode, slot, dmem->mem, flags);
     if (err_is_fail(err)) {
         goto err_out2;
@@ -1102,10 +1100,8 @@ errval_t driverkit_iommu_alloc_frame(struct iommu_client *cl, size_t bytes,
                                      struct capref *retframe)
 {
     if (cl == NULL) {
-        debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
         return frame_alloc(retframe, bytes, NULL);
     } else {
-        debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
         return iommu_alloc_ram_for_frame(cl, bytes, retframe);
     }
 }
@@ -1186,7 +1182,9 @@ errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
 {
     errval_t err;
 
-    debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
+    if (bytes > LARGE_PAGE_SIZE) {
+        debug_printf("XXXXXX: bytes=%zu\n", bytes);
+    }
 
     err = driverkit_iommu_alloc_frame(cl, bytes, &mem->mem);
     if (err_is_fail(err)) {

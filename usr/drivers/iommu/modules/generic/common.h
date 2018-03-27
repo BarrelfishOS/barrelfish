@@ -33,6 +33,10 @@ struct iommu_device;
  * iommus
  */
 
+typedef errval_t (*map_fn)(struct iommu_device *io, struct capref dest, struct capref src, capaddr_t slot,
+                           uint64_t attr, uint64_t pte_count, struct capref mapping);
+typedef errval_t (*unmap_fn)(struct iommu_device *io, struct capref vnode, uint16_t slot);
+
 typedef errval_t (*set_root_fn)(struct iommu_device *, struct capref src);
 typedef errval_t (*create_dev_fn)(struct iommu *io, uint16_t seg, uint8_t bus,
                                   uint8_t dev, uint8_t fun,
@@ -106,6 +110,8 @@ struct iommu_device
 
     struct {
         set_root_fn set_root;
+        map_fn      map;
+        unmap_fn    unmap;
     } f;
 };
 

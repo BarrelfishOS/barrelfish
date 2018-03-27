@@ -169,6 +169,10 @@ errval_t vtd_domains_add_device(struct vtd_domain *d, struct vtd_device *dev)
         .slot = dev->ctxt_table_idx
     };
 
+    INTEL_VTD_DEBUG_DOMAINS("mapping %u.%u.%u dom %u at ctxt[%u][%u]\n",
+                            dev->dev.addr.pci.bus, dev->dev.addr.pci.device,
+                            dev->dev.addr.pci.function, d->id,
+                            dev->ctxt_table->root_table_idx, dev->ctxt_table_idx);
     err = vnode_map(dev->ctxt_table->ctcap, d->ptroot, dev->ctxt_table_idx,
                     flags, 0, 1, mappingcap);
     if (err_is_fail(err)) {
