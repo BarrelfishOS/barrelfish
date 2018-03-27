@@ -249,10 +249,20 @@ struct vtd_domain *vtd_domains_get_by_cap(struct capref rootpt)
     struct vnode_identity id;
     err = invoke_vnode_identify(rootpt, &id);
     if (err_is_fail(err)) {
+        INTEL_VTD_DEBUG_DOMAINS("lookup by cap failed. %s\n",
+                                err_getstring(err));
+
         return NULL;
     }
 
+    INTEL_VTD_DEBUG_DOMAINS("lookup by cap: 0x%" PRIxGENPADDR "\n",
+                            id.base);
+
     for (vtd_domid_t i = 1; i < domains_count; i++) {
+        if (domains_all[i] == NULL) {
+            continue;
+        }
+
         if (domains_all[i]->ptroot_base == id.base) {
             return domains_all[i];
         }
