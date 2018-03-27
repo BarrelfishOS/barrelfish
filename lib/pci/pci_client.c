@@ -574,7 +574,7 @@ errval_t pci_sriov_get_vf_resources(uint32_t vf_num, struct capref* regs, struct
         slot_free(*iommu_ep);
         return err_is_fail(err) ? err : msgerr;
     }
-     
+    
     // PCI endpoint
     err = slot_alloc(pci_ep);
     if (err_is_fail(err)) {
@@ -586,14 +586,13 @@ errval_t pci_sriov_get_vf_resources(uint32_t vf_num, struct capref* regs, struct
     //XXX Assumes iommu driver on core 0
     err = pci_client->rpc_tx_vtbl.get_vf_pci_endpoint_cap(pci_client, vf_num, 
                                      (disp_get_core_id() == 0) ? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP,
-                                     iommu_ep, &msgerr);
+                                     pci_ep, &msgerr);
     if (err_is_fail(err) || err_is_fail(msgerr)) {
         slot_free(*regs);
         slot_free(*iommu_ep);
         slot_free(*pci_ep);
         return err_is_fail(err) ? err : msgerr;
     }
-
     
     // TODO irq cap
     return SYS_ERR_OK;
