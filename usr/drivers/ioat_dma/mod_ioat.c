@@ -227,7 +227,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
         USER_PANIC_ERR(err, "Failed to initialize the IOMMU library");
     }
 
-    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present(NULL));
+    debug_printf("IOMMU PRESENT: %u\n", driverkit_iommu_present(cl));
 
 
     struct capref regs;
@@ -235,9 +235,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     if (err_is_fail(err)) {
         return err;
     }
-
-    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present(cl));
-
 
     /* initialize the device */
     err = ioat_dma_device_init(regs, cl, &devices[device_count]);
