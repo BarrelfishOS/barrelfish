@@ -311,7 +311,7 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
 
 
 static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
-                        uint16_t slot, struct capref src)
+                        uint16_t slot, struct capref src, uint16_t attr)
 {
     errval_t err;
     IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
@@ -322,16 +322,19 @@ static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
         goto out;
     }
 
-    uint64_t attr = 0;
-
     struct capref mapping;
+    err = slot_alloc(&mapping);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
     err = vnode_map(vnode, src, slot, attr, 0, 1, mapping);
 
     out:
     // delete the cap, we no longer need it
     cap_destroy(vnode_ro);
 
-    err = ib->tx_vtbl.map_response(ib, NOP_CONT, LIB_ERR_NOT_IMPLEMENTED);
+    err = ib->tx_vtbl.map_response(ib, NOP_CONT, err);
     assert(err_is_ok(err)); /* should not fail */
 }
 
