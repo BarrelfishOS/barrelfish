@@ -124,7 +124,7 @@ errval_t net_buf_add(struct net_buf_pool *bp, struct capref frame, size_t buffer
     if (err_is_fail(err)) {
         goto out_err2;
     }
-
+    reg->vbase = (void*) reg->mem.vbase;
     NETDEBUG("netbufs mapped at %p\n", reg->vbase);
 
     if (bp->dev_q) {
