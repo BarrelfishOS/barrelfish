@@ -380,6 +380,8 @@ errval_t networking_init_with_ep(const char *nic, struct capref ep,
         return err;
     }
 
+    st->cardname = nic;
+
     return networking_init_with_queue_st(st, st->queue, flags);
 }
 
