@@ -133,13 +133,17 @@ int32_t driverkit_iommu_get_nodeid(struct iommu_client *cl);
  *
  * @param cl    the iommu client
  * @param dst   destination vnode to map into
- * @param slot  the slot to map into
  * @param src   the source capability to be mapped
+ * @param slot  the slot to map into
+ * @param attr  attributes for the mapping
+ * @param off   offset into the frame
+ * @param count number of page-table entries to be mapped
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t driverkit_iommu_map(struct iommu_client *cl, struct capref dst,
-                             uint16_t slot, struct capref src, uint64_t attr);
+                             struct capref src, uint16_t slot, uint64_t attr,
+                             uint64_t off, uint64_t count);
 
 
 /**
