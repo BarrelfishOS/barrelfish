@@ -547,7 +547,8 @@ init :-
     add_SYSTEM([]),
     DRAM_ID = ["DRAM"],
     initial_dram_block(Block),
-    assert(node_in_use(["DRAM"], [memory, [Block]])). 
+    assert(node_in_use(["DRAM"], [memory, [Block]])), 
+    printf("Decoding net initialized using %p as DRAM", Block).
 
 add_pci :-
     add_pci(["PCI0"]).
