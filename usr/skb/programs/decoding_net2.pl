@@ -523,11 +523,31 @@ get_or_alloc_node_enum(NodeId, Enum) :-
 :- dynamic process_node_id/2.
 :- export process_node_id/2.
 
+% This uses the memory_region facts (defined in the main module) to 
+% find a region above 4G that we will manage.
+initial_dram_block(Block) :- %a
+    % Find the usable DRAM using the existing SKB facts
+    call(mem_region_type, RamType, ram)@eclipse,
+    findall((Base, Size), call(memory_region,Base,Bits,Size,RamType,Data)@eclipse, MemCandidates),
+    (foreach((Base,Size), MemCandidates), fromto([], In, Out, FiltCandidates) do 
+        (((MinBase = 4294967296, % 4G
+        MinSize = 1073741824, % 1G
+        Base >= MinBase,
+        Size >= MinSize) ->  Out = [(Base,Size) | In]
+        ) ; (
+        Out = In
+        ))
+    ),
+    FiltCandidates = [(Base,Size) | _],
+    Limit is Base + Size,
+    Block = block{base:Base, limit: Limit}.
+
 
 init :-
     add_SYSTEM([]),
-    % Reserver lower 512Mb of DRAM
-    assert(node_in_use(["DRAM"], [memory, [block{base:0, limit:536870911}]])). 
+    DRAM_ID = ["DRAM"],
+    initial_dram_block(Block),
+    assert(node_in_use(["DRAM"], [memory, [Block]])). 
 
 add_pci :-
     add_pci(["PCI0"]).

@@ -68,7 +68,7 @@ module PROC_MMU {
 
 module SYSTEM {
     memory (0 bits 40) DRAM
-    DRAM accepts [(0 to 0x1ffffffff)]
+    // DRAM accepts [(0 to 0x1ffffffff)] // Dynamically instantiated
 
     memory (0 bits 40) PCIBUS
     PCIBUS overlays DRAM
