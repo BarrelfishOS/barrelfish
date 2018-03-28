@@ -27,6 +27,8 @@
 #include <devif/backends/net/e1000_devif.h>
 #include <devif/backends/net/mlx4_devif.h>
 
+#include <driverkit/iommu.h>
+
 #include <lwip/netif.h>
 
 #include <net/net_filter.h>
@@ -125,6 +127,7 @@ struct net_buf_region
     regionid_t regionid;
     struct net_buf_pool *pool;
     struct net_buf_p *netbufs;    /// array of netbufs
+    struct dmem mem;
 };
 
 struct net_buf_pool
