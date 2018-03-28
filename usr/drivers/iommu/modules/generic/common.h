@@ -34,7 +34,7 @@ struct iommu_device;
  */
 
 typedef errval_t (*map_fn)(struct iommu_device *io, struct capref dest, struct capref src, capaddr_t slot,
-                           uint64_t attr, uint64_t pte_count, struct capref mapping);
+                           uint64_t attr, uint64_t off, uint64_t pte_count, struct capref mapping);
 typedef errval_t (*unmap_fn)(struct iommu_device *io, struct capref vnode, uint16_t slot);
 
 typedef errval_t (*set_root_fn)(struct iommu_device *, struct capref src);

@@ -146,6 +146,8 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
         bytes = LARGE_PAGE_SIZE;
     }
 
+    return frame_alloc(retcap, bytes, NULL);
+
     struct mem_binding * b = get_mem_client();
 
     int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
@@ -893,6 +895,9 @@ errval_t driverkit_iommu_map(struct iommu_client *cl, struct capref dst,
 
     assert(cl);
 
+    debug_printf("mapping slot=%u, attr=%lx, offset=%lx, count=%lu]\n",
+                            slot, attr, off, count);
+
     errval_t msgerr;
     err = cl->binding->rpc_tx_vtbl.map(cl->binding, dst, src, slot, attr,
                                        off, count, &msgerr);
@@ -1084,7 +1089,8 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
             if (err_is_fail(err)) {
                 goto err_out3;
             }
-            ptecount = 0;
+
+            return SYS_ERR_OK;
         } else {
 
             debug_printf("%s:%u mapping in device address space 0x%" PRIxGENVADDR "\n",
@@ -1225,20 +1231,31 @@ errval_t driverkit_iommu_alloc_vnode_cl(struct iommu_client *cl, enum objtype ty
         return err;
     }
 
+    err = slot_alloc(retvnode);
+    if (err_is_fail(err)) {
+        goto err_out;
+    }
+
     errval_t msgerr;
     err = cl->binding->rpc_tx_vtbl.retype(cl->binding, ram, type, &msgerr,
                                           retvnode);
     if (err_is_fail(err)) {
-        iommu_free_ram(ram);
-        return err;
+        goto err_out2;
     }
 
     if (err_is_fail(msgerr)) {
-        iommu_free_ram(ram);
-        return msgerr;
+        err = msgerr;
+        goto err_out2;
     }
 
     return SYS_ERR_OK;
+
+    err_out2:
+    slot_free(*retvnode);
+    err_out:
+    iommu_free_ram(ram);
+    return err;
+
 }
 
 

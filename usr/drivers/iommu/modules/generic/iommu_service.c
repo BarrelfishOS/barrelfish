@@ -321,16 +321,16 @@ static void map_request(struct iommu_binding *ib, struct capref dst,
 
     switch(id.type) {
         case ObjType_VNode_x86_64_pml4 :
-            IOMMU_SVC_DEBUG("%s. PML4 @ 0x%lx slot [%u] flags[%lx]\n", __FUNCTION__, id.base, slot, attr);
+            IOMMU_SVC_DEBUG("%s. PML4 @ 0x%lx slot [%u..%lu] flags[%lx]\n", __FUNCTION__, id.base, slot, slot+pte_count - 1, attr);
             break;
         case ObjType_VNode_x86_64_pdpt :
-            IOMMU_SVC_DEBUG("%s. PDPT @ 0x%lx slot [%u] flags[%lx]\n", __FUNCTION__, id.base, slot, attr );
+            IOMMU_SVC_DEBUG("%s. PDPT @ 0x%lx slot [%u..%lu] flags[%lx]\n", __FUNCTION__, id.base, slot, slot+pte_count - 1, attr );
             break;
         case ObjType_VNode_x86_64_pdir :
-            IOMMU_SVC_DEBUG("%s. PDIR @ 0x%lx slot [%u] flags[%lx]\n", __FUNCTION__, id.base, slot, attr);
+            IOMMU_SVC_DEBUG("%s. PDIR @ 0x%lx slot [%u..%lu] flags[%lx]\n", __FUNCTION__, id.base, slot, slot+pte_count - 1, attr);
             break;
         case ObjType_VNode_VTd_ctxt_table :
-            IOMMU_SVC_DEBUG("%s. CTXT @ 0x%lx slot [%u] flags[%lx]\n", __FUNCTION__, id.base, slot, attr);
+            IOMMU_SVC_DEBUG("%s. CTXT @ 0x%lx slot [%u..%lu] flags[%lx]\n", __FUNCTION__, id.base, slot, slot+pte_count - 1, attr);
             break;
     }
 
@@ -346,7 +346,7 @@ static void map_request(struct iommu_binding *ib, struct capref dst,
         goto out;
     }
 
-    err = dev->f.map(dev, vnode, src, slot, attr, 1, mapping);
+    err = dev->f.map(dev, vnode, src, slot, attr, off, pte_count, mapping);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to map the frame\n");
     }

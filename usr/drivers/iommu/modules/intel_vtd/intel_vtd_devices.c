@@ -14,14 +14,18 @@
 #include "../generic/common.h"
 #include "intel_vtd_ctxt_cache.h"
 
-static errval_t map_page_fn(struct iommu_device *io, struct capref dest, struct capref src, capaddr_t slot,
-                            uint64_t attr, uint64_t pte_count, struct capref mapping)
+static errval_t map_page_fn(struct iommu_device *io, struct capref dest, struct capref src,
+                            capaddr_t slot, uint64_t attr, uint64_t offset, uint64_t pte_count,
+                            struct capref mapping)
 {
     errval_t err;
 
     struct vtd_device *vdev = (struct vtd_device *)io;
 
-    err = vnode_map(dest, src, slot, attr, 0, pte_count, mapping);
+    INTEL_VTD_DEBUG_DEVICES("mapping slot=%u, attr=%lx, offset=%lx, count=%lu]\n",
+                            slot, attr, offset, pte_count);
+
+    err = vnode_map(dest, src, slot, attr, offset, pte_count, mapping);
     if (err_is_fail(err)) {
         return err;
     }
