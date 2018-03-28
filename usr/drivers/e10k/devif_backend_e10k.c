@@ -30,11 +30,39 @@
 #define IPHDR_LEN 20
 #define UDPHDR_LEN 8
 
-// for debugging
-static e10k_t* d;
 
 // TODO only required for legacy interrupts
 struct e10k_queue* queues[128];
+
+/*
+#define prnonz(x, d)                                               \
+    uint32_t x = e10k_vf_vf##x##_rd(d);                           \
+    snprintf(str[cnt++], 32, #x "=%x \n", x);                      \
+
+static void stats_dump(e10k_vf_t* d)
+{
+  char str[256][32];
+  int cnt = 0;
+  memset(str, 0, 256 * 32);
+
+    prnonz(ctrl, d);
+    prnonz(status, d);
+    prnonz(links, d);
+    prnonz(rxmemwrap, d);
+    prnonz(eicr, d);
+    prnonz(eics, d);
+    prnonz(eims, d);
+    prnonz(gprc, d);
+    prnonz(gptc, d);
+
+    if(cnt > 0) {
+      for(int i = 0; i < cnt; i++) {
+	    printf("PF: %s ", str[i]);
+      }
+      printf("\n");
+    }
+}
+*/
 
 /******************************************************************************/
 /* Misc functions */
@@ -236,6 +264,7 @@ static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
     }  else {
         DEBUG_QUEUE("Queue %d sent offset=%lu valid_length=%lu \n", 
                que->id, *offset, *valid_length);
+        //stats_dump(que->d);
         return SYS_ERR_OK;
     }
 
@@ -245,6 +274,7 @@ static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
     } else {
         DEBUG_QUEUE("Queue %d received offset=%lu valid_length=%lu \n", 
                que->id, *offset, *valid_length);
+        //stats_dump(que->d);
         return SYS_ERR_OK;
     }
      
@@ -420,21 +450,18 @@ static errval_t map_device_memory(struct e10k_queue* q,
         return err;
     }
 
-    struct iommu_client* cl = e10k_vf_get_iommu_client();
-    err = driverkit_iommu_vspace_map_cl(cl, regs,
-                                        VREGION_FLAGS_READ_WRITE_NOCACHE,
-                                        &q->reg_mem);
+    void* va;
+    err = vspace_map_one_frame_attr(&va, id.bytes, regs, VREGION_FLAGS_READ_WRITE_NOCACHE,
+                                    NULL, NULL);
     if (err_is_fail(err)) {
         return err;
     }
       
-
-    DEBUG_QUEUE("mapped %zu bytes at address %p\n", q->reg_mem.size, 
-                (void*) q->reg_mem.vbase);
+    DEBUG_QUEUE("mapped %zu bytes at address %p\n", id.bytes, 
+                va);
     q->d = malloc(sizeof(e10k_t));
     assert(q->d != NULL);
-    e10k_initialize(q->d, (void*) q->reg_mem.vbase);
-    d = q->d;
+    e10k_initialize(q->d, (void*) va);
     return SYS_ERR_OK;
 }
 
