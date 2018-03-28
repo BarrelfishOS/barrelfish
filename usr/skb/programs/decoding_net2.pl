@@ -547,8 +547,8 @@ init :-
     add_SYSTEM([]),
     DRAM_ID = ["DRAM"],
     initial_dram_block(Block),
-    assert(node_in_use(["DRAM"], [memory, [Block]])), 
-    printf("Decoding net initialized using %p as DRAM", Block).
+    assert(node_accept(["DRAM"], [memory, [Block]])), 
+    printf("Decoding net initialized using %p as DRAM\n", Block).
 
 add_pci :-
     add_pci(["PCI0"]).
@@ -751,6 +751,9 @@ common_free_buffer_wrap(Bits, N1Enum, N2Enum)  :-
     common_free_buffer([memory, [Size]], R1, R2, ResR, _),
     ResR = region{node_id: ResRId, blocks: [memory, [block{base:ResRAddr}]]},
     get_or_alloc_node_enum(ResRId, ResEnum),
+    mark_range_in_use(ResR),
+    mark_range_in_use(R1),
+    mark_range_in_use(R2),
     writeln([name(R1Addr, N1Enum),name(R2Addr, N2Enum),name(ResRAddr, ResEnum)]).
 
 
