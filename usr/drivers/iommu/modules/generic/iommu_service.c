@@ -32,168 +32,6 @@
 
 #include "../intel_vtd/intel_vtd.h"
 
-#if 0
-static void create_domain(struct iommu_binding *b, struct capref rootpt,
-                          struct capref dev)
-{
-    errval_t err;
-
-    debug_printf("[iommu] creating domain\n");
-
-    struct iommu_device *d;
-    err = iommu_device_get(dev, &d);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Obtaining the device failed\n");
-        goto out;
-    }
-
-    debug_printf("[iommu] found the device. getting IOMMU..\n");
-
-
-    struct iommu *iommu = iommu_device_get_iommu(d);
-    assert(iommu);
-
-    switch(iommu_get_type(iommu)) {
-        case HW_PCI_IOMMU_INTEL: {
-            struct vtd_domain * dom;
-            err = vtd_domains_create((struct vtd *)iommu, rootpt, &dom);
-            break;
-        }
-        case HW_PCI_IOMMU_AMD: {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
-        case HW_PCI_IOMMU_ARM: {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
-        default : {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
-    }
-
-    if (err_is_fail(err)) {
-        cap_destroy(rootpt);
-    }
-
-    /* clear slot */
-    cap_destroy(dev);
-
-    out:
-    err = b->tx_vtbl.create_domain_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-}
-
-static void delete_domain(struct iommu_binding *b, struct capref rootpt)
-{
-    errval_t err;
-
-    USER_PANIC("NYi!\n");
-
-    /* clear slot */
-    cap_destroy(rootpt);
-
-    err = b->tx_vtbl.delete_domain_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-}
-
-static void add_device(struct iommu_binding *b, struct capref rootpt,
-                       struct capref dev)
-{
-    errval_t err;
-
-    struct iommu_device *d;
-    err = iommu_device_get(dev, &d);
-    if (err_is_fail(err)) {
-        debug_printf("Obtaining the device failed\n");
-        goto out;
-    }
-
-    struct iommu *iommu = iommu_device_get_iommu(d);
-    assert(iommu);
-
-
-    switch(iommu_get_type(iommu)) {
-        case HW_PCI_IOMMU_INTEL: {
-            struct vtd *v = (struct vtd *)iommu;
-            debug_printf("obtained vtd: %u %u\n", v->index, v->scope_all);
-
-            struct vtd_domain *dom = vtd_domains_get_by_cap(rootpt);
-            if (dom == NULL) {
-                err = IOMMU_ERR_DOM_NOT_FOUND;
-                goto out;
-            }
-
-            err = vtd_device_add_to_domain((struct vtd_device *)d, dom);
-
-            break;
-        }
-        case HW_PCI_IOMMU_AMD: {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
-        case HW_PCI_IOMMU_ARM: {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
-        default : {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
-    }
-
-    out:
-
-    cap_destroy(dev);
-    cap_destroy(rootpt);
-
-    err = b->tx_vtbl.add_device_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-}
-
-static void remove_device(struct iommu_binding *b, struct capref rootpt,
-                          struct capref dev)
-{
-    errval_t err;
-
-    struct iommu_device *d;
-    err = iommu_device_get(dev, &d);
-    if (err_is_fail(err)) {
-        debug_printf("Obtaining the device failed\n");
-        goto out;
-    }
-
-    struct iommu *iommu = iommu_device_get_iommu(d);
-    assert(iommu);
-
-    switch(iommu_get_type(iommu)) {
-        case HW_PCI_IOMMU_INTEL: {
-            err = vtd_device_remove_from_domain((struct vtd_device *)d);
-            break;
-        }
-        case HW_PCI_IOMMU_AMD: {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
-        case HW_PCI_IOMMU_ARM: {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
-        default : {
-            err = IOMMU_ERR_IOMMU_NOT_FOUND;
-            break;
-        }
-    }
-    out:
-
-    cap_destroy(dev);
-    cap_destroy(rootpt);
-
-    err = b->tx_vtbl.remove_device_response(b, NOP_CONT, err);
-    assert(err_is_ok(err));
-}
-#endif
 
 #define IOMMU_SVC_DEBUG(x...) debug_printf("[iommu] [svc] " x)
 
@@ -461,8 +299,9 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
 }
 
 
-static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
-                        uint16_t slot, struct capref src, uint64_t attr)
+static void map_request(struct iommu_binding *ib, struct capref dst,
+                        struct capref src, uint16_t slot, uint64_t attr,
+                        uint64_t off, uint64_t pte_count)
 {
     errval_t err;
 
@@ -475,7 +314,7 @@ static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
     }
 
     struct vnode_identity id;
-    err = invoke_vnode_identify(vnode_ro, &id);
+    err = invoke_vnode_identify(dst, &id);
     if (err_is_fail(err)) {
         goto out;
     }
@@ -514,7 +353,7 @@ static void map_request(struct iommu_binding *ib, struct capref vnode_ro,
 
     out:
     // delete the cap, we no longer need it
-    cap_destroy(vnode_ro);
+    cap_destroy(dst);
 
     err = ib->tx_vtbl.map_response(ib, NOP_CONT, err);
     assert(err_is_ok(err)); /* should not fail */

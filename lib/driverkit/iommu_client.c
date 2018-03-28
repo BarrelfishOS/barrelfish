@@ -291,8 +291,9 @@ static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl)
     }
 
     debug_printf("MAPPING ROOT VNODE!\n");
-    err = driverkit_iommu_map(cl, cl->rootvnode, cl->rootvnode_slot,
-                              cl->vnode_l3->vnode, IOMMU_DEFAULT_VNODE_FLAGS);
+    err = driverkit_iommu_map(cl, cl->rootvnode, cl->vnode_l3->vnode,
+                              cl->rootvnode_slot, IOMMU_DEFAULT_VNODE_FLAGS,
+                              0, 1);
     if (err_is_fail(err)) {
         goto err_out3;
     }
@@ -389,8 +390,8 @@ static errval_t driverkit_iommu_vnode_get_l2(struct iommu_client *cl,
         goto err_out;
     }
 
-    err = driverkit_iommu_map(cl, cl->vnode_l3->vnode, slot, vnode_l2->vnode,
-                              IOMMU_DEFAULT_VNODE_FLAGS);
+    err = driverkit_iommu_map(cl, cl->vnode_l3->vnode, vnode_l2->vnode, slot,
+                              IOMMU_DEFAULT_VNODE_FLAGS, 0, 1);
     if (err_is_fail(err)) {
         goto err_out2;
     }
@@ -874,23 +875,27 @@ int32_t driverkit_iommu_get_nodeid(struct iommu_client *cl)
 /**
  * @brief maps a vnode or a frame cap into a vnode cap
  *
- * @param cl        the iommu client
+ * @param cl    the iommu client
  * @param dst   destination vnode to map into
- * @param slot  the slot to map into
  * @param src   the source capability to be mapped
+ * @param slot  the slot to map into
+ * @param attr  attributes for the mapping
+ * @param off   offset into the frame
+ * @param count number of page-table entries to be mapped
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t driverkit_iommu_map(struct iommu_client *cl, struct capref dst,
-                             uint16_t slot, struct capref src, uint64_t attr)
+                             struct capref src, uint16_t slot, uint64_t attr,
+                             uint64_t off, uint64_t count)
 {
     errval_t err;
 
     assert(cl);
 
     errval_t msgerr;
-    err = cl->binding->rpc_tx_vtbl.map(cl->binding, dst, slot, src, attr,
-                                       &msgerr);
+    err = cl->binding->rpc_tx_vtbl.map(cl->binding, dst, src, slot, attr,
+                                       off, count, &msgerr);
     if (err_is_ok(err)) {
         err = msgerr;
     }
@@ -1018,24 +1023,80 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     assert(dmem->vbase);
     assert(dmem->devaddr);
 
-    /* allocate the vnodes */
-    struct iommu_vnode_l2 *vnode;
-    uint64_t slot;
-    err = driverkit_iommu_vnode_get_l2(cl, dmem->devaddr, &slot, &vnode);
+    /* create L3 table if not created already */
+    err = driverkit_iommu_vnode_create_l3(cl);
     if (err_is_fail(err)) {
-        goto err_out2;
+        goto err_out;
     }
 
-    /* map the vnodes */
-    debug_printf("%s:%u mapping in device address space 0x%" PRIxGENVADDR "\n",
-                 __FUNCTION__, __LINE__, dmem->devaddr);
-    err = driverkit_iommu_map(cl, vnode->vnode, slot, dmem->mem, flags);
-    if (err_is_fail(err)) {
-        goto err_out2;
+    assert(cl->vnode_l3);
+
+    uint64_t ptecount = 1;
+    uint64_t pagesize = 0;
+    switch(cl->vnode_l3->vnode_type) {
+        case ObjType_VNode_x86_64_pml4 :
+            assert(dmem->size > X86_64_HUGE_PAGE_SIZE &&
+                   !(dmem->size & X86_64_HUGE_PAGE_MASK));
+            ptecount = dmem->size / X86_64_HUGE_PAGE_SIZE;
+            pagesize = X86_64_HUGE_PAGE_SIZE;
+        case ObjType_VNode_x86_64_pdpt :
+            assert(dmem->size > X86_64_LARGE_PAGE_SIZE &&
+                   !(dmem->size & X86_64_LARGE_PAGE_MASK));
+            ptecount = dmem->size / X86_64_LARGE_PAGE_SIZE;
+            pagesize = X86_64_LARGE_PAGE_SIZE;
+        case ObjType_VNode_x86_64_pdir :
+            assert(dmem->size > X86_64_BASE_PAGE_SIZE &&
+                   !(dmem->size & X86_64_BASE_PAGE_MASK));
+            ptecount = dmem->size / X86_64_BASE_PAGE_SIZE;
+            pagesize = X86_64_BASE_PAGE_SIZE;
+            break;
+        default:
+            err = SYS_ERR_VNODE_TYPE;
+            goto err_out2;
+    }
+
+    uint64_t offset = 0;
+    while(ptecount > 0) {
+        /* allocate the vnodes */
+        struct iommu_vnode_l2 *vnode;
+        uint64_t slot;
+        err = driverkit_iommu_vnode_get_l2(cl, dmem->devaddr + offset,
+                                           &slot, &vnode);
+        if (err_is_fail(err)) {
+            goto err_out2;
+        }
+
+        uint64_t max_pte = (1UL << vnode_entry_bits(vnode->vnode_type));
+
+        /* fits all in one */
+        if ((ptecount + slot) < max_pte) {
+            /* map the vnodes */
+            debug_printf("%s:%u mapping in device address space 0x%" PRIxGENVADDR "\n",
+                         __FUNCTION__, __LINE__, dmem->devaddr+offset);
+            err = driverkit_iommu_map(cl, vnode->vnode, dmem->mem, slot, flags,
+                                      offset, ptecount);
+            if (err_is_fail(err)) {
+                goto err_out3;
+            }
+            ptecount = 0;
+        } else {
+
+            debug_printf("%s:%u mapping in device address space 0x%" PRIxGENVADDR "\n",
+                         __FUNCTION__, __LINE__, dmem->devaddr+offset);
+
+            err = driverkit_iommu_map(cl, vnode->vnode, dmem->mem, slot, flags,
+                                      offset, max_pte - slot);
+            if (err_is_fail(err)) {
+                goto err_out3;
+            }
+            offset += (pagesize + (max_pte - slot));
+            ptecount -= (max_pte - slot);
+        }
     }
 
     return SYS_ERR_OK;
-
+    err_out3:
+    USER_PANIC("NYI: cleanup mapped frames!\n");
     err_out2:
     if (cl == NULL || cl->policy != IOMMU_VSPACE_POLICY_SHARED) {
         vspace_unmap((void *)dmem->vbase);
@@ -1201,10 +1262,6 @@ errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
                                  vregion_flags_t flags, struct dmem *mem)
 {
     errval_t err;
-
-    if (bytes > LARGE_PAGE_SIZE) {
-        debug_printf("XXXXXX: bytes=%zu\n", bytes);
-    }
 
     err = driverkit_iommu_alloc_frame(cl, bytes, &mem->mem);
     if (err_is_fail(err)) {
