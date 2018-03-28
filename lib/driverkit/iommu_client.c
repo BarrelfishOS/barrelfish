@@ -134,15 +134,30 @@ static int32_t get_own_nodeid(void) {
     return nodeid;
 }
 
-static errval_t alloc_common(int bits, int32_t nodeid1,
-    int32_t nodeid2, uint64_t *addr) {
+#define MODE_ALLOC_COMMON 0 
+#define MODE_MAP_COMMON 1 
 
-    DRIVERKIT_DEBUG("alloc_common for bits=%d, nodeid1=%d, nodeid2=%d",
-            bits, nodeid1, nodeid2);
+static errval_t alloc_common(int mode, int bits,
+    int32_t nodeid1, uint64_t *node1addr,
+    int32_t nodeid2, uint64_t *node2addr,
+    uint64_t *physaddr) {
+
+    DRIVERKIT_DEBUG("alloc_common for mode=%d, bits=%d, nodeid1=%d, nodeid2=%d",
+            mode, bits, nodeid1, nodeid2);
 
     errval_t err;
-    err = skb_execute_query("common_free_buffer_wrap(%d,%"PRIi32",%"PRIi32").",
-            bits, nodeid1, nodeid2);
+    if(mode == MODE_ALLOC_COMMON){
+        err = skb_execute_query("alloc_common(%d,%"PRIi32",%"PRIi32").",
+                bits, nodeid1, nodeid2);
+    } else {
+        assert(mode == MODE_MAP_COMMON);
+        // We need physaddr to be passed
+        assert(physaddr != NULL);
+        assert(*physaddr != 0);
+        err = skb_execute_query("map_common(%d,%"PRIu64",%"PRIi32",%"PRIi32").",
+                bits, *physaddr, nodeid1, nodeid2);
+    }
+
     if(err_is_fail(err)){
         DEBUG_SKB_ERR(err,"in iommu_alloc_ram_for_frame");
         skb_execute_query("dec_net_debug");
@@ -154,20 +169,21 @@ static errval_t alloc_common(int bits, int32_t nodeid1,
     skb_read_list_init_offset(&status, skb_list_output, 0);
 
     uint64_t address = 0, nodeid=0;
-    int num_read = 0;
+    int list_idx = 0;
     while(skb_read_list(&status, "name(%"SCNu64", %"SCNu64")", &address, &nodeid)) {
-        // We're just interested in the last one.
-        num_read++;
+        uint64_t *dest = NULL;
+        switch(list_idx){
+            case 0: dest = node1addr; break;
+            case 1: dest = node2addr; break;
+            case 2: dest = physaddr; break;
+        }
+        if(dest) *dest = address;
     }
-    *addr = address;
     free(skb_list_output);
-    if(num_read != 3){
-        DEBUG_SKB_ERR(SKB_ERR_CONVERSION_ERROR,"in iommu_alloc_ram_for_frame");
+    if(list_idx != 3){
         return SKB_ERR_CONVERSION_ERROR;
     }
 
-    DEBUG_SKB_ERR(SYS_ERR_OK,"in iommu_alloc_ram_for_frame");
-    debug_printf("allocate_common: returning=%"PRIu64"\n", *addr);
     return SYS_ERR_OK;
 }
 
@@ -194,7 +210,8 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
     uint64_t base_addr=0;
 
     int bits = log2ceil(bytes);
-    err = alloc_common(bits, device_nodeid, my_nodeid, &base_addr);
+    err = alloc_common(MODE_ALLOC_COMMON, bits, device_nodeid, NULL, my_nodeid,
+            NULL, &base_addr);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "allocate_common");
         return err;

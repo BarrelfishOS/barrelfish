@@ -721,6 +721,7 @@ test_common_free_buffer_existing(Proc,Pci,Resolved) :-
     common_free_buffer_existing(BUFFER_SIZE, Proc, Pci, Resolved).
 
 % Like common_free_buffer_existing, but allow reconfiguration of nodes (routing)
+% Find two regions N1Region and N2Region, that resolve to a free region.
 :- export common_free_buffer/5.
 common_free_buffer(Size, N1Region, N2Region, ResRegion,Route)  :-
     is_list(Size),
@@ -740,9 +741,30 @@ common_free_buffer(Size, N1Region, N2Region, ResRegion,Route)  :-
     labeling([Base,Limit]), 
     union(R1,R2,Route).
 
+% Find two regions N1Region and N2Region, that resolve to an existing result region.
+:- export common_free_map/5.
+common_free_map(Size, N1Region, N2Region, ResRegion,Route)  :-
+    is_list(Size),
+    
+    N1Region = region{blocks: [memory, [_]]},
+    N2Region = region{blocks: [memory, [_]]},
+    ResRegion = region{blocks: [memory, [block{base:Base, limit: Limit}]]},
+
+    % nail down the input regions first
+    free_region_aligned(N1Region, Size),
+    free_region_aligned(N2Region, Size),
+
+    route(N1Region, ResRegion, R1),
+    route(N2Region, ResRegion, R2),
+
+    labeling([Base,Limit]), 
+    union(R1,R2,Route).
+
 % the function called from mem_serv
-:- export common_free_buffer_wrap/3.
-common_free_buffer_wrap(Bits, N1Enum, N2Enum)  :-
+:- export alloc_common/3.
+% Allocate a Buffer with Bits size, reachable from N1 and N2. Mark the resolved 
+% region as in use.
+alloc_common(Bits, N1Enum, N2Enum)  :-
     enum_node_id(N1Enum, N1Id),
     enum_node_id(N2Enum, N2Id),
     R1 = region{node_id: N1Id, blocks: [memory, [block{base:R1Addr}]]},
@@ -752,6 +774,20 @@ common_free_buffer_wrap(Bits, N1Enum, N2Enum)  :-
     ResR = region{node_id: ResRId, blocks: [memory, [block{base:ResRAddr}]]},
     get_or_alloc_node_enum(ResRId, ResEnum),
     mark_range_in_use(ResR),
+    writeln([name(R1Addr, N1Enum),name(R2Addr, N2Enum),name(ResRAddr, ResEnum)]).
+
+% Find names in N1 and N2 that resolve to ResAddr, then mark those used.
+:- export map_common/4.
+map_common(Bits, ResRAddr, N1Enum, N2Enum)  :-
+    enum_node_id(N1Enum, N1Id),
+    enum_node_id(N2Enum, N2Id),
+    R1 = region{node_id: N1Id, blocks: [memory, [block{base:R1Addr}]]},
+    R2 = region{node_id: N2Id, blocks: [memory, [block{base:R2Addr}]]},
+    Size is 2 ^ Bits - 1,
+    ResR = region{blocks: [memory, [block{base:ResRAddr}]]},
+    common_free_map([memory, [Size]], R1, R2, ResR, _),
+    ResR = region{node_id: ResRId},
+    get_or_alloc_node_enum(ResRId, ResEnum),
     mark_range_in_use(R1),
     mark_range_in_use(R2),
     writeln([name(R1Addr, N1Enum),name(R2Addr, N2Enum),name(ResRAddr, ResEnum)]).
@@ -1207,7 +1243,7 @@ test_mem_if :-
     pci_address_node_id(addr(0,1,2), PciEnum),
     add_process_alloc(proc(0)),
     process_node_id(proc(0), ProcEnum),
-    common_free_buffer_wrap(21, PciEnum, ProcEnum).
+    alloc_common(21, PciEnum, ProcEnum).
 
 
 :- export dec_net_debug/0.
