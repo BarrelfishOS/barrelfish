@@ -128,8 +128,47 @@ static int32_t get_own_nodeid(void) {
         assert(err_is_ok(err));
         err = skb_read_output("%d", &nodeid);
         assert(err_is_ok(err));
+        DRIVERKIT_DEBUG("Instantiated new process model node, nodeid=%"PRIi32"\n",
+                nodeid);
     }
     return nodeid;
+}
+
+static errval_t alloc_common(int bits, int32_t nodeid1,
+    int32_t nodeid2, uint64_t *addr) {
+
+    DRIVERKIT_DEBUG("alloc_common for bits=%d, nodeid1=%d, nodeid2=%d",
+            bits, nodeid1, nodeid2);
+
+    errval_t err;
+    err = skb_execute_query("common_free_buffer_wrap(%d,%"PRIi32",%"PRIi32").",
+            bits, nodeid1, nodeid2);
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err,"in iommu_alloc_ram_for_frame");
+        skb_execute_query("dec_net_debug");
+        return err;
+    }
+    char * skb_list_output =  strdup(skb_get_output());
+    assert(skb_list_output);
+    struct list_parser_status status;
+    skb_read_list_init_offset(&status, skb_list_output, 0);
+
+    uint64_t address = 0, nodeid=0;
+    int num_read = 0;
+    while(skb_read_list(&status, "name(%"SCNu64", %"SCNu64")", &address, &nodeid)) {
+        // We're just interested in the last one.
+        num_read++;
+    }
+    *addr = address;
+    free(skb_list_output);
+    if(num_read != 3){
+        DEBUG_SKB_ERR(SKB_ERR_CONVERSION_ERROR,"in iommu_alloc_ram_for_frame");
+        return SKB_ERR_CONVERSION_ERROR;
+    }
+
+    DEBUG_SKB_ERR(SYS_ERR_OK,"in iommu_alloc_ram_for_frame");
+    debug_printf("allocate_common: returning=%"PRIu64"\n", *addr);
+    return SYS_ERR_OK;
 }
 
 /*
@@ -152,15 +191,26 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
 
     int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
     int32_t my_nodeid = get_own_nodeid();
+    uint64_t base_addr=0;
 
-    err = b->rpc_tx_vtbl.allocate_common(b, bytes, device_nodeid, my_nodeid,
+    int bits = log2ceil(bytes);
+    err = alloc_common(bits, device_nodeid, my_nodeid, &base_addr);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "allocate_common");
+        return err;
+    }
+
+    DRIVERKIT_DEBUG("Determined addr=%"PRIu64" as base address for request\n",
+            addr);
+
+    err = b->rpc_tx_vtbl.allocate(b, bits, base_addr, base_addr + bytes,
             &msgerr, retcap);
     if(err_is_fail(err)){
-        DEBUG_ERR(err, "allocate_common RPC");
+        DEBUG_ERR(err, "allocate RPC");
         return err;
     }
     if(err_is_fail(msgerr)){
-        DEBUG_ERR(msgerr, "allocate_common");
+        DEBUG_ERR(msgerr, "allocate");
         return msgerr;
     }
     return SYS_ERR_OK;

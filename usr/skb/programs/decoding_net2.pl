@@ -749,8 +749,8 @@ common_free_buffer_wrap(Bits, N1Enum, N2Enum)  :-
     Size is 2 ^ Bits - 1,
     common_free_buffer([memory, [Size]], R1, R2, ResR, _),
     ResR = region{node_id: ResRId, blocks: [memory, [block{base:ResRAddr}]]},
-    get_or_alloc_node_enum(ResEnum, ResRId),
-    writeln([(R1Addr, N1Enum),(R2Addr, N2Enum),(ResRAddr, ResEnum)]).
+    get_or_alloc_node_enum(ResRId, ResEnum),
+    writeln([name(R1Addr, N1Enum),name(R2Addr, N2Enum),name(ResRAddr, ResEnum)]).
 
 
 % Translate a name from one Node to a name to another node, so they
@@ -1205,3 +1205,6 @@ test_mem_if :-
     process_node_id(proc(0), ProcEnum),
     common_free_buffer_wrap(21, PciEnum, ProcEnum).
 
+
+:- export dec_net_debug/0.
+dec_net_debug :- listing.

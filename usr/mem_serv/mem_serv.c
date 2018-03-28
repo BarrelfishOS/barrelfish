@@ -305,53 +305,6 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
     }
 }
 
-#define SKB_SCHEMACOMMON_FREE_BUFFER_OUTPUT_SCHEME 
-
-static errval_t mem_allocate_common_handler_in(struct mem_binding *b, uint8_t bits,
-                                 int32_t nodeid1, int32_t nodeid2) {
-    errval_t err = skb_execute_query("common_free_buffer_wrap(%i,%i,%i).",
-            bits, nodeid1, nodeid2);
-    if(err_is_fail(err)){
-        return err;
-    }
-
-    char *skb_list_output = strdup(skb_get_output());
-    struct list_parser_status status;
-    skb_read_list_init_offset(&status, skb_list_output, 0);
-
-    uint64_t address = 0, nodeid=0;
-    int num_read = 0;
-    while(skb_read_list(&status, "(%"SCNu64", %"SCNu64")", &address, &nodeid)) {
-        // We're just interested in the last one.
-        num_read++;
-    }
-    free(skb_list_output);
-    if(num_read != 3){
-        return SKB_ERR_CONVERSION_ERROR;
-    }
-
-    debug_printf("allocate_common: base_address=%"PRIu64"\n", address);
-    
-    //TODO gather cap
-
-    return SYS_ERR_OK;
-}
-
-static void mem_allocate_common_handler(struct mem_binding *b, uint8_t bits,
-                                 int32_t nodeid1, int32_t nodeid2) {
-
-    debug_printf("allocate_common: bits=%d, nodeid1=%d, nodeid=%d",
-            bits, nodeid1, nodeid2);
-    errval_t err = mem_allocate_common_handler_in(b, bits, nodeid1, nodeid2);
-    if(err_is_fail(err)){
-        b->tx_vtbl.allocate_common_response(b, NOP_CONT, err, NULL_CAP);
-    } else {
-        // Attach cap
-        b->tx_vtbl.allocate_common_response(b, NOP_CONT, SYS_ERR_OK, NULL_CAP);
-    }
-}
-
-
 static void dump_ram_region(int idx, struct mem_region* m)
 {
 #if 0
@@ -534,7 +487,6 @@ static void export_callback(void *st, errval_t err, iref_t iref)
 
 static struct mem_rx_vtbl rx_vtbl = {
     .allocate_call = mem_allocate_handler,
-    .allocate_common_call = mem_allocate_common_handler,
     .available_call = mem_available_handler,
     .free_monitor_call = mem_free_handler,
 };
@@ -615,6 +567,7 @@ int main(int argc, char ** argv)
     }
     trace_init_disp();
 #endif
+
 
     // handle messages on this thread
     while (true) {

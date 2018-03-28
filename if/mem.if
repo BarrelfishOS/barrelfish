@@ -14,13 +14,6 @@ interface mem "Memory allocation RPC interface" {
                 out errval ret,
                 out give_away_cap mem_cap );
 
-  rpc allocate_common(
-                in uint8 bits,
-                in int32 nodeid1,
-                in int32 nodeid2,
-                out errval ret,
-                out give_away_cap mem_cap );
-
   rpc steal( in uint8 bits,
              in genpaddr minbase,
              in genpaddr maxlimit,
