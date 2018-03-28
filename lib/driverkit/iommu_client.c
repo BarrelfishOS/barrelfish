@@ -1035,17 +1035,17 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     uint64_t pagesize = 0;
     switch(cl->vnode_l3->vnode_type) {
         case ObjType_VNode_x86_64_pml4 :
-            assert(dmem->size > X86_64_HUGE_PAGE_SIZE &&
+            assert(dmem->size >= X86_64_HUGE_PAGE_SIZE &&
                    !(dmem->size & X86_64_HUGE_PAGE_MASK));
             ptecount = dmem->size / X86_64_HUGE_PAGE_SIZE;
             pagesize = X86_64_HUGE_PAGE_SIZE;
         case ObjType_VNode_x86_64_pdpt :
-            assert(dmem->size > X86_64_LARGE_PAGE_SIZE &&
+            assert(dmem->size >= X86_64_LARGE_PAGE_SIZE &&
                    !(dmem->size & X86_64_LARGE_PAGE_MASK));
             ptecount = dmem->size / X86_64_LARGE_PAGE_SIZE;
             pagesize = X86_64_LARGE_PAGE_SIZE;
         case ObjType_VNode_x86_64_pdir :
-            assert(dmem->size > X86_64_BASE_PAGE_SIZE &&
+            assert(dmem->size >= X86_64_BASE_PAGE_SIZE &&
                    !(dmem->size & X86_64_BASE_PAGE_MASK));
             ptecount = dmem->size / X86_64_BASE_PAGE_SIZE;
             pagesize = X86_64_BASE_PAGE_SIZE;
