@@ -1039,11 +1039,13 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
                    !(dmem->size & X86_64_HUGE_PAGE_MASK));
             ptecount = dmem->size / X86_64_HUGE_PAGE_SIZE;
             pagesize = X86_64_HUGE_PAGE_SIZE;
+            break;
         case ObjType_VNode_x86_64_pdpt :
             assert(dmem->size >= X86_64_LARGE_PAGE_SIZE &&
                    !(dmem->size & X86_64_LARGE_PAGE_MASK));
             ptecount = dmem->size / X86_64_LARGE_PAGE_SIZE;
             pagesize = X86_64_LARGE_PAGE_SIZE;
+            break;
         case ObjType_VNode_x86_64_pdir :
             assert(dmem->size >= X86_64_BASE_PAGE_SIZE &&
                    !(dmem->size & X86_64_BASE_PAGE_MASK));
@@ -1057,6 +1059,9 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
 
     uint64_t offset = 0;
     while(ptecount > 0) {
+        assert((offset & (pagesize - 1)) == 0);
+        assert(offset < dmem->size);
+
         /* allocate the vnodes */
         struct iommu_vnode_l2 *vnode;
         uint64_t slot;
@@ -1067,6 +1072,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         }
 
         uint64_t max_pte = (1UL << vnode_entry_bits(vnode->vnode_type));
+        assert(slot < max_pte);
 
         /* fits all in one */
         if ((ptecount + slot) < max_pte) {
@@ -1089,12 +1095,18 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
             if (err_is_fail(err)) {
                 goto err_out3;
             }
-            offset += (pagesize + (max_pte - slot));
+
+
+            offset += (pagesize * (max_pte - slot));
             ptecount -= (max_pte - slot);
+
+            debug_printf("mapped slots [%lu..%lu], offset now %lx (%lx), ptecount=%lu\n",
+                         slot, max_pte, offset, pagesize, ptecount);
         }
     }
 
     return SYS_ERR_OK;
+
     err_out3:
     USER_PANIC("NYI: cleanup mapped frames!\n");
     err_out2:
