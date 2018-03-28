@@ -12,6 +12,7 @@
 #include <devif/queue_interface.h>
 struct region_pool;
 struct devq;
+struct iommu_client;
 
 /*
  * ===========================================================================
@@ -143,6 +144,9 @@ struct devq_func_pointer {
 struct devq {
     // Region management
     struct region_pool* pool;
+
+    // Iommu client for device
+    struct iommu_client* iommu;
 
     // Funciton pointers
     struct devq_func_pointer f;

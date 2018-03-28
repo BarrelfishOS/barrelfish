@@ -269,6 +269,8 @@ static errval_t e10k_register(struct devq* q, struct capref cap, regionid_t rid)
     entry->next = NULL;
 
     struct iommu_client* cl = e10k_vf_get_iommu_client();
+
+    DEBUG_QUEUE("register region id %d \n", rid);
     err = driverkit_iommu_vspace_map_cl(cl, cap,
                                         VREGION_FLAGS_READ_WRITE_NOCACHE,
                                         &entry->mem);
@@ -277,7 +279,6 @@ static errval_t e10k_register(struct devq* q, struct capref cap, regionid_t rid)
         return err;
     }
       
-
     // linked list of regions
     struct region_entry* cur = queue->regions;
     if (cur == NULL) {
@@ -290,6 +291,9 @@ static errval_t e10k_register(struct devq* q, struct capref cap, regionid_t rid)
     }
     
     cur->next = entry;
+
+    DEBUG_QUEUE("registerd region id %d base=%p len=%ld \n", rid, 
+                (void*) entry->mem.vbase, entry->mem.size);
 
     return SYS_ERR_OK;
 }
@@ -500,15 +504,17 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
     // allocate memory for RX/TX rings
     size_t tx_size = e10k_q_tdesc_adv_wb_size*NUM_TX_DESC;
 
-    err = alloc_map_frame(cl, tx_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
-                                    &q->tx);
+    DEBUG_QUEUE("Allocating RX queue memory\n");
+    err = driverkit_iommu_mmap_cl(cl, tx_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
+                               &q->tx);
     if (err_is_fail(err)) {
         return DEVQ_ERR_INIT_QUEUE;
     }
 
+    DEBUG_QUEUE("Allocating TX queue memory\n");
     size_t rx_size = e10k_q_rdesc_adv_wb_size*NUM_RX_DESC;
-    err = alloc_map_frame(cl, rx_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
-                          &q->rx);
+    err = driverkit_iommu_mmap_cl(cl, rx_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
+                                  &q->rx);
     if (err_is_fail(err)) {
         // TODO cleanup
         return DEVQ_ERR_INIT_QUEUE;
@@ -522,8 +528,9 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
     void* txhwb_virt = NULL;
 
     if (q->use_txhwb) {
-        err = alloc_map_frame(cl, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE,
-                              &q->txhwb);
+        DEBUG_QUEUE("Allocating TX HWB queue memory\n");
+        err = driverkit_iommu_mmap_cl(cl, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE,
+                                   &q->txhwb);
         if (err_is_fail(err)) {
             // TODO cleanup
             return DEVQ_ERR_INIT_QUEUE;
@@ -608,7 +615,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
     q->q.f.ctrl = e10k_control;
     q->q.f.notify = e10k_notify;
     q->q.f.destroy = e10k_destroy;
-
+    q->q.iommu = cl;
 
     *queue = q;
     queues[q->id] = q;

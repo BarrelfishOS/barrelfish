@@ -355,3 +355,8 @@ void * devq_get_state(struct devq *q)
 {
     return q->state;
 }
+
+struct iommu_client * devq_get_iommu_client(struct devq *q)
+{
+    return q->iommu;
+}
