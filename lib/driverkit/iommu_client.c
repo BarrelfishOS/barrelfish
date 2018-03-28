@@ -238,7 +238,7 @@ static inline errval_t iommu_alloc_vregion(struct iommu_client *st,
 
     assert(id.bytes >= LARGE_PAGE_SIZE);
 
-    if (!st->enabled) {
+    if (st == NULL || !st->enabled) {
         *device = id.base;
     } else {
         *device = vregion_map_base;
