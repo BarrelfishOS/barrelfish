@@ -63,6 +63,9 @@ struct net_filter_state {
 errval_t net_filter_init(struct net_filter_state** st, 
                          const char* cardname);
 
+errval_t net_filter_init_with_ep(struct net_filter_state** st,
+                                 struct capref ep);
+
 errval_t net_filter_ip_install(struct net_filter_state* st,
                                struct net_filter_ip* filt);
 
@@ -71,6 +74,7 @@ errval_t net_filter_mac_install(struct net_filter_state* st,
 
 errval_t net_filter_ip_remove(struct net_filter_state* st,
                               struct net_filter_ip* filt);
+
 errval_t net_filter_mac_remove(struct net_filter_state* st,
                                struct net_filter_mac* filt);
 
