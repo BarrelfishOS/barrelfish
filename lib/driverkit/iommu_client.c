@@ -238,8 +238,14 @@ static inline errval_t iommu_alloc_vregion(struct iommu_client *st,
 
     assert(id.bytes >= LARGE_PAGE_SIZE);
 
+    if (!st->enabled) {
+        *device = id.base;
+    } else {
+        *device = vregion_map_base;
+    }
+
     *driver = vregion_map_base;
-    *device = vregion_map_base;
+
 
     vregion_map_base += id.bytes;
 
@@ -1044,8 +1050,8 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         return err;
     }
 
-    memset(dmem, 0, sizeof(*dmem));
-
+    dmem->vbase = 0;
+    dmem->devaddr = 0;
     dmem->mem = frame;
     dmem->cl = cl;
     dmem->size = id.bytes;
@@ -1059,7 +1065,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
      * if driver vbase is null, then we map it at any address in the driver's
      * vspace. Only if the policy is not shared, then we have to map it.
      */
-    if (cl == NULL || cl->policy != IOMMU_VSPACE_POLICY_SHARED) {
+    if (cl == NULL || cl->policy != IOMMU_VSPACE_POLICY_SHARED || !cl->enabled) {
         debug_printf("%s:%u mapping in driver at 0x%" PRIxLVADDR "\n",
                      __FUNCTION__, __LINE__, dmem->vbase);
         if (dmem->vbase == 0) {
@@ -1073,6 +1079,10 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         if (err_is_fail(err)) {
             goto err_out;
         }
+    }
+
+    if (cl == NULL || !cl->enabled) {
+        return SYS_ERR_OK;
     }
 
     assert(dmem->vbase);
@@ -1128,6 +1138,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
 
         uint64_t max_pte = (1UL << vnode_entry_bits(vnode->vnode_type));
         assert(slot < max_pte);
+        assert(ptecount > 0);
 
         /* fits all in one */
         if ((ptecount + slot) < max_pte) {
@@ -1342,12 +1353,13 @@ errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
 {
     errval_t err;
 
-    err = driverkit_iommu_alloc_frame(cl, bytes, &mem->mem);
+    struct capref frame;
+    err = driverkit_iommu_alloc_frame(cl, bytes, &frame);
     if (err_is_fail(err)) {
         return err;
     }
 
-    err = driverkit_iommu_vspace_map_cl(cl, mem->mem, flags, mem);
+    err = driverkit_iommu_vspace_map_cl(cl, frame, flags, mem);
     if (err_is_fail(err)) {
         iommu_free_ram(mem->mem);
         return err;
