@@ -20,6 +20,8 @@
 #include <vfs/vfs.h>
 #include <pci/pci.h>
 #include <pci/devids.h>
+#include <driverkit/driverkit.h>
+#include <driverkit/iommu.h>
 
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_manager_client.h>
@@ -35,6 +37,7 @@
 
 struct xeon_phi xphi;
 
+#if 0
 uint8_t xphi_dma_enabled = 1;
 
 /**
@@ -65,7 +68,7 @@ static errval_t mount_nfs_path(char *uri)
 
     return  vfs_mount(XEON_PHI_NFS_MNT, uri);
 }
-
+#endif
 /**
  * \brief handles events on the waitset and polls for completed DMA transfers
  *        and new data on the serial line (host only)
@@ -127,14 +130,46 @@ int main(int argc,
 {
     errval_t err;
 
-    char *xeon_phi_mod_uri = XEON_PHI_NFS_PATH;
-    char *xeon_phi_mod_list = XEON_PHI_MOD_LIST;
+//    char *xeon_phi_mod_uri = XEON_PHI_NFS_PATH;
+//    char *xeon_phi_mod_list = XEON_PHI_MOD_LIST;
 
-    uint8_t xeon_phi_dma_enabled = 1;
+//    uint8_t xeon_phi_dma_enabled = 1;
 
-    XDEBUG("Xeon Phi host module started.\n");
+    debug_printf("Xeon Phi host module started.\n");
 
     memset(&xphi, 0, sizeof(xphi));
+
+    err = driverkit_iommu_client_init(NULL_CAP);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Failed to initialize the IOMMU library");
+    }
+
+    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present(NULL));
+
+
+    iref_t kaluga_iref = 0;
+    err = nameservice_blocking_lookup("ddomain_controller", &kaluga_iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Failed to connect to ddomain controller");
+    }
+
+    for (uint8_t i = 1; i < argc; ++i) {
+        debug_printf("argv[%u] = %s\n", i, argv[i]);
+    }
+
+
+    err = ddomain_communication_init(kaluga_iref, atoi(argv[4]));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Failed to initiate communication with Kaluga");
+    }
+
+    debug_printf("Stopping and dispatching messagse\n");
+
+    while(1) {
+        event_dispatch(get_default_waitset());
+    }
+
+    #if 0
 
     /*
      * Parsing of cmdline arguments.
@@ -169,7 +204,8 @@ int main(int argc,
                "[0,0,0]\n");
     }
 
-    for (uint8_t i = 1; i < argc - 1; ++i) {
+
+    for (uint8_t i = 1; i < argc; ++i) {
         if (strncmp(argv[i], "--tftp=", 7)==0) {
             xeon_phi_mod_uri = argv[i] + 7;
         } else if (strncmp(argv[i], "--nfs=", 6)==0) {
@@ -280,6 +316,8 @@ int main(int argc,
 
     /* starts the basic handler service. This function should not return */
     service_start(&xphi);
+
+    #endif
 
     XDEBUG("Xeon Phi host module terminated.\n");
 
