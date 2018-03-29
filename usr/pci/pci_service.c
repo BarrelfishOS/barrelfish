@@ -367,9 +367,9 @@ static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf
     
     struct pci_address vf_addr;
 
-    err = pci_get_vf_addr_of_device(pci, vf_num, &vf_addr);
-    if (err_is_fail(err)) {
-        err = b->tx_vtbl.get_vf_iommu_endpoint_cap_response(b, NOP_CONT, NULL_CAP, err);
+    out_err = pci_get_vf_addr_of_device(pci, vf_num, &vf_addr);
+    if (err_is_fail(out_err)) {
+        err = b->tx_vtbl.get_vf_iommu_endpoint_cap_response(b, NOP_CONT, NULL_CAP, out_err);
         assert(err_is_ok(err));
         return;
     }
@@ -377,8 +377,8 @@ static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf
     uint32_t idx;
     // TODO get segemnt correct, works with 0.
     out_err = device_lookup_iommu_by_pci(0, vf_addr.bus, vf_addr.device, 
-                                     vf_addr.function, &idx);
-    if (err_is_fail(err)) {
+                                         vf_addr.function, &idx);
+    if (err_is_fail(out_err)) {
         goto reply;
     }
 
@@ -389,6 +389,11 @@ static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf
         goto reply;
     }
     
+    if (iommu_list == NULL) {
+        slot_free(wrap.cap);;
+        goto reply;
+    }
+
     struct iommu_client_state* cl = collections_list_find_if(iommu_list, find_index, 
                                                              &idx);
     if (cl == NULL) {
@@ -783,10 +788,16 @@ static void request_iommu_endpoint_cap_handler(struct kaluga_binding* b, uint8_t
     if (err_is_fail(out_err)) {
         goto reply;
     }
-    
+ 
+    if (iommu_list == NULL) {
+        cap = NULL_CAP;
+        goto reply;
+    }
+   
     struct iommu_client_state* cl = collections_list_find_if(iommu_list, find_index, 
                                                              &idx);
-    if(cl == NULL) {
+
+    if(cl == NULL) {    
         goto reply;
     }
 
@@ -798,6 +809,7 @@ static void request_iommu_endpoint_cap_handler(struct kaluga_binding* b, uint8_t
 
 reply:
     err = b->tx_vtbl.request_iommu_endpoint_cap_response(b, NOP_CONT, cap, out_err);
+    debug_printf("Err %s \n", err_getstring(err));
     assert(err_is_ok(err));
     slot_free(cap);
 }
