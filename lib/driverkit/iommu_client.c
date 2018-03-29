@@ -91,6 +91,9 @@ struct iommu_client
 ///< the default iommu client
 static struct iommu_client *default_client;
 
+///< the default policy to be used
+static iommu_vspace_policy_t iomm_vspace_default_policy = IOMMU_VSPACE_POLICY_MIRROR;
+
 
 /*
  * TODO: proper implementation of this
@@ -308,7 +311,9 @@ static inline errval_t iommu_get_mapping_region(struct iommu_client *cl,
  */
 
 #include <barrelfish_kpi/paging_arch.h>
-#define IOMMU_DEFAULT_VNODE_FLAGS X86_64_PTABLE_ACCESS_DEFAULT
+#define IOMMU_DEFAULT_VREGION_FLAGS VREGION_FLAGS_READ_WRITE
+#define IOMMU_DEFAULT_VNODE_FLAGS (PTABLE_EXECUTE_DISABLE | PTABLE_READ_WRITE | PTABLE_USER_SUPERVISOR)
+
 
 static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl)
 {
@@ -318,6 +323,7 @@ static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl)
         return SYS_ERR_OK;
     }
     enum objtype l3_vnode_type;
+    struct capref mapping;
 
     size_t l3_vnode_size = sizeof(struct iommu_vnode_l3);
     switch(cl->root_vnode_type) {
@@ -367,14 +373,36 @@ static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl)
 
     debug_printf("MAPPING ROOT VNODE!\n");
     err = driverkit_iommu_map(cl, cl->rootvnode, cl->vnode_l3->vnode,
-                              cl->rootvnode_slot, IOMMU_DEFAULT_VNODE_FLAGS,
+                              cl->rootvnode_slot, IOMMU_DEFAULT_VREGION_FLAGS,
                               0, 1);
     if (err_is_fail(err)) {
         goto err_out3;
     }
 
-    return SYS_ERR_OK;
+    if (cl->policy == IOMMU_VSPACE_POLICY_SHARED) {
 
+        debug_printf("Mapping cap in the vroot of the driver\n");
+
+        err = slot_alloc(&mapping);
+        if (err_is_fail(err)) {
+            goto err_out4;
+        }
+
+        err = vnode_map(cap_vroot, cl->vnode_l3->vnode, cl->rootvnode_slot,
+                        IOMMU_DEFAULT_VNODE_FLAGS, 0, 1, mapping);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to map the l3 vnode in drivers space");
+            goto err_out5;
+        }
+
+        debug_printf("Mapped at vroot [%u]\n", cl->rootvnode_slot);
+    }
+
+    return SYS_ERR_OK;
+    err_out5:
+    slot_free(mapping);
+    err_out4:
+    err = driverkit_iommu_unmap(cl, cl->rootvnode, cl->rootvnode_slot);
     err_out3:
     /* TODO: free vnode */
     err_out2:
@@ -466,7 +494,7 @@ static errval_t driverkit_iommu_vnode_get_l2(struct iommu_client *cl,
     }
 
     err = driverkit_iommu_map(cl, cl->vnode_l3->vnode, vnode_l2->vnode, slot,
-                              IOMMU_DEFAULT_VNODE_FLAGS, 0, 1);
+                              IOMMU_DEFAULT_VREGION_FLAGS, 0, 1);
     if (err_is_fail(err)) {
         goto err_out2;
     }
@@ -636,7 +664,7 @@ errval_t driverkit_iommu_client_init(struct capref ep)
  * This just initializes the connecton to the IOMMU
  */
 errval_t driverkit_iommu_client_connect_cl(struct capref ep,
-                                          struct iommu_client **cl)
+                                           struct iommu_client **cl)
 {
     errval_t err;
 
@@ -680,7 +708,7 @@ errval_t driverkit_iommu_client_connect_cl(struct capref ep,
     icl->binding = NULL;
     icl->error = SYS_ERR_OK;
     icl->root_vnode_type = ObjType_Null;
-    icl->policy = IOMMU_VSPACE_POLICY_MIRROR;
+    icl->policy = iomm_vspace_default_policy;
 
     err = iommu_bind_to_endpoint(ep, iommu_bind_cb, icl,  icl->waitset ,
                                  IDC_BIND_FLAG_RPC_CAP_TRANSFER);
@@ -1067,6 +1095,8 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         return err;
     }
 
+    assert(id.bytes >= LARGE_PAGE_SIZE);
+
     dmem->vbase = 0;
     dmem->devaddr = 0;
     dmem->mem = frame;
@@ -1168,6 +1198,17 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
                 goto err_out3;
             }
 
+            debug_printf("XXXXXXXXXXXXXXXXXXXXXXX   about to\n");
+
+            struct capref mapping;
+            err = slot_alloc(&mapping);
+            assert(err_is_ok(err));
+            err = vnode_map(vnode->vnode, dmem->mem, slot+1, PTABLE_ACCESS_DEFAULT,
+                                      0, ptecount, mapping);
+            DEBUG_ERR(err, "mapping the vnode locally\n");
+            assert(err_is_fail(err));
+            err = slot_free(mapping);
+            assert(err_is_ok(err));
             return SYS_ERR_OK;
         } else {
 
@@ -1396,8 +1437,37 @@ errval_t driverkit_iommu_munmap(struct dmem *mem)
     return LIB_ERR_NOT_IMPLEMENTED;
 }
 
-/*
- * ===========================================================================
+
+/**
+ * @brief sets the iommu vspace managemet policy
  *
- * ===========================================================================
+ * @param cl     the iommu client to set the policy for
+ * @param policy the new policy
+ *
+ * @return SYS_ERR_OK on success, errval on failure
  */
+errval_t driverkit_iommu_vspace_set_policy(struct iommu_client *cl,
+                                           iommu_vspace_policy_t policy)
+{
+    if (!capref_is_null(cl->rootvnode)) {
+        return IOMMU_ERR_NOT_SUPPORTED;
+    }
+    cl->policy = policy;
+
+    return SYS_ERR_OK;
+}
+
+
+/**
+ * @brief sets the default iommu vspace managemet policy
+ *
+ * @param policy the new policy
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t driverkit_iommu_vspace_set_default_policy(iommu_vspace_policy_t policy)
+{
+    iomm_vspace_default_policy = policy;
+    return SYS_ERR_OK;
+}
+

@@ -273,11 +273,23 @@ typedef enum {
 /**
  * @brief sets the iommu vspace managemet policy
  *
+ * @param cl     the iommu client to set the policy for
  * @param policy the new policy
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t driverkit_iommu_vspace_set_policy(iommu_vspace_policy_t policy);
+errval_t driverkit_iommu_vspace_set_policy(struct iommu_client *cl,
+                                           iommu_vspace_policy_t policy);
+
+
+/**
+ * @brief sets the default iommu vspace managemet policy
+ *
+ * @param policy the new policy
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t driverkit_iommu_vspace_set_default_policy(iommu_vspace_policy_t policy);
 
 
 /*
