@@ -1625,7 +1625,7 @@ static void init_default_values(struct e10k_driver_state* e10k)
     e10k->service_name = "e10k";
     e10k->d = NULL;
     e10k->msix = false;
-    e10k->vtdon_dcboff = true;
+    e10k->vtdon_dcboff = false;
     e10k->dca = false;
     e10k->cdriver_msix = -1;
     e10k->initialized = 0;
@@ -1704,25 +1704,29 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
  
     struct capref devcap = NULL_CAP;
     err = driverkit_get_iommu_cap(bfi, &devcap);
+    
+
     if (!capref_is_null(devcap) && err_is_ok(err)) {
         DEBUG("VTD-Enabled initializing with VFs enabled \n");
         st->vtdon_dcboff = true;
 
         err = driverkit_iommu_client_init_cl(devcap, &st->iommu);
         if (err_is_fail(err)) {
-            return err;
+            DEBUG("VTD-Enabled initializing with VFs disabled. Try turing on IOMMU! \n");
+            st->vtdon_dcboff = false;
         }
-
-        struct capref cap;
-        // When started by Kaluga it handend off an endpoint cap to PCI
-        err = driverkit_get_pci_cap(bfi, &cap);
-        assert(err_is_ok(err));
-        assert(!capref_is_null(cap));
-    
-        debug_printf("Connect to PCI\n");
-        err = pci_client_connect_ep(cap);
-        assert(err_is_ok(err));
+        DEBUG("VTD-Enabled initializing with VFs enabled \n");
     }
+
+    struct capref cap;
+    // When started by Kaluga it handend off an endpoint cap to PCI
+    err = driverkit_get_pci_cap(bfi, &cap);
+    assert(err_is_ok(err));
+    assert(!capref_is_null(cap));
+
+    debug_printf("Connect to PCI\n");
+    err = pci_client_connect_ep(cap);
+    assert(err_is_ok(err));
 
     init_card(st);
 

@@ -42,6 +42,7 @@
 
 static struct capref pci_ep;
 static struct kaluga_binding* pci_binding;
+static uint32_t num_iommu_started = 0;
 
 // TODO might needs some methods
 static struct kaluga_rx_vtbl kaluga_rx_vtbl;
@@ -139,25 +140,26 @@ static errval_t add_ep_args(struct pci_addr addr, coreid_t core, struct driver_a
         return err;
     }
 
-    err = pci_binding->rpc_tx_vtbl.request_iommu_endpoint_cap(pci_binding, 
-                       (core == my_core_id)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
-                       0,
-                       addr.bus, addr.device, 
-                       addr.function, &iommu_cap, &out_err);
+    if (num_iommu_started > 0) {
+        err = pci_binding->rpc_tx_vtbl.request_iommu_endpoint_cap(pci_binding, 
+                           (core == my_core_id)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                           0,
+                           addr.bus, addr.device, 
+                           addr.function, &iommu_cap, &out_err);
 
-    if (err_is_fail(err) || err_is_fail(out_err)) {
-        slot_free(pci_cap);
-        slot_free(iommu_cap);
-        return KALUGA_ERR_CAP_ACQUIRE;
+        if (err_is_fail(err) || err_is_fail(out_err)) {
+            slot_free(pci_cap);
+            slot_free(iommu_cap);
+            return KALUGA_ERR_CAP_ACQUIRE;
+        }
+
+        err = cap_copy(iommu_ep, iommu_cap);
+        if (err_is_fail(err)) {
+            slot_free(pci_cap);
+            slot_free(iommu_cap);
+            return KALUGA_ERR_CAP_ACQUIRE;
+        }
     }
-
-    err = cap_copy(iommu_ep, iommu_cap);
-    if (err_is_fail(err)) {
-        slot_free(pci_cap);
-        slot_free(iommu_cap);
-        return KALUGA_ERR_CAP_ACQUIRE;
-    }
-
 
     return err;
 }
@@ -664,6 +666,7 @@ static void iommu_change_event(octopus_mode_t mode, const char* record,
         err = mi->start_function(my_core_id, mi, (CONST_CAST)record, NULL);
         switch (err_no(err)) {
             case SYS_ERR_OK:
+                num_iommu_started++;
                 KALUGA_DEBUG("Spawned IOMMU driver: %s\n", mi->binary);
                 break;
 
