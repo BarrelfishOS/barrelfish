@@ -59,6 +59,7 @@ static void add_start_function_overrides(void)
     set_start_function("e1000n_irqtest", default_start_function_new);
     set_start_function("iommu", start_iommu_driver);
     set_start_function("ioat_dma", default_start_function_new);
+    set_start_function("xeon_phi", default_start_function_new);
 #else
     set_start_function("driverdomain", default_start_function_new);
 #endif
