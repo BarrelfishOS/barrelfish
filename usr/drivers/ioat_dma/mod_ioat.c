@@ -102,7 +102,7 @@ errval_t ioat_device_poll(void)
 #include <dma/dma_bench.h>
 
 
-#define BUFFER_SIZE (1<<22)
+#define BUFFER_SIZE (1<<20)
 
 uint32_t done = 0;
 
@@ -115,39 +115,27 @@ static void impl_test_cb(errval_t err, dma_req_id_t id, void *arg)
     done = 1;
 }
 
-static void impl_test(struct ioat_dma_device *dev)
+static void impl_test(struct ioat_dma_device *dev, struct iommu_client *cl)
 {
     errval_t err;
 
     debug_printf("Doing an implementation test\n");
 
-    struct capref frame;
-    err = frame_alloc(&frame, 2 * BUFFER_SIZE, NULL);
-    assert(err_is_ok(err));
-
-    struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
-    assert(err_is_ok(err));
-
-    void *buf;
-    err = vspace_map_one_frame(&buf, id.bytes, frame, NULL, NULL);
-    assert(err_is_ok(err));
-
-    uint64_t address = id.base;
-    if (driverkit_iommu_present(NULL)) {
-        address = (lpaddr_t)buf;
-        debug_printf("Setting id.base to %lx\n", address);
+    struct dmem mem;
+    err = driverkit_iommu_mmap_cl(cl, 2 * BUFFER_SIZE, VREGION_FLAGS_READ_WRITE,
+                                  &mem);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to get memory");
     }
 
-    memset(buf, 0, id.bytes);
+    void *buf = (void *)mem.vbase;
+    memset(buf, 0, mem.size);
     memset(buf, 0xA5, BUFFER_SIZE);
-
-
 
     struct dma_req_setup setup = {
             .args.memcpy = {
-                .src = address,
-                .dst = address + BUFFER_SIZE,
+                .src = mem.devaddr,
+                .dst = mem.devaddr + BUFFER_SIZE,
                 .bytes = BUFFER_SIZE,
             },
         .type = DMA_REQ_TYPE_MEMCPY,
@@ -156,7 +144,7 @@ static void impl_test(struct ioat_dma_device *dev)
     };
     int reps = 10;
     do {
-        memset(buf, 0, id.bytes);
+        memset(buf, 0, mem.size);
         memset(buf, reps + 2, BUFFER_SIZE);
         assert(memcmp(buf, buf + BUFFER_SIZE, BUFFER_SIZE));
 
@@ -167,7 +155,15 @@ static void impl_test(struct ioat_dma_device *dev)
 
         done = 0;
         while(done == 0) {
-            ioat_dma_device_poll_channels((struct dma_device *)dev);
+            err = ioat_dma_device_poll_channels((struct dma_device *)dev);
+            switch (err_no(err)) {
+                case DMA_ERR_DEVICE_IDLE :
+                case DMA_ERR_CHAN_IDLE:
+                case SYS_ERR_OK:
+                    break;
+                default:
+                    DEBUG_ERR(err, "failed to poll the channel!\n");
+            }
         }
 #if 0
         if (reps == 1) {
@@ -221,11 +217,14 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
         return err;
     }
 
+    //driverkit_iommu_vspace_set_default_policy(IOMMU_VSPACE_POLICY_SHARED);
+
     struct iommu_client *cl;
     err = driverkit_iommu_client_init_cl(iommuep, &cl);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to initialize the IOMMU library");
     }
+    assert(cl);
 
     debug_printf("IOMMU PRESENT: %u\n", driverkit_iommu_present(cl));
 
@@ -237,14 +236,15 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     }
 
     /* initialize the device */
+    //err = ioat_dma_device_init(regs, &pc1, false, &devices[device_count]);
     err = ioat_dma_device_init(regs, cl, &devices[device_count]);
     if (err_is_fail(err)) {
         DEV_ERR("Could not initialize the device: %s\n", err_getstring(err));
-        return err;
+        return SYS_ERR_OK;
     }
 
     #if TEST_IMPLEMENTATION
-    impl_test(devices[device_count]);
+    impl_test(devices[device_count], cl);
     #endif
 
     device_count++;
