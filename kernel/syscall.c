@@ -432,6 +432,10 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
     /* XXX: TODO: make root explicit argument for sys_map() */
     struct capability *root = &dcb_current->cspace.cap;
 
+    if (!(ptable->rights & CAPRIGHTS_WRITE)) {
+        return SYSRET(SYS_ERR_DEST_CAP_RIGHTS);
+    }
+
     /* Lookup source root cn cap in own cspace */
     struct capability *src_root;
     err = caps_lookup_cap(root, source_root_cptr, source_level, &src_root,

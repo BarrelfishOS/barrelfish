@@ -82,6 +82,7 @@ errors kernel SYS_ERR_ {
     failure NO_LOCAL_COPIES     "No copies of specified capability in local MDB",
     failure RETRY_THROUGH_MONITOR "There is a remote copy of the capability, monitor must be involved to perform a cross core agreement protocol",
     failure TYPE_NOT_CREATABLE  "Specified capability type is not creatable at runtime. Consider retyping it from another capability.",
+    failure DEST_CAP_RIGHTS     "The destinatin cap rights are not sufficient",
 
     // errors on the monitor-kernel interface
     failure DELETE_LAST_OWNED   "Tried to delete the last copy of a locally owned capability that may have remote copies",
