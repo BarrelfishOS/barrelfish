@@ -85,7 +85,9 @@ struct e10k_queue {
     struct dmem                     tx;
     struct dmem                     txhwb;
     struct dmem                     rx;
-   
+    size_t rx_ring_size;
+    size_t tx_ring_size;
+          
     // vf state
     struct vf_state* vf;
 

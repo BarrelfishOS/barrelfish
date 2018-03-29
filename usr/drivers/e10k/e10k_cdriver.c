@@ -147,6 +147,8 @@ struct e10k_driver_state {
     // VF mac?
     union macentry mactable[128];
 };
+
+/*
 #define prnonz(x, st)                                               \
     uint32_t x = e10k_##x##_rd(st->d);                           \
     snprintf(str[cnt++], 32, #x "=%x \n", x);                      \
@@ -175,7 +177,7 @@ static void stats_dump(struct e10k_driver_state* st)
       printf("\n");
     }
 }
-
+*/
 // some prototypes because of dependencies
 static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail);
 static void device_init(struct e10k_driver_state* st);
@@ -475,6 +477,7 @@ static void interrupt_handler(void* arg)
     }
     e10k_eicr_wr(st->d, eicr);
 
+    DEBUG("@@@@@@@@@@@@@ Interrupt @@@@@@@@@@@@@@@@@@ \n");
     for (uint64_t i = 0; i < 16; i++) {
         if ((eicr >> i) & 0x1) {
             DEBUG("Interrupt eicr=%"PRIx32" \n", eicr);
@@ -561,7 +564,6 @@ static void device_init(struct e10k_driver_state* st)
         }
     }
 
-    stats_dump(st);
     // Make a double reset to be sure
     for (i = 0; i < 2; i++) {
         // Issue Global reset
@@ -1270,7 +1272,6 @@ static void request_vf_number(struct e10k_vf_binding *b)
         }
     }
 
-
     struct capref regs, irq, pci_ep, iommu_ep;
     if (vf_num == 255){
         //TODO better error
@@ -1713,7 +1714,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
         }
 
         struct capref cap;
-        // When started by Kaluga it handend off an endpoint cap to Kaluga
+        // When started by Kaluga it handend off an endpoint cap to PCI
         err = driverkit_get_pci_cap(bfi, &cap);
         assert(err_is_ok(err));
         assert(!capref_is_null(cap));

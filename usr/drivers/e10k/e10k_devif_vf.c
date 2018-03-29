@@ -253,36 +253,22 @@ static void device_init(void)
 /** Initialize hardware queue n. */
 static void queue_hw_init(struct e10k_queue* q)
 {
-    errval_t r;
-    struct frame_identity frameid = { .base = 0, .bytes = 0 };
-    uint64_t tx_phys, rx_phys;
-    uint64_t txhwb_phys;
-    size_t tx_size, rx_size;
     uint8_t n = q->id;
     e10k_vf_t* d = q->d;
 
-    // Get physical addresses for rx/tx rings
-    tx_phys = q->tx.devaddr;
-    tx_size = q->tx.size;
-
-    rx_phys = q->rx.devaddr;
-    rx_size = q->rx.size;
-
-
-    DEBUG_VF("tx.phys=%"PRIx64" tx.virt=%p tx.size=%"PRIu64"\n", tx_phys, q->tx_ring, tx_size);
-    DEBUG_VF("rx.phys=%"PRIx64" rx.virt=%p rx.size=%"PRIu64"\n", rx_phys, q->rx_ring, rx_size);
-
+    DEBUG_VF("tx.phys=%"PRIx64" tx.virt=%p tx.size=%"PRIu64"\n", q->tx.devaddr, q->tx_ring, q->tx_ring_size);
+    DEBUG_VF("rx.phys=%"PRIx64" rx.virt=%p rx.size=%"PRIu64"\n", q->rx.devaddr, q->rx_ring, q->rx_ring_size);
 
     // Initialize RX queue in HW
     if (q->use_vtd) {
         e10k_vf_vfrdbal_wr(d, n, (lvaddr_t) q->rx_ring);
         e10k_vf_vfrdbah_wr(d, n, ((lvaddr_t)q->rx_ring) >> 32);
     } else {
-        e10k_vf_vfrdbal_wr(d, n, rx_phys);
-        e10k_vf_vfrdbah_wr(d, n, rx_phys >> 32);
+        e10k_vf_vfrdbal_wr(d, n, q->rx.devaddr);
+        e10k_vf_vfrdbah_wr(d, n, q->rx.devaddr >> 32);
     }
 
-    e10k_vf_vfrdlen_wr(d, n, rx_size);
+    e10k_vf_vfrdlen_wr(d, n, q->rx_ring_size);
 
     e10k_vf_vfsrrctl_bsz_pkt_wrf(d, n, q->rxbufsz / 1024);
     e10k_vf_vfsrrctl_bsz_hdr_wrf(d, n, 128 / 64); // TODO: Do 128 bytes suffice in
@@ -350,25 +336,22 @@ static void queue_hw_init(struct e10k_queue* q)
         e10k_vf_vftdbal_wr(d, n, (lvaddr_t) q->tx_ring);
         e10k_vf_vftdbah_wr(d, n, ((lvaddr_t)q->tx_ring) >> 32);
     } else {
-        e10k_vf_vftdbal_wr(d, n, tx_phys);
-        e10k_vf_vftdbah_wr(d, n, tx_phys >> 32);
+        e10k_vf_vftdbal_wr(d, n, q->tx.devaddr);
+        e10k_vf_vftdbah_wr(d, n, q->tx.devaddr >> 32);
     }
 
-    e10k_vf_vftdlen_wr(d, n, tx_size);
+    e10k_vf_vftdlen_wr(d, n, q->tx_ring_size);
 
     // Initialize TX head index write back
     if (!capref_is_null(q->txhwb_frame)) {
         DEBUG_VF("[%x] tx_hwb enabled\n", n);
-        r = invoke_frame_identify(q->txhwb_frame, &frameid);
-        assert(err_is_ok(r));
-        txhwb_phys = frameid.base;
-
+    
 	    if (q->use_vtd) {
 	        e10k_vf_vftdwbal_headwb_low_wrf(d, n, ((lvaddr_t)q->tx_hwb) >> 2);
 	        e10k_vf_vftdwbah_headwb_high_wrf(d, n, ((lvaddr_t)q->tx_hwb) >> 32);
         } else {
-            e10k_vf_vftdwbal_headwb_low_wrf(d, n, txhwb_phys >> 2);
-            e10k_vf_vftdwbah_headwb_high_wrf(d, n, txhwb_phys >> 32);
+            e10k_vf_vftdwbal_headwb_low_wrf(d, n, q->txhwb.devaddr >> 2);
+            e10k_vf_vftdwbah_headwb_high_wrf(d, n, q->txhwb.devaddr >> 32);
         }
         e10k_vf_vftdwbal_headwb_en_wrf(d, n, 1);
     }
