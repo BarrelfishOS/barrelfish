@@ -379,25 +379,25 @@ static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf
     out_err = device_lookup_iommu_by_pci(0, vf_addr.bus, vf_addr.device, 
                                          vf_addr.function, &idx);
     if (err_is_fail(out_err)) {
-        goto reply;
+        goto error;
     }
 
     struct cap_wrapper wrap;   
     wrap.cont_done = false; 
     out_err = slot_alloc(&wrap.cap);
     if (err_is_fail(out_err)) {
-        goto reply;
+        goto error;
     }
     
     if (iommu_list == NULL) {
         slot_free(wrap.cap);;
-        goto reply;
+        goto error;
     }
 
     struct iommu_client_state* cl = collections_list_find_if(iommu_list, find_index, 
                                                              &idx);
     if (cl == NULL) {
-        goto reply;
+        goto error;
     }
 
     err = cl->b->rpc_tx_vtbl.request_iommu_endpoint(cl->b,type, 0, vf_addr.bus, vf_addr.device, 
@@ -406,6 +406,8 @@ static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf
        goto reply;
     }
 
+error:
+    wrap.cap = NULL_CAP;
 reply:
     err = b->tx_vtbl.get_vf_iommu_endpoint_cap_response(b, MKCONT(cleanup_cap, &wrap), wrap.cap, out_err);
     assert(err_is_ok(err));
