@@ -14,6 +14,8 @@
 #include "../generic/common.h"
 #include "intel_vtd_ctxt_cache.h"
 
+#include <barrelfish_kpi/paging_arch.h>
+
 static errval_t map_page_fn(struct iommu_device *io, struct capref dest, struct capref src,
                             capaddr_t slot, uint64_t attr, uint64_t offset, uint64_t pte_count,
                             struct capref mapping)
@@ -25,7 +27,20 @@ static errval_t map_page_fn(struct iommu_device *io, struct capref dest, struct 
     INTEL_VTD_DEBUG_DEVICES("mapping slot=%u, attr=%lx, offset=%lx, count=%lu]\n",
                             slot, attr, offset, pte_count);
 
-    err = vnode_map(dest, src, slot, attr, offset, pte_count, mapping);
+    uint64_t flags = X86_64_VTD_PAGE_SNOOP | X86_64_PTABLE_USER_SUPERVISOR;
+    if (attr & VREGION_FLAGS_WRITE) {
+        flags |= X86_64_PTABLE_READ_WRITE;
+    }
+
+    if (!(attr & VREGION_FLAGS_EXECUTE)) {
+        flags |= X86_64_PTABLE_EXECUTE_DISABLE;
+    }
+
+    if (attr & VREGION_FLAGS_NOCACHE) {
+        flags |= X86_64_PTABLE_CACHE_DISABLED;
+    }
+
+    err = vnode_map(dest, src, slot, flags, offset, pte_count, mapping);
     if (err_is_fail(err)) {
         return err;
     }
