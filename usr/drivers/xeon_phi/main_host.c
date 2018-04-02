@@ -37,8 +37,10 @@
 
 struct xeon_phi xphi;
 
-#if 0
-uint8_t xphi_dma_enabled = 1;
+
+uint8_t xeon_phi_dma_enabled = 1;
+char *xeon_phi_mod_uri = XEON_PHI_NFS_PATH;
+char *xeon_phi_mod_list = XEON_PHI_MOD_LIST;
 
 /**
  * \brief mounts the NFS path given by parameter
@@ -68,7 +70,7 @@ static errval_t mount_nfs_path(char *uri)
 
     return  vfs_mount(XEON_PHI_NFS_MNT, uri);
 }
-#endif
+
 /**
  * \brief handles events on the waitset and polls for completed DMA transfers
  *        and new data on the serial line (host only)
@@ -125,85 +127,12 @@ errval_t xeon_phi_event_poll(uint8_t do_yield)
 /**
  * \brief Main function of the Xeon Phi Driver (Host Side)
  */
-int main(int argc,
-         char *argv[])
+int main(int argc, char *argv[])
 {
     errval_t err;
 
-//    char *xeon_phi_mod_uri = XEON_PHI_NFS_PATH;
-//    char *xeon_phi_mod_list = XEON_PHI_MOD_LIST;
-
-//    uint8_t xeon_phi_dma_enabled = 1;
 
     debug_printf("Xeon Phi host module started.\n");
-
-    memset(&xphi, 0, sizeof(xphi));
-
-    err = driverkit_iommu_client_init(NULL_CAP);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Failed to initialize the IOMMU library");
-    }
-
-    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present(NULL));
-
-
-    iref_t kaluga_iref = 0;
-    err = nameservice_blocking_lookup("ddomain_controller", &kaluga_iref);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Failed to connect to ddomain controller");
-    }
-
-    for (uint8_t i = 1; i < argc; ++i) {
-        debug_printf("argv[%u] = %s\n", i, argv[i]);
-    }
-
-
-    err = ddomain_communication_init(kaluga_iref, atoi(argv[4]));
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Failed to initiate communication with Kaluga");
-    }
-
-    debug_printf("Stopping and dispatching messagse\n");
-
-    while(1) {
-        event_dispatch(get_default_waitset());
-    }
-
-    #if 0
-
-    /*
-     * Parsing of cmdline arguments.
-     *
-     * When started by Kaluga, the last element of the cmdline will contain
-     * the basic PCI information of the device.
-     * VENDORID:DEVICEID:BUS:DEV:FUN
-     */
-    uint32_t vendor_id, device_id;
-    uint32_t bus = PCI_DONT_CARE, dev = PCI_DONT_CARE, fun = PCI_DONT_CARE;
-
-    if (argc > 1) {
-        uint32_t parsed = sscanf(argv[argc - 1], "%x:%x:%x:%x:%x", &vendor_id,
-                                 &device_id, &bus, &dev, &fun);
-        if (parsed != 5) {
-            XDEBUG("WARNING: cmdline parsing failed. Using PCI Address [0,0,0]");
-            bus = PCI_DONT_CARE;
-            dev = PCI_DONT_CARE;
-            fun = PCI_DONT_CARE;
-        } else {
-            if (vendor_id != 0x8086 || ((device_id & 0xFFF0) != 0x2250)) {
-                USER_PANIC("unexpected vendor / device id: [%x, %x]", vendor_id,
-                           device_id);
-                return -1;
-            }
-            XDEBUG("Initializing Xeon Phi with PCI address "
-                   "[%u,%u,%u]\n",
-                   bus, dev, fun);
-        }
-    } else {
-        XDEBUG("WARNING: Initializing Xeon Phi with unknown PCI address "
-               "[0,0,0]\n");
-    }
-
 
     for (uint8_t i = 1; i < argc; ++i) {
         if (strncmp(argv[i], "--tftp=", 7)==0) {
@@ -224,8 +153,6 @@ int main(int argc,
     XDEBUG("Xeon Phi Images: mod_list: {%s}, mod_uri: {%s}\n", xeon_phi_mod_list,
            xeon_phi_mod_uri);
 
-    /* set the client flag to false */
-    xphi.is_client = XEON_PHI_IS_CLIENT;
 
     vfs_init();
 
@@ -240,84 +167,23 @@ int main(int argc,
         USER_PANIC_ERR(err, "could not map the NFS paths");
     }
 
-    err = service_init(&xphi);
+
+    iref_t kaluga_iref = 0;
+    err = nameservice_blocking_lookup("ddomain_controller", &kaluga_iref);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not start the driver service\n");
+        USER_PANIC_ERR(err, "Failed to connect to ddomain controller");
     }
 
-    uint8_t num;
-    iref_t *irefs;
-    err = xeon_phi_manager_client_register(xphi.iref, &xphi.id, &num, &irefs);
+    err = ddomain_communication_init(kaluga_iref, atoi(argv[4]));
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not register with the Xeon Phi manager\n");
+        USER_PANIC_ERR(err, "Failed to initiate communication with Kaluga");
     }
 
-    xphi.state = XEON_PHI_STATE_NULL;
+    debug_printf("Stopping and dispatching messagse\n");
 
-    err = xeon_phi_init(&xphi, bus, dev, fun);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not do the card initialization\n");
+    while(1) {
+        xeon_phi_event_poll(true);
     }
-
-    err = xeon_phi_boot(&xphi, xeon_phi_mod_uri, xeon_phi_mod_list);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not boot the card\n");
-    }
-
-    interphi_wait_for_client(&xphi);
-
-    err = service_register(&xphi, irefs, num);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not register with the other drivers");
-    }
-
-    if (xeon_phi_dma_enabled) {
-        err = xdma_service_init(&xphi);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "could not initialize the DMA engine\n");
-        }
-    }
-
-    err = xeon_phi_service_init(&xphi);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not initialize the messaging service");
-    }
-
-    /*
-     * in case there are more than one Xeon Phi present in the system, indicated
-     * by an id > 0, the driver will register itself with the other Xeon Phi
-     * driver instances running in the system and initializes the inter-Phi
-     * messaging frame
-     */
-    if (xphi.id != 0) {
-        XDEBUG("Doing Intra Xeon Phi setup with %u other instances\n", xphi.id);
-        for (uint32_t i = 0; i < xphi.id; ++i) {
-            /* initialize the messaging frame */
-            err = interphi_init_xphi(i, &xphi, NULL_CAP, XEON_PHI_IS_CLIENT);
-            if (err_is_fail(err)) {
-                XDEBUG("Could not initialize messaging\n");
-                continue;
-            }
-        }
-    }
-
-
-    char buf[20];
-    snprintf(buf, 20, "xeon_phi.%u.ready", xphi.id);
-
-    XDEBUG("registering ready\n");
-    err = domain_register(buf, 0xcafebabe);
-    assert(err_is_ok(err));
-
-    /* signal for the test */
-    debug_printf("Xeon Phi operational: %s\n", buf);
-
-    XDEBUG("initialization done. Going into main message loop\n");
-
-    /* starts the basic handler service. This function should not return */
-    service_start(&xphi);
-
-    #endif
 
     XDEBUG("Xeon Phi host module terminated.\n");
 

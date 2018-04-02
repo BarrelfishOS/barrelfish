@@ -37,7 +37,23 @@
 #include <driverkit/driverkit.h>
 #include <driverkit/iommu.h>
 
-#include <pci/pci.h>
+#include <xeon_phi/xeon_phi.h>
+#include <xeon_phi/xeon_phi_manager_client.h>
+
+#include "xeon_phi_internal.h"
+#include "smpt.h"
+#include "dma_service.h"
+#include "service.h"
+#include "xphi_service.h"
+#include "interphi.h"
+#include "domain.h"
+#include "sysmem_caps.h"
+
+
+
+extern uint8_t xeon_phi_dma_enabled;
+extern char *xeon_phi_mod_uri;
+extern char *xeon_phi_mod_list;
 
 
 
@@ -64,53 +80,125 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     errval_t err;
     // 1. Initialize the device:
 
-    debug_printf("[knc]: attaching device '%s'\n", bfi->name);
+    debug_printf("[knc] attaching new co-processor");
 
-    struct capref devid=  NULL_CAP;
-
-    struct device_identity id;
-    err = invoke_device_identify(devid, &id);
-    if (err_is_fail(err)) {
-        return err;
+    /* allocate the Xeon Phi state */
+    struct xeon_phi *xphi = calloc(1, sizeof(*xphi));
+    if (xphi == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
     }
 
-    debug_printf("[knc]: '%s' is at %u.%u.%u\n", bfi->name, id.bus, id.device,
-                 id.function);
-
-    struct capref regs;
-    err = driverkit_get_bar_cap(bfi, 0, &regs);
+    struct capref iommuep;
+    err = driverkit_get_iommu_cap(bfi, &iommuep);
     if (err_is_fail(err)) {
-        return err;
+        goto err_out;
+    }
+
+    err = driverkit_iommu_client_init_cl(iommuep, &xphi->iommu_client);
+    if (err_is_fail(err)) {
+        goto err_out;
+    }
+
+    debug_printf("[knc] iommu is %s.\n",
+                 driverkit_iommu_present(xphi->iommu_client) ? "on" : "off");
+
+    /* set the client flag to false */
+    xphi->is_client = XEON_PHI_IS_CLIENT;
+    xphi->state = XEON_PHI_STATE_NULL;
+
+    struct capref mmio;
+    err = driverkit_get_bar_cap(bfi, 0, &mmio);
+    if (err_is_fail(err)) {
+        goto err_out2;
     }
 
     struct capref apt;
     err = driverkit_get_bar_cap(bfi, 1, &apt);
     if (err_is_fail(err)) {
-        return err;
+        goto err_out2;
     }
 
-    debug_printf("IOMMU PRESENT: %u", driverkit_iommu_present(NULL));
-    if (driverkit_iommu_present(NULL)) {
+    err = xeon_phi_init(xphi, mmio, apt);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not do the card initialization\n");
+        goto err_out2;
+    }
 
-        struct vnode_identity vid;
-        err = invoke_vnode_identify(cap_vroot, &vid);
-        assert(err_is_ok(err));
-        debug_printf("[knc] using ptable root: %lx\n", vid.base);
+    err = xeon_phi_boot(xphi, xeon_phi_mod_uri, xeon_phi_mod_list);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not boot the card\n");
+        goto err_out2;
+    }
 
-        err = driverkit_iommu_create_domain(cap_vroot, devid);
+#if 0
+    err = service_init(xphi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not start the driver service\n");
+    }
+
+    uint8_t num;
+    iref_t *irefs;
+    err = xeon_phi_manager_client_register(xphi.iref, &xphi.id, &num, &irefs);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not register with the Xeon Phi manager\n");
+    }
+
+#endif
+
+    interphi_wait_for_client(xphi);
+
+#if 0
+    err = service_register(&xphi, irefs, num);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not register with the other drivers");
+    }
+
+#endif
+    if (xeon_phi_dma_enabled) {
+        err = xdma_service_init(xphi);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to create the iommu domain\n");
-            return err;
-        }
-
-        err = driverkit_iommu_add_device(cap_vroot, devid);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to add device to domain\n");
-            return err;
+            USER_PANIC_ERR(err, "could not initialize the DMA engine\n");
         }
     }
 
-    debug_printf("[knc] setup ok");
+    err = xeon_phi_service_init(xphi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not initialize the messaging service");
+    }
+
+    #if 0
+    /*
+     * in case there are more than one Xeon Phi present in the system, indicated
+     * by an id > 0, the driver will register itself with the other Xeon Phi
+     * driver instances running in the system and initializes the inter-Phi
+     * messaging frame
+     */
+    if (xphi.id != 0) {
+        XDEBUG("Doing Intra Xeon Phi setup with %u other instances\n", xphi.id);
+        for (uint32_t i = 0; i < xphi.id; ++i) {
+            /* initialize the messaging frame */
+            err = interphi_init_xphi(i, &xphi, NULL_CAP, XEON_PHI_IS_CLIENT);
+            if (err_is_fail(err)) {
+                XDEBUG("Could not initialize messaging\n");
+                continue;
+            }
+        }
+    }
+    #endif
+
+
+    char buf[20];
+    snprintf(buf, 20, "xeon_phi.%u.ready", xphi->id);
+
+    XDEBUG("registering ready\n");
+    err = domain_register(buf, 0xcafebabe);
+    assert(err_is_ok(err));
+
+    /* signal for the test */
+    debug_printf("Xeon Phi operational: %s\n", buf);
+
+    XDEBUG("initialization done. Going into main message loop\n");
+
 
 
     // 2. Export service to talk to the device:
@@ -119,6 +207,11 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     *dev = 0x00;
 
     return SYS_ERR_OK;
+    err_out2:
+    driverkit_iommu_client_disconnect_cl(xphi->iommu_client);
+    err_out:
+    free(xphi);
+    return err;
 }
 
 /**

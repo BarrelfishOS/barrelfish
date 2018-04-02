@@ -15,6 +15,8 @@
 
 #include "debug.h"
 
+struct iommu_client;
+
 /*
  * Common setting values
  */
@@ -133,6 +135,8 @@ struct xeon_phi
 
     iref_t xphi_svc_iref;
 
+    struct iommu_client *iommu_client;
+
     struct smpt_info *smpt;  ///< pointer to the SMPT information struct
     struct irq_info *irq;   ///< pointer to the IRQ information struct
     struct dma_device *dma;   ///< pointer to the DMA information struct
@@ -185,10 +189,7 @@ errval_t xeon_phi_reset(struct xeon_phi *phi);
  *
  * \param phi pointer to the information structure
  */
-errval_t xeon_phi_init(struct xeon_phi *phi,
-                       uint32_t bus,
-                       uint32_t dev,
-                       uint32_t fun);
+errval_t xeon_phi_init(struct xeon_phi *phi, struct capref mmio, struct capref apt);
 
 /**
  * \brief maps the aperture memory range of the Xeon Phi into the drivers
