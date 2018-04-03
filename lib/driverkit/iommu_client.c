@@ -221,7 +221,7 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
     }
 
     DRIVERKIT_DEBUG("Determined addr=%"PRIu64" as base address for request\n",
-            addr);
+                    base_addr);
 
     err = b->rpc_tx_vtbl.allocate(b, bits, base_addr, base_addr + bytes,
             &msgerr, retcap);
