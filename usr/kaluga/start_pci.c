@@ -116,13 +116,13 @@ static errval_t add_ep_args(struct pci_addr addr, coreid_t core, struct driver_a
                        addr.function, &pci_cap, &out_err);
 
     if (err_is_fail(err) || err_is_fail(out_err)) {
-        slot_free(pci_cap);
+        //slot_free(pci_cap);
         return KALUGA_ERR_CAP_ACQUIRE;
     }
 
     err = cap_copy(pci_ep, pci_cap);
     if (err_is_fail(err)) {
-        slot_free(pci_cap);
+        cap_destroy(pci_cap);
         return KALUGA_ERR_CAP_ACQUIRE;
     }
 
@@ -136,7 +136,7 @@ static errval_t add_ep_args(struct pci_addr addr, coreid_t core, struct driver_a
     struct capref iommu_cap;
     err = slot_alloc(&iommu_cap);
     if (err_is_fail(err)) {
-        slot_free(pci_cap);
+        cap_destroy(pci_cap);
         return err;
     }
 
@@ -148,15 +148,15 @@ static errval_t add_ep_args(struct pci_addr addr, coreid_t core, struct driver_a
                            addr.function, &iommu_cap, &out_err);
 
         if (err_is_fail(err) || err_is_fail(out_err)) {
-            slot_free(pci_cap);
-            slot_free(iommu_cap);
+            cap_destroy(pci_cap);
+           // slot_free(iommu_cap);
             return KALUGA_ERR_CAP_ACQUIRE;
         }
 
         err = cap_copy(iommu_ep, iommu_cap);
         if (err_is_fail(err)) {
-            slot_free(pci_cap);
-            slot_free(iommu_cap);
+            cap_destroy(pci_cap);
+            cap_destroy(iommu_cap);
             return KALUGA_ERR_CAP_ACQUIRE;
         }
     }
@@ -399,17 +399,18 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         set_multi_instance(mi, multi);
         set_core_id_offset(mi, offset);
 
-        KALUGA_DEBUG("Adding int args.\n");
+        debug_printf("Adding int args.\n");
         char intcaps_debug_msg[100];
 
         err = add_int_args(addr, &driver_arg, intcaps_debug_msg);
         assert(err_is_ok(err));
 
-        KALUGA_DEBUG("Adding mem args.\n");
+        debug_printf("Adding mem args.\n");
         char memcaps_debug_msg[100];
         err = add_mem_args(addr, &driver_arg, memcaps_debug_msg);
         assert(err_is_ok(err));
 
+        debug_printf("Adding endpoint args.\n");
         err = add_ep_args(addr, core, &driver_arg, binary_name, module_name);
         assert(err_is_ok(err));
 
@@ -627,7 +628,7 @@ errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
                         (where == my_core_id) ? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
                         idx, &pci_cap, &out_err);
     if (err_is_fail(err) || err_is_fail(out_err)) {
-        slot_free(pci_cap);
+       // slot_free(pci_cap);
         err = err_is_fail(err) ? err: out_err;
         goto out;
     }

@@ -382,6 +382,10 @@ static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf
         goto error;
     }
 
+    if (iommu_list == NULL) {
+        goto error;
+    }
+
     struct cap_wrapper wrap;   
     wrap.cont_done = false; 
     out_err = slot_alloc(&wrap.cap);
@@ -389,14 +393,12 @@ static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf
         goto error;
     }
     
-    if (iommu_list == NULL) {
-        slot_free(wrap.cap);;
-        goto error;
-    }
+
 
     struct iommu_client_state* cl = collections_list_find_if(iommu_list, find_index, 
                                                              &idx);
     if (cl == NULL) {
+        slot_free(wrap.cap);
         goto error;
     }
 
@@ -785,23 +787,23 @@ static void request_iommu_endpoint_cap_handler(struct kaluga_binding* b, uint8_t
         goto reply;
     }
 
-    struct capref cap;    
-    out_err = slot_alloc(&cap);
-    if (err_is_fail(out_err)) {
-        goto reply;
-    }
- 
+    struct capref cap;
     if (iommu_list == NULL) {
         cap = NULL_CAP;
         goto reply;
     }
-   
-    struct iommu_client_state* cl = collections_list_find_if(iommu_list, find_index, 
-                                                             &idx);
 
-    if(cl == NULL) {    
+    struct iommu_client_state* cl = collections_list_find_if(iommu_list, find_index,
+                                                             &idx);
+    if(cl == NULL) {
         goto reply;
     }
+
+    out_err = slot_alloc(&cap);
+    if (err_is_fail(out_err)) {
+        goto reply;
+    }
+
 
     err = cl->b->rpc_tx_vtbl.request_iommu_endpoint(cl->b,type, segment, bus, device, 
                                                     function, &cap, &out_err);
@@ -813,7 +815,7 @@ reply:
     err = b->tx_vtbl.request_iommu_endpoint_cap_response(b, NOP_CONT, cap, out_err);
     debug_printf("Err %s \n", err_getstring(err));
     assert(err_is_ok(err));
-    slot_free(cap);
+    /* TODO: CPEANUP */
 }
 
 static struct kaluga_rx_vtbl rx_vtbl = {
