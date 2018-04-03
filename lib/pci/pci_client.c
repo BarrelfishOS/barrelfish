@@ -553,15 +553,20 @@ errval_t pci_sriov_get_vf_resources(uint32_t vf_num, struct capref* regs, struct
 
     err = pci_client->rpc_tx_vtbl.get_vf_bar_cap(pci_client, vf_num, 0, 
                                                  regs, &msgerr);
-    if (err_is_fail(err) || err_is_fail(msgerr)) {
-        slot_free(*regs);
-        return err_is_fail(err) ? err : msgerr;
+    if (err_is_fail(err)) {
+        //slot_free(*regs);
+        return err;
+    }
+
+    if (err_is_fail(msgerr)) {
+        /* slot is freed in Flounder code */
+        return msgerr;
     }
 
     // IOMMU endpoint
     err = slot_alloc(iommu_ep);
     if (err_is_fail(err)) {
-        slot_free(*regs);
+        cap_destroy(*regs);
         return err;
     }
 
@@ -570,16 +575,15 @@ errval_t pci_sriov_get_vf_resources(uint32_t vf_num, struct capref* regs, struct
                                      (disp_get_core_id() == 0) ? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP,
                                      iommu_ep, &msgerr);
     if (err_is_fail(err) || err_is_fail(msgerr)) {
-        slot_free(*regs);
-        slot_free(*iommu_ep);
+        cap_destroy(*regs);
         return err_is_fail(err) ? err : msgerr;
     }
-    
+
     // PCI endpoint
     err = slot_alloc(pci_ep);
     if (err_is_fail(err)) {
-        slot_free(*regs);
-        slot_free(*iommu_ep);
+        cap_destroy(*regs);
+        cap_destroy(*iommu_ep);
         return err;
     }
    
@@ -588,9 +592,8 @@ errval_t pci_sriov_get_vf_resources(uint32_t vf_num, struct capref* regs, struct
                                      (disp_get_core_id() == 0) ? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP,
                                      pci_ep, &msgerr);
     if (err_is_fail(err) || err_is_fail(msgerr)) {
-        slot_free(*regs);
-        slot_free(*iommu_ep);
-        slot_free(*pci_ep);
+        cap_destroy(*regs);
+        cap_destroy(*iommu_ep);
         return err_is_fail(err) ? err : msgerr;
     }
     
