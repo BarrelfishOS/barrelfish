@@ -253,7 +253,6 @@ static errval_t get_driver_ep(coreid_t where, struct module_info* driver,
 
     err = driverkit_get_driver_ep_cap(drv, ret_ep, (where == my_core_id));
     if (err_is_fail(err)) {
-        slot_free(*ret_ep);
         return err;
     }
 
