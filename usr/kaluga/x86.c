@@ -173,6 +173,18 @@ errval_t arch_startup(char * add_device_db_file)
         USER_PANIC_ERR(err, "Watching cores.");
     }
 
+
+    KALUGA_DEBUG("Kaluga: ACPI connect...\n");
+    err = connect_to_acpi();
+    if (err_is_fail(err) && err != KALUGA_ERR_MODULE_NOT_FOUND) {
+        USER_PANIC_ERR(err, "start_lpc_timer");
+    }
+
+    err = watch_for_iommu();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Watching for IOMMUS.");
+    }
+
     KALUGA_DEBUG("Kaluga: pci_root_bridge\n");
 
     err = watch_for_pci_root_bridge();
@@ -193,18 +205,6 @@ errval_t arch_startup(char * add_device_db_file)
 
     if (record) {
         free(record);
-    }
-
-    KALUGA_DEBUG("Kaluga: ACPI connect...\n");
-    err = connect_to_acpi();
-    if (err_is_fail(err) && err != KALUGA_ERR_MODULE_NOT_FOUND) {
-        USER_PANIC_ERR(err, "start_lpc_timer");
-    }
-
-
-    err = watch_for_iommu();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Watching for IOMMUS.");
     }
 
     err = watch_for_int_controller();

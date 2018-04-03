@@ -965,6 +965,8 @@ int init_acpi(void)
     //as = AcpiGetDevices(PCI_EXPRESS_ROOT_HID_STRING, add_pci_device, NULL, NULL);
     //assert(ACPI_SUCCESS(as));
 
+    acpi_parse_dmar();
+
     ACPI_DEBUG("Walking for PCI buses\n");
     as = AcpiGetDevices(PCI_ROOT_HID_STRING, add_pci_device, NULL, NULL);
     assert(ACPI_SUCCESS(as));
@@ -1026,9 +1028,6 @@ int init_acpi(void)
      */
     as = AcpiGetTable(ACPI_SIG_XSDT, 1, &acpi_table_header);
     ACPI_DEBUG("has XSDT: %s.\n", ACPI_SUCCESS(as) ? "yes" : "no");
-
-
-    acpi_parse_dmar();
 
     return 0;
 }

@@ -29,6 +29,7 @@
 #include <if/pci_iommu_defs.h>
 #include <if/kaluga_defs.h>
 #include <if/acpi_defs.h>
+#include <hw_records.h>
 
 #include <acpi_client/acpi_client.h>
 #include <mm/mm.h>
@@ -739,36 +740,41 @@ reply:
     assert(err_is_ok(err));
 }
 
-static void request_endpoint_cap_for_iommu_handler(struct kaluga_binding* b, uint8_t type, 
-                                                   uint32_t index)
+static void bind_cont_iommu(void *st, errval_t err, struct pci_iommu_binding *b)
 {
-    errval_t err;
-    PCI_DEBUG("Kaluga requested pci to iommu endpoint for iommu %d\n", index);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "bind failed");
+    }
 
-    struct capref cap;    
-    err = slot_alloc(&cap);
-    assert(err_is_ok(err));
-
-    struct iommu_client_state* state = (struct iommu_client_state*) 
-                                        calloc(1, sizeof(struct iommu_client_state));
-    err = pci_iommu_create_endpoint(type, &pci_iommu_rx_vtbl, NULL,
-                                    get_default_waitset(),
-                                    IDC_ENDPOINT_FLAGS_DUMMY,
-                                    &state->b, cap);
-    assert(err_is_ok(err));
-
+    struct iommu_client_state* state = (struct iommu_client_state*) st;
+    state->b = b;
+    
+    b->st = st;
     pci_iommu_rpc_client_init(state->b);
-    state->index = index;
- 
+
     if (iommu_list == NULL) {
         // TODO free function
         collections_list_create(&iommu_list, NULL);   
     }
   
     collections_list_insert_tail(iommu_list, state);
-    
-    err = b->tx_vtbl.request_endpoint_cap_for_iommu_response(b, NOP_CONT, cap, err);
-    assert(err_is_ok(err));
+}
+
+static errval_t init_iommu_connection(uint32_t index, struct capref cap)
+{
+    errval_t err;
+    PCI_DEBUG("Kaluga requested pci to iommu endpoint for iommu %d\n", index);
+
+    struct iommu_client_state* state = (struct iommu_client_state*) 
+                                        calloc(1, sizeof(struct iommu_client_state));
+
+    state->index = index;
+    err = pci_iommu_bind_to_endpoint(cap, bind_cont_iommu, state, get_default_waitset(), 
+                                      IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        free(state);
+    }
+    return err;
 }
 
 static void request_iommu_endpoint_cap_handler(struct kaluga_binding* b, uint8_t type, 
@@ -821,7 +827,6 @@ reply:
 static struct kaluga_rx_vtbl rx_vtbl = {
     .request_endpoint_cap_call = request_endpoint_cap_handler,
     .request_iommu_endpoint_cap_call = request_iommu_endpoint_cap_handler,
-    .request_endpoint_cap_for_iommu_call = request_endpoint_cap_for_iommu_handler
 };
 
 static void bind_cont(void *st, errval_t err, struct kaluga_binding *b)
@@ -839,18 +844,81 @@ static void bind_cont(void *st, errval_t err, struct kaluga_binding *b)
     bound = true;
 }
 
+
+/*****************************************************************
+ * Parses Device scopes for IOMMU:
+ *****************************************************************/
+
+static errval_t parse_devices_scopes(void)
+{
+    errval_t err;
+
+    debug_printf("Parsing device scrope\n");
+
+    err = skb_execute_query("dmar_devscopes(L),length(L,Len),writeln(L)");
+    assert(err_is_ok(err));
+
+    char *skb_list_output = strdup(skb_get_output());
+
+    struct list_parser_status status;
+    skb_read_list_init_offset(&status, skb_list_output, 0);
+
+    uint32_t unit_idx;
+    uint8_t type, entrytype, enumid;
+    uint16_t seg;
+    uint8_t bus, dev, fun;
+    while(skb_read_list(&status, SKB_SCHEMA_DMAR_DEV,
+                        &unit_idx, &type, &entrytype, &seg, &bus,
+                        &dev, &fun, &enumid)) {
+        PCI_DEBUG("%u.%u.%u\n", bus, dev, fun);
+        if (entrytype > 2) {
+            debug_printf("not a PCI endpoint or bridge, continue\n");
+            continue;
+        }
+
+        err = skb_execute_query("bridge(pcie,addr(%d,%d,%d),_,_,_,_,_,secondary(BUS)),"
+                                        "write(secondary_bus(BUS)).", bus, dev, fun);
+        uint32_t next_bus;
+        if (err_is_ok(err)) {
+            err = skb_read_output("secondary_bus(%d)", &next_bus);
+
+
+            PCI_DEBUG("Bus %u -> %u\n", bus,next_bus);
+
+            assert(err_is_ok(err));
+        } else {
+            next_bus = bus;
+            PCI_DEBUG("Bus %u == %u\n", bus,next_bus);
+        }
+
+        PCI_DEBUG(SKB_SCHEMA_IOMMU_DEVICE "\n", HW_PCI_IOMMU_INTEL, unit_idx, type,
+                     entrytype, seg, next_bus, dev, fun, enumid);
+
+        err = skb_add_fact(SKB_SCHEMA_IOMMU_DEVICE, HW_PCI_IOMMU_INTEL, unit_idx, type,
+                           entrytype, seg, next_bus, dev, fun, enumid);
+        if (err_is_fail(err)) {
+            continue;
+        }
+    }
+
+    free(skb_list_output);
+
+    return SYS_ERR_OK;
+}
+
 /*****************************************************************
  * Boots up the PCI server:
  *****************************************************************/
-
 void pci_init(void)
 {
     PCI_DEBUG("pci: pci_init: called\n");
 
+    parse_devices_scopes();
+
     PCI_DEBUG("pci: pci_init: launch listening\n");
-    errval_t r = pci_export(NULL, export_callback, connect_callback,
+    errval_t err = pci_export(NULL, export_callback, connect_callback,
                             get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
-    assert(err_is_ok(r));
+    assert(err_is_ok(err));
 
 
     PCI_DEBUG("pci: pci_init: connect to kaluga using endpoint cap\n");
@@ -858,10 +926,23 @@ void pci_init(void)
     kaluga_ep.cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER);
     kaluga_ep.slot = DRIVERKIT_ARGCN_SLOT_KALUGA_EP;
 
-    r = kaluga_bind_to_endpoint(kaluga_ep, bind_cont, NULL, get_default_waitset(), 
+    err = kaluga_bind_to_endpoint(kaluga_ep, bind_cont, NULL, get_default_waitset(), 
                                 IDC_BIND_FLAGS_DEFAULT);
     while(!bound) {
         event_dispatch(get_default_waitset());
+    }
+
+    // init connections to IOMMUs
+    for (int i = 0; i+DRIVERKIT_ARGCN_SLOT_BAR0 < DRIVERKIT_ARGCN_SLOT_MAX; i++){
+        struct capref cap = {
+            .cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER),
+            .slot = DRIVERKIT_ARGCN_SLOT_BAR0+i
+        };
+
+        err = init_iommu_connection(i, cap);
+        if (err_is_fail(err)) {
+            break;
+        }
     }
 
     PCI_DEBUG("pci: pci_init: terminated\n");

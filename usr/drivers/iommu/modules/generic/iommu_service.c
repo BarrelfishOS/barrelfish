@@ -120,8 +120,8 @@ static inline errval_t iommu_put_writable_vnode(struct vnode_identity id,
  */
 static void getvmconfig_request(struct iommu_binding *ib)
 {
-    errval_t err;
-    int32_t nodeid = -1;
+    errval_t err = SYS_ERR_OK;
+    int32_t nodeid = 1;
 
     IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
@@ -129,6 +129,7 @@ static void getvmconfig_request(struct iommu_binding *ib)
     assert(idev);
     assert(idev->iommu);
 
+    /*
     err = skb_execute_query(
         "pci_address_node_id(addr(%i,%i,%i), Enum), write(Enum)",
         idev->addr.pci.bus,
@@ -140,7 +141,7 @@ static void getvmconfig_request(struct iommu_binding *ib)
     } else {
         err = skb_read_output("%"SCNi32, &nodeid);
     }
-
+    */
     err = ib->tx_vtbl.getvmconfig_response(ib, NOP_CONT, err,
                                            idev->iommu->root_vnode_type,
                                            idev->iommu->max_page_bits, nodeid);
@@ -497,6 +498,7 @@ errval_t iommu_service_new_endpoint(struct capref ep, struct iommu_device *dev,
                                  IDC_ENDPOINT_FLAGS_DEFAULT, &dev->binding, ep);
 }
 
+
 /*****************************************************************
  * Iommu PCI connection interface
  *****************************************************************/
@@ -541,43 +543,9 @@ struct pci_iommu_rx_vtbl pci_iommu_rx_vtbl = {
     .request_iommu_endpoint_call = request_iommu_endpoint_handler
 };
 
-
-struct iommu_wrapper {
-    struct iommu* iommu;
-    bool bound;
-    errval_t err;    
-};
-
-static void bind_cont(void *st, errval_t err, struct pci_iommu_binding *b)
+errval_t iommu_request_endpoint(uint8_t type, struct capref* cap, struct iommu* iommu)
 {
-    struct iommu_wrapper* wrap = (struct iommu_wrapper*) st;
-    if (err_is_fail(err)) {
-        wrap->err = err;    
-        return;
-    }
-
-    // copy my message receive handler vtable to the binding
-    b->rx_vtbl = pci_iommu_rx_vtbl;
-    pci_iommu_rpc_client_init(b);
-    b->st = wrap->iommu;
-
-    wrap->bound = true;
-}
-
-errval_t iommu_bind_to_pci(struct capref ep, struct iommu* iommu)
-{
-    errval_t err;
-    struct iommu_wrapper wrap;
-
-    wrap.iommu = iommu;
-    wrap.bound = false;
-    wrap.err = SYS_ERR_OK;
-
-    err = pci_iommu_bind_to_endpoint(ep, bind_cont, &wrap, get_default_waitset(), 
-                                     IDC_BIND_FLAGS_DEFAULT);
-    while(!wrap.bound) {
-        event_dispatch(get_default_waitset());
-    }
-
-    return err;
+    struct pci_iommu_binding* b;
+    return pci_iommu_create_endpoint(type, &pci_iommu_rx_vtbl, iommu, get_default_waitset(), 
+                                     IDC_ENDPOINT_FLAGS_DEFAULT, &b, *cap);
 }

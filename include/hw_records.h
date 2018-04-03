@@ -86,4 +86,15 @@ typedef enum {
 #define HW_PCI_IOMMU_RECORD_REGEX \
 "r'hw\\.pci\\.iommu\\.[0-9]+' { index: _, type: _, flags: _, segment: _, address: _ }"
 
+#define SKB_SCHEMA_IOMMU_DEVICE \
+    "iommu_device(%" PRIu32 ", %" PRIu32 ", %" PRIu8 ", %" PRIu8 ", "\
+                  "addr(%" PRIu16 ", %" PRIu8 ", %" PRIu8 ", %" PRIu8 "), "\
+                  "%" PRIu8  ")."
+
+#define SKB_SCHEMA_DMAR_DEV \
+    "dmar_dev(%" SCNu32 ", %" SCNu8 ", %" SCNu8 ", "\
+                "addr(%" SCNu16 ", %" SCNu8 ", %" SCNu8 ", %" SCNu8 "), "\
+                "%" SCNu8  ")"
+
+
 #endif /* INCLUDE_HW_RECORDS_ARCH_H_ */
