@@ -683,16 +683,17 @@ errval_t vtd_destroy(struct vtd *v)
 
 errval_t vtd_set_root_table(struct vtd *v)
 {
-    bool was_enabled = vtd_GSTS_tes_rdf(&v->vtd_dev);
-    if (was_enabled) {
-        vtd_cmd_translation_disable(v);
-    }
-
     errval_t err;
+
     struct vnode_identity id;
     err = invoke_vnode_identify(v->root_table.rtcap, &id);
     if (err_is_fail(err)) {
         return err;
+    }
+
+    bool was_enabled = vtd_GSTS_tes_rdf(&v->vtd_dev);
+    if (was_enabled) {
+        vtd_cmd_translation_disable(v);
     }
 
     /* setting the root table type */

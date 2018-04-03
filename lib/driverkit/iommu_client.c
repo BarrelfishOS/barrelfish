@@ -1198,17 +1198,6 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
                 goto err_out3;
             }
 
-            debug_printf("XXXXXXXXXXXXXXXXXXXXXXX   about to\n");
-
-            struct capref mapping;
-            err = slot_alloc(&mapping);
-            assert(err_is_ok(err));
-            err = vnode_map(vnode->vnode, dmem->mem, slot+1, PTABLE_ACCESS_DEFAULT,
-                                      0, ptecount, mapping);
-            DEBUG_ERR(err, "mapping the vnode locally\n");
-            assert(err_is_fail(err));
-            err = slot_free(mapping);
-            assert(err_is_ok(err));
             return SYS_ERR_OK;
         } else {
 

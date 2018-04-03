@@ -153,7 +153,12 @@ static void setroot_request(struct iommu_binding *ib, struct capref src)
 {
     errval_t err;
 
-    IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
+    struct iommu_device *idev = ib->st;
+    assert(idev);
+    assert(idev->iommu);
+
+    IOMMU_SVC_DEBUG("%s %u.%u.%u\n", __FUNCTION__, idev->addr.pci.bus,
+                    idev->addr.pci.device, idev->addr.pci.function);
 
     struct vnode_identity id;
     err = invoke_vnode_identify(src, &id);
@@ -178,9 +183,7 @@ static void setroot_request(struct iommu_binding *ib, struct capref src)
 
 
 
-    struct iommu_device *idev = ib->st;
-    assert(idev);
-    assert(idev->iommu);
+
 
     if (idev->f.set_root) {
         err = idev->f.set_root(idev, src);
@@ -308,6 +311,9 @@ static void map_request(struct iommu_binding *ib, struct capref dst,
     struct iommu_device *dev = ib->st;
     assert(dev);
 
+    IOMMU_SVC_DEBUG("%s %u.%u.%u\n", __FUNCTION__, dev->addr.pci.bus,
+                    dev->addr.pci.device, dev->addr.pci.function);
+
     if (dev->f.map == NULL) {
         err = IOMMU_ERR_NOT_SUPPORTED;
         goto out;
@@ -364,10 +370,12 @@ static void unmap_request(struct iommu_binding *ib, struct capref vnode_ro,
                           uint16_t slot)
 {
     errval_t err;
-    IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
 
     struct iommu_device *dev = ib->st;
     assert(dev);
+
+    IOMMU_SVC_DEBUG("%s %u.%u.%u\n", __FUNCTION__, dev->addr.pci.bus,
+                    dev->addr.pci.device, dev->addr.pci.function);
 
     if (dev->f.unmap == NULL) {
         err = IOMMU_ERR_NOT_SUPPORTED;
@@ -502,6 +510,8 @@ static void request_iommu_endpoint_handler(struct pci_iommu_binding *b, uint8_t 
 
     assert(b->st);
     struct iommu *io = (struct iommu *)b->st;
+
+    IOMMU_SVC_DEBUG("%s %u.%u.%u\n", __FUNCTION__, bus, device, function);
 
     struct iommu_device* dev;
     out_err = iommu_device_create_by_pci(io, segment, bus, device, function, &dev);

@@ -122,7 +122,6 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
     if (err_is_fail(err)){
         DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
                 "name=%s, cls=%s\n", name, cls);
-        slot_free(inst->argcn_cap);
         free(inst);
         goto send_reply;
     }
@@ -132,8 +131,7 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
                 "name=%s, cls=%s\n", name, cls);
-        slot_free(inst->ctrl);
-        slot_free(inst->argcn_cap);
+        cap_destroy(inst->ctrl);
         free(inst);
     }
 
@@ -142,7 +140,8 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
     DRIVERKIT_DEBUG("sending create response to kaluga\n");
     err = ddomain_create_response__tx(binding, NOP_CONT, dev, inst->ctrl, err);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Sending reply failed.\n");
+        DEBUG_ERR(err, "Sending reply failed.\n");
+        /* TODO: handle error */
     }
 }
 
@@ -216,7 +215,7 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
     if (err_is_fail(err)){
         DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
                 "name=%s, cls=%s\n", name, cls);
-        slot_free(inst->argcn_cap);
+        cap_destroy(inst->argcn_cap);
         free(inst);
         goto send_reply;
     }
@@ -229,6 +228,7 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
         DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
                 "name=%s, cls=%s\n", name, cls);
         cap_destroy(inst->argcn_cap);
+        slot_free(inst->ctrl);
         free(inst);
         ctrl = NULL_CAP;
     }
@@ -241,6 +241,9 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
                                                  err);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Sending reply failed.\n");
+        cap_destroy(inst->argcn_cap);
+        slot_free(inst->ctrl);
+        free(inst);
     }
 }
 
