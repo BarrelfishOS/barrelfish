@@ -1032,18 +1032,13 @@ static void e1000_setup_mac(struct e1000_driver_state *device, uint64_t *mac_add
 void e1000_hwinit(struct e1000_driver_state *eds)
 {
     errval_t err;
-    int num_bars = pcid_get_bar_num(&eds->pdc);
 
     E1000_DEBUG("Initializing network device.\n");
 
-    if (num_bars < 1) {
-        E1000_PRINT_ERROR("Error: Not enough PCI bars allocated. Can not initialize network device.\n");
-        exit(1);
-    }
-
     lvaddr_t vaddr;
 
-    err = pcid_get_bar_cap(&eds->pdc, 0, &eds->regs);
+    /* Map first BAR for register access */
+    err = driverkit_get_bar_cap(eds->bfi, 0, &eds->regs);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "pcid_get_bar_cap");
         E1000_PRINT_ERROR("Error: pcid_get_bar_cap. Will not initialize"
@@ -1058,6 +1053,7 @@ void e1000_hwinit(struct e1000_driver_state *eds)
                 " MSIx controller.\n");
         exit(1);
     }
+
 
     e1000_initialize(&eds->device_inst, (void *) vaddr);
     eds->device = &eds->device_inst;

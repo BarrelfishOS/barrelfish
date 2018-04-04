@@ -183,6 +183,7 @@ struct pbuf_desc {
  * Per device state
  */
 struct e1000_driver_state {
+    struct bfdriver_instance *bfi;
     /* Kaluga args */
     char **args;
     int args_len;
