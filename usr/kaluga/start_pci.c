@@ -479,12 +479,14 @@ static errval_t bridge_add_iommu_endpoint_args(struct driver_argument* arg)
     }
     oct_free_names(names, len);
 
-
     // Get ep to iommus
     struct module_info* driver = find_module("iommu");
     if (driver == NULL) {
         return KALUGA_ERR_MODULE_NOT_FOUND;
     }
+
+    // Iommu module is around, assume we stared all the iommus
+    num_iommu_started = len;
 
     struct capref iommu;
     char name[128];
