@@ -374,13 +374,14 @@ errval_t networking_init_with_ep(const char *nic, struct capref ep,
     errval_t err;
 
     struct net_state *st = get_default_net_state();
+    st->flags = flags;
+    st->cardname = nic;
+
     /* create the queue wit the given nic and card name */
     err = networking_create_queue(nic, &ep, &st->queueid, &st->queue);
     if (err_is_fail(err)) {
         return err;
     }
-
-    st->cardname = nic;
 
     return networking_init_with_queue_st(st, st->queue, flags);
 }
