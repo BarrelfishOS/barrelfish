@@ -37,147 +37,25 @@
 #include <driverkit/driverkit.h>
 #include <driverkit/iommu.h>
 
-#include <pci/pci.h>
+#include <xeon_phi/xeon_phi.h>
+#include <xeon_phi/xeon_phi_manager_client.h>
 
-#include <dma/dma.h>
-#include <dma/dma_device.h>
-#include <dma/dma_request.h>
-#include <dma/ioat/ioat_dma.h>
-#include <dma/ioat/ioat_dma_device.h>
-#include <dma/ioat/ioat_dma_request.h>
-
-#include "device.h"
-#include "ioat_mgr_service.h"
-#include "debug.h"
-
-static uint8_t device_next = 0;
-static uint8_t device_count = 0;
-struct ioat_dma_device **devices = NULL;
-
-#if 0
-static void handle_device_interrupt(void *arg)
-{
-
-//    struct ioat_dma_device *dev = *((struct ioat_dma_device **) arg);
-//    struct dma_device *dma_dev = (struct dma_device *) dev;
-
-    INTR_DEBUG("interrupt! device %u", dma_device_get_id(arg));
-
-}
-#endif
-
-struct ioat_dma_device *ioat_device_get_next(void)
-{
-    if (device_next >= device_count) {
-        device_next = 0;
-    }
-    return devices[device_next++];
-}
-
-errval_t ioat_device_poll(void)
-{
-    errval_t err;
-
-    uint8_t idle = 0x1;
-    for (uint8_t i = 0; i < device_count; ++i) {
-        err = ioat_dma_device_poll_channels((struct dma_device *)devices[i]);
-        switch (err_no(err)) {
-            case SYS_ERR_OK:
-                idle = 0;
-                break;
-            case DMA_ERR_DEVICE_IDLE:
-                break;
-            default:
-                return err;
-        }
-    }
-    if (idle) {
-        return DMA_ERR_DEVICE_IDLE;
-    }
-    return SYS_ERR_OK;
-}
-
-#define TEST_IMPLEMENTATION 1
-#if TEST_IMPLEMENTATION
-#include <dma/dma_bench.h>
+#include "xeon_phi_internal.h"
+#include "smpt.h"
+#include "dma_service.h"
+#include "service.h"
+#include "xphi_service.h"
+#include "interphi.h"
+#include "domain.h"
+#include "sysmem_caps.h"
 
 
-#define BUFFER_SIZE (1<<20)
 
-uint32_t done = 0;
-
-static void impl_test_cb(errval_t err, dma_req_id_t id, void *arg)
-{
-    debug_printf("impl_test_cb\n");
-    assert(memcmp(arg, arg + BUFFER_SIZE, BUFFER_SIZE) == 0);
-    debug_printf("test ok\n");
-
-    done = 1;
-}
-
-static void impl_test(struct ioat_dma_device *dev, struct iommu_client *cl)
-{
-    errval_t err;
-
-    debug_printf("Doing an implementation test\n");
-
-    struct dmem mem;
-    err = driverkit_iommu_mmap_cl(cl, 2 * BUFFER_SIZE, VREGION_FLAGS_READ_WRITE,
-                                  &mem);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to get memory");
-    }
-
-    void *buf = (void *)mem.vbase;
-    memset(buf, 0, mem.size);
-    memset(buf, 0xA5, BUFFER_SIZE);
-
-    struct dma_req_setup setup = {
-            .args.memcpy = {
-                .src = mem.devaddr,
-                .dst = mem.devaddr + BUFFER_SIZE,
-                .bytes = BUFFER_SIZE,
-            },
-        .type = DMA_REQ_TYPE_MEMCPY,
-        .done_cb = impl_test_cb,
-        .cb_arg = buf
-    };
-    int reps = 10;
-    do {
-        memset(buf, 0, mem.size);
-        memset(buf, reps + 2, BUFFER_SIZE);
-        assert(memcmp(buf, buf + BUFFER_SIZE, BUFFER_SIZE));
-
-        debug_printf("!!!!!! NEW ROUND\n");
-        dma_req_id_t rid;
-        err = ioat_dma_request_memcpy((struct dma_device *)dev, &setup, &rid);
-        assert(err_is_ok(err));
-
-        done = 0;
-        while(done == 0) {
-            err = ioat_dma_device_poll_channels((struct dma_device *)dev);
-            switch (err_no(err)) {
-                case DMA_ERR_DEVICE_IDLE :
-                case DMA_ERR_CHAN_IDLE:
-                case SYS_ERR_OK:
-                    break;
-                default:
-                    DEBUG_ERR(err, "failed to poll the channel!\n");
-            }
-        }
-#if 0
-        if (reps == 1) {
-            debug_printf("using phys addr!\n");
-            setup.args.memcpy.src = id.base;
-            setup.args.memcpy.dst = id.base + BUFFER_SIZE;
-        }
-#endif
-
-    } while(reps--);
+extern uint8_t xeon_phi_dma_enabled;
+extern char *xeon_phi_mod_uri;
+extern char *xeon_phi_mod_list;
 
 
-}
-#endif
 
 /**
  * Driver initialization function. This function is called by the driver domain
@@ -202,52 +80,125 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     errval_t err;
     // 1. Initialize the device:
 
-    debug_printf("[ioat]: attaching device '%s'\n", bfi->name);
+    debug_printf("[knc] attaching new co-processor");
 
-    struct ioat_dma_device **devices_new;
-    devices_new = realloc(devices, (device_count + 1) * sizeof(void *));
-    if (devices_new == NULL) {
+    /* allocate the Xeon Phi state */
+    struct xeon_phi *xphi = calloc(1, sizeof(*xphi));
+    if (xphi == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
-    devices = devices_new;
 
     struct capref iommuep;
     err = driverkit_get_iommu_cap(bfi, &iommuep);
     if (err_is_fail(err)) {
-        return err;
+        goto err_out;
     }
 
-    //driverkit_iommu_vspace_set_default_policy(IOMMU_VSPACE_POLICY_SHARED);
-
-    struct iommu_client *cl;
-    err = driverkit_iommu_client_init_cl(iommuep, &cl);
+    err = driverkit_iommu_client_init_cl(iommuep, &xphi->iommu_client);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Failed to initialize the IOMMU library");
+        goto err_out;
     }
-    assert(cl);
 
-    debug_printf("IOMMU PRESENT: %u\n", driverkit_iommu_present(cl));
+    debug_printf("[knc] iommu is %s.\n",
+                 driverkit_iommu_present(xphi->iommu_client) ? "on" : "off");
 
+    /* set the client flag to false */
+    xphi->is_client = XEON_PHI_IS_CLIENT;
+    xphi->state = XEON_PHI_STATE_NULL;
 
-    struct capref regs;
-    err = driverkit_get_bar_cap(bfi, 0, &regs);
+    struct capref mmio;
+    err = driverkit_get_bar_cap(bfi, 0, &mmio);
     if (err_is_fail(err)) {
-        return err;
+        goto err_out2;
     }
 
-    /* initialize the device */
-    //err = ioat_dma_device_init(regs, &pc1, false, &devices[device_count]);
-    err = ioat_dma_device_init(regs, cl, &devices[device_count]);
+    struct capref apt;
+    err = driverkit_get_bar_cap(bfi, 1, &apt);
     if (err_is_fail(err)) {
-        DEV_ERR("Could not initialize the device: %s\n", err_getstring(err));
-        return SYS_ERR_OK;
+        goto err_out2;
     }
 
-    #if TEST_IMPLEMENTATION
-    impl_test(devices[device_count], cl);
+    err = xeon_phi_init(xphi, mmio, apt);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not do the card initialization\n");
+        goto err_out2;
+    }
+
+    err = xeon_phi_boot(xphi, xeon_phi_mod_uri, xeon_phi_mod_list);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "could not boot the card\n");
+        goto err_out2;
+    }
+
+#if 0
+    err = service_init(xphi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not start the driver service\n");
+    }
+
+    uint8_t num;
+    iref_t *irefs;
+    err = xeon_phi_manager_client_register(xphi.iref, &xphi.id, &num, &irefs);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not register with the Xeon Phi manager\n");
+    }
+
+#endif
+
+    interphi_wait_for_client(xphi);
+
+#if 0
+    err = service_register(&xphi, irefs, num);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not register with the other drivers");
+    }
+
+#endif
+    if (xeon_phi_dma_enabled) {
+        err = xdma_service_init(xphi);
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "could not initialize the DMA engine\n");
+        }
+    }
+
+    err = xeon_phi_service_init(xphi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not initialize the messaging service");
+    }
+
+    #if 0
+    /*
+     * in case there are more than one Xeon Phi present in the system, indicated
+     * by an id > 0, the driver will register itself with the other Xeon Phi
+     * driver instances running in the system and initializes the inter-Phi
+     * messaging frame
+     */
+    if (xphi.id != 0) {
+        XDEBUG("Doing Intra Xeon Phi setup with %u other instances\n", xphi.id);
+        for (uint32_t i = 0; i < xphi.id; ++i) {
+            /* initialize the messaging frame */
+            err = interphi_init_xphi(i, &xphi, NULL_CAP, XEON_PHI_IS_CLIENT);
+            if (err_is_fail(err)) {
+                XDEBUG("Could not initialize messaging\n");
+                continue;
+            }
+        }
+    }
     #endif
 
-    device_count++;
+
+    char buf[20];
+    snprintf(buf, 20, "xeon_phi.%u.ready", xphi->id);
+
+    XDEBUG("registering ready\n");
+    err = domain_register(buf, 0xcafebabe);
+    assert(err_is_ok(err));
+
+    /* signal for the test */
+    debug_printf("Xeon Phi operational: %s\n", buf);
+
+    XDEBUG("initialization done. Going into main message loop\n");
+
 
 
     // 2. Export service to talk to the device:
@@ -256,6 +207,11 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     *dev = 0x00;
 
     return SYS_ERR_OK;
+    err_out2:
+    driverkit_iommu_client_disconnect_cl(xphi->iommu_client);
+    err_out:
+    free(xphi);
+    return err;
 }
 
 /**
@@ -314,16 +270,15 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
     return SYS_ERR_OK;
 }
 
-
-
 static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
 {
     return SYS_ERR_OK;
 }
+
 /**
  * Registers the driver module with the system.
  *
  * To link this particular module in your driver domain,
  * add it to the addModules list in the Hakefile.
  */
-DEFINE_MODULE(ioat_dma_module, init, attach, detach, set_sleep_level, destroy, get_ep);
+DEFINE_MODULE(knc_module, init, attach, detach, set_sleep_level, destroy, get_ep);

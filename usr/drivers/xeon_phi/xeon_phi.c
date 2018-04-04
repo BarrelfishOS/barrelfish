@@ -25,12 +25,9 @@
 #include "smpt.h"
 #include "sysmem_caps.h"
 
-static uint32_t initialized = 0;
-
 #define XEON_PHI_RESET_TIME 3000
 #define XEON_PHI_RESET_TIME_UNIT 100
 
-static struct xeon_phi *card;
 
 /// PCI Vendor ID of Intel
 #define PCI_VENDOR_ID_INTEL     0x8086
@@ -90,12 +87,10 @@ static void device_init(struct xeon_phi *phi)
                     mic_shutdown_host_doorbell_intr_handler);
 
 #endif
-
-    initialized = true;
 }
 
 
-
+#if 0
 static void pci_init_card(void *arg, struct device_mem* bar_info,
                           int bar_count)
 {
@@ -167,6 +162,7 @@ static void pci_init_card(void *arg, struct device_mem* bar_info,
     card->state = XEON_PHI_STATE_PCI_OK;
 }
 
+
 static void pci_register(struct xeon_phi *phi, uint32_t bus, uint32_t dev, uint32_t fun)
 {
     errval_t err;
@@ -192,17 +188,76 @@ static void pci_register(struct xeon_phi *phi, uint32_t bus, uint32_t dev, uint3
         USER_PANIC_ERR(err, "Could not register the PCI device");
     }
 }
+#endif
+
+
+static errval_t xeon_phi_init_with_caps(struct xeon_phi *card, struct capref mmio,
+                                        struct capref apt)
+{
+    errval_t err;
+
+    struct frame_identity id;
+    assert(!capref_is_null(apt));
+    card->apt.cap = apt;
+    err = invoke_frame_identify(card->apt.cap, &id);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_FRAME_IDENTIFY);
+    }
+    card->apt.length = id.bytes;
+    card->apt.pbase = id.base;
+    card->apt.bytes = id.bytes;
+
+    assert(!capref_is_null(mmio));
+    card->mmio.cap = mmio;
+
+    err = invoke_frame_identify(card->mmio.cap, &id);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_FRAME_IDENTIFY);
+    }
+    card->mmio.length = id.bytes;
+    card->mmio.pbase = id.base;
+    card->mmio.bytes = id.bytes;
+    card->mmio.length = id.bytes;
+
+    err = xeon_phi_map_aperture(card, XEON_PHI_APERTURE_INIT_SIZE);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = sysmem_cap_manager_init(card->apt.cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = vspace_map_one_frame_attr((void **)&card->mmio.vbase, card->mmio.bytes,
+                                    card->mmio.cap, VREGION_FLAGS_READ_WRITE_NOCACHE,
+                                    NULL, NULL);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_VSPACE_MAP);
+    }
+
+    card->state = XEON_PHI_STATE_PCI_OK;
+
+    return SYS_ERR_OK;
+}
 
 /**
  * \brief initializes the coprocessor card
  *
  * \param phi pointer to the information structure
  */
-errval_t xeon_phi_init(struct xeon_phi *phi, uint32_t bus, uint32_t dev, uint32_t fun)
+errval_t xeon_phi_init(struct xeon_phi *phi, struct capref mmio, struct capref apt)
 {
-    card = phi;
+    errval_t err;
 
+    #if 0
     pci_register(phi, bus,  dev,  fun);
+    #endif
+
+    err = xeon_phi_init_with_caps(phi, mmio, apt);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     xeon_phi_reset(phi);
 

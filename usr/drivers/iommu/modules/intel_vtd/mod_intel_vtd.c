@@ -49,7 +49,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 
     debug_printf("Initializing Intel VT-d driver module...\n");
 
-    if (capref_is_null(bfi->caps[0]) || capref_is_null(bfi->caps[1])) {
+    if (capref_is_null(bfi->caps[0])) {
         return DRIVERKIT_ERR_NO_CAP_FOUND;
     }
 
@@ -70,11 +70,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     }
 
     bfi->dstate = vtd;
-
-    err = iommu_bind_to_pci(bfi->caps[1], &vtd->iommu);
-    if (err_is_fail(err)) {
-        return err;
-    }
 
     // 3. Set iref of your exported service (this is reported back to Kaluga)
     *dev = 0x00;
@@ -146,7 +141,8 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
 
 static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
 {
-    return IOMMU_ERR_NOT_SUPPORTED;
+    struct vtd *vtd = (struct vtd*) bfi->dstate;
+    return iommu_request_endpoint(lmp? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, ret_cap, (struct iommu*) vtd);
 }
 /**
  * Registers the driver module with the system.

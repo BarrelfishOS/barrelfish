@@ -26,72 +26,6 @@
 
 #include "modules/generic/common.h"
 
-#define SKB_SCHEMA_DMAR_DEVSC \
-    "dmar_dev(%" SCNu32 ", %" SCNu8 ", %" SCNu8 ", "\
-                "addr(%" SCNu16 ", %" SCNu8 ", %" SCNu8 ", %" SCNu8 "), "\
-                "%" SCNu8  ")"
-
-
-
-static errval_t parse_devices_scopes(void)
-{
-    errval_t err;
-
-    debug_printf("Parsing device scrope\n");
-
-    err = skb_execute_query("dmar_devscopes(L),length(L,Len),writeln(L)");
-    assert(err_is_ok(err));
-
-    char *skb_list_output = strdup(skb_get_output());
-
-    struct list_parser_status status;
-    skb_read_list_init_offset(&status, skb_list_output, 0);
-
-    uint32_t unit_idx;
-    uint8_t type, entrytype, enumid;
-    uint16_t seg;
-    uint8_t bus, dev, fun;
-    while(skb_read_list(&status, SKB_SCHEMA_DMAR_DEVSC,
-                        &unit_idx, &type, &entrytype, &seg, &bus,
-                        &dev, &fun, &enumid)) {
-        IOMMU_DEBUG("%u.%u.%u\n", bus, dev, fun);
-        if (entrytype > 2) {
-            debug_printf("not a PCI endpoint or bridge, continue\n");
-            continue;
-        }
-
-        err = skb_execute_query("bridge(pcie,addr(%d,%d,%d),_,_,_,_,_,secondary(BUS)),"
-                                        "write(secondary_bus(BUS)).", bus, dev, fun);
-        uint32_t next_bus;
-        if (err_is_ok(err)) {
-            err = skb_read_output("secondary_bus(%d)", &next_bus);
-
-
-            IOMMU_DEBUG("Bus %u -> %u\n", bus,next_bus);
-
-            assert(err_is_ok(err));
-        } else {
-            next_bus = bus;
-            IOMMU_DEBUG("Bus %u == %u\n", bus,next_bus);
-        }
-
-        IOMMU_DEBUG(SKB_SCHEMA_IOMMU_DEVICE "\n", HW_PCI_IOMMU_INTEL, unit_idx, type,
-                     entrytype, seg, next_bus, dev, fun, enumid);
-
-        err = skb_add_fact(SKB_SCHEMA_IOMMU_DEVICE, HW_PCI_IOMMU_INTEL, unit_idx, type,
-                           entrytype, seg, next_bus, dev, fun, enumid);
-        if (err_is_fail(err)) {
-            continue;
-        }
-    }
-
-    free(skb_list_output);
-
-    return SYS_ERR_OK;
-}
-
-
-
 
 /**
  * Instantiate the driver domain.
@@ -121,11 +55,6 @@ int main(int argc, char** argv)
     }
 
     err = numa_available();
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Failed to initialize libnuma");
-    }
-
-    err = parse_devices_scopes();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to initialize libnuma");
     }

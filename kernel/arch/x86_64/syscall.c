@@ -1114,8 +1114,6 @@ static struct sysret handle_endpoint_identify(struct capability *cap, int cmd,
                                                uintptr_t *args)
 {
     // Return with physical base address of frame
-    printf("handle_endpoint_identify (type == %u)\n", cap->type);
-
     struct endpoint_identity *eid = (struct endpoint_identity *)args[0];
 
     if (!access_ok(ACCESS_WRITE, (lvaddr_t)eid, sizeof(struct endpoint_identity))) {

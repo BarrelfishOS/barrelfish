@@ -62,11 +62,24 @@ static void stats_dump(e10k_vf_t* d)
       printf("\n");
     }
 }
+
+static void print_packet(void* buf, size_t len)
+{
+    printf("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n");
+    uint8_t* b = (uint8_t*) buf;
+    for (int i = 0; i < len; i++) {
+        printf("%2X ", b[i]);
+        if ((i % 16) == 0) {
+            printf("\n 0x");
+        }
+    }
+
+    printf(" \n @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ \n");
+}
 */
 
 /******************************************************************************/
 /* Misc functions */
-
 
 static inline bool buf_use_tcpxsm(uint64_t flags)
 {
@@ -264,7 +277,6 @@ static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
     }  else {
         DEBUG_QUEUE("Queue %d sent offset=%lu valid_length=%lu \n", 
                que->id, *offset, *valid_length);
-        //stats_dump(que->d);
         return SYS_ERR_OK;
     }
 
@@ -274,7 +286,6 @@ static errval_t e10k_dequeue(struct devq* q, regionid_t* rid,
     } else {
         DEBUG_QUEUE("Queue %d received offset=%lu valid_length=%lu \n", 
                que->id, *offset, *valid_length);
-        //stats_dump(que->d);
         return SYS_ERR_OK;
     }
      
@@ -529,24 +540,26 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
     }
 
     // allocate memory for RX/TX rings
-    size_t tx_size = e10k_q_tdesc_adv_wb_size*NUM_TX_DESC;
+    q->tx_ring_size = e10k_q_tdesc_adv_wb_size*NUM_TX_DESC;
 
-    DEBUG_QUEUE("Allocating RX queue memory\n");
-    err = driverkit_iommu_mmap_cl(cl, tx_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
+    DEBUG_QUEUE("Allocating TX queue memory\n");
+    err = driverkit_iommu_mmap_cl(cl, q->tx_ring_size, VREGION_FLAGS_READ_WRITE, 
                                &q->tx);
     if (err_is_fail(err)) {
         return DEVQ_ERR_INIT_QUEUE;
     }
 
-    DEBUG_QUEUE("Allocating TX queue memory\n");
-    size_t rx_size = e10k_q_rdesc_adv_wb_size*NUM_RX_DESC;
-    err = driverkit_iommu_mmap_cl(cl, rx_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
+    DEBUG_QUEUE("Allocated TX queue memory is=%lu requesed=%lu \n", q->tx.size, q->tx_ring_size);
+    DEBUG_QUEUE("Allocating RX queue memory\n");
+    q->rx_ring_size = e10k_q_rdesc_adv_wb_size*NUM_RX_DESC;
+    err = driverkit_iommu_mmap_cl(cl, q->rx_ring_size, VREGION_FLAGS_READ_WRITE, 
                                   &q->rx);
     if (err_is_fail(err)) {
         // TODO cleanup
         return DEVQ_ERR_INIT_QUEUE;
     }
 
+    DEBUG_QUEUE("Allocated RX queue memory is=%lu requesed=%lu \n", q->rx.size, q->rx_ring_size);
     struct e10k_queue_ops ops = {
         .update_txtail = update_txtail,
         .update_rxtail = update_rxtail,

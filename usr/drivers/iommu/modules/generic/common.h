@@ -20,12 +20,6 @@
 
 errval_t iommu_service_init(void);
 
-#define SKB_SCHEMA_IOMMU_DEVICE \
-    "iommu_device(%" PRIu32 ", %" PRIu32 ", %" PRIu8 ", %" PRIu8 ", "\
-                  "addr(%" PRIu16 ", %" PRIu8 ", %" PRIu8 ", %" PRIu8 "), "\
-                  "%" PRIu8  ")."
-
-
 struct iommu;
 struct iommu_device;
 
@@ -48,6 +42,7 @@ typedef errval_t (*create_dev_fn)(struct iommu *io, uint16_t seg, uint8_t bus,
 struct iommu
 {
     hw_pci_iommu_t type;
+    uint32_t id;
     struct {
         create_dev_fn create_device;
     } f;
@@ -167,4 +162,6 @@ errval_t iommu_service_new_endpoint(struct capref ep, struct iommu_device *dev,
                                     idc_endpoint_t type);
 
 errval_t iommu_bind_to_pci(struct capref ep, struct iommu* iommu);
+
+errval_t iommu_request_endpoint(uint8_t type, struct capref* cap, struct iommu* iommu);
 #endif //IOMMU_COMMON_H_

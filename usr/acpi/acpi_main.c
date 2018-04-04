@@ -22,10 +22,12 @@
 
 #include <octopus/octopus.h>
 #include <skb/skb.h>
+#include <hw_records.h>
 
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 #include "acpi_allocators.h"
+
 
 
 uintptr_t my_hw_id;
@@ -50,6 +52,33 @@ static errval_t setup_skb_info(void)
 
 
     return acpi_arch_skb_set_info();
+}
+
+static void wait_for_iommu(void)
+{   
+    errval_t err;
+    char**names = NULL;
+    size_t len = 0;
+    
+    err = oct_get_names(&names, &len, HW_PCI_IOMMU_RECORD_REGEX);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+    
+    if (len > 0) {
+        char* record;
+        debug_printf("Waiting for all iommus to start up \n");
+        err = oct_barrier_enter("barrier.iommu", &record ,2);
+        if (err_is_fail(err)) {
+            goto out;    
+        }
+        if (record) {
+            free(record);
+        }
+    }
+
+out:
+    oct_free_names(names, len);
 }
 
 int main(int argc, char *argv[])
@@ -116,14 +145,14 @@ int main(int argc, char *argv[])
         acpi_arch_video_init();
     }
 
+    start_service();
+    
+    wait_for_iommu(); 
+   
     err = acpi_interrupts_arch_setup();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "setup skb irq controllers");
     }
-
-
-    start_service();
-
 
     messages_handler_loop();
 }
