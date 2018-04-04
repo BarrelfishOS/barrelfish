@@ -821,7 +821,6 @@ static void request_iommu_endpoint_cap_handler(struct kaluga_binding* b, uint8_t
 
 reply:
     err = b->tx_vtbl.request_iommu_endpoint_cap_response(b, NOP_CONT, cap, out_err);
-    debug_printf("Err %s \n", err_getstring(err));
     assert(err_is_ok(err));
     /* TODO: CPEANUP */
 }
