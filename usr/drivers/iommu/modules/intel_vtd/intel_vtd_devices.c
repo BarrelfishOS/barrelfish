@@ -111,7 +111,7 @@ errval_t vtd_device_create(struct vtd *vtd, uint16_t seg, uint8_t bus,
 {
     errval_t err;
 
-    INTEL_VTD_DEBUG_DEVICES("create %u.%u.%u\n", bus, dev, fun);
+    INTEL_VTD_DEBUG_DEVICES("[%u] create %u.%u.%u\n", vtd->index, bus, dev, fun);
 
     assert(rdev);
 
