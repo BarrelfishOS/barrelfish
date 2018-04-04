@@ -56,7 +56,7 @@ pci_driver{
       pci_card{ vendor: 16'8086, device: 16'1533, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'15b8, function: _, subvendor: _, subdevice: _ }
     ],
-    core_hint: 1,
+    core_hint: 0,
     core_offset: 0,
     multi_instance: 0,
     interrupt_load: 0.75,
