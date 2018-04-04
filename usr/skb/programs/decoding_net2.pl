@@ -821,11 +821,8 @@ common_free_buffer(Size, N1Region, N2Region, ResRegion, Route)  :-
 
     % nail down the regions 
     free_region_aligned(N1Region, Size),
-    writeln(N1Region),
     free_region_aligned(N2Region, Size),
-    writeln(N2Region),
     free_accepted_region_aligned(ResRegion, Size),
-    writeln(ResRegion),
     accept(ResRegion),
 
     route(N1Region, ResRegion, R1),
