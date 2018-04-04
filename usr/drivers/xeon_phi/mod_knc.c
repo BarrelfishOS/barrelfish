@@ -80,7 +80,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     errval_t err;
     // 1. Initialize the device:
 
-    debug_printf("[knc] attaching new co-processor");
+    debug_printf("[knc] attaching new co-processor\n");
 
     /* allocate the Xeon Phi state */
     struct xeon_phi *xphi = calloc(1, sizeof(*xphi));
@@ -106,23 +106,29 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     xphi->is_client = XEON_PHI_IS_CLIENT;
     xphi->state = XEON_PHI_STATE_NULL;
 
+    debug_printf("[knc] obtaining the bar caps.\n");
+
     struct capref mmio;
-    err = driverkit_get_bar_cap(bfi, 0, &mmio);
+    err = driverkit_get_bar_cap(bfi, 1, &mmio);
     if (err_is_fail(err)) {
         goto err_out2;
     }
 
     struct capref apt;
-    err = driverkit_get_bar_cap(bfi, 1, &apt);
+    err = driverkit_get_bar_cap(bfi, 0, &apt);
     if (err_is_fail(err)) {
         goto err_out2;
     }
+
+    debug_printf("[knc] initialize the xeon phi\n");
 
     err = xeon_phi_init(xphi, mmio, apt);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "could not do the card initialization\n");
         goto err_out2;
     }
+
+    debug_printf("[knc] booting it.\n");
 
     err = xeon_phi_boot(xphi, xeon_phi_mod_uri, xeon_phi_mod_list);
     if (err_is_fail(err)) {

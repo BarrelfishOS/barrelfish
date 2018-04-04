@@ -79,6 +79,14 @@ struct xphi_svc_msg_st
         {
             uint64_t domid;
         } domain;
+        struct
+        {
+            int32_t nodeid;
+        } nodeid;
+        struct
+        {
+            uint64_t devaddr;
+        } dma_register;
     } args;
 };
 
@@ -139,6 +147,29 @@ static errval_t kill_response_tx(struct txq_msg_st* msg_st)
 {
     return xeon_phi_kill_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                       msg_st->err);
+}
+
+static errval_t dma_register_response_tx(struct txq_msg_st* msg_st)
+{
+    struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
+
+    return xeon_phi_dma_register_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                              xphi_st->args.dma_register.devaddr,
+                                              msg_st->err);
+}
+
+static errval_t dma_memcpy_response_tx(struct txq_msg_st* msg_st)
+{
+    return xeon_phi_dma_memcpy_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                            msg_st->err);
+}
+
+static errval_t get_nodeid_response_tx(struct txq_msg_st* msg_st)
+{
+    struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
+
+    return xeon_phi_get_nodeid_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                            xphi_st->args.nodeid.nodeid);
 }
 
 static errval_t spawn_with_cap_response_tx(struct txq_msg_st* msg_st)
@@ -443,6 +474,69 @@ static void spawn_call_rx(struct xeon_phi_binding *binding,
     txq_send(msg_st);
 }
 
+static void dma_register_call_rx(struct xeon_phi_binding *binding,
+                                 struct capref mem)
+{
+    struct xphi_svc_st *svc_st = binding->st;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    msg_st->send = dma_register_response_tx;
+    msg_st->cleanup = NULL;
+
+    msg_st->err = SYS_ERR_OK;
+
+    struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
+
+    xphi_st->args.dma_register.devaddr = 0xcafebabe;
+
+    txq_send(msg_st);
+}
+
+static void dma_memcpy_call_rx(struct xeon_phi_binding *binding,
+                               uint64_t to, uint64_t from, uint64_t bytes)
+{
+    struct xphi_svc_st *svc_st = binding->st;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    msg_st->send = dma_memcpy_response_tx;
+    msg_st->cleanup = NULL;
+
+    msg_st->err = SYS_ERR_OK;
+
+    txq_send(msg_st);
+}
+
+static void get_nodeid_call_rx(struct xeon_phi_binding *binding,
+                               uint64_t arg)
+{
+    struct xphi_svc_st *svc_st = binding->st;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    msg_st->send = get_nodeid_response_tx;
+    msg_st->cleanup = NULL;
+
+    msg_st->err = SYS_ERR_OK;
+
+    struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
+
+    xphi_st->args.nodeid.nodeid = 0xcafebabe;
+
+
+    txq_send(msg_st);
+}
+
 static struct xeon_phi_rx_vtbl xphi_svc_rx_vtbl = {
     .domain_init_call = domain_init_call_rx,
     .domain_register_call = domain_register_call_rx,
@@ -452,7 +546,10 @@ static struct xeon_phi_rx_vtbl xphi_svc_rx_vtbl = {
     .spawn_with_cap_call = spawn_with_cap_call_rx,
     .kill_call = kill_call_rx,
     .chan_open_request_call = chan_open_request_call_rx,
-    .chan_open_response = chan_open_response_rx
+    .chan_open_response = chan_open_response_rx,
+    .dma_register_call = dma_register_call_rx,
+    .dma_memcpy_call = dma_memcpy_call_rx,
+    .get_nodeid_call = get_nodeid_call_rx
 };
 
 /*

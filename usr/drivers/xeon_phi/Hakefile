@@ -104,6 +104,7 @@
       "spawndomain", 
       "xeon_phi_client",
       "dma",
+      "driverkit",
       "octopus",
       "dma_service",
       "bench"

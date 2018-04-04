@@ -264,13 +264,13 @@ int main(int argc,  char **argv)
     PRINTF("Prepare DMA from system RAM to co-processor GDDR\n");
 
     uint64_t addr;
-    err = xeon_phi_client_dma_register(mem, &addr);
+    err = xeon_phi_client_dma_register(XEON_PHI_ID, mem, &addr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to register memory\n");
     }
     dmem.devaddr = addr;
 
-    err = xeon_phi_client_dma_register(offloadmem, &addr);
+    err = xeon_phi_client_dma_register(XEON_PHI_ID, offloadmem, &addr);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to register memory\n");
     }
@@ -305,7 +305,7 @@ int main(int argc,  char **argv)
 
     PRINTF("Perform DMA from system RAM to co-processor GDDR\n");
 
-    err = xeon_phi_client_dma_memcpy(addr, dmem.devaddr, DATA_SIZE);
+    err = xeon_phi_client_dma_memcpy(XEON_PHI_ID, addr, dmem.devaddr, DATA_SIZE);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to do the dma mem cpy\n");
     }
@@ -337,7 +337,7 @@ int main(int argc,  char **argv)
     PRINTF("Perform DMA from co-processor GDDR to system RAM\n");
     TODO("ask the DMA driver to do the copy\n");
 
-    err = xeon_phi_client_dma_memcpy(dmem.devaddr, addr, DATA_SIZE);
+    err = xeon_phi_client_dma_memcpy(XEON_PHI_ID, dmem.devaddr, addr, DATA_SIZE);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to do the dma mem cpy\n");
     }

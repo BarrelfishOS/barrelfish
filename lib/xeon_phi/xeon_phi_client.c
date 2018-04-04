@@ -100,6 +100,20 @@ struct xphi_msg_st
             xphi_dom_id_t domid;
             uint64_t usrdata;
         } open;
+        struct
+        {
+            struct capref mem;
+        } dma_register;
+        struct
+        {
+            uint64_t to;
+            uint64_t from;
+            uint64_t length;
+        } dma_memcpy;
+        struct
+        {
+            uint64_t arg;
+        } get_nodeid;
     } args;
 };
 
@@ -267,6 +281,32 @@ static errval_t chan_open_request_call_tx(struct txq_msg_st *msg_st)
                                                st->args.open.usrdata);
 }
 
+static errval_t dma_register_call_tx(struct txq_msg_st *msg_st)
+{
+    struct xphi_msg_st *st = (struct xphi_msg_st *) msg_st;
+    return xeon_phi_dma_register_call__tx(msg_st->queue->binding,
+                                          TXQCONT(msg_st),
+                                          st->args.dma_register.mem);
+}
+
+static errval_t dma_memcpy_call_tx(struct txq_msg_st *msg_st)
+{
+    struct xphi_msg_st *st = (struct xphi_msg_st *) msg_st;
+    return xeon_phi_dma_memcpy_call__tx(msg_st->queue->binding,
+                                          TXQCONT(msg_st),
+                                          st->args.dma_memcpy.to,
+                                          st->args.dma_memcpy.from,
+                                          st->args.dma_memcpy.length);
+}
+
+static errval_t get_nodeid_call_tx(struct txq_msg_st *msg_st)
+{
+    struct xphi_msg_st *st = (struct xphi_msg_st *) msg_st;
+    return xeon_phi_get_nodeid_call__tx(msg_st->queue->binding,
+                                        TXQCONT(msg_st),
+                                        st->args.get_nodeid.arg);
+}
+
 static errval_t chan_open_response_tx(struct txq_msg_st *msg_st)
 {
     return xeon_phi_chan_open_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
@@ -383,6 +423,54 @@ static void kill_response_rx(struct xeon_phi_binding *b,
     rpc_done(cl);
 }
 
+static void dma_register_response_rx(struct xeon_phi_binding *b,
+                                     uint64_t devaddr,
+                                     errval_t msgerr)
+{
+    DEBUG_XPHI("dma_register_response_rx: %s\n", err_getstring(msgerr));
+
+    struct xeon_phi_client *cl = b->st;
+    assert(cl);
+    assert(cl->state == XPM_SVC_STATE_CONNECTED);
+
+    cl->rpc_err = msgerr;
+
+    rpc_done(cl);
+}
+
+static void dma_memcpy_response_rx(struct xeon_phi_binding *b,
+                                   errval_t msgerr)
+{
+    DEBUG_XPHI("dma_memcpy_response_rx: %s\n", err_getstring(msgerr));
+
+    struct xeon_phi_client *cl = b->st;
+    assert(cl);
+    assert(cl->state == XPM_SVC_STATE_CONNECTED);
+
+    cl->rpc_err = msgerr;
+
+    rpc_done(cl);
+}
+
+static void get_nodeid_response_rx(struct xeon_phi_binding *b,
+                                   int32_t nodeid)
+{
+    DEBUG_XPHI("get_nodeid_response_rx: %s\n", err_getstring(msgerr));
+
+    struct xeon_phi_client *cl = b->st;
+    assert(cl);
+    assert(cl->state == XPM_SVC_STATE_CONNECTED);
+
+
+    cl->rpc_err = SYS_ERR_OK;
+    cl->rpc_data = (uint64_t)nodeid;
+
+    rpc_done(cl);
+}
+
+
+
+
 static void chan_open_request_response_rx(struct xeon_phi_binding *b,
                                           errval_t msgerr)
 {
@@ -434,7 +522,10 @@ struct xeon_phi_rx_vtbl xphi_svc_rx_vtbl = {
     .spawn_with_cap_response = spawn_with_cap_response_rx,
     .kill_response = kill_response_rx,
     .chan_open_request_response = chan_open_request_response_rx,
-    .chan_open_call = chan_open_call_rx
+    .chan_open_call = chan_open_call_rx,
+    .dma_register_response = dma_register_response_rx,
+    .dma_memcpy_response = dma_memcpy_response_rx,
+    .get_nodeid_response = get_nodeid_response_rx
 };
 
 /*
@@ -1109,3 +1200,180 @@ errval_t xeon_phi_client_domain_register(const char *iface,
 #endif
 }
 
+
+/**
+ * @brief obtains the hw model id for the specified xeon phi
+ *
+ * @param xid   the xeon phi id
+ * @param path  which node to consider
+ *
+ * @return node id
+ */
+int32_t xeon_phi_client_get_node_id(xphi_id_t xid, const char *path)
+{
+    errval_t err;
+
+    if (xid >= XEON_PHI_NUM_MAX) {
+        return XEON_PHI_ERR_INVALID_ID;
+    }
+
+    err = check_online(xid);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (xphi_svc[xid] == NULL) {
+        err = xphi_client_init(xid);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    struct xeon_phi_client *cl = xphi_svc[xid];
+
+    if (!rpc_start(cl)) {
+        return XEON_PHI_ERR_CLIENT_BUSY;
+    }
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&cl->txq);
+    if (msg_st == NULL) {
+        rpc_clear(cl);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg_st->cleanup = NULL;
+
+    DEBUG_XPHI("xeon_phi_client_chan_open: domid:%lx, type:%u, @ xid:%u\n", domid,
+               chantype, xid);
+    msg_st->send = get_nodeid_call_tx;
+
+    struct xphi_msg_st *svc_st = (struct xphi_msg_st *) msg_st;
+
+    svc_st->args.get_nodeid.arg = 0xcafebabe;
+
+    txq_send(msg_st);
+
+    rpc_wait_done(cl);
+
+    err = cl->rpc_err;
+    int32_t id = (int32_t)cl->rpc_data;
+
+    rpc_clear(cl);
+
+    if (err_is_fail(err)) {
+        return -1;
+    }
+    return id;
+
+}
+
+errval_t xeon_phi_client_dma_register(xphi_id_t xid, struct capref mem, uint64_t *devaddr)
+{
+    errval_t err;
+
+    if (xid >= XEON_PHI_NUM_MAX) {
+        return XEON_PHI_ERR_INVALID_ID;
+    }
+
+    err = check_online(xid);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (xphi_svc[xid] == NULL) {
+        err = xphi_client_init(xid);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    struct xeon_phi_client *cl = xphi_svc[xid];
+
+    if (!rpc_start(cl)) {
+        return XEON_PHI_ERR_CLIENT_BUSY;
+    }
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&cl->txq);
+    if (msg_st == NULL) {
+        rpc_clear(cl);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg_st->cleanup = NULL;
+
+    DEBUG_XPHI("xeon_phi_client_chan_open: domid:%lx, type:%u, @ xid:%u\n", domid,
+               chantype, xid);
+    msg_st->send = dma_register_call_tx;
+
+    struct xphi_msg_st *svc_st = (struct xphi_msg_st *) msg_st;
+
+    svc_st->args.dma_register.mem = mem;
+
+    txq_send(msg_st);
+
+    rpc_wait_done(cl);
+
+    err = cl->rpc_err;
+    *devaddr = cl->rpc_data;
+
+    rpc_clear(cl);
+
+    return err;
+
+}
+
+errval_t xeon_phi_client_dma_memcpy(xphi_id_t xid, uint64_t to, uint64_t from, uint64_t size)
+{
+    errval_t err;
+
+    if (xid >= XEON_PHI_NUM_MAX) {
+        return XEON_PHI_ERR_INVALID_ID;
+    }
+
+    err = check_online(xid);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (xphi_svc[xid] == NULL) {
+        err = xphi_client_init(xid);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
+    struct xeon_phi_client *cl = xphi_svc[xid];
+
+    if (!rpc_start(cl)) {
+        return XEON_PHI_ERR_CLIENT_BUSY;
+    }
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&cl->txq);
+    if (msg_st == NULL) {
+        rpc_clear(cl);
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg_st->cleanup = NULL;
+
+    DEBUG_XPHI("xeon_phi_client_chan_open: domid:%lx, type:%u, @ xid:%u\n", domid,
+               chantype, xid);
+    msg_st->send = dma_memcpy_call_tx;
+
+    struct xphi_msg_st *svc_st = (struct xphi_msg_st *) msg_st;
+
+    svc_st->args.dma_memcpy.from = from;
+    svc_st->args.dma_memcpy.to = to;
+    svc_st->args.dma_memcpy.length = size;
+
+    txq_send(msg_st);
+
+    rpc_wait_done(cl);
+
+    err = cl->rpc_err;
+
+    rpc_clear(cl);
+
+    return err;
+
+}

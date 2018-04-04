@@ -35,9 +35,6 @@
 #include "domain.h"
 #include "sysmem_caps.h"
 
-struct xeon_phi xphi;
-
-
 uint8_t xeon_phi_dma_enabled = 1;
 char *xeon_phi_mod_uri = XEON_PHI_NFS_PATH;
 char *xeon_phi_mod_list = XEON_PHI_MOD_LIST;
@@ -85,7 +82,7 @@ errval_t xeon_phi_event_poll(uint8_t do_yield)
     errval_t err;
 
     uint8_t idle = 0x1;
-
+#if 0
     uint8_t serial_recv = 0xFF;
     while (serial_recv-- && xeon_phi_serial_handle_recv());
 
@@ -102,7 +99,7 @@ errval_t xeon_phi_event_poll(uint8_t do_yield)
             return err;
             break;
     }
-
+#endif
     err = event_dispatch_non_block(get_default_waitset());
     switch(err_no(err)) {
         case LIB_ERR_NO_EVENT :
@@ -118,9 +115,7 @@ errval_t xeon_phi_event_poll(uint8_t do_yield)
             }
         default:
             return err;
-            break;
     }
-    return SYS_ERR_OK;
 }
 
 
@@ -166,7 +161,6 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not map the NFS paths");
     }
-
 
     iref_t kaluga_iref = 0;
     err = nameservice_blocking_lookup("ddomain_controller", &kaluga_iref);
