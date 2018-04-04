@@ -160,6 +160,15 @@ iaddress_add([A | As], [B | Bs], [C | Cs]) :-
 address_add([K, IA], [K, IB], [K, IC]) :-
     iaddress_add(IA, IB, IC).
 
+iaddress_add_const_ic([], _, []).
+iaddress_add_const_ic([A | As], B, [C | Cs]) :-
+    C #= A + B,
+    iaddress_add_const_ic(As,B,Cs).
+
+% A + B = C ---> address_add(A,B,C)
+address_add_const_ic([K, IA], B, [K, IC]) :-
+    iaddress_add_const_ic(IA, B, IC).
+
 iaddress_add_const([], _, []).
 iaddress_add_const([A | As], B, [C | Cs]) :-
     C is A + B,
@@ -168,6 +177,12 @@ iaddress_add_const([A | As], B, [C | Cs]) :-
 % A + B = C ---> address_add(A,B,C)
 address_add_const([K, IA], B, [K, IC]) :-
     iaddress_add_const(IA, B, IC).
+
+iaddress_var([A | As]) :-
+    var(A) ; iaddress_var(As).
+
+address_var([K, IA]) :-
+    var(K) ; iaddress_var(IA).
 
 iblock_iaddress_gt([], []).
 iblock_iaddress_gt([Block | Bs], [Addr | As]) :-
@@ -510,6 +525,28 @@ get_or_alloc_node_enum(NodeId, Enum) :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% VNode Allocator.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+:- dynamic vnode_region/1.
+
+vnode_meta(PageSize, PoolSize) :-
+    PageSize is 2 ^ 12, % 4Kb Pages
+    PoolSize is 2048.   % Number of pages
+
+% TODO: Test me
+vnode_alloc(BaseAddr) :-
+    vnode_region(Reg),
+    region_base_name(Reg, RegName),
+    alloc_one(vnodes, Slot),
+    vnode_meta(PageSize,_),
+    RegName = name{address: Addr},
+    Offset is PagesSize * Slot,
+    address_add_const(Addr, Offset, NewAddr),
+    NewAddr = [memory, [BaseAddr]].
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% X86 Support. Complements the sockeye file, should really be moved into its own file
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -562,7 +599,19 @@ init :-
     DRAM_ID = ["DRAM"],
     initial_dram_block(Block),
     assert(node_accept(["DRAM"], [memory, [Block]])), 
-    printf("Decoding net initialized using %p as DRAM\n", Block).
+    get_or_alloc_node_enum(DRAM_ID, DRAM_ENUM),
+    printf("Decoding net initialized using %p as DRAM. DRAM nodeid: %p\n",
+        [Block, DRAM_ENUM]),
+
+    % Manage space for vnodes
+    vnode_meta(PageSize, PoolSize),
+    VnodePoolSize is PageSize * PoolSize,
+    Size = [VnodePoolSize],
+    alloc_range(DRAM_ID, [memory, Size], BaseOut),
+    mark_range_in_use(DRAM_ID, BaseOut, Size),
+    node_in_use(DRAM_ID, Region),
+    assert(vnode_region(Region)),
+    writeln("Using for PageTables:"), writeln(Region).
 
 add_pci :-
     add_pci(["PCI0"]).
@@ -668,6 +717,17 @@ free_region_aligned(Region, Size) :-
     labeling(BaseNameVars),
     region_size(Region, Size).
 
+% Resolves the variables
+free_accepted_region_aligned(Region, Size) :-
+    is_list(Size),
+    region_base_name(Region, BaseName),
+    free_region(BaseName, Size),
+    name_aligned(BaseName, 21),
+    accept(BaseName),
+    term_variables(BaseName, BaseNameVars),
+    labeling(BaseNameVars),
+    region_size(Region, Size).
+
 %:- export free_region/1.
 %free_region(Region) :-
 %    region_size(Region, Size), % Determine size using the base/limit in the region.
@@ -752,22 +812,25 @@ test_common_free_buffer_existing(Proc,Pci,Resolved) :-
 % Like common_free_buffer_existing, but allow reconfiguration of nodes (routing)
 % Find two regions N1Region and N2Region, that resolve to a free region.
 :- export common_free_buffer/5.
-common_free_buffer(Size, N1Region, N2Region, ResRegion,Route)  :-
+common_free_buffer(Size, N1Region, N2Region, ResRegion, Route)  :-
     is_list(Size),
     
     N1Region = region{blocks: [memory, [_]]},
     N2Region = region{blocks: [memory, [_]]},
     ResRegion = region{blocks: [memory, [block{base:Base, limit: Limit}]]},
 
-    % nail down the input regions first
+    % nail down the regions 
     free_region_aligned(N1Region, Size),
+    writeln(N1Region),
     free_region_aligned(N2Region, Size),
+    writeln(N2Region),
+    free_accepted_region_aligned(ResRegion, Size),
+    writeln(ResRegion),
+    accept(ResRegion),
 
     route(N1Region, ResRegion, R1),
     route(N2Region, ResRegion, R2),
 
-    free_region(ResRegion, Size),
-    labeling([Base,Limit]), 
     union(R1,R2,Route).
 
 % Find two regions N1Region and N2Region, that resolve to an existing result region.
@@ -790,20 +853,27 @@ common_free_map(Size, N1Region, N2Region, ResRegion,Route)  :-
     union(R1,R2,Route).
 
 % the function called from mem_serv
-:- export alloc_common/3.
+:- export alloc_common/4.
 % Allocate a Buffer with Bits size, reachable from N1 and N2. Mark the resolved 
 % region as in use.
-alloc_common(Bits, N1Enum, N2Enum)  :-
+alloc_common(Bits, N1Enum, N2Enum, DestEnum)  :-
     enum_node_id(N1Enum, N1Id),
     enum_node_id(N2Enum, N2Id),
+    enum_node_id(DestEnum, DestId),
     R1 = region{node_id: N1Id, blocks: [memory, [block{base:R1Addr}]]},
     R2 = region{node_id: N2Id, blocks: [memory, [block{base:R2Addr}]]},
+    Dest = region{node_id: DestId, blocks: [memory, [block{base:DestAddr}]]},
     Size is 2 ^ Bits - 1,
-    common_free_buffer([memory, [Size]], R1, R2, ResR, _),
-    ResR = region{node_id: ResRId, blocks: [memory, [block{base:ResRAddr}]]},
-    get_or_alloc_node_enum(ResRId, ResEnum),
-    mark_range_in_use(ResR),
-    writeln([name(R1Addr, N1Enum),name(R2Addr, N2Enum),name(ResRAddr, ResEnum)]).
+    common_free_buffer([memory, [Size]], R1, R2, Dest, _),
+    mark_range_in_use(Dest),
+    writeln([name(R1Addr, N1Enum),name(R2Addr, N2Enum),name(DestAddr, DestEnum)]).
+
+% Like alloc_common/4, but tries to determine destination node automatically.
+:- export alloc_common/3.
+alloc_common(Bits, N1Enum, N2Enum)  :-
+    DRAM = ["DRAM"],
+    get_or_alloc_node_enum(DRAM, DramEnum),
+    alloc_common(Bits, N1Enum, N2Enum, DramEnum).
 
 % Find names in N1 and N2 that resolve to ResAddr, then mark those used.
 :- export map_common/4.
@@ -993,7 +1063,7 @@ route(SrcRegion, DstRegion, Route) :-
         ))
     ) ; ( 
         % Only allow this if the block has to be split
-        not(address_gte(SrcLimit , BlockLimit)),
+        not(address_gte(SrcLimit, BlockLimit)),
 
         % Route first block
         block_base_address(NewSrcBlocks, SrcBase), % Keep the base

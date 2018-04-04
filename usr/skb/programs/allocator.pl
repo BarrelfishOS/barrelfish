@@ -2,8 +2,6 @@
 
 :- lib(ic).
 
-:- export alloc_range/3.
-:- export free_range/2.
 :- export alloc_one/2.
 :- export free_one/2.
 
