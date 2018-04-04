@@ -160,11 +160,10 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     }
 
 #endif
-    if (xeon_phi_dma_enabled) {
-        err = xdma_service_init(xphi);
-        if (err_is_fail(err)) {
-            USER_PANIC_ERR(err, "could not initialize the DMA engine\n");
-        }
+
+    err = xdma_service_init(xphi);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "could not initialize the DMA engine\n");
     }
 
     err = xeon_phi_service_init(xphi);
@@ -192,7 +191,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     }
     #endif
 
-
     char buf[20];
     snprintf(buf, 20, "xeon_phi.%u.ready", xphi->id);
 
@@ -204,8 +202,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     debug_printf("Xeon Phi operational: %s\n", buf);
 
     XDEBUG("initialization done. Going into main message loop\n");
-
-
 
     // 2. Export service to talk to the device:
 

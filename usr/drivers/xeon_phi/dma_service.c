@@ -237,6 +237,8 @@ errval_t xdma_service_init(struct xeon_phi *phi)
     dma_bench_run_default_xphi((struct dma_device *)dev);
 #endif
 
+    #if 0
+
     iref_t svc_iref;
     char svc_name[30];
 #ifdef __k1om__
@@ -254,7 +256,7 @@ errval_t xdma_service_init(struct xeon_phi *phi)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to register with the DMA manager\n");
     }
-
+    #endif
     return SYS_ERR_OK;
 }
 
