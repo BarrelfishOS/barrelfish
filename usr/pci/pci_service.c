@@ -84,9 +84,11 @@ static errval_t device_lookup_iommu_by_pci(uint16_t seg, uint8_t bus, uint8_t de
                             "write(u(T,I)).", seg, bus, dev, fun);
     if (err_is_ok(err)) {
         err = skb_read_output("u(%d,%d)", &type, &idx);
-        PCI_DEBUG("[pci] found device at iommu with idx %u\n", idx);
-
         assert(err_is_ok(err));
+
+        PCI_DEBUG("[pci] found device at iommu with idx %u\n", idx);
+        *index = idx;
+        return SYS_ERR_OK;
     }
 
     PCI_DEBUG("[pci] look-up iommu by PCI segment with all flags\n");
@@ -853,7 +855,7 @@ static errval_t parse_devices_scopes(void)
 {
     errval_t err;
 
-    debug_printf("Parsing device scrope\n");
+    PCI_DEBUG("Parsing device scrope\n");
 
     err = skb_execute_query("dmar_devscopes(L),length(L,Len),writeln(L)");
     assert(err_is_ok(err));
@@ -891,12 +893,13 @@ static errval_t parse_devices_scopes(void)
             PCI_DEBUG("Bus %u == %u\n", bus,next_bus);
         }
 
-        PCI_DEBUG(SKB_SCHEMA_IOMMU_DEVICE "\n", HW_PCI_IOMMU_INTEL, unit_idx, type,
+        debug_printf(SKB_SCHEMA_IOMMU_DEVICE "\n", HW_PCI_IOMMU_INTEL, unit_idx, type,
                      entrytype, seg, next_bus, dev, fun, enumid);
 
         err = skb_add_fact(SKB_SCHEMA_IOMMU_DEVICE, HW_PCI_IOMMU_INTEL, unit_idx, type,
                            entrytype, seg, next_bus, dev, fun, enumid);
         if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to insert fact into the skb!\n");
             continue;
         }
     }
