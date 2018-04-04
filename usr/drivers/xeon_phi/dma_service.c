@@ -21,6 +21,7 @@
 #include "xeon_phi_internal.h"
 #include "dma_service.h"
 
+#if 0
 struct user_st
 {
     struct dma_mem_mgr *mem_mgr;
@@ -200,13 +201,14 @@ static errval_t dma_svc_memcpy_cb(dma_svc_handle_t svc_handle,
     return dma_request_memcpy(dev, &setup, id);
 }
 
+
 static struct dma_service_cb dma_svc_cb = {
     .connect = dma_svc_connect_cb,
     .addregion = dma_svc_addregion_cb,
     .removeregion = dma_svc_removeregion_cb,
     .memcpy = dma_svc_memcpy_cb
 };
-
+#endif
 /**
  * \brief initializes the Xeon Phi DMA devices and the service
  *

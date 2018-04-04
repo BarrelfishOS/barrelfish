@@ -752,6 +752,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
         USER_PANIC_ERR(err, "Could not initialize messaging");
     }
 
+
     xeon_phi_boot_download_status_wrf(&boot_registers, 0x0);
 
     phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
@@ -807,3 +808,5 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
 
     return SYS_ERR_OK;
 }
+
+
