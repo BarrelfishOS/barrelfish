@@ -26,14 +26,14 @@
 
 #include <driverkit/iommu.h>
 
-#include "benchmark.h"
+#include <if/xomp_defs.h>
 
 
 #define ENABLE_NETWORKING 1
 
 
-#define HLINE debug_printf("========================================================\n");
-#define hline debug_printf("--------------------------------------------------------\n");
+#define HLINE debug_printf("#######################################################\n");
+#define hline debug_printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 #define PRINTF(x...) debug_printf("[HW Models] " x)
 #define TODO(x...) debug_printf("[HW Models] TODO: " x)
 
@@ -66,6 +66,8 @@ static int32_t driverkit_lookup_node_id(const char *path)
     return -1;
 }
 
+struct xomp_binding *coprocessor = NULL;
+static bool work_is_done = false;
 
 static int32_t node_id_dma = -1;
 static int32_t node_id_offload_core = -1;
@@ -79,7 +81,8 @@ static int32_t node_id_network = -1;
 #define XEON_PHI_ID 0
 #define XEON_PHI_CORE 1
 #define DATA_SIZE (1UL << 30)
-#define MSG_FRAME_SIZE (2UL << 20)
+#define MSG_CHANNEL_SIZE (1UL << 20)
+#define MSG_FRAME_SIZE (2 * MSG_CHANNEL_SIZE)
 
 static void get_node_ids(void)
 {
@@ -128,6 +131,44 @@ static errval_t driverkit_vspace_map(int32_t nodeid, struct capref frame,
 }
 
 
+static void notify_rx(struct xomp_binding *_binding, uint64_t arg, errval_t err)
+{
+    PRINTF("Work is done callback.\n");
+
+    work_is_done = true;
+}
+
+
+//static void connect_cb(void *st, struct xomp_binding *binding)
+static void connect_cb(void *st, errval_t err, struct xomp_binding *_binding)
+{
+    PRINTF("Client connected.\n");
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to accept the connection");
+    }
+    coprocessor = _binding;
+    coprocessor->rx_vtbl.done_notify = notify_rx;
+}
+
+static void message_passing_init(struct dmem *msgmem)
+{
+    errval_t err;
+
+    struct xomp_frameinfo fi = {
+        .sendbase = msgmem->devaddr,
+        .inbuf = (void *)(msgmem->vbase + MSG_CHANNEL_SIZE),
+        .inbufsize = MSG_CHANNEL_SIZE,
+        .outbuf = (void *)(msgmem->vbase),
+        .outbufsize = MSG_CHANNEL_SIZE,
+    };
+    err = xomp_accept(&fi, NULL, connect_cb, get_default_waitset(),
+                      IDC_EXPORT_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to accept the connection");
+    }
+}
+
+
 int main(int argc,  char **argv)
 {
     errval_t err;
@@ -172,6 +213,9 @@ int main(int argc,  char **argv)
         USER_PANIC_ERR(err, "failed to map the memory\n");
     }
 
+    /* TODO: allocate vspace in client */
+    uint64_t clientva = (512UL << 30);
+
     hline
 
     PRINTF("Populating memory region with data\n");
@@ -199,6 +243,8 @@ int main(int argc,  char **argv)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to map the memory\n");
     }
+
+    message_passing_init(&msgmem);
 
     hline
 
@@ -250,7 +296,7 @@ int main(int argc,  char **argv)
     hline
 
     PRINTF("Adding DMA mem");
-    err = xeon_phi_client_chan_open(XEON_PHI_ID, domid, 0, mem, 1);
+    err = xeon_phi_client_chan_open(XEON_PHI_ID, domid, clientva, mem, 1);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to set the channel");
     }
@@ -269,9 +315,22 @@ int main(int argc,  char **argv)
     PRINTF("Sending command to the co-processor\n");
     TODO("SEND COMMAND\n");
 
+    while(coprocessor == NULL) {
+        messages_wait_and_handle_next();
+    }
+
+    err = coprocessor->tx_vtbl.do_work(coprocessor, NOP_CONT, clientva, DATA_SIZE,
+                                       0, 0);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to send the message");
+    }
+
 
     PRINTF("Wait for co-processor to finish\n");
-    TODO("wait for message\n");
+
+    while(!work_is_done) {
+        messages_wait_and_handle_next();
+    }
 
     hline
 

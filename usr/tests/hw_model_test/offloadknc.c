@@ -22,176 +22,67 @@
 
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_client.h>
+#include <driverkit/iommu.h>
 
-uint32_t send_reply = 0x0;
+#include <if/xomp_defs.h>
 
-#include "benchmark.h"
 
-uint8_t connected = 0;
+#define HLINE debug_printf("========================================================\n");
+#define hline debug_printf("--------------------------------------------------------\n");
+#define PRINTF(x...) debug_printf("[HW Models] " x)
+#define TODO(x...) debug_printf("[HW Models] TODO: " x)
 
-static void *card_buf;
-static struct capref card_frame;
-static lpaddr_t card_base;
-static size_t card_frame_sz;
+#define DATA_SIZE (1UL << 30)
+#define MSG_CHANNEL_SIZE (1UL << 20)
+#define MSG_FRAME_SIZE (2 * MSG_CHANNEL_SIZE)
 
-static void *host_buf;
-static struct capref host_frame;
-static lpaddr_t host_base;
-static size_t host_frame_sz;
+static uint8_t finished = 0;
 
-static struct bench_bufs bufs;
-static struct bench_bufs bufs_rev;
-
-static struct ump_chan uc;
-static struct ump_chan uc_rev;
-
-static void *inbuf;
-static void *outbuf;
-
-static void *inbuf_rev;
-static void *outbuf_rev;
-
-static xphi_dom_id_t domainid;
-
-#ifndef XPHI_BENCH_PROCESS_CARD
-
-static volatile uint8_t dma_completed;
-
-static void dma_done_cb(errval_t err,
-                        dma_req_id_t id,
-                        void *st)
-{
-    size_t size = (host_frame_sz < card_frame_sz ? host_frame_sz : card_frame_sz);
-    size = (size <= (1UL << 21) ? size : (1UL << 21));
-    debug_printf("DMA request %016lx executed...[%08x]-[%08x] result: %s\n", id,
-                 *((uint32_t *) host_buf), *((uint32_t *) card_buf),
-                 (memcmp(host_buf, card_buf, size) ? "FAIL" : "SUCCESS"));
-    dma_completed = 0x1;
-}
-
-static errval_t dma_test(struct dma_device *dev)
+static void do_work_rx(struct xomp_binding *_binding, uint64_t fn, uint64_t arg,
+                       uint64_t tid, uint64_t flags)
 {
     errval_t err;
 
-    debug_printf("''''''''''''''''''''''''''''''''''''''''''''\n");
-    debug_printf("DMA TEST & Verification\n");
-    debug_printf(",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,\n");
+    PRINTF("Co-processor start doing work...\n");
 
-    dma_req_id_t id;
+    for(size_t i = 0; i < arg; i += sizeof(uint64_t)) {
+        uint64_t *p = (uint64_t *)(fn + i);
+        *p = i;
+    }
 
-    uint32_t test = 0xcafebabe;
 
-    size_t size = (host_frame_sz < card_frame_sz ? host_frame_sz : card_frame_sz);
+    err = _binding->tx_vtbl.done_notify(_binding, NOP_CONT, 0, SYS_ERR_OK);
+    assert(err_is_ok(err));
+}
 
-    size = (size <= (1UL << 21) ? size : (1UL << 21));
+static void bind_cb(void *st, errval_t err, struct xomp_binding *_binding)
+{
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to bind to host\n");
+    }
 
-    struct dma_req_setup setup = {
-        .done_cb = dma_done_cb,
-        .cb_arg = &test,
-        .args = {
-            .memcpy = {
-                .src = host_base,
-                .dst = card_base,
-                .bytes = size
-            }
-        }
+    _binding->rx_vtbl.do_work = do_work_rx;
+
+}
+
+static void message_passing_init(struct dmem *msgmem)
+{
+    errval_t err;
+
+    struct xomp_frameinfo fi = {
+            .sendbase = msgmem->devaddr + MSG_CHANNEL_SIZE,
+            .inbuf = (void *)(msgmem->vbase),
+            .inbufsize = MSG_CHANNEL_SIZE,
+            .outbuf = (void *)(msgmem->vbase + MSG_CHANNEL_SIZE),
+            .outbufsize = MSG_CHANNEL_SIZE,
     };
 
-    memset(host_buf, 0xA5, size);
-
-    dma_completed = 0x0;
-    debug_printf("issuing first request. [%08x]-[%08x]\n", *((uint32_t *) host_buf), *((uint32_t *) card_buf));
-    err = dma_request_memcpy(dev, &setup, &id);
+    err = xomp_connect(&fi, NULL, bind_cb, get_default_waitset(),
+                       IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not exec the transfer");
-    }
-    debug_printf("request %016lx issued.\n", id);
-
-    while (!dma_completed) {
-        messages_wait_and_handle_next();
+        USER_PANIC_ERR(err, "failed to connect");
     }
 
-    dma_completed = 0x0;
-
-    memset(card_buf, 0x5A, size);
-
-    setup.args.memcpy.src = card_base;
-    setup.args.memcpy.dst = host_base;
-    debug_printf("issuing second request. [%08x]-[%08x]\n", *((uint32_t *) host_buf), *((uint32_t *) card_buf));
-    err = dma_request_memcpy(dev, &setup, &id);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not exec the transfer");
-    }
-
-    debug_printf("request %016lx issued.\n", id);
-
-    while (!dma_completed) {
-        messages_wait_and_handle_next();
-    }
-
-    return SYS_ERR_OK;
-}
-#endif
-
-static void init_buffer_c0(void)
-{
-#ifdef XPHI_BENCH_CHAN_HOST
-    inbuf = host_buf + XPHI_BENCH_MSG_FRAME_SIZE;
-    outbuf = host_buf;
-    inbuf_rev = card_buf + XPHI_BENCH_MSG_FRAME_SIZE;;
-    outbuf_rev = card_buf;
-#endif
-
-#ifdef XPHI_BENCH_CHAN_CARD
-    inbuf = host_buf;
-    outbuf = host_buf + XPHI_BENCH_MSG_FRAME_SIZE;
-    inbuf_rev = card_buf;
-    outbuf_rev = card_buf + XPHI_BENCH_MSG_FRAME_SIZE;
-#endif
-
-#ifdef XPHI_BENCH_CHAN_DEFAULT
-    inbuf = host_buf;
-    outbuf = card_buf;
-    inbuf_rev = outbuf + XPHI_BENCH_MSG_FRAME_SIZE;
-    outbuf_rev = inbuf + XPHI_BENCH_MSG_FRAME_SIZE;
-#ifdef XPHI_BENCH_BUFFER_CARD
-    bufs.buf = card_buf + 2 * XPHI_BENCH_MSG_FRAME_SIZE;
-    bufs_rev.buf = host_buf + 2 * XPHI_BENCH_MSG_FRAME_SIZE;
-#else
-    bufs.buf = host_buf + 2 * XPHI_BENCH_MSG_FRAME_SIZE;
-    bufs_rev.buf = card_buf + 2 * XPHI_BENCH_MSG_FRAME_SIZE;
-#endif
-#endif
-}
-
-static errval_t alloc_local(void)
-{
-    errval_t err;
-
-    size_t frame_size = 0;
-
-    frame_size = XPHI_BENCH_FRAME_SIZE_CARD;
-
-    if (!frame_size) {
-        frame_size = 4096;
-    }
-
-    debug_printf("Allocating a frame of size: %lx\n", frame_size);
-
-    size_t alloced_size = 0;
-    err = frame_alloc(&card_frame, frame_size, &alloced_size);
-    assert(err_is_ok(err));
-    assert(alloced_size >= frame_size);
-
-    struct frame_identity id;
-    err = invoke_frame_identify(card_frame, &id);
-    assert(err_is_ok(err));
-    card_base = id.base;
-    card_frame_sz = alloced_size;
-
-    err = vspace_map_one_frame(&card_buf, alloced_size, card_frame, NULL, NULL);
-
-    return err;
 }
 
 static errval_t msg_open_cb(xphi_dom_id_t domain,
@@ -201,31 +92,30 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
 {
     errval_t err;
 
+    struct dmem dmem;
     struct frame_identity id;
     err = invoke_frame_identify(msgframe, &id);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not identify the frame");
+        return err;
     }
 
-    debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n", id.base,
-                 id.bytes);
+    dmem.devaddr = id.base;
+    dmem.mem = msgframe;
+    dmem.size = id.bytes;
+    dmem.vbase = usrdata;
 
-    host_frame = msgframe;
-
-    host_base = id.base;
-
-    host_frame_sz = id.bytes;
-
-    err = vspace_map_one_frame(&host_buf, id.bytes, msgframe, NULL, NULL);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Could not map the frame");
+    if (type == 0) {
+        err = vspace_map_one_frame((void **)&dmem.vbase, dmem.size, dmem.mem, NULL, NULL);
+        if (err_is_fail(err)) {
+            return err;
+        }
+        message_passing_init(&dmem);
+    } else if (type == 1) {
+        err = vspace_map_one_frame_fixed(dmem.vbase, dmem.size, dmem.mem, NULL, NULL);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
-
-    domainid = domain;
-
-    init_buffer_c0();
-
-    connected = 0x1;
 
     return SYS_ERR_OK;
 }
@@ -234,162 +124,23 @@ static struct xeon_phi_callbacks callbacks = {
     .open = msg_open_cb
 };
 
+
 int main(int argc, char **argv)
 {
-    errval_t err;
+    HLINE
+    PRINTF("Co-processor starts executing...\n");
+    HLINE
 
-    debug_printf("Xeon Phi Test started on the card.\n");
-
-    debug_printf("Msg Buf Size = %lx, Buf Frame Size = %lx\n",
-    XPHI_BENCH_MSG_FRAME_SIZE,
-                 XPHI_BENCH_BUF_FRAME_SIZE);
-
-    xeon_phi_client_set_callbacks(&callbacks);
-
-    err = alloc_local();
-    assert(err_is_ok(err));
-
+    /* set the connection */
     xeon_phi_client_init(disp_xeon_phi_id());
 
-    while (!connected) {
+    /* set the callbacks */
+    xeon_phi_client_set_callbacks(&callbacks);
+
+    while(!finished) {
         messages_wait_and_handle_next();
     }
 
-    char iface[30];
-    snprintf(iface, 30, "xeon_phi_test.%u", XPHI_BENCH_CORE_HOST);
 
-    err = xeon_phi_client_chan_open(0, domainid, 0, card_frame, 2);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not open channel");
-    }
-
-    debug_printf("Initializing UMP channel...\n");
-
-    err = ump_chan_init(&uc, inbuf,
-    XPHI_BENCH_MSG_FRAME_SIZE,
-                        outbuf,
-                        XPHI_BENCH_MSG_FRAME_SIZE);
-    err = ump_chan_init(&uc_rev, inbuf_rev,
-    XPHI_BENCH_MSG_FRAME_SIZE,
-                        outbuf_rev,
-                        XPHI_BENCH_MSG_FRAME_SIZE);
-
-#ifdef XPHI_BENCH_PROCESS_CARD
-    delay_ms(1000);
-#endif
-
-#ifdef XPHI_BENCH_PROCESS_CARD
-#ifndef XPHI_BENCH_THROUGHPUT
-    debug_printf("---------------- normal run -----------------\n");
-    xphi_bench_start_echo(&bufs, &uc);
-    debug_printf("---------------- reversed run -----------------\n");
-    xphi_bench_start_echo(&bufs_rev, &uc_rev);
-#else
-    debug_printf("---------------- normal run -----------------\n");
-    xphi_bench_start_processor(&bufs, &uc);
-    debug_printf("---------------- reversed run -----------------\n");
-    xphi_bench_start_processor(&bufs_rev, &uc_rev);
-#endif
-#else
-#ifndef XPHI_BENCH_THROUGHPUT
-    debug_printf("---------------- normal run -----------------\n");
-    xphi_bench_start_initator_rtt(&bufs, &uc);
-    debug_printf("---------------- reversed run -----------------\n");
-    xphi_bench_start_initator_rtt(&bufs_rev, &uc_rev);
-#else
-#ifdef XPHI_BENCH_SEND_SYNC
-    debug_printf("---------------- normal run -----------------\n");
-    xphi_bench_start_initator_sync(&bufs, &uc);
-    debug_printf("---------------- reversed run -----------------\n");
-    xphi_bench_start_initator_sync(&bufs-rev, &uc_rev);
-#else
-    debug_printf("---------------- normal run -----------------\n");
-    xphi_bench_start_initator_async(&bufs, &uc);
-    debug_printf("---------------- reversed run -----------------\n");
-    xphi_bench_start_initator_async(&bufs_rev, &uc_rev);
-#endif
-#endif
-#endif
-
-#ifndef XPHI_BENCH_PROCESS_CARD
-
-    err = dma_manager_wait_for_driver(DMA_DEV_TYPE_XEON_PHI, 0);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "waiting for drive");
-    }
-
-    struct dma_client_info info = {
-        .type = DMA_CLIENT_INFO_TYPE_NAME,
-        .device_type = DMA_DEV_TYPE_XEON_PHI,
-        .args = {
-            .name = XEON_PHI_DMA_SERVICE_NAME
-        }
-    };
-
-    struct dma_client_device *xdev;
-    err = dma_client_device_init(&info, &xdev);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not initialize client device");
-    }
-
-    struct dma_device *dev = (struct dma_device *)xdev;
-
-    err = dma_register_memory((struct dma_device *) dev, card_frame);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not register memory");
-    }
-
-    err = dma_register_memory((struct dma_device *) dev, host_frame);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "could not register memory");
-    }
-
-    debug_printf("+++++++ Verify DMA Functionality ++++++++\n");
-    dma_test(dev);
-
-    debug_printf("+++++++ DMA / MEMCOPY Benchmark ++++++++\n");
-
-    debug_printf("\n");
-    debug_printf("========================================\n");
-    debug_printf("\n");
-    debug_printf("MEMCPY-BENCH: CARD LOCAL \n");
-    debug_printf("\n");
-    debug_printf("========================================\n");
-    debug_printf("\n");
-
-    xphi_bench_memcpy((struct dma_device *) dev, card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                    card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE
-                    + (XPHI_BENCH_BUF_FRAME_SIZE / 2),
-                    XPHI_BENCH_BUF_FRAME_SIZE / 2,
-                    card_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                    card_base + 2* XPHI_BENCH_MSG_FRAME_SIZE
-                    + (XPHI_BENCH_BUF_FRAME_SIZE / 2));
-
-    debug_printf("\n");
-    debug_printf("========================================\n");
-    debug_printf("\n");
-    debug_printf("MEMCPY-BENCH: CARD -> HOST \n");
-    debug_printf("\n");
-    debug_printf("========================================\n");
-    debug_printf("\n");
-    xphi_bench_memcpy((struct dma_device *) dev,host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                    card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                    XPHI_BENCH_BUF_FRAME_SIZE / 2,
-                    host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                    card_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);
-    debug_printf("\n");
-
-    debug_printf("========================================\n");
-    debug_printf("\n");
-    debug_printf("MEMCPY-BENCH: HOST -> CARD \n");
-    debug_printf("\n");
-    debug_printf("========================================\n");
-    debug_printf("\n");
-
-    xphi_bench_memcpy((struct dma_device *) dev,card_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                    host_buf + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                    XPHI_BENCH_BUF_FRAME_SIZE / 2,
-                    card_base + 2* XPHI_BENCH_MSG_FRAME_SIZE,
-                    host_base + 2* XPHI_BENCH_MSG_FRAME_SIZE);
-#endif
+    PRINTF("Co-processor terminated...\n");
 }

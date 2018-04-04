@@ -17,6 +17,8 @@
       "offloadhost.c",
       "benchmark.c" 
     ],
+    flounderDefs = ["xomp"],
+    flounderBindings = ["xomp"],
     addLibraries = libDeps [ 
       "xeon_phi_client", 
       "bench", 
@@ -31,6 +33,8 @@
       "offloadknc.c",
       "benchmark.c" 
     ],
+    flounderDefs = ["xomp"],
+    flounderBindings = ["xomp"],
     addLibraries = libDeps [ 
       "xeon_phi_client", 
       "bench", 
