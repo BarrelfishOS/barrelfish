@@ -578,6 +578,8 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs)
         return err;
     }
 
+    vtd->iommu.id = vtd->index;
+
     assert(vtd->index < VTD_UNITS_MAX);
     assert(vtd->pci_segment < VTD_SEGMENTS_MAX);
 
