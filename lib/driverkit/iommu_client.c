@@ -145,7 +145,7 @@ static errval_t alloc_common(int mode, int bits,
     int32_t nodeid2, uint64_t *node2addr,
     uint64_t *physaddr) {
 
-    DRIVERKIT_DEBUG("alloc_common for mode=%d, bits=%d, nodeid1=%d, nodeid2=%d",
+    debug_printf("alloc_common for mode=%d, bits=%d, nodeid1=%d, nodeid2=%d",
             mode, bits, nodeid1, nodeid2);
 
     errval_t err;
@@ -161,8 +161,8 @@ static errval_t alloc_common(int mode, int bits,
                 bits, *physaddr, nodeid1, nodeid2);
     }
 
+    DEBUG_SKB_ERR(err,"in alloc_common");
     if(err_is_fail(err)){
-        DEBUG_SKB_ERR(err,"in alloc_common");
         skb_execute_query("dec_net_debug");
         return err;
     }
@@ -206,6 +206,8 @@ static inline errval_t iommu_alloc_ram(struct iommu_client *st,
     if (bytes < (LARGE_PAGE_SIZE)) {
         bytes = LARGE_PAGE_SIZE;
     }
+    int bits = log2ceil(bytes);
+    bytes = 1 << bits;
 
     debug_printf("iommu_alloc_ram bytes=%lu\n", bytes);
 
@@ -221,8 +223,6 @@ static inline errval_t iommu_alloc_ram(struct iommu_client *st,
     int32_t my_nodeid = get_own_nodeid();
     uint64_t base_addr=0;
 
-    int bits = log2ceil(bytes);
-    assert(1<<bits == bytes);
     err = alloc_common(MODE_ALLOC_COMMON, bits, device_nodeid, NULL, my_nodeid,
             NULL, &base_addr);
     if(err_is_fail(err)){
@@ -304,6 +304,12 @@ static inline errval_t iommu_alloc_vregion(struct iommu_client *st,
     err = invoke_frame_identify(mem, &id);
     if (err_is_fail(err)) {
         return err;
+    }
+
+    if(st == NULL){
+        *device = id.base;   
+        *driver = 0;
+        return SYS_ERR_OK;
     }
 
     assert(id.bytes >= LARGE_PAGE_SIZE);
