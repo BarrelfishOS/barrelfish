@@ -284,6 +284,15 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
     return SYS_ERR_OK;
 }
 
+static errval_t add_pci_model_node(struct pci_addr addr) {
+    errval_t err = skb_execute_query("add_pci_alloc(addr(%u,%u,%u)).",
+            addr.bus, addr.device, addr.function);
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "add_pci_alloc.");
+    }
+    return err;
+}
+
 static void pci_change_event(octopus_mode_t mode, const char* device_record,
                              void* st)
 {
@@ -418,6 +427,10 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         assert(err_is_ok(err));
 
         err = add_ep_args(addr, core, &driver_arg, binary_name, module_name);
+        assert(err_is_ok(err));
+
+        KALUGA_DEBUG("Adding model node to SKB.\n");
+        err = add_pci_model_node(addr);
         assert(err_is_ok(err));
 
 

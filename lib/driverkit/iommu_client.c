@@ -159,7 +159,7 @@ static errval_t alloc_common(int mode, int bits,
     }
 
     if(err_is_fail(err)){
-        DEBUG_SKB_ERR(err,"in iommu_alloc_ram_for_frame");
+        DEBUG_SKB_ERR(err,"in alloc_common");
         skb_execute_query("dec_net_debug");
         return err;
     }
@@ -178,6 +178,7 @@ static errval_t alloc_common(int mode, int bits,
             case 2: dest = physaddr; break;
         }
         if(dest) *dest = address;
+        list_idx++;
     }
     free(skb_list_output);
     if(list_idx != 3){
@@ -191,17 +192,25 @@ static errval_t alloc_common(int mode, int bits,
  * allocates a piece of ram to be mapped into the driver and the devices
  * address spaces
  */
-static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
+static inline errval_t iommu_alloc_ram(struct iommu_client *st,
                                                  size_t bytes,
                                                  struct capref *retcap)
 {
+    // TODO: This function has to pass the rootvnodeslot from iommu_get_mapping
+    // region to the allocator function to get mem from that region.
     errval_t err, msgerr;
 
     if (bytes < (LARGE_PAGE_SIZE)) {
         bytes = LARGE_PAGE_SIZE;
     }
 
-    return frame_alloc(retcap, bytes, NULL);
+    debug_printf("iommu_alloc_ram bytes=%lu\n", bytes);
+
+    // Alloc cap slot
+    err = slot_alloc(retcap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
 
     struct mem_binding * b = get_mem_client();
 
@@ -210,6 +219,7 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
     uint64_t base_addr=0;
 
     int bits = log2ceil(bytes);
+    assert(1<<bits == bytes);
     err = alloc_common(MODE_ALLOC_COMMON, bits, device_nodeid, NULL, my_nodeid,
             NULL, &base_addr);
     if(err_is_fail(err)){
@@ -217,8 +227,8 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
         return err;
     }
 
-    DRIVERKIT_DEBUG("Determined addr=%"PRIu64" as base address for request\n",
-            addr);
+    debug_printf("Determined addr=0x%"PRIx64" as base address for bits=%d request\n",
+            base_addr, bits);
 
     err = b->rpc_tx_vtbl.allocate(b, bits, base_addr, base_addr + bytes,
             &msgerr, retcap);
@@ -230,13 +240,53 @@ static inline errval_t iommu_alloc_ram_for_frame(struct iommu_client *st,
         DEBUG_ERR(msgerr, "allocate");
         return msgerr;
     }
+    debug_printf("alloc_ram_for_frame success\n");
+    return SYS_ERR_OK;
+}
+
+static inline errval_t iommu_alloc_frame(struct iommu_client *cl,
+                                                 size_t bytes,
+                                                 struct capref *retcap)
+{
+    if (bytes < (LARGE_PAGE_SIZE)) {
+        bytes = LARGE_PAGE_SIZE;
+    }
+
+    // Allocate RAM cap
+    struct capref ramcap;
+    errval_t err = iommu_alloc_ram(cl, bytes, &ramcap);
+    if(err_is_fail(err)){
+        return err;            
+    }
+
+    // Alloc cap slot
+    err = slot_alloc(retcap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    // Get bits
+    assert(bytes > 0);
+    uint8_t bits = log2ceil(bytes);
+    assert((1UL << bits) >= bytes);
+
+    // This is doing what "create_ram_descendant" in
+    // lib/barrelfish/capabilities.c is doing.
+    err = cap_retype(*retcap, ramcap, 0, ObjType_Frame, (1UL << bits), 1);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_RETYPE);
+    }
+
+    err = cap_destroy(ramcap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DESTROY);
+    }
+
     return SYS_ERR_OK;
 }
 
 #define MAPPING_REGION_START (512UL << 31)
 #define MAPPING_REGION_SIZE (512UL << 30)
-
-static lvaddr_t vregion_map_base = MAPPING_REGION_START;
 
 /*
  * returns a region of memory
@@ -254,17 +304,19 @@ static inline errval_t iommu_alloc_vregion(struct iommu_client *st,
     }
 
     assert(id.bytes >= LARGE_PAGE_SIZE);
+    assert(st != NULL);
 
-    if (st == NULL || !st->enabled) {
-        *device = id.base;
-    } else {
-        *device = vregion_map_base;
+    int bits = log2ceil(id.bytes);
+    int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
+    int32_t my_nodeid = get_own_nodeid();
+
+    err = alloc_common(MODE_MAP_COMMON, bits, device_nodeid, device, 
+            my_nodeid, driver, &id.base);
+
+    if(err_is_fail(err)){
+        DEBUG_ERR(err,"alloc_common"); 
+        return err;
     }
-
-    *driver = vregion_map_base;
-
-
-    vregion_map_base += id.bytes;
 
     return SYS_ERR_OK;
 }
@@ -273,26 +325,93 @@ static inline errval_t iommu_free_vregion(struct iommu_client *st,
                                           lvaddr_t driver,
                                           dmem_daddr_t device)
 {
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err;
+
+    // Free device region
+    int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
+    err = skb_execute_query("enum_node_id(%d, Id), mark_range_free(Id, %lu)",
+           device_nodeid, device);
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "free device mem");
+        return err;
+    }
+
+    // Free my region
+    int32_t my_nodeid = get_own_nodeid();
+    err = skb_execute_query("enum_node_id(%d, Id), mark_range_free(Id, %lu)",
+           my_nodeid, driver);
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "free process mem");
+        return err;
+    }
+    // TODO: Actually free the own VSPACE
+
+    return SYS_ERR_OK;
 }
 
 static inline errval_t iommu_free_ram(struct capref ram)
 {
-    cap_revoke(ram);
-    cap_destroy(ram);
+    struct frame_identity id;
+    errval_t err = invoke_frame_identify(ram, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = skb_execute_query("dram_nodeid(X), mark_range_free(X, %lu)", id.base);
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "free ram");
+        return err;
+    }
+
+    err = cap_revoke(ram);
+    if(err_is_fail(err)) return err;
+
+    err = cap_destroy(ram);
+    if(err_is_fail(err)) return err;
+
     return SYS_ERR_OK;
 }
+
+#define ROOT_SLOT_MEM_SIZE (512UL << 30)
 
 static inline errval_t iommu_get_mapping_region(struct iommu_client *cl,
                                                 dmem_daddr_t *start,
                                                 dmem_daddr_t *end,
                                                 uint16_t *rootvnodeslot)
 {
-    *start = MAPPING_REGION_START;
-    *end = MAPPING_REGION_START + MAPPING_REGION_SIZE - 1;
-    *rootvnodeslot = 2;
-    STATIC_ASSERT(2 == X86_64_PML4_BASE(MAPPING_REGION_START), "");
-    return SYS_ERR_OK;
+    assert(rootvnodeslot != NULL);
+    debug_printf("iommu_client line=%d\n", __LINE__);
+    int32_t device_nodeid = driverkit_iommu_get_nodeid(cl);
+    errval_t err = skb_execute_query(
+        "enum_node_id(%d,Id),alloc_root_vnodeslot(Id, Slot),write(Slot)",
+        device_nodeid);
+
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "get root_vnodeslot");
+        return err;
+    }
+
+    err = skb_read_output("%"SCNu16, rootvnodeslot);
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "parse get root_vnodeslot output");
+        return err;
+    }
+
+    // HACK
+    assert(*rootvnodeslot == 2);
+    // ENDHACK
+
+    err = skb_read_output("%hu", rootvnodeslot);
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "parse root_vnodeslot output");
+        return err;
+    }
+
+    *start = ROOT_SLOT_MEM_SIZE * (*rootvnodeslot) ;
+    *end = ROOT_SLOT_MEM_SIZE * (*rootvnodeslot) + ROOT_SLOT_MEM_SIZE-1;
+
+    assert(*rootvnodeslot == X86_64_PML4_BASE(*start));
+    debug_printf("iommu_client line=%d\n", __LINE__);
+    return err;
 }
 
 
@@ -1103,7 +1222,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     }
 
     assert(dmem->vbase);
-    assert(dmem->devaddr);
+    assert(dmem->devaddr || dmem->devaddr == 0); //TODO: Maybe dont give 0 as valid dev address
 
     /* create L3 table if not created already */
     err = driverkit_iommu_vnode_create_l3(cl);
@@ -1279,7 +1398,7 @@ errval_t driverkit_iommu_alloc_frame(struct iommu_client *cl, size_t bytes,
     if (cl == NULL) {
         return frame_alloc(retframe, bytes, NULL);
     } else {
-        return iommu_alloc_ram_for_frame(cl, bytes, retframe);
+        return iommu_alloc_frame(cl, bytes, retframe);
     }
 }
 

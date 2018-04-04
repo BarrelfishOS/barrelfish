@@ -501,6 +501,7 @@ load_net_module(File, Mod) :-
 
 :- export alloc_node_enum/1.
 :- dynamic enum_node_id/2.
+:- export enum_node_id/2.
 alloc_node_enum(N) :- alloc_one(node_enum, N).
 
 get_or_alloc_node_enum(NodeId, Enum) :-
@@ -517,11 +518,21 @@ get_or_alloc_node_enum(NodeId, Enum) :-
 :- export add_pci/1.
 :- export add_process/1.
 :- export add_process_alloc/1.
+:- export dram_nodeid/1.
+:- export alloc_root_vnodeslot/2.
 
 :- dynamic pci_address_node_id/2.
 :- export pci_address_node_id/2.
 :- dynamic process_node_id/2.
 :- export process_node_id/2.
+
+alloc_root_vnodeslot(NodeId, Slot) :-
+    alloc_one(root_vnodeslot(NodeId), Slot).
+
+free_root_vnodeslot(NodeId, Slot) :-
+    free_one(root_vnodeslot(NodeId), Slot).
+
+dram_nodeid(NodeId) :- NodeId = ["DRAM"].
 
 % This uses the memory_region facts (defined in the main module) to 
 % find a region above 4G that we will manage.
@@ -553,16 +564,24 @@ init :-
 add_pci :-
     add_pci(["PCI0"]).
 
+iommu_enabled :-
+    call(iommu_enabled,0,_)@eclipse.
+
 add_pci(Id) :-
     PCIBUS_ID = ["PCIBUS"],
     PCIIN_ID = ["IN" | Id],
     PCIOUT_ID = ["OUT" | Id],
-    add_PCI_IOMMU(Id),
-    % Mark IOMMU block remappable
-    assert(node_block_meta(["IN", "IOMMU0" | Id], 21, ["OUT", "IOMMU0" | Id])), % Make MMU configurable
-    % And assign a root PT
-    pt_alloc(Root),
-    assert(node_pt(["IN", "IOMMU0", Id], Root, ["OUT","IOMMU0",Id])),
+    (iommu_enabled -> (
+        add_PCI_IOMMU(Id), 
+        % Mark IOMMU block remappable
+        assert(node_block_meta(["IN", "IOMMU0" | Id], 21, ["OUT", "IOMMU0" | Id])),
+        % And assign a root PT
+        pt_alloc(Root),
+        assert(node_pt(["IN", "IOMMU0", Id], Root, ["OUT","IOMMU0",Id]))
+    ) ; (
+        % IOMMU disabled.
+        add_PCI(Id)
+    )),
     % connect the output to the systems pci bus
     assert(node_overlay(PCIOUT_ID, PCIBUS_ID)),
     % Now insert the BAR into the PCI bus address space
@@ -572,8 +591,12 @@ add_pci_alloc(Addr) :-
     alloc_node_enum(Enum),
     add_pci([Enum]),
     % Set it to the node id where addresses are issued from the PCI device
-    assert(enum_node_id(Enum, ["OUT", "PCI0", Enum])),
-    assert(pci_address_node_id(Addr, Enum)).
+    OutNodeId = ["OUT", "PCI0", Enum],
+    assert(enum_node_id(Enum, OutNodeId)),
+    assert(pci_address_node_id(Addr, Enum)),
+    % allocate two root vnode slots for the process' address space
+    alloc_root_vnodeslot(OutNodeId,_),
+    alloc_root_vnodeslot(OutNodeId,_).
 
 add_process_alloc(Enum) :-
     alloc_node_enum(Enum),
@@ -602,7 +625,8 @@ add_process(Id) :-
     assert(node_overlay(OUT_ID, DRAM_ID)),
     % Reserve memory for the process, the OUT/PROC0 node is the one where
     % initially the process (virtual) addresses are issued.
-    assert(node_in_use(["OUT", "PROC0" | Id], [memory, [block{base:0, limit: 65535}]])).
+    Limit = 1099511627775, % (512 << 31) - 1
+    assert(node_in_use(["OUT", "PROC0" | Id], [memory, [block{base:0, limit: Limit}]])).
 
 
 
@@ -681,6 +705,11 @@ mark_range_in_use(Name, ISize) :-
 mark_range_in_use(Region) :-
     Region = region{ node_id: NodeId, blocks: Blocks },
     assert(node_in_use(NodeId, Blocks)).
+
+
+:- export mark_range_free/2.
+mark_range_free(NodeId, Base) :-
+    retract(node_in_use(NodeId, [memory, [block{base: Base}]])).
 
 :- export test_alloc_range/0.
 test_alloc_range :-
