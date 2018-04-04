@@ -11,10 +11,10 @@
 --------------------------------------------------------------------------
 
 [ build application { 
-    target = "tests/hwmodel/offloadtest",
+    target = "hwmodel/offload",
     architectures = [ "x86_64" ],
     cFiles = [ 
-      "main_host.c", 
+      "offloadhost.c",
       "benchmark.c" 
     ],
     addLibraries = libDeps [ 
@@ -25,10 +25,10 @@
   },
   
   build application { 
-    target = "tests/hwmodel/offload",
+    target = "hwmodel/offload",
     architectures = ["k1om"],
     cFiles = [ 
-      "main_card.c", 
+      "offloadknc.c",
       "benchmark.c" 
     ],
     addLibraries = libDeps [ 
