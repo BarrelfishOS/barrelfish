@@ -42,6 +42,7 @@ typedef errval_t (*create_dev_fn)(struct iommu *io, uint16_t seg, uint8_t bus,
 struct iommu
 {
     hw_pci_iommu_t type;
+    uint32_t id;
     struct {
         create_dev_fn create_device;
     } f;

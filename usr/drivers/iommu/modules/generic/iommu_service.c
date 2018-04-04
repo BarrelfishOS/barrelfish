@@ -25,7 +25,7 @@
 #include <if/iommu_defs.h>
 #include <if/iommu_rpcclient_defs.h>
 #include <if/pci_iommu_defs.h>
-#include <if/pci_iommu_rpcclient_defs.h>
+
 
 
 #include "common.h"
@@ -33,8 +33,8 @@
 #include "../intel_vtd/intel_vtd.h"
 
 
-#define IOMMU_SVC_DEBUG(x...) debug_printf("[iommu] [svc] " x)
-
+//#define IOMMU_SVC_DEBUG(x...) debug_printf("[iommu] [svc] " x)
+#define IOMMU_SVC_DEBUG(x...)
 
 
 static struct vnodest *vnodes_pml4;
@@ -158,8 +158,9 @@ static void setroot_request(struct iommu_binding *ib, struct capref src)
     assert(idev);
     assert(idev->iommu);
 
-    IOMMU_SVC_DEBUG("%s %u.%u.%u\n", __FUNCTION__, idev->addr.pci.bus,
-                    idev->addr.pci.device, idev->addr.pci.function);
+    IOMMU_SVC_DEBUG("%s [%u][%p] %u.%u.%u\n", __FUNCTION__, idev->iommu->id,
+                    idev->iommu, idev->addr.pci.bus, idev->addr.pci.device,
+                    idev->addr.pci.function);
 
     struct vnode_identity id;
     err = invoke_vnode_identify(src, &id);
@@ -181,11 +182,6 @@ static void setroot_request(struct iommu_binding *ib, struct capref src)
             break;
     }
 
-
-
-
-
-
     if (idev->f.set_root) {
         err = idev->f.set_root(idev, src);
     } else {
@@ -198,6 +194,12 @@ static void setroot_request(struct iommu_binding *ib, struct capref src)
 }
 
 
+static void sent_notification(void *arg)
+{
+    bool *state = arg;
+    *state = true;
+}
+
 static void  retype_request(struct iommu_binding *ib, struct capref src,
                             uint8_t objtype)
 {
@@ -206,9 +208,9 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
     struct capref retcap = NULL_CAP;
     struct capref vnode = NULL_CAP;
     struct frame_identity id;
-   // struct event_closure cont = NOP_CONT;
 
     IOMMU_SVC_DEBUG("%s\n", __FUNCTION__);
+
 
     switch(objtype) {
         case ObjType_VNode_x86_64_ptable :
@@ -280,13 +282,24 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
 
     }
 
+    bool issent = false;
+    struct event_closure cont;
+    if (err_is_fail(err)) {
+        cont = NOP_CONT;
+    } else {
+        cont = MKCLOSURE(sent_notification, (void *)&issent);
+    }
+
+
     send_reply:
-    err = ib->tx_vtbl.retype_response(ib, NOP_CONT, err, retcap);
+    err = ib->tx_vtbl.retype_response(ib, cont, err, retcap);
     assert(err_is_ok(err)); /* should not fail */
 
-    /*
-     * TODO: Free the return cap!
-     */
+    while(!issent && err_is_ok(err)) {
+        event_dispatch(get_default_waitset());
+    }
+
+    cap_destroy(retcap);
 
     return;
 
@@ -312,8 +325,9 @@ static void map_request(struct iommu_binding *ib, struct capref dst,
     struct iommu_device *dev = ib->st;
     assert(dev);
 
-    IOMMU_SVC_DEBUG("%s %u.%u.%u\n", __FUNCTION__, dev->addr.pci.bus,
-                    dev->addr.pci.device, dev->addr.pci.function);
+    IOMMU_SVC_DEBUG("%s [%u][%p] %u.%u.%u\n", __FUNCTION__, dev->iommu->id,
+                    dev->iommu, dev->addr.pci.bus, dev->addr.pci.device,
+                    dev->addr.pci.function);
 
     if (dev->f.map == NULL) {
         err = IOMMU_ERR_NOT_SUPPORTED;
@@ -513,7 +527,7 @@ static void request_iommu_endpoint_handler(struct pci_iommu_binding *b, uint8_t 
     assert(b->st);
     struct iommu *io = (struct iommu *)b->st;
 
-    IOMMU_SVC_DEBUG("%s %u.%u.%u\n", __FUNCTION__, bus, device, function);
+    IOMMU_SVC_DEBUG("%s [%u][%p] %u.%u.%u\n", __FUNCTION__, io->id, io, bus, device, function);
 
     struct iommu_device* dev;
     out_err = iommu_device_create_by_pci(io, segment, bus, device, function, &dev);
