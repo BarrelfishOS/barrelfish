@@ -485,6 +485,12 @@ static errval_t bridge_add_iommu_endpoint_args(struct driver_argument* arg)
     char** names;
     size_t len;
 
+    // Get ep to iommus
+    struct module_info* driver = find_module("iommu");
+    if (driver == NULL) {
+        return KALUGA_ERR_MODULE_NOT_FOUND;
+    }
+
     // Get number of iommus
     err = oct_get_names(&names, &len, HW_PCI_IOMMU_RECORD_REGEX);
     if (err_is_fail(err)) {
@@ -492,11 +498,6 @@ static errval_t bridge_add_iommu_endpoint_args(struct driver_argument* arg)
     }
     oct_free_names(names, len);
 
-    // Get ep to iommus
-    struct module_info* driver = find_module("iommu");
-    if (driver == NULL) {
-        return KALUGA_ERR_MODULE_NOT_FOUND;
-    }
 
     // Iommu module is around, assume we stared all the iommus
     num_iommu_started = len;
@@ -511,6 +512,8 @@ static errval_t bridge_add_iommu_endpoint_args(struct driver_argument* arg)
         struct driver_instance* drv = (struct driver_instance*) 
                                       collections_list_find_if(driver->driverinstance->spawned, 
                                                                predicate, name);
+        assert(drv);
+        
         struct capref cap = {
             .cnode = arg->argnode_ref,
             .slot = DRIVERKIT_ARGCN_SLOT_BAR0 + i

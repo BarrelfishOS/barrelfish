@@ -29,6 +29,7 @@
 errval_t driverkit_get_driver_ep_cap(struct driver_instance* drv, struct capref* cap, bool lmp)
 {
     errval_t err, msgerr;
+    assert(drv);
 
     DRIVERKIT_DEBUG("[dcontrol client] get_driver_ep_cap called.\n");
     if (drv->ctrl == NULL) {
