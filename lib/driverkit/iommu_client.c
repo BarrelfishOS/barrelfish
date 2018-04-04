@@ -342,7 +342,7 @@ static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl)
 
     size_t l3_vnode_children =(1UL << vnode_entry_bits(l3_vnode_type));
 
-    debug_printf("l3_vnode_children=%zu (%u - %zu)\n", l3_vnode_children,
+    DRIVERKIT_DEBUG("l3_vnode_children=%zu (%u - %zu)\n", l3_vnode_children,
                  vnode_objbits(l3_vnode_type),
                  vnode_entry_bits(l3_vnode_type));
 
@@ -371,7 +371,7 @@ static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl)
         goto err_out2;
     }
 
-    debug_printf("MAPPING ROOT VNODE!\n");
+    DRIVERKIT_DEBUG("MAPPING ROOT VNODE!\n");
     err = driverkit_iommu_map(cl, cl->rootvnode, cl->vnode_l3->vnode,
                               cl->rootvnode_slot, IOMMU_DEFAULT_VREGION_FLAGS,
                               0, 1);
@@ -381,7 +381,7 @@ static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl)
 
     if (cl->policy == IOMMU_VSPACE_POLICY_SHARED) {
 
-        debug_printf("Mapping cap in the vroot of the driver\n");
+        DRIVERKIT_DEBUG("Mapping cap in the vroot of the driver\n");
 
         err = slot_alloc(&mapping);
         if (err_is_fail(err)) {
@@ -395,7 +395,7 @@ static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl)
             goto err_out5;
         }
 
-        debug_printf("Mapped at vroot [%u]\n", cl->rootvnode_slot);
+        DRIVERKIT_DEBUG("Mapped at vroot [%u]\n", cl->rootvnode_slot);
     }
 
     return SYS_ERR_OK;
@@ -433,7 +433,7 @@ static errval_t driverkit_iommu_vnode_get_l2(struct iommu_client *cl,
     uint64_t slot;
     switch(cl->vnode_l3->vnode_type) {
         case ObjType_VNode_x86_64_pml5 :
-            debug_printf("Allocate PML4 for L2 node\n");
+            DRIVERKIT_DEBUG("Allocate PML4 for L2 node\n");
             l2_vnode_type = ObjType_VNode_x86_64_pml4;
             addr = addr & ~((512UL << 30) - 1);
             end_addr = addr + (512UL << 30) - 1;
@@ -441,7 +441,7 @@ static errval_t driverkit_iommu_vnode_get_l2(struct iommu_client *cl,
             *retslot = X86_64_PML4_BASE(addr);
             break;
         case ObjType_VNode_x86_64_pml4 :
-            debug_printf("Allocate PDPT for L2 node\n");
+            DRIVERKIT_DEBUG("Allocate PDPT for L2 node\n");
             l2_vnode_type = ObjType_VNode_x86_64_pdpt;
             addr = addr & ~X86_64_HUGE_PAGE_MASK;
             end_addr = addr + X86_64_HUGE_PAGE_SIZE - 1;
@@ -449,7 +449,7 @@ static errval_t driverkit_iommu_vnode_get_l2(struct iommu_client *cl,
             *retslot = X86_64_PDPT_BASE(addr);
             break;
         case ObjType_VNode_x86_64_pdpt :
-            debug_printf("Allocate PDIR for L2 node\n");
+            DRIVERKIT_DEBUG("Allocate PDIR for L2 node\n");
             l2_vnode_type = ObjType_VNode_x86_64_pdir;
             addr = addr & ~X86_64_LARGE_PAGE_MASK;
             end_addr = addr + X86_64_LARGE_PAGE_SIZE - 1;
@@ -457,7 +457,7 @@ static errval_t driverkit_iommu_vnode_get_l2(struct iommu_client *cl,
             *retslot = X86_64_PDIR_BASE(addr);
             break;
         case ObjType_VNode_x86_64_pdir :
-            debug_printf("Allocate PTABLE for L2 node\n");
+            DRIVERKIT_DEBUG("Allocate PTABLE for L2 node\n");
             l2_vnode_type = ObjType_VNode_x86_64_ptable;
             addr = addr & ~X86_64_BASE_PAGE_MASK;
             end_addr = addr + X86_64_BASE_PAGE_SIZE - 1;
@@ -592,16 +592,16 @@ errval_t driverkit_iommu_client_init_cl(struct capref ep, struct iommu_client **
     assert(id.type == icl->root_vnode_type);
     switch(icl->root_vnode_type) {
         case ObjType_VNode_x86_64_pml4 :
-            debug_printf("%s. PML4 @ 0x%lx for rootvnode\n", __FUNCTION__, id.base);
+            DRIVERKIT_DEBUG("%s. PML4 @ 0x%lx for rootvnode\n", __FUNCTION__, id.base);
             break;
         case ObjType_VNode_x86_64_pdpt :
-            debug_printf("%s. PDPT @ 0x%lx for rootvnode\n", __FUNCTION__, id.base);
+            DRIVERKIT_DEBUG("%s. PDPT @ 0x%lx for rootvnode\n", __FUNCTION__, id.base);
             break;
         case ObjType_VNode_x86_64_pdir :
-            debug_printf("%s. PDIR @ 0x%lx for rootvnode\n", __FUNCTION__, id.base);
+            DRIVERKIT_DEBUG("%s. PDIR @ 0x%lx for rootvnode\n", __FUNCTION__, id.base);
             break;
         case ObjType_VNode_VTd_ctxt_table :
-            debug_printf("%s. CTXT @ 0x%lx for rootvnode\n", __FUNCTION__, id.base);
+            DRIVERKIT_DEBUG("%s. CTXT @ 0x%lx for rootvnode\n", __FUNCTION__, id.base);
             break;
         default:
             break;
@@ -996,7 +996,7 @@ errval_t driverkit_iommu_map(struct iommu_client *cl, struct capref dst,
 
     assert(cl);
 
-    debug_printf("mapping slot=%u, attr=%lx, offset=%lx, count=%lu]\n",
+    DRIVERKIT_DEBUG("mapping slot=%u, attr=%lx, offset=%lx, count=%lu]\n",
                             slot, attr, off, count);
 
     errval_t msgerr;
@@ -1113,7 +1113,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
      * vspace. Only if the policy is not shared, then we have to map it.
      */
     if (cl == NULL || cl->policy != IOMMU_VSPACE_POLICY_SHARED || !cl->enabled) {
-        debug_printf("%s:%u mapping in driver at 0x%" PRIxLVADDR "\n",
+        DRIVERKIT_DEBUG("%s:%u mapping in driver at 0x%" PRIxLVADDR "\n",
                      __FUNCTION__, __LINE__, dmem->vbase);
         if (dmem->vbase == 0) {
             err = vspace_map_one_frame_attr((void **)&dmem->vbase, dmem->size,
@@ -1190,7 +1190,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         /* fits all in one */
         if ((ptecount + slot) < max_pte) {
             /* map the vnodes */
-            debug_printf("%s:%u mapping in device address space 0x%" PRIxGENVADDR "\n",
+            DRIVERKIT_DEBUG("%s:%u mapping in device address space 0x%" PRIxGENVADDR "\n",
                          __FUNCTION__, __LINE__, dmem->devaddr+offset);
             err = driverkit_iommu_map(cl, vnode->vnode, dmem->mem, slot, flags,
                                       offset, ptecount);
@@ -1201,7 +1201,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
             return SYS_ERR_OK;
         } else {
 
-            debug_printf("%s:%u mapping in device address space 0x%" PRIxGENVADDR "\n",
+            DRIVERKIT_DEBUG("%s:%u mapping in device address space 0x%" PRIxGENVADDR "\n",
                          __FUNCTION__, __LINE__, dmem->devaddr+offset);
 
             err = driverkit_iommu_map(cl, vnode->vnode, dmem->mem, slot, flags,
@@ -1214,7 +1214,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
             offset += (pagesize * (max_pte - slot));
             ptecount -= (max_pte - slot);
 
-            debug_printf("mapped slots [%lu..%lu], offset now %lx (%lx), ptecount=%lu\n",
+            DRIVERKIT_DEBUG("mapped slots [%lu..%lu], offset now %lx (%lx), ptecount=%lu\n",
                          slot, max_pte, offset, pagesize, ptecount);
         }
     }
