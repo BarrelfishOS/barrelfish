@@ -29,6 +29,9 @@
 #include "benchmark.h"
 
 
+#define ENABLE_NETWORKING 1
+
+
 #define HLINE debug_printf("========================================================\n");
 #define hline debug_printf("--------------------------------------------------------\n");
 #define PRINTF(x...) debug_printf("[HW Models] " x)
@@ -67,7 +70,10 @@ static int32_t driverkit_lookup_node_id(const char *path)
 static int32_t node_id_dma = -1;
 static int32_t node_id_offload_core = -1;
 static int32_t node_id_self = -1;
+static int32_t node_id_ram = -1;
+#if ENABLE_NETWORKING
 static int32_t node_id_network = -1;
+#endif
 
 #define OFFLOAD_PATH "k1om/sbin/hwmodel/offload"
 #define XEON_PHI_ID 0
@@ -85,22 +91,31 @@ static void get_node_ids(void)
     PRINTF("node id dma is %d\n", node_id_dma);
 
     node_id_offload_core = xeon_phi_client_get_node_id(XEON_PHI_ID,
-                                                      "core: 1");
+                                                       "core: 1");
     PRINTF("node id offload is %d\n", node_id_offload_core);
 
+    #if ENABLE_NETWORKING
     node_id_network = driverkit_lookup_node_id("e1000");
     PRINTF("node id network is %d\n", node_id_offload_core);
+    #endif
+
+    node_id_ram = driverkit_lookup_node_id("numanode:0");
+    PRINTF("node id ram is %d\n", node_id_offload_core);
 
     if (node_id_self == -1 || node_id_offload_core == -1
-            || node_id_dma == -1 || node_id_network == -1) {
+            || node_id_dma == -1 || node_id_ram == -1
+    #if ENABLE_NETWORKING
+        || node_id_network == -1
+    #endif
+    ) {
         USER_PANIC("Failed to obtain node id\n");
     }
 }
 
 
 static errval_t driverkit_frame_alloc(struct capref *dst,
-                                      size_t bytes,
-                                      int32_t *nodes, size_t len)
+                                      size_t bytes, int32_t dstnode,
+                                      int32_t *nodes)
 {
     return LIB_ERR_NOT_IMPLEMENTED;
 }
@@ -136,10 +151,13 @@ int main(int argc,  char **argv)
     PRINTF("Allocating memory for data processing\n");
 
     struct capref mem;
-    int32_t nodes_data[3] = {
-            node_id_dma, node_id_self, 0
-    };
-    err = driverkit_frame_alloc(&mem, DATA_SIZE, nodes_data, 2);
+    int32_t nodes_data[] = {
+        node_id_dma, node_id_self,
+    #if ENABLE_NETWORKING
+        node_id_network,
+    #endif
+         0};
+    err = driverkit_frame_alloc(&mem, DATA_SIZE, node_id_ram, nodes_data);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to allocate memory\n");
     }
@@ -167,10 +185,10 @@ int main(int argc,  char **argv)
     PRINTF("Allocating memory for message passing\n");
 
     struct capref msgframemem;
-    int32_t nodes_msg[3] = {
+    int32_t nodes_msg[] = {
             node_id_offload_core, node_id_self, 0
     };
-    err = driverkit_frame_alloc(&msgframemem, MSG_FRAME_SIZE, nodes_msg, 2);
+    err = driverkit_frame_alloc(&msgframemem, MSG_FRAME_SIZE, node_id_ram, nodes_msg);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to allocate memory\n");
     }
@@ -187,10 +205,10 @@ int main(int argc,  char **argv)
     PRINTF("Allocating memory on the co-processor\n");
 
     struct capref offloadmem;
-    int32_t nodes_offload[3] = {
+    int32_t nodes_offload[] = {
             node_id_offload_core, node_id_dma, 0
     };
-    err = driverkit_frame_alloc(&offloadmem, DATA_SIZE, nodes_offload, 2);
+    err = driverkit_frame_alloc(&offloadmem, DATA_SIZE, node_id_ram,  nodes_offload);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to allocate memory\n");
     }
