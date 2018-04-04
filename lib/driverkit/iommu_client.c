@@ -382,7 +382,6 @@ static inline errval_t iommu_get_mapping_region(struct iommu_client *cl,
                                                 uint16_t *rootvnodeslot)
 {
     assert(rootvnodeslot != NULL);
-    debug_printf("iommu_client line=%d\n", __LINE__);
     int32_t device_nodeid = driverkit_iommu_get_nodeid(cl);
     errval_t err = skb_execute_query(
         "enum_node_id(%d,Id),alloc_root_vnodeslot(Id, Slot),write(Slot)",
@@ -399,21 +398,12 @@ static inline errval_t iommu_get_mapping_region(struct iommu_client *cl,
         return err;
     }
 
-    // HACK
-    assert(*rootvnodeslot == 2);
-    // ENDHACK
-
-    err = skb_read_output("%hu", rootvnodeslot);
-    if(err_is_fail(err)){
-        DEBUG_SKB_ERR(err, "parse root_vnodeslot output");
-        return err;
-    }
+    debug_printf("%s: determined rootvnodeslot=%"PRIu16"\n", __FUNCTION__, *rootvnodeslot);
 
     *start = ROOT_SLOT_MEM_SIZE * (*rootvnodeslot) ;
     *end = ROOT_SLOT_MEM_SIZE * (*rootvnodeslot) + ROOT_SLOT_MEM_SIZE-1;
 
     assert(*rootvnodeslot == X86_64_PML4_BASE(*start));
-    debug_printf("iommu_client line=%d\n", __LINE__);
     return err;
 }
 

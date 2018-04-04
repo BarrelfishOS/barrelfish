@@ -520,6 +520,7 @@ get_or_alloc_node_enum(NodeId, Enum) :-
 :- export add_process_alloc/1.
 :- export dram_nodeid/1.
 :- export alloc_root_vnodeslot/2.
+:- export free_root_vnodeslot/2.
 
 :- dynamic pci_address_node_id/2.
 :- export pci_address_node_id/2.
@@ -527,10 +528,12 @@ get_or_alloc_node_enum(NodeId, Enum) :-
 :- export process_node_id/2.
 
 alloc_root_vnodeslot(NodeId, Slot) :-
-    alloc_one(root_vnodeslot(NodeId), Slot).
+    alloc_one(root_vnodeslot(NodeId), Tmp),
+    Slot is Tmp + 2.
 
 free_root_vnodeslot(NodeId, Slot) :-
-    free_one(root_vnodeslot(NodeId), Slot).
+    Tmp is Slot - 2,
+    free_one(root_vnodeslot(NodeId), Tmp).
 
 dram_nodeid(NodeId) :- NodeId = ["DRAM"].
 
@@ -593,10 +596,7 @@ add_pci_alloc(Addr) :-
     % Set it to the node id where addresses are issued from the PCI device
     OutNodeId = ["OUT", "PCI0", Enum],
     assert(enum_node_id(Enum, OutNodeId)),
-    assert(pci_address_node_id(Addr, Enum)),
-    % allocate two root vnode slots for the process' address space
-    alloc_root_vnodeslot(OutNodeId,_),
-    alloc_root_vnodeslot(OutNodeId,_).
+    assert(pci_address_node_id(Addr, Enum)).
 
 add_process_alloc(Enum) :-
     alloc_node_enum(Enum),
