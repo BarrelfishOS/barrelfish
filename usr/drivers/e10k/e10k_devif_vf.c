@@ -198,8 +198,17 @@ static void device_init(void)
 
     // Wait for link to come up
     DEBUG_VF("Waiting for Link\n");
-    while (e10k_vf_vflinks_lnk_up_rdf(vf->d) == 0); // TODO: Timeout and Uncomment
-    DEBUG_VF("Link Up\n");
+    uint8_t num_tries = 0;
+    while((e10k_vf_vflinks_lnk_up_rdf(vf->d) == 0) && (num_tries < 100)) {
+        num_tries++;
+        milli_sleep(100);
+    }
+
+    if (num_tries == 100) {
+        DEBUG("Link failed to come up\n");
+    } else {
+        DEBUG("Link Up\n");
+    }
     milli_sleep(50);
 
     // Initialize interrupts

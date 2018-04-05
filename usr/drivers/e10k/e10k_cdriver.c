@@ -617,9 +617,18 @@ static void device_init(struct e10k_driver_state* st)
 
     DEBUG("DMA UP\n");
     // Wait for link to come up
-    while(e10k_links_lnk_up_rdf(st->d) == 0);
+    uint8_t num_tries = 0;
+    while((e10k_links_lnk_up_rdf(st->d) == 0) && (num_tries < 100)) {
+        num_tries++;
+        milli_sleep(100);
+    }
 
-    DEBUG("Link Up\n");
+    if (num_tries == 100) {
+        DEBUG("Link failed to come up\n");
+    } else {
+        DEBUG("Link Up\n");
+    }
+
     milli_sleep(50);
 
     // Initialize interrupts
@@ -1705,7 +1714,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     struct capref devcap = NULL_CAP;
     err = driverkit_get_iommu_cap(bfi, &devcap);
     
-
     if (!capref_is_null(devcap) && err_is_ok(err)) {
         DEBUG("VTD-Enabled initializing with VFs enabled \n");
         st->vtdon_dcboff = true;
@@ -1718,6 +1726,10 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
         DEBUG("VTD-Enabled initializing with VFs enabled \n");
     }
 
+
+    init_card(st);
+
+
     struct capref cap;
     // When started by Kaluga it handend off an endpoint cap to PCI
     err = driverkit_get_pci_cap(bfi, &cap);
@@ -1728,7 +1740,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     err = pci_client_connect_ep(cap);
     assert(err_is_ok(err));
 
-    init_card(st);
 
     struct capref intcap = NULL_CAP;
     err = driverkit_get_interrupt_cap(bfi, &intcap);
