@@ -19,6 +19,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/spawn_client.h>
+#include <skb/skb.h>
 
 #include <flounder/flounder_txqueue.h>
 
@@ -55,20 +56,70 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
     return LIB_ERR_NOT_IMPLEMENTED;
     #endif
 
-    struct xeon_phi *phi = arg;
-
-    struct dmem dmem;
-
-    /* map the frame in the iommu space */
-    err = driverkit_iommu_vspace_map_cl(phi->iommu_client, mem, VREGION_FLAGS_READ_WRITE, &dmem);
+    struct frame_identity id;
+    err = invoke_frame_identify(mem, &id);
     if (err_is_fail(err)) {
         return err;
     }
 
+    err = skb_client_connect();
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    #if 0
+
+    // asid = id.pasid
+    // addr = id.base
+    // size = id.bytes
+    err = skb_execute_query("TODO.");
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed to query the skb\n");
+        return err;
+    }
+
+    struct list_parser_status status;
+    skb_read_list_init(&status);
+
+    uint64_t tmp;
+    while(skb_read_list(&status, "TODO(%" SCNd64")", &tmp)) {
+
+        /* TODO: handle the constructs */
+
+    }
+
+
+    resolve(id, addr, xeonphiid)  -> [addr,
+                                      iommucfg(in,out),
+                                      smptconfig(in,out),
+                                      retaddr];
+
+
+
+    #endif
+
+    struct xeon_phi *phi = arg;
+
+
+
+    /* map the frame in the iommu space */
+
+
     // set the
+    if (id.base + id.bytes < phi->apt.pbase) {
+        struct dmem dmem;
+        err = driverkit_iommu_vspace_map_cl(phi->iommu_client, mem, VREGION_FLAGS_READ_WRITE, &dmem);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        *retaddr = dmem.devaddr + XEON_PHI_SYSMEM_BASE;
+    } else {
+        *retaddr = id.base - phi->apt.pbase;
+    }
 
     /* xxx */
 
-    return LIB_ERR_NOT_IMPLEMENTED;
+    return SYS_ERR_OK;
 
 }
