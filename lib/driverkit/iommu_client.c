@@ -27,6 +27,9 @@
 
 #include "debug.h"
 
+// Disable using the model for allocation
+//#define DISABLE_MODEL
+
 struct iommu_vnode_l2
 {
     enum objtype           vnode_type;
@@ -206,10 +209,15 @@ static errval_t iommu_alloc_ram(struct iommu_client *st,
     if (bytes < (LARGE_PAGE_SIZE)) {
         bytes = LARGE_PAGE_SIZE;
     }
+
+
     int bits = log2ceil(bytes);
     bytes = 1 << bits;
 
-    debug_printf("iommu_alloc_ram bytes=%lu\n", bytes);
+#ifdef DISABLE_MODEL
+    return ram_alloc(retcap, bits);
+#endif
+    //debug_printf("iommu_alloc_ram bytes=%lu\n", bytes);
 
     // Alloc cap slot
     err = slot_alloc(retcap);
@@ -309,11 +317,25 @@ static errval_t iommu_alloc_vregion(struct iommu_client *st,
         return err;
     }
 
+#ifdef DISABLE_MODEL
+    if(st == NULL || !st->enabled){
+        *device = id.base;   
+        *driver = vregion_map_base;
+        vregion_map_base += id.bytes;
+        return SYS_ERR_OK;
+    } else {
+        *device = vregion_map_base;
+        *driver = vregion_map_base;
+        vregion_map_base += id.bytes;
+        return SYS_ERR_OK;
+    }
+#else
     if(st == NULL){
         *device = id.base;   
         *driver = 0;
         return SYS_ERR_OK;
     }
+#endif
 
     assert(id.bytes >= LARGE_PAGE_SIZE);
     assert(st != NULL);
@@ -1231,8 +1253,6 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
      * vspace. Only if the policy is not shared, then we have to map it.
      */
     if (cl == NULL || cl->policy != IOMMU_VSPACE_POLICY_SHARED || !cl->enabled) {
-        DRIVERKIT_DEBUG("%s:%u mapping in driver at 0x%" PRIxLVADDR "\n",
-                     __FUNCTION__, __LINE__, dmem->vbase);
         if (dmem->vbase == 0) {
             err = vspace_map_one_frame_attr((void **)&dmem->vbase, dmem->size,
                                             dmem->mem, flags, NULL, NULL);
@@ -1240,6 +1260,8 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
             err = vspace_map_one_frame_fixed_attr(dmem->vbase, dmem->size,
                                                   dmem->mem, flags, NULL, NULL);
         }
+        DRIVERKIT_DEBUG("%s:%u mapping in driver at 0x%" PRIxLVADDR "\n",
+                     __FUNCTION__, __LINE__, dmem->vbase);
 
         if (err_is_fail(err)) {
             goto err_out;
@@ -1424,6 +1446,10 @@ errval_t driverkit_iommu_vspace_modify_flags(struct dmem *dmem,
 errval_t driverkit_iommu_alloc_frame(struct iommu_client *cl, size_t bytes,
                                      struct capref *retframe)
 {
+    if (bytes < (LARGE_PAGE_SIZE)) {
+        bytes = LARGE_PAGE_SIZE;
+    }
+
     if (cl == NULL) {
         return frame_alloc(retframe, bytes, NULL);
     } else {
@@ -1517,10 +1543,17 @@ errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
     errval_t err;
 
     struct capref frame;
+#ifdef DISABLE_MODEL
+    err = driverkit_iommu_alloc_frame(NULL, bytes, &frame);
+    if (err_is_fail(err)) {
+        return err;
+    }
+#else
     err = driverkit_iommu_alloc_frame(cl, bytes, &frame);
     if (err_is_fail(err)) {
         return err;
     }
+#endif
 
     err = driverkit_iommu_vspace_map_cl(cl, frame, flags, mem);
     if (err_is_fail(err)) {
