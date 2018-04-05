@@ -65,7 +65,7 @@ struct tftp_client tftp_client;
 static errval_t tftp_client_send_data(struct net_socket *socket, uint32_t blockno, void *buf,
                                       uint32_t length, struct in_addr addr, uint16_t port)
 {
-    void *payload = tftp_client.ppayload;
+    void *payload = net_alloc(TFTP_MAX_MSGSIZE); //tftp_client.ppayload;
     errval_t err;
 
     size_t offset = set_opcode(payload, TFTP_OP_DATA);
@@ -161,8 +161,7 @@ static void tftp_client_handle_read(struct net_socket *socket, void *data,
                 }
                 memcpy(tftp_client.buf + tftp_client.bytes, buf, length);
 
-                int r = tftp_send_ack(socket, blockno, ip_address, port,
-                                      tftp_client.ppayload);
+                int r = tftp_send_ack(socket, blockno, ip_address, port);
                 if (r != SYS_ERR_OK) {
                     tftp_client.state = TFTP_ST_ERROR;
                     break;
@@ -175,9 +174,8 @@ static void tftp_client_handle_read(struct net_socket *socket, void *data,
                     tftp_client.state = TFTP_ST_LAST_ACK_SENT;
                 }
             } else  {
-                TFTP_DEBUG("got double packet: %u\n", blockno);
-                int r = tftp_send_ack(socket, blockno, ip_address, port,
-                                      tftp_client.ppayload);
+                TFTP_DEBUG("got double packet: %u instead of %u\n", blockno, tftp_client.block);
+                int r = tftp_send_ack(socket, blockno, ip_address, port);
                 if (r != SYS_ERR_OK) {
                     tftp_client.state = TFTP_ST_ERROR;
                     break;
@@ -218,12 +216,18 @@ static void tftp_client_recv_handler(void *user_state, struct net_socket *socket
     }
 }
 
+static void tftp_client_sent_handler(void *user_state, struct net_socket *socket,
+                                     void *data, size_t size)
+{
+    net_free(data);
+}
+
 static void new_request(char *path, tpft_op_t opcode)
 {
     size_t path_length = strlen(path);
     assert(strlen(path) + 14 < TFTP_MAX_MSGSIZE);
 
-    void *payload = tftp_client.ppayload;
+    void *payload = net_alloc(TFTP_MAX_MSGSIZE); //tftp_client.ppayload;
 
     memset(payload, 0, path_length + 16);
 
@@ -306,7 +310,6 @@ errval_t tftp_client_read_file(char *path, void *buf, size_t buflen, size_t *ret
 }
 
 
-
 /**
  * \brief attempts to initialize a new TFTP connection to a server
  *
@@ -358,7 +361,7 @@ errval_t tftp_client_connect(char *ip, uint16_t port)
 
     TFTP_DEBUG("registering recv handler\n");
     net_set_on_received(tftp_client.pcb, tftp_client_recv_handler);
-
+    net_set_on_sent(tftp_client.pcb, tftp_client_sent_handler);
     tftp_client.state = TFTP_ST_IDLE;
     tftp_client.mode = TFTP_MODE_OCTET;
     tftp_client.ppayload = net_alloc(TFTP_MAX_MSGSIZE);
