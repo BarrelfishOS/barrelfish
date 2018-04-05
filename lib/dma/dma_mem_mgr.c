@@ -252,7 +252,7 @@ void dma_mem_mgr_set_convert_fn(struct dma_mem_mgr *mem_mgr,
  *          errval on failure
  */
 errval_t dma_mem_register(struct dma_mem_mgr *mem_mgr,
-                          struct capref cap)
+                          struct capref cap, genpaddr_t *retaddr)
 {
     errval_t err;
 
@@ -275,10 +275,12 @@ errval_t dma_mem_register(struct dma_mem_mgr *mem_mgr,
     entry->size = frame_id.bytes;
 
     if (mem_mgr->convert) {
-        entry->paddr = mem_mgr->convert(mem_mgr->convert_arg, frame_id.base,
-                                        entry->size);
+        err = mem_mgr->convert(mem_mgr->convert_arg, cap, &entry->paddr);
         DMAMEM_DEBUG("converted base address [0x%016lx] -> [0x%016lx]\n",
                      frame_id.base, entry->paddr);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
     if ((entry->paddr == 0) || (entry->paddr < mem_mgr->range_min)
@@ -291,6 +293,10 @@ errval_t dma_mem_register(struct dma_mem_mgr *mem_mgr,
     if (err_is_fail(err)) {
         free(entry);
         return err;
+    }
+
+    if (retaddr) {
+        *retaddr = entry->paddr;
     }
 
     return SYS_ERR_OK;
@@ -323,10 +329,12 @@ errval_t dma_mem_deregister(struct dma_mem_mgr *mem_mgr,
 
     lpaddr_t addr = frame_id.base;
     if (mem_mgr->convert) {
-        addr = mem_mgr->convert(mem_mgr->convert_arg, frame_id.base,
-                                frame_id.bytes);
+        err = mem_mgr->convert(mem_mgr->convert_arg, cap, &addr);
         DMAMEM_DEBUG("converted base address [0x%016lx] -> [0x%016lx]\n",
                      frame_id.base, addr);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 
     if (addr == 0) {
@@ -361,12 +369,13 @@ errval_t dma_mem_verify(struct dma_mem_mgr *mem_mgr,
                         lpaddr_t *dma_addr)
 {
     lpaddr_t daddr = addr;
-
+# if 0
     if (mem_mgr->convert) {
         daddr = mem_mgr->convert(mem_mgr->convert_arg, addr, bytes);
         DMAMEM_DEBUG("converted base address [0x%016lx] -> [0x%016lx]\n", addr,
                      daddr);
     }
+#endif
 
     DMAMEM_DEBUG("Verify DMA memory range [0x%016lx, 0x%016lx]\n", daddr,
                   daddr + bytes);

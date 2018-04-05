@@ -97,7 +97,7 @@ errval_t ioat_device_poll(void)
     return SYS_ERR_OK;
 }
 
-#define TEST_IMPLEMENTATION 1
+#define TEST_IMPLEMENTATION 0
 #if TEST_IMPLEMENTATION
 #include <dma/dma_bench.h>
 

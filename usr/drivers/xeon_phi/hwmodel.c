@@ -36,6 +36,7 @@
 #include "sysmem_caps.h"
 
 
+#include <driverkit/driverkit.h>
 #include <driverkit/iommu.h>
 #include "xeon_phi_internal.h"
 
@@ -47,16 +48,27 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
                                             struct capref mem,
                                             genpaddr_t *retaddr)
 {
+    errval_t err;
+
     /* query the model */
     #ifdef __k1om__
     return LIB_ERR_NOT_IMPLEMENTED;
     #endif
 
-    //struct xeon_phi *phi = arg;
+    struct xeon_phi *phi = arg;
+
+    struct dmem dmem;
+
+    /* map the frame in the iommu space */
+    err = driverkit_iommu_vspace_map_cl(phi->iommu_client, mem, VREGION_FLAGS_READ_WRITE, &dmem);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
     // set the
 
     /* xxx */
 
     return LIB_ERR_NOT_IMPLEMENTED;
+
 }

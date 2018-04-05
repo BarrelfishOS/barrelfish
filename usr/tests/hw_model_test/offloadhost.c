@@ -23,7 +23,7 @@
 #include <dma/client/dma_client_device.h>
 #include <dma/dma_manager_client.h>
 
-
+#include <driverkit/hwmodel.h>
 #include <driverkit/iommu.h>
 
 #include <if/xomp_defs.h>
@@ -56,15 +56,7 @@ static struct xeon_phi_callbacks callbacks = {
 };
 
 
-static int32_t driverkit_get_my_node_id(void)
-{
-    return -1;
-}
 
-static int32_t driverkit_lookup_node_id(const char *path)
-{
-    return -1;
-}
 
 struct xomp_binding *coprocessor = NULL;
 static bool work_is_done = false;
@@ -87,7 +79,7 @@ static int32_t node_id_network = -1;
 static void get_node_ids(void)
 {
     PRINTF("Obtaining ");
-    node_id_self = driverkit_get_my_node_id();
+    node_id_self = driverkit_hwmodel_get_my_node_id();
     PRINTF("node id self is %d\n", node_id_self);
 
     node_id_dma = xeon_phi_client_get_node_id(XEON_PHI_ID, "dma");
@@ -98,11 +90,11 @@ static void get_node_ids(void)
     PRINTF("node id offload is %d\n", node_id_offload_core);
 
     #if ENABLE_NETWORKING
-    node_id_network = driverkit_lookup_node_id("e1000");
+    node_id_network = driverkit_hwmodel_lookup_node_id("e1000");
     PRINTF("node id network is %d\n", node_id_offload_core);
     #endif
 
-    node_id_ram = driverkit_lookup_node_id("numanode:0");
+    node_id_ram = driverkit_hwmodel_lookup_node_id("numanode:0");
     PRINTF("node id ram is %d\n", node_id_offload_core);
 
     if (node_id_self == -1 || node_id_offload_core == -1
@@ -115,20 +107,6 @@ static void get_node_ids(void)
     }
 }
 
-
-static errval_t driverkit_frame_alloc(struct capref *dst,
-                                      size_t bytes, int32_t dstnode,
-                                      int32_t *nodes)
-{
-    return LIB_ERR_NOT_IMPLEMENTED;
-}
-
-
-static errval_t driverkit_vspace_map(int32_t nodeid, struct capref frame,
-                                     vregion_flags_t flags, struct dmem *dmem)
-{
-    return LIB_ERR_NOT_IMPLEMENTED;
-}
 
 
 static void notify_rx(struct xomp_binding *_binding, uint64_t arg, errval_t err)
@@ -198,7 +176,7 @@ int main(int argc,  char **argv)
         node_id_network,
     #endif
          0};
-    err = driverkit_frame_alloc(&mem, DATA_SIZE, node_id_ram, nodes_data);
+    err = driverkit_hwmodel_frame_alloc(&mem, DATA_SIZE, node_id_ram, nodes_data);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to allocate memory\n");
     }
@@ -207,7 +185,7 @@ int main(int argc,  char **argv)
 
     PRINTF("Mapping area of memory.\n");
     struct dmem dmem;
-    err = driverkit_vspace_map(node_id_self, mem, VREGION_FLAGS_READ_WRITE,
+    err = driverkit_hwmodel_vspace_map(node_id_self, mem, VREGION_FLAGS_READ_WRITE,
                                &dmem);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to map the memory\n");
@@ -232,13 +210,13 @@ int main(int argc,  char **argv)
     int32_t nodes_msg[] = {
             node_id_offload_core, node_id_self, 0
     };
-    err = driverkit_frame_alloc(&msgframemem, MSG_FRAME_SIZE, node_id_ram, nodes_msg);
+    err = driverkit_hwmodel_frame_alloc(&msgframemem, MSG_FRAME_SIZE, node_id_ram, nodes_msg);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to allocate memory\n");
     }
 
     struct dmem msgmem;
-    err = driverkit_vspace_map(node_id_self, msgframemem, VREGION_FLAGS_READ_WRITE,
+    err = driverkit_hwmodel_vspace_map(node_id_self, msgframemem, VREGION_FLAGS_READ_WRITE,
                                &msgmem);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to map the memory\n");
@@ -254,7 +232,7 @@ int main(int argc,  char **argv)
     int32_t nodes_offload[] = {
             node_id_offload_core, node_id_dma, 0
     };
-    err = driverkit_frame_alloc(&offloadmem, DATA_SIZE, node_id_ram,  nodes_offload);
+    err = driverkit_hwmodel_frame_alloc(&offloadmem, DATA_SIZE, node_id_ram,  nodes_offload);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to allocate memory\n");
     }
