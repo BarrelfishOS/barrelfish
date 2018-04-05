@@ -30,6 +30,7 @@
       "smpt.c",
       "sysmem_caps.c",
       "domain.c",
+      "hwmodel.c",
       "xphi_service.c",
       "sleep.c",
       "dma_service.c"
@@ -89,7 +90,8 @@
       "interphi.c",
       "xphi_service.c",
       "smpt.c",
-      "dma_service.c" 
+      "dma_service.c",
+      "hwmodel.c"
     ],                      
     flounderDefs = [
       "interphi",

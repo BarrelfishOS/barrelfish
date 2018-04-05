@@ -209,6 +209,106 @@ static struct dma_service_cb dma_svc_cb = {
     .memcpy = dma_svc_memcpy_cb
 };
 #endif
+
+
+errval_t xdma_state_init(struct xeon_phi *phi, struct dma_mem_mgr **retst)
+{
+    errval_t err;
+
+    #ifdef __k1om__
+    return LIB_ERR_NOT_IMPLEMENTED;
+    #endif
+
+    XDMA_DEBUG("dma_svc_connect_cb user_st = %p\n", st);
+
+    err = dma_mem_mgr_init(retst, 0x0, (1UL << 48) - 1);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    dma_mem_mgr_set_convert_fn(*retst, xeon_phi_hw_model_query_and_config, phi);
+
+    return SYS_ERR_OK;
+}
+
+errval_t xdma_register_region(struct xeon_phi *phi, struct dma_mem_mgr *st,
+                              struct capref cap, uint64_t *addr)
+{
+    errval_t err;
+
+    XDMA_DEBUG("dma_svc_addregion_cb user_st = %p\n", user_st);
+
+    #ifdef __k1om__
+    return LIB_ERR_NOT_IMPLEMENTED;
+    #endif
+
+    struct frame_identity id;
+    err = invoke_frame_identify(cap, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = dma_mem_register(st, cap, addr);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+#include <flounder/flounder_txqueue.h>
+static void memcpy_req_cb(errval_t err,
+                          dma_req_id_t id,
+                          void *st)
+{
+    XDMA_DEBUG("memcpy_req_cb %lx, %s\n", id, err_getstring(err));
+    txq_send((struct txq_msg_st *)st);
+}
+
+errval_t xdma_memcpy(struct xeon_phi *phi, struct dma_mem_mgr *st, uint64_t to, uint64_t from,
+                     uint64_t length, struct txq_msg_st *txst)
+{
+    errval_t err;
+
+    XDMA_DEBUG("xdma_memcpy st = %p\n", txst);
+
+    #ifdef __k1om__
+    return LIB_ERR_NOT_IMPLEMENTED;
+    #endif
+
+    lpaddr_t dma_dst, dma_src;
+    err = dma_mem_verify(st, to, length, &dma_dst);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = dma_mem_verify(st, from, length, &dma_src);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    XDMA_DEBUG("[%016lx]->[%016lx] of %lu bytes\n", dma_src, dma_dst, bytes);
+
+    /* both addresses are valid and have been translated now */
+    struct dma_device *dev = phi->dma;
+    assert(dev);
+
+    struct dma_req_setup setup = {
+            .type = DMA_REQ_TYPE_MEMCPY,
+            .done_cb = memcpy_req_cb,
+            .cb_arg = txst,
+            .args = {
+                    .memcpy = {
+                            .src = dma_src,
+                            .dst = dma_dst,
+                            .bytes = length
+                    }
+            }
+    };
+
+    return dma_request_memcpy(dev, &setup, NULL);
+}
+
+
 /**
  * \brief initializes the Xeon Phi DMA devices and the service
  *

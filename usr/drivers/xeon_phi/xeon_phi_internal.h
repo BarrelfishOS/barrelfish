@@ -224,5 +224,8 @@ errval_t xeon_phi_unmap_aperture(struct xeon_phi *phi);
  */
 errval_t xeon_phi_event_poll(uint8_t do_yield);
 
+errval_t xeon_phi_hw_model_query_and_config(void *arg,
+                                            struct capref mem,
+                                            genpaddr_t *retaddr);
 
 #endif /* XEON_PHI_H_ */

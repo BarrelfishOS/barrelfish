@@ -13,6 +13,9 @@
 #include <dma/dma.h>
 #include <dma/dma_device.h>
 
+struct txq_msg_st;
+struct dma_mem_mgr;
+
 /**
  * \brief initializes the Xeon Phi DMA devices and the service
  *
@@ -21,6 +24,12 @@
  * \returns SYS_ERR_OK on success
  */
 errval_t xdma_service_init(struct xeon_phi *phi);
+
+errval_t xdma_state_init(struct xeon_phi *phi, struct dma_mem_mgr **st);
+errval_t xdma_register_region(struct xeon_phi *phi, struct dma_mem_mgr *st,
+                              struct capref cap, uint64_t *addr);
+errval_t xdma_memcpy(struct xeon_phi *phi, struct dma_mem_mgr *st, uint64_t to, uint64_t from,
+                     uint64_t length, struct txq_msg_st *txst);
 
 /**
  *
