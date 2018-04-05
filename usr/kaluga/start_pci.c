@@ -93,8 +93,9 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
  * For devices store the endpoints to PCI and Kaluga
  * into driver_arg.
  */
-static errval_t add_ep_args(struct pci_addr addr, coreid_t core, struct driver_argument
-                            *driver_arg, char* binary_name, char* module_name)
+static errval_t add_ep_args(struct pci_addr addr, struct pci_id id, coreid_t core, 
+                            struct driver_argument *driver_arg, char* binary_name, 
+                            char* module_name)
 {
     errval_t err, out_err;
     // Endpoint to PCI
@@ -112,7 +113,7 @@ static errval_t add_ep_args(struct pci_addr addr, coreid_t core, struct driver_a
     err = pci_binding->rpc_tx_vtbl.request_endpoint_cap(pci_binding, 
                        (core == my_core_id)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
                        addr.bus, addr.device, 
-                       addr.function, &pci_cap, &out_err);
+                       addr.function, id.vendor, id.device, &pci_cap, &out_err);
 
     if (err_is_fail(err) || err_is_fail(out_err)) {
         //slot_free(pci_cap);
@@ -419,7 +420,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         assert(err_is_ok(err));
 
         debug_printf("Adding endpoint args.\n");
-        err = add_ep_args(addr, core, &driver_arg, binary_name, module_name);
+        err = add_ep_args(addr, id, core, &driver_arg, binary_name, module_name);
         assert(err_is_ok(err));
 
         KALUGA_DEBUG("Adding model node to SKB.\n");

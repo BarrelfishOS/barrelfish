@@ -708,6 +708,19 @@ errval_t pci_client_connect(void)
     return err2;
 }
 
+errval_t pci_get_device_info(struct pci_addr* addr, struct pci_id* id)
+{
+    errval_t err;
+    if (pci_client != NULL) {
+        err = pci_client->rpc_tx_vtbl.get_device_addr(pci_client, &addr->bus,
+                                                      &addr->device, &addr->function,
+                                                      &id->vendor, &id->device);
+        return err;
+    } else {
+        return PCI_ERR_DEVICE_NOT_INIT;
+    } 
+}
+
 errval_t pci_client_connect_ep(struct capref ep)
 {
     errval_t err, err2 = SYS_ERR_OK;

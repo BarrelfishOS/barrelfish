@@ -50,6 +50,8 @@ struct client_state {
     uint32_t bus;
     uint32_t dev;
     uint32_t fun;
+    uint32_t vendor;
+    uint32_t devid;
     bool pcie;
     void *cont_st;
 };
@@ -597,6 +599,17 @@ static void get_nodeid_handler(struct pci_binding* b)
     assert(err_is_ok(err));
 }
 
+static void get_device_addr_handler(struct pci_binding* b)
+{
+    errval_t err;
+
+    struct client_state* state = (struct client_state* ) b->st;
+
+    err = b->tx_vtbl.get_device_addr_response(b, NOP_CONT, state->bus, state->dev,
+                                              state->fun, state->vendor, state->devid);
+    assert(err_is_ok(err));
+}
+
 struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
@@ -615,6 +628,7 @@ struct pci_rx_vtbl pci_rx_vtbl = {
     .msix_enable_addr_call = msix_enable_addr_handler,
     .msix_vector_init_call = msix_vector_init_handler,
     .msix_vector_init_addr_call = msix_vector_init_addr_handler,
+    .get_device_addr_call = get_device_addr_handler,
     .get_nodeid_call = get_nodeid_handler
 };
 
@@ -710,7 +724,8 @@ struct pci_iommu_rx_vtbl pci_iommu_rx_vtbl;
 
 static void request_endpoint_cap_handler(struct kaluga_binding* b, uint8_t type, 
                                          uint32_t bus, uint32_t device, 
-                                         uint32_t function)
+                                         uint32_t function, uint32_t vendor, 
+                                         uint32_t devid)
 {
     errval_t err, out_err;
     PCI_DEBUG("Kaluga requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
@@ -735,6 +750,8 @@ static void request_endpoint_cap_handler(struct kaluga_binding* b, uint8_t type,
     state->bus = bus;
     state->dev = device;
     state->fun = function;
+    state->vendor = vendor;
+    state->devid = devid;
     pci->st = state;
 
 reply:

@@ -192,4 +192,10 @@ errval_t pci_setup_int_routing_with_cap(int irq_idx,
                                         interrupt_handler_fn reloc_handler,
                                         void *reloc_handler_arg);
 
+/**
+ * Get info of PCI device
+ * \param addr       PCI address of the device must not be null.
+ * \param id         PCI id of the device must not be null.
+ */
+errval_t pci_get_device_info(struct pci_addr* addr, struct pci_id* id);
 #endif
