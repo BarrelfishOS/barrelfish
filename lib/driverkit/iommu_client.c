@@ -1463,18 +1463,16 @@ errval_t driverkit_iommu_alloc_vnode_cl(struct iommu_client *cl, enum objtype ty
     err = cl->binding->rpc_tx_vtbl.retype(cl->binding, ram, type, &msgerr,
                                           retvnode);
     if (err_is_fail(err)) {
-        goto err_out2;
+        goto err_out;
     }
 
     if (err_is_fail(msgerr)) {
         err = msgerr;
-        goto err_out2;
+        goto err_out;
     }
 
     return SYS_ERR_OK;
 
-    err_out2:
-    slot_free(*retvnode);
     err_out:
     iommu_free_ram(ram);
     return err;
