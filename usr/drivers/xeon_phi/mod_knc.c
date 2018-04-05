@@ -56,6 +56,8 @@ extern char *xeon_phi_mod_uri;
 extern char *xeon_phi_mod_list;
 
 
+bool started = false;
+
 
 /**
  * Driver initialization function. This function is called by the driver domain
@@ -81,6 +83,11 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     // 1. Initialize the device:
 
     debug_printf("[knc] attaching new co-processor\n");
+    if (started) {
+        debug_printf("[knc] skipping initialization of second knc\n");
+        return SYS_ERR_OK;
+    }
+    started = true;
 
     /* allocate the Xeon Phi state */
     struct xeon_phi *xphi = calloc(1, sizeof(*xphi));
