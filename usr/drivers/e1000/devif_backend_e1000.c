@@ -122,7 +122,6 @@ static errval_t e1000_enqueue_tx(e1000_queue_t *device, regionid_t rid,
                                uint64_t flags)
 {
     struct tx_desc tdesc;
-    //E1000_DEBUG("%s:%s: %lx:%ld:%ld:%ld:%lx\n", device->name, __func__, offset, length, valid_data, valid_length,                  flags);
     if (e1000_queue_free_txslots(device) == 0) {
         E1000_DEBUG("Not enough space in TX ring, not transmitting buffer \n" );
         return DEVQ_ERR_QUEUE_FULL;
@@ -155,6 +154,8 @@ static errval_t e1000_enqueue_tx(e1000_queue_t *device, regionid_t rid,
         tdesc.ctrl.legacy.cmd.d.ifcs = 1;
         tdesc.ctrl.legacy.cmd.d.rs = 1;
     }
+
+    E1000_DEBUG("%s:%s: %lx:%ld:%ld:%ld:%lx:%lx\n", device->name, __func__, offset, length, valid_data, valid_length,                  flags, tdesc.buffer_address);
 
     device->transmit_ring[device->transmit_tail] = tdesc;
     device->transmit_tail = (device->transmit_tail + 1) % DRIVER_TRANSMIT_BUFFERS;
@@ -371,6 +372,7 @@ static void e1000_setup_rx(e1000_queue_t *device, dmem_daddr_t base)
         e1000_mta_wr(hw_device, i, 0);
     }
 
+    E1000_DEBUG("%s:%s: RX base address %lx\n", device->name, __func__, base);
     switch (device->mac_type) {
         case e1000_82576:
         case e1000_I210:
@@ -469,6 +471,7 @@ static void e1000_setup_tx(e1000_queue_t *device,  dmem_daddr_t base)
 {
     e1000_t *hw_device = &device->hw_device;
 
+    E1000_DEBUG("%s:%s: TX base address %lx\n", device->name, __func__, base);
     switch (device->mac_type) {
         case e1000_82576:
         case e1000_I210:
@@ -608,8 +611,6 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
         device->advanced_descriptors = 0;
     }
 
-    //e1000_init(device, interrupt_mode);
-
     if (ep == NULL) {
         char service[128];
         snprintf(service, 128, "e1000_%x_%x_%x_%s", bus, pci_device, function, "devif");
@@ -673,7 +674,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
 
     void* va;
     err = vspace_map_one_frame_attr(&va, id.bytes, device->regs,
-                                    VREGION_FLAGS_READ_WRITE, NULL, NULL);
+                                    VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
     if (err_is_fail(err)) {
         goto error;
     }
@@ -687,7 +688,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
     }
 
     E1000_DEBUG("%s:%d: transmit ring \n", __func__, __LINE__);
-    device->tx_ring_size = DRIVER_TRANSMIT_BUFFERS*sizeof(struct tx_desc);
+    device->tx_ring_size = device->receive_buffers*sizeof(struct tx_desc);
     err = driverkit_iommu_mmap_cl(device->iommu, device->tx_ring_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
                                   &device->tx);
     device->transmit_ring = (void*) device->tx.vbase;
@@ -697,7 +698,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
     }
 
     E1000_DEBUG("%s:%d: receive ring \n", __func__, __LINE__);
-    device->rx_ring_size = DRIVER_TRANSMIT_BUFFERS*sizeof(union rx_desc);
+    device->rx_ring_size = device->transmit_buffers*sizeof(union rx_desc);
     err = driverkit_iommu_mmap_cl(device->iommu, device->rx_ring_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
                                   &device->rx);
     device->receive_ring = (void*) device->rx.vbase;
@@ -706,8 +707,8 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
         goto error;
     }
 
-    e1000_setup_rx(device, device->rx.devaddr);
     e1000_setup_tx(device, device->tx.devaddr);
+    e1000_setup_rx(device, device->rx.devaddr);
 
     err = devq_init(&device->q, false);
     assert(err_is_ok(err));
@@ -737,7 +738,8 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
     device->q.f.destroy = e1000_destroy;
     
     *q = device;
-
+    device->q.iommu = device->iommu;
+    
     return SYS_ERR_OK;
 
 error:

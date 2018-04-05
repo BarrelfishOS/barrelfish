@@ -519,7 +519,7 @@ static void e1000_set_media_type(struct e1000_driver_state *eds)
         eds->tbi_combaility = false;
     }
 
-    switch (eds->pdc.id.device) {
+    switch (eds->id.device) {
     case E1000_DEVICE_82545GM_SERDES:
     case E1000_DEVICE_82546GB_SERDES:
     case E1000_DEVICE_82571EB_SERDES:

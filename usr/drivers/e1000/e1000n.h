@@ -187,8 +187,10 @@ struct e1000_driver_state {
     /* Kaluga args */
     char **args;
     int args_len;
-
-    struct pcid pdc;
+    
+    /* PCI info*/
+    struct pci_addr addr;
+    struct pci_id id;
 
     /* Internal device info */
     e1000_media_type_t media_type;

@@ -162,18 +162,10 @@ static void setup_internal_memory(struct e1000_driver_state * eds)
 static errval_t e1000_init_msix_client(struct e1000_driver_state * eds) {
 
     errval_t err;
-    int num_bars = pcid_get_bar_num(&eds->pdc);
-    if(num_bars < 3){
-        E1000_DEBUG("Less than 3 BARs received. No MSIx support. #bars=%d\n",
-                num_bars);
-        return PCI_ERR_MSIX_NOTSUP;
-    }
-
-    E1000_DEBUG("MSIx BAR received. Instantiating ctrl client\n");
     struct capref bar2;
     lvaddr_t vaddr;
 
-    err = pcid_get_bar_cap(&eds->pdc, 2, &bar2);
+    err = driverkit_get_bar_cap(eds->bfi, 2, &bar2);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "pcid_get_bar_cap");
         E1000_PRINT_ERROR("Error: pcid_get_bar_cap. Will not initialize"
@@ -198,7 +190,6 @@ static errval_t e1000_init_msix_client(struct e1000_driver_state * eds) {
         DEBUG_ERR(err, "msix_client_init");
         return err;
     }
-
     return SYS_ERR_OK;
 }
 
@@ -488,8 +479,8 @@ static void export_devif_cb(void *st, errval_t err, iref_t iref)
     assert(err_is_ok(err));
 
     // Build label for interal management service
-    sprintf(name, "%s_%x_%x_%x_%s", s->service_name, s->pdc.addr.bus, s->pdc.addr.device, 
-            s->pdc.addr.function, suffix);
+    sprintf(name, "%s_%x_%x_%x_%s", s->service_name, s->addr.bus, s->addr.device, 
+            s->addr.function, suffix);
 
     err = nameservice_register(name, iref);
     assert(err_is_ok(err));
@@ -541,6 +532,11 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     if (err_is_fail(err)) {
         goto err_out;
     }
+    
+    err = pci_get_device_info(&eds->addr, &eds->id);
+    if (err_is_fail(err)) {
+        goto err_out;
+    }
 
     for (int i = 1; i < bfi->argc; i++) {
         E1000_DEBUG("arg %d = %s\n", i, bfi->argv[i]);
@@ -586,7 +582,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 
     E1000_DEBUG("Starting e1000 driver.\n");
 
-    eds->mac_type = e1000_get_mac_type(eds->pdc.id.vendor, eds->pdc.id.device);
+    eds->mac_type = e1000_get_mac_type(eds->id.vendor, eds->id.device);
     E1000_DEBUG("mac_type is: %s\n", e1000_mac_type_to_str(eds->mac_type));
 
     /* Setup known device info */
