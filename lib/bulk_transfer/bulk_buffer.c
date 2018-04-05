@@ -280,7 +280,7 @@ errval_t bulk_buffer_assign_cap(struct bulk_buffer *buffer,
                                 size_t              cap_offset)
 {
     errval_t err;
-    struct frame_identity fid = { 0, 0 };
+    struct frame_identity fid = { 0, 0, 0 };
 
     buffer->cap = cap;
     buffer->cap_offset = cap_offset;

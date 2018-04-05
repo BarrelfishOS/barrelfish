@@ -256,7 +256,7 @@ static inline errval_t allocmap_frame(size_t size, void **virt, uintptr_t *phys,
                                       struct capref *cap)
 {
     errval_t err;
-    struct frame_identity fid = { 0, 0 };
+    struct frame_identity fid = { 0, 0, 0 };
     struct capref c;
 
 

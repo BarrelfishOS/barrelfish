@@ -595,6 +595,7 @@ enum ep_cmd {
 struct frame_identity {
     genpaddr_t base;   ///< Physical base address of frame
     gensize_t  bytes;  ///< Size of frame, in bytes
+    pasid_t    pasid;  ///< the address space id
 };
 
 /**
