@@ -219,6 +219,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "fbdemo",
                            "fish",
                            "hpet",
+                           "hwmodel/offload",
                            "ioat_dma",
                            "iommu",
                            "kaluga",
@@ -259,7 +260,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "weever",
                         "cpu",
                         "xeon_phi",
-                        "corectrl" ] ]
+                        "hwmodel/offload",
+                        "corectrl" ] ] ++ modules_common
 
     -- ARMv7-a Pandaboard modules
     pandaModules = [ "/sbin/" ++ f | f <- [
