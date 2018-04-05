@@ -195,9 +195,9 @@ static errval_t alloc_common(int mode, int bits,
  * allocates a piece of ram to be mapped into the driver and the devices
  * address spaces
  */
-static inline errval_t iommu_alloc_ram(struct iommu_client *st,
-                                                 size_t bytes,
-                                                 struct capref *retcap)
+static errval_t iommu_alloc_ram(struct iommu_client *st,
+                                 size_t bytes,
+                                 struct capref *retcap)
 {
     // TODO: This function has to pass the rootvnodeslot from iommu_get_mapping
     // region to the allocator function to get mem from that region.
@@ -243,13 +243,13 @@ static inline errval_t iommu_alloc_ram(struct iommu_client *st,
         DEBUG_ERR(msgerr, "allocate");
         return msgerr;
     }
-    debug_printf("alloc_ram_for_frame success\n");
+    //debug_printf("alloc_ram_for_frame success\n");
     return SYS_ERR_OK;
 }
 
-static inline errval_t iommu_alloc_frame(struct iommu_client *cl,
-                                                 size_t bytes,
-                                                 struct capref *retcap)
+static errval_t iommu_alloc_frame(struct iommu_client *cl,
+                                  size_t bytes,
+                                  struct capref *retcap)
 {
     if (bytes < (LARGE_PAGE_SIZE)) {
         bytes = LARGE_PAGE_SIZE;
@@ -291,13 +291,16 @@ static inline errval_t iommu_alloc_frame(struct iommu_client *cl,
 #define MAPPING_REGION_START (512UL << 31)
 #define MAPPING_REGION_SIZE (512UL << 30)
 
+#ifdef DISABLE_MODEL
+static lvaddr_t vregion_map_base = MAPPING_REGION_START;
+#endif
 /*
  * returns a region of memory
  */
-static inline errval_t iommu_alloc_vregion(struct iommu_client *st,
-                                           struct capref mem,
-                                           lvaddr_t *driver,
-                                           dmem_daddr_t *device)
+static errval_t iommu_alloc_vregion(struct iommu_client *st,
+                                    struct capref mem,
+                                    lvaddr_t *driver,
+                                    dmem_daddr_t *device)
 {
     errval_t err;
     struct frame_identity id;
@@ -330,9 +333,9 @@ static inline errval_t iommu_alloc_vregion(struct iommu_client *st,
     return SYS_ERR_OK;
 }
 
-static inline errval_t iommu_free_vregion(struct iommu_client *st,
-                                          lvaddr_t driver,
-                                          dmem_daddr_t device)
+static errval_t iommu_free_vregion(struct iommu_client *st,
+                                   lvaddr_t driver,
+                                   dmem_daddr_t device)
 {
     errval_t err;
 
@@ -358,7 +361,7 @@ static inline errval_t iommu_free_vregion(struct iommu_client *st,
     return SYS_ERR_OK;
 }
 
-static inline errval_t iommu_free_ram(struct capref ram)
+static errval_t iommu_free_ram(struct capref ram)
 {
     struct frame_identity id;
     errval_t err = invoke_frame_identify(ram, &id);
@@ -382,7 +385,7 @@ static inline errval_t iommu_free_ram(struct capref ram)
 
 #define ROOT_SLOT_MEM_SIZE (512UL << 30)
 
-static inline errval_t iommu_get_mapping_region(struct iommu_client *cl,
+static errval_t iommu_get_mapping_region(struct iommu_client *cl,
                                                 dmem_daddr_t *start,
                                                 dmem_daddr_t *end,
                                                 uint16_t *rootvnodeslot)
