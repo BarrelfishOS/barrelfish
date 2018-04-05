@@ -1103,37 +1103,6 @@ errval_t interphi_init_xphi(uint8_t xphi,
     return SYS_ERR_OK;
 }
 
-#include <driverkit/iommu.h>
-static errval_t setup_iommu(struct xeon_phi *xphi, genpaddr_t *addr)
-{
-    errval_t err;
-
-    *addr = 0;
-
-    /*
-     * TODO: query the model to obtain where to map the frame in the iommu
-     *       and where to map it in the SMPT
-     */
-
-    /*
-     * TODO: update the smpt according to the mapping
-     */
-
-    /*
-     * TODO: map the frame into the iommu
-     */
-
-    /* */
-    struct dmem dmem;
-    err = driverkit_iommu_vspace_map_cl(xphi->iommu_client, xphi->msg->frame,
-                                        VREGION_FLAGS_READ_WRITE_NOCACHE, &dmem);
-
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to map");
-    }
-
-    return SYS_ERR_OK;
-}
 
 
 /**
@@ -1235,7 +1204,7 @@ errval_t interphi_init(struct xeon_phi *phi,
     if (!phi->is_client) {
 
         genpaddr_t xphi_local_addr;
-        err = setup_iommu(phi, &xphi_local_addr);
+        err = xeon_phi_hw_model_query_and_config(phi, mi->frame, &xphi_local_addr);
         if (err_is_fail(err)) {
             vspace_unmap(addr);
             cap_destroy(mi->frame);

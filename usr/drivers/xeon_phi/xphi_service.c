@@ -28,6 +28,8 @@
 #define RPC_STATE_PROGRESS 0x01
 #define RPC_STATE_DONE     0x80
 
+struct dma_mem_mgr;
+
 struct xphi_svc_st
 {
     struct xeon_phi *phi;
@@ -36,6 +38,7 @@ struct xphi_svc_st
     errval_t rpc_err;
     uint8_t rpc_state;
     uint64_t domainid;
+    struct dma_mem_mgr *dma_mem_mgr;
     struct xeon_phi_binding *binding;
     struct xphi_svc_st *next;
 };
@@ -474,6 +477,7 @@ static void spawn_call_rx(struct xeon_phi_binding *binding,
     txq_send(msg_st);
 }
 
+#include "dma_service.h"
 static void dma_register_call_rx(struct xeon_phi_binding *binding,
                                  struct capref mem)
 {
@@ -487,12 +491,19 @@ static void dma_register_call_rx(struct xeon_phi_binding *binding,
     msg_st->send = dma_register_response_tx;
     msg_st->cleanup = NULL;
 
-    msg_st->err = SYS_ERR_OK;
-
     struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
+    xphi_st->args.dma_register.devaddr = 0;
 
-    xphi_st->args.dma_register.devaddr = 0xcafebabe;
+    if (svc_st->dma_mem_mgr == NULL) {
+        msg_st->err  = xdma_state_init(svc_st->phi, &svc_st->dma_mem_mgr);
+        if (err_is_fail(msg_st->err )) {
+            goto send;
+        }
+    }
 
+    msg_st->err  = xdma_register_region(svc_st->phi, svc_st->dma_mem_mgr, mem,
+                                        &xphi_st->args.dma_register.devaddr);
+send:
     txq_send(msg_st);
 }
 
@@ -508,9 +519,25 @@ static void dma_memcpy_call_rx(struct xeon_phi_binding *binding,
 
     msg_st->send = dma_memcpy_response_tx;
     msg_st->cleanup = NULL;
-
     msg_st->err = SYS_ERR_OK;
 
+    if (svc_st->dma_mem_mgr == NULL) {
+        msg_st->err = DMA_ERR_MEM_NOT_REGISTERED;
+        goto send_reply;
+    }
+
+    errval_t err;
+
+    err =  xdma_memcpy(svc_st->phi, svc_st->dma_mem_mgr, to, from, bytes, msg_st);
+    if (err_is_fail(msg_st->err)) {
+        msg_st->err = err;
+        goto send_reply;
+    }
+
+    /* return sending */
+    return;
+
+    send_reply:
     txq_send(msg_st);
 }
 
