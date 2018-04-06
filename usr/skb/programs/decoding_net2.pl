@@ -619,7 +619,7 @@ add_pci :-
 iommu_enabled :-
     call(iommu_enabled,0,_)@eclipse.
 
-add_pci(Id) :-
+add_pci(Id, Addr) :-
     PCIBUS_ID = ["PCIBUS"],
     PCIIN_ID = ["IN" | Id],
     PCIOUT_ID = ["OUT" | Id],
@@ -637,11 +637,19 @@ add_pci(Id) :-
     % connect the output to the systems pci bus
     assert(node_overlay(PCIOUT_ID, PCIBUS_ID)),
     % Now insert the BAR into the PCI bus address space
-    assert(node_translate_dyn(PCIBUS_ID, [memory,[block{base:1024,limit:2048}]], PCIIN_ID, [memory, [block{base:1024,limit:2048}]])).
+    findall((Addr, BarNum, BarStart, BarSize), call(bar(Addr, BarNum, BarStart, BarSize, _, _, _))@eclipse, Bars),
+    (foreach((Addr, BarNum, BarStart, BarSize), Bars) do
+        BarId = [BarNum, "BAR" | Id],
+        BarEnd is BarStart + BarSize,
+        assert(node_accept(BarId, [memory,[block{base:BarStart,limit:BarEnd}]])),
+        assert(node_translate_dyn(PCIBUS_ID, [memory,[block{base:BarStart,limit:BarEnd}]], BarId, 
+                                  [memory, [block{base:BarStart,limit:BarEnd}]]))
+    ).
+
 
 add_pci_alloc(Addr) :-
     alloc_node_enum(Enum),
-    add_pci([Enum]),
+    add_pci([Enum], Addr),
     % Set it to the node id where addresses are issued from the PCI device
     OutNodeId = ["OUT", "PCI0", Enum],
     assert(enum_node_id(Enum, OutNodeId)),
