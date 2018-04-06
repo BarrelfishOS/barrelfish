@@ -180,6 +180,8 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
 
     errval_t err;
 
+    bool retried = 0;
+
     struct ioat_dma_channel *chan = calloc(1, sizeof(*chan));
     if (chan == NULL) {
         return LIB_ERR_MALLOC_FAIL;
@@ -188,19 +190,31 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
     struct dma_device *dma_dev = (struct dma_device *) dev;
     struct dma_channel *dma_chan = &chan->common;
 
-    dma_chan->id = dma_channel_id_build(dma_device_get_id(dma_dev), id);
+    dma_chan->id = 0; //dma_channel_id_build(dma_device_get_id(dma_dev), id);
     dma_chan->device = dma_dev;
     dma_chan->max_xfer_size = max_xfer;
 
     IOATCHAN_DEBUG("initialize channel with  max. xfer size of %u bytes\n",
                    dma_chan->id, max_xfer);
 
-    mackerel_addr_t chan_base = dma_device_get_mmio_vbase(dma_dev);
-    ioat_dma_chan_initialize(&chan->channel, chan_base + ((id + 1) * 0x80));
+    mackerel_addr_t chan_base = (mackerel_addr_t)((uint8_t *)dma_device_get_mmio_vbase(dma_dev) + 0x80);
+    ioat_dma_chan_initialize(&chan->channel, chan_base);
+
+    static char buffer[512];
+    ioat_dma_chan_dma_comp_pr(buffer, 512, &chan->channel);
+    debug_printf("%s\n", buffer);
+
 
     ioat_dma_chan_dcactrl_target_cpu_wrf(&chan->channel,
                                          ioat_dma_chan_dca_ctr_target_any);
 
+    err = dma_ring_alloc(IOAT_DMA_DESC_RING_SIZE, IOAT_DMA_DESC_ALIGN,
+                         IOAT_DMA_DESC_SIZE, 0x0, dma_chan, &chan->ring);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    retry:
     err = ioat_dma_channel_reset(chan);
     if (err_is_fail(err)) {
         debug_printf("%s:%u\n", __FUNCTION__, __LINE__);
@@ -210,14 +224,8 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
     ioat_dma_device_get_complsts_addr(dev, &chan->completion);
 
     /* write the completion address */
-    ioat_dma_chan_cmpl_lo_wr(&chan->channel, chan->completion.devaddr);
-    ioat_dma_chan_cmpl_hi_wr(&chan->channel, chan->completion.devaddr >> 32);
-
-    err = dma_ring_alloc(IOAT_DMA_DESC_RING_SIZE, IOAT_DMA_DESC_ALIGN,
-                         IOAT_DMA_DESC_SIZE, 0x0, dma_chan, &chan->ring);
-    if (err_is_fail(err)) {
-        return err;
-    }
+    ioat_dma_chan_cmpl_lo_wr(&chan->channel, (uint32_t)chan->completion.devaddr);
+    ioat_dma_chan_cmpl_hi_wr(&chan->channel, (uint32_t)(chan->completion.devaddr >> 32));
 
     /* we have to do the hardware linkage */
     struct dma_descriptor *dcurr, *dnext;
@@ -257,29 +265,34 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
 
     uint32_t j = 0xFFFF;
     uint64_t status;
-    do {
+    while(j--) {
         status = ioat_dma_channel_get_status(chan);
-        thread_yield();
-    } while (j-- && !ioat_dma_channel_is_active(status)
-             && !ioat_dma_channel_is_idle(status));
+        if (ioat_dma_channel_is_active(status) || ioat_dma_channel_is_idle(status)) {
+            debug_printf(" %x channel worked properly: %016lx\n", dma_chan->id,
+                         *(uint64_t* ) chan->completion.vbase);
+            return SYS_ERR_OK;
+        }
+        if (ioat_dma_channel_is_halted(status)) {
+            debug_printf("Channels was halted!\n");
+            if (!retried) {
 
-    if (ioat_dma_channel_is_active(status) || ioat_dma_channel_is_idle(status)) {
-        debug_printf(" %x channel worked properly: %016lx\n", dma_chan->id,
-                       *(uint64_t* ) chan->completion.vbase);
-        return SYS_ERR_OK;
-    } else {
-        debug_printf(" %x channel error ERROR: %08x\n", dma_chan->id,
-                       ioat_dma_chan_err_rd(&chan->channel));
-        static char buf[512];
-        ioat_dma_chan_err_pr(buf, 512, &chan->channel);
-        printf("Channel Error::\n%s\n",buf);
-        dma_ring_free(chan->ring);
-        free(chan);
-        *ret_chan = NULL;
-        return DMA_ERR_CHAN_ERROR;
+                retried = true;
+                goto retry;
+            }
+            break;
+        }
     }
 
-    return SYS_ERR_OK;
+    debug_printf(" %x channel error ERROR: %08x\n", dma_chan->id,
+                       ioat_dma_chan_err_rd(&chan->channel));
+    static char buf[512];
+    ioat_dma_chan_err_pr(buf, 512, &chan->channel);
+    printf("Channel Error::\n%s\n",buf);
+    dma_ring_free(chan->ring);
+    free(chan);
+    *ret_chan = NULL;
+    return DMA_ERR_CHAN_ERROR;
+
 }
 
 /**
