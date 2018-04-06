@@ -54,7 +54,7 @@
 extern uint8_t xeon_phi_dma_enabled;
 extern char *xeon_phi_mod_uri;
 extern char *xeon_phi_mod_list;
-
+extern struct xeon_phi *phis;
 
 bool started = false;
 
@@ -215,6 +215,12 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
 
     // 3. Set iref of your exported service (this is reported back to Kaluga)
     *dev = 0x00;
+
+    xphi->next = phis;
+    phis = xphi;
+    if (xphi->next == NULL) {
+        xphi->next = xphi;
+    }
 
     return SYS_ERR_OK;
     err_out2:

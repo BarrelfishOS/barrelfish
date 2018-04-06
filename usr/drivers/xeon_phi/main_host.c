@@ -39,6 +39,8 @@ uint8_t xeon_phi_dma_enabled = 1;
 char *xeon_phi_mod_uri = XEON_PHI_NFS_PATH;
 char *xeon_phi_mod_list = XEON_PHI_MOD_LIST;
 
+struct xeon_phi *phis = NULL;
+
 /**
  * \brief mounts the NFS path given by parameter
  *
@@ -77,17 +79,15 @@ static errval_t mount_nfs_path(char *uri)
  * \return SYS_ERR_OK if an event was handled
  *         LIB_ERR_NO_EVENT if there was no evetn
  */
-errval_t xeon_phi_event_poll(uint8_t do_yield)
+errval_t xeon_phi_event_poll(struct xeon_phi *phi, uint8_t do_yield)
 {
     errval_t err;
 
     uint8_t idle = 0x1;
-#if 0
     uint8_t serial_recv = 0xFF;
-    while (serial_recv-- && xeon_phi_serial_handle_recv());
+    while (serial_recv-- && xeon_phi_serial_handle_recv(phi));
 
-
-    err = xdma_service_poll(&xphi);
+    err = xdma_service_poll(phi);
     switch(err_no(err)) {
         case SYS_ERR_OK:
             idle = 0;
@@ -99,7 +99,7 @@ errval_t xeon_phi_event_poll(uint8_t do_yield)
             return err;
             break;
     }
-#endif
+
     err = event_dispatch_non_block(get_default_waitset());
     switch(err_no(err)) {
         case LIB_ERR_NO_EVENT :
@@ -175,9 +175,16 @@ int main(int argc, char *argv[])
 
     debug_printf("Stopping and dispatching messagse\n");
 
-    while(1) {
-        xeon_phi_event_poll(true);
+    while(phis == NULL) {
+        messages_wait_and_handle_next();
     }
+
+    struct xeon_phi *phi = phis;
+    while(true) {
+        xeon_phi_event_poll(phi, true);
+        phi = phi->next;
+    }
+
 
     XDEBUG("Xeon Phi host module terminated.\n");
 
