@@ -19,16 +19,18 @@
 #include <target/x86_64/barrelfish_kpi/paging_target.h>
 #include <driverkit/driverkit.h>
 #include <driverkit/iommu.h>
+#include <driverkit/hwmodel.h>
 #include <skb/skb.h>
 
 #include <if/iommu_defs.h>
 #include <if/mem_defs.h>
 #include <if/iommu_rpcclient_defs.h>
 
+
 #include "debug.h"
 
 // Disable using the model for allocation
-//#define DISABLE_MODEL
+#define DISABLE_MODEL
 
 struct iommu_vnode_l2
 {
@@ -126,19 +128,7 @@ static inline errval_t iommu_alloc_ram_for_vnode(struct iommu_client *st,
  *  Returns this process nodeid. It lazily adds the process' model node
  *  and returns it's identifier.
  */
-static int32_t get_own_nodeid(void) {
-    static int32_t nodeid = -1;
-    errval_t err;
-    if(nodeid == -1){
-        err = skb_execute_query("add_process_alloc(X), write(X)");
-        assert(err_is_ok(err));
-        err = skb_read_output("%d", &nodeid);
-        assert(err_is_ok(err));
-        DRIVERKIT_DEBUG("Instantiated new process model node, nodeid=%"PRIi32"\n",
-                nodeid);
-    }
-    return nodeid;
-}
+
 
 #define MODE_ALLOC_COMMON 0 
 #define MODE_MAP_COMMON 1 
@@ -228,7 +218,7 @@ static errval_t iommu_alloc_ram(struct iommu_client *st,
     struct mem_binding * b = get_mem_client();
 
     int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
-    int32_t my_nodeid = get_own_nodeid();
+    int32_t my_nodeid = driverkit_hwmodel_get_my_node_id();
     uint64_t base_addr=0;
 
     err = alloc_common(MODE_ALLOC_COMMON, bits, device_nodeid, NULL, my_nodeid,
@@ -342,7 +332,7 @@ static errval_t iommu_alloc_vregion(struct iommu_client *st,
 
     int bits = log2ceil(id.bytes);
     int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
-    int32_t my_nodeid = get_own_nodeid();
+    int32_t my_nodeid = driverkit_hwmodel_get_my_node_id();
 
     err = alloc_common(MODE_MAP_COMMON, bits, device_nodeid, device, 
             my_nodeid, driver, &id.base);
@@ -371,7 +361,7 @@ static errval_t iommu_free_vregion(struct iommu_client *st,
     }
 
     // Free my region
-    int32_t my_nodeid = get_own_nodeid();
+    int32_t my_nodeid = driverkit_hwmodel_get_my_node_id();
     err = skb_execute_query("enum_node_id(%d, Id), mark_range_free(Id, %lu)",
            my_nodeid, driver);
     if (err_is_fail(err)) {
@@ -412,9 +402,14 @@ static errval_t iommu_get_mapping_region(struct iommu_client *cl,
                                                 dmem_daddr_t *end,
                                                 uint16_t *rootvnodeslot)
 {
+    errval_t err;
+    #ifdef DISABLE_MODEL
+    err = SYS_ERR_OK;
+    *rootvnodeslot = 2;
+    #else
     assert(rootvnodeslot != NULL);
     int32_t device_nodeid = driverkit_iommu_get_nodeid(cl);
-    errval_t err = skb_execute_query(
+    err = skb_execute_query(
         "enum_node_id(%d,Id),alloc_root_vnodeslot(Id, Slot),write(Slot)",
         device_nodeid);
 
@@ -428,13 +423,14 @@ static errval_t iommu_get_mapping_region(struct iommu_client *cl,
         DEBUG_SKB_ERR(err, "parse get root_vnodeslot output");
         return err;
     }
-
-    debug_printf("%s: determined rootvnodeslot=%"PRIu16"\n", __FUNCTION__, *rootvnodeslot);
+    #endif
+    debug_printf("XXXXXXXXXXXXXXXXXXXXXX %s: determined rootvnodeslot=%"PRIu16"\n", __FUNCTION__, *rootvnodeslot);
 
     *start = ROOT_SLOT_MEM_SIZE * (*rootvnodeslot) ;
     *end = ROOT_SLOT_MEM_SIZE * (*rootvnodeslot) + ROOT_SLOT_MEM_SIZE-1;
 
     assert(*rootvnodeslot == X86_64_PML4_BASE(*start));
+
     return err;
 }
 
