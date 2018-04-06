@@ -203,7 +203,7 @@ static errval_t xeon_phi_init_with_caps(struct xeon_phi *card, struct capref mmi
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_IDENTIFY);
     }
-    card->apt.length = id.bytes;
+
     card->apt.pbase = id.base;
     card->apt.bytes = id.bytes;
 
@@ -214,10 +214,10 @@ static errval_t xeon_phi_init_with_caps(struct xeon_phi *card, struct capref mmi
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_IDENTIFY);
     }
-    card->mmio.length = id.bytes;
+
     card->mmio.pbase = id.base;
     card->mmio.bytes = id.bytes;
-    card->mmio.length = id.bytes;
+
 
     err = xeon_phi_map_aperture(card, XEON_PHI_APERTURE_INIT_SIZE);
     if (err_is_fail(err)) {
@@ -379,7 +379,6 @@ errval_t xeon_phi_map_aperture(struct xeon_phi *phi,
     }
 
     phi->apt.vbase = (lvaddr_t)addr;
-    phi->apt.length = range;
 
     return SYS_ERR_OK;
 }
@@ -407,7 +406,6 @@ errval_t xeon_phi_unmap_aperture(struct xeon_phi *phi)
     }
 
     phi->apt.vbase = 0;
-    phi->apt.length = 0;
 
     return SYS_ERR_OK;
 }

@@ -63,7 +63,7 @@ static errval_t map_mmio_space(struct xeon_phi *phi)
     phi->mmio.vbase = (lvaddr_t) mmio;
     phi->mmio.cap = mmio_cap;
     phi->mmio.pbase = id.base;
-    phi->mmio.length = id.bytes;
+    phi->mmio.bytes = id.bytes;
 
     return SYS_ERR_OK;
 }
@@ -297,23 +297,26 @@ int main(int argc,
         USER_PANIC_ERR(err, "all_spawnds_up.\n");
     }
 
+    /*
     err = xdma_service_init(&xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize the dma engine.\n");
     }
+     */
 
     err = smpt_init(&xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize the SMTP.\n");
     }
 
-    lpaddr_t host_msg_base = strtol(argv[0], NULL, 16);
-    uint8_t host_msg_size = strtol(argv[1], NULL, 16);
+    lpaddr_t host_msg_base = strtoul(argv[0], NULL, 16);
+    uint64_t host_msg_size = strtoul(argv[1], NULL, 16);
 
-    XMESSAGING_DEBUG("Getting the host messaging cap...[%016lx, %02x]\n",
+
+    debug_printf("Getting the host messaging cap...[%016lx, %02lu]\n",
                      host_msg_base, host_msg_size);
 
-    err = sysmem_cap_request(host_msg_base, host_msg_size, &host_cap);
+    err = sysmem_cap_request(host_msg_base, (uint8_t)host_msg_size, &host_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not obtain the system messsaging cap\n");
     }

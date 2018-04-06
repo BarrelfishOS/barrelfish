@@ -540,7 +540,7 @@ static void dma_memcpy_call_rx(struct xeon_phi_binding *binding,
     send_reply:
     txq_send(msg_st);
 }
-
+#include <driverkit/iommu.h>
 static void get_nodeid_call_rx(struct xeon_phi_binding *binding,
                                uint64_t arg)
 {
@@ -558,8 +558,23 @@ static void get_nodeid_call_rx(struct xeon_phi_binding *binding,
 
     struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
 
-    xphi_st->args.nodeid.nodeid = 0xcafebabe;
-
+    if (!(arg & (1UL << 63))) {
+        // invalid
+        xphi_st->args.nodeid.nodeid = -1;
+    } else if (arg & (1UL<<32)) {
+        // DMA engine
+        debug_printf("XXX just use the node id of the PCI device for now!\n");
+        xphi_st->args.nodeid.nodeid = driverkit_iommu_get_nodeid(svc_st->phi->iommu_client);
+    } else if (arg  & (1UL<<33)) {
+        // cores
+        // coreid_t coreid = arg & 0xffff;
+        debug_printf("XXX just use the node id of the PCI device for now!\n");
+        xphi_st->args.nodeid.nodeid = driverkit_iommu_get_nodeid(svc_st->phi->iommu_client);
+    } else {
+        // PCI card
+        debug_printf("XXX just use the node id of the PCI device for now!\n");
+        xphi_st->args.nodeid.nodeid = driverkit_iommu_get_nodeid(svc_st->phi->iommu_client);
+    }
 
     txq_send(msg_st);
 }

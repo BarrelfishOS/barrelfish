@@ -1197,8 +1197,6 @@ errval_t interphi_init(struct xeon_phi *phi,
         return err;
     }
 
-
-
     phi->connected = 1;
 
     if (!phi->is_client) {

@@ -105,17 +105,27 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
     /* map the frame in the iommu space */
 
 
-    // set the
-    if (id.base + id.bytes < phi->apt.pbase) {
+    if (id.base >= phi->apt.pbase &&
+            ((id.base + id.bytes) <= (phi->apt.pbase + phi->apt.bytes))) {
+
+        debug_printf("%s:%u = %lx -> %lx\n", __FUNCTION__, __LINE__,
+                     id.base, id.base - phi->apt.pbase);
+
+        *retaddr = id.base - phi->apt.pbase;
+
+    } else {
+
         struct dmem dmem;
-        err = driverkit_iommu_vspace_map_cl(phi->iommu_client, mem, VREGION_FLAGS_READ_WRITE, &dmem);
+        err = driverkit_iommu_vspace_map_cl(phi->iommu_client, mem,
+                                            VREGION_FLAGS_READ_WRITE, &dmem);
         if (err_is_fail(err)) {
             return err;
         }
 
-        *retaddr = dmem.devaddr + XEON_PHI_SYSMEM_BASE;
-    } else {
-        *retaddr = id.base - phi->apt.pbase;
+        debug_printf("%s:%u with IOMMU %" PRIxGENPADDR " -> %" PRIxGENPADDR "\n", __FUNCTION__, __LINE__,
+                     id.base, dmem.devaddr + XEON_PHI_SYSMEM_BASE -  2 * (512UL << 30));
+
+        *retaddr = dmem.devaddr + XEON_PHI_SYSMEM_BASE -  2 * (512UL << 30);
     }
 
     /* xxx */

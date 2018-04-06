@@ -207,7 +207,7 @@ static void register_response_send(void *a)
     struct xeon_phi *phi = topology->local;
 
     err = xeon_phi_driver_register__response__tx(topology->binding, txcont, err,
-                                                phi->apt.pbase, phi->apt.length);
+                                                phi->apt.pbase, phi->apt.bytes);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct waitset *ws = get_default_waitset();
@@ -297,7 +297,7 @@ static void register_call_send(void *a)
     topology->state = XNODE_STATE_REGISTERING;
 
     err = xeon_phi_driver_register__call__tx(topology->binding, txcont, phi->id,
-                                            phi->apt.pbase, phi->apt.length);
+                                            phi->apt.pbase, phi->apt.bytes);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct waitset *ws = get_default_waitset();
@@ -438,7 +438,7 @@ errval_t service_register(struct xeon_phi *phi,
             xnode->id = i;
             xnode->state = XNODE_STATE_READY;
             xnode->apt_base = phi->apt.pbase;
-            xnode->apt_size = phi->apt.length;
+            xnode->apt_size = phi->apt.bytes;
             continue;
         }
 

@@ -515,7 +515,8 @@ errval_t sysmem_cap_request(lpaddr_t base,
     // size = (size+BASE_PAGE_SIZE-1) & ~(BASE_PAGE_SIZE - 1);
 
     // transform the address into the host memory range
-    base += base_offset;
+    // XXX: we just hand in the correct base now.!
+    //base += base_offset;
 
     err = mm_alloc_range(&sysmem_manager, bits, base, base + (1UL << bits), frame,
                          NULL);

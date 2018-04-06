@@ -91,7 +91,6 @@ struct mbar
 {
     lvaddr_t vbase;     ///< virtual address of the mbar if mapped
     lpaddr_t pbase;     ///< physical address of the mbar
-    size_t length;      ///< length of the mapped area
     struct capref cap;  ///< capability of the mbar
     size_t  bytes;      ///< size of the region in bytes
 };

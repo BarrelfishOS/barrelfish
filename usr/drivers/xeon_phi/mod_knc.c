@@ -158,6 +158,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
 
 #endif
 
+    debug_printf("[knc] waiting for the client to connect");
     interphi_wait_for_client(xphi);
 
 #if 0
