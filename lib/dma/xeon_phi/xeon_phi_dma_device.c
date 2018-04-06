@@ -26,7 +26,7 @@
 struct xeon_phi_dma_device
 {
     struct dma_device common;
-
+    struct iommu_client *iommu;
     xeon_phi_dma_t device;          ///< mackerel device base
     struct dmem dstat;     ///< memory region for channels dstat_wb
     uint32_t flags;
@@ -215,6 +215,8 @@ void xeon_phi_dma_device_set_channel_state(struct xeon_phi_dma_device *dev,
  * ----------------------------------------------------------------------------
  */
 
+#include <xeon_phi/xeon_phi.h>
+
 /**
  * \brief initializes a Xeon Phi DMA device with the giving capability
  *
@@ -224,7 +226,7 @@ void xeon_phi_dma_device_set_channel_state(struct xeon_phi_dma_device *dev,
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t xeon_phi_dma_device_init(void *mmio_base,
+errval_t xeon_phi_dma_device_init(void *mmio_base, struct iommu_client *iommu,
                                   struct xeon_phi_dma_device **dev)
 {
     errval_t err;
@@ -243,19 +245,25 @@ errval_t xeon_phi_dma_device_init(void *mmio_base,
     XPHIDEV_DEBUG("initializing Xeon Phi DMA device @ %p\n", device_id,
                   mmio_base);
 
-    err = driverkit_iommu_mmap(XEON_PHI_DMA_DEVICE_DSTAT_SIZE,
-                        XEON_PHI_DMA_DEVICE_DSTAT_FLAGS,
-                        &xdev->dstat);
+    err = driverkit_iommu_mmap_cl(iommu, XEON_PHI_DMA_DEVICE_DSTAT_SIZE,
+                                  XEON_PHI_DMA_DEVICE_DSTAT_FLAGS,
+                                  &xdev->dstat);
     if (err_is_fail(err)) {
         free(xdev);
         return err;
     }
+
+    debug_printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx\n");
+    debug_printf("HACK: setting address!\n");
+    xdev->dstat.devaddr = xdev->dstat.devaddr + XEON_PHI_SYSMEM_BASE -  2 * (512UL << 30);
+    debug_printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx\n");
 
     dma_dev->id = device_id++;
     dma_dev->irq_type = DMA_IRQ_DISABLED;
     dma_dev->type = DMA_DEV_TYPE_XEON_PHI;
     dma_dev->mmio.vaddr = (lvaddr_t) mmio_base;
     dma_dev->f.poll = xeon_phi_dma_device_poll_channels;
+    dma_dev->iommu = iommu;
 
     xeon_phi_dma_initialize(&xdev->device, mmio_base);
 
