@@ -10,30 +10,11 @@ module IOMMU {
 
 // Instantiate this module for a vanilla PCI device
 module PCI {
-    input memory (0 bits 40) BAR0
-    input memory (0 bits 40) BAR1
-    input memory (0 bits 40) BAR2
-    input memory (0 bits 40) BAR3
-    input memory (0 bits 40) BAR4
-    input memory (0 bits 40) BAR5
     output memory (0 bits 40) OUT           // Addresses issued by device
-    BAR0 accepts [(0x000000 to 0xffffff)]
-    BAR1 accepts [(0x000000 to 0xffffff)]
-    BAR2 accepts [(0x000000 to 0xffffff)]
-    BAR3 accepts [(0x000000 to 0xffffff)]
-    BAR4 accepts [(0x000000 to 0xffffff)]
-    BAR5 accepts [(0x000000 to 0xffffff)]
 }
 
 // Instantiate this module for a IOMMU protected PCI device
 module PCI_IOMMU {
-    input memory (0 bits 40) BAR0
-    input memory (0 bits 40) BAR1
-    input memory (0 bits 40) BAR2
-    input memory (0 bits 40) BAR3
-    input memory (0 bits 40) BAR4
-    input memory (0 bits 40) BAR5
-
     output memory (0 bits 40) OUT
 
     instance PCI0 of PCI 
@@ -46,12 +27,6 @@ module PCI_IOMMU {
         OUT to IOMMU0.IN
     ]
 
-    BAR0 overlays PCI0.BAR0
-    BAR1 overlays PCI0.BAR1
-    BAR2 overlays PCI0.BAR2
-    BAR3 overlays PCI0.BAR3
-    BAR4 overlays PCI0.BAR4
-    BAR5 overlays PCI0.BAR5
     IOMMU0 binds [
         OUT to OUT
     ]
