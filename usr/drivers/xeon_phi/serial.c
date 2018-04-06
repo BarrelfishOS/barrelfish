@@ -16,23 +16,13 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 
-#include <dev/xeon_phi/xeon_phi_serial_dev.h>
+
 
 #include "xeon_phi_internal.h"
 
 #define XEON_PHI_BUFFER_LENGTH 0x400
 #define XEON_PHI_POLL_GIVEUP   0x100
 
-struct xeon_phi_arg
-{
-    xeon_phi_serial_t base;
-    uint8_t xid;
-    uint8_t init;
-    char buffer[XEON_PHI_BUFFER_LENGTH + 1];
-    uint32_t idx;
-};
-
-static struct xeon_phi_arg recv_thread_arg;
 
 #define ANSI_COLOR_RED     "\x1b[31m"
 #define ANSI_COLOR_GREEN   "\x1b[32m"
@@ -58,21 +48,19 @@ static inline void xprintf(uint8_t xid,
     }
 }
 
-uint32_t xeon_phi_serial_handle_recv(void)
+uint32_t xeon_phi_serial_handle_recv(struct xeon_phi *phi)
 {
     xeon_phi_serial_ctrl_t sctrl = xeon_phi_serial_reset;
     xeon_phi_serial_data_t sdata = xeon_phi_serial_reset;
 
-    struct xeon_phi_arg *xarg = &recv_thread_arg;
-
-    sctrl = xeon_phi_serial_ctrl_rd(&xarg->base);
+    sctrl = xeon_phi_serial_ctrl_rd(&phi->serial_base);
 
     if (!sctrl) {
         return 0;
     }
 
     uint32_t i = 0;
-    sdata = xeon_phi_serial_data_rd(&xarg->base);
+    sdata = xeon_phi_serial_data_rd(&phi->serial_base);
     uint8_t has_data = 0;
     uint8_t value = 0;
     while (i < 4) {
@@ -101,34 +89,34 @@ uint32_t xeon_phi_serial_handle_recv(void)
         }
         if (has_data != xeon_phi_serial_data) {
             debug_printf("[xeon phi %d] : ERROR invalid ctrl value.%x\n",
-                         xarg->xid,
+                         phi->id,
                          has_data);
         }
         /* always issue a new line */
         if (value == '\n') {
-            xarg->buffer[xarg->idx] = '\0';
-            xprintf(xarg->xid, xarg->buffer);
-            xarg->idx = 0;
+            phi->serial_buffer[phi->serial_buffer_idx] = '\0';
+            xprintf(phi->id, phi->serial_buffer);
+            phi->serial_buffer_idx = 0;
             /* there was a "flush" so flush buffer to log */
         } else if (value == 0x4) {
-            xarg->buffer[xarg->idx] = '\0';
-            xprintf(xarg->xid, xarg->buffer);
-            xarg->idx = 0;
+            phi->serial_buffer[phi->serial_buffer_idx] = '\0';
+            xprintf(phi->id, phi->serial_buffer);
+            phi->serial_buffer_idx = 0;
             /* buffer is full, flush buffer */
-        } else if (xarg->idx == XEON_PHI_BUFFER_LENGTH) {
-            xarg->buffer[xarg->idx] = '\0';
-            xprintf(xarg->xid, xarg->buffer);
-            xarg->buffer[0] = value;
-            xarg->idx = 1;
+        } else if (phi->serial_buffer_idx == XEON_PHI_BUFFER_LENGTH) {
+            phi->serial_buffer[phi->serial_buffer_idx] = '\0';
+            xprintf(phi->id, phi->serial_buffer);
+            phi->serial_buffer[0] = value;
+            phi->serial_buffer_idx = 1;
             /* just store the char */
         } else {
-            xarg->buffer[xarg->idx] = value;
-            xarg->idx++;
+            phi->serial_buffer[phi->serial_buffer_idx] = value;
+            phi->serial_buffer_idx++;
         }
         i++;
     }
     /* acknowledge the data receive */
-    xeon_phi_serial_ctrl_rawwr(&xarg->base, xeon_phi_serial_reset);
+    xeon_phi_serial_ctrl_rawwr(&phi->serial_base, xeon_phi_serial_reset);
 
     return 1;
 }
@@ -137,14 +125,16 @@ static int xeon_phi_recv_handler(void *arg)
 {
     uint32_t nodata;
 
-    struct xeon_phi_arg *xarg = arg;
+    struct xeon_phi *phi = arg;
 
-    debug_printf("[xeon phi %d] :  receive handler started.\n", xarg->xid);
+    debug_printf("[xeon phi %d] :  receive handler started.\n", phi->id);
 
     nodata = XEON_PHI_POLL_GIVEUP;
 
+
+
     while (1) {
-        if (!xeon_phi_serial_handle_recv()) {
+        if (!xeon_phi_serial_handle_recv(arg)) {
             if (--nodata) {
                 continue;
             }
@@ -158,7 +148,7 @@ static int xeon_phi_recv_handler(void *arg)
         }
     }
 
-    debug_printf("[xeon phi %d] : thread terminated.\n ", xarg->xid);
+    debug_printf("[xeon phi %d] : thread terminated.\n ", phi->id);
 
     return 0;
 }
@@ -170,11 +160,11 @@ static int xeon_phi_recv_handler(void *arg)
  */
 errval_t xeon_phi_serial_start_recv_thread(struct xeon_phi *phi)
 {
-    if (!recv_thread_arg.init) {
+    if (phi->serial_base.base == NULL) {
         xeon_phi_serial_init(phi);
     }
 
-    xeon_phi_recv_handler(&recv_thread_arg);
+    xeon_phi_recv_handler(phi);
     //thread_create(xeon_phi_recv_handler, xarg);
 
     return SYS_ERR_OK;
@@ -187,15 +177,13 @@ errval_t xeon_phi_serial_start_recv_thread(struct xeon_phi *phi)
  */
 errval_t xeon_phi_serial_init(struct xeon_phi *phi)
 {
-    memset(&recv_thread_arg, 0, sizeof(struct xeon_phi_arg));
 
-    recv_thread_arg.xid = phi->id;
+    xeon_phi_serial_initialize(&phi->serial_base, XEON_PHI_MMIO_TO_SBOX(phi));
 
-    xeon_phi_serial_initialize(&recv_thread_arg.base, XEON_PHI_MMIO_TO_SBOX(phi));
+    xeon_phi_serial_ctrl_rawwr(&phi->serial_base, xeon_phi_serial_reset);
 
-    xeon_phi_serial_ctrl_rawwr(&recv_thread_arg.base, xeon_phi_serial_reset);
-
-    recv_thread_arg.init = 1;
+    phi->serial_buffer_idx = 0;
+    memset(phi->serial_buffer, 0, sizeof(phi->serial_buffer));
 
     return SYS_ERR_OK;
 }
