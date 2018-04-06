@@ -86,4 +86,6 @@ interface interphi "Interface between host and card side driver" {
     rpc bootstrap_remote(in uint64 base,
                          in uint8 bits,
                          out errval msgerr);
+
+    rpc alloc_mem(in uint64 bytes, out uint64 base, out uint64 rbytes, out errval msgerr);
 };
