@@ -114,4 +114,7 @@ errval_t xeon_phi_client_dma_register(xphi_id_t xid, struct capref mem, uint64_t
 
 errval_t xeon_phi_client_dma_memcpy(xphi_id_t xid, uint64_t to, uint64_t from, uint64_t size);
 
+
+errval_t xeon_phi_client_alloc_memory(xphi_id_t xid, struct capref *dst, size_t bytes);
+
 #endif // XEON_PHI_SERVICE_CLIENT_H_
