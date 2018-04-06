@@ -1599,9 +1599,6 @@ rx_handler p ifn typedefs msgdefs msgs =
             C.SComment "is this a binding message of connect/accept?",
             C.If (C.Binary C.Equals (C.Variable "msgnum") ( (C.Variable $ msg_enum_elem_name ifn "__bind"))) [
               C.Ex $ C.Call "ump_chan_free_message" [C.Variable "msg"],
-        --      C.SComment "handle bind reply: calling bind callback",
-            --  C.Ex $ C.CallInd (bindvar `C.DerefField` "bind_cont")
-            --      [bindvar `C.DerefField` "st", errvar, bindvar],
             C.Ex $ C.Assignment (C.Variable "call_msgnum") ( (C.Variable $ msg_enum_elem_name ifn "__bind")),
               C.Goto "out"] [],
             C.SBlank,
@@ -1656,6 +1653,11 @@ rx_handler p ifn typedefs msgdefs msgs =
                             | (msgdef, msg@(MsgSpec mn _ caps)) <- zip msgdefs msgs, caps == []]
 
         call_case_bind = [C.Case  (C.Variable $ msg_enum_elem_name ifn "__bind")[
+                C.SComment "run user's connect handler",
+                C.If (C.DerefField bindvar "bind_cont") [
+                C.Ex $  C.CallInd (C.DerefField bindvar "bind_cont")
+                                   [C.DerefField bindvar "st", C.Variable "SYS_ERR_OK", bindvar]
+                ] [],
             C.Ex $ C.Call (tx_bind_reply_fn_name p ifn) [my_bindvar], C.Break]
                 ]
         call_case_bind_reply =[C.Case  (C.Variable $ msg_enum_elem_name ifn "__bind_reply") [
