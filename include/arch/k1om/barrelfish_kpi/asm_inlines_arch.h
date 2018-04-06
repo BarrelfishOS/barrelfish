@@ -191,7 +191,7 @@ lfence(void)
 static inline void
 clflush(void *line)
 {
-    __asm volatile("clflush %0" :: "m" (line));
+    //__asm volatile("clflush %0" :: "m" (line));
 }
 
 #ifndef __cplusplus
