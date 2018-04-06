@@ -219,8 +219,6 @@ errval_t xdma_state_init(struct xeon_phi *phi, struct dma_mem_mgr **retst)
     return LIB_ERR_NOT_IMPLEMENTED;
     #endif
 
-    XDMA_DEBUG("dma_svc_connect_cb user_st = %p\n", st);
-
     err = dma_mem_mgr_init(retst, 0x0, (1UL << 48) - 1);
     if (err_is_fail(err)) {
         return err;
@@ -236,8 +234,6 @@ errval_t xdma_register_region(struct xeon_phi *phi, struct dma_mem_mgr *st,
 {
     errval_t err;
 
-    XDMA_DEBUG("dma_svc_addregion_cb user_st = %p\n", user_st);
-
     #ifdef __k1om__
     return LIB_ERR_NOT_IMPLEMENTED;
     #endif
@@ -247,6 +243,8 @@ errval_t xdma_register_region(struct xeon_phi *phi, struct dma_mem_mgr *st,
     if (err_is_fail(err)) {
         return err;
     }
+
+    XDMA_DEBUG("xdma_register_region [0x%lx..0x%lx]\n", id.base, id.base+id.bytes -1);
 
     err = dma_mem_register(st, cap, addr);
     if (err_is_fail(err)) {
@@ -270,7 +268,7 @@ errval_t xdma_memcpy(struct xeon_phi *phi, struct dma_mem_mgr *st, uint64_t to, 
 {
     errval_t err;
 
-    XDMA_DEBUG("xdma_memcpy st = %p\n", txst);
+    XDMA_DEBUG("xdma_memcpy st = %p, [%lx] -> [%lx]\n", txst, from, to);
 
     #ifdef __k1om__
     return LIB_ERR_NOT_IMPLEMENTED;
@@ -279,14 +277,16 @@ errval_t xdma_memcpy(struct xeon_phi *phi, struct dma_mem_mgr *st, uint64_t to, 
     lpaddr_t dma_dst, dma_src;
     err = dma_mem_verify(st, to, length, &dma_dst);
     if (err_is_fail(err)) {
+        XDMA_DEBUG("to address [%lx..%lx] is not validated!\n", to, to+length-1);
         return err;
     }
     err = dma_mem_verify(st, from, length, &dma_src);
     if (err_is_fail(err)) {
+        XDMA_DEBUG("from address [%lx..%lx] is not validated!\n", from, from + length - 1);
         return err;
     }
 
-    XDMA_DEBUG("[%016lx]->[%016lx] of %lu bytes\n", dma_src, dma_dst, bytes);
+    XDMA_DEBUG("[0x%016lx]->[0x%016lx] of %lu bytes\n", dma_src, dma_dst, length);
 
     /* both addresses are valid and have been translated now */
     struct dma_device *dev = phi->dma;
@@ -328,7 +328,7 @@ errval_t xdma_service_init(struct xeon_phi *phi)
 #endif
 
     struct xeon_phi_dma_device *dev;
-    err = xeon_phi_dma_device_init(mmio_base, &dev);
+    err = xeon_phi_dma_device_init(mmio_base, phi->iommu_client, &dev);
     if (err_is_fail(err)) {
         return err;
     }

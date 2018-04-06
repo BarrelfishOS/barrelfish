@@ -179,7 +179,7 @@ errval_t service_bootstrap(struct xeon_phi *phi,
     XSERVICE_DEBUG("waiting for bootstrap done:%u.\n", xphi_id);
 
     while(!node->bootstrap_done) {
-        xeon_phi_event_poll(0x1);
+        xeon_phi_event_poll(node->local, true);
     }
 
     return node->err;
@@ -447,7 +447,7 @@ errval_t service_register(struct xeon_phi *phi,
         xnode->state = XNODE_STATE_NONE;
         svc_register(xnode);
         while (xnode->state == XNODE_STATE_NONE) {
-            err = xeon_phi_event_poll(0x1);
+            err = xeon_phi_event_poll(phi, 0x1);
             if (err_is_fail(err)) {
                 return err;
             }
@@ -463,7 +463,7 @@ errval_t service_register(struct xeon_phi *phi,
         xnode = &phi->topology[i];
         register_call_send(xnode);
         while (xnode->state == XNODE_STATE_REGISTERING) {
-            err = xeon_phi_event_poll(0x1);
+            err = xeon_phi_event_poll(phi, 0x1);
             if (err_is_fail(err)) {
                 return err;
             }
@@ -486,7 +486,7 @@ errval_t service_start(struct xeon_phi *phi)
     errval_t err;
 
     while (1) {
-        err = xeon_phi_event_poll(0x1);
+        err = xeon_phi_event_poll(phi, 0x1);
         if (err_is_fail(err)) {
             return err;
         }

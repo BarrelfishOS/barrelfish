@@ -90,6 +90,9 @@ struct xphi_svc_msg_st
         {
             uint64_t devaddr;
         } dma_register;
+        struct {
+            struct capref cap;
+        } alloc;
     } args;
 };
 
@@ -219,6 +222,14 @@ static errval_t domain_wait_response_tx(struct txq_msg_st* msg_st)
 
     return xeon_phi_domain_wait_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                              st->args.domain.domid, msg_st->err);
+}
+
+static errval_t alloc_mem_response_tx(struct txq_msg_st* msg_st)
+{
+    struct xphi_svc_msg_st *st = (struct xphi_svc_msg_st *) msg_st;
+
+    return xeon_phi_alloc_mem_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                             st->args.alloc.cap, msg_st->err);
 }
 
 /*
@@ -501,8 +512,8 @@ static void dma_register_call_rx(struct xeon_phi_binding *binding,
         }
     }
 
-    msg_st->err  = xdma_register_region(svc_st->phi, svc_st->dma_mem_mgr, mem,
-                                        &xphi_st->args.dma_register.devaddr);
+    msg_st->err= xdma_register_region(svc_st->phi, svc_st->dma_mem_mgr, mem,
+                                      &xphi_st->args.dma_register.devaddr);
 send:
     txq_send(msg_st);
 }
@@ -516,6 +527,8 @@ static void dma_memcpy_call_rx(struct xeon_phi_binding *binding,
     if (msg_st == NULL) {
         USER_PANIC("ran out of reply state resources\n");
     }
+
+    XSERVICE_DEBUG("dma_memcpy_call_rx(%lx, %lx)\n", to, from);
 
     msg_st->send = dma_memcpy_response_tx;
     msg_st->cleanup = NULL;
@@ -563,18 +576,39 @@ static void get_nodeid_call_rx(struct xeon_phi_binding *binding,
         xphi_st->args.nodeid.nodeid = -1;
     } else if (arg & (1UL<<32)) {
         // DMA engine
-        debug_printf("XXX just use the node id of the PCI device for now!\n");
+        XSERVICE_DEBUG("XXX just use the node id of the PCI device for now!\n");
         xphi_st->args.nodeid.nodeid = driverkit_iommu_get_nodeid(svc_st->phi->iommu_client);
     } else if (arg  & (1UL<<33)) {
         // cores
         // coreid_t coreid = arg & 0xffff;
-        debug_printf("XXX just use the node id of the PCI device for now!\n");
+        XSERVICE_DEBUG("XXX just use the node id of the PCI device for now!\n");
         xphi_st->args.nodeid.nodeid = driverkit_iommu_get_nodeid(svc_st->phi->iommu_client);
     } else {
         // PCI card
-        debug_printf("XXX just use the node id of the PCI device for now!\n");
+        XSERVICE_DEBUG("XXX just use the node id of the PCI device for now!\n");
         xphi_st->args.nodeid.nodeid = driverkit_iommu_get_nodeid(svc_st->phi->iommu_client);
     }
+
+    txq_send(msg_st);
+}
+
+static void alloc_mem_call_rx(struct xeon_phi_binding *binding, uint64_t bytes)
+{
+    struct xphi_svc_st *svc_st = binding->st;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    msg_st->send = alloc_mem_response_tx;
+    msg_st->cleanup = NULL;
+
+    struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
+
+    struct xphi_svc_msg_st *st = (struct xphi_svc_msg_st *)msg_st;
+
+    msg_st->err = interphi_alloc_mem(node, bytes, &st->args.alloc.cap);
 
     txq_send(msg_st);
 }
@@ -591,7 +625,8 @@ static struct xeon_phi_rx_vtbl xphi_svc_rx_vtbl = {
     .chan_open_response = chan_open_response_rx,
     .dma_register_call = dma_register_call_rx,
     .dma_memcpy_call = dma_memcpy_call_rx,
-    .get_nodeid_call = get_nodeid_call_rx
+    .get_nodeid_call = get_nodeid_call_rx,
+    .alloc_mem_call = alloc_mem_call_rx
 };
 
 /*
@@ -715,7 +750,7 @@ errval_t xeon_phi_service_open_channel(struct capref cap,
     }
 
     while (st->rpc_state != RPC_STATE_IDLE) {
-        err = xeon_phi_event_poll(true);
+        err = xeon_phi_event_poll(st->phi, true);
         if (err_is_fail(err)) {
             return err;
         }
@@ -741,7 +776,7 @@ errval_t xeon_phi_service_open_channel(struct capref cap,
     txq_send(msg_st);
 
     while (!(st->rpc_state & RPC_STATE_DONE)) {
-        err = xeon_phi_event_poll(true);
+        err = xeon_phi_event_poll(st->phi, true);
         if (err_is_fail(err)) {
             return err;
         }
