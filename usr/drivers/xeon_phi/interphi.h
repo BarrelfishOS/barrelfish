@@ -216,4 +216,10 @@ errval_t interphi_domain_wait_reply(struct xnode *node,
                                     void *state,
                                     xphi_dom_id_t domid);
 
+errval_t interphi_alloc_mem(struct xnode *node,
+                            uint64_t bytes,
+                            struct capref *mem);
+
+
+
 #endif /* XEON_PHI_INTERPHI_H */

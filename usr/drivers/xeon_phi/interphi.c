@@ -47,6 +47,7 @@ struct msg_info
     struct tx_queue queue;
     errval_t rpc_err;
     uint64_t rpc_data;
+    uint64_t rpc_data2;
     uint8_t is_client;
     uint8_t wait_reply;
 };
@@ -101,8 +102,27 @@ struct interphi_msg_st
             xphi_dom_id_t domid;
             uintptr_t state;
         } domain;
+        struct {
+            uint64_t base;
+            uint64_t bytes;
+            errval_t err;
+        } alloc;
     } args;
 };
+
+
+/*
+ * XXX: hack. just keep track of the frames for now and return them later
+ * for the paper usecase!
+ */
+struct mem_reg
+{
+    struct mem_reg *next;
+    struct capref cap;
+    struct frame_identity id;
+};
+
+static struct mem_reg *allocated_mem;
 
 /*
  * ---------------------------------------------------------------------------
@@ -137,11 +157,14 @@ static inline void rpc_wait_done(struct msg_info *mi)
 
     while (mi->wait_reply) {
 #ifndef __k1om__
+
+        struct xnode *node = mi->binding->st;
+
         errval_t err;
         uint32_t data = 0x0;
         uint32_t serial_recv = 0xF;
         while (serial_recv--) {
-            data |= xeon_phi_serial_handle_recv();
+            data |= xeon_phi_serial_handle_recv(node->local);
         }
 
         err = event_dispatch_non_block(get_default_waitset());
@@ -402,6 +425,22 @@ static errval_t chan_open_response_tx(struct txq_msg_st *msg_st)
     return interphi_chan_open_response__tx(msg_st->queue->binding,
                                            TXQCONT(msg_st), msg_st->err);
 }
+
+static errval_t alloc_mem_call_tx(struct txq_msg_st *msg_st)
+{
+    struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
+    return interphi_alloc_mem_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                          st->args.alloc.bytes);
+}
+
+static errval_t alloc_mem_response_tx(struct txq_msg_st *msg_st)
+{
+    struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
+    return interphi_alloc_mem_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                           st->args.alloc.base, st->args.alloc.bytes,
+                                           st->args.alloc.err);
+}
+
 
 /*
  * ----------------------------------------------------------------------------
@@ -670,9 +709,25 @@ static void spawn_with_cap_call_rx(struct interphi_binding *_binding,
         return;
     }
 
+    XINTER_DEBUG("Creating ARGCN for the domain to be spawned\n");
+
+    struct capref argcn;
+    struct cnoderef argcnref;
+    msg_st->err = cnode_create_l2(&argcn, &argcnref);
+    if (err_is_fail(msg_st->err)) {
+        sysmem_cap_return(cap);
+        txq_send(msg_st);
+        return;
+    }
+    struct capref dst = {
+            .cnode = argcnref,
+            .slot = 0
+    };
+    cap_copy(dst, cap);
+
     struct capref* domain = (struct capref*) malloc(sizeof(struct capref));
     msg_st->err = spawn_program_with_caps(core, cmdline, argv, NULL, NULL_CAP,
-                                          cap, flags, domain);
+                                          argcn, flags, domain);
     if (err_is_ok(msg_st->err)) {
         phi->current_key++;
 #ifdef __k1om__
@@ -684,6 +739,9 @@ static void spawn_with_cap_call_rx(struct interphi_binding *_binding,
 #endif
         collections_hash_insert(phi->did_to_cap, st->args.spawn_reply.domainid,  domain);
     }
+
+    cap_destroy(argcn);
+
     txq_send(msg_st);
 }
 
@@ -825,10 +883,22 @@ static void chan_open_call_rx(struct interphi_binding *_binding,
 
     msgbase += offset;
 
-    msg_st->err = sysmem_cap_request(msgbase, msgbits, &msgcap);
-    if (err_is_fail(msg_st->err)) {
-        txq_send(msg_st);
-        return;
+    XINTER_DEBUG("chan_open_call_rx: msgbase=%lx\n", msgbase);
+    if (msgbase < XEON_PHI_SYSMEM_BASE) {
+        struct mem_reg *mreg = allocated_mem;
+        while(mreg) {
+            XINTER_DEBUG("%lx %lx | %lx %lx\n", mreg->id.base, msgbase, mreg->id.bytes, (1UL << msgbits));
+            if (mreg->id.base == msgbase && mreg->id.bytes == (1UL << msgbits)) {
+                msgcap = mreg->cap;
+            }
+            mreg = mreg->next;
+        }
+    } else {
+        msg_st->err = sysmem_cap_request(msgbase, msgbits, &msgcap);
+        if (err_is_fail(msg_st->err)) {
+            txq_send(msg_st);
+            return;
+        }
     }
 
     msg_st->err = xeon_phi_service_open_channel(msgcap, type, target_did,
@@ -851,6 +921,63 @@ static void chan_open_response_rx(struct interphi_binding *_binding,
     rpc_done(local_node->msg);
 }
 
+
+static void alloc_mem_call_rx(struct interphi_binding *_binding,
+                              uint64_t bytes)
+{
+    XINTER_DEBUG("alloc_mem_call_rx: %lu\n", bytes);
+
+    struct xnode *local_node = _binding->st;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&local_node->msg->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    struct mem_reg *mreg = calloc(1, sizeof(*mreg));
+    assert(mreg);
+
+    msg_st->err = frame_alloc(&mreg->cap, bytes, NULL);
+    if (err_is_fail(msg_st->err)) {
+        goto send_out;
+    }
+
+    invoke_frame_identify(mreg->cap, &mreg->id);
+
+    struct interphi_msg_st *st = (struct interphi_msg_st*)msg_st;
+
+    mreg->next = allocated_mem;
+    allocated_mem = mreg;
+
+    msg_st->send = alloc_mem_response_tx;
+    msg_st->cleanup = NULL;
+    st->args.alloc.bytes = mreg->id.bytes;
+
+    #ifdef __k1om__
+    st->args.alloc.base =  mreg->id.base;
+    #else
+    USER_PANIC("TODO: convert address!");
+    #endif
+
+    send_out:
+    txq_send(msg_st);
+}
+
+static void alloc_mem_response_rx(struct interphi_binding *_binding,
+                                  uint64_t base, uint64_t bytes, errval_t msgerr)
+{
+    XINTER_DEBUG("alloc_mem_response_rx: %s\n", err_getstring(msgerr));
+
+    struct xnode *local_node = _binding->st;
+
+    local_node->msg->rpc_err = msgerr;
+    local_node->msg->rpc_data = base;
+    local_node->msg->rpc_data2 = bytes;
+
+    rpc_done(local_node->msg);
+}
+
+
 struct interphi_rx_vtbl rx_vtbl = {
     .domain_lookup_call = domain_lookup_call_rx,
     .domain_lookup_response = domain_lookup_response_rx,
@@ -867,7 +994,9 @@ struct interphi_rx_vtbl rx_vtbl = {
     .kill_call = kill_call_rx,
     .kill_response = kill_response_rx,
     .bootstrap_call = bootstrap_call_rx,
-    .bootstrap_response = bootstrap_response_rx
+    .bootstrap_response = bootstrap_response_rx,
+    .alloc_mem_call = alloc_mem_call_rx,
+    .alloc_mem_response = alloc_mem_response_rx
 };
 
 /*
@@ -939,7 +1068,7 @@ errval_t interphi_wait_for_client(struct xeon_phi *phi)
         uint32_t data = 0x0;
         uint32_t serial_recv = 0xF;
         while (serial_recv--) {
-            data |= xeon_phi_serial_handle_recv();
+            data |= xeon_phi_serial_handle_recv(phi);
         }
 
         err = event_dispatch_non_block(get_default_waitset());
@@ -1374,7 +1503,18 @@ errval_t interphi_spawn_with_cap(struct xnode *node,
     svc_st->args.spawn_call.flags = flags;
     assert((1UL << log2ceil(id.bytes)) == id.bytes);
     svc_st->args.spawn_call.cap_size_bits = log2ceil(id.bytes);
+
+#ifdef __k1om__
     svc_st->args.spawn_call.cap_base = id.base;
+#else
+    err = xeon_phi_hw_model_query_and_config(node->local, cap,
+                                             &svc_st->args.spawn_call.cap_base);
+    if (err_is_fail(err)) {
+        rpc_done(node->msg);
+        txq_msg_st_free(msg_st);
+        return err;
+    }
+#endif
 
     txq_send(msg_st);
 
@@ -1461,7 +1601,18 @@ errval_t interphi_chan_open(struct xnode *node,
 
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
+    #ifndef __k1om__
+    err = xeon_phi_hw_model_query_and_config(node->local, msgframe,
+                                             &svc_st->args.open.msgbase);
+    if (err_is_fail(err)) {
+        rpc_done(node->msg);
+        txq_msg_st_free(msg_st);
+        return err;
+    }
+    #else
     svc_st->args.open.msgbase = id.base;
+    #endif
+
     assert((1UL << log2ceil(id.bytes)) == id.bytes);
     svc_st->args.open.msgbits = log2ceil(id.bytes);
     svc_st->args.open.source = source;
@@ -1661,4 +1812,43 @@ errval_t interphi_domain_wait_reply(struct xnode *node,
     USER_PANIC("interphi_domain_wait_reply: Not supported on Xeon Phi\n");
 #endif
     return SYS_ERR_OK;
+}
+
+
+
+errval_t interphi_alloc_mem(struct xnode *node,
+                            uint64_t bytes,
+                            struct capref *mem)
+{
+    errval_t err;
+    struct msg_info *mi = node->msg;
+
+    XINTER_DEBUG("allocate memory %lu bytes\n", bytes);
+
+    struct txq_msg_st *msg_st = rpc_preamble(mi);
+    if (msg_st == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    msg_st->send = alloc_mem_call_tx;
+
+    struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
+
+    svc_st->args.alloc.bytes = bytes;
+
+    txq_send(msg_st);
+
+    rpc_wait_done(node->msg);
+
+    if (err_is_ok(node->msg->rpc_err)) {
+        if (mem) {
+            XINTER_DEBUG("Obtain cap for 0x%lx of byte %lu\n", node->msg->rpc_data,
+                         node->msg->rpc_data2);
+            err = sysmem_cap_request(node->msg->rpc_data + node->local->apt.pbase,
+                                     log2ceil(node->msg->rpc_data2), mem);
+            return err;
+        }
+    }
+
+    return node->msg->rpc_err;
 }
