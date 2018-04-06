@@ -21,10 +21,19 @@
 :- use_module(decoding_net3_state).
 
 
-%% Bottom layer is storing the following facts in the State
-% accept(Region).
+%%% Bottom layer is storing the following facts in the State
+% accept(Region)
 % mapping(SrcRegion, DstName)
-% overlay(SrcNodeId, OutNodeId).
+% overlay(SrcNodeId, OutNodeId)
+% block_meta(NodeId, Bits, OutNodeId)  -- Metadata for block reconfigurable nodes
+% block_conf(NodeId, VPN, PPN)         -- For block reconfigurable nodes
+
+state_valid([]).
+state_valid([accept(_) | As]) :- state_valid(As).
+state_valid([mapping(_,_) | As]) :- state_valid(As).
+state_valid([overlay(_,_) | As]) :- state_valid(As).
+state_valid([block_meta(_,_,_) | As]) :- state_valid(As).
+state_valid([block_conf(_,_,_) | As]) :- state_valid(As).
 
 %% This fact keeps track of blocks that are in use.
 % node_in_use(NodeId, Block).
@@ -118,6 +127,8 @@ accept(S, Region) :-
 translate(S, SrcRegion, DstBase) :-
     state_query(S, mapping(SrcRegion, DstBase)).
 
+% Transform the overlays into translate, but only where they don't match
+% an existing translate.
 translate(S, SrcRegion, DstBase) :-
    SrcRegion = region{node_id:SrcNodeId},
    state_query(S, overlay(SrcNodeId, OverlayDest)), 
@@ -489,8 +500,8 @@ accept_region(S, Region) :-
 
 accept_regions(S, []).
 accept_regions(S, [R | Rs]) :-
-    accept_region(R),
-    accept_regions(Rs).
+    accept_region(S, R),
+    accept_regions(S, Rs).
 
 test_accept_name :-
     S = [accept(region{node_id:["In"], blocks: [memory, [block{base: 50, limit:100}]]})],
@@ -522,11 +533,85 @@ decode_step_region(S, SrcRegion, NextRegions) :-
     NextRegions = [DstRegion].
 
 
+% Like decode_step_region, but consider additional configuration entries.
+% TODO: Only works if SrcRegion matches exactly a Configuration block.
+% This function uses IC internally,but labels the outputs.
+decode_step_region_conf_one(S, SrcRegion, DstRegion, block_conf(SrcId, VPN, PPN)) :-
+    SrcRegion = region{node_id: SrcId, blocks: [Kind, [block{base: SrcB, limit: SrcL}]]},
+    state_query(S, block_meta(SrcId, Bits, OutNodeId)),
+    DstRegion = region{node_id: OutNodeId, blocks: [Kind, [block{base: DestB, limit: DestL}]]},
+    RSize is SrcL - SrcB + 1,
+    RSize is 2^Bits,
+    split_vaddr(SrcB, Bits, [VPN, Offset]),
+    split_vaddr(DestB, Bits, [PPN, Offset]),
+    DestL #= DestB + RSize - 1,
+    labeling([PPN, VPN]).
+
+decode_step_region_conf(S, SrcRegion, DstRegions, Confs) :-
+    % TODO: WIP
+    SrcRegion = region{node_id: SrcId, blocks: [Kind, [block{base: SrcB, limit: SrcL}]]},
+    state_query(S, block_meta(SrcId, Bits, OutNodeId)),
+    Size is 2^Bits,
+    split_region(SrcRegion, Size, SplitSrc),
+    (foreach(Src, SplitSrc),
+     fromto([],DstIn,DstOut,DstRegions),
+     fromto([],ConfIn,ConfOut,Confs),
+     param(S) do
+        decode_step_region_conf_one(S, Src, Dst, Conf),
+        append(DstIn, [Dst], DstOut),
+        append(ConfIn, [Conf], ConfOut)
+    ).
+
+split_region(Region, Size, Splits) :-
+    % TODO IMPLEMENT ME
+    Splits = [Region].
+
+:- export test_split_region/0.
+test_split_region :-
+    InR = region{node_id:["IN"], blocks: [memory,[base:0, limit: 8]]},
+    Size = 4,
+    split_region(InR, Size, Out).
+
+:- export test_decode_step_region_conf_one/0.
+test_decode_step_region_conf_one :-
+    S = [block_meta(["IN"], 21, ["OUT"])],
+    Base = 0,
+    Limit is Base + 2^21 - 1,
+    SrcRegion = region{node_id: ["IN"], blocks: [memory, [block{base:Base, limit:Limit}]]},
+    decode_step_region_conf_one(S, SrcRegion, Out1, Conf1),
+    %printf("Out1 (free)=%p, Conf1=%p\n",[Out1, Conf1]),
+    TestBase is 512 * 2^21,
+    Out2 = region{node_id:["OUT"], blocks: [memory, [block{base:TestBase}]]},
+    decode_step_region_conf_one(S, SrcRegion, Out2, Conf2),
+    %printf("Out2 (fixed)=%p, Conf2=%p\n",[Out2, Conf2]),
+    Conf2 = block_conf(["IN"], 0, 512).
+
+:- export test_decode_step_region_conf2/0.
+test_decode_step_region_conf2 :-
+    S = [block_meta(["IN"], 21, ["OUT"])],
+    Base = 0,
+    Limit is Base + 2^22 - 1, % Note the second 2 in 22, this remaps two blocks
+    SrcRegion = region{node_id: ["IN"], blocks: [memory, [block{base:Base, limit:Limit}]]},
+    decode_step_region_conf(S, SrcRegion, [Out1], Conf1),
+    printf("Out1 (free)=%p, Conf1=%p\n",[Out1, Conf1]).
+    %TestBase is 512 * 2^21,
+    %Out2 = region{node_id:["OUT"], blocks: [memory, [block{base:TestBase}]]},
+    %decode_step_region_conf(S, SrcRegion, [Out2], Conf2),
+    %%printf("Out2 (fixed)=%p, Conf2=%p\n",[Out2, Conf2]),
+    %Conf2 = [block_conf(["IN"], 0, 512)].
+
 decode_step_regions(S, [], []).
 decode_step_regions(S, [A | As], Regs) :-
-    decode_step_region(A, RegsA),
-    decode_step_regions(As, RegsB),
+    decode_step_region(S, A, RegsA),
+    decode_step_regions(S, As, RegsB),
     append(RegsA, RegsB, Regs).
+
+decode_step_regions_conf(S, [], [], []).
+decode_step_regions_conf(S, [A | As], Regs, Conf) :-
+    decode_step_region_conf(S, A, RegsA, ConfA),
+    decode_step_regions_conf(S, As, RegsB, ConfB),
+    append(RegsA, RegsB, Regs),
+    append(ConfA, ConfB, Conf).
 
 
 test_decode_step_region :-
@@ -583,6 +668,26 @@ test_decode_step_name2 :-
         name{node_id: ["In"], address: [memory, [1000]]}, 
         name{node_id: ["Out2"], address: [memory, [1000]]})).
 
+:- export test_decode_step_name3/0.
+test_decode_step_name3 :-
+    %Setup
+    S = [
+        mapping(
+            region{node_id:["In"], blocks:[memory, [block{base:1000,limit:2000}]]},
+            name{node_id: ["Out1"], address: [memory, [0]]}),
+        mapping(
+            region{node_id:["In2"], blocks:[memory, [block{base:2000,limit:3000}]]},
+            name{node_id: ["Out1"], address: [memory, [0]]}),
+        overlay(["In"], ["Out2"])
+      ],
+    % Test the translate block
+    Src = name{node_id:["In"]},
+    decode_step_name(S,
+        Src,
+        name{node_id:["Out1"], address: [memory, [0]]}
+    ),
+    Src = name{node_id:["In"], address: [memory, [1000]]}.
+
 
 % Reflexive, transitive closure of decode_step_*
 :- export decodes_name/3.
@@ -605,7 +710,7 @@ decodes_regions(S, SrcRegions, DstRegions) :-
 
 resolve_regions(S, SrcRegions, DstRegions) :-
     decodes_regions(S, SrcRegions, DstRegions),
-    accept_regions(DstRegions).
+    accept_regions(S, DstRegions).
 
 :- export test_resolve_name/0.
 test_resolve_name :-
@@ -627,22 +732,24 @@ test_resolve_name :-
         name{node_id:["In"], address:[memory, [500]]},
         name{node_id:["Out2"], address:[memory, [500]]}).
 
-test_resolve2(Out) :-
+test_resolve_name2 :-
     %Setup
-    assert(node_translate_dyn(
-        ["In1"], [memory, [block{base:1000,limit:2000}]],
-        ["Out1"], [memory, [block{base:0,limit:1000}]])),
-    assert(node_translate_dyn(
-        ["In2"], [memory, [block{base:6000,limit:7000}]],
-        ["Out1"], [memory, [block{base:0,limit:1000}]])),
-    assert(node_accept(["Out1"], [memory,[block{base:0, limit:2000}]])),
+    S = [mapping(
+            region{node_id: ["In1"], blocks: [memory, [block{base:1000,limit:2000}]]},
+            name{node_id: ["Out1"], address: [memory, [0]]}),
+        mapping(
+            region{node_id:["In2"], blocks:[memory, [block{base:6000,limit:7000}]]},
+            name{node_id:["Out1"], address: [memory, [0]]}),
+        accept(region{node_id:["Out1"], blocks: [memory,[block{base:0, limit:2000}]]})
+        ],
     % Reverse lookup
-    resolve(
+    resolve_name(S,
         name{node_id:["In1"], address:[memory, [1000]]},
         R),
-    resolve(
+    resolve_name(S,
         name{node_id:["In2"], address:Out},
-        R).
+        R),
+    Out = [memory, [6000]].
 
 test_resolve3(Out) :-
     %Setup
@@ -1269,11 +1376,41 @@ route(SrcName, DstName, Route) :-
         union(R1, R2, Route)
     )).
 
-route_and_install(SrcName, DstName, Route) :-
-    route(SrcName,DstName, Route),
-    term_variables(Route, RouteVars),
-    labeling(RouteVars),
-    install_route(Route).
+route_step_new(S, SrcRegions, NextRegions, Route) :-
+    (decode_step_regions(S, SrcRegions, NextRegions), Route=[]) ;
+    decode_step_regions_conf(S, SrcRegions, NextRegions, Route).
+
+route_new(S, SrcRegions, DstRegions, Route) :-
+    SrcRegion = region{node_id: SrcNodeId, blocks: SrcBlocks},
+    DstRegion = region{node_id: DstNodeId, blocks: DstBlocks},
+    route_step_new(S, SrcRegions, NextRegions, R1),
+    ( accept_regions(S, NextRegions) -> (
+        DstRegions = NextRegions,
+        Route = R1
+    ) ; (
+        route_new(S, NextRegions, DstRegions, R2),
+        union(R1, R2, Route)
+    )).
+
+:- export test_route_new/0.
+test_route_new :-
+    Upper is 512 * 1024 * 1024,
+    Limit2M is 2^21 - 1,
+    S = [
+        mapping(
+            region{node_id: ["IN"], blocks: [memory, [block{base:0, limit:Upper}]]},
+            name{node_id: ["MMU"], address: [memory, [0]]}),
+        block_meta(["MMU"], 21, ["RAM"]),
+        accept(region{node_id: ["RAM"], blocks: [memory, [block{base:0, limit: Upper}]]})
+        ],
+    state_valid(S),
+
+    route_new(S,
+        [region{node_id:["IN"], blocks: [memory, [block{base:0, limit: Limit2M}]]}],
+        OutRegions, Route),
+    OutRegions = [region{node_id:["RAM"], blocks: [memory, [block{base:0, limit: Limit2M}]]}],
+    Route = [block_conf(["MMU"], 0, 0)].
+
 
 
 test_route(Route) :-
@@ -1403,68 +1540,6 @@ test_split_vpn :-
     VA = 16'40201, % hex(1 | 1<<9 | 1<<18)
     split_vpn(VA, [1,1,1]).
 
-pt_alloc(Idx, Idx) :-
-    not(pt(Idx,_,_)).
-
-pt_alloc(Try, Idx) :-
-    NextTry is Try + 1,
-    pt_alloc(NextTry, Idx).
-
-:- export pt_alloc/1.
-pt_alloc(Idx) :-
-    pt_alloc(0,Idx), !,
-    assert(pt(Idx,-1,-1)).
-
-% Inner function for pt_delta, better not use anywhere else.
-pt_delta_append_if_new(In, Out, pt(A,B,C)) :-
-    nonvar(A), nonvar(B),
-    % C magic: nonvar, or already installed, or it will be new allocated
-    (nonvar(C) ; (pt(A,B,C) ; pt_alloc(C))),
-    (pt(A,B,C) -> In = Out ; (Out = [pt(A,B,C) | In])).
-
-% Get the difference between the PT facts (which reflect in memory contents)
-% and the newly to be inserted block translate facts.
-% BlockDelta :: [(VPN, PPN), ...]
-% PtDelta :: [pt(Idx, Offset, NextIdx), ...]
-:- export pt_delta/3.
-pt_delta(NodeId, BlockDelta, PtDelta) :-
-    %findall((VPN, PPN), node_block_conf(NodeId, VPN, PPN), Maps),
-    (foreach((VPN,PPN), BlockDelta),param(NodeId),fromto([], In, Out, PtDelta) do
-        node_pt(NodeId, RootPt, _),
-        split_vpn(VPN, [L3,L2,L1]),
-        pt_delta_append_if_new(In,Out1,   pt(RootPt, L3, L2Idx)),
-        pt_delta_append_if_new(Out1,Out2, pt(L2Idx, L2, L1Idx)),
-        pt_delta_append_if_new(Out2,Out,  pt(L1Idx, L1, PPN))
-    ).
-
-:- export test_pt_delta/1.
-test_pt_delta(PtDelta) :-
-    pt_alloc(Root),
-    assert(node_pt([],Root,["OUT"])),
-    pt_delta([], [(0,23)], PtDelta).
-    % PtDelta = [pt(2, 0, 23), pt(1, 0, 2), pt(0, 0, 1)] modulo reordering.
-
-% For a list of PTs, assert the facts.
-:- export assert_pt_delta/1.
-assert_pt_delta(PtDelta) :-
-    (foreach(X, PtDelta) do
-        assert(X)
-    ).
-
-:- export route_node_ids/2.
-route_node_ids([], []).
-route_node_ids([(NodeId,_) | As], Res) :-
-    route_node_ids(As,Res1),
-    union([NodeId], Res1, Res).
-
-:- export route_conf_for_id/3.
-route_conf_for_id([], _, []).
-route_conf_for_id([(NodeId,Conf) | As], NodeId, Res) :-
-    route_conf_for_id(As, NodeId, Res1),
-    union([Conf],Res1, Res).
-
-route_conf_for_id([_ | As], NodeId, Res) :-
-    route_conf_for_id(As, NodeId, Res).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Big tests
@@ -1505,15 +1580,10 @@ test_mem_if :-
     alloc_common(21, PciEnum, ProcEnum).
 
 
-:- export dec_net_debug/0.
-dec_net_debug :- listing.
-
-
-
 run_test(Test) :-
     (
         call(Test),
-        printf("Test %p Succeeds!\n", Test)
+        printf("Test %p succeeds!\n", Test)
     ) ; (
         printf("!!! Test %p failed !!!\n", Test)
     ).
@@ -1527,5 +1597,10 @@ run_all_tests :-
     run_test(test_accept_region),
     run_test(test_decode_step_name),
     run_test(test_decode_step_name2),
+    run_test(test_decode_step_name3),
     run_test(test_decode_step_region),
-    run_test(test_resolve_name).
+    run_test(test_resolve_name),
+    run_test(test_resolve_name2),
+    run_test(test_decode_step_region_conf_one),
+    run_test(test_route_new),
+    run_test(test_split_vpn).
