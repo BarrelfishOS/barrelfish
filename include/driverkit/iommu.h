@@ -181,7 +181,7 @@ errval_t driverkit_iommu_modify(struct iommu_client *cl, struct capref dest,
 
 
 ///< represents a device address
-typedef lpaddr_t dmem_daddr_t;
+typedef genpaddr_t dmem_daddr_t;
 
 /**
  * @brief represents a region of device memory
