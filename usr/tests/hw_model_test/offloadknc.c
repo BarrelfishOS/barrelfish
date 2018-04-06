@@ -43,13 +43,16 @@ static void do_work_rx(struct xomp_binding *_binding, uint64_t fn, uint64_t arg,
 {
     errval_t err;
 
+    hline
     PRINTF("Co-processor start doing work...\n");
 
     for(size_t i = 0; i < arg; i += sizeof(uint64_t)) {
         uint64_t *p = (uint64_t *)(fn + i);
-        *p = i;
+        *p = *p + 1;
     }
 
+    hline
+    PRINTF("Co-processor done doing work...\n");
 
     err = _binding->tx_vtbl.done_notify(_binding, NOP_CONT, 0, SYS_ERR_OK);
     assert(err_is_ok(err));
@@ -57,17 +60,23 @@ static void do_work_rx(struct xomp_binding *_binding, uint64_t fn, uint64_t arg,
 
 static void bind_cb(void *st, errval_t err, struct xomp_binding *_binding)
 {
+    hline
+    PRINTF("Bind callback.\n");
+
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to bind to host\n");
     }
 
     _binding->rx_vtbl.do_work = do_work_rx;
-
 }
 
 static void message_passing_init(struct dmem *msgmem)
 {
     errval_t err;
+
+    hline
+    PRINTF("Initializing message passing\n");
+
 
     struct xomp_frameinfo fi = {
             .sendbase = msgmem->devaddr + MSG_CHANNEL_SIZE,
@@ -77,7 +86,8 @@ static void message_passing_init(struct dmem *msgmem)
             .outbufsize = MSG_CHANNEL_SIZE,
     };
 
-    err = xomp_connect(&fi, NULL, bind_cb, get_default_waitset(),
+
+    err = xomp_connect(&fi, bind_cb, NULL, get_default_waitset(),
                        IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to connect");
@@ -92,6 +102,8 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
 {
     errval_t err;
 
+    hline
+    PRINTF("Co-processor handling msg_open_cb\n");
     struct dmem dmem;
     struct frame_identity id;
     err = invoke_frame_identify(msgframe, &id);
@@ -104,17 +116,9 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     dmem.size = id.bytes;
     dmem.vbase = usrdata;
 
-    if (type == 0) {
-        err = vspace_map_one_frame((void **)&dmem.vbase, dmem.size, dmem.mem, NULL, NULL);
-        if (err_is_fail(err)) {
-            return err;
-        }
-        message_passing_init(&dmem);
-    } else if (type == 1) {
-        err = vspace_map_one_frame_fixed(dmem.vbase, dmem.size, dmem.mem, NULL, NULL);
-        if (err_is_fail(err)) {
-            return err;
-        }
+    err = vspace_map_one_frame_fixed(dmem.vbase, dmem.size, dmem.mem, NULL, NULL);
+    if (err_is_fail(err)) {
+        return err;
     }
 
     return SYS_ERR_OK;
@@ -136,6 +140,43 @@ int main(int argc, char **argv)
 
     /* set the callbacks */
     xeon_phi_client_set_callbacks(&callbacks);
+
+    /* */
+    errval_t err;
+
+    struct cnoderef argcnref;
+
+    argcnref = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER);
+
+    struct capref msgframe = {
+            .cnode = argcnref,
+            .slot = 0
+    };
+
+
+    struct dmem dmem;
+    struct frame_identity id;
+    err = invoke_frame_identify(msgframe, &id);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to invoke frame identify\n");
+    }
+
+    PRINTF("Using messaging frame 0x%lx..0x%lx\n", id.base, id.base + id.bytes - 1);
+
+
+
+    dmem.devaddr = id.base;
+    dmem.mem = msgframe;
+    dmem.size = id.bytes;
+
+    err = vspace_map_one_frame((void **)&dmem.vbase, dmem.size, dmem.mem, NULL, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    message_passing_init(&dmem);
+
+    PRINTF("Waiting for the commands...\n");
 
     while(!finished) {
         messages_wait_and_handle_next();

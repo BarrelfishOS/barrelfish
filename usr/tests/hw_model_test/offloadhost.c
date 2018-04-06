@@ -27,9 +27,10 @@
 #include <driverkit/iommu.h>
 
 #include <if/xomp_defs.h>
+#include <barrelfish/deferred.h>
 
 
-#define ENABLE_NETWORKING 1
+#define ENABLE_NETWORKING 0
 
 
 #define HLINE debug_printf("#######################################################\n");
@@ -72,7 +73,8 @@ static int32_t node_id_network = -1;
 #define OFFLOAD_PATH "k1om/sbin/hwmodel/offload"
 #define XEON_PHI_ID 0
 #define XEON_PHI_CORE 1
-#define DATA_SIZE (1UL << 30)
+//#define DATA_SIZE (1UL << 30)
+#define DATA_SIZE (1UL << 21)
 #define MSG_CHANNEL_SIZE (1UL << 20)
 #define MSG_FRAME_SIZE (2 * MSG_CHANNEL_SIZE)
 
@@ -151,15 +153,15 @@ int main(int argc,  char **argv)
 {
     errval_t err;
 
-    HLINE
-    PRINTF("Offload Scenario started.\n");
-    HLINE
-
     // initialize the xeon phi client
     err = xeon_phi_client_init(XEON_PHI_ID);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to initialize the xeon phi client");
     }
+
+    HLINE
+    PRINTF("Offload Scenario started.\n");
+    HLINE
 
     // set the callbacks
     xeon_phi_client_set_callbacks(&callbacks);
@@ -217,7 +219,7 @@ int main(int argc,  char **argv)
 
     struct dmem msgmem;
     err = driverkit_hwmodel_vspace_map(node_id_self, msgframemem, VREGION_FLAGS_READ_WRITE,
-                               &msgmem);
+                                       &msgmem);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to map the memory\n");
     }
@@ -229,10 +231,15 @@ int main(int argc,  char **argv)
     PRINTF("Allocating memory on the co-processor\n");
 
     struct capref offloadmem;
+    #if 0
+
     int32_t nodes_offload[] = {
             node_id_offload_core, node_id_dma, 0
     };
-    err = driverkit_hwmodel_frame_alloc(&offloadmem, DATA_SIZE, node_id_ram,  nodes_offload);
+    err = driverkit_hwmodel_frame_alloc(&offloadmem, DATA_SIZE, node_id_ram,
+                                    nodes_offload);
+    #endif
+    err = xeon_phi_client_alloc_memory(XEON_PHI_ID, &offloadmem, DATA_SIZE);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to allocate memory\n");
     }
@@ -255,34 +262,32 @@ int main(int argc,  char **argv)
 
     hline
 
-    PRINTF("Spawning process on co-processor");
+    PRINTF("Spawning process on co-processor\n");
     xphi_dom_id_t  domid;
     err = xeon_phi_client_spawn(XEON_PHI_ID, XEON_PHI_CORE, OFFLOAD_PATH, NULL,
-                                NULL_CAP, 0, &domid);
+                                msgframemem, 0, &domid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to start the programm\n");
     }
 
+    PRINTF("Spawned process with did: 0x%lx, waiting for connection\n", domid);
+
+    while(coprocessor == NULL) {
+        messages_wait_and_handle_next();
+    }
+
     hline
 
-    PRINTF("Adding message passing frame");
-    err = xeon_phi_client_chan_open(XEON_PHI_ID, domid, 0, msgframemem, 0);
+    PRINTF("Adding DMA mem\n");
+    err = xeon_phi_client_chan_open(XEON_PHI_ID, domid, clientva, offloadmem, 1);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to set the channel");
     }
 
     hline
 
-    PRINTF("Adding DMA mem");
-    err = xeon_phi_client_chan_open(XEON_PHI_ID, domid, clientva, mem, 1);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "failed to set the channel");
-    }
-
-    hline
-
-    PRINTF("Perform DMA from system RAM to co-processor GDDR\n");
-
+    PRINTF("Perform DMA from system RAM to co-processor GDDR [%lx] -> [%lx]\n",
+           dmem.devaddr, addr);
     err = xeon_phi_client_dma_memcpy(XEON_PHI_ID, addr, dmem.devaddr, DATA_SIZE);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to do the dma mem cpy\n");
@@ -292,10 +297,6 @@ int main(int argc,  char **argv)
 
     PRINTF("Sending command to the co-processor\n");
     TODO("SEND COMMAND\n");
-
-    while(coprocessor == NULL) {
-        messages_wait_and_handle_next();
-    }
 
     err = coprocessor->tx_vtbl.do_work(coprocessor, NOP_CONT, clientva, DATA_SIZE,
                                        0, 0);
@@ -313,11 +314,25 @@ int main(int argc,  char **argv)
     hline
 
     PRINTF("Perform DMA from co-processor GDDR to system RAM\n");
-    TODO("ask the DMA driver to do the copy\n");
 
     err = xeon_phi_client_dma_memcpy(XEON_PHI_ID, dmem.devaddr, addr, DATA_SIZE);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to do the dma mem cpy\n");
     }
+
+    hline
+
+    PRINTF("Collect the data\n");
+    for(size_t i = 0; i < DATA_SIZE; i += sizeof(uint64_t)) {
+        uint64_t *p = (uint64_t *)(dmem.vbase + i);
+        if (*p != i + 1) {
+            PRINTF("CORRUPTED DATA! [%zu] %lu\n", i, *p);
+        }
+    }
+
+
+    HLINE
+    PRINTF("DONE!\n");
+    HLINE
 }
 
