@@ -8,15 +8,12 @@
 % Attn: Systems Group.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% This is the one-dimensional implementation of the decoding net. 
-%% decoding_net3_multid contains the arbitrary dimensional implementation.
-
 % Some Conventions: 
 % NodeId = identifier list 
 % IAddr = [1,2,3] 
-% Addr = [kind, 1]
-% IBlock block{..}
-% Block = [kind, block{..}]
+% Addr = [kind, [1,2,3]]
+% IBlock [block{..}, block{...}]
+% Block = [kind, [block{..}, block{..}]]
 
 :- module(decoding_net3).
 
@@ -58,7 +55,7 @@ scan_points(S, NodeId, ScanPoints) :-
     Reg = region{node_id: NodeId},
     findall(Reg, state_query(S, mapping(Reg, _)), RegLi),
     (foreach(Reg, RegLi), fromto([0], In, Out, Ptz) do 
-        Reg = region{blocks: [_, block{base: B, limit: L}]},
+        Reg = region{blocks: [_, [block{base: B, limit: L}]]},
         LP is L + 1,
         append(In, [B,LP], Out)
     ),
@@ -69,11 +66,11 @@ scan_points(S, NodeId, ScanPoints) :-
 max_not_translated_pt(S, NodeId, Min, Max) :-
     Reg = region{node_id: NodeId},
     % Make sure Min is not in any Mapping.
-    not(state_query(S, mapping(region{node_id:NodeId,blocks:[_,block{base:Min}]}, _))),
+    not(state_query(S, mapping(region{node_id:NodeId,blocks:[_,[block{base:Min}]]}, _))),
     inf_value(Inf),
     findall(Reg, state_query(S, mapping(Reg, _)), RegLi),
     (foreach(Reg, RegLi), param(Min), fromto(Inf, MaxIn, MaxOut, MaxMatch) do 
-        Reg = region{blocks: [_, block{base: B, limit: L}]},
+        Reg = region{blocks: [_, [block{base: B, limit: L}]]},
         (
             ( B =< Min, MaxOut=MaxIn ) ; 
             ( min(MaxIn, B, MaxOut) )
@@ -87,11 +84,11 @@ max_not_translated_pt(S, NodeId, Min, Max) :-
 test_scan_points :-
     S = [
         mapping(
-        region{node_id: ["IN"], blocks: [memory, block{base:100, limit:200}]},
-        name{node_id: ["OUT"], address: [memory, 1]}),
+        region{node_id: ["IN"], blocks: [memory, [block{base:100, limit:200}]]},
+        name{node_id: ["OUT"], address: [memory, [1]]}),
         mapping(
-        region{node_id: ["Dummy"], blocks: [memory, block{base:7, limit:77}]},
-        name{node_id: ["OUT"], address: [memory, 1]})
+        region{node_id: ["Dummy"], blocks: [memory, [block{base:7, limit:77}]]},
+        name{node_id: ["OUT"], address: [memory, [1]]})
         ],
     scan_points(S, ["IN"], Points),
     member(0, Points),
@@ -104,11 +101,11 @@ test_scan_points :-
 test_max_not_translated_pt :-
     S = [
         mapping(
-        region{node_id: ["IN"], blocks: [memory, block{base:100, limit:200}]},
-        name{node_id: ["OUT"], address: [memory, 1]}),
+        region{node_id: ["IN"], blocks: [memory, [block{base:100, limit:200}]]},
+        name{node_id: ["OUT"], address: [memory, [1]]}),
         mapping(
-        region{node_id: ["Dummy"], blocks: [memory, block{base:7, limit:77}]},
-        name{node_id: ["OUT"], address: [memory, 1]})
+        region{node_id: ["Dummy"], blocks: [memory, [block{base:7, limit:77}]]},
+        name{node_id: ["OUT"], address: [memory, [1]]})
         ],
     scan_points(S, ["IN"], Points),
     max_not_translated_pt(S, ["IN"], 0, 99),
@@ -131,16 +128,16 @@ translate(S, SrcRegion, DstBase) :-
    scan_points(S, SrcNodeId, ScanPoints),
    member(Base, ScanPoints),
    max_not_translated_pt(S, SrcNodeId, Base, Limit),
-   SrcRegion = region{blocks:[memory, block{base: Base, limit: Limit}]},
-   DstBase = name{node_id:OverlayDest, address: [memory, Base]}.
+   SrcRegion = region{blocks:[memory, [block{base: Base, limit: Limit}]]},
+   DstBase = name{node_id:OverlayDest, address: [memory, [Base]]}.
 
 :- export test_translate/0.
 test_translate :- 
     %Setup
     S = [
         mapping(
-            region{node_id:["In"], blocks:[memory, block{base:1000,limit:2000}]},
-            name{node_id: ["Out1"], address: [memory, 0]}),
+            region{node_id:["In"], blocks:[memory, [block{base:1000,limit:2000}]]},
+            name{node_id: ["Out1"], address: [memory, [0]]}),
         overlay(["In"], ["Out2"])
       ],
     Src = region{node_id:["In"]},
@@ -149,15 +146,15 @@ test_translate :-
     %    printf("Src=%p, Dest=%p\n", [Src,Dest])
     %),
     translate(S, 
-        region{node_id:["In"], blocks:[memory, block{base:1000,limit:2000}]},
-        name{node_id: ["Out1"], address: [memory, 0]}),
+        region{node_id:["In"], blocks:[memory, [block{base:1000,limit:2000}]]},
+        name{node_id: ["Out1"], address: [memory, [0]]}),
     translate(S, 
-        region{node_id:["In"], blocks:[memory, block{base:0,limit:999}]},
-        name{node_id: ["Out2"], address: [memory, 0]}),
+        region{node_id:["In"], blocks:[memory, [block{base:0,limit:999}]]},
+        name{node_id: ["Out2"], address: [memory, [0]]}),
     inf_value(Inf), Inf1 is Inf - 1,
     translate(S, 
-        region{node_id:["In"], blocks:[memory, block{base:2001,limit:Inf1}]},
-        name{node_id: ["Out2"], address: [memory, 2001]}).
+        region{node_id:["In"], blocks:[memory, [block{base:2001,limit:Inf1}]]},
+        name{node_id: ["Out2"], address: [memory, [2001]]}).
 
 
 
@@ -179,10 +176,12 @@ test_translate :-
 %%%% Utilities
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-iaddress_aligned(A, Bits) :-
+iaddress_aligned([], _).
+iaddress_aligned([A | As], Bits) :-
     BlockSize is 2^Bits,
     BlockNum #>= 0,
-    A #= BlockNum * BlockSize.
+    A #= BlockNum * BlockSize,
+    iaddress_aligned(As, Bits).
 
 address_aligned([_, IAddress], Bits) :-
     iaddress_aligned(IAddress, Bits).
@@ -191,12 +190,17 @@ name_aligned(Name, Bits) :-
     name{address: Addr} = Name,
     address_aligned(Addr, Bits).
 
-:- export test_alignment/0.  
 test_alignment :-
-    536870912 #< IAddr,
+    iaddress_gt([536870912], IAddr),
     iaddress_aligned(IAddr, 21),
-    labeling([IAddr]),
-    IAddr = 538968064.
+    labeling(IAddr),
+    writeln(IAddr).
+
+test_alignment2 :-
+    init, add_pci, add_process,
+    Proc = region{node_id: ["OUT", "PROC0", "PROC0"]},
+    free_region_aligned(Proc, [memory, [1024]]),
+    writeln(Proc).
 
 iblock_match(A, block{base: B, limit: L}) :-
     B #=< A,
@@ -242,64 +246,101 @@ iblock_crossp(Blocks, Values) :-
 
 
 address_match([K, IAddr], [K, IBlocks]) :-
-    iblock_match(IAddr, IBlocks).
+    iblocks_match(IAddr, IBlocks).
 
 address_match_region(Addr, region{blocks:Blocks}) :-
     address_match(Addr, Blocks).
 
-iaddress_gt(S, B) :-
-    S #< B.
+iaddress_gt([], []).
+iaddress_gt([S | Ss], [B | Bs]) :-
+    S #< B,
+    iaddress_gt(Ss,Bs).
 
 % Will only compare addresses of the same kind
 address_gt([K, ISmaller], [K, IBigger]) :-
     iaddress_gt(ISmaller, IBigger).
 
+iaddress_gte([], []).
+iaddress_gte([S | Ss], [B | Bs]) :-
+    S #=< B,
+    iaddress_gte(Ss,Bs).
+
 % Will only compare addresses of the same kind
 address_gte([K, ISmaller], [K, IBigger]) :-
-    ISmaller #=< IBigger.
+    iaddress_gte(ISmaller, IBigger).
+
+iaddress_sub([], [], []).
+iaddress_sub([A | As], [B | Bs], [C | Cs]) :-
+    C is A - B,
+    iaddress_sub(As,Bs,Cs).
 
 % A - B = C ---> address_sub(A,B,C)
 address_sub([K, IA], [K, IB], [K, IC]) :-
-    IC is IA - IB. 
+    iaddress_sub(IA, IB, IC).
+
+iaddress_add([], [], []).
+iaddress_add([A | As], [B | Bs], [C | Cs]) :-
+    C is A + B,
+    iaddress_add(As,Bs,Cs).
 
 % A + B = C ---> address_add(A,B,C)
 address_add([K, IA], [K, IB], [K, IC]) :-
-    IC is IA + IB.
+    iaddress_add(IA, IB, IC).
+
+iaddress_add_const_ic([], _, []).
+iaddress_add_const_ic([A | As], B, [C | Cs]) :-
+    C #= A + B,
+    iaddress_add_const_ic(As,B,Cs).
 
 % A + B = C ---> address_add(A,B,C)
 address_add_const_ic([K, IA], B, [K, IC]) :-
-    IC #= IA + B.
+    iaddress_add_const_ic(IA, B, IC).
+
+iaddress_add_const([], _, []).
+iaddress_add_const([A | As], B, [C | Cs]) :-
+    C is A + B,
+    iaddress_add_const(As,B,Cs).
 
 % A + B = C ---> address_add(A,B,C)
 address_add_const([K, IA], B, [K, IC]) :-
-    IC is IA + B.
+    iaddress_add_const(IA, B, IC).
+
+iaddress_var([A | As]) :-
+    var(A) ; iaddress_var(As).
 
 address_var([K, IA]) :-
-    var(K) ; var(IA).
+    var(K) ; iaddress_var(IA).
 
-iblock_iaddress_gt(Block, Addr) :-
+iblock_iaddress_gt([], []).
+iblock_iaddress_gt([Block | Bs], [Addr | As]) :-
     block{
         limit: Limit
     } = Block,
-    Addr #> Limit.
+    Addr #>  Limit,
+    iblock_iaddress_gt(Bs, As).
 
 block_address_gt([K, IBlocks], [K, IAddress]) :-
     iblock_iaddress_gt(IBlocks, IAddress).
 
 
-block_block_contains([K, A], [K, B]) :-
+iblock_iblock_match([], []).
+iblock_iblock_match([A | IABlocks], [B | IBBlocks]) :-
     A = block{base:ABase, limit: ALimit},
     B = block{base:BBase, limit: BLimit},
     ABase >= BBase,
     ABase =< BLimit,
     ALimit >= BBase,
     ALimit =< BLimit.
+    
+block_block_contains([K, IABlocks], [K, IBBlocks]) :-
+    iblock_iblock_match(IABlocks, IBBlocks).
 
 % region_region_contains(A,B) --> A is part of B
 region_region_contains(region{node_id:N, blocks:AB}, region{node_id:N, blocks:BB}) :-
     block_block_contains(AB, BB).
 
-iblock_iblock_intersection(A, B, I) :-
+iblock_iblock_intersection([], [], []).
+iblock_iblock_intersection([A | IABlocks], [B | IBBlocks], [I | ISBlocks]) :-
     A = block{base:ABase, limit: ALimit},
     B = block{base:BBase, limit: BLimit},
     % Case 1: A contained entirely in B.
@@ -310,49 +351,62 @@ iblock_iblock_intersection(A, B, I) :-
 
         % Case 3: B overlaps on the left of A. BLimit in A
         (ABase =< BLimit, BLimit =< ALimit, I = block{base: ABase, limit: BLimit})
-    )).
+    )),
+    iblock_iblock_intersection(IABlocks, IBBlocks, ISBlocks).
 
-block_block_intersection([K, IABlock], [K, IBBlock], [K, ISBlock]) :-
-    iblock_iblock_intersection(IABlock, IBBlock, ISBlock).
+
+block_block_intersection([K, IABlocks], [K, IBBlocks], [K, ISBlocks]) :-
+    iblock_iblock_intersection(IABlocks, IBBlocks, ISBlocks).
 
 region_region_intersection(region{node_id:N, blocks:AB}, region{node_id:N, blocks:BB}, Is) :-
     block_block_intersection(AB, BB, BIs),
     Is = region{node_id: N, blocks: BIs}.
 
 test_region_region_intersection :-
-    A1 = region{node_id:["ID"], blocks:[memory, block{base: 50, limit: 100}]},
-    B1 = region{node_id:["ID"], blocks:[memory, block{base: 0, limit: 200}]},
+    A1 = region{node_id:["ID"], blocks:[memory, [block{base: 50, limit: 100}]]},
+    B1 = region{node_id:["ID"], blocks:[memory, [block{base: 0, limit: 200}]]},
     region_region_intersection(A1,B1,A1),
-    A2 = region{node_id:["ID"], blocks:[memory, block{base: 50, limit: 100}]},
-    B2 = region{node_id:["ID"], blocks:[memory, block{base: 75, limit: 200}]},
-    I2 = region{node_id:["ID"], blocks:[memory, block{base: 75, limit: 100}]},
+    A2 = region{node_id:["ID"], blocks:[memory, [block{base: 50, limit: 100}]]},
+    B2 = region{node_id:["ID"], blocks:[memory, [block{base: 75, limit: 200}]]},
+    I2 = region{node_id:["ID"], blocks:[memory, [block{base: 75, limit: 100}]]},
     region_region_intersection(A2,B2,I2),
-    A3 = region{node_id:["ID"], blocks:[memory, block{base: 50, limit: 100}]},
-    B3 = region{node_id:["ID"], blocks:[memory, block{base: 0, limit: 75}]},
-    I3 = region{node_id:["ID"], blocks:[memory, block{base: 50, limit: 75}]},
+    A3 = region{node_id:["ID"], blocks:[memory, [block{base: 50, limit: 100}]]},
+    B3 = region{node_id:["ID"], blocks:[memory, [block{base: 0, limit: 75}]]},
+    I3 = region{node_id:["ID"], blocks:[memory, [block{base: 50, limit: 75}]]},
     region_region_intersection(A3,B3,I3),
-    A4 = region{node_id:["ID"], blocks:[memory, block{base: 0, limit: 100}]},
-    B4 = region{node_id:["ID"], blocks:[memory, block{base: 200, limit: 300}]},
+    A4 = region{node_id:["ID"], blocks:[memory, [block{base: 0, limit: 100}]]},
+    B4 = region{node_id:["ID"], blocks:[memory, [block{base: 200, limit: 300}]]},
     not(region_region_intersection(A4,B4,_)).
 
 % Calculates PartSrcRegion and PartSrc Name, such that PartSrcRegion is the 
 % intersection between Src and FullSrcRegion.
 intersecting_translate_block(Src, FullSrcRegion, FullSrcName, PartSrcRegion, PartSrcName) :-
-    Src = region{}.
+    Src = region{},
 
 
-% Turn the limit of the blocks into an address
-block_limit_address([K, Block], [K, Addr]) :-
+
+iblock_limit_iaddress([], []).
+iblock_limit_iaddress([Block | Bs], [Addr | As]) :-
     block{
         limit: Addr
-    } = Block.
+    } = Block,
+    iblock_limit_iaddress(Bs, As).
 
-% Turn the base of the blocks into an address
-block_base_address([K, Block], [K, Addr]) :-
-    (var(IBlocks), var(IAddress), fail) ; 
+% Turn the limit of the blocks into an address
+block_limit_address([K, IBlocks], [K, IAddress]) :-
+    iblock_limit_iaddress(IBlocks, IAddress).
+
+iblock_base_iaddress([], []).
+iblock_base_iaddress([Block | Bs], [Addr | As]) :-
     block{
         base: Addr
-    } = Block.
+    } = Block,
+    iblock_base_iaddress(Bs, As).
+
+% Turn the base of the blocks into an address
+block_base_address([K, IBlocks], [K, IAddress]) :-
+    (var(IBlocks), var(IAddress), fail) ; 
+    iblock_base_iaddress(IBlocks, IAddress).
 
 % Turn a region into a base name
 region_base_name(Region, Name) :-
@@ -366,7 +420,8 @@ region_limit_name(Region, Name) :-
     block_limit_address(Blocks, Base),
     Name = name{node_id:NodeId, address: Base}.
 
-block_size([K, A], [K, B]) :-
+iblock_isize([],[]).
+iblock_isize([A | As],[B | Bs]) :-
     block{
         base: Base,
         limit: Limit
@@ -374,15 +429,21 @@ block_size([K, A], [K, B]) :-
     (
         (var(B), B is Limit - Base) ;
         (var(Limit), Limit is Base + B)
-    ).
+    ),
+    iblock_isize(As, Bs).
+
+block_size([K, IBlocks], [K, ISize]) :-
+    iblock_isize(IBlocks, ISize).
 
 region_size(Region, Size) :-
     region{ blocks: Blocks } = Region,
     block_size(Blocks, Size).
 
-iaddr_iblock_map(SrcAddr, SrcBlock, DstAddr, DstBase) :-
+iaddr_iblock_map([], [], [], []).
+iaddr_iblock_map([SrcAddr | A], [SrcBlock | B], [DstAddr | C], [DstBase | D]) :-
     SrcBlock = block{base:SrcBase},
-    DstAddr #= SrcAddr - SrcBase + DstBase.
+    DstAddr #= SrcAddr - SrcBase + DstBase,
+    iaddr_iblock_map(A,B,C,D).
 
 test_iaddr_iblock_map :-
     iaddr_iblock_map([1],[block{base:0, limit:1024}], Dst, [100]),
@@ -392,7 +453,7 @@ test_iaddr_iblock_map :-
 region_name_match(Region,Name) :-
     region{
         node_id:Id,
-        blocks: Blocks % Blocks = [Kind, block{...}]
+        blocks: Blocks % Blocks = [Kind, [block{...},block{...}]]
     } = Region,
     address_match(Addr, Blocks),
     Name = name{
@@ -419,8 +480,13 @@ iaddr_to_iblock_one(Addr, Block) :-
         fail
     ).
 
+iaddr_to_iblocks([], []).
+iaddr_to_iblocks([A | As], [B | Bs]) :-
+    iaddr_to_iblock_one(A,B),
+    iaddr_to_iblocks(As, Bs).
+
 addr_to_blocks([K, IAddr], [K, IBlocks]) :-
-    iaddr_to_iblock_one(IAddr, IBlocks).
+    iaddr_to_iblocks(IAddr, IBlocks).
 
 %% Convert from names to regions
 
@@ -476,12 +542,12 @@ accept_regions(S, [R | Rs]) :-
     accept_regions(S, Rs).
 
 test_accept_name :-
-    S = [accept(region{node_id:["In"], blocks: [memory, block{base: 50, limit:100}]})],
-    accept_name(S, name{node_id:["In"], address: [memory, 75]}).
+    S = [accept(region{node_id:["In"], blocks: [memory, [block{base: 50, limit:100}]]})],
+    accept_name(S, name{node_id:["In"], address: [memory, [75]]}).
 
 test_accept_region :-
-    S = [accept(region{node_id:["In"], blocks: [memory, block{base: 50, limit:100}]})],
-    accept_region(S, region{node_id:["In"], blocks: [memory, block{base:75, limit:80}]}).
+    S = [accept(region{node_id:["In"], blocks: [memory, [block{base: 50, limit:100}]]})],
+    accept_region(S, region{node_id:["In"], blocks: [memory, [block{base:75, limit:80}]]}).
 
 decode_step_name(S, SrcName, name{node_id: DstId, address: DstAddr}) :-
     translate(S, SrcRegion, name{node_id: DstId, address: DstBaseAddr}),
@@ -509,9 +575,9 @@ decode_step_region(S, SrcRegion, NextRegions) :-
 % TODO: Only works if SrcRegion matches exactly a Configuration block.
 % This function uses IC internally,but labels the outputs.
 decode_step_region_conf_one(S, SrcRegion, DstRegion, block_conf(SrcId, VPN, PPN)) :-
-    SrcRegion = region{node_id: SrcId, blocks: [Kind, block{base: SrcB, limit: SrcL}]},
+    SrcRegion = region{node_id: SrcId, blocks: [Kind, [block{base: SrcB, limit: SrcL}]]},
     state_query(S, block_meta(SrcId, Bits, OutNodeId)),
-    DstRegion = region{node_id: OutNodeId, blocks: [Kind, block{base: DestB, limit: DestL}]},
+    DstRegion = region{node_id: OutNodeId, blocks: [Kind, [block{base: DestB, limit: DestL}]]},
     RSize is SrcL - SrcB + 1,
     RSize is 2^Bits,
     split_vaddr(SrcB, Bits, [VPN, Offset]),
@@ -521,7 +587,7 @@ decode_step_region_conf_one(S, SrcRegion, DstRegion, block_conf(SrcId, VPN, PPN)
 
 decode_step_region_conf(S, SrcRegion, DstRegions, Confs) :-
     % TODO: WIP
-    SrcRegion = region{node_id: SrcId, blocks: [Kind, block{base: SrcB, limit: SrcL}]},
+    SrcRegion = region{node_id: SrcId, blocks: [Kind, [block{base: SrcB, limit: SrcL}]]},
     state_query(S, block_meta(SrcId, Bits, OutNodeId)),
     Size is 2^Bits,
     split_region(SrcRegion, Size, SplitSrc),
@@ -540,7 +606,7 @@ split_region(Region, Size, Splits) :-
 
 :- export test_split_region/0.
 test_split_region :-
-    InR = region{node_id:["IN"], blocks: [memory, block{base:0, limit: 8}]},
+    InR = region{node_id:["IN"], blocks: [memory,[base:0, limit: 8]]},
     Size = 4,
     split_region(InR, Size, Out).
 
@@ -549,11 +615,11 @@ test_decode_step_region_conf_one :-
     S = [block_meta(["IN"], 21, ["OUT"])],
     Base = 0,
     Limit is Base + 2^21 - 1,
-    SrcRegion = region{node_id: ["IN"], blocks: [memory, block{base:Base, limit:Limit}]},
+    SrcRegion = region{node_id: ["IN"], blocks: [memory, [block{base:Base, limit:Limit}]]},
     decode_step_region_conf_one(S, SrcRegion, Out1, Conf1),
     %printf("Out1 (free)=%p, Conf1=%p\n",[Out1, Conf1]),
     TestBase is 512 * 2^21,
-    Out2 = region{node_id:["OUT"], blocks: [memory, block{base:TestBase}]},
+    Out2 = region{node_id:["OUT"], blocks: [memory, [block{base:TestBase}]]},
     decode_step_region_conf_one(S, SrcRegion, Out2, Conf2),
     %printf("Out2 (fixed)=%p, Conf2=%p\n",[Out2, Conf2]),
     Conf2 = block_conf(["IN"], 0, 512).
@@ -563,11 +629,11 @@ test_decode_step_region_conf2 :-
     S = [block_meta(["IN"], 21, ["OUT"])],
     Base = 0,
     Limit is Base + 2^22 - 1, % Note the second 2 in 22, this remaps two blocks
-    SrcRegion = region{node_id: ["IN"], blocks: [memory, block{base:Base, limit:Limit}]},
+    SrcRegion = region{node_id: ["IN"], blocks: [memory, [block{base:Base, limit:Limit}]]},
     decode_step_region_conf(S, SrcRegion, [Out1], Conf1),
     printf("Out1 (free)=%p, Conf1=%p\n",[Out1, Conf1]).
     %TestBase is 512 * 2^21,
-    %Out2 = region{node_id:["OUT"], blocks: [memory, block{base:TestBase}]},
+    %Out2 = region{node_id:["OUT"], blocks: [memory, [block{base:TestBase}]]},
     %decode_step_region_conf(S, SrcRegion, [Out2], Conf2),
     %%printf("Out2 (fixed)=%p, Conf2=%p\n",[Out2, Conf2]),
     %Conf2 = [block_conf(["IN"], 0, 512)].
@@ -590,97 +656,96 @@ test_decode_step_region1 :-
     % The simple case: everything falls into one translate block
     S = [
         mapping(
-        region{node_id: ["IN"], blocks: [memory, block{base:0, limit:100}]},
-        name{node_id: ["OUT"], address: [memory, 1]})
+        region{node_id: ["IN"], blocks: [memory, [block{base:0, limit:100}]]},
+        name{node_id: ["OUT"], address: [memory, [1]]})
         ],
 
     decode_step_region(S,
-        region{node_id:["IN"], blocks: [memory, block{base:50, limit: 70}]},
+        region{node_id:["IN"], blocks: [memory, [block{base:50, limit: 70}]]},
         Out),
-    Out = [region{node_id:["OUT"], blocks: [memory, block{base:51, limit: 71}]}].
+    Out = [region{node_id:["OUT"], blocks: [memory, [block{base:51, limit: 71}]]}].
 
-:- export test_decode_step_region2/0.
+:- export test_decode_step_region2.
 test_decode_step_region2 :-
     % Complicated case, overlapping translate
     S = [
         mapping(
-        region{node_id: ["IN"], blocks: [memory, block{base:0, limit:100}]},
-        name{node_id: ["OUT1"], address: [memory, 10]}),
+        region{node_id: ["IN"], blocks: [memory, [block{base:0, limit:100}]]},
+        name{node_id: ["OUT1"], address: [memory, [10]]}),
         mapping(
-        region{node_id: ["IN"], blocks: [memory, block{base:200, limit:300}]},
-        name{node_id: ["OUT2"], address: [memory, 20]}),
+        region{node_id: ["IN"], blocks: [memory, [block{base:200, limit:300}]]},
+        name{node_id: ["OUT2"], address: [memory, [20]]}),
         mapping(
-        region{node_id: ["IN"], blocks: [memory, block{base:400, limit:500}]},
-        name{node_id: ["OUT3"], address: [memory, 30]})
+        region{node_id: ["IN"], blocks: [memory, [block{base:400, limit:500}]]},
+        name{node_id: ["OUT3"], address: [memory, [30]]})
         ],
 
     decode_step_region(S,
-        region{node_id:["IN"], blocks: [memory, block{base:50, limit: 450}]},
+        region{node_id:["IN"], blocks: [memory, [block{base:50, limit: 450}]]},
         Out),
     printf("decode_step_region returns %p\n", Out).
 
-:- export test_decode_step_name/0.
 test_decode_step_name :-
     S = [mapping(
         region{
             node_id: ["IN"],
-            blocks: [memory, block{base:0, limit:100}]
+            blocks: [memory, [block{base:0, limit:100}]]
         },
-        name{node_id: ["OUT"], address: [memory, 1]})],
+        name{node_id: ["OUT"], address: [memory, [1]]})],
 
     decode_step_name(S,
-        name{node_id:["IN"], address: [memory, 1]},
+        name{node_id:["IN"], address: [memory, [1]]},
         name{node_id:OutNodeId, address: OutAddr}),
     OutNodeId = ["OUT"],
-    OutAddr = [memory, 2].
+    OutAddr = [memory, [2]].
 
 :- export test_decode_step_name2/0.
 test_decode_step_name2 :-
     %Setup
     S = [
         mapping(
-            region{node_id:["In"], blocks:[memory, block{base:1000,limit:2000}]},
-            name{node_id: ["Out1"], address: [memory, 0]}),
+            region{node_id:["In"], blocks:[memory, [block{base:1000,limit:2000}]]},
+            name{node_id: ["Out1"], address: [memory, [0]]}),
         overlay(["In"], ["Out2"])
       ],
     % Test the translate block
     decode_step_name(S,
-        name{node_id:["In"], address:[memory, 1000]},
-        name{node_id:["Out1"], address: [memory, 0]}
+        name{node_id:["In"], address:[memory, [1000]]},
+        name{node_id:["Out1"], address: [memory, [0]]}
     ),
     % Test the overlay
     decode_step_name(S,
-        name{node_id:["In"], address:[memory, 0]},
-        name{node_id:["Out2"], address:[memory, 0]}
+        name{node_id:["In"], address:[memory, [0]]},
+        name{node_id:["Out2"], address:[memory, [0]]}
     ),
     % make sure the upper limit is respected.
     decode_step_name(S,
-        name{node_id:["In"], address: [memory, 2500]}, 
-        name{node_id:["Out2"], address: [memory, 2500]}), 
+        name{node_id:["In"], address: [memory, [2500]]}, 
+        name{node_id:["Out2"], address: [memory, [2500]]}), 
     % make sure no within block translation to overlay exists
     not(decode_step_name(S,
-        name{node_id: ["In"], address: [memory, 1000]}, 
-        name{node_id: ["Out2"], address: [memory, 1000]})).
+        name{node_id: ["In"], address: [memory, [1000]]}, 
+        name{node_id: ["Out2"], address: [memory, [1000]]})).
 
 :- export test_decode_step_name3/0.
 test_decode_step_name3 :-
     %Setup
     S = [
         mapping(
-            region{node_id:["In"], blocks:[memory, block{base:1000,limit:2000}]},
-            name{node_id: ["Out1"], address: [memory, 0]}),
+            region{node_id:["In"], blocks:[memory, [block{base:1000,limit:2000}]]},
+            name{node_id: ["Out1"], address: [memory, [0]]}),
         mapping(
-            region{node_id:["In2"], blocks:[memory, block{base:2000,limit:3000}]},
-            name{node_id: ["Out1"], address: [memory, 0]}),
+            region{node_id:["In2"], blocks:[memory, [block{base:2000,limit:3000}]]},
+            name{node_id: ["Out1"], address: [memory, [0]]}),
         overlay(["In"], ["Out2"])
       ],
     % Test the translate block
     Src = name{node_id:["In"]},
     decode_step_name(S,
         Src,
-        name{node_id:["Out1"], address: [memory, 0]}
+        name{node_id:["Out1"], address: [memory, [0]]}
     ),
-    Src = name{node_id:["In"], address: [memory, 1000]}.
+    Src = name{node_id:["In"], address: [memory, [1000]]}.
 
 
 % Reflexive, transitive closure of decode_step_*
@@ -711,39 +776,39 @@ test_resolve_name :-
     %Setup
     S = [
         mapping(
-            region{node_id:["In"], blocks: [memory, block{base:1000,limit:2000}]},
-            name{node_id: ["Out1"], address : [memory, 0]}),
+            region{node_id:["In"], blocks: [memory, [block{base:1000,limit:2000}]]},
+            name{node_id: ["Out1"], address : [memory, [0]]}),
         overlay(["In"], ["Out2"]),
-        accept(region{node_id:["Out1"], blocks: [memory,block{base:0, limit:2000}]}),
-        accept(region{node_id:["Out2"], blocks: [memory,block{base:0, limit:2000}]})
+        accept(region{node_id:["Out1"], blocks: [memory,[block{base:0, limit:2000}]]}),
+        accept(region{node_id:["Out2"], blocks: [memory,[block{base:0, limit:2000}]]})
         ],
     % Hit the translate block
     resolve_name(S,
-        name{node_id:["In"], address:[memory, 1000]},
-        name{node_id:["Out1"], address:[memory, 0]}),
+        name{node_id:["In"], address:[memory, [1000]]},
+        name{node_id:["Out1"], address:[memory, [0]]}),
     % Hit the overlay 
     resolve_name(S,
-        name{node_id:["In"], address:[memory, 500]},
-        name{node_id:["Out2"], address:[memory, 500]}).
+        name{node_id:["In"], address:[memory, [500]]},
+        name{node_id:["Out2"], address:[memory, [500]]}).
 
 test_resolve_name2 :-
     %Setup
     S = [mapping(
-            region{node_id: ["In1"], blocks: [memory, block{base:1000,limit:2000}]},
-            name{node_id: ["Out1"], address: [memory, 0]}),
+            region{node_id: ["In1"], blocks: [memory, [block{base:1000,limit:2000}]]},
+            name{node_id: ["Out1"], address: [memory, [0]]}),
         mapping(
-            region{node_id:["In2"], blocks:[memory, block{base:6000,limit:7000}]},
-            name{node_id:["Out1"], address: [memory, 0]}),
-        accept(region{node_id:["Out1"], blocks: [memory, block{base:0, limit:2000}]})
+            region{node_id:["In2"], blocks:[memory, [block{base:6000,limit:7000}]]},
+            name{node_id:["Out1"], address: [memory, [0]]}),
+        accept(region{node_id:["Out1"], blocks: [memory,[block{base:0, limit:2000}]]})
         ],
     % Reverse lookup
     resolve_name(S,
-        name{node_id:["In1"], address:[memory, 1000]},
+        name{node_id:["In1"], address:[memory, [1000]]},
         R),
     resolve_name(S,
         name{node_id:["In2"], address:Out},
         R),
-    Out = [memory, 6000].
+    Out = [memory, [6000]].
 
 test_resolve3(Out) :-
     %Setup
@@ -754,7 +819,7 @@ test_resolve3(Out) :-
         ["In2"], [memory, [block{base:6000,limit:7000}]],
         ["Out1"], [memory, [block{base:0,limit:1000}]])),
     assert(node_accept(["Out1"], [memory,[block{base:0, limit:2000}]])),
-    InRegion = region{node_id:["In1"], blocks:[memory, block{base:1000, limit:1500}]},
+    InRegion = region{node_id:["In1"], blocks:[memory, [block{base:1000, limit:1500}]]},
     resolve(InRegion,Out).
 
 
@@ -953,7 +1018,7 @@ free_region(S, NodeId, _, Out) :-
    % Not a very smart allocator, finds the highest addr in use and append
    % Therefore can ignore Size
    findall(X, state_query(S, in_use(NodeId, X)), UsedBlockLi),
-   block_address_gt([memory, block{limit: -1}], Out), % TODO: Works only for 1 Dim addr.
+   block_address_gt([memory, [block{limit: -1}]], Out), % TODO: Works only for 1 Dim addr.
    (foreach(UsedBlock, UsedBlockLi), param(Out) do
        block_address_gt(UsedBlock, Out)
    ).
@@ -1006,13 +1071,16 @@ alloc_range(S, NodeId, Size, Out) :-
 
 % After finding a range with alloc range, you actually want to mark it used
 % with this function.
-mark_range_in_use(S, NodeId, [Kind, A], Size, NewS) :-
-    Limit is A + Size,
-    UsedBlock = block{
-        base: A,
-        limit: Limit
-    },    
-    state_add(S, in_use(NodeId, [Kind, UsedBlock]), NewS).
+mark_range_in_use(S, NodeId, Addr, ISize, NewS) :-
+    Addr = [Kind, IAddr],
+    (foreach(UsedBlock, UsedBlockLi), foreach(A, IAddr), foreach(S,ISize) do
+        Limit is A + S,
+        UsedBlock = block{
+            base: A,
+            limit: Limit
+        }    
+    ),
+    state_add(S, in_use(NodeId, [Kind, UsedBlockLi]), NewS).
 
 mark_range_in_use(S, Name, ISize, NewS) :-
     name{
@@ -1034,19 +1102,19 @@ test_alloc_range :-
     Id = [],
     state_empty(S),
     % Test setup
-    mark_range_in_use(S, Id, [memory, 0], 1000, S1),
+    mark_range_in_use(S, Id, [memory, [0]], [1000], S1),
     
     % First allocation
-    Size = 1000,
+    Size = [1000],
     alloc_range(S1, Id, [memory, Size], Out),
     mark_range_in_use(S1, Id, Out, Size, S2),
-    Out = [memory, 1001],
+    Out = [memory, [1001]],
 
     % Second allocation
-    Size2 = 5000,
+    Size2 = [5000],
     alloc_range(S2, Id, [memory, Size2], Out2),
     mark_range_in_use(S2, Id, Out2, Size2, _),
-    Out2 = [memory, 2002].
+    Out2 = [memory,[2002]].
 
 % Find a unused buffer, using already set up routing.
 % Node1 :: Addr, Node2 :: Name, Resolved :: Name
@@ -1072,9 +1140,9 @@ test_common_free_buffer_existing(Proc,Pci,Resolved) :-
 common_free_buffer(Size, N1Region, N2Region, ResRegion, Route)  :-
     is_list(Size),
     
-    N1Region = region{blocks: [memory, _]},
-    N2Region = region{blocks: [memory, _]},
-    ResRegion = region{blocks: [memory, block{base:Base, limit: Limit}]},
+    N1Region = region{blocks: [memory, [_]]},
+    N2Region = region{blocks: [memory, [_]]},
+    ResRegion = region{blocks: [memory, [block{base:Base, limit: Limit}]]},
 
     % nail down the regions 
     free_region_aligned(N1Region, Size),
@@ -1092,9 +1160,9 @@ common_free_buffer(Size, N1Region, N2Region, ResRegion, Route)  :-
 common_free_map(Size, N1Region, N2Region, ResRegion,Route)  :-
     is_list(Size),
     
-    N1Region = region{blocks: [memory, _]},
-    N2Region = region{blocks: [memory, _]},
-    ResRegion = region{blocks: [memory, block{base:Base, limit: Limit}]},
+    N1Region = region{blocks: [memory, [_]]},
+    N2Region = region{blocks: [memory, [_]]},
+    ResRegion = region{blocks: [memory, [block{base:Base, limit: Limit}]]},
 
     % nail down the input regions first
     free_region_aligned(N1Region, Size),
@@ -1114,9 +1182,9 @@ alloc_common(Bits, N1Enum, N2Enum, DestEnum)  :-
     enum_node_id(N1Enum, N1Id),
     enum_node_id(N2Enum, N2Id),
     enum_node_id(DestEnum, DestId),
-    R1 = region{node_id: N1Id, blocks: [memory, block{base:R1Addr}]},
-    R2 = region{node_id: N2Id, blocks: [memory, block{base:R2Addr}]},
-    Dest = region{node_id: DestId, blocks: [memory, block{base:DestAddr}]},
+    R1 = region{node_id: N1Id, blocks: [memory, [block{base:R1Addr}]]},
+    R2 = region{node_id: N2Id, blocks: [memory, [block{base:R2Addr}]]},
+    Dest = region{node_id: DestId, blocks: [memory, [block{base:DestAddr}]]},
     Size is 2 ^ Bits - 1,
     common_free_buffer([memory, [Size]], R1, R2, Dest, _),
     mark_range_in_use(Dest),
@@ -1134,10 +1202,10 @@ alloc_common(Bits, N1Enum, N2Enum)  :-
 map_common(Bits, ResRAddr, N1Enum, N2Enum)  :-
     enum_node_id(N1Enum, N1Id),
     enum_node_id(N2Enum, N2Id),
-    R1 = region{node_id: N1Id, blocks: [memory, block{base:R1Addr}]},
-    R2 = region{node_id: N2Id, blocks: [memory, block{base:R2Addr}]},
+    R1 = region{node_id: N1Id, blocks: [memory, [block{base:R1Addr}]]},
+    R2 = region{node_id: N2Id, blocks: [memory, [block{base:R2Addr}]]},
     Size is 2 ^ Bits - 1,
-    ResR = region{blocks: [memory, block{base:ResRAddr}]},
+    ResR = region{blocks: [memory, [block{base:ResRAddr}]]},
     common_free_map([memory, [Size]], R1, R2, ResR, _),
     ResR = region{node_id: ResRId},
     get_or_alloc_node_enum(ResRId, ResEnum),
@@ -1385,17 +1453,17 @@ test_route_new :-
     Limit2M is 2^21 - 1,
     S = [
         mapping(
-            region{node_id: ["IN"], blocks: [memory, block{base:0, limit:Upper}]},
-            name{node_id: ["MMU"], address: [memory, 0]}),
+            region{node_id: ["IN"], blocks: [memory, [block{base:0, limit:Upper}]]},
+            name{node_id: ["MMU"], address: [memory, [0]]}),
         block_meta(["MMU"], 21, ["RAM"]),
-        accept(region{node_id: ["RAM"], blocks: [memory, block{base:0, limit: Upper}]})
+        accept(region{node_id: ["RAM"], blocks: [memory, [block{base:0, limit: Upper}]]})
         ],
     state_valid(S),
 
     route_new(S,
-        [region{node_id:["IN"], blocks: [memory, block{base:0, limit: Limit2M}]}],
+        [region{node_id:["IN"], blocks: [memory, [block{base:0, limit: Limit2M}]]}],
         OutRegions, Route),
-    OutRegions = [region{node_id:["RAM"], blocks: [memory, block{base:0, limit: Limit2M}]}],
+    OutRegions = [region{node_id:["RAM"], blocks: [memory, [block{base:0, limit: Limit2M}]]}],
     Route = [block_conf(["MMU"], 0, 0)].
 
 
@@ -1440,8 +1508,8 @@ test_route_region_small :-
     assert(node_block_meta(["IN"], 21, ["OUT"])),
     assert(node_accept(["OUT"], [memory, [block{base:0, limit:100000}]])),
     route(
-        region{node_id:["IN"], blocks:[memory,block{base:0, limit:1000}]},
-        region{node_id:["OUT"], blocks:[memory,block{base: 0, limit: 1000}]},
+        region{node_id:["IN"], blocks:[memory,[block{base:0, limit:1000}]]},
+        region{node_id:["OUT"], blocks:[memory,[block{base: 0, limit: 1000}]]},
         Route),
     term_variables(Route, RouteVars),
     labeling(RouteVars),
@@ -1455,8 +1523,8 @@ test_route_region_two :-
     assert(node_block_meta(["IN"], 21, ["OUT"])),
     assert(node_accept(["OUT"], [memory, [block{base:0, limit:4194303}]])),
     route(
-        region{node_id:["IN"], blocks:[memory, block{base:0, limit:Limit}]},
-        region{node_id:["OUT"], blocks:[memory, block{base: 0, limit: Limit}]},
+        region{node_id:["IN"], blocks:[memory,[block{base:0, limit:Limit}]]},
+        region{node_id:["OUT"], blocks:[memory,[block{base: 0, limit: Limit}]]},
         Route),
     term_variables(Route, RouteVars),
     labeling(RouteVars),
@@ -1542,7 +1610,6 @@ run_test(Test) :-
 
 :- export run_all_tests/0.
 run_all_tests :-
-    run_test(test_alignment),
     run_test(test_scan_points),
     run_test(test_max_not_translated_pt),
     run_test(test_translate),
