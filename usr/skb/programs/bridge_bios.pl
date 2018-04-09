@@ -13,7 +13,7 @@
 
 :- set_flag(print_depth, 600).
 
-:-dynamic(currentbar/5).
+:-dynamic(bar/7).
 
 bridge_programming(Plan, NrElements) :-
     convert_devices(Plan1),

@@ -14,6 +14,7 @@
 :- set_flag(print_depth, 200).
 
 :-dynamic(currentbar/5).
+:-dynamic(bar/7).
 
 % :-include("../data/data_hand.txt").
 % :-include("../data/data_qemu_hand.txt").
