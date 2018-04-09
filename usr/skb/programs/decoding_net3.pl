@@ -27,6 +27,7 @@
 % overlay(SrcNodeId, OutNodeId)
 % block_meta(NodeId, Bits, OutNodeId)  -- Metadata for block reconfigurable nodes
 % block_conf(NodeId, VPN, PPN)         -- For block reconfigurable nodes
+% in_use(NodeId, Block)                -- Subset of accepted ranges that has been allocated
 
 state_valid([]).
 state_valid([accept(_) | As]) :- state_valid(As).
@@ -34,13 +35,8 @@ state_valid([mapping(_,_) | As]) :- state_valid(As).
 state_valid([overlay(_,_) | As]) :- state_valid(As).
 state_valid([block_meta(_,_,_) | As]) :- state_valid(As).
 state_valid([block_conf(_,_,_) | As]) :- state_valid(As).
+state_valid([in_use(_,_) | As]) :- state_valid(As).
 
-%% This fact keeps track of blocks that are in use.
-% node_in_use(NodeId, Block).
-
-%:- export node_accept/2.
-%:- export node_overlay/2.
-%:- export node_in_use/2.
 :- export struct(block(base,limit)).
 :- export struct(region(node_id,blocks)).
 :- export struct(name(node_id,address)).
@@ -54,7 +50,7 @@ state_valid([block_conf(_,_,_) | As]) :- state_valid(As).
 inf_value(9223372036854775808).
 
 % TODO: Works only for one dimension.
-% ScanPoints is a list of points where the scanline (hyperplane) should stop.
+% ScanPoints is a list of points where the scanline (scanhyperplane?) should stop.
 scan_points(S, NodeId, ScanPoints) :-
     Reg = region{node_id: NodeId},
     findall(Reg, state_query(S, mapping(Reg, _)), RegLi),
@@ -864,12 +860,13 @@ initial_dram_block(Block) :- %a
     Block = block{base:Base, limit: Limit}.
 
 
-init :-
+init(NewS) :-
+    state_empty(S1),
     add_SYSTEM([]),
     DRAM_ID = ["DRAM"],
     initial_dram_block(Block),
-    assert(node_accept(["DRAM"], [memory, [Block]])), 
-    get_or_alloc_node_enum(DRAM_ID, DRAM_ENUM),
+    state_add(S1, accept(["DRAM"], [memory, [Block]]), S2), 
+    get_or_alloc_node_enum(S2, DRAM_ID, DRAM_ENUM, S3),
     printf("Decoding net initialized using %p as DRAM. DRAM nodeid: %p\n",
         [Block, DRAM_ENUM]),
 
@@ -877,9 +874,9 @@ init :-
     vnode_meta(PageSize, PoolSize),
     VnodePoolSize is PageSize * PoolSize,
     Size = [VnodePoolSize],
-    alloc_range(DRAM_ID, [memory, Size], BaseOut),
-    mark_range_in_use(DRAM_ID, BaseOut, Size),
-    node_in_use(DRAM_ID, Region),
+    alloc_range(S2, DRAM_ID, [memory, Size], BaseOut, S3),
+    mark_range_in_use(S3, DRAM_ID, BaseOut, Size, S4),
+    in_use(DRAM_ID, Region),
     assert(vnode_region(Region)),
     writeln("Using for PageTables:"), writeln(Region).
 
@@ -889,7 +886,7 @@ add_pci :-
 iommu_enabled :-
     call(iommu_enabled,0,_)@eclipse.
 
-add_pci(Id, addr(Bus,Dev,Fun)) :-
+add_pci(S, Id, addr(Bus,Dev,Fun), NewS) :-
     PCIBUS_ID = ["PCIBUS"],
     PCIIN_ID = ["IN" | Id],
     PCIOUT_ID = ["OUT" | Id],
@@ -909,15 +906,15 @@ add_pci(Id, addr(Bus,Dev,Fun)) :-
     % Now insert the BAR into the PCI bus address space
     assert(node_translate_dyn(PCIBUS_ID, [memory,[block{base:1024,limit:2048}]], PCIIN_ID, [memory, [block{base:1024,limit:2048}]])).
 
-add_pci_alloc(Addr) :-
-    alloc_node_enum(Enum),
-    add_pci([Enum], Addr),
+add_pci_alloc(S, Addr, NewS) :-
+    alloc_node_enum(S, Enum, S1),
+    add_pci(S1, [Enum], Addr, S2),
     % Set it to the node id where addresses are issued from the PCI device
     OutNodeId = ["OUT", "PCI0", Enum],
-    assert(enum_node_id(Enum, OutNodeId)),
-    assert(pci_address_node_id(Addr, Enum)).
+    state_add(S2, enum_node_id(Enum, OutNodeId), S3),
+    state_add(S3, pci_address_node_id(Addr, Enum), NewS).
 
-add_process_alloc(Enum) :-
+add_process_alloc(S, Enum, NewS) :-
     alloc_node_enum(Enum),
     add_process([Enum]),
     % Set it to the node id where addresses are issued from the process
@@ -926,26 +923,26 @@ add_process_alloc(Enum) :-
 
 
 % Make ID argument if we want to add multiple.
-add_process :-
-    add_process(["PROC0"]).
+add_process(S, NewS) :-
+    add_process(S, ["PROC0"], NewS).
 
-add_process(Id) :-
+add_process(S, Id, NewS) :-
     DRAM_ID = ["DRAM"],
-    add_PROC_MMU(Id),
+    add_PROC_MMU(S, Id, S1),
 
     % Mark MMU block remappable
     MMU_IN_ID = ["IN", "MMU0" | Id],
     MMU_OUT_ID = ["OUT", "MMU0" | Id],
-    assert(node_block_meta(MMU_IN_ID, 21, MMU_OUT_ID)), % Make MMU configurable
-    pt_alloc(Root),
-    assert(node_pt(MMU_IN_ID, Root, MMU_OUT_ID)),
+    state_add(S1, node_block_meta(MMU_IN_ID, 21, MMU_OUT_ID), S2), % Make MMU configurable
+    pt_alloc(S2, Root, S3),
+    state_add(S3, node_pt(MMU_IN_ID, Root, MMU_OUT_ID), S4),
 
     OUT_ID = ["OUT" | Id],
-    assert(node_overlay(OUT_ID, DRAM_ID)),
+    state_add(S4, overlay(OUT_ID, DRAM_ID), S5),
     % Reserve memory for the process, the OUT/PROC0 node is the one where
     % initially the process (virtual) addresses are issued.
     Limit = 1099511627775, % (512 << 31) - 1
-    assert(node_in_use(["OUT", "PROC0" | Id], [memory, [block{base:0, limit: Limit}]])).
+    state_add(S5, in_use(["OUT", "PROC0" | Id], [memory, [block{base:0, limit: Limit}]]), NewS).
 
 
 
@@ -953,45 +950,43 @@ add_process(Id) :-
 %%%% Mark ranges used and Query them 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-:- export free_region/3.
 % Puts IC constraints on the variables
-free_region(NodeId, _, Out) :-
+free_region(S, NodeId, _, Out) :-
    % Not a very smart allocator, finds the highest addr in use and append
    % Therefore can ignore Size
-   findall(X, node_in_use(NodeId, X), UsedBlockLi),
+   findall(X, state_query(S, in_use(NodeId, X)), UsedBlockLi),
    block_address_gt([memory, [block{limit: -1}]], Out), % TODO: Works only for 1 Dim addr.
    (foreach(UsedBlock, UsedBlockLi), param(Out) do
        block_address_gt(UsedBlock, Out)
    ).
 
-:- export free_region/2.
 % Puts IC constraints on the variables
-free_region(Name, Size) :-
+free_region(S, Name, Size) :-
     name{
         node_id: NodeId,
         address: Out
     } = Name,
-    free_region(NodeId, Size, Out).
+    free_region(S, NodeId, Size, Out).
 
-free_region(Region, Size) :-
+free_region(S, Region, Size) :-
     region_base_name(Region, Name),
-    free_region(Name, Size).
+    free_region(S, Name, Size).
 
 % Resolves the variables
-free_region_aligned(Region, Size) :-
+free_region_aligned(S, Region, Size) :-
     is_list(Size),
     region_base_name(Region, BaseName),
-    free_region(BaseName, Size),
+    free_region(S, BaseName, Size),
     name_aligned(BaseName, 21),
     term_variables(BaseName, BaseNameVars),
     labeling(BaseNameVars),
     region_size(Region, Size).
 
 % Resolves the variables
-free_accepted_region_aligned(Region, Size) :-
+free_accepted_region_aligned(S, Region, Size) :-
     is_list(Size),
     region_base_name(Region, BaseName),
-    free_region(BaseName, Size),
+    free_region(S, BaseName, Size),
     name_aligned(BaseName, 21),
     accept(BaseName),
     term_variables(BaseName, BaseNameVars),
@@ -1005,16 +1000,15 @@ free_accepted_region_aligned(Region, Size) :-
 
 
 %% NodeId:: Addr, Size :: Addr, Out :: Addr
-:- export alloc_range/3.
-alloc_range(NodeId, Size, Out) :-
-   free_region(NodeId, Size, Out),
+alloc_range(S, NodeId, Size, Out) :-
+   free_region(S, NodeId, Size, Out),
    term_variables(Out, OutVars),
    labeling(OutVars).
 
 
 % After finding a range with alloc range, you actually want to mark it used
 % with this function.
-mark_range_in_use(NodeId, Addr, ISize) :-
+mark_range_in_use(S, NodeId, Addr, ISize, NewS) :-
     Addr = [Kind, IAddr],
     (foreach(UsedBlock, UsedBlockLi), foreach(A, IAddr), foreach(S,ISize) do
         Limit is A + S,
@@ -1023,43 +1017,41 @@ mark_range_in_use(NodeId, Addr, ISize) :-
             limit: Limit
         }    
     ),
-    assert(node_in_use(NodeId, [Kind, UsedBlockLi])).
+    state_add(S, in_use(NodeId, [Kind, UsedBlockLi]), NewS).
 
-mark_range_in_use(Name, ISize) :-
+mark_range_in_use(S, Name, ISize, NewS) :-
     name{
         node_id: NodeId,
         address: Addr
     } = Name,
     mark_range_in_use(NodeId, Addr, ISize).
 
-mark_range_in_use(Region) :-
+mark_range_in_use(S, Region, NewS) :-
     Region = region{ node_id: NodeId, blocks: Blocks },
-    assert(node_in_use(NodeId, Blocks)).
+    state_add(S, in_use(NodeId, Blocks), NewS).
 
 
-:- export mark_range_free/2.
-mark_range_free(NodeId, Base) :-
-    retract(node_in_use(NodeId, [memory, [block{base: Base}]])).
+mark_range_free(S, NodeId, Base, NewS) :-
+    state_remove(S, in_use(NodeId, [memory, [block{base: Base}]]), NewS).
 
-:- export test_alloc_range/0.
+:-export test_alloc_range/0.
 test_alloc_range :-
     Id = [],
+    state_empty(S),
     % Test setup
-    mark_range_in_use(Id, [memory, [0]], [1000]),
+    mark_range_in_use(S, Id, [memory, [0]], [1000], S1),
     
     % First allocation
     Size = [1000],
-    alloc_range(Id, [memory, Size], Out),
-    mark_range_in_use(Id, Out, Size),
-    writeln("First allocation: "),
-    writeln(Out),
+    alloc_range(S1, Id, [memory, Size], Out),
+    mark_range_in_use(S1, Id, Out, Size, S2),
+    Out = [memory, [1001]],
 
     % Second allocation
     Size2 = [5000],
-    alloc_range(Id, [memory, Size2], Out2),
-    mark_range_in_use(Id, Out2, Size2),
-    writeln("Second allocation: "),
-    writeln(Out2).
+    alloc_range(S2, Id, [memory, Size2], Out2),
+    mark_range_in_use(S2, Id, Out2, Size2, _),
+    Out2 = [memory,[2002]].
 
 % Find a unused buffer, using already set up routing.
 % Node1 :: Addr, Node2 :: Name, Resolved :: Name
@@ -1542,43 +1534,8 @@ test_split_vpn :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% Big tests
+%%%% Tests
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- export test_all/0.
-test_all :-
-    init, add_pci, add_process,
-    BUFFER_SIZE = [memory, [1024]],
-    ProcId = ["OUT", "PROC0", "PROC0"],
-    Proc = region{node_id: ProcId},
-    PciId = ["OUT", "PCI0", "PCI0"],
-    Pci = region{node_id: PciId},
-    common_free_buffer(BUFFER_SIZE, Proc, Pci, Resolved, Route),
-    writeln(("Free buffer reachable from Proc and Pci found", Resolved)),
-    writeln(("View from PCI ", Pci)),
-    writeln(("View from Proc ", Proc)),
-    writeln(("Using Block-Configuration ", Route)),
-    route_node_ids(Route, NodeIds),
-    (foreach(NodeId, NodeIds),param(Route) do
-        route_conf_for_id(Route, NodeId, BlockDelta),
-        pt_delta(NodeId, BlockDelta, PtDelta),
-        writeln(("New PT entries for ", NodeId, " -> ", PtDelta))
-    ),
-    writeln("Installing Route"),
-    install_route(Route),
-    !, % make sure not to back track past the state modifying install_route
-    region_base_name(Proc,ProcBaseAddr), % The first byte of the common region.
-    PciBaseAddr = name{node_id:PciId},
-    change_view(ProcBaseAddr, PciBaseAddr),
-    writeln(("Lookup from Proc to PCI BaseAddr", PciBaseAddr)).
-
-:- export test_mem_if/0.
-test_mem_if :-
-    add_pci_alloc(addr(0,1,2)),
-    pci_address_node_id(addr(0,1,2), PciEnum),
-    add_process_alloc(proc(0)),
-    process_node_id(proc(0), ProcEnum),
-    alloc_common(21, PciEnum, ProcEnum).
-
 
 run_test(Test) :-
     (
@@ -1603,4 +1560,5 @@ run_all_tests :-
     run_test(test_resolve_name2),
     run_test(test_decode_step_region_conf_one),
     run_test(test_route_new),
-    run_test(test_split_vpn).
+    run_test(test_split_vpn),
+    run_test(test_alloc_range).
