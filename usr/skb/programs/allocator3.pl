@@ -1,4 +1,4 @@
-:- module(allocator).
+:- module(allocator3).
 
 :- lib(ic).
 

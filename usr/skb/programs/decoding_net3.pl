@@ -117,9 +117,6 @@ test_max_not_translated_pt :-
 %%%% Model layer
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-accept(S, Region) :-
-    state_query(S, accept(Region)).
-
 translate(S, SrcRegion, DstBase) :-
     state_query(S, mapping(SrcRegion, DstBase)).
 
@@ -342,6 +339,51 @@ block_block_contains([K, IABlocks], [K, IBBlocks]) :-
 region_region_contains(region{node_id:N, blocks:AB}, region{node_id:N, blocks:BB}) :-
     block_block_contains(AB, BB).
 
+iblock_iblock_intersection([], [], []).
+iblock_iblock_intersection([A | IABlocks], [B | IBBlocks], [I | ISBlocks]) :-
+    A = block{base:ABase, limit: ALimit},
+    B = block{base:BBase, limit: BLimit},
+    % Case 1: A contained entirely in B.
+    (((BBase =< ABase, ALimit =< BLimit) -> I = A) ;
+    (
+        % Case 2: B overlaps on the right of A. BBase in A.
+        (ABase =< BBase, BBase =< ALimit, I = block{base: BBase, limit: ALimit}) ;
+
+        % Case 3: B overlaps on the left of A. BLimit in A
+        (ABase =< BLimit, BLimit =< ALimit, I = block{base: ABase, limit: BLimit})
+    )),
+    iblock_iblock_intersection(IABlocks, IBBlocks, ISBlocks).
+
+
+block_block_intersection([K, IABlocks], [K, IBBlocks], [K, ISBlocks]) :-
+    iblock_iblock_intersection(IABlocks, IBBlocks, ISBlocks).
+
+region_region_intersection(region{node_id:N, blocks:AB}, region{node_id:N, blocks:BB}, Is) :-
+    block_block_intersection(AB, BB, BIs),
+    Is = region{node_id: N, blocks: BIs}.
+
+test_region_region_intersection :-
+    A1 = region{node_id:["ID"], blocks:[memory, [block{base: 50, limit: 100}]]},
+    B1 = region{node_id:["ID"], blocks:[memory, [block{base: 0, limit: 200}]]},
+    region_region_intersection(A1,B1,A1),
+    A2 = region{node_id:["ID"], blocks:[memory, [block{base: 50, limit: 100}]]},
+    B2 = region{node_id:["ID"], blocks:[memory, [block{base: 75, limit: 200}]]},
+    I2 = region{node_id:["ID"], blocks:[memory, [block{base: 75, limit: 100}]]},
+    region_region_intersection(A2,B2,I2),
+    A3 = region{node_id:["ID"], blocks:[memory, [block{base: 50, limit: 100}]]},
+    B3 = region{node_id:["ID"], blocks:[memory, [block{base: 0, limit: 75}]]},
+    I3 = region{node_id:["ID"], blocks:[memory, [block{base: 50, limit: 75}]]},
+    region_region_intersection(A3,B3,I3),
+    A4 = region{node_id:["ID"], blocks:[memory, [block{base: 0, limit: 100}]]},
+    B4 = region{node_id:["ID"], blocks:[memory, [block{base: 200, limit: 300}]]},
+    not(region_region_intersection(A4,B4,_)).
+
+% Calculates PartSrcRegion and PartSrc Name, such that PartSrcRegion is the 
+% intersection between Src and FullSrcRegion.
+intersecting_translate_block(Src, FullSrcRegion, FullSrcName, PartSrcRegion, PartSrcName) :-
+    Src = region{},
+
+
 
 iblock_limit_iaddress([], []).
 iblock_limit_iaddress([Block | Bs], [Addr | As]) :-
@@ -484,14 +526,14 @@ accept_name(S, Name) :-
         address:Addr
     } = Name,
     CandidateRegion = region{node_id: NodeId},
-    accept(S, CandidateRegion),
+    state_query(S, accept(CandidateRegion)),
     address_match_region(Addr, CandidateRegion).
 
 
 accept_region(S, Region) :-
     Region = region{node_id: RId},
     CandidateRegion = region{node_id: RId},
-    accept(S, CandidateRegion),
+    state_query(S, accept(CandidateRegion)),
     region_region_contains(Region, CandidateRegion).
 
 accept_regions(S, []).
@@ -610,7 +652,8 @@ decode_step_regions_conf(S, [A | As], Regs, Conf) :-
     append(ConfA, ConfB, Conf).
 
 
-test_decode_step_region :-
+test_decode_step_region1 :-
+    % The simple case: everything falls into one translate block
     S = [
         mapping(
         region{node_id: ["IN"], blocks: [memory, [block{base:0, limit:100}]]},
@@ -621,6 +664,26 @@ test_decode_step_region :-
         region{node_id:["IN"], blocks: [memory, [block{base:50, limit: 70}]]},
         Out),
     Out = [region{node_id:["OUT"], blocks: [memory, [block{base:51, limit: 71}]]}].
+
+:- export test_decode_step_region2.
+test_decode_step_region2 :-
+    % Complicated case, overlapping translate
+    S = [
+        mapping(
+        region{node_id: ["IN"], blocks: [memory, [block{base:0, limit:100}]]},
+        name{node_id: ["OUT1"], address: [memory, [10]]}),
+        mapping(
+        region{node_id: ["IN"], blocks: [memory, [block{base:200, limit:300}]]},
+        name{node_id: ["OUT2"], address: [memory, [20]]}),
+        mapping(
+        region{node_id: ["IN"], blocks: [memory, [block{base:400, limit:500}]]},
+        name{node_id: ["OUT3"], address: [memory, [30]]})
+        ],
+
+    decode_step_region(S,
+        region{node_id:["IN"], blocks: [memory, [block{base:50, limit: 450}]]},
+        Out),
+    printf("decode_step_region returns %p\n", Out).
 
 test_decode_step_name :-
     S = [mapping(
@@ -1555,10 +1618,11 @@ run_all_tests :-
     run_test(test_decode_step_name),
     run_test(test_decode_step_name2),
     run_test(test_decode_step_name3),
-    run_test(test_decode_step_region),
+    run_test(test_decode_step_region1),
     run_test(test_resolve_name),
     run_test(test_resolve_name2),
     run_test(test_decode_step_region_conf_one),
     run_test(test_route_new),
     run_test(test_split_vpn),
-    run_test(test_alloc_range).
+    run_test(test_alloc_range),
+    run_test(test_region_region_intersection).
