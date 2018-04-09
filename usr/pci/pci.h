@@ -99,5 +99,6 @@ errval_t pci_get_vf_addr_of_device(struct pci_address addr,
 errval_t pci_setup_connection_to_kaluga(void);
 extern const char *skb_bridge_program;
 extern uint16_t max_numvfs;
+extern bool decoding_net;
 
 #endif // PCI_H_

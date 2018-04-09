@@ -60,6 +60,29 @@ static errval_t init_io_ports(void)
 }
 #endif
 
+static errval_t init_decoding_net(void)
+{
+    errval_t err;
+    // load bride program, otherwise bar() is not defined 
+    PCI_DEBUG("PCI: Loading bridge program \n");
+    err = skb_execute_query("[%s]", skb_bridge_program);
+    if (err_is_fail(err)) {
+        debug_printf("Failed loading brige program \n");
+        return err;
+    }
+
+    PCI_DEBUG("PCI: Loading decoding net \n");
+    err = skb_execute("use_module(decoding_net2)");
+    if (err_is_ok(err)) {
+        const char * decoding_net_file = "sockeyefacts/x86_iommu";
+        err = skb_execute_query("load_net(\"%s\"), init.",decoding_net_file);
+        if (err_is_fail(err)) {
+            PCI_DEBUG("PCI: Loading decoding net file failed \n");
+        }
+    } 
+    return err;
+}
+
 int main(int argc, char *argv[])
 {
     errval_t err;
@@ -106,6 +129,15 @@ int main(int argc, char *argv[])
     	USER_PANIC_ERR(err, "Init memory allocator failed.");
     }
 #endif
+    // Load the decoding net (to add bars)
+    err = init_decoding_net();
+    if (err_is_fail(err)) {
+        debug_printf("Failed loading decoding net, continue withouth \n");
+        decoding_net = false;
+    } else {
+        debug_printf("Successfully loaded decoding net\n");
+        decoding_net = true;
+    }
 
     err = pcie_setup_confspace();
     if (err_is_fail(err)) {
@@ -126,7 +158,6 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
     	USER_PANIC_ERR(err, "Initializing pci_int_ctrl failed");
     }
-
 
     // Start configuring PCI
     PCI_DEBUG("Programming PCI BARs and bridge windows\n");

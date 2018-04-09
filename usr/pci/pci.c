@@ -53,6 +53,7 @@ struct device_caps
 struct device_caps dev_caps[PCI_NBUSES][PCI_NDEVICES][PCI_NFUNCTIONS][PCI_NBARS];
 const char *skb_bridge_program = "bridge_page";
 uint16_t max_numvfs = 256;
+bool decoding_net = false;
 
 static void
 query_bars(pci_hdr0_t devhdr,
@@ -909,6 +910,8 @@ static void assign_bus_numbers(struct pci_address parentaddr,
 
     pcie_enable();
 
+    errval_t err;
+
     // First go through all bridges on this bus and disable them
     for (addr.device = 0; addr.device < PCI_NDEVICES; addr.device++) {
         for (addr.function = 0; addr.function < PCI_NFUNCTIONS; addr.function++) {
@@ -1015,8 +1018,8 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                     .device = addr.device,
                     .function = addr.function,
                 };
-                errval_t err = cl->rpc_tx_vtbl.read_irq_table(cl, handle, xaddr, (*busnum) + 2,
-                                        &error_code, child);
+                err = cl->rpc_tx_vtbl.read_irq_table(cl, handle, xaddr, (*busnum) + 2,
+                                                     &error_code, child);
                 if (err_is_ok(err) && error_code == ACPI_ERR_NO_CHILD_BRIDGE){
                     PCI_DEBUG("No corresponding ACPI entry for bridge found\n");
                 } else if (err_is_fail(err) || err_is_fail(error_code)) {
@@ -1059,6 +1062,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                     .device = addr.device,
                     .function = addr.function
                 };
+
                 assign_bus_numbers(bridge_addr, busnum, maxchild, child);
                 // Restore the old state of pcie. The above call changes this
                 // state according to the devices under this bridge
@@ -1077,9 +1081,6 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                 PCI_DEBUG("Found device (%u, %u, %u), vendor = %x, device = %x\n",
                           addr.bus, addr.device, addr.function, vendor,
                           device_id);
-
-                errval_t err;
-                
 
                 pci_hdr0_t devhdr;
                 pci_hdr0_initialize(&devhdr, addr);
@@ -1184,6 +1185,19 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                                  classcode.prog_if, 0);
 
                                     pci_add_vf_bars_to_skb(&vf_addr, vfn, &sr_iov_cap);
+
+                                    // add VF bars to decoding net
+                                    if (decoding_net) {
+                                        err = skb_execute_query("add_pci_alloc(addr(%u, %u, %u)).", vf_addr.bus,
+                                                                vf_addr.device, vf_addr.function);
+                                        if (err_is_fail(err)) {
+                                            debug_printf("Warning: VF add_pci_alloc(addr(%u, %u, %u)) failed \n", 
+                                                         vf_addr.bus, vf_addr.device, vf_addr.function);
+
+                                            DEBUG_SKB_ERR(err, "bridge add_pci_alloc(%u, %u, %u)",
+                                                          vf_addr.bus, vf_addr.device, vf_addr.function);
+                                        }
+                                    }
                                 }
                                 break;
 
@@ -1430,6 +1444,7 @@ static void query_bars(pci_hdr0_t devhdr,
                              (uint32_t) bar_mapping_size(bar),
                              (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
                              type);
+
             }
         } else {
 	  PCI_DEBUG("(%u,%u,%u): IO BAR %d at 0x%x, size %x\n",
@@ -1441,6 +1456,20 @@ static void query_bars(pci_hdr0_t devhdr,
                          "nonprefetchable, 32).", addr.bus, addr.device, addr.function, i,
                          (uint32_t) (barorigaddr.base << 7), (uint32_t) bar_mapping_size(bar));
         }
+    }
+
+    // add bridge bars to decoding net
+    if (decoding_net) {
+        errval_t err;
+
+        err = skb_execute_query("add_pci_alloc(addr(%u, %u, %u)).", addr.bus,
+                                addr.device, addr.function);
+        if (err_is_fail(err)) {
+            debug_printf("Warning: add_pci_alloc(addr(%u, %u, %u)) failed \n", 
+                         addr.bus, addr.device, addr.function);
+            DEBUG_SKB_ERR(err, "bridge add_pci_alloc(%u, %u, %u)",
+                          addr.bus, addr.device, addr.function);
+        } 
     }
 }
 
@@ -1641,10 +1670,11 @@ void pci_program_bridges(void)
     output = NULL;
     output_length = 0;
     char bridge_program[512];
-    snprintf(bridge_program, 512, "[%s], bridge_programming(P, Nr),"
+    // bridge program itself already has been loaded before
+    // decoding net has dependency to some infos of it
+    snprintf(bridge_program, 512, "bridge_programming(P, Nr),"
              "flatten(P, F),replace_current_BAR_values(F),"
-             "write(nrelements(Nr)),writeln(P).",
-             skb_bridge_program);
+             "write(nrelements(Nr)),writeln(P).");
     skb_execute(bridge_program);
     output = skb_get_output();
     assert(output != NULL);
@@ -1672,7 +1702,7 @@ void pci_program_bridges(void)
      skb_execute("[bridge_page].");
      while (skb_read_error_code() == SKB_PROCESSING) messages_wait_and_handle_next();
      char *output = skb_get_output();
-     assert(output != NULL);
+     ssert(output != NULL);
      int output_length = strlen(output);
      PCI_DEBUG("pci_program_bridges: output = %s\n", output);
      PCI_DEBUG("pci_program_bridges: output length = %d\n", output_length);
