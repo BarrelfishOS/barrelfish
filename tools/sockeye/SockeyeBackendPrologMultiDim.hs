@@ -25,7 +25,7 @@
     also merge the translte/convert types into one.
 -}
 
-module SockeyeBackendProlog
+module SockeyeBackendPrologMultiDim
 ( compile, compileDirect ) where
 
 import qualified Data.Map as Map
@@ -39,7 +39,8 @@ import qualified SockeyeAST as SAST
 import qualified SockeyeParserAST as AST
 
 data PrologBackendException
-  =  NYIException String
+  = MultiDimensionalQuantifierException
+  | NYIException String
   deriving(Show)
 
 instance Exception PrologBackendException
@@ -69,37 +70,21 @@ gen_node_param_list ndl = map AST.nodeName ndl
 gen_nat_param_list :: [AST.ModuleParameter] -> [String]
 gen_nat_param_list pp = map AST.paramName pp
 
-
-
-gen_body_def_maps :: ModuleInfo -> [AST.Definition] -> Integer -> [String]
-gen_body_def_maps m [] _ = []
-gen_body_def_maps m (xs:x) i = elms  ++ (gen_body_def_maps m x (ii))
-    where
-        (ii, elms) = (gen_body_defs m xs i)
-
 instance PrologGenerator AST.Module where
   generate m = let
     name = "add_" ++ AST.moduleName m
     mi = gen_module_info m
     p1 = gen_nat_param_list (AST.parameters m)
     bodyChecks = ["is_list(Id)"]
-
     nodeDecls = map gen_node_decls (AST.nodeDecls m)
     instDecls = map gen_inst_decls (AST.instDecls m)
-
-    -- bodyDefs = concat $ map (gen_body_defs mi) (AST.definitions m)
-    bodyDefs = gen_body_def_maps mi  (AST.definitions m) 0
-    n =  sum $ map (count_num_facts mi) (AST.definitions m)
+    bodyDefs = concat $ map (gen_body_defs mi) (AST.definitions m)
 
     body = intercalate ",\n    " $ bodyChecks ++ nodeDecls ++ instDecls ++ bodyDefs
-    in name ++ stringify ([statevar 0, "Id"] ++ p1 ++ [statevar n]) ++ " :- \n    " ++ body ++ ".\n\n"
+    in name ++ stringify (["Id"] ++ p1) ++ " :- \n    " ++ body ++ ".\n\n"
     where
       stringify [] = ""
       stringify pp = parens $ intercalate "," pp
-
-
-
-
 
 -- Inside each function we add variable that contains
 --  * nodeId
@@ -215,8 +200,7 @@ param_str mi = case params mi of
 
 generate_conj :: ModuleInfo -> [AST.Definition] -> String
 generate_conj mi li =
-   intercalate ",\n" $ concat [snd(gen_body_defs mi inn 0) | inn <- li]
-   -- TODO: fix the 0 here
+   intercalate ",\n" $ concat [gen_body_defs mi inn | inn <- li]
 
 -- generate forall with a explicit variable name
 forall_qual :: ModuleInfo -> String -> AST.NaturalSet -> [AST.Definition] -> String
@@ -251,15 +235,14 @@ forall_uqr mi ref body_str = case (AST.refIndex ref) of
     itid_var = "IDI_" ++ (AST.refName ref)
     it_list = "IDL_" ++ (AST.refName ref)
 
-
-
-gen_bind_defs :: String -> [AST.PortBinding] -> (Integer, [String]) -> (Integer, [String])
-gen_bind_defs uql_var [] s = s
-gen_bind_defs uql_var (x:xs) (i, s) = gen_bind_defs uql_var xs (i + 1, s ++ [ovl])
-    where
-        ovl = assert i $ predicate "overlay" [src, dest]
-        dest =  generate $ AST.boundNode x
-        src = list_prepend (doublequotes $ AST.refName $ AST.boundPort $ x) uql_var
+gen_bind_defs :: String -> [AST.PortBinding] -> String
+gen_bind_defs uql_var binds =
+  let
+      dest bind = generate $ AST.boundNode bind
+      src bind = list_prepend (doublequotes $ AST.refName $ AST.boundPort $ bind) uql_var
+      pb bind = assert $ predicate "node_overlay" [src bind, dest bind]
+      preds = [pb bind | bind <- binds]
+  in intercalate "," preds
 
 gen_index :: AST.UnqualifiedRef -> String
 gen_index uqr =
@@ -276,51 +259,23 @@ gen_index uqr =
     gen_exp_simple (AST.Literal _ int) = show int
 
 
-gen_accept :: ModuleInfo -> AST.UnqualifiedRef -> [AST.AddressBlock] -> (Integer, [String]) -> (Integer, [String])
-gen_accept mi _ [] s = s
-gen_accept mi n (xs:x) (i, s) = gen_accept mi n x (i + 1, s ++ [acc])
-    where
-        acc = assert i $ predicate "accept" [generate n, generate (pack_address_block mi xs)]
 
-gen_translate :: [OneMapSpec] -> (Integer, [String]) -> (Integer, [String])
-gen_translate [] s = s
-gen_translate (om:x) (i, s) = gen_translate x (i + 1, s ++ [trs])
-    where
-        trs = assert i $ predicate "translate" [generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om]
-
-
-gen_body_defs :: ModuleInfo -> AST.Definition -> Integer -> (Integer, [String])
-gen_body_defs mi x i = case x of
-  (AST.Accepts _ n accepts) -> gen_accept mi n accepts (i, [])
-  --(1, [(assert 0 $ predicate "accept" [generate n, generate (new_ab acc)])
---    | acc <- accepts])
-  (AST.Maps _ _ _) -> gen_translate (map_spec_flatten mi x) (i, [])
-   --(1, [(assert 0 $ predicate "translate"
-    --[generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
-    -- | om <- map_spec_flatten mi x])
-  (AST.Overlays _ src dest) -> (1, [assert i $ predicate "overlay" [generate src, generate dest]])
+gen_body_defs :: ModuleInfo -> AST.Definition -> [String]
+gen_body_defs mi x = case x of
+  (AST.Accepts _ n accepts) -> [(assert $ predicate "node_accept" [generate n, generate (new_ab acc)])
+    | acc <- accepts]
+  (AST.Maps _ _ _) -> [(assert $ predicate "node_translate_dyn"
+    [generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
+    | om <- map_spec_flatten mi x]
+  (AST.Overlays _ src dest) -> [assert $ predicate "node_overlay" [generate src, generate dest]]
   -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
-  (AST.Instantiates _ ii im args) -> (0, [ predicate ("add_" ++ im) [gen_index ii] ])
+  (AST.Instantiates _ i im args) -> [ predicate ("add_" ++ im) [gen_index i] ]
   -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
-  (AST.Binds _ ii binds) -> gen_bind_defs (gen_index ii) binds (i, [])
-  (AST.Forall _ varName varRange body) -> (0, [forall_qual mi varName varRange body])
+  (AST.Binds _ i binds) -> [gen_bind_defs (gen_index i) binds]
+  (AST.Forall _ varName varRange body) -> [forall_qual mi varName varRange body]
   (AST.Converts _ _ _ ) -> throw $ NYIException "Converts"
   where
     new_ab ab = pack_address_block mi ab
-
-count_num_facts :: ModuleInfo -> AST.Definition -> Integer
-count_num_facts mi x = case x of
-    (AST.Accepts _ n accepts) -> sum([1 | acc <- accepts])
-    (AST.Maps _ _ _) -> sum([1 | om <- map_spec_flatten mi x])
-    (AST.Overlays _ src dest) -> 1
-    -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
-    (AST.Instantiates _ i im args) -> 0
-    -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
-    (AST.Binds _ i binds) -> sum([1 | b <- binds])
-    (AST.Forall _ varName varRange body) -> 0
-    (AST.Converts _ _ _ ) -> 0
-
-
 
 instance PrologGenerator AST.UnqualifiedRef where
   generate uq = case (AST.refIndex uq) of
@@ -383,7 +338,7 @@ instance PrologGenerator AST.Address where
 
 instance PrologGenerator AST.NaturalSet where
   generate a = case a of
-     AST.NaturalSet _ [nrs] -> generate nrs
+    AST.NaturalSet _ nrs -> list $ map generate nrs
 
 instance PrologGenerator AST.NaturalRange where
   generate nr = case nr of
@@ -484,8 +439,6 @@ for_body params itvar (AST.NaturalSet _ ranges) body =
   where
     fbi = for_body_inner params itvar
 
-statevar :: Integer -> String
-statevar i = printf "S%i" i
 
-assert ::  Integer -> String -> String
-assert i x = "state_add" ++ parens ((statevar i) ++ ", " ++  x ++ ", " ++ (statevar (i + 1)))
+assert :: String -> String
+assert x = "assert" ++ parens x

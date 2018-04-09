@@ -37,6 +37,7 @@ import SockeyeSymbolTableBuilder
 import SockeyeChecker
 
 import qualified SockeyeBackendProlog as Prolog
+import qualified SockeyeBackendPrologMultiDim as PrologMultiDim
 import qualified SockeyeBackendIsabelle as Isabelle
 
 {- Exit codes -}
@@ -58,6 +59,7 @@ compileError = ExitFailure 5
 {- Compilation targets -}
 data Target
     = Prolog
+    | PrologMultiDim
     | Isabelle
 
 {- Possible options for the Sockeye Compiler -}
@@ -134,6 +136,9 @@ options =
     [ Option "P" ["Prolog"]
         (NoArg (\opts -> return $ optSetTarget Prolog opts))
         "Generate a prolog file that can be loaded into the SKB (default)."
+    , Option "M" ["PrologMultiDim"]
+        (NoArg (\opts -> return $ optSetTarget PrologMultiDim opts))
+        "Same as Prolog, but with multidimensional addresses"
     , Option "I" ["Isabelle"]
         (NoArg (\opts -> return $ optSetTarget Isabelle opts))
         "Generate Isabelle/HOL code."
@@ -252,6 +257,7 @@ check symTable pAst =
 {- Compiles the AST with the selected backend -}
 compile :: Target -> SymTable.Sockeye -> AST.Sockeye -> IO String
 compile Prolog symTable ast = return $ Prolog.compile symTable ast
+compile PrologMultiDim symTable ast = return $ PrologMultiDim.compile symTable ast
 compile Isabelle symTable ast = return $ Isabelle.compile symTable ast
 
 {- Try to generate Prolog without any intermediate AST -}
