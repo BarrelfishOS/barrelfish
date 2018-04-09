@@ -300,7 +300,7 @@ gen_body_defs mi x i = case x of
     -- | om <- map_spec_flatten mi x])
   (AST.Overlays _ src dest) -> (1, [assert i $ predicate "overlay" [generate src, generate dest]])
   -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
-  (AST.Instantiates _ ii im args) -> (0, [ predicate ("add_" ++ im) [gen_index ii] ])
+  (AST.Instantiates _ ii im args) -> (1, [ predicate ("add_" ++ im) ([statevar i] ++ [gen_index ii] ++ [statevar (i+1)]) ])
   -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
   (AST.Binds _ ii binds) -> gen_bind_defs (gen_index ii) binds (i, [])
   (AST.Forall _ varName varRange body) -> (0, [forall_qual mi varName varRange body])
@@ -314,7 +314,7 @@ count_num_facts mi x = case x of
     (AST.Maps _ _ _) -> sum([1 | om <- map_spec_flatten mi x])
     (AST.Overlays _ src dest) -> 1
     -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
-    (AST.Instantiates _ i im args) -> 0
+    (AST.Instantiates _ i im args) -> 1
     -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
     (AST.Binds _ i binds) -> sum([1 | b <- binds])
     (AST.Forall _ varName varRange body) -> 0
