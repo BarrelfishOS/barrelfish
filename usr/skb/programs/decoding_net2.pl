@@ -637,13 +637,15 @@ add_pci(Id, Addr) :-
     % connect the output to the systems pci bus
     assert(node_overlay(PCIOUT_ID, PCIBUS_ID)),
     % Now insert the BAR into the PCI bus address space
-    findall((Addr, BarNum, BarStart, BarSize), call(bar(Addr, BarNum, BarStart, BarSize, _, _, _))@eclipse, Bars),
+    findall((Addr, BarNum, BarStart, BarSize), 
+            call(bar(Addr, BarNum, BarStart, BarSize, mem, _, _))@eclipse, 
+            Bars),
     (foreach((Addr, BarNum, BarStart, BarSize), Bars) do
         BarId = [BarNum, "BAR" | Id],
         BarEnd is BarStart + BarSize,
         assert(node_accept(BarId, [memory,[block{base:BarStart,limit:BarEnd}]])),
         assert(node_translate_dyn(PCIBUS_ID, [memory,[block{base:BarStart,limit:BarEnd}]], BarId, 
-                                  [memory, [block{base:BarStart,limit:BarEnd}]]))
+                              [memory, [block{base:BarStart,limit:BarEnd}]]))
     ).
 
 
