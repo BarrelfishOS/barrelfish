@@ -640,7 +640,7 @@ add_pci(Id, Addr) :-
     findall((Addr, BarNum, BarStart, BarSize), 
             call(bar(Addr, BarNum, BarStart, BarSize, mem, _, _))@eclipse, 
             Bars),
-    (foreach((Addr, BarNum, BarStart, BarSize), Bars) do
+    (foreach((_, BarNum, BarStart, BarSize), Bars), param(Id), param(PCIBUS_ID) do
         BarId = [BarNum, "BAR" | Id],
         BarEnd is BarStart + BarSize,
         assert(node_accept(BarId, [memory,[block{base:BarStart,limit:BarEnd}]])),

@@ -31,6 +31,7 @@
 % block_meta(NodeId, Bits, OutNodeId)  -- Metadata for block reconfigurable nodes
 % block_conf(NodeId, VPN, PPN)         -- For block reconfigurable nodes
 % in_use(NodeId, Block)                -- Subset of accepted ranges that has been allocated
+% pt(NodeId, VPN, PPN)                -- Subset of accepted ranges that has been allocated
 
 state_valid([]).
 state_valid([accept(_) | As]) :- state_valid(As).
@@ -73,7 +74,7 @@ max_not_translated_pt(S, NodeId, Min, Max) :-
     inf_value(Inf),
     findall(Reg, state_query(S, mapping(Reg, _)), RegLi),
     (foreach(Reg, RegLi), param(Min), fromto(Inf, MaxIn, MaxOut, MaxMatch) do 
-        Reg = region{blocks: [_, block{base: B, limit: L}]},
+        Reg = region{blocks: [_, block{base: B}]},
         (
             ( B =< Min, MaxOut=MaxIn ) ; 
             ( min(MaxIn, B, MaxOut) )
@@ -878,31 +879,55 @@ init(NewS) :-
     assert(vnode_region(Region)),
     writeln("Using for PageTables:"), writeln(Region).
 
-add_pci :-
-    add_pci(["PCI0"]).
+add_pci(S, NewS) :-
+    add_pci(S, ["PCI0"], addr(0,0,0), NewS).
 
 iommu_enabled :-
     call(iommu_enabled,0,_)@eclipse.
 
-add_pci(S, Id, addr(Bus,Dev,Fun), NewS) :-
+add_pci(S0, Id, Addr, NewS) :-
+    Addr = addr(_,_,_),
     PCIBUS_ID = ["PCIBUS"],
     PCIIN_ID = ["IN" | Id],
     PCIOUT_ID = ["OUT" | Id],
     (iommu_enabled -> (
-        add_PCI_IOMMU(Id), 
+        add_PCI_IOMMU(S0, Id, S1), 
         % Mark IOMMU block remappable
-        assert(node_block_meta(["IN", "IOMMU0" | Id], 21, ["OUT", "IOMMU0" | Id])),
-        % And assign a root PT
-        pt_alloc(Root),
-        assert(node_pt(["IN", "IOMMU0", Id], Root, ["OUT","IOMMU0",Id]))
+        state_add(S1, block_meta(["IN", "IOMMU0" | Id], 21, ["OUT", "IOMMU0" | Id]), S2)
+        %% And assign a root PT
+        %pt_alloc(Root),
+        %assert(node_pt(["IN", "IOMMU0", Id], Root, ["OUT","IOMMU0",Id]))
     ) ; (
         % IOMMU disabled.
-        add_PCI(Id)
+        add_PCI(S0, Id, S2)
     )),
+
     % connect the output to the systems pci bus
-    assert(node_overlay(PCIOUT_ID, PCIBUS_ID)),
+    state_add(S2, overlay(PCIOUT_ID, PCIBUS_ID), S3),
+
     % Now insert the BAR into the PCI bus address space
-    assert(node_translate_dyn(PCIBUS_ID, [memory,[block{base:1024,limit:2048}]], PCIIN_ID, [memory, [block{base:1024,limit:2048}]])).
+    findall((Addr, BarNum, BarStart, BarSize), 
+            call(bar(Addr, BarNum, BarStart, BarSize, mem, _, _))@eclipse, 
+            Bars),
+    (foreach((_, BarNum, BarStart, BarSize), Bars),
+     param(Id), param(PCIBUS_ID),
+     fromto(S3, SIn, SOut, NewS) do
+        BarId = [BarNum, "BAR" | Id],
+        BarEnd is BarStart + BarSize,
+        state_add(SIn, accept(region{
+            node_id: BarId,
+            blocks: [memory, block{base:BarStart,limit:BarEnd}]}), SIn1),
+        state_add(SIn1,
+            mapping(region{
+                node_id: PCIBUS_ID,
+                blocks: [memory,block{base:BarStart,limit:BarEnd}]
+            },
+            name{
+                node_id: BarId,
+                address: [memory, BarStart]
+            }),
+            SOut)
+    ).
 
 add_pci_alloc(S, Addr, NewS) :-
     alloc_node_enum(S, Enum, S1),
@@ -932,8 +957,8 @@ add_process(S, Id, NewS) :-
     MMU_IN_ID = ["IN", "MMU0" | Id],
     MMU_OUT_ID = ["OUT", "MMU0" | Id],
     state_add(S1, node_block_meta(MMU_IN_ID, 21, MMU_OUT_ID), S2), % Make MMU configurable
-    pt_alloc(S2, Root, S3),
-    state_add(S3, node_pt(MMU_IN_ID, Root, MMU_OUT_ID), S4),
+    %pt_alloc(S2, Root, S3),
+    state_add(S2, node_pt(MMU_IN_ID, Root, MMU_OUT_ID), S4),
 
     OUT_ID = ["OUT" | Id],
     state_add(S4, overlay(OUT_ID, DRAM_ID), S5),
