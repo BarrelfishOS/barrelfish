@@ -179,6 +179,7 @@ test_translate :-
 %%%% Utilities
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+:-export iaddress_aligned/2.
 iaddress_aligned(A, Bits) :-
     BlockSize is 2^Bits,
     BlockNum #>= 0,
@@ -466,7 +467,6 @@ test_block_translate :-
 %%%% Queries (that query the model layer)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
 accept_name(S, Name) :-
     name{
         node_id:NodeId,
@@ -514,7 +514,8 @@ is_hole(R) :- R = region{node_id: hole}.
 
 %% Translate SrcRegion into DstRegion using the InCandidate :: region and
 %% OutCandidate :: name, 
-%% Only works if the SrcRegion is completly contained in the InCandidate.
+%% Only works if the SrcRegion is completly contained in the InCandidate, which
+%% is ensured by decode_step_region_part.
 decode_step_region_matching(S, InCandidate, OutCandidate, SrcRegion, DstRegion) :-
     region_region_contains(SrcRegion, InCandidate),
     region_base_name(SrcRegion, name{address:SrcAddr}),
@@ -550,6 +551,8 @@ decode_step_region_part(S, SrcRegion, DstCurr, DstEnd, [(In,Out) | Tlx]) :-
     ),
     decode_step_region_part(S, SrcRegion, DstNext, DstEnd, Tlx).
 
+% TODO: This function has to take accepting regions into account and not
+% try to translate them further.
 decode_step_region(S, SrcRegion, NextRegions) :-
     findall((In,Out), translate(S, In, Out), Tlx),
     hole_region(SrcHole, SrcRegion),
@@ -562,21 +565,37 @@ decode_step_region(S, SrcRegion, NextRegions) :-
      )
     )).
 
-     
-
 % Like decode_step_region, but consider additional configuration entries.
 % TODO: Only works if SrcRegion matches exactly a Configuration block.
 % This function uses IC internally,but labels the outputs.
-decode_step_region_conf_one(S, SrcRegion, DstRegion, block_conf(SrcId, VPN, PPN)) :-
+decode_step_region_conf_one(S, SrcRegion, DstRegion, Confs) :-
     SrcRegion = region{node_id: SrcId, blocks: [Kind, block{base: SrcB, limit: SrcL}]},
     state_query(S, block_meta(SrcId, Bits, OutNodeId)),
+
+    % Make sure base address is aligned
+    iaddress_aligned(SrcB, Bits),
     DstRegion = region{node_id: OutNodeId, blocks: [Kind, block{base: DestB, limit: DestL}]},
-    RSize is SrcL - SrcB + 1,
-    RSize is 2^Bits,
-    split_vaddr(SrcB, Bits, [VPN, Offset]),
-    split_vaddr(DestB, Bits, [PPN, Offset]),
+
+    % Make sure Input Size is multiple of BlockSize
+    region_size(SrcRegion, [_, RSize]),
+    BlockSize is 2^Bits,
+    BlockNum #>= 0,
+    RSize #= BlockNum * BlockSize,
+
+    % Get base VPN/PPN pair
+    split_vaddr(SrcB, Bits, [BaseVPN, Offset]),
+    split_vaddr(DestB, Bits, [BasePPN, Offset]),
     DestL #= DestB + RSize - 1,
-    labeling([PPN, VPN]).
+    labeling([BasePPN, BaseVPN]),
+
+    % Consecutive VPN PPN pairs
+    ItEnd is BlockNum - 1,
+    (for(I,0,ItEnd), fromto([], In, Out, Confs),
+     param(BaseVPN), param(BasePPN), param(SrcId) do
+        NVPN is I + BaseVPN,
+        NPPN is I + BasePPN,
+        append(In, [block_conf(SrcId, NVPN, NPPN)], Out)
+    ).
 
 decode_step_region_conf(S, SrcRegion, DstRegions, Confs) :-
     % TODO: WIP
@@ -586,36 +605,46 @@ decode_step_region_conf(S, SrcRegion, DstRegions, Confs) :-
     split_region(SrcRegion, Size, SplitSrc),
     (foreach(Src, SplitSrc),
      fromto([],DstIn,DstOut,DstRegions),
-     fromto([],ConfIn,ConfOut,Confs),
+     fromto([],ConfsIn,ConfsOut,Confs),
      param(S) do
-        decode_step_region_conf_one(S, Src, Dst, Conf),
+        decode_step_region_conf_one(S, Src, Dst, ConfsPart),
         append(DstIn, [Dst], DstOut),
-        append(ConfIn, [Conf], ConfOut)
+        append(ConfsIn, ConfsPart, ConfsOut)
     ).
 
 split_region(Region, Size, Splits) :-
     % TODO IMPLEMENT ME
     Splits = [Region].
 
-:- export test_split_region/0.
 test_split_region :-
     InR = region{node_id:["IN"], blocks: [memory, block{base:0, limit: 8}]},
     Size = 4,
     split_region(InR, Size, Out).
 
-:- export test_decode_step_region_conf_one/0.
 test_decode_step_region_conf_one :-
     S = [block_meta(["IN"], 21, ["OUT"])],
     Base = 0,
     Limit is Base + 2^21 - 1,
     SrcRegion = region{node_id: ["IN"], blocks: [memory, block{base:Base, limit:Limit}]},
-    decode_step_region_conf_one(S, SrcRegion, Out1, Conf1),
-    %printf("Out1 (free)=%p, Conf1=%p\n",[Out1, Conf1]),
+    decode_step_region_conf_one(S, SrcRegion, Out1, [Conf1]),
+
     TestBase is 512 * 2^21,
     Out2 = region{node_id:["OUT"], blocks: [memory, block{base:TestBase}]},
-    decode_step_region_conf_one(S, SrcRegion, Out2, Conf2),
-    %printf("Out2 (fixed)=%p, Conf2=%p\n",[Out2, Conf2]),
-    Conf2 = block_conf(["IN"], 0, 512).
+    decode_step_region_conf_one(S, SrcRegion, Out2, [Conf2]),
+    Conf2 = block_conf(["IN"], 0, 512),
+
+    % Try multiple of Bits
+    Base3 = 0,
+    Limit3 is Base3 + 2^23 - 1,
+    SrcRegion3 = region{node_id: ["IN"], blocks: [memory, block{base:Base3, limit:Limit3}]},
+    decode_step_region_conf_one(S, SrcRegion3, Out3, Confs3),
+    Confs3 = [
+        block_conf(["IN"], 0, 0),
+        block_conf(["IN"], 1, 1),
+        block_conf(["IN"], 2, 2),
+        block_conf(["IN"], 3, 3)].
+
+
 
 :- export test_decode_step_region_conf2/0.
 test_decode_step_region_conf2 :-
@@ -1399,6 +1428,7 @@ route_new(S, SrcRegions, DstRegions, Route) :-
         union(R1, R2, Route)
     )).
 
+:- export test_route_new/0.
 test_route_new :-
     Upper is 512 * 1024 * 1024,
     Limit2M is 2^21 - 1,
