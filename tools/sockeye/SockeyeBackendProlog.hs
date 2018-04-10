@@ -214,9 +214,10 @@ param_str mi = case params mi of
 
 
 generate_conj :: ModuleInfo -> [AST.Definition] -> String
-generate_conj mi li =
-   intercalate ",\n" $ concat [snd(gen_body_defs mi inn 0) | inn <- li]
+generate_conj mi li = "TODO> NYI"
+   -- intercalate ", sss\n" $ concat [snd(gen_body_defs mi inn 0) | inn <- li]
    -- TODO: fix the 0 here
+
 
 -- generate forall with a explicit variable name
 forall_qual :: ModuleInfo -> String -> AST.NaturalSet -> [AST.Definition] -> String
@@ -298,9 +299,9 @@ gen_body_defs mi x i = case x of
    --(1, [(assert 0 $ predicate "translate"
     --[generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
     -- | om <- map_spec_flatten mi x])
-  (AST.Overlays _ src dest) -> (1, [assert i $ predicate "overlay" [generate src, generate dest]])
+  (AST.Overlays _ src dest) -> (i+1, [assert i $ predicate "overlay" [generate src, generate dest]])
   -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
-  (AST.Instantiates _ ii im args) -> (1, [ predicate ("add_" ++ im) ([statevar i] ++ [gen_index ii] ++ [statevar (i+1)]) ])
+  (AST.Instantiates _ ii im args) -> (i+1, [ predicate ("add_" ++ im) ([statevar i] ++ [gen_index ii] ++ [statevar (i+1)]) ])
   -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
   (AST.Binds _ ii binds) -> gen_bind_defs (gen_index ii) binds (i, [])
   (AST.Forall _ varName varRange body) -> (0, [forall_qual mi varName varRange body])
