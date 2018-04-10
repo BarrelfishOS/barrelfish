@@ -31,7 +31,6 @@
 % block_meta(NodeId, Bits, OutNodeId)  -- Metadata for block reconfigurable nodes
 % block_conf(NodeId, VPN, PPN)         -- For block reconfigurable nodes
 % in_use(NodeId, Block)                -- Subset of accepted ranges that has been allocated
-% pt(NodeId, VPN, PPN)                -- Subset of accepted ranges that has been allocated
 
 state_valid([]).
 state_valid([accept(_) | As]) :- state_valid(As).
@@ -303,6 +302,9 @@ region_region_contains(region{node_id:N, blocks:AB}, region{node_id:N, blocks:BB
 iblock_iblock_intersection(A, B, I) :-
     A = block{base:ABase, limit: ALimit},
     B = block{base:BBase, limit: BLimit},
+    % Case 4: B contained entirely in B.
+    (((ABase =< BBase, BLimit =< ALimit) -> I = B) ;
+    (
     % Case 1: A contained entirely in B.
     (((BBase =< ABase, ALimit =< BLimit) -> I = A) ;
     (
@@ -311,7 +313,7 @@ iblock_iblock_intersection(A, B, I) :-
 
         % Case 3: B overlaps on the left of A. BLimit in A
         (ABase =< BLimit, BLimit =< ALimit, I = block{base: ABase, limit: BLimit})
-    )).
+    )))).
 
 block_block_intersection([K, IABlock], [K, IBBlock], [K, ISBlock]) :-
     iblock_iblock_intersection(IABlock, IBBlock, ISBlock).
@@ -320,6 +322,7 @@ region_region_intersection(region{node_id:N, blocks:AB}, region{node_id:N, block
     block_block_intersection(AB, BB, BIs),
     Is = region{node_id: N, blocks: BIs}.
 
+:- export test_region_region_intersection/0.
 test_region_region_intersection :-
     A1 = region{node_id:["ID"], blocks:[memory, block{base: 50, limit: 100}]},
     B1 = region{node_id:["ID"], blocks:[memory, block{base: 0, limit: 200}]},
@@ -333,14 +336,17 @@ test_region_region_intersection :-
     I3 = region{node_id:["ID"], blocks:[memory, block{base: 50, limit: 75}]},
     region_region_intersection(A3,B3,I3),
     A4 = region{node_id:["ID"], blocks:[memory, block{base: 0, limit: 100}]},
-    B4 = region{node_id:["ID"], blocks:[memory, block{base: 200, limit: 300}]},
-    not(region_region_intersection(A4,B4,_)).
+    B4 = region{node_id:["ID"], blocks:[memory, block{base: 50, limit: 70}]},
+    region_region_intersection(A4,B4,B4),
+    A5 = region{node_id:["ID"], blocks:[memory, block{base: 0, limit: 100}]},
+    B5 = region{node_id:["ID"], blocks:[memory, block{base: 200, limit: 300}]},
+    not(region_region_intersection(A5,B5,_)).
+
 
 % Calculates PartSrcRegion and PartSrc Name, such that PartSrcRegion is the 
 % intersection between Src and FullSrcRegion.
 intersecting_translate_block(Src, FullSrcRegion, FullSrcName, PartSrcRegion, PartSrcName) :-
     Src = region{}.
-
 
 % Turn the limit of the blocks into an address
 block_limit_address([K, Block], [K, Addr]) :-
@@ -373,13 +379,19 @@ block_size([K, A], [K, B]) :-
         limit: Limit
     } = A,
     (
-        (var(B), B is Limit - Base) ;
-        (var(Limit), Limit is Base + B)
+        (var(Limit), Limit is Base + B - 1) ;
+        (B is Limit - Base + 1)
     ).
 
 region_size(Region, Size) :-
     region{ blocks: Blocks } = Region,
     block_size(Blocks, Size).
+
+regions_size([], 0).
+regions_size([Region | Regions], Size) :-
+    region_size(Region, [_, A]),
+    regions_size(Regions, B),
+    Size is A + B.
 
 iaddr_iblock_map(SrcAddr, SrcBlock, DstAddr, DstBase) :-
     SrcBlock = block{base:SrcBase},
@@ -490,6 +502,99 @@ decode_step_name(S, SrcName, name{node_id: DstId, address: DstAddr}) :-
     SrcRegion = region{blocks:SrcBlocks},
     SrcName = name{address:SrcAddr},
     block_translate(SrcAddr, SrcBlocks, DstAddr, DstBaseAddr).
+
+%% We represent holes in the resolved set as region with node_id = hole
+hole_region(region{node_id: hole, blocks: Bs}, region{blocks: Bs}).
+is_hole(R) :- R = region{node_id: hole}.
+
+%% Translate SrcRegion into DstRegion using the InCandidate :: region and
+%% OutCandidate :: name, 
+%% Only works if the SrcRegion is completly contained in the InCandidate.
+decode_step_region_matching(S, InCandidate, OutCandidate, SrcRegion, DstRegion) :-
+    region_region_contains(SrcRegion, InCandidate),
+    region_base_name(SrcRegion, name{address:SrcAddr}),
+    InCandidate = region{blocks:InBlocks},
+    OutCandidate = name{node_id: OutNodeId, address: DstBaseAddr},
+    block_translate(SrcAddr, InBlocks, DstAddr, DstBaseAddr),
+    region_base_name(DstRegion, name{node_id: OutNodeId, address: DstAddr}),
+    region_size(SrcRegion, Size),
+    region_size(DstRegion, Size).
+
+% This recursion iterates over all translate blocks. If they match
+% the srcRegion, it will split the hole (which has to be found at this
+% point in DstCurr)
+decode_step_region_part(_, _, X, X, []).
+decode_step_region_part(S, SrcRegion, DstCurr, DstEnd, [(In,Out) | Tlx]) :-
+    (foreach(Dst, DstCurr), param(SrcRegion), param(In), param(Out), param(S),
+     fromto([], NewDstIn, NewDstOut, DstNext) do
+        Dst = region{node_id: hole, blocks: DstBlocks},
+        SrcRegion = region{node_id: SrcRegionId},
+        DstInSrc = region{node_id: SrcRegionId, blocks: DstBlocks},
+        region_region_intersection(In, DstInSrc, Is) -> (
+            Is = region{blocks: [_, block{base:IsB, limit: IsL}]},
+            SrcRegion = region{blocks: [_, block{base:SrcB, limit: SrcL}]},
+            IsBBefore is IsB - 1,
+            IsLAfter is IsL + 1,
+            HoleLeft = region{node_id: hole, blocks: [_, block{base: SrcB, limit: IsBBefore}]},
+            decode_step_region_matching(S, In, Out, Is, Overlap),
+            HoleRight = region{node_id: hole, blocks: [_, block{base: IsLAfter, limit: SrcL}]},
+            append(NewDstIn, [HoleLeft, Overlap, HoleRight], NewDstOut)
+        ) ; (
+            append(NewDstIn, [Dst], NewDstOut)
+        )   
+    ),
+    decode_step_region_part(S, SrcRegion, DstNext, DstEnd, Tlx).
+
+decode_step_region_new(S, SrcRegion, NextRegions) :-
+    findall((In,Out), translate(S, In, Out), Tlx),
+    hole_region(SrcHole, SrcRegion),
+    decode_step_region_part(S, SrcRegion, [SrcHole], NextRegionsTmp, Tlx),
+    (foreach(Reg, NextRegionsTmp),
+     fromto([], NewDstIn, NewDstOut, NextRegions) do
+     ((not(is_hole(Reg)) -> append(NewDstIn, [Reg], NewDstOut)) ; (
+        Reg = region{blocks: [_, block{base:B, limit: L}]},
+        (L >= B) -> append(NewDstIn, [Reg], NewDstOut) ; NewDstOut = NewDstIn
+     )
+    )).
+
+
+:- export test_decode_step_region_new/0.
+test_decode_step_region_new :-
+    % The simple case: everything falls into one translate block
+    S = [
+        mapping(
+        region{node_id: ["IN"], blocks: [memory, block{base:0, limit:100}]},
+        name{node_id: ["OUT1"], address: [memory, 10]}),
+        mapping(
+        region{node_id: ["IN"], blocks: [memory, block{base:200, limit:300}]},
+        name{node_id: ["OUT2"], address: [memory, 200]})
+        ],
+
+    decode_step_region_new(S,
+        region{node_id:["IN"], blocks: [memory, block{base:50, limit: 70}]},
+        Out1),
+    Out1 = [region{node_id:["OUT1"], blocks: [memory, block{base:60, limit: 80}]}],
+
+    decode_step_region_new(S,
+        region{node_id:["IN"], blocks: [memory, block{base:50, limit: 199}]},
+        Out2),
+    Out2 = [region{node_id:["OUT1"], blocks: [memory, block{base:60, limit: 110}]},
+            Hole2],
+    region_size(Hole2, [_, 99]),
+
+    decode_step_region_new(S,
+        region{node_id:["IN"], blocks: [memory, block{base:50, limit: 200}]},
+        Out3),
+    Out3 = [
+        region{node_id:["OUT1"], blocks: [memory, block{base:60, limit: 110}]},
+        _,
+        region{node_id:["OUT2"], blocks: [memory, block{base:200, limit: 200}]}
+        ],
+    decode_step_region_new(S,
+        region{node_id:["IN"], blocks: [memory, block{base:150, limit: 350}]},
+        Out4),
+    Out4 = [_, region{node_id:["OUT2"], blocks: [memory, block{base:200, limit: 300}]}, _].
+     
 
 % TODO: this currently only considers the case when SrcRegion fits entirely in 
 % one translate src block.
