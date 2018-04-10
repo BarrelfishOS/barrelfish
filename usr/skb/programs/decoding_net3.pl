@@ -488,6 +488,11 @@ accept_regions(S, [R | Rs]) :-
     accept_region(S, R),
     accept_regions(S, Rs).
 
+accept_or_hole_regions(S, []).
+accept_or_hole_regions(S, [R | Rs]) :-
+    (accept_region(S, R) ; is_hole(R)),
+    accept_or_hole_regions(S, Rs).
+
 test_accept_name :-
     S = [accept(region{node_id:["In"], blocks: [memory, block{base: 50, limit:100}]})],
     accept_name(S, name{node_id:["In"], address: [memory, 75]}).
@@ -545,7 +550,7 @@ decode_step_region_part(S, SrcRegion, DstCurr, DstEnd, [(In,Out) | Tlx]) :-
     ),
     decode_step_region_part(S, SrcRegion, DstNext, DstEnd, Tlx).
 
-decode_step_region_new(S, SrcRegion, NextRegions) :-
+decode_step_region(S, SrcRegion, NextRegions) :-
     findall((In,Out), translate(S, In, Out), Tlx),
     hole_region(SrcHole, SrcRegion),
     decode_step_region_part(S, SrcRegion, [SrcHole], NextRegionsTmp, Tlx),
@@ -557,59 +562,7 @@ decode_step_region_new(S, SrcRegion, NextRegions) :-
      )
     )).
 
-
-:- export test_decode_step_region_new/0.
-test_decode_step_region_new :-
-    % The simple case: everything falls into one translate block
-    S = [
-        mapping(
-        region{node_id: ["IN"], blocks: [memory, block{base:0, limit:100}]},
-        name{node_id: ["OUT1"], address: [memory, 10]}),
-        mapping(
-        region{node_id: ["IN"], blocks: [memory, block{base:200, limit:300}]},
-        name{node_id: ["OUT2"], address: [memory, 200]})
-        ],
-
-    decode_step_region_new(S,
-        region{node_id:["IN"], blocks: [memory, block{base:50, limit: 70}]},
-        Out1),
-    Out1 = [region{node_id:["OUT1"], blocks: [memory, block{base:60, limit: 80}]}],
-
-    decode_step_region_new(S,
-        region{node_id:["IN"], blocks: [memory, block{base:50, limit: 199}]},
-        Out2),
-    Out2 = [region{node_id:["OUT1"], blocks: [memory, block{base:60, limit: 110}]},
-            Hole2],
-    region_size(Hole2, [_, 99]),
-
-    decode_step_region_new(S,
-        region{node_id:["IN"], blocks: [memory, block{base:50, limit: 200}]},
-        Out3),
-    Out3 = [
-        region{node_id:["OUT1"], blocks: [memory, block{base:60, limit: 110}]},
-        _,
-        region{node_id:["OUT2"], blocks: [memory, block{base:200, limit: 200}]}
-        ],
-    decode_step_region_new(S,
-        region{node_id:["IN"], blocks: [memory, block{base:150, limit: 350}]},
-        Out4),
-    Out4 = [_, region{node_id:["OUT2"], blocks: [memory, block{base:200, limit: 300}]}, _].
      
-
-% TODO: this currently only considers the case when SrcRegion fits entirely in 
-% one translate src block.
-decode_step_region(S, SrcRegion, NextRegions) :-
-    translate(S, InCandidate, OutCandidate),
-    region_region_contains(SrcRegion, InCandidate),
-    region_base_name(SrcRegion, name{address:SrcAddr}),
-    InCandidate = region{blocks:InBlocks},
-    OutCandidate = name{node_id: OutNodeId, address: DstBaseAddr},
-    block_translate(SrcAddr, InBlocks, DstAddr, DstBaseAddr),
-    region_base_name(DstRegion, name{node_id: OutNodeId, address: DstAddr}),
-    region_size(SrcRegion, Size),
-    region_size(DstRegion, Size),
-    NextRegions = [DstRegion].
-
 
 % Like decode_step_region, but consider additional configuration entries.
 % TODO: Only works if SrcRegion matches exactly a Configuration block.
@@ -691,8 +644,43 @@ decode_step_regions_conf(S, [A | As], Regs, Conf) :-
     append(RegsA, RegsB, Regs),
     append(ConfA, ConfB, Conf).
 
-
 test_decode_step_region1 :-
+    % The simple case: everything falls into one translate block
+    S = [
+        mapping(
+        region{node_id: ["IN"], blocks: [memory, block{base:0, limit:100}]},
+        name{node_id: ["OUT1"], address: [memory, 10]}),
+        mapping(
+        region{node_id: ["IN"], blocks: [memory, block{base:200, limit:300}]},
+        name{node_id: ["OUT2"], address: [memory, 200]})
+        ],
+
+    decode_step_region(S,
+        region{node_id:["IN"], blocks: [memory, block{base:50, limit: 70}]},
+        Out1),
+    Out1 = [region{node_id:["OUT1"], blocks: [memory, block{base:60, limit: 80}]}],
+
+    decode_step_region(S,
+        region{node_id:["IN"], blocks: [memory, block{base:50, limit: 199}]},
+        Out2),
+    Out2 = [region{node_id:["OUT1"], blocks: [memory, block{base:60, limit: 110}]},
+            Hole2],
+    region_size(Hole2, [_, 99]),
+
+    decode_step_region(S,
+        region{node_id:["IN"], blocks: [memory, block{base:50, limit: 200}]},
+        Out3),
+    Out3 = [
+        region{node_id:["OUT1"], blocks: [memory, block{base:60, limit: 110}]},
+        _,
+        region{node_id:["OUT2"], blocks: [memory, block{base:200, limit: 200}]}
+        ],
+    decode_step_region(S,
+        region{node_id:["IN"], blocks: [memory, block{base:150, limit: 350}]},
+        Out4),
+    Out4 = [_, region{node_id:["OUT2"], blocks: [memory, block{base:200, limit: 300}]}, _].
+
+test_decode_step_region2 :-
     % The simple case: everything falls into one translate block
     S = [
         mapping(
@@ -705,8 +693,7 @@ test_decode_step_region1 :-
         Out),
     Out = [region{node_id:["OUT"], blocks: [memory, block{base:51, limit: 71}]}].
 
-:- export test_decode_step_region2/0.
-test_decode_step_region2 :-
+test_decode_step_region3 :-
     % Complicated case, overlapping translate
     S = [
         mapping(
@@ -722,8 +709,8 @@ test_decode_step_region2 :-
 
     decode_step_region(S,
         region{node_id:["IN"], blocks: [memory, block{base:50, limit: 450}]},
-        Out),
-    printf("decode_step_region returns %p\n", Out).
+        Out).
+    %printf("decode_step_region returns %p\n", [Out]).
 
 :- export test_decode_step_name/0.
 test_decode_step_name :-
@@ -1396,103 +1383,6 @@ test_one_block_upper_limit :-
 
 % Internal function for region route
 
-% Route Step for names
-route_step(SrcName, NextName, Route) :-
-    SrcName = name{},
-    NextName = name{},
-    ((
-        translate(SrcName, NextName),
-        Route = []
-    ) ; (
-        % In this case, we can assume, there is no block map existing,
-        % But, we have to check if the node supports block mapping, then
-        % we can install this
-        can_translate(SrcName, NextName, Config),
-        Route = [Config]
-    )).
-
-% Route Step for regions
-route_step(SrcRegion, NextRegion, Route) :-
-    % This will only work, if the source region will translate to the same node
-    % block this should be ensured by the block splitting of the region route
-    region_base_name(SrcRegion, SrcBase),
-    region_limit_name(SrcRegion, SrcLimit),
-    route_step(SrcBase, NextBase, Route1),
-    route_step(SrcLimit, NextLimit, Route2),
-    region_base_name(NextRegion, NextBase),
-    region_limit_name(NextRegion, NextLimit),
-    union(Route1, Route2, Route).
-
-% Routing functionality for ranges addresses (represented as region)
-% This one 
-route(SrcRegion, DstRegion, Route) :-
-    SrcRegion = region{node_id: SrcNodeId, blocks: SrcBlocks},
-    DstRegion = region{node_id: DstNodeId, blocks: DstBlocks},
-    block_base_address(SrcBlocks, SrcBase), % SrcBase = [memory, [0,1,2]]
-    block_limit_address(SrcBlocks, SrcLimit), % SrcLimit = [memory, [10,11,12]]
-    block_base_address(DstBlocks, DstBase),
-    block_limit_address(DstBlocks, DstLimit),
-    one_block_upper_limit(name{node_id:SrcNodeId, address:SrcBase}, BlockLimit),
-    % BlockLimit = [memory, [2000]]
-    ((
-        address_gte(SrcLimit , BlockLimit),
-        % Great, SrcRegion fits completly in translate block
-        route_step(SrcRegion, NextRegion, R1),
-        ( accept(NextRegion) -> (
-            DstRegion = NextRegion,
-            Route = R1
-        ) ; (
-            route(NextRegion, DstRegion, R2),
-            union(R1, R2, Route)
-        ))
-    ) ; ( 
-        % Only allow this if the block has to be split
-        not(address_gte(SrcLimit, BlockLimit)),
-
-        % Route first block
-        block_base_address(NewSrcBlocks, SrcBase), % Keep the base
-        block_limit_address(NewSrcBlocks, BlockLimit), 
-
-        block_base_address(NewDstBlocks, DstBase), % Keep the base
-        address_sub(BlockLimit, SrcBase, BlockSize),
-        address_add(DstBase, BlockSize, NewDstLimit),
-        block_limit_address(NewDstBlocks, NewDstLimit), 
-        route(
-            region{node_id:SrcNodeId, blocks: NewSrcBlocks},
-            region{node_id:DstNodeId, blocks: NewDstBlocks},
-            R1), 
-
-        % Construct remainder
-        address_add_const(BlockLimit, 1, AfterBlock),
-        block_base_address(RemSrcBlocks, AfterBlock), 
-        block_limit_address(RemSrcBlocks, SrcLimit),  % keep limit
-
-        address_add_const(NewDstLimit, 1, AfterDstLimit), 
-        block_base_address(RemDstBlocks, AfterDstLimit), 
-        block_limit_address(RemDstBlocks, DstLimit), % keep limit
-        route(
-            region{node_id:SrcNodeId, blocks: RemSrcBlocks},
-            region{node_id:DstNodeId, blocks: RemDstBlocks},
-            R2),
-
-        % Concat routes
-        union(R1, R2, Route)
-    )).
-        
-    
-% Routing functionality for single addresses (represented as name)
-route(SrcName, DstName, Route) :-
-    SrcName = name{},
-    DstName = name{},
-    route_step(SrcName, NextName, R1),
-    ( accept(NextName) -> (
-        DstName = NextName,
-        Route = R1
-    ) ; (
-        route(NextName, DstName, R2),
-        union(R1, R2, Route)
-    )).
-
 route_step_new(S, SrcRegions, NextRegions, Route) :-
     (decode_step_regions(S, SrcRegions, NextRegions), Route=[]) ;
     decode_step_regions_conf(S, SrcRegions, NextRegions, Route).
@@ -1501,7 +1391,7 @@ route_new(S, SrcRegions, DstRegions, Route) :-
     SrcRegion = region{node_id: SrcNodeId, blocks: SrcBlocks},
     DstRegion = region{node_id: DstNodeId, blocks: DstBlocks},
     route_step_new(S, SrcRegions, NextRegions, R1),
-    ( accept_regions(S, NextRegions) -> (
+    (accept_or_hole_regions(S, NextRegions) -> (
         DstRegions = NextRegions,
         Route = R1
     ) ; (
@@ -1509,7 +1399,6 @@ route_new(S, SrcRegions, DstRegions, Route) :-
         union(R1, R2, Route)
     )).
 
-:- export test_route_new/0.
 test_route_new :-
     Upper is 512 * 1024 * 1024,
     Limit2M is 2^21 - 1,
@@ -1682,6 +1571,8 @@ run_all_tests :-
     run_test(test_decode_step_name2),
     run_test(test_decode_step_name3),
     run_test(test_decode_step_region1),
+    run_test(test_decode_step_region2),
+    run_test(test_decode_step_region3),
     run_test(test_resolve_name),
     run_test(test_resolve_name2),
     run_test(test_decode_step_region_conf_one),
