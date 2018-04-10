@@ -78,7 +78,7 @@ translate_region(S, SrcRegion, DstRegion) :-
 
 translate_name(S, SrcName, name{node_id: DstId, address: DstAddr}) :-
     name_mapping(S, SrcName, mapping(InCandidate, OutCandidate)),
-    region_base_name(SrcRegion, name{address:SrcAddr}),
+    SrcName = name{address:SrcAddr},
     InCandidate = region{block:InBlock},
     OutCandidate = name{node_id: DstId, address: DstBaseAddr},
     block_translate(SrcAddr, InBlock, DstAddr, DstBaseAddr).
@@ -92,10 +92,33 @@ accept_name(S, Name) :-
     state_query(S, accept(Candidate)),
     name_region_match(Name, Candidate).
 
-
 accept_region(S, Region) :-
     state_query(S, accept(Candidate)),
     region_region_contains(Region, Candidate).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Queries 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+decodes_name(_, N,N).
+decodes_name(S, SrcName, DstName) :-
+    translate_name(S, SrcName, NextName),
+    decodes_name(S, NextName, DstName).
+
+decodes_region(_, N,N).
+decodes_region(S, SrcName, DstName) :-
+    translate_region(S, SrcName, NextName),
+    decodes_region(S, NextName, DstName).
+
+resolve_name(S, SrcName, DstName) :-
+    name{} = SrcName,
+    name{} = DstName,
+    decodes_name(S, SrcName,DstName),
+    accept_name(S, DstName).
+
+resolve_region(S, SrcRegion, DstRegion) :-
+    decodes_region(S, SrcRegion, DstRegion),
+    accept_region(S, DstRegion).
 
 
 
@@ -120,7 +143,7 @@ region_size(Region, Size) :-
     ).
 
 block_size(block{base:B, limit: L}, Size) :-
-    Size is Limit - Base + 1.
+    Size is L - B + 1.
 
 address_block_match(A, block{base: B, limit: L}) :-
     B #=< A,
@@ -164,7 +187,6 @@ test_translate_region :-
             name{node_id: ["Out1"], address: 0}),
         overlay(["In"], ["Out2"])
       ],
-    Src = region{node_id:["In"]},
     translate_region(S, 
         region{node_id:["In"], block:block{base:1000,limit:2000}},
         region{node_id: ["Out1"], block:block{base:0, limit: 1000}}),
@@ -196,6 +218,44 @@ test_translate_name :-
         name{node_id:["In"], address:1000},
         name{node_id: ["Out2"], address:1000})).
 
+test_resolve_name1 :-
+    %Setup
+    S = [
+        mapping(
+            region{node_id:["In"], block: block{base:1000,limit:2000}},
+            name{node_id: ["Out1"], address: 0}),
+        overlay(["In"], ["Out2"]),
+        accept(region{node_id:["Out1"], block: block{base:0, limit:2000}}),
+        accept(region{node_id:["Out2"], block: block{base:0, limit:2000}})
+        ],
+    % Hit the translate block
+    resolve_name(S,
+        name{node_id:["In"], address: 1000},
+        name{node_id:["Out1"], address: 0}),
+    % Hit the overlay 
+    resolve_name(S,
+        name{node_id:["In"], address: 500},
+        name{node_id:["Out2"], address: 500}).
+
+test_resolve_name2 :-
+    %Setup
+    S = [mapping(
+            region{node_id: ["In1"], block: block{base:1000,limit:2000}},
+            name{node_id: ["Out1"], address: 0}),
+        mapping(
+            region{node_id:["In2"], block: block{base:6000,limit:7000}},
+            name{node_id:["Out1"], address: 0}),
+        accept(region{node_id:["Out1"], block: block{base:0, limit:2000}})
+        ],
+    % Reverse lookup
+    resolve_name(S,
+        name{node_id:["In1"], address:1000},
+        R),
+    resolve_name(S,
+        name{node_id:["In2"], address:Out},
+        R),
+    Out = 6000.
+
 run_test(Test) :-
     (
         call(Test),
@@ -209,4 +269,6 @@ run_all_tests :-
     run_test(test_translate_region),
     run_test(test_translate_name),
     run_test(test_accept_name),
+    run_test(test_resolve_name1),
+    run_test(test_resolve_name2),
     run_test(test_accept_region).
