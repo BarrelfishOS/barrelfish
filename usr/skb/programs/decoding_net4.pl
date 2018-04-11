@@ -58,7 +58,7 @@ name_mapping(S, Name, mapping(In,Out))  :-
     state_query(S, mapping(In, Out)),
     name_region_match(Name, In).
 
-% In case of existing mapping
+% translate with mapping
 translate_region(S, SrcRegion, DstRegion) :-
     region_mapping(S, SrcRegion, mapping(InCandidate, OutCandidate)),
     region_base_name(SrcRegion, name{address:SrcAddr}),
@@ -69,13 +69,47 @@ translate_region(S, SrcRegion, DstRegion) :-
     region_size(SrcRegion, Size),
     region_size(DstRegion, Size).
 
-% In case of overlay
+% translate with overlay
 translate_region(S, SrcRegion, DstRegion) :-
     not(region_mapping(S, SrcRegion, _)),
     SrcRegion = region{node_id: SrcId, block:B},
-    state_query(S, overlay(SrcId, OutId)),
-    DstRegion = region{node_id: OutId, block:B}.
+    state_query(S, overlay(SrcId, DstId)),
+    DstRegion = region{node_id: DstId, block:B}.
 
+% translate with configurable nodes
+translate_region(S, SrcRegion, DstRegion) :-
+    not(region_mapping(S, SrcRegion, _)),
+    SrcRegion = region{node_id: SrcId, block:SrcBlock},
+    SrcBlock = block{base:SrcBase},
+    state_query(S, block_meta(SrcId, Bits, DstId)),
+    
+    % Base of block must be Bits aligned 
+    aligned(SrcBase, Bits, _),
+    
+    % Size must be multiple of BlockSize
+    block_size(SrcBlock, SrcSize),
+    aligned(SrcSize, Bits, NumBlocks),
+    ItEnd is NumBlocks - 1,
+
+    % Check NumBlocks consecutive VPN/PPN pairs
+    split_vaddr(SrcBase, Bits, [BaseVPN, Offset]),
+    split_vaddr(DstBase, Bits, [BasePPN, Offset]),
+    state_query(S, block_conf(SrcId, BaseVPN, BasePPN)),
+    (for(I,0,ItEnd),
+     param(BaseVPN), param(BasePPN), param(SrcId), param(S) do
+        NVPN is I + BaseVPN,
+        NPPN is I + BasePPN,
+        state_query(S, block_conf(SrcId, NVPN, NPPN))
+    ),
+
+    % And calculate destination accordingly.
+    DstBlock = block{base: DstBase},
+    block_size(DstBlock, SrcSize),
+    DstRegion = region{node_id:DstId, block: DstBlock}.
+
+
+
+% translate with mapping
 translate_name(S, SrcName, name{node_id: DstId, address: DstAddr}) :-
     name_mapping(S, SrcName, mapping(InCandidate, OutCandidate)),
     SrcName = name{address:SrcAddr},
@@ -83,10 +117,20 @@ translate_name(S, SrcName, name{node_id: DstId, address: DstAddr}) :-
     OutCandidate = name{node_id: DstId, address: DstBaseAddr},
     block_translate(SrcAddr, InBlock, DstAddr, DstBaseAddr).
 
+% translate with overlay
 translate_name(S, SrcName, name{node_id: DstId, address: DstAddr}) :-
     not(name_mapping(S, SrcName, _)),
     SrcName = name{node_id: SrcId, address:DstAddr},
     state_query(S, overlay(SrcId, DstId)).
+
+% translate with configurable nodes
+translate_name(S, SrcName, name{node_id: DstId, address: DstAddr}) :-
+    not(name_mapping(S, SrcName, _)),
+    SrcName = name{node_id: SrcId, address:SrcAddr},
+    state_query(S, block_meta(SrcId, Bits, DstId)),
+    split_vaddr(SrcAddr, Bits, [VPN, Offset]),
+    state_query(S, block_conf(SrcId, VPN, PPN)),
+    split_vaddr(DstAddr, Bits, [PPN, Offset]).
 
 accept_name(S, Name) :-
     state_query(S, accept(Candidate)),
@@ -126,6 +170,34 @@ resolve_region(S, SrcRegion, DstRegion) :-
 %%%% Utilities 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% Existence of BlockNum as integer will tell that A is multiple of 2^Bits
+aligned(A, Bits, BlockNum) :-
+    BlockSize is 2^Bits,
+    BlockNum #>= 0,
+    A #= BlockNum * BlockSize.
+
+assert_word(W, N) :-
+    dim(W,[N]), W :: [0 .. 1].
+
+word_to_num(W, Num) :-
+    dim(W, [Len]),
+    (for(I,1,Len), fromto(0,In,Out,NumT), param(W) do
+        Out = W[I] * 2^(I-1) + In),
+    Num $= eval(NumT).
+
+subword(Word,Subword, Range) :- 
+    SW is Word[Range],
+    array_list(Subword,SW).
+
+split_vaddr(VA, BlockSizeBits, [VPN, Offset]) :-
+    assert_word(VAW, 48),
+    word_to_num(VAW, VA),
+    subword(VAW, OffsetW, 1 .. BlockSizeBits),
+    word_to_num(OffsetW, Offset),
+    VPNWStart is BlockSizeBits + 1,
+    subword(VAW, VPNW, VPNWStart .. 48),
+    word_to_num(VPNW, VPN).
+
 % block_translate(A,BaseA,B,BaseB) ==> A-BaseA = B-BaseB
 block_translate(SrcAddr, SrcBlock, DstAddr, DstBase) :-
     SrcBlock = block{base:SrcBase},
@@ -135,15 +207,12 @@ region_base_name(Region, Name) :-
     Region = region{node_id: NodeId, block: block{base:Base}},
     Name = name{node_id:NodeId, address: Base}.
 
-region_size(Region, Size) :-
-    region{ block: block{base:Base, limit:Limit} } = Region,
-    (
-        (var(Limit), Limit is Base + Size - 1) ;
-        (Size is Limit - Base + 1)
-    ).
+region_size(region{block:Block}, Size) :-
+    block_size(Block, Size).
 
 block_size(block{base:B, limit: L}, Size) :-
-    Size is L - B + 1.
+    (var(L), L is B + Size - 1) ;
+    (var(Size), Size is L - B + 1).
 
 address_block_match(A, block{base: B, limit: L}) :-
     B #=< A,
@@ -180,7 +249,6 @@ test_accept_region :-
     accept_region(S, region{node_id:["In"], block: block{base:75, limit:80}}). 
 
 test_translate_region :- 
-    %Setup
     S = [
         mapping(
             region{node_id:["In"], block:block{base:1000,limit:2000}},
@@ -196,6 +264,32 @@ test_translate_region :-
     translate_region(S, 
         region{node_id:["In"], block:block{base:2001,limit:3000}},
         region{node_id: ["Out2"], block:block{base:2001, limit:3000}}).
+
+:- export test_translate_region2/0.
+test_translate_region2 :- 
+    S = [
+        block_meta(["In"], 21, ["Out"]),
+        block_conf(["In"], 0, 1),
+        block_conf(["In"], 1, 1)
+      ],
+    Base2M is 2^21,
+    Limit2M is 2^21 - 1,
+    Limit4M is 2*(2^21) - 1,
+    Limit6M is 3*(2^21) - 1,
+    translate_region(S, 
+        region{node_id:["In"], block:block{base:0,limit:Limit2M}},
+        region{node_id:["Out"], block:block{base: Base2M, limit: Limit4M}}),
+    not(translate_region(S, 
+        region{node_id:["In"], block:block{base:0,limit:Limit4M}},
+        _)),
+    S2 = [
+        block_meta(["In"], 21, ["Out"]),
+        block_conf(["In"], 0, 1),
+        block_conf(["In"], 1, 2)
+      ],
+    translate_region(S2, 
+        region{node_id:["In"], block:block{base:0,limit:Limit4M}},
+        region{node_id:["Out"], block:block{base: Base2M, limit: Limit6M}}).
 
 test_translate_name :- 
     %Setup
@@ -267,6 +361,7 @@ run_test(Test) :-
 :- export run_all_tests/0.
 run_all_tests :-
     run_test(test_translate_region),
+    run_test(test_translate_region2),
     run_test(test_translate_name),
     run_test(test_accept_name),
     run_test(test_resolve_name1),
