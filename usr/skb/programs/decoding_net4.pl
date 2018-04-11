@@ -171,13 +171,16 @@ region_in_use(S, Region) :-
 region_free(S, Region) :-
     not(region_in_use(S, Region)).
 
-% Allocate a free aligned region.
-region_alloc(S, Region, Size, Bits) :-
+% Ensure Base address is aligned to Bits and 
+region_aligned(Region, Bits) :-
     Region = region{node_id: RId, block:block{base: Base, limit: Limit}},
     aligned(Base, Bits, NumBlock),
-    Limit #= Base + Size - 1,
-    labeling([NumBlock]),
-    region_free(S, Region).
+    labeling([NumBlock]).
+
+region_alloc(S, Reg, Size, Bits) :-
+    region_aligned(Reg, Bits),
+    region_size(Reg, Size),
+    region_free(S, Reg).
 
 
 % Assumes SrcRegion has no mapping in S.
@@ -221,6 +224,17 @@ route(S, SrcRegion, DstRegion, Conf) :-
         route(S, NextRegion, DstRegion, C2),
         state_union(C1, C2, Conf)
     )).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Interface queries 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+alias(S, N1, N2) :-
+    resolve_name(S, N1, D),
+    resolve_name(S, N1, D).
+
+alloc(S, N1, N2, Dest, Conf) :-
+    accept_region(Dest).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Utilities 
@@ -269,7 +283,7 @@ region_size(region{block:Block}, Size) :-
 block_size(block{base:B, limit: L}, Size) :-
     (var(L), L is B + Size - 1) ;
     (var(Size), Size is L - B + 1);
-    (nonvar(Size), Size is L - B + 1).
+    (nonvar(Size), nonvar(L), nonvar(B), Size is L - B + 1). % Checking case.
 
 address_block_match(A, block{base: B, limit: L}) :-
     B #=< A,
@@ -449,14 +463,20 @@ test_route :-
     state_query(Conf, block_conf(["MMU"], 0, 1)),
     state_query(Conf, block_conf(["MMU"], 1, 2)).
 
+:- export test_region_alloc/0.
 test_region_alloc :-
     S = [in_use(region{node_id:["IN"], block:block{base:0,limit:2097151}})],
     Size is 2^21,
     Reg = region{node_id: ["IN"]},
+
     region_alloc(S, Reg, Size, 21),
+    printf("Reg=%p\n", Reg),
+
     Size2 is 2^24,
     Reg2 = region{node_id: ["IN"]},
-    region_alloc(S, Reg2, Size2, 21).
+
+    region_alloc(S, Reg2, Size2, 21),
+    printf("Reg2=%p\n", Reg2).
 
 
 run_test(Test) :-
