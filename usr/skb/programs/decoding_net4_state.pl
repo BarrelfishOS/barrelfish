@@ -13,7 +13,7 @@
 % state modifications.
 
 
-:- module(decoding_net3_state).
+:- module(decoding_net4_state).
 
 :- export state_empty/1.
 :- export state_add/3.

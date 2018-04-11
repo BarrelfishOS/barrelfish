@@ -12,15 +12,12 @@
 %% decoding_net3_multid contains the arbitrary dimensional implementation.
 
 % Some Conventions: 
-% NodeId = identifier list 
-% IAddr = [1,2,3] 
-% Addr = [kind, 1]
-% IBlock block{..}
-% Block = [kind, block{..}]
+% NodeId = identifier. list of strings
+% Addr = 1
+% Block block{..}
 
 :- module(decoding_net4).
-:- use_module(allocator3).
-:- use_module(decoding_net3_state).
+:- use_module(decoding_net4_state).
 
 
 %%% Bottom layer is storing the following facts in the State
@@ -173,7 +170,7 @@ region_free(S, Region) :-
 
 % Ensure Base address is aligned to Bits and 
 region_aligned(Region, Bits) :-
-    Region = region{node_id: RId, block:block{base: Base, limit: Limit}},
+    Region = region{block:block{base: Base}},
     aligned(Base, Bits, NumBlock),
     labeling([NumBlock]).
 
@@ -229,6 +226,7 @@ route(S, SrcRegion, DstRegion, Conf) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Interface queries 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- export alias/3.
 alias(S, N1, N2) :-
     resolve_name(S, N1, D),
     resolve_name(S, N2, D).
@@ -241,10 +239,20 @@ alias(S, N1, N2) :-
 % Reg2 - Observer Region 2 will resolve to DestReg
 % DestReg - Aligned region that will be resolved from Reg1/2
 % Conf - State Delta which must be added to S
+:- export alloc/7.
 alloc(S, Size, Bits, Reg1, Reg2, DestReg, Conf) :-
     region_alloc(S, Reg1, Size, Bits),
     region_alloc(S, Reg2, Size, Bits),
     region_alloc(S, DestReg, Size, Bits),
+    accept_region(S, DestReg),
+    route(S, Reg1, DestReg, C1),
+    route(S, Reg2, DestReg, C2),
+    state_union(C1, C2, Conf).
+
+:- export map/7.
+map(S, Size, Bits, Reg1, Reg2, DestReg, Conf) :-
+    region_alloc(S, Reg1, Size, Bits),
+    region_alloc(S, Reg2, Size, Bits),
     accept_region(S, DestReg),
     route(S, Reg1, DestReg, C1),
     route(S, Reg2, DestReg, C2),
@@ -493,10 +501,7 @@ test_region_alloc :-
 
 test_alloc :-
     Size is 2*(2^21),
-    Base2M is 2^21,
     Base128M is 128*(2^21),
-    Limit4M is 2*(2^21) - 1,
-    Limit6M is 3*(2^21) - 1,
     Limit512M is 512*(2^21) - 1,
     S = [
         overlay(["IN1"], ["MMU1"]),
