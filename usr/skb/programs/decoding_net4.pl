@@ -37,7 +37,7 @@ state_valid([mapping(_,_) | As]) :- state_valid(As).
 state_valid([overlay(_,_) | As]) :- state_valid(As).
 state_valid([block_meta(_,_,_) | As]) :- state_valid(As).
 state_valid([block_conf(_,_,_) | As]) :- state_valid(As).
-state_valid([in_use(_,_) | As]) :- state_valid(As).
+state_valid([in_use(_) | As]) :- state_valid(As).
 
 :- export struct(block(base,limit)).
 :- export struct(region(node_id,block)).
@@ -164,6 +164,21 @@ resolve_region(S, SrcRegion, DstRegion) :-
     decodes_region(S, SrcRegion, DstRegion),
     accept_region(S, DstRegion).
 
+region_in_use(S, Region) :-
+    state_query(S, in_use(Candidate)),
+    region_region_intersect(Region, Candidate).
+
+region_free(S, Region) :-
+    not(region_in_use(S, Region)).
+
+% Allocate a free aligned region.
+region_alloc(S, Region, Size, Bits) :-
+    Region = region{node_id: RId, block:block{base: Base, limit: Limit}},
+    aligned(Base, Bits, NumBlock),
+    Limit #= Base + Size - 1,
+    labeling([NumBlock]),
+    region_free(S, Region).
+
 
 % Assumes SrcRegion has no mapping in S.
 translate_region_conf(S, SrcRegion, DstRegion, Conf) :-
@@ -278,6 +293,20 @@ block_block_contains(A, B) :-
     ALimit >= BBase,
     ALimit =< BLimit.
 
+region_region_intersect(region{node_id:N, block:AB}, region{node_id:N, block:BB}) :-
+    block_block_intersect(AB, BB).
+
+block_block_intersect(A, B) :-
+    A = block{base:ABase, limit: ALimit},
+    B = block{base:BBase, limit: BLimit},
+    (
+        (BBase =< ABase, ABase =< BLimit) ;
+        (BBase =< ALimit, ALimit =< BLimit) ;
+        (ABase =< BBase, BBase =< ALimit) ;
+        (ABase =< BLimit, BLimit =< ALimit)
+    ).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Tests 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -308,7 +337,6 @@ test_translate_region :-
         region{node_id:["In"], block:block{base:2001,limit:3000}},
         region{node_id: ["Out2"], block:block{base:2001, limit:3000}}).
 
-:- export test_translate_region2/0.
 test_translate_region2 :- 
     S = [
         block_meta(["In"], 21, ["Out"]),
@@ -406,7 +434,6 @@ test_resolve_name2 :-
         R),
     Out = 6000.
 
-:- export test_route/0.
 test_route :-
     Upper is 512 * 1024 * 1024,
     Base2M is 2^21,
@@ -421,6 +448,16 @@ test_route :-
     OutRegion = region{node_id:["RAM"], block:block{base:Base2M, limit: Limit6M}},
     state_query(Conf, block_conf(["MMU"], 0, 1)),
     state_query(Conf, block_conf(["MMU"], 1, 2)).
+
+test_region_alloc :-
+    S = [in_use(region{node_id:["IN"], block:block{base:0,limit:2097151}})],
+    Size is 2^21,
+    Reg = region{node_id: ["IN"]},
+    region_alloc(S, Reg, Size, 21),
+    Size2 is 2^24,
+    Reg2 = region{node_id: ["IN"]},
+    region_alloc(S, Reg2, Size2, 21).
+
 
 run_test(Test) :-
     (
@@ -440,4 +477,5 @@ run_all_tests :-
     run_test(test_resolve_name1),
     run_test(test_resolve_name2),
     run_test(test_accept_region),
+    run_test(test_region_alloc),
     run_test(test_route).
