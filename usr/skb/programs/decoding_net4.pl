@@ -231,10 +231,24 @@ route(S, SrcRegion, DstRegion, Conf) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 alias(S, N1, N2) :-
     resolve_name(S, N1, D),
-    resolve_name(S, N1, D).
+    resolve_name(S, N2, D).
 
-alloc(S, N1, N2, Dest, Conf) :-
-    accept_region(Dest).
+%%
+% S - State
+% Size - Size of the allocation (must be multiple of Bits)
+% Bits - Alignment requirement for Base address 
+% Reg1 - Observer Region 1 will resolve to DestReg
+% Reg2 - Observer Region 2 will resolve to DestReg
+% DestReg - Aligned region that will be resolved from Reg1/2
+% Conf - State Delta which must be added to S
+alloc(S, Size, Bits, Reg1, Reg2, DestReg, Conf) :-
+    region_alloc(S, Reg1, Size, Bits),
+    region_alloc(S, Reg2, Size, Bits),
+    region_alloc(S, DestReg, Size, Bits),
+    accept_region(S, DestReg),
+    route(S, Reg1, DestReg, C1),
+    route(S, Reg2, DestReg, C2),
+    state_union(C1, C2, Conf).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Utilities 
@@ -463,21 +477,54 @@ test_route :-
     state_query(Conf, block_conf(["MMU"], 0, 1)),
     state_query(Conf, block_conf(["MMU"], 1, 2)).
 
-:- export test_region_alloc/0.
 test_region_alloc :-
     S = [in_use(region{node_id:["IN"], block:block{base:0,limit:2097151}})],
     Size is 2^21,
     Reg = region{node_id: ["IN"]},
 
     region_alloc(S, Reg, Size, 21),
-    printf("Reg=%p\n", Reg),
+    %printf("Reg=%p\n", Reg),
 
     Size2 is 2^24,
     Reg2 = region{node_id: ["IN"]},
 
-    region_alloc(S, Reg2, Size2, 21),
-    printf("Reg2=%p\n", Reg2).
+    region_alloc(S, Reg2, Size2, 21).
+    %printf("Reg2=%p\n", Reg2).
 
+test_alloc :-
+    Size is 2*(2^21),
+    Base2M is 2^21,
+    Base128M is 128*(2^21),
+    Limit4M is 2*(2^21) - 1,
+    Limit6M is 3*(2^21) - 1,
+    Limit512M is 512*(2^21) - 1,
+    S = [
+        overlay(["IN1"], ["MMU1"]),
+        block_meta(["MMU1"], 21, ["RAM"]),
+        overlay(["IN2"], ["MMU2"]),
+        block_meta(["MMU2"], 21, ["RAM"]),
+        accept(region{node_id: ["RAM"], block:block{base:Base128M, limit: Limit512M}})
+        ],
+   Reg1 = region{node_id:["IN1"]},
+   Reg2 = region{node_id:["IN2"]},
+   DestReg = region{node_id:["RAM"]},
+   alloc(S, Size, 21, Reg1, Reg2, DestReg, Conf).
+   %printf("Reg1=%p, Reg2=%p\n", [Reg1, Reg2]),
+   %printf("DestReg=%p\n", [DestReg]),
+   %printf("Conf=%p\n", [Conf]).
+
+test_alias :-
+    S = [
+        overlay(["IN1"], ["OUT"]),
+        mapping(
+            region{node_id:["IN2"], block: block{base:5000,limit:10000}},
+            name{node_id:["OUT"], address: 0}),
+        accept(region{node_id: ["OUT"], block:block{base:0, limit: 10000}})
+        ],
+    N1 = name{node_id: ["IN1"], address: 0},
+    N2 = name{node_id: ["IN2"]},
+    alias(S, N1, N2),
+    N2 = name{address:5000}.
 
 run_test(Test) :-
     (
@@ -498,4 +545,6 @@ run_all_tests :-
     run_test(test_resolve_name2),
     run_test(test_accept_region),
     run_test(test_region_alloc),
-    run_test(test_route).
+    run_test(test_route),
+    run_test(test_alias),
+    run_test(test_alloc).
