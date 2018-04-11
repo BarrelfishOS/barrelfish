@@ -193,6 +193,20 @@ translate_region_conf(S, SrcRegion, DstRegion, Conf) :-
         state_add(CIn, block_conf(SrcId, NVPN, NPPN), COut)
     ).
 
+route_step(S, SrcRegion, NextRegion, Conf) :-
+    (translate_region(S, SrcRegion, NextRegion), state_empty(Conf)) ;
+    translate_region_conf(S, SrcRegion, NextRegion, Conf).
+
+route(S, SrcRegion, DstRegion, Conf) :-
+    route_step(S, SrcRegion, NextRegion, C1),
+    (accept_region(S, NextRegion) -> (
+        DstRegion = NextRegion,
+        Conf = C1
+    ) ; (
+        route(S, NextRegion, DstRegion, C2),
+        state_union(C1, C2, Conf)
+    )).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Utilities 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -267,6 +281,7 @@ block_block_contains(A, B) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Tests 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 test_accept_name :-
     S = [accept(region{node_id:["In"], block: block{base: 50, limit:100}})],
@@ -391,6 +406,22 @@ test_resolve_name2 :-
         R),
     Out = 6000.
 
+:- export test_route/0.
+test_route :-
+    Upper is 512 * 1024 * 1024,
+    Base2M is 2^21,
+    Limit4M is 2*(2^21) - 1,
+    Limit6M is 3*(2^21) - 1,
+    S = [
+        overlay(["IN"], ["MMU"]),
+        block_meta(["MMU"], 21, ["RAM"]),
+        accept(region{node_id: ["RAM"], block:block{base:0, limit: Upper}})
+        ],
+    route(S, region{node_id:["IN"], block:block{base:0, limit: Limit4M}}, OutRegion, Conf),
+    OutRegion = region{node_id:["RAM"], block:block{base:Base2M, limit: Limit6M}},
+    state_query(Conf, block_conf(["MMU"], 0, 1)),
+    state_query(Conf, block_conf(["MMU"], 1, 2)).
+
 run_test(Test) :-
     (
         call(Test),
@@ -408,4 +439,5 @@ run_all_tests :-
     run_test(test_accept_name),
     run_test(test_resolve_name1),
     run_test(test_resolve_name2),
-    run_test(test_accept_region).
+    run_test(test_accept_region),
+    run_test(test_route).
