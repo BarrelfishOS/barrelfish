@@ -289,6 +289,11 @@ gen_translate (om:x) (i, s) = gen_translate x (i + 1, s ++ [trs])
     where
         trs = assert i $ predicate "translate" [generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om]
 
+gen_blockoverlay :: String -> String -> [Integer] -> (Integer, [String]) -> (Integer, [String])
+gen_blockoverlay src dst [] s = s
+gen_blockoverlay src dst (om:x) (i, s) = gen_blockoverlay src dst  x (i + 1, s ++ [trs])
+    where
+        trs = assert i $ predicate "block_meta" [src, dst, show(om)]
 
 gen_body_defs :: ModuleInfo -> AST.Definition -> Integer -> (Integer, [String])
 gen_body_defs mi x i = case x of
@@ -300,6 +305,7 @@ gen_body_defs mi x i = case x of
     --[generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
     -- | om <- map_spec_flatten mi x])
   (AST.Overlays _ src dest) -> (i+1, [assert i $ predicate "overlay" [generate src, generate dest]])
+  (AST.BlockOverlays _ src dst bits) -> gen_blockoverlay (generate src) (generate dst) bits (i, [])
   -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
   (AST.Instantiates _ ii im args) -> (i+1, [ predicate ("add_" ++ im) ([statevar i] ++ [gen_index ii] ++ [statevar (i+1)]) ])
   -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
@@ -315,7 +321,8 @@ count_num_facts mi x = case x of
     (AST.Maps _ _ _) -> sum([1 | om <- map_spec_flatten mi x])
     (AST.Overlays _ src dest) -> 1
     -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
-    (AST.Instantiates _ i im args) -> 1
+    (AST.Instantiates _ _ _ _) -> 1
+    (AST.BlockOverlays _ _ _ bits) -> (toInteger (length bits))
     -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
     (AST.Binds _ i binds) -> sum([1 | b <- binds])
     (AST.Forall _ varName varRange body) -> 0

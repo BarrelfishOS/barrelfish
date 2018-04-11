@@ -93,7 +93,7 @@ sockeyeModule = do
     name <- moduleName
     params <- option [] (parens $ commaSep moduleParam)
     (consts, insts, nodes, defs) <- braces moduleBody
-    return AST.Module 
+    return AST.Module
         { AST.moduleMeta  = pos
         , AST.moduleName  = name
         , AST.parameters  = params
@@ -153,7 +153,7 @@ nodeDeclaration = do
         , AST.nodeKind     = kind
         , AST.nodeType     = t
         , AST.nodeName     = name
-        , AST.nodeArrSize  = size 
+        , AST.nodeArrSize  = size
         }
     <?> "node declaration"
 
@@ -220,6 +220,7 @@ definition = choice [forall, def]
                 , maps receiver
                 , converts receiver
                 , overlays receiver
+                , blockoverlays receiver
                 , instantiates receiver
                 , binds receiver
                 ]
@@ -257,6 +258,14 @@ converts node = do
     return $ AST.Converts pos node converts
 
 convertSpec = mapSpec
+
+blockoverlays node = do
+    pos <- getPositionMeta
+    reserved "blockoverlays"
+    overlay <- nodeReference
+    reserved "bits"
+    blocksizes <- parens $ commaSep1 natural
+    return $ AST.BlockOverlays pos node overlay blocksizes
 
 overlays node = do
     pos <- getPositionMeta
@@ -342,7 +351,7 @@ addressType = do
     <?> "address type literal"
 
 address = do
-    pos <- getPositionMeta 
+    pos <- getPositionMeta
     addr <- parens $ semiSep1 wildcardSet
     return $ AST.Address pos addr
     <?> "address tuple"
@@ -472,14 +481,14 @@ lexer = P.makeTokenParser (
             , "memory", "intr", "power", "clock", "instance"
             , "of"
             , "forall", "in"
-            , "accepts", "maps", "converts", "overlays"
+            , "accepts", "maps", "converts", "overlays", "blockoverlays"
             , "instantiates", "binds"
             , "to", "at"
             , "bits"
             ],
 
         {- List of operators -}
-        P.reservedOpNames = 
+        P.reservedOpNames =
             [ "+", "-", "*", "/", "++"
             , "!", "&&", "||"
             , "."
@@ -505,7 +514,7 @@ reservedOp    = P.reservedOp lexer
 parens        = P.parens lexer
 brackets      = P.brackets lexer
 braces        = P.braces lexer
-commaSep      = P.commaSep lexer 
+commaSep      = P.commaSep lexer
 commaSep1     = P.commaSep1 lexer
 semiSep       = P.semiSep lexer
 semiSep1      = P.semiSep1 lexer

@@ -59,7 +59,7 @@ data Sockeye = Sockeye
 
 data SockeyeFile = SockeyeFile
     { sockeyeFileMeta :: ASTMeta
-    , imports         :: [Import] 
+    , imports         :: [Import]
     , modules         :: [Module]
     , types           :: [NamedType]
     }
@@ -161,6 +161,12 @@ data Definition
         { defMeta  :: ASTMeta
         , node     :: UnqualifiedRef
         , overlays :: NodeReference
+        }
+    | BlockOverlays
+        { defMeta  :: ASTMeta
+        , node     :: UnqualifiedRef
+        , overlays :: NodeReference
+        , blocksizes :: [Integer]
         }
     | Instantiates
         { defMeta    :: ASTMeta
