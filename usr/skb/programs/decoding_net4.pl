@@ -165,6 +165,33 @@ resolve_region(S, SrcRegion, DstRegion) :-
     accept_region(S, DstRegion).
 
 
+% Assumes SrcRegion has no mapping in S.
+translate_region_conf(S, SrcRegion, DstRegion, Conf) :-
+    state_empty(C1),
+    SrcRegion = region{node_id: SrcId, block:SrcBlock},
+    DstRegion = region{node_id: DstId, block:block{base: DstBase, limit: DstLimit}},
+    SrcBlock = block{base:SrcBase},
+    state_query(S, block_meta(SrcId, Bits, DstId)),
+    
+    % Base of block must be Bits aligned 
+    aligned(SrcBase, Bits, _),
+    
+    % Size must be multiple of BlockSize
+    block_size(SrcBlock, SrcSize),
+    aligned(SrcSize, Bits, NumBlocks),
+    ItEnd is NumBlocks - 1,
+
+    % Check NumBlocks consecutive VPN/PPN pairs
+    split_vaddr(SrcBase, Bits, [BaseVPN, Offset]),
+    split_vaddr(DstBase, Bits, [BasePPN, Offset]),
+    DstLimit #= DstBase + SrcSize - 1,
+    labeling([BaseVPN, BasePPN]),
+    (for(I,0,ItEnd),
+     param(BaseVPN), param(BasePPN), param(SrcId), fromto(C1, CIn, COut, Conf) do
+        NVPN is I + BaseVPN,
+        NPPN is I + BasePPN,
+        state_add(CIn, block_conf(SrcId, NVPN, NPPN), COut)
+    ).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Utilities 
@@ -212,7 +239,8 @@ region_size(region{block:Block}, Size) :-
 
 block_size(block{base:B, limit: L}, Size) :-
     (var(L), L is B + Size - 1) ;
-    (var(Size), Size is L - B + 1).
+    (var(Size), Size is L - B + 1);
+    (nonvar(Size), Size is L - B + 1).
 
 address_block_match(A, block{base: B, limit: L}) :-
     B #=< A,
@@ -291,6 +319,19 @@ test_translate_region2 :-
         region{node_id:["In"], block:block{base:0,limit:Limit4M}},
         region{node_id:["Out"], block:block{base: Base2M, limit: Limit6M}}).
 
+test_translate_region_conf :- 
+    S = [
+        block_meta(["In"], 21, ["Out"])
+      ],
+    Base6M is 3*2^21,
+    Limit4M is 2*(2^21) - 1,
+    translate_region_conf(S, 
+        region{node_id:["In"], block:block{base:0,limit:Limit4M}},
+        Out, C),
+    Out = region{block:block{base:Base6M}},
+    state_query(C, block_conf(_, 0,3)),
+    state_query(C, block_conf(_, 1,4)).
+
 test_translate_name :- 
     %Setup
     S = [
@@ -362,6 +403,7 @@ run_test(Test) :-
 run_all_tests :-
     run_test(test_translate_region),
     run_test(test_translate_region2),
+    run_test(test_translate_region_conf),
     run_test(test_translate_name),
     run_test(test_accept_name),
     run_test(test_resolve_name1),
