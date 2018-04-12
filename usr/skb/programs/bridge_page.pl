@@ -166,13 +166,13 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     T = t(buselement(bridge, addr(-1, -1, -1), childbus(-1, -1), PseudoBase, PseudoHigh, PseudoSize, _, _, _, _), [TP, TNP]),
     setrange(T,_,_,_),
     nonoverlap(T),
-    naturally_aligned(T, 256, LMem, HMem),
+    naturally_aligned(T, 256, LMem, HMem, ExtraVars),
     tree2list(T,ListaU),
     sort(6, >=, ListaU, Lista),
     not_overlap_memory_ranges(Lista, ExclRanges),
     keep_orig_addr(Lista, 12, 3, _, _, _, _),
     keep_ioapic_bars(Lista, IOAPICs),
-    labelall(Lista),
+    labelall(Lista, ExtraVars),
     subtract(Lista,[buselement(bridge,Addr,_,_,_,_,_,prefetchable,_,_)],Pl3),
     subtract(Pl3,[buselement(bridge,Addr,_,_,_,_,_,nonprefetchable,_,_)],Pl2),
     subtract(Pl2,[buselement(bridge,addr(-1,-1,-1),_,_,_,_,_,_,_,_)],Pl),
@@ -195,13 +195,14 @@ base(buselement(_,_,_,Base,_,_,_,_,_,_),Base).
 high(buselement(_,_,_,_,High,_,_,_,_,_),High).
 size(buselement(_,_,_,_,_,Size,_,_,_,_),Size).
 
-labelall(BusElementList) :-
+labelall(BusElementList, ExtraVars) :-
     maplist(base, BusElementList, Base),
     maplist(high, BusElementList, High),
     maplist(size, BusElementList, Size),
-    append(Base, High, L1),
-    append(L1, Size, L2),
-    labeling(L2).
+    append(ExtraVars, Base , L1),
+    append(L1, High, L2),
+    append(L2, Size, L3),
+    labeling(L3).
 
 
 
@@ -356,7 +357,7 @@ nonoverlap(Tree) :-
     ).
 
 
-naturally_aligned(Tree, BridgeAlignment, LMem, HMem) :-
+naturally_aligned(Tree, BridgeAlignment, LMem, HMem, ExtraVars) :-
     t(Node,Children) = Tree,
     ( buselement(device,_,_,Base,High,Size,_,_,_,_) = Node ->
       Divisor is Size
@@ -379,11 +380,13 @@ naturally_aligned(Tree, BridgeAlignment, LMem, HMem) :-
     High $>= Base,
     High $= N2*Divisor + LMem + Corr,
     ( foreach(El, Children),
+      fromto([N,N2], XtraIn, XtraOut, ExtraVars),
       param(BridgeAlignment),
       param(LMem),
       param(HMem)
       do
-        naturally_aligned(El, BridgeAlignment, LMem, HMem)
+        naturally_aligned(El, BridgeAlignment, LMem, HMem, E1),
+        append(XtraIn, E1, XtraOut)
     ).
 
 
