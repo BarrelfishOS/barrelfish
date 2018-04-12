@@ -14,7 +14,8 @@
 :- set_flag(print_depth, 200).
 
 :-dynamic(currentbar/5).
-:-dynamic(bar/7).
+:-dynamic(addr/3).
+%:-dynamic(bar/7).
 
 % :-include("../data/data_hand.txt").
 % :-include("../data/data_qemu_hand.txt").
@@ -28,23 +29,41 @@
 % :-include("../data/data_loner.txt").
 
 
+get_address_window(Addr, Min, Max) :-
+    writeln(Addr),
+    findall(Low, rootbridge_address_window(Addr, mem(Low, _)), LowList),
+    findall(High, rootbridge_address_window(Addr, mem(_, High)), HighList),
+    (not(LowList == []) -> 
+        ic:minlist(LowList, Min)
+    ;
+        Min = 0
+    ),
+    (not(HighList == []) -> 
+        ic:maxlist(HighList, Max)
+    ;
+        Max = 0
+    ).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % main goal to be called from outside
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
 bridge_programming(Plan, NrElements) :-
     Granularity is 4096,
 % find all the root bridges
     findall(root(Addr,Child,mem(LP,HP)),
-            (  rootbridge(Addr,Child,mem(L,H)),
+            (  rootbridge(Addr,Child, _),
+               get_address_window(Addr, L, H),
                LT1 is L / Granularity,
                ceiling(LT1, LT2),
                integer(LT2, LP),
                HT1 is H / Granularity,
                ceiling(HT1, HT2),
-               integer(HT2, HP)
+               integer(HT2, HP)              
             ),Roots),
+
 % exclude fixed memory from being allocated to devices
     ( is_predicate(fixed_memory/2) ->
         findall(range(ResLowP,ResSizeP),
@@ -102,7 +121,6 @@ bridge_programming(Plan, NrElements) :-
         length(P,L)
     ),
     sum(Lengths,NrElements).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % small tools
@@ -212,7 +230,7 @@ constrain_bus_ex(Granularity, Type, Prefetch, RootAddr,Bus,MaxBus,LMem,HMem,InBu
     ( is_predicate(device/8) ->
 	    findall(buselement(device,addr(Bus,Dev,Fun),BAR,Base,High,SizeP,Type,Prefetch, PCIe, Bits),
 	            ( device(PCIe, addr(Bus,Dev,Fun),_,_,_,_,_,_),
-	              bar(addr(Bus,Dev,Fun),BAR,_,Size, Type, Prefetch, Bits),
+	              bar(addr(Bus,Dev,Fun),BAR, _,Size, Type, Prefetch, Bits),
 	              Base::[LMem..HMem],High::[LMem..HMem],
 	              ST1 is Size / Granularity,
 	              ceiling(ST1, ST2),
