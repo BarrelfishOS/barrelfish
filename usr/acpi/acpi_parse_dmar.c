@@ -211,6 +211,16 @@ static errval_t parse_hardware_unit(ACPI_DMAR_HARDWARE_UNIT *drhd, void *end,
                   idx, drhd->Flags, drhd->Segment, drhd->Address);
     }
 
+    // Remove from memory that can be used for PCI bars
+    err = skb_add_fact("fixed_memory(%"PRIu64", %"PRIu64")", 
+                       drhd->Address, drhd->Address + BASE_PAGE_SIZE);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Failed to insert into SKB: fixed memory region %"PRIx64" \n",
+                  drhd->Address);
+    }
+
+    debug_printf("[dmar] [drhd] set fixed_memory(%"PRIx64", %"PRIx64")\n",
+                 drhd->Address, drhd->Address + BASE_PAGE_SIZE);
     /*
      * If Set, this remapping hardware unit has under its scope all PCI
      * compatible devices in the specified Segment, except devices reported
@@ -241,6 +251,7 @@ static errval_t parse_hardware_unit(ACPI_DMAR_HARDWARE_UNIT *drhd, void *end,
 
     debug_printf("[dmar] [drhd] set " HW_PCI_IOMMU_RECORD_FORMAT "\n",
                  idx, HW_PCI_IOMMU_INTEL, drhd->Flags, drhd->Segment, drhd->Address);
+
     return oct_mset(SET_SEQUENTIAL, HW_PCI_IOMMU_RECORD_FORMAT, idx,
                     HW_PCI_IOMMU_INTEL, drhd->Flags, drhd->Segment,
                     drhd->Address);
