@@ -30,7 +30,6 @@
 
 
 get_address_window(Addr, Min, Max) :-
-    writeln(Addr),
     findall(Low, rootbridge_address_window(Addr, mem(Low, _)), LowList),
     findall(High, rootbridge_address_window(Addr, mem(_, High)), HighList),
     (not(LowList == []) -> 
