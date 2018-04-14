@@ -51,6 +51,7 @@ get_address_window(Addr, Min, Max) :-
 
 bridge_programming(Plan, NrElements) :-
     Granularity is 4096,
+   %Granularity is 16384,
 % find all the root bridges
     findall(root(Addr,Child,mem(LP,HP)),
             (  rootbridge(Addr,Child, _),
@@ -147,24 +148,25 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
 % prefetchable
     constrain_bus(Granularity, Type, prefetchable, Addr,MinBus,MaxBus,LMem,HMem,BusElementListP),
     RBaseP::[LMem..HMem],
-    RHighP::[LMem..HMem],
     RSizeP::[0..X],
+    RHighP $= RBaseP + RSizeP,
     devicetree(BusElementListP,buselement(bridge,Addr,secondary(MinBus),RBaseP,RHighP,RSizeP, Type, prefetchable, _, _),TP),
 
 % nonprefetchable
     constrain_bus(Granularity, Type, nonprefetchable, Addr,MinBus,MaxBus,LMem,HMem,BusElementListNP),
     RBaseNP::[LMem..HMem],
-    RHighNP::[LMem..HMem],
     RSizeNP::[0..X],
+    RHighNP $= RBaseNP + RSizeNP,
     devicetree(BusElementListNP,buselement(bridge,Addr,secondary(MinBus),RBaseNP,RHighNP,RSizeNP, Type, nonprefetchable, _, _),TNP),
 
 % pseudo-root of both trees
     PseudoBase::[LMem..HMem],
-    PseudoHigh::[LMem..HMem],
     PseudoSize::[0..X],
+    PseudoHigh $= PseudoBase + PseudoSize,
     T = t(buselement(bridge, addr(-1, -1, -1), childbus(-1, -1), PseudoBase, PseudoHigh, PseudoSize, _, _, _, _), [TP, TNP]),
     setrange(T,_,_,_),
     nonoverlap(T),
+    %naturally_aligned(T, 256, LMem, HMem, _),
     naturally_aligned(T, 256, LMem, HMem, ExtraVars),
     tree2list(T,ListaU),
     sort(6, >=, ListaU, Lista),
@@ -172,6 +174,7 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     keep_orig_addr(Lista, 12, 3, _, _, _, _),
     keep_ioapic_bars(Lista, IOAPICs),
     labelall(Lista, ExtraVars),
+    %labelall(Lista),
     subtract(Lista,[buselement(bridge,Addr,_,_,_,_,_,prefetchable,_,_)],Pl3),
     subtract(Pl3,[buselement(bridge,Addr,_,_,_,_,_,nonprefetchable,_,_)],Pl2),
     subtract(Pl2,[buselement(bridge,addr(-1,-1,-1),_,_,_,_,_,_,_,_)],Pl),
@@ -194,16 +197,30 @@ base(buselement(_,_,_,Base,_,_,_,_,_,_),Base).
 high(buselement(_,_,_,_,High,_,_,_,_,_),High).
 size(buselement(_,_,_,_,_,Size,_,_,_,_),Size).
 
+%labelall(BusElementList, ExtraVars) :-
+%labelall(BusElementList) :-
+%    maplist(base, BusElementList, Base),
+%    maplist(size, BusElementList, Size),
+%    append(ExtraVars, Base , L1),
+%    append(L1, Size, L3),
+%    labeling(L3).
+
+labelall(BusElementList) :-
+    maplist(base, BusElementList, Base),
+    maplist(size, BusElementList, Size),
+    maplist(high, BusElementList, High),
+    append(Size, Base , L1),
+    append(L1, High , L2),
+    labeling(L2).
+
 labelall(BusElementList, ExtraVars) :-
     maplist(base, BusElementList, Base),
-    maplist(high, BusElementList, High),
     maplist(size, BusElementList, Size),
-    append(ExtraVars, Base , L1),
-    append(L1, High, L2),
-    append(L2, Size, L3),
+    maplist(high, BusElementList, High),
+    append(Size, Base , L1),
+    append(L1, High , L2),
+    append(L2, ExtraVars , L3),
     labeling(L3).
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % create the list of devices and bridges in form of buselements and create the
@@ -218,12 +235,25 @@ constrain_bus(Granularity, Type, Prefetch, RootAddr,Bus,MaxBus,LMem,HMem,OutBusE
 constrain_bus_ex(_, _, _, _,Bus,MaxBus,_,_,InL,InL) :- Bus > MaxBus.
 constrain_bus_ex(Granularity, Type, Prefetch, RootAddr,Bus,MaxBus,LMem,HMem,InBusElementList,OutBusElementList) :-
     Bus =< MaxBus,
-    SMax is HMem - LMem,
+    % 32 Bit device and bridges that are non prefetchable require an address below 4GB
     ( is_predicate(bridge/8) ->
 	    findall(buselement(bridge,addr(Bus,Dev,Fun),secondary(Sec),Base,High,Size,Type,Prefetch, PCIe, 0),
 	            ( bridge(PCIe, addr(Bus,Dev,Fun), _, _, _, _, _, secondary(Sec)),
 	              not addr(Bus,Dev,Fun) = RootAddr,
-	              Base::[LMem..HMem],High::[LMem..HMem],Size::[0..SMax]
+                  (Prefetch == nonprefetchable ->
+                    Max is (4294963200 / Granularity),
+                    integer(Max, HMem2),
+                    SMax is HMem2 - LMem,
+                    writeln(SMax),
+	                Size::[0..HMem2],
+                    Base::[LMem..HMem2]
+                  ;
+                    SMax is HMem - LMem,
+	                Size::[0..SMax],
+                    writeln(SMax),
+	                Base::[LMem..HMem]
+                  ),
+                  High $= Base + Size
 	            ),BridgeList);
         BridgeList = []
     ),
@@ -231,10 +261,20 @@ constrain_bus_ex(Granularity, Type, Prefetch, RootAddr,Bus,MaxBus,LMem,HMem,InBu
 	    findall(buselement(device,addr(Bus,Dev,Fun),BAR,Base,High,SizeP,Type,Prefetch, PCIe, Bits),
 	            ( device(PCIe, addr(Bus,Dev,Fun),_,_,_,_,_,_),
 	              bar(addr(Bus,Dev,Fun),BAR, _,Size, Type, Prefetch, Bits),
-	              Base::[LMem..HMem],High::[LMem..HMem],
+
 	              ST1 is Size / Granularity,
 	              ceiling(ST1, ST2),
-	              integer(ST2, SizeP)
+	              integer(ST2, SizeP),
+
+                  (Bits == 32 ->
+                    Max is ((4294967296 / Granularity) - (SizeP+1)),
+                    ceiling(Max, Max2),
+                    integer(Max2, HMem2),
+                    Base::[LMem..HMem2]
+                  ;
+	                Base::[LMem..HMem]
+                  ),
+                  High $= Base + SizeP
 	            ),DeviceList);
         DeviceList = []
     ),
@@ -379,7 +419,7 @@ naturally_aligned(Tree, BridgeAlignment, LMem, HMem, ExtraVars) :-
     High $>= Base,
     High $= N2*Divisor + LMem + Corr,
     ( foreach(El, Children),
-      fromto([N,N2], XtraIn, XtraOut, ExtraVars),
+      fromto([N, N2], XtraIn, XtraOut, ExtraVars),
       param(BridgeAlignment),
       param(LMem),
       param(HMem)
