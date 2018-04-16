@@ -235,28 +235,33 @@ alias(S, N1, N2) :-
 % S - State
 % Size - Size of the allocation (must be multiple of Bits)
 % Bits - Alignment requirement for Base address 
-% Reg1 - Observer Region 1 will resolve to DestReg
-% Reg2 - Observer Region 2 will resolve to DestReg
+% SrcRegs - Observer Regions
 % DestReg - Aligned region that will be resolved from Reg1/2
 % Conf - State Delta which must be added to S
-:- export alloc/7.
-alloc(S, Size, Bits, Reg1, Reg2, DestReg, Conf) :-
-    region_alloc(S, Reg1, Size, Bits),
-    region_alloc(S, Reg2, Size, Bits),
+:- export alloc/6.
+alloc(S, Size, Bits, DestReg, SrcRegs, Conf) :-
+    (foreach(Reg, SrcRegs), param(S), param(Size), param(Bits) do
+        region_alloc(S, Reg, Size, Bits)
+    ),
     region_alloc(S, DestReg, Size, Bits),
     accept_region(S, DestReg),
-    route(S, Reg1, DestReg, C1),
-    route(S, Reg2, DestReg, C2),
-    state_union(C1, C2, Conf).
+    (foreach(Reg, SrcRegs), fromto([], CIn, COut, Conf),
+     param(S), param(DestReg) do
+        route(S, Reg, DestReg, C),
+        state_union(CIn, C, COut)
+    ).
 
-:- export map/7.
-map(S, Size, Bits, Reg1, Reg2, DestReg, Conf) :-
-    region_alloc(S, Reg1, Size, Bits),
-    region_alloc(S, Reg2, Size, Bits),
+:- export map/6.
+map(S, Size, Bits, DestReg, SrcRegs, Conf) :-
+    (foreach(Reg, SrcRegs), param(S), param(Size), param(Bits) do
+        region_alloc(S, Reg, Size, Bits)
+    ),
     accept_region(S, DestReg),
-    route(S, Reg1, DestReg, C1),
-    route(S, Reg2, DestReg, C2),
-    state_union(C1, C2, Conf).
+    (foreach(Reg, SrcRegs), fromto([], CIn, COut, Conf),
+     param(S), param(DestReg) do
+        route(S, Reg, DestReg, C),
+        state_union(CIn, C, COut)
+    ).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Utilities 
@@ -303,9 +308,7 @@ region_size(region{block:Block}, Size) :-
     block_size(Block, Size).
 
 block_size(block{base:B, limit: L}, Size) :-
-    (var(L), L is B + Size - 1) ;
-    (var(Size), Size is L - B + 1);
-    (nonvar(Size), nonvar(L), nonvar(B), Size is L - B + 1). % Checking case.
+    Size #= L - B + 1.
 
 address_block_match(A, block{base: B, limit: L}) :-
     B #=< A,
@@ -513,7 +516,7 @@ test_alloc :-
    Reg1 = region{node_id:["IN1"]},
    Reg2 = region{node_id:["IN2"]},
    DestReg = region{node_id:["RAM"]},
-   alloc(S, Size, 21, Reg1, Reg2, DestReg, Conf).
+   alloc(S, Size, 21, DestReg, [Reg1, Reg2], _).
    %printf("Reg1=%p, Reg2=%p\n", [Reg1, Reg2]),
    %printf("DestReg=%p\n", [DestReg]),
    %printf("Conf=%p\n", [Conf]).

@@ -155,32 +155,48 @@ add_pci(S, Addr, Enum, NewS) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Query Wrappers
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- export alloc_wrap/7.
-alloc_wrap(S, Size, Bits, N1Enum, N2Enum, DestEnum, NewS) :-
-    node_enum(S, N1Id, N1Enum, _),
-    node_enum(S, N2Id, N2Enum, _),
-    node_enum(S, DestId, DestEnum, _),
-    Reg1 = region{node_id: N1Id, block:block{base: A1}},
-    Reg2 = region{node_id: N2Id, block:block{base: A2}},
-    DestReg = region{node_id: DestId, block:block{base:DestAddr}},
-    alloc(S, Size, Bits, Reg1, Reg2, DestReg, _),
-    state_add(S, in_use(DestReg), NewS),
-    writeln([name(A1, N1Enum),name(A2, N2Enum),name(DestAddr, DestEnum)]).
+write_regions(S, Regs) :-
+    (foreach(Reg, Regs), param(S), foreach(Term, Terms) do
+       Reg = region{node_id:NId, block:block{base:B}},
+       node_enum(S, NId, Enum, S),
+       Term = name(B, Enum)
+    ),
+    writeln(Terms).
 
-:- export map_wrap/8.
-map_wrap(S, Size, Bits, DestEnum, DestAddr, N1Enum, N2Enum, NewS)  :-
-    node_enum(S, N1Id, N1Enum, _),
-    node_enum(S, N2Id, N2Enum, _),
-    node_enum(S, DestId, DestEnum, _),
-    Reg1 = region{node_id: N1Id, block:block{base:A1}},
-    Reg2 = region{node_id: N2Id, block:block{base:A2}},
+:- export alloc_wrap/6.
+alloc_wrap(S, Size, Bits, DestEnum, SrcEnums, NewS) :-
+    (foreach(Enum, SrcEnums), foreach(Reg, SrcRegs), param(S) do
+        Reg = region{node_id:RId},
+        node_enum(S, RId, Enum, S)
+    ),
+    node_enum(S, DestId, DestEnum, S), % The double S is deliberate, no new allocation permitted.
+    DestReg = region{node_id: DestId},
+    alloc(S, Size, Bits, DestReg, SrcRegs, _),
+    state_add(S, in_use(DestReg), NewS),
+    
+    append([DestReg], SrcRegs, OutputRegs),
+    write_regions(NewS, OutputRegs).
+
+:- export map_wrap/7.
+map_wrap(S0, Size, Bits, DestEnum, DestAddr, SrcEnums, NewS)  :-
+
+    % Set up DestReg
+    node_enum(S0, DestId, DestEnum, S0), % The double S is deliberate, no new allocation permitted.
     Limit is DestAddr + Size - 1,
     DestReg = region{node_id: DestId, block:block{base:DestAddr, limit:Limit}},
-    map(S, Size, Bits, Reg1, Reg2, DestReg, Conf),
-    state_union(S, Conf, S1),
-    state_add(S1, in_use(Reg1), S2),
-    state_add(S2, in_use(Reg2), NewS),
-    writeln([name(A1, N1Enum),name(A2, N2Enum),name(DestAddr, DestEnum)]).
+
+    (foreach(Enum, SrcEnums), foreach(Reg, SrcRegs), param(S0) do
+        Reg = region{node_id:RId},
+        node_enum(S0, RId, Enum, S0)
+    ),
+    map(S0, Size, Bits, DestReg, SrcRegs, S1),
+    state_union(S0, S1, S2),
+    (foreach(Reg, SrcRegs), fromto(S2, SIn, SOut, NewS) do
+       state_add(SIn, in_use(Reg), SOut)
+    ),
+    
+    append([DestReg], SrcRegs, OutputRegs),
+    write_regions(NewS, OutputRegs).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Persisted state
