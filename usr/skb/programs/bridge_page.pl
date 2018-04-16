@@ -143,7 +143,6 @@ back_to_bytes(Granularity, buselement(T,A,Sec,BP,HP,SP,Tp,PF, PCIe, Bits), busel
 bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     root(Addr,childbus(MinBus,MaxBus),mem(LMem,HMem)) = Root,
     X is HMem - LMem,
-    Type = mem,
 
 % prefetchable
     constrain_bus(Granularity, Type, prefetchable, Addr,MinBus,MaxBus,LMem,HMem,BusElementListP),
@@ -152,11 +151,12 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     RHighP $= RBaseP + RSizeP,
     devicetree(BusElementListP,buselement(bridge,Addr,secondary(MinBus),RBaseP,RHighP,RSizeP, Type, prefetchable, _, _),TP),
 
-% nonprefetchable
+% nonprefetchable, Highest address must be less than 4GB
     constrain_bus(Granularity, Type, nonprefetchable, Addr,MinBus,MaxBus,LMem,HMem,BusElementListNP),
     RBaseNP::[LMem..HMem],
     RSizeNP::[0..X],
     RHighNP $= RBaseNP + RSizeNP,
+    RHighNP $< 4294967396/ Granularity,
     devicetree(BusElementListNP,buselement(bridge,Addr,secondary(MinBus),RBaseNP,RHighNP,RSizeNP, Type, nonprefetchable, _, _),TNP),
 
 % pseudo-root of both trees
@@ -166,15 +166,15 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     T = t(buselement(bridge, addr(-1, -1, -1), childbus(-1, -1), PseudoBase, PseudoHigh, PseudoSize, _, _, _, _), [TP, TNP]),
     setrange(T,_,_,_),
     nonoverlap(T),
-    %naturally_aligned(T, 256, LMem, HMem, _),
-    naturally_aligned(T, 256, LMem, HMem, ExtraVars),
+    naturally_aligned(T, 256, LMem, HMem, _),
+    %naturally_aligned(T, 256, LMem, HMem, ExtraVars),
     tree2list(T,ListaU),
     sort(6, >=, ListaU, Lista),
     not_overlap_memory_ranges(Lista, ExclRanges),
     keep_orig_addr(Lista, 12, 3, _, _, _, _),
     keep_ioapic_bars(Lista, IOAPICs),
-    labelall(Lista, ExtraVars),
-    %labelall(Lista),
+    %labelall(Lista, ExtraVars),
+    labelall(Lista),
     subtract(Lista,[buselement(bridge,Addr,_,_,_,_,_,prefetchable,_,_)],Pl3),
     subtract(Pl3,[buselement(bridge,Addr,_,_,_,_,_,nonprefetchable,_,_)],Pl2),
     subtract(Pl2,[buselement(bridge,addr(-1,-1,-1),_,_,_,_,_,_,_,_)],Pl),
@@ -240,20 +240,13 @@ constrain_bus_ex(Granularity, Type, Prefetch, RootAddr,Bus,MaxBus,LMem,HMem,InBu
 	    findall(buselement(bridge,addr(Bus,Dev,Fun),secondary(Sec),Base,High,Size,Type,Prefetch, PCIe, 0),
 	            ( bridge(PCIe, addr(Bus,Dev,Fun), _, _, _, _, _, secondary(Sec)),
 	              not addr(Bus,Dev,Fun) = RootAddr,
+                  SMax is HMem - LMem,
+                  Size::[0..SMax],
+                  Base::[LMem..HMem],
+                  High $= Base + Size,
                   (Prefetch == nonprefetchable ->
-                    Max is (4294963200 / Granularity),
-                    integer(Max, HMem2),
-                    SMax is HMem2 - LMem,
-                    writeln(SMax),
-	                Size::[0..HMem2],
-                    Base::[LMem..HMem2]
-                  ;
-                    SMax is HMem - LMem,
-	                Size::[0..SMax],
-                    writeln(SMax),
-	                Base::[LMem..HMem]
-                  ),
-                  High $= Base + Size
+                    High $<  4294967396 / Granularity
+                  )
 	            ),BridgeList);
         BridgeList = []
     ),
@@ -265,16 +258,12 @@ constrain_bus_ex(Granularity, Type, Prefetch, RootAddr,Bus,MaxBus,LMem,HMem,InBu
 	              ST1 is Size / Granularity,
 	              ceiling(ST1, ST2),
 	              integer(ST2, SizeP),
-
+	              Base::[LMem..HMem],
+                  High $= Base + SizeP,
                   (Bits == 32 ->
-                    Max is ((4294967296 / Granularity) - (SizeP+1)),
-                    ceiling(Max, Max2),
-                    integer(Max2, HMem2),
-                    Base::[LMem..HMem2]
-                  ;
-	                Base::[LMem..HMem]
-                  ),
-                  High $= Base + SizeP
+                    High $<  4294967396 / Granularity
+                  )
+
 	            ),DeviceList);
         DeviceList = []
     ),
@@ -419,7 +408,7 @@ naturally_aligned(Tree, BridgeAlignment, LMem, HMem, ExtraVars) :-
     High $>= Base,
     High $= N2*Divisor + LMem + Corr,
     ( foreach(El, Children),
-      fromto([N, N2], XtraIn, XtraOut, ExtraVars),
+      fromto([N], XtraIn, XtraOut, ExtraVars),
       param(BridgeAlignment),
       param(LMem),
       param(HMem)
