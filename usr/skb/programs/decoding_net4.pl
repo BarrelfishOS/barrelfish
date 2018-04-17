@@ -8,10 +8,10 @@
 % Attn: Systems Group.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% This is the one-dimensional implementation of the decoding net. 
+%% This is the one-dimensional implementation of the decoding net.
 %% decoding_net3_multid contains the arbitrary dimensional implementation.
 
-% Some Conventions: 
+% Some Conventions:
 % NodeId = identifier. list of strings
 % Addr = 1
 % Block block{..}
@@ -73,16 +73,25 @@ translate_region(S, SrcRegion, DstRegion) :-
     state_query(S, overlay(SrcId, DstId)),
     DstRegion = region{node_id: DstId, block:B}.
 
+
+translate_region_loop(0, S, SrcID, BaseVPN, BasePPN).
+translate_region_loop(I, S, SrcID, VPN, PFN):-
+    state_query(S, block_conf(SrcId, VPN, PFN)),
+    INext is I-1,
+    VPNNext is VPN + 1,
+    PFNNext is PFN + 1,
+    translate_region_loop(INext, S, SrcID, VPNNext, PFNNext).
+
 % translate with configurable nodes
 translate_region(S, SrcRegion, DstRegion) :-
     not(region_mapping(S, SrcRegion, _)),
     SrcRegion = region{node_id: SrcId, block:SrcBlock},
     SrcBlock = block{base:SrcBase},
     state_query(S, block_meta(SrcId, Bits, DstId)),
-    
-    % Base of block must be Bits aligned 
+
+    % Base of block must be Bits aligned
     aligned(SrcBase, Bits, _),
-    
+
     % Size must be multiple of BlockSize
     block_size(SrcBlock, SrcSize),
     aligned(SrcSize, Bits, NumBlocks),
@@ -92,12 +101,7 @@ translate_region(S, SrcRegion, DstRegion) :-
     split_vaddr(SrcBase, Bits, [BaseVPN, Offset]),
     split_vaddr(DstBase, Bits, [BasePPN, Offset]),
     state_query(S, block_conf(SrcId, BaseVPN, BasePPN)),
-    (for(I,0,ItEnd),
-     param(BaseVPN), param(BasePPN), param(SrcId), param(S) do
-        NVPN is I + BaseVPN,
-        NPPN is I + BasePPN,
-        state_query(S, block_conf(SrcId, NVPN, NPPN))
-    ),
+    translate_region_loop(ItEnd, S, BaseVPN, BasePPN),
 
     % And calculate destination accordingly.
     DstBlock = block{base: DstBase},
@@ -138,7 +142,7 @@ accept_region(S, Region) :-
     region_region_contains(Region, Candidate).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Queries 
+%%% Queries
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 decodes_name(_, N,N).
@@ -152,8 +156,8 @@ decodes_region(S, SrcName, DstName) :-
     decodes_region(S, NextName, DstName).
 
 resolve_name(S, SrcName, DstName) :-
-    name{} = SrcName,
-    name{} = DstName,
+    SrcName = name{},
+    DstName = name{},
     decodes_name(S, SrcName,DstName),
     accept_name(S, DstName).
 
@@ -168,7 +172,7 @@ region_in_use(S, Region) :-
 region_free(S, Region) :-
     not(region_in_use(S, Region)).
 
-% Ensure Base address is aligned to Bits and 
+% Ensure Base address is aligned to Bits and
 region_aligned(Region, Bits) :-
     Region = region{block:block{base: Base}},
     aligned(Base, Bits, NumBlock),
@@ -180,6 +184,16 @@ region_alloc(S, Reg, Size, Bits) :-
     region_free(S, Reg).
 
 
+translate_region_alloc(0, SIn, SrcId, VPN, PFN, SOut):-
+    SOut = SIn.
+
+translate_region_alloc(I, SIn, SrcId, VPN, PFN, SOut) :-
+    INext is I - 1,
+    VPNNext is VPN + 1,
+    PFNNext is PFN + 1,
+    translate_region_alloc(INext, SIn, VPNNext, PFNNext, SIn2),
+    state_add(SIn2, block_conf(SrcId, VPN, PFN), SOut).
+
 % Assumes SrcRegion has no mapping in S.
 translate_region_conf(S, SrcRegion, DstRegion, Conf) :-
     state_empty(C1),
@@ -187,10 +201,10 @@ translate_region_conf(S, SrcRegion, DstRegion, Conf) :-
     DstRegion = region{node_id: DstId, block:block{base: DstBase, limit: DstLimit}},
     SrcBlock = block{base:SrcBase},
     state_query(S, block_meta(SrcId, Bits, DstId)),
-    
-    % Base of block must be Bits aligned 
+
+    % Base of block must be Bits aligned
     aligned(SrcBase, Bits, _),
-    
+
     % Size must be multiple of BlockSize
     block_size(SrcBlock, SrcSize),
     aligned(SrcSize, Bits, NumBlocks),
@@ -201,70 +215,69 @@ translate_region_conf(S, SrcRegion, DstRegion, Conf) :-
     split_vaddr(DstBase, Bits, [BasePPN, Offset]),
     DstLimit #= DstBase + SrcSize - 1,
     labeling([BaseVPN, BasePPN]),
-    (for(I,0,ItEnd),
-     param(BaseVPN), param(BasePPN), param(SrcId), fromto(C1, CIn, COut, Conf) do
-        NVPN is I + BaseVPN,
-        NPPN is I + BasePPN,
-        state_add(CIn, block_conf(SrcId, NVPN, NPPN), COut)
-    ).
+    translate_region_alloc(ItEnd, CIn, SrcID, BaseVPN, BasePPN, COut).
 
 route_step(S, SrcRegion, NextRegion, Conf) :-
-    (translate_region(S, SrcRegion, NextRegion), state_empty(Conf)) ;
+    translate_region(S, SrcRegion, NextRegion),
+    state_empty(Conf) ;
     translate_region_conf(S, SrcRegion, NextRegion, Conf).
 
 route(S, SrcRegion, DstRegion, Conf) :-
     route_step(S, SrcRegion, NextRegion, C1),
-    (accept_region(S, NextRegion) -> (
-        DstRegion = NextRegion,
-        Conf = C1
-    ) ; (
-        route(S, NextRegion, DstRegion, C2),
-        state_union(C1, C2, Conf)
-    )).
+    accept_region(S, NextRegion),
+    DstRegion = NextRegion,
+    Conf = C1 ;
+    not(accept_region(S, NextRegion)),
+    route(S, NextRegion, DstRegion, C2),
+    state_union(C1, C2, Conf).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% Interface queries 
+%%%% Interface queries
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 :- export alias/3.
 alias(S, N1, N2) :-
     resolve_name(S, N1, D),
     resolve_name(S, N2, D).
 
+
+alloc_is_free(S, [], Size, Bits).
+alloc_is_free(S, [Reg | Regs], Size, Bits) :-
+    alloc_is_free(S, Regs, Size, Bits),
+    region_alloc(S, Reg, Size, Bits).
+
+alloc_is_in_use(SIn, [], CIn, COut):-
+    COut = CIn.
+alloc_is_in_use(S, [Reg | Regs], DestReg, CIn, COut) :-
+    alloc_is_in_use(S, Regs, DestReg, CIn, CIn2),
+    route(S, Reg, DestReg, C),
+    state_union(CIn2, C, COut).
+
 %%
 % S - State
 % Size - Size of the allocation (must be multiple of Bits)
-% Bits - Alignment requirement for Base address 
+% Bits - Alignment requirement for Base address
 % SrcRegs - Observer Regions
 % DestReg - Aligned region that will be resolved from Reg1/2
 % Conf - State Delta which must be added to S
 :- export alloc/6.
 alloc(S, Size, Bits, DestReg, SrcRegs, Conf) :-
-    (foreach(Reg, SrcRegs), param(S), param(Size), param(Bits) do
-        region_alloc(S, Reg, Size, Bits)
-    ),
+    alloc_is_free(S, SrcRegs, Size, Bits),
     region_alloc(S, DestReg, Size, Bits),
     accept_region(S, DestReg),
-    (foreach(Reg, SrcRegs), fromto([], CIn, COut, Conf),
-     param(S), param(DestReg) do
-        route(S, Reg, DestReg, C),
-        state_union(CIn, C, COut)
-    ).
+    alloc_is_in_use(S, SrcRegs, DestReg, [], Conf).
+
+
 
 :- export map/6.
 map(S, Size, Bits, DestReg, SrcRegs, Conf) :-
-    (foreach(Reg, SrcRegs), param(S), param(Size), param(Bits) do
-        region_alloc(S, Reg, Size, Bits)
-    ),
+    alloc_is_free(S, SrcRegs, Size, Bits),
     accept_region(S, DestReg),
-    (foreach(Reg, SrcRegs), fromto([], CIn, COut, Conf),
-     param(S), param(DestReg) do
-        route(S, Reg, DestReg, C),
-        state_union(CIn, C, COut)
-    ).
+    alloc_is_in_use(S, SrcRegs, DestReg, [], Conf).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% Utilities 
+%%%% Utilities
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Existence of BlockNum as integer will tell that A is multiple of 2^Bits
@@ -273,27 +286,10 @@ aligned(A, Bits, BlockNum) :-
     BlockNum #>= 0,
     A #= BlockNum * BlockSize.
 
-assert_word(W, N) :-
-    dim(W,[N]), W :: [0 .. 1].
-
-word_to_num(W, Num) :-
-    dim(W, [Len]),
-    (for(I,1,Len), fromto(0,In,Out,NumT), param(W) do
-        Out = W[I] * 2^(I-1) + In),
-    Num $= eval(NumT).
-
-subword(Word,Subword, Range) :- 
-    SW is Word[Range],
-    array_list(Subword,SW).
-
 split_vaddr(VA, BlockSizeBits, [VPN, Offset]) :-
-    assert_word(VAW, 48),
-    word_to_num(VAW, VA),
-    subword(VAW, OffsetW, 1 .. BlockSizeBits),
-    word_to_num(OffsetW, Offset),
-    VPNWStart is BlockSizeBits + 1,
-    subword(VAW, VPNW, VPNWStart .. 48),
-    word_to_num(VPNW, VPN).
+    BlockSize is 2^Bits,
+    VPN is VA / BlockSize,
+    Offset is VA - (VPN * BlockSize).
 
 % block_translate(A,BaseA,B,BaseB) ==> A-BaseA = B-BaseB
 block_translate(SrcAddr, SrcBlock, DstAddr, DstBase) :-
@@ -311,8 +307,8 @@ block_size(block{base:B, limit: L}, Size) :-
     Size #= L - B + 1.
 
 address_block_match(A, block{base: B, limit: L}) :-
-    B #=< A,
-    A #=< L.
+    A #>= B,
+    L #>= A.
 
 address_region_match(Addr, region{block:Block}) :-
     address_block_match(Addr, Block).
@@ -328,26 +324,25 @@ block_block_contains(A, B) :-
     A = block{base:ABase, limit: ALimit},
     B = block{base:BBase, limit: BLimit},
     ABase >= BBase,
-    ABase =< BLimit,
+    BLimit >= ABase,
     ALimit >= BBase,
-    ALimit =< BLimit.
+    BLimit >= ALimit.
 
 region_region_intersect(region{node_id:N, block:AB}, region{node_id:N, block:BB}) :-
     block_block_intersect(AB, BB).
 
+addresses_intersect(Ab, Al, Bb, Bl) :-
+    Ab >= Bb, Bl >= Ab;
+    Bb >= Ab, Al >= Bb.
+
 block_block_intersect(A, B) :-
     A = block{base:ABase, limit: ALimit},
     B = block{base:BBase, limit: BLimit},
-    (
-        (BBase =< ABase, ABase =< BLimit) ;
-        (BBase =< ALimit, ALimit =< BLimit) ;
-        (ABase =< BBase, BBase =< ALimit) ;
-        (ABase =< BLimit, BLimit =< ALimit)
-    ).
+    addresses_intersect(ABase, ALimit, BBase, BLimit).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% Tests 
+%%% Tests
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -356,27 +351,27 @@ test_accept_name :-
     accept_name(S, name{node_id:["In"], address: 75}).
 
 test_accept_region :-
-    S = [accept(region{node_id:["In"], block: block{base: 50, limit:100}})], 
-    accept_region(S, region{node_id:["In"], block: block{base:75, limit:80}}). 
+    S = [accept(region{node_id:["In"], block: block{base: 50, limit:100}})],
+    accept_region(S, region{node_id:["In"], block: block{base:75, limit:80}}).
 
-test_translate_region :- 
+test_translate_region :-
     S = [
         mapping(
             region{node_id:["In"], block:block{base:1000,limit:2000}},
             name{node_id: ["Out1"], address: 0}),
         overlay(["In"], ["Out2"])
       ],
-    translate_region(S, 
+    translate_region(S,
         region{node_id:["In"], block:block{base:1000,limit:2000}},
         region{node_id: ["Out1"], block:block{base:0, limit: 1000}}),
-    translate_region(S, 
+    translate_region(S,
         region{node_id:["In"], block:block{base:0,limit:999}},
         region{node_id: ["Out2"], block:block{base:0, limit:999}}),
-    translate_region(S, 
+    translate_region(S,
         region{node_id:["In"], block:block{base:2001,limit:3000}},
         region{node_id: ["Out2"], block:block{base:2001, limit:3000}}).
 
-test_translate_region2 :- 
+test_translate_region2 :-
     S = [
         block_meta(["In"], 21, ["Out"]),
         block_conf(["In"], 0, 1),
@@ -386,10 +381,10 @@ test_translate_region2 :-
     Limit2M is 2^21 - 1,
     Limit4M is 2*(2^21) - 1,
     Limit6M is 3*(2^21) - 1,
-    translate_region(S, 
+    translate_region(S,
         region{node_id:["In"], block:block{base:0,limit:Limit2M}},
         region{node_id:["Out"], block:block{base: Base2M, limit: Limit4M}}),
-    not(translate_region(S, 
+    not(translate_region(S,
         region{node_id:["In"], block:block{base:0,limit:Limit4M}},
         _)),
     S2 = [
@@ -397,24 +392,24 @@ test_translate_region2 :-
         block_conf(["In"], 0, 1),
         block_conf(["In"], 1, 2)
       ],
-    translate_region(S2, 
+    translate_region(S2,
         region{node_id:["In"], block:block{base:0,limit:Limit4M}},
         region{node_id:["Out"], block:block{base: Base2M, limit: Limit6M}}).
 
-test_translate_region_conf :- 
+test_translate_region_conf :-
     S = [
         block_meta(["In"], 21, ["Out"])
       ],
     Base6M is 3*2^21,
     Limit4M is 2*(2^21) - 1,
-    translate_region_conf(S, 
+    translate_region_conf(S,
         region{node_id:["In"], block:block{base:0,limit:Limit4M}},
         Out, C),
     Out = region{block:block{base:Base6M}},
     state_query(C, block_conf(_, 0,3)),
     state_query(C, block_conf(_, 1,4)).
 
-test_translate_name :- 
+test_translate_name :-
     %Setup
     S = [
         mapping(
@@ -422,16 +417,16 @@ test_translate_name :-
             name{node_id: ["Out1"], address: 0}),
         overlay(["In"], ["Out2"])
       ],
-    translate_name(S, 
+    translate_name(S,
         name{node_id:["In"], address:1000},
         name{node_id: ["Out1"], address:0}),
-    translate_name(S, 
+    translate_name(S,
         name{node_id:["In"], address:0},
         name{node_id: ["Out2"], address:0}),
-    translate_name(S, 
+    translate_name(S,
         name{node_id:["In"], address:2001},
         name{node_id: ["Out2"], address:2001}),
-    not(translate_name(S, 
+    not(translate_name(S,
         name{node_id:["In"], address:1000},
         name{node_id: ["Out2"], address:1000})).
 
@@ -449,7 +444,7 @@ test_resolve_name1 :-
     resolve_name(S,
         name{node_id:["In"], address: 1000},
         name{node_id:["Out1"], address: 0}),
-    % Hit the overlay 
+    % Hit the overlay
     resolve_name(S,
         name{node_id:["In"], address: 500},
         name{node_id:["Out2"], address: 500}).
