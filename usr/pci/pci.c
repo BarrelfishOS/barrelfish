@@ -1786,13 +1786,17 @@ void pci_program_bridges(void)
                                 element_type, &bus, &dev, &fun, bar_secondary,
                                 &base, &high, &size, space, prefetch, pcie_pci,
                                 &bits);
+        base *= BASE_PAGE_SIZE;
+        high *= BASE_PAGE_SIZE;
+        size *= BASE_PAGE_SIZE;
         conv_ptr++;
         if (nr_conversions != 12) {
             printf("Could not parse output for device or bridge number %d\n"
-                   "nr conversions: %d\n",
+                   "nr conversions: %d \n",
                    i, nr_conversions);
             continue;
         }
+
         if (strncmp(space, "mem", strlen("mem")) == 0) {
             mem = true;
         } else {
@@ -1824,17 +1828,17 @@ void pci_program_bridges(void)
             }
             PCI_DEBUG("programming %s addr(%hhu, %hhu, %hhu), BAR %d, with base = "
                       "%"PRIxPCIADDR", high = %"PRIxPCIADDR", size = %"PRIxPCISIZE
-                      " in" "space = %s, prefetch = %s, %s...\n",
+                      " in" "space = %s, prefetch = %s, %s... Bits %d\n",
                       element_type, bus, dev, fun, bar, base, high, size, space,
-                      prefetch, pcie ? "PCIe" : "PCI");
+                      prefetch, pcie ? "PCIe" : "PCI", bits);
             program_device_bar(bus, dev, fun, bar, base, size, bits, mem, pcie);
 
         } else {
             PCI_DEBUG("programming %s addr(%hhu, %hhu, %hhu), with base = "
                       "%"PRIxPCIADDR", high = %"PRIxPCIADDR", size = %"PRIxPCISIZE
-                      " in space = %s, prefetch = %s...\n",
+                      " in space = %s, prefetch = %s... Bits %d\n",
                       element_type, bus, dev, fun, base, high, size, space,
-                      prefetch);
+                      prefetch, bits);
             //a bridge expects the high address excluding the last byte which
             //is the base for the next bridge => decrement by one
             high--;
