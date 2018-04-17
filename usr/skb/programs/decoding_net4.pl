@@ -55,6 +55,14 @@ name_mapping(S, Name, mapping(In,Out))  :-
     state_query(S, mapping(In, Out)),
     name_region_match(Name, In).
 
+translate_region_loop(0, _, _, _, _).
+translate_region_loop(I, S, SrcId, VPN, PFN):-
+    state_query(S, block_conf(SrcId, VPN, PFN)),
+    INext is I-1,
+    VPNNext is VPN + 1,
+    PFNNext is PFN + 1,
+    translate_region_loop(INext, S, SrcId, VPNNext, PFNNext).
+
 % translate with mapping
 translate_region(S, SrcRegion, DstRegion) :-
     region_mapping(S, SrcRegion, mapping(InCandidate, OutCandidate)),
@@ -73,15 +81,6 @@ translate_region(S, SrcRegion, DstRegion) :-
     state_query(S, overlay(SrcId, DstId)),
     DstRegion = region{node_id: DstId, block:B}.
 
-
-translate_region_loop(0, S, SrcID, BaseVPN, BasePPN).
-translate_region_loop(I, S, SrcID, VPN, PFN):-
-    state_query(S, block_conf(SrcId, VPN, PFN)),
-    INext is I-1,
-    VPNNext is VPN + 1,
-    PFNNext is PFN + 1,
-    translate_region_loop(INext, S, SrcID, VPNNext, PFNNext).
-
 % translate with configurable nodes
 translate_region(S, SrcRegion, DstRegion) :-
     not(region_mapping(S, SrcRegion, _)),
@@ -95,13 +94,13 @@ translate_region(S, SrcRegion, DstRegion) :-
     % Size must be multiple of BlockSize
     block_size(SrcBlock, SrcSize),
     aligned(SrcSize, Bits, NumBlocks),
-    ItEnd is NumBlocks - 1,
+    ItEnd is NumBlocks,
 
     % Check NumBlocks consecutive VPN/PPN pairs
     split_vaddr(SrcBase, Bits, [BaseVPN, Offset]),
     split_vaddr(DstBase, Bits, [BasePPN, Offset]),
     state_query(S, block_conf(SrcId, BaseVPN, BasePPN)),
-    translate_region_loop(ItEnd, S, BaseVPN, BasePPN),
+    translate_region_loop(ItEnd, S, SrcId, BaseVPN, BasePPN),
 
     % And calculate destination accordingly.
     DstBlock = block{base: DstBase},
@@ -184,19 +183,19 @@ region_alloc(S, Reg, Size, Bits) :-
     region_free(S, Reg).
 
 
-translate_region_alloc(0, SIn, SrcId, VPN, PFN, SOut):-
-    SOut = SIn.
+translate_region_alloc(0, SIn, _, _, _, SIn).
 
 translate_region_alloc(I, SIn, SrcId, VPN, PFN, SOut) :-
+    I > 0,
     INext is I - 1,
     VPNNext is VPN + 1,
     PFNNext is PFN + 1,
-    translate_region_alloc(INext, SIn, VPNNext, PFNNext, SIn2),
-    state_add(SIn2, block_conf(SrcId, VPN, PFN), SOut).
+    state_add(SIn, block_conf(SrcId, VPN, PFN), SIn2),
+    translate_region_alloc(INext, SIn2, SrcId, VPNNext, PFNNext, SOut).
 
 % Assumes SrcRegion has no mapping in S.
-translate_region_conf(S, SrcRegion, DstRegion, Conf) :-
-    state_empty(C1),
+translate_region_conf(S, SrcRegion, DstRegion, COut) :-
+    state_empty(CIn),
     SrcRegion = region{node_id: SrcId, block:SrcBlock},
     DstRegion = region{node_id: DstId, block:block{base: DstBase, limit: DstLimit}},
     SrcBlock = block{base:SrcBase},
@@ -208,14 +207,15 @@ translate_region_conf(S, SrcRegion, DstRegion, Conf) :-
     % Size must be multiple of BlockSize
     block_size(SrcBlock, SrcSize),
     aligned(SrcSize, Bits, NumBlocks),
-    ItEnd is NumBlocks - 1,
+    ItEnd is NumBlocks,
 
     % Check NumBlocks consecutive VPN/PPN pairs
     split_vaddr(SrcBase, Bits, [BaseVPN, Offset]),
+    %labeling([BaseVPN, Offset]),
     split_vaddr(DstBase, Bits, [BasePPN, Offset]),
     DstLimit #= DstBase + SrcSize - 1,
     labeling([BaseVPN, BasePPN]),
-    translate_region_alloc(ItEnd, CIn, SrcID, BaseVPN, BasePPN, COut).
+    translate_region_alloc(ItEnd, CIn, SrcId, BaseVPN, BasePPN, COut).
 
 route_step(S, SrcRegion, NextRegion, Conf) :-
     translate_region(S, SrcRegion, NextRegion),
@@ -227,6 +227,7 @@ route(S, SrcRegion, DstRegion, Conf) :-
     accept_region(S, NextRegion),
     DstRegion = NextRegion,
     Conf = C1 ;
+    route_step(S, SrcRegion, NextRegion, C1),
     not(accept_region(S, NextRegion)),
     route(S, NextRegion, DstRegion, C2),
     state_union(C1, C2, Conf).
@@ -241,13 +242,12 @@ alias(S, N1, N2) :-
     resolve_name(S, N2, D).
 
 
-alloc_is_free(S, [], Size, Bits).
+alloc_is_free(_, [], _, _).
 alloc_is_free(S, [Reg | Regs], Size, Bits) :-
     alloc_is_free(S, Regs, Size, Bits),
     region_alloc(S, Reg, Size, Bits).
 
-alloc_is_in_use(SIn, [], CIn, COut):-
-    COut = CIn.
+alloc_is_in_use(_, [], _, C, C).
 alloc_is_in_use(S, [Reg | Regs], DestReg, CIn, COut) :-
     alloc_is_in_use(S, Regs, DestReg, CIn, CIn2),
     route(S, Reg, DestReg, C),
@@ -286,10 +286,12 @@ aligned(A, Bits, BlockNum) :-
     BlockNum #>= 0,
     A #= BlockNum * BlockSize.
 
-split_vaddr(VA, BlockSizeBits, [VPN, Offset]) :-
+split_vaddr(VA, Bits, [VPN, Offset]) :-
+    VPN #>= 0,
+    Offset #>= 0,
+    VA #>= 0,
     BlockSize is 2^Bits,
-    VPN is VA / BlockSize,
-    Offset is VA - (VPN * BlockSize).
+    VA #= VPN * BlockSize + Offset.
 
 % block_translate(A,BaseA,B,BaseB) ==> A-BaseA = B-BaseB
 block_translate(SrcAddr, SrcBlock, DstAddr, DstBase) :-
