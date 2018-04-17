@@ -287,14 +287,8 @@ errval_t device_init(uint32_t class_code,
                     s_sub_class, s_prog_if, s_bus, s_dev, s_fun, s_vendor_id,
                     s_device_id, s_class_code, s_sub_class, s_prog_if);
     if (error_code != 0) {
-
-        PCI_DEBUG("pci.c: device_init(): SKB returnd error code %s\n",
-                  err_getcode(error_code));
-
-        PCI_DEBUG("SKB returned: %s\n", skb_get_output());
-        PCI_DEBUG("SKB error returned: %s\n", skb_get_error_output());
-
-        return PCI_ERR_DEVICE_INIT;
+        DEBUG_SKB_ERR(error_code, "device_init()");
+        return err_push(error_code, PCI_ERR_DEVICE_INIT);
     }
 
     err = skb_read_output("d(%[a-z], %"PRIu32", %"PRIu32", %"PRIu32", %"PRIu32
@@ -326,13 +320,8 @@ errval_t device_init(uint32_t class_code,
                                    device_id, class_code, sub_class, prog_if);
 
     if (error_code != 0) {
-        PCI_DEBUG("pci.c: device_init(): SKB returnd error code %d\n",
-                  error_code);
-
-        PCI_DEBUG("SKB returned: %s\n", skb_get_output());
-        PCI_DEBUG("SKB error returned: %s\n", skb_get_error_output());
-
-        return PCI_ERR_DEVICE_INIT;
+        DEBUG_SKB_ERR(error_code, "device_init()");
+        return err_push(error_code, PCI_ERR_DEVICE_INIT);
     }
 
     struct list_parser_status status;
@@ -1104,7 +1093,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                              pci_hdr0_int_pin_rd(&devhdr) - 1);
 
                 if(err_is_fail(err)){
-                    DEBUG_SKB_ERR(err, "skb add_fact");
+                    USER_PANIC_SKB_ERR(err, "add device fact");
                 }
 
                 // octopus start
@@ -1113,12 +1102,20 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                 "vendor: %u, device_id: %u, class: %u, "
                                 "subclass: %u, prog_if: %u }";
 
-                err = oct_mset(SET_SEQUENTIAL, device_fmt, addr.bus,
-                                        addr.device, addr.function, vendor,
-                                        device_id, classcode.clss,
-                                        classcode.subclss, classcode.prog_if);
+                // TODO: Figure out why these tries are necessary.
+                int tries = 3;
+                while(tries-->0){
+                    err = oct_mset(SET_SEQUENTIAL, device_fmt, addr.bus,
+                                            addr.device, addr.function, vendor,
+                                            device_id, classcode.clss,
+                                            classcode.subclss, classcode.prog_if);
 
-                assert(err_is_ok(err));
+                    if(err_is_ok(err)) break;
+                    if(tries == 0) {
+                        USER_PANIC_ERR(err, "oct_mset");
+                    }
+                    DEBUG_ERR(err, "oct_mset failed. Retrying...");
+                }
                 // end octopus
 
                 query_bars(devhdr, addr, false);
