@@ -16,6 +16,10 @@
 
 struct dmem;
 
+errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
+                                                     size_t bytes, int32_t dstnode,
+                                                     int32_t *nodes);
+
 errval_t driverkit_hwmodel_frame_alloc(struct capref *dst,
                                                      size_t bytes, int32_t dstnode,
                                                      int32_t *nodes);
@@ -31,12 +35,20 @@ errval_t driverkit_hwmodel_vspace_map_fixed(int32_t nodeid,
 
 
 
-errval_t driverkit_hwmodel_vspace_alloc(int32_t nodeid,
-                                                      genvaddr_t *addr);
+/**
+ * Allocate space to map frame in address space nodeid.
+ */
+errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
+                                        int32_t nodeid, genvaddr_t *addr);
 
 int32_t driverkit_hwmodel_get_my_node_id(void);
 
 int32_t driverkit_hwmodel_lookup_node_id(const char *path);
+
+
+// Disable using the model for allocation
+//#define DISABLE_MODEL
+#define HWMODE_DEBUG_RAM_NODE 1
 
 
 #endif // DRIVERKIT_HWMODEL_H

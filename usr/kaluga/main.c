@@ -93,12 +93,6 @@ static void parse_arguments(int argc, char** argv, char ** add_device_db_file, s
     }
 }
 
-static inline errval_t wait_for_pci(void)
-{
-    iref_t iref;
-    return nameservice_blocking_lookup("pci_discovery_done", &iref);
-}
-
 int main(int argc, char** argv)
 {
     vfs_init();

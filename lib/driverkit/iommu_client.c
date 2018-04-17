@@ -29,8 +29,7 @@
 
 #include "debug.h"
 
-// Disable using the model for allocation
-#define DISABLE_MODEL
+#define HWMODE_DEBUG_RAM_NODE 1
 
 struct iommu_vnode_l2
 {
@@ -121,169 +120,44 @@ static inline errval_t iommu_alloc_ram_for_vnode(struct iommu_client *st,
                                                  enum objtype type,
                                                  struct capref *retcap)
 {
+
     return ram_alloc(retcap, vnode_objbits(type));
 }
 
-/*
- *  Returns this process nodeid. It lazily adds the process' model node
- *  and returns it's identifier.
- */
-
-
-#define MODE_ALLOC_COMMON 0 
-#define MODE_MAP_COMMON 1 
-
-static errval_t alloc_common(int mode, int bits,
-    int32_t nodeid1, uint64_t *node1addr,
-    int32_t nodeid2, uint64_t *node2addr,
-    uint64_t *physaddr) {
-
-    debug_printf("alloc_common for mode=%d, bits=%d, nodeid1=%d, nodeid2=%d",
-            mode, bits, nodeid1, nodeid2);
-
-    errval_t err;
-    if(mode == MODE_ALLOC_COMMON){
-        err = skb_execute_query("alloc_common(%d,%"PRIi32",%"PRIi32").",
-                bits, nodeid1, nodeid2);
-    } else {
-        assert(mode == MODE_MAP_COMMON);
-        // We need physaddr to be passed
-        assert(physaddr != NULL);
-        assert(*physaddr != 0);
-        err = skb_execute_query("map_common(%d,%"PRIu64",%"PRIi32",%"PRIi32").",
-                bits, *physaddr, nodeid1, nodeid2);
-    }
-
-    DEBUG_SKB_ERR(err,"in alloc_common");
-    if(err_is_fail(err)){
-        skb_execute_query("dec_net_debug");
-        return err;
-    }
-    char * skb_list_output =  strdup(skb_get_output());
-    assert(skb_list_output);
-    struct list_parser_status status;
-    skb_read_list_init_offset(&status, skb_list_output, 0);
-
-    uint64_t address = 0, nodeid=0;
-    int list_idx = 0;
-    while(skb_read_list(&status, "name(%"SCNu64", %"SCNu64")", &address, &nodeid)) {
-        uint64_t *dest = NULL;
-        switch(list_idx){
-            case 0: dest = node1addr; break;
-            case 1: dest = node2addr; break;
-            case 2: dest = physaddr; break;
-        }
-        if(dest) *dest = address;
-        list_idx++;
-    }
-    free(skb_list_output);
-    if(list_idx != 3){
-        return SKB_ERR_CONVERSION_ERROR;
-    }
-
-    return SYS_ERR_OK;
-}
 
 /*
  * allocates a piece of ram to be mapped into the driver and the devices
  * address spaces
  */
-static errval_t iommu_alloc_ram(struct iommu_client *st,
+__attribute__((unused))
+static errval_t iommu_alloc_ram(struct iommu_client *cl,
                                  size_t bytes,
                                  struct capref *retcap)
 {
     // TODO: This function has to pass the rootvnodeslot from iommu_get_mapping
     // region to the allocator function to get mem from that region.
-    errval_t err, msgerr;
+    bytes = ROUND_UP(bytes, LARGE_PAGE_SIZE);
 
-    if (bytes < (LARGE_PAGE_SIZE)) {
-        bytes = LARGE_PAGE_SIZE;
-    }
-
-
-    int bits = log2ceil(bytes);
-    bytes = 1 << bits;
-
-#ifdef DISABLE_MODEL
-    return ram_alloc(retcap, bits);
-#endif
-    //debug_printf("iommu_alloc_ram bytes=%lu\n", bytes);
-
-    // Alloc cap slot
-    err = slot_alloc(retcap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-
-    struct mem_binding * b = get_mem_client();
-
-    int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
-    int32_t my_nodeid = driverkit_hwmodel_get_my_node_id();
-    uint64_t base_addr=0;
-
-    err = alloc_common(MODE_ALLOC_COMMON, bits, device_nodeid, NULL, my_nodeid,
-            NULL, &base_addr);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "allocate_common");
-        return err;
-    }
-
-    debug_printf("Determined addr=0x%"PRIx64" as base address for bits=%d request\n",
-            base_addr, bits);
-
-    err = b->rpc_tx_vtbl.allocate(b, bits, base_addr, base_addr + bytes,
-            &msgerr, retcap);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "allocate RPC");
-        return err;
-    }
-    if(err_is_fail(msgerr)){
-        DEBUG_ERR(msgerr, "allocate");
-        return msgerr;
-    }
-    //debug_printf("alloc_ram_for_frame success\n");
-    return SYS_ERR_OK;
+    int32_t nodes[3];
+    nodes[0] = driverkit_iommu_get_nodeid(cl);
+    nodes[1] = driverkit_hwmodel_get_my_node_id();
+    nodes[2] = 0;
+    return driverkit_hwmodel_ram_alloc(retcap, bytes, HWMODE_DEBUG_RAM_NODE,
+            nodes);
 }
 
 static errval_t iommu_alloc_frame(struct iommu_client *cl,
                                   size_t bytes,
                                   struct capref *retcap)
 {
-    if (bytes < (LARGE_PAGE_SIZE)) {
-        bytes = LARGE_PAGE_SIZE;
-    }
+    bytes = ROUND_UP(bytes, LARGE_PAGE_SIZE);
 
-    // Allocate RAM cap
-    struct capref ramcap;
-    errval_t err = iommu_alloc_ram(cl, bytes, &ramcap);
-    if(err_is_fail(err)){
-        return err;            
-    }
-
-    // Alloc cap slot
-    err = slot_alloc(retcap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-
-    // Get bits
-    assert(bytes > 0);
-    uint8_t bits = log2ceil(bytes);
-    assert((1UL << bits) >= bytes);
-
-    // This is doing what "create_ram_descendant" in
-    // lib/barrelfish/capabilities.c is doing.
-    err = cap_retype(*retcap, ramcap, 0, ObjType_Frame, (1UL << bits), 1);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_RETYPE);
-    }
-
-    err = cap_destroy(ramcap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_DESTROY);
-    }
-
-    return SYS_ERR_OK;
+    int32_t nodes[3];
+    nodes[0] = driverkit_iommu_get_nodeid(cl);
+    nodes[1] = driverkit_hwmodel_get_my_node_id();
+    nodes[2] = 0;
+    return driverkit_hwmodel_frame_alloc(retcap, bytes, HWMODE_DEBUG_RAM_NODE,
+            nodes);
 }
 
 #define MAPPING_REGION_START (512UL << 31)
@@ -320,29 +194,30 @@ static errval_t iommu_alloc_vregion(struct iommu_client *st,
         return SYS_ERR_OK;
     }
 #else
+    assert(id.bytes >= LARGE_PAGE_SIZE);
     if(st == NULL){
         *device = id.base;   
         *driver = 0;
         return SYS_ERR_OK;
     }
-#endif
 
-    assert(id.bytes >= LARGE_PAGE_SIZE);
-    assert(st != NULL);
-
-    int bits = log2ceil(id.bytes);
-    int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
+    // Alloc space in my vspace
     int32_t my_nodeid = driverkit_hwmodel_get_my_node_id();
-
-    err = alloc_common(MODE_MAP_COMMON, bits, device_nodeid, device, 
-            my_nodeid, driver, &id.base);
-
-    if(err_is_fail(err)){
-        DEBUG_ERR(err,"alloc_common"); 
+    err = driverkit_hwmodel_vspace_alloc(mem, my_nodeid, driver);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map local");
         return err;
     }
 
+    // Map into dev vspace
+    int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
+    err = driverkit_hwmodel_vspace_alloc(mem, device_nodeid, device);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map device");
+        return err;
+    }
     return SYS_ERR_OK;
+#endif
 }
 
 static errval_t iommu_free_vregion(struct iommu_client *st,

@@ -72,10 +72,14 @@ static errval_t init_decoding_net(void)
     }
 
     PCI_DEBUG("PCI: Loading decoding net \n");
-    err = skb_execute("use_module(decoding_net2)");
+    err = skb_execute(
+            "use_module(decoding_net4),use_module(decoding_net4_support),"
+            "");
     if (err_is_ok(err)) {
         const char * decoding_net_file = "sockeyefacts/x86_iommu";
-        err = skb_execute_query("load_net(\"%s\"), init.",decoding_net_file);
+        err = skb_execute_query(
+                "load_net(\"%s\"), init(S), state_set(S).",
+                decoding_net_file);
         if (err_is_fail(err)) {
             PCI_DEBUG("PCI: Loading decoding net file failed \n");
         }

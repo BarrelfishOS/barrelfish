@@ -21,38 +21,186 @@
 #include <driverkit/hwmodel.h>
 #include <collections/hash_table.h>
 #include <skb/skb.h>
+#include <if/mem_defs.h>
 #include "debug.h"
 
 
-#define HWMODE_DEBUG_RAM_NODE 1
+struct hwmodel_name {
+    int32_t nodeid;
+    uint64_t address;
+};
+
+__attribute__((unused))
+static void format_nodelist(int32_t *nodes, char *out){
+    *out = '\0';
+    sprintf(out + strlen(out), "[");
+    int first = 1;
+    while(*nodes != 0){
+        if(!first) sprintf(out + strlen(out), ",");
+        sprintf(out + strlen(out), "%" PRIi32, *nodes);
+        nodes++;
+        first = 0;
+    }
+    sprintf(out + strlen(out), "]");
+}
+
+__attribute__((unused))
+static void parse_namelist(char *in, struct hwmodel_name *names, int *conversions){
+    assert(in);
+    *conversions = 0;
+    struct list_parser_status status;
+    skb_read_list_init_offset(&status, in, 0);
+    while(skb_read_list(&status, "name(%"SCNu64", %"SCNi32")",
+                &names->address, &names->nodeid)) {
+        names++;
+        *conversions += 1;
+    }
+}
+
+errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
+                                     size_t bytes, int32_t dstnode,
+                                     int32_t *nodes)
+{
+
+    if (bytes < (LARGE_PAGE_SIZE)) {
+        bytes = LARGE_PAGE_SIZE;
+    }
+
+
+    int bits = log2ceil(bytes);
+    bytes = 1 << bits;
+
+#ifdef DISABLE_MODEL
+    if (dstnode != HWMODE_DEBUG_RAM_NODE) {
+        return LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS;
+    }
+    return ram_alloc(dst, bits);
+#else
+    errval_t err, msgerr;
+    char nodes_str[128];
+    format_nodelist(nodes, nodes_str);
+
+    err = skb_execute_query(
+            "state_get(S),"
+            "alloc_wrap(S, %zu, 21, %"PRIi32",%s, NewS),"
+            "state_set(NewS).",
+            bytes, dstnode, nodes_str);
+
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "alloc_wrap");
+        return err;
+    }
+
+    // Alloc cap slot
+    err = slot_alloc(dst);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    struct hwmodel_name names[16];
+    int num_conversions = 0;
+    parse_namelist(skb_get_output(), names, &num_conversions);
+    assert(num_conversions > 0);
+
+    struct mem_binding * b = get_mem_client();
+    debug_printf("Determined addr=0x%"PRIx64" as base address for bits=%d request\n",
+            names[0].address, bits);
+    err = b->rpc_tx_vtbl.allocate(b, bits, names[0].address, names[0].address + bytes,
+            &msgerr, dst);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "allocate RPC");
+        return err;
+    }
+    if(err_is_fail(msgerr)){
+        DEBUG_ERR(msgerr, "allocate");
+        return msgerr;
+    }
+    return SYS_ERR_OK;
+
+#endif
+}
 
 errval_t driverkit_hwmodel_frame_alloc(struct capref *dst,
                                                      size_t bytes, int32_t dstnode,
                                                      int32_t *nodes)
 {
+#ifdef DISABLE_MODEL
     if (dstnode != HWMODE_DEBUG_RAM_NODE) {
         return LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS;
     }
     return frame_alloc(dst, bytes, NULL);
+#else
+    errval_t err;
+    struct capref ram_cap; 
+
+    // Allocate RAM cap
+    err = driverkit_hwmodel_ram_alloc(&ram_cap, bytes, dstnode, nodes);
+    if(err_is_fail(err)){
+        return err;            
+    }
+
+    // Alloc cap slot
+    err = slot_alloc(dst);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+
+    // Get bits
+    assert(bytes > 0);
+    uint8_t bits = log2ceil(bytes);
+    assert((1UL << bits) >= bytes);
+
+    // This is doing what "create_ram_descendant" in
+    // lib/barrelfish/capabilities.c is doing.
+    err = cap_retype(*dst, ram_cap, 0, ObjType_Frame, (1UL << bits), 1);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_RETYPE);
+    }
+
+    err = cap_destroy(ram_cap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DESTROY);
+    }
+
+    return SYS_ERR_OK;
+#endif
 }
 
 
+/**
+ * fills in dmem->vbase + maps frame
+ */
 errval_t driverkit_hwmodel_vspace_map(int32_t nodeid, struct capref frame,
-                                                    vregion_flags_t flags, struct dmem *dmem)
+                                      vregion_flags_t flags, struct dmem *dmem)
 {
     errval_t err;
-
     struct frame_identity id;
     err = invoke_frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err;
     }
 
+#ifdef DISABLE_MODEL
+    dmem->devaddr = id.base;
+    dmem->size = id.bytes;
+    return vspace_map_one_frame_attr((void **)&dmem->vbase, id.bytes, frame,
+            flags, NULL, NULL);
+#else
+    genpaddr_t addr;
+
+    // Alloc my vspace
+    err = driverkit_hwmodel_vspace_alloc(frame, nodeid,  &addr);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "vspace_alloc");
+        return err;
+    }
+
     dmem->devaddr = id.base;
     dmem->size = id.bytes;
 
-    return vspace_map_one_frame_attr((void **)&dmem->vbase, id.bytes, frame, flags, NULL,
-                                     NULL);
+    return driverkit_hwmodel_vspace_map_fixed(nodeid, addr, frame, flags, dmem);
+#endif
+
 }
 
 errval_t driverkit_hwmodel_vspace_map_fixed(int32_t nodeid,
@@ -61,16 +209,70 @@ errval_t driverkit_hwmodel_vspace_map_fixed(int32_t nodeid,
                                                           vregion_flags_t flags,
                                                           struct dmem *dmem)
 {
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err;
+
+    if(nodeid != driverkit_hwmodel_get_my_node_id()){
+        return LIB_ERR_NOT_IMPLEMENTED;
+    }
+
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    dmem->vbase = addr;
+
+    return vspace_map_one_frame_fixed_attr(addr, id.bytes, frame, flags, NULL, NULL);
 }
 
 
-errval_t driverkit_hwmodel_vspace_alloc(int32_t nodeid,
-                                                      genvaddr_t *addr)
+errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
+                                        int32_t nodeid, genvaddr_t *addr)
 {
-    return LIB_ERR_NOT_IMPLEMENTED;
+    errval_t err;
+
+    if(nodeid != driverkit_hwmodel_get_my_node_id()){
+        return LIB_ERR_NOT_IMPLEMENTED;
+    }
+
+    struct frame_identity id;
+    err = invoke_frame_identify(frame, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    int32_t src_nodeid[2];
+    char src_nodeid_str[128];
+    src_nodeid[0] = nodeid;
+    src_nodeid[1] = 0;
+    format_nodelist(src_nodeid, src_nodeid_str);
+
+    int32_t mem_nodeid = id.pasid;
+    uint64_t mem_addr = id.base;
+    err = skb_execute_query(
+                "state_get(S),"
+                "map_wrap(S, %zu, 21, %"PRIi32", %"PRIu64", %s, NewS)"
+                "state_set(NewS)",
+                id.bytes, mem_nodeid, mem_addr, src_nodeid_str);
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "map_wrap");
+        return err;
+    }
+    
+    struct hwmodel_name names[2];
+    int num_conversions = 0;
+    parse_namelist(skb_get_output(), names, &num_conversions);
+    assert(num_conversions == 2);
+    //names[0] is the resolved name as stored in frame
+    *addr = names[1].address;
+    return SYS_ERR_OK;
 }
 
+/*
+ *  Returns this process nodeid. It lazily adds the process' model node
+ *  and returns it's identifier.
+ */
 int32_t driverkit_hwmodel_get_my_node_id(void)
 {
     errval_t err;
@@ -85,7 +287,10 @@ int32_t driverkit_hwmodel_get_my_node_id(void)
     static int32_t nodeid = -1;
 
     if(nodeid == -1){
-        err = skb_execute_query("add_process_alloc(X), write(X)");
+        err = skb_execute_query(
+            "state_get(S), "
+            "add_process(S, E, NewS), writeln(E), "
+            "state_set(NewS)");
         if (err_is_fail(err)) {
             return -1;
         }
