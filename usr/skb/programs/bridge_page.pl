@@ -135,7 +135,6 @@ back_to_bytes(Granularity, buselement(T,A,Sec,BP,HP,SP,Tp,PF, PCIe, Bits), busel
     H is HP * Granularity,
     S is SP * Granularity.
 
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the main part of the allocation. Called once per root bridge
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -143,31 +142,35 @@ back_to_bytes(Granularity, buselement(T,A,Sec,BP,HP,SP,Tp,PF, PCIe, Bits), busel
 bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     root(Addr,childbus(MinBus,MaxBus),mem(LMem,HMem)) = Root,
     X is HMem - LMem,
+    Tmp is 4294963200 / Granularity,
+    ceiling(Tmp, Tmp2),
+    integer(Tmp2, HMem2),
+
+    Type = mem,
 
 % prefetchable
     constrain_bus(Granularity, Type, prefetchable, Addr,MinBus,MaxBus,LMem,HMem,BusElementListP),
     RBaseP::[LMem..HMem],
+    RHighP::[LMem..HMem],
     RSizeP::[0..X],
-    RHighP $= RBaseP + RSizeP,
     devicetree(BusElementListP,buselement(bridge,Addr,secondary(MinBus),RBaseP,RHighP,RSizeP, Type, prefetchable, _, _),TP),
 
 % nonprefetchable, Highest address must be less than 4GB
     constrain_bus(Granularity, Type, nonprefetchable, Addr,MinBus,MaxBus,LMem,HMem,BusElementListNP),
-    RBaseNP::[LMem..HMem],
+    RBaseNP::[LMem..HMem2],
+    RHighNP::[LMem..HMem2],
     RSizeNP::[0..X],
-    RHighNP $= RBaseNP + RSizeNP,
-    RHighNP $< 4294967396/ Granularity,
     devicetree(BusElementListNP,buselement(bridge,Addr,secondary(MinBus),RBaseNP,RHighNP,RSizeNP, Type, nonprefetchable, _, _),TNP),
 
 % pseudo-root of both trees
     PseudoBase::[LMem..HMem],
+    PseudoHigh::[LMem..HMem],
     PseudoSize::[0..X],
-    PseudoHigh $= PseudoBase + PseudoSize,
     T = t(buselement(bridge, addr(-1, -1, -1), childbus(-1, -1), PseudoBase, PseudoHigh, PseudoSize, _, _, _, _), [TP, TNP]),
     setrange(T,_,_,_),
     nonoverlap(T),
-    naturally_aligned(T, 256, LMem, HMem, _),
-    %naturally_aligned(T, 256, LMem, HMem, ExtraVars),
+    naturally_aligned(T, 256, LMem, HMem, HMem2, _),
+    %naturally_aligned(T, 256, LMem, HMem, HMem2, ExtraVars),
     tree2list(T,ListaU),
     sort(6, >=, ListaU, Lista),
     not_overlap_memory_ranges(Lista, ExclRanges),
@@ -177,10 +180,10 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     labelall(Lista),
     subtract(Lista,[buselement(bridge,Addr,_,_,_,_,_,prefetchable,_,_)],Pl3),
     subtract(Pl3,[buselement(bridge,Addr,_,_,_,_,_,nonprefetchable,_,_)],Pl2),
-    subtract(Pl2,[buselement(bridge,addr(-1,-1,-1),_,_,_,_,_,_,_,_)],Pl),
-    maplist(adjust_range(0),Pl,PR),
-    maplist(back_to_bytes(Granularity),PR,Plan).
-
+    subtract(Pl2,[buselement(bridge,addr(-1,-1,-1),_,_,_,_,_,_,_,_)],Plan).
+    %subtract(Pl2,[buselement(bridge,addr(-1,-1,-1),_,_,_,_,_,_,_,_)],Pl),
+    %maplist(adjust_range(0),Pl,PR),
+    %maplist(back_to_bytes(Granularity),Pl,Plan),
 % dot output:
 %    PrBaseBytePref is RBaseP * Granularity,
 %    PrHighBytePref is RHighP * Granularity,
@@ -236,16 +239,24 @@ constrain_bus_ex(_, _, _, _,Bus,MaxBus,_,_,InL,InL) :- Bus > MaxBus.
 constrain_bus_ex(Granularity, Type, Prefetch, RootAddr,Bus,MaxBus,LMem,HMem,InBusElementList,OutBusElementList) :-
     Bus =< MaxBus,
     % 32 Bit device and bridges that are non prefetchable require an address below 4GB
+    Tmp is 4294963200 / Granularity,
+    ceiling(Tmp, Tmp2),
+    integer(Tmp2, HMem2),
+
     ( is_predicate(bridge/8) ->
 	    findall(buselement(bridge,addr(Bus,Dev,Fun),secondary(Sec),Base,High,Size,Type,Prefetch, PCIe, 0),
 	            ( bridge(PCIe, addr(Bus,Dev,Fun), _, _, _, _, _, secondary(Sec)),
 	              not addr(Bus,Dev,Fun) = RootAddr,
-                  SMax is HMem - LMem,
-                  Size::[0..SMax],
-                  Base::[LMem..HMem],
-                  High $= Base + Size,
                   (Prefetch == nonprefetchable ->
-                    High $<  4294967396 / Granularity
+                    SMax is HMem2 - LMem,
+	                Base::[LMem..HMem2],
+	                High::[LMem..HMem2],
+                    Size::[0..SMax]
+                  ;
+                    SMax is HMem - LMem,
+	                Base::[LMem..HMem],
+	                High::[LMem..HMem],
+                    Size::[0..SMax]
                   )
 	            ),BridgeList);
         BridgeList = []
@@ -258,10 +269,13 @@ constrain_bus_ex(Granularity, Type, Prefetch, RootAddr,Bus,MaxBus,LMem,HMem,InBu
 	              ST1 is Size / Granularity,
 	              ceiling(ST1, ST2),
 	              integer(ST2, SizeP),
-	              Base::[LMem..HMem],
-                  High $= Base + SizeP,
+
                   (Bits == 32 ->
-                    High $<  4294967396 / Granularity
+	                Base::[LMem..HMem2],
+	                High::[LMem..HMem2]
+                  ;
+	                Base::[LMem..HMem],
+	                High::[LMem..HMem]
                   )
 
 	            ),DeviceList);
@@ -385,16 +399,36 @@ nonoverlap(Tree) :-
     ).
 
 
-naturally_aligned(Tree, BridgeAlignment, LMem, HMem, ExtraVars) :-
+naturally_aligned(Tree, BridgeAlignment, LMem, HMem, HMem2, ExtraVars) :-
+
     t(Node,Children) = Tree,
-    ( buselement(device,_,_,Base,High,Size,_,_,_,_) = Node ->
-      Divisor is Size
+    ( buselement(device,_,_,Base,High,Size,_,_,_,Bits) = Node ->
+      Divisor is Size,
+      (Bits == 32 ->
+        LimitRange is 1
       ;
-      buselement(bridge,_,_,Base,High,_,_,_,_,_) = Node ->
-      Divisor is BridgeAlignment
+        LimitRange is 0
+      )
+    ;
+      buselement(bridge, Addr,_,Base,High,_, _, Prefetch,_,_) = Node ->
+      Divisor is BridgeAlignment,
+      (not Addr == addr(-1,-1,-1) ->
+          (Prefetch == nonprefetchable ->
+            LimitRange is 1
+          ;
+            LimitRange is 0
+          )
+      ;
+        LimitRange is 0
+      )
     ),
 
-    T1 is (HMem - LMem) / Divisor,
+    ( LimitRange == 1 ->
+        T1 is (HMem2 - LMem) / Divisor
+    ;
+        T1 is (HMem - LMem) / Divisor
+    ),
+
     ceiling(T1, T2),
     integer(T2, Nr),
     N::[0..Nr],
@@ -411,9 +445,10 @@ naturally_aligned(Tree, BridgeAlignment, LMem, HMem, ExtraVars) :-
       fromto([N], XtraIn, XtraOut, ExtraVars),
       param(BridgeAlignment),
       param(LMem),
-      param(HMem)
+      param(HMem),
+      param(HMem2)
       do
-        naturally_aligned(El, BridgeAlignment, LMem, HMem, E1),
+        naturally_aligned(El, BridgeAlignment, LMem, HMem, HMem2, E1),
         append(XtraIn, E1, XtraOut)
     ).
 
