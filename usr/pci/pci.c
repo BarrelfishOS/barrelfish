@@ -443,8 +443,7 @@ errval_t device_reregister_interrupt(uint8_t coreid, int vector,
         PCI_DEBUG("pci.c: device_init(): SKB returnd error code %s\n",
             err_getcode(error_code));
 
-        PCI_DEBUG("SKB returned: %s\n", skb_get_output());
-        PCI_DEBUG("SKB error returned: %s\n", skb_get_error_output());
+        DEBUG_SKB_ERR(error_code, "");
 
         return PCI_ERR_DEVICE_INIT;
     }
@@ -884,6 +883,20 @@ errval_t pci_start_virtual_function_for_device(struct pci_address* addr,
 
 }
 
+static errval_t add_pci_model_node(struct pci_address addr) {
+    errval_t err = skb_execute_query(
+            "state_get(S),"
+            "add_pci(S, addr(%u,%u,%u), E1, NewS),"
+            "writeln(E1),"
+            "state_set(NewS)",
+            addr.bus, addr.device, addr.function);
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "add_pci");
+    }
+    PCI_DEBUG("Allocated model node=%s, for PCI device (%u,%u,%u)\n",
+            skb_get_output(), addr.bus, addr.device, addr.function);
+    return err;
+}
 
 /**
  * This function performs a recursive, depth-first search through the
@@ -1188,13 +1201,12 @@ static void assign_bus_numbers(struct pci_address parentaddr,
 
                                     // add VF bars to decoding net
                                     if (decoding_net) {
-                                        err = skb_execute_query("add_pci_alloc(addr(%u, %u, %u)).", vf_addr.bus,
-                                                                vf_addr.device, vf_addr.function);
+                                        err = add_pci_model_node(vf_addr);
                                         if (err_is_fail(err)) {
-                                            debug_printf("Warning: VF add_pci_alloc(addr(%u, %u, %u)) failed \n", 
+                                            debug_printf("Warning: VF add_pci(addr(%u, %u, %u)) failed \n", 
                                                          vf_addr.bus, vf_addr.device, vf_addr.function);
 
-                                            DEBUG_SKB_ERR(err, "bridge add_pci_alloc(%u, %u, %u)",
+                                            DEBUG_SKB_ERR(err, "bridge add_pci(%u, %u, %u)",
                                                           vf_addr.bus, vf_addr.device, vf_addr.function);
                                         }
                                     }
@@ -1462,12 +1474,11 @@ static void query_bars(pci_hdr0_t devhdr,
     if (decoding_net) {
         errval_t err;
 
-        err = skb_execute_query("add_pci_alloc(addr(%u, %u, %u)).", addr.bus,
-                                addr.device, addr.function);
+        err = add_pci_model_node(addr);
         if (err_is_fail(err)) {
-            debug_printf("Warning: add_pci_alloc(addr(%u, %u, %u)) failed \n", 
+            debug_printf("Warning: pci_alloc(addr(%u, %u, %u)) failed \n", 
                          addr.bus, addr.device, addr.function);
-            DEBUG_SKB_ERR(err, "bridge add_pci_alloc(%u, %u, %u)",
+            DEBUG_SKB_ERR(err, "bridge pci_alloc(%u, %u, %u)",
                           addr.bus, addr.device, addr.function);
         } 
     }

@@ -287,11 +287,17 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
 }
 
 static errval_t add_pci_model_node(struct pci_addr addr) {
-    errval_t err = skb_execute_query("add_pci_alloc(addr(%u,%u,%u)).",
+    errval_t err = skb_execute_query(
+            "state_get(S),"
+            "add_pci(S, addr(%u,%u,%u), E1, NewS),"
+            "writeln(E1),"
+            "state_set(NewS)",
             addr.bus, addr.device, addr.function);
     if(err_is_fail(err)){
-        DEBUG_SKB_ERR(err, "add_pci_alloc.");
+        DEBUG_SKB_ERR(err, "add_pci");
     }
+    KALUGA_DEBUG("Allocated model node=%s, for PCI device (%u,%u,%u)\n",
+            skb_get_output(), addr.bus, addr.device, addr.function);
     return err;
 }
 
