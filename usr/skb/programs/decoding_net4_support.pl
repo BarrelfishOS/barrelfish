@@ -209,3 +209,16 @@ state_set(S) :-
 
 :- export state_get/1.
 state_get(S) :- state(S) -> true ; state_empty(S).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Debug 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+listing_term(S) :- write(S), writeln(",").
+
+:- export decoding_net_listing/0.
+decoding_net_listing :-
+    state_get(S),
+    writeln("state(S) :- S = ["),
+    checklist(listing_term, S),
+    writeln("]").
+

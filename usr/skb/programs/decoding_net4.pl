@@ -177,7 +177,29 @@ region_aligned(Region, Bits) :-
     aligned(Base, Bits, NumBlock),
     labeling([NumBlock]).
 
+% This is a search optimization: Free regions start after an existing region.
+region_free_bound(S, Reg) :-
+    Reg = region{node_id: Id, block:block{base:RBase}},
+    CReg = region{node_id: Id, block:block{limit: CLimit}},
+    state_query(S, in_use(CReg)),
+    RBase #>= CLimit ;
+    % In case of no region with same id
+    Reg = region{node_id: Id},
+    CReg = region{node_id: Id},
+    not(state_query(S, in_use(CReg))),
+    RBase #>= 0.
+
+% This is a search optimization: Accepting regions must be in an existing region.
+region_accepting_bound(S, Reg) :-
+    Reg = region{node_id: Id, block:block{base:RBase}},
+    CReg = region{node_id: Id, block:block{base:AccBase, limit: AccLimit}},
+    state_query(S, accept(CReg)),
+    RBase #>= AccBase,
+    AccLimit #>= RBase.
+
+
 region_alloc(S, Reg, Size, Bits) :-
+    region_free_bound(S, Reg),
     region_aligned(Reg, Bits),
     region_size(Reg, Size),
     region_free(S, Reg).
@@ -186,7 +208,7 @@ region_alloc(S, Reg, Size, Bits) :-
 translate_region_alloc(0, SIn, _, _, _, SIn).
 
 translate_region_alloc(I, SIn, SrcId, VPN, PFN, SOut) :-
-    I > 0,
+    I >= 1,
     INext is I - 1,
     VPNNext is VPN + 1,
     PFNNext is PFN + 1,
@@ -214,7 +236,7 @@ translate_region_conf(S, SrcRegion, DstRegion, COut) :-
     %labeling([BaseVPN, Offset]),
     split_vaddr(DstBase, Bits, [BasePPN, Offset]),
     DstLimit #= DstBase + SrcSize - 1,
-    labeling([BaseVPN, BasePPN]),
+    labeling([BaseVPN, BasePPN, DstLimit, DstBase, SrcBase, Offset]),
     translate_region_alloc(ItEnd, CIn, SrcId, BaseVPN, BasePPN, COut).
 
 route_step(S, SrcRegion, NextRegion, Conf) :-
@@ -222,15 +244,17 @@ route_step(S, SrcRegion, NextRegion, Conf) :-
     state_empty(Conf) ;
     translate_region_conf(S, SrcRegion, NextRegion, Conf).
 
-route(S, SrcRegion, DstRegion, Conf) :-
-    route_step(S, SrcRegion, NextRegion, C1),
+route_step_cont(S, NextRegion, DstRegion, C1, Conf) :-
     accept_region(S, NextRegion),
     DstRegion = NextRegion,
     Conf = C1 ;
-    route_step(S, SrcRegion, NextRegion, C1),
     not(accept_region(S, NextRegion)),
     route(S, NextRegion, DstRegion, C2),
     state_union(C1, C2, Conf).
+
+route(S, SrcRegion, DstRegion, Conf) :-
+    route_step(S, SrcRegion, NextRegion, C1),
+    route_step_cont(S, NextRegion, DstRegion, C1, Conf).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -242,14 +266,14 @@ alias(S, N1, N2) :-
     resolve_name(S, N2, D).
 
 
-alloc_is_free(_, [], _, _).
-alloc_is_free(S, [Reg | Regs], Size, Bits) :-
-    alloc_is_free(S, Regs, Size, Bits),
+region_alloc_multiple(_, [], _, _).
+region_alloc_multiple(S, [Reg | Regs], Size, Bits) :-
+    region_alloc_multiple(S, Regs, Size, Bits),
     region_alloc(S, Reg, Size, Bits).
 
-alloc_is_in_use(_, [], _, C, C).
-alloc_is_in_use(S, [Reg | Regs], DestReg, CIn, COut) :-
-    alloc_is_in_use(S, Regs, DestReg, CIn, CIn2),
+route_multiple(_, [], _, C, C).
+route_multiple(S, [Reg | Regs], DestReg, CIn, COut) :-
+    route_multiple(S, Regs, DestReg, CIn, CIn2),
     route(S, Reg, DestReg, C),
     state_union(CIn2, C, COut).
 
@@ -262,18 +286,24 @@ alloc_is_in_use(S, [Reg | Regs], DestReg, CIn, COut) :-
 % Conf - State Delta which must be added to S
 :- export alloc/6.
 alloc(S, Size, Bits, DestReg, SrcRegs, Conf) :-
-    alloc_is_free(S, SrcRegs, Size, Bits),
+    % src regions not used
+    region_alloc_multiple(S, SrcRegs, Size, Bits),
+
+    % dest region not used and accepting
+    region_accepting_bound(S, DestReg),
     region_alloc(S, DestReg, Size, Bits),
     accept_region(S, DestReg),
-    alloc_is_in_use(S, SrcRegs, DestReg, [], Conf).
+
+    % src regions can be resolved to destination.
+    route_multiple(S, SrcRegs, DestReg, [], Conf).
 
 
 
 :- export map/6.
 map(S, Size, Bits, DestReg, SrcRegs, Conf) :-
-    alloc_is_free(S, SrcRegs, Size, Bits),
+    region_alloc_multiple(S, SrcRegs, Size, Bits),
     accept_region(S, DestReg),
-    alloc_is_in_use(S, SrcRegs, DestReg, [], Conf).
+    route_multiple(S, SrcRegs, DestReg, [], Conf).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -287,10 +317,12 @@ aligned(A, Bits, BlockNum) :-
     A #= BlockNum * BlockSize.
 
 split_vaddr(VA, Bits, [VPN, Offset]) :-
+    BlockSize is 2^Bits,
+    BlockSizeMin1 is BlockSize - 1,
     VPN #>= 0,
     Offset #>= 0,
+    BlockSizeMin1 #>= Offset,
     VA #>= 0,
-    BlockSize is 2^Bits,
     VA #= VPN * BlockSize + Offset.
 
 % block_translate(A,BaseA,B,BaseB) ==> A-BaseA = B-BaseB
