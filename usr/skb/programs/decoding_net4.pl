@@ -188,7 +188,7 @@ region_free_bound(S, Reg) :-
     state_query(S, in_use(CReg)),
     RBase #>= CLimit ;
     % In case of no region with same id
-    Reg = region(Id, _),
+    Reg = region(Id, block(RBase, _)),
     CReg = region(Id, _),
     not(state_query(S, in_use(CReg))),
     RBase #>= 0.

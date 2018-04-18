@@ -54,7 +54,7 @@ initial_dram_block(Block) :- %a
     ),
     FiltCandidates = [(Base,Size) | _],
     Limit is Base + Size,
-    Block = block{base:Base, limit: Limit}.
+    Block = block(Base,Limit).
 
 :- export init/1.
 init(NewS) :-
@@ -62,7 +62,7 @@ init(NewS) :-
     add_SYSTEM(S1, [], S2),
     DRAM_ID = ["DRAM"],
     initial_dram_block(Block),
-    state_add(S2, accept(region{node_id:["DRAM"], block:Block}), S3), 
+    state_add(S2, accept(region(["DRAM"], Block)), S3), 
     node_enum(S3, DRAM_ID, DRAM_ENUM, S4),
     printf("Decoding net initialized using %p as DRAM. DRAM nodeid: %p\n",
         [Block, DRAM_ENUM]),
@@ -98,7 +98,7 @@ add_process(S, Enum, NewS) :-
     % Reserve memory for the process, the OUT/PROC0 node is the one where
     % initially the process (virtual) addresses are issued.
     Limit = 1099511627775, % (512 << 31) - 1
-    state_add(S3, in_use(region{node_id:OutId, block:block{base:0, limit: Limit}}), NewS).
+    state_add(S3, in_use(region(OutId, block(0,Limit))), NewS).
 
 iommu_enabled :-
     call(iommu_enabled,0,_)@eclipse.
@@ -135,18 +135,18 @@ add_pci(S, Addr, Enum, NewS) :-
      fromto(S3, SIn, SOut, S4) do
         BarId = [BarNum, "BAR" | Id],
         BarEnd is BarStart + BarSize,
-        state_add(SIn, accept(region{
-            node_id: BarId,
-            block:block{base:BarStart,limit:BarEnd}}), SIn1),
+        state_add(SIn, accept(region(
+            BarId,
+            block(BarStart,BarEnd))), SIn1),
         state_add(SIn1,
-            mapping(region{
-                node_id: PCIBUS_ID,
-                block:block{base:BarStart,limit:BarEnd}
-            },
-            name{
-                node_id: BarId,
-                address: BarStart
-            }),
+            mapping(region(
+                PCIBUS_ID,
+                block(BarStart,BarEnd)
+            ),
+            name(
+                BarId,
+                BarStart
+            )),
             SOut)
     ),
     % Set it to the node id where addresses are issued from the PCI device
@@ -157,7 +157,7 @@ add_pci(S, Addr, Enum, NewS) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 write_regions(S, Regs) :-
     (foreach(Reg, Regs), param(S), foreach(Term, Terms) do
-       Reg = region{node_id:NId, block:block{base:B}},
+       Reg = region(NId, block(B, _)),
        node_enum(S, NId, Enum, S),
        Term = name(B, Enum)
     ),
@@ -166,11 +166,11 @@ write_regions(S, Regs) :-
 :- export alloc_wrap/6.
 alloc_wrap(S, Size, Bits, DestEnum, SrcEnums, NewS) :-
     (foreach(Enum, SrcEnums), foreach(Reg, SrcRegs), param(S) do
-        Reg = region{node_id:RId},
+        Reg = region(RId, _),
         node_enum(S, RId, Enum, S)
     ),
     node_enum(S, DestId, DestEnum, S), % The double S is deliberate, no new allocation permitted.
-    DestReg = region{node_id: DestId},
+    DestReg = region(DestId, _),
     alloc(S, Size, Bits, DestReg, SrcRegs, _),
     state_add(S, in_use(DestReg), NewS),
     
@@ -183,10 +183,10 @@ map_wrap(S0, Size, Bits, DestEnum, DestAddr, SrcEnums, NewS)  :-
     % Set up DestReg
     node_enum(S0, DestId, DestEnum, S0), % The double S is deliberate, no new allocation permitted.
     Limit is DestAddr + Size - 1,
-    DestReg = region{node_id: DestId, block:block{base:DestAddr, limit:Limit}},
+    DestReg = region(DestId, block(DestAddr, Limit)),
 
     (foreach(Enum, SrcEnums), foreach(Reg, SrcRegs), param(S0) do
-        Reg = region{node_id:RId},
+        Reg = region(RId, _),
         node_enum(S0, RId, Enum, S0)
     ),
     map(S0, Size, Bits, DestReg, SrcRegs, S1),
