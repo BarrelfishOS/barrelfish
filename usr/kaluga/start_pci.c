@@ -286,21 +286,6 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
     return SYS_ERR_OK;
 }
 
-static errval_t add_pci_model_node(struct pci_addr addr) {
-    errval_t err = skb_execute_query(
-            "state_get(S),"
-            "add_pci(S, addr(%u,%u,%u), E1, NewS),"
-            "writeln(E1),"
-            "state_set(NewS)",
-            addr.bus, addr.device, addr.function);
-    if(err_is_fail(err)){
-        DEBUG_SKB_ERR(err, "add_pci");
-    }
-    KALUGA_DEBUG("Allocated model node=%s, for PCI device (%u,%u,%u)\n",
-            skb_get_output(), addr.bus, addr.device, addr.function);
-    return err;
-}
-
 static void pci_change_event(octopus_mode_t mode, const char* device_record,
                              void* st)
 {
@@ -428,11 +413,6 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         debug_printf("Adding endpoint args.\n");
         err = add_ep_args(addr, id, core, &driver_arg, binary_name, module_name);
         assert(err_is_ok(err));
-
-        KALUGA_DEBUG("Adding model node to SKB.\n");
-        err = add_pci_model_node(addr);
-        assert(err_is_ok(err));
-
 
         // If we've come here the core where we spawn the driver
         // is already up

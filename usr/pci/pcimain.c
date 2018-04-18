@@ -64,7 +64,7 @@ static errval_t init_decoding_net(void)
 {
     errval_t err;
     // load bride program, otherwise bar() is not defined 
-    PCI_DEBUG("PCI: Loading bridge program \n");
+    PCI_DEBUG("PCI: Loading bridge program %s\n", skb_bridge_program);
     err = skb_execute_query("[%s]", skb_bridge_program);
     if (err_is_fail(err)) {
         debug_printf("Failed loading brige program \n");

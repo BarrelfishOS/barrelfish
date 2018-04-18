@@ -91,6 +91,12 @@ static void read_eclipse_queue(int qid, struct skb_writer* w)
     }
 }
 
+static void debug_skb_output(struct oct_query_state* st)
+{
+    OCT_DEBUG(
+            " output: %s error: %s error_code:\n", st->std_out.buffer, st->std_err.buffer);
+}
+
 static errval_t run_eclipse(struct oct_query_state* st)
 {
     assert(st != NULL);
@@ -125,16 +131,12 @@ static errval_t run_eclipse(struct oct_query_state* st)
 
     errval_t err = transform_ec_error(st->exec_res);
     if (err_no(err) == SKB_ERR_EXECUTION) {
+        debug_printf(
+            " output: %s error: %s \n", st->std_out.buffer, st->std_err.buffer);
         err = err_push(err, OCT_ERR_ENGINE_FAIL);
     }
 
     return err;
-}
-
-static void debug_skb_output(struct oct_query_state* st)
-{
-    OCT_DEBUG(
-            " output: %s error: %s error_code:\n", st->std_out.buffer, st->std_err.buffer);
 }
 
 errval_t get_record(struct ast_object* ast, struct oct_query_state* sqs)
