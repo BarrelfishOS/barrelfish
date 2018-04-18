@@ -252,7 +252,7 @@ errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
     uint64_t mem_addr = id.base;
     err = skb_execute_query(
                 "state_get(S),"
-                "map_wrap(S, %zu, 21, %"PRIi32", %"PRIu64", %s, NewS)"
+                "map_wrap(S, %zu, 21, %"PRIi32", %"PRIu64", %s, NewS),"
                 "state_set(NewS)",
                 id.bytes, mem_nodeid, mem_addr, src_nodeid_str);
     if(err_is_fail(err)){

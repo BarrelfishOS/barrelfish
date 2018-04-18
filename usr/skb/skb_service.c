@@ -65,7 +65,7 @@ void free_reply_state(void* arg) {
 }
 
 
-static errval_t do_listing_on_stdout(struct skb_query_state* st)
+static errval_t do_on_stdout(struct skb_query_state* st, char *query)
 {
     assert(st != NULL);
     assert(st->output_buffer != NULL);
@@ -78,7 +78,7 @@ static errval_t do_listing_on_stdout(struct skb_query_state* st)
     ec_ref Start = ec_ref_create_newvar();
 
     // Processing
-    ec_post_string("listing.");
+    ec_post_string(query);
     // Flush manually
     ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("output", 0))));
     ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("error", 0))));
@@ -115,7 +115,10 @@ errval_t execute_query(const char* query, struct skb_query_state* st)
     // HACK to make fact listing work, we print it directly
     // on stdout instead of returning it to the client
     if(strcmp(query,"listing") == 0){
-        return do_listing_on_stdout(st);
+        return do_on_stdout(st, "listing.");
+    }
+    if(strcmp(query,"decoding_net_listing") == 0){
+        return do_on_stdout(st, "decoding_net_listing.");
     }
 
     int res;
