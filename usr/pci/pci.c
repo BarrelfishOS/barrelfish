@@ -330,6 +330,13 @@ errval_t device_init(uint32_t class_code,
     //iterate over all buselements
     while (skb_read_list(&status, "baraddr(%d, %"PRIuPCIADDR", %"PRIuPCIADDR", "
                          "%"PRIuPCISIZE")", &bar_nr, &bar_base, &bar_high, &bar_size)) {
+
+        if(strncmp("bridge_page", skb_bridge_program, strlen("bridge_page")) == 0){
+            bar_base *= BASE_PAGE_SIZE;
+            bar_high *= BASE_PAGE_SIZE;
+            bar_size *= BASE_PAGE_SIZE;
+        }
+
         err = alloc_device_bar(*nr_allocated_bars, *bus, *dev, *fun, bar_nr,
                                bar_base, bar_high, bar_size);
 
@@ -1810,13 +1817,6 @@ void pci_program_bridges(void)
             pref = true;
         } else {
             pref = false;
-        }
-
-        // Skip virtual functions
-        if (strncmp(space, "vf", strlen("vf")) == 0) {
-            /* PCI_DEBUG("Skipping VF addr(%hhu, %hhu, %hhu)\n", */
-            /* 	    bus, dev, fun); */
-            continue;
         }
 
         if (strncmp(element_type, "device", strlen("device")) == 0) {
