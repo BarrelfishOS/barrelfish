@@ -1114,7 +1114,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                     if(tries == 0) {
                         USER_PANIC_ERR(err, "oct_mset");
                     }
-                    DEBUG_ERR(err, "oct_mset failed. Retrying...");
+                    PCI_DEBUG("oct_mset failed. Retrying...");
                 }
                 // end octopus
 
@@ -1783,9 +1783,11 @@ void pci_program_bridges(void)
                                 element_type, &bus, &dev, &fun, bar_secondary,
                                 &base, &high, &size, space, prefetch, pcie_pci,
                                 &bits);
-        base *= BASE_PAGE_SIZE;
-        high *= BASE_PAGE_SIZE;
-        size *= BASE_PAGE_SIZE;
+        if(strncmp("bridge_page", skb_bridge_program, strlen("bridge_page")) == 0){
+            base *= BASE_PAGE_SIZE;
+            high *= BASE_PAGE_SIZE;
+            size *= BASE_PAGE_SIZE;
+        }
         conv_ptr++;
         if (nr_conversions != 12) {
             printf("Could not parse output for device or bridge number %d\n"
