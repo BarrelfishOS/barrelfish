@@ -57,6 +57,10 @@ static void parse_namelist(char *in, struct hwmodel_name *names, int *conversion
     }
 }
 
+#define ALLOC_WRAP_Q "state_get(S)," \
+                     "alloc_wrap(S, %zu, 21, %"PRIi32",%s, NewS)," \
+                     "state_set(NewS)."
+
 errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
                                      size_t bytes, int32_t dstnode,
                                      int32_t *nodes)
@@ -71,7 +75,7 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
     bytes = 1 << bits;
 
 #ifdef DISABLE_MODEL
-    if (dstnode != HWMODE_DEBUG_RAM_NODE) {
+    if (dstnode != driverkit_hwmodel_lookup_dram_node_id()) {
         return LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS;
     }
     return ram_alloc(dst, bits);
@@ -80,12 +84,11 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
     char nodes_str[128];
     format_nodelist(nodes, nodes_str);
 
-    err = skb_execute_query(
-            "state_get(S),"
-            "alloc_wrap(S, %zu, 21, %"PRIi32",%s, NewS),"
-            "state_set(NewS).",
-            bytes, dstnode, nodes_str);
 
+    debug_printf("Query: " ALLOC_WRAP_Q, bytes, dstnode, nodes_str);
+    err = skb_execute_query(ALLOC_WRAP_Q, bytes, dstnode, nodes_str);
+
+    DEBUG_SKB_ERR(err, "alloc_wrap");
     if(err_is_fail(err)){
         DEBUG_SKB_ERR(err, "alloc_wrap");
         return err;
@@ -125,7 +128,7 @@ errval_t driverkit_hwmodel_frame_alloc(struct capref *dst,
                                                      int32_t *nodes)
 {
 #ifdef DISABLE_MODEL
-    if (dstnode != HWMODE_DEBUG_RAM_NODE) {
+    if (dstnode != driverkit_hwmodel_lookup_dram_node_id()) {
         return LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS;
     }
     return frame_alloc(dst, bytes, NULL);
@@ -227,6 +230,10 @@ errval_t driverkit_hwmodel_vspace_map_fixed(int32_t nodeid,
 }
 
 
+#define MAP_WRAP_Q  "state_get(S)," \
+                    "map_wrap(S, %zu, 21, %"PRIi32", %"PRIu64", %s, NewS)," \
+                    "state_set(NewS)."
+
 errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
                                         int32_t nodeid, genvaddr_t *addr)
 {
@@ -248,13 +255,13 @@ errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
     src_nodeid[1] = 0;
     format_nodelist(src_nodeid, src_nodeid_str);
 
-    int32_t mem_nodeid = id.pasid;
+    //int32_t mem_nodeid = id.pasid;
+    int32_t mem_nodeid = driverkit_hwmodel_lookup_dram_node_id();
     uint64_t mem_addr = id.base;
-    err = skb_execute_query(
-                "state_get(S),"
-                "map_wrap(S, %zu, 21, %"PRIi32", %"PRIu64", %s, NewS),"
-                "state_set(NewS)",
-                id.bytes, mem_nodeid, mem_addr, src_nodeid_str);
+    debug_printf("Query: " MAP_WRAP_Q,
+            id.bytes, mem_nodeid, mem_addr, src_nodeid_str);
+    err = skb_execute_query(MAP_WRAP_Q,
+            id.bytes, mem_nodeid, mem_addr, src_nodeid_str);
     if(err_is_fail(err)){
         DEBUG_SKB_ERR(err, "map_wrap");
         return err;
@@ -266,6 +273,7 @@ errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
     assert(num_conversions == 2);
     //names[0] is the resolved name as stored in frame
     *addr = names[1].address;
+    debug_printf("Determined addr=0x%"PRIx64" as vbase address\n", *addr);
     return SYS_ERR_OK;
 }
 
@@ -292,6 +300,7 @@ int32_t driverkit_hwmodel_get_my_node_id(void)
             "add_process(S, E, NewS), writeln(E), "
             "state_set(NewS)");
         if (err_is_fail(err)) {
+            DEBUG_SKB_ERR(err, "add_process");
             return -1;
         }
         err = skb_read_output("%d", &nodeid);
@@ -302,18 +311,29 @@ int32_t driverkit_hwmodel_get_my_node_id(void)
     return nodeid;
 }
 
+int32_t driverkit_hwmodel_lookup_dram_node_id(void)
+{
+#ifdef DISABLE_MODEL
+    return 1;
+#else
+    return driverkit_hwmodel_lookup_node_id("[\"DRAM\"]");
+#endif
+}
+
 int32_t driverkit_hwmodel_lookup_node_id(const char *path)
 {
-    if (strncmp(path, "numanode", sizeof("numanode"))) {
-        debug_printf("XXX just return %u for numanode node\n",
-                     HWMODE_DEBUG_RAM_NODE);
-        return HWMODE_DEBUG_RAM_NODE;
-    } else if (strncmp(path, "ram", sizeof("ram"))) {
-        debug_printf("XXX just return %u for numanode node\n",
-                     HWMODE_DEBUG_RAM_NODE);
-        return HWMODE_DEBUG_RAM_NODE;
+    errval_t err;
+    err = skb_execute_query(
+        "state_get(S), "
+        "node_enum(S, %s, E, NewS), writeln(E), "
+        "state_set(NewS)",
+        path);
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "query node_enum");
     }
-
-    return -1;
+    int32_t nodeid;
+    err = skb_read_output("%d", &nodeid);
+    assert(err_is_ok(err));
+    return nodeid;
 }
 

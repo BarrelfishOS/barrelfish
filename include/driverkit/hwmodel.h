@@ -43,12 +43,13 @@ errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
 
 int32_t driverkit_hwmodel_get_my_node_id(void);
 
+int32_t driverkit_hwmodel_lookup_dram_node_id(void);
+
 int32_t driverkit_hwmodel_lookup_node_id(const char *path);
 
 
 // Disable using the model for allocation
 //#define DISABLE_MODEL
-#define HWMODE_DEBUG_RAM_NODE 1
 
 
 #endif // DRIVERKIT_HWMODEL_H

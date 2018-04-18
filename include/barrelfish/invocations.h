@@ -213,6 +213,7 @@ static inline errval_t invoke_frame_identify(struct capref frame,
 
     ret->base = 0;
     ret->bytes = 0;
+    ret->pasid = 0;
     return sysret.error;
 }
 
