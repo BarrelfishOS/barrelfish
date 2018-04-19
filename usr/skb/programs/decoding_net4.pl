@@ -17,6 +17,7 @@
 % Block block{..}
 
 :- module(decoding_net4).
+:- lib(ic).
 
 
 %%% Bottom layer is storing the following facts in the State
@@ -36,11 +37,14 @@ state_valid([block_conf(_,_,_) | As]) :- state_valid(As).
 state_valid([in_use(_) | As]) :- state_valid(As).
 
 
+:- export state_empty/1.
 state_empty([]).
 
+:- export state_add/3.
 state_add(O, Fact, N) :-
     N = [Fact | O].
 
+:- export state_remove/3.
 state_remove([], _, _).
 state_remove([Head|Tail], Fact, Out) :-
     Head = Fact,
@@ -49,18 +53,17 @@ state_remove([Head|Tail], Fact, Out) :-
     not(Head = Fact),
     state_remove(Tail, Fact, [Head|Out]).
 
+:- export state_union/3.
 state_union(N, [], N).
 state_union(S1, [Head|Tail], N) :-
     state_add(S1, Head, S2),
     state_union(S2, Tail, N).
 
+:- export state_query/2.
 state_query([Fact|_], Fact).
 state_query([_|Tail], Fact) :-
     state_query(Tail, Fact).
 
-
-
-:- lib(ic).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

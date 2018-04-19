@@ -74,8 +74,7 @@ static errval_t init_decoding_net(void)
     PCI_DEBUG("PCI: Loading decoding net \n");
     err = skb_execute(
             "use_module(decoding_net4),"
-            "use_module(decoding_net4_support),"
-            "use_module(decoding_net4_state).");
+            "use_module(decoding_net4_support).");
 
     if(err_is_fail(err)) {
         DEBUG_SKB_ERR(err, "decoding net module load");
