@@ -362,7 +362,7 @@ instance PrologGenerator MyAddressBlock where
   -- pred_99(propspec) :- member(prop1, propspec), member(prop2, propspec
   -- node_accept( ..., block{propspec: pred_99}).
   -- to check: B = block{propspec: PS}, call(PS, current_properties)
-  generate ab = list $ [generate $ domain ab] ++ blocks
+  generate ab = blocks !! 0
     where
       blocks = gen_a $ addresses ab
       gen_a (AST.Address _ ws) = map gen_ws ws
@@ -395,10 +395,10 @@ instance PrologGenerator AST.NaturalSet where
 
 instance PrologGenerator AST.NaturalRange where
   generate nr = case nr of
-    AST.SingletonRange _ b -> struct "block"
-      [("base", generate b), ("limit", generate b)]
-    AST.LimitRange _ b l -> struct "block"
-      [("base", generate b), ("limit", generate l)]
+    AST.SingletonRange _ b -> predicate "block"
+      [generate b, generate b]
+    AST.LimitRange _ b l -> predicate "block"
+      [generate b, generate l]
     AST.BitsRange _ b bits -> "BITSRANGE NYI"
       -- struct "block" [("base", generate b), ("limit", show 666)]
 

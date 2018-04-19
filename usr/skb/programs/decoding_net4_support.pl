@@ -102,9 +102,55 @@ add_process(S, Enum, NewS) :-
 iommu_enabled :-
     call(iommu_enabled,0,_)@eclipse.
 
+list_filter(_, [],  []).
+list_filter(Pred, [Head|Tail], Out) :-
+    call(Pred, Head), % pred true hence, remove
+    list_filter(Pred, Tail, Out)
+    ;
+    not(call(Pred, Head)),
+    list_filter(Pred, Tail, InnerOut),
+    Out = [Head | InnerOut].
+
+matches_suffix(Suffix, overlay(Id, _)) :- append(_, Suffix, Id).
+matches_suffix(Suffix, accept(region(Id,_))) :- append(_, Suffix, Id).
+matches_suffix(Suffix, mapping(region(Id,_), _)) :- append(_, Suffix, Id).
+matches_suffix(Suffix, block_meta(Id, _, _)) :- append(_, Suffix, Id).
+matches_suffix(Suffix, block_conf(Id, _, _)) :- append(_, Suffix, Id).
+matches_suffix(Suffix, in_use(region(Id, _))) :- append(_, Suffix, Id).
+matches_suffix(Suffix, enum_node_id(_, Id)) :- append(_, Suffix, Id).
+
 % Addr - PCI address, should be provided by caller.
+:- export remove_pci/3.
+remove_pci(S, Addr, NewS) :-
+    state_query(S, pci_address_node_id(Addr, Enum)),
+    % remove pci_address_node lookup
+    state_remove(S, pci_address_node_id(Addr, Enum), S1),
+    list_filter(matches_suffix([Enum]), S1, NewS).
+
+%test_remove_pci :-
+%    state_empty(S),
+%    state_add(S, blu(3,2), S1),
+%    add_pci(S1, addr(0,0,0), _, S2),
+%    remove_pci(S2, addr(0,0,0), S3),
+%    writeln(S3).
+
+:- export add_xeon_phi/4.
+add_xeon_phi(S, Addr, Enum, NewS) :- 
+    add_pci_internal(S, Addr, Enum, add_XEONPHI, add_XEONPHI_IOMMU, NewS).
+
 :- export add_pci/4.
-add_pci(S, Addr, Enum, NewS) :-
+add_pci(S, Addr, Enum, NewS) :- 
+    add_pci_internal(S, Addr, Enum, add_PCI, add_PCI_IOMMU, NewS).
+
+% Enum will be the new enum for the Phi
+:- export replace_with_xeon_phi/4.
+replace_with_xeon_phi(S, Addr, Enum, NewS) :- 
+    remove_pci(S, Addr, S1),
+    add_xeon_phi(S1, Addr, Enum, NewS).
+
+% Helper to instantiate a PCI card. If no IOMMU is present it will 
+% instantiate Module, else ModuleIommu
+add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
     unused_node_enum(S, Enum),
     Id = [Enum],
     OutNodeId = ["OUT", "PCI0", Enum],
@@ -114,12 +160,14 @@ add_pci(S, Addr, Enum, NewS) :-
     PCIBUS_ID = ["PCIBUS"],
     PCIOUT_ID = ["OUT" | Id],
     (iommu_enabled -> (
-        add_PCI_IOMMU(S0, Id, S1), 
+        %add_PCI_IOMMU(S0, Id, S1), 
+        call(ModuleIOMMU, S0, Id, S1),
         % Mark IOMMU block remappable
         state_add(S1, block_meta(["IN", "IOMMU0" | Id], 21, ["OUT", "IOMMU0" | Id]), S2)
     ) ; (
         % IOMMU disabled.
-        add_PCI(S0, Id, S2)
+        %add_PCI(S0, Id, S2)
+        call(Module, S0, Id, S2)
     )),
 
     % connect the output to the systems pci bus

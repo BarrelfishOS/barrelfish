@@ -51,7 +51,9 @@ state_remove([Head|Tail], Fact, Out) :-
     state_remove(Tail, Fact, Out)
     ;
     not(Head = Fact),
-    state_remove(Tail, Fact, [Head|Out]).
+    state_remove(Tail, Fact, SubOut),
+    Out = [Head | SubOut].
+
 
 :- export state_union/3.
 state_union(N, [], N).
@@ -249,7 +251,7 @@ translate_region_alloc(I, SIn, SrcId, VPN, PFN, SOut) :-
 
 
 
-optimize_search_order(VPN, PPN) :-
+optimize_search_order(VPN, _) :-
     PPNFirst is 2^30 * 4 / (2^21), % Start the search at 4G
     integer(PPNFirst, PPNFirstI),
     PPNLast is 2^30 * 16 / (2^21), % End the search at 16G
