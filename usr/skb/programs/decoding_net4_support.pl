@@ -1,7 +1,6 @@
 
 :- module(decoding_net4_support).
 :- use_module(decoding_net4).
-:- use_module(decoding_net4_state).
 :- lib(ic).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
