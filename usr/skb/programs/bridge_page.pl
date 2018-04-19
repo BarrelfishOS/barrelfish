@@ -15,7 +15,7 @@
 
 :-dynamic(currentbar/5).
 :-dynamic(addr/3).
-%:-dynamic(bar/7).
+:-dynamic(bar/7).
 
 % :-include("../data/data_hand.txt").
 % :-include("../data/data_qemu_hand.txt").
