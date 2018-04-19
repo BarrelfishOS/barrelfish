@@ -285,7 +285,10 @@ static errval_t iommu_get_mapping_region(struct iommu_client *cl,
     assert(rootvnodeslot != NULL);
     int32_t device_nodeid = driverkit_iommu_get_nodeid(cl);
     err = skb_execute_query(
-        "enum_node_id(%d,Id),alloc_root_vnodeslot(Id, Slot),write(Slot)",
+        "state_get(S),"
+        "alloc_root_vnodeslot_wrap(S, %d, Slot, NewS),"
+        "write(Slot),"
+        "state_set(NewS).",
         device_nodeid);
 
     if(err_is_fail(err)){

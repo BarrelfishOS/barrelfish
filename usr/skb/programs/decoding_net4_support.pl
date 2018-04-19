@@ -153,6 +153,24 @@ add_pci(S, Addr, Enum, NewS) :-
     state_add(S4, pci_address_node_id(Addr, Enum), NewS).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Root Vnode Management 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+next_free_root_vnodeslot(S, NodeId, SlotTry, Slot) :-
+    not(state_query(S, root_vnode(NodeId, SlotTry))),
+    Slot = SlotTry ;
+    NextSlotTry is SlotTry + 1,
+    next_free_root_vnodeslot(S, NodeId, NextSlotTry, Slot).
+
+alloc_root_vnodeslot(S, NodeId, Slot, NewS) :-
+    next_free_root_vnodeslot(S, NodeId, 2, Slot),
+    state_add(S, root_vnode(NodeId, Slot), NewS).
+
+:- export alloc_root_vnodeslot_wrap/4.
+alloc_root_vnodeslot_wrap(S, NEnum, Slot, NewS) :-
+    node_enum(S, NId, NEnum, S),
+    alloc_root_vnodeslot(S, NId, Slot, NewS).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Query Wrappers
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 write_regions(S, Regs) :-

@@ -106,8 +106,8 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
     assert(num_conversions > 0);
 
     struct mem_binding * b = get_mem_client();
-    debug_printf("Determined addr=0x%"PRIx64" as base address for bits=%d request\n",
-            names[0].address, bits);
+    debug_printf("Determined addr=0x%"PRIx64" as address for (nodeid=%d, size=%zu) request\n",
+            names[0].address, dstnode, bytes);
     err = b->rpc_tx_vtbl.allocate(b, bits, names[0].address, names[0].address + bytes,
             &msgerr, dst);
     if(err_is_fail(err)){
@@ -191,7 +191,7 @@ errval_t driverkit_hwmodel_vspace_map(int32_t nodeid, struct capref frame,
 #else
     genpaddr_t addr;
 
-    // Alloc my vspace
+    // Alloc vspace
     err = driverkit_hwmodel_vspace_alloc(frame, nodeid,  &addr);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "vspace_alloc");
@@ -239,10 +239,6 @@ errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
 {
     errval_t err;
 
-    if(nodeid != driverkit_hwmodel_get_my_node_id()){
-        return LIB_ERR_NOT_IMPLEMENTED;
-    }
-
     struct frame_identity id;
     err = invoke_frame_identify(frame, &id);
     if (err_is_fail(err)) {
@@ -271,9 +267,10 @@ errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
     int num_conversions = 0;
     parse_namelist(skb_get_output(), names, &num_conversions);
     assert(num_conversions == 2);
-    //names[0] is the resolved name as stored in frame
+    //ignore, names[0] it is the resolved name as stored in frame
     *addr = names[1].address;
-    debug_printf("Determined addr=0x%"PRIx64" as vbase address\n", *addr);
+    debug_printf("Determined addr=0x%"PRIx64" as vbase for (nodeid=%d, size=%zu) request\n",
+            *addr, nodeid, id.bytes);
     return SYS_ERR_OK;
 }
 
