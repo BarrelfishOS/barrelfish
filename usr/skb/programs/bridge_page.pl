@@ -15,7 +15,7 @@
 
 :-dynamic(currentbar/5).
 :-dynamic(addr/3).
-%:-dynamic(bar/7).
+:-dynamic(bar/7).
 
 % :-include("../data/data_hand.txt").
 % :-include("../data/data_qemu_hand.txt").
@@ -156,7 +156,7 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     devicetree(BusElementListP,buselement(bridge,Addr,secondary(MinBus),RBaseP,RHighP,RSizeP, Type, prefetchable, _, _),TP),
 
 % nonprefetchable, Highest address must be less than 4GB
-    constrain_bus(Granularity, Type, nonprefetchable, Addr,MinBus,MaxBus,LMem,HMem,BusElementListNP),
+    constrain_bus(Granularity, Type, nonprefetchable, Addr,MinBus,MaxBus,LMem,HMem2,BusElementListNP),
     RBaseNP::[LMem..HMem2],
     RHighNP::[LMem..HMem2],
     RSizeNP::[0..X],

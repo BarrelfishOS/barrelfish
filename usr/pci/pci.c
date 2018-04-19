@@ -330,6 +330,13 @@ errval_t device_init(uint32_t class_code,
     //iterate over all buselements
     while (skb_read_list(&status, "baraddr(%d, %"PRIuPCIADDR", %"PRIuPCIADDR", "
                          "%"PRIuPCISIZE")", &bar_nr, &bar_base, &bar_high, &bar_size)) {
+
+        if(strncmp("bridge_page", skb_bridge_program, strlen("bridge_page")) == 0){
+            bar_base *= BASE_PAGE_SIZE;
+            bar_high *= BASE_PAGE_SIZE;
+            bar_size *= BASE_PAGE_SIZE;
+        }
+
         err = alloc_device_bar(*nr_allocated_bars, *bus, *dev, *fun, bar_nr,
                                bar_base, bar_high, bar_size);
 
@@ -1179,8 +1186,22 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                 err = pci_get_max_vfs_for_device(&addr, &total_vfs);
                                 assert(err_is_ok(err));
                                 
+                                // Add fake bridge for Bridge programming algo 
+                                // bus + 1 so VFs are taken into account
+                                if (addr.function == 0) {
+                                    PCI_DEBUG("bridge(%s,addr(%d,%d,%d),%u,%u,%u,%u,%u, secondary(%hhu)).",
+                                              (pcie ? "pcie" : "pci"), 0, 257,
+                                              0, vendor, device_id, 0,
+                                              0, 0, addr.bus + 1);
+                                    skb_add_fact("bridge(%s,addr(%d,%d,%d),%u,%u,%u,%u,%u, secondary(%hhu)).",
+                                                 (pcie ? "pcie" : "pci"), 0, 257,
+                                                 0, vendor, device_id, 0,
+                                                 0, 0, addr.bus + 1);
+                                }
                                 struct pci_address vf_addr;
-                                for (int vfn=0; vfn < total_vfs; vfn++) {  
+                                
+                                uint32_t vfs = MIN(max_numvfs, total_vfs);
+                                for (int vfn=0; vfn < vfs; vfn++) {  
                                     pci_get_vf_addr(&addr, vfn, &sr_iov_cap, &vf_addr);
                                     uint16_t vf_devid = pci_sr_iov_cap_devid_rd(&sr_iov_cap);
 
@@ -1810,13 +1831,6 @@ void pci_program_bridges(void)
             pref = true;
         } else {
             pref = false;
-        }
-
-        // Skip virtual functions
-        if (strncmp(space, "vf", strlen("vf")) == 0) {
-            /* PCI_DEBUG("Skipping VF addr(%hhu, %hhu, %hhu)\n", */
-            /* 	    bus, dev, fun); */
-            continue;
         }
 
         if (strncmp(element_type, "device", strlen("device")) == 0) {

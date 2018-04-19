@@ -29,8 +29,6 @@
 
 #include "debug.h"
 
-#define HWMODE_DEBUG_RAM_NODE 1
-
 struct iommu_vnode_l2
 {
     enum objtype           vnode_type;
@@ -142,7 +140,8 @@ static errval_t iommu_alloc_ram(struct iommu_client *cl,
     nodes[0] = driverkit_iommu_get_nodeid(cl);
     nodes[1] = driverkit_hwmodel_get_my_node_id();
     nodes[2] = 0;
-    return driverkit_hwmodel_ram_alloc(retcap, bytes, HWMODE_DEBUG_RAM_NODE,
+    int32_t dest_nodeid = driverkit_hwmodel_lookup_dram_node_id();
+    return driverkit_hwmodel_ram_alloc(retcap, bytes, dest_nodeid,
             nodes);
 }
 
@@ -156,7 +155,8 @@ static errval_t iommu_alloc_frame(struct iommu_client *cl,
     nodes[0] = driverkit_iommu_get_nodeid(cl);
     nodes[1] = driverkit_hwmodel_get_my_node_id();
     nodes[2] = 0;
-    return driverkit_hwmodel_frame_alloc(retcap, bytes, HWMODE_DEBUG_RAM_NODE,
+    int32_t dest_nodeid = driverkit_hwmodel_lookup_dram_node_id();
+    return driverkit_hwmodel_frame_alloc(retcap, bytes, dest_nodeid,
             nodes);
 }
 
@@ -285,7 +285,10 @@ static errval_t iommu_get_mapping_region(struct iommu_client *cl,
     assert(rootvnodeslot != NULL);
     int32_t device_nodeid = driverkit_iommu_get_nodeid(cl);
     err = skb_execute_query(
-        "enum_node_id(%d,Id),alloc_root_vnodeslot(Id, Slot),write(Slot)",
+        "state_get(S),"
+        "alloc_root_vnodeslot_wrap(S, %d, Slot, NewS),"
+        "write(Slot),"
+        "state_set(NewS).",
         device_nodeid);
 
     if(err_is_fail(err)){

@@ -569,6 +569,22 @@ static struct sysret handle_frame_identify(struct capability *to,
 
     fi->base = get_address(to);
     fi->bytes = get_size(to);
+    switch(to->type) {
+        case ObjType_Frame:
+            fi->pasid = to->u.frame.pasid;
+            break;
+        case ObjType_DevFrame:
+            fi->pasid = to->u.devframe.pasid;
+            break;
+        case ObjType_RAM:
+            fi->pasid = to->u.ram.pasid;
+            break;
+        case ObjType_EndPointUMP:
+            fi->pasid = to->u.endpointump.pasid;
+            break;
+        default:
+            assert(false);
+    }
 
     return SYSRET(SYS_ERR_OK);
 }
