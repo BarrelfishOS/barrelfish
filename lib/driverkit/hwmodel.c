@@ -58,7 +58,7 @@ static void parse_namelist(char *in, struct hwmodel_name *names, int *conversion
 }
 
 #define ALLOC_WRAP_Q "state_get(S)," \
-                     "alloc_wrap(S, %zu, 21, %"PRIi32",%s, NewS)," \
+                     "alloc_wrap(S, %zu, %d, %"PRIi32",%s, NewS)," \
                      "state_set(NewS)."
 
 errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
@@ -73,6 +73,8 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
 
     int bits = log2ceil(bytes);
     bytes = 1 << bits;
+    assert(bits >= 21);
+    // The PT configuration in the SKB is currently using 2M pages.
 
 #ifdef DISABLE_MODEL
     if (dstnode != driverkit_hwmodel_lookup_dram_node_id()) {
@@ -85,8 +87,12 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
     format_nodelist(nodes, nodes_str);
 
 
-    debug_printf("Query: " ALLOC_WRAP_Q, bytes, dstnode, nodes_str);
-    err = skb_execute_query(ALLOC_WRAP_Q, bytes, dstnode, nodes_str);
+    int alloc_bits = 21;
+    //HACK: This should 
+    alloc_bits = 30;
+    //ENDHACK
+    debug_printf("Query: " ALLOC_WRAP_Q "\n", bytes, alloc_bits, dstnode, nodes_str);
+    err = skb_execute_query(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
 
     DEBUG_SKB_ERR(err, "alloc_wrap");
     if(err_is_fail(err)){
@@ -108,6 +114,7 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
     struct mem_binding * b = get_mem_client();
     debug_printf("Determined addr=0x%"PRIx64" as address for (nodeid=%d, size=%zu) request\n",
             names[0].address, dstnode, bytes);
+
     err = b->rpc_tx_vtbl.allocate(b, bits, names[0].address, names[0].address + bytes,
             &msgerr, dst);
     if(err_is_fail(err)){
@@ -254,7 +261,7 @@ errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
     //int32_t mem_nodeid = id.pasid;
     int32_t mem_nodeid = driverkit_hwmodel_lookup_dram_node_id();
     uint64_t mem_addr = id.base;
-    debug_printf("Query: " MAP_WRAP_Q,
+    debug_printf("Query: " MAP_WRAP_Q "\n",
             id.bytes, mem_nodeid, mem_addr, src_nodeid_str);
     err = skb_execute_query(MAP_WRAP_Q,
             id.bytes, mem_nodeid, mem_addr, src_nodeid_str);
