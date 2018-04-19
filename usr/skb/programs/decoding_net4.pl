@@ -246,6 +246,14 @@ translate_region_alloc(I, SIn, SrcId, VPN, PFN, SOut) :-
 
 
 
+optimize_search_order(VPN, PPN) :-
+    PPNFirst is 2^30 * 4 / (2^21), % Start the search at 4G
+    integer(PPNFirst, PPNFirstI),
+    PPNLast is 2^30 * 16 / (2^21), % End the search at 16G
+    integer(PPNLast, PPNLastI),
+    PPN #>= PPNFirstI,
+    PPNLastI #>= PPN ;
+    true.
 
 % Assumes SrcRegion has no mapping in S.
 translate_region_conf(S, SrcRegion, DstRegion, COut) :-
@@ -268,6 +276,7 @@ translate_region_conf(S, SrcRegion, DstRegion, COut) :-
     %labeling([BaseVPN, Offset]),
     split_vaddr(DstBase, Bits, BasePPN, Offset),
     DstLimit #= DstBase + SrcSize - 1,
+    optimize_search_order(BaseVPN, BasePPN),
     labeling([BaseVPN, BasePPN, DstLimit, DstBase, SrcBase, Offset]),
     translate_region_alloc(ItEnd, CIn, SrcId, BaseVPN, BasePPN, COut).
 
