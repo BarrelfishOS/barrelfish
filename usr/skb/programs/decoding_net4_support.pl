@@ -200,7 +200,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
     state_add(S4, pci_address_node_id(Addr, Enum), S5),
     % We keep the lowest root vnode slot unmapped, hence the 512G hole.
     Limit is 512 * 1024 * 1024 * 1024,
-    state_add(S5, in_use(region(PCIOUT_ID, block(0, Limit))), NewS).
+    state_add(S5, in_use(region(OutNodeId, block(0, Limit))), NewS).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Root Vnode Management 
