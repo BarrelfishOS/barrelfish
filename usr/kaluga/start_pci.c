@@ -41,6 +41,8 @@
 
 static struct capref pci_ep;
 static struct kaluga_binding* pci_binding;
+static coreid_t pci_core = 0;
+static coreid_t iommu_core = 0;
 static uint32_t num_iommu_started = 0;
 
 // TODO might needs some methods
@@ -111,7 +113,7 @@ static errval_t add_ep_args(struct pci_addr addr, struct pci_id id, coreid_t cor
     }
 
     err = pci_binding->rpc_tx_vtbl.request_endpoint_cap(pci_binding, 
-                       (core == my_core_id)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                       (core == pci_core)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP,
                        addr.bus, addr.device, 
                        addr.function, id.vendor, id.device, &pci_cap, &out_err);
 
@@ -142,7 +144,7 @@ static errval_t add_ep_args(struct pci_addr addr, struct pci_id id, coreid_t cor
 
     if (num_iommu_started > 0) {
         err = pci_binding->rpc_tx_vtbl.request_iommu_endpoint_cap(pci_binding, 
-                           (core == my_core_id)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                           (core == iommu_core)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP,
                            0,
                            addr.bus, addr.device, 
                            addr.function, &iommu_cap, &out_err);

@@ -167,12 +167,21 @@ errval_t arch_startup(char * add_device_db_file)
         USER_PANIC_ERR(err, "start_lpc_timer");
     }
 
+    KALUGA_DEBUG("Kaluga: wait_for_all_spawnds\n");
+
+    err = wait_for_all_spawnds();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
+    }
+
     err = watch_for_iommu();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Watching for IOMMUS.");
     }
 
     KALUGA_DEBUG("Kaluga: pci_root_bridge\n");
+
+
 
     err = watch_for_pci_root_bridge();
     if (err_is_fail(err)) {

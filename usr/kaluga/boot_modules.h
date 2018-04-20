@@ -30,6 +30,7 @@ struct module_info {
     char* argv[MAX_CMDLINE_ARGS + 1];
 
     struct domain_instance* driverinstance;
+    coreid_t core;
 
     module_start_fn start_function;
     uint8_t allow_multi;    ///< allow multiple driver instances

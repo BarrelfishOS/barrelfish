@@ -255,7 +255,8 @@ static errval_t get_driver_ep(coreid_t where, struct module_info* driver,
         return DRIVERKIT_ERR_NO_DRIVER_FOUND;
     }
 
-    err = driverkit_get_driver_ep_cap(drv, ret_ep, (where == my_core_id));
+
+    err = driverkit_get_driver_ep_cap(drv, ret_ep, (where == driver->core));
     if (err_is_fail(err)) {
         return err;
     }
