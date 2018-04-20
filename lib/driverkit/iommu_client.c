@@ -201,6 +201,10 @@ static errval_t iommu_alloc_vregion(struct iommu_client *st,
         return SYS_ERR_OK;
     }
 
+
+    DRIVERKIT_DEBUG("[iommu client] allocate driver vspace\n");
+
+
     // Alloc space in my vspace
     int32_t my_nodeid = driverkit_hwmodel_get_my_node_id();
     err = driverkit_hwmodel_vspace_alloc(mem, my_nodeid, driver);
@@ -208,6 +212,8 @@ static errval_t iommu_alloc_vregion(struct iommu_client *st,
         DEBUG_ERR(err, "vspace_map local");
         return err;
     }
+
+    DRIVERKIT_DEBUG("[iommu client] allocate device vspace\n");
 
     // Map into dev vspace
     int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
@@ -1122,15 +1128,21 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         return err;
     }
 
+    DRIVERKIT_DEBUG("%s:%u Allocated VREGIONs 0x%" PRIxLVADDR " 0x%" PRIxLVADDR "\n",
+                    __FUNCTION__, __LINE__, dmem->vbase, dmem->devaddr);
+
     /*
      * if driver vbase is null, then we map it at any address in the driver's
      * vspace. Only if the policy is not shared, then we have to map it.
      */
     if (cl == NULL || cl->policy != IOMMU_VSPACE_POLICY_SHARED || !cl->enabled) {
         if (dmem->vbase == 0) {
+            DRIVERKIT_DEBUG("vspace_map_one_frame_attr(?, %lu)\n", dmem->size >> 20);
             err = vspace_map_one_frame_attr((void **)&dmem->vbase, dmem->size,
                                             dmem->mem, flags, NULL, NULL);
         } else {
+            DRIVERKIT_DEBUG("vspace_map_one_frame_fixed_attr(%lx, %lu)\n",
+                            dmem->vbase, dmem->size >> 20);
             err = vspace_map_one_frame_fixed_attr(dmem->vbase, dmem->size,
                                                   dmem->mem, flags, NULL, NULL);
         }
