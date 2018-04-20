@@ -41,7 +41,7 @@
 
 #define NO_OF_BUFFERS 128
 #define BUFFER_SIZE 16384
-//#define POLLING
+#define POLLING
 
 struct socket_connection;
 
