@@ -76,6 +76,8 @@ module SYSTEM {
 
 // This module must have the same signature as PCI
 module XEONPHI {
+    // BAR0 --> GDDR ?
+    // BAR1 --> MMIO ?
 
     output memory (0 bits 40) OUT           // Addresses issued by device
 

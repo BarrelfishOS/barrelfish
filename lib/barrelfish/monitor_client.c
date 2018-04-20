@@ -19,7 +19,7 @@
 #include <if/monitor_blocking_defs.h>
 #include <string.h>
 #include <inttypes.h>
-#include "../../build.x86_64/k1om/include/if/monitor_lmp_defs.h"
+#include <if/monitor_lmp_defs.h>
 
 static void error_handler(struct monitor_binding *b, errval_t err)
 {
