@@ -226,20 +226,21 @@ static void run(struct skb_binding *b, const char *query)
     errval_t err = new_reply_state(&srt, run_reply);
     assert(err_is_ok(err)); // TODO
 
-    cycles_t time = bench_tsc();
 
     //debug_printf(">>>>>>>>>>>>>> QUERY START [%.20s]\n", query);
+
+    cycles_t time = bench_tsc();
 
     err = execute_query(query, &srt->skb);
     assert(err_is_ok(err));
 
     time = bench_tsc_to_us(bench_tsc() - time);
     if (time > 12000) {
-        debug_printf("############## QUERY [%.20s]  elapsed %lu us\n", query, bench_tsc_to_us(time));
+        debug_printf("############## QUERY [%.25s]  elapsed %lu us\n", query, time);
     }
 
 
-    //debug_printf("<<<<<<<<<<<<<< QUERY END elapsed %lu us\n", bench_tsc_to_us(time));
+    //debug_printf("<<<<<<<<<<<<<< QUERY END elapsed %lu us\n", time);
 
 
     run_reply(b, srt);
