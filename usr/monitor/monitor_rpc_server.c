@@ -686,6 +686,7 @@ static void new_monitor_binding(struct monitor_blocking_binding *b,
     out_err3:
     monitor_lmp_destroy(lmpb);
     out_err2:
+    retcap = NULL_CAP;
     free(lmpb);
     goto out;
 }
