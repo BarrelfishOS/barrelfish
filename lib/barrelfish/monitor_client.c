@@ -19,6 +19,7 @@
 #include <if/monitor_blocking_defs.h>
 #include <string.h>
 #include <inttypes.h>
+#include "../../build.x86_64/k1om/include/if/monitor_lmp_defs.h"
 
 static void error_handler(struct monitor_binding *b, errval_t err)
 {
@@ -449,7 +450,8 @@ errval_t monitor_client_prepare_new_binding(struct capref ep, bool create,
     errval_t err;
     assert(ret_mb);
 
-    debug_printf("Creating new monitor binding\n");
+    //debug_printf("Creating new monitor binding from %p %p\n"
+    //              __builtin_return_address(0), __builtin_return_address(1));
 
     struct monitor_blocking_binding *r = get_monitor_blocking_binding();
     if (!r) {
@@ -484,6 +486,9 @@ errval_t monitor_client_prepare_new_binding(struct capref ep, bool create,
 
     assert(err_is_ok(err));
     errval_t msgerr;
+
+   // debug_printf("Calling new_monitor_binding() RPC\n");
+
     err = r->rpc_tx_vtbl.new_monitor_binding(r, ep, create, domid, &monep, &msgerr);
     if (err_is_fail(err)){
         goto out_err;
@@ -492,7 +497,7 @@ errval_t monitor_client_prepare_new_binding(struct capref ep, bool create,
         goto out_err;
     }
 
-    debug_printf("Got remote monitor cap\n");
+  //  debug_printf("Got remote monitor cap\n");
 
     // success! store the cap
     lmpb->chan.remote_cap = monep;
@@ -500,8 +505,8 @@ errval_t monitor_client_prepare_new_binding(struct capref ep, bool create,
     /* Send the local endpoint cap to the monitor */
     lmpb->chan.connstate = LMP_CONNECTED; /* pre-established */
 
-    debug_printf("Send local cap to the monitor\n");
-    err = lmp_chan_send0(&lmpb->chan, 0, lmpb->chan.local_cap);
+    //debug_printf("Send local cap to the monitor using yeld and sync flags\n");
+    err = lmp_chan_send0(&lmpb->chan, LMP_SEND_FLAGS_DEFAULT, lmpb->chan.local_cap);
     if (err_is_fail(err)) {
         // destroy the binding
         goto out_err2;
