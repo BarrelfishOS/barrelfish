@@ -96,7 +96,7 @@ add_process(S, Enum, NewS) :-
     state_add(S2, overlay(OUT_ID, DRAM_ID), S3),
     % Reserve memory for the process, the OUT/PROC0 node is the one where
     % initially the process (virtual) addresses are issued.
-    Limit = 1099511627775, % (512 << 31) - 1
+    Limit = 10995116277760, % (512 << 31) - 1
     state_add(S3, in_use(region(OutId, block(0,Limit))), NewS).
 
 iommu_enabled :-
