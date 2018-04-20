@@ -52,6 +52,8 @@ int main(int argc, char**argv)
 {
     errval_t err;
     vfs_init();
+    bench_init();
+
 //    init_dmalloc();
     // we'll be needing this...
     vfs_mkdir("/tmp");
