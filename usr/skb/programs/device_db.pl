@@ -56,7 +56,7 @@ pci_driver{
       pci_card{ vendor: 16'8086, device: 16'1533, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'15b8, function: _, subvendor: _, subdevice: _ }
     ],
-    core_hint: 0,
+    core_hint: 1,
     core_offset: 0,
     multi_instance: 0,
     interrupt_load: 0.75,
@@ -148,7 +148,7 @@ pci_driver{
     module: "knc_module",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'225e, function: _, subvendor: _, subdevice: _ } ],
-    core_hint: 0,
+    core_hint: 3,
     core_offset: 0,
     multi_instance: 1,
     interrupt_load: 0.5,
@@ -177,7 +177,7 @@ pci_driver{
       pci_card{ vendor: 16'8086, device: 16'2f25, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'2f26, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'2f27, function: _, subvendor: _, subdevice: _ }],
-    core_hint: 0,
+    core_hint: 4,
     core_offset: 0,
     multi_instance: 1,
     interrupt_load: 0.5,
