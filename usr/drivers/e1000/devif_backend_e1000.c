@@ -725,7 +725,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
         */
         /* interrupts don't work yetr */
         err = periodic_event_create(&device->event, get_default_waitset(),
-                                    1000, MKCLOSURE(interrupt_handler, device));
+                                    50, MKCLOSURE(interrupt_handler, device));
     }
 
     device->q.f.enq = e1000_enqueue;
