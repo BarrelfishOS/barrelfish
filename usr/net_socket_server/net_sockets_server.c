@@ -41,7 +41,8 @@
 
 #define NO_OF_BUFFERS 128
 #define BUFFER_SIZE 16384
-#define POLLING
+//#define POLLING
+#define NETSOCKET_LOOP_ITER 100
 
 struct socket_connection;
 
@@ -650,7 +651,7 @@ static errval_t q_notify(struct descq* q)
 
     // debug_printf("%s: \n", __func__);
     nc = devq_get_state(queue);
-    for (;;) {
+    for (int i = 0; i < NETSOCKET_LOOP_ITER; i++) {
         err = devq_dequeue(queue, &rid, &offset, &length,
                            &valid_data, &valid_length, &event);
         if (err_is_fail(err)) {

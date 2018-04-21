@@ -30,6 +30,8 @@ static uint64_t queue_id;
 
 #define NO_OF_BUFFERS 128
 #define BUFFER_SIZE 16384
+#define NETSOCKET_LOOP_ITER 100
+
 
 void *buffers[NO_OF_BUFFERS];
 uint64_t next_free, next_used;
@@ -352,6 +354,9 @@ static void alloc_mem(struct capref *frame, void** virt, size_t size)
     memset(*virt, 0, size);
 }
 
+
+
+
 static errval_t q_notify(struct descq* q)
 {
     assert(descq_queue == q);
@@ -366,7 +371,7 @@ static errval_t q_notify(struct descq* q)
     bool notify = 0;
 
     // debug_printf("%s: \n", __func__);
-    for (;;) {
+    for (int i = 0; i < NETSOCKET_LOOP_ITER; i++) {
         err = devq_dequeue((struct devq *)descq_queue, &rid, &offset, &length,
                            &valid_data, &valid_length, &event);
         if (err_is_fail(err)) {
