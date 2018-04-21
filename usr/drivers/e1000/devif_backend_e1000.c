@@ -22,7 +22,6 @@
 #include "e1000n.h"
 #include "e1000n_devq.h"
 
-
 static errval_t e1000_register(struct devq* q, struct capref cap,
                                   regionid_t rid)
 {
@@ -715,18 +714,18 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
 
     E1000_DEBUG("interrupt_mode=%s\n", interrupt_mode ? "on" : "off");
     if(interrupt_mode){
-        err = int_route_client_connect(); //Multiple calls are OK
-        if(err_is_fail(err)){
-            DEBUG_ERR(err, "int_route_client_connect");
-            goto error;
-        }
-
+        /*
         err = int_route_client_route_and_connect(device->irq, 0,
                 get_default_waitset(), interrupt_handler, device);
         if(err_is_fail(err)){
             DEBUG_ERR(err, "int_route_client_route_and_connect");
             goto error;
         }
+
+        */
+        /* interrupts don't work yetr */
+        err = periodic_event_create(&device->event, get_default_waitset(),
+                                    1000, MKCLOSURE(interrupt_handler, device));
     }
 
     device->q.f.enq = e1000_enqueue;

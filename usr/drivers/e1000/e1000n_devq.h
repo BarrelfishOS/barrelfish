@@ -69,6 +69,9 @@ typedef struct e1000_queue {
     // iommu
     struct iommu_client* iommu;
     struct capref iommu_ep;
+    
+    // if interrupts dont work ...
+    struct periodic_event event;
 } e1000_queue_t;
 
 static inline size_t e1000_queue_free_rxslots(e1000_queue_t* q)
