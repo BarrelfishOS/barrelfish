@@ -1232,6 +1232,8 @@ errval_t interphi_init_xphi(uint8_t xphi,
     return SYS_ERR_OK;
 }
 
+#include <driverkit/hwmodel.h>
+#include <driverkit/iommu.h>
 
 
 /**
@@ -1258,7 +1260,21 @@ errval_t interphi_init(struct xeon_phi *phi,
     size_t frame_size;
 
     if (capref_is_null(frame)) {
+#ifdef __k1om__
         err = frame_alloc(&mi->frame, XEON_PHI_INTERPHI_FRAME_SIZE, &frame_size);
+#else
+        int32_t nodes[3];
+        nodes[0] = driverkit_iommu_get_nodeid(phi->iommu_client);
+        nodes[1] = driverkit_hwmodel_get_my_node_id();
+        nodes[2] = 0;
+        int32_t dest_nodeid = driverkit_hwmodel_lookup_dram_node_id();
+
+       err =  driverkit_hwmodel_frame_alloc(&mi->frame, XEON_PHI_INTERPHI_FRAME_SIZE,
+                                      dest_nodeid, nodes);
+
+        frame_size =XEON_PHI_INTERPHI_FRAME_SIZE;
+#endif
+        //err = frame_alloc(&mi->frame, XEON_PHI_INTERPHI_FRAME_SIZE, &frame_size);
         if (err_is_fail(err)) {
             return err;
         }
