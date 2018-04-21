@@ -123,7 +123,7 @@ static struct socket_connection * allocate_socket(struct network_connection *nc)
     }
 
     socket->descriptor = last_descriptor + 1;
-    
+
     socket->connection = nc;
     socket->udp_socket = NULL;
     socket->tcp_socket = NULL;
@@ -161,12 +161,12 @@ static void net_udp_receive(void *arg, struct udp_pcb *pcb, struct pbuf *p, cons
     nb->host_address.s_addr = addr->addr;
     nb->port = port;
     // debug_printf("%s(%d): %p -> %p %p %d\n", __func__, connection->descriptor, buffer, nb->user_callback, nb->user_state, nb->size);
-    
+
     void *shb_data = buffer + sizeof(struct net_buffer);
-    
+
     struct pbuf *it;
     uint32_t pos;
-    
+
     it = p;
     for (pos = 0; pos < length; ) {
         assert(it);
@@ -234,7 +234,7 @@ static err_t net_tcp_receive(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err
     nc->buffers[nc->next_free] = NULL;
     nc->next_free = (nc->next_free + 1) % NO_OF_BUFFERS;
     assert(sizeof(struct net_buffer) + length <= BUFFER_SIZE);
-    
+
     // debug_printf("%s.%d: enqueue 1 %lx:%ld %d\n", __func__, __LINE__, buffer - nc->buffer_start, sizeof(struct net_buffer) + length, nb->descriptor);
     err = devq_enqueue((struct devq *)nc->queue, nc->region_id, buffer - nc->buffer_start, sizeof(struct net_buffer) + length,
                        0, 0, NET_EVENT_RECEIVED);
@@ -271,12 +271,12 @@ static void net_tcp_error(void *arg, err_t tcp_err)
     nb->port = 0;
     nc->buffers[nc->next_free] = NULL;
     nc->next_free = (nc->next_free + 1) % NO_OF_BUFFERS;
-    
+
     err = devq_enqueue((struct devq *)nc->queue, nc->region_id, buffer - nc->buffer_start, sizeof(struct net_buffer),
                        0, 0, NET_EVENT_RECEIVED);
     assert(err_is_ok(err));
     // debug_printf_to_log("%s(%d): close", __func__, socket->descriptor);
-    
+
     err = devq_notify((struct devq *)nc->queue);
     assert(err_is_ok(err));
 
@@ -326,7 +326,7 @@ static err_t net_tcp_sent(void *arg, struct tcp_pcb *pcb, uint16_t len)
             len = 0;
         } else {
             len -= socket->send_frames[0].length - socket->send_frames[0].sent;
-            
+
             socket->send_frames[0].length += sizeof(struct net_buffer);
             // debug_printf_to_log("%s.%d: enqueue %lx:%zd\n", __func__, __LINE__, socket->send_frames[0].offset, socket->send_frames[0].length);
             //
@@ -383,7 +383,7 @@ static err_t net_tcp_accepted(void *arg, struct tcp_pcb *newpcb, err_t error)
     nc->buffers[nc->next_free] = NULL;
     nc->next_free = (nc->next_free + 1) % NO_OF_BUFFERS;
     assert(sizeof(struct net_buffer) + length <= BUFFER_SIZE);
-    
+
     // debug_printf("%s.%d: enqueue 1 %lx:%ld %d\n", __func__, __LINE__, buffer - nc->buffer_start, sizeof(struct net_buffer) + length, nb->descriptor);
     err = devq_enqueue((struct devq *)nc->queue, nc->region_id, buffer - nc->buffer_start, sizeof(struct net_buffer) + length,
                        0, 0, NET_EVENT_ACCEPT);
@@ -714,9 +714,9 @@ static errval_t q_notify(struct descq* q)
                 } else if (socket->tcp_socket) {
                     err_t e;
                     // debug_printf("%s: dequeue %lx:%ld %ld\n", __func__, offset, length, event);
-                    
+
                     if (socket->send_frames[0].length == 0) {
-                        
+
                     } else {
                         assert(socket->send_frames[1].length == 0);
                     }
@@ -727,7 +727,7 @@ static errval_t q_notify(struct descq* q)
                     assert(e == ERR_OK);
                     e = tcp_output(socket->tcp_socket);
                     assert(e == ERR_OK);
-                    
+
                     if (socket->send_frames[0].length == 0) {
                         socket->send_frames[0].offset = offset;
                         socket->send_frames[0].length = length - sizeof(struct net_buffer);
@@ -797,7 +797,7 @@ static errval_t q_dereg(struct descq* q, regionid_t rid)
 {
     return SYS_ERR_OK;
 }
-    
+
 
 static errval_t q_control(struct descq* q, uint64_t cmd, uint64_t value, uint64_t* res)
 {
@@ -833,7 +833,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 int main(int argc, char *argv[])
 {
     errval_t err;
-    
+
     if (argc < 4) {
         printf("%s: missing arguments! \n", argv[0]);
         return -1;
@@ -900,12 +900,12 @@ int main(int argc, char *argv[])
 #ifdef POLLING
     debug_printf("Net socket server polling \n");
 
-    err = networking_init_with_ep(card_name, ep, (!ip ? NET_FLAGS_DO_DHCP: 0) 
-                                  | NET_FLAGS_DEFAULT_QUEUE | NET_FLAGS_BLOCKING_INIT 
+    err = networking_init_with_ep(card_name, ep, (!ip ? NET_FLAGS_DO_DHCP: 0)
+                                  | NET_FLAGS_DEFAULT_QUEUE | NET_FLAGS_BLOCKING_INIT
                                   | NET_FLAGS_POLLING );
 #else
     debug_printf("Net socket server using interrupts \n");
-    err = networking_init_with_ep(card_name, ep, (!ip ? NET_FLAGS_DO_DHCP: 0) 
+    err = networking_init_with_ep(card_name, ep, (!ip ? NET_FLAGS_DO_DHCP: 0)
                                   | NET_FLAGS_DEFAULT_QUEUE | NET_FLAGS_BLOCKING_INIT);
 #endif
     if (err_is_fail(err)) {
@@ -926,7 +926,7 @@ int main(int argc, char *argv[])
     char service_name[64];
     sprintf(queue_name, "net_sockets_queue_%s", argv[2]);
     sprintf(service_name, "net_sockets_service_%s", argv[2]);
-
+    
     err = descq_create(&exp_queue, DESCQ_DEFAULT_SIZE, queue_name,
                        true, true, 0, NULL, &f);
     assert(err_is_ok(err));
@@ -936,12 +936,43 @@ int main(int argc, char *argv[])
                             IDC_EXPORT_FLAGS_DEFAULT);
     assert(err_is_ok(err));
 
+    struct waitset *ws = get_default_waitset();
+
+#ifdef POLLING
+#define POLLING_YIELD_IDLE 10
+    uint16_t polling_yield = POLLING_YIELD_IDLE;
+#endif
     while(1) {
 #ifdef POLLING
-        event_dispatch_non_block(get_default_waitset());
-        networking_poll();
+        err = event_dispatch_non_block(ws);
+        switch(err_no(err)) {
+            case SYS_ERR_OK:
+                polling_yield = POLLING_YIELD_IDLE;
+            break;
+            case LIB_ERR_NO_EVENT:
+                polling_yield--;
+            break;
+            default:
+            USER_PANIC_ERR(err, "error happened while dispatching event.");
+        }
+        err = networking_poll();
+        switch(err_no(err)) {
+            case SYS_ERR_OK:
+                polling_yield = POLLING_YIELD_IDLE;
+                break;
+            case LIB_ERR_NO_EVENT:
+                polling_yield--;
+                break;
+            default:
+                USER_PANIC_ERR(err, "error happened while dispatching event.");
+        }
+
+        if (polling_yield == 0) {
+            thread_yield();
+            polling_yield = POLLING_YIELD_IDLE;
+        }
 #else
-        event_dispatch(get_default_waitset());
+        event_dispatch(ws);
 #endif
     }
 
