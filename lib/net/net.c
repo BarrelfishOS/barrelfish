@@ -406,6 +406,7 @@ errval_t networking_init_default(void)
  */
 errval_t networking_poll(void)
 {
+    //return net_if_poll_all();    
     struct net_state *st = &state;
     return networking_poll_st(st);
 }
