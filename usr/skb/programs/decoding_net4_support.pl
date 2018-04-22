@@ -136,7 +136,12 @@ remove_pci(S, Addr, NewS) :-
 
 :- export add_xeon_phi/4.
 add_xeon_phi(S, Addr, Enum, NewS) :- 
-    add_pci_internal(S, Addr, Enum, add_XEONPHI, add_XEONPHI_IOMMU, NewS).
+    add_pci_internal(S, Addr, Enum, add_XEONPHI, add_XEONPHI_IOMMU, S1),
+    %Ok, now we need to fixup the accepting bars installed by PCI.
+    BAR0_ID = [0, "BAR", Enum],
+    state_remove(S1, accept(region(BAR0_ID, _)), S2),
+    GGDR_ID = ["GDDR", "PCI0", Enum],
+    state_add(S2, overlay(BAR0_ID, ["GDDR", "PCI0", 1]), NewS).
 
 :- export add_pci/4.
 add_pci(S, Addr, Enum, NewS) :- 
@@ -147,6 +152,14 @@ add_pci(S, Addr, Enum, NewS) :-
 replace_with_xeon_phi(S, Addr, Enum, NewS) :- 
     remove_pci(S, Addr, S1),
     add_xeon_phi(S1, Addr, Enum, NewS).
+
+% Given the node enum E of the xeon phi (as returned by xeon phi)
+% get some other nodeid's 
+:- export xeon_phi_meta/4.
+xeon_phi_meta(S, E, N, K1OMCoreId) :-
+    node_enum(S, N, E, S),
+    N = [_ | Rm],
+    K1OMCoreId = ["K1OM_CORE" | Rm].
 
 % Helper to instantiate a PCI card. If no IOMMU is present it will 
 % instantiate Module, else ModuleIommu

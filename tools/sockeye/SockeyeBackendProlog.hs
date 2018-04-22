@@ -281,19 +281,32 @@ gen_accept :: ModuleInfo -> AST.UnqualifiedRef -> [AST.AddressBlock] -> (Integer
 gen_accept mi _ [] s = s
 gen_accept mi n (xs:x) (i, s) = gen_accept mi n x (i + 1, s ++ [acc])
     where
-        acc = assert i $ predicate "accept" [generate n, generate (pack_address_block mi xs)]
+        acc = assert i $ predicate "accept" [ predicate "region" [generate n, generate (pack_address_block mi xs)]]
+
+gen_base_address :: AST.Address -> String
+gen_base_address (AST.Address _ ws) = gen_single_ws $ ws !! 0
+  where
+    gen_single_ws (AST.ExplicitSet _ ns) = gen_single_ns ns
+    gen_single_ws (AST.Wildcard _)  = "NYI"
+    gen_single_ns (AST.NaturalSet _ nr) = gen_single_nr (nr !! 0)
+    gen_single_nr nr = case nr of
+        AST.SingletonRange _ b -> generate b
+        AST.LimitRange _ b _ -> generate b
+        AST.BitsRange _ b bits -> "BITSRANGE NYI"
 
 gen_translate :: [OneMapSpec] -> (Integer, [String]) -> (Integer, [String])
 gen_translate [] s = s
 gen_translate (om:x) (i, s) = gen_translate x (i + 1, s ++ [trs])
     where
-        trs = assert i $ predicate "translate" [generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om]
+        trs = assert i $ predicate "mapping" [gen_region (srcNode om) (srcAddr om), gen_name (targetNode om) (targetAddr om)]
+        gen_region nodeid x = predicate "region" [generate nodeid, generate x]
+        gen_name nodeid x = predicate "name" [generate nodeid, gen_base_address $ addresses x]
 
 gen_blockoverlay :: String -> String -> [Integer] -> (Integer, [String]) -> (Integer, [String])
 gen_blockoverlay src dst [] s = s
 gen_blockoverlay src dst (om:x) (i, s) = gen_blockoverlay src dst  x (i + 1, s ++ [trs])
     where
-        trs = assert i $ predicate "block_meta" [src, dst, show(om)]
+        trs = assert i $ predicate "block_meta" [src, show(om), dst]
 
 gen_body_defs :: ModuleInfo -> AST.Definition -> Integer -> (Integer, [String])
 gen_body_defs mi x i = case x of

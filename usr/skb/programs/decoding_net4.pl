@@ -45,7 +45,7 @@ state_add(O, Fact, N) :-
     N = [Fact | O].
 
 :- export state_remove/3.
-state_remove([], _, _).
+state_remove([], _, []).
 state_remove([Head|Tail], Fact, Out) :-
     Head = Fact,
     state_remove(Tail, Fact, Out)
@@ -310,6 +310,29 @@ route(S, SrcRegion, DstRegion, Conf) :-
 alias(S, N1, N2) :-
     resolve_name(S, N1, D),
     resolve_name(S, N2, D).
+
+%%%% HACK
+xeon_phi_extra_cons(SrcRegion, DstRegion) :-
+    DstRegion = region(["DRAM"],_),
+    SrcRegion = region(_, block(Base,_ )),
+    Base #>= 34367930368. % 0x0x08007D0000
+
+xeon_phi_extra_cons(SrcRegion, DstRegion) :-
+    not(DstRegion = region(["DRAM"],_)),
+    SrcRegion = region(_, block(Base,_ )),
+    Base #>= 0. 
+
+%%%% ENDHACK
+
+% Make R2 an alias of R1, permitting configuration changes
+:- export alias_conf/4.
+alias_conf(S, R1, R2, Conf) :-
+    resolve_region(S, R1, D),
+
+    xeon_phi_extra_cons(R2, D),
+    region_size(R1, R1Size),
+    region_alloc(S, R2, R1Size, 34),
+    route(S, R2, D, Conf).
 
 
 region_alloc_multiple(_, [], _, _).
