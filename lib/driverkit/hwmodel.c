@@ -25,10 +25,6 @@
 #include "debug.h"
 
 
-struct hwmodel_name {
-    int32_t nodeid;
-    uint64_t address;
-};
 
 __attribute__((unused))
 static void format_nodelist(int32_t *nodes, char *out){
@@ -44,8 +40,7 @@ static void format_nodelist(int32_t *nodes, char *out){
     sprintf(out + strlen(out), "]");
 }
 
-__attribute__((unused))
-static void parse_namelist(char *in, struct hwmodel_name *names, int *conversions){
+void driverkit_parse_namelist(char *in, struct hwmodel_name *names, int *conversions){
     assert(in);
     *conversions = 0;
     struct list_parser_status status;
@@ -108,7 +103,7 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
 
     struct hwmodel_name names[16];
     int num_conversions = 0;
-    parse_namelist(skb_get_output(), names, &num_conversions);
+    driverkit_parse_namelist(skb_get_output(), names, &num_conversions);
     assert(num_conversions > 0);
 
     struct mem_binding * b = get_mem_client();
@@ -272,7 +267,7 @@ errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
     
     struct hwmodel_name names[2];
     int num_conversions = 0;
-    parse_namelist(skb_get_output(), names, &num_conversions);
+    driverkit_parse_namelist(skb_get_output(), names, &num_conversions);
     assert(num_conversions == 2);
     //ignore, names[0] it is the resolved name as stored in frame
     *addr = names[1].address;

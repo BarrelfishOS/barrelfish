@@ -149,9 +149,10 @@ add_pci(S, Addr, Enum, NewS) :-
 
 % Enum will be the new enum for the Phi
 :- export replace_with_xeon_phi/4.
-replace_with_xeon_phi(S, Addr, Enum, NewS) :- 
+replace_with_xeon_phi(S, OldEnum, NewEnum, NewS) :- 
+    state_query(S, pci_address_node_id(Addr, OldEnum)),
     remove_pci(S, Addr, S1),
-    add_xeon_phi(S1, Addr, Enum, NewS).
+    add_xeon_phi(S1, Addr, NewEnum, NewS).
 
 % Given the node enum E of the xeon phi (as returned by xeon phi)
 % get some other nodeid's 
@@ -278,6 +279,31 @@ map_wrap(S0, Size, Bits, DestEnum, DestAddr, SrcEnums, NewS)  :-
     
     append([DestReg], SrcRegs, OutputRegs),
     write_regions(NewS, OutputRegs).
+
+% Translate from RAM nodeid to the next Bus Id
+ram_bus_nodeid(["DRAM"], ["PCIBUS"]).
+% ram_bus_nodeid(["GDDR"], ["PCIBUS"]). % ADD XEON PHI RULE
+
+:- export alias_conf_wrap/6.
+alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
+    xeon_phi_meta(S0, DstEnum, _, XeonSrc), % TODO: Make me work with arbitrary destinations.
+
+    %Make Sure XeonSrc has a NodeEnum
+    node_enum(S0, XeonSrc, _, S1),
+
+    node_enum(S1, SrcNodeId, SrcEnum, S2), 
+    % HACK: Replace dram nodeid with bus. Because our capabilities actually
+    % protect an area in the BUS not in the DRAM.
+    ram_bus_nodeid(SrcNodeId, SrcBusId),
+    % ENDHACK
+    SrcLimit is SrcAddr + Size - 1,
+    R1 = region(SrcBusId, block(SrcAddr, SrcLimit)),
+
+    XPhiRegion = region(XeonSrc, _),
+    alias_conf(S2, R1, XPhiRegion, NewS),
+    write_regions(S2, [XPhiRegion]).
+    % TODO Think about what should be in NewS
+    % TODO print conf?
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Persisted state

@@ -39,8 +39,14 @@
 
 #include <driverkit/driverkit.h>
 #include <driverkit/iommu.h>
+#include <driverkit/hwmodel.h>
 #include "xeon_phi_internal.h"
 
+#define ALIAS_CONF_Q "state_get(S)," \
+                     "alias_conf_wrap(S, "  \
+                     "%"PRIi32", %"PRIu64", %zu," \
+                     "%"PRIi32", NewS)," \
+                     "state_set(NewS)."
 
 /*
  * the translate address is called when a region is registered
@@ -50,6 +56,7 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
                                             genpaddr_t *retaddr)
 {
     errval_t err;
+    struct xeon_phi *xphi = arg;
 
     /* query the model */
     #ifdef __k1om__
@@ -67,43 +74,41 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
         return err;
     }
 
-    #if 0
 
-    // asid = id.pasid
-    // addr = id.base
-    // size = id.bytes
-    err = skb_execute_query("TODO.");
+    // TODO: replace with id.pasid; 
+    int32_t mem_nodeid = driverkit_hwmodel_lookup_dram_node_id();
+    uint64_t addr = id.base;
+    size_t size = id.bytes;
+    err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "failed to query the skb\n");
+        DEBUG_SKB_ERR(err, "alias_conf \n");
         return err;
     }
 
-    struct list_parser_status status;
-    skb_read_list_init(&status);
 
-    uint64_t tmp;
-    while(skb_read_list(&status, "TODO(%" SCNd64")", &tmp)) {
+    struct hwmodel_name names[1];
+    int conversions;
+    driverkit_parse_namelist(skb_get_output(), names, &conversions);
+    assert(conversions == 1);
+    assert(retaddr != NULL);
 
-        /* TODO: handle the constructs */
+    *retaddr = names[0].address;
+    debug_printf("[knc] Translated address into Xeon Phi space: 0x%"PRIx64"\n",
+            *retaddr);
 
-    }
+    /* TODO: print & make use of configuration */
 
-
-    resolve(id, addr, xeonphiid)  -> [addr,
+    /*resolve(id, addr, xeonphiid)  -> [addr,
                                       iommucfg(in,out),
                                       smptconfig(in,out),
-                                      retaddr];
+                                      retaddr]; */
 
-
-
-    #endif
-
-    struct xeon_phi *phi = arg;
 
 
 
     /* map the frame in the iommu space */
 
+#if 0
 
     if (id.base >= phi->apt.pbase &&
             ((id.base + id.bytes) <= (phi->apt.pbase + phi->apt.bytes))) {
@@ -127,6 +132,7 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
 
         *retaddr = dmem.devaddr + XEON_PHI_SYSMEM_BASE -  2 * (512UL << 30);
     }
+#endif
 
     /* xxx */
 

@@ -40,6 +40,8 @@
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_manager_client.h>
 
+#include <skb/skb.h>
+
 #include "xeon_phi_internal.h"
 #include "smpt.h"
 #include "dma_service.h"
@@ -57,6 +59,27 @@ extern char *xeon_phi_mod_list;
 extern struct xeon_phi *phis;
 
 bool started = false;
+
+
+static errval_t add_xeon_phi_model_nodes(int32_t nodeid, int32_t *newnodeid) {
+    errval_t err = skb_execute_query(
+            "state_get(S),"
+            "replace_with_xeon_phi(S, %"PRIi32", E1, NewS),"
+            "writeln(E1),"
+            "state_set(NewS)",
+            nodeid);
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "add_pci");
+        return err;
+    }
+    debug_printf("[knc] Allocated model node=%s, for Xeon Phi device.\n",
+            skb_get_output());
+
+    if(newnodeid != NULL){
+        skb_read_output("%d", newnodeid);
+    }
+    return err;
+}
 
 
 /**
@@ -105,6 +128,16 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     if (err_is_fail(err)) {
         goto err_out;
     }
+
+    int32_t init_nodeid = driverkit_iommu_get_nodeid(xphi->iommu_client);
+    debug_printf("[knc] adding xeon phi model nodes, xphi nodeid=%"PRIi32"\n",
+            init_nodeid);
+    err = add_xeon_phi_model_nodes(init_nodeid, &xphi->nodeid);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "add model nodes");
+        goto err_out2;
+    }
+
 
     debug_printf("[knc] iommu is %s.\n",
                  driverkit_iommu_present(xphi->iommu_client) ? "on" : "off");

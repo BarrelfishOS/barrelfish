@@ -300,6 +300,7 @@ route_step_cont(S, NextRegion, DstRegion, C1, Conf) :-
 
 route(S, SrcRegion, DstRegion, Conf) :-
     route_step(S, SrcRegion, NextRegion, C1),
+    %writeln(NextRegion),
     route_step_cont(S, NextRegion, DstRegion, C1, Conf).
 
 
@@ -315,7 +316,7 @@ alias(S, N1, N2) :-
 xeon_phi_extra_cons(SrcRegion, DstRegion) :-
     DstRegion = region(["DRAM"],_),
     SrcRegion = region(_, block(Base,_ )),
-    Base #>= 34367930368. % 0x0x08007D0000
+    Base #>= 34359738368. % 
 
 xeon_phi_extra_cons(SrcRegion, DstRegion) :-
     not(DstRegion = region(["DRAM"],_)),

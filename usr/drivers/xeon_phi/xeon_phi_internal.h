@@ -149,6 +149,8 @@ struct xeon_phi
     struct irq_info *irq;   ///< pointer to the IRQ information struct
     struct dma_device *dma;   ///< pointer to the DMA information struct
     struct msg_info *msg;   ///< pointer to the Messaging information struct
+
+    int32_t nodeid;             ///< model nodeid of the xeon phi
 };
 
 /**
