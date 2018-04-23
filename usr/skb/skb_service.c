@@ -168,7 +168,8 @@ errval_t execute_query(const char* query, struct skb_query_state* st)
         // Check for overflow
         if(st->error_output_length == sizeof(st->error_buffer) &&
                 !error_overflow){
-            debug_printf("st->error_buffer overflow. Query: %s\n", query);
+            debug_printf("st->error_buffer overflow. Query: %s, Error: %s\n",
+                    query, st->error_buffer);
             error_overflow = 1;
         }
 

@@ -880,17 +880,28 @@ errval_t pci_start_virtual_function_for_device(struct pci_address* addr,
 }
 
 static errval_t add_pci_model_node(struct pci_address addr) {
-    errval_t err = skb_execute_query(
-            "state_get(S),"
-            "add_pci(S, addr(%u,%u,%u), E1, NewS),"
-            "writeln(E1),"
-            "state_set(NewS)",
-            addr.bus, addr.device, addr.function);
-    if(err_is_fail(err)){
-        DEBUG_SKB_ERR(err, "add_pci");
+    errval_t err = SYS_ERR_OK;
+    if(
+           (addr.bus == 10 && addr.device == 0 && addr.function == 0)
+        || (addr.bus == 4 && addr.device == 0 && addr.function == 0)
+      ){
+        err = skb_execute_query(
+                "state_get(S),"
+                "add_pci(S, addr(%u,%u,%u), E1, NewS),"
+                "writeln(E1),"
+                "state_set(NewS)",
+                addr.bus, addr.device, addr.function);
+        if(err_is_fail(err)){
+            DEBUG_SKB_ERR(err, "add_pci");
+        }
+
+        debug_printf("Allocated model node=%s, for PCI device (%u,%u,%u)\n",
+                skb_get_output(), addr.bus, addr.device, addr.function);
+    } else { 
+        PCI_DEBUG("Not adding model node for addr(%u,%u,%u)\n",
+                addr.bus, addr.device, addr.function);
     }
-    PCI_DEBUG("Allocated model node=%s, for PCI device (%u,%u,%u)\n",
-            skb_get_output(), addr.bus, addr.device, addr.function);
+
     return err;
 }
 

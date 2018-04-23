@@ -79,6 +79,12 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
     int32_t mem_nodeid = driverkit_hwmodel_lookup_dram_node_id();
     uint64_t addr = id.base;
     size_t size = id.bytes;
+
+    //HACK ALIGN TO 16GB
+    #define SIZE16G (16ll*1024*1024*1024)
+    addr = (addr / SIZE16G) * SIZE16G; 
+    size = (1+(size/ SIZE16G)) * SIZE16G;
+    //
     err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);
     if (err_is_fail(err)) {
         DEBUG_SKB_ERR(err, "alias_conf \n");
