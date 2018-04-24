@@ -139,6 +139,8 @@ errval_t driverkit_hwmodel_frame_alloc(struct capref *dst,
     errval_t err;
     struct capref ram_cap; 
 
+    if(bytes < LARGE_PAGE_SIZE) bytes = LARGE_PAGE_SIZE;
+
     // Allocate RAM cap
     err = driverkit_hwmodel_ram_alloc(&ram_cap, bytes, dstnode, nodes);
     if(err_is_fail(err)){

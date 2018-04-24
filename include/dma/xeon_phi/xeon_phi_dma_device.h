@@ -11,6 +11,7 @@
 #define LIB_XEON_PHI_DMA_DEVICE_H
 
 #include <dma/dma_device.h>
+#include <dma/dma_mem_mgr.h>
 
 struct iommu_client;
 
@@ -71,6 +72,7 @@ static inline struct xeon_phi_dma_device *dma_device_to_xeon_phi(struct dma_devi
  *          errval on error
  */
 errval_t xeon_phi_dma_device_init(void * mmio_base, struct iommu_client *iommu,
+                                  dma_mem_convert_fn convert, void *convert_arg,
                                   struct xeon_phi_dma_device **dev);
 
 /**

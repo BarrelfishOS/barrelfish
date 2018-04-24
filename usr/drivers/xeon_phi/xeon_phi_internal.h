@@ -236,6 +236,7 @@ errval_t xeon_phi_event_poll(struct xeon_phi *phi, uint8_t do_yield);
 
 errval_t xeon_phi_hw_model_query_and_config(void *arg,
                                             struct capref mem,
-                                            genpaddr_t *retaddr);
+                                            genpaddr_t *retaddr,
+                                            genvaddr_t *local_retaddr);
 
 #endif /* XEON_PHI_H_ */

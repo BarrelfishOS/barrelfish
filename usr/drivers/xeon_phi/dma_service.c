@@ -328,7 +328,8 @@ errval_t xdma_service_init(struct xeon_phi *phi)
 #endif
 
     struct xeon_phi_dma_device *dev;
-    err = xeon_phi_dma_device_init(mmio_base, phi->iommu_client, &dev);
+    err = xeon_phi_dma_device_init(mmio_base, phi->iommu_client,
+            xeon_phi_hw_model_query_and_config, phi, &dev);
     if (err_is_fail(err)) {
         return err;
     }

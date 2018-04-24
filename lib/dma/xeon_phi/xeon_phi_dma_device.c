@@ -10,6 +10,7 @@
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
 #include <driverkit/iommu.h>
+#include <driverkit/hwmodel.h>
 #include <dev/xeon_phi/xeon_phi_dma_dev.h>
 
 #include <dma_mem_utils.h>
@@ -227,6 +228,7 @@ void xeon_phi_dma_device_set_channel_state(struct xeon_phi_dma_device *dev,
  *          errval on error
  */
 errval_t xeon_phi_dma_device_init(void *mmio_base, struct iommu_client *iommu,
+                                  dma_mem_convert_fn convert, void *convert_arg,
                                   struct xeon_phi_dma_device **dev)
 {
     errval_t err;
@@ -245,18 +247,31 @@ errval_t xeon_phi_dma_device_init(void *mmio_base, struct iommu_client *iommu,
     XPHIDEV_DEBUG("initializing Xeon Phi DMA device @ %p\n", device_id,
                   mmio_base);
 
-    err = driverkit_iommu_mmap_cl(iommu, XEON_PHI_DMA_DEVICE_DSTAT_SIZE,
-                                  XEON_PHI_DMA_DEVICE_DSTAT_FLAGS,
-                                  &xdev->dstat);
+    int32_t nodes[3];
+    nodes[0] = driverkit_iommu_get_nodeid(iommu);
+    nodes[1] = driverkit_hwmodel_get_my_node_id();
+    nodes[2] = 0;
+    int32_t dest_nodeid = driverkit_hwmodel_lookup_dram_node_id();
+
+    err =  driverkit_hwmodel_frame_alloc(&xdev->dstat.mem, LARGE_PAGE_SIZE,
+                                      dest_nodeid, nodes);
+
     if (err_is_fail(err)) {
         free(xdev);
         return err;
     }
 
-    debug_printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx\n");
-    debug_printf("HACK: setting address!\n");
-    xdev->dstat.devaddr = xdev->dstat.devaddr + XEON_PHI_SYSMEM_BASE -  2 * (512UL << 30);
-    debug_printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx\n");
+    err = convert(convert_arg, xdev->dstat.mem, &xdev->dstat.devaddr, &xdev->dstat.vbase);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "convert mem");
+        free(xdev);
+        return err;
+    }
+
+    //debug_printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx\n");
+    //debug_printf("HACK: setting address!\n");
+    //xdev->dstat.devaddr = xdev->dstat.devaddr + XEON_PHI_SYSMEM_BASE -  2 * (512UL << 30);
+    //debug_printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx\n");R
 
     dma_dev->id = device_id++;
     dma_dev->irq_type = DMA_IRQ_DISABLED;

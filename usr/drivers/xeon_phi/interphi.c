@@ -1347,7 +1347,7 @@ errval_t interphi_init(struct xeon_phi *phi,
     if (!phi->is_client) {
 
         genpaddr_t xphi_local_addr;
-        err = xeon_phi_hw_model_query_and_config(phi, mi->frame, &xphi_local_addr);
+        err = xeon_phi_hw_model_query_and_config(phi, mi->frame, &xphi_local_addr, NULL);
         if (err_is_fail(err)) {
             vspace_unmap(addr);
             cap_destroy(mi->frame);
@@ -1524,7 +1524,7 @@ errval_t interphi_spawn_with_cap(struct xnode *node,
     svc_st->args.spawn_call.cap_base = id.base;
 #else
     err = xeon_phi_hw_model_query_and_config(node->local, cap,
-                                             &svc_st->args.spawn_call.cap_base);
+                                             &svc_st->args.spawn_call.cap_base, NULL);
     if (err_is_fail(err)) {
         rpc_done(node->msg);
         txq_msg_st_free(msg_st);
@@ -1619,7 +1619,7 @@ errval_t interphi_chan_open(struct xnode *node,
 
     #ifndef __k1om__
     err = xeon_phi_hw_model_query_and_config(node->local, msgframe,
-                                             &svc_st->args.open.msgbase);
+                                             &svc_st->args.open.msgbase, NULL);
     if (err_is_fail(err)) {
         rpc_done(node->msg);
         txq_msg_st_free(msg_st);

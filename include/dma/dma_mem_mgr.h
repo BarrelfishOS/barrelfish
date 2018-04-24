@@ -16,7 +16,8 @@ struct dma_mem_mgr;
 /// typedef for custom address conversion
 typedef lpaddr_t (*dma_mem_convert_fn)(void *arg,
                                        struct capref frame,
-                                       genpaddr_t *retaddr);
+                                       genpaddr_t *retaddr,
+                                       genvaddr_t *local_retaddr);
 
 /// default memory ranges from 0 to 48 bits
 #define DMA_MEM_RANGE_MIN 0x0

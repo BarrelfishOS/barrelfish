@@ -42,6 +42,8 @@
 #include <driverkit/hwmodel.h>
 #include "xeon_phi_internal.h"
 
+#define SIZE16G (16ll*1024*1024*1024)
+
 static errval_t lookup_phi_enums(int32_t nodeid, int32_t *iommu, int32_t *smpt)
 {
     errval_t err;
@@ -61,6 +63,46 @@ static errval_t lookup_phi_enums(int32_t nodeid, int32_t *iommu, int32_t *smpt)
     return err;
 }
 
+// Can install SMPT and IOMMU configs
+static errval_t install_config(struct xeon_phi *xphi, char * conf, struct dmem *dmem){
+    errval_t err;
+    assert(!(skb_get_output() <= conf && conf <= skb_get_output() + 512));
+
+    // Get configurable nodeids
+    int32_t smpt_id, iommu_id;
+    err = lookup_phi_enums(xphi->nodeid, &iommu_id, &smpt_id);
+    debug_printf("xphi nodeid: %d, iommu nodeid: %d, smpt nodeid: %d\n",
+            xphi->nodeid, iommu_id, smpt_id);
+
+    struct list_parser_status status;
+    skb_read_list_init_offset(&status, conf, 0);
+    uint64_t inaddr, outaddr;
+    int32_t nodeid;
+    dmem->devaddr = 0xfffffffffffffff;
+    while(skb_read_list(&status, "c(%"SCNi32", %"SCNu64", %"SCNu64")",
+                &nodeid, &inaddr, &outaddr)) {
+        debug_printf("nodeid=%"PRIi32"\n", nodeid);
+        if(nodeid == smpt_id){
+            debug_printf("CONF SMPT: in=0x%"PRIx64", out=0x%"PRIx64"\n", inaddr, outaddr);
+            smpt_set_address(xphi, inaddr / SIZE16G, outaddr, 1);
+        } else if(nodeid == iommu_id){
+            debug_printf("CONF IOMMU: in=0x%"PRIx64", out=0x%"PRIx64"\n", inaddr, outaddr);
+            if(inaddr < dmem->devaddr){
+                dmem->vbase = inaddr;
+                dmem->devaddr = inaddr;
+            }
+        }
+    }
+
+    dmem->vbase = 0;
+    err = driverkit_iommu_vspace_map_fixed_cl(xphi->iommu_client, dmem->mem,
+                                              VREGION_FLAGS_READ_WRITE, dmem);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "map_fixed");
+    }
+    return err;
+}
+
 #define ALIAS_CONF_Q "state_get(S)," \
                      "alias_conf_wrap(S, "  \
                      "%"PRIi32", %"PRIu64", %zu," \
@@ -72,7 +114,8 @@ static errval_t lookup_phi_enums(int32_t nodeid, int32_t *iommu, int32_t *smpt)
  */
 errval_t xeon_phi_hw_model_query_and_config(void *arg,
                                             struct capref mem,
-                                            genpaddr_t *retaddr)
+                                            genpaddr_t *retaddr,
+                                            genvaddr_t *local_retaddr)
 {
     errval_t err;
     struct xeon_phi *xphi = arg;
@@ -95,15 +138,6 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
         return err;
     }
 
-    // Get configurable nodeids
-    int32_t smpt_id, iommu_id;
-    err = lookup_phi_enums(xphi->nodeid, &iommu_id, &smpt_id);
-    debug_printf("xphi nodeid: %d, iommu nodeid: %d, smpt nodeid: %d\n",
-            xphi->nodeid, iommu_id, smpt_id);
-
-
-
-
     // TODO: replace with id.pasid; 
     int32_t mem_nodeid = driverkit_hwmodel_lookup_dram_node_id();
     uint64_t addr = id.base;
@@ -113,7 +147,6 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
             __FUNCTION__, __LINE__, id.base, size);
 
 
-    #define SIZE16G (16ll*1024*1024*1024)
 
     debug_printf(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);
     err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);
@@ -123,12 +156,14 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
         return err;
     }
 
-    char * nextline = strstr(skb_get_output(), "\n");
-    assert(nextline);
-    *nextline = 0;
-    nextline++;
+    // Determine conf line (second output line)
+    char * confline = strstr(skb_get_output(), "\n");
+    assert(confline);
+    *confline = 0;
+    confline++;
+    confline = strdup(confline);
 
-    printf("First line: %s, Next Line: %s\n", skb_get_output(), nextline);
+    printf("First line: %s, Next Line: %s\n", skb_get_output(), confline);
 
     struct hwmodel_name names[1];
     int conversions;
@@ -140,48 +175,31 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
     debug_printf("[knc] Translated address into Xeon Phi space: 0x%"PRIx64"\n",
             *retaddr);
 
-    struct list_parser_status status;
-    skb_read_list_init_offset(&status, nextline, 0);
-    uint64_t inaddr, outaddr;
-    int32_t nodeid;
-    struct dmem dmem;
-    dmem.devaddr = 0xfffffffffffffff;
-    while(skb_read_list(&status, "c(%"SCNi32", %"SCNu64", %"SCNu64")",
-                &nodeid, &inaddr, &outaddr)) {
-        debug_printf("nodeid=%"PRIi32"\n", nodeid);
-        if(nodeid == smpt_id){
-            debug_printf("CONF SMPT: in=0x%"PRIx64", out=0x%"PRIx64"\n", inaddr, outaddr);
-            smpt_set_address(xphi, inaddr / SIZE16G, outaddr, 1);
-        } else if(nodeid == iommu_id){
-            debug_printf("CONF IOMMU: in=0x%"PRIx64", out=0x%"PRIx64"\n", inaddr, outaddr);
-            if(inaddr < dmem.devaddr){
-                dmem.vbase = inaddr;
-                dmem.devaddr = inaddr;
-            }
-        }
-    }
-    dmem.size = id.bytes;
            
-
-    /* TODO: print & make use of configuration */
-
-    /*resolve(id, addr, xeonphiid)  -> [addr,
-                                      iommucfg(in,out),
-                                      smptconfig(in,out),
-                                      retaddr]; */
-
+    struct dmem dmem;
+    dmem.size = id.bytes;
+    dmem.mem = mem;
+    err = install_config(xphi, confline, &dmem);
+    assert(err_is_ok(err));
 
     /* TODO: only do this if IOMMU is present or needs to be changed */
 
-    err = driverkit_iommu_vspace_map_fixed_cl(xphi->iommu_client, mem,
-                                              VREGION_FLAGS_READ_WRITE, &dmem);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "TODO: CLEANUP!");
     }
 
-    /* TODO: only do this if SMPT needs to be changed is present */
+    if(local_retaddr) {
+        *local_retaddr = dmem.vbase;
+    }
 
+    free(confline);
 
     return SYS_ERR_OK;
 
 }
+
+//errval_t xeon_phi_hw_model_query_and_config(void *arg,
+//                                            struct capref mem,
+//                                            genpaddr_t *retaddr)
+//{
+//}
