@@ -1153,7 +1153,7 @@ errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl,
     dmem->cl = cl;
     dmem->mem = frame;
 
-    DRIVERKIT_DEBUG("%s:%u Allocated VREGIONs 0x%" PRIxLVADDR " 0x%" PRIxLVADDR "\n",
+    debug_printf("%s:%u Allocated VREGIONs 0x%" PRIxLVADDR " 0x%" PRIxLVADDR "\n",
                     __FUNCTION__, __LINE__, dmem->vbase, dmem->devaddr);
 
     /*

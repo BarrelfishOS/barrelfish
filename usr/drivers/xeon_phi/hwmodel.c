@@ -42,6 +42,25 @@
 #include <driverkit/hwmodel.h>
 #include "xeon_phi_internal.h"
 
+static errval_t lookup_phi_enums(int32_t nodeid, int32_t *iommu, int32_t *smpt)
+{
+    errval_t err;
+    err = skb_execute_query(
+        "state_get(S), "
+        "xeon_phi_meta(S, %"PRIi32", _, _, SMPTID, IOMMUID),"
+        "node_enum(S, SMPTID, E1, S1),"
+        "node_enum(S1, IOMMUID, E2, NewS),"
+        "write(E1), write(' '), write(E2), "
+        "state_set(NewS).",
+        nodeid);
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "query smpt");
+        return err;
+    }
+    err = skb_read_output("%d %d", smpt, iommu);
+    return err;
+}
+
 #define ALIAS_CONF_Q "state_get(S)," \
                      "alias_conf_wrap(S, "  \
                      "%"PRIi32", %"PRIu64", %zu," \
@@ -57,6 +76,8 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
 {
     errval_t err;
     struct xeon_phi *xphi = arg;
+    assert(arg != NULL);
+    assert(retaddr != NULL);
 
     /* query the model */
     #ifdef __k1om__
@@ -74,6 +95,14 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
         return err;
     }
 
+    // Get configurable nodeids
+    int32_t smpt_id, iommu_id;
+    err = lookup_phi_enums(xphi->nodeid, &iommu_id, &smpt_id);
+    debug_printf("xphi nodeid: %d, iommu nodeid: %d, smpt nodeid: %d\n",
+            xphi->nodeid, iommu_id, smpt_id);
+
+
+
 
     // TODO: replace with id.pasid; 
     int32_t mem_nodeid = driverkit_hwmodel_lookup_dram_node_id();
@@ -84,32 +113,55 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
             __FUNCTION__, __LINE__, id.base, size);
 
 
-    //HACK ALIGN TO 16GB
     #define SIZE16G (16ll*1024*1024*1024)
-    addr = ROUND_DOWN(addr, SIZE16G);
-    size = ROUND_UP(size, SIZE16G);
-    uint64_t offset = id.base - addr;
-    //
-    //err = skb_execute_query("decoding_net_listing.");
-    //assert(err_is_ok(err));
 
     debug_printf(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);
     err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);
+    printf("SKB STD OUT: %s\n\n", skb_get_output());
     if (err_is_fail(err)) {
         DEBUG_SKB_ERR(err, "alias_conf \n");
         return err;
     }
 
+    char * nextline = strstr(skb_get_output(), "\n");
+    assert(nextline);
+    *nextline = 0;
+    nextline++;
+
+    printf("First line: %s, Next Line: %s\n", skb_get_output(), nextline);
 
     struct hwmodel_name names[1];
     int conversions;
     driverkit_parse_namelist(skb_get_output(), names, &conversions);
+    debug_printf("Conversions = %d\n", conversions);
     assert(conversions == 1);
-    assert(retaddr != NULL);
 
-    *retaddr = names[0].address + offset;
+    *retaddr = names[0].address;
     debug_printf("[knc] Translated address into Xeon Phi space: 0x%"PRIx64"\n",
             *retaddr);
+
+    struct list_parser_status status;
+    skb_read_list_init_offset(&status, nextline, 0);
+    uint64_t inaddr, outaddr;
+    int32_t nodeid;
+    struct dmem dmem;
+    dmem.devaddr = 0xfffffffffffffff;
+    while(skb_read_list(&status, "c(%"SCNi32", %"SCNu64", %"SCNu64")",
+                &nodeid, &inaddr, &outaddr)) {
+        debug_printf("nodeid=%"PRIi32"\n", nodeid);
+        if(nodeid == smpt_id){
+            debug_printf("CONF SMPT: in=0x%"PRIx64", out=0x%"PRIx64"\n", inaddr, outaddr);
+            smpt_set_address(xphi, inaddr / SIZE16G, outaddr, 1);
+        } else if(nodeid == iommu_id){
+            debug_printf("CONF IOMMU: in=0x%"PRIx64", out=0x%"PRIx64"\n", inaddr, outaddr);
+            if(inaddr < dmem.devaddr){
+                dmem.vbase = inaddr;
+                dmem.devaddr = inaddr;
+            }
+        }
+    }
+    dmem.size = id.bytes;
+           
 
     /* TODO: print & make use of configuration */
 
@@ -121,10 +173,6 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
 
     /* TODO: only do this if IOMMU is present or needs to be changed */
 
-    struct dmem dmem;
-    dmem.vbase = 0;
-    dmem.devaddr = names[0].address;
-    dmem.size = size;
     err = driverkit_iommu_vspace_map_fixed_cl(xphi->iommu_client, mem,
                                               VREGION_FLAGS_READ_WRITE, &dmem);
     if (err_is_fail(err)) {
@@ -132,7 +180,6 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
     }
 
     /* TODO: only do this if SMPT needs to be changed is present */
-    smpt_set_address(xphi, 0, 0, 1);
 
 
     return SYS_ERR_OK;

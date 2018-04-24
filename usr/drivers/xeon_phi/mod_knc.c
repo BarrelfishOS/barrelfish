@@ -130,9 +130,10 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     }
 
     int32_t init_nodeid = driverkit_iommu_get_nodeid(xphi->iommu_client);
-    debug_printf("[knc] adding xeon phi model nodes, xphi nodeid=%"PRIi32"\n",
-            init_nodeid);
+    debug_printf("[knc] adding xeon phi model nodes...\n");
     err = add_xeon_phi_model_nodes(init_nodeid, &xphi->nodeid);
+    debug_printf("[knc] addded xeon phi model nodes: init_nodeid=%"PRIi32", xphi nodeid=%"PRIi32"\n",
+            init_nodeid, xphi->nodeid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "add model nodes");
         goto err_out2;

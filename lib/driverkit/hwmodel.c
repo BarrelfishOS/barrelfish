@@ -47,6 +47,7 @@ void driverkit_parse_namelist(char *in, struct hwmodel_name *names, int *convers
     skb_read_list_init_offset(&status, in, 0);
     while(skb_read_list(&status, "name(%"SCNu64", %"SCNi32")",
                 &names->address, &names->nodeid)) {
+        debug_printf("parse_namelist: %lx\n", names->address);
         names++;
         *conversions += 1;
     }

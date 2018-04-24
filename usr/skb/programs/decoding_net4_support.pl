@@ -144,11 +144,13 @@ replace_with_xeon_phi(S, OldEnum, NewEnum, NewS) :-
 
 % Given the node enum E of the xeon phi (as returned by xeon phi)
 % get some other nodeid's
-:- export xeon_phi_meta/4.
-xeon_phi_meta(S, E, N, K1OMCoreId) :-
+:- export xeon_phi_meta/6.
+xeon_phi_meta(S, E, N, K1OMCoreId, SMPTId, IOMMUId) :-
     node_enum(S, N, E, S),
     N = [_ | Rm],
-    K1OMCoreId = ["K1OM_CORE" | Rm].
+    K1OMCoreId = ["K1OM_CORE" | Rm],
+    SMPTId = ["SMPT_IN" | Rm],
+    IOMMUId = ["IN", "IOMMU0", E].
 
 % Helper to instantiate a PCI card. If no IOMMU is present it will
 % instantiate Module, else ModuleIommu
@@ -215,11 +217,51 @@ alloc_root_vnodeslot_wrap(S, NEnum, Slot, NewS) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Query Wrappers
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-write_regions(S, Regs) :-
-    (foreach(Reg, Regs), param(S), foreach(Term, Terms) do
+write_regions(S, Regs, NewS) :-
+    (foreach(Reg, Regs), param(S), foreach(Term, Terms), fromto(S, InS, OutS, NewS) do
        Reg = region(NId, block(B, _)),
-       node_enum(S, NId, Enum, S),
+       node_enum(InS, NId, Enum, OutS),
        Term = name(B, Enum)
+    ),
+    writeln(Terms).
+
+%write_confs_for_nodeid(S, Label, NodeId, Confs) :-
+%    (foreach(Conf, Confs), param(Label), param(NodeId), param(S), fromto([], I, O, Terms) do
+%        (Conf = block_conf(NodeId, VPN, PPN) -> (
+%            state_has_block_meta(S, NodeId, Bits, _),
+%            BlockSize is 2 ^ Bits,
+%            Base is BlockSize * VPN,
+%            Limit is BlockSize * PPN, 
+%            append(I, [c(Label,Base,Limit)], O)
+%        ) ; (
+%            I = O
+%        ))
+%    ),
+%    writeln(Terms).
+%
+%write_iommu_confs_for_nodeid(S, Label, NodeId, Confs) :-
+%    (foreach(Conf, Confs), param(Label), param(NodeId), param(S), fromto([], I, O, Terms) do
+%        (Conf = block_conf(NodeId, VPN, PPN) -> (
+%            state_has_block_meta(S, NodeId, Bits, _),
+%            BlockSize is 2 ^ Bits,
+%            Base is BlockSize * VPN,
+%            append(I, [Base], O)
+%        ) ; (
+%            I = O
+%        ))
+%    ),
+%    sorted(Terms, [Min | _]),
+%    writeln([c(Label, Min, 0)]).
+    
+write_confs(S, Confs) :-
+    (foreach(Conf, Confs), param(S), foreach(Term, Terms)  do
+        Conf = block_conf(NodeId, VPN, PPN),
+        state_has_block_meta(S, NodeId, Bits, _),
+        BlockSize is 2 ^ Bits,
+        In is BlockSize * VPN,
+        Out is BlockSize * PPN,
+        state_has_node_enum(S, NodeEnum, NodeId),
+        Term = c(NodeEnum, In, Out)
     ),
     writeln(Terms).
 
@@ -232,10 +274,10 @@ alloc_wrap(S, Size, Bits, DestEnum, SrcEnums, NewS) :-
     node_enum(S, DestId, DestEnum, S), % The double S is deliberate, no new allocation permitted.
     DestReg = region(DestId, _),
     alloc(S, Size, Bits, DestReg, SrcRegs, _),
-    state_add_in_use(S, DestReg, NewS),
+    state_add_in_use(S, DestReg, S1),
 
     append([DestReg], SrcRegs, OutputRegs),
-    write_regions(NewS, OutputRegs).
+    write_regions(S1, OutputRegs, NewS).
 
 :- export map_wrap/7.
 map_wrap(S0, Size, Bits, DestEnum, DestAddr, SrcEnums, NewS)  :-
@@ -251,12 +293,12 @@ map_wrap(S0, Size, Bits, DestEnum, DestAddr, SrcEnums, NewS)  :-
     ),
     map(S0, Size, Bits, DestReg, SrcRegs, Confs),
     state_add_confs(S0, Confs, S2),
-    (foreach(Reg, SrcRegs), fromto(S2, SIn, SOut, NewS) do
+    (foreach(Reg, SrcRegs), fromto(S2, SIn, SOut, S3) do
        state_add_in_use(SIn, Reg, SOut)
     ),
 
     append([DestReg], SrcRegs, OutputRegs),
-    write_regions(NewS, OutputRegs).
+    write_regions(S3, OutputRegs, NewS).
 
 % Translate from RAM nodeid to the next Bus Id
 ram_bus_nodeid(["DRAM"], ["PCIBUS"]).
@@ -264,12 +306,11 @@ ram_bus_nodeid(["DRAM"], ["PCIBUS"]).
 
 :- export alias_conf_wrap/6.
 alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
-    xeon_phi_meta(S0, DstEnum, _, XeonSrc), % TODO: Make me work with arbitrary destinations.
+    xeon_phi_meta(S0, DstEnum, _, XeonSrc, SmptId, IommuId), % TODO: Make me work with arbitrary destinations.
 
-    %Make Sure XeonSrc has a NodeEnum
-    node_enum(S0, XeonSrc, _, S1),
-
-    node_enum(S1, SrcNodeId, SrcEnum, S2),
+    node_enum(S0, SrcNodeId, SrcEnum, S1),
+    node_enum(S1, SmptId, _, S2),
+    node_enum(S2, IommuId, _, S3),
     % HACK: Replace dram nodeid with bus. Because our capabilities actually
     % protect an area in the BUS not in the DRAM.
     ram_bus_nodeid(SrcNodeId, SrcBusId),
@@ -278,11 +319,13 @@ alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
     R1 = region(SrcBusId, block(SrcAddr, SrcLimit)),
 
     XPhiRegion = region(XeonSrc, _),
-    alias_conf(S2, R1, XPhiRegion, Confs),
-    state_add_confs(S2, Confs, NewS),
-    write_regions(NewS, [XPhiRegion]).
+    alias_conf(S3, R1, XPhiRegion, Confs),
+    state_add_confs(S3, Confs, S4),
+    write_regions(S4, [XPhiRegion], NewS),
+    write_confs(NewS, Confs).
+    %write_confs_for_nodeid(NewS, smpt, SMPTId, Confs),
+    %write_iommu_confs_for_nodeid(NewS, iommu, SMPTId, Confs).
     % TODO Think about what should be in NewS
-    % TODO print conf?
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
