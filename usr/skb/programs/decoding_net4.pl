@@ -492,6 +492,9 @@ bits_aligned_superregion(SrcRegion, Bits, SuperRegion) :-
 % Assumes SrcRegion has no mapping in S, support any size/position of SrcRegion
 translate_region_conf(S, SrcRegion, DstRegion, COut) :-
     SrcRegion = region(SrcId, block(SrcBase, SrcLimit)),
+
+    region_free(S, SrcRegion),
+
     DstRegion = region(DstId, block(DstBase, DstLimit)),
     state_has_block_meta(S, SrcId, Bits, DstId),
 

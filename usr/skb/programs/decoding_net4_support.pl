@@ -167,15 +167,18 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
         %add_PCI_IOMMU(S0, Id, S1),
         call(ModuleIOMMU, S0, Id, S1),
         % Mark IOMMU block remappable
-        state_add_block_meta(S1, ["IN", "IOMMU0" | Id], 21, ["OUT", "IOMMU0" | Id], S2)
+        IOMMU_IN_ID = ["IN", "IOMMU0" | Id],
+        state_add_block_meta(S1, IOMMU_IN_ID, 21, ["OUT", "IOMMU0" | Id], S2),
+        Limit is 512 * 1024 * 1024 * 1024,
+        state_add_in_use(S2, region(IOMMU_IN_ID, block(0, Limit)), S3)
     ) ; (
         % IOMMU disabled.
         %add_PCI(S0, Id, S2)
-        call(Module, S0, Id, S2)
+        call(Module, S0, Id, S3)
     )),
 
     % connect the output to the systems pci bus
-    state_add_overlay(S2, PCIOUT_ID, PCIBUS_ID, S3),
+    state_add_overlay(S3, PCIOUT_ID, PCIBUS_ID, S4),
 
     % Now insert the BAR into the PCI bus address space
     findall((Addr, BarNum, BarStart, BarSize),
@@ -183,7 +186,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
             Bars),
     (foreach((_, BarNum, BarStart, BarSize), Bars),
      param(Id), param(PCIBUS_ID),
-     fromto(S3, SIn, SOut, S4) do
+     fromto(S4, SIn, SOut, S5) do
         BarId = [BarNum, "BAR" | Id],
         BarEnd is BarStart + BarSize,
         state_add_accept(SIn, region(BarId, block(BarStart,BarEnd)), SIn1),
@@ -191,10 +194,10 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
                                                  name(BarId,BarStart), SOut)
     ),
     % Set it to the node id where addresses are issued from the PCI device
-    state_add_pci_id(S4, Addr, Enum, S5),
+    state_add_pci_id(S5, Addr, Enum, S6),
     % We keep the lowest root vnode slot unmapped, hence the 512G hole.
     Limit is 512 * 1024 * 1024 * 1024,
-    state_add_in_use(S5, region(OutNodeId, block(0, Limit)), NewS).
+    state_add_in_use(S6, region(OutNodeId, block(0, Limit)), NewS).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Root Vnode Management
