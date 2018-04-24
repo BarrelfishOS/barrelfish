@@ -80,11 +80,20 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
     uint64_t addr = id.base;
     size_t size = id.bytes;
 
+    debug_printf("%s:%d: translate request addr=0x%"PRIx64", size=%"PRIuGENSIZE"\n",
+            __FUNCTION__, __LINE__, id.base, size);
+
+
     //HACK ALIGN TO 16GB
     #define SIZE16G (16ll*1024*1024*1024)
-    addr = (addr / SIZE16G) * SIZE16G; 
-    size = (1+(size/ SIZE16G)) * SIZE16G;
+    addr = ROUND_DOWN(addr, SIZE16G);
+    size = ROUND_UP(size, SIZE16G);
+    uint64_t offset = id.base - addr;
     //
+    //err = skb_execute_query("decoding_net_listing.");
+    //assert(err_is_ok(err));
+
+    debug_printf(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);
     err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);
     if (err_is_fail(err)) {
         DEBUG_SKB_ERR(err, "alias_conf \n");
@@ -98,7 +107,7 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
     assert(conversions == 1);
     assert(retaddr != NULL);
 
-    *retaddr = names[0].address;
+    *retaddr = names[0].address + offset;
     debug_printf("[knc] Translated address into Xeon Phi space: 0x%"PRIx64"\n",
             *retaddr);
 
