@@ -18,6 +18,7 @@ node_enum(S, NodeId, Enum, NewS) :-
         state_has_node_enum(S, Enum, NodeId),
         NewS = S
     ) ; (
+        not(state_has_node_enum(S, Enum, NodeId)),
         unused_node_enum(S, Enum),
         state_add_node_enum(S, Enum, NodeId, NewS)
     ).
@@ -53,7 +54,10 @@ initial_dram_block(Block) :- %a
     ),
     FiltCandidates = [(Base,Size) | _],
     Limit is Base + Size,
-    Block = block(Base,Limit).
+    % HACK MAKE SURE DRAM STARTS AT 16GB
+    AlignBase is 16 * 1024 * 1024 * 1024,
+    % ENDHACK
+    Block = block(AlignBase,Limit).
 
 :- export init/1.
 init(NewS) :-
@@ -284,38 +288,38 @@ alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Debug
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-listing_term(S) :- write(S), writeln(",").
+listing_term(S) :- write("    "), write(S), writeln(",").
 
 :- export decoding_net_listing/0.
 decoding_net_listing :-
     state_get(S),
     S = state(A, M, O, BM, BC, U, E, P, V),
-    writeln("state(S) :- S = ["),
-    writeln("   accepts = ["),
+    writeln("state(S) :- S = state("),
+    writeln("  ["),
     checklist(listing_term, A),
-    writeln("   ], "),
-    writeln("   mappings = ["),
+    writeln("  ], "),
+    writeln("  ["),
     checklist(listing_term, M),
-    writeln("   ], "),
-    writeln("   overlays = ["),
+    writeln("  ], "),
+    writeln("  ["),
     checklist(listing_term, O),
-    writeln("   ], "),
-    writeln("   block_meta = ["),
+    writeln("  ], "),
+    writeln("  ["),
     checklist(listing_term, BM),
-    writeln("   ], "),
-    writeln("   block_conf = ["),
+    writeln("  ], "),
+    writeln("  ["),
     checklist(listing_term, BC),
-    writeln("   ], "),
-    writeln("   in_use = ["),
+    writeln("  ], "),
+    writeln("  ["),
     checklist(listing_term, U),
-    writeln("   ], "),
-    writeln("   enums = ["),
+    writeln("  ], "),
+    writeln("  ["),
     checklist(listing_term, E),
-    writeln("   ], "),
-    writeln("   pciid = ["),
+    writeln("  ], "),
+    writeln("  ["),
     checklist(listing_term, P),
     writeln("   ], "),
-    writeln("   rootvnode = ["),
+    writeln("   ["),
     checklist(listing_term, V),
-    writeln("   ], "),
-    writeln("]").
+    writeln("   ]"),
+    writeln(")").
