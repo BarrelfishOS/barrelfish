@@ -245,8 +245,8 @@ map_wrap(S0, Size, Bits, DestEnum, DestAddr, SrcEnums, NewS)  :-
         Reg = region(RId, _),
         node_enum(S0, RId, Enum, S0)
     ),
-    map(S0, Size, Bits, DestReg, SrcRegs, S1),
-    state_add_confs(S0, S1, S2),
+    map(S0, Size, Bits, DestReg, SrcRegs, Confs),
+    state_add_confs(S0, Confs, S2),
     (foreach(Reg, SrcRegs), fromto(S2, SIn, SOut, NewS) do
        state_add_in_use(SIn, Reg, SOut)
     ),
@@ -274,8 +274,9 @@ alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
     R1 = region(SrcBusId, block(SrcAddr, SrcLimit)),
 
     XPhiRegion = region(XeonSrc, _),
-    alias_conf(S2, R1, XPhiRegion, NewS),
-    write_regions(S2, [XPhiRegion]).
+    alias_conf(S2, R1, XPhiRegion, Confs),
+    state_add_confs(S2, Confs, NewS),
+    write_regions(NewS, [XPhiRegion]).
     % TODO Think about what should be in NewS
     % TODO print conf?
 
@@ -288,7 +289,7 @@ listing_term(S) :- write(S), writeln(",").
 :- export decoding_net_listing/0.
 decoding_net_listing :-
     state_get(S),
-    S = state(A, M, O, BM, BC, U, E, P),
+    S = state(A, M, O, BM, BC, U, E, P, V),
     writeln("state(S) :- S = ["),
     writeln("   accepts = ["),
     checklist(listing_term, A),
@@ -313,5 +314,8 @@ decoding_net_listing :-
     writeln("   ], "),
     writeln("   pciid = ["),
     checklist(listing_term, P),
+    writeln("   ], "),
+    writeln("   rootvnode = ["),
+    checklist(listing_term, V),
     writeln("   ], "),
     writeln("]").
