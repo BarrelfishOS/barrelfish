@@ -1092,7 +1092,6 @@ errval_t driverkit_iommu_modify(struct iommu_client *cl, struct capref dest,
  */
 
 
-
 /**
  * @brief maps a frame in the device and driver space
  *
@@ -1105,8 +1104,7 @@ errval_t driverkit_iommu_modify(struct iommu_client *cl, struct capref dest,
 errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
                                        struct capref frame,
                                        vregion_flags_t flags,
-                                       struct dmem *dmem)
-{
+                                       struct dmem *dmem) {
     errval_t err;
 
     struct frame_identity id;
@@ -1120,13 +1118,40 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     dmem->vbase = 0;
     dmem->devaddr = 0;
     dmem->mem = frame;
-    dmem->cl = cl;
     dmem->size = id.bytes;
 
     err = iommu_alloc_vregion(cl, frame, &dmem->vbase, &dmem->devaddr);
     if (err_is_fail(err)) {
         return err;
     }
+
+    err = driverkit_iommu_vspace_map_fixed_cl(cl, frame, flags, dmem);
+    if (err_is_fail(err)) {
+        iommu_free_vregion(cl, dmem->vbase, dmem->devaddr);
+    }
+    return err;
+}
+
+
+
+/**
+ * @brief maps a frame in the device and driver space
+ *
+ * @param frame the frame to be mapped
+ * @param flags attributes for the mapping
+ * @param dmem  the device memory struct
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl,
+                                             struct capref frame,
+                                             vregion_flags_t flags,
+                                             struct dmem *dmem)
+{
+    errval_t err;
+
+    dmem->cl = cl;
+    dmem->mem = frame;
 
     DRIVERKIT_DEBUG("%s:%u Allocated VREGIONs 0x%" PRIxLVADDR " 0x%" PRIxLVADDR "\n",
                     __FUNCTION__, __LINE__, dmem->vbase, dmem->devaddr);
@@ -1255,9 +1280,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     }
 
     err_out:
-    iommu_free_vregion(cl, dmem->vbase, dmem->devaddr);
     return err;
-
 }
 
 

@@ -216,6 +216,8 @@ struct dmem
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
+errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl, struct capref frame,
+                                             vregion_flags_t flags, struct dmem *dmem);
 errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl, struct capref frame,
                                        vregion_flags_t flags, struct dmem *dmem);
 errval_t driverkit_iommu_vspace_map(struct capref frame, vregion_flags_t flags,
