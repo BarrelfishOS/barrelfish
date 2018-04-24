@@ -258,7 +258,7 @@ gen_bind_defs :: String -> [AST.PortBinding] -> (Integer, [String]) -> (Integer,
 gen_bind_defs uql_var [] s = s
 gen_bind_defs uql_var (x:xs) (i, s) = gen_bind_defs uql_var xs (i + 1, s ++ [ovl])
     where
-        ovl = assert i $ predicate "overlay" [src, dest]
+        ovl = state_add_overlay i src dest
         dest =  generate $ AST.boundNode x
         src = list_prepend (doublequotes $ AST.refName $ AST.boundPort $ x) uql_var
 
@@ -281,7 +281,7 @@ gen_accept :: ModuleInfo -> AST.UnqualifiedRef -> [AST.AddressBlock] -> (Integer
 gen_accept mi _ [] s = s
 gen_accept mi n (xs:x) (i, s) = gen_accept mi n x (i + 1, s ++ [acc])
     where
-        acc = assert i $ predicate "accept" [ predicate "region" [generate n, generate (pack_address_block mi xs)]]
+        acc = state_add_accept i (predicate "region" [generate n, generate (pack_address_block mi xs)])
 
 gen_base_address :: AST.Address -> String
 gen_base_address (AST.Address _ ws) = gen_single_ws $ ws !! 0
@@ -298,7 +298,7 @@ gen_translate :: [OneMapSpec] -> (Integer, [String]) -> (Integer, [String])
 gen_translate [] s = s
 gen_translate (om:x) (i, s) = gen_translate x (i + 1, s ++ [trs])
     where
-        trs = assert i $ predicate "mapping" [gen_region (srcNode om) (srcAddr om), gen_name (targetNode om) (targetAddr om)]
+        trs = state_add_mapping i (gen_region (srcNode om) (srcAddr om)) (gen_name (targetNode om) (targetAddr om))
         gen_region nodeid x = predicate "region" [generate nodeid, generate x]
         gen_name nodeid x = predicate "name" [generate nodeid, gen_base_address $ addresses x]
 
@@ -306,7 +306,7 @@ gen_blockoverlay :: String -> String -> [Integer] -> (Integer, [String]) -> (Int
 gen_blockoverlay src dst [] s = s
 gen_blockoverlay src dst (om:x) (i, s) = gen_blockoverlay src dst  x (i + 1, s ++ [trs])
     where
-        trs = assert i $ predicate "block_meta" [src, show(om), dst]
+        trs = state_add_block_meta i src (show om) dst
 
 gen_body_defs :: ModuleInfo -> AST.Definition -> Integer -> (Integer, [String])
 gen_body_defs mi x i = case x of
@@ -317,7 +317,7 @@ gen_body_defs mi x i = case x of
    --(1, [(assert 0 $ predicate "translate"
     --[generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
     -- | om <- map_spec_flatten mi x])
-  (AST.Overlays _ src dest) -> (i+1, [assert i $ predicate "overlay" [generate src, generate dest]])
+  (AST.Overlays _ src dest) -> (i+1, [state_add_overlay i (generate src) (generate dest)])
   (AST.BlockOverlays _ src dst bits) -> gen_blockoverlay (generate src) (generate dst) bits (i, [])
   -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
   (AST.Instantiates _ ii im args) -> (i+1, [ predicate ("add_" ++ im) ([statevar i] ++ [gen_index ii] ++ [statevar (i+1)]) ])
@@ -508,5 +508,18 @@ for_body params itvar (AST.NaturalSet _ ranges) body =
 statevar :: Integer -> String
 statevar i = printf "S%i" i
 
-assert ::  Integer -> String -> String
-assert i x = "state_add" ++ parens ((statevar i) ++ ", " ++  x ++ ", " ++ (statevar (i + 1)))
+--assert ::  Integer -> String -> String
+--assert i x = "state_add" ++ parens ((statevar i) ++ ", " ++  x ++ ", " ++ (statevar (i + 1)))
+
+
+state_add_mapping ::  Integer -> String -> String -> String
+state_add_mapping i src dst = "state_add_mapping" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
+
+state_add_accept ::  Integer -> String -> String
+state_add_accept i reg = "state_add_accept" ++ parens ((statevar i) ++ ", " ++  reg ++ ", " ++ (statevar (i + 1)))
+
+state_add_overlay ::  Integer -> String -> String -> String
+state_add_overlay i src dst = "state_add_overlay" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
+
+state_add_block_meta ::  Integer -> String -> String -> String -> String
+state_add_block_meta i src bits dst = "state_add_block_meta" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ bits ++ ", " ++ dst ++ (statevar (i + 1)))
