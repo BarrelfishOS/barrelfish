@@ -455,8 +455,9 @@ optimize_search_order(_, PPN) :-
     PPNLastI #>= PPN ;
     true.
 
-% Assumes SrcRegion has no mapping in S.
-translate_region_conf(S, SrcRegion, DstRegion, COut) :-
+% Assumes SrcRegion has no mapping in S, SrcRegion is a multiple of 
+% the BlockSize and BlockSize aligned.
+translate_region_conf_aligned(S, SrcRegion, DstRegion, COut) :-
     SrcRegion = region(SrcId, SrcBlock),
     DstRegion = region(DstId, block(DstBase, DstLimit)),
     SrcBlock = block(SrcBase, _),
@@ -478,6 +479,35 @@ translate_region_conf(S, SrcRegion, DstRegion, COut) :-
     %optimize_search_order(BaseVPN, BasePPN),
     labeling([BaseVPN, BasePPN, DstLimit, DstBase, SrcBase, Offset]),
     translate_region_alloc(ItEnd, [], SrcId, BaseVPN, BasePPN, COut).
+
+:- export bits_aligned_superregion/3.
+bits_aligned_superregion(SrcRegion, Bits, SuperRegion) :-
+    SrcRegion = region(Id, block(Base, Limit)),
+    BlockSize is 2^Bits,
+    SuperBase is (Base // BlockSize) * BlockSize,
+    SuperLimit is (Limit // BlockSize + 1) * BlockSize - 1,
+    SuperRegion = region(Id, block(SuperBase, SuperLimit)).
+
+
+% Assumes SrcRegion has no mapping in S, support any size/position of SrcRegion
+translate_region_conf(S, SrcRegion, DstRegion, COut) :-
+    SrcRegion = region(SrcId, block(SrcBase, SrcLimit)),
+    DstRegion = region(DstId, block(DstBase, DstLimit)),
+    state_has_block_meta(S, SrcId, Bits, DstId),
+
+    % Get'n translate super region
+    bits_aligned_superregion(SrcRegion, Bits, SuperSrcRegion),
+    translate_region_conf_aligned(S, SuperSrcRegion, SuperDstRegion, COut),
+
+    % Calculate DstRegion
+    SuperSrcRegion = region(_, block(SuperSrcBase, SuperSrcLimit)),
+    SuperDstRegion = region(_, block(SuperDstBase, SuperDstLimit)),
+    BaseOffset is SrcBase - SuperSrcBase,
+    DstBase #= BaseOffset + SuperDstBase,
+    LimitOffset is SrcLimit - SuperSrcLimit, %LimitOffset is negative.
+    DstLimit #= LimitOffset + SuperDstLimit.
+
+    
 
 route_step(S, SrcRegion, NextRegion, Conf) :-
     translate_region(S, SrcRegion, NextRegion),
@@ -697,7 +727,6 @@ test_translate_region2 :-
         region(["In"], block(0,Limit4M)),
         region(["Out"], block(Base2M,  Limit6M))).
 
-:- export test_translate_region_conf/0.
 test_translate_region_conf :-
     state_empty(S0),
     state_add_block_meta(S0, ["In"], 21, ["Out"], S1),
@@ -710,6 +739,13 @@ test_translate_region_conf :-
     state_add_confs(S1, Confs, S2),
     state_has_block_conf(S2, _, 0,3),
     state_has_block_conf(S2, _, 1,4).
+
+test_translate_region_conf2 :-
+    state_empty(S0),
+    state_add_block_meta(S0,["SMPT"], 34, ["RAM"],S1),
+
+    translate_region_conf(S1, region(["SMPT"], block(0,100)), DstRegion, Conf),
+    printf("DstRegion = %p, Conf = %p\n", [DstRegion, Conf]). 
 
 test_translate_name :-
     %Setup
@@ -784,6 +820,24 @@ test_route :-
     state_has_block_conf(S5, ["MMU"], 0, 1),
     state_has_block_conf(S5, ["MMU"], 1, 2).
 
+% Test the case where we translate a block that fits completly (but does not fill)
+% into a configurable block.
+test_route2 :-
+    Upper is 512 * 1024 * 1024,
+    Base2M is 2^21,
+    Limit4M is 2*(2^21) - 1,
+
+    state_empty(S0),
+    state_add_overlay(S0,["IN"], ["SMPT"],S1),
+    state_add_block_meta(S1,["SMPT"], 34, ["RAM"],S2),
+    state_add_accept(S2,region(["RAM"], block(0, Upper)),S3),
+
+    route(S3, region(["IN"],block(Base2M,Limit4M)), OutRegion, Confs),
+    printf("OutRegion = %p, Confs = %p\n", [OutRegion, Confs]),
+    OutRegion = region(["RAM"],block(Base2M, Limit4M)).
+
+
+
 test_region_alloc :-
     state_empty(S0),
     state_add_in_use(S0, region(["IN"], block(0,2097151)), S1),
@@ -800,7 +854,6 @@ test_region_alloc :-
     region_alloc(S1, Reg2, Size2, 21).
     %printf("Reg2=%p\n", Reg2).
 
-:- export test_alloc/0.
 test_alloc :-
     Size is 2*(2^21),
     Base128M is 128*(2^21),
@@ -852,5 +905,6 @@ run_all_tests :-
     run_test(test_accept_region),
     run_test(test_region_alloc),
     run_test(test_route),
+    run_test(test_route2),
     run_test(test_alias),
     run_test(test_alloc).
