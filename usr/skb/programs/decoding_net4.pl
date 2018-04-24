@@ -39,21 +39,21 @@
 % define the empty state to have only emtpy lists
 :- export state_empty/1.
 state_empty(S) :-
-    S = state([],[],[],[],[],[],[],[], []).
+    S = state([],[],[],[],[],[],[],[],[]).
 
 % initializes the state to be empty
 init_state :-
     state_empty(S),
     state_set(S).
 
-% call the init
-:- init_state.
-
 
 % sets the new state
 :- export state_set/1.
 state_set(S) :-
     retract(current_state(_)), assert(current_state(S)).
+
+% call the init
+:- assert(current_state(null)), init_state.
 
 :- export state_get/1.
 state_get(S) :- current_state(S).
@@ -146,7 +146,7 @@ state_remove_block_meta(S0, SrcNodeId, Bits, DestNodeId, S1) :-
 state_remove_block_conf(S0, NodeId, VPN, PPN, S1) :-
     S0 = state(A, M, O, BM, BC, U, E, P, V),
     state_remove(BC, block_conf(NodeId, VPN, PPN), BC1),
-    S1 = state(A, M, O, BM, [block_conf(NodeId, VPN, PPN) | BC], U, E, P, V).
+    S1 = state(A, M, O, BM, BC1, U, E, P, V).
 
 :- export state_remove_in_use/3.
 state_remove_in_use(S0, R, S1) :-
@@ -157,7 +157,7 @@ state_remove_in_use(S0, R, S1) :-
 :- export state_remove_node_enum/4.
 state_remove_node_enum(S0, Enum, NodeId, S1) :-
     S0 = state(A, M, O, BM, BC, U, E, P, V),
-    state_remove(E, enum_node_id(Enum, NodeId) | E], E1),
+    state_remove(E, enum_node_id(Enum, NodeId), E1),
     S1 = state(A, M, O, BM, BC,  U, E1, P, V).
 
 :- export state_remove_pci_id/4.
@@ -169,10 +169,10 @@ state_remove_pci_id(S0, Addr, Enum, S1) :-
 
 :- export state_add_confs/3.
 state_add_confs(N, [], N).
-state_add_confs(S1, [Head|Tail], N) :-
+state_add_confs(S1, [Head|Tail], SEnd) :-
     Head = block_conf(N, V, P),
     state_add_block_conf(S1, N, V, P, S2),
-    state_union(S2, Tail, N).
+    state_add_confs(S2, Tail, SEnd).
 
 
 state_has_fact([Fact|_], Fact).
@@ -183,7 +183,7 @@ state_has_fact([_|Tail], Fact) :-
 :- export state_has_mapping/3.
 state_has_mapping(S0, SrcReg, DstName) :-
     S0 = state(_, M, _, _, _, _, _, _, _),
-    state_has_fact(M, mapping(SrcReg, DstName)),
+    state_has_fact(M, mapping(SrcReg, DstName)).
 
 :- export state_has_accept/2.
 state_has_accept(S0, Reg) :-
@@ -213,9 +213,9 @@ state_has_in_use(S0, R) :-
 :- export state_has_node_enum/3.
 state_has_node_enum(S0, Enum, NodeId) :-
     S0 = state(_, _, _, _, _, _, E, _, _),
-    state_has_fact(E, enum_node_id(Enum, NodeId) | E]).
+    state_has_fact(E, [enum_node_id(Enum, NodeId) | E]).
 
-:- export state_has_pci_id/4.
+:- export state_has_pci_id/3.
 state_has_pci_id(S0, Addr, Enum) :-
     S0 = state(_, _, _, _, _, _, _, P, _),
     state_has_fact(P, pci_address_node_id(Addr, Enum)).
@@ -400,19 +400,19 @@ region_alloc(S, Reg, Size, Bits) :-
     region_free(S, Reg).
 
 
-translate_region_alloc(0, SIn, _, _, _, SIn).
+translate_region_alloc(0, Confs, _, _, _, Confs).
 
-translate_region_alloc(I, SIn, SrcId, VPN, PFN, SOut) :-
+translate_region_alloc(I, ConfsIn, SrcId, VPN, PFN, ConfsOut) :-
     I >= 1,
     INext is I - 1,
     VPNNext is VPN + 1,
     PFNNext is PFN + 1,
-    state_add_block_conf(SIn, SrcId, VPN, PFN, SIn2),
-    translate_region_alloc(INext, SIn2, SrcId, VPNNext, PFNNext, SOut).
+    ConfsNext = [block_conf(SrcId, VPN, PFN) | ConfsIn],
+    translate_region_alloc(INext, ConfsNext, SrcId, VPNNext, PFNNext, ConfsOut).
 
 
 
-optimize_search_order(VPN, _) :-
+optimize_search_order(_, PPN) :-
     PPNFirst is 2^30 * 4 / (2^21), % Start the search at 4G
     integer(PPNFirst, PPNFirstI),
     PPNLast is 2^30 * 16 / (2^21), % End the search at 16G
@@ -423,7 +423,6 @@ optimize_search_order(VPN, _) :-
 
 % Assumes SrcRegion has no mapping in S.
 translate_region_conf(S, SrcRegion, DstRegion, COut) :-
-    state_empty(CIn),
     SrcRegion = region(SrcId, SrcBlock),
     DstRegion = region(DstId, block(DstBase, DstLimit)),
     SrcBlock = block(SrcBase, _),
@@ -442,13 +441,13 @@ translate_region_conf(S, SrcRegion, DstRegion, COut) :-
     %labeling([BaseVPN, Offset]),
     split_vaddr(DstBase, Bits, BasePPN, Offset),
     DstLimit #= DstBase + SrcSize - 1,
-    optimize_search_order(BaseVPN, BasePPN),
+    %optimize_search_order(BaseVPN, BasePPN),
     labeling([BaseVPN, BasePPN, DstLimit, DstBase, SrcBase, Offset]),
-    translate_region_alloc(ItEnd, CIn, SrcId, BaseVPN, BasePPN, COut).
+    translate_region_alloc(ItEnd, [], SrcId, BaseVPN, BasePPN, COut).
 
 route_step(S, SrcRegion, NextRegion, Conf) :-
     translate_region(S, SrcRegion, NextRegion),
-    state_empty(Conf) ;
+    Conf = [] ;
     translate_region_conf(S, SrcRegion, NextRegion, Conf).
 
 route_step_cont(S, NextRegion, DstRegion, C1, Conf) :-
@@ -457,7 +456,7 @@ route_step_cont(S, NextRegion, DstRegion, C1, Conf) :-
     Conf = C1 ;
     not(accept_region(S, NextRegion)),
     route(S, NextRegion, DstRegion, C2),
-    state_union(C1, C2, Conf).
+    append(C1, C2, Conf).
 
 route(S, SrcRegion, DstRegion, Conf) :-
     route_step(S, SrcRegion, NextRegion, C1),
@@ -506,7 +505,7 @@ route_multiple(_, [], _, C, C).
 route_multiple(S, [Reg | Regs], DestReg, CIn, COut) :-
     route_multiple(S, Regs, DestReg, CIn, CIn2),
     route(S, Reg, DestReg, C),
-    state_union(CIn2, C, COut).
+    append(CIn, CIn2, COut).
 
 %%
 % S - State
@@ -615,123 +614,120 @@ block_block_intersect(A, B) :-
 
 
 test_accept_name :-
-    S = [accept(region(["In"], block(50, 100)))],
-    accept_name(S, name(["In"], 75)).
+    state_empty(S0),
+    state_add_accept(S0, region(["In"], block(50, 100)), S1),
+    accept_name(S1, name(["In"], 75)).
 
 test_accept_region :-
-    S = [accept(region(["In"], block( 50, 100)))],
-    accept_region(S, region(["In"], block(75, 80))).
+    state_empty(S0),
+    state_add_accept(S0, region(["In"], block( 50, 100)), S1),
+    accept_region(S1, region(["In"], block(75, 80))).
 
 test_translate_region :-
-    S = [
-        mapping(
+    state_empty(S0),
+    state_add_mapping(S0,
             region(["In"], block(1000,2000)),
-            name( ["Out1"],  0)),
-        overlay(["In"], ["Out2"])
-      ],
-    translate_region(S,
+            name( ["Out1"],  0), S1),
+    state_add_overlay(S1, ["In"], ["Out2"], S2),
+    translate_region(S2,
         region(["In"], block(1000,2000)),
         region( ["Out1"], block(0,  1000))),
-    translate_region(S,
+    translate_region(S2,
         region(["In"], block(0,999)),
         region( ["Out2"], block(0, 999))),
-    translate_region(S,
+    translate_region(S2,
         region(["In"], block(2001,3000)),
         region( ["Out2"], block(2001, 3000))).
 
 test_translate_region2 :-
-    S = [
-        block_meta(["In"], 21, ["Out"]),
-        block_conf(["In"], 0, 1),
-        block_conf(["In"], 1, 1)
-      ],
+    state_empty(S1),
+    state_add_block_meta(S1, ["In"], 21, ["Out"],S2),
+    state_add_block_conf(S2, ["In"], 0, 1, S3),
+    state_add_block_conf(S3, ["In"], 1, 1, S4),
     Base2M is 2^21,
     Limit2M is 2^21 - 1,
     Limit4M is 2*(2^21) - 1,
     Limit6M is 3*(2^21) - 1,
-    translate_region(S,
+    translate_region(S4,
         region(["In"], block(0,Limit2M)),
         region(["Out"], block( Base2M,  Limit4M))),
-    not(translate_region(S,
+    not(translate_region(S4,
         region(["In"], block(0,Limit4M)),
         _)),
-    S2 = [
-        block_meta(["In"], 21, ["Out"]),
-        block_conf(["In"], 0, 1),
-        block_conf(["In"], 1, 2)
-      ],
-    translate_region(S2,
+
+    state_empty(Q0),
+    state_add_block_meta(Q0, ["In"], 21, ["Out"], Q1),
+    state_add_block_conf(Q1, ["In"], 0, 1, Q2),
+    state_add_block_conf(Q2, ["In"], 1, 2, Q3),
+    translate_region(Q3,
         region(["In"], block(0,Limit4M)),
         region(["Out"], block(Base2M,  Limit6M))).
 
+:- export test_translate_region_conf/0.
 test_translate_region_conf :-
-    S = [
-        block_meta(["In"], 21, ["Out"])
-      ],
+    state_empty(S0),
+    state_add_block_meta(S0, ["In"], 21, ["Out"], S1),
     Base6M is 3*2^21,
     Limit4M is 2*(2^21) - 1,
-    translate_region_conf(S,
+    translate_region_conf(S1,
         region(["In"], block(0,Limit4M)),
-        Out, C),
+        Out, Confs),
     Out = region(_, block(Base6M, _)),
-    state_has_block_conf(C, _, 0,3),
-    state_has_block_conf(C, _, 1,4).
+    state_add_confs(S1, Confs, S2),
+    state_has_block_conf(S2, _, 0,3),
+    state_has_block_conf(S2, _, 1,4).
 
 test_translate_name :-
     %Setup
-    S = [
-        mapping(
-            region(["In"], block(1000,2000)),
-            name( ["Out1"],  0)),
-        overlay(["In"], ["Out2"])
-      ],
-    translate_name(S,
+    state_empty(S0),
+    state_add_mapping(S0, region(["In"], block(1000,2000)), name(["Out1"],  0), S1),
+    state_add_overlay(S1, ["In"], ["Out2"], S2),
+    translate_name(S2,
         name(["In"], 1000),
-        name( ["Out1"], 0)),
-    translate_name(S,
+        name(["Out1"], 0)),
+    translate_name(S2,
         name(["In"], 0),
-        name( ["Out2"], 0)),
-    translate_name(S,
+        name(["Out2"], 0)),
+    translate_name(S2,
         name(["In"], 2001),
-        name( ["Out2"], 2001)),
-    not(translate_name(S,
+        name(["Out2"], 2001)),
+    not(translate_name(S2,
         name(["In"], 1000),
-        name( ["Out2"], 1000))).
+        name(["Out2"], 1000))).
 
 test_resolve_name1 :-
     %Setup
-    S = [
-        mapping(
+    state_empty(S0),
+    state_add_mapping(S0, 
             region(["In"], block(1000,2000)),
-            name( ["Out1"],  0)),
-        overlay(["In"], ["Out2"]),
-        accept(region(["Out1"], block(0, 2000))),
-        accept(region(["Out2"], block(0, 2000)))
-        ],
+            name(["Out1"],  0), S1),
+    state_add_overlay(S1, ["In"], ["Out2"], S2),
+    state_add_accept(S2, region(["Out1"], block(0, 2000)), S3),
+    state_add_accept(S3, region(["Out2"], block(0, 2000)), S4),
     % Hit the translate block
-    resolve_name(S,
+    resolve_name(S4,
         name(["In"],  1000),
         name(["Out1"],  0)),
     % Hit the overlay
-    resolve_name(S,
+    resolve_name(S4,
         name(["In"],  500),
         name(["Out2"],  500)).
 
 test_resolve_name2 :-
     %Setup
-    S = [mapping(
+    state_empty(S0),
+    state_add_mapping(S0,
             region( ["In1"], block(1000,2000)),
-            name( ["Out1"],  0)),
-        mapping(
+            name( ["Out1"],  0), S1),
+    state_add_mapping(S1,
             region(["In2"], block(6000,7000)),
-            name(["Out1"],  0)),
-        accept(region(["Out1"], block(0, 2000)))
-        ],
+            name(["Out1"],  0), S2),
+    state_add_accept(S2, region(["Out1"], block(0, 2000)), S3),
     % Reverse lookup
-    resolve_name(S,
+    resolve_name(S3,
         name(["In1"], 1000),
         R),
-    resolve_name(S,
+    resolve_name(S3,
         name(["In2"], Out),
         R),
     Out = 6000.
@@ -741,60 +737,65 @@ test_route :-
     Base2M is 2^21,
     Limit4M is 2*(2^21) - 1,
     Limit6M is 3*(2^21) - 1,
-    S = [
-        overlay(["IN"], ["MMU"]),
-        block_meta(["MMU"], 21, ["RAM"]),
-        accept(region(["RAM"], block(0, Upper)))
-        ],
-    route(S, region(["IN"],block(0,Limit4M)), OutRegion, Conf),
+
+    state_empty(S0),
+    state_add_overlay(S0,["IN"], ["MMU"],S2),
+    state_add_block_meta(S2,["MMU"], 21, ["RAM"],S3),
+    state_add_accept(S3,region(["RAM"], block(0, Upper)),S4),
+
+
+    route(S4, region(["IN"],block(0,Limit4M)), OutRegion, Confs),
     OutRegion = region(["RAM"],block(Base2M, Limit6M)),
-    state_has_block_conf(Conf, ["MMU"], 0, 1),
-    state_has_block_conf(Conf, ["MMU"], 1, 2).
+    state_add_confs(S4, Confs, S5),
+    state_has_block_conf(S5, ["MMU"], 0, 1),
+    state_has_block_conf(S5, ["MMU"], 1, 2).
 
 test_region_alloc :-
-    S = [in_use(region(["IN"], block(0,2097151)))],
+    state_empty(S0),
+    state_add_in_use(S0, region(["IN"], block(0,2097151)), S1),
+
     Size is 2^21,
     Reg = region(["IN"], _),
 
-    region_alloc(S, Reg, Size, 21),
+    region_alloc(S1, Reg, Size, 21),
     %printf("Reg=%p\n", Reg),
 
     Size2 is 2^24,
     Reg2 = region(["IN"], _),
 
-    region_alloc(S, Reg2, Size2, 21).
+    region_alloc(S1, Reg2, Size2, 21).
     %printf("Reg2=%p\n", Reg2).
 
+:- export test_alloc/0.
 test_alloc :-
     Size is 2*(2^21),
     Base128M is 128*(2^21),
     Limit512M is 512*(2^21) - 1,
-    S = [
-        overlay(["IN1"], ["MMU1"]),
-        block_meta(["MMU1"], 21, ["RAM"]),
-        overlay(["IN2"], ["MMU2"]),
-        block_meta(["MMU2"], 21, ["RAM"]),
-        accept(region(["RAM"],block(Base128M, Limit512M)))
-        ],
-   Reg1 = region(["IN1"], _),
-   Reg2 = region(["IN2"], _),
-   DestReg = region(["RAM"], _),
-   alloc(S, Size, 21, DestReg, [Reg1, Reg2], _).
-   %printf("Reg1=%p, Reg2=%p\n", [Reg1, Reg2]),
-   %printf("DestReg=%p\n", [DestReg]),
-   %printf("Conf=%p\n", [Conf]).
+
+    state_empty(S0),
+    state_add_overlay(S0, ["IN1"], ["MMU1"], S1),
+    state_add_block_meta(S1, ["MMU1"], 21, ["RAM"], S2),
+    state_add_overlay(S2, ["IN2"], ["MMU2"], S3),
+    state_add_block_meta(S3, ["MMU2"], 21, ["RAM"], S4),
+    state_add_accept(S4, region(["RAM"],block(Base128M, Limit512M)), S5),
+
+    Reg1 = region(["IN1"], _),
+    Reg2 = region(["IN2"], _),
+    DestReg = region(["RAM"], _),
+    alloc(S5, Size, 21, DestReg, [Reg1, Reg2], Confs),
+    printf("Reg1=%p, Reg2=%p\n", [Reg1, Reg2]),
+    printf("DestReg=%p\n", [DestReg]),
+    printf("Conf=%p\n", [Confs]).
 
 test_alias :-
-    S = [
-        overlay(["IN1"], ["OUT"]),
-        mapping(
-            region(["IN2"], block(5000,10000)),
-            name(["OUT"], 0)),
-        accept(region(["OUT"], block(0, 10000)))
-        ],
+    state_empty(S0),
+    state_add_overlay(S0, ["IN1"], ["OUT"], S1),
+    state_add_mapping(S1, region(["IN2"], block(5000,10000)),name(["OUT"], 0), S2),
+    state_add_accept(S2, region(["OUT"], block(0, 10000)), S3),
+
     N1 = name(["IN1"], 0),
     N2 = name(["IN2"], _),
-    alias(S, N1, N2),
+    alias(S3, N1, N2),
     N2 = name(_, 5000).
 
 run_test(Test) :-
