@@ -522,4 +522,4 @@ state_add_overlay ::  Integer -> String -> String -> String
 state_add_overlay i src dst = "state_add_overlay" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
 
 state_add_block_meta ::  Integer -> String -> String -> String -> String
-state_add_block_meta i src bits dst = "state_add_block_meta" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ bits ++ ", " ++ dst ++ (statevar (i + 1)))
+state_add_block_meta i src bits dst = "state_add_block_meta" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ bits ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
