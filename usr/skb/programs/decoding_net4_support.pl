@@ -57,6 +57,7 @@ initial_dram_block(Block) :- %a
 
 :- export init/1.
 init(NewS) :-
+    state_add_accept(S2, region(["DRAM"], Block), S3),
     state_empty(S1),
     add_SYSTEM(S1, [], S2),
     DRAM_ID = ["DRAM"],
@@ -102,30 +103,13 @@ add_process(S, Enum, NewS) :-
 iommu_enabled :-
     call(iommu_enabled,0,_)@eclipse.
 
-list_filter(_, [],  []).
-list_filter(Pred, [Head|Tail], Out) :-
-    call(Pred, Head), % pred true hence, remove
-    list_filter(Pred, Tail, Out)
-    ;
-    not(call(Pred, Head)),
-    list_filter(Pred, Tail, InnerOut),
-    Out = [Head | InnerOut].
-
-matches_suffix(Suffix, overlay(Id, _)) :- append(_, Suffix, Id).
-matches_suffix(Suffix, accept(region(Id,_))) :- append(_, Suffix, Id).
-matches_suffix(Suffix, mapping(region(Id,_), _)) :- append(_, Suffix, Id).
-matches_suffix(Suffix, block_meta(Id, _, _)) :- append(_, Suffix, Id).
-matches_suffix(Suffix, block_conf(Id, _, _)) :- append(_, Suffix, Id).
-matches_suffix(Suffix, in_use(region(Id, _))) :- append(_, Suffix, Id).
-matches_suffix(Suffix, enum_node_id(_, Id)) :- append(_, Suffix, Id).
-
 % Addr - PCI address, should be provided by caller.
 :- export remove_pci/3.
 remove_pci(S, Addr, NewS) :-
     state_has_pci_id(S, Addr, Enum),
     % remove pci_address_node lookup
     state_remove_pci_id(S, Addr, Enum, S1),
-    list_filter(matches_suffix([Enum]), S1, NewS).
+    state_remove_suffix(S1, [Enum], NewS).
 
 %test_remove_pci :-
 %    state_empty(S),
@@ -140,8 +124,8 @@ add_xeon_phi(S, Addr, Enum, NewS) :-
     %Ok, now we need to fixup the accepting bars installed by PCI.
     BAR0_ID = [0, "BAR", Enum],
     state_remove_accept(S1, region(BAR0_ID, _), S2),
-    GGDR_ID = ["GDDR", "PCI0", Enum],
-    state_add_overlay(S2, BAR0_ID, ["GDDR", "PCI0", 1], NewS).
+    GDDR_ID = ["GDDR", "PCI0", Enum],
+    state_add_overlay(S2, BAR0_ID, GDDR_ID, NewS).
 
 :- export add_pci/4.
 add_pci(S, Addr, Enum, NewS) :-
@@ -197,8 +181,8 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
         BarId = [BarNum, "BAR" | Id],
         BarEnd is BarStart + BarSize,
         state_add_accept(SIn, region(BarId, block(BarStart,BarEnd)), SIn1),
-        state_add_mapping(SIn1,region(PCIBUS_ID, block(BarStart,BarEnd),
-                                                 name(BarId,BarStart)), SOut)
+        state_add_mapping(SIn1,region(PCIBUS_ID, block(BarStart,BarEnd)),
+                                                 name(BarId,BarStart), SOut)
     ),
     % Set it to the node id where addresses are issued from the PCI device
     state_add_pci_id(S4, Addr, Enum, S5),
@@ -219,7 +203,7 @@ alloc_root_vnodeslot(S, NodeId, Slot, NewS) :-
     next_free_root_vnodeslot(S, NodeId, 1, Slot),
     state_add_vnodeslot(S, NodeId, Slot, NewS).
 
-:- export l/4.
+:- export alloc_root_vnodeslot_wrap/4.
 alloc_root_vnodeslot_wrap(S, NEnum, Slot, NewS) :-
     node_enum(S, NId, NEnum, S),
     alloc_root_vnodeslot(S, NId, Slot, NewS).
@@ -308,26 +292,26 @@ decoding_net_listing :-
     writeln("state(S) :- S = ["),
     writeln("   accepts = ["),
     checklist(listing_term, A),
-    writeln("   ], ")
+    writeln("   ], "),
     writeln("   mappings = ["),
     checklist(listing_term, M),
-    writeln("   ], ")
+    writeln("   ], "),
     writeln("   overlays = ["),
     checklist(listing_term, O),
-    writeln("   ], ")
+    writeln("   ], "),
     writeln("   block_meta = ["),
     checklist(listing_term, BM),
-    writeln("   ], ")
+    writeln("   ], "),
     writeln("   block_conf = ["),
     checklist(listing_term, BC),
-    writeln("   ], ")
+    writeln("   ], "),
     writeln("   in_use = ["),
     checklist(listing_term, U),
-    writeln("   ], ")
+    writeln("   ], "),
     writeln("   enums = ["),
     checklist(listing_term, E),
-    writeln("   ], ")
+    writeln("   ], "),
     writeln("   pciid = ["),
     checklist(listing_term, P),
-    writeln("   ], ")
+    writeln("   ], "),
     writeln("]").
