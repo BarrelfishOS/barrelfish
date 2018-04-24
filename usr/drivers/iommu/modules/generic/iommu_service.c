@@ -130,7 +130,7 @@ static void getvmconfig_request(struct iommu_binding *ib)
     assert(idev->iommu);
 
     err = skb_execute_query(
-        "state_get(S), state_query(S, pci_address_node_id(addr(%i,%i,%i), Enum)), write(Enum)",
+        "state_get(S), state_has_pci_id(S, addr(%i,%i,%i), Enum), write(Enum)",
         idev->addr.pci.bus,
         idev->addr.pci.device,
         idev->addr.pci.function);
