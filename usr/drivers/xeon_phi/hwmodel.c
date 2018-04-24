@@ -119,37 +119,21 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
                                       retaddr]; */
 
 
+    /* TODO: only do this if IOMMU is present or needs to be changed */
 
-
-    /* map the frame in the iommu space */
-
-#if 0
-
-    if (id.base >= phi->apt.pbase &&
-            ((id.base + id.bytes) <= (phi->apt.pbase + phi->apt.bytes))) {
-
-        debug_printf("%s:%u = %lx -> %lx\n", __FUNCTION__, __LINE__,
-                     id.base, id.base - phi->apt.pbase);
-
-        *retaddr = id.base - phi->apt.pbase;
-
-    } else {
-
-        struct dmem dmem;
-        err = driverkit_iommu_vspace_map_cl(phi->iommu_client, mem,
-                                            VREGION_FLAGS_READ_WRITE, &dmem);
-        if (err_is_fail(err)) {
-            return err;
-        }
-
-        debug_printf("%s:%u with IOMMU %" PRIxGENPADDR " -> %" PRIxGENPADDR "\n", __FUNCTION__, __LINE__,
-                     id.base, dmem.devaddr + XEON_PHI_SYSMEM_BASE -  2 * (512UL << 30));
-
-        *retaddr = dmem.devaddr + XEON_PHI_SYSMEM_BASE -  2 * (512UL << 30);
+    struct dmem dmem;
+    dmem.vbase = 0;
+    dmem.devaddr = names[0].address;
+    dmem.size = size;
+    err = driverkit_iommu_vspace_map_fixed_cl(xphi->iommu_client, mem,
+                                              VREGION_FLAGS_READ_WRITE, &dmem);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "TODO: CLEANUP!");
     }
-#endif
 
-    /* xxx */
+    /* TODO: only do this if SMPT needs to be changed is present */
+    smpt_set_address(xphi, 0, 0, 1);
+
 
     return SYS_ERR_OK;
 
