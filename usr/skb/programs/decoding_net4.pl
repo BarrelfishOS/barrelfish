@@ -28,23 +28,86 @@
 % block_conf(NodeId, VPN, PPN)         -- For block reconfigurable nodes
 % in_use(Region)                       -- Subset of accepted ranges that has been allocated
 
-state_valid([]).
-state_valid([accept(_) | As]) :- state_valid(As).
-state_valid([mapping(_,_) | As]) :- state_valid(As).
-state_valid([overlay(_,_) | As]) :- state_valid(As).
-state_valid([block_meta(_,_,_) | As]) :- state_valid(As).
-state_valid([block_conf(_,_,_) | As]) :- state_valid(As).
-state_valid([in_use(_) | As]) :- state_valid(As).
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Persisted state
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+:- dynamic current_state/1.
+
+
+% define the empty state to have only emtpy lists
 :- export state_empty/1.
-state_empty([]).
+state_empty(S) :-
+    S = state([],[],[],[],[],[],[],[], []).
 
-:- export state_add/3.
-state_add(O, Fact, N) :-
-    N = [Fact | O].
+% initializes the state to be empty
+init_state :-
+    state_empty(S),
+    state_set(S).
 
-:- export state_remove/3.
+% call the init
+:- init_state.
+
+
+% sets the new state
+:- export state_set/1.
+state_set(S) :-
+    retract(current_state(_)), assert(current_state(S)).
+
+:- export state_get/1.
+state_get(S) :- current_state(S).
+
+
+% adding to the state
+
+:- export state_add_mapping/4.
+state_add_mapping(S0, SrcReg, DstName, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    S1 = state(A, [mapping(SrcReg, DstName) | M], O, BM, BC, U, E, P, V).
+
+:- export state_add_accept/3.
+state_add_accept(S0, Reg, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    S1 = state([accept(Reg) | A], M, O, BM, BC, U, E, P, V).
+
+:- export state_add_overlay/4.
+state_add_overlay(S0, SrcNodeId, DstNodeId, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    S1 = state(A, M, [overlay(SrcNodeId, DstNodeId) | O], BM, BC, U, E, P, V).
+
+:- export state_add_block_meta/5.
+state_add_block_meta(S0, SrcNodeId, Bits, DestNodeId, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    S1 = state(A, M, O, [block_meta(SrcNodeId, Bits, DestNodeId) | BM], BC, U, E, P, V).
+
+:- export state_add_block_conf/5.
+state_add_block_conf(S0, NodeId, VPN, PPN, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    S1 = state(A, M, O, BM, [block_conf(NodeId, VPN, PPN) | BC], U, E, P, V).
+
+:- export state_add_in_use/3.
+state_add_in_use(S0, R, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    S1 = state(A, M, O, BM, BC,  [in_use(R) | U], E, P, V).
+
+:- export state_add_node_enum/4.
+state_add_node_enum(S0, Enum, NodeId, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    S1 = state(A, M, O, BM, BC,  U, [enum_node_id(Enum, NodeId) | E], P, V).
+
+:- export state_add_pci_id/4.
+state_add_pci_id(S0, Addr, Enum, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    S1 = state(A, M, O, BM, BC,  U, E, [pci_address_node_id(Addr, Enum) | P], V).
+
+:- export state_add_vnodeslot/4.
+state_add_vnodeslot(S0, NodeId, Slot, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    S1 = state(A, M, O, BM, BC,  U, E, P, [root_vnode(NodeId, Slot) |V]).
+
+
+
 state_remove([], _, []).
 state_remove([Head|Tail], Fact, Out) :-
     Head = Fact,
@@ -55,16 +118,114 @@ state_remove([Head|Tail], Fact, Out) :-
     Out = [Head | SubOut].
 
 
-:- export state_union/3.
-state_union(N, [], N).
-state_union(S1, [Head|Tail], N) :-
-    state_add(S1, Head, S2),
+:- export state_remove_mapping/4.
+state_remove_mapping(S0, SrcReg, DstName, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    state_remove(M, mapping(SrcReg, DstName), M1),
+    S1 = state(A, M1, O, BM, BC, U, E, P, V).
+
+:- export state_remove_accept/3.
+state_remove_accept(S0, Reg, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    state_remove(A, accept(Reg), A1),
+    S1 = state(A1, M, O, BM, BC, U, E, P, V).
+
+:- export state_remove_overlay/4.
+state_remove_overlay(S0, SrcNodeId, DstNodeId, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    state_remove(O, overlay(SrcNodeId, DstNodeId), O1),
+    S1 = state(A, M, O1, BM, BC, U, E, P, V).
+
+:- export state_remove_block_meta/5.
+state_remove_block_meta(S0, SrcNodeId, Bits, DestNodeId, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    state_remove(BM, block_meta(SrcNodeId, Bits, DestNodeId), BM1),
+    S1 = state(A, M, O, BM1, BC, U, E, P, V).
+
+:- export state_remove_block_conf/5.
+state_remove_block_conf(S0, NodeId, VPN, PPN, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    state_remove(BC, block_conf(NodeId, VPN, PPN), BC1),
+    S1 = state(A, M, O, BM, [block_conf(NodeId, VPN, PPN) | BC], U, E, P, V).
+
+:- export state_remove_in_use/3.
+state_remove_in_use(S0, R, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    state_remove(U, in_use(R), U1),
+    S1 = state(A, M, O, BM, BC,  U1, E, P, V).
+
+:- export state_remove_node_enum/4.
+state_remove_node_enum(S0, Enum, NodeId, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    state_remove(E, enum_node_id(Enum, NodeId) | E], E1),
+    S1 = state(A, M, O, BM, BC,  U, E1, P, V).
+
+:- export state_remove_pci_id/4.
+state_remove_pci_id(S0, Addr, Enum, S1) :-
+    S0 = state(A, M, O, BM, BC, U, E, P, V),
+    state_remove(P, pci_address_node_id(Addr, Enum), P1),
+    S1 = state(A, M, O, BM, BC,  U, E, P1, V).
+
+
+:- export state_add_confs/3.
+state_add_confs(N, [], N).
+state_add_confs(S1, [Head|Tail], N) :-
+    Head = block_conf(N, V, P),
+    state_add_block_conf(S1, N, V, P, S2),
     state_union(S2, Tail, N).
 
-:- export state_query/2.
-state_query([Fact|_], Fact).
-state_query([_|Tail], Fact) :-
-    state_query(Tail, Fact).
+
+state_has_fact([Fact|_], Fact).
+state_has_fact([_|Tail], Fact) :-
+    state_has_fact(Tail, Fact).
+
+
+:- export state_has_mapping/3.
+state_has_mapping(S0, SrcReg, DstName) :-
+    S0 = state(_, M, _, _, _, _, _, _, _),
+    state_has_fact(M, mapping(SrcReg, DstName)),
+
+:- export state_has_accept/2.
+state_has_accept(S0, Reg) :-
+    S0 = state(A, _, _, _, _, _, _, _, _),
+    state_has_fact(A, accept(Reg)).
+
+:- export state_has_overlay/3.
+state_has_overlay(S0, SrcNodeId, DstNodeId) :-
+    S0 = state(_, _, O, _, _, _, _, _, _),
+    state_has_fact(O, overlay(SrcNodeId, DstNodeId)).
+
+:- export state_has_block_meta/4.
+state_has_block_meta(S0, SrcNodeId, Bits, DestNodeId) :-
+    S0 = state(_, _, _, BM, _, _, _, _, _),
+    state_has_fact(BM, block_meta(SrcNodeId, Bits, DestNodeId)).
+
+:- export state_has_block_conf/4.
+state_has_block_conf(S0, NodeId, VPN, PPN) :-
+    S0 = state(_, _, _, _, BC, _, _, _, _),
+    state_has_fact(BC, block_conf(NodeId, VPN, PPN)).
+
+:- export state_has_in_use/2.
+state_has_in_use(S0, R) :-
+    S0 = state(_, _, _, _, _, U, _, _, _),
+    state_has_fact(U, in_use(R)).
+
+:- export state_has_node_enum/3.
+state_has_node_enum(S0, Enum, NodeId) :-
+    S0 = state(_, _, _, _, _, _, E, _, _),
+    state_has_fact(E, enum_node_id(Enum, NodeId) | E]).
+
+:- export state_has_pci_id/4.
+state_has_pci_id(S0, Addr, Enum) :-
+    S0 = state(_, _, _, _, _, _, _, P, _),
+    state_has_fact(P, pci_address_node_id(Addr, Enum)).
+
+:- export state_has_free_vnodeslot/3.
+state_has_free_vnodeslot(S0, NodeId, Slot) :-
+    S0 = state(_, _, _, _, _, _, _, _, V),
+    state_has_fact(V, root_vnode(NodeId, Slot)).
+
+
 
 
 
@@ -73,16 +234,16 @@ state_query([_|Tail], Fact) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 region_mapping(S, SrcRegion, mapping(In, Out))  :-
-    state_query(S, mapping(In, Out)),
+    state_has_mapping(S, In, Out),
     region_region_contains(SrcRegion, In).
 
 name_mapping(S, Name, mapping(In,Out))  :-
-    state_query(S, mapping(In, Out)),
+    state_has_mapping(S, In, Out),
     name_region_match(Name, In).
 
 translate_region_loop(0, _, _, _, _).
 translate_region_loop(I, S, SrcId, VPN, PFN):-
-    state_query(S, block_conf(SrcId, VPN, PFN)),
+    state_has_block_conf(S, SrcId, VPN, PFN),
     INext is I-1,
     VPNNext is VPN + 1,
     PFNNext is PFN + 1,
@@ -107,7 +268,7 @@ translate_region(S, SrcRegion, DstRegion) :-
 translate_region(S, SrcRegion, DstRegion) :-
     not(region_mapping(S, SrcRegion, _)),
     SrcRegion = region(SrcId, B),
-    state_query(S, overlay(SrcId, DstId)),
+    state_has_overlay(S, SrcId, DstId),
     DstRegion = region(DstId, B).
 
 
@@ -116,7 +277,7 @@ translate_region(S, SrcRegion, DstRegion) :-
     not(region_mapping(S, SrcRegion, _)),
     SrcRegion = region(SrcId, SrcBlock),
     SrcBlock = block(SrcBase, _),
-    state_query(S, block_meta(SrcId, Bits, DstId)),
+    state_has_block_meta(S, SrcId, Bits, DstId),
 
     % Base of block must be Bits aligned
     aligned(SrcBase, Bits, _),
@@ -129,7 +290,7 @@ translate_region(S, SrcRegion, DstRegion) :-
     % Check NumBlocks consecutive VPN/PPN pairs
     split_vaddr(SrcBase, Bits, BaseVPN, Offset),
     split_vaddr(DstBase, Bits, BasePPN, Offset),
-    state_query(S, block_conf(SrcId, BaseVPN, BasePPN)),
+    state_has_block_conf(S, SrcId, BaseVPN, BasePPN),
     translate_region_loop(ItEnd, S, SrcId, BaseVPN, BasePPN),
 
     % And calculate destination accordingly.
@@ -152,23 +313,23 @@ translate_name(S, SrcName, name(DstId, DstAddr)) :-
 translate_name(S, SrcName, name(DstId, DstAddr)) :-
     not(name_mapping(S, SrcName, _)),
     SrcName = name(SrcId,DstAddr),
-    state_query(S, overlay(SrcId, DstId)).
+    state_has_overlay(S, SrcId, DstId).
 
 % translate with configurable nodes
 translate_name(S, SrcName, name(DstId, DstAddr)) :-
     not(name_mapping(S, SrcName, _)),
     SrcName = name(SrcId, SrcAddr),
-    state_query(S, block_meta(SrcId, Bits, DstId)),
+    state_has_block_meta(S, SrcId, Bits, DstId),
     split_vaddr(SrcAddr, Bits, VPN, Offset),
-    state_query(S, block_conf(SrcId, VPN, PPN)),
+    state_has_block_conf(S, SrcId, VPN, PPN),
     split_vaddr(DstAddr, Bits, PPN, Offset).
 
 accept_name(S, Name) :-
-    state_query(S, accept(Candidate)),
+    state_has_accept(S, Candidate),
     name_region_match(Name, Candidate).
 
 accept_region(S, Region) :-
-    state_query(S, accept(Candidate)),
+    state_has_accept(S, Candidate),
     region_region_contains(Region, Candidate).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -197,7 +358,7 @@ resolve_region(S, SrcRegion, DstRegion) :-
     accept_region(S, DstRegion).
 
 region_in_use(S, Region) :-
-    state_query(S, in_use(Candidate)),
+    state_has_in_use(S, Candidate),
     region_region_intersect(Region, Candidate).
 
 region_free(S, Region) :-
@@ -213,12 +374,12 @@ region_aligned(Region, Bits) :-
 region_free_bound(S, Reg) :-
     Reg = region(Id, block(RBase, _)),
     CReg = region(Id, block(_, CLimit)),
-    state_query(S, in_use(CReg)),
+    state_has_in_use(S, CReg),
     RBase #>= CLimit ;
     % In case of no region with same id
     Reg = region(Id, block(RBase, _)),
     CReg = region(Id, _),
-    not(state_query(S, in_use(CReg))),
+    not(state_has_in_use(S, CReg)),
     RBase #>= 0.
 
 
@@ -227,7 +388,7 @@ region_free_bound(S, Reg) :-
 region_accepting_bound(S, Reg) :-
     Reg = region(Id, block(RBase, _)),
     CReg = region(Id, block(AccBase, AccLimit)),
-    state_query(S, accept(CReg)),
+    state_has_accept(S, CReg),
     RBase #>= AccBase,
     AccLimit #>= RBase.
 
@@ -246,7 +407,7 @@ translate_region_alloc(I, SIn, SrcId, VPN, PFN, SOut) :-
     INext is I - 1,
     VPNNext is VPN + 1,
     PFNNext is PFN + 1,
-    state_add(SIn, block_conf(SrcId, VPN, PFN), SIn2),
+    state_add_block_conf(SIn, SrcId, VPN, PFN, SIn2),
     translate_region_alloc(INext, SIn2, SrcId, VPNNext, PFNNext, SOut).
 
 
@@ -266,7 +427,7 @@ translate_region_conf(S, SrcRegion, DstRegion, COut) :-
     SrcRegion = region(SrcId, SrcBlock),
     DstRegion = region(DstId, block(DstBase, DstLimit)),
     SrcBlock = block(SrcBase, _),
-    state_query(S, block_meta(SrcId, Bits, DstId)),
+    state_has_block_meta(S, SrcId, Bits, DstId),
 
     % Base of block must be Bits aligned
     aligned(SrcBase, Bits, _),
@@ -316,12 +477,12 @@ alias(S, N1, N2) :-
 xeon_phi_extra_cons(SrcRegion, DstRegion) :-
     DstRegion = region(["DRAM"],_),
     SrcRegion = region(_, block(Base,_ )),
-    Base #>= 34359738368. % 
+    Base #>= 34359738368. %
 
 xeon_phi_extra_cons(SrcRegion, DstRegion) :-
     not(DstRegion = region(["DRAM"],_)),
     SrcRegion = region(_, block(Base,_ )),
-    Base #>= 0. 
+    Base #>= 0.
 
 %%%% ENDHACK
 
@@ -513,8 +674,8 @@ test_translate_region_conf :-
         region(["In"], block(0,Limit4M)),
         Out, C),
     Out = region(_, block(Base6M, _)),
-    state_query(C, block_conf(_, 0,3)),
-    state_query(C, block_conf(_, 1,4)).
+    state_has_block_conf(C, _, 0,3),
+    state_has_block_conf(C, _, 1,4).
 
 test_translate_name :-
     %Setup
@@ -587,8 +748,8 @@ test_route :-
         ],
     route(S, region(["IN"],block(0,Limit4M)), OutRegion, Conf),
     OutRegion = region(["RAM"],block(Base2M, Limit6M)),
-    state_query(Conf, block_conf(["MMU"], 0, 1)),
-    state_query(Conf, block_conf(["MMU"], 1, 2)).
+    state_has_block_conf(Conf, ["MMU"], 0, 1),
+    state_has_block_conf(Conf, ["MMU"], 1, 2).
 
 test_region_alloc :-
     S = [in_use(region(["IN"], block(0,2097151)))],
