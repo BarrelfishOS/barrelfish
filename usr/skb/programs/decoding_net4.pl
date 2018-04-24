@@ -43,6 +43,7 @@ state_empty(S) :-
 
 % initializes the state to be empty
 init_state :-
+    assert(current_state(null)),
     state_empty(S),
     state_set(S).
 
@@ -53,7 +54,7 @@ state_set(S) :-
     retract(current_state(_)), assert(current_state(S)).
 
 % call the init
-:- assert(current_state(null)), init_state.
+:- init_state.
 
 :- export state_get/1.
 state_get(S) :- current_state(S).
@@ -698,7 +699,7 @@ test_translate_name :-
 test_resolve_name1 :-
     %Setup
     state_empty(S0),
-    state_add_mapping(S0, 
+    state_add_mapping(S0,
             region(["In"], block(1000,2000)),
             name(["Out1"],  0), S1),
     state_add_overlay(S1, ["In"], ["Out2"], S2),
