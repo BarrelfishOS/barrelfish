@@ -87,11 +87,14 @@ module XEONPHI {
     memory (0 bits 40) SMPT_IN
     SMPT_IN blockoverlays OUT bits(34) // SMPT remaps in 16GB blocks
 
+    memory (0 bits 16) MMIO
+    MMIO accepts [(*)]
+
     memory (0 bits 40) KNC_SOCKET
     KNC_SOCKET maps [
-        (0x0000000000 to 0x00fedfffff) to GDDR at (0x000000000 to 0x0fedfffff);
-        (0x00fee01000 to 0x03ffffffff) to GDDR at (0x0fee01000 to 0x3ffffffff);
-        (0x0800000000 to 0xffffffffff) to SMPT_IN at (0x0 to 0xf7ffffffff) // 512GB 
+        (0x0000000000 to 0x03ffffffff) to GDDR at (0x000000000 to 0x03ffffffff);
+        (0x8000000000 to 0xffffffffff) to SMPT_IN at (0x0 to 0x7fffffffff); // 512GB
+        (0x08007D0000 bits 16) to MMIO at (*)
     ]
 
     memory (0 bits 40) LAPIC
