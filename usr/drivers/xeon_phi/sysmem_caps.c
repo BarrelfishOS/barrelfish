@@ -429,7 +429,9 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
 
     base_offset = ret.base;
 
-    XSYSMEM_DEBUG("Initializing memory manager\n");
+    XSYSMEM_DEBUG("Initializing memory manager with base 0x%" PRIxGENPADDR
+                          "..0x%" PRIxGENPADDR "\n",
+                  ret.base, ret.base + ret.bytes - 1);
 
     /*
      * initialize the memory manager.
@@ -444,6 +446,8 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
     if (err_is_fail(err)) {
         return err_push(err, MM_ERR_MM_INIT);
     }
+
+
 
     XSYSMEM_DEBUG("Adding cap: [0x%016lx, %i]\n", ret.base, log2ceil(ret.bytes));
     err = mm_add(&sysmem_manager, sysmem_cap, log2ceil(ret.bytes), ret.base);
@@ -503,7 +507,8 @@ errval_t sysmem_cap_request(lpaddr_t base,
 {
     errval_t err;
 
-    XSYSMEM_DEBUG("Requesting cap for [0x%016lx, %i]\n", base, bits);
+    XSYSMEM_DEBUG("Requesting cap for [0x%" PRIxLPADDR "..0x%" PRIxLPADDR "]\n",
+                  base, base + (1UL << bits) - 1);
     // the size and base must not exceed the maximum range (512G)
     assert(bits < 40);
     assert(!(base & (BASE_PAGE_SIZE-1)));
