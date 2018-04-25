@@ -192,10 +192,13 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
      param(Id), param(PCIBUS_ID),
      fromto(S4, SIn, SOut, S5) do
         BarId = [BarNum, "BAR" | Id],
-        BarEnd is BarSize - 1,
-        state_add_accept(SIn, region(BarId, block(0, BarEnd)), SIn1),
-        state_add_mapping(SIn1,region(PCIBUS_ID, block(BarStart,BarEnd)),
-                                                 name(BarId,0), SOut)
+        InStart is BarStart,
+        InEnd is BarStart + BarSize - 1,
+        AcceptStart is 0,
+        AcceptEnd is BarSize - 1,
+        state_add_accept(SIn, region(BarId, block(AcceptStart, AcceptEnd)), SIn1),
+        state_add_mapping(SIn1,region(PCIBUS_ID, block(InStart,InEnd)),
+                                                 name(BarId,AcceptStart), SOut)
     ),
     % Set it to the node id where addresses are issued from the PCI device
     state_add_pci_id(S5, Addr, Enum, S6),
