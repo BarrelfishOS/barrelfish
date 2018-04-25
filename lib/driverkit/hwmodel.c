@@ -337,7 +337,7 @@ int32_t driverkit_hwmodel_lookup_node_id(const char *path)
 }
 
 #define REVERSE_RESOLVE_Q "state_get(S)," \
-                    "reverse_wrap(S, %"PRIi32", %"PRIu64", %zu, %"PRIi32")."
+                    "reverse_resolve_wrap(S, %"PRIi32", %"PRIu64", %zu, %"PRIi32")."
 
 // Without reconfiguration, under what ret_addr can you reach dst
 // from nodeid?
