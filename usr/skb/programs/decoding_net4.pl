@@ -18,7 +18,6 @@
 
 :- module(decoding_net4).
 :- lib(ic).
-:- lib(timeout_simple).
 
 
 %%% Bottom layer is storing the following facts in the State
@@ -431,6 +430,9 @@ region_free_bound(S, Reg) :-
     %RBase #>= 0 ;
     RBase #>= CLimit ;
     % In case that allocation doesnt work, just get me any.
+    Reg = region(Id, block(RBase, _)),
+    CReg = region(Id, _),
+    not(state_has_in_use(S, CReg)),
     RBase #>= 0.
 
 
@@ -588,7 +590,6 @@ alias_conf(S, R1, R2, Conf) :-
     region_size(R1, R1Size),
     region_alloc_test(S, R2, R1Size, 21),
     route(S, R2, D, Conf).
-    %timeout(route(S, R2, D, Conf), 3, fail).
 
 
 region_alloc_multiple(_, [], _, _).
