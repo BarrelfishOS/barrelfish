@@ -327,6 +327,12 @@ int32_t driverkit_hwmodel_lookup_dram_node_id(void)
 #endif
 }
 
+int32_t driverkit_hwmodel_lookup_pcibus_node_id(void)
+{
+    return driverkit_hwmodel_lookup_node_id("[\"PCIBUS\"]");
+}
+
+
 int32_t driverkit_hwmodel_lookup_node_id(const char *path)
 {
 
@@ -370,17 +376,11 @@ errval_t driverkit_hwmodel_reverse_resolve(struct capref dst, int32_t nodeid,
     return SYS_ERR_OK;
 #else
     int dst_enum = id.pasid;
-
-    dst_enum =  driverkit_hwmodel_lookup_node_id("[\"PCIBUS\"]");
-
+    dst_enum = driverkit_hwmodel_lookup_pcibus_node_id();
 
     assert(nodeid < 100);
-
     char buf[sizeof(FORMAT)];
     snprintf(buf, sizeof(buf), FORMAT, nodeid);
-
-
-
 
     nodeid =  driverkit_hwmodel_lookup_node_id(buf);
 
@@ -404,4 +404,61 @@ errval_t driverkit_hwmodel_reverse_resolve(struct capref dst, int32_t nodeid,
 
     return SYS_ERR_OK;
 #endif
+}
+
+
+#define ALIAS_CONF_Q "state_get(S)," \
+                     "alias_conf_wrap(S, "  \
+                     "%"PRIi32", %"PRIu64", %zu," \
+                     "%"PRIi32", NewS)," \
+                     "state_set(NewS)."
+
+/**
+ * Makes dst visible to nodeid, assuming the configuration returned 
+ * in ret_conf will be installed.
+ */
+errval_t driverkit_hwmodel_alias_conf(struct capref dst,
+                                     int32_t nodeid,
+                                     char *ret_conf, size_t ret_conf_size,
+                                     genpaddr_t *ret_addr)
+{
+    struct frame_identity id;
+    errval_t err;
+    err = invoke_frame_identify(dst, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    uint64_t addr = id.base;
+    size_t size = id.bytes;
+
+    debug_printf("%s:%d: alias_conf request addr=0x%"PRIx64", size=%"PRIuGENSIZE"\n",
+            __FUNCTION__, __LINE__, id.base, size);
+
+    int32_t mem_nodeid = driverkit_hwmodel_lookup_pcibus_node_id();
+
+    debug_printf(ALIAS_CONF_Q, mem_nodeid, addr, size, nodeid);
+    err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, nodeid);
+    printf("SKB STD OUT: %s\n\n", skb_get_output());
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "alias_conf \n");
+        return err;
+    }
+
+    // Determine and copy conf line (second output line)
+    char * confline = strstr(skb_get_output(), "\n");
+    assert(confline);
+    if(ret_conf){
+        strncpy(ret_conf, confline + 1, ret_conf_size);
+    }
+
+    // Parse names
+    *confline = 0;
+    struct hwmodel_name names[1];
+    int conversions;
+    driverkit_parse_namelist(skb_get_output(), names, &conversions);
+    debug_printf("Conversions = %d\n", conversions);
+    assert(conversions == 1);
+
+    if(ret_addr) *ret_addr = names[0].address;
+    return SYS_ERR_OK;
 }

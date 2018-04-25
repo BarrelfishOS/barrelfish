@@ -44,7 +44,11 @@
 
 #define SIZE16G (16ll*1024*1024*1024)
 
-static errval_t lookup_phi_enums(int32_t nodeid, int32_t *iommu, int32_t *smpt)
+static errval_t lookup_phi_enums(int32_t pci_nodeid,
+        int32_t *knc_socket,
+        int32_t *smpt,
+        int32_t *iommu
+        )
 {
     errval_t err;
 
@@ -52,18 +56,25 @@ static errval_t lookup_phi_enums(int32_t nodeid, int32_t *iommu, int32_t *smpt)
 
     err = skb_execute_query(
         "state_get(S), "
-        "xeon_phi_meta(S, %"PRIi32", _, _, SMPTID, IOMMUID),"
-        "node_enum(S, SMPTID, E1, S1),"
-        "node_enum(S1, IOMMUID, E2, NewS),"
-        "write(E1), write(' '), write(E2), "
-        "state_set(NewS).",
-        nodeid);
+        "xeon_phi_meta(S, %"PRIi32", E1, E2, E3),"
+        "write(E1), write(' '),"
+        "write(E2), write(' '),"
+        "write(E3).",
+        pci_nodeid);
     if (err_is_fail(err)) {
-        DEBUG_SKB_ERR(err, "query smpt");
+        DEBUG_SKB_ERR(err, "query xeon phi meta");
         return err;
     }
-    err = skb_read_output("%d %d", smpt, iommu);
-    return err;
+
+    int enums[3];
+    err = skb_read_output("%d %d %d", &enums[0], &enums[1], &enums[2]);
+    if(err_is_fail(err)) return err;
+
+    if(knc_socket) *knc_socket = enums[0];
+    if(smpt) *smpt = enums[1];
+    if(iommu) *iommu = enums[2];
+
+    return SYS_ERR_OK;
 }
 
 // Can install SMPT and IOMMU configs
@@ -73,7 +84,12 @@ static errval_t install_config(struct xeon_phi *xphi, char * conf, struct dmem *
 
     // Get configurable nodeids
     int32_t smpt_id, iommu_id;
-    err = lookup_phi_enums(xphi->nodeid, &iommu_id, &smpt_id);
+    err = lookup_phi_enums(xphi->nodeid, NULL, &smpt_id, &iommu_id);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "lookup nodeids");
+        return err;
+    }
+
     debug_printf("xphi nodeid: %d, iommu nodeid: %d, smpt nodeid: %d\n",
             xphi->nodeid, iommu_id, smpt_id);
 
@@ -94,6 +110,9 @@ static errval_t install_config(struct xeon_phi *xphi, char * conf, struct dmem *
                 dmem->vbase = inaddr;
                 dmem->devaddr = inaddr;
             }
+        } else {
+            debug_printf("%s:%d: Don't know how to config node %d. Ignoring.\n",
+                    __FUNCTION__, __LINE__, nodeid);
         }
     }
 
@@ -105,12 +124,6 @@ static errval_t install_config(struct xeon_phi *xphi, char * conf, struct dmem *
     }
     return err;
 }
-
-#define ALIAS_CONF_Q "state_get(S)," \
-                     "alias_conf_wrap(S, "  \
-                     "%"PRIi32", %"PRIu64", %zu," \
-                     "%"PRIi32", NewS)," \
-                     "state_set(NewS)."
 
 /*
  * the translate address is called when a region is registered
@@ -125,57 +138,29 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
     assert(arg != NULL);
     assert(retaddr != NULL);
 
-    /* query the model */
-    #ifdef __k1om__
-    return LIB_ERR_NOT_IMPLEMENTED;
-    #endif
-
     struct frame_identity id;
     err = invoke_frame_identify(mem, &id);
     if (err_is_fail(err)) {
         return err;
     }
 
-    err = skb_client_connect();
-    if (err_is_fail(err)) {
+    /* query the model */
+    #ifdef __k1om__
+    return LIB_ERR_NOT_IMPLEMENTED;
+    #endif
+
+    char conf[1024];
+    int32_t knc_sock_id;
+    err = lookup_phi_enums(xphi->nodeid, &knc_sock_id, NULL, NULL);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "lookup nodeids");
         return err;
     }
 
-    // TODO: replace with id.pasid; 
-    int32_t mem_nodeid = driverkit_hwmodel_lookup_dram_node_id();
-    uint64_t addr = id.base;
-    size_t size = id.bytes;
-
-    debug_printf("%s:%d: translate request addr=0x%"PRIx64", size=%"PRIuGENSIZE"\n",
-            __FUNCTION__, __LINE__, id.base, size);
-
+    err = driverkit_hwmodel_alias_conf(mem, knc_sock_id, conf, sizeof(conf), retaddr);
 
     skb_execute_query("decoding_net_listing");
 
-    debug_printf(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);
-    err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);
-    printf("SKB STD OUT: %s\n\n", skb_get_output());
-    if (err_is_fail(err)) {
-        DEBUG_SKB_ERR(err, "alias_conf \n");
-        return err;
-    }
-
-    // Determine conf line (second output line)
-    char * confline = strstr(skb_get_output(), "\n");
-    assert(confline);
-    *confline = 0;
-    confline++;
-    confline = strdup(confline);
-
-    printf("First line: %s, Next Line: %s\n", skb_get_output(), confline);
-
-    struct hwmodel_name names[1];
-    int conversions;
-    driverkit_parse_namelist(skb_get_output(), names, &conversions);
-    debug_printf("Conversions = %d\n", conversions);
-    assert(conversions == 1);
-
-    *retaddr = names[0].address;
     debug_printf("[knc] Translated address into Xeon Phi space: 0x%"PRIx64"\n",
             *retaddr);
 
@@ -183,7 +168,7 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
     struct dmem dmem;
     dmem.size = id.bytes;
     dmem.mem = mem;
-    err = install_config(xphi, confline, &dmem);
+    err = install_config(xphi, conf, &dmem);
     assert(err_is_ok(err));
 
     /* TODO: only do this if IOMMU is present or needs to be changed */
@@ -196,14 +181,5 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
         *local_retaddr = dmem.vbase;
     }
 
-    free(confline);
-
     return SYS_ERR_OK;
-
 }
-
-//errval_t xeon_phi_hw_model_query_and_config(void *arg,
-//                                            struct capref mem,
-//                                            genpaddr_t *retaddr)
-//{
-//}

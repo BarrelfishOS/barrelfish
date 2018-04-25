@@ -129,7 +129,12 @@ add_xeon_phi(S, Addr, Enum, NewS) :-
     BAR0_ID = [0, "BAR", Enum],
     state_remove_accept(S1, region(BAR0_ID, _), S2),
     GDDR_ID = ["GDDR", "PCI0", Enum],
-    state_add_overlay(S2, BAR0_ID, GDDR_ID, NewS).
+    state_add_overlay(S2, BAR0_ID, GDDR_ID, S3),
+    % Make sure we have Node Enums for GDDR and Socket
+    node_enum(S3, GDDR_ID, _, S4),
+    node_enum(S4, ["KNC_SOCKET", "PCI0", Enum], _, S5),
+    node_enum(S5, ["SMPT_IN", "PCI0", Enum], _, S6),
+    node_enum(S6, ["IN", "IOMMU0", Enum], _, NewS).
 
 %    state_remove_pci_id(S3, Addr, _, S4),
 %    K1OMCoreId = ["K1OM_CORE", "PCI0", Enum],
@@ -146,15 +151,14 @@ replace_with_xeon_phi(S, OldEnum, NewEnum, NewS) :-
     remove_pci(S, Addr, S1),
     add_xeon_phi(S1, Addr, NewEnum, NewS).
 
-% Given the node enum E of the xeon phi (as returned by xeon phi)
-% get some other nodeid's
-:- export xeon_phi_meta/6.
-xeon_phi_meta(S, E, N, K1OMCoreId, SMPTId, IOMMUId) :-
-    node_enum(S, N, E, S),
-    N = [_ | Rm],
-    K1OMCoreId = ["K1OM_CORE" | Rm],
-    SMPTId = ["SMPT_IN" | Rm],
-    IOMMUId = ["IN", "IOMMU0", E].
+% Given the Pci enum of the xeon phi (as returned by the driverkit lib),
+% return some other node enums.
+:- export xeon_phi_meta/5.
+xeon_phi_meta(S, PCI_E, KNC_SOCKET_E, SMPT_IN_E, IOMMU_IN_E) :-
+    node_enum(S, [_ | Rm], PCI_E, S),
+    node_enum(S, ["KNC_SOCKET" | Rm], KNC_SOCKET_E, S),
+    node_enum(S, ["SMPT_IN" | Rm], SMPT_IN_E, S),
+    node_enum(S, ["IN", "IOMMU0", PCI_E], IOMMU_IN_E, S).
 
 % Helper to instantiate a PCI card. If no IOMMU is present it will
 % instantiate Module, else ModuleIommu
@@ -227,7 +231,7 @@ alloc_root_vnodeslot_wrap(S, NEnum, Slot, NewS) :-
 %%%% Query Wrappers
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 write_regions(S, Regs, NewS) :-
-    (foreach(Reg, Regs), param(S), foreach(Term, Terms), fromto(S, InS, OutS, NewS) do
+    (foreach(Reg, Regs), foreach(Term, Terms), fromto(S, InS, OutS, NewS) do
        Reg = region(NId, block(B, _)),
        node_enum(InS, NId, Enum, OutS),
        Term = name(B, Enum)
@@ -288,10 +292,11 @@ ram_bus_nodeid(["DRAM"], ["PCIBUS"]).
 % ram_bus_nodeid(["GDDR"], ["PCIBUS"]). % ADD XEON PHI RULE
 
 :- export reverse_resolve_wrap/5.
-reverse_resolve_wrap(S0, DstEnum, DstAddr, DstSize, SrcEnum)  :-
+%reverse_resolve_wrap(S0, DstEnum, DstAddr, DstSize, SrcEnum)  :-
+reverse_resolve_wrap(S0, DstEnum, DstAddr, _, SrcEnum)  :-
     node_enum(S0, DstNodeId, DstEnum, S0),
     node_enum(S0, SrcNodeId, SrcEnum, S0),
-    DstLimit is DstSize + DstAddr - 1,
+    %DstLimit is DstSize + DstAddr - 1,
     %DstRegion = region(DstNodeId, block(DstAddr, DstLimit)),
     %SrcRegion = region(SrcNodeId, _),
 
@@ -305,29 +310,30 @@ reverse_resolve_wrap(S0, DstEnum, DstAddr, DstSize, SrcEnum)  :-
 
 :- export alias_conf_wrap/6.
 alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
-    xeon_phi_meta(S0, DstEnum, _, XeonSrc, SmptId, IommuId), % TODO: Make me work with arbitrary destinations.
+    %xeon_phi_meta(S0, DstEnum, _, XeonSrc, SmptId, IommuId), % TODO: Make me work with arbitrary destinations.
 
-    node_enum(S0, SrcNodeId, SrcEnum, S1),
-    node_enum(S1, SmptId, _, S2),
-    node_enum(S2, IommuId, _, S3),
-    % HACK: Replace dram nodeid with bus. Because our capabilities actually
-    % protect an area in the BUS not in the DRAM.
-    ram_bus_nodeid(SrcNodeId, SrcBusId),
-    % ENDHACK
+    %node_enum(S0, SrcNodeId, SrcEnum, S1),
+    %node_enum(S1, SmptId, _, S2),
+    %node_enum(S2, IommuId, _, S3),
+    %% HACK: Replace dram nodeid with bus. Because our capabilities actually
+    %% protect an area in the BUS not in the DRAM.
+    %ram_bus_nodeid(SrcNodeId, SrcBusId),
+    %% ENDHACK
+
+    % Build src region
+    node_enum(S0, SrcId, SrcEnum, S0), 
     SrcLimit is SrcAddr + Size - 1,
-    R1 = region(SrcBusId, block(SrcAddr, SrcLimit)),
+    SrcRegion = region(SrcId, block(SrcAddr, SrcLimit)),
 
-    XPhiRegion = region(XeonSrc, _),
-    alias_conf(S3, R1, XPhiRegion, Confs),
-    state_add_confs(S3, Confs, S4),
+    node_enum(S0, DstId, DstEnum, S0),
+    DstRegion = region(DstId, _),
+    alias_conf(S0, SrcRegion, DstRegion, Confs),
+    state_add_confs(S0, Confs, S1),
 
-    state_add_in_use(S4, XPhiRegion, S5),
+    state_add_in_use(S1, SrcRegion, S2),
 
-    write_regions(S5, [XPhiRegion], NewS),
+    write_regions(S2, [DstRegion], NewS),
     write_confs(NewS, Confs).
-    %write_confs_for_nodeid(NewS, smpt, SMPTId, Confs),
-    %write_iommu_confs_for_nodeid(NewS, iommu, SMPTId, Confs).
-    % TODO Think about what should be in NewS
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -42,13 +42,17 @@ errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
                                         int32_t nodeid, genvaddr_t *addr);
 
 int32_t driverkit_hwmodel_get_my_node_id(void);
-
 int32_t driverkit_hwmodel_lookup_dram_node_id(void);
-
+int32_t driverkit_hwmodel_lookup_pcibus_node_id(void);
 int32_t driverkit_hwmodel_lookup_node_id(const char *path);
 
 errval_t driverkit_hwmodel_reverse_resolve(struct capref dst,
                                      int32_t nodeid,
+                                     genpaddr_t *ret_addr);
+
+errval_t driverkit_hwmodel_alias_conf(struct capref dst,
+                                     int32_t nodeid,
+                                     char *ret_conf, size_t ret_conf_size,
                                      genpaddr_t *ret_addr);
 
 
