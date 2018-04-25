@@ -18,6 +18,7 @@
 
 :- module(decoding_net4).
 :- lib(ic).
+:- lib(timeout_simple).
 
 
 %%% Bottom layer is storing the following facts in the State
@@ -426,12 +427,10 @@ region_free_bound(S, Reg) :-
     Reg = region(Id, block(RBase, _)),
     CReg = region(Id, block(_, CLimit)),
     state_has_in_use(S, CReg),
-    %RBase #>= CLimit ;
+    %RBase is CLimit + 1 ;
+    %RBase #>= 0 ;
     RBase #>= 0 ;
-    % In case of no region with same id
-    Reg = region(Id, block(RBase, _)),
-    CReg = region(Id, _),
-    not(state_has_in_use(S, CReg)),
+    % In case that allocation doesnt work, just get me any.
     RBase #>= 0.
 
 
@@ -450,6 +449,10 @@ region_alloc(S, Reg, Size, Bits) :-
     region_aligned(Reg, Bits),
     region_size(Reg, Size),
     region_free(S, Reg).
+
+region_alloc_test(S, Reg, Size, Bits) :-
+    region_aligned(Reg, Bits),
+    region_size(Reg, Size).
 
 
 translate_region_alloc(0, Confs, _, _, _, Confs).
@@ -533,6 +536,7 @@ translate_region_conf(S, SrcRegion, DstRegion, COut) :-
 route_step(S, SrcRegion, NextRegion, Conf) :-
     translate_region(S, SrcRegion, NextRegion),
     Conf = [] ;
+    not(translate_region(S, SrcRegion, NextRegion)),
     translate_region_conf(S, SrcRegion, NextRegion, Conf).
 
 route_step_cont(S, NextRegion, DstRegion, C1, Conf) :-
@@ -557,6 +561,11 @@ alias(S, N1, N2) :-
     resolve_name(S, N1, D),
     resolve_name(S, N2, D).
 
+:- export alias_region/3.
+alias_region(S, R1, R2) :-
+    resolve_region(S, R1, D),
+    resolve_region(S, R2, D).
+
 %%%% HACK
 xeon_phi_extra_cons(SrcRegion, DstRegion) :-
     DstRegion = region(["DRAM"],_),
@@ -577,8 +586,9 @@ alias_conf(S, R1, R2, Conf) :-
 
     xeon_phi_extra_cons(R2, D),
     region_size(R1, R1Size),
-    region_alloc(S, R2, R1Size, 21),
+    region_alloc_test(S, R2, R1Size, 21),
     route(S, R2, D, Conf).
+    %timeout(route(S, R2, D, Conf), 3, fail).
 
 
 region_alloc_multiple(_, [], _, _).
