@@ -426,7 +426,8 @@ region_free_bound(S, Reg) :-
     Reg = region(Id, block(RBase, _)),
     CReg = region(Id, block(_, CLimit)),
     state_has_in_use(S, CReg),
-    RBase #>= CLimit ;
+    %RBase #>= CLimit ;
+    RBase #>= 0 ;
     % In case of no region with same id
     Reg = region(Id, block(RBase, _)),
     CReg = region(Id, _),
