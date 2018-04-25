@@ -24,6 +24,14 @@
 #include <if/mem_defs.h>
 #include "debug.h"
 
+#define HWMODEL_QUERY_DEBUG_ENABLED 1
+#if defined(HWMODEL_QUERY_DEBUG_ENABLED)
+#define HWMODEL_QUERY_DEBUG(x...) do { printf("MODELQUERY: " x); printf("\n"); } while(0)
+
+#else
+#define HWMODEL_QUERY_DEBUG(x...) ((void)0)
+#endif
+
 
 
 __attribute__((unused))
@@ -84,7 +92,7 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
 
 
     int alloc_bits = 21;
-    debug_printf("Query: " ALLOC_WRAP_Q "\n", bytes, alloc_bits, dstnode, nodes_str);
+    HWMODEL_QUERY_DEBUG(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
     err = skb_execute_query(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
 
     DEBUG_SKB_ERR(err, "alloc_wrap");
@@ -93,6 +101,7 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
 
         skb_execute("decoding_net_listing");
 
+        HWMODEL_QUERY_DEBUG(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
         err = skb_execute_query(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
         if (err_is_fail(err)) {
             DEBUG_SKB_ERR(err, "alloc_wrap");
@@ -264,7 +273,7 @@ errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
     //int32_t mem_nodeid = id.pasid;
     int32_t mem_nodeid = driverkit_hwmodel_lookup_dram_node_id();
     uint64_t mem_addr = id.base;
-    debug_printf("Query: " MAP_WRAP_Q "\n",
+    HWMODEL_QUERY_DEBUG(MAP_WRAP_Q,
             id.bytes, mem_nodeid, mem_addr, src_nodeid_str);
     err = skb_execute_query(MAP_WRAP_Q,
             id.bytes, mem_nodeid, mem_addr, src_nodeid_str);
@@ -302,6 +311,10 @@ int32_t driverkit_hwmodel_get_my_node_id(void)
     static int32_t nodeid = -1;
 
     if(nodeid == -1){
+        HWMODEL_QUERY_DEBUG(
+            "state_get(S), "
+            "add_process(S, E, NewS), writeln(E), "
+            "state_set(NewS)");
         err = skb_execute_query(
             "state_get(S), "
             "add_process(S, E, NewS), writeln(E), "
@@ -339,6 +352,11 @@ int32_t driverkit_hwmodel_lookup_node_id(const char *path)
     debug_printf("%s:%u with path='%s'\n", __FUNCTION__, __LINE__, path);
 
     errval_t err;
+    HWMODEL_QUERY_DEBUG(
+        "state_get(S), "
+        "node_enum(S, %s, E, NewS), writeln(E), "
+        "state_set(NewS)",
+        path);
     err = skb_execute_query(
         "state_get(S), "
         "node_enum(S, %s, E, NewS), writeln(E), "
@@ -384,7 +402,7 @@ errval_t driverkit_hwmodel_reverse_resolve(struct capref dst, int32_t nodeid,
 
     nodeid =  driverkit_hwmodel_lookup_node_id(buf);
 
-    debug_printf("Query: " REVERSE_RESOLVE_Q "\n", dst_enum, id.base, id.bytes, nodeid);
+    HWMODEL_QUERY_DEBUG(REVERSE_RESOLVE_Q, dst_enum, id.base, id.bytes, nodeid);
     err = skb_execute_query(REVERSE_RESOLVE_Q, dst_enum, id.base, id.bytes, nodeid);
 
     DEBUG_SKB_ERR(err, "reverse_resolve");
@@ -436,7 +454,7 @@ errval_t driverkit_hwmodel_alias_conf(struct capref dst,
 
     int32_t mem_nodeid = driverkit_hwmodel_lookup_pcibus_node_id();
 
-    debug_printf(ALIAS_CONF_Q, mem_nodeid, addr, size, nodeid);
+    HWMODEL_QUERY_DEBUG(ALIAS_CONF_Q, mem_nodeid, addr, size, nodeid);
     err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, nodeid);
     printf("SKB STD OUT: %s\n\n", skb_get_output());
     if (err_is_fail(err)) {
