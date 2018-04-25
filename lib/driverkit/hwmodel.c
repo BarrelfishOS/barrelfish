@@ -84,9 +84,7 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
 
 
     int alloc_bits = 21;
-    //HACK: This should 
-    alloc_bits = 30;
-    //ENDHACK
+
     debug_printf("Query: " ALLOC_WRAP_Q "\n", bytes, alloc_bits, dstnode, nodes_str);
     err = skb_execute_query(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
 
