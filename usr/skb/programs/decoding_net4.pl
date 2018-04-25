@@ -429,7 +429,7 @@ region_free_bound(S, Reg) :-
     state_has_in_use(S, CReg),
     %RBase is CLimit + 1 ;
     %RBase #>= 0 ;
-    RBase #>= 0 ;
+    RBase #>= CLimit ;
     % In case that allocation doesnt work, just get me any.
     RBase #>= 0.
 
