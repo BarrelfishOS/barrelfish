@@ -96,7 +96,7 @@ static void get_node_ids(void)
     PRINTF("node id network is %d\n", node_id_offload_core);
     #endif
 
-    node_id_ram = driverkit_hwmodel_lookup_node_id("numanode:0");
+    node_id_ram = driverkit_hwmodel_lookup_dram_node_id();
     PRINTF("node id ram is %d\n", node_id_offload_core);
 
     if (node_id_self == -1 || node_id_offload_core == -1
