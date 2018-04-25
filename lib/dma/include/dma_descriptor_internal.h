@@ -35,7 +35,7 @@ struct iommu_client;
 errval_t dma_desc_alloc(uint32_t size,
                         uint16_t align,
                         uint8_t count,
-                        struct iommu_client *cl,
+                        struct dma_device *dev,
                         struct dma_descriptor **desc);
 
 /**

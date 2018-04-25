@@ -189,7 +189,7 @@ errval_t dma_ring_alloc(uint8_t ndesc_bits,
     ring->use_modulo = use_modulo;
 
     err = dma_desc_alloc(desc_size, desc_align, ndesc_bits,
-                         chan->device->iommu, ring->desc);
+                         chan->device, ring->desc);
     if (err_is_fail(err)) {
         free(ring);
         return err;

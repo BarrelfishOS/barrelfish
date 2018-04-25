@@ -10,6 +10,7 @@
 #include <barrelfish/barrelfish.h>
 #include <xeon_phi/xeon_phi.h>
 #include <driverkit/iommu.h>
+#include <driverkit/hwmodel.h>
 
 #include <dma_mem_utils.h>
 
@@ -17,6 +18,7 @@
 #include <dma_descriptor_internal.h>
 
 #include <debug.h>
+#include <dma_device_internal.h>
 
 /* helper macros */
 #define DMA_ALIGN(val, align) (((val) + (align)-1) & ~((align)-1))
@@ -85,7 +87,7 @@ struct dma_descriptor
 errval_t dma_desc_alloc(uint32_t size,
                         uint16_t align,
                         uint8_t count,
-                        struct iommu_client *cl,
+                        struct dma_device *dev,
                         struct dma_descriptor **desc)
 {
     errval_t err;
@@ -117,11 +119,36 @@ errval_t dma_desc_alloc(uint32_t size,
     ram_set_affinity(0, XEON_PHI_SYSMEM_SIZE-8*XEON_PHI_SYSMEM_PAGE_SIZE);
 #endif
 
-    err = driverkit_iommu_mmap_cl(cl, ndesc * size, DMA_DESC_MAP_FLAGS, mem);
-    if (err_is_fail(err)) {
-        free(dma_desc);
-        return err;
+    if (dev->convert) {
+        debug_printf("USING THE COVERT FUNCTION\n");
+        err = driverkit_iommu_alloc_frame(dev->iommu, ndesc * size,
+                                          &mem->mem);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed");
+            free(dma_desc);
+            free(mem);
+            return err;
+        }
+
+
+        err = dev->convert(dev->convert_arg, mem->mem, &mem->devaddr, &mem->vbase);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed");
+            free(dma_desc);
+            free(mem);
+            return err;
+        }
+
+
+    } else {
+        err = driverkit_iommu_mmap_cl(dev->iommu, ndesc * size, DMA_DESC_MAP_FLAGS, mem);
+        if (err_is_fail(err)) {
+            free(dma_desc);
+            return err;
+        }
     }
+
+
 
 #ifndef __k1om__
     ram_set_affinity(minbase, maxlimit);

@@ -12,6 +12,7 @@
 
 #include <driverkit/iommu.h>
 #include <dma/dma_device.h>
+#include <dma/dma_mem_mgr.h>
 
 /*
  *
@@ -41,7 +42,8 @@ struct dma_device
     dma_dev_st_t state;             ///< device state
     dma_dev_type_t type;            ///< stores the device type
     struct dma_mem mmio;            ///< MMIO register mappings
-
+    dma_mem_convert_fn convert;
+    void *convert_arg;
     struct {
         struct dma_channel **c;     ///< DMA channel pointers
         uint8_t count;              ///< Number of channels of this device
@@ -54,3 +56,4 @@ struct dma_device
 };
 
 #endif /* DMA_DEVICE_INTERNAL_H */
+

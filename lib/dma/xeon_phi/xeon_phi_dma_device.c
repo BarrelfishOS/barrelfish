@@ -279,6 +279,8 @@ errval_t xeon_phi_dma_device_init(void *mmio_base, struct iommu_client *iommu,
     dma_dev->mmio.vaddr = (lvaddr_t) mmio_base;
     dma_dev->f.poll = xeon_phi_dma_device_poll_channels;
     dma_dev->iommu = iommu;
+    dma_dev->convert = convert;
+    dma_dev->convert_arg = convert_arg;
 
     xeon_phi_dma_initialize(&xdev->device, mmio_base);
 
