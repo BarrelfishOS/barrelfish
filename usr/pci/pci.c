@@ -36,6 +36,8 @@
 
 #include <if/acpi_defs.h>
 
+#include <driverkit/hwmodel.h> // Just for debug print
+
 #define BAR_PROBE       0xffffffff
 
 #define PAGE_BITS BASE_PAGE_BITS
@@ -885,6 +887,12 @@ static errval_t add_pci_model_node(struct pci_address addr) {
            (addr.bus == 10 && addr.device == 0 && addr.function == 0)
         || (addr.bus == 4 && addr.device == 0 && addr.function == 0)
       ){
+        HWMODEL_QUERY_DEBUG(
+                "state_get(S),"
+                "add_pci(S, addr(%u,%u,%u), E1, NewS),"
+                "writeln(E1),"
+                "state_set(NewS)",
+                addr.bus, addr.device, addr.function);
         err = skb_execute_query(
                 "state_get(S),"
                 "add_pci(S, addr(%u,%u,%u), E1, NewS),"

@@ -24,15 +24,6 @@
 #include <if/mem_defs.h>
 #include "debug.h"
 
-#define HWMODEL_QUERY_DEBUG_ENABLED 1
-#if defined(HWMODEL_QUERY_DEBUG_ENABLED)
-#define HWMODEL_QUERY_DEBUG(x...) do { printf("MODELQUERY: " x); printf("\n"); } while(0)
-
-#else
-#define HWMODEL_QUERY_DEBUG(x...) ((void)0)
-#endif
-
-
 
 __attribute__((unused))
 static void format_nodelist(int32_t *nodes, char *out){

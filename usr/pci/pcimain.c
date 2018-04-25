@@ -33,6 +33,8 @@
 #include "pci_debug.h"
 #include "pci_int_ctrl.h"
 
+#include <driverkit/hwmodel.h> // Just for debug print
+
 #if !defined(__ARM_ARCH_8A__)
 static errval_t init_io_ports(void)
 {
@@ -82,6 +84,9 @@ static errval_t init_decoding_net(void)
     }
 
     const char * decoding_net_file = "sockeyefacts/x86_iommu";
+    HWMODEL_QUERY_DEBUG(
+            "load_net(\"%s\"), init(S), state_set(S).",
+            decoding_net_file);
     err = skb_execute_query(
             "load_net(\"%s\"), init(S), state_set(S).",
             decoding_net_file);

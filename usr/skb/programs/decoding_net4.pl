@@ -539,7 +539,7 @@ translate_region_conf(S, SrcRegion, DstRegion, COut) :-
 route_step(S, SrcRegion, NextRegion, Conf) :-
     translate_region(S, SrcRegion, NextRegion),
     Conf = [] ;
-%    not(translate_region(S, SrcRegion, NextRegion)),
+    not(translate_region(S, SrcRegion, NextRegion)),
     translate_region_conf(S, SrcRegion, NextRegion, Conf).
 
 route_step_cont(S, NextRegion, DstRegion, C1, Conf) :-
