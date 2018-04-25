@@ -398,6 +398,7 @@ decodes_region(S, SrcName, DstName) :-
     decodes_region(S, NextName, DstName).
 
 
+:- export resolve_name/3.
 resolve_name(S, SrcName, DstName) :-
     SrcName = name(_, _),
     DstName = name(_, _),
@@ -452,7 +453,7 @@ region_alloc(S, Reg, Size, Bits) :-
     region_size(Reg, Size),
     region_free(S, Reg).
 
-region_alloc_test(S, Reg, Size, Bits) :-
+region_alloc_test(_, Reg, Size, Bits) :-
     region_aligned(Reg, Bits),
     region_size(Reg, Size).
 

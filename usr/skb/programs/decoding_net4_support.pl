@@ -287,6 +287,22 @@ map_wrap(S0, Size, Bits, DestEnum, DestAddr, SrcEnums, NewS)  :-
 ram_bus_nodeid(["DRAM"], ["PCIBUS"]).
 % ram_bus_nodeid(["GDDR"], ["PCIBUS"]). % ADD XEON PHI RULE
 
+:- export reverse_resolve_wrap/5.
+reverse_resolve_wrap(S0, DstEnum, DstAddr, DstSize, SrcEnum)  :-
+    node_enum(S0, DstNodeId, DstEnum, S0),
+    node_enum(S0, SrcNodeId, SrcEnum, S0),
+    DstLimit is DstSize + DstAddr - 1,
+    %DstRegion = region(DstNodeId, block(DstAddr, DstLimit)),
+    %SrcRegion = region(SrcNodeId, _),
+
+    DstName = name(DstNodeId, DstAddr),
+    resolve_name(S0, DstName, ResolvedDstName),
+    SrcName = name(SrcNodeId, SrcAddr),
+    resolve_name(S0, SrcName, ResolvedDstName),
+
+    writeln([name(SrcAddr, SrcEnum)]).
+
+
 :- export alias_conf_wrap/6.
 alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
     xeon_phi_meta(S0, DstEnum, _, XeonSrc, SmptId, IommuId), % TODO: Make me work with arbitrary destinations.
