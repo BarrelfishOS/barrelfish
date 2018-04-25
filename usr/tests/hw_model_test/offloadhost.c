@@ -169,7 +169,7 @@ int main(int argc,  char **argv)
     // obtain the node id
     get_node_ids();
 
-    PRINTF("Allocating memory for data processing\n");
+    PRINTF("Allocating memory for data processing of %zu MB\n", DATA_SIZE >> 20);
 
     struct capref mem;
     int32_t nodes_data[] = {
@@ -206,7 +206,7 @@ int main(int argc,  char **argv)
 
     hline
 
-    PRINTF("Allocating memory for message passing\n");
+    PRINTF("Allocating memory for message passing of %zu kb\n", MSG_FRAME_SIZE >> 10);
 
     struct capref msgframemem;
     int32_t nodes_msg[] = {
@@ -228,7 +228,7 @@ int main(int argc,  char **argv)
 
     hline
 
-    PRINTF("Allocating memory on the co-processor\n");
+    PRINTF("Allocating memory on the co-processor of %zu MB\n", DATA_SIZE >> 20);
 
     struct capref offloadmem;
     #if 0
