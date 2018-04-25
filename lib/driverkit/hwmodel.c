@@ -336,3 +336,47 @@ int32_t driverkit_hwmodel_lookup_node_id(const char *path)
     return nodeid;
 }
 
+#define REVERSE_RESOLVE_Q "state_get(S)," \
+                    "reverse_wrap(S, %"PRIi32", %"PRIu64", %zu, %"PRIi32")."
+
+// Without reconfiguration, under what ret_addr can you reach dst
+// from nodeid?
+errval_t driverkit_hwmodel_reverse_resolve(struct capref dst, int32_t nodeid,
+                                     genpaddr_t *ret_addr)
+{
+
+    errval_t err;
+    struct frame_identity id;
+    err = invoke_frame_identify(dst, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    assert(ret_addr);
+#ifdef DISABLE_MODEL
+    *ret_addr = id.base;
+    return SYS_ERR_OK;
+#else
+    int dst_enum = id.pasid;
+    dst_enum = driverkit_hwmodel_lookup_dram_node_id(); // Workaround
+
+    debug_printf("Query: " REVERSE_RESOLVE_Q "\n", dst_enum, id.base, id.bytes, nodeid);
+    err = skb_execute_query(REVERSE_RESOLVE_Q, dst_enum, id.base, id.bytes, nodeid);
+
+    DEBUG_SKB_ERR(err, "reverse_resolve");
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "reverse_resolve");
+        return err;
+    }
+
+    struct hwmodel_name names[1];
+    int num_conversions = 0;
+    driverkit_parse_namelist(skb_get_output(), names, &num_conversions);
+    assert(num_conversions == 1);
+    *ret_addr = names[0].address;
+
+    debug_printf("Determined (0x%"PRIx64", %d) is alias of (0x%"PRIx64", %d)\n",
+            names[0].address, nodeid, id.base, dst_enum);
+
+    return SYS_ERR_OK;
+#endif
+}

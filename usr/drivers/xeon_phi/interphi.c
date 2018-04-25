@@ -1618,8 +1618,8 @@ errval_t interphi_chan_open(struct xnode *node,
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
     #ifndef __k1om__
-    err = xeon_phi_hw_model_query_and_config(node->local, msgframe,
-                                             &svc_st->args.open.msgbase, NULL);
+    err = driverkit_hwmodel_reverse_resolve(msgframe, node->local->nodeid,
+            &svc_st->args.open.msgbase);
     if (err_is_fail(err)) {
         rpc_done(node->msg);
         txq_msg_st_free(msg_st);

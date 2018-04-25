@@ -47,6 +47,10 @@ int32_t driverkit_hwmodel_lookup_dram_node_id(void);
 
 int32_t driverkit_hwmodel_lookup_node_id(const char *path);
 
+errval_t driverkit_hwmodel_reverse_resolve(struct capref dst,
+                                     int32_t nodeid,
+                                     genpaddr_t *ret_addr);
+
 
 
 /**
