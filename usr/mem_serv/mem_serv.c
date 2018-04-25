@@ -27,7 +27,16 @@
 #include <if/mem_defs.h>
 #include <if/monitor_defs.h>
 
+
+#define OSDI18_PAPER_HACK 1
+
 size_t mem_total = 0, mem_avail = 0;
+
+
+//// XXX HACK for OSDI PAPER!!! BAD!
+static struct capref model_mem_cap;
+static genpaddr_t model_mem_base = 0;
+static genpaddr_t model_mem_limit = 0;
 
 /* parameters for size of supported RAM and thus required storage */
 // architecture, we use paddr_t as the type to represent region
@@ -204,7 +213,18 @@ static void mem_free_handler(struct mem_binding *b,
     errval_t ret;
     errval_t err;
 
+#ifdef OSDI18_PAPER_HACK
+    if (base >= model_mem_base && base + (1UL << bits) - 1 <= model_mem_limit) {
+        debug_printf(
+                "//// XXX HACK for OSDI PAPER!!! Use mem cap for [%lx..%lx]\n",
+                base, base + (1UL << bits) - 1);
+        ret = SYS_ERR_OK;
+    } else {
+        ret = mymm_free(ramcap, base, bits);
+    }
+#else
     ret = mymm_free(ramcap, base, bits);
+#endif
 
     err = b->tx_vtbl.free_monitor_response(b, NOP_CONT, ret);
     if (err_is_fail(err)) {
@@ -277,14 +297,46 @@ static void mem_allocate_handler(struct mem_binding *b, uint8_t bits,
         slab_grow(&mm_ram.slabs, buf, BASE_PAGE_SIZE * 8);
     }
 
-    ret = mymm_alloc(cap, bits, minbase, maxlimit);
-    if (err_is_ok(ret)) {
-        mem_avail -= 1UL << bits;
+#ifdef OSDI18_PAPER_HACK
+    //// XXX HACK for OSDI PAPER!!! BAD!
+    if (minbase >= model_mem_base && maxlimit <= model_mem_limit) {
+        debug_printf("//// XXX HACK for OSDI PAPER!!! Use mem cap for [%lx..%lx]\n",
+                     minbase, maxlimit);
+
+        ret = slot_alloc_prealloc(mm_ram.slot_alloc_inst, 1, cap);
+        if (err_is_ok(ret)) {
+            debug_printf("//// XXX HACK for OSDI PAPER!!! %lx Offset=%lu M, bits=%u\n",
+                         (minbase - model_mem_base), (minbase - model_mem_base) >> 20, bits);
+
+            debug_printf("//// XXX HACK for OSDI PAPER!!! [%lx..%lx]\n",
+                         model_mem_base, model_mem_limit);
+            debug_printf("//// XXX HACK for OSDI PAPER!!! [%lx..%lx]\n",
+                         minbase, maxlimit);
+            debug_printf("//// XXX HACK for OSDI PAPER!!! [%lx..%lx]\n",
+                         minbase, (1UL << bits));
+
+
+            ret = cap_retype(*cap, model_mem_cap, (minbase - model_mem_base),
+                             ObjType_RAM, (1UL << bits), 1);
+            if (err_is_fail(ret)) {
+                *cap = NULL_CAP;
+            }
+        }
     } else {
-        // DEBUG_ERR(ret, "allocation of %d bits in % " PRIxGENPADDR "-%" PRIxGENPADDR " failed",
-        //          bits, minbase, maxlimit);
-        *cap = NULL_CAP;
+#endif
+        ret = mymm_alloc(cap, bits, minbase, maxlimit);
+        if (err_is_ok(ret)) {
+            mem_avail -= 1UL << bits;
+        } else {
+            // DEBUG_ERR(ret, "allocation of %d bits in % " PRIxGENPADDR "-%" PRIxGENPADDR " failed",
+            //          bits, minbase, maxlimit);
+            *cap = NULL_CAP;
+        }
+#ifdef OSDI18_PAPER_HACK
     }
+#endif
+
+
 
     /* Reply */
     err = b->tx_vtbl.allocate_response(b, MKCONT(allocate_response_done, cap),
@@ -311,27 +363,27 @@ static void dump_ram_region(int idx, struct mem_region* m)
     uintptr_t start, limit;
 
     start = (uintptr_t)m->mr_base;
-    limit = start + (1UL << m->mr_bits);
+    limit = start + m->mr_bytes;
 
     char prefix = ' ';
-    size_t quantity = 1UL << m->mr_bits;
+    size_t quantity = m->mr_bytes;
 
-    if (m->mr_bits >= 30) {
+    if (m->mr_bytes >= (1UL << 30)) {
         prefix = 'G';
         quantity >>= 30;
     }
-    else if (m->mr_bits >= 20) {
+    else if (m->mr_bytes >= (1UL << 20)) {
         prefix = 'M';
         quantity >>= 20;
     }
-    else if (m->mr_bits >= 10) {
+    else if (m->mr_bytes >= (1UL << 10)) {
         prefix = 'K';
         quantity >>= 10;
     }
 
     printf("RAM region %d: 0x%" PRIxPTR
            " - 0x%" PRIxPTR " (%zu %cB, %u bits)\n",
-           idx, start, limit, quantity, prefix, m->mr_bits);
+           idx, start, limit, quantity, prefix, log2ceil(m->mr_bytes));
 #endif // 0
 }
 
@@ -425,6 +477,23 @@ initialize_ram_alloc(void)
 
     for (int i = 0; i < bi->regions_length; i++) {
         if (bi->regions[i].mr_type == RegionType_Empty) {
+
+#ifdef OSDI18_PAPER_HACK
+            //// XXX HACK for OSDI PAPER!!! BAD!
+            if ( bi->regions[i].mr_base >= (4UL << 30)) {
+                //// XXX HACK for OSDI PAPER!!! BAD!
+                debug_printf("//// XXX HACK for OSDI PAPER!!! Use mem cap for model allocs [%lx..%lx]\n",
+                             bi->regions[i].mr_base, model_mem_base + bi->regions[i].mr_bytes - 1);
+                dump_ram_region(i, bi->regions + i);
+
+                model_mem_cap = mem_cap;
+                model_mem_base = bi->regions[i].mr_base;
+                model_mem_limit = model_mem_base + bi->regions[i].mr_bytes - 1;
+                break;
+            }
+
+            debug_printf("Adding region to memory allocator:\n");
+#endif
             dump_ram_region(i, bi->regions + i);
 
             mem_total += bi->regions[i].mr_bytes;
