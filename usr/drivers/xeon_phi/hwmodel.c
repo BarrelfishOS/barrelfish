@@ -47,6 +47,9 @@
 static errval_t lookup_phi_enums(int32_t nodeid, int32_t *iommu, int32_t *smpt)
 {
     errval_t err;
+
+    skb_execute_query("decoding_net_listing");
+
     err = skb_execute_query(
         "state_get(S), "
         "xeon_phi_meta(S, %"PRIi32", _, _, SMPTID, IOMMUID),"
@@ -147,6 +150,7 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
             __FUNCTION__, __LINE__, id.base, size);
 
 
+    skb_execute_query("decoding_net_listing");
 
     debug_printf(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);
     err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, xphi->nodeid);

@@ -65,7 +65,7 @@ void free_reply_state(void* arg) {
 }
 
 
-static errval_t do_on_stdout(struct skb_query_state* st, char *query)
+static errval_t do_on_stdout(struct skb_query_state* st, char *query, bool print)
 {
     assert(st != NULL);
     assert(st->output_buffer != NULL);
@@ -83,7 +83,9 @@ static errval_t do_on_stdout(struct skb_query_state* st, char *query)
     ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("output", 0))));
     ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("error", 0))));
 
-    printf("========== SKB LISTING START ==========\n");
+    if (print) {
+        printf("========== SKB LISTING START ==========\n");
+    }
     while(st->exec_res == PFLUSHIO) {
         st->exec_res = ec_resume1(Start);
 
@@ -95,11 +97,14 @@ static errval_t do_on_stdout(struct skb_query_state* st, char *query)
             output_length += res;
         } while (res != 0);
         output_buffer[output_length] = '\0';
-        if(output_length != 0){
+        if(output_length != 0 && print){
             printf("%s", output_buffer);
         }
     }
-    printf("========== SKB LISTING END ==========\n");
+    if (print) {
+        printf("========== SKB LISTING END ==========\n");
+    }
+   //
 
     return SYS_ERR_OK;
 }
@@ -115,10 +120,14 @@ errval_t execute_query(const char* query, struct skb_query_state* st)
     // HACK to make fact listing work, we print it directly
     // on stdout instead of returning it to the client
     if(strcmp(query,"listing") == 0){
-        return do_on_stdout(st, "listing.");
+        return do_on_stdout(st, "listing.", true);
     }
     if(strcmp(query,"decoding_net_listing") == 0){
-        return do_on_stdout(st, "decoding_net_listing.");
+        return do_on_stdout(st, "decoding_net_listing.", false);
+    }
+
+    if(strcmp(query,"decoding_net_listingP") == 0){
+        return do_on_stdout(st, "decoding_net_listing.", true);
     }
 
     int res;

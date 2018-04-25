@@ -28,6 +28,7 @@
 
 #include <if/xomp_defs.h>
 #include <barrelfish/deferred.h>
+#include <skb/skb.h>
 
 
 #define ENABLE_NETWORKING 0
@@ -277,6 +278,9 @@ int main(int argc,  char **argv)
     }
 
     hline
+
+
+    skb_execute("decoding_net_listingP");
 
     PRINTF("Adding DMA mem\n");
     err = xeon_phi_client_chan_open(XEON_PHI_ID, domid, clientva, offloadmem, 1);

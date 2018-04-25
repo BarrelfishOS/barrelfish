@@ -90,8 +90,16 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
     DEBUG_SKB_ERR(err, "alloc_wrap");
     if(err_is_fail(err)){
         DEBUG_SKB_ERR(err, "alloc_wrap");
-        return err;
+
+        skb_execute("decoding_net_listing");
+
+        err = skb_execute_query(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
+        if (err_is_fail(err)) {
+            DEBUG_SKB_ERR(err, "alloc_wrap");
+            return err;
+        }
     }
+
 
     // Alloc cap slot
     err = slot_alloc(dst);
@@ -321,6 +329,9 @@ int32_t driverkit_hwmodel_lookup_dram_node_id(void)
 
 int32_t driverkit_hwmodel_lookup_node_id(const char *path)
 {
+
+    debug_printf("%s:%u with path='%s'\n", __FUNCTION__, __LINE__, path);
+
     errval_t err;
     err = skb_execute_query(
         "state_get(S), "
@@ -338,6 +349,8 @@ int32_t driverkit_hwmodel_lookup_node_id(const char *path)
 
 #define REVERSE_RESOLVE_Q "state_get(S)," \
                     "reverse_resolve_wrap(S, %"PRIi32", %"PRIu64", %zu, %"PRIi32")."
+
+#define FORMAT  "[\"KNC_SOCKET\", \"PCI0\", %d]"
 
 // Without reconfiguration, under what ret_addr can you reach dst
 // from nodeid?
@@ -357,7 +370,19 @@ errval_t driverkit_hwmodel_reverse_resolve(struct capref dst, int32_t nodeid,
     return SYS_ERR_OK;
 #else
     int dst_enum = id.pasid;
-    dst_enum = driverkit_hwmodel_lookup_dram_node_id(); // Workaround
+
+    dst_enum =  driverkit_hwmodel_lookup_node_id("[\"PCIBUS\"]");
+
+
+    assert(nodeid < 100);
+
+    char buf[sizeof(FORMAT)];
+    snprintf(buf, sizeof(buf), FORMAT, nodeid);
+
+
+
+
+    nodeid =  driverkit_hwmodel_lookup_node_id(buf);
 
     debug_printf("Query: " REVERSE_RESOLVE_Q "\n", dst_enum, id.base, id.bytes, nodeid);
     err = skb_execute_query(REVERSE_RESOLVE_Q, dst_enum, id.base, id.bytes, nodeid);

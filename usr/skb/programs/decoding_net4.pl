@@ -428,8 +428,8 @@ region_free_bound(S, Reg) :-
     CReg = region(Id, block(_, CLimit)),
     state_has_in_use(S, CReg),
     %RBase is CLimit + 1 ;
-    %RBase #>= 0 ;
-    RBase #>= CLimit ;
+    RBase #>= 0 ;
+    %RBase #>= CLimit ;
     % In case that allocation doesnt work, just get me any.
     Reg = region(Id, block(RBase, _)),
     CReg = region(Id, _),
@@ -479,7 +479,7 @@ optimize_search_order(_, PPN) :-
     PPNLastI #>= PPN ;
     true.
 
-% Assumes SrcRegion has no mapping in S, SrcRegion is a multiple of 
+% Assumes SrcRegion has no mapping in S, SrcRegion is a multiple of
 % the BlockSize and BlockSize aligned.
 translate_region_conf_aligned(S, SrcRegion, DstRegion, COut) :-
     SrcRegion = region(SrcId, SrcBlock),
@@ -534,12 +534,12 @@ translate_region_conf(S, SrcRegion, DstRegion, COut) :-
     LimitOffset is SrcLimit - SuperSrcLimit, %LimitOffset is negative.
     DstLimit #= LimitOffset + SuperDstLimit.
 
-    
+
 
 route_step(S, SrcRegion, NextRegion, Conf) :-
     translate_region(S, SrcRegion, NextRegion),
     Conf = [] ;
-    not(translate_region(S, SrcRegion, NextRegion)),
+%    not(translate_region(S, SrcRegion, NextRegion)),
     translate_region_conf(S, SrcRegion, NextRegion, Conf).
 
 route_step_cont(S, NextRegion, DstRegion, C1, Conf) :-
@@ -589,7 +589,7 @@ alias_conf(S, R1, R2, Conf) :-
 
     xeon_phi_extra_cons(R2, D),
     region_size(R1, R1Size),
-    region_alloc_test(S, R2, R1Size, 21),
+    region_alloc(S, R2, R1Size, 21),
     route(S, R2, D, Conf).
 
 
@@ -778,7 +778,7 @@ test_translate_region_conf2 :-
     state_add_block_meta(S0,["SMPT"], 34, ["RAM"],S1),
 
     translate_region_conf(S1, region(["SMPT"], block(0,100)), DstRegion, Conf),
-    printf("DstRegion = %p, Conf = %p\n", [DstRegion, Conf]). 
+    printf("DstRegion = %p, Conf = %p\n", [DstRegion, Conf]).
 
 test_translate_name :-
     %Setup

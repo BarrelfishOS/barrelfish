@@ -501,7 +501,7 @@ static void alloc_mem_response_rx(struct xeon_phi_binding *b,
                                   struct capref cap,
                                   errval_t msgerr)
 {
-    DEBUG_XPHI("alloc_mem_response_rx: %s\n", err_getstring(msgerr));
+    debug_printf("alloc_mem_response_rx: %s\n", err_getstring(msgerr));
 
     struct xeon_phi_client *cl = b->st;
     assert(cl);

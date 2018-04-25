@@ -507,7 +507,7 @@ errval_t sysmem_cap_request(lpaddr_t base,
 {
     errval_t err;
 
-    XSYSMEM_DEBUG("Requesting cap for [0x%" PRIxLPADDR "..0x%" PRIxLPADDR "]\n",
+    debug_printf("XXX Requesting cap for [0x%" PRIxLPADDR "..0x%" PRIxLPADDR "]\n",
                   base, base + (1UL << bits) - 1);
     // the size and base must not exceed the maximum range (512G)
     assert(bits < 40);
