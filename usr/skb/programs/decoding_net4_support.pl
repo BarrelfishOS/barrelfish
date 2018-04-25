@@ -131,6 +131,10 @@ add_xeon_phi(S, Addr, Enum, NewS) :-
     GDDR_ID = ["GDDR", "PCI0", Enum],
     state_add_overlay(S2, BAR0_ID, GDDR_ID, NewS).
 
+%    state_remove_pci_id(S3, Addr, _, S4),
+%    K1OMCoreId = ["K1OM_CORE", "PCI0", Enum],
+    %state_add_pci_id(S4, Addr, K1OMCoreId, NewS).
+
 :- export add_pci/4.
 add_pci(S, Addr, Enum, NewS) :-
     add_pci_internal(S, Addr, Enum, add_PCI, add_PCI_IOMMU, NewS).
@@ -235,10 +239,10 @@ write_confs(S, Confs) :-
         In is BlockSize * VPN,
         Out is BlockSize * PPN,
         state_has_node_enum(S, NodeEnum, NodeId),
-        printf("c(%d, 0x%lx, 0x%lx)", [NodeEnum, In, Out]),
+    %    printf("c(%d, 0x%lx, 0x%lx)", [NodeEnum, In, Out]),
         Term = c(NodeEnum, In, Out)
     ),
-    writeln(""),
+    %writeln(""),
     writeln(Terms).
 
 :- export alloc_wrap/6.
