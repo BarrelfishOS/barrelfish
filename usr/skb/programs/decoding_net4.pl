@@ -308,6 +308,23 @@ translate_region(S, SrcRegion, DstRegion) :-
 
 % translate with configurable nodes
 translate_region(S, SrcRegion, DstRegion) :-
+    SrcRegion = region(SrcId, block(SrcBase, SrcLimit)),
+    DstRegion = region(DstId, block(DstBase, DstLimit)),
+
+    state_has_block_meta(S, SrcId, Bits, DstId),
+    bits_aligned_superregion(SrcRegion, Bits, SuperSrcRegion),
+    translate_region_aligned(S, SuperSrcRegion, SuperDstRegion),
+
+    % Calculate DstRegion
+    SuperSrcRegion = region(_, block(SuperSrcBase, SuperSrcLimit)),
+    SuperDstRegion = region(_, block(SuperDstBase, SuperDstLimit)),
+    BaseOffset is SrcBase - SuperSrcBase,
+    DstBase #= BaseOffset + SuperDstBase,
+    LimitOffset is SrcLimit - SuperSrcLimit, %LimitOffset is negative.
+    DstLimit #= LimitOffset + SuperDstLimit.
+
+% translate with configurable nodes, assumes aligned blocks
+translate_region_aligned(S, SrcRegion, DstRegion) :-
     not(region_mapping(S, SrcRegion, _)),
     SrcRegion = region(SrcId, SrcBlock),
     SrcBlock = block(SrcBase, _),
@@ -559,7 +576,7 @@ alias_conf(S, R1, R2, Conf) :-
 
     xeon_phi_extra_cons(R2, D),
     region_size(R1, R1Size),
-    region_alloc(S, R2, R1Size, 34),
+    region_alloc(S, R2, R1Size, 21),
     route(S, R2, D, Conf).
 
 

@@ -159,6 +159,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
     Id = [Enum],
     OutNodeId = ["OUT", "PCI0", Enum],
     node_enum(S, OutNodeId, Enum, S0),
+    Limit512G is 512 * 1024 * 1024 * 1024 - 1,
 
     Addr = addr(_,_,_),
     PCIBUS_ID = ["PCIBUS"],
@@ -169,8 +170,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
         % Mark IOMMU block remappable
         IOMMU_IN_ID = ["IN", "IOMMU0" | Id],
         state_add_block_meta(S1, IOMMU_IN_ID, 21, ["OUT", "IOMMU0" | Id], S2),
-        Limit is 512 * 1024 * 1024 * 1024,
-        state_add_in_use(S2, region(IOMMU_IN_ID, block(0, Limit)), S3)
+        state_add_in_use(S2, region(IOMMU_IN_ID, block(0, Limit512G)), S3)
     ) ; (
         % IOMMU disabled.
         %add_PCI(S0, Id, S2)
@@ -196,8 +196,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
     % Set it to the node id where addresses are issued from the PCI device
     state_add_pci_id(S5, Addr, Enum, S6),
     % We keep the lowest root vnode slot unmapped, hence the 512G hole.
-    Limit is 512 * 1024 * 1024 * 1024,
-    state_add_in_use(S6, region(OutNodeId, block(0, Limit)), NewS).
+    state_add_in_use(S6, region(OutNodeId, block(0, Limit512G)), NewS).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Root Vnode Management
@@ -228,34 +227,6 @@ write_regions(S, Regs, NewS) :-
     ),
     writeln(Terms).
 
-%write_confs_for_nodeid(S, Label, NodeId, Confs) :-
-%    (foreach(Conf, Confs), param(Label), param(NodeId), param(S), fromto([], I, O, Terms) do
-%        (Conf = block_conf(NodeId, VPN, PPN) -> (
-%            state_has_block_meta(S, NodeId, Bits, _),
-%            BlockSize is 2 ^ Bits,
-%            Base is BlockSize * VPN,
-%            Limit is BlockSize * PPN, 
-%            append(I, [c(Label,Base,Limit)], O)
-%        ) ; (
-%            I = O
-%        ))
-%    ),
-%    writeln(Terms).
-%
-%write_iommu_confs_for_nodeid(S, Label, NodeId, Confs) :-
-%    (foreach(Conf, Confs), param(Label), param(NodeId), param(S), fromto([], I, O, Terms) do
-%        (Conf = block_conf(NodeId, VPN, PPN) -> (
-%            state_has_block_meta(S, NodeId, Bits, _),
-%            BlockSize is 2 ^ Bits,
-%            Base is BlockSize * VPN,
-%            append(I, [Base], O)
-%        ) ; (
-%            I = O
-%        ))
-%    ),
-%    sorted(Terms, [Min | _]),
-%    writeln([c(Label, Min, 0)]).
-    
 write_confs(S, Confs) :-
     (foreach(Conf, Confs), param(S), foreach(Term, Terms)  do
         Conf = block_conf(NodeId, VPN, PPN),
@@ -264,8 +235,10 @@ write_confs(S, Confs) :-
         In is BlockSize * VPN,
         Out is BlockSize * PPN,
         state_has_node_enum(S, NodeEnum, NodeId),
+        printf("c(%d, 0x%lx, 0x%lx)", [NodeEnum, In, Out]),
         Term = c(NodeEnum, In, Out)
     ),
+    writeln(""),
     writeln(Terms).
 
 :- export alloc_wrap/6.
@@ -324,7 +297,10 @@ alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
     XPhiRegion = region(XeonSrc, _),
     alias_conf(S3, R1, XPhiRegion, Confs),
     state_add_confs(S3, Confs, S4),
-    write_regions(S4, [XPhiRegion], NewS),
+
+    state_add_in_use(S4, XPhiRegion, S5),
+
+    write_regions(S5, [XPhiRegion], NewS),
     write_confs(NewS, Confs).
     %write_confs_for_nodeid(NewS, smpt, SMPTId, Confs),
     %write_iommu_confs_for_nodeid(NewS, iommu, SMPTId, Confs).
