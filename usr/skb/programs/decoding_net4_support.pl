@@ -101,7 +101,7 @@ add_process(S, Enum, NewS) :-
     state_add_overlay(S2, OUT_ID, DRAM_ID, S3),
     % Reserve memory for the process, the OUT/PROC0 node is the one where
     % initially the process (virtual) addresses are issued.
-    Limit = 10995116277760, % (512 << 31) - 1
+    Limit is 10995116277760 - 1, % (512 << 31) - 1
     state_add_in_use(S3, region(OutId, block(0,Limit)), NewS).
 
 iommu_enabled :-
@@ -325,6 +325,10 @@ alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
     write_regions(S2, [DstRegion], NewS),
     write_confs(NewS, Confs).
 
+:- export xeon_phi_meta_wrap/2.
+xeon_phi_meta_wrap(S, PCI_E) :-
+    xeon_phi_meta(S, PCI_E, E1, E2, E3),
+    printf("%p %p %p\n", [E1, E2, E3]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Debug

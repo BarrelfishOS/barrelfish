@@ -426,7 +426,7 @@ region_aligned(Region, Bits) :-
 % The order of these facts matter (for performance).
 % Case 1: Try if just after an existing region works.
 region_free_bound(S, Reg) :-
-    Reg = region(Id, _),
+    Reg = region(Id, block(RBase, _)),
     CReg = region(Id, block(_, CLimit)),
     state_has_in_use(S, CReg),
     RBase is CLimit + 1.
@@ -446,8 +446,8 @@ region_free_bound(S, Reg) :-
     RBase is CBase.
 
 % Case 4: Give up. Try any (will lead to a sequential search).
-region_free_bound(S, Reg) :- 
-    Reg = region(Id, block(RBase, _)),
+region_free_bound(_, Reg) :- 
+    Reg = region(_, block(RBase, _)),
     RBase #>= 0.
 
 
@@ -733,7 +733,7 @@ reachable_id_step(S, SrcId, NxtId) :-
     state_has_block_meta(S, SrcId, _, NxtId).
 reachable_id_step(S, SrcId, NxtId) :-
     state_has_mapping(S, region(SrcId,_), name(NxtId, _)).
-reachable_id(S, Id, Id).
+reachable_id(_, Id, Id).
 reachable_id(S, SrcId, DstId) :-
     reachable_id_step(S, SrcId, NxtId),
     reachable_id(S, NxtId, DstId).
