@@ -3,28 +3,6 @@
 :- use_module(decoding_net4).
 :- lib(ic).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% Node enumeration
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-unused_node_enum(S, Enum) :-
-    Enum #> 0,
-    labeling([Enum]),
-    not(state_has_node_enum(S, Enum, _)).
-
-:- export node_enum/4.
-node_enum(S, NodeId, Enum, NewS) :-
-    (
-        state_has_node_enum(S, Enum, NodeId),
-        NewS = S
-    ) ; (
-        not(state_has_node_enum(S, Enum, NodeId)),
-        unused_node_enum(S, Enum),
-        state_add_node_enum(S, Enum, NodeId, NewS)
-    ).
-
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Sockeye support
@@ -32,6 +10,35 @@ node_enum(S, NodeId, Enum, NewS) :-
 :- export load_net/1.
 load_net(File) :-
     ensure_loaded(File).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% State management
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+:- dynamic current_state/1.
+
+% initializes the state to be empty
+init_state :-
+    assert(current_state(null)),
+    state_empty(S),
+    state_set(S).
+
+% sets the new state
+:- export state_set/1.
+state_set(S) :-
+    retract(current_state(_)), assert(current_state(S)).
+
+:- export state_get/1.
+state_get(S) :- current_state(S).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Initialization
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% call the init
+:- init_state.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% X86 Support
@@ -59,6 +66,7 @@ initial_dram_block(Block) :- %a
     % ENDHACK
     Block = block(AlignBase,Limit).
 
+% Called by Kaluga
 :- export init/1.
 init(NewS) :-
     state_add_accept(S2, region(["DRAM"], Block), S3),
@@ -209,27 +217,18 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
     % We keep the lowest root vnode slot unmapped, hence the 512G hole.
     state_add_in_use(S6, region(OutNodeId, block(0, Limit512G)), NewS).
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% Root Vnode Management
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-next_free_root_vnodeslot(S, NodeId, SlotTry, Slot) :-
-    not(state_has_free_vnodeslot(S, NodeId, SlotTry)),
-    Slot = SlotTry ;
-    NextSlotTry is SlotTry + 1,
-    next_free_root_vnodeslot(S, NodeId, NextSlotTry, Slot).
-
-alloc_root_vnodeslot(S, NodeId, Slot, NewS) :-
-    next_free_root_vnodeslot(S, NodeId, 1, Slot),
-    state_add_vnodeslot(S, NodeId, Slot, NewS).
 
 :- export alloc_root_vnodeslot_wrap/4.
 alloc_root_vnodeslot_wrap(S, NEnum, Slot, NewS) :-
     node_enum(S, NId, NEnum, S),
     alloc_root_vnodeslot(S, NId, Slot, NewS).
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Query Wrappers
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% outputs a list of regions
 write_regions(S, Regs, NewS) :-
     (foreach(Reg, Regs), foreach(Term, Terms), fromto(S, InS, OutS, NewS) do
        Reg = region(NId, block(B, _)),
@@ -238,6 +237,8 @@ write_regions(S, Regs, NewS) :-
     ),
     writeln(Terms).
 
+
+% outputs a list of confs
 write_confs(S, Confs) :-
     (foreach(Conf, Confs), param(S), foreach(Term, Terms)  do
         Conf = block_conf(NodeId, VPN, PPN),
@@ -251,6 +252,8 @@ write_confs(S, Confs) :-
     ),
     %writeln(""),
     writeln(Terms).
+
+
 
 :- export alloc_wrap/6.
 alloc_wrap(S, Size, Bits, DestEnum, SrcEnums, NewS) :-
@@ -287,9 +290,6 @@ map_wrap(S0, Size, Bits, DestEnum, DestAddr, SrcEnums, NewS)  :-
     append([DestReg], SrcRegs, OutputRegs),
     write_regions(S3, OutputRegs, NewS).
 
-% Translate from RAM nodeid to the next Bus Id
-ram_bus_nodeid(["DRAM"], ["PCIBUS"]).
-% ram_bus_nodeid(["GDDR"], ["PCIBUS"]). % ADD XEON PHI RULE
 
 :- export reverse_resolve_wrap/5.
 %reverse_resolve_wrap(S0, DstEnum, DstAddr, DstSize, SrcEnum)  :-
@@ -311,7 +311,7 @@ reverse_resolve_wrap(S0, DstEnum, DstAddr, _, SrcEnum)  :-
 :- export alias_conf_wrap/6.
 alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
     % Build src region
-    node_enum(S0, SrcId, SrcEnum, S0), 
+    node_enum(S0, SrcId, SrcEnum, S0),
     SrcLimit is SrcAddr + Size - 1,
     SrcRegion = region(SrcId, block(SrcAddr, SrcLimit)),
 
