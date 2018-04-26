@@ -134,7 +134,9 @@ add_xeon_phi(S, Addr, Enum, NewS) :-
     node_enum(S3, GDDR_ID, _, S4),
     node_enum(S4, ["KNC_SOCKET", "PCI0", Enum], _, S5),
     node_enum(S5, ["SMPT_IN", "PCI0", Enum], _, S6),
-    node_enum(S6, ["IN", "IOMMU0", Enum], _, NewS).
+    node_enum(S6, ["IN", "IOMMU0", Enum], _, S7),
+    node_enum(S7, ["K1OM_CORE", "PCI0", Enum], _, S8),
+    node_enum(S8, ["DMA", "PCI0", Enum], _, NewS).
 
 %    state_remove_pci_id(S3, Addr, _, S4),
 %    K1OMCoreId = ["K1OM_CORE", "PCI0", Enum],
@@ -153,12 +155,14 @@ replace_with_xeon_phi(S, OldEnum, NewEnum, NewS) :-
 
 % Given the Pci enum of the xeon phi (as returned by the driverkit lib),
 % return some other node enums.
-:- export xeon_phi_meta/5.
-xeon_phi_meta(S, PCI_E, KNC_SOCKET_E, SMPT_IN_E, IOMMU_IN_E) :-
+:- export xeon_phi_meta/7.
+xeon_phi_meta(S, PCI_E, KNC_SOCKET_E, SMPT_IN_E, IOMMU_IN_E, DMA_E, K1OM_CORE_E) :-
     node_enum(S, [_ | Rm], PCI_E, S),
     node_enum(S, ["KNC_SOCKET" | Rm], KNC_SOCKET_E, S),
     node_enum(S, ["SMPT_IN" | Rm], SMPT_IN_E, S),
-    node_enum(S, ["IN", "IOMMU0", PCI_E], IOMMU_IN_E, S).
+    node_enum(S, ["IN", "IOMMU0", PCI_E], IOMMU_IN_E, S),
+    node_enum(S, ["DMA" | Rm], DMA_E, S),
+    node_enum(S, ["K1OM_CORE" | Rm], K1OM_CORE_E, S).
 
 % Helper to instantiate a PCI card. If no IOMMU is present it will
 % instantiate Module, else ModuleIommu
@@ -327,8 +331,8 @@ alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
 
 :- export xeon_phi_meta_wrap/2.
 xeon_phi_meta_wrap(S, PCI_E) :-
-    xeon_phi_meta(S, PCI_E, E1, E2, E3),
-    printf("%p %p %p\n", [E1, E2, E3]).
+    xeon_phi_meta(S, PCI_E, E1, E2, E3, E4, E5),
+    printf("%p %p %p %p %p\n", [E1, E2, E3, E4, E5]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Debug

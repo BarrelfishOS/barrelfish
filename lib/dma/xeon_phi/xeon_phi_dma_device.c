@@ -222,13 +222,20 @@ void xeon_phi_dma_device_set_channel_state(struct xeon_phi_dma_device *dev,
  * \brief initializes a Xeon Phi DMA device with the giving capability
  *
  * \param mmio capability representing the device's MMIO registers
+ * \param iommu 
+ * \param convert memory conversion function. In a simple case, returns the
+ *                physical address of the cap.
+ * \param nodeid HW model node id where xphi requests originate from, necessary
+ *               for model supported frame allocation.
  * \param dev  returns a pointer to the device structure
+ *
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
 errval_t xeon_phi_dma_device_init(void *mmio_base, struct iommu_client *iommu,
                                   dma_mem_convert_fn convert, void *convert_arg,
+                                  int32_t nodeid,
                                   struct xeon_phi_dma_device **dev)
 {
     errval_t err;
@@ -247,8 +254,9 @@ errval_t xeon_phi_dma_device_init(void *mmio_base, struct iommu_client *iommu,
     XPHIDEV_DEBUG("initializing Xeon Phi DMA device @ %p\n", device_id,
                   mmio_base);
 
+
     int32_t nodes[3];
-    nodes[0] = driverkit_iommu_get_nodeid(iommu);
+    nodes[0] = nodeid;
     nodes[1] = driverkit_hwmodel_get_my_node_id();
     nodes[2] = 0;
     int32_t dest_nodeid = driverkit_hwmodel_lookup_dram_node_id();
@@ -281,6 +289,7 @@ errval_t xeon_phi_dma_device_init(void *mmio_base, struct iommu_client *iommu,
     dma_dev->iommu = iommu;
     dma_dev->convert = convert;
     dma_dev->convert_arg = convert_arg;
+    dma_dev->nodeid = nodeid;
 
     xeon_phi_dma_initialize(&xdev->device, mmio_base);
 

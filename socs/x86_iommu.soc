@@ -107,6 +107,8 @@ module XEONPHI {
 
     K1OM_CORE overlays KNC_SOCKET
 
+    memory (0 bits 40) DMA
+    DMA overlays KNC_SOCKET
 }
 
 // This module must have the same signature as PCI_IOMMU

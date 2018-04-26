@@ -327,9 +327,15 @@ errval_t xdma_service_init(struct xeon_phi *phi)
     mmio_base = (void *) XEON_PHI_MMIO_TO_SBOX(phi);
 #endif
 
+    int32_t knc_socket_id;
+    err = xeon_phi_hw_model_lookup_nodeids(phi->nodeid, &knc_socket_id, NULL, NULL, NULL, NULL);
+    if(err_is_fail(err)){
+        return err;
+    }
+
     struct xeon_phi_dma_device *dev;
     err = xeon_phi_dma_device_init(mmio_base, phi->iommu_client,
-            xeon_phi_hw_model_query_and_config, phi, &dev);
+            xeon_phi_hw_model_query_and_config, phi, knc_socket_id, &dev);
     if (err_is_fail(err)) {
         return err;
     }

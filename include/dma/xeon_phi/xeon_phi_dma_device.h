@@ -73,6 +73,7 @@ static inline struct xeon_phi_dma_device *dma_device_to_xeon_phi(struct dma_devi
  */
 errval_t xeon_phi_dma_device_init(void * mmio_base, struct iommu_client *iommu,
                                   dma_mem_convert_fn convert, void *convert_arg,
+                                  int32_t nodeid,
                                   struct xeon_phi_dma_device **dev);
 
 /**

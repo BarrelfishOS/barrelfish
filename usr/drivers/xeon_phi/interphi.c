@@ -1263,13 +1263,19 @@ errval_t interphi_init(struct xeon_phi *phi,
 #ifdef __k1om__
         err = frame_alloc(&mi->frame, XEON_PHI_INTERPHI_FRAME_SIZE, &frame_size);
 #else
+        int32_t knc_socket_id;
+        err = xeon_phi_hw_model_lookup_nodeids(phi->nodeid, &knc_socket_id, NULL, NULL, NULL, NULL);
+        if(err_is_fail(err)){
+            return err;
+        }
         int32_t nodes[3];
-        nodes[0] = driverkit_iommu_get_nodeid(phi->iommu_client);
+        nodes[0] = knc_socket_id; 
         nodes[1] = driverkit_hwmodel_get_my_node_id();
         nodes[2] = 0;
         int32_t dest_nodeid = driverkit_hwmodel_lookup_dram_node_id();
 
-       err =  driverkit_hwmodel_frame_alloc(&mi->frame, XEON_PHI_INTERPHI_FRAME_SIZE,
+        debug_printf("%s:%d entering frame_alloc\n", __FUNCTION__, __LINE__);
+        err =  driverkit_hwmodel_frame_alloc(&mi->frame, XEON_PHI_INTERPHI_FRAME_SIZE,
                                       dest_nodeid, nodes);
 
         frame_size =XEON_PHI_INTERPHI_FRAME_SIZE;

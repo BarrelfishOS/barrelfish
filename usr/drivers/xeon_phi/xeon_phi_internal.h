@@ -234,6 +234,24 @@ errval_t xeon_phi_unmap_aperture(struct xeon_phi *phi);
  */
 errval_t xeon_phi_event_poll(struct xeon_phi *phi, uint8_t do_yield);
 
+/**
+ * \brief Given the PCI node id (as returned from driverkit lib), 
+ *        return other xeon phi node ids.
+ *
+ */
+errval_t xeon_phi_hw_model_lookup_nodeids(int32_t pci_nodeid,
+        int32_t *knc_socket,
+        int32_t *smpt,
+        int32_t *iommu,
+        int32_t *dma,
+        int32_t *k1om_core
+        );
+
+/**
+ * \brief  Make the capability mem visible to the Xeon Phi (retaddr) and the 
+ *         local process (local_retaddr). 
+ *
+ */
 errval_t xeon_phi_hw_model_query_and_config(void *arg,
                                             struct capref mem,
                                             genpaddr_t *retaddr,

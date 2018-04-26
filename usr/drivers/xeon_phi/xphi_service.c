@@ -557,6 +557,8 @@ static void dma_memcpy_call_rx(struct xeon_phi_binding *binding,
 static void get_nodeid_call_rx(struct xeon_phi_binding *binding,
                                uint64_t arg)
 {
+    errval_t err;
+
     struct xphi_svc_st *svc_st = binding->st;
 
     struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
@@ -571,22 +573,31 @@ static void get_nodeid_call_rx(struct xeon_phi_binding *binding,
 
     struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
 
+    int32_t dma, core;
+    err = xeon_phi_hw_model_lookup_nodeids(svc_st->phi->nodeid, NULL, NULL, NULL, &dma,
+            &core);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "lookup nodeids\n");
+        msg_st->err = err;
+        txq_send(msg_st);
+        return;
+    }
+
     if (!(arg & (1UL << 63))) {
         // invalid
         xphi_st->args.nodeid.nodeid = -1;
     } else if (arg & (1UL<<32)) {
         // DMA engine
-        XSERVICE_DEBUG("XXX just use the node id of the PCI device for now!\n");
-        xphi_st->args.nodeid.nodeid = driverkit_iommu_get_nodeid(svc_st->phi->iommu_client);
+        // TODO: This has been tested only with KNC Socket.
+        xphi_st->args.nodeid.nodeid = dma;
     } else if (arg  & (1UL<<33)) {
         // cores
         // coreid_t coreid = arg & 0xffff;
-        XSERVICE_DEBUG("XXX just use the node id of the PCI device for now!\n");
-        xphi_st->args.nodeid.nodeid = driverkit_iommu_get_nodeid(svc_st->phi->iommu_client);
+        // TODO: add individual nodes for each core to model.
+        xphi_st->args.nodeid.nodeid = core;
     } else {
         // PCI card
-        XSERVICE_DEBUG("XXX just use the node id of the PCI device for now!\n");
-        xphi_st->args.nodeid.nodeid = driverkit_iommu_get_nodeid(svc_st->phi->iommu_client);
+        xphi_st->args.nodeid.nodeid = svc_st->phi->nodeid;
     }
 
     txq_send(msg_st);

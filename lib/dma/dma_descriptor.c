@@ -120,9 +120,16 @@ errval_t dma_desc_alloc(uint32_t size,
 #endif
 
     if (dev->convert) {
-        debug_printf("USING THE COVERT FUNCTION\n");
-        err = driverkit_iommu_alloc_frame(dev->iommu, ndesc * size,
-                                          &mem->mem);
+        debug_printf("USING THE CONVERT FUNCTION\n");
+
+        int32_t nodes[3];
+        nodes[0] = dev->nodeid; 
+        nodes[1] = driverkit_hwmodel_get_my_node_id();
+        nodes[2] = 0;
+        int32_t dest_nodeid = driverkit_hwmodel_lookup_dram_node_id();
+        err =  driverkit_hwmodel_frame_alloc(&mem->mem, ndesc * size,
+                                      dest_nodeid, nodes);
+
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "failed");
             free(dma_desc);

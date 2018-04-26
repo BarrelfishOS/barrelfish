@@ -44,6 +44,7 @@ struct dma_device
     struct dma_mem mmio;            ///< MMIO register mappings
     dma_mem_convert_fn convert;
     void *convert_arg;
+    int32_t nodeid;                 ///< HWMODEL nodeid of the DMA engine
     struct {
         struct dma_channel **c;     ///< DMA channel pointers
         uint8_t count;              ///< Number of channels of this device
