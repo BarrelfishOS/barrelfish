@@ -146,6 +146,18 @@ errval_t driverkit_hwmodel_frame_alloc(struct capref *dst,
 
     if(bytes < LARGE_PAGE_SIZE) bytes = LARGE_PAGE_SIZE;
 
+    // HACK REPLACE XPHI OUT ID WITH KNC SOCKET ID
+    int32_t *nodes_cpy = nodes;
+    while(*nodes_cpy != 0){
+        if(*nodes_cpy == 3) {
+            *nodes_cpy = 6;
+            debug_printf("HACK: Replaced nodeid=3 with nodeid=6\n");
+            skb_execute_query("decoding_net_listingP");
+        }
+        nodes_cpy++;
+    }
+    // ENDHACK
+
     // Allocate RAM cap
     err = driverkit_hwmodel_ram_alloc(&ram_cap, bytes, dstnode, nodes);
     if(err_is_fail(err)){
@@ -445,9 +457,11 @@ errval_t driverkit_hwmodel_alias_conf(struct capref dst,
 
     int32_t mem_nodeid = driverkit_hwmodel_lookup_pcibus_node_id();
 
-    HWMODEL_QUERY_DEBUG(ALIAS_CONF_Q, mem_nodeid, addr, size, nodeid);
-    err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, nodeid);
-    printf("SKB STD OUT: %s\n\n", skb_get_output());
+    for(int tries=0; tries<3; tries++){
+        HWMODEL_QUERY_DEBUG(ALIAS_CONF_Q, mem_nodeid, addr, size, nodeid);
+        err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, nodeid);
+        if(err_is_ok(err)) break;
+    }
     if (err_is_fail(err)) {
         DEBUG_SKB_ERR(err, "alias_conf \n");
         return err;

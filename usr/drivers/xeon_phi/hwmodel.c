@@ -54,15 +54,21 @@ static errval_t lookup_phi_enums(int32_t pci_nodeid,
 
     skb_execute_query("decoding_net_listing");
 
-    err = skb_execute_query(
-        "state_get(S), "
-        "xeon_phi_meta(S, %"PRIi32", E1, E2, E3),"
-        "write(E1), write(' '),"
-        "write(E2), write(' '),"
-        "write(E3).",
+    HWMODEL_QUERY_DEBUG("state_get(S),xeon_phi_meta_wrap(S, %"PRIi32").",
+        pci_nodeid);
+    err = skb_execute_query("state_get(S),xeon_phi_meta_wrap(S, %"PRIi32").",
         pci_nodeid);
     if (err_is_fail(err)) {
-        DEBUG_SKB_ERR(err, "query xeon phi meta");
+        DEBUG_SKB_ERR(err, "query xeon phi meta. Retrying....");
+        skb_execute_query("decoding_net_listing");
+
+        HWMODEL_QUERY_DEBUG("state_get(S),xeon_phi_meta_wrap(S, %"PRIi32").",
+            pci_nodeid);
+        err = skb_execute_query("state_get(S),xeon_phi_meta_wrap(S, %"PRIi32").",
+            pci_nodeid);
+        if (err_is_fail(err)) {
+            DEBUG_SKB_ERR(err, "query xeon phi meta");
+        }
         return err;
     }
 
@@ -98,6 +104,7 @@ static errval_t install_config(struct xeon_phi *xphi, char * conf, struct dmem *
     uint64_t inaddr, outaddr;
     int32_t nodeid;
     dmem->devaddr = 0xfffffffffffffff;
+    bool iommu_needs_conf = false;
     while(skb_read_list(&status, "c(%"SCNi32", %"SCNu64", %"SCNu64")",
                 &nodeid, &inaddr, &outaddr)) {
         debug_printf("nodeid=%"PRIi32"\n", nodeid);
@@ -107,8 +114,8 @@ static errval_t install_config(struct xeon_phi *xphi, char * conf, struct dmem *
         } else if(nodeid == iommu_id){
             debug_printf("CONF IOMMU: in=0x%"PRIx64", out=0x%"PRIx64"\n", inaddr, outaddr);
             if(inaddr < dmem->devaddr){
-                dmem->vbase = inaddr;
                 dmem->devaddr = inaddr;
+                iommu_needs_conf = true;
             }
         } else {
             debug_printf("%s:%d: Don't know how to config node %d. Ignoring.\n",
@@ -117,12 +124,17 @@ static errval_t install_config(struct xeon_phi *xphi, char * conf, struct dmem *
     }
 
     dmem->vbase = 0;
-    err = driverkit_iommu_vspace_map_fixed_cl(xphi->iommu_client, dmem->mem,
-                                              VREGION_FLAGS_READ_WRITE, dmem);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "map_fixed");
+    if(iommu_needs_conf){
+        // Fills in dmem->vbase
+        err = driverkit_iommu_vspace_map_fixed_cl(xphi->iommu_client, dmem->mem,
+                                                  VREGION_FLAGS_READ_WRITE, dmem);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "map_fixed");
+        }
+        return err;
+    } else {
+        return SYS_ERR_OK;
     }
-    return err;
 }
 
 /*
@@ -178,6 +190,9 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
     }
 
     if(local_retaddr) {
+        // This is a bit unfortunate. We only generate dmem.vbase
+        // if we setup the IOMMU. But since most caller dont care this works.
+        assert(dmem.vbase);
         *local_retaddr = dmem.vbase;
     }
 
