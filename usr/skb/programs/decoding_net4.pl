@@ -33,32 +33,12 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Persisted state
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-:- dynamic current_state/1.
 
 
 % define the empty state to have only emtpy lists
 :- export state_empty/1.
 state_empty(S) :-
     S = state([],[],[],[],[],[],[],[],[]).
-
-% initializes the state to be empty
-init_state :-
-    assert(current_state(null)),
-    state_empty(S),
-    state_set(S).
-
-
-% sets the new state
-:- export state_set/1.
-state_set(S) :-
-    retract(current_state(_)), assert(current_state(S)).
-
-% call the init
-:- init_state.
-
-:- export state_get/1.
-state_get(S) :- current_state(S).
-
 
 % adding to the state
 
@@ -446,7 +426,7 @@ region_free_bound(S, Reg) :-
     RBase is CBase.
 
 % Case 4: Give up. Try any (will lead to a sequential search).
-region_free_bound(_, Reg) :- 
+region_free_bound(_, Reg) :-
     Reg = region(_, block(RBase, _)),
     RBase #>= 0.
 
@@ -740,9 +720,47 @@ reachable_id(S, SrcId, DstId) :-
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Node enumeration
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+:- export unused_node_enum/2.
+unused_node_enum(S, Enum) :-
+    Enum #>= 1,
+    labeling([Enum]),
+    not(state_has_node_enum(S, Enum, _)).
+
+:- export node_enum/4.
+node_enum(S, NodeId, Enum, NewS) :-
+        state_has_node_enum(S, Enum, NodeId),
+        NewS = S
+     ;
+        not(state_has_node_enum(S, Enum, NodeId)),
+        unused_node_enum(S, Enum),
+        state_add_node_enum(S, Enum, NodeId, NewS).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Root Vnode Management
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+next_free_root_vnodeslot(S, NodeId, SlotTry, Slot) :-
+    not(state_has_free_vnodeslot(S, NodeId, SlotTry)),
+    Slot = SlotTry ;
+    NextSlotTry is SlotTry + 1,
+    next_free_root_vnodeslot(S, NodeId, NextSlotTry, Slot).
+
+:- export alloc_root_vnodeslot/4.
+alloc_root_vnodeslot(S, NodeId, Slot, NewS) :-
+    next_free_root_vnodeslot(S, NodeId, 1, Slot),
+    state_add_vnodeslot(S, NodeId, Slot, NewS).
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Tests
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+/*
 
 test_accept_name :-
     state_empty(S0),
@@ -976,3 +994,4 @@ run_all_tests :-
     run_test(test_route2),
     run_test(test_alias),
     run_test(test_alloc).
+*/
