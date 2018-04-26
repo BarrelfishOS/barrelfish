@@ -36,6 +36,7 @@
 #include <barrelfish/barrelfish.h>
 #include <driverkit/driverkit.h>
 #include <driverkit/iommu.h>
+#include <driverkit/hwmodel.h>
 
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_manager_client.h>
@@ -62,6 +63,12 @@ bool started = false;
 
 
 static errval_t add_xeon_phi_model_nodes(int32_t nodeid, int32_t *newnodeid) {
+    HWMODEL_QUERY_DEBUG(
+            "state_get(S),"
+            "replace_with_xeon_phi(S, %"PRIi32", E1, NewS),"
+            "writeln(E1),"
+            "state_set(NewS)",
+            nodeid);
     errval_t err = skb_execute_query(
             "state_get(S),"
             "replace_with_xeon_phi(S, %"PRIi32", E1, NewS),"
