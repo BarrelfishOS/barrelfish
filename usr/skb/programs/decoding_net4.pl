@@ -422,18 +422,32 @@ region_aligned(Region, Bits) :-
     aligned(Base, Bits, NumBlock),
     labeling([NumBlock]).
 
-% This is a search optimization: Free regions start after an existing region.
+% This is a search optimization to find meaningful free regions.
+% The order of these facts matter (for performance).
+% Case 1: Try if just after an existing region works.
 region_free_bound(S, Reg) :-
-    Reg = region(Id, block(RBase, _)),
+    Reg = region(Id, _),
     CReg = region(Id, block(_, CLimit)),
     state_has_in_use(S, CReg),
-    %RBase is CLimit + 1 ;
-    RBase #>= 0 ;
-    %RBase #>= CLimit ;
-    % In case that allocation doesnt work, just get me any.
+    RBase is CLimit + 1.
+
+% Case 2: Try if just the beginning of a mapping block works
+region_free_bound(S, Reg) :-
     Reg = region(Id, block(RBase, _)),
-    CReg = region(Id, _),
-    not(state_has_in_use(S, CReg)),
+    CReg = region(Id, block(CBase, _)),
+    state_has_mapping(S, CReg, _),
+    RBase is CBase.
+
+% Case 3: Try if just the beginning of an accept block
+region_free_bound(S, Reg) :-
+    Reg = region(Id, block(RBase, _)),
+    CReg = region(Id, block(CBase, _)),
+    state_has_accept(S, CReg),
+    RBase is CBase.
+
+% Case 4: Give up. Try any (will lead to a sequential search).
+region_free_bound(S, Reg) :- 
+    Reg = region(Id, block(RBase, _)),
     RBase #>= 0.
 
 
@@ -550,9 +564,14 @@ route_step_cont(S, NextRegion, DstRegion, C1, Conf) :-
     route(S, NextRegion, DstRegion, C2),
     append(C1, C2, Conf).
 
+% Requires SrcRegion ID and DstRegion ID to be set!
 route(S, SrcRegion, DstRegion, Conf) :-
+    % Pre-Check if this DstRegion can ever be reached from SrcRegion
+    SrcRegion = region(SrcId, _),
+    DstRegion = region(DstId, _),
+    reachable_id(S, SrcId, DstId),
+
     route_step(S, SrcRegion, NextRegion, C1),
-    %writeln(NextRegion),
     route_step_cont(S, NextRegion, DstRegion, C1, Conf).
 
 
@@ -604,6 +623,13 @@ route_multiple(S, [Reg | Regs], DestReg, CIn, COut) :-
     route(S, Reg, DestReg, C),
     append(CIn2, C, COut).
 
+region_alloc_and_route_multiple(_, [], _, _, _, []).
+region_alloc_and_route_multiple(S, [Reg | Regs], Size, Bits, DestReg, Conf) :-
+    region_alloc_and_route_multiple(S, Regs, Size, Bits, DestReg, C1),
+    region_alloc(S, Reg, Size, Bits),
+    route(S, Reg, DestReg, C2),
+    append(C1, C2, Conf).
+
 %%
 % S - State
 % Size - Size of the allocation (must be multiple of Bits)
@@ -613,24 +639,17 @@ route_multiple(S, [Reg | Regs], DestReg, CIn, COut) :-
 % Conf - State Delta which must be added to S
 :- export alloc/6.
 alloc(S, Size, Bits, DestReg, SrcRegs, Conf) :-
-    % src regions not used
-    region_alloc_multiple(S, SrcRegs, Size, Bits),
-
     % dest region not used and accepting
     region_accepting_bound(S, DestReg),
     region_alloc(S, DestReg, Size, Bits),
-    accept_region(S, DestReg),
-
-    % src regions can be resolved to destination.
-    route_multiple(S, SrcRegs, DestReg, [], Conf).
-
-
+    map(S, Size, Bits, DestReg, SrcRegs, Conf).
 
 :- export map/6.
 map(S, Size, Bits, DestReg, SrcRegs, Conf) :-
-    region_alloc_multiple(S, SrcRegs, Size, Bits),
     accept_region(S, DestReg),
-    route_multiple(S, SrcRegs, DestReg, [], Conf).
+
+    % Allocate and route src simultaneously
+    region_alloc_and_route_multiple(S, SrcRegs, Size, Bits, DestReg, Conf).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -703,6 +722,21 @@ block_block_intersect(A, B) :-
     A = block(ABase,ALimit),
     B = block(BBase,BLimit),
     addresses_intersect(ABase, ALimit, BBase, BLimit).
+
+
+% Being optimistic that a translation can be found (ie it treats configurable
+% nodes like overlays), is DstId reachable from SrcId.
+:- export reachable_id/3.
+reachable_id_step(S, SrcId,NxtId) :-
+    state_has_overlay(S, SrcId, NxtId).
+reachable_id_step(S, SrcId, NxtId) :-
+    state_has_block_meta(S, SrcId, _, NxtId).
+reachable_id_step(S, SrcId, NxtId) :-
+    state_has_mapping(S, region(SrcId,_), name(NxtId, _)).
+reachable_id(S, Id, Id).
+reachable_id(S, SrcId, DstId) :-
+    reachable_id_step(S, SrcId, NxtId),
+    reachable_id(S, NxtId, DstId).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -835,6 +869,7 @@ test_resolve_name2 :-
         R),
     Out = 6000.
 
+:- export test_route/0.
 test_route :-
     Upper is 512 * 1024 * 1024,
     Base2M is 2^21,
@@ -847,8 +882,8 @@ test_route :-
     state_add_accept(S3,region(["RAM"], block(0, Upper)),S4),
 
 
-    route(S4, region(["IN"],block(0,Limit4M)), OutRegion, Confs),
     OutRegion = region(["RAM"],block(Base2M, Limit6M)),
+    route(S4, region(["IN"],block(0,Limit4M)), OutRegion, Confs),
     state_add_confs(S4, Confs, S5),
     state_has_block_conf(S5, ["MMU"], 0, 1),
     state_has_block_conf(S5, ["MMU"], 1, 2).
@@ -865,9 +900,9 @@ test_route2 :-
     state_add_block_meta(S1,["SMPT"], 34, ["RAM"],S2),
     state_add_accept(S2,region(["RAM"], block(0, Upper)),S3),
 
+    OutRegion = region(["RAM"],block(Base2M, Limit4M)),
     route(S3, region(["IN"],block(Base2M,Limit4M)), OutRegion, Confs),
-    printf("OutRegion = %p, Confs = %p\n", [OutRegion, Confs]),
-    OutRegion = region(["RAM"],block(Base2M, Limit4M)).
+    printf("OutRegion = %p, Confs = %p\n", [OutRegion, Confs]).
 
 
 

@@ -310,16 +310,6 @@ reverse_resolve_wrap(S0, DstEnum, DstAddr, _, SrcEnum)  :-
 
 :- export alias_conf_wrap/6.
 alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
-    %xeon_phi_meta(S0, DstEnum, _, XeonSrc, SmptId, IommuId), % TODO: Make me work with arbitrary destinations.
-
-    %node_enum(S0, SrcNodeId, SrcEnum, S1),
-    %node_enum(S1, SmptId, _, S2),
-    %node_enum(S2, IommuId, _, S3),
-    %% HACK: Replace dram nodeid with bus. Because our capabilities actually
-    %% protect an area in the BUS not in the DRAM.
-    %ram_bus_nodeid(SrcNodeId, SrcBusId),
-    %% ENDHACK
-
     % Build src region
     node_enum(S0, SrcId, SrcEnum, S0), 
     SrcLimit is SrcAddr + Size - 1,
