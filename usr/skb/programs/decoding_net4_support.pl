@@ -190,15 +190,17 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
         % Mark IOMMU block remappable
         IOMMU_IN_ID = ["IN", "IOMMU0" | Id],
         state_add_block_meta(S1, IOMMU_IN_ID, 21, ["OUT", "IOMMU0" | Id], S2),
-        state_add_in_use(S2, region(IOMMU_IN_ID, block(0, Limit512G)), S3)
+        state_add_in_use(S2, region(IOMMU_IN_ID, block(0, Limit512G)), S3),
+        % This is not strictly necessary, but it will speedup the allocations
+        state_add_in_use(S3, region(PCIOUT_ID, block(0, Limit512G)), S4) 
     ) ; (
         % IOMMU disabled.
         %add_PCI(S0, Id, S2)
-        call(Module, S0, Id, S3)
+        call(Module, S0, Id, S4)
     )),
 
     % connect the output to the systems pci bus
-    state_add_overlay(S3, PCIOUT_ID, PCIBUS_ID, S4),
+    state_add_overlay(S4, PCIOUT_ID, PCIBUS_ID, S5),
 
     % Now insert the BAR into the PCI bus address space
     findall((Addr, BarNum, BarStart, BarSize),
@@ -206,7 +208,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
             Bars),
     (foreach((_, BarNum, BarStart, BarSize), Bars),
      param(Id), param(PCIBUS_ID),
-     fromto(S4, SIn, SOut, S5) do
+     fromto(S5, SIn, SOut, S6) do
         BarId = [BarNum, "BAR" | Id],
         InStart is BarStart,
         InEnd is BarStart + BarSize - 1,
@@ -217,9 +219,9 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
                                                  name(BarId,AcceptStart), SOut)
     ),
     % Set it to the node id where addresses are issued from the PCI device
-    state_add_pci_id(S5, Addr, Enum, S6),
+    state_add_pci_id(S6, Addr, Enum, S7),
     % We keep the lowest root vnode slot unmapped, hence the 512G hole.
-    state_add_in_use(S6, region(OutNodeId, block(0, Limit512G)), NewS).
+    state_add_in_use(S7, region(OutNodeId, block(0, Limit512G)), NewS).
 
 
 :- export alloc_root_vnodeslot_wrap/4.
@@ -324,7 +326,7 @@ alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
     alias_conf(S0, SrcRegion, DstRegion, Confs),
     state_add_confs(S0, Confs, S1),
 
-    state_add_in_use(S1, SrcRegion, S2),
+    state_add_in_use(S1, DstRegion, S2),
 
     write_regions(S2, [DstRegion], NewS),
     write_confs(NewS, Confs).
