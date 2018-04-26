@@ -573,8 +573,8 @@ static void get_nodeid_call_rx(struct xeon_phi_binding *binding,
 
     struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
 
-    int32_t dma, core;
-    err = xeon_phi_hw_model_lookup_nodeids(svc_st->phi->nodeid, NULL, NULL, NULL, &dma,
+    int32_t dma, core, knc_socket;
+    err = xeon_phi_hw_model_lookup_nodeids(svc_st->phi->nodeid, &knc_socket, NULL, NULL, &dma,
             &core);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "lookup nodeids\n");
@@ -588,8 +588,10 @@ static void get_nodeid_call_rx(struct xeon_phi_binding *binding,
         xphi_st->args.nodeid.nodeid = -1;
     } else if (arg & (1UL<<32)) {
         // DMA engine
-        // TODO: This has been tested only with KNC Socket.
-        xphi_st->args.nodeid.nodeid = dma;
+        // TODO: This works with dma, but if we use knc_socket, it will
+        // massively speed up the search for free regions.
+        // xphi_st->args.nodeid.nodeid = dma;
+        xphi_st->args.nodeid.nodeid = knc_socket;
     } else if (arg  & (1UL<<33)) {
         // cores
         // coreid_t coreid = arg & 0xffff;

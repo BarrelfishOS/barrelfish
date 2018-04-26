@@ -447,11 +447,6 @@ region_alloc(S, Reg, Size, Bits) :-
     region_size(Reg, Size),
     region_free(S, Reg).
 
-region_alloc_test(_, Reg, Size, Bits) :-
-    region_aligned(Reg, Bits),
-    region_size(Reg, Size).
-
-
 translate_region_alloc(0, Confs, _, _, _, Confs).
 
 translate_region_alloc(I, ConfsIn, SrcId, VPN, PFN, ConfsOut) :-
@@ -583,9 +578,19 @@ xeon_phi_extra_cons(SrcRegion, DstRegion) :-
 
 % Make R2 an alias of R1, permitting configuration changes
 :- export alias_conf/4.
+% Try without reconfiguration
+alias_conf(S, R1, R2, []) :-
+    resolve_region(S, R1, DstRegion),
+    DstRegion = region(DstId, block(DstBase, _)),
+    R2 = region(R2Id, block(R2Base, R2Limit)),
+    resolve_name(S, name(R2Id, R2Base), name(DstId,DstBase)),
+    region_size(R1, R1Size),
+    R2Limit is R2Base + R1Size - 1,
+    resolve_region(S, R2, DstRegion).
+
+% Ok. Need reconfiguration.
 alias_conf(S, R1, R2, Conf) :-
     resolve_region(S, R1, D),
-
     xeon_phi_extra_cons(R2, D),
     region_size(R1, R1Size),
     region_alloc(S, R2, R1Size, 21),
