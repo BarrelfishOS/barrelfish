@@ -32,6 +32,100 @@ state_set(S) :-
 :- export state_get/1.
 state_get(S) :- current_state(S).
 
+%%% TODO FIXME
+%:- export state_add_accept/3.
+%state_add_accept(S0, Reg, S1) :-
+%    S0 = state(A, M, O, BM, BC, U, E, P, V),
+%    S1 = state([accept(Reg) | A], M, O, BM, BC, U, E, P, V).
+%
+%:- export state_add_overlay/4.
+%state_add_overlay(S0, SrcNodeId, DstNodeId, S1) :-
+%    S0 = state(A, M, O, BM, BC, U, E, P, V),
+%    S1 = state(A, M, [overlay(SrcNodeId, DstNodeId) | O], BM, BC, U, E, P, V).
+%
+%:- export state_add_block_meta/5.
+%state_add_block_meta(S0, SrcNodeId, Bits, DestNodeId, S1) :-
+%    S0 = state(A, M, O, BM, BC, U, E, P, V),
+%    S1 = state(A, M, O, [block_meta(SrcNodeId, Bits, DestNodeId) | BM], BC, U, E, P, V).
+%
+%
+%
+%:- export state_add_node_enum/4.
+%state_add_node_enum(S0, Enum, NodeId, S1) :-
+%    S0 = state(A, M, O, BM, BC, U, E, P, V),
+%    S1 = state(A, M, O, BM, BC,  U, [enum_node_id(Enum, NodeId) | E], P, V).
+%
+%:- export state_add_pci_id/4.
+%state_add_pci_id(S0, Addr, Enum, S1) :-
+%    S0 = state(A, M, O, BM, BC, U, E, P, V),
+%    S1 = state(A, M, O, BM, BC,  U, E, [pci_address_node_id(Addr, Enum) | P], V).
+%
+%:- export state_add_vnodeslot/4.
+%state_add_vnodeslot(S0, NodeId, Slot, S1) :-
+%    S0 = state(A, M, O, BM, BC, U, E, P, V),
+%    S1 = state(A, M, O, BM, BC,  U, E, P, [root_vnode(NodeId, Slot) |V]).
+%
+%
+%
+%state_remove([], _, []).
+%state_remove([Head|Tail], Fact, Out) :-
+%    Head = Fact,
+%    state_remove(Tail, Fact, Out)
+%    ;
+%    not(Head = Fact),
+%    state_remove(Tail, Fact, SubOut),
+%    Out = [Head | SubOut].
+%
+%suffix_id(Suffix, Id) :-
+%    append(_, Suffix, Id).
+%
+%matches_suffix(Suffix, overlay(Id, _)) :- suffix_id(Suffix, Id).
+%matches_suffix(Suffix, accept(region(Id,_))) :- suffix_id(Suffix, Id).
+%matches_suffix(Suffix, mapping(region(Id,_), _)) :- suffix_id(Suffix, Id).
+%matches_suffix(Suffix, block_meta(Id, _, _)) :- suffix_id(Suffix, Id).
+%matches_suffix(Suffix, block_conf(Id, _, _)) :- suffix_id(Suffix, Id).
+%matches_suffix(Suffix, in_use(region(Id, _))) :- suffix_id(Suffix, Id).
+%matches_suffix(Suffix, enum_node_id(_, Id)) :- suffix_id(Suffix, Id).
+%
+%state_list_remove_suffix([], _, []).
+%state_list_remove_suffix([Head|Tail], Suffix, Out) :-
+%    matches_suffix(Suffix, Head),
+%    state_list_remove_suffix(Tail, Suffix, Out);
+%    not(matches_suffix(Suffix, Head)),
+%    state_list_remove_suffix(Tail, Suffix, SOut),
+%    Out = [Head | SOut].
+%
+%:- export state_remove_suffix/3.
+%state_remove_suffix(S, Suffix, S1) :-
+%    S = state(A, M, O, BM, BC, U, E, P, V),
+%    state_list_remove_suffix(A, Suffix, A1),
+%    state_list_remove_suffix(M, Suffix, M1),
+%    state_list_remove_suffix(O, Suffix, O1),
+%    state_list_remove_suffix(BM, Suffix, BM1),
+%    state_list_remove_suffix(BC, Suffix, BC1),
+%    state_list_remove_suffix(U, Suffix, U1),
+%    state_list_remove_suffix(E, Suffix, E1),
+%    state_list_remove_suffix(P, Suffix, P1),
+%    state_list_remove_suffix(V, Suffix, V1),
+%    S1 = state(A1, M1, O1, BM1, BC1, U1, E1, P1, V1).
+%:- export state_remove_accept/3.
+%state_remove_accept(S0, Reg, S1) :-
+%    S0 = state(A, M, O, BM, BC, U, E, P, V),
+%    state_remove(A, accept(Reg), A1),
+%    S1 = state(A1, M, O, BM, BC, U, E, P, V).
+%
+%:- export state_remove_overlay/4.
+%state_remove_overlay(S0, SrcNodeId, DstNodeId, S1) :-
+%    S0 = state(A, M, O, BM, BC, U, E, P, V),
+%    state_remove(O, overlay(SrcNodeId, DstNodeId), O1),
+%    S1 = state(A, M, O1, BM, BC, U, E, P, V).
+%
+%:- export state_remove_block_meta/5.
+%state_remove_block_meta(S0, SrcNodeId, Bits, DestNodeId, S1) :-
+%    S0 = state(A, M, O, BM, BC, U, E, P, V),
+%    state_remove(BM, block_meta(SrcNodeId, Bits, DestNodeId), BM1),
+%    S1 = state(A, M, O, BM1, BC, U, E, P, V).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Initialization
