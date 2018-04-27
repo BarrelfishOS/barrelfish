@@ -311,21 +311,21 @@ static errval_t driverkit_iommu_vnode_create_l3(struct iommu_client *cl,
         case ObjType_VNode_x86_64_pml5 :
             l3_vnode_type =ObjType_VNode_x86_64_pml4;
             slot = X86_64_PML5_BASE(addr);
-            *retslot = X86_64_PDPT_BASE(addr);
+            *retslot = X86_64_PML4_BASE(addr);
             addr = addr & ~((512UL << 30) - 1);
             end_addr = addr + (512UL << 30) - 1;
             break;
         case ObjType_VNode_x86_64_pml4 :
             l3_vnode_type = ObjType_VNode_x86_64_pdpt;
             slot = X86_64_PML4_BASE(addr);
-            *retslot = X86_64_PDIR_BASE(addr);
+            *retslot = X86_64_PDPT_BASE(addr);
             addr = addr & ~X86_64_HUGE_PAGE_MASK;
             end_addr = addr + X86_64_HUGE_PAGE_SIZE - 1;
             break;
         case ObjType_VNode_x86_64_pdpt :
             l3_vnode_type = ObjType_VNode_x86_64_pdir;
             slot = X86_64_PDPT_BASE(addr);
-            *retslot = X86_64_PTABLE_BASE(addr);
+            *retslot = X86_64_PDIR_BASE(addr);
             addr = addr & ~X86_64_LARGE_PAGE_MASK;
             end_addr = addr + X86_64_LARGE_PAGE_SIZE - 1;
             break;
@@ -433,14 +433,6 @@ static errval_t driverkit_iommu_vnode_get_l2(struct iommu_client *cl,
     dmem_daddr_t end_addr;
 
     switch(vnode_l3->vnode_type) {
-        case ObjType_VNode_x86_64_pml5 :
-            DRIVERKIT_DEBUG("Allocate PML4 for L2 node\n");
-            l2_vnode_type = ObjType_VNode_x86_64_pml4;
-            addr = addr & ~((512UL << 30) - 1);
-            end_addr = addr + (512UL << 30) - 1;
-            assert(slot == X86_64_PML5_BASE(addr));
-            *retslot = X86_64_PML4_BASE(addr);
-            break;
         case ObjType_VNode_x86_64_pml4 :
             DRIVERKIT_DEBUG("Allocate PDPT for L2 node\n");
             l2_vnode_type = ObjType_VNode_x86_64_pdpt;
