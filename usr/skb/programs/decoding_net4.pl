@@ -211,6 +211,11 @@ decodes_region(S, A, B) :-
     translate_region(S, A, Next),
     decodes_region(S, Next, B).
 
+resolves_region(S, A, B) :-
+    decodes_region(S, A, B),
+    accept(C),
+    region_region_contains(B,C).
+
 nodes_slots_avail(_, []).
 nodes_slots_avail(S, [N | Ns]) :-
     nodes_slots_avail(S, Ns),
@@ -340,7 +345,9 @@ map_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS) :-
     ),
     map_rec(S3, region(SrcId, SrcB), ConfInR, NextConfNodes, NewS).
 
-map(S, region(SrcId, SrcB), region(DstId, DstB), NewS) :-
+map(S, region(SrcId, SrcB), DstUnresolvedR, NewS) :-
+    % Resolve the Destination Region first.
+    resolves_region(S, DstUnresolvedR, region(DstId, DstB)),
     flat(region(SrcId, SrcBB), ConfNodes, region(DstId, DstBB)),
     region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
     region_region_contains(region(DstId, DstB), region(DstId, DstBB)),

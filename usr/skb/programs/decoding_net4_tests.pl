@@ -50,22 +50,22 @@ test_decodes_region2 :-
     decodes_region(S, In, region(["OUT"], block(400, 1500))),
     writeln(In).
 
-%%test_resolves_region1 :-
-%%    reset_static_state,
-%%    assert_overlay(["IN"], ["NEXT"]),
-%%    assert_translate(region(["NEXT"], block(0, 1000)), name(["OUT"], 400)),
-%%    assert_accept(region(["OUT"], block(0, 10000))),
-%%    state_empty(S),
-%%    resolves_region(S, In, region(["OUT"], block(400, 1500))),
-%%    writeln(In).
-%%
-%%test_resolves_region2 :-
-%%    reset_static_state,
-%%    assert_overlay(["IN"], ["NEXT"]),
-%%    assert_translate(region(["NEXT"], block(0, 1000)), name(["OUT"], 400)),
-%%    assert_accept(region(["OUT"], block(0, 700))),
-%%    state_empty(S),
-%%    not(resolves_region(S, _, region(["OUT"], block(400, 1500)))).
+test_resolves_region1 :-
+    reset_static_state,
+    assert_overlay(["IN"], ["NEXT"]),
+    assert_translate(region(["NEXT"], block(0, 1000)), name(["OUT"], 400)),
+    assert_accept(region(["OUT"], block(0, 10000))),
+    state_empty(S),
+    resolves_region(S, In, region(["OUT"], block(400, 1500))),
+    writeln(In).
+
+test_resolves_region2 :-
+    reset_static_state,
+    assert_overlay(["IN"], ["NEXT"]),
+    assert_translate(region(["NEXT"], block(0, 1000)), name(["OUT"], 400)),
+    assert_accept(region(["OUT"], block(0, 700))),
+    state_empty(S),
+    not(resolves_region(S, _, region(["OUT"], block(400, 1500)))).
 
 :- export test_flat1/0.
 test_flat1 :-
@@ -242,6 +242,8 @@ run_all_tests :-
     run_test(test_translate_region4),
     run_test(test_decodes_region1),
     run_test(test_decodes_region2),
+    run_test(test_resolves_region1),
+    run_test(test_resolves_region2),
     run_test(test_flat1),
     run_test(test_alloc1),
     run_test(test_alloc2),
