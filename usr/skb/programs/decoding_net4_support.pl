@@ -269,15 +269,15 @@ add_process(S, Enum, NewS) :-
     MMU_IN_ID = ["IN", "MMU0" | Id],
     MMU_OUT_ID = ["OUT", "MMU0" | Id],
 
-    NumBlocks is (20 * 512 * 512),
-    assert_conf_node(S1, MMU_IN_ID, MMU_OUT_ID, 21, NumBlocks, S2),
+    NumSlots is (512 * 512 * 512),
+    assert_conf_node(S1, MMU_IN_ID, MMU_OUT_ID, 21, NumSlots, S2),
 
     OUT_ID = ["OUT" | Id],
     assert_overlay(OUT_ID, DRAM_ID),
 
     % Reserve memory for the process, the OUT/PROC0 node is the one where
     % initially the process (virtual) addresses are issued.
-
+    NumBlocks is (20 * 512 * 512),
     Limit is (NumBlocks * (512 * 4096) - 1),
     Size is Limit + 1,
     %state_add_in_use(S3, region(OutId, block(0,Limit)), NewS),
