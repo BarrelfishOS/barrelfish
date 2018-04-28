@@ -15,6 +15,38 @@ load_net(File) :-
 %%%% State management
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+
+/*
+ * ===========================================================================
+ * Static State
+ * ===========================================================================
+ */
+
+:- dynamic node_id_next/1.
+node_id_next(0).
+
+unused_node_enum(Enum) :-
+    node_id_next(E),
+    retractall(node_id_next(_)),
+    Enum is E + 1,
+    assert(node_id_next(Enum)).
+
+:- dynamic node_id_node_enum/2.
+node_enum(Enum, NodeId) :-
+    node_id_node_enum(NodeId, Enum).
+node_enum(Enum, NodeId) :-
+    unused_node_enum(Enum),
+    assert(node_id_node_enum(NodeId, Enum)).
+
+node_enum_exists(Enum, NodeId) :-
+    node_id_node_enum(NodeId, Enum).
+
+ /*
+  * ---------------------------------------------------------------------------
+  * Add to state
+  * ---------------------------------------------------------------------------
+  */
+
 :- dynamic current_state/1.
 
 % initializes the state to be empty
@@ -31,124 +63,47 @@ state_set(S) :-
 :- export state_get/1.
 state_get(S) :- current_state(S).
 
+
+
+
 %%%% STATIC STATE
 :- dynamic translate/2.
+:- export assert_translate/4.
+assert_translate(S,A,B,S) :- assert(translate(A,B)).
 :- export assert_translate/2.
 assert_translate(A,B) :- assert(translate(A,B)).
 :- export retract_translate/2.
 retract_translate(A,B) :- retractall(translate(A,B)).
 
 :- dynamic overlay/2.
+:- export assert_overlay/4.
+assert_overlay(S,A,B,S) :- assert(overlay(A,B)).
 :- export assert_overlay/2.
 assert_overlay(A,B) :- assert(overlay(A,B)).
 :- export retract_overlay/2.
 retract_overlay(A,B) :- retractall(overlay(A,B)).
 
 :- dynamic accept/1.
+:- export assert_accept/3.
+assert_accept(S,R,SNew) :-
+    assert(accept(R)),
+    R = region(NodeId, B),
+    state_add_free(S, NodeId, [B], SNew).
+
 :- export assert_accept/1.
 assert_accept(R) :- assert(accept(R)).
 :- export retract_accept/1.
 retract_accept(R) :- retractall(accept(R)).
 
 :- dynamic configurable/3.
+:- export assert_configurable/5.
+assert_configurable(S,SrcId,Bits,DstId,S) :- assert(configurable(SrcId, Bits, DstId)).
 :- export assert_configurable/3.
 assert_configurable(SrcId,Bits,DstId) :- assert(configurable(SrcId, Bits, DstId)).
 :- export retract_configurable/3.
 retract_configurable(SrcId,Bits,DstId) :- retractall(configurable(SrcId,Bits,DstId)).
 
-%%% TODO FIXME
-%:- export state_add_accept/3.
-%state_add_accept(S0, Reg, S1) :-
-%    S0 = state(A, M, O, BM, BC, U, E, P, V),
-%    S1 = state([accept(Reg) | A], M, O, BM, BC, U, E, P, V).
-%
-%:- export state_add_overlay/4.
-%state_add_overlay(S0, SrcNodeId, DstNodeId, S1) :-
-%    S0 = state(A, M, O, BM, BC, U, E, P, V),
-%    S1 = state(A, M, [overlay(SrcNodeId, DstNodeId) | O], BM, BC, U, E, P, V).
-%
-%:- export state_add_block_meta/5.
-%state_add_block_meta(S0, SrcNodeId, Bits, DestNodeId, S1) :-
-%    S0 = state(A, M, O, BM, BC, U, E, P, V),
-%    S1 = state(A, M, O, [block_meta(SrcNodeId, Bits, DestNodeId) | BM], BC, U, E, P, V).
-%
-%
-%
-%:- export state_add_node_enum/4.
-%state_add_node_enum(S0, Enum, NodeId, S1) :-
-%    S0 = state(A, M, O, BM, BC, U, E, P, V),
-%    S1 = state(A, M, O, BM, BC,  U, [enum_node_id(Enum, NodeId) | E], P, V).
-%
-%:- export state_add_pci_id/4.
-%state_add_pci_id(S0, Addr, Enum, S1) :-
-%    S0 = state(A, M, O, BM, BC, U, E, P, V),
-%    S1 = state(A, M, O, BM, BC,  U, E, [pci_address_node_id(Addr, Enum) | P], V).
-%
-%:- export state_add_vnodeslot/4.
-%state_add_vnodeslot(S0, NodeId, Slot, S1) :-
-%    S0 = state(A, M, O, BM, BC, U, E, P, V),
-%    S1 = state(A, M, O, BM, BC,  U, E, P, [root_vnode(NodeId, Slot) |V]).
-%
-%
-%
-%state_remove([], _, []).
-%state_remove([Head|Tail], Fact, Out) :-
-%    Head = Fact,
-%    state_remove(Tail, Fact, Out)
-%    ;
-%    not(Head = Fact),
-%    state_remove(Tail, Fact, SubOut),
-%    Out = [Head | SubOut].
-%
-%suffix_id(Suffix, Id) :-
-%    append(_, Suffix, Id).
-%
-%matches_suffix(Suffix, overlay(Id, _)) :- suffix_id(Suffix, Id).
-%matches_suffix(Suffix, accept(region(Id,_))) :- suffix_id(Suffix, Id).
-%matches_suffix(Suffix, mapping(region(Id,_), _)) :- suffix_id(Suffix, Id).
-%matches_suffix(Suffix, block_meta(Id, _, _)) :- suffix_id(Suffix, Id).
-%matches_suffix(Suffix, block_conf(Id, _, _)) :- suffix_id(Suffix, Id).
-%matches_suffix(Suffix, in_use(region(Id, _))) :- suffix_id(Suffix, Id).
-%matches_suffix(Suffix, enum_node_id(_, Id)) :- suffix_id(Suffix, Id).
-%
-%state_list_remove_suffix([], _, []).
-%state_list_remove_suffix([Head|Tail], Suffix, Out) :-
-%    matches_suffix(Suffix, Head),
-%    state_list_remove_suffix(Tail, Suffix, Out);
-%    not(matches_suffix(Suffix, Head)),
-%    state_list_remove_suffix(Tail, Suffix, SOut),
-%    Out = [Head | SOut].
-%
-%:- export state_remove_suffix/3.
-%state_remove_suffix(S, Suffix, S1) :-
-%    S = state(A, M, O, BM, BC, U, E, P, V),
-%    state_list_remove_suffix(A, Suffix, A1),
-%    state_list_remove_suffix(M, Suffix, M1),
-%    state_list_remove_suffix(O, Suffix, O1),
-%    state_list_remove_suffix(BM, Suffix, BM1),
-%    state_list_remove_suffix(BC, Suffix, BC1),
-%    state_list_remove_suffix(U, Suffix, U1),
-%    state_list_remove_suffix(E, Suffix, E1),
-%    state_list_remove_suffix(P, Suffix, P1),
-%    state_list_remove_suffix(V, Suffix, V1),
-%    S1 = state(A1, M1, O1, BM1, BC1, U1, E1, P1, V1).
-%:- export state_remove_accept/3.
-%state_remove_accept(S0, Reg, S1) :-
-%    S0 = state(A, M, O, BM, BC, U, E, P, V),
-%    state_remove(A, accept(Reg), A1),
-%    S1 = state(A1, M, O, BM, BC, U, E, P, V).
-%
-%:- export state_remove_overlay/4.
-%state_remove_overlay(S0, SrcNodeId, DstNodeId, S1) :-
-%    S0 = state(A, M, O, BM, BC, U, E, P, V),
-%    state_remove(O, overlay(SrcNodeId, DstNodeId), O1),
-%    S1 = state(A, M, O1, BM, BC, U, E, P, V).
-%
-%:- export state_remove_block_meta/5.
-%state_remove_block_meta(S0, SrcNodeId, Bits, DestNodeId, S1) :-
-%    S0 = state(A, M, O, BM, BC, U, E, P, V),
-%    state_remove(BM, block_meta(SrcNodeId, Bits, DestNodeId), BM1),
-%    S1 = state(A, M, O, BM1, BC, U, E, P, V).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -187,37 +142,30 @@ initial_dram_block(Block) :- %a
 % Called by Kaluga
 :- export init/1.
 init(NewS) :-
-    state_add_accept(S2, region(["DRAM"], Block), S3),
     state_empty(S1),
     add_SYSTEM(S1, [], S2),
+    assert_accept(region(["DRAM"], Block)),
+
     DRAM_ID = ["DRAM"],
     initial_dram_block(Block),
-    state_add_accept(S2, region(["DRAM"], Block), S3),
-    node_enum(S3, DRAM_ID, DRAM_ENUM, S4),
+    assert_accept(region(["DRAM"], Block)),
+    state_add_free(S2, ["DRAM"], [Block], NewS),
+    node_enum(DRAM_ID, DRAM_ENUM),
     printf("Decoding net initialized using %p as DRAM. DRAM nodeid: %p\n",
-        [Block, DRAM_ENUM]),
-    NewS = S4.
+        [Block, DRAM_ENUM]).
 
-    % Manage space for vnodes
-    %vnode_meta(PageSize, PoolSize),
-    %VnodePoolSize is PageSize * PoolSize,
-    %Size = [VnodePoolSize],
-    %alloc_range(S2, DRAM_ID, [memory, Size], BaseOut, S3),
-    %mark_range_in_use(S3, DRAM_ID, BaseOut, Size, S4),
-    %in_use(DRAM_ID, Region),
-    %assert(vnode_region(Region)),
-    %writeln("Using for PageTables:"), writeln(Region).
+
 
 :- export add_process/3.
 add_process(S, Enum, NewS) :-
-    unused_node_enum(S, Enum),
+    unused_node_enum(Enum),
     Id = [Enum],
     % The node where the process virtual addresses are issued.
     OutId = ["OUT", "PROC0" | Id],
-    node_enum(S, OutId, Enum, S0),
+    node_enum(OutId, Enum),
 
     DRAM_ID = ["DRAM"],
-    add_PROC_MMU(S0, Id, S1),
+    add_PROC_MMU(S, Id, S1),
 
     % Mark MMU block remappable
     MMU_IN_ID = ["IN", "MMU0" | Id],
@@ -255,14 +203,14 @@ add_xeon_phi(S, Addr, Enum, NewS) :-
     BAR0_ID = [0, "BAR", Enum],
     state_remove_accept(S1, region(BAR0_ID, _), S2),
     GDDR_ID = ["GDDR", "PCI0", Enum],
-    state_add_overlay(S2, BAR0_ID, GDDR_ID, S3),
+    state_add_overlay(S2, BAR0_ID, GDDR_ID, NewS),
     % Make sure we have Node Enums for GDDR and Socket
-    node_enum(S3, GDDR_ID, _, S4),
-    node_enum(S4, ["KNC_SOCKET", "PCI0", Enum], _, S5),
-    node_enum(S5, ["SMPT_IN", "PCI0", Enum], _, S6),
-    node_enum(S6, ["IN", "IOMMU0", Enum], _, S7),
-    node_enum(S7, ["K1OM_CORE", "PCI0", Enum], _, S8),
-    node_enum(S8, ["DMA", "PCI0", Enum], _, NewS).
+    node_enum(GDDR_ID, _),
+    node_enum(["KNC_SOCKET", "PCI0", Enum], _),
+    node_enum(["SMPT_IN", "PCI0", Enum], _),
+    node_enum(["IN", "IOMMU0", Enum], _),
+    node_enum(["K1OM_CORE", "PCI0", Enum], _),
+    node_enum(["DMA", "PCI0", Enum], _).
 
 %    state_remove_pci_id(S3, Addr, _, S4),
 %    K1OMCoreId = ["K1OM_CORE", "PCI0", Enum],
@@ -293,7 +241,7 @@ xeon_phi_meta(S, PCI_E, KNC_SOCKET_E, SMPT_IN_E, IOMMU_IN_E, DMA_E, K1OM_CORE_E)
 % Helper to instantiate a PCI card. If no IOMMU is present it will
 % instantiate Module, else ModuleIommu
 add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
-    unused_node_enum(S, Enum),
+    unused_node_enum(Enum),
     Id = [Enum],
     OutNodeId = ["OUT", "PCI0", Enum],
     node_enum(S, OutNodeId, Enum, S0),
@@ -310,7 +258,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
         state_add_block_meta(S1, IOMMU_IN_ID, 21, ["OUT", "IOMMU0" | Id], S2),
         state_add_in_use(S2, region(IOMMU_IN_ID, block(0, Limit512G)), S3),
         % This is not strictly necessary, but it will speedup the allocations
-        state_add_in_use(S3, region(PCIOUT_ID, block(0, Limit512G)), S4) 
+        state_add_in_use(S3, region(PCIOUT_ID, block(0, Limit512G)), S4)
     ) ; (
         % IOMMU disabled.
         %add_PCI(S0, Id, S2)
@@ -337,15 +285,10 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
                                                  name(BarId,AcceptStart), SOut)
     ),
     % Set it to the node id where addresses are issued from the PCI device
-    state_add_pci_id(S6, Addr, Enum, S7),
-    % We keep the lowest root vnode slot unmapped, hence the 512G hole.
-    state_add_in_use(S7, region(OutNodeId, block(0, Limit512G)), NewS).
+    state_add_pci_id(S6, Addr, Enum, NewS).
 
 
-:- export alloc_root_vnodeslot_wrap/4.
-alloc_root_vnodeslot_wrap(S, NEnum, Slot, NewS) :-
-    node_enum(S, NId, NEnum, S),
-    alloc_root_vnodeslot(S, NId, Slot, NewS).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -353,10 +296,10 @@ alloc_root_vnodeslot_wrap(S, NEnum, Slot, NewS) :-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % outputs a list of regions
-write_regions(S, Regs, NewS) :-
-    (foreach(Reg, Regs), foreach(Term, Terms), fromto(S, InS, OutS, NewS) do
+write_regions(Regs) :-
+    (foreach(Reg, Regs), foreach(Term, Terms) do
        Reg = region(NId, block(B, _)),
-       node_enum(InS, NId, Enum, OutS),
+       node_enum(NId, Enum),
        Term = name(B, Enum)
     ),
     writeln(Terms).
@@ -370,7 +313,7 @@ write_confs(S, Confs) :-
         BlockSize is 2 ^ Bits,
         In is BlockSize * VPN,
         Out is BlockSize * PPN,
-        state_has_node_enum(S, NodeEnum, NodeId),
+        node_enum_exists(NodeEnum, NodeId),
     %    printf("c(%d, 0x%lx, 0x%lx)", [NodeEnum, In, Out]),
         Term = c(NodeEnum, In, Out)
     ),
@@ -381,45 +324,45 @@ write_confs(S, Confs) :-
 
 :- export alloc_wrap/6.
 alloc_wrap(S, Size, Bits, DestEnum, SrcEnums, NewS) :-
-    (foreach(Enum, SrcEnums), foreach(Reg, SrcRegs), param(S) do
+    (foreach(Enum, SrcEnums), foreach(Reg, SrcRegs) do
         Reg = region(RId, _),
-        node_enum(S, RId, Enum, S)
+        node_enum_exists(RId, Enum)
     ),
-    node_enum(S, DestId, DestEnum, S), % The double S is deliberate, no new allocation permitted.
+    node_enum_exists(DestId, DestEnum), % The double S is deliberate, no new allocation permitted.
     DestReg = region(DestId, _),
     alloc(S, Size, Bits, DestReg, SrcRegs, _),
-    state_add_in_use(S, DestReg, S1),
+    state_add_in_use(S, DestReg, NewS),
 
     append([DestReg], SrcRegs, OutputRegs),
-    write_regions(S1, OutputRegs, NewS).
+    write_regions(OutputRegs).
 
 :- export map_wrap/7.
 map_wrap(S0, Size, Bits, DestEnum, DestAddr, SrcEnums, NewS)  :-
 
     % Set up DestReg
-    node_enum(S0, DestId, DestEnum, S0), % The double S is deliberate, no new allocation permitted.
+    node_enum_exists(DestId, DestEnum), % The double S is deliberate, no new allocation permitted.
     Limit is DestAddr + Size - 1,
     DestReg = region(DestId, block(DestAddr, Limit)),
 
-    (foreach(Enum, SrcEnums), foreach(Reg, SrcRegs), param(S0) do
+    (foreach(Enum, SrcEnums), foreach(Reg, SrcRegs) do
         Reg = region(RId, _),
-        node_enum(S0, RId, Enum, S0)
+        node_enum_exists(RId, Enum)
     ),
     map(S0, Size, Bits, DestReg, SrcRegs, Confs),
     state_add_confs(S0, Confs, S2),
-    (foreach(Reg, SrcRegs), fromto(S2, SIn, SOut, S3) do
+    (foreach(Reg, SrcRegs), fromto(S2, SIn, SOut, NewS) do
        state_add_in_use(SIn, Reg, SOut)
     ),
 
     append([DestReg], SrcRegs, OutputRegs),
-    write_regions(S3, OutputRegs, NewS).
+    write_regions(OutputRegs).
 
 
 :- export reverse_resolve_wrap/5.
 %reverse_resolve_wrap(S0, DstEnum, DstAddr, DstSize, SrcEnum)  :-
 reverse_resolve_wrap(S0, DstEnum, DstAddr, _, SrcEnum)  :-
-    node_enum(S0, DstNodeId, DstEnum, S0),
-    node_enum(S0, SrcNodeId, SrcEnum, S0),
+    node_enum_exists(DstNodeId, DstEnum),
+    node_enum_exists(SrcNodeId, SrcEnum),
     %DstLimit is DstSize + DstAddr - 1,
     %DstRegion = region(DstNodeId, block(DstAddr, DstLimit)),
     %SrcRegion = region(SrcNodeId, _),
@@ -435,18 +378,18 @@ reverse_resolve_wrap(S0, DstEnum, DstAddr, _, SrcEnum)  :-
 :- export alias_conf_wrap/6.
 alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
     % Build src region
-    node_enum(S0, SrcId, SrcEnum, S0),
+    node_enum_exists(SrcId, SrcEnum),
     SrcLimit is SrcAddr + Size - 1,
     SrcRegion = region(SrcId, block(SrcAddr, SrcLimit)),
 
-    node_enum(S0, DstId, DstEnum, S0),
+    node_enum_exists(DstId, DstEnum),
     DstRegion = region(DstId, _),
     alias_conf(S0, SrcRegion, DstRegion, Confs),
     state_add_confs(S0, Confs, S1),
 
-    state_add_in_use(S1, DstRegion, S2),
+    state_add_in_use(S1, DstRegion, NewS),
 
-    write_regions(S2, [DstRegion], NewS),
+    write_regions([DstRegion]),
     write_confs(NewS, Confs).
 
 :- export xeon_phi_meta_wrap/2.

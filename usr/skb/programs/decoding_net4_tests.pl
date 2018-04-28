@@ -1,7 +1,7 @@
 % load the decoding net
-:- ["decoding_net4_support.pl"].
+:- ["decoding_net4_support"].
 
-reset_static_state :- 
+reset_static_state :-
     retract_translate(_,_),
     retract_accept(_),
     retract_overlay(_,_),
@@ -156,7 +156,7 @@ assert_conf_node(S, InNodeId, OutNodeId, Bits, Slots, NewS) :-
     state_add_free(S1, InNodeId, [block(0, Limit)], NewS).
 
 test_map2 :-
-	% Case with a node configuration necessary, the translated node fits in 
+	% Case with a node configuration necessary, the translated node fits in
     % the size of the remapped nodes.
     reset_static_state,
     Size is 512 * 1024 * 1024,
@@ -173,7 +173,7 @@ test_map2 :-
     assert_conf_node(S0, ["SMPT_IN"],["SMPT_OUT"], 34, 32, S1),
     state_add_free(S1, ["DRAM"], [block(0,Size)], S2),
     state_add_free(S2, ["GDDR"], [block(0,Size)], S3),
-	
+
 	Limit2M is Size2M - 1,
 	SrcRegion = region(["SOCKET"], _),
 	DstRegion = region(["DRAM"], block(0, Limit2M)),
@@ -181,7 +181,7 @@ test_map2 :-
 	printf("Src=%p --> Dst=%p with NewS=%p\n", [SrcRegion, DstRegion, S4]).
 
 test_map3 :-
-	% Case with a node configuration necessary, the translated node spans  
+	% Case with a node configuration necessary, the translated node spans
     % multiple remapped nodes.
     reset_static_state,
     Size is 512 * 1024 * 1024,
@@ -192,12 +192,12 @@ test_map3 :-
     state_empty(S0),
     assert_conf_node(S0, ["MMU"],["DRAM"], 21, 1024, S1),
     state_add_free(S1, ["DRAM"], [block(0,Size)], S2),
-	
+
 	Limit8M is 8 * 1024 * 1024,
 	SrcRegion = region(["MMU"], _),
 	DstRegion = region(["DRAM"], block(0, Limit8M)),
     findall((A,B,C), flat(A,B,C), Li),
-    (foreach((A,B,C), Li) do 
+    (foreach((A,B,C), Li) do
         printf("flat(%p,%p,%p)\n", [A,B,C])
     ),
 	map(S2, SrcRegion, DstRegion, S3),
