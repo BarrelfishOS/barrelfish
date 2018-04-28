@@ -179,6 +179,12 @@ resolves_region(S, A, B) :-
 %    decodes_region(S, region(SrcId, SrcB), region(DstId, DstB)),
 %    configurable(DstId, _, _).
 
+nodes_slots_avail(_, []).
+nodes_slots_avail(S, [N | Ns]) :-
+    nodes_slots_avail(S, Ns),
+    state_has_avail(S, N, A),
+    A #>= 0.
+
 
 %%% Flattening. move to support?, materialize?
 % TODO: The flatteing is shaky. It matches exactly on the 
@@ -208,6 +214,70 @@ flat(Src, CNodes, Dst) :-
     flat_step_rec(Src, CNodes, Dst),
     accept(Dst).
 
+% In = Before + Split + After
+% Case1:  No Before (return a -1,-1) for before
+region_split(
+    region(I, block(InB,InL)),
+    region(I, block(-1,-1)),
+    region(I, block(SplitB,SplitL)),
+    region(I, block(AfterB,AfterL))) :-
+        InL #>= InB,
+        SplitL #>= SplitB,
+        AfterL #>= AfterL,
+        SplitB #= InB,
+        SplitL #= AfterB - 1,
+        AfterL #= InL.
+
+region_split(
+    region(I, block(InB,InL)),
+    region(I, block(BeforeB,BeforeL)),
+    region(I, block(SplitB,SplitL)),
+    region(I, block(AfterB,AfterL))) :-
+        InL #>= InB,
+        BeforeL #>= BeforeB,
+        SplitL #>= SplitB,
+        AfterL #>= AfterL,
+        BeforeB #= InB,
+        SplitB #= BeforeL + 1,
+        SplitL #= AfterB - 1,
+        AfterL #= InL.
+
+region_aligned(Region, Bits, BlockNum) :-
+    Region = region(_, block(Base, _)),
+    BlockSize is 2^Bits,
+    BlockNum #>= 0,
+    Base #= BlockNum * BlockSize.
+
+alloc(S, Size, region(DstId,DstBlock), SNew) :-
+   state_has_free(S, DstId, [FirstBlk | RmBlk]),
+   region_region_contains(region(DstId,DstBlock), region(DstId, FirstBlk)),
+   region_aligned(region(DstId,DstBlock), 21, NumBlock),
+   region_size(region(DstId,DstBlock), Size),
+   labeling([NumBlock]),
+   region_split(region(DstId,FirstBlk), region(_,BeforeBlk),
+                region(DstId,DstBlock), region(_,AfterBlk)  ),
+   % Mark region free: Move Before to the end (its probably empty or
+   % an unaligned padding), make the split of the first block the first element.
+   state_remove_free(S, DstId, [FirstBlk | RmBlk], S1),
+   append([AfterBlk], RmBlk, RmBlk1),
+   append(RmBlk1, [BeforeBlk], RmBlk2),
+   state_add_free(S1, DstId, RmBlk2, SNew).
+
+alloc(S, Size, Dst, SrcId1, SNew) :-
+    flat(region(SrcId1,_), CNodes1, DstReachable),
+    nodes_slots_avail(S, CNodes1),
+    region_region_contains(Dst, DstReachable),
+    alloc(S, Size, Dst, SNew).
+
+alloc(S, Size, Dst, SrcId1, SrcId2, SNew) :-
+    flat(region(SrcId2,_), CNodes1, DstReachable),
+    nodes_slots_avail(S, CNodes1),
+    region_region_contains(Dst, DstReachable),
+    alloc(S, Size, Dst, SrcId1, SNew).
+
+
+region_size(region(_, block(B,L)), Size) :-
+    Size #= L - B + 1.
 
 
 
