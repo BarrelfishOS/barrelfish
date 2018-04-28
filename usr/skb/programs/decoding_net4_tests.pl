@@ -79,7 +79,7 @@ test_flat1 :-
     assert_accept(region(["DRAM"], block(0, 1000))),
     assert_accept(region(["GDDR"], block(0, 1000))),
     findall((A,B,C), flat(A,B,C), Li),
-    (foreach((A,B,C), Li) do 
+    (foreach((A,B,C), Li) do
         printf("flat(%p,%p,%p)\n", [A,B,C])
     ).
 
@@ -143,7 +143,6 @@ test_map1 :-
     assert_conf_node(S0, ["SMPT_IN"],["SMPT_OUT"], 34, 32, S1),
     state_add_free(S1, ["DRAM"], [block(0,Size)], S2),
     state_add_free(S2, ["GDDR"], [block(0,Size)], S3),
-	
 	Limit2M is Size2M - 1,
 	SrcRegion = region(["SOCKET"], _),
 	DstRegion = region(["GDDR"], block(0, Limit2M)),
@@ -211,7 +210,9 @@ run_test(Test) :-
         call(Test),
         writeln(" Succeeds!")
     ) ; (
-        writeln(" !!! Fails !!!")
+        writeln("#################################################"),
+        writeln(" !!! Fails !!!"),
+        writeln("#################################################")
     ).
 
 :- export run_all_tests/0.
