@@ -402,7 +402,6 @@ errval_t net_if_poll(struct netif *netif)
     struct net_state *st = netif->state;
     if (st == NULL) {
         /* XXX: return an error code ?? */
-        debug_printf("FOOBAR\n");
         return SYS_ERR_OK;
     }
 
