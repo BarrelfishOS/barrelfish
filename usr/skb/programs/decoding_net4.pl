@@ -24,56 +24,75 @@
 % overlay(SrcNodeId, OutNodeId)
 % configurable(SrcNodeId, Bits, OutNodeId)
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Persisted state
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-state_remove([], _, []).
-state_remove([Head|Tail], Fact, Out) :-
-    Head = Fact,
-    state_remove(Tail, Fact, Out)
-    ;
-    not(Head = Fact),
-    state_remove(Tail, Fact, SubOut),
-    Out = [Head | SubOut].
+
+/*
+ * ===========================================================================
+ * Dynamic State
+ * ===========================================================================
+ */
+
 
 :- export state_empty/1.
-state_empty(S) :-
-    S = state([],[],[]).
+state_empty(state([],[],[])).
+
+
+/*
+ * ---------------------------------------------------------------------------
+ * Add to state
+ * ---------------------------------------------------------------------------
+ */
+
 
 :- export state_add_mapping/4.
-state_add_mapping(S0, SrcReg, DstName, S1) :-
-    S0 = state(M, F, A),
-    S1 = state([mapping(SrcReg, DstName) | M], F, A).
+state_add_mapping(state(M, F, A), SrcReg, DstName,
+                  state([mapping(SrcReg, DstName) | M], F, A)).
 
 :- export state_add_free/4.
 % TODO: This should probably add to the list?
-state_add_free(S0, NodeId, Blks, S1) :-
-    S0 = state(M, F, A),
-    S1 = state(M, [free(NodeId, Blks) | F], A).
+state_add_free(state(M, F, A), NodeId, Blks,
+               state(M, [free(NodeId, Blks) | F], A)).
 
 :- export state_add_avail/4.
-state_add_avail(S0, NodeId, C, S1) :-
-    S0 = state(M, F, A),
-    S1 = state(M, F, [avail(NodeId, C) | A]).
+state_add_avail(state(M, F, A), NodeId, C,
+                state(M, F, [avail(NodeId, C) | A])).
+
+
+/*
+ * ---------------------------------------------------------------------------
+ * Remove from State
+ * ---------------------------------------------------------------------------
+ */
+
+
+state_remove([], _, []).
+state_remove([Fact|Tail], Fact, Out) :-
+    state_remove(Tail, Fact, Out).
+state_remove([Head|Tail], Fact, [Head | SubOut]) :-
+    state_remove(Tail, Fact, SubOut).
 
 :- export state_remove_mapping/4.
-state_remove_mapping(S0, SrcReg, DstName, S1) :-
-    S0 = state(M, F, A),
-    state_remove(M, mapping(SrcReg, DstName), M1),
-    S1 = state(M1, F, A).
+state_remove_mapping(state(M, F, A), SrcReg, DstName, state(M1, F, A)) :-
+    state_remove(M, mapping(SrcReg, DstName), M1).
 
 :- export state_remove_free/4.
-state_remove_free(S0, NodeId, Blks, S1) :-
-    S0 = state(M, F, A),
-    state_remove(F, free(NodeId, Blks), F1),
-    S1 = state(M, F1, A).
+state_remove_free(state(M, F, A), NodeId, Blks, state(M, F1, A)) :-
+    state_remove(F, free(NodeId, Blks), F1).
 
 :- export state_remove_avail/4.
-state_remove_avail(S0, NodeId, C, S1) :-
-    S0 = state(M, F, A),
-    state_remove(A, avail(NodeId, C), A1),
-    S1 = state(M, F, A1).
+state_remove_avail(state(M, F, A), NodeId, C, state(M, F, A1)) :-
+    state_remove(A, avail(NodeId, C), A1).
+
+
+/*
+ * ---------------------------------------------------------------------------
+ * State queries
+ * ---------------------------------------------------------------------------
+ */
 
 
 state_has_fact([Fact|_], Fact).
@@ -81,18 +100,18 @@ state_has_fact([_|Tail], Fact) :-
     state_has_fact(Tail, Fact).
 
 :- export state_has_mapping/3.
-state_has_mapping(S0, SrcReg, DstName) :-
-    S0 = state(M, _, _),
+state_has_mapping(state(M, _, _), SrcReg, DstName) :-
     state_has_fact(M, mapping(SrcReg, DstName)).
 
-state_has_free(S0, NodeId, Blks) :-
-    S0 = state(_, F, _),
+:- export state_has_free/3.
+state_has_free(state(_, F, _), NodeId, Blks) :-
     state_has_fact(F,free(NodeId, Blks)).
 
-state_has_avail(S0, NodeId, C) :-
-    S0 = state(_, _, A),
+:- export state_has_avail/3.
+state_has_avail(state(_, _, A), NodeId, C) :-
     state_has_fact(A,avail(NodeId, C)).
-    
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Model layer
@@ -109,7 +128,7 @@ region_region_contains(region(N, block(ABase, ALimit)), region(N, block(BBase, B
 region_name_translate(
         region(SrcId, block(ABase, ALimit)),
         region(SrcId, block(ASrcBase, _)),
-        name(DstId, DstBase), 
+        name(DstId, DstBase),
         region(DstId, block(BBase, BLimit))) :-
             Offset #= ABase - ASrcBase,
             BBase #= Offset + DstBase,
@@ -151,7 +170,7 @@ nodes_slots_avail(S, [N | Ns]) :-
 
 
 %%% Flattening. move to support?, materialize?
-% TODO: The flatteing is shaky. It matches exactly on the 
+% TODO: The flatteing is shaky. It matches exactly on the
 % translate and accept, but it should do a contains + translate
 % the input region. However, it should not produce any wrong results.
 % Assumptions: all input regions of accepts and translates all translates to
