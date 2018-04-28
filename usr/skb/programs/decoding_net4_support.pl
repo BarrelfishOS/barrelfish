@@ -361,10 +361,11 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
     PCIOUT_ID = ["OUT" | Id],
     (iommu_enabled -> (
         %add_PCI_IOMMU(S0, Id, S1),
-        call(ModuleIOMMU, S, Id, S5),
+        call(ModuleIOMMU, S, Id, S3),
         % Mark IOMMU block remappable
         IOMMU_IN_ID = ["IN", "IOMMU0" | Id],
-        assert_configurable(IOMMU_IN_ID, 21, ["OUT", "IOMMU0" | Id])
+        Slots is (512 *512 *512),
+        assert_conf_node(S3, IOMMU_IN_ID, ["OUT", "IOMMU0" | Id], 21, Slots, S5)
     ) ; (
         % IOMMU disabled.
         %add_PCI(S0, Id, S2)
