@@ -215,9 +215,51 @@ shift_into_window_64_bit(Granularity, Windows, buselement(T,A,Sec,B1,H1,S,Tp,PF,
             H2 is H1
         )
     ;
+    % is bridge
         B2 is B1,
         H2 is H1
     ).
+
+shift_bridges(Granularity, Windows, buselement(T,A,Sec,B1,H1,S,Tp,PF, PCIe, Bits), 
+              buselement(T,A,Sec,B2,H2,S,Tp,PF, PCIe, Bits))   :-
+	(T == bridge ->
+        secondary(Bus) = Sec,
+        findall(OrigP, 
+                     (bar(addr(Bus, _, _), _, Orig, _ , _, PF, _),
+                      Limit is 10000000*Granularity,
+                      Orig @> Limit,
+                      OrigF is Orig/Granularity,
+                      integer(OrigF, OrigP)
+                     )
+                ,Origs),
+        (Origs == [] ->
+            %no bar under bridge with size > 10'000'000
+            B2 = B1,
+            H2 = H1
+        ;
+            %shift bar
+            %
+            ic:maxlist(Origs, Max),
+            (foreach(range(B, H), Windows),
+             param(B2),
+             param(B1),
+             param(H1),
+             param(H2),
+             param(Max)
+             do
+                (H @>= Max, B @=< Max ->
+                    B2 is B1 + B,
+                    H2 is H1 + B
+                ;
+                    true
+                )
+            )
+        )
+    ;
+        B2 = B1,
+        H2 = H1
+    ).
+
 
 create_vf_busele_list(VFs, LMem, HMem, Granularity) :-
 	 findall(buselement(device,addr(Bus,Dev,Fun),BAR,Base,High,SizeP,Type,Prefetch, PCIe, Bits),
@@ -251,8 +293,8 @@ assign_addresses(Plan, Root, Tree, Granularity, ExclRanges, IOAPICs, HMem2) :-
 
     % Shift 64 bit addresses back into their window since
     % disjunctive() only takes numbers uf to 10'000'000
-    maplist(shift_into_window_64_bit(Granularity, Ranges),Lista, Plan).
-
+    maplist(shift_into_window_64_bit(Granularity, Ranges),Lista, Pl),
+    maplist(shift_bridges(Granularity, Ranges),Pl, Plan).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the main part of the allocation. Called once per root bridge
