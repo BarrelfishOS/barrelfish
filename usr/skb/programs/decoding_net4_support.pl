@@ -281,7 +281,7 @@ add_process(S, Enum, NewS) :-
     Limit is (NumBlocks * (512 * 4096) - 1),
     Size is Limit + 1,
     %state_add_in_use(S3, region(OutId, block(0,Limit)), NewS),
-    alloc(S2, Size, region(MMU_IN_ID, _), S3),
+    alloc(S2, Size, region(MMU_IN_ID, block(0, Limit)), S3),
     state_decrement_avail(S3, MMU_IN_ID, NumBlocks, NewS).
 
 iommu_enabled :-
