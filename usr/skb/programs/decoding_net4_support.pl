@@ -291,12 +291,9 @@ iommu_enabled :-
 % Addr - PCI address, should be provided by caller.
 :- export remove_pci/3.
 remove_pci(S, Addr, NewS) :-
-    writeln("Removing PCI"),
     node_enum_exists(Addr, Enum),
-    writeln("Node existed"),
     % remove pci_address_node lookup
     node_enum_retract(Addr, Enum),
-    writeln("Remove suffix"),
     state_remove_suffix(S, [Enum], NewS).
 
 
