@@ -344,14 +344,10 @@ int32_t driverkit_hwmodel_lookup_node_id(const char *path)
 
     errval_t err;
     HWMODEL_QUERY_DEBUG(
-        "state_get(S), "
-        "node_enum(S, %s, E, NewS), writeln(E), "
-        "state_set(NewS)",
+        "node_enum(%s, E), writeln(E)",
         path);
     err = skb_execute_query(
-        "state_get(S), "
-        "node_enum(S, %s, E, NewS), writeln(E), "
-        "state_set(NewS)",
+        "node_enum(%s, E), writeln(E)",
         path);
     if (err_is_fail(err)) {
         DEBUG_SKB_ERR(err, "query node_enum");
