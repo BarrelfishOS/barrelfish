@@ -22,6 +22,14 @@ load_net(File) :-
  * ===========================================================================
  */
 
+
+
+  /*
+   * ---------------------------------------------------------------------------
+   * Node IDs
+   * ---------------------------------------------------------------------------
+   */
+
 :- dynamic node_id_next/1.
 node_id_next(0).
 
@@ -32,14 +40,21 @@ unused_node_enum(Enum) :-
     assert(node_id_next(Enum)).
 
 :- dynamic node_id_node_enum/2.
-node_enum(Enum, NodeId) :-
+node_enum(NodeId, Enum) :-
     node_id_node_enum(NodeId, Enum).
-node_enum(Enum, NodeId) :-
+node_enum(NodeId, Enum) :-
     unused_node_enum(Enum),
     assert(node_id_node_enum(NodeId, Enum)).
 
-node_enum_exists(Enum, NodeId) :-
+node_enum_alias(Alias, Enum) :- assert(node_id_node_enum(Alias, Enum)).
+node_enum_exists(NodeId, Enum) :-
     node_id_node_enum(NodeId, Enum).
+
+node_enum_retract(NodeId, Enum) :-
+    node_enum_exists(NodeId, Enum),
+    retractall(node_id_node_enum(_, Enum)),
+    retractall(node_id_node_enum(NodeId, _)).
+
 
  /*
   * ---------------------------------------------------------------------------
@@ -62,6 +77,71 @@ state_set(S) :-
 
 :- export state_get/1.
 state_get(S) :- current_state(S).
+
+
+
+state_remove_suffix(State, NodeID, NewS) :-
+    (findall(t(A,B), (
+        translate(region(NID, D), B),
+        A = region(NID, D),
+        append(_, NodeID, NID)
+    ), List) ; List = []),
+
+    (foreach(t(A,B), List) do
+        retract_translate(A,B)
+    ),
+
+    (findall(t(R), (
+        accept(region(NID, D)),
+        R = region(NID, D),
+        append(_, NodeID, NID)
+        ),List2); List2 = []),
+
+    (foreach(t(R), List2) do
+        retract_accept(R)
+    ),
+    (findall(o(A,B), (
+        overlay(A, B),
+        append(_, NodeID, A)
+        ),List3 ); List3 = []),
+
+    (foreach(o(A,B), List3) do
+        retract_overlay(A,B)
+    ),
+
+    (findall(m(S,D), (
+        state_has_mapping(State, region(SrcId, B), D),
+        append(_, NodeID, SrcId),
+        S = region(SrcId, B)
+        ),LMappings) ; LMappings = []
+    ),
+
+
+    (findall(f(SrcId, Blks), (
+        state_has_free(State, SrcId, Blks),
+        append(_, NodeID, SrcId),
+        free(SrcId, Blks)
+        ),LFree) ; LFree = []
+    ),
+
+    (findall(a(SrcId, C), (
+        state_has_avail(State, SrcId, C),
+        append(_, NodeID, SrcId)
+        ),LAvail) ; LAvail = []
+    ),
+
+    (foreach(m(S,D), LMappings), fromto(State, SIn, SOut, State2) do
+        state_remove_mapping(SIn, S, D, SOut)
+    ),
+
+    (foreach(f(SrcId, Blks), LFree), fromto(State2, SIn, SOut, State3) do
+        state_remove_free(SIn, SrcId, Blks, SOut)
+    ),
+
+    (foreach(a(SrcId, C), LAvail), fromto(State3, SIn, SOut, NewS) do
+        state_remove_avail(SIn, SrcId, C, SOut)
+    ).
+
 
 
 
@@ -158,11 +238,12 @@ init(NewS) :-
 
 :- export add_process/3.
 add_process(S, Enum, NewS) :-
+
     unused_node_enum(Enum),
     Id = [Enum],
     % The node where the process virtual addresses are issued.
     OutId = ["OUT", "PROC0" | Id],
-    node_enum(OutId, Enum),
+    node_enum_alias(OutId, Enum),
 
     DRAM_ID = ["DRAM"],
     add_PROC_MMU(S, Id, S1),
@@ -184,10 +265,12 @@ iommu_enabled :-
 % Addr - PCI address, should be provided by caller.
 :- export remove_pci/3.
 remove_pci(S, Addr, NewS) :-
-    state_has_pci_id(S, Addr, Enum),
+    node_enum_exists(Addr, Enum),
     % remove pci_address_node lookup
-    state_remove_pci_id(S, Addr, Enum, S1),
-    state_remove_suffix(S1, [Enum], NewS).
+    node_enum_retract(Addr, Enum),
+    state_remove_suffix(S, [Enum], NewS).
+
+
 
 %test_remove_pci :-
 %    state_empty(S),
@@ -212,9 +295,6 @@ add_xeon_phi(S, Addr, Enum, NewS) :-
     node_enum(["K1OM_CORE", "PCI0", Enum], _),
     node_enum(["DMA", "PCI0", Enum], _).
 
-%    state_remove_pci_id(S3, Addr, _, S4),
-%    K1OMCoreId = ["K1OM_CORE", "PCI0", Enum],
-    %state_add_pci_id(S4, Addr, K1OMCoreId, NewS).
 
 :- export add_pci/4.
 add_pci(S, Addr, Enum, NewS) :-
@@ -223,50 +303,52 @@ add_pci(S, Addr, Enum, NewS) :-
 % Enum will be the new enum for the Phi
 :- export replace_with_xeon_phi/4.
 replace_with_xeon_phi(S, OldEnum, NewEnum, NewS) :-
-    state_has_pci_id(S, Addr, OldEnum),
+    node_enum_exists(Addr, OldEnum),
     remove_pci(S, Addr, S1),
     add_xeon_phi(S1, Addr, NewEnum, NewS).
 
 % Given the Pci enum of the xeon phi (as returned by the driverkit lib),
 % return some other node enums.
 :- export xeon_phi_meta/7.
-xeon_phi_meta(S, PCI_E, KNC_SOCKET_E, SMPT_IN_E, IOMMU_IN_E, DMA_E, K1OM_CORE_E) :-
-    node_enum(S, [_ | Rm], PCI_E, S),
-    node_enum(S, ["KNC_SOCKET" | Rm], KNC_SOCKET_E, S),
-    node_enum(S, ["SMPT_IN" | Rm], SMPT_IN_E, S),
-    node_enum(S, ["IN", "IOMMU0", PCI_E], IOMMU_IN_E, S),
-    node_enum(S, ["DMA" | Rm], DMA_E, S),
-    node_enum(S, ["K1OM_CORE" | Rm], K1OM_CORE_E, S).
+xeon_phi_meta(_, PCI_E, KNC_SOCKET_E, SMPT_IN_E, IOMMU_IN_E, DMA_E, K1OM_CORE_E) :-
+    node_enum_exists([_ | Rm], PCI_E),
+    node_enum_exists(["KNC_SOCKET" | Rm], KNC_SOCKET_E),
+    node_enum_exists(["SMPT_IN" | Rm], SMPT_IN_E),
+    node_enum_exists(["IN", "IOMMU0", PCI_E], IOMMU_IN_E),
+    node_enum_exists(["DMA" | Rm], DMA_E),
+    node_enum_exists(["K1OM_CORE" | Rm], K1OM_CORE_E).
+
 
 % Helper to instantiate a PCI card. If no IOMMU is present it will
 % instantiate Module, else ModuleIommu
 add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
-    unused_node_enum(Enum),
+
+    node_enum(Addr, Enum),
+    unused_node_enum(Enum2),
+    OutNodeId = ["OUT", "PCI0", Enum2],
+
+    node_enum_alias(OutNodeId, Enum),
+
     Id = [Enum],
-    OutNodeId = ["OUT", "PCI0", Enum],
-    node_enum(S, OutNodeId, Enum, S0),
-    Limit512G is 512 * 1024 * 1024 * 1024 - 1,
+
 
     Addr = addr(_,_,_),
     PCIBUS_ID = ["PCIBUS"],
     PCIOUT_ID = ["OUT" | Id],
     (iommu_enabled -> (
         %add_PCI_IOMMU(S0, Id, S1),
-        call(ModuleIOMMU, S0, Id, S1),
+        call(ModuleIOMMU, S, Id, S5),
         % Mark IOMMU block remappable
         IOMMU_IN_ID = ["IN", "IOMMU0" | Id],
-        state_add_block_meta(S1, IOMMU_IN_ID, 21, ["OUT", "IOMMU0" | Id], S2),
-        state_add_in_use(S2, region(IOMMU_IN_ID, block(0, Limit512G)), S3),
-        % This is not strictly necessary, but it will speedup the allocations
-        state_add_in_use(S3, region(PCIOUT_ID, block(0, Limit512G)), S4)
+        assert_configurable(IOMMU_IN_ID, 21, ["OUT", "IOMMU0" | Id])
     ) ; (
         % IOMMU disabled.
         %add_PCI(S0, Id, S2)
-        call(Module, S0, Id, S4)
+        call(Module, S, Id, S5)
     )),
 
     % connect the output to the systems pci bus
-    state_add_overlay(S4, PCIOUT_ID, PCIBUS_ID, S5),
+    assert_overlay(PCIOUT_ID, PCIBUS_ID),
 
     % Now insert the BAR into the PCI bus address space
     findall((Addr, BarNum, BarStart, BarSize),
@@ -274,18 +356,18 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
             Bars),
     (foreach((_, BarNum, BarStart, BarSize), Bars),
      param(Id), param(PCIBUS_ID),
-     fromto(S5, SIn, SOut, S6) do
+     fromto(S5, SIn, SOut, NewS) do
         BarId = [BarNum, "BAR" | Id],
         InStart is BarStart,
         InEnd is BarStart + BarSize - 1,
         AcceptStart is 0,
         AcceptEnd is BarSize - 1,
-        state_add_accept(SIn, region(BarId, block(AcceptStart, AcceptEnd)), SIn1),
-        state_add_mapping(SIn1,region(PCIBUS_ID, block(InStart,InEnd)),
-                                                 name(BarId,AcceptStart), SOut)
-    ),
-    % Set it to the node id where addresses are issued from the PCI device
-    state_add_pci_id(S6, Addr, Enum, NewS).
+        assert_accept(region(BarId, block(AcceptStart, AcceptEnd))),
+        state_add_free(SIn, BarId, block(AcceptStart, AcceptEnd), SOut),
+        assert_translate(region(PCIBUS_ID, block(InStart,InEnd)),
+                                                 name(BarId,AcceptStart))
+    ).
+    % Set it to the node id where addresses are issued from the PCI device.
 
 
 
