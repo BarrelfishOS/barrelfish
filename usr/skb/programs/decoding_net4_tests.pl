@@ -1,7 +1,5 @@
 % load the decoding net
-%:- use_module("/home/luki/ETH/barrelfish/usr/skb/programs/decoding_net4_support.pl").
-%:- use_module("decoding_net4.pl").
-:- ["decoding_net4.pl"].
+:- ["decoding_net4_support.pl"].
 
 reset_static_state :- 
     (retract_translate(_,_) ; true),
@@ -128,6 +126,29 @@ test_alloc2 :-
     alloc(S5, Size2M, Reg3, ["SOCKET"], ["PCIBUS"], S6),
     printf("Allocated (reachable from Socket and Pcibus): Reg=%p\nNewState=%p\n", [Reg3,S6]).
 
+test_map1 :-
+	% Case without
+    reset_static_state,
+    Size is 512 * 1024 * 1024,
+    Size2M is 2 * 1024 * 1024,
+    assert_translate(region(["SOCKET"], block(0, Size)), name(["GDDR"], 0)),
+    assert_translate(region(["SOCKET"], block(10000, 11000)), name(["SMPT_IN"], 0)),
+    assert_configurable(["SMPT_IN"],34,["SMPT_OUT"]),
+    assert_overlay(["SMPT_OUT"],["PCIBUS"]),
+    assert_translate(region(["PCIBUS"], block(0, Size)), name(["DRAM"], 0)),
+    assert_accept(region(["GDDR"], block(0, Size))),
+    assert_accept(region(["DRAM"], block(0, Size))),
+    state_empty(S0),
+    state_add_free(S0, ["DRAM"], [block(0,Size)], S1),
+    state_add_free(S1, ["GDDR"], [block(0,Size)], S2),
+    state_add_avail(S2, ["SMPT_IN"], 32, S3),
+	
+	Limit2M is Size2M - 1,
+	SrcRegion = region(["SOCKET"], _),
+	DstRegion = region(["GDDR"], block(0, Limit2M)),
+	map(S, SrcRegion, DstRegion, S1),
+	printf("Src=%p --> Dst=%p with S1=%p\n", [SrcRegion, DstRegion, S1]).
+
 run_test(Test) :-
     (
         printf("Calling Test %p...\n", Test),
@@ -147,4 +168,6 @@ run_all_tests :-
     run_test(test_decodes_region2),
     run_test(test_resolves_region1),
     run_test(test_resolves_region2),
-    run_test(test_flat1).
+    run_test(test_flat1),
+    run_test(test_alloc1),
+    run_test(test_alloc2).
