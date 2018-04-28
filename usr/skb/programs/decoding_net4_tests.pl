@@ -2,10 +2,10 @@
 :- ["decoding_net4_support.pl"].
 
 reset_static_state :- 
-    (retract_translate(_,_) ; true),
-    (retract_accept(_) ; true),
-    (retract_overlay(_,_) ; true),
-    (retract_configurable(_,_,_) ; true).
+    retract_translate(_,_),
+    retract_accept(_),
+    retract_overlay(_,_),
+    retract_configurable(_,_,_).
 
 test_translate_region1 :-
     reset_static_state,
@@ -127,27 +127,83 @@ test_alloc2 :-
     printf("Allocated (reachable from Socket and Pcibus): Reg=%p\nNewState=%p\n", [Reg3,S6]).
 
 test_map1 :-
-	% Case without
+	% Case without a node reconfiguration necessary
     reset_static_state,
     Size is 512 * 1024 * 1024,
     Size2M is 2 * 1024 * 1024,
-    assert_translate(region(["SOCKET"], block(0, Size)), name(["GDDR"], 0)),
+    Offset is 16 * 1024 * 1024,
+    OffsetLimit is Offset + Size,
+    assert_translate(region(["SOCKET"], block(Offset, OffsetLimit)), name(["GDDR"], 0)),
     assert_translate(region(["SOCKET"], block(10000, 11000)), name(["SMPT_IN"], 0)),
-    assert_configurable(["SMPT_IN"],34,["SMPT_OUT"]),
     assert_overlay(["SMPT_OUT"],["PCIBUS"]),
     assert_translate(region(["PCIBUS"], block(0, Size)), name(["DRAM"], 0)),
     assert_accept(region(["GDDR"], block(0, Size))),
     assert_accept(region(["DRAM"], block(0, Size))),
     state_empty(S0),
-    state_add_free(S0, ["DRAM"], [block(0,Size)], S1),
-    state_add_free(S1, ["GDDR"], [block(0,Size)], S2),
-    state_add_avail(S2, ["SMPT_IN"], 32, S3),
+    assert_conf_node(S0, ["SMPT_IN"],["SMPT_OUT"], 34, 32, S1),
+    state_add_free(S1, ["DRAM"], [block(0,Size)], S2),
+    state_add_free(S2, ["GDDR"], [block(0,Size)], S3),
 	
 	Limit2M is Size2M - 1,
 	SrcRegion = region(["SOCKET"], _),
 	DstRegion = region(["GDDR"], block(0, Limit2M)),
-	map(S, SrcRegion, DstRegion, S1),
-	printf("Src=%p --> Dst=%p with S1=%p\n", [SrcRegion, DstRegion, S1]).
+	map(S3, SrcRegion, DstRegion, S4),
+	printf("Src=%p --> Dst=%p with S1=%p\n", [SrcRegion, DstRegion, S4]).
+
+assert_conf_node(S, InNodeId, OutNodeId, Bits, Slots, NewS) :-
+    assert_configurable(InNodeId,Bits,OutNodeId),
+    state_add_avail(S, InNodeId, Slots, S1),
+    Limit is 2^Bits * Slots,
+    state_add_free(S1, InNodeId, [block(0, Limit)], NewS).
+
+test_map2 :-
+	% Case with a node configuration necessary, the translated node fits in 
+    % the size of the remapped nodes.
+    reset_static_state,
+    Size is 512 * 1024 * 1024,
+    Size2M is 2 * 1024 * 1024,
+    Offset is 16 * 1024 * 1024,
+    OffsetLimit is Offset + Size,
+    %assert_translate(region(["SOCKET"], block(Offset, OffsetLimit)), name(["GDDR"], 0)),
+    assert_translate(region(["SOCKET"], block(Offset, OffsetLimit)), name(["SMPT_IN"], 0)),
+    assert_overlay(["SMPT_OUT"],["PCIBUS"]),
+    assert_translate(region(["PCIBUS"], block(0, Size)), name(["DRAM"], 0)),
+    assert_accept(region(["GDDR"], block(0, Size))),
+    assert_accept(region(["DRAM"], block(0, Size))),
+    state_empty(S0),
+    assert_conf_node(S0, ["SMPT_IN"],["SMPT_OUT"], 34, 32, S1),
+    state_add_free(S1, ["DRAM"], [block(0,Size)], S2),
+    state_add_free(S2, ["GDDR"], [block(0,Size)], S3),
+	
+	Limit2M is Size2M - 1,
+	SrcRegion = region(["SOCKET"], _),
+	DstRegion = region(["DRAM"], block(0, Limit2M)),
+	map(S3, SrcRegion, DstRegion, S4),
+	printf("Src=%p --> Dst=%p with NewS=%p\n", [SrcRegion, DstRegion, S4]).
+
+test_map3 :-
+	% Case with a node configuration necessary, the translated node spans  
+    % multiple remapped nodes.
+    reset_static_state,
+    Size is 512 * 1024 * 1024,
+    Size2M is 2 * 1024 * 1024,
+    Offset is 16 * 1024 * 1024,
+    OffsetLimit is Offset + Size,
+    assert_accept(region(["DRAM"], block(0, Size))),
+    state_empty(S0),
+    assert_conf_node(S0, ["MMU"],["DRAM"], 21, 1024, S1),
+    state_add_free(S1, ["DRAM"], [block(0,Size)], S2),
+	
+	Limit8M is 8 * 1024 * 1024,
+	SrcRegion = region(["MMU"], _),
+	DstRegion = region(["DRAM"], block(0, Limit8M)),
+    findall((A,B,C), flat(A,B,C), Li),
+    (foreach((A,B,C), Li) do 
+        printf("flat(%p,%p,%p)\n", [A,B,C])
+    ),
+	map(S2, SrcRegion, DstRegion, S3),
+	printf("Src=%p --> Dst=%p with NewS=%p\n", [SrcRegion, DstRegion, S3]).
+
 
 run_test(Test) :-
     (

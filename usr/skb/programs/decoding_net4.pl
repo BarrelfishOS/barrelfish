@@ -245,33 +245,90 @@ alloc(S, Size, Dst, SrcId1, SrcId2, SNew) :-
     alloc(S, Size, Dst, SrcId1, SNew).
 
 
-map(S, region(SrcId, SrcB), region(DstId, DstB), NewS) :-
+% Translate region using the flat. Will not respect any dynamic translates and
+% ignores configurable nodes.
+region_translate_flat(region(SrcId, SrcB), region(DstId, DstB)) :-
 	flat(region(SrcId, SrcBB), [], region(DstId, DstBB)),
 	region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
 	region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
 	DstBB = block(DstBBBase, _),
     region_name_translate(region(SrcId,SrcB), region(SrcId, SrcBB),
-					      name(DstId, DstBBBase), region(DstId,DstB)),
+					      name(DstId, DstBBBase), region(DstId,DstB)).
+
+state_decrement_avail(S, NodeId, Amount, NewS) :-
+    state_remove_avail(S, NodeId, C, S1),
+    CNew is C - Amount,
+    CNew #>= 0,
+    state_add_avail(S1, NodeId, CNew, NewS).
+
+bits_aligned_superregion(region(Id, block(Base, Limit)), Bits, region(Id, block(SuperBase, SuperLimit))) :-     
+    BlockSize is 2^Bits,     
+    SuperBase #= (Base // BlockSize) * BlockSize,     
+    SuperLimit #= (Limit // BlockSize + 1) * BlockSize - 1.     
+
+% Map case 1: We can reach Src without passing any reconfigurable nodes.
+map(S, region(SrcId, SrcB), region(DstId, DstB), NewS) :-
+    %region_translate_flat(region(SrcId, SrcB), region(DstId, DstB)),
+    decodes_region(S, region(SrcId, SrcB), region(DstId, DstB)),
 	S = NewS.
 
-%map(S, Src, Dst, News) :-
-%    - We find a flat entry that matches srcId and dst, and has configurable nodes (otherwise case 1 works)
-%    - flattening is valid
-%    - Dst in FlatDst
-%    - LastConfIn is last configurable node in flat.
-%    - LastConfOut is the corresponding output node of LastConfIn,
-%    - reverse translate (using flat) Dst into LastConfOut Node -> DstT.
-%    - translate from LastConfOut to LastConfIn. -> NewDst      % This can happen, because we have a mapping installed for that configurable node.
-%    - Mapping(S, Src, NewDst, NewS). % recurse
-%
-%map(S, Src, Dst, News) :-
-%    - We find a flat entry that matches srcId and dst, and has configurable nodes (otherwise case 1 works)
-%    - flattening is valid
-%    - Dst in FlatDst
-%    - LastConfIn is last configurable node in flat.
-%    - LastConfOut is the corresponding output node of LastConfIn,
-%    - reverse translate (using flat) Dst into LastConfOut Node -> DstT.
-%    - Allocate block (with correct block size) in LastConfIn -> NewInBlock -> S1
-%    - add (NewInBlock,DstT) mapping to state -> S2
-%    - decrement avail -> S3
-%    - Mapping(S3, Src, NewInBlock, NewS).
+% Map case 2: We can reach Src with passing a reconfigurable node, but
+% the node already has a mapping installed.
+map(S, region(SrcId, SrcB), region(DstId, DstB), NewS) :-
+	flat(region(SrcId, SrcBB), ConfNodes, region(DstId, DstBB)),
+	region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
+	region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
+    nodes_slots_avail(S, ConfNodes),
+
+    append(_, [LastConfNodeIn], ConfNodes),
+    configurable(LastConfNodeIn, _, LastConfNodeOut),
+
+    % Now, move Dst to the LastConfNodeOut NS
+    region_translate_flat(region(LastConfNodeOut, ConfOutBlk), region(DstId,DstB)),
+    % Check if we have a matching dynamic translate in S
+    translate_region(S, region(LastConfNodeIn, ConfInBlk),
+                     region(LastConfNodeOut, ConfOutBlk)),
+    % Now recurse, since we reuse a mapping, nothing needs to be added to NewS.
+    map(S, region(SrcId, SrcB), region(LastConfNodeIn, ConfInBlk), NewS).
+
+% Map case 3: We can reach Src with passing a reconfigurable node, the configurable
+% node needs a new mapping.
+map(S, region(SrcId, SrcB), region(DstId, DstB), NewS) :-
+	flat(region(SrcId, SrcBB), ConfNodes, region(DstId, DstBB)),
+	region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
+	region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
+    nodes_slots_avail(S, ConfNodes),
+
+    append(_, [LastConfNodeIn], ConfNodes),
+    configurable(LastConfNodeIn, Bits, LastConfNodeOut),
+
+    % Move Dst to the LastConfNodeOut NS
+    region_translate_flat(region(LastConfNodeOut, ConfOutBlk), region(DstId,DstB)),
+
+    % We get a bit aligned superregion of that, and allocate a same sized block
+    % in the conf nodes input space. This will be the mapping that we insert.
+    bits_aligned_superregion(
+        region(LastConfNodeOut, ConfOutBlk), Bits,
+        region(LastConfNodeOut, block(ConfOutBlABase, ConfOutBlALimit))),
+    ConfOutBlASize #= ConfOutBlALimit - ConfOutBlABase + 1,
+    BlockSize is 2^Bits,
+    NumBlocks #= ConfOutBlASize // BlockSize,
+    % Bits align conf node blocks.
+    region_aligned(region(LastConfNodeIn, block(ConfInBlkB, ConfInBlkL)), Bits, _),
+    alloc(S, ConfOutBlASize, region(LastConfNodeIn, block(ConfInBlkB, ConfInBlkL)), S1),
+    state_add_mapping(S1,
+        region(LastConfNodeIn, block(ConfInBlkB, ConfInBlkL)),
+        name(LastConfNodeOut, ConfOutBlABase), S2),
+    state_decrement_avail(S2, LastConfNodeIn, NumBlocks, S3),
+
+    % Then, we use the just inserted mapping to translate our output address
+    % back to the input address with the supermapping we just installed
+    region_name_translate(
+        region(LastConfNodeOut, ConfOutBlk),
+        region(LastConfNodeOut, block(ConfOutBlABase, ConfOutBlALimit)),
+        name(LastConfNodeIn, ConfInBlkB),
+        ConfInR
+    ),
+    map(S3, region(SrcId, SrcB), ConfInR, NewS).
+
+

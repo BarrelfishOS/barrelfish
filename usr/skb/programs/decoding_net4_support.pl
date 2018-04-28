@@ -36,25 +36,25 @@ state_get(S) :- current_state(S).
 :- export assert_translate/2.
 assert_translate(A,B) :- assert(translate(A,B)).
 :- export retract_translate/2.
-retract_translate(A,B) :- retract(translate(A,B)).
+retract_translate(A,B) :- retractall(translate(A,B)).
 
 :- dynamic overlay/2.
 :- export assert_overlay/2.
 assert_overlay(A,B) :- assert(overlay(A,B)).
 :- export retract_overlay/2.
-retract_overlay(A,B) :- retract(overlay(A,B)).
+retract_overlay(A,B) :- retractall(overlay(A,B)).
 
 :- dynamic accept/1.
 :- export assert_accept/1.
 assert_accept(R) :- assert(accept(R)).
 :- export retract_accept/1.
-retract_accept(R) :- retract(accept(R)).
+retract_accept(R) :- retractall(accept(R)).
 
 :- dynamic configurable/3.
 :- export assert_configurable/3.
 assert_configurable(SrcId,Bits,DstId) :- assert(configurable(SrcId, Bits, DstId)).
 :- export retract_configurable/3.
-retract_configurable(SrcId,Bits,DstId) :- retract(configurable(SrcId,Bits,DstId)).
+retract_configurable(SrcId,Bits,DstId) :- retractall(configurable(SrcId,Bits,DstId)).
 
 %%% TODO FIXME
 %:- export state_add_accept/3.
