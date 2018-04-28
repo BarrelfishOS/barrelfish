@@ -149,11 +149,7 @@ test_map1 :-
 	map(S3, SrcRegion, DstRegion, S4),
 	printf("Src=%p --> Dst=%p with S1=%p\n", [SrcRegion, DstRegion, S4]).
 
-assert_conf_node(S, InNodeId, OutNodeId, Bits, Slots, NewS) :-
-    assert_configurable(InNodeId,Bits,OutNodeId),
-    state_add_avail(S, InNodeId, Slots, S1),
-    Limit is 2^Bits * Slots,
-    state_add_free(S1, InNodeId, [block(0, Limit)], NewS).
+
 
 test_map2 :-
 	% Case with a node configuration necessary, the translated node fits in

@@ -3,6 +3,18 @@
 :- ["decoding_net4"].
 
 
+
+:- dynamic translate/2.
+:- dynamic accept/1.
+:- dynamic overlay/2.
+:- dynamic node_id_next/1.
+:- dynamic configurable/3.
+:- dynamic node_id_node_enum/2.
+:- dynamic current_state/1.
+
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Sockeye support
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -30,8 +42,7 @@ load_net(File) :-
    * ---------------------------------------------------------------------------
    */
 
-:- dynamic node_id_next/1.
-node_id_next(0).
+
 
 unused_node_enum(Enum) :-
     node_id_next(E),
@@ -39,7 +50,6 @@ unused_node_enum(Enum) :-
     Enum is E + 1,
     assert(node_id_next(Enum)).
 
-:- dynamic node_id_node_enum/2.
 node_enum(NodeId, Enum) :-
     node_id_node_enum(NodeId, Enum).
 node_enum(NodeId, Enum) :-
@@ -62,11 +72,12 @@ node_enum_retract(NodeId, Enum) :-
   * ---------------------------------------------------------------------------
   */
 
-:- dynamic current_state/1.
+
 
 % initializes the state to be empty
 init_state :-
     assert(current_state(null)),
+    assert(node_id_next(0)),
     state_empty(S),
     state_set(S).
 
@@ -119,7 +130,7 @@ state_remove_suffix(State, NodeID, NewS) :-
 
     (findall(f(SrcId, Blks), (
         state_has_free(State, SrcId, Blks),
-        append(_, NodeID, SrcId),
+        append(_, NodeID, SrcId)
         ),LFree) ; LFree = []
     ),
 
@@ -144,9 +155,8 @@ state_remove_suffix(State, NodeID, NewS) :-
 
 
 
-
 %%%% STATIC STATE
-:- dynamic translate/2.
+
 :- export assert_translate/4.
 assert_translate(S,A,B,S) :- assert(translate(A,B)).
 :- export assert_translate/2.
@@ -154,7 +164,7 @@ assert_translate(A,B) :- assert(translate(A,B)).
 :- export retract_translate/2.
 retract_translate(A,B) :- retractall(translate(A,B)).
 
-:- dynamic overlay/2.
+
 :- export assert_overlay/4.
 assert_overlay(S,A,B,S) :- assert(overlay(A,B)).
 :- export assert_overlay/2.
@@ -162,7 +172,7 @@ assert_overlay(A,B) :- assert(overlay(A,B)).
 :- export retract_overlay/2.
 retract_overlay(A,B) :- retractall(overlay(A,B)).
 
-:- dynamic accept/1.
+
 :- export assert_accept/3.
 assert_accept(S,R,SNew) :-
     assert(accept(R)),
@@ -174,14 +184,23 @@ assert_accept(R) :- assert(accept(R)).
 :- export retract_accept/1.
 retract_accept(R) :- retractall(accept(R)).
 
-:- dynamic configurable/3.
+
 :- export assert_configurable/5.
-assert_configurable(S,SrcId,Bits,DstId,S) :- assert(configurable(SrcId, Bits, DstId)).
+assert_configurable(S,SrcId,Bits,DstId,SNew) :-
+    (Bits = 21 -> Slots is (512 * 512 * 512); Slots is 32),
+    assert_conf_node(S,SrcId, DstId, Bits, Slots, SNew).
+
 :- export assert_configurable/3.
 assert_configurable(SrcId,Bits,DstId) :- assert(configurable(SrcId, Bits, DstId)).
 :- export retract_configurable/3.
 retract_configurable(SrcId,Bits,DstId) :- retractall(configurable(SrcId,Bits,DstId)).
 
+
+assert_conf_node(S, InNodeId, OutNodeId, Bits, Slots, NewS) :-
+    assert_configurable(InNodeId,Bits,OutNodeId),
+    state_add_avail(S, InNodeId, Slots, S1),
+    Limit is 2^Bits * Slots,
+    state_add_free(S1, InNodeId, [block(0, Limit)], NewS).
 
 
 
@@ -190,7 +209,6 @@ retract_configurable(SrcId,Bits,DstId) :- retractall(configurable(SrcId,Bits,Dst
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % call the init
-:- init_state.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% X86 Support
@@ -221,6 +239,7 @@ initial_dram_block(Block) :- %a
 % Called by Kaluga
 :- export init/1.
 init(NewS) :-
+    init_state,
     state_empty(S1),
     add_SYSTEM(S1, [], S2),
     assert_accept(region(["DRAM"], Block)),
@@ -237,7 +256,6 @@ init(NewS) :-
 
 :- export add_process/3.
 add_process(S, Enum, NewS) :-
-
     unused_node_enum(Enum),
     Id = [Enum],
     % The node where the process virtual addresses are issued.
@@ -250,13 +268,22 @@ add_process(S, Enum, NewS) :-
     % Mark MMU block remappable
     MMU_IN_ID = ["IN", "MMU0" | Id],
     MMU_OUT_ID = ["OUT", "MMU0" | Id],
-    state_add_block_meta(S1, MMU_IN_ID, 21, MMU_OUT_ID, S2), % Make MMU configurable
+
+    NumBlocks is (20 * 512 * 512),
+    assert_conf_node(S1, MMU_IN_ID, MMU_OUT_ID, 21, NumBlocks, S2),
+
     OUT_ID = ["OUT" | Id],
-    state_add_overlay(S2, OUT_ID, DRAM_ID, S3),
+    assert_overlay(OUT_ID, DRAM_ID),
+
     % Reserve memory for the process, the OUT/PROC0 node is the one where
     % initially the process (virtual) addresses are issued.
-    Limit is 10995116277760 - 1, % (512 << 31) - 1
-    state_add_in_use(S3, region(OutId, block(0,Limit)), NewS).
+
+    Limit is (NumBlocks * (512 * 4096) - 1),
+    Size is Limit + 1,
+    %state_add_in_use(S3, region(OutId, block(0,Limit)), NewS),
+    alloc(S2, Size, region(MMU_IN_ID, B), S3),
+    writeln(B),
+    state_decrement_avail(S3, MMU_IN_ID, NumBlocks, NewS).
 
 iommu_enabled :-
     call(iommu_enabled,0,_)@eclipse.
@@ -264,9 +291,12 @@ iommu_enabled :-
 % Addr - PCI address, should be provided by caller.
 :- export remove_pci/3.
 remove_pci(S, Addr, NewS) :-
+    writeln("Removing PCI"),
     node_enum_exists(Addr, Enum),
+    writeln("Node existed"),
     % remove pci_address_node lookup
     node_enum_retract(Addr, Enum),
+    writeln("Remove suffix"),
     state_remove_suffix(S, [Enum], NewS).
 
 
@@ -280,7 +310,7 @@ remove_pci(S, Addr, NewS) :-
 
 :- export add_xeon_phi/4.
 add_xeon_phi(S, Addr, Enum, NewS) :-
-    add_pci_internal(S, Addr, Enum, add_XEONPHI, add_XEONPHI_IOMMU, S1),
+    add_pci_internal(S, Addr, Enum, add_XEONPHI, add_XEONPHI_IOMMU, NewS),
     %Ok, now we need to fixup the accepting bars installed by PCI.
     BAR0_ID = [0, "BAR", Enum],
     retract_accept(region(BAR0_ID, _)),
@@ -423,7 +453,7 @@ alloc_wrap(S, Size, _, DestEnum, SrcEnums, NewS) :-
     (
         SrcIds = [R1,R2], alloc(S, Size, DestReg, R1, R2, NewS) ;
         SrcIds = [R1], alloc(S, Size, DestReg, R1, NewS) ;
-        SrcIds = [], alloc(S, Size, DestReg, NewS) 
+        SrcIds = [], alloc(S, Size, DestReg, NewS)
     ),
     write_regions([DestReg]).
 
@@ -433,7 +463,7 @@ map_wrap(S0, Size, _, DestEnum, DestAddr, SrcEnums, NewS)  :-
     node_enum_exists(DestId, DestEnum),
     Limit is DestAddr + Size - 1,
     DestReg = region(DestId, block(DestAddr, Limit)),
-    (foreach(Enum, SrcEnums), fromto(S0, SIn, SOut, S1),foreach(SrcReg,SrcRegs),
+    (foreach(Enum, SrcEnums), fromto(S0, SIn, SOut, NewS),foreach(SrcReg,SrcRegs),
      param(DestReg) do
         node_enum_exists(SrcId, Enum),
         SrcReg = region(SrcId, _),
@@ -441,7 +471,7 @@ map_wrap(S0, Size, _, DestEnum, DestAddr, SrcEnums, NewS)  :-
     ),
     append([DestReg], SrcRegs, OutputRegs),
     write_regions(OutputRegs),
-    write_conf_update(S0, S1).
+    write_conf_update(S0, NewS).
 
 
 :- export reverse_resolve_wrap/5.
