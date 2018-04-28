@@ -513,13 +513,13 @@ statevar i = printf "S%i" i
 
 
 state_add_mapping ::  Integer -> String -> String -> String
-state_add_mapping i src dst = "state_add_mapping" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
+state_add_mapping i src dst = "assert_translate" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
 
 state_add_accept ::  Integer -> String -> String
-state_add_accept i reg = "state_add_accept" ++ parens ((statevar i) ++ ", " ++  reg ++ ", " ++ (statevar (i + 1)))
+state_add_accept i reg = "assert_accept" ++ parens ((statevar i) ++ ", " ++  reg ++ ", " ++ (statevar (i + 1)))
 
 state_add_overlay ::  Integer -> String -> String -> String
-state_add_overlay i src dst = "state_add_overlay" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
+state_add_overlay i src dst = "assert_overlay" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
 
 state_add_block_meta ::  Integer -> String -> String -> String -> String
-state_add_block_meta i src bits dst = "state_add_block_meta" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ bits ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
+state_add_block_meta i src bits dst = "assert_configurable" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ bits ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
