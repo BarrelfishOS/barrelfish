@@ -241,6 +241,11 @@ test_alloc_wrap :-
     node_enum(["DRAM"], DramEnum),
     alloc_wrap(S1, Size2M, 21, DramEnum, [], S2).
 
+test_add_process :-
+    state_empty(S0),
+    add_process(S0, E1, S1),
+    printf("ProcEnum=%p, State=%p\n", [E1]).
+
 run_test(Test) :-
     (
         printf("Calling Test %p...\n", Test),
@@ -270,4 +275,5 @@ run_all_tests :-
     run_test(test_map3),
     run_test(test_map4),
     run_test(test_map_wrap),
-    run_test(test_alloc_wrap).
+    run_test(test_alloc_wrap),
+    run_test(test_add_process).
