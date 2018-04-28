@@ -54,7 +54,7 @@ state_add_mapping(S0, SrcReg, DstName, S1) :-
     S0 = state(M, F, A),
     S1 = state([mapping(SrcReg, DstName) | M], F, A).
 
-:- export state_add_free/3.
+:- export state_add_free/4.
 % TODO: This should probably add to the list?
 state_add_free(S0, NodeId, Blks, S1) :-
     S0 = state(M, F, A),
@@ -63,7 +63,7 @@ state_add_free(S0, NodeId, Blks, S1) :-
 :- export state_add_avail/4.
 state_add_avail(S0, NodeId, C, S1) :-
     S0 = state(M, F, A),
-    S1 = state(M, F, [avail(NodeId, VPN, PPN) | A]).
+    S1 = state(M, F, [avail(NodeId, C) | A]).
 %%% STAYS HERE
 
 :- export state_remove_mapping/4.
@@ -72,7 +72,7 @@ state_remove_mapping(S0, SrcReg, DstName, S1) :-
     state_remove(M, mapping(SrcReg, DstName), M1),
     S1 = state(M1, F, A).
 
-:- export state_remove/4.
+:- export state_remove_free/4.
 state_remove_free(S0, NodeId, Blks, S1) :-
     S0 = state(M, F, A),
     state_remove(F, free(NodeId, Blks), F1),
@@ -95,13 +95,13 @@ state_has_mapping(S0, SrcReg, DstName) :-
     S0 = state(M, _, _),
     state_has_fact(M, mapping(SrcReg, DstName)).
 
-state_has_free(S0, NodeId, Blks, S1) :-
-    S0 = state(M, F, A),
+state_has_free(S0, NodeId, Blks) :-
+    S0 = state(_, F, _),
     state_has_fact(F,free(NodeId, Blks)).
 
-state_has_avail(S0, NodeId, C, S1) :-
+state_has_avail(S0, NodeId, C) :-
     S0 = state(_, _, A),
-    state_has_fact(A,avail(NodeId, C), A1).
+    state_has_fact(A,avail(NodeId, C)).
     
 
 %%%% STATIC STATE
@@ -116,6 +116,18 @@ retract_translate(A,B) :- retract(translate(A,B)).
 assert_overlay(A,B) :- assert(overlay(A,B)).
 :- export retract_overlay/2.
 retract_overlay(A,B) :- retract(overlay(A,B)).
+
+:- dynamic accept/1.
+:- export assert_accept/1.
+assert_accept(R) :- assert(accept(R)).
+:- export retract_accept/1.
+retract_accept(R) :- retract(accept(R)).
+
+:- dynamic configurable/3.
+:- export assert_configurable/3.
+assert_configurable(SrcId,Bits,DstId) :- assert(configurable(SrcId, Bits, DstId)).
+:- export retract_configurable/3.
+retract_configurable(SrcId,Bits,DstId) :- retract(configurable(SrcId,Bits,DstId)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Model layer
@@ -148,8 +160,56 @@ translate_region(S, SrcReg, region(DstId,block(DstBase, DstLimit))) :-
     region_region_contains(SrcReg, SrcCand),
     region_name_translate(SrcReg, SrcCand, name(DstId, AbsDstBase), region(DstId,block(DstBase, DstLimit))).
 
-translate_region(S, region(SrcId,B), region(DstId,B)) :-
+translate_region(_, region(SrcId,B), region(DstId,B)) :-
     overlay(SrcId, DstId).
+
+decodes_region(_, A, A).
+decodes_region(S, A, B) :-
+    translate_region(S, A, Next),
+    decodes_region(S, Next, B).
+
+% Decode until accept
+resolves_region(S, A, B) :-
+    decodes_region(S, A, B),
+    accept(C),
+    region_region_contains(B,C).
+
+%% Decode configurable node input
+%resolves_conf_region(S, region(SrcId, SrcB), region(DstId, DstB)) :-
+%    decodes_region(S, region(SrcId, SrcB), region(DstId, DstB)),
+%    configurable(DstId, _, _).
+
+
+%%% Flattening. move to support?, materialize?
+% TODO: The flatteing is shaky. It matches exactly on the 
+% translate and accept, but it should do a contains + translate
+% the input region. However, it should not produce any wrong results.
+% Assumptions: all input regions of accepts and translates all translates to
+% that input region cover the whole input regions.
+
+%    region_region_contains(Dst, AccC).
+flat_step(region(SrcId, B), [], region(NextId, B)) :-
+    overlay(SrcId, NextId).
+
+flat_step(region(SrcId, block(SrcBase,SrcLimit)), [], region(NextId, block(NextBase, NextLimit))) :-
+    translate(region(SrcId, block(SrcBase,SrcLimit)), name(NextId, NextBase)),
+    NextLimit #= SrcLimit - SrcBase + NextBase.
+
+flat_step(region(SrcId,_), [SrcId], region(NextId, _)) :-
+    configurable(SrcId, _, NextId).
+
+flat_step_rec(R, [], R).
+flat_step_rec(Src, CN, Dst) :-
+    flat_step(Src, CN1, Next),
+    flat_step_rec(Next, CN2, Dst),
+    append(CN1, CN2, CN).
+
+flat(Src, CNodes, Dst) :-
+    flat_step_rec(Src, CNodes, Dst),
+    accept(Dst).
+
+
+
 
 
 %% translate with mapping
