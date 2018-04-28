@@ -130,7 +130,7 @@ static void getvmconfig_request(struct iommu_binding *ib)
     assert(idev->iommu);
 
     err = skb_execute_query(
-        "state_get(S), state_has_pci_id(S, addr(%i,%i,%i), Enum), write(Enum)",
+        "node_enum(addr(%i,%i,%i), Enum), write(Enum).",
         idev->addr.pci.bus,
         idev->addr.pci.device,
         idev->addr.pci.function);
@@ -140,6 +140,7 @@ static void getvmconfig_request(struct iommu_binding *ib)
     } else {
         err = skb_read_output("%"SCNi32, &nodeid);
     }
+
     err = ib->tx_vtbl.getvmconfig_response(ib, NOP_CONT, err,
                                            idev->iommu->root_vnode_type,
                                            idev->iommu->max_page_bits, nodeid);
