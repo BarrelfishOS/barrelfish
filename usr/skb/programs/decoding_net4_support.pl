@@ -120,7 +120,6 @@ state_remove_suffix(State, NodeID, NewS) :-
     (findall(f(SrcId, Blks), (
         state_has_free(State, SrcId, Blks),
         append(_, NodeID, SrcId),
-        free(SrcId, Blks)
         ),LFree) ; LFree = []
     ),
 
@@ -284,9 +283,9 @@ add_xeon_phi(S, Addr, Enum, NewS) :-
     add_pci_internal(S, Addr, Enum, add_XEONPHI, add_XEONPHI_IOMMU, S1),
     %Ok, now we need to fixup the accepting bars installed by PCI.
     BAR0_ID = [0, "BAR", Enum],
-    state_remove_accept(S1, region(BAR0_ID, _), S2),
+    retract_accept(region(BAR0_ID, _)),
     GDDR_ID = ["GDDR", "PCI0", Enum],
-    state_add_overlay(S2, BAR0_ID, GDDR_ID, NewS),
+    assert_overlay(BAR0_ID, GDDR_ID),
     % Make sure we have Node Enums for GDDR and Socket
     node_enum(GDDR_ID, _),
     node_enum(["KNC_SOCKET", "PCI0", Enum], _),
