@@ -1,7 +1,7 @@
 % load the decoding net
 :- ["decoding_net4_support.pl"].
 
-reset_static_state :- 
+reset_static_state :-
     (retract_translate(_,_) ; true),
     (retract_accept(_) ; true),
     (retract_overlay(_,_) ; true),
@@ -79,7 +79,7 @@ test_flat1 :-
     assert_accept(region(["DRAM"], block(0, 1000))),
     assert_accept(region(["GDDR"], block(0, 1000))),
     findall((A,B,C), flat(A,B,C), Li),
-    (foreach((A,B,C), Li) do 
+    (foreach((A,B,C), Li) do
         printf("flat(%p,%p,%p)\n", [A,B,C])
     ).
 
@@ -142,7 +142,7 @@ test_map1 :-
     state_add_free(S0, ["DRAM"], [block(0,Size)], S1),
     state_add_free(S1, ["GDDR"], [block(0,Size)], S2),
     state_add_avail(S2, ["SMPT_IN"], 32, S3),
-	
+
 	Limit2M is Size2M - 1,
 	SrcRegion = region(["SOCKET"], _),
 	DstRegion = region(["GDDR"], block(0, Limit2M)),
@@ -155,7 +155,9 @@ run_test(Test) :-
         call(Test),
         writeln(" Succeeds!")
     ) ; (
-        writeln(" !!! Fails !!!")
+        writeln("#################################################"),
+        writeln(" !!! Fails !!!"),
+        writeln("#################################################")
     ).
 
 :- export run_all_tests/0.
