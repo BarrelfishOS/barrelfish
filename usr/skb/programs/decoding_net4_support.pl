@@ -277,7 +277,7 @@ add_process(S, Enum, NewS) :-
 
     % Reserve memory for the process, the OUT/PROC0 node is the one where
     % initially the process (virtual) addresses are issued.
-    NumBlocks is (20 * 512 * 512),
+    NumBlocks is (20 * 512),
     Limit is (NumBlocks * (512 * 4096) - 1),
     Size is Limit + 1,
     %state_add_in_use(S3, region(OutId, block(0,Limit)), NewS),
