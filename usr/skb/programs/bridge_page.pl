@@ -185,6 +185,40 @@ back_to_bytes(Granularity, buselement(T,A,Sec,BP,HP,SP,Tp,PF, PCIe, Bits), busel
     H is HP * Granularity,
     S is SP * Granularity.
 
+shift_into_window_64_bit(Granularity, Windows, buselement(T,A,Sec,B1,H1,S,Tp,PF, PCIe, Bits), 
+                         buselement(T,A,Sec,B2,H2,S,Tp,PF, PCIe, Bits)) :-
+
+	(T == device ->
+	    bar(A,Sec, Orig, _, _, _, _),
+ 
+        O1 is Orig / Granularity,
+        ceiling(O1, O2),
+        integer(O2, OrigP),
+
+        (OrigP > 10000000 ->
+            (foreach(range(B, H), Windows),
+             param(B2),
+             param(H2),
+             param(B1),
+             param(H1),
+             param(OrigP)
+             do
+                (H @>= OrigP, B @=< OrigP ->
+                    B2 is B1 + B,
+                    H2 is H1 + B
+                ;
+                    true
+                )
+            )
+        ;
+            B2 is B1,
+            H2 is H1
+        )
+    ;
+        B2 is B1,
+        H2 is H1
+    ).
+
 create_vf_busele_list(VFs, LMem, HMem, Granularity) :-
 	 findall(buselement(device,addr(Bus,Dev,Fun),BAR,Base,High,SizeP,Type,Prefetch, PCIe, Bits),
 	            ( vf(pfaddr(_, _, _), addr(Bus, Dev, Fun)),
@@ -196,6 +230,29 @@ create_vf_busele_list(VFs, LMem, HMem, Granularity) :-
                   Base::[LMem..HMem],
                   High::[LMem..HMem]
 	            ),VFs).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Tree allocation etc, once per prefetchable and non prefetchable
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+assign_addresses(Plan, Root, Tree, Granularity, ExclRanges, IOAPICs, HMem2) :-
+    root(_ , _, mem(LMem,HMem), Ranges) = Root,
+    setrange(Tree,_,_,_),
+    nonoverlap(Tree),
+    naturally_aligned(Tree, 256, LMem, HMem, HMem2, _),
+    %naturally_aligned(Tree, 256, LMem, HMem, HMem2, ExtraVars),
+    tree2list(Tree,ListaU),
+    sort(6, >=, ListaU, Lista),
+    not_overlap_memory_ranges(Lista, ExclRanges),
+
+    keep_orig_addr(Lista, 12, 3, _, _, _, _),
+    keep_ioapic_bars(Lista, IOAPICs),
+    %labelall(Lista, ExtraVars),
+    labelall(Lista),
+
+    % Shift 64 bit addresses back into their window since
+    % disjunctive() only takes numbers uf to 10'000'000
+    maplist(shift_into_window_64_bit(Granularity, Ranges),Lista, Plan).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the main part of the allocation. Called once per root bridge
@@ -210,7 +267,7 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
 
     Type = mem,
 
-% prefetchable
+% prefetchable (Shifts addresses above 10'000'000 to 0)
     constrain_bus(Granularity, Type, prefetchable, Addr,MinBus,MaxBus,LMem,HMem,BusElementListP, Ranges),
     RBaseP::[LMem..HMem],
     RHighP::[LMem..HMem],
@@ -223,26 +280,12 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     RHighNP::[LMem..HMem2],
     RSizeNP::[0..X],
     devicetree(BusElementListNP,buselement(bridge,Addr,secondary(MinBus),RBaseNP,RHighNP,RSizeNP, Type, nonprefetchable, _, _),TNP),
-% pseudo-root of both trees
-    PseudoBase::[LMem..HMem],
-    PseudoHigh::[LMem..HMem],
-    PseudoSize::[0..X],
-    T = t(buselement(bridge, addr(-1, -1, -1), childbus(-1, -1), PseudoBase, PseudoHigh, PseudoSize, _, _, _, _), [TP, TNP]),
-    setrange(T,_,_,_),
-    nonoverlap(T),
-    naturally_aligned(T, 256, LMem, HMem, HMem2, _),
-    %naturally_aligned(T, 256, LMem, HMem, HMem2, ExtraVars),
-    tree2list(T,ListaU),
-    sort(6, >=, ListaU, Lista),
-    not_overlap_memory_ranges(Lista, ExclRanges),
-    %keep_orig_addr(Lista, 12, 3, _, _, _, _, Granularity),
-    keep_ioapic_bars(Lista, IOAPICs),
-    %labelall(Lista, ExtraVars),
-    labelall(Lista),
-    subtract(Lista,[buselement(bridge,Addr,_,_,_,_,_,prefetchable,_,_)],Pl3),
-    subtract(Pl3,[buselement(bridge,Addr,_,_,_,_,_,nonprefetchable,_,_)],Plan).
-    %subtract(Pl2,[buselement(bridge,addr(-1,-1,-1),_,_,_,_,_,_,_,_)],Plan).
-    %subtract(Pl2,[buselement(bridge,addr(-1,-1,-1),_,_,_,_,_,_,_,_)],Pl),
+
+    assign_addresses(NPPlan, Root, TP, Granularity, ExclRanges, IOAPICs, HMem2),
+    assign_addresses(PPlan, Root, TNP, Granularity, ExclRanges, IOAPICs, HMem2),
+    append(NPPlan, PPlan, Pl3),
+    subtract(Pl3,[buselement(bridge,Addr,_,_,_,_,_,prefetchable,_,_)],Pl2),
+    subtract(Pl2,[buselement(bridge,Addr,_,_,_,_,_,nonprefetchable,_,_)],Plan).
     %maplist(adjust_range(0),Pl,PR),
     %maplist(back_to_bytes(Granularity),Pl,Plan),
 % dot output:
@@ -359,8 +402,15 @@ constrain_bus_ex(Granularity, Type, Prefetch, RootAddr,Bus,MaxBus,LMem,HMem,InBu
                      param(High)
                      do
                         (H @>= OrigP, B @=< OrigP ->
-                            Base::[B..H],
-                            High::[B..H]
+                            (OrigP > 10000000 ->
+                                %shift to smallest address
+                                H2 is H - B,
+                                Base::[0..H2],
+                                High::[0..H2]
+                            ;
+                                Base::[B..H],
+                                High::[B..H]
+                            )
                         ;
                             true
                         )
@@ -480,7 +530,8 @@ nonoverlap(Tree) :-
     ( not ChildList=[] ->
         maplist(base,ChildList,Base),
         maplist(size,ChildList,Size),
-        disjunctive(Base, Size);
+        disjunctive(Base, Size)
+        ;
         true
     ),
     ( foreach(El, Children)
@@ -560,18 +611,20 @@ not_overlap_memory_ranges([H|PCIList], MemoryRanges) :-
     not_overlap_memory_ranges(PCIList, MemoryRanges).
 
 
-keep_orig_addr([], _, _, _, _, _, _, _).
-keep_orig_addr([H|Buselements], Class, SubClass, ProgIf, Bus, Dev, Fun, Granularity) :-
+keep_orig_addr([], _, _, _, _, _, _).
+keep_orig_addr([H|Buselements], Class, SubClass, ProgIf, Bus, Dev, Fun) :-
     ( buselement(device,addr(Bus,Dev,Fun),BAR,Base,_,_,_,_,_,_) = H,
       device(_,addr(Bus,Dev,Fun),_,_,Class, SubClass, ProgIf,_),
       bar(addr(Bus,Dev,Fun),BAR,OrigBase,_,_,_,_) ->
-       T1 is OrigBase / Granularity,
+       T1 is OrigBase / 4096,
        floor(T1,T2),
        integer(T2,KeepBase),
-        Base #= KeepBase;
+        Base #= KeepBase
+        ;
         true
     ),
     keep_orig_addr(Buselements, Class, SubClass, ProgIf, Bus, Dev, Fun).
+
 % on some machines (sbrinz1) one of the two IOAPICs appears as a BAR
 % on a device which claims to be a RAM memory controller. If this occurs,
 % we want to avoid moving this BAR as otherwise the IOAPIC cannot be reached
