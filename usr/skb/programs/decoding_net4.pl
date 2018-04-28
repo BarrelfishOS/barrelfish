@@ -122,10 +122,10 @@ region_size(region(_, block(B,L)), Size) :-
     Size #= L - B + 1.
 
 % In = Before + Split + After
-% Case1:  No Before (return a -1,-1) for before
+% Case1:  No Before (return a 1,0) for before
 region_split(
     region(I, block(InB,InL)),
-    region(I, block(-1,-1)),
+    region(I, block(1,0)),
     region(I, block(SplitB,SplitL)),
     region(I, block(AfterB,AfterL))) :-
         InL #>= InB,
@@ -178,7 +178,7 @@ bits_aligned_superregion(region(Id, block(Base, Limit)), Bits,
     SuperBase #= (Base // BlockSize) * BlockSize,     
     SuperLimit #= (Limit // BlockSize + 1) * BlockSize - 1.     
 
-free_list_append(Li, block(-1,-1), Li).
+free_list_append(Li, block(1,0), Li).
 free_list_append(InLi, block(B,L), OutLi) :- 
     B #>= 0,
     L #>= 0,
