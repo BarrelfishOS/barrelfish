@@ -117,31 +117,34 @@ state_has_avail(state(_, _, A), NodeId, C) :-
 %%%% Model layer
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% region_region_contains(A, B).. A \in B
-region_region_contains(region(N, block(ABase, ALimit)), region(N, block(BBase, BLimit))) :-
-    ABase #>= BBase,
-    BLimit #>= ABase,
-    ALimit #>= BBase,
-    BLimit #>= ALimit.
+% region_region_contains(A, B).. A \in B but not B \in A
+region_region_contains(region(N, block(ABase, ALimit)),
+                       region(N, block(BBase, BLimit))) :-
+    ABase #>= BBase,  BLimit #>= ABase,
+    ALimit #>= BBase, BLimit #>= ALimit.
 
 % region_name_translate(A, ASrc, DstBaseName, DstRegion)
-region_name_translate(
-        region(SrcId, block(ABase, ALimit)),
-        region(SrcId, block(ASrcBase, _)),
-        name(DstId, DstBase),
-        region(DstId, block(BBase, BLimit))) :-
-            Offset #= ABase - ASrcBase,
-            BBase #= Offset + DstBase,
-            BLimit #= ALimit - ABase + BBase.
+region_name_translate(region(SrcId, block(ABase, ALimit)),
+                      region(SrcId, block(ASrcBase, _)),
+                      name(DstId, DstBase),
+                      region(DstId, block(BBase, BLimit))) :-
+    Offset #= ABase - ASrcBase,
+    BBase #= Offset + DstBase,
+    BLimit #= ALimit - ABase + BBase.
 
 
+% translate(State, Source Region, Dest Name)
+% The region needs to be matched exactly.
 translate(_, SrcReg, DstName) :- translate(SrcReg, DstName).
 translate(S, SrcReg, DstName) :- state_has_mapping(S, SrcReg, DstName).
+
+%translate(_, region(SrcId, block(Base, _)), name(DstId, Base)) :- overlay(SrcId, DstId).
 
 translate_region(S, SrcReg, region(DstId,block(DstBase, DstLimit))) :-
     translate(S, SrcCand, name(DstId, AbsDstBase)),
     region_region_contains(SrcReg, SrcCand),
-    region_name_translate(SrcReg, SrcCand, name(DstId, AbsDstBase), region(DstId,block(DstBase, DstLimit))).
+    region_name_translate(SrcReg, SrcCand, name(DstId, AbsDstBase),
+                          region(DstId,block(DstBase, DstLimit))).
 
 translate_region(_, region(SrcId,B), region(DstId,B)) :-
     overlay(SrcId, DstId).
@@ -196,6 +199,12 @@ flat_step_rec(Src, CN, Dst) :-
 flat(Src, CNodes, Dst) :-
     flat_step_rec(Src, CNodes, Dst),
     accept(Dst).
+
+
+
+
+
+
 
 %%%%%
 
