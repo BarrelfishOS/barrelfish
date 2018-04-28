@@ -54,7 +54,8 @@ struct device_caps
 
 struct device_caps dev_caps[PCI_NBUSES][PCI_NDEVICES][PCI_NFUNCTIONS][PCI_NBARS];
 const char *skb_bridge_program = "bridge_page";
-uint16_t max_numvfs = 256;
+//uint16_t max_numvfs = 255;
+uint16_t max_numvfs = 16;
 bool decoding_net = false;
 
 static void
