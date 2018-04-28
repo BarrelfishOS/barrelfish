@@ -25,6 +25,7 @@
 
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_manager_client.h>
+#include <skb/skb.h>
 
 #include "xeon_phi_internal.h"
 #include "smpt.h"
@@ -154,6 +155,11 @@ int main(int argc, char *argv[])
     err = oct_init();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "initializing octopus\n");
+    }
+
+    err = skb_client_connect();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "initializing skb\n");
     }
 
     // map the nfs path
