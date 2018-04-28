@@ -387,57 +387,62 @@ write_regions(Regs) :-
     writeln(Terms).
 
 
-% outputs a list of confs
-write_confs(S, Confs) :-
-    (foreach(Conf, Confs), param(S), foreach(Term, Terms)  do
-        Conf = block_conf(NodeId, VPN, PPN),
-        state_has_block_meta(S, NodeId, Bits, _),
-        BlockSize is 2 ^ Bits,
+mapping_confs(SrcReg, DstName, Confs) :-
+    SrcReg = region(SrcId, block(SrcBase, SrcLimit)),
+    DstName = name(DstId, DstBase),
+    configurable(SrcId, Bits, DstId),
+    BlockSize is 2^Bits,
+    SrcSize is SrcLimit - SrcBase + 1,
+    NumBlocksEnd is SrcSize // BlockSize - 1,
+    BaseVPN is SrcBase // BlockSize,
+    BasePPN is DstBase // BlockSize,
+    (for(I, 0, NumBlocksEnd), param(BaseVPN), param(BasePPN), param(BlockSize),
+     param(SrcId), foreach(c(SrcEnum, In, Out), Confs) do
+        VPN is BaseVPN + I,
+        PPN is BasePPN + I,
         In is BlockSize * VPN,
         Out is BlockSize * PPN,
-        node_enum_exists(NodeEnum, NodeId),
-    %    printf("c(%d, 0x%lx, 0x%lx)", [NodeEnum, In, Out]),
-        Term = c(NodeEnum, In, Out)
+        node_enum(SrcId, SrcEnum)
+    ).
+
+write_conf_update(state(M0,_,_), state(M1, _, _)) :-
+    subtract(M1, M0, MDelta),
+    (foreach(mapping(SrcReg,DstName), MDelta), fromto([],InT,OutT,Terms) do
+        mapping_confs(SrcReg, DstName, Confs),
+        append(InT, Confs, OutT)
     ),
-    %writeln(""),
     writeln(Terms).
 
 
-
 :- export alloc_wrap/6.
-alloc_wrap(S, Size, Bits, DestEnum, SrcEnums, NewS) :-
-    (foreach(Enum, SrcEnums), foreach(Reg, SrcRegs) do
-        Reg = region(RId, _),
-        node_enum_exists(RId, Enum)
+alloc_wrap(S, Size, _, DestEnum, SrcEnums, NewS) :-
+    (foreach(Enum, SrcEnums), foreach(SrcId, SrcIds) do
+        node_enum_exists(SrcId, Enum)
     ),
-    node_enum_exists(DestId, DestEnum), % The double S is deliberate, no new allocation permitted.
+    node_enum_exists(DestId, DestEnum),
     DestReg = region(DestId, _),
-    alloc(S, Size, Bits, DestReg, SrcRegs, _),
-    state_add_in_use(S, DestReg, NewS),
-
-    append([DestReg], SrcRegs, OutputRegs),
-    write_regions(OutputRegs).
+    (
+        SrcIds = [R1,R2], alloc(S, Size, DestReg, R1, R2, NewS) ;
+        SrcIds = [R1], alloc(S, Size, DestReg, R1, NewS) ;
+        SrcIds = [], alloc(S, Size, DestReg, NewS) 
+    ),
+    write_regions([DestReg]).
 
 :- export map_wrap/7.
-map_wrap(S0, Size, Bits, DestEnum, DestAddr, SrcEnums, NewS)  :-
-
+map_wrap(S0, Size, _, DestEnum, DestAddr, SrcEnums, NewS)  :-
     % Set up DestReg
-    node_enum_exists(DestId, DestEnum), % The double S is deliberate, no new allocation permitted.
+    node_enum_exists(DestId, DestEnum),
     Limit is DestAddr + Size - 1,
     DestReg = region(DestId, block(DestAddr, Limit)),
-
-    (foreach(Enum, SrcEnums), foreach(Reg, SrcRegs) do
-        Reg = region(RId, _),
-        node_enum_exists(RId, Enum)
+    (foreach(Enum, SrcEnums), fromto(S0, SIn, SOut, S1),foreach(SrcReg,SrcRegs),
+     param(DestReg) do
+        node_enum_exists(SrcId, Enum),
+        SrcReg = region(SrcId, _),
+        map(SIn, SrcReg, DestReg, SOut)
     ),
-    map(S0, Size, Bits, DestReg, SrcRegs, Confs),
-    state_add_confs(S0, Confs, S2),
-    (foreach(Reg, SrcRegs), fromto(S2, SIn, SOut, NewS) do
-       state_add_in_use(SIn, Reg, SOut)
-    ),
-
     append([DestReg], SrcRegs, OutputRegs),
-    write_regions(OutputRegs).
+    write_regions(OutputRegs),
+    write_conf_update(S0, S1).
 
 
 :- export reverse_resolve_wrap/5.

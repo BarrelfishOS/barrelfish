@@ -204,6 +204,7 @@ test_map3 :-
 	printf("Src=%p --> Dst=%p with NewS=%p\n", [SrcRegion, DstRegion, S3]).
 
 test_map4 :-
+    reset_static_state,
 	% Case with a node configuration necessary that passes two configurable
     % nodes.
     Size is 512 * 1024 * 1024,
@@ -215,13 +216,34 @@ test_map4 :-
     assert_conf_node(S0, ["SMPT_IN"],["IOMMU_IN"], 34, 32, S1),
     assert_conf_node(S1, ["IOMMU_IN"],["DRAM"], 21, 1024, S2),
 
-	Limit8M is 8 * 1024 * 1024,
+    Limit8M is 8 * 1024 * 1024 - 1,
 	SrcRegion = region(["SMPT_IN"], _),
 	DstRegion = region(["DRAM"], block(0, Limit8M)),
     findall((A,B,C), flat(A,B,C), Li),
 	map(S2, SrcRegion, DstRegion, S3),
-	printf("Src=%p --> Dst=%p with NewS=%p\n", [SrcRegion, DstRegion, S3]).
+	printf("Src=%p --> Dst=%p with NewS=%p\n", [SrcRegion, DstRegion, S3]),
+    write_conf_update(S2, S3).
 
+test_map_wrap :-
+    reset_static_state,
+    assert_accept(region(["DRAM"], block(0, Size))),
+    state_empty(S0),
+    assert_conf_node(S0, ["SMPT_IN"],["IOMMU_IN"], 34, 32, S1),
+    assert_conf_node(S1, ["IOMMU_IN"],["DRAM"], 21, 1024, S2),
+
+    Size2M is 2 * 1024 * 1024,
+    node_enum(["DRAM"], DramEnum),
+    node_enum(["SMPT_IN"], SrcEnum),
+    map_wrap(S2, Size2M, 21, DramEnum, 0, [SrcEnum], S3).
+
+test_alloc_wrap :-
+    reset_static_state,
+    assert_accept(region(["DRAM"], block(0, Size))),
+    state_empty(S0),
+    state_add_free(S0, ["DRAM"], [block(0,Size)], S1),
+    Size2M is 2 * 1024 * 1024,
+    node_enum(["DRAM"], DramEnum),
+    alloc_wrap(S1, Size2M, 21, DramEnum, [], S2).
 
 run_test(Test) :-
     (
@@ -250,4 +272,6 @@ run_all_tests :-
     run_test(test_map1),
     run_test(test_map2),
     run_test(test_map3),
-    run_test(test_map4).
+    run_test(test_map4),
+    run_test(test_map_wrap),
+    run_test(test_alloc_wrap).
