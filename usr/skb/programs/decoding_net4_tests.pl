@@ -227,4 +227,7 @@ run_all_tests :-
     run_test(test_resolves_region2),
     run_test(test_flat1),
     run_test(test_alloc1),
-    run_test(test_alloc2).
+    run_test(test_alloc2),
+    run_test(test_map1),
+    run_test(test_map2),
+    run_test(test_map3).
