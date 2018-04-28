@@ -50,22 +50,22 @@ test_decodes_region2 :-
     decodes_region(S, In, region(["OUT"], block(400, 1500))),
     writeln(In).
 
-test_resolves_region1 :-
-    reset_static_state,
-    assert_overlay(["IN"], ["NEXT"]),
-    assert_translate(region(["NEXT"], block(0, 1000)), name(["OUT"], 400)),
-    assert_accept(region(["OUT"], block(0, 10000))),
-    state_empty(S),
-    resolves_region(S, In, region(["OUT"], block(400, 1500))),
-    writeln(In).
-
-test_resolves_region2 :-
-    reset_static_state,
-    assert_overlay(["IN"], ["NEXT"]),
-    assert_translate(region(["NEXT"], block(0, 1000)), name(["OUT"], 400)),
-    assert_accept(region(["OUT"], block(0, 700))),
-    state_empty(S),
-    not(resolves_region(S, _, region(["OUT"], block(400, 1500)))).
+%%test_resolves_region1 :-
+%%    reset_static_state,
+%%    assert_overlay(["IN"], ["NEXT"]),
+%%    assert_translate(region(["NEXT"], block(0, 1000)), name(["OUT"], 400)),
+%%    assert_accept(region(["OUT"], block(0, 10000))),
+%%    state_empty(S),
+%%    resolves_region(S, In, region(["OUT"], block(400, 1500))),
+%%    writeln(In).
+%%
+%%test_resolves_region2 :-
+%%    reset_static_state,
+%%    assert_overlay(["IN"], ["NEXT"]),
+%%    assert_translate(region(["NEXT"], block(0, 1000)), name(["OUT"], 400)),
+%%    assert_accept(region(["OUT"], block(0, 700))),
+%%    state_empty(S),
+%%    not(resolves_region(S, _, region(["OUT"], block(400, 1500)))).
 
 :- export test_flat1/0.
 test_flat1 :-
@@ -203,6 +203,25 @@ test_map3 :-
 	map(S2, SrcRegion, DstRegion, S3),
 	printf("Src=%p --> Dst=%p with NewS=%p\n", [SrcRegion, DstRegion, S3]).
 
+test_map4 :-
+	% Case with a node configuration necessary that passes two configurable
+    % nodes.
+    Size is 512 * 1024 * 1024,
+    Size2M is 2 * 1024 * 1024,
+    Offset is 16 * 1024 * 1024,
+    OffsetLimit is Offset + Size,
+    assert_accept(region(["DRAM"], block(0, Size))),
+    state_empty(S0),
+    assert_conf_node(S0, ["SMPT_IN"],["IOMMU_IN"], 34, 32, S1),
+    assert_conf_node(S1, ["IOMMU_IN"],["DRAM"], 21, 1024, S2),
+
+	Limit8M is 8 * 1024 * 1024,
+	SrcRegion = region(["SMPT_IN"], _),
+	DstRegion = region(["DRAM"], block(0, Limit8M)),
+    findall((A,B,C), flat(A,B,C), Li),
+	map(S2, SrcRegion, DstRegion, S3),
+	printf("Src=%p --> Dst=%p with NewS=%p\n", [SrcRegion, DstRegion, S3]).
+
 
 run_test(Test) :-
     (
@@ -223,11 +242,10 @@ run_all_tests :-
     run_test(test_translate_region4),
     run_test(test_decodes_region1),
     run_test(test_decodes_region2),
-    run_test(test_resolves_region1),
-    run_test(test_resolves_region2),
     run_test(test_flat1),
     run_test(test_alloc1),
     run_test(test_alloc2),
     run_test(test_map1),
     run_test(test_map2),
-    run_test(test_map3).
+    run_test(test_map3),
+    run_test(test_map4).

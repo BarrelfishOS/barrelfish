@@ -24,19 +24,6 @@
 % overlay(SrcNodeId, OutNodeId)
 % configurable(SrcNodeId, Bits, OutNodeId)
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% Persisted state
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-/*
- * ===========================================================================
- * Dynamic State
- * ===========================================================================
- */
-
-
 :- export state_empty/1.
 state_empty(state([],[],[])).
 
@@ -90,6 +77,18 @@ state_remove_avail(state(M, F, A), NodeId, C, state(M, F, A1)) :-
 
 /*
  * ---------------------------------------------------------------------------
+ * Modify State
+ * ---------------------------------------------------------------------------
+ */
+state_decrement_avail(S, NodeId, Amount, NewS) :-
+    state_remove_avail(S, NodeId, C, S1),
+    CNew is C - Amount,
+    CNew #>= 0,
+    state_add_avail(S1, NodeId, CNew, NewS).
+
+
+/*
+ * ---------------------------------------------------------------------------
  * State queries
  * ---------------------------------------------------------------------------
  */
@@ -113,100 +112,11 @@ state_has_avail(state(_, _, A), NodeId, C) :-
 
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%% Model layer
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% region_region_contains(A, B).. A \in B but not B \in A
-region_region_contains(region(N, block(ABase, ALimit)),
-                       region(N, block(BBase, BLimit))) :-
-    ABase #>= BBase,  BLimit #>= ABase,
-    ALimit #>= BBase, BLimit #>= ALimit.
-
-% region_name_translate(A, ASrc, DstBaseName, DstRegion)
-region_name_translate(region(SrcId, block(ABase, ALimit)),
-                      region(SrcId, block(ASrcBase, _)),
-                      name(DstId, DstBase),
-                      region(DstId, block(BBase, BLimit))) :-
-    Offset #= ABase - ASrcBase,
-    BBase #= Offset + DstBase,
-    BLimit #= ALimit - ABase + BBase.
-
-
-% translate(State, Source Region, Dest Name)
-% The region needs to be matched exactly.
-translate(_, SrcReg, DstName) :- translate(SrcReg, DstName).
-translate(S, SrcReg, DstName) :- state_has_mapping(S, SrcReg, DstName).
-
-%translate(_, region(SrcId, block(Base, _)), name(DstId, Base)) :- overlay(SrcId, DstId).
-
-translate_region(S, SrcReg, region(DstId,block(DstBase, DstLimit))) :-
-    translate(S, SrcCand, name(DstId, AbsDstBase)),
-    region_region_contains(SrcReg, SrcCand),
-    region_name_translate(SrcReg, SrcCand, name(DstId, AbsDstBase),
-                          region(DstId,block(DstBase, DstLimit))).
-
-translate_region(_, region(SrcId,B), region(DstId,B)) :-
-    overlay(SrcId, DstId).
-
-decodes_region(_, A, A).
-decodes_region(S, A, B) :-
-    translate_region(S, A, Next),
-    decodes_region(S, Next, B).
-
-% Decode until accept
-resolves_region(S, A, B) :-
-    decodes_region(S, A, B),
-    accept(C),
-    region_region_contains(B,C).
-
-%% Decode configurable node input
-%resolves_conf_region(S, region(SrcId, SrcB), region(DstId, DstB)) :-
-%    decodes_region(S, region(SrcId, SrcB), region(DstId, DstB)),
-%    configurable(DstId, _, _).
-
-nodes_slots_avail(_, []).
-nodes_slots_avail(S, [N | Ns]) :-
-    nodes_slots_avail(S, Ns),
-    state_has_avail(S, N, A),
-    A #>= 0.
-
-
-%%% Flattening. move to support?, materialize?
-% TODO: The flatteing is shaky. It matches exactly on the
-% translate and accept, but it should do a contains + translate
-% the input region. However, it should not produce any wrong results.
-% Assumptions: all input regions of accepts and translates all translates to
-% that input region cover the whole input regions.
-
-%    region_region_contains(Dst, AccC).
-flat_step(region(SrcId, B), [], region(NextId, B)) :-
-    overlay(SrcId, NextId).
-
-flat_step(region(SrcId, block(SrcBase,SrcLimit)), [], region(NextId, block(NextBase, NextLimit))) :-
-    translate(region(SrcId, block(SrcBase,SrcLimit)), name(NextId, NextBase)),
-    NextLimit #= SrcLimit - SrcBase + NextBase.
-
-flat_step(region(SrcId,_), [SrcId], region(NextId, _)) :-
-    configurable(SrcId, _, NextId).
-
-flat_step_rec(R, [], R).
-flat_step_rec(Src, CN, Dst) :-
-    flat_step(Src, CN1, Next),
-    flat_step_rec(Next, CN2, Dst),
-    append(CN1, CN2, CN).
-
-flat(Src, CNodes, Dst) :-
-    flat_step_rec(Src, CNodes, Dst),
-    accept(Dst).
-
-
-
-
-
-
-
-%%%%%
+/*
+ * ---------------------------------------------------------------------------
+ * Utilities
+ * ---------------------------------------------------------------------------
+ */
 
 region_size(region(_, block(B,L)), Size) :-
     Size #= L - B + 1.
@@ -245,6 +155,103 @@ region_aligned(Region, Bits, BlockNum) :-
     BlockNum #>= 0,
     Base #= BlockNum * BlockSize.
 
+% region_region_contains(A, B).. A \in B but not B \in A
+region_region_contains(region(N, block(ABase, ALimit)),
+                       region(N, block(BBase, BLimit))) :-
+    ABase #>= BBase,  BLimit #>= ABase,
+    ALimit #>= BBase, BLimit #>= ALimit.
+
+% region_name_translate(A, ASrc, DstBaseName, DstRegion)
+% A has to be contained in ASrc, then DstRegion will be the result
+% of a ASrc->DstBaseName mapping.
+region_name_translate(region(SrcId, block(ABase, ALimit)),
+                      region(SrcId, block(ASrcBase, _)),
+                      name(DstId, DstBase),
+                      region(DstId, block(BBase, BLimit))) :-
+    Offset #= ABase - ASrcBase,
+    BBase #= Offset + DstBase,
+    BLimit #= ALimit - ABase + BBase.
+
+bits_aligned_superregion(region(Id, block(Base, Limit)), Bits,
+        region(Id, block(SuperBase, SuperLimit))) :-     
+    BlockSize is 2^Bits,     
+    SuperBase #= (Base // BlockSize) * BlockSize,     
+    SuperLimit #= (Limit // BlockSize + 1) * BlockSize - 1.     
+
+free_list_append(Li, block(-1,-1), Li).
+free_list_append(InLi, block(B,L), OutLi) :- 
+    B #>= 0,
+    L #>= 0,
+    append(InLi, [block(B,L)], OutLi).
+
+
+/*
+ * ---------------------------------------------------------------------------
+ * Query the state.
+ * ---------------------------------------------------------------------------
+ */
+
+% translate(State, Source Region, Dest Name)
+% The region needs to be matched exactly.
+translate(_, SrcReg, DstName) :- translate(SrcReg, DstName).
+translate(S, SrcReg, DstName) :- state_has_mapping(S, SrcReg, DstName).
+
+% Translate any region, it will search for a matching translate(..) and 
+translate_region(S, SrcReg, region(DstId,block(DstBase, DstLimit))) :-
+    translate(S, SrcCand, name(DstId, AbsDstBase)),
+    region_region_contains(SrcReg, SrcCand),
+    region_name_translate(SrcReg, SrcCand, name(DstId, AbsDstBase),
+                          region(DstId,block(DstBase, DstLimit))).
+
+translate_region(_, region(SrcId,B), region(DstId,B)) :-
+    overlay(SrcId, DstId).
+
+decodes_region(_, A, A).
+decodes_region(S, A, B) :-
+    translate_region(S, A, Next),
+    decodes_region(S, Next, B).
+
+nodes_slots_avail(_, []).
+nodes_slots_avail(S, [N | Ns]) :-
+    nodes_slots_avail(S, Ns),
+    state_has_avail(S, N, A),
+    A #>= 0.
+
+%%% Flattening. move to support?, materialize?
+% TODO: The flatteing is shaky. It matches exactly on the translate and accept,
+% but it should do a contains + translate the input region. However, this
+% version should produce a subset of the true results.  Assumptions: all input
+% regions of accepts and translates all translates to that input region cover
+% the whole input regions.
+
+flat_step(region(SrcId, B), [], region(NextId, B)) :-
+    overlay(SrcId, NextId).
+
+flat_step(
+    region(SrcId, block(SrcBase,SrcLimit)), [],
+    region(NextId, block(NextBase, NextLimit))) :-
+        translate(region(SrcId, block(SrcBase,SrcLimit)), name(NextId, NextBase)),
+        NextLimit #= SrcLimit - SrcBase + NextBase.
+
+flat_step(region(SrcId,_), [SrcId], region(NextId, _)) :-
+    configurable(SrcId, _, NextId).
+
+flat_step_rec(R, [], R).
+flat_step_rec(Src, CN, Dst) :-
+    flat_step(Src, CN1, Next),
+    flat_step_rec(Next, CN2, Dst),
+    append(CN1, CN2, CN).
+
+flat(Src, CNodes, Dst) :-
+    flat_step_rec(Src, CNodes, Dst),
+    accept(Dst).
+
+
+/*
+ * ---------------------------------------------------------------------------
+ * Alloc and Map
+ * ---------------------------------------------------------------------------
+ */
 alloc(S, Size, region(DstId,DstBlock), SNew) :-
    state_has_free(S, DstId, [FirstBlk | RmBlk]),
    region_region_contains(region(DstId,DstBlock), region(DstId, FirstBlk)),
@@ -257,7 +264,7 @@ alloc(S, Size, region(DstId,DstBlock), SNew) :-
    % an unaligned padding), make the split of the first block the first element.
    state_remove_free(S, DstId, [FirstBlk | RmBlk], S1),
    append([AfterBlk], RmBlk, RmBlk1),
-   append(RmBlk1, [BeforeBlk], RmBlk2),
+   free_list_append(RmBlk1, BeforeBlk, RmBlk2),
    state_add_free(S1, DstId, RmBlk2, SNew).
 
 alloc(S, Size, Dst, SrcId1, SNew) :-
@@ -272,66 +279,37 @@ alloc(S, Size, Dst, SrcId1, SrcId2, SNew) :-
     region_region_contains(Dst, DstReachable),
     alloc(S, Size, Dst, SrcId1, SNew).
 
-
-% Translate region using the flat. Will not respect any dynamic translates and
-% ignores configurable nodes.
-region_translate_flat(region(SrcId, SrcB), region(DstId, DstB)) :-
-	flat(region(SrcId, SrcBB), [], region(DstId, DstBB)),
-	region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
-	region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
-	DstBB = block(DstBBBase, _),
-    region_name_translate(region(SrcId,SrcB), region(SrcId, SrcBB),
-					      name(DstId, DstBBBase), region(DstId,DstB)).
-
-state_decrement_avail(S, NodeId, Amount, NewS) :-
-    state_remove_avail(S, NodeId, C, S1),
-    CNew is C - Amount,
-    CNew #>= 0,
-    state_add_avail(S1, NodeId, CNew, NewS).
-
-bits_aligned_superregion(region(Id, block(Base, Limit)), Bits, region(Id, block(SuperBase, SuperLimit))) :-     
-    BlockSize is 2^Bits,     
-    SuperBase #= (Base // BlockSize) * BlockSize,     
-    SuperLimit #= (Limit // BlockSize + 1) * BlockSize - 1.     
-
-% Map case 1: We can reach Src without passing any reconfigurable nodes.
-map(S, region(SrcId, SrcB), region(DstId, DstB), NewS) :-
-    %region_translate_flat(region(SrcId, SrcB), region(DstId, DstB)),
+% Map Rec Works like map, but gets a hint (second last argument) which
+% configurable nodes have to be passed.
+% Map Rec case 1: We can reach Src without passing any reconfigurable nodes.
+map_rec(S, region(SrcId, SrcB), region(DstId, DstB), [], NewS) :-
     decodes_region(S, region(SrcId, SrcB), region(DstId, DstB)),
-	S = NewS.
+    S = NewS.
 
-% Map case 2: We can reach Src with passing a reconfigurable node, but
+% Map Rec case 2: We can reach Src with passing a reconfigurable node, but
 % the node already has a mapping installed.
-map(S, region(SrcId, SrcB), region(DstId, DstB), NewS) :-
-	flat(region(SrcId, SrcBB), ConfNodes, region(DstId, DstBB)),
-	region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
-	region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
-    nodes_slots_avail(S, ConfNodes),
-
-    append(_, [LastConfNodeIn], ConfNodes),
+map_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS) :-
+    append(NextConfNodes, [LastConfNodeIn], ConfNodes),
     configurable(LastConfNodeIn, _, LastConfNodeOut),
 
     % Now, move Dst to the LastConfNodeOut NS
-    region_translate_flat(region(LastConfNodeOut, ConfOutBlk), region(DstId,DstB)),
+    decodes_region(S, region(LastConfNodeOut, ConfOutBlk), region(DstId,DstB)),
+
     % Check if we have a matching dynamic translate in S
     translate_region(S, region(LastConfNodeIn, ConfInBlk),
                      region(LastConfNodeOut, ConfOutBlk)),
+
     % Now recurse, since we reuse a mapping, nothing needs to be added to NewS.
-    map(S, region(SrcId, SrcB), region(LastConfNodeIn, ConfInBlk), NewS).
+    map_rec(S, region(SrcId, SrcB), region(LastConfNodeIn, ConfInBlk), NextConfNodes, NewS).
 
-% Map case 3: We can reach Src with passing a reconfigurable node, the configurable
+% Map Rec case 3: We can reach Src with passing a reconfigurable node, the configurable
 % node needs a new mapping.
-map(S, region(SrcId, SrcB), region(DstId, DstB), NewS) :-
-	flat(region(SrcId, SrcBB), ConfNodes, region(DstId, DstBB)),
-	region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
-	region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
-    nodes_slots_avail(S, ConfNodes),
-
-    append(_, [LastConfNodeIn], ConfNodes),
+map_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS) :-
+    append(NextConfNodes, [LastConfNodeIn], ConfNodes),
     configurable(LastConfNodeIn, Bits, LastConfNodeOut),
 
     % Move Dst to the LastConfNodeOut NS
-    region_translate_flat(region(LastConfNodeOut, ConfOutBlk), region(DstId,DstB)),
+    decodes_region(S, region(LastConfNodeOut, ConfOutBlk), region(DstId,DstB)),
 
     % We get a bit aligned superregion of that, and allocate a same sized block
     % in the conf nodes input space. This will be the mapping that we insert.
@@ -341,9 +319,12 @@ map(S, region(SrcId, SrcB), region(DstId, DstB), NewS) :-
     ConfOutBlASize #= ConfOutBlALimit - ConfOutBlABase + 1,
     BlockSize is 2^Bits,
     NumBlocks #= ConfOutBlASize // BlockSize,
-    % Bits align conf node blocks.
+
+    % Allocate in node for the configruable node
     region_aligned(region(LastConfNodeIn, block(ConfInBlkB, ConfInBlkL)), Bits, _),
     alloc(S, ConfOutBlASize, region(LastConfNodeIn, block(ConfInBlkB, ConfInBlkL)), S1),
+
+    % Add mapping
     state_add_mapping(S1,
         region(LastConfNodeIn, block(ConfInBlkB, ConfInBlkL)),
         name(LastConfNodeOut, ConfOutBlABase), S2),
@@ -357,6 +338,11 @@ map(S, region(SrcId, SrcB), region(DstId, DstB), NewS) :-
         name(LastConfNodeIn, ConfInBlkB),
         ConfInR
     ),
-    map(S3, region(SrcId, SrcB), ConfInR, NewS).
+    map_rec(S3, region(SrcId, SrcB), ConfInR, NextConfNodes, NewS).
 
-
+map(S, region(SrcId, SrcB), region(DstId, DstB), NewS) :-
+    flat(region(SrcId, SrcBB), ConfNodes, region(DstId, DstBB)),
+    region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
+    region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
+    nodes_slots_avail(S, ConfNodes),
+    map_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS).
