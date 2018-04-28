@@ -348,10 +348,9 @@ xeon_phi_meta(_, PCI_E, KNC_SOCKET_E, SMPT_IN_E, IOMMU_IN_E, DMA_E, K1OM_CORE_E)
 % instantiate Module, else ModuleIommu
 add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
 
-    node_enum(Addr, Enum),
-    unused_node_enum(Enum2),
-    OutNodeId = ["OUT", "PCI0", Enum2],
-
+    unused_node_enum(Enum),
+    node_enum_alias(Addr, Enum),
+    OutNodeId = ["OUT", "PCI0", Enum],
     node_enum_alias(OutNodeId, Enum),
 
     Id = [Enum],
