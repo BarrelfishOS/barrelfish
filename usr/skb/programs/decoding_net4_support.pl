@@ -437,7 +437,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
 write_regions(Regs) :-
     (foreach(Reg, Regs), foreach(Term, Terms) do
        Reg = region(NId, block(B, _)),
-       node_enum(NId, Enum),
+       node_enum_exists(NId, Enum), 
        Term = name(B, Enum)
     ),
     writeln(Terms).
@@ -447,7 +447,7 @@ mapping_confs(SrcReg, DstName, Confs) :-
     SrcReg = region(SrcId, block(SrcBase, _)),
     DstName = name(DstId, DstBase),
     configurable(SrcId, _, DstId),
-    node_enum(SrcId, SrcEnum),
+    node_enum_exists(SrcId, SrcEnum),
     Confs = [c(SrcEnum, SrcBase, DstBase)].
     /*
     BlockSize is 2^Bits,
