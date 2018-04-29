@@ -92,7 +92,7 @@ module XEONPHI {
 
     memory (0 bits 40) KNC_SOCKET
     KNC_SOCKET maps [
-        (0x0000000000 to 0x17fffffff) to GDDR at (0x000000000 to 0x17fffffff);
+        (0x0000000000 to 0x1ffffffff) to GDDR at (0x000000000 to 0x1ffffffff);
         (0x8000000000 to 0xffffffffff) to SMPT_IN at (0x0 to 0x7fffffffff); // 512GB
         (0x08007D0000 to 0x08007effff) to MMIO at (0x0 to 0xfffff)
     ]
