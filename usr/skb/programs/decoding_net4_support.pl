@@ -242,7 +242,6 @@ init(NewS) :-
     init_state,
     state_empty(S1),
     add_SYSTEM(S1, [], S2),
-    assert_accept(region(["DRAM"], Block)),
 
     DRAM_ID = ["DRAM"],
     initial_dram_block(Block),
@@ -398,7 +397,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
         InStart is BarStart,
         InEnd is BarEnd - 1,
         AcceptStart is 0,
-        AcceptEnd is (BarStart - BarEnd)  - 1,
+        AcceptEnd is (BarEnd - BarStart)  - 1,
         assert_accept(region(BarId, block(AcceptStart, AcceptEnd))),
         state_add_free(SIn, BarId, block(AcceptStart, AcceptEnd), SOut),
         assert_translate(region(PCIBUS_ID, block(InStart,InEnd)),

@@ -622,15 +622,13 @@ static void alloc_mem_call_rx(struct xeon_phi_binding *binding, uint64_t bytes)
     struct xphi_svc_msg_st *st = (struct xphi_svc_msg_st *)msg_st;
 
     msg_st->err = interphi_alloc_mem(node, bytes, &st->args.alloc.cap);
+    if (err_is_ok(msg_st->err)) {
+        struct frame_identity id;
+        errval_t err = invoke_frame_identify(st->args.alloc.cap, &id);
 
-
-
-    struct frame_identity id;
-    errval_t err = invoke_frame_identify(st->args.alloc.cap, &id);
-
-    debug_printf("Obtained cap. %lx..%lx, %s\n", id.base, id.base + id.bytes - 1,
-                 err_getstring(err));
-
+        debug_printf("Obtained cap. %lx..%lx, %s\n", id.base, id.base + id.bytes - 1,
+                     err_getstring(err));
+    }
 
     txq_send(msg_st);
 }
