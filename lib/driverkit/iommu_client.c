@@ -1058,9 +1058,6 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     // Alloc space in my vspace
 
 
-    debug_printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
-
-
     DRIVERKIT_DEBUG("[iommu client] allocate device vspace\n");
 
     // Map into dev vspace
@@ -1087,9 +1084,6 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
             return err;
         }
     }
-
-    debug_printf("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE\n");
-
 
     return err;
 }
@@ -1134,11 +1128,12 @@ errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl,
             err = vspace_map_one_frame_fixed_attr(dmem->vbase, dmem->size,
                                                   dmem->mem, flags, NULL, NULL);
             if (err_is_fail(err)) {
-                DEBUG_ERR(err, "failed to map the frame");
+
                 if (err_no(err) == LIB_ERR_VREGION_MAP) {
                     err = SYS_ERR_OK;
+                } else {
+                    DEBUG_ERR(err, "failed to map the frame");
                 }
-
             }
         }
         DRIVERKIT_DEBUG("%s:%u mapping in driver at 0x%" PRIxLVADDR "\n",
