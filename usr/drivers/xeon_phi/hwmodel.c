@@ -181,7 +181,8 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
         return err;
     }
 
-    err = driverkit_hwmodel_alias_conf(mem, knc_sock_id, conf, sizeof(conf), retaddr);
+    err = driverkit_hwmodel_get_map_conf(mem, knc_sock_id, conf, sizeof(conf), retaddr);
+    assert(err_is_ok(err));
 
     skb_execute_query("decoding_net_listing");
 

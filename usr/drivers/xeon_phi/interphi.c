@@ -1624,8 +1624,17 @@ errval_t interphi_chan_open(struct xnode *node,
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
 
     #ifndef __k1om__
-    err = driverkit_hwmodel_reverse_resolve(msgframe, node->local->nodeid,
-            &svc_st->args.open.msgbase);
+    int32_t nodeid;
+    err = xeon_phi_hw_model_lookup_nodeids(node->local->nodeid, &nodeid,
+                                           NULL, NULL, NULL, NULL);
+    if (err_is_fail(err)) {
+        rpc_done(node->msg);
+        txq_msg_st_free(msg_st);
+        return err;
+    }
+
+    err = driverkit_hwmodel_get_map_conf(msgframe, nodeid, NULL, 0,
+                                         &svc_st->args.open.msgbase);
     if (err_is_fail(err)) {
         rpc_done(node->msg);
         txq_msg_st_free(msg_st);
