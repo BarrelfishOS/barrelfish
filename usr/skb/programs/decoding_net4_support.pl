@@ -247,7 +247,7 @@ init(NewS) :-
     initial_dram_block(Block),
     assert_accept(region(["DRAM"], Block)),
     state_add_free(S2, ["DRAM"], [Block], NewS),
-    node_enum(DRAM_ID, DRAM_ENUM).
+    node_enum(DRAM_ID, DRAM_ENUM),
     printf("Decoding net initialized using %p as DRAM. DRAM nodeid: %p\n",
         [Block, DRAM_ENUM]).
 
