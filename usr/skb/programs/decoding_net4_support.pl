@@ -93,9 +93,10 @@ state_get(S) :- current_state(S).
 
 state_remove_suffix(State, NodeID, NewS) :-
     (findall(t(A,B), (
-        translate(region(NID, D), B),
+        translate(region(NID, D), name(DestId, DestAddr)),
+        B = name(DestId, DestAddr),
         A = region(NID, D),
-        append(_, NodeID, NID)
+        (append(_, NodeID, NID) ; append(_, NodeID, DestId))
     ), List) ; List = []),
 
     (foreach(t(A,B), List) do
@@ -113,11 +114,20 @@ state_remove_suffix(State, NodeID, NewS) :-
     ),
     (findall(o(A,B), (
         overlay(A, B),
-        append(_, NodeID, A)
+        (append(_, NodeID, A) ; append(_, NodeID, B))
         ),List3 ); List3 = []),
 
     (foreach(o(A,B), List3) do
         retract_overlay(A,B)
+    ),
+
+    (findall(c(A,Bits,B), (
+        configurable(A, Bits,B),
+        (append(_, NodeID, A) ; append(_, NodeID, B))
+        ),List4 ); List4 = []),
+
+    (foreach(c(A,Bits,B), List4) do
+        retract_configurable(A,Bits,B)
     ),
 
     (findall(m(S,D), (
@@ -291,7 +301,7 @@ iommu_enabled :-
 remove_pci(S, Addr, NewS) :-
     node_enum_exists(Addr, Enum),
     % remove pci_address_node lookup
-    node_enum_retract(Addr, Enum),
+    node_enum_retract(_, Enum),
     state_remove_suffix(S, [Enum], NewS).
 
 
@@ -332,10 +342,20 @@ add_xeon_phi(S, Addr, Enum, NewS) :-
 add_pci(S, Addr, Enum, NewS) :-
     add_pci_internal(S, Addr, Enum, add_PCI, add_PCI_IOMMU, NewS).
 
+:- export add_all_pci/2.
+add_all_pci(S, NewS) :-
+    findall(A, (
+        device(pcie, A, _, _, _, _, _, _)
+    ), Devices),
+    (foreach(D, Devices), fromto(S, SIn, SOut, NewS) do
+        (D = addr(10,0,0) ; D = addr(4,0,0); D=addr(0,4,0)) -> add_pci(SIn, D, _, SOut) ; SIn = SOut
+    ).
+
 % Enum will be the new enum for the Phi
 :- export replace_with_xeon_phi/4.
 replace_with_xeon_phi(S, OldEnum, NewEnum, NewS) :-
     node_enum_exists(Addr, OldEnum),
+    Addr = addr(_,_,_),
     remove_pci(S, Addr, S1),
     add_xeon_phi(S1, Addr, NewEnum, NewS).
 

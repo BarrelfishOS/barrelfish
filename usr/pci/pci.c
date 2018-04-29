@@ -882,6 +882,8 @@ errval_t pci_start_virtual_function_for_device(struct pci_address* addr,
 
 }
 
+#if 0
+
 static errval_t add_pci_model_node(struct pci_address addr) {
     errval_t err = SYS_ERR_OK;
     if(
@@ -913,6 +915,7 @@ static errval_t add_pci_model_node(struct pci_address addr) {
 
     return err;
 }
+#endif
 
 /**
  * This function performs a recursive, depth-first search through the
@@ -1626,19 +1629,6 @@ static void program_device_bar(uint8_t bus,
     }
     pci_hdr0_command_wr(&devhdr, cmd);
 
-
-    // add bridge bars to decoding net
-    if (decoding_net) {
-        errval_t err;
-
-        err = add_pci_model_node(addr);
-        if (err_is_fail(err)) {
-            debug_printf("Warning: pci_alloc(addr(%u, %u, %u)) failed \n",
-                         addr.bus, addr.device, addr.function);
-            DEBUG_SKB_ERR(err, "bridge pci_alloc(%u, %u, %u)",
-                          addr.bus, addr.device, addr.function);
-        }
-    }
 }
 
 static void enable_busmaster(uint8_t bus,
@@ -1868,6 +1858,24 @@ void pci_program_bridges(void)
             //is the base for the next bridge => decrement by one
             high--;
             program_bridge_window(bus, dev, fun, base, high, pcie, mem, pref);
+        }
+    }
+
+
+    // add bridge bars to decoding net
+    if (decoding_net) {
+        errval_t err;
+        
+        HWMODEL_QUERY_DEBUG(
+                "state_get(S),"
+                "add_all_pci(S, NewS),"
+                "state_set(NewS)");
+        err = skb_execute_query(
+                "state_get(S),"
+                "add_all_pci(S, NewS),"
+                "state_set(NewS)");
+        if(err_is_fail(err)){
+            DEBUG_SKB_ERR(err, "add_pci");
         }
     }
 
