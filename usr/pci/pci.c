@@ -1237,17 +1237,6 @@ static void assign_bus_numbers(struct pci_address parentaddr,
 
                                     pci_add_vf_bars_to_skb(&vf_addr, vfn, &sr_iov_cap);
 
-                                    // add VF bars to decoding net
-                                    if (decoding_net) {
-                                        err = add_pci_model_node(vf_addr);
-                                        if (err_is_fail(err)) {
-                                            debug_printf("Warning: VF add_pci(addr(%u, %u, %u)) failed \n", 
-                                                         vf_addr.bus, vf_addr.device, vf_addr.function);
-
-                                            DEBUG_SKB_ERR(err, "bridge add_pci(%u, %u, %u)",
-                                                          vf_addr.bus, vf_addr.device, vf_addr.function);
-                                        }
-                                    }
                                 }
                                 break;
 
@@ -1507,19 +1496,6 @@ static void query_bars(pci_hdr0_t devhdr,
                          (uint32_t) (barorigaddr.base << 7), (uint32_t) bar_mapping_size(bar));
         }
     }
-
-    // add bridge bars to decoding net
-    if (decoding_net) {
-        errval_t err;
-
-        err = add_pci_model_node(addr);
-        if (err_is_fail(err)) {
-            debug_printf("Warning: pci_alloc(addr(%u, %u, %u)) failed \n", 
-                         addr.bus, addr.device, addr.function);
-            DEBUG_SKB_ERR(err, "bridge pci_alloc(%u, %u, %u)",
-                          addr.bus, addr.device, addr.function);
-        } 
-    }
 }
 
 static void program_bridge_window(uint8_t bus,
@@ -1649,6 +1625,20 @@ static void program_device_bar(uint8_t bus,
         cmd.io_space = 1;
     }
     pci_hdr0_command_wr(&devhdr, cmd);
+
+
+    // add bridge bars to decoding net
+    if (decoding_net) {
+        errval_t err;
+
+        err = add_pci_model_node(addr);
+        if (err_is_fail(err)) {
+            debug_printf("Warning: pci_alloc(addr(%u, %u, %u)) failed \n",
+                         addr.bus, addr.device, addr.function);
+            DEBUG_SKB_ERR(err, "bridge pci_alloc(%u, %u, %u)",
+                          addr.bus, addr.device, addr.function);
+        }
+    }
 }
 
 static void enable_busmaster(uint8_t bus,
@@ -1725,7 +1715,7 @@ void pci_program_bridges(void)
              "flatten(P, F),replace_current_BAR_values(F),"
              "write(nrelements(Nr)),writeln(P).");
     skb_execute(bridge_program);
-    output = skb_get_output();
+    output = strdup(skb_get_output());
     assert(output != NULL);
     output_length = strlen(output);
     PCI_DEBUG("pci_program_bridges: output = %s\n", output);
@@ -1742,6 +1732,7 @@ void pci_program_bridges(void)
         // XXX: no device can be used...
         printf("WARNING: CONTINUING, HOWEVER PCI DEVICES WILL BE UNUSABLE\n");
         // except IO-space devices which aren't yet affected by bridge programming
+        free(output);
         return;
     }
 
@@ -1803,6 +1794,7 @@ void pci_program_bridges(void)
     if (nr_conversions != 1) {
         printf("pci.c: No valid pci plan returned by the SKB\n.");
         //XXX: no device can be used
+        free(output);
         return;
     }
 
@@ -1878,6 +1870,8 @@ void pci_program_bridges(void)
             program_bridge_window(bus, dev, fun, base, high, pcie, mem, pref);
         }
     }
+
+    free(output);
 }
 
 uint32_t pci_setup_interrupt(uint32_t bus,
