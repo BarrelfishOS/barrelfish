@@ -97,9 +97,108 @@ errval_t ioat_device_poll(void)
     return SYS_ERR_OK;
 }
 
-#define TEST_IMPLEMENTATION 0
+
+#define OSDI18_RUN_BENCHMARK 1
+#include <dma/dma_bench.h>
+#include <skb/skb.h>
+#include <bench/bench.h>
+
+#define BUFFER_SIZE (4UL<<30)
+#if OSDI18_RUN_BENCHMARK
+
+static void cpumemcpy(genvaddr_t to, genvaddr_t from, size_t bytes)
+{
+    cycles_t t = bench_tsc();
+    memcpy((void *)to, (void *)from, bytes);
+    t = bench_tsc() - t;
+
+    debug_printf("cpumemcpy Elapsed: %lu\n", t);
+}
+
+
+static volatile bool done = false;
+
+static void impl_test_cb(errval_t err, dma_req_id_t id, void *arg)
+{
+    debug_printf("impl_test_cb\n");
+  //  assert(memcmp(arg, arg + BUFFER_SIZE, BUFFER_SIZE) == 0);
+    debug_printf("test ok\n");
+
+    done = 1;
+}
+
+static struct dma_device *dma_dev;
+
+static void dmamemcpy(genvaddr_t to, genvaddr_t from, size_t bytes)
+{
+    errval_t err;
+
+    struct dma_req_setup setup = {
+            .args.memcpy = {
+                    .src = (genvaddr_t) from,
+                    .dst = (genvaddr_t) to,
+                    .bytes = bytes,
+            },
+            .type = DMA_REQ_TYPE_MEMCPY,
+            .done_cb = impl_test_cb,
+            .cb_arg = (void *)to
+    };
+    done = false;
+    cycles_t t = bench_tsc();
+
+    dma_req_id_t rid;
+    err = ioat_dma_request_memcpy(dma_dev, &setup, &rid);
+    assert(err_is_ok(err));
+    while(!done) {
+        while(done == 0) {
+            err = ioat_dma_device_poll_channels(dma_dev);
+            switch (err_no(err)) {
+                case DMA_ERR_DEVICE_IDLE :
+                case DMA_ERR_CHAN_IDLE:
+                case SYS_ERR_OK:
+                    break;
+                default:
+                    USER_PANIC_ERR(err, "failed to poll the channel!\n");
+            }
+        }
+    }
+
+    t = bench_tsc() - t;
+    debug_printf("dmamemcpy Elapsed: %lu\n", t);
+}
+
+static void osdi18_benchmark(struct ioat_dma_device *dev, struct iommu_client *cl)
+{
+    errval_t err;
+
+    debug_printf("========================================================\n");
+    debug_printf("BENCHMARK FOR OSDI18\n");
+    debug_printf("========================================================\n");
+
+
+    bench_init();
+
+    dma_dev = (struct dma_device *)dev;
+
+
+    struct dmem mem;
+    err = driverkit_iommu_mmap_cl(cl, 2 * BUFFER_SIZE, VREGION_FLAGS_READ_WRITE,
+                                  &mem);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to get memory");
+    }
+
+
+    dmamemcpy(mem.devaddr, mem.devaddr + BUFFER_SIZE, BUFFER_SIZE);
+    cpumemcpy(mem.vbase, mem.vbase + BUFFER_SIZE, BUFFER_SIZE);
+
+}
+#endif
+
+//#define TEST_IMPLEMENTATION 1
 #if TEST_IMPLEMENTATION
 #include <dma/dma_bench.h>
+#include <skb/skb.h>
 
 
 #define BUFFER_SIZE (1<<20)
@@ -239,12 +338,21 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     //err = ioat_dma_device_init(regs, &pc1, false, &devices[device_count]);
     err = ioat_dma_device_init(regs, cl, &devices[device_count]);
     if (err_is_fail(err)) {
+
+        skb_execute("listing");
+        while(1)
+            ;
+
         DEV_ERR("Could not initialize the device: %s\n", err_getstring(err));
         return SYS_ERR_OK;
     }
 
     #if TEST_IMPLEMENTATION
     impl_test(devices[device_count], cl);
+    #endif
+
+    #if OSDI18_RUN_BENCHMARK
+    osdi18_benchmark(devices[device_count], cl);
     #endif
 
     device_count++;
@@ -254,6 +362,11 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
 
     // 3. Set iref of your exported service (this is reported back to Kaluga)
     *dev = 0x00;
+
+
+
+    while (1)
+        ;
 
     return SYS_ERR_OK;
 }
