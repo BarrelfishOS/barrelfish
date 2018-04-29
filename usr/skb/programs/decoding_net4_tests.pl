@@ -2,6 +2,13 @@
 :- ["decoding_net4_support"].
 
 reset_static_state :-
+    retractall(translate(_,_)),
+    retractall(accept(_)),
+    retractall(overlay(_,_)),
+    retractall(node_id_next(_)),
+    retractall(configurable(_,_,_)),
+    retractall(node_id_node_enum(_,_)),
+    retractall(current_state(_)),
     retract_translate(_,_),
     retract_accept(_),
     retract_overlay(_,_),
@@ -78,6 +85,13 @@ test_flat1 :-
     assert_translate(region(["PCIBUS"], block(5000, 6000)), name(["DRAM"], 0)),
     assert_accept(region(["DRAM"], block(0, 1000))),
     assert_accept(region(["GDDR"], block(0, 1000))),
+    findall((A,B,C), flat(A,B,C), Li),
+    (foreach((A,B,C), Li) do
+        printf("flat(%p,%p,%p)\n", [A,B,C])
+    ).
+
+:- export dump_flat/0.
+dump_flat :-
     findall((A,B,C), flat(A,B,C), Li),
     (foreach((A,B,C), Li) do
         printf("flat(%p,%p,%p)\n", [A,B,C])
@@ -242,9 +256,26 @@ test_alloc_wrap :-
     alloc_wrap(S1, Size2M, 21, DramEnum, [], S2).
 
 test_add_process :-
-    state_empty(S0),
+    reset_static_state,
+    init(S0),
     add_process(S0, E1, S1),
-    printf("ProcEnum=%p, State=%p\n", [E1]).
+    printf("ProcEnum=%p, State=%p\n", [E1, S1]),
+    node_enum(["DRAM"], DramEnum),
+    Size2M is 2 * 1024 * 1024,
+    alloc_wrap(S1, Size2M, 21, DramEnum, [E1], S2).
+
+test_add_xeon_phi :-
+    reset_static_state,
+    state_empty(S0),
+    add_xeon_phi(S0, addr(10,0,0), E1, S1),
+    printf("XPhiEnum=%p, State=%p\n", [E1]),
+    add_process(S1, E1, S2),
+    printf("ProcEnum=%p, State=%p\n", [E1]),
+    xeon_phi_meta(S2, E1, KNC_SOCKET_E, _, _, _, GDDR_E),
+    Size = 2 * 1024 * 1024,
+    printf("before allocation"),
+    alloc_wrap(S2, Size, _, GDDR_E, [KNC_SOCKET_E]).
+
 
 run_test(Test) :-
     (
@@ -277,3 +308,46 @@ run_all_tests :-
     run_test(test_map_wrap),
     run_test(test_alloc_wrap),
     run_test(test_add_process).
+
+/*
+ *-----------------
+ * Benchmarks
+ * ----------------
+ */
+
+bench_init(E1, E2, NewS) :-
+    reset_static_state,
+    init_state,
+    init(S0),
+    add_pci(S0, addr(0,0,0), E1, S1),
+    add_pci(S1, addr(0,0,1), E2, NewS).
+
+% Benchmark allocation time with increasing number of nodes.
+% bench_allocations :-
+
+% Benchmark allocation time with increasing number of nodes.
+bench_nodes_one(NumPci) :-
+    bench_init(E1,E2, S0),
+    (fromto(S0, SIn, SOut, S1), for(I,2,NumPci) do 
+        add_pci(SIn, addr(0,0,I),_, SOut)
+    ),
+
+    % setup for alloc
+    Size2M is 2097152,
+    DestReg = region(["DRAM"],_),
+    node_enum(N1, E1),
+    not(N1 = addr(_,_,_)),
+    node_enum(N2, E2),
+    not(N2 = addr(_,_,_)),
+    statistics(hr_time, Start),
+    % and go
+    alloc(S1, Size2M, DestReg, N1, N2, NewS),
+    statistics(hr_time, Stop),
+    Diff is Stop - Start,
+    printf("%p %p\n", [NumPci, Diff]).
+
+bench_nodes(MaxNumPci) :-
+    writeln("==== BENCH START ===="),
+    (for(I,2,MaxNumPci) do 
+        bench_nodes_one(I), !
+    ).
