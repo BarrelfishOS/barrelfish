@@ -890,7 +890,9 @@ static void chan_open_call_rx(struct interphi_binding *_binding,
         while(mreg) {
             XINTER_DEBUG("%lx %lx | %lx %lx\n", mreg->id.base, msgbase, mreg->id.bytes, (1UL << msgbits));
             if (mreg->id.base == msgbase && mreg->id.bytes == (1UL << msgbits)) {
+                debug_printf("XXX FOUND THE REGION %lx\n", msgbase);
                 msgcap = mreg->cap;
+                break;
             }
             mreg = mreg->next;
         }
@@ -905,8 +907,10 @@ static void chan_open_call_rx(struct interphi_binding *_binding,
     msg_st->err = xeon_phi_service_open_channel(msgcap, type, target_did,
                                                 source_did, usrdata);
     if (err_is_fail(msg_st->err)) {
-        sysmem_cap_return(msgcap);
+        DEBUG_ERR( msg_st->err, "Failed to open the channel!\n");
+       // sysmem_cap_return(msgcap);
     }
+
     txq_send(msg_st);
 }
 
@@ -939,9 +943,12 @@ static void alloc_mem_call_rx(struct interphi_binding *_binding,
     struct mem_reg *mreg = calloc(1, sizeof(*mreg));
     assert(mreg);
 
+    struct capref ramcap;
+    slot_alloc(&ramcap);
+
     struct mem_binding * b = get_mem_client();
-    msg_st->err = b->rpc_tx_vtbl.allocate(b, 21, base, base + bytes,
-                                  &msgerr, &mreg->cap);
+    msg_st->err = b->rpc_tx_vtbl.allocate(b, log2ceil(bytes), base, base + bytes,
+                                  &msgerr, &ramcap);
     if (err_is_fail(msg_st->err)) {
         goto send_out;
     }
@@ -950,6 +957,10 @@ static void alloc_mem_call_rx(struct interphi_binding *_binding,
     if (err_is_fail(msg_st->err)) {
         goto send_out;
     }
+
+    slot_alloc(&mreg->cap);
+
+    msg_st->err = cap_retype(mreg->cap, ramcap, 0, ObjType_Frame, bytes, 1);
 
     invoke_frame_identify(mreg->cap, &mreg->id);
 
@@ -1284,7 +1295,6 @@ errval_t interphi_init(struct xeon_phi *phi,
         nodes[2] = 0;
         int32_t dest_nodeid = driverkit_hwmodel_lookup_dram_node_id();
 
-        debug_printf("%s:%d entering frame_alloc\n", __FUNCTION__, __LINE__);
         err =  driverkit_hwmodel_frame_alloc(&mi->frame, XEON_PHI_INTERPHI_FRAME_SIZE,
                                       dest_nodeid, nodes);
 
@@ -1643,7 +1653,9 @@ errval_t interphi_chan_open(struct xnode *node,
         return err;
     }
 
-    err = driverkit_hwmodel_get_map_conf(msgframe, nodeid, NULL, 0,
+    int32_t inodeid_mem = driverkit_hwmodel_lookup_pcibus_node_id();
+
+    err = driverkit_hwmodel_get_map_conf_addr(inodeid_mem, id.base, id.bytes, nodeid, NULL, 0,
                                          &svc_st->args.open.msgbase);
     if (err_is_fail(err)) {
         rpc_done(node->msg);
@@ -1918,7 +1930,10 @@ errval_t interphi_alloc_mem(struct xnode *node,
                 DEBUG_ERR(err, "failed model query");
                 return err;
             }
-            err = sysmem_cap_request(hostbase, bytes, mem);
+            err = sysmem_cap_request(hostbase, log2ceil(bytes), mem);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to get frame");
+            }
             return err;
         }
     }

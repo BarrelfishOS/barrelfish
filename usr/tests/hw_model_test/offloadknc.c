@@ -104,22 +104,26 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
 
     hline
     PRINTF("Co-processor handling msg_open_cb\n");
-    struct dmem dmem;
+
     struct frame_identity id;
     err = invoke_frame_identify(msgframe, &id);
     if (err_is_fail(err)) {
         return err;
     }
 
-    dmem.devaddr = id.base;
-    dmem.mem = msgframe;
-    dmem.size = id.bytes;
-    dmem.vbase = usrdata;
+    PRINTF("Obtained message cap: %lx..%lx\n", id.base, id.base + id.bytes - 1);
 
-    err = vspace_map_one_frame_fixed(dmem.vbase, dmem.size, dmem.mem, NULL, NULL);
+
+    PRINTF("Mapping at address 0x%lx\n", usrdata);
+
+    err = vspace_map_one_frame_fixed(usrdata, id.bytes, msgframe, NULL, NULL);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "faield to map!");
         return err;
     }
+
+
+    PRINTF("Setup successfull %s\n", err_getstring(err));
 
     return SYS_ERR_OK;
 }

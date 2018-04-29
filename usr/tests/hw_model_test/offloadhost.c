@@ -195,7 +195,7 @@ int main(int argc,  char **argv)
     }
 
     /* TODO: allocate vspace in client */
-    uint64_t clientva = (512UL << 30);
+    uint64_t clientva = (20UL * (512UL << 30));
 
     hline
 
@@ -237,7 +237,7 @@ int main(int argc,  char **argv)
     int32_t nodes_offload[] = {
             node_id_offload_core, node_id_dma, 0
     };
-    err = driverkit_hwmodel_frame_alloc(&offloadmem, DATA_SIZE, node_id_ram,
+    err = driverkit_hwmodel_frame_alloc(&offloadmem, DATA_SIZE, node_id_gddr,
                                     nodes_offload);
     #endif
     err = xeon_phi_client_alloc_memory(XEON_PHI_ID, &offloadmem, DATA_SIZE);
@@ -278,9 +278,6 @@ int main(int argc,  char **argv)
     }
 
     hline
-
-
-    skb_execute("decoding_net_listingP");
 
     PRINTF("Adding DMA mem\n");
     err = xeon_phi_client_chan_open(XEON_PHI_ID, domid, clientva, offloadmem, 1);
