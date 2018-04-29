@@ -416,6 +416,9 @@ mapping_confs(SrcReg, DstName, Confs) :-
     SrcReg = region(SrcId, block(SrcBase, SrcLimit)),
     DstName = name(DstId, DstBase),
     configurable(SrcId, Bits, DstId),
+    node_enum(SrcId, SrcEnum),
+    Confs = [c(SrcEnum, SrcBase, DstBase)].
+    /*
     BlockSize is 2^Bits,
     SrcSize is SrcLimit - SrcBase + 1,
     NumBlocksEnd is SrcSize // BlockSize - 1,
@@ -428,7 +431,7 @@ mapping_confs(SrcReg, DstName, Confs) :-
         In is BlockSize * VPN,
         Out is BlockSize * PPN,
         node_enum(SrcId, SrcEnum)
-    ).
+    ). */
 
 write_conf_update(state(M0,_,_), state(M1, _, _)) :-
     subtract(M1, M0, MDelta),
