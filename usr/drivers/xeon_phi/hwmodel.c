@@ -45,15 +45,12 @@
 #define SIZE16G (16ll*1024*1024*1024)
 
 
-errval_t xeon_phi_hw_model_lookup_nodeids(int32_t pci_nodeid,
-        int32_t *knc_socket,
-        int32_t *smpt,
-        int32_t *iommu,
-        int32_t *dma,
-        int32_t *k1om_core
-        )
+errval_t xeon_phi_hw_model_lookup_nodeids(int32_t pci_nodeid, int32_t *knc_socket,
+                                          int32_t *smpt, int32_t *iommu,
+                                          int32_t *dma, int32_t *k1om_core,
+                                          int32_t *gddr_node)
 {
-    static int enums[5];
+    static int enums[6];
     static int skb_read = 0;
     errval_t err;
 
@@ -77,8 +74,8 @@ errval_t xeon_phi_hw_model_lookup_nodeids(int32_t pci_nodeid,
             }
             return err;
         }
-        err = skb_read_output("%d %d %d %d %d",
-                &enums[0], &enums[1], &enums[2], &enums[3], &enums[4]);
+        err = skb_read_output("%d %d %d %d %d %d",
+                &enums[0], &enums[1], &enums[2], &enums[3], &enums[4], &enums[5]);
         if(err_is_fail(err)) return err;
         skb_read = true;
         debug_printf("PHI NodeIds: KNC_SOCKET=%d, SMPT=%d, IOMMU=%d, DMA=%d,"
@@ -91,6 +88,7 @@ errval_t xeon_phi_hw_model_lookup_nodeids(int32_t pci_nodeid,
     if(iommu) *iommu = enums[2];
     if(dma) *dma = enums[3];
     if(k1om_core) *k1om_core = enums[4];
+    if(gddr_node) *gddr_node = enums[5];
 
     return SYS_ERR_OK;
 }
@@ -102,7 +100,7 @@ static errval_t install_config(struct xeon_phi *xphi, char * conf, struct dmem *
 
     // Get configurable nodeids
     int32_t smpt_id, iommu_id;
-    err = xeon_phi_hw_model_lookup_nodeids(xphi->nodeid, NULL, &smpt_id, &iommu_id, NULL, NULL);
+    err = xeon_phi_hw_model_lookup_nodeids(xphi->nodeid, NULL, &smpt_id, &iommu_id, NULL, NULL, NULL);
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "lookup nodeids");
         return err;
@@ -175,7 +173,7 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
 
     char conf[1024];
     int32_t knc_sock_id;
-    err = xeon_phi_hw_model_lookup_nodeids(xphi->nodeid, &knc_sock_id, NULL, NULL, NULL, NULL);
+    err = xeon_phi_hw_model_lookup_nodeids(xphi->nodeid, &knc_sock_id, NULL, NULL, NULL, NULL, NULL);
     if(err_is_fail(err)) {
         DEBUG_ERR(err, "lookup nodeids");
         return err;

@@ -328,7 +328,7 @@ errval_t xdma_service_init(struct xeon_phi *phi)
 #endif
 
     int32_t knc_socket_id;
-    err = xeon_phi_hw_model_lookup_nodeids(phi->nodeid, &knc_socket_id, NULL, NULL, NULL, NULL);
+    err = xeon_phi_hw_model_lookup_nodeids(phi->nodeid, &knc_socket_id, NULL, NULL, NULL, NULL, NULL);
     if(err_is_fail(err)){
         return err;
     }

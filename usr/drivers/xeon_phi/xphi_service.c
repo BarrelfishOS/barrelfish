@@ -575,7 +575,7 @@ static void get_nodeid_call_rx(struct xeon_phi_binding *binding,
 
     int32_t dma, core, knc_socket;
     err = xeon_phi_hw_model_lookup_nodeids(svc_st->phi->nodeid, &knc_socket, NULL, NULL, &dma,
-            &core);
+            &core, NULL);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "lookup nodeids\n");
         msg_st->err = err;

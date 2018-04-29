@@ -23,6 +23,7 @@
 #include <flounder/flounder_txqueue.h>
 
 #include <if/interphi_defs.h>
+#include <if/mem_defs.h>
 
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_domain.h>
@@ -430,7 +431,7 @@ static errval_t alloc_mem_call_tx(struct txq_msg_st *msg_st)
 {
     struct interphi_msg_st *st = (struct interphi_msg_st *) msg_st;
     return interphi_alloc_mem_call__tx(msg_st->queue->binding, TXQCONT(msg_st),
-                                          st->args.alloc.bytes);
+                                       st->args.alloc.base, st->args.alloc.bytes);
 }
 
 static errval_t alloc_mem_response_tx(struct txq_msg_st *msg_st)
@@ -923,9 +924,10 @@ static void chan_open_response_rx(struct interphi_binding *_binding,
 
 
 static void alloc_mem_call_rx(struct interphi_binding *_binding,
-                              uint64_t bytes)
+                              uint64_t base, uint64_t bytes)
 {
     XINTER_DEBUG("alloc_mem_call_rx: %lu\n", bytes);
+    errval_t msgerr;
 
     struct xnode *local_node = _binding->st;
 
@@ -937,7 +939,14 @@ static void alloc_mem_call_rx(struct interphi_binding *_binding,
     struct mem_reg *mreg = calloc(1, sizeof(*mreg));
     assert(mreg);
 
-    msg_st->err = frame_alloc(&mreg->cap, bytes, NULL);
+    struct mem_binding * b = get_mem_client();
+    msg_st->err = b->rpc_tx_vtbl.allocate(b, 21, base, base + bytes,
+                                  &msgerr, &mreg->cap);
+    if (err_is_fail(msg_st->err)) {
+        goto send_out;
+    }
+
+    msg_st->err = msgerr;
     if (err_is_fail(msg_st->err)) {
         goto send_out;
     }
@@ -1234,6 +1243,7 @@ errval_t interphi_init_xphi(uint8_t xphi,
 
 #include <driverkit/hwmodel.h>
 #include <driverkit/iommu.h>
+#include <skb/skb.h>
 
 
 /**
@@ -1264,7 +1274,7 @@ errval_t interphi_init(struct xeon_phi *phi,
         err = frame_alloc(&mi->frame, XEON_PHI_INTERPHI_FRAME_SIZE, &frame_size);
 #else
         int32_t knc_socket_id;
-        err = xeon_phi_hw_model_lookup_nodeids(phi->nodeid, &knc_socket_id, NULL, NULL, NULL, NULL);
+        err = xeon_phi_hw_model_lookup_nodeids(phi->nodeid, &knc_socket_id, NULL, NULL, NULL, NULL, NULL);
         if(err_is_fail(err)){
             return err;
         }
@@ -1626,7 +1636,7 @@ errval_t interphi_chan_open(struct xnode *node,
     #ifndef __k1om__
     int32_t nodeid;
     err = xeon_phi_hw_model_lookup_nodeids(node->local->nodeid, &nodeid,
-                                           NULL, NULL, NULL, NULL);
+                                           NULL, NULL, NULL, NULL, NULL);
     if (err_is_fail(err)) {
         rpc_done(node->msg);
         txq_msg_st_free(msg_st);
@@ -1856,27 +1866,59 @@ errval_t interphi_alloc_mem(struct xnode *node,
 
     XINTER_DEBUG("allocate memory %lu bytes\n", bytes);
 
+    int32_t nodeid, gddr_node;
+    err = xeon_phi_hw_model_lookup_nodeids(node->local->nodeid, &nodeid,
+                                           NULL, NULL, NULL, NULL, &gddr_node);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    int32_t nodes_reachable[] = {
+            nodeid, driverkit_hwmodel_get_my_node_id(), 0
+    };
+
+//    PHI NodeIds: KNC_SOCKET=7, SMPT=8, IOMMU=9, DMA=11, K1OM_CORE=10
+
+
+    genpaddr_t addr;
+    err = driverkit_hwmodel_allocate(bytes, gddr_node, nodes_reachable,
+                                     21, &addr);
+    if (err_is_fail(err)) {
+        skb_execute("listing");
+        DEBUG_ERR(err, "failed model query");
+        return err;
+    }
+
     struct txq_msg_st *msg_st = rpc_preamble(mi);
     if (msg_st == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    msg_st->send = alloc_mem_call_tx;
 
     struct interphi_msg_st *svc_st = (struct interphi_msg_st *) msg_st;
-
+    msg_st->send = alloc_mem_call_tx;
     svc_st->args.alloc.bytes = bytes;
+    svc_st->args.alloc.base = addr;
 
     txq_send(msg_st);
 
     rpc_wait_done(node->msg);
 
+
     if (err_is_ok(node->msg->rpc_err)) {
         if (mem) {
-            XINTER_DEBUG("Obtain cap for 0x%lx of byte %lu\n", node->msg->rpc_data,
-                         node->msg->rpc_data2);
-            err = sysmem_cap_request(node->msg->rpc_data + node->local->apt.pbase,
-                                     log2ceil(node->msg->rpc_data2), mem);
+            XINTER_DEBUG("Obtain cap for 0x%lx of byte %lu\n", addr, bytes);
+
+            genpaddr_t hostbase;
+            nodeid = driverkit_hwmodel_lookup_pcibus_node_id();
+            err = driverkit_hwmodel_get_map_conf_addr(gddr_node, addr, bytes,
+                                                      nodeid, NULL, 0,
+                                                      &hostbase);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed model query");
+                return err;
+            }
+            err = sysmem_cap_request(hostbase, bytes, mem);
             return err;
         }
     }

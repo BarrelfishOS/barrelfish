@@ -244,7 +244,7 @@ errval_t xeon_phi_hw_model_lookup_nodeids(int32_t pci_nodeid,
         int32_t *smpt,
         int32_t *iommu,
         int32_t *dma,
-        int32_t *k1om_core
+        int32_t *k1om_core, int32_t *gddr
         );
 
 /**

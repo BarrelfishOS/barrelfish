@@ -23,6 +23,7 @@
 #include <skb/skb.h>
 #include <if/mem_defs.h>
 #include "debug.h"
+#include "../libc/include/namespace.h"
 
 
 __attribute__((unused))
@@ -56,6 +57,34 @@ void driverkit_parse_namelist(char *in, struct hwmodel_name *names, int *convers
                      "alloc_wrap(S, %zu, %d, %"PRIi32",%s, NewS)," \
                      "state_set(NewS)."
 
+errval_t
+driverkit_hwmodel_allocate(size_t bytes, int32_t dstnode, int32_t * nodes,
+                           uint8_t alloc_bits, genpaddr_t *retaddr) {
+    errval_t err;
+
+    char nodes_str[128];
+    format_nodelist(nodes, nodes_str);
+    HWMODEL_QUERY_DEBUG(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
+    err = skb_execute_query(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "failed to query\n");
+        return err;
+    }
+
+    struct hwmodel_name names[1];
+    int num_conversions = 0;
+    driverkit_parse_namelist(skb_get_output(), names, &num_conversions);
+    assert(num_conversions == 1);
+
+
+    if (retaddr) {
+        *retaddr = names[0].address;
+    }
+
+    return SYS_ERR_OK;
+
+}
+
 errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
                                      size_t bytes, int32_t dstnode,
                                      int32_t *nodes)
@@ -77,27 +106,13 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
     }
     return ram_alloc(dst, bits);
 #else
-    errval_t err, msgerr;
-    char nodes_str[128];
-    format_nodelist(nodes, nodes_str);
-
-
-    int alloc_bits = 21;
-    HWMODEL_QUERY_DEBUG(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
-    err = skb_execute_query(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
-
-    DEBUG_SKB_ERR(err, "alloc_wrap");
-    if(err_is_fail(err)){
-        DEBUG_SKB_ERR(err, "alloc_wrap");
-
-        HWMODEL_QUERY_DEBUG(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
-        err = skb_execute_query(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
-        if (err_is_fail(err)) {
-            DEBUG_SKB_ERR(err, "alloc_wrap");
-            return err;
-        }
+    errval_t err;
+    errval_t msgerr;
+    genpaddr_t addr;
+    err = driverkit_hwmodel_allocate(bytes, dstnode, nodes, bits, &addr);
+    if(err_is_fail(err)) {
+        return err;
     }
-
 
     // Alloc cap slot
     err = slot_alloc(dst);
@@ -105,16 +120,12 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    struct hwmodel_name names[16];
-    int num_conversions = 0;
-    driverkit_parse_namelist(skb_get_output(), names, &num_conversions);
-    assert(num_conversions > 0);
 
     struct mem_binding * b = get_mem_client();
     debug_printf("Determined addr=0x%"PRIx64" as address for (nodeid=%d, size=%zu) request\n",
-            names[0].address, dstnode, bytes);
+            addr, dstnode, bytes);
 
-    err = b->rpc_tx_vtbl.allocate(b, bits, names[0].address, names[0].address + bytes,
+    err = b->rpc_tx_vtbl.allocate(b, bits, addr, addr + bytes,
             &msgerr, dst);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "allocate RPC");
@@ -176,6 +187,7 @@ errval_t driverkit_hwmodel_frame_alloc(struct capref *dst,
     return SYS_ERR_OK;
 #endif
 }
+
 
 
 
@@ -435,29 +447,17 @@ errval_t driverkit_hwmodel_reverse_resolve(struct capref dst, int32_t nodeid,
                     "map_wrap(S, %zu, 21, %"PRIi32", %"PRIu64", %s, NewS)," \
                     "state_set(NewS)."
 
-
-/**
- * Makes dst visible to nodeid, assuming the configuration returned 
- * in ret_conf will be installed.
- */
-errval_t driverkit_hwmodel_get_map_conf(struct capref dst,
-                                       int32_t nodeid,
-                                       char *ret_conf, size_t ret_conf_size,
-                                       genpaddr_t *ret_addr)
+errval_t driverkit_hwmodel_get_map_conf_addr(int32_t mem_nodeid, genpaddr_t addr,
+                                             gensize_t size, int32_t nodeid,
+                                             char *ret_conf, size_t ret_conf_size,
+                                             genpaddr_t *ret_addr)
 {
-    struct frame_identity id;
     errval_t err;
-    err = invoke_frame_identify(dst, &id);
-    if (err_is_fail(err)) {
-        return err;
-    }
-    uint64_t addr = id.base;
-    size_t size = id.bytes;
 
     debug_printf("%s:%d: alias_conf request addr=0x%"PRIx64", size=%"PRIuGENSIZE"\n",
-            __FUNCTION__, __LINE__, id.base, size);
+                 __FUNCTION__, __LINE__, addr, size);
 
-    int32_t mem_nodeid = driverkit_hwmodel_lookup_pcibus_node_id();
+
 
     int32_t src_nodeid[2];
     char src_nodeid_str[128];
@@ -495,4 +495,27 @@ errval_t driverkit_hwmodel_get_map_conf(struct capref dst,
     if(ret_addr) *ret_addr = names[1].address;
 
     return SYS_ERR_OK;
+}
+
+/**
+ * Makes dst visible to nodeid, assuming the configuration returned 
+ * in ret_conf will be installed.
+ */
+errval_t driverkit_hwmodel_get_map_conf(struct capref dst,
+                                       int32_t nodeid,
+                                       char *ret_conf, size_t ret_conf_size,
+                                       genpaddr_t *ret_addr)
+{
+    struct frame_identity id;
+    errval_t err;
+    err = invoke_frame_identify(dst, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    int32_t mem_nodeid = driverkit_hwmodel_lookup_pcibus_node_id();
+
+    return driverkit_hwmodel_get_map_conf_addr(mem_nodeid, id.base, id.bytes,
+                                               nodeid, ret_conf, ret_conf_size, ret_addr);
+
 }
