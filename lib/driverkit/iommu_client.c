@@ -169,63 +169,8 @@ static lvaddr_t vregion_map_base = MAPPING_REGION_START;
 /*
  * returns a region of memory
  */
-static errval_t iommu_alloc_vregion(struct iommu_client *st,
-                                    struct capref mem,
-                                    lvaddr_t *driver,
-                                    dmem_daddr_t *device)
-{
-    errval_t err;
-    struct frame_identity id;
-    err = invoke_frame_identify(mem, &id);
-    if (err_is_fail(err)) {
-        return err;
-    }
 
-#ifdef DISABLE_MODEL
-    if(st == NULL || !st->enabled){
-        *device = id.base;   
-        *driver = vregion_map_base;
-        vregion_map_base += id.bytes;
-        return SYS_ERR_OK;
-    } else {
-        *device = vregion_map_base;
-        *driver = vregion_map_base;
-        vregion_map_base += id.bytes;
-        return SYS_ERR_OK;
-    }
-#else
-    assert(id.bytes >= LARGE_PAGE_SIZE);
-    if(st == NULL){
-        *device = id.base;   
-        *driver = 0;
-        return SYS_ERR_OK;
-    }
-
-
-    DRIVERKIT_DEBUG("[iommu client] allocate driver vspace\n");
-
-
-    // Alloc space in my vspace
-    int32_t my_nodeid = driverkit_hwmodel_get_my_node_id();
-    err = driverkit_hwmodel_vspace_alloc(mem, my_nodeid, driver);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "vspace_map local");
-        return err;
-    }
-
-    DRIVERKIT_DEBUG("[iommu client] allocate device vspace\n");
-
-    // Map into dev vspace
-    int32_t device_nodeid = driverkit_iommu_get_nodeid(st);
-    err = driverkit_hwmodel_vspace_alloc(mem, device_nodeid, device);
-    if(err_is_fail(err)) {
-        DEBUG_ERR(err, "vspace_map device");
-        return err;
-    }
-    return SYS_ERR_OK;
-#endif
-}
-
+#if 0
 static errval_t iommu_free_vregion(struct iommu_client *st,
                                    lvaddr_t driver,
                                    dmem_daddr_t device)
@@ -253,6 +198,7 @@ static errval_t iommu_free_vregion(struct iommu_client *st,
 
     return SYS_ERR_OK;
 }
+#endif
 
 static errval_t iommu_free_ram(struct capref ram)
 {
@@ -1089,6 +1035,8 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
                                        struct dmem *dmem) {
     errval_t err;
 
+    char conf_buf[512];
+
     struct frame_identity id;
     err = invoke_frame_identify(frame, &id);
     if (err_is_fail(err)) {
@@ -1097,20 +1045,52 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
 
     assert(id.bytes >= LARGE_PAGE_SIZE);
 
-    dmem->vbase = 0;
-    dmem->devaddr = 0;
-    dmem->mem = frame;
-    dmem->size = id.bytes;
 
-    err = iommu_alloc_vregion(cl, frame, &dmem->vbase, &dmem->devaddr);
+
+    DRIVERKIT_DEBUG("[iommu client] allocate driver vspace\n");
+
+    int32_t my_nodeid = driverkit_hwmodel_get_my_node_id();
+    err = driverkit_hwmodel_vspace_map(my_nodeid, frame, flags, dmem);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "failed");
+        return err;
+    }
+    // Alloc space in my vspace
+
+
+    debug_printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
+
+
+    DRIVERKIT_DEBUG("[iommu client] allocate device vspace\n");
+
+    // Map into dev vspace
+    int32_t device_nodeid = driverkit_iommu_get_nodeid(cl);
+    err = driverkit_hwmodel_get_map_conf(frame, device_nodeid, conf_buf,
+                                         sizeof(conf_buf), &dmem->devaddr);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map local");
         return err;
     }
 
-    err = driverkit_iommu_vspace_map_fixed_cl(cl, frame, flags, dmem);
-    if (err_is_fail(err)) {
-        iommu_free_vregion(cl, dmem->vbase, dmem->devaddr);
+    uint64_t inaddr, outaddr;
+    int32_t nodeid;
+    struct list_parser_status status;
+    skb_read_list_init_offset(&status, conf_buf, 0);
+    while(skb_read_list(&status, "c(%"SCNi32", %"SCNu64", %"SCNu64")",
+                        &nodeid, &inaddr, &outaddr)) {
+        debug_printf("%s:%u %i, %i, inaddr=%lx, vbase=%lx\n", __FUNCTION__, __LINE__,
+                     nodeid, nodeid, inaddr, dmem->devaddr);
+        err = driverkit_iommu_vspace_map_fixed_cl(cl, frame, flags, dmem);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed/ todo: cleanup");
+        //    iommu_free_vregion(cl, dmem->vbase, dmem->devaddr);
+            return err;
+        }
     }
+
+    debug_printf("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE\n");
+
+
     return err;
 }
 
@@ -1138,6 +1118,7 @@ errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl,
     debug_printf("%s:%u Allocated VREGIONs 0x%" PRIxLVADDR " 0x%" PRIxLVADDR "\n",
                     __FUNCTION__, __LINE__, dmem->vbase, dmem->devaddr);
 
+
     /*
      * if driver vbase is null, then we map it at any address in the driver's
      * vspace. Only if the policy is not shared, then we have to map it.
@@ -1152,6 +1133,13 @@ errval_t driverkit_iommu_vspace_map_fixed_cl(struct iommu_client *cl,
                             dmem->vbase, dmem->size >> 20);
             err = vspace_map_one_frame_fixed_attr(dmem->vbase, dmem->size,
                                                   dmem->mem, flags, NULL, NULL);
+            if (err_is_fail(err)) {
+                DEBUG_ERR(err, "failed to map the frame");
+                if (err_no(err) == LIB_ERR_VREGION_MAP) {
+                    err = SYS_ERR_OK;
+                }
+
+            }
         }
         DRIVERKIT_DEBUG("%s:%u mapping in driver at 0x%" PRIxLVADDR "\n",
                      __FUNCTION__, __LINE__, dmem->vbase);

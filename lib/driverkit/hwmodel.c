@@ -90,8 +90,6 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
     if(err_is_fail(err)){
         DEBUG_SKB_ERR(err, "alloc_wrap");
 
-        skb_execute("decoding_net_listing");
-
         HWMODEL_QUERY_DEBUG(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
         err = skb_execute_query(ALLOC_WRAP_Q, bytes, alloc_bits, dstnode, nodes_str);
         if (err_is_fail(err)) {
@@ -180,6 +178,7 @@ errval_t driverkit_hwmodel_frame_alloc(struct capref *dst,
 }
 
 
+
 /**
  * fills in dmem->vbase + maps frame
  */
@@ -199,28 +198,48 @@ errval_t driverkit_hwmodel_vspace_map(int32_t nodeid, struct capref frame,
     return vspace_map_one_frame_attr((void **)&dmem->vbase, id.bytes, frame,
             flags, NULL, NULL);
 #else
-    genpaddr_t addr;
+    char conf_buf[512];
 
-    // Alloc vspace
-    err = driverkit_hwmodel_vspace_alloc(frame, nodeid,  &addr);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "vspace_alloc");
+    dmem->mem = frame;
+    dmem->size = id.bytes;
+    dmem->devaddr = id.base;
+
+    // Alloc space in my vspace
+    assert(nodeid == driverkit_hwmodel_get_my_node_id());
+    err = driverkit_hwmodel_get_map_conf(frame, nodeid, conf_buf, sizeof(conf_buf),
+                                         &dmem->vbase);
+    if(err_is_fail(err)) {
+        DEBUG_ERR(err, "vspace_map local");
         return err;
     }
 
-    dmem->devaddr = id.base;
-    dmem->size = id.bytes;
+    uint64_t inaddr, outaddr;
+    int32_t conf_nodeid;
+    struct list_parser_status status;
+    skb_read_list_init_offset(&status, conf_buf, 0);
+    while(skb_read_list(&status, "c(%"SCNi32", %"SCNu64", %"SCNu64")",
+                        &conf_nodeid, &inaddr, &outaddr)) {
+        debug_printf("%s:%u %i, %i, inaddr=%lx, vbase=%lx\n", __FUNCTION__, __LINE__,
+                      nodeid, conf_nodeid, inaddr, dmem->vbase);
 
-    return driverkit_hwmodel_vspace_map_fixed(nodeid, addr, frame, flags, dmem);
+        err = driverkit_hwmodel_vspace_map_fixed(nodeid, dmem->vbase, frame,
+                                                  flags, dmem);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "TODO CLEANUP!");
+            return err;
+        }
+    }
+
+    return SYS_ERR_OK;
 #endif
 
 }
 
 errval_t driverkit_hwmodel_vspace_map_fixed(int32_t nodeid,
-                                                          genvaddr_t addr,
-                                                          struct capref frame,
-                                                          vregion_flags_t flags,
-                                                          struct dmem *dmem)
+                                            genvaddr_t addr,
+                                            struct capref frame,
+                                            vregion_flags_t flags,
+                                            struct dmem *dmem)
 {
     errval_t err;
 
@@ -366,7 +385,7 @@ int32_t driverkit_hwmodel_lookup_node_id(const char *path)
 // Without reconfiguration, under what ret_addr can you reach dst
 // from nodeid?
 errval_t driverkit_hwmodel_reverse_resolve(struct capref dst, int32_t nodeid,
-                                     genpaddr_t *ret_addr)
+                                           genpaddr_t *ret_addr)
 {
 
     errval_t err;
@@ -412,20 +431,19 @@ errval_t driverkit_hwmodel_reverse_resolve(struct capref dst, int32_t nodeid,
 }
 
 
-#define ALIAS_CONF_Q "state_get(S)," \
-                     "alias_conf_wrap(S, "  \
-                     "%"PRIi32", %"PRIu64", %zu," \
-                     "%"PRIi32", NewS)," \
-                     "state_set(NewS)."
+#define MAP_WRAP_Q  "state_get(S)," \
+                    "map_wrap(S, %zu, 21, %"PRIi32", %"PRIu64", %s, NewS)," \
+                    "state_set(NewS)."
+
 
 /**
  * Makes dst visible to nodeid, assuming the configuration returned 
  * in ret_conf will be installed.
  */
-errval_t driverkit_hwmodel_alias_conf(struct capref dst,
-                                     int32_t nodeid,
-                                     char *ret_conf, size_t ret_conf_size,
-                                     genpaddr_t *ret_addr)
+errval_t driverkit_hwmodel_get_map_conf(struct capref dst,
+                                       int32_t nodeid,
+                                       char *ret_conf, size_t ret_conf_size,
+                                       genpaddr_t *ret_addr)
 {
     struct frame_identity id;
     errval_t err;
@@ -441,9 +459,15 @@ errval_t driverkit_hwmodel_alias_conf(struct capref dst,
 
     int32_t mem_nodeid = driverkit_hwmodel_lookup_pcibus_node_id();
 
+    int32_t src_nodeid[2];
+    char src_nodeid_str[128];
+    src_nodeid[0] = nodeid;
+    src_nodeid[1] = 0;
+    format_nodelist(src_nodeid, src_nodeid_str);
+
     for(int tries=0; tries<3; tries++){
-        HWMODEL_QUERY_DEBUG(ALIAS_CONF_Q, mem_nodeid, addr, size, nodeid);
-        err = skb_execute_query(ALIAS_CONF_Q, mem_nodeid, addr, size, nodeid);
+        HWMODEL_QUERY_DEBUG(MAP_WRAP_Q, size, mem_nodeid, addr, src_nodeid_str);
+        err = skb_execute_query(MAP_WRAP_Q, size, mem_nodeid, addr, src_nodeid_str);
         if(err_is_ok(err)) break;
     }
     if (err_is_fail(err)) {
@@ -458,14 +482,17 @@ errval_t driverkit_hwmodel_alias_conf(struct capref dst,
         strncpy(ret_conf, confline + 1, ret_conf_size);
     }
 
+    debug_printf("retbuf=%p, %s\n", ret_conf, confline);
+
     // Parse names
     *confline = 0;
-    struct hwmodel_name names[1];
+    struct hwmodel_name names[2];
     int conversions;
     driverkit_parse_namelist(skb_get_output(), names, &conversions);
     debug_printf("Conversions = %d\n", conversions);
-    assert(conversions == 1);
 
-    if(ret_addr) *ret_addr = names[0].address;
+
+    if(ret_addr) *ret_addr = names[1].address;
+
     return SYS_ERR_OK;
 }
