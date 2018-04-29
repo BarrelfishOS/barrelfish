@@ -285,8 +285,8 @@ errval_t ioat_dma_channel_init(struct ioat_dma_device *dev,
 
     debug_printf(" %x channel error ERROR: %08x\n", dma_chan->id,
                        ioat_dma_chan_err_rd(&chan->channel));
-    static char buf[512];
-    ioat_dma_chan_err_pr(buf, 512, &chan->channel);
+    static char buf[1024];
+    ioat_dma_chan_err_pr(buf, 1024, &chan->channel);
     printf("Channel Error::\n%s\n",buf);
     dma_ring_free(chan->ring);
     free(chan);
