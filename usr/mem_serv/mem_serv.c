@@ -483,7 +483,7 @@ initialize_ram_alloc(void)
             if ( bi->regions[i].mr_base >= (4UL << 30)) {
                 //// XXX HACK for OSDI PAPER!!! BAD!
                 debug_printf("//// XXX HACK for OSDI PAPER!!! Use mem cap for model allocs [%lx..%lx]\n",
-                             bi->regions[i].mr_base, model_mem_base + bi->regions[i].mr_bytes - 1);
+                             bi->regions[i].mr_base, bi->regions[i].mr_base + bi->regions[i].mr_bytes - 1);
                 dump_ram_region(i, bi->regions + i);
 
                 model_mem_cap = mem_cap;
