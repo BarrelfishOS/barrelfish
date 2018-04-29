@@ -262,7 +262,7 @@ add_process(S, Enum, NewS) :-
     OutId = ["OUT", "PROC0" | Id],
     node_enum_alias(OutId, Enum),
 
-    DRAM_ID = ["DRAM"],
+    PCIBUS_ID = ["PCIBUS"],
     add_PROC_MMU(S, Id, S1),
 
     % Mark MMU block remappable
@@ -273,7 +273,7 @@ add_process(S, Enum, NewS) :-
     assert_conf_node(S1, MMU_IN_ID, MMU_OUT_ID, 21, NumSlots, S2),
 
     OUT_ID = ["OUT" | Id],
-    assert_overlay(OUT_ID, DRAM_ID),
+    assert_overlay(OUT_ID, PCIBUS_ID),
 
     % Reserve memory for the process, the OUT/PROC0 node is the one where
     % initially the process (virtual) addresses are issued.
