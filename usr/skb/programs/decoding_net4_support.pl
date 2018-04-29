@@ -306,7 +306,7 @@ remove_pci(S, Addr, NewS) :-
 
 :- export add_xeon_phi/4.
 add_xeon_phi(S, Addr, Enum, NewS) :-
-    add_pci_internal(S, Addr, Enum, add_XEONPHI, add_XEONPHI_IOMMU, NewS),
+    add_pci_internal(S, Addr, Enum, add_XEONPHI, add_XEONPHI_IOMMU, S1),
     %Ok, now we need to fixup the accepting bars installed by PCI.
     BAR0_ID = [0, "BAR", Enum],
     retract_accept(region(BAR0_ID, _)),
@@ -318,7 +318,15 @@ add_xeon_phi(S, Addr, Enum, NewS) :-
     node_enum(["SMPT_IN", "PCI0", Enum], _),
     node_enum(["IN", "IOMMU0", Enum], _),
     node_enum(["K1OM_CORE", "PCI0", Enum], _),
-    node_enum(["DMA", "PCI0", Enum], _).
+    node_enum(["DMA", "PCI0", Enum], _),
+
+
+    % Reserve memory for the process, the OUT/PROC0 node is the one where
+    % initially the process (virtual) addresses are issued.
+    Limit is (4 * 1024 * 1024 * 1024) - 1,
+    Size is Limit + 1,
+    %state_add_in_use(S3, region(OutId, block(0,Limit)), NewS),
+    alloc(S1, Size, region(GDDR_ID, block(0, Limit)), NewS).
 
 
 :- export add_pci/4.
@@ -334,14 +342,15 @@ replace_with_xeon_phi(S, OldEnum, NewEnum, NewS) :-
 
 % Given the Pci enum of the xeon phi (as returned by the driverkit lib),
 % return some other node enums.
-:- export xeon_phi_meta/7.
-xeon_phi_meta(_, PCI_E, KNC_SOCKET_E, SMPT_IN_E, IOMMU_IN_E, DMA_E, K1OM_CORE_E) :-
+:- export xeon_phi_meta/8.
+xeon_phi_meta(_, PCI_E, KNC_SOCKET_E, SMPT_IN_E, IOMMU_IN_E, DMA_E, K1OM_CORE_E, GDDR_E) :-
     node_enum_exists([_ | Rm], PCI_E),
     node_enum_exists(["KNC_SOCKET" | Rm], KNC_SOCKET_E),
     node_enum_exists(["SMPT_IN" | Rm], SMPT_IN_E),
     node_enum_exists(["IN", "IOMMU0", PCI_E], IOMMU_IN_E),
     node_enum_exists(["DMA" | Rm], DMA_E),
-    node_enum_exists(["K1OM_CORE" | Rm], K1OM_CORE_E).
+    node_enum_exists(["K1OM_CORE" | Rm], K1OM_CORE_E),
+    node_enum_exists(["GDDR" | Rm], GDDR_E).
 
 
 % Helper to instantiate a PCI card. If no IOMMU is present it will
@@ -509,8 +518,8 @@ alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
 
 :- export xeon_phi_meta_wrap/2.
 xeon_phi_meta_wrap(S, PCI_E) :-
-    xeon_phi_meta(S, PCI_E, E1, E2, E3, E4, E5),
-    printf("%p %p %p %p %p\n", [E1, E2, E3, E4, E5]).
+    xeon_phi_meta(S, PCI_E, E1, E2, E3, E4, E5, E6),
+    printf("%p %p %p %p %p %p\n", [E1, E2, E3, E4, E5, E6]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%% Debug
