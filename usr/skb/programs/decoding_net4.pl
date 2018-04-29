@@ -81,6 +81,7 @@ state_remove_avail(state(M, F, A), NodeId, C, state(M, F, A1)) :-
  * ---------------------------------------------------------------------------
  */
 state_decrement_avail(S, NodeId, Amount, NewS) :-
+    state_has_avail(S, NodeId, C),
     state_remove_avail(S, NodeId, C, S1),
     CNew is C - Amount,
     CNew #>= 0,
