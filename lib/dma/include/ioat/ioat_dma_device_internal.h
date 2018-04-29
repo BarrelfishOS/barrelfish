@@ -28,7 +28,7 @@
  * this is where the DMA channel will write the address of the last completed
  * descriptor (a copy of CHANSTS register)
  */
-#define IOAT_DMA_COMPLSTATUS_SIZE           BASE_PAGE_SIZE
+#define IOAT_DMA_COMPLSTATUS_SIZE           LARGE_PAGE_SIZE
 #define IOAT_DMA_COMPLSTATUS_ELEMENT_SIZE   64
 #define IOAT_DMA_COMPLSTATUS_FLAGS          VREGION_FLAGS_READ_WRITE
 
