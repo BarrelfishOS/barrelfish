@@ -385,17 +385,20 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
     assert_overlay(PCIOUT_ID, PCIBUS_ID),
 
     % Now insert the BAR into the PCI bus address space
-    findall((Addr, BarNum, BarStart, BarSize),
-            call(bar(Addr, BarNum, BarStart, BarSize, mem, _, _))@eclipse,
+    findall((Addr, BarNum, BarStart, BarEnd),
+                %currentbar(addr(7, 18, 5), 0, 15033349584, 15033349588, 4).
+            (call(currentbar(Addr, BarNum, BarStartPage, BarEndPage, _))@eclipse,
+            BarStart is BarStartPage * 4096,
+            BarEnd is BarEndPage * 4096),
             Bars),
-    (foreach((_, BarNum, BarStart, BarSize), Bars),
+    (foreach((_, BarNum, BarStart, BarEnd), Bars),
      param(Id), param(PCIBUS_ID),
      fromto(S5, SIn, SOut, NewS) do
         BarId = [BarNum, "BAR" | Id],
         InStart is BarStart,
-        InEnd is BarStart + BarSize - 1,
+        InEnd is BarEnd - 1,
         AcceptStart is 0,
-        AcceptEnd is BarSize - 1,
+        AcceptEnd is (BarStart - BarEnd)  - 1,
         assert_accept(region(BarId, block(AcceptStart, AcceptEnd))),
         state_add_free(SIn, BarId, block(AcceptStart, AcceptEnd), SOut),
         assert_translate(region(PCIBUS_ID, block(InStart,InEnd)),
@@ -422,9 +425,9 @@ write_regions(Regs) :-
 
 
 mapping_confs(SrcReg, DstName, Confs) :-
-    SrcReg = region(SrcId, block(SrcBase, SrcLimit)),
+    SrcReg = region(SrcId, block(SrcBase, _)),
     DstName = name(DstId, DstBase),
-    configurable(SrcId, Bits, DstId),
+    configurable(SrcId, _, DstId),
     node_enum(SrcId, SrcEnum),
     Confs = [c(SrcEnum, SrcBase, DstBase)].
     /*
