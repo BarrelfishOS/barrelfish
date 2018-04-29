@@ -103,7 +103,7 @@ errval_t ioat_device_poll(void)
 #include <skb/skb.h>
 #include <bench/bench.h>
 
-#define BUFFER_SIZE (4UL<<30)
+#define BUFFER_SIZE (1UL << 20)
 #if OSDI18_RUN_BENCHMARK
 
 static void cpumemcpy(genvaddr_t to, genvaddr_t from, size_t bytes)
@@ -148,7 +148,10 @@ static void dmamemcpy(genvaddr_t to, genvaddr_t from, size_t bytes)
 
     dma_req_id_t rid;
     err = ioat_dma_request_memcpy(dma_dev, &setup, &rid);
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "failed to setup transfer\n");
+    }
+
     while(!done) {
         while(done == 0) {
             err = ioat_dma_device_poll_channels(dma_dev);
@@ -188,9 +191,9 @@ static void osdi18_benchmark(struct ioat_dma_device *dev, struct iommu_client *c
         USER_PANIC_ERR(err, "failed to get memory");
     }
 
+    cpumemcpy(mem.vbase, mem.vbase + BUFFER_SIZE, BUFFER_SIZE);
 
     dmamemcpy(mem.devaddr, mem.devaddr + BUFFER_SIZE, BUFFER_SIZE);
-    cpumemcpy(mem.vbase, mem.vbase + BUFFER_SIZE, BUFFER_SIZE);
 
 }
 #endif
@@ -339,10 +342,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     err = ioat_dma_device_init(regs, cl, &devices[device_count]);
     if (err_is_fail(err)) {
 
-        skb_execute("listing");
-        while(1)
-            ;
-
         DEV_ERR("Could not initialize the device: %s\n", err_getstring(err));
         return SYS_ERR_OK;
     }
@@ -363,10 +362,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     // 3. Set iref of your exported service (this is reported back to Kaluga)
     *dev = 0x00;
 
-
-
-    while (1)
-        ;
 
     return SYS_ERR_OK;
 }
