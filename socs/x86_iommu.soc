@@ -82,19 +82,19 @@ module XEONPHI {
     output memory (0 bits 40) OUT           // Addresses issued by device
 
     memory (0 bits 40) GDDR
-    GDDR accepts [(0x000000000 to 0x17fffffff)]
+    GDDR accepts [(0x000000000 to 0x1ffffffff)]
 
     memory (0 bits 40) SMPT_IN
     SMPT_IN blockoverlays OUT bits(34) // SMPT remaps in 16GB blocks
 
     memory (0 bits 16) MMIO
-    MMIO accepts [(*)]
+    MMIO accepts [(0x0 to 0xfffff)]
 
     memory (0 bits 40) KNC_SOCKET
     KNC_SOCKET maps [
         (0x0000000000 to 0x17fffffff) to GDDR at (0x000000000 to 0x17fffffff);
         (0x8000000000 to 0xffffffffff) to SMPT_IN at (0x0 to 0x7fffffffff); // 512GB
-        (0x08007D0000 to 0x08007effff) to MMIO at (*)
+        (0x08007D0000 to 0x08007effff) to MMIO at (0x0 to 0xfffff)
     ]
 
     memory (0 bits 40) LAPIC
