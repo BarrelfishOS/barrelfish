@@ -437,7 +437,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
 write_regions(Regs) :-
     (foreach(Reg, Regs), foreach(Term, Terms) do
        Reg = region(NId, block(B, _)),
-       node_enum_exists(NId, Enum), 
+       node_enum_exists(NId, Enum),
        Term = name(B, Enum)
     ),
     writeln(Terms).
@@ -447,7 +447,7 @@ mapping_confs(SrcReg, DstName, Confs) :-
     SrcReg = region(SrcId, block(SrcBase, _)),
     DstName = name(DstId, DstBase),
     configurable(SrcId, _, DstId),
-    node_enum_exists(SrcId, SrcEnum),
+    node_enum(SrcId, SrcEnum),
     Confs = [c(SrcEnum, SrcBase, DstBase)].
     /*
     BlockSize is 2^Bits,
@@ -521,22 +521,6 @@ reverse_resolve_wrap(S0, DstEnum, DstAddr, _, SrcEnum)  :-
     writeln([name(SrcAddr, SrcEnum)]).
 
 
-:- export alias_conf_wrap/6.
-alias_conf_wrap(S0, SrcEnum, SrcAddr, Size, DstEnum, NewS)  :-
-    % Build src region
-    node_enum_exists(SrcId, SrcEnum),
-    SrcLimit is SrcAddr + Size - 1,
-    SrcRegion = region(SrcId, block(SrcAddr, SrcLimit)),
-
-    node_enum_exists(DstId, DstEnum),
-    DstRegion = region(DstId, _),
-    alias_conf(S0, SrcRegion, DstRegion, Confs),
-    state_add_confs(S0, Confs, S1),
-
-    state_add_in_use(S1, DstRegion, NewS),
-
-    write_regions([DstRegion]),
-    write_confs(NewS, Confs).
 
 :- export xeon_phi_meta_wrap/2.
 xeon_phi_meta_wrap(S, PCI_E) :-
