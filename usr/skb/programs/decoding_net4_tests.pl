@@ -324,9 +324,6 @@ bench_init(E1, E2, NewS) :-
     add_pci(S1, addr(0,0,1), E2, NewS).
 
 % Benchmark allocation time with increasing number of nodes.
-% bench_allocations :-
-
-% Benchmark allocation time with increasing number of nodes.
 bench_nodes_one(NumPci) :-
     bench_init(E1,E2, S0),
     (fromto(S0, SIn, SOut, S1), for(I,2,NumPci) do 
@@ -348,10 +345,43 @@ bench_nodes_one(NumPci) :-
     printf("%p %p\n", [NumPci, Diff]).
 
 bench_nodes(MaxNumPci) :-
-    writeln("==== BENCH START ===="),
+    writeln("===== NODES ALLOC BENCH START ====="),
     (for(I,2,MaxNumPci) do 
         bench_nodes_one(I), !
     ).
+
+% Increasing number of allocations on a real system
+bench_real_ram_alloc(NumAllocs) :-
+    node_enum(addr(_,_,_), E1),
+    node_enum(N1, E1),
+    not(N1 = addr(_,_,_)),
+
+    node_enum(addr(_,_,_), E1),
+    node_enum(N2, E2),
+    not(N2 = addr(_,_,_)),
+    not(N2 = N1),
+
+    Dest = ["DRAM"],
+
+    printf("Determined Dest=%p Src=%p,%p for ram alloc bench\n",
+        [Dest, N1, N2]),
+    writeln("===== REAL RAM ALLOC BENCH START ====="),
+    (for(I,0,NumAllocs), param(Dest), param(N1), param(N2) do 
+        Size2M is 2097152,
+        DestReg = region(Dest, _),
+        N1Reg = region(N1, _),
+        N2Reg = region(N2, _),
+
+        state_get(S),
+        statistics(hr_time, Start),
+        alloc(S, Size2M, DestReg, N1, N2, NewS),
+        statistics(hr_time, Stop),
+        state_set(NewS),
+        Diff is Stop - Start,
+        %printf("Allocated %p\n", [DestReg]),
+        printf("%p %p\n", [I, Diff])
+    ).
+
 
 % RUN ALL SYNTHETIC BENCHMARKS. Resets state, breaks BF if run on real system.
 bench_synth :-
@@ -359,6 +389,6 @@ bench_synth :-
 
 % RUN ALL REAL BENCHMARS: Expects KNC system has been instantiated
 % does not reset state.
-bench_real :- true.
-    % bench_allocations_knc.
+bench_real :- 
+    bench_real_ram_alloc(1000).
 

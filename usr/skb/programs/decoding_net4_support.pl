@@ -257,9 +257,9 @@ init(NewS) :-
     initial_dram_block(Block),
     assert_accept(region(["DRAM"], Block)),
     state_add_free(S2, ["DRAM"], [Block], NewS),
-    node_enum(DRAM_ID, DRAM_ENUM),
-    printf("Decoding net initialized using %p as DRAM. DRAM nodeid: %p\n",
-        [Block, DRAM_ENUM]).
+    node_enum(DRAM_ID, DRAM_ENUM).
+    %printf("Decoding net initialized using %p as DRAM. DRAM nodeid: %p\n",
+    %    [Block, DRAM_ENUM]).
 
 
 
@@ -426,6 +426,12 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
     % Set it to the node id where addresses are issued from the PCI device.
 
 
+% This will allocate SrcEnum and install an overlay to dstBase
+add_vm_overlay(S, SrcEnum, SrcBase, SrcLimit, DstBase, DstLimit, NewS) :-
+    unused_node_enum(Enum),
+    node_enum_alias(Addr, Enum),
+    OutNodeId = ["OUT", "PCI0", Enum],
+    node_enum_alias(OutNodeId, Enum).
 
 
 
