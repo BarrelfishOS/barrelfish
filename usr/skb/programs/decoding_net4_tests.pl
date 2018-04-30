@@ -12,7 +12,8 @@ reset_static_state :-
     retract_translate(_,_),
     retract_accept(_),
     retract_overlay(_,_),
-    retract_configurable(_,_,_).
+    retract_configurable(_,_,_),
+    init_state.
 
 test_translate_region1 :-
     reset_static_state,
@@ -232,7 +233,7 @@ test_map4 :-
     findall((A,B,C), flat(A,B,C), Li),
 	map(S2, SrcRegion, DstRegion, S3),
 	printf("Src=%p --> Dst=%p with NewS=%p\n", [SrcRegion, DstRegion, S3]),
-    write_conf_update(S2, S3).
+    write_conf_update(S2,S3).
 
 test_map_wrap :-
     reset_static_state,

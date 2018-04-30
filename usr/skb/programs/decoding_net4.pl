@@ -60,6 +60,7 @@ state_remove([], _, []).
 state_remove([Fact|Tail], Fact, Out) :-
     state_remove(Tail, Fact, Out).
 state_remove([Head|Tail], Fact, [Head | SubOut]) :-
+    not(Head = Fact),
     state_remove(Tail, Fact, SubOut).
 
 :- export state_remove_mapping/4.
