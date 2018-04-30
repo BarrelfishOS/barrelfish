@@ -419,7 +419,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
         AcceptStart is 0,
         AcceptEnd is (BarEnd - BarStart)  - 1,
         assert_accept(region(BarId, block(AcceptStart, AcceptEnd))),
-        state_add_free(SIn, BarId, block(AcceptStart, AcceptEnd), SOut),
+        state_add_free(SIn, BarId, [block(AcceptStart, AcceptEnd)], SOut),
         assert_translate(region(PCIBUS_ID, block(InStart,InEnd)),
                                                  name(BarId,AcceptStart))
     ).

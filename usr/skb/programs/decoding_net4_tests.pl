@@ -284,12 +284,54 @@ test_add_vm :-
     Limit2G is 2 * 1024 * 1024 * 1024 - 1,
     Blk = block(0, Limit2G),
     assert_accept(region(["DRAM"], Blk)),
-    state_add_free(S, ["DRAM"], Blk, S1),
+    state_add_free(S, ["DRAM"], [Blk], S1),
     Limit1G is 1024 * 1024 * 1024 - 1,
     DramBase = 1024 * 1024 * 1024,
     DramLimit = 1024 * 1024 * 1024 - 1,
     add_vm_overlay(S1, VmEnum, 0, Limt1G, DramEnum, DramBase, NewS),
     printf("VmEnum %p\n", VmEnum).
+
+test_freelist :-
+    free_list_insert([block(0,10)], block(11,20), [block(0,20)]),
+    free_list_insert([block(0,10),block(50,100)], block(20,30), [block(0,10),block(20,30), block(50,100)]),
+    free_list_insert([block(0,19),block(50,100)], block(20,49), [block(0,100)]),
+    free_list_insert([block(50,100)], block(200,210), [block(50,100), block(200,210)]),
+    free_list_insert([block(50,100)], block(0,10), [block(0,10), block(50,100)]),
+    free_list_insert([block(50,100)], block(40,49), [block(40,100)]).
+%free_list_insert([block(5242880, 2147483647)], block(1048576, 4194303), _19930)
+
+
+test_alloc_free :-
+    reset_static_state,
+    state_get(S),
+    node_enum(["DRAM"], DramEnum),
+    Limit2G is 2 * 1024 * 1024 * 1024 - 1,
+    Blk = block(0, Limit2G),
+    assert_accept(region(["DRAM"], Blk)),
+    state_add_free(S, ["DRAM"], [Blk], S1),
+    Reg1 = region(["DRAM"],  _),
+    Reg2 = region(["DRAM"],  _),
+    Reg3 = region(["DRAM"],  _),
+    Reg4 = region(["DRAM"],  _),
+    Reg5 = region(["DRAM"],  _),
+    Reg6 = region(["DRAM"],  _),
+    Size1M is 1024 * 1024,
+    Size2M is 2 * 1024 * 1024,
+    alloc(S1, Size1M, Reg1, S2),
+    printf("Reg1 = %p\n", [Reg1]),
+    alloc(S2, Size1M, Reg2, S3),
+    printf("Reg2 = %p\n", [Reg2]),
+    alloc(S3, Size1M, Reg3, S4),
+    printf("Reg3 = %p\n", [Reg3]),
+    alloc(S4, Size1M, Reg4, S5),
+    printf("Reg4 = %p\n", [Reg4]),
+    alloc(S5, Size1M, Reg5, S6),
+    printf("Reg5 = %p\n", [Reg5]),
+    free(S6, Reg2, S7),
+    free(S7, Reg4, S8),
+    alloc(S8, Size2M, Reg6, S9),
+    printf("Reg6 = %p\n", [Reg6]).
+
 
 
 run_test(Test) :-
@@ -322,7 +364,10 @@ run_all_tests :-
     run_test(test_map4),
     run_test(test_map_wrap),
     run_test(test_alloc_wrap),
-    run_test(test_add_process).
+    run_test(test_add_process),
+    run_test(test_add_vm),
+    run_test(test_freelist),
+    run_test(test_alloc_free).
 
 /*
  *-----------------
@@ -383,8 +428,6 @@ bench_real_ram_alloc(NumAllocs) :-
     (for(I,0,NumAllocs), param(Dest), param(N1), param(N2) do 
         Size2M is 2097152,
         DestReg = region(Dest, _),
-        N1Reg = region(N1, _),
-        N2Reg = region(N2, _),
 
         state_get(S),
         statistics(hr_time, Start),

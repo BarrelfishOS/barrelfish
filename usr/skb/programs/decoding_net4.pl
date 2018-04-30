@@ -180,12 +180,6 @@ bits_aligned_superregion(region(Id, block(Base, Limit)), Bits,
     SuperBase #= (Base // BlockSize) * BlockSize,     
     SuperLimit #= (Limit // BlockSize + 1) * BlockSize - 1.     
 
-free_list_append(Li, block(1,0), Li).
-free_list_append(InLi, block(B,L), OutLi) :- 
-    B #>= 0,
-    L #>= 0,
-    append(InLi, [block(B,L)], OutLi).
-
 
 /*
  * ---------------------------------------------------------------------------
@@ -224,6 +218,61 @@ nodes_slots_avail(S, [N | Ns]) :-
     state_has_avail(S, N, A),
     A #>= 0.
 
+
+free_list_member([Blk | Rm], Blk).
+free_list_member([_ | Rm], Blk) :- free_list_member(Rm, Blk).
+
+
+/*
+ * ---------------------------------------------------------------------------
+ * Free list
+ * ---------------------------------------------------------------------------
+ */
+
+% Assumption: Free list is sorted.
+% C1: Inserting block, is before existing block -> insert and terminate.
+free_list_insert_sorted([block(FB,FL) | InLi], block(B,L), [block(B, L), block(FB,FL) | InLi]) :- 
+    L #< FB.
+
+% C2: Inserting block, is after existing block -> recurse and prepend
+free_list_insert_sorted([block(FB,FL) | InLi], block(B,L), [block(FB,FL) | NextLi]) :- 
+    B #> FL,
+    free_list_insert_sorted(InLi, block(B,L), NextLi).
+
+% C3: No more remaining blocks to check
+free_list_insert_sorted([], block(B,L), [block(B,L)]).
+
+% C1: Empty lists are coalesced
+free_list_coalesce([], []).
+
+% C2: One element lists are coalesced
+free_list_coalesce([A], [A]).
+
+% C3: Merge touching blocks 
+free_list_coalesce([block(AB,AL) | [block(BB,BL) | InLi]], OutLi) :- 
+    AL #= BB - 1,
+    free_list_coalesce([block(AB, BL) | InLi], OutLi).
+
+% C4: Ignore upcoming 
+free_list_coalesce([block(AB,AL) | [block(BB,BL) | InLi]], [block(AB,AL) | NextLi]) :- 
+    AL #=< BB - 1, % not touching
+    free_list_coalesce([block(BB, BL) | InLi], NextLi).
+
+free_list_insert(Li, block(1,0), Li). % ignore empty blocks
+free_list_insert(InLi, block(A,B), OutLi) :- 
+    A #=< B,
+    free_list_insert_sorted(InLi, block(A,B), TmpLi),
+    free_list_coalesce(TmpLi, OutLi).
+
+free_list_remove_first([Blk | Li], Blk, Li).
+free_list_remove_first([FstBlk | Li], Blk, [FstBlk | NextLi]) :-
+    not(FstBlk = Blk),
+    free_list_remove_first(Li, Blk, NextLi).
+
+        
+
+
+
 %%% Flattening. move to support?, materialize?
 % TODO: The flatteing is shaky. It matches exactly on the translate and accept,
 % but it should do a contains + translate the input region. However, this
@@ -260,19 +309,21 @@ flat(Src, CNodes, Dst) :-
  * ---------------------------------------------------------------------------
  */
 alloc(S, Size, region(DstId,DstBlock), SNew) :-
-   state_has_free(S, DstId, [FirstBlk | RmBlk]),
-   region_region_contains(region(DstId,DstBlock), region(DstId, FirstBlk)),
+   state_has_free(S, DstId, FreeBlks),
+   free_list_member(FreeBlks, CurrentBlk),
+   region_region_contains(region(DstId,DstBlock), region(DstId, CurrentBlk)),
    region_aligned(region(DstId,DstBlock), 21, NumBlock),
    region_size(region(DstId,DstBlock), Size),
    labeling([NumBlock]),
-   region_split(region(DstId,FirstBlk), region(_,BeforeBlk),
+   region_split(region(DstId,CurrentBlk), region(_,BeforeBlk),
                 region(DstId,DstBlock), region(_,AfterBlk)  ),
    % Mark region free: Move Before to the end (its probably empty or
    % an unaligned padding), make the split of the first block the first element.
-   state_remove_free(S, DstId, [FirstBlk | RmBlk], S1),
-   append([AfterBlk], RmBlk, RmBlk1),
-   free_list_append(RmBlk1, BeforeBlk, RmBlk2),
-   state_add_free(S1, DstId, RmBlk2, SNew).
+   state_remove_free(S, DstId, FreeBlks, S1),
+   free_list_remove_first(FreeBlks, CurrentBlk, FreeBlks1),
+   free_list_insert(FreeBlks1, AfterBlk, FreeBlks2),
+   free_list_insert(FreeBlks2, BeforeBlk, FreeBlks3),
+   state_add_free(S1, DstId, FreeBlks3, SNew).
 
 alloc(S, Size, Dst, SrcId1, SNew) :-
     flat(region(SrcId1,_), CNodes1, DstReachable),
@@ -285,6 +336,12 @@ alloc(S, Size, Dst, SrcId1, SrcId2, SNew) :-
     nodes_slots_avail(S, CNodes1),
     region_region_contains(Dst, DstReachable),
     alloc(S, Size, Dst, SrcId1, SNew).
+
+free(S, region(Id,FreeBlock), SNew) :-
+   state_has_free(S, DstId, FreeBlks),
+   state_remove_free(S, DstId, FreeBlks1, S1),
+   free_list_insert(FreeBlks1, FreeBlock, FreeBlks2),
+   state_add_free(S1, DstId, FreeBlks2, SNew).
 
 % Map Rec Works like map, but gets a hint (second last argument) which
 % configurable nodes have to be passed.
