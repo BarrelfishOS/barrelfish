@@ -348,7 +348,7 @@ add_all_pci(S, NewS) :-
         device(pcie, A, _, _, _, _, _, _)
     ), Devices),
     (foreach(D, Devices), fromto(S, SIn, SOut, NewS) do
-        (D = addr(10,0,0) ; D = addr(4,0,0); D=addr(0,4,_) ; D=addr(128,4,_)) -> add_pci(SIn, D, _, SOut) ; SIn = SOut
+        add_pci(SIn, D, _, SOut)
     ).
 
 % Enum will be the new enum for the Phi
