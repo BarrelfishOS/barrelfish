@@ -10,11 +10,13 @@
 :-lib(ic).
 :-lib(ic_global).
 :-use_module(library(ic_edge_finder)).
+:- ["decoding_net4_support"].
 
 :- set_flag(print_depth, 200).
 
 :-dynamic(currentbar/5).
 :-dynamic(addr/3).
+:-dynamic(pci_id_node_id/2).
 %:-dynamic(bar/7).
 %:-dynamic(vf/2).
 
@@ -297,6 +299,54 @@ assign_addresses(Plan, Root, Tree, Granularity, ExclRanges, IOAPICs, HMem2) :-
     maplist(shift_bridges(Granularity, Ranges),Pl, Plan).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Building the decoding net
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+build_decoding_net(Tree, Granularity):-
+    t(buselement(_, addr(Bus, Dev, Fun), BarNum, Base, High, _, _, _, _, _) ,Children) = Tree,
+    Size is High - Base, 
+    % Add root bridge
+    % TODO 
+
+    (Children == [] ->
+        % This is a node that has to accept since there are no children
+        (Size @> 0 ->
+            SP is Size*Granularity -1,
+            BarId = pci_id_node_id(addr(Bus, Dev, Fun, BarNum), [Bus, Dev, Fun, BarNum, "PCI"]),
+            writeln("Bar"),
+            writeln(region(BarId, block(0, SP))),
+            assert_accept(region(BarId, block(0, SP)))
+        ;
+            true
+        )
+    ;
+        % This is a node that has to translate since there are children on this bridge
+        Id = pci_id_node_id(addr(Bus, Dev, Fun, BarNum), [Bus, Dev, Fun, BarNum, "PCI"]),
+        writeln("=================================================="),
+        ( foreach(El, Children),
+          param(Id),
+          param(Base),
+          param(Granularity)
+          do  
+            t(buselement(_, addr(Bus2, Dev2, Fun2), BarNum2, Base2, High2, _, _, _, _, _) , _) = El,
+            PCIId = pci_id_node_id(addr(Bus2, Dev2, Fun2, BarNum2), [Bus2, Dev2, Fun2, BarNum2, "PCI"]),
+            B2 is Base2 * Granularity,
+            H2 is High2 * Granularity -1,   
+            S is (H2-B2) ,
+            AcceptStart is (Base2 - Base) * Granularity,
+            (S @> 0 ->
+                writeln(S),
+                assert_translate(region(Id, block(B2, H2)), name(PCIId, AcceptStart)),
+                writeln("Bridge"),
+                writeln((region(Id, block(B2, H2)), name(PCIId, AcceptStart))),
+                build_decoding_net(El, Granularity)
+            ;
+                true
+            )
+        ),
+        writeln("==================================================")
+    ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the main part of the allocation. Called once per root bridge
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -306,7 +356,6 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     Tmp is 4294963200 / Granularity,
     ceiling(Tmp, Tmp2),
     integer(Tmp2, HMem2),
-
     Type = mem,
 
 % prefetchable (Shifts addresses above 10'000'000 to 0)
@@ -325,17 +374,15 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
 
     assign_addresses(NPPlan, Root, TP, Granularity, ExclRanges, IOAPICs, HMem2),
     assign_addresses(PPlan, Root, TNP, Granularity, ExclRanges, IOAPICs, HMem2),
+    %build_decoding_net(TNP, Granularity),
+    %TODO shift Prefetchable bars then build decoing net
     append(NPPlan, PPlan, Pl3),
     subtract(Pl3,[buselement(bridge,Addr,_,_,_,_,_,prefetchable,_,_)],Pl2),
     subtract(Pl2,[buselement(bridge,Addr,_,_,_,_,_,nonprefetchable,_,_)],Plan).
+    % We shifted the Prefetchable tree -> shift back and create tree
+    
     %maplist(adjust_range(0),Pl,PR),
     %maplist(back_to_bytes(Granularity),Pl,Plan),
-% dot output:
-%    PrBaseBytePref is RBaseP * Granularity,
-%    PrHighBytePref is RHighP * Granularity,
-%    PrBaseByteNonPref is RBaseNP * Granularity,
-%    PrHighByteNonPref is RHighNP * Granularity,
-%    plan_to_dot(Granularity, Plan, Root, PrBaseBytePref, PrHighBytePref, PrBaseByteNonPref, PrHighByteNonPref).
     
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
