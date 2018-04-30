@@ -277,6 +277,20 @@ test_add_xeon_phi :-
     printf("before allocation"),
     alloc_wrap(S2, Size, _, GDDR_E, [KNC_SOCKET_E]).
 
+test_add_vm :-
+    reset_static_state,
+    state_get(S),
+    node_enum(["DRAM"], DramEnum),
+    Limit2G is 2 * 1024 * 1024 * 1024 - 1,
+    Blk = block(0, Limit2G),
+    assert_accept(region(["DRAM"], Blk)),
+    state_add_free(S, ["DRAM"], Blk, S1),
+    Limit1G is 1024 * 1024 * 1024 - 1,
+    DramBase = 1024 * 1024 * 1024,
+    DramLimit = 1024 * 1024 * 1024 - 1,
+    add_vm_overlay(S1, VmEnum, 0, Limt1G, DramEnum, DramBase, NewS),
+    printf("VmEnum %p\n", VmEnum).
+
 
 run_test(Test) :-
     (

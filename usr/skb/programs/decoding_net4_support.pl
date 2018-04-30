@@ -427,11 +427,15 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
 
 
 % This will allocate SrcEnum and install an overlay to dstBase
-add_vm_overlay(S, SrcEnum, SrcBase, SrcLimit, DstBase, DstLimit, NewS) :-
-    unused_node_enum(Enum),
-    node_enum_alias(Addr, Enum),
-    OutNodeId = ["OUT", "PCI0", Enum],
-    node_enum_alias(OutNodeId, Enum).
+add_vm_overlay(S, SrcEnum, SrcBase, SrcLimit, DstEnum, DstBase, NewS) :-
+    unused_node_enum(SrcEnum),
+    GUEST_PHYS_ID = ["GUEST_PHYS", SrcEnum],
+    node_enum_alias(GUEST_PHYS_ID, SrcEnum),
+    node_enum_exists(DstId, DstEnum),
+    SrcRegion = region(GUEST_PHYS_ID, block(SrcBase, SrcLimit)),
+    DstName = name(DstId, DstBase),
+    assert_translate(SrcRegion, DstName).
+    
 
 
 
