@@ -273,6 +273,30 @@ free_list_remove_first([FstBlk | Li], Blk, [FstBlk | NextLi]) :-
     not(FstBlk = Blk),
     free_list_remove_first(Li, Blk, NextLi).
 
+% Returns holes in the free list. Min/Max are the values used for 
+% Marking the beginning and end of the possible allocated region.
+% Otherwise, we don't know where the 
+%C1: Minimum until the first block.
+free_list_allocated([block(AB,AL) | _], Min, Max, block(Min,ABM)) :- 
+    ABM #= AB - 1,
+    Min #=< ABM.
+
+%C2: Between two blocks.
+free_list_allocated([block(_,AL) | [block(BB,_) | _]], _, _, block(ALP, BBM)) :- 
+    ALP #= AL + 1,
+    BBM #= BB - 1.
+
+%C4: At the end
+free_list_allocated([block(_,AL)], _, Max, block(ALP, Max)) :- 
+    ALP #= AL + 1,
+    Max #=> AL.
+
+% C4: Anything not involving the first block, make sure you can't use the min any
+% more.
+free_list_allocated([_ | Li], Min, Max, B) :- 
+    free_list_allocated(Li, Max, Max, B).
+    
+
         
 
 
@@ -416,3 +440,60 @@ map(S, region(SrcId, SrcB), DstUnresolvedR, NewS) :-
     region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
     nodes_slots_avail(S, ConfNodes),
     map_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS).
+
+
+% Map Rec Works like map, but gets a hint (second last argument) which
+% configurable nodes have to be passed.
+% The semantics of unmap are as follows: For an unmapped destination region,
+% it will be unmapped in all of the listed vspaces. A mapping will be removed
+% if no other allocation passes through that mapping.
+
+
+%% Unmap Rec case 1: We can reach Src without passing any reconfigurable nodes.
+%% -> No state change implied
+%unmap_rec(S, Src, Dst, [], S) :-
+%    decodes_region(S, Src, Dst).
+%
+%% Unmap Rec case 2: 
+%% We can reach Src with passing a reconfigurable node, the supermapping for
+%% this node can be removed, because there is no other mapping hitting that block.
+%unmap_rec(S0, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS) :-
+%    append(NextConfNodes, [LastConfNodeIn], ConfNodes),
+%    configurable(LastConfNodeIn, Bits, LastConfNodeOut),
+%
+%    % Now, move Dst to the LastConfNodeOut NS
+%    decodes_region(S0, region(LastConfNodeOut, ConfOutBlk), region(DstId,DstB)),
+%
+%    % Check if we have a matching dynamic translate in S
+%    translate_region(S0, region(LastConfNodeIn, ConfInBlk),
+%                     region(LastConfNodeOut, ConfOutBlk)),
+%
+%    % Get the bits aligned superblock
+%    bits_aligned_superregion(region(LastConfNodeIn, ConfInBlk), Bits, InSuperReg),
+%    bits_aligned_superregion(region(LastConfNodeOut, ConfOutBlk), Bits,
+%        region(LastConfNodeOut, block(OutSuperBase, OutSuperLimit))),
+%
+%    % Remove the mapping
+%    state_remove_mapping(S0, InSuperReg, name(LastConfNodeOut, OutSuperBase), S1),
+%
+%    not( (
+%        state_has_mapping(S1
+%
+%
+%    % Now recurse, since we reuse a mapping, nothing needs to be added to NewS.
+%    map_rec(S, region(SrcId, SrcB), region(LastConfNodeIn, ConfInBlk), NextConfNodes, NewS).
+%
+%% Unmap Rec case 3: 
+%% We can reach Src with passing a reconfigurable node, the supermapping for
+%% this node can NOT be removed, because there are other mapping hitting that block.
+%unmap_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS) :-
+%
+%unmap(S, region(SrcId, SrcB), DstUnresolvedR, NewS) :-
+%    TODO TODO TODO : First free the SrcRegion so it will not appear in the overlaps
+%    check.
+%    % Resolve the Destination Region first.
+%    resolves_region(S, DstUnresolvedR, region(DstId, DstB)),
+%    flat(region(SrcId, SrcBB), ConfNodes, region(DstId, DstBB)),
+%    region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
+%    region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
+%    unmap_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS).

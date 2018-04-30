@@ -297,8 +297,9 @@ test_freelist :-
     free_list_insert([block(0,19),block(50,100)], block(20,49), [block(0,100)]),
     free_list_insert([block(50,100)], block(200,210), [block(50,100), block(200,210)]),
     free_list_insert([block(50,100)], block(0,10), [block(0,10), block(50,100)]),
-    free_list_insert([block(50,100)], block(40,49), [block(40,100)]).
-%free_list_insert([block(5242880, 2147483647)], block(1048576, 4194303), _19930)
+    free_list_insert([block(50,100)], block(40,49), [block(40,100)]),
+    findall(R, free_list_allocated([block(0,10),block(20,30), block(50,100)], 0, 100, R), RLi),
+    printf("Free list allocated %p\n", [RLi]).
 
 
 test_alloc_free :-
@@ -330,7 +331,49 @@ test_alloc_free :-
     free(S6, Reg2, S7),
     free(S7, Reg4, S8),
     alloc(S8, Size2M, Reg6, S9),
-    printf("Reg6 = %p\n", [Reg6]).
+    printf("Reg6 = %p\n", [Reg6]),
+    state_has_free(S9, ["DRAM"], FreeBlks),
+    findall(R, free_list_allocated(FreeBlks, 0, Limit2G, R), RLi),
+    printf("Free list allocated %p\n", [RLi]).
+
+test_alloc_specific :-
+    reset_static_state,
+    state_get(S),
+    node_enum(["DRAM"], DramEnum),
+    Limit2G is 2 * 1024 * 1024 * 1024 - 1,
+    Blk = block(0, Limit2G),
+    assert_accept(region(["DRAM"], Blk)),
+    state_add_free(S, ["DRAM"], [Blk], S1),
+    
+    Base is 10 * 1024 * 1024,
+    Limit is 12 * 1024 * 1024 - 1,
+    Reg1 = region(["DRAM"],  block(Base, Limit)),
+    region_size(Reg1, Reg1Size),
+    alloc(S1, Reg1Size, Reg1, S2),
+    printf("alloc specific Reg1=%p, S2=%p\n", [Reg1, S2]).
+
+test_unmap :-
+    reset_static_state,
+    node_enum(["DRAM"], DramEnum),
+    assert_translate(region(["SOCKET"], block(1000, 2000)), name(["GDDR"], 0)),
+    assert_translate(region(["SOCKET"], block(10000, 11000)), name(["SMPT_IN"], 0)),
+    assert_configurable(["SMPT_IN"],34,["SMPT_OUT"]),
+    assert_overlay(["SMPT_OUT"],["PCIBUS"]),
+    assert_translate(region(["PCIBUS"], block(5000, 6000)), name(["DRAM"], 0)),
+
+    state_get(S0),
+    Blk = block(0, 1000),
+    assert_accept(region(["DRAM"], Blk)),
+    state_add_free(S0, ["DRAM"], [Blk], S1),
+    Blk2 = block(0, 1000),
+    assert_accept(region(["DRAM"], Blk2)),
+    state_add_free(S1, ["DRAM"], [Blk2], S2),
+    RamR = region(["DRAM"],_),
+    alloc(S2, 100, RamR, S3),
+    printf("Allocated RamR = %p\n", [RamR]),
+    SockR = region(["SOCKET"], _),
+    map(S3, SockR, RamR, S4),
+    printf("Mapped SockR = %p, State=%p\n", [SockR, S4]).
 
 
 
