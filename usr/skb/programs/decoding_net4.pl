@@ -231,12 +231,15 @@ free_list_member([_ | Rm], Blk) :- free_list_member(Rm, Blk).
 
 % Assumption: Free list is sorted.
 % C1: Inserting block, is before existing block -> insert and terminate.
-free_list_insert_sorted([block(FB,FL) | InLi], block(B,L), [block(B, L), block(FB,FL) | InLi]) :- 
-    L #< FB.
+free_list_insert_sorted([block(FB,FL) | InLi], block(B,L), [block(B, L) | [block(FB,FL) | InLi]]) :- 
+    FBM #= FB - 1,
+    FBM #>= L.
 
 % C2: Inserting block, is after existing block -> recurse and prepend
 free_list_insert_sorted([block(FB,FL) | InLi], block(B,L), [block(FB,FL) | NextLi]) :- 
-    B #> FL,
+    %FL #=< B - 1,
+    BM #= B - 1,
+    BM #>= FL,
     free_list_insert_sorted(InLi, block(B,L), NextLi).
 
 % C3: No more remaining blocks to check
@@ -255,12 +258,13 @@ free_list_coalesce([block(AB,AL) | [block(BB,BL) | InLi]], OutLi) :-
 
 % C4: Ignore upcoming 
 free_list_coalesce([block(AB,AL) | [block(BB,BL) | InLi]], [block(AB,AL) | NextLi]) :- 
-    AL #=< BB - 1, % not touching
+    BBM #= BB - 1,
+    BBM #>= AL, % not touching
     free_list_coalesce([block(BB, BL) | InLi], NextLi).
 
 free_list_insert(Li, block(1,0), Li). % ignore empty blocks
 free_list_insert(InLi, block(A,B), OutLi) :- 
-    A #=< B,
+    B #>= A,
     free_list_insert_sorted(InLi, block(A,B), TmpLi),
     free_list_coalesce(TmpLi, OutLi).
 
