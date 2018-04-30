@@ -352,3 +352,13 @@ bench_nodes(MaxNumPci) :-
     (for(I,2,MaxNumPci) do 
         bench_nodes_one(I), !
     ).
+
+% RUN ALL SYNTHETIC BENCHMARKS. Resets state, breaks BF if run on real system.
+bench_synth :-
+    bench_nodes(100).
+
+% RUN ALL REAL BENCHMARS: Expects KNC system has been instantiated
+% does not reset state.
+bench_real :- true.
+    % bench_allocations_knc.
+
