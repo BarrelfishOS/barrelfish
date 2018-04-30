@@ -1448,6 +1448,11 @@ handle_vmexit_cr_access (struct guest *g)
 	    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_CR0, val);
 #endif
             break;
+
+        case 4:
+            // ignore writing to CR4
+            break;
+
         default:
             printf("CR access: unknown CR destination register\n");
             return handle_vmexit_unhandeled(g);
@@ -2011,6 +2016,9 @@ handle_vmexit_swint (struct guest *g)
                 // KEYBOARD - SET TYPEMATIC RATE AND DELAY
                 if (guest_get_ah(g) == 0x3) {
                     // ignore this
+                } else if (guest_get_ah(g) == 0x2) {
+                    //Return Keyboard Flags
+                    guest_set_al(g, 0x0);
                 } else {
                     printf("Unhandeled method on INT 0x16\n");
                     return handle_vmexit_unhandeled(g);
@@ -2382,6 +2390,8 @@ handle_vmexit_msr (struct guest *g) {
             printf("MSR: unhandeled MSR write access to %x\n", msr);
             return handle_vmexit_unhandeled(g);
 #else
+    case 0x8b: // IA32_BIOS_SIGN_ID
+        break;
 	default:
 	    msr_index = vmx_guest_msr_index(msr);
 	    if (msr_index == -1) {
@@ -2457,14 +2467,38 @@ handle_vmexit_msr (struct guest *g) {
             printf("MSR: unhandeled MSR read access to %x\n", msr);
             return handle_vmexit_unhandeled(g);
 #else
-	default:
-	    msr_index = vmx_guest_msr_index(msr);
-	    if (msr_index == -1) {
-	      printf("MSR: unhandeled MSR read access to %x\n", msr);
-	      return handle_vmexit_unhandeled(g);
-	    }
-	    val = guest_msr_area[msr_index].val;
-	    break;
+        case 0x1b:
+            val = 0x0;
+            break;
+        case 0x8b:
+            val = 0x0;
+            break;
+        case 0xfe:
+            val = 0x0;
+            break;
+        case 0x179:
+            val = 0x0;
+            break;
+	    case 0x17a:
+            val = 0x0;
+            break;
+        case 0x1a0: // IA32_MISC_ENABLE
+            val = 0x1; // Fast-Strings Enable
+            break;
+        case 0x277:
+            val = 0x0;
+            break;
+        case 0x2ff:
+            val = 0x0;
+            break;
+        default:
+            msr_index = vmx_guest_msr_index(msr);
+            if (msr_index == -1) {
+                printf("MSR: unhandeled MSR read access to %x\n", msr);
+                return handle_vmexit_unhandeled(g);
+            }
+            val = guest_msr_area[msr_index].val;
+            break;
 #endif
         }
 
@@ -2490,38 +2524,31 @@ handle_vmexit_cpuid (struct guest *g) {
     uint32_t eax, ebx, ecx, edx;
     uint32_t func = guest_get_eax(g);
 
+    /* the register values are copied from an emuliated Pentium processor in QEMU*/
     switch (func) {
-    // Processor Vendor and Largest Standard Function Number
-    case 0:
-    case 0x80000000:
-        // max standard function offset
-        eax = func == 0 ? 0x1 : 0x80000000;
-        // string "AuthenticAMD"
-        ebx = 0x68747541;
-        ecx = 0x444d4163;
-        edx = 0x69746e65;
-    break;
-
-    // Family, Model, Stepping Identifiers
-    case 1:
-        // we simulate a AMD K6-3D
-        // Family 5, Model 8, Stepping 12
-        eax = 0x58c;
-        // no brand, clflush size 16, no mulitprocessing, no local apic
-        ebx = 0x0f00;
-        // support the popcnt instr
-        ecx = 0x800000;
-        // support some basic features
-        edx = 0x89a91b;
-    break;
-
-    default:
-        // use the answer of the host if there is any other request
-        // FIXME: this is probably not a good idea ;)
-        cpuid(func, &eax, &ebx, &ecx, &edx);
-        printf("handle_vmexit_cpuid: CPUID: func %x, host reports: eax %x, "
-                "ebx %x, ecx %x, edx %x\n", func, eax, ebx, ecx, edx);
-        break;
+        case 0:
+            eax = 0x2;
+            ebx = 0x756e6547;
+            ecx = 0x6c65746e;
+            edx = 0x49656e69;
+            break;
+        case 1:
+            eax = 0x800;
+            ebx = 0x800;
+            ecx = 0x80200000;
+            edx = 0x183fbff;
+            break;
+        case 2:
+            eax = 0x1;
+            ebx = 0x0;
+            ecx = 0x4d;
+            edx = 0x2c307d;
+        default:
+            eax = 0x0;
+            ebx = 0x0;
+            ecx = 0x0;
+            edx = 0x0;
+            break;
     }
 
     guest_set_eax(g, eax);
