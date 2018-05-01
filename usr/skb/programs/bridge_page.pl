@@ -16,7 +16,6 @@
 
 :-dynamic(currentbar/5).
 :-dynamic(addr/3).
-:-dynamic(pci_id_node_id/2).
 %:-dynamic(bar/7).
 %:-dynamic(vf/2).
 
@@ -31,6 +30,8 @@
 % :-include("../data/data_sbrinz1.txt").
 % :-include("../data/data_loner.txt").
 
+pci_id_node_id(addr(Bus, Dev, Fun, BarNum), [Bus, Dev, Fun, BarNum, "PCI"]).
+pcibus_node_id(["PCIBUS"]).
 
 merge_window([], [], _).
 merge_window(R, [], L) :-
@@ -311,7 +312,7 @@ build_decoding_net(Tree, Granularity):-
         % This is a node that has to accept since there are no children
         (Size @> 0 ->
             SP is Size*Granularity -1,
-            BarId = pci_id_node_id(addr(Bus, Dev, Fun, BarNum), [Bus, Dev, Fun, BarNum, "PCI"]),
+            pci_id_node_id(addr(Bus, Dev, Fun, BarNum), BarId),
             writeln("Bar"),
             writeln(region(BarId, block(0, SP))),
             assert_accept(region(BarId, block(0, SP)))
@@ -320,7 +321,7 @@ build_decoding_net(Tree, Granularity):-
         )
     ;
         % This is a node that has to translate since there are children on this bridge
-        Id = pci_id_node_id(addr(Bus, Dev, Fun, BarNum), [Bus, Dev, Fun, BarNum, "PCI"]),
+        pci_id_node_id(addr(Bus, Dev, Fun, BarNum), Id),
         writeln("=================================================="),
         ( foreach(El, Children),
           param(Id),
@@ -328,7 +329,7 @@ build_decoding_net(Tree, Granularity):-
           param(Granularity)
           do  
             t(buselement(_, addr(Bus2, Dev2, Fun2), BarNum2, Base2, High2, _, _, _, _, _) , _) = El,
-            PCIId = pci_id_node_id(addr(Bus2, Dev2, Fun2, BarNum2), [Bus2, Dev2, Fun2, BarNum2, "PCI"]),
+            pci_id_node_id(addr(Bus2, Dev2, Fun2, BarNum2), PCIId),
             B2 is Base2 * Granularity,
             H2 is High2 * Granularity -1,   
             S is (H2-B2) ,
