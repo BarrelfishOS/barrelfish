@@ -289,7 +289,7 @@ free_list_allocated([block(_,AL) | [block(BB,_) | _]], _, _, block(ALP, BBM)) :-
 %C4: At the end
 free_list_allocated([block(_,AL)], _, Max, block(ALP, Max)) :- 
     ALP #= AL + 1,
-    Max #=> AL.
+    Max #>= AL.
 
 % C4: Anything not involving the first block, make sure you can't use the min any
 % more.
