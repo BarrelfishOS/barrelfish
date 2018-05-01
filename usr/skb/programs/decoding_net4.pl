@@ -219,7 +219,7 @@ nodes_slots_avail(S, [N | Ns]) :-
     A #>= 0.
 
 
-free_list_member([Blk | Rm], Blk).
+free_list_member([Blk | _], Blk).
 free_list_member([_ | Rm], Blk) :- free_list_member(Rm, Blk).
 
 
@@ -277,7 +277,7 @@ free_list_remove_first([FstBlk | Li], Blk, [FstBlk | NextLi]) :-
 % Marking the beginning and end of the possible allocated region.
 % Otherwise, we don't know where the 
 %C1: Minimum until the first block.
-free_list_allocated([block(AB,AL) | _], Min, Max, block(Min,ABM)) :- 
+free_list_allocated([block(AB,_) | _], Min, _, block(Min,ABM)) :- 
     ABM #= AB - 1,
     ABM #>= Min.
 
@@ -293,12 +293,37 @@ free_list_allocated([block(_,AL)], _, Max, block(ALP, Max)) :-
 
 % C4: Anything not involving the first block, make sure you can't use the min any
 % more.
-free_list_allocated([_ | Li], Min, Max, B) :- 
+free_list_allocated([_ | Li], _, Max, B) :- 
     free_list_allocated(Li, Max, Max, B).
     
 
         
+% TODO: also check if there is exactly one translate? And freelist?
+node_vspace(NodeId) :-
+    not(configurable(NodeId,_,_)),
+    not(accept(region(NodeId,_))),
+    not(overlay(NodeId, _)).
 
+% Returns all installed mappings in VSpaces for the current state.
+% VSpace a nodeid with exactly one translate. No accept/overlay etc.
+installed_vspace_map(S, region(NodeId, AllocatedBlock)) :-
+    node_vspace(NodeId),
+    translate(region(NodeId, block(Min, Max)), _),
+    state_has_free(S, NodeId, FreeBlks),
+    free_list_allocated(FreeBlks, Min, Max, AllocatedBlock).
+
+installed_vspace_map_list(S, RegionList) :- 
+    % TODO: Replace findall with something p2i understands
+    % findall(R, installed_vspace_map(S, R), RegionList).
+    fail.
+
+% True, if a region decodes into a subset of SuperDest
+any_region_decodes_super(S, [R | _], SuperDest) :-
+    decodes_region(S, R, Candidate),
+    region_region_contains(Candidate, SuperDest).
+
+any_region_decodes_super(S, [_ | Rm], SuperDest) :-
+    any_region_decodes_to(S, Rm, SuperDest).
 
 
 %%% Flattening. move to support?, materialize?
@@ -365,10 +390,10 @@ alloc(S, Size, Dst, SrcId1, SrcId2, SNew) :-
     region_region_contains(Dst, DstReachable),
     alloc(S, Size, Dst, SrcId1, SNew).
 
-free(S, region(Id,FreeBlock), SNew) :-
+free(S, region(DstId,FreeBlock), SNew) :-
    state_has_free(S, DstId, FreeBlks),
-   state_remove_free(S, DstId, FreeBlks1, S1),
-   free_list_insert(FreeBlks1, FreeBlock, FreeBlks2),
+   state_remove_free(S, DstId, FreeBlks, S1),
+   free_list_insert(FreeBlks, FreeBlock, FreeBlks2),
    state_add_free(S1, DstId, FreeBlks2, SNew).
 
 % Map Rec Works like map, but gets a hint (second last argument) which
@@ -439,7 +464,11 @@ map(S, region(SrcId, SrcB), DstUnresolvedR, NewS) :-
     region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
     region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
     nodes_slots_avail(S, ConfNodes),
-    map_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS).
+    map_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, S1).
+    %TODO Map now has to mark the source region in use. Ideally, it does
+    % so by calling a "mark allocated but permit already allocated blocks"
+    %region_size(region(SrcId, SrcB), SrcSize),
+    %alloc(S1, SrcSize, region(SrcId, SrcB), NewS).
 
 
 % Map Rec Works like map, but gets a hint (second last argument) which
@@ -449,51 +478,76 @@ map(S, region(SrcId, SrcB), DstUnresolvedR, NewS) :-
 % if no other allocation passes through that mapping.
 
 
-%% Unmap Rec case 1: We can reach Src without passing any reconfigurable nodes.
-%% -> No state change implied
-%unmap_rec(S, Src, Dst, [], S) :-
-%    decodes_region(S, Src, Dst).
-%
-%% Unmap Rec case 2: 
-%% We can reach Src with passing a reconfigurable node, the supermapping for
-%% this node can be removed, because there is no other mapping hitting that block.
-%unmap_rec(S0, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS) :-
-%    append(NextConfNodes, [LastConfNodeIn], ConfNodes),
-%    configurable(LastConfNodeIn, Bits, LastConfNodeOut),
-%
-%    % Now, move Dst to the LastConfNodeOut NS
-%    decodes_region(S0, region(LastConfNodeOut, ConfOutBlk), region(DstId,DstB)),
-%
-%    % Check if we have a matching dynamic translate in S
-%    translate_region(S0, region(LastConfNodeIn, ConfInBlk),
-%                     region(LastConfNodeOut, ConfOutBlk)),
-%
-%    % Get the bits aligned superblock
-%    bits_aligned_superregion(region(LastConfNodeIn, ConfInBlk), Bits, InSuperReg),
-%    bits_aligned_superregion(region(LastConfNodeOut, ConfOutBlk), Bits,
-%        region(LastConfNodeOut, block(OutSuperBase, OutSuperLimit))),
-%
-%    % Remove the mapping
-%    state_remove_mapping(S0, InSuperReg, name(LastConfNodeOut, OutSuperBase), S1),
-%
-%    not( (
-%        state_has_mapping(S1
-%
-%
-%    % Now recurse, since we reuse a mapping, nothing needs to be added to NewS.
-%    map_rec(S, region(SrcId, SrcB), region(LastConfNodeIn, ConfInBlk), NextConfNodes, NewS).
-%
-%% Unmap Rec case 3: 
-%% We can reach Src with passing a reconfigurable node, the supermapping for
-%% this node can NOT be removed, because there are other mapping hitting that block.
-%unmap_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS) :-
-%
-%unmap(S, region(SrcId, SrcB), DstUnresolvedR, NewS) :-
-%    TODO TODO TODO : First free the SrcRegion so it will not appear in the overlaps
-%    check.
-%    % Resolve the Destination Region first.
-%    resolves_region(S, DstUnresolvedR, region(DstId, DstB)),
-%    flat(region(SrcId, SrcBB), ConfNodes, region(DstId, DstBB)),
-%    region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
-%    region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
-%    unmap_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS).
+% Unmap Rec case 1: We can reach Src without passing any reconfigurable nodes.
+% -> No state change implied
+unmap_rec(S, Src, Dst, [], S) :-
+    decodes_region(S, Src, Dst).
+
+% Unmap Rec case 2: 
+% We can reach Src with passing a reconfigurable node, the supermapping for
+% this node can be removed, because there is no other mapping hitting that block.
+unmap_rec(S0, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS) :-
+    append(NextConfNodes, [LastConfNodeIn], ConfNodes),
+    configurable(LastConfNodeIn, Bits, LastConfNodeOut),
+
+    % Now, move Dst to the LastConfNodeOut NS
+    decodes_region(S0, region(LastConfNodeOut, ConfOutBlk), region(DstId,DstB)),
+
+    % Check if we have a matching dynamic translate in S
+    translate_region(S0, region(LastConfNodeIn, ConfInBlk),
+                     region(LastConfNodeOut, ConfOutBlk)),
+
+    % Get the bits aligned superblock
+    bits_aligned_superregion(region(LastConfNodeIn, ConfInBlk), Bits, InSuperReg),
+    bits_aligned_superregion(region(LastConfNodeOut, ConfOutBlk), Bits,
+        region(LastConfNodeOut, block(OutSuperBase, _))),
+
+    % Check for the validity of this removal: any remaining mapping must not
+    % reach this superblock.
+    installed_vspace_maps(S0, VspaceMaps),
+    not(any_region_decodes_super(S0, VspaceMaps, InSuperReg)),
+
+    % Remove the mapping
+    state_remove_mapping(S0, InSuperReg, name(LastConfNodeOut, OutSuperBase), S1),
+
+    % Now recurse, with the mapping removed
+    map_rec(S1, region(SrcId, SrcB), region(LastConfNodeIn, ConfInBlk), NextConfNodes, NewS).
+
+% Unmap Rec case 3: 
+% We can reach Src with passing a reconfigurable node, the supermapping for
+% this node can NOT be removed, because there are other mapping hitting that block.
+unmap_rec(S0, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS) :-
+    append(NextConfNodes, [LastConfNodeIn], ConfNodes),
+    configurable(LastConfNodeIn, Bits, LastConfNodeOut),
+
+    % Now, move Dst to the LastConfNodeOut NS
+    decodes_region(S0, region(LastConfNodeOut, ConfOutBlk), region(DstId,DstB)),
+
+    % Check if we have a matching dynamic translate in S
+    translate_region(S0, region(LastConfNodeIn, ConfInBlk),
+                     region(LastConfNodeOut, ConfOutBlk)),
+
+    % Get the bits aligned superblock
+    bits_aligned_superregion(region(LastConfNodeIn, ConfInBlk), Bits, InSuperReg),
+    %bits_aligned_superregion(region(LastConfNodeOut, ConfOutBlk), Bits,
+    %    region(LastConfNodeOut, block(OutSuperBase, OutSuperLimit))),
+
+    % Check that we still need this mapping: there exists a remaining mapping
+    installed_vspace_maps(S0, VspaceMaps),
+    any_region_decodes_super(S0, VspaceMaps, InSuperReg),
+
+    % Now recurse, with the mapping intact
+    map_rec(S0, region(SrcId, SrcB), region(LastConfNodeIn, ConfInBlk), NextConfNodes, NewS).
+
+unmap(S0, region(SrcId, SrcB), DstUnresolvedR, NewS) :-
+    % TODO REPEAT THIS FIRST FREE FOR ALL SOURCE REGIONS
+    %First free the SrcRegion so it will not appear in the overlaps check.
+    free(S0, region(SrcId, SrcB), S1),
+
+    % Resolve the Destination Region first.
+    resolves_region(S1, DstUnresolvedR, region(DstId, DstB)),
+    flat(region(SrcId, SrcBB), ConfNodes, region(DstId, DstBB)),
+    region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
+    region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
+    % Since we're unmapping, we have to skip the flat validity check here.
+    unmap_rec(S1, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS).

@@ -354,26 +354,26 @@ test_alloc_specific :-
 
 test_unmap :-
     reset_static_state,
+    state_get(S0),
     node_enum(["DRAM"], DramEnum),
     assert_translate(region(["SOCKET"], block(1000, 2000)), name(["GDDR"], 0)),
     assert_translate(region(["SOCKET"], block(10000, 11000)), name(["SMPT_IN"], 0)),
-    assert_configurable(["SMPT_IN"],34,["SMPT_OUT"]),
+    assert_conf_node(S0, ["SMPT_IN"],["SMPT_OUT"], 34, 32, S1),
     assert_overlay(["SMPT_OUT"],["PCIBUS"]),
     assert_translate(region(["PCIBUS"], block(5000, 6000)), name(["DRAM"], 0)),
 
-    state_get(S0),
     Blk = block(0, 1000),
     assert_accept(region(["DRAM"], Blk)),
-    state_add_free(S0, ["DRAM"], [Blk], S1),
+    state_add_free(S1, ["DRAM"], [Blk], S2),
     Blk2 = block(0, 1000),
     assert_accept(region(["DRAM"], Blk2)),
-    state_add_free(S1, ["DRAM"], [Blk2], S2),
+    state_add_free(S2, ["DRAM"], [Blk2], S3),
     RamR = region(["DRAM"],_),
-    alloc(S2, 100, RamR, S3),
+    alloc(S3, 100, RamR, S4),
     printf("Allocated RamR = %p\n", [RamR]),
     SockR = region(["SOCKET"], _),
-    map(S3, SockR, RamR, S4),
-    printf("Mapped SockR = %p, State=%p\n", [SockR, S4]).
+    map(S4, SockR, RamR, S5),
+    printf("Mapped SockR = %p, State=%p\n", [SockR, S5]).
 
 
 
