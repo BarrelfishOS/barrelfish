@@ -70,7 +70,7 @@ static errval_t do_on_stdout(struct skb_query_state* st, char *query, bool print
     assert(st != NULL);
     assert(st->output_buffer != NULL);
 
-    char output_buffer[1024];
+    char output_buffer[1024*1024];
     st->exec_res = PFLUSHIO;
     st->output_length = 0;
     st->error_output_length = 0;
@@ -128,6 +128,16 @@ errval_t execute_query(const char* query, struct skb_query_state* st)
 
     if(strcmp(query,"decoding_net_listingP") == 0){
         return do_on_stdout(st, "decoding_net_listing.", true);
+    }
+
+    // HACK to make printing benchmark results work, we print it directly
+    // on stdout instead of returning it to the client
+    if(strcmp(query,"bench_synth") == 0){
+        return do_on_stdout(st, "bench_synth.", true);
+    }
+
+    if(strcmp(query,"bench_synth") == 0){
+        return do_on_stdout(st, "bench_real.", true);
     }
 
     int res;

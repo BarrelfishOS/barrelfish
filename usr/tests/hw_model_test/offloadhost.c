@@ -32,7 +32,7 @@
 
 
 #define ENABLE_NETWORKING 0
-
+#define RUN_OSDI_BENCHMARK 0
 
 #define HLINE debug_printf("#######################################################\n");
 #define hline debug_printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
@@ -335,5 +335,46 @@ int main(int argc,  char **argv)
     HLINE
     PRINTF("DONE!\n");
     HLINE
+#if RUN_OSDI_BENCHMARK
+    char *output = NULL;
+    int output_length = 0;
+    int error_code = 0;
+
+    err = skb_execute_query("bench_real.");   
+    output = strdup(skb_get_output());
+    assert(output != NULL);
+    output_length = strlen(output);
+    error_code = skb_read_error_code();
+    if ((error_code != 0) || err_is_fail(err)) {
+        PRINTF("bench_synth(): SKB returned error code %d \n", error_code);
+
+        const char *errout = skb_get_error_output();
+        PRINTF("SKB error returned: %s\n", errout);
+        PRINTF("SKB output: %s\n", output);
+        free(output);
+    } else {
+        PRINTF("======== NODE ALLOC BENCHMARK DONE ======== \n");
+    }
+
+    err = skb_execute_query("bench_synth.");   
+    output = strdup(skb_get_output());
+    assert(output != NULL);
+    output_length = strlen(output);
+    error_code = skb_read_error_code();
+    if ((error_code != 0) || err_is_fail(err)) {
+        PRINTF("bench_synth(): SKB returned error code %d \n", error_code);
+
+        const char *errout = skb_get_error_output();
+        PRINTF("SKB error returned: %s\n", errout);
+        PRINTF("SKB output: %s\n", output);
+        free(output);
+    } else {
+        PRINTF("======== BENCHMARK DONE ======== \n");
+    }
+
+#endif
+    while(true) {
+        event_dispatch(get_default_waitset());
+    }
 }
 
