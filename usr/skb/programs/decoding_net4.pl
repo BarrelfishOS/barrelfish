@@ -464,7 +464,7 @@ map(S, region(SrcId, SrcB), DstUnresolvedR, NewS) :-
     region_region_contains(region(SrcId, SrcB), region(SrcId, SrcBB)),
     region_region_contains(region(DstId, DstB), region(DstId, DstBB)),
     nodes_slots_avail(S, ConfNodes),
-    map_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, S1).
+    map_rec(S, region(SrcId, SrcB), region(DstId, DstB), ConfNodes, NewS).
     %TODO Map now has to mark the source region in use. Ideally, it does
     % so by calling a "mark allocated but permit already allocated blocks"
     %region_size(region(SrcId, SrcB), SrcSize),
