@@ -279,7 +279,7 @@ free_list_remove_first([FstBlk | Li], Blk, [FstBlk | NextLi]) :-
 %C1: Minimum until the first block.
 free_list_allocated([block(AB,AL) | _], Min, Max, block(Min,ABM)) :- 
     ABM #= AB - 1,
-    Min #=< ABM.
+    ABM #>= Min.
 
 %C2: Between two blocks.
 free_list_allocated([block(_,AL) | [block(BB,_) | _]], _, _, block(ALP, BBM)) :- 
