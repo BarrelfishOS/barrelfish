@@ -340,9 +340,17 @@ add_xeon_phi(S, Addr, Enum, NewS) :-
     retract_accept(region(BAR0_ID, _)),
     GDDR_ID = ["GDDR", "PCI0", Enum],
     assert_overlay(BAR0_ID, GDDR_ID),
+
+    % The nodes in which we map to, have to have a single translate.
+    % lets translate from SockOutId to SockId
+    SockOutId = ["OUT_KNC_SOCKET", "PCI0", Enum],
+    SockId = ["KNC_SOCKET", "PCI0", Enum],
+    EndTranslate is 1024*1024*1024*1024 - 1, % where the SMPT ends
+    assert_vspace_node(S1, region(SockOutId, block(0, EndTranslate)), name(SockId,0), S2),
+
     % Make sure we have Node Enums for GDDR and Socket
     node_enum(GDDR_ID, _),
-    node_enum(["KNC_SOCKET", "PCI0", Enum], _),
+    node_enum(["OUT_KNC_SOCKET", "PCI0", Enum], _),
     node_enum(["SMPT_IN", "PCI0", Enum], _),
     node_enum(["IN", "IOMMU0", Enum], _),
     node_enum(["K1OM_CORE", "PCI0", Enum], _),
@@ -354,7 +362,7 @@ add_xeon_phi(S, Addr, Enum, NewS) :-
     Limit is (4 * 1024 * 1024 * 1024) - 1,
     Size is Limit + 1,
     %state_add_in_use(S3, region(OutId, block(0,Limit)), NewS),
-    alloc(S1, Size, region(GDDR_ID, block(0, Limit)), NewS).
+    alloc(S2, Size, region(GDDR_ID, block(0, Limit)), NewS).
 
 
 :- export add_pci/4.
@@ -381,9 +389,9 @@ replace_with_xeon_phi(S, OldEnum, NewEnum, NewS) :-
 % Given the Pci enum of the xeon phi (as returned by the driverkit lib),
 % return some other node enums.
 :- export xeon_phi_meta/8.
-xeon_phi_meta(_, PCI_E, KNC_SOCKET_E, SMPT_IN_E, IOMMU_IN_E, DMA_E, K1OM_CORE_E, GDDR_E) :-
+xeon_phi_meta(_, PCI_E, OUT_KNC_SOCKET_E, SMPT_IN_E, IOMMU_IN_E, DMA_E, K1OM_CORE_E, GDDR_E) :-
     node_enum_exists([_ | Rm], PCI_E),
-    node_enum_exists(["KNC_SOCKET" | Rm], KNC_SOCKET_E),
+    node_enum_exists(["OUT_KNC_SOCKET" | Rm], OUT_KNC_SOCKET_E),
     node_enum_exists(["SMPT_IN" | Rm], SMPT_IN_E),
     node_enum_exists(["IN", "IOMMU0", PCI_E], IOMMU_IN_E),
     node_enum_exists(["DMA" | Rm], DMA_E),
