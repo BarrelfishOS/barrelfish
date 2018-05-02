@@ -206,11 +206,25 @@ assert_configurable(SrcId,Bits,DstId) :- assert(configurable(SrcId, Bits, DstId)
 retract_configurable(SrcId,Bits,DstId) :- retractall(configurable(SrcId,Bits,DstId)).
 
 
+%%%%%
+% Building the net.
+%%%%
+% Assert a configurable node.
 assert_conf_node(S, InNodeId, OutNodeId, Bits, Slots, NewS) :-
     assert_configurable(InNodeId,Bits,OutNodeId),
     state_add_avail(S, InNodeId, Slots, S1),
     Limit is 2^Bits * Slots,
     state_add_free(S1, InNodeId, [block(0, Limit)], NewS).
+
+% Assert a vspace node. It has exactly 
+assert_vspace_node(S, region(InId, InBlk), OutName, NewS) :-
+    assert_translate(region(InId, InBlk), OutName),
+    state_add_free(S, InId, [InBlk], NewS).
+
+% Assert an accepting node.
+assert_accept_node(S, region(InId, InBlk), NewS) :-
+    assert_accept(region(InId, InBlk)),
+    state_add_free(S, InId, [InBlk], NewS).
 
 
 
@@ -269,7 +283,8 @@ add_process(S, Enum, NewS) :-
     Id = [Enum],
     % The node where the process virtual addresses are issued.
     OutId = ["OUT", "PROC0" | Id],
-    node_enum_alias(OutId, Enum),
+    ProcOutId = ["PROC_OUT", "PROC0" | Id],
+    node_enum_alias(ProcOutId, Enum),
 
     PCIBUS_ID = ["PCIBUS"],
     add_PROC_MMU(S, Id, S1),
@@ -288,10 +303,15 @@ add_process(S, Enum, NewS) :-
     % initially the process (virtual) addresses are issued.
     NumBlocks is (20 * 512),
     Limit is (NumBlocks * (512 * 4096) - 1),
+    StartTranslate is Limit + 1,
+    EndTranslate is 1024*1024*1024*1024 - 1,
     Size is Limit + 1,
-    %state_add_in_use(S3, region(OutId, block(0,Limit)), NewS),
-    alloc(S2, Size, region(MMU_IN_ID, block(0, Limit)), S3),
-    state_decrement_avail(S3, MMU_IN_ID, NumBlocks, NewS).
+    assert_vspace_node(S2,
+        region(ProcOutId,block(StartTranslate,  EndTranslate)),
+        name(OutId, StartTranslate), S3),
+
+    alloc(S3, Size, region(MMU_IN_ID, block(0, Limit)), S4),
+    state_decrement_avail(S4, MMU_IN_ID, NumBlocks, NewS).
 
 iommu_enabled :-
     call(iommu_enabled,0,_)@eclipse.
