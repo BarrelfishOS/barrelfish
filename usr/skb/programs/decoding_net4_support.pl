@@ -84,7 +84,7 @@ init_state :-
 % sets the new state
 :- export state_set/1.
 state_set(S) :-
-    retract(current_state(_)), assert(current_state(S)).
+    retractall(current_state(_)), assert(current_state(S)).
 
 :- export state_get/1.
 state_get(S) :- current_state(S).
@@ -261,7 +261,6 @@ initial_dram_block(Block) :- %a
     Block = block(AlignBase,Limit).
 
 % Called by Kaluga
-:- export init/1.
 init(NewS) :-
     init_state,
     state_empty(S1),
@@ -399,10 +398,10 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
     unused_node_enum(Enum),
     node_enum_alias(Addr, Enum),
     OutNodeId = ["OUT", "PCI0", Enum],
-    node_enum_alias(OutNodeId, Enum),
+    PciOutNodeId = ["PCI_OUT", "PCI0", Enum],
+    node_enum_alias(PciOutNodeId, Enum),
 
     Id = [Enum],
-
 
     Addr = addr(_,_,_),
     PCIBUS_ID = ["PCIBUS"],
@@ -413,15 +412,21 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
         % Mark IOMMU block remappable
         IOMMU_IN_ID = ["IN", "IOMMU0" | Id],
         Slots is (512 *512 *512),
-        assert_conf_node(S3, IOMMU_IN_ID, ["OUT", "IOMMU0" | Id], 21, Slots, S5)
+        assert_conf_node(S3, IOMMU_IN_ID, ["OUT", "IOMMU0" | Id], 21, Slots, S4)
     ) ; (
         % IOMMU disabled.
         %add_PCI(S0, Id, S2)
-        call(Module, S, Id, S5)
+        call(Module, S, Id, S4)
     )),
 
     % connect the output to the systems pci bus
     assert_overlay(PCIOUT_ID, PCIBUS_ID),
+    
+    % connect the PCI_OUT to the OUT node with a translate
+    EndTranslate is 1024*1024*1024*1024 - 1,
+    assert_vspace_node(S4,
+        region(PciOutNodeId,block(0,  EndTranslate)),
+        name(OutNodeId, 0), S5),
 
     % Now insert the BAR into the PCI bus address space
     findall((Addr, BarNum, BarStart, BarEnd),
@@ -438,8 +443,7 @@ add_pci_internal(S, Addr, Enum, Module, ModuleIOMMU, NewS) :-
         InEnd is BarEnd - 1,
         AcceptStart is 0,
         AcceptEnd is (BarEnd - BarStart)  - 1,
-        assert_accept(region(BarId, block(AcceptStart, AcceptEnd))),
-        state_add_free(SIn, BarId, [block(AcceptStart, AcceptEnd)], SOut),
+        assert_accept_node(SIn, region(BarId, block(AcceptStart, AcceptEnd)),SOut),
         assert_translate(region(PCIBUS_ID, block(InStart,InEnd)),
                                                  name(BarId,AcceptStart))
     ).

@@ -1869,11 +1869,11 @@ void pci_program_bridges(void)
         HWMODEL_QUERY_DEBUG(
                 "state_get(S),"
                 "add_all_pci(S, NewS),"
-                "state_set(NewS)");
+                "state_set(NewS).");
         err = skb_execute_query(
                 "state_get(S),"
                 "add_all_pci(S, NewS),"
-                "state_set(NewS)");
+                "state_set(NewS).");
         if(err_is_fail(err)){
             DEBUG_SKB_ERR(err, "add_pci");
         }
