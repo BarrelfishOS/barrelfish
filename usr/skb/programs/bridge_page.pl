@@ -16,19 +16,6 @@
 
 :-dynamic(currentbar/5).
 :-dynamic(addr/3).
-%:-dynamic(bar/7).
-%:-dynamic(vf/2).
-
-% :-include("../data/data_hand.txt").
-% :-include("../data/data_qemu_hand.txt").
-% :-include("../data/data_qemu.txt").
-% :-include("../data/data_nos3.txt").
-% :-include("../data/data_nos4.txt").
-% :-include("../data/data_nos5.txt").
-% :-include("../data/data_nos6.txt").
-% :-include("../data/data_gruyere.txt").
-% :-include("../data/data_sbrinz1.txt").
-% :-include("../data/data_loner.txt").
 
 pci_id_node_id(addr(Bus, Dev, Fun, BarNum), [Bus, Dev, Fun, BarNum, "PCI"]).
 pcibus_node_id(["PCIBUS"]).
@@ -192,6 +179,7 @@ shift_into_window_64_bit(Granularity, Windows, buselement(T,A,Sec,B1,H1,S,Tp,PF,
                          buselement(T,A,Sec,B2,H2,S,Tp,PF, PCIe, Bits)) :-
 
 	(T == device ->
+        %BAR
 	    bar(A,Sec, Orig, _, _, _, _),
  
         O1 is Orig / Granularity,
@@ -218,14 +206,7 @@ shift_into_window_64_bit(Granularity, Windows, buselement(T,A,Sec,B1,H1,S,Tp,PF,
             H2 is H1
         )
     ;
-    % is bridge
-        B2 is B1,
-        H2 is H1
-    ).
-
-shift_bridges(Granularity, Windows, buselement(T,A,Sec,B1,H1,S,Tp,PF, PCIe, Bits), 
-              buselement(T,A,Sec,B2,H2,S,Tp,PF, PCIe, Bits))   :-
-	(T == bridge ->
+        %Bridge
         secondary(Bus) = Sec,
         findall(OrigP, 
                      (bar(addr(Bus, _, _), _, Orig, _ , _, PF, _),
@@ -240,8 +221,6 @@ shift_bridges(Granularity, Windows, buselement(T,A,Sec,B1,H1,S,Tp,PF, PCIe, Bits
             B2 = B1,
             H2 = H1
         ;
-            %shift bar
-            %
             ic:maxlist(Origs, Max),
             (foreach(range(B, H), Windows),
              param(B2),
@@ -258,11 +237,7 @@ shift_bridges(Granularity, Windows, buselement(T,A,Sec,B1,H1,S,Tp,PF, PCIe, Bits
                 )
             )
         )
-    ;
-        B2 = B1,
-        H2 = H1
     ).
-
 
 create_vf_busele_list(VFs, LMem, HMem, Granularity) :-
 	 findall(buselement(device,addr(Bus,Dev,Fun),BAR,Base,High,SizeP,Type,Prefetch, PCIe, Bits),
@@ -296,56 +271,114 @@ assign_addresses(Plan, Root, Tree, Granularity, ExclRanges, IOAPICs, HMem2) :-
 
     % Shift 64 bit addresses back into their window since
     % disjunctive() only takes numbers uf to 10'000'000
-    maplist(shift_into_window_64_bit(Granularity, Ranges),Lista, Pl),
-    maplist(shift_bridges(Granularity, Ranges),Pl, Plan).
+    maplist(shift_into_window_64_bit(Granularity, Ranges),Lista, Plan).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Building the decoding net
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-build_decoding_net(Tree, Granularity):-
+build_decoding_net(Tree, Granularity, Ranges, RelativeAddr):-
     t(buselement(_, addr(Bus, Dev, Fun), BarNum, Base, High, _, _, _, _, _) ,Children) = Tree,
     Size is High - Base, 
-    % Add root bridge
-    % TODO 
 
+    pci_id_node_id(addr(Bus, Dev, Fun, BarNum), Id),
     (Children == [] ->
         % This is a node that has to accept since there are no children
         (Size @> 0 ->
             SP is Size*Granularity -1,
-            pci_id_node_id(addr(Bus, Dev, Fun, BarNum), BarId),
-            writeln("Bar"),
-            writeln(region(BarId, block(0, SP))),
-            assert_accept(region(BarId, block(0, SP)))
+            (RelativeAddr == true ->
+                %writeln(bar_new(region(Id, block(0, SP)))),
+                assert_accept(region(Id, block(0, SP)))
+            ;   
+                B is Base*Granularity,
+                H is High*Granularity -1, 
+                %writeln(bar_new(region(Id, block(B, H)))),
+                assert_accept(region(Id, block(B, H)))
+            )
         ;
             true
         )
     ;
         % This is a node that has to translate since there are children on this bridge
-        pci_id_node_id(addr(Bus, Dev, Fun, BarNum), Id),
-        writeln("=================================================="),
+        %writeln("=================================================="),
         ( foreach(El, Children),
           param(Id),
           param(Base),
-          param(Granularity)
+          param(Granularity),
+          param(Ranges),
+          param(RelativeAddr)
           do  
             t(buselement(_, addr(Bus2, Dev2, Fun2), BarNum2, Base2, High2, _, _, _, _, _) , _) = El,
+            
             pci_id_node_id(addr(Bus2, Dev2, Fun2, BarNum2), PCIId),
+            
             B2 is Base2 * Granularity,
             H2 is High2 * Granularity -1,   
-            S is (H2-B2) ,
-            AcceptStart is (Base2 - Base) * Granularity,
+            S is (H2-B2),
+
+            (RelativeAddr == true ->
+                AcceptStart is (Base2 - Base) * Granularity,
+                AcceptEnd is AcceptStart + S,
+                ChildStart is AcceptStart
+            ;
+                AcceptStart is B2,
+                AcceptEnd is H2,
+                ChildStart is B2
+            ),
+
             (S @> 0 ->
-                writeln(S),
-                assert_translate(region(Id, block(B2, H2)), name(PCIId, AcceptStart)),
-                writeln("Bridge"),
-                writeln((region(Id, block(B2, H2)), name(PCIId, AcceptStart))),
-                build_decoding_net(El, Granularity)
+                assert_translate(region(Id, block(AcceptStart, AcceptEnd)), name(PCIId, ChildStart)),
+                %writeln(bridge_new((region(Id, block(AcceptStart, AcceptEnd)), S, name(PCIId, ChildStart)))),
+                build_decoding_net(El, Granularity, Ranges, RelativeAddr)
             ;
                 true
             )
-        ),
-        writeln("==================================================")
+        )
+        %writeln("==================================================")
     ).
+
+
+% TODO 32 Bit prefetchable
+%add_root_to_decoding_net(Addr, MinBus, Base, High, Ranges, Prefetchable) :-
+%    Size is High - Base,
+%    (Size @> 0 ->
+%        addr(Bus, Dev, Fun) = Addr,
+%        pci_id_node_id(addr(Bus, Dev, Fun, secondary(MinBus)), PCIId),
+%        pcibus_node_id(Id),
+%        ( Prefetchable == prefetchable ->
+%            (foreach(range(B, H), Ranges),
+%             param(Id),
+%             param(Base),
+%             param(High),
+%             param(PCIId)
+%             do
+%                ( Base @>= B, Base @=< H, High @>= H,
+%                    writeln("Prefetchable"),
+%                    writeln((region(Id, block(Base, H)), name(PCIId, Base))),
+%                    assert_translate(region(Id, block(Base, H)), name(PCIId, Base))
+%                ;
+%                    true
+%                ),
+%
+%                (  Base @=< B, Base @=< H, High @=< H,
+%                    writeln("Prefetchable"),
+%                    writeln((region(Id, block(B, High)), name(PCIId, B))),
+%                    assert_translate(region(Id, block(B, High)), name(PCIId, B))
+%                ;
+%                    true
+%                )
+%            )
+%        ;
+%            writeln("Nonprefetchable"),
+%            writeln((region(Id, block(Base, High)), name(PCIId, Base))),
+%            assert_translate(region(Id, block(Base, High)), name(PCIId, Base))
+%        )
+%    ).
+
+add_root_to_decoding_net(Addr, MinBus, Base, High) :-
+        addr(Bus, Dev, Fun) = Addr,
+        pci_id_node_id(addr(Bus, Dev, Fun, secondary(MinBus)), PCIId),
+        pcibus_node_id(Id),
+        assert_translate(region(Id, block(Base, High)), name(PCIId, Base)).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % the main part of the allocation. Called once per root bridge
@@ -375,8 +408,14 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
 
     assign_addresses(NPPlan, Root, TP, Granularity, ExclRanges, IOAPICs, HMem2),
     assign_addresses(PPlan, Root, TNP, Granularity, ExclRanges, IOAPICs, HMem2),
-    %build_decoding_net(TNP, Granularity),
-    %TODO shift Prefetchable bars then build decoing net
+
+    %add_root_to_decoding_net(Addr, MinBus, RBaseP, RHighP),
+    %build_decoding_net(TP, Granularity, true, Offset),
+
+    %Add TNP Root
+    %add_root_to_decoding_net(Addr, MinBus, RBaseNP, RHighNP),
+    %build_decoding_net(TNP, Granularity, true, Offset),
+
     append(NPPlan, PPlan, Pl3),
     subtract(Pl3,[buselement(bridge,Addr,_,_,_,_,_,prefetchable,_,_)],Pl2),
     subtract(Pl2,[buselement(bridge,Addr,_,_,_,_,_,nonprefetchable,_,_)],Plan).
