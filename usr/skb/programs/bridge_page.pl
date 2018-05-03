@@ -784,3 +784,48 @@ keep_ioapic_bars(Buselements, [H|IOAPICList]) :-
     true
     ),
     keep_ioapic_bars(Buselements, IOAPICList).
+
+
+:-dynamic(root/4).
+:-dynamic(mem/2).
+:-dynamic(childbus/2).
+
+setup_test(Tree) :-
+    ["clean_facts/babybel1.pl"],
+    Granularity is 4096,
+    Addr = addr(0, 0, 0),
+    rootbridge(Addr, childbus(MinBus, MaxBus), _),
+    merge_address_windows(Addr, Ranges),
+    get_address_window(Addr, L, H),
+    LT1 is L / Granularity,
+    ceiling(LT1, LT2),
+    integer(LT2, LP),
+    HT1 is H / Granularity,
+    ceiling(HT1, HT2),
+    integer(HT2, HP),
+
+    Tmp is 4294963200 / Granularity,
+    ceiling(Tmp, Tmp2),
+    integer(Tmp2, HMem2),
+
+    Root = root(Addr, childbus(MinBus, MaxBus), mem(LP, HP), Ranges),
+
+    % prefetchable (Shifts addresses above 10'000'000 to 0)
+    constrain_bus(Granularity, mem, prefetchable, Addr,MinBus,MaxBus,LP,HP,BusElementListP, Ranges),
+    RBaseP::[LP..HP],
+    RHighP::[LP..HP],
+    Size is HP - LP,
+    RSizeP::[0..Size],
+    devicetree(BusElementListP,buselement(bridge,Addr,secondary(MinBus),RBaseP,RHighP,RSizeP,mem, prefetchable, _, _),Tree),
+    assign_addresses(_, Root, Tree, Granularity, [], [], HMem2).
+
+test_tree_shift :-  
+    setup_test(Tree),
+    tree2list(Tree, Lista),
+    writeln(Lista),
+    devicetree(Lista, Tree2),
+    writeln(Tree2).
+    
+    
+
+          
