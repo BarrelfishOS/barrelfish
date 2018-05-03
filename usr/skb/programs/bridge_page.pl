@@ -17,7 +17,7 @@
 :-dynamic(currentbar/5).
 :-dynamic(addr/3).
 
-pci_id_node_id(addr(Bus, Dev, Fun, BarNum), [Bus, Dev, Fun, BarNum, "PCI"]).
+pci_id_node_id(addr(Bus, Dev, Fun, BarNum, Pref), [Bus, Dev, Fun, BarNum, "PCI ":Pref]).
 pcibus_node_id(["PCIBUS"]).
 
 merge_window([], [], _).
@@ -175,7 +175,38 @@ back_to_bytes(Granularity, buselement(T,A,Sec,BP,HP,SP,Tp,PF, PCIe, Bits), busel
     H is HP * Granularity,
     S is SP * Granularity.
 
-shift_into_window_64_bit(Granularity, Windows, buselement(T,A,Sec,B1,H1,S,Tp,PF, PCIe, Bits), 
+
+should_shift_bridge(Addr, Sec, Root, Granularity, OrigP) :-
+     secondary(Bus) = Sec,
+     (bar(addr(Bus, _, _), _ , Orig, _ , _, prefetchable, _ ) ->
+          % Bridge has a bar that is above shifting limit
+          Limit is 10000000*Granularity,
+          Orig @> Limit,
+          OrigF is Orig/Granularity,
+          integer(OrigF, OrigP)
+     ;
+        % The root bridge needs also shifting
+        root(RootAddr,childbus(MinBus,MaxBus), _, _) = Root,
+        (Addr == RootAddr -> 
+          % get max bar since they are all under this rootbridge
+          findall(Orig, (bar(addr(Bus2, _ , _), _, Orig, _ , _, prefetchable , _),
+                         Bus2 @=< MaxBus,
+                         Bus2 @>= MinBus), 
+                 Origs),
+          (not(Origs == []) ->
+              ic:maxlist(Origs, Max),           
+              % Sanity checks
+              Limit is 10000000*Granularity,
+              Max @> Limit,
+              OrigF is Max/Granularity,
+              integer(OrigF, OrigP)
+          )
+        ;
+            false
+        )
+     ).
+
+shift_into_window_64_bit(Granularity, Windows, Root, buselement(T,A,Sec,B1,H1,S,Tp,PF, PCIe, Bits), 
                          buselement(T,A,Sec,B2,H2,S,Tp,PF, PCIe, Bits)) :-
 
 	(T == device ->
@@ -186,7 +217,7 @@ shift_into_window_64_bit(Granularity, Windows, buselement(T,A,Sec,B1,H1,S,Tp,PF,
         ceiling(O1, O2),
         integer(O2, OrigP),
 
-        (OrigP > 10000000 ->
+        (OrigP > 10000000, PF == prefetchable, Bits == 64 ->
             (foreach(range(B, H), Windows),
              param(B2),
              param(H2),
@@ -207,14 +238,8 @@ shift_into_window_64_bit(Granularity, Windows, buselement(T,A,Sec,B1,H1,S,Tp,PF,
         )
     ;
         %Bridge
-        secondary(Bus) = Sec,
-        findall(OrigP, 
-                     (bar(addr(Bus, _, _), _, Orig, _ , _, PF, _),
-                      Limit is 10000000*Granularity,
-                      Orig @> Limit,
-                      OrigF is Orig/Granularity,
-                      integer(OrigF, OrigP)
-                     )
+        findall(OrigP, (should_shift_bridge(A, Sec, Root, Granularity, OrigP),
+                        PF == prefetchable)
                 ,Origs),
         (Origs == [] ->
             %no bar under bridge with size > 10'000'000
@@ -271,27 +296,27 @@ assign_addresses(Plan, Root, Tree, Granularity, ExclRanges, IOAPICs, HMem2) :-
 
     % Shift 64 bit addresses back into their window since
     % disjunctive() only takes numbers uf to 10'000'000
-    maplist(shift_into_window_64_bit(Granularity, Ranges),Lista, Plan).
+    maplist(shift_into_window_64_bit(Granularity, Ranges, Root),Lista, Plan).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Building the decoding net
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-build_decoding_net(Tree, Granularity, Ranges, RelativeAddr):-
-    t(buselement(_, addr(Bus, Dev, Fun), BarNum, Base, High, _, _, _, _, _) ,Children) = Tree,
+build_decoding_net(Tree, Granularity, RelativeAddr):-
+    t(buselement(_, addr(Bus, Dev, Fun), BarNum, Base, High, _, _, Pref, _, _) ,Children) = Tree,
     Size is High - Base, 
+    pci_id_node_id(addr(Bus, Dev, Fun, BarNum, Pref), Id),
 
-    pci_id_node_id(addr(Bus, Dev, Fun, BarNum), Id),
     (Children == [] ->
         % This is a node that has to accept since there are no children
         (Size @> 0 ->
             SP is Size*Granularity -1,
             (RelativeAddr == true ->
-                %writeln(bar_new(region(Id, block(0, SP)))),
+                writeln(bar_new(region(Id, block(0, SP)))),
                 assert_accept(region(Id, block(0, SP)))
             ;   
                 B is Base*Granularity,
                 H is High*Granularity -1, 
-                %writeln(bar_new(region(Id, block(B, H)))),
+                writeln(bar_new(region(Id, block(B, H)))),
                 assert_accept(region(Id, block(B, H)))
             )
         ;
@@ -299,17 +324,15 @@ build_decoding_net(Tree, Granularity, Ranges, RelativeAddr):-
         )
     ;
         % This is a node that has to translate since there are children on this bridge
-        %writeln("=================================================="),
+        writeln("=================================================="),
         ( foreach(El, Children),
           param(Id),
           param(Base),
           param(Granularity),
-          param(Ranges),
           param(RelativeAddr)
           do  
-            t(buselement(_, addr(Bus2, Dev2, Fun2), BarNum2, Base2, High2, _, _, _, _, _) , _) = El,
-            
-            pci_id_node_id(addr(Bus2, Dev2, Fun2, BarNum2), PCIId),
+            t(buselement(_, addr(Bus2, Dev2, Fun2), BarNum2, Base2, High2, _, _, Pref2, _, _) , _) = El,
+            pci_id_node_id(addr(Bus2, Dev2, Fun2, BarNum2, Pref2), PCIId),
             
             B2 is Base2 * Granularity,
             H2 is High2 * Granularity -1,   
@@ -327,8 +350,8 @@ build_decoding_net(Tree, Granularity, Ranges, RelativeAddr):-
 
             (S @> 0 ->
                 assert_translate(region(Id, block(AcceptStart, AcceptEnd)), name(PCIId, ChildStart)),
-                %writeln(bridge_new((region(Id, block(AcceptStart, AcceptEnd)), S, name(PCIId, ChildStart)))),
-                build_decoding_net(El, Granularity, Ranges, RelativeAddr)
+                writeln(bridge_new((region(Id, block(AcceptStart, AcceptEnd)), S, name(PCIId, ChildStart)))),
+                build_decoding_net(El, Granularity, RelativeAddr)
             ;
                 true
             )
@@ -374,9 +397,9 @@ build_decoding_net(Tree, Granularity, Ranges, RelativeAddr):-
 %        )
 %    ).
 
-add_root_to_decoding_net(Addr, MinBus, Base, High) :-
+add_root_to_decoding_net(Addr, MinBus, Pref, Base, High) :-
         addr(Bus, Dev, Fun) = Addr,
-        pci_id_node_id(addr(Bus, Dev, Fun, secondary(MinBus)), PCIId),
+        pci_id_node_id(addr(Bus, Dev, Fun, secondary(MinBus), Pref), PCIId),
         pcibus_node_id(Id),
         assert_translate(region(Id, block(Base, High)), name(PCIId, Base)).
 
@@ -397,32 +420,30 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     RBaseP::[LMem..HMem],
     RHighP::[LMem..HMem],
     RSizeP::[0..X],
-    devicetree(BusElementListP,buselement(bridge,Addr,secondary(MinBus),RBaseP,RHighP,RSizeP, Type, prefetchable, _, _),TP),
+    devicetree(BusElementListP,buselement(bridge,Addr,secondary(MinBus),RBaseP,RHighP,RSizeP, Type, prefetchable, pcie, 0),TP),
 
 % nonprefetchable, Highest address must be less than 4GB
     constrain_bus(Granularity, Type, nonprefetchable, Addr,MinBus,MaxBus,LMem,HMem2,BusElementListNP, Ranges),
     RBaseNP::[LMem..HMem2],
     RHighNP::[LMem..HMem2],
     RSizeNP::[0..X],
-    devicetree(BusElementListNP,buselement(bridge,Addr,secondary(MinBus),RBaseNP,RHighNP,RSizeNP, Type, nonprefetchable, _, _),TNP),
+    devicetree(BusElementListNP,buselement(bridge,Addr,secondary(MinBus),RBaseNP,RHighNP,RSizeNP, Type, nonprefetchable, pcie, 0),TNP),
 
-    assign_addresses(NPPlan, Root, TP, Granularity, ExclRanges, IOAPICs, HMem2),
-    assign_addresses(PPlan, Root, TNP, Granularity, ExclRanges, IOAPICs, HMem2),
+    assign_addresses(PPlan, Root, TP, Granularity, ExclRanges, IOAPICs, HMem2),
+    assign_addresses(NPPlan, Root, TNP, Granularity, ExclRanges, IOAPICs, HMem2),
 
-    %add_root_to_decoding_net(Addr, MinBus, RBaseP, RHighP),
-    %build_decoding_net(TP, Granularity, true, Offset),
+    append(PPlan, NPPlan, Plan).
+    %subtract(PPlan, [buselement(bridge,Addr, _, _, _,_,_,prefetchable,_,_)],PPlan2),
+    %devicetree(PPlan2, buselement(bridge,Addr,secondary(MinBus), RBaseP, RHighP, RSizeP, Type, prefetchable, _, _), TP2),
+    %add_root_to_decoding_net(Addr, MinBus, prefetchable, RBaseP, RHighP),
+    %build_decoding_net(TP2, Granularity, true),
 
     %Add TNP Root
-    %add_root_to_decoding_net(Addr, MinBus, RBaseNP, RHighNP),
-    %build_decoding_net(TNP, Granularity, true, Offset),
-
-    append(NPPlan, PPlan, Pl3),
-    subtract(Pl3,[buselement(bridge,Addr,_,_,_,_,_,prefetchable,_,_)],Pl2),
-    subtract(Pl2,[buselement(bridge,Addr,_,_,_,_,_,nonprefetchable,_,_)],Plan).
-    % We shifted the Prefetchable tree -> shift back and create tree
-    
-    %maplist(adjust_range(0),Pl,PR),
-    %maplist(back_to_bytes(Granularity),Pl,Plan),
+    %writeln("Adding Non Prefetchable"),
+    %subtract(NPPlan, [buselement(bridge,Addr, _, _, _,_,_,nonprefetchable,_,_)],NPPlan2),
+    %devicetree(NPPlan2, buselement(bridge,Addr,secondary(MinBus),RBaseNP,RHighNP,RSizeNP, Type, prefetchable, _, _), TNP2),
+    %add_root_to_decoding_net(Addr, MinBus, nonprefetchable, RBaseNP, RHighNP),
+    %build_decoding_net(TNP2, Granularity, true).
     
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -432,14 +453,6 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
 base(buselement(_,_,_,Base,_,_,_,_,_,_),Base).
 high(buselement(_,_,_,_,High,_,_,_,_,_),High).
 size(buselement(_,_,_,_,_,Size,_,_,_,_),Size).
-
-%labelall(BusElementList, ExtraVars) :-
-%labelall(BusElementList) :-
-%    maplist(base, BusElementList, Base),
-%    maplist(size, BusElementList, Size),
-%    append(ExtraVars, Base , L1),
-%    append(L1, Size, L3),
-%    labeling(L3).
 
 labelall(BusElementList) :-
     maplist(base, BusElementList, Base),
@@ -504,7 +517,6 @@ constrain_bus_ex(Granularity, Type, Prefetch, RootAddr,Bus,MaxBus,LMem,HMem,InBu
                   O1 is Orig / Granularity,
                   ceiling(O1, O2),
                   integer(O2, OrigP),
-                                   
                   (Bits == 32 ->
                     Base::[LMem..HMem2],
                     High::[LMem..HMem2],
@@ -566,6 +578,7 @@ devicetree(List,CurrRoot,Tree) :-
                devicetree(List, Y, X)),Children
            ),
     Tree = t(CurrRoot,Children).
+
 devicetree(_,CurrRoot,Tree) :-
     buselement(device,_,_,_,_,_,_,_,_,_) = CurrRoot,
     Tree = t(CurrRoot, []).
