@@ -55,7 +55,8 @@ struct device_caps
 struct device_caps dev_caps[PCI_NBUSES][PCI_NDEVICES][PCI_NFUNCTIONS][PCI_NBARS];
 const char *skb_bridge_program = "bridge_page";
 //uint16_t max_numvfs = 255;
-uint16_t max_numvfs = 16;
+// disable vfs by default
+uint16_t max_numvfs = 0;
 bool decoding_net = false;
 
 static void
@@ -1199,6 +1200,11 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                     break;
                                 }
                                 
+                                // Do not add any virtual functions if we disabled it
+                                if (max_numvfs == 0) {
+                                    break;
+                                }
+
                                 pci_sr_iov_cap_t sr_iov_cap;
                                 pci_sr_iov_cap_initialize(&sr_iov_cap,
                                        (mackerel_addr_t) (ad + (cap_ptr / 4)));
