@@ -1860,10 +1860,12 @@ void pci_program_bridges(void)
                       " in space = %s, prefetch = %s... Bits %d\n",
                       element_type, bus, dev, fun, base, high, size, space,
                       prefetch, bits);
-            //a bridge expects the high address excluding the last byte which
-            //is the base for the next bridge => decrement by one
-            high--;
-            program_bridge_window(bus, dev, fun, base, high, pcie, mem, pref);
+            if (size != 0) {
+                //a bridge expects the high address excluding the last byte which
+                //is the base for the next bridge => decrement by one
+                high--;
+                program_bridge_window(bus, dev, fun, base, high, pcie, mem, pref);
+            }
         }
     }
 
