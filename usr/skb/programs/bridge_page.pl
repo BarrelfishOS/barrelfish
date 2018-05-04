@@ -311,12 +311,12 @@ build_decoding_net(Tree, Granularity, RelativeAddr):-
         (Size @> 0 ->
             SP is Size*Granularity -1,
             (RelativeAddr == true ->
-                writeln(bar_new(region(Id, block(0, SP)))),
+                %writeln(bar_new(region(Id, block(0, SP)))),
                 assert_accept(region(Id, block(0, SP)))
             ;   
                 B is Base*Granularity,
                 H is High*Granularity -1, 
-                writeln(bar_new(region(Id, block(B, H)))),
+                %writeln(bar_new(region(Id, block(B, H)))),
                 assert_accept(region(Id, block(B, H)))
             )
         ;
@@ -324,7 +324,7 @@ build_decoding_net(Tree, Granularity, RelativeAddr):-
         )
     ;
         % This is a node that has to translate since there are children on this bridge
-        writeln("=================================================="),
+        %writeln("=================================================="),
         ( foreach(El, Children),
           param(Id),
           param(Base),
@@ -350,7 +350,7 @@ build_decoding_net(Tree, Granularity, RelativeAddr):-
 
             (S @> 0 ->
                 assert_translate(region(Id, block(AcceptStart, AcceptEnd)), name(PCIId, ChildStart)),
-                writeln(bridge_new((region(Id, block(AcceptStart, AcceptEnd)), S, name(PCIId, ChildStart)))),
+                %writeln(bridge_new((region(Id, block(AcceptStart, AcceptEnd)), S, name(PCIId, ChildStart)))),
                 build_decoding_net(El, Granularity, RelativeAddr)
             ;
                 true
@@ -432,18 +432,17 @@ bridge_assignment(Plan, Root, Granularity, ExclRanges, IOAPICs) :-
     assign_addresses(PPlan, Root, TP, Granularity, ExclRanges, IOAPICs, HMem2),
     assign_addresses(NPPlan, Root, TNP, Granularity, ExclRanges, IOAPICs, HMem2),
 
-    append(PPlan, NPPlan, Plan).
-    %subtract(PPlan, [buselement(bridge,Addr, _, _, _,_,_,prefetchable,_,_)],PPlan2),
-    %devicetree(PPlan2, buselement(bridge,Addr,secondary(MinBus), RBaseP, RHighP, RSizeP, Type, prefetchable, _, _), TP2),
-    %add_root_to_decoding_net(Addr, MinBus, prefetchable, RBaseP, RHighP),
-    %build_decoding_net(TP2, Granularity, true),
+    append(PPlan, NPPlan, Plan),
+    subtract(PPlan, [buselement(bridge,Addr, _, _, _,_,_,prefetchable,_,_)],PPlan2),
+    devicetree(PPlan2, buselement(bridge,Addr,secondary(MinBus), RBaseP, RHighP, RSizeP, Type, prefetchable, _, _), TP2),
+    add_root_to_decoding_net(Addr, MinBus, prefetchable, RBaseP, RHighP),
+    build_decoding_net(TP2, Granularity, true),
 
     %Add TNP Root
-    %writeln("Adding Non Prefetchable"),
-    %subtract(NPPlan, [buselement(bridge,Addr, _, _, _,_,_,nonprefetchable,_,_)],NPPlan2),
-    %devicetree(NPPlan2, buselement(bridge,Addr,secondary(MinBus),RBaseNP,RHighNP,RSizeNP, Type, prefetchable, _, _), TNP2),
-    %add_root_to_decoding_net(Addr, MinBus, nonprefetchable, RBaseNP, RHighNP),
-    %build_decoding_net(TNP2, Granularity, true).
+    subtract(NPPlan, [buselement(bridge,Addr, _, _, _,_,_,nonprefetchable,_,_)],NPPlan2),
+    devicetree(NPPlan2, buselement(bridge,Addr,secondary(MinBus),RBaseNP,RHighNP,RSizeNP, Type, prefetchable, _, _), TNP2),
+    add_root_to_decoding_net(Addr, MinBus, nonprefetchable, RBaseNP, RHighNP),
+    build_decoding_net(TNP2, Granularity, true).
     
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
