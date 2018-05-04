@@ -705,18 +705,19 @@ static void pci_add_vf_bars_to_skb(struct pci_address* vf_addr, uint32_t vfn,
             PCI_DEBUG("(%u,%u,%u): 32bit BAR %d at 0x%" PRIx32 ", size %x, %s\n",
                       vf_addr->bus, vf_addr->device, vf_addr->function, i,
                       (barorigaddr.base << 7) + bar_mapping_size(bar) * vfn,
-                      bar_mapping_size(bar),
-                      (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
+                      bar_mapping_size(bar), "nonprefetchable");
+                      //(bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
 
             //32bit BAR
+            // XXX make every 32 bit bar noprefetchable. Only graphics cards have
+            // 32 bit prefetchable bars ...
             skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIx32", 16'%"
                          PRIx32 ", vf, %s, %d).", vf_addr->bus,
                          vf_addr->device, vf_addr->function, i,
                          (uint32_t) ((barorigaddr.base << 7)
                                      + bar_mapping_size( bar) * vfn),
                          (uint32_t) bar_mapping_size(bar),
-                         (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
-                         type);
+                         "nonprefetchable" ,type);
         }
     }
 }
@@ -1786,16 +1787,24 @@ void pci_program_bridges(void)
     //get the number of buselements from the output
     int nr_elements;
     int nr_conversions;
-    nr_conversions = sscanf(output, "nrelements(%d)", &nr_elements);
+
+    //keep a pointer to the current location within the output
+    char *conv_ptr = output;
+
+    // Skip any warnings from Prolog.
+    while ((conv_ptr < output + output_length) && (strncmp(
+                    conv_ptr, "nrelements", strlen("nrelements"))
+                                                   != 0)) {
+        conv_ptr++;
+    }
+
+    nr_conversions = sscanf(conv_ptr, "nrelements(%d)", &nr_elements);
     if (nr_conversions != 1) {
         printf("pci.c: No valid pci plan returned by the SKB\n.");
         //XXX: no device can be used
         free(output);
         return;
     }
-
-    //keep a pointer to the current location within the output
-    char *conv_ptr = output;
 
     //iterate over all buselements
     for (int i = 0; i < nr_elements; i++) {
