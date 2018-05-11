@@ -62,7 +62,7 @@
 
 #define PIC_REGISTER X10
 
-#define NUM_REGS 34     /* cpsr, x0-x30, sp, pc */
+#define NUM_REGS 66     /* cpsr, x0-x30, sp, pc */
 #define NUM_FPU_REGS 0
 #define ARCH_NUMREGS NUM_REGS
 
@@ -86,6 +86,7 @@ union registers_aarch64 {
         uint64_t x16, x17, x18, x19, x20, x21, x22, x23;
         uint64_t x24, x25, x26, x27, x28, x29, x30;
         uint64_t stack, pc, spsr;
+        uint64_t v[16][2];
     } named;
     struct registers_aarch64_syscall_args {
         uint64_t arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7;
@@ -93,6 +94,7 @@ union registers_aarch64 {
         uint64_t x16,  x17,  x18,  x19,  x20,  x21,  x22,  x23;
         uint64_t x24,  x25,  x26,  x27,  x28,  x29,  x30;
         uint64_t stack, pc, spsr;
+        uint64_t v[16][2];
     } syscall_args;
     uint64_t regs[sizeof(struct registers_aarch64_named) / sizeof(uint64_t)];
 };
@@ -101,9 +103,6 @@ STATIC_ASSERT_SIZEOF(union registers_aarch64, NUM_REGS * sizeof(uint64_t));
 
 ///< Opaque handle for the register state
 typedef union registers_aarch64 arch_registers_state_t;
-
-///< Opaque handle for the FPU register state
-typedef void *arch_registers_fpu_state_t;
 
 static inline void
 registers_set_entry(arch_registers_state_t *regs, lvaddr_t entry)

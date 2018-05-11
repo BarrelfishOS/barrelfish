@@ -45,8 +45,7 @@ errval_t thread_detach(struct thread *thread);
 
 void thread_pause(struct thread *thread);
 void thread_pause_and_capture_state(struct thread *thread,
-                                    arch_registers_state_t **ret_regs,
-                                    arch_registers_fpu_state_t **ret_fpuregs);
+                                    arch_registers_state_t **ret_regs);
 void thread_resume(struct thread *thread);
 
 void thread_mutex_init(struct thread_mutex *mutex);

@@ -52,22 +52,14 @@ static inline void enable_fpu(void)
     cr0 |= (1 << 1);
     //set NE
     cr0 |= (1 << 5);
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-    //set TS
-    cr0 |= (1 << 3);
-#else
     //clear TS
     cr0 &= ~(1 << 3);
-#endif
     __asm__ __volatile__("mov %%eax,%%cr0" : : "a" (cr0));
     //set OSFXSR
     __asm__ __volatile__("mov %%cr4, %%eax" : "=a" (cr4) : );
     cr4 |= (1 << 9);
     __asm__ __volatile__("mov %%eax,%%cr4" : : "a" (cr4));
-
-#ifndef FPU_LAZY_CONTEXT_SWITCH
     __asm volatile ("finit");
-#endif
 }
 
 static inline void monitor(lvaddr_t base, uint32_t extensions, uint32_t hints)

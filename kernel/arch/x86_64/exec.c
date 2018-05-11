@@ -88,7 +88,7 @@ execute(lvaddr_t entry)
 {
     // FIXME: make argument
     uintptr_t arg = get_dispatcher_shared_generic(dcb_current->disp)->udisp;
-
+    uint32_t mxcsr_value = 0x1f80;
     /*
      * Go to user-space using SYSRETQ -- the Q is very important, so operand
      * size is 64-bit. Otherwise we return to compatibility mode.
@@ -98,6 +98,7 @@ execute(lvaddr_t entry)
      * general-purpose registers are zeroed.
      */
     __asm volatile ("movq       %[flags], %%r11         \n\t"
+                    "ldmxcsr    %[mxcsr_value]          \n\t"
                     "movq       $0, %%rsi               \n\t"
                     "movq       $0, %%rdx               \n\t"
                     "movq       $0, %%r8                \n\t"
@@ -113,12 +114,30 @@ execute(lvaddr_t entry)
                     "movq       $0, %%rsp               \n\t"
                     "mov        %%dx, %%fs              \n\t"
                     "mov        %%dx, %%gs              \n\t"
+                    "fninit                             \n\t"
+                    "movq       %%rsi, %%xmm0           \n\t"
+                    "movq       %%rsi, %%xmm1           \n\t"
+                    "movq       %%rsi, %%xmm2           \n\t"
+                    "movq       %%rsi, %%xmm3           \n\t"
+                    "movq       %%rsi, %%xmm4           \n\t"
+                    "movq       %%rsi, %%xmm5           \n\t"
+                    "movq       %%rsi, %%xmm6           \n\t"
+                    "movq       %%rsi, %%xmm7           \n\t"
+                    "movq       %%rsi, %%xmm8           \n\t"
+                    "movq       %%rsi, %%xmm9           \n\t"
+                    "movq       %%rsi, %%xmm10          \n\t"
+                    "movq       %%rsi, %%xmm11          \n\t"
+                    "movq       %%rsi, %%xmm12          \n\t"
+                    "movq       %%rsi, %%xmm13          \n\t"
+                    "movq       %%rsi, %%xmm14          \n\t"
+                    "movq       %%rsi, %%xmm15          \n\t"
                     "sysretq                            \n\t"
                     : /* No output */
                     :
                     [entry] "c" (entry),
                     [disp] "D" (arg),
-                    [flags] "i" (USER_RFLAGS)
+                    [flags] "i" (USER_RFLAGS),
+                    [mxcsr_value] "m" (mxcsr_value)
                     );
 
     // Trick GCC to believe us not to return
@@ -139,6 +158,7 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
                     "pushq      %[rflags]               \n\t"
                     "pushq      %[cs]                   \n\t"
                     "pushq      16*8(%[regs])           \n\t"   // RIP
+                    "fxrstor     %[fxsave_area]         \n\t"
                     "mov         %[fs], %%fs            \n\t"
                     "mov         %[gs], %%gs            \n\t"
                     "movq        0*8(%[regs]), %%rax    \n\t"
@@ -164,6 +184,7 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
                     [cs] "i" (GSEL(UCODE_SEL, SEL_UPL)),
                     [fs] "m" (regs->fs),
                     [gs] "m" (regs->gs),
+                    [fxsave_area] "m" (regs->fxsave_area),
                     [rflags] "r" ((regs->eflags & USER_RFLAGS_MASK)
                                   | USER_RFLAGS)
                     );

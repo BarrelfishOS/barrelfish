@@ -38,9 +38,6 @@
 #  include <vmkit.h>
 #endif
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-#  include <fpu.h>
-#endif
 
 /**
  * \brief The kernel timeslice given in system ticks
@@ -55,77 +52,6 @@ uint64_t context_switch_counter = 0;
 /// Current execution dispatcher (when in system call or exception)
 struct dcb *dcb_current = NULL;
 
-/// Remembered FPU-using DCB (NULL if none)
-struct dcb *fpu_dcb = NULL;
-
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-void
-fpu_lazy_top(struct dcb *dcb) {
-    // XXX: It should be possible to merge this code fragment with the
-    // other FPU restore fragment below
-    if(fpu_dcb != NULL && !dcb->is_vm_guest) {
-        struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(dcb->disp);
-
-        // Switch FPU trap on if we switch away from FPU DCB and target is enabled
-        // If target disabled, we eagerly restore the FPU
-        if(fpu_dcb != dcb && !dcb->disabled) {
-            disp->fpu_trap = 1;
-        }
-
-        // Restore FPU trap state
-        if(disp->fpu_trap) {
-            fpu_trap_on();
-        } else {
-            fpu_trap_off();
-        }
-    }
-}
-
-void
-fpu_lazy_bottom(struct dcb *dcb) {
-    struct dispatcher_shared_generic *disp =
-        get_dispatcher_shared_generic(dcb->disp);
-
-    // Eagerly restore FPU if it was used disabled and set FPU trap accordingly
-    if(disp->fpu_used && dcb->disabled) {
-        // Context switch if FPU state is stale
-        if(fpu_dcb != dcb) {
-            // XXX: Need to reset fpu_dcb when that DCB is deleted
-            struct dispatcher_shared_generic *dst =
-                get_dispatcher_shared_generic(fpu_dcb->disp);
-
-            fpu_trap_off();
-
-            // Store old FPU state if it was used
-            if(fpu_dcb->disabled) {
-                fpu_save(dispatcher_get_disabled_fpu_save_area(fpu_dcb->disp));
-                dst->fpu_used = 1;
-            } else {
-                assert(!fpu_dcb->disabled);
-                fpu_save(dispatcher_get_enabled_fpu_save_area(fpu_dcb->disp));
-                dst->fpu_used = 2;
-            }
-
-            if(disp->fpu_used == 1) {
-              fpu_restore(dispatcher_get_disabled_fpu_save_area(dcb->disp));
-            } else {
-              assert(disp->fpu_used == 2);
-              fpu_restore(dispatcher_get_enabled_fpu_save_area(dcb->disp));
-            }
-
-            // Restore trap state once more, since we modified it
-            if(disp->fpu_trap) {
-                fpu_trap_on();
-            } else {
-                fpu_trap_off();
-            }
-        }
-        fpu_dcb = dcb;
-    }
-}
-#endif
-
 #if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 #define TRACE_N_BM 1
 #endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
@@ -133,15 +59,6 @@ fpu_lazy_bottom(struct dcb *dcb) {
 
 void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 {
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-    // Save state of FPU trap for this domain (treat it like normal context switched state)
-    if(dcb_current != NULL && !dcb_current->is_vm_guest) {
-        struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(dcb_current->disp);
-        disp->fpu_trap = fpu_trap_get();
-    }
-#endif
-
     // XXX FIXME: Why is this null pointer check on the fast path ?
     // If we have nothing to do we should call something other than dispatch
     if (dcb == NULL) {
@@ -170,7 +87,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     arch_registers_state_t *disabled_area =
         dispatcher_get_disabled_save_area(handle);
 
-    if(disp != NULL) {
+    if (disp != NULL) {
         disp->systime = systime_now() + kcb_current->kernel_off;
     }
     TRACE(KERNEL, SC_YIELD, 1);

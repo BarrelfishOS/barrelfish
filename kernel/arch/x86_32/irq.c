@@ -65,10 +65,7 @@
 #include <barrelfish_kpi/cpu_arch.h>
 #include <kcb.h>
 #include <mdb/mdb_tree.h>
-
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-#  include <fpu.h>
-#endif
+#include <fpu.h>
 
 /**
  * \brief Define IRQ handler number 'num'.

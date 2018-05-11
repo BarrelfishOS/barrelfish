@@ -1087,10 +1087,6 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
         reboot();
         break;
 
-    case SYSCALL_X86_FPU_TRAP_ON:
-        fpu_trap_on();
-        break;
-
     case SYSCALL_DEBUG:
         switch(arg1) {
         case DEBUG_CONTEXT_COUNTER_RESET:

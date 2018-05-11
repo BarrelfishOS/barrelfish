@@ -1500,10 +1500,6 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         reboot();
         break;
 
-    case SYSCALL_X86_FPU_TRAP_ON:
-        fpu_trap_on();
-        break;
-
     case SYSCALL_X86_RELOAD_LDT:
         maybe_reload_ldt(dcb_current, true);
         break;
