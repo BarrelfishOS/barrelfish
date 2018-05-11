@@ -76,7 +76,7 @@
           "+r" (a3), "+r" (a4), "+r" (a5), "+r" (syscall_num)  \
         : "r" (a6), "r" (a7), "r" (a8), "r" (a9), "r" (a12) \
         : "r11");
-#else 
+#else
 #  define BF_SYSCALL_ASM(arg11, label) \
     __asm volatile("pushq %%rbp             \n\t"   \
                    "movq %%rcx, %%rbp       \n\t"   \
@@ -160,11 +160,6 @@ static inline struct sysret syscall(uint64_t num, uint64_t arg1, uint64_t arg2,
 	syscall3(_a, _b, 0)
 #define syscall1(_a) \
 	syscall2(_a, 0)
-
-static inline errval_t sys_x86_fpu_trap_on(void)
-{
-    return syscall1(SYSCALL_X86_FPU_TRAP_ON).error;
-}
 
 static inline errval_t sys_x86_reload_ldt(void)
 {

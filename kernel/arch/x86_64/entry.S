@@ -55,6 +55,7 @@ syscall_entry:
     mov     %rsp, OFFSETOF_RSP_REG(%rdi)
     mov     %fs, OFFSETOF_FS_REG(%rdi)
     mov     %gs, OFFSETOF_GS_REG(%rdi)
+    fxsave  OFFSETOF_FXSAVE_AREA(%rdi)
 
     /* Load pointer to root CNode cap into %rdi */
     mov     dcb_current(%rip), %rdi
@@ -177,43 +178,6 @@ lrpc_check_runnable_continue:
 
 2:      /* there's enough space, reserve it by updating delivered = newpos */
     mov %r11d, OFFSETOF_LMP_ENDPOINT_DELIVERED(%rcx)
-
-    /* fpu lazy switch */
-    /* if fpu_dcb == NULL continue domain switching */
-    cmp     $0, fpu_dcb(%rip)
-    je      lrpc_switch_domains
-
-    /* if receiver's dcb->is_vm_guest continue domain switching */
-    cmpb    $0, OFFSETOF_DCB_IS_VM_GUEST(%rsi)
-    jne     lrpc_switch_domains
-
-    /* %rax = get_dispatcher_shared_generic(receiver's dcb->disp) */
-    movq    OFFSETOF_DCB_DISP(%rsi), %rax
-
-    /* if receiver's dcb == fpu_dcp go to restore fpu trap */
-    cmp     %rsi, fpu_dcb(%rip)
-    je      lrpc_restore_fpu_trap
-
-    /* if receiver's dcb is disabled go to restore fpu trap */
-    cmpb    $0, OFFSETOF_DCB_DISABLED(%rsi)
-    jne     lrpc_restore_fpu_trap
-
-    /* set fpu trap enabled for receiver domain */
-    movl    $1, OFFSETOF_DISP_FPU_TRAP(%rax)
-
-lrpc_restore_fpu_trap:
-    cmpl    $0, OFFSETOF_DISP_FPU_TRAP(%rax)
-    je      lrpc_fpu_trap_off
-
-    /* enable fpu trap */
-    mov     %cr0, %rax
-    orb     $8, %al
-    mov     %rax, %cr0
-    jmp     lrpc_switch_domains
-
-lrpc_fpu_trap_off:
-    /* disable fpu trap */
-    clts
 
 lrpc_switch_domains:
     /* Set current domain to receiver */
@@ -419,7 +383,7 @@ lrpc_make_runnable:
     pushq   %rbp
     pushq   %rdi
     pushq   %rsi
-
+    
     // Call make runnable in C
     movq    %rsi, %rdi
     callq   make_runnable

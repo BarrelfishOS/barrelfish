@@ -50,8 +50,7 @@ enum pagefault_exception_type {
  * regs/fpuregs will be resumed.
  */
 typedef void (*exception_handler_fn)(enum exception_type type, int subtype,
-                                     void *addr, arch_registers_state_t *regs,
-                                     arch_registers_fpu_state_t *fpuregs);
+                                     void *addr, arch_registers_state_t *regs);
 
 errval_t thread_set_exception_handler(exception_handler_fn newhandler,
                                       exception_handler_fn *oldhandler,

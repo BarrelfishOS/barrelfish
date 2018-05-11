@@ -44,7 +44,7 @@ void __attribute__ ((visibility ("hidden"))) disp_save_rm_kcb_epilog(void);
 
 STATIC_ASSERT(PC_REG   == 32, "broken context assumption");
 STATIC_ASSERT(SPSR_REG == 33, "broken context assumption");
-STATIC_ASSERT(NUM_REGS == 34, "broken context assumption");
+STATIC_ASSERT(NUM_REGS == 66, "broken context assumption");
 
 #define NZCV_MASK (MASK(4) << 28)
 

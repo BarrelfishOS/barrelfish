@@ -98,9 +98,6 @@ STATIC_ASSERT_SIZEOF(union registers_arm, (17 + 64 + 1) * 4);
 ///< Opaque handle for the register state
 typedef union registers_arm arch_registers_state_t;
 
-///< Opaque handle for the FPU register state
-typedef void *arch_registers_fpu_state_t;
-
 static inline void
 registers_set_entry(arch_registers_state_t *regs, lvaddr_t entry)
 {

@@ -32,13 +32,4 @@ static inline bool thread_check_syscall_succeeded(uintptr_t *save_area)
 }
 #endif
 
-/**
- * \brief Enable FPU trap.
- */
-static inline void fpu_trap_on(void)
-{
-    errval_t err = sys_x86_fpu_trap_on();
-    assert_disabled(err_is_ok(err));
-}
-
 #endif // LIBBARRELFISH_ARCH_THREADS_H

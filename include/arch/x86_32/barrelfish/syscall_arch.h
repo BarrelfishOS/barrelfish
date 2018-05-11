@@ -71,9 +71,4 @@ struct sysret syscall(uintptr_t arg0, uintptr_t arg1,
 #define syscall1(_a)                            \
     syscall2(_a, 0)
 
-static inline errval_t sys_x86_fpu_trap_on(void)
-{
-    return syscall1(SYSCALL_X86_FPU_TRAP_ON).error;
-}
-
 #endif

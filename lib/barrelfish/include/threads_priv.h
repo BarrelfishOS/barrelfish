@@ -47,7 +47,7 @@ struct thread {
     dispatcher_handle_t disp;               ///< Dispatcher affinity
     struct tls_dtv      *tls_dtv;           ///< TLS thread vector
     struct thread       *next, *prev;       ///< Next/prev threads in list
-    arch_registers_state_t regs;            ///< Register state snapshot
+    arch_registers_state_t regs  __attribute__ ((aligned (16)));            ///< Register state snapshot
     void                *stack;             ///< Malloced stack area
     void                *stack_top;         ///< Stack bounds
     void                *exception_stack;   ///< Stack for exception handling
@@ -66,11 +66,9 @@ struct thread {
     bool                detached;           ///< true if detached
     bool                joining;            ///< true if someone is joining
     bool                in_exception;       ///< true if running exception handler
-    bool                used_fpu;           ///< Ever used FPU?
 #if defined(__x86_64__)
     uint16_t            thread_seg_selector; ///< Segment selector for TCB
 #endif
-    arch_registers_fpu_state_t fpu_state;   ///< FPU state
     void                *slab;              ///< Base of slab block containing this TCB
     uintptr_t           id;                 ///< User-defined thread identifier
 

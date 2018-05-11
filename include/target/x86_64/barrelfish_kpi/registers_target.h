@@ -34,12 +34,19 @@ struct registers_x86_64 {
     uint64_t rax, rbx, rcx, rdx, rsi, rdi, rbp, rsp,
         r8, r9, r10, r11, r12, r13, r14, r15, rip, eflags;
     uint16_t fs, gs; ///< Only meaningful segment selectors in 64-bit mode
-};
-
-struct registers_fpu_x86_64 {
-    // Should be aligned at 16-byte boundary, according to Intel
-    // description of FXRSTOR instruction.
-    uint8_t registers[512 + 16] __attribute__ ((aligned (16)));
+    struct {
+        uint16_t fcw, fsw;
+        uint8_t ftw, res1;
+        uint16_t fop;
+        uint32_t fpu_ip1;
+        uint16_t fpu_ip2, res2;
+        uint32_t fpu_dp1;
+        uint16_t fpu_dp2, res3;
+        uint32_t mxcsr, mxcsr_mask;
+        uint64_t st[8][2];
+        uint64_t xmm[16][2];
+        uint64_t res4[12];
+    } fxsave_area __attribute__ ((packed, aligned (16)));
 };
 
 static inline void

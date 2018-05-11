@@ -30,8 +30,6 @@ struct dispatcher_shared_x86_64 {
     struct registers_x86_64 enabled_save_area;  ///< Enabled register save area
     struct registers_x86_64 disabled_save_area; ///< Disabled register save area
     struct registers_x86_64 trap_save_area;     ///< Trap register save area
-    struct registers_fpu_x86_64 enabled_fpu_state;      ///< FPU register save area
-    struct registers_fpu_x86_64 disabled_fpu_state;     ///< FPU register save area
 };
 
 static inline struct dispatcher_shared_x86_64*
@@ -62,22 +60,6 @@ dispatcher_x86_64_get_trap_save_area(dispatcher_handle_t handle)
     struct dispatcher_shared_x86_64 *disp =
         get_dispatcher_shared_x86_64(handle);
     return &disp->trap_save_area;
-}
-
-static inline struct registers_fpu_x86_64*
-dispatcher_x86_64_get_enabled_fpu_save_area(dispatcher_handle_t handle)
-{
-    struct dispatcher_shared_x86_64 *disp =
-        get_dispatcher_shared_x86_64(handle);
-    return &disp->enabled_fpu_state;
-}
-
-static inline struct registers_fpu_x86_64*
-dispatcher_x86_64_get_disabled_fpu_save_area(dispatcher_handle_t handle)
-{
-    struct dispatcher_shared_x86_64 *disp =
-        get_dispatcher_shared_x86_64(handle);
-    return &disp->disabled_fpu_state;
 }
 
 #endif // TARGET_X86_64_BARRELFISH_KPI_DISPATCHER_SHARED_H

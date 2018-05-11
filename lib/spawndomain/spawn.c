@@ -338,7 +338,6 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
     /* Setup dispatcher and make it runnable */
     disp->udisp = spawn_dispatcher_base;
     disp->disabled = 1;
-    disp->fpu_trap = 1;
 #ifdef __k1om__
     disp->xeon_phi_id = disp_xeon_phi_id();
 #endif

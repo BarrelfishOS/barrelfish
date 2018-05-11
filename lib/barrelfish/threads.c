@@ -38,23 +38,17 @@
 #  include "arch/ldt.h"
 #endif
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-#  include <arch/fpu.h>
-#endif
 
 /// Maximum number of threads in a domain, used to size VM region for thread structures
 // there is no point having MAX_THREADS > LDT_NENTRIES on x86 (see ldt.c)
 #define MAX_THREADS 256
 
-/// 16-byte alignment required for x86-64
-// FIXME: this should be in an arch header
-#define STACK_ALIGNMENT (sizeof(uint64_t) * 2)
-
 /// Static stack and storage for a bootstrap/cleanup thread
 // XXX: 16-byte aligned for x86-64
 static uintptr_t staticstack[THREADS_DEFAULT_STACK_BYTES / sizeof(uintptr_t)]
 __attribute__((aligned(STACK_ALIGNMENT)));
-static struct thread staticthread = {
+
+static struct thread staticthread __attribute__((aligned(THREAD_ALIGNMENT))) = {
     .stack = staticstack,
     .stack_top = (char *)staticstack + sizeof(staticstack)
 };
@@ -248,7 +242,6 @@ static void thread_init(dispatcher_handle_t disp, struct thread *newthread)
     newthread->detached = false;
     newthread->joining = false;
     newthread->in_exception = false;
-    newthread->used_fpu = false;
     newthread->paused = false;
     newthread->slab = NULL;
     newthread->token = 0;
@@ -257,26 +250,6 @@ static void thread_init(dispatcher_handle_t disp, struct thread *newthread)
     newthread->rpc_in_progress = false;
     newthread->async_error = SYS_ERR_OK;
     newthread->local_trigger = NULL;
-}
-
-/**
- * \brief Handle FPU context switching
- */
-static void fpu_context_switch(struct dispatcher_generic *disp_gen,
-                               struct thread * next)
-{
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-    if(disp_gen->fpu_thread == NULL) {
-        // FPU wasn't used -- no switching necessary
-        return;
-    }
-
-    // Switch FPU trap back on if we switch away from FPU thread
-    if(disp_gen->fpu_thread == disp_gen->current &&
-       disp_gen->fpu_thread != next) {
-        fpu_trap_on();
-    }
-#endif
 }
 
 /**
@@ -315,8 +288,6 @@ void thread_run_disabled(dispatcher_handle_t handle)
         struct thread *next = disp_gen->current->next;
         assert_disabled(next != NULL);
         if (next != disp_gen->current) {
-            fpu_context_switch(disp_gen, next);
-
             // save previous thread's state
             arch_registers_state_t *cur_regs = &disp_gen->current->regs;
             memcpy(cur_regs, enabled_area, sizeof(arch_registers_state_t));
@@ -327,7 +298,6 @@ void thread_run_disabled(dispatcher_handle_t handle)
             disp_resume(handle, enabled_area);
         }
     } else if (disp_gen->runq != NULL) {
-        fpu_context_switch(disp_gen, disp_gen->runq);
         disp_gen->current = disp_gen->runq;
         disp->haswork = true;
         disp_resume(handle, &disp_gen->runq->regs);
@@ -370,6 +340,8 @@ static void free_thread(struct thread *thread)
     thread_mutex_unlock(&thread_slabs_mutex);
 }
 
+#define ALIGN_PTR(ptr, alignment) ((((uintptr_t)(ptr)) + (alignment) - 1) & ~((alignment) - 1))
+
 /**
  * \brief Creates a new thread that will not be runnable
  *
@@ -405,8 +377,8 @@ struct thread *thread_create_unrunnable(thread_func_t start_func, void *arg,
     // XXX: this layout is specific to the x86 ABIs! once other (saner)
     // architectures support TLS, we'll need to break out the logic.
     void *tls_data = space;
-    struct thread *newthread = (void *)((uintptr_t)space + tls_block_total_len);
-
+    struct thread *newthread = (void *)ALIGN_PTR((uintptr_t)space + tls_block_total_len, THREAD_ALIGNMENT);
+    
     // init thread
     thread_init(curdispatcher(), newthread);
     newthread->slab = space;
@@ -763,7 +735,6 @@ void thread_yield(void)
     poll_channels_disabled(handle);
 
     if (next != me) {
-        fpu_context_switch(disp_gen, next);
         disp_gen->current = next;
         disp_switch(handle, &me->regs, &next->regs);
     } else {
@@ -856,19 +827,10 @@ void thread_exit(int status)
             thread_mutex_unlock_disabled(handle, &staticthread_lock);
         assert(ft == NULL);
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-        // No more FPU usage from here on
-        if(disp_gen->fpu_thread == me) {
-            disp_gen->fpu_thread = NULL;
-            fpu_trap_on();
-        }
-#endif
-
         // run the next thread, if any
         struct thread *next = me->next;
         thread_remove_from_queue(&disp_gen->runq, me);
         if (next != me) {
-            fpu_context_switch(disp_gen, next);
             disp_gen->current = next;
             disp_resume(handle, &next->regs);
         } else {
@@ -878,7 +840,7 @@ void thread_exit(int status)
         }
     }
 
-    if(me->detached) {
+    if (me->detached) {
         // otherwise, we use a dispatcher-local thread to perform cleanup
         struct dispatcher_generic *dg = get_dispatcher_generic(curdispatcher());
         thread_mutex_lock(&dg->cleanupthread_lock);
@@ -898,18 +860,9 @@ void thread_exit(int status)
         dispatcher_handle_t handle = disp_disable();
         struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-        // No more FPU usage from here on
-        if(disp_gen->fpu_thread == me) {
-            disp_gen->fpu_thread = NULL;
-            fpu_trap_on();
-        }
-#endif
-
         thread_remove_from_queue(&disp_gen->runq, me);
         thread_enqueue(dg->cleanupthread, &disp_gen->runq);
         disp_gen->cleanupthread->disp = handle;
-        fpu_context_switch(disp_gen, dg->cleanupthread);
         disp_gen->current = dg->cleanupthread;
         disp_resume(handle, &dg->cleanupthread->regs);
     } else {
@@ -928,19 +881,10 @@ void thread_exit(int status)
 
         assert_disabled(wakeup == NULL);
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-        // No more FPU usage from here on
-        if(disp_gen->fpu_thread == me) {
-            disp_gen->fpu_thread = NULL;
-            fpu_trap_on();
-        }
-#endif
-
         // run the next thread, if any
         struct thread *next = me->next;
         thread_remove_from_queue(&disp_gen->runq, me);
         if (next != me) {
-            fpu_context_switch(disp_gen, next);
             disp_gen->current = next;
             disp_resume(handle, &next->regs);
         } else {
@@ -995,7 +939,6 @@ void *thread_block_and_release_spinlock_disabled(dispatcher_handle_t handle,
 
     if (next != me) {
         assert_disabled(disp_gen->runq != NULL);
-        fpu_context_switch(disp_gen, next);
         disp_gen->current = next;
         disp_switch(handle, &me->regs, &next->regs);
     } else {
@@ -1177,7 +1120,7 @@ static int bootstrap_thread(struct spawn_domain_params *params)
     }
 
     // Allocate storage region for real threads
-    size_t blocksize = sizeof(struct thread) + tls_block_total_len;
+    size_t blocksize = sizeof(struct thread) + tls_block_total_len + THREAD_ALIGNMENT;
     err = vspace_mmu_aware_init(&thread_slabs_vm, MAX_THREADS * blocksize);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "vspace_mmu_aware_init for thread region failed\n");
@@ -1323,8 +1266,7 @@ void threads_prepare_to_span(dispatcher_handle_t newdh)
  * The thread will not be run, until a subsequent call to thread_resume()
  */
 void thread_pause_and_capture_state(struct thread *thread,
-                                    arch_registers_state_t **ret_regs,
-                                    arch_registers_fpu_state_t **ret_fpuregs)
+                                    arch_registers_state_t **ret_regs)
 {
     assert(thread != NULL);
     dispatcher_handle_t dh = disp_disable();
@@ -1343,14 +1285,6 @@ void thread_pause_and_capture_state(struct thread *thread,
         if (ret_regs != NULL) {
             *ret_regs = &thread->regs;
         }
-        if (ret_fpuregs != NULL) {
-            if (thread->used_fpu) {
-                // FIXME: this may not be the right FPU state?
-                *ret_fpuregs = &thread->fpu_state;
-            } else {
-                *ret_fpuregs = NULL;
-            }
-        }
     } else {
         USER_PANIC("NYI: remote dispatcher thread_pause()");
     }
@@ -1364,7 +1298,7 @@ void thread_pause_and_capture_state(struct thread *thread,
  */
 void thread_pause(struct thread *thread)
 {
-    thread_pause_and_capture_state(thread, NULL, NULL);
+    thread_pause_and_capture_state(thread, NULL);
 }
 
 /**
@@ -1461,7 +1395,6 @@ errval_t thread_set_exception_handler(exception_handler_fn newhandler,
 }
 
 static void exception_handler_wrapper(arch_registers_state_t *cpuframe,
-                                      arch_registers_fpu_state_t *fpuframe,
                                       uintptr_t hack_arg, void *addr)
 {
     struct thread *me = thread_self();
@@ -1474,26 +1407,12 @@ static void exception_handler_wrapper(arch_registers_state_t *cpuframe,
     int subtype = hack_arg & 0xffff;
 
     // run handler
-    me->exception_handler(type, subtype, addr, cpuframe, fpuframe);
+    me->exception_handler(type, subtype, addr, cpuframe);
 
     // resume state
     dispatcher_handle_t dh = disp_disable();
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(dh);
     //memcpy(&me->regs, cpuframe, sizeof(arch_registers_state_t));
-
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-    if (fpuframe != NULL) {
-        assert_disabled(me->used_fpu);
-        arch_registers_fpu_state_t *dest;
-        if (disp_gen->fpu_thread == me) {
-            dest = dispatcher_get_enabled_fpu_save_area(dh);
-        } else {
-            dest = &me->fpu_state;
-        }
-        fpu_copy(dest, fpuframe);
-        fpu_trap_on();
-    }
-#endif
 
     assert_disabled(me->in_exception);
     me->in_exception = false;
@@ -1576,15 +1495,6 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
     arch_registers_state_t *cpuframe = (void *)stack_top;
     memcpy(cpuframe, regs, sizeof(arch_registers_state_t));
 
-    arch_registers_fpu_state_t *fpuframe = NULL;
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-    if (thread->used_fpu) {
-        stack_top -= sizeof(arch_registers_fpu_state_t);
-        fpuframe = (void *)stack_top;
-        fpu_copy(fpuframe, &thread->fpu_state);
-    }
-#endif
-
     // align stack
     stack_top -= stack_top % STACK_ALIGNMENT;
 
@@ -1596,7 +1506,7 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
 
     registers_set_initial(&thread->regs, thread,
                           (lvaddr_t)exception_handler_wrapper,
-                          stack_top, (lvaddr_t)cpuframe, (lvaddr_t)fpuframe,
+                          stack_top, (lvaddr_t)cpuframe, 0,
                           hack_arg, (lvaddr_t)addr);
 
     disp_resume(handle, &thread->regs);

@@ -39,6 +39,10 @@ registers_x86_64_set_initial(struct registers_x86_64 *regs, struct thread *threa
     regs->rsi = arg2;
     regs->rdx = arg3;
     regs->rcx = arg4;
+
+    memset(&regs->fxsave_area, 0, sizeof(regs->fxsave_area));
+    regs->fxsave_area.fcw = 0x037f; // fcw
+    regs->fxsave_area.mxcsr = 0x00001f80; // mxcsr
 }
 
 #endif // TARGET_X86_64_BARRELFISH_REGISTERS_H

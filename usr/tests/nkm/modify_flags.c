@@ -28,7 +28,7 @@ static struct vregion *vregion = NULL;
 static char ex_stack[EX_STACK_SIZE];
 
 static void handler(enum exception_type type, int subtype, void *addr,
-        arch_registers_state_t *regs, arch_registers_fpu_state_t *fpuregs)
+        arch_registers_state_t *regs)
 {
     static int count = 0;
     ++count;

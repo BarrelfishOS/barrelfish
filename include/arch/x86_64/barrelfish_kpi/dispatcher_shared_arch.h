@@ -55,16 +55,4 @@ dispatcher_get_trap_save_area(dispatcher_handle_t handle)
     return dispatcher_x86_64_get_trap_save_area(handle);
 }
 
-static inline arch_registers_fpu_state_t*
-dispatcher_get_enabled_fpu_save_area(dispatcher_handle_t handle)
-{
-    return dispatcher_x86_64_get_enabled_fpu_save_area(handle);
-}
-
-static inline arch_registers_fpu_state_t*
-dispatcher_get_disabled_fpu_save_area(dispatcher_handle_t handle)
-{
-    return dispatcher_x86_64_get_disabled_fpu_save_area(handle);
-}
-
 #endif // ARCH_X86_64_BARRELFISH_KPI_DISPATCHER_SHARED_ARCH_H

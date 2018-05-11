@@ -22,8 +22,8 @@
  *
  * \param dcb        Pointer to dispatcher to which to switch context.
  */
-void
-context_switch(struct dcb *dcb) {
+void context_switch(struct dcb *dcb)
+{
     assert(dcb != NULL);
     assert(dcb->vspace != 0);
 
@@ -31,8 +31,6 @@ context_switch(struct dcb *dcb) {
     if (!dcb->is_vm_guest) {
         assert(dcb->disp != 0);
     }
-
-    fpu_lazy_top(dcb);
 
     paging_context_switch(dcb->vspace);
     context_switch_counter++;
