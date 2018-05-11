@@ -75,7 +75,7 @@
 #define DEBUG_YIELD(XX)
 #define DEBUG_STACK(XX)
 #define DEBUG_AWE(XX)
-#define DEBUG_FINISH(XX) 
+#define DEBUG_FINISH(XX)
 #define DEBUG_CANCEL(XX)
 #define DEBUG_INIT(XX)
 #define DEBUG_DISPATCH(XX)
@@ -92,7 +92,7 @@
 /***********************************************************************/
 
 // Prototypes
-// 
+//
 // NB: those marked as "extern" are actually defined in this same file,
 // but the entire function (including label, prolog, epilogue, etc) is
 // in inline-asm, and so the definition is not visible to the compiler.
@@ -101,7 +101,6 @@ static void thc_awe_init(awe_t *awe, void *eip, void *ebp, void *esp);
 static void thc_dispatch(PTState_t *pts);
 
 extern void thc_awe_execute_0(awe_t *awe);
-extern void thc_on_alt_stack_0(void *stacktop, void *fn, void *args);
 static void *thc_alloc_new_stack_0(void);
 
 static PTState_t *thc_get_pts_0(void);
@@ -281,7 +280,7 @@ void _thc_pendingfree(void) {
 
 #ifdef CONFIG_LAZY_THC
 
-// This checks whether the awe's lazy stack is finished with (according to 
+// This checks whether the awe's lazy stack is finished with (according to
 // the provided esp, and puts it on pending free list if so.
 
 static void check_lazy_stack_finished (PTState_t *pts, void *esp) {
@@ -291,7 +290,7 @@ static void check_lazy_stack_finished (PTState_t *pts, void *esp) {
 			  pts->curr_lazy_stack, esp + LAZY_STACK_BUFFER));
   if ((esp + LAZY_STACK_BUFFER) == pts->curr_lazy_stack) {
     // nothing on lazy stack, we can safely free it
-    DEBUG_STACK(DEBUGPRINTF(DEBUG_STACK_PREFIX "  freeing lazy stack %p\n", 
+    DEBUG_STACK(DEBUGPRINTF(DEBUG_STACK_PREFIX "  freeing lazy stack %p\n",
 			    pts->curr_lazy_stack));
     assert(pts->pendingFree == NULL);
     pts->pendingFree = pts->curr_lazy_stack;
@@ -302,13 +301,14 @@ static void check_lazy_stack_finished (PTState_t *pts, void *esp) {
 // Allocate a lazy stack for this awe's continuation to execute on.
 
 static void alloc_lazy_stack (awe_t *awe) {
-  DEBUG_STACK(DEBUGPRINTF(DEBUG_STACK_PREFIX "> AllocLazyStack(awe=%p)\n", 
+  DEBUG_STACK(DEBUGPRINTF(DEBUG_STACK_PREFIX "> AllocLazyStack(awe=%p)\n",
 			  awe));
   assert(awe->status == LAZY_AWE && !awe->lazy_stack);
   awe->lazy_stack = _thc_allocstack();
   void * new_esp =  awe->lazy_stack - LAZY_STACK_BUFFER;
   *((void **) new_esp) = awe->esp;
   awe->esp = new_esp;
+  assert(((uintptr_t)awe->esp & 15) == 0); // check the stack's alignment
   awe->status = ALLOCATED_LAZY_STACK;
   DEBUG_STACK(DEBUGPRINTF(DEBUG_STACK_PREFIX "< AllocLazyStack(awe=%p,s=%p)\n",
 			  awe, awe->lazy_stack));
@@ -326,15 +326,6 @@ static inline void check_lazy_stack_finished (PTState_t *pts, awe_t *awe) {
 
 // Execute "fn(args)" on the stack growing down from "stacktop".  This is
 // just a wrapper around the arch-os specific function.
-
-void _thc_onaltstack(void *stacktop, void *fn, void *args) {
-  DEBUG_STACK(DEBUGPRINTF(DEBUG_STACK_PREFIX "> OnAltStack(%p, %p, %p)\n",
-                          stacktop, fn, args));
-
-  thc_on_alt_stack_0(stacktop, fn, args);
-
-  DEBUG_STACK(DEBUGPRINTF(DEBUG_STACK_PREFIX "< OnAltStack\n"));
-}
 
 /***********************************************************************/
 
@@ -362,7 +353,7 @@ static void re_init_dispatch_awe(void *a, void *arg) {
   pts->dispatch_awe = *awe;
   assert(awe->status == EAGER_AWE && !pts->curr_lazy_stack);
 #ifndef NDEBUG
-  // Do not count dispatch AWE in the debugging stats (it is created 
+  // Do not count dispatch AWE in the debugging stats (it is created
   // once and then resumed once per dispatch-loop entry, so it obscures
   // mis-match between normal 1-shot AWEs)
   pts->aweCreated--;
@@ -404,7 +395,7 @@ static void thc_dispatch_loop(void) {
     pts->aweRemoteHead.next = &pts->aweRemoteTail;
     pts->aweRemoteTail.prev = &pts->aweRemoteHead;
     thc_pts_unlock(pts);
-  } 
+  }
   
   if (pts->aweHead.next == &pts->aweTail) {
     DEBUG_DISPATCH(DEBUGPRINTF(DEBUG_DISPATCH_PREFIX "  queue empty\n"));
@@ -413,8 +404,8 @@ static void thc_dispatch_loop(void) {
     awe_t idle_awe;
     // Set start of stack-frame marker
     *((void**)(idle_stack - LAZY_STACK_BUFFER + __WORD_SIZE)) = NULL;
-    thc_awe_init(&idle_awe, &thc_run_idle_fn, idle_stack-LAZY_STACK_BUFFER,
-                 idle_stack-LAZY_STACK_BUFFER);
+    thc_awe_init(&idle_awe, &thc_run_idle_fn, idle_stack - LAZY_STACK_BUFFER,
+                 idle_stack - LAZY_STACK_BUFFER);
 #ifndef NDEBUG
     pts->aweCreated++;
 #endif
@@ -449,9 +440,9 @@ static void thc_init_dispatch_loop(void) {
   pts->dispatchStack = _thc_allocstack();
   // Set start of stack-frame marker
   *((void**)(pts->dispatchStack - LAZY_STACK_BUFFER + __WORD_SIZE)) = NULL;
-  thc_awe_init(&pts->dispatch_awe, &thc_dispatch_loop, 
-               pts->dispatchStack-LAZY_STACK_BUFFER,
-               pts->dispatchStack-LAZY_STACK_BUFFER);
+  thc_awe_init(&pts->dispatch_awe, &thc_dispatch_loop,
+               pts->dispatchStack - LAZY_STACK_BUFFER,
+               pts->dispatchStack - LAZY_STACK_BUFFER);
   pts->aweHead.next = &(pts->aweTail);
   pts->aweTail.prev = &(pts->aweHead);
   pts->aweRemoteHead.next = &(pts->aweRemoteTail);
@@ -477,7 +468,7 @@ static void thc_exit_dispatch_loop(void) {
   }
   // Exit
   thc_pts_lock(pts);
-  assert((pts->aweHead.next == &(pts->aweTail)) && 
+  assert((pts->aweHead.next == &(pts->aweTail)) &&
          "Dispatch queue not empty at exit");
   DEBUG_INIT(DEBUGPRINTF(DEBUG_INIT_PREFIX
                          "  NULLing out dispatch AWE\n"));
@@ -538,6 +529,7 @@ static void thc_awe_init(awe_t *awe, void *eip, void *ebp, void *esp) {
   awe->eip = eip;
   awe->ebp = ebp;
   awe->esp = esp;
+  assert(((uintptr_t)awe->esp & 15) == 0);
   awe->pts = pts;
   awe->status = EAGER_AWE;
   awe->lazy_stack = NULL;
@@ -597,10 +589,10 @@ static void init_lazy_awe (void ** lazy_awe_fp) {
   // lazily start async block
   _thc_startasync(awe->current_fb, awe->lazy_stack);
   // schedule lazy awe
-  _thc_schedulecont_c(awe); 
+  _thc_schedulecont_c(awe);
 }
 
-// Check for all lazy awe on the stack - initalizing and scheduling any if 
+// Check for all lazy awe on the stack - initalizing and scheduling any if
 // they are found.
 
 static void check_for_lazy_awe (void * ebp) {
@@ -613,7 +605,7 @@ static void check_for_lazy_awe (void * ebp) {
     }
     frame_ptr = (void **) THC_LAZY_FRAME_PREV(frame_ptr);
     ret_addr   = THC_LAZY_FRAME_RET(frame_ptr);
-  } 
+  }
  
   DEBUG_AWE(DEBUGPRINTF(DEBUG_AWE_PREFIX "< CheckForLazyAWE\n"));
 }
@@ -799,7 +791,7 @@ void _thc_endfinishblock(finish_t *fb, void *stack) {
     fb->end_node.next->prev = fb->start_node.prev;
   }
 
-  if (pts->curr_lazy_stack && 
+  if (pts->curr_lazy_stack &&
       (fb->enclosing_fb == NULL || stack != fb->enclosing_fb->old_sp) &&
       pts->curr_lazy_stack != fb->enclosing_lazy_stack) {
       check_lazy_stack_finished(pts, stack);
@@ -895,7 +887,7 @@ static void thc_yield_with_cont(void *a, void *arg) {
                           ((awe_t*)a)->eip,
                           ((awe_t*)a)->ebp,
                           ((awe_t*)a)->esp));
-  awe_t *awe = (awe_t*)a; 
+  awe_t *awe = (awe_t*)a;
   awe->lazy_stack = awe->pts->curr_lazy_stack;
   // check if we have yielded within a lazy awe
   check_for_lazy_awe(awe->ebp);
@@ -914,7 +906,7 @@ static void thc_yieldto_with_cont(void *a, void *arg) {
                           ((awe_t*)a)->eip,
                           ((awe_t*)a)->ebp,
                           ((awe_t*)a)->esp));
-  awe_t *last_awe = (awe_t*)a; 
+  awe_t *last_awe = (awe_t*)a;
 
   last_awe->lazy_stack = last_awe->pts->curr_lazy_stack;
   // check if we have yielded within a lazy awe
@@ -951,7 +943,7 @@ static void thc_suspend_with_cont(void *a, void *arg) {
                           ((awe_t*)a)->eip,
                           ((awe_t*)a)->ebp,
                           ((awe_t*)a)->esp));
-  *(void**)arg = a;  awe_t *awe = (awe_t*)a; 
+  *(void**)arg = a;  awe_t *awe = (awe_t*)a;
   awe->lazy_stack = awe->pts->curr_lazy_stack;
   // check if we have yielded within a lazy awe
   check_for_lazy_awe(awe->ebp);
@@ -980,7 +972,7 @@ static void thc_suspendthen_with_cont(void *a, void *arg) {
   *(void**)(ta->awe_addr) = a;
   ta->then_fn(ta->then_arg);
 
-  awe_t *awe = (awe_t*)a; 
+  awe_t *awe = (awe_t*)a;
   awe->lazy_stack = awe->pts->curr_lazy_stack;
   // check if we have yielded within a lazy awe
   check_for_lazy_awe(awe->ebp);
@@ -1078,7 +1070,7 @@ void THCAddCancelItem(cancel_item_t *ci, THCCancelFn_t fn, void *arg) {
 void THCRemoveCancelItem(cancel_item_t *ci) {
   PTState_t *pts = PTS();
   finish_t *fb = pts->current_fb;
-  DEBUG_CANCEL(DEBUGPRINTF(DEBUG_CANCEL_PREFIX "> THCRemoveCancelItem(%p) from FB %p\n", 
+  DEBUG_CANCEL(DEBUGPRINTF(DEBUG_CANCEL_PREFIX "> THCRemoveCancelItem(%p) from FB %p\n",
                            ci, fb));
   assert(fb != NULL && "Current fb NULL");
   assert(!ci->was_run);
@@ -1150,7 +1142,7 @@ static void IdleFn(void *arg) {
     // in the bottom-half of a THC receive function)
     if (me != idle_ct) {
       break;
-    } 
+    }
 
     // Yield while some real work is now available
     while (pts->aweHead.next != &pts->aweTail &&
@@ -1294,81 +1286,6 @@ static void *thc_alloc_new_stack_0(void) {
 
 /***********************************************************************/
 
-// 2. Execution on an alternative stack
-
-#if (defined(__x86_64__) && (defined(linux) || defined(BARRELFISH)))
-// Callee invoked via Linux x64 conventions (args in EDI)
-
-/*
-         static void thc_on_alt_stack_0(void *stack,   // rdi
-                                        void *fn,      // rsi
-                                        void *args)    // rdx
-*/
-__asm__ ("      .text \n\t"
-         "      .align  16                  \n\t"
-         "thc_on_alt_stack_0:               \n\t"
-         " sub $8, %rdi                     \n\t"
-         " mov %rsp, (%rdi)                 \n\t" // Save old ESP on new stack
-         " mov %rdi, %rsp                   \n\t" // Set up new stack pointer
-         " mov %rdx, %rdi                   \n\t" // Move args into rdi
-         " call *%rsi                       \n\t" // Call callee (args in rdi)
-         " pop %rsp                         \n\t" // Restore old ESP
-         " ret                              \n\t");
-
-#elif (defined(__i386__) && (defined(linux) || defined(BARRELFISH)))
-// Callee invoked via stdcall (args on stack, removed by callee)
-
-/*
-         static void thc_on_alt_stack_0(void *stack,   //  4
-                                       void *fn,       //  8
-                                       void *args) {   // 12
-*/
-__asm__ ("      .text \n\t"
-         "      .align  16                  \n\t"
-         "thc_on_alt_stack_0:               \n\t"
-         " mov 4(%esp), %edx                \n\t" // New stack
-         " mov 8(%esp), %eax                \n\t" // Callee
-         " mov 12(%esp), %ecx               \n\t" // Args
-         " subl $4, %edx                    \n\t"
-         " mov %esp, (%edx)                 \n\t" // Save old ESP on new stack
-         " mov %edx, %esp                   \n\t" // Set up new stack pointer
-         " push %ecx                        \n\t" // Push args on new stack
-         " call *%eax                       \n\t" // Call callee (it pops args)
-         " pop %esp                         \n\t" // Restore old ESP
-         " ret \n\t");
-
-#elif (defined(__i386__) && (defined(WINDOWS) || defined(__CYGWIN__)))
-// Callee invoked via stdcall (args on stack, removed by callee)
-
-/*
-         static void thc_on_alt_stack_0(void *stack,   //  4
-                                       void *fn,       //  8
-                                       void *args) {   // 12
-*/
-__asm__ ("      .text \n\t"
-         "      .align  16                  \n\t"
-         "      .globl  _thc_on_alt_stack_0 \n\t"
-         "_thc_on_alt_stack_0:              \n\t"
-         " mov 4(%esp), %edx                \n\t" // New stack
-         " mov 8(%esp), %eax                \n\t" // Callee
-         " mov 12(%esp), %ecx               \n\t" // Args
-         " subl $4, %edx                    \n\t"
-         " mov %esp, (%edx)                 \n\t" // Save old ESP on new stack
-         " mov %edx, %esp                   \n\t" // Set up new stack pointer
-         " push %ecx                        \n\t" // Push args on new stack
-         " call *%eax                       \n\t" // Call callee (it pops args)
-         " pop %esp                         \n\t" // Restore old ESP
-         " ret \n\t");
-#else
-void thc_on_alt_stack_0(void *stack,   
-                        void *fn,   
-                        void *args) {
-  assert(0 && "thc_on_alt_stack_0 not implemented for this architecture");
-}
-#endif
-
-/***********************************************************************/
-
 // 3. AWE execution
 //
 // These functions are particularly delicate:
@@ -1399,28 +1316,8 @@ __asm__ ("      .text \n\t"
          "thc_awe_execute_0:               \n\t"
          " mov 8(%rdi), %rbp               \n\t"
          " mov 16(%rdi), %rsp              \n\t"
+         " subq $8, %rsp                   \n\t"
          " jmp *0(%rdi)                    \n\t");
-
-/*
-           int _thc_schedulecont(awe_t *awe)   // rdi
-*/
-
-__asm__ ("      .text \n\t"
-         "      .align  16           \n\t"
-         "      .globl  _thc_schedulecont \n\t"
-         "      .type   _thc_schedulecont, @function \n\t"
-         "_thc_schedulecont:         \n\t"
-         " mov  0(%rsp), %rsi        \n\t"
-         " mov  %rsi,  0(%rdi)       \n\t" // EIP   (our return address)
-         " mov  %rbp,  8(%rdi)       \n\t" // EBP
-         " mov  %rsp, 16(%rdi)       \n\t" // ESP+8 (after return)
-         " addq $8,   16(%rdi)       \n\t"
-         // AWE now initialized.  Call C function for scheduling.
-         // It will return normally to us.  The AWE will resume
-         // directly in our caller.
-         " call _thc_schedulecont_c  \n\t"  // AWE still in rdi
-         " movq $0, %rax             \n\t"
-         " ret                       \n\t");
 
 /*
            void _thc_callcont(awe_t *awe,   // rdi
@@ -1437,14 +1334,15 @@ __asm__ ("      .text \n\t"
          " mov  %rax,  0(%rdi)       \n\t" // EIP (our return address)
          " mov  %rbp,  8(%rdi)       \n\t" // EBP
          " mov  %rsp, 16(%rdi)       \n\t" // ESP+8 (after return)
-         " addq $8,   16(%rdi)       \n\t"
+         " addq $16,   16(%rdi)       \n\t"
          // AWE now initialized.  Call into C for the rest.
          // rdi : AWE , rsi : fn , rdx : args
+         " subq $8, %rsp             \n\t" // align the stack
          " call _thc_callcont_c      \n\t"
          " int3\n\t");
 
 /*
-            static void _thc_lazy_awe_marker()   
+            static void _thc_lazy_awe_marker()
 */
 
 __asm__ ("      .text \n\t"
@@ -1522,7 +1420,7 @@ __asm__ ("      .text                     \n\t"
          " int3\n\t");
 
 /*
-            static void _thc_lazy_awe_marker()   
+            static void _thc_lazy_awe_marker()
 */
 
 __asm__ ("      .text \n\t"
@@ -1600,7 +1498,7 @@ __asm__ ("      .text                     \n\t"
          " int3\n\t");
 
 /*
-            static void _thc_lazy_awe_marker()   
+            static void _thc_lazy_awe_marker()
 */
 
 __asm__ ("      .text \n\t"
@@ -1699,7 +1597,7 @@ __asm__ (" .text              \n\t"
          " mov sp,  x29        \n\t" // sp = awe->esp (stack pointer)
          " ldr x29, [x0, #8]   \n\t" // fp = awe->ebp (frame pointer)
          " ldr x30, [x0, #0]  \n\t" // pc = awe->eip (jump / pc)
-		 " ret			  \n\t"
+		 " br x30			  \n\t"
 );
 
 /*
@@ -1780,13 +1678,13 @@ int _thc_schedulecont(awe_t *awe) {
   return 0;
 }
 
-void _thc_callcont(awe_t *awe,   
-                   THCContFn_t fn,         
-                   void *args) {            
+void _thc_callcont(awe_t *awe,
+                   THCContFn_t fn,
+                   void *args) {
   assert(0 && "_thc_callcont not implemented for this architecture");
 }
 
-void _thc_lazy_awe_marker(void) {            
+void _thc_lazy_awe_marker(void) {
   assert(0 && "_thc_lazy_awe_marker not implemented for this architecture");
 }
 #endif
@@ -1871,4 +1769,3 @@ static void thc_set_pts_0(PTState_t *st) {
 
 
 /**********************************************************************/
-
