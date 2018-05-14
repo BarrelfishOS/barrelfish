@@ -23,7 +23,6 @@
 #include <paging_kernel_arch.h>
 #include <paging_generic.h>
 #include <exec.h>
-#include <fpu.h>
 #include <systime.h>
 #include <arch/x86/x86.h>
 #include <arch/x86/apic.h>
