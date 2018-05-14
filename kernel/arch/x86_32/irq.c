@@ -65,7 +65,6 @@
 #include <barrelfish_kpi/cpu_arch.h>
 #include <kcb.h>
 #include <mdb/mdb_tree.h>
-#include <fpu.h>
 
 /**
  * \brief Define IRQ handler number 'num'.
