@@ -32,7 +32,6 @@
 #include <arch/x86/debugregs.h>
 #include <arch/x86/syscall.h>
 #include <arch/x86/timing.h>
-#include <fpu.h>
 #include <mdb/mdb_tree.h>
 #include <useraccess.h>
 #include <arch/x86/perfmon_amd.h>

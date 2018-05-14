@@ -29,6 +29,18 @@ systime_t ns_to_systime(uint64_t nanoseconds)
     return q * systime_frequency + (r * systime_frequency + 500000000) / 1000000000;
 }
 
+/// Convert microseconds to system ticks
+systime_t us_to_systime(uint64_t microseconds)
+{
+    uint64_t q, r;
+
+    q = microseconds / 1000000;
+    r = microseconds % 1000000;
+
+    // Adding half a tick to round properly
+    return q * systime_frequency + (r * systime_frequency + 500000) / 1000000;
+}
+
 /// Convert system ticks to nanoseconds
 uint64_t systime_to_ns(systime_t time)
 {
@@ -39,4 +51,16 @@ uint64_t systime_to_ns(systime_t time)
 
     // Adding half a nanosecond to round properly
     return q * 1000000000 + (r * 1000000000 + systime_frequency / 2) / systime_frequency;
+}
+
+/// Convert system ticks to microseconds
+uint64_t systime_to_us(systime_t time)
+{
+    systime_t q, r;
+
+    q = time / systime_frequency;
+    r = time % systime_frequency;
+
+    // Adding half a microsecond to round properly
+    return q * 1000000 + (r * 1000000 + systime_frequency / 2) / systime_frequency;
 }
