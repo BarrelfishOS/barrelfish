@@ -17,7 +17,17 @@
 static struct module_info modules[MAX_DRIVER_MODULES];
 
 inline bool is_auto_driver(struct module_info* mi) {
-    return mi->argc > 1 && strcmp(mi->argv[1], "auto") == 0;
+    int i;
+    bool auto_driver = false;
+
+    for (i = 1; i < mi->argc; i++) {
+        if (strcmp(mi->argv[i], "auto") == 0) {
+            auto_driver = true;
+            break;
+        }
+    }
+
+    return auto_driver;
 }
 
 inline bool is_started(struct module_info* mi)
