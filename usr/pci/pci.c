@@ -980,15 +980,15 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                                 origbase64 |= (uint32_t) (barorigaddr.base << 7);
 
                                                 PCI_DEBUG("(%u,%u,%u): 64bit BAR %d at 0x%" PRIxPCIADDR ", size %"
-                                                          PRIx64 ", %s\n", vf_addr.bus, vf_addr.device, 
-                                                          vf_addr.function, i, 
-                                                          origbase64 + bar_mapping_size64(base64)*vfn, 
+                                                          PRIx64 ", %s\n", vf_addr.bus, vf_addr.device,
+                                                          vf_addr.function, i,
+                                                          origbase64 + bar_mapping_size64(base64)*vfn,
                                                           bar_mapping_size64(base64),
                                                           (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"));
 
                                                 skb_add_fact("bar(addr(%u, %u, %u), %d, 16'%"PRIxPCIADDR", "
                                                              "16'%" PRIx64 ", mem, %s, %d).", vf_addr.bus,
-                                                             vf_addr.device, vf_addr.function, i, 
+                                                             vf_addr.device, vf_addr.function, i,
                                                              origbase64 + bar_mapping_size64(base64)*vfn,
                                                              bar_mapping_size64(base64),
                                                              (bar.prefetch == 1 ? "prefetchable" : "nonprefetchable"),
@@ -1391,6 +1391,10 @@ static void program_device_bar(uint8_t bus,
         pci_hdr0_bars_wr(&devhdr, bar, base & 0xffffffff);
         pci_hdr0_bars_wr(&devhdr, bar + 1, base >> 32);
     } else {  // 32-bit
+        if (base + size > 0xffffffff) {
+            debug_printf("%s: skipping base:%lx size:%lx top:%lx\n", __func__, base, size, base + size);
+            return;
+        }
         assert(base + size <= 0xffffffff);  // 32-bit BAR
         pci_hdr0_bars_wr(&devhdr, bar, base);
     }
