@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/sys_debug.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/terminal.h>
 #include <vfs/vfs.h>
@@ -27,7 +28,7 @@
 #include <pci/pci.h>
 
 #define VFS_MOUNTPOINT  "/vm"
-#define IMAGEFILE       (VFS_MOUNTPOINT "/system-bench.img")
+#define IMAGEFILE       (VFS_MOUNTPOINT "/system-ubuntu16-i386.img")
 #define GRUB_IMG_PATH   (VFS_MOUNTPOINT "/vmkitmon_grub")
 
 void *          grub_image = NULL;
@@ -35,6 +36,50 @@ size_t          grub_image_size = 0;
 void *          hdd0_image = NULL;
 size_t          hdd0_image_size = 0;
 struct guest *  guest = NULL;
+
+#if defined(__x86_64__)
+static uint64_t tscperms;
+#endif
+
+static bool initialised = false;
+
+static void sleep_init(void)
+{
+    if (!initialised) {
+        bench_init();
+#if defined(__x86_64__)
+        errval_t err = sys_debug_get_tsc_per_ms(&tscperms);
+        assert(err_is_ok(err));
+#endif
+        initialised = true;
+    }
+}
+
+static void cycle_sleep(uint64_t cycles)
+{
+    if (!initialised) {
+        sleep_init();
+    }
+
+    uint64_t start = bench_tsc();
+    uint64_t stop = bench_tsc();
+    while ((stop - start) < cycles) {
+        //        sys_yield(CPTR_NULL);
+        thread_yield_dispatcher(NULL_CAP);
+        stop = bench_tsc();
+    }
+}
+
+static void milli_sleep(uint64_t ms)
+{
+#if defined(__x86_64__)
+    uint64_t cycles = ms * tscperms;
+    cycle_sleep(cycles);
+#else
+    USER_PANIC("milli_sleep NYI for non-x86_64");
+#endif
+}
+
 
 static void
 vfs_load_file_to_memory (const char *file, void **data, size_t *size)
@@ -66,10 +111,18 @@ vfs_load_file_to_memory (const char *file, void **data, size_t *size)
 
 int main (int argc, char *argv[])
 {
+    int i = 0;
     errval_t err;
     char *cardName = NULL;
 
     const char *imagefile = IMAGEFILE;
+
+    if (!initialised)
+        sleep_init();
+
+    printf("vmkitmon: wait 30s until kaluga is ready.");
+    for (i = 0; i < 30; i++)
+        milli_sleep(1000);
 
     vfs_init();
     bench_init();
