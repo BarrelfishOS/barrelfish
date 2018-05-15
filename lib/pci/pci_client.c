@@ -126,7 +126,7 @@ errval_t pci_setup_int_routing(int irq_idx, interrupt_handler_fn handler,
                                          void *reloc_handler_arg){
     struct capref irq_src_cap;
     irq_src_cap.cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER);
-    irq_src_cap.slot = 0;
+    irq_src_cap.slot = PCIARG_SLOT_INT;
 
     return pci_setup_int_routing_with_cap(irq_idx, irq_src_cap, handler,
             handler_arg, reloc_handler, reloc_handler_arg);
