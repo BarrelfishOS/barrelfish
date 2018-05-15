@@ -30,6 +30,9 @@
 #include "pci_host.h"
 #include "pci_devices.h"
 #include "pci_ethernet.h"
+#include <driverkit/hwmodel.h>
+#include <driverkit/iommu.h>
+#include <skb/skb.h>
 
 #define VMCB_SIZE       0x1000      // 4KB
 
@@ -163,7 +166,7 @@ errval_t guest_vspace_map_wrapper(struct vspace *vspace, lvaddr_t vaddr,
     return err;
 }
 
-#define GUEST_VSPACE_SIZE (1ul<<32) // GB
+#define GUEST_VSPACE_SIZE 1073741824UL // 1GB
 
 static errval_t vspace_map_wrapper(lvaddr_t vaddr, struct capref frame,
                                    size_t size)
@@ -225,17 +228,13 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
 
     // Allocate frame
     struct capref cap;
-    err = guest_slot_alloc(g, &cap);
+    int32_t node_id_self = driverkit_hwmodel_get_my_node_id();
+    int32_t node_id_ram = driverkit_hwmodel_lookup_dram_node_id();
+    int32_t nodes_data[] = {node_id_self, 0};
 
-
-
-
+    err = driverkit_hwmodel_frame_alloc(&cap, bytes, node_id_ram, nodes_data);
     if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-    err = frame_create(cap, bytes, NULL);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_FRAME_CREATE);
+        return err;
     }
 
     // Map into the guest vspace
@@ -530,12 +529,13 @@ spawn_guest_domain (struct guest *self) {
     // set up the guests physical address space
     self->mem_low_va = 0;
     // FIXME: Hardcoded guest memory size
-    self->mem_high_va = 0x80000000;   // 2 GiB
+    self->mem_high_va = GUEST_VSPACE_SIZE;
     // allocate the memory used for real mode
     // This is not 100% necessary since one could also catch the pagefaults.
     // If we allocate the whole memory at once we use less caps and reduce
     // the risk run out of CSpace.
-    err = alloc_guest_mem(self, 0x0, 0x80000000);
+
+    err = alloc_guest_mem(self, 0x0, GUEST_VSPACE_SIZE);
     assert_err(err, "alloc_guest_mem");
 }
 
