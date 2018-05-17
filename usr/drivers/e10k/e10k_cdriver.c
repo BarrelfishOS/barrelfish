@@ -1354,7 +1354,6 @@ static void resend_interrupt(void* arg)
 /** Here are the global interrupts handled. */
 static void interrupt_handler(void* arg)
 {
-    printf("Interrupt ############################################ \n");
     errval_t err;
     e10k_eicr_t eicr = e10k_eicr_rd(d);
 
@@ -2021,7 +2020,6 @@ int main(int argc, char **argv)
 int e1000n_driver_init(int argc, char *argv[])
 #endif
 {
-    errval_t err;
     //barrelfish_usleep(10*1000*1000);
     DEBUG("PF driver started\n");
     // credit_refill value must be >= 1 for a queue to be able to send.
@@ -2033,7 +2031,9 @@ int e1000n_driver_init(int argc, char *argv[])
     memset(tx_rate, 0, sizeof(tx_rate));
 
     parse_cmdline(argc, argv);
-    
+ 
+#ifdef VTON_DCBOFF   
+    errval_t err;
     err = skb_client_connect();
     assert(err_is_ok(err));
     err = skb_execute_query("vtd_enabled(0,_).");
@@ -2047,6 +2047,7 @@ int e1000n_driver_init(int argc, char *argv[])
         err = vtd_domain_add_device(0, bus, device, function, cap_vroot);
         assert(err_is_ok(err));
     }
+#endif
 
     pci_register();
 
