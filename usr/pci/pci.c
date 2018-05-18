@@ -52,7 +52,8 @@ struct device_caps
 
 struct device_caps dev_caps[PCI_NBUSES][PCI_NDEVICES][PCI_NFUNCTIONS][PCI_NBARS];
 const char *skb_bridge_program = "bridge_page";
-uint16_t max_numvfs = 256;
+uint16_t max_numvfs = 255;
+bool enable_vfs = false;
 
 static void
 query_bars(pci_hdr0_t devhdr,
@@ -785,14 +786,6 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                     break;
                                 }
 
-                                /*
-                                if (vendor == 0x8086 && (device_id  == 0x10FB)) {
-                                    debug_printf("skipping SR IOV initialization"
-                                                    "for e10k card.\n");
-                                    break;
-                                }
-
-                                */
                                 pci_sr_iov_cap_t sr_iov_cap;
                                 pci_sr_iov_cap_initialize(&sr_iov_cap,
                                      (mackerel_addr_t) (ad + (cap_ptr / 4)));
@@ -834,7 +827,7 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                 printf("%s\n", str);
 #endif
 
-                                if (max_numvfs > 0) {
+                                if (enable_vfs && (max_numvfs > 0)) {
                                     // Set maximum number of VFs
                                     uint16_t totalvfs = pci_sr_iov_cap_totalvfs_rd( &sr_iov_cap);
                                     uint16_t numvfs = MIN(totalvfs, max_numvfs);

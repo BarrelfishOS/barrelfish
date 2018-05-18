@@ -92,5 +92,6 @@ errval_t pci_msix_vector_init(struct pci_address *addr, uint16_t idx,
 
 extern const char *skb_bridge_program;
 extern uint16_t max_numvfs;
+extern bool enable_vfs;
 
 #endif // PCI_H_
