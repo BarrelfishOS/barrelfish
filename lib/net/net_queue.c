@@ -68,7 +68,7 @@ static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt, 
 {
     errval_t err;
     if (cardname[4] != ':') {
-        return SYS_ERR_OK;
+        return DEVQ_ERR_INIT_QUEUE;
     }
 
     struct pci_addr addr;
@@ -97,13 +97,13 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt, 
     st->hw_filter = true;
 
     if (cardname[4] != ':') {
-        return SYS_ERR_OK;
+        return DEVQ_ERR_INIT_QUEUE;
     }
     uint32_t vendor, deviceid, bus, device, function;
     unsigned parsed = sscanf(cardname + 5, "%x:%x:%x:%x:%x", &vendor,
                              &deviceid, &bus, &device, &function);
     if (parsed != 5) {
-        return SYS_ERR_OK;
+        return DEVQ_ERR_INIT_QUEUE;
     }
 
     err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
