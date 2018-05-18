@@ -115,7 +115,6 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
         return NIC_ERR_ENQUEUE;
     }
 
-    DEBUG_QUEUE("Enqueueing TX buf first=%d last=%d \n", first, last);
     // Prepare checksum offload
     //
     struct region_entry* entry = get_region(q, rid);
