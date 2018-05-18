@@ -117,7 +117,7 @@ class DevifNetTxE10k(DevifTests):
     ''' Devif Net TX Test'''
     name = "devif_nettx_e10k"
     OP = "net_tx"
-    CARD = "e10k"
+    CARD = "e10k:8086:10fb:0006:0000:0000"
 
 
 @tests.add_test
@@ -178,7 +178,7 @@ class DevifUDP(DevifTests):
         else:
             modules.add_module("e10k", ["auto", "function=0"])
             src_ip = self.get_decimal_ip('%s-e10k.in.barrelfish.org' % machine.name)
-            self.cardname = "e10k"
+            self.cardname = "e10k:8086:10fb:0006:0000:0000"
 
         src_mac =  mac[machine.name]
 
