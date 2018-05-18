@@ -35,7 +35,7 @@
 #include "sleep.h"
 #include "helper.h"
 
-#define VTON_DCBOFF
+//#define VTON_DCBOFF
 //#define DCA_ENABLED
 
 //#define DEBUG(x...) printf("e10k: " x)
@@ -60,6 +60,7 @@ struct queue_state {
     uint8_t msix_intdest;
     bool use_irq;
     bool use_rsc;
+    bool use_txhwb;
 
     uint64_t rx_head;
     uint64_t tx_head;
@@ -1075,8 +1076,11 @@ static void queue_hw_init(uint8_t n, bool set_tail)
         e10k_psrtype_split_ip6_wrf(d, n, 1);
         e10k_psrtype_split_l2_wrf(d, n, 1);
     } else {
+#ifdef VTON_DCBOFF
         e10k_srrctl_1_desctype_wrf(d, n, e10k_adv_1buf);
-        //e10k_srrctl_1_desctype_wrf(d, n, e10k_legacy);
+#else
+        e10k_srrctl_1_desctype_wrf(d, n, e10k_legacy);
+#endif
     }
     e10k_srrctl_1_bsz_hdr_wrf(d, n, 128 / 64); // TODO: Do 128 bytes suffice in
                                                //       all cases?
@@ -1200,6 +1204,7 @@ static void queue_hw_init(uint8_t n, bool set_tail)
 
     // Initialize TX head index write back
     if (!capref_is_null(queues[n].txhwb_frame)) {
+        queues[n].use_txhwb = true;
         r = invoke_frame_identify(queues[n].txhwb_frame, &frameid);
         assert(err_is_ok(r));
         txhwb_phys = frameid.base;
@@ -1211,6 +1216,8 @@ static void queue_hw_init(uint8_t n, bool set_tail)
             e10k_tdwbah_headwb_high_wrf(d, n, txhwb_phys >> 32);
         }
         e10k_tdwbal_headwb_en_wrf(d, n, 1);
+    } else {
+        queues[n].use_txhwb = false;
     }
 
     // Initialized by queue driver to avoid race conditions
