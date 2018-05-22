@@ -154,3 +154,9 @@ int clock_gettime(clockid_t clock_id, struct timespec *tp)
     *__error() = EINVAL;
     return -1;
 }
+
+ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags)
+{
+    *__error() = ENOSYS;
+    return -1;
+}
