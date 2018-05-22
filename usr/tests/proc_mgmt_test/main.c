@@ -206,7 +206,7 @@ int main(int argc, char **argv)
     struct capref domain_cap;
     printf("Testing kill on same core\n");
     char *spawn_argv[] = { "proc_mgmt_test", "0", "run", NULL};
-    err = test_spawn(2, spawn_argv, &domain_cap);
+    err = test_spawn(disp_get_core_id(), spawn_argv, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
     }  
@@ -224,7 +224,7 @@ int main(int argc, char **argv)
     barrelfish_usleep(5*1000*1000);
 
     printf("Testing kill on other core\n");
-    err = test_spawn(1, spawn_argv, &domain_cap);
+    err = test_spawn(disp_get_core_id()+1, spawn_argv, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
     }  
@@ -240,20 +240,20 @@ int main(int argc, char **argv)
     // TODO check if process was killed
     printf("Testing spaning on different core\n");
     char *spawn_argv3[] = { "proc_mgmt_test", "0", "span", NULL};
-    err = test_spawn(0, spawn_argv3, &domain_cap);
+    err = test_spawn(disp_get_core_id()+1, spawn_argv3, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
     }
 
     printf("Testing spaning on same core\n");
-    err = test_spawn(2, spawn_argv3, &domain_cap);
+    err = test_spawn(disp_get_core_id(), spawn_argv3, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
     }  
 
     printf("Testing wait on different core process\n");
     char *spawn_argv2[] = { "proc_mgmt_test", "0", "sleeper"};
-    err = test_spawn(0, spawn_argv2, &domain_cap);
+    err = test_spawn(disp_get_core_id()+1, spawn_argv2, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
     }  
@@ -269,7 +269,7 @@ int main(int argc, char **argv)
     printf("Unblocked \n");
 
     printf("Testing wait on same core process\n");
-    err = test_spawn(2, spawn_argv2, &domain_cap);
+    err = test_spawn(disp_get_core_id(), spawn_argv2, &domain_cap);
     if (err_is_fail(err)) {
         USER_PANIC("Failed spawning program proc_mgmt_test \n");
     }  
@@ -294,9 +294,9 @@ int main(int argc, char **argv)
  	}
     printf("Nowait hang return code %d \n", code);
     printf("Running benchmarks core 0 \n");
-    run_benchmark_spawn(0);
-    printf("Running benchmarks core 3 \n");
-    run_benchmark_spawn(3);
+    run_benchmark_spawn(disp_get_core_id());
+    printf("Running benchmarks core 1 \n");
+    run_benchmark_spawn(disp_get_core_id()+1);
 
     for (int j = 0; j < 10; j++) {
         domainid_t* domains;

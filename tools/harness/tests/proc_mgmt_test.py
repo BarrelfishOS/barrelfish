@@ -24,11 +24,7 @@ class ProcMgmtTest(TestCommon):
 
     def get_modules(self, build, machine):
         modules = super(ProcMgmtTest, self).get_modules(build, machine)
-        # ensure we never try to run the test runner on a core that doesn't
-        # exist.
-        ncores = machine.get_ncores()
-        testcore = ncores - 1 if ncores < 4 else 3
-        modules.add_module("proc_mgmt_test", ["core=%d" % testcore, "0", "starter"])
+        modules.add_module("proc_mgmt_test", ["core=0", "0", "starter"])
         return modules
 
     def get_finish_string(self):
