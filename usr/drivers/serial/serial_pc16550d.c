@@ -41,8 +41,14 @@ static void serial_interrupt(void *arg)
     assert(pc16550d_iir_iid_extract(iir) != pc16550d_rls
            && pc16550d_iir_iid_extract(iir) != pc16550d_ms);
 
+    // disable interrupt while polling
+    pc16550d_ier_erbfi_wrf(&uart, 0);
+
     // Read serial port just like with polling
     serial_poll();
+
+    // enable interrupt when done polling
+    pc16550d_ier_erbfi_wrf(&uart, 1);
 }
 
 static void real_init(void)
