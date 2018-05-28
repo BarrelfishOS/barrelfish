@@ -21,7 +21,6 @@ let subdirs = [ "source/components/dispatcher",
     cfiles = [
                 "barrelfish/osbfxf.c",
 --                "source/os_specific/service_layers/osbarrelfish.c",
---                "source/os_specific/service_layers/osbsdtbl.c",
                 "source/components/utilities/utxface.c",
                 "source/components/utilities/utids.c",
                 "source/components/utilities/utmisc.c",
@@ -204,7 +203,8 @@ let subdirs = [ "source/components/dispatcher",
                 "source/components/resources/rsserial.c",
                 "source/components/resources/rsinfo.c",
 --                "source/components/resources/rsdump.c",
-                "source/components/resources/rscreate.c" ]
+                "source/components/resources/rscreate.c"
+                 ]
 
     flagsArch arch = case arch of
         "armv8" -> [ "-DACPI_MISALIGNMENT_NOT_SUPPORTED" ]
@@ -215,8 +215,9 @@ in
          cFiles = cfiles,
          addCFlags =  [ "-Wno-redundant-decls",
                         "-Wno-unused-function",
+                        "-DACPI_APPLICATION",
                         "-fno-strict-aliasing" ] ++ (flagsArch arch),
-         addIncludes = [ "source/include" ],
+         addIncludes = [ "source/include", "source/tools/acpidump" ],
          architectures = [ arch ]
                   } | arch <- [ "x86_64", "x86_32", "armv8" ]
   ]

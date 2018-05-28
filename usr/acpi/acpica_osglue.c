@@ -17,6 +17,7 @@
  * Debug printer and its power-switch:
  *****************************************************************/
 
+
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 #include <barrelfish/deferred.h>
@@ -147,12 +148,16 @@
 #include <pci/confspace/mackerelpci.h>
 
 #include <mm/mm.h>
+#include <acglobal.h>
+
 
 #define _COMPONENT          ACPI_OS_SERVICES
         ACPI_MODULE_NAME    ("osbarrelfishxf")
 
 //extern FILE *AcpiGbl_DebugFile;
 static FILE *AcpiGbl_OutputFile;
+
+extern ACPI_SPINLOCK AcpiGbl_PrintLock;
 
 /******************************************************************************
  *
@@ -169,7 +174,16 @@ static FILE *AcpiGbl_OutputFile;
 ACPI_STATUS
 AcpiOsInitialize (void)
 {
+    ACPI_STATUS Status;
+
     AcpiGbl_OutputFile = stdout;
+
+    Status = AcpiOsCreateLock (&AcpiGbl_PrintLock);
+    if (ACPI_FAILURE (Status))
+    {
+        return (Status);
+    }
+
     return AE_OK;
 }
 
@@ -1541,3 +1555,5 @@ int acpi_release_global_lock(uint32_t *lock)
 
     return (old & GL_BIT_PENDING);
 }
+
+
