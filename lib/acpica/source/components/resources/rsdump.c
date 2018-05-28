@@ -113,9 +113,16 @@
  *
  *****************************************************************************/
 
+#ifdef ACPI_DEBUGGER
+
 #include "acpi.h"
 #include "accommon.h"
 #include "acresrc.h"
+
+#ifdef ACPI_BF_DEBUG
+#include <stdio.h>
+#define AcpiOsPrintf printf
+#endif
 
 #define _COMPONENT          ACPI_RESOURCES
         ACPI_MODULE_NAME    ("rsdump")
@@ -211,13 +218,15 @@ AcpiRsDumpResourceList (
 
     ACPI_FUNCTION_ENTRY ();
 
-
-    /* Check if debug output enabled */
-
+#ifndef ACPI_BF_DEBUG
+    /* Only check, if ACPI_BF_DEBUG is not forcing output */
     if (!ACPI_IS_DEBUG_ENABLED (ACPI_LV_RESOURCES, _COMPONENT))
     {
         return;
     }
+#endif
+
+
 
     /* Walk list and dump all resource descriptors (END_TAG terminates) */
 
@@ -737,3 +746,5 @@ AcpiRsDumpWordList (
         AcpiOsPrintf ("%25s%2.2X : %4.4X\n", "Word", i, Data[i]);
     }
 }
+
+#endif //ACPI_DEBUGGER
