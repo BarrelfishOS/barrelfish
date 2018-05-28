@@ -135,10 +135,9 @@ static void add_mapping(struct int_route_controller_binding *b,
     err = skb_read_output("%d", &gsiBase);
     assert(err_is_ok(err));
 
-    ACPI_DEBUG("add_mapping: GsiBase:%d, AcpiName:%s, addr: %"PRIu64"\n",
-            gsiBase, acpiName, to.addr);
-    err = set_device_irq(acpiName, gsiBase + to.addr);
-
+    ACPI_DEBUG("add_mapping: GsiBase:%d, AcpiName:%s, port: %"PRIu64"\n",
+            gsiBase, acpiName, to.port);
+    err = set_device_irq(acpiName, gsiBase + to.port);
 
 out:
     if(err_is_fail(err)){

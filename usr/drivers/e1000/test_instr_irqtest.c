@@ -7,21 +7,19 @@
 #error "Must set UNDER_TEST define"
 #endif
 
-static uint64_t lsc_interrupt_counter = 0;
-
-static int e1000_initialized = false;
-static uint64_t int_trigger_counter = 0;
-static uint64_t ticks_per_msec, current_tick, last_int_trigger_ticks;
+static uint64_t ticks_per_msec = 0;
 
 void test_instr_init(struct e1000_driver_state *eds){
     // Setup state for test
     errval_t err;
-    err = sys_debug_get_tsc_per_ms(&ticks_per_msec);
-    printf("Ticks per msec: %"PRIu64".\n", ticks_per_msec);
-    assert(err_is_ok(err));
+    if(ticks_per_msec == 0){
+        err = sys_debug_get_tsc_per_ms(&ticks_per_msec);
+        printf("Ticks per msec: %"PRIu64".\n", ticks_per_msec);
+        assert(err_is_ok(err));
+    }
 
     e1000_set_interrupt_throttle(eds, E1000_INT_THROTTLE_RATE_DISABLED);
-    e1000_initialized = true;
+    eds->test_initialized = true;
 
     printf("e1000_irqtest: Disabled interrupt throttling\n");
 
@@ -36,7 +34,7 @@ void test_instr_init(struct e1000_driver_state *eds){
 #define ICR_E1000E_OTHER 24
 
 static void trigger_lsc_interrupt(struct e1000_driver_state * eds){
-    printf("Creating Link change interrupt...\n");
+    printf("(%s) Creating Link change interrupt...\n", eds->inst_name);
 
     // Cause an (artificial) interrupt. Trigger LSC for legacy
     // and 'other' for MSIx
@@ -45,37 +43,38 @@ static void trigger_lsc_interrupt(struct e1000_driver_state * eds){
     ics |= 1 << ICR_E1000E_OTHER;
 
     e1000_ics_rawwr(eds->device, ics);
-    int_trigger_counter++;
+    eds->int_trigger_counter++;
 }
 
 
 void test_instr_interrupt(struct e1000_driver_state *eds, e1000_intreg_t icr){
-    printf("e1000_irqtest: got interrupt!!!\n");
+    printf("e1000_irqtest (%s): got interrupt!!!\n", eds->inst_name);
     if (e1000_intreg_lsc_extract(icr) != 0) {
         printf("link-state interrupt\n");
-        lsc_interrupt_counter++;
+        eds->lsc_interrupt_counter++;
     }
 };
 
 void test_instr_periodic(void *arg){
+    uint64_t current_tick;
     struct e1000_driver_state *eds = arg;
-    if(int_trigger_counter >= 50){
-        if (abs(int_trigger_counter - lsc_interrupt_counter) <= 5) {
-            printf("triggerred: %"PRIi64" and received %"PRIi64" interrupts. (+-5 is okay).\n",
-                    int_trigger_counter, lsc_interrupt_counter);
-            printf("TEST SUCCESS\n");
+    if(eds->int_trigger_counter >= 50){
+        if (abs(eds->int_trigger_counter - eds->lsc_interrupt_counter) <= 5) {
+            printf("triggerred: %d and received %d interrupts. (+-5 is okay).\n",
+                    eds->int_trigger_counter, eds->lsc_interrupt_counter);
+            printf("TEST SUCCESS (%s)\n", eds->inst_name);
         }
         else {
-            printf("triggerred: %"PRIi64" and received %"PRIi64" interrupts. (+-5 is okay).\n",
-                    int_trigger_counter, lsc_interrupt_counter);
-            printf("TEST FAILURE\n");
+            printf("triggerred: %d and received %d interrupts. (+-5 is okay).\n",
+                    eds->int_trigger_counter, eds->lsc_interrupt_counter);
+            printf("(%s) TEST FAILURE\n", eds->inst_name);
         }
         exit(0);
     }
-    if(e1000_initialized){
+    if(eds->test_initialized){
         current_tick = rdtsc();
-        if(last_int_trigger_ticks + ticks_per_msec*300 < current_tick){
-            last_int_trigger_ticks = current_tick;
+        if(eds->last_int_trigger_ticks + ticks_per_msec*300 < current_tick){
+            eds->last_int_trigger_ticks = current_tick;
             trigger_lsc_interrupt(eds);
         }
     }

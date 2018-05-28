@@ -385,6 +385,14 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
 
         driver_arg.int_arg.model = int_model_in;
 
+        static int irqtests_started = 0;
+        if(strstr(binary_name, "irqtest") != NULL){
+            if(irqtests_started++ == 0){
+                KALUGA_DEBUG("Not starting multiple instances of irqtest\n");
+                goto out;
+            }
+        }
+
         struct module_info* mi = find_module(binary_name);
         if (mi == NULL) {
             KALUGA_DEBUG("Driver %s not loaded. Ignore.\n", binary_name);

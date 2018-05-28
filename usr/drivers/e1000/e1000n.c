@@ -219,7 +219,8 @@ static void e1000_interrupt_handler_fn(void *arg)
 //    printf("#### interrupt handler called: %"PRIu64"\n", interrupt_counter);
     ++interrupt_counter;
 
-    printf("########################## Interrupt handler ######################################\n");
+    printf("(%s) ############### Interrupt handler ###############\n",
+            eds->inst_name);
 
     if (e1000_intreg_lsc_extract(icr) != 0) {
         if (e1000_check_link_up(eds->device)) {
@@ -292,6 +293,7 @@ static void e1000_init_fn(struct e1000_driver_state * device)
 
     errval_t err;
     if (device->msix) {
+        E1000_DEBUG("MSI-X interrupt support!\n");
         err = e1000_init_msix_client(device);
         if(err_is_ok(err)){
             // Can use MSIX
@@ -301,6 +303,7 @@ static void e1000_init_fn(struct e1000_driver_state * device)
         err = pcid_connect_int(&device->pdc, 0, e1000_interrupt_handler_fn, device);
 
     } else {
+        E1000_DEBUG("Legacy interrupt support!\n");
 #ifdef UNDER_TEST
         err = pcid_connect_int(&device->pdc, 0, e1000_interrupt_handler_fn, device);
         if(err_is_fail(err)){
@@ -489,7 +492,8 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
     errval_t err;
 
     /** Parse command line arguments. */
-    E1000_DEBUG("e1000 standalone driver started.\n");
+    E1000_DEBUG("e1000 driver module started. instance name=%s\n",
+            bfi->name);
     E1000_DEBUG("args_len=%ld, caps_len=%ld\n", args_len, caps_len);
 
     struct e1000_driver_state * eds = malloc(sizeof(struct e1000_driver_state));
@@ -505,6 +509,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
     eds->args = args;
     eds->args_len = args_len;
     eds->service_name = "e1000"; // default name
+    eds->inst_name = bfi->name;
 
     for (int i = 1; i < args_len; i++) {
         E1000_DEBUG("arg %d = %s\n", i, args[i]);
