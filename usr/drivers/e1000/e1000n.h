@@ -186,6 +186,7 @@ struct e1000_driver_state {
     /* Kaluga args */
     char **args;
     int args_len;
+    char *inst_name;
 
     struct pcid pdc;
 
@@ -235,6 +236,14 @@ struct e1000_driver_state {
     uint32_t receive_free;
     void **receive_opaque;
     size_t receive_buffers;
+
+    /* irqtest statistics */
+#ifdef UNDER_TEST
+    int int_trigger_counter;
+    int test_initialized;
+    int lsc_interrupt_counter;
+    uint64_t last_int_trigger_ticks;
+#endif 
 };
 
 void e1000_driver_state_init(struct e1000_driver_state * eds);
