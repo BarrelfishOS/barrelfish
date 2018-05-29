@@ -56,6 +56,15 @@ enum x86_io_access {
 #define X86_MSR_GS_BASE         0xc0000101
 #define X86_MSR_KERNEL_GS_BASE  0xc0000102
 
+#define X86_MSR_BIOS_SIGN_ID    0x0000008b
+#define X86_MSR_APIC_BASE       0x0000001b
+#define X86_MSR_MTRRCAP         0x000000fe
+#define X86_MSR_MISC_ENABLE     0x000001a0
+#define X86_MSR_MCG_CAP         0x00000179
+#define X86_MSR_MCG_STATUS      0x0000017a
+#define X86_MSR_PAT             0x00000277
+#define X86_MTRR_DEF_TYPE       0x000002ff
+
 
 // Long Mode Paging
 
