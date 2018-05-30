@@ -22,8 +22,7 @@ class GrubBootTest(TestCommon):
         machine.setup()
 
     def run(self, build, machine, testdir):
-        modules = self.get_modules(build, machine)
-        self.boot(machine, modules)
+        self.reboot(machine)
         # Ignore the boot phase
         self.boot_phase = False
         return self.collect_data(machine)
