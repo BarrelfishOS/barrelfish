@@ -482,19 +482,25 @@ static errval_t bridge_add_iommu_endpoint_args(struct driver_argument* arg)
     char** names;
     size_t len;
 
-    // Get ep to iommus
-    struct module_info* driver = find_module("iommu");
-    if (driver == NULL) {
-        return KALUGA_ERR_MODULE_NOT_FOUND;
-    }
-
     // Get number of iommus
     err = oct_get_names(&names, &len, HW_PCI_IOMMU_RECORD_REGEX);
     if (err_is_fail(err)) {
         return err;
     }
     oct_free_names(names, len);
+    
+    if (len == 0) {
+        // there are no arguments to load
+        return SYS_ERR_OK;
+    }
 
+    // Get ep to iommus
+    struct module_info* driver = find_module("iommu");
+    if (driver == NULL) {
+        // Do not start IOMMU
+        num_iommu_started = 0;
+        return KALUGA_ERR_MODULE_NOT_FOUND;
+    }
 
     // Iommu module is around, assume we stared all the iommus
     num_iommu_started = len;
@@ -579,8 +585,13 @@ static void bridge_change_event(octopus_mode_t mode, const char* bridge_record,
 
         err = bridge_add_iommu_endpoint_args(&driver_arg);
         if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Unhandled error while starting %s\n", mi->binary);
-            cap_destroy(pci_ep);           
+            if (err == KALUGA_ERR_MODULE_NOT_FOUND) {
+                debug_printf("IOMMU module not found, continue withouth IOMMU \n");
+            } else {
+                DEBUG_ERR(err, "Unhandled error while starting %s\n", mi->binary);
+                cap_destroy(pci_ep);           
+                return;
+            }
         }
 
         err = mi->start_function(my_core_id, mi, (CONST_CAST)bridge_record, &driver_arg);
