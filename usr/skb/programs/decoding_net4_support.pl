@@ -11,7 +11,7 @@
 :- dynamic configurable/3.
 :- dynamic node_id_node_enum/2.
 :- dynamic current_state/1.
-
+:- dynamic iommu_enabled/2.
 
 
 
