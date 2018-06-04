@@ -1835,7 +1835,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
             DEBUG("VTD-Enabled initializing with VFs disabled. Try turing on IOMMU! \n");
             st->vtdon_dcboff = false;
         }
-        DEBUG("VTD-Enabled initializing with VFs enabled \n");
     }
 
     init_card(st);
