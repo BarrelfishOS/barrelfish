@@ -203,7 +203,7 @@ let subdirs = [ "source/components/dispatcher",
                 "source/components/resources/rsirq.c",
                 "source/components/resources/rsserial.c",
                 "source/components/resources/rsinfo.c",
---                "source/components/resources/rsdump.c",
+                "source/components/resources/rsdump.c",
                 "source/components/resources/rscreate.c" ]
 
     flagsArch arch = case arch of
@@ -213,7 +213,9 @@ in
   [ build library {
          target = "acpica",
          cFiles = cfiles,
-         addCFlags =  [ "-Wno-redundant-decls",
+         addCFlags =  [
+                        -- "-DACPI_DEBUGGER", "-DACPI_BF_DEBUG",
+                        "-Wno-redundant-decls",
                         "-Wno-unused-function",
                         "-fno-strict-aliasing" ] ++ (flagsArch arch),
          addIncludes = [ "source/include" ],

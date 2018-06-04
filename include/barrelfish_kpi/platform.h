@@ -36,6 +36,7 @@ enum pi_platform {
     // armv8 platforms
     PI_PLATFORM_APM88XXXX,
     PI_PLATFORM_FVP,
+    PI_PLATFORM_QEMU,
     PI_PLATFORM_CN88XX,
 };
 

@@ -83,7 +83,6 @@ let cFiles = [ "access.c",
                "poll.c",
                "inet_ntop.c",
                "inet_pton.c",
-               "syslog.c",
                "uname.c" ]
 in
 [ build library {

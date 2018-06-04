@@ -28,6 +28,7 @@
 #include <pci/pci.h>
 
 #define VFS_MOUNTPOINT  "/vm"
+/*#define IMAGEFILE       (VFS_MOUNTPOINT "/system-bench.img")*/
 #define IMAGEFILE       (VFS_MOUNTPOINT "/system-ubuntu16-i386.img")
 #define GRUB_IMG_PATH   (VFS_MOUNTPOINT "/vmkitmon_grub")
 

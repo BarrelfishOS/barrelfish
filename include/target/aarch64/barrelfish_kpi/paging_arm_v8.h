@@ -54,7 +54,7 @@ typedef uint64_t paging_x86_64_flags_t;
 // L0 entry info
 #define VMSAv8_64_L0_BITS              39
 #define VMSAv8_64_L0_SIZE              BIT(VMSAv8_64_L0_BITS)
-#define VMSAv8_64_L0_MAST              MASK(VMSAv8_64_L0_BITS)
+#define VMSAv8_64_L0_MASK              MASK(VMSAv8_64_L0_BITS)
 #define VMSAv8_64_L0_OFFSET(a)         ((a) & VMSAv8_64_L0_MASK)
 
 /* All entries are 8 bytes */
@@ -73,7 +73,7 @@ typedef uint64_t paging_x86_64_flags_t;
 #define VMSAv8_64_L1_BASE(addr) FIELD(VMSAv8_64_L1_BLOCK_BITS, VMSAv8_64_PTABLE_BITS, (uintptr_t)addr)
 #define VMSAv8_64_L2_BASE(addr) FIELD(VMSAv8_64_L2_BLOCK_BITS, VMSAv8_64_PTABLE_BITS, (uintptr_t)addr)
 #define VMSAv8_64_L3_BASE(addr) FIELD(VMSAv8_64_BASE_PAGE_BITS, VMSAv8_64_PTABLE_BITS, (uintptr_t)addr)
-
+#define VMSAv8_64_L012_BASE(addr) FIELD(VMSAv8_64_L2_BLOCK_BITS, 3 * VMSAv8_64_PTABLE_BITS, (uintptr_t)addr)
 
 /* VMSAv8-64 page attributes */
 // XXX: This needs to be revised

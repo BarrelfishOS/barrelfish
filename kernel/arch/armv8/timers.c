@@ -82,16 +82,18 @@ void timers_init(int timeslice)
     //pmcr = armv8_PMCR_EL0_N_insert(pmcr, 6);  /* N is RO ? */
     armv8_PMCR_EL0_wr(NULL, pmcr);
 
-    armv8_PMUSERENR_EL0_t pmu = 0;
+// AT: disable for now because it's not supported by QEMU version<2.6.0
+// AT: doesn't seem to break anything
+//    armv8_PMUSERENR_EL0_t pmu = 0;
     /* don't trap access to PM registers to EL 1 */
-    pmu = armv8_PMUSERENR_EL0_EN_insert(pmu, 1);
+//    pmu = armv8_PMUSERENR_EL0_EN_insert(pmu, 1);
     /* don't trap software increment wrap to EL 1 */
-    pmu = armv8_PMUSERENR_EL0_SW_insert(pmu, 1);
+//    pmu = armv8_PMUSERENR_EL0_SW_insert(pmu, 1);
     /* don't trap cycle counter to EL 1 */
-    pmu = armv8_PMUSERENR_EL0_CR_insert(pmu, 1);
+//    pmu = armv8_PMUSERENR_EL0_CR_insert(pmu, 1);
     /* don't trap event counter read to EL 1*/
-    pmu = armv8_PMUSERENR_EL0_ER_insert(pmu, 1);
-    armv8_PMUSERENR_EL0_wr(NULL, pmu);
+//    pmu = armv8_PMUSERENR_EL0_ER_insert(pmu, 1);
+//    armv8_PMUSERENR_EL0_wr(NULL, pmu);
 }
 
 /**

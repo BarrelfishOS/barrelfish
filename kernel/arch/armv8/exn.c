@@ -205,7 +205,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 {
     uint32_t irq = 0;
 
-    /* The assembly stub leaves the first 4 registers, the stack pointer, 
+    /* The assembly stub leaves the first 4 registers, the stack pointer,
      * the exception PC, and the SPSR for us to save, as it's run out of room for
      * the necessary instructions. */
     save_area->named.x0    = x0;
@@ -218,7 +218,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 
     irq = gicv3_get_active_irq();
 
-   // printk(LOG_NOTE, "handle_irq IRQ %"PRIu32"\n", irq);
+    // printk(LOG_NOTE, "handle_irq IRQ %"PRIu32"\n", irq);
 
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") :
@@ -255,7 +255,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
     else
 #endif
 
-    if(irq == 30 || irq==29) {
+    if (irq == 30 || irq==29) {
         gicv3_ack_irq(irq);
         timer_reset(CONFIG_TIMESLICE);
         dispatch(schedule());

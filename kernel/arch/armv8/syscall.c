@@ -31,6 +31,7 @@
 #include <platform.h>
 #include <systime.h>
 #include <timers.h>
+#include <psci.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -736,7 +737,9 @@ monitor_spawn_core(
     enum cpu_type cpu_type = sa->arg3;
     genvaddr_t entry       = sa->arg4;
     genpaddr_t context_id  = sa->arg5;
+    uint64_t psci_use_hvc  = sa->arg6;
 
+    psci_set_use_hvc(psci_use_hvc);
     return sys_monitor_spawn_core(core_id, cpu_type, entry, context_id);
 }
 
@@ -1292,7 +1295,9 @@ void sys_syscall(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
             break;
 
         case SYSCALL_DEBUG:
-            if (argc == 2) {
+            if (a1 == DEBUG_CREATE_IRQ_SRC_CAP) {
+                r.error = irq_debug_create_src_cap(a2, a3, a4, a5, a6);
+            } else if (argc == 2) {
                 r = handle_debug_syscall(a1);
             }
 

@@ -54,10 +54,9 @@ struct device_caps
 
 struct device_caps dev_caps[PCI_NBUSES][PCI_NDEVICES][PCI_NFUNCTIONS][PCI_NBARS];
 const char *skb_bridge_program = "bridge_page";
-//uint16_t max_numvfs = 255;
-// disable vfs by default
-uint16_t max_numvfs = 0;
 bool decoding_net = false;
+uint16_t max_numvfs = 255;
+bool enable_vfs = false;
 
 static void
 query_bars(pci_hdr0_t devhdr,
@@ -1200,9 +1199,9 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                                     "for e1000 card.\n");
                                     break;
                                 }
-                                
-                                // Do not add any virtual functions if we disabled it
-                                if (max_numvfs == 0) {
+
+                                // Enable VFs only when the num_vfs argument is given
+                                if (!enable_vfs) {
                                     break;
                                 }
 

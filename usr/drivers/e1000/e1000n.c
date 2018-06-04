@@ -211,8 +211,6 @@ static void e1000_interrupt_handler_fn(void *arg)
 //    printf("#### interrupt handler called: %"PRIu64"\n", interrupt_counter);
     ++interrupt_counter;
 
-    printf("########################## Interrupt handler ######################################\n");
-
     if (e1000_intreg_lsc_extract(icr) != 0) {
         if (e1000_check_link_up(eds->device)) {
             e1000_auto_negotiate_link(eds->device, eds->mac_type);
@@ -289,6 +287,7 @@ static void e1000_init_fn(struct e1000_driver_state * device)
     assert(err_is_ok(err));
 
     if (device->msix) {
+        E1000_DEBUG("MSI-X interrupt support!\n");
         err = e1000_init_msix_client(device);
         if(err_is_ok(err)){
             // Can use MSIX
@@ -303,6 +302,7 @@ static void e1000_init_fn(struct e1000_driver_state * device)
             USER_PANIC("Interrupt setup failed!\n");
         }
     } else {
+        E1000_DEBUG("Legacy interrupt support!\n");
 #ifdef UNDER_TEST
         err = int_route_client_route_and_connect(intcap, 0,
                                                  get_default_waitset(), 

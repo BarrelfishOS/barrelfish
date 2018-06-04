@@ -74,6 +74,7 @@ machines = dict({
                 'perfcount_type': 'amd10',
                 'tickrate'    : 2400.367},
 
+
     'tomme1':  {'ncores'      : 16,
                 'machine_name' : 'tomme1',
                 'bootarch' : 'x86_64',
@@ -470,6 +471,28 @@ machines = dict({
                 'perfcount_type': 'amd0f',
                 'boot_timeout' : 360,
                 }) for b in range(1, 17) if b != 11
+        ).items() + 
+        dict(('feta%s' % b, {
+                'ncores' : 4,
+                'machine_name' : ('feta%s' % b),
+                'bootarch' : 'x86_64',
+                'buildarchs' : ['x86_64'],
+                'cores_per_socket' : 2,
+                'tickrate' : 2400,      #TODO Checkme
+                'perfcount_type': 'amd0f', #TODO Checkme
+                'boot_timeout' : 360,
+                }) for b in range(1, 6)
+        ).items() + 
+        dict(('mozzarella%s' % b, {
+                'ncores' : 4,
+                'machine_name' : ('mozzarella%s' % b),
+                'bootarch' : 'x86_64',
+                'buildarchs' : ['x86_64'],
+                'cores_per_socket' : 2,
+                'tickrate' : 2400,      #TODO Checkme
+                'perfcount_type': 'amd0f', #TODO Checkme
+                'boot_timeout' : 360,
+                }) for b in range(1, 6)
         ).items()
 )
 

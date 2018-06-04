@@ -364,6 +364,14 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         KALUGA_DEBUG("PCI driver (%s %s) found for: VendorId=0x%"PRIx16" DeviceId=0x%"PRIx16" \n", 
                      binary_name, module_name, id.vendor, id.device);
 
+        static int irqtests_started = 0;
+        if(strstr(binary_name, "irqtest") != NULL){
+            if(irqtests_started++ == 0){
+                KALUGA_DEBUG("Not starting multiple instances of irqtest\n");
+                goto out;
+            }
+        }
+
         struct module_info* mi = find_module(binary_name);
         if (mi == NULL) {
             KALUGA_DEBUG("Driver %s not loaded. Ignore.\n", binary_name);

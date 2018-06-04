@@ -12,7 +12,8 @@ import subprocess, os, socket, sys, shutil, tempfile, pty
 from machines import ARMMachineBase, MachineFactory, MachineOperations
 from machines.eth import ETHBaseMachineOperations
 
-PANDA_ROOT='/mnt/local/nfs/pandaboot'
+# XXX: the rack-mount pandaboard machines are ETH-specific
+PANDA_ROOT='/mnt/emmentaler1_nfs/pandaboot'
 PANDA_BOOT_HOST='masterpanda.in.barrelfish.org'
 PANDA_PORT=10000
 TOOLS_PATH='/home/netos/tools/bin'

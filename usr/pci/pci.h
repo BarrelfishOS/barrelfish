@@ -100,5 +100,6 @@ errval_t pci_setup_connection_to_kaluga(void);
 extern const char *skb_bridge_program;
 extern uint16_t max_numvfs;
 extern bool decoding_net;
+extern bool enable_vfs;
 
 #endif // PCI_H_

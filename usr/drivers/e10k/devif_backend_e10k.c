@@ -304,6 +304,16 @@ static errval_t e10k_register(struct devq* q, struct capref cap, regionid_t rid)
         return err;
     }
 
+    /*
+    void* va;
+    err = vspace_map_one_frame_attr(&va, id.bytes, cap,
+                                    VREGION_FLAGS_READ_WRITE,
+                                    NULL, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    */
+
     // keep track of regions since we need the virtual address ...
     struct region_entry* entry = malloc(sizeof(struct region_entry));
     entry->rid = rid;
@@ -539,7 +549,22 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
         }
     }
 
+
     // allocate memory for RX/TX rings
+    
+    /*
+    struct capref tx_frame;
+    size_t tx_size = e10k_q_tdesc_adv_wb_size*NUM_TX_DESC;
+    void* tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, tx_size, &tx_frame);
+    if (tx_virt == NULL) {
+        return DEVQ_ERR_INIT_QUEUE;
+    }
+
+    struct capref rx_frame;
+    size_t rx_size = e10k_q_rdesc_adv_wb_size*NUM_RX_DESC;
+    void* rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, rx_size, &rx_frame);
+    if (rx_virt == NULL) {
+    */
     q->tx_ring_size = e10k_q_tdesc_adv_wb_size*NUM_TX_DESC;
 
     DEBUG_QUEUE("Allocating TX queue memory\n");

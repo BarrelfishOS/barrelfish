@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
             skb_bridge_program = argv[i] + strlen("skb_bridge_program=");
         } else if(!strncmp(argv[i], "numvfs=", strlen("numvfs="))) {
             max_numvfs = atoi(argv[i] + strlen("numvfs="));
+            enable_vfs = true;
         } else {
             printf("%s: Unknown commandline option \"%s\" -- skipping.\n", argv[0], argv[i]);
         }

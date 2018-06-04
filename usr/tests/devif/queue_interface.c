@@ -155,7 +155,7 @@ static struct devq* create_net_queue(char* card_name)
 {   
     errval_t err;
 
-    if (strcmp(card_name, "sfn5122f") == 0) {
+    if (strncmp(card_name, "sfn5122f", 8) == 0) {
         struct sfn5122f_queue* q;
         
         err = sfn5122f_queue_create(&q, event_cb, /* userlevel*/ true,
@@ -168,10 +168,11 @@ static struct devq* create_net_queue(char* card_name)
         return (struct devq*) q;
     }
 
-    if (strcmp(card_name, "e10k") == 0) {
+    if (strncmp(card_name, "e10k", 4) == 0) {
         struct e10k_queue* q;
         
         err = e10k_queue_create(&q, event_cb, /*VFs */ false,
+                                6, 0, 0, 0,
                                 /*MSIX interrupts*/ false, false);
         if (err_is_fail(err)){
             USER_PANIC("Allocating devq failed \n");

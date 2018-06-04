@@ -80,10 +80,11 @@ static void parking_write_mailbox(struct armv8_parking_page *mailbox,
 
 static inline errval_t
 invoke_monitor_spawn_core(hwid_t core_id, enum cpu_type cpu_type,
-                          genpaddr_t entry, genpaddr_t context)
+                          genpaddr_t entry, genpaddr_t context,
+                          uint64_t psci_use_hvc)
 {
-    return cap_invoke5(ipi_cap, IPICmd_Send_Start, core_id, cpu_type,
-                       entry, context).error;
+    return cap_invoke6(ipi_cap, IPICmd_Send_Start, core_id, cpu_type,
+                       entry, context, psci_use_hvc).error;
 }
 
 struct arch_config
@@ -94,6 +95,7 @@ struct arch_config
     char boot_driver_entry[256];
     char cpu_driver_binary[256];
     char monitor_binary[256];
+    bool psci_use_hvc;
 };
 
 static errval_t get_arch_config(hwid_t hwid, struct arch_config * config)
@@ -106,21 +108,21 @@ static errval_t get_arch_config(hwid_t hwid, struct arch_config * config)
     }
 
     /* Query the SKB for the CPU driver to use. */
-    err= skb_execute_query("cpu_driver(S), write(res(S)).");
+    err = skb_execute_query("cpu_driver(S), write(res(S)).");
     if (err_is_fail(err)) {
         DEBUG_SKB_ERR(err, "skb_execute_query");
         return err;
     }
-    err= skb_read_output("res(%255[^)])", config->cpu_driver_binary);
+    err = skb_read_output("res(%255[^)])", config->cpu_driver_binary);
     if (err_is_fail(err)) return err;
 
     /* Query the SKB for the monitor binary to use. */
-    err= skb_execute_query("monitor(S), write(res(S)).");
+    err = skb_execute_query("monitor(S), write(res(S)).");
     if (err_is_fail(err)) {
         DEBUG_SKB_ERR(err, "skb_execute_query");
         return err;
     }
-    err= skb_read_output("res(%255[^)])", config->monitor_binary);
+    err = skb_read_output("res(%255[^)])", config->monitor_binary);
     if (err_is_fail(err)) return err;
 
     err = skb_execute_query("boot_driver_entry(%"PRIu64",T), entry_symbol(T,S),"
@@ -130,7 +132,7 @@ static errval_t get_arch_config(hwid_t hwid, struct arch_config * config)
         return err;
     }
 
-    err= skb_read_output("res(%255[^)])", config->boot_driver_entry);
+    err = skb_read_output("res(%255[^)])", config->boot_driver_entry);
     if (err_is_fail(err)) {
         return err;
     }
@@ -142,7 +144,17 @@ static errval_t get_arch_config(hwid_t hwid, struct arch_config * config)
         return err;
     }
 
-    err= skb_read_output("res(%255[^)])", config->boot_driver_binary);
+    err = skb_read_output("res(%255[^)])", config->boot_driver_binary);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    err = skb_execute_query("psci_use_hvc(C), write(C).");
+    if (err_is_fail(err)) {
+        printf("error: \n %s\n", skb_get_error_output());
+        return err;
+    }
+    err = skb_read_output("%d", &config->psci_use_hvc);
     if (err_is_fail(err)) {
         return err;
     }
@@ -788,7 +800,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
         // ensure termination
         core_data->cpu_driver_cmdline[sizeof(core_data->cpu_driver_cmdline) - 1] = '\0';
 
-        DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->kernel_cmdline);
+        DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, core_data->cpu_driver_cmdline);
     }
 
 
@@ -807,7 +819,8 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
     DEBUG("invoking boot start hwid=%lx entry=%lx context=%lx\n",
                  hwid, boot_entry, stack_mem.frameid.base);
 
-    err = invoke_monitor_spawn_core(hwid, cpu_type, boot_entry, stack_mem.frameid.base);
+    err = invoke_monitor_spawn_core(hwid, cpu_type, boot_entry, stack_mem.frameid.base,
+                                    config.psci_use_hvc);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "failed to spawn the cpu\n");
     }

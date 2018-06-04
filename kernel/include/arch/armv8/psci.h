@@ -330,4 +330,10 @@ errval_t psci_stat_residency(uintptr_t target_cpu, uint32_t power_state,
 errval_t psci_stat_count(uintptr_t target_cpu, uint32_t power_state,
                          uintptr_t *count);
 
+/**
+ * Change the PSCI's conduit to use hvc instead of smc
+ * @param use_hvc True, if hvc should be used
+ */
+void psci_set_use_hvc(uint64_t use_hvc);
+
 #endif

@@ -10,6 +10,7 @@
 import os, signal, tempfile, subprocess, shutil
 import debug
 from machines import Machine, ARMMachineBase, MachineFactory, MachineOperations
+import efiimage
 
 QEMU_SCRIPT_PATH = 'tools/qemu-wrapper.sh' # relative to source tree
 GRUB_IMAGE_PATH = 'tools/grub-qemu.img' # relative to source tree
@@ -245,3 +246,77 @@ class QEMUMachineZync7Operations(QEMUMachineBaseOperations):
 MachineFactory.addMachine(QEMUMachineZynq7.name, QEMUMachineZynq7,
                           bootarch="armv7",
                           platform='zynq7')
+
+class QEMUMachineARMv8(ARMMachineBase):
+    '''ARMv8 QEMU'''
+    name = 'qemu_armv8'
+
+    imagename = "armv8_efi"
+
+    def __init__(self, options, **kwargs):
+        super(QEMUMachineARMv8, self).__init__(options, QEMUMAchineARMv8Operations(self), **kwargs)
+        self._set_kernel_image()
+        self.menulst_template = "menu.lst.armv8_a57_qemu"
+
+    def get_buildall_target(self):
+        return "QEMU"
+
+    def get_bootarch(self):
+        return "armv8"
+
+    def get_platform(self):
+        return 'a57_qemu'
+
+class QEMUMAchineARMv8Operations(QEMUMachineBaseOperations):
+
+    def _write_menu_lst(self, data, path):
+        self._machine._write_menu_lst(data, path)
+
+    def set_bootmodules(self, modules):
+        # write menu.lst
+        debug.verbose("Writing menu.lst in build directory.")
+        menulst_fullpath = os.path.join(self._machine.options.builds[0].build_dir,
+                "platforms", "arm", "menu.lst.armv8_base")
+        self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
+
+        # produce ROM image
+        debug.verbose("Building QEMU EFI image.")
+#        debug.checkcmd(["make", self._machine.imagename],
+#                cwd=self._machine.options.builds[0].build_dir)
+
+        debug.checkcmd(["make"] + modules.get_build_targets(), cwd=self._machine.options.builds[0].build_dir)
+
+        efi = efiimage.EFIImage(self._machine.kernel_img, 200)
+        efi.create()
+        for module in modules.get_build_targets():
+            efi.addFile(os.path.join(self._machine.options.builds[0].build_dir, module), module)
+        efi.writeFile("startup.nsh", "Hagfish.efi hagfish.cfg")
+        efi.addFile("/home/netos/tftpboot/Hagfish.efi", "Hagfish.efi")
+        efi.addFile(menulst_fullpath, "hagfish.cfg")
+
+    def _get_cmdline(self):
+        qemu_wrapper = os.path.join(self._machine.options.sourcedir, QEMU_SCRIPT_PATH)
+
+        return [qemu_wrapper, '--arch', 'armv8', '--image', self._machine.kernel_img,
+                "--smp", "%s" % self._machine.get_ncores()]
+
+MachineFactory.addMachine(QEMUMachineARMv8.name + '_1', QEMUMachineARMv8,
+                          boot_driver = 'boot_armv8_generic',
+                          bootarch = "armv8",
+                          ncores = 1,
+                          platform = "a57_qemu")
+MachineFactory.addMachine(QEMUMachineARMv8.name + '_2', QEMUMachineARMv8,
+                          boot_driver = 'boot_armv8_generic',
+                          bootarch = "armv8",
+                          ncores = 2,
+                          platform = "a57_qemu")
+MachineFactory.addMachine(QEMUMachineARMv8.name + '_4', QEMUMachineARMv8,
+                          boot_driver = 'boot_armv8_generic',
+                          bootarch = "armv8",
+                          ncores = 4,
+                          platform = "a57_qemu")
+MachineFactory.addMachine(QEMUMachineARMv8.name + '_8', QEMUMachineARMv8,
+                          boot_driver = 'boot_armv8_generic',
+                          bootarch = "armv8",
+                          ncores = 8,
+                          platform = "a57_qemu")

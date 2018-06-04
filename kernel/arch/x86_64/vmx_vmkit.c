@@ -472,13 +472,14 @@ static void vmx_set_host_state(void)
 #ifndef CONFIG_ARRAKISMON
     vmx_host_msr_area_init(host_msr_area);
 
+    lpaddr_t msr_area_base = mem_to_local_phys_no_assertion(
+            (lvaddr_t) host_msr_area);
     if (!((lvaddr_t) host_msr_area >= X86_64_MEMORY_OFFSET)) {
         printk(LOG_NOTE, "assertion failed! 0x%lx >= 0x%lx\n",
                 (lvaddr_t) host_msr_area,
                 X86_64_MEMORY_OFFSET);
     }
 
-    lpaddr_t msr_area_base = mem_to_local_phys_no_assertion((lvaddr_t)host_msr_area);
     err += vmwrite(VMX_EXIT_MSR_LOAD_F, canonical_form(msr_area_base));
     err += vmwrite(VMX_EXIT_MSR_LOAD_CNT, VMX_MSR_COUNT);
 #endif
@@ -639,9 +640,9 @@ errval_t initialize_vmcs(lpaddr_t vmcs_paddr)
 
     uint64_t guest_cr4 = CR4_PAE;
     err += vmwrite(VMX_GUEST_CR4, (guest_cr4 | ia32_vmx_cr4_fixed0_rd(NULL)) &
-		   ia32_vmx_cr4_fixed1_rd(NULL));
+            ia32_vmx_cr4_fixed1_rd(NULL));
     assert((guest_cr4 & CR4_PCIDE) == 0);
-
+        
     uint64_t cr0_shadow;
     err += vmread(VMX_GUEST_CR0, &cr0_shadow);
 

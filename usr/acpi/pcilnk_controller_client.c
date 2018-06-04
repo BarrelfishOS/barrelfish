@@ -19,7 +19,9 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/cpu_arch.h>
 #include <barrelfish/nameservice_client.h>
+
 #include <acpi.h>
+
 #include <mm/mm.h>
 
 #include <skb/skb.h>
@@ -30,6 +32,68 @@
 #include "acpi_shared.h"
 
 #include <if/int_route_controller_defs.h>
+
+
+static int get_device_irq(const char* device){
+    ACPI_HANDLE source;
+    ACPI_STATUS as = AcpiGetHandle(NULL, (CONST_CAST)device, &source);
+    if (ACPI_FAILURE(as)) {
+        debug_printf("  failed lookup: %s\n", AcpiFormatException(as));
+        return -1;
+    }
+
+    uint8_t data[2*sizeof(ACPI_RESOURCE) + 1];
+    ACPI_BUFFER buf = { .Length = sizeof(data), .Pointer = &data };
+    as = AcpiGetCurrentResources(source, &buf);
+    if (ACPI_FAILURE(as)) {
+        debug_printf("  failed getting _CRS: %s\n", AcpiFormatException(as));
+        return -1;
+    }
+
+    assert(buf.Pointer == data);
+    ACPI_RESOURCE * res = buf.Pointer;
+    switch(res->Type) {
+    case ACPI_RESOURCE_TYPE_IRQ:
+        return res->Data.Irq.Interrupts[0];
+        break;
+
+    case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
+        return res->Data.ExtendedIrq.Interrupts[0];
+        break;
+
+    default:
+        printf("Unknown resource type: %"PRIu32"\n", res->Type);
+        ACPI_DEBUG("NYI");
+        return -1;
+        break;
+    }
+
+}
+
+#ifdef ACPI_BF_DEBUG
+void AcpiRsDumpResourceList (ACPI_RESOURCE *Resource);
+static void debug_device_irq(const char* device) {
+    ACPI_HANDLE source;
+    ACPI_STATUS as = AcpiGetHandle(NULL, (CONST_CAST)device, &source);
+    if (ACPI_FAILURE(as)) {
+        debug_printf("  failed lookup: %s\n", AcpiFormatException(as));
+        return;
+    }
+
+    uint8_t data[32 * sizeof(ACPI_RESOURCE)];
+    ACPI_BUFFER buf = { .Length = sizeof(data), .Pointer = &data };
+    as = AcpiGetCurrentResources(source, &buf);
+    if (ACPI_FAILURE(as)) {
+        debug_printf("  failed getting _CRS: %s\n", AcpiFormatException(as));
+        return;
+    }
+
+
+    printf("-- DUMP RESOURCES OF %s --", device);
+    ACPI_RESOURCE *res = buf.Pointer;
+    AcpiRsDumpResourceList(res);
+}
+#endif
 
 /**
  * TODO: Once everything uses the interrupt routing service,
@@ -45,7 +109,8 @@ errval_t set_device_irq(const char* device, uint32_t irq) {
         return ACPI_ERR_INVALID_PATH_NAME;
     }
 
-    uint8_t data[512];
+    // Space for IRQ resource + end tag
+    uint8_t data[sizeof(ACPI_RESOURCE) * 2 + 1];
     ACPI_BUFFER buf = { .Length = sizeof(data), .Pointer = &data };
     as = AcpiGetCurrentResources(source, &buf);
     if (ACPI_FAILURE(as)) {
@@ -58,16 +123,25 @@ errval_t set_device_irq(const char* device, uint32_t irq) {
     switch(res->Type) {
     case ACPI_RESOURCE_TYPE_IRQ:
         res->Data.Irq.Interrupts[0] = irq;
+        res->Data.Irq.InterruptCount = 1;
+        res->Data.Irq.Sharable = ACPI_EXCLUSIVE;
         break;
 
     case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
         res->Data.ExtendedIrq.Interrupts[0] = irq;
+        res->Data.ExtendedIrq.InterruptCount = 1;
+        res->Data.ExtendedIrq.Sharable = ACPI_EXCLUSIVE;
         break;
 
     default:
         printf("Unknown resource type: %"PRIu32"\n", res->Type);
         ACPI_DEBUG("NYI");
         break;
+    }
+
+    ACPI_RESOURCE* res1 = ACPI_NEXT_RESOURCE(res);
+    if(res1->Type != ACPI_RESOURCE_TYPE_END_TAG){
+        debug_printf("unexpected ACPI RESOURCE TYPE ??? : %d\n", res1->Type);
     }
 
     //pcie_enable(); // XXX
@@ -135,10 +209,9 @@ static void add_mapping(struct int_route_controller_binding *b,
     err = skb_read_output("%d", &gsiBase);
     assert(err_is_ok(err));
 
-    ACPI_DEBUG("add_mapping: GsiBase:%d, AcpiName:%s, addr: %"PRIu64"\n",
-            gsiBase, acpiName, to.addr);
-    err = set_device_irq(acpiName, gsiBase + to.addr);
-
+    ACPI_DEBUG("add_mapping: GsiBase:%d, AcpiName:%s, port: %"PRIu64"\n",
+            gsiBase, acpiName, to.port);
+    err = set_device_irq(acpiName, gsiBase + to.port);
 
 out:
     if(err_is_fail(err)){

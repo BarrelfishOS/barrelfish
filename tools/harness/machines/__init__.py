@@ -350,7 +350,7 @@ class ARMMachineBase(Machine):
     def get_kernel_args(self):
         if self.kernel_args is None:
             for line in self._get_template_menu_lst():
-                if line.startswith("kernel"):
+                if line.startswith("kernel") or line.startswith("cpudriver"):
                     _, _, args = line.strip().split(" ", 2)
                     self.kernel_args = args.split(" ")
         return self.kernel_args

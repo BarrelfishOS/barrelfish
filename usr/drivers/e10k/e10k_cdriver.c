@@ -55,6 +55,7 @@ struct queue_state {
     uint8_t msix_intdest;
     bool use_irq;
     bool use_rsc;
+    bool use_txhwb;
 
     uint64_t rx_head;
     uint64_t tx_head;
@@ -1025,8 +1026,11 @@ static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail
         e10k_psrtype_split_ip6_wrf(st->d, n, 1);
         e10k_psrtype_split_l2_wrf(st->d, n, 1);
     } else {
-        e10k_srrctl_1_desctype_wrf(st->d, n, e10k_adv_1buf);
-        //e10k_srrctl_1_desctype_wrf(st->d, n, e10k_legacy);
+        if(st->vtdon_dcboff) {
+            e10k_srrctl_1_desctype_wrf(st->d, n, e10k_adv_1buf);
+        } else {
+            e10k_srrctl_1_desctype_wrf(st->d, n, e10k_legacy);
+        }
     }
     e10k_srrctl_1_bsz_hdr_wrf(st->d, n, 128 / 64); // TODO: Do 128 bytes suffice in
                                                //       all cases?
@@ -1150,6 +1154,7 @@ static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail
     if (!capref_is_null(st->queues[n].txhwb_frame)) {
         DEBUG("[%x] TX hwb enabled ...\n", n);
         r = invoke_frame_identify(st->queues[n].txhwb_frame, &frameid);
+        st->queues[n].use_txhwb = true;
         assert(err_is_ok(r));
         txhwb_phys = frameid.base;
         if (st->queues[n].rx_va) {
@@ -1161,7 +1166,6 @@ static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail
         }
         e10k_tdwbal_headwb_en_wrf(st->d, n, 1);
     }
-
     // Initialized by queue driver to avoid race conditions
     // Initialize queue pointers
     e10k_tdh_wr(st->d, n, st->queues[n].tx_head);
@@ -1213,6 +1217,114 @@ static void queue_hw_stop(struct e10k_driver_state* st, uint8_t n)
     milli_sleep(1);
 }
 
+#if 0
+/** Stop whole device. */
+static void stop_device(void)
+{
+    int i = 0;
+
+    DEBUG("Stopping device\n");
+
+    // Disable RX and TX
+    rx_disable();
+    tx_disable();
+    rxtx_enabled = false;
+
+    // Disable interrupts
+    e10k_eimc_cause_wrf(d, 0x7FFFFFFF);
+    e10k_eicr_rd(d);
+
+    // Disable each RX and TX queue
+    for (i = 0; i < 128; i++) {
+        e10k_txdctl_wr(d, i, e10k_txdctl_swflsh_insert(0x0, 1));
+
+        if (i < 64) {
+            e10k_rxdctl_1_wr(d, i, 0x0);
+        } else {
+            e10k_rxdctl_2_wr(d, i - 64, 0x0);
+        }
+
+    }
+
+    // From BSD driver (not in spec)
+    milli_sleep(2);
+
+    // Master disable procedure
+    e10k_ctrl_pcie_md_wrf(d, 1);
+    while (e10k_status_pcie_mes_rdf(d) != 0); // TODO: Timeout
+    DEBUG("Stopping device done\n");
+}
+
+static void management_interrupt(e10k_eicr_t eicr)
+{
+    if (e10k_eicr_ecc_extract(eicr)) {
+        DEBUG("##########################################\n");
+        DEBUG("ECC Error, resetting device :-/\n");
+        DEBUG("##########################################\n");
+        device_init();
+    } else if (eicr >> 16) {
+        DEBUG("Interrupt: %x\n", eicr);
+        e10k_eicr_prtval(buf, sizeof(buf), eicr);
+        puts(buf);
+    } else if (msix) {
+        DEBUG("Weird management interrupt without cause: eicr=%x\n", eicr);
+    }
+}
+
+static void interrupt_handler_msix(void* arg)
+{
+    DEBUG("e10k: MSI-X management interrupt\n");
+    e10k_eicr_t eicr = e10k_eicr_rd(d);
+
+    eicr &= ~(1 << cdriver_msix);
+    management_interrupt(eicr);
+
+    // Ensure management MSI-X vector is cleared
+    e10k_eicr_wr(d, (1 << cdriver_msix));
+
+    // Reenable interrupt
+    e10k_eimsn_cause_wrf(d, cdriver_msix / 32, (1 << (cdriver_msix % 32)));
+}
+
+
+static void resend_interrupt(void* arg)
+{
+    errval_t err;
+    uint64_t i = (uint64_t) arg;
+    err = queues[i].devif->tx_vtbl.interrupt(queues[i].devif, NOP_CONT, i);
+    // If the queue is busy, there is already an oustanding message
+    if (err_is_fail(err) && err != FLOUNDER_ERR_TX_BUSY) {
+        USER_PANIC("Error when sending interrupt %s \n", err_getstring(err));
+    }
+}
+
+/** Here are the global interrupts handled. */
+static void interrupt_handler(void* arg)
+{
+    errval_t err;
+    e10k_eicr_t eicr = e10k_eicr_rd(d);
+
+    if (eicr >> 16) {
+        management_interrupt(eicr);
+    }
+    e10k_eicr_wr(d, eicr);
+
+    for (uint64_t i = 0; i < 16; i++) {
+        if ((eicr >> i) & 0x1) {
+            DEBUG("Interrupt eicr=%"PRIx32" \n", eicr);
+            if (queues[i].use_irq && queues[i].devif != NULL) {
+                err = queues[i].devif->tx_vtbl.interrupt(queues[i].devif, NOP_CONT, i);
+                if (err_is_fail(err)) {
+                    err = queues[i].devif->register_send(queues[i].devif,
+                                                         get_default_waitset(),
+                                                         MKCONT(resend_interrupt,
+                                                                (void*)i));
+                }
+            }
+        }
+    }
+}
+#endif
 /******************************************************************************/
 /* Management interface implemetation */
 
@@ -1685,9 +1797,9 @@ static void init_default_values(struct e10k_driver_state* e10k)
  */
 static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
 {
-    errval_t err;
     //barrelfish_usleep(10*1000*1000);
     DEBUG("PF driver started\n");
+    errval_t err;
 
     bfi->dstate = calloc(sizeof(struct e10k_driver_state), 1);
     if (bfi->dstate == NULL) {
@@ -1725,7 +1837,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
         }
         DEBUG("VTD-Enabled initializing with VFs enabled \n");
     }
-
 
     init_card(st);
 
