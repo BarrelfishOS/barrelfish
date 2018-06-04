@@ -618,6 +618,11 @@ errval_t driverkit_iommu_client_connect_cl(struct capref ep,
 
     assert(cl);
 
+    if (capref_is_null(ep)) {
+        DRIVERKIT_DEBUG("[iommu client] invalid endpoint to the iommu\n");
+        return IOMMU_ERR_INVALID_EP;
+    }
+
     struct endpoint_identity id;
     err = invoke_endpoint_identify(ep, &id);
     if (err_is_fail(err)) {
@@ -1045,7 +1050,13 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
 
     assert(id.bytes >= LARGE_PAGE_SIZE);
 
-
+    if (cl == NULL) {
+        // TODO is this a good idea? 
+        dmem->devaddr = id.base;
+        dmem->size = id.bytes;
+        return vspace_map_one_frame_attr((void **)&dmem->vbase, id.bytes, frame,
+                flags, NULL, NULL);
+    }
 
     DRIVERKIT_DEBUG("[iommu client] allocate driver vspace\n");
 
