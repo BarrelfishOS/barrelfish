@@ -661,6 +661,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
                                               &device->irq, &device->iommu_ep,
                                               &err2);
     if (err_is_fail(err) || err_is_fail(err2)) {
+        E1000_DEBUG("%s:%d: failed create queue \n", __func__, __LINE__);
         err = err_is_fail(err) ? err: err2;
 
         goto error;
@@ -671,6 +672,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
         goto error;
     }
 
+    E1000_DEBUG("%s:%d: Mapping frame \n", __func__, __LINE__);
     void* va;
     err = vspace_map_one_frame_attr(&va, id.bytes, device->regs,
                                     VREGION_FLAGS_READ_WRITE_NOCACHE, NULL, NULL);
@@ -678,16 +680,24 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
         goto error;
     }
       
+    E1000_DEBUG("%s:%d: Init regs \n", __func__, __LINE__);
     e1000_initialize(&(device->hw_device), va);
+
+    E1000_DEBUG("%s:%d: Init iommu client \n", __func__, __LINE__);
+
+    // Set buffer ring sizes
+    device->rx_ring_size = device->transmit_buffers*sizeof(union rx_desc);
+    device->tx_ring_size = device->receive_buffers*sizeof(struct tx_desc);
 
     // and create queue. set the transmit receive ring
     err = driverkit_iommu_client_init_cl(device->iommu_ep, &device->iommu);
     if (err_is_fail(err)) {
-        goto error;
+        debug_printf("########## e1000: Initializing IOMMU client failed, Continue withouth IOMMU ####### \n");
+        device->iommu = NULL;
+        // Continue !   
     }
 
     E1000_DEBUG("%s:%d: transmit ring \n", __func__, __LINE__);
-    device->tx_ring_size = device->receive_buffers*sizeof(struct tx_desc);
     err = driverkit_iommu_mmap_cl(device->iommu, device->tx_ring_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
                                   &device->tx);
     device->transmit_ring = (void*) device->tx.vbase;
@@ -697,7 +707,6 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
     }
 
     E1000_DEBUG("%s:%d: receive ring \n", __func__, __LINE__);
-    device->rx_ring_size = device->transmit_buffers*sizeof(union rx_desc);
     err = driverkit_iommu_mmap_cl(device->iommu, device->rx_ring_size, VREGION_FLAGS_READ_WRITE_NOCACHE, 
                                   &device->rx);
     device->receive_ring = (void*) device->rx.vbase;
