@@ -39,18 +39,19 @@ struct e10k_queue_rxctx {
 
 struct region_entry {
     uint32_t rid;
-    lpaddr_t phys;
-    lvaddr_t virt;
-    size_t size;
-    struct capref cap;
+    struct dmem mem;
     struct region_entry* next;
 };
 
 struct e10k_queue {
     struct devq q;
 
-    // queue info
+    // registers
     void* d;
+    struct capref                   regs;
+    struct dmem                     reg_mem;
+
+    // queue info
     bool enabled;
     uint16_t id;
     uint32_t rsbufsz;
@@ -79,8 +80,12 @@ struct e10k_queue {
     struct capref                   rx_frame;
     struct capref                   tx_frame;
     struct capref                   txhwb_frame;
-    
-    struct capref                   regs;
+    struct dmem                     tx;
+    struct dmem                     txhwb;
+    struct dmem                     rx;
+    size_t rx_ring_size;
+    size_t tx_ring_size;
+          
     // vf state
     struct vf_state* vf;
 
@@ -265,15 +270,15 @@ static inline int e10k_queue_add_txbuf(e10k_queue_t* q, lpaddr_t phys,
                                        uint64_t flags,
                                        size_t len)
 {
-    if(q->use_vtd) {
+    if(!q->use_vf) {
+        return e10k_queue_add_txbuf_legacy(q, phys, rid, offset, length,
+                                    valid_data, valid_length, 
+                                    flags, len);
+    } else {
         // TODO try generate checksums
         return e10k_queue_add_txbuf_ctx(q, phys, rid, offset, length,
                                     valid_data, valid_length, 
                                     flags, len, -1, false, false);
-    } else {
-        return e10k_queue_add_txbuf_legacy(q, phys, rid, offset, length,
-                                    valid_data, valid_length, 
-                                    flags, len);
     }
 }
 
@@ -386,12 +391,12 @@ static inline bool e10k_queue_get_txbuf(e10k_queue_t* q, regionid_t* rid,
                                         genoffset_t* valid_length,
                                         uint64_t* flags)
 {
-    if (q->use_vtd) {
-        return e10k_queue_get_txbuf_avd(q, rid, offset, length, valid_data, 
-                                        valid_length, flags);
-    } else {
+    if(!q->use_vf) {
         return e10k_queue_get_txbuf_legacy(q, rid, offset, length, valid_data, 
                                            valid_length, flags);
+    } else {
+        return e10k_queue_get_txbuf_avd(q, rid, offset, length, valid_data, 
+                                        valid_length, flags);
     }
 }
 
@@ -492,12 +497,12 @@ static inline int e10k_queue_add_rxbuf(e10k_queue_t* q,
                                        genoffset_t valid_length,
                                        uint64_t flags)
 {
-    if (q->use_vtd) {
-        return e10k_queue_add_rxbuf_adv(q, phys, rid, offset, length, valid_data,
-                                        valid_length, flags);
-    } else {
+    if(!q->use_vf) {
         return e10k_queue_add_rxbuf_legacy(q, phys, rid, offset, length, valid_data,
                                            valid_length, flags);
+    } else {
+        return e10k_queue_add_rxbuf_adv(q, phys, rid, offset, length, valid_data,
+                                        valid_length, flags);
     }
 }
 static inline uint64_t e10k_queue_convert_rxflags(e10k_q_rdesc_adv_wb_t d)
@@ -624,12 +629,12 @@ static inline bool e10k_queue_get_rxbuf(e10k_queue_t* q, regionid_t* rid,
                                         uint64_t* flags,
                                         int* last)
 {
-    if (q->use_vtd) {
-       return e10k_queue_get_rxbuf_avd(q, rid, offset, length, valid_data, valid_length,
-                                       flags, last);
-    } else {
+    if(!q->use_vf) {
        return e10k_queue_get_rxbuf_legacy(q, rid, offset, length, valid_data, valid_length,
                                     flags, last);
+    } else {
+       return e10k_queue_get_rxbuf_avd(q, rid, offset, length, valid_data, valid_length,
+                                       flags, last);
     }
 }
 
