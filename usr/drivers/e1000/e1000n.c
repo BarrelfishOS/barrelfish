@@ -434,6 +434,15 @@ static void cd_create_queue(struct e1000_devif_binding *b, bool interrupt)
         // send back interrupt cap
    //}
 
+    // check endpoint
+    struct endpoint_identity epid;
+    err = invoke_endpoint_identify(iommu, &epid);
+    if (err_is_fail(err)){
+        // IOMMU not started, continue
+        iommu = NULL_CAP;
+        err = SYS_ERR_OK;
+    }
+
     err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, media_type, 
                                            regs, irq, iommu, err);
     assert(err_is_ok(err));
