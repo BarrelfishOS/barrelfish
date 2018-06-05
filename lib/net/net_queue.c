@@ -118,7 +118,18 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt,
                             true/*virtual functions*/,
                             !poll, /* user interrupts*/
                             default_q);
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {
+        debug_printf("Init e10k queue using VF failed, fallback to non VF queue \n");
+        err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
+                                ep, bus, function, deviceid, device, 
+                                false/*virtual functions*/,
+                                !poll, /* user interrupts*/
+                                default_q);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+
     assert(retqueue != NULL);
     *queueid = e10k_queue_get_id((struct e10k_queue*)*retqueue);
     return err;
