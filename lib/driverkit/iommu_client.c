@@ -1067,6 +1067,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
         // TODO is this a good idea? 
         dmem->devaddr = id.base;
         dmem->size = id.bytes;
+        dmem->mem = frame;
         return vspace_map_one_frame_attr((void **)&dmem->vbase, id.bytes, frame,
                 flags, NULL, NULL);
     }
