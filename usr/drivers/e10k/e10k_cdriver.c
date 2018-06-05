@@ -1382,10 +1382,24 @@ static void request_vf_number(struct e10k_vf_binding *b)
 {
     struct e10k_driver_state* st = (struct e10k_driver_state*) b->st;
     assert(st->initialized);
-    DEBUG("VF allocated\n");
+
     errval_t err;
+    struct capref regs, irq, pci_ep, iommu_ep;
     uint8_t vf_num = 255;
     uint64_t d_mac = 0;
+
+    if (!st->vtdon_dcboff) {
+        debug_printf("Can not allocate VF when VT-d features are not enabled on the card\n");
+        regs = NULL_CAP;
+        irq = NULL_CAP;
+        pci_ep = NULL_CAP;
+        iommu_ep = NULL_CAP;
+        err = NIC_ERR_ALLOC_QUEUE;
+        goto out;
+    }
+
+
+    DEBUG("VF allocated\n");
     for (int i = 0; i < 64; i++) {
         if (!st->vf_used[i]) {
             vf_num = i;
@@ -1393,7 +1407,6 @@ static void request_vf_number(struct e10k_vf_binding *b)
         }
     }
 
-    struct capref regs, irq, pci_ep, iommu_ep;
     if (vf_num == 255){
         //TODO better error
         err = NIC_ERR_ALLOC_QUEUE;
@@ -1825,14 +1838,14 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
  
     struct capref devcap = NULL_CAP;
     err = driverkit_get_iommu_cap(bfi, &devcap);
-    
     if (!capref_is_null(devcap) && err_is_ok(err)) {
         DEBUG("VTD-Enabled initializing with VFs enabled \n");
         st->vtdon_dcboff = true;
 
         err = driverkit_iommu_client_init_cl(devcap, &st->iommu);
         if (err_is_fail(err)) {
-            DEBUG("VTD-Enabled initializing with VFs disabled. Try turing on IOMMU! \n");
+            debug_printf("######## VTD-Enabled but initializing with VFs disabled"
+                         " (invalid IOMMU EP). ######### \n");
             st->vtdon_dcboff = false;
         }
     }
