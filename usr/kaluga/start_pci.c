@@ -387,8 +387,8 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
 
         static int irqtests_started = 0;
         if(strstr(binary_name, "irqtest") != NULL){
-            if(irqtests_started++ == 0){
-                KALUGA_DEBUG("Not starting multiple instances of irqtest\n");
+            if(irqtests_started++ > 0){
+                debug_printf("Not starting multiple instances of irqtest\n");
                 goto out;
             }
         }
