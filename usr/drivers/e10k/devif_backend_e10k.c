@@ -147,8 +147,6 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
                                genoffset_t valid_length,
                                uint64_t flags)
 {
-    DEBUG_QUEUE("Enqueueing TX buf \n");
-
     if (e10k_queue_free_txslots(q) == 0) {
         DEBUG_QUEUE("e10k_%d: Not enough space in TX ring, not adding buffer\n",
                 q->id);
@@ -163,6 +161,13 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
 
     e10k_q_l4_type_t l4t = 0;
     uint8_t l4len = 0;
+
+        
+    DEBUG_QUEUE("TX Enqueuing offset=%lu valid_data=%lu phys=%lx txhwb=%d tx_tail=%zu tx_head=%zu"
+                " flags =%lx \n", 
+           offset, valid_data, entry->mem.devaddr + offset + valid_data, 
+           (q->tx_hwb == NULL) ? 0 : *((uint32_t*)q->tx_hwb), q->tx_tail,
+           q->tx_head, flags);
 
     if (buf_use_ipxsm(flags)) {
 
@@ -246,10 +251,6 @@ static errval_t e10k_enqueue(struct devq* q, regionid_t rid, genoffset_t offset,
     } else if (flags & NETIF_TXFLAG) {
 
         assert(length <= 2048);
-        
-        DEBUG_QUEUE("Enqueuing offset=%lu valid_data=%lu txhwb=%d tx_tail=%zu tx_head=%zu \n", 
-               offset, valid_data, (queue->tx_hwb == NULL) ? 0 : *((uint32_t*)queue->tx_hwb), queue->tx_tail,
-               queue->tx_head);
 
         err = enqueue_tx_buf(queue, rid, offset, length, valid_data,
                              valid_length, flags);
@@ -321,15 +322,16 @@ static errval_t e10k_register(struct devq* q, struct capref cap, regionid_t rid)
 
     struct iommu_client* cl = e10k_vf_get_iommu_client();
 
-    DEBUG_QUEUE("register region id %d \n", rid);
     err = driverkit_iommu_vspace_map_cl(cl, cap,
-                                        VREGION_FLAGS_READ_WRITE_NOCACHE,
+                                        VREGION_FLAGS_READ_WRITE,
                                         &entry->mem);
     if (err_is_fail(err)) {
         free(entry);
         return err;
     }
-      
+     
+    DEBUG_QUEUE("register region id %d base=%lx \n", rid, entry->mem.devaddr);
+ 
     // linked list of regions
     struct region_entry* cur = queue->regions;
     if (cur == NULL) {
@@ -505,7 +507,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
         q->use_txhwb = false;
     } else {
         // TODO revert to true
-        q->use_txhwb = false;
+        q->use_txhwb = true;
     }
     q->cb = cb;
     
@@ -590,8 +592,6 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
         .update_rxtail = update_rxtail,
     };
 
-    void* txhwb_virt = NULL;
-
     if (q->use_txhwb) {
         DEBUG_QUEUE("Allocating TX HWB queue memory\n");
         err = driverkit_iommu_mmap_cl(cl, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE,
@@ -600,7 +600,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
             // TODO cleanup
             return DEVQ_ERR_INIT_QUEUE;
         }
-        memset(txhwb_virt, 0, sizeof(uint32_t));
+        memset((void*) q->txhwb.vbase, 0, sizeof(uint32_t));
     }
 
     e10k_queue_init(q, (void*) q->tx.vbase, NUM_TX_DESC, (void*) q->txhwb.vbase,
@@ -643,8 +643,8 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
             return err;
         }
 
-        err = q->binding->rpc_tx_vtbl.create_queue(q->binding, q->tx_frame, q->txhwb_frame,
-                                                   q->rx_frame, 2048, q->msix_intvec,
+        err = q->binding->rpc_tx_vtbl.create_queue(q->binding, q->tx.mem, q->txhwb.mem,
+                                                   q->rx.mem, 2048, q->msix_intvec,
                                                    q->msix_intdest, q->use_irq, false, qzero,
                                                    &q->mac, &qid,
                                                    &regs, &err2);
