@@ -113,21 +113,22 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt,
         return DEVQ_ERR_INIT_QUEUE;
     }
 
-    err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
-                            ep, bus, function, deviceid, device, 
-                            true/*virtual functions*/,
-                            !poll, /* user interrupts*/
-                            default_q);
-    if (err_is_fail(err)) {
-        debug_printf("Init e10k queue using VF failed, fallback to non VF queue \n");
+
+    if (driverkit_iommu_present(NULL)) {
+        err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
+                                ep, bus, function, deviceid, device, 
+                                true/*virtual functions*/,
+                                !poll, /* user interrupts*/
+                                default_q);
+    } else {
         err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
                                 ep, bus, function, deviceid, device, 
                                 false/*virtual functions*/,
                                 !poll, /* user interrupts*/
                                 default_q);
-        if (err_is_fail(err)) {
-            return err;
-        }
+    }
+    if (err_is_fail(err)) {
+        return err;
     }
 
     assert(retqueue != NULL);

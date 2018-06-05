@@ -757,10 +757,23 @@ bool driverkit_iommu_present(struct iommu_client *cl)
 {
     if (cl) {
         return cl->enabled;
-    }
-    return false;
-}
+    } else {
+        // check SKB
+        errval_t err;
+        err = skb_client_connect();
+        if (err_is_fail(err)) {
+            return err;
+        }
 
+        err = skb_execute_query("iommu_enabled(0,_).");
+        if (err_is_fail(err)) {
+            return false;
+            debug_printf("IOMMU Endpoint provided but IOMMU not enabled ?");
+        } else {
+            return true;
+        }
+    }
+}
 
 /**
  * @brief sets the default iommu client to be used
