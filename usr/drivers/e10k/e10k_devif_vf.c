@@ -573,7 +573,7 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
 {
     errval_t err, err2;
 
-    DEBUG_VF("VF driver started\n");
+    DEBUG_VF("VF driver starting\n");
     vf = calloc(sizeof(struct vf_state), 1);
     vf->use_interrupts = interrupts;
     vf->segment = seg;
@@ -621,8 +621,18 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
     DEBUG_VF("Got VF resources ...\n");
     assert(!capref_is_null(vf->regs));
     //assert(!capref_is_null(vf->irq));
-    assert(!capref_is_null(vf->iommu_ep));
     assert(!capref_is_null(vf->pci_ep));
+    if (capref_is_null(vf->iommu_ep)) {
+        // TODO CLEANUP
+        free(vf);
+        slot_free(vf->iommu_ep);
+        slot_free(vf->regs);
+        slot_free(vf->irq);
+        slot_free(vf->pci_ep);
+        debug_printf("Invalid IOMMU EP, can not use VFs\n");
+        return IOMMU_ERR_INVALID_EP;
+    }
+
 
     // Init iommu client
     err = driverkit_iommu_client_init_cl(vf->iommu_ep, &vf->iommu);
@@ -636,6 +646,7 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
     while (!vf->initialized) {
         event_dispatch(get_default_waitset());
     }
+
     DEBUG_VF("VF init done\n");
     return SYS_ERR_OK;
 }
@@ -647,7 +658,11 @@ bool e10k_vf_started(void)
 
 struct iommu_client* e10k_vf_get_iommu_client(void) 
 {
-    return vf->iommu;
+    if (vf == NULL) {
+        return NULL;
+    } else {
+        return vf->iommu;
+    }
 }
 
 // Check if VF queue pool has still queues that it can enable
