@@ -32,7 +32,7 @@
 
 #include "e10k.h"
 #include "sleep.h"
-#include "helper.h"
+#include "e10k_helper.h"
 #include "debug.h"
 #include "e10k_vf_resources.h"
 
@@ -110,8 +110,6 @@ struct e10k_driver_state {
     bool dca;
     struct capref* caps;
     struct bfdriver_instance *bfi;
-    // Management of MSI-X vectors
-    struct bmallocator msix_alloc;
 
     /** MSI-X vector used by cdriver */
     size_t cdriver_msix;
@@ -399,21 +397,8 @@ static void tx_disable(struct e10k_driver_state* st)
 static void setup_interrupt(struct e10k_driver_state* st, size_t *msix_index, 
                             uint8_t core, uint8_t vector)
 {
-    bool res;
-    errval_t err;
-    uint8_t dest;
 
-    res = bmallocator_alloc(&(st->msix_alloc), msix_index);
-    assert(res);
-
-    err = get_apicid_from_core(core, &dest);
-    assert(err_is_ok(err));
-
-    err = pci_msix_vector_init(*msix_index, dest, vector);
-    assert(err_is_ok(err));
-
-    DEBUG("e10k: MSI-X vector setup index=%"PRIx64", core=%d apic=%d swvec=%x\n",
-            *msix_index, core, dest, vector);
+    /* TODO do this in the net framework*/
 }
 
 
@@ -1665,9 +1650,7 @@ static void init_card(struct e10k_driver_state* st)
         assert(msix_count > 0);
         DEBUG("MSI-X #vecs=%d\n", msix_count);
 
-        bool res;
-        res = bmallocator_init(&(st->msix_alloc), msix_count);
-        assert(res);
+        // TODO init MSI-X correctly
     } else {
         DEBUG("Using legacy interrupts\n");
     }
@@ -1839,7 +1822,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     struct capref devcap = NULL_CAP;
     err = driverkit_get_iommu_cap(bfi, &devcap);
     if (!capref_is_null(devcap) && err_is_ok(err)) {
-        DEBUG("VTD-Enabled initializing with VFs enabled \n");
         st->vtdon_dcboff = true;
 
         err = driverkit_iommu_client_init_cl(devcap, &st->iommu);
@@ -1847,6 +1829,8 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
             debug_printf("######## VTD-Enabled but initializing with VFs disabled"
                          " (invalid IOMMU EP). ######### \n");
             st->vtdon_dcboff = false;
+        } else {
+            debug_printf("VTD-Enabled initializing with VFs enabled \n");
         }
     }
 

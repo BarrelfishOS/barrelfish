@@ -19,7 +19,7 @@
 #include <if/e10k_vf_rpcclient_defs.h>
 
 #include "e10k_devif_vf.h"
-#include "helper.h"
+#include "e10k_helper.h"
 #include "e10k_queue.h"
 #include "debug.h"
 
@@ -164,10 +164,10 @@ static errval_t enqueue_tx_buf(struct e10k_queue* q, regionid_t rid,
 
         
     DEBUG_QUEUE("TX Enqueuing offset=%lu valid_data=%lu phys=%lx txhwb=%d tx_tail=%zu tx_head=%zu"
-                " flags =%lx \n", 
+                " flags =%lx valid_length=%lu length=%lu\n", 
            offset, valid_data, entry->mem.devaddr + offset + valid_data, 
            (q->tx_hwb == NULL) ? 0 : *((uint32_t*)q->tx_hwb), q->tx_tail,
-           q->tx_head, flags);
+           q->tx_head, flags, valid_length, length);
 
     if (buf_use_ipxsm(flags)) {
 
@@ -313,8 +313,11 @@ static errval_t e10k_register(struct devq* q, struct capref cap, regionid_t rid)
     if (err_is_fail(err)) {
         return err;
     }
-    */
 
+    entry->mem.devaddr = id.bytes;
+    entry->mem.vbase = (lvaddr_t) va;
+    entry->mem.mem = cap;
+    */
     // keep track of regions since we need the virtual address ...
     struct region_entry* entry = malloc(sizeof(struct region_entry));
     entry->rid = rid;
@@ -331,7 +334,6 @@ static errval_t e10k_register(struct devq* q, struct capref cap, regionid_t rid)
     }
      
     DEBUG_QUEUE("register region id %d base=%lx \n", rid, entry->mem.devaddr);
- 
     // linked list of regions
     struct region_entry* cur = queue->regions;
     if (cur == NULL) {
@@ -553,40 +555,28 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
 
 
     // allocate memory for RX/TX rings
-    
-    /*
-    struct capref tx_frame;
-    size_t tx_size = e10k_q_tdesc_adv_wb_size*NUM_TX_DESC;
-    void* tx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, tx_size, &tx_frame);
-    if (tx_virt == NULL) {
-        return DEVQ_ERR_INIT_QUEUE;
-    }
-
-    struct capref rx_frame;
-    size_t rx_size = e10k_q_rdesc_adv_wb_size*NUM_RX_DESC;
-    void* rx_virt = alloc_map_frame(VREGION_FLAGS_READ_WRITE, rx_size, &rx_frame);
-    if (rx_virt == NULL) {
-    */
     q->tx_ring_size = e10k_q_tdesc_adv_wb_size*NUM_TX_DESC;
 
     DEBUG_QUEUE("Allocating TX queue memory\n");
-    err = driverkit_iommu_mmap_cl(cl, q->tx_ring_size, VREGION_FLAGS_READ_WRITE, 
-                               &q->tx);
-    if (err_is_fail(err)) {
-        return DEVQ_ERR_INIT_QUEUE;
-    }
-
-    DEBUG_QUEUE("Allocated TX queue memory is=%lu requesed=%lu \n", q->tx.size, q->tx_ring_size);
-    DEBUG_QUEUE("Allocating RX queue memory\n");
-    q->rx_ring_size = e10k_q_rdesc_adv_wb_size*NUM_RX_DESC;
-    err = driverkit_iommu_mmap_cl(cl, q->rx_ring_size, VREGION_FLAGS_READ_WRITE, 
-                                  &q->rx);
+    err = alloc_and_map_frame(cl, VREGION_FLAGS_READ_WRITE, q->tx_ring_size,
+                          &q->tx);
     if (err_is_fail(err)) {
         // TODO cleanup
         return DEVQ_ERR_INIT_QUEUE;
     }
 
-    DEBUG_QUEUE("Allocated RX queue memory is=%lu requesed=%lu \n", q->rx.size, q->rx_ring_size);
+
+    DEBUG_QUEUE("Allocated TX queue memory is=%lu requested=%lu \n", q->tx.size, q->tx_ring_size);
+    DEBUG_QUEUE("Allocating RX queue memory\n");
+    q->rx_ring_size = e10k_q_rdesc_adv_wb_size*NUM_RX_DESC;
+    err = alloc_and_map_frame(cl, VREGION_FLAGS_READ_WRITE, q->rx_ring_size,
+                          &q->rx);
+    if (err_is_fail(err)) {
+        // TODO cleanup
+        return DEVQ_ERR_INIT_QUEUE;
+    }
+
+    DEBUG_QUEUE("Allocated RX queue memory is=%lu requested=%lu \n", q->rx.size, q->rx_ring_size);
     struct e10k_queue_ops ops = {
         .update_txtail = update_txtail,
         .update_rxtail = update_rxtail,
@@ -594,8 +584,8 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
 
     if (q->use_txhwb) {
         DEBUG_QUEUE("Allocating TX HWB queue memory\n");
-        err = driverkit_iommu_mmap_cl(cl, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE,
-                                   &q->txhwb);
+        err = alloc_and_map_frame(cl, VREGION_FLAGS_READ_WRITE, BASE_PAGE_SIZE,
+                                  &q->txhwb);
         if (err_is_fail(err)) {
             // TODO cleanup
             return DEVQ_ERR_INIT_QUEUE;
@@ -603,6 +593,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
         memset((void*) q->txhwb.vbase, 0, sizeof(uint32_t));
     }
 
+    DEBUG_QUEUE("Init queue struct\n");
     e10k_queue_init(q, (void*) q->tx.vbase, NUM_TX_DESC, (void*) q->txhwb.vbase,
                     (void*) q->rx.vbase, NUM_RX_DESC, &ops);
 

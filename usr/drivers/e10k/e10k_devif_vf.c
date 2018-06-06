@@ -26,7 +26,7 @@
 #include <dev/e10k_q_dev.h>
 
 #include "sleep.h"
-#include "helper.h"
+#include "e10k_helper.h"
 #include "e10k_devif_vf.h"
 #include "e10k_queue.h"
 #include "debug.h"
@@ -69,7 +69,6 @@ struct vf_state {
 
     // interrupt related
     bool msix;
-    struct bmallocator msix_alloc;
     size_t vdriver_msix;
     uint8_t vdriver_vector;
     bool use_interrupts;
@@ -435,7 +434,6 @@ static void pci_init_card(void)
 
     DEBUG_VF("pci init card\n");
     errval_t err;
-    bool res;
 
     assert(!vf->initialized);
 
@@ -461,10 +459,7 @@ static void pci_init_card(void)
         err = pci_msix_enable(&msix_count);
         assert(err_is_ok(err));
         assert(msix_count > 0);
-        DEBUG_VF("MSI-X #vecs=%d\n", msix_count);
-
-        res = bmallocator_init(&vf->msix_alloc, msix_count);
-        assert(res);
+        /* TODO do this in the net framework*/
     } else {
         DEBUG_VF("Using legacy interrupts\n");
     }

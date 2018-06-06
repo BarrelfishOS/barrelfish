@@ -891,6 +891,7 @@ errors iommu IOMMU_ERR_ {
     failure DOM_CREATE      "Failure while creating the domain",
     failure NO_UNITS	    "Hardware doesn't contain any VT-d hardware units",
     failure NOT_ENABLED     "IOMMU is not enabled",
+    failure INVALID_EP      "Endpoint is not valid",
     failure NOT_SUPPORTED   "The requested operation is not supported",
 };
 
