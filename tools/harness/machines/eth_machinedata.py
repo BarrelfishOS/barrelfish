@@ -481,6 +481,7 @@ machines = dict({
                 'tickrate' : 2400,      #TODO Checkme
                 'perfcount_type': 'amd0f', #TODO Checkme
                 'boot_timeout' : 360,
+                'acpi_args' : ["ignore_irq_override"],
                 }) for b in range(1, 6)
         ).items() + 
         dict(('mozzarella%s' % b, {

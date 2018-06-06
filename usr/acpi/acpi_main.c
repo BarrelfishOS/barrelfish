@@ -64,6 +64,7 @@ int main(int argc, char *argv[])
     // Parse CMD Arguments
     bool got_apic_id = false;
     bool do_video_init = false;
+    bool ignore_irq_override = false;
     vtd_force_off = true;
 
     for (int i = 1; i < argc; i++) {
@@ -73,7 +74,10 @@ int main(int argc, char *argv[])
             do_video_init = true;
         } else if (strncmp(argv[i], "vtd_force_off", strlen("vtd_force_off")) == 0) {
             vtd_force_off = true;
+        } else if (strncmp(argv[i], "ignore_irq_override", strlen("ignore_irq_override")) == 0) {
+            ignore_irq_override = true;
         }
+
     }
 
     if(got_apic_id == false) {
@@ -129,6 +133,12 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "setup skb irq controllers");
     }
 
+    if(ignore_irq_override){
+        err = skb_execute("retractall(interrupt_override(_,_,_,_)).");
+        if(err_is_fail(err)){
+            DEBUG_SKB_ERR(err, "couldnt remove interrupt overrides");
+        }
+    }
 
     start_service();
 
