@@ -1202,6 +1202,9 @@ static void assign_bus_numbers(struct pci_address parentaddr,
 
                                 // Enable VFs only when the num_vfs argument is given
                                 if (!enable_vfs) {
+                                    debug_printf("############ skipping SR IOV initialization "
+                                                 "for device (bus=%d dev=%d fun=%d).########## \n",
+                                                 addr.bus, addr.device, addr.function);
                                     break;
                                 }
 
