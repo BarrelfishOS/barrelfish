@@ -34,7 +34,6 @@
 #include "sleep.h"
 #include "e10k_helper.h"
 #include "debug.h"
-#include "e10k_vf_resources.h"
 
 #define QUEUE_INTRX 0
 #define QUEUE_INTTX 1

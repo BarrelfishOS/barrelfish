@@ -35,24 +35,19 @@
                       addLibraries = libDeps ["pci", "skb", "driverkit" ]
                   },
 
-  build library { target = "e10k_vf_module",
-                      cFiles = [ "e10k_vf_module.c"],
-                      addIncludes  = [ "/lib/lwip-2.0.2/src/include/" ]
-                    },
-
     -- Builds a driver domain: Use addModules instead of addLibraries to
     -- link with driver modules.
     -- The custom linker script is used to add the section where the modules
     -- are stored.
     build application {
         target = "e10k",
-        cFiles = [ "main.c", "e10k_vf_resources.c"],
+        cFiles = [ "main.c"],
         addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
 
         addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
                                "contmng", "net_device_manager", "bench", "trace",
                                  "spawndomain", "netd" , "net", "lwip2"],
-        addModules = ["e10k_module", "e10k_vf_module"],
+        addModules = ["e10k_module"],
         architectures = ["x86_64"]
     }
 ]
