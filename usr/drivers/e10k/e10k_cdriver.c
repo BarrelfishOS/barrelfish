@@ -408,7 +408,6 @@ static errval_t get_netfilter_ep(struct e10k_driver_state* st, uint16_t qid,
     state->st = st;
     state->qid = qid;
     */
-    DEBUG("WTF \n");
     return err;
 }
 
