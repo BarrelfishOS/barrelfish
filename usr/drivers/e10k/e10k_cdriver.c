@@ -1362,81 +1362,18 @@ static void init_done_vf(struct e10k_vf_binding *b, uint8_t vfn)
     assert(err_is_ok(err));
 }
 
-static void request_vf_number(struct e10k_vf_binding *b)
-{
-    struct e10k_driver_state* st = (struct e10k_driver_state*) b->st;
-    assert(st->initialized);
-
-    errval_t err;
-    struct capref regs, irq, pci_ep, iommu_ep;
-    uint8_t vf_num = 255;
-    uint64_t d_mac = 0;
-
-    DEBUG("VF allocated\n");
-    for (int i = 0; i < 64; i++) {
-        if (!st->vf_used[i]) {
-            vf_num = i;
-            break;
-        }
-    }
-
-    if (!st->vtdon_dcboff) {
-        debug_printf("Can not allocate VF when VT-d features are not enabled on the card\n");
-        regs = NULL_CAP;
-        irq = NULL_CAP;
-        pci_ep = NULL_CAP;
-        iommu_ep = NULL_CAP;
-        err = NIC_ERR_ALLOC_QUEUE;
-        goto out;
-    }
-
-
-    if (vf_num == 255){
-        //TODO better error
-        err = NIC_ERR_ALLOC_QUEUE;
-    } else {
-        debug_printf("Enable VF \n");
-        err = pci_sriov_enable_vf(vf_num);
-        if (err_is_fail(err)) {
-            st->vf_used[vf_num] = 0;
-            goto out;
-        }        
-
-        debug_printf("PCI request VF bar \n");
-
-        err = pci_sriov_get_vf_resources(vf_num, &regs, &irq, &iommu_ep, 
-                                         &pci_ep);
-        if (err_is_fail(err)) {
-            st->vf_used[vf_num] = 0;
-            goto out;
-        }
-
-        debug_printf("PCI Enabled VF \n");
-        err = SYS_ERR_OK;
-    }
-
-    d_mac = e10k_ral_ral_rdf(st->d, vf_num) | ((uint64_t) e10k_rah_rah_rdf(st->d, vf_num) << 32);
-
-    // Mark as enabled (Queue + VF)
-    st->vf_used[vf_num] = 1;    
-    st->queues[vf_num*2].enabled = 1;
-    st->queues[vf_num*2+1].enabled = 1;
-
-out:
-    err = b->tx_vtbl.request_vf_number_response(b, NOP_CONT, vf_num, d_mac, 
-                                                regs, irq, iommu_ep, pci_ep, err);
-    assert(err_is_ok(err));
-}
-
-
 static errval_t request_vf_number_rpc(struct e10k_vf_binding *b, uint8_t* vf_num, 
                                       uint64_t* mac, struct capref* regs, struct capref* irq,
                                       struct capref* iommu_ep, struct capref* pci_ep,
                                       errval_t* err)
 {
-    struct e10k_driver_state* st = (struct e10k_driver_state*) b->st;
-    DEBUG("VF allocated RPC \n");
 
+    struct e10k_driver_state* st = (struct e10k_driver_state*) b->st;
+    assert(st->initialized);
+
+    *vf_num = 255;
+
+    DEBUG("VF allocated\n");
     for (int i = 0; i < 64; i++) {
         if (!st->vf_used[i]) {
             *vf_num = i;
@@ -1444,9 +1381,19 @@ static errval_t request_vf_number_rpc(struct e10k_vf_binding *b, uint8_t* vf_num
         }
     }
 
-    if (*vf_num == 255){
-        //TODO better error
+    if (!st->vtdon_dcboff) {
+        debug_printf("Can not allocate VF when VT-d features are not enabled on the card\n");
+        *regs = NULL_CAP;
+        *irq = NULL_CAP;
+        *pci_ep = NULL_CAP;
+        *iommu_ep = NULL_CAP;
         *err = NIC_ERR_ALLOC_QUEUE;
+        return NIC_ERR_ALLOC_QUEUE;
+    }
+
+
+    if (*vf_num == 255){
+        return NIC_ERR_ALLOC_QUEUE;
     } else {
         debug_printf("Enable VF \n");
         *err = pci_sriov_enable_vf(*vf_num);
@@ -1457,21 +1404,43 @@ static errval_t request_vf_number_rpc(struct e10k_vf_binding *b, uint8_t* vf_num
 
         debug_printf("PCI request VF bar \n");
 
+        // TODO irq cap is normally NULL ...
         *err = pci_sriov_get_vf_resources(*vf_num, regs, irq, iommu_ep, 
-                                         pci_ep);
+                                          pci_ep);
         if (err_is_fail(*err)) {
             st->vf_used[*vf_num] = 0;
             return *err;
         }
 
+        *err = driverkit_get_interrupt_cap(st->bfi, irq);
+        assert(err_is_ok(*err));
+
         debug_printf("PCI Enabled VF \n");
-        *err = SYS_ERR_OK;
     }
 
     *mac = e10k_ral_ral_rdf(st->d, *vf_num) | ((uint64_t) e10k_rah_rah_rdf(st->d, *vf_num) << 32);
+
+    // Mark as enabled (Queue + VF)
+    st->vf_used[*vf_num] = 1;    
+    st->queues[(*vf_num)*2].enabled = 1;
+    st->queues[(*vf_num)*2+1].enabled = 1;
+    *irq = NULL_CAP;
+
     return SYS_ERR_OK;
 }
 
+static void request_vf_number(struct e10k_vf_binding *b)
+{
+    errval_t err, err2;
+    struct capref regs, irq, pci_ep, iommu_ep;
+    uint8_t vf_num;
+    uint64_t mac;
+
+    err = request_vf_number_rpc(b, &vf_num, &mac, &regs, &irq, &iommu_ep, &pci_ep, &err2);
+    err = b->tx_vtbl.request_vf_number_response(b, NOP_CONT, vf_num, mac, 
+                                                regs, irq, iommu_ep, pci_ep, err);
+    assert(err_is_ok(err));
+}
 
 static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
                                     struct capref tx_frame, struct capref txhwb_frame,
