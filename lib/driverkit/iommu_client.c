@@ -1465,13 +1465,12 @@ errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
         }
 
         struct frame_identity id;
-        err = invoke_frame_identify(frame, &id);
+        err = invoke_frame_identify(mem->mem, &id);
         if (err_is_fail(err)) {
             return err;
         }
 
         mem->devaddr = id.base;
-        mem->mem = frame;
     }
 
     return SYS_ERR_OK;
