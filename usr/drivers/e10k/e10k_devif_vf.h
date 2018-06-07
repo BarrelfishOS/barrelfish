@@ -36,13 +36,14 @@ struct iommu_client;
   * @param bus              PCI bus number
   * @param dev              PCI device
   * @param device_id        PCI device
+  * @param vf_num           returned VF number of this driver
   *
   * @param interrupts       Enable interrupts
   *
   * @returns error on failure or SYS_ERR_OK on success
   */
 errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t seg, uint32_t bus,
-                             uint32_t dev, bool interrupts);
+                             uint32_t dev, bool interrupts, uint8_t* vf_num);
 
  /**
   * @brief Checks if the state of the library initalized
@@ -66,10 +67,11 @@ bool e10k_vf_can_create_queue(void);
   *
   * @param queue     e10k queue struct with information about the mapped
   *                  memory that is used for DMA
+  * @param vf_num    The vf_number of which the queue is initalized
   *
   * @returns SYS_ERR_OK on success otherwise failter
   */
-errval_t e10k_vf_init_queue_hw(struct e10k_queue* q);
+errval_t e10k_vf_init_queue_hw(struct e10k_queue* q, uint8_t vf_num);
 
 struct iommu_client* e10k_vf_get_iommu_client(void);
 

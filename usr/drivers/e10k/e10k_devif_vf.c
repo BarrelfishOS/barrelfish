@@ -47,6 +47,7 @@ struct vf_state {
     struct capref regs;
     struct capref iommu_ep;
     struct capref pci_ep;
+    struct capref filter_ep;
     struct capref irq;
     struct iommu_client* iommu;
 
@@ -535,7 +536,7 @@ static errval_t e10k_vf_client_connect_with_ep(struct capref ep)
     return err2;
 }
 
-errval_t e10k_vf_init_queue_hw(struct e10k_queue* q)
+errval_t e10k_vf_init_queue_hw(struct e10k_queue* q, uint8_t vf_num)
 {
     DEBUG_VF("VF queue init\n");
     assert(vf->initialized);
@@ -547,6 +548,7 @@ errval_t e10k_vf_init_queue_hw(struct e10k_queue* q)
     for (int i = 0; i < 2; i++) {
         if (!vf->q_enabled[i]) {
             q_idx = i;
+            q_idx *= 2;
             vf->q_enabled[i] = true;
             q->id = q_idx;
             break;
@@ -564,7 +566,7 @@ errval_t e10k_vf_init_queue_hw(struct e10k_queue* q)
 
 
 errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t seg, 
-                             uint32_t bus, uint32_t dev, bool interrupts)
+                             uint32_t bus, uint32_t dev, bool interrupts, uint8_t* vf_num)
 {
     errval_t err, err2;
 
@@ -642,6 +644,7 @@ errval_t e10k_init_vf_driver(struct capref* ep, uint8_t pci_function, uint8_t se
         event_dispatch(get_default_waitset());
     }
 
+    *vf_num = vf->vf_num;
     DEBUG_VF("VF init done\n");
     return SYS_ERR_OK;
 }

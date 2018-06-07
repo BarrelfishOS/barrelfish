@@ -1372,6 +1372,14 @@ static void request_vf_number(struct e10k_vf_binding *b)
     uint8_t vf_num = 255;
     uint64_t d_mac = 0;
 
+    DEBUG("VF allocated\n");
+    for (int i = 0; i < 64; i++) {
+        if (!st->vf_used[i]) {
+            vf_num = i;
+            break;
+        }
+    }
+
     if (!st->vtdon_dcboff) {
         debug_printf("Can not allocate VF when VT-d features are not enabled on the card\n");
         regs = NULL_CAP;
@@ -1382,14 +1390,6 @@ static void request_vf_number(struct e10k_vf_binding *b)
         goto out;
     }
 
-
-    DEBUG("VF allocated\n");
-    for (int i = 0; i < 64; i++) {
-        if (!st->vf_used[i]) {
-            vf_num = i;
-            break;
-        }
-    }
 
     if (vf_num == 255){
         //TODO better error
@@ -1415,8 +1415,12 @@ static void request_vf_number(struct e10k_vf_binding *b)
         err = SYS_ERR_OK;
     }
 
-
     d_mac = e10k_ral_ral_rdf(st->d, vf_num) | ((uint64_t) e10k_rah_rah_rdf(st->d, vf_num) << 32);
+
+    // Mark as enabled (Queue + VF)
+    st->vf_used[vf_num] = 1;    
+    st->queues[vf_num*2].enabled = 1;
+    st->queues[vf_num*2+1].enabled = 1;
 
 out:
     err = b->tx_vtbl.request_vf_number_response(b, NOP_CONT, vf_num, d_mac, 
@@ -1531,7 +1535,6 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
 
     queue_hw_init(st, n, false);
 
-    // TODO for now vfn = 0
     uint64_t d_mac = e10k_ral_ral_rdf(st->d, 0) | ((uint64_t) e10k_rah_rah_rdf(st->d, 0) << 32);
 
     *regs = st->regframe;

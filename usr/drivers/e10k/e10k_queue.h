@@ -49,6 +49,7 @@ struct e10k_queue {
     // registers
     void* d;
     struct capref                   regs;
+    struct capref                   filter_ep; // EP to add filter
     struct dmem                     reg_mem;
 
     // queue info

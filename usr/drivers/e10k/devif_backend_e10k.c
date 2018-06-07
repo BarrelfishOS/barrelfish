@@ -499,6 +499,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
     errval_t err;
     struct e10k_queue* q;
     struct iommu_client* cl = NULL;
+    uint8_t vf_num;
     // start VF driver
     
     q = malloc(sizeof(struct e10k_queue));
@@ -517,7 +518,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
         //USER_PANIC("NOT YET WORKING \n");
         // Start VF
         if (!e10k_vf_started()) {
-            err = e10k_init_vf_driver(ep, 0, 0, bus+1, dev+16, interrupts);
+            err = e10k_init_vf_driver(ep, 0, 0, bus+1, dev+16, interrupts, &vf_num);
             if (err_is_fail(err)) {
                 free(q);
                 *queue = NULL;
@@ -527,7 +528,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
 
         // If i can not create any more queues -> start new VF
         if (!e10k_vf_can_create_queue()) {
-            err = e10k_init_vf_driver(ep, 0, 0, bus+2, dev+17, interrupts);
+            err = e10k_init_vf_driver(ep, 0, 0, bus+2, dev+17, interrupts, &vf_num);
             if (err_is_fail(err)) {
                 free(q);
                 return err;
@@ -609,7 +610,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
     q->use_rsc = false;
 
     if (q->use_vf) {
-        err = e10k_vf_init_queue_hw(q);
+        err = e10k_vf_init_queue_hw(q, vf_num);
         if (err_is_fail(err)) {
             return err;
         }
@@ -639,6 +640,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
                                                    q->msix_intdest, q->use_irq, false, qzero,
                                                    &q->mac, &qid,
                                                    &regs, &err2);
+
         if (err_is_fail(err) || err_is_fail(err2)) {
             DEBUG_QUEUE("e10k rpc error\n");
             return err_is_fail(err)? err: err2;
