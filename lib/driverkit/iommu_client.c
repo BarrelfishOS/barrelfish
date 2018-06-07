@@ -1439,22 +1439,39 @@ errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
     errval_t err;
 
     struct capref frame;
-#ifdef DISABLE_MODEL
-    err = driverkit_iommu_alloc_frame(NULL, bytes, &frame);
-    if (err_is_fail(err)) {
-        return err;
-    }
-#else
-    err = driverkit_iommu_alloc_frame(cl, bytes, &frame);
-    if (err_is_fail(err)) {
-        return err;
-    }
-#endif
+    if (cl != NULL) {
+        err = driverkit_iommu_alloc_frame(cl, bytes, &frame);
+        if (err_is_fail(err)) {
+            return err;
+        }
 
-    err = driverkit_iommu_vspace_map_cl(cl, frame, flags, mem);
-    if (err_is_fail(err)) {
-        iommu_free_ram(mem->mem);
-        return err;
+        err = driverkit_iommu_vspace_map_cl(cl, frame, flags, mem);
+        if (err_is_fail(err)) {
+            iommu_free_ram(mem->mem);
+            return err;
+        }
+    } else {
+        err = frame_alloc(&(mem->mem), bytes, (size_t *)&(mem->size));
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        err = vspace_map_one_frame_attr((void**) &(mem->vbase), bytes, mem->mem, 
+                                        flags, NULL, NULL);
+        if (err_is_fail(err)) {
+            cap_destroy(mem->mem);
+            DEBUG_ERR(err, "vspace_map_one_frame failed");
+            return err;
+        }
+
+        struct frame_identity id;
+        err = invoke_frame_identify(frame, &id);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        mem->devaddr = id.base;
+        mem->mem = frame;
     }
 
     return SYS_ERR_OK;
