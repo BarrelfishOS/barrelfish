@@ -12,8 +12,7 @@
 
 [ 
   build library { target = "e10k_module",
-                      cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c",
-                                 "e10k_helper.c"],
+                      cFiles = [ "e10k_cdriver.c", "e10k_phy.c", "sleep.c"],
                       flounderBindings = [ "net_queue_manager", "net_soft_filters", "e10k", 
                                            "e10k_vf", "net_filter" ],
                       flounderDefs = [ "e10k_vf" , "net_filter"],
@@ -26,7 +25,7 @@
 
   build library { target = "devif_backend_e10k",
                       cFiles = [ "devif_backend_e10k.c", "e10k_devif_vf.c",
-                                 "e10k_helper.c", "sleep.c"],
+                                 "sleep.c"],
                       flounderBindings = [ "e10k_vf"],
                       flounderExtraBindings = [ ("e10k_vf", ["rpcclient"])],
                       flounderDefs = [ "e10k_vf", "e10k" ],

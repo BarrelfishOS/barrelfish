@@ -26,7 +26,6 @@
 #include <dev/e10k_q_dev.h>
 
 #include "sleep.h"
-#include "e10k_helper.h"
 #include "e10k_devif_vf.h"
 #include "e10k_queue.h"
 #include "debug.h"

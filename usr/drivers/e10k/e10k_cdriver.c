@@ -32,7 +32,6 @@
 
 #include "e10k.h"
 #include "sleep.h"
-#include "e10k_helper.h"
 #include "debug.h"
 
 #define QUEUE_INTRX 0

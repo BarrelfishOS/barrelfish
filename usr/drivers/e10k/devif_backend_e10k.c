@@ -19,7 +19,6 @@
 #include <if/e10k_vf_rpcclient_defs.h>
 
 #include "e10k_devif_vf.h"
-#include "e10k_helper.h"
 #include "e10k_queue.h"
 #include "debug.h"
 
@@ -559,8 +558,8 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
     q->tx_ring_size = e10k_q_tdesc_adv_wb_size*NUM_TX_DESC;
 
     DEBUG_QUEUE("Allocating TX queue memory\n");
-    err = alloc_and_map_frame(cl, VREGION_FLAGS_READ_WRITE, q->tx_ring_size,
-                          &q->tx);
+    err = driverkit_iommu_mmap_cl(cl, q->tx_ring_size, VREGION_FLAGS_READ_WRITE,
+                                  &q->tx);
     if (err_is_fail(err)) {
         // TODO cleanup
         return DEVQ_ERR_INIT_QUEUE;
@@ -570,7 +569,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
     DEBUG_QUEUE("Allocated TX queue memory is=%lu requested=%lu \n", q->tx.size, q->tx_ring_size);
     DEBUG_QUEUE("Allocating RX queue memory\n");
     q->rx_ring_size = e10k_q_rdesc_adv_wb_size*NUM_RX_DESC;
-    err = alloc_and_map_frame(cl, VREGION_FLAGS_READ_WRITE, q->rx_ring_size,
+    err = driverkit_iommu_mmap_cl(cl, q->rx_ring_size, VREGION_FLAGS_READ_WRITE, 
                           &q->rx);
     if (err_is_fail(err)) {
         // TODO cleanup
@@ -585,8 +584,8 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
 
     if (q->use_txhwb) {
         DEBUG_QUEUE("Allocating TX HWB queue memory\n");
-        err = alloc_and_map_frame(cl, VREGION_FLAGS_READ_WRITE, BASE_PAGE_SIZE,
-                                  &q->txhwb);
+        err = driverkit_iommu_mmap_cl(cl, BASE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE, 
+                                       &q->txhwb);
         if (err_is_fail(err)) {
             // TODO cleanup
             return DEVQ_ERR_INIT_QUEUE;
