@@ -96,6 +96,11 @@ union macentry {
     uint64_t as64;
 };
 
+struct e10k_net_filter_state 
+{
+    struct e10k_driver_state* st;
+    uint16_t qid;
+};
 
 struct e10k_driver_state {
 
@@ -317,6 +322,22 @@ static errval_t cb_install_filter(struct net_filter_binding *b,
     return err;
 }
 
+static void install_filter(struct net_filter_binding *b,
+                           net_filter_filter_type_t type,
+                           uint64_t qid,
+                           uint32_t src_ip,
+                           uint32_t dst_ip,
+                           uint16_t src_port,
+                           uint16_t dst_port)
+{
+    errval_t err;
+    uint64_t fid;
+    err = cb_install_filter(b, type, qid, src_ip, dst_ip, src_port, dst_port, &fid);
+    assert(err_is_ok(err));
+
+    err = b->tx_vtbl.install_filter_ip_response(b, NOP_CONT, fid);
+    assert(err_is_ok(err));
+}
 
 static errval_t cb_remove_filter(struct net_filter_binding *b,
                                  net_filter_filter_type_t type,
@@ -334,9 +355,28 @@ static errval_t cb_remove_filter(struct net_filter_binding *b,
     return SYS_ERR_OK;
 }
 
+static void remove_filter(struct net_filter_binding *b,
+                          net_filter_filter_type_t type,
+                          uint64_t filter_id)
+{
+    errval_t err, err2;
+    err = cb_remove_filter(b, type, filter_id, &err2);
+    assert(err_is_ok(err));
+
+    err = b->tx_vtbl.remove_filter_response(b, NOP_CONT, err2);
+    assert(err_is_ok(err));
+}
+
 static struct net_filter_rpc_rx_vtbl net_filter_rpc_rx_vtbl = {
     .install_filter_ip_call = cb_install_filter,
     .remove_filter_call = cb_remove_filter,
+    .install_filter_mac_call = NULL,
+};
+
+
+static struct net_filter_rx_vtbl net_filter_rx_vtbl = {
+    .install_filter_ip_call = install_filter,
+    .remove_filter_call = remove_filter,
     .install_filter_mac_call = NULL,
 };
 
@@ -353,6 +393,7 @@ static void net_filter_export_cb(void *st, errval_t err, iref_t iref)
 static errval_t net_filter_connect_cb(void *st, struct net_filter_binding *b)
 {
     printf("New connection on net filter interface\n");
+    b->rx_vtbl = net_filter_rx_vtbl;
     b->rpc_rx_vtbl = net_filter_rpc_rx_vtbl;
     b->st = st;
     return SYS_ERR_OK;
