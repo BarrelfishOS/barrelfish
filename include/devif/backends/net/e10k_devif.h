@@ -39,6 +39,18 @@ errval_t e10k_queue_create(struct e10k_queue** q, e10k_event_cb_t cb, struct cap
                            bool use_vf, bool interrupts, bool default_q);
 
 /**
+* @brief get the queues endpoint to the netfilter interface
+*
+* @param q             handl to the device queue
+* @param ep            Endpoint cap to netfilter interface of this card
+*
+* @returns the queues id
+*
+*/
+void e10k_queue_get_netfilter_ep(struct e10k_queue* q, struct capref* ep);
+
+
+/**
 * @brief get the queue id of this queue handle. The returned id corresponds
 *        to the real id used on the card
 *
@@ -48,4 +60,5 @@ errval_t e10k_queue_create(struct e10k_queue** q, e10k_event_cb_t cb, struct cap
 *
 */
 uint64_t e10k_queue_get_id(struct e10k_queue* q);
+
 #endif

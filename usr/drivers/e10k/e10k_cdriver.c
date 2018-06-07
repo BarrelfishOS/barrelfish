@@ -391,22 +391,23 @@ static errval_t get_netfilter_ep(struct e10k_driver_state* st, uint16_t qid,
         return err;
     }
 
-    struct e10k_net_filter_state* state = malloc(sizeof(struct e10k_net_filter_state));  
+   // struct e10k_net_filter_state* state = malloc(sizeof(struct e10k_net_filter_state));  
 
     err = net_filter_create_endpoint(lmp? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
-                                     &net_filter_rx_vtbl, state,
+                                     &net_filter_rx_vtbl, st,
                                      get_default_waitset(),
                                      IDC_ENDPOINT_FLAGS_DUMMY,
                                      &b, *ret_cap);
     if (err_is_fail(err)) {
-        free(state);
+        //free(state);
         slot_free(*ret_cap);
         return err;
     }
 
+    /*
     state->st = st;
     state->qid = qid;
-
+    */
     DEBUG("WTF \n");
     return err;
 }
