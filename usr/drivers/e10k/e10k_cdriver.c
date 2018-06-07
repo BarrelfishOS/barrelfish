@@ -380,6 +380,37 @@ static struct net_filter_rx_vtbl net_filter_rx_vtbl = {
     .install_filter_mac_call = NULL,
 };
 
+static errval_t get_netfilter_ep(struct e10k_driver_state* st, uint16_t qid, 
+                                 bool lmp, struct capref* ret_cap)
+{
+    DEBUG("e10k: Netfilter endpoint was requested \n");
+    errval_t err;
+    struct net_filter_binding* b;
+    err = slot_alloc(ret_cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    struct e10k_net_filter_state* state = malloc(sizeof(struct e10k_net_filter_state));  
+
+    err = net_filter_create_endpoint(lmp? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                                     &net_filter_rx_vtbl, state,
+                                     get_default_waitset(),
+                                     IDC_ENDPOINT_FLAGS_DUMMY,
+                                     &b, *ret_cap);
+    if (err_is_fail(err)) {
+        free(state);
+        slot_free(*ret_cap);
+        return err;
+    }
+
+    state->st = st;
+    state->qid = qid;
+
+    DEBUG("WTF \n");
+    return err;
+}
+
 static void net_filter_export_cb(void *st, errval_t err, iref_t iref)
 {
 
@@ -1488,7 +1519,7 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
                                     int16_t msix_intvec, uint8_t msix_intdest,
                                     bool use_irq, bool use_rsc, bool default_q,
                                     uint64_t *mac, int32_t *qid, struct capref *regs,
-                                    errval_t *ret_err)
+                                    struct capref *filter_ep, errval_t *ret_err)
 {
     // TODO: Make sure that rxbufsz is a power of 2 >= 1024
     struct e10k_driver_state* st = (struct e10k_driver_state*) b->st;
@@ -1540,8 +1571,15 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
     st->queues[n].use_irq = use_irq;
     st->queues[n].use_rsc = use_rsc;
     st->queues[n].enabled = true;
-    
-
+ 
+    // TODO get lmp/nolmp flag
+    errval_t err = get_netfilter_ep(st, n, true, filter_ep);
+    if (err_is_fail(err)) {
+        *ret_err = NIC_ERR_ALLOC_QUEUE;
+        st->queues[n].enabled = false;
+        return err;
+    }
+   
     queue_hw_init(st, n, false);
 
     uint64_t d_mac = e10k_ral_ral_rdf(st->d, 0) | ((uint64_t) e10k_rah_rah_rdf(st->d, 0) << 32);
@@ -1549,6 +1587,7 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
     *regs = st->regframe;
     *qid = n;
     *mac = d_mac;
+
 
     DEBUG("[%d] Queue int done\n", n);
     *ret_err = SYS_ERR_OK;
@@ -1566,13 +1605,13 @@ static void cd_create_queue(struct e10k_vf_binding *b,
     int queueid;
     errval_t err;
 
-    struct capref regs;
+    struct capref regs, filter_ep;
 
     err = cd_create_queue_rpc(b, tx_frame, txhwb_frame, rx_frame,
                               rxbufsz, msix_intvec, msix_intdest, use_irq, use_rsc,
-                              default_q, &mac, &queueid, &regs, &err);
+                              default_q, &mac, &queueid, &regs, &filter_ep, &err);
 
-    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, err);
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, filter_ep, err);
     assert(err_is_ok(err));
     DEBUG("cd_create_queue end\n");
 }

@@ -634,11 +634,17 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
             return err;
         }
 
+        err = slot_alloc(&(q->filter_ep));
+        if (err_is_fail(err)) {
+            slot_free(regs);
+            return err;
+        }
+
         err = q->binding->rpc_tx_vtbl.create_queue(q->binding, q->tx.mem, q->txhwb.mem,
                                                    q->rx.mem, 2048, q->msix_intvec,
                                                    q->msix_intdest, q->use_irq, false, qzero,
                                                    &q->mac, &qid,
-                                                   &regs, &err2);
+                                                   &regs, &q->filter_ep, &err2);
 
         if (err_is_fail(err) || err_is_fail(err2)) {
             DEBUG_QUEUE("e10k rpc error\n");

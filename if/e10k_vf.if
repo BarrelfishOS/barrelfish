@@ -31,6 +31,7 @@ interface e10k_vf "e10k VF/PF interface" {
                        out uint64 mac,
                        out int qid,
                        out cap regs,
+                       out cap filter_ep,
                        out errval err);
 
       rpc create_queue_vf(out uint8 vfn,
