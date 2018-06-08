@@ -157,6 +157,9 @@ static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interru
                                 ep, false /*userlevel network feature*/,
                                 !poll /* user interrupts*/,
                                 default_q);
+    if (err_is_fail(err)) {
+        return err;
+    }
     // TODO setup netfilter ep
     *filter_ep = NULL_CAP;
     *queueid = sfn5122f_queue_get_id((struct sfn5122f_queue*)*retqueue);
