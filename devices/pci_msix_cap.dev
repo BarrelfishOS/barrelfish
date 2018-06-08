@@ -1,0 +1,37 @@
+/*
+ * Copyright (c) 2018, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * pci_msix_cap.dev
+ *
+ * DESCRIPTION: PCI MSI-X Capability
+ * 
+ * Source: Section 6.8.2. in PCI Local Bus Specification
+ */
+
+device pci_msix_cap lsbfirst ( addr base ) "PCI MSI-X Capability" {
+
+  // 6.8.2.(1-3)
+  register hdr rw addr( base, 0x00 ) "Capabilities Header" {
+    id	   8   "Capability ID";
+    next   8   "Next Pointer";
+    tblsize   11  "Message Control - Table Size";
+    res   4  "reserved";
+    en    1  "MSI-X enable";
+  };
+
+  regtype location "Location" {
+    bir     3   "Base Address Register Index";
+    offset  29  "Offset";
+  };
+
+  register tbl ro addr(base, 0x4) "Table Location" type(location);
+  register pba ro addr(base, 0x8) "Table Location" type(location);
+};
+
+
