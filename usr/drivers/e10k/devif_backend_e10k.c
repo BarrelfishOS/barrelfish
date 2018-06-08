@@ -509,7 +509,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
         q->use_txhwb = false;
     } else {
         // TODO revert to true
-        q->use_txhwb = true;
+        q->use_txhwb = false;
     }
     q->cb = cb;
     
@@ -527,7 +527,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
 
         // If i can not create any more queues -> start new VF
         if (!e10k_vf_can_create_queue()) {
-            err = e10k_init_vf_driver(ep, 0, 0, bus+2, dev+17, interrupts, &vf_num);
+            err = e10k_init_vf_driver(ep, 0, 0, bus+1, dev+17, interrupts, &vf_num);
             if (err_is_fail(err)) {
                 free(q);
                 return err;
