@@ -53,6 +53,7 @@ struct pkt_ip_headers {
 struct ip_q {
     struct devq my_q;
     struct devq* q;
+    struct capref filter_ep; // connection to cards filter interface
     struct pkt_ip_headers header; // can fill in this header and reuse it by copying
     struct region_vaddr regions[MAX_NUM_REGIONS];
     struct net_filter_state* filter;
@@ -234,7 +235,7 @@ errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
     assert(que);
 
     // init other queue
-    err = net_queue_create(interrupt, card_name, qid, poll, &que->q);
+    err = net_queue_create(interrupt, card_name, NULL, qid, poll, &que->filter_ep, &que->q);
     if (err_is_fail(err)) {
         return err;
     }

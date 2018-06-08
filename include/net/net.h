@@ -119,12 +119,14 @@ errval_t networking_poll(void);
  *
  * @param cardname  network card to create the queue for
  * @param queueid   queueid of the network card
+ * @param filter_ep returns and endpoint to the net filter interface of this queue
  * @param retqueue  returns the pointer to the queue
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t networking_create_queue(const char *cardname, struct capref* ep,
-                                 uint64_t* queueid, struct devq **retqueue);
+                                 uint64_t* queueid, struct capref* filter_ep,   
+                                 struct devq **retqueue);
 
 /**
  * @brief obtains the default setting for initialization of the driver

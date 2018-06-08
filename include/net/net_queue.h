@@ -37,11 +37,13 @@ typedef void (*inthandler_t)(void*);
  * @param ep        endpoint to NIC driver, possibly NULL
  * @param queueid   queueid of the network card
  * @param poll      Is the queue polled or are interrupts used
+ * @param retqueue  returns endpoint to netfilter interface of this queue
  * @param retqueue  returns the pointer to the queue
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t net_queue_create(inthandler_t interrupt, const char *cardname, struct capref* ep,
-                          uint64_t* queueid, bool poll, struct devq **retqueue);
+                          uint64_t* queueid, bool poll, struct capref* filter_ep,
+                          struct devq **retqueue);
 
 #endif /* LIB_NETQUEUE_INCLUDE_NETWORKING_H_ */

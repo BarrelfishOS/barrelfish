@@ -82,6 +82,7 @@ struct net_state {
     struct netif netif;
     bool hw_filter;
     struct net_filter_state* filter;
+    struct capref filter_ep;
 
   //  ip4_addr_t ipaddr, netmask, gw;
 };

@@ -107,18 +107,20 @@ void net_lwip_timeout(void)
  * @param cardname  network card to create the queue for
  * @param ep        endpoint to networking card, possibly null
  * @param queueid   queueid of the network card
+ * @param retqueue  returns endpoint to netfilter interface of this queue
  * @param retqueue  returns the pointer to the queue
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t networking_create_queue(const char *cardname, struct capref* ep, 
-                                 uint64_t* queueid, struct devq **retqueue)
+                                 uint64_t* queueid, struct capref* filter_ep, 
+                                 struct devq **retqueue)
 {
     struct net_state *st = get_default_net_state();
     bool poll = st->flags & NET_FLAGS_POLLING;
     bool default_q = st->flags & NET_FLAGS_DEFAULT_QUEUE;
     return net_queue_internal_create(int_handler, cardname, ep, queueid, default_q,
-                                     poll, retqueue);
+                                     poll, filter_ep, retqueue);
 }
 
 
@@ -191,9 +193,18 @@ static errval_t networking_init_with_queue_st(struct net_state *st, struct devq 
     if (!(flags & NET_FLAGS_NO_NET_FILTER) && st->hw_filter) {
         NETDEBUG("initializing hw filter...\n");
 
-        err = net_filter_init(&st->filter, st->cardname);
-        if (err_is_fail(err)) {
-            USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+        if (!capref_is_null(st->filter_ep)) {
+            debug_printf("Connecting to net filter interface using EP \n");
+            err = net_filter_init_with_ep(&st->filter, st->filter_ep);
+            if (err_is_fail(err)) {
+                USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+            }
+        } else {
+            debug_printf("Connecting to net filter interface using name \n");
+            err = net_filter_init(&st->filter, st->cardname);
+            if (err_is_fail(err)) {
+                USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+            }
         }
     }
 
@@ -280,7 +291,7 @@ static errval_t networking_init_st(struct net_state *st, const char *nic, net_fl
     st->hw_filter = false;
 
     /* create the queue wit the given nic and card name */
-    err = networking_create_queue(nic, NULL, &st->queueid, &st->queue);
+    err = networking_create_queue(nic, NULL, &st->queueid, &st->filter_ep, &st->queue);
     if (err_is_fail(err)) {
         return err;
     }
@@ -378,7 +389,8 @@ errval_t networking_init_with_ep(const char *nic, struct capref ep,
     st->cardname = nic;
 
     /* create the queue wit the given nic and card name */
-    err = networking_create_queue(nic, &ep, &st->queueid, &st->queue);
+    err = networking_create_queue(nic, &ep, &st->queueid, &st->filter_ep, 
+                                  &st->queue);
     if (err_is_fail(err)) {
         return err;
     }
