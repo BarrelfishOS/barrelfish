@@ -13,6 +13,7 @@
 % :-include("testdata.pl").
 
 :- dynamic interrupt_override/4.
+:- dynamic iommu_enabled/2.
 
 % 1. find list of core IDs which are closest to device add(bus, dev, fun)
 %    -> that means that the HT-network has to be represented. With this information
