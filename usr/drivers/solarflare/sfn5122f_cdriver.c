@@ -16,8 +16,10 @@
 #include <barrelfish/deferred.h>
 #include <barrelfish/debug.h>
 #include <driverkit/driverkit.h>
+#include <driverkit/driverkit.h>
+#include <int_route/int_route_client.h>
+#include <driverkit/iommu.h>
 #include <pci/pci.h>
-#include <pci/pci_driver_client.h>
 
 // TODO only required for htonl
 //#include <lwip/ip.h>
@@ -118,6 +120,7 @@ struct sfn5122f_filter_mac {
 
 struct sfn5122f_driver_state {
 
+    struct bfdriver_instance *bfi;
     /* Driver arguments */
     struct capref* caps;
 
@@ -190,7 +193,7 @@ struct sfn5122f_driver_state {
     struct sfn5122f_filter_mac filters_tx_ip[NUM_FILTERS_MAC];
     */
 
-    struct pcid pdc;
+    struct iommu_client* iommu;
 };
 
 /******************************************************************************/
@@ -840,9 +843,14 @@ static void start_all(struct sfn5122f_driver_state* st)
 
     errval_t err;
     if (st->use_interrupt) {
-        err = pcid_connect_int(&st->pdc, 0, global_interrupt_handler, st);
-        if(err_is_fail(err)){
-            USER_PANIC("Setting up interrupt failed \n");
+        struct capref intcap = NULL_CAP;
+        err = driverkit_get_interrupt_cap(st->bfi, &intcap);
+        assert(err_is_ok(err));
+        err = int_route_client_route_and_connect(intcap, 0,
+                                                 get_default_waitset(), 
+                                                 global_interrupt_handler, st);
+        if (err_is_fail(err)) {
+            USER_PANIC("Interrupt setup failed!\n");
         }
     }
 
@@ -1557,18 +1565,10 @@ static void init_card(struct sfn5122f_driver_state* st)
 
     st->d = calloc(sizeof(sfn5122f_t), 1);
 
-    int num_bars = pcid_get_bar_num(&st->pdc);
-
-    DEBUG("BAR count %d \n", num_bars);
-
     DEBUG("Initializing network device.\n");
-
-    if (num_bars < 1) {
-        USER_PANIC("Error: Not enough PCI bars allocated. Can not initialize network device.\n");
-    }
     lvaddr_t vaddr;
     /* Map first BAR for register access */
-    err = pcid_get_bar_cap(&st->pdc, 0, &st->regframe);
+    err = driverkit_get_bar_cap(st->bfi, 0, &st->regframe);
     if (err_is_fail(err)) {
         USER_PANIC("pcid_get_bar_cap failed \n");
     }
@@ -1735,15 +1735,19 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     assert(bfi->dstate != NULL);
     struct sfn5122f_driver_state* st = (struct sfn5122f_driver_state*) bfi->dstate;
     st->caps = bfi->caps;
+    st->bfi = bfi;
 
     init_default_values(st);
- 
-    err = pcid_init(&st->pdc, bfi->caps, bfi->capc, bfi->argv, bfi->argc,
-                    get_default_waitset());
-    if(err_is_fail(err)){
-        USER_PANIC("pcid_init failed \n");
+
+    struct capref devcap = NULL_CAP;
+    err = driverkit_get_iommu_cap(bfi, &devcap);
+    if (!capref_is_null(devcap) && err_is_ok(err)) {
+        err = driverkit_iommu_client_init_cl(devcap, &st->iommu);
+        if (err_is_fail(err)) {
+            debug_printf("######## VTD-Enabled but no valid IOMMU endpoint ######### \n");
+        }
     }
-   
+
     int argc = bfi->argc;
 
     for(int i = 0; i < argc; i++) {
