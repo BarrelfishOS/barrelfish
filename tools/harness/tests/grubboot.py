@@ -15,6 +15,8 @@ from results import PassFailResult
 class GrubBootTest(TestCommon):
     '''Simple test that checks if the machine boots into grub'''
     name = "grubboot"
+    grub_boot = "GNU GRUB  version 0.97-os.3"
+    hagfish_boot = "Hagfish UEFI loader starting"
 
     def setup(self, build, machine, testdir):
         # Don't build BF
@@ -31,12 +33,18 @@ class GrubBootTest(TestCommon):
         machine.shutdown()
         machine.unlock()
 
-    def get_finish_string(self):
-        return "GNU GRUB"
+    def is_finished(self, line):
+        # Exit test when we get an assertion failure or an abort, rather than
+        # waiting for timeout
+        return self.grub_boot in line or \
+               self.hagfish_boot in line or \
+               line.startswith("Assertion failed on core") or \
+               line.startswith("Aborted")
 
     def process_data(self, testdir, rawiter):
         for line in rawiter:
-            if line.find("GNU GRUB  version 0.97-os.3") > -1:
+            if line.find(self.grub_boot) > -1 or \
+               line.find(self.hagfish_boot) > -1:
                 return PassFailResult(True)
         return PassFailResult(False)
 
