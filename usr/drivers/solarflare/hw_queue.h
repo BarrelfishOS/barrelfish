@@ -71,6 +71,7 @@ struct sfn5122f_queue {
     void*                           opaque;
     bool                            userspace;
 
+    struct capref filter_ep;
     // For batchin of TX events, maximum of 32
     // entries since there can be a maximum of 
     // TX_CACHE descriptors per event

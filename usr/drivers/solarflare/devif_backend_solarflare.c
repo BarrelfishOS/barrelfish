@@ -231,7 +231,6 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
                                genoffset_t valid_data, genoffset_t valid_length,
                                uint64_t flags)
 {
-    DEBUG_QUEUE("Enqueueing RX buf \n");
     // check if there is space
 
     if (sfn5122f_queue_free_rxslots(q) == 0) {
@@ -562,7 +561,7 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     queue->use_interrupts = interrupts;
 
     
-    if (ep == NULL) {
+    if (ep == NULL || capref_is_null(*ep)) {
         iref_t iref; 
         const char *name = "sfn5122f_sfn5122fmng_devif";
 
@@ -602,14 +601,20 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
         return err;
     }
 
+    err = slot_alloc(&queue->filter_ep);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     if (!interrupts) {
         printf("Solarflare queue used in polling mode (default %d) \n", qzero);
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
                                                  interrupts, qzero,
                                                  0, 0, &queue->mac ,&queue->id, 
-                                                 &regs, &err2);
+                                                 &queue->filter_ep, &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
+            printf("Failed to create queue in Driver: %s\n", err_getstring(err));
             return err;
         }
     } else {
@@ -622,7 +627,8 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
                                                  interrupts, qzero, queue->core,
                                                  queue->vector, &queue->mac, 
-                                                 &queue->id, &regs, &err2);
+                                                 &queue->id, &queue->filter_ep, 
+                                                 &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             printf("Registering interrupt failed, continueing in polling mode \n");
@@ -667,7 +673,6 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     return SYS_ERR_OK;
 }
 
-uint64_t sfn5122f_queue_get_id(struct sfn5122f_queue* q)
-{
+uint64_t sfn5122f_queue_get_id(struct sfn5122f_queue* q){
     return q->id;    
 }
