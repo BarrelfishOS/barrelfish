@@ -160,8 +160,8 @@ static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interru
     if (err_is_fail(err)) {
         return err;
     }
-    // TODO setup netfilter ep
-    *filter_ep = NULL_CAP;
+
+    sfn5122f_queue_get_netfilter_ep((struct sfn5122f_queue*)*retqueue, filter_ep);
     *queueid = sfn5122f_queue_get_id((struct sfn5122f_queue*)*retqueue);
     return err;
 }

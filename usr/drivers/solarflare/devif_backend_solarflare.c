@@ -673,6 +673,11 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     return SYS_ERR_OK;
 }
 
+void sfn5122f_queue_get_netfilter_ep(struct sfn5122f_queue* q, struct capref* ep)
+{
+    *ep = q->filter_ep;
+}
+
 uint64_t sfn5122f_queue_get_id(struct sfn5122f_queue* q){
     return q->id;    
 }
