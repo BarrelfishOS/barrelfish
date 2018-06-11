@@ -45,4 +45,6 @@ errval_t ip_destroy(struct ip_q* q);
 errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
                    uint8_t prot, uint32_t dst_ip, void(*interrupt)(void*), 
                    bool poll);
+
+void ip_get_netfilter_ep(struct ip_q* q, struct capref* ep);
 #endif /* DEVIF_IP_H_ */

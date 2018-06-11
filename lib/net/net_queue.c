@@ -161,8 +161,8 @@ static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interru
         return err;
     }
 
-    sfn5122f_queue_get_netfilter_ep((struct sfn5122f_queue*)*retqueue, filter_ep);
     *queueid = sfn5122f_queue_get_id((struct sfn5122f_queue*)*retqueue);
+    sfn5122f_queue_get_netfilter_ep((struct sfn5122f_queue*)*retqueue, filter_ep);
     return err;
 }
 

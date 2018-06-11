@@ -313,5 +313,8 @@ errval_t ip_destroy(struct ip_q* q)
     return SYS_ERR_OK;
 }
 
-
+void ip_get_netfilter_ep(struct ip_q* q, struct capref* ep)
+{
+    *ep = q->filter_ep;
+}
 

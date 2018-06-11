@@ -606,11 +606,14 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
         return err;
     }
 
+
+    queue->core = disp_get_core_id();
+
     if (!interrupts) {
         printf("Solarflare queue used in polling mode (default %d) \n", qzero);
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
                                                  interrupts, qzero,
-                                                 0, 0, &queue->mac ,&queue->id, 
+                                                 queue->core, 0, &queue->mac ,&queue->id, 
                                                  &queue->filter_ep, &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
@@ -621,8 +624,6 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
         printf("Solarflare queue used in interrupt mode mode \n");
         err = pci_setup_inthandler(interrupt_handler, queue, &queue->vector);
         assert(err_is_ok(err));
-
-        queue->core = disp_get_core_id();
         
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
                                                  interrupts, qzero, queue->core,
