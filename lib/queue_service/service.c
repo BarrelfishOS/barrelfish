@@ -21,6 +21,7 @@
 #include <barrelfish/nameservice_client.h>
 #include <collections/list.h>
 #include <driverkit/driverkit.h>
+#include <driverkit/control.h>
 #include <queue_service/queue_service.h>
 
 #include <if/queue_service_defs.h>
@@ -44,7 +45,27 @@ struct ep_factory_state {
     struct driver_instance* factory_ep;
 };  
 
-static errval_t request_queue_rpc(struct queue_service_binding *b, 
+
+// the full name has to be correct
+static int32_t check_name_full(void *data, void *arg)
+{
+    char* name1 = (char*) data;
+    char* name2 = (char*) arg;
+    
+    return !strncmp(name1, name2, strlen(name1));
+}
+
+
+// checks also if first part is isimilar i.e. e10k and e10k:8086....
+static int32_t check_name_part(void *data, void *arg)
+{
+    char* name1 = (char*) data;
+    char* name2 = (char*) arg;
+    
+    return !strncmp(name2, name1, strlen(name2));
+}
+
+static errval_t request_queue_rpc(struct queue_service_binding *b, coreid_t coreid,
                                   struct capref* ep, errval_t* err)
 {
     *err = SYS_ERR_OK;
@@ -54,20 +75,20 @@ static errval_t request_queue_rpc(struct queue_service_binding *b,
     return SYS_ERR_OK;
 }
 
-static void request_queue(struct queue_service_binding *b)
+static void request_queue(struct queue_service_binding *b, coreid_t coreid)
 {
     errval_t err;
     struct capref ep;
     QUEUE_SERVICE_DEBUG("%s:%s:%d: Request queue\n", __FILE__, __FUNCTION__, __LINE__);
     
-    err = request_queue_rpc(b, &ep, &err);
+    err = request_queue_rpc(b, coreid, &ep, &err);
     
     err = b->tx_vtbl.request_queue_with_constraints_response(b, NOP_CONT, ep, err);
     assert(err_is_ok(err));
 }
 
 
-static errval_t request_queue_with_constraints_rpc(struct queue_service_binding *b, 
+static errval_t request_queue_with_constraints_rpc(struct queue_service_binding *b, coreid_t coreid,
                                                    struct capref* ep, errval_t* err)
 {
     *err = SYS_ERR_OK;
@@ -77,36 +98,54 @@ static errval_t request_queue_with_constraints_rpc(struct queue_service_binding 
     return SYS_ERR_OK;
 }
 
-static void request_queue_with_constraints(struct queue_service_binding *b)
+static void request_queue_with_constraints(struct queue_service_binding *b, coreid_t coreid)
 {
     errval_t err;
     struct capref ep;
     QUEUE_SERVICE_DEBUG("%s:%s:%d: Request queue with constraints \n", __FILE__, __FUNCTION__, __LINE__);
     
-    err = request_queue_with_constraints_rpc(b, &ep, &err);
+    err = request_queue_with_constraints_rpc(b, coreid, &ep, &err);
     
     err = b->tx_vtbl.request_queue_with_constraints_response(b, NOP_CONT, ep, err);
     assert(err_is_ok(err));
 }
 
-static errval_t request_queue_by_name_rpc(struct queue_service_binding *b, const char* name,
+static errval_t request_queue_by_name_rpc(struct queue_service_binding *b, 
+                                          const char* name, coreid_t coreid,
                                           struct capref* ep, errval_t* err)
 {
     *err = SYS_ERR_OK;
-    *ep = NULL_CAP;
+
     QUEUE_SERVICE_DEBUG("%s:%s:%d: Request queue by name rpc \n", __FILE__, __FUNCTION__, __LINE__);
+
+    struct queue_service_state* st = (struct queue_service_state*) b->st;
+
+    struct ep_factory_state* factory_ep = (struct ep_factory_state*) 
+                                          collections_list_find_if(st->ep_factory_list, 
+                                                                   check_name_part, (char*) name);
+
+    if (factory_ep == NULL) {
+        *err = DRIVERKIT_ERR_NO_DRIVER_FOUND;
+        return *err;
+    }
+
+    *err = driverkit_get_driver_ep_cap(factory_ep->factory_ep, ep, 
+                                       (coreid == factory_ep->core));
+    if (err_is_fail(*err)) {
+        return *err;
+    }
 
     return SYS_ERR_OK;
 }
 
 
-static void request_queue_by_name(struct queue_service_binding *b, const char* name)
+static void request_queue_by_name(struct queue_service_binding *b, const char* name, coreid_t core)
 {
     errval_t err;
     struct capref ep;
     QUEUE_SERVICE_DEBUG("%s:%s:%d: Request queue by name \n", __FILE__, __FUNCTION__, __LINE__);
     
-    err = request_queue_by_name_rpc(b, name, &ep, &err);
+    err = request_queue_by_name_rpc(b, name, core, &ep, &err);
     
     err = b->tx_vtbl.request_queue_by_name_response(b, NOP_CONT, ep, err);
     assert(err_is_ok(err));
@@ -148,7 +187,7 @@ static errval_t connect_cb(void *st, struct queue_service_binding *b)
     queue_service_rpc_client_init(b);
 
     // Set up continuation queue
-    b->st = NULL;
+    b->st = st;
     return SYS_ERR_OK;
 }
 
@@ -211,15 +250,6 @@ errval_t queue_service_init_default(struct queue_service_state** st)
     return queue_service_init(st, NULL);
 }
 
-
-static int32_t check_name(void *data, void *arg)
-{
-    char* name1 = (char*) data;
-    char* name2 = (char*) arg;
-    
-    return !strncmp(name1, name2, strlen(name1));
-}
-
 /**
  * @brief initializes the queue service with a provided name
  *
@@ -242,8 +272,12 @@ errval_t queue_serivce_add_ep_factory(struct queue_service_state* st,
     struct ep_factory_state* epf_state = slab_alloc(&st->alloc);
  
     // check if aleady in list
-    void* item = collections_list_find_if(st->ep_factory_list, check_name, factory_name);   
+    void* item = collections_list_find_if(st->ep_factory_list, check_name_full, 
+                                          factory_name);   
     if (item == NULL) {
+        strncpy(epf_state->name, factory_name, strlen(factory_name));
+        epf_state->factory_ep = factory;
+        epf_state->core = core;
         collections_list_insert_tail(st->ep_factory_list, epf_state);
     } else {
         return QSERVICE_ERR_ALREADY_ADDED;

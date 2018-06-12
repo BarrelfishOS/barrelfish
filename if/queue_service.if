@@ -16,16 +16,15 @@
 interface queue_service "queue service communication interface" {
     
     // request a queue withouth any constarints or other specification
-    rpc request_queue(out cap ep, 
+    rpc request_queue(in uint8 core, out cap ep, 
                       out errval err);
 
     // request a queue with constraints
     // TODO CONSTRAINTS
-    rpc request_queue_with_constraints(out cap ep, 
+    rpc request_queue_with_constraints(in uint8 core, out cap ep, 
                                        out errval err);
     
     // request a queue with name
-    rpc request_queue_by_name(in String name[256], 
-                              out cap ep, 
-                              out errval err);
+    rpc request_queue_by_name(in String name[256], in uint8 core,
+                              out cap ep, out errval err);
 };
