@@ -28,7 +28,7 @@
 #include <if/monitor_defs.h>
 
 
-#define OSDI18_PAPER_HACK 1
+#define OSDI18_PAPER_HACK 0
 
 size_t mem_total = 0, mem_avail = 0;
 
