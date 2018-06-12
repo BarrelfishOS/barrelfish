@@ -104,6 +104,7 @@
                "twl6030",
                "cm2",
                "net_sockets",
+               "queue_service",
                "kaluga"
            ],
              arch <- allArchitectures

@@ -1298,6 +1298,11 @@ errors sfn NIC_ERR_{
     failure QDRIVER              "Failure starting queue driver",
 };
 
+errors queue QSERVICE_ERR_{
+    failure NAME                 "Name too long",
+    failure ALREADY_ADDED        "EP factory already added",
+}; 
+
 errors psci PSCI_ERR_{
     failure NOT_SUPPORTED    "Function not supported",
     failure INVALID_PARAMETER "Invalid parameters supplied",

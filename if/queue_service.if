@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2018, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Univiersitätstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * This interface is used for applications (or the networkstack of the apllicaton)
+ * to request a networking queue from the queue service. A queue can either be 
+ * requested withouth any constraints (i.e. let the service decide), with constraints
+ *  (bandwidth, latency, or isolation), or by name (e10k, sfn5122f, e1000).
+ */
+interface queue_service "queue service communication interface" {
+    
+    // request a queue withouth any constarints or other specification
+    rpc request_queue(out cap ep, 
+                      out errval err);
+
+    // request a queue with constraints
+    // TODO CONSTRAINTS
+    rpc request_queue_with_constraints(out cap ep, 
+                                       out errval err);
+    
+    // request a queue with name
+    rpc request_queue_by_name(in String name[256], 
+                              out cap ep, 
+                              out errval err);
+};
