@@ -154,11 +154,12 @@ static void event_cb(void* queue)
 static struct devq* create_net_queue(char* card_name)
 {   
     errval_t err;
+    struct capref ep;
 
     if (strncmp(card_name, "sfn5122f", 8) == 0) {
         struct sfn5122f_queue* q;
         
-        err = sfn5122f_queue_create(&q, event_cb, /* userlevel*/ true,
+        err = sfn5122f_queue_create(&q, event_cb, &ep, /* userlevel*/ true,
                                     /*interrupts*/ false,
                                     /*default queue*/ false);
         if (err_is_fail(err)){
@@ -171,7 +172,7 @@ static struct devq* create_net_queue(char* card_name)
     if (strncmp(card_name, "e10k", 4) == 0) {
         struct e10k_queue* q;
         
-        err = e10k_queue_create(&q, event_cb, /*VFs */ false,
+        err = e10k_queue_create(&q, event_cb, &ep, /*VFs */ false,
                                 6, 0, 0, 0,
                                 /*MSIX interrupts*/ false, false);
         if (err_is_fail(err)){
