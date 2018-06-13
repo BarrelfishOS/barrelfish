@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (c) 2007-2010, ETH Zurich.
+ * Copyright (c) 2007-2010, 2017-2018 ETH Zurich.
  * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *

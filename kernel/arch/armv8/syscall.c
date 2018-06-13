@@ -876,8 +876,6 @@ static struct sysret handle_devid_identify(struct capability *cap,
                                            arch_registers_state_t *context,
                                            int argc)
 {
-    struct sysret sysret;
-
     struct registers_aarch64_syscall_args* sa = &context->syscall_args;
 
     // Return with physical base address of frame
@@ -885,7 +883,7 @@ static struct sysret handle_devid_identify(struct capability *cap,
 
     struct device_identity *di = (struct device_identity *)sa->arg2;
 
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct device_identity))) {
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)di, sizeof(struct device_identity))) {
         return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
     }
 

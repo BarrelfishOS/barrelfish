@@ -373,10 +373,11 @@ static void intermon_ump_route_setup_reply(struct intermon_binding *ib,
     struct monitor_state *st = lmpb->b.st;
     st->conn = conn;
     /* send the reply */
-
-    struct monitor_blocking_binding *b = (void *)state;
-
-
+#ifndef __ARM_ARCH_7A__
+    struct monitor_blocking_binding *b = (void *) state;
+#else
+    struct monitor_blocking_binding *b = (void *)(uint32_t) state;
+#endif
     err = b->tx_vtbl.new_monitor_binding_response(b, NOP_CONT, lmpb->chan.local_cap, err);
 }
 

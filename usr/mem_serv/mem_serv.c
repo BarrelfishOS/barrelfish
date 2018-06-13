@@ -28,15 +28,17 @@
 #include <if/monitor_defs.h>
 
 
-#define OSDI18_PAPER_HACK 0
+//#define OSDI18_PAPER_HACK 1
 
 size_t mem_total = 0, mem_avail = 0;
 
 
 //// XXX HACK for OSDI PAPER!!! BAD!
+#ifdef OSID18_PAPER_HACK
 static struct capref model_mem_cap;
 static genpaddr_t model_mem_base = 0;
 static genpaddr_t model_mem_limit = 0;
+#endif
 
 /* parameters for size of supported RAM and thus required storage */
 // architecture, we use paddr_t as the type to represent region

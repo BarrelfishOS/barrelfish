@@ -888,7 +888,7 @@ static struct sysret handle_idcap_identify(struct capability *to,
     return sys_idcap_identify(to, idp);
 }
 
-static struct sysret handle_devid_create(struct capability *to,
+static struct sysret handle_devid_create(struct capability *cap,
                                          arch_registers_state_t *context,
                                          int argc)
 {
@@ -919,20 +919,18 @@ static struct sysret handle_devid_create(struct capability *to,
                                             slot, my_core_id, &devid));
 }
 
-static struct sysret handle_devid_identify(struct capability *to,
+static struct sysret handle_devid_identify(struct capability *cap,
                                            arch_registers_state_t *context,
                                            int argc)
 {
-    struct sysret sysret;
-
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
     // Return with physical base address of frame
     assert(cap->type == ObjType_DeviceID);
 
-    struct device_identity *di = (struct device_identity *)args[0];
+    struct device_identity *di = (struct device_identity *)sa->arg2; ;
 
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct device_identity))) {
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)di, sizeof(struct device_identity))) {
         return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
     }
 

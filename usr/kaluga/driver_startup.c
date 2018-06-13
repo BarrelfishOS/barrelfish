@@ -45,6 +45,8 @@ static void argv_push(int * argc, char *** argv, char * new_arg){
     (*argv)[new_size] = NULL;
 }
 
+#ifndef __ARM_ARCH_7A__
+
 errval_t default_start_function(coreid_t where,
                                 struct module_info* mi,
                                 char* record, struct driver_argument * arg)
@@ -123,6 +125,7 @@ errval_t default_start_function(coreid_t where,
 
     return err;
 }
+#endif
 
 /*
 static void handler(void* arg) {
