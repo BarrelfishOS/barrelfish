@@ -126,27 +126,30 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     }
 
     struct capref iommuep;
-    err = driverkit_get_iommu_cap(bfi, &iommuep);
-    if (err_is_fail(err)) {
-        goto err_out;
+
+    if (driverkit_iommu_present(xphi->iommu_client)) {
+        err = driverkit_get_iommu_cap(bfi, &iommuep);
+        if (err_is_fail(err)) {
+            goto err_out;
+        }
+
+        err = driverkit_iommu_client_init_cl(iommuep, &xphi->iommu_client);
+        if (err_is_fail(err)) {
+            goto err_out;
+        }
+
+        int32_t init_nodeid = driverkit_iommu_get_nodeid(xphi->iommu_client);
+        debug_printf("[knc] adding xeon phi model nodes...\n");
+        err = add_xeon_phi_model_nodes(init_nodeid, &xphi->nodeid);
+        debug_printf("[knc] addded xeon phi model nodes: init_nodeid=%"PRIi32", xphi nodeid=%"PRIi32"\n",
+                init_nodeid, xphi->nodeid);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "add model nodes");
+            goto err_out2;
+        }
+    } else {
+        xphi->iommu_client = NULL;
     }
-
-    err = driverkit_iommu_client_init_cl(iommuep, &xphi->iommu_client);
-    if (err_is_fail(err)) {
-        goto err_out;
-    }
-
-    int32_t init_nodeid = driverkit_iommu_get_nodeid(xphi->iommu_client);
-    debug_printf("[knc] adding xeon phi model nodes...\n");
-    err = add_xeon_phi_model_nodes(init_nodeid, &xphi->nodeid);
-    debug_printf("[knc] addded xeon phi model nodes: init_nodeid=%"PRIi32", xphi nodeid=%"PRIi32"\n",
-            init_nodeid, xphi->nodeid);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "add model nodes");
-        goto err_out2;
-    }
-
-
     debug_printf("[knc] iommu is %s.\n",
                  driverkit_iommu_present(xphi->iommu_client) ? "on" : "off");
 
