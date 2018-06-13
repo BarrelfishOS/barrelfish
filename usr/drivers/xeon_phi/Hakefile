@@ -13,6 +13,7 @@
 [
   build library {
       target = "mod_knc",
+      architectures= ["x86_64"],
       cFiles = [ "mod_knc.c"]
   },
 
