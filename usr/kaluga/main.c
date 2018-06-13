@@ -52,12 +52,15 @@ static void add_start_function_overrides(void)
     set_start_function("corectrl", start_boot_driver);
 
 
+#ifdef __X86_64__
+    set_start_function("iommu", start_iommu_driver);
+#endif
 #ifndef __ARM_ARCH_7A__
+    //X86 and ARMv8
     set_start_function("sfn5122f", start_networking_new);
     set_start_function("e10k", start_networking_new);
     set_start_function("e1000n", start_networking_new);
     set_start_function("e1000n_irqtest", default_start_function_new);
-    set_start_function("iommu", start_iommu_driver);
     set_start_function("ioat_dma", default_start_function_new);
     set_start_function("xeon_phi", default_start_function_new);
 #else
