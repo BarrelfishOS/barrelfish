@@ -32,6 +32,28 @@
             ("iommu", ["rpcclient"])
         ],
         addLibraries = [ "collections", "skb" ],
-        cFiles = (find withSuffices [ ".c" ])
+        cFiles = [ "dcontrol_client.c", 
+                   "dcontrol_service.c", 
+                   "ddomain_client.c",
+                   "ddomain_service.c",
+                   "map_devices.c",
+                   "modules.c" ]
+    },
+
+    build library {
+        target = "driverkit_iommu",
+        flounderDefs = [
+            "iommu"
+        ],
+        flounderBindings = [
+            "iommu"
+        ],
+        flounderExtraBindings = [
+            ("iommu", ["rpcclient"])
+        ],
+        addLibraries = [ "collections", "skb" ],
+        cFiles = [ "hwmodel.c", 
+                   "iommu_client.c" ],
+        architectures = [ "x86_64"]
     }
 ]

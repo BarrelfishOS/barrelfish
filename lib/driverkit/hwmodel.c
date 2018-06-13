@@ -450,7 +450,7 @@ errval_t driverkit_hwmodel_reverse_resolve(struct capref dst, int32_t nodeid,
 errval_t driverkit_hwmodel_get_map_conf_addr(int32_t mem_nodeid, genpaddr_t addr,
                                              gensize_t size, int32_t nodeid,
                                              char *ret_conf, size_t ret_conf_size,
-                                             genpaddr_t *ret_addr)
+                                             lvaddr_t *ret_addr)
 {
     errval_t err;
 
@@ -504,7 +504,7 @@ errval_t driverkit_hwmodel_get_map_conf_addr(int32_t mem_nodeid, genpaddr_t addr
 errval_t driverkit_hwmodel_get_map_conf(struct capref dst,
                                        int32_t nodeid,
                                        char *ret_conf, size_t ret_conf_size,
-                                       genpaddr_t *ret_addr)
+                                       lvaddr_t *ret_addr)
 {
     struct frame_identity id;
     errval_t err;

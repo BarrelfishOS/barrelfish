@@ -21,7 +21,7 @@
                              "devif_backend_solarflare", "devif_backend_e10k",
                              "devif_backend_loopback",  "devif_backend_e1000",
                              "devif_backend_mlx4", "debug_log",
-                             "octopus", "octopus_parser" ]
+                             "octopus", "octopus_parser" , "driverkit_iommu"]
   },
 
   build application {

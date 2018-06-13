@@ -31,7 +31,7 @@
                       flounderDefs = [ "e10k_vf", "e10k" ],
                       flounderExtraDefs = [ ("e10k_vf",["rpcclient"]) ],
                       mackerelDevices = [ "e10k_vf", "e10k", "e10k_q"],
-                      addLibraries = libDeps ["pci", "skb", "driverkit" ]
+                      addLibraries = libDeps ["pci", "skb", "driverkit", "driverkit_iommu" ]
                   },
 
     -- Builds a driver domain: Use addModules instead of addLibraries to
@@ -45,7 +45,7 @@
 
         addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
                                "contmng", "net_device_manager", "bench", "trace",
-                                 "spawndomain", "netd" , "net", "lwip2"],
+                               "spawndomain", "netd" , "net", "lwip2", "driverkit_iommu"],
         addModules = ["e10k_module"],
         architectures = ["x86_64"]
     }

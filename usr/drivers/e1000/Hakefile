@@ -30,7 +30,7 @@
                     flounderBindings = [ "e1000_devif" ],
                     flounderDefs = [ "e1000_devif" ],
                     mackerelDevices = ["e1000"],
-                    addLibraries = libDeps ["pci"]
+                    addLibraries = libDeps ["pci", "driverkit_iommu"]
     },
 
     -- Builds a driver domain: Use addModules instead of addLibraries to
@@ -44,7 +44,7 @@
 
         addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
                                "contmng", "net_device_manager", "bench", "trace", "skb",
-                               "spawndomain", "netd" , "net", "lwip2"],
+                               "spawndomain", "netd" , "net", "lwip2", "driverkit_iommu"],
         addModules = ["e1000n_module"],
         architectures = ["x86_64"]
     },
@@ -72,7 +72,7 @@
 
         addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
                                "contmng", "net_device_manager", "bench", "trace", "skb",
-                               "spawndomain", "netd" , "net", "lwip2"],
+                               "spawndomain", "netd" , "net", "lwip2", "driverkit_iommu"],
         addModules = ["e1000n_irqtest_module"],
         architectures = ["x86_64"],
         addCFlags = [ "-DUNDER_TEST"]
