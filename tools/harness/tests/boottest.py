@@ -12,9 +12,9 @@ from common import TestCommon
 from results import PassFailResult
 
 @tests.add_test
-class GrubBootTest(TestCommon):
-    '''Simple test that checks if the machine boots into grub'''
-    name = "grubboot"
+class BootTest(TestCommon):
+    '''Simple test that checks if the machine boots into grub/hagfish'''
+    name = "boottest"
     grub_boot = "GNU GRUB  version 0.97-os.3"
     hagfish_boot = "Hagfish UEFI loader starting"
 
