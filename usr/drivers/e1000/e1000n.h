@@ -241,6 +241,7 @@ struct e1000_driver_state {
 
     /* irqtest statistics */
 #ifdef UNDER_TEST
+    char* inst_name;
     int int_trigger_counter;
     int test_initialized;
     int lsc_interrupt_counter;
