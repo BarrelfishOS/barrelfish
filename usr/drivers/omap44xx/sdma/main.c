@@ -408,8 +408,7 @@ errval_t mem_fill_2d(struct sdma_driver_state* st, omap_sdma_addr_2d_t dst, omap
 }
 
 
-static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t flags,
-                     struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) {
+static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev) {
 
     bfi->dstate = malloc(sizeof(struct sdma_driver_state));
     if (bfi->dstate == NULL) {
@@ -420,7 +419,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
     // 1. Initialize the device:
     errval_t err;
     lvaddr_t dev_base;
-    err = map_device_cap(caps[0], &dev_base);
+    err = map_device_cap(bfi->caps[0], &dev_base);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "unable to map SDMA registers");
     }
@@ -455,5 +454,10 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
     return SYS_ERR_OK;
 }
 
+static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
+{   
+    USER_PANIC("NIY \n");
+    return SYS_ERR_OK;
+}
 
-DEFINE_MODULE(sdma, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(sdma, init, attach, detach, set_sleep_level, destroy, get_ep);
