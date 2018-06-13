@@ -1,6 +1,7 @@
 % Load the irqtest program with a higher priority than the e1000 driver
 pci_driver{
     binary: "e1000n_irqtest",
+    module: "e1000n_irqtest_module",
     supported_cards:
     [ pci_card{ vendor: 16'8086, device: 16'1521, function: _, subvendor: _, subdevice: _ },
       pci_card{ vendor: 16'8086, device: 16'107d, function: _, subvendor: _, subdevice: _ },
@@ -25,6 +26,7 @@ pci_driver{
 
 pci_driver{
     binary: "e1000n_irqtest",
+    module: "e1000n_irqtest_module",
     supported_cards:
     [ 
       pci_card{ vendor: 16'8086, device: 16'10a7, function: _, subvendor: _, subdevice: _ },
