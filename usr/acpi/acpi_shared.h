@@ -48,7 +48,6 @@ void ec_init(void);
 
 void start_service(void);
 void acpi_service_arch_init(struct acpi_rx_vtbl *acpi_rx_vtbl);
-extern bool vtd_force_off;
 
 void
 AcpiOsSetRootPointer (

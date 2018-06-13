@@ -88,13 +88,17 @@ int main(int argc, char *argv[])
     // Parse CMD Arguments
     bool got_apic_id = false;
     bool do_video_init = false;
+    bool ignore_irq_override = false;
 
     for (int i = 1; i < argc; i++) {
         if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_hw_id) == 1) {
             got_apic_id = true;
         } else if (strcmp(argv[i], "video_init") == 0) {
             do_video_init = true;
+        } else if (strncmp(argv[i], "ignore_irq_override", strlen("ignore_irq_override")) == 0) {
+            ignore_irq_override = true;
         }
+
     }
 
     if(got_apic_id == false) {
@@ -152,6 +156,13 @@ int main(int argc, char *argv[])
     err = acpi_interrupts_arch_setup();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "setup skb irq controllers");
+    }
+
+    if(ignore_irq_override){
+        err = skb_execute("retractall(interrupt_override(_,_,_,_)).");
+        if(err_is_fail(err)){
+            DEBUG_SKB_ERR(err, "couldnt remove interrupt overrides");
+        }
     }
 
     messages_handler_loop();

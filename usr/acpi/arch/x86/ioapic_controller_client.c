@@ -33,6 +33,9 @@
 
 #include <if/int_route_controller_defs.h>
 
+// Set this switch to forward all IRQs to CPU 0
+//#define IOAPIC_DEBUG_FORWARD_ALL 
+
 
 static void add_mapping(struct int_route_controller_binding *b,
         const char *label,
@@ -40,10 +43,17 @@ static void add_mapping(struct int_route_controller_binding *b,
         int_route_controller_int_message_t from,
         int_route_controller_int_message_t to) {
 
+
     errval_t err = SYS_ERR_OK;
 
     ACPI_DEBUG("ioapic add_mapping: label:%s, class:%s (port=%"PRIu64") to"
             "(%"PRIu64", %"PRIu64")\n", label, class, from.port, to.port, to.msg);
+
+#ifdef IOAPIC_DEBUG_FORWARD_ALL
+    debug_printf("Ignoring add_mapping....\n");
+    return;
+#endif
+
     struct ioapic* ioapic = find_ioapic_for_label(label);
     if(ioapic == NULL){
         debug_printf("No ioapic found for label: %s\n", label);
@@ -96,6 +106,35 @@ static void ioapic_route_controller_bind_cb(void *st, errval_t err, struct int_r
 }
 
 
+#ifdef IOAPIC_DEBUG_FORWARD_ALL
+static void debug_forward_irqs(void) {
+    errval_t err;
+    err = skb_execute_query("corename(0,_,apic(A)),writeln(A).");
+    if(err_is_fail(err)){
+        printf("ACPI id lookup failed");
+        return;
+    }
+
+    int to_apicid = 0;
+    err = skb_read_output("%d", &to_apicid);
+    if(err_is_fail(err)){
+        printf("ACPI id parse failed");
+        return;
+    }
+
+    printf("DEBUG: Forwarding all IOAPIC interrupts to C0 (apic=%d)", to_apicid);
+    for(int i=0; i < 5; i++){
+        struct ioapic * ioapic = find_ioapic_by_index(i);
+        if(ioapic != NULL && ioapic->initialized){
+            for(int inti=0; inti<24;inti++){
+                ioapic_route_inti(ioapic, inti, inti+32, to_apicid);
+                ioapic_toggle_inti(ioapic, inti, true);
+            }
+        }
+    } 
+}
+#endif // IOAPIC_DEBUG_FORWARD_ALL
+
 
 
 errval_t ioapic_controller_client_init(void){
@@ -115,6 +154,10 @@ errval_t ioapic_controller_client_init(void){
         debug_err(__FILE__,__FUNCTION__,__LINE__, err, "Could not bind int_route_service\n");
         return err;
     }
+
+#ifdef IOAPIC_DEBUG_FORWARD_ALL
+    debug_forward_irqs();
+#endif
 
     return SYS_ERR_OK;
 }

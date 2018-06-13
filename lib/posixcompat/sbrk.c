@@ -9,17 +9,30 @@
 
 #include <unistd.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/cpu_arch.h>
 
 #if __SIZEOF_POINTER__ == 8
-//need lot of memory...
+#ifdef __x86_64__
+// Large memory area + large pages on x86_64
 #define SBRK_REGION_BYTES (8UL * 512UL * LARGE_PAGE_SIZE)
 #define SBRK_FLAGS (VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE)
 #define SBRK_MIN_MAPPING (16 * LARGE_PAGE_SIZE)
-#else // still huge, but slightly more achievable in a 32-bit address space!
-#define SBRK_REGION_BYTES (64 * 1024 * BASE_PAGE_SIZE)
-#define SBRK_FLAGS (VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE)
-#define SBRK_MIN_MAPPING (2 * BASE_PAGE_SIZE)
+#define SBRK_REGION_ALIGNMENT LARGE_PAGE_SIZE
+#else 
+// Large memory area + normal pages
+#define SBRK_REGION_BYTES (8UL * 512UL * LARGE_PAGE_SIZE)
+#define SBRK_FLAGS (VREGION_FLAGS_READ_WRITE)
+#define SBRK_MIN_MAPPING (16 * LARGE_PAGE_SIZE)
+#define SBRK_REGION_ALIGNMENT BASE_PAGE_SIZE
 #endif
+#else
+// still huge, but slightly more achievable in a 32-bit address space!
+#define SBRK_REGION_BYTES (64 * 1024 * BASE_PAGE_SIZE)
+#define SBRK_FLAGS (VREGION_FLAGS_READ_WRITE)
+#define SBRK_MIN_MAPPING (2 * BASE_PAGE_SIZE)
+#define SBRK_REGION_ALIGNMENT BASE_PAGE_SIZE
+#endif
+
 
 
 void *sbrk(intptr_t increment)
@@ -38,7 +51,7 @@ void *sbrk(intptr_t increment)
     if (!memobj) { // Initialize
         err = vspace_map_anon_nomalloc(&base, &memobj_, &vregion_,
                                        SBRK_REGION_BYTES, NULL,
-                                       SBRK_FLAGS, SBRK_REGION_BYTES);
+                                       SBRK_FLAGS, SBRK_REGION_ALIGNMENT);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "vspace_map_anon_nomalloc failed");
             return (void *)-1;

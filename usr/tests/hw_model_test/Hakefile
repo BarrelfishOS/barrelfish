@@ -23,7 +23,8 @@
       "xeon_phi_client", 
       "bench", 
       "dma_client",
-      "driverkit"
+      "driverkit",
+      "driverkit_iommu"
     ]
   },
   

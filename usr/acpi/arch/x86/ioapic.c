@@ -42,6 +42,7 @@ errval_t ioapic_init(struct ioapic *a, lvaddr_t base, uint8_t id,
     lpc_ioapic_initialize(&a->dev, (void *)base);
 
     a->irqbase = irqbase;
+    a->initialized = 1;
 
     // Write I/O APIC ID
     lpc_ioapic_id_wr(&a->dev, (lpc_ioapic_id_t) { .id = id });

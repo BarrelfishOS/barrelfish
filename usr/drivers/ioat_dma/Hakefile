@@ -27,7 +27,8 @@
         flounderBindings = [ "dma", "ioat_dma_mgr" ],
         flounderDefs = [ "dma", "ioat_dma_mgr" ],
         mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ],
-        addLibraries = libDeps [ "octopus", "pci",  "dma", "dma_service", "driverkit" ],
+        addLibraries = libDeps [ "octopus", "pci",  "dma", "dma_service", "driverkit",
+                        "driverkit_iommu" ],
         addModules = [ "mod_ioat" ],
         architectures = [ "x86_64"]
   }  

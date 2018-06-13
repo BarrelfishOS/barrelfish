@@ -19,6 +19,7 @@
 #include "lpc_ioapic_ioapic_impl.h"
 
 struct ioapic {
+    int                 initialized;
     lpc_ioapic_t        dev;
     int                 nintis;
     uint32_t            irqbase;
@@ -34,5 +35,6 @@ void ioapic_route_inti(struct ioapic *a, int inti, uint8_t vector,
                        uint8_t dest);
 
 struct ioapic *find_ioapic_for_label(const char *label);
+struct ioapic *find_ioapic_by_index(int index);
 
 #endif
