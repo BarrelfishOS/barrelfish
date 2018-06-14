@@ -35,7 +35,7 @@ enum task_type {
 
 enum objtype {
     ObjType_L1CNode,
-    ObjType_EndPoint
+    ObjType_EndPointLMP
 };
 
 struct capability {
