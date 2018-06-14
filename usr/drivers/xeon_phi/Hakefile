@@ -42,6 +42,7 @@
       "spawndomain",
       "dma",
       "driverkit",
+      "driverkit_iommu",
       "dma_service",
       "elf", 
       "vfs",
@@ -108,6 +109,7 @@
       "xeon_phi_client",
       "dma",
       "driverkit",
+      "driverkit_iommu",
       "octopus",
       "dma_service",
       "bench"
