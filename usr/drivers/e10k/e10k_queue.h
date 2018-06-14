@@ -61,6 +61,7 @@ struct e10k_queue {
     bool use_vtd; // Virtual addressing (required for VF)
     bool use_rxctx; // 
     bool use_txhwb; //
+    bool use_msix;
     size_t rxbufsz;
     uint8_t pci_function; 
     uint64_t mac;
@@ -70,9 +71,6 @@ struct e10k_queue {
 
     // interrupt
     bool use_irq;
-    uint8_t msix_intvec;
-    uint8_t msix_intdest;
-    size_t msix_index;
     // callback 
     e10k_event_cb_t cb;
     

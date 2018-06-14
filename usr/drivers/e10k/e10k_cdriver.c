@@ -48,12 +48,10 @@ struct queue_state {
     uint32_t rxbufsz;
     uint32_t rxhdrsz;
 
-    size_t msix_index;
-    int16_t msix_intvec;
-    uint8_t msix_intdest;
     bool use_irq;
     bool use_rsc;
     bool use_txhwb;
+    bool use_msix;
 
     uint64_t rx_head;
     uint64_t tx_head;
@@ -98,6 +96,7 @@ union macentry {
 
 struct e10k_net_filter_state 
 {
+    struct net_filter_binding* b;
     struct e10k_driver_state* st;
     uint16_t qid;
 };
@@ -130,7 +129,7 @@ struct e10k_driver_state {
     bool rxtx_enabled;
 
 
-    char buf[4096];
+    //char buf[4096];
 
     /* PCI device address passed on command line */
     uint32_t pci_bus;
@@ -287,9 +286,8 @@ static errval_t cb_install_filter(struct net_filter_binding *b,
                                   uint16_t dst_port,
                                   uint64_t* fid)
 {
-    struct e10k_driver_state* st = (struct e10k_driver_state*) b->st;
     errval_t err;
-
+    struct e10k_net_filter_state* st = (struct e10k_net_filter_state*) b->st;
     struct e10k_filter f = {
         .dst_port = dst_port,
         .src_port = src_port,
@@ -317,7 +315,7 @@ static errval_t cb_install_filter(struct net_filter_binding *b,
 
     *fid = -1ULL;
 
-    err = reg_ftfq_filter(st, &f, fid);
+    err = reg_ftfq_filter(st->st, &f, fid);
     DEBUG("filter registered: err=%s, fid=%"PRIu64"\n", err_getstring(err), *fid);
     return err;
 }
@@ -332,6 +330,7 @@ static void install_filter(struct net_filter_binding *b,
 {
     errval_t err;
     uint64_t fid;
+
     err = cb_install_filter(b, type, qid, src_ip, dst_ip, src_port, dst_port, &fid);
     assert(err_is_ok(err));
 
@@ -385,29 +384,27 @@ static errval_t get_netfilter_ep(struct e10k_driver_state* st, uint16_t qid,
 {
     DEBUG("e10k: Netfilter endpoint was requested \n");
     errval_t err;
-    struct net_filter_binding* b;
     err = slot_alloc(ret_cap);
     if (err_is_fail(err)) {
         return err;
     }
 
-   // struct e10k_net_filter_state* state = malloc(sizeof(struct e10k_net_filter_state));  
+    struct e10k_net_filter_state* state = malloc(sizeof(struct e10k_net_filter_state));  
 
     err = net_filter_create_endpoint(lmp? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
-                                     &net_filter_rx_vtbl, st,
+                                     &net_filter_rx_vtbl, state,
                                      get_default_waitset(),
                                      IDC_ENDPOINT_FLAGS_DUMMY,
-                                     &b, *ret_cap);
+                                     &(state->b), *ret_cap);
     if (err_is_fail(err)) {
-        //free(state);
+        free(state);
         slot_free(*ret_cap);
         return err;
     }
 
-    /*
     state->st = st;
     state->qid = qid;
-    */
+   
     return err;
 }
 
@@ -461,18 +458,6 @@ static void tx_disable(struct e10k_driver_state* st)
     while (e10k_dmatxctl_txen_rdf(st->d) != 0); // TODO: timeout
 }
 
-/* ************************************************
- *  Interrupt setup and handling
- */
-static void setup_interrupt(struct e10k_driver_state* st, size_t *msix_index, 
-                            uint8_t core, uint8_t vector)
-{
-
-    /* TODO do this in the net framework*/
-}
-
-
-
 static void management_interrupt(struct e10k_driver_state* st, e10k_eicr_t eicr)
 {
     if (e10k_eicr_ecc_extract(eicr)) {
@@ -482,13 +467,14 @@ static void management_interrupt(struct e10k_driver_state* st, e10k_eicr_t eicr)
         device_init(st);
     } else if (eicr >> 16) {
         DEBUG("Interrupt: %x\n", eicr);
-        e10k_eicr_prtval(st->buf, sizeof(st->buf), eicr);
-        puts(st->buf);
+        //e10k_eicr_prtval(st->buf, sizeof(st->buf), eicr);
+        //puts(st->buf);
     } else if (st->msix) {
         DEBUG("Weird management interrupt without cause: eicr=%x\n", eicr);
     }
 }
 
+/*
 static void interrupt_handler_msix(void* arg)
 {
     struct e10k_driver_state* st = (struct e10k_driver_state*) arg;
@@ -506,8 +492,6 @@ static void interrupt_handler_msix(void* arg)
     e10k_eimsn_cause_wrf(st->d, st->cdriver_msix / 32, (1 << (st->cdriver_msix % 32)));
 }
 
-
-/*
 static void resend_interrupt(void* arg)
 {
     errval_t err;
@@ -525,6 +509,7 @@ static void interrupt_handler(void* arg)
 {
     struct e10k_driver_state* st = (struct e10k_driver_state*) arg;
 
+    DEBUG("@@@@@@@@@@@@@ Interrupt @@@@@@@@@@@@@@@@@@ \n");
     errval_t err;
     e10k_eicr_t eicr = e10k_eicr_rd(st->d);
 
@@ -533,11 +518,11 @@ static void interrupt_handler(void* arg)
     }
     e10k_eicr_wr(st->d, eicr);
 
-    DEBUG("@@@@@@@@@@@@@ Interrupt @@@@@@@@@@@@@@@@@@ \n");
     for (uint64_t i = 0; i < 16; i++) {
         if ((eicr >> i) & 0x1) {
             DEBUG("Interrupt eicr=%"PRIx32" \n", eicr);
-            if (st->queues[i].use_irq && st->queues[i].devif != NULL) {
+            if (st->queues[i].enabled && st->queues[i].use_irq && 
+                st->queues[i].devif != NULL) {
                 err = st->queues[i].devif->tx_vtbl.interrupt(st->queues[i].devif, NOP_CONT, i);
                 if (err_is_fail(err)) {
                     /*
@@ -582,7 +567,7 @@ static void stop_device(struct e10k_driver_state* st)
     }
 
     // From BSD driver (not in spec)
-    milli_sleep(2);
+    milli_sleep(50);
 
     // Master disable procedure
     e10k_ctrl_pcie_md_wrf(st->d, 1);
@@ -599,7 +584,6 @@ static void device_init(struct e10k_driver_state* st)
     int i;
     e10k_ctrl_t ctrl;
     e10k_pfqde_t pfqde;
-    errval_t err;
     bool initialized_before = st->initialized;
 
     st->initialized = 0;
@@ -697,10 +681,12 @@ static void device_init(struct e10k_driver_state* st)
 
         // Allocate msix vector for cdriver and set up handler
         if (st->cdriver_msix == -1) {
+            /* TODO setup MSI-X
             err = pci_setup_inthandler(interrupt_handler_msix, NULL, &(st->cdriver_vector));
             assert(err_is_ok(err));
 
             setup_interrupt(st, &(st->cdriver_msix), disp_get_core_id(), st->cdriver_vector);
+            */
         }
 
         // Map management interrupts to our vector
@@ -1120,12 +1106,9 @@ static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail
     if (st->queues[n].use_irq) {
         uint8_t rxv, txv;
         // Look for interrupt vector
-        if (st->queues[n].msix_intvec != 0) {
-            if (st->queues[n].msix_index == -1) {
-                setup_interrupt(st, &(st->queues[n].msix_index), st->queues[n].msix_intdest,
-                                st->queues[n].msix_intvec);
-            }
-            rxv = txv = st->queues[n].msix_index;
+        if (st->queues[n].use_msix) {
+            // TODO SET UP MSI-X
+            rxv = txv = 0;
         } else {
             //rxv = QUEUE_INTRX;
             //txv = QUEUE_INTTX;
@@ -1147,7 +1130,7 @@ static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail
             e10k_ivar_i_alloc3_wrf(st->d, i, txv);
             e10k_ivar_i_allocval3_wrf(st->d, i, 1);
         }
-        if (st->queues[n].msix_intvec != 0) {
+        if (st->queues[n].use_msix) {
             e10k_eitr_l_wr(st->d, rxv, 0);
 
             // Enable autoclear (higher ones are always auto cleared)
@@ -1516,14 +1499,14 @@ static void request_vf_number(struct e10k_vf_binding *b)
 static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
                                     struct capref tx_frame, struct capref txhwb_frame,
                                     struct capref rx_frame, uint32_t rxbufsz,
-                                    int16_t msix_intvec, uint8_t msix_intdest,
-                                    bool use_irq, bool use_rsc, bool default_q,
+                                    coreid_t core, bool use_irq, bool msix,
+                                    bool use_rsc, bool default_q,
                                     uint64_t *mac, int32_t *qid, struct capref *regs,
                                     struct capref *filter_ep, errval_t *ret_err)
 {
     // TODO: Make sure that rxbufsz is a power of 2 >= 1024
     struct e10k_driver_state* st = (struct e10k_driver_state*) b->st;
-    if (use_irq && msix_intvec != 0 && !st->msix) {
+    if (use_irq && msix && !st->msix) {
         printf("e10k: Queue requests MSI-X, but MSI-X is not enabled "
                 " card driver. Ignoring queue\n");
         *ret_err = NIC_ERR_ALLOC_QUEUE;
@@ -1563,17 +1546,13 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
     st->queues[n].rx_frame = rx_frame;
     st->queues[n].tx_head = 0;
     st->queues[n].rx_head = 0;
-    st->queues[n].devif = b;
     st->queues[n].rxbufsz = rxbufsz;
-    st->queues[n].msix_index = -1;
-    st->queues[n].msix_intvec = msix_intvec;
-    st->queues[n].msix_intdest = msix_intdest;
+    st->queues[n].use_msix = msix;
     st->queues[n].use_irq = use_irq;
     st->queues[n].use_rsc = use_rsc;
-    st->queues[n].enabled = true;
  
     // TODO get lmp/nolmp flag
-    errval_t err = get_netfilter_ep(st, n, true, filter_ep);
+    errval_t err = get_netfilter_ep(st, n, (disp_get_core_id() == core), filter_ep);
     if (err_is_fail(err)) {
         *ret_err = NIC_ERR_ALLOC_QUEUE;
         st->queues[n].enabled = false;
@@ -1591,14 +1570,17 @@ static errval_t cd_create_queue_rpc(struct e10k_vf_binding *b,
 
     DEBUG("[%d] Queue int done\n", n);
     *ret_err = SYS_ERR_OK;
+    st->queues[n].devif = b;
+    st->queues[n].enabled = true;
+
     return SYS_ERR_OK;
 }
 
 static void cd_create_queue(struct e10k_vf_binding *b,
                             struct capref tx_frame, struct capref txhwb_frame,
                             struct capref rx_frame, uint32_t rxbufsz,
-                            int16_t msix_intvec, uint8_t msix_intdest,
-                            bool use_irq, bool use_rsc, bool default_q)
+                            coreid_t core, bool use_irq, bool msix, 
+                            bool use_rsc, bool default_q)
 {
 
     uint64_t mac;
@@ -1608,7 +1590,7 @@ static void cd_create_queue(struct e10k_vf_binding *b,
     struct capref regs, filter_ep;
 
     err = cd_create_queue_rpc(b, tx_frame, txhwb_frame, rx_frame,
-                              rxbufsz, msix_intvec, msix_intdest, use_irq, use_rsc,
+                              rxbufsz, core, use_irq, msix, use_rsc,
                               default_q, &mac, &queueid, &regs, &filter_ep, &err);
 
     err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, filter_ep, err);

@@ -297,16 +297,16 @@ static void queue_hw_init(struct e10k_queue* q)
         DEBUG_VF("[%x] Setting up interrupts\n", n);
         uint8_t rxv, txv;
         // Look for interrupt vector
-        if (q->msix_intvec != 0) {
+        if (q->use_msix == true) {
 
             DEBUG_VF("[%x] Setting up MSI-X\n", n);
-            /*
+            /* TODO setup MSI-X
             if (q->msix_index == -1) {
                 setup_interrupt(&q->msix_index, q->msix_intdest,
                                 q->msix_intvec);
             }
-            */
             rxv = txv = q->msix_index;
+            */
         }
 
         // XXX. Please double check, this is against the original intention
@@ -329,7 +329,7 @@ static void queue_hw_init(struct e10k_queue* q)
             e10k_vf_vfivar_i_alloc3_wrf(d, i, txv);
             e10k_vf_vfivar_i_allocval3_wrf(d, i, 1);
         }
-        if (q->msix_intvec != 0) {
+        if (q->use_msix == true) {
             // Enable interrupt
             e10k_vf_vfeitr_wr(d, rxv / 32, (1 << (rxv % 32)));
         }

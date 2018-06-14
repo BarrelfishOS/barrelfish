@@ -504,6 +504,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
     q = malloc(sizeof(struct e10k_queue));
     assert(q);
     q->pci_function = 0; // TODO allow also function 1
+    q->use_msix = false; // TODO init MSI-X
 
     // txhwb
     if (use_vf) {
@@ -642,8 +643,8 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
         }
 
         err = q->binding->rpc_tx_vtbl.create_queue(q->binding, q->tx.mem, q->txhwb.mem,
-                                                   q->rx.mem, 2048, q->msix_intvec,
-                                                   q->msix_intdest, q->use_irq, false, qzero,
+                                                   q->rx.mem, 2048, disp_get_core_id(),
+                                                   q->use_irq, q->use_msix, false, qzero,
                                                    &q->mac, &qid,
                                                    &regs, &q->filter_ep, &err2);
 
