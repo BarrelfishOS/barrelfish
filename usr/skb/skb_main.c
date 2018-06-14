@@ -25,7 +25,7 @@
 #include "octopus/predicates.h"
 #include "shared_lib_dict.h"
 
-#define MEMORY_SIZE 256*1024*1024
+#define MEMORY_SIZE 32*1024*1024
 #define ECLIPSE_DIR "/skb"
 
 #define RESULT_BUF_SIZE 1024
