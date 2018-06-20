@@ -37,6 +37,7 @@
 
 #include <skb/skb.h>
 
+//#define SKB_QUERY_BENCHMARK
 
 errval_t new_reply_state(struct skb_reply_state** srs, rpc_reply_handler_fn reply_handler)
 {
@@ -249,16 +250,18 @@ static void run(struct skb_binding *b, const char *query)
 
     //debug_printf(">>>>>>>>>>>>>> QUERY START [%.20s]\n", query);
 
+#ifdef SKB_QUERY_BENCHMARK
     cycles_t time = bench_tsc();
-
+#endif
     err = execute_query(query, &srt->skb);
     assert(err_is_ok(err));
 
+#ifdef SKB_QUERY_BENCHMARK
     time = bench_tsc_to_us(bench_tsc() - time);
     if (time > 12000) {
         debug_printf("############## QUERY [%.25s]  elapsed %lu us\n", query, time);
     }
-
+#endif
 
     //debug_printf("<<<<<<<<<<<<<< QUERY END elapsed %lu us\n", time);
 
