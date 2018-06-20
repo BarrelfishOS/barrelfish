@@ -84,7 +84,7 @@ void driverkit_parse_namelist(char *in, struct hwmodel_name *names, int *convers
 
 
 // Disable using the model for allocation
-//#define DISABLE_MODEL
+#define DISABLE_MODEL
 
 #define HWMODEL_QUERY_DEBUG_ENABLED 1
 #if defined(HWMODEL_QUERY_DEBUG_ENABLED)

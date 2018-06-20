@@ -166,8 +166,11 @@ errval_t guest_vspace_map_wrapper(struct vspace *vspace, lvaddr_t vaddr,
     return err;
 }
 
+#ifdef DISABLE_MODEL
 #define GUEST_VSPACE_SIZE 1073741824UL // 1GB
-
+#else
+#define GUEST_VSPACE_SIZE (1ul<<32) // GB
+#endif
 static errval_t vspace_map_wrapper(lvaddr_t vaddr, struct capref frame,
                                    size_t size)
 {
@@ -228,6 +231,8 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
 
     // Allocate frame
     struct capref cap;
+
+#ifdef DISABLE_MODEL 
     int32_t node_id_self = driverkit_hwmodel_get_my_node_id();
     int32_t node_id_ram = driverkit_hwmodel_lookup_dram_node_id();
     int32_t nodes_data[] = {node_id_self, 0};
@@ -236,6 +241,16 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
     if (err_is_fail(err)) {
         return err;
     }
+
+#else 
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+    err = frame_create(cap, bytes, NULL);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_FRAME_CREATE);
+    }
+#endif
 
     // Map into the guest vspace
     err = guest_vspace_map_wrapper(&g->vspace, guest_paddr, cap, bytes);
@@ -529,13 +544,17 @@ spawn_guest_domain (struct guest *self) {
     // set up the guests physical address space
     self->mem_low_va = 0;
     // FIXME: Hardcoded guest memory size
-    self->mem_high_va = GUEST_VSPACE_SIZE;
     // allocate the memory used for real mode
     // This is not 100% necessary since one could also catch the pagefaults.
     // If we allocate the whole memory at once we use less caps and reduce
     // the risk run out of CSpace.
-
+#ifdef DISABLE_MODEL
+    self->mem_high_va = 0x80000000;
+    err = alloc_guest_mem(self, 0x0, 0x80000000);
+#else
+    self->mem_high_va = GUEST_VSPACE_SIZE;
     err = alloc_guest_mem(self, 0x0, GUEST_VSPACE_SIZE);
+#endif
     assert_err(err, "alloc_guest_mem");
 }
 
