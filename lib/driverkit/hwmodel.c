@@ -141,8 +141,8 @@ errval_t driverkit_hwmodel_ram_alloc(struct capref *dst,
 }
 
 errval_t driverkit_hwmodel_frame_alloc(struct capref *dst,
-                                                     size_t bytes, int32_t dstnode,
-                                                     int32_t *nodes)
+                                       size_t bytes, int32_t dstnode,
+                                       int32_t *nodes)
 {
 #ifdef DISABLE_MODEL
     if (dstnode != driverkit_hwmodel_lookup_dram_node_id()) {

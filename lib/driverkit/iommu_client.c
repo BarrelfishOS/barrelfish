@@ -163,9 +163,6 @@ static errval_t iommu_alloc_frame(struct iommu_client *cl,
 #define MAPPING_REGION_START (512UL << 31)
 #define MAPPING_REGION_SIZE (512UL << 30)
 
-#ifdef DISABLE_MODEL
-static lvaddr_t vregion_map_base = MAPPING_REGION_START;
-#endif
 /*
  * returns a region of memory
  */
