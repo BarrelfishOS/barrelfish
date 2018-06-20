@@ -328,10 +328,14 @@ errval_t xdma_service_init(struct xeon_phi *phi)
 #endif
 
     int32_t knc_socket_id;
+#ifdef XEON_PHI_USE_HW_MODEL
     err = xeon_phi_hw_model_lookup_nodeids(phi->nodeid, &knc_socket_id, NULL, NULL, NULL, NULL, NULL);
     if(err_is_fail(err)){
         return err;
     }
+#else
+   knc_socket_id = -1;   
+#endif
 
     struct xeon_phi_dma_device *dev;
     err = xeon_phi_dma_device_init(mmio_base, phi->iommu_client,

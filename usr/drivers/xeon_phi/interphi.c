@@ -1200,7 +1200,6 @@ errval_t interphi_init_xphi(uint8_t xphi,
         mi->fi.sendbase = id.base;
 
         XINTER_DEBUG("client mode: connecting to server. %s\n", __FUNCTION__);
-
         err = interphi_connect(&mi->fi, interphi_bind_cb, node,
                                ws, IDC_EXPORT_FLAGS_DEFAULT);
     } else {
@@ -1281,7 +1280,7 @@ errval_t interphi_init(struct xeon_phi *phi,
     size_t frame_size;
 
     if (capref_is_null(frame)) {
-#ifdef __k1om__
+#if defined(__k1om__) || !defined(XEON_PHI_USE_HW_MODEL)
         err = frame_alloc(&mi->frame, XEON_PHI_INTERPHI_FRAME_SIZE, &frame_size);
 #else
         int32_t knc_socket_id;
@@ -1373,13 +1372,16 @@ errval_t interphi_init(struct xeon_phi *phi,
     if (!phi->is_client) {
 
         genpaddr_t xphi_local_addr;
+#ifdef XEON_PHI_USE_HW_MODEL
         err = xeon_phi_hw_model_query_and_config(phi, mi->frame, &xphi_local_addr, NULL);
         if (err_is_fail(err)) {
             vspace_unmap(addr);
             cap_destroy(mi->frame);
             free(mi);
         }
-
+#else
+        xphi_local_addr = id.base;
+#endif
         struct xeon_phi_boot_params *bp;
         bp = (struct xeon_phi_boot_params *) (phi->apt.vbase + phi->os_offset);
         bp->msg_base = xphi_local_addr;

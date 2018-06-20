@@ -521,7 +521,9 @@ errval_t sysmem_cap_request(lpaddr_t base,
 
     // transform the address into the host memory range
     // XXX: we just hand in the correct base now.!
-    //base += base_offset;
+#if !defined(XEON_PHI_USE_HW_MODEL)
+    base += base_offset;
+#endif
 
     err = mm_alloc_range(&sysmem_manager, bits, base, base + (1UL << bits), frame,
                          NULL);
