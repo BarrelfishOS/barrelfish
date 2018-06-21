@@ -749,13 +749,34 @@ static errval_t create_mappable_cap(struct capref dest, enum objtype type,
  */
 errval_t vnode_create(struct capref dest, enum objtype type)
 {
-    if (!type_is_vnode(type)) {
-        return SYS_ERR_VNODE_TYPE;
+    errval_t err;
+
+    struct capref ram;
+
+    size_t objbits_vnode = vnode_objbits(type);
+    err = ram_alloc(&ram, objbits_vnode);
+    if (err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE && type != ObjType_VNode_ARM_l1) {
+        // can only get 4kB pages, cannot create ARM_l1, and waste 3kB for
+        // ARM_l2
+        err = ram_alloc(&ram, BASE_PAGE_BITS);
     }
-    return create_mappable_cap(dest, type, vnode_objbits(type), NULL);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_RAM_ALLOC);
+    }
+
+    assert(type_is_vnode(type));
+    err = cap_retype(dest, ram, 0, type, vnode_objsize(type), 1);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_RETYPE);
+    }
+
+    err = cap_destroy(ram);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DESTROY);
+    }
+
+    return SYS_ERR_OK;
 }
-
-
 
 /**
  * \brief Create a Frame cap referring to newly-allocated RAM in a given slot
