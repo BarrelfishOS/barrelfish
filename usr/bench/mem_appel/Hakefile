@@ -1,10 +1,10 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2015, ETH Zurich.
+-- Copyright (c) 2015, 2018, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
 -- If you do not find this file, copies can be found by writing to:
--- ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+-- ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
 --
 --
 --------------------------------------------------------------------------
@@ -17,6 +17,16 @@
                       cFiles = [ "vmpup.c" ],
                       addLibraries = libDeps [ "posixcompat"],
                       addCFlags = [ "-DDIRECT_INVOKE" ]
+                    },
+  build application { target = "benchmarks/mem_appel_ff",
+                      cFiles = [ "vmpup.c" ],
+                      addLibraries = libDeps [ "posixcompat"],
+                      addCFlags = [ "-DFULL_FLUSH" ]
+                    },
+  build application { target = "benchmarks/mem_appel_di_ff",
+                      cFiles = [ "vmpup.c" ],
+                      addLibraries = libDeps [ "posixcompat"],
+                      addCFlags = [ "-DFULL_FLUSH", "-DDIRECT_INVOKE" ]
                     },
   build application { target = "benchmarks/mem_appel_sf",
                       cFiles = [ "vmpup.c" ],

@@ -211,6 +211,7 @@ struct bf_mem {
     void           *vmem;
     struct memobj  *memobj;
     struct vregion *vregion;
+    struct capref mapping;
 };
 
 
@@ -238,6 +239,10 @@ bf_alloc_pages(struct bf_mem *bfmem, size_t npages)
         fprintf(stderr, "vspace_map: %s\n", err_getstring(err));
         abort();
     }
+    struct pmap *pmap = get_current_pmap();
+    struct pmap_mapping_info info;
+    pmap->f.lookup(pmap, (genvaddr_t)bfmem->vmem, &info);
+    bfmem->mapping = info.mapping;
     genvaddr_t mem = (genvaddr_t) bfmem->vmem;
     if (X86_64_PDIR_BASE(mem) != X86_64_PDIR_BASE(mem + retfsize - 1)) {
         debug_printf("WARN: mapping overlaps leaf pt!\n");
@@ -272,20 +277,25 @@ bf_protect(struct bf_mem *bfm, size_t off, size_t len,
 {
     //debug_printf("%s: off:%zd len:%zd flags:%u\n", __FUNCTION__, off, len, flags);
     errval_t err;
-    genvaddr_t va_hint = 0;
-    // full flush
+    size_t pages = len / pagesize;
+    // default flush: assisted for single page, full otherwise
+    genvaddr_t va_hint = pages == 1 ? (genvaddr_t)bfm->vmem + off : 0;
     pmap_selective_flush = 0;
 #if defined(SELECTIVE_FLUSH) && defined(SF_HINT)
-    // do hint-based selective flush
+    // always do hint-based selective flush
     va_hint = (genvaddr_t)bfm->vmem + off;
     pmap_selective_flush = 2;
 #elif defined(SELECTIVE_FLUSH)
-    // do computed selective flush
+    // always do computed selective flush
     va_hint = 1;
     pmap_selective_flush = 1;
+#elif defined(FULL_FLUSH)
+    // always do full flush
+    va_hint = 0;
+    pmap_selective_flush = 3;
 #endif
 #if defined(DIRECT_INVOKE)
-    err = invoke_frame_modify_flags(bfm->frame, off / pagesize, len / pagesize,
+    err = invoke_mapping_modify_flags(bfm->mapping, off / pagesize, len / pagesize,
             vregion_to_pmap_flag(flags), va_hint);
 #else
     // silence compiler about unused variable va_hint.
@@ -485,21 +495,24 @@ int main(int argc, char **argv)
     ticks6 = rdtsc();
     gettimeofday(&tod6, 0);
 
-    printf("OS:%s\n", osName);
-    printf("%28s: %6.1f (ticks/page) %d pages\n",
+    printf("appel_li: OS:%s\n", osName);
+    printf("appel_li: %28s: %6.1f (ticks/page) %d pages\n",
         "prot1+trap+unprot",
         (ticks5-ticks4)/(double)(ROUNDS*PAGES),
         PAGES);
 
-    printf("%28s: %6.1f (ticks/page) %d pages\n",
+    printf("appel_li: %28s: %6.1f (ticks/page) %d pages\n",
         "protN+trap+unprot",
         (ticks3-ticks2)/(double)(ROUNDS*PAGES),
         PAGES);
 
-    printf("%28s: %6.1f (ticks/page) %d traps\n",
+    printf("appel_li: %28s: %6.1f (ticks/page) %d traps\n",
         "trap only",
         (ticks6-ticks5)/(double)(TRAPS),
         TRAPS);
+
+    // For harness
+    printf("appel_li: done\n");
 
     /*
     printf("%4.3f & %6.3f & %6.3f & %% %7.1f add\n",
