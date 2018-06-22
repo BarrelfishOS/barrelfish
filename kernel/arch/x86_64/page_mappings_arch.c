@@ -770,6 +770,8 @@ errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
         return SYS_ERR_VNODE_TYPE;
     }
     assert(type_is_vnode(leaf_pt->cap.type));
+    // add first pte location from mapping cap to user supplied offset
+    offset += info->entry;
 
     errval_t err;
     err = generic_modify_flags(leaf_pt, offset, pages, flags);
