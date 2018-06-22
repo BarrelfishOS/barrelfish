@@ -64,10 +64,29 @@ static void wait_for_iommu(void)
     if (err_is_fail(err)) {
         goto out;
     }
-    
+
     if (len > 0) {
+
+        char* key;
         char* record;
-        debug_printf("Waiting for all iommus to start up \n");
+        uint64_t type, flags, segment, address, idx;
+        err = oct_get(&record, names[0]);
+        if (err_is_fail(err)) {
+            goto out;
+        }
+
+        err = oct_read(record, "%s { " HW_PCI_IOMMU_RECORD_FIELDS_READ " }",
+                       &key, &idx, &type, &flags, &segment, &address);
+        if (err_is_fail(err)) {
+            goto out;
+        }
+        
+        if (type == HW_PCI_IOMMU_DMAR_FAIL) {
+            debug_printf("Reading DMAR failed, not waiting for iommus \n");
+            goto out;
+        }
+
+        debug_printf("Waiting for all iommus to start up (num_iommu=%d) \n", len);
         err = oct_barrier_enter("barrier.iommu", &record ,2);
         if (err_is_fail(err)) {
             goto out;    

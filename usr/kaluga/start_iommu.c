@@ -181,10 +181,25 @@ errval_t watch_for_iommu(void)
         return err;
     }
 
+    char* record;
+    uint64_t type, flags, segment, address, idx;
     for (int i = 0; i < len; i++) {
         err = oct_get(&record, names[i]);
         if (err_is_fail(err)) {
             goto out;
+        }
+
+        err = oct_read(record, "%s { " HW_PCI_IOMMU_RECORD_FIELDS_READ " }",
+                       &key, &idx, &type, &flags, &segment, &address);
+        if (err_is_fail(err)) {
+            goto out;
+        }
+        
+        if (type == HW_PCI_IOMMU_DMAR_FAIL) {
+            // Failed reading DMAR 
+            debug_printf("######## Stop watching for IOMMU as DMAR reading failed\n");
+            len = 0;
+            break;
         }
 
         iommu_change_event(OCT_ON_SET, record, NULL);

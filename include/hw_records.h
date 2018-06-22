@@ -68,10 +68,11 @@
  */
 
 typedef enum {
-    HW_PCI_IOMMU_UNKNOWN = 0,
-    HW_PCI_IOMMU_INTEL   = 1,
-    HW_PCI_IOMMU_AMD     = 2,
-    HW_PCI_IOMMU_ARM     = 3
+    HW_PCI_IOMMU_UNKNOWN    = 0,
+    HW_PCI_IOMMU_INTEL      = 1,
+    HW_PCI_IOMMU_AMD        = 2,
+    HW_PCI_IOMMU_ARM        = 3,
+    HW_PCI_IOMMU_DMAR_FAIL  = 4
 } hw_pci_iommu_t;
 
 #define HW_PCI_IOMMU_RECORD_FIELDS \
