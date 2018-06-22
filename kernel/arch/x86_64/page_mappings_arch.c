@@ -871,9 +871,9 @@ void paging_dump_tables_around(struct dcb *dispatcher, lvaddr_t vaddr)
             if (pt->huge.always1) {
                 // is huge page mapping
                 genpaddr_t paddr = (genpaddr_t)pt->huge.base_addr << HUGE_PAGE_BITS;
-                printf("%d.%d: 0x%"PRIxGENPADDR" (%d %d %d)\n", pdpt_index,
+                printf("%d.%d: 0x%"PRIxGENPADDR" (%d %d %d), raw=0x%"PRIx64"\n", pdpt_index,
                         pdir_index, paddr, pt->huge.read_write,
-                        pt->huge.dirty, pt->huge.accessed);
+                        pt->huge.dirty, pt->huge.accessed, pt->raw);
                 // goto next pdpt entry
                 continue;
             } else {
@@ -895,9 +895,10 @@ void paging_dump_tables_around(struct dcb *dispatcher, lvaddr_t vaddr)
                 if (pt->large.always1) {
                     // is large page mapping
                     genpaddr_t paddr = (genpaddr_t)pt->large.base_addr << LARGE_PAGE_BITS;
-                    printf("%d.%d.%d: 0x%"PRIxGENPADDR" (%d %d %d)\n",
+                    printf("%d.%d.%d: 0x%"PRIxGENPADDR" (%d %d %d), raw=0x%"PRIx64"\n",
                             pdpt_index, pdir_index, ptable_index, paddr,
-                            pt->large.read_write, pt->large.dirty, pt->large.accessed);
+                            pt->large.read_write, pt->large.dirty,
+                            pt->large.accessed, pt->raw);
                     // goto next pdir entry
                     continue;
                 } else {
