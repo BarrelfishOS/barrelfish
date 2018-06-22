@@ -86,7 +86,7 @@ static void wait_for_iommu(void)
             goto out;
         }
 
-        debug_printf("Waiting for all iommus to start up (num_iommu=%d) \n", len);
+        debug_printf("Waiting for all iommus to start up (num_iommu=%zu) \n", len);
         err = oct_barrier_enter("barrier.iommu", &record ,2);
         if (err_is_fail(err)) {
             goto out;    

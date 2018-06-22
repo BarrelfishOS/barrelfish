@@ -174,7 +174,6 @@ errval_t watch_for_iommu(void)
     errval_t err;
     char** names;
     size_t len = 0;
-    char* record;
 
     err = oct_get_names(&names, &len, HW_PCI_IOMMU_RECORD_REGEX);
     if (err_is_fail(err)) {
@@ -182,6 +181,7 @@ errval_t watch_for_iommu(void)
     }
 
     char* record;
+    char* key;
     uint64_t type, flags, segment, address, idx;
     for (int i = 0; i < len; i++) {
         err = oct_get(&record, names[i]);
