@@ -403,7 +403,7 @@ errval_t acpi_parse_dmar(void)
     if(ACPI_FAILURE(as)) {
         debug_printf("No DMAR found in ACPI! Cannot initialize IO MMUs.\n");
 
-        return oct_mset(SET_SEQUENTIAL, HW_PCI_IOMMU_RECORD_FORMAT, 0, HW_PCI_IOMMU_DMAR_FAIL,
+        return oct_mset(SET_SEQUENTIAL, HW_PCI_IOMMU_RECORD_FORMAT, HW_PCI_IOMMU_INTEL, 0,
                         0, 0);
 
         return ACPI_ERR_OBJECT_NOT_FOUND;
