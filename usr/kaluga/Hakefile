@@ -30,7 +30,7 @@ let commonCFiles = [ "boot_modules.c",
                                                "spawndomain", "elf", "mm",
                                                "trace", "int_route_client",
                                                "acpi_client", "collections",
-                                               "driverkit", "pci" ],
+                                               "driverkit", "pci" , "queue_service"],
 
                       architectures = [ "x86_64", "x86_32" ] },
   build application { target = "kaluga",
