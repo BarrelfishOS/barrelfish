@@ -65,4 +65,18 @@ errval_t queue_serivce_add_ep_factory(struct queue_service_state* st,
                                       coreid_t core,
                                       struct driver_instance* factory);
 
+
+/**
+ * @brief Create an endpoint to the queue service itself
+ *
+ * @param st            service state handle
+ * @param core          core on which the program requesting the ep runs
+ * @param ep            returend endpoint of this queue service
+ *
+ * @return SYS_ERR_OK on sucess, errval on failure
+ */
+errval_t queue_service_create_self_ep(struct queue_service_state* st, 
+                                      coreid_t core,
+                                      struct capref* ep);
+
 #endif /* QUEUE_SERIVCE_INCLUDE_H_ */

@@ -1301,6 +1301,10 @@ errors sfn NIC_ERR_{
 errors queue QSERVICE_ERR_{
     failure NAME                 "Name too long",
     failure ALREADY_ADDED        "EP factory already added",
+    failure NOT_FOUND            "Could not request EP with given name",
+    failure NO_VALID_EP          "No valid EP could not initalized client",
+    failure INVALID_CLIENT       "Invalid client struct",
+    failure INVALID_SERVICE      "Invalid service struct",
 }; 
 
 errors psci PSCI_ERR_{
