@@ -172,7 +172,6 @@ static errval_t boot_cores(void)
     } else {
         arg[2] = "1:3";
         cores_count = 4;
-
     }
     arg[3] = NULL;
 
@@ -300,11 +299,11 @@ int main(int argc,
     }
 
     /*
-    err = xdma_service_init(&xphi);
+    err = xdma_service_init(xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize the dma engine.\n");
     }
-     */
+    */    
 
     err = smpt_init(xphi);
     if (err_is_fail(err)) {
@@ -338,7 +337,7 @@ int main(int argc,
     while (1) {
         messages_wait_and_handle_next();
 
-        //xeon_phi_event_poll(1);
+        //xeon_phi_event_poll(xphi, 1);
     }
 
     XDEBUG("Messaging loop terminated...\n");
