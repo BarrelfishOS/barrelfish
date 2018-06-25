@@ -27,9 +27,7 @@
 #include <if/queue_service_defs.h>
 
 #include "debug.h"
-#define DEFAULT_SERVICE_NAME "queue_service"
-#define MAX_NAME_LEN 256
-
+#include "qs_internal.h"
 
 struct queue_service_state {
     char* name;
@@ -125,7 +123,7 @@ static errval_t request_queue_by_name_rpc(struct queue_service_binding *b,
                                                                    check_name_part, (char*) name);
 
     if (factory_ep == NULL) {
-        *err = DRIVERKIT_ERR_NO_DRIVER_FOUND;
+        *err = QSERVICE_ERR_NOT_FOUND;
         return *err;
     }
 
@@ -151,13 +149,13 @@ static void request_queue_by_name(struct queue_service_binding *b, const char* n
     assert(err_is_ok(err));
 }
 
-static const struct queue_service_rx_vtbl rx_vtbl = {
+static struct queue_service_rx_vtbl rx_vtbl = {
     .request_queue_call = request_queue,
     .request_queue_with_constraints_call = request_queue_with_constraints,
     .request_queue_by_name_call = request_queue_by_name
 };
 
-static const struct queue_service_rpc_rx_vtbl rpc_rx_vtbl = {
+static struct queue_service_rpc_rx_vtbl rpc_rx_vtbl = {
     .request_queue_call = request_queue_rpc,
     .request_queue_with_constraints_call = request_queue_with_constraints_rpc,
     .request_queue_by_name_call = request_queue_by_name_rpc
@@ -222,7 +220,6 @@ errval_t queue_service_init(struct queue_service_state** state, char* name)
     errval_t err = queue_service_export(st, export_cb, connect_cb,
                                         get_default_waitset(), 
                                         IDC_EXPORT_FLAGS_DEFAULT);
-
     if (err_is_fail(err)) {
         free(st);
         return err;
@@ -247,14 +244,18 @@ errval_t queue_service_init(struct queue_service_state** state, char* name)
  */
 errval_t queue_service_init_default(struct queue_service_state** st)
 {
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: calling init default \n", __FILE__, __FUNCTION__, __LINE__);
     return queue_service_init(st, NULL);
 }
 
 /**
- * @brief initializes the queue service with a provided name
+ * @brief Adds an endpoint factory to the queue service. The queu service can
+ *        request endpoints form these factories which represent connectons
+ *        to drivers on which a single queue can be requested.
  *
  * @param st            service state handle
  * @param name          factory name
+ * @param core          core id on which the factory is running
  * @param factory       driver_instance struct of a endpoint factory 
  *                      (normally only available in kaluga)
  *
@@ -269,19 +270,54 @@ errval_t queue_serivce_add_ep_factory(struct queue_service_state* st,
         return QSERVICE_ERR_NAME;
     }
 
+
     struct ep_factory_state* epf_state = slab_alloc(&st->alloc);
  
     // check if aleady in list
     void* item = collections_list_find_if(st->ep_factory_list, check_name_full, 
                                           factory_name);   
     if (item == NULL) {
+        QUEUE_SERVICE_DEBUG("%s:%s:%d: Add factory ep %s\n", __FILE__, __FUNCTION__, __LINE__, factory_name);
         strncpy(epf_state->name, factory_name, strlen(factory_name));
         epf_state->factory_ep = factory;
         epf_state->core = core;
         collections_list_insert_tail(st->ep_factory_list, epf_state);
     } else {
+        QUEUE_SERVICE_DEBUG("%s:%s:%d: Already have an ep: %s\n", __FILE__, __FUNCTION__, __LINE__, factory_name);
         return QSERVICE_ERR_ALREADY_ADDED;
     }
 
     return SYS_ERR_OK;
+};
+
+
+/**
+ * @brief Create an endpoint to the queue service itself
+ *
+ * @param st            service state handle
+ * @param core          core on which the program requesting the ep runs
+ * @param ep            returend endpoint of this queue service
+ *
+ * @return SYS_ERR_OK on sucess, errval on failure
+ */
+errval_t queue_service_create_self_ep(struct queue_service_state* st, 
+                                      coreid_t core,
+                                      struct capref* ep)
+{   
+    if (st == NULL) {
+        return QSERVICE_ERR_INVALID_SERVICE;
+    }
+
+    errval_t err;
+    struct queue_service_binding* b;
+   
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: Create self ep\n", __FILE__, __FUNCTION__, __LINE__);
+    err = queue_service_create_endpoint(core == disp_get_core_id()? 
+                                        IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                                        &rx_vtbl, st,
+                                        get_default_waitset(),
+                                        IDC_ENDPOINT_FLAGS_DUMMY,
+                                        &b, *ep);
+    
+    return err;
 };

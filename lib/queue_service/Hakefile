@@ -8,7 +8,8 @@
 --
 -- Hakefile for lib/queue_service
 --
--- Provides common a library to instantiate a queue service.
+-- Provides common a library to instantiate a queue service and the
+-- corrsponding client library. 
 --
 --------------------------------------------------------------------------
 
@@ -26,6 +27,21 @@
             ("queue_service", ["rpcclient"])
         ],
         addLibraries = [ "collections", "skb" ],
-        cFiles = (find withSuffices [ ".c" ])
+        cFiles = [ "service.c" ]
+    },
+
+    build library {
+        target = "queue_service_client",
+        flounderDefs = [
+            "queue_service"
+        ],
+        flounderBindings = [
+            "queue_service"
+        ],
+
+        flounderExtraBindings = [
+            ("queue_service", ["rpcclient"])
+        ],
+        cFiles = [ "client.c" ]
     }
 ]
