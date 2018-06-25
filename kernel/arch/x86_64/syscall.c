@@ -253,6 +253,23 @@ static struct sysret handle_resize(struct capability *root,
     return sys_resize_l1cnode(root, newroot_ptr, retcn_ptr, retslot);
 }
 
+static struct sysret handle_cap_identify(struct capability *root,
+                                         int cmd, uintptr_t *args)
+{
+    capaddr_t cptr = args[0];
+    uint8_t  level = args[1];
+    // XXX: access
+    struct capability *cap = (struct capability*)args[2];
+    struct capability *thecap;
+    errval_t err;
+    err = caps_lookup_cap(root, cptr, level, &thecap, CAPRIGHTS_ALLRIGHTS);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+    memcpy(cap, thecap, sizeof(*cap));
+    return SYSRET(SYS_ERR_OK);
+}
+
 static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
 {
@@ -1368,6 +1385,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_GetState] = handle_get_state,
         [CNodeCmd_GetSize] = handle_get_size,
         [CNodeCmd_Resize] = handle_resize,
+        [CNodeCmd_CapIdentify] = handle_cap_identify,
     },
     [ObjType_L2CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -1378,6 +1396,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Revoke] = handle_revoke,
         [CNodeCmd_GetState] = handle_get_state,
         [CNodeCmd_Resize] = handle_resize,
+        [CNodeCmd_CapIdentify] = handle_cap_identify,
     },
     [ObjType_VNode_x86_64_pml4] = {
         [VNodeCmd_Identify] = handle_vnode_identify,

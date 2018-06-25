@@ -29,6 +29,7 @@
 #include <barrelfish/dispatch.h>
 #include "target/x86/pmap_x86.h"
 #include <stdio.h>
+#include <barrelfish/cap_predicates.h>
 
 // For tracing
 #include <trace/trace.h>
@@ -374,8 +375,14 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     bool debug_out    = false;
 
     // get base address and size of frame
+    struct capability cap;
+    err = cap_direct_identify(frame, &cap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
+    }
     struct frame_identity fi;
-    err = frame_identify(frame, &fi);
+    fi.base = get_address(&cap);
+    fi.bytes = get_size(&cap);
     if (err_is_fail(err)) {
         trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DO_MAP, 1);
         return err_push(err, LIB_ERR_PMAP_DO_MAP);
@@ -711,11 +718,14 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     errval_t err;
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
 
-    struct frame_identity fi;
-    err = frame_identify(frame, &fi);
+    struct capability cap;
+    err = cap_direct_identify(frame, &cap);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
     }
+    struct frame_identity fi;
+    fi.base = get_address(&cap);
+    fi.bytes = get_size(&cap);
 
     size_t max_slabs;
     // Adjust the parameters to page boundaries

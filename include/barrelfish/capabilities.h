@@ -250,4 +250,9 @@ static inline errval_t frame_identify(struct capref frame, struct frame_identity
     return err;
 }
 
+static inline errval_t cap_direct_identify(struct capref cap, struct capability *ret)
+{
+    return invoke_cap_identify(cap, ret);
+}
+
 #endif //INCLUDEBARRELFISH_CAPABILITIES_H

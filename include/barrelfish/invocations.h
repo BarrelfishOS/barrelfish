@@ -220,6 +220,15 @@ static inline errval_t invoke_frame_identify(struct capref frame,
     return sysret.error;
 }
 
+static inline errval_t invoke_cap_identify(struct capref cap,
+                                           struct capability *ret)
+{
+    struct capref croot = get_croot_capref(cap);
+    return cap_invoke4(croot, CNodeCmd_CapIdentify,
+                       get_cap_addr(cap), get_cap_level(cap),
+                       (uintptr_t)ret).error;
+}
+
 static inline errval_t invoke_vnode_identify(struct capref vnode,
 					     struct vnode_identity *ret)
 {

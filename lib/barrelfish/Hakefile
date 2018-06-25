@@ -127,7 +127,8 @@ in
                                               ("arrakis", ["rpcclient"])],
                     addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
                     addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ],
-                    addGeneratedDependencies = [ "/include/asmoffsets.h" ]
+                    addGeneratedDependencies = [ "/include/asmoffsets.h" ],
+                    addLibraries = ["cap_predicates"]
                   }
  ) | arch <- allArchitectures ] ++
 [(let arch_dir = "arch" </> archFamily arch

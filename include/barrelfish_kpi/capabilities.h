@@ -402,6 +402,7 @@ enum cnode_cmd {
     CNodeCmd_GetState,  ///< Get distcap state for capability
     CNodeCmd_GetSize,   ///< Get Size of CNode, only applicable for L1 Cnode
     CNodeCmd_Resize,    ///< Resize CNode, only applicable for L1 Cnode
+    CNodeCmd_CapIdentify ///< Identify capability
 };
 
 enum vnode_cmd {
