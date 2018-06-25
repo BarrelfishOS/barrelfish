@@ -7,6 +7,13 @@ import sys, re, numpy, os, datetime
 class AppelLiBench(TestCommon):
     '''Benchmark GC primitives with Appel Li benchmark'''
 
+    bench_core = 4
+
+    def setup(self, build, machine, testdir):
+        # gracefully handle machines with < 5 cores
+        if machine.get_ncores() < self.bench_core:
+            self.bench_core = machine.get_ncores() - 1
+
     def get_finish_string(self):
         return "appel_li: done"
 
@@ -44,7 +51,7 @@ class AppelLiDefault(AppelLiBench):
 
     def get_modules(self, build, machine):
         modules = super(AppelLiDefault, self).get_modules(build, machine)
-        modules.add_module("benchmarks/mem_appel")
+        modules.add_module("benchmarks/mem_appel", ["core=%d" % self.bench_core])
         return modules
 
 @tests.add_test
@@ -53,7 +60,7 @@ class AppelLiDefaultDI(AppelLiBench):
 
     def get_modules(self, build, machine):
         modules = super(AppelLiDefaultDI, self).get_modules(build, machine)
-        modules.add_module("benchmarks/mem_appel_di")
+        modules.add_module("benchmarks/mem_appel_di", [["core=%d" % self.bench_core]])
         return modules
 
 @tests.add_test
@@ -62,7 +69,7 @@ class AppelLiFull(AppelLiBench):
 
     def get_modules(self, build, machine):
         modules = super(AppelLiFull, self).get_modules(build, machine)
-        modules.add_module("benchmarks/mem_appel_ff")
+        modules.add_module("benchmarks/mem_appel_ff", ["core=%d" % self.bench_core])
         return modules
 
 @tests.add_test
@@ -71,7 +78,7 @@ class AppelLiFullDI(AppelLiBench):
 
     def get_modules(self, build, machine):
         modules = super(AppelLiFullDI, self).get_modules(build, machine)
-        modules.add_module("benchmarks/mem_appel_di_ff")
+        modules.add_module("benchmarks/mem_appel_di_ff", ["core=%d" % self.bench_core])
         return modules
 
 @tests.add_test
@@ -80,7 +87,7 @@ class AppelLiSelective(AppelLiBench):
 
     def get_modules(self, build, machine):
         modules = super(AppelLiSelective, self).get_modules(build, machine)
-        modules.add_module("benchmarks/mem_appel_sf")
+        modules.add_module("benchmarks/mem_appel_sf", ["core=%d" % self.bench_core])
         return modules
 
 @tests.add_test
@@ -89,7 +96,7 @@ class AppelLiSelectiveDI(AppelLiBench):
 
     def get_modules(self, build, machine):
         modules = super(AppelLiSelectiveDI, self).get_modules(build, machine)
-        modules.add_module("benchmarks/mem_appel_di_sf")
+        modules.add_module("benchmarks/mem_appel_di_sf", ["core=%d" % self.bench_core])
         return modules
 
 @tests.add_test
@@ -98,7 +105,7 @@ class AppelLiSelectiveHint(AppelLiBench):
 
     def get_modules(self, build, machine):
         modules = super(AppelLiSelectiveHint, self).get_modules(build, machine)
-        modules.add_module("benchmarks/mem_appel_sfh")
+        modules.add_module("benchmarks/mem_appel_sfh", ["core=%d" % self.bench_core])
         return modules
 
 @tests.add_test
@@ -107,5 +114,5 @@ class AppelLiSelectiveHintDI(AppelLiBench):
 
     def get_modules(self, build, machine):
         modules = super(AppelLiSelectiveHintDI, self).get_modules(build, machine)
-        modules.add_module("benchmarks/mem_appel_di_sfh")
+        modules.add_module("benchmarks/mem_appel_di_sfh", ["core=%d" % self.bench_core])
         return modules
