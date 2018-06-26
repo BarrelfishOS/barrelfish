@@ -53,7 +53,8 @@ struct device_caps
 };
 
 struct device_caps dev_caps[PCI_NBUSES][PCI_NDEVICES][PCI_NFUNCTIONS][PCI_NBARS];
-const char *skb_bridge_program = "bridge_page";
+//const char *skb_bridge_program = "bridge_page";
+const char *skb_bridge_program = "bridge_bios";
 bool decoding_net = false;
 uint16_t max_numvfs = 255;
 bool enable_vfs = false;
@@ -1710,6 +1711,7 @@ void pci_program_bridges(void)
     char bridge_program[512];
     // bridge program itself already has been loaded before
     // decoding net has dependency to some infos of it
+    debug_printf("PCI programming using: %s \n", skb_bridge_program);
     snprintf(bridge_program, 512, "bridge_programming(P, Nr),"
              "flatten(P, F),replace_current_BAR_values(F),"
              "write(nrelements(Nr)),writeln(P).");
