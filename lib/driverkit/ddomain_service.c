@@ -98,19 +98,19 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
         inst->argv[0] = NULL;
     }
     if (a2len) {
-        strncpy(inst->_argv[1], a1, sizeof(inst->_argv[1]));
+        strncpy(inst->_argv[1], a2, sizeof(inst->_argv[1]));
         inst->argv[inst->argc++] = inst->_argv[1];
     } else {
         inst->argv[1] = NULL;
     }
     if (a3len) {
-        strncpy(inst->_argv[2], a1, sizeof(inst->_argv[2]));
+        strncpy(inst->_argv[2], a3, sizeof(inst->_argv[2]));
         inst->argv[inst->argc++] = inst->_argv[2];
     } else {
         inst->argv[2] = NULL;
     }
-    if (a3len) {
-        strncpy(inst->_argv[3], a1, sizeof(inst->_argv[3]));
+    if (a4len) {
+        strncpy(inst->_argv[3], a4, sizeof(inst->_argv[3]));
         inst->argv[inst->argc++] = inst->_argv[3];
     } else {
         inst->argv[3] = NULL;
@@ -192,19 +192,19 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
         inst->argv[0] = NULL;
     }
     if (a2len) {
-        strncpy(inst->_argv[1], a1, sizeof(inst->_argv[1]));
+        strncpy(inst->_argv[1], a2, sizeof(inst->_argv[1]));
         inst->argv[inst->argc++] = inst->_argv[1];
     } else {
         inst->argv[1] = NULL;
     }
     if (a3len) {
-        strncpy(inst->_argv[2], a1, sizeof(inst->_argv[2]));
+        strncpy(inst->_argv[2], a3, sizeof(inst->_argv[2]));
         inst->argv[inst->argc++] = inst->_argv[2];
     } else {
         inst->argv[2] = NULL;
     }
     if (a3len) {
-        strncpy(inst->_argv[3], a1, sizeof(inst->_argv[3]));
+        strncpy(inst->_argv[3], a4, sizeof(inst->_argv[3]));
         inst->argv[inst->argc++] = inst->_argv[3];
     } else {
         inst->argv[3] = NULL;
