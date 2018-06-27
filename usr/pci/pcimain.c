@@ -69,7 +69,7 @@ static errval_t init_decoding_net(void)
     PCI_DEBUG("PCI: Loading bridge program %s\n", skb_bridge_program);
     err = skb_execute_query("[%s]", skb_bridge_program);
     if (err_is_fail(err)) {
-        DEBUG_SKB_ERR("Failed loading brige program \n");
+        DEBUG_SKB_ERR(err, "Failed loading brige program \n");
         return err;
     }
 
