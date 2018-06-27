@@ -205,16 +205,13 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
 
     struct driver_instance* drv = ddomain_create_driver_instance(arg->module_name, oct_id);
 
-    char *args[4] = {NULL, NULL, NULL, NULL};
-    int args_len = 0;
-
     // Build interrupt argument
     char * int_arg_str = NULL;
     if(arg != NULL && arg->int_arg.model != 0){
         // This mallocs int_arg_str
         int_startup_argument_to_string(&(arg->int_arg), &int_arg_str);
         KALUGA_DEBUG("Adding int_arg_str: %s\n", int_arg_str);
-        args[args_len++] = int_arg_str;
+        argv_push(&argc, &argv, int_arg_str);
     }
 
     // Build PCI address argument
@@ -224,9 +221,7 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
     pci_serialize_octet(addr, id, cls, pci_arg_str + strlen("pci="));
     argv_push(&argc, &argv, pci_arg_str);
 
-    args[args_len++] = pci_arg_str;
-
-    drv->args = args;
+    drv->args = argv;
     drv->argcn_cap = arg->arg_caps;
 
     drv->caps[0] = arg->arg_caps; // Interrupt cap
