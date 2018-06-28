@@ -82,7 +82,7 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
     if (!capref_is_null(cap5)) {
         inst->caps[inst->capc++] = cap5;
     }
-    if (!capref_is_null(cap5)) {
+    if (!capref_is_null(cap6)) {
         inst->caps[inst->capc++] = cap6;
     }
 
@@ -210,7 +210,6 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
         inst->argv[3] = NULL;
     }
 
-    struct capref ctrl;
     err = slot_alloc(&inst->ctrl);
     if (err_is_fail(err)){
         DEBUG_ERR(err, "Instantiating driver failed, report this back to Kaluga."
@@ -220,8 +219,6 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
         goto send_reply;
     }
 
-    ctrl = inst->ctrl;
-
     DRIVERKIT_DEBUG("Instantiate driver\n");
     err = driverkit_create_driver(cls, inst, flags, &dev, &inst->ctrl);
     if (err_is_fail(err)) {
@@ -230,14 +227,12 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
         cap_destroy(inst->argcn_cap);
         slot_free(inst->ctrl);
         free(inst);
-        ctrl = NULL_CAP;
     }
 
     send_reply:
 
-    if (err)
     DRIVERKIT_DEBUG("sending create response to kaluga\n");
-    err = ddomain_create_with_argcn_response__tx(binding, NOP_CONT, dev, ctrl,
+    err = ddomain_create_with_argcn_response__tx(binding, NOP_CONT, dev, inst->ctrl,
                                                  err);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Sending reply failed.\n");
@@ -294,7 +289,6 @@ static void rpc_bind_cb(void *st, errval_t err, struct ddomain_binding *b)
     DRIVERKIT_DEBUG("Driver domain has connected to ddomain controller service.\n");
     rpc_bind.binding = b;
     rpc_bind.binding->rx_vtbl = rpc_rx_vtbl;
-
 out:
     assert(!rpc_bind.is_done);
     rpc_bind.is_done = true;
