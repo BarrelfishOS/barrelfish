@@ -253,23 +253,24 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     /* signal for the test */
     debug_printf("Xeon Phi operational: %s\n", buf);
 
-    XDEBUG("initialization done. Going into main message loop\n");
 
     // 2. Export service to talk to the device:
 
     // 3. Set iref of your exported service (this is reported back to Kaluga)
-    *dev = 0x00;
+    *dev = 0x0;
 
-    xphi->next = phis;
-    phis = xphi;
-    if (xphi->next == NULL) {
-        xphi->next = xphi;
+    
+    struct xeon_phi *tmp = phis;
+    while(tmp->next != NULL) {
+        tmp = tmp->next;
     }
+    tmp->next = xphi;
 
+    XDEBUG("initialization done. \n");
     return SYS_ERR_OK;
-    err_out2:
+err_out2:
     driverkit_iommu_client_disconnect_cl(xphi->iommu_client);
-    err_out:
+err_out:
     free(xphi);
     return err;
 }

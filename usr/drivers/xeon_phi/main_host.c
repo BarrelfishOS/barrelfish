@@ -189,6 +189,10 @@ int main(int argc, char *argv[])
     while(true) {
         xeon_phi_event_poll(phi, true);
         phi = phi->next;
+        if (phi == NULL) {
+            // start at beginning
+            phi = phis;
+        }
     }
 
 
