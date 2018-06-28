@@ -68,6 +68,8 @@
 
 #define XEON_PHI_MEM_MASK 0xFFFFFFFFFFULL
 
+//#define XEON_PHI_USE_HW_MODEL
+
 /**
  * layout of the boot parameter data structure
  *

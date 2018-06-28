@@ -46,7 +46,6 @@ struct iommu_client;
 #define XEON_PHI_IS_CLIENT 0x0
 #define XEON_PHI_IS_HOST   0x1
 
-//#define XEON_PHI_USE_HW_MODEL
 /*
  * This defines are used to reference the MMIO registers on the host side.
  *
