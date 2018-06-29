@@ -43,6 +43,7 @@ coreid_t my_core_id = 0;  // Core ID
 uint32_t my_arch_id = 0;  // APIC ID
 struct pci_addr eth0 = {0xff, 0xff, 0xff};
 size_t cpu_count = 0;
+struct queue_service_state* qs;
 
 static void add_start_function_overrides(void)
 {
@@ -137,6 +138,13 @@ int main(int argc, char** argv)
     err = init_int_caps_manager(all_irq_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "init device caps manager");
+    }
+
+    KALUGA_DEBUG("Kaluga: initializing queue endpoint service\n");
+    // startup queue service so endpoints to drivers can be requested
+    err = queue_service_init(&qs, NULL);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "init queue service");
     }
 
     err = arch_startup(add_device_db_file);

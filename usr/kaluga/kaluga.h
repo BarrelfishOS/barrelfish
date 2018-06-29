@@ -4,6 +4,7 @@
 #include <barrelfish/barrelfish.h>
 #include <octopus/octopus.h>
 #include <driverkit/driverkit.h>
+#include <queue_service/queue_service.h>
 
 #include "queue.h"
 #include "debug.h"
@@ -14,6 +15,7 @@ extern coreid_t my_core_id;
 extern uint32_t my_arch_id;
 extern struct pci_addr eth0;
 extern char **environ;
+extern struct queue_service_state* qs;
 
 #include "boot_modules.h"
 #include "start_pci.h"
