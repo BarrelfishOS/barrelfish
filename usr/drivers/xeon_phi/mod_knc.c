@@ -60,6 +60,7 @@ extern char *xeon_phi_mod_list;
 extern struct xeon_phi *phis;
 
 bool started = false;
+uint8_t num_xphi = 0;
 
 
 static errval_t add_xeon_phi_model_nodes(int32_t nodeid, int32_t *newnodeid) {
@@ -117,13 +118,18 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
         debug_printf("[knc] skipping initialization of second knc\n");
         return SYS_ERR_OK;
     }
+#if defined(XEON_PHI_USE_HW_MODEL)
+    // TODO HW model
     started = true;
+#endif
 
     /* allocate the Xeon Phi state */
     struct xeon_phi *xphi = calloc(1, sizeof(*xphi));
     if (xphi == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
+    xphi->id = num_xphi;
+    num_xphi++;
 
     struct capref iommuep;
 
@@ -259,12 +265,15 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t* dev)
     // 3. Set iref of your exported service (this is reported back to Kaluga)
     *dev = 0x0;
 
-    
     struct xeon_phi *tmp = phis;
-    while(tmp->next != NULL) {
-        tmp = tmp->next;
+    if (phis == NULL) {
+        phis = xphi;
+    } else {
+        while(tmp->next != NULL) {
+            tmp = tmp->next;
+        }
+        tmp->next = xphi;
     }
-    tmp->next = xphi;
 
     XDEBUG("initialization done. \n");
     return SYS_ERR_OK;
