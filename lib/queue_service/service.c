@@ -261,7 +261,7 @@ errval_t queue_service_init_default(struct queue_service_state** st)
  *
  * @return SYS_ERR_OK on sucess, errval on failure
  */
-errval_t queue_serivce_add_ep_factory(struct queue_service_state* st, 
+errval_t queue_service_add_ep_factory(struct queue_service_state* st, 
                                       char* factory_name,
                                       coreid_t core,
                                       struct driver_instance* factory)
