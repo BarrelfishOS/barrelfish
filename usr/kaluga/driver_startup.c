@@ -262,8 +262,16 @@ static errval_t get_driver_ep(coreid_t where, struct module_info* driver,
     return SYS_ERR_OK;
 }
 
+static struct driver_instance* get_driver_instance(struct module_info* driver, 
+                                                   char* oct_id)
+{
+     return collections_list_find_if(driver->driverinstance->spawned, 
+                                     predicate, oct_id);
+
+}
+
 /**
- * \brief Startup function for new-style ARMv7 drivers.
+ * \brief Startup function for new-style x86 drivers for NICs.
  *
  * Launches the driver instance in a driver domain instead.
  */
@@ -292,7 +300,30 @@ errval_t start_networking_new(coreid_t where,
         return err;
     }
 
+    // TODO: Determine cls here as well
+    struct pci_class cls = {0,0,0};
+    int64_t vendor_id, device_id, bus, dev, fun;
+    char* oct_id;
+    err = oct_read(record, "%s { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                    &oct_id, &bus, &dev, &fun,
+                    &vendor_id, &device_id);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Parsing record %s failed.", record);
+        return err;
+    }
 
+    // add way to request endpoint through service
+    struct driver_instance* drv = get_driver_instance(driver, oct_id);
+    if (drv != NULL) {
+        char qf_name[256];
+        sprintf(qf_name, "%s:%"PRIu64":%"PRIu64":%"PRIu64"", driver->binary, bus, dev, fun); 
+
+        err = queue_service_add_ep_factory(qs, qf_name, where, drv);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Could not add EP factory (%s) to queue service.", qf_name);
+            return err;
+        }
+    }
     if (!is_started(driver)) {
         // cards with driver in seperate process TODO might put into same process
         struct module_info* net_sockets = find_module("net_sockets_server");
@@ -301,20 +332,9 @@ errval_t start_networking_new(coreid_t where,
             return KALUGA_ERR_DRIVER_NOT_AUTO;
         }
 
-        // TODO: Determine cls here as well
         struct pci_id id;
         struct pci_addr addr;
-        struct pci_class cls = {0,0,0};
-        int64_t vendor_id, device_id, bus, dev, fun;
-        char* oct_id;
-        err = oct_read(record, "%s { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
-                        &oct_id, &bus, &dev, &fun,
-                        &vendor_id, &device_id);
 
-        if(err_is_fail(err)){
-            DEBUG_ERR(err, "oct_read");
-            return err;
-        }
         addr.bus = bus;
         addr.device = dev;
         addr.function = fun;
