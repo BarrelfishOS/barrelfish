@@ -255,7 +255,7 @@ errval_t xeon_phi_dma_device_init(void *mmio_base, struct iommu_client *iommu,
                   mmio_base);
 
 
-#ifdef XEON_PHI_USE_HW_MODEL
+#if defined(XEON_PHI_USE_HW_MODEL)
     int32_t nodes[3];
     nodes[0] = nodeid;
     nodes[1] = driverkit_hwmodel_get_my_node_id();
@@ -264,15 +264,6 @@ errval_t xeon_phi_dma_device_init(void *mmio_base, struct iommu_client *iommu,
 
     err =  driverkit_hwmodel_frame_alloc(&xdev->dstat.mem, LARGE_PAGE_SIZE,
                                       dest_nodeid, nodes);
-#else
-    // Alloc cap slot
-    err = slot_alloc(&xdev->dstat.mem);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
-
-    return frame_alloc(&xdev->dstat.mem, LARGE_PAGE_SIZE, NULL);
-#endif
     if (err_is_fail(err)) {
         free(xdev);
         return err;
@@ -284,6 +275,14 @@ errval_t xeon_phi_dma_device_init(void *mmio_base, struct iommu_client *iommu,
         free(xdev);
         return err;
     }
+#else
+    // Alloc cap slota
+    err = dma_mem_alloc(LARGE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE, NULL, &xdev->dstat);
+    if (err_is_fail(err)) {
+        free(xdev);
+        return err;
+    }
+#endif
 
     //debug_printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx\n");
     //debug_printf("HACK: setting address!\n");

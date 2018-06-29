@@ -11,6 +11,31 @@
 #define LIB_DMA_MEM_UTILS_H
 
 /* forward declaration */
-struct dma_mem;
+struct dmem;
+struct iommu_client;
+
+/**
+ * \brief allocates and maps a memory region to be used for DMA purposes
+ *
+ * \param bytes minimum size of the memory region in bytes
+ * \param flags VREGION flags how the region gets mapped
+ * \param cl    IOMMU client if IOMMU is present
+ * \param mem   returns the mapping information
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t dma_mem_alloc(size_t bytes,
+                       vregion_flags_t flags,
+                       struct iommu_client *cl,
+                       struct dmem *mem);
+
+/**
+ * \brief tries to free the allocated memory region
+ *
+ * \returns SYS_ERR_OK on success
+ *          errval on error
+ */
+errval_t dma_mem_free(struct dmem *mem);
 
 #endif /* LIB_DMA_MEM_UTILS_H */

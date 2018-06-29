@@ -119,6 +119,8 @@ errval_t dma_desc_alloc(uint32_t size,
     ram_set_affinity(0, XEON_PHI_SYSMEM_SIZE-8*XEON_PHI_SYSMEM_PAGE_SIZE);
 #endif
 
+
+#ifdef XEON_PHI_USE_HW_MODEL
     if (dev->convert) {
         debug_printf("USING THE CONVERT FUNCTION\n");
 
@@ -154,7 +156,14 @@ errval_t dma_desc_alloc(uint32_t size,
             return err;
         }
     }
-
+#else
+    err = dma_mem_alloc(ndesc*size, DMA_DESC_MAP_FLAGS, dev->iommu, mem);
+    if (err_is_fail(err)) {
+        free(dma_desc);
+        free(mem);
+        return err;
+    }
+#endif
 
 
 #ifndef __k1om__
