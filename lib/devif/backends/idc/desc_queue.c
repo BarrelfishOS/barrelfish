@@ -64,7 +64,6 @@ struct descq {
     uint64_t qid;
     
     struct notificator notificator;
-    bool notifications;
 };
 
 struct descq_endpoint_state {
@@ -500,23 +499,28 @@ static void bind_cb(void *st, errval_t err, struct descq_binding* b)
     b->st = q;
 }
 
-/**
- * @brief initialized a descriptor queue
- */
-errval_t descq_create(struct descq** q,
-                      size_t slots,
-                      char* name,
-                      bool exp,
-                      bool notifications,
-                      uint8_t role,
-                      uint64_t *queue_id,
-                      struct descq_func_pointer* f)
+// all arguments (some might be null) so we can crate descq by using 
+// an EP or the name service
+static errval_t descq_create_internal(struct descq** q,
+                                      size_t slots,
+                                      char* name,
+                                      struct capref ep,
+                                      bool exp,
+                                      uint8_t role,
+                                      uint64_t *queue_id,
+                                      struct descq_func_pointer* f)
 {
     DESCQ_DEBUG("create start\n");
     errval_t err;
     struct descq* tmp;
     struct capref rx;
     struct capref tx;
+
+    if (!capref_is_null(ep) && exp) {
+        printf("Can not initalized descq with an endpoint when export. Endpoints are"
+               " currently only 1:1 connections \n");
+        return DEVQ_ERR_DESCQ_INIT;
+    }
 
     // Init basic struct fields
     tmp = malloc(sizeof(struct descq));
@@ -529,6 +533,7 @@ errval_t descq_create(struct descq** q,
         state->name = strdup(name);
         assert(state->name);
 
+
         state->f.notify = f->notify;
         state->f.dereg = f->dereg;
         state->f.reg = f->reg;
@@ -537,7 +542,7 @@ errval_t descq_create(struct descq** q,
         state->f.control = f->control;
 
         err = descq_export(state, export_cb, connect_cb,
-                                get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
+                           get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
         if (err_is_fail(err)) {
             goto cleanup1;
         }
@@ -590,17 +595,31 @@ errval_t descq_create(struct descq** q,
         tmp->bound_done = false;
         iref_t iref;
 
-        err = nameservice_blocking_lookup(name, &iref);
-        if (err_is_fail(err)) {
-            goto cleanup5;
-        }
+        if (!capref_is_null(ep)) {
+            err = descq_bind_to_endpoint(ep, bind_cb, tmp, get_default_waitset(),
+                                         IDC_BIND_FLAGS_DEFAULT);
+            if (err_is_fail(err)) {
+                goto cleanup5;
+            }
+        } else {
+            if (strcmp("", name) == 0) {
+                printf("Can not initalized descq with empty name \n");
+                err = DEVQ_ERR_DESCQ_INIT;
+                goto cleanup5;
+            }
 
-        err = descq_bind(iref, bind_cb, tmp, get_default_waitset(),
-                              IDC_BIND_FLAGS_DEFAULT);
-        if (err_is_fail(err)) {
-            goto cleanup5;
-        }
- 
+            err = nameservice_blocking_lookup(name, &iref);
+            if (err_is_fail(err)) {
+                goto cleanup5;
+            }
+
+            err = descq_bind(iref, bind_cb, tmp, get_default_waitset(),
+                             IDC_BIND_FLAGS_DEFAULT);
+            if (err_is_fail(err)) {
+                goto cleanup5;
+            }
+        } 
+
         while(!tmp->bound_done) {
             event_dispatch(get_default_waitset());
         }
@@ -609,7 +628,7 @@ errval_t descq_create(struct descq** q,
 
         errval_t err2;
         err = tmp->binding->rpc_tx_vtbl.create_queue(tmp->binding, slots, rx, tx,
-            notifications, role, &err2, queue_id);
+            false, role, &err2, queue_id);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             goto cleanup5;
@@ -633,8 +652,6 @@ errval_t descq_create(struct descq** q,
         tmp->q.f.reg = descq_register;
         tmp->q.f.dereg = descq_deregister;
         tmp->q.f.ctrl = descq_control;
-
-        tmp->notifications = notifications;
 
         notificator_init(&tmp->notificator, tmp, descq_can_read, descq_can_write);
         err = waitset_chan_register(get_default_waitset(), &tmp->notificator.ready_to_read, MKCLOSURE(mp_notify, tmp));
@@ -663,4 +680,31 @@ cleanup1:
 
 }
 
+/**
+ * @brief initialized a descriptor queue
+ */
+errval_t descq_create(struct descq** q,
+                      size_t slots,
+                      char* name,
+                      bool exp,
+                      bool notifications,
+                      uint8_t role,
+                      uint64_t *queue_id,
+                      struct descq_func_pointer* f)
+{
+    return descq_create_internal(q, slots, name, NULL_CAP, exp, role, queue_id, f);
+}
+
+/**
+ * @brief initialized a descriptor queue
+ */
+errval_t descq_create_with_ep(struct descq** q,
+                              size_t slots,
+                              uint8_t role,
+                              struct capref ep,
+                              uint64_t *queue_id,
+                              struct descq_func_pointer* f)
+{
+    return descq_create_internal(q, slots, "", ep, false, role, queue_id, f);
+}
 
