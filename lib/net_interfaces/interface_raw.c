@@ -177,7 +177,7 @@ static void connect_to_driver(const char *cname, uint64_t qid, struct waitset *w
     f.notify = notify_handler;
     
     err = descq_create(&q, DESCQ_DEFAULT_SIZE, qm_name,
-                       false, true, 0, &bufid, &f);
+                       false, &bufid, &f);
     assert(err_is_ok(err));
     devq = (struct devq*) q;
 }

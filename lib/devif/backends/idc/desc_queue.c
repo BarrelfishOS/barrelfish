@@ -373,8 +373,7 @@ static errval_t mp_destroy(struct descq_binding* b, errval_t *err)
 }
 
 static errval_t mp_create(struct descq_binding* b, uint32_t slots,
-        struct capref rx, struct capref tx, bool notifications, uint8_t role,
-        errval_t *err, uint64_t *queue_id) {
+        struct capref rx, struct capref tx, errval_t *err, uint64_t *queue_id) {
     
     struct descq* q = (struct descq*) b->st;
     DESCQ_DEBUG("start %p\n",q);
@@ -416,7 +415,7 @@ static errval_t mp_create(struct descq_binding* b, uint32_t slots,
     *err = waitset_chan_register(get_default_waitset(), &q->notificator.ready_to_read, MKCLOSURE(mp_notify, q));
     assert(err_is_ok(*err));
 
-    *err = q->f.create(q, notifications, role, queue_id);
+    *err = q->f.create(q, queue_id);
     if (err_is_ok(*err)) {
         goto end2;
     }
@@ -506,7 +505,6 @@ static errval_t descq_create_internal(struct descq** q,
                                       char* name,
                                       struct capref ep,
                                       bool exp,
-                                      uint8_t role,
                                       uint64_t *queue_id,
                                       struct descq_func_pointer* f)
 {
@@ -627,8 +625,7 @@ static errval_t descq_create_internal(struct descq** q,
         tmp->local_bind = tmp->binding->local_binding != NULL;
 
         errval_t err2;
-        err = tmp->binding->rpc_tx_vtbl.create_queue(tmp->binding, slots, rx, tx,
-            false, role, &err2, queue_id);
+        err = tmp->binding->rpc_tx_vtbl.create_queue(tmp->binding, slots, rx, tx, &err2, queue_id);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             goto cleanup5;
@@ -687,12 +684,10 @@ errval_t descq_create(struct descq** q,
                       size_t slots,
                       char* name,
                       bool exp,
-                      bool notifications,
-                      uint8_t role,
                       uint64_t *queue_id,
                       struct descq_func_pointer* f)
 {
-    return descq_create_internal(q, slots, name, NULL_CAP, exp, role, queue_id, f);
+    return descq_create_internal(q, slots, name, NULL_CAP, exp, queue_id, f);
 }
 
 /**
@@ -700,11 +695,10 @@ errval_t descq_create(struct descq** q,
  */
 errval_t descq_create_with_ep(struct descq** q,
                               size_t slots,
-                              uint8_t role,
                               struct capref ep,
                               uint64_t *queue_id,
                               struct descq_func_pointer* f)
 {
-    return descq_create_internal(q, slots, "", ep, false, role, queue_id, f);
+    return descq_create_internal(q, slots, "", ep, false, queue_id, f);
 }
 

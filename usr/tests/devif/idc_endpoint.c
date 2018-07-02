@@ -32,8 +32,7 @@ struct ele {
     struct ele* next;
 };
 
-static errval_t create(struct descq* q, bool notifications, uint8_t role,
-                       uint64_t* queue_id)
+static errval_t create(struct descq* q, uint64_t* queue_id)
 {
     if (list == NULL) {
         list = malloc(sizeof(struct ele));
@@ -142,7 +141,7 @@ int main(int argc, char *argv[])
     f->control = control;
 
     err = descq_create((struct descq**)&descq, DESCQ_DEFAULT_SIZE, "test_queue", 
-                       true, true, 0, &id, f);
+                       true, &id, f);
     if (err_is_fail(err)) {
         USER_PANIC("Allocating debug q failed \n");
     }

@@ -607,8 +607,7 @@ static void net_delete_socket(struct network_connection *nc, uint32_t descriptor
     free(socket);
 }
 
-static errval_t q_create(struct descq* q, bool notifications, uint8_t role,
-                       uint64_t* queue_id)
+static errval_t q_create(struct descq* q, uint64_t* queue_id)
 {
     struct network_connection *nc;
     static uint64_t qid = 1;
@@ -929,7 +928,7 @@ int main(int argc, char *argv[])
     sprintf(service_name, "net_sockets_service_%s", argv[2]);
     
     err = descq_create(&exp_queue, DESCQ_DEFAULT_SIZE, queue_name,
-                       true, true, 0, NULL, &f);
+                       true, NULL, &f);
     assert(err_is_ok(err));
 
 

@@ -13,7 +13,8 @@
  */
 interface descq "Devif communication queue" {
     // create and destroy a queue
-    rpc create_queue(in uint32 slots, in cap rx, in cap tx, in bool notifications, in uint8 role, out errval err, out uint64 queue_id);
+    rpc create_queue(in uint32 slots, in cap rx, in cap tx, 
+                     out errval err, out uint64 queue_id);
     rpc destroy_queue(out errval err);
 
     // add a memory region to the buffer table

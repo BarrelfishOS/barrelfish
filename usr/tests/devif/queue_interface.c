@@ -49,6 +49,7 @@ static struct net_filter_state* filter;
 
 static volatile uint32_t num_tx = 0;
 static volatile uint32_t num_rx = 0;
+static uint64_t qid;
 
 static void* va_rx;
 static void* va_tx;
@@ -417,7 +418,7 @@ static void test_idc_queue(void)
    
     debug_printf("Descriptor queue test started \n");
     err = descq_create(&queue, DESCQ_DEFAULT_SIZE, "test_queue",
-                       false, true, true, NULL, &f);
+                       false, &qid, &f);
     if (err_is_fail(err)){
         USER_PANIC("Allocating devq failed \n");
     }

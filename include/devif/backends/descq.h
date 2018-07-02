@@ -17,7 +17,7 @@
 
 struct descq;
 
-typedef errval_t (*descq_create_t) (struct descq *q, bool notifications, uint8_t role, uint64_t *queue_id);
+typedef errval_t (*descq_create_t) (struct descq *q, uint64_t *queue_id);
 typedef errval_t (*descq_destroy_t) (struct descq *q);
 typedef errval_t (*descq_notify_t) (struct descq *q);
 typedef errval_t (*descq_register_t)(struct descq *q, struct capref cap,
@@ -56,8 +56,6 @@ errval_t descq_create(struct descq** q,
                       size_t slots,
                       char* name,
                       bool exp,
-                      bool notifications,
-                      uint8_t role,
                       uint64_t *queue_id,
                       struct descq_func_pointer* f);
 
@@ -76,7 +74,6 @@ errval_t descq_create(struct descq** q,
  */
 errval_t descq_create_with_ep(struct descq** q,
                               size_t slots,
-                              uint8_t role,
                               struct capref ep,
                               uint64_t *queue_id,
                               struct descq_func_pointer* f);

@@ -474,7 +474,7 @@ errval_t net_sockets_init_with_card(char* cardname)
     printf("Client connecting to: %s \n", service_name);
     printf("Client init queue: %s \n", queue_name);
     err = descq_create(&descq_queue, DESCQ_DEFAULT_SIZE, queue_name,
-                       false, true, true, &queue_id, &f);
+                       false, &queue_id, &f);
     assert(err_is_ok(err));
 
     err = nameservice_blocking_lookup(service_name, &iref);
@@ -509,7 +509,6 @@ errval_t net_sockets_init_with_card(char* cardname)
     return SYS_ERR_OK;
 
 }
-
 
 #define NAMESERVICE_ENTRY "r'net\\_sockets\\_service\\_.*' { iref: _ }"
 #define OFFSET 20
@@ -546,5 +545,6 @@ errval_t net_sockets_init(void)
             return net_sockets_init_with_card(&records[i][OFFSET]);
         }
     }
+
     return net_sockets_init_with_card("e1000");
 }

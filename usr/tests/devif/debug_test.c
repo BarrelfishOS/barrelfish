@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
     
     debug_printf("Descriptor queue test started \n");
     err = descq_create(&queue, DESCQ_DEFAULT_SIZE, "test_queue",
-                       false, true, true, NULL, &f);
+                       false, NULL, &f);
     if (err_is_fail(err)){
         USER_PANIC("Allocating devq failed \n");
     }
