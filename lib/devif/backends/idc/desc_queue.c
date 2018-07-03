@@ -471,8 +471,8 @@ static void mp_create(struct descq_binding* b, uint32_t slots,
 {
     errval_t err, err2;
     uint64_t qid;
-    err = rpc_mp_create(b, slots, rx, tx, &qid, &err2);
-    err = b->tx_vtbl.control_response(b, NOP_CONT, qid, err2);
+    err = rpc_mp_create(b, slots, rx, tx, &err2, &qid);
+    err = b->tx_vtbl.control_response(b, NOP_CONT, err2, qid);
     assert(err_is_ok(err));
 }
 
