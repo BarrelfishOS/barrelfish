@@ -1008,7 +1008,11 @@ static void e1000_setup_mac(struct e1000_driver_state *device, uint64_t *mac_add
     /* This will always return false due to hardware/software reset */
     bool mac_present = e1000_rah_av_rdf(hw_device, 0);
     
-    assert(mac_present);
+    if(!mac_present) {
+        // This starts to appear on recent QEMUs, but the driver works just
+        // fine with mac_present = false.
+        E1000_DEBUG("Expecting mac_present?");
+    }
     /* cache MAC for stack to see */
     uint64_t mac_hi = e1000_rah_rah_rdf(hw_device, 0);
     uint64_t mac = e1000_ral_rd(hw_device, 0) + (mac_hi << 32);
