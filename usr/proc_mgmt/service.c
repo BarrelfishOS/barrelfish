@@ -88,13 +88,13 @@ static void spawn_reply_handler(struct spawn_binding *b, errval_t spawn_err)
             if (err_is_ok(spawn_err)) {
                 err = domain_spawn(spawn->cap_node, spawn->core_id, spawn->argvbuf,
                                    spawn->argvbytes);
-                if (cl->type == ClientType_Spawn) {
-                    resp_err = cl->b->tx_vtbl.spawn_response(cl->b, NOP_CONT,
-                            err, spawn->cap_node->domain_cap);
-                } else {
-                    resp_err = cl->b->tx_vtbl.spawn_with_caps_response(cl->b,
-                            NOP_CONT, err, spawn->cap_node->domain_cap);
-                }
+            }
+            if (cl->type == ClientType_Spawn) {
+                resp_err = cl->b->tx_vtbl.spawn_response(cl->b, NOP_CONT,
+                        err, spawn->cap_node->domain_cap);
+            } else {
+                resp_err = cl->b->tx_vtbl.spawn_with_caps_response(cl->b,
+                        NOP_CONT, err, spawn->cap_node->domain_cap);
             }
 
             free(spawn);

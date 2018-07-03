@@ -273,11 +273,27 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
     } else if(driver_arg->int_arg.model == INT_MODEL_MSIX){
         KALUGA_DEBUG("Starting driver with MSI-x interrupts\n");
 
-        // TODO need to determine number of MSIx interrupts somehow.
-        // add_controller prints one line we have to ignore it.
-        err = skb_execute_query("add_controller(4, msix, Lbl), write('\n'),"
-                "print_int_controller(Lbl).");
+        // TODO need to determine number of MSIx interrupts 
+        
+        // Add the pci_msix and msix controller
+        err = skb_execute_query(
+                "add_pci_msix_controller(PciMsixLbl, MsixLbl, addr(%"PRIu8",%"PRIu8",%"PRIu8"))"
+                ",write('\n'),"
+                "print_int_controller(PciMsixLbl),"
+                "write(MsixLbl).",
+                addr.bus, addr.device, addr.function);
         if(err_is_fail(err)) DEBUG_SKB_ERR(err, "add/print msix controller");
+        char * lines[8];
+        lines[0] = skb_get_output();
+        for(int i=0; i<7; i++){
+            if(lines[i] == NULL) break;
+            lines[i+1] = strstr(lines[i], "\n");
+            if(lines[i+1] != NULL) lines[i+1]++;
+        }
+        strncpy(driver_arg->int_arg.msix_ctrl_name, lines[2],
+                sizeof(driver_arg->int_arg.msix_ctrl_name));
+        KALUGA_DEBUG("Set msix_ctrl_name for (%d,%d,%d) to %s",
+                add.bus, addr.dev, addr.function, driver_arg->int_arg.msix_ctrl_name);
 
     } else {
         KALUGA_DEBUG("No interrupt model specified. No interrupts"
@@ -293,9 +309,10 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
     debug_msg[sizeof(debug_msg)-1] = '\0';
 
     uint64_t start=0, end=0;
+    char ctrl_label[64];
     // Format is: Lbl,Class,InLo,InHi,....
     err = skb_read_output("%*[^\n]\n%64[^,],%*[^,],%"SCNu64",%"SCNu64,
-            driver_arg->int_arg.msix_ctrl_name,
+            ctrl_label,
             &start, &end);
     if(err_is_fail(err)) DEBUG_SKB_ERR(err, "read response");
 
@@ -387,8 +404,8 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
 
         static int irqtests_started = 0;
         if(strstr(binary_name, "irqtest") != NULL){
-            if(irqtests_started++ == 0){
-                KALUGA_DEBUG("Not starting multiple instances of irqtest\n");
+            if(irqtests_started++ > 0){
+                debug_printf("Not starting multiple instances of irqtest\n");
                 goto out;
             }
         }

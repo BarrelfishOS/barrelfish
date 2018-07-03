@@ -121,6 +121,8 @@
            "ioat_dma",
            "ioat_dma_chan",
            "pci_sr_iov_cap",
+           "pci_msix_cap",
+           "pci_e1000_msix_cap",
            "megaraid",
            "vtd",
            "vtd_iotlb",

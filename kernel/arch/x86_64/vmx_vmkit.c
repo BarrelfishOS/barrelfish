@@ -336,7 +336,7 @@ errval_t vmx_enable_virtualization (void)
     ia32_vmx_basic_t vmx_basic;
     vmx_basic = ia32_vmx_basic_rd(NULL);
     uint32_t vmcs_rev_id = ia32_vmx_basic_vmcs_rev_id_extract(vmx_basic);
-    vmxon_region[0] = vmcs_rev_id;
+    memcpy(vmxon_region, &vmcs_rev_id, sizeof(uint32_t));
 
     // The logical processor must use PAE paging
     uint64_t cr0 = rdcr0();
@@ -405,6 +405,11 @@ static void vmx_host_msr_area_init(struct msr_entry *msr_area)
 }
 #endif
 
+static inline lpaddr_t mem_to_local_phys_no_assertion(lvaddr_t addr)
+{
+    return (lpaddr_t)(addr - (lpaddr_t)X86_64_MEMORY_OFFSET);
+}
+
 // Writes the host state, which is used after a VM-exit, to the
 // current VMCS
 static void vmx_set_host_state(void)
@@ -467,7 +472,13 @@ static void vmx_set_host_state(void)
 #ifndef CONFIG_ARRAKISMON
     vmx_host_msr_area_init(host_msr_area);
 
-    lpaddr_t msr_area_base = mem_to_local_phys((lvaddr_t)host_msr_area);
+    lpaddr_t msr_area_base = mem_to_local_phys_no_assertion(
+            (lvaddr_t) host_msr_area);
+    if (!((lvaddr_t) host_msr_area >= X86_64_MEMORY_OFFSET)) {
+        printk(LOG_NOTE, "assertion failed! 0x%lx >= 0x%lx\n",
+                (lvaddr_t) host_msr_area,
+                X86_64_MEMORY_OFFSET);
+    }
     err += vmwrite(VMX_EXIT_MSR_LOAD_F, canonical_form(msr_area_base));
     err += vmwrite(VMX_EXIT_MSR_LOAD_CNT, VMX_MSR_COUNT);
 #endif
@@ -626,17 +637,17 @@ errval_t initialize_vmcs(lpaddr_t vmcs_paddr)
         ia32_vmx_cr0_fixed1_rd(NULL);
     err += vmwrite(VMX_GUEST_CR0, guest_cr0 & ~(CR0_PE | CR0_PG));
 
-    uint64_t guest_cr4 = ia32_vmx_cr4_fixed0_rd(NULL) &
-        ia32_vmx_cr4_fixed1_rd(NULL);
+    uint64_t guest_cr4 = CR4_PAE;
+    err += vmwrite(VMX_GUEST_CR4, (guest_cr4 | ia32_vmx_cr4_fixed0_rd(NULL)) &
+            ia32_vmx_cr4_fixed1_rd(NULL));
     assert((guest_cr4 & CR4_PCIDE) == 0);
-    err += vmwrite(VMX_GUEST_CR4, guest_cr4);
         
     uint64_t cr0_shadow;
     err += vmread(VMX_GUEST_CR0, &cr0_shadow);
 
     err += vmwrite(VMX_CR0_RD_SHADOW, cr0_shadow);
     err += vmwrite(VMX_CR0_GH_MASK, CR0_PE);
-    err += vmwrite(VMX_CR4_GH_MASK, 0x0);
+    err += vmwrite(VMX_CR4_GH_MASK, 0x20);
 #endif
     assert(err_is_ok(err));
 

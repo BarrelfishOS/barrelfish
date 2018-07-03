@@ -9,13 +9,30 @@
 
 #include <unistd.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/cpu_arch.h>
 
 #if __SIZEOF_POINTER__ == 8
-//need lot of memory...
-#define SBRK_REGION_BYTES (1*256*1024UL * BASE_PAGE_SIZE)
-#else // still huge, but slightly more achievable in a 32-bit address space!
-#define SBRK_REGION_BYTES (256 * 1024 * 1024)
+#ifdef __x86_64__
+// Large memory area + large pages on x86_64
+#define SBRK_REGION_BYTES (8UL * 512UL * LARGE_PAGE_SIZE)
+#define SBRK_FLAGS (VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE)
+#define SBRK_MIN_MAPPING (16 * LARGE_PAGE_SIZE)
+#define SBRK_REGION_ALIGNMENT LARGE_PAGE_SIZE
+#else 
+// Large memory area + normal pages
+#define SBRK_REGION_BYTES (8UL * 512UL * LARGE_PAGE_SIZE)
+#define SBRK_FLAGS (VREGION_FLAGS_READ_WRITE)
+#define SBRK_MIN_MAPPING (16 * LARGE_PAGE_SIZE)
+#define SBRK_REGION_ALIGNMENT BASE_PAGE_SIZE
 #endif
+#else
+// still huge, but slightly more achievable in a 32-bit address space!
+#define SBRK_REGION_BYTES (64 * 1024 * BASE_PAGE_SIZE)
+#define SBRK_FLAGS (VREGION_FLAGS_READ_WRITE)
+#define SBRK_MIN_MAPPING (2 * BASE_PAGE_SIZE)
+#define SBRK_REGION_ALIGNMENT BASE_PAGE_SIZE
+#endif
+
 
 void *sbrk(intptr_t increment)
 {
@@ -33,13 +50,17 @@ void *sbrk(intptr_t increment)
     if (!memobj) { // Initialize
         err = vspace_map_anon_nomalloc(&base, &memobj_, &vregion_,
                                        SBRK_REGION_BYTES, NULL,
-                                       VREGION_FLAGS_READ_WRITE, 0);
+                                       SBRK_FLAGS, SBRK_REGION_ALIGNMENT);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "vspace_map_anon_nomalloc failed");
             return (void *)-1;
         }
         memobj = (struct memobj *) &memobj_;
         vregion = &vregion_;
+
+        //debug_printf("%s:%u reserved region: %p..%p\n", __FUNCTION__, __LINE__,
+        //             base, base + SBRK_REGION_BYTES);
+
     }
 
     if (increment < 0) {
@@ -67,7 +88,10 @@ void *sbrk(intptr_t increment)
     }
 
     size_t inc_bytes = offset + increment - goffset;
-    orig_offset = offset;
+    if (inc_bytes < SBRK_MIN_MAPPING) {
+        inc_bytes = SBRK_MIN_MAPPING;
+    }
+
 
     struct capref frame;
     err = frame_alloc(&frame, inc_bytes, &inc_bytes);
@@ -84,13 +108,16 @@ void *sbrk(intptr_t increment)
     }
 
     err = memobj->f.pagefault(memobj, vregion, goffset, 0);
-    goffset += inc_bytes;
-    offset = goffset;
     if (err_is_fail(err)) {
         debug_err(__FILE__, __func__, __LINE__, err,
                   "memobj->f.pagefault failed");
         return (void *)-1;
     }
+
+    goffset += inc_bytes;
+
+    orig_offset = offset;
+    offset += increment;
 
     void *ret = base + orig_offset;
     return ret;

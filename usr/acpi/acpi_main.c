@@ -67,6 +67,7 @@ int main(int argc, char *argv[])
     // Parse CMD Arguments
     bool got_apic_id = false;
     bool do_video_init = false;
+    bool ignore_irq_override = false;
     vtd_force_off = true;
     bool dump_acpi_tables = false;
 
@@ -79,7 +80,10 @@ int main(int argc, char *argv[])
             vtd_force_off = true;
         } else if (strncmp(argv[i], "dump_tables", strlen("dump_tables")) == 0) {
             dump_acpi_tables = true;
+        } else if (strncmp(argv[i], "ignore_irq_override", strlen("ignore_irq_override")) == 0) {
+            ignore_irq_override = true;
         }
+
     }
 
     if(got_apic_id == false) {
@@ -147,6 +151,12 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "setup skb irq controllers");
     }
 
+    if(ignore_irq_override){
+        err = skb_execute("retractall(interrupt_override(_,_,_,_)).");
+        if(err_is_fail(err)){
+            DEBUG_SKB_ERR(err, "couldnt remove interrupt overrides");
+        }
+    }
 
     start_service();
 

@@ -93,6 +93,15 @@ struct ioapic *find_ioapic_for_label(const char *label)
     return NULL;
 }
 
+struct ioapic *find_ioapic_by_index(int index)
+{
+    if(index < IOAPIC_MAX){
+        return &ioapics[index];
+    }
+
+    return NULL;
+}
+
 
 static errval_t init_one_ioapic(ACPI_MADT_IO_APIC *s, char *label)
 {

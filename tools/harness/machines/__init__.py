@@ -30,6 +30,7 @@ class Machine(object):
                  kernel_args=[],
                  serial_binary="serial_kernel",
                  pci_args=[],
+                 acpi_args=[],
                  eth0=(0xff, 0xff, 0xff),
                  perfcount_type=None,
                  boot_driver = None,
@@ -66,6 +67,8 @@ class Machine(object):
         self._platform = platform
 
         self._pci_args = pci_args
+
+        self._acpi_args = acpi_args
 
         self._eth0 = eth0
 
@@ -125,6 +128,10 @@ class Machine(object):
     def get_pci_args(self):
         """Returns list of machine-specific arguments to add to the PCI command-line"""
         return self._pci_args
+
+    def get_acpi_args(self):
+        """Returns list of machine-specific arguments to add to the ACPI command-line"""
+        return self._acpi_args
 
     def get_platform(self):
         """Returns machine-specific platform specifier"""
@@ -249,7 +256,8 @@ class Machine(object):
 
         # SKB and PCI are x86-only for the moment
         if a == "x86_64" or a == "x86_32":
-            m.add_module("acpi", ["boot"])
+            # Add acpi with machine-specific extra-arguments
+            m.add_module("acpi", ["boot"] + machine.get_acpi_args())
             m.add_module("routing_setup", ["boot"])
 
             # Add pci with machine-specific extra-arguments

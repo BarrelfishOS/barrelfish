@@ -1448,6 +1448,10 @@ handle_vmexit_cr_access (struct guest *g)
 	    err += invoke_dispatcher_vmwrite(g->dcb_cap, VMX_GUEST_CR0, val);
 #endif
             break;
+
+        case 4:
+            // allow writing to CR4 by do nothing for this case
+            break;
         default:
             printf("CR access: unknown CR destination register\n");
             return handle_vmexit_unhandeled(g);
@@ -2011,6 +2015,9 @@ handle_vmexit_swint (struct guest *g)
                 // KEYBOARD - SET TYPEMATIC RATE AND DELAY
                 if (guest_get_ah(g) == 0x3) {
                     // ignore this
+                } else if (guest_get_ah(g) == 0x2) {
+                    // Return keyboard flags
+                    guest_set_al(g, 0x0);
                 } else {
                     printf("Unhandeled method on INT 0x16\n");
                     return handle_vmexit_unhandeled(g);
@@ -2382,6 +2389,8 @@ handle_vmexit_msr (struct guest *g) {
             printf("MSR: unhandeled MSR write access to %x\n", msr);
             return handle_vmexit_unhandeled(g);
 #else
+        case X86_MSR_BIOS_SIGN_ID:
+            break;
 	default:
 	    msr_index = vmx_guest_msr_index(msr);
 	    if (msr_index == -1) {
@@ -2457,6 +2466,18 @@ handle_vmexit_msr (struct guest *g) {
             printf("MSR: unhandeled MSR read access to %x\n", msr);
             return handle_vmexit_unhandeled(g);
 #else
+        case X86_MSR_APIC_BASE:
+        case X86_MSR_BIOS_SIGN_ID:
+        case X86_MSR_MTRRCAP:
+        case X86_MSR_MCG_CAP:
+        case X86_MSR_MCG_STATUS:
+        case X86_MSR_PAT:
+        case X86_MTRR_DEF_TYPE:
+            val = 0x0;
+            break;
+        case X86_MSR_MISC_ENABLE:
+            val = 0x1; // enable fast-string instructions
+            break;
 	default:
 	    msr_index = vmx_guest_msr_index(msr);
 	    if (msr_index == -1) {
@@ -2491,6 +2512,7 @@ handle_vmexit_cpuid (struct guest *g) {
     uint32_t func = guest_get_eax(g);
 
     switch (func) {
+#ifdef CONFIG_SVM
     // Processor Vendor and Largest Standard Function Number
     case 0:
     case 0x80000000:
@@ -2522,6 +2544,31 @@ handle_vmexit_cpuid (struct guest *g) {
         printf("handle_vmexit_cpuid: CPUID: func %x, host reports: eax %x, "
                 "ebx %x, ecx %x, edx %x\n", func, eax, ebx, ecx, edx);
         break;
+#else
+    case 0:
+        eax = 0x2;
+        ebx = 0x756e6547;
+        ecx = 0x6c65746e;
+        edx = 0x49656e69;
+        break;
+    case 1:
+        eax = 0x800;
+        ebx = 0x800;
+        ecx = 0x80200000;
+        edx = 0x183fbff;
+        break;
+    case 2:
+        eax = 0x1;
+        ebx = 0x0;
+        ecx = 0x4d;
+        edx = 0x2c307d;
+    default:
+        eax = 0x0;
+        ebx = 0x0;
+        ecx = 0x0;
+        edx = 0x0;
+        break;
+#endif
     }
 
     guest_set_eax(g, eax);
