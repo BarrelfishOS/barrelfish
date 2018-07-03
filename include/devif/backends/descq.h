@@ -78,4 +78,22 @@ errval_t descq_create_with_ep(struct descq** q,
                               uint64_t *queue_id,
                               struct descq_func_pointer* f);
 
+/**
+ * @brief Create an endpoint from an exporting queue. If the queue is not exporting,
+ *        the call will fail. 
+ *
+ * @param q                     Pointer to the descriptor queue
+ * @param slots                 Core on which the other EP will be used
+ * @param ep                    Returned endpoint
+ * @param exp                   Export desq_ctrl/descq_data flounder interface
+ *                              (At least one of the sides of the channel hast to do so)
+ * @param queue_id              queue id                             
+ * @param f                     Function pointers to be called on message recv
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+errval_t descq_create_ep(struct descq* queue,
+                         coreid_t core,
+                         struct capref* ep);
+
 #endif /* DESCQ_H_ */
