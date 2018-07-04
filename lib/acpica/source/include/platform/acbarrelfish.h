@@ -25,6 +25,10 @@
 #       define COMPILER_DEPENDENT_UINT64  unsigned long long
 #       define ACPI_MACHINE_WIDTH 32
 #       define ACPI_USE_NATIVE_DIVIDE   // GCC on i386 has native 64-bit integers
+#elif defined(__ARM_ARCH_7A__)
+#       define COMPILER_DEPENDENT_INT64   long long
+#       define COMPILER_DEPENDENT_UINT64  unsigned long long
+#       define ACPI_MACHINE_WIDTH 32
 #else
 #       error Unknown architecture
 #endif
