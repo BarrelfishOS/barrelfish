@@ -13,9 +13,11 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
 #include <barrelfish/deferred.h>
+#include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/descq.h>
 #include <devif/backends/debug.h>
+#include <if/devif_test_defs.h>
 
 
 static uint16_t qid = 0;
@@ -65,6 +67,31 @@ static errval_t destroy(struct descq* q)
     return SYS_ERR_OK;
 }
 
+static errval_t rpc_request_ep(struct devif_test_binding* b, coreid_t core, 
+                               errval_t* err, struct capref* cap)
+{
+    *err = slot_alloc(cap);
+    if (err_is_fail(*err)) {
+        return *err;
+    }
+
+    *err = descq_create_ep((struct descq*) descq, core, cap);
+    if (err_is_fail(*err)) { 
+        slot_free(*cap);
+        return *err;
+    }
+
+    return *err;
+}
+
+static void request_ep(struct devif_test_binding* b, coreid_t core)
+{
+    errval_t err, err2;
+    struct capref ep;
+    err = rpc_request_ep(b, core, &err2, &ep);
+    err = b->tx_vtbl.request_ep_response(b, NOP_CONT, err, ep);
+    assert(err_is_ok(err));
+}
 
 static errval_t notify(struct descq* q)
 {
@@ -126,6 +153,32 @@ static errval_t control(struct descq* q, uint64_t cmd, uint64_t value, uint64_t*
     return SYS_ERR_OK;
 }
 
+static struct devif_test_rpc_rx_vtbl rpc_rx_vtbl = {
+    .request_ep_call = rpc_request_ep,
+};
+
+static struct devif_test_rx_vtbl rx_vtbl = {
+    .request_ep_call = request_ep,
+};
+
+
+static void export_cb(void *st, errval_t err, iref_t iref)
+{
+    printf("exported devif_test_ep: interface\n");
+    err = nameservice_register("devif_test_ep", iref);
+    assert(err_is_ok(err));
+}
+
+
+static errval_t connect_cb(void *st, struct devif_test_binding *b)
+{
+    printf("New connection on devif_test_ep interface\n");
+    b->rx_vtbl = rx_vtbl;
+    b->rpc_rx_vtbl = rpc_rx_vtbl;
+    b->st = st;
+    return SYS_ERR_OK;
+}
+
 int main(int argc, char *argv[])
 {
     uint64_t id;
@@ -145,8 +198,13 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
         USER_PANIC("Allocating debug q failed \n");
     }
+    
+    err = devif_test_export(&descq, export_cb, connect_cb, get_default_waitset(), 
+                            IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        USER_PANIC("Exporting devif_test failed\n");
+    }
 
-    assert(err_is_ok(err));
     while(true) {
         event_dispatch(get_default_waitset());
     }
