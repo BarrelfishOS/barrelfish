@@ -67,7 +67,7 @@ void timers_init(int timeslice)
     // Wait for n time units, close to cycles
     armv8_CNTP_TVAL_EL0_wr(NULL, 100);
 
-    while(timer_is_set())
+    while (timer_is_set())
         ;
 
     timer_reset(timeslice);
@@ -102,7 +102,8 @@ void timers_init(int timeslice)
  */
 void timer_reset(uint64_t ms)
 {
-    armv8_CNTP_TVAL_EL0_wr(NULL, ms * systime_frequency);
+    uint32_t val = ms * systime_frequency;
+    armv8_CNTP_TVAL_EL0_wr(NULL, val);
 }
 
 

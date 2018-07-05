@@ -112,9 +112,9 @@ void handle_user_undef(lvaddr_t fault_address, enum aarch64_exception_class caus
         assert(save_area == &disp->enabled_save_area);
     }
 
-    printk(LOG_WARN, "user undef fault (0x%lx)%s in '%.*s': IP %" PRIuPTR "\n",
+    printk(LOG_WARN, "user undef fault (0x%lx)%s in '%.*s': IP 0x%lx x29:%lx x30:%lx sp:%lx\n",
            cause, disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
-           disp->d.name, fault_address);
+           disp->d.name, fault_address, save_area->named.x29, save_area->named.x30, save_area->named.stack);
 
     struct dispatcher_shared_generic *disp_gen =
         get_dispatcher_shared_generic(dcb_current->disp);
@@ -216,7 +216,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
     save_area->named.spsr  = armv8_SPSR_EL1_rd(NULL);
     save_area->named.pc    = fault_pc;
 
-    irq = gicv3_get_active_irq();
+    irq = gic_get_active_irq();
 
     // printk(LOG_NOTE, "handle_irq IRQ %"PRIu32"\n", irq);
 
@@ -255,13 +255,15 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
     else
 #endif
 
-    if (irq == 30 || irq==29) {
-        gicv3_ack_irq(irq);
+    if (irq == 30 || irq == 29) {
+printf("%d: <tick> %ld\n", my_core_id, systime_now);
+        gic_ack_irq(irq);
         timer_reset(CONFIG_TIMESLICE);
         dispatch(schedule());
     }
     else {
-        gicv3_ack_irq(irq);
+    printf("%s: %d\n", __func__, irq);
+        gic_ack_irq(irq);
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
     }

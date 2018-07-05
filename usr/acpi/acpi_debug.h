@@ -17,10 +17,10 @@
 
 //#define ACPI_SERVICE_DEBUG 1
 
-#if defined(ACPI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
+// #if defined(ACPI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
 #define ACPI_DEBUG(x...) printf("acpi_service: " x)
-#else
-#define ACPI_DEBUG(x...) ((void)0)
-#endif
+// #else
+// #define ACPI_DEBUG(x...) ((void)0)
+// #endif
 
 #endif // ACPI_DEBUG_H_

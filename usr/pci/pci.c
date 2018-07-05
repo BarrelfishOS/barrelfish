@@ -1384,7 +1384,7 @@ static void program_device_bar(uint8_t bus,
         pci_hdr0_bars_wr(&devhdr, bar, base & 0xffffffff);
         pci_hdr0_bars_wr(&devhdr, bar + 1, base >> 32);
     } else {  // 32-bit
-        if (base + size > 0xffffffff) {
+        if (base + size > 0xffffffff) { // temporary workaround
             debug_printf("%s: skipping base:%lx size:%lx top:%lx\n", __func__, base, size, base + size);
             return;
         }

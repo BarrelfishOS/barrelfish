@@ -25,28 +25,10 @@
 #include <barrelfish_kpi/platform.h>
 
 /*
- * Return the addresses of the GIC blocks.
- */
-lpaddr_t platform_get_distributor_address(void);
-lpaddr_t platform_get_distributor_size(void);
-
-void platform_set_distributor_address(lpaddr_t);
-
-lpaddr_t platform_get_gic_cpu_address(void);
-lpaddr_t platform_get_gic_cpu_size(void);
-
-void platform_set_gic_cpu_address(lpaddr_t);
-
-/*
  * Return the address of the UART device.
  */
 lpaddr_t platform_get_uart_address(unsigned port);
 void platform_set_uart_address(unsigned port, lpaddr_t uart_base);
-
-/*
- * Return the base address of the private peripheral region.
- */
-lpaddr_t platform_get_private_region(void);
 
 /*
  * Do any extra initialisation for this particular CPU (e.g. A9/A15).
@@ -93,6 +75,7 @@ extern size_t uart_size[];
  */
 extern lpaddr_t platform_gic_cpu_base;
 extern lpaddr_t platform_gic_dist_base;
+extern lpaddr_t platform_gic_redist_base;
 
 #define tsc_read() timer_get_timestamp()
 #define tsc_get_hz() timer_get_frequency()

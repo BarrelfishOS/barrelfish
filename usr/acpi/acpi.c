@@ -904,16 +904,16 @@ int init_acpi(void)
     skb_add_fact("psci_use_hvc(%"PRIu8").", !!(AcpiGbl_FADT.ArmBootFlags & ACPI_FADT_PSCI_USE_HVC));
 
     // Put system into APIC mode
-    ACPI_DEBUG("Switching to APIC mode...\n");
-    as = set_apic_mode();
-    if (ACPI_FAILURE(as)) {
-        printf("ACPI: Warning: Could not set system to APIC mode! "
-                  "Continuing anyway... status: %s\n", AcpiFormatException(as));
-        skb_add_fact("x86_interrupt_model(pic).");
-    } else {
-        printf("ACPI: Switched to APIC mode.\n");
-        skb_add_fact("x86_interrupt_model(apic).");
-    }
+    // ACPI_DEBUG("Switching to APIC mode...\n");
+    // as = set_apic_mode();
+    // if (ACPI_FAILURE(as)) {
+    //     printf("ACPI: Warning: Could not set system to APIC mode! "
+    //               "Continuing anyway... status: %s\n", AcpiFormatException(as));
+    //     skb_add_fact("x86_interrupt_model(pic).");
+    // } else {
+    //     printf("ACPI: Switched to APIC mode.\n");
+    //     skb_add_fact("x86_interrupt_model(apic).");
+    // }
 
     /* look for an MCFG table
      * this tells us where the PCI express memory-mapped configuration area is

@@ -110,15 +110,15 @@ errval_t debug_dump_hw_ptables(void)
 
 void debug_printf(const char *fmt, ...)
 {
-    struct thread *me = thread_self();
+    // struct thread *me = thread_self();
     va_list argptr;
     char id[32] = "-";
-    char str[256];
+    char str[1024];
     size_t len;
 
-    if (me) {
-        snprintf(id, sizeof(id), "%"PRIuPTR, thread_get_id(me));
-    }
+    // if (me) {
+        // snprintf(id, sizeof(id), "%"PRIuPTR, thread_get_id(me));
+    // }
     len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%s\033[0m: ",
                    DISP_NAME_LEN, disp_name(), disp_get_core_id(), id);
     if (len < sizeof(str)) {
@@ -479,7 +479,7 @@ void debug_dump_mem_around_addr(lvaddr_t addr)
 {
     /* lvaddr_t page_aligned_addr = ROUND_DOWN(addr, BASE_PAGE_SIZE); */
     lvaddr_t start_addr = ROUND_DOWN(addr - DISP_MEMORY_SIZE/2, sizeof(uintptr_t));
-    lvaddr_t end_addr = ROUND_UP(addr + DISP_MEMORY_SIZE/2, sizeof(uintptr_t));
+    lvaddr_t end_addr = ROUND_UP(addr + 2 * DISP_MEMORY_SIZE, sizeof(uintptr_t));
 
     /* if (start_addr < page_aligned_addr) { */
     /*     start_addr = page_aligned_addr; */

@@ -118,7 +118,7 @@ class FVPMachineEFI(FVPMachineBase):
                 menulst_fullpath)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
 
-        debug.checkcmd(["make"] + modules.get_build_targets(), cwd=self.options.builds[0].build_dir)
+#        debug.checkcmd(["make"] + modules.get_build_targets(), cwd=self.options.builds[0].build_dir)
 
         debug.verbose("building proper FVP image")
         efi = efiimage.EFIImage(self.kernel_img, 200)
