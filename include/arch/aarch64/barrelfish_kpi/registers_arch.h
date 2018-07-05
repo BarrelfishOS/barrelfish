@@ -62,7 +62,7 @@
 
 #define PIC_REGISTER X10
 
-#define NUM_REGS 66     /* cpsr, x0-x30, sp, pc */
+#define NUM_REGS 98     /* cpsr, x0-x30, sp, pc */
 #define NUM_FPU_REGS 0
 #define ARCH_NUMREGS NUM_REGS
 
@@ -86,7 +86,7 @@ union registers_aarch64 {
         uint64_t x16, x17, x18, x19, x20, x21, x22, x23;
         uint64_t x24, x25, x26, x27, x28, x29, x30;
         uint64_t stack, pc, spsr;
-        uint64_t v[16][2];
+        uint64_t v[32][2];
     } named;
     struct registers_aarch64_syscall_args {
         uint64_t arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7;
@@ -94,7 +94,7 @@ union registers_aarch64 {
         uint64_t x16,  x17,  x18,  x19,  x20,  x21,  x22,  x23;
         uint64_t x24,  x25,  x26,  x27,  x28,  x29,  x30;
         uint64_t stack, pc, spsr;
-        uint64_t v[16][2];
+        uint64_t v[32][2];
     } syscall_args;
     uint64_t regs[sizeof(struct registers_aarch64_named) / sizeof(uint64_t)];
 };
