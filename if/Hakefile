@@ -105,6 +105,7 @@
                "cm2",
                "net_sockets",
                "queue_service",
+               "devif_test",
                "kaluga"
            ],
              arch <- allArchitectures
