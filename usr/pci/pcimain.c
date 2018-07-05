@@ -176,29 +176,16 @@ int main(int argc, char *argv[])
     // Start configuring PCI
     PCI_DEBUG("Programming PCI BARs and bridge windows\n");
     pci_program_bridges();
-    #ifdef USE_KALUGA_DVM
+
     char* record;
     debug_printf("barrier.pci.bridges");
-    err = oct_barrier_enter("barrier.pci.bridges", &record, 2);
+    err = oct_barrier_enter("barrier.pci.bridges", &record, 3);
     assert(err_is_ok(err));
     free(record);
-    #endif
+
     PCI_DEBUG("PCI programming completed\n");
     pci_init_datastructures();
     pci_init();
-
-
-#if 0 // defined(PCI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-//output all the facts stored in the SKB to produce a sample data file to use
-//for debugging on linux
-    skb_execute("listing.");
-    while (skb_read_error_code() == SKB_PROCESSING) messages_wait_and_handle_next();
-    PCI_DEBUG("\nSKB returned: \n%s\n", skb_get_output());
-    const char *errout = skb_get_error_output();
-    if (errout != NULL && *errout != '\0') {
-        PCI_DEBUG("\nSKB error returned: \n%s\n", errout);
-    }
-#endif
 
     skb_add_fact("pci_discovery_done.");
 

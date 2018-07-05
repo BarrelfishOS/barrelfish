@@ -160,18 +160,17 @@ errval_t arch_startup(char * add_device_db_file)
         USER_PANIC_ERR(err, "Watching cores.");
     }
 
-
-    KALUGA_DEBUG("Kaluga: ACPI connect...\n");
-    err = connect_to_acpi();
-    if (err_is_fail(err) && err != KALUGA_ERR_MODULE_NOT_FOUND) {
-        USER_PANIC_ERR(err, "start_lpc_timer");
-    }
-
     KALUGA_DEBUG("Kaluga: wait_for_all_spawnds\n");
 
     err = wait_for_all_spawnds();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
+    }
+
+    KALUGA_DEBUG("Kaluga: ACPI connect...\n");
+    err = connect_to_acpi();
+    if (err_is_fail(err) && err != KALUGA_ERR_MODULE_NOT_FOUND) {
+        USER_PANIC_ERR(err, "start_lpc_timer");
     }
 
     err = watch_for_iommu();
@@ -180,8 +179,6 @@ errval_t arch_startup(char * add_device_db_file)
     }
 
     KALUGA_DEBUG("Kaluga: pci_root_bridge\n");
-
-
 
     err = watch_for_pci_root_bridge();
     if (err_is_fail(err)) {
@@ -194,7 +191,7 @@ errval_t arch_startup(char * add_device_db_file)
 
     record = NULL;
     debug_printf("barrier.pci.bridges");
-    err = oct_barrier_enter("barrier.pci.bridges", &record, 2);
+    err = oct_barrier_enter("barrier.pci.bridges", &record, 3);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not wait for PCI Barrier 'barrier.pci.bridges'\n");
     }

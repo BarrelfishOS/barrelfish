@@ -62,6 +62,10 @@ static void wait_for_iommu(void)
     
     err = oct_get_names(&names, &len, HW_PCI_IOMMU_RECORD_REGEX);
     if (err_is_fail(err)) {
+        if (err == OCT_ERR_NO_RECORD) {
+            debug_printf("No Iommus available, continue withouth waiting\n");
+            return;
+        }
         goto out;
     }
 
@@ -169,9 +173,17 @@ int main(int argc, char *argv[])
     }
 
     start_service();
-    
+ 
     wait_for_iommu(); 
    
+    // synchronize ACPI/KALUGA/PCI
+    char* record = NULL;
+    debug_printf("barrier.pci.bridges");
+    err = oct_barrier_enter("barrier.pci.bridges", &record, 3);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not wait for PCI Barrier 'barrier.pci.bridges'\n");
+    }
+
     err = acpi_interrupts_arch_setup();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "setup skb irq controllers");
@@ -184,5 +196,6 @@ int main(int argc, char *argv[])
         }
     }
 
+    ACPI_DEBUG("####################### Entering message handler loop \n");
     messages_handler_loop();
 }

@@ -502,6 +502,9 @@ static errval_t bridge_add_iommu_endpoint_args(struct driver_argument* arg)
     // Get number of iommus
     err = oct_get_names(&names, &len, HW_PCI_IOMMU_RECORD_REGEX);
     if (err_is_fail(err)) {
+        if (err == OCT_ERR_NO_RECORD) {
+            return SYS_ERR_OK;
+        }
         return err;
     }
     oct_free_names(names, len);
