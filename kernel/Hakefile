@@ -153,7 +153,8 @@ let
                          "xapic",
                          "amd_vmcb",
                          "cpuid",
-                         "lpc_rtc" ],
+                         "lpc_rtc",
+                         "lpc_timer" ],
      addLibraries = [ "elf_kernel" ]
      },
   --
