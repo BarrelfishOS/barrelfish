@@ -96,8 +96,8 @@ union macentry {
 
 struct e10k_net_filter_state 
 {
-    struct net_filter_binding* b;
     struct e10k_driver_state* st;
+    struct net_filter_binding* b;
     uint16_t qid;
 };
 
@@ -423,7 +423,10 @@ static errval_t net_filter_connect_cb(void *st, struct net_filter_binding *b)
     printf("New connection on net filter interface\n");
     b->rx_vtbl = net_filter_rx_vtbl;
     b->rpc_rx_vtbl = net_filter_rpc_rx_vtbl;
-    b->st = st;
+    struct e10k_net_filter_state* state = malloc(sizeof(struct e10k_net_filter_state));  
+    state->st = st;
+    b->st = state;
+
     return SYS_ERR_OK;
 }
 
