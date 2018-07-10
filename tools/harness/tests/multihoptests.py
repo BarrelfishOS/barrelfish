@@ -43,9 +43,10 @@ class MultihopTest(MultihopTestCommon):
          # the test passed iff we see the finish string
 	passed = False
         for line in rawiter:
-            if line.startswith(self.get_finish_string()):
+            if self.get_finish_string() in line:
 		passed = True
-        return PassFailResult(passed)
+                return PassFailResult(True)
+        return PassFailResult(False)
 
 
 @tests.add_test
