@@ -25,8 +25,8 @@
 
 static const char *my_service_name = "multihoptest";
 
-static const char *longstr =
-        ""
+static const char longstr[] =
+                ""
                 "Far out in the uncharted backwaters of the unfashionable end of the\n"
                 "western spiral arm of the Galaxy lies a small unregarded yellow sun.\n"
                 "\n"
@@ -95,7 +95,7 @@ static void send_cont(void *arg)
     struct event_closure txcont = MKCONT(send_cont, myst);
     errval_t err;
 
-    printf("%s sending msg %d\n", get_role_name(), myst->nextmsg);
+    debug_printf("%s sending msg %d\n", get_role_name(), myst->nextmsg);
 
     switch (myst->nextmsg) {
     case 0:
@@ -145,7 +145,7 @@ static void send_cont(void *arg)
 
     case 4:
         // here is where we would deallocate the buffer, if it wasn't static
-        printf("%s all done!\n", get_role_name());
+        debug_printf("%s all done!\n", get_role_name());
 
         return;
 
@@ -188,7 +188,7 @@ static void rx_basic(struct test_binding *b, uint32_t arg)
     if (arg != 7) {
         USER_PANIC("received wrong argument in \"basic\" message!\n");
     }
-    printf("%s rx_basic %"PRIu32"\n", get_role_name(), arg);
+    debug_printf("%s rx_basic %"PRIu32"\n", get_role_name(), arg);
 }
 
 static void rx_str(struct test_binding *b, uint32_t arg, const char *s)
@@ -220,7 +220,7 @@ static void rx_caps(struct test_binding *b, uint32_t arg, struct capref cap1,
     // deleted before we get our hands on it! -SG,2016-11-08
     cap_revoke(cap2);
     cap_destroy(cap2);
-    printf("%s rx_caps %"PRIu32" [%s] [%s]\n", get_role_name(), arg, buf1, buf2);
+    debug_printf("%s rx_caps %"PRIu32" [%s] [%s]\n", get_role_name(), arg, buf1, buf2);
 }
 
 static void rx_buf(struct test_binding *b, const uint8_t *buf, size_t buflen)
@@ -228,17 +228,18 @@ static void rx_buf(struct test_binding *b, const uint8_t *buf, size_t buflen)
 
     // make sure we received the correct argument(s)
     if (memcmp(buf, longstr, strlen(longstr)) || (buflen != strlen(longstr))) {
-        USER_PANIC("received wrong argument in \"buf\" message!\n");
+        USER_PANIC("received wrong argument in \"buf\" buflen=%d strlne=%d message!\n", 
+                   buflen, strlen(longstr));
     }
 
-    printf("%s rx_buf (%zu bytes)\n", get_role_name(), buflen);
+    debug_printf("%s rx_buf (%zu bytes)\n", get_role_name(), buflen);
 
     /**
      * We exchange roles here: If we are the server, we send now messages to the client.
      */
     if (role == SERVER) {
 
-        printf(
+        debug_printf(
                 "changing roles: server is now sending messages to the client...\n");
         // construct local per-binding state
         struct test_state *myst = malloc(sizeof(struct test_state));
@@ -264,7 +265,7 @@ static void bind_cb(void *st, errval_t err, struct test_binding *b)
         USER_PANIC_ERR(err, "bind failed");
     }
 
-    printf("client bound!\n");
+    debug_printf("client bound!\n");
 
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_vtbl;
@@ -285,13 +286,13 @@ static void start_client(void)
     iref_t iref;
     errval_t err;
 
-    printf("client looking up '%s' in name service...\n", my_service_name);
+    debug_printf("client looking up '%s' in name service...\n", my_service_name);
     err = nameservice_blocking_lookup(my_service_name, &iref);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "nameservice_blocking_lookup failed");
     }
 
-    printf("client binding to %"PRIuIREF"...\n", iref);
+    debug_printf("client binding to %"PRIuIREF"...\n", iref);
     /**
      * We don't use the flounder bind function here to
      * enforce a binding over the multi-hop interconnect driver.
@@ -323,7 +324,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
         USER_PANIC_ERR(err, "export failed");
     }
 
-    printf("service exported at iref %"PRIuIREF"\n", iref);
+    debug_printf("service exported at iref %"PRIuIREF"\n", iref);
 
     // register this iref with the name service
     err = nameservice_register(my_service_name, iref);
@@ -334,7 +335,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
 
 static errval_t connect_cb(void *st, struct test_binding *b)
 {
-    printf("service got a connection!\n");
+    debug_printf("service got a connection!\n");
 
     // copy my message receive handler vtable to the binding
     b->rx_vtbl = rx_vtbl;
@@ -368,7 +369,7 @@ int main(int argc, char *argv[])
         role = SERVER;
         start_server();
     } else {
-        printf("Usage: %s client|server\n", argv[0]);
+        debug_printf("Usage: %s client|server\n", argv[0]);
         return EXIT_FAILURE;
     }
 
