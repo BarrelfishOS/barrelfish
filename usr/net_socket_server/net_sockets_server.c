@@ -1,6 +1,6 @@
 /**
  * @brief
- *  E1000 net socket server
+ *  Net socket server
  */
 
 /*
@@ -83,6 +83,7 @@ struct socket_connection {
 };
 
 static struct network_connection *network_connections = NULL;
+static struct descq *exp_queue;
 
 static struct socket_connection * find_socket_connection(struct network_connection *nc, uint32_t descriptor)
 {
@@ -395,6 +396,21 @@ static err_t net_tcp_accepted(void *arg, struct tcp_pcb *newpcb, err_t error)
     return ERR_OK;
 }
 
+static errval_t net_request_descq_ep(struct net_sockets_binding *binding, uint16_t core, 
+                                     struct capref* ep)
+{
+    errval_t err;
+    err = slot_alloc(ep);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = descq_create_ep(exp_queue, core, ep);
+    if (err_is_fail(err)) {
+        slot_free(*ep);
+    }
+    return err;
+}
 
 static errval_t net_register_queue(struct net_sockets_binding *binding, uint64_t queue_id)
 {
@@ -607,10 +623,11 @@ static void net_delete_socket(struct network_connection *nc, uint32_t descriptor
     free(socket);
 }
 
+static uint64_t qid = 1;
+
 static errval_t q_create(struct descq* q, uint64_t* queue_id)
 {
     struct network_connection *nc;
-    static uint64_t qid = 1;
 
     nc = malloc(sizeof(struct network_connection));
     assert(nc);
@@ -806,6 +823,7 @@ static errval_t q_control(struct descq* q, uint64_t cmd, uint64_t value, uint64_
 
 
 static struct net_sockets_rpc_rx_vtbl rpc_rx_vtbl = {
+    .request_descq_ep_call = net_request_descq_ep,
     .register_queue_call = net_register_queue,
     .new_udp_socket_call = net_udp_socket,
     .new_tcp_socket_call = net_tcp_socket,
@@ -912,7 +930,6 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "Failed to initialize the network");
     }
 
-    struct descq *exp_queue;
     struct descq_func_pointer f;
 
     f.notify = q_notify;
