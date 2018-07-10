@@ -542,7 +542,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
     } else {
         q->use_vtd = false;
         // need to set up communicaton to PF
-        if (ep == NULL || !capref_is_null(*ep)) {
+        if (ep == NULL || capref_is_null(*ep)) {
             DEBUG_QUEUE("Connect to PF \n");
             connect_to_mngif(q);
         } else {

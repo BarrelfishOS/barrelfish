@@ -158,9 +158,10 @@ static void event_cb(void* queue)
 static struct devq* create_net_queue(char* card_name)
 {   
     errval_t err;
-    struct capref ep;
+    struct capref ep = NULL_CAP;
 
     if (strncmp(card_name, "sfn5122f", 8) == 0) {
+        debug_printf("Creating sfn5122f queue \n");
         struct sfn5122f_queue* q;
         
         err = sfn5122f_queue_create(&q, event_cb, &ep, /* userlevel*/ true,
@@ -176,6 +177,7 @@ static struct devq* create_net_queue(char* card_name)
     if (strncmp(card_name, "e10k", 4) == 0) {
         struct e10k_queue* q;
         
+        debug_printf("Creating e10k queue \n");
         err = e10k_queue_create(&q, event_cb, &ep, /*VFs */ false,
                                 6, 0, 0, 0,
                                 /*MSIX interrupts*/ false, false);
@@ -202,6 +204,8 @@ static void test_net_tx(void)
     q = create_net_queue(card);
     assert(q != NULL);
 
+
+    debug_printf("Creating net queue done\n");
     waitset_init(&card_ws);
 
     // MSIX is not working on sfn5122f yet so we have to "simulate interrupts"
