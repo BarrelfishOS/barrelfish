@@ -610,7 +610,8 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
         device->advanced_descriptors = 0;
     }
 
-    if (ep == NULL) {
+    if (ep == NULL || capref_is_null(*ep)) {
+        E1000_DEBUG("Connecting to e1000 driver using NS\n");
         char service[128];
         snprintf(service, 128, "e1000_%x_%x_%x_%s", bus, pci_device, function, "devif");
         // Connect to e1000 card driver
@@ -625,12 +626,13 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
             goto error;
         }
     } else {
-
+        E1000_DEBUG("Connecting to e1000 driver using EP\n");
         err = e1000_devif_bind_to_endpoint(*ep, bind_cb, device, get_default_waitset(), 1);
         if (err_is_fail(err)) {
             goto error;
         }
     }
+
     // wait until bound
     while(!device->bound) {
         event_dispatch(get_default_waitset());
@@ -655,6 +657,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
         goto error;
     }
 
+    E1000_DEBUG("Get resources from driver\n");
     errval_t err2;
     err = device->b->rpc_tx_vtbl.create_queue(device->b, (bool) interrupt_mode,
                                               &device->mac_address, &device->media_type, &device->regs,
@@ -667,6 +670,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
         goto error;
     }
 
+    E1000_DEBUG("Get resources from driver done \n");
     err = invoke_frame_identify(device->regs, &id);
     if (err_is_fail(err)) {
         goto error;
