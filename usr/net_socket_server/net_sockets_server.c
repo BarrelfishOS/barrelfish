@@ -38,11 +38,7 @@
 #include <lwip/udp.h>
 #include <lwip/tcp.h>
 #include <lwip/pbuf.h>
-
-#define NO_OF_BUFFERS 128
-#define BUFFER_SIZE 16384
-//#define POLLING
-#define NETSOCKET_LOOP_ITER 100
+#include "netss.h"
 
 struct socket_connection;
 
