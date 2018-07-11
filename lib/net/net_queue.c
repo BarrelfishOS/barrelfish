@@ -65,7 +65,6 @@ static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
     // disable HW filter since the card does not have them
     st->hw_filter = false;
     *filter_ep = NULL_CAP;
-    debug_printf("POLLING %d \n", poll);
 
     return e1000_queue_create((struct e1000_queue**)retqueue, ep, id.vendor, id.device,
                               addr.bus, addr.device, addr.function, poll? 0: 1, interrupt);
