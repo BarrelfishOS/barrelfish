@@ -92,25 +92,25 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
     /* Copy the arguments to our own memory */
     inst->argc = 0;
     if (a1len) {
-        strncpy(inst->_argv[0], a1, sizeof(inst->_argv[0]));
+        strncpy(inst->_argv[0], a1, a1len < sizeof(inst->_argv[0]) ? a1len: sizeof(inst->_argv[0]));
         inst->argv[inst->argc++] = inst->_argv[0];
     } else {
         inst->argv[0] = NULL;
     }
     if (a2len) {
-        strncpy(inst->_argv[1], a2, sizeof(inst->_argv[1]));
+        strncpy(inst->_argv[1], a2, a2len < sizeof(inst->_argv[1]) ? a2len: sizeof(inst->_argv[1]));
         inst->argv[inst->argc++] = inst->_argv[1];
     } else {
         inst->argv[1] = NULL;
     }
-    if (a3len) {
-        strncpy(inst->_argv[2], a3, sizeof(inst->_argv[2]));
+    if (a3len){
+        strncpy(inst->_argv[2], a3, a3len < sizeof(inst->_argv[2]) ? a3len: sizeof(inst->_argv[2]));
         inst->argv[inst->argc++] = inst->_argv[2];
     } else {
         inst->argv[2] = NULL;
     }
     if (a4len) {
-        strncpy(inst->_argv[3], a4, sizeof(inst->_argv[3]));
+        strncpy(inst->_argv[3], a4, a4len < sizeof(inst->_argv[3]) ? a4len: sizeof(inst->_argv[3]));
         inst->argv[inst->argc++] = inst->_argv[3];
     } else {
         inst->argv[3] = NULL;
@@ -186,25 +186,25 @@ static void create_with_argcn_handler(struct ddomain_binding* binding,
     /* Copy the arguments to our own memory */
     inst->argc = 0;
     if (a1len) {
-        strncpy(inst->_argv[0], a1, sizeof(inst->_argv[0]));
+        strncpy(inst->_argv[0], a1, a1len < sizeof(inst->_argv[0]) ? a1len: sizeof(inst->_argv[0]));
         inst->argv[inst->argc++] = inst->_argv[0];
     } else {
         inst->argv[0] = NULL;
     }
     if (a2len) {
-        strncpy(inst->_argv[1], a2, sizeof(inst->_argv[1]));
+        strncpy(inst->_argv[1], a2, a2len < sizeof(inst->_argv[1]) ? a2len: sizeof(inst->_argv[1]));
         inst->argv[inst->argc++] = inst->_argv[1];
     } else {
         inst->argv[1] = NULL;
     }
-    if (a3len) {
-        strncpy(inst->_argv[2], a3, sizeof(inst->_argv[2]));
+    if (a3len){
+        strncpy(inst->_argv[2], a3, a3len < sizeof(inst->_argv[2]) ? a3len: sizeof(inst->_argv[2]));
         inst->argv[inst->argc++] = inst->_argv[2];
     } else {
         inst->argv[2] = NULL;
     }
-    if (a3len) {
-        strncpy(inst->_argv[3], a4, sizeof(inst->_argv[3]));
+    if (a4len) {
+        strncpy(inst->_argv[3], a4, a4len < sizeof(inst->_argv[3]) ? a4len: sizeof(inst->_argv[3]));
         inst->argv[inst->argc++] = inst->_argv[3];
     } else {
         inst->argv[3] = NULL;

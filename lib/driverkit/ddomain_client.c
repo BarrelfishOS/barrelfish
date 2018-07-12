@@ -127,10 +127,10 @@ static errval_t create_call(struct ddomain_binding *b, struct driver_instance* d
 
     err = b->rpc_tx_vtbl.create(b, drv->driver_name, strlen(drv->driver_name)+1,
                                 drv->inst_name, strlen(drv->inst_name)+1,
-                                drv->args[0], (drv->args[0] != NULL) ? strlen(drv->args[0]) : 0,
-                                drv->args[1], (drv->args[1] != NULL) ? strlen(drv->args[1]) : 0,
-                                drv->args[2], (drv->args[2] != NULL) ? strlen(drv->args[2]) : 0,
-                                drv->args[3], (drv->args[3] != NULL) ? strlen(drv->args[3]) : 0,
+                                drv->args[0], (drv->args[0] != NULL) ? strlen(drv->args[0]) + 1 : 0,
+                                drv->args[1], (drv->args[1] != NULL) ? strlen(drv->args[1]) + 1 : 0,
+                                drv->args[2], (drv->args[2] != NULL) ? strlen(drv->args[2]) + 1 : 0,
+                                drv->args[3], (drv->args[3] != NULL) ? strlen(drv->args[3]) + 1 : 0,
                                 drv->caps[0], drv->caps[1], drv->caps[2], drv->caps[3], drv->caps[4], drv->caps[5],
                                 drv->flags, &drv->dev, &drv->control_ep, &out_err);
     if (err_is_fail(err)) {
@@ -177,10 +177,10 @@ static errval_t create_with_argcn_call(struct ddomain_binding *b, struct driver_
     DRIVERKIT_DEBUG("Trying to spawn %s (named %s)\n", drv->driver_name, drv->inst_name);
     err = b->rpc_tx_vtbl.create_with_argcn(b, drv->driver_name, strlen(drv->driver_name)+1,
                                            drv->inst_name, strlen(drv->inst_name)+1,
-                                           drv->args[0], (drv->args[0] != NULL) ? strlen(drv->args[0] + 1) : 0,
-                                           drv->args[1], (drv->args[1] != NULL) ? strlen(drv->args[1] + 1) : 0,
-                                           drv->args[2], (drv->args[2] != NULL) ? strlen(drv->args[2] + 1) : 0,
-                                           drv->args[3], (drv->args[3] != NULL) ? strlen(drv->args[3] + 1) : 0,
+                                           drv->args[0], (drv->args[0] != NULL) ? strlen(drv->args[0]) + 1 : 0,
+                                           drv->args[1], (drv->args[1] != NULL) ? strlen(drv->args[1]) + 1 : 0,
+                                           drv->args[2], (drv->args[2] != NULL) ? strlen(drv->args[2]) + 1 : 0,
+                                           drv->args[3], (drv->args[3] != NULL) ? strlen(drv->args[3]) + 1 : 0,
                                            drv->argcn_cap,
                                            drv->flags, &drv->dev, &drv->control_ep, &out_err);
     if (err_is_fail(err)) {
