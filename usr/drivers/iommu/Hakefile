@@ -43,6 +43,7 @@
         "modules/generic/iommu_device.c",
         "modules/generic/iommu_service.c"
     ],
+    mackerelDevices = ["vtd"],
     flounderDefs = [ "iommu", "pci_iommu" ],
     flounderBindings = [ "iommu", "pci_iommu" ]
   },
