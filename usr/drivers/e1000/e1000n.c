@@ -429,11 +429,6 @@ static void cd_create_queue(struct e1000_devif_binding *b, bool interrupt)
 
     cd_create_queue_rpc(b, interrupt, &mac, &media_type, &regs, &irq, &iommu, &err);
     
-    //if(interrupt){
-        // enable interrupts for that queue
-        // send back interrupt cap
-   //}
-
     // check endpoint
     struct endpoint_identity epid;
     err = invoke_endpoint_identify(iommu, &epid);
@@ -655,6 +650,11 @@ static struct e1000_devif_rx_vtbl vtbl = {
     .destroy_queue_call = cd_destroy_queue
 };
 
+static struct e1000_devif_rpc_rx_vtbl rpc_vtbl = {
+    .create_queue_call = cd_create_queue_rpc,
+    .destroy_queue_call = cd_destroy_queue_rpc
+};
+
 static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
 {
     E1000_DEBUG("Endpoint was requested \n");
@@ -665,7 +665,7 @@ static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* r
                                       get_default_waitset(),
                                       IDC_ENDPOINT_FLAGS_DUMMY,
                                       &b, *ret_cap);
-    
+    b->rpc_rx_vtbl = rpc_vtbl;
     return SYS_ERR_OK;
 }
 
