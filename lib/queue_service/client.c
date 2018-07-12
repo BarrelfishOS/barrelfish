@@ -27,7 +27,7 @@
 #include "qs_internal.h"
 
 struct queue_service_client {
-    bool connected;
+    volatile bool connected;
     coreid_t core;
     struct capref* ep;
     struct queue_service_binding* b;
@@ -44,6 +44,8 @@ static void bind_cb(void *st, errval_t err, struct queue_service_binding *b)
     queue_service_rpc_client_init(q->b);
 
     q->connected = true;
+
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: binding done\n", __FILE__, __FUNCTION__, __LINE__);
 }
 
 /**
@@ -104,6 +106,8 @@ errval_t queue_service_client_init(struct queue_service_client** cl)
     errval_t err;
     iref_t iref;
 
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: nameservice lookup\n", __FILE__, __FUNCTION__, __LINE__);
+
     err = nameservice_blocking_lookup(DEFAULT_SERVICE_NAME, &iref);
     if (err_is_fail(err)) {
         return err; 
@@ -117,7 +121,8 @@ errval_t queue_service_client_init(struct queue_service_client** cl)
     tmp->core = disp_get_core_id();
     tmp->connected = false;
 
-    err = queue_service_bind(iref, bind_cb, cl, get_default_waitset(),
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: binding\n", __FILE__, __FUNCTION__, __LINE__);
+    err = queue_service_bind(iref, bind_cb, tmp, get_default_waitset(),
                              IDC_BIND_FLAGS_DEFAULT);
     if (err_is_fail(err)) {
         goto out; 
@@ -127,6 +132,7 @@ errval_t queue_service_client_init(struct queue_service_client** cl)
         event_dispatch(get_default_waitset());
     }   
 
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: connected\n", __FILE__, __FUNCTION__, __LINE__);
     *cl = tmp;
 
     return SYS_ERR_OK;
@@ -163,6 +169,7 @@ errval_t queue_service_client_request_ep_by_name(struct queue_service_client* cl
         return err;
     }
     
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: requesting queue by name %s \n", __FILE__, __FUNCTION__, __LINE__, name);
     err = cl->b->rpc_tx_vtbl.request_queue_by_name(cl->b, name, cl->core, ep, &err2);
     if (err_is_fail(err) || err_is_fail(err2)) {
         err = err_is_fail(err) ? err: err2;

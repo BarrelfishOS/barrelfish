@@ -186,6 +186,8 @@ static errval_t connect_cb(void *st, struct queue_service_binding *b)
 
     // Set up continuation queue
     b->st = st;
+
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: New connection\n", __FILE__, __FUNCTION__, __LINE__);
     return SYS_ERR_OK;
 }
 
