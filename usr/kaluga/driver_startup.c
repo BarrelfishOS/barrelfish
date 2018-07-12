@@ -253,7 +253,6 @@ static errval_t get_driver_ep(coreid_t where, struct module_info* driver,
         return DRIVERKIT_ERR_NO_DRIVER_FOUND;
     }
 
-
     err = driverkit_get_driver_ep_cap(drv, ret_ep, (where == driver->core));
     if (err_is_fail(err)) {
         return err;
@@ -324,14 +323,37 @@ errval_t start_networking_new(coreid_t where,
             return err;
         }
     }
+
     if (!is_started(driver)) {
-        // cards with driver in seperate process TODO might put into same process
-        struct module_info* net_sockets = find_module("net_sockets_server");
-        if (net_sockets == NULL) {
-            printf("Net sockets server not found\n");
-            return KALUGA_ERR_DRIVER_NOT_AUTO;
+        // netsocket server in seperate process TODO might put into same process
+        struct module_info* mi = find_module("net_sockets_server");
+        if (mi == NULL) {
+            KALUGA_DEBUG("Net_socket_server not found\n", binary_name);
+            return err;
         }
 
+        static struct domain_instance* inst;
+        KALUGA_DEBUG("Creating new driver domain for net_sockets_server\n");
+        // TODO for now alway start on core 0
+        inst = instantiate_driver_domain("net_sockets_server", 0);
+        if (inst == NULL) {
+            return DRIVERKIT_ERR_DRIVER_INIT;
+        }
+
+        while (inst->b == NULL) {
+            event_dispatch(get_default_waitset());
+        }   
+
+        char netss_name[256];
+        sprintf(netss_name, "%s:%s:%"PRIu64":%"PRIu64":%"PRIu64"", mi->binary, 
+                driver->binary, bus, dev, fun); 
+        
+        struct driver_instance* drv2;
+        drv2 = ddomain_create_driver_instance("net_sockets_server_module", 
+                                              netss_name);
+     
+        debug_printf("Starting net socket server (%s) \n", netss_name);
+        // Build PCI address argument
         struct pci_id id;
         struct pci_addr addr;
 
@@ -346,41 +368,36 @@ errval_t start_networking_new(coreid_t where,
         pci_serialize_octet(addr, id, cls, pci_arg_str);
 
         // Spawn net_sockets_server
-        net_sockets->argv[0] = "net_sockets_server";
-        net_sockets->argv[1] = "auto";
-        net_sockets->argv[2] = driver->binary;
-        net_sockets->argv[3] = pci_arg_str;
-
-        struct capref argcn;
-        struct cnoderef argcnref;
-        err = cnode_create_l2(&argcn, &argcnref);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "failed to create the argcn");
-            return err;
-        }
-
-        struct capref ep = {
-            .cnode = argcnref,
-            .slot = 0
-        };
+        err = ddomain_driver_add_arg(drv2, "net_sockets_server");
+        assert(err_is_ok(err));
+        err = ddomain_driver_add_arg(drv2, "auto");
+        assert(err_is_ok(err));
+        err = ddomain_driver_add_arg(drv2, driver->binary);
+        assert(err_is_ok(err));
+        err = ddomain_driver_add_arg(drv2, pci_arg_str);
+        assert(err_is_ok(err));
 
         struct capref cap;
-        err = get_driver_ep(where, driver, oct_id, &cap);
+        
+        err = get_driver_ep(0, driver, oct_id, &cap);
         if (err_is_fail(err)) {     
             debug_printf("Failed getting EP to driver %s \n", oct_id);
             free(pci_arg_str);
             return err; 
         }
 
-        err = cap_copy(ep, cap);
-        if (err_is_fail(err)) {     
-            debug_printf("Failed getting EP to driver %s \n", oct_id);
-            free(pci_arg_str);
-            return err; 
-        }
+        err = ddomain_driver_add_cap(drv2, cap);        
+        assert(err_is_ok(err));
 
-        err = spawn_program_with_caps(where, net_sockets->path, net_sockets->argv, 
-                            environ, NULL_CAP, argcn, 0, get_did_ptr(net_sockets));
+        ddomain_instantiate_driver(inst, drv2);
+
+        KALUGA_DEBUG("Adding %s to EP factories \n", netss_name);
+        err = queue_service_add_ep_factory(qs, netss_name, 0, drv2);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Could not add EP factory (%s) to queue service.", 
+                      netss_name);
+            return err;
+        }
     }
 
     return err;

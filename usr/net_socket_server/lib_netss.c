@@ -1003,4 +1003,4 @@ static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* r
  * To link this particular module in your driver domain,
  * add it to the addModules list in the Hakefile.
  */
-DEFINE_MODULE(netss_module, init, attach, detach, set_sleep_level, destroy, get_ep);
+DEFINE_MODULE(net_sockets_server_module, init, attach, detach, set_sleep_level, destroy, get_ep);

@@ -11,14 +11,14 @@
 --------------------------------------------------------------------------
 
 [  build application {
-        target       = "net_sockets_server",
+        target       = "netss",
         cFiles       = [ "net_sockets_server.c" ],
         flounderBindings = [ "net_sockets" ],
         addLibraries = libDeps [ "net", "lwip2", "octopus", "debug_log" ]
    },
 
     build library {
-        target = "netss_module",
+        target = "net_sockets_server_module",
         cFiles = [ "lib_netss.c"],
         flounderBindings = [ "net_sockets" ],
         addIncludes = ["/include/lwip2/"]
@@ -29,13 +29,13 @@
     -- The custom linker script is used to add the section where the modules
     -- are stored.
     build application {
-        target = "netss",
+        target = "net_sockets_server",
         cFiles = [ "main.c"],
         addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
 
         addLibraries = libDeps["driverkit", "octopus", "debug_log", 
                                "trace", "skb", "driverkit_iommu", "lwip2", "net"],
-        addModules = ["netss_module"],
+        addModules = ["net_sockets_server_module"],
         architectures = ["x86_64"]
     }
 
