@@ -362,8 +362,8 @@ static err_t net_tcp_accepted(void *arg, struct tcp_pcb *newpcb, err_t error)
     return ERR_OK;
 }
 
-static errval_t net_request_descq_ep(struct net_sockets_binding *binding, uint16_t core, 
-                                     struct capref* ep)
+static errval_t net_request_descq_ep_rpc(struct net_sockets_binding *binding, uint16_t core, 
+                                         struct capref* ep)
 {
     errval_t err;
     err = slot_alloc(ep);
@@ -378,7 +378,17 @@ static errval_t net_request_descq_ep(struct net_sockets_binding *binding, uint16
     return err;
 }
 
-static errval_t net_register_queue(struct net_sockets_binding *binding, uint64_t queue_id)
+static void net_request_descq_ep(struct net_sockets_binding *binding, uint16_t core)
+{
+    struct capref ep;
+    errval_t err;
+
+    err = net_request_descq_ep_rpc(binding, core, &ep);
+    err = binding->tx_vtbl.request_descq_ep_response(binding, NOP_CONT, ep);
+    assert(err_is_ok(err));
+}
+
+static errval_t net_register_queue_rpc(struct net_sockets_binding *binding, uint64_t queue_id)
 {
     struct network_connection *nc;
 
@@ -397,7 +407,16 @@ static errval_t net_register_queue(struct net_sockets_binding *binding, uint64_t
     return SYS_ERR_OK;
 }
 
-static errval_t net_udp_socket(struct net_sockets_binding *binding, uint32_t *descriptor)
+static void net_register_queue(struct net_sockets_binding *binding, uint64_t queue_id)
+{
+    errval_t err;
+    err = net_register_queue_rpc(binding, queue_id);
+    err = binding->tx_vtbl.register_queue_response(binding, NOP_CONT);
+    assert(err_is_ok(err));
+}
+
+static errval_t net_udp_socket_rpc(struct net_sockets_binding *binding, 
+                                   uint32_t *descriptor)
 {
     struct network_connection *nc;
     struct socket_connection *socket;
@@ -414,7 +433,16 @@ static errval_t net_udp_socket(struct net_sockets_binding *binding, uint32_t *de
     return SYS_ERR_OK;
 }
 
-static errval_t net_tcp_socket(struct net_sockets_binding *binding, uint32_t *descriptor)
+static void net_udp_socket(struct net_sockets_binding *binding)
+{
+    errval_t err;
+    uint32_t desc;
+    err = net_udp_socket_rpc(binding, &desc);
+    err = binding->tx_vtbl.new_udp_socket_response(binding, NOP_CONT, desc);
+    assert(err_is_ok(err));
+}
+
+static errval_t net_tcp_socket_rpc(struct net_sockets_binding *binding, uint32_t *descriptor)
 {
     struct network_connection *nc;
     struct socket_connection *socket;
@@ -433,7 +461,18 @@ static errval_t net_tcp_socket(struct net_sockets_binding *binding, uint32_t *de
     return SYS_ERR_OK;
 }
 
-static errval_t net_bind(struct net_sockets_binding *binding, uint32_t descriptor, uint32_t ip_address, uint16_t port, errval_t *error, uint16_t *bound_port)
+static void net_tcp_socket(struct net_sockets_binding *binding)
+{
+    errval_t err;
+    uint32_t desc;
+    err = net_tcp_socket_rpc(binding, &desc);
+    err = binding->tx_vtbl.new_tcp_socket_response(binding, NOP_CONT, desc);
+    assert(err_is_ok(err));
+}
+
+static errval_t net_bind_rpc(struct net_sockets_binding *binding, uint32_t descriptor, 
+                             uint32_t ip_address, uint16_t port, errval_t *error, 
+                             uint16_t *bound_port)
 {
     struct network_connection *nc;
     struct socket_connection *socket;
@@ -463,7 +502,19 @@ static errval_t net_bind(struct net_sockets_binding *binding, uint32_t descripto
     return SYS_ERR_OK;
 }
 
-static errval_t net_listen(struct net_sockets_binding *binding, uint32_t descriptor, uint8_t backlog, errval_t *error)
+static void net_bind(struct net_sockets_binding *binding, uint32_t descriptor, 
+                     uint32_t ip_address, uint16_t port)
+{
+    errval_t err;
+    uint16_t bound_port;
+    err = net_bind_rpc(binding, descriptor, ip_address , port, &err, &bound_port);
+    err = binding->tx_vtbl.bind_response(binding, NOP_CONT, err, bound_port);
+    assert(err_is_ok(err));
+}
+
+static errval_t net_listen_rpc(struct net_sockets_binding *binding, 
+                               uint32_t descriptor, uint8_t backlog, 
+                               errval_t *error)
 {
     struct network_connection *nc;
     struct socket_connection *socket;
@@ -487,6 +538,16 @@ static errval_t net_listen(struct net_sockets_binding *binding, uint32_t descrip
     return SYS_ERR_OK;
 }
 
+static void net_listen(struct net_sockets_binding *binding, 
+                       uint32_t descriptor, uint8_t backlog)
+{
+    errval_t err, err2;
+    err = net_listen_rpc(binding, descriptor, backlog, &err2);
+    err = binding->tx_vtbl.listen_response(binding, NOP_CONT, err2);
+    assert(err_is_ok(err));
+}
+
+
 static err_t net_tcp_connected(void *arg, struct tcp_pcb *tpcb, err_t error)
 {
     struct socket_connection *socket = arg;
@@ -498,7 +559,9 @@ static err_t net_tcp_connected(void *arg, struct tcp_pcb *tpcb, err_t error)
     return SYS_ERR_OK;
 }
 
-static errval_t net_connect(struct net_sockets_binding *binding, uint32_t descriptor, uint32_t ip_address, uint16_t port, errval_t *error)
+static errval_t net_connect_rpc(struct net_sockets_binding *binding, 
+                                uint32_t descriptor, uint32_t ip_address, 
+                                uint16_t port, errval_t *error)
 {
     struct network_connection *nc;
     struct socket_connection *socket;
@@ -526,6 +589,16 @@ static errval_t net_connect(struct net_sockets_binding *binding, uint32_t descri
     }
 
     return SYS_ERR_OK;
+}
+
+static void net_connect(struct net_sockets_binding *binding, 
+                        uint32_t descriptor, uint32_t ip_address, 
+                        uint16_t port)
+{
+    errval_t err, err2;
+    err = net_connect_rpc(binding, descriptor, ip_address, port, &err2);
+    err = binding->tx_vtbl.connect_response(binding, NOP_CONT, err2);
+    assert(err_is_ok(err));
 }
 
 static void net_delete_socket(struct network_connection *nc, uint32_t descriptor)
@@ -772,6 +845,16 @@ static errval_t q_control(struct descq* q, uint64_t cmd, uint64_t value, uint64_
 
 
 static struct net_sockets_rpc_rx_vtbl rpc_rx_vtbl = {
+    .request_descq_ep_call = net_request_descq_ep_rpc,
+    .register_queue_call = net_register_queue_rpc,
+    .new_udp_socket_call = net_udp_socket_rpc,
+    .new_tcp_socket_call = net_tcp_socket_rpc,
+    .bind_call = net_bind_rpc,
+    .connect_call = net_connect_rpc,
+    .listen_call = net_listen_rpc,
+};
+
+static struct net_sockets_rx_vtbl rx_vtbl = {
     .request_descq_ep_call = net_request_descq_ep,
     .register_queue_call = net_register_queue,
     .new_udp_socket_call = net_udp_socket,
@@ -781,11 +864,9 @@ static struct net_sockets_rpc_rx_vtbl rpc_rx_vtbl = {
     .listen_call = net_listen,
 };
 
-static struct net_sockets_rx_vtbl rx_vtbl = {
-};
-
 static errval_t connect_cb(void *st, struct net_sockets_binding *binding)
 {
+    binding->rx_vtbl = rx_vtbl;
     binding->rpc_rx_vtbl = rpc_rx_vtbl;
     return SYS_ERR_OK;
 }
