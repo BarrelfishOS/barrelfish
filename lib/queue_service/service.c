@@ -133,6 +133,7 @@ static errval_t request_queue_by_name_rpc(struct queue_service_binding *b,
         return *err;
     }
 
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: Request queue by name rpc done \n", __FILE__, __FUNCTION__, __LINE__);
     return SYS_ERR_OK;
 }
 
@@ -147,6 +148,8 @@ static void request_queue_by_name(struct queue_service_binding *b, const char* n
     
     err = b->tx_vtbl.request_queue_by_name_response(b, NOP_CONT, ep, err);
     assert(err_is_ok(err));
+   
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: Request queue by name done \n", __FILE__, __FUNCTION__, __LINE__);
 }
 
 static struct queue_service_rx_vtbl rx_vtbl = {

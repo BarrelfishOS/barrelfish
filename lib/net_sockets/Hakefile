@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2017, ETH Zurich.
+-- Copyright (c) 2017-2018, ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -16,7 +16,7 @@
                   flounderBindings = [ "net_sockets" ],
                   addIncludes  = [ "include", "/lib/lwip-2.0.2/src/include/" ],
                   addLibraries = libDeps [ "lwip2", "devif", "devif_backend_idc", 
-                                           "debug_log", "octopus", "octopus_parser"
-]
+                                           "debug_log", "octopus", "octopus_parser",
+                                           "queue_service_client"]
                 }
 ]

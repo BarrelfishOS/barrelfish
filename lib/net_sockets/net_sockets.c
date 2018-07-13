@@ -10,6 +10,7 @@
 #include <barrelfish/waitset_chan.h>
 #include <barrelfish/waitset.h>
 #include <barrelfish/deferred.h>
+#include <queue_service/client.h>
 
 #include <if/octopus_defs.h>
 #include <octopus/octopus.h>
@@ -37,7 +38,9 @@ void *buffers[NO_OF_BUFFERS];
 uint64_t next_free, next_used;
 struct net_socket *sockets = NULL;
 
-//#define DEBUG_MODE
+static struct queue_service_client* qs_cl;
+
+#define DEBUG_MODE
 
 #if defined(DEBUG_MODE) 
 #define DEBUG_NETSOCK(x...) do { printf("lib_netsocket:%s.%d:%s:%d: ", \
@@ -482,8 +485,6 @@ static errval_t net_sockets_init_internal(char* cardname, struct capref ep)
     sprintf(queue_name, "net_sockets_queue_%s", cardname);
 
     printf("Client connecting to: %s \n", service_name);
-    printf("Client init queue: %s \n", queue_name);
-
 
     if (!capref_is_null(ep)) {
         DEBUG_NETSOCK("Connect to net_sockets_server using EP\n");
@@ -538,8 +539,6 @@ static errval_t net_sockets_init_internal(char* cardname, struct capref ep)
     assert(err_is_ok(err));
 
     return SYS_ERR_OK;
-
-
 }
 
 errval_t net_sockets_init_with_ep(struct capref ep) 
@@ -555,9 +554,19 @@ errval_t net_sockets_init_with_card(char* cardname)
 #define NAMESERVICE_ENTRY "r'net\\_sockets\\_service\\_.*' { iref: _ }"
 #define OFFSET 20
 
-errval_t net_sockets_init(void)
-{   
+errval_t net_sockets_init(void) 
+{
     errval_t err;
+    struct capref ep;
+
+    // init queue service client
+    if (qs_cl == NULL) {
+        err = queue_service_client_init(&qs_cl);   
+        if (err_is_fail(err)) {
+            return err;
+        }
+    }
+    
     char* record;
     // lookup cards that are available
     err = oct_init();
@@ -565,28 +574,32 @@ errval_t net_sockets_init(void)
         return err;
     }
 
-    // Wait for an entry in the namserver to pop up
-    //
+    //Wait for an entry in the namserver to pop up TODO might make this more specific
     err = oct_wait_for(&record, NAMESERVICE_ENTRY);
     if (err_is_fail(err)) {
         return err;
     }
 
-    // Get all of them
-    char** records;
-    size_t len;
-    err = oct_get_names(&records, &len ,NAMESERVICE_ENTRY);
-    if (err_is_fail(err)) {
-        return err;
-    }
- 
-    for (int i = 0; i < len; i++) {
-        // if we find any card other than e1000 start it with
-        // this card since in our case it is a 10G card
-        if (strcmp(&records[i][OFFSET],"e1000") != 0) {
-            return net_sockets_init_with_card(&records[i][OFFSET]);
+    // get endpoint to any net_sockets_server connectio
+    err = QSERVICE_ERR_NOT_FOUND;
+    // we nown there is an endpoint we can get, but there might be a race 
+    // condition that the service is exported but the endpoint factory not
+    // yet added -> QSERVICE_ERR_NOT_FOUND
+    while(err == QSERVICE_ERR_NOT_FOUND) {
+        err = queue_service_client_request_ep_by_name(qs_cl, "net_sockets_server",
+                                                      &ep);
+        if (err_is_fail(err) && err != QSERVICE_ERR_NOT_FOUND) {
+            return err;
         }
     }
 
-    return net_sockets_init_with_card("e1000");
+
+    net_sockets_init_with_ep(ep); 
+    if (err_is_fail(err)) {
+        slot_free(ep);
+        return err;
+    }
+
+    return SYS_ERR_OK;
 }
+
