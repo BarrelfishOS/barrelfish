@@ -1067,7 +1067,6 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
 
 static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
 {
-    debug_printf("Endpoint was requested \n");
     errval_t err;
     struct net_sockets_binding* b;
     err = net_sockets_create_endpoint(lmp? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
