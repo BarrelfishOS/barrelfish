@@ -60,7 +60,9 @@ static int32_t check_name_part(void *data, void *arg)
     char* name1 = (char*) data;
     char* name2 = (char*) arg;
     
-    return !strncmp(name2, name1, strlen(name2));
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: Comparing %s %s results %d \n", __FILE__, __FUNCTION__, __LINE__, 
+                        name1, name2, !strncmp(name2, name1, strlen(name2)));
+    return strncmp(name2, name1, strlen(name2)) ? 0: 1;
 }
 
 static errval_t request_queue_rpc(struct queue_service_binding *b, coreid_t coreid,
@@ -114,7 +116,7 @@ static errval_t request_queue_by_name_rpc(struct queue_service_binding *b,
 {
     *err = SYS_ERR_OK;
 
-    QUEUE_SERVICE_DEBUG("%s:%s:%d: Request queue by name rpc \n", __FILE__, __FUNCTION__, __LINE__);
+    QUEUE_SERVICE_DEBUG("%s:%s:%d: Request queue by name rpc %s \n", __FILE__, __FUNCTION__, __LINE__, name);
 
     struct queue_service_state* st = (struct queue_service_state*) b->st;
 
@@ -141,7 +143,7 @@ static errval_t request_queue_by_name_rpc(struct queue_service_binding *b,
 static void request_queue_by_name(struct queue_service_binding *b, const char* name, coreid_t core)
 {
     errval_t err;
-    struct capref ep;
+    struct capref ep = NULL_CAP;
     QUEUE_SERVICE_DEBUG("%s:%s:%d: Request queue by name \n", __FILE__, __FUNCTION__, __LINE__);
     
     err = request_queue_by_name_rpc(b, name, core, &ep, &err);
