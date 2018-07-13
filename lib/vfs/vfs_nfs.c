@@ -1343,6 +1343,7 @@ static struct vfs_ops nfsops = {
 errval_t vfs_nfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
 {
     // skip over protocol part of URI
+    errval_t err;
     char *host = strstr(uri, "://");
     if (host == NULL) {
         return VFS_ERR_BAD_URI;
@@ -1369,7 +1370,10 @@ errval_t vfs_nfs_mount(const char *uri, void **retst, struct vfs_ops **retops)
     static bool stack_inited;
     if (!stack_inited) {
         // lwip_init_auto();
-        net_sockets_init();
+        err = net_sockets_init();
+        if (err_is_fail(err)) {
+            return err;
+        }
         stack_inited = true;
     }
 

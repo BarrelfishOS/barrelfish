@@ -318,9 +318,13 @@ errval_t tftp_client_read_file(char *path, void *buf, size_t buflen, size_t *ret
  */
 errval_t tftp_client_connect(char *ip, uint16_t port)
 {
+    errval_t r;
     switch(tftp_client.state) {
         case TFTP_ST_INVALID :
-            net_sockets_init();
+            r = net_sockets_init();
+            if (err_is_fail(err)) {
+                return 1
+            }
             tftp_client.pcb = net_udp_socket();
             TFTP_DEBUG("new connection from uninitialized state\n");
             break;
@@ -347,7 +351,6 @@ errval_t tftp_client_connect(char *ip, uint16_t port)
 
     TFTP_DEBUG("connecting to %s:%" PRIu16 "\n", ip, port);
 
-    errval_t r;
     r = net_bind(tftp_client.pcb, (struct in_addr){(INADDR_ANY)}, 0);
     if (r != SYS_ERR_OK) {
         USER_PANIC("UDP bind failed");
