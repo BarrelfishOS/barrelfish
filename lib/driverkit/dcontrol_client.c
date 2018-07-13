@@ -47,6 +47,7 @@ errval_t driverkit_get_driver_ep_cap(struct driver_instance* drv, struct capref*
 
     err = drv->ctrl->rpc_tx_vtbl.get_ep(drv->ctrl, lmp, cap, &msgerr);
     if (err_is_fail(err)) {
+        slot_free(*cap);
         return err;
     }
 
