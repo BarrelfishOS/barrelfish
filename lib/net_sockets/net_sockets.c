@@ -28,11 +28,14 @@ struct descq* descq_queue;
 static void *buffer_start;
 static regionid_t regionid;
 static uint64_t queue_id;
+static struct capref ep;
 
 #define NO_OF_BUFFERS 128
 #define BUFFER_SIZE 16384
 #define NETSOCKET_LOOP_ITER 100
+#define NUM_TRY_TIMEOUT 20
 
+#define NAMESERVICE_ENTRY "r'net\\_sockets\\_service\\_.*' { iref: _ }"
 
 void *buffers[NO_OF_BUFFERS];
 uint64_t next_free, next_used;
@@ -40,7 +43,7 @@ struct net_socket *sockets = NULL;
 
 static struct queue_service_client* qs_cl;
 
-#define DEBUG_MODE
+//#define DEBUG_MODE
 
 #if defined(DEBUG_MODE) 
 #define DEBUG_NETSOCK(x...) do { printf("lib_netsocket:%s.%d:%s:%d: ", \
@@ -463,14 +466,14 @@ static errval_t q_notify(struct descq* q)
 }
 
 
-static errval_t net_sockets_init_internal(char* cardname, struct capref ep)
+static errval_t net_sockets_init_internal(struct capref endpoint)
 {
     errval_t err;
-    iref_t iref;
 
     memset(buffers, 0, sizeof(buffers));
     next_free = 0;
     next_used = 0;
+    ep = endpoint;
 
     alloc_mem(&buffer_frame, &buffer_start, 2 * BUFFER_SIZE * NO_OF_BUFFERS);
  
@@ -478,27 +481,11 @@ static errval_t net_sockets_init_internal(char* cardname, struct capref ep)
     f.notify = q_notify;
 
     DEBUG_NETSOCK("net socket client started \n");
-    char service_name[64];
-    char queue_name[64];
 
-    sprintf(service_name, "net_sockets_service_%s", cardname);
-    sprintf(queue_name, "net_sockets_queue_%s", cardname);
-
-    printf("Client connecting to: %s \n", service_name);
-
-    if (!capref_is_null(ep)) {
-        DEBUG_NETSOCK("Connect to net_sockets_server using EP\n");
-        err = net_sockets_bind_to_endpoint(ep, bind_cb, NULL, get_default_waitset(), 
-                                           IDC_BIND_FLAGS_DEFAULT);
-        assert(err_is_ok(err));
-    } else {       
-        DEBUG_NETSOCK("Connect to net_sockets_server using nameservice\n");
-        err = nameservice_blocking_lookup(service_name, &iref);
-        assert(err_is_ok(err));
-        err = net_sockets_bind(iref, bind_cb, NULL, get_default_waitset(), 
-                               IDC_BIND_FLAGS_DEFAULT);
-        assert(err_is_ok(err));
-    }
+    DEBUG_NETSOCK("Connect to net_sockets_server using EP\n");
+    err = net_sockets_bind_to_endpoint(ep, bind_cb, NULL, get_default_waitset(), 
+                                       IDC_BIND_FLAGS_DEFAULT);
+    assert(err_is_ok(err));
     while (!bound_done) {
         event_dispatch(get_default_waitset());
     }
@@ -541,23 +528,14 @@ static errval_t net_sockets_init_internal(char* cardname, struct capref ep)
     return SYS_ERR_OK;
 }
 
-errval_t net_sockets_init_with_ep(struct capref ep) 
+errval_t net_sockets_init_with_ep(struct capref endpoint) 
 {
-    return net_sockets_init_internal("", ep);
+    return net_sockets_init_internal(endpoint);
 }
 
 errval_t net_sockets_init_with_card(char* cardname) 
 {
-    return net_sockets_init_internal(cardname, NULL_CAP);
-}
-
-#define NAMESERVICE_ENTRY "r'net\\_sockets\\_service\\_.*' { iref: _ }"
-#define OFFSET 20
-
-errval_t net_sockets_init(void) 
-{
     errval_t err;
-    struct capref ep;
 
     // init queue service client
     if (qs_cl == NULL) {
@@ -579,20 +557,41 @@ errval_t net_sockets_init(void)
     if (err_is_fail(err)) {
         return err;
     }
+    free(record);
 
     // get endpoint to any net_sockets_server connectio
+    // there is a race condition that the service is exported but the 
+    // endpoint factory notyet added -> QSERVICE_ERR_NOT_FOUND
+    // if there is no such endpoint factory, fail after some tries
+    char cname[256];
+    if (strncmp(cardname, "net_sockets_server", strlen("net_sockets_server")) == 0) {   
+        strncpy(cname, cardname, strlen(cardname) < 256 ? strlen(cardname): 256);
+    } else {
+        sprintf(cname, "net_sockets_server:%s", cardname);
+    }
+
+    DEBUG_NETSOCK("Netsockets server connecting using name %s \n", cname);
+    err = slot_alloc(&ep);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
     err = QSERVICE_ERR_NOT_FOUND;
-    // we nown there is an endpoint we can get, but there might be a race 
-    // condition that the service is exported but the endpoint factory not
-    // yet added -> QSERVICE_ERR_NOT_FOUND
-    while(err == QSERVICE_ERR_NOT_FOUND) {
-        err = queue_service_client_request_ep_by_name(qs_cl, "net_sockets_server",
+    uint8_t timeout = 0;
+    while(err == QSERVICE_ERR_NOT_FOUND && timeout < NUM_TRY_TIMEOUT) {
+        err = queue_service_client_request_ep_by_name(qs_cl, cname,
                                                       &ep);
         if (err_is_fail(err) && err != QSERVICE_ERR_NOT_FOUND) {
             return err;
         }
+        barrelfish_usleep(500*1000);
+        timeout++;
     }
-
+    
+    if (err_is_fail(err)) {
+        slot_free(ep);
+        return err;
+    }
 
     net_sockets_init_with_ep(ep); 
     if (err_is_fail(err)) {
@@ -601,5 +600,10 @@ errval_t net_sockets_init(void)
     }
 
     return SYS_ERR_OK;
+}
+
+errval_t net_sockets_init(void) 
+{
+    return net_sockets_init_with_card("net_sockets_server");
 }
 
