@@ -72,14 +72,14 @@ errval_t networking_init_default(void);
 
 
 /**
- * @brief initializes the networking library
+ * @brief initializes the networking library using a certain nic
  *
  * @param nic       the nic to use with the networking library
  * @param flags     flags to use to initialize the networking library
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_init(const char *nic, net_flags_t flags);
+errval_t networking_init_with_nic(const char *nic, net_flags_t flags);
 
 /**
  * @brief initializes the networking library
@@ -102,7 +102,6 @@ errval_t networking_init_with_ep(const char *nic, struct capref ep,
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t networking_init_with_queue(struct devq *q, net_flags_t flags);
-
 
 /**
  * @brief polls the network for new packets

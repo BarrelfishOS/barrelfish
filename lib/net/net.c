@@ -25,6 +25,7 @@
 #include <barrelfish/waitset_chan.h>
 
 #include <net/net_filter.h>
+#include <net_sockets/net_sockets.h>
 #include <net_interfaces/flags.h>
 #include "networking_internal.h"
 #include "net_queue_internal.h"
@@ -51,13 +52,11 @@ struct deferred_event net_lwip_timer;
  */
 errval_t networking_get_defaults(uint64_t *queue, const char **cardname, uint32_t *flags)
 {
-    /* TODO: get the values from the SKB */
+    /* TODO: get some reasonable values */
 
     *queue = NETWORKING_DEFAULT_QUEUE_ID;
-    //*cardname = "e10k";
-    *cardname = "sfn5122f";
+    *cardname = "net_sockets_server";
     *flags = NET_FLAGS_POLLING | NET_FLAGS_BLOCKING_INIT;
-    //*flags = NET_FLAGS_POLLING;
 
     return SYS_ERR_OK;
 }
@@ -287,23 +286,30 @@ static errval_t networking_init_st(struct net_state *st, const char *nic, net_fl
 
     st->cardname = nic;
     st->flags = flags;
+
     // default no hw filters
     st->hw_filter = false;
 
-    /* create the queue wit the given nic and card name */
-    err = networking_create_queue(nic, NULL, &st->queueid, &st->filter_ep, &st->queue);
-    if (err_is_fail(err)) {
+    // if the NIC has a net_sockets_server prependend -> connect to net_socket server
+    // ontop of a nic
+    if (strncmp("net_sockets_server", nic, strlen("net_sockets_server"))) {
+        return net_sockets_init_with_card(nic);
+    } else {
+        /* create the queue wit the given nic and card name */
+        err = networking_create_queue(nic, NULL, &st->queueid, &st->filter_ep, &st->queue);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        assert(st->queue != NULL);
+
+        err = networking_init_with_queue_st(st, st->queue, flags);
+        if (err_is_fail(err)) {
+           // devq_destroy(st->queue);
+        }
+
         return err;
     }
-
-    assert(st->queue != NULL);
-
-    err = networking_init_with_queue_st(st, st->queue, flags);
-    if (err_is_fail(err)) {
-       // devq_destroy(st->queue);
-    }
-
-    return err;
 }
 
 /**
@@ -363,12 +369,11 @@ errval_t networking_init_with_queue(struct devq *q, net_flags_t flags)
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_init(const char *nic, net_flags_t flags)
+errval_t networking_init_with_nic(const char *nic, net_flags_t flags)
 {
     struct net_state *st = get_default_net_state();
     return networking_init_st(st, nic, flags);
 }
-
 
 /**
  * @brief initializes the networking library

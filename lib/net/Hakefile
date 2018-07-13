@@ -20,7 +20,7 @@
     addLibraries = libDeps [ "lwip2", "devif", "devif_backend_idc",
                              "devif_backend_solarflare", "devif_backend_e10k",
                              "devif_backend_loopback",  "devif_backend_e1000",
-                             "devif_backend_mlx4", "debug_log",
+                             "devif_backend_mlx4", "debug_log", "net_sockets", 
                              "octopus", "octopus_parser" , "driverkit_iommu",
                              "queue_service_client"]
   },

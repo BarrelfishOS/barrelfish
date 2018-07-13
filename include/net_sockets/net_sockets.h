@@ -46,7 +46,7 @@ void net_set_on_closed(struct net_socket *socket, net_closed_callback_t cb);
 
 
 errval_t net_sockets_init(void);
-errval_t net_sockets_init_with_card(char* cardname);
+errval_t net_sockets_init_with_card(const char* cardname);
 errval_t net_sockets_init_with_ep(struct capref ep);
 
 #endif

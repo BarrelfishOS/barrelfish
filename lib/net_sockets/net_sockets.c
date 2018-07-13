@@ -533,7 +533,7 @@ errval_t net_sockets_init_with_ep(struct capref endpoint)
     return net_sockets_init_internal(endpoint);
 }
 
-errval_t net_sockets_init_with_card(char* cardname) 
+errval_t net_sockets_init_with_card(const char* cardname) 
 {
     errval_t err;
 
