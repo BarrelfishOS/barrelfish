@@ -443,6 +443,11 @@ errval_t networking_install_ip_filter(bool tcp, struct in_addr *src,
                                       uint16_t src_port, uint16_t dst_port)
 {
     errval_t err;
+    if (!state.hw_filter) {
+        debug_printf("Not adding filter as there are no HW filters");
+        return SYS_ERR_OK;
+    }
+
     if (state.filter == NULL) {
         return NET_FILTER_ERR_NOT_INITIALIZED;
     }
@@ -488,6 +493,11 @@ errval_t networking_remove_ip_filter(bool tcp, struct in_addr *src,
 {
 
     errval_t err;
+    if (!state.hw_filter) {
+        debug_printf("Not removing filter as there are no HW filters");
+        return SYS_ERR_OK;
+    }
+
     if (state.filter == NULL) {
         return NET_FILTER_ERR_NOT_INITIALIZED;
     }
