@@ -52,7 +52,7 @@ errval_t queue_service_client_init(struct queue_service_client** cl);
  *
  * @param cl            queue service client
  * @param name          name of the service we want an endpont from.
- * @param ep            returned endpoint
+ * @param ep            returned endpoint, slot has to be allocated beforehand
  *
  * @return SYS_ERR_OK on sucess, errval on failure
  */

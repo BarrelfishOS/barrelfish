@@ -143,11 +143,11 @@ out:
 
 /**
  * @brief requests a endpoint to a NIC by name. Using the endpoint the queue
- *        itself can be initalized.
+ *        itself can be initalized. 
  *
  * @param cl            queue service client
  * @param name          name of the service we want an endpont from.
- * @param ep            returned endpoint
+ * @param ep            returned endpoint, slot has to be allocated beforehand
  *
  * @return SYS_ERR_OK on sucess, errval on failure
  */
@@ -162,11 +162,6 @@ errval_t queue_service_client_request_ep_by_name(struct queue_service_client* cl
  
     if (strlen(name) > MAX_NAME_LEN) {
         return QSERVICE_ERR_NAME;
-    }
-
-    err = slot_alloc(ep);
-    if (err_is_fail(err)) {
-        return err;
     }
     
     QUEUE_SERVICE_DEBUG("%s:%s:%d: requesting queue by name %s \n", __FILE__, __FUNCTION__, __LINE__, name);
