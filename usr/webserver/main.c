@@ -16,7 +16,7 @@
 #include <barrelfish/waitset.h>
 #include <barrelfish/nameservice_client.h>
 #include <stdio.h>
-#include <net_sockets/net_sockets.h>
+#include <net/net.h>
 #include <netif/etharp.h>
 #include <netif/bfeth.h>
 #include <netbench/netbench.h>
@@ -62,7 +62,7 @@ int main(int argc, char**argv)
 
     DEBUGPRINT("lwip_demo: lwip setup\n");
     printf("webserver:%u: initializing networking \n", disp_get_core_id());
-    err = net_sockets_init();
+    err = networking_init_default();
     if (err_is_fail(err)) {
         USER_PANIC("Failed init %s \n", err_getstring(err));
     }
