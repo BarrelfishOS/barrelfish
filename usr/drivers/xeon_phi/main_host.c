@@ -23,6 +23,7 @@
 #include <driverkit/driverkit.h>
 #include <driverkit/iommu.h>
 
+#include <net/net.h>
 #include <xeon_phi/xeon_phi.h>
 #include <xeon_phi/xeon_phi_manager_client.h>
 #include <skb/skb.h>
@@ -160,6 +161,11 @@ int main(int argc, char *argv[])
     err = skb_client_connect();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "initializing skb\n");
+    }
+
+    err = networking_init_default();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "initializing networking\a");
     }
 
     // map the nfs path

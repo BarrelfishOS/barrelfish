@@ -52,7 +52,8 @@
       "xeon_phi_client",
       "octopus",
       "mm",
-      "tftp_client"
+      "tftp_client",
+      "net"
     ],
     addModules = [ "mod_knc" ],
     addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
