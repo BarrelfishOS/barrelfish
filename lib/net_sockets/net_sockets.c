@@ -36,12 +36,12 @@ static struct capref ep;
 #define NUM_TRY_TIMEOUT 20
 
 #define NAMESERVICE_ENTRY "r'net\\_sockets\\_service\\_.*' { iref: _ }"
-
 void *buffers[NO_OF_BUFFERS];
 uint64_t next_free, next_used;
 struct net_socket *sockets = NULL;
 
 static struct queue_service_client* qs_cl;
+static const char* default_card = "net_sockets_server";
 
 //#define DEBUG_MODE
 
@@ -565,12 +565,12 @@ errval_t net_sockets_init_with_card(const char* cardname)
     // if there is no such endpoint factory, fail after some tries
     char cname[256];
     if (strncmp(cardname, "net_sockets_server", strlen("net_sockets_server")) == 0) {   
-        strncpy(cname, cardname, strlen(cardname) < 256 ? strlen(cardname): 256);
+        strncpy(cname, cardname, strlen(cardname) < 256 ? strlen(cardname)+1: 256);
     } else {
         sprintf(cname, "net_sockets_server:%s", cardname);
     }
 
-    DEBUG_NETSOCK("Netsockets server connecting using name %s \n", cname);
+    DEBUG_NETSOCK("Netsockets server connecting using name %s %zu\n", cname strlen(cname));
     err = slot_alloc(&ep);
     if (err_is_fail(err)) {
         return err;
@@ -604,6 +604,6 @@ errval_t net_sockets_init_with_card(const char* cardname)
 
 errval_t net_sockets_init(void) 
 {
-    return net_sockets_init_with_card("net_sockets_server");
+    return net_sockets_init_with_card(default_card);
 }
 
