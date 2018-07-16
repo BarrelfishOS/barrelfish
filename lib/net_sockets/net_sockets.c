@@ -29,6 +29,7 @@ static void *buffer_start;
 static regionid_t regionid;
 static uint64_t queue_id;
 static struct capref ep;
+static bool init_done = false;
 
 #define NO_OF_BUFFERS 128
 #define BUFFER_SIZE 16384
@@ -525,6 +526,7 @@ static errval_t net_sockets_init_internal(struct capref endpoint)
     err = devq_notify((struct devq *)descq_queue);
     assert(err_is_ok(err));
 
+    init_done = true;
     return SYS_ERR_OK;
 }
 
@@ -604,6 +606,9 @@ errval_t net_sockets_init_with_card(const char* cardname)
 
 errval_t net_sockets_init(void) 
 {
-    return net_sockets_init_with_card(default_card);
+    if (!init_done) {
+        return net_sockets_init_with_card(default_card);
+    }
+    return SYS_ERR_OK;
 }
 
