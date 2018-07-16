@@ -322,8 +322,8 @@ errval_t tftp_client_connect(char *ip, uint16_t port)
     switch(tftp_client.state) {
         case TFTP_ST_INVALID :
             r = net_sockets_init();
-            if (err_is_fail(err)) {
-                return 1
+            if (err_is_fail(r)) {
+                return 1;
             }
             tftp_client.pcb = net_udp_socket();
             TFTP_DEBUG("new connection from uninitialized state\n");
