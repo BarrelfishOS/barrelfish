@@ -30,7 +30,7 @@
                     flounderBindings = [ "e1000_devif" ],
                     flounderDefs = [ "e1000_devif" ],
                     mackerelDevices = ["e1000"],
-                    addLibraries = libDeps ["pci", "driverkit_iommu"]
+                    addLibraries = libDeps ["driverkit_iommu"]
     },
 
     -- Builds a driver domain: Use addModules instead of addLibraries to

@@ -14,7 +14,6 @@
 #include <barrelfish/deferred.h>
 #include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
-#include <pci/pci.h>
 #include <if/sfn5122f_devif_defs.h>
 #include <if/sfn5122f_devif_defs.h>
 #include <devif/backends/net/sfn5122f_devif.h>
@@ -506,13 +505,14 @@ static errval_t sfn5122f_destroy(struct devq* queue)
 
 
 
+/*
 static void interrupt_handler(void* arg)
 {
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) arg;
 
     queue->cb(queue);
 }
-
+*/
 
 /**
  * Public functions
@@ -622,8 +622,6 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
         }
     } else {
         printf("Solarflare queue used in interrupt mode mode \n");
-        err = pci_setup_inthandler(interrupt_handler, queue, &queue->vector);
-        assert(err_is_ok(err));
         
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
                                                  interrupts, qzero, queue->core,
