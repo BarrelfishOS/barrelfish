@@ -39,6 +39,7 @@ struct deferred_event net_lwip_timer;
 #define NETWORKING_BUFFER_RX_POPULATE (4096 - 10)
 #define NETWORKING_BUFFER_SIZE  2048
 
+static const char* default_name = "net_sockets_server";
 
 #define NETDEBUG_SUBSYSTEM "net"
 
@@ -55,7 +56,7 @@ errval_t networking_get_defaults(uint64_t *queue, const char **cardname, uint32_
     /* TODO: get some reasonable values */
 
     *queue = NETWORKING_DEFAULT_QUEUE_ID;
-    *cardname = "net_sockets_server";
+    *cardname = default_name;
     *flags = NET_FLAGS_POLLING | NET_FLAGS_BLOCKING_INIT;
 
     return SYS_ERR_OK;
@@ -292,7 +293,7 @@ static errval_t networking_init_st(struct net_state *st, const char *nic, net_fl
 
     // if the NIC has a net_sockets_server prependend -> connect to net_socket server
     // ontop of a nic
-    if (strncmp("net_sockets_server", nic, strlen("net_sockets_server"))) {
+    if (strncmp("net_sockets_server", nic, strlen("net_sockets_server")) == 0) {
         return net_sockets_init_with_card(nic);
     } else {
         /* create the queue wit the given nic and card name */
@@ -412,7 +413,10 @@ errval_t networking_init_with_ep(const char *nic, struct capref ep,
 errval_t networking_init_default(void)
 {
     struct net_state *st = get_default_net_state();
-    return networking_init_default_st(st);
+    if (!st->initialized) {
+        return networking_init_default_st(st);
+    }
+    return SYS_ERR_OK;
 }
 
 
