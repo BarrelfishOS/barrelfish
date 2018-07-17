@@ -241,9 +241,11 @@ disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
                     "mov        %%bx, %[fs]             \n\t"
                     "mov        %%gs, %%bx              \n\t"
                     "mov        %%bx, %[gs]             \n\t"
+                    "fxsave     %[fxsave_area]          \n\t"
                     :
                     : [regs] "a" (regs),
                       [fs] "m" (regs->fs),
+                      [fxsave_area] "m" (regs->fxsave_area),
                       [gs] "m" (regs->gs)
                     : "rbx", "rcx", "rdx", "rsi", "rdi",
                       "r8", "r9", "r10", "r12", "r13", "r14", "r15"
