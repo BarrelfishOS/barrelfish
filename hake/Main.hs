@@ -20,6 +20,7 @@ import Exception
 import Data.Dynamic
 import Data.List
 import Data.Maybe
+import Data.Char
 import qualified Data.Set as S
 
 import System.Directory
@@ -707,6 +708,24 @@ makeDirectories h dirs = do
     hPutStrLn h "\t$(Q)mkdir -p `dirname $@`"
     hPutStrLn h "\t$(Q)touch $@"
 
+-- Generate enume for flounder endpoint types. do it here as 
+-- Hake knows all the files
+makeFlounderTypes :: Handle -> String -> IO()
+makeFlounderTypes h src = do
+    baseDir <- getDirectoryContents (src ++ "if") >>= return. filter (\c -> not $ elem c [".", ".."])
+    archDir <- getDirectoryContents (src ++ "if/arch") >>= return. filter (\c -> not $ elem c [".", ".."])
+    hPutStrLn h "#ifndef IF_TYPES_H"
+    hPutStrLn h "#define IF_TYPES_H"
+    hPutStrLn h ""
+    hPutStrLn h "// all the endpoint types generate from files"
+    hPutStrLn h "enum endpoint_types {"
+    mapM_ (\x -> hPutStrLn h $ "\tENDPOINT_TYPE_" ++ ((map toUpper (takeBaseName x)) ++ ",")) baseDir
+    mapM_ (\x -> hPutStrLn h $ "\tENDPOINT_TYPE_" ++ ((map toUpper (takeBaseName x)) ++ ",")) archDir
+    hPutStrLn h "\tENDPOINT_TYPE_DUMMY"
+    hPutStrLn h "};"
+    hPutStrLn h "#endif"
+
+
 --
 -- The top level
 --
@@ -767,6 +786,14 @@ body =  do
     -- Emit directory rules
     putStrLn $ "Generating build directory dependencies..."
     makeDirectories makefile dirs
+
+ 
+    -- Create flounder type file
+    let fileName = (head (opt_architectures opts)) ++ "/include/if/if_types.h"
+    flounderTypes <- openFile(fileName) WriteMode
+    makeFlounderTypes flounderTypes (opt_sourcedir opts)
+    hFlush flounderTypes
+    hClose flounderTypes
 
     hFlush makefile
     hClose makefile

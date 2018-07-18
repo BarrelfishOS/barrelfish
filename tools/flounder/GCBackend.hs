@@ -60,6 +60,7 @@ stub_body infile (Interface ifn descr decls) = C.UnitList [
 
     C.Include C.Standard "barrelfish/barrelfish.h",
     C.Include C.Standard "flounder/flounder_support.h",
+    C.Include C.Standard ("if/if_types.h"),
     C.Include C.Standard ("if/" ++ ifn ++ "_defs.h"),
     C.Blank,
 
@@ -384,9 +385,9 @@ ep_bind_fn_def n =
     C.Return errvar
   ][],
 
-  C.If (C.Binary C.NotEquals myifid epif) [
-    C.Return $ C.Variable "-1"
-  ][],
+  --C.If (C.Binary C.NotEquals myifid epif) [
+  --  C.Return $ C.Variable "-1"
+  --][],
 
   C.Switch eptype [
       C.Case (C.Variable "IDC_ENDPOINT_LMP") [
@@ -419,7 +420,7 @@ ep_bind_fn_def n =
       params = ep_bind_function_params n
       lmpcreate = ifscope n "lmp_bind_to_endpoint"
       umpcreate = ifscope n "ump_bind_to_endpoint"
-      myifid = C.NumConstant 0
+      myifid = C.Variable ("ENDPOINT_TYPE_" ++ (map toUpper n))
 
 -- bind continuation function
 bind_cont_def :: String -> String -> [BindBackend] -> C.Unit
