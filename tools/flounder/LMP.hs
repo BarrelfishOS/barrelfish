@@ -22,6 +22,7 @@ import MsgFragments
 import Syntax
 import Arch
 import BackendCommon
+import Data.Char
 
 ------------------------------------------------------------------------
 -- Language mapping: C identifier names
@@ -347,9 +348,9 @@ lmp_ep_create_fn n =
     C.SBlank,
 
     C.SComment "accept the connection and setup the channel",
-    C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_endpoint_create"
+    C.Ex $ C.Assignment errvar $ C.Call "lmp_chan_endpoint_create_with_iftype"
                                 [C.AddressOf $ C.DerefField lmp_bind_var "chan",
-                                 param_buflen, param_ep],
+                                 param_buflen, param_ep, C.Variable ("IF_TYPE_"++(map toUpper n))],
     C.If (C.Call "err_is_fail" [errvar])
         [C.Ex $ C.Assignment errvar $ C.Call "err_push"
                     [errvar, C.Variable "LIB_ERR_LMP_CHAN_ACCEPT"],

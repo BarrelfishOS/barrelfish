@@ -95,6 +95,7 @@ stub_body_message_handlers infile (Interface ifn descr decls) = C.UnitList [
 
     C.Include C.Standard "barrelfish/barrelfish.h",
     C.Include C.Standard "flounder/flounder_support.h",
+    C.Include C.Standard ("if/if_types.h"),
     C.Include C.Standard ("if/" ++ ifn ++ "_defs.h"),
     C.Blank,
 
@@ -420,7 +421,7 @@ ep_bind_fn_def n =
       params = ep_bind_function_params n
       lmpcreate = ifscope n "lmp_bind_to_endpoint"
       umpcreate = ifscope n "ump_bind_to_endpoint"
-      myifid = C.Variable ("ENDPOINT_TYPE_" ++ (map toUpper n))
+      myifid = C.Variable ("IF_TYPE_" ++ (map toUpper n))
 
 -- bind continuation function
 bind_cont_def :: String -> String -> [BindBackend] -> C.Unit
