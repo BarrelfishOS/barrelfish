@@ -70,6 +70,10 @@ errval_t lmp_chan_accept(struct lmp_chan *lc, size_t buflen_words,
                          struct capref endpoint);
 errval_t lmp_chan_endpoint_create(struct lmp_chan *lc, size_t buflen_words,
                                 struct capref endpoint);
+errval_t lmp_chan_endpoint_create_with_iftype(struct lmp_chan *lc, size_t buflen_words,
+                                              struct capref endpoint, uint16_t iftype);
+errval_t lmp_endpoint_create_in_slot_with_iftype(size_t buflen, struct capref dest,
+                                                 struct lmp_endpoint **retep, uint16_t iftype);
 errval_t lmp_chan_bind_to_endpoint(struct lmp_chan *lc, struct capref remoteep,
                                    size_t buflen_words);
 errval_t lmp_chan_register_send(struct lmp_chan *lc, struct waitset *ws,

@@ -20,6 +20,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include <if/monitor_lmp_defs.h>
+#include <if/if_types.h>
 
 static void error_handler(struct monitor_binding *b, errval_t err)
 {
@@ -107,8 +108,8 @@ static errval_t init_lmp_binding(struct monitor_lmp_binding *mcb,
     }
 
     /* allocate a local endpoint */
-    err = lmp_endpoint_create_in_slot(buflen_words, mcb->chan.local_cap,
-                                      &mcb->chan.endpoint);
+    err = lmp_endpoint_create_in_slot_with_iftype(buflen_words, mcb->chan.local_cap,
+                                                  &mcb->chan.endpoint, IF_TYPE_MONITOR);
     if (err_is_fail(err)) {
         /* TODO: free cap slot */
         return err_push(err, LIB_ERR_ENDPOINT_CREATE);

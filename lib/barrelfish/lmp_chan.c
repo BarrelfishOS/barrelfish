@@ -154,10 +154,17 @@ errval_t lmp_chan_bind_to_endpoint(struct lmp_chan *lc, struct capref remoteep,
         waitset_chanstate_destroy(&lc->send_waitset);
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
+    
+    struct endpoint_identity epid;
+    err = invoke_endpoint_identify(remoteep, &epid);
+    if (err_is_fail(err)) {
+        waitset_chanstate_destroy(&lc->send_waitset);
+        return err;
+    }
 
     /* allocate a local endpoint */
-    err = lmp_endpoint_create_in_slot(buflen_words, lc->local_cap,
-                                      &lc->endpoint);
+    err = lmp_endpoint_create_in_slot_with_iftype(buflen_words, lc->local_cap,
+                                                  &lc->endpoint, epid.iftype);
     if (err_is_fail(err)) {
         slot_free(lc->local_cap);
         waitset_chanstate_destroy(&lc->send_waitset);
@@ -314,7 +321,33 @@ errval_t lmp_chan_accept(struct lmp_chan *lc,
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief Initialise a new LMP CHannel endpoint to accept incoming messages
+ *
+ * \param lc  Storage for channel state
+ * \param buflen_words Size of incoming buffer, in words
+ * \param endpoint Slot to store the local endpoint in
+ * \param iftype    the type of interface used with this ep
+ */
+errval_t lmp_chan_endpoint_create_with_iftype(struct lmp_chan *lc, size_t buflen_words,
+                                              struct capref endpoint, uint16_t iftype)
+{
+    errval_t err;
 
+    lmp_chan_init(lc);
+    lc->local_cap = endpoint;
+
+    /* allocate a local endpoint */
+    err = lmp_endpoint_create_in_slot_with_iftype(buflen_words, lc->local_cap,
+                                                  &lc->endpoint, iftype);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_ENDPOINT_CREATE);
+    }
+
+    /* mark connected */
+    lc->connstate = LMP_EP_WAIT_CAP;
+    return SYS_ERR_OK;
+}
 /**
  * \brief Initialise a new LMP CHannel endpoint to accept incoming messages
  *
@@ -325,21 +358,7 @@ errval_t lmp_chan_accept(struct lmp_chan *lc,
 errval_t lmp_chan_endpoint_create(struct lmp_chan *lc, size_t buflen_words,
                                   struct capref endpoint)
 {
-    errval_t err;
-
-    lmp_chan_init(lc);
-    lc->local_cap = endpoint;
-
-    /* allocate a local endpoint */
-    err = lmp_endpoint_create_in_slot(buflen_words, lc->local_cap,
-                                      &lc->endpoint);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_ENDPOINT_CREATE);
-    }
-
-    /* mark connected */
-    lc->connstate = LMP_EP_WAIT_CAP;
-    return SYS_ERR_OK;
+    return lmp_chan_endpoint_create_with_iftype(lc, buflen_words, endpoint, 0);
 }
 
 
