@@ -342,9 +342,10 @@ ep_create_fn_def n =
             C.Case (C.Variable "IDC_ENDPOINT_UMP") [
                 C.SComment "Allocate Frame for UMP",
 
-                C.Ex $ C.Assignment (C.Variable "err") (C.Call "ump_endpoint_create" [
+                C.Ex $ C.Assignment (C.Variable "err") (C.Call "ump_endpoint_create_with_iftype" [
                     C.Variable "ret_ep",
-                    C.Variable "(DEFAULT_UMP_BUFLEN + DEFAULT_UMP_BUFLEN)"
+                    C.Variable "(DEFAULT_UMP_BUFLEN + DEFAULT_UMP_BUFLEN)",
+                    C.Variable ("IF_TYPE_" ++ (map toUpper n))
                 ]),
                 C.If (C.Call "err_is_fail" [C.Variable "err"]) [
                     C.Return $ C.Variable "err"

@@ -636,6 +636,7 @@ ump_ep_create_fn p ifn has_caps =
         C.Goto "err_out"
       ][],
       C.Ex $ C.Call "assert" [C.Binary C.Equals ep_type (C.Variable "IDC_ENDPOINT_UMP")],
+      C.Ex $ C.Call "assert" [C.Binary C.Equals ep_ifid (C.Variable ("IF_TYPE_" ++ (map toUpper ifn)))],
 
       localvar (C.Ptr $ C.Void) "msgbuf" $ Nothing,
       C.Ex $ C.Assignment errvar (C.Call "vspace_map_one_frame" [
