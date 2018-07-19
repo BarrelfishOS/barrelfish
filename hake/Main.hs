@@ -710,8 +710,17 @@ makeDirectories h dirs = do
 
 -- Generate enume for flounder endpoint types. do it here as 
 -- Hake knows all the files
-makeFlounderTypes :: Handle -> String -> IO()
-makeFlounderTypes h src = do
+
+makeFlounderTypesArch :: String -> String -> String -> IO()
+makeFlounderTypesArch src build arch = do
+    let fileName = build ++ "/" ++ arch ++ "/include/if/if_types.h"
+    let dirName = build ++ "/" ++ arch ++ "/include/if"
+    
+    createDirectoryIfMissing True dirName 
+    writeFile fileName ""
+
+    h <- openFile(fileName) WriteMode
+
     baseDir <- getDirectoryContents (src ++ "if") >>= return. filter (\c -> not $ elem c [".", ".."])
     archDir <- getDirectoryContents (src ++ "if/arch") >>= return. filter (\c -> not $ elem c [".", ".."])
     hPutStrLn h "#ifndef IF_TYPES_H"
@@ -726,7 +735,12 @@ makeFlounderTypes h src = do
     hPutStrLn h "};"
     hPutStrLn h "#endif"
 
+    hFlush h
+    hClose h
 
+makeFlounderTypes :: String -> String -> [String] -> IO()
+makeFlounderTypes src build arches = do
+    mapM_ (\x -> makeFlounderTypesArch src build x) arches
 --
 -- The top level
 --
@@ -788,17 +802,8 @@ body =  do
     putStrLn $ "Generating build directory dependencies..."
     makeDirectories makefile dirs
 
- 
     -- Create flounder type file TODO have not found a better place to do this yet
-    let fileName = abs_builddir ++ "/" ++ (head (opt_architectures opts)) ++ "/include/if/if_types.h"
-    let dirName = abs_builddir ++ "/" ++ (head (opt_architectures opts)) ++ "/include/if"
-    
-    createDirectoryIfMissing True dirName 
-    writeFile fileName ""
-    flounderTypes <- openFile(fileName) WriteMode
-    makeFlounderTypes flounderTypes (opt_sourcedir opts)
-    hFlush flounderTypes
-    hClose flounderTypes
+    makeFlounderTypes (opt_sourcedir opts) (abs_builddir) (opt_architectures opts)
 
     hFlush makefile
     hClose makefile
