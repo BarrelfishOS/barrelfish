@@ -115,7 +115,9 @@ errval_t lmp_endpoint_create_in_slot_with_iftype(size_t buflen, struct capref de
 
     uintptr_t epoffset = (uintptr_t)&ep->k - (uintptr_t)curdispatcher();
 
-    debug_printf("%s: calling mint with epoffset = %"PRIuPTR", buflen = %zu\n", __FUNCTION__, epoffset, buflen);
+    //debug_printf("%s: calling mint with epoffset = %"PRIuPTR", buflen = %zu\n",
+    //              __FUNCTION__, epoffset, buflen); 
+
     size_t combined;
     assert(buflen < 0xFFFF);
     if (iftype != 0) {
