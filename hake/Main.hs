@@ -719,9 +719,10 @@ makeFlounderTypes h src = do
     hPutStrLn h ""
     hPutStrLn h "// all the endpoint types generate from files"
     hPutStrLn h "enum endpoint_types {"
-    mapM_ (\x -> hPutStrLn h $ "\tENDPOINT_TYPE_" ++ ((map toUpper (takeBaseName x)) ++ ",")) baseDir
-    mapM_ (\x -> hPutStrLn h $ "\tENDPOINT_TYPE_" ++ ((map toUpper (takeBaseName x)) ++ ",")) archDir
-    hPutStrLn h "\tENDPOINT_TYPE_DUMMY"
+    hPutStrLn h "\tIF_TYPE_DUMMY = 0,"
+    mapM_ (\x -> hPutStrLn h $ "\tIF_TYPE_" ++ ((map toUpper (takeBaseName x)) ++ ",")) baseDir
+    mapM_ (\x -> hPutStrLn h $ "\tIF_TYPE_" ++ ((map toUpper (takeBaseName x)) ++ ",")) archDir
+    hPutStrLn h "\tIF_TYPE_MAX"
     hPutStrLn h "};"
     hPutStrLn h "#endif"
 
@@ -789,7 +790,7 @@ body =  do
 
  
     -- Create flounder type file
-    let fileName = (head (opt_architectures opts)) ++ "/include/if/if_types.h"
+    let fileName = abs_builddir ++ "/" ++ (head (opt_architectures opts)) ++ "/include/if/if_types.h"
     flounderTypes <- openFile(fileName) WriteMode
     makeFlounderTypes flounderTypes (opt_sourcedir opts)
     hFlush flounderTypes
