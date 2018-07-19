@@ -1948,8 +1948,7 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
             return SYS_ERR_INVALID_EPLEN;
         }
         dest_cap->u.endpointlmp.epoffset = param1;
-        dest_cap->u.endpointlmp.epbuflen = 0xFFFF & param2;
-        dest_cap->u.endpointlmp.iftype = param2 >> 16;
+        dest_cap->u.endpointlmp.epbuflen = param2;
         break;
 
     case ObjType_IO:

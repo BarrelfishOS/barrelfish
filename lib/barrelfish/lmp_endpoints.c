@@ -117,16 +117,13 @@ errval_t lmp_endpoint_create_in_slot_with_iftype(size_t buflen, struct capref de
 
     //debug_printf("%s: calling mint with epoffset = %"PRIuPTR", buflen = %zu\n",
     //              __FUNCTION__, epoffset, buflen); 
-
-    size_t combined;
-    assert(buflen < 0xFFFF);
-    if (iftype != 0) {
-        combined = iftype << 16 | buflen;
-    } else { 
-        combined = buflen;
-    }
     // mint new badged cap from our existing reply endpoint
-    return cap_mint(dest, cap_selfep, epoffset, combined);
+    err = cap_mint(dest, cap_selfep, epoffset, buflen);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return invoke_endpoint_set_iftype(dest, iftype);
 }
 
 /**
