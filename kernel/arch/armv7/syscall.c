@@ -942,6 +942,63 @@ static struct sysret handle_devid_identify(struct capability *cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret handle_endpoint_identify(struct capability *cap,
+                                              arch_registers_state_t *context,
+                                              int argc)
+{
+    // Return with physical base address of frame
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    struct endpoint_identity *eid = (struct endpoint_identity *)sa->arg2;
+
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)eid, sizeof(struct endpoint_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    switch(cap->type) {
+        case ObjType_EndPointUMP :
+            eid->base = cap->u.endpointump.base;
+            eid->length = cap->u.endpointump.bytes;
+            eid->iftype = cap->u.endpointump.iftype;
+            eid->eptype = cap->type;
+            break;
+        case ObjType_EndPointLMP :
+            eid->base   = (genpaddr_t) (uintptr_t) cap->u.endpointlmp.listener + cap->u.endpointlmp.epoffset;
+            eid->length = cap->u.endpointlmp.epbuflen;
+            eid->iftype = cap->u.endpointlmp.iftype;
+            eid->eptype = cap->type;
+            break;
+        default:
+            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+
+static struct sysret handle_set_endpoint_iftype(struct capability *cap, 
+                                                arch_registers_state_t *context,
+                                                int argc)
+{
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    uint16_t iftype = sa->arg2;
+
+    switch(cap->type) {
+        case ObjType_EndPointUMP :
+            //printf("SET_IFTYPE: UMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
+            cap->u.endpointump.iftype = iftype;
+            break;
+        case ObjType_EndPointLMP :
+            //printf("SET_IFTYPE: LMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
+            cap->u.endpointlmp.iftype = iftype;
+            break;
+        default:
+            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
 
 static struct sysret handle_kcb_identify(struct capability *to,
                                   arch_registers_state_t *context,
@@ -1132,6 +1189,14 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_DeviceID] = {
             [DeviceID_Identify] = handle_devid_identify,
     },
+    [ObjType_EndPointLMP] = {
+        [EndPointCMD_Identify] = handle_endpoint_identify,
+        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
+    },
+    [ObjType_EndPointUMP] = {
+        [EndPointCMD_Identify] = handle_endpoint_identify,
+        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
+    }
 };
 
 static struct sysret
