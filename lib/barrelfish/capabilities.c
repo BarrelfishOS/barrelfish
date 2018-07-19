@@ -20,6 +20,7 @@
 #include <barrelfish/lmp_endpoints.h>
 #include <if/monitor_defs.h>
 #include <if/monitor_blocking_defs.h>
+#include <if/if_types.h>
 #include <barrelfish/monitor_client.h>
 #include <trace/trace.h>
 #include <stdio.h>
@@ -849,6 +850,26 @@ errval_t endpoint_create(size_t buflen, struct capref *retcap,
     return lmp_endpoint_create_in_slot(buflen, *retcap, retep);
 }
 
+
+/**
+ * @brief allocates a memory region for a UMP endpoint
+ * @param cap   capability to store the UMP endpoint in
+ * @param bytes size of the endpoint
+ * @param iftype Flounder interface type
+ * @return  SYS_ERR_OK on success, errval on failure
+ */
+errval_t ump_endpoint_create_with_iftype(struct capref dest, size_t bytes, 
+                                         uint16_t iftype)
+{
+    errval_t err;
+    err = create_mappable_cap(dest, ObjType_EndPointUMP, bytes, NULL);
+    if (err_is_fail(err)) {
+        return err;   
+    }
+
+    return invoke_endpoint_set_iftype(dest, iftype);
+}
+
 /**
  * @brief allocates a memory region for a UMP endpoint
  * @param cap   capability to store the UMP endpoint in
@@ -857,7 +878,7 @@ errval_t endpoint_create(size_t buflen, struct capref *retcap,
  */
 errval_t ump_endpoint_create(struct capref dest, size_t bytes)
 {
-    return create_mappable_cap(dest, ObjType_EndPointUMP, bytes, NULL);
+    return ump_endpoint_create_with_iftype(dest, bytes, IF_TYPE_DUMMY);
 }
 
 /**
