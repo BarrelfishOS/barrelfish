@@ -1157,6 +1157,27 @@ static struct sysret handle_endpoint_identify(struct capability *cap, int cmd,
 }
 
 
+static struct sysret handle_set_endpoint_iftype(struct capability *cap, int cmd,
+                                                uintptr_t *args)
+{
+    uint16_t iftype = args[0];
+
+    switch(cap->type) {
+        case ObjType_EndPointUMP :
+            //printf("SET_IFTYPE: UMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
+            cap->u.endpointump.iftype = iftype;
+            break;
+        case ObjType_EndPointLMP :
+            //printf("SET_IFTYPE: LMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
+            cap->u.endpointlmp.iftype = iftype;
+            break;
+        default:
+            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 
 static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
                                           uintptr_t *args)
@@ -1439,10 +1460,12 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_EndPointLMP] = {
         [EndPointCMD_Identify] = handle_endpoint_identify,
+        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
     },
     [ObjType_EndPointUMP] = {
         [EndPointCMD_FrameIdentify] = handle_frame_identify,
         [EndPointCMD_Identify] = handle_endpoint_identify,
+        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
     }
 };
 

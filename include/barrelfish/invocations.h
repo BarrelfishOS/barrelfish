@@ -287,6 +287,13 @@ static inline errval_t invoke_endpoint_identify(struct capref ep,
     return sysret.error;
 }
 
+static inline errval_t invoke_endpoint_set_iftype(struct capref ep,
+                                                  uint16_t iftype)
+{
+    assert(get_croot_addr(ep) == CPTR_ROOTCN);
+
+    return cap_invoke2(ep, EndPointCMD_SetIftype, (uintptr_t) iftype).error;
+}
 
 
 /**

@@ -581,6 +581,7 @@ enum ipi_cmd {
 enum ep_cmd {
     EndPointCMD_FrameIdentify, ///< Identifies Just the Frame Endpoint
     EndPointCMD_Identify,      ///< Identifies the Endpoint
+    EndPointCMD_SetIftype,      ///< Identifies the Endpoint
 };
 
 
