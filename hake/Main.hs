@@ -789,8 +789,12 @@ body =  do
     makeDirectories makefile dirs
 
  
-    -- Create flounder type file
+    -- Create flounder type file TODO have not found a better place to do this yet
     let fileName = abs_builddir ++ "/" ++ (head (opt_architectures opts)) ++ "/include/if/if_types.h"
+    let dirName = abs_builddir ++ "/" ++ (head (opt_architectures opts)) ++ "/include/if"
+    
+    createDirectoryIfMissing True dirName 
+    writeFile fileName ""
     flounderTypes <- openFile(fileName) WriteMode
     makeFlounderTypes flounderTypes (opt_sourcedir opts)
     hFlush flounderTypes
