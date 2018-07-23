@@ -131,6 +131,23 @@ handle_frame_identify(
     fi->base = get_address(to);
     fi->bytes = get_size(to);
 
+    switch(to->type) {
+        case ObjType_Frame:
+            fi->pasid = to->u.frame.pasid;
+            break;
+        case ObjType_DevFrame:
+            fi->pasid = to->u.devframe.pasid;
+            break;
+        case ObjType_RAM:
+            fi->pasid = to->u.ram.pasid;
+            break;
+        case ObjType_EndPointUMP:
+            fi->pasid = to->u.endpointump.pasid;
+            break;
+        default:
+            assert(false);
+    }
+
     return SYSRET(SYS_ERR_OK);
 }
 
@@ -986,12 +1003,12 @@ static struct sysret handle_set_endpoint_iftype(struct capability *cap,
 
     switch(cap->type) {
         case ObjType_EndPointUMP :
-            //printf("SET_IFTYPE: UMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
             cap->u.endpointump.iftype = iftype;
+            //printf("SET_IFTYPE: UMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointump.iftype);
             break;
         case ObjType_EndPointLMP :
-            //printf("SET_IFTYPE: LMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
             cap->u.endpointlmp.iftype = iftype;
+            //printf("SET_IFTYPE: LMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
             break;
         default:
             return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
@@ -1194,6 +1211,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
     },
     [ObjType_EndPointUMP] = {
+        [EndPointCMD_FrameIdentify] = handle_frame_identify,
         [EndPointCMD_Identify] = handle_endpoint_identify,
         [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
     }
@@ -1221,12 +1239,13 @@ handle_invoke(arch_registers_state_t *context, int argc)
     r.error = caps_lookup_cap(&dcb_current->cspace.cap,
                               invoke_cptr, invoke_level,
                               &to, CAPRIGHTS_READ);
+    
     if (err_is_ok(r.error))
     {
         assert(to != NULL);
         assert(to->type < ObjType_Num);
 
-        if (ObjType_EndPointLMP == to->type)
+        if (ObjType_EndPointLMP == to->type && !(flags & LMP_FLAG_IDENTIFY))
         {
             struct dcb *listener = to->u.endpointlmp.listener;
             assert(listener != NULL);
@@ -1309,9 +1328,11 @@ handle_invoke(arch_registers_state_t *context, int argc)
         }
         else
         {
+
             uint8_t cmd = (sa->arg0 >> 8)  & 0xff;
             if (cmd < CAP_MAX_CMD)
             {
+
                 invocation_t invocation = invocations[to->type][cmd];
                 if (invocation)
                 {
