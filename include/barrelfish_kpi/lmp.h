@@ -37,7 +37,7 @@ typedef enum lmp_send_flag {
     LMP_FLAG_SYNC       = 1 << 0,
     LMP_FLAG_YIELD      = 1 << 1,
     LMP_FLAG_GIVEAWAY   = 1 << 2,
-    LMP_FLAG_IDENTIFY   = SYSCALL_FLAG_ENDPOINT_INVOKE,
+    LMP_FLAG_IDENTIFY   = 1 << 3,
 } lmp_send_flags_t;
 
 
