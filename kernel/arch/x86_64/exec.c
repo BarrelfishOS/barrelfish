@@ -88,7 +88,11 @@ execute(lvaddr_t entry)
 {
     // FIXME: make argument
     uintptr_t arg = get_dispatcher_shared_generic(dcb_current->disp)->udisp;
-    uint32_t mxcsr_value = 0x1f80;
+#if defined(__k1om__)
+    uint32_t mxcsr_value = 0x00200000;
+#else
+    uint32_t mxcsr_value = 0x00001f80;
+#endif
     /*
      * Go to user-space using SYSRETQ -- the Q is very important, so operand
      * size is 64-bit. Otherwise we return to compatibility mode.

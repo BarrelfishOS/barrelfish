@@ -1414,6 +1414,9 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                 save_area->rip = rip;
                 save_area->eflags = rflags;
                 save_area->rsp = user_stack_save;
+                __asm ("fxsave     %[fxsave_area]\n"
+                    :
+                    : [fxsave_area] "m" (save_area->fxsave_area));
 
                 if (!dcb_current->is_vm_guest) {
                     /* save and zero FS/GS selectors (they're unmodified by the syscall path) */

@@ -367,9 +367,6 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
             p = strchr(p, ' ') + 1;
         }
     }
-
-    dispatcher_handle_t handle = curdispatcher();
-    systime_frequency = get_dispatcher_shared_generic(handle)->systime_frequency;
     return err;
 }
 

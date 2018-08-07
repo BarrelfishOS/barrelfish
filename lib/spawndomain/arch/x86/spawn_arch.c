@@ -286,10 +286,14 @@ void spawn_arch_set_registers(void *arch_load_info,
                               arch_registers_state_t *enabled_area,
                               arch_registers_state_t *disabled_area)
 {
-#if defined(__x86_64__) || defined(__k1om__)
+#if defined(__k1om__)
     /* XXX: 1st argument to _start is the dispatcher pointer
      * see lib/crt/arch/x86_64/crt0.s */
     disabled_area->rdi = get_dispatcher_shared_generic(handle)->udisp;
+    disabled_area->fxsave_area.mxcsr = 0x200000;
+#elif defined(__x86_64__)
+    disabled_area->rdi = get_dispatcher_shared_generic(handle)->udisp;
+    disabled_area->fxsave_area.mxcsr = 0x001f80;
 #elif defined(__i386__)
     /* XXX: 1st argument to _start is the dispatcher pointer
      * see lib/crt/arch/x86_32/crt0.s */

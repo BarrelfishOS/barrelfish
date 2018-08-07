@@ -26,6 +26,7 @@
 #include <barrelfish_kpi/cpu_arch.h>
 #include "threads_priv.h"
 #include <barrelfish/notificator.h>
+#include <barrelfish/systime.h>
 
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
@@ -174,7 +175,7 @@ void disp_init_disabled(dispatcher_handle_t handle)
     disp_arch_init(handle);
 
     disp_gen->timeslice = 1;
-
+    systime_frequency = disp->systime_frequency;
     // Initialize important capability pointers
     if (disp_gen->dcb_cap.slot == 0) {
         disp_gen->dcb_cap.cnode = cnode_task;
