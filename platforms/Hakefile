@@ -242,6 +242,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "vnode_map_test",
                            "webserver",
                            "xeon_phi",
+			   "hpet",
                            "xeon_phi_mgr",
                            "net_sockets_server"
                            ]] ++ modules_common

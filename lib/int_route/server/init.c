@@ -251,11 +251,13 @@ static void driver_route_call(struct int_route_service_binding *b,
         struct capref intdest){
     INT_DEBUG("%s: enter\n", __FUNCTION__);
     errval_t err;
-
+    debug_printf("driver route call: start\n"); 
     uint64_t int_src_num = INVALID_VECTOR;
     err = invoke_irqsrc_get_vec_start(intsource, &int_src_num);
+    debug_printf("driver route call:get vec start done \n "); 
     uint64_t int_src_num_high = INVALID_VECTOR;
     err = invoke_irqsrc_get_vec_end(intsource, &int_src_num_high);
+     debug_printf("driver route call: get vec end  done \n"); 
 
     if(int_src_num + irq_idx > int_src_num_high || irq_idx < 0){
         err = SYS_ERR_IRQ_INVALID;

@@ -859,7 +859,11 @@ static __attribute__ ((used)) void handle_irq(int vector)
     int irq = vector - NEXCEPTIONS;
     debug(SUBSYS_DISPATCH, "IRQ vector %d (irq %d) while %s\n", vector, irq,
           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
+   if(vector != APIC_TIMER_INTERRUPT_VECTOR){
 
+       printf("\n \t \t \t ---------KERNEL: IRQ vector %d (irq %d)\n", vector, irq);
+
+    }
 
     // if we were in wait_for_interrupt(), unmask timer before running userspace
     if (dcb_current == NULL && kernel_ticks_enabled) {

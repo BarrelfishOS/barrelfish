@@ -145,10 +145,7 @@ word_to_num(W, Num) :-
 subword(Word,Subword, Range) :- 
     SW is Word[Range],
     array_list(Subword,SW).
-
-
-
-        
+    
 
 %>> ARM
 % Controller constraints
@@ -177,6 +174,7 @@ mapf_valid_class(msi, CtrlLabel, InPort, nullMsg, _, mem_write(OutAddr, OutData)
 % should be instantiated (ie one for each PCI function)
 mapf_valid_class(msix, _, _, _, _, mem_write(_, _)) :-
     true.
+
 
 % This one enables the MSI-X in the PCI conf header. Can only forward interrupts without
 % remap.
@@ -221,6 +219,9 @@ mapf_valid_class(irte, _, _, mem_write(InAddr,InData), _, OutMsg) :-
     InAddrLo $= InAddr - 16'0FEE0000, %No bitwise operations with IC lib.
     OutMsg $= InAddrLo + InData.
 
+%To be Changed: Hpet Valid 
+mapf_valid_class(hpet, _, _, _, _, _) :-
+    true. 
 % The mem write gets captured by the irte, hence the iommu is constrained by the number of slots.
 mapf_valid_class(iommu, _, _, InMsg, _, _) :-   
     InMsg :: [ 0 .. 2 ^ 16].
@@ -240,6 +241,7 @@ mapf_valid_class(pcilnk, _, _, nullMsg, _, nullMsg) :-
 mapf_valid_class(ioapic_iommu, _, _, _, _, OutMsg) :-
     OutMsg :: [ 0 .. 2^16 ].
 
+
 %>> GENERIC
 input_to_int_tuple((InPort,InMsg), OutInt) :- input_to_int(InPort, InMsg, OutInt).
 
@@ -249,6 +251,10 @@ input_to_int(InPort, InMsg, OutInt) :-
     (InMsg = nullMsg) -> OutInt is InPort ;
     (InMsg = mem_write(A,B)) -> OutInt is A * 1024 + B ;
     OutInt is InPort + InMsg * 1024.
+
+
+%% NEXT NEXT STEP -- Lukas 
+% assert(mapf_valid(hpet_0, 0, _, 0, mem_write(_,_)))
     
 % The mapf validity check function for a controller instance.
 % It takes into account static constraints from the controller class
@@ -543,6 +549,14 @@ add_msi_controller(Lbl, InSize, Type, addr(Bus, Device, Function)) :-
     get_unused_controller_label(Type, 0, Lbl),
     assert_controller(Lbl, Type, InRange, MSIOutRange).
 
+% add hpet controller . 
+add_hpet_controller(Lbl):-
+MaxNoofTimers=32,
+get_unused_range(MaxNoofTimers, HpetInRange),
+get_unused_controller_label(hpet, 0, Lbl),
+controller(_, msireceiver, HpetOut, _), 
+assert_controller(Lbl, hpet, HpetInRange, HpetOut). 
+
 
 %%%% Functions that map various interrupt numbers to internal representation
 
@@ -612,9 +626,9 @@ assert_controller(Lbl, Class, InRange, MSIOutRange) :-
     assert( controller(Lbl, Class, InRange, MSIOutRange)),
     atom_string(Lbl,LblStr),
     atom_string(Class, ClassStr),
-    add_seq_object('hw.int.controller.',
-        [val(label, LblStr), val(class, ClassStr)], []).
-
+    add_seq_object('hw.int.controller.', [val(label, LblStr), val(class, ClassStr)], []).
+    
+%  (disable_octopus ; add_seq_object('hw.int.controller.', [val(label, LblStr), val(class, ClassStr)], [])).
 % GSIList is a list of GSI that this pci link device can output. 
 add_pcilnk_controller(GSIList, Name, Lbl) :-
     length(GSIList, LiLe),

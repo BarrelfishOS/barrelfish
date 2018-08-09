@@ -1,0 +1,15 @@
+diff --git a/kernel/arch/x86_64/irq.c b/kernel/arch/x86_64/irq.c
+index 049b57f..21367cd 100644
+--- a/kernel/arch/x86_64/irq.c
++++ b/kernel/arch/x86_64/irq.c
+@@ -860,6 +860,10 @@ static __attribute__ ((used)) void handle_irq(int vector)
+     debug(SUBSYS_DISPATCH, "IRQ vector %d (irq %d) while %s\n", vector, irq,
+           dcb_current ? (dcb_current->disabled ? "disabled": "enabled") : "in kernel");
+ 
++    if(vector != APIC_TIMER_INTERRUPT_VECTOR){
++        printf("KERNEL: IRQ vector %d (irq %d)\n", vector, irq);
++    }
++
+ 
+     // if we were in wait_for_interrupt(), unmask timer before running userspace
+     if (dcb_current == NULL && kernel_ticks_enabled) {

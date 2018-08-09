@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007, 2008, ETH Zurich.
+ * Copyright (c) 2018, ETH Zurich.
  * All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
@@ -7,20 +7,21 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
-#ifndef ACPI_DEBUG_H_
-#define ACPI_DEBUG_H_
+#ifndef HPET_DEBUG_H_
+#define HPET_DEBUG_H_
 
 
 /*****************************************************************
  * Debug printer and its power-switch:
  *****************************************************************/
 
-//#define ACPI_SERVICE_DEBUG 1
+#define HPET_SERVICE_DEBUG 1
 
-#if defined(ACPI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define ACPI_DEBUG(x...) printf("acpi_service: " x)
+#if defined(HPET_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
+#define HPET_DEBUG(x...) printf("hpet_driver: " x)
 #else
-#define ACPI_DEBUG(x...) ((void)0)
+#define HPET_DEBUG(x...) ((void)0)
 #endif
 
-#endif // ACPI_DEBUG_H_
+
+#endif // HPET_DEBUG_H_

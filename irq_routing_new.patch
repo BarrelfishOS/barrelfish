@@ -1,0 +1,15 @@
+diff --git a/usr/skb/programs/irq_routing_new.pl b/usr/skb/programs/irq_routing_new.pl
+index 71f8c04..b583deb 100644
+--- a/usr/skb/programs/irq_routing_new.pl
++++ b/usr/skb/programs/irq_routing_new.pl
+@@ -602,8 +602,8 @@ assert_controller(Lbl, Class, InRange, MSIOutRange) :-
+     assert( controller(Lbl, Class, InRange, MSIOutRange)),
+     atom_string(Lbl,LblStr),
+     atom_string(Class, ClassStr),
+-    add_seq_object('hw.int.controller.',
+-        [val(label, LblStr), val(class, ClassStr)], []).
++    (disable_octopus ; add_seq_object('hw.int.controller.',
++        [val(label, LblStr), val(class, ClassStr)], [])).
+ 
+ % GSIList is a list of GSI that this pci link device can output. 
+ add_pcilnk_controller(GSIList, Name, Lbl) :-

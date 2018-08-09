@@ -17,8 +17,9 @@
  * See also, Intel's "IA-PC HPET (High Precision Event Timers)
  * Specification", Revision 1.0a, October 2004. 
  */
-
-device HPET lsbfirst ( addr base ) "High-Precision Event Timer" {
+ 
+ // device device_name leastSignBitFirst 
+device hpet lsbfirst ( addr base ) "High-Precision Event Timer" {
     // 26.1.1
     register gcap_id ro addr(base, 0x0) "General Capabilities and Identification" {
 	rev_id	   	      8	   "Revision Identification";
@@ -30,14 +31,15 @@ device HPET lsbfirst ( addr base ) "High-Precision Event Timer" {
 	counter_clk_per_cap   32   "Main Counter Tick Period";
     };
     
-    // 26.1.2
+    // 26.1.2 register name attribute space(, ) "description"
+	
     register gen_conf rw addr(base, 0x10) "General Configuration" {
 	enable_cnf  1	       "Overall Enable";
 	leg_rt_cnf  1	       "Legacy Replacement Rout";
 	_	    62	       mbz;
     };
 
-    // 26.1.3
+    // 26.1.3 
     register gintr_sta rw addr(base, 0x20) "General Interrupt Status" {
 	t00_int_sts  1		"Timer 0 interrupt active";
 	t01_int_sts  1		"Timer 1 interrupt active";
@@ -50,29 +52,47 @@ device HPET lsbfirst ( addr base ) "High-Precision Event Timer" {
     
     // 26.1.5
     regtype tim_conf "Timer Configuration and Capabilities" {
-	_	       		     1      mbz;
-	timer_int_type_cnf	     1	    "Timer Interrupt Type";
+	_	       		         1      mbz;
+	timer_int_type_cnf	     1	    "Timer Interrupt Type (0:edge-triggered , 1:level-triggered)";
 	timer_int_enb_cnf	     1	    "Timer Interrupt Enable";
-	timer_type_cnf		     1	    "Timer Type";
-	timer_per_int_cap	     1	    "Periodic Interrupt Capable";
-	timer_size_cap		     1	    "Timer Size";
-	timer_val_set_cnf	     1	    "Timer Value Set";
-	_			     1	    mbz;
-	timer_32mode_cnf	     1	    "Timer 32-bit mode";
-	timer_int_rout_cnf	     5	    "Interrupt Rout";
-	_			     29	    mbz;
-	timer2_int11_rout_cap	     1	    "Timer 2 IRQ 11 Rout Capability";
-	_			     8	    mbz;
-	timer_int_rout_cap	     4	    "Timer Interrupt Rout Capability";
-	_			     8	    mbz;
+	timer_type_cnf		     1	    "Timer Type (0: non-periodic , 1:periodic)";
+	timer_per_int_cap	     1	    "Periodic Interrupt Capability";
+	timer_size_cap		     1	    "Timer Size (0:32 bits , 1:64 bits)";
+	timer_val_set_cnf	     1	    "Timer Value Set (for periodic mode)";
+	_			             1	    mbz;
+	timer_32mode_cnf	     1	    "Timer 32-bit mode (1 so that 64 behaves as 32)";
+	timer_int_rout_cnf	     5	    "Interrupt Route (indicates routing to I/O apic)";
+	timer_fsb_enb_cnf        1      "FSB Interrupt Enable"; 
+	timer_fsb_int_delv_cap   1      "FSB Interrupt Delivery (1: FSB is supported)"; 
+	_			             16	    mbz;
+	timer_int_rout_cap	     32	    "Interrupt Routing Capability (To which interrupts can the I/O Apic be routed)";    
     };
     
-    register tim1_conf rw addr(base, 0x100) "Timer 0 Configuration and Capabilities" type(tim_conf);
-    register tim1_comp rw addr(base, 0x108) "Timer 0 Comparator Value" type(uint64);
+
+    regtype tim_fsb_int_route "Timer FSB Interrupt Route"{
+	timer_fsb_int_val        32 "Timer FSB Interrupt Value";
+	timer_fsb_int_addr       32 "Timer FSB Interrupt Address";
+	};
+
+	regarray timers_config_reg rw addr(base,0x100) [32 ; 0x20]
+	"Timer N Configuration Register" type(tim_conf);
+
+	regarray timers_comparator_reg rw addr(base,0x108) [32 ; 0x20]
+	"Timer N Comparator Value Register" type(uint64);
+
+	regarray timers_fsb_int_route_reg rw addr(base,0x110) [32 ; 0x20]
+	"Timer N FSB Interrupt Route" type(tim_fsb_int_route);
+
+    //register tim0_conf rw addr(base, 0x100) "Timer 0 Configuration and Capabilities" type(tim_conf);
+   // register tim0_comp rw addr(base, 0x108) "Timer 0 Comparator Value" type(uint64);
+	//register tim0_fsb_int_route rw addr(base,0x110) "Timer 0 FSB Interrupt Route" type(tim_fsb_int_route); 
     
-    register tim2_conf rw addr(base, 0x120) "Timer 1 Configuration and Capabilities" type(tim_conf);
-    register tim2_comp rw addr(base, 0x128) "Timer 1 Comparator Value" type(uint64);
+   // register tim1_conf rw addr(base, 0x120) "Timer 1 Configuration and Capabilities" type(tim_conf);
+    //register tim1_comp rw addr(base, 0x128) "Timer 1 Comparator Value" type(uint64);
+    //register tim1_fsb_int_route rw addr(base,0x130) "Timer 1 FSB Interrupt Route" type(tim_fsb_int_route); 
     
-    register tim3_conf rw addr(base, 0x140) "Timer 2 Configuration and Capabilities" type(tim_conf);
-    register tim3_comp rw addr(base, 0x148) "Timer 2 Comparator Value" type(uint64);
+    //register tim2_conf rw addr(base, 0x140) "Timer 2 Configuration and Capabilities" type(tim_conf);
+    //register tim2_comp rw addr(base, 0x148) "Timer 2 Comparator Value" type(uint64);
+	//register tim2_fsb_int_route rw addr(base,0x150) "Timer 2 FSB Interrupt Route" type(tim_fsb_int_route); 
+
 };

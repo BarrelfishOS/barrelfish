@@ -134,6 +134,7 @@ errval_t start_boot_driver(coreid_t where, struct module_info* mi,
     uint64_t barrelfish_id, cpu_type, hw_id, enabled = 0;
     err = oct_read(record, "_ { " HW_PROCESSOR_GENERIC_FIELDS " }",
                             &enabled, &barrelfish_id, &hw_id, &cpu_type);
+                        
     if (err_is_ok(err)) {
         /*
          * XXX: change this to a generic cpuhwid instead of apic!

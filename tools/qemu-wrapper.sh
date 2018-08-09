@@ -22,7 +22,7 @@ DEBUG_SCRIPT=""
 # Grab SMP from env, if unset default to 2
 SMP=${SMP:-2}
 # Grab NIC_MODEL from env, if unset default to e1000
-NIC_MODEL="${NIC_MODEL:-e1000e}"
+NIC_MODEL="${NIC_MODEL:-e1000}"
 
 
 usage () {
@@ -171,6 +171,7 @@ case "$ARCH" in
         -machine type=q35 \
         -smp $SMP \
         -m 1024 \
+        -enable-kvm \
         -netdev user,id=network0 \
         -device $NIC_MODEL,netdev=network0
         -device ahci,id=ahci \

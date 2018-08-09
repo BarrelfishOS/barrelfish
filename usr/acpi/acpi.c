@@ -21,6 +21,7 @@
 #include <octopus/getset.h>
 #include <octopus/barrier.h>
 #include <skb/skb.h>
+#include <hw_records.h>
 #include <pci/confspace/pci_confspace.h>
 #include "acpi_shared.h"
 #include "acpi_debug.h"
@@ -33,6 +34,10 @@
 
 #define PCI_LNK_DEV_STRING              "PNP0C0F"
 #define METHOD_NAME__DIS                "_DIS"
+
+#define SKB_SCHEMA_HPET_TABLE_SIZE 1024
+#define SKB_SCHEMA_HPET \
+     "hpet(%" PRIu64 ", %" PRIu16 ")."
 
 struct pci_resources {
     uint8_t minbus, maxbus;
@@ -49,6 +54,40 @@ struct memrange {
 // Hack: reserved memory regions (eg. PCIe config space mapping)
 static struct memrange reserved_memory[MAX_RESERVED_MEM_REGIONS];
 static int n_reserved_memory_regions;
+
+
+static void  acpi_parse_hpet( void ){
+
+
+ACPI_STATUS as;
+ACPI_TABLE_HPET *hpet; 
+ACPI_TABLE_HEADER   *ath;
+errval_t err;
+uint16_t hpet_register_size=1024; 
+
+ /* Get the ACPI DMAR table (the DMAR) */
+as = AcpiGetTable("HPET", 1, (ACPI_TABLE_HEADER **)&ath);
+ 
+ if(ACPI_FAILURE(as)) {
+        debug_printf("\n No HPET found in ACPI! \n");
+        return ; 
+    }
+    
+    hpet = (ACPI_TABLE_HPET*)ath;
+    ACPI_DEBUG("HPET Id: %x, Address=%lx, Min Tick=%u, Flags=%u \n",
+                 hpet->Id>>16, hpet->Address.Address, hpet->MinimumTick , hpet->Flags);
+    
+    err= skb_add_fact( SKB_SCHEMA_HPET, hpet->Address.Address , SKB_SCHEMA_HPET_TABLE_SIZE);
+    if (err_is_fail(err)) 
+        {DEBUG_ERR(err, "Failed to insert into SKB: " SKB_SCHEMA_HPET, hpet->Address.Address , SKB_SCHEMA_HPET_TABLE_SIZE); }
+    
+    oct_mset(SET_SEQUENTIAL, HW_HPET_RECORD_FORMAT, hpet->Address.Address, hpet_register_size , hpet->Flags);
+
+ACPI_DEBUG("Succesfully parsed hpet table \n");
+return ; 
+
+} 
+
 
 static ACPI_STATUS pci_resource_walker(ACPI_RESOURCE *resource, void *context)
 {
@@ -161,6 +200,7 @@ static ACPI_STATUS pci_resource_walker(ACPI_RESOURCE *resource, void *context)
 }
 
 #ifdef ACPI_SERVICE_DEBUG
+/// rana:important
 static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
 {
     switch(res->Type) {
@@ -245,6 +285,9 @@ static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
     return AE_OK;
 }
 #endif
+
+
+
 
 ACPI_STATUS acpi_eval_integer(ACPI_HANDLE handle, const char *name, ACPI_INTEGER *ret)
 {
@@ -964,6 +1007,16 @@ int init_acpi(void)
         printf("WARNING: AcpiGetDevices failed with error %"PRIu32"\n", as);
     }
     assert(ACPI_SUCCESS(as) || as == AE_NOT_FOUND);
+
+   // start for the HPET 
+
+    acpi_parse_hpet();
+    printf("After parsing hpet: printing from octopus \n");
+    char* oct_data=NULL;
+    oct_get(&oct_data,HW_HPET_RECORD_REGEX); 
+     printf(" %s \n",oct_data);
+
+
 
     // XXX: PCIe walking disabled, as these also show up as PCI buses,
     // and we don't currently distinguish between them

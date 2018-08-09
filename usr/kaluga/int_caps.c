@@ -12,6 +12,11 @@
 
 static struct capref all_irq_cap;
 
+struct capref * get_irq_cap(void)
+{
+  return &all_irq_cap; 
+}
+
 errval_t store_int_cap(int start, int end, struct driver_argument *arg){
     errval_t err;
     assert(!cnoderef_is_null(arg->argnode_ref));

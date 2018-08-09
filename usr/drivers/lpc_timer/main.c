@@ -504,7 +504,8 @@ int main(int argc, char *argv[])
 
     // Stick around waiting for interrupts/messages
     struct waitset *ws = get_default_waitset();
-    while (1) {
+    while (1) 
+    {
         err = event_dispatch(ws);
         if (err_is_fail(err)) {
             USER_PANIC_ERR(err, "in event_dispatch");

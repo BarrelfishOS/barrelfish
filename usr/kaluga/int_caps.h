@@ -12,5 +12,6 @@
 
 errval_t store_int_cap(int start, int end, struct driver_argument *arg); 
 errval_t init_int_caps_manager(struct capref all_irq);
+struct capref * get_irq_cap(void);
 
 #endif

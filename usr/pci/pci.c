@@ -127,6 +127,7 @@ int pci_get_bar_nr_for_index(uint8_t bus,
 }
 
 struct capref pci_get_bar_cap_for_device(uint8_t bus,
+
                                      uint8_t dev,
                                      uint8_t fun,
                                      uint8_t idx

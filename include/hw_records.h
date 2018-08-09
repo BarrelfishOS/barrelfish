@@ -45,5 +45,24 @@
                                       "hw_id: _, " \
                                       "type: _ }"
 
+#define HW_HPET_RECORD_FIELDS \
+"address: %" PRIu64 ", size: %" PRIu16 ", flags:%" PRIu8 
+
+#define HW_HPET_RECORD_FIELDS_READ \
+"address: %d, size: %d, flags:%d" 
+
+/* oct_read might probably work if I swap flags and size 
+#define HW_HPET_RECORD_FIELDS_READ \
+"address: %li, flags: %d, size:%d" 
+
+#define HW_HPET_RECORD_FIELDS_SCAN \
+"address: %lu, size: %d, flags:%c" 
+*/
+#define HW_HPET_RECORD_FORMAT \
+"hw.hpet.{" HW_HPET_RECORD_FIELDS " }"
+
+#define HW_HPET_RECORD_REGEX \
+"r'hw\\.hpet\\.[0-9]+' { address: _, size: _, flags: _}"
+
 
 #endif /* INCLUDE_HW_RECORDS_ARCH_H_ */
