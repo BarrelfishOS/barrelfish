@@ -19,10 +19,11 @@
 #include <bench/bench.h>
 #include <net_interfaces/flags.h>
 #include <net/net_filter.h>
+#include <barrelfish/sys_debug.h>
 
 //#define DEBUG(x...) printf("devif_test: " x)
 #define DEBUG(x...) do {} while (0)
-
+//#define BENCH 1
 
 #define NUM_ENQ 512
 #define MEMORY_SIZE BASE_PAGE_SIZE*NUM_ENQ
@@ -47,6 +48,7 @@ static uint32_t num_rx = 0;
 static struct udp_q* udp_q;
 static const char* cardname;
 
+
 /*
 static void wait_for_interrupt(void)
 {
@@ -61,11 +63,14 @@ static void wait_for_interrupt(void)
 }
 */
 
-static uint64_t total_rx = 0;
 static bool reg_done = false;
 
 static bool use_interrupts = false;
 
+static bench_ctl_t* udp_enq_rx;
+static bench_ctl_t* udp_enq_tx;
+static bench_ctl_t* udp_deq_rx;
+static bench_ctl_t* udp_deq_tx;
 
 static void event_cb(void* queue)
 {
@@ -82,7 +87,7 @@ static void event_cb(void* queue)
 
     err = SYS_ERR_OK;
 
-    uint64_t start = 0, end = 0;
+    uint64_t start = 0, end = 0, total = 0;
 
     if (!reg_done) {
         return;
@@ -92,20 +97,29 @@ static void event_cb(void* queue)
         start = rdtsc();
         err = devq_dequeue(q, &rid, &offset, &length, &valid_data,
                            &valid_length, &flags);
+        end = rdtsc();
         if (err_is_fail(err)) {
             break;
         }
-
+        
         if (flags & NETIF_TXFLAG) {
             DEBUG("Received TX buffer back \n");
             num_tx++;
+            total = end - start;
+            bench_ctl_add_run(udp_deq_tx, &total);        
         } else if (flags & NETIF_RXFLAG) {
             num_rx++;
+            total = end - start;
+            bench_ctl_add_run(udp_deq_rx, &total);        
             DEBUG("Received RX buffer \n");
+            start = rdtsc();
             err = devq_enqueue(q, rid, offset, length, 0,
                                0, NETIF_RXFLAG);
             end = rdtsc();
-            total_rx += end - start;
+            if (err_is_ok(err)) {
+                total = end - start;
+                bench_ctl_add_run(udp_enq_rx, &total);        
+            }
         } else {
             printf("Unknown flags %lx \n", flags);
         }
@@ -163,13 +177,17 @@ static void test_udp(void)
     uint64_t total = 0, start = 0, end = 0;
     for (int z = 0; z < NUM_ENQ; z++) {
 
-        start = rdtsc();
         for (int i = 0; i < NUM_ENQ; i++) {
+            start = rdtsc();
             err = devq_enqueue(q, regid_tx, i*(TX_BUF_SIZE), TX_BUF_SIZE,
-                               0, strlen(data), NETIF_TXFLAG | NETIF_TXFLAG_LAST);
+                               0, strlen(data), NETIF_TXFLAG | NETIF_TXFLAG_LAST);  
+
+            end = rdtsc();
             if (err_is_fail(err)){
                 USER_PANIC("Devq enqueue failed \n");
             }
+            total = end -start;
+            bench_ctl_add_run(udp_enq_tx, &total);            
         }
 
         while (num_tx < NUM_ENQ*z) {
@@ -180,10 +198,8 @@ static void test_udp(void)
             }
         }
 
-        end = rdtsc();
-        total += end - start;
     }
-    printf("Average %f cycles TX\n", (double)total/(NUM_ENQ*NUM_ENQ));
+
     barrelfish_usleep(1000*1000);
     printf("Testing receiving UDP packets \n");
 
@@ -197,8 +213,6 @@ static void test_udp(void)
         }
     }
 
-    printf("Average %f cycles RX\n", (double)total_rx/(NUM_ENQ*NUM_ENQ));
-
     err = devq_deregister(q, regid_rx, &memory_rx);
     if (err_is_fail(err)){
         printf("%s \n", err_getstring(err));
@@ -211,6 +225,37 @@ static void test_udp(void)
         USER_PANIC("Devq deregister tx failed \n");
     }
  
+#ifdef BENCH
+    bench_ctl_t * en_rx;
+    bench_ctl_t * en_tx;
+    bench_ctl_t * deq_rx;
+    bench_ctl_t * deq_tx;
+    en_rx = udp_get_benchmark_data(udp_q, 0);
+    en_tx = udp_get_benchmark_data(udp_q, 1);
+    deq_rx = udp_get_benchmark_data(udp_q, 2);
+    deq_tx = udp_get_benchmark_data(udp_q, 3);
+    uint64_t tscperus = 0;
+    err = sys_debug_get_tsc_per_ms(&tscperus);
+    tscperus /= 1000;
+    tscperus = 1;
+    printf("============================================================== \n");
+    printf("Printing Benchmark data udp queue\n");
+    bench_ctl_dump_analysis(udp_enq_rx, 0, "udp_enq_rx", tscperus);
+    bench_ctl_dump_analysis(udp_enq_tx, 0, "udp_enq_tx", tscperus);
+    bench_ctl_dump_analysis(udp_deq_rx, 0, "udp_deq_rx", tscperus);
+    bench_ctl_dump_analysis(udp_deq_tx, 0, "udp_deq_tx", tscperus);
+    printf("============================================================== \n");
+    if (deq_tx != NULL) {
+        printf("============================================================== \n");
+        printf("Printing Benchmark data %s queue\n", cardname);
+        bench_ctl_dump_analysis(en_rx, 0, "enq_rx", tscperus);
+        bench_ctl_dump_analysis(en_tx, 0, "enq_tx", tscperus);
+        bench_ctl_dump_analysis(deq_rx, 0, "deq_rx", tscperus);
+        bench_ctl_dump_analysis(deq_tx, 0, "deq_tx", tscperus);
+        printf("============================================================== \n");
+    }
+#endif
+
     printf("Receiving UDP packets done \n");
     printf("SUCCESS: udp test ended \n");
 }
@@ -265,6 +310,13 @@ int main(int argc, char *argv[])
     }
 
     barrelfish_usleep(1000*1000*15);
+
+#ifdef BENCH
+    udp_enq_rx = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, 100000);
+    udp_enq_tx = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, 100000);
+    udp_deq_rx = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, 100000);
+    udp_deq_tx = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, 100000);
+#endif
 
     test_udp();
 }

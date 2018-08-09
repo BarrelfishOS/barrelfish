@@ -22,6 +22,8 @@
 #include <net/net_filter.h>
 #include <net/dhcp.h>
 #include "../headers.h"
+#include <bench/bench.h>
+
 
 #define MAX_NUM_REGIONS 64
 
@@ -309,5 +311,7 @@ errval_t udp_write_buffer(struct udp_q* q, regionid_t rid, genoffset_t offset,
     }
 }
 
-
-
+struct bench_ctl* udp_get_benchmark_data(struct udp_q* q, bench_data_type_t type)
+{
+    return ip_get_benchmark_data((struct ip_q*) q->q, type);
+}

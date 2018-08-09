@@ -13,7 +13,16 @@
 #include <barrelfish/barrelfish.h>
 #include <devif/backends/net/ip.h>
 
+
 struct udp_q;
+struct bench_ctl;
+
+typedef enum {
+    ENQ_RX = 0,
+    ENQ_TX = 1,
+    DEQ_RX = 2,
+    DEQ_TX = 3,
+} bench_data_type_t;
 
 /**
  *  @param q        udp queue to destroy
@@ -51,4 +60,6 @@ errval_t udp_create(struct udp_q** q, const char* card_name,
  */
 errval_t udp_write_buffer(struct udp_q* q, regionid_t rid, genoffset_t offset,
                           void* data, uint16_t len);
+
+struct bench_ctl* udp_get_benchmark_data(struct udp_q* q, bench_data_type_t type);
 #endif /* DEVIF_UDP_H_ */
