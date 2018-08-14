@@ -21,10 +21,9 @@
 #include "hw_queue.h"
 #include "helper.h"
 
-
 //#define DEBUG_SFN
 #ifdef DEBUG_SFN
-    #define DEBUG_QUEUE(x...) printf("sfn5122f_q : " x)
+    #define DEBUG_QUEUE(x...) debug_printf("sfn5122f_q : " x)
 #else
     #define DEBUG_QUEUE(x...) do {} while (0)
 #endif
@@ -680,3 +679,9 @@ void sfn5122f_queue_get_netfilter_ep(struct sfn5122f_queue* q, struct capref* ep
 uint64_t sfn5122f_queue_get_id(struct sfn5122f_queue* q){
     return q->id;    
 }
+
+struct bench_ctl* sfn5122f_get_benchmark_data(struct devq* q, uint8_t type) 
+{
+    return sfn5122f_queue_get_benchmark_data((struct sfn5122f_queue*) q, type);
+}
+
