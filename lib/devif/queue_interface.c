@@ -16,11 +16,11 @@
 #include "region_pool.h"
 #include "dqi_debug.h"
 
-//#define BENCH
+//#define BENCH_DEVQ
 #include <bench/bench.h>
 
-#ifdef BENCH
-#define NUM_ROUNDS 50000
+#ifdef BENCH_DEVQ
+#define NUM_ROUNDS 100000
 static cycles_t enq[NUM_ROUNDS];
 static cycles_t deq[NUM_ROUNDS];
 static cycles_t reg[NUM_ROUNDS];
@@ -121,12 +121,12 @@ errval_t devq_enqueue(struct devq *q,
         return DEVQ_ERR_INVALID_BUFFER_ARGS;
     }
 
-#ifdef BENCH
+#ifdef BENCH_DEVQ
     start = bench_tsc();
 #endif  
     err = q->f.enq(q, region_id, offset, length, valid_data,
                    valid_length, misc_flags);
-#ifdef BENCH
+#ifdef BENCH_DEVQ
     end = bench_tsc();
     add_bench_entry(&ctl_enq, end - start, "backend_enqueue");
 #endif  
@@ -167,7 +167,7 @@ errval_t devq_dequeue(struct devq *q,
     assert(q != NULL);
     assert(offset != NULL);
     assert(length != NULL);
-#ifdef BENCH
+#ifdef BENCH_DEVQ
     start = bench_tsc();
 #endif  
     err = q->f.deq(q, region_id, offset, length, valid_data,
@@ -175,7 +175,7 @@ errval_t devq_dequeue(struct devq *q,
     if (err_is_fail(err)) {
         return err;
     }
-#ifdef BENCH
+#ifdef BENCH_DEVQ
     end = bench_tsc();
     add_bench_entry(&ctl_deq, end - start, "backend_dequeue");
 #endif  
@@ -222,12 +222,12 @@ errval_t devq_register(struct devq *q,
     DQI_DEBUG("register q=%p, cap=%p, regionid=%d \n", (void*) q,
               (void*) &cap, *region_id);
 
-#ifdef BENCH
+#ifdef BENCH_DEVQ
     start = bench_tsc();
 #endif  
     err = q->f.reg(q, cap, *region_id);
 
-#ifdef BENCH
+#ifdef BENCH_DEVQ
     end = bench_tsc();
     add_bench_entry(&ctl_reg, end - start, "backend_register");
 #endif  
@@ -258,11 +258,11 @@ errval_t devq_deregister(struct devq *q,
     DQI_DEBUG("deregister q=%p, cap=%p, regionid=%d \n", (void*) q,
               (void*) cap, region_id);
     
-#ifdef BENCH
+#ifdef BENCH_DEVQ
     start = bench_tsc();
 #endif  
     err = q->f.dereg(q, region_id);
-#ifdef BENCH
+#ifdef BENCH_DEVQ
     end = bench_tsc();
     add_bench_entry(&ctl_dereg, end - start, "backend_deregister");
 #endif  
