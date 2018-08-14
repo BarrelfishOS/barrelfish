@@ -61,6 +61,7 @@ struct ip_q {
     struct net_filter_state* filter;
     uint16_t hdr_len;
 
+    const char* name;
 #ifdef BENCH
     bench_ctl_t en_rx;
     bench_ctl_t en_tx;
@@ -290,6 +291,7 @@ errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
     errval_t err;
     struct ip_q* que;
     que = calloc(1, sizeof(struct ip_q));
+    que->name = card_name;
     assert(que);
 
     // init other queue
@@ -406,8 +408,8 @@ void ip_get_netfilter_ep(struct ip_q* q, struct capref* ep)
 
 struct bench_ctl* ip_get_benchmark_data(struct ip_q* q, uint8_t type)
 {
-#ifdef BENCH
     switch (type) {
+#ifdef BENCH
         case 0:
             return &q->en_rx;
         case 1:
@@ -416,10 +418,18 @@ struct bench_ctl* ip_get_benchmark_data(struct ip_q* q, uint8_t type)
             return &q->deq_rx;
         case 3:
             return &q->deq_tx;
+#endif
+        case 4:
+            return net_queue_get_bench_data((struct devq*) q->q, q->name, 0);
+        case 5:
+            return net_queue_get_bench_data((struct devq*) q->q, q->name, 1);
+        case 6:
+            return net_queue_get_bench_data((struct devq*) q->q, q->name, 2);
+        case 7:
+            return net_queue_get_bench_data((struct devq*) q->q, q->name, 3);
         default:
             return NULL;
     }
-#endif
     return NULL;
 }
 

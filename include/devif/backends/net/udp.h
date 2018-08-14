@@ -22,6 +22,10 @@ typedef enum {
     ENQ_TX = 1,
     DEQ_RX = 2,
     DEQ_TX = 3,
+    DESC_ENQ_RX = 4,
+    DESC_ENQ_tX = 5,
+    DESC_DEQ_RX = 6,
+    DESC_DEQ_TX = 7,
 } bench_data_type_t;
 
 /**

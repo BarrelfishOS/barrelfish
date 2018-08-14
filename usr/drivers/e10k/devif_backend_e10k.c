@@ -699,3 +699,9 @@ uint64_t e10k_queue_get_id(struct e10k_queue* q)
 {
     return q->id;
 }
+
+struct bench_ctl* e10k_get_benchmark_data(struct devq* q, uint8_t type) 
+{
+    return e10k_queue_get_benchmark_data((struct e10k_queue*) q, type);
+}
+

@@ -106,11 +106,15 @@ static void event_cb(void* queue)
             DEBUG("Received TX buffer back \n");
             num_tx++;
             total = end - start;
+#ifdef BENCH
             bench_ctl_add_run(udp_deq_tx, &total);        
+#endif
         } else if (flags & NETIF_RXFLAG) {
             num_rx++;
             total = end - start;
+#ifdef BENCH
             bench_ctl_add_run(udp_deq_rx, &total);        
+#endif
             DEBUG("Received RX buffer \n");
             start = rdtsc();
             err = devq_enqueue(q, rid, offset, length, 0,
@@ -118,7 +122,9 @@ static void event_cb(void* queue)
             end = rdtsc();
             if (err_is_ok(err)) {
                 total = end - start;
+#ifdef BENCH
                 bench_ctl_add_run(udp_enq_rx, &total);        
+#endif
             }
         } else {
             printf("Unknown flags %lx \n", flags);
@@ -175,7 +181,7 @@ static void test_udp(void)
     }
 
     uint64_t total = 0, start = 0, end = 0;
-    for (int z = 0; z < NUM_ENQ; z++) {
+    for (int z = 0; z < NUM_ENQ*2; z++) {
 
         for (int i = 0; i < NUM_ENQ; i++) {
             start = rdtsc();
@@ -187,7 +193,9 @@ static void test_udp(void)
                 USER_PANIC("Devq enqueue failed \n");
             }
             total = end -start;
+#ifdef BENCH
             bench_ctl_add_run(udp_enq_tx, &total);            
+#endif
         }
 
         while (num_tx < NUM_ENQ*z) {
@@ -226,33 +234,51 @@ static void test_udp(void)
     }
  
 #ifdef BENCH
-    bench_ctl_t * en_rx;
+    bench_ctl_t * en_rx = NULL;
     bench_ctl_t * en_tx;
     bench_ctl_t * deq_rx;
     bench_ctl_t * deq_tx;
+    bench_ctl_t * desc_en_rx = NULL;
+    bench_ctl_t * desc_en_tx;
+    bench_ctl_t * desc_deq_rx;
+    bench_ctl_t * desc_deq_tx;
     en_rx = udp_get_benchmark_data(udp_q, 0);
     en_tx = udp_get_benchmark_data(udp_q, 1);
     deq_rx = udp_get_benchmark_data(udp_q, 2);
     deq_tx = udp_get_benchmark_data(udp_q, 3);
+    desc_en_rx = udp_get_benchmark_data(udp_q, 4);
+    desc_en_tx = udp_get_benchmark_data(udp_q, 5);
+    desc_deq_rx = udp_get_benchmark_data(udp_q, 6);
+    desc_deq_tx = udp_get_benchmark_data(udp_q, 7);
     uint64_t tscperus = 0;
     err = sys_debug_get_tsc_per_ms(&tscperus);
     tscperus /= 1000;
     tscperus = 1;
-    printf("============================================================== \n");
-    printf("Printing Benchmark data udp queue\n");
+    debug_printf("============================================================== \n");
+    debug_printf("Printing Benchmark data udp queue\n");
     bench_ctl_dump_analysis(udp_enq_rx, 0, "udp_enq_rx", tscperus);
     bench_ctl_dump_analysis(udp_enq_tx, 0, "udp_enq_tx", tscperus);
     bench_ctl_dump_analysis(udp_deq_rx, 0, "udp_deq_rx", tscperus);
     bench_ctl_dump_analysis(udp_deq_tx, 0, "udp_deq_tx", tscperus);
-    printf("============================================================== \n");
-    if (deq_tx != NULL) {
-        printf("============================================================== \n");
-        printf("Printing Benchmark data %s queue\n", cardname);
+    debug_printf("============================================================== \n");
+    if (en_rx != NULL) {
+        debug_printf("============================================================== \n");
+        debug_printf("Printing Benchmark data %s queue\n", cardname);
         bench_ctl_dump_analysis(en_rx, 0, "enq_rx", tscperus);
         bench_ctl_dump_analysis(en_tx, 0, "enq_tx", tscperus);
         bench_ctl_dump_analysis(deq_rx, 0, "deq_rx", tscperus);
         bench_ctl_dump_analysis(deq_tx, 0, "deq_tx", tscperus);
         printf("============================================================== \n");
+    }
+
+    if (desc_en_rx != NULL) {
+        debug_printf("============================================================== \n");
+        debug_printf("Printing Benchmark data descriptor %s queue\n", cardname);
+        bench_ctl_dump_analysis(desc_en_rx, 0, "desc_enq_rx", tscperus);
+        bench_ctl_dump_analysis(desc_en_tx, 0, "desc_enq_tx", tscperus);
+        bench_ctl_dump_analysis(desc_deq_rx, 0, "desc_deq_rx", tscperus);
+        bench_ctl_dump_analysis(desc_deq_tx, 0, "desc_deq_tx", tscperus);
+        debug_printf("============================================================== \n");
     }
 #endif
 
@@ -309,14 +335,14 @@ int main(int argc, char *argv[])
         USER_PANIC("NO src or dst IP given \n");
     }
 
-    barrelfish_usleep(1000*1000*15);
-
 #ifdef BENCH
     udp_enq_rx = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, 100000);
     udp_enq_tx = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, 100000);
     udp_deq_rx = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, 100000);
     udp_deq_tx = bench_ctl_init(BENCH_MODE_FIXEDRUNS, 1, 100000);
 #endif
+
+    barrelfish_usleep(1000*1000*15);
 
     test_udp();
 }

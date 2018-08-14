@@ -22,6 +22,13 @@
 #include <dev/e10k_dev.h>
 #include <dev/e10k_q_dev.h>
 
+//#define BENCH_QUEUE 1
+
+#ifdef BENCH_QUEUE
+#define BENCH_SIZE 100000
+#include <bench/bench.h>
+#endif
+
 struct e10k_queue_ops {
     errval_t (*update_txtail)(struct e10k_queue*, size_t);
     errval_t (*update_rxtail)(struct e10k_queue*, size_t);
@@ -45,6 +52,13 @@ struct region_entry {
 
 struct e10k_queue {
     struct devq q;
+
+#ifdef BENCH_QUEUE
+    struct bench_ctl en_tx;
+    struct bench_ctl en_rx;
+    struct bench_ctl deq_rx;
+    struct bench_ctl deq_tx;
+#endif
 
     // registers
     void* d;
@@ -142,6 +156,38 @@ static inline void e10k_queue_init(struct e10k_queue* q, void* tx, size_t tx_siz
     memset(rx, 0, rx_size * e10k_q_rdesc_adv_wb_size);
     memset(q->tx_isctx, 0, tx_size*sizeof(bool));
     memset(q->rx_context, 0, tx_size*sizeof(*q->rx_context));
+
+#ifdef BENCH_QUEUE
+    q->en_tx.mode = BENCH_MODE_FIXEDRUNS;
+    q->en_tx.result_dimensions = 1;
+    q->en_tx.min_runs = BENCH_SIZE;
+    q->en_tx.data = calloc(q->en_tx.min_runs * q->en_tx.result_dimensions,
+                       sizeof(*q->en_tx.data));
+    assert(q->en_tx.data != NULL);
+
+    q->en_rx.mode = BENCH_MODE_FIXEDRUNS;
+    q->en_rx.result_dimensions = 1;
+    q->en_rx.min_runs = BENCH_SIZE;
+    q->en_rx.data = calloc(q->en_rx.min_runs * q->en_rx.result_dimensions,
+                       sizeof(*q->en_rx.data));
+    assert(q->en_rx.data != NULL);
+
+    q->deq_rx.mode = BENCH_MODE_FIXEDRUNS;
+    q->deq_rx.result_dimensions = 1;
+    q->deq_rx.min_runs = BENCH_SIZE;
+    q->deq_rx.data = calloc(q->deq_rx.min_runs * q->deq_rx.result_dimensions,
+                       sizeof(*q->deq_rx.data));
+    assert(q->deq_rx.data != NULL);
+
+    q->deq_tx.mode = BENCH_MODE_FIXEDRUNS;
+    q->deq_tx.result_dimensions = 1;
+    q->deq_tx.min_runs = BENCH_SIZE;
+    q->deq_tx.data = calloc(q->deq_tx.min_runs * q->deq_tx.result_dimensions,
+                       sizeof(*q->deq_tx.data));
+
+    assert(q->deq_tx.data != NULL);
+#endif
+
 }
 
 static inline int e10k_queue_add_txcontext(e10k_queue_t* q, uint8_t idx,
@@ -234,7 +280,6 @@ static inline int e10k_queue_add_txbuf_legacy(e10k_queue_t* q, lpaddr_t phys,
                                        uint64_t flags,
                                        size_t len)
 {
-    e10k_q_tdesc_legacy_t d;
     size_t tail = q->tx_tail;
 
 
@@ -246,6 +291,12 @@ static inline int e10k_queue_add_txbuf_legacy(e10k_queue_t* q, lpaddr_t phys,
     buf->valid_length = valid_length;
     buf->flags = flags;  
 
+#ifdef BENCH_QUEUE
+    uint64_t start, end;
+    start = rdtscp();
+#endif
+
+    e10k_q_tdesc_legacy_t d;
     d = q->tx_ring[tail];
 
     e10k_q_tdesc_legacy_buffer_insert(d, phys);
@@ -255,6 +306,12 @@ static inline int e10k_queue_add_txbuf_legacy(e10k_queue_t* q, lpaddr_t phys,
     e10k_q_tdesc_legacy_rs_insert(d, last);
     e10k_q_tdesc_legacy_ifcs_insert(d,  1);
     e10k_q_tdesc_legacy_eop_insert(d, last);
+
+#ifdef BENCH_QUEUE
+    end = rdtscp();
+    uint64_t res = end - start;
+    bench_ctl_add_run(&q->en_tx, &res);
+#endif
 
     q->tx_tail = (tail + 1) % q->tx_size;
     return 0;
@@ -344,6 +401,10 @@ static inline bool e10k_queue_get_txbuf_legacy(e10k_queue_t* q, regionid_t* rid,
                                         genoffset_t* valid_length,
                                         uint64_t* flags)
 {
+#ifdef BENCH_QUEUE
+    uint64_t start, end;
+    start = rdtscp();
+#endif
 
     e10k_q_tdesc_legacy_t d;
     size_t head = q->tx_head;
@@ -359,6 +420,12 @@ static inline bool e10k_queue_get_txbuf_legacy(e10k_queue_t* q, regionid_t* rid,
         memset(d, 0, e10k_q_tdesc_legacy_size);
 
         q->tx_head = (head + 1) % q->tx_size;
+
+#ifdef BENCH_QUEUE
+        end = rdtscp();
+        uint64_t res = end - start;
+        bench_ctl_add_run(&q->deq_tx, &res);
+#endif
         return true;
     } 
 
@@ -376,6 +443,12 @@ static inline bool e10k_queue_get_txbuf_legacy(e10k_queue_t* q, regionid_t* rid,
             memset(d, 0, e10k_q_tdesc_legacy_size);
 
             q->tx_head = (q->tx_head + 1) % q->tx_size;
+
+#ifdef BENCH_QUEUE
+            end = rdtscp();
+            uint64_t res = end - start;
+            bench_ctl_add_run(&q->deq_tx, &res);
+#endif
             return true;
         }
     }
@@ -427,7 +500,6 @@ static inline int e10k_queue_add_rxbuf_adv(e10k_queue_t* q,
                                        genoffset_t valid_length,
                                        uint64_t flags)
 {
-    e10k_q_rdesc_adv_rd_t d;
     size_t tail = q->rx_tail;
     struct e10k_queue_rxctx *ctx;
 
@@ -445,6 +517,12 @@ static inline int e10k_queue_add_rxbuf_adv(e10k_queue_t* q,
     ctx->buf.valid_length = valid_length;
     ctx->buf.flags = flags;
     ctx->used = true;
+
+#ifdef BENCH_QUEUE
+    uint64_t start, end;
+    start = rdtscp();
+#endif
+    e10k_q_rdesc_adv_rd_t d;
     d = (e10k_q_rdesc_adv_rd_t) q->rx_ring[tail];
 
     e10k_q_rdesc_adv_rd_buffer_insert(d, phys);
@@ -452,6 +530,12 @@ static inline int e10k_queue_add_rxbuf_adv(e10k_queue_t* q,
     e10k_q_rdesc_adv_rd_hdr_buffer_insert(d, 0);
 
     q->rx_tail = (tail + 1) % q->rx_size;
+
+#ifdef BENCH_QUEUE
+    end = rdtscp();
+    uint64_t res = end - start;
+    bench_ctl_add_run(&q->en_rx, &res);
+#endif
 
     return 0;
 }
@@ -465,7 +549,6 @@ static inline int e10k_queue_add_rxbuf_legacy(e10k_queue_t* q,
                                        genoffset_t valid_length,
                                        uint64_t flags)
 {
-    e10k_q_rdesc_legacy_t d;
     size_t tail = q->rx_tail;
 
 
@@ -477,11 +560,22 @@ static inline int e10k_queue_add_rxbuf_legacy(e10k_queue_t* q,
     buf->valid_length = valid_length;
     buf->flags = flags;  
     
+#ifdef BENCH_QUEUE
+    uint64_t start, end;
+    start = rdtscp();
+#endif
+
+    e10k_q_rdesc_legacy_t d;
+
     d = q->rx_ring[tail];
-
     e10k_q_rdesc_legacy_buffer_insert(d, phys);
-
     q->rx_tail = (tail + 1) % q->rx_size;
+
+#ifdef BENCH_QUEUE
+    end = rdtscp();
+    uint64_t res = end - start;
+    bench_ctl_add_run(&q->en_rx, &res);
+#endif
 
     return 0;
 }
@@ -594,6 +688,10 @@ static inline bool e10k_queue_get_rxbuf_legacy(e10k_queue_t* q, regionid_t* rid,
                                         uint64_t* flags,
                                         int* last)
 {
+#ifdef BENCH_QUEUE
+    uint64_t start, end;
+    start = rdtscp();
+#endif
 
     e10k_q_rdesc_legacy_t d;
     size_t head = q->rx_head;
@@ -613,6 +711,11 @@ static inline bool e10k_queue_get_rxbuf_legacy(e10k_queue_t* q, regionid_t* rid,
         memset(d, 0, e10k_q_rdesc_legacy_size);
 
         q->rx_head = (head + 1) % q->rx_size;
+#ifdef BENCH_QUEUE
+        end = rdtscp();
+        uint64_t res = end - start;
+        bench_ctl_add_run(&q->deq_rx, &res);
+#endif
         return true;
     } else {
         return false;
@@ -655,5 +758,23 @@ static inline size_t e10k_queue_free_rxslots(e10k_queue_t* q)
     }
 }
 
+static inline struct bench_ctl* e10k_queue_get_benchmark_data(e10k_queue_t* q, uint8_t type)
+{
+#ifdef BENCH_QUEUE
+    switch (type) {
+        case 0:
+            return &q->en_rx;
+        case 1:
+            return &q->en_tx;
+        case 2:
+            return &q->deq_rx;
+        case 3:
+            return &q->deq_tx;
+        default:
+            return NULL;
+    }
+#endif
+    return NULL;
+}
 
 #endif // ndef E10K_QUEUE_H_
