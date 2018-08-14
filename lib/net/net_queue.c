@@ -10,6 +10,7 @@
 #include <barrelfish/barrelfish.h>
 #include <net/net_queue.h>
 #include <pci/pci_types.h>
+#include <bench/bench.h>
 #include "networking_internal.h"
 #include "net_queue_internal.h"
 
@@ -168,20 +169,23 @@ static errval_t create_sfn5122f_queue(const char* cardname, inthandler_t interru
 
 typedef errval_t (*queue_create_fn)(const char*, inthandler_t, struct capref*, 
                                     uint64_t*, bool, bool, struct capref* filter_ep, struct devq **);
+
+typedef struct bench_ctl* (*get_bench_data_fn)(struct devq*, uint8_t);
+
 struct networking_card
 {
     char *cardname;
     queue_create_fn createfn;
+    get_bench_data_fn benchfn;
 } networking_cards [] = {
-    { "loopback", create_loopback_queue},
-    { "driver", create_driver_queue},
-    { "e1000n", create_e1000_queue},
-    { "mlx4", create_mlx4_queue},
-    { "e10k", create_e10k_queue},
-    { "sfn5122f", create_sfn5122f_queue},
-    { NULL, NULL}
+    { "loopback", create_loopback_queue, NULL},
+    { "driver", create_driver_queue, NULL},
+    { "e1000n", create_e1000_queue, NULL},
+    { "mlx4", create_mlx4_queue, NULL},
+    { "e10k", create_e10k_queue, e10k_get_benchmark_data},
+    { "sfn5122f", create_sfn5122f_queue, sfn5122f_get_benchmark_data},
+    { NULL, NULL, NULL}
 };
-
 
 /**
  * @brief creates a queue to the given card and the queueid
@@ -234,4 +238,19 @@ errval_t net_queue_create(inthandler_t interrupt, const char *cardname, struct c
                           uint64_t* queueid, bool poll, struct capref* filter_ep, struct devq **retqueue)
 {
     return net_queue_internal_create(interrupt, cardname, ep, queueid, false, poll, filter_ep, retqueue);
+}
+
+struct bench_ctl* net_queue_get_bench_data(struct devq* q, const char* name, uint8_t type)
+{
+    struct networking_card *nc = networking_cards;
+    while(nc->cardname != NULL) {
+        if (strncmp(name, nc->cardname, strlen(nc->cardname)) == 0) {
+            if (nc->benchfn != NULL) {
+                return nc->benchfn(q, type);
+            }
+        }
+        nc++;
+    }
+
+    return NULL;
 }

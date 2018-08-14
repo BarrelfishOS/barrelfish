@@ -46,4 +46,5 @@ errval_t net_queue_create(inthandler_t interrupt, const char *cardname, struct c
                           uint64_t* queueid, bool poll, struct capref* filter_ep,
                           struct devq **retqueue);
 
+struct bench_ctl* net_queue_get_bench_data(struct devq* q, const char* name, uint8_t type);
 #endif /* LIB_NETQUEUE_INCLUDE_NETWORKING_H_ */
