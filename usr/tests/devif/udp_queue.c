@@ -23,7 +23,7 @@
 
 //#define DEBUG(x...) printf("devif_test: " x)
 #define DEBUG(x...) do {} while (0)
-//#define BENCH 1
+#define BENCH 1
 
 #define NUM_ENQ 512
 #define MEMORY_SIZE BASE_PAGE_SIZE*NUM_ENQ
