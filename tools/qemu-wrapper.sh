@@ -198,7 +198,7 @@ case "$ARCH" in
                 -smp $SMP \
                 -bios /usr/share/qemu-efi/QEMU_EFI.fd \
                 -device virtio-blk-device,drive=image \
-                -drive if=none,id=image,file=armv8_efi,format=raw"
+                -drive if=none,id=image,file=$IMAGE,format=raw"
        GDB=gdb-multiarch
        QEMU_NONDEBUG=-nographic
        EFI=1
