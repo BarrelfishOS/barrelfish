@@ -133,7 +133,7 @@ class Harness:
                 lines = rf.readlines()
                 for idx, line in enumerate(lines):
                     if line.strip() == "root (nd)" or \
-                       line.strip().startswith("Kernel starting at address"):
+                       "Barrelfish CPU driver starting" in line.strip():
                         break
             if idx > 0:
                 with open(boot_file_name, 'w') as wf:
