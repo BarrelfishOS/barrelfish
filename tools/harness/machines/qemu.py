@@ -13,13 +13,6 @@ from machines import Machine, ARMMachineBase, MachineFactory, MachineOperations
 import efiimage
 
 QEMU_SCRIPT_PATH = 'tools/qemu-wrapper.sh' # relative to source tree
-GRUB_IMAGE_PATH = 'tools/grub-qemu.img' # relative to source tree
-QEMU_CMD_X64 = 'qemu-system-x86_64'
-QEMU_CMD_X32 = 'qemu-system-i386'
-QEMU_CMD_ARM = 'qemu-system-arm'
-QEMU_ARGS_GENERIC = '-nographic -no-reboot'.split()
-QEMU_ARGS_X64 = '-net nic,model=ne2k_pci -net user -m 3084'.split()
-QEMU_ARGS_X32 = '-net nic,model=ne2k_pci -net user -m 512'.split()
 
 class QEMUMachineBase(Machine):
     def __init__(self, options, operations, **kwargs):
@@ -35,6 +28,9 @@ class QEMUMachineBase(Machine):
         # shorter time limit for running a qemu test
         # FIXME: ideally this should somehow be expressed in CPU time / cycles
         return 60
+
+    def get_pci_args(self):
+        return ["skb_bridge_program=bridge_bios"]
 
     def get_machine_name(self):
         return self._name
@@ -124,13 +120,6 @@ class QEMUMachineX64Operations(QEMUMachineBaseOperations):
     def set_bootmodules(self, modules):
         path = os.path.join(self.get_tftp_dir(), 'menu.lst')
         self._write_menu_lst(modules.get_menu_data('/', self.get_tftp_dir()), path)
-
-class QEMUMachineX32Operations(QEMUMachineBaseOperations):
-    def _get_cmdline(self):
-        grub_image = os.path.join(self.options.sourcedir, GRUB_IMAGE_PATH)
-        s = '-smp %d -fda %s -tftp %s' % (self.get_ncores(), grub_image,
-                                          self.get_tftp_dir())
-        return [QEMU_CMD_X32] + QEMU_ARGS_GENERIC + QEMU_ARGS_X32 + s.split()
 
 # create 1, 2 and 4 core x86_64 qemu machines
 
