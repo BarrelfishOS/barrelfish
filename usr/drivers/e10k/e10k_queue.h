@@ -312,6 +312,7 @@ static inline int e10k_queue_add_txbuf_legacy(e10k_queue_t* q, lpaddr_t phys,
     uint64_t res = end - start;
     bench_ctl_add_run(&q->en_tx, &res);
 #endif
+    __sync_synchronize();
 
     q->tx_tail = (tail + 1) % q->tx_size;
     return 0;
@@ -529,6 +530,8 @@ static inline int e10k_queue_add_rxbuf_adv(e10k_queue_t* q,
     // TODO: Does this make sense for RSC?
     e10k_q_rdesc_adv_rd_hdr_buffer_insert(d, 0);
 
+    __sync_synchronize();
+
     q->rx_tail = (tail + 1) % q->rx_size;
 
 #ifdef BENCH_QUEUE
@@ -569,6 +572,9 @@ static inline int e10k_queue_add_rxbuf_legacy(e10k_queue_t* q,
 
     d = q->rx_ring[tail];
     e10k_q_rdesc_legacy_buffer_insert(d, phys);
+
+    __sync_synchronize();
+
     q->rx_tail = (tail + 1) % q->rx_size;
 
 #ifdef BENCH_QUEUE
@@ -576,7 +582,6 @@ static inline int e10k_queue_add_rxbuf_legacy(e10k_queue_t* q,
     uint64_t res = end - start;
     bench_ctl_add_run(&q->en_rx, &res);
 #endif
-
     return 0;
 }
 
