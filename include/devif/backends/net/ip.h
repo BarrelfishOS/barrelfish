@@ -15,9 +15,11 @@
 #define UDP_PROT 0
 #define TCP_PROT 1
 
-/*#define BENCH 1
+//#define BENCH 1
+#ifdef BENCH
 #define BENCH_SIZE 100000
-*/
+#endif
+
 
 struct bench_ctl; 
 struct ip_q;
