@@ -320,7 +320,6 @@ void handle_irq(arch_registers_state_t* save_area,
 
     // Offer it to the timer
     if (timer_interrupt(irq)) {
-printf("<tick>\n");
         // Timer interrupt, timer_interrupt() acks it at the timer.
         wakeup_check(systime_now());
         dispatch(schedule());
