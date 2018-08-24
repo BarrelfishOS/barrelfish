@@ -44,4 +44,7 @@ void a9_probe_tsc(void);
 /// Set a global timer comparator
 void a9_gt_set_comparator(uint64_t timeout);
 
+// Clear the interrupt status
+void a9_gt_ack_irq(void);
+
 #endif // __A9_GT_H__
