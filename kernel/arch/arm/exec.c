@@ -25,7 +25,10 @@
 /* XXX - not AArch64-compatible. */
 #include <cp15.h>   // for invalidating tlb and cache
 
-static arch_registers_state_t upcall_state;
+static arch_registers_state_t upcall_state =
+{
+    .named.fpscr = 0x01000000
+};
 
 extern uint32_t ctr;
 

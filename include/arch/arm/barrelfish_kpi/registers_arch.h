@@ -72,7 +72,7 @@ union registers_arm {
         uint32_t stack;
         uint32_t link;
         uint32_t pc;
-        uint32_t _align;
+        uint32_t fpscr;
         uint64_t d0, d1, d2, d3, d4, d5, d6, d7;
         uint64_t d8, d9, d10, d11, d12, d13, d14, d15;
         uint64_t d16, d17, d18, d19, d20, d21, d22, d23;

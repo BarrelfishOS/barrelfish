@@ -42,6 +42,7 @@ registers_set_initial(arch_registers_state_t *regs, struct thread *thread,
     regs->named.stack = stack;
     regs->named.r9 = (uintptr_t)curgotbase();
     regs->named.pc = entry;
+    regs->named.fpscr = 0x01000000; // flush-to-zero
 }
 
 #endif // ARCH_ARM_BARRELFISH_REGISTERS_H

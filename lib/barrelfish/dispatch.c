@@ -493,7 +493,6 @@ void disp_trap(dispatcher_handle_t handle, uintptr_t irq, uintptr_t error,
 
      // print out stuff
     debug_print_save_area(regs);
-    debug_dump(regs);
     //debug_call_chain(regs);
 
     // run something else
