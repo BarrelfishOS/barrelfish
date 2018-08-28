@@ -14,4 +14,3 @@ monitor(cortexA9, "/armv7/sbin/monitor").
 
 % One cluster of two Cortex A9s
 arm_core(16'000000,cortexA9).
-arm_core(16'000001,cortexA9).

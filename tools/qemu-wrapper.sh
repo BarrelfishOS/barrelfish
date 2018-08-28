@@ -19,8 +19,8 @@ HAGFISH_LOCATION="/home/netos/tftpboot/Hagfish.efi"
 MENUFILE=""
 ARCH=""
 DEBUG_SCRIPT=""
-# Grab SMP from env, if unset default to 2
-SMP=${SMP:-2}
+# Grab SMP from env, if unset default to 1
+SMP=${SMP:-1}
 # Grab NIC_MODEL from env, if unset default to e1000
 NIC_MODEL="${NIC_MODEL:-e1000e}"
 

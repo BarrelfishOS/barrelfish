@@ -141,18 +141,15 @@ for n in [1, 2, 4]:
                               bootarch='x86_64',
                               _class=TmpMachine)
 
-class QEMUMachineARMv7Uniproc(ARMMachineBase):
-    '''Uniprocessor ARMv7 QEMU'''
+class QEMUMachineARMv7(ARMMachineBase):
+    '''ARMv7 QEMU'''
     name = 'qemu_armv7'
 
-    imagename = "armv7_a15ve_1_image"
+    imagename = "armv7_a15ve_4_image"
 
     def __init__(self, options, **kwargs):
-        super(QEMUMachineARMv7Uniproc, self).__init__(options, QEMUMAchineARMv7UniprocOperations(self), **kwargs)
+        super(QEMUMachineARMv7, self).__init__(options, QEMUMAchineARMv7Operations(self), **kwargs)
         self._set_kernel_image()
-
-    def get_ncores(self):
-        return 1
 
     def get_buildall_target(self):
         return "VExpressEMM-A15"
@@ -163,7 +160,7 @@ class QEMUMachineARMv7Uniproc(ARMMachineBase):
     def get_platform(self):
         return 'a15ve'
 
-class QEMUMAchineARMv7UniprocOperations(QEMUMachineBaseOperations):
+class QEMUMAchineARMv7Operations(QEMUMachineBaseOperations):
 
     def _write_menu_lst(self, data, path):
         self._machine._write_menu_lst(data, path)
@@ -172,7 +169,7 @@ class QEMUMAchineARMv7UniprocOperations(QEMUMachineBaseOperations):
         # write menu.lst
         debug.verbose("Writing menu.lst in build directory.")
         menulst_fullpath = os.path.join(self._machine.options.builds[0].build_dir,
-                "platforms", "arm", "menu.lst.armv7_a15ve_1")
+                "platforms", "arm", "menu.lst.armv7_a15ve_4")
         self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
 
         # produce ROM image
@@ -183,11 +180,23 @@ class QEMUMAchineARMv7UniprocOperations(QEMUMachineBaseOperations):
     def _get_cmdline(self):
         qemu_wrapper = os.path.join(self._machine.options.sourcedir, QEMU_SCRIPT_PATH)
 
-        return ([qemu_wrapper, '--arch', 'a15ve', '--image', self._machine.kernel_img])
+        return ([qemu_wrapper, '--arch', 'a15ve', '--image', self._machine.kernel_img,
+            "--smp", "%s" % self._machine.get_ncores()])
 
-MachineFactory.addMachine(QEMUMachineARMv7Uniproc.name, QEMUMachineARMv7Uniproc,
-                          bootarch="armv7",
-                          platform="a15ve")
+MachineFactory.addMachine(QEMUMachineARMv7.name, QEMUMachineARMv7,
+                          bootarch = "armv7",
+                          platform = "a15ve",
+                          ncores = 1)
+
+MachineFactory.addMachine(QEMUMachineARMv7.name + "_1", QEMUMachineARMv7,
+                          bootarch = "armv7",
+                          platform = "a15ve",
+                          ncores = 1)
+
+MachineFactory.addMachine(QEMUMachineARMv7.name + "_4", QEMUMachineARMv7,
+                          bootarch = "armv7",
+                          platform = "a15ve",
+                          ncores = 4)
 
 class QEMUMachineZynq7(ARMMachineBase):
     '''Zynq7000 as modelled by QEMU'''
