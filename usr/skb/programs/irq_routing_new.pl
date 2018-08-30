@@ -32,6 +32,15 @@
 % ioapic_gsi_base(Label, Base)
 :- dynamic(ioapic_gsi_base/2).
 
+%mapf_valid(controller_label, InPort, nullMsg, OutPort, OutMsg)
+:-dynamic(mapf_valid/5).
+
+%mapf_valid_class(ControllerClass,CtrlLbl, InPort,InMsg,OutPort,OutMsg) 
+:-dynamic(mapf_valid_class/6).
+
+%hpet_ioapic(Lbl,InPort,32-bit number ).
+:-dynamic(hpet_ioapic/3).
+
 % Link the PCI controller label with an addr(...)
 :- dynamic(pci_lbl_addr/2).
 
@@ -44,7 +53,7 @@
 %
 
 
-% X86 specific. irte index links the Index used in the dmar_* predicates
+% X86 specific. irte (interrupt remapping table entry) index links the Index used in the dmar_* predicates
 % to the corresponding irte and iommu controller label.
 % Example: irte_index(0, irte_a, iommu_a).
 :- dynamic(irte_index/3).
@@ -53,6 +62,11 @@
 % PCI specific, Links an ACPI PCI LNK name to a controller label
 % Example pcilnk_index("\\_SB_.GSIE", pcilnk_a)
 :- dynamic(pcilnk_index/2).
+
+% Establish a connection between two ports
+% Example connection(src , dest)
+:- dynamic(connection/2). 
+
 %>> X86
 
 
@@ -115,6 +129,7 @@
 
 % Utility predicates
 % ==================
+
 % last element of list (from lib listut)
 last(Last, [Last]) :- !.
 last(Last, [_|List]) :-
@@ -147,6 +162,28 @@ subword(Word,Subword, Range) :-
     array_list(Subword,SW).
     
 
+%concatenate two lists together 
+concat([], A ,A).
+    concat([H|T], List , [H|Result]):- concat(T,List,Result).
+
+
+get_out_range(InputRange , Length , StartOut , EndOut) :- 
+    get_max_range(InputRange,EndInRange), 
+    StartOut is EndInRange + 1 , 
+    EndOut is EndInRange + Length. 
+
+get_range_boundaries(Range , MinRange , MaxRange) :- 
+    get_min_range(Range, MinRange), 
+    get_max_range(Range, MaxRange).
+
+% utility predicate to get the index of "1" in the list. 
+% index_ones(1, [1,1,0,0,0])
+
+index_ones(0, [1 | _]).
+index_ones(Index, [H | Tail]) :-
+    index_ones(Index2, Tail),
+    Index is Index2 + 1.
+
 %>> ARM
 % Controller constraints
 
@@ -154,7 +191,7 @@ mapf_valid_class(gicv2, CtrlLabel, InPort, InMsg, OutPort, OutMsg) :-
     OutMsg = InMsg.
 
 %>> X86
-% Controller constraints
+% Controller constraintsnth0(I, [1,2,3,4,5], 5)
 % ======================
 
 % The PCI controller simply forwards (or discards) nullMsg
@@ -172,7 +209,7 @@ mapf_valid_class(msi, CtrlLabel, InPort, nullMsg, _, mem_write(OutAddr, OutData)
 % A MSIx controller must output a mem_write, otherwise no constraints.
 % For every source of MSIx interrupts, one of this controllers
 % should be instantiated (ie one for each PCI function)
-mapf_valid_class(msix, _, _, _, _, mem_write(_, _)) :-
+mapf_valid_class(msix, _, _, _, _, mem_write(_ , _)) :-
     true.
 
 
@@ -191,7 +228,9 @@ mapf_valid_class(pci_msix, CtrlLabel, InPort, Msg, OutPort, Msg) :-
 % The vector is encoded in the lower 8 bit of the data word,
 % The destination is encoded in the 12..19 bits of the address. 
 mapf_valid_class(msireceiver, _, _, mem_write(Addr, Data), OutPort, OutMsg) :-
-    int_dest_port(OutPort),
+    %edited
+    connection(OutPort,Dest),
+    int_dest_port(Dest),
 
     % This forces the upper bits to be 0, which must not be true. See Vol. 3A 10-35
     Data :: [ 16'10 .. 16'FE ],
@@ -200,7 +239,8 @@ mapf_valid_class(msireceiver, _, _, mem_write(Addr, Data), OutPort, OutMsg) :-
     assert_word(AddrW, 32),
     word_to_num(AddrW, Addr),
     subword(AddrW,DestW, 13 .. 20), % The range is 1 based equals to 0 based 12 .. 19
-    word_to_num(DestW, OutPort).
+   %Edited
+    word_to_num(DestW, Dest).
     
 
 % The PIC has a fixed function. The lowest input port number must map
@@ -219,9 +259,26 @@ mapf_valid_class(irte, _, _, mem_write(InAddr,InData), _, OutMsg) :-
     InAddrLo $= InAddr - 16'0FEE0000, %No bitwise operations with IC lib.
     OutMsg $= InAddrLo + InData.
 
-%To be Changed: Hpet Valid 
-mapf_valid_class(hpet, _, _, _, _, _) :-
-    true. 
+% Change: Hpet Valid for 2 rules   Outport is out range 
+% mapf_valid_class(controller_class, controller_label, InPort, nullMsg, OutPort, OutMsg)
+% mapf_valid(controller_label, InPort, nullMsg, OutPort, OutMsg)
+%% another solution: remove mapf_valid and asserta the valid configurations (for IoApic the outport is the valid port from the 32 bit register and the outMsg is nullMSg )
+
+
+  
+mapf_valid_class(hpet, CtrlLabel, InPort, nullMsg, OutPort, OutMsg):- 
+    hpet_ioapic(CtrlLabel,InPort,Num),
+    assert_word(W,32), 
+    word_to_num(W,Num),
+    % get the valid bit and this becomes the corresponding Outport to I/O APIC 
+    array_list(W,L),
+    index_ones(Indx, L),
+    controller(CtrlLabel,_,_,OutRange),
+    get_min_range(OutRange,MinOut), 
+    OutPort is MinOut + Indx +1,
+    OutMsg = nullMsg.
+                                                                                                                                                                                                  
+ 
 % The mem write gets captured by the irte, hence the iommu is constrained by the number of slots.
 mapf_valid_class(iommu, _, _, InMsg, _, _) :-   
     InMsg :: [ 0 .. 2 ^ 16].
@@ -258,7 +315,7 @@ input_to_int(InPort, InMsg, OutInt) :-
     
 % The mapf validity check function for a controller instance.
 % It takes into account static constraints from the controller class
-% but also the runtime configuration. It will not allow to overrite
+% but also the runtime configuration. It will not allow to overwrite
 % an already installed mapping.
 mapf_valid(ControllerLabel, InPort, Msg, OutPort, OutMsg) :-
     % Constraint In and OutRange.
@@ -284,6 +341,13 @@ mapf_valid(ControllerLabel, InPort, Msg, OutPort, OutMsg) :-
     %    mapf(ControllerLabel, InPort, Msg, OutPort, OutMsg)
     %)),
 
+% Change: validate that source is input port & validate that destination is output prt 
+
+add_connection(Src,Dest):- 
+    %controller(_,_,_,SrcC),
+    %Src :: SrcC, 
+    %( int_dest_port(Dest) ; (controller(_,_,DestC,_) , Dest :: DestC) ), 
+    assert(connection(Src,Dest)). 
 
 
 % Locate a controller given an inport
@@ -299,22 +363,23 @@ int_dest_unique(OutPort, OutMsg) :-
     
 
 % Try to find a route (without installing the mapping) between InPort and OutPort and OutMsg
-route(InPort, InMsg, OutPort, OutMsg, List) :-
-    find_controller(InPort, CtrlLabel),
-    mapf_valid(CtrlLabel, InPort, InMsg, NOutPort, NOutMsg),
-    (
-        (int_dest_port(NOutPort),NOutPort = OutPort)  ->
-            (
-             NOutMsg = OutMsg,
-             int_dest_msg(OutMsg), 
-             int_dest_unique(OutPort, OutMsg),
-             List = [mapf(CtrlLabel, InPort, InMsg, NOutPort, NOutMsg)]
-            ) ; (
-                route(NOutPort, NOutMsg, OutPort, OutMsg, NList),
-                append([mapf(CtrlLabel, InPort, InMsg, NOutPort, NOutMsg)], NList, List)
-            )
-    ).
-    
+    route(InPort, InMsg, OutPort, OutMsg, List) :-
+   find_controller(InPort, CtrlLabel),
+   mapf_valid(CtrlLabel, InPort, InMsg, NOutPort, NOutMsg),
+   %edited
+   connection(NOutPort, X), 
+   (
+       (int_dest_port(X), X = OutPort)  ->
+           (
+            NOutMsg = OutMsg,
+            int_dest_msg(OutMsg),
+            int_dest_unique(OutPort, OutMsg),
+            List = [mapf(CtrlLabel, InPort, InMsg, NOutPort, NOutMsg)]
+           ) ; (
+               route(X, NOutMsg, OutPort, OutMsg, NList),
+               append([mapf(CtrlLabel, InPort, InMsg, NOutPort, NOutMsg)], NList, List)
+           )
+   ).
 
 % Translate the port indices of a mapf entry to zero based entries
 to_mapf_local(mapf(Lbl,A,B,C,D), Out) :-
@@ -364,7 +429,7 @@ get_route(InPort, InMsg, Li) :-
 % follows the format
 % cpu,cpuid,vector
 print_route(Li) :-
-    (foreach(mapf(Lbl,A,B,C,D), Li) do (
+    ( foreach(mapf(Lbl,A,B,C,D), Li) do (
         to_mapf_local(mapf(Lbl,A,B,C,D), mapf(_,ALocal,_,CLocal,_)),
         controller(Lbl, Class, _,_),
         printf(output, "%s,%s,%d,%Kw,%d,%Kw\n",[Lbl,Class,ALocal,B,CLocal,D]))).
@@ -428,7 +493,8 @@ sub_rev(A,B,C) :- C is B-A.
 % Routes the IntNr to a unused vector on CpuNr.
 % Prints controller configurations according to print_route
 find_and_add_irq_route(IntNr, CpuNr, VecNr) :-
-    route(IntNr, nullMsg, CpuNr, VecNr, Li),
+    %edited 
+    route(IntNr, nullMsg , CpuNr, VecNr, Li),
     term_variables(Li,List),
     labeling(List),
     add_route(Li),
@@ -455,7 +521,13 @@ add_x86_controllers :-
     ) ; (
         % instantiate a MSI receiver
         get_unused_range(1, MsiInRange),
-        assert_controller(msireceiver_a, msireceiver, MsiInRange, CpuPorts)
+        length(CpuPorts,N),
+        get_out_range(MsiInRange , N , MsiOutStart , MsiOutEnd ),
+        MsiOutRange=[MsiOutStart .. MsiOutEnd],  
+        assert_controller(msireceiver_a, msireceiver, MsiInRange, MsiOutRange),
+        get_range_boundaries(CpuPorts , MinCpu , MaxCpu ), 
+        (for(I,MsiOutStart,MsiOutEnd) , for(L,MinCpu,MaxCpu) do add_connection(I,L) )
+
     )),
 
     % ioapic -> We assert them directly from the controller driver
@@ -485,6 +557,7 @@ add_x86_controllers :-
 
 
 
+
 %>> GENERIC
 
 % Base is atom, index integer, Out is atom that is not yet in use in
@@ -504,12 +577,19 @@ get_unused_controller_label(Base, Index, Out) :-
 % msi, msix, pcilnk
 
 %>> X86
+
 add_controller(InSize, msi, Lbl) :-
     InSize :: [1,2,4,8,16],
     get_unused_range(InSize, InRange),
     get_unused_controller_label(msi, 0, Lbl),
     (controller(_, irte, MsiOut, _) ; controller(_, msireceiver, MsiOut, _)),
-    assert_controller(Lbl, msi, InRange, MsiOut).
+    length(MsiOut , N), 
+    get_out_range(InRange,N, StartOut , EndOut ), 
+    OutRange=[StartOut .. EndOut], 
+    assert_controller(Lbl, msi, InRange, OutRange),
+    get_range_boundaries(MsiOut , MinMsi , MaxMsi),  
+    (for(I,StartOut,EndOut) , for(L,MinMsi,MaxMsi) do add_connection(I,L) ).
+
 
 % Deprecated, use add_pci_msix_controller
 %%add_controller(InSize, msix, Lbl) :-
@@ -538,25 +618,49 @@ dmar_device_pci(DmarIndex, EntryType, addr(Bus,Device, Function)) :-
 % Adds a MSI controller. It needs the Addr to find the correct I/OMMU
 add_msi_controller(Lbl, InSize, Type, addr(Bus, Device, Function)) :-
     (Type = msi ; Type = msix),
+    get_unused_range(InSize, InRange),
+    get_max_range(InRange, EndInRange), 
+    StartOutRange is EndInRange+1,
+    MSIOutRange :: [StartOutRange .. StartOutRange],
     % First Check if there is an endpoint device
     (x86_iommu_mode -> (
         dmar_device(DmarIndex, 1, addr(Bus,Device,Function)),
         irte_index(DmarIndex, IrteLbl, _),
-        controller(IrteLbl, _, MSIOutRange, _)) ;
-        controller(_, msireceiver, MSIOutRange, _)
+        controller(IrteLbl, _, IRTERange, _), 
+        get_min_range(IRTERange,IRTEinput), 
+        add_connection(StartOutRange, IRTEinput)
+        ) ; ( 
+        controller(_, msireceiver, MSIRange, _), 
+        get_min_range(MSIRange,MSIinput), 
+        add_connection(StartOutRange, IRTEinput)
+        )
     ),
-    get_unused_range(InSize, InRange),
     get_unused_controller_label(Type, 0, Lbl),
     assert_controller(Lbl, Type, InRange, MSIOutRange).
 
-% add hpet controller . 
-add_hpet_controller(Lbl):-
-MaxNoofTimers=32,
-get_unused_range(MaxNoofTimers, HpetInRange),
-get_unused_controller_label(hpet, 0, Lbl),
-controller(_, msireceiver, HpetOut, _), 
-assert_controller(Lbl, hpet, HpetInRange, HpetOut). 
+% add hpet controller %% 24 for i/o Apic and 1 for msi
+add_hpet_controller(Lbl , Ntimers):-
+    get_unused_range(Ntimers, HpetInRange), ! ,
+    get_unused_controller_label(hpet, 0, Lbl), ! ,
+    get_max_range(HpetInRange,EndInRange), 
+    StartOut is EndInRange+1 , 
+    EndOut is EndInRange+25 , %% 24 for ioapic , 1 for msi 
+    HpetOutRange=[StartOut .. EndOut] ,
+    assert_controller(Lbl, hpet, HpetInRange, HpetOutRange),
+    controller(_, msireceiver, MsiInRange, _) ,
+    get_min_range(MsiInRange,MsiIn),
+    add_connection(StartOut , MsiIn), %%connect 1st outport to MSI   
+    ioapic_gsi_base(IoApicLbl , 0) , 
+    controller(IoApicLbl,_,IoApicInRange,_),
+    get_range_boundaries(IoApicInRange,MinApic , MaxApic),  
+    StartOutNew is StartOut+1, %%connect the rest of outport to IoApic 
+    ( for(I,StartOutNew,EndOut) , for(L,MinApic,MaxApic) do add_connection(I,L) ). 
 
+
+%printIoApicHpet 
+printIoApicForHpet :- 
+ioapic_gsi_base(IoApicLbl , 0), 
+print_int_controller(IoApicLbl).
 
 %%%% Functions that map various interrupt numbers to internal representation
 
@@ -626,9 +730,10 @@ assert_controller(Lbl, Class, InRange, MSIOutRange) :-
     assert( controller(Lbl, Class, InRange, MSIOutRange)),
     atom_string(Lbl,LblStr),
     atom_string(Class, ClassStr),
+    %(disable_octopus ; add_seq_object('hw.int.controller.', [val(label, LblStr), val(class, ClassStr)], [])).
+    %uncomment it when running elipse   
     add_seq_object('hw.int.controller.', [val(label, LblStr), val(class, ClassStr)], []).
-    
-%  (disable_octopus ; add_seq_object('hw.int.controller.', [val(label, LblStr), val(class, ClassStr)], [])).
+
 % GSIList is a list of GSI that this pci link device can output. 
 add_pcilnk_controller(GSIList, Name, Lbl) :-
     length(GSIList, LiLe),
@@ -642,8 +747,14 @@ add_pcilnk_controller(GSIList, Name, Lbl) :-
     controller(Ioapiclbl, _, IoIn, _),
     get_min_range(IoIn, IoApicIn),
     maplist(sub_rev(GSIBase), GSIList, LocalList), maplist(+(IoApicIn), LocalList, OutRange),
+    length(OutRange,N), 
+    get_out_range(InRange , N , PCIOutStart , PCIOutEnd), 
+    PCIOutRange=[PCIOutStart .. PCIOutEnd], 
     assert(pcilnk_index(Name, Lbl)),
-    assert_controller(Lbl, pcilnk, InRange, OutRange).
+    assert_controller(Lbl, pcilnk, InRange, PCIOutRange),
+    get_range_boundaries(OutRange , MinOut , MaxOut),  
+    ( for(I,PCIOutStart,PCIOutEnd) , for(L,MinOut,MaxOut) do add_connection(I,L) ).
+
 
 %>> X86
 % For a given (ACPI) pci link controller name, this looks
@@ -668,10 +779,14 @@ add_pci_controller(Lbl, A) :-
     find_prt_entry(Pin, A, X),
     prt_entry_to_num(X, IntNu),
     OutRange :: [IntNu, IntNu],
-
+    get_out_range(PciInRange , 1 , OutStart , OutEnd), 
+    PciOutRange=[OutStart .. OutEnd], 
     assert(pci_lbl_addr(Lbl, A)),
+    assert_controller(Lbl, pci, PciInRange, PciOutRange),
+    add_connection(OutStart , IntNu ). 
 
-    assert_controller(Lbl, pci, PciInRange, OutRange).
+
+
 
 % Instantiates two linke controllers:
 % * pci_msix: can not route interrupts to different destinations,
@@ -682,40 +797,66 @@ add_pci_controller(Lbl, A) :-
 add_pci_msix_controller(PciMsixLbl, MsixLbl, A) :-
     TBLSIZE = 16, % TODO read TBLSIZE from conf space and pass in as argument
     % First, build msix controller
-    get_unused_range(TBLSIZE, PciOutRange),
+    get_unused_range(TBLSIZE, MsiInRange),
     get_unused_controller_label(msix, 0, MsixLbl),
     (controller(_, irte, MsiOut, _) ; controller(_, msireceiver, MsiOut, _)),
-    assert_controller(MsixLbl, msix, PciOutRange, MsiOut),
+    length(MsiOut,N), 
+    get_out_range(MsiInRange,N , StartOut,EndOut), 
+    MsiOutRange=[StartOut..EndOut], 
+    assert_controller(MsixLbl, msix, MsiInRange, MsiOutRange),
+    get_range_boundaries(MsiOut , MinOut,MaxOut), 
+    ( for(I,StartOut,EndOut) , for(L,MinOut,MaxOut) do add_connection(I,L) ), 
+    %print_int_controller(MsixLbl),
 
     % Then pci_msix controller, that sits before the msix ctrl
-    get_unused_range(TBLSIZE, InRange),
+    get_unused_range(TBLSIZE, PciInRange),
     get_unused_controller_label(pci_msix, 0, PciMsixLbl),
-    assert(pci_lbl_addr(PciMsixLbl, A)),
-    assert_controller(PciMsixLbl, pci_msix, InRange, PciOutRange).
-
-
-
+    get_out_range(PciInRange,TBLSIZE, PciStartOut,PciEndOut), 
+    PciOutRange=[PciStartOut..PciEndOut], 
     
+    assert(pci_lbl_addr(PciMsixLbl, A)),
+    assert_controller(PciMsixLbl, pci_msix, PciInRange, PciOutRange),
+    %print_int_controller(PciMsixLbl),
+    
+    get_range_boundaries(MsiInRange , MinMsiIn,MaxMsiIn), 
+    ( for(I,PciStartOut,PciEndOut) , for(L,MinMsiIn,MaxMsiIn) do add_connection(I,L) ).     
 
-add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
-    ((
-        % Check if there is a dmar_hardware_unit entry that covers this controller
+% Check if there is a dmar_hardware_unit entry that covers this controller
         % If so, we instantiate a ioapic_iommu controller
         % that is connected directly to the iommu
         % (not the irte), because the ioapic driver knows
         % how to address an entry directly
-        dmar_device(DmarIndex, _, 3, _, IoApicId), 
-        irte_index(DmarIndex, _, CtrlLbl),
-        controller(CtrlLbl, _, OutRange, _), % OutRange is the Input Range of the ioapic
-        CtrlClass = ioapic_iommu
-    ) ; (
-        % No IOMMU applicable
-        int_dest_port_list(OutRange),
-        CtrlClass = ioapic
-    )),
+
+add_ioapic_controller(Lbl, IoApicId, GSIBase) :-
     get_unused_range(24, IoApicInRange),
     get_unused_controller_label(ioapic, 0, Lbl),
-    assert_controller(Lbl, CtrlClass, IoApicInRange, OutRange),
+       (( 
+        dmar_device(DmarIndex, _, 3, _, IoApicId), 
+        irte_index(DmarIndex, _, CtrlLbl),
+        controller(CtrlLbl, _, IRTEOutRange, _), % OutRange is the Input Range of the ioapic
+        length(IRTEOutRange , N ),
+        get_out_range(IoApicInRange , N , StartOut , EndOut ), 
+        OutRange=[StartOut .. EndOut], 
+        CtrlClass = ioapic_iommu,
+        assert_controller(Lbl, CtrlClass, IoApicInRange, OutRange),
+        get_range_boundaries(IRTEOutRange , MinIRTE , MaxIRTE ), 
+        printf("%u,%u,%u,%u  ", [StartOut, EndOut, MinDest, MaxDest]), !,
+        (for(I,StartOut,EndOut) , for(L,MinIRTE,MaxIRTE) do add_connection(I,L) ) 
+        
+        ) ; (
+        % No IOMMU applicable
+        int_dest_port_list(DestOutRange),
+        length(DestOutRange ,  N ),
+        get_out_range(IoApicInRange , N , StartOut , EndOut ), 
+        OutRange = [StartOut .. EndOut], 
+        CtrlClass = ioapic , 
+        assert_controller(Lbl, CtrlClass, IoApicInRange, OutRange),
+        get_range_boundaries(DestOutRange , MinDest , MaxDest ), 
+        printf("%u,%u,%u,%u   ", [StartOut, EndOut, MinDest, MaxDest]), 
+        (for(I,StartOut,EndOut) , for(L,MinDest,MaxDest) do add_connection(I,L) )
+        
+        )),
+    printf("L873", []),
     assert( ioapic_gsi_base(Lbl, GSIBase) ).
 
 add_iommu_controller(Lbl, DmarIndex) :-
@@ -729,11 +870,57 @@ add_iommu_controller(Lbl, DmarIndex) :-
     IommuInRange = [Lo2 .. Hi2],
     get_unused_controller_label(iommu, 0, IommuLbl),
     get_unused_controller_label(irte, 0, IrteLbl),
+    
 
     assert_controller(IommuLbl, iommu, IrteOutRange, CpuPorts),
     assert( irte_index(DmarIndex, IrteLbl, IommuLbl) ),
     assert_controller(IrteLbl, irte, IommuInRange, IrteOutRange),
+    print_int_controller(IommuLbl), 
+    print_int_controller(IrteLbl),
     Lbl = IrteLbl.
+
+add_iommu_controller(Lbl, DmarIndex) :-
+    int_dest_port_list(CpuPorts),
+    max_used_port(MaxPort),
+    Lo1 is MaxPort + 1,
+    Hi1 is MaxPort + 1,
+    Lo2 is MaxPort + 2,
+    Hi2 is MaxPort + 2,
+    IrteOutRange = [Lo1 .. Hi1],
+    IommuInRange = [Lo2 .. Hi2],
+    get_unused_controller_label(iommu, 0, IommuLbl),
+    get_unused_controller_label(irte, 0, IrteLbl),
+    
+
+    assert_controller(IommuLbl, iommu, IrteOutRange, CpuPorts),
+    assert( irte_index(DmarIndex, IrteLbl, IommuLbl) ),
+    assert_controller(IrteLbl, irte, IommuInRange, IrteOutRange),
+    print_int_controller(IommuLbl), 
+    print_int_controller(IrteLbl),
+    Lbl = IrteLbl.
+
+%% Modified Version with connections (not tested)
+%add_iommu_controller(Lbl, DmarIndex) :-
+%    int_dest_port_list(CpuPorts),
+%    get_unused_range(1,IrteOutRange), 
+%    length(CpuPorts,N), 
+%    get_out_range(IrteOutRange, N , StartOut , EndOut), 
+%    OutRange=[StartOut .. EndOut], 
+%    get_unused_controller_label(iommu, 0, IommuLbl),
+%    assert_controller(IommuLbl, iommu, IrteOutRange, OutRange),
+%    get_range_boundaries(CpuPorts , MinCpu , MaxCpu ), 
+%    (for(I,StartOut,EndOut) , for(L,MinCpu,MaxCpu) do add_connection(I,L) ), 
+%
+%
+%    get_unused_range(1,IommuInRange), 
+%    get_out_range(IommuInRange, 1 , StartOut2 , EndOut2), 
+%    OutRange2=[StartOut2 .. EndOut2],
+%    get_unused_controller_label(irte, 0, IrteLbl),
+%    assert( irte_index(DmarIndex, IrteLbl, IommuLbl) ),
+%    assert_controller(IrteLbl, irte, IommuInRange, OutRange2),
+%    Lbl = IrteLbl.
+%    get_range_boundaries(IrteOutRange , MinIrte , MaxIrte ), 
+%    (for(I,StartOut2,EndOut2) , for(L,MinIrte,MaxIrte) do add_connection(I,L) ).     
 
 
 % iommu
@@ -786,6 +973,7 @@ print_int_controller(Lbl) :-
     get_min_range(OutRange,OutLo),
     get_max_range(OutRange,OutHi),
     printf("%w,%w,%u,%u,%u,%u", [Lbl, Class, InLo, InHi, OutLo, OutHi]),
+  %  (foreach(X,OutRange) do printf("%d", [X]) ),
     print_controller_class_details(Lbl, Class),
     printf("\n",[]).
 
@@ -884,5 +1072,3 @@ print_controller_dot_file:-
 
 % Other useful facts, not defined here but relevant.
 % 
-
-

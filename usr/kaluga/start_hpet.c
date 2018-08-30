@@ -93,8 +93,8 @@ errval_t start_hpet_driver(coreid_t where, struct module_info* driver,
     size_t len = 0;
     char* key;
     uint64_t address; 
-    int size, flags;  
-    char debug_msg[1000]; 
+    int size, nTimers;  
+    char debug_msg[2000]; 
     strcpy(debug_msg,"Empty Debug "); 
     uint64_t start_input_range, end_input_range, start_output_range , end_output_range; 
    // retrieve HPET data from ACPI
@@ -113,9 +113,11 @@ errval_t start_hpet_driver(coreid_t where, struct module_info* driver,
             goto out;
         }
 
-    err = oct_read(record, "%s { " HW_HPET_RECORD_FIELDS_READ " }", &key, &address, &flags, &size);
+    err = oct_read(record, "%s { " HW_HPET_RECORD_FIELDS_READ " }", &key, &address,  &size , &nTimers);
+    debug_printf("start_hpet_driver : nTimers = %d , size = %d , address = %lu  , key=%s \n", nTimers ,size , address , key);
+
     // add HPET info in Kaluga
-    err=skb_execute_query("add_hpet_controller(Lbl)."); // To-do: should include , write('\n') ,print_int_controller(Lbl)
+    err=skb_execute_query("add_hpet_controller(Lbl , %"PRIu32")." ,nTimers); // To-do: should include , write('\n') ,print_int_controller(Lbl)
     if(err_is_fail(err)) 
      {   debug_printf("Failed to add pci controller \n"); 
          DEBUG_SKB_ERR(err, "add pci controller");
@@ -134,9 +136,24 @@ errval_t start_hpet_driver(coreid_t where, struct module_info* driver,
     char * nl = strchr(debug_msg, '\n');
     if(nl) *nl = '\0';
     debug_msg[sizeof(debug_msg)-1] = '\0';
+    debug_printf("start_hpet_driver : skb returned from print_hpet_controller \n %s \n",debug_msg);
     sscanf(debug_msg,"hpet_0,hpet,%lu,%lu,%lu,%lu", &start_input_range,&end_input_range,&start_output_range,&end_output_range);
     debug_printf("start_hpet_driver : skb returned start_input_range %lu , end_input_range %lu , start_output_range %lu , end_output_range %lu \n ", start_input_range, end_input_range , start_output_range , end_output_range);  
 
+    
+    err=skb_execute_query("printIoApicForHpet."); 
+    if (err_is_fail(err))
+     {  debug_printf("Failed to print IoApic\n");
+        DEBUG_SKB_ERR(err, "print pci controller"); 
+     }
+
+     // get input interrupt ports from SKB 
+
+    strncpy(debug_msg, skb_get_output(), sizeof(debug_msg));
+    nl = strchr(debug_msg, '\n');
+    if(nl) *nl = '\0';
+    debug_msg[sizeof(debug_msg)-1] = '\0';
+    debug_printf("start_hpet_driver : skb returned from printIoApicHpet \n %s \n",debug_msg);
     
    // create driver instance 
     if (driver->driverinstance == NULL) {

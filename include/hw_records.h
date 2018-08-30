@@ -46,10 +46,10 @@
                                       "type: _ }"
 
 #define HW_HPET_RECORD_FIELDS \
-"address: %" PRIu64 ", size: %" PRIu16 ", flags:%" PRIu8 
+"address: %" PRIu64 ", size: %" PRIu16 ", nTimers:%" PRIu8 
 
 #define HW_HPET_RECORD_FIELDS_READ \
-"address: %d, size: %d, flags:%d" 
+"address: %d, size: %d, nTimers:%d" 
 
 /* oct_read might probably work if I swap flags and size 
 #define HW_HPET_RECORD_FIELDS_READ \
@@ -62,7 +62,7 @@
 "hw.hpet.{" HW_HPET_RECORD_FIELDS " }"
 
 #define HW_HPET_RECORD_REGEX \
-"r'hw\\.hpet\\.[0-9]+' { address: _, size: _, flags: _}"
+"r'hw\\.hpet\\.[0-9]+' { address: _, size: _, nTimers: _}"
 
 
 #endif /* INCLUDE_HW_RECORDS_ARCH_H_ */

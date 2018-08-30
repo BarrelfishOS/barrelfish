@@ -168,9 +168,9 @@ AcpiGetHandle (
 
 
     /* Parameter Validation */
-
+ 
     if (!RetHandle || !Pathname)
-    {
+    { 
         return (AE_BAD_PARAMETER);
     }
 
@@ -180,7 +180,7 @@ AcpiGetHandle (
     {
         PrefixNode = AcpiNsValidateHandle (Parent);
         if (!PrefixNode)
-        {
+        {   
             return (AE_BAD_PARAMETER);
         }
     }
@@ -207,6 +207,7 @@ AcpiGetHandle (
     else if (!PrefixNode)
     {
         /* Relative path with null prefix is disallowed */
+        
 
         return (AE_BAD_PARAMETER);
     }

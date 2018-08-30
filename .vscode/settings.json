@@ -44,6 +44,12 @@
         "system_error": "c",
         "type_traits": "c",
         "pci_debug.h": "c",
-        "nameservice_client.h": "c"
+        "nameservice_client.h": "c",
+        "int_model.h": "c",
+        "acpi.h": "c",
+        "acrestyp.h": "c",
+        "acpixf.h": "c",
+        "intel_vtd.h": "c",
+        "trace.h": "c"
     }
 }

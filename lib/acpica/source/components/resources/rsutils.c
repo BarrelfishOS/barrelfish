@@ -648,6 +648,7 @@ AcpiRsGetCrsMethodData (
     ACPI_NAMESPACE_NODE     *Node,
     ACPI_BUFFER             *RetBuffer)
 {
+    
     ACPI_OPERAND_OBJECT     *ObjDesc;
     ACPI_STATUS             Status;
 

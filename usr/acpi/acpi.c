@@ -37,7 +37,7 @@
 
 #define SKB_SCHEMA_HPET_TABLE_SIZE 1024
 #define SKB_SCHEMA_HPET \
-     "hpet(%" PRIu64 ", %" PRIu16 ")."
+     "hpet(%" PRIu64 ", %" PRIu16 ", %" PRIu8 ")."
 
 struct pci_resources {
     uint8_t minbus, maxbus;
@@ -64,7 +64,7 @@ ACPI_TABLE_HPET *hpet;
 ACPI_TABLE_HEADER   *ath;
 errval_t err;
 uint16_t hpet_register_size=1024; 
-
+uint8_t nTimers ; 
  /* Get the ACPI DMAR table (the DMAR) */
 as = AcpiGetTable("HPET", 1, (ACPI_TABLE_HEADER **)&ath);
  
@@ -74,14 +74,16 @@ as = AcpiGetTable("HPET", 1, (ACPI_TABLE_HEADER **)&ath);
     }
     
     hpet = (ACPI_TABLE_HPET*)ath;
-    ACPI_DEBUG("HPET Id: %x, Address=%lx, Min Tick=%u, Flags=%u \n",
-                 hpet->Id>>16, hpet->Address.Address, hpet->MinimumTick , hpet->Flags);
+    nTimers= hpet->Id>>8 ; 
+    nTimers=nTimers & 31 ; 
+    debug_printf("HPET Id: %x, Address=%lx, Min Tick=%u, nTimers= %u\n",
+                 hpet->Id>>16, hpet->Address.Address, hpet->MinimumTick, nTimers);
     
-    err= skb_add_fact( SKB_SCHEMA_HPET, hpet->Address.Address , SKB_SCHEMA_HPET_TABLE_SIZE);
+    err= skb_add_fact( SKB_SCHEMA_HPET, hpet->Address.Address , SKB_SCHEMA_HPET_TABLE_SIZE ,nTimers);
     if (err_is_fail(err)) 
-        {DEBUG_ERR(err, "Failed to insert into SKB: " SKB_SCHEMA_HPET, hpet->Address.Address , SKB_SCHEMA_HPET_TABLE_SIZE); }
+        {DEBUG_ERR(err, "Failed to insert into SKB: " SKB_SCHEMA_HPET, hpet->Address.Address , SKB_SCHEMA_HPET_TABLE_SIZE , nTimers); }
     
-    oct_mset(SET_SEQUENTIAL, HW_HPET_RECORD_FORMAT, hpet->Address.Address, hpet_register_size , hpet->Flags);
+    oct_mset(SET_SEQUENTIAL, HW_HPET_RECORD_FORMAT, hpet->Address.Address, hpet_register_size , nTimers);
 
 ACPI_DEBUG("Succesfully parsed hpet table \n");
 return ; 
@@ -199,10 +201,14 @@ static ACPI_STATUS pci_resource_walker(ACPI_RESOURCE *resource, void *context)
     return AE_OK;
 }
 
-#ifdef ACPI_SERVICE_DEBUG
+
+
+
+#ifdef true // rana changed here ACPI_SERVICE_DEBUG
 /// rana:important
 static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
 {
+
     switch(res->Type) {
     case ACPI_RESOURCE_TYPE_END_TAG:
         return AE_OK;
@@ -278,7 +284,8 @@ static ACPI_STATUS resource_printer(ACPI_RESOURCE *res, void *context)
         break;
 
     default:
-        printf("resource_printer: Unexpected resource type %"PRIu32"\n", res->Type);
+       
+        debug_printf("resource_printer: Unexpected resource type %"PRIu32" \n " ,res->Type );
         break;
     }
 
@@ -406,7 +413,7 @@ static void get_irq_routing(ACPI_HANDLE handle, uint8_t bus)
         skb_add_fact("prt(addr(%"PRIu8", %"PRIu16", _), %"PRIu32", pir(\"%s\")).",
                      bus, device, prt->Pin, esource);
 
-#ifdef ACPI_SERVICE_DEBUG /* debug code to dump resources */
+#ifdef true /* rana changed here debug code to dump resources */
         ACPI_DEBUG("  INITIAL:  ");
         as = AcpiWalkResources(source, METHOD_NAME__CRS,
                                resource_printer, NULL);
@@ -666,6 +673,92 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
 
     return AE_OK;
 }
+
+static ACPI_STATUS add_hpet_device(ACPI_HANDLE handle, UINT32 level,
+                                  void *context, void **retval)
+{
+    debug_printf("(acpi) add_hpet_device: Enter \n  ");
+
+    ACPI_STATUS as;
+    char namebuf[128];
+    ACPI_BUFFER bufobj = {.Length = sizeof(namebuf), .Pointer = namebuf};
+
+    /* get the node's name */
+    as = AcpiGetName(handle, ACPI_FULL_PATHNAME, &bufobj);
+    if (ACPI_FAILURE(as)) {
+        return as;
+    }
+    assert(bufobj.Pointer == namebuf);
+    
+    debug_printf("(acpi) add_hpet_device: buffer after ACPIGetName %s \n",namebuf);
+
+  //  AcpiWalkResources(handle, METHOD_NAME__CRS , resource_printer , context);
+
+    AcpiWalkResources(handle, METHOD_NAME__CRS , fixed_resource_walker , context);
+                        
+    if (ACPI_FAILURE(as)) {
+        return as;
+    }
+
+    debug_printf("(acpi) add_hpet_device: Acpi walk resources didn't fail \n  ");
+
+  //  char namebuf2[1000];
+
+    uint8_t data[2*sizeof(ACPI_RESOURCE) + 1];
+    ACPI_BUFFER buf = {.Length = sizeof(data), .Pointer = &data};
+
+    as = AcpiGetCurrentResources(handle, &buf);
+    if (ACPI_FAILURE(as)) {
+        debug_printf("  failed getting _CRS: %s\n", AcpiFormatException(as));
+        return -1;
+    }
+
+    assert(buf.Pointer == data);
+    ACPI_RESOURCE * res = buf.Pointer; 
+    debug_printf("(acpi) add_hpet_device: ACPI Resource Type is %d \n",res->Type);
+
+    // from printing , the res type is FIXED_MEMORY 32 
+  
+    for(res=buf.Pointer ; (void *)res < buf.Pointer + buf.Length; res = (ACPI_RESOURCE *)(((char *)res) + res->Length))
+   {
+       if(res->Type == ACPI_RESOURCE_TYPE_END_TAG) {
+                break;
+            }
+
+            switch(res->Type) {
+            case ACPI_RESOURCE_TYPE_FIXED_MEMORY32:
+            {
+                ACPI_RESOURCE_FIXED_MEMORY32 *acpires = &res->Data.FixedMemory32;
+                printf("Resource Memory: write protect %u , address %x, address length %d ", acpires->WriteProtect , acpires->Address, acpires->AddressLength);
+                printf("\n");
+                break;
+            }
+
+            case ACPI_RESOURCE_TYPE_EXTENDED_IRQ:
+            {
+                ACPI_RESOURCE_EXTENDED_IRQ *irqres = &res->Data.ExtendedIrq;
+                printf("Extended IRQs:");
+                for (int i = 0; i < irqres->InterruptCount; i++) {
+                    printf(" %d", irqres->Interrupts[i]);  
+                }
+                printf("\n");
+                break;
+            }
+
+            default:
+                printf("Inside Loop: Unknown resource type: %"PRIu32"\n", res->Type);
+                //USER_PANIC("NYI");
+                break;
+               }
+
+   }     
+
+
+   
+    return AE_OK ; 
+
+}
+
 
 static int acpi_init(void)
 {
@@ -1011,10 +1104,15 @@ int init_acpi(void)
    // start for the HPET 
 
     acpi_parse_hpet();
-    printf("After parsing hpet: printing from octopus \n");
+    debug_printf("After parsing hpet: printing from octopus \n");
     char* oct_data=NULL;
     oct_get(&oct_data,HW_HPET_RECORD_REGEX); 
-     printf(" %s \n",oct_data);
+    debug_printf(" %s \n",oct_data);
+    void * return_val;
+    as = AcpiGetDevices(HPET_HID_STRING, add_hpet_device, NULL, &return_val);
+
+    debug_printf("acpi: return_val after ACPIGetDevices %p \n",return_val);
+
 
 
 

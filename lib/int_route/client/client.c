@@ -157,6 +157,7 @@ errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
         return err;
     }
 
+
     return SYS_ERR_OK;
 }
 

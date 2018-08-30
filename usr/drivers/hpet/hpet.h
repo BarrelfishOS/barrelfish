@@ -17,6 +17,8 @@
 
 #include <barrelfish/barrelfish.h>
 #include <dev/hpet_dev.h>
+#include <skb/skb.h>
+#include<hw_records.h>
 
 #define HPET_MEM_CAP 0
 #define HPET_INT_CAP 1

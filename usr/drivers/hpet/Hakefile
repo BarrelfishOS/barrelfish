@@ -14,7 +14,7 @@
     build library {
         target = "hpet_module",
         cFiles = ["hpet.c" ,"hpet_int_cntrl.c" ],
-        addLibraries = libDeps[ "int_route_client" , "int_msix_ctrl" ],
+        addLibraries = libDeps["skb", "int_route_client" , "int_msix_ctrl"],
         mackerelDevices = ["hpet"],
         architectures = [ "x86_64" ]
     },

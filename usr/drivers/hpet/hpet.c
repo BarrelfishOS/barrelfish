@@ -9,15 +9,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
+#include <stdint.h>
+
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
+
 #include <driverkit/driverkit.h>
 #include <int_route/int_route_client.h>
 #include <int_route/msix_ctrl.h>
 #include <int_route/int_model.h> 
+
 #include <hpet.h>
-#include <inttypes.h>
-#include <stdint.h>
 #include <hpet_int_cntrl.h>
 #include <hpet_debug.h>
 #include <flounder/flounder_support.h>
@@ -29,12 +32,10 @@ uint8_t nTimers;
 uint64_t count_val;
 uint32_t clk_period; 
 
-
-
-
 static void hpet_int_handler(void* args )
-{
+{   HPET_DEBUG("\n ******************************************* \n"); 
     HPET_DEBUG("Interrupt Handler Function : an interrupt has been triggered ! \n \n "); 
+    HPET_DEBUG("\n ******************************************* \n"); 
     return;
 }
 
@@ -75,8 +76,13 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
         args_len, iref_t* dev) {
 
     HPET_DEBUG("(init) enter \n");
+    
+    errval_t err;
+    lvaddr_t vbase;
   
-  // initilaize hpet driver state
+    // connect to SKB first 
+    err=skb_client_connect();
+    // initilaize hpet driver state
     struct hpet_driver_state * hpetds; 
     hpetds=calloc(sizeof(struct hpet_driver_state), 1);
     char* ptr;  
@@ -84,9 +90,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
     hpetds->int_end_range=strtoul(args[1] , &ptr , 10); 
     hpetds->msix_port=strtoul(args[2] , &ptr , 10);
     bfi->dstate = hpetds; 
-    
-    errval_t err;
-    lvaddr_t vbase;
+   
     
     //use the caps to map physical address to virtual address
     err= map_device_cap(caps[HPET_MEM_CAP], &vbase);
@@ -106,8 +110,35 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
     clk_period=hpet_gcap_id_counter_clk_per_cap_extract(gcap_reg);  
     int dummy= hpet_gcap_id_prtval(buf , sizeof(buf) , gcap_reg);
 
-    HPET_DEBUG("(init) Printing general register value \n  %s \n" , buf);
+ 
+    HPET_DEBUG("(init) nTimers from general register:  %u \n" ,nTimers);
+    HPET_DEBUG("(init) Printing general register value \n  %s \n " , buf);
+    HPET_DEBUG("----------------------------------------------------------------------------------- \n ");
+// add Timers which support FSB to SKB and add supported interrupt vectors for the others 
+    for (int i =0 ; i < nTimers ; i++)
+    {
+      int port_number= hpetds->int_start_range + i;
+      if(hpet_timers_config_reg_timer_fsb_int_delv_cap_rdf(&hpetds->d , i)==1) // add it to SKB constraints
+     {  
+       
+        HPET_DEBUG("(init) Timer# %d supports FSB interrupt %u \n",i ,hpet_timers_config_reg_timer_fsb_int_delv_cap_rdf(&hpetds->d , i));
+        err=skb_add_fact("mapf_valid_class(hpet,hpet_0,%"PRIu32",_, %"PRIu64", mem_write(_,_))",port_number,hpetds->msix_port); 
+        
+        if(err_is_fail(err))
+        { HPET_DEBUG("Failed to add FSB fact for timer number %d \n",i);
+          DEBUG_SKB_ERR(err,"FSB Fact error");
+        } 
+     }
+     
+     // inserting valid i/o apic interrupts to SKB
+     uint32_t int_route_cap = hpet_timers_config_reg_timer_int_rout_cap_rdf( &hpetds->d , i);
+     HPET_DEBUG("int_route_cap for timer number %d is %d \n",i,int_route_cap);
+    err=skb_add_fact("hpet_ioapic(hpet_0,%"PRIu32",%"PRIu32")",port_number,int_route_cap);    
 
+    }
+
+  HPET_DEBUG("----------------------------------------------------------------------------------- \n ");
+    
 // initialize hpet interrupt controller  
     err= init_hpet_int_controller(hpetds , vbase); 
     err=int_route_client_connect(); 
@@ -118,13 +149,14 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
     }
     
 // connect to Interrupt Routing Service
-    err= int_route_client_route_and_connect(caps[HPET_INT_CAP],0, get_default_waitset() ,hpet_int_handler , NULL);
+    err= int_route_client_route_and_connect(caps[HPET_INT_CAP],2, get_default_waitset() ,hpet_int_handler , NULL);
      if (err_is_fail(err)) {
         HPET_DEBUG("(init) Unable to connect to int routing servie \n");
         USER_PANIC_ERR(err, "int-route-client error");
         return err; 
     }
    
+
 
 // To do: export service 
 // err = hpet_export(NULL, export_cb, connect_cb, get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
@@ -146,6 +178,21 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
     dummy=hpet_gintr_sta_prtval(buf, sizeof(buf),int_st_reg);
     HPET_DEBUG(" (init) Printing interrupt register value \n  %s \n " , buf);
 
+// Test Routing 
+//err=skb_execute_query("int_dest_port_list(Li)."); 
+err=skb_execute_query("print_controller_config(ioapic_0)");
+//err=skb_execute_query("print_controller_class_details(Lbl, ioapic)");
+if(err_is_fail(err))
+{
+        debug_printf("Trial for int_dest_port failed \n");
+}
+else     
+{   char * out = malloc(strlen(skb_get_output())+1);
+    strcpy(out, skb_get_output());
+    debug_printf("First Trial to print possible routings skb output: %s\n", out);
+}
+
+ 
    
 
 // FSB Settings
@@ -180,6 +227,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
 
   
     // }
+ 
 
     return SYS_ERR_OK;
 }

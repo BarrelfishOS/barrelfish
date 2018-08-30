@@ -61,9 +61,11 @@ errval_t acpi_arch_load_irq_routing_new(void){
     errval_t err;
     err = skb_execute("[irq_routing_new].");
     if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err,"SKB failed !!");
         ACPI_DEBUG("Could not load irq_routing_new.pl.\n"
                "SKB returned: %s\nSKB error: %s\n",
                 skb_get_output(), skb_get_error_output());
+        
         return err;
     } else if(strstr(skb_get_error_output(), "library not found") != NULL) {
         debug_printf("Error processing irq_routing_new.pl.\n"
