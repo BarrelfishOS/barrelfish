@@ -83,6 +83,8 @@ enum x86_64_cpu_save_registers {
 static inline void enable_fpu(void)
 {
     uint64_t cr0, cr4;
+    uint32_t mxcsr_value = 0x1f80;
+
     __asm__ __volatile__("mov %%cr0, %%rax" : "=a" (cr0) : );
     //clear EM
     cr0 &= ~(1 << 2);
@@ -90,22 +92,16 @@ static inline void enable_fpu(void)
     cr0 |= (1 << 1);
     //set NE
     cr0 |= (1 << 5);
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-    //set TS
-    cr0 |= (1 << 3);
-#else
     //clear TS
     cr0 &= ~(1 << 3);
-#endif
     __asm__ __volatile__("mov %%rax,%%cr0" : : "a" (cr0));
     //set OSFXSR
     __asm__ __volatile__("mov %%cr4, %%rax" : "=a" (cr4) : );
     cr4 |= (1 << 9);
     __asm__ __volatile__("mov %%rax,%%cr4" : : "a" (cr4));
-
-#ifndef FPU_LAZY_CONTEXT_SWITCH
-    __asm volatile ("finit");
-#endif
+    __asm volatile ("fninit                    \n\t"
+                    "ldmxcsr    %[mxcsr_value] \n\t"
+                    : : [mxcsr_value] "m" (mxcsr_value));
 }
 
 static inline void monitor(lvaddr_t base, uint32_t extensions, uint32_t hints)

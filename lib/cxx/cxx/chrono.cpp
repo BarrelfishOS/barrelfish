@@ -8,7 +8,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "chrono"
-#ifndef BARRELFISH
+#ifdef BARRELFISH
+#include <barrelfish/systime.h>
+#else
 #include <sys/time.h>        //for gettimeofday and timeval
 #endif
 #if __APPLE__
@@ -126,7 +128,7 @@ steady_clock::now() _NOEXCEPT
 steady_clock::time_point
 steady_clock::now() _NOEXCEPT
 {
-    auto t = static_cast<steady_clock::rep>(sys_get_absolute_time() * 1000 * 1000);
+    auto t = static_cast<steady_clock::rep>(systime_to_us(systime_now()));
     return time_point(duration(t));
 }
 

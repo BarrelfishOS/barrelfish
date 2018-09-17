@@ -119,37 +119,6 @@ void armv8_get_info(struct arch_info_armv8 *ai)
 
 /* GIC */
 
-errval_t platform_gic_init(void) {
-    gicv3_init();
-    return SYS_ERR_OK;
-}
-
-errval_t platform_gic_cpu_interface_enable(void) {
-    gicv3_cpu_interface_enable();
-    return SYS_ERR_OK;
-}
-
-/**
- * @brief obtain the address of the GIC CPU interface
- *
- * @return physical address of the CBAR region
- */
-lpaddr_t platform_get_gic_cpu_address(void) {
-    assert(paging_mmu_enabled());
-    return platform_gic_cpu_base;
-}
-
-/**
- * @brief obtain the address of the GIC distributor interface
- *
- * @return physical address of the CBAR region
- */
-lpaddr_t platform_get_distributor_address(void) {
-    assert(paging_mmu_enabled());
-    return platform_gic_dist_base;
-}
-
-
 errval_t platform_boot_core(hwid_t target, genpaddr_t gen_entry, genpaddr_t context)
 {
     printf("Invoking PSCI on: cpu=0x%lx, entry=0x%lx, context=0x%lx\n", target, gen_entry, context);
@@ -167,8 +136,7 @@ An FIQ interrupt, even if the PSTATE F-bit is set.
      *
      */
 
-    gicv3_raise_softirq(target, 1);
+    gic_raise_softirq(target, 1);
      
     return SYS_ERR_OK;
 }
-

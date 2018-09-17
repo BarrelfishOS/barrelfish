@@ -48,7 +48,7 @@ void user_panic_fn(const char *file, const char *func, int line,
     char str[256];
     //int strcc =
         snprintf(str, sizeof(str), "%.*s.%u in %s() %s:%d\n%s\n",
-                     DISP_NAME_LEN, disp_name(), disp_get_core_id(),
+                     DISP_NAME_LEN, disp_name(), disp_get_current_core_id(),
                      func, file, line, msg_str);
     sys_print(str, sizeof(str));
 
@@ -113,14 +113,14 @@ void debug_printf(const char *fmt, ...)
     struct thread *me = thread_self();
     va_list argptr;
     char id[32] = "-";
-    char str[256];
+    char str[1024];
     size_t len;
 
     if (me) {
         snprintf(id, sizeof(id), "%"PRIuPTR, thread_get_id(me));
     }
     len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%s\033[0m: ",
-                   DISP_NAME_LEN, disp_name(), disp_get_core_id(), id);
+                   DISP_NAME_LEN, disp_name(), disp_get_current_core_id(), id);
     if (len < sizeof(str)) {
         va_start(argptr, fmt);
         vsnprintf(str + len, sizeof(str) - len, fmt, argptr);
@@ -479,7 +479,7 @@ void debug_dump_mem_around_addr(lvaddr_t addr)
 {
     /* lvaddr_t page_aligned_addr = ROUND_DOWN(addr, BASE_PAGE_SIZE); */
     lvaddr_t start_addr = ROUND_DOWN(addr - DISP_MEMORY_SIZE/2, sizeof(uintptr_t));
-    lvaddr_t end_addr = ROUND_UP(addr + DISP_MEMORY_SIZE/2, sizeof(uintptr_t));
+    lvaddr_t end_addr = ROUND_UP(addr + 2 * DISP_MEMORY_SIZE, sizeof(uintptr_t));
 
     /* if (start_addr < page_aligned_addr) { */
     /*     start_addr = page_aligned_addr; */
@@ -500,7 +500,7 @@ void debug_err(const char *file, const char *func, int line, errval_t err,
     char *leader = (err == 0) ? "SUCCESS" : "ERROR";
     //int strcc =
         snprintf(str, sizeof(str), "%s: %.*s.%u in %s() %s:%d\n%s: ",
-                     leader, DISP_NAME_LEN, disp_name(), disp_get_core_id(),
+                     leader, DISP_NAME_LEN, disp_name(), disp_get_current_core_id(),
                      func, file, line, leader);
     sys_print(str, sizeof(str));
 

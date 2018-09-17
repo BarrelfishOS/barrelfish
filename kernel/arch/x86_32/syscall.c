@@ -32,7 +32,6 @@
 #include <arch/x86/debugregs.h>
 #include <arch/x86/syscall.h>
 #include <arch/x86/timing.h>
-#include <fpu.h>
 #include <mdb/mdb_tree.h>
 #include <useraccess.h>
 #include <arch/x86/perfmon_amd.h>
@@ -1085,10 +1084,6 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
         // FIXME: this should be a kernel cap invocation or similarly restricted
     case SYSCALL_REBOOT:
         reboot();
-        break;
-
-    case SYSCALL_X86_FPU_TRAP_ON:
-        fpu_trap_on();
         break;
 
     case SYSCALL_DEBUG:

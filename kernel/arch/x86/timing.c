@@ -196,7 +196,7 @@ static uint32_t __attribute__((unused)) calibrate_apic_timer_pit(systime_t *syst
  * \brief Calibrates TSC against local APIC timer.
  * \return TSC ticks per local APIC timer tick.
  */
-static uint64_t __attribute__((unused)) calibrate_tsc_apic_timer(void)
+static uint64_t __attribute__((unused)) calibrate_tsc_apic_timer(systime_t *systime_freq)
 {
     // Must tick with higher granularity than a millisecond
     assert(apic_frequency > 1000);
@@ -261,6 +261,7 @@ static uint64_t __attribute__((unused)) calibrate_tsc_apic_timer(void)
                "on average.\n", avgdistance);
     }
 
+    *systime_freq = tpms * 1000;
     printk(LOG_NOTE, "Measured %" PRIu64 " TSC counts per ms, "
            "%d data points. Average jitter %" PRIu64 " TSC ticks.\n",
            tpms, MAX_ITERATIONS - 1, avgdistance);
@@ -300,7 +301,7 @@ void timing_calibrate(void)
         if(apic_is_bsp()) {
 #ifdef __k1om__
             apic_frequency = calibrate_apic_timer_k1om();
-            tscperms = calibrate_tsc_apic_timer();
+            tscperms = calibrate_tsc_apic_timer(&systime_frequency);
             systime_frequency = tscperms * 1000;
 #else
             // apic_frequency = calibrate_apic_timer_pit(&systime_frequency);

@@ -16,13 +16,3 @@
 #include <barrelfish/caddr.h>
 #include <barrelfish/dispatch.h>
 #include <barrelfish/syscall_arch.h>
-
-/* For documentation on system calls see include/barrelfish/syscalls.h
- */
-
-uint64_t sys_get_absolute_time(void)
-{
-    struct sysret r = syscall1(SYSCALL_GET_ABS_TIME);
-    assert(err_is_ok(r.error));
-    return r.value;
-}

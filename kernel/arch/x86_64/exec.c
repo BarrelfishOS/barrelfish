@@ -88,7 +88,11 @@ execute(lvaddr_t entry)
 {
     // FIXME: make argument
     uintptr_t arg = get_dispatcher_shared_generic(dcb_current->disp)->udisp;
-
+#if defined(__k1om__)
+    uint32_t mxcsr_value = 0x00200000;
+#else
+    uint32_t mxcsr_value = 0x00001f80;
+#endif
     /*
      * Go to user-space using SYSRETQ -- the Q is very important, so operand
      * size is 64-bit. Otherwise we return to compatibility mode.
@@ -98,6 +102,7 @@ execute(lvaddr_t entry)
      * general-purpose registers are zeroed.
      */
     __asm volatile ("movq       %[flags], %%r11         \n\t"
+                    "ldmxcsr    %[mxcsr_value]          \n\t"
                     "movq       $0, %%rsi               \n\t"
                     "movq       $0, %%rdx               \n\t"
                     "movq       $0, %%r8                \n\t"
@@ -113,12 +118,14 @@ execute(lvaddr_t entry)
                     "movq       $0, %%rsp               \n\t"
                     "mov        %%dx, %%fs              \n\t"
                     "mov        %%dx, %%gs              \n\t"
+                    "fninit                             \n\t"
                     "sysretq                            \n\t"
                     : /* No output */
                     :
                     [entry] "c" (entry),
                     [disp] "D" (arg),
-                    [flags] "i" (USER_RFLAGS)
+                    [flags] "i" (USER_RFLAGS),
+                    [mxcsr_value] "m" (mxcsr_value)
                     );
 
     // Trick GCC to believe us not to return
@@ -139,6 +146,7 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
                     "pushq      %[rflags]               \n\t"
                     "pushq      %[cs]                   \n\t"
                     "pushq      16*8(%[regs])           \n\t"   // RIP
+                    "fxrstor     %[fxsave_area]         \n\t"
                     "mov         %[fs], %%fs            \n\t"
                     "mov         %[gs], %%gs            \n\t"
                     "movq        0*8(%[regs]), %%rax    \n\t"
@@ -164,6 +172,7 @@ void __attribute__ ((noreturn)) resume(arch_registers_state_t *state)
                     [cs] "i" (GSEL(UCODE_SEL, SEL_UPL)),
                     [fs] "m" (regs->fs),
                     [gs] "m" (regs->gs),
+                    [fxsave_area] "m" (regs->fxsave_area),
                     [rflags] "r" ((regs->eflags & USER_RFLAGS_MASK)
                                   | USER_RFLAGS)
                     );

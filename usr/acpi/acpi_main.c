@@ -26,6 +26,7 @@
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 #include "acpi_allocators.h"
+#include "acpidump.h"
 
 
 
@@ -57,6 +58,8 @@ static errval_t setup_skb_info(void)
     return acpi_arch_skb_set_info();
 }
 
+extern int ApDumpAllTables (void);
+
 int main(int argc, char *argv[])
 {
     errval_t err;
@@ -66,6 +69,7 @@ int main(int argc, char *argv[])
     bool do_video_init = false;
     bool ignore_irq_override = false;
     vtd_force_off = true;
+    bool dump_acpi_tables = false;
 
     for (int i = 1; i < argc; i++) {
         if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_hw_id) == 1) {
@@ -74,6 +78,8 @@ int main(int argc, char *argv[])
             do_video_init = true;
         } else if (strncmp(argv[i], "vtd_force_off", strlen("vtd_force_off")) == 0) {
             vtd_force_off = true;
+        } else if (strncmp(argv[i], "dump_tables", strlen("dump_tables")) == 0) {
+            dump_acpi_tables = true;
         } else if (strncmp(argv[i], "ignore_irq_override", strlen("ignore_irq_override")) == 0) {
             ignore_irq_override = true;
         }
@@ -113,6 +119,18 @@ int main(int argc, char *argv[])
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Copy BIOS Memory");
     }
+
+
+    if (dump_acpi_tables) {
+        debug_printf("DUMPING ACPI TABLES.\n");
+        debug_printf("======================================\n");
+        AcpiOsInitialize ();
+        Gbl_OutputFile = stdout;
+        ApDumpAllTables ();
+        debug_printf("======================================\n");
+    }
+
+
 
     err = acpi_arch_load_irq_routing_new();
     if (err_is_fail(err)) {

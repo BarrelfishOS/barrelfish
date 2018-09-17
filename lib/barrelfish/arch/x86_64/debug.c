@@ -94,6 +94,25 @@ void debug_print_save_area(arch_registers_state_t *state)
     P(gs);
 
 #undef P
+    printf("mxcsr: %04x  mxcsr_mask: %04x\n", state->fxsave_area.mxcsr, state->fxsave_area.mxcsr_mask);
+#define PXMM(x)     printf("xmm"#x" : %016lx%016lx\n", state->fxsave_area.xmm[x][1], state->fxsave_area.xmm[x][0])
+    PXMM(0);
+    PXMM(1);
+    PXMM(2);
+    PXMM(3);
+    PXMM(4);
+    PXMM(5);
+    PXMM(6);
+    PXMM(7);
+    PXMM(8);
+    PXMM(9);
+    PXMM(10);
+    PXMM(11);
+    PXMM(12);
+    PXMM(13);
+    PXMM(14);
+    PXMM(15);
+#undef PXMM
 }
 
 void debug_return_addresses(void)

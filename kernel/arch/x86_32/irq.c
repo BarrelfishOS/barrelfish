@@ -66,10 +66,6 @@
 #include <kcb.h>
 #include <mdb/mdb_tree.h>
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-#  include <fpu.h>
-#endif
-
 /**
  * \brief Define IRQ handler number 'num'.
  *

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, ETH Zurich. All rights reserved.
+ * Copyright (c) 2018, ETH Zurich. All rights reserved.
  *
  * This file is distributed under the terms in the attached LICENSE file.
  * If you do not find this file, copies can be found by writing to:
@@ -15,7 +15,7 @@
  *   GIC v3 Architecture Specification
  */
 
-device gic_v3 msbfirst (addr dist) "GIC v3 architecture" {
+device gic_v3_dist msbfirst (addr dist) "GIC v3 Distributor" {
 
     register GICD_CTLR_secure addr(dist, 0x0) "Distributor Control Register" {
         RWP      1 ro "Register Write Pending";
@@ -40,7 +40,7 @@ device gic_v3 msbfirst (addr dist) "GIC v3 architecture" {
         EnableGrp1  1 "ARE_NS=1 -> Enable Non-secure Group 1 interrupts";
     };
 
-    register GICD_TYPER ro addr(dist, 0x4) "Interrupt Controller Type Register" {
+    register GICD_TYPER rw addr(dist, 0x4) "Interrupt Controller Type Register" {
         _        6 mbz;
         No1N     1 "1 of N SPI interrupts not supported";
         A3V      1 "Affinity 3 valid";
@@ -135,6 +135,12 @@ device gic_v3 msbfirst (addr dist) "GIC v3 architecture" {
 
     regarray GICD_SPENDSGIR addr(dist, 0xF20)[4] "SGI Set-Pending Registers" type(uint32);
 
+    register ICPIDR2 ro addr(dist, 0x0fe8) "Peripheral ID2 Register" {
+        _       24;
+        ArchRev  4 "GIC architecture revision";
+        _        4;
+    };
+
     regarray GICD_IROUTER addr(dist, 0x6100)[1020] "Interrupt Routing Registers" {
         _       24 mbz;
         Aff3     8 "Affinity level 3, least significant level field";
@@ -150,5 +156,4 @@ device gic_v3 msbfirst (addr dist) "GIC v3 architecture" {
         ArchRev  4 "GIC architecture revision";
         _        4;
     };
-
 };

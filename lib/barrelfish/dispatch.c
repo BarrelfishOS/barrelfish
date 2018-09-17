@@ -26,6 +26,7 @@
 #include <barrelfish_kpi/cpu_arch.h>
 #include "threads_priv.h"
 #include <barrelfish/notificator.h>
+#include <barrelfish/systime.h>
 
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
@@ -34,9 +35,6 @@
 # include <barrelfish/lmp_chan.h>
 #endif
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-#  include <arch/fpu.h>
-#endif
 
 #if defined(__GNUC__) && !defined(__clang__) && !defined(__ICC) \
     && (defined(__x86_64__) || (defined(__i386__)))
@@ -177,7 +175,7 @@ void disp_init_disabled(dispatcher_handle_t handle)
     disp_arch_init(handle);
 
     disp_gen->timeslice = 1;
-
+    systime_frequency = disp->systime_frequency;
     // Initialize important capability pointers
     if (disp_gen->dcb_cap.slot == 0) {
         disp_gen->dcb_cap.cnode = cnode_task;
@@ -355,14 +353,6 @@ void disp_pagefault(dispatcher_handle_t handle, lvaddr_t fault_address,
     // sanity-check that we were on a thread
     assert_disabled(disp_gen->current != NULL);
 
-    // Save FPU context if used
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-    if (disp_gen->fpu_thread == disp_gen->current) {
-        fpu_copy(&disp_gen->current->fpu_state,
-                 dispatcher_get_enabled_fpu_save_area(handle));
-    }
-#endif
-
     // try to deliver exception
     thread_deliver_exception_disabled(handle, EXCEPT_PAGEFAULT, fault_type,
                                       (void *)fault_address, regs);
@@ -445,91 +435,6 @@ void disp_pagefault_disabled(dispatcher_handle_t handle, lvaddr_t fault_address,
 #include <barrelfish/barrelfish.h>
 #include <barrelfish_kpi/capabilities.h>
 
-// Handle FPU not available trap
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-static void
-// workaround internal compiler error in gcc 4.5
-#if defined(__x86_64__) && defined(__GNUC__) \
-    && __GNUC__ == 4 && __GNUC_MINOR__ == 5 && __GNUC_PATCHLEVEL__ <= 3
-__attribute__((optimize(0)))
-#endif
-handle_fpu_unavailable(dispatcher_handle_t handle,
-                       arch_registers_state_t *regs,
-                       struct thread *t)
-{
-    struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
-    arch_registers_fpu_state_t *disp_fpu =
-        dispatcher_get_enabled_fpu_save_area(handle);
-
-    // Store state for remembered thread
-    if (disp_gen->fpu_thread != NULL && disp_gen->fpu_thread != t) {
-        // Store state only if last FPU user wasn't current thread
-        fpu_copy(&disp_gen->fpu_thread->fpu_state, disp_fpu);
-    }
-
-    if(!t->used_fpu) {      // If first time, reset FPU
-      /* debug_printf("FPU reset\n"); */
-        fpu_init();
-        t->used_fpu = true;
-
-        /* uint16_t fpu_status; */
-        /* __asm volatile("fnstsw %0" : "=a" (fpu_status)); */
-	/* debug_printf("FPU status: %x\n", fpu_status); */
-        /* uint16_t fpu_ctrl; */
-        /* __asm volatile("fnstcw %0" : "=m" (fpu_ctrl)); */
-	/* debug_printf("FPU control: %x\n", fpu_ctrl); */
-
-    } else {                // If not, restore from thread/dispatcher area
-        arch_registers_fpu_state_t *fpustate;
-
-	/* debug_printf("restore FPU\n"); */
-
-        if(disp_gen->fpu_thread == t) {
-	  /* debug_printf("from dispatcher\n"); */
-            fpustate = disp_fpu;
-
-            /* XXX: Potential optimization: If we switched between
-             * one FPU using and several non-FPU using threads
-             * within the same timeslice, we will get the trap
-             * again as we return to the FPU using thread. In that
-             * case, the state in the FPU will still be valid, so
-             * we don't need to restore it here. We could
-             * determine this by remembering the context switch
-             * epoch (disp_gen->timeslice) of the last time we got
-             * the trap.
-             */
-        } else {
-	  /* debug_printf("from thread\n"); */
-            fpustate = &t->fpu_state;
-        }
-
-        fpu_restore(fpustate);
-
-	/* debug_printf("restoring from %p of dispatcher %p (handle %x):\n", fpustate, disp_gen, handle); */
-
-	/* for(int i = 0; i <512 + 16; i++) { */
-	/*   char str[128]; */
-	/*   snprintf(str, 128, "%x ", fpustate->registers[i]); */
-	/*   assert_print(str); */
-	/* } */
-	/* assert_print("\n"); */
-
-        /* uint16_t fpu_status; */
-        /* __asm volatile("fnstsw %0" : "=a" (fpu_status)); */
-	/* debug_printf("FPU status: %x\n", fpu_status); */
-        /* uint16_t fpu_ctrl; */
-        /* __asm volatile("fnstcw %0" : "=m" (fpu_ctrl)); */
-	/* debug_printf("FPU control: %x\n", fpu_ctrl); */
-    }
-
-    // Remember FPU-using thread
-    disp_gen->fpu_thread = t;
-
-    // Resume current thread
-    disp_resume(handle, regs);
-}
-#endif
-
 /**
  * \brief Trap entry point
  *
@@ -552,13 +457,6 @@ void disp_trap(dispatcher_handle_t handle, uintptr_t irq, uintptr_t error,
     // Must've happened on a thread
     struct thread *t = disp_gen->current;
     assert_disabled(t != NULL);
-
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-    if(irq == FPU_UNAVAILABLE_TRAP) {
-      /* debug_printf("trap! disp handle %x\n", handle); */
-        handle_fpu_unavailable(handle, regs, t);
-    }
-#endif
 
     // sanity-check IP in save area
     // not valid for debug exceptions?
@@ -583,14 +481,6 @@ void disp_trap(dispatcher_handle_t handle, uintptr_t irq, uintptr_t error,
     type = EXCEPT_OTHER; // XXX
 #endif
 
-    // Save FPU context if used
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-    if (disp_gen->fpu_thread == t) {
-        fpu_copy(&t->fpu_state,
-                 dispatcher_get_enabled_fpu_save_area(handle));
-    }
-#endif
-
     // deliver exception (shouldn't return)
     thread_deliver_exception_disabled(handle, type, irq, (void *)ip, regs);
 
@@ -603,7 +493,6 @@ void disp_trap(dispatcher_handle_t handle, uintptr_t irq, uintptr_t error,
 
      // print out stuff
     debug_print_save_area(regs);
-    debug_dump(regs);
     //debug_call_chain(regs);
 
     // run something else

@@ -21,6 +21,11 @@
 extern void barrelfish_cap_invoke_post_syscall_instr(void);
 extern void barrelfish_lrpc_post_syscall_instr(void);
 
+/// 16-byte alignment required for x86-64
+#define STACK_ALIGNMENT (sizeof(uint64_t) * 2)
+
+#define THREAD_ALIGNMENT (16)
+
 #if 0 // Using the old format of dispatcher_frame and not called by anyone -akhi
 /**
  * Returns true iff the thread with the given save area has successfully
@@ -33,14 +38,5 @@ static inline bool thread_check_syscall_succeeded(uintptr_t *save_area)
             && save_area[RAX_REG] == 0);
 }
 #endif
-
-/**
- * \brief Enable FPU trap.
- */
-static inline void fpu_trap_on(void)
-{
-    errval_t err = sys_x86_fpu_trap_on();
-    assert_disabled(err_is_ok(err));
-}
 
 #endif // LIBBARRELFISH_ARCH_THREADS_H

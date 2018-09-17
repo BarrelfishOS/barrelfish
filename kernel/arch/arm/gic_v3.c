@@ -19,7 +19,7 @@
 static gic_v3_dist_t gic_v3_dist_dev;
 static gic_v3_redist_t gic_v3_redist_dev;
 
-lpaddr_t platform_gic_cpu_base = 0; // no memory-mapped cpu interface
+lpaddr_t platform_gic_cpu_interface_address = 0; // no memory-mapped cpu interface
 
 /*
  * Initialize the global interrupt controller
@@ -34,7 +34,7 @@ lpaddr_t platform_gic_cpu_base = 0; // no memory-mapped cpu interface
 void gic_init(void)
 {
     printk(LOG_NOTE, "GICv3: Initializing\n");
-    lvaddr_t gic_dist = local_phys_to_mem(platform_gic_dist_base);
+    lvaddr_t gic_dist = local_phys_to_mem(platform_gic_distributor_address);
     gic_v3_dist_initialize(&gic_v3_dist_dev, (char *)gic_dist);
 
     printf("%s: dist:%lx\n", __func__, gic_dist);
@@ -112,13 +112,19 @@ void gic_cpu_interface_enable(void)
 {
     printk(LOG_NOTE, "GICv3: Enabling CPU interface\n");
 
-    lvaddr_t gic_redist = local_phys_to_mem(platform_gic_redist_base);
+    lvaddr_t gic_redist = local_phys_to_mem(platform_gic_redistributor_address);
 
     // Enable system register access
     armv8_ICC_SRE_EL1_SRE_wrf(NULL, 1);
 
-    gic_v3_redist_initialize(&gic_v3_redist_dev, (char *)gic_redist + 0x20000 * my_core_id);
-    printf("%s: redist:%lx\n", __func__, (char *)gic_redist + 0x20000 * my_core_id);
+// second socket of ThunderX hack
+    if (my_core_id >= 48) {
+        gic_v3_redist_initialize(&gic_v3_redist_dev, (char *)gic_redist + 0x100000000000 + 0x20000 * (my_core_id - 48));
+        printf("%s: redist:%lx\n", __func__, (char *)gic_redist + 0x100000000000 + 0x20000 * (my_core_id - 48));
+    } else {
+        gic_v3_redist_initialize(&gic_v3_redist_dev, (char *)gic_redist + 0x20000 * my_core_id);
+        printf("%s: redist:%lx\n", __func__, (char *)gic_redist + 0x20000 * my_core_id);
+    }
 
     // Linux does:
     // sets priority mode: PMR to 0xf0

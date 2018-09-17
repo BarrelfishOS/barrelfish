@@ -61,8 +61,7 @@ static errval_t handle_pagefault(void *addr)
 }
 
 static void exn_handler(enum exception_type type, int subtype,
-                        void *addr, arch_registers_state_t *regs,
-                        arch_registers_fpu_state_t *fpuregs)
+                        void *addr, arch_registers_state_t *regs)
 {
     printf("exn_handler: exception type=%d, subtype=%d, addr=%p\n",
             type, subtype, addr);
@@ -100,7 +99,7 @@ errval_t pager_install_handler(char *ex_stack, size_t stack_size)
     errval_t err;
     void *old_stack_base, *old_stack_top;
 
-    err = thread_set_exception_handler(exn_handler, &old_handler, 
+    err = thread_set_exception_handler(exn_handler, &old_handler,
             ex_stack, ex_stack_top, &old_stack_base, &old_stack_top);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "thread_set_exception_handler");

@@ -88,7 +88,9 @@
     str     lr, [\context, #(PC_REG * 4)]
     add     \spsr_reg, \context, #(R4_REG * 4)
     stmia   \spsr_reg!, {r4-r14}^
-    add     \spsr_reg, #8
+    add     \spsr_reg, #4
+    vmrs    r4, fpscr
+    str     r4, [\spsr_reg], #4
     vstmia  \spsr_reg!, {d0-d15}
     vstmia  \spsr_reg!, {d16-d31}
     add     \spsr_reg, \context, #(R3_REG * 4)
@@ -134,7 +136,7 @@
  * vector table itself, the handler stubs are linked in the same 4k frame, so
  * that we can reach them with a short jump.  They then load the GOT base, and
  * long jump into the C handlers. */
- 
+
  .align 12
 exception_vectors:
     /* Reset */
@@ -265,7 +267,7 @@ swi_handler:
     .if SYSCALL_REG <> 0
     .error "Syscall entry broken. Expected ordinal reg to be r0."
     .endif
-    
+
     // Are we in kernel mode or not?
     stmfd   sp!, {r0-r3}                    // Save for scratch use
     mrs     r3, spsr                        // r3 = spsr until save_context
@@ -462,6 +464,12 @@ do_resume:
     //       /      read from register lr
     //      /      /
     msr    spsr, lr
+    // Restore VFP
+    add   r1, r0, #16*4
+    ldr   r2, [r1], #4
+    vmsr  fpscr, r2
+    vldmia r1!, {d0-d15}
+    vldmia r1, {d16-d31}
     // Restore register r0 to r15, "^" means: cpsr := spsr
     // Restore the non-banked registers.  Use LR as the index.
     mov    lr, r0
@@ -471,10 +479,6 @@ do_resume:
     // Restore the user stack pointer and link register.  n.b. LR is
     // banked in SVC mode, so *our* LR isn't affected.  Also, this can't
     // write back, so we've got to add the offset ourselves.
-    add lr, #5*4
-    vldmia lr!, {d0-d15}
-    vldmia lr, {d16-d31}
-    sub lr, #(5+32)*4
     ldmia  lr, {r13, r14}^
     // Load the (banked SVC) LR with the return address (add the offset
     // that the last ldmia couldn't).

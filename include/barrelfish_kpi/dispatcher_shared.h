@@ -54,8 +54,6 @@ struct dispatcher_shared_generic {
     systime_t   wakeup;                         ///< System time at which to wake dispatcher from sleep (R/O by kernel, on yield)
 
     char        name[DISP_NAME_LEN];            ///< Name of domain, for debugging purposes
-    uint32_t    fpu_used;                       ///< Was FPU used while disabled?
-    uint32_t    fpu_trap;                       ///< State of FPU trap
 
     uint64_t    systime_frequency;              ///< Systime frequency
     coreid_t    curr_core_id;                   ///< Core id of current core, in this part so kernel can update
@@ -92,8 +90,6 @@ static inline void dump_dispatcher(struct dispatcher_shared_generic *disp)
     printf("  systime      = 0x%" PRIuSYSTIME "\n", disp->systime );
     printf("  wakeup       = 0x%" PRIuSYSTIME "\n", disp->wakeup );
     printf("  name         = %.*s\n", DISP_NAME_LEN, disp->name );
-    printf("  fpu_used     = %d\n", disp->fpu_used );
-    printf("  fpu_trap     = %d\n", disp->fpu_trap );
     printf("  curr_core_id = 0x%" PRIxCOREID "\n", disp->curr_core_id );
 }
 

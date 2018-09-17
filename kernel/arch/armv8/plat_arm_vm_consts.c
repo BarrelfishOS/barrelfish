@@ -1,6 +1,6 @@
 /**
  * \file plat_arm_vm_consts.c
- * \brief 
+ * \brief
  */
 
 
@@ -24,8 +24,8 @@ lpaddr_t phys_memory_start= 0;
  * ----------------------------------------------------------------------------
  */
 
-lpaddr_t platform_gic_cpu_base = 0x8000000;
-lpaddr_t platform_gic_dist_base = 0x8010000;
+lpaddr_t platform_gic_dist_base = 0x2f000000;
+lpaddr_t platform_gic_redist_base = 0x2f100000;
 
 /*
  * ----------------------------------------------------------------------------

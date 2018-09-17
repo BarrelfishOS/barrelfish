@@ -166,8 +166,8 @@ usb_boot(libusb_device_handle *usb, void *image_data,
     else if(r < 0) fail_usb("libusb_bulk_transfer", r);
 
     assert(id.items == 5);
-    assert(id.id.subblock_id = 0x01);
-    assert(id.checksum.subblock_id = 0x15);
+    assert(id.id.subblock_id == 0x01);
+    assert(id.checksum.subblock_id == 0x15);
 
     printf("Chip reports itself to be an OMAP%02x%02x\n",
            id.id.device[0], id.id.device[1]);

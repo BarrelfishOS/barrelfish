@@ -30,6 +30,48 @@
 // #include <arch/armv8/gic_v3.h>
 // #include <paging_kernel_arch.h>
 
+/* RAM starts at 0, provided by the MMAP */
+lpaddr_t phys_memory_start= 0;
+
+/*
+ * ----------------------------------------------------------------------------
+ * GIC
+ * ----------------------------------------------------------------------------
+ */
+
+lpaddr_t platform_gic_dist_base = 0x8000000;
+lpaddr_t platform_gic_redist_base = 0x80a0000;
+
+/*
+ * ----------------------------------------------------------------------------
+ * UART
+ * ----------------------------------------------------------------------------
+ */
+
+/* the maximum number of UARTS supported */
+#define MAX_NUM_UARTS 1
+
+/* the serial console port */
+unsigned int serial_console_port = 0;
+
+/* the debug console port */
+unsigned int serial_debug_port = 0;
+
+/* the number of physical ports */
+unsigned serial_num_physical_ports = 1;
+
+/* uart bases */
+lpaddr_t uart_base[MAX_NUM_UARTS] =
+{
+        0x9000000
+};
+
+/* uart sizes */
+size_t uart_size[MAX_NUM_UARTS] =
+{
+    4096
+};
+
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
     lvaddr_t base = local_phys_to_mem(uart_base[port]);
@@ -110,12 +152,4 @@ void platform_get_info(struct platform_info *pi)
 void armv8_get_info(struct arch_info_armv8 *ai)
 {
 
-}
-
-errval_t platform_gic_init(void) {
-    return gicv3_init();
-}
-
-errval_t platform_gic_cpu_interface_enable(void) {
-    return gicv3_cpu_interface_enable();
 }

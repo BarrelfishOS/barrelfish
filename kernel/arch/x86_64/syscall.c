@@ -23,7 +23,6 @@
 #include <paging_kernel_arch.h>
 #include <paging_generic.h>
 #include <exec.h>
-#include <fpu.h>
 #include <systime.h>
 #include <arch/x86/x86.h>
 #include <arch/x86/apic.h>
@@ -1415,6 +1414,9 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                 save_area->rip = rip;
                 save_area->eflags = rflags;
                 save_area->rsp = user_stack_save;
+                __asm ("fxsave     %[fxsave_area]\n"
+                    :
+                    : [fxsave_area] "m" (save_area->fxsave_area));
 
                 if (!dcb_current->is_vm_guest) {
                     /* save and zero FS/GS selectors (they're unmodified by the syscall path) */
@@ -1500,10 +1502,6 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         reboot();
         break;
 
-    case SYSCALL_X86_FPU_TRAP_ON:
-        fpu_trap_on();
-        break;
-
     case SYSCALL_X86_RELOAD_LDT:
         maybe_reload_ldt(dcb_current, true);
         break;
@@ -1513,10 +1511,6 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         TRACE(KERNEL, SC_SUSPEND, 0);
         retval = sys_suspend((bool)arg0);
         TRACE(KERNEL, SC_SUSPEND, 1);
-        break;
-
-    case SYSCALL_GET_ABS_TIME:
-        retval = sys_get_absolute_time();
         break;
 
     case SYSCALL_DEBUG:

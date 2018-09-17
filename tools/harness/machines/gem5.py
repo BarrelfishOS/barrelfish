@@ -15,7 +15,7 @@ import os, signal, tempfile, subprocess, shutil, time
 import debug, machines
 from machines import ARMSimulatorBase, MachineFactory, ARMSimulatorOperations
 
-GEM5_PATH = '/home/netos/tools/gem5/gem5-stable-1604'
+GEM5_PATH = '/home/netos/tools/gem5/gem5-stable-1804'
 # gem5 takes quite a while to come up. If we return right away,
 # telnet will be opened too early and fails to connect
 #
@@ -40,7 +40,9 @@ class Gem5MachineBase(ARMSimulatorBase):
     def get_test_timeout(self):
         # give gem5 tests enough time to complete: skb initialization takes
         # about 10 minutes, so set timeout to 25 minutes.
-        return 25 * 60
+        # RH, 2018-08-08 newer version of gem5 is even slower ...
+        # increased to 50 mins
+        return 50 * 60
 
 class Gem5MachineBaseOperations(ARMSimulatorOperations):
 
@@ -61,6 +63,7 @@ class Gem5MachineBaseOperations(ARMSimulatorOperations):
     def reboot(self):
         self._kill_child()
         cmd = self._get_cmdline()
+        self.telnet_port = 3456
         debug.verbose('starting "%s" in gem5.py:reboot' % ' '.join(cmd))
         devnull = open('/dev/null', 'w')
         # remove ubuntu chroot from environment to make sure gem5 finds the
@@ -68,6 +71,7 @@ class Gem5MachineBaseOperations(ARMSimulatorOperations):
         env = dict(os.environ)
         if 'LD_LIBRARY_PATH' in env:
             del env['LD_LIBRARY_PATH']
+
         self.child = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=devnull, env=env)
         time.sleep(GEM5_START_TIMEOUT)
 

@@ -44,7 +44,7 @@ void __attribute__ ((visibility ("hidden"))) disp_save_rm_kcb_epilog(void);
 
 STATIC_ASSERT(PC_REG   == 32, "broken context assumption");
 STATIC_ASSERT(SPSR_REG == 33, "broken context assumption");
-STATIC_ASSERT(NUM_REGS == 34, "broken context assumption");
+STATIC_ASSERT(NUM_REGS == 98, "broken context assumption");
 
 #define NZCV_MASK (MASK(4) << 28)
 
@@ -71,6 +71,23 @@ disp_resume_context(struct dispatcher_shared_generic *disp, uint64_t *regs)
         "ldp x30, x2, [%[regs], #(30 * 8)]\n"
         "mov sp, x2\n"
         /* Restore everything else. */
+        "ldp q30, q31, [%[regs], #(94 * 8)]\n"
+        "ldp q28, q29, [%[regs], #(90 * 8)]\n"
+        "ldp q26, q27, [%[regs], #(86 * 8)]\n"
+        "ldp q24, q25, [%[regs], #(82 * 8)]\n"
+        "ldp q22, q23, [%[regs], #(78 * 8)]\n"
+        "ldp q20, q21, [%[regs], #(74 * 8)]\n"
+        "ldp q18, q19, [%[regs], #(70 * 8)]\n"
+        "ldp q16, q17, [%[regs], #(66 * 8)]\n"
+        "ldp q14, q15, [%[regs], #(62 * 8)]\n"
+        "ldp q12, q13, [%[regs], #(58 * 8)]\n"
+        "ldp q10, q11, [%[regs], #(54 * 8)]\n"
+        "ldp q8, q9, [%[regs], #(50 * 8)]\n"
+        "ldp q6, q7, [%[regs], #(46 * 8)]\n"
+        "ldp q4, q5, [%[regs], #(42 * 8)]\n"
+        "ldp q2, q3, [%[regs], #(38 * 8)]\n"
+        "ldp q0, q1, [%[regs], #(34 * 8)]\n"
+        
         "ldp x28, x29, [%[regs], #(28 * 8)]\n"
         "ldp x26, x27, [%[regs], #(26 * 8)]\n"
         "ldp x24, x25, [%[regs], #(24 * 8)]\n"

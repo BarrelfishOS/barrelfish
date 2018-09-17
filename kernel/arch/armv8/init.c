@@ -58,6 +58,7 @@ static struct cmdarg cmdargs[] = {
     {"serial", ArgType_ULong, { .ulonginteger = &uart_base[0] }},
     {"gic", ArgType_ULong, { .ulonginteger = &platform_gic_cpu_base }},
     {"gicdist", ArgType_ULong, { .ulonginteger = &platform_gic_dist_base }},
+    {"gicredist", ArgType_ULong, { .ulonginteger = &platform_gic_redist_base }},
     {NULL, 0, {NULL}}
 };
 
@@ -213,8 +214,6 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
     MSG("Exception vectors (VBAR_EL1): %p\n", &vectors);
     sysreg_write_vbar_el1((uint64_t)&vectors);
 
-    platform_gic_init();
-
     MSG("Setting coreboot spawn handler\n");
     coreboot_set_spawn_handler(CPU_ARM8, platform_boot_core);
 
@@ -223,4 +222,3 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
         __asm volatile ("wfi":::);
     }
 }
-

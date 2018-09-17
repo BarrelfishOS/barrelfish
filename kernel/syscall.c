@@ -850,15 +850,3 @@ struct sysret sys_handle_kcb_identify(struct capability* to, struct frame_identi
 
     return SYSRET(SYS_ERR_OK);
 }
-
-struct sysret sys_get_absolute_time(void)
-{
-    // Return kernel_now.
-    // XXX: this may not provide all the properties of absolute time we want,
-    // but should be sufficient to implement stuff that needs timing with 1/10
-    // of a second accuracy range.
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = systime_now() + kcb_current->kernel_off,
-    };
-}

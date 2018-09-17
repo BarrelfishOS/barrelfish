@@ -124,6 +124,7 @@ bool timer_interrupt(uint32_t irq) {
         // Set next trigger
         systime_set_timeout(systime_now() + kernel_timeslice);
 #endif
+        a9_gt_ack_irq();
         /* Ack the interrupt at the controller. */
         gic_ack_irq(irq);
         return 1;

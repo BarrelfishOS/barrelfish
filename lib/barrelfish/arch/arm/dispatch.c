@@ -61,6 +61,12 @@ disp_resume_context(struct dispatcher_shared_generic *disp, uint32_t *regs)
         /* Re-enable dispatcher */
         "    mov     r2, #0                                             \n\t"
         "    str     r2, [r0, # " XTR(OFFSETOF_DISP_DISABLED) "]        \n\t"
+        /* Restore VFP registers */
+        "    add     r2, r1, #68                                        \n\t"
+        "    ldr     r3, [r2], #4 \n\t"
+        "    vmsr    fpscr, r3 \n\t"
+        "    vldmia  r2!, {d0-d15}                                      \n\t"
+        "    vldmia  r2, {d16-d31}                                      \n\t"
         /* Restore cpsr condition bits  */
         "    ldr     r0, [r1], #4                                       \n\t"
         "    msr     cpsr, r0                                           \n\t"
@@ -68,7 +74,7 @@ disp_resume_context(struct dispatcher_shared_generic *disp, uint32_t *regs)
         "    ldmia   r1, {r0-r15}                                       \n\t"
         "disp_resume_context_epilog:                                    \n\t"
         "    mov     r0, r0          ; nop                              \n\t"
-                  );
+    ::: "r0", "r1", "r2", "r3");
 }
 
 
@@ -81,11 +87,16 @@ disp_save_context(uint32_t *regs)
         "    mrs     r1, cpsr                                           \n\t"
         "    adr     r2, disp_save_context_resume                       \n\t"
         "    stmib   r0, {r0-r14}                                       \n\t"
+        "    vmrs    r3, fpscr \n\t"
+        "    str     r3, [r0, #68] \n\t"
+        "    add     r3, r0, #72                                        \n\t"
+        "    vstmia  r3!, {d0-d15}                                      \n\t"
+        "    vstmia  r3, {d16-d31}                                      \n\t"
         "    str     r1, [r0]                                           \n\t"
         "    str     r2, [r0, # (" XTR(PC_REG) "  * 4)]                 \n\t"
         "disp_save_context_resume:                                      \n\t"
         "    bx      lr                                                 \n\t"
-	);
+	::: "r0", "r1", "r2", "r3");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -123,7 +134,6 @@ disp_resume(dispatcher_handle_t handle,
 #ifdef CONFIG_DEBUG_DEADLOCKS
     ((struct disp_priv *)disp)->yieldcount = 0;
 #endif
-
     disp_resume_context(&disp->d, archregs->regs);
 }
 
@@ -145,13 +155,6 @@ void disp_switch(dispatcher_handle_t handle,
 {
     struct dispatcher_shared_arm *disp =
         get_dispatcher_shared_arm(handle);
-
-    // make sure arguments survive call to disp_save_context()
-    // not sure if our code has a subtle bug or whether ARMv7 GCC
-    // (arm-linux-gnueabi-gcc (Ubuntu/Linaro 5.3.1-13ubuntu3) 5.3.1 20160330)
-    // is overeager when optimizing code that calls into
-    // __attribute__((naked)) functions. -SG, 2016-04-06
-    __asm volatile("" : /*out*/ : /*in*/ : "r0", "r1", "r2" );
 
     assert_disabled(curdispatcher() == handle);
     assert_disabled(disp->d.disabled);
@@ -184,13 +187,6 @@ void disp_save(dispatcher_handle_t handle,
 {
     struct dispatcher_shared_arm *disp =
         get_dispatcher_shared_arm(handle);
-
-    // make sure arguments survive call to disp_save_context()
-    // not sure if our code has a subtle bug or whether ARMv7 GCC
-    // (arm-linux-gnueabi-gcc (Ubuntu/Linaro 5.3.1-13ubuntu3) 5.3.1 20160330)
-    // is overeager when optimizing code that calls into
-    // __attribute__((naked)) functions. -SG, 2016-04-06
-    __asm volatile("" : /*out*/ : /*in*/ : "r0", "r1", "r2" );
 
     assert_disabled(curdispatcher() == handle);
     assert_disabled(disp->d.disabled);

@@ -34,7 +34,8 @@ void debug_call_chain(arch_registers_state_t *archregs)
 
 void debug_print_save_area(arch_registers_state_t *state)
 {
-#define dpr(reg) debug_printf("%-6s 0x%016"PRIx64 "\n", #reg, state->named. reg)
+#define dpr(reg) debug_printf("%-6s 0x%016"PRIx64"\n", #reg, state->named.reg)
+#define dprv(reg) debug_printf("%-6s 0x%016"PRIx64" 0x%016"PRIx64" \n", #reg, state->named.reg[0], state->named.reg[1])
     dpr(x0);    dpr(x1);  dpr(x2);   dpr(x3);
     dpr(x4);    dpr(x5);  dpr(x6);   dpr(x7);
     dpr(x8);    dpr(x9);  dpr(x10);  dpr(x11);
@@ -45,4 +46,13 @@ void debug_print_save_area(arch_registers_state_t *state)
     dpr(x28);   dpr(x29); dpr(x30);
 
     dpr(stack); dpr(pc);  dpr(spsr);
+    
+    dprv(v[0]); dprv(v[1]); dprv(v[2]); dprv(v[3]);
+    dprv(v[4]); dprv(v[5]); dprv(v[6]); dprv(v[7]);
+    dprv(v[8]); dprv(v[9]); dprv(v[10]); dprv(v[11]);
+    dprv(v[12]); dprv(v[13]); dprv(v[14]); dprv(v[15]);
+    dprv(v[16]); dprv(v[17]); dprv(v[18]); dprv(v[19]);
+    dprv(v[20]); dprv(v[21]); dprv(v[22]); dprv(v[23]);
+    dprv(v[24]); dprv(v[25]); dprv(v[26]); dprv(v[27]);
+    dprv(v[28]); dprv(v[29]); dprv(v[30]); dprv(v[31]);
 }

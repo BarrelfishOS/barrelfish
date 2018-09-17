@@ -19,8 +19,8 @@ HAGFISH_LOCATION="/home/netos/tftpboot/Hagfish.efi"
 MENUFILE=""
 ARCH=""
 DEBUG_SCRIPT=""
-# Grab SMP from env, if unset default to 2
-SMP=${SMP:-2}
+# Grab SMP from env, if unset default to 1
+SMP=${SMP:-1}
 # Grab NIC_MODEL from env, if unset default to e1000
 NIC_MODEL="${NIC_MODEL:-e1000e}"
 
@@ -172,7 +172,7 @@ case "$ARCH" in
         -smp $SMP \
         -m 1024 \
         -netdev user,id=network0 \
-        -device $NIC_MODEL,netdev=network0
+        -device $NIC_MODEL,netdev=network0 \
         -device ahci,id=ahci \
         -device ide-drive,drive=disk,bus=ahci.0 \
         -drive id=disk,file="$HDFILE",if=none"
@@ -193,11 +193,12 @@ case "$ARCH" in
        QEMU_CMD="${QEMU_PATH}qemu-system-aarch64 \
                 -m 1024 \
                 -cpu cortex-a57 \
-                -M virt \
+                -M virt -d guest_errors \
+                -M gic_version=3 \
                 -smp $SMP \
                 -bios /usr/share/qemu-efi/QEMU_EFI.fd \
                 -device virtio-blk-device,drive=image \
-                -drive if=none,id=image,file=armv8_efi,format=raw"
+                -drive if=none,id=image,file=$IMAGE,format=raw"
        GDB=gdb-multiarch
        QEMU_NONDEBUG=-nographic
        EFI=1
