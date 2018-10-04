@@ -624,13 +624,10 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
      * get the first entry in the multiboot structure, this holds a pointer
      * to the CPU driver entry point
      */
-    struct multiboot_header *mbhdr = (void *)pointer;
-
-    struct multiboot_header_tag *mb;
-    mb = (struct multiboot_header_tag *)(mbhdr + 1);
-
-    if (mb->type == MULTIBOOT_TAG_TYPE_EFI64) {
-        cpu_driver_entry = (void *)((struct multiboot_tag_efi64 *)mb)->pointer;
+    struct multiboot_tag_efi64 *tag;
+    tag = (void *)pointer + 8;
+    if (tag->type == MULTIBOOT_TAG_TYPE_EFI64) {
+        cpu_driver_entry = (void *)tag->pointer;
     }
 
     /* disable interrupts */

@@ -17,53 +17,56 @@
 #include <arch/armv8/kernel_multiboot2.h>
 
 
-struct multiboot_header_tag *
-multiboot2_find_header(struct multiboot_header_tag *mb, const size_t size, const multiboot_uint16_t type) {
+struct multiboot_tag * multiboot2_find_header(struct multiboot_tag *first_tag,
+                               const size_t size, const multiboot_uint16_t type)
+{
     size_t processed = 0;
 
-    while(processed < size) {
+    while (processed < size) {
         /* encountered the end tag */
-        if (mb->type == MULTIBOOT_TAG_TYPE_END) {
+        if (first_tag->type == MULTIBOOT_TAG_TYPE_END) {
             return NULL;
-        } else if (mb->type == type) {
-            return mb;
+        } else if (first_tag->type == type) {
+            return first_tag;
         }
-
-        processed += mb->size;
-        mb = ((void*)mb) + mb->size;
+        processed += first_tag->size;
+        first_tag = (void *)first_tag + first_tag->size;
     }
 
     return NULL;
 }
 
-struct multiboot_tag_string *
-multiboot2_find_cmdline(struct multiboot_header_tag *mb, const size_t size)
+struct multiboot_tag_string * multiboot2_find_cmdline(
+                             struct multiboot_tag *first_tag, const size_t size)
 {
-    return (struct multiboot_tag_string*)multiboot2_find_header(mb, size, MULTIBOOT_TAG_TYPE_CMDLINE);
+    return (struct multiboot_tag_string *)multiboot2_find_header(first_tag, size,
+        MULTIBOOT_TAG_TYPE_CMDLINE);
 }
 
-struct multiboot_tag_module_64 *multiboot2_find_module_64(
-        struct multiboot_header_tag *multiboot, const size_t size, const char* pathname) {
+struct multiboot_tag_module_64 * multiboot2_find_module_64(
+       struct multiboot_tag *first_tag, const size_t size, const char *pathname)
+{
     size_t len = strlen(pathname);
     size_t position = 0;
-    multiboot = multiboot2_find_header(multiboot, size, MULTIBOOT_TAG_TYPE_MODULE_64);
-    while (multiboot) {
-        struct multiboot_tag_module_64 *module_64 = (struct multiboot_tag_module_64 *) multiboot;
+    struct multiboot_tag *tag;
+
+    tag = multiboot2_find_header(first_tag, size, MULTIBOOT_TAG_TYPE_MODULE_64);
+    while (tag) {
+        struct multiboot_tag_module_64 *module_64 = (struct multiboot_tag_module_64 *)tag;
         // Strip off trailing whitespace
         char *modname = module_64->cmdline;
         char *endstr;
-        if(strchr(modname, ' ')) {
-            endstr = strchr(modname, ' ');
-        } else {
+        endstr = strchr(modname, ' ');
+        if (!endstr) {
             endstr = modname + strlen(modname);
         }
 
         if(!strncmp(endstr - len, pathname, len)) {
             return module_64;
         }
-        multiboot = ((void *) multiboot) + multiboot->size;
-        position += multiboot->size;
-        multiboot = multiboot2_find_header(multiboot, size - position, MULTIBOOT_TAG_TYPE_MODULE_64);
+        tag = (void *)tag + tag->size;
+        position += tag->size;
+        tag = multiboot2_find_header(tag, size - position, MULTIBOOT_TAG_TYPE_MODULE_64);
     }
     return NULL;
 }
