@@ -9,7 +9,6 @@
 
 #include <barrelfish/barrelfish.h>
 #include "region_pool.h"
-#include "region.h"
 #include "dqi_debug.h"
 
 #define INIT_POOL_SIZE 16
@@ -29,9 +28,80 @@ struct region_pool {
     // if we have to serach for a slot, need an offset
     uint16_t last_offset;
 
+    //region_alloc
+    struct slab_allocator region_alloc;
+
     // structure to store regions
     struct region** pool;
 };
+
+
+#define INIT_SIZE 128
+struct buffer {
+    bufferid_t id;
+    struct buffer* next;
+};
+
+struct region {
+    // ID of the region
+    regionid_t id;
+    // Base address of the region
+    lpaddr_t base_addr;
+    // Capability of the region
+    struct capref* cap;
+    // Lenght of the memory region
+    size_t len;
+};
+
+
+/**
+ * @brief initialized a region from which only fixed size buffers are used
+ *
+ * @param region                Return pointer to the region
+ * @param region_id             The ID of the region,
+ * @param cap                   Capability of the memory region
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+
+/*
+static errval_t region_init(struct region* region,
+                             regionid_t region_id,
+                             lpaddr_t base_addr,
+                             size_t len,
+                             struct capref* cap)
+{
+    if (region == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    region->id = region_id;
+    region->cap = cap;
+    regoin->base_addr = base_addr;
+    regon->len = len;
+    
+    DQI_DEBUG_REGION("Initialize Region size=%ld addr=%16lx\n",
+              region->len, region->base_addr);
+
+    return SYS_ERR_OK;
+}
+*/
+
+/**
+ * @brief free up a region
+ *
+ * @param region                The region to free up
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+/*
+static errval_t region_destroy(struct region* region)
+{
+    free(region);
+    return SYS_ERR_OK;
+}
+*/
+
 
 /**
  * @brief initialized a pool of regions
@@ -63,6 +133,10 @@ errval_t region_pool_init(struct region_pool** pool)
         DQI_DEBUG_REGION("Allocationg inital pool failed \n");
         return LIB_ERR_MALLOC_FAIL;
     }
+
+
+    slab_init(&(*pool)->region_alloc, sizeof(struct region),
+              slab_default_refill);
 
     DQI_DEBUG_REGION("Init region pool size=%d addr=%p\n", INIT_POOL_SIZE, *pool);
     return SYS_ERR_OK;
@@ -220,12 +294,17 @@ errval_t region_pool_add_region(struct region_pool* pool,
     }
 
     pool->last_offset = offset;
-    err = region_init(&region,
-                      pool->region_offset + pool->num_regions + offset,
-                      &cap);
-    if (err_is_fail(err)) {
-        return err;
+
+    region = slab_alloc(&pool->region_alloc);
+    if (region == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
     }
+
+    region->id = pool->region_offset + pool->num_regions + offset;
+    region->cap = &cap;
+    region->base_addr = id.base;
+    region->len = id.bytes;
+
     // insert into pool
     pool->pool[region->id & (pool->size - 1)] = region;
     *region_id = region->id;
@@ -262,10 +341,23 @@ errval_t region_pool_add_region_with_id(struct region_pool* pool,
     if (region != NULL) {
         return DEVQ_ERR_INVALID_REGION_ID;
     } else {
-        err = region_init(&region, region_id, &cap);
+        struct frame_identity id;
+
+        err = invoke_frame_identify(cap, &id);
         if (err_is_fail(err)) {
             return err;
         }
+
+        region = slab_alloc(&pool->region_alloc);
+        if (region == NULL) {
+            return LIB_ERR_MALLOC_FAIL;
+        }
+
+        region->id = region_id;
+        region->cap = &cap;
+        region->base_addr = id.base;
+        region->len = id.bytes;
+
         pool->pool[region_id & (pool->size - 1)] = region;
     }
 
@@ -286,7 +378,7 @@ errval_t region_pool_remove_region(struct region_pool* pool,
                                    regionid_t region_id,
                                    struct capref* cap)
 {
-    errval_t err;
+    //errval_t err;
     struct region* region;
     region = pool->pool[region_id & (pool->size - 1)];
     if (region == NULL) {
@@ -295,12 +387,14 @@ errval_t region_pool_remove_region(struct region_pool* pool,
 
     cap = region->cap;
   
+    slab_free(&pool->region_alloc, region);
+    /*
     err = region_destroy(region);
     if (err_is_fail(err)) {
         DQI_DEBUG_REGION("Failed to destroy region, some buffers might still be in use \n");
         return err;
     }
-
+    */
     DQI_DEBUG_REGION("Removing slot %d \n", region_id % pool->size);
     pool->pool[region_id & (pool->size - 1)] = NULL;
 

@@ -56,26 +56,20 @@ static void print_list(struct buffer* b, uint32_t page_id, bool insert) {
 
 errval_t region_init(struct region** region,
                      regionid_t region_id,
+                     lpaddr_t base_addr,
+                     size_t len,
                      struct capref* cap)
 {
-    errval_t err;
-    struct frame_identity id;
-
-    struct region* tmp = calloc(1, sizeof(struct region));
+    struct region* tmp = malloc(sizeof(struct region));
+    //struct region* tmp = calloc(1, sizeof(struct region));
     if (tmp == NULL) {
         return LIB_ERR_MALLOC_FAIL;
     }
 
     tmp->id = region_id;
     tmp->cap = cap;
-
-    err = invoke_frame_identify(*cap, &id);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    tmp->base_addr = id.base;
-    tmp->len = id.bytes;
+    tmp->base_addr = base_addr;
+    tmp->len = len;
 
     *region = tmp;   
     

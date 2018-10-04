@@ -137,7 +137,7 @@ static errval_t descq_enqueue(struct devq* queue,
     q->tx_descs[head].valid_length = valid_length;
     q->tx_descs[head].flags = misc_flags;
 
-    __sync_synchronize();
+    //__sync_synchronize();
 
     q->tx_descs[head].seq = q->tx_seq;
 
