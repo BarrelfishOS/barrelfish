@@ -15,7 +15,6 @@
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/loopback_devif.h>
-#include <devif/backends/debug.h>
 #include <devif/backends/null.h>
 #include <bench/bench.h>
 #include <vfs/vfs.h>
@@ -29,6 +28,7 @@
 
 #define NUM_REGIONS 128
 #define NUM_ROUNDS 100000
+#define NUM_STACKS 10
 
 static struct capref memory;
 static regionid_t regid;
@@ -53,10 +53,7 @@ struct list_ele{
 };
 
 static struct loopback_queue* queue;
-static struct debug_q* debug_q;
-static struct null_q* null_q;
-//static struct null_q* null_q2;
-static struct null_q* all_q;
+static struct null_q* null_q[NUM_STACKS+1];
 static struct devq* que;
 
 static cycles_t tot_deq = 0;
@@ -68,15 +65,6 @@ static cycles_t start_deq = 0, end_deq = 0;
 static cycles_t start_reg = 0, end_reg = 0;
 static cycles_t start_dereg = 0, end_dereg = 0;
 
-static double avg_deq, avg_enq;
-static double avg_reg, avg_dereg;
-static double avg_deq_d, avg_enq_d;
-static double avg_reg_d, avg_dereg_d;
-static double avg_deq_n, avg_enq_n;
-static double avg_reg_n, avg_dereg_n;
-static double avg_deq_tot, avg_enq_tot;
-static double avg_reg_tot, avg_dereg_tot;
-
 static bench_ctl_t *ctl_tmp_en;
 static bench_ctl_t *ctl_tmp_de;
 static bench_ctl_t *ctl_tmp_reg;
@@ -84,50 +72,6 @@ static bench_ctl_t *ctl_tmp_dereg;
 
 static uint64_t tscperus;
 static char* machine_name;
-
-/*
-static void dump_results_nfs(char* filename, bool destroy)
-{
-    errval_t err;
-    char buffer[256];
-    vfs_handle_t handle;
-#ifdef BENCH_DEVQ
-    //sprintf(buffer, "/nfs/%s/%s_devq.csv", machine_name, filename);
-    sprintf(buffer, "/nfs/%s_devq.csv", filename);
-#else
-    //sprintf(buffer, "/nfs/%s/%s.csv", machine_name, filename);
-    sprintf(buffer, "/nfs/%s.csv", filename);
-#endif
-
-    debug_printf("%s \n", buffer);
-    err = vfs_open(buffer, &handle);
-    if (err_is_fail(err)) {
-        err = vfs_create(buffer, &handle);
-        assert(err_is_ok(err));
-    }
-
-    size_t bytes;
-    // first 10 % is warmup
-    for (int i = NUM_ROUNDS/10 ; i < NUM_ROUNDS; i++) {
-        sprintf(buffer, "enqueue,%lu \ndequeue,%lu \nregister,%lu \nderegister,%lu \n", 
-                ctl_tmp_en->data[i], ctl_tmp_de->data[i], ctl_tmp_reg->data[i], 
-                ctl_tmp_dereg->data[i]);
-        err = vfs_write(handle, buffer, strlen(buffer), &bytes);
-        assert(err_is_ok(err));
-        assert(bytes == strlen(buffer));
-    }
-
-    err = vfs_close(handle);
-    assert(err_is_ok(err));
-
-    if (destroy) {
-        bench_ctl_destroy(ctl_tmp_dereg);
-        bench_ctl_destroy(ctl_tmp_reg);
-        bench_ctl_destroy(ctl_tmp_de);
-        bench_ctl_destroy(ctl_tmp_en);
-    }
-}
-*/
 
 static void dump_results_nfs(char* prefix, bool destroy)
 //static void dump_results_console(char* prefix, bool destroy)
@@ -353,24 +297,11 @@ int main(int argc, char *argv[])
         USER_PANIC("Allocating devq failed \n");
     }
  
-    // stack debug queue on top
-    err = debug_create(&debug_q, (struct devq*) queue);
-    if (err_is_fail(err)) {
-        USER_PANIC("Allocating debug q failed \n");
-    }
-  
     // stack null queue on top
-    err = null_create(&null_q, (struct devq*) queue);
+    err = null_create(&null_q[0], (struct devq*) queue);
     if (err_is_fail(err)) {
         USER_PANIC("Allocating null q failed \n");
     }
-
-    // stack null queue on top of debug queue
-    err = null_create(&all_q, (struct devq*) debug_q);
-    if (err_is_fail(err)) {
-        USER_PANIC("Allocating null q failed \n");
-    }
-
 
     que = (struct devq*) queue;
 
@@ -391,131 +322,47 @@ int main(int argc, char *argv[])
     test_randomized_test();
 
     dump_results_nfs("Loopback", true);
-    avg_enq = ((double) tot_deq)/NUM_ROUNDS;
-    avg_deq = ((double) tot_enq)/NUM_ROUNDS;
-    avg_dereg = ((double) tot_dereg)/NUM_ROUNDS;
-    avg_reg = ((double) tot_reg)/NUM_ROUNDS;
 
-    /*
+#if 0
     ctl_tmp_en = devq_get_benchmark_data(que, 0);
     ctl_tmp_de = devq_get_benchmark_data(que, 1);
     ctl_tmp_reg = devq_get_benchmark_data(que, 2);
     ctl_tmp_dereg = devq_get_benchmark_data(que, 3);
     dump_results_nfs("Loopback_bcalls", false);
-    */
-/*
-    printf("AVG enq %f \n", avg_enq);
-    printf("AVG deq %f \n", avg_deq);
-    printf("AVG reg %f \n", avg_reg);
-    printf("AVG dereg %f \n", avg_dereg);
-*/
-    printf("############################################################ \n");
+#endif
+    char name[512];
+    sprintf(name, "Null %d", 1);
+    for (int i = 0; i < 10; i++) {
+        printf("############################################################ \n");
 
-    err = devq_deregister(que, regid, &memory);
-    if (err_is_fail(err)){
-        USER_PANIC("Deregistering memory from devq failed: %s \n",
-                   err_getstring(err));
-    }
+        err = devq_deregister(que, regid, &memory);
+        if (err_is_fail(err)){
+            USER_PANIC("Deregistering memory from devq failed: %s \n",
+                       err_getstring(err));
+        }
 
-    printf("Starting randomized test debug\n");
-    que = (struct devq*) debug_q;
+        printf("Starting randomized test debug\n");
+        que = (struct devq*) null_q[i];
+        
+        test_register();
+
+        err = devq_register(que, memory, &regid);
+        if (err_is_fail(err)){
+            USER_PANIC("Registering memory to devq failed \n");
+        }
+
+        test_randomized_test();
+
+        dump_results_nfs(name, true);
     
-    test_register();
+        sprintf(name, "Null %d", i+2);
 
-    err = devq_register(que, memory, &regid);
-    if (err_is_fail(err)){
-        USER_PANIC("Registering memory to devq failed \n");
-    }
+        // stack null queue on top
+        err = null_create(&null_q[i+1], (struct devq*) null_q[i]);
+        if (err_is_fail(err)) {
+            USER_PANIC("Allocating null q failed \n");
+        }
 
-    test_randomized_test();
-
-    dump_results_nfs("Overhead Debug", true);
-    avg_enq_d = ((double) tot_deq)/NUM_ROUNDS;
-    avg_deq_d = ((double) tot_enq)/NUM_ROUNDS;
-    avg_dereg_d  = ((double) tot_dereg)/NUM_ROUNDS;
-    avg_reg_d = ((double) tot_reg)/NUM_ROUNDS;
-/*
-    printf("AVG enq debug %f \n", avg_enq_d);
-    printf("AVG deq debug %f \n", avg_deq_d);
-    printf("AVG reg debug %f \n", avg_reg_d);
-    printf("AVG dereg debug %f \n", avg_dereg_d);
-*/
-    printf("############################################################ \n");
-
-    err = devq_deregister(que, regid, &memory);
-    if (err_is_fail(err)){
-        USER_PANIC("Deregistering memory from devq failed: %s \n",
-                   err_getstring(err));
-    }
-
-    printf("Starting randomized test null\n");
-    que = (struct devq*) null_q;
-
-    err = devq_register(que, memory, &regid);
-    if (err_is_fail(err)){
-        USER_PANIC("Registering memory to devq failed \n");
-    }
-
-    test_register();
-
-    test_randomized_test();
-
-    dump_results_nfs("Overhead Null", true);
-    avg_enq_n = ((double) tot_enq)/NUM_ROUNDS;
-    avg_deq_n = ((double) tot_deq)/NUM_ROUNDS;
-    avg_reg_n = ((double) tot_reg)/NUM_ROUNDS;
-    avg_dereg_n = ((double) tot_dereg)/NUM_ROUNDS;
-
-    printf("############################################################ \n");
-
-
-    err = devq_deregister(que, regid, &memory);
-    if (err_is_fail(err)){
-        USER_PANIC("Deregistering memory from devq failed: %s \n",
-                   err_getstring(err));
-    }
-
-    printf("Starting randomized test all queues\n");
-    que = (struct devq*) all_q;
-
-    test_register();
-
-    err = devq_register(que, memory, &regid);
-    if (err_is_fail(err)){
-        USER_PANIC("Registering memory to devq failed \n");
-    }
-
-    test_randomized_test();
-
-    dump_results_nfs("Overhead Null and Debug", true);
-    avg_enq_tot = ((double) tot_enq)/NUM_ROUNDS;
-    avg_deq_tot = ((double) tot_deq)/NUM_ROUNDS;
-    avg_reg_tot = ((double) tot_reg)/NUM_ROUNDS;
-    avg_dereg_tot = ((double) tot_dereg)/NUM_ROUNDS;
-
-/*
-    printf("AVG enq null %f \n", avg_enq_n);
-    printf("AVG deq null %f \n", avg_deq_n);
-    printf("AVG reg null %f \n", avg_reg_n);
-    printf("AVG dereg null %f \n", avg_dereg_n);
-    printf("############################################################ \n");
-
-    printf("AVG enq overhead null %f \n", avg_enq_n - avg_enq);
-    printf("AVG deq overhead null %f \n", avg_deq_n - avg_deq);
-    printf("AVG reg overhead null %f \n", avg_reg_n - avg_reg);
-    printf("AVG dereg overhead null %f \n", avg_dereg_n - avg_dereg);
-
-    printf("############################################################ \n");
-
-    printf("AVG enq overhead debug %f \n", avg_enq_d - avg_enq);
-    printf("AVG deq overhead debug %f \n", avg_deq_d - avg_deq);
-    printf("AVG reg overhead debug %f \n", avg_reg_d - avg_reg);
-    printf("AVG dereg overhead debug %f \n", avg_dereg_d - avg_dereg);
-*/
-    err = devq_deregister(que, regid, &memory);
-    if (err_is_fail(err)){
-        USER_PANIC("Deregistering memory from devq failed: %s \n",
-                   err_getstring(err));
     }
     printf("SUCCESS! \n");;
 

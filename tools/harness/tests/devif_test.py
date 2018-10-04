@@ -16,7 +16,7 @@ import thread
 from common import TestCommon, TimeoutError
 from results import RowResults, PassFailResult
 
-TEST_TIMEOUT = datetime.timedelta(minutes=8)
+TEST_TIMEOUT = datetime.timedelta(minutes=240)
 
 mac = {'babybel1': 130587495626, 
        'babybel2': 130587510022,
@@ -141,6 +141,14 @@ class DevifIdcTest(DevifTests):
     OP = "idc"
     CARD = "none"
 
+    def get_modules(self, build, machine):
+        self.machine = machine.name
+        modules = super(DevifTests, self).get_modules(build, machine)
+        modules.add_module("devif_idc", ["core=1"])
+        modules.add_module(self.get_module_name(), ["core=2", self.OP, 0, 0, "none"])
+        return modules
+
+
 @tests.add_test
 class DevifDebug(DevifTests):
     ''' Devif Debug Backend Test'''
@@ -151,6 +159,35 @@ class DevifDebug(DevifTests):
         modules = super(DevifTests, self).get_modules(build, machine)
         modules.add_module("devif_idc", ["core=1"])
         modules.add_module("devif_debug_test")
+
+        return modules
+
+@tests.add_test
+class DevifDebug(DevifTests):
+    ''' Devif Benchmark'''
+    name = "devif_bench"
+
+    def get_modules(self, build, machine):
+        self.machine = machine.name
+        modules = super(DevifTests, self).get_modules(build, machine)
+        modules.add_module("e1000n", ["auto"])
+        modules.add_module("net_sockets_server", ["nospawn"])
+        modules.add_module("devif_bench", ["core=2", machine.name])
+
+        return modules
+
+
+@tests.add_test
+class DevifDebug(DevifTests):
+    ''' Devif Benchmark'''
+    name = "devif_bench_stack"
+
+    def get_modules(self, build, machine):
+        self.machine = machine.name
+        modules = super(DevifTests, self).get_modules(build, machine)
+        modules.add_module("e1000n", ["auto"])
+        modules.add_module("net_sockets_server", ["nospawn"])
+        modules.add_module("devif_bench_stack", ["core=2", machine.name])
 
         return modules
 
@@ -171,16 +208,20 @@ class DevifUDP(DevifTests):
         dst_ip = self.get_decimal_ip(hostname)
         dst_mac = self.get_local_mac('eno2')
 
-        if 'ziger2' in machine.name:
-            src_ip = self.get_decimal_ip('%s-sf.in.barrelfish.org' % machine.name)
-            modules.add_module("sfn5122f", ["auto", "function=0"])
-            self.cardname = "sfn5122f"
+        if ('ziger2' in machine.name):
+        #if ('ziger2' in machine.name) or ('babybel2' in machine.name):
+            if 'ziger2' in machine.name:
+                src_ip = self.get_decimal_ip('%s-sf.in.barrelfish.org' % machine.name)
+                modules.add_module("sfn5122f", ["auto", "function=0"])
+                self.cardname = "sfn5122f"
+            else:
+                src_ip = self.get_decimal_ip('%s-sf.in.barrelfish.org' % machine.name)
+                modules.add_module("sfn5122f", ["auto", "function=0"])
+                self.cardname = "sfn5122f"
         else:
             modules.add_module("e10k", ["auto", "function=0"])
             src_ip = self.get_decimal_ip('%s-e10k.in.barrelfish.org' % machine.name)
             self.cardname = "e10k:8086:10fb:0006:0000:0000"
-
-        src_mac =  mac[machine.name]
 
         modules.add_module(self.get_module_name(), ["core=2", dst_ip, dst_mac, 20000, 20000, self.cardname])
         return modules
@@ -208,6 +249,20 @@ class DevifUDP(DevifTests):
                 return PassFailResult(True)
 
         return PassFailResult(False)
+
+
+class DevifDebug(DevifTests):
+    ''' Devif Benchmark'''
+    name = "devif_bench_stack"
+
+    def get_modules(self, build, machine):
+        self.machine = machine.name
+        modules = super(DevifTests, self).get_modules(build, machine)
+        modules.add_module("e1000n", ["auto"])
+        modules.add_module("net_sockets_server", ["nospawn"])
+        modules.add_module("devif_bench_stack", ["core=2", machine.name])
+
+        return modules
 
 #@tests.add_test
 #class DevifUPDecho(DevifUDP):

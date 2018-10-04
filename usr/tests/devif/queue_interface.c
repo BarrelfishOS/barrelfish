@@ -49,6 +49,9 @@ static struct net_filter_state* filter;
 
 static volatile uint32_t num_tx = 0;
 static volatile uint32_t num_rx = 0;
+static uint64_t enq_total = 0;
+static uint64_t deq_total = 0;
+
 
 static void* va_rx;
 static void* va_tx;
@@ -116,13 +119,18 @@ static void event_cb(void* queue)
     uint64_t flags;
 
     err = SYS_ERR_OK;
+    uint64_t start, end;
 
     while (err == SYS_ERR_OK) {
+        start = rdtscp();
         err = devq_dequeue(q, &rid, &offset, &length, &valid_data,
                            &valid_length, &flags);
+        end = rdtscp();
         if (err_is_fail(err)) {
             break;
         }
+
+        deq_total += end - start;
 
         if (flags & NETIF_TXFLAG) {
             DEBUG("Received TX buffer back \n");
@@ -392,12 +400,16 @@ static errval_t descq_notify(struct descq* q)
     genoffset_t valid_data;
     genoffset_t valid_length;
     uint64_t flags;
+    uint64_t start, end;
 
     while(err_is_ok(err)) {
+        start = rdtscp();
         err = devq_dequeue(queue, &rid, &offset, &length, &valid_data,
                            &valid_length, &flags);
+        end = rdtscp();
         if (err_is_ok(err)){
             num_rx++;
+            deq_total += end - start;
         }
     }
     return SYS_ERR_OK;
@@ -434,14 +446,19 @@ static void test_idc_queue(void)
     }
  
     // Enqueue RX buffers to receive into
+    uint64_t start, end, total;
+    total = 0;
     for (int j = 0; j < 1000000; j++){
         for (int i = 0; i < 32; i++){
+            start = rdtscp();
             err = devq_enqueue(q, regid_rx, i*2048, 2048, 
                                0, 2048, 0);
+            end = rdtscp();
             if (err_is_fail(err)){
                 // retry
                 i--;
             } else {
+                enq_total += end - start;
                 num_tx++;
             }
         }
@@ -474,6 +491,8 @@ static void test_idc_queue(void)
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq deregister tx failed \n");
     }
+    printf("AVG enqueue %f num_enq %d \n", (double) enq_total/num_tx, num_tx);
+    printf("AVG dequeue %f num_deq %d\n", (double) deq_total/num_rx, num_rx);
 
     printf("SUCCESS: IDC queue\n");
 }
