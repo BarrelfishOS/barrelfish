@@ -480,6 +480,9 @@ static void test_idc_queue(bool use_ep)
 {
     num_tx = 0;
     num_rx = 0;
+    enq_total = 0;
+    deq_total = 0;
+
 
     errval_t err;
     struct devq* q;
@@ -492,11 +495,13 @@ static void test_idc_queue(bool use_ep)
         printf("Descriptor queue use endpoint for setup\n");
         struct capref ep;        
         
+        printf("Getting endpoint \n");
         err = get_descq_ep(&ep);
         if (err_is_fail(err)){
             USER_PANIC("Allocating devq failed \n");
         }
             
+        printf("Creating descq with ep \n");
         err = descq_create_with_ep(&queue, DESCQ_DEFAULT_SIZE, ep,
                                    &qid, &f);
         if (err_is_fail(err)){
@@ -646,8 +651,8 @@ int main(int argc, char *argv[])
     }
 
     if (strcmp(argv[1], "idc") == 0) {
-        test_idc_queue(false);
         test_idc_queue(true);
+        test_idc_queue(false);
         printf("SUCCESS: IDC queue\n");
     }
    
