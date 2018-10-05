@@ -27,7 +27,7 @@ let arch = "armv8"
                                          "-Wmissing-field-initializers",
                                          "-Wredundant-decls",
                                          "-Werror" ] ],
-             optIncludes = [ NoDep SrcTree "src" "/kernel/include" ],
+             optIncludes = [ NoDep SrcTree "src" "/kernel/include", NoDep SrcTree "src" "/include" ],
              optDefines = [],
              optLibs = [],
              optLdFlags = [ Str s | s <- [
