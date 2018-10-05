@@ -404,7 +404,9 @@ instance PrologGenerator AST.Address where
 
 instance PrologGenerator AST.NaturalSet where
   generate a = case a of
+     AST.NaturalSet _ [] -> "NYI - 407"
      AST.NaturalSet _ [nrs] -> generate nrs
+     AST.NaturalSet _ (_ : _) -> "NYI - 409"
 
 instance PrologGenerator AST.NaturalRange where
   generate nr = case nr of
