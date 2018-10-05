@@ -25,7 +25,7 @@ import System.Environment
 import System.FilePath
 import System.IO
 
-import Text.Pretty.Simple (pPrint, pShowNoColor)
+{- import Text.Pretty.Simple (pPrint, pShowNoColor) -}
 import Data.Text.Lazy (unpack)
 
 import qualified SockeyeParserAST as ParseAST
@@ -277,6 +277,7 @@ dependencyFile outFile depFile deps = do
     return $ intercalate " \\\n " lines
 
 {- Produces debug output -}
+{-
 debugOutput :: Options -> ParseAST.Sockeye -> SymTable.Sockeye -> AST.Sockeye -> IO ()
 debugOutput opts pAst symTable ast = do
     let
@@ -296,7 +297,7 @@ debugOutput opts pAst symTable ast = do
         "c" -> putStrLn "Dumping AST..." >> putStrLn "**************" >> pPrint ast
         "f" -> writeFile (inFile <.> "ast" <.> "txt") (unpack $ pShowNoColor ast)
         _ -> return ()
-
+-}
 main :: IO ()
 main = do
     args <- getArgs
@@ -310,7 +311,7 @@ main = do
     parsedAst <- parse inclDirs inFile
     symTable <- buildSymTable parsedAst
     ast <- check symTable parsedAst
-    debugOutput opts parsedAst symTable ast
+    {- debugOutput opts parsedAst symTable ast -}
     out <- compileDirect parsedAst
     output outFile out
     case depFile of
