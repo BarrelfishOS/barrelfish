@@ -50,8 +50,8 @@ static void cm2_connected(void *st, errval_t err, struct cm2_binding *b) {
  * \retval SYS_ERR_OK Device initialized successfully.
  * \retval LIB_ERR_MALLOC_FAIL Unable to allocate memory for the driver.
  */
-static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t flags,
-                     struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) {
+
+static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev) {
     TWL_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
     bfi->dstate = malloc(sizeof(struct twl6030_driver_state));
@@ -62,7 +62,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
     assert(bfi->dstate != NULL);
 
     struct twl6030_driver_state* st = (struct twl6030_driver_state*) bfi->dstate;
-    st->cap = caps[0];
+    st->cap = bfi->caps[0];
 
     // Connect to the cm2 driver
     iref_t cm2_iref;
@@ -154,10 +154,16 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
     return SYS_ERR_OK;
 }
 
+static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
+{   
+    USER_PANIC("NIY \n");
+    return SYS_ERR_OK;
+}
+
 /**
  * Registers the driver module with the system.
  *
  * To link this particular module in your driver domain,
  * add it to the addModules list in the Hakefile.
  */
-DEFINE_MODULE(twl6030, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(twl6030, init, attach, detach, set_sleep_level, destroy, get_ep);

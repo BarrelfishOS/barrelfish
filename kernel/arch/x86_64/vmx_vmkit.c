@@ -479,6 +479,7 @@ static void vmx_set_host_state(void)
                 (lvaddr_t) host_msr_area,
                 X86_64_MEMORY_OFFSET);
     }
+
     err += vmwrite(VMX_EXIT_MSR_LOAD_F, canonical_form(msr_area_base));
     err += vmwrite(VMX_EXIT_MSR_LOAD_CNT, VMX_MSR_COUNT);
 #endif
@@ -933,7 +934,7 @@ call_monitor(struct dcb *dcb)
     }
     
     // run the monitor
-    dispatch(dcb->guest_desc.monitor_ep.cap.u.endpoint.listener);
+    dispatch(dcb->guest_desc.monitor_ep.cap.u.endpointlmp.listener);
 }
 
 struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,

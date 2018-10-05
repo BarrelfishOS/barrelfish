@@ -722,7 +722,7 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
     if (info.page->u.frame.pte_count == pte_count) {
         err = vnode_unmap(info.page_table->u.vnode.cap, info.page->mapping);
         if (err_is_fail(err)) {
-            printf("vnode_unmap returned error: %s (%d)\n",
+            debug_printf("vnode_unmap returned error: %s (%d)\n",
                     err_getstring(err), err_no(err));
             return err_push(err, LIB_ERR_VNODE_UNMAP);
         }

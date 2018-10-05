@@ -9,6 +9,8 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <xeon_phi/xeon_phi.h>
+#include <driverkit/iommu.h>
+#include <driverkit/hwmodel.h>
 
 #include <dma_mem_utils.h>
 
@@ -16,6 +18,7 @@
 #include <dma_descriptor_internal.h>
 
 #include <debug.h>
+#include <dma_device_internal.h>
 
 /* helper macros */
 #define DMA_ALIGN(val, align) (((val) + (align)-1) & ~((align)-1))
@@ -57,7 +60,7 @@ struct dma_descriptor
     uint32_t flags;               ///< descriptor flags
     struct dma_descriptor *next;  ///< next descriptor in the list
     struct dma_request *req;      ///< pointer to the DMA request
-    struct dma_mem *mem;          ///< the dma memory information
+    struct dmem *mem;             ///< the dma memory information
 };
 
 /*
@@ -84,13 +87,14 @@ struct dma_descriptor
 errval_t dma_desc_alloc(uint32_t size,
                         uint16_t align,
                         uint8_t count,
+                        struct dma_device *dev,
                         struct dma_descriptor **desc)
 {
     errval_t err;
 
     assert(desc);
 
-    uint32_t ndesc = (1 << count);
+    size_t ndesc = (1 << count);
 
     size = DMA_ALIGN(size, align);
 
@@ -99,7 +103,7 @@ errval_t dma_desc_alloc(uint32_t size,
         return LIB_ERR_MALLOC_FAIL;
     }
 
-    struct dma_mem *mem = malloc(sizeof(*mem));
+    struct dmem *mem = calloc(1, sizeof(*mem));
     if (mem == NULL) {
         free(dma_desc);
         return LIB_ERR_MALLOC_FAIL;
@@ -115,23 +119,65 @@ errval_t dma_desc_alloc(uint32_t size,
     ram_set_affinity(0, XEON_PHI_SYSMEM_SIZE-8*XEON_PHI_SYSMEM_PAGE_SIZE);
 #endif
 
-    err = dma_mem_alloc(ndesc * size, DMA_DESC_MAP_FLAGS, mem);
+
+#ifdef XEON_PHI_USE_HW_MODEL
+    if (dev->convert) {
+        debug_printf("USING THE CONVERT FUNCTION\n");
+
+        int32_t nodes[3];
+        nodes[0] = dev->nodeid; 
+        nodes[1] = driverkit_hwmodel_get_my_node_id();
+        nodes[2] = 0;
+        int32_t dest_nodeid = driverkit_hwmodel_lookup_dram_node_id();
+        err =  driverkit_hwmodel_frame_alloc(&mem->mem, ndesc * size,
+                                      dest_nodeid, nodes);
+
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed");
+            free(dma_desc);
+            free(mem);
+            return err;
+        }
+
+
+        err = dev->convert(dev->convert_arg, mem->mem, &mem->devaddr, &mem->vbase);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed");
+            free(dma_desc);
+            free(mem);
+            return err;
+        }
+
+
+    } else {
+        err = driverkit_iommu_mmap_cl(dev->iommu, ndesc * size, DMA_DESC_MAP_FLAGS, mem);
+        if (err_is_fail(err)) {
+            free(dma_desc);
+            return err;
+        }
+    }
+#else
+    err = dma_mem_alloc(ndesc*size, DMA_DESC_MAP_FLAGS, dev->iommu, mem);
     if (err_is_fail(err)) {
         free(dma_desc);
+        free(mem);
         return err;
     }
+#endif
+
 
 #ifndef __k1om__
     ram_set_affinity(minbase, maxlimit);
 #endif
 
-    memset((void*) mem->vaddr, 0, ndesc * size);
+    memset((void*) mem->vbase, 0, ndesc * size);
 
-    XPHIDESC_DEBUG("Allocated frame of size %lu bytes @ [%016lx]\n",
-                   (uint64_t ) mem->bytes, mem->paddr);
 
-    lpaddr_t desc_paddr = mem->paddr;
-    uint8_t *desc_vaddr = (uint8_t*) mem->vaddr;
+    DMADESC_DEBUG("Allocated frame of size %lu bytes @ [%016lx]\n",
+                  (uint64_t ) mem->size, mem->devaddr);
+
+    lpaddr_t desc_paddr = mem->devaddr;
+    uint8_t *desc_vaddr = (uint8_t*) mem->vbase;
 
     /* set the last virtual address pointer */
     dma_desc[ndesc - 1].desc = desc_vaddr + ((ndesc - 1) * size);
@@ -159,7 +205,7 @@ errval_t dma_desc_alloc(uint32_t size,
         desc_paddr += size;
     }
 
-    DMADESC_DEBUG("Allocated %u desc of size %u\n", ndesc, size);
+    DMADESC_DEBUG("Allocated %zu desc of size %u\n", ndesc, size);
 
     return SYS_ERR_OK;
 }
@@ -181,9 +227,9 @@ errval_t dma_desc_free(struct dma_descriptor *desc)
         return DMA_ERR_ARG_INVALID;
     }
 
-    struct dma_mem *mem = desc->mem;
+    struct dmem *mem = desc->mem;
 
-    err = dma_mem_free(mem);
+    err = driverkit_iommu_munmap(mem);
     if (err_is_fail(err)) {
         return err;
     }

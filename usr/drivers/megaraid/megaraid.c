@@ -23,6 +23,7 @@
 #include <barrelfish/core_state.h>
 #include <pci/pci.h>
 #include <skb/skb.h>
+#include <driverkit/iommu.h>
 #include <acpi_client/acpi_client.h>
 #else
 #include <arpa/inet.h>
@@ -1417,13 +1418,25 @@ int megaraid_driver_init(int argc, const char **argv)
     }
 
     if (use_vtd) {
-        err = connect_to_acpi();
-	assert(err_is_ok(err));
-	err = vtd_create_domain(cap_vroot);
-	assert(err_is_ok(err));
-        printf("megaraid: Using VT-d on bus 9\n");
-	err = vtd_domain_add_device(0, 9, 0, 0, cap_vroot);
-	assert(err_is_ok(err));
+         err = driverkit_iommu_client_init(NULL_CAP);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        if (!driverkit_iommu_present(NULL)) {
+            USER_PANIC("IOMMU SHOULD BE ENABLED!\n");
+        }
+
+        struct capref devcap = NULL_CAP;
+        err = driverkit_iommu_create_domain(cap_vroot, devcap);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        err = driverkit_iommu_add_device(cap_vroot, devcap);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
 #else
     if(argc < 2) {

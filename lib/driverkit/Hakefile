@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
--- Copyright (c) 2013, ETH Zurich.
+-- Copyright (c) 2013, 2017, 2018 ETH Zurich.
 -- All rights reserved.
 --
 -- This file is distributed under the terms in the attached LICENSE file.
@@ -15,10 +15,45 @@
 [
     build library {
         target = "driverkit",
-        flounderDefs = ["ddomain", "dcontrol"],
-        flounderBindings = ["ddomain", "dcontrol"],
-        flounderExtraBindings = [ ("ddomain", ["rpcclient"])],
-        addLibraries = ["collections"],
-        cFiles = (find withSuffices [".c"])
+        flounderDefs = [
+            "ddomain",
+            "dcontrol",
+            "iommu"
+        ],
+        flounderBindings = [
+            "ddomain",
+            "dcontrol",
+            "iommu"
+        ],
+
+        flounderExtraBindings = [
+            ("ddomain", ["rpcclient"]),
+            ("dcontrol", ["rpcclient"]),
+            ("iommu", ["rpcclient"])
+        ],
+        addLibraries = [ "collections", "skb" ],
+        cFiles = [ "dcontrol_client.c", 
+                   "dcontrol_service.c", 
+                   "ddomain_client.c",
+                   "ddomain_service.c",
+                   "map_devices.c",
+                   "modules.c" ]
+    },
+
+    build library {
+        target = "driverkit_iommu",
+        flounderDefs = [
+            "iommu"
+        ],
+        flounderBindings = [
+            "iommu"
+        ],
+        flounderExtraBindings = [
+            ("iommu", ["rpcclient"])
+        ],
+        addLibraries = [ "collections", "skb" ],
+        cFiles = [ "hwmodel.c", 
+                   "iommu_client.c" ],
+        architectures = [ "x86_64", "k1om"]
     }
 ]

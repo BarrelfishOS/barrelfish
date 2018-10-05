@@ -170,7 +170,7 @@ mdb_dump_all_the_things(void)
     mdb_dump(mdb_root, 0);
 }
 
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
 static void print_cte(struct cte *cte, char *indent_buff)
 {
     struct mdbnode *node = N(cte);
@@ -185,10 +185,16 @@ static void print_cte(struct cte *cte, char *indent_buff)
         case ObjType_L2CNode:
             snprintf(extra, 255, "[rightsmask=%"PRIu8"]", cap->u.l2cnode.rightsmask);
             break;
-        case ObjType_EndPoint:
+        case ObjType_EndPointLMP:
             snprintf(extra, 255,
-                    "[listener=%p,epoffset=0x%08"PRIxLVADDR",epbuflen=%"PRIu32"]",
-                    cap->u.endpoint.listener,cap->u.endpoint.epoffset,cap->u.endpoint.epbuflen);
+                    "[listener=%p,epoffset=0x%08"PRIxLVADDR",epbuflen=%"PRIu32", if=%"PRIu32"]",
+                     cap->u.endpointlmp.listener,cap->u.endpointlmp.epoffset,
+                     cap->u.endpointlmp.epbuflen, cap->u.endpointlmp.iftype);
+            break;
+        case ObjType_EndPointUMP:
+            snprintf(extra, 255,
+                     "[base=%" PRIxLPADDR ",if=%"PRIu32"]",
+                     cap->u.endpointump.base, cap->u.endpointump.iftype);
             break;
         case ObjType_Dispatcher:
             snprintf(extra, 255, "[dcb=%p]", cap->u.dispatcher.dcb);

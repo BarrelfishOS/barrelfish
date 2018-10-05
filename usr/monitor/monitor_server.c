@@ -24,6 +24,8 @@
 #include <barrelfish/syscalls.h>
 #include <barrelfish_kpi/distcaps.h>
 #include <if/monitor_loopback_defs.h>
+#include <if/monitor_defs.h>
+#include <if/monitor_blocking_defs.h>
 #include "capops.h"
 #include "caplock.h"
 #include "send_cap.h"
@@ -657,21 +659,18 @@ static void set_mem_iref_request(struct monitor_binding *b,
     update_ram_alloc_binding = true;
 }
 
-static void get_monitor_rpc_iref_request(struct monitor_binding *b,
+
+
+static void get_monitor_rpc_ep_request(struct monitor_binding *b,
                                          uintptr_t st_arg)
 {
     errval_t err;
 
-    if (monitor_rpc_iref == 0) {
-        // Monitor rpc not registered yet
-        DEBUG_ERR(LIB_ERR_GET_MON_BLOCKING_IREF, "got monitor rpc iref request but iref is 0");
-    }
+    struct capref ep = NULL_CAP;
+    err = monitor_rpc_server_create_endpoint(&ep, b);
 
-    err = b->tx_vtbl.get_monitor_rpc_iref_reply(b, NOP_CONT,
-                                                monitor_rpc_iref, st_arg);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "reply failed");
-    }
+    err = b->tx_vtbl.get_monitor_rpc_ep_reply(b, NOP_CONT, err, ep, st_arg);
+    assert(err_is_ok(err));
 }
 
 
@@ -834,7 +833,17 @@ cap_send_request(struct monitor_binding *b, uintptr_t my_mon_id,
 {
     DEBUG_CAPOPS("cap_send_request\n");
     errval_t err;
-    struct remote_conn_state *conn = remote_conn_lookup(my_mon_id);
+
+    struct remote_conn_state *conn;
+    if (my_mon_id == 0x0) {
+        assert(b->st);
+        struct monitor_state *st = b->st;
+        conn = st->conn;
+        assert(conn);
+        my_mon_id = remote_conn_get_id(conn);
+    } else {
+        conn = remote_conn_lookup(my_mon_id);
+    }
 
     struct send_cap_st *st;
     st = calloc(1, sizeof(*st));
@@ -957,6 +966,8 @@ static void migrate_dispatcher_request(struct monitor_binding *b,
    printf("%s:%d\n", __FUNCTION__, __LINE__);
 }
 
+
+
 struct monitor_rx_vtbl the_table = {
     .alloc_iref_request = alloc_iref_request,
     .get_service_id_request = get_service_id_request,
@@ -977,7 +988,7 @@ struct monitor_rx_vtbl the_table = {
     .set_ramfs_iref_request = set_ramfs_iref_request,
     .set_proc_mgmt_ep_request = set_proc_mgmt_ep_request,
     .set_spawn_iref_request = set_spawn_iref_request,
-    .get_monitor_rpc_iref_request  = get_monitor_rpc_iref_request,
+    .get_monitor_rpc_ep_request  = get_monitor_rpc_ep_request,
 
     .cap_send_request = cap_send_request,
     .cap_move_request = cap_send_request,
@@ -1083,7 +1094,7 @@ errval_t monitor_client_setup_monitor(void)
 
 errval_t monitor_server_init(struct monitor_binding *b)
 {
-    struct monitor_state *lst = malloc(sizeof(struct monitor_state));
+    struct monitor_state *lst = calloc(1, sizeof(struct monitor_state));
     assert(lst != NULL);
     lst->queue.head = lst->queue.tail = NULL;
 

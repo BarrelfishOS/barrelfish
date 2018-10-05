@@ -12,7 +12,7 @@
 
 let
     sockeyeToProlog = [ "example" ]
-    sockeyeRule f = Rule [ sockeyeProgLoc,
+    sockeyeRule f = Rule [ sockeyeProgLoc2,
                            In SrcTree "src" (f ++ ".soc"),
                            Str "-o",
                            Out "docs" (f ++ ".pl")

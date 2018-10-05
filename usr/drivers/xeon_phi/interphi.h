@@ -15,8 +15,8 @@
 #ifndef XEON_PHI_INTERPHI_H
 #define XEON_PHI_INTERPHI_H
 
-#define XEON_PHI_INTERPHI_CHANNEL_SIZE BASE_PAGE_SIZE
-#define XEON_PHI_INTERPHI_FRAME_SIZE (2* XEON_PHI_INTERPHI_CHANNEL_SIZE)
+#define XEON_PHI_INTERPHI_CHANNEL_SIZE (LARGE_PAGE_SIZE / 2)
+#define XEON_PHI_INTERPHI_FRAME_SIZE (LARGE_PAGE_SIZE)
 
 
 /**
@@ -215,5 +215,11 @@ errval_t interphi_domain_wait_reply(struct xnode *node,
                                     errval_t err,
                                     void *state,
                                     xphi_dom_id_t domid);
+
+errval_t interphi_alloc_mem(struct xnode *node,
+                            uint64_t bytes,
+                            struct capref *mem);
+
+
 
 #endif /* XEON_PHI_INTERPHI_H */

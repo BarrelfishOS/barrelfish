@@ -28,6 +28,8 @@
 #define RPC_STATE_PROGRESS 0x01
 #define RPC_STATE_DONE     0x80
 
+struct dma_mem_mgr;
+
 struct xphi_svc_st
 {
     struct xeon_phi *phi;
@@ -36,6 +38,7 @@ struct xphi_svc_st
     errval_t rpc_err;
     uint8_t rpc_state;
     uint64_t domainid;
+    struct dma_mem_mgr *dma_mem_mgr;
     struct xeon_phi_binding *binding;
     struct xphi_svc_st *next;
 };
@@ -79,6 +82,17 @@ struct xphi_svc_msg_st
         {
             uint64_t domid;
         } domain;
+        struct
+        {
+            int32_t nodeid;
+        } nodeid;
+        struct
+        {
+            uint64_t devaddr;
+        } dma_register;
+        struct {
+            struct capref cap;
+        } alloc;
     } args;
 };
 
@@ -141,6 +155,29 @@ static errval_t kill_response_tx(struct txq_msg_st* msg_st)
                                       msg_st->err);
 }
 
+static errval_t dma_register_response_tx(struct txq_msg_st* msg_st)
+{
+    struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
+
+    return xeon_phi_dma_register_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                              xphi_st->args.dma_register.devaddr,
+                                              msg_st->err);
+}
+
+static errval_t dma_memcpy_response_tx(struct txq_msg_st* msg_st)
+{
+    return xeon_phi_dma_memcpy_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                            msg_st->err);
+}
+
+static errval_t get_nodeid_response_tx(struct txq_msg_st* msg_st)
+{
+    struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
+
+    return xeon_phi_get_nodeid_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                            xphi_st->args.nodeid.nodeid);
+}
+
 static errval_t spawn_with_cap_response_tx(struct txq_msg_st* msg_st)
 {
     struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
@@ -185,6 +222,14 @@ static errval_t domain_wait_response_tx(struct txq_msg_st* msg_st)
 
     return xeon_phi_domain_wait_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
                                              st->args.domain.domid, msg_st->err);
+}
+
+static errval_t alloc_mem_response_tx(struct txq_msg_st* msg_st)
+{
+    struct xphi_svc_msg_st *st = (struct xphi_svc_msg_st *) msg_st;
+
+    return xeon_phi_alloc_mem_response__tx(msg_st->queue->binding, TXQCONT(msg_st),
+                                             st->args.alloc.cap, msg_st->err);
 }
 
 /*
@@ -443,6 +488,151 @@ static void spawn_call_rx(struct xeon_phi_binding *binding,
     txq_send(msg_st);
 }
 
+#include "dma_service.h"
+static void dma_register_call_rx(struct xeon_phi_binding *binding,
+                                 struct capref mem)
+{
+    struct xphi_svc_st *svc_st = binding->st;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    msg_st->send = dma_register_response_tx;
+    msg_st->cleanup = NULL;
+
+    struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
+    xphi_st->args.dma_register.devaddr = 0;
+
+    if (svc_st->dma_mem_mgr == NULL) {
+        msg_st->err  = xdma_state_init(svc_st->phi, &svc_st->dma_mem_mgr);
+        if (err_is_fail(msg_st->err )) {
+            goto send;
+        }
+    }
+
+    msg_st->err= xdma_register_region(svc_st->phi, svc_st->dma_mem_mgr, mem,
+                                      &xphi_st->args.dma_register.devaddr);
+send:
+    txq_send(msg_st);
+}
+
+static void dma_memcpy_call_rx(struct xeon_phi_binding *binding,
+                               uint64_t to, uint64_t from, uint64_t bytes)
+{
+    struct xphi_svc_st *svc_st = binding->st;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    XSERVICE_DEBUG("dma_memcpy_call_rx(%lx, %lx)\n", to, from);
+
+    msg_st->send = dma_memcpy_response_tx;
+    msg_st->cleanup = NULL;
+    msg_st->err = SYS_ERR_OK;
+
+    if (svc_st->dma_mem_mgr == NULL) {
+        msg_st->err = DMA_ERR_MEM_NOT_REGISTERED;
+        goto send_reply;
+    }
+
+    errval_t err;
+
+    err =  xdma_memcpy(svc_st->phi, svc_st->dma_mem_mgr, to, from, bytes, msg_st);
+    if (err_is_fail(msg_st->err)) {
+        msg_st->err = err;
+        goto send_reply;
+    }
+
+    /* return sending */
+    return;
+
+    send_reply:
+    txq_send(msg_st);
+}
+#include <driverkit/iommu.h>
+static void get_nodeid_call_rx(struct xeon_phi_binding *binding,
+                               uint64_t arg)
+{
+    errval_t err;
+
+    struct xphi_svc_st *svc_st = binding->st;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    msg_st->send = get_nodeid_response_tx;
+    msg_st->cleanup = NULL;
+
+    msg_st->err = SYS_ERR_OK;
+
+    struct xphi_svc_msg_st *xphi_st = (struct xphi_svc_msg_st *) msg_st;
+
+    int32_t dma, core, knc_socket;
+    err = xeon_phi_hw_model_lookup_nodeids(svc_st->phi->nodeid, &knc_socket, NULL, NULL, &dma,
+            &core, NULL);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "lookup nodeids\n");
+        msg_st->err = err;
+        txq_send(msg_st);
+        return;
+    }
+
+    if (!(arg & (1UL << 63))) {
+        // invalid
+        xphi_st->args.nodeid.nodeid = -1;
+    } else if (arg & (1UL<<32)) {
+        // DMA engine
+        // TODO: This works with dma, but if we use knc_socket, it will
+        // massively speed up the search for free regions.
+        // xphi_st->args.nodeid.nodeid = dma;
+        xphi_st->args.nodeid.nodeid = knc_socket;
+    } else if (arg  & (1UL<<33)) {
+        // cores
+        // coreid_t coreid = arg & 0xffff;
+        // TODO: add individual nodes for each core to model.
+        xphi_st->args.nodeid.nodeid = core;
+    } else {
+        // PCI card
+        xphi_st->args.nodeid.nodeid = svc_st->phi->nodeid;
+    }
+
+    txq_send(msg_st);
+}
+
+static void alloc_mem_call_rx(struct xeon_phi_binding *binding, uint64_t bytes)
+{
+    struct xphi_svc_st *svc_st = binding->st;
+
+    struct txq_msg_st *msg_st = txq_msg_st_alloc(&svc_st->queue);
+    if (msg_st == NULL) {
+        USER_PANIC("ran out of reply state resources\n");
+    }
+
+    msg_st->send = alloc_mem_response_tx;
+    msg_st->cleanup = NULL;
+
+    struct xnode *node = &svc_st->phi->topology[svc_st->phi->id];
+
+    struct xphi_svc_msg_st *st = (struct xphi_svc_msg_st *)msg_st;
+
+    msg_st->err = interphi_alloc_mem(node, bytes, &st->args.alloc.cap);
+    if (err_is_ok(msg_st->err)) {
+        struct frame_identity id;
+        errval_t err = invoke_frame_identify(st->args.alloc.cap, &id);
+
+        debug_printf("Obtained cap. %lx..%lx, %s\n", id.base, id.base + id.bytes - 1,
+                     err_getstring(err));
+    }
+
+    txq_send(msg_st);
+}
+
 static struct xeon_phi_rx_vtbl xphi_svc_rx_vtbl = {
     .domain_init_call = domain_init_call_rx,
     .domain_register_call = domain_register_call_rx,
@@ -452,7 +642,11 @@ static struct xeon_phi_rx_vtbl xphi_svc_rx_vtbl = {
     .spawn_with_cap_call = spawn_with_cap_call_rx,
     .kill_call = kill_call_rx,
     .chan_open_request_call = chan_open_request_call_rx,
-    .chan_open_response = chan_open_response_rx
+    .chan_open_response = chan_open_response_rx,
+    .dma_register_call = dma_register_call_rx,
+    .dma_memcpy_call = dma_memcpy_call_rx,
+    .get_nodeid_call = get_nodeid_call_rx,
+    .alloc_mem_call = alloc_mem_call_rx
 };
 
 /*
@@ -576,7 +770,7 @@ errval_t xeon_phi_service_open_channel(struct capref cap,
     }
 
     while (st->rpc_state != RPC_STATE_IDLE) {
-        err = xeon_phi_event_poll(true);
+        err = xeon_phi_event_poll(st->phi, true);
         if (err_is_fail(err)) {
             return err;
         }
@@ -602,7 +796,7 @@ errval_t xeon_phi_service_open_channel(struct capref cap,
     txq_send(msg_st);
 
     while (!(st->rpc_state & RPC_STATE_DONE)) {
-        err = xeon_phi_event_poll(true);
+        err = xeon_phi_event_poll(st->phi, true);
         if (err_is_fail(err)) {
             return err;
         }

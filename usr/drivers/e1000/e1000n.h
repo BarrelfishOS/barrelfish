@@ -183,12 +183,14 @@ struct pbuf_desc {
  * Per device state
  */
 struct e1000_driver_state {
+    struct bfdriver_instance *bfi;
     /* Kaluga args */
     char **args;
     int args_len;
-    char *inst_name;
-
-    struct pcid pdc;
+    
+    /* PCI info*/
+    struct pci_addr addr;
+    struct pci_id id;
 
     /* Internal device info */
     e1000_media_type_t media_type;
@@ -239,6 +241,7 @@ struct e1000_driver_state {
 
     /* irqtest statistics */
 #ifdef UNDER_TEST
+    char* inst_name;
     int int_trigger_counter;
     int test_initialized;
     int lsc_interrupt_counter;

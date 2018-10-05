@@ -23,6 +23,7 @@
 
 #include <mm/mm.h>
 #include <octopus/init.h>
+#include <octopus/barrier.h>
 #include <skb/skb.h>
 #include <acpi_client/acpi_client.h>
 #include <int_route/int_route_server.h>
@@ -31,6 +32,8 @@
 #include "pci.h"
 #include "pci_debug.h"
 #include "pci_int_ctrl.h"
+
+#include <driverkit/hwmodel.h> // Just for debug print
 
 #if !defined(__ARM_ARCH_8A__)
 static errval_t init_io_ports(void)
@@ -58,6 +61,40 @@ static errval_t init_io_ports(void)
     return SYS_ERR_OK;
 }
 #endif
+
+static errval_t init_decoding_net(void)
+{
+    errval_t err;
+    // load bride program, otherwise bar() is not defined 
+    PCI_DEBUG("PCI: Loading bridge program %s\n", skb_bridge_program);
+    err = skb_execute_query("[%s]", skb_bridge_program);
+    if (err_is_fail(err)) {
+        DEBUG_SKB_ERR(err, "Failed loading brige program \n");
+        return err;
+    }
+
+    PCI_DEBUG("PCI: Loading decoding net \n");
+    err = skb_execute("[decoding_net4_support].");
+
+    if(err_is_fail(err)) {
+        //DEBUG_SKB_ERR(err, "Failed loading decoding net module load");
+        return err;
+    }
+
+    const char * decoding_net_file = "sockeyefacts/x86_iommu";
+    HWMODEL_QUERY_DEBUG(
+            "load_net(\"%s\"), init(S), state_set(S).",
+            decoding_net_file);
+    err = skb_execute_query(
+            "load_net(\"%s\"), init(S), state_set(S).",
+            decoding_net_file);
+    if (err_is_fail(err)) {
+        //DEBUG_SKB_ERR(err, "load x86_iommu decoding net");
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
 
 int main(int argc, char *argv[])
 {
@@ -106,6 +143,15 @@ int main(int argc, char *argv[])
     	USER_PANIC_ERR(err, "Init memory allocator failed.");
     }
 #endif
+    // Load the decoding net (to add bars)
+    err = init_decoding_net();
+    if (err_is_fail(err)) {
+        debug_printf("Failed loading decoding net, continue withouth \n");
+        decoding_net = false;
+    } else {
+        debug_printf("Successfully loaded decoding net\n");
+        decoding_net = true;
+    }
 
     err = pcie_setup_confspace();
     if (err_is_fail(err)) {
@@ -127,26 +173,19 @@ int main(int argc, char *argv[])
     	USER_PANIC_ERR(err, "Initializing pci_int_ctrl failed");
     }
 
-
     // Start configuring PCI
     PCI_DEBUG("Programming PCI BARs and bridge windows\n");
     pci_program_bridges();
+
+    char* record;
+    debug_printf("barrier.pci.bridges");
+    err = oct_barrier_enter("barrier.pci.bridges", &record, 3);
+    assert(err_is_ok(err));
+    free(record);
+
     PCI_DEBUG("PCI programming completed\n");
     pci_init_datastructures();
     pci_init();
-
-
-#if 0 // defined(PCI_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-//output all the facts stored in the SKB to produce a sample data file to use
-//for debugging on linux
-    skb_execute("listing.");
-    while (skb_read_error_code() == SKB_PROCESSING) messages_wait_and_handle_next();
-    PCI_DEBUG("\nSKB returned: \n%s\n", skb_get_output());
-    const char *errout = skb_get_error_output();
-    if (errout != NULL && *errout != '\0') {
-        PCI_DEBUG("\nSKB error returned: \n%s\n", errout);
-    }
-#endif
 
     skb_add_fact("pci_discovery_done.");
 
@@ -156,12 +195,6 @@ int main(int argc, char *argv[])
     err = nameservice_register("pci_discovery_done", 0);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "nameservice_register failed");
-        abort();
-    }
-
-    err = vtd_add_devices();
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "vtd_add_devices failed");
         abort();
     }
 

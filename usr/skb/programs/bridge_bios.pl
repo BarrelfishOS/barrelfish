@@ -13,6 +13,7 @@
 
 :- set_flag(print_depth, 600).
 
+:-dynamic(bar/7).
 :-dynamic(currentbar/5).
 
 bridge_programming(Plan, NrElements) :-

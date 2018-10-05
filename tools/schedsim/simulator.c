@@ -35,7 +35,7 @@ enum task_type {
 
 enum objtype {
     ObjType_L1CNode,
-    ObjType_EndPoint
+    ObjType_EndPointLMP
 };
 
 struct capability {
@@ -117,7 +117,7 @@ static void init_dcb(struct dcb *dcb, int id)
 {
     dcb->disp = (uintptr_t)&dcb->dsg;
     dcb->cspace.cap.type = ObjType_L1CNode;
-    dcb->ep.cap.type = ObjType_EndPoint;
+    dcb->ep.cap.type = ObjType_EndPointLMP;
     dcb->vspace = 1;
     dcb->next = NULL;
     dcb->release_time = 0;

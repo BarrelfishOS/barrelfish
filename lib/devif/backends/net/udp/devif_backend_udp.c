@@ -22,6 +22,8 @@
 #include <net/net_filter.h>
 #include <net/dhcp.h>
 #include "../headers.h"
+#include <bench/bench.h>
+
 
 #define MAX_NUM_REGIONS 64
 
@@ -47,6 +49,7 @@ struct udp_q {
     struct devq* q;
     struct udp_hdr header; // can fill in this header and reuse it by copying
     struct region_vaddr regions[MAX_NUM_REGIONS];
+    struct capref filter_ep;
     struct net_filter_state* filter;
 };
 
@@ -231,10 +234,18 @@ errval_t udp_create(struct udp_q** q, const char* card_name,
         return err;
     }
 
-    err = net_filter_init(&que->filter, card_name);
-    if (err_is_fail(err)) {
-        return err;
-    }  
+    ip_get_netfilter_ep((struct ip_q*) que->q, &que->filter_ep);
+    if (capref_is_null(que->filter_ep)) {
+        err = net_filter_init(&que->filter, card_name);
+        if (err_is_fail(err)) {
+            return err;
+        }  
+    } else {
+        err = net_filter_init_with_ep(&que->filter, que->filter_ep);
+        if (err_is_fail(err)) {
+            return err;
+        }  
+    }
     
     src_ip = htonl(src_ip);
     struct net_filter_ip ip = {
@@ -300,5 +311,7 @@ errval_t udp_write_buffer(struct udp_q* q, regionid_t rid, genoffset_t offset,
     }
 }
 
-
-
+struct bench_ctl* udp_get_benchmark_data(struct udp_q* q, bench_data_type_t type)
+{
+    return ip_get_benchmark_data((struct ip_q*) q->q, type);
+}

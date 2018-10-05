@@ -17,7 +17,7 @@
 bool monitor_can_send_cap(struct capability *cap)
 {
     /* Cannot send caps of these types so send error */
-    return !((cap->type == ObjType_Null) || (cap->type == ObjType_EndPoint)
+    return !((cap->type == ObjType_Null) || (cap->type == ObjType_EndPointLMP)
         || (cap->type == ObjType_Dispatcher) || (cap->type == ObjType_Kernel)
         || (cap->type == ObjType_IRQTable));
 }

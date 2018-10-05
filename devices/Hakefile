@@ -126,7 +126,6 @@
            "pci_e1000_msix_cap",
            "megaraid",
            "vtd",
-           "vtd_iotlb",
            "zynq7/zynq_uart",
            "zynq7/zynq_slcr",
            "sfn5122f",

@@ -53,12 +53,12 @@ errval_t ipi_register_notification(capaddr_t ep, int chanid)
     assert(recv != NULL);
 
     // Return w/error if cap is not an endpoint
-    if(recv->cap.type != ObjType_EndPoint) {
+    if(recv->cap.type != ObjType_EndPointLMP) {
         return SYS_ERR_IRQ_NOT_ENDPOINT;
     }
 
     // Return w/error if no listener on endpoint
-    if(recv->cap.u.endpoint.listener == NULL) {
+    if(recv->cap.u.endpointlmp.listener == NULL) {
         return SYS_ERR_IRQ_NO_LISTENER;
     }
 
@@ -101,7 +101,7 @@ void ipi_handle_notify(void)
 
     // XXX: Dispatch last listener -- should be done by scheduler
     if(val != 0) {
-        dispatch(endpoints[val].cap.u.endpoint.listener);
+        dispatch(endpoints[val].cap.u.endpointlmp.listener);
     }
 }
 

@@ -131,6 +131,23 @@ handle_frame_identify(
     fi->base = get_address(to);
     fi->bytes = get_size(to);
 
+    switch(to->type) {
+        case ObjType_Frame:
+            fi->pasid = to->u.frame.pasid;
+            break;
+        case ObjType_DevFrame:
+            fi->pasid = to->u.devframe.pasid;
+            break;
+        case ObjType_RAM:
+            fi->pasid = to->u.ram.pasid;
+            break;
+        case ObjType_EndPointUMP:
+            fi->pasid = to->u.endpointump.pasid;
+            break;
+        default:
+            assert(false);
+    }
+
     return SYSRET(SYS_ERR_OK);
 }
 
@@ -739,7 +756,7 @@ monitor_create_cap(
     }
 
     /* For certain types, only foreign copies can be created here */
-    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+    if ((src->type == ObjType_EndPointLMP || src->type == ObjType_Dispatcher
          || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
         && owner == my_core_id)
     {
@@ -888,6 +905,117 @@ static struct sysret handle_idcap_identify(struct capability *to,
     return sys_idcap_identify(to, idp);
 }
 
+static struct sysret handle_devid_create(struct capability *cap,
+                                         arch_registers_state_t *context,
+                                         int argc)
+{
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    assert(cap->type == ObjType_DeviceIDManager);
+
+    capaddr_t cnode_cptr = sa->arg2;
+    capaddr_t cnode_level = sa->arg3;
+    uint16_t slot = sa->arg4;
+
+
+
+    uint32_t address = sa->arg5;
+    uint32_t segflags = sa->arg6;
+
+    struct capability devid;
+    devid.type = ObjType_DeviceID;
+    devid.u.deviceid.bus      = (uint8_t)(address >> 16);
+    devid.u.deviceid.device   = (uint8_t)(address >> 8);
+    devid.u.deviceid.function = (uint8_t)(address);
+    devid.u.deviceid.type     = (uint8_t)(address >> 24);
+    devid.u.deviceid.segment  = (uint16_t)(segflags >> 16);
+    devid.u.deviceid.flags    = (uint16_t)(segflags);
+
+    return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
+                                            cnode_cptr, cnode_level,
+                                            slot, my_core_id, &devid));
+}
+
+static struct sysret handle_devid_identify(struct capability *cap,
+                                           arch_registers_state_t *context,
+                                           int argc)
+{
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    // Return with physical base address of frame
+    assert(cap->type == ObjType_DeviceID);
+
+    struct device_identity *di = (struct device_identity *)sa->arg2; ;
+
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)di, sizeof(struct device_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    di->bus = cap->u.deviceid.bus;
+    di->device = cap->u.deviceid.device;
+    di->function = cap->u.deviceid.function;
+    di->flags = cap->u.deviceid.flags;
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+static struct sysret handle_endpoint_identify(struct capability *cap,
+                                              arch_registers_state_t *context,
+                                              int argc)
+{
+    // Return with physical base address of frame
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    struct endpoint_identity *eid = (struct endpoint_identity *)sa->arg2;
+
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)eid, sizeof(struct endpoint_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    switch(cap->type) {
+        case ObjType_EndPointUMP :
+            eid->base = cap->u.endpointump.base;
+            eid->length = cap->u.endpointump.bytes;
+            eid->iftype = cap->u.endpointump.iftype;
+            eid->eptype = cap->type;
+            break;
+        case ObjType_EndPointLMP :
+            eid->base   = (genpaddr_t) (uintptr_t) cap->u.endpointlmp.listener + cap->u.endpointlmp.epoffset;
+            eid->length = cap->u.endpointlmp.epbuflen;
+            eid->iftype = cap->u.endpointlmp.iftype;
+            eid->eptype = cap->type;
+            break;
+        default:
+            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+
+static struct sysret handle_set_endpoint_iftype(struct capability *cap, 
+                                                arch_registers_state_t *context,
+                                                int argc)
+{
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    uint16_t iftype = sa->arg2;
+
+    switch(cap->type) {
+        case ObjType_EndPointUMP :
+            cap->u.endpointump.iftype = iftype;
+            //printf("SET_IFTYPE: UMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointump.iftype);
+            break;
+        case ObjType_EndPointLMP :
+            cap->u.endpointlmp.iftype = iftype;
+            //printf("SET_IFTYPE: LMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
+            break;
+        default:
+            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
 
 static struct sysret handle_kcb_identify(struct capability *to,
                                   arch_registers_state_t *context,
@@ -1071,6 +1199,21 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_ID] = {
         [IDCmd_Identify] = handle_idcap_identify
+    },
+    [ObjType_DeviceIDManager] = {
+            [DeviceIDManager_CreateID] = handle_devid_create,
+    },
+    [ObjType_DeviceID] = {
+            [DeviceID_Identify] = handle_devid_identify,
+    },
+    [ObjType_EndPointLMP] = {
+        [EndPointCMD_Identify] = handle_endpoint_identify,
+        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
+    },
+    [ObjType_EndPointUMP] = {
+        [EndPointCMD_FrameIdentify] = handle_frame_identify,
+        [EndPointCMD_Identify] = handle_endpoint_identify,
+        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
     }
 };
 
@@ -1096,14 +1239,15 @@ handle_invoke(arch_registers_state_t *context, int argc)
     r.error = caps_lookup_cap(&dcb_current->cspace.cap,
                               invoke_cptr, invoke_level,
                               &to, CAPRIGHTS_READ);
+    
     if (err_is_ok(r.error))
     {
         assert(to != NULL);
         assert(to->type < ObjType_Num);
 
-        if (ObjType_EndPoint == to->type)
+        if (ObjType_EndPointLMP == to->type && !(flags & LMP_FLAG_IDENTIFY))
         {
-            struct dcb *listener = to->u.endpoint.listener;
+            struct dcb *listener = to->u.endpointlmp.listener;
             assert(listener != NULL);
 
             if (listener->disp) {
@@ -1184,9 +1328,11 @@ handle_invoke(arch_registers_state_t *context, int argc)
         }
         else
         {
+
             uint8_t cmd = (sa->arg0 >> 8)  & 0xff;
             if (cmd < CAP_MAX_CMD)
             {
+
                 invocation_t invocation = invocations[to->type][cmd];
                 if (invocation)
                 {

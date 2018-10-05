@@ -266,6 +266,5 @@ static inline size_t set_block_no(void *buf, uint16_t blockno) {
  * ------------------------------------------------------------------------------
  */
 errval_t tftp_send_ack(struct net_socket *socket, uint32_t blockno,
-                       struct in_addr addr, uint16_t port,
-                       void *payload);
+                       struct in_addr addr, uint16_t port);
 #endif /* TFTP_INTERNAL_H_ */

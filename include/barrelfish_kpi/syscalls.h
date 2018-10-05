@@ -42,6 +42,7 @@ struct sysret {
 #define SYSCALL_YIELD               1       ///< Yield the CPU
 #define SYSCALL_LRPC                2       ///< Fast LRPC
 
+
 /* Debug/Benchmarking system calls */
 #define SYSCALL_DEBUG               3     ///< Benchmarking and debug syscalls
 #define SYSCALL_REBOOT              4     ///< Reboot the machine

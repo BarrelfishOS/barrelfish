@@ -110,14 +110,19 @@ errval_t debug_dump_hw_ptables(void)
 
 void debug_printf(const char *fmt, ...)
 {
-    struct thread *me = thread_self();
+
     va_list argptr;
     char id[32] = "-";
     char str[1024];
+    struct thread *me = thread_self();
     size_t len;
+
+
 
     if (me) {
         snprintf(id, sizeof(id), "%"PRIuPTR, thread_get_id(me));
+    } else {
+        snprintf(id, sizeof(id), "-");
     }
     len = snprintf(str, sizeof(str), "\033[34m%.*s.\033[31m%u.%s\033[0m: ",
                    DISP_NAME_LEN, disp_name(), disp_get_current_core_id(), id);
@@ -132,7 +137,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -169,6 +174,12 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_Frame:
         return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":0x%" PRIuGENSIZE ")",
                         cap->u.frame.base, cap->u.frame.bytes);
+
+    case ObjType_EndPointUMP:
+        return snprintf(buf, len, "EndPoint UMP cap (0x%" PRIxGENPADDR ":0x%"
+                                   PRIuGENSIZE "), if=%" PRIu32,
+                        cap->u.endpointump.base, cap->u.endpointump.bytes,
+                        cap->u.endpointump.iftype);
 
     case ObjType_DevFrame:
         return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":%" PRIuGENSIZE ")",
@@ -226,13 +237,30 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "x86_64 PML4 at 0x%" PRIxGENPADDR,
                         cap->u.vnode_x86_64_pml4.base);
 
+    case ObjType_VNode_x86_64_pml5:
+        return snprintf(buf, len, "x86_64 PML5 at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_pml5.base);
+
+    case ObjType_VNode_VTd_root_table:
+        return snprintf(buf, len, "VTd Root Table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_vtd_root_table.base);
+
+    case ObjType_VNode_VTd_ctxt_table:
+        return snprintf(buf, len, "VTd Ctxt Table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_vtd_ctxt_table.base);
+
     case ObjType_Frame_Mapping:
+        mappingtype = "Frame";
+        goto ObjType_Mapping;
+    case ObjType_EndPointUMP_Mapping:
         mappingtype = "Frame";
         goto ObjType_Mapping;
     case ObjType_DevFrame_Mapping:
         mappingtype = "DevFrame";
         goto ObjType_Mapping;
-
+    case ObjType_VNode_x86_64_pml5_Mapping:
+        mappingtype = "x86_64 PML5";
+        goto ObjType_Mapping;
     case ObjType_VNode_x86_64_pml4_Mapping:
         mappingtype = "x86_64 PML4";
         goto ObjType_Mapping;
@@ -276,6 +304,13 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         mappingtype = "AARCH64 l3";
         goto ObjType_Mapping;
 
+    case ObjType_VNode_VTd_root_table_Mapping:
+        mappingtype = "VTd root table";
+        goto ObjType_Mapping;
+    case ObjType_VNode_VTd_ctxt_table_Mapping:
+        mappingtype = "VTd ctxt table";
+        goto ObjType_Mapping;
+
 ObjType_Mapping:
         return snprintf(buf, len, "%s Mapping (%s cap @%p, "
                                   "ptable cap @0x%p, entry=%hu, pte_count=%hu)",
@@ -296,9 +331,9 @@ ObjType_Mapping:
         return snprintf(buf, len, "IRQDest cap (vec: %"PRIu64", cpu: %"PRIu64")",
                 cap->u.irqdest.vector, cap->u.irqdest.cpu);
 
-    case ObjType_EndPoint:
+    case ObjType_EndPointLMP:
         return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",
-                        cap->u.endpoint.listener, cap->u.endpoint.epoffset);
+                        cap->u.endpointlmp.listener, cap->u.endpointlmp.epoffset);
 
     case ObjType_IO:
         return snprintf(buf, len, "IO cap (0x%hx-0x%hx)",
@@ -322,8 +357,14 @@ ObjType_Mapping:
         return snprintf(buf, len, "Domain capability (coreid 0x%" PRIxCOREID
                         " core_local_id 0x%" PRIx32 ")", cap->u.domain.coreid,
                         cap->u.domain.core_local_id);
+    case ObjType_DeviceIDManager:
+        return snprintf(buf, len, "DeviceID manager capability");
+    case ObjType_DeviceID:
+        return snprintf(buf, len, "DeviceID capability (%u.%u.%u",
+                        cap->u.deviceid.bus, cap->u.deviceid.device,
+                        cap->u.deviceid.function);
 
-    case ObjType_PerfMon:
+        case ObjType_PerfMon:
         return snprintf(buf, len, "PerfMon cap");
 
     case ObjType_Null:

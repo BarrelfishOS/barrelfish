@@ -17,7 +17,7 @@
 
 struct descq;
 
-typedef errval_t (*descq_create_t) (struct descq *q, bool notifications, uint8_t role, uint64_t *queue_id);
+typedef errval_t (*descq_create_t) (struct descq *q, uint64_t *queue_id);
 typedef errval_t (*descq_destroy_t) (struct descq *q);
 typedef errval_t (*descq_notify_t) (struct descq *q);
 typedef errval_t (*descq_register_t)(struct descq *q, struct capref cap,
@@ -47,6 +47,7 @@ struct descq_func_pointer {
  * @param name                  Name of the exported/connected to channel
  * @param exp                   Export desq_ctrl/descq_data flounder interface
  *                              (At least one of the sides of the channel hast to do so)
+ * @param queue_id              queue id                             
  * @param f                     Function pointers to be called on message recv
  *
  * @returns error on failure or SYS_ERR_OK on success
@@ -55,10 +56,44 @@ errval_t descq_create(struct descq** q,
                       size_t slots,
                       char* name,
                       bool exp,
-                      bool notifications,
-                      uint8_t role,
                       uint64_t *queue_id,
                       struct descq_func_pointer* f);
 
+/**
+ * @brief initialized a descriptor queue
+ *
+ * @param q                     Return pointer to the descriptor queue
+ * @param slots                 Number of slots in the queue
+ * @param ep                    Endpoint to connect to 
+ * @param exp                   Export desq_ctrl/descq_data flounder interface
+ *                              (At least one of the sides of the channel hast to do so)
+ * @param queue_id              queue id                             
+ * @param f                     Function pointers to be called on message recv
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+errval_t descq_create_with_ep(struct descq** q,
+                              size_t slots,
+                              struct capref ep,
+                              uint64_t *queue_id,
+                              struct descq_func_pointer* f);
+
+/**
+ * @brief Create an endpoint from an exporting queue. If the queue is not exporting,
+ *        the call will fail. 
+ *
+ * @param q                     Pointer to the descriptor queue
+ * @param slots                 Core on which the other EP will be used
+ * @param ep                    Returned endpoint
+ * @param exp                   Export desq_ctrl/descq_data flounder interface
+ *                              (At least one of the sides of the channel hast to do so)
+ * @param queue_id              queue id                             
+ * @param f                     Function pointers to be called on message recv
+ *
+ * @returns error on failure or SYS_ERR_OK on success
+ */
+errval_t descq_create_ep(struct descq* queue,
+                         coreid_t core,
+                         struct capref* ep);
 
 #endif /* DESCQ_H_ */

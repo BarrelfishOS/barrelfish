@@ -118,3 +118,30 @@ errval_t init_device_caps_manager(void)
     KALUGA_DEBUG("init_cap_manager DONE\n");
     return SYS_ERR_OK;
 }
+
+
+
+
+errval_t device_id_cap_create(struct capref dest, uint8_t type, uint16_t segment,
+                              uint8_t bus, uint8_t device,
+                              uint8_t function, uint16_t flags)
+{
+    errval_t err;
+
+    struct capref devman_cap = {
+        .cnode = cnode_task,
+        .slot = TASKCN_SLOT_DEVMAN
+    };
+
+    capaddr_t caddr = get_cnode_addr(dest);
+    uint8_t level = get_cnode_level(dest);
+    size_t  slot  = dest.slot;
+
+    uint32_t address = (((uint32_t)type) << 24) | (((uint32_t)bus) << 16)
+                            | (((uint32_t)device) << 8) | (uint32_t)function;
+    uint32_t segflags = (((uint32_t)segment) << 16) | (uint32_t) flags;
+
+    err =cap_invoke6(devman_cap, DeviceIDManager_CreateID, caddr,
+                     level, slot, address, segflags).error;
+    return err;
+}

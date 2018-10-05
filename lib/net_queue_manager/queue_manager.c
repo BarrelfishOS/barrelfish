@@ -810,7 +810,7 @@ static errval_t notify_queue(struct descq *queue)
 // }
 
 //static errval_t connect_ether_cb(void *st, struct net_queue_manager_binding *b)
-static errval_t create_queue(struct descq* q, bool notifications, uint8_t role, uint64_t *queue_id)
+static errval_t create_queue(struct descq* q, uint64_t *queue_id)
 {
     ETHERSRV_DEBUG("ether service got a connection!\n");
 
@@ -821,7 +821,8 @@ static errval_t create_queue(struct descq* q, bool notifications, uint8_t role, 
     // b->control(b, IDC_CONTROL_CLEAR_SYNC);
 
     // Create a new client for this connection
-    struct client_closure *cc = create_new_client((struct devq *)q, role, queue_id);
+    // TODO hardcoded to 1 might break it might break it
+    struct client_closure *cc = create_new_client((struct devq *)q, 1, queue_id);
     debug_printf("%s: %p regid:%ld\n", __func__, q, *queue_id);
     if (cc == NULL) {
         return ETHERSRV_ERR_NOT_ENOUGH_MEM;
@@ -928,7 +929,7 @@ void ethersrv_init(char *service_name, uint64_t queueid,
     
     debug_printf("Creating queue...\n");
     err = descq_create(&exp_queue, DESCQ_DEFAULT_SIZE, exported_queue_name,
-                       true, true, 0, &queue_id, &f);
+                       true, &queue_id, &f);
 
     assert(err_is_ok(err));
 

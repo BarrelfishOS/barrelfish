@@ -310,6 +310,11 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping)
     errval_t err;
     debug(SUBSYS_PAGING, "page_mappings_unmap(%hu pages)\n", info->pte_count);
 
+
+    if (!(pgtable->rights & CAPRIGHTS_WRITE)) {
+        return SYS_ERR_DEST_CAP_RIGHTS;
+    }
+
     // calculate page table address
     lvaddr_t pt = local_phys_to_mem(gen_phys_to_local_phys(get_address(pgtable)));
 

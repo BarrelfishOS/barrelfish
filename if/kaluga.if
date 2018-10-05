@@ -1,0 +1,31 @@
+/*
+ * Copyright (c) 2018, ETH Zürich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitätstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface kaluga "Kaluga to interface to request endpoints" {
+
+      /* Requests an endpoint for Device to PCI communcation*/
+	  rpc request_endpoint_cap(in uint8 type, in uint32 bus, in uint32 device, 
+                               in uint32 function, in uint32 vendor, in uint32 devid,
+                               out cap endpoint_cap, 
+                               out errval err);
+
+      /* Requests an endpoint cap to boostrap PCI to IOMMU communcation */
+	  rpc request_endpoint_cap_for_iommu(in uint8 type,
+                                         in uint32 index,
+                                         out cap endpoint_cap,
+                                         out errval err);
+
+      /* Requests an endpoint cap to the iommu */
+	  rpc request_iommu_endpoint_cap(in uint8 type,
+                                     in uint32 segment,
+                                     in uint32 bus, in uint32 device,
+                                     in uint32 function, 
+                                     out cap endpoint_cap, 
+                                     out errval err);
+};

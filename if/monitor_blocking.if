@@ -77,4 +77,10 @@ interface monitor_blocking "The monitor to client RPC interface" {
 
     /* Get arch-specific platform data. Size must match PI_ARCH_INFO_SIZE+1. */
     rpc get_platform_arch(out uint8 buf[length,256]);
+
+    /* Creates a new monitor binding and associates it with the endpoint */
+    rpc new_monitor_binding(in cap umpep, in bool do_bind, in uintptr id,
+                            out cap ep, out errval err);
+
+    rpc cap_needs_revoke_agreement(in cap c, in uintptr st, out errval err);
 };

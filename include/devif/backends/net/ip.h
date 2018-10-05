@@ -15,7 +15,13 @@
 #define UDP_PROT 0
 #define TCP_PROT 1
 
+//#define BENCH 1
+#ifdef BENCH
+#define BENCH_SIZE 100000
+#endif
 
+
+struct bench_ctl; 
 struct ip_q;
     
 struct __attribute__((packed)) eth_addr {
@@ -45,4 +51,8 @@ errval_t ip_destroy(struct ip_q* q);
 errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
                    uint8_t prot, uint32_t dst_ip, void(*interrupt)(void*), 
                    bool poll);
+
+void ip_get_netfilter_ep(struct ip_q* q, struct capref* ep);
+
+struct bench_ctl* ip_get_benchmark_data(struct ip_q* q, uint8_t type);
 #endif /* DEVIF_IP_H_ */

@@ -16,7 +16,12 @@
 #include "monitor.h"
 #include <barrelfish/monitor_client.h>
 #include <barrelfish_kpi/platform.h>
+#include <barrelfish_kpi/capbits.h>
 #include "capops.h"
+#include "include/monitor.h"
+
+
+
 
 // workaround inlining bug with gcc 4.4.1 shipped with ubuntu 9.10 and 4.4.3 in Debian
 #if defined(__i386__) && defined(__GNUC__) \
@@ -74,6 +79,7 @@ static void remote_cap_revoke(struct monitor_blocking_binding *b,
     struct domcapref cap = { .croot = croot, .cptr = src, .level = level };
     capops_revoke(cap, revoke_reply_status, (void*)b);
 }
+
 
 static void rsrc_manifest(struct monitor_blocking_binding *b,
                           struct capref dispcap, const char *str)
@@ -582,6 +588,139 @@ static void get_platform_arch(struct monitor_blocking_binding *b)
     }
 }
 
+
+static void new_monitor_binding(struct monitor_blocking_binding *b,
+                                struct capref ep, bool export,
+                                uintptr_t domain_id)
+{
+    errval_t err;
+    struct capref retcap;
+    struct remote_conn_state *conn = NULL;
+    uintptr_t conn_id = 0;
+
+    struct monitor_lmp_binding *lmpb = malloc(sizeof(*lmpb));
+    if (lmpb == NULL) {
+        err = LIB_ERR_MALLOC_FAIL;
+        goto out;
+    }
+
+    // setup our end of the binding
+    err = monitor_client_lmp_accept(lmpb, get_default_waitset(),
+                                    DEFAULT_LMP_BUF_WORDS);
+    if (err_is_fail(err)) {
+        err = err_push(err, LIB_ERR_MONITOR_CLIENT_ACCEPT);
+        goto out_err2;
+    }
+
+    retcap = lmpb->chan.local_cap;
+    monitor_server_init(&lmpb->b);
+
+    if (!capref_is_null(ep)) {
+
+        struct endpoint_identity epid;
+        err = invoke_endpoint_identify(ep, &epid);
+        if (err_is_fail(err)) {
+            goto out_err3;
+        }
+
+        uint8_t level = get_cap_level(ep);
+        capaddr_t caddr = get_cap_addr(ep);
+
+        coreid_t owner;
+        err = monitor_get_cap_owner(cap_root, caddr, level, &owner);
+        if (err_is_fail(err)) {
+            goto out_err3;
+        }
+
+        if (export && owner != my_core_id) {
+            debug_printf("XXX: wrong owner\n");
+            err = -1;
+            goto out_err3;
+        }
+
+        err = remote_conn_alloc(&conn, &conn_id, REMOTE_CONN_UMP);
+        if (err_is_fail(err)) {
+            goto out_err3;
+        }
+
+        conn->x.ump.epid = epid;
+        conn->x.ump.frame = ep;
+        conn->domain_binding = &lmpb->b;
+        conn->core_id = owner;
+        conn->domain_id = domain_id;
+
+        if (export) {
+            /* set the connection state */
+
+            struct monitor_state *st = lmpb->b.st;
+            st->conn = conn;
+        } else {
+            struct intermon_binding *ib;
+            err = intermon_binding_get(owner, &ib);
+            if (err_is_fail(err)) {
+                goto out_err4;
+            }
+            assert(ib);
+
+            conn->mon_binding = ib;
+
+            err = ump_route_setup(ib, b, conn);
+            if (err_is_fail(err)) {
+                goto out_err4;
+            }
+
+            /* don't send an reply just yet */
+            return;
+        }
+    }
+
+    out:
+
+    err = b->tx_vtbl.new_monitor_binding_response(b, NOP_CONT, retcap, err);
+    assert(err_is_ok(err));
+
+    return;
+
+    out_err4:
+    free(conn);
+    out_err3:
+    monitor_lmp_destroy(lmpb);
+    out_err2:
+    retcap = NULL_CAP;
+    free(lmpb);
+    goto out;
+}
+
+
+static void cap_needs_revoke_agreement_request(struct monitor_blocking_binding *b,
+                                        struct capref cap,
+                                        uintptr_t id)
+{
+    errval_t err;
+
+    struct capability rawcap;
+    err = monitor_cap_identify(cap, &rawcap);
+    if (err_is_fail(err)) {
+        goto send_reply;
+    }
+
+    /* we don't need the cap anymore */
+    cap_destroy(cap);
+
+    if (!type_is_mappable(rawcap.type)) {
+        goto send_reply;
+    }
+
+    /* the monitor binding is in the state of the blocking binding */
+    assert(b->st);
+    err = capops_revoke_register_subscribe(&rawcap, id, b->st);
+
+    send_reply:
+    err = b->tx_vtbl.cap_needs_revoke_agreement_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
+
 /*------------------------- Initialization functions -------------------------*/
 
 static struct monitor_blocking_rx_vtbl rx_vtbl = {
@@ -615,35 +754,44 @@ static struct monitor_blocking_rx_vtbl rx_vtbl = {
 
     .get_platform_call = get_platform,
     .get_platform_arch_call = get_platform_arch,
+
+    .new_monitor_binding_call = new_monitor_binding,
+    .cap_needs_revoke_agreement_call = cap_needs_revoke_agreement_request
 };
 
-static void export_callback(void *st, errval_t err, iref_t iref)
-{
-    assert(err_is_ok(err));
-    set_monitor_rpc_iref(iref);
-}
 
-static errval_t connect_callback(void *st, struct monitor_blocking_binding *b)
-{
-    b->rx_vtbl = rx_vtbl;
 
-    // TODO: set error handler
+
+errval_t monitor_rpc_server_create_endpoint(struct capref *ep,
+                                            struct monitor_binding *mb)
+{
+    errval_t err;
+
+    assert(ep);
+    assert(mb);
+
+    struct capref monep;
+    err = slot_alloc(&monep);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_SLOT_ALLOC);
+    }
+    
+    struct monitor_blocking_binding *mbb;
+    err = monitor_blocking_lmp_create_endpoint(&rx_vtbl, mb, get_default_waitset(),
+                                               DEFAULT_LMP_BUF_WORDS,
+                                               IDC_ENDPOINT_FLAGS_DUMMY,
+                                               &mbb, monep);
+    if (err_is_fail(err)) {
+        slot_free(monep);
+        monep = NULL_CAP;
+    }
+
+    *ep = monep;
+
     return SYS_ERR_OK;
 }
 
 errval_t monitor_rpc_init(void)
 {
-    static struct monitor_blocking_export e = {
-        .connect_cb = connect_callback,
-        .common = {
-            .export_callback = export_callback,
-            .flags = IDC_EXPORT_FLAGS_DEFAULT,
-            .connect_cb_st = &e,
-            .lmp_connect_callback = monitor_blocking_lmp_connect_handler,
-        }
-    };
-
-    e.waitset = get_default_waitset();
-
-    return idc_export_service(&e.common);
+    return SYS_ERR_OK;
 }

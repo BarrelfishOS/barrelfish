@@ -12,6 +12,9 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#ifndef MONITOR_CONNECTION_H_
+#define MONITOR_CONNECTION_H_ 1
+
 struct monitor_binding;
 struct intermon_binding;
 
@@ -48,8 +51,11 @@ lmp_conn_lookup(uintptr_t con_id)
 }
 
 struct remote_conn_state {
+    struct remote_conn_state *prev,*next;
     uintptr_t domain_id;
     struct monitor_binding *domain_binding;
+
+
     uintptr_t mon_id;
     struct intermon_binding *mon_binding;
     coreid_t core_id;                       // core id of other side of channel
@@ -59,40 +65,21 @@ struct remote_conn_state {
     union {
         struct {
             struct capref frame; // shared frame
+            struct endpoint_identity epid;
         } ump;
     } x;
 };
 
-static inline errval_t
-remote_conn_alloc(struct remote_conn_state **con, uintptr_t *con_id,
-                  enum remote_conn_type type)
+errval_t remote_conn_alloc(struct remote_conn_state **con, uintptr_t *con_id,
+                           enum remote_conn_type type);
+errval_t remote_conn_free(uintptr_t con_id);
+
+struct remote_conn_state *remote_conn_lookup(uintptr_t con_id);
+struct remote_conn_state *remote_conn_lookup_by_ep(genpaddr_t ep, uint16_t type);
+static inline uintptr_t remote_conn_get_id(struct remote_conn_state *st)
 {
-    struct remote_conn_state *mem = malloc(sizeof(struct remote_conn_state));
-    assert(mem != NULL);
-
-    *con = mem;
-    *con_id = (uintptr_t)mem;
-    mem->type = type;
-
-    return SYS_ERR_OK;
+    return (uintptr_t)st;
 }
-
-static inline errval_t
-remote_conn_free(uintptr_t con_id)
-{
-    struct remote_conn_state *mem = (struct remote_conn_state*)con_id;
-    assert(mem != NULL);
-
-    free(mem);
-    return SYS_ERR_OK;
-}
-
-static inline struct remote_conn_state *
-remote_conn_lookup(uintptr_t con_id)
-{
-    return (struct remote_conn_state *)con_id;
-}
-
 
 struct span_state {
     uint8_t core_id;
@@ -125,3 +112,6 @@ span_state_lookup(uintptr_t id)
 {
     return (struct span_state *)id;
 }
+
+
+#endif /// MONITOR_CONNECTION_H_

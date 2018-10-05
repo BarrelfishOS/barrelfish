@@ -154,7 +154,8 @@ let
                          "amd_vmcb",
                          "cpuid",
                          "lpc_rtc",
-                         "lpc_timer" ],
+                         "lpc_timer",
+                         "vtd"],
      addLibraries = [ "elf_kernel" ]
      },
   --

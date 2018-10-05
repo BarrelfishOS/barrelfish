@@ -10,9 +10,8 @@
 #ifndef IOAT_MGR_SERVICE_H_
 #define IOAT_MGR_SERVICE_H_
 
-#include <if/ioat_dma_mgr_defs.h>
-
 struct ioat_dev_handle;
+struct ioat_dma_mgr_binding;
 
 errval_t ioat_mgr_svc_init(void);
 

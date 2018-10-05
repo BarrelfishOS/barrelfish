@@ -3,7 +3,7 @@
 
     Part of Sockeye
 
-    Copyright (c) 2017, ETH Zurich.
+    Copyright (c) 2018, ETH Zurich.
 
     All rights reserved.
 
@@ -16,57 +16,36 @@
 module SockeyeChecks where
 
 import Control.Monad.Writer
+import Data.List (sortBy)
 
-import Data.List (nub, sort)
+import SockeyeASTMeta
 
-data FailedCheck t = FailedCheck
-    { inModule :: !String
-    , failed   :: t
-    }
+class CheckFailure a where
+    errorLines :: a -> [String]
 
-newtype FailedChecks t = FailedChecks [FailedCheck t]
+newtype FailedChecks f = FailedChecks [(ASTMeta,f)]
 
-instance (Show t) => Show (FailedChecks t) where
-    show (FailedChecks fs) = 
-        let modules = sort  (nub $  map inModule fs)
-        in unlines $ concat (map showFailsForModule modules)
+instance (CheckFailure f) => Show (FailedChecks f) where
+    show (FailedChecks fs) = concat (map showFail $ sortBy failCompare fs)
         where
-            showFailsForModule name =
-                let
-                    title = "\nIn module '" ++ name ++ "':"
-                    fails = filter (\f -> name == inModule f) fs
-                in case name of
-                    ('@':_) -> "":showFails 0 fails
-                    _       -> title:showFails 1 fails
-            showFails indentLevel fs =
-                let
-                    indent = replicate (indentLevel * 4) ' '
-                    failStrings = nub $ map showFail fs
-                in map (indent ++) failStrings
-            showFail f = (show $ failed f)
+            failCompare a b = compare (fst a) (fst b)
+            showFail (m,f) = '\n':(show m) ++ '\n':(unlines $ map ("    " ++) (errorLines f))
 
-type Checks f = Writer [FailedCheck f]
+type Checks f = Writer [(ASTMeta,f)]
 
-failCheck :: String -> t -> Checks t ()
-failCheck context f = tell [FailedCheck context f]
+failCheck :: ASTMeta -> f -> Checks f ()
+failCheck m f = tell [(m,f)]
 
 runChecks :: Checks f a -> Either (FailedChecks f) a
-runChecks checks = do
-    let
-        (a, fs) = runWriter checks
+runChecks checks =
+    let (a, fs) = runWriter checks in
     case fs of
-        [] -> return a
+        [] -> Right a
         _  -> Left $ FailedChecks fs
 
-checkDuplicates :: (Eq a) => String  -> (a -> t) -> [a] -> (Checks t) ()
-checkDuplicates context fail xs = do
-    let
-        ds = duplicates xs
-    case ds of
-        [] -> return ()
-        _  -> mapM_ (failCheck context . fail) ds
+foldChecks :: (Foldable t) => (a -> b -> Checks f b) -> b -> t a -> Checks f b
+foldChecks fn acc as = foldl foldfn (return acc) as
     where
-        duplicates [] = []
-        duplicates (x:xs)
-            | x `elem` xs = nub $ [x] ++ duplicates xs
-            | otherwise = duplicates xs
+        foldfn m a = do
+            b <- m
+            fn a b

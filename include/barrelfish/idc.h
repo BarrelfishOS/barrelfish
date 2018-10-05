@@ -48,6 +48,21 @@ typedef enum idc_bind_flags {
 
 #define IDC_BIND_FLAGS_DEFAULT 0
 
+
+typedef enum idc_endpoint_type {
+    IDC_ENDPOINT_LMP = 1<<0,
+    IDC_ENDPOINT_UMP = 1<<1,
+} idc_endpoint_t;
+
+
+typedef enum idc_endpoint_flags {
+    IDC_ENDPOINT_FLAGS_DUMMY = 1,
+} idc_endpoint_flags_t;
+
+#define IDC_ENDPOINT_FLAGS_DEFAULT 0
+
+
+
 #ifdef CONFIG_INTERCONNECT_DRIVER_LMP
 #include <barrelfish/lmp_chan.h>
 #endif

@@ -26,6 +26,8 @@
 #include <net/arp.h>
 #include "../headers.h"
 
+#include <bench/bench.h>
+
 #define MAX_NUM_REGIONS 64
 
 //#define DEBUG_ENABLED
@@ -53,10 +55,19 @@ struct pkt_ip_headers {
 struct ip_q {
     struct devq my_q;
     struct devq* q;
+    struct capref filter_ep; // connection to cards filter interface
     struct pkt_ip_headers header; // can fill in this header and reuse it by copying
     struct region_vaddr regions[MAX_NUM_REGIONS];
     struct net_filter_state* filter;
     uint16_t hdr_len;
+
+    const char* name;
+#ifdef BENCH
+    bench_ctl_t en_rx;
+    bench_ctl_t en_tx;
+    bench_ctl_t deq_rx;
+    bench_ctl_t deq_tx;
+#endif
 };
 
 
@@ -152,16 +163,46 @@ static errval_t ip_enqueue(struct devq* q, regionid_t rid,
 
         memcpy(start, &que->header, sizeof(que->header));   
 
+#ifdef BENCH
+        uint64_t b_start, b_end;
+        errval_t err;
+            
+        b_start = rdtscp();
+        err = que->q->f.enq(que->q, rid, offset, length, valid_data, 
+                            valid_length+sizeof(struct pkt_ip_headers), flags);
+        b_end = rdtscp();
+        if (err_is_ok(err)) {
+            uint64_t res = b_end - b_start;
+            bench_ctl_add_run(&que->en_tx, &res);
+        }
+        return err;
+#else
         return que->q->f.enq(que->q, rid, offset, length, valid_data, 
                              valid_length+sizeof(struct pkt_ip_headers), flags);
+#endif
     } 
 
     if (flags & NETIF_RXFLAG) {
         assert(valid_length <= 2048);    
         DEBUG("RX rid: %d offset %ld length %ld valid_length %ld \n", rid, offset, 
               length, valid_length);
+#ifdef BENCH
+        uint64_t start, end;
+        errval_t err;
+            
+        start = rdtscp();
+        err = que->q->f.enq(que->q, rid, offset, length, valid_data, 
+                             valid_length, flags);
+        end = rdtscp();
+        if (err_is_ok(err)) {
+            uint64_t res = end - start;
+            bench_ctl_add_run(&que->en_rx, &res);
+        }
+        return err;
+#else
         return que->q->f.enq(que->q, rid, offset, length, valid_data, 
                              valid_length, flags);
+#endif
     } 
 
     return NET_QUEUE_ERR_UNKNOWN_BUF_TYPE;
@@ -174,10 +215,20 @@ static errval_t ip_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset,
     errval_t err;
     struct ip_q* que = (struct ip_q*) q;
 
+#ifdef BENCH
+    uint64_t start, end;
+    start = rdtscp();
+    err = que->q->f.deq(que->q, rid, offset, length, valid_data, valid_length, flags);
+    end = rdtscp();
+    if (err_is_fail(err)) {  
+        return err;
+    }
+#else
     err = que->q->f.deq(que->q, rid, offset, length, valid_data, valid_length, flags);
     if (err_is_fail(err)) {  
         return err;
     }
+#endif
 
     if (*flags & NETIF_RXFLAG) {
         DEBUG("RX rid: %d offset %ld valid_data %ld length %ld va %p \n", *rid, 
@@ -210,12 +261,21 @@ static errval_t ip_dequeue(struct devq* q, regionid_t* rid, genoffset_t* offset,
         *valid_data = IP_HLEN + ETH_HLEN;
         *valid_length = ntohs(header->ip._len) - IP_HLEN;
         //print_buffer(que, que->regions[*rid % MAX_NUM_REGIONS].va + *offset+ *valid_data, *valid_length);
+        //
+
+#ifdef BENCH
+        uint64_t res = end - start;
+        bench_ctl_add_run(&que->deq_rx, &res);
+#endif
         return SYS_ERR_OK;
     }
 
-#ifdef DEBUG_ENABLED
     DEBUG("TX rid: %d offset %ld length %ld \n", *rid, *offset, 
           *valid_length);
+
+#ifdef BENCH
+        uint64_t res = end - start;
+        bench_ctl_add_run(&que->deq_tx, &res);
 #endif
 
     return SYS_ERR_OK;
@@ -231,10 +291,11 @@ errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
     errval_t err;
     struct ip_q* que;
     que = calloc(1, sizeof(struct ip_q));
+    que->name = card_name;
     assert(que);
 
     // init other queue
-    err = net_queue_create(interrupt, card_name, qid, poll, &que->q);
+    err = net_queue_create(interrupt, card_name, NULL, qid, poll, &que->filter_ep, &que->q);
     if (err_is_fail(err)) {
         return err;
     }
@@ -301,6 +362,34 @@ errval_t ip_create(struct ip_q** q, const char* card_name, uint64_t* qid,
     }
     */
 
+#ifdef BENCH
+    bench_init();
+   
+    que->en_tx.mode = BENCH_MODE_FIXEDRUNS;
+    que->en_tx.result_dimensions = 1;
+    que->en_tx.min_runs = BENCH_SIZE;
+    que->en_tx.data = calloc(que->en_tx.min_runs * que->en_tx.result_dimensions,
+                       sizeof(*que->en_tx.data));
+
+    que->en_rx.mode = BENCH_MODE_FIXEDRUNS;
+    que->en_rx.result_dimensions = 1;
+    que->en_rx.min_runs = BENCH_SIZE;
+    que->en_rx.data = calloc(que->en_rx.min_runs * que->en_rx.result_dimensions,
+                       sizeof(*que->en_rx.data));
+
+    que->deq_rx.mode = BENCH_MODE_FIXEDRUNS;
+    que->deq_rx.result_dimensions = 1;
+    que->deq_rx.min_runs = BENCH_SIZE;
+    que->deq_rx.data = calloc(que->deq_rx.min_runs * que->deq_rx.result_dimensions,
+                       sizeof(*que->deq_rx.data));
+
+    que->deq_tx.mode = BENCH_MODE_FIXEDRUNS;
+    que->deq_tx.result_dimensions = 1;
+    que->deq_tx.min_runs = BENCH_SIZE;
+    que->deq_tx.data = calloc(que->deq_tx.min_runs * que->deq_tx.result_dimensions,
+                       sizeof(*que->deq_tx.data));
+#endif
+
     return SYS_ERR_OK;
 }
 
@@ -312,5 +401,35 @@ errval_t ip_destroy(struct ip_q* q)
     return SYS_ERR_OK;
 }
 
+void ip_get_netfilter_ep(struct ip_q* q, struct capref* ep)
+{
+    *ep = q->filter_ep;
+}
 
+struct bench_ctl* ip_get_benchmark_data(struct ip_q* q, uint8_t type)
+{
+    switch (type) {
+#ifdef BENCH
+        case 0:
+            return &q->en_rx;
+        case 1:
+            return &q->en_tx;
+        case 2:
+            return &q->deq_rx;
+        case 3:
+            return &q->deq_tx;
+#endif
+        case 4:
+            return net_queue_get_bench_data((struct devq*) q->q, q->name, 0);
+        case 5:
+            return net_queue_get_bench_data((struct devq*) q->q, q->name, 1);
+        case 6:
+            return net_queue_get_bench_data((struct devq*) q->q, q->name, 2);
+        case 7:
+            return net_queue_get_bench_data((struct devq*) q->q, q->name, 3);
+        default:
+            return NULL;
+    }
+    return NULL;
+}
 

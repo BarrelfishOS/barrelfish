@@ -331,7 +331,7 @@ svm_vmkit_vmenter (struct dcb *dcb)
         }
 
         // run the monitor
-        dispatch(dcb->guest_desc.monitor_ep.cap.u.endpoint.listener);
+        dispatch(dcb->guest_desc.monitor_ep.cap.u.endpointlmp.listener);
 	break;
     }
 }

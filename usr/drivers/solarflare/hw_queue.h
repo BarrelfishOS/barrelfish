@@ -19,6 +19,13 @@
 #include <dev/sfn5122f_dev.h>
 #include "helper.h"
 
+//#define BENCH_QUEUE 1
+
+#ifdef BENCH_QUEUE
+#define BENCH_SIZE 100000
+#include <bench/bench.h>
+#endif
+
 #define MTU_MAX 2048
 
 struct sfn5122f_devif_binding;
@@ -42,6 +49,15 @@ struct region_entry {
 
 struct sfn5122f_queue {
     struct devq q;
+
+
+#ifdef BENCH_QUEUE
+    struct bench_ctl en_tx;
+    struct bench_ctl en_rx;
+    struct bench_ctl deq_rx;
+    struct bench_ctl deq_tx;
+#endif
+
     union {
         sfn5122f_q_tx_user_desc_array_t* user;
         sfn5122f_q_tx_ker_desc_array_t* ker;
@@ -71,6 +87,7 @@ struct sfn5122f_queue {
     void*                           opaque;
     bool                            userspace;
 
+    struct capref filter_ep;
     // For batchin of TX events, maximum of 32
     // entries since there can be a maximum of 
     // TX_CACHE descriptors per event
@@ -98,6 +115,8 @@ struct sfn5122f_queue {
     sfn5122f_t *device;
     void* device_va;
     struct region_entry* regions;
+
+
 };
 
 typedef struct sfn5122f_queue sfn5122f_queue_t;
@@ -155,6 +174,38 @@ static inline sfn5122f_queue_t* sfn5122f_queue_init(void* tx,
     }
     /* all 0 is potential valid event */
     memset(ev, 0xff, ev_size * sfn5122f_q_event_entry_size);
+
+#ifdef BENCH_QUEUE
+    q->en_tx.mode = BENCH_MODE_FIXEDRUNS;
+    q->en_tx.result_dimensions = 1;
+    q->en_tx.min_runs = BENCH_SIZE;
+    q->en_tx.data = calloc(q->en_tx.min_runs * q->en_tx.result_dimensions,
+                       sizeof(*q->en_tx.data));
+    assert(q->en_tx.data != NULL);
+
+    q->en_rx.mode = BENCH_MODE_FIXEDRUNS;
+    q->en_rx.result_dimensions = 1;
+    q->en_rx.min_runs = BENCH_SIZE;
+    q->en_rx.data = calloc(q->en_rx.min_runs * q->en_rx.result_dimensions,
+                       sizeof(*q->en_rx.data));
+    assert(q->en_rx.data != NULL);
+
+    q->deq_rx.mode = BENCH_MODE_FIXEDRUNS;
+    q->deq_rx.result_dimensions = 1;
+    q->deq_rx.min_runs = BENCH_SIZE;
+    q->deq_rx.data = calloc(q->deq_rx.min_runs * q->deq_rx.result_dimensions,
+                       sizeof(*q->deq_rx.data));
+    assert(q->deq_rx.data != NULL);
+
+    q->deq_tx.mode = BENCH_MODE_FIXEDRUNS;
+    q->deq_tx.result_dimensions = 1;
+    q->deq_tx.min_runs = BENCH_SIZE;
+    q->deq_tx.data = calloc(q->deq_tx.min_runs * q->deq_tx.result_dimensions,
+                       sizeof(*q->deq_tx.data));
+
+    assert(q->deq_tx.data != NULL);
+#endif
+
     return q;
 }
 
@@ -326,12 +377,10 @@ static inline int sfn5122f_queue_add_rxbuf_devif(sfn5122f_queue_t* q,
                                                  genoffset_t valid_length,
                                                  uint64_t flags)
 {
+
+
     struct devq_buf* buf;
-    sfn5122f_q_rx_ker_desc_t d;
     size_t tail = q->rx_tail;
-
-    d = q->rx_ring.ker[tail];
-
     buf = &q->rx_bufs[tail];
 
     buf->rid = rid;
@@ -341,11 +390,26 @@ static inline int sfn5122f_queue_add_rxbuf_devif(sfn5122f_queue_t* q,
     buf->valid_length = valid_length;
     buf->flags = flags;
 
+#ifdef BENCH_QUEUE
+    uint64_t start, end;
+    start = rdtscp();
+#endif
+
+    sfn5122f_q_rx_ker_desc_t d;
+    d = q->rx_ring.ker[tail];
+
     sfn5122f_q_rx_ker_desc_rx_ker_buf_addr_insert(d, addr);
     sfn5122f_q_rx_ker_desc_rx_ker_buf_region_insert(d, 0);
     // TODO: Check size
     sfn5122f_q_rx_ker_desc_rx_ker_buf_size_insert(d, length);
     sfn5122f_queue_bump_rxtail(q);
+
+#ifdef BENCH_QUEUE
+    end = rdtscp();
+    uint64_t res = end - start;
+    bench_ctl_add_run(&q->en_rx, &res);
+#endif
+
     return 0;
 }
 
@@ -358,7 +422,12 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
                                                          genoffset_t* valid_data,
                                                          genoffset_t* valid_length,
                                                          uint64_t* flags)
-{   
+{
+   
+#ifdef BENCH_QUEUE
+    uint64_t start, end;
+    start = rdtscp();
+#endif
     errval_t err = SYS_ERR_OK;
     /*  Only one event is generated even if there is more than one
         descriptor per packet  */
@@ -431,6 +500,12 @@ static inline errval_t sfn5122f_queue_handle_rx_ev_devif(sfn5122f_queue_t* q,
     /* only have to reset event entry */
     sfn5122f_queue_clear_ev(ev);
     sfn5122f_queue_bump_rxhead(q);
+
+#ifdef BENCH_QUEUE
+    end = rdtscp();
+    uint64_t res = end - start;
+    bench_ctl_add_run(&q->deq_rx, &res);
+#endif
     return err;
 }
 
@@ -481,6 +556,10 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
                                                          genoffset_t* valid_length,
                                                          uint64_t* flags)
 {
+#ifdef BENCH_QUEUE
+    uint64_t start, end;
+    start = rdtscp();
+#endif
     errval_t err = SYS_ERR_OK;
 
     /*  Only one event is generated even if there is more than one
@@ -569,6 +648,12 @@ static inline errval_t sfn5122f_queue_handle_tx_ev_devif(sfn5122f_queue_t* q,
     // reset entry event in queue
     sfn5122f_queue_clear_ev(ev);
 
+#ifdef BENCH_QUEUE
+    end = rdtscp();
+    uint64_t res = end - start;
+    bench_ctl_add_run(&q->deq_tx, &res);
+#endif
+
     return err;
 }
 
@@ -581,11 +666,10 @@ static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q,
                                                  genoffset_t valid_length,
                                                  uint64_t flags)
 {
+
     struct devq_buf* buf;
-    sfn5122f_q_tx_ker_desc_t d;
     size_t tail = q->tx_tail;
 
-    d = q->tx_ring.ker[tail];
 
     assert(tail < q->tx_size);
 
@@ -599,6 +683,14 @@ static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q,
     buf->valid_length = valid_length;
     buf->flags = flags;
 
+#ifdef BENCH_QUEUE
+    uint64_t start, end;
+    start = rdtscp();
+#endif
+
+    sfn5122f_q_tx_ker_desc_t d;
+    d = q->tx_ring.ker[tail];
+
     sfn5122f_q_tx_ker_desc_tx_ker_buf_addr_insert(d, addr + valid_data);
     sfn5122f_q_tx_ker_desc_tx_ker_byte_count_insert(d, valid_length);
     sfn5122f_q_tx_ker_desc_tx_ker_cont_insert(d, !last);
@@ -607,7 +699,13 @@ static inline int sfn5122f_queue_add_txbuf_devif(sfn5122f_queue_t* q,
     sfn5122f_queue_bump_txtail(q);
 
     __sync_synchronize();
- 
+
+#ifdef BENCH_QUEUE
+    end = rdtscp();
+    uint64_t res = end - start;
+    bench_ctl_add_run(&q->en_tx, &res);
+#endif
+
     return 0;
 }
 
@@ -651,6 +749,25 @@ static inline int sfn5122f_queue_add_user_txbuf_devif(sfn5122f_queue_t* q,
  
     sfn5122f_queue_bump_txtail(q);
     return 0;
+}
+
+static inline struct bench_ctl* sfn5122f_queue_get_benchmark_data(sfn5122f_queue_t* q, uint8_t type)
+{
+#ifdef BENCH_QUEUE
+    switch (type) {
+        case 0:
+            return &q->en_rx;
+        case 1:
+            return &q->en_tx;
+        case 2:
+            return &q->deq_rx;
+        case 3:
+            return &q->deq_tx;
+        default:
+            return NULL;
+    }
+#endif
+    return NULL;
 }
 
 #endif //ndef SFN5122F_CHANNEL_H_

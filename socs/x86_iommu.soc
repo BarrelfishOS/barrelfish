@@ -1,0 +1,131 @@
+module IOMMU {
+    input memory (0 bits 40) IN
+    output memory (0 bits 40) OUT
+
+    //IN maps [
+    //    (0x000000 to 0xffffff) to OUT at (0x000000 to 0xffffff)
+    //]
+
+}
+
+// Instantiate this module for a vanilla PCI device
+module PCI {
+    output memory (0 bits 40) OUT           // Addresses issued by device
+}
+
+// Instantiate this module for a IOMMU protected PCI device
+module PCI_IOMMU {
+    output memory (0 bits 40) OUT
+
+    instance PCI0 of PCI 
+    PCI0 instantiates PCI
+    
+    instance IOMMU0 of IOMMU
+    IOMMU0 instantiates IOMMU
+
+    PCI0 binds [
+        OUT to IOMMU0.IN
+    ]
+
+    IOMMU0 binds [
+        OUT to OUT
+    ]
+}
+
+module PROC {
+   output memory (0 bits 40) OUT //Virtual address bits
+}
+
+module MMU {
+    input memory (0 bits 40) IN
+    output memory (0 bits 40) OUT
+    //IN maps [
+    //    (0x000000 to 0xffffff) to OUT at (0x000000 to 0xffffff)
+    //]
+}
+
+module PROC_MMU {
+    output memory (0 bits 40) OUT
+
+    instance PROC0 of PROC
+    PROC0 instantiates PROC
+
+    instance MMU0 of MMU
+    MMU0 instantiates MMU
+
+    PROC0 binds [
+        OUT to MMU0.IN 
+    ]
+
+    MMU0 binds [
+        OUT to OUT
+    ]
+}
+
+module SYSTEM {
+    memory (0 bits 40) DRAM
+    // DRAM accepts [(0 to 0x1ffffffff)] // Dynamically instantiated
+
+    memory (0 bits 40) PCIBUS
+    PCIBUS overlays DRAM
+
+    // Mappings from PCIBUS to PCI devices will be added dynamically
+    // Adding processes and MMUs will be dynamically
+}
+
+
+// This module must have the same signature as PCI
+module XEONPHI {
+    // BAR0 --> GDDR Aperture
+    // BAR1 --> MMIO Aperture
+
+    output memory (0 bits 40) OUT           // Addresses issued by device
+
+    memory (0 bits 40) GDDR
+    GDDR accepts [(0x000000000 to 0x1ffffffff)]
+
+    memory (0 bits 40) SMPT_IN
+    SMPT_IN blockoverlays OUT bits(34) // SMPT remaps in 16GB blocks
+
+    memory (0 bits 16) MMIO
+    MMIO accepts [(0x0 to 0xfffff)]
+
+    memory (0 bits 40) KNC_SOCKET
+    KNC_SOCKET maps [
+        (0x0000000000 to 0x1ffffffff) to GDDR at (0x000000000 to 0x1ffffffff);
+        (0x8000000000 to 0xffffffffff) to SMPT_IN at (0x0 to 0x7fffffffff); // 512GB
+        (0x08007D0000 to 0x08007effff) to MMIO at (0x0 to 0xfffff)
+    ]
+
+    memory (0 bits 40) LAPIC
+    LAPIC accepts [(0 to 0xfff)]
+
+    memory (0 bits 40) K1OM_CORE
+    K1OM_CORE maps [
+        (0xfee00000 to 0xfee00fff) to LAPIC at (0 to 0xfff)
+    ]
+
+    K1OM_CORE overlays KNC_SOCKET
+
+    memory (0 bits 40) DMA
+    DMA overlays KNC_SOCKET
+}
+
+// This module must have the same signature as PCI_IOMMU
+module XEONPHI_IOMMU {
+    output memory (0 bits 40) OUT
+
+    instance PCI0 of XEONPHI 
+    PCI0 instantiates XEONPHI
+    
+    instance IOMMU0 of IOMMU
+    IOMMU0 instantiates IOMMU
+
+    PCI0 binds [
+        OUT to IOMMU0.IN
+    ]
+
+    IOMMU0 binds [
+        OUT to OUT
+    ]
+}

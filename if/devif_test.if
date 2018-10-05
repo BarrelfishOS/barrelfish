@@ -1,0 +1,17 @@
+/*
+ * Copyright (c) 2018, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitätstrasse 6, CH-8006 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * This interface is used for the devq test to request an endpoint of an 
+ * exporting descq
+ */
+interface devif_test "Devif test interface" {
+    // get EP for test
+    rpc request_ep(in coreid core, out errval err, out cap ep);
+};

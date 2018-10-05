@@ -13,6 +13,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/waitset.h>
 #include <barrelfish/waitset_chan.h>
+#include <barrelfish/nameservice_client.h>
 #include <barrelfish/deferred.h>
 #include <devif/queue_interface.h>
 #include <devif/backends/net/sfn5122f_devif.h>
@@ -21,6 +22,7 @@
 #include <bench/bench.h>
 #include <net_interfaces/flags.h>
 #include <net/net_filter.h>
+#include <if/devif_test_defs.h>
 
 //#define DEBUG(x...) printf("devif_test: " x)
 #define DEBUG(x...) do {} while (0)
@@ -51,7 +53,7 @@ static volatile uint32_t num_tx = 0;
 static volatile uint32_t num_rx = 0;
 static uint64_t enq_total = 0;
 static uint64_t deq_total = 0;
-
+static uint64_t qid;
 
 static void* va_rx;
 static void* va_tx;
@@ -75,6 +77,7 @@ struct list_ele{
 static struct waitset_chanstate *chan = NULL;
 static struct waitset card_ws;
 
+static struct devif_test_binding* binding;
 
 static uint8_t udp_header[8] = {
     0x07, 0xD0, 0x07, 0xD0,
@@ -162,11 +165,13 @@ static void event_cb(void* queue)
 static struct devq* create_net_queue(char* card_name)
 {   
     errval_t err;
+    struct capref ep = NULL_CAP;
 
     if (strncmp(card_name, "sfn5122f", 8) == 0) {
+        debug_printf("Creating sfn5122f queue \n");
         struct sfn5122f_queue* q;
         
-        err = sfn5122f_queue_create(&q, event_cb, /* userlevel*/ true,
+        err = sfn5122f_queue_create(&q, event_cb, &ep, /* userlevel*/ true,
                                     /*interrupts*/ false,
                                     /*default queue*/ false);
         if (err_is_fail(err)){
@@ -179,7 +184,8 @@ static struct devq* create_net_queue(char* card_name)
     if (strncmp(card_name, "e10k", 4) == 0) {
         struct e10k_queue* q;
         
-        err = e10k_queue_create(&q, event_cb, /*VFs */ false,
+        debug_printf("Creating e10k queue \n");
+        err = e10k_queue_create(&q, event_cb, &ep, /*VFs */ false,
                                 6, 0, 0, 0,
                                 /*MSIX interrupts*/ false, false);
         if (err_is_fail(err)){
@@ -205,6 +211,8 @@ static void test_net_tx(void)
     q = create_net_queue(card);
     assert(q != NULL);
 
+
+    debug_printf("Creating net queue done\n");
     waitset_init(&card_ws);
 
     // MSIX is not working on sfn5122f yet so we have to "simulate interrupts"
@@ -415,7 +423,60 @@ static errval_t descq_notify(struct descq* q)
     return SYS_ERR_OK;
 }
 
-static void test_idc_queue(void)
+
+static void bind_cb(void *st, errval_t err, struct devif_test_binding *b)
+{
+    uint64_t* bound = (uint64_t*) st;
+    assert(err_is_ok(err));
+    devif_test_rpc_client_init(b);
+    binding = b;
+    *bound = 1;
+}
+
+static errval_t get_descq_ep(struct capref* ep)
+{
+    errval_t err;
+    iref_t iref;
+    uint64_t state = 0;
+
+    err = slot_alloc(ep);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    
+    err = nameservice_blocking_lookup("devif_test_ep", &iref);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+
+    err = devif_test_bind(iref, bind_cb, (void*) &state, get_default_waitset(),
+                          IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        goto out;
+    }
+   
+    while (state == 0) {
+        event_dispatch(get_default_waitset());
+    }
+
+    errval_t err2;
+    err = binding->rpc_tx_vtbl.request_ep(binding, disp_get_core_id(), 
+                                          &err2, ep); 
+    if (err_is_fail(err) || err_is_fail(err2)) {
+        err = err_is_fail(err) ? err : err2;
+        goto out;
+    }
+
+    debug_printf("Connection setup done \n");
+    return SYS_ERR_OK;
+
+out:
+    slot_free(*ep);
+    return err;
+}
+
+
+static void test_idc_queue(bool use_ep)
 {
     num_tx = 0;
     num_rx = 0;
@@ -427,24 +488,45 @@ static void test_idc_queue(void)
     f.notify = descq_notify;
    
     debug_printf("Descriptor queue test started \n");
-    err = descq_create(&queue, DESCQ_DEFAULT_SIZE, "test_queue",
-                       false, true, true, NULL, &f);
-    if (err_is_fail(err)){
-        USER_PANIC("Allocating devq failed \n");
+    if (use_ep) {
+        printf("Descriptor queue use endpoint for setup\n");
+        struct capref ep;        
+        
+        err = get_descq_ep(&ep);
+        if (err_is_fail(err)){
+            USER_PANIC("Allocating devq failed \n");
+        }
+            
+        err = descq_create_with_ep(&queue, DESCQ_DEFAULT_SIZE, ep,
+                                   &qid, &f);
+        if (err_is_fail(err)){
+            USER_PANIC("Allocating devq failed \n");
+        }
+        
+    } else {
+        printf("Descriptor queue use name service for setup\n");
+        err = descq_create(&queue, DESCQ_DEFAULT_SIZE, "test_queue",
+                           false, &qid, &f);
+        if (err_is_fail(err)){
+            USER_PANIC("Allocating devq failed \n");
+        }
     }
    
     q = (struct devq*) queue;
 
+    printf("Registering RX\n");
     err = devq_register(q, memory_rx, &regid_rx);
     if (err_is_fail(err)){
         USER_PANIC("Registering memory to devq failed \n");
     }
   
+    printf("Registering TX\n");
     err = devq_register(q, memory_tx, &regid_tx);
     if (err_is_fail(err)){
         USER_PANIC("Registering memory to devq failed \n");
     }
  
+    printf("Sending messages\n");
     // Enqueue RX buffers to receive into
     uint64_t start, end, total;
     total = 0;
@@ -468,6 +550,9 @@ static void test_idc_queue(void)
                 USER_PANIC("Devq notify failed: %s\n", err_getstring(err));
         }
         event_dispatch(get_default_waitset());
+        if ((j % 100000) == 0) {
+            debug_printf("Round %d \n", j);
+        }
     }    
 
     while(num_tx != num_rx) {
@@ -491,10 +576,9 @@ static void test_idc_queue(void)
         printf("%s \n", err_getstring(err));
         USER_PANIC("Devq deregister tx failed \n");
     }
+
     printf("AVG enqueue %f num_enq %d \n", (double) enq_total/num_tx, num_tx);
     printf("AVG dequeue %f num_deq %d\n", (double) deq_total/num_rx, num_rx);
-
-    printf("SUCCESS: IDC queue\n");
 }
 
 int main(int argc, char *argv[])
@@ -562,7 +646,9 @@ int main(int argc, char *argv[])
     }
 
     if (strcmp(argv[1], "idc") == 0) {
-        test_idc_queue();
+        test_idc_queue(false);
+        test_idc_queue(true);
+        printf("SUCCESS: IDC queue\n");
     }
    
     barrelfish_usleep(1000*1000*5);

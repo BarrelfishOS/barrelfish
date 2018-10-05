@@ -179,7 +179,7 @@ errval_t service_bootstrap(struct xeon_phi *phi,
     XSERVICE_DEBUG("waiting for bootstrap done:%u.\n", xphi_id);
 
     while(!node->bootstrap_done) {
-        xeon_phi_event_poll(0x1);
+        xeon_phi_event_poll(node->local, true);
     }
 
     return node->err;
@@ -207,7 +207,7 @@ static void register_response_send(void *a)
     struct xeon_phi *phi = topology->local;
 
     err = xeon_phi_driver_register__response__tx(topology->binding, txcont, err,
-                                                phi->apt.pbase, phi->apt.length);
+                                                phi->apt.pbase, phi->apt.bytes);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct waitset *ws = get_default_waitset();
@@ -297,7 +297,7 @@ static void register_call_send(void *a)
     topology->state = XNODE_STATE_REGISTERING;
 
     err = xeon_phi_driver_register__call__tx(topology->binding, txcont, phi->id,
-                                            phi->apt.pbase, phi->apt.length);
+                                            phi->apt.pbase, phi->apt.bytes);
     if (err_is_fail(err)) {
         if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
             struct waitset *ws = get_default_waitset();
@@ -438,7 +438,7 @@ errval_t service_register(struct xeon_phi *phi,
             xnode->id = i;
             xnode->state = XNODE_STATE_READY;
             xnode->apt_base = phi->apt.pbase;
-            xnode->apt_size = phi->apt.length;
+            xnode->apt_size = phi->apt.bytes;
             continue;
         }
 
@@ -447,7 +447,7 @@ errval_t service_register(struct xeon_phi *phi,
         xnode->state = XNODE_STATE_NONE;
         svc_register(xnode);
         while (xnode->state == XNODE_STATE_NONE) {
-            err = xeon_phi_event_poll(0x1);
+            err = xeon_phi_event_poll(phi, 0x1);
             if (err_is_fail(err)) {
                 return err;
             }
@@ -463,7 +463,7 @@ errval_t service_register(struct xeon_phi *phi,
         xnode = &phi->topology[i];
         register_call_send(xnode);
         while (xnode->state == XNODE_STATE_REGISTERING) {
-            err = xeon_phi_event_poll(0x1);
+            err = xeon_phi_event_poll(phi, 0x1);
             if (err_is_fail(err)) {
                 return err;
             }
@@ -486,7 +486,7 @@ errval_t service_start(struct xeon_phi *phi)
     errval_t err;
 
     while (1) {
-        err = xeon_phi_event_poll(0x1);
+        err = xeon_phi_event_poll(phi, 0x1);
         if (err_is_fail(err)) {
             return err;
         }

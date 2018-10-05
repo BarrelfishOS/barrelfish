@@ -13,6 +13,7 @@ interface mem "Memory allocation RPC interface" {
                 in genpaddr maxlimit,
                 out errval ret,
                 out give_away_cap mem_cap );
+
   rpc steal( in uint8 bits,
              in genpaddr minbase,
              in genpaddr maxlimit,

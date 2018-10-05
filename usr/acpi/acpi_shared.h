@@ -39,6 +39,8 @@ ACPI_STATUS acpi_eval_integer(ACPI_HANDLE handle, const char *name,
 errval_t acpi_get_irqtable_device(ACPI_HANDLE parent, acpi_pci_address_t device,
         ACPI_HANDLE *child, uint8_t bus);
 
+errval_t acpi_parse_dmar(void);
+
 void video_init(void);
 void buttons_init(void);
 void ec_probe_ecdt(void);
@@ -46,7 +48,6 @@ void ec_init(void);
 
 void start_service(void);
 void acpi_service_arch_init(struct acpi_rx_vtbl *acpi_rx_vtbl);
-extern bool vtd_force_off;
 
 void
 AcpiOsSetRootPointer (

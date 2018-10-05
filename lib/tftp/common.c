@@ -26,10 +26,13 @@
  */
 
 errval_t tftp_send_ack(struct net_socket *socket, uint32_t blockno,
-                       struct in_addr addr, uint16_t port,
-                       void *payload)
+                       struct in_addr addr, uint16_t port)
 {
     TFTP_DEBUG_PACKETS("sending ack(%u)\n", blockno);
+    void *payload = net_alloc(TFTP_MAX_MSGSIZE);
+    if (payload == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
 
     memset(payload, 0, sizeof(uint32_t) + sizeof(uint16_t));
 

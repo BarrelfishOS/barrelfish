@@ -1,0 +1,39 @@
+/*
+ * Copyright (c) 2018, ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich.
+ * Attn: Systems Group.
+ */
+
+interface iommu "IOMMU" {
+
+    /* get the supported page size, the vnode root type and
+     * the model node identifier */
+    rpc getvmconfig(out errval err, out uint8 type, out uint8 bits,
+        out int32 nodeid);
+
+    /* set the root table pointer for the device */
+    rpc setroot(in cap src, out errval err);
+
+    /* retypes the source cap into the type */
+    rpc retype(in cap src, in uint8 objtype,
+               out errval err, out cap retvnode);
+
+    /* maps the capability into the vnode */
+    rpc map(in cap dest, in cap src, in uint16 slot, in uint64 attr,
+            in uint64 off, in uint64 pte_count,
+            out errval err);
+
+
+    /* unmaps the slot in the vnode */
+    rpc unmap(in cap vnode, in uint16 slot,
+              out errval err);
+
+    rpc modify(in cap vnode, in uint64 attr, in uint16 slot,
+               out errval err);
+
+
+};

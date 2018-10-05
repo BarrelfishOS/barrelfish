@@ -14,9 +14,7 @@
 
 #include "sleep.h"
 #include "e10k.h"
-
-//#define DEBUG(x...) printf("e10k: " x)
-#define DEBUG(x...) do {} while (0)
+#include "debug.h"
 
 
 /** Acquire SWFW semaphore */
@@ -275,13 +273,11 @@ void e10k_phy_init(e10k_t* d)
 
     milli_sleep(50);
 
-
     autoc = e10k_autoc_rd(d);
     autoc = e10k_autoc_lms_insert(autoc, 0x0);
     autoc = e10k_autoc_restart_an_insert(autoc, 1);
     e10k_autoc_wr(d, autoc);
     while (e10k_anlp1_anas_rdf(d) != 0); // TODO: Timeout
-
 
     autoc = e10k_autoc_rd(d);
     autoc = e10k_autoc_lms_insert(autoc, e10k_l10g_sfi);

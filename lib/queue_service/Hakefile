@@ -1,0 +1,47 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2018 ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for lib/queue_service
+--
+-- Provides common a library to instantiate a queue service and the
+-- corrsponding client library. 
+--
+--------------------------------------------------------------------------
+
+[
+    build library {
+        target = "queue_service",
+        flounderDefs = [
+            "queue_service"
+        ],
+        flounderBindings = [
+            "queue_service"
+        ],
+
+        flounderExtraBindings = [
+            ("queue_service", ["rpcclient"])
+        ],
+        addLibraries = [ "collections", "skb" ],
+        cFiles = [ "service.c" ]
+    },
+
+    build library {
+        target = "queue_service_client",
+        flounderDefs = [
+            "queue_service"
+        ],
+        flounderBindings = [
+            "queue_service"
+        ],
+
+        flounderExtraBindings = [
+            ("queue_service", ["rpcclient"])
+        ],
+        cFiles = [ "client.c" ]
+    }
+]

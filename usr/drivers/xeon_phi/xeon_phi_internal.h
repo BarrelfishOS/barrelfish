@@ -12,8 +12,10 @@
 
 #include <xeon_phi/xeon_phi.h>
 #include <collections/hash_table.h>
-
+#include <dev/xeon_phi/xeon_phi_serial_dev.h>
 #include "debug.h"
+
+struct iommu_client;
 
 /*
  * Common setting values
@@ -64,6 +66,7 @@
  * Xeon Phi Management structure
  */
 
+
 /// represents the state of the Xeon Phi
 typedef enum xeon_phi_state
 {
@@ -89,7 +92,6 @@ struct mbar
 {
     lvaddr_t vbase;     ///< virtual address of the mbar if mapped
     lpaddr_t pbase;     ///< physical address of the mbar
-    size_t length;      ///< length of the mapped area
     struct capref cap;  ///< capability of the mbar
     size_t  bytes;      ///< size of the region in bytes
 };
@@ -108,8 +110,12 @@ struct xnode
     struct xeon_phi *local;
 };
 
+#define XEON_PHI_BUFFER_LENGTH 0x400
+
 struct xeon_phi
 {
+    struct xeon_phi *next;
+
     xeon_phi_state_t state;
     struct mbar mmio;       ///< pointer to the MMIO address range
     struct mbar apt;        ///< pointer to the aperture address range
@@ -133,10 +139,18 @@ struct xeon_phi
 
     iref_t xphi_svc_iref;
 
+    struct iommu_client *iommu_client;
+
+    xeon_phi_serial_t serial_base;
+    char serial_buffer[XEON_PHI_BUFFER_LENGTH + 1];
+    uint32_t serial_buffer_idx;
+
     struct smpt_info *smpt;  ///< pointer to the SMPT information struct
     struct irq_info *irq;   ///< pointer to the IRQ information struct
     struct dma_device *dma;   ///< pointer to the DMA information struct
     struct msg_info *msg;   ///< pointer to the Messaging information struct
+
+    int32_t nodeid;             ///< model nodeid of the xeon phi
 };
 
 /**
@@ -160,7 +174,7 @@ errval_t xeon_phi_serial_init(struct xeon_phi *phi);
  * \return 0: There was no message
  *         1: There was a message waiting and it porocessed.
  */
-uint32_t xeon_phi_serial_handle_recv(void);
+uint32_t xeon_phi_serial_handle_recv(struct xeon_phi *phi);
 
 /**
  * \brief boots the card with the given loader and multiboot image
@@ -185,10 +199,7 @@ errval_t xeon_phi_reset(struct xeon_phi *phi);
  *
  * \param phi pointer to the information structure
  */
-errval_t xeon_phi_init(struct xeon_phi *phi,
-                       uint32_t bus,
-                       uint32_t dev,
-                       uint32_t fun);
+errval_t xeon_phi_init(struct xeon_phi *phi, struct capref mmio, struct capref apt);
 
 /**
  * \brief maps the aperture memory range of the Xeon Phi into the drivers
@@ -221,7 +232,29 @@ errval_t xeon_phi_unmap_aperture(struct xeon_phi *phi);
  * \return SYS_ERR_OK if an event was handled
  *         LIB_ERR_NO_EVENT if there was no evetn
  */
-errval_t xeon_phi_event_poll(uint8_t do_yield);
+errval_t xeon_phi_event_poll(struct xeon_phi *phi, uint8_t do_yield);
 
+/**
+ * \brief Given the PCI node id (as returned from driverkit lib), 
+ *        return other xeon phi node ids.
+ *
+ */
+errval_t xeon_phi_hw_model_lookup_nodeids(int32_t pci_nodeid,
+        int32_t *knc_socket,
+        int32_t *smpt,
+        int32_t *iommu,
+        int32_t *dma,
+        int32_t *k1om_core, int32_t *gddr
+        );
+
+/**
+ * \brief  Make the capability mem visible to the Xeon Phi (retaddr) and the 
+ *         local process (local_retaddr). 
+ *
+ */
+errval_t xeon_phi_hw_model_query_and_config(void *arg,
+                                            struct capref mem,
+                                            genpaddr_t *retaddr,
+                                            genvaddr_t *local_retaddr);
 
 #endif /* XEON_PHI_H_ */

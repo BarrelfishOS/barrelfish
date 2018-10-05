@@ -61,8 +61,8 @@ cap Memory abstract {
     **/
 
     address genpaddr base;  /* Physical base address of Memory object */
-    pasid pasid;            /* Physical Address Space ID */
     size gensize bytes;     /* Size of region in bytes */
+    pasid pasid;            /* Physical Address Space ID */
 };
 
 
@@ -147,13 +147,13 @@ cap Dispatcher from RAM {
     size { objsize_dispatcher };
 };
 
-cap EndPoint from Dispatcher {
+cap EndPointLMP from Dispatcher {
     /* IDC endpoint */
 
     "struct dcb" listener;  /* Dispatcher listening on this endpoint */
     lvaddr epoffset;        /* Offset of endpoint buffer in disp frame */
     uint32 epbuflen;        /* Length of endpoint buffer in words */
-
+    uint16 iftype;          /* interface of the endpoint */
     address { mem_to_phys(listener) };
 
     /** XXX
@@ -173,6 +173,12 @@ cap Frame from RAM from_self inherit Memory;
 
 cap Frame_Mapping from Frame inherit Mapping;
 
+cap EndPointUMP from RAM inherit Memory {
+    uint16 iftype;
+};
+
+cap EndPointUMP_Mapping from EndpointUMP inherit Mapping;
+
 cap DevFrame from PhysAddr from_self inherit Memory;
 
 cap DevFrame_Mapping from DevFrame inherit Mapping;
@@ -183,6 +189,11 @@ cap Kernel is_always_copy {
 
 
 /* x86_64-specific capabilities: */
+
+/* PML5 */
+cap VNode_x86_64_pml5 from RAM inherit VNode;
+
+cap VNode_x86_64_pml5_Mapping from VNode_x86_64_pml5 inherit Mapping;
 
 /* PML4 */
 cap VNode_x86_64_pml4 from RAM inherit VNode;
@@ -203,6 +214,19 @@ cap VNode_x86_64_pdir_Mapping from VNode_x86_64_pdir inherit Mapping;
 cap VNode_x86_64_ptable from RAM inherit VNode;
 
 cap VNode_x86_64_ptable_Mapping from VNode_x86_64_ptable inherit Mapping;
+
+
+/* Intel VT-d */
+
+cap VNode_VTd_root_table from RAM inherit VNode;
+
+cap VNode_VTd_root_table_Mapping from VNode_VTd_root_table inherit Mapping;
+
+cap VNode_VTd_ctxt_table from RAM inherit VNode;
+
+cap VNode_VTd_ctxt_table_Mapping from VNode_VTd_ctxt_table inherit Mapping;
+
+/* cap IntelVTd from PhysAddr from_self inherit Memory; */
 
 
 /* x86_32-specific capabilities: */
@@ -328,4 +352,29 @@ cap ProcessManager is_always_copy {
 cap Domain from ProcessManager {
     eq coreid coreid;  /* Core where the domain was created. */
     eq uint32 core_local_id;  /* Core-local ID of the domain. */
+};
+
+
+/*
+cap ProtectionDomainManager is_always_copy {
+    // Capability to act as device manager, i.e. create new device id caps
+};
+
+cap ProtectionDomain from IOMMUDomainManager {
+    uint16 id;
+    uint16 type
+};
+*/
+
+cap DeviceIDManager is_always_copy {
+    // Capability to act as device manager, i.e. create new device id caps
+};
+
+cap DeviceID from DeviceIDManager {
+    uint16 segment;
+    uint8  bus;
+    uint8  device;
+    uint8  function;
+    uint8  type;
+    uint16 flags;
 };

@@ -967,7 +967,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
 
         // Endpoint cap, do LMP
         if (to->type == ObjType_EndPoint) {
-            struct dcb *listener = to->u.endpoint.listener;
+            struct dcb *listener = to->u.endpointlmp.listener;
             assert(listener != NULL);
 
             if (listener->disp == 0) {
@@ -1044,7 +1044,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
                        [gs] "m" (save_area->gs)
                        );
 
-                dispatch(to->u.endpoint.listener);
+                dispatch(to->u.endpointlmp.listener);
                 panic("dispatch returned");
             }
         } else { // not endpoint cap, call kernel handler through dispatch table

@@ -38,6 +38,7 @@ module /x86_64/sbin/pci auto
 module /x86_64/sbin/corectrl auto
 module /x86_64/sbin/ahcid auto
 module	/x86_64/sbin/serial_pc16550d auto
+module	/x86_64/sbin/iommu auto
 
 ## For networking
 module /x86_64/sbin/e1000n auto

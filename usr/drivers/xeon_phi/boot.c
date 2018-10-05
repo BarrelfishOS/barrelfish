@@ -752,6 +752,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
         USER_PANIC_ERR(err, "Could not initialize messaging");
     }
 
+
     xeon_phi_boot_download_status_wrf(&boot_registers, 0x0);
 
     phi->apicid = xeon_phi_boot_download_apicid_rdf(&boot_registers);
@@ -780,7 +781,7 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
     uint32_t time = 0, time_steps = 0;
     while (time < BOOT_TIMEOUT) {
         /* read all the pending messages */
-        xeon_phi_serial_handle_recv();
+        xeon_phi_serial_handle_recv(phi);
         milli_sleep(100);
         if (xeon_phi_boot_download_status_rdf(&boot_registers)) {
             XBOOT_DEBUG("Firmware signaled with ready bit. \n");
@@ -807,3 +808,5 @@ errval_t xeon_phi_boot(struct xeon_phi *phi,
 
     return SYS_ERR_OK;
 }
+
+

@@ -1,0 +1,6 @@
+module X86_MMU {
+    input memory (0 bits 48) IN
+    output memory (0 bits 46) OUT
+
+    IN blockoverlays OUT bits(12, 21, 30)
+}

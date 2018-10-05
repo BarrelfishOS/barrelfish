@@ -21,6 +21,7 @@
 #include "xeon_phi_internal.h"
 #include "dma_service.h"
 
+#if 0
 struct user_st
 {
     struct dma_mem_mgr *mem_mgr;
@@ -200,12 +201,113 @@ static errval_t dma_svc_memcpy_cb(dma_svc_handle_t svc_handle,
     return dma_request_memcpy(dev, &setup, id);
 }
 
+
 static struct dma_service_cb dma_svc_cb = {
     .connect = dma_svc_connect_cb,
     .addregion = dma_svc_addregion_cb,
     .removeregion = dma_svc_removeregion_cb,
     .memcpy = dma_svc_memcpy_cb
 };
+#endif
+
+
+errval_t xdma_state_init(struct xeon_phi *phi, struct dma_mem_mgr **retst)
+{
+    errval_t err;
+
+    #ifdef __k1om__
+    return LIB_ERR_NOT_IMPLEMENTED;
+    #endif
+
+    err = dma_mem_mgr_init(retst, 0x0, (1UL << 48) - 1);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    dma_mem_mgr_set_convert_fn(*retst, xeon_phi_hw_model_query_and_config, phi);
+
+    return SYS_ERR_OK;
+}
+
+errval_t xdma_register_region(struct xeon_phi *phi, struct dma_mem_mgr *st,
+                              struct capref cap, uint64_t *addr)
+{
+    errval_t err;
+
+    #ifdef __k1om__
+    return LIB_ERR_NOT_IMPLEMENTED;
+    #endif
+
+    struct frame_identity id;
+    err = invoke_frame_identify(cap, &id);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    XDMA_DEBUG("xdma_register_region [0x%lx..0x%lx]\n", id.base, id.base+id.bytes -1);
+
+    err = dma_mem_register(st, cap, addr);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+#include <flounder/flounder_txqueue.h>
+static void memcpy_req_cb(errval_t err,
+                          dma_req_id_t id,
+                          void *st)
+{
+    XDMA_DEBUG("memcpy_req_cb %lx, %s\n", id, err_getstring(err));
+    txq_send((struct txq_msg_st *)st);
+}
+
+errval_t xdma_memcpy(struct xeon_phi *phi, struct dma_mem_mgr *st, uint64_t to, uint64_t from,
+                     uint64_t length, struct txq_msg_st *txst)
+{
+    errval_t err;
+
+    XDMA_DEBUG("xdma_memcpy st = %p, [%lx] -> [%lx]\n", txst, from, to);
+
+    #ifdef __k1om__
+    return LIB_ERR_NOT_IMPLEMENTED;
+    #endif
+
+    lpaddr_t dma_dst, dma_src;
+    err = dma_mem_verify(st, to, length, &dma_dst);
+    if (err_is_fail(err)) {
+        XDMA_DEBUG("to address [%lx..%lx] is not validated!\n", to, to+length-1);
+        return err;
+    }
+    err = dma_mem_verify(st, from, length, &dma_src);
+    if (err_is_fail(err)) {
+        XDMA_DEBUG("from address [%lx..%lx] is not validated!\n", from, from + length - 1);
+        return err;
+    }
+
+    XDMA_DEBUG("[0x%016lx]->[0x%016lx] of %lu bytes\n", dma_src, dma_dst, length);
+
+    /* both addresses are valid and have been translated now */
+    struct dma_device *dev = phi->dma;
+    assert(dev);
+
+    struct dma_req_setup setup = {
+            .type = DMA_REQ_TYPE_MEMCPY,
+            .done_cb = memcpy_req_cb,
+            .cb_arg = txst,
+            .args = {
+                    .memcpy = {
+                            .src = dma_src,
+                            .dst = dma_dst,
+                            .bytes = length
+                    }
+            }
+    };
+
+    return dma_request_memcpy(dev, &setup, NULL);
+}
+
 
 /**
  * \brief initializes the Xeon Phi DMA devices and the service
@@ -225,8 +327,19 @@ errval_t xdma_service_init(struct xeon_phi *phi)
     mmio_base = (void *) XEON_PHI_MMIO_TO_SBOX(phi);
 #endif
 
+    int32_t knc_socket_id;
+#ifdef XEON_PHI_USE_HW_MODEL
+    err = xeon_phi_hw_model_lookup_nodeids(phi->nodeid, &knc_socket_id, NULL, NULL, NULL, NULL, NULL);
+    if(err_is_fail(err)){
+        return err;
+    }
+#else
+   knc_socket_id = -1;   
+#endif
+
     struct xeon_phi_dma_device *dev;
-    err = xeon_phi_dma_device_init(mmio_base, &dev);
+    err = xeon_phi_dma_device_init(mmio_base, phi->iommu_client,
+            xeon_phi_hw_model_query_and_config, phi, knc_socket_id, &dev);
     if (err_is_fail(err)) {
         return err;
     }
@@ -236,6 +349,8 @@ errval_t xdma_service_init(struct xeon_phi *phi)
 #if DMA_BENCH_RUN_BENCHMARK
     dma_bench_run_default_xphi((struct dma_device *)dev);
 #endif
+
+    #if 0
 
     iref_t svc_iref;
     char svc_name[30];
@@ -254,7 +369,7 @@ errval_t xdma_service_init(struct xeon_phi *phi)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Failed to register with the DMA manager\n");
     }
-
+    #endif
     return SYS_ERR_OK;
 }
 

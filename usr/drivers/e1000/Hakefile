@@ -30,7 +30,7 @@
                     flounderBindings = [ "e1000_devif" ],
                     flounderDefs = [ "e1000_devif" ],
                     mackerelDevices = ["e1000"],
-                    addLibraries = libDeps ["pci"]
+                    addLibraries = libDeps ["driverkit_iommu"]
     },
 
     -- Builds a driver domain: Use addModules instead of addLibraries to
@@ -42,9 +42,9 @@
         cFiles = [ "main.c"],
         addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
 
-        addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
-                               "contmng", "net_device_manager", "bench", "trace", "skb",
-                               "spawndomain", "netd" , "net", "lwip2"],
+        addLibraries = libDeps["driverkit","pci", "pci_driver_client", 
+                               "bench", "trace", "skb", "net", "lwip2", 
+                               "driverkit_iommu"],
         addModules = ["e1000n_module"],
         architectures = ["x86_64"]
     },
@@ -70,9 +70,9 @@
         cFiles = [ "main.c"],
         addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
 
-        addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
-                               "contmng", "net_device_manager", "bench", "trace", "skb",
-                               "spawndomain", "netd" , "net", "lwip2"],
+        addLibraries = libDeps["driverkit", "pci", "pci_driver_client", 
+                               "bench", "trace", "skb", "net", "lwip2", 
+                               "driverkit_iommu"],
         addModules = ["e1000n_irqtest_module"],
         architectures = ["x86_64"],
         addCFlags = [ "-DUNDER_TEST"]

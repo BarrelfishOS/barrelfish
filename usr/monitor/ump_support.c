@@ -13,8 +13,8 @@
  */
 
 #include <inttypes.h>
+#include <if/monitor_blocking_defs.h>
 #include "monitor.h"
-
 /******* stack-ripped monitor_bind_ump_client_request *******/
 
 static void monitor_bind_ump_client_request_error(struct monitor_binding *b,
@@ -295,6 +295,189 @@ static void monitor_bind_ump_reply(struct monitor_binding *dom_binding,
     /* assert(capability.u.notify.coreid == my_core_id); */
 
     bind_ump_reply_cont(mon_binding, your_mon_id, my_mon_id, msgerr, capability);
+}
+
+/******* stack-ripped intermon_ump_route_setup_reply *******/
+
+struct ump_route_setup_reply_state {
+    struct intermon_msg_queue_elem elem;
+    struct intermon_ump_route_setup_reply__tx_args args;
+};
+
+static void
+intermon_ump_route_setup_reply_handler(struct intermon_binding *b,
+                                       struct intermon_msg_queue_elem *e);
+
+static void intermon_ump_route_setup_reply_cont(struct intermon_binding *ib,
+                                                uintptr_t myconid, uintptr_t yourconid,
+                                                uintptr_t state, errval_t argerr)
+{
+    errval_t err;
+
+    err = ib->tx_vtbl.ump_route_setup_reply(ib, NOP_CONT, yourconid, myconid,
+                                            state, argerr);
+    if (err_is_fail(err)) {
+        if(err_no(err) != FLOUNDER_ERR_TX_BUSY) {
+            DEBUG_ERR(err, "non transient error in intermon binding\n");
+            return;
+        }
+        struct ump_route_setup_reply_state *rst = calloc(1, sizeof(*rst));
+        if (rst == NULL) {
+            DEBUG_ERR(err, "cannot allocate memory for reply state\n");
+            return;
+        }
+
+        rst->args.state = state;
+        rst->args.myconid = myconid;
+        rst->args.yourconid = yourconid;
+        rst->args.err = argerr;
+        rst->elem.cont = intermon_ump_route_setup_reply_handler;
+
+        struct intermon_state *ist = ib->st;
+        err = intermon_enqueue_send(ib, &ist->queue,
+                                    get_default_waitset(), &rst->elem.queue);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "faield to enqueue send");
+        }
+    }
+}
+
+
+static void
+intermon_ump_route_setup_reply_handler(struct intermon_binding *b,
+                                       struct intermon_msg_queue_elem *e)
+{
+    struct ump_route_setup_reply_state *st;
+
+    st = (struct ump_route_setup_reply_state *)e;
+    intermon_ump_route_setup_reply_cont(b, st->args.myconid, st->args.yourconid,
+                                        st->args.state, st->args.err);
+    free(e);
+}
+
+
+
+static void intermon_ump_route_setup_reply(struct intermon_binding *ib,
+                                           intermon_con_id_t myconid,
+                                           intermon_con_id_t yourconid,
+                                           intermon_mon_id_t state,
+                                           errval_t err)
+{
+    struct remote_conn_state *conn = remote_conn_lookup(myconid);
+
+    conn->mon_id = yourconid;
+    assert(conn->domain_binding);
+
+    struct monitor_lmp_binding *lmpb = (struct monitor_lmp_binding *)conn->domain_binding;
+
+    struct monitor_state *st = lmpb->b.st;
+    st->conn = conn;
+    /* send the reply */
+#ifndef __ARM_ARCH_7A__
+    struct monitor_blocking_binding *b = (void *) state;
+#else
+    struct monitor_blocking_binding *b = (void *)(uint32_t) state;
+#endif
+    err = b->tx_vtbl.new_monitor_binding_response(b, NOP_CONT, lmpb->chan.local_cap, err);
+}
+
+
+
+/******* stack-ripped intermon_ump_route_setup_request *******/
+
+struct ump_route_setup_request_state {
+    struct intermon_msg_queue_elem msgq;
+    struct remote_conn_state *cst;
+    struct monitor_blocking_binding *mb;
+};
+
+static void
+intermon_ump_route_setup_request_handler(struct intermon_binding *b,
+                                         struct intermon_msg_queue_elem *e)
+{
+    errval_t err;
+    struct ump_route_setup_request_state *st;
+
+    st = (struct ump_route_setup_request_state *)e;
+    err = ump_route_setup(b, st->mb, st->cst);
+    if (err_is_fail(err)) {
+        struct remote_conn_state *conn = st->cst;
+        assert(conn);
+        struct monitor_lmp_binding *lmpb = (struct monitor_lmp_binding *)conn->domain_binding;
+        monitor_lmp_destroy(lmpb);
+        free(conn->domain_binding);
+        remote_conn_free(remote_conn_get_id(conn));
+
+        err = st->mb->tx_vtbl.new_monitor_binding_response(st->mb, NOP_CONT,
+                                                           NULL_CAP, err);
+        assert(err_is_ok(err));
+    }
+    free(e);
+}
+
+
+errval_t ump_route_setup(struct intermon_binding *ib,
+                         struct monitor_blocking_binding *mb,
+                         struct remote_conn_state *cst)
+{
+    errval_t err;
+
+    uintptr_t conid = remote_conn_get_id(cst);
+    genpaddr_t ep = cst->x.ump.epid.base;
+    uint16_t type = cst->x.ump.epid.eptype;
+
+    debug_printf("Sending UMP Route Setup Request: conid=%p, mb=%p\n", cst, mb);
+
+    err = ib->tx_vtbl.ump_route_setup_request(ib, NOP_CONT, conid, (uintptr_t)mb,
+                                              my_core_id, ep, type);
+    if (err_is_fail(err)) {
+        if (err_no(err) != FLOUNDER_ERR_TX_BUSY) {
+            return err;
+        }
+
+        struct ump_route_setup_request_state *rst = calloc(1, sizeof(*rst));
+        if (rst == NULL) {
+            return LIB_ERR_MALLOC_FAIL;
+        }
+
+        rst->cst = cst;
+        rst->mb = mb;
+        rst->msgq.cont = intermon_ump_route_setup_request_handler;
+
+        struct intermon_state *ist = ib->st;
+        err =  intermon_enqueue_send(ib, &ist->queue, get_default_waitset(),
+                                    &rst->msgq.queue);
+        if(err_is_fail(err)) {
+            free(rst);
+            return err;
+        }
+    }
+
+    return SYS_ERR_OK;
+}
+
+static void intermon_ump_route_setup_request(struct intermon_binding *ib,
+                                             intermon_con_id_t conid,
+                                             intermon_mon_id_t state,
+                                             intermon_coreid_t core,
+                                             genpaddr_t ep, uint16_t type)
+{
+    errval_t err = SYS_ERR_OK;
+
+    struct remote_conn_state *conn = remote_conn_lookup_by_ep(ep, type);
+    if (conn == NULL) {
+        debug_printf("XXX NO ENDPOINT FOUND\n");
+        err = -1;
+        goto out;
+    }
+
+    conn->mon_binding = ib;
+    conn->mon_id = conid;
+    conn->core_id = core;
+
+    out:
+    intermon_ump_route_setup_reply_cont(ib, remote_conn_get_id(conn), conid,
+                                        state, err);
 }
 
 /******* stack-ripped intermon_bind_ump_request *******/
@@ -597,6 +780,8 @@ errval_t ump_intermon_init(struct intermon_binding *ib)
 {
     ib->rx_vtbl.bind_ump_request = intermon_bind_ump_request;
     ib->rx_vtbl.bind_ump_reply = intermon_bind_ump_reply;
+    ib->rx_vtbl.ump_route_setup_request = intermon_ump_route_setup_request;
+    ib->rx_vtbl.ump_route_setup_reply = intermon_ump_route_setup_reply;
     return SYS_ERR_OK;
 }
 
@@ -605,4 +790,61 @@ errval_t ump_monitor_init(struct monitor_binding *mb)
     mb->rx_vtbl.bind_ump_client_request = monitor_bind_ump_client_request;
     mb->rx_vtbl.bind_ump_reply_monitor = monitor_bind_ump_reply;
     return SYS_ERR_OK;
+}
+
+
+
+struct remote_conn_state *local_cst = NULL;
+
+
+errval_t remote_conn_alloc(struct remote_conn_state **con, uintptr_t *con_id,
+                           enum remote_conn_type type)
+{
+    struct remote_conn_state *mem = calloc(1, sizeof(struct remote_conn_state));
+    assert(mem != NULL);
+
+    *con = mem;
+    *con_id = (uintptr_t)mem;
+    mem->type = type;
+
+    mem->next = local_cst;
+    local_cst = mem;
+
+    return SYS_ERR_OK;
+}
+
+errval_t remote_conn_free(uintptr_t con_id)
+{
+    struct remote_conn_state *mem = (struct remote_conn_state*)con_id;
+    assert(mem != NULL);
+
+    if (mem->prev) {
+        mem->prev->next = mem->next;
+    }
+    if (mem->next) {
+        mem->next->prev = mem->prev;
+    }
+    free(mem);
+
+    return SYS_ERR_OK;
+}
+
+struct remote_conn_state *remote_conn_lookup(uintptr_t con_id)
+{
+    return (struct remote_conn_state *)con_id;
+}
+
+struct remote_conn_state *remote_conn_lookup_by_ep(genpaddr_t ep, uint16_t type)
+{
+    struct remote_conn_state *cst = local_cst;
+    while(cst) {
+        //debug_printf("remote_conn_lookup_by_ep %lx==%lx, %u==%u",
+         //            cst->x.ump.epid.base, ep, cst->x.ump.epid.eptype, type);
+        if (cst->x.ump.epid.base == ep && cst->x.ump.epid.eptype == type) {
+            return cst;
+        }
+        cst = cst->next;
+    }
+
+    return NULL;
 }

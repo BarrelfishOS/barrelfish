@@ -94,4 +94,27 @@ errval_t xeon_phi_client_chan_open(xphi_id_t xid,
 errval_t xeon_phi_client_kill(xphi_id_t xid,
                               xphi_dom_id_t domid);
 
+
+/**
+ * @brief obtains the hw model id for the specified xeon phi
+ *
+ * @param xid   the xeon phi id
+ * @param path  which node to consider
+ *
+ * @return node id
+ */
+int32_t xeon_phi_client_get_node_id(xphi_id_t xid, const char *path);
+
+
+/*
+ * XXX For the paper
+ */
+
+errval_t xeon_phi_client_dma_register(xphi_id_t xid, struct capref mem, uint64_t *devaddr);
+
+errval_t xeon_phi_client_dma_memcpy(xphi_id_t xid, uint64_t to, uint64_t from, uint64_t size);
+
+
+errval_t xeon_phi_client_alloc_memory(xphi_id_t xid, struct capref *dst, size_t bytes);
+
 #endif // XEON_PHI_SERVICE_CLIENT_H_

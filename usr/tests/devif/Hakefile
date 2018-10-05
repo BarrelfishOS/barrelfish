@@ -12,13 +12,21 @@
 
 [ build application { target = "devif_test", 
                       cFiles = [ "queue_interface.c" ],
+                      flounderBindings = [ "devif_test"],
+                      flounderExtraBindings = [ ("devif_test", ["rpcclient"])],
+                      flounderDefs = [ "devif_test" ],
+                      flounderExtraDefs = [ ("devif_test",["rpcclient"]) ],
                       addLibraries = [ "devif" , "devif_backend_solarflare",
                                        "devif_backend_idc", "devif_backend_e10k", 
-                                       "bench", "net",
+                                       "bench", "net", 
                                        "devif_backend_udp"]},
 
   build application { target = "devif_idc", 
                       cFiles = [ "idc_endpoint.c" ],
+                      flounderBindings = [ "devif_test"],
+                      flounderExtraBindings = [ ("devif_test", ["rpcclient"])],
+                      flounderDefs = [ "devif_test" ],
+                      flounderExtraDefs = [ ("devif_test",["rpcclient"]) ],
                       addLibraries = [ "devif" , "devif_backend_idc",
                                        "devif_backend_debug"] },
 

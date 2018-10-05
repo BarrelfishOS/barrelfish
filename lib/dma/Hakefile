@@ -39,7 +39,7 @@
       "client/dma_client_request.c"
     ],
     addIncludes = [ "include" ],
-    addLibraries = libDeps [ "bench" ],
+    addLibraries = libDeps [ "bench", "driverkit_iommu" ],
     flounderBindings = [ "dma", "ioat_dma_mgr", "dma_mgr" ],
     flounderDefs = [ "dma" ],
     flounderExtraBindings = [ ("dma_mgr",["rpcclient"]) ],
@@ -90,7 +90,7 @@
       "client/dma_client_request.c"
     ],
     addIncludes = [ "include" ],
-    addLibraries = libDeps [ "bench" ],
+    addLibraries = libDeps [ "bench", "driverkit_iommu" ],
     flounderBindings = [ "dma", "dma_mgr" ],
     flounderDefs = [ "dma" ],
     flounderExtraBindings = [ ("dma_mgr",["rpcclient"]) ]

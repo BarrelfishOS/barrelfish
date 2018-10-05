@@ -390,6 +390,19 @@ void *numa_realloc(void *old_addr, size_t old_size, size_t new_size);
  */
 void numa_free(void *start, size_t size);
 
+/**
+ * \brief allocates RAM on a specific node
+ *
+ * \param dest      capref to store the RAM cap
+ * \param size      size of the RAM region to allocated
+ * \param node      node on which the frame should be allocated
+ * \param ret_size  returned size of the frame capability
+ *
+ * \returns SYS_ERR_OK on SUCCESS
+ *          errval on FAILURE
+ */
+errval_t numa_ram_alloc_on_node(struct capref *dest, size_t size,
+                                nodeid_t node, size_t *ret_size);
 
 /**
  * \brief allocates a frame on a specific node

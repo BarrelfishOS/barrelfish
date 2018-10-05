@@ -24,8 +24,8 @@
  * Kaluga passes a CNode with capabilities to the pci driver. The offset
  * in this CNode are defined here
  */
-#define PCIARG_SLOT_INT    0
-#define PCIARG_SLOT_PCI_EP 1
+#define PCIARG_SLOT_DEVID  0
+#define PCIARG_SLOT_INT    1
 #define PCIARG_SLOT_BAR0   2
 #define PCIARG_SLOT_BAR1   3
 #define PCIARG_SLOT_BAR2   4
@@ -45,6 +45,16 @@ errval_t pci_get_bar_caps_for_device(
         struct device_mem **bars_out,
         size_t *bars_len
         );
+
+// Virtual Functions
+errval_t pci_sriov_get_vf_bar_cap(uint32_t vf_num, uint8_t bar_num,
+                                  struct capref* bar);
+
+// Gets the "Starting package" for a VF which would normally be handed over from Kaluga
+// Required to start Arrakis style Applications that use VFs
+errval_t pci_sriov_get_vf_resources(uint32_t vf_num, struct capref* regs, struct capref* irq,
+                                    struct capref* iommu_ep, struct capref* pci_ep);
+
 
 errval_t pci_parse_int_arg(int argc, char ** argv);
 
@@ -119,7 +129,13 @@ errval_t pci_register_legacy_driver_irq_cap(legacy_driver_init_fn init_func,
 
 errval_t pci_setup_inthandler(interrupt_handler_fn handler, void *handler_arg,
                               uint8_t *ret_vector);
-
+/**
+ * Enable a Virtual function of a device
+ *
+ * @param vf_num        VF number
+ *
+ */
+errval_t pci_sriov_enable_vf(uint32_t vf_num);
 
 errval_t pci_read_conf_header(uint32_t dword, uint32_t *val);
 
@@ -127,6 +143,12 @@ errval_t pci_write_conf_header(uint32_t dword, uint32_t val);
 
 errval_t pci_client_connect(void);
 
+
+/**
+ * Connect to PCI service using endpoint cap
+ * @param ep        Endpoint cap to PCI
+ */
+errval_t pci_client_connect_ep(struct capref ep);
 
 /**
  * Enable MSI-X for the PCI device
@@ -170,4 +192,10 @@ errval_t pci_setup_int_routing_with_cap(int irq_idx,
                                         interrupt_handler_fn reloc_handler,
                                         void *reloc_handler_arg);
 
+/**
+ * Get info of PCI device
+ * \param addr       PCI address of the device must not be null.
+ * \param id         PCI id of the device must not be null.
+ */
+errval_t pci_get_device_info(struct pci_addr* addr, struct pci_id* id);
 #endif

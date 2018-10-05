@@ -16,14 +16,15 @@
 #include <barrelfish/deferred.h>
 #include <barrelfish/debug.h>
 #include <driverkit/driverkit.h>
+#include <driverkit/driverkit.h>
+#include <int_route/int_route_client.h>
+#include <driverkit/iommu.h>
 #include <pci/pci.h>
-#include <pci/pci_driver_client.h>
 
 // TODO only required for htonl
 //#include <lwip/ip.h>
 #include <net/net.h>
 
-#include <if/sfn5122f_defs.h>
 #include <if/sfn5122f_devif_defs.h>
 #include <if/net_filter_defs.h>
 
@@ -119,6 +120,7 @@ struct sfn5122f_filter_mac {
 
 struct sfn5122f_driver_state {
 
+    struct bfdriver_instance *bfi;
     /* Driver arguments */
     struct capref* caps;
 
@@ -191,7 +193,7 @@ struct sfn5122f_driver_state {
     struct sfn5122f_filter_mac filters_tx_ip[NUM_FILTERS_MAC];
     */
 
-    struct pcid pdc;
+    struct iommu_client* iommu;
 };
 
 /******************************************************************************/
@@ -255,6 +257,7 @@ static void sfn5122f_filter_port_setup(struct sfn5122f_driver_state* st, int idx
     filter_hi = sfn5122f_rx_filter_tbl_hi_rss_en_insert(filter_hi, st->rss_en);
     filter_hi = sfn5122f_rx_filter_tbl_hi_scatter_en_insert(filter_hi, st->scatter_en);
 
+    debug_printf("device=%p index=%d filter_lo=%lx filter_hi=%lx", st->d, idx, filter_lo, filter_hi);
     sfn5122f_rx_filter_tbl_lo_wr(st->d, idx, filter_lo);
     sfn5122f_rx_filter_tbl_hi_wr(st->d, idx, filter_hi);
 }
@@ -841,9 +844,14 @@ static void start_all(struct sfn5122f_driver_state* st)
 
     errval_t err;
     if (st->use_interrupt) {
-        err = pcid_connect_int(&st->pdc, 0, global_interrupt_handler, st);
-        if(err_is_fail(err)){
-            USER_PANIC("Setting up interrupt failed \n");
+        struct capref intcap = NULL_CAP;
+        err = driverkit_get_interrupt_cap(st->bfi, &intcap);
+        assert(err_is_ok(err));
+        err = int_route_client_route_and_connect(intcap, 0,
+                                                 get_default_waitset(), 
+                                                 global_interrupt_handler, st);
+        if (err_is_fail(err)) {
+            USER_PANIC("Interrupt setup failed!\n");
         }
     }
 
@@ -1186,14 +1194,164 @@ static void global_interrupt_handler(void* arg)
     // Don't need to start event queues because we're already polling
 
 }
+
+/****************************************************************************/
+/* Net filter interface implementation                                      */
+/****************************************************************************/
+
+
+static errval_t cb_install_filter(struct net_filter_binding *b,
+                                  net_filter_filter_type_t type,
+                                  uint64_t qid,
+                                  uint32_t src_ip,
+                                  uint32_t dst_ip,
+                                  uint16_t src_port,
+                                  uint16_t dst_port,
+                                  uint64_t* fid)
+{
+    struct sfn5122f_driver_state* st = (struct sfn5122f_driver_state*) b->st;
+    struct sfn5122f_filter_ip f = {
+            .dst_port = dst_port,
+            .src_port = src_port,
+            .dst_ip = dst_ip,
+            .src_ip = src_ip,
+            .type_ip = type,
+            .queue = qid,
+    };
+
+    if (type == net_filter_PORT_UDP) {
+        f.src_ip = 0;
+    }
+
+    errval_t err = reg_port_filter(st, &f, fid);
+    assert(err_is_ok(err));
+    DEBUG("filter registered: err=%"PRIu64", fid=%"PRIu64"\n", err, *fid);
+    return SYS_ERR_OK;
+}
+
+
+static void install_filter(struct net_filter_binding *b,
+                           net_filter_filter_type_t type,
+                           uint64_t qid,
+                           uint32_t src_ip,
+                           uint32_t dst_ip,
+                           uint16_t src_port,
+                           uint16_t dst_port)
+{
+    errval_t err;
+    uint64_t fid;
+    err = cb_install_filter(b, type, qid, src_ip, dst_ip, src_port, dst_port, &fid);
+    assert(err_is_ok(err));
+
+    err = b->tx_vtbl.install_filter_ip_response(b, NOP_CONT, fid);
+    assert(err_is_ok(err));
+}
+
+
+static errval_t cb_remove_filter(struct net_filter_binding *b,
+                                 net_filter_filter_type_t type,
+                                 uint64_t filter_id,
+                                 errval_t* err)
+{
+    struct sfn5122f_driver_state* st = (struct sfn5122f_driver_state*) b->st;
+    if ((type == net_filter_PORT_UDP || type == net_filter_PORT_TCP)
+        && st->filters_rx_ip[filter_id].enabled == true) {
+        st->filters_rx_ip[filter_id].enabled = false;
+
+        sfn5122f_rx_filter_tbl_lo_wr(st->d, filter_id, 0);
+        sfn5122f_rx_filter_tbl_hi_wr(st->d, filter_id, 0);
+        *err = SYS_ERR_OK;
+    } else {
+        *err = NET_FILTER_ERR_NOT_FOUND;
+    }
+
+    DEBUG("unregister_filter: called (%"PRIx64")\n", filter_id);
+    return SYS_ERR_OK;
+}
+
+
+static void remove_filter(struct net_filter_binding *b,
+                          net_filter_filter_type_t type,
+                          uint64_t filter_id)
+{
+    errval_t err, err2;
+    err = cb_remove_filter(b, type, filter_id, &err2);
+    assert(err_is_ok(err));
+
+    err = b->tx_vtbl.remove_filter_response(b, NOP_CONT, err2);
+    assert(err_is_ok(err));
+}
+
+static struct net_filter_rpc_rx_vtbl net_filter_rpc_rx_vtbl = {
+    .install_filter_ip_call = cb_install_filter,
+    .remove_filter_call = cb_remove_filter,
+    .install_filter_mac_call = NULL,
+};
+
+static struct net_filter_rx_vtbl net_filter_rx_vtbl = {
+    .install_filter_ip_call = install_filter,
+    .remove_filter_call = remove_filter,
+    .install_filter_mac_call = NULL,
+};
+
+static void net_filter_export_cb(void *st, errval_t err, iref_t iref)
+{
+
+    printf("exported net filter interface\n");
+    err = nameservice_register("net_filter_sfn5122f", iref);
+    assert(err_is_ok(err));
+    DEBUG("Net filter interface exported\n");
+}
+
+
+static errval_t net_filter_connect_cb(void *st, struct net_filter_binding *b)
+{
+    printf("New connection on net filter interface\n");
+    b->rpc_rx_vtbl = net_filter_rpc_rx_vtbl;
+    b->rx_vtbl = net_filter_rx_vtbl;
+    b->st = st;
+    return SYS_ERR_OK;
+}
+
+static errval_t get_netfilter_ep(struct sfn5122f_driver_state* st, uint16_t qid, 
+                                 bool lmp, struct capref* ret_cap)
+{
+    DEBUG("sfn5122f: Netfilter endpoint was requested \n");
+    errval_t err;
+    struct net_filter_binding* b;
+    err = slot_alloc(ret_cap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+   // struct e10k_net_filter_state* state = malloc(sizeof(struct e10k_net_filter_state));  
+
+    err = net_filter_create_endpoint(lmp? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                                     &net_filter_rx_vtbl, st,
+                                     get_default_waitset(),
+                                     IDC_ENDPOINT_FLAGS_DUMMY,
+                                     &b, *ret_cap);
+    if (err_is_fail(err)) {
+        //free(state);
+        slot_free(*ret_cap);
+        return err;
+    }
+
+    /*
+    state->st = st;
+    state->qid = qid;
+    */
+    return err;
+}
+
 /******************************************************************************/
 /* Management interface implemetation */
 
 static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct capref frame,
                     bool user, bool interrupt, bool qzero,
                     uint8_t core, uint8_t msix_vector,
-                    uint64_t *mac, uint16_t *qid, struct capref *regs,
-                    errval_t *ret_err)
+                    uint64_t *mac, uint16_t *qid, struct capref* filter_ep, 
+                    struct capref *regs, errval_t *ret_err)
 {
 
     DEBUG("cd_create_queue \n");
@@ -1271,6 +1429,14 @@ static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct cap
         return NIC_ERR_ALLOC_QUEUE;
     }
 
+    // TODO get lmp/nolmp flag
+    bool lmp = (core == disp_get_core_id()) ? true: false;
+    err = get_netfilter_ep(st, n, lmp, filter_ep);
+    if (err_is_fail(err)) {
+        *ret_err = NIC_ERR_ALLOC_QUEUE;
+        return err;
+    }
+
     st->queues[n].enabled = true;
     DEBUG("created queue %d \n", n);
 
@@ -1279,11 +1445,7 @@ static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct cap
     
     b->st = &(st->queues[n]);
 
-    err = slot_alloc(regs);
-    assert(err_is_ok(err));
-    err = cap_copy(*regs, st->regframe);
-    assert(err_is_ok(err));
-
+    *regs = st->regframe;
     *ret_err = SYS_ERR_OK;
 
     return SYS_ERR_OK;
@@ -1300,20 +1462,20 @@ static void cd_create_queue(struct sfn5122f_devif_binding *b, struct capref fram
     uint16_t queueid;
     errval_t err;
 
-    struct capref regs;
+    struct capref regs, filter_ep;
 
 
     cd_create_queue_rpc(b, frame, user, interrupt, qzero, core,
-                        msix_vector, &mac, &queueid, &regs, &err);
+                        msix_vector, &mac, &queueid, &filter_ep, &regs, &err);
 
-    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, regs, err);
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, queueid, filter_ep, regs, err);
     assert(err_is_ok(err));
     DEBUG("cd_create_queue end\n");
 }
 
 
 static errval_t cd_register_region_rpc(struct sfn5122f_devif_binding *b, uint16_t qid,
-                                struct capref region, uint64_t *buftbl_id, errval_t *ret_err)
+                                       struct capref region, uint64_t *buftbl_id, errval_t *ret_err)
 {
     errval_t err;
     struct queue_state* st = (struct queue_state*) b->st;
@@ -1428,88 +1590,6 @@ static void export_devif_cb(void *st, errval_t err, iref_t iref)
     s->initialized = true;
 }
 
-
-
-/****************************************************************************/
-/* Net filter interface implementation                                      */
-/****************************************************************************/
-
-
-static errval_t cb_install_filter(struct net_filter_binding *b,
-                                  net_filter_filter_type_t type,
-                                  uint64_t qid,
-                                  uint32_t src_ip,
-                                  uint32_t dst_ip,
-                                  uint16_t src_port,
-                                  uint16_t dst_port,
-                                  uint64_t* fid)
-{
-    struct sfn5122f_driver_state* st = (struct sfn5122f_driver_state*) b->st;
-    struct sfn5122f_filter_ip f = {
-            .dst_port = dst_port,
-            .src_port = src_port,
-            .dst_ip = dst_ip,
-            .src_ip = src_ip,
-            .type_ip = type,
-            .queue = qid,
-    };
-
-    if (type == net_filter_PORT_UDP) {
-        f.src_ip = 0;
-    }
-
-    errval_t err = reg_port_filter(st, &f, fid);
-    assert(err_is_ok(err));
-    DEBUG("filter registered: err=%"PRIu64", fid=%"PRIu64"\n", err, *fid);
-    return SYS_ERR_OK;
-}
-
-
-static errval_t cb_remove_filter(struct net_filter_binding *b,
-                                 net_filter_filter_type_t type,
-                                 uint64_t filter_id,
-                                 errval_t* err)
-{
-    struct sfn5122f_driver_state* st = (struct sfn5122f_driver_state*) b->st;
-    if ((type == net_filter_PORT_UDP || type == net_filter_PORT_TCP)
-        && st->filters_rx_ip[filter_id].enabled == true) {
-        st->filters_rx_ip[filter_id].enabled = false;
-
-        sfn5122f_rx_filter_tbl_lo_wr(st->d, filter_id, 0);
-        sfn5122f_rx_filter_tbl_hi_wr(st->d, filter_id, 0);
-        *err = SYS_ERR_OK;
-    } else {
-        *err = NET_FILTER_ERR_NOT_FOUND;
-    }
-
-    DEBUG("unregister_filter: called (%"PRIx64")\n", filter_id);
-    return SYS_ERR_OK;
-}
-
-static struct net_filter_rpc_rx_vtbl net_filter_rpc_rx_vtbl = {
-    .install_filter_ip_call = cb_install_filter,
-    .remove_filter_call = cb_remove_filter,
-    .install_filter_mac_call = NULL,
-};
-
-static void net_filter_export_cb(void *st, errval_t err, iref_t iref)
-{
-
-    printf("exported net filter interface\n");
-    err = nameservice_register("net_filter_sfn5122f", iref);
-    assert(err_is_ok(err));
-    DEBUG("Net filter interface exported\n");
-}
-
-
-static errval_t net_filter_connect_cb(void *st, struct net_filter_binding *b)
-{
-    printf("New connection on net filter interface\n");
-    b->rpc_rx_vtbl = net_filter_rpc_rx_vtbl;
-    return SYS_ERR_OK;
-}
-
-
 static errval_t connect_devif_cb(void *st, struct sfn5122f_devif_binding *b)
 {
     DEBUG("New connection on devif management interface\n");
@@ -1521,7 +1601,6 @@ static errval_t connect_devif_cb(void *st, struct sfn5122f_devif_binding *b)
     b->rx_vtbl.register_region_call = cd_register_region;
     b->rx_vtbl.deregister_region_call = cd_deregister_region;
     b->rx_vtbl.control_call = cd_control;
-
 
     b->rpc_rx_vtbl.create_queue_call = cd_create_queue_rpc;
     b->rpc_rx_vtbl.register_region_call = cd_register_region_rpc;
@@ -1558,18 +1637,10 @@ static void init_card(struct sfn5122f_driver_state* st)
 
     st->d = calloc(sizeof(sfn5122f_t), 1);
 
-    int num_bars = pcid_get_bar_num(&st->pdc);
-
-    DEBUG("BAR count %d \n", num_bars);
-
     DEBUG("Initializing network device.\n");
-
-    if (num_bars < 1) {
-        USER_PANIC("Error: Not enough PCI bars allocated. Can not initialize network device.\n");
-    }
     lvaddr_t vaddr;
     /* Map first BAR for register access */
-    err = pcid_get_bar_cap(&st->pdc, 0, &st->regframe);
+    err = driverkit_get_bar_cap(st->bfi, 0, &st->regframe);
     if (err_is_fail(err)) {
         USER_PANIC("pcid_get_bar_cap failed \n");
     }
@@ -1722,8 +1793,7 @@ static void init_default_values(struct sfn5122f_driver_state* st)
  * \retval SYS_ERR_OK Device initialized successfully.
  * \retval LIB_ERR_MALLOC_FAIL Unable to allocate memory for the driver.
  */
-static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t flags,
-                     struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) {
+static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev) {
 
     //barrelfish_usleep(10*1000*1000);
     DEBUG("SFN5122F driver started \n");
@@ -1736,23 +1806,28 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
     
     assert(bfi->dstate != NULL);
     struct sfn5122f_driver_state* st = (struct sfn5122f_driver_state*) bfi->dstate;
-    st->caps = caps;
+    st->caps = bfi->caps;
+    st->bfi = bfi;
 
     init_default_values(st);
- 
-    err = pcid_init(&st->pdc, caps, caps_len, args, args_len, get_default_waitset());
-    if(err_is_fail(err)){
-        USER_PANIC("pcid_init failed \n");
+
+    struct capref devcap = NULL_CAP;
+    err = driverkit_get_iommu_cap(bfi, &devcap);
+    if (!capref_is_null(devcap) && err_is_ok(err)) {
+        err = driverkit_iommu_client_init_cl(devcap, &st->iommu);
+        if (err_is_fail(err)) {
+            debug_printf("######## VTD-Enabled but no valid IOMMU endpoint ######### \n");
+        }
     }
-   
-    int argc = args_len;
+
+    int argc = bfi->argc;
 
     for(int i = 0; i < argc; i++) {
-        printf("argv[%d] = %s \n", i, args[i]);
+        printf("argv[%d] = %s \n", i, bfi->argv[i]);
     }
 
     if (argc > 1) {
-        uint32_t parsed = sscanf(args[argc - 1], "%x:%x:%x:%x:%x", &st->pci_vendor,
+        uint32_t parsed = sscanf(bfi->argv[argc - 1], "%x:%x:%x:%x:%x", &st->pci_vendor,
                                  &st->pci_devid, &st->pci_bus, &st->pci_device, &st->pci_function);
         if (parsed != 5) {
             st->pci_vendor = PCI_DONT_CARE;
@@ -1769,7 +1844,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
         }
     }
 
-    parse_cmdline(st, args_len, args);
+    parse_cmdline(st, bfi->argc, bfi->argv);
 
     init_card(st);
 
@@ -1831,10 +1906,33 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
     return SYS_ERR_OK;
 }
 
+
+static struct sfn5122f_devif_rx_vtbl vtbl = {
+    .create_queue_call = cd_create_queue,
+    .destroy_queue_call = cd_destroy_queue,
+    .register_region_call = cd_register_region,
+    .deregister_region_call = cd_deregister_region,
+    .control_call = cd_control
+};
+
+static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
+{
+    DEBUG("Endpoint was requested \n");
+    errval_t err;
+    struct sfn5122f_devif_binding* b;
+    err = sfn5122f_devif_create_endpoint(lmp? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                                  &vtbl, bfi->dstate,
+                                  get_default_waitset(),
+                                  IDC_ENDPOINT_FLAGS_DUMMY,
+                                  &b, *ret_cap);
+    
+    return err;
+}
+
 /**
  * Registers the driver module with the system.
  *
  * To link this particular module in your driver domain,
  * add it to the addModules list in the Hakefile.
  */
-DEFINE_MODULE(sfn5122f_module, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(sfn5122f_module, init, attach, detach, set_sleep_level, destroy, get_ep);
