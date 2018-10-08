@@ -1,5 +1,5 @@
 ##########################################################################
-Copyright (c) 2009-2016, ETH Zurich.
+Copyright (c) 2009-2018, ETH Zurich.
 All rights reserved.
 
 This file is distributed under the terms in the attached LICENSE file.
@@ -12,20 +12,22 @@ Barrelfish Overview
 
 Barrelfish currently runs on:
 
- * x86 CPUs in either IA-32 or AMD64 mode. The following are known to work:
+ * x86 CPUs in AMD64 mode. The following are known to work:
 
    - Intel Xeon Clovertown, Gainestown, Beckton, IvyBridge, Haswell (X5355,
      E5520, X7560, L5520, L7555, E5-2670v2, E3-1245v3)
    - AMD Opteron Italy, Santa Rosa, Barcelona, Shanghai, Istanbul, Magny Cours
      (275, 2220, 8350, 8374, 8380, 8431, 6174)
-   - QEMU simulator (2.0.0)
+   - Intel Xeon Phi Knights Corner
+   - QEMU simulator (2.2.10)
 
- * ARM CPUs, specifically ARMv7 and ARMv5. The following platforms are known to work:
+ * ARM CPUs, specifically ARMv8 and ARMv7. The following platforms are known to work:
 
-   - The integratorcp ARMv5 machine as simulated by QEM
-   - The Texas Instruments OMAP4460 Pandaboard ES SoC
+   - ARMv7: The Texas Instruments OMAP4460 Pandaboard ES SoC
      (Barrelfish runs on both the A9 and the M3 cores)
-   - The ARM VExpress EMM board as simulated by GEM5
+   - ARMv7: The ARM VExpress EMM board as simulated by GEM5
+   - ARMv8: Cavium ThunderX2
+   - ARMv8: Applied Micro X-Gene
    - There is also limited support for the Netronome i8000 card, incorporating
      a single Intel iXP2800 processor
 
@@ -42,16 +44,6 @@ to download them.
 Supported PC hardware
 --------------------------------
 
-Barrelfish supports following PC hardware :
-
- * x86 CPUs in either IA-32 or AMD64 mode. The following are known to work:
-
-   - Intel Xeon Clovertown, Gainestown, Beckton, Ivy Bridge, Haswell (X5355,
-     E5520, X7560, L5520, L7555, E5-2670v2, E3-1245v3)
-   - AMD Opteron Italy, Santa Rosa, Barcelona, Shanghai, Istanbul, Magny Cours
-     (275, 2220, 8350, 8374, 8380, 8431, 6174)
-      * Note: the Opteron 275 do not work in IA-32 mode.
-
 The biggest compatibility problems are likely to be in the PCI/ACPI code. We
 usually discover new quirks (or missing functionality in the ACPI glue code)
 on each new machine we test. The following systems are known to work:
@@ -65,24 +57,29 @@ on each new machine we test. The following systems are known to work:
  * Lenovo X200 and X301 laptops
  * ASUS Eee PC 1015PEM netbooks
 
-The e1000n driver should work with most recent Intel gigabit ethernet
-controllers (see the list in devices/e1000.dev). We've mostly used the
-82572EI (PCI device ID 0x1082).
+We have support for the following NICs:
+    * The e1000n should work with most recent Intel gigabit ethernet
+      controllers (see the list in devices/e1000.dev). We've mostly used the
+      82572EI (PCI device ID 0x1082). 
+    * Intel i82599 (or X520) 10GbE
+    * Solarflare sfn5122f 10GbE
 
-You should also be able to boot Barrelfish on a recent version of QEMU (0.14);
+You should also be able to boot Barrelfish on a recent version of QEMU (2.14);
 note that the e1000 device emulated by QEMU is not supported by our driver.
 
 Required Tools
 --------------------------------
 
 Our toolchain tracks Ubuntu LTS releases, and this is what we use to
-run our nightly tests.  If you are running Ubuntu LTS (16.04.1 at time
+run our nightly tests.  If you are running Ubuntu LTS (18.04.1 at time
 of writing), this means the following:
 
- * GCC 5.4.0 for x86_64, ARMv7 and ARMv8
-   - Install packages gcc-arm-linux-gnueabi, g++-arm-linux-gnueabi,
-     gcc-aarch64-linux-gnu and g++-aarch64-linux-gnu on Ubuntu LTS
- * GNU binutils (2.24 and 2.26 are known to work)
+ * GCC 7.3.0 for x86_64, ARMv7 and ARMv8
+   - On Ubuntu LTS install packages:
+     build-essential g++
+     gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
+     gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+ * GNU binutils (2.30 is supported)
  * GNU make
  * GHC v7.10.3 and Parsec 3.1
    - older versions of the tree supported v6.10 or v6.12.2 with Parsec
@@ -93,12 +90,17 @@ of writing), this means the following:
      libghc-mtl-dev libghc-ghc-mtl-dev cabal-install libghc-src-exts-dev
      libghc-async-dev libghc-ghc-paths-dev libghc-parsec3-dev
      libghc-random-dev
-   - Then, run cabal-install bytestring-trie
+   - Then, run cabal update && cabal install bytestring-trie
  * FreeBSD's libelf:
    - On Ubuntu install the following packages:
      libelf-freebsd-dev freebsd-glue
- * LibUSB 1.0 (for the usbboot tool):
+ * Optional: LibUSB 1.0 (for the usbboot tool):
    - On Ubuntu install libusb-1.0-0-dev
+
+ * Optional: QEMU with e1000e EFI ROM:
+   - On Ubuntu install qemu-system-x86 qemu-efi qemu-ipxe
+   - Then cd /usr/lib/ipxe/qemu/ &&
+     sudo wget https://github.com/qemu/qemu/raw/master/pc-bios/efi-e1000e.rom
 
 Building
 --------------------------------
@@ -122,7 +124,8 @@ run ``make rehake`` to apply them.
 
     $ make X86_64_Basic
 
-5. If everything worked, you should now be able to run Barrelfish inside QEMU ::
+5. If everything worked, you should now be able to run Barrelfish inside QEMU 
+   (make sure you have followed the optional qemu step in required tools) ::
 
     $ make qemu_x86_64
 
@@ -150,25 +153,10 @@ binaries to the right place for you, eg ::
 
 We usually boot Barrelfish via PXE/TFTP, although loading from a local disk
 also works. Instructions for setting up GRUB to do this are beyond the scope of
-this document. Assuming you have such a setup, here is a sample menu.lst file
-for a basic diskless boot that doesn't do anything useful beyond probing the
-PCI buses and starting a basic shell ::
-
-    title   Barrelfish
-    root    (nd)
-    kernel /barrelfish/x86_64/sbin/elver
-    module /barrelfish/x86_64/sbin/cpu
-    module /barrelfish/x86_64/sbin/init
-    module /barrelfish/x86_64/sbin/mem_serv
-    module /barrelfish/x86_64/sbin/monitor
-    module /barrelfish/x86_64/sbin/ramfsd boot
-    module /barrelfish/x86_64/sbin/skb boot
-    modulenounzip /barrelfish/skb_ramfs.cpio.gz nospawn
-    module /barrelfish/x86_64/sbin/acpi boot
-    module /barrelfish/x86_64/sbin/pci boot
-    module /barrelfish/x86_64/sbin/spawnd boot
-    module /barrelfish/x86_64/sbin/serial
-    module /barrelfish/x86_64/sbin/fish
+this document. Assuming you have such a setup, a sample menu.lst can
+be found in build/x86/menu.lst.x86_64 after executin make qemu_x86_64. It
+is a basic diskless boot that doesn't do anything useful beyond probing the
+PCI buses and starting a basic shell.
 
 There are many other programs you can load (take a look around the usr tree for
 examples). To start a program on a core other than the BSP core, pass
@@ -211,6 +199,11 @@ A: Add it to the boot sequence by specifying the module in your menu.lst file.
    server's root directory (when booting on hardware) or to your build
    directory (when using a simulator such as QEMU).
    If memtest runs, you should see it output "memtest passed successfully!".
+
+Q: How do develop a program?
+A: Check out Technote 18, Practical Guide. Either on barrelfish.org or
+   in the generated technotes (see Generating Documentation)
+
 
 Q: Where's the CPU driver?
 A: It's in the directory named kernel :) But don't worry, it really does run
