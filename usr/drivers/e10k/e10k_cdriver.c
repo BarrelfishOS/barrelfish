@@ -1778,7 +1778,7 @@ static void init_default_values(struct e10k_driver_state* e10k)
     e10k->d = NULL;
     e10k->msix = false;
     e10k->vtdon_dcboff = false;
-    e10k->dca = false;
+    e10k->dca = true;
     e10k->cdriver_msix = -1;
     e10k->initialized = 0;
     e10k->exported = false;
@@ -1858,6 +1858,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     err = driverkit_get_iommu_cap(bfi, &devcap);
     if (!capref_is_null(devcap) && err_is_ok(err)) {
         st->vtdon_dcboff = true;
+        st->dca = false;
 
         err = driverkit_iommu_client_init_cl(devcap, &st->iommu);
         if (err_is_fail(err)) {
