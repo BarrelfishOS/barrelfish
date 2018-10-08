@@ -249,7 +249,7 @@ static void http_send_data(struct net_socket *socket, struct http_conn *conn)
  // debug_printf_to_log("%s(%d): header %zd:%zd", __func__, socket->descriptor, conn->header_pos, len);
         err = trysend(socket, data, &len, (conn->hbuff->data != NULL));
         if (err != SYS_ERR_OK) {
-            DEBUGPRINT("http_send_data(): Error %d sending header\n", err);
+            DEBUGPRINT("http_send_data(): Error %zd sending header\n", err);
             return; // will retry
         }
 
@@ -278,7 +278,7 @@ static void http_send_data(struct net_socket *socket, struct http_conn *conn)
  // debug_printf_to_log("%s(%d): file %zd:%zd", __func__, socket->descriptor, conn->reply_pos, len);
         err = trysend(socket, data, &len, false);
         if (err != SYS_ERR_OK) {
-            DEBUGPRINT("http_send_data(): Error %d sending payload\n", err);
+            DEBUGPRINT("http_send_data(): Error %zd sending payload\n", err);
             return; // will retry
         }
         conn->reply_pos += len;
@@ -404,6 +404,12 @@ static const void *make_header(const char *uri, size_t *retlen)
     }
 }
 
+/* Get one byte from the 4-byte address */
+#define ip_addr1(ipaddr) (((const u8_t*)(&(ipaddr)->s_addr))[0])
+#define ip_addr2(ipaddr) (((const u8_t*)(&(ipaddr)->s_addr))[1])
+#define ip_addr3(ipaddr) (((const u8_t*)(&(ipaddr)->s_addr))[2])
+#define ip_addr4(ipaddr) (((const u8_t*)(&(ipaddr)->s_addr))[3])
+
 /* callback function to fetch file
     This function is responsible for sending the fetched file */
 static void send_response(struct http_conn *cs)
@@ -414,8 +420,8 @@ static void send_response(struct http_conn *cs)
 					cs->request_no, cs->reply_pos);
         DEBUGPRINT("%s %s %s %hu.%hu.%hu.%hu\n", "500",
                cs->request, cs->filename,
-               ip4_addr1(&cs->pcb->remote_ip), ip4_addr2(&cs->pcb->remote_ip),
-               ip4_addr3(&cs->pcb->remote_ip), ip4_addr4(&cs->pcb->remote_ip));
+               ip_addr1(&cs->pcb->connected_address), ip_addr2(&cs->pcb->connected_address),
+               ip_addr3(&cs->pcb->connected_address), ip_addr4(&cs->pcb->connected_address));
 
         cs->header = error_reply;
         cs->header_length = sizeof(error_reply) - 1;
@@ -425,8 +431,8 @@ static void send_response(struct http_conn *cs)
                 cs->request_no, cs->reply_pos);
         DEBUGPRINT("%s %s %s %hu.%hu.%hu.%hu\n", cs->hbuff->data ?
                 "200" : "404", cs->request, cs->filename,
-               ip4_addr1(&cs->pcb->remote_ip), ip4_addr2(&cs->pcb->remote_ip),
-               ip4_addr3(&cs->pcb->remote_ip), ip4_addr4(&cs->pcb->remote_ip));
+                ip_addr1(&cs->pcb->connected_address), ip_addr2(&cs->pcb->connected_address),
+                ip_addr3(&cs->pcb->connected_address), ip_addr4(&cs->pcb->connected_address));
 
         if (cs->hbuff->data == NULL) {
             /* not found, send 404 */

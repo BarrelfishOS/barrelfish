@@ -144,7 +144,7 @@ static errval_t portmap_lookup(struct nfs_client *client, u_int prog, u_int vers
     errval_t err = rpc_call(&client->rpc_client, PMAP_PORT, PMAP_PROG, PMAP_VERS,
                     PMAPPROC_GETPORT, (xdrproc_t) xdr_mapping, &mount_map,
                     sizeof(mount_map), mount_reply_handler, NULL, NULL);
-    NFSDEBUGPRINT("portmap_lookup: portmap_lookup done with rpc_call returned %d \n",
+    NFSDEBUGPRINT("portmap_lookup: portmap_lookup done with rpc_call returned %zu \n",
             err);
     return  err;
 }

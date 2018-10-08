@@ -137,7 +137,7 @@ static errval_t register_soft_filt_impl(uint16_t port,
                *id);
     send_soft_filter(*id, len_rx, len_tx, buffer_id_rx, buffer_id_tx,
                         NORMAL_FILTER, 0, rerr, filter_id);
-                    
+
     return SYS_ERR_OK;
 }
 
@@ -318,9 +318,9 @@ static void send_soft_filter(uint64_t id, uint64_t len_rx,
     err = b->rpc_tx_vtbl.register_filter(b, id, len_rx, len_tx, buffer_id_rx, buffer_id_tx, ftype, paused, rerr, filter_id);
     assert(err_is_ok(err));
     assert(err_is_ok(*rerr));
-    NDM_DEBUG("filter at id [%" PRIu64 "] type[%" PRIu64
+    NDM_DEBUG("filter at id [%" PRIu64 "] type[%" PRIu32
                "] registered with filt_id %" PRIu64 ".\n", id, ftype,
-               filter_id);
+               *filter_id);
 
     /* free the memory in shared area */
     err = bulk_free(&bt_filter_tx, id);
