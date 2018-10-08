@@ -11,6 +11,7 @@
 #include <net/net_queue.h>
 #include <pci/pci_types.h>
 #include <bench/bench.h>
+#include <if/if_types.h>
 #include "networking_internal.h"
 #include "net_queue_internal.h"
 
@@ -48,8 +49,10 @@ static errval_t create_e1000_queue(const char* cardname, inthandler_t interrupt,
                                    struct devq **retqueue)
 {
     errval_t err;
-    if (cardname[6] != ':') {
-        return DEVQ_ERR_INIT_QUEUE;
+    if (strncmp(cardname, "", strlen("")) == 0) {
+        if (cardname[6] != ':') {
+            return DEVQ_ERR_INIT_QUEUE;
+        }
     }
 
     struct pci_addr addr;
@@ -78,18 +81,24 @@ static errval_t create_mlx4_queue(const char* cardname, inthandler_t interrupt,
                                   struct devq **retqueue)
 {
     errval_t err;
-    if (cardname[4] != ':') {
-        return DEVQ_ERR_INIT_QUEUE;
-    }
 
     struct pci_addr addr;
     struct pci_id id;
     struct pci_class cls;
 
-    err = pci_deserialize_octet((char*) cardname+5, &addr, &id, &cls);     
-    if (err_is_fail(err)) {
+    if (strncmp(cardname, "", strlen("")) != 0) {
+        if (cardname[4] != ':') {
+            return DEVQ_ERR_INIT_QUEUE;
+        }
+
+        err = pci_deserialize_octet((char*) cardname+5, &addr, &id, &cls);     
+        if (err_is_fail(err)) {
+            return DEVQ_ERR_INIT_QUEUE;
+        }
+    } else {
         return DEVQ_ERR_INIT_QUEUE;
     }
+
 
     struct net_state* st = get_default_net_state();
     // disable HW filter since the card does not have them
@@ -109,16 +118,18 @@ static errval_t create_e10k_queue(const char* cardname, inthandler_t interrupt,
     // enable HW filter since they are enabled by default by the driver
     st->hw_filter = true;
 
-    if (cardname[4] != ':') {
-        return DEVQ_ERR_INIT_QUEUE;
-    }
     uint32_t vendor, deviceid, bus, device, function;
-    unsigned parsed = sscanf(cardname + 5, "%x:%x:%x:%x:%x", &vendor,
-                             &deviceid, &bus, &device, &function);
-    if (parsed != 5) {
-        return DEVQ_ERR_INIT_QUEUE;
-    }
+    if (strncmp(cardname, "", strlen("")) != 0) {
+        if (cardname[4] != ':') {
+            return DEVQ_ERR_INIT_QUEUE;
+        }
+        unsigned parsed = sscanf(cardname + 5, "%x:%x:%x:%x:%x", &vendor,
+                                 &deviceid, &bus, &device, &function);
+        if (parsed != 5) {
+            return DEVQ_ERR_INIT_QUEUE;
+        }
 
+    }
 
     if (driverkit_iommu_present(NULL)) {
         err = e10k_queue_create((struct e10k_queue**)retqueue, interrupt,
@@ -177,14 +188,15 @@ struct networking_card
     char *cardname;
     queue_create_fn createfn;
     get_bench_data_fn benchfn;
+    enum endpoint_types iftype;
 } networking_cards [] = {
-    { "loopback", create_loopback_queue, NULL},
-    { "driver", create_driver_queue, NULL},
-    { "e1000n", create_e1000_queue, NULL},
-    { "mlx4", create_mlx4_queue, NULL},
-    { "e10k", create_e10k_queue, e10k_get_benchmark_data},
-    { "sfn5122f", create_sfn5122f_queue, sfn5122f_get_benchmark_data},
-    { NULL, NULL, NULL}
+    { "loopback", create_loopback_queue, NULL, IF_TYPE_DUMMY},
+    { "driver", create_driver_queue, NULL, IF_TYPE_DUMMY},
+    { "e1000n", create_e1000_queue, NULL, IF_TYPE_E1000_DEVIF},
+    { "mlx4", create_mlx4_queue, NULL, IF_TYPE_DUMMY},
+    { "e10k", create_e10k_queue, e10k_get_benchmark_data, IF_TYPE_E10K_VF},
+    { "sfn5122f", create_sfn5122f_queue, sfn5122f_get_benchmark_data, IF_TYPE_SFN5122F_DEVIF},
+    { NULL, NULL, NULL, IF_TYPE_DUMMY}
 };
 
 /**
@@ -205,17 +217,42 @@ errval_t net_queue_internal_create(inthandler_t interrupt, const char *cardname,
                                    struct capref* ep, uint64_t* queueid, bool default_q, 
                                    bool poll, struct capref* filter_ep, struct devq **retqueue)
 {
+    errval_t err;
     struct networking_card *nc = networking_cards;
-    while(nc->cardname != NULL) {
-        if (strncmp(cardname, nc->cardname, strlen(nc->cardname)) == 0) {
-            return nc->createfn(cardname, interrupt, ep, queueid, default_q,
-                                poll, filter_ep, retqueue);
+
+    struct endpoint_identity epid;
+    if (ep != NULL) {
+        err = invoke_endpoint_identify(*ep, &epid);
+        if (err_is_ok(err)) {
+            while(nc->cardname != NULL) {
+                if (nc->iftype == epid.iftype) {
+                    debug_printf("Init queue %s using EP \n", nc->cardname);
+                    return nc->createfn(cardname, interrupt, ep, queueid, default_q,
+                                        poll, filter_ep, retqueue);
+                }
+                nc++;
+            }
+            
         }
-        nc++;
+    
+    }   
+
+    if (cardname != NULL) {
+        nc = networking_cards;
+        while(nc->cardname != NULL) {
+            if (strncmp(cardname, nc->cardname, strlen(nc->cardname)) == 0) {
+                return nc->createfn(cardname, interrupt, ep, queueid, default_q,
+                                    poll, filter_ep, retqueue);
+            }
+            nc++;
+        }
+
+        debug_printf("net: ERROR unknown queue. card='%s', queueid=%" PRIu64 "\n",
+                    cardname, *queueid);
+        return -1;
     }
 
-    debug_printf("net: ERROR unknown queue. card='%s', queueid=%" PRIu64 "\n",
-                  cardname, *queueid);
+    debug_printf("net: ERROR unknown queue type \n");
 
     return -1;
 }
