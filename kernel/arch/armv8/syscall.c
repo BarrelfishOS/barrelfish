@@ -931,7 +931,7 @@ static struct sysret handle_endpoint_identify(struct capability *cap,
 }
 
 
-static struct sysret handle_set_endpoint_iftype(struct capability *cap, 
+static struct sysret handle_set_endpoint_iftype(struct capability *cap,
                                                 arch_registers_state_t *context,
                                                 int argc)
 {
@@ -1099,7 +1099,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [EndPointCMD_Identify] = handle_endpoint_identify,
         [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
     },
-    [ObjType_EndPointUMP] = {   
+    [ObjType_EndPointUMP] = {
         [EndPointCMD_Identify] = handle_endpoint_identify,
         [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
     }
@@ -1135,7 +1135,7 @@ handle_invoke(uint64_t a0, uint64_t a1, uint64_t a2, uint64_t a3,
         assert(to != NULL);
         assert(to->type < ObjType_Num);
 
-        if (ObjType_EndPointLMP == to->type)
+        if (ObjType_EndPointLMP == to->type && !(flags & LMP_FLAG_IDENTIFY))
         {
             struct dcb *listener = to->u.endpointlmp.listener;
             assert(listener != NULL);
