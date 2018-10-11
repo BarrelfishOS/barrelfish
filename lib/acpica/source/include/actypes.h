@@ -493,7 +493,7 @@ typedef UINT64                          ACPI_PHYSICAL_ADDRESS;
 
 #define PCI_ROOT_HID_STRING             "PNP0A03"
 #define PCI_EXPRESS_ROOT_HID_STRING     "PNP0A08"
-#define HPET_HID_STRING "PNP0103"
+
 /* PM Timer ticks per second (HZ) */
 
 #define ACPI_PM_TIMER_FREQUENCY         3579545

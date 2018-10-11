@@ -238,7 +238,6 @@ AcpiRsCreateResourceList (
     ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "AmlBuffer = %p\n",
         AmlBuffer));
 
-
     /* Params already validated, so we don't re-validate here */
 
     AmlBufferLength = AmlBuffer->Buffer.Length;
@@ -253,7 +252,6 @@ AcpiRsCreateResourceList (
 
     ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "Status=%X ListSizeNeeded=%X\n",
         Status, (UINT32) ListSizeNeeded));
-   
     if (ACPI_FAILURE (Status))
     {
         return_ACPI_STATUS (Status);
@@ -279,8 +277,6 @@ AcpiRsCreateResourceList (
 
     ACPI_DEBUG_PRINT ((ACPI_DB_INFO, "OutputBuffer %p Length %X\n",
         OutputBuffer->Pointer, (UINT32) OutputBuffer->Length));
-
-           
     return_ACPI_STATUS (AE_OK);
 }
 

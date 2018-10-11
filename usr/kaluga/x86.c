@@ -169,10 +169,9 @@ errval_t arch_startup(char * add_device_db_file)
 
     KALUGA_DEBUG("Kaluga: wait_for_all_spawnds\n");
 
-
     err = watch_for_hpet();
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unable to wait for hpet");
+        USER_PANIC_ERR(err, "Unable to watch for hpet");
     }
 
     err = wait_for_all_spawnds();

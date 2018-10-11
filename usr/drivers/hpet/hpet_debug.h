@@ -10,7 +10,6 @@
 #ifndef HPET_DEBUG_H_
 #define HPET_DEBUG_H_
 
-
 /*****************************************************************
  * Debug printer and its power-switch:
  *****************************************************************/
@@ -22,6 +21,5 @@
 #else
 #define HPET_DEBUG(x...) ((void)0)
 #endif
-
 
 #endif // HPET_DEBUG_H_

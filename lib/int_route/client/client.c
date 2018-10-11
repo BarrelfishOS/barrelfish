@@ -38,8 +38,6 @@ static struct int_route_state * get_int_route_state(void){
 }
 
 static void bind_cb(void *st, errval_t binderr, struct int_route_service_binding *b) {
-
-    debug_printf("int_route_client: inside bind \n ");
     assert(err_is_ok(binderr));
     int_route_state_st.binding = b;
     int_route_state_st.request_done = true;
@@ -51,23 +49,11 @@ errval_t int_route_client_route(struct capref intsrc, int irq_idx,
         struct capref intdest){
     assert(int_route_state_st.request_done);
     struct int_route_service_binding * cl = int_route_state_st.binding;
-    debug_printf("int_route_client_route: Assertion and Binding done \n "); 
-    errval_t msgerr, err;  
+    errval_t msgerr, err;
     msgerr = cl->rpc_tx_vtbl.route(cl, intsrc, irq_idx, intdest, &err);
     if(err_is_fail(msgerr)){
-        debug_printf("int_route_client_route: MsgError in routing \n \n "); 
         return msgerr;
     }
-
-    if(err_is_fail(err)){
-        debug_printf("int_route_client_route: Error in routing \n \n "); 
-        debug_err(__FILE__,__FUNCTION__,__LINE__, err,
-                "  Err from rpc_tx_vbtl \n");
-          USER_PANIC_ERR(err, "Err from rpc_tx_vbtl ");
-        return err;
-    }
-    
-    debug_printf("All went well in int_route_client_route \n ");
     return err;
 }
 
@@ -117,7 +103,6 @@ errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
         DEBUG_ERR(err, "alloc_dest_irq_cap");
         return err;
     }
-    debug_printf("int_route_client_route_and_connect:success in allocate dest irq \n"); 
 
     /* create endpoint to handle interrupts */
     struct capref epcap;
@@ -138,25 +123,18 @@ errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
     err = lmp_endpoint_register(idcep, ws, MKCLOSURE(irq_handler, ag));
 
     /* connect irq_dest with EP */
-   
     err = invoke_irqdest_connect(irq_dest_cap, epcap);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "Could not connect irq_cap and endpoint");
         return err;
     }
-    debug_printf("int_route_client_route_and_connect: success in connect irq dest \n"); 
 
     /* add route from int_src_cap to irq_dest_cap */
-     
-
     err = int_route_client_route(intsrc, irq_idx , irq_dest_cap);
     if(err_is_fail(err)){
-         debug_printf("int_route_client_route_and_connect:an error has occured !!!! \n "); 
-
         DEBUG_ERR(err, "int_route_client_route");
         return err;
     }
-
 
     return SYS_ERR_OK;
 }
@@ -187,6 +165,6 @@ errval_t int_route_client_connect(void){
     while (!state->request_done) {
         messages_wait_and_handle_next();
     }
-   debug_printf("client_connect : Current int_route_state request is  %d \n" ,state->request_done); 
+
     return SYS_ERR_OK;
 }

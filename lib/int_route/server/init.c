@@ -251,15 +251,10 @@ static void driver_route_call(struct int_route_service_binding *b,
         struct capref intdest){
     INT_DEBUG("%s: enter\n", __FUNCTION__);
     errval_t err;
-    debug_printf("driver route call: start\n"); 
     uint64_t int_src_num = INVALID_VECTOR;
     err = invoke_irqsrc_get_vec_start(intsource, &int_src_num);
-    debug_printf("driver route call:get vec start done \n "); 
     uint64_t int_src_num_high = INVALID_VECTOR;
     err = invoke_irqsrc_get_vec_end(intsource, &int_src_num_high);
-     debug_printf("driver route call: get vec end  done \n"); 
-    
-    debug_printf("\n int_src_num_high: %lu ",int_src_num_high);
     if(int_src_num + irq_idx > int_src_num_high || irq_idx < 0){
         err = SYS_ERR_IRQ_INVALID;
         DEBUG_ERR(err, "irq_idx out of range");
@@ -268,7 +263,7 @@ static void driver_route_call(struct int_route_service_binding *b,
     }
 
     assert(err_is_ok(err));
-    int_src_num +=irq_idx;
+    int_src_num += irq_idx;
 
     uint64_t dest_vec = INVALID_VECTOR;
     err = invoke_irqdest_get_vector(intdest, &dest_vec);
@@ -287,7 +282,6 @@ static void driver_route_call(struct int_route_service_binding *b,
     int q_size = strlen(template) + 3 * 16;
     char * query = malloc(q_size);
     snprintf(query, q_size, template, int_src_num, dest_cpu, dest_vec);
-    printf("init: query to skb is %s \n",query);
     err = skb_execute(query);
     if(err_is_fail(err)){
         DEBUG_SKB_ERR(err, "%s failed", query);
@@ -300,8 +294,6 @@ static void driver_route_call(struct int_route_service_binding *b,
         DEBUG_ERR(err, "Error read_route_and_tell_controllers.\n");
     }
     b->tx_vtbl.route_response(b, NOP_CONT, err);
-
-
 }
 
 static void ctrl_register_controller(struct int_route_controller_binding *_binding,

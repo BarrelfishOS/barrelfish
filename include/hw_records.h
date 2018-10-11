@@ -51,13 +51,6 @@
 #define HW_HPET_RECORD_FIELDS_READ \
 "address: %d, size: %d, nTimers:%d" 
 
-/* oct_read might probably work if I swap flags and size 
-#define HW_HPET_RECORD_FIELDS_READ \
-"address: %li, flags: %d, size:%d" 
-
-#define HW_HPET_RECORD_FIELDS_SCAN \
-"address: %lu, size: %d, flags:%c" 
-*/
 #define HW_HPET_RECORD_FORMAT \
 "hw.hpet.{" HW_HPET_RECORD_FIELDS " }"
 

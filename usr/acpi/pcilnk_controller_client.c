@@ -32,7 +32,7 @@
 #include "acpi_shared.h"
 
 #include <if/int_route_controller_defs.h>
-//#define ACPI_BF_DEBUG 1
+
 
 static int get_device_irq(const char* device){
     ACPI_HANDLE source;
@@ -69,7 +69,7 @@ static int get_device_irq(const char* device){
     }
 
 }
-// rana 
+
 #ifdef ACPI_BF_DEBUG
 void AcpiRsDumpResourceList (ACPI_RESOURCE *Resource);
 static void debug_device_irq(const char* device) {
@@ -248,15 +248,6 @@ errval_t pcilnk_controller_client_init(void){
 
     err = int_route_controller_bind(int_route_service, pcilnk_route_controller_bind_cb, NULL, get_default_waitset(),
             IDC_BIND_FLAGS_DEFAULT);
-   // rana
-   // debug_printf("\n ***************************************************************** \n"); 
-    // get_device_irq("\\_SB ");
-    //debug_device_irq("\\_SB "); 
-
-    //ACPI_RESOURCE_DATA ad;
-    //ACPI_RESOURCE * ar=malloc(sizeof(ACPI_RESOURCE)); 
-    //AcpiRsDumpResourceList(ar);
-
 
     if(!err_is_ok(err)){
         debug_err(__FILE__,__FUNCTION__,__LINE__, err, "Could not bind int_route_service\n");

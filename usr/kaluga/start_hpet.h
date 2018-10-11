@@ -2,7 +2,7 @@
 #define START_HPET_H_
 
 #include <errors/errno.h>
-#include<int_caps.h>
+#include <int_caps.h>
 
 errval_t watch_for_hpet(void);
 

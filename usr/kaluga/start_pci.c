@@ -239,8 +239,6 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
 
     }
 
-    //skb_add_fact("blu(1)");
-
     KALUGA_DEBUG("Received %zu bars\n", bars_len);
     return SYS_ERR_OK;
 };
@@ -306,9 +304,6 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
 
     // For debugging
     strncpy(debug_msg, skb_get_output(), sizeof(debug_msg));
-
-    debug_printf("\n \n \t \t------------- DEBUG MSG inside start_pci.c ------------- \n %s \n  and msix_ctrl_name is %s \n ",debug_msg , driver_arg->int_arg.msix_ctrl_name); 
-
     char * nl = strchr(debug_msg, '\n');
     if(nl) *nl = '\0';
     debug_msg[sizeof(debug_msg)-1] = '\0';

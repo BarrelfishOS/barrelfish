@@ -927,7 +927,8 @@ AcpiNsGetDeviceCallback (
  *
  ******************************************************************************/
 
-ACPI_STATUS AcpiGetDevices (
+ACPI_STATUS
+AcpiGetDevices (
     char                    *HID,
     ACPI_WALK_CALLBACK      UserFunction,
     void                    *Context,

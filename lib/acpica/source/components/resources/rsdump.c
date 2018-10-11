@@ -112,7 +112,7 @@
  * such license, approval or letter.
  *
  *****************************************************************************/
-#define ACPI_DEBUGGER 1
+
 #ifdef ACPI_DEBUGGER
 
 #include "acpi.h"
@@ -207,8 +207,7 @@ AcpiRsDumpDescriptor (
  * DESCRIPTION: Dispatches the structure to the correct dump routine.
  *
  ******************************************************************************/
-//rana 
-//#define ACPI_BF_DEBUG
+
 void
 AcpiRsDumpResourceList (
     ACPI_RESOURCE           *ResourceList)

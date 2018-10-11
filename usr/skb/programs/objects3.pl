@@ -11,7 +11,6 @@
 :- dynamic watch/1.
 :- lib(lists).
 
-
 % This can be enabled when external/2 and lib(regex) works correctly (don't
 % forget to remove the stuff in skb_main.c in that case)...
 %:- lib(regex).

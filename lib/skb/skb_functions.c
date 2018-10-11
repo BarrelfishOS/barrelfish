@@ -93,7 +93,7 @@ errval_t skb_add_fact(char *fmt, ...)
 
     SKB_DEBUG("skb_add_fact(): %s\n", buffer);
     int assert_len = snprintf(buffer + len, BUFFER_SIZE - len,
-                              "asserta(%.*s).", len, buffer);
+                              "assert(%.*s).", len, buffer);
     if (assert_len >= BUFFER_SIZE - len) {
         err = SKB_ERR_OVERFLOW;
         goto out;

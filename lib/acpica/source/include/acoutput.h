@@ -328,7 +328,6 @@
 /*
  * Debug macros that are conditionally compiled
  */
-
 #ifdef ACPI_DEBUG_OUTPUT
 
 /*
@@ -387,7 +386,6 @@
 #endif
 
 /* DEBUG_PRINT functions */
-
 
 #ifndef COMPILER_VA_MACRO
 
