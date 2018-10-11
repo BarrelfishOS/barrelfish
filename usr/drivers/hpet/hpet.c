@@ -166,7 +166,7 @@ static errval_t init(struct bfdriver_instance *bfi, const char *name,
 
     // connect to Interrupt Routing Service
     err = int_route_client_route_and_connect(
-        caps[HPET_INT_CAP], 2, get_default_waitset(), hpet_int_handler, NULL);
+        caps[HPET_INT_CAP], 0, get_default_waitset(), hpet_int_handler, NULL);
     if (err_is_fail(err)) {
         HPET_DEBUG("(init) Unable to connect to int routing servie \n");
         USER_PANIC_ERR(err, "int-route-client error");

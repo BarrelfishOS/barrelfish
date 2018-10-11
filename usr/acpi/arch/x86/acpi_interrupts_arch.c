@@ -15,6 +15,7 @@
 #include <arch/x86/hw_records_arch.h>
 #include <stdio.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/nameservice_client.h>
 #include <barrelfish/cpu_arch.h>
 #include <acpi.h>
 #include <mm/mm.h>
@@ -511,6 +512,8 @@ errval_t acpi_interrupts_arch_setup(void)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "ioapic controller client init");
     }
+
+    nameservice_register("base_irq_controller_ready", 0);
 
     return SYS_ERR_OK;
 }

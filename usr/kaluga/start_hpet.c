@@ -68,9 +68,7 @@ static errval_t init_int_args(uint64_t start_input_range,
 
 errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
                            char *record, struct driver_argument *arg)
-
 {
-
     errval_t err;
     KALUGA_DEBUG("start_hpet_driver: enter\n");
     static struct domain_instance *inst;
@@ -84,11 +82,7 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
     size_t len = 0;
     char *key;
     uint64_t address;
-    int size, nTimers;
-    char debug_msg[2000];
-    strcpy(debug_msg, "Empty Debug");
-    uint64_t start_input_range, end_input_range, start_output_range,
-        end_output_range;
+    int size, nTimers, ierr;
     // retrieve HPET data from ACPI
     err = oct_get_names(&names, &len, HW_HPET_RECORD_REGEX);
 
@@ -109,80 +103,32 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
     err = oct_read(record, "%s { " HW_HPET_RECORD_FIELDS_READ " }", &key,
                    &address, &size, &nTimers);
     KALUGA_DEBUG("start_hpet_driver: nTimers = %d, size = %d, address = %lu "
-                 ", key=%s \n",
-                 nTimers, size, address, key);
+                 ", key=%s \n", nTimers, size, address, key);
 
     // add HPET info in Kaluga
-    err = skb_execute_query("add_hpet_controller(Lbl , %" PRIu32 ").",
-                            nTimers);
+    char *q, *res;
+    ierr = asprintf(
+        &q, "add_hpet_controller(Lbl, %d),write('\n'),print_int_controller(Lbl).",
+        nTimers);
+    assert(ierr > 0);
+    err = skb_evaluate(q, &res, NULL, NULL);
     if (err_is_fail(err)) {
-        DEBUG_SKB_ERR(err, "add pci controller");
-        goto out;
-    }
-    KALUGA_DEBUG(
-        "start_hpet_driver : successfully added hpet controller to prolog \n");
-
-    err = skb_execute_query(
-        "print_int_controller(hpet_0)."); // To-do: change this so that hpet_0
-                                          // is not manually added
-    if (err_is_fail(err)) {
-        DEBUG_SKB_ERR(err, "print pci controller");
+        DEBUG_SKB_ERR(err, "add hpet controller");
         goto out;
     }
 
-    // get input interrupt ports from SKB
-    strncpy(debug_msg, skb_get_output(), sizeof(debug_msg));
-    char *nl = strchr(debug_msg, '\n');
-    if (nl)
-        *nl = '\0';
-    debug_msg[sizeof(debug_msg) - 1] = '\0';
-    KALUGA_DEBUG(
-        "start_hpet_driver: skb returned from print_hpet_controller \n %s \n",
-        debug_msg);
-    sscanf(debug_msg, "hpet_0,hpet,%lu,%lu,%lu,%lu", &start_input_range,
-           &end_input_range, &start_output_range, &end_output_range);
-    KALUGA_DEBUG("start_hpet_driver : skb returned start_input_range %lu , "
-                 "end_input_range %lu , start_output_range %lu , "
-                 "end_output_range %lu \n ",
-                 start_input_range, end_input_range, start_output_range,
-                 end_output_range);
-
-    err = skb_execute_query("printIoApicForHpet.");
-    if (err_is_fail(err)) {
-        DEBUG_SKB_ERR(err, "print pci controller");
+    uint64_t start_in=0, end_in=0, start_out=0, end_out=0;
+    char ctrl_label[64];
+    // Format is: ctrlinfo\nLbl,Class,InLo,InHi,OutLo,OutHi
+    ierr = sscanf(res, "%*[^\n]\n%64[^,],%*[^,],%"SCNu64",%"SCNu64",%"SCNu64",%"SCNu64,
+            ctrl_label, &start_in, &end_in, &start_out, &end_out);
+    if(ierr != 5){
+        printf("Can't parse skb result: %s\n", res);
+        err = SKB_ERR_EXECUTION;
         goto out;
     }
 
-    // get input interrupt ports from SKB
-    KALUGA_DEBUG(
-        "start_hpet_driver : skb returned from printIoApicHpet \n %s \n",
-        skb_get_output());
 
-    // create driver instance
-    if (driver->driverinstance == NULL) {
-        KALUGA_DEBUG("Driver instance not running, starting...\n");
-
-        // create driver domain
-        inst = instantiate_driver_domain(driver->binary, where);
-
-        if (inst == NULL) {
-            err = DRIVERKIT_ERR_DRIVER_INIT;
-            KALUGA_DEBUG("Unable to instantiate the driver \n");
-            goto out;
-        }
-
-        driver->driverinstance = inst;
-
-        while (inst->b == NULL) {
-            event_dispatch(get_default_waitset());
-        }
-
-        err = connect_to_acpi();
-        assert(err_is_ok(err));
-    }
-
-    struct acpi_binding *acpi;
-    acpi = get_acpi_binding();
 
     errval_t msgerr;
     struct capref devcap = NULL_CAP;
@@ -194,6 +140,14 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
     }
 
     // store mem caps
+    struct acpi_binding *acpi;
+    err = connect_to_acpi();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "connect_to_acpi");
+        goto out;
+    }
+    acpi = get_acpi_binding();
+    assert(err_is_ok(err));
     err = acpi->rpc_tx_vtbl.mm_alloc_range_proxy(acpi, BASE_PAGE_BITS, address,
                                                  address + BASE_PAGE_SIZE,
                                                  &devcap, &msgerr);
@@ -210,7 +164,7 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
 
     // create int cap for diver
     struct capref *intcap = malloc(sizeof(struct capref));
-    err = init_int_args(start_input_range, end_input_range, arg, intcap);
+    err = init_int_args(start_in, end_in, arg, intcap);
     drv = ddomain_create_driver_instance("hpet_module", "key");
 
     if (drv == NULL) {
@@ -239,25 +193,38 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
     drv->args[1] = malloc(50);
     drv->args[2] = malloc(50);
 
-    snprintf(drv->args[0], 50, "%lu", start_input_range);
-    snprintf(drv->args[1], 50, "%lu", end_input_range);
-    snprintf(drv->args[2], 50, "%lu", start_output_range);
+    snprintf(drv->args[0], 50, "%lu", start_in);
+    snprintf(drv->args[1], 50, "%lu", end_in);
+    snprintf(drv->args[2], 50, "%lu", start_out);
 
     KALUGA_DEBUG("start_hpet_driver: Instantiating driver \n ");
+
+    // create driver instance
+    if (driver->driverinstance == NULL) {
+        KALUGA_DEBUG("Driver instance not running, starting...\n");
+
+        // create driver domain
+        inst = instantiate_driver_domain(driver->binary, where);
+
+        if (inst == NULL) {
+            err = DRIVERKIT_ERR_DRIVER_INIT;
+            KALUGA_DEBUG("Unable to instantiate the driver \n");
+            goto out;
+        }
+
+        driver->driverinstance = inst;
+
+        while (inst->b == NULL) {
+            event_dispatch(get_default_waitset());
+        }
+
+    }
 
     ddomain_instantiate_driver(inst, drv);
 
 out:
     free(key);
     return err;
-}
-
-errval_t watch_for_hpet(void) {
-    KALUGA_DEBUG("watch_for_hpet : enter\n");
-    static char *hpet_device = HW_HPET_RECORD_REGEX;
-    octopus_trigger_id_t tid;
-    return oct_trigger_existing_and_watch(hpet_device, hpet_change_event, NULL,
-                                          &tid);
 }
 
 void hpet_change_event(oct_mode_t mode, const char *device_record, void *st) {
@@ -279,7 +246,7 @@ void hpet_change_event(oct_mode_t mode, const char *device_record, void *st) {
         }
 
         // Todo : change 0 is for core_0
-        err = mi->start_function(0, mi, (CONST_CAST)device_record, arg);
+        err = start_hpet_driver(0, mi, (CONST_CAST)device_record, arg);
 
         switch (err_no(err)) {
         case SYS_ERR_OK:
@@ -296,4 +263,32 @@ void hpet_change_event(oct_mode_t mode, const char *device_record, void *st) {
             break;
         }
     }
+}
+
+static void irq_ready_event(oct_mode_t mode, const char *device_record,
+                            void *st) {
+    KALUGA_DEBUG("irq_ready_event: watching for HPET now\n");
+
+    errval_t err;
+    const char *hpet_device = HW_HPET_RECORD_REGEX;
+    err = oct_trigger_existing_and_watch(hpet_device, hpet_change_event, NULL,
+                                         NULL);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "oct_trigger... hpet_device");
+    }
+}
+
+errval_t watch_for_hpet(void) {
+    // We only start watching for HPETs once we get the base_irq_controller
+    // ready. Only then it's safe to call the add_hpet_controller method.
+    errval_t err;
+    const char *irq_ready = "base_irq_controller_ready {}";
+    err =
+        oct_trigger_existing_and_watch(irq_ready, irq_ready_event, NULL, NULL);
+
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "oct_trigger... base_irq_controller_ready");
+    }
+    return err;
 }

@@ -53,7 +53,6 @@ static void add_start_function_overrides(void)
     set_start_function("corectrl", start_boot_driver);
 
 #ifndef __ARM_ARCH_7A__
-    set_start_function("hpet", start_hpet_driver);
     set_start_function("sfn5122f", start_networking_new);
     set_start_function("e1000n", start_networking_new);
     set_start_function("e1000n_irqtest", default_start_function_new);

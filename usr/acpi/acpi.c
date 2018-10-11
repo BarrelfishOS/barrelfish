@@ -74,7 +74,7 @@ static void acpi_parse_hpet(void) {
     hpet = (ACPI_TABLE_HPET *)ath;
     nTimers = hpet->Id >> 8;
     nTimers = nTimers & 31;
-    debug_printf("HPET Id: %x, Address=%lx, Min Tick=%u, nTimers= %u\n",
+    debug_printf("Found HPET: Id=%x, Address=%lx, Min Tick=%u, nTimers=%u\n",
                  hpet->Id >> 16, hpet->Address.Address, hpet->MinimumTick,
                  nTimers);
 
