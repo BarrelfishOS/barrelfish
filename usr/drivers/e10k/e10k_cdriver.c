@@ -667,7 +667,8 @@ static void device_init(struct e10k_driver_state* st)
     }
 
     if (num_tries == 100) {
-        DEBUG("Link failed to come up\n");
+        printf("############ Link failed to come up ############ \n");
+        abort();
     } else {
         DEBUG("Link Up\n");
     }
@@ -1858,7 +1859,6 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     err = driverkit_get_iommu_cap(bfi, &devcap);
     if (!capref_is_null(devcap) && err_is_ok(err)) {
         st->vtdon_dcboff = true;
-        st->dca = false;
 
         err = driverkit_iommu_client_init_cl(devcap, &st->iommu);
         if (err_is_fail(err)) {
@@ -1866,6 +1866,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
                          " (invalid IOMMU EP). ######### \n");
             st->vtdon_dcboff = false;
         } else {
+            st->dca = false;
             debug_printf("VTD-Enabled initializing with VFs enabled \n");
         }
     }
