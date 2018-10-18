@@ -80,7 +80,7 @@ static errval_t ram_alloc_remote(struct capref *ret, uint8_t size_bits,
     }
     assert(err_is_ok(err2));
     debug_printf("[ARRADOMAIN] ram_alloc_remote: allocated %zu bytes at 0x%zx; notifing hypervisor\n",
-            1ul<<fi.bits, fi.base);
+            fi.bytes, fi.base);
 
     struct hyper_rpc_client *hc = get_hyper_rpc_client();
     err = hc->vtbl.npt_map(hc, *ret, &err2);
