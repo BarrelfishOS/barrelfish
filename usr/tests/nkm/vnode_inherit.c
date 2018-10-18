@@ -29,7 +29,7 @@ static char ex_stack[EX_STACK_SIZE];
 static char *ex_stack_top = ex_stack + EX_STACK_SIZE;
 
 static void exhandler(enum exception_type type, int subtype, void *vaddr,
-        arch_registers_state_t *regs, arch_registers_fpu_state_t *fpuregs)
+        arch_registers_state_t *regs)
 {
     debug_printf("Got fault on %p\n", vaddr);
     debug_printf("Test completed: SUCCESS.\n");

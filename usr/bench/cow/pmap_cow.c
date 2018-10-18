@@ -405,16 +405,16 @@ static paging_x86_64_flags_t vregion_to_pmap_flag(vregion_flags_t vregion_flags)
 
 static exception_handler_fn next_handler = NULL;
 static void cow_handler(enum exception_type type, int subtype, void *vaddr,
-        arch_registers_state_t *regs, arch_registers_fpu_state_t *fpuregs)
+        arch_registers_state_t *regs)
 {
     errval_t err;
     DEBUG_COW("got exception %d(%d) on %p\n", type, subtype, vaddr);
     if (next_handler && type != EXCEPT_PAGEFAULT) {
-        next_handler(type, subtype, vaddr, regs, fpuregs);
+        next_handler(type, subtype, vaddr, regs);
     }
     assert(type == EXCEPT_PAGEFAULT);
     if (next_handler && subtype != PAGEFLT_WRITE) {
-        next_handler(type, subtype, vaddr, regs, fpuregs);
+        next_handler(type, subtype, vaddr, regs);
     }
     assert(subtype == PAGEFLT_WRITE);
     uintptr_t addr = (uintptr_t) vaddr;
