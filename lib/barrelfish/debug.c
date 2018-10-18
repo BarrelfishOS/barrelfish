@@ -397,7 +397,7 @@ int debug_print_cap_at_capref(char *buf, size_t len, struct capref cap)
 
     err = debug_cap_identify(cap, &capability);
     if (err_is_fail(err)) {
-        return snprintf(buf, len, "(ERROR identifying cap!)");
+        return snprintf(buf, len, "(ERROR identifying cap: %s!)", err_getcode(err));
     } else {
         return debug_print_cap(buf, len, &capability);
     }
