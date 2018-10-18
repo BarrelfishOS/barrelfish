@@ -539,6 +539,7 @@ errval_t cnode_create_l2(struct capref *ret_dest, struct cnoderef *cnoderef)
     assert(ret_dest != NULL);
     err = slot_alloc_root(ret_dest);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "slot_alloc_root");
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
