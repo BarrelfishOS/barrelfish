@@ -95,13 +95,6 @@ static inline errval_t find_next_ptable(struct cte *mapping_cte, struct cte **ne
 }
 
 /*
-static inline size_t get_offset(struct cte *mapping, struct cte *next)
-{
-    return (mapping->cap.u.frame_mapping.pte - get_address(&next->cap)) / get_pte_size();
-}
-*/
-
-/*
  * 'set_cap()' for mapping caps
  */
 void create_mapping_cap(struct cte *mapping_cte, struct capability *cap,
@@ -109,16 +102,14 @@ void create_mapping_cap(struct cte *mapping_cte, struct capability *cap,
 {
     assert(mapping_cte->cap.type == ObjType_Null);
     assert(type_is_vnode(ptable->cap.type));
+    // we can currently only handle page tables with less than 2^16 entries.
     assert(entry < UINT16_MAX);
-    // Currently, we have 32 bit offsets with 10 bit minimum page size, hence
-    // the offset needs to have no more than 42 significant bits. FIXME
-    //assert((offset & ~MASK(42)) == 0);
+    assert(pte_count < UINT16_MAX);
 
     mapping_cte->cap.type = get_mapping_type(cap->type);
     mapping_cte->cap.u.frame_mapping.cap = cap;
     mapping_cte->cap.u.frame_mapping.ptable = ptable;
     mapping_cte->cap.u.frame_mapping.entry = entry;
-    //mapping_cte->cap.u.frame_mapping.offset = offset >> 10;
     mapping_cte->cap.u.frame_mapping.pte_count = pte_count;
 }
 
