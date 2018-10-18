@@ -318,6 +318,12 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping)
         } else if (err_no(err) == SYS_ERR_VNODE_SLOT_INVALID) {
             debug(SUBSYS_PAGING, "couldn't reconstruct virtual address\n");
         } else {
+            printk(LOG_NOTE, "%s: compile_vaddr returned %lu\n", __FUNCTION__, err);
+            char buf[256];
+            sprint_cap(buf, 256, pgtable);
+            printk(LOG_NOTE, "%s: ptable = %p[%s]\n", __FUNCTION__, pgtable, buf);
+            sprint_cap(buf, 256, &mapping->cap);
+            printk(LOG_NOTE, "%s: mapping = %p[%s]\n", __FUNCTION__, mapping, buf);
             return err;
         }
     }
