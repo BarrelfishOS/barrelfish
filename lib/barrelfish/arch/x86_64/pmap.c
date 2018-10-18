@@ -260,8 +260,9 @@ static inline struct vnode *find_ptable(struct pmap_x86 *pmap, genvaddr_t base)
     }
 }
 
-#define MAX_ENTRIES  (15*4096)
-struct vnode* ALL_THE_VNODES[MAX_ENTRIES];
+// TODO: documentation for this feature! -SG,2018-10-18
+size_t ALL_THE_VNODES_MAX_ENTRIES = (15*4096);
+struct vnode **ALL_THE_VNODES = NULL;
 size_t all_the_vnodes_cnt = 0;
 
 static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
@@ -296,8 +297,9 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         //normal 4K pages, mapped into ptable
         err = get_ptable(pmap, vaddr, &ptable);
         table_base = X86_64_PTABLE_BASE(vaddr);
-        ALL_THE_VNODES[all_the_vnodes_cnt++] = ptable;
-        assert(all_the_vnodes_cnt <= MAX_ENTRIES);
+        if (ALL_THE_VNODES && (all_the_vnodes_cnt+1) < ALL_THE_VNODES_MAX_ENTRIES) {
+            ALL_THE_VNODES[all_the_vnodes_cnt++] = ptable;
+        }
     }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
