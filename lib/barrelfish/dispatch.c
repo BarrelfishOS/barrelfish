@@ -57,6 +57,9 @@ void disp_trap(dispatcher_handle_t handle, uintptr_t irq, uintptr_t error,
 
 static inline void assert_print(const char *str)
 {
+    if (!str) {
+        return;
+    }
     sys_print(str, strlen(str));
 }
 
