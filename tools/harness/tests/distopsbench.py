@@ -3,7 +3,12 @@ from common import TestCommon
 from results import PassFailResult, RowResults
 import sys, re, numpy, os, datetime
 
-import matplotlib.pyplot as plt
+has_mpl = True
+try:
+    import matplotlib.pyplot as plt
+except:
+    has_mpl = False
+
 
 OPERATIONHEADER = re.compile("^# Benchmarking ([A-Z 0-9]+): nodes=(\d+).*$")
 DATAHEADER = re.compile("^# node (\d+): tsc_per_us = (\d+); numcopies = (\d+).*")
@@ -54,65 +59,68 @@ class DistopsPlot(object):
         return passed
 
     def _finalize_plot(self, outfile, xlabel, ylabel, ylim, fix_xticks=False, draw_legend=False):
-        plt.xlabel(xlabel if xlabel is not None else '#capabilities on node (over base set of capabilities)')
-        plt.ylabel(ylabel if ylabel is not None else r'latency in $\mu s$')
-        if draw_legend:
-            plt.legend(loc='lower right')
-        if fix_xticks:
-            ax = plt.gca()
-            xlabels = plt.setp(ax,
-                    xticklabels=sorted(self.nodedata[self.nodedata.keys()[0]].keys()))
-            plt.setp(xlabels, rotation=90)
-        # TODO: think about using numpy.percentile to figure out sensible ylim
-        if ylim is not None:
-            ax.set_ylim(ylim)
-        plt.tight_layout()
-        debug.verbose(">>> Saving plot to %s.pdf" % outfile)
-        plt.savefig('%s.pdf' % outfile, format='pdf')
+        if has_mpl:
+            plt.xlabel(xlabel if xlabel is not None else '#capabilities on node (over base set of capabilities)')
+            plt.ylabel(ylabel if ylabel is not None else r'latency in $\mu s$')
+            if draw_legend:
+                plt.legend(loc='lower right')
+            if fix_xticks:
+                ax = plt.gca()
+                xlabels = plt.setp(ax,
+                        xticklabels=sorted(self.nodedata[self.nodedata.keys()[0]].keys()))
+                plt.setp(xlabels, rotation=90)
+            # TODO: think about using numpy.percentile to figure out sensible ylim
+            if ylim is not None:
+                ax.set_ylim(ylim)
+            plt.tight_layout()
+            debug.verbose(">>> Saving plot to %s.pdf" % outfile)
+            plt.savefig('%s.pdf' % outfile, format='pdf')
 
     def boxplot(self, outfile, all_nodes=False, xlabel=None, ylabel=None, ylim=None):
-        # count #nodes with data
-        nodecount = len(self.tscperus.keys())
-        assert(nodecount >= 1)
-        if not all_nodes:
-            nodecount=1
-        count = 0
-        for nodeid in self.tscperus.keys():
-            fig = plt.figure()
-            nodedata = self.nodedata[nodeid]
-            if nodeid not in self.tscperus.keys():
-                continue;
-            node_tscperus = self.tscperus[nodeid]
-            plotdata = []
-            ploterr = []
-            for cnt in sorted(nodedata.keys()):
-                usvals = map(lambda t: tsc_to_us(t, node_tscperus), nodedata[cnt])
-                plotdata.append(usvals)
-            plt.boxplot(plotdata)
-            self._finalize_plot("%s_node%d" % (outfile, nodeid), xlabel, ylabel, ylim, fix_xticks=True)
-            count=count+1
-            if count == nodecount:
-                break
+        if has_mpl:
+            # count #nodes with data
+            nodecount = len(self.tscperus.keys())
+            assert(nodecount >= 1)
+            if not all_nodes:
+                nodecount=1
+            count = 0
+            for nodeid in self.tscperus.keys():
+                fig = plt.figure()
+                nodedata = self.nodedata[nodeid]
+                if nodeid not in self.tscperus.keys():
+                    continue;
+                node_tscperus = self.tscperus[nodeid]
+                plotdata = []
+                ploterr = []
+                for cnt in sorted(nodedata.keys()):
+                    usvals = map(lambda t: tsc_to_us(t, node_tscperus), nodedata[cnt])
+                    plotdata.append(usvals)
+                plt.boxplot(plotdata)
+                self._finalize_plot("%s_node%d" % (outfile, nodeid), xlabel, ylabel, ylim, fix_xticks=True)
+                count=count+1
+                if count == nodecount:
+                    break
 
 
     def plot(self, outfile, xlabel=None, ylabel=None, ylim=None):
-        sym = [ '', 'x', 'o', '*' ]
-        fig = plt.figure()
-        nodedata = self.nodedata
-        for nodeid in nodedata.keys():
-            if nodeid not in self.tscperus.keys():
-                continue
-            node_tscperus = self.tscperus[nodeid]
-            plotdata = []
-            ploterr = []
-            for cnt in sorted(nodedata[nodeid].keys()):
-                usvals = map(lambda t: tsc_to_us(t, node_tscperus), nodedata[nodeid][cnt])
-                plotdata.append(numpy.mean(usvals))
-                ploterr.append(numpy.std(usvals))
-            plt.errorbar(sorted(nodedata[nodeid].keys()), plotdata, yerr=ploterr, label='core %d' % nodeid)
+        if has_mpl:
+            sym = [ '', 'x', 'o', '*' ]
+            fig = plt.figure()
+            nodedata = self.nodedata
+            for nodeid in nodedata.keys():
+                if nodeid not in self.tscperus.keys():
+                    continue
+                node_tscperus = self.tscperus[nodeid]
+                plotdata = []
+                ploterr = []
+                for cnt in sorted(nodedata[nodeid].keys()):
+                    usvals = map(lambda t: tsc_to_us(t, node_tscperus), nodedata[nodeid][cnt])
+                    plotdata.append(numpy.mean(usvals))
+                    ploterr.append(numpy.std(usvals))
+                plt.errorbar(sorted(nodedata[nodeid].keys()), plotdata, yerr=ploterr, label='core %d' % nodeid)
 
-        #plt.xscale('log', basex=2)
-        self._finalize_plot(outfile, xlabel, ylabel, ylim, draw_legend=True)
+            #plt.xscale('log', basex=2)
+            self._finalize_plot(outfile, xlabel, ylabel, ylim, draw_legend=True)
 
     def get_row_results(self, name):
         results = RowResults(['nodeid', 'mdbsize', 'oplatency'])
