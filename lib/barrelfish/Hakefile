@@ -213,6 +213,7 @@ in
                                               ("arrakis", ["rpcclient"]),
                                               ("hyper", ["rpcclient"])],
                     addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ],
-                    addGeneratedDependencies = [ "/include/asmoffsets.h" ]
+                    addGeneratedDependencies = [ "/include/asmoffsets.h" ],
+                    addLibraries = ["cap_predicates"]
                   }
  ) | arch <- allArchitectures ]
