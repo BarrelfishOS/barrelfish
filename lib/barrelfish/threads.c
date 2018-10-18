@@ -1548,26 +1548,38 @@ void thread_deliver_exception_disabled(dispatcher_handle_t handle,
                                        void *addr, arch_registers_state_t *regs)
 {
     struct dispatcher_generic *disp_gen = get_dispatcher_generic(handle);
+    struct dispatcher_shared_generic *disp  =get_dispatcher_shared_generic(handle);
     struct thread *thread = disp_gen->current;
     assert_disabled(thread != NULL);
     assert_disabled(disp_gen->runq != NULL);
+
+    char str[256];
 
     // can we deliver the exception?
     if (thread->exception_handler == NULL || thread->exception_stack_top == NULL
         || thread->in_exception) {
         if (thread->in_exception) {
-            sys_print("Can't deliver exception to thread: already in handler\n",
-                      100);
+            snprintf(str, sizeof(str),
+                    "%s.%d: Can't deliver exception to thread: already in handler\n",
+                    disp->name, disp_get_core_id());
+            sys_print(str, sizeof(str));
         } else {
-            sys_print("Can't deliver exception to thread: handler not set\n",
-                      100);
+            snprintf(str, sizeof(str),
+                    "%s.%d: Can't deliver exception to thread: handler not set\n",
+                    disp->name, disp_get_core_id());
+            sys_print(str, sizeof(str));
         }
 
         // warn on stack overflow.
         lvaddr_t sp = (lvaddr_t) registers_get_sp(regs);
+        lvaddr_t ip = (lvaddr_t) registers_get_ip(regs);
+
+        snprintf(str, sizeof(str), "%.*s.%d: Thread interrupted at IP %"PRIxLVADDR"\n",
+                DISP_NAME_LEN, disp->name, disp_get_core_id(), (lvaddr_t)ip);
+        sys_print(str, sizeof(str));
+
         if (sp < (lvaddr_t)thread->stack ||
             sp > (lvaddr_t)thread->stack_top) {
-            char str[256];
             snprintf(str, sizeof(str), "Error: stack bounds exceeded: sp = 0x%"
                      PRIxPTR " but [bottom, top] = [0x%" PRIxPTR ", 0x%"
                      PRIxPTR "]\n", (lvaddr_t) sp, (lvaddr_t) thread->stack,
