@@ -11,6 +11,49 @@ import tests
 from common import TestCommon
 from results import PassFailMultiResult
 
+# generate test-cases with <=CHUNK_SIZE compiler-rt tests each
+CHUNK_SIZE=26
+# array just to keep the class objects somewhere
+compiler_rt_tests_classes = []
+
+def get_modules_tpl(ts, self, build, machine):
+    '''Function template for get_modules() for each compiler-rt test case'''
+    modules = super(CompilerRTBuiltinsAbstract, self).get_modules(build, machine)
+    for m in ts:
+        if hasattr(machine, "name") and machine.name.startswith("panda") and \
+           (m.endswith("floatdisf_test") or m.endswith("floatdidf_test")):
+            # Skip failing test on pandaboard
+            continue
+        modules.add_module(m)
+    modules.add_module("usleeptest", [ "5" ])
+    return modules
+
+def chunker(seq, size):
+    '''Helper function: this takes a sequence `seq` and splits it up into
+    `size`-sized chunks, except for the last chunk which is just the <= size
+    long remainder of the sequence'''
+    return (seq[pos:pos+size] for pos in xrange(0, len(seq), size))
+
+def generate_test_cases(prefix, testlist):
+    for i, ts in enumerate(chunker(testlist, CHUNK_SIZE)):
+        # append new class to our array
+        compiler_rt_tests_classes.append(
+            # this is essentially the decorator @tests.add_test
+            tests.add_test(
+                # type is the (built-in) base-class for python classes, here we
+                # construct classes by calling its constructor
+                # signature of type constructor:
+                #   type(classname, baseclass tuple, dict with methods/attributes)
+                type('CompilerRTBuiltins%d' % (i+1),
+                     (CompilerRTBuiltinsAbstract,),
+                     { 'name': '%s%d' % (prefix, (i+1)),
+                        # partially bind the get_modules() template to select the
+                        # right set of tests. Note the ts=ts in the lambda
+                        # arguments, this prevents python's default late-binding
+                        # for closure arguments.
+                         'get_modules':
+                             lambda s, b, m, ts=ts: get_modules_tpl(ts, s, b, m)})))
+
 class CompilerRTBuiltinsAbstract(TestCommon):
 
     def get_finish_string(self):
@@ -65,15 +108,7 @@ vector_fp_tests = [
         "compiler-rt/test/builtins/Unit/unordsf2vfp_test",
 ]
 
-@tests.add_test
-class CompilerRTBuiltinsVfp(CompilerRTBuiltinsAbstract):
-    name = 'compiler-rt-vfp'
-    def get_modules(self, build, machine):
-        modules = super(CompilerRTBuiltinsVfp, self).get_modules(build, machine)
-        for m in vector_fp_tests:
-            modules.add_module(m)
-        modules.add_module("usleeptest", [ "5" ])
-        return modules
+generate_test_cases("compiler-rt-vfp", vector_fp_tests)
 
 fp_tests = [
         "compiler-rt/test/builtins/Unit/absvdi2_test",
@@ -218,43 +253,4 @@ fp_tests = [
         "compiler-rt/test/builtins/Unit/unordtf2_test",
 ]
 
-def get_modules_tpl(ts, self, build, machine):
-    '''Function template for get_modules() for each compiler-rt test case'''
-    modules = super(CompilerRTBuiltinsAbstract, self).get_modules(build, machine)
-    for m in ts:
-        if hasattr(machine, "name") and machine.name.startswith("panda") and \
-           (m.endswith("floatdisf_test") or m.endswith("floatdidf_test")):
-            # Skip failing test on pandaboard
-            continue
-        modules.add_module(m)
-    modules.add_module("usleeptest", [ "5" ])
-    return modules
-
-def chunker(seq, size):
-    '''Helper function: this takes a sequence `seq` and splits it up into
-    `size`-sized chunks, except for the last chunk which is just the <= size
-    long remainder of the sequence'''
-    return (seq[pos:pos+size] for pos in xrange(0, len(seq), size))
-
-# generate test-cases with <=CHUNK_SIZE compiler-rt tests each
-CHUNK_SIZE=35
-# array just to keep the class objects somewhere
-compiler_rt_tests_classes = []
-for i, ts in enumerate(chunker(fp_tests, CHUNK_SIZE)):
-    # append new class to our array
-    compiler_rt_tests_classes.append(
-        # this is essentially the decorator @tests.add_test
-        tests.add_test(
-            # type is the (built-in) base-class for python classes, here we
-            # construct classes by calling its constructor
-            # signature of type constructor:
-            #   type(classname, baseclass tuple, dict with methods/attributes)
-            type('CompilerRTBuiltins%d' % (i+1),
-                 (CompilerRTBuiltinsAbstract,),
-                 { 'name': 'compiler-rt-fp%d' % (i+1),
-                    # partially bind the get_modules() template to select the
-                    # right set of tests. Note the ts=ts in the lambda
-                    # arguments, this prevents python's default late-binding
-                    # for closure arguments.
-                     'get_modules':
-                         lambda s, b, m, ts=ts: get_modules_tpl(ts, s, b, m)})))
+generate_test_cases("compiler-rt-fp", fp_tests)
