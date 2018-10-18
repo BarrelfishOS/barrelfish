@@ -113,6 +113,8 @@ void *slab_alloc(struct slab_allocator *slabs)
     sh->blocks = bh->next;
     sh->free--;
 
+    memset(bh, 0, slabs->blocksize);
+
     return bh;
 }
 
