@@ -330,6 +330,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     for (int i = 0; i < pte_count; i++) {
         ptable->u.vnode.children[table_base+i] = page;
     }
+    page->next = NULL;
 #else
 #error Invalid pmap datastructure
 #endif
