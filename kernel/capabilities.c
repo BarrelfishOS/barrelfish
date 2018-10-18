@@ -519,7 +519,6 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
  * For the meaning of the parameters, see the 'caps_create' function.
  */
 STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
-
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
 {
