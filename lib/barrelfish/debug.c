@@ -299,32 +299,17 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         goto ObjType_Mapping;
 
     case ObjType_VNode_x86_64_ept_pml4_Mapping:
-        return snprintf(buf, len, "x86_64 EPT PML4 Mapping (x86_64 PML4 cap @%p, "
-                                  "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_x86_64_ept_pml4_mapping.cap,
-                                  cap->u.vnode_x86_64_ept_pml4_mapping.pte,
-                                  cap->u.vnode_x86_64_ept_pml4_mapping.pte_count);
-
+        mappingtype = "x86_64 EPT PML4";
+        goto ObjType_Mapping;
     case ObjType_VNode_x86_64_ept_pdpt_Mapping:
-        return snprintf(buf, len, "x86_64 EPT PDPT Mapping (x86_64 PDPT cap @%p, "
-                                  "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_x86_64_ept_pdpt_mapping.cap,
-                                  cap->u.vnode_x86_64_ept_pdpt_mapping.pte,
-                                  cap->u.vnode_x86_64_ept_pdpt_mapping.pte_count);
-
+        mappingtype = "x86_64 EPT PDPT";
+        goto ObjType_Mapping;
     case ObjType_VNode_x86_64_ept_pdir_Mapping:
-        return snprintf(buf, len, "x86_64 EPT PDIR Mapping (x86_64 PDIR cap @%p, "
-                                  "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_x86_64_ept_pdir_mapping.cap,
-                                  cap->u.vnode_x86_64_ept_pdir_mapping.pte,
-                                  cap->u.vnode_x86_64_ept_pdir_mapping.pte_count);
-
+        mappingtype = "x86_64 EPT PDIR";
+        goto ObjType_Mapping;
     case ObjType_VNode_x86_64_ept_ptable_Mapping:
-        return snprintf(buf, len, "x86_64 EPT PTABLE Mapping (x86_64 PTABLE cap @%p, "
-                                  "pte @0x%"PRIxLVADDR", pte_count=%hu)",
-                                  cap->u.vnode_x86_64_ept_ptable_mapping.cap,
-                                  cap->u.vnode_x86_64_ept_ptable_mapping.pte,
-                                  cap->u.vnode_x86_64_ept_ptable_mapping.pte_count);
+        mappingtype = "x86_64 EPT PTABLE";
+        goto ObjType_Mapping;
 
     case ObjType_VNode_x86_32_pdpt_Mapping:
         mappingtype = "x86_32 PDPT";
