@@ -144,6 +144,7 @@ errval_t ptable_modify_flags(struct capability *leaf_pt, size_t offset,
                                     size_t pages, size_t mflags);
 errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
                              uintptr_t pages, uintptr_t kpi_paging_flags);
+void paging_dump_tables_around(struct dcb *dispatcher, lvaddr_t vaddr);
 void paging_dump_tables(struct dcb *dispatcher);
 
 errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,

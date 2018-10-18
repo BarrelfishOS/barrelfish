@@ -326,9 +326,9 @@ invoke_dispatcher_properties(struct capref dispatcher,
 }
 
 
-static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap)
+static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap, lvaddr_t vaddr)
 {
-    return cap_invoke1(dispcap, DispatcherCmd_DumpPTables).error;
+    return cap_invoke2(dispcap, DispatcherCmd_DumpPTables, vaddr).error;
 }
 
 static inline errval_t invoke_dispatcher_dump_capabilities(struct capref dispcap)

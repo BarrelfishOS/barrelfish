@@ -101,11 +101,19 @@ errval_t debug_cap_trace_ctrl(uintptr_t types, genpaddr_t start_addr, gensize_t 
 }
 
 /**
- * \brief Dump own hw page tables
+ * \brief Dump own hw page tables around a given vaddr
+ */
+errval_t debug_dump_hw_ptables_around(void *vaddr)
+{
+    return invoke_dispatcher_dump_ptables(cap_dispatcher, (lvaddr_t)vaddr);
+}
+
+/**
+ * \brief Dump full page tables
  */
 errval_t debug_dump_hw_ptables(void)
 {
-    return invoke_dispatcher_dump_ptables(cap_dispatcher);
+    return debug_dump_hw_ptables_around(NULL);
 }
 
 void debug_printf(const char *fmt, ...)

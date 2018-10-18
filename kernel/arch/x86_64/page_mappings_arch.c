@@ -828,7 +828,7 @@ errval_t ptable_modify_flags(struct capability *leaf_pt, size_t offset,
     return err;
 }
 
-void paging_dump_tables(struct dcb *dispatcher)
+void paging_dump_tables_around(struct dcb *dispatcher, lvaddr_t vaddr)
 {
     if (!local_phys_is_valid(dispatcher->vspace)) {
         printk(LOG_ERR, "dispatcher->vspace = 0x%"PRIxLPADDR": too high!\n" ,
@@ -837,10 +837,17 @@ void paging_dump_tables(struct dcb *dispatcher)
     }
     lvaddr_t root_pt = local_phys_to_mem(dispatcher->vspace);
 
+    uint16_t first_pml4e = 0, last_pml4e = X86_64_PML4_BASE(X86_64_MEMORY_OFFSET);
+
+    if (vaddr) {
+        first_pml4e = X86_64_PML4_BASE(vaddr);
+        last_pml4e = first_pml4e + 1;
+        printk(LOG_NOTE, "printing page tables for PML4e %hu\n", first_pml4e);
+    }
+
     // loop over pdpts
     union x86_64_ptable_entry *pt;
-    size_t kernel_pml4e = X86_64_PML4_BASE(X86_64_MEMORY_OFFSET);
-    for (int pdpt_index = 0; pdpt_index < kernel_pml4e; pdpt_index++) {
+    for (int pdpt_index = first_pml4e; pdpt_index < last_pml4e; pdpt_index++) {
         union x86_64_pdir_entry *pdpt = (union x86_64_pdir_entry *)root_pt + pdpt_index;
         if (!pdpt->d.present) { continue; }
         else {
@@ -914,4 +921,9 @@ void paging_dump_tables(struct dcb *dispatcher)
             }
         }
     }
+}
+
+void paging_dump_tables(struct dcb *dispatcher)
+{
+    return paging_dump_tables_around(dispatcher, 0);
 }

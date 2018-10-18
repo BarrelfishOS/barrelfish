@@ -3219,7 +3219,7 @@ handle_vmexit_npf (struct guest *g) {
     err += invoke_dispatcher_vmread(g->dcb_cap, VMX_GUEST_RIP, &guest_rip);
     assert(err_is_ok(err));
 #endif
-    invoke_dispatcher_dump_ptables(g->dcb_cap);
+    invoke_dispatcher_dump_ptables(g->dcb_cap, 0);
     debug_printf("handling guest page fault on 0x%lx, IP 0x%lx\n",
             fault_addr, guest_rip);
     uint8_t *code = NULL;

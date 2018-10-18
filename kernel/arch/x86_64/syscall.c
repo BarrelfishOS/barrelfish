@@ -1074,11 +1074,13 @@ static struct sysret dispatcher_dump_ptables(struct capability *cap,
 {
     assert(cap->type == ObjType_Dispatcher);
 
-    printf("kernel_dump_ptables\n");
+    lvaddr_t vaddr = args[0];
+
+    printf("kernel_dump_ptables, vaddr=%#"PRIxLVADDR"\n", vaddr);
 
     struct dcb *dispatcher = cap->u.dispatcher.dcb;
 
-    paging_dump_tables(dispatcher);
+    paging_dump_tables_around(dispatcher, vaddr);
 
     return SYSRET(SYS_ERR_OK);
 }
