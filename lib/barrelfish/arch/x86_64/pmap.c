@@ -611,6 +611,8 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab,
         bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
         bytes *= 4;
 
+        // debug_printf("%s: req=%zu, bytes=%zu\n", __FUNCTION__, slabs_req, bytes);
+
         /* Get a frame of that size */
         struct capref cap;
         err = frame_alloc(&cap, bytes, &bytes);
@@ -630,6 +632,13 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab,
         // Here we need to check that we have enough vnode slabs, not whatever
         // slabs we're refilling
         if (slab_freecount(&pmap->slab) < required_slabs_for_frame) {
+            /*
+            debug_printf("%s: recursing while refilling %s\n",
+                    __FUNCTION__, slab == &pmap->slab ? "vnode slabs" : "child slabs");
+            debug_printf("required_slabs_for_frame: %zu\n", required_slabs_for_frame);
+            debug_printf("vnode slab_freecount: %zu\n", slab_freecount(&pmap->slab));
+            debug_printf("child slab_freecount: %zu\n", slab_freecount(&pmap->ptslab));
+            */
             // If we recurse, we require more slabs than to map a single page
             assert(required_slabs_for_frame > 4);
 
@@ -653,6 +662,10 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab,
 
         /* Grow the slab */
         lvaddr_t buf = vspace_genvaddr_to_lvaddr(genvaddr);
+        /*
+        debug_printf("growing slab allocator %p with buffer @%p, %zu bytes\n",
+                slab, (void*)buf, bytes);
+        */
         slab_grow(slab, (void*)buf, bytes);
     }
 
