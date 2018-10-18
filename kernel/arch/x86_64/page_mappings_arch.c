@@ -331,15 +331,10 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
         !type_is_ept(dest->type) &&
         !dcb_current->is_vm_guest)
     {
-        printf("should drop WRITE permissions on page table 0x%lx\n",
-                get_address(src));
-#if 0
-        if (flags & ~X86_64_PTABLE_READ_WRITE) {
-            //printf("%s:%s:%d: WRITE permission on page table masked.\n",
-            //        __FILE__, __FUNCTION__, __LINE__);
+        if (flags & X86_64_PTABLE_READ_WRITE) {
+            printk(LOG_NOTE, "masking WRITE permission on page table.\n");
+            flags &= ~X86_64_PTABLE_READ_WRITE;
         }
-        flags &= ~X86_64_PTABLE_READ_WRITE;
-#endif
     }
 
 
