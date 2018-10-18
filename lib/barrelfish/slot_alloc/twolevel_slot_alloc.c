@@ -252,7 +252,8 @@ errval_t two_level_slot_alloc_init(struct multi_slot_allocator *ret)
 
 
     size_t allocation_unit = sizeof(struct slot_allocator_list) + bufsize;
-    err = vspace_mmu_aware_init(&ret->mmu_state, allocation_unit * L2_CNODE_SLOTS * 2);
+    err = vspace_mmu_aware_init(&ret->mmu_state,
+            allocation_unit * L2_CNODE_SLOTS * L2_CNODE_SLOTS);
     if (err_is_fail(err)) {
         free(ret->head);
         free(head_buf);

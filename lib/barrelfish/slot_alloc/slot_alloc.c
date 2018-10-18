@@ -226,7 +226,7 @@ errval_t slot_alloc_init(void)
     // libraries can call into slot_alloc.
     // XXX: this should be resizable
     err = vspace_mmu_aware_init(&def->mmu_state,
-                                allocation_unit * SLOT_ALLOC_CNODE_SLOTS * 20);
+            allocation_unit * SLOT_ALLOC_CNODE_SLOTS * SLOT_ALLOC_CNODE_SLOTS);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }
