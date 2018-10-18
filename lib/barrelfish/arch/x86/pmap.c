@@ -350,6 +350,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     root->u.vnode.children = newvnode;
     newvnode->u.vnode.children = NULL;
 #elif defined(PMAP_ARRAY)
+    newvnode->next = NULL;
     newvnode->u.vnode.children = slab_alloc(&pmap->ptslab);
     assert(newvnode->u.vnode.children);
     memset(newvnode->u.vnode.children, 0, sizeof(struct vode *)*PTABLE_SIZE);
@@ -565,6 +566,7 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
          n->next      = parent->u.vnode.children;
          parent->u.vnode.children = n;
 #elif defined(PMAP_ARRAY)
+        n->next = NULL;
         if (slab_freecount(&pmapx->ptslab) < 4) {
             err = pmapx->refill_ptslab(pmapx, 32);
             if (err_is_fail(err)) {
