@@ -453,9 +453,7 @@ static struct sysret handle_inherit(struct capability *dest,
         // create mapping cap for cloned entry if src mapping cap not null
         if (src_mapping->cap.type != ObjType_Null) {
             struct Frame_Mapping *sm = &src_mapping->cap.u.frame_mapping;
-            lpaddr_t dst_lp = mem_to_local_phys((lvaddr_t)&dst_entry[i]);
-            create_mapping_cap(dst_mapping, sm->cap, dst_lp,
-                               sm->offset, sm->pte_count);
+            create_mapping_cap(dst_mapping, sm->cap, cte_for_cap(dest), i, sm->pte_count);
             err = mdb_insert(dst_mapping);
             assert(err_is_ok(err));
         }
