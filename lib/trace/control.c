@@ -34,6 +34,12 @@ void trace_reset_buffer(void)
 {
     uintptr_t i, new;
 
+    assert(trace_buffer_va);
+    if (!trace_buffer_va) {
+        debug_printf("%s: trace_buffer_va == NULL! expect badness when tracing!\n", __FUNCTION__);
+        return;
+    }
+
     struct trace_buffer *buf = (struct trace_buffer *)trace_buffer_va;
 
     //buf->master = (struct trace_buffer *)trace_buffer_master;
