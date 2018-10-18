@@ -451,6 +451,7 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     }
 
     /* insert mapping cap into mdb */
+    assert(type_is_mapping(mapping_cte->cap.type));
     errval_t err = mdb_insert(mapping_cte);
     if (err_is_fail(err)) {
         printk(LOG_ERR, "%s: mdb_insert: %"PRIuERRV"\n", __FUNCTION__, err);
