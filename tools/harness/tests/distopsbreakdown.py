@@ -127,7 +127,6 @@ class DistopsBreakdown(TestCommon):
         self.nfsip = socket.gethostbyname(siteconfig.get('WEBSERVER_NFS_HOST'))
         self.nfspath = siteconfig.get('BFSCOPE_NFS_TRACE_DIR')
         self.tracefile = "%s.trace" % self.name
-        print options
         self.builddir = options.buildbase
         self.buildarch = None
         if options.machines:
