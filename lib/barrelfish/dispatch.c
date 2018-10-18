@@ -374,9 +374,9 @@ void disp_pagefault(dispatcher_handle_t handle, lvaddr_t fault_address,
     // thread is dead. better tell them what happened...
 
     static char str[256];
-    snprintf(str, sizeof(str), "%.*s: unhandled page fault (error code 0x%"
+    snprintf(str, sizeof(str), "%.*s.%d: unhandled page fault (error code 0x%"
              PRIxPTR ") on %" PRIxPTR " at IP %" PRIxPTR "\n",
-             DISP_NAME_LEN, disp->name, error, fault_address, ip);
+             DISP_NAME_LEN, disp->name, disp_get_current_core_id(), error, fault_address, ip);
     assert_print(str);
 
     // dump hw page tables
