@@ -90,6 +90,7 @@ void *sbrk(intptr_t increment)
     errval_t err;
     size_t orig_offset;
 
+    /* we're using an append memobj for sbrk */
     if (!memobj) { // Initialize
         err = vspace_map_append_nomalloc(&base, &memobj_, &vregion_,
                                          SBRK_REGION_BYTES, NULL,
