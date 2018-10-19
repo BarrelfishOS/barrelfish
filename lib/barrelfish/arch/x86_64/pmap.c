@@ -1533,27 +1533,6 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
 {
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
 
-#if 0
-    if (get_current_pmap() == pmap) {
-        debug_printf("%s for own pmap, using static buffer\n", __FUNCTION__);
-        // use static buffer
-        x86->slab_buffer = static_slab_buffer;
-#ifdef PMAP_ARRAY
-        x86->pt_slab_buffer = static_ptslab_buffer;
-#endif
-    } else {
-        // malloc() initial slab buffer
-        x86->slab_buffer = malloc(INIT_SLAB_BUFFER_SIZE);
-#ifdef PMAP_ARRAY
-        x86->pt_slab_buffer = malloc(INIT_PTSLAB_BUFFER_SIZE);
-#endif
-    }
-    assert(x86->slab_buffer);
-#ifdef PMAP_ARRAY
-    assert(x86->pt_slab_buffer);
-#endif
-#endif
-
     /* Generic portion */
     pmap->f = pmap_funcs;
     pmap->vspace = vspace;
@@ -1603,15 +1582,6 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     x86->root.u.vnode.virt_base = 0;
     x86->root.u.vnode.page_table_frame  = NULL_CAP;
 
-    /* allocate Mapping cnodes */
-    /*
-    for (int i = 0; i < MCN_COUNT; i++) {
-        err = cnode_create_l2(&x86->root.u.vnode.mcn[i], &x86->root.u.vnode.mcnode[i]);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
-        }
-    }
-    */
     if (pmap == get_current_pmap()) {
         /*
          * for now, for our own pmap, we use the left over slot allocator cnode to
