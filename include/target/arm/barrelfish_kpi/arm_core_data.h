@@ -99,6 +99,6 @@ struct arm_core_data {
     lvaddr_t got_base;
 };
 
-#define ARM_CORE_DATA_PAGES 	1100
+#define ARM_CORE_DATA_PAGES 	2200
 
 #endif

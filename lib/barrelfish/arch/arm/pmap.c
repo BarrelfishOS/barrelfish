@@ -65,6 +65,18 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
     return (uintptr_t)flags;
 }
 
+static void
+set_mapping_capref(struct capref *mapping, struct vnode *root, uint32_t entry)
+{
+    //debug_printf("entry %d -> cn %d, slot %d\n", entry, entry / L2_CNODE_SLOTS, entry % L2_CNODE_SLOTS);
+    mapping->cnode = root->u.vnode.mcnode[entry / L2_CNODE_SLOTS];
+    mapping->slot  = entry % L2_CNODE_SLOTS;
+    //char buf[256];
+    //debug_print_capref(buf, 256, *mapping);
+    //debug_printf("%s called from %p, setting to %s\n", __FUNCTION__, __builtin_return_address(0), buf);
+    assert(!cnoderef_is_null(mapping->cnode));
+}
+
 // debug print preprocessor flag for this file
 //#define LIBBARRELFISH_DEBUG_PMAP
 
@@ -331,6 +343,14 @@ static errval_t alloc_vnode(struct pmap_arm *pmap_arm, struct vnode *root,
         return err_push(err, LIB_ERR_PMAP_MAP);
     }
 
+    /* allocate mapping cnodes */
+    for (int i = 0; i < MCN_COUNT; i++) {
+        err = cnode_create_l2(&newvnode->u.vnode.mcn[i], &newvnode->u.vnode.mcnode[i]);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
+        }
+    }
+
     if (retvnode) {
         *retvnode = newvnode;
     }
@@ -483,20 +503,13 @@ static errval_t do_single_map(struct pmap_arm *pmap, genvaddr_t vaddr, genvaddr_
     page->u.frame.flags = flags;
     page->u.frame.pte_count = pte_count;
 
-    err = slot_alloc(&page->mapping);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
+    set_mapping_capref(&page->mapping, ptable, entry);
 
     // Map entry into the page table
     err = vnode_map(ptable->u.vnode.invokable, frame, entry,
                     pmap_flags, offset, pte_count,
                     page->mapping);
     if (err_is_fail(err)) {
-        errval_t err2 = slot_free(page->mapping);
-        if (err_is_fail(err2)) {
-                err = err_push(err, err2);
-        }
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
     return SYS_ERR_OK;
@@ -824,10 +837,6 @@ static errval_t do_single_unmap(struct pmap_arm *pmap, genvaddr_t vaddr,
                 DEBUG_ERR(err, "cap_delete");
                 return err_push(err, LIB_ERR_CAP_DELETE);
             }
-            err = slot_free(page->mapping);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_SLOT_FREE);
-            }
 
             remove_vnode(pt, page);
             slab_free(&pmap->slab, page);
@@ -852,6 +861,8 @@ static errval_t do_single_unmap(struct pmap_arm *pmap, genvaddr_t vaddr,
             DEBUG_ERR(err, "cap_delete");
             return err_push(err, LIB_ERR_CAP_DELETE);
         }
+        // we need to free slots when unmapping page tables, as we don't have
+        // mapping cnodes for the root vnode in armv7
         err = slot_free(pt->mapping);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_SLOT_FREE);
