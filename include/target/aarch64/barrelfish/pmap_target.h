@@ -18,6 +18,17 @@
 #include <barrelfish/pmap.h>
 #include <barrelfish_kpi/paging_arch.h>
 
+/*
+ * On x86_64 we define MCN_COUNT with PTABLE_SIZE which is the number of
+ * entries in a page table. However on ARMv8 PTABLE_SIZE is the size of a page
+ * table in bytes rather than entries, so we're using the additional define
+ * VMSAv8_64_PTABLE_NUM_ENTRIES here.
+ *
+ * Note: this would also need to be handled carefully if we wanted to unify
+ * some of the mostly identical parts of the pmap implementations.
+ *
+ * -SG, 2018-10-19.
+ */
 #define MCN_COUNT DIVIDE_ROUND_UP(VMSAv8_64_PTABLE_NUM_ENTRIES, L2_CNODE_SLOTS)
 
 /// Node in the meta-data, corresponds to an actual VNode object
