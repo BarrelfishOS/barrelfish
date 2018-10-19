@@ -43,6 +43,19 @@ extern size_t (*_libc_terminal_write_func)(const char *, size_t);
 extern void (*_libc_exit_func)(int);
 extern void (*_libc_assert_func)(const char *, const char *, const char *, int);
 
+static bool pagesize_ok(size_t pagesize)
+{
+    if (pagesize == BASE_PAGE_SIZE
+#ifdef __x86_64__
+        || pagesize == HUGE_PAGE_SIZE
+#endif
+        || pagesize == LARGE_PAGE_SIZE)
+    {
+        return true;
+    }
+    return false;
+}
+
 void libc_exit(int);
 
 __weak_reference(libc_exit, _exit);
@@ -256,11 +269,14 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         if (params != NULL && params->pagesize) {
             morecore_pagesize =  params->pagesize;
 
-            assert(morecore_pagesize == BASE_PAGE_SIZE
-#ifdef __x86_64__
-                   || morecore_pagesize == HUGE_PAGE_SIZE
-#endif
-                   || morecore_pagesize == LARGE_PAGE_SIZE );
+            debug_printf("%s: Using supplied pagesize: %zu\n", __FUNCTION__, morecore_pagesize);
+
+            if (!pagesize_ok(morecore_pagesize)) {
+                debug_printf("Supplied pagesize not available on current arch, falling back to 4kB pages\n");
+                morecore_pagesize = BASE_PAGE_SIZE;
+            }
+
+            assert(pagesize_ok(morecore_pagesize));
 
         } else {
             parse_argv(params, &morecore_pagesize);

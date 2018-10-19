@@ -640,7 +640,7 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
 
     /* get the alignment of the morecore state */
     struct morecore_state *state = get_morecore_state();
-    remote_core_state->pagesize = state->mmu_state.alignment;
+    remote_core_state->pagesize = state->mmu_state.pagesize;
 
     /* Create the thread for the new dispatcher to init on */
     struct thread *newthread =
