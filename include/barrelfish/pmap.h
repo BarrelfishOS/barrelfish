@@ -67,4 +67,14 @@ struct pmap_res_info {
     size_t slots_used;       ///< Number of capability slots in use by pmap
 };
 
+/*
+ * API for walking pmap -- implementation independent
+ */
+/* find vnode for entry `entry` of ptable `root` */
+struct vnode *find_vnode(struct vnode *root, uint16_t entry);
+/* check if [entry, entry+npages) is inside a single mapping in `root` */
+bool inside_region(struct vnode *root, uint16_t entry, uint16_t npages);
+/* remove vnode `item` from vnode `root` */
+void remove_vnode(struct vnode *root, struct vnode *item);
+
 #endif // LIBBARRELFISH_PMAP_H

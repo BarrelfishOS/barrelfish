@@ -117,7 +117,7 @@ struct vnode *find_vnode(struct vnode *root, uint16_t entry)
     return NULL;
 }
 
-bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
+bool inside_region(struct vnode *root, uint16_t entry, uint16_t npages)
 {
     assert(root != NULL);
     assert(root->is_vnode);
@@ -174,7 +174,7 @@ struct vnode *find_vnode(struct vnode *root, uint16_t entry)
     }
 }
 
-bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
+bool inside_region(struct vnode *root, uint16_t entry, uint16_t npages)
 {
     assert(root != NULL);
     assert(root->is_vnode);

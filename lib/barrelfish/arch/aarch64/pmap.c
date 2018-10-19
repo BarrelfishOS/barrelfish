@@ -97,7 +97,7 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
 /**
  * \brief Starting at a given root, return the vnode with entry equal to #entry
  */
-static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
+struct vnode *find_vnode(struct vnode *root, uint16_t entry)
 {
     assert(root != NULL);
     assert(root->is_vnode);
@@ -111,7 +111,7 @@ static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
     return NULL;
 }
 
-static bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
+bool inside_region(struct vnode *root, uint16_t entry, uint16_t npages)
 {
     assert(root != NULL);
     assert(root->is_vnode);
@@ -130,7 +130,7 @@ static bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
     return false;
 }
 
-static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
+static bool has_vnode(struct vnode *root, uint16_t entry, size_t len)
 {
     assert(root != NULL);
     assert(root->is_vnode);
@@ -155,7 +155,7 @@ static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
     return false;
 }
 
-static void remove_vnode(struct vnode *root, struct vnode *item)
+void remove_vnode(struct vnode *root, struct vnode *item)
 {
     assert(root->is_vnode);
     struct vnode *walk = root->u.vnode.children;
