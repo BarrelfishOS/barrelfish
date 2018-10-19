@@ -242,22 +242,6 @@ static inline errval_t invoke_send_start_ipi(struct capref ipi_cap, coreid_t cor
                        core_id, entry).error;
 }
 
-static inline errval_t invoke_vnode_modify_flags(struct capref cap,
-                                          size_t entry, size_t num_pages,
-                                          size_t attr)
-{
-    return cap_invoke4(cap, VNodeCmd_ModifyFlags, entry, num_pages, attr).error;
-}
-
-static inline errval_t invoke_vnode_copy_remap(struct capref ptable, capaddr_t slot,
-                                        capaddr_t src, enum cnode_type srclevel,
-                                        size_t flags, size_t offset, size_t pte_count,
-                                        capaddr_t mcn_addr, cslot_t mapping_slot,
-                                        enum cnode_type mcn_level)
-{
-    return cap_invoke10(ptable, VNodeCmd_CopyRemap, slot, src, srclevel, flags,
-                        offset, pte_count, mcn_addr, mapping_slot, mcn_level).error;
-}
 /**
  * \brief Return the system-wide unique ID of the passed ID capability.
  *
@@ -281,6 +265,7 @@ static inline errval_t invoke_idcap_identify(struct capref idcap,
     return sysret.error;
 }
 
+// XXX: why is this not in monitor/invocations_arch.h? -SG, 2018-10-19
 static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpaddr_t* global)
 {
     struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_GetGlobalPhys);

@@ -12,6 +12,7 @@
 
 [ build arrakisapplication { target = "arrakis_nestedpaging",
 --                             addLinkFlags = [ "-e _start_0deref"],
-                             cFiles = [ "nestedpaging.c", "main.c" ]
+                             cFiles = [ "nestedpaging.c", "main.c" ],
+                             architectures = [ "x86_64" ]
                            }
 ]

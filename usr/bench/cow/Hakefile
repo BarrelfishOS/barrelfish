@@ -12,12 +12,14 @@
 
 [ build application { target = "cowbench",
                       cFiles = [ "main.c", "vspace_cow.c", "pmap_cow.c" ],
-                      addLibraries = [ "bench" ]
+                      addLibraries = [ "bench" ],
+                      architectures = [ "x86_64" ]
                     },
   build application { target = "cowbench_nfs",
                       cFiles = [ "main.c", "vspace_cow.c", "pmap_cow.c" ],
                       addCFlags = [ "-DUSE_NFS" ],
-                      addLibraries = libDeps [ "bench", "vfs" ]
+                      addLibraries = libDeps [ "bench", "vfs" ],
+                      architectures = [ "x86_64" ]
                     }
 
 ]

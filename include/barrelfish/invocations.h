@@ -196,6 +196,23 @@ static inline errval_t invoke_vnode_unmap(struct capref cap,
     return cap_invoke3(cap, VNodeCmd_Unmap, mapping_addr, level).error;
 }
 
+static inline errval_t invoke_vnode_modify_flags(struct capref cap,
+                                          size_t entry, size_t num_pages,
+                                          size_t attr)
+{
+    return cap_invoke4(cap, VNodeCmd_ModifyFlags, entry, num_pages, attr).error;
+}
+
+static inline errval_t invoke_vnode_copy_remap(struct capref ptable, capaddr_t slot,
+                                        capaddr_t src, enum cnode_type srclevel,
+                                        size_t flags, size_t offset, size_t pte_count,
+                                        capaddr_t mcn_addr, cslot_t mapping_slot,
+                                        enum cnode_type mcn_level)
+{
+    return cap_invoke10(ptable, VNodeCmd_CopyRemap, slot, src, srclevel, flags,
+                        offset, pte_count, mcn_addr, mapping_slot, mcn_level).error;
+}
+
 /**
  * \brief Return the physical address and size of a frame capability
  *

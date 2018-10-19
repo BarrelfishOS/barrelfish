@@ -424,6 +424,7 @@ void disp_pagefault_disabled(dispatcher_handle_t handle, lvaddr_t fault_address,
     assert_disabled(disp->disabled);
 
 
+#ifdef __x86_64__
     // give more info about faults that basically cannot be in text section
     if (fault_address >= (1ULL << 39)) {
         // FIXME: Make sure that following are using assert_print to avoid
@@ -434,9 +435,9 @@ void disp_pagefault_disabled(dispatcher_handle_t handle, lvaddr_t fault_address,
     // disabled by AB, because we can get into a loop of disabled pagefaults
         debug_dump(regs);
         debug_return_addresses();
-    } else {
-        for(;;);
     }
+#endif
+    for(;;);
 }
 
 #include <barrelfish/barrelfish.h>
