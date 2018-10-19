@@ -18,7 +18,7 @@
 #include <barrelfish/pmap.h>
 #include <barrelfish_kpi/paging_arch.h>
 
-#define MCN_COUNT DIVIDE_ROUND_UP(PTABLE_SIZE, L2_CNODE_SLOTS)
+#define MCN_COUNT DIVIDE_ROUND_UP(VMSAv8_64_PTABLE_NUM_ENTRIES, L2_CNODE_SLOTS)
 
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode {

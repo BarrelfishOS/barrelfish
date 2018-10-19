@@ -63,7 +63,6 @@
 // Location of VSpace managed by this system.
 #define VSPACE_BEGIN   ((lvaddr_t)(512*512*512*BASE_PAGE_SIZE * (disp_get_core_id() + 1)))
 
-
 // Amount of virtual address space reserved for mapping frames
 // backing refill_slabs.
 //#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 128) // 64
@@ -92,6 +91,17 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
     }
     assert(0 == (~KPI_PAGING_FLAGS_MASK & (uintptr_t)flags));
     return (uintptr_t)flags;
+}
+
+static void
+set_mapping_cap(struct vnode *vnode, struct vnode *root, uint16_t entry)
+{
+    assert(root->is_vnode);
+    assert(entry < PTABLE_SIZE);
+    vnode->mapping.cnode = root->u.vnode.mcnode[entry / L2_CNODE_SLOTS];
+    vnode->mapping.slot  = entry % L2_CNODE_SLOTS;
+    assert(!cnoderef_is_null(vnode->mapping.cnode));
+    assert(!capref_is_null(vnode->mapping));
 }
 
 /**
@@ -186,6 +196,12 @@ static errval_t alloc_vnode(struct pmap_aarch64 *pmap_aarch64, struct vnode *roo
     assert(root->is_vnode);
     errval_t err;
 
+    if (!retvnode) {
+        debug_printf("%s called without retvnode from %p, expect badness!\n", __FUNCTION__, __builtin_return_address(0));
+        // XXX: should probably return error.
+    }
+    assert(retvnode);
+
     struct vnode *newvnode = slab_alloc(&pmap_aarch64->slab);
     if (newvnode == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
@@ -205,7 +221,7 @@ static errval_t alloc_vnode(struct pmap_aarch64 *pmap_aarch64, struct vnode *roo
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
 
-assert(!capref_is_null(newvnode->u.vnode.cap));
+    assert(!capref_is_null(newvnode->u.vnode.cap));
 
     // XXX: need to make sure that vnode cap that we will invoke is in our cspace!
     if (get_croot_addr(newvnode->u.vnode.cap) != CPTR_ROOTCN) {
@@ -230,19 +246,12 @@ assert(!capref_is_null(newvnode->u.vnode.cap));
     assert(!capref_is_null(newvnode->u.vnode.cap));
     assert(!capref_is_null(newvnode->u.vnode.invokable));
 
-    // The slot for the mapping capability
-    err = pmap_aarch64->p.slot_alloc->alloc(pmap_aarch64->p.slot_alloc, &newvnode->mapping);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
+    // set mapping cap to correct slot in mapping cnodes.
+    set_mapping_cap(newvnode, root, entry);
 
     // Map it
     err = vnode_map(root->u.vnode.invokable, newvnode->u.vnode.cap, entry,
                     KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1, newvnode->mapping);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_VNODE_MAP);
-    }
-
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
@@ -254,9 +263,15 @@ assert(!capref_is_null(newvnode->u.vnode.cap));
     root->u.vnode.children = newvnode;
     newvnode->u.vnode.children = NULL;
 
-    if (retvnode) {
-        *retvnode = newvnode;
+    /* allocate mapping cnodes */
+    for (int i = 0; i < MCN_COUNT; i++) {
+        err = cnode_create_l2(&newvnode->u.vnode.mcn[i], &newvnode->u.vnode.mcnode[i]);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
+        }
     }
+
+    *retvnode = newvnode;
     return SYS_ERR_OK;
 }
 
@@ -337,7 +352,7 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     }
     uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
 
-	uintptr_t idx = VMSAv8_64_L3_BASE(vaddr);
+    uintptr_t idx = VMSAv8_64_L3_BASE(vaddr);
 
     // Create user level datastructure for the mapping
     bool has_page = has_vnode(ptable, idx, pte_count);
@@ -355,10 +370,7 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     page->u.frame.flags = flags;
     page->u.frame.pte_count = pte_count;
 
-    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &page->mapping);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
+    set_mapping_cap(page, ptable, idx);
 
     // Map entry into the page table
     assert(!capref_is_null(ptable->u.vnode.invokable));
@@ -607,10 +619,6 @@ static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
             }
 
             err = cap_delete(page->mapping);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_CAP_DELETE);
-            }
-            err = slot_free(page->mapping);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_CAP_DELETE);
             }
@@ -931,6 +939,29 @@ pmap_init(struct pmap   *pmap,
     assert(!capref_is_null(pmap_aarch64->root.u.vnode.invokable));
     pmap_aarch64->root.u.vnode.children  = NULL;
     pmap_aarch64->root.next              = NULL;
+
+    /*
+     * Initialize root vnode mapping cnode
+     */
+    if (pmap == get_current_pmap()) {
+        /*
+         * for now, for our own pmap, we use the left over slot allocator cnode to
+         * provide the mapping cnode for the first half of the root page table as
+         * we cannot allocate CNodes before establishing a connection to the
+         * memory server!
+         */
+        pmap_aarch64->root.u.vnode.mcn[0].cnode = cnode_root;
+        pmap_aarch64->root.u.vnode.mcn[0].slot = ROOTCN_SLOT_ROOT_MAPPING;
+        pmap_aarch64->root.u.vnode.mcnode[0].croot = CPTR_ROOTCN;
+        pmap_aarch64->root.u.vnode.mcnode[0].cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_ROOT_MAPPING);
+        pmap_aarch64->root.u.vnode.mcnode[0].level = CNODE_TYPE_OTHER;
+    } else {
+        errval_t err;
+        err = cnode_create_l2(&pmap_aarch64->root.u.vnode.mcn[0], &pmap_aarch64->root.u.vnode.mcnode[0]);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
+        }
+    }
 
     // choose a minimum mappable VA for most domains; enough to catch NULL
     // pointer derefs with suitably large offsets
