@@ -747,6 +747,15 @@ errval_t paging_modify_flags(struct capability *mapping, uintptr_t offset,
     return paging_tlb_flush_range(cte_for_cap(mapping), 0, pages);
 }
 
+errval_t paging_copy_remap(struct cte *dest_vnode_cte, cslot_t dest_slot,
+                           struct cte *src_cte, uintptr_t flags,
+                           uintptr_t offset, uintptr_t pte_count,
+                           struct cte *mapping_cte)
+{
+    printk(LOG_ERR, "%s called on ARMv8: NYI!\n", __FUNCTION__);
+    return SYS_ERR_NOT_IMPLEMENTED;
+}
+
 void paging_dump_tables(struct dcb *dispatcher)
 {
     if (!local_phys_is_valid(dispatcher->vspace)) {

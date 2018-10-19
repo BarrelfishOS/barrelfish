@@ -119,7 +119,7 @@ STATIC_ASSERT(sizeof(struct armv8_core_data) < BASE_PAGE_SIZE,
 
 
 
-#define ARMV8_CORE_DATA_PAGES 700
+#define ARMV8_CORE_DATA_PAGES 1500
 
 
 #endif

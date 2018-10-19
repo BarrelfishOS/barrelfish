@@ -16,6 +16,9 @@
 #define TARGET_AARCH64_BARRELFISH_PMAP_H
 
 #include <barrelfish/pmap.h>
+#include <barrelfish_kpi/paging_arch.h>
+
+#define MCN_COUNT DIVIDE_ROUND_UP(PTABLE_SIZE, L2_CNODE_SLOTS)
 
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode {
@@ -27,6 +30,8 @@ struct vnode {
         struct {
             struct capref cap;         ///< Capability of this VNode
             struct capref invokable;    ///< Copy of VNode cap that is invokable
+            struct capref mcn[MCN_COUNT]; ///< CNodes to store mappings (caprefs)
+            struct cnoderef mcnode[MCN_COUNT]; ///< CNodeRefs of mapping cnodes
             struct vnode  *children;   ///< Children of this VNode
         } vnode; // for non-leaf node
         struct {
@@ -38,6 +43,7 @@ struct vnode {
     } u;
 };
 
+#define INIT_SLAB_BUFFER_BYTES SLAB_STATIC_SIZE(32, sizeof(struct vnode))
 struct pmap_aarch64 {
     struct pmap p;
     struct vregion vregion;     ///< Vregion used to reserve virtual address for metadata
@@ -47,7 +53,7 @@ struct pmap_aarch64 {
     struct slab_allocator slab;     ///< Slab allocator for the vnode lists
     genvaddr_t min_mappable_va; ///< Minimum mappable virtual address
     genvaddr_t max_mappable_va; ///< Maximum mappable virtual address
-    uint8_t slab_buffer[512];   ///< Initial buffer to back the allocator
+    uint8_t slab_buffer[INIT_SLAB_BUFFER_BYTES];   ///< Initial buffer to back the allocator
 };
 
 #endif // TARGET_AARCH64_BARRELFISH_PMAP_H
