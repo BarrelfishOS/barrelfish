@@ -723,8 +723,8 @@ makeFlounderTypesArch src build arch = do
 
     h <- openFile(fileName) WriteMode
 
-    baseDir <- getDirectoryContents (src ++ "if") >>= return. filter (\c -> not $ elem c [".", ".."])
-    archDir <- getDirectoryContents (src ++ "if/arch") >>= return. filter (\c -> not $ elem c [".", ".."])
+    baseDir <- getDirectoryContents (src </> "if") >>= return. filter (\c -> not $ elem c [".", ".."])
+    archDir <- getDirectoryContents (src </> "if/arch") >>= return. filter (\c -> not $ elem c [".", ".."])
     hPutStrLn h "#ifndef IF_TYPES_H"
     hPutStrLn h "#define IF_TYPES_H"
     hPutStrLn h ""
