@@ -701,27 +701,53 @@ static errval_t
 determine_addr(struct pmap   *pmap,
                struct memobj *memobj,
                size_t        alignment,
-               genvaddr_t    *vaddr)
+               genvaddr_t    *retvaddr)
 {
     assert(pmap->vspace->head);
+    struct pmap_aarch64* pmap_aarch64 = (struct pmap_aarch64*)pmap;
+    genvaddr_t vaddr;
 
-    assert(alignment <= BASE_PAGE_SIZE); // NYI
+    if (alignment == 0) {
+        alignment = BASE_PAGE_SIZE;
+    } else {
+        alignment = ROUND_UP(alignment, BASE_PAGE_SIZE);
+    }
+    size_t size = ROUND_UP(memobj->size, alignment);
 
     struct vregion *walk = pmap->vspace->head;
     while (walk->next) { // Try to insert between existing mappings
         genvaddr_t walk_base = vregion_get_base_addr(walk);
-        genvaddr_t walk_size = vregion_get_size(walk);
+        genvaddr_t walk_size = ROUND_UP(vregion_get_size(walk), BASE_PAGE_SIZE);
+        genvaddr_t walk_end  = ROUND_UP(walk_base + walk_size, alignment);
         genvaddr_t next_base = vregion_get_base_addr(walk->next);
 
-        if (next_base > walk_base + walk_size + memobj->size &&
-            walk_base + walk_size > VSPACE_BEGIN) { // Ensure mappings are larger than VSPACE_BEGIN
-            *vaddr = walk_base + walk_size;
-            return SYS_ERR_OK;
+        // sanity-check for page alignment
+        assert(walk_base % BASE_PAGE_SIZE == 0);
+        assert(next_base % BASE_PAGE_SIZE == 0);
+
+        if (next_base > walk_end + size && walk_end > VSPACE_BEGIN) {
+            vaddr = walk_end;
+            goto out;
         }
+
         walk = walk->next;
     }
 
-    *vaddr = vregion_get_base_addr(walk) + vregion_get_size(walk);
+    // place beyond last mapping with alignment
+    vaddr = ROUND_UP((vregion_get_base_addr(walk)
+                + ROUND_UP(vregion_get_size(walk), BASE_PAGE_SIZE)),
+                alignment);
+
+
+
+out:
+    // ensure that we haven't run out of the valid part of the address space
+    if (vaddr + memobj->size > pmap_aarch64->max_mappable_va) {
+        return LIB_ERR_OUT_OF_VIRTUAL_ADDR;
+    }
+    assert(retvaddr != NULL);
+    *retvaddr = vaddr;
+
     return SYS_ERR_OK;
 }
 
