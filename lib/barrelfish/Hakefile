@@ -106,11 +106,17 @@ in
       arch_include "k1om"     = "include/arch/x86_64"
       arch_include _          = ""
 
+      -- sources specific to the pmap implementation
+      pmap_srcs :: [Char] -> Config.PmapDS -> [ [Char] ]
+      pmap_srcs "x86_64" Config.LL    = [ "pmap_ll.c" ]
+      pmap_srcs "x86_64" Config.ARRAY = [ "pmap_array.c" ]
+      pmap_srcs _        _            = [ "pmap_ll.c" ]
+
   in
     build library { target = "barrelfish",
                     architectures = [arch],
                     cFiles = arch_srcs arch ++ archfam_srcs (archFamily arch)
-                             ++ common_srcs ++ idc_srcs,
+                             ++ common_srcs ++ idc_srcs ++ (pmap_srcs arch Config.pmap_datastructure),
                     assemblyFiles = arch_assembly (archFamily arch),
                     flounderDefs = [ "proc_mgmt" ],
                     flounderBindings = [ "mem", "octopus", "interdisp", "spawn",

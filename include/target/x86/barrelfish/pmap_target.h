@@ -80,9 +80,9 @@ struct pmap_x86 {
     genvaddr_t vregion_offset;  ///< Offset into amount of reserved virtual address used
     struct vnode root;          ///< Root of the vnode tree
     errval_t (*refill_slabs)(struct pmap_x86 *, size_t count); ///< Function to refill slabs
-    errval_t (*refill_ptslab)(struct pmap_x86 *, size_t count); ///< Function to refill slabs
     struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries
 #ifdef PMAP_ARRAY
+    errval_t (*refill_ptslab)(struct pmap_x86 *, size_t count); ///< Function to refill slabs
     struct slab_allocator ptslab;     ///< Slab allocator for the page table children arrays
 #endif
     genvaddr_t min_mappable_va; ///< Minimum mappable virtual address

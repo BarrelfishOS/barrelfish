@@ -117,7 +117,7 @@ errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
     assert(root != NULL);
 
     // PML4 mapping
-    if((*pdpt = find_vnode(root, X86_64_PML4_BASE(base))) == NULL) {
+    if((*pdpt = pmap_find_vnode(root, X86_64_PML4_BASE(base))) == NULL) {
         enum objtype type = type_is_ept(pmap->root.type) ?
             ObjType_VNode_x86_64_ept_pdpt :
             ObjType_VNode_x86_64_pdpt;
@@ -125,7 +125,7 @@ errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
                 pdpt, base);
         errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
         if (err == expected_concurrent) {
-            if ((*pdpt = find_vnode(root, X86_64_PML4_BASE(base))) != NULL) {
+            if ((*pdpt = pmap_find_vnode(root, X86_64_PML4_BASE(base))) != NULL) {
                 return SYS_ERR_OK;
             }
         }
@@ -156,7 +156,7 @@ errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
     assert(pdpt != NULL);
 
     // PDPT mapping
-    if((*pdir = find_vnode(pdpt, X86_64_PDPT_BASE(base))) == NULL) {
+    if((*pdir = pmap_find_vnode(pdpt, X86_64_PDPT_BASE(base))) == NULL) {
         enum objtype type = type_is_ept(pmap->root.type) ?
             ObjType_VNode_x86_64_ept_pdir :
             ObjType_VNode_x86_64_pdir;
@@ -164,7 +164,7 @@ errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
                             X86_64_PDPT_BASE(base), pdir, base);
         errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
         if (err == expected_concurrent) {
-            if ((*pdir = find_vnode(pdpt, X86_64_PDPT_BASE(base))) != NULL) {
+            if ((*pdir = pmap_find_vnode(pdpt, X86_64_PDPT_BASE(base))) != NULL) {
                 return SYS_ERR_OK;
             }
         }
@@ -194,7 +194,7 @@ errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
     assert(pdir != NULL);
 
     // PDIR mapping
-    if((*ptable = find_vnode(pdir, X86_64_PDIR_BASE(base))) == NULL) {
+    if((*ptable = pmap_find_vnode(pdir, X86_64_PDIR_BASE(base))) == NULL) {
         enum objtype type = type_is_ept(pmap->root.type) ?
             ObjType_VNode_x86_64_ept_ptable :
             ObjType_VNode_x86_64_ptable;
@@ -202,7 +202,7 @@ errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
                             X86_64_PDIR_BASE(base), ptable, base);
         errval_t expected_concurrent = err_push(SYS_ERR_VNODE_SLOT_INUSE, LIB_ERR_VNODE_MAP);
         if (err == expected_concurrent) {
-            if ((*ptable = find_vnode(pdir, X86_64_PDIR_BASE(base))) != NULL) {
+            if ((*ptable = pmap_find_vnode(pdir, X86_64_PDIR_BASE(base))) != NULL) {
                 return SYS_ERR_OK;
             }
         }
@@ -225,7 +225,7 @@ static inline struct vnode *find_pdpt(struct pmap_x86 *pmap, genvaddr_t base)
     assert(root != NULL);
 
     // PDPT mapping
-    return find_vnode(root, X86_64_PML4_BASE(base));
+    return pmap_find_vnode(root, X86_64_PML4_BASE(base));
 }
 
 /**
@@ -238,7 +238,7 @@ static inline struct vnode *find_pdir(struct pmap_x86 *pmap, genvaddr_t base)
 
     if (pdpt) {
         // PDPT mapping
-        return find_vnode(pdpt, X86_64_PDPT_BASE(base));
+        return pmap_find_vnode(pdpt, X86_64_PDPT_BASE(base));
     } else {
         return NULL;
     }
@@ -254,7 +254,7 @@ static inline struct vnode *find_ptable(struct pmap_x86 *pmap, genvaddr_t base)
 
     if (pdir) {
         // PDIR mapping
-        return find_vnode(pdir, X86_64_PDIR_BASE(base));
+        return pmap_find_vnode(pdir, X86_64_PDIR_BASE(base));
     } else {
         return NULL;
     }
@@ -836,13 +836,13 @@ static bool find_mapping(struct pmap_x86 *pmap, genvaddr_t vaddr,
 
     // find page and last-level page table (can be pdir or pdpt)
     if ((pdpt = find_pdpt(pmap, vaddr)) != NULL) {
-        page = find_vnode(pdpt, X86_64_PDPT_BASE(vaddr));
+        page = pmap_find_vnode(pdpt, X86_64_PDPT_BASE(vaddr));
         if (page && page->is_vnode) { // not 1G pages
             pdir = page;
-            page = find_vnode(pdir, X86_64_PDIR_BASE(vaddr));
+            page = pmap_find_vnode(pdir, X86_64_PDIR_BASE(vaddr));
             if (page && page->is_vnode) { // not 2M pages
                 pt = page;
-                page = find_vnode(pt, X86_64_PTABLE_BASE(vaddr));
+                page = pmap_find_vnode(pt, X86_64_PTABLE_BASE(vaddr));
                 page_size = X86_64_BASE_PAGE_SIZE;
                 table_base = X86_64_PTABLE_BASE(vaddr);
                 map_bits = X86_64_BASE_PAGE_BITS + X86_64_PTABLE_BITS;
@@ -902,7 +902,7 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
         assert(pmap->used_cap_slots > 0);
         pmap->used_cap_slots --;
         // Free up the resources
-        remove_vnode(info.page_table, info.page);
+        pmap_remove_vnode(info.page_table, info.page);
         slab_free(&pmap->slab, info.page);
     }
 
@@ -1023,7 +1023,7 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
     assert(info.page_table && info.page_table->is_vnode && info.page && !info.page->is_vnode);
     assert(pages <= PTABLE_SIZE);
 
-    if (inside_region(info.page_table, info.table_base, pages)) {
+    if (pmap_inside_region(info.page_table, info.table_base, pages)) {
         // we're modifying part of a valid mapped region
         // arguments to invocation: invoke frame cap, first affected
         // page (as offset from first page in mapping), #affected
@@ -1428,13 +1428,13 @@ static errval_t get_leaf_pt(struct pmap *pmap, genvaddr_t vaddr, lvaddr_t *ret_v
     }
 
     parent = current;
-    if ((current = find_vnode(parent, X86_64_PDPT_BASE(vaddr))) == NULL) {
+    if ((current = pmap_find_vnode(parent, X86_64_PDPT_BASE(vaddr))) == NULL) {
         current = parent;
         goto out;
     }
 
     parent = current;
-    if ((current = find_vnode(parent, X86_64_PDIR_BASE(vaddr))) == NULL) {
+    if ((current = pmap_find_vnode(parent, X86_64_PDIR_BASE(vaddr))) == NULL) {
         current = parent;
         goto out;
     }

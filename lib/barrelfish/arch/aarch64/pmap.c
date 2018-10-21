@@ -104,42 +104,6 @@ set_mapping_cap(struct vnode *vnode, struct vnode *root, uint16_t entry)
     assert(!capref_is_null(vnode->mapping));
 }
 
-/**
- * \brief Starting at a given root, return the vnode with entry equal to #entry
- */
-struct vnode *find_vnode(struct vnode *root, uint16_t entry)
-{
-    assert(root != NULL);
-    assert(root->is_vnode);
-    struct vnode *n;
-
-    for(n = root->u.vnode.children; n != NULL; n = n->next) {
-        if(n->entry == entry) {
-            return n;
-        }
-    }
-    return NULL;
-}
-
-bool inside_region(struct vnode *root, uint16_t entry, uint16_t npages)
-{
-    assert(root != NULL);
-    assert(root->is_vnode);
-
-    struct vnode *n;
-
-    for (n = root->u.vnode.children; n; n = n->next) {
-        if (!n->is_vnode) {
-            uint16_t end = n->entry + n->u.frame.pte_count;
-            if (n->entry <= entry && entry + npages <= end) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
 static bool has_vnode(struct vnode *root, uint16_t entry, size_t len)
 {
     assert(root != NULL);
@@ -163,27 +127,6 @@ static bool has_vnode(struct vnode *root, uint16_t entry, size_t len)
     }
 
     return false;
-}
-
-void remove_vnode(struct vnode *root, struct vnode *item)
-{
-    assert(root->is_vnode);
-    struct vnode *walk = root->u.vnode.children;
-    struct vnode *prev = NULL;
-    while (walk) {
-        if (walk == item) {
-            if (prev) {
-                prev->next = walk->next;
-                return;
-            } else {
-                root->u.vnode.children = walk->next;
-                return;
-            }
-        }
-        prev = walk;
-        walk = walk->next;
-    }
-    assert(!"Should not get here");
 }
 
 /**
@@ -288,7 +231,7 @@ static errval_t get_ptable(struct pmap_aarch64  *pmap,
     assert(root != NULL);
 
     // L0 mapping
-    if ((pl1 = find_vnode(root, VMSAv8_64_L0_BASE(vaddr))) == NULL) {
+    if ((pl1 = pmap_find_vnode(root, VMSAv8_64_L0_BASE(vaddr))) == NULL) {
         err = alloc_vnode(pmap, root, ObjType_VNode_AARCH64_l1,
                             VMSAv8_64_L0_BASE(vaddr), &pl1);
         if (err_is_fail(err)) {
@@ -297,7 +240,7 @@ static errval_t get_ptable(struct pmap_aarch64  *pmap,
     }
 
     // L1 mapping
-    if ((pl2 = find_vnode(pl1, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
+    if ((pl2 = pmap_find_vnode(pl1, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
         err = alloc_vnode(pmap, pl1, ObjType_VNode_AARCH64_l2,
                             VMSAv8_64_L1_BASE(vaddr), &pl2);
         if (err_is_fail(err)) {
@@ -306,7 +249,7 @@ static errval_t get_ptable(struct pmap_aarch64  *pmap,
     }
 
     // L2 mapping
-    if ((pl3 = find_vnode(pl2, VMSAv8_64_L2_BASE(vaddr))) == NULL) {
+    if ((pl3 = pmap_find_vnode(pl2, VMSAv8_64_L2_BASE(vaddr))) == NULL) {
         err = alloc_vnode(pmap, pl2, ObjType_VNode_AARCH64_l3,
                             VMSAv8_64_L2_BASE(vaddr), &pl3);
         if (err_is_fail(err)) {
@@ -327,17 +270,17 @@ static struct vnode *find_ptable(struct pmap_aarch64  *pmap,
     assert(root != NULL);
 
     // L0 mapping
-    if((pl1 = find_vnode(root, VMSAv8_64_L0_BASE(vaddr))) == NULL) {
+    if((pl1 = pmap_find_vnode(root, VMSAv8_64_L0_BASE(vaddr))) == NULL) {
         return NULL;
     }
 
     // L1 mapping
-    if((pl2 = find_vnode(pl1, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
+    if((pl2 = pmap_find_vnode(pl1, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
         return NULL;
     }
 
     // L2 mapping
-    return find_vnode(pl2, VMSAv8_64_L2_BASE(vaddr));
+    return pmap_find_vnode(pl2, VMSAv8_64_L2_BASE(vaddr));
 }
 
 static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genvaddr_t vend,
@@ -610,7 +553,7 @@ static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
     errval_t err;
     struct vnode *pt = find_ptable(pmap, vaddr);
     if (pt) {
-        struct vnode *page = find_vnode(pt, VMSAv8_64_L3_BASE(vaddr));
+        struct vnode *page = pmap_find_vnode(pt, VMSAv8_64_L3_BASE(vaddr));
         if (page && page->u.frame.pte_count == pte_count) {
             err = vnode_unmap(pt->u.vnode.cap, page->mapping);
             if (err_is_fail(err)) {
@@ -622,7 +565,7 @@ static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_CAP_DELETE);
             }
-            remove_vnode(pt, page);
+            pmap_remove_vnode(pt, page);
             slab_free(&pmap->slab, page);
         }
         else {
@@ -766,9 +709,9 @@ static errval_t do_single_modify_flags(struct pmap_aarch64 *pmap, genvaddr_t vad
     struct vnode *ptable = find_ptable(pmap, vaddr);
     uint16_t ptentry = VMSAv8_64_L3_BASE(vaddr);
     if (ptable) {
-        struct vnode *page = find_vnode(ptable, ptentry);
+        struct vnode *page = pmap_find_vnode(ptable, ptentry);
         if (page) {
-            if (inside_region(ptable, ptentry, pages)) {
+            if (pmap_inside_region(ptable, ptentry, pages)) {
                 // we're modifying part of a valid mapped region
                 // arguments to invocation: invoke frame cap, first affected
                 // page (as offset from first page in mapping), #affected
