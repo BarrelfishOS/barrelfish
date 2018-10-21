@@ -6,9 +6,12 @@
 #include "pmap_cow.h"
 #include "debug.h"
 
+/* the benchmark USER_PANICs when PMAP_COW is not set, instead of generating a
+ * preprocessor error here, so we can build BF with PMAP_LL.
 #ifndef PMAP_ARRAY
 #error need PMAP_ARRAY for pmap_cow to work
 #endif
+*/
 
 static struct vnode *cow_root_pte = NULL;
 #define EX_STACK_SIZE 16384

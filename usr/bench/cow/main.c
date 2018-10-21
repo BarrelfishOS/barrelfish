@@ -151,6 +151,9 @@ int main(int argc, char *argv[])
 #ifdef BARRELFISH
     bench_init();
     DEBUG_COW("%s:%d\n", __FUNCTION__, __LINE__);
+#if !defined(PMAP_ARRAY)
+    USER_PANIC("%s currently NYI for !PMAP_ARRAY\n", argv[0])
+#endif
 #endif
 
 #ifdef VSPACE_COW

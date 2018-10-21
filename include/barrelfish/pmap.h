@@ -15,6 +15,7 @@
 #ifndef LIBBARRELFISH_PMAP_H
 #define LIBBARRELFISH_PMAP_H
 
+struct pmap_vnode_mgmt;
 struct pmap_dump_info;
 struct pmap;
 struct pmap_mapping_info;
@@ -48,8 +49,9 @@ struct pmap_funcs {
 
 struct pmap {
     struct pmap_funcs f;
-    struct vspace *vspace;      ///< The vspace this pmap is associated with
+    struct vspace *vspace;             ///< The vspace this pmap is associated with
     struct slot_allocator *slot_alloc; ///< (Optional) slot allocator for vnodes
+    struct pmap_vnode_mgmt *m;         ///< slab allocator(s) for vnodes
 };
 
 struct pmap_mapping_info {
@@ -70,6 +72,8 @@ struct pmap_res_info {
 /*
  * API for walking pmap -- implementation independent
  */
+#define INIT_SLAB_COUNT 32
+
 /**
  * \brief Pmap traversal: return the vnode with entry equal to #entry in vnode `root`.
  */
@@ -82,5 +86,21 @@ bool pmap_inside_region(struct vnode *root, uint16_t entry, uint16_t npages);
  * \brief Pmap traversal: remove vnode `item` from vnode `root`
  */
 void pmap_remove_vnode(struct vnode *root, struct vnode *item);
+/**
+ * \brief Pmap traversal: init
+ */
+errval_t pmap_vnode_mgmt_init(struct pmap *pmap);
+/**
+ * \brief initialize per-vnode shadow pt fields
+ */
+void pmap_vnode_init(struct pmap *p, struct vnode *v);
+/**
+ * \brief insert `newvnode` as child of `root` at entry `newvnode->entry`.
+ */
+void pmap_vnode_insert_child(struct vnode *root, struct vnode *newvnode);
+/**
+ * \brief free per-vnode shadow pt fields
+ */
+void pmap_vnode_free(struct pmap *p, struct vnode *v);
 
 #endif // LIBBARRELFISH_PMAP_H

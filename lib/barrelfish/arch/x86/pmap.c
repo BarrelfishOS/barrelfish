@@ -39,7 +39,7 @@ bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
 #if defined(PMAP_LL)
     for (n = root->u.vnode.children; n; n = n->next) {
 #elif defined(PMAP_ARRAY)
-    for (int i = 0; i < PTABLE_SIZE; i++) {
+    for (int i = 0; i < PTABLE_ENTRIES; i++) {
         n = root->u.vnode.children[i];
         if (!n) { continue; }
 #else
@@ -50,7 +50,7 @@ bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
         // this amounts to n->entry == entry for len = 1
         if (n->is_vnode && n->entry >= entry && n->entry < end_entry) {
             if (only_pages) {
-                return has_vnode(n, 0, PTABLE_SIZE, true);
+                return has_vnode(n, 0, PTABLE_ENTRIES, true);
             }
 #ifdef LIBBARRELFISH_DEBUG_PMAP
             debug_printf("1: found page table inside our region\n");
@@ -108,7 +108,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
 {
     errval_t err;
 
-    struct vnode *newvnode = slab_alloc(&pmap->slab);
+    struct vnode *newvnode = slab_alloc(&pmap->p.m->slab);
     if (newvnode == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
@@ -159,19 +159,8 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     newvnode->is_pinned = false;
     newvnode->entry     = entry;
     newvnode->type      = type;
-#if defined(PMAP_LL)
-    newvnode->next      = root->u.vnode.children;
-    root->u.vnode.children = newvnode;
-    newvnode->u.vnode.children = NULL;
-#elif defined(PMAP_ARRAY)
-    newvnode->next = NULL;
-    newvnode->u.vnode.children = slab_alloc(&pmap->ptslab);
-    assert(newvnode->u.vnode.children);
-    memset(newvnode->u.vnode.children, 0, sizeof(struct vode *)*PTABLE_SIZE);
-    root->u.vnode.children[entry] = newvnode;
-#else
-#error Invalid pmap datastructure
-#endif
+    pmap_vnode_init(&pmap->p, newvnode);
+    pmap_vnode_insert_child(root, newvnode);
     newvnode->u.vnode.virt_base = 0;
     newvnode->u.vnode.page_table_frame  = NULL_CAP;
     newvnode->u.vnode.base = base;
@@ -197,7 +186,7 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
     for (struct vnode *n = root->u.vnode.children; n; n = n->next) {
 #elif defined(PMAP_ARRAY)
     struct vnode **np = &root->u.vnode.children[entry];
-    for (int i = 0; i < PTABLE_SIZE && i < len; i++, np++) {
+    for (int i = 0; i < PTABLE_ENTRIES && i < len; i++, np++) {
         assert(np);
         struct vnode *n = *np;
 #else
@@ -212,7 +201,7 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
             // page tables
             assert(n->is_vnode);
             if (n->u.vnode.children) {
-                remove_empty_vnodes(pmap, n, 0, PTABLE_SIZE);
+                remove_empty_vnodes(pmap, n, 0, PTABLE_ENTRIES);
             }
 
             // unmap
@@ -265,8 +254,7 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
                             __FUNCTION__, x, err_getcode(err));
                 }
             }
-            slab_free(&pmap->ptslab, n->u.vnode.children);
-            slab_free(&pmap->slab, n);
+            pmap_vnode_free(&pmap->p, n);
         }
     }
 }
@@ -319,7 +307,7 @@ static errval_t serialise_tree(int depth, struct pmap_x86 *pmap,
 #if defined(PMAP_LL)
     for (struct vnode *c = v->u.vnode.children; c != NULL; c = c->next) {
 #elif defined(PMAP_ARRAY)
-    for (int i = 0; i < PTABLE_SIZE; i++) {
+    for (int i = 0; i < PTABLE_ENTRIES; i++) {
         struct vnode *c = v->u.vnode.children[i];
 #else
 #error Invalid pmap datastructure
@@ -400,20 +388,20 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
 
     while (*inlen > 0 && (*in)->depth == depth) {
         // ensure slab allocator has sufficient space
-        err = pmapx->refill_slabs(pmapx, 16);
+        err = pmap->m->refill_slabs(pmap, 16);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_SLAB_REFILL);
         }
 #if defined(PMAP_ARRAY)
         // ensure slab allocator has sufficient space
-        err = pmapx->refill_ptslab(pmapx, 16);
+        err = pmap->m->refill_ptslab(pmap, 16);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_SLAB_REFILL);
         }
 #endif
 
         // allocate storage for the new vnode
-        struct vnode *n = slab_alloc(&pmapx->slab);
+        struct vnode *n = slab_alloc(&pmap->m->slab);
         assert(n != NULL);
 
         // populate it and append to parent's list of children
@@ -422,27 +410,16 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
         n->u.vnode.cap.cnode     = cnode_page;
         n->u.vnode.cap.slot      = (*in)->slot;
         n->u.vnode.invokable     = n->u.vnode.cap;
-#if defined(PMAP_LL)
-         n->u.vnode.children  = NULL;
-        // insert in linked list
-         n->next      = parent->u.vnode.children;
-         parent->u.vnode.children = n;
-#elif defined(PMAP_ARRAY)
-        n->next = NULL;
-        if (slab_freecount(&pmapx->ptslab) < 8) {
-            err = pmapx->refill_ptslab(pmapx, 32);
+#if defined(PMAP_ARRAY)
+        if (slab_freecount(&pmap->m->ptslab) < 8) {
+            err = pmap->m->refill_ptslab(pmap, 32);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_SLAB_REFILL);
             }
         }
-        n->u.vnode.children = slab_alloc(&pmapx->ptslab);
-        assert(n->u.vnode.children);
-        memset(n->u.vnode.children, 0, sizeof(struct vode *)*PTABLE_SIZE);
-        // insert in array
-        parent->u.vnode.children[n->entry] = n;
-#else
-#error Invalid pmap datastructure
 #endif
+        pmap_vnode_init(pmap, n);
+        pmap_vnode_insert_child(parent, n);
         n->u.vnode.base = (*in)->base;
         n->type = (*in)->type;
 
@@ -603,12 +580,12 @@ errval_t pmap_x86_measure_res(struct pmap *pmap, struct pmap_res_info *buf)
     size_t free_slabs = 0;
     size_t used_slabs = 0;
     // Count allocated and free slabs in bytes; this accounts for all vnodes
-    for (struct slab_head *sh = x86->slab.slabs; sh != NULL; sh = sh->next) {
+    for (struct slab_head *sh = pmap->m->slab.slabs; sh != NULL; sh = sh->next) {
         free_slabs += sh->free;
         used_slabs += sh->total - sh->free;
     }
-    buf->vnode_used = used_slabs * x86->slab.blocksize;
-    buf->vnode_free = free_slabs * x86->slab.blocksize;
+    buf->vnode_used = used_slabs * pmap->m->slab.blocksize;
+    buf->vnode_free = free_slabs * pmap->m->slab.blocksize;
 
     // Report capability slots in use by pmap
     buf->slots_used = x86->used_cap_slots;

@@ -67,31 +67,15 @@ struct vnode { // NB: misnomer :)
     } u;
 };
 
-#define INIT_SLAB_COUNT 32
-#define INIT_SLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, sizeof(struct vnode))
-#ifdef PMAP_ARRAY
-#define PTSLAB_SLABSIZE (sizeof(struct vnode *)*PTABLE_SIZE)
-#define INIT_PTSLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, PTSLAB_SLABSIZE)
-#endif
-
+struct pmap_vnode_mgmt;
 struct pmap_x86 {
     struct pmap p;
     struct vregion vregion;     ///< Vregion used to reserve virtual address for metadata
     genvaddr_t vregion_offset;  ///< Offset into amount of reserved virtual address used
     struct vnode root;          ///< Root of the vnode tree
-    errval_t (*refill_slabs)(struct pmap_x86 *, size_t count); ///< Function to refill slabs
-    struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries
-#ifdef PMAP_ARRAY
-    errval_t (*refill_ptslab)(struct pmap_x86 *, size_t count); ///< Function to refill slabs
-    struct slab_allocator ptslab;     ///< Slab allocator for the page table children arrays
-#endif
     genvaddr_t min_mappable_va; ///< Minimum mappable virtual address
     genvaddr_t max_mappable_va; ///< Maximum mappable virtual address
     size_t used_cap_slots;      ///< Current count of capability slots allocated by pmap code
-    uint8_t slab_buffer[INIT_SLAB_BUFFER_SIZE];      ///< Initial buffer to back the allocator
-#ifdef PMAP_ARRAY
-    uint8_t pt_slab_buffer[INIT_PTSLAB_BUFFER_SIZE];   ///< Pointer to initial buffer to back the pt allocator (static for own pmap, malloced for other pmaps)
-#endif
 };
 
 #endif // TARGET_X86_BARRELFISH_PMAP_H

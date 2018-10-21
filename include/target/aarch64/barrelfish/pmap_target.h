@@ -40,7 +40,13 @@ struct vnode {
             struct capref invokable;    ///< Copy of VNode cap that is invokable
             struct capref mcn[MCN_COUNT]; ///< CNodes to store mappings (caprefs)
             struct cnoderef mcnode[MCN_COUNT]; ///< CNodeRefs of mapping cnodes
+#if defined(PMAP_LL)
             struct vnode  *children;   ///< Children of this VNode
+#elif defined(PMAP_ARRAY)
+            struct vnode **children;
+#else
+#error invalid pmap datastructure
+#endif
         } vnode; // for non-leaf node
         struct {
             struct capref cap;         ///< Capability of this VNode
@@ -51,17 +57,13 @@ struct vnode {
     } u;
 };
 
-#define INIT_SLAB_BUFFER_BYTES SLAB_STATIC_SIZE(32, sizeof(struct vnode))
 struct pmap_aarch64 {
     struct pmap p;
     struct vregion vregion;     ///< Vregion used to reserve virtual address for metadata
     genvaddr_t vregion_offset;  ///< Offset into amount of reserved virtual address used
     struct vnode root;          ///< Root of the vnode tree
-    errval_t (*refill_slabs)(struct pmap_aarch64 *); ///< Function to refill slabs
-    struct slab_allocator slab;     ///< Slab allocator for the vnode lists
     genvaddr_t min_mappable_va; ///< Minimum mappable virtual address
     genvaddr_t max_mappable_va; ///< Maximum mappable virtual address
-    uint8_t slab_buffer[INIT_SLAB_BUFFER_BYTES];   ///< Initial buffer to back the allocator
 };
 
 #endif // TARGET_AARCH64_BARRELFISH_PMAP_H

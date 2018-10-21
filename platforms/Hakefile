@@ -172,7 +172,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "shared_mem_clock_bench",
                         "tsc_bench" ]]
 
-
     bench_k1om = [ "/sbin/" ++ f | f <- [
                         "benchmarks/bomp_mm",
                         "benchmarks/dma_bench",

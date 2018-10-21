@@ -321,22 +321,12 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     }
 
     // setup userspace mapping
-    struct vnode *page = slab_alloc(&pmap->slab);
+    struct vnode *page = slab_alloc(&pmap->p.m->slab);
     assert(page);
     page->is_vnode = false;
     page->is_cloned = false;
     page->entry = table_base;
-#ifdef PMAP_LL
-    page->next  = ptable->u.vnode.children;
-    ptable->u.vnode.children = page;
-#elif defined(PMAP_ARRAY)
-    for (int i = 0; i < pte_count; i++) {
-        ptable->u.vnode.children[table_base+i] = page;
-    }
-    page->next = NULL;
-#else
-#error Invalid pmap datastructure
-#endif
+    pmap_vnode_insert_child(ptable, page);
     page->u.frame.cap = frame;
     page->u.frame.offset = offset;
     page->u.frame.flags = flags;
@@ -647,7 +637,7 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab,
         size_t required_slabs_for_frame = max_slabs_for_mapping(bytes);
         // Here we need to check that we have enough vnode slabs, not whatever
         // slabs we're refilling
-        if (slab_freecount(&pmap->slab) < required_slabs_for_frame) {
+        if (slab_freecount(&pmap->p.m->slab) < required_slabs_for_frame) {
             debug_printf("%s: called from %p %p %p %p\n", __FUNCTION__,
                     __builtin_return_address(0),
                     __builtin_return_address(1),
@@ -691,15 +681,19 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab,
     return SYS_ERR_OK;
 }
 
-static errval_t refill_vnode_slabs(struct pmap_x86 *pmap, size_t count)
+static errval_t refill_vnode_slabs(struct pmap *pmap, size_t count)
 {
-    return refill_slabs(pmap, &pmap->slab, count);
+    struct pmap_x86 *pmapx = (struct pmap_x86 *)pmap;
+    return refill_slabs(pmapx, &pmap->m->slab, count);
 }
 
-static errval_t refill_pt_slabs(struct pmap_x86 *pmap, size_t count)
+#ifdef PMAP_ARRAY
+static errval_t refill_pt_slabs(struct pmap *pmap, size_t count)
 {
-    return refill_slabs(pmap, &pmap->ptslab, count);
+    struct pmap_x86 *pmapx = (struct pmap_x86 *)pmap;
+    return refill_slabs(pmapx, &pmap->m->ptslab, count);
 }
+#endif
 
 /**
  * \brief Create page mappings
@@ -761,13 +755,13 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     }
 
     // Refill slab allocator if necessary
-    size_t slabs_free = slab_freecount(&x86->slab);
+    size_t slabs_free = slab_freecount(&pmap->m->slab);
 
     max_slabs += 6; // minimum amount required to map a region spanning 2 ptables
     if (slabs_free < max_slabs) {
         struct pmap *mypmap = get_current_pmap();
         if (pmap == mypmap) {
-            err = refill_vnode_slabs(x86, max_slabs);
+            err = refill_vnode_slabs(pmap, max_slabs);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_SLAB_REFILL);
             }
@@ -778,29 +772,29 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
             if (!buf) {
                 return LIB_ERR_MALLOC_FAIL;
             }
-            slab_grow(&x86->slab, buf, bytes);
+            slab_grow(&x86->p.m->slab, buf, bytes);
         }
     }
 #ifdef PMAP_ARRAY
     // Refill child array slabs, if necessary
-    size_t ptslabs_free = slab_freecount(&x86->ptslab);
+    size_t ptslabs_free = slab_freecount(&pmap->m->ptslab);
     size_t max_ptslabs = max_slabs; // XXX Is this a strict overestimation??
 
     if (ptslabs_free < max_ptslabs) {
         struct pmap *mypmap = get_current_pmap();
         if (pmap == mypmap) {
-            err = refill_pt_slabs(x86, max_ptslabs);
+            err = refill_pt_slabs(pmap, max_ptslabs);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_SLAB_REFILL);
             }
         } else {
             size_t bytes = SLAB_STATIC_SIZE(max_ptslabs - ptslabs_free,
-                                            sizeof(struct vnode *)*PTABLE_SIZE);
+                                            sizeof(struct vnode *)*PTABLE_ENTRIES);
             void *buf = malloc(bytes);
             if (!buf) {
                 return LIB_ERR_MALLOC_FAIL;
             }
-            slab_grow(&x86->ptslab, buf, bytes);
+            slab_grow(&x86->p.m->ptslab, buf, bytes);
         }
     }
 #endif
@@ -903,7 +897,7 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
         pmap->used_cap_slots --;
         // Free up the resources
         pmap_remove_vnode(info.page_table, info.page);
-        slab_free(&pmap->slab, info.page);
+        slab_free(&pmap->p.m->slab, info.page);
     }
 
     return SYS_ERR_OK;
@@ -1329,13 +1323,13 @@ static errval_t create_pts_pinned(struct pmap *pmap, genvaddr_t vaddr, size_t by
     }
 
     // Refill slab allocator if necessary
-    size_t slabs_free = slab_freecount(&x86->slab);
+    size_t slabs_free = slab_freecount(&pmap->m->slab);
 
     max_slabs += 6; // minimum amount required to map a region spanning 2 ptables
     if (slabs_free < max_slabs) {
         struct pmap *mypmap = get_current_pmap();
         if (pmap == mypmap) {
-            err = refill_vnode_slabs(x86, max_slabs);
+            err = refill_vnode_slabs(pmap, max_slabs);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_SLAB_REFILL);
             }
@@ -1346,7 +1340,7 @@ static errval_t create_pts_pinned(struct pmap *pmap, genvaddr_t vaddr, size_t by
             if (!buf) {
                 return LIB_ERR_MALLOC_FAIL;
             }
-            slab_grow(&x86->slab, buf, sbytes);
+            slab_grow(&pmap->m->slab, buf, sbytes);
         }
     }
 
@@ -1544,16 +1538,14 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     }
     x86->used_cap_slots = 0;
 
-    /* x86 specific portion */
-    slab_init(&x86->slab, sizeof(struct vnode), NULL);
-    slab_grow(&x86->slab, x86->slab_buffer, INIT_SLAB_BUFFER_SIZE);
-    x86->refill_slabs = refill_vnode_slabs;
-
+    errval_t err;
+    err = pmap_vnode_mgmt_init(pmap);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_PMAP_INIT);
+    }
+    pmap->m->refill_slabs = refill_vnode_slabs;
 #ifdef PMAP_ARRAY
-    /* Initialize slab allocator for child arrays */
-    slab_init(&x86->ptslab, PTSLAB_SLABSIZE, NULL);
-    slab_grow(&x86->ptslab, x86->pt_slab_buffer, INIT_PTSLAB_BUFFER_SIZE);
-    x86->refill_ptslab = refill_pt_slabs;
+    pmap->m->refill_ptslab = refill_pt_slabs;
 #endif
 
     x86->root.type = ObjType_VNode_x86_64_pml4;
@@ -1561,7 +1553,7 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     x86->root.u.vnode.cap       = vnode;
     x86->root.u.vnode.invokable = vnode;
     if (get_croot_addr(vnode) != CPTR_ROOTCN) {
-        errval_t err = slot_alloc(&x86->root.u.vnode.invokable);
+        err = slot_alloc(&x86->root.u.vnode.invokable);
         assert(err_is_ok(err));
         x86->used_cap_slots ++;
         err = cap_copy(x86->root.u.vnode.invokable, vnode);
@@ -1569,16 +1561,7 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     }
     assert(!capref_is_null(x86->root.u.vnode.cap));
     assert(!capref_is_null(x86->root.u.vnode.invokable));
-#if defined(PMAP_LL)
-    x86->root.u.vnode.children  = NULL;
-    x86->root.next              = NULL;
-#elif defined(PMAP_ARRAY)
-    x86->root.u.vnode.children = slab_alloc(&x86->ptslab);
-    assert(x86->root.u.vnode.children);
-    memset(x86->root.u.vnode.children, 0, sizeof(struct vnode *)*PTABLE_SIZE);
-#else
-#error Invalid pmap datastructure
-#endif
+    pmap_vnode_init(pmap, &x86->root);
     x86->root.u.vnode.virt_base = 0;
     x86->root.u.vnode.page_table_frame  = NULL_CAP;
 
@@ -1595,7 +1578,6 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
         x86->root.u.vnode.mcnode[0].cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_ROOT_MAPPING);
         x86->root.u.vnode.mcnode[0].level = CNODE_TYPE_OTHER;
     } else {
-        errval_t err;
         err = cnode_create_l2(&x86->root.u.vnode.mcn[0], &x86->root.u.vnode.mcnode[0]);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);

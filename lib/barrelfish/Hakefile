@@ -108,15 +108,20 @@ in
 
       -- sources specific to the pmap implementation
       pmap_srcs :: [Char] -> Config.PmapDS -> [ [Char] ]
-      pmap_srcs "x86_64" Config.LL    = [ "pmap_ll.c" ]
-      pmap_srcs "x86_64" Config.ARRAY = [ "pmap_array.c" ]
-      pmap_srcs _        _            = [ "pmap_ll.c" ]
+      pmap_srcs "x86_64"  Config.LL    = [ "pmap_ll.c" ]
+      pmap_srcs "x86_64"  Config.ARRAY = [ "pmap_array.c" ]
+      pmap_srcs "k1om"    Config.LL    = [ "pmap_ll.c" ]
+      pmap_srcs "k1om"    Config.ARRAY = [ "pmap_array.c" ]
+      pmap_srcs "aarch64" Config.LL    = [ "pmap_ll.c" ]
+      pmap_srcs "aarch64" Config.ARRAY = [ "pmap_array.c" ]
+      pmap_srcs "arm"     _            = [ "pmap_ll.c" ]
+      pmap_srcs _         _            = [ ]
 
   in
     build library { target = "barrelfish",
                     architectures = [arch],
                     cFiles = arch_srcs arch ++ archfam_srcs (archFamily arch)
-                             ++ common_srcs ++ idc_srcs ++ (pmap_srcs arch Config.pmap_datastructure),
+                             ++ common_srcs ++ idc_srcs ++ pmap_srcs (archFamily arch) Config.pmap_datastructure,
                     assemblyFiles = arch_assembly (archFamily arch),
                     flounderDefs = [ "proc_mgmt" ],
                     flounderBindings = [ "mem", "octopus", "interdisp", "spawn",
