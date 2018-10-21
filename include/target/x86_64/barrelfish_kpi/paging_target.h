@@ -55,7 +55,9 @@ typedef uint64_t paging_x86_64_flags_t;
 
 #define X86_64_PTABLE_BITS         9       /**< Page directory/table size in bits */
 /** Page directory/table size */
+// XXX: *_PTABLE_SIZE is not consistent across archs! (cf. aarch64) -SG, 2018-10-21.
 #define X86_64_PTABLE_SIZE         (1UL<<X86_64_PTABLE_BITS)
+#define X86_64_PTABLE_ENTRIES      (1UL<<X86_64_PTABLE_BITS)
 #define X86_64_PTABLE_MASK         0x1ff   /**< Page dir/table address mask */
 #define X86_64_PTABLE_CLEAR        0       /**< Bitmap of a clear table entry */
 

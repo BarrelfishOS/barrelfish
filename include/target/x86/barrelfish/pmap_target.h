@@ -17,9 +17,17 @@
 
 #include <barrelfish/pmap.h>
 #include <barrelfish_kpi/capabilities.h>
-#include <barrelfish_kpi/paging_arch.h> // for PTABLE_SIZE
+#include <barrelfish_kpi/paging_arch.h> // for PTABLE_ENTRIES
 
-#define MCN_COUNT DIVIDE_ROUND_UP(PTABLE_SIZE, L2_CNODE_SLOTS)
+#if defined(PMAP_LL)
+#include <barrelfish/pmap_ll.h>
+#elif defined(PMAP_ARRAY)
+#include <barrelfish/pmap_array.h>
+#else
+#error Invalid Pmap datastructure
+#endif
+
+#define MCN_COUNT DIVIDE_ROUND_UP(PTABLE_ENTRIES, L2_CNODE_SLOTS)
 
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode { // NB: misnomer :)
