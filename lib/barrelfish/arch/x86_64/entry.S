@@ -72,6 +72,9 @@ lrpc_entry:
         // Load dispatcher stack to rsp
         addq    $(OFFSETOF_DISP_PRIV_STACK_LIMIT), %rsp
 
+        // Align the stack
+        subq    $8, %rsp
+
         // Push dispatcher pointer to top of stack (7th function argument)
         pushq   %rax
 

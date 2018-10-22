@@ -82,6 +82,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "testdesc",
                         "testdesc-child",
                         "tests/cxxtest",
+                        "tests/ep_basic",
                         "tests/dma_test",
                         "tests/tftpclient",
                         "tests/xphi_nameservice_test",
@@ -236,12 +237,13 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "dma_mgr",
                            "e1000n",
                            "e10k",
-                           "e10k_queue",
                            "echoserver",
                            "fbdemo",
                            "fish",
                            "hpet",
+                           "hwmodel/offload",
                            "ioat_dma",
+                           "iommu",
                            "kaluga",
                            "lo_queue",
                            "lpc_kbd",
@@ -254,7 +256,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                            "routing_setup",
                            "rtl8029",
                            "serial_pc16550d",
-                           "sfxge",
                            "sfn5122f",
                            "slideshow",
                            "vbe",
@@ -281,7 +282,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "weever",
                         "cpu",
                         "xeon_phi",
-                        "corectrl" ] ]
+                        "hwmodel/offload",
+                        "corectrl" ] ] ++ modules_common
 
     -- ARMv7-a Pandaboard modules
     pandaModules = [ "/sbin/" ++ f | f <- [

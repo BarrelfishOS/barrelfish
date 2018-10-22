@@ -7,6 +7,8 @@
 % ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+:- dynamic dmar_devsc/5.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % query the current physical address of a BAR of a given device
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -63,4 +65,8 @@ pcie_bridges(DevList) :- findall(address(Bus,Dev,Func),
 
 dmar_devices(DevList) :- findall(address(Seg,Bus,Dev,Func),
 				 dmar_device(_,_,_,addr(Seg,Bus,Dev,Func),_),
+				 DevList).
+
+dmar_devscopes(DevList) :- findall(dmar_dev(A,B,C,addr(D,E,F,G),H),
+				 dmar_devsc(A,B,C,addr(D,E,F,G),H),
 				 DevList).

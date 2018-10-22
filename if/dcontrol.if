@@ -24,4 +24,9 @@ interface dcontrol "Kaluga <-> Driver Instance control interface" {
      */
     rpc set_sleep_level(in uint32 level, out errval err);
 
+    /**
+     * Get endpoint to driver.
+     */
+    rpc get_ep(in bool type, out cap ep, out errval err);
+
 };

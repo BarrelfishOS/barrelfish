@@ -9,7 +9,8 @@
 #include <string.h>
 #include <barrelfish/barrelfish.h>
 #include <bench/bench.h>
-
+#include <driverkit/iommu.h>
+#include <driverkit/hwmodel.h>
 #include <dev/xeon_phi/xeon_phi_dma_dev.h>
 
 #include <dma_mem_utils.h>
@@ -26,9 +27,9 @@
 struct xeon_phi_dma_device
 {
     struct dma_device common;
-
+    struct iommu_client *iommu;
     xeon_phi_dma_t device;          ///< mackerel device base
-    struct dma_mem dstat;     ///< memory region for channels dstat_wb
+    struct dmem dstat;     ///< memory region for channels dstat_wb
     uint32_t flags;
 };
 
@@ -49,16 +50,15 @@ static dma_dev_id_t device_id = 1;
  * \param mem   Memory structure to fill in
  */
 void xeon_phi_dma_device_get_dstat_addr(struct xeon_phi_dma_device *dev,
-                                        struct dma_mem *mem)
+                                        struct dmem *mem)
 {
-    assert(dev->dstat.vaddr);
+    assert(dev->dstat.vbase);
 
     *mem = dev->dstat;
-    mem->bytes = XEON_PHI_DMA_CHANNEL_DSTAT_SIZE;
-    mem->paddr += (XEON_PHI_DMA_CHANNEL_DSTAT_SIZE * dev->common.channels.next);
-    mem->frame = NULL_CAP
-    ;
-    mem->vaddr += (XEON_PHI_DMA_CHANNEL_DSTAT_SIZE * dev->common.channels.next++);
+    mem->size = XEON_PHI_DMA_CHANNEL_DSTAT_SIZE;
+    mem->devaddr += (XEON_PHI_DMA_CHANNEL_DSTAT_SIZE * dev->common.channels.next);
+    mem->mem = NULL_CAP;
+    mem->vbase += (XEON_PHI_DMA_CHANNEL_DSTAT_SIZE * dev->common.channels.next++);
 }
 
 /**
@@ -216,16 +216,26 @@ void xeon_phi_dma_device_set_channel_state(struct xeon_phi_dma_device *dev,
  * ----------------------------------------------------------------------------
  */
 
+#include <xeon_phi/xeon_phi.h>
+
 /**
  * \brief initializes a Xeon Phi DMA device with the giving capability
  *
  * \param mmio capability representing the device's MMIO registers
+ * \param iommu 
+ * \param convert memory conversion function. In a simple case, returns the
+ *                physical address of the cap.
+ * \param nodeid HW model node id where xphi requests originate from, necessary
+ *               for model supported frame allocation.
  * \param dev  returns a pointer to the device structure
+ *
  *
  * \returns SYS_ERR_OK on success
  *          errval on error
  */
-errval_t xeon_phi_dma_device_init(void *mmio_base,
+errval_t xeon_phi_dma_device_init(void *mmio_base, struct iommu_client *iommu,
+                                  dma_mem_convert_fn convert, void *convert_arg,
+                                  int32_t nodeid,
                                   struct xeon_phi_dma_device **dev)
 {
     errval_t err;
@@ -244,19 +254,50 @@ errval_t xeon_phi_dma_device_init(void *mmio_base,
     XPHIDEV_DEBUG("initializing Xeon Phi DMA device @ %p\n", device_id,
                   mmio_base);
 
-    err = dma_mem_alloc(XEON_PHI_DMA_DEVICE_DSTAT_SIZE,
-                        XEON_PHI_DMA_DEVICE_DSTAT_FLAGS,
-                        &xdev->dstat);
+
+#if defined(XEON_PHI_USE_HW_MODEL)
+    int32_t nodes[3];
+    nodes[0] = nodeid;
+    nodes[1] = driverkit_hwmodel_get_my_node_id();
+    nodes[2] = 0;
+    int32_t dest_nodeid = driverkit_hwmodel_lookup_dram_node_id();
+
+    err =  driverkit_hwmodel_frame_alloc(&xdev->dstat.mem, LARGE_PAGE_SIZE,
+                                      dest_nodeid, nodes);
     if (err_is_fail(err)) {
         free(xdev);
         return err;
     }
+
+    err = convert(convert_arg, xdev->dstat.mem, &xdev->dstat.devaddr, &xdev->dstat.vbase);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "convert mem");
+        free(xdev);
+        return err;
+    }
+#else
+    // Alloc cap slota
+    err = dma_mem_alloc(LARGE_PAGE_SIZE, VREGION_FLAGS_READ_WRITE, NULL, &xdev->dstat);
+    if (err_is_fail(err)) {
+        free(xdev);
+        return err;
+    }
+#endif
+
+    //debug_printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx\n");
+    //debug_printf("HACK: setting address!\n");
+    //xdev->dstat.devaddr = xdev->dstat.devaddr + XEON_PHI_SYSMEM_BASE -  2 * (512UL << 30);
+    //debug_printf("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx\n");R
 
     dma_dev->id = device_id++;
     dma_dev->irq_type = DMA_IRQ_DISABLED;
     dma_dev->type = DMA_DEV_TYPE_XEON_PHI;
     dma_dev->mmio.vaddr = (lvaddr_t) mmio_base;
     dma_dev->f.poll = xeon_phi_dma_device_poll_channels;
+    dma_dev->iommu = iommu;
+    dma_dev->convert = convert;
+    dma_dev->convert_arg = convert_arg;
+    dma_dev->nodeid = nodeid;
 
     xeon_phi_dma_initialize(&xdev->device, mmio_base);
 

@@ -96,6 +96,13 @@ errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
         struct waitset * ws, interrupt_handler_fn handler, void *handler_arg)
 {
     errval_t err;
+
+    struct int_route_state *state = get_int_route_state();
+    /* check if the RPC client already has been initialized */
+    if (state->binding == NULL) {
+        int_route_client_connect();
+    }
+
     /* allocate irq dest cap */
     struct capref irq_dest_cap;
     err = alloc_dest_irq_cap(&irq_dest_cap);

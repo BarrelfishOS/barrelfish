@@ -19,6 +19,8 @@
 #include <if/monitor_blocking_defs.h>
 #include <string.h>
 #include <inttypes.h>
+#include <if/monitor_lmp_defs.h>
+#include <if/if_types.h>
 
 static void error_handler(struct monitor_binding *b, errval_t err)
 {
@@ -106,8 +108,8 @@ static errval_t init_lmp_binding(struct monitor_lmp_binding *mcb,
     }
 
     /* allocate a local endpoint */
-    err = lmp_endpoint_create_in_slot(buflen_words, mcb->chan.local_cap,
-                                      &mcb->chan.endpoint);
+    err = lmp_endpoint_create_in_slot_with_iftype(buflen_words, mcb->chan.local_cap,
+                                                  &mcb->chan.endpoint, IF_TYPE_MONITOR);
     if (err_is_fail(err)) {
         /* TODO: free cap slot */
         return err_push(err, LIB_ERR_ENDPOINT_CREATE);
@@ -335,6 +337,7 @@ static void monitor_rpc_bind_continuation(void *st_arg, errval_t err,
                                           struct monitor_blocking_binding *b)
 {
     struct bind_state *st = st_arg;
+    assert(st);
 
     if (err_is_ok(err)) {
         monitor_blocking_rpc_client_init(b);
@@ -345,25 +348,24 @@ static void monitor_rpc_bind_continuation(void *st_arg, errval_t err,
     st->done = true;
 }
 
-static void get_monitor_rpc_iref_reply(struct monitor_binding *mb, iref_t iref,
-                                       uintptr_t st_arg)
+static void get_monitor_rpc_ep_reply(struct monitor_binding *mb, errval_t err_arg,
+                                     struct capref ep, uintptr_t st_arg)
 {
     errval_t err;
 
+    assert(st_arg != 0);
+
     struct bind_state *st = (void *)st_arg;
-    if (iref == 0) {
-        st->err = LIB_ERR_GET_MON_BLOCKING_IREF;
+    if (err_is_fail(err_arg)) {
+        st->err = err_push(err_arg, LIB_ERR_GET_MON_BLOCKING_IREF);
         st->done = true;
         return;
     }
 
-    struct monitor_blocking_lmp_binding *mbb = malloc(sizeof(*mbb));
-    assert(mbb != NULL);
-
-    err = monitor_blocking_lmp_bind(mbb, iref, monitor_rpc_bind_continuation,
-                                    st, get_default_waitset(),
-                                    IDC_BIND_FLAG_RPC_CAP_TRANSFER,
-                                    LMP_RECV_LENGTH);
+    err = monitor_blocking_lmp_bind_to_endpoint(ep, monitor_rpc_bind_continuation,
+                                                st, get_default_waitset(),
+                                                DEFAULT_LMP_BUF_WORDS,
+                                                IDC_BIND_FLAG_RPC_CAP_TRANSFER);
     if (err_is_fail(err)) {
         st->err  = err;
         st->done = true;
@@ -379,15 +381,14 @@ errval_t monitor_client_blocking_rpc_init(void)
 
     struct bind_state st = { .done = false };
 
-    /* fire off a request for the iref for monitor rpc channel */
     struct monitor_binding *mb = get_monitor_binding();
-    mb->rx_vtbl.get_monitor_rpc_iref_reply = get_monitor_rpc_iref_reply;
-    err = mb->tx_vtbl.get_monitor_rpc_iref_request(mb, NOP_CONT,
-                                                   (uintptr_t) &st);
+    assert(mb);
+
+    mb->rx_vtbl.get_monitor_rpc_ep_reply = get_monitor_rpc_ep_reply;
+    err = mb->tx_vtbl.get_monitor_rpc_ep_request(mb, NOP_CONT, (uintptr_t) &st);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_GET_MON_BLOCKING_IREF);
     }
-
     
     /* block on the default waitset until we're bound */
     struct waitset *ws = get_default_waitset();
@@ -438,4 +439,87 @@ errval_t monitor_cap_identify_remote(struct capref cap, struct capability *ret)
     *ret = u.capability;
 
     return msgerr;
+}
+
+
+
+errval_t monitor_client_prepare_new_binding(struct capref ep, bool create,
+                                            struct waitset *ws, uintptr_t domid,
+                                            size_t lmp_buflen_words,
+                                            struct monitor_binding **ret_mb)
+{
+    errval_t err;
+    assert(ret_mb);
+
+    //debug_printf("Creating new monitor binding from %p %p\n"
+    //              __builtin_return_address(0), __builtin_return_address(1));
+
+    struct monitor_blocking_binding *r = get_monitor_blocking_binding();
+    if (!r) {
+        return LIB_ERR_MONITOR_RPC_NULL;
+    }
+
+    // allocate space for the binding state
+    struct monitor_lmp_binding *lmpb = calloc(1, sizeof(*lmpb));
+    if (lmpb == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    // initialize the LMP binding
+    err = init_lmp_binding(lmpb, ws, lmp_buflen_words);
+    if (err_is_fail(err)) {
+        goto out_err2;
+    }
+
+    struct capref monep= NULL_CAP;
+    err = slot_alloc(&monep);
+    if (err_is_fail(err)) {
+        goto out_err2;
+    }
+
+    /* Run the RX handler; has a side-effect of registering for receive events */
+    monitor_lmp_rx_handler(lmpb);
+
+    // copy the rx_vtbl from the main monitor binding
+    struct monitor_binding *mcb = get_monitor_binding();
+    lmpb->b.rx_vtbl = mcb->rx_vtbl;
+
+
+    assert(err_is_ok(err));
+    errval_t msgerr;
+
+   // debug_printf("Calling new_monitor_binding() RPC\n");
+
+    err = r->rpc_tx_vtbl.new_monitor_binding(r, ep, create, domid, &monep, &msgerr);
+    if (err_is_fail(err)){
+        goto out_err;
+    } else if (err_is_fail(msgerr)) {
+        err = msgerr;
+        goto out_err;
+    }
+
+  //  debug_printf("Got remote monitor cap\n");
+
+    // success! store the cap
+    lmpb->chan.remote_cap = monep;
+
+    /* Send the local endpoint cap to the monitor */
+    lmpb->chan.connstate = LMP_CONNECTED; /* pre-established */
+
+    //debug_printf("Send local cap to the monitor using yeld and sync flags\n");
+    err = lmp_chan_send0(&lmpb->chan, LMP_SEND_FLAGS_DEFAULT, lmpb->chan.local_cap);
+    if (err_is_fail(err)) {
+        // destroy the binding
+        goto out_err2;
+    }
+
+    *ret_mb = &lmpb->b;
+
+    return SYS_ERR_OK;
+
+    out_err:
+    monitor_lmp_destroy(lmpb);
+    out_err2:
+    free(lmpb);
+    return err;
 }

@@ -8,7 +8,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <xeon_phi/xeon_phi.h>
-
+#include <driverkit/iommu.h>
 #include <dev/xeon_phi/xeon_phi_dma_chan_dev.h>
 
 #include <dma_mem_utils.h>
@@ -27,7 +27,7 @@ struct xeon_phi_dma_channel
 {
     struct dma_channel common;
     xeon_phi_dma_chan_t channel;         ///< Mackerel address
-    struct dma_mem dstat;
+    struct dmem dstat;
     struct dma_ring *ring;              ///< Descriptor ring
     uint16_t last_processed;
     xeon_phi_dma_owner_t owner;
@@ -330,7 +330,7 @@ errval_t xeon_phi_dma_channel_init(struct xeon_phi_dma_device *dev,
                                           XEON_PHI_DMA_CHANNEL_DISABLE);
 
     xeon_phi_dma_device_get_dstat_addr(dev, &chan->dstat);
-    channel_set_dstat_wb(chan, chan->dstat.paddr);
+    channel_set_dstat_wb(chan, chan->dstat.devaddr);
 
     channel_set_error_mask(chan, 0);
 
@@ -393,7 +393,7 @@ uint16_t xeon_phi_dma_channel_issue_pending(struct xeon_phi_dma_channel *chan)
  */
 lpaddr_t xeon_phi_dma_channel_get_dstat_wb(struct xeon_phi_dma_channel *chan)
 {
-    lpaddr_t dstat_wb = chan->dstat.paddr;
+    lpaddr_t dstat_wb = chan->dstat.devaddr;
     if (chan->owner == XEON_PHI_DMA_OWNER_HOST) {
         dstat_wb += XEON_PHI_SYSMEM_BASE;
     }

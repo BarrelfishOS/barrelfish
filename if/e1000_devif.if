@@ -16,7 +16,7 @@
 interface e1000_devif "e1000 devif communication interface" {
     
     // access configuration registers
-    rpc create_queue(in cap rx, in cap tx, in bool interrupt,
-                     out uint64 mac, out cap regs, out cap irq, out errval err);
+    rpc create_queue(in bool interrupt, out uint64 mac, out int media_type, 
+                     out cap regs, out cap irq, out cap iommu, out errval err);
     rpc destroy_queue(out errval err);
 };

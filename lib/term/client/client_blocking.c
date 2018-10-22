@@ -484,7 +484,7 @@ static errval_t get_irefs(struct capref session_id, iref_t *in_iref,
         goto out;
     }
 
-    TERM_DEBUG("Record retrieved from octopus: %s\n", record);
+    TERM_DEBUG("Record retrieved from octopus: %s\n", reply.output);
 
     int64_t session_oct;
     int64_t in_oct;

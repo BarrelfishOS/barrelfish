@@ -32,6 +32,7 @@
 #include <startup.h>
 #include <arch/x86/startup_x86.h>
 #include <arch/x86/start_aps.h>
+#include <barrelfish/systime.h>
 
 /// Quick way to find the base address of a cnode capability
 #define CNODE(cte)     get_address(&(cte)->cap)
@@ -396,6 +397,11 @@ spawn_init_common(struct spawn_state *st, const char *name, int argc,
     init_disp_x86_64->disabled_save_area.fs = 0;
     init_disp_x86_64->disabled_save_area.gs = 0;
     init_disp_x86_64->disabled_save_area.eflags = USER_EFLAGS;
+    init_disp_x86_64->disabled_save_area.fxsave_area.fcw = 0x037f; // fcw
+    init_disp_x86_64->disabled_save_area.fxsave_area.mxcsr = 0x00001f80; // mxcsr
+
+// Setup systime frequency
+    init_disp->systime_frequency = systime_frequency;
 
     return init_dcb;
 }

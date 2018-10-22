@@ -18,35 +18,36 @@
 #include <math.h>
 #include <inttypes.h>
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/systime.h>
 
 static const char *progname = NULL;
 
 static int fpu_thread(void *arg)
 {
-    double save = 0.0, lastsave = 0.0;
+    double save;
+    volatile double lastsave;
     int n = (uintptr_t)arg;
     int j = 0;
-
-    for(uint64_t i = 0;; i++) {
-        save = sin(save + 0.1) + 0.1;
-        // printf("%s(%d): %g\n", progname, n, save);
-        double test = sin(lastsave + 0.1) + 0.1;
-        if(save != test) { // if (fabs(save - test) > 0.00000001)
+    save = systime_now();
+    lastsave = sin(3.0 * save + 3.0);
+    for (uint64_t i = 0;; i++) {
+        save = sin(3.0 * save + 3.0);
+        if (save != lastsave) {
             printf("ERROR %s(%d): %.15g != %.15g at iteration %" PRIu64 "\n",
-                   progname, n, save, test, i);
+                   progname, n, save, lastsave, i);
             abort();
         }
-        lastsave = save;
-
-        if(i % 50000000 == 0) {
+        lastsave = sin(3.0 * lastsave + 3.0);
+        if (i % 10000000 == 0) {
             printf("%s(%d): iteration %" PRIu64 "\n", progname, n, i);
             j++;
-            if(j == 3) {
+            if (j == 6) {
                 printf("fputest passed successfully!\n");
                 thread_exit(0);
             }
         }
     }
+    return 0;
 }
 
 int main(int argc, char *argv[])

@@ -15,6 +15,7 @@
 #include <barrelfish/barrelfish.h>
 
 #include <devif/queue_interface.h>
+#include <driverkit/iommu.h>
 
 #include <lwip/pbuf.h>
 
@@ -118,12 +119,12 @@ errval_t net_buf_add(struct net_buf_pool *bp, struct capref frame, size_t buffer
         goto out_err1;
     }
 
-    err = vspace_map_one_frame_attr(&reg->vbase, reg->frame.bytes, reg->framecap,
-                                    NETWORKING_DEFAULT_BUFFER_FLAGS, NULL, NULL);
+    err = driverkit_iommu_vspace_map_cl(devq_get_iommu_client(bp->dev_q), reg->framecap, 
+                                        NETWORKING_DEFAULT_BUFFER_FLAGS, &reg->mem);
     if (err_is_fail(err)) {
         goto out_err2;
     }
-
+    reg->vbase = (void*) reg->mem.vbase;
     NETDEBUG("netbufs mapped at %p\n", reg->vbase);
 
     if (bp->dev_q) {
@@ -186,7 +187,7 @@ errval_t net_buf_add(struct net_buf_pool *bp, struct capref frame, size_t buffer
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t net_buf_grow(struct net_buf_pool *bp, size_t numbuf,
-                                size_t size)
+                      size_t size)
 {
     errval_t err;
 
@@ -199,7 +200,8 @@ errval_t net_buf_grow(struct net_buf_pool *bp, size_t numbuf,
     NETDEBUG("allocate frame of %zu kB\n", alloc_size >> 10);
 
     struct capref frame;
-    err = frame_alloc(&frame, alloc_size, &alloc_size);
+    err = driverkit_iommu_alloc_frame(devq_get_iommu_client(bp->dev_q), alloc_size,
+                                      &frame);
     if (err_is_fail(err)) {
         return err;
     }

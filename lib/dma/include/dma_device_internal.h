@@ -10,7 +10,9 @@
 #ifndef DMA_DEVICE_INTERNAL_H
 #define DMA_DEVICE_INTERNAL_H
 
+#include <driverkit/iommu.h>
 #include <dma/dma_device.h>
+#include <dma/dma_mem_mgr.h>
 
 /*
  *
@@ -40,7 +42,9 @@ struct dma_device
     dma_dev_st_t state;             ///< device state
     dma_dev_type_t type;            ///< stores the device type
     struct dma_mem mmio;            ///< MMIO register mappings
-
+    dma_mem_convert_fn convert;
+    void *convert_arg;
+    int32_t nodeid;                 ///< HWMODEL nodeid of the DMA engine
     struct {
         struct dma_channel **c;     ///< DMA channel pointers
         uint8_t count;              ///< Number of channels of this device
@@ -48,8 +52,9 @@ struct dma_device
     } channels;                     ///< Channel information
 
     dma_irq_t irq_type;
-
+    struct iommu_client *iommu;     ///< pointer to the iommu client
     struct dma_device_fn f;
 };
 
 #endif /* DMA_DEVICE_INTERNAL_H */
+

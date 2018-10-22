@@ -30,6 +30,9 @@
 #include "pci_host.h"
 #include "pci_devices.h"
 #include "pci_ethernet.h"
+#include <driverkit/hwmodel.h>
+#include <driverkit/iommu.h>
+#include <skb/skb.h>
 
 #define VMCB_SIZE       0x1000      // 4KB
 
@@ -163,8 +166,11 @@ errval_t guest_vspace_map_wrapper(struct vspace *vspace, lvaddr_t vaddr,
     return err;
 }
 
+#ifdef DISABLE_MODEL
+#define GUEST_VSPACE_SIZE 1073741824UL // 1GB
+#else
 #define GUEST_VSPACE_SIZE (1ul<<32) // GB
-
+#endif
 static errval_t vspace_map_wrapper(lvaddr_t vaddr, struct capref frame,
                                    size_t size)
 {
@@ -225,11 +231,18 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
 
     // Allocate frame
     struct capref cap;
-    err = guest_slot_alloc(g, &cap);
 
+#ifdef DISABLE_MODEL 
+    int32_t node_id_self = driverkit_hwmodel_get_my_node_id();
+    int32_t node_id_ram = driverkit_hwmodel_lookup_dram_node_id();
+    int32_t nodes_data[] = {node_id_self, 0};
 
+    err = driverkit_hwmodel_frame_alloc(&cap, bytes, node_id_ram, nodes_data);
+    if (err_is_fail(err)) {
+        return err;
+    }
 
-
+#else 
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
@@ -237,6 +250,7 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_CREATE);
     }
+#endif
 
     // Map into the guest vspace
     err = guest_vspace_map_wrapper(&g->vspace, guest_paddr, cap, bytes);
@@ -530,12 +544,17 @@ spawn_guest_domain (struct guest *self) {
     // set up the guests physical address space
     self->mem_low_va = 0;
     // FIXME: Hardcoded guest memory size
-    self->mem_high_va = 0x80000000;   // 2 GiB
     // allocate the memory used for real mode
     // This is not 100% necessary since one could also catch the pagefaults.
     // If we allocate the whole memory at once we use less caps and reduce
     // the risk run out of CSpace.
+#ifdef DISABLE_MODEL
+    self->mem_high_va = 0x80000000;
     err = alloc_guest_mem(self, 0x0, 0x80000000);
+#else
+    self->mem_high_va = GUEST_VSPACE_SIZE;
+    err = alloc_guest_mem(self, 0x0, GUEST_VSPACE_SIZE);
+#endif
     assert_err(err, "alloc_guest_mem");
 }
 
@@ -1450,6 +1469,7 @@ handle_vmexit_cr_access (struct guest *g)
             break;
 
         case 4:
+            // ignore writing to CR4
             // allow writing to CR4 by do nothing for this case
             break;
         default:
@@ -2389,8 +2409,13 @@ handle_vmexit_msr (struct guest *g) {
             printf("MSR: unhandeled MSR write access to %x\n", msr);
             return handle_vmexit_unhandeled(g);
 #else
+<<<<<<< HEAD
+    case 0x8b: // IA32_BIOS_SIGN_ID
+        break;
+=======
         case X86_MSR_BIOS_SIGN_ID:
             break;
+>>>>>>> master
 	default:
 	    msr_index = vmx_guest_msr_index(msr);
 	    if (msr_index == -1) {
@@ -2466,6 +2491,40 @@ handle_vmexit_msr (struct guest *g) {
             printf("MSR: unhandeled MSR read access to %x\n", msr);
             return handle_vmexit_unhandeled(g);
 #else
+<<<<<<< HEAD
+        case 0x1b:
+            val = 0x0;
+            break;
+        case 0x8b:
+            val = 0x0;
+            break;
+        case 0xfe:
+            val = 0x0;
+            break;
+        case 0x179:
+            val = 0x0;
+            break;
+	    case 0x17a:
+            val = 0x0;
+            break;
+        case 0x1a0: // IA32_MISC_ENABLE
+            val = 0x1; // Fast-Strings Enable
+            break;
+        case 0x277:
+            val = 0x0;
+            break;
+        case 0x2ff:
+            val = 0x0;
+            break;
+        default:
+            msr_index = vmx_guest_msr_index(msr);
+            if (msr_index == -1) {
+                printf("MSR: unhandeled MSR read access to %x\n", msr);
+                return handle_vmexit_unhandeled(g);
+            }
+            val = guest_msr_area[msr_index].val;
+            break;
+=======
         case X86_MSR_APIC_BASE:
         case X86_MSR_BIOS_SIGN_ID:
         case X86_MSR_MTRRCAP:
@@ -2486,6 +2545,7 @@ handle_vmexit_msr (struct guest *g) {
 	    }
 	    val = guest_msr_area[msr_index].val;
 	    break;
+>>>>>>> master
 #endif
         }
 
@@ -2511,6 +2571,7 @@ handle_vmexit_cpuid (struct guest *g) {
     uint32_t eax, ebx, ecx, edx;
     uint32_t func = guest_get_eax(g);
 
+    /* the register values are copied from an emuliated Pentium processor in QEMU*/
     switch (func) {
 #ifdef CONFIG_SVM
     // Processor Vendor and Largest Standard Function Number

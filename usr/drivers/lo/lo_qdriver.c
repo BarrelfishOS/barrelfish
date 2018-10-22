@@ -84,7 +84,7 @@ static errval_t lo_send_ethernet_packet_fn(struct driver_buffer *buffers,
     }
 
     // copy packet to internal buffer
-    LO_DEBUG("sending ethernet packet with opaque %p\n", tx_opaque);
+    LO_DEBUG("sending ethernet packet with opaque %p\n", buffers);
     assert(pkt_len <= WRITE_BUF_SIZE);
     assert(packetbuf != NULL);
 
@@ -384,5 +384,3 @@ static uint64_t rx_find_free_slot_count_fn(void)
     return DRIVER_RECEIVE_BUFFERS - receive_free;
 }
 #endif // 0
-
-

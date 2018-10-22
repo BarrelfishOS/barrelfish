@@ -119,8 +119,8 @@ interface monitor "The monitor to client Interface" {
     message set_name_iref_request(iref iref);
     message set_name_iref_reply(errval err);
 
-    message get_monitor_rpc_iref_request(uintptr st);
-    message get_monitor_rpc_iref_reply(iref iref, uintptr st);
+    message get_monitor_rpc_ep_request(uintptr st);
+    message get_monitor_rpc_ep_reply(errval err, cap ep, uintptr st);
 
     /* for UMP/BMP cap tx */
     message cap_send_request(
@@ -209,4 +209,9 @@ interface monitor "The monitor to client Interface" {
 
     // Capability debugging
     message debug_print_capabilities();
+
+
+    //
+    message cap_revoke_request(uintptr cap, uintptr id);
+    message cap_revoke_response(uintptr id);
 };

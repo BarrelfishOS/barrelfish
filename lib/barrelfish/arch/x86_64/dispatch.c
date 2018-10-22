@@ -85,6 +85,7 @@ void disp_resume(dispatcher_handle_t handle, arch_registers_state_t *archregs)
                     "mov        %%ax, %%fs              \n\t"
                     "mov        %[gs], %%ax             \n\t"
                     "mov        %%ax, %%gs              \n\t"
+                    "fxrstor     %[fxsave_area]         \n\t"
                     "movq        0*8(%[regs]), %%rax    \n\t"
                     "movq        2*8(%[regs]), %%rcx    \n\t"
                     "movq        3*8(%[regs]), %%rdx    \n\t"
@@ -112,7 +113,8 @@ void disp_resume(dispatcher_handle_t handle, arch_registers_state_t *archregs)
                     [ss] "i" (USER_SS),
                     [cs] "i" (USER_CS),
                     [fs] "m" (regs->fs),
-                    [gs] "m" (regs->gs)
+                    [gs] "m" (regs->gs),
+                    [fxsave_area] "m" (regs->fxsave_area)
                     );
 
     __asm volatile ("disp_resume_end:");
@@ -239,9 +241,11 @@ disp_save(dispatcher_handle_t handle, arch_registers_state_t *state,
                     "mov        %%bx, %[fs]             \n\t"
                     "mov        %%gs, %%bx              \n\t"
                     "mov        %%bx, %[gs]             \n\t"
+                    "fxsave     %[fxsave_area]          \n\t"
                     :
                     : [regs] "a" (regs),
                       [fs] "m" (regs->fs),
+                      [fxsave_area] "m" (regs->fxsave_area),
                       [gs] "m" (regs->gs)
                     : "rbx", "rcx", "rdx", "rsi", "rdi",
                       "r8", "r9", "r10", "r12", "r13", "r14", "r15"

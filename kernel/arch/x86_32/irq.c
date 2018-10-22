@@ -66,10 +66,6 @@
 #include <kcb.h>
 #include <mdb/mdb_tree.h>
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-#  include <fpu.h>
-#endif
-
 /**
  * \brief Define IRQ handler number 'num'.
  *
@@ -370,7 +366,7 @@ static void send_user_interrupt(int irq)
     // Find the right cap
     struct kcb *k = kcb_current;
     do {
-        if (k->irq_dispatch[irq].cap.type == ObjType_EndPoint) {
+        if (k->irq_dispatch[irq].cap.type == ObjType_EndPointLMP) {
             break;
         }
         k = k->next;
@@ -390,12 +386,12 @@ static void send_user_interrupt(int irq)
     }
 
     // Otherwise, cap needs to be an endpoint
-    assert(cap->type == ObjType_EndPoint);
+    assert(cap->type == ObjType_EndPointLMP);
     errval_t err = lmp_deliver_notification(cap);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
             struct dispatcher_shared_generic *disp =
-                get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                get_dispatcher_shared_generic(cap->u.endpointlmp.listener->disp);
             printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
                    DISP_NAME_LEN, disp->name);
         } else {
@@ -409,7 +405,7 @@ static void send_user_interrupt(int irq)
      * our default scheduler is braindead, this is a quick hack to make sure
      * that mostly-sane things happen
      */
-    dispatch(cap->u.endpoint.listener);
+    dispatch(cap->u.endpointlmp.listener);
 #else
     dispatch(schedule());
 #endif
@@ -424,7 +420,7 @@ errval_t irq_table_alloc(int *outvec)
         struct kcb *k = kcb_current;
         bool found_free = true;
         do {
-            if (kcb_current->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+            if (kcb_current->irq_dispatch[i].cap.type == ObjType_EndPointLMP) {
                 found_free = false;
                 break;
             }
@@ -526,12 +522,12 @@ errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
     assert(endpoint != NULL);
 
     // Return w/error if cap is not an endpoint
-    if(endpoint->cap.type != ObjType_EndPoint) {
+    if(endpoint->cap.type != ObjType_EndPointLMP) {
         return SYS_ERR_IRQ_NOT_ENDPOINT;
     }
 
     // Return w/error if no listener on endpoint
-    if(endpoint->cap.u.endpoint.listener == NULL) {
+    if(endpoint->cap.u.endpointlmp.listener == NULL) {
         return SYS_ERR_IRQ_NO_LISTENER;
     }
 
@@ -568,14 +564,14 @@ errval_t irq_table_notify_domains(struct kcb *kcb)
 {
     uintptr_t msg[] = { 1 };
     for (int i = 0; i < NDISPATCH; i++) {
-        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPointLMP) {
             struct capability *cap = &kcb->irq_dispatch[i].cap;
             // 1 word message as notification
             errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false);
             if (err_is_fail(err)) {
                 if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
                     struct dispatcher_shared_generic *disp =
-                        get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                        get_dispatcher_shared_generic(cap->u.endpointlmp.listener->disp);
                     printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
                             DISP_NAME_LEN, disp->name);
                 } else {

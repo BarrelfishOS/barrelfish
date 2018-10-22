@@ -58,6 +58,7 @@ static struct cmdarg cmdargs[] = {
     {"serial", ArgType_ULong, { .ulonginteger = &uart_base[0] }},
     {"gic", ArgType_ULong, { .ulonginteger = &platform_gic_cpu_base }},
     {"gicdist", ArgType_ULong, { .ulonginteger = &platform_gic_dist_base }},
+    {"gicredist", ArgType_ULong, { .ulonginteger = &platform_gic_redist_base }},
     {NULL, 0, {NULL}}
 };
 
@@ -125,22 +126,15 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
         {
         my_core_id = 0;
 
-        struct multiboot_header *mbhdr = pointer;
-        uint32_t size = mbhdr->header_length;
-
-        // sanity checks
-        assert(mbhdr->architecture == MULTIBOOT_ARCHITECTURE_AARCH64);
-        assert((mbhdr->architecture + mbhdr->checksum + mbhdr->header_length
-                 + mbhdr->magic) == 0);
-
-        struct multiboot_header_tag *mb;
+        uint32_t size = *(uint32_t *)pointer - 8;
         struct multiboot_tag_string *kernel_cmd;
+        struct multiboot_tag *tag;
 
         // get the first header tag
-        mb = (struct multiboot_header_tag *)(mbhdr + 1);
+        tag = (struct multiboot_tag *)(pointer + 8);
 
         // get the kernel cmdline. this may contain address which UART/GIC to use
-        kernel_cmd = multiboot2_find_cmdline(mb, size);
+        kernel_cmd = multiboot2_find_cmdline(tag, size);
         if (kernel_cmd == NULL) {
             panic("Multiboot did not contain an kernel CMD line\n");
         }
@@ -153,7 +147,7 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
 //        serial_console_init(false);
 
         struct multiboot_tag_efi_mmap *mmap = (struct multiboot_tag_efi_mmap *)
-                multiboot2_find_header(mb, size, MULTIBOOT_TAG_TYPE_EFI_MMAP);
+                multiboot2_find_header(tag, size, MULTIBOOT_TAG_TYPE_EFI_MMAP);
         if (!mmap) {
             panic("Multiboot image does not have EFI mmap!");
         } else {
@@ -162,7 +156,7 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
 
         mmap_find_memory(mmap);
 
-        armv8_glbl_core_data->multiboot_image.base  = mem_to_local_phys((lvaddr_t) mb);
+        armv8_glbl_core_data->multiboot_image.base  = mem_to_local_phys((lvaddr_t)tag);
         armv8_glbl_core_data->multiboot_image.length = size;
         armv8_glbl_core_data->efi_mmap = mem_to_local_phys((lvaddr_t) mmap);
 
@@ -213,8 +207,6 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
     MSG("Exception vectors (VBAR_EL1): %p\n", &vectors);
     sysreg_write_vbar_el1((uint64_t)&vectors);
 
-    platform_gic_init();
-
     MSG("Setting coreboot spawn handler\n");
     coreboot_set_spawn_handler(CPU_ARM8, platform_boot_core);
 
@@ -223,4 +215,3 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
         __asm volatile ("wfi":::);
     }
 }
-

@@ -1,0 +1,159 @@
+/*
+ * Copyright (c) 2018, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * gic_v3.dev
+ *
+ * DESCRIPTION: GIC v3 architecture definitions
+ *
+ * See:
+ *   GIC v3 Architecture Specification
+ */
+
+device gic_v3_dist msbfirst (addr dist) "GIC v3 Distributor" {
+
+    register GICD_CTLR_secure addr(dist, 0x0) "Distributor Control Register" {
+        RWP      1 ro "Register Write Pending";
+        _       23;
+        E1NWF    1 "Enable 1 of N Wakeup Functionality";
+        DS       1 "Disable Security";
+        ARE_NS   1 "Affinity Routing Enable, Non-secure state";
+        ARE_S    1 "Affinity Routing Enable, Secure state";
+        _        1 mbz;
+        EnableGrp1S     1 "Enable Secure Group 1 interrupts";
+        EnableGrp1NS    1 "Enable Non-secure Group 1 interrupts";
+        EnableGrp0      1 "Enable Group 0 interrupts";
+    };
+
+
+    register GICD_CTLR also addr(dist, 0x0) "Distributor Control Register" {
+        RWP      1 ro "Register Write Pending";
+        _       26;
+        ARE_NS   1 "Affinity Routing Enable, Non-secure state";
+        _        2 mbz;
+        EnableGrp1A 1 "ARE_NS=1 -> Enable Secure Group 1 interrupts";
+        EnableGrp1  1 "ARE_NS=1 -> Enable Non-secure Group 1 interrupts";
+    };
+
+    register GICD_TYPER rw addr(dist, 0x4) "Interrupt Controller Type Register" {
+        _        6 mbz;
+        No1N     1 "1 of N SPI interrupts not supported";
+        A3V      1 "Affinity 3 valid";
+        IDbits   5 "The number of interrupt identifier bits supported, minus one";
+        DVIS     1 "Implementation supports Direct Virtual LPI injection";
+        LPIS     1 "Implementation supports LPIs";
+        MBIS     1 "Implementation supports message-based interrupts";
+        LSPI     5 "maximum number of implemented lockable SPI";
+        SecurityExtn 1 "Indicates whether the GIC implementation supports two Security states";
+        _        2 mbz;
+        CPUNumber    3 "Number of PEs that can be used with affinity routing not enabled, minus one";
+        ITLinesNumber   5 "Maximum SPI INTID supported";
+    };
+
+    register GICD_IIDR ro addr(dist, 0x8) "Distributor Implementer Identification Register" {
+        ProductID    8 "Product identifier";
+        _            4 mbz;
+        Variant      4 "Variant number";
+        Revision     4 "Revision number";
+        Implementer 12 "JEP106 code of implementing company";
+    };
+
+    register GICD_STATUSR rw addr(dist, 0x10) "Error Reporting Status Register" {
+        _       28 mbz;
+        WROD     1 "Write to RO location has been detected";
+        RWOD     1 "Read of WO location has been detected";
+        WRD      1 "Write to reserved location has been detected";
+        RRD      1 "Read to reserved location has been detected";
+    };
+
+    register GICD_SETSPI_NSR wo addr(dist, 0x40) "Set Non-secure SPI Pending Register" {
+        _       22 mbz;
+        INTID   10 "The INTID of the SPI";
+    };
+
+    register GICD_CLRSPI_NSR wo addr(dist, 0x48) "Clear Non-secure SPI Pending Register" {
+        _       22 mbz;
+        INTID   10 "The INTID of the SPI";
+    };
+
+    register GICD_SETSPI_SR wo addr(dist, 0x50) "Set Secure SPI Pending Register" {
+        _       22 mbz;
+        INTID   10 "The INTID of the SPI";
+    };
+
+    register GICD_CLRSPI_SR wo addr(dist, 0x58) "Clear Secure SPI Pending Register" {
+        _       22 mbz;
+        INTID   10 "The INTID of the SPI";
+    };
+
+    regarray GICD_IGROUPR addr(dist, 0x80)[32] "Interrupt Group Registers" type(uint32);
+
+    regarray GICD_ISENABLER addr(dist, 0x100)[32] "Interrupt Set-Enable Registers" type(uint32);
+
+    regarray GICD_ICENABLER addr(dist, 0x180)[32] "Interrupt Clear-Enable Registers" type(uint32);
+
+    regarray GICD_ISPENDR addr(dist, 0x200)[32] "Interrupt Set-Pending Registers" type(uint32);
+
+    regarray GICD_ICPENDR addr(dist, 0x280)[32] "Interrupt Clear-Pending Registers" type(uint32);
+
+    regarray GICD_ISACTIVER addr(dist, 0x300)[32] "Interrupt Set-Active Registers" type(uint32);
+
+    regarray GICD_ICACTIVER addr(dist, 0x380)[32] "Interrupt Clear-Active Registers" type(uint32);
+
+    regarray GICD_IPRIORITYR addr(dist, 0x400)[1020] "Interrupt Priority Registers" type(uint8);
+
+    regarray GICD_ITARGETSR addr(dist, 0x800)[255] "Interrupt Processor Targets Registers" type(uint32);
+
+    regarray GICD_ICFGR addr(dist, 0xC00)[64] "Interrupt Configuration Registers" type(uint32);
+
+    regarray GICD_IGRPMODR addr(dist, 0xD00)[32] "Interrupt Group Modifier Registers" type(uint32);
+
+    regarray GICD_NSACR addr(dist, 0xe00)[64] "Non-secure Access Control Registers" type(uint32);
+
+
+    constants TargetFilterList width(2) "SGI forwarding" {
+        CPUTargetList = 0b00 "Forward the interrupt to the CPU interfaces specified by GICD_SGIR.CPUTargetList.";
+        PEAllTarget   = 0b01 "Forward the interrupt to all CPU interfaces except that of the PE that requested the interrupt.";
+        PEOnlyTarget  = 0b10 "Forward the interrupt only to the CPU interface of the PE that requested the interrupt.";
+    };
+
+    register GICD_SGIR wo addr(dist, 0xF00) "Software Generated Interrupt Register" {
+        _        6 mbz;
+        TargetFilterList     2 type(TargetFilterList);
+        CPUTargetList        8 "Forward to CPU interface bit N (only if TargetFilterList==CPUTargetList)";
+        NSATT    1 "Required group of the SGI";
+        _       11 mbz;
+        INTID    4 "INTID of the SGI to forward to the specified CPU interfaces";
+    };
+
+    regarray GICD_CPENDSGIR addr(dist, 0xF10)[4] "SGI Clear-Pending Registers" type(uint32);
+
+    regarray GICD_SPENDSGIR addr(dist, 0xF20)[4] "SGI Set-Pending Registers" type(uint32);
+
+    register ICPIDR2 ro addr(dist, 0x0fe8) "Peripheral ID2 Register" {
+        _       24;
+        ArchRev  4 "GIC architecture revision";
+        _        4;
+    };
+
+    regarray GICD_IROUTER addr(dist, 0x6100)[1020] "Interrupt Routing Registers" {
+        _       24 mbz;
+        Aff3     8 "Affinity level 3, least significant level field";
+        Interrupt_Rouing_Mode   1 "Interrupt Routing Mode";
+        _        7 mbz;
+        Aff2     8 "Affinity level 2";
+        Aff1     8 "Affinity level 1";
+        Aff0     8 "Affinity level 0, most significant level field";
+    };
+
+    register GICD_PIDR2 ro addr(dist, 0xffe8) "Peripheral ID2 Register" {
+        _       24;
+        ArchRev  4 "GIC architecture revision";
+        _        4;
+    };
+};

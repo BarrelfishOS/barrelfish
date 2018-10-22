@@ -72,4 +72,9 @@ interface xeon_phi "Xeon Phi Messaging Interface" {
                   in uint8 type,
                   out errval msgerr);
 
+
+    rpc dma_register(in cap mem, out uint64 devaddr, out errval msgerr);
+    rpc dma_memcpy(in uint64 to, in uint64 from, in uint64 bytes, out errval msgerr);
+    rpc get_nodeid(in uint64 arg, out int32 nodeid);
+    rpc alloc_mem(in uint64 bytes, out cap mem, out errval msgerr);
 };

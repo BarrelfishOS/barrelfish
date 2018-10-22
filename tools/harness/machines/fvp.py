@@ -12,7 +12,7 @@ import debug
 from machines import ARMSimulatorBase, MachineFactory, ARMSimulatorOperations
 import efiimage
 
-FVP_PATH = '/home/netos/tools/DS-5_v5.26.0/bin'
+FVP_PATH = '/home/netos/tools/DS-5/bin'
 
 # Get the prebuilt binary snapshots (fvp-uefi.zip) from:
 # https://community.arm.com/docs/DOC-10952
@@ -118,7 +118,7 @@ class FVPMachineEFI(FVPMachineBase):
                 menulst_fullpath)
         self._write_menu_lst(modules.get_menu_data("/"), menulst_fullpath)
 
-        debug.checkcmd(["make"] + modules.get_build_targets(), cwd=self.options.builds[0].build_dir)
+#        debug.checkcmd(["make"] + modules.get_build_targets(), cwd=self.options.builds[0].build_dir)
 
         debug.verbose("building proper FVP image")
         efi = efiimage.EFIImage(self.kernel_img, 200)

@@ -15,8 +15,9 @@ struct dma_mem_mgr;
 
 /// typedef for custom address conversion
 typedef lpaddr_t (*dma_mem_convert_fn)(void *arg,
-                                       lpaddr_t addr,
-                                       size_t size);
+                                       struct capref frame,
+                                       genpaddr_t *retaddr,
+                                       genvaddr_t *local_retaddr);
 
 /// default memory ranges from 0 to 48 bits
 #define DMA_MEM_RANGE_MIN 0x0
@@ -58,7 +59,7 @@ void dma_mem_mgr_set_convert_fn(struct dma_mem_mgr *mem_mgr,
  *          errval on failure
  */
 errval_t dma_mem_register(struct dma_mem_mgr *mem_mgr,
-                          struct capref cap);
+                          struct capref cap, genpaddr_t *retaddr);
 
 /**
  * \brief deregisters a memory region that it cannot longer be used for the

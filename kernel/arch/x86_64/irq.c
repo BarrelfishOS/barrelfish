@@ -73,10 +73,6 @@
 
 #include <dev/ia32_dev.h>
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-#  include <fpu.h>
-#endif
-
 static const char *idt_descs[] =
 {
     [IDT_DE]    = "#DE: Divide Error",
@@ -210,6 +206,7 @@ __asm (
     "movq %r15, 15*8(%rcx)                              \n\t"
     "mov %fs, "XTR(OFFSETOF_FS_REG)"(%rcx)              \n\t"
     "mov %gs, "XTR(OFFSETOF_GS_REG)"(%rcx)              \n\t"
+    "fxsave "XTR(OFFSETOF_FXSAVE_AREA)"(%rcx)           \n\t"
     "popq %rdi                    /* vector number */   \n\t"
     "popq %rsi                    /* error code */      \n\t"
     "movq %rsp, %rdx              /* CPU save area */   \n\t"
@@ -300,6 +297,7 @@ __asm (
     "movq %r15, 15*8(%rdx)                              \n\t"
     "mov %fs, "XTR(OFFSETOF_FS_REG)"(%rdx)              \n\t"
     "mov %gs, "XTR(OFFSETOF_GS_REG)"(%rdx)              \n\t"
+    "fxsave "XTR(OFFSETOF_FXSAVE_AREA)"(%rdx)           \n\t"
     "popq %rdi                    /* vector number */   \n\t"
     "movq %rsp, %rsi              /* CPU save area */   \n\t"
     "jmp generic_handle_irq /* NB: rdx = disp save ptr*/\n\t"
@@ -422,7 +420,7 @@ static void send_user_interrupt(int irq)
     assert(irq >= 0 && irq < NDISPATCH);
     struct kcb *k = kcb_current;
     do {
-        if (k->irq_dispatch[irq].cap.type == ObjType_EndPoint) {
+        if (k->irq_dispatch[irq].cap.type == ObjType_EndPointLMP) {
             break;
         }
         k = k->next;
@@ -455,14 +453,14 @@ static void send_user_interrupt(int irq)
 
     }
     // Otherwise, cap needs to be an endpoint
-    assert(cap->type == ObjType_EndPoint);
+    assert(cap->type == ObjType_EndPointLMP);
 
     // send empty message as notification
     errval_t err = lmp_deliver_notification(cap);
     if (err_is_fail(err)) {
         if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
             struct dispatcher_shared_generic *disp =
-                get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                get_dispatcher_shared_generic(cap->u.endpointlmp.listener->disp);
             printk(LOG_WARN, "%.*s: IRQ message buffer overflow on IRQ %d\n",
                    DISP_NAME_LEN, disp->name, irq);
         } else {
@@ -476,7 +474,7 @@ static void send_user_interrupt(int irq)
      * our default scheduler is braindead, this is a quick hack to make sure
      * that mostly-sane things happen
      */
-    dispatch(cap->u.endpoint.listener);
+    dispatch(cap->u.endpointlmp.listener);
 #else
     dispatch(schedule());
 #endif
@@ -495,7 +493,7 @@ errval_t irq_table_alloc(int *outvec)
         struct kcb *k = kcb_current;
         bool found_free = true;
         do {
-            if (k->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+            if (k->irq_dispatch[i].cap.type == ObjType_EndPointLMP) {
                 found_free = false;
                 break;
             }
@@ -573,12 +571,12 @@ errval_t irq_connect(struct capability *dest_cap, capaddr_t endpoint_adr)
     assert(endpoint != NULL);
 
     // Return w/error if cap is not an endpoint
-    if(endpoint->cap.type != ObjType_EndPoint) {
+    if(endpoint->cap.type != ObjType_EndPointLMP) {
         return SYS_ERR_IRQ_NOT_ENDPOINT;
     }
 
     // Return w/error if no listener on endpoint
-    if(endpoint->cap.u.endpoint.listener == NULL) {
+    if(endpoint->cap.u.endpointlmp.listener == NULL) {
         return SYS_ERR_IRQ_NO_LISTENER;
     }
 
@@ -615,14 +613,14 @@ errval_t irq_table_notify_domains(struct kcb *kcb)
 {
     uintptr_t msg[] = { 1 };
     for (int i = 0; i < NDISPATCH; i++) {
-        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPoint) {
+        if (kcb->irq_dispatch[i].cap.type == ObjType_EndPointLMP) {
             struct capability *cap = &kcb->irq_dispatch[i].cap;
             // 1 word message as notification
             errval_t err = lmp_deliver_payload(cap, NULL, msg, 1, false, false);
             if (err_is_fail(err)) {
                 if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
                     struct dispatcher_shared_generic *disp =
-                        get_dispatcher_shared_generic(cap->u.endpoint.listener->disp);
+                        get_dispatcher_shared_generic(cap->u.endpointlmp.listener->disp);
                     printk(LOG_DEBUG, "%.*s: IRQ message buffer overflow\n",
                             DISP_NAME_LEN, disp->name);
                 } else {
@@ -771,33 +769,6 @@ static __attribute__ ((used))
         dcb_current->faults_taken++;
     }
 
-    // Store FPU state if it's used
-    // Do this for every trap when the current domain used the FPU
-    // Do it for FPU not available traps in any case (to save the last FPU user)
-    // XXX: Need to reset fpu_dcb when that DCB is deleted
-    if(fpu_dcb != NULL &&
-       (fpu_dcb == dcb_current || vec == IDT_NM)) {
-        struct dispatcher_shared_generic *dst =
-            get_dispatcher_shared_generic(fpu_dcb->disp);
-
-        // Turn FPU trap off temporarily for saving its state
-        bool trap = fpu_trap_get();
-        fpu_trap_off();
-
-        if(fpu_dcb->disabled) {
-            fpu_save(dispatcher_get_disabled_fpu_save_area(fpu_dcb->disp));
-	    dst->fpu_used = 1;
-        } else {
-            assert(!fpu_dcb->disabled);
-            fpu_save(dispatcher_get_enabled_fpu_save_area(fpu_dcb->disp));
-	    dst->fpu_used = 2;
-        }
-
-        if(trap) {
-            fpu_trap_on();
-        }
-    }
-
     if (vec == IDT_PF) { // Page fault
         // Get fault address
         __asm volatile("mov %%cr2, %[fault_address]"
@@ -825,33 +796,6 @@ static __attribute__ ((used))
     } else if (vec == IDT_NMI) {
         printk(LOG_WARN, "NMI - ignoring\n");
         dispatch(dcb_current);
-    } else if (vec == IDT_NM) {     // device not available (FPU) exception
-        debug(SUBSYS_DISPATCH, "FPU trap in %.*s at 0x%" PRIxPTR "\n",
-              DISP_NAME_LEN, disp->name, rip);
-        assert(!dcb_current->is_vm_guest);
-
-        /* Intel system programming part 1: 2.3.1, 2.5, 11, 12.5.1
-         * clear the TS flag (flag that says, that the FPU is not available)
-         */
-        clts();
-
-        // Remember FPU-using DCB
-        fpu_dcb = dcb_current;
-
-        // Wipe FPU for protection and to initialize it in case we trapped while
-        // disabled
-        fpu_init();
-
-        if(disabled) {
-            // Initialize FPU (done earlier) and ignore trap
-            dispatch(dcb_current);
-        } else {
-            // defer trap to user-space
-            // FPUs are switched eagerly while disabled, there should be no trap
-            assert(disp_save_area == dispatcher_get_trap_save_area(handle));
-            handler = disp->dispatcher_trap;
-            param = vec;
-        }
     } else if (vec == IDT_MF) {
         uint16_t fpu_status;
 
@@ -896,7 +840,7 @@ static __attribute__ ((used))
 
     /* resume user to save area */
     disp->disabled = 1;
-    if(handler == 0) {
+    if (handler == 0) {
         printk(LOG_WARN, "no suitable handler for this type of fault, "
                "making domain unrunnable\n");
         scheduler_remove(dcb_current);

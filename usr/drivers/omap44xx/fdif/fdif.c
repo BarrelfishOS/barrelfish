@@ -233,8 +233,8 @@ static void set_image_params(struct fdif_driver_state* st, genpaddr_t picaddr, g
  * \retval SYS_ERR_OK Device initialized successfully.
  * \retval LIB_ERR_MALLOC_FAIL Unable to allocate memory for the driver.
  */
-static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t flags,
-                     struct capref* caps, size_t caps_len, char** args, size_t args_len, iref_t* dev) {
+
+static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev) {
     FDIF_DEBUG("%s:%s:%d: %s\n", __FILE__, __FUNCTION__, __LINE__, bfi->driver->name);
 
     bfi->dstate = malloc(sizeof(struct fdif_driver_state));
@@ -255,14 +255,14 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t f
     lpaddr_t vbase;
 
     // Face detect Module
-    err = map_device_cap(caps[3], &vbase);
+    err = map_device_cap(bfi->caps[3], &vbase);
     assert(err_is_ok(err));
     omap44xx_fdif_initialize(&st->devfdif, (mackerel_addr_t)vbase);
 
     FDIF_DEBUG("FDIF Global Initialization\n");
 
-    manage_clocks(st, caps);
-    manage_power(st, caps);
+    manage_clocks(st, bfi->caps);
+    manage_power(st, bfi->caps);
 
     omap44xx_fdif_fdif_sysconfig_softreset_wrf(&st->devfdif, 1);
     while (omap44xx_fdif_fdif_sysconfig_softreset_rdf(&st->devfdif) != 0);
@@ -394,4 +394,10 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
     return SYS_ERR_OK;
 }
 
-DEFINE_MODULE(fdif, init, attach, detach, set_sleep_level, destroy);
+static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
+{   
+    USER_PANIC("NIY \n");
+    return SYS_ERR_OK;
+}
+
+DEFINE_MODULE(fdif, init, attach, detach, set_sleep_level, destroy, get_ep);

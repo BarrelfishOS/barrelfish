@@ -23,7 +23,6 @@
 #include <paging_kernel_arch.h>
 #include <paging_generic.h>
 #include <exec.h>
-#include <fpu.h>
 #include <systime.h>
 #include <arch/x86/x86.h>
 #include <arch/x86/apic.h>
@@ -666,7 +665,7 @@ static struct sysret monitor_create_cap(struct capability *kernel_cap,
     coreid_t owner = args[pos + 3];
 
     /* For certain types, only foreign copies can be created here */
-    if ((src->type == ObjType_EndPoint || src->type == ObjType_Dispatcher
+    if ((src->type == ObjType_EndPointLMP || src->type == ObjType_Dispatcher
          || src->type == ObjType_Kernel || src->type == ObjType_IRQTable)
         && owner == my_core_id)
     {
@@ -733,7 +732,7 @@ static struct sysret handle_frame_identify(struct capability *to,
 {
     // Return with physical base address of frame
     assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame ||
-           to->type == ObjType_RAM);
+           to->type == ObjType_RAM   || to->type == ObjType_EndPointUMP);
     assert((get_address(to) & BASE_PAGE_MASK) == 0);
 
     struct frame_identity *fi = (struct frame_identity *)args[0];
@@ -744,6 +743,22 @@ static struct sysret handle_frame_identify(struct capability *to,
 
     fi->base = get_address(to);
     fi->bytes = get_size(to);
+    switch(to->type) {
+        case ObjType_Frame:
+            fi->pasid = to->u.frame.pasid;
+            break;
+        case ObjType_DevFrame:
+            fi->pasid = to->u.devframe.pasid;
+            break;
+        case ObjType_RAM:
+            fi->pasid = to->u.ram.pasid;
+            break;
+        case ObjType_EndPointUMP:
+            fi->pasid = to->u.endpointump.pasid;
+            break;
+        default:
+            assert(false);
+    }
 
     return SYSRET(SYS_ERR_OK);
 }
@@ -755,7 +770,10 @@ static struct sysret handle_vnode_identify(struct capability *to,
     assert(to->type == ObjType_VNode_x86_64_pml4 ||
 	   to->type == ObjType_VNode_x86_64_pdpt ||
 	   to->type == ObjType_VNode_x86_64_pdir ||
-	   to->type == ObjType_VNode_x86_64_ptable);
+	   to->type == ObjType_VNode_x86_64_ptable ||
+       to->type == ObjType_VNode_x86_64_pml5 ||
+       to->type == ObjType_VNode_VTd_root_table ||
+       to->type == ObjType_VNode_VTd_ctxt_table);
 
     genpaddr_t base_addr = get_address(to);
     assert((base_addr & BASE_PAGE_MASK) == 0);
@@ -899,7 +917,7 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
-    if (ep_cte->cap.type != ObjType_EndPoint) {
+    if (ep_cte->cap.type != ObjType_EndPointLMP) {
         return SYSRET(SYS_ERR_VMKIT_ENDPOINT_INVALID);
     }
     err = caps_copy_to_cte(&dcb->guest_desc.monitor_ep, ep_cte, false, 0, 0);
@@ -1273,6 +1291,110 @@ static struct sysret handle_idcap_identify(struct capability *cap, int cmd,
     return sysret;
 }
 
+static struct sysret handle_devid_create(struct capability *cap, int cmd,
+                                           uintptr_t *args)
+{
+    assert(cap->type == ObjType_DeviceIDManager);
+
+    capaddr_t cnode_cptr = args[0];
+    capaddr_t cnode_level = args[1];
+    cslot_t slot = args[2];
+
+    uint32_t address = args[3];
+    uint32_t segflags = args[4];
+
+    struct capability devid;
+    devid.type = ObjType_DeviceID;
+    devid.u.deviceid.bus      = (uint8_t)(address >> 16);
+    devid.u.deviceid.device   = (uint8_t)(address >> 8);
+    devid.u.deviceid.function = (uint8_t)(address);
+    devid.u.deviceid.type     = (uint8_t)(address >> 24);
+    devid.u.deviceid.segment  = (uint16_t)(segflags >> 16);
+    devid.u.deviceid.flags    = (uint16_t)(segflags);
+
+    return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
+                                            cnode_cptr, cnode_level,
+                                            slot, my_core_id, &devid));
+}
+
+static struct sysret handle_devid_identify(struct capability *cap, int cmd,
+                                           uintptr_t *args)
+{
+    // Return with physical base address of frame
+    printf("Cap->type == %u\n", cap->type);
+
+    assert(cap->type == ObjType_DeviceID);
+
+    struct device_identity *di = (struct device_identity *)args[0];
+
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)di, sizeof(struct device_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    di->bus = cap->u.deviceid.bus;
+    di->device = cap->u.deviceid.device;
+    di->function = cap->u.deviceid.function;
+    di->flags = cap->u.deviceid.flags;
+    di->segment = cap->u.deviceid.segment;
+    di->type = cap->u.deviceid.type;
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+
+static struct sysret handle_endpoint_identify(struct capability *cap, int cmd,
+                                               uintptr_t *args)
+{
+    // Return with physical base address of frame
+    struct endpoint_identity *eid = (struct endpoint_identity *)args[0];
+
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)eid, sizeof(struct endpoint_identity))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    switch(cap->type) {
+        case ObjType_EndPointUMP :
+            eid->base = cap->u.endpointump.base;
+            eid->length = cap->u.endpointump.bytes;
+            eid->iftype = cap->u.endpointump.iftype;
+            eid->eptype = cap->type;
+            break;
+        case ObjType_EndPointLMP :
+            eid->base   = (genpaddr_t)cap->u.endpointlmp.listener + cap->u.endpointlmp.epoffset;
+            eid->length = cap->u.endpointlmp.epbuflen;
+            eid->iftype = cap->u.endpointlmp.iftype;
+            eid->eptype = cap->type;
+            break;
+        default:
+            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+
+static struct sysret handle_set_endpoint_iftype(struct capability *cap, int cmd,
+                                                uintptr_t *args)
+{
+    uint16_t iftype = args[0];
+
+    switch(cap->type) {
+        case ObjType_EndPointUMP :
+            //printf("SET_IFTYPE: UMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
+            cap->u.endpointump.iftype = iftype;
+            break;
+        case ObjType_EndPointLMP :
+            //printf("SET_IFTYPE: LMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
+            cap->u.endpointlmp.iftype = iftype;
+            break;
+        default:
+            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
+    }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+
 static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
                                           uintptr_t *args)
 {
@@ -1398,6 +1520,24 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Resize] = handle_resize,
         [CNodeCmd_CapIdentify] = handle_cap_identify,
     },
+    [ObjType_VNode_VTd_root_table] = {
+        [VNodeCmd_Identify]    = handle_vnode_identify,
+        [VNodeCmd_Map]         = handle_map,
+        [VNodeCmd_Unmap]       = handle_unmap,
+        [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+    },
+    [ObjType_VNode_VTd_ctxt_table] = {
+        [VNodeCmd_Identify]    = handle_vnode_identify,
+        [VNodeCmd_Map]         = handle_map,
+        [VNodeCmd_Unmap]       = handle_unmap,
+        [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+    },
+    [ObjType_VNode_x86_64_pml5] = {
+        [VNodeCmd_Identify] = handle_vnode_identify,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+        [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+    },
     [ObjType_VNode_x86_64_pml4] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
@@ -1436,6 +1576,18 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MappingCmd_Modify] = handle_mapping_modify,
     },
     [ObjType_DevFrame_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify] = handle_mapping_modify,
+    },
+    [ObjType_VNode_VTd_root_table_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify]  = handle_mapping_modify,
+    },
+    [ObjType_VNode_VTd_ctxt_table_Mapping] = {
+        [MappingCmd_Destroy] = handle_mapping_destroy,
+        [MappingCmd_Modify]  = handle_mapping_modify,
+    },
+    [ObjType_VNode_x86_64_pml5_Mapping] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
         [MappingCmd_Modify] = handle_mapping_modify,
     },
@@ -1548,6 +1700,21 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_ID] = {
         [IDCmd_Identify] = handle_idcap_identify,
+    },
+    [ObjType_DeviceIDManager] = {
+        [DeviceIDManager_CreateID] = handle_devid_create,
+    },
+    [ObjType_DeviceID] = {
+        [DeviceID_Identify] = handle_devid_identify,
+    },
+    [ObjType_EndPointLMP] = {
+        [EndPointCMD_Identify] = handle_endpoint_identify,
+        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
+    },
+    [ObjType_EndPointUMP] = {
+        [EndPointCMD_FrameIdentify] = handle_frame_identify,
+        [EndPointCMD_Identify] = handle_endpoint_identify,
+        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
     }
 };
 
@@ -1600,8 +1767,9 @@ struct sysret sys_vmcall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         assert(to->type < ObjType_Num);
 
         // Endpoint cap, do LMP
-        if (to->type == ObjType_EndPoint) {
-            struct dcb *listener = to->u.endpoint.listener;
+        if (to->type == ObjType_EndPointLMP && !(flags & LMP_FLAG_IDENTIFY)) {
+
+            struct dcb *listener = to->u.endpointlmp.listener;
             assert(listener != NULL);
 
             if (listener->disp == 0) {
@@ -1666,6 +1834,9 @@ struct sysret sys_vmcall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                 save_area->rip = rip;
                 save_area->eflags = rflags;
                 save_area->rsp = user_stack_save;
+                __asm ("fxsave     %[fxsave_area]\n"
+                    :
+                    : [fxsave_area] "m" (save_area->fxsave_area));
 
                 if (!dcb_current->is_vm_guest) {
                     /* save and zero FS/GS selectors (they're unmodified by the syscall path) */
@@ -1697,10 +1868,10 @@ struct sysret sys_vmcall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                     panic("VM Guests not supported on Xeon Phi");
 #endif
 		        }
-                dispatch(to->u.endpoint.listener);
+                dispatch(to->u.endpointlmp.listener);
                 panic("dispatch returned");
             } else {
-                struct dcb *dcb = to->u.endpoint.listener;
+                struct dcb *dcb = to->u.endpointlmp.listener;
 
                 schedule_now(dcb);
             }
@@ -1753,10 +1924,6 @@ struct sysret sys_vmcall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         reboot();
         break;
 
-    case SYSCALL_X86_FPU_TRAP_ON:
-        fpu_trap_on();
-        break;
-
     case SYSCALL_X86_RELOAD_LDT:
         maybe_reload_ldt(dcb_current, true);
         break;
@@ -1766,10 +1933,6 @@ struct sysret sys_vmcall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         TRACE(KERNEL, SC_SUSPEND, 0);
         retval = sys_suspend((bool)arg0);
         TRACE(KERNEL, SC_SUSPEND, 1);
-        break;
-
-    case SYSCALL_GET_ABS_TIME:
-        retval = sys_get_absolute_time();
         break;
 
     case SYSCALL_DEBUG:

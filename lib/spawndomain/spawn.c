@@ -92,7 +92,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
         .slot = TASKCN_SLOT_SELFEP,
     };
     // XXX: could redo retyping of EPs now, and actually give offset and stuff
-    err = cap_retype(selfep, si->dcb, 0, ObjType_EndPoint, 0, 1);
+    err = cap_retype(selfep, si->dcb, 0, ObjType_EndPointLMP, 0, 1);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_SELFEP);
     }
@@ -378,7 +378,6 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
     /* Setup dispatcher and make it runnable */
     disp->udisp = spawn_dispatcher_base;
     disp->disabled = 1;
-    disp->fpu_trap = 1;
 #ifdef __k1om__
     disp->xeon_phi_id = disp_xeon_phi_id();
 #endif

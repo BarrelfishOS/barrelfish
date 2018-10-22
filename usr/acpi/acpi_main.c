@@ -22,18 +22,16 @@
 
 #include <octopus/octopus.h>
 #include <skb/skb.h>
+#include <hw_records.h>
 
 #include "acpi_debug.h"
 #include "acpi_shared.h"
 #include "acpi_allocators.h"
-
+#include "acpidump.h"
 
 
 
 uintptr_t my_hw_id;
-bool vtd_force_off;
-
-
 
 
 static errval_t setup_skb_info(void)
@@ -57,6 +55,57 @@ static errval_t setup_skb_info(void)
     return acpi_arch_skb_set_info();
 }
 
+extern int ApDumpAllTables (void);
+static void wait_for_iommu(void)
+{   
+    errval_t err;
+    char**names = NULL;
+    size_t len = 0;
+    
+    err = oct_get_names(&names, &len, HW_PCI_IOMMU_RECORD_REGEX);
+    if (err_is_fail(err)) {
+        if (err == OCT_ERR_NO_RECORD) {
+            debug_printf("No Iommus available, continue withouth waiting\n");
+            return;
+        }
+        goto out;
+    }
+
+    if (len > 0) {
+
+        char* key;
+        char* record;
+        uint64_t type, flags, segment, address, idx;
+        err = oct_get(&record, names[0]);
+        if (err_is_fail(err)) {
+            goto out;
+        }
+
+        err = oct_read(record, "%s { " HW_PCI_IOMMU_RECORD_FIELDS_READ " }",
+                       &key, &idx, &type, &flags, &segment, &address);
+        if (err_is_fail(err)) {
+            goto out;
+        }
+        
+        if (type == HW_PCI_IOMMU_DMAR_FAIL) {
+            debug_printf("Reading DMAR failed, not waiting for iommus \n");
+            goto out;
+        }
+
+        debug_printf("Waiting for all iommus to start up (num_iommu=%zu) \n", len);
+        err = oct_barrier_enter("barrier.iommu", &record ,2);
+        if (err_is_fail(err)) {
+            goto out;    
+        }
+        if (record) {
+            free(record);
+        }
+    }
+
+out:
+    oct_free_names(names, len);
+}
+
 int main(int argc, char *argv[])
 {
     errval_t err;
@@ -65,15 +114,15 @@ int main(int argc, char *argv[])
     bool got_apic_id = false;
     bool do_video_init = false;
     bool ignore_irq_override = false;
-    vtd_force_off = true;
+    bool dump_acpi_tables = false;
 
     for (int i = 1; i < argc; i++) {
         if(sscanf(argv[i], "apicid=%" PRIuPTR, &my_hw_id) == 1) {
             got_apic_id = true;
         } else if (strcmp(argv[i], "video_init") == 0) {
             do_video_init = true;
-        } else if (strncmp(argv[i], "vtd_force_off", strlen("vtd_force_off")) == 0) {
-            vtd_force_off = true;
+        } else if (strncmp(argv[i], "dump_tables", strlen("dump_tables")) == 0) {
+            dump_acpi_tables = true;
         } else if (strncmp(argv[i], "ignore_irq_override", strlen("ignore_irq_override")) == 0) {
             ignore_irq_override = true;
         }
@@ -114,6 +163,18 @@ int main(int argc, char *argv[])
         USER_PANIC_ERR(err, "Copy BIOS Memory");
     }
 
+
+    if (dump_acpi_tables) {
+        debug_printf("DUMPING ACPI TABLES.\n");
+        debug_printf("======================================\n");
+        AcpiOsInitialize ();
+        Gbl_OutputFile = stdout;
+        ApDumpAllTables ();
+        debug_printf("======================================\n");
+    }
+
+
+
     err = acpi_arch_load_irq_routing_new();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "load irq routing new.");
@@ -128,6 +189,18 @@ int main(int argc, char *argv[])
         acpi_arch_video_init();
     }
 
+    start_service();
+ 
+    wait_for_iommu(); 
+   
+    // synchronize ACPI/KALUGA/PCI
+    char* record = NULL;
+    debug_printf("barrier.pci.bridges");
+    err = oct_barrier_enter("barrier.pci.bridges", &record, 3);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Could not wait for PCI Barrier 'barrier.pci.bridges'\n");
+    }
+
     err = acpi_interrupts_arch_setup();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "setup skb irq controllers");
@@ -140,8 +213,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    start_service();
-
-
+    ACPI_DEBUG("####################### Entering message handler loop \n");
     messages_handler_loop();
 }

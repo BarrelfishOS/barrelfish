@@ -132,6 +132,7 @@ struct dma_channel *dma_device_get_channe_by_idx(struct dma_device *dev,
  */
 inline struct dma_channel *dma_device_get_channel(struct dma_device *dev)
 {
+    assert(dev);
     if (dev->channels.next >= dev->channels.count) {
         dev->channels.next = 0;
     }

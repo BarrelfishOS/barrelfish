@@ -15,6 +15,9 @@
 #include <barrelfish_kpi/capabilities.h>
 #include "domcap.h"
 
+// forward declaration
+struct monitor_binding;
+
 typedef void (*copy_result_handler_t)(errval_t, capaddr_t, uint8_t, cslot_t, void*);
 void capops_copy(struct capref src, coreid_t dest, bool give_away,
                  copy_result_handler_t result_handler, void *st);
@@ -34,6 +37,9 @@ typedef void (*revoke_result_handler_t)(errval_t, void*);
 void capops_revoke(struct domcapref cap,
                    revoke_result_handler_t result_handler,
                    void *st);
+
+errval_t capops_revoke_register_subscribe(struct capability *cap, uintptr_t id,
+                                          struct monitor_binding *subscriber);
 
 typedef void (*retype_result_handler_t)(errval_t, void*);
 void capops_retype(enum objtype type, size_t objsize, size_t count, struct capref dest_root,

@@ -19,6 +19,11 @@
 extern void barrelfish_cap_invoke_post_syscall_instr(void);
 extern void barrelfish_lrpc_post_syscall_instr(void);
 
+/// 16-byte alignment required for aarch64
+#define STACK_ALIGNMENT (sizeof(uint64_t) * 2)
+
+#define THREAD_ALIGNMENT (16)
+
 /**
  * Returns true iff the thread with the given save area has successfully
  * performed a syscall. Used for the thread_invoke_cap_and_exit() hack.

@@ -10,17 +10,27 @@
 --
 --------------------------------------------------------------------------
 
-[ build application { 
-    target = "ioat_dma",
-    cFiles = [ 
-        "main.c",
-        "device.c",
-        "dma_service.c",
-        "ioat_mgr_service.c"                         
-    ],
-    flounderBindings = [ "dma", "ioat_dma_mgr" ],
-    mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ],
-    addLibraries = libDeps [ "pci", "octopus", "dma", "dma_service" ],
-    architectures = [ "x86_64"]
+[
+    build library {
+        target = "mod_ioat",
+        cFiles = [ "mod_ioat.c"]
+    },
+
+    build application {
+        target = "ioat_dma",
+        cFiles = [
+            "main.c",
+            "dma_service.c",
+            "ioat_mgr_service.c"
+        ],
+        addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+        flounderBindings = [ "dma", "ioat_dma_mgr" ],
+        flounderDefs = [ "dma", "ioat_dma_mgr" ],
+        mackerelDevices = [ "ioat_dma", "ioat_dma_chan" ],
+        addLibraries = libDeps [ "octopus", "pci",  "dma", "dma_service", "driverkit",
+                        "driverkit_iommu" ],
+        addModules = [ "mod_ioat" ],
+        architectures = [ "x86_64"]
   }  
 ]
+

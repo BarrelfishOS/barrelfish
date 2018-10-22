@@ -19,6 +19,7 @@
 #include <barrelfish/syscall_arch.h> // for sys_invoke and cap_invoke
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish_kpi/distcaps.h>            // for distcap_state_t
+#include <barrelfish_kpi/lmp.h> // invoking lmp endpoint requires flags
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish_kpi/paging_arch.h>
@@ -40,7 +41,7 @@ static inline struct sysret cap_invoke(struct capref to, uintptr_t argc, uintptr
 
     // flags << 24 | invoke_bits << 16 | cmd << 8 | syscall_invoke
     // ^ used for LMP
-    uint32_t invocation = ((invoke_level << 16) | (cmd << 8) | SYSCALL_INVOKE);
+    uint32_t invocation = (LMP_FLAG_IDENTIFY << 24) | (invoke_level << 16) | (cmd << 8) | SYSCALL_INVOKE;
 
     switch (argc) {
         case 0:

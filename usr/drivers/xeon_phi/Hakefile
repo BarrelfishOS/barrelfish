@@ -10,7 +10,13 @@
 -- 
 --------------------------------------------------------------------------
 
-[ 
+[
+  build library {
+      target = "mod_knc",
+      architectures= ["x86_64"],
+      cFiles = [ "mod_knc.c"]
+  },
+
   build application { 
     target = "xeon_phi",
     architectures= ["x86_64"],
@@ -25,6 +31,7 @@
       "smpt.c",
       "sysmem_caps.c",
       "domain.c",
+      "hwmodel.c",
       "xphi_service.c",
       "sleep.c",
       "dma_service.c"
@@ -33,7 +40,9 @@
       "skb", 
       "pci", 
       "spawndomain",
-      "dma", 
+      "dma",
+      "driverkit",
+      "driverkit_iommu",
       "dma_service",
       "elf", 
       "vfs",
@@ -43,8 +52,11 @@
       "xeon_phi_client",
       "octopus",
       "mm",
-      "tftp_client"
+      "tftp_client",
+      "net"
     ],
+    addModules = [ "mod_knc" ],
+    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
     flounderDefs = [
       "interphi", 
       "xeon_phi",
@@ -81,7 +93,8 @@
       "interphi.c",
       "xphi_service.c",
       "smpt.c",
-      "dma_service.c" 
+      "dma_service.c",
+      "hwmodel.c"
     ],                      
     flounderDefs = [
       "interphi",
@@ -96,6 +109,8 @@
       "spawndomain", 
       "xeon_phi_client",
       "dma",
+      "driverkit",
+      "driverkit_iommu",
       "octopus",
       "dma_service",
       "bench"

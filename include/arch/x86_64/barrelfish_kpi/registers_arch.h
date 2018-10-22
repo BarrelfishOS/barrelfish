@@ -22,9 +22,6 @@
 ///< Opaque handle for the register state
 typedef struct registers_x86_64 arch_registers_state_t;
 
-///< Opaque handle for the FPU register state
-typedef struct registers_fpu_x86_64 arch_registers_fpu_state_t;
-
 static inline void
 registers_set_entry(arch_registers_state_t *regs, lvaddr_t entry)
 {

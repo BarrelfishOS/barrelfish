@@ -1,0 +1,61 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2018, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/drivers/iommu
+--
+--------------------------------------------------------------------------
+
+
+[
+  build library {
+    target = "intel_vtd_module",
+    cFiles = [
+        "modules/intel_vtd/mod_intel_vtd.c",
+        "modules/intel_vtd/intel_vtd.c",
+        "modules/intel_vtd/intel_vtd_domains.c",
+        "modules/intel_vtd/intel_vtd_devices.c",
+        "modules/intel_vtd/intel_vtd_root_table.c",
+        "modules/intel_vtd/intel_vtd_ctxt_table.c",
+        "modules/intel_vtd/intel_vtd_interrupts.c"
+    ],
+    mackerelDevices = ["vtd"]
+  },
+
+  build library {
+    target = "amd_iommu_module",
+    cFiles = [ "modules/amd_iommu/mod_amd_iommu.c"]
+  },
+
+  build library {
+    target = "arm_smmu_module",
+    cFiles = [ "modules/arm_smmu/mod_arm_smmu.c"]
+  },
+
+  build library {
+    target = "iommu_generic",
+    cFiles = [
+        "modules/generic/iommu.c",
+        "modules/generic/iommu_device.c",
+        "modules/generic/iommu_service.c"
+    ],
+    mackerelDevices = ["vtd"],
+    flounderDefs = [ "iommu", "pci_iommu" ],
+    flounderBindings = [ "iommu", "pci_iommu" ]
+  },
+
+  build application {
+    target = "iommu",
+    cFiles = [
+        "main.c"
+    ],
+    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+    addLibraries = libDeps [ "driverkit", "numa", "skb", "octopus", "iommu_generic" ],
+    addModules = [ "intel_vtd_module", "arm_smmu_module", "amd_iommu_module" ],
+    architectures = [ "armv8", "x86_64" ]
+  }
+]

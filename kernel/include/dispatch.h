@@ -69,15 +69,10 @@ static inline const char *get_disp_name(struct dcb *dcb)
     return dst->name;
 }
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-void fpu_lazy_top(struct dcb *dcb);
-void fpu_lazy_bottom(struct dcb *dcb);
-#endif
-
 void context_switch(struct dcb *dcb);
 
-/// The currently running dispatcher and FPU dispatcher
-extern struct dcb *dcb_current, *fpu_dcb;
+/// The currently running dispatcher
+extern struct dcb *dcb_current;
 
 void dispatch(struct dcb *dcb) __attribute__ ((noreturn));
 errval_t lmp_can_deliver_payload(struct capability *ep,

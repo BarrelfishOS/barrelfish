@@ -153,7 +153,9 @@ let
                          "xapic",
                          "amd_vmcb",
                          "cpuid",
-                         "lpc_rtc" ],
+                         "lpc_rtc",
+                         "lpc_timer",
+                         "vtd"],
      addLibraries = [ "elf_kernel" ]
      },
   --
@@ -510,7 +512,8 @@ let
      mackerelDevices = [
         "arm",
         "armv8",
-        "gic_v3",
+        "gic_v3_dist",
+        "gic_v3_redist",
         "gic_v2_cpu",
         "armv8/armv8_cache_ctrl",
         "pl130_gic",
@@ -541,7 +544,6 @@ let
         "arch/arm/gdb_arch.c",
         "arch/armv8/plat_arm_vm.c",
         "arch/armv8/plat_arm_vm_consts.c",
-        "arch/armv8/plat_a57mpcore.c",
         "arch/armv8/init.c",
         "arch/armv8/gic_v3.c",
         "arch/armv8/gdb_arch.c",
@@ -556,15 +558,15 @@ let
         "arch/armv8/syscall.c",
         "arch/armv8/timers.c",
         "arch/arm/debug.c",
-        "arch/arm/gic.c",
         "arch/arm/irq.c"
     ],
     mackerelDevices = [
-      "arm",
+        "arm",
         "armv8",
         "armv8/armv8_cache_ctrl",
         "arm_icp_pit",
-        "gic_v3",
+        "gic_v3_dist",
+        "gic_v3_redist",
         "pl011_uart"
     ],
     addLibraries = [
@@ -590,10 +592,8 @@ let
         "arch/arm/kputchar.c",
         "arch/arm/gdb_arch.c",
         "arch/armv8/plat_qemu.c",
-        "arch/armv8/plat_arm_vm_consts.c",
-        "arch/armv8/plat_a57mpcore.c",
         "arch/armv8/init.c",
-        "arch/armv8/gic_v2.c",
+        "arch/armv8/gic_v3.c",
         "arch/armv8/gdb_arch.c",
         -----
         "arch/armv8/kernel_multiboot2.c",
@@ -606,16 +606,15 @@ let
         "arch/armv8/syscall.c",
         "arch/armv8/timers.c",
         "arch/arm/debug.c",
-        "arch/arm/gic.c",
         "arch/arm/irq.c"
     ],
     mackerelDevices = [
-      "arm",
+        "arm",
         "armv8",
         "armv8/armv8_cache_ctrl",
         "arm_icp_pit",
-        "gic_v3",
-        "gic_v2_cpu",
+        "gic_v3_dist",
+        "gic_v3_redist",
         "pl011_uart"
     ],
     addLibraries = [
@@ -649,6 +648,7 @@ let
          "arch/arm/gdb_arch.c",
          "arch/armv8/plat_cn88xx.c",
          "arch/armv8/init.c",
+         "arch/armv8/gic_v3.c",
          "arch/armv8/gdb_arch.c",
          -----
          "arch/armv8/kernel_multiboot2.c",
@@ -656,19 +656,18 @@ let
          "arch/armv8/exec.c",
          "arch/armv8/exn.c",
          "arch/armv8/psci.c",
-         "arch/armv8/gic_v3.c",
          "arch/armv8/paging.c",
          "arch/armv8/startup_arch.c",
          "arch/armv8/syscall.c",
          "arch/armv8/timers.c",
          "arch/arm/debug.c",
-         "arch/arm/gic.c",
          "arch/arm/irq.c"
      ],
      mackerelDevices = [
         "arm",
         "armv8",
-        "gic_v3",
+        "gic_v3_dist",
+        "gic_v3_redist",
         "armv8/armv8_cache_ctrl",
         "pl011_uart",
         "pl130_gic",

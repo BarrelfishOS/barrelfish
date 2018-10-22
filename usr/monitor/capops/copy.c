@@ -472,7 +472,7 @@ recv_copy_result__rx(struct intermon_binding *b, errval_t status,
                      genvaddr_t st)
 {
     assert(st);
-    DEBUG_CAPOPS("recv_copy_result__rx: %p, st=%p, %s\n", b, (void*)st,
+    DEBUG_CAPOPS("recv_copy_result__rx: %p, st=0x%zx, %s\n", b, st,
             err_getstring(status));
     struct cap_copy_rpc_st *rpc_st = (struct cap_copy_rpc_st*)((lvaddr_t)st);
     rpc_st->recv_handler(status, capaddr, level, slot, rpc_st);
@@ -604,8 +604,8 @@ request_copy__rx(struct intermon_binding *b, coreid_t dest,
     }
     else {
         // forward copy to destination core
-        DEBUG_CAPOPS("%s: owner_copy__enq(st=%p) capref = %#"PRIxCADDR"\n",
-            __FUNCTION__, (void *)st, get_cap_addr(capref));
+        DEBUG_CAPOPS("%s: owner_copy__enq(st=0x%zx) capref = %#"PRIxCADDR"\n",
+            __FUNCTION__, st, get_cap_addr(capref));
         owner_copy__enq(capref, &cap, from, dest, true, NULL, st);
     }
 

@@ -32,7 +32,6 @@
 #include <arch/x86/debugregs.h>
 #include <arch/x86/syscall.h>
 #include <arch/x86/timing.h>
-#include <fpu.h>
 #include <mdb/mdb_tree.h>
 #include <useraccess.h>
 #include <arch/x86/perfmon_amd.h>
@@ -968,7 +967,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
 
         // Endpoint cap, do LMP
         if (to->type == ObjType_EndPoint) {
-            struct dcb *listener = to->u.endpoint.listener;
+            struct dcb *listener = to->u.endpointlmp.listener;
             assert(listener != NULL);
 
             if (listener->disp == 0) {
@@ -1045,7 +1044,7 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
                        [gs] "m" (save_area->gs)
                        );
 
-                dispatch(to->u.endpoint.listener);
+                dispatch(to->u.endpointlmp.listener);
                 panic("dispatch returned");
             }
         } else { // not endpoint cap, call kernel handler through dispatch table
@@ -1085,10 +1084,6 @@ struct sysret sys_syscall(uintptr_t arg0, uintptr_t arg1, uintptr_t *args,
         // FIXME: this should be a kernel cap invocation or similarly restricted
     case SYSCALL_REBOOT:
         reboot();
-        break;
-
-    case SYSCALL_X86_FPU_TRAP_ON:
-        fpu_trap_on();
         break;
 
     case SYSCALL_DEBUG:

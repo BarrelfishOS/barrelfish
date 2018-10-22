@@ -18,8 +18,6 @@ int main(int argc, char **argv)
 
    /* loop through various sizes */
    for (x = 4; x < 256; x++) {
-       printf("DIGITS == %3ld...", x); fflush(stdout);
-       
        /* make up the odd modulus */
        mp_rand(&modulus, x);
        modulus.dp[0] |= 1;
@@ -40,7 +38,7 @@ int main(int argc, char **argv)
               exit(-1);
            }
        }
-       printf("PASSED\n");
+       printf("DIGITS == %3ld...PASSED\n", x);
     }
     
     return 0;

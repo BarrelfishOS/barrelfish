@@ -177,7 +177,7 @@ static void connect_to_driver(const char *cname, uint64_t qid, struct waitset *w
     f.notify = notify_handler;
     
     err = descq_create(&q, DESCQ_DEFAULT_SIZE, qm_name,
-                       false, true, 0, &bufid, &f);
+                       false, &bufid, &f);
     assert(err_is_ok(err));
     devq = (struct devq*) q;
 }
@@ -249,7 +249,7 @@ void net_if_init(const char* cardname, uint64_t qid)
         card_mac = 0x1; // TODO 
     } else if ((strcmp(cardname, "sfn5122f") == 0) && qid != 0) {
         struct sfn5122f_queue* sfn5122f;
-        err = sfn5122f_queue_create(&sfn5122f, int_handler, 
+        err = sfn5122f_queue_create(&sfn5122f, int_handler, &NULL_CAP,
                                     false /*userlevel network feature*/, 
                                     true /* user interrupts*/,
                                     false);

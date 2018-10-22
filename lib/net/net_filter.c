@@ -79,6 +79,29 @@ static errval_t connect_to_net_filter(struct net_filter_state* st,
     return SYS_ERR_OK;
 }
 
+
+/** Open connection to management interface */
+static errval_t connect_to_net_filter_ep(struct net_filter_state* st,
+                                         struct capref ep)
+{
+    errval_t r;
+
+    NETDEBUG("Binding\n");
+    r = net_filter_bind_to_endpoint(ep, bind_cb, st, get_default_waitset(),
+                                    IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(r)) {
+        return r;
+    }
+
+    NETDEBUG("Waiting to bind\n");
+    while(st->bound == false) {
+        event_dispatch(get_default_waitset());
+    }
+    
+    NETDEBUG("finished connecting\n");
+    return SYS_ERR_OK;
+}
+
 /******************************************************************************
  * Helper functions
  ******************************************************************************/
@@ -162,6 +185,34 @@ errval_t net_filter_init(struct net_filter_state** st,
 
     printf("cardname %s \n", name);
     err = connect_to_net_filter(tmp, name);
+    *st = tmp;
+    return err;
+}
+
+
+/**
+ * @brief initalized network filtering. Sets up connection to drivers
+ *        which support hardware filtering
+ *
+ * @param st        returned net filter state;
+ * @param ep        endpoint to card used
+ *
+ * @return SYS_ERR_OK on success, error on failure
+ */
+errval_t net_filter_init_with_ep(struct net_filter_state** st,
+                                 struct capref ep)
+{
+    errval_t err;
+
+    struct net_filter_state* tmp = calloc(1, sizeof(struct net_filter_state));
+    assert(tmp != NULL);
+    
+    tmp->filters_ip.start = NULL;
+    tmp->filters_ip.num_ele = 0;
+    tmp->filters_mac.start = NULL;
+    tmp->filters_mac.num_ele = 0;
+
+    err = connect_to_net_filter_ep(tmp, ep);
     *st = tmp;
     return err;
 }

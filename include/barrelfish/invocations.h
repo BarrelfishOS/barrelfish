@@ -20,6 +20,7 @@
 #include <barrelfish/caddr.h>
 
 #include <barrelfish/invocations_arch.h>
+#include <barrelfish/idc.h>
 
 static inline errval_t invoke_ram_noop(struct capref ram)
 {
@@ -217,6 +218,7 @@ static inline errval_t invoke_frame_identify(struct capref frame,
 
     ret->base = 0;
     ret->bytes = 0;
+    ret->pasid = 0;
     return sysret.error;
 }
 
@@ -246,6 +248,67 @@ static inline errval_t invoke_vnode_identify(struct capref vnode,
     ret->type = 0;
     return sysret.error;
 }
+
+static inline errval_t invoke_device_identify(struct capref deviceid,
+                                              struct device_identity *ret)
+{
+    assert(ret != NULL);
+    assert(get_croot_addr(deviceid) == CPTR_ROOTCN);
+
+    struct sysret sysret = cap_invoke2(deviceid, DeviceID_Identify, (uintptr_t)ret);
+
+    if (err_is_ok(sysret.error)) {
+        return sysret.error;
+    }
+
+    ret->bus = 0;
+    ret->device = 0;
+    ret->function = 0;
+    ret->flags = 0;
+    ret->type = DEVICE_ID_TYPE_UNKNOWN;
+    ret->segment = 0;
+    return sysret.error;
+}
+
+
+static inline errval_t invoke_endpoint_identify(struct capref ep,
+                                                struct endpoint_identity *ret)
+{
+    assert(ret != NULL);
+    assert(get_croot_addr(ep) == CPTR_ROOTCN);
+
+    struct sysret sysret = cap_invoke2(ep, EndPointCMD_Identify, (uintptr_t)ret);
+
+    if (err_is_ok(sysret.error)) {
+        switch(ret->eptype) {
+            case ObjType_EndPointLMP :
+                ret->eptype = IDC_ENDPOINT_LMP;
+                break;
+            case ObjType_EndPointUMP :
+                ret->eptype = IDC_ENDPOINT_UMP;
+                break;
+            default:
+                return SYS_ERR_INVALID_SOURCE_TYPE;
+        }
+        return sysret.error;
+    }
+
+    ret->iftype = 0;
+    ret->base = 0;
+    ret->length = 0;
+    ret->eptype = 0;
+
+    return sysret.error;
+}
+
+static inline errval_t invoke_endpoint_set_iftype(struct capref ep,
+                                                  uint16_t iftype)
+{
+    assert(get_croot_addr(ep) == CPTR_ROOTCN);
+
+    return cap_invoke2(ep, EndPointCMD_SetIftype, (uintptr_t) iftype).error;
+}
+
 
 /**
  * \brief Cleans all dirty bits in a page table.

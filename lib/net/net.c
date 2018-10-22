@@ -25,6 +25,7 @@
 #include <barrelfish/waitset_chan.h>
 
 #include <net/net_filter.h>
+#include <net_sockets/net_sockets.h>
 #include <net_interfaces/flags.h>
 #include "networking_internal.h"
 #include "net_queue_internal.h"
@@ -38,6 +39,7 @@ struct deferred_event net_lwip_timer;
 #define NETWORKING_BUFFER_RX_POPULATE (4096 - 10)
 #define NETWORKING_BUFFER_SIZE  2048
 
+static const char* default_name = "net_sockets_server";
 
 #define NETDEBUG_SUBSYSTEM "net"
 
@@ -51,13 +53,11 @@ struct deferred_event net_lwip_timer;
  */
 errval_t networking_get_defaults(uint64_t *queue, const char **cardname, uint32_t *flags)
 {
-    /* TODO: get the values from the SKB */
+    /* TODO: get some reasonable values */
 
     *queue = NETWORKING_DEFAULT_QUEUE_ID;
-    //*cardname = "e10k";
-    *cardname = "sfn5122f";
+    *cardname = default_name;
     *flags = NET_FLAGS_POLLING | NET_FLAGS_BLOCKING_INIT;
-    //*flags = NET_FLAGS_POLLING;
 
     return SYS_ERR_OK;
 }
@@ -105,19 +105,22 @@ void net_lwip_timeout(void)
  * @brief creates a queue to the given card and the queueid
  *
  * @param cardname  network card to create the queue for
+ * @param ep        endpoint to networking card, possibly null
  * @param queueid   queueid of the network card
+ * @param retqueue  returns endpoint to netfilter interface of this queue
  * @param retqueue  returns the pointer to the queue
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_create_queue(const char *cardname, uint64_t* queueid,
+errval_t networking_create_queue(const char *cardname, struct capref* ep, 
+                                 uint64_t* queueid, struct capref* filter_ep, 
                                  struct devq **retqueue)
 {
     struct net_state *st = get_default_net_state();
     bool poll = st->flags & NET_FLAGS_POLLING;
     bool default_q = st->flags & NET_FLAGS_DEFAULT_QUEUE;
-    return net_queue_internal_create(int_handler, cardname, queueid, default_q,
-                                     poll, retqueue);
+    return net_queue_internal_create(int_handler, cardname, ep, queueid, default_q,
+                                     poll, filter_ep, retqueue);
 }
 
 
@@ -190,9 +193,18 @@ static errval_t networking_init_with_queue_st(struct net_state *st, struct devq 
     if (!(flags & NET_FLAGS_NO_NET_FILTER) && st->hw_filter) {
         NETDEBUG("initializing hw filter...\n");
 
-        err = net_filter_init(&st->filter, st->cardname);
-        if (err_is_fail(err)) {
-            USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+        if (!capref_is_null(st->filter_ep)) {
+            debug_printf("Connecting to net filter interface using EP \n");
+            err = net_filter_init_with_ep(&st->filter, st->filter_ep);
+            if (err_is_fail(err)) {
+                USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+            }
+        } else {
+            debug_printf("Connecting to net filter interface using name \n");
+            err = net_filter_init(&st->filter, st->cardname);
+            if (err_is_fail(err)) {
+                USER_PANIC("Init filter infrastructure failed: %s \n", err_getstring(err));
+            }
         }
     }
 
@@ -256,12 +268,12 @@ static errval_t networking_init_with_queue_st(struct net_state *st, struct devq 
  *
  * @param st        the networking state to be initalized
  * @param nic       the nic to use with the networking library
+ * @param ep        endpoint to the nic, ignored if NULL
  * @param flags     flags to use to initialize the networking library
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-static errval_t networking_init_st(struct net_state *st, const char *nic,
-                                   net_flags_t flags)
+static errval_t networking_init_st(struct net_state *st, const char *nic, net_flags_t flags)
 {
     errval_t err;
 
@@ -275,23 +287,30 @@ static errval_t networking_init_st(struct net_state *st, const char *nic,
 
     st->cardname = nic;
     st->flags = flags;
+
     // default no hw filters
     st->hw_filter = false;
 
-    /* create the queue wit the given nic and card name */
-    err = networking_create_queue(nic, &st->queueid, &st->queue);
-    if (err_is_fail(err)) {
+    // if the NIC has a net_sockets_server prependend -> connect to net_socket server
+    // ontop of a nic
+    if (strncmp("net_sockets_server", nic, strlen("net_sockets_server")) == 0) {
+        return net_sockets_init_with_card(nic);
+    } else {
+        /* create the queue wit the given nic and card name */
+        err = networking_create_queue(nic, NULL, &st->queueid, &st->filter_ep, &st->queue);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        assert(st->queue != NULL);
+
+        err = networking_init_with_queue_st(st, st->queue, flags);
+        if (err_is_fail(err)) {
+           // devq_destroy(st->queue);
+        }
+
         return err;
     }
-
-    assert(st->queue != NULL);
-
-    err = networking_init_with_queue_st(st, st->queue, flags);
-    if (err_is_fail(err)) {
-       // devq_destroy(st->queue);
-    }
-
-    return err;
 }
 
 /**
@@ -351,10 +370,38 @@ errval_t networking_init_with_queue(struct devq *q, net_flags_t flags)
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_init(const char *nic, net_flags_t flags)
+errval_t networking_init_with_nic(const char *nic, net_flags_t flags)
 {
     struct net_state *st = get_default_net_state();
     return networking_init_st(st, nic, flags);
+}
+
+/**
+ * @brief initializes the networking library
+ *
+ * @param nic       the nic to use with the networking library
+ * @param ep        endpoint to the nic
+ * @param flags     flags to use to initialize the networking library
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t networking_init_with_ep(const char *nic, struct capref ep, 
+                                 net_flags_t flags)
+{
+    errval_t err;
+
+    struct net_state *st = get_default_net_state();
+    st->flags = flags;
+    st->cardname = nic;
+
+    /* create the queue wit the given nic and card name */
+    err = networking_create_queue(nic, &ep, &st->queueid, &st->filter_ep, 
+                                  &st->queue);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return networking_init_with_queue_st(st, st->queue, flags);
 }
 
 
@@ -366,7 +413,10 @@ errval_t networking_init(const char *nic, net_flags_t flags)
 errval_t networking_init_default(void)
 {
     struct net_state *st = get_default_net_state();
-    return networking_init_default_st(st);
+    if (!st->initialized) {
+        return networking_init_default_st(st);
+    }
+    return SYS_ERR_OK;
 }
 
 
@@ -377,6 +427,7 @@ errval_t networking_init_default(void)
  */
 errval_t networking_poll(void)
 {
+    //return net_if_poll_all();    
     struct net_state *st = &state;
     return networking_poll_st(st);
 }
@@ -396,6 +447,11 @@ errval_t networking_install_ip_filter(bool tcp, struct in_addr *src,
                                       uint16_t src_port, uint16_t dst_port)
 {
     errval_t err;
+    if (!state.hw_filter) {
+        debug_printf("Not adding filter as there are no HW filters");
+        return SYS_ERR_OK;
+    }
+
     if (state.filter == NULL) {
         return NET_FILTER_ERR_NOT_INITIALIZED;
     }
@@ -441,6 +497,11 @@ errval_t networking_remove_ip_filter(bool tcp, struct in_addr *src,
 {
 
     errval_t err;
+    if (!state.hw_filter) {
+        debug_printf("Not removing filter as there are no HW filters");
+        return SYS_ERR_OK;
+    }
+
     if (state.filter == NULL) {
         return NET_FILTER_ERR_NOT_INITIALIZED;
     }

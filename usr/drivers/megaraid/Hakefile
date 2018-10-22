@@ -13,20 +13,14 @@
 [ build application { target = "megaraid",
                       cFiles = [ "megaraid.c", "main.c", "megaraid_vsic.c" ],
                       mackerelDevices = [ "megaraid" ],
-                      flounderDefs = [ "acpi" ],
-                      flounderBindings = [ "acpi" ],
-                      flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
-                      addLibraries = libDeps [ "acpi_client", "skb", "pci", "lwip" ],
+                      addLibraries = libDeps [ "driverkit", "skb", "pci", "lwip" ],
                       architectures = [ "x86_64", "x86_32" ]
                     },
   build library { target = "megaraid",
                       cFiles = [ "megaraid.c", "megaraid_vsic.c" ],
                       mackerelDevices = [ "megaraid" ],
                       addCFlags = [ "-DLIBRARY" ],
-                      flounderDefs = [ "acpi" ],
-                      flounderBindings = [ "acpi" ],
-                      flounderExtraBindings = [ ("acpi", ["rpcclient"]) ],
-                      addLibraries = libDeps [ "acpi_client", "skb", "pci", "lwip" ],
+                      addLibraries = libDeps [ "driverkit", "skb", "pci", "lwip" ],
                       architectures = [ "x86_64", "x86_32", "armv8" ]
                     }
 ]

@@ -27,7 +27,7 @@ static struct cnoderef cow_frames;
 static size_t cow_frame_count = 0;
 
 static void handler(enum exception_type type, int subtype, void *vaddr,
-        arch_registers_state_t *regs, arch_registers_fpu_state_t *fpuregs)
+        arch_registers_state_t *regs)
 {
     debug_printf("got exception %d(%d) on %p\n", type, subtype, vaddr);
     assert(type == EXCEPT_PAGEFAULT);

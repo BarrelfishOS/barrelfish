@@ -480,12 +480,15 @@ class ARMSimulatorOperations(MachineOperations):
         if self.child.poll() != None: # Check if child is down
             print 'Simulator is down, return code is %d' % self.child.returncode
             return None
+
         # use telnetlib
         import telnetlib
         self.telnet_connected = False
         while not self.telnet_connected:
             try:
-                self.telnet = telnetlib.Telnet("localhost", self.telnet_port)
+                # RH 08.08.2018 The gem5 test seems to have problems with using localhost 
+                # instead of 127.0.0.1
+                self.telnet = telnetlib.Telnet("127.0.0.1", self.telnet_port)
                 self.telnet_connected = True
                 self.output = self.telnet.get_socket().makefile()
             except IOError, e:

@@ -235,7 +235,12 @@ errval_t smpt_init(struct xeon_phi *phi)
 
     xeon_phi_smpt_initialize(&phi->smpt->smpt_register, XEON_PHI_MMIO_TO_SBOX(phi));
 
+    //XXX: HWMODEL we use the address where the IOMMU maps
+#if defined(XEON_PHI_USE_HW_MODEL)
+    lpaddr_t host_address = 2 * (512UL << 30);
+#else
     lpaddr_t host_address = 0;
+#endif
 
     uint32_t netries = xeon_phi_smpt_system_page_num - XEON_PHI_NUM_MAX;
 

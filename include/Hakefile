@@ -8,7 +8,7 @@
 -- Attn: Systems Group.
 --
 -- Hakefile for /include
--- 
+--
 --------------------------------------------------------------------------
 
 [ includeFile [
@@ -159,7 +159,6 @@
     "arch/x86_64/hw_records_arch.h",
     "arch/x86_64/machine/asm.h",
     "arch/x86_64/machine/endian.h",
-    "arch/x86_64/machine/fpu.h",
     "arch/x86_64/machine/_limits.h",
     "arch/x86_64/machine/types.h",
     "arch/x86/barrelfish/bulk_transfer_arch.h",

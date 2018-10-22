@@ -10,12 +10,16 @@
 #include <kernel.h>
 #include <sysreg.h>
 #include <dev/armv8_dev.h>
-#include <dev/gic_v3_dev.h>
+#include <dev/gic_v3_dist_dev.h>
+#include <dev/gic_v3_redist_dev.h>
 #include <platform.h>
 #include <paging_kernel_arch.h>
 #include <arch/armv8/gic_v3.h>
 
-static gic_v3_t gic_v3_dev;
+static gic_v3_dist_t gic_v3_dist_dev;
+static gic_v3_redist_t gic_v3_redist_dev;
+
+lpaddr_t platform_gic_cpu_base = 0; // no memory-mapped cpu interface
 
 /*
  * Initialize the global interrupt controller
@@ -23,25 +27,56 @@ static gic_v3_t gic_v3_dev;
  * There are three types of interrupts
  * 1) Software generated Interrupts (SGI) - IDs 0-15
  * 2) Private Peripheral Interrupts (PPI) - IDs 16-31
- * 3) Shared Peripheral Interrups (SPI) - IDs 32...
+ * 3) Shared Peripheral Interrups (SPI) - IDs 32-1019
+ * 4) Special - IDs 1020-1023
+ * 5) Locality-specific Peripheral Interrups (LPI) - IDs 8192-...
  */
-errval_t gicv3_init(void)
+void gic_init(void)
 {
+    printk(LOG_NOTE, "GICv3: Initializing\n");
+    lvaddr_t gic_dist = local_phys_to_mem(platform_gic_dist_base);
+    gic_v3_dist_initialize(&gic_v3_dist_dev, (char *)gic_dist);
 
-    // Enable system register access
-    armv8_ICC_SRE_EL1_SRE_wrf(NULL, 1);
+    printf("%s: dist:%lx\n", __func__, gic_dist);
 
-    lvaddr_t gic_dist = local_phys_to_mem(platform_get_gic_cpu_address());
-    gic_v3_initialize(&gic_v3_dev, (char *)gic_dist);
+    printk(LOG_NOTE, "GICD IIDR "
+            "implementer=0x%x, revision=0x%x, variant=0x%x,prodid=0x%x\n",
+            gic_v3_dist_GICD_IIDR_Implementer_rdf(&gic_v3_dist_dev),
+            gic_v3_dist_GICD_IIDR_Revision_rdf(&gic_v3_dist_dev),
+            gic_v3_dist_GICD_IIDR_Variant_rdf(&gic_v3_dist_dev),
+            gic_v3_dist_GICD_IIDR_ProductID_rdf(&gic_v3_dist_dev)
+            );
 
-    printk(LOG_NOTE, "gicv3_init done\n");
-    return SYS_ERR_OK;
+    uint32_t itlines = gic_v3_dist_GICD_TYPER_ITLinesNumber_rdf(&gic_v3_dist_dev);
+    itlines = (itlines + 1) * 32;
+    if (itlines > 1020)
+        itlines = 1020;
+    printk(LOG_NOTE, "gic: #INTIDs supported: %" PRIu32 "\n", itlines);
+
+    // Put all interrupts into Group 1 and enable them
+    #define MASK_32     0xffffffff
+    for (int i = 0; i * 32 < itlines; i++) {
+        // Clear
+        gic_v3_dist_GICD_ICACTIVER_wr(&gic_v3_dist_dev, i, MASK_32);
+        // Enable
+        gic_v3_dist_GICD_ISENABLER_wr(&gic_v3_dist_dev, i, MASK_32);
+        // And put in group 1
+        gic_v3_dist_GICD_IGROUPR_rawwr(&gic_v3_dist_dev, i, MASK_32);
+    }
+    gic_v3_dist_GICD_CTLR_secure_t ctrl = 0;
+    // Set affinity routing (redundant on CN88xx)
+    ctrl = gic_v3_dist_GICD_CTLR_secure_ARE_NS_insert(ctrl, 1);
+    // Enable group 1 interrupts
+    ctrl = gic_v3_dist_GICD_CTLR_secure_EnableGrp1NS_insert(ctrl, 1);
+    gic_v3_dist_GICD_CTLR_secure_wr(&gic_v3_dist_dev, ctrl);
+
+    printk(LOG_NOTE, "GICv3: Initialized\n");
 }
 
 /*
- * Returns active interrupt of group 1 
+ * Returns active interrupt of group 1
  */
-uint32_t gicv3_get_active_irq(void)
+uint32_t gic_get_active_irq(void)
 {
     return armv8_ICC_IAR1_EL1_INTID_rdf(NULL);
 }
@@ -49,15 +84,15 @@ uint32_t gicv3_get_active_irq(void)
 /*
  * ACKs group 1 interrupt
  */
-void gicv3_ack_irq(uint32_t irq)
+void gic_ack_irq(uint32_t irq)
 {
     armv8_ICC_EOIR1_EL1_rawwr(NULL, irq);
 }
 
 /*
- * Raise an SGI on a core. 
+ * Raise an SGI on a core.
  */
-void gicv3_raise_softirq(coreid_t cpuid, uint8_t irq)
+void gic_raise_softirq(coreid_t cpuid, uint8_t irq)
 {
     assert(irq <= 15);
     armv8_ICC_SGI1R_EL1_t reg = 0;
@@ -71,13 +106,21 @@ void gicv3_raise_softirq(coreid_t cpuid, uint8_t irq)
 }
 
 /*
- * Enable GIC CPU-IF and local distributor
+ * Enable GIC CPU-IF and a redistributor
  */
-errval_t gicv3_cpu_interface_enable(void)
+void gic_cpu_interface_enable(void)
 {
-    printk(LOG_NOTE, "gicv3_cpu_interface_enable: enabling group 1 int\n");
+    printk(LOG_NOTE, "GICv3: Enabling CPU interface\n");
 
-    // Linux does: 
+    lvaddr_t gic_redist = local_phys_to_mem(platform_gic_redist_base);
+
+    // Enable system register access
+    armv8_ICC_SRE_EL1_SRE_wrf(NULL, 1);
+
+    gic_v3_redist_initialize(&gic_v3_redist_dev, (char *)gic_redist + 0x20000 * my_core_id);
+    printf("%s: redist:%lx\n", __func__, (char *)gic_redist + 0x20000 * my_core_id);
+
+    // Linux does:
     // sets priority mode: PMR to 0xf0
     armv8_ICC_PMR_EL1_wr(NULL, 0xf0);
     // Set binary point to 1, 6 group priority bits, 2 subpriority bits
@@ -85,25 +128,45 @@ errval_t gicv3_cpu_interface_enable(void)
 
     //Enable group 1
     armv8_ICC_IGRPEN1_EL1_wr(NULL, 0x1);
-    printk(LOG_NOTE, "gicv3_cpu_interface_enable: group 1 int enabled\n");
 
-    printk(LOG_NOTE, "gicv3_cpu_interface_enable: configuring distributor\n");
-    printk(LOG_NOTE, "GICD IIDR "
-            "implementer=0x%x, revision=0x%x, variant=0x%x,prodid=0x%x\n",
-            gic_v3_GICD_IIDR_Implementer_rdf(&gic_v3_dev),
-            gic_v3_GICD_IIDR_Revision_rdf(&gic_v3_dev),
-            gic_v3_GICD_IIDR_Variant_rdf(&gic_v3_dev),
-            gic_v3_GICD_IIDR_ProductID_rdf(&gic_v3_dev)
-            );
+    gic_v3_redist_GICR_TYPER_t gicr_typer;
+    gicr_typer = gic_v3_redist_GICR_TYPER_rd(&gic_v3_redist_dev);
+    printf("%s: GICR_TYPER: affinity:%x  cpu_no:%x\n", __func__, gic_v3_redist_GICR_TYPER_Affinity_Value_extract(gicr_typer), gic_v3_redist_GICR_TYPER_Processor_Number_extract(gicr_typer));
 
-    gic_v3_GICD_CTLR_secure_t ctrl = 0;
-    // Set affinity routing (redundant on CN88xx)
-    ctrl = gic_v3_GICD_CTLR_secure_ARE_NS_insert(ctrl, 1);
-    // Enable group 1 interrupts
-    ctrl = gic_v3_GICD_CTLR_secure_EnableGrp1NS_insert(ctrl, 1);
-    gic_v3_GICD_CTLR_secure_wr(&gic_v3_dev, ctrl);
+    gic_v3_redist_GICR_ICACTIVER0_rawwr(&gic_v3_redist_dev, MASK_32);
+    gic_v3_redist_GICR_ISENABLER0_rawwr(&gic_v3_redist_dev, MASK_32);
 
+    gic_v3_redist_GICR_IGROUPR0_rawwr(&gic_v3_redist_dev, MASK_32);
+    gic_v3_redist_GICR_IGRPMODR0_rawwr(&gic_v3_redist_dev, 0);
+
+    printk(LOG_NOTE, "GICv3: CPU interface enabled\n");
+}
+
+/**
+ * \brief Enable an interrupt
+ *
+ * \see ARM Generic Interrupt Controller Architecture Specification v1.0
+ *
+ * \param int_id
+ * \param cpu_targets 8 Bit mask. One bit for each core in the system.
+ *    (chapter 4.3.11)
+ * \param prio Priority of the interrupt (lower is higher). We allow 0..15.
+ *    The number of priority bits is implementation specific, but at least 16
+ *    (using bits [7:4] of the priority field, chapter 3.3)
+ * \param 0 is level-sensitive, 1 is edge-triggered
+ * \param 0 is N-to-N, 1 is 1-N
+ */
+void gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
+                          bool edge_triggered, bool one_to_n)
+{
+}
+
+errval_t platform_gic_init(void) {
+    gic_init();
     return SYS_ERR_OK;
 }
 
-
+errval_t platform_gic_cpu_interface_enable(void) {
+    gic_cpu_interface_enable();
+    return SYS_ERR_OK;
+}

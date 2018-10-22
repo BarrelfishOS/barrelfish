@@ -144,11 +144,6 @@ static void armv8_disable_interrupts(void)
     __asm volatile("msr DAIFSet, #3\n");
 }
 
-static void armv8_enable_interrupts(void)
-{
-    __asm volatile("msr DAIFClr, #3\n");
-}
-
 static void armv8_set_tcr(uint8_t el)
 {
     switch(el) {
@@ -570,7 +565,7 @@ void boot_app_init(lpaddr_t state)
         __asm volatile("MSR CPTR_EL2, %[zero]" : : [zero] "r" (zero));
     }
 
-    /* disable interrupts */
+    // /* disable interrupts */
     armv8_disable_interrupts();
 
     /* set the ttbr0/1 */
@@ -588,9 +583,6 @@ void boot_app_init(lpaddr_t state)
     /* invalidate icache */
     armv8_invalidate_icache();
     armv8_instruction_synchronization_barrier();
-
-    /* enable interrupts */
-    armv8_enable_interrupts();
 
     boot_generic_init(cd->boot_magic, state, cd->cpu_driver_stack);
 
@@ -632,15 +624,15 @@ boot_bsp_init(uint32_t magic, lpaddr_t pointer, lpaddr_t stack) {
      * get the first entry in the multiboot structure, this holds a pointer
      * to the CPU driver entry point
      */
-    struct multiboot_header *mbhdr = (void *)pointer;
-
-    struct multiboot_header_tag *mb;
-    mb = (struct multiboot_header_tag *)(mbhdr + 1);
-
-    if (mb->type == MULTIBOOT_TAG_TYPE_EFI64) {
-        cpu_driver_entry = (void *)((struct multiboot_tag_efi64 *)mb)->pointer;
+    struct multiboot_tag_efi64 *tag;
+    tag = (void *)pointer + 8;
+    if (tag->type == MULTIBOOT_TAG_TYPE_EFI64) {
+        cpu_driver_entry = (void *)tag->pointer;
     }
 
+    /* disable interrupts */
+    armv8_disable_interrupts();
+    
     boot_generic_init(magic, pointer, stack);
 
     stop:

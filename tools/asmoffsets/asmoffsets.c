@@ -100,9 +100,9 @@ void dummy(void)
     DECL(DCB_RBED_NEXT, struct dcb, next);
 
     DECL(CAP_TYPE, struct capability, type);
-    DECL(CAP_ENDPOINT_EPOFFSET, struct capability, u.endpoint.epoffset);
-    DECL(CAP_ENDPOINT_EPBUFLEN, struct capability, u.endpoint.epbuflen);
-    DECL(CAP_ENDPOINT_LISTENER, struct capability, u.endpoint.listener);
+    DECL(CAP_ENDPOINT_EPOFFSET, struct capability, u.endpointlmp.epoffset);
+    DECL(CAP_ENDPOINT_EPBUFLEN, struct capability, u.endpointlmp.epbuflen);
+    DECL(CAP_ENDPOINT_LISTENER, struct capability, u.endpointlmp.listener);
 
     DECL(CAP_L1CNODE_CNODE, struct capability, u.l1cnode.cnode);
     DECL(CAP_L2CNODE_CNODE, struct capability, u.l2cnode.cnode);
@@ -114,7 +114,6 @@ void dummy(void)
     DECL(DISP_UDISP, struct dispatcher_shared_generic, udisp);
     DECL(DISP_LMP_DELIVERED, struct dispatcher_shared_generic, lmp_delivered);
     DECL(DISP_SYSTIME, struct dispatcher_shared_generic, systime);
-    DECL(DISP_FPU_TRAP, struct dispatcher_shared_generic, fpu_trap);
 
     DECL_LIMIT(DISP_PRIV_STACK_LIMIT, struct dispatcher_generic, stack);
     DECL_LIMIT(DISP_PRIV_TRAP_STACK_LIMIT, struct dispatcher_generic, trap_stack);
@@ -166,7 +165,7 @@ void dummy(void)
     DECL(LMP_ENDPOINT_CONSUMED, struct lmp_endpoint_kern, consumed);
     DECL(LMP_ENDPOINT_KERNPART, struct lmp_endpoint, k);
 
-    EMIT(OBJTYPE_ENDPOINT, ObjType_EndPoint);
+    EMIT(OBJTYPE_ENDPOINT, ObjType_EndPointLMP);
     EMIT(OBJTYPE_L1CNODE, ObjType_L1CNode);
     EMIT(OBJTYPE_L2CNODE, ObjType_L2CNode);
 
@@ -178,6 +177,7 @@ void dummy(void)
     DECL(EFLAGS_REG, struct registers_x86_64, eflags);
     DECL(FS_REG, struct registers_x86_64, fs);
     DECL(GS_REG, struct registers_x86_64, gs);
+    DECL(FXSAVE_AREA, struct registers_x86_64, fxsave_area);
 #elif __i386__
     DECL(FS_REG, struct registers_x86_32, fs);
     DECL(GS_REG, struct registers_x86_32, gs);

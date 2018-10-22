@@ -78,7 +78,6 @@ struct bfdriver* driverkit_lookup_cls(const char* name) {
 static void free_driver_instance(void* arg) {
     assert (arg != NULL);
     struct bfdriver_instance* bfi = (struct bfdriver_instance*) arg;
-    free(bfi->name);
     free(bfi);
 }
 
@@ -136,6 +135,36 @@ errval_t driverkit_destroy(const char* name) {
 }
 
 /**
+ * Destroys a driver instances identified by its name.
+ * \todo various tricky service clean-up issues are simply ignored here.
+ *
+ * \param  name Name of the instance
+ * \retval SYS_ER_OK Driver successfully destroyed.
+ * \retval DRIVERKIT_ERR_DRIVER_DETACH detaching failed.
+ */
+/*
+errval_t driverkit_get_ep(const char* name) {
+    assert(name != NULL);
+    if (instances == NULL) {
+        collections_list_create(&instances, free_driver_instance);
+    }
+
+    void* namearg = (void*) name; // Get rid of the const because collections_* API is not specific enough...
+    struct bfdriver_instance* bfi = collections_list_find_if(instances, match_name, namearg);
+    errval_t err = bfi->driver->destroy(bfi);
+    if (err_is_ok(err)) {
+        struct bfdriver_instance* bfi2 = (struct bfdriver_instance*) collections_list_remove_if(instances, match_name, namearg);
+        free_driver_instance(bfi2);
+    }
+    else {
+        err = err_push(err, DRIVERKIT_ERR_DRIVER_DETACH);
+    }
+
+    return err;
+}
+*/
+
+/**
  * Create a driver instance within the driver domain.
  *
  * \param[in]   cls     The class of driver (found in bfdriver).
@@ -143,18 +172,15 @@ errval_t driverkit_destroy(const char* name) {
  * \param[in]   caps    Caps provided to the driver's init function.
  * \param[in]   flags   Flags provided to the driver's init function.
  * \param[out]  device  iref of the device interface (as created by the device).
- * \param[out]  control iref of the control interface (created as part of this function).
+ * \param[out]  control endpoint cap of the control interface (created as part of this function).
  * \return      Error status of driver creation.
  */
-errval_t driverkit_create_driver(const char* cls, const char* name,
-                                 struct capref* caps, size_t caps_len,
-                                 char** args, size_t args_len,
-                                 uint64_t flags, iref_t* device, iref_t* control)
+errval_t driverkit_create_driver(const char* cls, struct bfdriver_instance *inst,
+                                 uint64_t flags, iref_t* device, struct capref* control)
 {
     assert(cls != NULL);
-    assert(name != NULL);
     assert(device != NULL);
-    assert(control != NULL);
+    assert(inst != NULL);
 
     errval_t err = SYS_ERR_OK;
 
@@ -164,34 +190,24 @@ errval_t driverkit_create_driver(const char* cls, const char* name,
     }
     DRIVERKIT_DEBUG("Using driver %s for class %s\n", drv->name, cls);
 
-    struct bfdriver_instance* inst = malloc(sizeof(struct bfdriver_instance));
-    if (inst == NULL) {
-        return LIB_ERR_MALLOC_FAIL;
-    }
-    inst->name = strdup(name);
-    if(inst->name == NULL) {
-        free(inst);
-        return LIB_ERR_MALLOC_FAIL;
-    }
     inst->driver = drv;
 
-    err = drv->init(inst, name, flags, caps, caps_len, args, args_len, device);
+    err = drv->init(inst, flags, device);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Can't initialize the device");
+       // DEBUG_ERR(err, "Can't initialize the device");
         free_driver_instance(inst);
         return err_push(err, DRIVERKIT_ERR_DRIVER_INIT);
     }
 
-    err = dcontrol_service_init(inst, NULL);
+    // Since Kaluga always has to be on core 0, we can do this ...
+    err = dcontrol_service_init(inst, NULL, (disp_get_core_id() == 0), control);
     if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Can't set-up control interface for device.");
+       // DEBUG_ERR(err, "Can't set-up control interface for device.");
         free_driver_instance(inst);
         return err_push(err, DRIVERKIT_ERR_CONTROL_SERVICE_INIT);
     }
-    assert (inst->control > 0);
-    *control = inst->control;
 
-    DRIVERKIT_DEBUG("Driver class %s initialized successfully for driver %s.\n", drv->name, name);
+    DRIVERKIT_DEBUG("Driver class %s initialized.\n", drv->name);
     if (instances == NULL) {
         collections_list_create(&instances, free_driver_instance);
     }
@@ -211,4 +227,44 @@ void* driverkit_local_service_lookup(char* name)
 {
 
     return NULL;
+}
+
+static errval_t get_cap(struct bfdriver_instance *bfi, cslot_t slot, struct capref *cap)
+{
+    if (slot >= DRIVERKIT_ARGCN_SLOT_MAX) {
+        return DRIVERKIT_ERR_CAP_CAPACITY;
+    }
+
+    struct capref dest = {
+        .cnode = bfi->argcn,
+        .slot = slot
+    };
+
+    *cap = dest;
+
+    return SYS_ERR_OK;
+}
+
+errval_t driverkit_get_interrupt_cap(struct bfdriver_instance *bfi, struct capref *cap)
+{
+    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_INT, cap);
+}
+
+errval_t driverkit_get_iommu_cap(struct bfdriver_instance *bfi, struct capref *cap)
+{
+    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_IOMMU, cap);
+}
+
+errval_t driverkit_get_pci_cap(struct bfdriver_instance *bfi, struct capref *cap)
+{
+    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_PCI_EP, cap);
+}
+
+errval_t driverkit_get_bar_cap(struct bfdriver_instance *bfi, uint8_t idx,
+                               struct capref *cap)
+{
+    if (idx >= 6) {
+        return DRIVERKIT_ERR_CAP_CAPACITY;
+    }
+    return get_cap(bfi, DRIVERKIT_ARGCN_SLOT_BAR0 + idx, cap);
 }

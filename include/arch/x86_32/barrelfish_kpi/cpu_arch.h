@@ -15,9 +15,6 @@
 #ifndef ARCH_X86_64_BARRELFISH_KPI_CPU_H
 #define ARCH_X86_64_BARRELFISH_KPI_CPU_H
 
-/// This CPU supports lazy FPU context switching
-#define FPU_LAZY_CONTEXT_SWITCH
-
 /*
  * Entries in the Interrupt Descriptor Table (IDT)
  */

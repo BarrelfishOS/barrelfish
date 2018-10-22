@@ -20,6 +20,7 @@
 #include <barrelfish/lmp_endpoints.h>
 #include <if/monitor_defs.h>
 #include <if/monitor_blocking_defs.h>
+#include <if/if_types.h>
 #include <barrelfish/monitor_client.h>
 #include <trace/trace.h>
 #include <stdio.h>
@@ -731,6 +732,56 @@ errval_t cnode_create_with_guard(struct capref dest, struct cnoderef *cnoderef,
     USER_PANIC("%s: GPT CNodes are deprecated\n", __FUNCTION__);
 }
 
+static errval_t create_ram_descendant(struct capref dest, enum objtype type,
+                                      uint8_t bits, size_t *retbytes)
+{
+    errval_t err;
+    if (bits < BASE_PAGE_BITS) {
+        bits = BASE_PAGE_BITS;
+    }
+
+    struct capref ram;
+    err = ram_alloc(&ram, bits);
+    if (err_is_fail(err)) {
+        if (err_no(err) == MM_ERR_NOT_FOUND ||
+            err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
+            return err_push(err, LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS);
+        }
+        return err_push(err, LIB_ERR_RAM_ALLOC);
+    }
+
+    err = cap_retype(dest, ram, 0, type, (1UL << bits), 1);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_RETYPE);
+    }
+
+    err = cap_destroy(ram);
+    if (err_is_fail(err)) {
+        return err_push(err, LIB_ERR_CAP_DESTROY);
+    }
+
+    if (retbytes != NULL) {
+        *retbytes = 1UL << bits;
+    }
+
+    return SYS_ERR_OK;
+}
+
+static errval_t create_mappable_cap(struct capref dest, enum objtype type,
+                                    size_t bytes, size_t *retbytes)
+{
+    if (!type_is_mappable(type)) {
+        return SYS_ERR_DEST_TYPE_INVALID;
+    }
+
+    assert(bytes > 0);
+    uint8_t bits = log2ceil(bytes);
+    assert((1UL << bits) >= bytes);
+
+    return create_ram_descendant(dest, type, bits, retbytes);
+
+}
+
 /**
  * \brief Create a VNode in newly-allocated memory
  *
@@ -789,40 +840,7 @@ errval_t vnode_create(struct capref dest, enum objtype type)
  */
 errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes)
 {
-    assert(bytes > 0);
-    uint8_t bits = log2ceil(bytes);
-    assert((1UL << bits) >= bytes);
-    errval_t err;
-
-    if (bits < BASE_PAGE_BITS) {
-        bits = BASE_PAGE_BITS;
-    }
-
-    struct capref ram;
-    err = ram_alloc(&ram, bits);
-    if (err_is_fail(err)) {
-        if (err_no(err) == MM_ERR_NOT_FOUND ||
-            err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
-            return err_push(err, LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS);
-        }
-        return err_push(err, LIB_ERR_RAM_ALLOC);
-    }
-
-    err = cap_retype(dest, ram, 0, ObjType_Frame, (1UL << bits), 1);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_RETYPE);
-    }
-
-    err = cap_destroy(ram);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_CAP_DESTROY);
-    }
-
-    if (retbytes != NULL) {
-        *retbytes = 1UL << bits;
-    }
-
-    return SYS_ERR_OK;
+    return create_mappable_cap(dest, ObjType_Frame, bytes, retbytes);
 }
 
 /**
@@ -873,6 +891,37 @@ errval_t endpoint_create(size_t buflen, struct capref *retcap,
     }
 
     return lmp_endpoint_create_in_slot(buflen, *retcap, retep);
+}
+
+
+/**
+ * @brief allocates a memory region for a UMP endpoint
+ * @param cap   capability to store the UMP endpoint in
+ * @param bytes size of the endpoint
+ * @param iftype Flounder interface type
+ * @return  SYS_ERR_OK on success, errval on failure
+ */
+errval_t ump_endpoint_create_with_iftype(struct capref dest, size_t bytes, 
+                                         uint16_t iftype)
+{
+    errval_t err;
+    err = create_mappable_cap(dest, ObjType_EndPointUMP, bytes, NULL);
+    if (err_is_fail(err)) {
+        return err;   
+    }
+
+    return invoke_endpoint_set_iftype(dest, iftype);
+}
+
+/**
+ * @brief allocates a memory region for a UMP endpoint
+ * @param cap   capability to store the UMP endpoint in
+ * @param bytes size of the endpoint
+ * @return  SYS_ERR_OK on success, errval on failure
+ */
+errval_t ump_endpoint_create(struct capref dest, size_t bytes)
+{
+    return ump_endpoint_create_with_iftype(dest, bytes, IF_TYPE_DUMMY);
 }
 
 /**
@@ -967,6 +1016,94 @@ errval_t cnode_build_cnoderef(struct cnoderef *cnoder, struct capref capr)
     cnoder->croot = get_croot_addr(capr);
     cnoder->cnode = capr.slot << L2_CNODE_BITS;
     cnoder->level = CNODE_TYPE_OTHER;
+
+    return SYS_ERR_OK;
+}
+
+
+struct cap_notify_st
+{
+    ///< Event Queue node for sending on the monitor binding
+    struct event_queue_node qn;
+
+    ///< the event closure to be called on an event
+    struct event_closure cont;
+
+    ///< the capability
+    struct capref cap;
+
+    ///< the cap addr of the cap
+    capaddr_t capaddr;
+};
+
+
+static void cap_revoke_ack_sender(void *arg)
+{
+    struct monitor_binding *mb = get_monitor_binding();
+    errval_t err;
+
+    /* Send request to the monitor on our existing binding */
+    err = mb->tx_vtbl.cap_revoke_response(mb, NOP_CONT, (uintptr_t)arg);
+    if (err_is_ok(err)) {
+        event_mutex_unlock(&mb->mutex);
+        free(arg);
+    } else if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
+        err = mb->register_send(mb, mb->waitset,
+                                MKCONT(cap_revoke_ack_sender,arg));
+        assert(err_is_ok(err)); // shouldn't fail, as we have the mutex
+    } else { // permanent error
+        event_mutex_unlock(&mb->mutex);
+        free(arg);
+    }
+}
+
+
+static void cap_revoke_request(struct monitor_binding *mb, uintptr_t cap, uintptr_t id)
+{
+    /* XXX: this trusts the monitor to send us the right ID back */
+    struct cap_notify_st *st = (struct cap_notify_st *)id;
+
+    if (st->cont.handler) {
+        st->cont.handler(st->cont.arg);
+    }
+
+    /* Wait to use the monitor binding */
+    event_mutex_enqueue_lock(&mb->mutex, &st->qn,
+                             MKCLOSURE(cap_revoke_ack_sender,st));
+}
+
+
+errval_t cap_register_revoke(struct capref cap, struct event_closure cont)
+{
+    errval_t err;
+
+    struct cap_notify_st *st = calloc(1, sizeof(*st));
+    if (st == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    struct monitor_binding *mb = get_monitor_binding();
+    mb->rx_vtbl.cap_revoke_request = cap_revoke_request;
+
+    st->cont = cont;
+    st->cap  = cap;
+    st->capaddr = get_cap_addr(cap);
+
+    struct monitor_blocking_binding *mcb = get_monitor_blocking_binding();
+    assert(mcb);
+
+    errval_t msgerr;
+    err = mcb->rpc_tx_vtbl.cap_needs_revoke_agreement(mcb, cap, (uintptr_t)st,
+                                                      &msgerr);
+    if (err_is_fail(err)) {
+        free(st);
+        return err;
+    }
+
+    if (err_is_fail(msgerr)) {
+        free(st);
+        return msgerr;
+    }
 
     return SYS_ERR_OK;
 }

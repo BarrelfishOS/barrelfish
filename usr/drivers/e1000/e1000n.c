@@ -51,8 +51,9 @@
 #include <net_queue_manager/net_queue_manager.h>
 #include <trace/trace.h>
 #include <int_route/msix_ctrl.h>
+#include <int_route/int_route_client.h>
 
-#include <pci/pci_driver_client.h>
+#include <pci/pci.h>
 
 #include "e1000n.h"
 #include "test_instr.h"
@@ -161,18 +162,10 @@ static void setup_internal_memory(struct e1000_driver_state * eds)
 static errval_t e1000_init_msix_client(struct e1000_driver_state * eds) {
 
     errval_t err;
-    int num_bars = pcid_get_bar_num(&eds->pdc);
-    if(num_bars < 3){
-        E1000_DEBUG("Less than 3 BARs received. No MSIx support. #bars=%d\n",
-                num_bars);
-        return PCI_ERR_MSIX_NOTSUP;
-    }
-
-    E1000_DEBUG("MSIx BAR received. Instantiating ctrl client\n");
     struct capref bar2;
     lvaddr_t vaddr;
 
-    err = pcid_get_bar_cap(&eds->pdc, 2, &bar2);
+    err = driverkit_get_bar_cap(eds->bfi, 2, &bar2);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "pcid_get_bar_cap");
         E1000_PRINT_ERROR("Error: pcid_get_bar_cap. Will not initialize"
@@ -197,7 +190,6 @@ static errval_t e1000_init_msix_client(struct e1000_driver_state * eds) {
         DEBUG_ERR(err, "msix_client_init");
         return err;
     }
-
     return SYS_ERR_OK;
 }
 
@@ -218,9 +210,6 @@ static void e1000_interrupt_handler_fn(void *arg)
 
 //    printf("#### interrupt handler called: %"PRIu64"\n", interrupt_counter);
     ++interrupt_counter;
-
-    printf("(%s) ############### Interrupt handler ###############\n",
-            eds->inst_name);
 
     if (e1000_intreg_lsc_extract(icr) != 0) {
         if (e1000_check_link_up(eds->device)) {
@@ -292,6 +281,11 @@ static void e1000_init_fn(struct e1000_driver_state * device)
 
 
     errval_t err;
+
+    struct capref intcap = NULL_CAP;
+    err = driverkit_get_interrupt_cap(device->bfi, &intcap);
+    assert(err_is_ok(err));
+
     if (device->msix) {
         E1000_DEBUG("MSI-X interrupt support!\n");
         err = e1000_init_msix_client(device);
@@ -300,12 +294,19 @@ static void e1000_init_fn(struct e1000_driver_state * device)
             E1000_DEBUG("Successfully instantiated MSIx, setup int routing\n");
             e1000_enable_msix(device);
         }
-        err = pcid_connect_int(&device->pdc, 0, e1000_interrupt_handler_fn, device);
 
+        err = int_route_client_route_and_connect(intcap, 0,
+                                                 get_default_waitset(), 
+                                                 e1000_interrupt_handler_fn, device);
+        if (err_is_fail(err)) {
+            USER_PANIC("Interrupt setup failed!\n");
+        }
     } else {
         E1000_DEBUG("Legacy interrupt support!\n");
 #ifdef UNDER_TEST
-        err = pcid_connect_int(&device->pdc, 0, e1000_interrupt_handler_fn, device);
+        err = int_route_client_route_and_connect(intcap, 0,
+                                                 get_default_waitset(), 
+                                                 e1000_interrupt_handler_fn, device);
         if(err_is_fail(err)){
             USER_PANIC("Setting up interrupt failed \n");
         }
@@ -381,30 +382,41 @@ void e1000_driver_state_init(struct e1000_driver_state * eds){
 /* Management interface implemetation */
 
 static errval_t cd_create_queue_rpc(struct e1000_devif_binding *b, 
-                                struct capref rx, struct capref tx, bool interrupt, 
-                                uint64_t *mac, struct capref *regs,
-                                struct capref *irq, errval_t* err)
+                                bool interrupt, 
+                                uint64_t *mac, int *media_type, struct capref *regs,
+                                struct capref *irq, struct capref *iommu, errval_t* err)
 {
     struct e1000_driver_state* driver = (struct e1000_driver_state*) b->st;
 
     assert(driver != NULL);
 
-    if (!driver->queue_init_done) {
-        e1000_init_queues(driver, rx, DRIVER_RECEIVE_BUFFERS, tx, DRIVER_TRANSMIT_BUFFERS);
-    } else {
+    if (driver->queue_init_done) {
         debug_printf("e1000: queue already initalized. \n");
+        driver->queue_init_done = true;
         return DEVQ_ERR_INIT_QUEUE;
     }
     memcpy(mac, driver->mac_address, sizeof(driver->mac_address));
     *regs = driver->regs;
+    *media_type = driver->media_type;
 
-    *err = pcid_get_interrupt_cap(&driver->pdc, irq);
+    errval_t err_out = driverkit_get_interrupt_cap(driver->bfi, irq);
+    if (err_is_fail(err_out)) {
+        *err = err_out; 
+        return DEVQ_ERR_INIT_QUEUE;
+    }
+
+    err_out = driverkit_get_iommu_cap(driver->bfi, iommu);
+    if (err_is_fail(err_out)) {
+        *err = err_out;
+        return DEVQ_ERR_INIT_QUEUE;
+    }
+
+    driver->queue_init_done = true;
     return SYS_ERR_OK;
 }
 
 
-static void cd_create_queue(struct e1000_devif_binding *b, struct capref rx,
-                            struct capref tx, bool interrupt)
+static void cd_create_queue(struct e1000_devif_binding *b, bool interrupt)
 {
     debug_printf("in cd_create_queue\n");
     uint64_t mac = 0;
@@ -412,15 +424,22 @@ static void cd_create_queue(struct e1000_devif_binding *b, struct capref rx,
 
     struct capref regs;
     struct capref irq;
+    struct capref iommu;
+    int media_type;
 
-    cd_create_queue_rpc(b, rx, tx, interrupt, &mac, &regs, &irq, &err);
+    cd_create_queue_rpc(b, interrupt, &mac, &media_type, &regs, &irq, &iommu, &err);
     
-    //if(interrupt){
-        // enable interrupts for that queue
-        // send back interrupt cap
-   //}
+    // check endpoint
+    struct endpoint_identity epid;
+    err = invoke_endpoint_identify(iommu, &epid);
+    if (err_is_fail(err)){
+        // IOMMU not started, continue
+        iommu = NULL_CAP;
+        err = SYS_ERR_OK;
+    }
 
-    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, regs, irq, err);
+    err = b->tx_vtbl.create_queue_response(b, NOP_CONT, mac, media_type, 
+                                           regs, irq, iommu, err);
     assert(err_is_ok(err));
 }
 
@@ -464,8 +483,8 @@ static void export_devif_cb(void *st, errval_t err, iref_t iref)
     assert(err_is_ok(err));
 
     // Build label for interal management service
-    sprintf(name, "%s_%x_%x_%x_%s", s->service_name, s->pdc.addr.bus, s->pdc.addr.device, 
-            s->pdc.addr.function, suffix);
+    sprintf(name, "%s_%x_%x_%x_%s", s->service_name, s->addr.bus, s->addr.device, 
+            s->addr.function, suffix);
 
     err = nameservice_register(name, iref);
     assert(err_is_ok(err));
@@ -485,65 +504,78 @@ static void initialize_mngif(struct e1000_driver_state* st)
     assert(err_is_ok(r));
 }
 
-static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
-        flags, struct capref* caps, size_t caps_len, char** args, size_t
-        args_len, iref_t* dev) {
+static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
+{
 
     errval_t err;
 
     /** Parse command line arguments. */
-    E1000_DEBUG("e1000 driver module started. instance name=%s\n",
-            bfi->name);
-    E1000_DEBUG("args_len=%ld, caps_len=%ld\n", args_len, caps_len);
+    E1000_DEBUG("e1000 standalone driver started.\n");
+    E1000_DEBUG("args_len=%d, caps_len=%d\n", bfi->capc, bfi->argc);
 
     struct e1000_driver_state * eds = malloc(sizeof(struct e1000_driver_state));
     e1000_driver_state_init(eds);
     bfi->dstate = eds;
 
-    err = pcid_init(&eds->pdc, caps, caps_len, args, args_len, get_default_waitset());
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "pcid_init");
+    eds->args = bfi->argv;
+    eds->args_len = bfi->argc;
+    eds->service_name = "e1000"; // default name
+    eds->bfi = bfi;
+
+    struct capref cap;
+    // When started by Kaluga it handend off an endpoint cap to PCI
+    err = driverkit_get_pci_cap(bfi, &cap);
+    if (err_is_fail(err)) {
         goto err_out;
     }
 
-    eds->args = args;
-    eds->args_len = args_len;
-    eds->service_name = "e1000"; // default name
-    eds->inst_name = bfi->name;
+    assert(!capref_is_null(cap));
 
-    for (int i = 1; i < args_len; i++) {
-        E1000_DEBUG("arg %d = %s\n", i, args[i]);
-        if (strcmp(args[i], "auto") == 0) {
+    debug_printf("Connect to PCI\n");
+    err = pci_client_connect_ep(cap);
+    if (err_is_fail(err)) {
+        goto err_out;
+    }
+    
+    err = pci_get_device_info(&eds->addr, &eds->id);
+    if (err_is_fail(err)) {
+        goto err_out;
+    }
+
+    for (int i = 1; i < bfi->argc; i++) {
+        E1000_DEBUG("arg %d = %s\n", i, bfi->argv[i]);
+        if (strcmp(bfi->argv[i], "auto") == 0) {
             continue;
         }
-        if (strncmp(args[i], "affinitymin=", strlen("affinitymin=")) == 0) {
-            eds->minbase = atol(args[i] + strlen("affinitymin="));
+        if (strncmp(bfi->argv[i], "affinitymin=", strlen("affinitymin=")) == 0) {
+            eds->minbase = atol(bfi->argv[i] + strlen("affinitymin="));
             E1000_DEBUG("minbase = %lu\n", eds->minbase);
-        } else if (strncmp(args[i], "affinitymax=", strlen("affinitymax="))
+        } else if (strncmp(bfi->argv[i], "affinitymax=", strlen("affinitymax="))
                  == 0) {
-            eds->maxbase = atol(args[i] + strlen("affinitymax="));
+            eds->maxbase = atol(bfi->argv[i] + strlen("affinitymax="));
             E1000_DEBUG("maxbase = %lu\n", eds->maxbase);
-        } else if (strncmp(args[i], "mac=", strlen("mac=")) == 0) {
+        } else if (strncmp(bfi->argv[i], "mac=", strlen("mac=")) == 0) {
             uint8_t* mac = eds->mac_address;
-            if (parse_mac(mac, args[i] + strlen("mac="))) {
+            if (parse_mac(mac, bfi->argv[i] + strlen("mac="))) {
                 eds->user_mac_address = true;
                 E1000_DEBUG("MAC= %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
                             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
             } else {
-                E1000_PRINT_ERROR("Error: Failed parsing MAC address '%s'.\n", args[i]);
+                E1000_PRINT_ERROR("Error: Failed parsing MAC address '%s'.\n",
+                                  bfi->argv[i]);
                 exit(1);
             }
-        } else if(strncmp(args[i], "servicename=", strlen("servicename=")) == 0) {
-            eds->service_name = args[i]  + strlen("servicename=");
+        } else if(strncmp(bfi->argv[i], "servicename=", strlen("servicename=")) == 0) {
+            eds->service_name = bfi->argv[i]  + strlen("servicename=");
             E1000_DEBUG("Service name=%s.\n", eds->service_name);
-        } else if(strcmp(args[i],"noirq")==0) {
+        } else if(strcmp(bfi->argv[i],"noirq")==0) {
             E1000_DEBUG("Driver working in polling mode.\n");
             eds->use_interrupt = false;
-        } else if (strcmp(args[i], "-h") == 0 ||
-                 strcmp(args[i], "--help") == 0) {
+        } else if (strcmp(bfi->argv[i], "-h") == 0 ||
+                 strcmp(bfi->argv[i], "--help") == 0) {
             exit_help();
         } else {
-            E1000_DEBUG("Parsed Kaluga device address %s.\n", args[i]);
+            E1000_DEBUG("Parsed Kaluga device address %s.\n", bfi->argv[i]);
         }
     } // end for :
 
@@ -554,7 +586,7 @@ static errval_t init(struct bfdriver_instance* bfi, const char* name, uint64_t
 
     E1000_DEBUG("Starting e1000 driver.\n");
 
-    eds->mac_type = e1000_get_mac_type(eds->pdc.id.vendor, eds->pdc.id.device);
+    eds->mac_type = e1000_get_mac_type(eds->id.vendor, eds->id.device);
     E1000_DEBUG("mac_type is: %s\n", e1000_mac_type_to_str(eds->mac_type));
 
     /* Setup known device info */
@@ -612,8 +644,33 @@ static errval_t destroy(struct bfdriver_instance* bfi) {
     return SYS_ERR_OK;
 }
 
+// TODO local RPCs
+static struct e1000_devif_rx_vtbl vtbl = {
+    .create_queue_call = cd_create_queue,
+    .destroy_queue_call = cd_destroy_queue
+};
+
+static struct e1000_devif_rpc_rx_vtbl rpc_vtbl = {
+    .create_queue_call = cd_create_queue_rpc,
+    .destroy_queue_call = cd_destroy_queue_rpc
+};
+
+static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* ret_cap)
+{
+    E1000_DEBUG("Endpoint was requested \n");
+    errval_t err;
+    struct e1000_devif_binding* b;
+    err = e1000_devif_create_endpoint(lmp? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 
+                                      &vtbl, bfi->dstate,
+                                      get_default_waitset(),
+                                      IDC_ENDPOINT_FLAGS_DUMMY,
+                                      &b, *ret_cap);
+    b->rpc_rx_vtbl = rpc_vtbl;
+    return SYS_ERR_OK;
+}
+
 #ifdef UNDER_TEST
-DEFINE_MODULE(e1000n_irqtest_module, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(e1000n_irqtest_module, init, attach, detach, set_sleep_level, destroy, get_ep);
 #else
-DEFINE_MODULE(e1000n_module, init, attach, detach, set_sleep_level, destroy);
+DEFINE_MODULE(e1000n_module, init, attach, detach, set_sleep_level, destroy, get_ep);
 #endif

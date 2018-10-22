@@ -330,7 +330,7 @@ static void ahci_mgmt_bind_cb(void *st, errval_t err, struct ahci_mgmt_binding *
         size_t sectors = ata_identify_tnuas48_rd(&identify);
 
         VFS_BLK_DEBUG("Disk %" PRIu8 " has %zd sectors of %zd bytes\n",
-                port_ids[i], sectors, sector_size);
+                reply.port_ids[i], sectors, sector_size);
 
         struct ahci_handle *handle = calloc(1, sizeof(struct ahci_handle));
         handle->port_num = reply.port_ids[i];

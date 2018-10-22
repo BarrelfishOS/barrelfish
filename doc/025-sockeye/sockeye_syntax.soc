@@ -1,0 +1,231 @@
+/*
+ * Lexical conventions:
+ *
+ * identifiers -> ([a-z] | [A-Z]){[a-z] | [A-Z] | [0-9] | '_'}
+ * numbers -> decimal | hexadecimal
+ * arithmetic_op -> '+' | '-' | '*' | '[]' | '++'
+ * boolean_op -> '!' | '&&' | '||'
+ */
+
+module CortexA9_Core((0 to 0xFFFFE000) core_periphbase) { // Module parameters are natural numbers and have a range
+    /*
+     * Node domains: {memory, intr, power, clock} 
+     * Node types have arbitrary dimension, meaning is hardware dependent
+     * E.g. here: 1st dimension: address, 2nd dimension data word
+     */
+    output memory (0 bits 8; 0 bits 32) SCU
+    output memory (0 bits 8; 0 bits 32) Global_Timer 
+    output memory (0 bits 8; 0 bits 32) GIC_PROC        // 0 bits 8 == 0 to 2^8-1
+    output memory (0 bits 12; 0 bits 32/*;*/) GIC_DISTR     // Trailing ';' should be allowed but optional (Parser does not yet allow it)
+    output memory (0 bits 32; 0 bits 32) L2
+
+    /* 
+     * Node declaration and definition is separate
+     * Convention: keep together whenever possible
+     */
+    input intr (0 to 1023) CPU_INTR
+    CPU_INTR accepts [
+        (0, 2, 8 to 1023) // Specify sparse ranges
+    ]
+
+    memory (0 bits 8; 0 bits 32) Private_Timers
+    Private_Timers accepts [
+        (0 bits 8; *)
+    ]
+
+    memory (0 bits 13; 0 bits 32) PRIVATE_PERIPH
+    PRIVATE_PERIPH maps [
+        /* All dimensions of origin and target need to be specified */
+        (0x0000 to 0x00FC; 0 bits 32) to SCU at (0x0 to 0xFC; 0 bits 32);
+
+        /*
+         * Wildcards map whole range of dimension
+         * The following are equivalent
+         */
+        (0x0100 bits 8; *) to GIC_PROC at (*; *);
+        (0x0100 bits 8; 0 bits 32) to GIC_PROC at (0 bits 8; 0 bits 32);
+
+        /* Mapped ranges must have same size or target must be constant */
+        (0x0200 bits 8; *) to Global_Timer at (*; *); // OK, one-to-one mapping
+        (0x0200 bits 8; *) to Global_Timer at (*; 0); // OK, 2nd dimension collapsed to 0 
+        (0x0200 bits 9; *) to Global_Timer at (*; *); // Error
+
+        (0x0600 bits 8; *) to Private_Timers at (*; *);
+        (0x1000 bits 12; *) to GIC_DISTR at (*; *)/*;*/ // Trailing ';' should be allowed but optional (Parser does not yet allow it)
+    ]
+
+    memory (0 bits 32, 0 bits 32) CPU_PHYS
+    CPU_PHYS maps [
+        (core_periphbase bits 13; *) to PRIVATE_PERIPH at (*; *)
+    ]
+    CPU_PHYS overlays L2 // overlay node's type must be the same as node's type
+}
+
+module CortexA9_MPCore((1 to 4) num_cores, (0 to 0xFFFFE000) periphbase) {
+    input intr (32 to 1019) GIC
+    input intr (0 to 1023) CPU_INTR[0 to num_cores-1]
+    output memory (0 bits 32, 0 bits 32) L2
+
+    /*
+     * Module instances must be declared
+     */
+    instance Core[0 to num_cores-1] of CortexA9_Core
+    Core[0 to num_cores-1] instantiates CortexA9_Core(perhiphbase)
+
+    memory (0 bits 8; 0 bits 32) SCU
+    SCU accepts [(0x0 to 0xFC; *)]
+
+    memory (0 bits 8; 0 bits 32) Global_Timer 
+    Global_Timer accepts [(0 bits 8; *)]
+
+    memory (0 bits 8; 0 bits 32) GIC_PROC
+    GIC_PROC accepts [(0 bits 8; *)]
+
+    memory (0 bits 12; 0 bits 32) GIC_DISTR
+    GIC_DISTR accepts [(0 bits 12; *)]
+
+    forall c in (0 to num_cores-1) {
+        /*
+         * Instantiate module and bind output ports
+         * Format: <output_port> to <node>
+         * All output ports must be bound, types of port and node must match exactly
+         */
+        Core[c] binds [
+            SCU to Cluster_SCU;
+            Global_Timer to Global_Timer;
+            GIC_PROC to GIC_PROC;
+            GIC_DISTR to GIC_DISTR;
+            L2 to L2
+        ]
+
+        /*
+         * Reference input ports with dot notation
+         */
+        GIC maps [
+            (*) to Core[c].CPU_INTR at (0 to 1019-32)
+        ]
+
+        /*
+         * Input port pass-through, for the moment introduces proxy node
+         */
+        CPU_INTR[c] overlays Core[c].CPU_INTR
+    }
+}
+
+/*
+ * Named types
+ * Only possible at file scope
+ * If we have a use case, we might introduce module scope types
+ */
+type L2_Bus (0 bits 32; 0 bits 32)
+
+module OMAP44xx {
+    /* 
+     * Named constants
+     * Only possible at module scope, use parameters to pass to other modules
+     * Only natural number constants are possible.
+     * If we have a use case we might introduce tuple constants
+     */
+    const PERIPHBASE 0x48240000
+    const NUM_CORES 2
+
+    /* 
+     * Multidimensional arrays through tuple indices
+     */
+    instance MPU[1 to 2; 1 to 2] of CortexA9_MPCore
+    MPU[*; *] instantiates CortexA9_MPCore(NUM_CORES, PERIPHBASE)  // Use constants
+
+    MPU[*; *] binds [
+        L2 to L2
+    ]
+
+    intr (0 to 1023) INTR_CTRL
+    forall s in (1 to 2) {
+        INTR_CTRL maps [
+            /* Multicast interrupt vector 1 to all 1st cores of MPU[1; 1] and MPU[2; 1] */
+            (1) to MPU[s; 1].CPU_INTR[1] at (0);
+            /* Same for vector 2 to 2nd cores */
+            (2) to MPU[s; 1].CPU_INTR[2] at (0);
+            /* Same for vector 3 to 1st cores of MPI[1; 2] and MPU[2; 2] */
+            (3) to MPU[s; 2].CPU_INTR[1] at (0);
+            /* And for vector 4 to 2nd cores */
+            (4) to MPU[s; 2].CPU_INTR[2] at (0)/*;*/
+        ]
+    }
+
+    /*
+     * Node definitions can be split over several statements
+     */
+    INTR_CTRL maps [
+        (5) to MPU[1; 1].CPU_INTR[1] at (1)
+    ]
+
+    memory (0 bits 30, 0 bits 32) SDRAM
+    SDRAM accepts [
+        /*
+         * Specify 1st order logic formula for properties that has to be true for the block to match
+         */
+        (0x00000000 bits 28; *) read && !write;  // read-only
+        (0x10000000 bits 28; *) read && write;   // read-write
+        (0x20000000 bits 28; *) read;            // read, don't care about write
+        (0x30000000 bits 28; *)                 // don't care about properties
+    ]
+
+    memory (L2_Bus) L2 // Reference named type
+    L2 maps [
+        /*
+         * Specify 1st order logic formulas for incoming and outgoing properties
+         */
+        (0x80000000 bits 28; *) !write to SDRAM at (0 bits 28; *) read && !write;  // map all non writeable to 1st quarter of RAM as read-only
+        (0x80000000 bits 28; *) write to SDRAM at (0 bits 28; *) read && write;   // map all writeable to 2nd quarter of RAM as read-write
+        (0x90000000 bits 28; *) to SDRAM at (0x10000000 bits 28; *) read && write;
+        (0xA0000000 bits 28; *) to SDRAM at (0x20000000 bits 28; *) read, SDRAM at (0x30000000, 0); // Multicast
+        (0xB0000000 bits 28; *) to SDRAM at (0x30000000 bits 28; *)/*;*/
+    ]
+
+    /* 
+     * Converting from one namespace to another
+     * 
+     * Destination type is optional, if specified, all target ranges have to match
+     */
+    memory (0 bits 32, 0 bits 32) to intr (32 to 1019) CHIPSET
+    CHIPSET converts [
+        // (0; 0 to 1019-32) !read to MPU[1; 1].GIC at (*) edge_trig;
+        (0; 1) to MPU[1;1].CPU_INTR[1] at (0); // Error, type does not match
+        (0; 2) to MPU[1;1].CPU_INTR[1] at (1)/*;*/ // Error, type does not match
+    ]
+
+    intr (0 to 1023) to memory MSI_CTRL
+    MSI_CTRL converts [
+        /* ... */
+    ]
+
+    /*
+     * Changing the dimensionality through a mapping
+     */
+    memory (0 bits 7; 0 to 1) RAM_2D
+    RAM_2D accepts [(*; *)]
+
+    memory (0 bits 3; 0 bits 3; 0 bits 2) BUS_3D
+    forall a in (0 bits 3) {
+        forall b in (0 bits 3) {
+            forall c in (0 bits 2) {
+                BUS_3D maps [
+                    /* Split address parts with slice operator: */
+                    (0; 0; c) to RAM_2D at (c[1]; c[0]);
+
+                    /* Concatenate address parts with concat/slice operator :*/
+                    (a; b; 0) to RAM_2D at (a ++ b[0 to 2]; 0);
+                    (a; b; 1) to RAM_2D at (a ++ b[0 to 2]; 1);
+
+                    /*
+                     * ++[] is left associative
+                     * The following are equal:
+                     */
+                    (a; b; c) to RAM_2D at ( a ++ b[0 to 2]  ++ c[1]; c[0]);
+                    (a; b; c) to RAM_2D at ((a ++ b[0 to 2]) ++ c[1]; c[0])/*;*/
+                ]
+            }
+        }
+    }
+}

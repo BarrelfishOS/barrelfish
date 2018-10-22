@@ -25,7 +25,7 @@ _start_generic: // Assumption: rdi = dispatcher
         // Initialize stack for setup code
         movq    %rdi, %rsp
         addq    $(OFFSETOF_DISP_PRIV_STACK_LIMIT), %rsp
-
+        subq    $8, %rsp    // align the stack
 	// Call barrelfish_init_disabled (doesn't return)
 	jmp	barrelfish_init_disabled
 

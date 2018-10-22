@@ -22,6 +22,7 @@
 // forward declarations
 struct devq;
 struct eth_addr;
+struct capref;
 
 /*
  * ==============================================================================
@@ -71,14 +72,26 @@ errval_t networking_init_default(void);
 
 
 /**
- * @brief initializes the networking library
+ * @brief initializes the networking library using a certain nic
  *
  * @param nic       the nic to use with the networking library
  * @param flags     flags to use to initialize the networking library
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_init(const char *nic, net_flags_t flags);
+errval_t networking_init_with_nic(const char *nic, net_flags_t flags);
+
+/**
+ * @brief initializes the networking library
+ *
+ * @param nic       the nic to use with the networking library
+ * @param ep        endpoint to the nic
+ * @param flags     flags to use to initialize the networking library
+ *
+ * @return SYS_ERR_OK on success, errval on failure
+ */
+errval_t networking_init_with_ep(const char *nic, struct capref ep, 
+                                 net_flags_t flags);
 
 /**
  * @brief initializes the networking library with a given device queue
@@ -89,7 +102,6 @@ errval_t networking_init(const char *nic, net_flags_t flags);
  * @return SYS_ERR_OK on success, errval on failure
  */
 errval_t networking_init_with_queue(struct devq *q, net_flags_t flags);
-
 
 /**
  * @brief polls the network for new packets
@@ -106,11 +118,13 @@ errval_t networking_poll(void);
  *
  * @param cardname  network card to create the queue for
  * @param queueid   queueid of the network card
+ * @param filter_ep returns and endpoint to the net filter interface of this queue
  * @param retqueue  returns the pointer to the queue
  *
  * @return SYS_ERR_OK on success, errval on failure
  */
-errval_t networking_create_queue(const char *cardname, uint64_t* queueid,
+errval_t networking_create_queue(const char *cardname, struct capref* ep,
+                                 uint64_t* queueid, struct capref* filter_ep,   
                                  struct devq **retqueue);
 
 /**

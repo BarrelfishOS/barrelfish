@@ -15,7 +15,4 @@
 #ifndef ARCH_ARM_BARRELFISH_KPI_CPU_H
 #define ARCH_ARM_BARRELFISH_KPI_CPU_H
 
-/// This CPU supports lazy FPU context switching?
-#undef FPU_LAZY_CONTEXT_SWITCH
-
 #endif

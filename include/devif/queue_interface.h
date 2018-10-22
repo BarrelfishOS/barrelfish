@@ -176,4 +176,16 @@ errval_t devq_destroy(struct devq *q);
 void devq_set_state(struct devq *q, void *state);
 void * devq_get_state(struct devq *q);
 
+
+ /**
+  * @brief gets iommu client for this device queue so we can allocate
+  *        memory for virtualized devices
+  *
+  * @param q           The queue state to free (and the device queue to be 
+                       shut down)
+  *
+  * @returns error on failure or SYS_ERR_OK on success
+  */
+struct iommu_client * devq_get_iommu_client(struct devq *q);
+
 #endif /* QUEUE_INTERFACE_H_ */

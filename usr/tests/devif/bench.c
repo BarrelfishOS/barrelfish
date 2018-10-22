@@ -55,6 +55,7 @@ struct list_ele{
 static struct loopback_queue* queue;
 static struct debug_q* debug_q;
 static struct null_q* null_q;
+//static struct null_q* null_q2;
 static struct null_q* all_q;
 static struct devq* que;
 
@@ -84,15 +85,26 @@ static bench_ctl_t *ctl_tmp_dereg;
 static uint64_t tscperus;
 static char* machine_name;
 
-static void dump_results_nfs(char* filename)
+/*
+static void dump_results_nfs(char* filename, bool destroy)
 {
     errval_t err;
     char buffer[256];
     vfs_handle_t handle;
-    sprintf(buffer, "/nfs/%s/%s.csv", machine_name, filename);
-    printf("%s \n", buffer);
+#ifdef BENCH_DEVQ
+    //sprintf(buffer, "/nfs/%s/%s_devq.csv", machine_name, filename);
+    sprintf(buffer, "/nfs/%s_devq.csv", filename);
+#else
+    //sprintf(buffer, "/nfs/%s/%s.csv", machine_name, filename);
+    sprintf(buffer, "/nfs/%s.csv", filename);
+#endif
+
+    debug_printf("%s \n", buffer);
     err = vfs_open(buffer, &handle);
-    assert(err_is_ok(err));
+    if (err_is_fail(err)) {
+        err = vfs_create(buffer, &handle);
+        assert(err_is_ok(err));
+    }
 
     size_t bytes;
     // first 10 % is warmup
@@ -108,10 +120,43 @@ static void dump_results_nfs(char* filename)
     err = vfs_close(handle);
     assert(err_is_ok(err));
 
-    bench_ctl_destroy(ctl_tmp_dereg);
-    bench_ctl_destroy(ctl_tmp_reg);
-    bench_ctl_destroy(ctl_tmp_de);
-    bench_ctl_destroy(ctl_tmp_en);
+    if (destroy) {
+        bench_ctl_destroy(ctl_tmp_dereg);
+        bench_ctl_destroy(ctl_tmp_reg);
+        bench_ctl_destroy(ctl_tmp_de);
+        bench_ctl_destroy(ctl_tmp_en);
+    }
+}
+*/
+
+static void dump_results_nfs(char* prefix, bool destroy)
+//static void dump_results_console(char* prefix, bool destroy)
+{
+    char buffer[512];
+
+    // first 10 % is warmup
+    if (ctl_tmp_en == NULL) {
+        return;
+    }
+
+    for (int i = NUM_ROUNDS/10 ; i < NUM_ROUNDS; i++) {
+#ifdef BENCH_DEVQ
+        sprintf(buffer, ";%s_devq;enqueue;%lu;dequeue;%lu;register;%lu;deregister;%lu \n",
+#else
+        sprintf(buffer, ";%s;enqueue;%lu;dequeue;%lu;register;%lu;deregister;%lu \n",
+#endif
+                prefix,
+                ctl_tmp_en->data[i], ctl_tmp_de->data[i], ctl_tmp_reg->data[i], 
+                ctl_tmp_dereg->data[i]);
+        printf("%s", buffer);
+    }
+
+    if (destroy) {
+        bench_ctl_destroy(ctl_tmp_dereg);
+        bench_ctl_destroy(ctl_tmp_reg);
+        bench_ctl_destroy(ctl_tmp_de);
+        bench_ctl_destroy(ctl_tmp_en);
+    }
 }
 
 static void test_register(void)
@@ -144,35 +189,36 @@ static void test_register(void)
         }
     } 
 
-    srand(rdtsc());
+    srand(rdtscp());
     int idx = 0;
     struct capref ret;
     cycles_t res1;
     cycles_t res2;
     for (int i = 0; i < NUM_ROUNDS; i++) {
         idx = i % NUM_REGIONS;
-        start_reg = bench_tsc();
+        start_reg = rdtscp();
         err = devq_register(que, regions[idx], &rids[idx]);
+        end_reg = rdtscp();
         if (err_is_fail(err)){
             USER_PANIC("Registering memory to devq failed: %s \n",
                         err_getstring(err));
+        } else {
+            tot_reg += end_reg - start_reg;
+            res1 = end_reg - start_reg;
+            bench_ctl_add_run(ctl_tmp_reg, &res1);
         }
-        end_reg = bench_tsc();
-        tot_reg += end_reg - start_reg;
-        res1 = end_reg - start_reg;
 
-        start_dereg = bench_tsc();
+        start_dereg = rdtscp();
         err = devq_deregister(que, rids[idx], &ret);
+        end_dereg = rdtscp();
         if (err_is_fail(err)){
             USER_PANIC("Registering memory to devq failed: %s\n",
                        err_getstring(err));
+        } else {
+            tot_dereg += end_dereg - start_dereg;
+            res2 = end_dereg - start_dereg;
+            bench_ctl_add_run(ctl_tmp_dereg, &res2);
         }
-
-        end_dereg = bench_tsc();
-        tot_dereg += end_dereg - start_dereg;
-        res2 = end_dereg - start_dereg;
-        bench_ctl_add_run(ctl_tmp_reg, &res1);
-        bench_ctl_add_run(ctl_tmp_dereg, &res2);
     }
 
     for (int i = 0; i < NUM_REGIONS; i++) {
@@ -183,8 +229,8 @@ static void test_register(void)
         }
     }
 
-    bench_ctl_dump_analysis(ctl_tmp_dereg, 0, "deregister", tscperus);
-    bench_ctl_dump_analysis(ctl_tmp_reg, 0, "register", tscperus);
+    //bench_ctl_dump_analysis(ctl_tmp_dereg, 0, "deregister", tscperus);
+    //bench_ctl_dump_analysis(ctl_tmp_reg, 0, "register", tscperus);
 
 }
 
@@ -215,31 +261,32 @@ static void test_randomized_test(void)
     ctl_tmp_de->data = calloc(ctl_tmp_de->min_runs * ctl_tmp_de->result_dimensions,
                        sizeof(*ctl_tmp_de->data));
 
-    srand(rdtsc());
+    srand(rdtscp());
     int idx = 0;
     cycles_t res;
     // enqueue from the beginning of the region
     for (int i = 0; i < NUM_ROUNDS; i++) {
 
         idx = i % NUM_BUFS;
-        start_enq = rdtsc();
+        start_enq = rdtscp();
         
         err = devq_enqueue(que, regid, idx*BUF_SIZE, BUF_SIZE, 
                            0, BUF_SIZE, 0);
+
+        end_enq = rdtscp();
         if (err_is_fail(err)){
             USER_PANIC("Enqueue failed: %s \n", err_getstring(err));
         } else {
-            end_enq = rdtsc();
             tot_enq += end_enq - start_enq;
             res = end_enq - start_enq;
             bench_ctl_add_run(ctl_tmp_de, &res);
         }
 
-        start_deq = rdtsc();
+        start_deq = rdtscp();
         err = devq_dequeue(que, &rid, &offset, &length, &valid_data,
                            &valid_length, &flags);
+        end_deq = rdtscp();
         if (err_is_ok(err)){
-            end_deq = rdtsc();
             tot_deq += end_deq - start_deq;
             res = end_deq - start_deq;
             bench_ctl_add_run(ctl_tmp_en, &res);
@@ -248,8 +295,8 @@ static void test_randomized_test(void)
         } 
     }
 
-    bench_ctl_dump_analysis(ctl_tmp_de, 0, "enqueue", tscperus);
-    bench_ctl_dump_analysis(ctl_tmp_en, 0, "dequeue", tscperus);
+    //bench_ctl_dump_analysis(ctl_tmp_de, 0, "enqueue", tscperus);
+    //bench_ctl_dump_analysis(ctl_tmp_en, 0, "dequeue", tscperus);
 }
 
 int main(int argc, char *argv[])
@@ -272,7 +319,6 @@ int main(int argc, char *argv[])
         USER_PANIC("vfs_mount: %s \n", err_getstring(err));
     }
 
-    vfs_handle_t handle;
     sprintf(fname, "/nfs/%s", machine_name);
     err = vfs_mkdir(fname);
     if (err_is_fail(err)) {
@@ -280,24 +326,6 @@ int main(int argc, char *argv[])
     } else {
         printf("Creating folder %s \n", fname);
     }
-
-    sprintf(fname, "/nfs/%s/debug.csv", machine_name);
-    err = vfs_create(fname, &handle);
-    assert(err_is_ok(err));
-
-    sprintf(fname, "/nfs/%s/loopback.csv", machine_name);
-    err = vfs_create(fname, &handle);
-    assert(err_is_ok(err));
-
-
-    sprintf(fname, "/nfs/%s/null.csv", machine_name);
-    err = vfs_create(fname, &handle);
-    assert(err_is_ok(err));
-
-
-    sprintf(fname, "/nfs/%s/null_debug.csv", machine_name);
-    err = vfs_create(fname, &handle);
-    assert(err_is_ok(err));
 
     // Allocate memory
     err = frame_alloc(&memory, MEMORY_SIZE, NULL);
@@ -362,11 +390,19 @@ int main(int argc, char *argv[])
 
     test_randomized_test();
 
-    dump_results_nfs("loopback");
+    dump_results_nfs("Loopback", true);
     avg_enq = ((double) tot_deq)/NUM_ROUNDS;
     avg_deq = ((double) tot_enq)/NUM_ROUNDS;
     avg_dereg = ((double) tot_dereg)/NUM_ROUNDS;
     avg_reg = ((double) tot_reg)/NUM_ROUNDS;
+
+    /*
+    ctl_tmp_en = devq_get_benchmark_data(que, 0);
+    ctl_tmp_de = devq_get_benchmark_data(que, 1);
+    ctl_tmp_reg = devq_get_benchmark_data(que, 2);
+    ctl_tmp_dereg = devq_get_benchmark_data(que, 3);
+    dump_results_nfs("Loopback_bcalls", false);
+    */
 /*
     printf("AVG enq %f \n", avg_enq);
     printf("AVG deq %f \n", avg_deq);
@@ -393,7 +429,7 @@ int main(int argc, char *argv[])
 
     test_randomized_test();
 
-    dump_results_nfs("debug");
+    dump_results_nfs("Overhead Debug", true);
     avg_enq_d = ((double) tot_deq)/NUM_ROUNDS;
     avg_deq_d = ((double) tot_enq)/NUM_ROUNDS;
     avg_dereg_d  = ((double) tot_dereg)/NUM_ROUNDS;
@@ -424,13 +460,14 @@ int main(int argc, char *argv[])
 
     test_randomized_test();
 
-    dump_results_nfs("null");
+    dump_results_nfs("Overhead Null", true);
     avg_enq_n = ((double) tot_enq)/NUM_ROUNDS;
     avg_deq_n = ((double) tot_deq)/NUM_ROUNDS;
     avg_reg_n = ((double) tot_reg)/NUM_ROUNDS;
     avg_dereg_n = ((double) tot_dereg)/NUM_ROUNDS;
 
     printf("############################################################ \n");
+
 
     err = devq_deregister(que, regid, &memory);
     if (err_is_fail(err)){
@@ -450,7 +487,7 @@ int main(int argc, char *argv[])
 
     test_randomized_test();
 
-    dump_results_nfs("null_debug");
+    dump_results_nfs("Overhead Null and Debug", true);
     avg_enq_tot = ((double) tot_enq)/NUM_ROUNDS;
     avg_deq_tot = ((double) tot_deq)/NUM_ROUNDS;
     avg_reg_tot = ((double) tot_reg)/NUM_ROUNDS;

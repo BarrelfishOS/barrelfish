@@ -24,19 +24,29 @@
 
 //Manual channel setup includes
 #include <if/pci_defs.h>
-#include <flounder/flounder_txqueue.h>
-//END
+#include <if/kaluga_defs.h>
 #include <pci/pci.h>
+#include <driverkit/driverkit.h>
+#include <driverkit/control.h>
 
 #include <octopus/octopus.h>
 #include <octopus/trigger.h>
 
 #include <skb/skb.h>
-#include <thc/thc.h>
+
+#include <hw_records.h>
 
 #include "kaluga.h"
 #include <acpi_client/acpi_client.h>
 
+static struct capref pci_ep;
+static struct kaluga_binding* pci_binding;
+static coreid_t pci_core = 0;
+static coreid_t iommu_core = 0;
+static uint32_t num_iommu_started = 0;
+
+// TODO might needs some methods
+static struct kaluga_rx_vtbl kaluga_rx_vtbl;
 
 static void pci_change_event(octopus_mode_t mode, const char* device_record,
                              void* st);
@@ -81,129 +91,87 @@ static errval_t wait_for_spawnd(coreid_t core, void* state)
     return error_code;
 };
 
-
-
-static void init_pci_device_handler(struct pci_binding *b,
-                                    uint32_t class_code, uint32_t sub_class,
-                                    uint32_t prog_if, uint32_t vendor_id,
-                                    uint32_t device_id,
-                                    uint32_t bus, uint32_t dev, uint32_t fun)
-{
-
-    KALUGA_DEBUG("init_pci_device_handler!!! %"PRIu32", %"PRIu32","
-            "%"PRIu32"\n", bus, dev, fun);
-
-}
-struct pci_rx_vtbl pci_rx_vtbl = {
-    .init_pci_device_call = init_pci_device_handler
-};
-
 /**
- * \brief callback when the PCI client connects 
- *
- * \param st    state pointer
- * \param err   status of the connect
- * \param _b    created PCI binding
- */
-static void pci_accept_cb(void *st,
-                                  errval_t err,
-                                  struct pci_binding *_b)
-{
-    KALUGA_DEBUG("connection accepted.");
-    _b->rx_vtbl = pci_rx_vtbl;
-}
-
-const int PCI_CHANNEL_SIZE = 2048;
-
-static errval_t frame_to_pci_frameinfo(struct capref frame, struct pci_frameinfo *fi){
-    struct frame_identity fid;
-    errval_t err;
-    err = invoke_frame_identify(frame, &fid);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "invoke_frame_identify");        
-        return err;
-    }
-    KALUGA_DEBUG("pci ep frame base=0x%lx, size=0x%lx\n", fid.base, fid.bytes);
-
-    void *msg_buf;
-    err = vspace_map_one_frame(&msg_buf, fid.bytes, frame,
-                               NULL, NULL);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "vspace_map_one_frame");
-        return err;
-    }
-
-    *fi = (struct pci_frameinfo) {
-        .sendbase = (lpaddr_t)msg_buf + PCI_CHANNEL_SIZE,
-        .inbuf = msg_buf,
-        .inbufsize = PCI_CHANNEL_SIZE,
-        .outbuf = ((uint8_t *) msg_buf) + PCI_CHANNEL_SIZE,
-        .outbufsize = PCI_CHANNEL_SIZE
-    };
-
-    return SYS_ERR_OK;
-} 
-
-static errval_t start_pci_ump_accept(struct capref out_frame){
-    assert(!capref_is_null(out_frame));
-
-    size_t msg_frame_size;
-    errval_t err;
-    //err = frame_alloc(out_frame, 2 * PCI_CHANNEL_SIZE, &msg_frame_size);
-    err = frame_create(out_frame, 2 * PCI_CHANNEL_SIZE, &msg_frame_size);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "frame_create");
-        return err;
-    }
-
-    struct pci_frameinfo fi;
-    err = frame_to_pci_frameinfo(out_frame, &fi);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "frame_to_frameinfo");
-        return err;
-    }
-
-    KALUGA_DEBUG("creating channel on %p\n", fi.inbuf);
-
-    err = pci_accept(&fi, NULL, pci_accept_cb,
-                      get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
-
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "pci_accept");
-        return err;
-    }
-    return SYS_ERR_OK;
-}
-
-/**
- * For device at addr, finds and stores the interrupt arguments and caps
+ * For devices store the endpoints to PCI and Kaluga
  * into driver_arg.
  */
-static errval_t add_pci_ep(struct pci_addr addr, struct driver_argument
-        *driver_arg)
+static errval_t add_ep_args(struct pci_addr addr, struct pci_id id, coreid_t core,
+                            struct driver_argument *driver_arg, char* binary_name,
+                            char* module_name)
 {
-    errval_t err;
-
-    struct capref cap = {
+    errval_t err, out_err;
+    // Endpoint to PCI
+    struct capref pci_ep = {
         .cnode = driver_arg->argnode_ref,
-        .slot = PCIARG_SLOT_PCI_EP
+        .slot = DRIVERKIT_ARGCN_SLOT_PCI_EP
     };
 
-    err = start_pci_ump_accept(cap);
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "start_pci_ump_accept");
+    struct capref pci_cap;
+    err = slot_alloc(&pci_cap);
+    if (err_is_fail(err)) {
         return err;
+    }
+
+    err = pci_binding->rpc_tx_vtbl.request_endpoint_cap(pci_binding,
+                       (core == pci_core)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP,
+                       addr.bus, addr.device,
+                       addr.function, id.vendor, id.device, &pci_cap, &out_err);
+
+    if (err_is_fail(err) || err_is_fail(out_err)) {
+        //slot_free(pci_cap);
+        return KALUGA_ERR_CAP_ACQUIRE;
+    }
+
+    err = cap_copy(pci_ep, pci_cap);
+    if (err_is_fail(err)) {
+        cap_destroy(pci_cap);
+        return KALUGA_ERR_CAP_ACQUIRE;
+    }
+
+
+    // Endpoint to IOMMU
+    struct capref iommu_ep = {
+        .cnode = driver_arg->argnode_ref,
+        .slot = DRIVERKIT_ARGCN_SLOT_IOMMU
+    };
+
+    struct capref iommu_cap;
+    err = slot_alloc(&iommu_cap);
+    if (err_is_fail(err)) {
+        cap_destroy(pci_cap);
+        return err;
+    }
+
+    if (num_iommu_started > 0) {
+        err = pci_binding->rpc_tx_vtbl.request_iommu_endpoint_cap(pci_binding,
+                           (core == iommu_core)? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP,
+                           0,
+                           addr.bus, addr.device,
+                           addr.function, &iommu_cap, &out_err);
+
+        if (err_is_fail(err) || err_is_fail(out_err)) {
+            cap_destroy(pci_cap);
+           // slot_free(iommu_cap);
+            return KALUGA_ERR_CAP_ACQUIRE;
+        }
+
+        err = cap_copy(iommu_ep, iommu_cap);
+        if (err_is_fail(err)) {
+            cap_destroy(pci_cap);
+            cap_destroy(iommu_cap);
+            return KALUGA_ERR_CAP_ACQUIRE;
+        }
     }
 
     return err;
-};
+}
 
 /**
  * For device at addr, finds and stores the interrupt arguments and caps
  * into driver_arg.
  */
 static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
-        *driver_arg, char *debug)
+                             *driver_arg, char *debug)
 {
     errval_t err;
 
@@ -228,7 +196,7 @@ static errval_t add_mem_args(struct pci_addr addr, struct driver_argument
     for(int i=0; i<bars_len; i++){
         struct capref cap = {
             .cnode = driver_arg->argnode_ref,
-            .slot = PCIARG_SLOT_BAR0 + i
+            .slot = DRIVERKIT_ARGCN_SLOT_BAR0 + i
         };
 
         if(bars[i].type == 0){
@@ -264,6 +232,7 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
                 "add_pci_controller(Lbl, addr(%"PRIu8",%"PRIu8",%"PRIu8")),"
                 "write('\n'), print_int_controller(Lbl).",
                 addr.bus, addr.device, addr.function);
+        KALUGA_DEBUG("After Query.\n");
         if(err_is_fail(err)) DEBUG_SKB_ERR(err, "add/print pci controller");
 
     } else if(driver_arg->int_arg.model == INT_MODEL_MSI){
@@ -273,8 +242,8 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
     } else if(driver_arg->int_arg.model == INT_MODEL_MSIX){
         KALUGA_DEBUG("Starting driver with MSI-x interrupts\n");
 
-        // TODO need to determine number of MSIx interrupts 
-        
+        // TODO need to determine number of MSIx interrupts
+
         // Add the pci_msix and msix controller
         err = skb_execute_query(
                 "add_pci_msix_controller(PciMsixLbl, MsixLbl, addr(%"PRIu8",%"PRIu8",%"PRIu8"))"
@@ -293,7 +262,8 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
         strncpy(driver_arg->int_arg.msix_ctrl_name, lines[2],
                 sizeof(driver_arg->int_arg.msix_ctrl_name));
         KALUGA_DEBUG("Set msix_ctrl_name for (%d,%d,%d) to %s",
-                add.bus, addr.dev, addr.function, driver_arg->int_arg.msix_ctrl_name);
+                     addr.bus, addr.device, addr.function,
+                     driver_arg->int_arg.msix_ctrl_name);
 
     } else {
         KALUGA_DEBUG("No interrupt model specified. No interrupts"
@@ -302,12 +272,14 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
 
     if(err_is_fail(err)) return err;
 
+    KALUGA_DEBUG("Setting up arguments.\n");
     // For debugging
     strncpy(debug_msg, skb_get_output(), sizeof(debug_msg));
     char * nl = strchr(debug_msg, '\n');
     if(nl) *nl = '\0';
     debug_msg[sizeof(debug_msg)-1] = '\0';
 
+    KALUGA_DEBUG("SKB readout.\n");
     uint64_t start=0, end=0;
     char ctrl_label[64];
     // Format is: Lbl,Class,InLo,InHi,....
@@ -318,7 +290,8 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
 
     driver_arg->int_arg.int_range_start = start;
     driver_arg->int_arg.int_range_end = end;
-    
+
+    KALUGA_DEBUG("Debug msg.\n");
     //Debug message
     snprintf(debug_msg, sizeof(debug_msg),
             "lbl=%s,lo=%"PRIu64",hi=%"PRIu64,
@@ -338,6 +311,9 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
 {
     errval_t err;
     char *binary_name = NULL;
+    char *module_name = NULL;
+
+
     if (mode & OCT_ON_SET) {
         KALUGA_DEBUG("pci_change_event: device_record: %s\n", device_record);
         struct pci_addr addr;
@@ -362,7 +338,12 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
             };
         }
 
-        /* duplicate device record as we may need it for later */
+        /* duplicate device record as we may need it for later
+         *
+         * XXX: need to check that we are not leaking memory here
+         *      device_record might be allocated using strdup() in
+         *      oct_trigger_existing_and_watch() -> oct_get()
+         */
         device_record = strdup(device_record);
         assert(device_record);
 
@@ -383,24 +364,23 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
         }
 
         // XXX: Find better way to parse binary name from SKB
-        binary_name = malloc(strlen(skb_get_output()));
+        size_t len = strlen(skb_get_output());
+        binary_name = malloc(len);
+        module_name = malloc(len);
         coreid_t core;
         uint8_t multi;
         uint8_t int_model_in;
 
-        struct driver_argument driver_arg;
-        err = init_driver_argument(&driver_arg);
-        if(err_is_fail(err)){
-            USER_PANIC_ERR(err, "Could not initialize driver argument.\n");
-        }
+
         coreid_t offset;
-        err = skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %[^,], "
-                "%"SCNu8")", &core, &multi, &offset, binary_name, &int_model_in);
+        err = skb_read_output("driver(%"SCNu8", %"SCNu8", %"SCNu8", %[^,], %[^,], "
+                "%"SCNu8")", &core, &multi, &offset, binary_name, module_name, &int_model_in);
         if(err_is_fail(err)){
             USER_PANIC_SKB_ERR(err, "Could not parse SKB output.\n");
         }
 
-        driver_arg.int_arg.model = int_model_in;
+        KALUGA_DEBUG("PCI driver (%s %s) found for: VendorId=0x%"PRIx16" DeviceId=0x%"PRIx16" \n",
+                     binary_name, module_name, id.vendor, id.device);
 
         static int irqtests_started = 0;
         if(strstr(binary_name, "irqtest") != NULL){
@@ -415,22 +395,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
             KALUGA_DEBUG("Driver %s not loaded. Ignore.\n", binary_name);
             goto out;
         }
-
-        set_multi_instance(mi, multi);
-        set_core_id_offset(mi, offset);
-
-        // Build up the driver argument
-        err = add_pci_ep(addr, &driver_arg);
-        assert(err_is_ok(err));
-
-        char intcaps_debug_msg[100];
-        err = add_int_args(addr, &driver_arg, intcaps_debug_msg);
-        assert(err_is_ok(err));
-
-        char memcaps_debug_msg[100];
-        err = add_mem_args(addr, &driver_arg, memcaps_debug_msg);
-        assert(err_is_ok(err));
-
+        KALUGA_DEBUG("Domain %s Driver %s \n", binary_name, module_name);
 
         // Wait until the core where we start the driver
         // is ready
@@ -438,7 +403,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
             err = wait_for_spawnd(core, (CONST_CAST)device_record);
             if (err_no(err) == OCT_ERR_NO_RECORD) {
                 KALUGA_DEBUG("Core where driver %s runs is not up yet.\n",
-                        mi->binary);
+                             mi->binary);
                 // Don't want to free device record yet...
                 return;
             }
@@ -448,11 +413,40 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
             }
         }
 
+        struct driver_argument driver_arg;
+        err = init_driver_argument(&driver_arg);
+        if(err_is_fail(err)){
+            USER_PANIC_ERR(err, "Could not initialize driver argument.\n");
+        }
+
+
+        driver_arg.module_name = module_name;
+        driver_arg.int_arg.model = int_model_in;
+
+
+        set_multi_instance(mi, multi);
+        set_core_id_offset(mi, offset);
+
+        debug_printf("Adding int args.\n");
+        char intcaps_debug_msg[100];
+
+        err = add_int_args(addr, &driver_arg, intcaps_debug_msg);
+        assert(err_is_ok(err));
+
+        debug_printf("Adding mem args.\n");
+        char memcaps_debug_msg[100];
+        err = add_mem_args(addr, &driver_arg, memcaps_debug_msg);
+        assert(err_is_ok(err));
+
+        debug_printf("Adding endpoint args.\n");
+        err = add_ep_args(addr, id, core, &driver_arg, binary_name, module_name);
+        assert(err_is_ok(err));
+
         // If we've come here the core where we spawn the driver
         // is already up
-        printf("Kaluga: Starting \"%s\" for (bus=%"PRIu16",dev=%"PRIu16",fun=%"PRIu16")"
+        printf("Kaluga: Starting \"%s\" (\"%s\") for (bus=%"PRIu16",dev=%"PRIu16",fun=%"PRIu16")"
                ", int: %s, on core %"PRIuCOREID"\n",
-               binary_name, addr.bus, addr.device, addr.function, intcaps_debug_msg, core);
+               binary_name, module_name, addr.bus, addr.device, addr.function, intcaps_debug_msg, core);
 
         err = mi->start_function(core, mi, (CONST_CAST)device_record, &driver_arg);
         switch (err_no(err)) {
@@ -462,7 +456,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
             break;
 
         case KALUGA_ERR_DRIVER_ALREADY_STARTED:
-            KALUGA_DEBUG("%s already running.\n", mi->binary);
+            printf("%s already running. \n", mi->binary);
             break;
 
         case KALUGA_ERR_DRIVER_NOT_AUTO:
@@ -477,6 +471,7 @@ static void pci_change_event(octopus_mode_t mode, const char* device_record,
 
 out:
     free(binary_name);
+    free(module_name);
 }
 
 errval_t watch_for_pci_devices(void)
@@ -487,6 +482,87 @@ errval_t watch_for_pci_devices(void)
                                " prog_if: _ }";
     octopus_trigger_id_t tid;
     return oct_trigger_existing_and_watch(pci_device, pci_change_event, NULL, &tid);
+}
+
+static int32_t predicate(void* data, void* arg)
+{
+    struct driver_instance* drv = (struct driver_instance*) data;
+    if (strncmp(drv->inst_name, arg, strlen(drv->inst_name)) == 0) {
+        return 1;
+    }
+    return 0;
+}
+
+
+static errval_t bridge_add_iommu_endpoint_args(struct driver_argument* arg)
+{
+    errval_t err;
+    char** names;
+    size_t len;
+
+    // Get number of iommus
+    err = oct_get_names(&names, &len, HW_PCI_IOMMU_RECORD_REGEX);
+    if (err_is_fail(err)) {
+        if (err == OCT_ERR_NO_RECORD) {
+            return SYS_ERR_OK;
+        }
+        return err;
+    }
+    oct_free_names(names, len);
+
+    if (len == 0) {
+        // there are no arguments to load
+        return SYS_ERR_OK;
+    }
+
+    // Get ep to iommus
+    struct module_info* driver = find_module("iommu");
+    if (driver == NULL) {
+        // Do not start IOMMU
+        num_iommu_started = 0;
+        return KALUGA_ERR_MODULE_NOT_FOUND;
+    }
+
+    // Iommu module is around, assume we stared all the iommus
+    num_iommu_started = len;
+
+    struct capref iommu;
+    char name[128];
+    for (int i = 0; i < len; i++) {
+
+        errval_t err;
+        sprintf(name, "hw.pci.iommu.%d", i);
+
+        struct driver_instance* drv = (struct driver_instance*)
+                                      collections_list_find_if(driver->driverinstance->spawned,
+                                                               predicate, name);
+        assert(drv);
+
+        struct capref cap = {
+            .cnode = arg->argnode_ref,
+            .slot = DRIVERKIT_ARGCN_SLOT_BAR0 + i
+        };
+
+        err = slot_alloc(&iommu);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        // TODO can we assume that kluaga + iommu driver are on core 0?
+        err = driverkit_get_driver_ep_cap(drv, &iommu, true);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        err = cap_copy(cap, iommu);
+        if (err_is_fail(err)) {
+            slot_free(iommu);
+            return err;
+        }
+    }
+
+
+    return SYS_ERR_OK;
 }
 
 static void bridge_change_event(octopus_mode_t mode, const char* bridge_record,
@@ -501,9 +577,45 @@ static void bridge_change_event(octopus_mode_t mode, const char* bridge_record,
             return;
         }
 
+        if (is_started(mi)) {
+            printf("Already started %s\n", mi->binary);
+            return;
+        }
         // XXX: always spawn on my_core_id; otherwise we need to check that
         // the other core is already up
-        errval_t err = mi->start_function(my_core_id, mi, (CONST_CAST)bridge_record, NULL);
+
+        // create endpoint cap for Kaluga to PCI connection and setup a connection
+        // to PCI.
+        errval_t err;
+        struct driver_argument driver_arg;
+
+        err = init_driver_argument(&driver_arg);
+        if(err_is_fail(err)){
+            USER_PANIC_ERR(err, "Could not initialize driver argument.\n");
+        }
+
+        pci_ep.cnode = driver_arg.argnode_ref;
+        pci_ep.slot = DRIVERKIT_ARGCN_SLOT_KALUGA_EP;
+
+        err = kaluga_create_endpoint(IDC_ENDPOINT_LMP, &kaluga_rx_vtbl, NULL,
+                                     get_default_waitset(),
+                                     IDC_ENDPOINT_FLAGS_DUMMY,
+                                     &pci_binding, pci_ep);
+
+        kaluga_rpc_client_init(pci_binding);
+
+        err = bridge_add_iommu_endpoint_args(&driver_arg);
+        if (err_is_fail(err)) {
+            if (err == KALUGA_ERR_MODULE_NOT_FOUND) {
+                debug_printf("IOMMU module not found, continue withouth IOMMU \n");
+            } else {
+                DEBUG_ERR(err, "Unhandled error while starting %s\n", mi->binary);
+                cap_destroy(pci_ep);
+                return;
+            }
+        }
+
+        err = mi->start_function(my_core_id, mi, (CONST_CAST)bridge_record, &driver_arg);
         switch (err_no(err)) {
         case SYS_ERR_OK:
             KALUGA_DEBUG("Spawned PCI bus driver: %s\n", mi->binary);

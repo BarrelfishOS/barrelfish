@@ -72,7 +72,7 @@ union registers_arm {
         uint32_t stack;
         uint32_t link;
         uint32_t pc;
-        uint32_t _align;
+        uint32_t fpscr;
         uint64_t d0, d1, d2, d3, d4, d5, d6, d7;
         uint64_t d8, d9, d10, d11, d12, d13, d14, d15;
         uint64_t d16, d17, d18, d19, d20, d21, d22, d23;
@@ -97,9 +97,6 @@ STATIC_ASSERT_SIZEOF(union registers_arm, (17 + 64 + 1) * 4);
 
 ///< Opaque handle for the register state
 typedef union registers_arm arch_registers_state_t;
-
-///< Opaque handle for the FPU register state
-typedef void *arch_registers_fpu_state_t;
 
 static inline void
 registers_set_entry(arch_registers_state_t *regs, lvaddr_t entry)

@@ -339,7 +339,7 @@ check_retype__enq(struct retype_check_st *check_st)
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
-    if (check_st->type == ObjType_EndPoint) {
+    if (check_st->type == ObjType_EndPointLMP) {
         DEBUG_CAPOPS("%s: type = EndPoint\n", __FUNCTION__);
         // XXX: because of the current "multi-retype" hack for endpoints, a
         // dispatcher->endpoint retype can happen irrespective of the existence

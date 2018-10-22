@@ -37,6 +37,7 @@
 
 #include <skb/skb.h>
 
+//#define SKB_QUERY_BENCHMARK
 
 errval_t new_reply_state(struct skb_reply_state** srs, rpc_reply_handler_fn reply_handler)
 {
@@ -65,12 +66,12 @@ void free_reply_state(void* arg) {
 }
 
 
-static errval_t do_listing_on_stdout(struct skb_query_state* st)
+static errval_t do_on_stdout(struct skb_query_state* st, char *query, bool print)
 {
     assert(st != NULL);
     assert(st->output_buffer != NULL);
 
-    char output_buffer[1024];
+    char output_buffer[1024*1024];
     st->exec_res = PFLUSHIO;
     st->output_length = 0;
     st->error_output_length = 0;
@@ -78,12 +79,14 @@ static errval_t do_listing_on_stdout(struct skb_query_state* st)
     ec_ref Start = ec_ref_create_newvar();
 
     // Processing
-    ec_post_string("listing.");
+    ec_post_string(query);
     // Flush manually
     ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("output", 0))));
     ec_post_goal(ec_term(ec_did("flush", 1), ec_atom(ec_did("error", 0))));
 
-    printf("========== SKB LISTING START ==========\n");
+    if (print) {
+        printf("========== SKB LISTING START ==========\n");
+    }
     while(st->exec_res == PFLUSHIO) {
         st->exec_res = ec_resume1(Start);
 
@@ -95,11 +98,14 @@ static errval_t do_listing_on_stdout(struct skb_query_state* st)
             output_length += res;
         } while (res != 0);
         output_buffer[output_length] = '\0';
-        if(output_length != 0){
+        if(output_length != 0 && print){
             printf("%s", output_buffer);
         }
     }
-    printf("========== SKB LISTING END ==========\n");
+    if (print) {
+        printf("========== SKB LISTING END ==========\n");
+    }
+   //
 
     return SYS_ERR_OK;
 }
@@ -115,7 +121,24 @@ errval_t execute_query(const char* query, struct skb_query_state* st)
     // HACK to make fact listing work, we print it directly
     // on stdout instead of returning it to the client
     if(strcmp(query,"listing") == 0){
-        return do_listing_on_stdout(st);
+        return do_on_stdout(st, "listing.", true);
+    }
+    if(strcmp(query,"decoding_net_listing") == 0){
+        return do_on_stdout(st, "decoding_net_listing.", false);
+    }
+
+    if(strcmp(query,"decoding_net_listingP") == 0){
+        return do_on_stdout(st, "decoding_net_listing.", true);
+    }
+
+    // HACK to make printing benchmark results work, we print it directly
+    // on stdout instead of returning it to the client
+    if(strcmp(query,"bench_synth") == 0){
+        return do_on_stdout(st, "bench_synth.", true);
+    }
+
+    if(strcmp(query,"bench_synth") == 0){
+        return do_on_stdout(st, "bench_real.", true);
     }
 
     int res;
@@ -165,7 +188,8 @@ errval_t execute_query(const char* query, struct skb_query_state* st)
         // Check for overflow
         if(st->error_output_length == sizeof(st->error_buffer) &&
                 !error_overflow){
-            debug_printf("st->error_buffer overflow. Query: %s\n", query);
+            debug_printf("st->error_buffer overflow. Query: %s, Error: %s\n",
+                    query, st->error_buffer);
             error_overflow = 1;
         }
 
@@ -214,6 +238,8 @@ static void run_reply(struct skb_binding* b, struct skb_reply_state* srt) {
     }
 }
 
+#include <bench/bench.h>
+
 
 static void run(struct skb_binding *b, const char *query)
 {
@@ -221,8 +247,24 @@ static void run(struct skb_binding *b, const char *query)
     errval_t err = new_reply_state(&srt, run_reply);
     assert(err_is_ok(err)); // TODO
 
+
+    //debug_printf(">>>>>>>>>>>>>> QUERY START [%.20s]\n", query);
+
+#ifdef SKB_QUERY_BENCHMARK
+    cycles_t time = bench_tsc();
+#endif
     err = execute_query(query, &srt->skb);
     assert(err_is_ok(err));
+
+#ifdef SKB_QUERY_BENCHMARK
+    time = bench_tsc_to_us(bench_tsc() - time);
+    if (time > 12000) {
+        debug_printf("############## QUERY [%.25s]  elapsed %lu us\n", query, time);
+    }
+#endif
+
+    //debug_printf("<<<<<<<<<<<<<< QUERY END elapsed %lu us\n", time);
+
 
     run_reply(b, srt);
 }

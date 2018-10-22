@@ -384,7 +384,7 @@ errval_t net_if_add_tx_buf(struct netif *netif, struct pbuf *pbuf)
  */
 
 
-#define NET_IF_POLL_MAX 50
+#define NET_IF_POLL_MAX 10
 
 /**
  * @brief polls then network interface for new incoming packets
@@ -402,12 +402,11 @@ errval_t net_if_poll(struct netif *netif)
     struct net_state *st = netif->state;
     if (st == NULL) {
         /* XXX: return an error code ?? */
-        debug_printf("FOOBAR\n");
         return SYS_ERR_OK;
     }
 
-    //for (int i = 0; i < NET_IF_POLL_MAX; i++) {
-    for (;;) {
+    for (int i = 0; i < NET_IF_POLL_MAX; i++) {
+    //for (;;) {
 #if BENCH_DEVQ_DEQUEUE
         cycles_t tsc_start = rdtsc();
 #endif
@@ -443,7 +442,7 @@ errval_t net_if_poll(struct netif *netif)
 #endif
         if (err_is_fail(err)) {
             if (err_no(err) == DEVQ_ERR_QUEUE_EMPTY) {
-                return SYS_ERR_OK;
+                return LIB_ERR_NO_EVENT;
             }
             return err;
         }
@@ -538,7 +537,7 @@ errval_t net_if_poll_all(void)
     struct netif *netif = netif_list;
     while (netif) {
         err = net_if_poll(netif);
-        if (err_is_fail(err)) {
+        if (err_is_fail(err) && err_no(err) != LIB_ERR_NO_EVENT) {
             DEBUG_ERR(err, "failed to poll network interface");
         }
     }

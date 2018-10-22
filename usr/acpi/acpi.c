@@ -25,9 +25,6 @@
 #include "acpi_shared.h"
 #include "acpi_debug.h"
 
-#ifdef ACPI_HAVE_VTD
-#   include "intel_vtd.h"
-#endif
 
 #include <trace/trace.h>
 
@@ -900,9 +897,10 @@ int init_acpi(void)
     }
     assert(ACPI_SUCCESS(as));
 
+#if defined(__ARM_ARCH_8A__)
     // armv8,psci: check if hvc (EL2 call) should be used instead of smc (EL3 call)
     skb_add_fact("psci_use_hvc(%"PRIu8").", !!(AcpiGbl_FADT.ArmBootFlags & ACPI_FADT_PSCI_USE_HVC));
-
+#elif defined(__x86__)
     // Put system into APIC mode
     ACPI_DEBUG("Switching to APIC mode...\n");
     as = set_apic_mode();
@@ -914,6 +912,7 @@ int init_acpi(void)
         printf("ACPI: Switched to APIC mode.\n");
         skb_add_fact("x86_interrupt_model(apic).");
     }
+#endif
 
     /* look for an MCFG table
      * this tells us where the PCI express memory-mapped configuration area is
@@ -970,6 +969,8 @@ int init_acpi(void)
     //ACPI_DEBUG("Walking for PCIe buses\n");
     //as = AcpiGetDevices(PCI_EXPRESS_ROOT_HID_STRING, add_pci_device, NULL, NULL);
     //assert(ACPI_SUCCESS(as));
+
+    acpi_parse_dmar();
 
     ACPI_DEBUG("Walking for PCI buses\n");
     as = AcpiGetDevices(PCI_ROOT_HID_STRING, add_pci_device, NULL, NULL);
@@ -1032,5 +1033,6 @@ int init_acpi(void)
      */
     as = AcpiGetTable(ACPI_SIG_XSDT, 1, &acpi_table_header);
     ACPI_DEBUG("has XSDT: %s.\n", ACPI_SUCCESS(as) ? "yes" : "no");
+
     return 0;
 }

@@ -519,7 +519,7 @@ static void e1000_set_media_type(struct e1000_driver_state *eds)
         eds->tbi_combaility = false;
     }
 
-    switch (eds->pdc.id.device) {
+    switch (eds->id.device) {
     case E1000_DEVICE_82545GM_SERDES:
     case E1000_DEVICE_82546GB_SERDES:
     case E1000_DEVICE_82571EB_SERDES:
@@ -1008,7 +1008,11 @@ static void e1000_setup_mac(struct e1000_driver_state *device, uint64_t *mac_add
     /* This will always return false due to hardware/software reset */
     bool mac_present = e1000_rah_av_rdf(hw_device, 0);
     
-    assert(mac_present);
+    if(!mac_present) {
+        // This starts to appear on recent QEMUs, but the driver works just
+        // fine with mac_present = false.
+        E1000_DEBUG("Expecting mac_present?");
+    }
     /* cache MAC for stack to see */
     uint64_t mac_hi = e1000_rah_rah_rdf(hw_device, 0);
     uint64_t mac = e1000_ral_rd(hw_device, 0) + (mac_hi << 32);
@@ -1032,18 +1036,13 @@ static void e1000_setup_mac(struct e1000_driver_state *device, uint64_t *mac_add
 void e1000_hwinit(struct e1000_driver_state *eds)
 {
     errval_t err;
-    int num_bars = pcid_get_bar_num(&eds->pdc);
 
     E1000_DEBUG("Initializing network device.\n");
 
-    if (num_bars < 1) {
-        E1000_PRINT_ERROR("Error: Not enough PCI bars allocated. Can not initialize network device.\n");
-        exit(1);
-    }
-
     lvaddr_t vaddr;
 
-    err = pcid_get_bar_cap(&eds->pdc, 0, &eds->regs);
+    /* Map first BAR for register access */
+    err = driverkit_get_bar_cap(eds->bfi, 0, &eds->regs);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "pcid_get_bar_cap");
         E1000_PRINT_ERROR("Error: pcid_get_bar_cap. Will not initialize"
@@ -1058,6 +1057,7 @@ void e1000_hwinit(struct e1000_driver_state *eds)
                 " MSIx controller.\n");
         exit(1);
     }
+
 
     e1000_initialize(&eds->device_inst, (void *) vaddr);
     eds->device = &eds->device_inst;

@@ -55,7 +55,7 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -91,6 +91,12 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_Frame:
         return snprintf(buf, len, "Frame cap (0x%" PRIxGENPADDR ":0x%" PRIxGENSIZE ")",
                         cap->u.frame.base, cap->u.frame.bytes);
+
+    case ObjType_EndPointUMP:
+        return snprintf(buf, len, "EndPointUMP cap (0x%" PRIxGENPADDR ":0x%"
+                                   PRIxGENSIZE ") If:%" PRIu32,
+                        cap->u.endpointump.base, cap->u.endpointump.bytes,
+                        cap->u.endpointump.iftype);
 
     case ObjType_DevFrame:
         return snprintf(buf, len, "Device Frame cap (0x%" PRIxGENPADDR ":0x%" PRIxGENSIZE ")",
@@ -147,6 +153,15 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_VNode_x86_64_pml4:
         return snprintf(buf, len, "x86_64 PML4 at 0x%" PRIxGENPADDR,
                         cap->u.vnode_x86_64_pml4.base);
+    case ObjType_VNode_x86_64_pml5:
+        return snprintf(buf, len, "x86_64 PML5 at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_pml4.base);
+    case ObjType_VNode_VTd_root_table:
+        return snprintf(buf, len, "VTd root table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_pml4.base);
+    case ObjType_VNode_VTd_ctxt_table:
+        return snprintf(buf, len, "VTd ctxt table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_pml4.base);
 
     case ObjType_VNode_x86_64_ept_ptable:
         return snprintf(buf, len, "x86_64 EPT Page table at 0x%" PRIxGENPADDR,
@@ -170,7 +185,13 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_DevFrame_Mapping:
         mappingtype = "DevFrame";
         goto ObjType_Mapping;
+    case ObjType_EndPointUMP_Mapping:
+        mappingtype = "EndPointUMP";
+        goto ObjType_Mapping;
 
+    case ObjType_VNode_x86_64_pml5_Mapping:
+        mappingtype = "x86_64 PML4";
+        goto ObjType_Mapping;
     case ObjType_VNode_x86_64_pml4_Mapping:
         mappingtype = "x86_64 PML4";
         goto ObjType_Mapping;
@@ -227,6 +248,12 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         mappingtype = "AARCH64 l3";
         goto ObjType_Mapping;
 
+    case ObjType_VNode_VTd_root_table_Mapping:
+        mappingtype = "VTd root table";
+        goto ObjType_Mapping;
+    case ObjType_VNode_VTd_ctxt_table_Mapping:
+        mappingtype = "VTd ctxt table";
+        goto ObjType_Mapping;
 ObjType_Mapping:
         return snprintf(buf, len, "%s Mapping (%s cap @%p, "
                                   "ptable cap @0x%p, entry=%hu, pte_count=%hu)",
@@ -243,9 +270,9 @@ ObjType_Mapping:
         return snprintf(buf, len, "IRQDest cap (vec: %"PRIu64", cpu: %"PRIu64")",
                 cap->u.irqdest.vector, cap->u.irqdest.cpu);
 
-    case ObjType_EndPoint:
+    case ObjType_EndPointLMP:
         return snprintf(buf, len, "EndPoint cap (disp %p offset 0x%" PRIxLVADDR ")",
-                        cap->u.endpoint.listener, cap->u.endpoint.epoffset);
+                        cap->u.endpointlmp.listener, cap->u.endpointlmp.epoffset);
 
     case ObjType_IO:
         return snprintf(buf, len, "IO cap (0x%hx-0x%hx)",
@@ -278,7 +305,15 @@ ObjType_Mapping:
     case ObjType_IPI:
         return snprintf(buf, len, "IPI cap");
 
-    default:
+    case ObjType_DeviceID:
+        return snprintf(buf, len, "DeviceID %u.%u.%u",
+                        cap->u.deviceid.bus, cap->u.deviceid.device,
+                        cap->u.deviceid.function);
+    case ObjType_DeviceIDManager:
+        return snprintf(buf, len, "DeviceID Manager cap");
+
+
+        default:
         return snprintf(buf, len, "UNKNOWN TYPE! (%d)", cap->type);
     }
 }
@@ -363,13 +398,14 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t objsize)
 {
     switch(type) {
     case ObjType_PhysAddr:
     case ObjType_RAM:
     case ObjType_Frame:
+    case ObjType_EndPointUMP:
     case ObjType_DevFrame:
         if (objsize > srcsize) {
             return 0;
@@ -392,8 +428,9 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
         } else {
             return srcsize / objsize;
         }
-
-
+    case ObjType_VNode_VTd_root_table :
+    case ObjType_VNode_VTd_ctxt_table :
+    case ObjType_VNode_x86_64_pml5:
     case ObjType_VNode_x86_64_pml4:
     case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pdir:
@@ -441,12 +478,14 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_IRQDest:
     case ObjType_IRQSrc:
     case ObjType_IO:
-    case ObjType_EndPoint:
+    case ObjType_EndPointLMP:
     case ObjType_ID:
     case ObjType_Notify_IPI:
     case ObjType_PerfMon:
     case ObjType_IPI:
     case ObjType_ProcessManager:
+    case ObjType_DeviceID:
+    case ObjType_DeviceIDManager:
     case ObjType_VNode_ARM_l1_Mapping:
     case ObjType_VNode_ARM_l2_Mapping:
     case ObjType_VNode_AARCH64_l0_Mapping:
@@ -479,7 +518,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
@@ -501,6 +540,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
     switch (type) {
 
     case ObjType_Frame:
+    case ObjType_EndPointUMP :
         debug(SUBSYS_CAPS, "Frame: zeroing %zu bytes @%#"PRIxLPADDR"\n",
                 (size_t)objsize * count, lpaddr);
         TRACE(KERNEL, BZERO, 1);
@@ -535,6 +575,9 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
     case ObjType_VNode_x86_64_ept_pdir:
     case ObjType_VNode_x86_64_ept_pdpt:
     case ObjType_VNode_x86_64_ept_pml4:
+    case ObjType_VNode_x86_64_pml5:
+    case ObjType_VNode_VTd_root_table:
+    case ObjType_VNode_VTd_ctxt_table:
         // objsize is size of VNode; but not given as such
         objsize = vnode_objsize(type);
         debug(SUBSYS_CAPS, "VNode: zeroing %zu bytes @%#"PRIxLPADDR"\n",
@@ -593,7 +636,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                             gensize_t objsize, size_t count, coreid_t owner,
@@ -656,6 +699,19 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
             // Initialize type specific fields
             temp_cap.u.frame.base = genpaddr + dest_i * objsize;
             temp_cap.u.frame.bytes = objsize;
+            assert((get_size(&temp_cap) & BASE_PAGE_MASK) == 0);
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+        break;
+    case ObjType_EndPointUMP:
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.endpointump.base = genpaddr + dest_i * objsize;
+            temp_cap.u.endpointump.bytes = objsize;
             assert((get_size(&temp_cap) & BASE_PAGE_MASK) == 0);
             // Insert the capability
             err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
@@ -1002,6 +1058,60 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
         break;
     }
+    case ObjType_VNode_x86_64_pml5:
+    {
+        size_t objsize_vnode = vnode_objsize(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_x86_64_pml5.base =
+                    genpaddr + dest_i * objsize_vnode;
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
+        break;
+    }
+    case ObjType_VNode_VTd_root_table:
+    {
+        size_t objsize_vnode = vnode_objsize(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_vtd_root_table.base =
+                    genpaddr + dest_i * objsize_vnode;
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
+        break;
+    }
+    case ObjType_VNode_VTd_ctxt_table:
+    {
+        size_t objsize_vnode = vnode_objsize(type);
+
+        for(dest_i = 0; dest_i < count; dest_i++) {
+            // Initialize type specific fields
+            temp_cap.u.vnode_vtd_ctxt_table.base =
+                    genpaddr + dest_i * objsize_vnode;
+
+            // Insert the capability
+            err = set_cap(&dest_caps[dest_i].cap, &temp_cap);
+            if (err_is_fail(err)) {
+                break;
+            }
+        }
+
+        break;
+    }
 
     case ObjType_Dispatcher:
         assert(OBJSIZE_DISPATCHER >= sizeof(struct dcb));
@@ -1072,10 +1182,12 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     case ObjType_IPI:
     case ObjType_IRQTable:
     case ObjType_IRQDest:
-    case ObjType_EndPoint:
+    case ObjType_EndPointLMP:
     case ObjType_Notify_IPI:
     case ObjType_PerfMon:
     case ObjType_ProcessManager:
+    case ObjType_DeviceID :
+    case ObjType_DeviceIDManager :
         // These types do not refer to a kernel object
         assert(lpaddr  == 0);
         assert(size    == 0);
@@ -1352,7 +1464,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 //{{{1 Capability creation
 
 /// check arguments, return true iff ok
-STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 #ifndef NDEBUG
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
@@ -1443,7 +1555,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
 {
     TRACE(KERNEL, CAP_CREATE_NEW, 0);
     /* Parameter checking */
-    assert(type != ObjType_EndPoint); // Cap of this type cannot be created
+    assert(type != ObjType_EndPointLMP); // Cap of this type cannot be created
     debug(SUBSYS_CAPS, "caps_create_new: type = %d, addr = %#"PRIxLPADDR
             ", bytes=%zu, objsize=%zu\n", type, addr, bytes, objsize);
 
@@ -1473,7 +1585,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     return SYS_ERR_OK;
 }
 
-STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
@@ -1583,7 +1695,8 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
            src_cap->type == ObjType_Frame ||
            src_cap->type == ObjType_DevFrame ||
            src_cap->type == ObjType_IRQSrc ||
-           src_cap->type == ObjType_ProcessManager);
+           src_cap->type == ObjType_ProcessManager ||
+           src_cap->type == ObjType_DeviceIDManager);
 
     if (src_cap->type != ObjType_Dispatcher && src_cap->type != ObjType_IRQSrc) {
         base = get_address(src_cap);
@@ -1763,11 +1876,11 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     TRACE(KERNEL_CAPOPS, RETYPE_CREATE_CAPS_DONE, retype_seqnum);
 
     /* special initialisation for endpoint caps */
-    if (type == ObjType_EndPoint) {
+    if (type == ObjType_EndPointLMP) {
         assert(src_cap->type == ObjType_Dispatcher);
         assert(count == 1);
         struct capability *dest_cap = &dest_cte->cap;
-        dest_cap->u.endpoint.listener = src_cap->u.dispatcher.dcb;
+        dest_cap->u.endpointlmp.listener = src_cap->u.dispatcher.dcb;
     }
 
     // XXX: Treat full object retypes to same type as copies as calling
@@ -1812,7 +1925,7 @@ errval_t is_retypeable(struct cte *src_cte, enum objtype src_type,
     } else if (!is_revoked_first(src_cte, src_type)){
         //printf("err_revoke_first: (%p, %d, %d)\n", src_cte, src_type, dest_type);
         return SYS_ERR_REVOKE_FIRST;
-    } else if (dest_type == ObjType_EndPoint && src_cte->mdbnode.owner == my_core_id) {
+    } else if (dest_type == ObjType_EndPointLMP && src_cte->mdbnode.owner == my_core_id) {
         // XXX: because of the current "multi-retype" hack for endpoints, a
         // dispatcher->endpoint retype can happen irrespective of the existence
         // of descendants on any core.
@@ -1854,7 +1967,7 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
 }
 
 /// Create copies to a cte
-STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2)
 {
@@ -1910,22 +2023,22 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
     // Process source-specific parameters for minting
     // XXX: If failure, revert the insertion
     switch(src_cap->type) {
-    case ObjType_EndPoint:
+    case ObjType_EndPointLMP:
         // XXX: FIXME: check that buffer offset lies wholly within the disp frame
         // can't easily enforce this here, because the dispatcher frame may not
         // yet be setup
 /*        if (param1 < sizeof(struct dispatcher) ||
-            dest_cap->u.endpoint.listener->disp == NULL ||
+            dest_cap->u.endpointlmp.endpointlmp->disp == NULL ||
             param2 < IDC_RECV_LENGTH ||
             param1 + sizeof(struct idc_endpoint) + param2 * sizeof(uintptr_t) >
-            (1UL << dest_cap->u.endpoint.listener->disp_cte.cap.u.frame.bits)) {
+            (1UL << dest_cap->u.endpointlmp.listener->disp_cte.cap.u.frame.bits)) {
             return SYS_ERR_INVALID_EPBUF;
         }*/
         if (param2 < LMP_RECV_HEADER_LENGTH) {
             return SYS_ERR_INVALID_EPLEN;
         }
-        dest_cap->u.endpoint.epoffset = param1;
-        dest_cap->u.endpoint.epbuflen = param2;
+        dest_cap->u.endpointlmp.epoffset = param1;
+        dest_cap->u.endpointlmp.epbuflen = param2;
         break;
 
     case ObjType_IO:
@@ -1936,10 +2049,9 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
             dest_cap->u.io.end = param2;
         }
         break;
-
     default:
-        // Unhandled source type for mint
-        return SYS_ERR_INVALID_SOURCE_TYPE;
+        // Mint the caprights by default
+        dest_cap->rights = src_cap->rights & param1;
     }
 
     // Insert after doing minting operation

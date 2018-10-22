@@ -57,7 +57,7 @@
 
 
 //static phys_mmap_t* g_phys_mmap;        // Physical memory map
-static union armv8_ttable_entry *init_l0; // L1 page table for init
+static union armv8_ttable_entry *init_l0; // L0 page table for init
 static union armv8_ttable_entry *init_l1; // L1 page table for init
 static union armv8_ttable_entry *init_l2; // L2 page tables for init
 static union armv8_ttable_entry *init_l3; // L3 page tables for init
@@ -188,8 +188,8 @@ load_init_image(
     *init_ep = *got_base = 0;
 
     /* Load init ELF64 binary */
-    struct multiboot_header_tag *multiboot =
-            (struct multiboot_header_tag *) local_phys_to_mem(
+    struct multiboot_tag *multiboot =
+            (struct multiboot_tag *) local_phys_to_mem(
                     armv8_glbl_core_data->multiboot_image.base);
     struct multiboot_tag_module_64 *module = multiboot2_find_module_64(
             multiboot, armv8_glbl_core_data->multiboot_image.length, name);
@@ -226,8 +226,8 @@ void create_module_caps(struct spawn_state *st)
     errval_t err;
 
     /* Create caps for multiboot modules */
-    struct multiboot_header_tag *multiboot =
-        (struct multiboot_header_tag *)local_phys_to_mem(armv8_glbl_core_data->multiboot_image.base);
+    struct multiboot_tag *multiboot =
+        (struct multiboot_tag *)local_phys_to_mem(armv8_glbl_core_data->multiboot_image.base);
 
     // Allocate strings area
     lpaddr_t mmstrings_phys = bsp_alloc_phys(BASE_PAGE_SIZE);
@@ -310,7 +310,7 @@ void create_module_caps(struct spawn_state *st)
         module = ((void *) module) + module->size;
         position += module->size;
         module = (struct multiboot_tag_module_64 *) multiboot2_find_header(
-                (struct multiboot_header_tag *) module, size - position,
+                (struct multiboot_tag *)module, size - position,
                 MULTIBOOT_TAG_TYPE_MODULE_64);
     }
 }
@@ -731,7 +731,7 @@ void arm_kernel_startup(void *pointer)
 
     struct dcb *init_dcb;
 
-    if(cpu_is_bsp()) {
+    if (cpu_is_bsp()) {
         MSG("Doing BSP related bootup \n");
 
         /* Initialize the location to allocate phys memory from */
@@ -746,6 +746,7 @@ void arm_kernel_startup(void *pointer)
 
         init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME);
 
+        platform_gic_init();
 //        pit_start(0);
     } else {
         MSG("Doing non-BSP related bootup \n");
@@ -769,11 +770,8 @@ void arm_kernel_startup(void *pointer)
        // uint32_t irq = gic_get_active_irq();
        // gic_ack_irq(irq);
     }
-
-
     // enable interrupt forwarding to cpu
     platform_gic_cpu_interface_enable();
-
 
     MSG("Calling dispatch from arm_kernel_startup, entry point %#"PRIxLVADDR"\n",
             get_dispatcher_shared_aarch64(init_dcb->disp)->disabled_save_area.named.pc);

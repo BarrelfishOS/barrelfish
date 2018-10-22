@@ -72,16 +72,16 @@ vectors:
  * here before we branch. */
 .align 7 /* 0x000 */
 el1_sp_el0_sync:
-    invalid_exception AARCH64_EVECTOR_EL0_SYNC    
+    invalid_exception AARCH64_EVECTOR_EL0_SYNC
 .align 7 /* 0x080 */
 el1_sp_el0_irq:
     invalid_exception AARCH64_EVECTOR_EL0_IRQ /* TODO: Waait, wenn we do wait for interrupt in kernel, that shouldnt be invalid */
 .align 7 /* 0x100 */
 el1_sp_el0_fiq:
-    invalid_exception AARCH64_EVECTOR_EL0_FIQ 
+    invalid_exception AARCH64_EVECTOR_EL0_FIQ
 .align 7 /* 0x180 */
 el1_sp_el0_serror:
-    invalid_exception AARCH64_EVECTOR_EL0_SERROR 
+    invalid_exception AARCH64_EVECTOR_EL0_SERROR
 
 /* Offset 0x200 */
 /* Exceptions from the kernel itself, at EL1. */
@@ -302,7 +302,22 @@ save_syscall_context:
     stp x27, x28, [x13, #(27 * 8)]
     stp x29, x30, [x13, #(29 * 8)] /* FP & LR */
 
-    /* 9 instructions to here */
+    stp q0, q1, [x13, #(34 * 8)]
+    stp q2, q3, [x13, #(38 * 8)]
+    stp q4, q5, [x13, #(42 * 8)]
+    stp q6, q7, [x13, #(46 * 8)]
+    stp q8, q9, [x13, #(50 * 8)]
+    stp q10, q11, [x13, #(54 * 8)]
+    stp q12, q13, [x13, #(58 * 8)]
+    stp q14, q15, [x13, #(62 * 8)]
+    stp q16, q17, [x13, #(66 * 8)]
+    stp q18, q19, [x13, #(70 * 8)]
+    stp q20, q21, [x13, #(74 * 8)]
+    stp q22, q23, [x13, #(78 * 8)]
+    stp q24, q25, [x13, #(82 * 8)]
+    stp q26, q27, [x13, #(86 * 8)]
+    stp q28, q29, [x13, #(90 * 8)]
+    stp q30, q31, [x13, #(94 * 8)]
 
     /* High registers are now available. */
 
@@ -325,8 +340,6 @@ save_syscall_context:
     stp x7, x8,     [x13, #(7 * 8)]
     stp x9, x10,    [x13, #(9 * 8)]
     str x11,        [x13, #(11 * 8)]
-
-    /* 15 instructions to here. */
 
     /* If we're here, this is a syscall and we don't need to restore the
      * scratch registers. Just throw the stack frame away. */
@@ -436,7 +449,7 @@ el0_abort_disabled:
  * appropriate save area. */
 do_resume:
     /* Skip to the end... */
-    add x0, x0, #(33 * 8)
+    add x0, x0, #((34 + 30 * 2) * 8)
 
     /* Reset the kernel stack pointer. */
     ldr x1, =kernel_stack   // load the address of the kernel sack
@@ -449,10 +462,28 @@ do_resume:
     dsb sy
     isb
 
+    /* Restore the NEON registers. */
+    ldp q30, q31, [x0], #-(2 * 16)
+    ldp q28, q29, [x0], #-(2 * 16)
+    ldp q26, q27, [x0], #-(2 * 16)
+    ldp q24, q25, [x0], #-(2 * 16)
+    ldp q22, q23, [x0], #-(2 * 16)
+    ldp q20, q21, [x0], #-(2 * 16)
+    ldp q18, q19, [x0], #-(2 * 16)
+    ldp q16, q17, [x0], #-(2 * 16)
+    ldp q14, q15, [x0], #-(2 * 16)
+    ldp q12, q13, [x0], #-(2 * 16)
+    ldp q10, q11, [x0], #-(2 * 16)
+    ldp q8, q9, [x0], #-(2 * 16)
+    ldp q6, q7, [x0], #-(2 * 16)
+    ldp q4, q5, [x0], #-(2 * 16)
+    ldp q2, q3, [x0], #-(2 * 16)
+    ldp q0, q1, [x0], #-(2 * 8)
+
     /* Restore SPSR, PC (ELR) and SP, which need temporary registers, before
      * we restore those. */
-    ldr x3,     [x0], #-16 /* spsr */
-    ldp x1, x2, [x0], #-16 /* stack, pc */
+    ldp x2, x3, [x0], #-8 /* pc, spsr */
+    ldr x1, [x0], #-16 /* stack */
     msr spsr_el1, x3
     msr elr_el1,  x2
     msr sp_el0,   x1

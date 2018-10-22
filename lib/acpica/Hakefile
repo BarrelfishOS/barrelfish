@@ -21,7 +21,6 @@ let subdirs = [ "source/components/dispatcher",
     cfiles = [
                 "barrelfish/osbfxf.c",
 --                "source/os_specific/service_layers/osbarrelfish.c",
---                "source/os_specific/service_layers/osbsdtbl.c",
                 "source/components/utilities/utxface.c",
                 "source/components/utilities/utids.c",
                 "source/components/utilities/utmisc.c",
@@ -217,8 +216,9 @@ in
                         -- "-DACPI_DEBUGGER", "-DACPI_BF_DEBUG",
                         "-Wno-redundant-decls",
                         "-Wno-unused-function",
+                        "-DACPI_APPLICATION",
                         "-fno-strict-aliasing" ] ++ (flagsArch arch),
-         addIncludes = [ "source/include" ],
+         addIncludes = [ "source/include", "source/tools/acpidump" ],
          architectures = [ arch ]
                   } | arch <- [ "x86_64", "x86_32", "armv8" ]
   ]

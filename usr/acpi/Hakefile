@@ -18,13 +18,13 @@ let commonCFiles = [
         "pcilnk_controller_client.c",
         "acpi_service.c",
         "acpi_main.c",
-        "buttons.c"
+        "buttons.c",
+        "acpi_parse_dmar.c"
         ]
 
     archCFiles arch = case arch of
         "x86_32" -> archCFiles "x86_64"
         "x86_64" -> [
-            "intel_vtd.c",
             "acpi_ec.c",
             "arch/x86/ioapic.c",
             "arch/x86/ioapic_controller_client.c",
@@ -45,10 +45,7 @@ let commonCFiles = [
 
     archDevices arch = case arch of
         "x86_32" -> archDevices "x86_64"
-        "x86_64" -> [
-            "acpi_ec",
-            "vtd",
-            "vtd_iotlb" ]
+        "x86_64" -> ["acpi_ec"]
         "armv8" -> [ ]
 
     commonCFlags = [
@@ -70,11 +67,13 @@ let commonCFiles = [
         mackerelDevices = commonDevices ++ (archDevices arch),
         skateSchemas = ["acpimadt"],
         cFiles = commonCFiles ++ (archCFiles arch),
-        addIncludes = [ "/lib/acpica/source/include" ],
+        addIncludes = [ "/lib/acpica/source/include",
+                        "/lib/acpica/source/tools/acpidump" ],
         addCFlags = commonCFlags ++ (archCFlags arch),
         addLibraries = [
             "mm",
             "acpica",
+            "acpidump",
             "skb",
             "pciconfspace",
             "octopus",

@@ -30,7 +30,6 @@
 #include "smpt.h"
 #include "xphi_service.h"
 
-static struct xeon_phi xphi;
 
 static struct capref mmio_cap = {
     .slot = TASKCN_SLOT_IO
@@ -63,7 +62,7 @@ static errval_t map_mmio_space(struct xeon_phi *phi)
     phi->mmio.vbase = (lvaddr_t) mmio;
     phi->mmio.cap = mmio_cap;
     phi->mmio.pbase = id.base;
-    phi->mmio.length = id.bytes;
+    phi->mmio.bytes = id.bytes;
 
     return SYS_ERR_OK;
 }
@@ -83,12 +82,12 @@ static errval_t map_mmio_space(struct xeon_phi *phi)
  * \return SYS_ERR_OK if an event was handled
  *         LIB_ERR_NO_EVENT if there was no evetn
  */
-errval_t xeon_phi_event_poll(uint8_t do_yield)
+errval_t xeon_phi_event_poll(struct xeon_phi *phi, uint8_t do_yield)
 {
     errval_t err;
 
     uint8_t idle = 0x1;
-    err = xdma_service_poll(&xphi);
+    err = xdma_service_poll(phi);
     switch(err_no(err)) {
         case SYS_ERR_OK:
             idle = 0;
@@ -171,9 +170,8 @@ static errval_t boot_cores(void)
     if (cores_arg != NULL) {
         arg[2] = cores_arg;
     } else {
-        arg[2] = "1:9";
-        cores_count = 10;
-
+        arg[2] = "1:3";
+        cores_count = 4;
     }
     arg[3] = NULL;
 
@@ -259,12 +257,15 @@ int main(int argc,
     assert(!capref_is_null(mmio_cap));
     assert(!capref_is_null(sysmem_cap));
 
-    xphi.is_client = 0x1;
-    xphi.id = disp_xeon_phi_id();
+    struct xeon_phi *xphi = calloc(1, sizeof(*xphi));
+    assert(xphi);
+
+    xphi->is_client = 0x1;
+    xphi->id = disp_xeon_phi_id();
 
     for (uint32_t i = 0; i < XEON_PHI_NUM_MAX; ++i) {
-        xphi.topology[i].id = i;
-        xphi.topology[i].local = &xphi;
+        xphi->topology[i].id = i;
+        xphi->topology[i].local = xphi;
     }
 
     parse_arguments(argc, argv);
@@ -275,7 +276,7 @@ int main(int argc,
         USER_PANIC_ERR(err, "Could not initialize the cap manager.\n");
     }
 
-    err = map_mmio_space(&xphi);
+    err = map_mmio_space(xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not map the mmio space");
     }
@@ -297,33 +298,36 @@ int main(int argc,
         USER_PANIC_ERR(err, "all_spawnds_up.\n");
     }
 
-    err = xdma_service_init(&xphi);
+    /*
+    err = xdma_service_init(xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize the dma engine.\n");
     }
+    */    
 
-    err = smpt_init(&xphi);
+    err = smpt_init(xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize the SMTP.\n");
     }
 
-    lpaddr_t host_msg_base = strtol(argv[0], NULL, 16);
-    uint8_t host_msg_size = strtol(argv[1], NULL, 16);
+    lpaddr_t host_msg_base = strtoul(argv[0], NULL, 16);
+    uint64_t host_msg_size = strtoul(argv[1], NULL, 16);
 
-    XMESSAGING_DEBUG("Getting the host messaging cap...[%016lx, %02x]\n",
+
+    debug_printf("Getting the host messaging cap...[%016lx, %02lu]\n",
                      host_msg_base, host_msg_size);
 
-    err = sysmem_cap_request(host_msg_base, host_msg_size, &host_cap);
+    err = sysmem_cap_request(host_msg_base, (uint8_t)host_msg_size, &host_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not obtain the system messsaging cap\n");
     }
 
-    err = interphi_init(&xphi, host_cap);
+    err = interphi_init(xphi, host_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not initialize the interphi communication\n");
     }
 
-    err = xeon_phi_service_init(&xphi);
+    err = xeon_phi_service_init(xphi);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not initialize the messaging service");
     }
@@ -331,7 +335,9 @@ int main(int argc,
     XDEBUG("Start polling for messages...\n");
 
     while (1) {
-        xeon_phi_event_poll(1);
+        messages_wait_and_handle_next();
+
+        //xeon_phi_event_poll(xphi, 1);
     }
 
     XDEBUG("Messaging loop terminated...\n");

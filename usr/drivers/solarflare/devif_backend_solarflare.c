@@ -14,7 +14,6 @@
 #include <barrelfish/deferred.h>
 #include <barrelfish/nameservice_client.h>
 #include <devif/queue_interface.h>
-#include <pci/pci.h>
 #include <if/sfn5122f_devif_defs.h>
 #include <if/sfn5122f_devif_defs.h>
 #include <devif/backends/net/sfn5122f_devif.h>
@@ -22,10 +21,9 @@
 #include "hw_queue.h"
 #include "helper.h"
 
-
 //#define DEBUG_SFN
 #ifdef DEBUG_SFN
-    #define DEBUG_QUEUE(x...) printf("sfn5122f_q : " x)
+    #define DEBUG_QUEUE(x...) debug_printf("sfn5122f_q : " x)
 #else
     #define DEBUG_QUEUE(x...) do {} while (0)
 #endif
@@ -231,7 +229,6 @@ static errval_t enqueue_rx_buf(struct sfn5122f_queue* q, regionid_t rid,
                                genoffset_t valid_data, genoffset_t valid_length,
                                uint64_t flags)
 {
-    DEBUG_QUEUE("Enqueueing RX buf \n");
     // check if there is space
 
     if (sfn5122f_queue_free_rxslots(q) == 0) {
@@ -507,13 +504,14 @@ static errval_t sfn5122f_destroy(struct devq* queue)
 
 
 
+/*
 static void interrupt_handler(void* arg)
 {
     struct sfn5122f_queue* queue = (struct sfn5122f_queue*) arg;
 
     queue->cb(queue);
 }
-
+*/
 
 /**
  * Public functions
@@ -521,7 +519,8 @@ static void interrupt_handler(void* arg)
  */
 
 errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb, 
-                               bool userlevel, bool interrupts, bool qzero)
+                               struct capref* ep, bool userlevel, bool interrupts, 
+                               bool qzero)
 {
     DEBUG_QUEUE("create called \n");
 
@@ -561,22 +560,30 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     queue->use_interrupts = interrupts;
 
     
-    iref_t iref;
-    const char *name = "sfn5122f_sfn5122fmng_devif";
+    if (ep == NULL || capref_is_null(*ep)) {
+        iref_t iref; 
+        const char *name = "sfn5122f_sfn5122fmng_devif";
 
-    // Connect to solarflare card driver
-    err = nameservice_blocking_lookup(name, &iref);
-    if (err_is_fail(err)) {
-        return err;
+        // Connect to solarflare card driver
+        err = nameservice_blocking_lookup(name, &iref);
+        if (err_is_fail(err)) {
+            return err;
+        }
+
+        DEBUG_QUEUE("binding \n");
+        err = sfn5122f_devif_bind(iref, bind_cb, queue, get_default_waitset(),
+                                  1);
+        if (err_is_fail(err)) {
+            return err;
+        }
+    } else {
+        DEBUG_QUEUE("binding \n");
+        err = sfn5122f_devif_bind_to_endpoint(*ep, bind_cb, queue, 
+                                              get_default_waitset(), 1);
+        if (err_is_fail(err)) {
+            return err;
+        }
     }
-
-    DEBUG_QUEUE("binding \n");
-    err = sfn5122f_devif_bind(iref, bind_cb, queue, get_default_waitset(),
-                              1);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
     // wait until bound
     while(!queue->bound) {
         event_dispatch(get_default_waitset());
@@ -593,27 +600,33 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
         return err;
     }
 
+    err = slot_alloc(&queue->filter_ep);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+
+    queue->core = disp_get_core_id();
+
     if (!interrupts) {
         printf("Solarflare queue used in polling mode (default %d) \n", qzero);
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
                                                  interrupts, qzero,
-                                                 0, 0, &queue->mac ,&queue->id, 
-                                                 &regs, &err2);
+                                                 queue->core, 0, &queue->mac ,&queue->id, 
+                                                 &queue->filter_ep, &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
+            printf("Failed to create queue in Driver: %s\n", err_getstring(err));
             return err;
         }
     } else {
         printf("Solarflare queue used in interrupt mode mode \n");
-        err = pci_setup_inthandler(interrupt_handler, queue, &queue->vector);
-        assert(err_is_ok(err));
-
-        queue->core = disp_get_core_id();
         
         err = queue->b->rpc_tx_vtbl.create_queue(queue->b, frame, userlevel,
                                                  interrupts, qzero, queue->core,
                                                  queue->vector, &queue->mac, 
-                                                 &queue->id, &regs, &err2);
+                                                 &queue->id, &queue->filter_ep, 
+                                                 &regs, &err2);
         if (err_is_fail(err) || err_is_fail(err2)) {
             err = err_is_fail(err) ? err: err2;
             printf("Registering interrupt failed, continueing in polling mode \n");
@@ -658,7 +671,17 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
     return SYS_ERR_OK;
 }
 
-uint64_t sfn5122f_queue_get_id(struct sfn5122f_queue* q)
+void sfn5122f_queue_get_netfilter_ep(struct sfn5122f_queue* q, struct capref* ep)
 {
+    *ep = q->filter_ep;
+}
+
+uint64_t sfn5122f_queue_get_id(struct sfn5122f_queue* q){
     return q->id;    
 }
+
+struct bench_ctl* sfn5122f_get_benchmark_data(struct devq* q, uint8_t type) 
+{
+    return sfn5122f_queue_get_benchmark_data((struct sfn5122f_queue*) q, type);
+}
+

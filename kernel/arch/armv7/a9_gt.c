@@ -41,6 +41,7 @@ void a9_gt_init(lpaddr_t addr)
     cortex_a9_gt_TimerControl_int_enable_wrf(&a9_gt, 0x1);
     cortex_a9_gt_TimerControl_auto_increment_wrf(&a9_gt, 0x0);
     cortex_a9_gt_TimerControl_prescale_wrf(&a9_gt, 0x0);
+    a9_gt_ack_irq();
 }
 
 uint64_t a9_gt_read(void)
@@ -71,4 +72,9 @@ void a9_gt_set_comparator(uint64_t timeout)
     cortex_a9_gt_TimerComparatorLow_wr(&a9_gt, timeout);
     cortex_a9_gt_TimerComparatorHigh_wr(&a9_gt, timeout >> 32);
     cortex_a9_gt_TimerControl_comp_enable_wrf(&a9_gt, 0x1);
+}
+
+void a9_gt_ack_irq(void)
+{
+    cortex_a9_gt_TimerIntStat_event_flag_wrf(&a9_gt, 0x1);
 }

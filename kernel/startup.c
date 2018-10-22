@@ -326,7 +326,7 @@ struct dcb *spawn_module(struct spawn_state *st,
     struct dispatcher_shared_generic *init_disp =
         get_dispatcher_shared_generic(init_handle);
     init_disp->disabled = true;
-    init_disp->fpu_trap = 1;
+    init_disp->curr_core_id = my_core_id;
     strncpy(init_disp->name, argv[0], DISP_NAME_LEN);
 
     /* Set fields in DCB */

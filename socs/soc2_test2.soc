@@ -1,0 +1,15 @@
+module MODA {
+    memory (0 bits 40) GDDR0
+    GDDR0 accepts [(0x000000000 to 0x0fedfffff)]
+}
+
+module DRAM {
+    memory (0 bits 40) GDDR0
+    GDDR0 accepts [(0x000000000 to 0x0fedfffff)]
+
+    memory (0 bits 40) SOCKET
+    SOCKET maps [
+        (0x0000000000 to 0x00fedfffff) to GDDR0 at (0x000000000 to 0x0fedfffff);
+        (0x00fffff000 to 0x00ffffffff) to GDDR0 at (0x00fffff000 to 0x00ffffffff )
+    ]
+}

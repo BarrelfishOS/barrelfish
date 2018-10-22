@@ -89,12 +89,13 @@ void lmp_endpoint_free(struct lmp_endpoint *ep)
  * \param buflen  Length of incoming LMP buffer, in words
  * \param dest    Location of empty slot in which to create endpoint
  * \param retep   Double pointer to LMP endpoint, filled-in with allocated EP
+ * \param iftype  Interface type of this endpoint
  *
  * This function mints into the given slot an endpoint capability to the
  * current dispatcher.
  */
-errval_t lmp_endpoint_create_in_slot(size_t buflen, struct capref dest,
-                                     struct lmp_endpoint **retep)
+errval_t lmp_endpoint_create_in_slot_with_iftype(size_t buflen, struct capref dest,
+                                                 struct lmp_endpoint **retep, uint16_t iftype)
 {
     struct lmp_endpoint *ep = NULL;
     errval_t err;
@@ -114,10 +115,31 @@ errval_t lmp_endpoint_create_in_slot(size_t buflen, struct capref dest,
 
     uintptr_t epoffset = (uintptr_t)&ep->k - (uintptr_t)curdispatcher();
 
-    // debug_printf("%s: calling mint with epoffset = %"PRIuPTR", buflen = %zu\n", __FUNCTION__, epoffset, buflen);
-
+    //debug_printf("%s: calling mint with epoffset = %"PRIuPTR", buflen = %zu\n",
+    //              __FUNCTION__, epoffset, buflen); 
     // mint new badged cap from our existing reply endpoint
-    return cap_mint(dest, cap_selfep, epoffset, buflen);
+    err = cap_mint(dest, cap_selfep, epoffset, buflen);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return invoke_endpoint_set_iftype(dest, iftype);
+}
+
+/**
+ * \brief Create endpoint to caller on current dispatcher in a specified slot.
+ *
+ * \param buflen  Length of incoming LMP buffer, in words
+ * \param dest    Location of empty slot in which to create endpoint
+ * \param retep   Double pointer to LMP endpoint, filled-in with allocated EP
+ *
+ * This function mints into the given slot an endpoint capability to the
+ * current dispatcher.
+ */
+errval_t lmp_endpoint_create_in_slot(size_t buflen, struct capref dest,
+                                     struct lmp_endpoint **retep)
+{
+    return lmp_endpoint_create_in_slot_with_iftype(buflen, dest, retep, 0);
 }
 
 /**

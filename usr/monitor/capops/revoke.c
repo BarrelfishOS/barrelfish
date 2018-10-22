@@ -8,6 +8,7 @@
  */
 
 #include <barrelfish/barrelfish.h>
+#include <barrelfish/cap_predicates.h>
 #include "monitor.h"
 #include "capops.h"
 #include "capsend.h"
@@ -16,6 +17,7 @@
 #include "delete_int.h"
 #include "dom_invocations.h"
 #include "monitor_debug.h"
+
 
 struct revoke_slave_st *slaves_head = 0, *slaves_tail = 0;
 
@@ -26,6 +28,7 @@ struct revoke_master_st {
     struct capsend_mc_st revoke_mc_st;
     struct capsend_destset dests;
     revoke_result_handler_t result_handler;
+    size_t pending_agreements;
     void *st;
     bool local_fin, remote_fin;
 };
@@ -38,6 +41,7 @@ struct revoke_slave_st {
     coreid_t from;
     genvaddr_t st;
     errval_t status;
+    size_t pending_agreements;
     struct revoke_slave_st *next;
     uint64_t seqnum;
 };
@@ -60,8 +64,286 @@ static void revoke_slave_steps__fin(void *st);
 static void revoke_done__send(struct intermon_binding *b,
                               struct intermon_msg_queue_elem *e);
 static void revoke_master_steps__fin(void *st);
+//static errval_t capops_revoke_subscribe()
 
 static uint64_t revoke_seqnum = 0;
+
+
+struct revoke_register_st
+{
+    struct monitor_client_req req;
+    struct revoke_register_st *next, **prev_next;
+    struct monitor_binding *subscriber;
+    genpaddr_t base;
+    genpaddr_t limit;
+    bool acked;
+    bool notified;
+    struct event_closure cont;
+};
+
+struct revoke_register_st *revoke_subs = NULL;
+
+static inline void revoke_subs_add(struct revoke_register_st  *rvk_st)
+{
+    rvk_st->next = revoke_subs;
+
+    if (revoke_subs) {
+        revoke_subs->prev_next = &rvk_st->next;
+    }
+    rvk_st->prev_next = &revoke_subs;
+    revoke_subs = rvk_st;
+}
+
+static inline void revoke_subs_remove(struct revoke_register_st  *rvk_st)
+{
+    if (rvk_st->next) {
+        rvk_st->next->prev_next = rvk_st->prev_next;
+    }
+
+    *rvk_st->prev_next = rvk_st->next;
+}
+
+static inline struct revoke_register_st *revoke_subs_lookup_by_id(uintptr_t id)
+{
+    struct revoke_register_st *rvk_st = revoke_subs;
+    while(rvk_st) {
+        if (rvk_st->req.reqid == id) {
+            return rvk_st;
+        }
+        rvk_st = rvk_st->next;
+    }
+}
+
+static struct revoke_register_st *
+revoke_subs_remove_by_range(genpaddr_t base, genpaddr_t limit,
+                            struct revoke_register_st *curr)
+{
+    if (curr == NULL) {
+        curr = revoke_subs;
+    } else {
+        curr = curr->next;
+    }
+
+    struct revoke_register_st *rvk_st = curr;
+    while(rvk_st) {
+        if (rvk_st->base <= base && rvk_st->limit >= limit) {
+            assert(rvk_st->prev_next);
+            *rvk_st->prev_next = rvk_st->next;
+            return rvk_st;
+        }
+        rvk_st = rvk_st->next;
+    }
+    return NULL;
+}
+
+
+static void cap_revoke_response(struct monitor_binding *sub, uintptr_t id)
+{
+    struct monitor_state *mst = sub->st;
+
+    if (mst->reqs == NULL) {
+        DEBUG_CAPOPS("Received message but no outstanding requests???");
+        assert(mst->reqs == NULL);
+    }
+
+    struct monitor_client_req *reqs = mst->reqs;
+    struct monitor_client_req **prev_next = &mst->reqs;
+    while(reqs) {
+        if (reqs->reqid == id) {
+            *prev_next = reqs->next;
+            break;
+        }
+        prev_next = &reqs->next;
+        reqs = reqs->next;
+    }
+
+    struct revoke_register_st *rvk_st = (struct revoke_register_st *)reqs;
+    rvk_st->cont.handler(rvk_st);
+}
+
+errval_t capops_revoke_register_subscribe(struct capability *cap, uintptr_t id,
+                                          struct monitor_binding *subscriber)
+{
+    assert(cap);
+    assert(subscriber);
+
+    struct revoke_register_st *rvk_st = calloc(1, sizeof(*rvk_st));
+    if (rvk_st == NULL) {
+        return LIB_ERR_MALLOC_FAIL;
+    }
+
+    rvk_st->req.reqid = id;
+    rvk_st->subscriber = subscriber;
+
+    subscriber->rx_vtbl.cap_revoke_response = cap_revoke_response;
+
+    /* set the ranges */
+    rvk_st->base = get_address(cap);
+    rvk_st->limit = rvk_st->base + get_size(cap) - 1;
+
+    DEBUG_CAPOPS("%s:%u: cap=[%" PRIxGENPADDR "..%" PRIxGENPADDR "], id=%"
+                  PRIuPTR " sub=%p\n", __FUNCTION__, __LINE__,
+                 rvk_st->base, rvk_st->limit, id, subscriber);
+
+     /* add it to the subscribers */
+    revoke_subs_add(rvk_st);
+
+    return SYS_ERR_OK;
+}
+
+
+
+static void
+revoke_agreement_request_cont(struct monitor_binding *b,
+                              struct revoke_register_st *st)
+{
+
+    errval_t err = b->tx_vtbl.cap_revoke_request(b, NOP_CONT, 0, st->req.reqid);
+    assert(err_is_ok(err));
+}
+
+static void revoke_master_cont(void *arg)
+{
+    errval_t err;
+    struct revoke_register_st *st = arg;
+    struct revoke_master_st *rvk_st = st->cont.arg;
+
+    free(arg);
+
+    rvk_st->pending_agreements--;
+    if (rvk_st->pending_agreements) {
+        return;
+    }
+
+    /* continue with the protocol */
+    DEBUG_CAPOPS("%s ## revocation: commit phase\n", __FUNCTION__);
+    err = capsend_relations(&rvk_st->rawcap, revoke_commit__send,
+                            &rvk_st->revoke_mc_st, &rvk_st->dests);
+    PANIC_IF_ERR(err, "enqueing revoke_commit multicast");
+
+    delete_steps_resume();
+
+    struct event_closure steps_fin_cont
+            = MKCLOSURE(revoke_master_steps__fin, rvk_st);
+    delete_queue_wait(&rvk_st->del_qn, steps_fin_cont);
+
+}
+
+static void revoke_slave_cont(void *arg)
+{
+    errval_t err;
+    struct revoke_register_st *st = arg;
+    struct revoke_slave_st *rvk_st = st->cont.arg;
+
+    free(arg);
+
+    rvk_st->pending_agreements--;
+    if (rvk_st->pending_agreements) {
+        return;
+    }
+
+    DEBUG_CAPOPS("### %s:%u continue with the protocol\n",
+                 __FUNCTION__, __LINE__);
+
+    /* continue with the protocol */
+    rvk_st->im_qn.cont = revoke_ready__send;
+    err = capsend_target(rvk_st->from, (struct msg_queue_elem*)rvk_st);
+    PANIC_IF_ERR(err, "enqueing revoke_ready");
+}
+
+/*
+ * TODO: the following two functions essentially do the same thing, but with
+ *       a different revoke state (slave or master)
+ */
+
+static bool capops_revoke_requires_agreement_local(struct revoke_master_st *rvk_st)
+{
+
+    if (revoke_subs == NULL) {
+        return false;
+    }
+
+    genpaddr_t base = get_address(&rvk_st->rawcap);
+    gensize_t limit = base + get_size(&rvk_st->rawcap) - 1;
+
+    DEBUG_CAPOPS("%s:%u: cap=[%" PRIxGENPADDR "..%" PRIxGENPADDR "]\n",
+                 __FUNCTION__, __LINE__, base, limit);
+
+    struct revoke_register_st *st = revoke_subs_remove_by_range(base, limit, NULL);
+    if (st == NULL) {
+        DEBUG_CAPOPS("### %s:%u no matching request\n",
+                     __FUNCTION__, __LINE__);
+        return false;
+    }
+
+    while(st != NULL) {
+        if (st->notified) {
+            /* don't notify two times, shouldn't actually happen */
+            st = revoke_subs_remove_by_range(base, limit, st);
+            continue;
+        }
+
+        struct monitor_binding *b = st->subscriber;
+        struct monitor_state *mst = b->st;
+
+        st->req.next = mst->reqs;
+        mst->reqs = &st->req;
+        st->notified = true;
+        st->cont.arg = rvk_st;
+        st->cont.handler = revoke_master_cont;
+        rvk_st->pending_agreements++;
+        revoke_agreement_request_cont(b, st);
+
+        st = revoke_subs_remove_by_range(base, limit, st);
+    }
+
+    return true;
+}
+
+
+static bool capops_revoke_requires_agreement_relations(struct revoke_slave_st *rvk_st)
+{
+    if (revoke_subs == NULL) {
+        return false;
+    }
+
+    genpaddr_t base = get_address(&rvk_st->rawcap);
+    gensize_t limit = base + get_size(&rvk_st->rawcap) - 1;
+
+
+    DEBUG_CAPOPS("%s:%u: cap=[%" PRIxGENPADDR "..%" PRIxGENPADDR "]\n",
+                 __FUNCTION__, __LINE__, base, limit);
+
+    struct revoke_register_st *st = revoke_subs_remove_by_range(base, limit, NULL);
+    if (st == NULL) {
+        DEBUG_CAPOPS("### %s:%u no matching request\n",
+                     __FUNCTION__, __LINE__);
+        return false;
+    }
+
+    while(st != NULL) {
+        if (st->notified) {
+            /* don't notify two times, should'nt actually happen */
+            st = revoke_subs_remove_by_range(base, limit, st);
+            continue;
+        }
+
+        struct monitor_binding *b = st->subscriber;
+        struct monitor_state *mst = b->st;
+
+        st->req.next = mst->reqs;
+        mst->reqs = &st->req;
+        st->notified = true;
+        st->cont.arg = rvk_st;
+        st->cont.handler = revoke_slave_cont;
+        rvk_st->pending_agreements++;
+        revoke_agreement_request_cont(b, st);
+
+        st = revoke_subs_remove_by_range(base, limit, st);
+    }
+
+    return true;
+}
 
 void
 capops_revoke(struct domcapref cap,
@@ -78,6 +360,7 @@ capops_revoke(struct domcapref cap,
     GOTO_IF_ERR(err, report_error);
 
     if (distcap_state_is_busy(state)) {
+        DEBUG_CAPOPS("%s MON_ERR_REMOTE_CAP_RETRY\n", __FUNCTION__);
         err = MON_ERR_REMOTE_CAP_RETRY;
         goto report_error;
     }
@@ -189,7 +472,6 @@ revoke_local(struct revoke_master_st *st)
                                      st->cap.level);
     PANIC_IF_ERR(err, "marking revoke");
 
-
     TRACE(CAPOPS, REVOKE_DO_MARK, 0);
     DEBUG_CAPOPS("%s ## revocation: mark phase\n", __FUNCTION__);
     // XXX: could check whether remote copies exist here(?), -SG, 2014-11-05
@@ -294,6 +576,10 @@ revoke_mark__rx(struct intermon_binding *b,
         USER_PANIC_ERR(err, "marking revoke");
     }
 
+    if (capops_revoke_requires_agreement_relations(rvk_st)) {
+        return;
+    }
+
     rvk_st->im_qn.cont = revoke_ready__send;
     err = capsend_target(rvk_st->from, (struct msg_queue_elem*)rvk_st);
     PANIC_IF_ERR(err, "enqueing revoke_ready");
@@ -338,6 +624,10 @@ revoke_ready__rx(struct intermon_binding *b, genvaddr_t st)
     }
 
     TRACE(CAPOPS, REVOKE_DO_COMMIT, 0);
+    if (capops_revoke_requires_agreement_local(rvk_st)) {
+        return;
+    }
+
     DEBUG_CAPOPS("%s ## revocation: commit phase\n", __FUNCTION__);
     err = capsend_relations(&rvk_st->rawcap, revoke_commit__send,
             &rvk_st->revoke_mc_st, &rvk_st->dests);

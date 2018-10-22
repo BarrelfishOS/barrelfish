@@ -27,7 +27,7 @@ if [ "$#" -gt 2 ] ; then
     fi
 
     export M5_PATH=$(realpath $3)
-    PORT="--console-port=$4"
+    PORT="--dist-server-port=$4"
 fi
 
 if [ -z "$M5_PATH" ]; then

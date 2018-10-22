@@ -82,17 +82,18 @@ static inline unsigned long bf_ticks(void)
 }
 #endif
 
-
 void *sbrk(intptr_t increment)
 {
+#ifdef SBRK_COLLECT_STATS
     uint64_t start = bf_ticks();
+#endif
     errval_t err;
     size_t orig_offset;
 
     if (!memobj) { // Initialize
-        err = vspace_map_anon_nomalloc(&base, &memobj_, &vregion_,
-                                       SBRK_REGION_BYTES, NULL,
-                                       SBRK_FLAGS, SBRK_REGION_ALIGNMENT);
+        err = vspace_map_append_nomalloc(&base, &memobj_, &vregion_,
+                                         SBRK_REGION_BYTES, NULL,
+                                         SBRK_FLAGS, SBRK_REGION_ALIGNMENT);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "vspace_map_anon_nomalloc failed");
             return (void *)-1;

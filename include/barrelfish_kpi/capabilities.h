@@ -57,9 +57,12 @@ STATIC_ASSERT((L2_CNODE_SLOTS  * (1UL << OBJBITS_CTE)) == OBJSIZE_L2CNODE,
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(58 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
 
-    return (type == ObjType_VNode_x86_64_pml4 ||
+    return (type == ObjType_VNode_VTd_root_table ||
+            type == ObjType_VNode_VTd_ctxt_table ||
+            type == ObjType_VNode_x86_64_pml5 ||
+            type == ObjType_VNode_x86_64_pml4 ||
             type == ObjType_VNode_x86_64_pdpt ||
             type == ObjType_VNode_x86_64_pdir ||
             type == ObjType_VNode_x86_64_ptable ||
@@ -81,7 +84,7 @@ static inline bool type_is_vnode(enum objtype type)
 
 static inline bool type_is_vroot(enum objtype type)
 {
-    STATIC_ASSERT(58 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
             type == ObjType_VNode_x86_64_ept_pml4 ||
@@ -101,12 +104,15 @@ static inline bool type_is_vroot(enum objtype type)
  *
  * @return Number of bits a VNode object occupies.
  */
-static inline size_t vnode_objbits(enum objtype type)
+static inline uint8_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(58 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
 
-    if (type == ObjType_VNode_x86_64_pml4 ||
+    if (type == ObjType_VNode_VTd_root_table ||
+        type == ObjType_VNode_VTd_ctxt_table ||
+        type == ObjType_VNode_x86_64_pml5 ||
+        type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
         type == ObjType_VNode_x86_64_pdir ||
         type == ObjType_VNode_x86_64_ptable ||
@@ -142,7 +148,7 @@ static inline size_t vnode_objbits(enum objtype type)
 
 static inline bool type_is_ept(enum objtype type)
 {
-    STATIC_ASSERT(58 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_ept_pml4 ||
             type == ObjType_VNode_x86_64_ept_pdpt ||
@@ -163,9 +169,12 @@ static inline bool type_is_ept(enum objtype type)
 static inline size_t vnode_objsize(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(58 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
 
-    if (type == ObjType_VNode_x86_64_pml4 ||
+    if (type == ObjType_VNode_VTd_root_table ||
+        type == ObjType_VNode_VTd_ctxt_table ||
+        type == ObjType_VNode_x86_64_pml5 ||
+        type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
         type == ObjType_VNode_x86_64_pdir ||
         type == ObjType_VNode_x86_64_ptable ||
@@ -209,9 +218,12 @@ static inline size_t vnode_objsize(enum objtype type)
  */
 static inline size_t vnode_entry_bits(enum objtype type) {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(58 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
 
-    if (type == ObjType_VNode_x86_64_pml4 ||
+    if (type == ObjType_VNode_VTd_root_table ||
+        type == ObjType_VNode_VTd_ctxt_table ||
+        type == ObjType_VNode_x86_64_pml5 ||
+        type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
         type == ObjType_VNode_x86_64_pdir ||
         type == ObjType_VNode_x86_64_ptable ||
@@ -267,7 +279,7 @@ static inline size_t vnode_entry_bits(enum objtype type) {
  * @return Number of page table entries in bits
  */
 static inline size_t cnode_get_slots(struct capability *cnode) {
-    STATIC_ASSERT(58 == ObjType_Num, "Check CNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check CNode definitions");
 
     switch (cnode->type) {
         case ObjType_L1CNode:
@@ -282,13 +294,21 @@ static inline size_t cnode_get_slots(struct capability *cnode) {
 
 static inline enum objtype get_mapping_type(enum objtype captype)
 {
-    STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all mapping types");
+    STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all mapping types");
 
     switch (captype) {
         case ObjType_Frame:
             return ObjType_Frame_Mapping;
+        case ObjType_EndPointUMP:
+            return ObjType_EndPointUMP_Mapping;
         case ObjType_DevFrame:
             return ObjType_DevFrame_Mapping;
+        case ObjType_VNode_VTd_root_table:
+            return ObjType_VNode_VTd_root_table_Mapping;
+        case ObjType_VNode_VTd_ctxt_table:
+            return ObjType_VNode_VTd_ctxt_table_Mapping;
+        case ObjType_VNode_x86_64_pml5:
+            return ObjType_VNode_x86_64_pml5_Mapping;
         case ObjType_VNode_x86_64_pml4:
             return ObjType_VNode_x86_64_pml4_Mapping;
         case ObjType_VNode_x86_64_pdpt:
@@ -331,11 +351,15 @@ static inline enum objtype get_mapping_type(enum objtype captype)
 
 static inline bool type_is_mapping(enum objtype type)
 {
-    STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all mapping types");
+    STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all mapping types");
 
     switch (type) {
         case ObjType_Frame_Mapping:
+        case ObjType_EndPointUMP_Mapping:
         case ObjType_DevFrame_Mapping:
+        case ObjType_VNode_VTd_root_table_Mapping:
+        case ObjType_VNode_VTd_ctxt_table_Mapping:
+        case ObjType_VNode_x86_64_pml5_Mapping:
         case ObjType_VNode_x86_64_pml4_Mapping:
         case ObjType_VNode_x86_64_pdpt_Mapping:
         case ObjType_VNode_x86_64_pdir_Mapping:
@@ -363,11 +387,15 @@ static inline bool type_is_mapping(enum objtype type)
 
 static inline bool type_is_mappable(enum objtype type)
 {
-    STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all mappable types");
+    STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all mappable types");
 
     switch (type) {
         case ObjType_Frame:
+        case ObjType_EndPointUMP:
         case ObjType_DevFrame:
+        case ObjType_VNode_VTd_root_table:
+        case ObjType_VNode_VTd_ctxt_table:
+        case ObjType_VNode_x86_64_pml5:
         case ObjType_VNode_x86_64_pml4:
         case ObjType_VNode_x86_64_pdpt:
         case ObjType_VNode_x86_64_pdir:
@@ -547,6 +575,19 @@ enum io_cmd {
 };
 
 /**
+ * DeviceID Manager Commands
+ */
+
+enum devidman_cmd {
+    DeviceIDManager_CreateID,   ///< Create a new DeviceID
+};
+
+enum devid_cmd {
+    DeviceID_Identify,          ///< Identify a device identity
+};
+
+
+/**
  * Notify capability commands.
  */
 enum notify_cmd {
@@ -580,6 +621,14 @@ enum ipi_cmd {
     IPICmd_Send_Start,     ///< Send Startup IPI to a destination core
     IPICmd_Send_Init,      ///< Send Init IPI to a destination core
 };
+
+enum ep_cmd {
+    EndPointCMD_FrameIdentify, ///< Identifies Just the Frame Endpoint
+    EndPointCMD_Identify,      ///< Identifies the Endpoint
+    EndPointCMD_SetIftype,      ///< Identifies the Endpoint
+};
+
+
 /**
  * Maximum command ordinal.
  */
@@ -591,6 +640,7 @@ enum ipi_cmd {
 struct frame_identity {
     genpaddr_t base;   ///< Physical base address of frame
     gensize_t  bytes;  ///< Size of frame, in bytes
+    pasid_t    pasid;  ///< the address space id
 };
 
 /**
@@ -599,6 +649,36 @@ struct frame_identity {
 struct vnode_identity {
     genpaddr_t base;   ///< Physical base address of the VNode
     uint8_t type;      ///< Type of VNode
+};
+
+/**
+ * @brief values for the type field in the device_identity struct below
+ */
+typedef enum {
+    DEVICE_ID_TYPE_UNKNOWN = 0,
+    DEVICE_ID_TYPE_PCI     = 1,
+    DEVICE_ID_TYPE_USB     = 2,
+    DEVICE_ID_TYPE_MAX     = 3,
+} device_id_type_t;
+
+/**
+ * \brief Values returned from the DeviceID identify invocation
+ */
+struct device_identity {
+    uint16_t segment;
+    uint8_t  bus;
+    uint8_t  device;
+    uint8_t  function;
+    uint8_t  type;
+    uint16_t flags;
+};
+
+
+struct endpoint_identity {
+    genpaddr_t base;   ///< Physical Address of the Endpoint
+    gensize_t  length; ///< Length of the Endpoint
+    uint16_t   iftype; ///< interface type
+    uint16_t   eptype; ///< type of the endpoint
 };
 
 #endif // __ASSEMBLER__

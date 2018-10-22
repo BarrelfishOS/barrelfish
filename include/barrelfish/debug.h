@@ -39,7 +39,7 @@ int debug_print_capref(char *buf, size_t len, struct capref cap);
 int debug_print_cnoderef(char *buf, size_t len, struct cnoderef cnode);
 
 void debug_print_save_area(arch_registers_state_t *state);
-void debug_print_fpu_state(arch_registers_fpu_state_t *state);
+void debug_print_fpu_state(arch_registers_state_t *state);
 void debug_dump(arch_registers_state_t *state);
 void debug_call_chain(arch_registers_state_t *state);
 void debug_return_addresses(void);

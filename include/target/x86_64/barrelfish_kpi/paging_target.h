@@ -69,6 +69,7 @@ typedef uint64_t paging_x86_64_flags_t;
     (X86_64_PTABLE_EXECUTE_DISABLE | X86_64_PTABLE_USER_SUPERVISOR)
 
 /* Macros to compute the corresponding portions of the vaddr */
+#define X86_64_PML5_BASE(base)         (((uint64_t)(base) >> 48) & X86_64_PTABLE_MASK)
 #define X86_64_PML4_BASE(base)         (((uint64_t)(base) >> 39) & X86_64_PTABLE_MASK)
 #define X86_64_PDPT_BASE(base)         (((uint64_t)(base) >> 30) & X86_64_PTABLE_MASK)
 #define X86_64_PDIR_BASE(base)         (((uint64_t)(base) >> 21) & X86_64_PTABLE_MASK)

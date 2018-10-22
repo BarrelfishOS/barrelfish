@@ -112,9 +112,9 @@ void handle_user_undef(lvaddr_t fault_address, enum aarch64_exception_class caus
         assert(save_area == &disp->enabled_save_area);
     }
 
-    printk(LOG_WARN, "user undef fault (0x%lx)%s in '%.*s': IP %" PRIuPTR "\n",
+    printk(LOG_WARN, "user undef fault (0x%lx)%s in '%.*s': IP 0x%lx x29:%lx x30:%lx sp:%lx\n",
            cause, disabled ? " WHILE DISABLED" : "", DISP_NAME_LEN,
-           disp->d.name, fault_address);
+           disp->d.name, fault_address, save_area->named.x29, save_area->named.x30, save_area->named.stack);
 
     struct dispatcher_shared_generic *disp_gen =
         get_dispatcher_shared_generic(dcb_current->disp);
@@ -205,6 +205,26 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 {
     uint32_t irq = 0;
 
+    /* Save the FPU registers */
+    __asm volatile(
+        "   stp q0, q1, [%x0, #0]\n\t"
+        "   stp q2, q3, [%x0, #0x20]\n\t"
+        "   stp q4, q5, [%x0, #0x40]\n\t"
+        "   stp q6, q7, [%x0, #0x60]\n\t"
+        "   stp q8, q9, [%x0, #0x80]\n\t"
+        "   stp q10, q11, [%x0, #0xa0]\n\t"
+        "   stp q12, q13, [%x0, #0xc0]\n\t"
+        "   stp q14, q15, [%x0, #0xe0]\n\t"
+        "   stp q16, q17, [%x0, #0x100]\n\t"
+        "   stp q18, q19, [%x0, #0x120]\n\t"
+        "   stp q20, q21, [%x0, #0x140]\n\t"
+        "   stp q22, q23, [%x0, #0x160]\n\t"
+        "   stp q24, q25, [%x0, #0x180]\n\t"
+        "   stp q26, q27, [%x0, #0x1a0]\n\t"
+        "   stp q28, q29, [%x0, #0x1c0]\n\t"
+        "   stp q30, q31, [%x0, #0x1e0]\n\t"
+         :: "r" (&save_area->named.v));
+
     /* The assembly stub leaves the first 4 registers, the stack pointer,
      * the exception PC, and the SPSR for us to save, as it's run out of room for
      * the necessary instructions. */
@@ -216,7 +236,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
     save_area->named.spsr  = armv8_SPSR_EL1_rd(NULL);
     save_area->named.pc    = fault_pc;
 
-    irq = gicv3_get_active_irq();
+    irq = gic_get_active_irq();
 
     // printk(LOG_NOTE, "handle_irq IRQ %"PRIu32"\n", irq);
 
@@ -255,13 +275,14 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
     else
 #endif
 
-    if (irq == 30 || irq==29) {
-        gicv3_ack_irq(irq);
+    if (irq == 30 || irq == 29) {
+        gic_ack_irq(irq);
         timer_reset(CONFIG_TIMESLICE);
         dispatch(schedule());
     }
     else {
-        gicv3_ack_irq(irq);
+    printf("%s: %d\n", __func__, irq);
+        gic_ack_irq(irq);
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
     }
@@ -278,6 +299,26 @@ void fatal_kernel_fault(lvaddr_t epc, uint64_t spsr, uint64_t esr,
     enum aarch64_exception_class exception_class = FIELD(26,6,esr);
     /* int instruction_length = FIELD(25,1,esr); */
     int iss                = FIELD(0,25,esr);
+
+    /* Save the FPU registers */
+    __asm volatile(
+        "   stp q0, q1, [%x0, #0]\n\t"
+        "   stp q2, q3, [%x0, #0x20]\n\t"
+        "   stp q4, q5, [%x0, #0x40]\n\t"
+        "   stp q6, q7, [%x0, #0x60]\n\t"
+        "   stp q8, q9, [%x0, #0x80]\n\t"
+        "   stp q10, q11, [%x0, #0xa0]\n\t"
+        "   stp q12, q13, [%x0, #0xc0]\n\t"
+        "   stp q14, q15, [%x0, #0xe0]\n\t"
+        "   stp q16, q17, [%x0, #0x100]\n\t"
+        "   stp q18, q19, [%x0, #0x120]\n\t"
+        "   stp q20, q21, [%x0, #0x140]\n\t"
+        "   stp q22, q23, [%x0, #0x160]\n\t"
+        "   stp q24, q25, [%x0, #0x180]\n\t"
+        "   stp q26, q27, [%x0, #0x1a0]\n\t"
+        "   stp q28, q29, [%x0, #0x1c0]\n\t"
+        "   stp q30, q31, [%x0, #0x1e0]\n\t"
+         :: "r" (&save_area->named.v));
 
     printk(LOG_PANIC, "Fatal (unexpected) fault at 0x%"PRIx64 " (%#" PRIx64 ")\n\n", epc, epc - (uintptr_t)&kernel_first_byte);
     printk(LOG_PANIC, "Register context saved at: %p\n", save_area);

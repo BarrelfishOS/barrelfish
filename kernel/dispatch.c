@@ -38,9 +38,6 @@
 #  include <vmkit.h>
 #endif
 
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-#  include <fpu.h>
-#endif
 
 /**
  * \brief The kernel timeslice given in system ticks
@@ -55,77 +52,6 @@ uint64_t context_switch_counter = 0;
 /// Current execution dispatcher (when in system call or exception)
 struct dcb *dcb_current = NULL;
 
-/// Remembered FPU-using DCB (NULL if none)
-struct dcb *fpu_dcb = NULL;
-
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-void
-fpu_lazy_top(struct dcb *dcb) {
-    // XXX: It should be possible to merge this code fragment with the
-    // other FPU restore fragment below
-    if(fpu_dcb != NULL && !dcb->is_vm_guest) {
-        struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(dcb->disp);
-
-        // Switch FPU trap on if we switch away from FPU DCB and target is enabled
-        // If target disabled, we eagerly restore the FPU
-        if(fpu_dcb != dcb && !dcb->disabled) {
-            disp->fpu_trap = 1;
-        }
-
-        // Restore FPU trap state
-        if(disp->fpu_trap) {
-            fpu_trap_on();
-        } else {
-            fpu_trap_off();
-        }
-    }
-}
-
-void
-fpu_lazy_bottom(struct dcb *dcb) {
-    struct dispatcher_shared_generic *disp =
-        get_dispatcher_shared_generic(dcb->disp);
-
-    // Eagerly restore FPU if it was used disabled and set FPU trap accordingly
-    if(disp->fpu_used && dcb->disabled) {
-        // Context switch if FPU state is stale
-        if(fpu_dcb != dcb) {
-            // XXX: Need to reset fpu_dcb when that DCB is deleted
-            struct dispatcher_shared_generic *dst =
-                get_dispatcher_shared_generic(fpu_dcb->disp);
-
-            fpu_trap_off();
-
-            // Store old FPU state if it was used
-            if(fpu_dcb->disabled) {
-                fpu_save(dispatcher_get_disabled_fpu_save_area(fpu_dcb->disp));
-                dst->fpu_used = 1;
-            } else {
-                assert(!fpu_dcb->disabled);
-                fpu_save(dispatcher_get_enabled_fpu_save_area(fpu_dcb->disp));
-                dst->fpu_used = 2;
-            }
-
-            if(disp->fpu_used == 1) {
-              fpu_restore(dispatcher_get_disabled_fpu_save_area(dcb->disp));
-            } else {
-              assert(disp->fpu_used == 2);
-              fpu_restore(dispatcher_get_enabled_fpu_save_area(dcb->disp));
-            }
-
-            // Restore trap state once more, since we modified it
-            if(disp->fpu_trap) {
-                fpu_trap_on();
-            } else {
-                fpu_trap_off();
-            }
-        }
-        fpu_dcb = dcb;
-    }
-}
-#endif
-
 #if CONFIG_TRACE && NETWORK_STACK_BENCHMARK
 #define TRACE_N_BM 1
 #endif // CONFIG_TRACE && NETWORK_STACK_BENCHMARK
@@ -133,15 +59,6 @@ fpu_lazy_bottom(struct dcb *dcb) {
 
 void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
 {
-#ifdef FPU_LAZY_CONTEXT_SWITCH
-    // Save state of FPU trap for this domain (treat it like normal context switched state)
-    if(dcb_current != NULL && !dcb_current->is_vm_guest) {
-        struct dispatcher_shared_generic *disp =
-            get_dispatcher_shared_generic(dcb_current->disp);
-        disp->fpu_trap = fpu_trap_get();
-    }
-#endif
-
     // XXX FIXME: Why is this null pointer check on the fast path ?
     // If we have nothing to do we should call something other than dispatch
     if (dcb == NULL) {
@@ -170,7 +87,7 @@ void __attribute__ ((noreturn)) dispatch(struct dcb *dcb)
     arch_registers_state_t *disabled_area =
         dispatcher_get_disabled_save_area(handle);
 
-    if(disp != NULL) {
+    if (disp != NULL) {
         disp->systime = systime_now() + kcb_current->kernel_off;
     }
     TRACE(KERNEL, SC_YIELD, 1);
@@ -233,15 +150,15 @@ static errval_t lmp_transfer_cap(struct capability *ep, struct dcb *send,
     assert(send_cptr != CPTR_NULL);
     assert(send != NULL);
     assert(ep != NULL);
-    assert(ep->type == ObjType_EndPoint);
-    struct dcb *recv = ep->u.endpoint.listener;
+    assert(ep->type == ObjType_EndPointLMP);
+    struct dcb *recv = ep->u.endpointlmp.listener;
     assert(recv != NULL);
-    assert(ep->u.endpoint.epoffset != 0);
+    assert(ep->u.endpointlmp.epoffset != 0);
 
-    // printk(LOG_NOTE, "%s: ep->u.endpoint.epoffset = %"PRIuLVADDR"\n", __FUNCTION__, ep->u.endpoint.epoffset);
+    // printk(LOG_NOTE, "%s: ep->u.endpointlmp.epoffset = %"PRIuLVADDR"\n", __FUNCTION__, ep->u.endpointlmp.epoffset);
     /* Look up the slot receiver can receive caps in */
     struct lmp_endpoint_kern *recv_ep
-        = (void *)((uint8_t *)recv->disp + ep->u.endpoint.epoffset);
+        = (void *)((uint8_t *)recv->disp + ep->u.endpointlmp.epoffset);
 
     // Lookup cspace root for receiving
     struct capability *recv_cspace_cap;
@@ -313,21 +230,21 @@ errval_t lmp_can_deliver_payload(struct capability *ep,
                                  size_t payload_len)
 {
     assert(ep != NULL);
-    assert(ep->type == ObjType_EndPoint);
-    struct dcb *recv = ep->u.endpoint.listener;
+    assert(ep->type == ObjType_EndPointLMP);
+    struct dcb *recv = ep->u.endpointlmp.listener;
     assert(recv != NULL);
 
     /* check that receiver exists and has specified an endpoint buffer */
-    if (recv->disp == 0 || ep->u.endpoint.epoffset == 0) {
+    if (recv->disp == 0 || ep->u.endpointlmp.epoffset == 0) {
         return SYS_ERR_LMP_NO_TARGET;
     }
 
     /* locate receiver's endpoint buffer */
     struct lmp_endpoint_kern *recv_ep
-        = (void *)((uint8_t *)recv->disp + ep->u.endpoint.epoffset);
+        = (void *)((uint8_t *)recv->disp + ep->u.endpointlmp.epoffset);
 
     /* check delivered/consumed state */
-    uint32_t epbuflen = ep->u.endpoint.epbuflen;
+    uint32_t epbuflen = ep->u.endpointlmp.epbuflen;
     uint32_t pos = recv_ep->delivered;
     uint32_t consumed = recv_ep->consumed;
     if (pos >= epbuflen || consumed >= epbuflen) {
@@ -369,8 +286,8 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
                              bool captransfer, bool now)
 {
     assert(ep != NULL);
-    assert(ep->type == ObjType_EndPoint);
-    struct dcb *recv = ep->u.endpoint.listener;
+    assert(ep->type == ObjType_EndPointLMP);
+    struct dcb *recv = ep->u.endpointlmp.listener;
     assert(recv != NULL);
     assert(payload != NULL || payload_len == 0);
 
@@ -383,10 +300,10 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
 
     /* locate receiver's endpoint buffer */
     struct lmp_endpoint_kern *recv_ep
-        = (void *)((uint8_t *)recv->disp + ep->u.endpoint.epoffset);
+        = (void *)((uint8_t *)recv->disp + ep->u.endpointlmp.epoffset);
 
     /* read current pos and buflen */
-    uint32_t epbuflen = ep->u.endpoint.epbuflen;
+    uint32_t epbuflen = ep->u.endpointlmp.epbuflen;
     uint32_t pos = recv_ep->delivered;
 
     struct dispatcher_shared_generic *send_disp =
@@ -423,7 +340,7 @@ errval_t lmp_deliver_payload(struct capability *ep, struct dcb *send,
     recv_disp->lmp_delivered += payload_len + LMP_RECV_HEADER_LENGTH;
 
     // ... and give it a hint which one to look at
-    recv_disp->lmp_hint = ep->u.endpoint.epoffset;
+    recv_disp->lmp_hint = ep->u.endpointlmp.epoffset;
 
     // Make target runnable
     make_runnable(recv);
@@ -449,8 +366,8 @@ errval_t lmp_deliver(struct capability *ep, struct dcb *send,
 {
     bool captransfer;
     assert(ep != NULL);
-    assert(ep->type == ObjType_EndPoint);
-    struct dcb *recv = ep->u.endpoint.listener;
+    assert(ep->type == ObjType_EndPointLMP);
+    struct dcb *recv = ep->u.endpointlmp.listener;
     assert(recv != NULL);
     assert(payload != NULL);
 

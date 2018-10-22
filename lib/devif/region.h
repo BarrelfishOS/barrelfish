@@ -40,9 +40,13 @@ struct region {
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
+/*
 errval_t region_init(struct region** region,
                      regionid_t region_id,
+                     lpaddr_t base_addr,
+                     size_t len,
                      struct capref* cap);
+*/
 /**
  * @brief free up a region
  *
@@ -50,6 +54,6 @@ errval_t region_init(struct region** region,
  *
  * @returns error on failure or SYS_ERR_OK on success
  */
-errval_t region_destroy(struct region* region);
+//errval_t region_destroy(struct region* region);
 
 #endif /* REGION_H_ */

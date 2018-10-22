@@ -12,6 +12,9 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/spawn_client.h>
+#include <driverkit/driverkit.h>
+#include <driverkit/control.h>
+#include <collections/list.h>
 
 #include <pci/pci.h> // for pci_address
 
@@ -25,8 +28,8 @@
 
 #include "kaluga.h"
 
-#if defined(__x86__) || defined(__ARM_ARCH_8A__)
-
+//#if defined(__x86__) || defined(__ARM_ARCH_8A__)
+#if 1
 // Add an argument to argc/argv pair. argv must be mallocd!
 static void argv_push(int * argc, char *** argv, char * new_arg){
     int new_size = *argc + 1;
@@ -41,6 +44,8 @@ static void argv_push(int * argc, char *** argv, char * new_arg){
     (*argv)[new_size-1] = new_arg;
     (*argv)[new_size] = NULL;
 }
+
+#ifndef __ARM_ARCH_7A__
 
 errval_t default_start_function(coreid_t where,
                                 struct module_info* mi,
@@ -120,6 +125,7 @@ errval_t default_start_function(coreid_t where,
 
     return err;
 }
+#endif
 
 /*
 static void handler(void* arg) {
@@ -179,7 +185,7 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
 
     // If driver instance not yet started, start. 
     // In case of multi instance, we start a new domain every time
-    if (mi->driverinstance == NULL || mi->allow_multi) {
+    if (mi->driverinstance == NULL) {
         KALUGA_DEBUG("Creating new driver domain for %s\n", mi->binary);
         inst = instantiate_driver_domain(mi->binary, where);
         if (inst == NULL) {
@@ -193,16 +199,11 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
         }   
 
     } else {
+        inst = mi->driverinstance;
         KALUGA_DEBUG("Reusing existing driver domain %s\n", mi->binary);
     }
 
-    char module_name[100];
-    sprintf(module_name, "%s_module", mi->binary);
-
-    struct driver_instance* drv = ddomain_create_driver_instance(module_name, oct_id);
-
-    char *args[4] = {NULL, NULL, NULL, NULL};
-    int args_len = 0;
+    struct driver_instance* drv = ddomain_create_driver_instance(arg->module_name, oct_id);
 
     // Build interrupt argument
     char * int_arg_str = NULL;
@@ -210,7 +211,7 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
         // This mallocs int_arg_str
         int_startup_argument_to_string(&(arg->int_arg), &int_arg_str);
         KALUGA_DEBUG("Adding int_arg_str: %s\n", int_arg_str);
-        args[args_len++] = int_arg_str;
+        argv_push(&argc, &argv, int_arg_str);
     }
 
     // Build PCI address argument
@@ -220,9 +221,9 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
     pci_serialize_octet(addr, id, cls, pci_arg_str + strlen("pci="));
     argv_push(&argc, &argv, pci_arg_str);
 
-    args[args_len++] = pci_arg_str;
+    drv->args = argv;
+    drv->argcn_cap = arg->arg_caps;
 
-    drv->args = args;
     drv->caps[0] = arg->arg_caps; // Interrupt cap
 
     ddomain_instantiate_driver(inst, drv);
@@ -231,8 +232,45 @@ default_start_function_new(coreid_t where, struct module_info* mi, char* record,
     return SYS_ERR_OK;
 }
 
+static int32_t predicate(void* data, void* arg)
+{
+    struct driver_instance* drv = (struct driver_instance*) data;
+    if (strncmp(drv->inst_name, arg, strlen(drv->inst_name)) == 0) {
+        return 1;
+    }
+    return 0;
+}
+
+static errval_t get_driver_ep(coreid_t where, struct module_info* driver,
+                              char* oct_id, struct capref* ret_ep)
+{
+    errval_t err;
+    struct driver_instance* drv = (struct driver_instance*) 
+                                  collections_list_find_if(driver->driverinstance->spawned, 
+                                                           predicate, oct_id);
+
+    if (drv == NULL) {
+        return DRIVERKIT_ERR_NO_DRIVER_FOUND;
+    }
+
+    err = driverkit_get_driver_ep_cap(drv, ret_ep, (where == driver->core));
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    return SYS_ERR_OK;
+}
+
+static struct driver_instance* get_driver_instance(struct module_info* driver, 
+                                                   char* oct_id)
+{
+     return collections_list_find_if(driver->driverinstance->spawned, 
+                                     predicate, oct_id);
+
+}
+
 /**
- * \brief Startup function for new-style ARMv7 drivers.
+ * \brief Startup function for new-style x86 drivers for NICs.
  *
  * Launches the driver instance in a driver domain instead.
  */
@@ -245,8 +283,9 @@ errval_t start_networking_new(coreid_t where,
     errval_t err = SYS_ERR_OK;
 
     if (is_started(driver)) {
-        printf("Already started %s\n", driver->binary);
-        return KALUGA_ERR_DRIVER_ALREADY_STARTED;
+        if (strstr(int_arg->module_name, "_vf_") == NULL) {
+            return KALUGA_ERR_DRIVER_ALREADY_STARTED;
+        }
     }
 
     if (!is_auto_driver(driver)) {
@@ -260,45 +299,106 @@ errval_t start_networking_new(coreid_t where,
         return err;
     }
 
-
-    // cards with driver in seperate process TODO might put into same process
-    struct module_info* net_sockets = find_module("net_sockets_server");
-    if (net_sockets == NULL) {
-        printf("Net sockets server not found\n");
-        return KALUGA_ERR_DRIVER_NOT_AUTO;
-    }
-
     // TODO: Determine cls here as well
-    struct pci_id id;
-    struct pci_addr addr;
     struct pci_class cls = {0,0,0};
     int64_t vendor_id, device_id, bus, dev, fun;
-    err = oct_read(record, "_ { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
-                    &bus, &dev, &fun,
+    char* oct_id;
+    err = oct_read(record, "%s { bus: %d, device: %d, function: %d, vendor: %d, device_id: %d }",
+                    &oct_id, &bus, &dev, &fun,
                     &vendor_id, &device_id);
-
-    if(err_is_fail(err)){
-        DEBUG_ERR(err, "oct_read");
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Parsing record %s failed.", record);
         return err;
     }
-    addr.bus = bus;
-    addr.device = dev;
-    addr.function = fun;
-    id.device = device_id;
-    id.vendor = vendor_id;
 
-    char * pci_arg_str = malloc(PCI_OCTET_LEN);
-    assert(pci_arg_str);
-    pci_serialize_octet(addr, id, cls, pci_arg_str);
-    // TODO PCI octet
-    // Spawn net_sockets_server
-    net_sockets->argv[0] = "net_sockets_server";
-    net_sockets->argv[1] = "auto";
-    net_sockets->argv[2] = driver->binary;
-    net_sockets->argv[3] = pci_arg_str;
+    // add way to request endpoint through service
+    struct driver_instance* drv = get_driver_instance(driver, oct_id);
+    if (drv != NULL) {
+        char qf_name[256];
+        sprintf(qf_name, "%s:%"PRIu64":%"PRIu64":%"PRIu64"", driver->binary, bus, dev, fun); 
 
-    err = spawn_program(where, net_sockets->path, net_sockets->argv, environ, 0,
-                        get_did_ptr(net_sockets));
+        err = queue_service_add_ep_factory(qs, qf_name, where, drv);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Could not add EP factory (%s) to queue service.", qf_name);
+            return err;
+        }
+    }
+
+    if (!is_started(driver)) {
+        // netsocket server in seperate process TODO might put into same process
+        struct module_info* mi = find_module("net_sockets_server");
+        if (mi == NULL) {
+            KALUGA_DEBUG("Net_socket_server not found\n", binary_name);
+            return err;
+        }
+
+        static struct domain_instance* inst;
+        KALUGA_DEBUG("Creating new driver domain for net_sockets_server\n");
+        // TODO for now alway start on core 0
+        inst = instantiate_driver_domain("net_sockets_server", 0);
+        if (inst == NULL) {
+            return DRIVERKIT_ERR_DRIVER_INIT;
+        }
+
+        while (inst->b == NULL) {
+            event_dispatch(get_default_waitset());
+        }   
+
+        char netss_name[256];
+        sprintf(netss_name, "%s:%s:%"PRIu64":%"PRIu64":%"PRIu64"", mi->binary, 
+                driver->binary, bus, dev, fun); 
+        
+        struct driver_instance* drv2;
+        drv2 = ddomain_create_driver_instance("net_sockets_server_module", 
+                                              netss_name);
+     
+        debug_printf("Starting net socket server (%s) \n", netss_name);
+        // Build PCI address argument
+        struct pci_id id;
+        struct pci_addr addr;
+
+        addr.bus = bus;
+        addr.device = dev;
+        addr.function = fun;
+        id.device = device_id;
+        id.vendor = vendor_id;
+
+        char * pci_arg_str = malloc(PCI_OCTET_LEN);
+        assert(pci_arg_str);
+        pci_serialize_octet(addr, id, cls, pci_arg_str);
+
+        // Spawn net_sockets_server
+        err = ddomain_driver_add_arg(drv2, "net_sockets_server");
+        assert(err_is_ok(err));
+        err = ddomain_driver_add_arg(drv2, "auto");
+        assert(err_is_ok(err));
+        err = ddomain_driver_add_arg(drv2, driver->binary);
+        assert(err_is_ok(err));
+        err = ddomain_driver_add_arg(drv2, pci_arg_str);
+        assert(err_is_ok(err));
+
+        struct capref cap;
+        
+        err = get_driver_ep(0, driver, oct_id, &cap);
+        if (err_is_fail(err)) {     
+            debug_printf("Failed getting EP to driver %s \n", oct_id);
+            free(pci_arg_str);
+            return err; 
+        }
+
+        err = ddomain_driver_add_cap(drv2, cap);        
+        assert(err_is_ok(err));
+
+        ddomain_instantiate_driver(inst, drv2);
+
+        KALUGA_DEBUG("Adding %s to EP factories \n", netss_name);
+        err = queue_service_add_ep_factory(qs, netss_name, 0, drv2);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "Could not add EP factory (%s) to queue service.", 
+                      netss_name);
+            return err;
+        }
+    }
 
     return err;
 }
@@ -392,191 +492,3 @@ errval_t start_networking(coreid_t core,
 
     return err;
 }
-
-/* errval_t start_usb_manager(void) */
-/* { */
-
-/*     struct module_info* driver = find_module("usb_manager"); */
-/*     if (driver == NULL || !is_auto_driver(driver)) { */
-/*         KALUGA_DEBUG("NGD_mng not found or not declared as auto."); */
-/*         return KALUGA_ERR_DRIVER_NOT_AUTO; */
-/*     } */
-
-/*     debug_printf("doing pandaboard related setup...\n"); */
-/*     errval_t err; */
-
-/*     struct monitor_binding *cl = get_monitor_blocking_binding(); */
-/*     assert(cl != NULL); */
-
-/*     // Request I/O Cap */
-/*     struct capref requested_caps; */
-/*     errval_t error_code; */
-
-/*     err = cl->rpc_tx_vtbl.get_io_cap(cl, &requested_caps, &error_code); */
-/*     assert(err_is_ok(err) && err_is_ok(error_code)); */
-
-/*     // Copy into correct slot */
-
-/*     struct capref device_range_cap = NULL_CAP; */
-
-/*     err = slot_alloc(&device_range_cap); */
-/*     if (err_is_fail(err)) { */
-/*         printf("slot alloc failed. Step 1\n"); */
-/*         return (err); */
-/*     } */
-/*     struct capref tiler_cap = NULL_CAP; */
-
-/*     err = slot_alloc(&tiler_cap); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "slot_alloc failed. Step 1\n"); */
-/*         return (err); */
-/*     } */
-
-/*     err = cap_retype(device_range_cap, requested_caps, ObjType_DevFrame, 29); */
-
-/*     struct capref l3_ocm_ram = NULL_CAP; */
-
-/*     err = slot_alloc(&l3_ocm_ram); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "slot_alloc failed. Step 2\n"); */
-/*         return (err); */
-/*     } */
-
-/*     err = cap_retype(l3_ocm_ram, device_range_cap, ObjType_DevFrame, 26); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "failed to retype the dev cap. Step 3\n"); */
-/*         return (err); */
-/*     } */
-
-/*     struct capref l3_config_registers_cap; */
-/*     err = slot_alloc(&l3_config_registers_cap); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "slot alloc failed. Step 4\n"); */
-/*         return (err); */
-/*     } */
-
-/*     struct capref l4_domains_cap; */
-/*     err = slot_alloc(&l4_domains_cap); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "slot_alloc failed. Step 5\n"); */
-/*         return (err); */
-/*     } */
-
-/*     struct capref emif_registers_cap; */
-/*     err = slot_alloc(&emif_registers_cap); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "slot_alloc failed. Step 6\n"); */
-/*         return (err); */
-/*     } */
-
-/*     struct capref gpmc_iss_cap; */
-/*     err = slot_alloc(&gpmc_iss_cap); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "slot_alloc failed. Step 7\n"); */
-/*         return (err); */
-/*     } */
-
-/*     struct capref l3_emu_m3_sgx_cap; */
-/*     err = slot_alloc(&l3_emu_m3_sgx_cap); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "slot_alloc failed. Step 8\n"); */
-/*         return (err); */
-/*     } */
-
-/*     struct capref display_iva_cap; */
-/*     err = slot_alloc(&display_iva_cap); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "slot_alloc failed. Step 9\n"); */
-/*         return (err); */
-/*     } */
-/*     struct capref tmp_cap = display_iva_cap; */
-/*     tmp_cap.slot++; */
-/*     cap_delete(tmp_cap); */
-
-/*     struct capref l4_PER_domain_cap; */
-/*     err = slot_alloc(&l4_PER_domain_cap); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "slot_alloc failed. Step 12\n"); */
-/*         return (err); */
-/*     } */
-
-/*     struct capref l4_ABE_domain_cap; */
-/*     err = slot_alloc(&l4_ABE_domain_cap); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "slot_alloc failed. Step 11\n"); */
-/*         return (err); */
-/*     } */
-
-/*     struct capref l4_CFG_domain_cap; */
-/*     err = slot_alloc(&l4_CFG_domain_cap); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "slot_alloc failed. Step 12\n"); */
-/*         return (err); */
-/*     } */
-
-/*     err = cap_retype(l4_PER_domain_cap, l4_domains_cap, ObjType_DevFrame, 24); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "failed to retype the cap. Step 13\n"); */
-/*         return (err); */
-/*     } */
-/*     tmp_cap = l4_CFG_domain_cap; */
-/*     tmp_cap.slot++; */
-/*     cap_delete(tmp_cap); */
-
-/*     struct frame_identity frameid;  // = {        0,        0    }; */
-
-/*     err = invoke_frame_identify(l4_CFG_domain_cap, &frameid); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "could not identify the frame. Step 14\n"); */
-/*     } */
-
-/*     // get the 32 bit */
-/*     uint32_t last = (uint32_t) (0xFFFFFFFF & (frameid.base)); */
-/*     uint32_t size2 = frameid.bits; */
-
-/*     /\* the L4 CFG domain cap must have address 0x4A000000 *\/ */
-/*     assert(last == 0x4a000000); */
-
-/*     /\* the size of the L4 CFG domain is 16k *\/ */
-/*     assert(((1 << size2) / 1024) == (16 * 1024)); */
-
-/* #define USB_SUBSYSTEM_L4_OFFSET 0x00062000 */
-/* //#define USB_OHCI_OFFSET         (0x000A9000-USB_SUBSYSTEM_L4_OFFSET) */
-/* #define USB_OHCI_OFFSET         0x00002800 */
-/* #define USB_EHCI_OFFSET         0x00002C00 */
-
-/* #define USB_ARM_EHCI_IRQ 109 */
-
-/*     uint32_t tmp = (uint32_t) USB_EHCI_OFFSET + USB_SUBSYSTEM_L4_OFFSET; */
-
-/*     char buf[255]; */
-/*     uint8_t offset = 0; */
-/*     driver->cmdargs = buf; */
-/*     driver->argc = 3; */
-/*     driver->argv[0] = driver->cmdargs+0; */
-
-/*     snprintf(buf+offset, 255-offset, "ehci\0"); */
-/*     offset += strlen(driver->argv[0])+1; */
-/*     driver->argv[1] = driver->cmdargs+offset; */
-/*     snprintf(buf+offset, 255-offset, "%u\0", tmp); */
-/*     offset += strlen(driver->argv[1])+1; */
-/*             driver->argv[2] = driver->cmdargs+offset; */
-/*     snprintf(buf+offset, 255-offset, "%u\0", USB_ARM_EHCI_IRQ); */
-
-/*     err = SYS_ERR_OK; */
-/*     coreid_t core = 0; */
-
-/*     if (is_started(driver)) { */
-/*         debug_printf("driver is already started..."); */
-/*         return KALUGA_ERR_DRIVER_ALREADY_STARTED; */
-/*     } */
-
-/*     err = spawn_program_with_caps(core, driver->path, driver->argv, environ, */
-/*             NULL_CAP, l4_CFG_domain_cap, 0, &driver->did); */
-/*     if (err_is_fail(err)) { */
-/*         DEBUG_ERR(err, "Spawning %s failed.", driver->path); */
-/*         return err; */
-/*     } */
-
-/*     return err; */
-/* } */

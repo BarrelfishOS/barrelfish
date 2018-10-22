@@ -13,7 +13,7 @@
 [ build application { target = "mem_serv",
   		      cFiles = [ "mem_serv.c" ],
                       flounderDefs = [ "monitor", "mem" ],
-                      addLibraries = [ "mm", "trace" ],
+                      addLibraries = [ "mm", "trace", "skb" ],
                       addLinkFlags = [ "-e _start_init"],
                       architectures = allArchitectures
                     }

@@ -432,6 +432,10 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
     /* XXX: TODO: make root explicit argument for sys_map() */
     struct capability *root = &dcb_current->cspace.cap;
 
+    if (!(ptable->rights & CAPRIGHTS_WRITE)) {
+        return SYSRET(SYS_ERR_DEST_CAP_RIGHTS);
+    }
+
     /* Lookup source root cn cap in own cspace */
     struct capability *src_root;
     err = caps_lookup_cap(root, source_root_cptr, source_level, &src_root,
@@ -690,7 +694,7 @@ struct sysret sys_yield(capaddr_t target)
         if (err_is_fail(err)) {
             return SYSRET(err);
         } else if (yield_to == NULL ||
-                   (yield_to->type != ObjType_EndPoint
+                   (yield_to->type != ObjType_EndPointLMP
                     && yield_to->type != ObjType_Dispatcher)) {
             return SYSRET(SYS_ERR_INVALID_YIELD_TARGET);
         }
@@ -723,8 +727,8 @@ struct sysret sys_yield(capaddr_t target)
 
     if (yield_to != NULL) {
         struct dcb *target_dcb = NULL;
-        if (yield_to->type == ObjType_EndPoint) {
-            target_dcb = yield_to->u.endpoint.listener;
+        if (yield_to->type == ObjType_EndPointLMP) {
+            target_dcb = yield_to->u.endpointlmp.listener;
         } else if (yield_to->type == ObjType_Dispatcher) {
             target_dcb = yield_to->u.dispatcher.dcb;
         } else {
@@ -894,16 +898,3 @@ struct sysret sys_handle_kcb_identify(struct capability* to, struct frame_identi
 
     return SYSRET(SYS_ERR_OK);
 }
-
-struct sysret sys_get_absolute_time(void)
-{
-    // Return kernel_now.
-    // XXX: this may not provide all the properties of absolute time we want,
-    // but should be sufficient to implement stuff that needs timing with 1/10
-    // of a second accuracy range.
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = systime_now() + kcb_current->kernel_off,
-    };
-}
-

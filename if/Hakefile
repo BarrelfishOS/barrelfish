@@ -48,6 +48,7 @@
                "intermon",
                "interphi",
                "ioat_dma_mgr",
+               "iommu",
                "keyboard",
                "lock",
                "mem",
@@ -60,6 +61,7 @@
                "octopus",
                "omap_sdma",
                "pci",
+               "pci_iommu",
                "pci_driver_client",
                "ping_pong",
                "pixels",
@@ -103,7 +105,10 @@
                "net_filter",
                "twl6030",
                "cm2",
-               "net_sockets"
+               "net_sockets",
+               "queue_service",
+               "devif_test",
+               "kaluga"
            ],
              arch <- allArchitectures
 ] ++

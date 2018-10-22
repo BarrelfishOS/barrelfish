@@ -118,6 +118,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
         assert(err_is_ok(err));
     }
 }
+
 static const struct ata_rw28_rx_vtbl rx_vtbl = {
     .read_dma_call = read_dma,
     .read_dma_block_call = read_dma_block,
@@ -130,6 +131,7 @@ static errval_t client_connect(void *st, struct ata_rw28_binding *b)
 {
     service_export.b = b;
     b->st = st;
+    b->rx_vtbl = rx_vtbl;
     return SYS_ERR_OK;
 }
 

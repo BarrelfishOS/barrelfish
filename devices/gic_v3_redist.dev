@@ -1,0 +1,91 @@
+/*
+ * Copyright (c) 2018, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * gic_v3.dev
+ *
+ * DESCRIPTION: GIC v3 architecture definitions
+ *
+ * See:
+ *   GIC v3 Architecture Specification
+ */
+
+device gic_v3_redist msbfirst (addr redist) "GIC v3 Redistributor" {
+    register GICR_CTLR also addr(redist, 0x0000) "Redistributor Control Register" {
+        UWP         1   ro "Upstream Write Pending";
+        _           4   mbz;
+        DPG1S       1   "Disable Processor selection for Group 1 Secure interrupts";
+        DPG1NS      1   "Disable Processor selection for Group 1 Non-secure interrupts";
+        DPG0        1   "Disable Processor selection for Group 0 interrupts";
+        _           20  mbz;
+        RWP         1   "Register Write Pending";
+        _           2   mbz;
+        Enable_LPIs 1   "LPI support is enabled";
+    };
+
+    register GICR_IIDR ro addr(redist, 0x0004) "Redistributor Implementer Identification Register" {
+        ProductID   8   "Product identifier";
+        _           4   mbz;
+        Variant     4   "Variant number";
+        Revision    4   "Revision number";
+        Implementer 12  "JEP106 code of implementing company";
+    };
+
+    register GICR_TYPER ro addr(redist, 0x0008) "Redistributor Type Register" {
+        Affinity_Value  32  "The identity of the PE associated with this Redistributor";
+        _           6   mbz;
+        CommonLPIAff        2   "The affinity level at which Redistributors share a LPI Configuration table";
+        Processor_Number    16  "A unique identifier for the PE";
+        _           2   mbz;
+        DPGS        1   "Implementation supports LPIs";
+        Last        1   "Implementation supports LPIs";
+        DirectLPI   1   "Implementation supports LPIs";
+        _           1   mbz;
+        VLPIS       1   "Implementation supports LPIs";
+        PLPIS       1   "Implementation supports LPIs";
+    };
+
+    register GICR_STATUSR addr(redist, 0x0010) "Error Reporting Status Register" {
+        _       28  mbz;
+        WROD    1   "Write to RO location has been detected";
+        RWOD    1   "Read of WO location has been detected";
+        WRD     1   "Write to reserved location has been detected";
+        RRD     1   "Read to reserved location has been detected";
+    };
+
+    register GICR_WAKER addr(redist, 0x0014) "Redistributor Wake Register" {
+        IMP_DEF2        1   "Implementation Defined";
+        _               28  mbz;
+        ChildrenAsleep  1   ro "Indicates whether the connected PE is quiescent";
+        ProcessorSleep  1   "Indicates whether the Redistributor can assert the WakeRequest signal";
+        IMP_DEF1        1   "Implementation Defined";
+    };
+    
+    register GICR_IGROUPR0 addr(redist, 0x10080) "Interrupt Group Register 0" type(uint32);
+
+    register GICR_ISENABLER0 addr(redist, 0x10100) "Interrupt Set-Enable Register 0" type(uint32);
+
+    register GICR_ICENABLER0 addr(redist, 0x10180) "Interrupt Clear-Enable Register 0" type(uint32);
+
+    register GICR_ISPENDR0 addr(redist, 0x10200) "Interrupt Set-Pending Register 0" type(uint32);
+
+    register GICR_ICPENDR0 addr(redist, 0x10280) "Interrupt Clear-Pending Register 0" type(uint32);
+
+    register GICR_ISACTIVER0 addr(redist, 0x10300) "Interrupt Set-Active Register 0" type(uint32);
+
+    register GICR_ICACTIVER0 addr(redist, 0x10380) "Interrupt Clear-Active Register 0" type(uint32);
+
+    regarray GICR_IPRIORITYR0 addr(redist, 0x10400)[8] "Interrupt Priority Registers" type(uint32);
+
+    register GICR_ICFGR0 addr(redist, 0x10c00) "SGI Configuration Register" type(uint32);
+    register GICR_ICFGR1 addr(redist, 0x10c04) "PPI Configuration Register" type(uint32);
+
+    register GICR_IGRPMODR0 addr(redist, 0x10d00) "Interrupt Group Modifier Register 0" type(uint32);
+
+    register GICR_NSACR0 addr(redist, 0x10e00) "Non-secure Access Control Register" type(uint32);
+};

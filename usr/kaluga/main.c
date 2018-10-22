@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (c) 2007-2010, ETH Zurich.
+ * Copyright (c) 2007-2010, 2017-2018 ETH Zurich.
  * Copyright (c) 2015, Hewlett Packard Enterprise Development LP.
  * All rights reserved.
  *
@@ -43,25 +43,32 @@ coreid_t my_core_id = 0;  // Core ID
 uint32_t my_arch_id = 0;  // APIC ID
 struct pci_addr eth0 = {0xff, 0xff, 0xff};
 size_t cpu_count = 0;
+struct queue_service_state* qs;
 
 static void add_start_function_overrides(void)
 {
 
-    set_start_function("e10k", start_networking);
     set_start_function("net_sockets_server", start_networking);
     set_start_function("rtl8029", start_networking);
     set_start_function("corectrl", start_boot_driver);
 
+
+#ifdef __X86_64__
+    set_start_function("iommu", start_iommu_driver);
+#endif
 #ifndef __ARM_ARCH_7A__
+    //X86 and ARMv8
     set_start_function("sfn5122f", start_networking_new);
+    set_start_function("e10k", start_networking_new);
     set_start_function("e1000n", start_networking_new);
     set_start_function("e1000n_irqtest", default_start_function_new);
+    set_start_function("ioat_dma", default_start_function_new);
+    set_start_function("xeon_phi", default_start_function_new);
+#else
+    set_start_function("driverdomain", default_start_function_new);
 #endif
 
-#ifdef __ARM_ARCH_7A__
-    set_start_function("driverdomain", newstyle_start_function);
-#endif
-    //set_start_function("driverdomain", default_start_function_new);
+
 }
 
 static void parse_arguments(int argc, char** argv, char ** add_device_db_file, size_t *cpu_count)
@@ -88,12 +95,6 @@ static void parse_arguments(int argc, char** argv, char ** add_device_db_file, s
             sscanf(argv[i], "cpu_count=%zu", cpu_count);
         }
     }
-}
-
-static inline errval_t wait_for_pci(void)
-{
-    iref_t iref;
-    return nameservice_blocking_lookup("pci_discovery_done", &iref);
 }
 
 int main(int argc, char** argv)
@@ -137,6 +138,13 @@ int main(int argc, char** argv)
     err = init_int_caps_manager(all_irq_cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "init device caps manager");
+    }
+
+    KALUGA_DEBUG("Kaluga: initializing queue endpoint service\n");
+    // startup queue service so endpoints to drivers can be requested
+    err = queue_service_init(&qs, NULL);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "init queue service");
     }
 
     err = arch_startup(add_device_db_file);

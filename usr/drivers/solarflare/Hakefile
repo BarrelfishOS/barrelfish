@@ -34,7 +34,8 @@
                       flounderDefs = [ "sfn5122f_devif" ],
                       flounderExtraDefs = [ ("sfn5122f_devif",["rpcclient"]) ],
                       mackerelDevices = [ "sfn5122f", "sfn5122f_q"],
-                      addLibraries = libDeps ["pci", "skb", "devif_internal"],
+                      addLibraries = libDeps ["skb", "devif_internal", 
+                                              "driverkit_iommu"],
                       addIncludes = ["/lib/devif/"]
                     },
 
@@ -49,7 +50,7 @@
 
         addLibraries = libDeps["driverkit", "thc", "netQmng", "pci", "pci_driver_client", 
                                "contmng", "net_device_manager", "bench", "trace", "skb",
-                                 "spawndomain", "netd" , "net", "lwip2"],
+                                "spawndomain", "netd" , "net", "lwip2", "driverkit_iommu"],
         addModules = ["sfn5122f_module"],
         architectures = ["x86_64"]
     }

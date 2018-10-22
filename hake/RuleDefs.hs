@@ -782,6 +782,7 @@ skateGenSchemas opts schema =
 -- Build SKB facts from Sockeye file
 --
 sockeyeProgLoc = In InstallTree "tools" "/bin/sockeye"
+sockeyeProgLoc2 = In InstallTree "tools" "/bin/sockeye2"
 sockeyeSocDir = In SrcTree "src" "/socs"
 sockeyeSocFileLoc d = In SrcTree "src" ("/socs" </> d <.> "soc")
 sockeyeFactFilePath d = "/sockeyefacts" </> d <.> "pl"
@@ -812,6 +813,22 @@ sockeye net =
     in Rules
         [ Rule
             [ sockeyeProgLoc
+            , Str "-i", sockeyeSocDir
+            , Str "-o", Out "" factFile
+            , Str "-d", Out "" depFile
+            , sockeyeSocFileLoc net
+            ]
+        , Include (Out "" depFile)
+        ]
+
+sockeye2 :: String -> HRule
+sockeye2 net = 
+    let
+        factFile = sockeyeFactFilePath net
+        depFile = dependFilePath factFile
+    in Rules
+        [ Rule
+            [ sockeyeProgLoc2
             , Str "-i", sockeyeSocDir
             , Str "-o", Out "" factFile
             , Str "-d", Out "" depFile

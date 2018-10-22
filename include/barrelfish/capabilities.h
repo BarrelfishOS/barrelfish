@@ -51,6 +51,9 @@ errval_t cap_revoke(struct capref cap);
 struct cspace_allocator;
 errval_t cap_destroy(struct capref cap);
 
+
+errval_t cap_register_revoke(struct capref cap, struct event_closure cont);
+
 errval_t vnode_create(struct capref dest, enum objtype type);
 errval_t frame_create(struct capref dest, size_t bytes, size_t *retbytes);
 errval_t frame_alloc(struct capref *dest, size_t bytes, size_t *retbytes);
@@ -62,6 +65,9 @@ struct lmp_endpoint;
 
 errval_t endpoint_create(size_t buflen, struct capref *retcap,
                          struct lmp_endpoint **retep);
+errval_t ump_endpoint_create(struct capref dest, size_t bytes);
+errval_t ump_endpoint_create_with_iftype(struct capref dest, size_t bytes, 
+                                         uint16_t iftype);
 
 errval_t idcap_alloc(struct capref *dest);
 errval_t idcap_create(struct capref dest);

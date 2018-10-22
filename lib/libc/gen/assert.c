@@ -36,16 +36,17 @@ __FBSDID("$FreeBSD$");
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <barrelfish/debug.h>
 
 void
 __assert(const char *func, const char *file, int line, const char *failedexpr)
 {
 	if (func == NULL)
-		(void)fprintf(stderr,
+		(void)debug_printf(
 		     "Assertion failed: (%s), file %s, line %d.\n", failedexpr,
 		     file, line);
 	else
-		(void)fprintf(stderr,
+		(void)debug_printf(
 		     "Assertion failed: (%s), function %s, file %s, line %d.\n",
 		     failedexpr, func, file, line);
 	abort();

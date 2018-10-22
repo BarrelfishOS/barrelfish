@@ -8,6 +8,7 @@
  */
 
 interface net_sockets "Interface for network sockets" {
+    rpc request_descq_ep(in uint16 core, out cap ep);
     rpc register_queue(in uint64 queue_id);
 
     rpc new_udp_socket(out uint32 descriptor);

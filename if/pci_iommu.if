@@ -1,0 +1,15 @@
+/*
+ * Copyright (c) 2018 ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitätstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+interface pci_iommu "The Iommu to PCI interface" {
+
+    rpc request_iommu_endpoint(in uint8 type, in uint32 segment, 
+                               in uint32 bus, in uint32 device, in uint32 function,
+                               out cap ep, out errval err);
+};

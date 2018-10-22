@@ -1,6 +1,6 @@
 /**
  * \file plat_arm_vm.c
- * \brief 
+ * \brief
  */
 
 
@@ -93,12 +93,4 @@ void platform_get_info(struct platform_info *pi)
 void armv8_get_info(struct arch_info_armv8 *ai)
 {
 
-}
-
-errval_t platform_gic_init(void) {
-    return gicv3_init();
-}
-
-errval_t platform_gic_cpu_interface_enable(void) {
-    return gicv3_cpu_interface_enable();
 }

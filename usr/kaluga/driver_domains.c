@@ -56,6 +56,8 @@ static errval_t launch_driver_domain(coreid_t where, uint64_t did, struct module
         DEBUG_ERR(err, "Spawning %s failed.", ddomain->path);
     }
 
+    ddomain->core = where;
+
     free(argv);
     return err;
 }

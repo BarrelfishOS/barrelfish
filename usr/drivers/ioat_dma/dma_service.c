@@ -88,7 +88,7 @@ errval_t dma_svc_addregion_cb(dma_svc_handle_t svc_handle,
 
     DMA_DEBUG("dma_svc_addregion_cb user_st = %p\n", user_st);
 
-    return dma_mem_register(user_st->mem_mgr, cap);
+    return dma_mem_register(user_st->mem_mgr, cap, NULL);
 }
 
 /**

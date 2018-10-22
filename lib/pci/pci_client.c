@@ -517,6 +517,90 @@ errval_t pci_setup_inthandler(interrupt_handler_fn handler, void *handler_arg,
     return err;
 }
 
+errval_t pci_sriov_enable_vf(uint32_t vf_num)
+{
+    errval_t err, msgerr;
+    err = pci_client->rpc_tx_vtbl.sriov_enable_vf(pci_client, vf_num, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
+
+errval_t pci_sriov_get_vf_bar_cap(uint32_t vf_num, uint8_t bar_num,
+                                  struct capref* bar)
+{
+    errval_t err, msgerr;
+
+    err = slot_alloc(bar);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = pci_client->rpc_tx_vtbl.get_vf_bar_cap(pci_client, vf_num, bar_num, 
+                                                 bar, &msgerr);
+    return err_is_fail(err) ? err : msgerr;
+}
+
+errval_t pci_sriov_get_vf_resources(uint32_t vf_num, struct capref* regs, struct capref* irq,
+                                    struct capref* iommu_ep, struct capref* pci_ep)
+{
+    errval_t err, msgerr;
+
+    // BAR0 registers
+    err = slot_alloc(regs);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    err = pci_client->rpc_tx_vtbl.get_vf_bar_cap(pci_client, vf_num, 0, 
+                                                 regs, &msgerr);
+    if (err_is_fail(err)) {
+        //slot_free(*regs);
+        return err;
+    }
+
+    if (err_is_fail(msgerr)) {
+        /* slot is freed in Flounder code */
+        return msgerr;
+    }
+
+    // IOMMU endpoint
+    err = slot_alloc(iommu_ep);
+    if (err_is_fail(err)) {
+        cap_destroy(*regs);
+        return err;
+    }
+
+    //XXX Assumes iommu driver on core 0
+    err = pci_client->rpc_tx_vtbl.get_vf_iommu_endpoint_cap(pci_client, vf_num, 
+                                     (disp_get_core_id() == 0) ? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP,
+                                     iommu_ep, &msgerr);
+    if (err_is_fail(err) || err_is_fail(msgerr)) {
+        cap_destroy(*regs);
+        return err_is_fail(err) ? err : msgerr;
+    }
+
+    // PCI endpoint
+    err = slot_alloc(pci_ep);
+    if (err_is_fail(err)) {
+        cap_destroy(*regs);
+        cap_destroy(*iommu_ep);
+        return err;
+    }
+   
+    //XXX Assumes iommu driver on core 0
+    err = pci_client->rpc_tx_vtbl.get_vf_pci_endpoint_cap(pci_client, vf_num, 
+                                     (disp_get_core_id() == 0) ? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP,
+                                     pci_ep, &msgerr);
+    if (err_is_fail(err) || err_is_fail(msgerr)) {
+        cap_destroy(*regs);
+        cap_destroy(*iommu_ep);
+        return err_is_fail(err) ? err : msgerr;
+    }
+    
+    // TODO irq cap
+    return SYS_ERR_OK;
+}
+
 errval_t pci_read_conf_header(uint32_t dword, uint32_t *val)
 {
     errval_t err, msgerr;
@@ -586,12 +670,9 @@ errval_t pci_client_connect(void)
     iref_t iref;
     errval_t err, err2 = SYS_ERR_OK;
 
-    PCI_CLIENT_DEBUG("Connecting to acpi\n");
-    err = connect_to_acpi();
-    if(err_is_fail(err)){
-        return err;
+    if (pci_client != NULL) {
+        return SYS_ERR_OK;
     }
-    PCI_CLIENT_DEBUG("Connected to ACPI\n");
 
     /* Connect to the pci server */
     PCI_CLIENT_DEBUG("Looking up pci iref\n");
@@ -607,6 +688,53 @@ errval_t pci_client_connect(void)
     err = pci_bind(iref, bind_cont, &err2, get_default_waitset(),
                    IDC_BIND_FLAG_RPC_CAP_TRANSFER);
     if (err_is_fail(err)) {
+        return err;
+    }
+
+    /* XXX: Wait for connection establishment */
+    while (pci_client == NULL && err2 == SYS_ERR_OK) {
+        messages_wait_and_handle_next();
+    }
+
+    if(err_is_ok(err2)){
+        PCI_CLIENT_DEBUG("PCI connection successful, connecting to int route service\n");
+        err = int_route_client_connect();
+        if(err_is_ok(err)){
+            PCI_CLIENT_DEBUG("Int route service connected.\n");
+        } else {
+            DEBUG_ERR(err, "Could not connect to int route service\n");
+        }
+    }
+    return err2;
+}
+
+errval_t pci_get_device_info(struct pci_addr* addr, struct pci_id* id)
+{
+    errval_t err;
+    if (pci_client != NULL) {
+        err = pci_client->rpc_tx_vtbl.get_device_addr(pci_client, &addr->bus,
+                                                      &addr->device, &addr->function,
+                                                      &id->vendor, &id->device);
+        return err;
+    } else {
+        return PCI_ERR_DEVICE_NOT_INIT;
+    } 
+}
+
+errval_t pci_client_connect_ep(struct capref ep)
+{
+    errval_t err, err2 = SYS_ERR_OK;
+
+    if (pci_client != NULL) {
+        return SYS_ERR_OK;
+    }
+
+    PCI_CLIENT_DEBUG("Connecting to pci\n");
+    /* Setup flounder connection with pci server */
+    err = pci_bind_to_endpoint(ep, bind_cont, &err2, get_default_waitset(),
+                               IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        PCI_CLIENT_DEBUG("Failed connectiong to PCI  %s \n", err_getstring(err));
         return err;
     }
 

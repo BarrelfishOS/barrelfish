@@ -20,9 +20,16 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/nameservice_client.h>
 #include <barrelfish/sys_debug.h>
+#include <skb/skb.h>
+#include <driverkit/driverkit.h>
+#include <collections/list.h>
+#include <skb/skb.h>
 
 #include <if/pci_defs.h>
+#include <if/pci_iommu_defs.h>
+#include <if/kaluga_defs.h>
 #include <if/acpi_defs.h>
+#include <hw_records.h>
 
 #include <acpi_client/acpi_client.h>
 #include <mm/mm.h>
@@ -43,9 +50,81 @@ struct client_state {
     uint32_t bus;
     uint32_t dev;
     uint32_t fun;
+    uint32_t vendor;
+    uint32_t devid;
     bool pcie;
     void *cont_st;
 };
+
+struct iommu_client_state {
+    uint32_t index;
+    struct pci_iommu_binding* b;
+};
+
+// Assume one connection to kaluga over which
+// kaluga can request PCI endpoints to had off to devices
+static struct capref kaluga_ep;
+static struct kaluga_binding* kaluga;
+static bool bound;
+
+static collections_listnode* iommu_list;
+
+
+/*****************************************************************
+ * Helper functions:
+ *****************************************************************/
+
+static errval_t device_lookup_iommu_by_pci(uint16_t seg, uint8_t bus, uint8_t dev, 
+                                           uint8_t fun, uint32_t* index)
+{
+    /* find the device scope */
+    errval_t err;
+    uint32_t idx, type;
+
+    err = skb_execute_query("iommu_device(T,I, _, _, addr(%" PRIu16 ", "
+                            "%" PRIu8 ", %" PRIu8 ", %" PRIu8 "), _),"
+                            "write(u(T,I)).", seg, bus, dev, fun);
+    if (err_is_ok(err)) {
+        err = skb_read_output("u(%d,%d)", &type, &idx);
+        assert(err_is_ok(err));
+
+        PCI_DEBUG("[pci] found device at iommu with idx %u\n", idx);
+        *index = idx;
+        return SYS_ERR_OK;
+    }
+
+    PCI_DEBUG("[pci] look-up iommu by PCI segment with all flags\n");
+    err = skb_execute_query("iommu(T,I,1, %" PRIu16 "),write(u(T,I,1)).", seg);
+    if (err_is_fail(err)) {
+        PCI_DEBUG("[pci] look-up iommu by PCI segment\n");
+        err = skb_execute_query("iommu(T,I,F, %" PRIu16 "),write(u(T,I,F)).", seg);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to obtain iommu for PCI segment");
+            return IOMMU_ERR_IOMMU_NOT_FOUND;
+        }
+    }
+
+    uint32_t flags;
+    err = skb_read_output("u(%d,%d,%d)", &type, &idx, &flags);
+    assert(err_is_ok(err));
+    
+    *index = idx;
+    PCI_DEBUG("iommu_device_lookup_iommu_by_pci succeeded!\n");
+    return SYS_ERR_OK;
+}
+
+static int32_t find_index(void* elem, void* idx) {
+    assert(elem != NULL);
+    assert(idx != NULL);
+
+    struct iommu_client_state* st = (struct iommu_client_state*) elem;
+    uint32_t index = *((uint32_t*) idx);
+    if (index == st->index) {
+        return 1;
+    }
+    return 0;
+}
+
 
 /*****************************************************************
  * Event handlers:
@@ -225,6 +304,125 @@ static void get_bar_cap_handler(struct pci_binding *b, uint32_t idx)
         get_bar_cap_response_cont(b, SYS_ERR_OK, cap, type, bar_nr);
     }
 }
+
+static void get_vf_bar_cap_handler(struct pci_binding *b, uint32_t vf_num, uint32_t idx)
+{
+    struct client_state *st = b->st;
+    assert(st != NULL);
+    errval_t err;
+    
+    struct pci_address pci = {
+        .bus = st->bus,
+        .device =  st->dev,
+        .function = st->fun
+    };
+    
+    struct pci_address vf_addr;
+
+    err = pci_get_vf_addr_of_device(pci, vf_num, &vf_addr);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.get_vf_bar_cap_response(b, NOP_CONT, NULL_CAP, err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    uint8_t type = pci_get_bar_cap_type_for_device(vf_addr.bus, vf_addr.device,
+                                               vf_addr.function, idx);
+    struct capref cap;
+    if(type == 0) {
+        cap = pci_get_bar_cap_for_device(vf_addr.bus, vf_addr.device, vf_addr.function, idx);
+    } else {
+        // TODO is this even possible?
+        err = PCI_ERR_SRIOV_NOT_SUPPORTED;
+        cap = NULL_CAP;
+    }
+
+    err = b->tx_vtbl.get_vf_bar_cap_response(b, NOP_CONT, cap, err);
+    assert(err_is_ok(err));
+}
+
+
+struct cap_wrapper {
+    struct capref cap;
+    bool cont_done;
+};
+
+static void cleanup_cap(void* arg)
+{
+    errval_t err;
+    struct cap_wrapper* wrap = (struct cap_wrapper*) arg;
+    err = cap_destroy(wrap->cap);
+    assert(err_is_ok(err));
+    wrap->cont_done = true;
+}
+
+static void get_vf_iommu_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_num, 
+                                              uint8_t type)
+
+{
+    struct client_state *st = b->st;
+    assert(st != NULL);
+    errval_t err, out_err;
+    
+    struct pci_address pci = {
+        .bus = st->bus,
+        .device =  st->dev,
+        .function = st->fun
+    };
+    
+    struct pci_address vf_addr;
+
+    out_err = pci_get_vf_addr_of_device(pci, vf_num, &vf_addr);
+    if (err_is_fail(out_err)) {
+        err = b->tx_vtbl.get_vf_iommu_endpoint_cap_response(b, NOP_CONT, NULL_CAP, out_err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+    uint32_t idx;
+    // TODO get segemnt correct, works with 0.
+    out_err = device_lookup_iommu_by_pci(0, vf_addr.bus, vf_addr.device, 
+                                         vf_addr.function, &idx);
+    if (err_is_fail(out_err)) {
+        goto error;
+    }
+
+    if (iommu_list == NULL) {
+        goto error;
+    }
+
+    struct cap_wrapper wrap;   
+    wrap.cont_done = false; 
+    out_err = slot_alloc(&wrap.cap);
+    if (err_is_fail(out_err)) {
+        goto error;
+    }
+    
+
+
+    struct iommu_client_state* cl = collections_list_find_if(iommu_list, find_index, 
+                                                             &idx);
+    if (cl == NULL) {
+        slot_free(wrap.cap);
+        goto error;
+    }
+
+    err = cl->b->rpc_tx_vtbl.request_iommu_endpoint(cl->b,type, 0, vf_addr.bus, vf_addr.device, 
+                                                    vf_addr.function, &wrap.cap, &out_err);
+    if (err_is_ok(err)) {
+       goto reply;
+    }
+
+error:
+    wrap.cap = NULL_CAP;
+reply:
+    err = b->tx_vtbl.get_vf_iommu_endpoint_cap_response(b, MKCONT(cleanup_cap, &wrap), wrap.cap, out_err);
+    assert(err_is_ok(err));
+    while(!wrap.cont_done) {
+        event_dispatch(get_default_waitset());
+    }
+}
+
 /*
 static void get_vbe_bios_cap(struct pci_binding *b)
 {
@@ -355,22 +553,139 @@ static void msix_vector_init_handler(struct pci_binding *b, uint16_t idx,
                                   vector);
 }
 
+static void sriov_enable_vf_handler(struct pci_binding* b, uint32_t vf_num)
+{
+    errval_t err;
+
+    struct client_state* state = (struct client_state* ) b->st;
+    struct pci_address addr = {
+        .bus = state->bus,
+        .device = state->dev,
+        .function = state->fun
+    };
+
+    debug_printf("Enabling Virtual Function for device (bus=%d, device=%d, function=%d)"
+                 "binding %p state %p \n",
+                 state->bus, state->dev, state->fun, b, state);
+
+    // Add octopus record
+    err = pci_start_virtual_function_for_device(&addr, vf_num);
+    
+    err = b->tx_vtbl.sriov_enable_vf_response(b, NOP_CONT, err);
+    assert(err_is_ok(err));
+}
+
+static void get_vf_pci_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_num, 
+                                            uint8_t type);
+
+static void get_nodeid_handler(struct pci_binding* b)
+{
+    errval_t err;
+
+    struct client_state* state = (struct client_state* ) b->st;
+
+    err = skb_execute_query(
+            "pci_address_node_id(addr(%u, %u, %u), [Id]), writeln(Id)",
+            state->bus, state->dev, state->fun);
+
+    int32_t nodeid = -1;
+    if(err_is_fail(err)){
+        DEBUG_SKB_ERR(err, "add_pci_alloc.");
+    } else {
+        skb_read_output("%"SCNi32, &nodeid);
+    }
+    
+    err = b->tx_vtbl.get_nodeid_response(b, NOP_CONT, nodeid);
+    assert(err_is_ok(err));
+}
+
+static void get_device_addr_handler(struct pci_binding* b)
+{
+    errval_t err;
+
+    struct client_state* state = (struct client_state* ) b->st;
+
+    err = b->tx_vtbl.get_device_addr_response(b, NOP_CONT, state->bus, state->dev,
+                                              state->fun, state->vendor, state->devid);
+    assert(err_is_ok(err));
+}
+
 struct pci_rx_vtbl pci_rx_vtbl = {
     .init_pci_device_call = init_pci_device_handler,
     .init_legacy_device_call = init_legacy_device_handler,
     .get_bar_cap_call = get_bar_cap_handler,
+    .get_vf_bar_cap_call = get_vf_bar_cap_handler,
+    .get_vf_iommu_endpoint_cap_call = get_vf_iommu_endpoint_cap_handler,
+    .get_vf_pci_endpoint_cap_call = get_vf_pci_endpoint_cap_handler,
     .get_irq_cap_call = get_irq_cap_handler,
     .reregister_interrupt_call = reregister_interrupt_handler,
     //.get_vbe_bios_cap_call = get_vbe_bios_cap,
     .read_conf_header_call = read_conf_header_handler,
     .write_conf_header_call = write_conf_header_handler,
     .irq_enable_call = irq_enable_handler,
-
+    .sriov_enable_vf_call = sriov_enable_vf_handler,
     .msix_enable_call = msix_enable_handler,
     .msix_enable_addr_call = msix_enable_addr_handler,
     .msix_vector_init_call = msix_vector_init_handler,
     .msix_vector_init_addr_call = msix_vector_init_addr_handler,
+    .get_device_addr_call = get_device_addr_handler,
+    .get_nodeid_call = get_nodeid_handler
 };
+
+static void get_vf_pci_endpoint_cap_handler(struct pci_binding *b, uint32_t vf_num, 
+                                            uint8_t type)
+
+{
+    struct client_state *st = b->st;
+    assert(st != NULL);
+    
+    errval_t err, out_err;
+
+    struct pci_address pci = {
+        .bus = st->bus,
+        .device =  st->dev,
+        .function = st->fun
+    };
+   
+    struct pci_address vf_addr;
+
+    err = pci_get_vf_addr_of_device(pci, vf_num, &vf_addr);
+    if (err_is_fail(err)) {
+        err = b->tx_vtbl.get_vf_pci_endpoint_cap_response(b, NOP_CONT, NULL_CAP, err);
+        assert(err_is_ok(err));
+        return;
+    }
+
+ 
+    PCI_DEBUG("Requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
+              vf_addr.bus, vf_addr.device, vf_addr.function);
+
+    struct capref pci_cap;    
+    err = slot_alloc(&pci_cap);
+    assert(err_is_ok(err));
+
+    struct pci_binding* pci_b;
+    struct client_state* state = (struct client_state*) 
+                                  calloc(1, sizeof(struct client_state));
+
+    out_err = pci_create_endpoint(type, &pci_rx_vtbl, state,
+                                  get_default_waitset(),
+                                  IDC_ENDPOINT_FLAGS_DUMMY,
+                                  &pci_b, pci_cap);
+    if (err_is_fail(out_err)) {
+        goto reply;
+    }
+    pci_rpc_client_init(pci_b);
+
+    state->bus = vf_addr.bus;
+    state->dev = vf_addr.device;
+    state->fun = vf_addr.function;
+    pci_b->st = state;
+
+reply:
+    err = b->tx_vtbl.get_vf_pci_endpoint_cap_response(b, NOP_CONT, pci_cap, out_err);
+    assert(err_is_ok(err));
+}
 
 static void export_callback(void *st, errval_t err, iref_t iref)
 {
@@ -394,18 +709,262 @@ static errval_t connect_callback(void *cst, struct pci_binding *b)
     return SYS_ERR_OK;
 }
 
+
+/*****************************************************************
+ * Iommu PCI connection interface
+ *****************************************************************/
+
+// TODO empty for now
+struct pci_iommu_rx_vtbl pci_iommu_rx_vtbl;
+
+
+/*****************************************************************
+ * Connection to Kaluga to request PCI endpoints for devices
+ *****************************************************************/
+
+static void request_endpoint_cap_handler(struct kaluga_binding* b, uint8_t type, 
+                                         uint32_t bus, uint32_t device, 
+                                         uint32_t function, uint32_t vendor, 
+                                         uint32_t devid)
+{
+    errval_t err, out_err;
+    PCI_DEBUG("Kaluga requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
+              bus, device, function);
+
+    struct capref cap;    
+    err = slot_alloc(&cap);
+    assert(err_is_ok(err));
+
+    struct pci_binding* pci;
+
+    out_err = pci_create_endpoint(type, &pci_rx_vtbl, NULL,
+                              get_default_waitset(),
+                              IDC_ENDPOINT_FLAGS_DUMMY,
+                              &pci, cap);
+    if (err_is_fail(out_err)) {
+        goto reply;
+    }
+    pci_rpc_client_init(pci);
+    struct client_state* state = (struct client_state*) 
+                                  calloc(1, sizeof(struct client_state));
+    state->bus = bus;
+    state->dev = device;
+    state->fun = function;
+    state->vendor = vendor;
+    state->devid = devid;
+    pci->st = state;
+
+reply:
+    err = b->tx_vtbl.request_endpoint_cap_response(b, NOP_CONT, cap, out_err);
+    assert(err_is_ok(err));
+}
+
+static void bind_cont_iommu(void *st, errval_t err, struct pci_iommu_binding *b)
+{
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "bind failed");
+    }
+
+    struct iommu_client_state* state = (struct iommu_client_state*) st;
+    state->b = b;
+    
+    b->st = st;
+    pci_iommu_rpc_client_init(state->b);
+
+    if (iommu_list == NULL) {
+        // TODO free function
+        collections_list_create(&iommu_list, NULL);   
+    }
+  
+    collections_list_insert_tail(iommu_list, state);
+}
+
+static errval_t init_iommu_connection(uint32_t index, struct capref cap)
+{
+    errval_t err;
+    PCI_DEBUG("Kaluga requested pci to iommu endpoint for iommu %d\n", index);
+
+    struct iommu_client_state* state = (struct iommu_client_state*) 
+                                        calloc(1, sizeof(struct iommu_client_state));
+
+    state->index = index;
+    err = pci_iommu_bind_to_endpoint(cap, bind_cont_iommu, state, get_default_waitset(), 
+                                      IDC_BIND_FLAGS_DEFAULT);
+    if (err_is_fail(err)) {
+        free(state);
+    }
+    return err;
+}
+
+static void request_iommu_endpoint_cap_handler(struct kaluga_binding* b, uint8_t type, 
+                                               uint32_t segment,
+                                               uint32_t bus, uint32_t device, 
+                                               uint32_t function)
+{
+    errval_t err, out_err;
+    PCI_DEBUG("Kaluga requested pci endpoint for device (bus=%d, device=%d, function=%d)\n",
+              bus, device, function);
+
+
+    uint32_t idx;
+    err = device_lookup_iommu_by_pci(segment, bus, device, function, &idx);
+    if (err_is_fail(err)) {
+        goto reply;
+    }
+
+    struct capref cap;
+    if (iommu_list == NULL) {
+        cap = NULL_CAP;
+        goto reply;
+    }
+
+    struct iommu_client_state* cl = collections_list_find_if(iommu_list, find_index,
+                                                             &idx);
+    if(cl == NULL) {
+        goto reply;
+    }
+
+    out_err = slot_alloc(&cap);
+    if (err_is_fail(out_err)) {
+        goto reply;
+    }
+
+
+    err = cl->b->rpc_tx_vtbl.request_iommu_endpoint(cl->b,type, segment, bus, device, 
+                                                    function, &cap, &out_err);
+    if (err_is_ok(err)) {
+       goto reply;
+    }
+
+reply:
+    err = b->tx_vtbl.request_iommu_endpoint_cap_response(b, NOP_CONT, cap, out_err);
+    assert(err_is_ok(err));
+    /* TODO: CPEANUP */
+}
+
+static struct kaluga_rx_vtbl rx_vtbl = {
+    .request_endpoint_cap_call = request_endpoint_cap_handler,
+    .request_iommu_endpoint_cap_call = request_iommu_endpoint_cap_handler,
+};
+
+static void bind_cont(void *st, errval_t err, struct kaluga_binding *b)
+{
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "bind failed");
+    }
+
+    // copy my message receive handler vtable to the binding
+    b->rx_vtbl = rx_vtbl;
+    b->st = st;
+    kaluga_rpc_client_init(b);
+
+    kaluga = b;
+    bound = true;
+}
+
+
+/*****************************************************************
+ * Parses Device scopes for IOMMU:
+ *****************************************************************/
+
+static errval_t parse_devices_scopes(void)
+{
+    errval_t err;
+
+    PCI_DEBUG("Parsing device scrope\n");
+
+    err = skb_execute_query("dmar_devscopes(L),length(L,Len),writeln(L)");
+    assert(err_is_ok(err));
+
+    char *skb_list_output = strdup(skb_get_output());
+
+    struct list_parser_status status;
+    skb_read_list_init_offset(&status, skb_list_output, 0);
+
+    uint32_t unit_idx;
+    uint8_t type, entrytype, enumid;
+    uint16_t seg;
+    uint8_t bus, dev, fun;
+    while(skb_read_list(&status, SKB_SCHEMA_DMAR_DEV,
+                        &unit_idx, &type, &entrytype, &seg, &bus,
+                        &dev, &fun, &enumid)) {
+        PCI_DEBUG("%u.%u.%u\n", bus, dev, fun);
+        if (entrytype > 2) {
+            debug_printf("not a PCI endpoint or bridge, continue\n");
+            continue;
+        }
+
+        err = skb_execute_query("bridge(pcie,addr(%d,%d,%d),_,_,_,_,_,secondary(BUS)),"
+                                        "write(secondary_bus(BUS)).", bus, dev, fun);
+        uint32_t next_bus;
+        if (err_is_ok(err)) {
+            err = skb_read_output("secondary_bus(%d)", &next_bus);
+
+
+            PCI_DEBUG("Bus %u -> %u\n", bus,next_bus);
+
+            assert(err_is_ok(err));
+        } else {
+            next_bus = bus;
+            PCI_DEBUG("Bus %u == %u\n", bus,next_bus);
+        }
+
+        debug_printf(SKB_SCHEMA_IOMMU_DEVICE "\n", HW_PCI_IOMMU_INTEL, unit_idx, type,
+                     entrytype, seg, next_bus, dev, fun, enumid);
+
+        err = skb_add_fact(SKB_SCHEMA_IOMMU_DEVICE, HW_PCI_IOMMU_INTEL, unit_idx, type,
+                           entrytype, seg, next_bus, dev, fun, enumid);
+        if (err_is_fail(err)) {
+            DEBUG_ERR(err, "failed to insert fact into the skb!\n");
+            continue;
+        }
+    }
+
+    free(skb_list_output);
+
+    return SYS_ERR_OK;
+}
+
 /*****************************************************************
  * Boots up the PCI server:
  *****************************************************************/
-
 void pci_init(void)
 {
     PCI_DEBUG("pci: pci_init: called\n");
 
+    parse_devices_scopes();
+
     PCI_DEBUG("pci: pci_init: launch listening\n");
-    errval_t r = pci_export(NULL, export_callback, connect_callback,
+    errval_t err = pci_export(NULL, export_callback, connect_callback,
                             get_default_waitset(), IDC_EXPORT_FLAGS_DEFAULT);
-    assert(err_is_ok(r));
+    assert(err_is_ok(err));
+
+
+    PCI_DEBUG("pci: pci_init: connect to kaluga using endpoint cap\n");
+    // When started by Kaluga it handend off an endpoint cap to Kaluga
+    kaluga_ep.cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER);
+    kaluga_ep.slot = DRIVERKIT_ARGCN_SLOT_KALUGA_EP;
+
+    err = kaluga_bind_to_endpoint(kaluga_ep, bind_cont, NULL, get_default_waitset(), 
+                                IDC_BIND_FLAGS_DEFAULT);
+    while(!bound) {
+        event_dispatch(get_default_waitset());
+    }
+
+    // init connections to IOMMUs
+    for (int i = 0; i+DRIVERKIT_ARGCN_SLOT_BAR0 < DRIVERKIT_ARGCN_SLOT_MAX; i++){
+        struct capref cap = {
+            .cnode = build_cnoderef(cap_argcn, CNODE_TYPE_OTHER),
+            .slot = DRIVERKIT_ARGCN_SLOT_BAR0+i
+        };
+
+        err = init_iommu_connection(i, cap);
+        if (err_is_fail(err)) {
+            break;
+        }
+    }
 
     PCI_DEBUG("pci: pci_init: terminated\n");
 }
+
+

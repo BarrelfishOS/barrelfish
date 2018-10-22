@@ -68,22 +68,6 @@ static inline void fpu_init(void)
     __asm volatile ("fninit");
 }
 
-static inline void fpu_save(struct registers_fpu_x86_64 *fpustate)
-{
-    uint8_t *regs = fpustate->registers;
-    regs += 16 - ((uintptr_t)regs % 16);
-
-    __asm volatile("fxsaveq %0" : "=m" (*regs));
-}
-
-static inline void fpu_restore(struct registers_fpu_x86_64 *fpustate)
-{
-    uint8_t *regs = fpustate->registers;
-    regs += 16 - ((uintptr_t)regs % 16);
-
-    __asm volatile ("fxrstorq %0" :: "m" (*regs));
-}
-
 #endif // __ASSEMBLER__
 
 #endif // ARCH_X86_64_BARRELFISH_KPI_ASM_INLINES_H
