@@ -38,6 +38,7 @@ errval_t sys_debug_get_apic_timer(uint32_t *ret);
 errval_t sys_debug_print_context_counter(void);
 errval_t sys_debug_print_timeslice(void);
 errval_t sys_debug_flush_cache(void);
+errval_t sys_debug_flush_tlb(void);
 errval_t sys_debug_send_ipi(uint8_t destination, uint8_t shorthand, uint8_t vector);
 errval_t sys_debug_set_breakpoint(uintptr_t addr, uint8_t mode, uint8_t length);
 errval_t sys_debug_hardware_timer_read(uintptr_t* ret);

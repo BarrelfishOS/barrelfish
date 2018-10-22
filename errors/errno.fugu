@@ -1316,3 +1316,7 @@ errors psci PSCI_ERR_{
     failure INVALID_ADDRESS  "Invald address provided",
     failure UNKNOWN_ERROR    "Error number unknown",
 };
+
+errors arrakis ARRA_ERR_ {
+    failure GUEST_NOT_FOUND       "Guest with given handle not found",
+};

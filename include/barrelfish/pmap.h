@@ -32,6 +32,12 @@ struct pmap_funcs {
     errval_t (*modify_flags)(struct pmap* pmap, genvaddr_t vaddr, size_t size,
                              vregion_flags_t flags, size_t *retsize);
     errval_t (*lookup)(struct pmap *pmap, genvaddr_t vaddr, struct pmap_mapping_info *info);
+    /* create the page-tables for a range and mark them as pinned */
+    errval_t (*create_pts_pinned)(struct pmap *pmap, genvaddr_t vaddr, size_t bytes,
+                                  vregion_flags_t flags);
+    /* get the leaf pt of a virtual address and returns the mapping of it
+     * XXX possibly it's better to return the cap here? */
+    errval_t (*get_leaf_pt)(struct pmap *pmap, genvaddr_t vaddr, lvaddr_t *va);
     errval_t (*serialise)(struct pmap *pmap, void *buf, size_t buflen);
     errval_t (*deserialise)(struct pmap *pmap, void *buf, size_t buflen);
 

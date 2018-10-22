@@ -126,6 +126,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "apicdrift_bench",
                         "benchmarks/bomp_mm",
                         "benchmarks/dma_bench",
+                        "benchmarks/vspace_map",
                         "benchmarks/xomp_share",
                         "benchmarks/xomp_spawn",
                         "benchmarks/xomp_work",

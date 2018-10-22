@@ -16,6 +16,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish_kpi/vmkit.h>
+#include <stdio.h> // printf()
 #include "guest.h"
 
 // Handler return values - this does probably not belong here

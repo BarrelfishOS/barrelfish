@@ -12,5 +12,8 @@
 
 [ build application { target = "fputest",
                       cFiles = [ "fputest.c" ]
+                    },
+ build arrakisapplication { target = "arrakis_fputest",
+                      cFiles = [ "fputest.c" ]
                     }
 ]

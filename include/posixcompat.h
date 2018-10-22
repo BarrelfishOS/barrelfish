@@ -19,6 +19,11 @@
 
 __BEGIN_DECLS
 
+struct memobj_anon* sbrk_get_memobj(void);
+struct vregion* sbrk_get_vregion(void);
+void* sbrk_get_base(void);
+size_t sbrk_get_offset(void);
+
 errval_t spawn_setup_fds(struct capref *frame, int rfd);
 errval_t posixcompat_unpack_fds(void);
 iref_t posixcompat_pts_get_iref(int fd);

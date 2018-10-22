@@ -55,10 +55,21 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
 
     size_t page_size = 0;
     paging_x86_64_flags_t flags_large = 0;
+    bool is_ept = false;
     switch (dest->type) {
         case ObjType_VNode_x86_64_pml4:
             if (src->type != ObjType_VNode_x86_64_pdpt) { // Right mapping
                 debug(SUBSYS_PAGING, "src type invalid: %d\n", src->type);
+                return SYS_ERR_WRONG_MAPPING;
+            }
+            if(slot >= X86_64_PML4_BASE(MEMORY_OFFSET)) { // Kernel mapped here
+                return SYS_ERR_VNODE_SLOT_RESERVED;
+            }
+            break;
+        case ObjType_VNode_x86_64_ept_pml4:
+            is_ept = true;
+            if (src->type != ObjType_VNode_x86_64_ept_pdpt) { // Right mapping
+                printf("src type invalid\n");
                 return SYS_ERR_WRONG_MAPPING;
             }
             if(slot >= X86_64_PML4_BASE(MEMORY_OFFSET)) { // Kernel mapped here
@@ -90,6 +101,29 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
                 if (off + pte_count * X86_64_HUGE_PAGE_SIZE > get_size(src)) {
                     printk(LOG_NOTE, "frame offset invalid: %zx > 0x%"PRIxGENSIZE"\n",
                             off + pte_count * X86_64_BASE_PAGE_SIZE, get_size(src));
+                    return SYS_ERR_FRAME_OFFSET_INVALID;
+                }
+                // Calculate page access protection flags /
+                // Get frame cap rights
+                flags_large = paging_x86_64_cap_to_page_flags(src->rights);
+                // Mask with provided access rights mask
+                flags_large = paging_x86_64_mask_attrs(flags, X86_64_PTABLE_ACCESS(flags));
+                // Add additional arch-specific flags
+                flags_large |= X86_64_PTABLE_FLAGS(flags);
+                // Unconditionally mark the page present
+                flags_large |= X86_64_PTABLE_PRESENT;
+            }
+            break;
+        case ObjType_VNode_x86_64_ept_pdpt:
+            is_ept = true;
+            // huge page support
+            if (src->type != ObjType_VNode_x86_64_ept_pdir) { // Right mapping
+                // TODO: check if the system allows 1GB mappings
+                page_size = X86_64_HUGE_PAGE_SIZE;
+                // check offset within frame
+                genpaddr_t off = offset;
+
+                if (off + pte_count * X86_64_HUGE_PAGE_SIZE > get_size(src)) {
                     return SYS_ERR_FRAME_OFFSET_INVALID;
                 }
                 // Calculate page access protection flags /
@@ -142,6 +176,28 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
 
             }
             break;
+        case ObjType_VNode_x86_64_ept_pdir:
+            is_ept = true;
+            // superpage support
+            if (src->type != ObjType_VNode_x86_64_ept_ptable) { // Right mapping
+                page_size = X86_64_LARGE_PAGE_SIZE;
+
+                // check offset within frame
+                genpaddr_t off = offset;
+
+                if (off + pte_count * X86_64_LARGE_PAGE_SIZE > get_size(src)) {
+                    return SYS_ERR_FRAME_OFFSET_INVALID;
+                }
+                // Calculate page access protection flags /
+                // Get frame cap rights
+                // Mask with provided access rights mask
+                flags_large = paging_x86_64_mask_attrs(flags, X86_64_PTABLE_ACCESS(flags));
+                // Add additional arch-specific flags
+                flags_large |= X86_64_PTABLE_FLAGS(flags);
+                // Unconditionally mark the page present
+                flags_large |= X86_64_PTABLE_PRESENT;
+            }
+            break;
         default:
             debug(SUBSYS_PAGING, "dest type invalid\n");
             return SYS_ERR_DEST_TYPE_INVALID;
@@ -158,6 +214,9 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
     // set metadata
     create_mapping_cap(mapping_cte, src, cte_for_cap(dest),
                        slot, pte_count);
+
+    // use standard paging structs even if we're mapping EPT entries
+    is_ept = false;
 
     cslot_t last_slot = slot + pte_count;
     for (; slot < last_slot; slot++, offset += page_size) {
@@ -176,13 +235,30 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
         if (page_size == X86_64_LARGE_PAGE_SIZE)
         {
             //a large page is mapped
-            paging_x86_64_map_large((union x86_64_ptable_entry *)entry, src_lp + offset, flags_large);
+//            if (is_ept) {
+//                paging_x86_64_ept_map_large((union x86_64_ept_ptable_entry *)entry,
+//                        src_lp + offset, flags_large);
+//            } else {
+                paging_x86_64_map_large((union x86_64_ptable_entry *)entry,
+                        src_lp + offset, flags_large);
+//            }
         } else if (page_size == X86_64_HUGE_PAGE_SIZE) {
             // a huge page is mapped
-            paging_x86_64_map_huge((union x86_64_ptable_entry *)entry, src_lp + offset, flags_large);
+ //           if (is_ept) {
+ //               paging_x86_64_ept_map_huge((union x86_64_ept_ptable_entry *)entry,
+ //                       src_lp + offset, flags_large);
+ //           } else {
+                paging_x86_64_map_huge((union x86_64_ptable_entry *)entry,
+                        src_lp + offset, flags_large);
+ //           }
         } else {
             //a normal paging structure entry is mapped
-            paging_x86_64_map_table(entry, src_lp + offset);
+  //          if (is_ept) {
+  //              paging_x86_64_ept_map_table(
+  //                      (union x86_64_ept_pdir_entry *)entry, src_lp + offset);
+  //          } else {
+                paging_x86_64_map_table(entry, src_lp + offset);
+  //          }
         }
     }
 
@@ -207,7 +283,10 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     }
 
     if (src->type != ObjType_Frame &&
-        src->type != ObjType_DevFrame) { // Right mapping
+        src->type != ObjType_DevFrame &&
+        //(!type_is_ept(dest->type) &&
+        src->type != ObjType_RAM &&
+        !type_is_vnode(src->type)) { // Right mapping
         debug(SUBSYS_PAGING, "src type invalid\n");
         return SYS_ERR_WRONG_MAPPING;
     }
@@ -228,14 +307,35 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
 
     /* Calculate page access protection flags */
     // Get frame cap rights
-    paging_x86_64_flags_t flags =
-        paging_x86_64_cap_to_page_flags(src->rights);
+    paging_x86_64_flags_t flags;
+    if (src->type != ObjType_RAM) {
+        flags = paging_x86_64_cap_to_page_flags(src->rights);
+    } else {
+        flags = X86_64_PTABLE_READ_WRITE | X86_64_PTABLE_USER_SUPERVISOR;
+    }
     // Mask with provided access rights mask
     flags = paging_x86_64_mask_attrs(flags, X86_64_PTABLE_ACCESS(mflags));
     // Add additional arch-specific flags
     flags |= X86_64_PTABLE_FLAGS(mflags);
     // Unconditionally mark the page present
     flags |= X86_64_PTABLE_PRESENT;
+    // 1. Make sure non-guest page-tables are never writeable from user-space
+    // 2. ptables mapped in EPT tables need to writeable
+    if (type_is_vnode(src->type) &&
+        !type_is_ept(dest->type) &&
+        !dcb_current->is_vm_guest)
+    {
+        printf("should drop WRITE permissions on page table 0x%lx\n",
+                get_address(src));
+#if 0
+        if (flags & ~X86_64_PTABLE_READ_WRITE) {
+            //printf("%s:%s:%d: WRITE permission on page table masked.\n",
+            //        __FILE__, __FUNCTION__, __LINE__);
+        }
+        flags &= ~X86_64_PTABLE_READ_WRITE;
+#endif
+    }
+
 
     // Convert destination base address
     genpaddr_t dest_gp   = get_address(dest);
@@ -260,11 +360,19 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
             // TODO: cleanup already mapped pages
             memset(mapping_cte, 0, sizeof(*mapping_cte));
             debug(LOG_WARN, "Trying to remap an already-present page is NYI, but "
-                  "this is most likely a user-space bug!\n");
+                    "this is most likely a user-space bug!\n");
             return SYS_ERR_VNODE_SLOT_INUSE;
         }
 
         // Carry out the page mapping
+#if 0
+        if (type_is_ept(dest->type)) {
+            paging_x86_64_ept_map((union x86_64_ept_ptable_entry *)entry,
+                    src_lp + offset, flags);
+        } else {
+            paging_x86_64_map(entry, src_lp + offset, flags);
+        }
+#endif
         paging_x86_64_map(entry, src_lp + offset, flags);
     }
 
@@ -284,6 +392,10 @@ static mapping_handler_t handler[ObjType_Num] = {
     [ObjType_VNode_x86_64_pdpt]   = x86_64_non_ptable,
     [ObjType_VNode_x86_64_pdir]   = x86_64_non_ptable,
     [ObjType_VNode_x86_64_ptable] = x86_64_ptable,
+    [ObjType_VNode_x86_64_ept_pml4]   = x86_64_non_ptable,
+    [ObjType_VNode_x86_64_ept_pdpt]   = x86_64_non_ptable,
+    [ObjType_VNode_x86_64_ept_pdir]   = x86_64_non_ptable,
+    [ObjType_VNode_x86_64_ept_ptable] = x86_64_ptable,
 };
 
 
@@ -315,6 +427,9 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
         // requested map overlaps leaf page table
         debug(SUBSYS_CAPS,
                 "caps_copy_to_vnode: requested mapping spans multiple leaf page tables\n");
+        debug(SUBSYS_PAGING,
+                "first_slot = %"PRIuCSLOT", last_slot = %"PRIuCSLOT", count = %zu\n",
+                dest_slot, last_slot, pte_count);
         return SYS_ERR_VM_RETRY_SINGLE;
     }
 
@@ -536,6 +651,13 @@ void paging_dump_tables(struct dcb *dispatcher)
     for (int pdpt_index = 0; pdpt_index < kernel_pml4e; pdpt_index++) {
         union x86_64_pdir_entry *pdpt = (union x86_64_pdir_entry *)root_pt + pdpt_index;
         if (!pdpt->d.present) { continue; }
+        else {
+            genpaddr_t paddr = (genpaddr_t)pdpt->d.base_addr << BASE_PAGE_BITS;
+            printf("%d: 0x%"PRIxGENPADDR" (%d %d), raw=0x%"PRIx64"\n",
+                    pdpt_index, paddr,
+                    pdpt->d.read_write, pdpt->d.user_supervisor,
+                    pdpt->raw);
+        }
         genpaddr_t pdpt_gp = (genpaddr_t)pdpt->d.base_addr << BASE_PAGE_BITS;
         lvaddr_t pdpt_lv = local_phys_to_mem(gen_phys_to_local_phys(pdpt_gp));
 
@@ -548,9 +670,17 @@ void paging_dump_tables(struct dcb *dispatcher)
             if (pt->huge.always1) {
                 // is huge page mapping
                 genpaddr_t paddr = (genpaddr_t)pt->huge.base_addr << HUGE_PAGE_BITS;
-                printf("%d.%d: 0x%"PRIxGENPADDR"\n", pdpt_index, pdir_index, paddr);
+                printf("%d.%d: 0x%"PRIxGENPADDR" (%d %d %d)\n", pdpt_index,
+                        pdir_index, paddr, pt->huge.read_write,
+                        pt->huge.dirty, pt->huge.accessed);
                 // goto next pdpt entry
                 continue;
+            } else {
+                genpaddr_t paddr = (genpaddr_t)pdir->d.base_addr << BASE_PAGE_BITS;
+                printf("%d.%d: 0x%"PRIxGENPADDR" (%d %d), raw=0x%"PRIx64"\n",
+                        pdpt_index, pdir_index, paddr,
+                        pdir->d.read_write, pdir->d.user_supervisor,
+                        pdir->raw);
             }
             genpaddr_t pdir_gp = (genpaddr_t)pdir->d.base_addr << BASE_PAGE_BITS;
             lvaddr_t pdir_lv = local_phys_to_mem(gen_phys_to_local_phys(pdir_gp));
@@ -564,9 +694,17 @@ void paging_dump_tables(struct dcb *dispatcher)
                 if (pt->large.always1) {
                     // is large page mapping
                     genpaddr_t paddr = (genpaddr_t)pt->large.base_addr << LARGE_PAGE_BITS;
-                    printf("%d.%d.%d: 0x%"PRIxGENPADDR"\n", pdpt_index, pdir_index, ptable_index, paddr);
+                    printf("%d.%d.%d: 0x%"PRIxGENPADDR" (%d %d %d)\n",
+                            pdpt_index, pdir_index, ptable_index, paddr,
+                            pt->large.read_write, pt->large.dirty, pt->large.accessed);
                     // goto next pdir entry
                     continue;
+                } else {
+                    genpaddr_t paddr = (genpaddr_t)ptable->d.base_addr << BASE_PAGE_BITS;
+                    printf("%d.%d.%d: 0x%"PRIxGENPADDR" (%d %d), raw=0x%"PRIx64"\n",
+                            pdpt_index, pdir_index, ptable_index, paddr,
+                            ptable->d.read_write, ptable->d.user_supervisor,
+                            ptable->raw);
                 }
                 genpaddr_t ptable_gp = (genpaddr_t)ptable->d.base_addr << BASE_PAGE_BITS;
                 lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
@@ -576,8 +714,10 @@ void paging_dump_tables(struct dcb *dispatcher)
                         (union x86_64_ptable_entry *)ptable_lv + entry;
                     if (!e->base.present) { continue; }
                     genpaddr_t paddr = (genpaddr_t)e->base.base_addr << BASE_PAGE_BITS;
-                    printf("%d.%d.%d.%d: 0x%"PRIxGENPADDR" (raw=0x%016"PRIx64")\n",
-                            pdpt_index, pdir_index, ptable_index, entry, paddr, e->raw);
+                    printf("%d.%d.%d.%d: 0x%"PRIxGENPADDR" (%d %d %d), raw=0x%"PRIx64"\n", 
+                            pdpt_index, pdir_index, ptable_index, entry,
+                            paddr, e->base.read_write, e->base.dirty, e->base.accessed,
+                            e->raw);
                 }
             }
         }

@@ -132,7 +132,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -226,6 +226,22 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "x86_64 PML4 at 0x%" PRIxGENPADDR,
                         cap->u.vnode_x86_64_pml4.base);
 
+    case ObjType_VNode_x86_64_ept_ptable:
+        return snprintf(buf, len, "x86_64 EPT Page table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_ptable.base);
+
+    case ObjType_VNode_x86_64_ept_pdir:
+        return snprintf(buf, len, "x86_64 EPT Page directory at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pdir.base);
+
+    case ObjType_VNode_x86_64_ept_pdpt:
+        return snprintf(buf, len, "x86_64 EPT PDPT at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pdpt.base);
+
+    case ObjType_VNode_x86_64_ept_pml4:
+        return snprintf(buf, len, "x86_64 EPT PML4 at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pml4.base);
+
     case ObjType_Frame_Mapping:
         mappingtype = "Frame";
         goto ObjType_Mapping;
@@ -245,6 +261,34 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
     case ObjType_VNode_x86_64_ptable_Mapping:
         mappingtype = "x86_64 PTABLE";
         goto ObjType_Mapping;
+
+    case ObjType_VNode_x86_64_ept_pml4_Mapping:
+        return snprintf(buf, len, "x86_64 EPT PML4 Mapping (x86_64 PML4 cap @%p, "
+                                  "pte @0x%"PRIxLVADDR", pte_count=%hu)",
+                                  cap->u.vnode_x86_64_ept_pml4_mapping.cap,
+                                  cap->u.vnode_x86_64_ept_pml4_mapping.pte,
+                                  cap->u.vnode_x86_64_ept_pml4_mapping.pte_count);
+
+    case ObjType_VNode_x86_64_ept_pdpt_Mapping:
+        return snprintf(buf, len, "x86_64 EPT PDPT Mapping (x86_64 PDPT cap @%p, "
+                                  "pte @0x%"PRIxLVADDR", pte_count=%hu)",
+                                  cap->u.vnode_x86_64_ept_pdpt_mapping.cap,
+                                  cap->u.vnode_x86_64_ept_pdpt_mapping.pte,
+                                  cap->u.vnode_x86_64_ept_pdpt_mapping.pte_count);
+
+    case ObjType_VNode_x86_64_ept_pdir_Mapping:
+        return snprintf(buf, len, "x86_64 EPT PDIR Mapping (x86_64 PDIR cap @%p, "
+                                  "pte @0x%"PRIxLVADDR", pte_count=%hu)",
+                                  cap->u.vnode_x86_64_ept_pdir_mapping.cap,
+                                  cap->u.vnode_x86_64_ept_pdir_mapping.pte,
+                                  cap->u.vnode_x86_64_ept_pdir_mapping.pte_count);
+
+    case ObjType_VNode_x86_64_ept_ptable_Mapping:
+        return snprintf(buf, len, "x86_64 EPT PTABLE Mapping (x86_64 PTABLE cap @%p, "
+                                  "pte @0x%"PRIxLVADDR", pte_count=%hu)",
+                                  cap->u.vnode_x86_64_ept_ptable_mapping.cap,
+                                  cap->u.vnode_x86_64_ept_ptable_mapping.pte,
+                                  cap->u.vnode_x86_64_ept_ptable_mapping.pte_count);
 
     case ObjType_VNode_x86_32_pdpt_Mapping:
         mappingtype = "x86_32 PDPT";

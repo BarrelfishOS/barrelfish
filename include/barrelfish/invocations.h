@@ -239,6 +239,19 @@ static inline errval_t invoke_vnode_identify(struct capref vnode,
 }
 
 /**
+ * \brief Cleans all dirty bits in a page table.
+ */
+static inline errval_t invoke_clean_dirty_bits(struct capref vnode, size_t* how_many)
+{
+
+    struct sysret ret = cap_invoke1(vnode, VNodeCmd_CleanDirtyBits);
+    if (how_many != NULL) {
+        *how_many = ret.value;
+    }
+    return ret.error;
+}
+
+/**
  * \brief Modify mapping flags on parts of a mapping
  *
  * \param mapping  CSpace address of mapping capability

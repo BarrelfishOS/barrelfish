@@ -55,7 +55,7 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -148,6 +148,22 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "x86_64 PML4 at 0x%" PRIxGENPADDR,
                         cap->u.vnode_x86_64_pml4.base);
 
+    case ObjType_VNode_x86_64_ept_ptable:
+        return snprintf(buf, len, "x86_64 EPT Page table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_ptable.base);
+
+    case ObjType_VNode_x86_64_ept_pdir:
+        return snprintf(buf, len, "x86_64 EPT Page directory at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pdir.base);
+
+    case ObjType_VNode_x86_64_ept_pdpt:
+        return snprintf(buf, len, "x86_64 EPT PDPT at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pdpt.base);
+
+    case ObjType_VNode_x86_64_ept_pml4:
+        return snprintf(buf, len, "x86_64 EPT PML4 at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pml4.base);
+
     case ObjType_Frame_Mapping:
         mappingtype = "Frame";
         goto ObjType_Mapping;
@@ -166,6 +182,19 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         goto ObjType_Mapping;
     case ObjType_VNode_x86_64_ptable_Mapping:
         mappingtype = "x86_64 PTABLE";
+        goto ObjType_Mapping;
+
+    case ObjType_VNode_x86_64_ept_pml4_Mapping:
+        mappingtype = "x86_64 EPT PML4";
+        goto ObjType_Mapping;
+    case ObjType_VNode_x86_64_ept_pdpt_Mapping:
+        mappingtype = "x86_64 EPT PDPT";
+        goto ObjType_Mapping;
+    case ObjType_VNode_x86_64_ept_pdir_Mapping:
+        mappingtype = "x86_64 EPT PDIR";
+        goto ObjType_Mapping;
+    case ObjType_VNode_x86_64_ept_ptable_Mapping:
+        mappingtype = "x86_64 EPT PTABLE";
         goto ObjType_Mapping;
 
     case ObjType_VNode_x86_32_pdpt_Mapping:
@@ -334,7 +363,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t objsize)
 {
     switch(type) {
@@ -369,6 +398,10 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pdir:
     case ObjType_VNode_x86_64_ptable:
+    case ObjType_VNode_x86_64_ept_pml4:
+    case ObjType_VNode_x86_64_ept_pdpt:
+    case ObjType_VNode_x86_64_ept_pdir:
+    case ObjType_VNode_x86_64_ept_ptable:
     case ObjType_VNode_x86_32_pdpt:
     case ObjType_VNode_x86_32_pdir:
     case ObjType_VNode_x86_32_ptable:
@@ -424,6 +457,10 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_VNode_x86_64_pdpt_Mapping:
     case ObjType_VNode_x86_64_pdir_Mapping:
     case ObjType_VNode_x86_64_ptable_Mapping:
+    case ObjType_VNode_x86_64_ept_pml4_Mapping:
+    case ObjType_VNode_x86_64_ept_pdpt_Mapping:
+    case ObjType_VNode_x86_64_ept_pdir_Mapping:
+    case ObjType_VNode_x86_64_ept_ptable_Mapping:
     case ObjType_VNode_x86_32_pdpt_Mapping:
     case ObjType_VNode_x86_32_pdir_Mapping:
     case ObjType_VNode_x86_32_ptable_Mapping:
@@ -442,7 +479,7 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
@@ -494,6 +531,10 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
     case ObjType_VNode_x86_64_pdir:
     case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pml4:
+    case ObjType_VNode_x86_64_ept_ptable:
+    case ObjType_VNode_x86_64_ept_pdir:
+    case ObjType_VNode_x86_64_ept_pdpt:
+    case ObjType_VNode_x86_64_ept_pml4:
         // objsize is size of VNode; but not given as such
         objsize = vnode_objsize(type);
         debug(SUBSYS_CAPS, "VNode: zeroing %zu bytes @%#"PRIxLPADDR"\n",
@@ -552,7 +593,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                             gensize_t objsize, size_t count, coreid_t owner,
@@ -606,6 +647,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     size_t dest_i = 0;
     err = SYS_ERR_OK;
+    bool is_ept = false;
 
     /* Set the type specific fields and insert into #dest_caps */
     switch(type) {
@@ -870,6 +912,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     }
 
     case ObjType_VNode_x86_64_ptable:
+        is_ept = true;
+    case ObjType_VNode_x86_64_ept_ptable:
     {
         size_t objsize_vnode = vnode_objsize(type);
 
@@ -888,6 +932,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     }
 
     case ObjType_VNode_x86_64_pdir:
+        is_ept = true;
+    case ObjType_VNode_x86_64_ept_pdir:
     {
         size_t objsize_vnode = vnode_objsize(type);
 
@@ -906,6 +952,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     }
 
     case ObjType_VNode_x86_64_pdpt:
+        is_ept = true;
+    case ObjType_VNode_x86_64_ept_pdpt:
     {
         size_t objsize_vnode = vnode_objsize(type);
 
@@ -923,6 +971,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         break;
     }
 
+    case ObjType_VNode_x86_64_ept_pml4:
+        is_ept = true;
     case ObjType_VNode_x86_64_pml4:
     {
         size_t objsize_vnode = vnode_objsize(type);
@@ -936,6 +986,11 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
             // Make it a good PML4 by inserting kernel/mem VSpaces
             lpaddr_t var = gen_phys_to_local_phys(get_address(&temp_cap));
             paging_x86_64_make_good_pml4(var);
+            if (is_ept) {
+                paging_x86_64_make_good_ept_pml4(var);
+            } else {
+                paging_x86_64_make_good_pml4(var);
+            }
 #endif
 
             // Insert the capability
@@ -1297,7 +1352,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 //{{{1 Capability creation
 
 /// check arguments, return true iff ok
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 #ifndef NDEBUG
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
@@ -1418,7 +1473,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     return SYS_ERR_OK;
 }
 
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
@@ -1799,7 +1854,7 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
 }
 
 /// Create copies to a cte
-STATIC_ASSERT(50 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(58 == ObjType_Num, "Knowledge of all cap types");
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2)
 {

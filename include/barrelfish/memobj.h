@@ -29,7 +29,8 @@ enum memobj_type {
     ONE_FRAME_ONE_MAP,
     MEMOBJ_VFS, // see lib/vfs/mmap.c
     MEMOBJ_FIXED,
-    MEMOBJ_NUMA
+    MEMOBJ_NUMA,
+    MEMOBJ_APPEND,
 };
 
 typedef uint32_t memobj_flags_t;
@@ -126,7 +127,7 @@ struct memobj_fixed {
     size_t           chunk_size; ///< the size of the frames
     struct vregion  *vregion;    ///< the associated vregion
     struct capref   *frames;     ///< the tracked frames
-    size_t        *offsets;    ///< the offset into the tracked frames
+    size_t          *offsets;    ///< the offset into the tracked frames
 };
 
 /**
@@ -140,6 +141,23 @@ struct memobj_numa {
     size_t           stride;     ///< size of the regions to map
     struct vregion  *vregion;    ///< the associated vregion
     struct capref   *frames;     ///< the tracked frames
+};
+
+/**
+ * this memobj can be mapped into a single vregion and is backed by a list of
+ * frames.  This memobj only supports appending frames at the end.
+ */
+struct memobj_append {
+    struct memobj   m;
+    struct vregion *vregion;           ///< associated vregion
+    struct capref  *frames;            ///< array of frame caps backing the object
+    genvaddr_t     *offsets;           ///< offsets into object for associated frames
+    gensize_t      *frame_sizes;       ///< sizes of frame caps
+    size_t         *frame_offsets;     ///< offsets into frame caps
+    size_t          frame_count;       ///< number of entries in arrays
+    size_t          first_free_frame;  ///< first free entry in arrays
+    genvaddr_t      already_faulted;   ///< highest offset in object that we already mapped
+    size_t          first_unfaulted;   ///< index of first unfaulted entry in frame array
 };
 
 errval_t memobj_create_pinned(struct memobj_pinned *memobj, size_t size,
@@ -170,6 +188,11 @@ errval_t memobj_create_numa(struct memobj_numa *numa, size_t size,
                             memobj_flags_t flags, size_t node_count, size_t stride);
 
 errval_t memobj_destroy_numa(struct memobj *memobj);
+
+errval_t memobj_create_append(struct memobj_append *append,
+                              size_t size,
+                              memobj_flags_t flags);
+errval_t memobj_destroy_append(struct memobj *memobj);
 
 __END_DECLS
 

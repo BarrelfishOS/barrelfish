@@ -57,7 +57,6 @@ let cFiles = [ "access.c",
                "remove.c",
                "rename.c",
                "rmdir.c",
-               "sbrk.c",
                "select.c",
                "semaphore.c",
                "setitimer.c",
@@ -88,7 +87,7 @@ let cFiles = [ "access.c",
 in
 [ build library {
         target = "posixcompat",
-        cFiles = cFiles,
+        cFiles = cFiles ++ [ "sbrk.c" ],
         flounderDefs = [ "unixsock", "octopus", "monitor", "terminal", "terminal_config", "terminal_session" ],
         flounderBindings = [ "unixsock", "octopus" ],
         flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
@@ -98,12 +97,23 @@ in
     },
     build library {
         target = "posixcompat",
-        cFiles = cFiles,
+        cFiles = cFiles ++ [ "sbrk.c" ],
         flounderDefs = [ "unixsock", "octopus", "monitor", "terminal", "terminal_config", "terminal_session" ],
         flounderBindings = [ "unixsock", "octopus" ],
         flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
         flounderTHCStubs = [ "octopus" ],
         addLibraries = libDeps [ "vfs_ramfs",  "term_server", "octopus", "lwip" ],
         architectures = [ "x86_32", "k1om", "armv7", "armv8" ]
+    },
+    build library {
+        target = "posixcompat_arrakis",
+        cFiles = cFiles ++ [ "sbrk_arrakis.c", "nestedpaging.c" ],
+        addCFlags = [ "-DARRAKIS" ],
+        flounderDefs = [ "unixsock", "octopus", "monitor", "terminal", "terminal_config", "terminal_session" ],
+        flounderBindings = [ "unixsock", "octopus" ],
+        flounderExtraBindings = [ ("octopus", [ "rpcclient" ]) ],
+        flounderTHCStubs = [ "octopus" ],
+        addLibraries = libDeps [ "vfs_nonfs", "term_server", "octopus", "lwip" ],
+        architectures = [ "x86_64" ]
     }
 ]

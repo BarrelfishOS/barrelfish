@@ -43,6 +43,10 @@ errval_t vspace_map_anon_nomalloc(void **retaddr, struct memobj_anon *memobj,
                                   struct vregion *vregion, size_t size,
                                   size_t *retsize, vregion_flags_t flags,
                                   size_t alignment);
+errval_t vspace_map_append_nomalloc(void **retaddr, struct memobj_append *memobj,
+                                    struct vregion *vregion, size_t size,
+                                    size_t *retsize, vregion_flags_t flags,
+                                    size_t alignment);
 errval_t vspace_map_anon_aligned(void **retaddr, struct memobj **ret_memobj,
                                  struct vregion **ret_vregion, size_t size,
                                  size_t *retsize, vregion_flags_t flags,

@@ -286,6 +286,7 @@ static errval_t spawn_determine_cputype(struct spawninfo *si, lvaddr_t binary)
 /**
  * \brief Setup the dispatcher frame
  */
+bool setup_dispatcher_debug = false;
 static errval_t spawn_setup_dispatcher(struct spawninfo *si,
                                        coreid_t core_id,
                                        const char *name,
@@ -314,6 +315,10 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
                                      1UL << DISPATCHER_FRAME_BITS);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MAP_DISPATCHER_TO_NEW);
+    }
+    if (setup_dispatcher_debug) {
+        debug_printf("dispatcher frame mapped at 0x%"PRIxGENVADDR" in domain AS\n",
+                spawn_dispatcher_base);
     }
 
     /* Set initial state */

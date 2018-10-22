@@ -16,6 +16,7 @@
 
 #include "vmkitmon.h"
 #include "lpc.h"
+#include <stdio.h>
 #include <stdlib.h>
 
 

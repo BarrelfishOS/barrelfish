@@ -74,6 +74,11 @@ errval_t sys_debug_flush_cache(void)
     return syscall2(SYSCALL_DEBUG, DEBUG_FLUSH_CACHE).error;
 }
 
+errval_t sys_debug_flush_tlb(void)
+{
+    return syscall2(SYSCALL_DEBUG, DEBUG_FLUSH_TLB).error;
+}
+
 errval_t sys_debug_send_ipi(uint8_t destination, uint8_t shorthand, uint8_t vector)
 {
     return syscall5(SYSCALL_DEBUG,

@@ -11,6 +11,7 @@
  * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#include <stdio.h> // for printf()
 #include "vmkitmon.h"
 #include <x86emu.h>
 #include <stdarg.h>

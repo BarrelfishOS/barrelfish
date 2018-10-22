@@ -721,6 +721,7 @@ int
 lwip_fcntl(int fd, int cmd, int val)
 {
     assert(!"NYI");
+    return 0;
 }
 
 int
@@ -837,6 +838,7 @@ lwip_sendto(int s, const void *data, size_t size, int flags,
 int lwip_sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
     assert(!"NYI");
+    return 0;
 }
 
 int lwip_socket(int domain, int type, int protocol)
@@ -2299,6 +2301,7 @@ bool lwip_sock_ready_write(int socket)
 bool lwip_sock_is_open(int s)
 {
     assert(!"NYI");
+    return false;
 }
 
 static void do_nothing(void *arg)

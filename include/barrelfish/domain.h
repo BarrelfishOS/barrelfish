@@ -45,6 +45,9 @@ struct monitor_blocking_binding;
 struct waitset;
 struct spawn_binding;
 struct arrakis_binding;
+#ifdef ARRAKIS
+struct hyper_binding;
+#endif
 struct proc_mgmt_binding;
 
 struct waitset *get_default_waitset(void);
@@ -60,6 +63,10 @@ struct monitor_binding *get_monitor_binding(void);
 struct waitset_chanstate *get_monitor_binding_chanstate(void);
 void set_monitor_blocking_binding(struct monitor_blocking_binding *st);
 struct monitor_blocking_binding *get_monitor_blocking_binding(void);
+#ifdef ARRAKIS
+void set_hyper_binding(struct hyper_binding *b);
+struct hyper_binding *get_hyper_binding(void);
+#endif
 void set_mem_client(struct mem_binding *st);
 struct mem_binding *get_mem_client(void);
 struct pinned_state *get_current_pinned_state(void);

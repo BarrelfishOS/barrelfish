@@ -30,6 +30,9 @@ struct pmap_dump_info {
 errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
                           struct capref vnode,
                           struct slot_allocator *opt_slot_alloc);
+errval_t pmap_x86_64_init_ept(struct pmap *pmap, struct vspace *vspace,
+                              struct capref vnode,
+                              struct slot_allocator *opt_slot_alloc);
 errval_t pmap_x86_64_current_init(bool);
 
 #endif // TARGET_X86_64_BARRELFISH_PMAP_H

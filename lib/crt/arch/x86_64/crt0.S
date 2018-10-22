@@ -16,7 +16,10 @@
 #include <asmoffsets.h>
 
 	.text
-	.globl  _start, _start_init
+	.globl  _start, _start_init, _start_0deref
+
+_start_0deref:
+        movq     $0, 0
 
 _start:
         mov     $0, %rsi

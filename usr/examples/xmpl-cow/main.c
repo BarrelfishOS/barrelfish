@@ -111,6 +111,8 @@ static errval_t vspace_map_one_frame_cow(void **buf, size_t size,
         size_t granularity)
 {
     errval_t err;
+    // XXX: I belive these are going to be leaked: vspace_map_anon_attr() seems
+    // to call malloc() as well --KK
     if (!memobj) {
         memobj = malloc(sizeof(*memobj));
     }

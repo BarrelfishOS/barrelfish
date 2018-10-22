@@ -87,6 +87,7 @@ bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
     return false;
 }
 
+#if defined(PMAP_LL)
 /**
  * \brief Starting at a given root, return the vnode with entry equal to #entry
  */
@@ -94,6 +95,7 @@ struct vnode *find_vnode(struct vnode *root, uint16_t entry)
 {
     assert(root != NULL);
     assert(root->is_vnode);
+    assert(entry < PTABLE_SIZE);
     struct vnode *n;
 
     for(n = root->u.vnode.children; n != NULL; n = n->next) {
@@ -155,12 +157,140 @@ void remove_vnode(struct vnode *root, struct vnode *item)
     USER_PANIC("Should not get here");
 }
 
+#elif defined(PMAP_ARRAY)
+/**
+ * \brief Starting at a given root, return the vnode with entry equal to #entry
+ */
+struct vnode *find_vnode(struct vnode *root, uint16_t entry)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+    assert(entry < PTABLE_SIZE);
+
+    if (root->u.vnode.children) {
+        return root->u.vnode.children[entry];
+    } else {
+        return NULL;
+    }
+}
+
+bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+
+    struct vnode *n = root->u.vnode.children[entry];
+
+    // empty or ptable
+    if (!n || n->is_vnode) {
+        return false;
+    }
+
+    uint16_t end = n->entry + n->u.frame.pte_count;
+    if (n->entry <= entry && entry + npages <= end) {
+        return true;
+    }
+
+    return false;
+}
+
+void remove_vnode(struct vnode *root, struct vnode *item)
+{
+    assert(root->is_vnode);
+    size_t pte_count = item->is_vnode ? 1 : item->u.frame.pte_count;
+    for (int i = 0; i < pte_count; i++) {
+        root->u.vnode.children[item->entry+i] = NULL;
+    }
+}
+
+#else
+#error Invalid pmap datastructure
+#endif
+
+/**
+ * has_vnode() checks whether there exists any vnodes in `len` slots
+ * starting from `entry` in vnode `root`, if `only_pages` is set, page table
+ * vnodes are ignored 
+ */
+bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
+               bool only_pages)
+{
+    assert(root != NULL);
+    assert(root->is_vnode);
+    struct vnode *n;
+
+    uint32_t end_entry = entry + len;
+
+    // region we check [entry .. end_entry)
+#if defined(PMAP_LL)
+    for (n = root->u.vnode.children; n; n = n->next) {
+#elif defined(PMAP_ARRAY)
+    for (int i = 0; i < PTABLE_SIZE; i++) {
+        n = root->u.vnode.children[i];
+        if (!n) { continue; }
+#else
+#error Invalid pmap datastructure
+#endif
+        // n is page table, we need to check if it's anywhere inside the
+        // region to check [entry .. end_entry)
+        // this amounts to n->entry == entry for len = 1
+        if (n->is_vnode && n->entry >= entry && n->entry < end_entry) {
+            if (only_pages) {
+                return has_vnode(n, 0, PTABLE_SIZE, true);
+            }
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("1: found page table inside our region\n");
+#endif
+            return true;
+        } else if (n->is_vnode) {
+            // all other vnodes do not overlap with us, so go to next
+            assert(n->entry < entry || n->entry >= end_entry);
+            continue;
+        }
+        // this remains the same regardless of `only_pages`.
+        // n is frame [n->entry .. end)
+        // 3 cases:
+        // 1) entry < n->entry && end_entry >= end --> n is a strict subset of
+        // our region
+        // 2) entry inside n (entry >= n->entry && entry < end)
+        // 3) end_entry inside n (end_entry >= n->entry && end_entry < end)
+        uint32_t end = n->entry + n->u.frame.pte_count;
+        if (entry < n->entry && end_entry >= end) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("2: found a strict subset of our region: (%"
+                    PRIu32"--%"PRIu32") < (%"PRIu32"--%"PRIu32")\n",
+                    n->entry, end, entry, end_entry);
+#endif
+            return true;
+        }
+        if (entry >= n->entry && entry < end) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("3: found a region starting inside our region: (%"
+                    PRIu32"--%"PRIu32") <> (%"PRIu32"--%"PRIu32")\n",
+                    n->entry, end, entry, end_entry);
+#endif
+            return true;
+        }
+        if (end_entry > n->entry && end_entry < end) {
+#ifdef LIBBARRELFISH_DEBUG_PMAP
+            debug_printf("4: found a region ending inside our region: (%"
+                    PRIu32"--%"PRIu32") <> (%"PRIu32"--%"PRIu32")\n",
+                    n->entry, end, entry, end_entry);
+#endif
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
 /**
  * \brief Allocates a new VNode, adding it to the page table and our metadata
  */
 errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
                      enum objtype type, uint32_t entry,
-                     struct vnode **retvnode)
+                     struct vnode **retvnode, genvaddr_t base)
 {
     errval_t err;
 
@@ -206,15 +336,27 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     err = vnode_map(root->u.vnode.invokable, newvnode->u.vnode.cap, entry,
                     PTABLE_ACCESS_DEFAULT, 0, 1, newvnode->mapping);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "pmap_x86: vnode_map\n");
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
 
     // The VNode meta data
     newvnode->is_vnode  = true;
     newvnode->entry     = entry;
+    newvnode->type      = type;
+#if defined(PMAP_LL)
     newvnode->next      = root->u.vnode.children;
     root->u.vnode.children = newvnode;
     newvnode->u.vnode.children = NULL;
+#elif defined(PMAP_ARRAY)
+    memset(newvnode->u.vnode.children, 0, sizeof(struct vode *)*PTABLE_SIZE);
+    root->u.vnode.children[entry] = newvnode;
+#else
+#error Invalid pmap datastructure
+#endif
+    newvnode->u.vnode.virt_base = 0;
+    newvnode->u.vnode.page_table_frame  = NULL_CAP;
+    newvnode->u.vnode.base = base;
 
     *retvnode = newvnode;
     return SYS_ERR_OK;
@@ -225,10 +367,19 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
 {
     errval_t err;
     uint32_t end_entry = entry + len;
+#if defined(PMAP_LL)
     for (struct vnode *n = root->u.vnode.children; n; n = n->next) {
+#elif defined(PMAP_ARRAY)
+    struct vnode **np = &root->u.vnode.children[entry];
+    for (int i = 0; i < PTABLE_SIZE && i < len; i++, np++) {
+        assert(np);
+        struct vnode *n = *np;
+#else
+#error Invalid pmap datastructure
+#endif
         if (n->entry >= entry && n->entry < end_entry) {
             // sanity check and skip leaf entries
-            if (!n->is_vnode) {
+            if (!n->is_vnode || n->is_pinned) {
                 continue;
             }
             // here we know that all vnodes we're interested in are
@@ -301,6 +452,8 @@ struct serial_entry {
     uint16_t entry;     ///< Entry #
     uint8_t depth;      ///< Depth of this node (0 = root)
     cslot_t slot;       ///< Slot number (in page cnode) of vnode cap
+    enum objtype type;  ///< Type of the vnode cap
+    lvaddr_t base;
 };
 
 static errval_t serialise_tree(int depth, struct vnode *v,
@@ -323,14 +476,25 @@ static errval_t serialise_tree(int depth, struct vnode *v,
     out[(*outpos)++] = (struct serial_entry) {
         .depth = depth,
         .entry = v->entry,
+        .type = v->type,
+        .base = v->u.vnode.base,
         .slot = v->u.vnode.cap.slot,
     };
 
     // depth-first walk
+#if defined(PMAP_LL)
     for (struct vnode *c = v->u.vnode.children; c != NULL; c = c->next) {
-        err = serialise_tree(depth + 1, c, out, outlen, outpos);
-        if (err_is_fail(err)) {
-            return err;
+#elif defined(PMAP_ARRAY)
+    for (int i = 0; i < PTABLE_SIZE; i++) {
+        struct vnode *c = v->u.vnode.children[i];
+#else
+#error Invalid pmap datastructure
+#endif
+        if (c) {
+            err = serialise_tree(depth + 1, c, out, outlen, outpos);
+            if (err_is_fail(err)) {
+                return err;
+            }
         }
     }
 
@@ -391,9 +555,23 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
         n->u.vnode.cap.cnode     = cnode_page;
         n->u.vnode.cap.slot      = (*in)->slot;
         n->u.vnode.invokable     = n->u.vnode.cap;
-        n->u.vnode.children      = NULL;
-        n->next                  = parent->u.vnode.children;
-        parent->u.vnode.children = n;
+#if defined(PMAP_LL)
+         n->u.vnode.children  = NULL;
+        // insert in linked list
+         n->next      = parent->u.vnode.children;
+         parent->u.vnode.children = n;
+#elif defined(PMAP_ARRAY)
+        memset(n->u.vnode.children, 0, sizeof(struct vode *)*PTABLE_SIZE);
+        // insert in array
+        parent->u.vnode.children[n->entry] = n;
+#else
+#error Invalid pmap datastructure
+#endif
+        n->u.vnode.base = (*in)->base;
+        n->type = (*in)->type;
+
+        // Count cnode_page slots that are in use
+        pmapx->used_cap_slots ++;
 
         // Count cnode_page slots that are in use
         pmapx->used_cap_slots ++;

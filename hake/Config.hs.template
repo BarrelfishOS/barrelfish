@@ -368,6 +368,11 @@ config_svm = True
 config_arrakismon :: Bool
 config_arrakismon = False
 
+-- select pmap datastructure
+data PmapDS = LL | ARRAY deriving (Show,Eq)
+pmap_datastructure :: PmapDS
+pmap_datastructure = ARRAY
+
 defines :: [RuleToken]
 defines = [ Str ("-D" ++ d) | d <- [
              if microbenchmarks then "CONFIG_MICROBENCHMARKS" else "",
@@ -417,7 +422,11 @@ defines = [ Str ("-D" ++ d) | d <- [
              if config_svm then "CONFIG_SVM" else "",
              if config_arrakismon then "CONFIG_ARRAKISMON" else "",
              if use_kaluga_dvm then "USE_KALUGA_DVM" else "",
-             if caps_trace then "TRACE_PMEM_CAPS" else ""
+             if caps_trace then "TRACE_PMEM_CAPS" else "",
+             (case pmap_datastructure of
+                  LL    -> "PMAP_LL"
+                  ARRAY -> "PMAP_ARRAY"
+             )
              ], d /= "" ]
 
 

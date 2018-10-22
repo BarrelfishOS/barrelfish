@@ -39,12 +39,12 @@ vmkit_vmexec (struct dcb *dcb, lvaddr_t entry)
 {
     dispatcher_handle_t handle = dcb->disp;
     struct dispatcher_shared_generic *disp = get_dispatcher_shared_generic(handle);
-    lpaddr_t lpaddr = gen_phys_to_local_phys(dcb->guest_desc.ctrl.cap.u.frame.base);
+    lpaddr_t lpaddr = gen_phys_to_local_phys(get_address(&dcb->guest_desc.ctrl.cap));
     struct guest_control *ctrl = (void *)local_phys_to_mem(lpaddr);
     memset(&ctrl->regs, 0, sizeof(struct registers_x86_64));
     ctrl->regs.rdi = disp->udisp;
 #ifdef CONFIG_SVM
-    lpaddr = gen_phys_to_local_phys(dcb->guest_desc.vmcb.cap.u.frame.base);
+    lpaddr = gen_phys_to_local_phys(get_address(&dcb->guest_desc.vmcb.cap));
     amd_vmcb_t vmcb;
     amd_vmcb_initialize(&vmcb, (void *)local_phys_to_mem(lpaddr));
 
