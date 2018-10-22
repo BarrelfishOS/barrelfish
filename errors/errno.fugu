@@ -304,6 +304,7 @@ errors libbarrelfish LIB_ERR_ {
     failure PMAP_MODIFY_FLAGS "Failure in pmap_modify_flags()",
     failure PMAP_GET_PTABLE   "Failure in get_mapping()",
     failure PMAP_ALLOC_VNODE  "Failure in alloc_vnode()",
+    failure PMAP_CLONE_VNODE  "Failure in clone_vnode()",
     failure PMAP_ADDR_NOT_FREE "The requested address range is not free",
     failure PMAP_FIND_VNODE   "vnode not found",
     failure PMAP_EXISTING_MAPPING "Cannot replace existing mapping, unmap first",
@@ -1319,4 +1320,15 @@ errors psci PSCI_ERR_{
 
 errors arrakis ARRA_ERR_ {
     failure GUEST_NOT_FOUND       "Guest with given handle not found",
+};
+
+errors vas VAS_ERR_ {
+    failure CREATE_NAME_CONFLICT   "Name already in use",
+    failure NO_PERMISSION          "Insufficient permissions to perform requested action",
+    failure NOT_FOUND              "Cannot find requested address space.",
+    failure DETACH_SWITCH          "Must switch out before detaching",
+    failure ATTACH_STATE           "Cannot attach. Not in detached state",
+    failure SWITCH_NOT_ATTACHED    "Can't switch to unattached file",
+    failure NOT_SUPPORTED          "Currently unsupported functionality",
+    failure OUT_OF_HANDLES         "Not enough handles",
 };

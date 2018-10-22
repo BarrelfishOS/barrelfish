@@ -218,6 +218,7 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
     // use standard paging structs even if we're mapping EPT entries
     is_ept = false;
 
+    bool need_tlb_flush = false;
     cslot_t last_slot = slot + pte_count;
     for (; slot < last_slot; slot++, offset += page_size) {
         // Destination
@@ -226,9 +227,10 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
         if (X86_64_IS_PRESENT(entry)) {
             // cleanup mapping info
             // TODO: cleanup already mapped pages
-            memset(mapping_cte, 0, sizeof(*mapping_cte));
-            debug(SUBSYS_PAGING, "slot in use, slot = 0x%016"PRIx64"\n", entry->raw);
-            return SYS_ERR_VNODE_SLOT_INUSE;
+            //memset(&src_cte->mapping_info, 0, sizeof(struct mapping_info));
+            //printf("slot in use\n");
+            //return SYS_ERR_VNODE_SLOT_INUSE;
+            need_tlb_flush = true;
         }
 
         // determine if we map a large/huge page or a normal entry
@@ -260,6 +262,10 @@ static errval_t x86_64_non_ptable(struct capability *dest, cslot_t slot,
                 paging_x86_64_map_table(entry, src_lp + offset);
   //          }
         }
+    }
+    if (need_tlb_flush) {
+        //TODO: do hint-based selective flush for single page mapping
+        do_full_tlb_flush();
     }
 
     return SYS_ERR_OK;
@@ -348,20 +354,19 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
     create_mapping_cap(mapping_cte, src, cte_for_cap(dest),
                        slot, pte_count);
 
+    bool need_tlb_flush = false;
     cslot_t last_slot = slot + pte_count;
     for (; slot < last_slot; slot++, offset += X86_64_BASE_PAGE_SIZE) {
         union x86_64_ptable_entry *entry =
             (union x86_64_ptable_entry *)dest_lv + slot;
 
-        /* FIXME: Flush TLB if the page is already present
-         * in the meantime, since we don't do this, we just fail to avoid
-         * ever reusing a VA mapping */
         if (X86_64_IS_PRESENT(entry)) {
             // TODO: cleanup already mapped pages
-            memset(mapping_cte, 0, sizeof(*mapping_cte));
-            debug(LOG_WARN, "Trying to remap an already-present page is NYI, but "
-                    "this is most likely a user-space bug!\n");
-            return SYS_ERR_VNODE_SLOT_INUSE;
+            //memset(&src_cte->mapping_info, 0, sizeof(struct mapping_info));
+            //debug(LOG_WARN, "Trying to remap an already-present page is NYI, but "
+            //      "this is most likely a user-space bug!\n");
+            //return SYS_ERR_VNODE_SLOT_INUSE;
+            need_tlb_flush = true;
         }
 
         // Carry out the page mapping
@@ -374,6 +379,10 @@ static errval_t x86_64_ptable(struct capability *dest, cslot_t slot,
         }
 #endif
         paging_x86_64_map(entry, src_lp + offset, flags);
+    }
+    if (need_tlb_flush) {
+        // TODO: do hint-based selective tlb flush if single page modified
+        do_full_tlb_flush();
     }
 
     return SYS_ERR_OK;
@@ -450,6 +459,162 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
     TRACE_CAP_MSG("created", mapping_cte);
 
     return err;
+}
+
+static inline void read_pt_entry(struct capability *pgtable, size_t slot,
+                                 genpaddr_t *mapped_addr, lpaddr_t *pte,
+                                 void **entry)
+{
+    assert(type_is_vnode(pgtable->type));
+
+    genpaddr_t paddr = 0;
+    lpaddr_t pte_;
+    void *entry_;
+
+    genpaddr_t gp = get_address(pgtable);
+    lpaddr_t lp = gen_phys_to_local_phys(gp);
+    lvaddr_t lv = local_phys_to_mem(lp);
+
+    // get paddr
+    union x86_64_ptable_entry *e = NULL;
+    bool huge = false;
+    switch (pgtable->type) {
+    case ObjType_VNode_x86_64_pdpt:
+        huge = true;
+    case ObjType_VNode_x86_64_pml4:
+    case ObjType_VNode_x86_64_pdir: {
+        e = (union x86_64_ptable_entry *)lv + slot;
+        if (e->large.always1) {
+            if (huge) {
+                paddr = (lpaddr_t)e->huge.base_addr << HUGE_PAGE_BITS;
+            } else {
+                paddr = (lpaddr_t)e->large.base_addr << LARGE_PAGE_BITS;
+            }
+        } else {
+            union x86_64_pdir_entry *de =
+                (union x86_64_pdir_entry *)lv + slot;
+            paddr = (lpaddr_t)de->d.base_addr << BASE_PAGE_BITS;
+            entry_ = de;
+            pte_ = lp + slot * sizeof(union x86_64_pdir_entry);
+        }
+        break;
+    }
+    case ObjType_VNode_x86_64_ptable: {
+        e = (union x86_64_ptable_entry *)lv + slot;
+        paddr = (lpaddr_t)e->base.base_addr << BASE_PAGE_BITS;
+        entry_ = e;
+        pte_ = lp + slot * sizeof(union x86_64_ptable_entry);
+        break;
+    }
+    default:
+        assert(!"Should not get here");
+    }
+
+    if (mapped_addr) {
+        *mapped_addr = paddr;
+    }
+    if (pte) {
+        *pte = pte_;
+    }
+    if (entry) {
+        *entry = entry_;
+    }
+}
+
+errval_t paging_copy_remap(struct cte *dest_vnode_cte, cslot_t dest_slot,
+                           struct cte *src_cte, uintptr_t flags,
+                           uintptr_t offset, uintptr_t pte_count)
+{
+    assert(type_is_vnode(dest_vnode_cte->cap.type));
+
+    struct capability *src_cap  = &src_cte->cap;
+    struct capability *dest_cap = &dest_vnode_cte->cap;
+    mapping_handler_t handler_func = handler[dest_cap->type];
+
+    assert(handler_func != NULL);
+
+    if (src_cte->mapping_info.pte) {
+        // this cap is already mapped
+#if DIAGNOSTIC_ON_ERROR
+        printf("caps_copy_to_vnode: this copy is already mapped @pte 0x%lx (paddr = 0x%"PRIxGENPADDR")\n", src_cte->mapping_info.pte, get_address(src_cap));
+#endif
+#if RETURN_ON_ERROR
+        return SYS_ERR_VM_ALREADY_MAPPED;
+#endif
+    }
+
+    cslot_t last_slot = dest_slot + pte_count;
+
+    if (last_slot > X86_64_PTABLE_SIZE) {
+        // requested map overlaps leaf page table
+#if DIAGNOSTIC_ON_ERROR
+        printf("caps_copy_to_vnode: requested mapping spans multiple leaf page tables\n");
+#endif
+#if RETURN_ON_ERROR
+        return SYS_ERR_VM_RETRY_SINGLE;
+#endif
+    }
+
+    size_t page_size = BASE_PAGE_SIZE;
+    switch(dest_cap->type) {
+        case ObjType_VNode_x86_64_ptable:
+            page_size = BASE_PAGE_SIZE;
+            break;
+        case ObjType_VNode_x86_64_pdir:
+            page_size = LARGE_PAGE_SIZE;
+            break;
+        case ObjType_VNode_x86_64_pdpt:
+            page_size = HUGE_PAGE_SIZE;
+            break;
+        default:
+            printf("%s: unknown dest VNode: %d\n", __FUNCTION__, dest_cap->type);
+            break;
+    }
+
+    errval_t err;
+    // clone existing pages
+    lvaddr_t toaddr;
+    toaddr = local_phys_to_mem(gen_phys_to_local_phys(get_address(src_cap)));
+    genpaddr_t gpfromaddr = 0;
+    lvaddr_t fromaddr = 0;
+
+    read_pt_entry(dest_cap, dest_slot, &gpfromaddr, NULL, NULL);
+    if (!gpfromaddr) {
+        printf("%s: dest slot empty\n", __FUNCTION__);
+        return SYS_ERR_VNODE_NOT_INSTALLED;
+    }
+    fromaddr = local_phys_to_mem(gen_phys_to_local_phys(gpfromaddr));
+    memcpy((void*)toaddr, (void*)fromaddr, pte_count*page_size);
+
+    err = handler_func(dest_cap, dest_slot, src_cap, flags, offset, pte_count);
+    if (err_is_fail(err)) {
+        printf("%s: handler func returned %ld\n", __FUNCTION__, err);
+    }
+    return err;
+}
+
+__attribute__((unused))
+static inline lvaddr_t get_leaf_ptable_for_vaddr(genvaddr_t vaddr)
+{
+    lvaddr_t root_pt = local_phys_to_mem(dcb_current->vspace);
+
+    // get pdpt
+    union x86_64_pdir_entry *pdpt = (union x86_64_pdir_entry *)root_pt + X86_64_PML4_BASE(vaddr);
+    if (!pdpt->raw) { return 0; }
+    genpaddr_t pdpt_gp = pdpt->d.base_addr << BASE_PAGE_BITS;
+    lvaddr_t pdpt_lv = local_phys_to_mem(gen_phys_to_local_phys(pdpt_gp));
+    // get pdir
+    union x86_64_pdir_entry *pdir = (union x86_64_pdir_entry *)pdpt_lv + X86_64_PDPT_BASE(vaddr);
+    if (!pdir->raw) { return 0; }
+    genpaddr_t pdir_gp = pdir->d.base_addr << BASE_PAGE_BITS;
+    lvaddr_t pdir_lv = local_phys_to_mem(gen_phys_to_local_phys(pdir_gp));
+    // get ptable
+    union x86_64_ptable_entry *ptable = (union x86_64_ptable_entry *)pdir_lv + X86_64_PDIR_BASE(vaddr);
+    if (!ptable->raw) { return 0; }
+    genpaddr_t ptable_gp = ptable->base.base_addr << BASE_PAGE_BITS;
+    lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
+
+    return ptable_lv;
 }
 
 size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages)

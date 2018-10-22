@@ -483,6 +483,31 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
                                      offset, pte_count, mapping_cte));
 }
 
+struct sysret
+sys_copy_remap(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
+               int source_vbits, uintptr_t flags, uintptr_t offset,
+               uintptr_t pte_count)
+{
+    assert (type_is_vnode(ptable->type));
+
+    errval_t err;
+
+    /* Lookup source cap */
+    struct capability *root = &dcb_current->cspace.cap;
+    struct cte *src_cte;
+    err = caps_lookup_slot(root, source_cptr, source_vbits, &src_cte,
+                           CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
+    }
+
+    /* Perform map */
+    // XXX: this does not check if we do have CAPRIGHTS_READ_WRITE on
+    // the destination cap (the page table we're inserting into)
+    return SYSRET(paging_copy_remap(cte_for_cap(ptable), slot, src_cte, flags,
+                                    offset, pte_count));
+}
+
 struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t level)
 {
     errval_t err;
@@ -862,3 +887,4 @@ struct sysret sys_get_absolute_time(void)
         .value = systime_now() + kcb_current->kernel_off,
     };
 }
+

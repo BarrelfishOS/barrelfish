@@ -247,6 +247,13 @@ static inline errval_t invoke_vnode_modify_flags(struct capref cap,
 {
     return cap_invoke4(cap, VNodeCmd_ModifyFlags, entry, num_pages, attr).error;
 }
+
+static inline errval_t invoke_vnode_copy_remap(struct capref ptable, capaddr_t slot,
+                                        capaddr_t src, int frombits, size_t flags,
+                                        size_t offset, size_t pte_count)
+{
+    return cap_invoke7(ptable, VNodeCmd_CopyRemap, slot, src, frombits, flags, offset, pte_count).error;
+}
 /**
  * \brief Return the system-wide unique ID of the passed ID capability.
  *
@@ -279,5 +286,17 @@ static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpadd
 
     return sr.error;
 }
+
+/*
+ * MVA extensions
+ */
+
+static inline errval_t invoke_vnode_inherit(struct capref dest, capaddr_t src, int frombits,
+                                            cslot_t start, cslot_t end,
+                                            paging_x86_64_flags_t newflags)
+{
+    return cap_invoke6(dest, VNodeCmd_Inherit, src, frombits, start, end, newflags).error;
+}
+
 
 #endif

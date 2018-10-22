@@ -301,6 +301,78 @@ static struct sysret handle_mapping_modify(struct capability *mapping,
     };
 }
 
+static struct sysret handle_vnode_copy_remap(struct capability *ptable,
+                                             int cmd, uintptr_t *args)
+{
+    /* Retrieve arguments */
+    uint64_t  slot          = args[0];
+    capaddr_t source_cptr   = args[1];
+    int       source_vbits  = args[2];
+    uint64_t  flags         = args[3];
+    uint64_t  offset        = args[4];
+    uint64_t  pte_count     = args[5];
+
+    struct sysret sr = sys_copy_remap(ptable, slot, source_cptr, source_vbits, flags,
+                                      offset, pte_count);
+    return sr;
+}
+
+/*
+ *  MVAS Extension
+ */
+static struct sysret handle_inherit(struct capability *dest,
+                                  int cmd, uintptr_t *args)
+{
+    errval_t err;
+
+    capaddr_t source_cptr   = args[0];
+    int       source_vbits  = args[1];
+    uint64_t  start         = args[2];
+    uint64_t  end           = args[3];
+    uint64_t  flags         = args[4];
+
+    if (start > PTABLE_SIZE || end > PTABLE_SIZE) {
+        return SYSRET(SYS_ERR_SLOTS_INVALID);
+    }
+
+    if (start > end) {
+        return SYSRET(SYS_ERR_OK);
+    }
+
+    struct capability *root = &dcb_current->cspace.cap;
+    struct cte *src_cte;
+    err = caps_lookup_slot(root, source_cptr, source_vbits, &src_cte,
+                           CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
+    }
+    struct capability *src  = &src_cte->cap;
+
+    if (dest->type != src->type) {
+        return SYSRET(SYS_ERR_CNODE_TYPE);
+    }
+
+    genpaddr_t dst_addr = get_address(dest);
+    genpaddr_t src_addr = get_address(src);
+    if (!type_is_vnode(dest->type)) {
+        return SYSRET(SYS_ERR_CNODE_TYPE);
+    }
+
+    uint64_t *dst_entry = (uint64_t *)local_phys_to_mem(dst_addr);
+    uint64_t *src_entry = (uint64_t *)local_phys_to_mem(src_addr);
+
+    for (uint64_t i = start; i < end; ++i) {
+        //printf("kernel: cpy: %p -> %p\n", src_entry+i, dst_entry+i);
+        //printf("kernel: cpy: [%016lx] -> [%016lx]\n", src_entry[i], dst_entry[i]);
+        dst_entry[i] = src_entry[i];
+    }
+
+    if (flags) {
+        return SYSRET(ptable_modify_flags(dest, start, end - start, flags));
+    }
+    return SYSRET(SYS_ERR_OK);
+}
+
 /// Different handler for cap operations performed by the monitor
 static struct sysret monitor_handle_retype(struct capability *kernel_cap,
                                            int cmd, uintptr_t *args)
@@ -1232,18 +1304,24 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_pdpt] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_pdir] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_ptable] = {
         [VNodeCmd_Identify] = handle_vnode_identify,
@@ -1251,6 +1329,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_Frame_Mapping] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,

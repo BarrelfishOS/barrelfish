@@ -407,9 +407,11 @@ enum cnode_cmd {
 enum vnode_cmd {
     VNodeCmd_Map,
     VNodeCmd_Unmap,
-    VNodeCmd_Identify,   ///< Return the physical address of the VNode
+    VNodeCmd_Identify,       ///< Return the physical address of the VNode
     VNodeCmd_ModifyFlags,
     VNodeCmd_CleanDirtyBits, ///< Cleans all dirty bit in the table
+    VNodeCmd_CopyRemap,      ///< Copy and remap page table for copy-on-write
+    VNodeCmd_Inherit,        ///< Clone page table
 };
 
 /**
