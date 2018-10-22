@@ -13,7 +13,7 @@
 [
     build library {
         target = "libc_sys",
-        cFiles = [ "__error.c", "interposing_table.c", "barrelfish_syscalls.c" ],
+        cFiles = [ "__error.c", "interposing_table.c", "barrelfish_mmap.c", "barrelfish_syscalls.c" ],
         addIncludes = [ "../include", "../locale" ] ++ (case arch of
                         "x86_32" ->  [ "../x86" ]
                         "x86_64" ->  [ "../amd64" ]
@@ -21,6 +21,7 @@
                         "armv7" ->  [ "../arm" ]
                         "armv8" ->  [ "../aarch64" ]),
         omitCFlags = [ "-std=c99", "-Wmissing-prototypes", "-Wmissing-declarations", "-Wimplicit-function-declaration", "-Werror" ],
+        addCFlags = if Config.libc_mmap_nyi_flags then [ "-DCONFIG_PRINT_MMAP_NYI_FLAGS" ] else [],
         architectures = [ arch ]
     } | arch <- allArchitectures
 ]

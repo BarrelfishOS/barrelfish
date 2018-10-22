@@ -29,6 +29,7 @@ struct pinned_state {
     lvaddr_t offset;
     struct slab_allocator vregion_list_slab;
     struct slab_allocator frame_list_slab;
+    size_t refill_count;
 };
 
 struct core_state_arch {

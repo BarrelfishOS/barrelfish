@@ -46,6 +46,14 @@
 
 extern uint64_t user_stack_save;
 
+/**
+ * For benchmarking only
+ */
+static struct sysret handle_noop(struct capability *to, int cmd, uintptr_t *args)
+{
+    return SYSRET(SYS_ERR_OK);
+}
+
 /* FIXME: lots of missing argument checks in this function */
 static struct sysret handle_dispatcher_setup(struct capability *to,
                                              int cmd, uintptr_t *args)
@@ -1150,6 +1158,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_RAM] = {
         [RAMCmd_Identify] = handle_frame_identify,
+        [RAMCmd_Noop] = handle_noop,
     },
     [ObjType_Frame] = {
         [FrameCmd_Identify] = handle_frame_identify,
@@ -1577,6 +1586,14 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
         case DEBUG_CREATE_IRQ_SRC_CAP:
             retval.error = irq_debug_create_src_cap(arg1, args[0], args[1],
                     args[2], args[3]);
+            break;
+
+        case DEBUG_GET_MDB_SIZE:
+            retval.error = debug_get_mdb_size(&retval.value);
+            break;
+
+        case DEBUG_PRINT_MDB_COUNTERS:
+            retval.error = debug_print_mdb_counters();
             break;
 
         default:

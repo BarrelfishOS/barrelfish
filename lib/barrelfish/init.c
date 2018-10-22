@@ -126,7 +126,7 @@ errval_t trace_my_setup(void)
 
     if (disp_get_core_id() >= TRACE_COREID_LIMIT) {
         // can't support tracing on this core. sorry :(
-        return SYS_ERR_OK;
+        return TRACE_ERR_UNAVAIL;
     }
 
     err = vspace_map_one_frame((void**)&trace_buffer_master, TRACE_ALLOC_SIZE,
@@ -326,7 +326,10 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
 
 #ifdef CONFIG_TRACE
     err = trace_my_setup();
-    if (err_is_fail(err)) {
+    if (err_no(err) == TRACE_ERR_UNAVAIL) {
+        debug_printf("Tracing not available for core %d, consider increasing TRACE_COREID_LIMIT\n",
+                disp_get_core_id());
+    } else if (err_is_fail(err)) {
         DEBUG_ERR(err, "trace_my_setup failed");
         return err;
     }

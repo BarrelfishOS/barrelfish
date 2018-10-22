@@ -33,4 +33,10 @@ debug_print_cababilities(struct dcb *dispatcher);
 errval_t irq_debug_create_src_cap(uint8_t dcn_level, capaddr_t dcn,
         capaddr_t out_cap_addr, uint64_t start, uint64_t end);
 
+/* fetch info about mapping database */
+errval_t debug_get_mdb_size(size_t *retval);
+
+/* print mapping database operation counters */
+errval_t debug_print_mdb_counters(void);
+
 #endif

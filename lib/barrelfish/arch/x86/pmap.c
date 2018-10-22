@@ -17,6 +17,10 @@
 #include <barrelfish/pmap.h>
 #include "target/x86/pmap_x86.h"
 
+// For tracing
+#include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
+
 // this should work for x86_64 and x86_32.
 bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
                bool only_pages)
@@ -170,6 +174,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
+    pmap->used_cap_slots ++;
 
     err = vnode_create(newvnode->u.vnode.cap, type);
     if (err_is_fail(err)) {
@@ -181,6 +186,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
         // debug_printf("%s: creating vnode for another domain in that domain's cspace; need to copy vnode cap to our cspace to make it invokable\n", __FUNCTION__);
         err = slot_alloc(&newvnode->u.vnode.invokable);
         assert(err_is_ok(err));
+        pmap->used_cap_slots ++;
         err = cap_copy(newvnode->u.vnode.invokable, newvnode->u.vnode.cap);
         assert(err_is_ok(err));
     } else {
@@ -194,6 +200,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
+    pmap->used_cap_slots ++;
 
     // Map it
     err = vnode_map(root->u.vnode.invokable, newvnode->u.vnode.cap, entry,
@@ -250,6 +257,8 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
                 debug_printf("remove_empty_vnodes: slot_free (mapping): %s\n",
                         err_getstring(err));
             }
+            assert(pmap->used_cap_slots > 0);
+            pmap->used_cap_slots --;
             // delete capability
             err = cap_delete(n->u.vnode.cap);
             if (err_is_fail(err)) {
@@ -270,6 +279,8 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
                 debug_printf("remove_empty_vnodes: slot_free (vnode): %s\n",
                         err_getstring(err));
             }
+            assert(pmap->used_cap_slots > 0);
+            pmap->used_cap_slots --;
 
             // remove vnode from list
             remove_vnode(root, n);
@@ -384,6 +395,9 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
         n->next                  = parent->u.vnode.children;
         parent->u.vnode.children = n;
 
+        // Count cnode_page slots that are in use
+        pmapx->used_cap_slots ++;
+
         (*in)++;
         (*inlen)--;
 
@@ -451,6 +465,7 @@ errval_t pmap_x86_deserialise(struct pmap *pmap, void *buf, size_t buflen)
 errval_t pmap_x86_determine_addr(struct pmap *pmap, struct memobj *memobj,
                                  size_t alignment, genvaddr_t *retvaddr)
 {
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DETADDR, 0);
     struct pmap_x86 *pmapx = (struct pmap_x86 *)pmap;
     genvaddr_t vaddr;
 
@@ -497,11 +512,34 @@ errval_t pmap_x86_determine_addr(struct pmap *pmap, struct memobj *memobj,
  out:
     // Ensure that we haven't run out of address space
     if (vaddr + memobj->size > pmapx->max_mappable_va) {
+        trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DETADDR, 1);
         return LIB_ERR_OUT_OF_VIRTUAL_ADDR;
     }
 
     assert(retvaddr != NULL);
     *retvaddr = vaddr;
+
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DETADDR, 1);
+    return SYS_ERR_OK;
+}
+
+errval_t pmap_x86_measure_res(struct pmap *pmap, struct pmap_res_info *buf)
+{
+    assert(buf);
+    struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
+
+    size_t free_slabs = 0;
+    size_t used_slabs = 0;
+    // Count allocated and free slabs in bytes; this accounts for all vnodes
+    for (struct slab_head *sh = x86->slab.slabs; sh != NULL; sh = sh->next) {
+        free_slabs += sh->free;
+        used_slabs += sh->total - sh->free;
+    }
+    buf->vnode_used = used_slabs * x86->slab.blocksize;
+    buf->vnode_free = free_slabs * x86->slab.blocksize;
+
+    // Report capability slots in use by pmap
+    buf->slots_used = x86->used_cap_slots;
 
     return SYS_ERR_OK;
 }

@@ -21,7 +21,7 @@
 #include <capabilities.h>
 #include <cap_predicates.h>
 #include <mdb/mdb_tree.h>
-#include <stdio.h>
+#include <trace/trace.h>
 
 static inline errval_t find_mapping_for_cap(struct cte *cap, struct cte **mapping)
 {
@@ -218,6 +218,7 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
 errval_t unmap_capability(struct cte *mem)
 {
     errval_t err;
+    TRACE_CTE(KERNEL_CAPOPS, UNMAP_CAPABILITY, mem);
 
     TRACE_CAP_MSG("unmapping", mem);
 

@@ -31,6 +31,7 @@ void remove_mapping(struct cte *cte);
 errval_t mdb_get_copy(struct capability *cap, struct capability **ret);
 bool mdb_is_sane(void);
 void mdb_set_relations(struct cte *cte, uint8_t relations, uint8_t mask);
+void mdb_print_counters(coreid_t core);
 
 __END_DECLS
 

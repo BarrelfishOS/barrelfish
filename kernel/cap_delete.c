@@ -40,18 +40,23 @@ static void caps_mark_revoke_generic(struct cte *cte);
 static void clear_list_prepend(struct cte *cte);
 static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte);
 
+static uint32_t seqnum = 0;
+
 /**
  * \brief Try a "simple" delete of a cap. If this fails, the monitor needs to
  * negotiate a delete across the system.
  */
 static errval_t caps_try_delete(struct cte *cte)
 {
+    TRACE(KERNEL_CAPOPS, TRY_DELETE, seqnum);
     TRACE_CAP_MSG("trying simple delete", cte);
     if (distcap_is_in_delete(cte) || cte->mdbnode.locked) {
         // locked or already in process of being deleted
         return SYS_ERR_CAP_LOCKED;
     }
-    if (distcap_is_foreign(cte) || has_copies(cte)) {
+    TRACE(KERNEL_CAPOPS, HAS_COPIES, seqnum);
+    bool cap_has_copies = has_copies(cte);
+    if (distcap_is_foreign(cte) || cap_has_copies) {
         return cleanup_copy(cte);
     }
     else if (cte->mdbnode.remote_copies
@@ -166,6 +171,8 @@ cleanup_copy(struct cte *cte)
 {
     errval_t err;
 
+    TRACE(KERNEL_CAPOPS, CLEANUP_COPY, seqnum);
+
     TRACE_CAP_MSG("cleaning up copy", cte);
 
     struct capability *cap = &cte->cap;
@@ -187,6 +194,7 @@ cleanup_copy(struct cte *cte)
         }
     }
 
+    TRACE(KERNEL_CAPOPS, MDB_REMOVE, seqnum);
     err = mdb_remove(cte);
     if (err_is_fail(err)) {
         return err;
@@ -206,6 +214,7 @@ static errval_t
 cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
 {
     errval_t err;
+    TRACE(KERNEL_CAPOPS, CLEANUP_LAST, seqnum);
 
     TRACE_CAP_MSG("cleaning up last copy", cte);
     struct capability *cap = &cte->cap;
@@ -284,6 +293,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
     if(ram.bytes > 0) {
         // Send back as RAM cap to monitor
         if (ret_ram_cap) {
+            TRACE(KERNEL_CAPOPS, CREATE_RAM, seqnum);
             if (dcb_current != monitor_ep.u.endpoint.listener) {
                 printk(LOG_WARN, "sending fresh ram cap to non-monitor?\n");
             }
@@ -304,6 +314,7 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
             ramcte.cap.type = ObjType_RAM;
             TRACE_CAP_MSG("reclaimed", &ramcte);
 #endif
+            TRACE(KERNEL_CAPOPS, CREATE_RAM_LMP, seqnum);
             // XXX: This looks pretty ugly. We need an interface.
             err = lmp_deliver_payload(&monitor_ep, NULL,
                                       (uintptr_t *)&ram,
@@ -726,11 +737,17 @@ static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte)
 errval_t caps_delete(struct cte *cte)
 {
     errval_t err;
+    // we use the cte pointer as identifier for a set of trace points. This
+    // works fine, as we cannot have interleaved cpu driver trace streams on a
+    // single core.
+    TRACE(KERNEL_CAPOPS, DELETE_ENTER, ++seqnum);
 
     TRACE_CAP_MSG("deleting", cte);
 
     if (cte->mdbnode.locked) {
-        return err_push(SYS_ERR_CAP_LOCKED, SYS_ERR_RETRY_THROUGH_MONITOR);
+        err = err_push(SYS_ERR_CAP_LOCKED, SYS_ERR_RETRY_THROUGH_MONITOR);
+        TRACE(KERNEL_CAPOPS, DELETE_DONE, seqnum);
+        return err;
     }
 
     err = caps_try_delete(cte);
@@ -738,6 +755,7 @@ errval_t caps_delete(struct cte *cte)
         err = err_push(err, SYS_ERR_RETRY_THROUGH_MONITOR);
     }
 
+    TRACE(KERNEL_CAPOPS, DELETE_DONE, seqnum);
     return err;
 }
 

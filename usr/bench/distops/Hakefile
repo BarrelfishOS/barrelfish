@@ -1,0 +1,49 @@
+--------------------------------------------------------------------------
+-- Copyright (c) 2017, ETH Zurich.
+-- All rights reserved.
+--
+-- This file is distributed under the terms in the attached LICENSE file.
+-- If you do not find this file, copies can be found by writing to:
+-- ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
+--
+-- Hakefile for /usr/bench/distops
+--
+-- Tests for our distributed capability operations
+--
+--------------------------------------------------------------------------
+
+let
+bench name = build application { target = "bench_" ++ name,
+                                cFiles = [ "main.c", "globals.c", "tracing.c",
+                                           name ++ ".c" ],
+                                flounderBindings = [ "bench_distops" ],
+                                addLibraries = [ "bench", "trace" ]
+                              }
+standalone_bench name = build application { target = "bench_" ++ name,
+                                            cFiles = [ "globals.c", "tracing.c",
+                                                       name ++ ".c" ],
+                                            -- XXX: need flounder bindings, because code is not cleaned up
+                                            flounderBindings = [ "bench_distops" ],
+                                            addLibraries = [ "bench", "trace" ]
+                                          }
+in
+[ bench "noop",
+  bench "noop_invocation",
+  bench "delete_foreign_copy",
+  bench "delete_local_copy",
+  bench "delete_last_copy",
+  bench "delete_last_copy_remote",
+  bench "delete_cnode_last_copy",
+  bench "delete_cnode_last_copy_2",
+  bench "revoke_no_remote",
+  bench "revoke_with_remote_copies",
+  bench "revoke_remote_copy",
+  bench "retype_no_remote",
+  bench "retype_w_local_descendants",
+  bench "retype_with_remote_copies",
+  standalone_bench "revoke_no_remote_standalone",
+  build application { target = "distops_standalone_runner",
+                      cFiles = [ "standalone_runner.c" ]
+                    }
+]
+

@@ -21,6 +21,7 @@
 
 __BEGIN_DECLS
 
+#define VREGION_FLAGS_NONE     0x00 // No access
 #define VREGION_FLAGS_READ     0x01 // Reading allowed
 #define VREGION_FLAGS_WRITE    0x02 // Writing allowed
 #define VREGION_FLAGS_EXECUTE  0x04 // Execute allowed

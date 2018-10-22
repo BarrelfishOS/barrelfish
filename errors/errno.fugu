@@ -846,6 +846,7 @@ errors trace TRACE_ERR_ {
     failure CREATE_CAP          "Failed to create trace buffer cap",
     failure CAP_COPY            "Failed to copy trace buffer cap",
     failure KERNEL_INVOKE       "Failed to set up tracing in kernel",
+    failure UNAVAIL             "Tracing not available on core",
 };
 
 errors driverkit DRIVERKIT_ERR_ {
@@ -1124,6 +1125,7 @@ errors omap_sdma OMAP_SDMA_ERR_ {
 
 // common/generic errors
 errors common ERR_ {
+    failure INVALID_ARGS        "Invalid arguments",
     failure NOTIMP              "Not implemented",
 };
 

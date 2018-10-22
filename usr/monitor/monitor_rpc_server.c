@@ -28,6 +28,7 @@
 
 static void retype_reply_status(errval_t status, void *st)
 {
+    TRACE(CAPOPS, MONITOR_RETYPE_REPLY, 0);
     struct monitor_blocking_binding *b = (struct monitor_blocking_binding*)st;
     errval_t err = b->tx_vtbl.remote_cap_retype_response(b, NOP_CONT, status);
     assert(err_is_ok(err));
@@ -39,6 +40,7 @@ static void remote_cap_retype(struct monitor_blocking_binding *b,
                               uint64_t objsize, uint64_t count, capaddr_t to,
                               capaddr_t slot, int32_t to_level)
 {
+    TRACE(CAPOPS, MONITOR_RETYPE_ENTER, 0);
     if (capref_is_null(dest_root)) {
         dest_root = src_root;
     }
@@ -48,6 +50,7 @@ static void remote_cap_retype(struct monitor_blocking_binding *b,
 
 static void delete_reply_status(errval_t status, void *st)
 {
+    TRACE(CAPOPS, MONITOR_DELETE_REPLY, 0);
     DEBUG_CAPOPS("sending cap_delete reply msg: %s\n", err_getstring(status));
     struct monitor_blocking_binding *b = (struct monitor_blocking_binding*)st;
     errval_t err = b->tx_vtbl.remote_cap_delete_response(b, NOP_CONT, status);
@@ -57,12 +60,14 @@ static void delete_reply_status(errval_t status, void *st)
 static void remote_cap_delete(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src, uint8_t level)
 {
+    TRACE(CAPOPS, MONITOR_DELETE_ENTER, 0);
     struct domcapref cap = { .croot = croot, .cptr = src, .level = level };
     capops_delete(cap, delete_reply_status, (void*)b);
 }
 
 static void revoke_reply_status(errval_t status, void *st)
 {
+    TRACE(CAPOPS, MONITOR_REVOKE_REPLY, 0);
     struct monitor_blocking_binding *b = (struct monitor_blocking_binding*)st;
     errval_t err = b->tx_vtbl.remote_cap_revoke_response(b, NOP_CONT, status);
     assert(err_is_ok(err));
@@ -71,6 +76,7 @@ static void revoke_reply_status(errval_t status, void *st)
 static void remote_cap_revoke(struct monitor_blocking_binding *b,
                               struct capref croot, capaddr_t src, uint8_t level)
 {
+    TRACE(CAPOPS, MONITOR_REVOKE_ENTER, 0);
     struct domcapref cap = { .croot = croot, .cptr = src, .level = level };
     capops_revoke(cap, revoke_reply_status, (void*)b);
 }

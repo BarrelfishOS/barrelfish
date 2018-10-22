@@ -101,6 +101,22 @@ struct trace_buffer;
 // trace_event(TRACE_SUBSYS_BENCH, TRACE_EVENT_BENCH_START, 0)
 #define TRACE(s, e, a) trace_event(TRACE_SUBSYS_##s, TRACE_EVENT_##s##_##e, a)
 
+// This is useful for trace points that want to use a cte pointer as the trace
+// argument.  This could be wrapped in an IN_KERNEL #ifdef block, but then
+// we would have to special case TRACE-points in libmdb userspace builds.
+struct cte;
+static inline uint32_t cte_to_trace_id(struct cte *cte)
+{
+    uintptr_t cteptr = (uintptr_t)cte;
+    // cut off zero bits from struct size
+    cteptr >>= OBJBITS_CTE;
+    // mask off uninteresting high bits (29) and msb three bits of kernel
+    // address space. This will map 8 ctes onto the same trace id, but
+    // collisions should be fairly rare.
+    return cteptr & MASK(32);
+}
+#define TRACE_CTE(s, e, a) TRACE(s, e, cte_to_trace_id(a))
+
 #if defined(__x86_64__)
 // for rdtsc()
 #include <arch/x86/barrelfish_kpi/asm_inlines_arch.h>

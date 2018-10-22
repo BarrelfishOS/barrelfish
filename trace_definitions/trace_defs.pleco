@@ -82,6 +82,35 @@ subsystem kernel {
     event CAP_RETYPE               "Cap Retype",
 };
 
+// We make a different kernel subsys for capops tracing, so we can choose to
+// not see the regular kernel events.
+subsystem kernel_capops {
+    event DELETE_ENTER		"Entering caps_delete()",
+    event DELETE_DONE		"Exiting caps_delete()",
+    event TRY_DELETE		"Entering caps_try_delete()",
+    event CLEANUP_COPY		"Entering cleanup_copy()",
+    event CLEANUP_LAST		"Entering cleanup_last()",
+    event CREATE_RAM		"cleanup_last: creating RAM cap in provided slot",
+    event CREATE_RAM_LMP	"cleanup_last: putting RAM cap in monitorEP",
+    event UNMAP_CAPABILITY	"Entering unmap_capability()",
+    event MDB_REMOVE		"Calling mdb_remove()",
+    event HAS_COPIES		"Calling has_copies()",
+
+    event RETYPE_ENTER		"Entering caps_retype()",
+    event RETYPE_IS_RETYPEABLE	"Checking retypeability",
+    event RETYPE_IS_RETYPEABLE_DONE	"Checking retypeability done",
+    event RETYPE_RANGE_CHECK	"Checking retypeability with range query",
+    event RETYPE_RANGE_CHECK_DONE	"Range query done",
+    event RETYPE_CREATE_CAPS	"Create new capabilities",
+    event RETYPE_CREATE_CAPS_DONE	"Create new capabilities done",
+    event RETYPE_MDB_INSERT	"Calling mdb_insert() for new capabilities",
+    event RETYPE_MDB_INSERT_DONE	"mdb_insert() for new capabilities done",
+    event RETYPE_DONE		"Exiting caps_retype()",
+
+    event ZERO_OBJECTS		"Zeroing capabilities",
+    event ZERO_OBJECTS_DONE	"Zeroing capabilities done",
+};
+
 subsystem threads {
 
     event BARRIER_ENTER 			"",
@@ -141,16 +170,101 @@ subsystem monitor {
     event PCREPLY_INTER			"",
     event URPC_BLOCK				"",
     event URPC_UNBLOCK				"",
-    event REMOTE_CAP_RETYPE		"",
-    event REMOTE_CAP_RETYPE_RETRY	"",
-    event REMOTE_CAP_RETYPE_MSG	"",
-    event REMOTE_CAP_RETYPE_END	"",
     event POLLING					"",
     event BIND_MONITOR_REPLY "Bind monitor reply",
     event BIND_MONITOR_REQUEST "Request to setup connection with new monitor",
     event BOOT_CORE_REQUEST "Received request from (user -> monitor) [in monitor].",
     event BOOT_INITIALIZE_REQUEST "Monitor got boot initialize request",
     event INVOKE_SPAWN "Monitor requests boot-up from kernel (monitor -> kernel).",
+};
+
+subsystem capops {
+    event START                        	"Start capops tracing",
+    event STOP                        	"Stop capops tracing",
+
+    event DELETE_CALL_RX		"Directly call result RX handler",
+    event DELETE_DONE			"Exit point for distributed delete",
+    event DELETE_DO_WORK		"Initiate delete work",
+    event DELETE_ENTER			"Entry point to distributed delete",
+    event DELETE_FIND_CORE_CONT		"Callback from find_core broadcast",
+    event DELETE_FIND_NEW_OWNER		"Do broadcast to find new owner",
+    event DELETE_LAST			"Delete last copy",
+    event DELETE_LOCK			"Delete needs agreement/serialzation",
+    event DELETE_MOVE_RESULT_CONT	"Callback from capops_move() call",
+    event DELETE_QUEUE_FIN		"Cap is in delete queue, wait for done",
+    event DELETE_QUEUE_RETRY		"Cap is locked, queue for retry",
+    event DELETE_REMOTE_ENQ		"Enqueue remote deletes for non-moveable",
+    event DELETE_REMOTE_RX		"RX handler for remote delete",
+    event DELETE_REMOTE_RESULT_RX	"RX handler for remote delete result",
+    event USER_DELETE_CALL		"Before call to cap_delete() in user code",
+    event USER_DELETE_RESP		"After call to cap_delete() in user code",
+    event USER_DELETE_RPC		"Libbf RPC call to monitor",
+    event USER_DELETE_RPC_DONE		"Libbf RPC call to monitor done",
+    event MONITOR_DELETE_ENTER		"Entering monitor delete code",
+    event MONITOR_DELETE_REPLY		"Exiting monitor delete code",
+
+    event USER_REVOKE_CALL		"Before call to cap_revoke() in user code",
+    event USER_REVOKE_RESP		"After call to cap_revoke() in user code",
+    event USER_REVOKE_RPC		"Libbf RPC call to monitor",
+    event USER_REVOKE_RPC_DONE		"Libbf RPC call to monitor done",
+    event MONITOR_REVOKE_ENTER		"Entering monitor revoke code",
+    event MONITOR_REVOKE_REPLY		"Exiting monitor revoke code",
+    event REVOKE_START			"Starting revocation",
+    event REVOKE_RETRIEVE		"Revoke: getting ownership",
+    event REVOKE_RETRIEVE_RX		"Revoke: got ownership",
+    event REVOKE_NO_REMOTE		"Revoke w/o remote operations",
+    event REVOKE_LOCAL			"Revoke owned cap",
+    event REVOKE_DO_MARK		"Revoke: start mark phase",
+    event REVOKE_MARK_SEND		"Revoke: send mark msg",
+    event REVOKE_READY_RX		"Revoke: node reply in mark phase",
+    event REVOKE_DO_COMMIT		"Revoke: start commit phase",
+    event REVOKE_COMMIT_SEND		"Revoke: send commit msg",
+    event REVOKE_DONE_RX		"Revoke: node reply in commit phase",
+    event REVOKE_MASTER_STEPS_FIN	"Revoke: master node steps done",
+    event REVOKE_RESULT_RX		"Revoke: operation done",
+    event REVOKE_CALL_RESULT		"Revoke: calling result handler",
+
+    event REVOKE_MARK_RX		"Revoke slave: mark request RX",
+    event REVOKE_READY_SEND		"Revoke slave: mark done",
+    event REVOKE_COMMIT_RX		"Revoke slave: commit request RX",
+    event REVOKE_SLAVE_STEPS_FIN	"Revoke slave: node steps done",
+
+    event DELSTEPS_TRIGGER		"Trigger delete stepping",
+    event DELSTEPS_PAUSE		"Pause delete stepping",
+    event DELSTEPS_RESUME		"Resume delete stepping",
+    event DELSTEPS_STEP			"Execute a delete step",
+    event DELSTEPS_STEP_DONE		"Execution of a delete step done",
+    event DELSTEPS_CLEAR		"Execute a clear step",
+
+    event USER_RETYPE_CALL		"Before call to cap_retype() in user code",
+    event USER_RETYPE_RESP		"After call to cap_retype() in user code",
+    event USER_RETYPE_RPC		"Libbf RPC call to monitor",
+    event USER_RETYPE_RPC_DONE		"Libbf RPC call to monitor done",
+    event MONITOR_RETYPE_ENTER		"Entering monitor revoke code",
+    event MONITOR_RETYPE_REPLY		"Exiting monitor revoke code",
+    event RETYPE_START			"Starting retype",
+    event RETYPE_REQUEST_ENQ		"Retype: enqueue request to owner",
+    event RETYPE_REQUEST_SEND		"Retype: send request to owner",
+    event RETYPE_REQUEST_RX		"Retype: request RX on owner",
+    event RETYPE_CHECK_ENQ		"Retype: enqueue global check",
+    event CAPSEND_CHECK_RETYPEABLE	"Retype: do broadcast",
+    event CAPSEND_CHECK_RETYPEABLE_RX	"Retype: non-owner check RX",
+    event CAPSEND_CHECK_RETYPEABLE_RESULT_RX	"Retype: node reply",
+    event RETYPE_CHECK_RETYPEABLE_RX	"Retype: broadcast reply",
+    event RETYPE_CHECK_RX		"Retype: merge node replies",
+    event RETYPE_RESPONSE_RX		"Retype: original node got check reply",
+    event MONITOR_RETYPE_CREATE_CAPS	"Retype: monitor_create_caps()",
+    event MONITOR_RETYPE_CREATE_CAPS_DONE	"Retype: monitor_create_caps() done",
+    event RETYPE_CALL_RESULT		"Retype: calling result handler",
+
+    event RETYPE_LOCAL_CHECK_RX		"Retype: check continuation (local path)",
+    event RETYPE_RESULT_RX		"Retype: handle error result (?)",
+
+    event RETYPE_RESULT_ENQ		"Retype: enqueue check result",
+    event RETYPE_RESULT_SEND		"Retype: send check result",
+
+    event RETYPE_DEL_TMPCAP		"Retype: delete temporary copy",
+    event RETYPE_DEL_TMPCAP_DONE	"Retype: delete temporary copy done",
 };
 
 subsystem chips {
@@ -339,4 +453,13 @@ subsystem cores {
     event USER_REQUEST     "Kaluga requests boot-up of new CPU user -> monitor.",
     event ALL_UP           "Everything has booted",
     event BOOT_INITIALIZE_USER "User sends boot initialize to monitor",
+};
+
+// Trace events for libbf memory subsystem and adjacent stuff
+subsystem memory {
+    event DETADDR           "pmap->f.determine_addr()",
+    event DO_MAP            "pmap: do_map()",
+    event UNMAP             "pmap->f.unmap()",
+    event MODIFY            "pmap->f.modify_flags()",
+    event LOOKUP            "pmap->f.lookup()",
 };

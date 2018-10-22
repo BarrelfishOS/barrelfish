@@ -30,6 +30,10 @@
 #include "target/x86/pmap_x86.h"
 #include <stdio.h>
 
+// For tracing
+#include <trace/trace.h>
+#include <trace_definitions/trace_defs.h>
+
 // Size of virtual region mapped by a single PML4 entry
 #define PML4_MAPPING_SIZE ((genvaddr_t)512*512*512*BASE_PAGE_SIZE)
 
@@ -308,6 +312,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
+    pmap->used_cap_slots ++;
 
     // do map
     assert(!capref_is_null(ptable->u.vnode.invokable));
@@ -327,6 +332,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
                        struct capref frame, size_t offset, size_t size,
                        vregion_flags_t flags, size_t *retoff, size_t *retsize)
 {
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DO_MAP, 0);
     errval_t err;
 
     // determine page size and relevant address part
@@ -339,6 +345,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     struct frame_identity fi;
     err = frame_identify(frame, &fi);
     if (err_is_fail(err)) {
+        trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DO_MAP, 1);
         return err_push(err, LIB_ERR_PMAP_DO_MAP);
     }
 
@@ -377,6 +384,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     if (offset+size > fi.bytes) {
         debug_printf("do_map: offset=%zu; size=%zu; frame size=%zu\n",
                 offset, size, fi.bytes);
+        trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DO_MAP, 1);
         return LIB_ERR_PMAP_FRAME_SIZE;
     }
 
@@ -401,6 +409,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         }
         err = do_single_map(pmap, vaddr, vend, frame, offset, pte_count, flags);
         if (err_is_fail(err)) {
+            trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DO_MAP, 1);
             return err_push(err, LIB_ERR_PMAP_DO_MAP);
         }
     }
@@ -413,6 +422,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
         genvaddr_t temp_end = vaddr + c * page_size;
         err = do_single_map(pmap, vaddr, temp_end, frame, offset, c, flags);
         if (err_is_fail(err)) {
+            trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DO_MAP, 1);
             return err_push(err, LIB_ERR_PMAP_DO_MAP);
         }
 
@@ -433,6 +443,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
             err = do_single_map(pmap, vaddr, temp_end, frame, offset,
                     X86_64_PTABLE_SIZE, flags);
             if (err_is_fail(err)) {
+                trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DO_MAP, 1);
                 return err_push(err, LIB_ERR_PMAP_DO_MAP);
             }
         }
@@ -452,6 +463,7 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
             }
             err = do_single_map(pmap, temp_end, vend, frame, offset, c, flags);
             if (err_is_fail(err)) {
+                trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DO_MAP, 1);
                 return err_push(err, LIB_ERR_PMAP_DO_MAP);
             }
         }
@@ -463,6 +475,8 @@ static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     if (retsize) {
         *retsize = size;
     }
+
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DO_MAP, 1);
     return SYS_ERR_OK;
 }
 
@@ -521,6 +535,8 @@ static errval_t refill_slabs(struct pmap_x86 *pmap, size_t request)
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_FRAME_ALLOC);
         }
+        // Count slots for frames backing slab allocator in pmap statistics
+        pmap->used_cap_slots ++;
 
         /* If we do not have enough slabs to map the frame in, recurse */
         size_t required_slabs_for_frame = max_slabs_for_mapping(bytes);
@@ -736,6 +752,8 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_SLOT_FREE);
         }
+        assert(pmap->used_cap_slots > 0);
+        pmap->used_cap_slots --;
         // Free up the resources
         remove_vnode(info.page_table, info.page);
         slab_free(&pmap->slab, info.page);
@@ -755,6 +773,7 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
 static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
                       size_t *retsize)
 {
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_UNMAP, 0);
     //printf("[unmap] 0x%"PRIxGENVADDR", %zu\n", vaddr, size);
     errval_t err, ret = SYS_ERR_OK;
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
@@ -764,6 +783,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 
     if (!find_mapping(x86, vaddr, &info)) {
         //TODO: better error --> LIB_ERR_PMAP_NOT_MAPPED
+        trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_UNMAP, 1);
         return LIB_ERR_PMAP_UNMAP;
     }
 
@@ -772,6 +792,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     if (info.page->entry > info.table_base) {
         debug_printf("trying to partially unmap region\n");
         // XXX: error code
+        trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_UNMAP, 1);
         return LIB_ERR_PMAP_FIND_VNODE;
     }
 
@@ -787,6 +808,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         err = do_single_unmap(x86, vaddr, size / info.page_size);
         if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
             printf("error fast path\n");
+            trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_UNMAP, 1);
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
     }
@@ -797,6 +819,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         err = do_single_unmap(x86, vaddr, c);
         if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
             printf("error first leaf\n");
+            trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_UNMAP, 1);
             return err_push(err, LIB_ERR_PMAP_UNMAP);
         }
 
@@ -807,6 +830,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
             err = do_single_unmap(x86, vaddr, X86_64_PTABLE_SIZE);
             if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
                 printf("error while loop\n");
+                trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_UNMAP, 1);
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
             vaddr += c * info.page_size;
@@ -822,6 +846,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
             err = do_single_unmap(x86, vaddr, c);
             if (err_is_fail(err) && err_no(err) != LIB_ERR_PMAP_FIND_VNODE) {
                 printf("error remaining part\n");
+                trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_UNMAP, 1);
                 return err_push(err, LIB_ERR_PMAP_UNMAP);
             }
         }
@@ -832,6 +857,7 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     }
 
     //printf("[unmap] exiting\n");
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_UNMAP, 1);
     return ret;
 }
 
@@ -887,6 +913,7 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
 static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
                              vregion_flags_t flags, size_t *retsize)
 {
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_MODIFY, 0);
     errval_t err;
     struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
 
@@ -894,6 +921,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     struct find_mapping_info info;
 
     if (!find_mapping(x86, vaddr, &info)) {
+        trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_MODIFY, 1);
         return LIB_ERR_PMAP_NOT_MAPPED;
     }
 
@@ -913,6 +941,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         // fast path
         err = do_single_modify_flags(x86, vaddr, pages, flags);
         if (err_is_fail(err)) {
+            trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_MODIFY, 1);
             return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
     }
@@ -921,6 +950,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         uint32_t c = X86_64_PTABLE_SIZE - info.table_base;
         err = do_single_modify_flags(x86, vaddr, c, flags);
         if (err_is_fail(err)) {
+            trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_MODIFY, 1);
             return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
         }
 
@@ -930,6 +960,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
             c = X86_64_PTABLE_SIZE;
             err = do_single_modify_flags(x86, vaddr, X86_64_PTABLE_SIZE, flags);
             if (err_is_fail(err)) {
+                trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_MODIFY, 1);
                 return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
             }
             vaddr += c * info.page_size;
@@ -941,6 +972,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         if (c) {
             err = do_single_modify_flags(x86, vaddr, c, flags);
             if (err_is_fail(err)) {
+                trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_MODIFY, 1);
                 return err_push(err, LIB_ERR_PMAP_MODIFY_FLAGS);
             }
         }
@@ -951,6 +983,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
     }
 
     //printf("[modify_flags] exiting\n");
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_MODIFY, 1);
     return SYS_ERR_OK;
 }
 
@@ -970,12 +1003,14 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
 static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
                        struct pmap_mapping_info *info)
 {
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_LOOKUP, 0);
     struct pmap_x86 *x86 = (struct pmap_x86 *)pmap;
 
     struct find_mapping_info find_info;
     bool found = find_mapping(x86, vaddr, &find_info);
 
     if (!found) {
+        trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_LOOKUP, 1);
         return LIB_ERR_PMAP_FIND_VNODE;
     }
 
@@ -987,6 +1022,7 @@ static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
         info->flags = find_info.page->u.frame.flags;
         info->mapping = find_info.page->mapping;
     }
+    trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_LOOKUP, 1);
     return SYS_ERR_OK;
 }
 
@@ -1089,6 +1125,7 @@ static struct pmap_funcs pmap_funcs = {
     .serialise = pmap_x86_serialise,
     .deserialise = pmap_x86_deserialise,
     .dump = dump,
+    .measure_res = pmap_x86_measure_res,
 };
 
 /**
@@ -1111,6 +1148,7 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     } else { /* use default allocator for this dispatcher */
         pmap->slot_alloc = get_default_slot_allocator();
     }
+    x86->used_cap_slots = 0;
 
     /* x86 specific portion */
     slab_init(&x86->slab, sizeof(struct vnode), NULL);
@@ -1124,6 +1162,7 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     if (get_croot_addr(vnode) != CPTR_ROOTCN) {
         errval_t err = slot_alloc(&x86->root.u.vnode.invokable);
         assert(err_is_ok(err));
+        x86->used_cap_slots ++;
         err = cap_copy(x86->root.u.vnode.invokable, vnode);
         assert(err_is_ok(err));
     }
