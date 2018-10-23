@@ -16,6 +16,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/pmap.h>
 #include "target/x86/pmap_x86.h"
+#include <pmap_priv.h> // for set_mapping_cap
 #include <pmap_ds.h> // for selected pmap datastructure
 
 // For tracing
@@ -134,8 +135,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     assert(!capref_is_null(newvnode->u.vnode.cap));
     assert(!capref_is_null(newvnode->u.vnode.invokable));
 
-    newvnode->mapping.cnode = root->u.vnode.mcnode[entry / L2_CNODE_SLOTS];
-    newvnode->mapping.slot = entry % L2_CNODE_SLOTS;
+    set_mapping_cap(newvnode, root, entry);
     pmap->used_cap_slots ++;
     assert(!capref_is_null(newvnode->mapping));
 

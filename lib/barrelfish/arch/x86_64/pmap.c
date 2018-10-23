@@ -328,8 +328,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     page->u.frame.vaddr = vaddr;
     page->u.frame.cloned_count = 0;
 
-    page->mapping.cnode = ptable->u.vnode.mcnode[table_base / L2_CNODE_SLOTS];
-    page->mapping.slot  = table_base % L2_CNODE_SLOTS;
+    set_mapping_cap(page, ptable, table_base);
     pmap->used_cap_slots ++;
 
     // do map

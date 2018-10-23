@@ -26,5 +26,15 @@ size_t max_slabs_required(size_t bytes);
 
 errval_t pmap_vnode_mgmt_current_init(struct pmap *pmap);
 
+static inline void
+set_mapping_cap(struct vnode *vnode, struct vnode *root, uint16_t entry)
+{
+    assert(root->is_vnode);
+    assert(entry < PTABLE_ENTRIES);
+    vnode->mapping.cnode = root->u.vnode.mcnode[entry / L2_CNODE_SLOTS];
+    vnode->mapping.slot  = entry % L2_CNODE_SLOTS;
+    assert(!cnoderef_is_null(vnode->mapping.cnode));
+    assert(!capref_is_null(vnode->mapping));
+}
 
 #endif // LIBBARRELFISH_PMAP_PRIV_H
