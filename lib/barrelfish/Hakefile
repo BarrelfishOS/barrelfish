@@ -29,7 +29,7 @@ let common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                     "slot_alloc/range_slot_alloc.c", "slot_alloc/twolevel_slot_alloc.c",
                     "bulk_transfer.c", "trace.c", "resource_ctrl.c", "coreset.c",
                     "inthandler.c", "deferred.c", "syscalls.c", "sys_debug.c", "systime.c",
-                    "notificator.c", "pmap_slab_mgmt.c"
+                    "notificator.c"
                   ]
 in
 [(let arch_dir = "arch" </> archFamily arch
@@ -107,18 +107,23 @@ in
       arch_include _          = ""
 
       -- sources specific to the pmap implementation
-      pmap_srcs :: [Char] -> Config.PmapDS -> [ [Char] ]
-      pmap_srcs "x86_64"  Config.LL    = [ "pmap_ll.c" ]
-      pmap_srcs "x86_64"  Config.ARRAY = [ "pmap_array.c" ]
-      pmap_srcs "k1om"    Config.LL    = [ "pmap_ll.c" ]
-      pmap_srcs "k1om"    Config.ARRAY = [ "pmap_array.c" ]
-      pmap_srcs "aarch64" Config.LL    = [ "pmap_ll.c" ]
-      pmap_srcs "aarch64" Config.ARRAY = [ "pmap_array.c" ]
-      pmap_srcs "arm"     _            = [ "pmap_ll.c" ]
+      pmap_unified_srcs = [ "pmap_slab_mgmt.c" ]
+      pmap_srcs "x86_64"  Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
+      pmap_srcs "x86_64"  Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
+      pmap_srcs "k1om"    Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
+      pmap_srcs "k1om"    Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
+      pmap_srcs "aarch64" Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
+      pmap_srcs "aarch64" Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
+      pmap_srcs "arm"     _            = [ ] -- armv7 uses its own pmap_ds implementation
       pmap_srcs _         _            = [ ]
 
-      pmap_includes Config.LL    = [ "include" </> "pmap_ll" ]
-      pmap_includes Config.ARRAY = [ "include" </> "pmap_array" ]
+      pmap_includes "x86_64" Config.LL    = [ "include" </> "pmap_ll" ]
+      pmap_includes "x86_64" Config.ARRAY = [ "include" </> "pmap_array" ]
+      pmap_includes "aarch64" Config.LL    = [ "include" </> "pmap_ll" ]
+      pmap_includes "aarch64" Config.ARRAY = [ "include" </> "pmap_array" ]
+      -- don't add a pmap include dir for archs that don't support
+      -- Config.pmap_datastructure.
+      pmap_includes _ _  = [ ]
 
   in
     build library { target = "barrelfish",
@@ -140,7 +145,8 @@ in
                                               ("proc_mgmt", ["rpcclient"]),
                                               ("arrakis", ["rpcclient"])],
                     addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
-                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ] ++ pmap_includes Config.pmap_datastructure,
+                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ]
+                        ++ (pmap_includes (archFamily arch) Config.pmap_datastructure),
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ],
                     addLibraries = ["cap_predicates"]
                   }
@@ -206,8 +212,13 @@ in
       arch_include "k1om"     = "include/arch/x86_64"
       arch_include _          =  ""
 
-      pmap_includes Config.LL    = [ "include" </> "pmap_ll" ]
-      pmap_includes Config.ARRAY = [ "include" </> "pmap_array" ]
+      pmap_includes "x86_64" Config.LL    = [ "include" </> "pmap_ll" ]
+      pmap_includes "x86_64" Config.ARRAY = [ "include" </> "pmap_array" ]
+      pmap_includes "aarch64" Config.LL    = [ "include" </> "pmap_ll" ]
+      pmap_includes "aarch64" Config.ARRAY = [ "include" </> "pmap_array" ]
+      -- don't add a pmap include dir for archs that don't support
+      -- Config.pmap_datastructure.
+      pmap_includes _ _    = [ ]
 
   in
     build library { target = "arrakis",
@@ -229,7 +240,8 @@ in
                                               ("proc_mgmt", ["rpcclient"]),
                                               ("arrakis", ["rpcclient"]),
                                               ("hyper", ["rpcclient"])],
-                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ] ++ pmap_includes Config.pmap_datastructure,
+                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ]
+                         ++ (pmap_includes (archFamily arch) Config.pmap_datastructure),
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ],
                     addLibraries = ["cap_predicates"]
                   }
