@@ -1387,10 +1387,6 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_INIT);
     }
-    pmap->m->refill_slabs = refill_vnode_slabs;
-#ifdef PMAP_ARRAY
-    pmap->m->refill_ptslab = refill_pt_slabs;
-#endif
 
     x86->root.type = ObjType_VNode_x86_64_pml4;
     x86->root.is_vnode          = true;

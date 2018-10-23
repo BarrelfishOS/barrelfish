@@ -104,15 +104,8 @@ static bool has_vnode(struct vnode *root, uint16_t entry, size_t len)
 
     uint32_t end_entry = entry + len;
 
-#if defined(PMAP_LL)
-    for (n = root->u.vnode.children; n; n = n->next) {
-#elif defined(PMAP_ARRAY)
-    for (int i = 0; i < VMSAv8_64_PTABLE_NUM_ENTRIES; i++) {
-        n = root->u.vnode.children[i];
-        if (!n) { continue; }
-#else
-#error invalid pmap data structure
-#endif
+    pmap_foreach_child(root, n) {
+        assert(n);
         if (n->is_vnode && n->entry == entry) {
             return true;
         }

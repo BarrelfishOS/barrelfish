@@ -23,6 +23,34 @@
 errval_t refill_vnode_slabs(struct pmap *pmap, size_t count);
 errval_t refill_pt_slabs(struct pmap *pmap, size_t count);
 
+/**
+ * \brief find next non-null child starting from index i in children array of
+ * `root`.
+ * \returns the index of the next non-null child starting from i.
+ */
+static inline int pmap_next_child(struct vnode *root, int i, struct vnode **n)
+{
+    assert(n);
+    struct vnode *tmp;
+    do {
+        // check child i
+        tmp = root->u.vnode.children[i];
+        i++;
+    } while (!tmp && i < PTABLE_ENTRIES);
+    *n = tmp;
+    return i;
+}
+
+/**
+ * \brief a macro that provides a datastructure-independent way of iterating
+ * through the non-null children of the vnode `root`.
+ * Internally this uses `pmap_next_child` to skip children which do not exist.
+ *
+ * Note: this macro requires both root and iter to be 'struct vnode *'.
+ */
+#define pmap_foreach_child(root, iter) \
+    for (int i = pmap_next_child(root, 0, &iter); i < PTABLE_ENTRIES; i = pmap_next_child(root, i, &iter))
+
 struct pmap_vnode_mgmt {
     struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries
     struct slab_allocator ptslab;   ///< Slab allocator for the page table children arrays

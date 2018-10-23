@@ -37,15 +37,8 @@ bool has_vnode(struct vnode *root, uint32_t entry, size_t len,
     uint32_t end_entry = entry + len;
 
     // region we check [entry .. end_entry)
-#if defined(PMAP_LL)
-    for (n = root->u.vnode.children; n; n = n->next) {
-#elif defined(PMAP_ARRAY)
-    for (int i = 0; i < PTABLE_ENTRIES; i++) {
-        n = root->u.vnode.children[i];
-        if (!n) { continue; }
-#else
-#error Invalid pmap datastructure
-#endif
+    pmap_foreach_child(root, n) {
+        assert(n);
         // n is page table, we need to check if it's anywhere inside the
         // region to check [entry .. end_entry)
         // this amounts to n->entry == entry for len = 1
@@ -183,16 +176,9 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
 {
     errval_t err;
     uint32_t end_entry = entry + len;
-#if defined(PMAP_LL)
-    for (struct vnode *n = root->u.vnode.children; n; n = n->next) {
-#elif defined(PMAP_ARRAY)
-    struct vnode **np = &root->u.vnode.children[entry];
-    for (int i = 0; i < PTABLE_ENTRIES && i < len; i++, np++) {
-        assert(np);
-        struct vnode *n = *np;
-#else
-#error Invalid pmap datastructure
-#endif
+    struct vnode *n;
+    pmap_foreach_child(root, n) {
+        assert(n);
         if (n->entry >= entry && n->entry < end_entry) {
             // sanity check and skip leaf entries
             if (!n->is_vnode || n->is_pinned) {
@@ -305,20 +291,20 @@ static errval_t serialise_tree(int depth, struct pmap_x86 *pmap,
     };
 
     // depth-first walk
-#if defined(PMAP_LL)
-    for (struct vnode *c = v->u.vnode.children; c != NULL; c = c->next) {
-#elif defined(PMAP_ARRAY)
-    for (int i = 0; i < PTABLE_ENTRIES; i++) {
-        struct vnode *c = v->u.vnode.children[i];
-#else
-#error Invalid pmap datastructure
-#endif
+    struct vnode *c;
+    pmap_foreach_child(v, c) {
         if (c) {
             /* allocate slot in pagecn for mapping */
             struct capref mapping;
 #ifdef PMAP_ARRAY
+            /* here we rely on the fact that pmap_foreach_child uses `int i`
+             * as its internal loop counter for PMAP_ARRAY. This is not very
+             * clean, but may eliminate itself, if we move pmap serialization
+             * to arch-independent code, which should be possible.
+             */
             if (i == c->entry) {
-                // only copy each mapping cap once
+                // only copy each mapping cap to page cn for the first page of
+                // a multi-page mapping.
                 err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &mapping);
                 if (err_is_fail(err)) {
                     return err;

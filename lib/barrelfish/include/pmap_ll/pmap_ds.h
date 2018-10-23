@@ -16,6 +16,15 @@
 #ifndef LIBBF_INCLUDE_PMAP_DS_H
 #define LIBBF_INCLUDE_PMAP_DS_H
 
+/**
+ * \brief a macro that provides a datastructure-independent way of iterating
+ * through the non-null children of the vnode `root`.
+ *
+ * Note: this macro requires both root and iter to be 'struct vnode *'.
+ */
+#define pmap_foreach_child(root, iter) \
+    for (iter = root->u.vnode.children; iter; iter = iter->next)
+
 #define INIT_SLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, sizeof(struct vnode))
 
 errval_t refill_vnode_slabs(struct pmap *pmap, size_t count);
