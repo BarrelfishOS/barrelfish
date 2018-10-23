@@ -844,6 +844,20 @@ static struct sysret handle_idcap_identify(struct capability *to,
     return sys_idcap_identify(to, idp);
 }
 
+static struct sysret handle_cap_identify(struct capability *root,
+                                         arch_registers_state_t *context, int argc)
+{
+    assert(5 == argc);
+
+    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
+
+    capaddr_t cptr = sa->arg2;
+    uint8_t level = sa->arg3;
+    struct capability *cap = (void *)sa->arg4;
+
+    return sys_identify_cap(root, cptr, level, cap);
+}
+
 static struct sysret handle_devid_create(struct capability *cap,
                                          arch_registers_state_t *context,
                                          int argc)
@@ -999,6 +1013,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_GetState] = handle_get_state,
         [CNodeCmd_GetSize] = handle_get_size,
         [CNodeCmd_Resize] = handle_resize,
+        [CNodeCmd_CapIdentify] = handle_cap_identify,
     },
     [ObjType_L2CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -1009,6 +1024,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Revoke] = handle_revoke,
         [CNodeCmd_GetState] = handle_get_state,
         [CNodeCmd_Resize] = handle_resize,
+        [CNodeCmd_CapIdentify] = handle_cap_identify,
     },
     [ObjType_VNode_AARCH64_l0] = {
         [VNodeCmd_Map]   = handle_map,

@@ -70,8 +70,10 @@ errval_t terminal_init(void)
     set_terminal_state(state);
 
     /* Check if domain is part of a session. */
-    err = debug_cap_identify(cap_sessionid, &cap);
-    if (err_is_ok(err)) {
+    err = cap_direct_identify(cap_sessionid, &cap);
+    /* if domain is part of session, sessionid cap should be present and
+     * ObjType_ID */
+    if (err_is_ok(err) && cap.type == ObjType_ID) {
         /* Initialize libterm_client. */
         err = term_client_blocking_init(&state->client, cap_sessionid);
         if (err_is_fail(err)) {

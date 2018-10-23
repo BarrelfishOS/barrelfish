@@ -174,6 +174,11 @@ errval_t caps_delete(struct cte *cte);
 errval_t caps_revoke(struct cte *cte);
 
 /*
+ * redact struct capability for passing to user code
+ */
+errval_t redact_capability(struct capability *cap);
+
+/*
  * Cap tracing
  */
 #ifdef TRACE_PMEM_CAPS

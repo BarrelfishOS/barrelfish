@@ -42,18 +42,18 @@ errval_t map_device_register(lpaddr_t address, size_t size, lvaddr_t *return_add
 
     for (; device_cap_iter.slot < L2_CNODE_SLOTS; device_cap_iter.slot++) {
         // Get cap data
-        struct capability cap;
-        err = debug_cap_identify(device_cap_iter, &cap);
-        // If cap type was Null, kernel returns error
-        if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP ||
-            err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
-            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
-            continue;
-        }
-
         struct frame_identity fid;
         err = frame_identify(device_cap_iter, &fid);
+        // If cap type was Null, we get one of the errors below
+        if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP ||
+            err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
+            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP ||
+            err_no(err) == LIB_ERR_CAP_NOT_MAPPABLE) {
+            // skip Null caps
+            continue;
+        }
         if (err_is_fail(err)) {
+            // bail on other errors
             DEBUG_ERR(err, "Failure in frame_identify");
             return err;
         }

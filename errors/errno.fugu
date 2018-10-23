@@ -232,6 +232,8 @@ errors libbarrelfish LIB_ERR_ {
     failure CAP_DELETE          "Failure in cap_delete()",
     failure CAP_DESTROY         "Failure in cap_destroy()",
     failure CAP_INVOKE          "Failure in cap_invoke()",
+    failure CAP_IDENTIFY        "Failure in cap_identify",
+    failure CAP_NOT_MAPPABLE    "Failure in cap_identify: cap not mappable",
     failure ENDPOINT_CREATE     "Failure in endpoint_create()",
     failure FRAME_IDENTIFY      "Failure in frame_identify",
     failure VNODE_MAP           "Failure in vnode_map()",

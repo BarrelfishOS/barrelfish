@@ -2058,3 +2058,18 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
 
     return SYS_ERR_OK;
 }
+
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
+errval_t redact_capability(struct capability *cap)
+{
+    // TODO: figure out which other types need redacting
+    switch (cap->type) {
+        case ObjType_KernelControlBlock:
+            // don't leak KCB kernel pointer in KCB cap
+            cap->u.kernelcontrolblock.kcb = NULL;
+        default:
+            // Don't redact all other capability types
+            break;
+    }
+    return SYS_ERR_OK;
+}

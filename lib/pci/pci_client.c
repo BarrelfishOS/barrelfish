@@ -95,7 +95,7 @@ errval_t pci_reregister_irq_for_device(uint32_t class, uint32_t subclass, uint32
 static errval_t check_src_capability(struct capref irq_src_cap){
     struct capability irq_src_cap_data;
     errval_t err;
-    err = debug_cap_identify(irq_src_cap, &irq_src_cap_data);
+    err = cap_direct_identify(irq_src_cap, &irq_src_cap_data);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "Could not identify cap?");
         return err;

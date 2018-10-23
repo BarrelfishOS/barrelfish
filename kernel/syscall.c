@@ -667,6 +667,31 @@ struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr
     return SYSRET(SYS_ERR_OK);
 }
 
+/**
+ * \brief return redacted 'struct capability' for given capability
+ */
+struct sysret sys_identify_cap(struct capability *root, capaddr_t cptr,
+                               uint8_t level, struct capability *out)
+{
+    errval_t err;
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)out, sizeof(*out))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    struct capability *thecap;
+    // XXX: what's the correct caprights here?
+    err = caps_lookup_cap(root, cptr, level, &thecap, CAPRIGHTS_ALLRIGHTS);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+    memcpy(out, thecap, sizeof(*out));
+
+    redact_capability(out);
+
+    return SYSRET(SYS_ERR_OK);
+}
+
 struct sysret sys_yield(capaddr_t target)
 {
     dispatcher_handle_t handle = dcb_current->disp;

@@ -257,16 +257,9 @@ static struct sysret handle_cap_identify(struct capability *root,
 {
     capaddr_t cptr = args[0];
     uint8_t  level = args[1];
-    // XXX: access
     struct capability *cap = (struct capability*)args[2];
-    struct capability *thecap;
-    errval_t err;
-    err = caps_lookup_cap(root, cptr, level, &thecap, CAPRIGHTS_ALLRIGHTS);
-    if (err_is_fail(err)) {
-        return SYSRET(err);
-    }
-    memcpy(cap, thecap, sizeof(*cap));
-    return SYSRET(SYS_ERR_OK);
+
+    return sys_identify_cap(root, cptr, level, cap);
 }
 
 static struct sysret handle_unmap(struct capability *pgtable,

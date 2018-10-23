@@ -361,17 +361,11 @@ errval_t do_map(struct pmap *pmap_gen, genvaddr_t vaddr,
     bool debug_out    = false;
 
     // get base address and size of frame
-    struct capability cap;
-    err = cap_direct_identify(frame, &cap);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
-    }
     struct frame_identity fi;
-    fi.base = get_address(&cap);
-    fi.bytes = get_size(&cap);
+    err = cap_identify_mappable(frame, &fi);
     if (err_is_fail(err)) {
         trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DO_MAP, 1);
-        return err_push(err, LIB_ERR_PMAP_DO_MAP);
+        return err_push(err, LIB_ERR_PMAP_FRAME_IDENTIFY);
     }
 
     if ((flags & VREGION_FLAGS_HUGE) &&

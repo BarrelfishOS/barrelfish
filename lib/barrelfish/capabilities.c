@@ -999,7 +999,7 @@ errval_t idcap_create(struct capref dest)
 errval_t cnode_build_cnoderef(struct cnoderef *cnoder, struct capref capr)
 {
     struct capability cap;
-    errval_t err = debug_cap_identify(capr, &cap);
+    errval_t err = cap_direct_identify(capr, &cap);
     if (err_is_fail(err)) {
         return err;
     }

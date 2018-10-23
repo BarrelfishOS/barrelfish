@@ -421,7 +421,7 @@ int debug_print_cap_at_capref(char *buf, size_t len, struct capref cap)
         return snprintf(buf, len, "(null cap)");
     }
 
-    err = debug_cap_identify(cap, &capability);
+    err = cap_direct_identify(cap, &capability);
     if (err_is_fail(err)) {
         return snprintf(buf, len, "(ERROR identifying cap: %s!)", err_getcode(err));
     } else {
@@ -445,10 +445,11 @@ static void walk_cspace_l2(struct capref l2cnode){
         };
 
         // Get cap data
-        err = debug_cap_identify(pos, &cap);
+        err = cap_direct_identify(pos, &cap);
         if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP ||
             err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
-            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
+            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP ||
+            cap.type == ObjType_Null) {
             continue;
         } else if (err_is_fail(err)) {
             DEBUG_ERR(err, "debug_cap_identify failed");
@@ -481,7 +482,7 @@ void debug_cspace(struct capref root)
     struct capability l2_cap;
 
     /* find out size of root cnode */
-    errval_t err = debug_cap_identify(root, &root_cap);
+    errval_t err = cap_direct_identify(root, &root_cap);
     assert(err_is_ok(err));
     assert(root_cap.type == ObjType_L1CNode);
 
@@ -497,12 +498,13 @@ void debug_cspace(struct capref root)
         struct capref pos = {
             .cnode = cnode, .slot = slot
         };
-        err = debug_cap_identify(pos, &l2_cap);
+        err = cap_direct_identify(pos, &l2_cap);
 
         // If cap type was Null, kernel returns error
         if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP ||
             err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
-            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
+            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP ||
+            l2_cap.type == ObjType_Null) {
             continue;
         } else if (err_is_fail(err)) {
             DEBUG_ERR(err, "debug_cap_identify failed");

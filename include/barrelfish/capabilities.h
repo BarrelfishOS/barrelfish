@@ -25,6 +25,7 @@
 #include <barrelfish/invocations.h>
 #include <barrelfish/slot_alloc.h>
 #include <barrelfish/capabilities_arch.h> // vnode_inherit_attr()
+#include <barrelfish/cap_predicates.h> // get_base(), get_size()
 
 __BEGIN_DECLS
 
@@ -202,7 +203,49 @@ static inline errval_t vnode_inherit(struct capref dest, struct capref src,
                               dst_mapping_cn);
 }
 
-__END_DECLS
+/**
+ * \brief identify any capability.
+ * \param cap capref of the cap to identify
+ * \param ret pointer to struct capability to fill out with the capability
+ */
+static inline errval_t cap_direct_identify(struct capref cap, struct capability *ret)
+{
+    return invoke_cap_identify(cap, ret);
+}
+
+/**
+ * \brief Identify a mappable capability.
+ *
+ * \param cap the capability to identify
+ * \param ret A pointer to a `struct frame_identify` to fill in
+ * \returns An error if identified cap is not mappable.
+ */
+static inline errval_t cap_identify_mappable(struct capref cap, struct frame_identity *ret)
+{
+    errval_t err;
+    struct capability thecap;
+    assert(ret);
+
+    /* zero ret */
+    ret->base = 0;
+    ret->bytes = 0;
+    ret->pasid = 0;
+
+    err = cap_direct_identify(cap, &thecap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+
+    if (!type_is_mappable(thecap.type)) {
+        return LIB_ERR_CAP_NOT_MAPPABLE;
+    }
+
+    ret->base  = get_address(&thecap);
+    ret->bytes = get_size(&thecap);
+    ret->pasid = get_pasid(&thecap);
+
+    return SYS_ERR_OK;
+}
 
 /**
  * \brief Identify a frame. This wraps the invocation so we can handle the
@@ -212,34 +255,10 @@ __END_DECLS
  */
 static inline errval_t frame_identify(struct capref frame, struct frame_identity *ret)
 {
-    errval_t err, err2;
-    struct capref invokable = frame;
-
-    if (get_croot_addr(invokable) != CPTR_ROOTCN) {
-        err = slot_alloc(&invokable);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_SLOT_ALLOC);
-        }
-        err = cap_copy(invokable, frame);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_CAP_COPY);
-        }
-    }
-
-    err = invoke_frame_identify(invokable, ret);
-
-    if (!capcmp(invokable, frame)) {
-        // made copy earlier, cleanup
-        err2 = cap_destroy(invokable);
-        assert(err_is_ok(err2));
-    }
-
-    return err;
+    return cap_identify_mappable(frame, ret);
 }
 
-static inline errval_t cap_direct_identify(struct capref cap, struct capability *ret)
-{
-    return invoke_cap_identify(cap, ret);
-}
+
+__END_DECLS
 
 #endif //INCLUDEBARRELFISH_CAPABILITIES_H
