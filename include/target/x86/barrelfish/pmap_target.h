@@ -18,6 +18,7 @@
 #include <barrelfish/pmap.h>
 #include <barrelfish_kpi/capabilities.h>
 #include <barrelfish_kpi/paging_arch.h> // for PTABLE_ENTRIES
+#include <barrelfish/pmap_ds.h>
 
 #define MCN_COUNT DIVIDE_ROUND_UP(PTABLE_ENTRIES, L2_CNODE_SLOTS)
 
@@ -38,13 +39,7 @@ struct vnode { // NB: misnomer :)
             struct capref invokable;    ///< Copy of VNode cap that is invokable
             struct capref mcn[MCN_COUNT]; ///< CNodes to store mappings (caprefs)
             struct cnoderef mcnode[MCN_COUNT]; ///< CNodeRefs of mapping cnodes
-#ifdef PMAP_LL
-            struct vnode *children;
-#elif defined(PMAP_ARRAY)
-            struct vnode  **children;   ///< Children of this VNode, allocated from second slab allocator
-#else
-#error Invalid pmap datastructure
-#endif
+            pmap_ds_child_t *children; ///< Children of this VNode
             lvaddr_t virt_base;        ///< vaddr of mapped RO page table in user-space
             struct capref page_table_frame;
         } vnode; // for non-leaf node (maps another vnode)
