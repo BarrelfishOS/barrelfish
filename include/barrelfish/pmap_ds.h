@@ -16,9 +16,26 @@
 #define BARRELFISH_PMAP_DS_H
 
 #if defined(PMAP_LL)
+
 typedef struct vnode pmap_ds_child_t;
+
+struct pmap_vnode_mgmt {
+    struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries
+    struct vregion vregion;         ///< Vregion used to reserve virtual address for metadata
+    genvaddr_t vregion_offset;      ///< Offset into amount of reserved virtual address used
+};
+
 #elif defined(PMAP_ARRAY)
+
 typedef struct vnode* pmap_ds_child_t;
+
+struct pmap_vnode_mgmt {
+    struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries
+    struct slab_allocator ptslab;   ///< Slab allocator for the page table children arrays
+    struct vregion vregion;         ///< Vregion used to reserve virtual address for metadata
+    genvaddr_t vregion_offset;      ///< Offset into amount of reserved virtual address used
+};
+
 #else
 #error Unknown Pmap datastructure.
 #endif

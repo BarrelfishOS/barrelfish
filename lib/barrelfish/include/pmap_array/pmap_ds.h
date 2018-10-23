@@ -48,11 +48,13 @@ static inline int pmap_next_child(struct vnode *root, int i, struct vnode **n)
 #define pmap_foreach_child(root, iter) \
     for (int i = pmap_next_child(root, 0, &iter); i < PTABLE_ENTRIES; i = pmap_next_child(root, i, &iter))
 
+/* currently defined in include/barrelfish/pmap_ds.h
 struct pmap_vnode_mgmt {
     struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries
     struct slab_allocator ptslab;   ///< Slab allocator for the page table children arrays
     struct vregion vregion;         ///< Vregion used to reserve virtual address for metadata
     genvaddr_t vregion_offset;      ///< Offset into amount of reserved virtual address used
 };
+*/
 
 #endif // LIBBF_INCLUDE_PMAP_DS_H
