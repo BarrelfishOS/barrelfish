@@ -105,6 +105,9 @@ errval_t pmap_vnode_mgmt_init(struct pmap *pmap)
         slab_grow(&m->ptslab, buf, INIT_PTSLAB_BUFFER_SIZE);
     }
 
+    m->refill_slabs = refill_vnode_slabs;
+    m->refill_ptslab = refill_pt_slabs;
+
     /* assign vnode_mgmt to pmap */
     pmap->m = m;
 

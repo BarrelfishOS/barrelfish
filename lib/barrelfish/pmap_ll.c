@@ -110,6 +110,7 @@ errval_t pmap_vnode_mgmt_init(struct pmap *pmap)
         slab_grow(&m->slab, buf, INIT_SLAB_BUFFER_SIZE);
     }
 
+    m->refill_slabs = refill_vnode_slabs;
     pmap->m = m;
 
     return SYS_ERR_OK;

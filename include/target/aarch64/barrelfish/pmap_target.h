@@ -59,8 +59,6 @@ struct vnode {
 
 struct pmap_aarch64 {
     struct pmap p;
-    struct vregion vregion;     ///< Vregion used to reserve virtual address for metadata
-    genvaddr_t vregion_offset;  ///< Offset into amount of reserved virtual address used
     struct vnode root;          ///< Root of the vnode tree
     genvaddr_t min_mappable_va; ///< Minimum mappable virtual address
     genvaddr_t max_mappable_va; ///< Maximum mappable virtual address

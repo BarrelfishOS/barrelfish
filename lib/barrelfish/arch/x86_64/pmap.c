@@ -30,18 +30,11 @@
 #include "target/x86/pmap_x86.h"
 #include <stdio.h>
 #include <barrelfish/cap_predicates.h>
+#include <pmap_priv.h>
 
 // For tracing
 #include <trace/trace.h>
 #include <trace_definitions/trace_defs.h>
-
-// Size of virtual region mapped by a single PML4 entry
-#define PML4_MAPPING_SIZE ((genvaddr_t)512*512*512*BASE_PAGE_SIZE)
-
-// Location and size of virtual address space reserved for mapping
-// frames backing refill_slabs
-#define META_DATA_RESERVED_BASE (PML4_MAPPING_SIZE * (disp_get_core_id() + 1))
-#define META_DATA_RESERVED_SIZE (X86_64_BASE_PAGE_SIZE * 256000)
 
 /**
  * \brief Translate generic vregion flags to architecture specific pmap flags
@@ -353,10 +346,11 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
 /**
  * \brief Called when enough slabs exist for the given mapping
  */
-static errval_t do_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
-                       struct capref frame, size_t offset, size_t size,
-                       vregion_flags_t flags, size_t *retoff, size_t *retsize)
+errval_t do_map(struct pmap *pmap_gen, genvaddr_t vaddr,
+                struct capref frame, size_t offset, size_t size,
+                vregion_flags_t flags, size_t *retoff, size_t *retsize)
 {
+    struct pmap_x86 *pmap = (struct pmap_x86 *)pmap_gen;
     trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_DO_MAP, 0);
     errval_t err;
 
@@ -539,161 +533,10 @@ static size_t max_slabs_for_mapping_huge(size_t bytes)
     return 2 * max_pdpt;
 }
 
-/**
- * \brief Refill slabs using pages from fixed allocator, used if we need to
- * refill the slab allocator before we've established a connection to
- * the memory server.
- *
- * \arg pmap the pmap whose slab allocator we want to refill
- * \arg bytes the refill buffer size in bytes
- */
-static errval_t refill_slabs_fixed_allocator(struct pmap_x86 *pmap, struct slab_allocator *slab, size_t bytes)
+size_t max_slabs_required(size_t bytes)
 {
-    size_t pages = DIVIDE_ROUND_UP(bytes, BASE_PAGE_SIZE);
-
-    genvaddr_t vbase = pmap->vregion_offset;
-
-    // Allocate and map buffer using base pages
-    for (int i = 0; i < pages; i++) {
-        struct capref cap;
-        size_t retbytes;
-        // Get page
-        errval_t err = frame_alloc(&cap, BASE_PAGE_SIZE, &retbytes);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_FRAME_ALLOC);
-        }
-        assert(retbytes == BASE_PAGE_SIZE);
-
-        // Map page
-        genvaddr_t genvaddr = pmap->vregion_offset;
-        pmap->vregion_offset += (genvaddr_t)BASE_PAGE_SIZE;
-        assert(pmap->vregion_offset < vregion_get_base_addr(&pmap->vregion) +
-                vregion_get_size(&pmap->vregion));
-
-        err = do_map(pmap, genvaddr, cap, 0, BASE_PAGE_SIZE,
-                VREGION_FLAGS_READ_WRITE, NULL, NULL);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_DO_MAP);
-        }
-    }
-
-    /* Grow the slab */
-    lvaddr_t buf = vspace_genvaddr_to_lvaddr(vbase);
-    //debug_printf("%s: Calling slab_grow with %#zx bytes\n", __FUNCTION__, bytes);
-    slab_grow(slab, (void*)buf, bytes);
-
-    return SYS_ERR_OK;
+    return max_slabs_for_mapping(bytes);
 }
-
-/**
- * \brief Refill slabs used for metadata
- *
- * \param pmap     The pmap to refill in
- * \param request  The number of slabs the allocator must have
- * when the function returns
- *
- * When the current pmap is initialized,
- * it reserves some virtual address space for metadata.
- * This reserved address space is used here
- *
- * Can only be called for the current pmap
- * Will recursively call into itself till it has enough slabs
- */
-bool debug_refill = false;
-static errval_t refill_slabs(struct pmap_x86 *pmap, struct slab_allocator *slab, size_t request)
-{
-    errval_t err;
-
-    /* Keep looping till we have #request slabs */
-    while (slab_freecount(slab) < request) {
-        // Amount of bytes required for #request
-        size_t slabs_req = request - slab_freecount(slab);
-        size_t bytes = SLAB_STATIC_SIZE(slabs_req,
-                                        slab->blocksize);
-        bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
-
-        if (debug_refill) {
-        debug_printf("%s: req=%zu, bytes=%zu, slab->blocksize=%zu, slab->freecount=%zu\n",
-                __FUNCTION__, slabs_req, bytes, slab->blocksize, slab_freecount(slab));
-        }
-
-        /* Get a frame of that size */
-        struct capref cap;
-        size_t retbytes = 0;
-        err = frame_alloc(&cap, bytes, &retbytes);
-        if (err_is_fail(err)) {
-            if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {
-                return refill_slabs_fixed_allocator(pmap, slab, bytes);
-            }
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_FRAME_ALLOC);
-            }
-        }
-        bytes = retbytes;
-        // Count slots for frames backing slab allocator in pmap statistics
-        pmap->used_cap_slots ++;
-
-        /* If we do not have enough slabs to map the frame in, recurse */
-        size_t required_slabs_for_frame = max_slabs_for_mapping(bytes);
-        // Here we need to check that we have enough vnode slabs, not whatever
-        // slabs we're refilling
-        if (slab_freecount(&pmap->p.m->slab) < required_slabs_for_frame) {
-            debug_printf("%s: called from %p %p %p %p\n", __FUNCTION__,
-                    __builtin_return_address(0),
-                    __builtin_return_address(1),
-                    __builtin_return_address(2),
-                    __builtin_return_address(3));
-            // If we recurse, we require more slabs than to map a single page
-            assert(required_slabs_for_frame > max_slabs_for_mapping(X86_64_BASE_PAGE_SIZE));
-            if (required_slabs_for_frame <= max_slabs_for_mapping(X86_64_BASE_PAGE_SIZE)) {
-                USER_PANIC(
-                    "%s: cannot handle this recursion: required slabs = %zu > max slabs for a mapping (%zu)\n",
-                    __FUNCTION__, required_slabs_for_frame, max_slabs_for_mapping(X86_64_BASE_PAGE_SIZE));
-            }
-
-            err = refill_slabs(pmap, slab, required_slabs_for_frame);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_SLAB_REFILL);
-            }
-        }
-
-        /* Perform mapping */
-        genvaddr_t genvaddr = pmap->vregion_offset;
-        pmap->vregion_offset += (genvaddr_t)bytes;
-        assert(pmap->vregion_offset < vregion_get_base_addr(&pmap->vregion) +
-               vregion_get_size(&pmap->vregion));
-
-        err = do_map(pmap, genvaddr, cap, 0, bytes,
-                     VREGION_FLAGS_READ_WRITE, NULL, NULL);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_DO_MAP);
-        }
-
-        /* Grow the slab */
-        lvaddr_t buf = vspace_genvaddr_to_lvaddr(genvaddr);
-        /*
-        debug_printf("growing slab allocator %p with buffer @%p, %zu bytes\n",
-                slab, (void*)buf, bytes);
-        */
-        slab_grow(slab, (void*)buf, bytes);
-    }
-
-    return SYS_ERR_OK;
-}
-
-static errval_t refill_vnode_slabs(struct pmap *pmap, size_t count)
-{
-    struct pmap_x86 *pmapx = (struct pmap_x86 *)pmap;
-    return refill_slabs(pmapx, &pmap->m->slab, count);
-}
-
-#ifdef PMAP_ARRAY
-static errval_t refill_pt_slabs(struct pmap *pmap, size_t count)
-{
-    struct pmap_x86 *pmapx = (struct pmap_x86 *)pmap;
-    return refill_slabs(pmapx, &pmap->m->ptslab, count);
-}
-#endif
 
 /**
  * \brief Create page mappings
@@ -799,7 +642,7 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
     }
 #endif
 
-    err = do_map(x86, vaddr, frame, offset, size, flags, retoff, retsize);
+    err = do_map(pmap, vaddr, frame, offset, size, flags, retoff, retsize);
     return err;
 }
 
@@ -1616,27 +1459,11 @@ errval_t pmap_x86_64_current_init(bool init_domain)
 {
     struct pmap_x86 *x86 = (struct pmap_x86*)get_current_pmap();
 
-    // To reserve a block of virtual address space,
-    // a vregion representing the address space is required.
-    // We construct a superficial one here and add it to the vregion list.
-    struct vregion *vregion = &x86->vregion;
-    vregion->vspace = NULL;
-    vregion->memobj = NULL;
-    vregion->base   = META_DATA_RESERVED_BASE;
-    vregion->offset = 0;
-    vregion->size   = META_DATA_RESERVED_SIZE;
-    vregion->flags  = 0;
-    vregion->next = NULL;
-
-    struct vspace *vspace = x86->p.vspace;
-    assert(!vspace->head);
-    vspace->head = vregion;
-
-    x86->vregion_offset = x86->vregion.base;
+    pmap_vnode_mgmt_current_init((struct pmap *)x86);
 
     // We don't know the vnode layout for the first part of our address space
     // (which was setup by the kernel), so we avoid mapping there until told it.
-    x86->min_mappable_va = META_DATA_RESERVED_BASE;
+    x86->min_mappable_va = get_current_pmap()->m->vregion.base;
 
     return SYS_ERR_OK;
 }

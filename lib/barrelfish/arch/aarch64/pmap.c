@@ -58,15 +58,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish/invocations_arch.h>
-#include <stdio.h>
-
-// Location of VSpace managed by this system.
-#define VSPACE_BEGIN   ((lvaddr_t)(512*512*512*BASE_PAGE_SIZE * (disp_get_core_id() + 1)))
-
-// Amount of virtual address space reserved for mapping frames
-// backing refill_slabs. Need way more with pmap_array.
-#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 256000)
-// increased above value from 128 for pandaboard port
+#include <pmap_priv.h>
 
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
@@ -332,11 +324,13 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     return SYS_ERR_OK;
 }
 
-static errval_t do_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
-                       struct capref frame, size_t offset, size_t size,
-                       vregion_flags_t flags, size_t *retoff, size_t *retsize)
+errval_t do_map(struct pmap *pmap_gen, genvaddr_t vaddr,
+                struct capref frame, size_t offset, size_t size,
+                vregion_flags_t flags, size_t *retoff, size_t *retsize)
 {
     errval_t err;
+
+    struct pmap_aarch64 *pmap = (struct pmap_aarch64 *)pmap_gen;
 
     size = ROUND_UP(size, BASE_PAGE_SIZE);
     size_t pte_count = DIVIDE_ROUND_UP(size, BASE_PAGE_SIZE);
@@ -411,7 +405,7 @@ static errval_t do_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
 #endif
 }
 
-static size_t
+size_t
 max_slabs_required(size_t bytes)
 {
     // Perform a slab allocation for every page (do_map -> slab_alloc)
@@ -431,158 +425,6 @@ max_slabs_required(size_t bytes)
 
     return pages + l3entries + l2entries + l1entries + l0entries;
 }
-
-/**
- * \brief Refill slabs using pages from fixed allocator, used if we need to
- * refill the slab allocator before we've established a connection to
- * the memory server.
- *
- * \arg pmap the pmap whose slab allocator we want to refill
- * \arg bytes the refill buffer size in bytes
- */
-static errval_t refill_slabs_fixed_allocator(struct pmap_aarch64 *pmap,
-                                             struct slab_allocator *slab, size_t bytes)
-{
-    size_t pages = DIVIDE_ROUND_UP(bytes, BASE_PAGE_SIZE);
-
-    genvaddr_t vbase = pmap->vregion_offset;
-
-    // Allocate and map buffer using base pages
-    for (int i = 0; i < pages; i++) {
-        struct capref cap;
-        size_t retbytes;
-        // Get page
-        errval_t err = frame_alloc(&cap, BASE_PAGE_SIZE, &retbytes);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_FRAME_ALLOC);
-        }
-        assert(retbytes == BASE_PAGE_SIZE);
-
-        // Map page
-        genvaddr_t genvaddr = pmap->vregion_offset;
-        pmap->vregion_offset += (genvaddr_t)BASE_PAGE_SIZE;
-        assert(pmap->vregion_offset < vregion_get_base_addr(&pmap->vregion) +
-                vregion_get_size(&pmap->vregion));
-
-        err = do_map(pmap, genvaddr, cap, 0, BASE_PAGE_SIZE,
-                VREGION_FLAGS_READ_WRITE, NULL, NULL);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_DO_MAP);
-        }
-    }
-
-    /* Grow the slab */
-    lvaddr_t buf = vspace_genvaddr_to_lvaddr(vbase);
-    //debug_printf("%s: Calling slab_grow with %#zx bytes\n", __FUNCTION__, bytes);
-    slab_grow(slab, (void*)buf, bytes);
-
-    return SYS_ERR_OK;
-}
-
-/**
- * \brief Refill slabs used for metadata
- *
- * \param pmap     The pmap to refill in
- * \param request  The number of slabs the allocator must have
- * when the function returns
- *
- * When the current pmap is initialized,
- * it reserves some virtual address space for metadata.
- * This reserved address space is used here
- *
- * Can only be called for the current pmap
- * Will recursively call into itself till it has enough slabs
- */
-bool debug_refill = false;
-static errval_t refill_slabs(struct pmap_aarch64 *pmap, struct slab_allocator *slab, size_t request)
-{
-    errval_t err;
-
-    /* Keep looping till we have #request slabs */
-    while (slab_freecount(slab) < request) {
-        // Amount of bytes required for #request
-        size_t slabs_req = request - slab_freecount(slab);
-        size_t bytes = SLAB_STATIC_SIZE(slabs_req,
-                                        slab->blocksize);
-        bytes = ROUND_UP(bytes, BASE_PAGE_SIZE);
-
-        if (debug_refill) {
-        debug_printf("%s: req=%zu, bytes=%zu, slab->blocksize=%zu, slab->freecount=%zu\n",
-                __FUNCTION__, slabs_req, bytes, slab->blocksize, slab_freecount(slab));
-        }
-
-        /* Get a frame of that size */
-        struct capref cap;
-        size_t retbytes = 0;
-        err = frame_alloc(&cap, bytes, &retbytes);
-        if (err_is_fail(err)) {
-            if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS &&
-                err_no(err_pop(err)) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
-                /* only retry with fixed allocator if we get
-                 * LIB_ERR_RAM_ALLOC_WRONG_SIZE.
-                 */
-                return refill_slabs_fixed_allocator(pmap, slab, bytes);
-            }
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_FRAME_ALLOC);
-            }
-        }
-        bytes = retbytes;
-
-        /* If we do not have enough slabs to map the frame in, recurse */
-        size_t required_slabs_for_frame = max_slabs_required(bytes);
-        // Here we need to check that we have enough vnode slabs, not whatever
-        // slabs we're refilling
-        if (slab_freecount(&pmap->p.m->slab) < required_slabs_for_frame) {
-            debug_printf("%s: called from %p\n", __FUNCTION__,
-                    __builtin_return_address(0));
-            // If we recurse, we require more slabs than to map a single page
-            assert(required_slabs_for_frame > max_slabs_required(BASE_PAGE_SIZE));
-            if (required_slabs_for_frame <= max_slabs_required(BASE_PAGE_SIZE)) {
-                USER_PANIC(
-                    "%s: cannot handle this recursion: required slabs = %zu > max slabs for a mapping (%zu)\n",
-                    __FUNCTION__, required_slabs_for_frame, max_slabs_required(BASE_PAGE_SIZE));
-            }
-
-            err = refill_slabs(pmap, slab, required_slabs_for_frame);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_SLAB_REFILL);
-            }
-        }
-
-        /* Perform mapping */
-        genvaddr_t genvaddr = pmap->vregion_offset;
-        pmap->vregion_offset += (genvaddr_t)bytes;
-        assert(pmap->vregion_offset < vregion_get_base_addr(&pmap->vregion) +
-               vregion_get_size(&pmap->vregion));
-
-        err = do_map(pmap, genvaddr, cap, 0, bytes,
-                     VREGION_FLAGS_READ_WRITE, NULL, NULL);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_DO_MAP);
-        }
-
-        /* Grow the slab */
-        lvaddr_t buf = vspace_genvaddr_to_lvaddr(genvaddr);
-        slab_grow(slab, (void*)buf, bytes);
-    }
-
-    return SYS_ERR_OK;
-}
-
-static errval_t refill_vnode_slabs(struct pmap *pmap, size_t count)
-{
-    struct pmap_aarch64 *pmapx = (struct pmap_aarch64 *)pmap;
-    return refill_slabs(pmapx, &pmap->m->slab, count);
-}
-
-#ifdef PMAP_ARRAY
-static errval_t refill_pt_slabs(struct pmap *pmap, size_t count)
-{
-    struct pmap_aarch64 *pmapx = (struct pmap_aarch64 *)pmap;
-    return refill_slabs(pmapx, &pmap->m->ptslab, count);
-}
-#endif
 
 /**
  * \brief Create page mappings
@@ -658,8 +500,7 @@ map(struct pmap     *pmap,
     }
 #endif
 
-    return do_map(pmap_aarch64, vaddr, frame, offset, size, flags,
-                  retoff, retsize);
+    return do_map(pmap, vaddr, frame, offset, size, flags, retoff, retsize);
 }
 
 static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
@@ -781,6 +622,9 @@ determine_addr(struct pmap   *pmap,
     size_t size = ROUND_UP(memobj->size, alignment);
 
     struct vregion *walk = pmap->vspace->head;
+    // if there's space before the first object, map there
+    genvaddr_t minva = ROUND_UP(pmap_aarch64->min_mappable_va, alignment);
+
     while (walk->next) { // Try to insert between existing mappings
         genvaddr_t walk_base = vregion_get_base_addr(walk);
         genvaddr_t walk_size = ROUND_UP(vregion_get_size(walk), BASE_PAGE_SIZE);
@@ -791,7 +635,7 @@ determine_addr(struct pmap   *pmap,
         assert(walk_base % BASE_PAGE_SIZE == 0);
         assert(next_base % BASE_PAGE_SIZE == 0);
 
-        if (next_base > walk_end + size && walk_end > VSPACE_BEGIN) {
+        if (next_base > walk_end + size && walk_end > minva) {
             vaddr = walk_end;
             goto out;
         }
@@ -978,10 +822,6 @@ pmap_init(struct pmap   *pmap,
     }
 
     pmap_vnode_mgmt_init(pmap);
-    pmap->m->refill_slabs = refill_vnode_slabs;
-#if defined(PMAP_ARRAY)
-    pmap->m->refill_ptslab = refill_pt_slabs;
-#endif
 
     pmap_aarch64->root.is_vnode         = true;
     pmap_aarch64->root.u.vnode.cap      = vnode;
@@ -1034,25 +874,7 @@ errval_t pmap_current_init(bool init_domain)
 {
     struct pmap_aarch64 *pmap_aarch64 = (struct pmap_aarch64*)get_current_pmap();
 
-    // To reserve a block of virtual address space,
-    // a vregion representing the address space is required.
-    // We construct a superficial one here and add it to the vregion list.
-    struct vregion *vregion = &pmap_aarch64->vregion;
-    assert((void*)vregion > (void*)pmap_aarch64);
-    assert((void*)vregion < (void*)(pmap_aarch64 + 1));
-    vregion->vspace = NULL;
-    vregion->memobj = NULL;
-    vregion->base   = VSPACE_BEGIN;
-    vregion->offset = 0;
-    vregion->size   = META_DATA_RESERVED_SPACE;
-    vregion->flags  = 0;
-    vregion->next = NULL;
-
-    struct vspace *vspace = pmap_aarch64->p.vspace;
-    assert(!vspace->head);
-    vspace->head = vregion;
-
-    pmap_aarch64->vregion_offset = pmap_aarch64->vregion.base;
+    pmap_vnode_mgmt_current_init((struct pmap *)pmap_aarch64);
 
     return SYS_ERR_OK;
 }
