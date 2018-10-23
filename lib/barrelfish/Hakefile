@@ -117,6 +117,9 @@ in
       pmap_srcs "arm"     _            = [ "pmap_ll.c" ]
       pmap_srcs _         _            = [ ]
 
+      pmap_includes Config.LL    = [ "include" </> "pmap_ll" ]
+      pmap_includes Config.ARRAY = [ "include" </> "pmap_array" ]
+
   in
     build library { target = "barrelfish",
                     architectures = [arch],
@@ -137,7 +140,7 @@ in
                                               ("proc_mgmt", ["rpcclient"]),
                                               ("arrakis", ["rpcclient"])],
                     addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
-                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ],
+                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ] ++ pmap_includes Config.pmap_datastructure,
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ],
                     addLibraries = ["cap_predicates"]
                   }
@@ -203,6 +206,9 @@ in
       arch_include "k1om"     = "include/arch/x86_64"
       arch_include _          =  ""
 
+      pmap_includes Config.LL    = [ "include" </> "pmap_ll" ]
+      pmap_includes Config.ARRAY = [ "include" </> "pmap_array" ]
+
   in
     build library { target = "arrakis",
                     architectures = [arch],
@@ -223,7 +229,7 @@ in
                                               ("proc_mgmt", ["rpcclient"]),
                                               ("arrakis", ["rpcclient"]),
                                               ("hyper", ["rpcclient"])],
-                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ],
+                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ] ++ pmap_includes Config.pmap_datastructure,
                     addGeneratedDependencies = [ "/include/asmoffsets.h" ],
                     addLibraries = ["cap_predicates"]
                   }

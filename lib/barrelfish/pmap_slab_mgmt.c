@@ -1,6 +1,6 @@
 /**
  * \file
- * \brief pmap management -- generic slab management parts
+ * \brief pmap management -- architecture-indepented slab management.
  */
 
 /*
@@ -15,6 +15,7 @@
 
 #include <barrelfish/barrelfish.h>
 #include <pmap_priv.h>
+#include <pmap_ds.h>
 
 // Size of virtual region mapped by a single PML4 entry
 #define VROOT_ENTRY_MAPPING_SIZE \

@@ -15,7 +15,8 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/pmap_target.h>
-#include <barrelfish/pmap_array.h>
+
+#include <pmap_ds.h>
 
 /**
  * \brief Starting at a given root, return the vnode with entry equal to #entry

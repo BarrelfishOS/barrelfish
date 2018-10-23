@@ -59,6 +59,7 @@
 #include <barrelfish/caddr.h>
 #include <barrelfish/invocations_arch.h>
 #include <pmap_priv.h>
+#include <pmap_ds.h> // for selected pmap datastructure
 
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)

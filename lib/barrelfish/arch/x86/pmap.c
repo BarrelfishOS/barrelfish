@@ -16,6 +16,7 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/pmap.h>
 #include "target/x86/pmap_x86.h"
+#include <pmap_ds.h> // for selected pmap datastructure
 
 // For tracing
 #include <trace/trace.h>

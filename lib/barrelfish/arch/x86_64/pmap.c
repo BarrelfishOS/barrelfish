@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <barrelfish/cap_predicates.h>
 #include <pmap_priv.h>
+#include <pmap_ds.h> // pull in selected pmap datastructure implementation
 
 // For tracing
 #include <trace/trace.h>
@@ -1202,11 +1203,11 @@ static errval_t create_pts_pinned(struct pmap *pmap, genvaddr_t vaddr, size_t by
         }
 
         /* map the page-table read only for access to status bits */
-        genvaddr_t genvaddr = x86->vregion_offset;
-        x86->vregion_offset += (genvaddr_t)4096;
+        genvaddr_t genvaddr = pmap->m->vregion_offset;
+        pmap->m->vregion_offset += (genvaddr_t)4096;
 
-        assert(x86->vregion_offset < vregion_get_base_addr(&x86->vregion) +
-               vregion_get_size(&x86->vregion));
+        assert(pmap->m->vregion_offset < vregion_get_base_addr(&pmap->m->vregion) +
+               vregion_get_size(&pmap->m->vregion));
 
         /* copy the page-table capability */
         /* XXX: this should be somewhere in struct vnode */
