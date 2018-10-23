@@ -173,17 +173,33 @@ static errval_t refill_slabs(struct pmap *pmap, struct slab_allocator *slab, siz
     return SYS_ERR_OK;
 }
 
-errval_t refill_vnode_slabs(struct pmap *pmap, size_t count)
+errval_t pmap_slab_refill(struct pmap *pmap, struct slab_allocator *slab,
+                          size_t max_slabs)
 {
-    return refill_slabs(pmap, &pmap->m->slab, count);
-}
+    errval_t err;
 
-#ifdef PMAP_ARRAY
-errval_t refill_pt_slabs(struct pmap *pmap, size_t count)
-{
-    return refill_slabs(pmap, &pmap->m->ptslab, count);
+    // Refill slab allocator if necessary
+    size_t slabs_free = slab_freecount(slab);
+
+    if (slabs_free < max_slabs) {
+        struct pmap *mypmap = get_current_pmap();
+        if (pmap == mypmap) {
+            err = refill_slabs(pmap, slab, max_slabs);
+            if (err_is_fail(err)) {
+                return err_push(err, LIB_ERR_SLAB_REFILL);
+            }
+        } else {
+            size_t bytes = SLAB_STATIC_SIZE(max_slabs - slabs_free,
+                                            slab->blocksize);
+            void *buf = malloc(bytes);
+            if (!buf) {
+                return LIB_ERR_MALLOC_FAIL;
+            }
+            slab_grow(slab, buf, bytes);
+        }
+    }
+    return SYS_ERR_OK;
 }
-#endif
 
 errval_t pmap_vnode_mgmt_current_init(struct pmap *pmap)
 {

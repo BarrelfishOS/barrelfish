@@ -17,6 +17,7 @@
 #include <barrelfish/pmap_target.h>
 
 #include <pmap_ds.h>
+#include <pmap_priv.h>
 
 /**
  * \brief Starting at a given root, return the vnode with entry equal to #entry
@@ -106,9 +107,6 @@ errval_t pmap_vnode_mgmt_init(struct pmap *pmap)
         slab_grow(&m->ptslab, buf, INIT_PTSLAB_BUFFER_SIZE);
     }
 
-    m->refill_slabs = refill_vnode_slabs;
-    m->refill_ptslab = refill_pt_slabs;
-
     /* assign vnode_mgmt to pmap */
     pmap->m = m;
 
@@ -132,4 +130,18 @@ void pmap_vnode_free(struct pmap *pmap, struct vnode *n)
 {
     slab_free(&pmap->m->ptslab, n->u.vnode.children);
     slab_free(&pmap->m->slab, n);
+}
+
+errval_t pmap_refill_slabs(struct pmap *pmap, size_t max_slabs)
+{
+    errval_t err;
+    err = pmap_slab_refill(pmap, &pmap->m->slab, max_slabs);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = pmap_slab_refill(pmap, &pmap->m->ptslab, max_slabs);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    return SYS_ERR_OK;
 }

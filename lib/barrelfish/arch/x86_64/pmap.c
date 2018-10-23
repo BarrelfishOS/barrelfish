@@ -555,7 +555,6 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
                     size_t *retoff, size_t *retsize)
 {
     errval_t err;
-    struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
 
     struct capability cap;
     err = cap_direct_identify(frame, &cap);
@@ -597,50 +596,12 @@ static errval_t map(struct pmap *pmap, genvaddr_t vaddr, struct capref frame,
         max_slabs = max_slabs_for_mapping(size);
     }
 
-    // Refill slab allocator if necessary
-    size_t slabs_free = slab_freecount(&pmap->m->slab);
-
     max_slabs += 6; // minimum amount required to map a region spanning 2 ptables
-    if (slabs_free < max_slabs) {
-        struct pmap *mypmap = get_current_pmap();
-        if (pmap == mypmap) {
-            err = refill_vnode_slabs(pmap, max_slabs);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_SLAB_REFILL);
-            }
-        } else {
-            size_t bytes = SLAB_STATIC_SIZE(max_slabs - slabs_free,
-                                            sizeof(struct vnode));
-            void *buf = malloc(bytes);
-            if (!buf) {
-                return LIB_ERR_MALLOC_FAIL;
-            }
-            slab_grow(&x86->p.m->slab, buf, bytes);
-        }
-    }
-#ifdef PMAP_ARRAY
-    // Refill child array slabs, if necessary
-    size_t ptslabs_free = slab_freecount(&pmap->m->ptslab);
-    size_t max_ptslabs = max_slabs; // XXX Is this a strict overestimation??
 
-    if (ptslabs_free < max_ptslabs) {
-        struct pmap *mypmap = get_current_pmap();
-        if (pmap == mypmap) {
-            err = refill_pt_slabs(pmap, max_ptslabs);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_SLAB_REFILL);
-            }
-        } else {
-            size_t bytes = SLAB_STATIC_SIZE(max_ptslabs - ptslabs_free,
-                                            sizeof(struct vnode *)*PTABLE_ENTRIES);
-            void *buf = malloc(bytes);
-            if (!buf) {
-                return LIB_ERR_MALLOC_FAIL;
-            }
-            slab_grow(&x86->p.m->ptslab, buf, bytes);
-        }
+    err = pmap_refill_slabs(pmap, max_slabs);
+    if (err_is_fail(err)) {
+        return err;
     }
-#endif
 
     err = do_map(pmap, vaddr, frame, offset, size, flags, retoff, retsize);
     return err;
@@ -1165,26 +1126,12 @@ static errval_t create_pts_pinned(struct pmap *pmap, genvaddr_t vaddr, size_t by
         max_slabs = max_slabs_for_mapping_large(bytes);
     }
 
-    // Refill slab allocator if necessary
-    size_t slabs_free = slab_freecount(&pmap->m->slab);
-
     max_slabs += 6; // minimum amount required to map a region spanning 2 ptables
-    if (slabs_free < max_slabs) {
-        struct pmap *mypmap = get_current_pmap();
-        if (pmap == mypmap) {
-            err = refill_vnode_slabs(pmap, max_slabs);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_SLAB_REFILL);
-            }
-        } else {
-            size_t sbytes = SLAB_STATIC_SIZE(max_slabs - slabs_free,
-                                            sizeof(struct vnode));
-            void *buf = malloc(sbytes);
-            if (!buf) {
-                return LIB_ERR_MALLOC_FAIL;
-            }
-            slab_grow(&pmap->m->slab, buf, sbytes);
-        }
+
+    // Refill slab allocator if necessary
+    err = pmap_refill_slabs(pmap, max_slabs);
+    if (err_is_fail(err)) {
+        return err;
     }
 
     /* do the actual creation of the page tables */

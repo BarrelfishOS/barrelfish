@@ -375,17 +375,10 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
 
     while (*inlen > 0 && (*in)->depth == depth) {
         // ensure slab allocator has sufficient space
-        err = pmap->m->refill_slabs(pmap, 16);
+        err = pmap_refill_slabs(pmap, 16);
         if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_SLAB_REFILL);
+            return err;
         }
-#if defined(PMAP_ARRAY)
-        // ensure slab allocator has sufficient space
-        err = pmap->m->refill_ptslab(pmap, 16);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_SLAB_REFILL);
-        }
-#endif
 
         // allocate storage for the new vnode
         struct vnode *n = slab_alloc(&pmap->m->slab);
@@ -397,21 +390,10 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
         n->u.vnode.cap.cnode     = cnode_page;
         n->u.vnode.cap.slot      = (*in)->slot;
         n->u.vnode.invokable     = n->u.vnode.cap;
-#if defined(PMAP_ARRAY)
-        if (slab_freecount(&pmap->m->ptslab) < 8) {
-            err = pmap->m->refill_ptslab(pmap, 32);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_SLAB_REFILL);
-            }
-        }
-#endif
         pmap_vnode_init(pmap, n);
         pmap_vnode_insert_child(parent, n);
         n->u.vnode.base = (*in)->base;
         n->type = (*in)->type;
-
-        // Count cnode_page slots that are in use
-        pmapx->used_cap_slots ++;
 
         // Count cnode_page slots that are in use
         pmapx->used_cap_slots ++;

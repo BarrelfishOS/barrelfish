@@ -24,6 +24,9 @@ errval_t do_map(struct pmap *pmap, genvaddr_t vaddr,
  */
 size_t max_slabs_required(size_t bytes);
 
+errval_t pmap_slab_refill(struct pmap *pmap, struct slab_allocator *slab,
+                          size_t max_slabs_for_mapping);
+
 errval_t pmap_vnode_mgmt_current_init(struct pmap *pmap);
 
 static inline void

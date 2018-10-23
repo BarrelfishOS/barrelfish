@@ -102,5 +102,9 @@ void pmap_vnode_insert_child(struct vnode *root, struct vnode *newvnode);
  * \brief free per-vnode shadow pt fields
  */
 void pmap_vnode_free(struct pmap *p, struct vnode *v);
+/**
+ * \brief Refill shadow pt implementation slab allocators if necessary
+ */
+errval_t pmap_refill_slabs(struct pmap *pmap, size_t max_slabs);
 
 #endif // LIBBARRELFISH_PMAP_H

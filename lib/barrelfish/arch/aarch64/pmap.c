@@ -431,57 +431,19 @@ map(struct pmap     *pmap,
     size_t          *retoff,
     size_t          *retsize)
 {
-    struct pmap_aarch64 *pmap_aarch64 = (struct pmap_aarch64 *)pmap;
+    errval_t err;
 
     size   += BASE_PAGE_OFFSET(offset);
     size    = ROUND_UP(size, BASE_PAGE_SIZE);
     offset -= BASE_PAGE_OFFSET(offset);
 
     const size_t slabs_reserve = 3; // == max_slabs_required(1)
-    uint64_t  slabs_free       = slab_freecount(&pmap_aarch64->p.m->slab);
     size_t    slabs_required   = max_slabs_required(size) + slabs_reserve;
 
-    if (slabs_required > slabs_free) {
-        if (get_current_pmap() == pmap) {
-            errval_t err = refill_vnode_slabs(pmap, slabs_required);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_SLAB_REFILL);
-            }
-        }
-        else {
-            size_t bytes = SLAB_STATIC_SIZE(slabs_required - slabs_free,
-                                            sizeof(struct vnode));
-            void *buf = malloc(bytes);
-            if (!buf) {
-                return LIB_ERR_MALLOC_FAIL;
-            }
-            slab_grow(&pmap->m->slab, buf, bytes);
-        }
+    err = pmap_refill_slabs(pmap, slabs_required);
+    if (err_is_fail(err)) {
+        return err;
     }
-#ifdef PMAP_ARRAY
-    // Refill child array slabs, if necessary
-    size_t ptslabs_free = slab_freecount(&pmap->m->ptslab);
-    size_t max_ptslabs = slabs_required; // XXX Is this a strict overestimation??
-
-    if (ptslabs_free < max_ptslabs) {
-        struct pmap *mypmap = get_current_pmap();
-        if (pmap == mypmap) {
-            errval_t err;
-            err = refill_pt_slabs(pmap, max_ptslabs);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_SLAB_REFILL);
-            }
-        } else {
-            size_t bytes = SLAB_STATIC_SIZE(max_ptslabs - ptslabs_free,
-                                            sizeof(struct vnode *)*PTABLE_ENTRIES);
-            void *buf = malloc(bytes);
-            if (!buf) {
-                return LIB_ERR_MALLOC_FAIL;
-            }
-            slab_grow(&pmap_aarch64->p.m->ptslab, buf, bytes);
-        }
-    }
-#endif
 
     return do_map(pmap, vaddr, frame, offset, size, flags, retoff, retsize);
 }
