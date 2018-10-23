@@ -212,6 +212,17 @@ in
       arch_include "k1om"     = "include/arch/x86_64"
       arch_include _          =  ""
 
+      -- sources specific to the pmap implementation
+      pmap_unified_srcs = [ "pmap_slab_mgmt.c" ]
+      pmap_srcs "x86_64"  Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
+      pmap_srcs "x86_64"  Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
+      pmap_srcs "k1om"    Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
+      pmap_srcs "k1om"    Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
+      pmap_srcs "aarch64" Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
+      pmap_srcs "aarch64" Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
+      pmap_srcs "arm"     _            = [ ] -- armv7 uses its own pmap_ds implementation
+      pmap_srcs _         _            = [ ]
+
       pmap_includes "x86_64" Config.LL    = [ "include" </> "pmap_ll" ]
       pmap_includes "x86_64" Config.ARRAY = [ "include" </> "pmap_array" ]
       pmap_includes "aarch64" Config.LL    = [ "include" </> "pmap_ll" ]
@@ -224,7 +235,7 @@ in
     build library { target = "arrakis",
                     architectures = [arch],
                     cFiles = arch_srcs arch ++ archfam_srcs (archFamily arch)
-                             ++ common_srcs ++ idc_srcs,
+                             ++ common_srcs ++ idc_srcs ++ pmap_srcs (archFamily arch) Config.pmap_datastructure,
                     assemblyFiles = arch_assembly (archFamily arch),
                     addCFlags = [ "-DARRAKIS", "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
                     flounderBindings = [ "mem", "octopus", "interdisp", "spawn", "arrakis",
