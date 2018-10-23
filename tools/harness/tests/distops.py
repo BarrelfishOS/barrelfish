@@ -29,7 +29,7 @@ distops_tests = [
 
 def dist_test_factory(testname, finish_string, error_regex):
     class DistTest(TestCommon):
-        name = "distops_test_%s" % testname
+        name = "distops_%s" % testname
 
         def get_modules(self, build, machine):
             modules = super(DistTest, self).get_modules(build, machine)

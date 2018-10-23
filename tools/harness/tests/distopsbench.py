@@ -176,25 +176,25 @@ class DistopsBench(TestCommon):
 @tests.add_test
 class DistopsBenchDeleteForeign(DistopsBench):
     '''Benchmark latency of deleting foreign copy of capability'''
-    name = 'distops_bench_delete_foreign'
+    name = 'bench_distops_delete_foreign'
     binary_name = "bench_delete_foreign_copy"
 
 @tests.add_test
 class DistopsBenchDeleteLocal(DistopsBench):
     '''Benchmark latency of deleting local copy of capability'''
-    name = 'distops_bench_delete_local'
+    name = 'bench_distops_delete_local'
     binary_name = "bench_delete_local_copy"
 
 @tests.add_test
 class DistopsBenchDeleteLast(DistopsBench):
     '''Benchmark latency of deleting last copy of capability'''
-    name = 'distops_bench_delete_last'
+    name = 'bench_distops_delete_last'
     binary_name = "bench_delete_last_copy"
 
 @tests.add_test
 class DistopsBenchDeleteLastRemote(DistopsBench):
     '''Benchmark latency of deleting last local copy of capability with remote copies'''
-    name = 'distops_bench_delete_last_remote'
+    name = 'bench_distops_delete_last_remote'
     binary_name = "bench_delete_last_copy_remote"
 
     def __init__(self, options):
@@ -205,7 +205,7 @@ class DistopsBenchDeleteLastRemote(DistopsBench):
 @tests.add_test
 class DistopsBenchRevokeNoRemote(DistopsBench):
     '''Benchmark latency of revoking capability with no remote relations'''
-    name = 'distops_bench_revoke_no_remote'
+    name = 'bench_distops_revoke_no_remote'
     binary_name = "bench_revoke_no_remote"
 
     def setup(self, build, machine, testdir):
@@ -225,43 +225,43 @@ class DistopsBenchRevokeNoRemote(DistopsBench):
 @tests.add_test
 class DistopsBenchRevokeRemoteCopy(DistopsBench):
     '''Benchmark latency of revoking foreign copy of capability'''
-    name = 'distops_bench_revoke_remote_copy'
+    name = 'bench_distops_revoke_remote_copy'
     binary_name = "bench_revoke_remote_copy"
 
 @tests.add_test
 class DistopsBenchRevokeWithRemoteCopies(DistopsBench):
     '''Benchmark latency of revoking a capability with remote copies/descendants'''
-    name = 'distops_bench_revoke_with_remote_copies'
+    name = 'bench_distops_revoke_with_remote_copies'
     binary_name = "bench_revoke_with_remote_copies"
 
 @tests.add_test
 class DistopsBenchRetypeNoRemote(DistopsBench):
     '''Benchmark latency of retyping capability with no remote relations'''
-    name = 'distops_bench_retype_no_remote'
+    name = 'bench_distops_retype_no_remote'
     binary_name = "bench_retype_no_remote"
 
 @tests.add_test
 class DistopsBenchRetypeWithLocalDescs(DistopsBench):
     '''Benchmark latency of retyping capability with local descendants but no remote relations'''
-    name = 'distops_bench_retype_with_local_descs'
+    name = 'bench_distops_retype_with_local_descs'
     binary_name = "bench_retype_w_local_descendants"
 
 @tests.add_test
 class DistopsBenchRetypeWithRemoteCopies(DistopsBench):
     '''Benchmark latency of retyping capability with remote copies'''
-    name = 'distops_bench_retype_with_remote_copies'
+    name = 'bench_distops_retype_with_remote_copies'
     binary_name = "bench_retype_with_remote_copies"
 
 @tests.add_test
 class DistopsBenchNoopInvocation(DistopsBench):
     '''Benchmark latency of noop invocation'''
-    name = 'distops_bench_noop_invocation'
+    name = 'bench_distops_noop_invocation'
     binary_name = "bench_noop_invocation"
 
 @tests.add_test
 class DistopsBenchDeleteCNodeLast(DistopsBench):
     '''Benchmark latency of deleting last copy of cnode with 4 slots occupied'''
-    name = 'distops_bench_delete_cnode_last'
+    name = 'bench_distops_delete_cnode_last'
     binary_name = "bench_delete_cnode_last_copy"
 
     def __init__(self, options):
@@ -277,7 +277,7 @@ class DistopsBenchDeleteCNodeLast(DistopsBench):
 @tests.add_test
 class DistopsBenchDeleteCNodeVary(DistopsBench):
     '''Benchmark latency of deleting cnode with varying number of slots occupied'''
-    name = 'distops_bench_delete_cnode_slots_occupied'
+    name = 'bench_distops_delete_cnode_slots_occupied'
     # not setting binary_name, as we're using a custom get_modules() for this
     # test
 
