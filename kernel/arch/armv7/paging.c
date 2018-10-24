@@ -19,6 +19,7 @@
 #include <dispatch.h>
 #include <mdb/mdb_tree.h>
 #include <barrelfish_kpi/paging_arch.h>
+#include <useraccess.h>
 
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv7-A: "format, ## __VA_ARGS__ )
 
@@ -639,6 +640,56 @@ errval_t paging_copy_remap(struct cte *dest_vnode_cte, cslot_t dest_slot,
 {
     printk(LOG_ERR, "%s called on ARMv7: NYI!\n", __FUNCTION__);
     return SYS_ERR_NOT_IMPLEMENTED;
+}
+
+bool paging_is_region_valid(lvaddr_t buffer, size_t size, uint8_t type)
+{
+    lvaddr_t root_pt = local_phys_to_mem(dcb_current->vspace);
+
+    lvaddr_t end = buffer + size;
+
+    uint16_t first_l1idx = ARM_L1_OFFSET(buffer);
+    uint16_t last_l1idx = ARM_L1_OFFSET(end);
+
+    uint16_t first_l2idx, last_l2idx;
+
+
+    union arm_l1_entry *l1e;
+    union arm_l2_entry *l2e;
+
+    for (uint16_t l1idx = first_l1idx; l1idx <= last_l1idx; l1idx++) {
+        l1e = (union arm_l1_entry *)root_pt + l1idx;
+        if (!l1e->invalid.type) {// invalid
+            return false;
+        } else if (l1e->section.type == 2) { // section
+            // check if we have write access
+            if (type == ACCESS_WRITE && !l1e->section.ap10 & 1) { return false; }
+            continue;
+        } else if (l1e->super_section.type == 3) { // supersection
+            // check if we have write access
+            if (type == ACCESS_WRITE && !l1e->super_section.ap10 & 1) { return false; }
+        } else if (l1e->page_table.type == 1) { // ptable
+            // calculate which part of ptable to check
+            first_l2idx = l1idx == first_l1idx ? ARM_L2_OFFSET(buffer) : 0;
+            last_l2idx  = l1idx == last_l1idx  ? ARM_L2_OFFSET(end)  : ARM_L2_MAX_ENTRIES;
+            // read ptable base
+            lvaddr_t ptable = local_phys_to_mem((genpaddr_t)l1e->page_table.base_address << 10);
+            for (uint16_t l2idx = first_l2idx; l2idx < last_l2idx; l2idx++) {
+                l2e = (union arm_l2_entry *)ptable + l2idx;
+                if (!l2e->invalid.type) { // invalid entry
+                    return false;
+                } else if (l2e->large_page.type == 1) { // large page
+                    // check if we have write access
+                    if (type == ACCESS_WRITE && !l2e->large_page.ap10 & 1) { return false; }
+                } else if (l2e->small_page.type >= 2) { // type == 2 or 3 - small page
+                    // check if we have write access
+                    if (type == ACCESS_WRITE && !l2e->small_page.ap10 & 1) { return false; }
+                }
+            }
+        }
+    }
+    // if we never bailed early, the access is fine.
+    return true;
 }
 
 void paging_dump_tables(struct dcb *dispatcher)

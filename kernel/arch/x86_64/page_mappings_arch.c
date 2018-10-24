@@ -23,6 +23,7 @@
 #include <barrelfish_kpi/init.h>
 #include <cap_predicates.h>
 #include <paging_generic.h>
+#include <useraccess.h>
 
 #ifdef __k1om__
 #include <target/k1om/offsets_target.h>
@@ -957,6 +958,67 @@ errval_t ptable_modify_flags(struct capability *leaf_pt, size_t offset,
     do_full_tlb_flush();
 
     return err;
+}
+
+bool paging_is_region_valid(lvaddr_t buffer, size_t size, uint8_t type)
+{
+    lvaddr_t root_pt = local_phys_to_mem(dcb_current->vspace);
+
+    lvaddr_t end = buffer + size;
+
+    uint16_t first_pml4e = X86_64_PML4_BASE(buffer);
+    uint16_t last_pml4e = X86_64_PML4_BASE(end);
+
+    uint16_t first_pdpte, first_pdire, first_pte;
+        uint16_t last_pdpte, last_pdire, last_pte;
+
+
+    union x86_64_ptable_entry *pte;
+    union x86_64_pdir_entry *pde;
+
+    for (uint16_t pml4e = first_pml4e; pml4e <= last_pml4e; pml4e++) {
+        pde = (union x86_64_pdir_entry *)root_pt + pml4e;
+        if (!pde->d.present) { return false; }
+        if (type == ACCESS_WRITE && !pde->d.read_write) { return false; }
+        // calculate which part of pdpt to check
+        first_pdpte = pml4e == first_pml4e ? X86_64_PDPT_BASE(buffer) : 0;
+        last_pdpte  = pml4e == last_pml4e  ? X86_64_PDPT_BASE(end)  : PTABLE_ENTRIES;
+        // read pdpt base
+        lvaddr_t pdpt = local_phys_to_mem((genpaddr_t)pde->d.base_addr << BASE_PAGE_BITS);
+        for (uint16_t pdptidx = first_pdpte; pdptidx <= last_pdpte; pdptidx++) {
+            pde = (union x86_64_pdir_entry *)pdpt + pdptidx;
+            if (!pde->d.present) { return false; }
+            if (type == ACCESS_WRITE && !pde->d.read_write) { return false; }
+            pte = (union x86_64_ptable_entry *)pde;
+            if (!pte->huge.always1) {
+                // calculate which part of pdpt to check
+                first_pdire = pdptidx == first_pdpte ? X86_64_PDIR_BASE(buffer) : 0;
+                last_pdire  = pdptidx == last_pdpte  ? X86_64_PDIR_BASE(end)  : PTABLE_ENTRIES;
+                // read pdpt base
+                lvaddr_t pdir = local_phys_to_mem((genpaddr_t)pde->d.base_addr << BASE_PAGE_BITS);
+                for (uint16_t pdiridx = first_pdire; pdiridx <= last_pdire; pdiridx++) {
+                    pde = (union x86_64_pdir_entry *)pdir + pdiridx;
+                    if (!pde->d.present) { return false; }
+                    if (type == ACCESS_WRITE && !pde->d.read_write) { return false; }
+                    pte = (union x86_64_ptable_entry *)pde;
+                    if (!pte->large.always1) {
+                        // calculate which part of pdpt to check
+                        first_pte = pdiridx == first_pdire ? X86_64_PTABLE_BASE(buffer) : 0;
+                        last_pte  = pdiridx == last_pdire  ? X86_64_PTABLE_BASE(end)  : PTABLE_ENTRIES;
+                        // read pdpt base
+                        lvaddr_t pt = local_phys_to_mem((genpaddr_t)pde->d.base_addr << BASE_PAGE_BITS);
+                        for (uint16_t ptidx = first_pte; ptidx < last_pte; ptidx++) {
+                            pte = (union x86_64_ptable_entry *)pt + ptidx;
+                            if (!pte->base.present) { return false; }
+                            if (type == ACCESS_WRITE && !pte->base.read_write) { return false; }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // if we never bailed early, the access is fine.
+    return true;
 }
 
 void paging_dump_tables_around(struct dcb *dispatcher, lvaddr_t vaddr)
