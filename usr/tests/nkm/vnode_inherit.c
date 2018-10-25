@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 
     /* clone ptable */
     debug_printf("calling vnode inherit\n");
-    err = vnode_inherit(cloned->u.vnode.invokable, ptable->u.vnode.invokable,
+    err = vnode_inherit(cloned->v.u.vnode.invokable, ptable->v.u.vnode.invokable,
                         0, PTABLE_SIZE, ptable->u.vnode.mcn, cloned->u.vnode.mcn);
     assert(err_is_ok(err));
 

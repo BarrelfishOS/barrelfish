@@ -616,13 +616,13 @@ static void ept_map(struct guest *g, struct capref cap)
 
 static void ept_map_vnode(struct guest *g, struct vnode *v)
 {
-    assert(v->is_vnode);
+    assert(v->v.is_vnode);
 
-    ept_map(g, v->u.vnode.cap);
+    ept_map(g, v->v.cap);
 
     for (int i = 0; i < PTABLE_SIZE; i++) {
         struct vnode *c = v->u.vnode.children[i];
-        if (c && c->is_vnode) {
+        if (c && c->v.is_vnode) {
             ept_map_vnode(g, c);
         }
     }
@@ -697,21 +697,21 @@ static void ept_force_mapping(struct guest *g, struct capref mem)
         // get pdpt through pmap
         err = get_pdpt(pmap, v->base, &pt);
         assert(err_is_ok(err));
-        assert(pt->is_vnode);
+        assert(pt->v.is_vnode);
         npages = v->size / HUGE_PAGE_SIZE;
         printf("     %zu 1G pages\n", npages);
         assert(npages <= 512);
-        err = vnode_map(pt->u.vnode.cap, mem, X86_64_PDPT_BASE(v->base),
+        err = vnode_map(pt->v.cap, mem, X86_64_PDPT_BASE(v->base),
                 pmap_flags, 0, npages, mapping);
     } else if (fi.bytes >= X86_64_LARGE_PAGE_SIZE && fi.bytes % X86_64_LARGE_PAGE_SIZE == 0) {
         // do large page mappings
         err = get_pdir(pmap, v->base, &pt);
         assert(err_is_ok(err));
-        assert(pt->is_vnode);
+        assert(pt->v.is_vnode);
         npages = v->size / LARGE_PAGE_SIZE;
         printf("     %zu 2M pages\n", npages);
         assert(npages < 512);
-        err = vnode_map(pt->u.vnode.cap, mem, X86_64_PDIR_BASE(v->base),
+        err = vnode_map(pt->v.cap, mem, X86_64_PDIR_BASE(v->base),
                 pmap_flags, 0, npages, mapping);
     } else {
         // get leaf pt through pmap
@@ -721,7 +721,7 @@ static void ept_force_mapping(struct guest *g, struct capref mem)
         printf("     %zu 4k pages\n", npages);
         // should never be full ptable
         assert(npages < 512);
-        err = vnode_map(pt->u.vnode.cap, mem, X86_64_PTABLE_BASE(v->base),
+        err = vnode_map(pt->v.cap, mem, X86_64_PTABLE_BASE(v->base),
                 pmap_flags, 0, npages, mapping);
         assert(err_is_ok(err));
     }
@@ -757,7 +757,7 @@ static void ept_setup_low512g(struct guest *g)
     union x86_64_ptable_entry *pt;
     struct capref ept_copy;
     err = slot_alloc(&ept_copy);
-    err+= cap_copy(ept_copy, vn->u.vnode.cap);
+    err+= cap_copy(ept_copy, vn->v.cap);
     err+= vspace_map_one_frame_attr((void**)&pt, BASE_PAGE_SIZE, ept_copy,
                                     VREGION_FLAGS_READ_WRITE, NULL, NULL);
     assert(err_is_ok(err));

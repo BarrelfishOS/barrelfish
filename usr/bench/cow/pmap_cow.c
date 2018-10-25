@@ -132,29 +132,29 @@ static errval_t alloc_vnode_noalloc(struct pmap_x86 *pmap, struct vnode *root,
     if (newvnode == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
-    newvnode->u.vnode.cap = vnodecap;
+    newvnode->v.cap = vnodecap;
 
-    err = slot_alloc(&newvnode->mapping);
+    err = slot_alloc(&newvnode->v.mapping);
     assert(err_is_ok(err));
 
     // Map it
-    err = vnode_map(root->u.vnode.cap, newvnode->u.vnode.cap, entry,
-                    PTABLE_ACCESS_DEFAULT, 0, 1, newvnode->mapping);
+    err = vnode_map(root->v.cap, newvnode->v.cap, entry,
+                    PTABLE_ACCESS_DEFAULT, 0, 1, newvnode->v.mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
 
     // The VNode meta data
-    newvnode->is_vnode  = true;
+    newvnode->v.is_vnode  = true;
     newvnode->is_cloned = false;
-    newvnode->entry     = entry;
+    newvnode->v.entry     = entry;
 #ifdef PMAP_LL
-    newvnode->next      = root->u.vnode.children;
-    root->u.vnode.children = newvnode;
-    newvnode->u.vnode.children = NULL;
+    newvnode->v.meta.next      = root->v.u.vnode.children;
+    root->v.u.vnode.children = newvnode;
+    newvnode->v.u.vnode.children = NULL;
 #elif defined(PMAP_ARRAY)
-    memset(newvnode->u.vnode.children, 0, sizeof(struct vode *)*PTABLE_SIZE);
-    root->u.vnode.children[entry] = newvnode;
+    memset(newvnode->v.u.vnode.children, 0, sizeof(struct vode *)*PTABLE_SIZE);
+    root->v.u.vnode.children[entry] = newvnode;
 #else
 #error Invalid pmap datastructure
 #endif
@@ -183,36 +183,44 @@ static errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
 static struct vnode *find_vnode(struct vnode *root, uint16_t entry)
 {
     assert(root != NULL);
-    assert(root->is_vnode);
+    assert(root->v.is_vnode);
     struct vnode *n;
 
-    for(n = root->u.vnode.children; n != NULL; n = n->next) {
-        if (!n->is_vnode) {
+    for(n = root->v.u.vnode.children; n != NULL; n = n->v.meta.next) {
+        if (!n->v.is_vnode) {
             // check whether entry is inside a large region
-            uint16_t end = n->entry + n->u.frame.pte_count;
-            if (n->entry <= entry && entry < end) {
-                //if (n->entry < entry) {
-                //    debug_printf("%d \\in [%d, %d]\n", entry, n->entry, end);
+            uint16_t end = n->v.entry + n->v.u.frame.pte_count;
+            if (n->v.entry <= entry && entry < end) {
+                //if (n->v.entry < entry) {
+                //    debug_printf("%d \\in [%d, %d]\n", entry, n->v.entry, end);
                 //}
                 return n;
             }
         }
-        else if(n->entry == entry) {
+        else if(n->v.entry == entry) {
             // return n if n is a vnode and the indices match
             return n;
         }
     }
     return NULL;
 }
+
+static errval_t vnode_clone(struct pmap_x86 *x86,
+        struct vnode *parent, size_t entry,
+        struct vnode **dest, struct vnode *src)
+{
+    return LIB_ERR_NOT_IMPLEMENTED;
+}
+
 #elif defined(PMAP_ARRAY)
 static struct vnode *find_vnode(struct vnode *root, uint16_t entry)
 {
     assert(root != NULL);
-    assert(root->is_vnode);
+    assert(root->v.is_vnode);
     assert(entry < PTABLE_SIZE);
 
-    if (root->u.vnode.children) {
-        return root->u.vnode.children[entry];
+    if (root->v.u.vnode.children) {
+        return root->v.u.vnode.children[entry];
     } else {
         return NULL;
     }
@@ -224,7 +232,7 @@ static errval_t vnode_clone(struct pmap_x86 *x86,
 {
     errval_t err;
     // TODO: better change to r/o on pml4e or pdpt?
-    err = vnode_modify_flags(src->u.vnode.cap, 0,
+    err = vnode_modify_flags(src->v.cap, 0,
             PTABLE_SIZE, PTABLE_ACCESS_READONLY);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "vnode_modify_flags");
@@ -237,7 +245,7 @@ static errval_t vnode_clone(struct pmap_x86 *x86,
         USER_PANIC_ERR(err, "slot_alloc");
     }
     assert(err_is_ok(err));
-    err = cap_copy(copy, src->u.vnode.cap);
+    err = cap_copy(copy, src->v.cap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "cap_copy");
     }
@@ -251,7 +259,7 @@ static errval_t vnode_clone(struct pmap_x86 *x86,
     assert(*dest);
     // copy children metadata
     // XXX: should copy caps to keep revoke safety
-    memcpy((*dest)->u.vnode.children, src->u.vnode.children,
+    memcpy((*dest)->v.u.vnode.children, src->v.u.vnode.children,
             PTABLE_SIZE * sizeof(struct vnode *));
 
     return SYS_ERR_OK;
@@ -294,13 +302,13 @@ static errval_t find_or_clone_vnode(struct pmap_x86 *pmap,
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
-        err = vnode_inherit_attr(newptable->u.vnode.cap,
-                (*ptable)->u.vnode.cap, 0, PTABLE_SIZE, PTABLE_ACCESS_READONLY,
+        err = vnode_inherit_attr(newptable->v.cap,
+                (*ptable)->v.cap, 0, PTABLE_SIZE, PTABLE_ACCESS_READONLY,
                 (*ptable)->u.vnode.mcn, newptable->u.vnode.mcn);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_CLONE_VNODE);
         }
-        memcpy(newptable->u.vnode.children, (*ptable)->u.vnode.children,
+        memcpy(newptable->v.u.vnode.children, (*ptable)->v.u.vnode.children,
                 PTABLE_SIZE * sizeof(struct vnode *));
         newptable->is_cloned = true;
         *ptable = newptable;
@@ -330,13 +338,13 @@ static errval_t cow_get_pdpt(struct pmap_x86 *pmap,
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_ALLOC_VNODE);
         }
-        err = vnode_inherit_attr(newptable->u.vnode.cap,
-                (*pdpt)->u.vnode.cap, 0, PTABLE_SIZE, PTABLE_ACCESS_READONLY,
+        err = vnode_inherit_attr(newptable->v.cap,
+                (*pdpt)->v.cap, 0, PTABLE_SIZE, PTABLE_ACCESS_READONLY,
                 (*pdpt)->u.vnode.mcn, newptable->u.vnode.mcn);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_PMAP_CLONE_VNODE);
         }
-        memcpy(newptable->u.vnode.children, (*pdpt)->u.vnode.children,
+        memcpy(newptable->v.u.vnode.children, (*pdpt)->v.u.vnode.children,
                 PTABLE_SIZE * sizeof(struct vnode *));
         newptable->is_cloned = true;
         *pdpt = newptable;
@@ -438,7 +446,7 @@ static void cow_handler(enum exception_type type, int subtype, void *vaddr,
     struct capref mapping;
     err = slot_alloc(&mapping);
     assert(err_is_ok(err));
-    err = vnode_copy_remap(ptable->u.vnode.cap, newframe, X86_64_PTABLE_BASE(faddr),
+    err = vnode_copy_remap(ptable->v.cap, newframe, X86_64_PTABLE_BASE(faddr),
             vregion_to_pmap_flag(VREGION_FLAGS_READ_WRITE), 0, 1, mapping);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "frame_alloc");
