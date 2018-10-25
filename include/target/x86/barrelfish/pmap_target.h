@@ -24,30 +24,20 @@
 
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode { // NB: misnomer :)
-    uint16_t      entry;       ///< Page table entry of this VNode
-    bool          is_vnode;    ///< Is this a vnode, or a (leaf) page mapping
-    bool          is_cloned;   ///< For copy-on-write: indicate whether we
-                               //   still have to clone this vnode
-    bool          is_pinned;   ///< is this a pinned vnode (do not reclaim automatically)
-    enum objtype  type;        ///< Type of cap in the vnode
-    struct vnode  *next;       ///< Next entry in list of siblings
-    struct capref mapping;     ///< mapping cap associated with this node (stored in parent's mapping cnode)
+    struct vnode_public v;   ///< public part of vnode
+    bool          is_pinned; ///< is this a pinned vnode (do not reclaim automatically)
+    bool          is_cloned; ///< For copy-on-write: indicate whether we
+                             //   still have to clone this vnode
+    struct vnode  *orig;     ///< vnode from which this one is cloned, for copy-on-write
     union {
         struct {
             lvaddr_t base;             ///< Virtual address start of page (upper level bits)
-            struct capref cap;         ///< VNode cap
-            struct capref invokable;    ///< Copy of VNode cap that is invokable
             struct capref mcn[MCN_COUNT]; ///< CNodes to store mappings (caprefs)
             struct cnoderef mcnode[MCN_COUNT]; ///< CNodeRefs of mapping cnodes
-            pmap_ds_child_t *children; ///< Children of this VNode
             lvaddr_t virt_base;        ///< vaddr of mapped RO page table in user-space
             struct capref page_table_frame;
         } vnode; // for non-leaf node (maps another vnode)
         struct {
-            struct capref cap;         ///< Frame cap
-            genvaddr_t    offset;      ///< Offset within mapped frame cap
-            vregion_flags_t flags;     ///< Flags for mapping
-            size_t        pte_count;   ///< number of mapped PTEs in this mapping
             lvaddr_t vaddr;            ///< The virtual address this frame has
             uint16_t cloned_count;     ///< counter for #times a page of this range was cloned
         } frame; // for leaf node (maps an actual page)

@@ -32,12 +32,12 @@ errval_t pmap_vnode_mgmt_current_init(struct pmap *pmap);
 static inline void
 set_mapping_cap(struct vnode *vnode, struct vnode *root, uint16_t entry)
 {
-    assert(root->is_vnode);
+    assert(root->v.is_vnode);
     assert(entry < PTABLE_ENTRIES);
-    vnode->mapping.cnode = root->u.vnode.mcnode[entry / L2_CNODE_SLOTS];
-    vnode->mapping.slot  = entry % L2_CNODE_SLOTS;
-    assert(!cnoderef_is_null(vnode->mapping.cnode));
-    assert(!capref_is_null(vnode->mapping));
+    vnode->v.mapping.cnode = root->u.vnode.mcnode[entry / L2_CNODE_SLOTS];
+    vnode->v.mapping.slot  = entry % L2_CNODE_SLOTS;
+    assert(!cnoderef_is_null(vnode->v.mapping.cnode));
+    assert(!capref_is_null(vnode->v.mapping));
 }
 
 #endif // LIBBARRELFISH_PMAP_PRIV_H

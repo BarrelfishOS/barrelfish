@@ -31,7 +31,7 @@ static inline int pmap_next_child(struct vnode *root, int i, struct vnode **n)
     struct vnode *tmp;
     do {
         // check child i
-        tmp = root->u.vnode.children[i];
+        tmp = root->v.u.vnode.children[i];
         i++;
     } while (!tmp && i < PTABLE_ENTRIES);
     *n = tmp;

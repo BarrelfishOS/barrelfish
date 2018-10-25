@@ -19,6 +19,10 @@
 
 typedef struct vnode pmap_ds_child_t;
 
+struct pmap_ds_meta {
+    struct vnode *next; ///< Pointer to next vnode in linked list
+};
+
 struct pmap_vnode_mgmt {
     struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries
     struct vregion vregion;         ///< Vregion used to reserve virtual address for metadata
@@ -28,6 +32,10 @@ struct pmap_vnode_mgmt {
 #elif defined(PMAP_ARRAY)
 
 typedef struct vnode* pmap_ds_child_t;
+
+struct pmap_ds_meta {
+    // no metadata for datastructure
+};
 
 struct pmap_vnode_mgmt {
     struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries

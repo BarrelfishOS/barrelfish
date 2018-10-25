@@ -15,6 +15,8 @@
 #ifndef LIBBARRELFISH_PMAP_H
 #define LIBBARRELFISH_PMAP_H
 
+#include <barrelfish/pmap_ds.h>
+
 struct pmap_vnode_mgmt;
 struct pmap_dump_info;
 struct pmap;
@@ -70,8 +72,34 @@ struct pmap_res_info {
 };
 
 /*
+ * Public part of struct vnode -- this should be the first member of
+ * arch-specific vnode definitions.
+ */
+struct vnode_public {
+    uint16_t      entry;       ///< Page table entry of this VNode
+    bool          is_vnode;    ///< Is this a vnode, or a (leaf) page mapping
+    enum objtype  type;        ///< Type of cap in the vnode
+    struct capref cap;         ///< capability which is managed by this vnode
+    struct capref mapping;     ///< mapping cap associated with this node (stored in parent's mapping cnode)
+    struct pmap_ds_meta meta;  ///< Pmap datastructure metadata
+    union {
+        struct {
+            struct capref invokable;    ///< Copy of VNode cap that is invokable
+            pmap_ds_child_t *children; ///< Children of this VNode
+        } vnode; // for non-leaf node (maps another vnode)
+        struct {
+            genvaddr_t    offset;      ///< Offset within mapped frame cap
+            vregion_flags_t flags;     ///< Flags for mapping
+            size_t        pte_count;   ///< number of mapped PTEs in this mapping
+        } frame; // for leaf node (maps an actual page)
+    } u;
+};
+
+/*
  * API for walking pmap -- implementation independent
  */
+
+// amount of slabs which are provided in .data for own pmap
 #define INIT_SLAB_COUNT 32
 
 /**

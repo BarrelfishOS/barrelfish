@@ -25,22 +25,22 @@
 struct vnode *pmap_find_vnode(struct vnode *root, uint16_t entry)
 {
     assert(root != NULL);
-    assert(root->is_vnode);
+    assert(root->v.is_vnode);
     assert(entry < PTABLE_ENTRIES);
     struct vnode *n;
 
-    for(n = root->u.vnode.children; n != NULL; n = n->next) {
-        if (!n->is_vnode) {
+    for(n = root->v.u.vnode.children; n != NULL; n = n->v.meta.next) {
+        if (!n->v.is_vnode) {
             // check whether entry is inside a large region
-            uint16_t end = n->entry + n->u.frame.pte_count;
-            if (n->entry <= entry && entry < end) {
-                //if (n->entry < entry) {
-                //    debug_printf("%d \\in [%d, %d]\n", entry, n->entry, end);
+            uint16_t end = n->v.entry + n->v.u.frame.pte_count;
+            if (n->v.entry <= entry && entry < end) {
+                //if (n->v.entry < entry) {
+                //    debug_printf("%d \\in [%d, %d]\n", entry, n->v.entry, end);
                 //}
                 return n;
             }
         }
-        else if(n->entry == entry) {
+        else if(n->v.entry == entry) {
             // return n if n is a vnode and the indices match
             return n;
         }
@@ -51,14 +51,14 @@ struct vnode *pmap_find_vnode(struct vnode *root, uint16_t entry)
 bool pmap_inside_region(struct vnode *root, uint16_t entry, uint16_t npages)
 {
     assert(root != NULL);
-    assert(root->is_vnode);
+    assert(root->v.is_vnode);
 
     struct vnode *n;
 
-    for (n = root->u.vnode.children; n; n = n->next) {
-        if (!n->is_vnode) {
-            uint16_t end = n->entry + n->u.frame.pte_count;
-            if (n->entry <= entry && entry + npages <= end) {
+    for (n = root->v.u.vnode.children; n; n = n->v.meta.next) {
+        if (!n->v.is_vnode) {
+            uint16_t end = n->v.entry + n->v.u.frame.pte_count;
+            if (n->v.entry <= entry && entry + npages <= end) {
                 return true;
             }
         }
@@ -69,21 +69,21 @@ bool pmap_inside_region(struct vnode *root, uint16_t entry, uint16_t npages)
 
 void pmap_remove_vnode(struct vnode *root, struct vnode *item)
 {
-    assert(root->is_vnode);
-    struct vnode *walk = root->u.vnode.children;
+    assert(root->v.is_vnode);
+    struct vnode *walk = root->v.u.vnode.children;
     struct vnode *prev = NULL;
     while (walk) {
         if (walk == item) {
             if (prev) {
-                prev->next = walk->next;
+                prev->v.meta.next = walk->v.meta.next;
                 return;
             } else {
-                root->u.vnode.children = walk->next;
+                root->v.u.vnode.children = walk->v.meta.next;
                 return;
             }
         }
         prev = walk;
-        walk = walk->next;
+        walk = walk->v.meta.next;
     }
     USER_PANIC("Should not get here");
 }
@@ -119,14 +119,14 @@ errval_t pmap_vnode_mgmt_init(struct pmap *pmap)
 
 void pmap_vnode_init(struct pmap *p, struct vnode *v)
 {
-    v->u.vnode.children = NULL;
-    v->next = NULL;
+    v->v.u.vnode.children = NULL;
+    v->v.meta.next = NULL;
 }
 
 void pmap_vnode_insert_child(struct vnode *root, struct vnode *newvnode)
 {
-    newvnode->next = root->u.vnode.children;
-    root->u.vnode.children = newvnode;
+    newvnode->v.meta.next = root->v.u.vnode.children;
+    root->v.u.vnode.children = newvnode;
 }
 
 void pmap_vnode_free(struct pmap *pmap, struct vnode *n)

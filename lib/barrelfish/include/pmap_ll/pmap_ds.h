@@ -23,7 +23,7 @@
  * Note: this macro requires both root and iter to be 'struct vnode *'.
  */
 #define pmap_foreach_child(root, iter) \
-    for (iter = root->u.vnode.children; iter; iter = iter->next)
+    for (iter = root->v.u.vnode.children; iter; iter = iter->v.meta.next)
 
 #define INIT_SLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, sizeof(struct vnode))
 

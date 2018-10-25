@@ -25,11 +25,11 @@
 struct vnode *pmap_find_vnode(struct vnode *root, uint16_t entry)
 {
     assert(root != NULL);
-    assert(root->is_vnode);
+    assert(root->v.is_vnode);
     assert(entry < PTABLE_ENTRIES);
 
-    if (root->u.vnode.children) {
-        return root->u.vnode.children[entry];
+    if (root->v.u.vnode.children) {
+        return root->v.u.vnode.children[entry];
     } else {
         return NULL;
     }
@@ -38,17 +38,17 @@ struct vnode *pmap_find_vnode(struct vnode *root, uint16_t entry)
 bool pmap_inside_region(struct vnode *root, uint16_t entry, uint16_t npages)
 {
     assert(root != NULL);
-    assert(root->is_vnode);
+    assert(root->v.is_vnode);
 
-    struct vnode *n = root->u.vnode.children[entry];
+    struct vnode *n = root->v.u.vnode.children[entry];
 
     // empty or ptable
-    if (!n || n->is_vnode) {
+    if (!n || n->v.is_vnode) {
         return false;
     }
 
-    uint16_t end = n->entry + n->u.frame.pte_count;
-    if (n->entry <= entry && entry + npages <= end) {
+    uint16_t end = n->v.entry + n->v.u.frame.pte_count;
+    if (n->v.entry <= entry && entry + npages <= end) {
         return true;
     }
 
@@ -57,12 +57,12 @@ bool pmap_inside_region(struct vnode *root, uint16_t entry, uint16_t npages)
 
 void pmap_remove_vnode(struct vnode *root, struct vnode *item)
 {
-    assert(root->is_vnode);
-    size_t pte_count = item->is_vnode ? 1 : item->u.frame.pte_count;
+    assert(root->v.is_vnode);
+    size_t pte_count = item->v.is_vnode ? 1 : item->v.u.frame.pte_count;
     // check that we don't overflow children buffer
-    assert(item->entry + pte_count <= PTABLE_ENTRIES);
+    assert(item->v.entry + pte_count <= PTABLE_ENTRIES);
     for (int i = 0; i < pte_count; i++) {
-        root->u.vnode.children[item->entry+i] = NULL;
+        root->v.u.vnode.children[item->v.entry+i] = NULL;
     }
 }
 
@@ -117,25 +117,24 @@ errval_t pmap_vnode_mgmt_init(struct pmap *pmap)
 
 void pmap_vnode_init(struct pmap *p, struct vnode *v)
 {
-    v->u.vnode.children = slab_alloc(&p->m->ptslab);
-    assert(v->u.vnode.children);
-    memset(v->u.vnode.children, 0, PTSLAB_SLABSIZE);
+    v->v.u.vnode.children = slab_alloc(&p->m->ptslab);
+    assert(v->v.u.vnode.children);
+    memset(v->v.u.vnode.children, 0, PTSLAB_SLABSIZE);
 }
 
 void pmap_vnode_insert_child(struct vnode *root, struct vnode *newvnode)
 {
-    size_t pte_count = newvnode->is_vnode ? 1 : newvnode->u.frame.pte_count;
+    size_t pte_count = newvnode->v.is_vnode ? 1 : newvnode->v.u.frame.pte_count;
     // check that we don't overflow children buffer
-    assert(newvnode->entry + pte_count <= PTABLE_ENTRIES);
+    assert(newvnode->v.entry + pte_count <= PTABLE_ENTRIES);
     for (int i = 0; i < pte_count; i++) {
-        root->u.vnode.children[newvnode->entry+i] = newvnode;
+        root->v.u.vnode.children[newvnode->v.entry+i] = newvnode;
     }
-    newvnode->next = NULL;
 }
 
 void pmap_vnode_free(struct pmap *pmap, struct vnode *n)
 {
-    slab_free(&pmap->m->ptslab, n->u.vnode.children);
+    slab_free(&pmap->m->ptslab, n->v.u.vnode.children);
     slab_free(&pmap->m->slab, n);
 }
 

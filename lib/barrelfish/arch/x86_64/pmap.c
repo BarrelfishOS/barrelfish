@@ -90,12 +90,12 @@ static inline genvaddr_t get_addr_prefix(genvaddr_t va, uint8_t size)
 
 static inline bool is_large_page(struct vnode *p)
 {
-    return !p->is_vnode && p->u.frame.flags & VREGION_FLAGS_LARGE;
+    return !p->v.is_vnode && p->v.u.frame.flags & VREGION_FLAGS_LARGE;
 }
 
 static inline bool is_huge_page(struct vnode *p)
 {
-    return !p->is_vnode && p->u.frame.flags & VREGION_FLAGS_HUGE;
+    return !p->v.is_vnode && p->v.u.frame.flags & VREGION_FLAGS_HUGE;
 }
 
 /**
@@ -112,7 +112,7 @@ errval_t get_pdpt(struct pmap_x86 *pmap, genvaddr_t base,
 
     // PML4 mapping
     if((*pdpt = pmap_find_vnode(root, X86_64_PML4_BASE(base))) == NULL) {
-        enum objtype type = type_is_ept(pmap->root.type) ?
+        enum objtype type = type_is_ept(pmap->root.v.type) ?
             ObjType_VNode_x86_64_ept_pdpt :
             ObjType_VNode_x86_64_pdpt;
         err = alloc_vnode(pmap, root, type, X86_64_PML4_BASE(base),
@@ -151,7 +151,7 @@ errval_t get_pdir(struct pmap_x86 *pmap, genvaddr_t base,
 
     // PDPT mapping
     if((*pdir = pmap_find_vnode(pdpt, X86_64_PDPT_BASE(base))) == NULL) {
-        enum objtype type = type_is_ept(pmap->root.type) ?
+        enum objtype type = type_is_ept(pmap->root.v.type) ?
             ObjType_VNode_x86_64_ept_pdir :
             ObjType_VNode_x86_64_pdir;
         err = alloc_vnode(pmap, pdpt, type,
@@ -189,7 +189,7 @@ errval_t get_ptable(struct pmap_x86 *pmap, genvaddr_t base,
 
     // PDIR mapping
     if((*ptable = pmap_find_vnode(pdir, X86_64_PDIR_BASE(base))) == NULL) {
-        enum objtype type = type_is_ept(pmap->root.type) ?
+        enum objtype type = type_is_ept(pmap->root.v.type) ?
             ObjType_VNode_x86_64_ept_ptable :
             ObjType_VNode_x86_64_ptable;
         err = alloc_vnode(pmap, pdir, type,
@@ -298,7 +298,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_PMAP_GET_PTABLE);
     }
-    assert(ptable->is_vnode);
+    assert(ptable->v.is_vnode);
 
     // check if there is an overlapping mapping
     if (has_vnode(ptable, table_base, pte_count, false)) {
@@ -317,13 +317,13 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     // setup userspace mapping
     struct vnode *page = slab_alloc(&pmap->p.m->slab);
     assert(page);
-    page->is_vnode = false;
+    page->v.is_vnode = false;
     page->is_cloned = false;
-    page->entry = table_base;
-    page->u.frame.cap = frame;
-    page->u.frame.offset = offset;
-    page->u.frame.flags = flags;
-    page->u.frame.pte_count = pte_count;
+    page->v.entry = table_base;
+    page->v.cap = frame;
+    page->v.u.frame.offset = offset;
+    page->v.u.frame.flags = flags;
+    page->v.u.frame.pte_count = pte_count;
     page->u.frame.vaddr = vaddr;
     page->u.frame.cloned_count = 0;
 
@@ -334,10 +334,10 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     pmap->used_cap_slots ++;
 
     // do map
-    assert(!capref_is_null(ptable->u.vnode.invokable));
-    assert(!capref_is_null(page->mapping));
-    err = vnode_map(ptable->u.vnode.invokable, frame, table_base,
-                    pmap_flags, offset, pte_count, page->mapping);
+    assert(!capref_is_null(ptable->v.u.vnode.invokable));
+    assert(!capref_is_null(page->v.mapping));
+    err = vnode_map(ptable->v.u.vnode.invokable, frame, table_base,
+                    pmap_flags, offset, pte_count, page->v.mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
@@ -631,10 +631,10 @@ static bool find_mapping(struct pmap_x86 *pmap, genvaddr_t vaddr,
     // find page and last-level page table (can be pdir or pdpt)
     if ((pdpt = find_pdpt(pmap, vaddr)) != NULL) {
         page = pmap_find_vnode(pdpt, X86_64_PDPT_BASE(vaddr));
-        if (page && page->is_vnode) { // not 1G pages
+        if (page && page->v.is_vnode) { // not 1G pages
             pdir = page;
             page = pmap_find_vnode(pdir, X86_64_PDIR_BASE(vaddr));
-            if (page && page->is_vnode) { // not 2M pages
+            if (page && page->v.is_vnode) { // not 2M pages
                 pt = page;
                 page = pmap_find_vnode(pt, X86_64_PTABLE_BASE(vaddr));
                 page_size = X86_64_BASE_PAGE_SIZE;
@@ -678,18 +678,18 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
     if (!find_mapping(pmap, vaddr, &info)) {
         return LIB_ERR_PMAP_FIND_VNODE;
     }
-    assert(info.page_table && info.page_table->is_vnode && info.page && !info.page->is_vnode);
+    assert(info.page_table && info.page_table->v.is_vnode && info.page && !info.page->v.is_vnode);
 
-    if (info.page->u.frame.pte_count == pte_count) {
-        err = vnode_unmap(info.page_table->u.vnode.cap, info.page->mapping);
+    if (info.page->v.u.frame.pte_count == pte_count) {
+        err = vnode_unmap(info.page_table->v.cap, info.page->v.mapping);
         if (err_is_fail(err)) {
             debug_printf("vnode_unmap returned error: %s (%d)\n",
                     err_getstring(err), err_no(err));
             return err_push(err, LIB_ERR_VNODE_UNMAP);
         }
 
-        // delete&free page->mapping after doing vnode_unmap()
-        err = cap_delete(info.page->mapping);
+        // delete&free page->v.mapping after doing vnode_unmap()
+        err = cap_delete(info.page->v.mapping);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_CAP_DELETE);
         }
@@ -728,9 +728,9 @@ static errval_t unmap(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         return LIB_ERR_PMAP_UNMAP;
     }
 
-    assert(!info.page->is_vnode);
+    assert(!info.page->v.is_vnode);
 
-    if (info.page->entry > info.table_base) {
+    if (info.page->v.entry > info.table_base) {
         debug_printf("trying to partially unmap region\n");
         // XXX: error code
         trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_UNMAP, 1);
@@ -814,7 +814,7 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
         return LIB_ERR_PMAP_FIND_VNODE;
     }
 
-    assert(info.page_table && info.page_table->is_vnode && info.page && !info.page->is_vnode);
+    assert(info.page_table && info.page_table->v.is_vnode && info.page && !info.page->v.is_vnode);
     assert(pages <= PTABLE_SIZE);
 
     if (pmap_inside_region(info.page_table, info.table_base, pages)) {
@@ -823,7 +823,7 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
         // page (as offset from first page in mapping), #affected
         // pages, new flags. Invocation mask flags based on capability
         // access permissions.
-        size_t off = info.table_base - info.page->entry;
+        size_t off = info.table_base - info.page->v.entry;
         paging_x86_64_flags_t pmap_flags = vregion_to_pmap_flag(flags);
         // calculate TLB flushing hint
         genvaddr_t va_hint = 0;
@@ -845,7 +845,7 @@ static errval_t do_single_modify_flags(struct pmap_x86 *pmap, genvaddr_t vaddr,
                 va_hint = vaddr & ~(info.page_size - 1);
             }
         }
-        err = invoke_mapping_modify_flags(info.page->mapping, off, pages,
+        err = invoke_mapping_modify_flags(info.page->v.mapping, off, pages,
                                           pmap_flags, va_hint);
         return err;
     } else {
@@ -882,7 +882,7 @@ static errval_t modify_flags(struct pmap *pmap, genvaddr_t vaddr, size_t size,
         return LIB_ERR_PMAP_NOT_MAPPED;
     }
 
-    assert(info.page && !info.page->is_vnode);
+    assert(info.page && !info.page->v.is_vnode);
     // XXX: be more graceful about size == 0? -SG, 2017-11-28.
     assert(size > 0);
 
@@ -979,10 +979,10 @@ static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
     if (info) {
         info->vaddr = vaddr & ~(genvaddr_t)(find_info.page_size - 1);
         info->size = find_info.page_size;
-        info->cap = find_info.page->u.frame.cap;
-        info->offset = find_info.page->u.frame.offset;
-        info->flags = find_info.page->u.frame.flags;
-        info->mapping = find_info.page->mapping;
+        info->cap = find_info.page->v.cap;
+        info->offset = find_info.page->v.u.frame.offset;
+        info->flags = find_info.page->v.u.frame.flags;
+        info->mapping = find_info.page->v.mapping;
     }
     trace_event(TRACE_SUBSYS_MEMORY, TRACE_EVENT_MEMORY_LOOKUP, 1);
     return SYS_ERR_OK;
@@ -1004,24 +1004,24 @@ static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t bufle
 
     // iterate over PML4 entries
     size_t pml4_index, pdpt_index, pdir_index;
-    for (pdpt = pml4->u.vnode.children; pdpt != NULL; pdpt = pdpt->next) {
-        pml4_index = pdpt->entry;
+    for (pdpt = pml4->v.u.vnode.children; pdpt != NULL; pdpt = pdpt->v.meta.next) {
+        pml4_index = pdpt->v.entry;
         // iterate over pdpt entries
-        for (pdir = pdpt->u.vnode.children; pdir != NULL; pdir = pdir->next) {
-            pdpt_index = pdir->entry;
+        for (pdir = pdpt->v.u.vnode.children; pdir != NULL; pdir = pdir->v.meta.next) {
+            pdpt_index = pdir->v.entry;
             // iterate over pdir entries
-            for (pt = pdir->u.vnode.children; pt != NULL; pt = pt->next) {
-                pdir_index = pt->entry;
+            for (pt = pdir->v.u.vnode.children; pt != NULL; pt = pt->v.meta.next) {
+                pdir_index = pt->v.entry;
                 // iterate over pt entries
-                for (frame = pt->u.vnode.children; frame != NULL; frame = frame->next) {
+                for (frame = pt->v.u.vnode.children; frame != NULL; frame = frame->v.meta.next) {
                     if (*items_written < buflen) {
                         buf_->pml4_index = pml4_index;
                         buf_->pdpt_index = pdpt_index;
                         buf_->pdir_index = pdir_index;
-                        buf_->pt_index = frame->entry;
-                        buf_->cap = frame->u.frame.cap;
-                        buf_->offset = frame->u.frame.offset;
-                        buf_->flags = frame->u.frame.flags;
+                        buf_->pt_index = frame->v.entry;
+                        buf_->cap = frame->v.cap;
+                        buf_->offset = frame->v.u.frame.offset;
+                        buf_->flags = frame->v.u.frame.flags;
                         buf_++;
                         (*items_written)++;
                     }
@@ -1046,25 +1046,25 @@ static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t bufle
     // iterate over PML4 entries
     size_t pml4_index, pdpt_index, pdir_index, pt_index;
     for (pml4_index = 0; pml4_index < X86_64_PTABLE_SIZE; pml4_index++) {
-        if (!(pdpt = pml4->u.vnode.children[pml4_index])) {
+        if (!(pdpt = pml4->v.u.vnode.children[pml4_index])) {
             // skip empty entries
             continue;
         }
         // iterate over pdpt entries
         for (pdpt_index = 0; pdpt_index < X86_64_PTABLE_SIZE; pdpt_index++) {
-            if (!(pdir = pdpt->u.vnode.children[pdpt_index])) {
+            if (!(pdir = pdpt->v.u.vnode.children[pdpt_index])) {
                 // skip empty entries
                 continue;
             }
             // iterate over pdir entries
             for (pdir_index = 0; pdir_index < X86_64_PTABLE_SIZE; pdir_index++) {
-                if (!(pt = pdir->u.vnode.children[pdir_index])) {
+                if (!(pt = pdir->v.u.vnode.children[pdir_index])) {
                     // skip empty entries
                     continue;
                 }
                 // iterate over pt entries
                 for (pt_index = 0; pt_index < X86_64_PTABLE_SIZE; pt_index++) {
-                    if (!(frame = pt->u.vnode.children[pt_index])) {
+                    if (!(frame = pt->v.u.vnode.children[pt_index])) {
                         // skip empty entries
                         continue;
                     }
@@ -1073,9 +1073,9 @@ static errval_t dump(struct pmap *pmap, struct pmap_dump_info *buf, size_t bufle
                         buf_->pdpt_index = pdpt_index;
                         buf_->pdir_index = pdir_index;
                         buf_->pt_index   = pt_index;
-                        buf_->cap = frame->u.frame.cap;
-                        buf_->offset = frame->u.frame.offset;
-                        buf_->flags = frame->u.frame.flags;
+                        buf_->cap = frame->v.cap;
+                        buf_->offset = frame->v.u.frame.offset;
+                        buf_->flags = frame->v.u.frame.flags;
                         buf_++;
                         (*items_written)++;
                     }
@@ -1159,7 +1159,7 @@ static errval_t create_pts_pinned(struct pmap *pmap, genvaddr_t vaddr, size_t by
             return err_push(err, LIB_ERR_SLOT_ALLOC);
         }
 
-        err = cap_copy(slot, vnode->u.vnode.cap);
+        err = cap_copy(slot, vnode->v.cap);
         if (err_is_fail(err)) {
             x86->p.slot_alloc->free(x86->p.slot_alloc, slot);
             return err;
@@ -1176,7 +1176,7 @@ static errval_t create_pts_pinned(struct pmap *pmap, genvaddr_t vaddr, size_t by
         /* get the page table of the reserved range and map the PT */
         struct vnode *ptable;
         err = get_ptable(x86, genvaddr, &ptable);
-        err = vnode_map(ptable->u.vnode.cap, slot, X86_64_PTABLE_BASE(genvaddr),
+        err = vnode_map(ptable->v.cap, slot, X86_64_PTABLE_BASE(genvaddr),
                         vregion_to_pmap_flag(VREGION_FLAGS_READ), 0, 1, mapping);
 
         if (err_is_fail(err)) {
@@ -1220,7 +1220,7 @@ static errval_t get_leaf_pt(struct pmap *pmap, genvaddr_t vaddr, lvaddr_t *ret_v
     }
 
 out:
-    assert(current && current->is_vnode);
+    assert(current && current->v.is_vnode);
 
     *ret_va =  current->u.vnode.virt_base;
     return SYS_ERR_OK;
@@ -1240,7 +1240,7 @@ static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
     assert(size < 512ul * 1024 * 1024 * 1024); // pml4 size
 
 #if defined(PMAP_LL)
-    struct vnode *walk_pml4 = x86->root.u.vnode.children;
+    struct vnode *walk_pml4 = x86->root.v.u.vnode.children;
     assert(walk_pml4 != NULL); // assume there's always at least one existing entry
 
     // try to find free pml4 entry
@@ -1249,12 +1249,12 @@ static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
         f[i] = true;
     }
     //debug_printf("entry: %d\n", walk_pml4->entry);
-    f[walk_pml4->entry] = false;
+    f[walk_pml4->v.entry] = false;
     while (walk_pml4) {
         //debug_printf("looping over pml4 entries\n");
-        assert(walk_pml4->is_vnode);
-        f[walk_pml4->entry] = false;
-        walk_pml4 = walk_pml4->next;
+        assert(walk_pml4->v.is_vnode);
+        f[walk_pml4->v.entry] = false;
+        walk_pml4 = walk_pml4->v.meta.next;
     }
     genvaddr_t first_free = 16;
     for (; first_free < 512; first_free++) {
@@ -1266,7 +1266,7 @@ static errval_t determine_addr_raw(struct pmap *pmap, size_t size,
 #elif defined(PMAP_ARRAY)
     genvaddr_t first_free = 16;
     for (; first_free < X86_64_PTABLE_SIZE; first_free++) {
-        if (!x86->root.u.vnode.children[first_free]) {
+        if (!x86->root.v.u.vnode.children[first_free]) {
             break;
         }
     }
@@ -1330,19 +1330,19 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
         return err_push(err, LIB_ERR_PMAP_INIT);
     }
 
-    x86->root.type = ObjType_VNode_x86_64_pml4;
-    x86->root.is_vnode          = true;
-    x86->root.u.vnode.cap       = vnode;
-    x86->root.u.vnode.invokable = vnode;
+    x86->root.v.type = ObjType_VNode_x86_64_pml4;
+    x86->root.v.is_vnode          = true;
+    x86->root.v.cap       = vnode;
+    x86->root.v.u.vnode.invokable = vnode;
     if (get_croot_addr(vnode) != CPTR_ROOTCN) {
-        err = slot_alloc(&x86->root.u.vnode.invokable);
+        err = slot_alloc(&x86->root.v.u.vnode.invokable);
         assert(err_is_ok(err));
         x86->used_cap_slots ++;
-        err = cap_copy(x86->root.u.vnode.invokable, vnode);
+        err = cap_copy(x86->root.v.u.vnode.invokable, vnode);
         assert(err_is_ok(err));
     }
-    assert(!capref_is_null(x86->root.u.vnode.cap));
-    assert(!capref_is_null(x86->root.u.vnode.invokable));
+    assert(!capref_is_null(x86->root.v.cap));
+    assert(!capref_is_null(x86->root.v.u.vnode.invokable));
     pmap_vnode_init(pmap, &x86->root);
     x86->root.u.vnode.virt_base = 0;
     x86->root.u.vnode.page_table_frame  = NULL_CAP;
@@ -1384,7 +1384,7 @@ errval_t pmap_x86_64_init_ept(struct pmap *pmap, struct vspace *vspace,
     err = pmap_x86_64_init(pmap, vspace, vnode, opt_slot_alloc);
     struct pmap_x86 *x86 = (struct pmap_x86*)pmap;
 
-    x86->root.type = ObjType_VNode_x86_64_ept_pml4;
+    x86->root.v.type = ObjType_VNode_x86_64_ept_pml4;
 
     return err;
 }
