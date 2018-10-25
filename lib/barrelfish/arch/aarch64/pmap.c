@@ -287,11 +287,13 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
 
     page->is_vnode = false;
     page->entry = idx;
-    pmap_vnode_insert_child(ptable, page);
     page->u.frame.cap = frame;
     page->u.frame.offset = offset;
     page->u.frame.flags = flags;
     page->u.frame.pte_count = pte_count;
+
+    // only insert child in vtree after new vnode fully initialized
+    pmap_vnode_insert_child(ptable, page);
 
     set_mapping_cap(page, ptable, idx);
 

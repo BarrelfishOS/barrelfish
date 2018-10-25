@@ -320,13 +320,15 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     page->is_vnode = false;
     page->is_cloned = false;
     page->entry = table_base;
-    pmap_vnode_insert_child(ptable, page);
     page->u.frame.cap = frame;
     page->u.frame.offset = offset;
     page->u.frame.flags = flags;
     page->u.frame.pte_count = pte_count;
     page->u.frame.vaddr = vaddr;
     page->u.frame.cloned_count = 0;
+
+    // only insert after vnode fully initialized
+    pmap_vnode_insert_child(ptable, page);
 
     set_mapping_cap(page, ptable, table_base);
     pmap->used_cap_slots ++;
