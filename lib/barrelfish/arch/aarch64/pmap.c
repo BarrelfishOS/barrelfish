@@ -88,22 +88,22 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
 static bool has_vnode(struct vnode *root, uint16_t entry, size_t len)
 {
     assert(root != NULL);
-    assert(root->is_vnode);
+    assert(root->v.is_vnode);
     struct vnode *n;
 
     uint32_t end_entry = entry + len;
 
     pmap_foreach_child(root, n) {
         assert(n);
-        if (n->is_vnode && n->entry == entry) {
+        if (n->v.is_vnode && n->v.entry == entry) {
             return true;
         }
         // n is frame
-        uint32_t end = n->entry + n->u.frame.pte_count;
-        if (n->entry < entry && end > end_entry) {
+        uint32_t end = n->v.entry + n->v.u.frame.pte_count;
+        if (n->v.entry < entry && end > end_entry) {
             return true;
         }
-        if (n->entry >= entry && n->entry < end_entry) {
+        if (n->v.entry >= entry && n->v.entry < end_entry) {
             return true;
         }
     }
@@ -118,7 +118,7 @@ static errval_t alloc_vnode(struct pmap_aarch64 *pmap_aarch64, struct vnode *roo
                             enum objtype type, uint32_t entry,
                             struct vnode **retvnode)
 {
-    assert(root->is_vnode);
+    assert(root->v.is_vnode);
     errval_t err;
 
     if (!retvnode) {
@@ -131,59 +131,59 @@ static errval_t alloc_vnode(struct pmap_aarch64 *pmap_aarch64, struct vnode *roo
     if (newvnode == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
-    newvnode->is_vnode = true;
+    newvnode->v.is_vnode = true;
 
     // The VNode capability
-    err = pmap_aarch64->p.slot_alloc->alloc(pmap_aarch64->p.slot_alloc, &newvnode->u.vnode.cap);
+    err = pmap_aarch64->p.slot_alloc->alloc(pmap_aarch64->p.slot_alloc, &newvnode->v.cap);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    assert(!capref_is_null(newvnode->u.vnode.cap));
+    assert(!capref_is_null(newvnode->v.cap));
 
-    err = vnode_create(newvnode->u.vnode.cap, type);
+    err = vnode_create(newvnode->v.cap, type);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
 
-    assert(!capref_is_null(newvnode->u.vnode.cap));
+    assert(!capref_is_null(newvnode->v.cap));
 
     // XXX: need to make sure that vnode cap that we will invoke is in our cspace!
-    if (get_croot_addr(newvnode->u.vnode.cap) != CPTR_ROOTCN) {
+    if (get_croot_addr(newvnode->v.cap) != CPTR_ROOTCN) {
         // debug_printf("%s: creating vnode for another domain in that domain's cspace; need to copy vnode cap to our cspace to make it invokable\n", __FUNCTION__);
-        assert(!capref_is_null(newvnode->u.vnode.cap));
-        err = slot_alloc(&newvnode->u.vnode.invokable);
-        assert(!capref_is_null(newvnode->u.vnode.cap));
+        assert(!capref_is_null(newvnode->v.cap));
+        err = slot_alloc(&newvnode->v.u.vnode.invokable);
+        assert(!capref_is_null(newvnode->v.cap));
         assert(err_is_ok(err));
-        assert(!capref_is_null(newvnode->u.vnode.cap));
-        err = cap_copy(newvnode->u.vnode.invokable, newvnode->u.vnode.cap);
+        assert(!capref_is_null(newvnode->v.cap));
+        err = cap_copy(newvnode->v.u.vnode.invokable, newvnode->v.cap);
         assert(err_is_ok(err));
-        assert(!capref_is_null(newvnode->u.vnode.invokable));
-        assert(!capref_is_null(newvnode->u.vnode.cap));
+        assert(!capref_is_null(newvnode->v.u.vnode.invokable));
+        assert(!capref_is_null(newvnode->v.cap));
 
-        assert(!capref_is_null(newvnode->u.vnode.cap));
+        assert(!capref_is_null(newvnode->v.cap));
     } else {
         // debug_printf("vnode in our cspace: copying capref to invokable\n");
-        assert(!capref_is_null(newvnode->u.vnode.cap));
-        newvnode->u.vnode.invokable = newvnode->u.vnode.cap;
-        assert(!capref_is_null(newvnode->u.vnode.cap));
+        assert(!capref_is_null(newvnode->v.cap));
+        newvnode->v.u.vnode.invokable = newvnode->v.cap;
+        assert(!capref_is_null(newvnode->v.cap));
     }
-    assert(!capref_is_null(newvnode->u.vnode.cap));
-    assert(!capref_is_null(newvnode->u.vnode.invokable));
+    assert(!capref_is_null(newvnode->v.cap));
+    assert(!capref_is_null(newvnode->v.u.vnode.invokable));
 
     // set mapping cap to correct slot in mapping cnodes.
     set_mapping_cap(newvnode, root, entry);
 
     // Map it
-    err = vnode_map(root->u.vnode.invokable, newvnode->u.vnode.cap, entry,
-                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1, newvnode->mapping);
+    err = vnode_map(root->v.u.vnode.invokable, newvnode->v.cap, entry,
+                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1, newvnode->v.mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
 
     // The VNode meta data
-    newvnode->is_vnode  = true;
-    newvnode->entry     = entry;
+    newvnode->v.is_vnode  = true;
+    newvnode->v.entry     = entry;
     pmap_vnode_init(&pmap_aarch64->p, newvnode);
     pmap_vnode_insert_child(root, newvnode);
 
@@ -285,12 +285,12 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     struct vnode *page = slab_alloc(&pmap->p.m->slab);
     assert(page);
 
-    page->is_vnode = false;
-    page->entry = idx;
-    page->u.frame.cap = frame;
-    page->u.frame.offset = offset;
-    page->u.frame.flags = flags;
-    page->u.frame.pte_count = pte_count;
+    page->v.is_vnode = false;
+    page->v.entry = idx;
+    page->v.cap = frame;
+    page->v.u.frame.offset = offset;
+    page->v.u.frame.flags = flags;
+    page->v.u.frame.pte_count = pte_count;
 
     // only insert child in vtree after new vnode fully initialized
     pmap_vnode_insert_child(ptable, page);
@@ -298,9 +298,9 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     set_mapping_cap(page, ptable, idx);
 
     // Map entry into the page table
-    assert(!capref_is_null(ptable->u.vnode.invokable));
-    err = vnode_map(ptable->u.vnode.invokable, frame, idx,
-                    pmap_flags, offset, pte_count, page->mapping);
+    assert(!capref_is_null(ptable->v.u.vnode.invokable));
+    err = vnode_map(ptable->v.u.vnode.invokable, frame, idx,
+                    pmap_flags, offset, pte_count, page->v.mapping);
 
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
@@ -457,14 +457,14 @@ static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
     struct vnode *pt = find_ptable(pmap, vaddr);
     if (pt) {
         struct vnode *page = pmap_find_vnode(pt, VMSAv8_64_L3_BASE(vaddr));
-        if (page && page->u.frame.pte_count == pte_count) {
-            err = vnode_unmap(pt->u.vnode.cap, page->mapping);
+        if (page && page->v.u.frame.pte_count == pte_count) {
+            err = vnode_unmap(pt->v.cap, page->v.mapping);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "vnode_unmap");
                 return err_push(err, LIB_ERR_VNODE_UNMAP);
             }
 
-            err = cap_delete(page->mapping);
+            err = cap_delete(page->v.mapping);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_CAP_DELETE);
             }
@@ -623,10 +623,10 @@ static errval_t do_single_modify_flags(struct pmap_aarch64 *pmap, genvaddr_t vad
                 // page (as offset from first page in mapping), #affected
                 // pages, new flags. Invocation should check compatibility of
                 // new set of flags with cap permissions.
-                size_t off = ptentry - page->entry;
+                size_t off = ptentry - page->v.entry;
                 uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
                 // VA hinting NYI on ARMv8, always passing 0
-                err = invoke_mapping_modify_flags(page->mapping, off, pages, pmap_flags, 0);
+                err = invoke_mapping_modify_flags(page->v.mapping, off, pages, pmap_flags, 0);
                 printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
                         err_getstring(err), err);
                 return err;
@@ -770,18 +770,18 @@ pmap_init(struct pmap   *pmap,
 
     pmap_vnode_mgmt_init(pmap);
 
-    pmap_aarch64->root.is_vnode         = true;
-    pmap_aarch64->root.u.vnode.cap      = vnode;
-    pmap_aarch64->root.u.vnode.invokable = vnode;
+    pmap_aarch64->root.v.is_vnode         = true;
+    pmap_aarch64->root.v.cap              = vnode;
+    pmap_aarch64->root.v.u.vnode.invokable = vnode;
 
     if (get_croot_addr(vnode) != CPTR_ROOTCN) {
-        errval_t err = slot_alloc(&pmap_aarch64->root.u.vnode.invokable);
+        errval_t err = slot_alloc(&pmap_aarch64->root.v.u.vnode.invokable);
         assert(err_is_ok(err));
-        err = cap_copy(pmap_aarch64->root.u.vnode.invokable, vnode);
+        err = cap_copy(pmap_aarch64->root.v.u.vnode.invokable, vnode);
         assert(err_is_ok(err));
     }
-    assert(!capref_is_null(pmap_aarch64->root.u.vnode.cap));
-    assert(!capref_is_null(pmap_aarch64->root.u.vnode.invokable));
+    assert(!capref_is_null(pmap_aarch64->root.v.cap));
+    assert(!capref_is_null(pmap_aarch64->root.v.u.vnode.invokable));
     pmap_vnode_init(pmap, &pmap_aarch64->root);
 
     /*
