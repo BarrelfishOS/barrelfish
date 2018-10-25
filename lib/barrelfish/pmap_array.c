@@ -59,6 +59,8 @@ void pmap_remove_vnode(struct vnode *root, struct vnode *item)
 {
     assert(root->is_vnode);
     size_t pte_count = item->is_vnode ? 1 : item->u.frame.pte_count;
+    // check that we don't overflow children buffer
+    assert(item->entry + pte_count <= PTABLE_ENTRIES);
     for (int i = 0; i < pte_count; i++) {
         root->u.vnode.children[item->entry+i] = NULL;
     }
@@ -122,7 +124,12 @@ void pmap_vnode_init(struct pmap *p, struct vnode *v)
 
 void pmap_vnode_insert_child(struct vnode *root, struct vnode *newvnode)
 {
-    root->u.vnode.children[newvnode->entry] = newvnode;
+    size_t pte_count = newvnode->is_vnode ? 1 : newvnode->u.frame.pte_count;
+    // check that we don't overflow children buffer
+    assert(newvnode->entry + pte_count <= PTABLE_ENTRIES);
+    for (int i = 0; i < pte_count; i++) {
+        root->u.vnode.children[newvnode->entry+i] = newvnode;
+    }
     newvnode->next = NULL;
 }
 
