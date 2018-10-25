@@ -25,24 +25,24 @@ static void print_vnode(struct vnode *current, int depth)
     char capbuffer[1024];
 
     printf("%s", pad);
-    printf("vnode:%p { entry: %d is_vnode: %d\n", current, current->entry, current->is_vnode);
-    if (current->is_vnode) {
-        debug_print_cap_at_capref(capbuffer, 1024, current->u.vnode.cap);
+    printf("vnode:%p { entry: %d is_vnode: %d\n", current, current->v.entry, current->v.is_vnode);
+    if (current->v.is_vnode) {
+        debug_print_cap_at_capref(capbuffer, 1024, current->v.cap);
         printf("%s", pad);
         printf("vnode: cap=%s\n", capbuffer);
 #if defined(PMAP_LL)
-        print_vnodes(current->u.vnode.children, depth+1);
+        print_vnodes(current->v.u.vnode.children, depth+1);
 #elif defined(PMAP_ARRAY)
-        print_vnodes(current->u.vnode.children[0], depth+1);
+        print_vnodes(current->v.u.vnode.children[0], depth+1);
 #else
 #error Invalid pmap datastructure
 #endif
     }
     else {
-        debug_print_cap_at_capref(capbuffer, 1024, current->u.frame.cap);
+        debug_print_cap_at_capref(capbuffer, 1024, current->v.cap);
         printf("%s", pad);
         printf("frame: cap=%s offset:%"PRIxGENVADDR" flags:%d",
-                capbuffer, current->u.frame.offset, current->u.frame.flags);
+                capbuffer, current->v.u.frame.offset, current->v.u.frame.flags);
     }
     printf("\n");
     printf("%s", pad);
@@ -64,7 +64,6 @@ static void print_vnodes(struct vnode* current, int depth) {
 #error Invalid pmap datastructure
 #endif
         print_vnode(current, depth);
-        current = current->next;
     }
 }
 
@@ -73,9 +72,9 @@ static void find_pagetables(struct vnode* current) {
     char capbuffer[1024];
 
     while(current != NULL) {
-        if (current->is_vnode) {
+        if (current->v.is_vnode) {
             struct capability ret;
-            errval_t err = debug_cap_identify(current->u.vnode.cap, &ret);
+            errval_t err = debug_cap_identify(current->v.cap, &ret);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "debug_cap_identify failed.");
             }
@@ -84,7 +83,7 @@ static void find_pagetables(struct vnode* current) {
                 printf("%s:%s:%d: we have a pagetable\n", __FILE__, __FUNCTION__, __LINE__);
 
                 struct frame_identity id = { .base = 0, .bits = 0 };
-                err = invoke_frame_identify(current->u.vnode.cap, &id);
+                err = invoke_frame_identify(current->v.cap, &id);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "Invoke vnode identify failed.");
                 }
@@ -95,7 +94,7 @@ static void find_pagetables(struct vnode* current) {
                     USER_PANIC_ERR(err, "Failed to allocate slot");
                 }
 
-                err = cap_copy(ptable_copy, current->u.vnode.cap);
+                err = cap_copy(ptable_copy, current->v.cap);
                 if (err_is_fail(err)) {
                     DEBUG_ERR(err, "cap_copy failed");
                 }
@@ -107,7 +106,7 @@ static void find_pagetables(struct vnode* current) {
                     USER_PANIC_ERR(err, "Can not map the frame.");
                 }
 
-                debug_print_cap_at_capref(capbuffer, 1024, current->u.vnode.cap);
+                debug_print_cap_at_capref(capbuffer, 1024, current->v.cap);
                 printf("vnode: cap=%s\n", capbuffer);
  
                 for(size_t i=0; i < X86_64_PTABLE_SIZE; i++) {
@@ -118,13 +117,13 @@ static void find_pagetables(struct vnode* current) {
                 }
 
                 size_t how_many = 0;
-                err = invoke_clean_dirty_bits(current->u.vnode.cap, &how_many);
+                err = invoke_clean_dirty_bits(current->v.cap, &how_many);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "clean dirty bits failed.");
                 }
             }
 
-            find_pagetables(current->u.vnode.children);
+            find_pagetables(current->v.u.vnode.children);
         }
         else {
             // Ignore frames
@@ -139,9 +138,9 @@ static void find_pagetables(struct vnode* current) {
     char capbuffer[1024];
 
     while(current != NULL) {
-        if (current->is_vnode) {
+        if (current->v.is_vnode) {
             struct capability ret;
-            errval_t err = debug_cap_identify(current->u.vnode.cap, &ret);
+            errval_t err = debug_cap_identify(current->v.cap, &ret);
             if (err_is_fail(err)) {
                 USER_PANIC_ERR(err, "debug_cap_identify failed.");
             }
@@ -150,7 +149,7 @@ static void find_pagetables(struct vnode* current) {
                 printf("%s:%s:%d: we have a pagetable\n", __FILE__, __FUNCTION__, __LINE__);
 
                 struct frame_identity id = { .base = 0, .bits = 0 };
-                err = invoke_frame_identify(current->u.vnode.cap, &id);
+                err = invoke_frame_identify(current->v.cap, &id);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "Invoke vnode identify failed.");
                 }
@@ -161,7 +160,7 @@ static void find_pagetables(struct vnode* current) {
                     USER_PANIC_ERR(err, "Failed to allocate slot");
                 }
 
-                err = cap_copy(ptable_copy, current->u.vnode.cap);
+                err = cap_copy(ptable_copy, current->v.cap);
                 if (err_is_fail(err)) {
                     DEBUG_ERR(err, "cap_copy failed");
                 }
@@ -173,7 +172,7 @@ static void find_pagetables(struct vnode* current) {
                     USER_PANIC_ERR(err, "Can not map the frame.");
                 }
 
-                debug_print_cap_at_capref(capbuffer, 1024, current->u.vnode.cap);
+                debug_print_cap_at_capref(capbuffer, 1024, current->v.cap);
                 printf("vnode: cap=%s\n", capbuffer);
 
                 for(size_t i=0; i < X86_64_PTABLE_SIZE; i++) {
@@ -184,13 +183,13 @@ static void find_pagetables(struct vnode* current) {
                 }
 
                 size_t how_many = 0;
-                err = invoke_clean_dirty_bits(current->u.vnode.cap, &how_many);
+                err = invoke_clean_dirty_bits(current->v.cap, &how_many);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "clean dirty bits failed.");
                 }
             }
 
-            find_pagetables(current->u.vnode.children);
+            find_pagetables(current->v.u.vnode.children);
         }
         else {
             // Ignore frames
@@ -205,8 +204,6 @@ static void find_pagetables(struct vnode* current) {
 
 int main(int argc, char *argv[])
 {
-    errval_t err;
-
     printf("%s:%s:%d: Hi, lets map our own ptable!\n",
            __FILE__, __FUNCTION__, __LINE__);
 
