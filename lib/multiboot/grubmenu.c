@@ -253,6 +253,35 @@ read_menu_lst(const char *path) {
                 break;
             }
         }
+        else if(!strcmp(cmd, "bootdriver")) {
+            char buf[MAXBUF+1];
+            len= read_string(infile, read_token, &menu->boot_driver.path);
+            if(len <= 0) {
+                fprintf(stderr, "Missing timeout value.\n");
+                break;
+            }
+        }
+        else if(!strcmp(cmd, "cpudriver")) {
+            char buf[MAXBUF+1];
+            len= read_string(infile, read_token, &menu->kernel.path);
+            if(len <= 0) {
+                fprintf(stderr, "Missing timeout value.\n");
+                break;
+            }
+            len= read_string(infile, read_line, &menu->kernel.args);
+            if(len <= 0) {
+                fprintf(stderr, "Missing module arguments.\n");
+                break;
+            }
+        }
+        else if(!strcmp(cmd, "root")) {
+            char buf[MAXBUF+1];
+            len= read_token(infile, buf);
+            if(len <= 0) {
+                fprintf(stderr, "Missing timeout value.\n");
+                break;
+            }
+        }
         else {
             fprintf(stderr, "Unknown command: %s\n", cmd);
         }

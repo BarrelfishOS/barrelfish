@@ -395,6 +395,49 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                     In BuildTree "armv7" cpuDriver,
                     Out "root" (image ++ "-gdb.gdb") ])
             ]
+
+    armv8Image target menu bootTarget cpuTarget modules =
+        let bootDriver = "/sbin/boot_" ++ bootTarget
+            cpuDriver  = "/sbin/cpu_"  ++ cpuTarget
+            blob       = "/" ++ target ++ "blob"
+            blob_o     = "/" ++ target ++ "blob.o"
+            image_o    = "/" ++ target ++ "_image.o"
+            image      = "/" ++ target ++ "_image.efi"
+        in Rules [
+            Rule ([ In BuildTree "tools" "/bin/armv8_bootimage",
+                In BuildTree "root" ("/platforms/arm/menu.lst." ++ menu),
+                Out "root" blob,
+                NoDep BuildTree "root" "/" ] ++
+                [ (Dep BuildTree "armv8" m) | m <- modules ] ++
+                [ (Dep BuildTree "" m) | m <- modules_generic ] ),
+            Rule ([ Str Config.aarch64_objcopy,
+                Str "-I binary",
+                Str "-O elf64-littleaarch64",
+                Str "-B aarch64",
+                Str ("--redefine-sym _binary_" ++ target ++ "blob_start=barrelfish_blob_start"),
+                Str ("--redefine-sym _binary_" ++ target ++ "blob_end=barrelfish_blob_end"),
+                Str ("--redefine-sym _binary_" ++ target ++ "blob_size=barrelfish_blob_size"),
+                In BuildTree "root" blob,
+                Out "root" blob_o ]),
+            Rule ([ Str "aarch64-linux-gnu-ld",
+                Str "/usr/lib/crt0-efi-aarch64.o",
+                Str "-znocombreloc",
+                Str "-Bsymbolic",
+                Str "-T /usr/lib/elf_aarch64_efi.lds",
+                Str "-shared",
+                Str "--no-undefined",
+                Str "--defsym=EFI_SUBSYSTEM=10",
+                In BuildTree "root" blob_o,
+                In BuildTree "armv8" "/tools/armv8_bootimage/efi_loader.o",
+                Str "-o",
+                Out "root" image_o,
+                Str "/usr/lib/libgnuefi.a", 
+                Str "/usr/lib/libefi.a" ]),
+            Rule ([ Str Config.aarch64_objcopy,
+                Str "-O binary",
+                In BuildTree "root" image_o,
+                Out "root" image ])
+            ]
   in
  [
    --
@@ -451,7 +494,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        [ ("armv8", f) | f <- armv8_modules ]
        ++
        [ ("",       f) | f <- modules_generic])
-    "ARM Virtual Machine Board with ARM Cortex A57 processors in QEMU.",
+    "ARM Virtual Machine Board with ARM Cortex A57 processors in QEMU",
 
     platform "APM88xxxx" [ "armv8" ]
     ([ ("armv8", "/sbin/cpu_apm88xxxx"), ("armv8", "/sbin/boot_armv8_generic")]
@@ -470,6 +513,26 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        [ ("",       f) | f <- modules_generic]
     )
     "Cavium ThunderX-1 (CN88xx) boards",
+
+    platform "QEMU_UBoot" [ "armv8" ]
+      ([ ("armv8", "/sbin/cpu_a57_qemu"), ("armv8", "/sbin/boot_armv8_generic")  ]
+       ++
+       [ ("armv8", f) | f <- armv8_modules ]
+       ++
+       [ ("",       f) | f <- modules_generic]
+       ++
+       [ ("root", "/armv8_a57_qemu_image.efi") ])
+    "ARM Virtual Machine Board with ARM Cortex A57 processors in QEMU",
+
+    platform "RaspberryPi3" [ "armv8" ]
+      ([ ("armv8", "/sbin/cpu_a53_rpi3"), ("armv8", "/sbin/boot_armv8_generic")  ]
+       ++
+       [ ("armv8", f) | f <- armv8_modules ]
+       ++
+       [ ("",       f) | f <- modules_generic]
+       ++
+       [ ("root", "/armv8_rpi3_image.efi") ])
+    "Raspberry Pi 3 quad ARM Cortex A53",
 
     platform "PandaboardES" [ "armv7" ]
     ([ ("armv7", f) | f <- pandaModules ] ++
@@ -549,6 +612,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- Build the Zynq7000 image
     armv7Image "armv7_zynq7" "zynq7" "zynq7" "0x00000000" zynq7Modules,
 
+    armv8Image "armv8_a57_qemu" "armv8_a57_qemu" "armv8_generic" "a57_qemu" armv8_modules,
+
+    armv8Image "armv8_rpi3" "armv8_rpi3" "armv8_generic" "a53_rpi3" armv8_modules,
     --
     -- Booting: various targets for booting Barrelfish under different circumstances
     --
@@ -560,6 +626,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "armv8_a57v_1",
                      "armv8_apm88xxxx",
                      "armv8_cn88xx",
+                     "armv8_rpi3",
+                     "armv8_a57_qemu",
                      "armv7_a9ve_1",
                      "armv7_a9ve_4",
                      "armv7_a15ve_1",

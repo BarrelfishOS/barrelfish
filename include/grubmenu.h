@@ -21,6 +21,7 @@ struct menu_lst {
     uint32_t timeout;
 
     struct menu_module kernel;
+    struct menu_module boot_driver;
 
     uint32_t nmodules;
     struct menu_module *modules;
