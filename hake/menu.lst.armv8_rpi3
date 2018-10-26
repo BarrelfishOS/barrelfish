@@ -1,0 +1,36 @@
+#
+# This script is used to describe the commands to start at
+# boot-time and the arguments they should receive.
+#
+bootdriver  /armv8/sbin/boot_armv8_generic
+cpudriver /armv8/sbin/cpu_a53_rpi3
+module /armv8/sbin/init
+
+# Domains spawned by init
+module /armv8/sbin/mem_serv
+module /armv8/sbin/monitor
+
+# Special boot time domains spawned by monitor
+module /armv8/sbin/ramfsd boot
+module /armv8/sbin/skb boot
+module /armv8/sbin/kaluga boot
+module /armv8/sbin/spawnd boot
+module /armv8/sbin/proc_mgmt boot
+module /armv8/sbin/startd boot
+module /armv8/sbin/acpi boot
+
+# ramfs contents
+modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
+modulenounzip /skb_ramfs.cpio.gz nospawn
+
+# Drivers
+module /armv8/sbin/corectrl auto
+module /armv8/sbin/pci auto
+
+
+# General user domains
+#module /armv8/sbin/serial_tmas auto portbase=2
+#module /armv8/sbin/fish nospawn
+#module /armv8/sbin/angler serial0.terminal xterm
+
+# End of file, this needs to have a certain length...

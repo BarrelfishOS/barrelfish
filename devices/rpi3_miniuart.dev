@@ -1,0 +1,105 @@
+/*
+ * Copyright (c) 2018, ETH Zurich. All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Haldeneggsteig 4, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+/*
+ * rpi3_miniuart_.dev
+ *
+ * DESCRIPTION: Raspberry Pi 3 mini UART
+ *
+ */
+
+device rpi3_miniuart msbfirst ( addr base ) "Raspberry Pi3 mini UART" {
+
+    constants word_len "Word Length" {
+	bits7 = 0b00    "7 bits";
+	bits8 = 0b11    "8 bits";
+    };
+
+    register DR addr (base, 0x00) "I/O Data" {
+	_	24;
+	data    8 rw	"Data character when DLAB=0";
+    };
+
+    register IER addr (base, 0x04) "Interrupt Enable" {
+	_       30;
+    txirqen 1 rw    "Enable transmit interrupts when DLAB=0";
+    rxirqen 1 rw    "Enable receive interrupts when DLAB=0";
+    };
+
+    register IIR addr (base, 0x08) "Interrupt Identify" {
+	_       24;
+    fifoen  2 ro    "FIFO enabled";
+    _       3;
+    irqid_fifoclear 2 rw    "read Interrupt ID/write FIFO clear";
+    irqpen  1 ro    "Interrupt pending";
+    };
+
+    register LCR addr (base, 0x0c) "Line Control" {
+	_       24;
+    dlab    1 rw    "DLAB access";
+    break   1 rw    "Break";
+    _       4;
+    datasize 2 rw   type(word_len) "Data size";
+    };
+
+    register MCR addr (base, 0x10) "Modem Control" {
+	_       30;
+    rts     1 rw    "RTS line";
+	_       1;
+    };
+
+    register LSR addr (base, 0x14) "Line Status" {
+	_       25;
+    txid    1 ro    "Transmitter idle";
+    txem    1 ro    "Transmitter empty";
+    _       3;
+    rxor    1 ro    "Receiver overrun/clear on read";
+    dtready 1 ro    "Data ready";
+    };
+
+    register MSR addr (base, 0x18) "Modem Status" {
+	_       26;
+    cts     1 ro    "CTS status";
+    _       5;
+    };
+
+    register SCRATCH addr (base, 0x1c) "Scratch" {
+	_       24;
+    scratch 8 rw         "Scratch byte";
+    };
+
+    register CNTL addr (base, 0x20) "Extra Control" {
+	_       24;
+    cts     1 rw    "CTS assert level";
+    rts     1 rw    "RTS assert level";
+    rtsauto 2 rw    "RTS auto flow level";
+    txflow  1 rw    "Enable transmit auto flow-control using CTS";
+    rxflow  1 rw    "Enable receive auto flow-control using RTS";
+    txen    1 rw    "Transmitter enable";
+    rxen    1 rw    "Receiver enable";
+    };
+
+    register STAT addr (base, 0x24) "Extra Status" {
+	_       22;
+    txdone  1 ro    "Transmitter done";
+    txfe    1 ro    "Transmit FIFO is empty";
+    cts     1 ro    "CTS line";
+    rts     1 ro    "RTS line";
+    txff    1 ro    "Transmit FIFO is full";
+    rxov    1 ro    "Receiver overrun";
+    txid    1 ro    "Transmitter is idle";
+    rxid    1 ro    "Receiver is idle";
+    spav    1 ro    "Space available";
+    symav   1 ro    "Symbol available";
+    };
+
+    register BAUD addr (base, 0x28) "Baudrate" {
+	_        16;
+	baudrate 16 rw     "Baudrate counter";
+    };
+};

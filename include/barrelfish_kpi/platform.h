@@ -38,6 +38,7 @@ enum pi_platform {
     PI_PLATFORM_FVP,
     PI_PLATFORM_QEMU,
     PI_PLATFORM_CN88XX,
+    PI_PLATFORM_RPI3
 };
 
 /* Must be at least as large as all architectures' structs. */

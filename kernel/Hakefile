@@ -624,6 +624,53 @@ let
     },
   
   --
+  -- Raspberry Pi quad Cortex-A53
+  --
+  cpuDriver {
+    target = "a53_rpi3",
+    architectures = [ "armv8" ],
+    assemblyFiles = [
+        "arch/armv8/sysreg.S",
+        "arch/armv8/exceptions.S",
+        "arch/armv8/smc_hvc.S"
+    ],
+    cFiles = [
+        "arch/arm/misc.c",
+        "arch/arm/rpi3_miniuart.c",
+        "arch/arm/kputchar.c",
+        "arch/arm/gdb_arch.c",
+        "arch/armv8/plat_rpi3.c",
+        "arch/armv8/init.c",
+        "arch/armv8/gdb_arch.c",
+        -----
+        "arch/armv8/kernel_multiboot2.c",
+        "arch/armv8/dispatch.c",
+        "arch/armv8/exec.c",
+        "arch/armv8/exn.c",
+        "arch/armv8/psci.c",
+        "arch/armv8/paging.c",
+        "arch/armv8/startup_arch.c",
+        "arch/armv8/syscall.c",
+        "arch/armv8/timers.c",
+        "arch/arm/debug.c",
+        "arch/arm/irq.c"
+    ],
+    mackerelDevices = [
+        "arm",
+        "armv8",
+        "armv8/armv8_cache_ctrl",
+        "arm_icp_pit",
+        "gic_v3_dist",
+        "gic_v3_redist",
+        "rpi3_miniuart"
+    ],
+    addLibraries = [
+        "elf",
+        "cpio"
+    ]
+    },
+  
+  --
   -- Cavium ThunderX CN88xx series SoC,
   --
   bootDriver {
