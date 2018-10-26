@@ -91,11 +91,11 @@ static void omap_sdma_irq_handler(void *arg)
 __attribute__((interrupt("IRQ")))
 static void omap_sdma_kernel_irq_handler(void)
 {
-    int irq = gic_get_active_irq();
+    int irq = platform_get_active_irq();
     if(irq == OMAP44XX_SDMA_IRQ) {
         omap_sdma_irq_handler(NULL);
     }
-    gic_ack_irq(irq);
+    platform_acknowledge_irq(irq);
 }
 #endif
 
@@ -481,7 +481,7 @@ errval_t omap_sdma_init(struct sdma_driver_state* st, mackerel_addr_t dev_base, 
     *irq_handler_entry = (uintptr_t) omap_sdma_kernel_irq_handler;
 
     // enable the SDMA interrupt in the global interrupt controller
-    gic_enable_interrupt(OMAP44XX_SDMA_IRQ, GIC_IRQ_CPU_TRG_ALL, 0,
+    platform_enable_interrupt(OMAP44XX_SDMA_IRQ, GIC_IRQ_CPU_TRG_ALL, 0,
                             GIC_IRQ_EDGE_TRIGGERED, GIC_IRQ_N_TO_N);
 #else
     // in userspace, register normal interrupt handler

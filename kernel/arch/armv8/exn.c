@@ -236,7 +236,7 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
     save_area->named.spsr  = armv8_SPSR_EL1_rd(NULL);
     save_area->named.pc    = fault_pc;
 
-    irq = gic_get_active_irq();
+    irq = platform_get_active_irq();
 
     // printk(LOG_NOTE, "handle_irq IRQ %"PRIu32"\n", irq);
 
@@ -276,13 +276,13 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
 #endif
 
     if (irq == 30 || irq == 29) {
-        gic_ack_irq(irq);
+        platform_acknowledge_irq(irq);
         timer_reset(CONFIG_TIMESLICE);
         dispatch(schedule());
     }
     else {
     printf("%s: %d\n", __func__, irq);
-        gic_ack_irq(irq);
+        platform_acknowledge_irq(irq);
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
     }

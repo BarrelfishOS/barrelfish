@@ -71,7 +71,7 @@ errval_t gic_init(void)
 /*
  * Returns active interrupt of group 1
  */
-uint32_t gic_get_active_irq(void)
+uint32_t platform_get_active_irq(void)
 {
     uint32_t res = gic_v2_cpu_IAR_intid_rdf(&gic_v2_cpu_dev);
     check_cpu_if_statusr();
@@ -81,7 +81,7 @@ uint32_t gic_get_active_irq(void)
 /*
  * ACKs group 1 interrupt
  */
-void gic_ack_irq(uint32_t irq)
+void platform_acknowledge_irq(uint32_t irq)
 {
     gic_v2_cpu_EOIR_t reg = 0;
     reg = gic_v2_cpu_EOIR_intid_insert(reg, irq);
@@ -194,12 +194,12 @@ errval_t gic_cpu_interface_enable(void)
     return SYS_ERR_OK;
 }
 
-errval_t platform_gic_init(void) {
+errval_t platform_init_bsp_irqs(void) {
     gic_init();
     return SYS_ERR_OK;
 }
 
-errval_t platform_gic_cpu_interface_enable(void) {
+errval_t platform_init_app_irqs(void) {
     gic_cpu_interface_enable();
     return SYS_ERR_OK;
 }

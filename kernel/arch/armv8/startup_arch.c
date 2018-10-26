@@ -746,7 +746,7 @@ void arm_kernel_startup(void *pointer)
 
         init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME);
 
-        platform_gic_init();
+        platform_init_bsp_irqs();
 //        pit_start(0);
     } else {
         MSG("Doing non-BSP related bootup \n");
@@ -767,11 +767,11 @@ void arm_kernel_startup(void *pointer)
 
         init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME);
 
-       // uint32_t irq = gic_get_active_irq();
-       // gic_ack_irq(irq);
+       // uint32_t irq = platform_get_active_irq();
+       // platform_acknowledge_irq(irq);
     }
     // enable interrupt forwarding to cpu
-    platform_gic_cpu_interface_enable();
+    platform_init_app_irqs();
 
     MSG("Calling dispatch from arm_kernel_startup, entry point %#"PRIxLVADDR"\n",
             get_dispatcher_shared_aarch64(init_dcb->disp)->disabled_save_area.named.pc);

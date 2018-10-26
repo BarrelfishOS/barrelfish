@@ -80,13 +80,4 @@ extern lpaddr_t platform_gic_redist_base;
 #define tsc_read() timer_get_timestamp()
 #define tsc_get_hz() timer_get_frequency()
 
-/*
- * GIC interface
- */
-
-errval_t platform_gic_init(void);
-
-errval_t platform_gic_cpu_interface_enable(void);
-
-
 #endif // __ARM_PLATFORM_H__

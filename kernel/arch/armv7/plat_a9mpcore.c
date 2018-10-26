@@ -24,6 +24,7 @@
 #include <paging_kernel_arch.h>
 #include <platform.h>
 #include <systime.h>
+#include <arch/armv7/irq.h>
 
 #define MSG(format, ...) \
     printk( LOG_NOTE, "CortexA9 platform: "format, ## __VA_ARGS__ )
@@ -94,7 +95,7 @@ timers_init(int timeslice) {
     /* Global timer: use the Cortex-A9 Global Timer
        (see Cortex-A9 MPCore TRM 4.3). */
     a9_gt_init(platform_get_gt_address());
-    gic_enable_interrupt(GLOBAL_TIMER_IRQ, 0, 0, 0, 0);
+    platform_enable_interrupt(GLOBAL_TIMER_IRQ, 0, 0, 0, 0);
     /* Discover the clock rate. */
     a9_probe_tsc();
     assert(tsc_hz != 0);
@@ -126,7 +127,7 @@ bool timer_interrupt(uint32_t irq) {
 #endif
         a9_gt_ack_irq();
         /* Ack the interrupt at the controller. */
-        gic_ack_irq(irq);
+        platform_acknowledge_irq(irq);
         return 1;
     }
 

@@ -22,6 +22,7 @@
 #include <paging_kernel_arch.h>
 #include <platform.h>
 #include <systime.h>
+#include <arch/armv7/irq.h>
 
 #define MSG(format, ...) \
     printk( LOG_NOTE, "CortexA15 platform: "format, ## __VA_ARGS__ )
@@ -59,7 +60,7 @@ platform_get_core_count(void) {
 /* This *should* be IRQ 30, for the non-secure timer, but GEM5 only
  * provides the secure timer, even in NS mode.
  * The timerirq parameter allows this to be overridden. */
- 
+
 /// For now, use secure timer
 #define DEFAULT_TIMER_IRQ 29
 
@@ -88,7 +89,7 @@ timers_init(int timeslice) {
     MSG("Timer interrupt is %u\n", timerirq);
 
     /* Enable the interrupt. */
-    gic_enable_interrupt(timerirq, 0, 0, 0, 0);
+    platform_enable_interrupt(timerirq, 0, 0, 0, 0);
 
     /* Set the first timeout. */
     systime_set_timeout(systime_now() + kernel_timeslice);
@@ -110,7 +111,7 @@ timestamp_freq(void) {
 bool timer_interrupt(uint32_t irq)
 {
     if (irq == timerirq) {
-        gic_ack_irq(irq);
+        platform_acknowledge_irq(irq);
         a15_gt_mask_interrupt();
 
         /* Reset the timeout. */

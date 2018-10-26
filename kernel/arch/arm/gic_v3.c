@@ -76,7 +76,7 @@ void gic_init(void)
 /*
  * Returns active interrupt of group 1
  */
-uint32_t gic_get_active_irq(void)
+uint32_t platform_get_active_irq(void)
 {
     return armv8_ICC_IAR1_EL1_INTID_rdf(NULL);
 }
@@ -84,7 +84,7 @@ uint32_t gic_get_active_irq(void)
 /*
  * ACKs group 1 interrupt
  */
-void gic_ack_irq(uint32_t irq)
+void platform_acknowledge_irq(uint32_t irq)
 {
     armv8_ICC_EOIR1_EL1_rawwr(NULL, irq);
 }
@@ -162,17 +162,17 @@ void gic_cpu_interface_enable(void)
  * \param 0 is level-sensitive, 1 is edge-triggered
  * \param 0 is N-to-N, 1 is 1-N
  */
-void gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
+void platform_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
                           bool edge_triggered, bool one_to_n)
 {
 }
 
-errval_t platform_gic_init(void) {
+errval_t platform_init_bsp_irqs(void) {
     gic_init();
     return SYS_ERR_OK;
 }
 
-errval_t platform_gic_cpu_interface_enable(void) {
+errval_t platform_init_app_irqs(void) {
     gic_cpu_interface_enable();
     return SYS_ERR_OK;
 }

@@ -252,7 +252,7 @@ void fatal_kernel_fault(uint32_t evector, lvaddr_t address,
         }
 
         case ARM_EVECTOR_IRQ: {
-            uint32_t irq = gic_get_active_irq();
+            uint32_t irq = platform_get_active_irq();
             panic("IRQ %"PRIu32" in the kernel", irq);
         }
 
@@ -314,7 +314,7 @@ void handle_irq(arch_registers_state_t* save_area,
 
     // Retrieve the current IRQ number
     uint32_t irq = 0;
-    irq = gic_get_active_irq();
+    irq = platform_get_active_irq();
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
           dcb_current->disabled ? "disabled": "enabled" );
 
@@ -328,11 +328,11 @@ void handle_irq(arch_registers_state_t* save_area,
     // we just acknowledge it here
     else if(irq == 1)
     {
-        gic_ack_irq(irq);
+        platform_acknowledge_irq(irq);
         dispatch(schedule());
     }
     else {
-        gic_ack_irq(irq);
+        platform_acknowledge_irq(irq);
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);
     }

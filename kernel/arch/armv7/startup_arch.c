@@ -682,8 +682,8 @@ void arm_kernel_startup(void)
 
         init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME);
 
-        uint32_t irq = gic_get_active_irq();
-        gic_ack_irq(irq);
+        uint32_t irq = platform_get_active_irq();
+        platform_acknowledge_irq(irq);
     }
 
     /* XXX - this really shouldn't be necessary. */

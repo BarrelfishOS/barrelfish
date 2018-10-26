@@ -13,6 +13,7 @@
 #include <arch/arm/gic.h>
 #include <platform.h>
 #include <paging_kernel_arch.h>
+#include <arch/armv7/irq.h>
 
 static pl130_gic_t gic;
 static uint32_t it_num_lines;
@@ -119,7 +120,7 @@ void  __attribute__((noreturn)) gic_disable_all_irqs(void)
     /* } */
 }
 
-uint32_t gic_get_active_irq(void)
+uint32_t platform_get_active_irq(void)
 {
     uint32_t regval = pl130_gic_ICCIAR_rd(&gic);
 
@@ -132,7 +133,7 @@ void gic_raise_softirq(uint8_t cpumask, uint8_t irq)
     pl130_gic_ICDSGIR_wr(&gic, regval);
 }
 
-void gic_ack_irq(uint32_t irq)
+void platform_acknowledge_irq(uint32_t irq)
 {
     pl130_gic_ICCEOIR_rawwr(&gic, irq);
 }
@@ -158,7 +159,7 @@ void gic_cpu_interface_enable(void)
  * \param 0 is level-sensitive, 1 is edge-triggered
  * \param 0 is N-to-N, 1 is 1-N
  */
-void gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
+void platform_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
                           bool edge_triggered, bool one_to_n)
 {
     // Set Interrupt Set-Enable Register
@@ -166,7 +167,7 @@ void gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
     uint32_t bit_mask = (1U << (int_id % 32));
     uint32_t regval;
 
-    MSG("gic_enable_interrupt for id=0x%"PRIx32", "
+    MSG("platform_enable_interrupt for id=0x%"PRIx32", "
            "offset=0x%"PRIx32", index=0x%"PRIx32"\n",
            int_id, bit_mask, ind);
 
@@ -288,4 +289,3 @@ void gic_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
         break;
     }
 }
-

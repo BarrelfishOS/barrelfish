@@ -37,9 +37,6 @@ extern lpaddr_t platform_gic_cpu_interface_address;
 extern lpaddr_t platform_gic_distributor_address;
 extern lpaddr_t platform_gic_redistributor_address;
 
-errval_t platform_gic_init(void);
-errval_t platform_gic_cpu_interface_enable(void);
-
 /*
  * Return the base address of the private peripheral region.
  */

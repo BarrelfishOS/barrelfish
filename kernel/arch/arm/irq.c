@@ -71,7 +71,7 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
         // The mapping of interrupt interfaces to cores doesn't seem to be
         // documented anywhere for the A9, and this will have to be different
         // if we're using affinity routing on GICv3+ systems.
-        gic_enable_interrupt(nidt, BIT(my_core_id), 0,
+        platform_enable_interrupt(nidt, BIT(my_core_id), 0,
                 GIC_IRQ_EDGE_TRIGGERED, GIC_IRQ_N_TO_N);
 #if 0
         if (err_is_ok(err)) {
