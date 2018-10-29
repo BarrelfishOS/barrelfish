@@ -35,6 +35,7 @@ class Machine(object):
                  perfcount_type=None,
                  boot_driver = None,
                  tickrate = 0,
+                 uboot = False,
                  **kwargs):
 
         self._name = "(unknown)"
@@ -57,7 +58,7 @@ class Machine(object):
         self._cores_per_socket = cores_per_socket
 
         self._kernel_args = kernel_args
-        
+
         self._boot_driver = boot_driver
 
         self._serial_binary = serial_binary
@@ -73,8 +74,9 @@ class Machine(object):
         self._eth0 = eth0
 
         self._perfcount_type = perfcount_type
-        
+
         self._tick_rate = tickrate
+        self._uboot = uboot
 
         if bool(kwargs):
             debug.warning("Machine base class does not understand the " +
@@ -120,7 +122,7 @@ class Machine(object):
     def get_kernel_args(self):
         """Returns list of machine-specific arguments to add to the kernel command-line"""
         return self._kernel_args
-    
+
     def get_boot_driver(self):
         """Returns list of machine-specific arguments to add to the kernel command-line"""
         return self._boot_driver
@@ -251,7 +253,8 @@ class Machine(object):
 
         # armv8
         if a == "armv8" :
-            m.add_module("acpi", ["boot"])
+            if not machine._uboot: # no ACPI on U-Boot
+                m.add_module("acpi", ["boot"])
             m.add_module("kaluga", ["boot"])
 
         # SKB and PCI are x86-only for the moment
@@ -486,7 +489,7 @@ class ARMSimulatorOperations(MachineOperations):
         self.telnet_connected = False
         while not self.telnet_connected:
             try:
-                # RH 08.08.2018 The gem5 test seems to have problems with using localhost 
+                # RH 08.08.2018 The gem5 test seems to have problems with using localhost
                 # instead of 127.0.0.1
                 self.telnet = telnetlib.Telnet("127.0.0.1", self.telnet_port)
                 self.telnet_connected = True

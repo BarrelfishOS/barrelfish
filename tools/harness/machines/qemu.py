@@ -318,3 +318,67 @@ MachineFactory.addMachine(QEMUMachineARMv8.name + '_8', QEMUMachineARMv8,
                           bootarch = "armv8",
                           ncores = 8,
                           platform = "a57_qemu")
+
+class QEMUMachineARMv8UBoot(ARMMachineBase):
+    '''ARMv8 QEMU with U-Boot'''
+    name = 'qemu_armv8_uboot'
+
+    imagename = "armv8_a57_qemu_image.efi"
+
+    def __init__(self, options, **kwargs):
+        super(QEMUMachineARMv8UBoot, self).__init__(options, QEMUMAchineARMv8UBootOperations(self), **kwargs)
+        self._set_kernel_image()
+        self.menulst_template = "menu.lst.armv8_a57_qemu"
+
+    def get_buildall_target(self):
+        return "QEMU"
+
+    def get_bootarch(self):
+        return "armv8"
+
+    def get_platform(self):
+        return 'a57_qemu'
+
+class QEMUMAchineARMv8UBootOperations(QEMUMachineBaseOperations):
+
+    def _write_menu_lst(self, data, path):
+        self._machine._write_menu_lst(data, path)
+
+    def set_bootmodules(self, modules):
+        # write menu.lst
+        debug.verbose("Writing menu.lst in build directory.")
+        menulst_fullpath = os.path.join(self._machine.options.builds[0].build_dir,
+                "platforms", "arm", "menu.lst.armv8_a57_qemu")
+        self._write_menu_lst(modules.get_menu_data('/'), menulst_fullpath)
+
+        # produce ROM image
+        debug.verbose("Building QEMU image.")
+        debug.checkcmd(["make", self._machine.imagename],
+                cwd=self._machine.options.builds[0].build_dir)
+
+    def _get_cmdline(self):
+        qemu_wrapper = os.path.join(self._machine.options.sourcedir, QEMU_SCRIPT_PATH)
+
+        return ([qemu_wrapper, '--arch', 'armv8', '--uboot', '--image', self._machine.kernel_img,
+            "--smp", "%s" % self._machine.get_ncores()])
+
+MachineFactory.addMachine(QEMUMachineARMv8UBoot.name, QEMUMachineARMv8UBoot,
+                          boot_driver = 'boot_armv8_generic',
+                          bootarch = "armv8",
+                          platform = "a57_qemu",
+                          qemu = True,
+                          ncores = 1)
+
+MachineFactory.addMachine(QEMUMachineARMv8UBoot.name + "_1", QEMUMachineARMv8UBoot,
+                          boot_driver = 'boot_armv8_generic',
+                          bootarch = "armv8",
+                          platform = "a57_qemu",
+                          qemu = True,
+                          ncores = 1)
+
+MachineFactory.addMachine(QEMUMachineARMv8UBoot.name + "_4", QEMUMachineARMv8UBoot,
+                          boot_driver = 'boot_armv8_generic',
+                          bootarch = "armv8",
+                          platform = "a57_qemu",
+                          qemu = True,
+                          ncores = 4)

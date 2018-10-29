@@ -23,6 +23,7 @@ DEBUG_SCRIPT=""
 SMP=${SMP:-1}
 # Grab NIC_MODEL from env, if unset default to e1000
 NIC_MODEL="${NIC_MODEL:-e1000e}"
+UBOOT=false
 
 
 usage () {
@@ -40,6 +41,7 @@ usage () {
     echo "    --smp <cores>      (number of cores to use, defaults to $SMP)"
     echo "    --nic-model <name> (nic model to use, defaults to $NIC_MODEL)"
     echo "    --hagfish <file>   (Hagfish boot loader, defaults to $HAGFISH_LOCATION)"
+    echo "    --uboot            (boot U-Boot instead of EFI on ARMv8)"
     echo "  "
     echo "  The following environment variables are considered:"
     echo "    QEMU_PATH         (Path for qemu-system-* binary)"
@@ -93,6 +95,9 @@ while test $# != 0; do
         ;;
     "--nic-model")
         shift; NIC_MODEL="$1"
+        ;;
+    "--uboot")
+        UBOOT=true
         ;;
     *)
         echo "Unknown option $1 (try: --help)" >&2
@@ -152,7 +157,7 @@ case "$ARCH" in
         echo "$NIC_MODEL not supported. Fall back to e1000"
         NIC_MODEL=e1000 ;
     fi
-    
+
     # Two NIC qemu conf
     #QEMU_CMD="${QEMU_PATH}qemu-system-x86_64 \
     #    -machine type=q35 \
@@ -191,14 +196,19 @@ case "$ARCH" in
     ;;
     "armv8")
        QEMU_CMD="${QEMU_PATH}qemu-system-aarch64 \
-                -m 1024 \
-                -cpu cortex-a57 \
-                -M virt -d guest_errors \
-                -M gic_version=3 \
-                -smp $SMP \
-                -bios /usr/share/qemu-efi/QEMU_EFI.fd \
-                -device virtio-blk-device,drive=image \
-                -drive if=none,id=image,file=$IMAGE,format=raw"
+                 -m 1024 \
+                 -cpu cortex-a57 \
+                 -M virt -d guest_errors \
+                 -M gic_version=3 \
+                 -smp $SMP"
+       if $UBOOT; then
+          QEMU_CMD="$QEMU_CMD -bios /home/netos/tftpboot/u-boot.bin \
+                    -device loader,addr=0x50000000,file=$IMAGE"
+       else
+           QEMU_CMD="$QEMU_CMD -bios /usr/share/qemu-efi/QEMU_EFI.fd \
+                    -device virtio-blk-device,drive=image \
+                    -drive if=none,id=image,file=$IMAGE,format=raw"
+       fi
        GDB=gdb-multiarch
        QEMU_NONDEBUG=-nographic
        EFI=1
