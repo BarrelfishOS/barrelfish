@@ -96,6 +96,19 @@ struct vnode_public {
 };
 
 /*
+ * Getters and setters for private part of pmap
+ */
+struct vnode_public *pmap_get_vroot(struct pmap *pmap);
+
+void pmap_set_min_mappable_va(struct pmap *pmap, lvaddr_t minva);
+
+/*
+ * API for serialising/deserialising pmap
+ */
+errval_t pmap_serialise(struct pmap *pmap, void *buf, size_t buflen);
+errval_t pmap_deserialise(struct pmap *pmap, void *buf, size_t buflen);
+
+/*
  * API for walking pmap -- implementation independent
  */
 

@@ -722,29 +722,14 @@ static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
     return 0;
 }
 
-
-static errval_t
-serialise(struct pmap *pmap, void *buf, size_t buflen)
-{
-    // Unimplemented: ignored
-    return SYS_ERR_OK;
-}
-
-static errval_t
-deserialise(struct pmap *pmap, void *buf, size_t buflen)
-{
-    // Unimplemented: we start with an empty pmap, and avoid the bottom of the A/S
-    return SYS_ERR_OK;
-}
-
 static struct pmap_funcs pmap_funcs = {
     .determine_addr = determine_addr,
     .map = map,
     .unmap = unmap,
     .modify_flags = modify_flags,
     .lookup = lookup,
-    .serialise = serialise,
-    .deserialise = deserialise,
+    .serialise = pmap_serialise,
+    .deserialise = pmap_deserialise,
 };
 
 /**
@@ -824,4 +809,16 @@ errval_t pmap_current_init(bool init_domain)
     pmap_vnode_mgmt_current_init((struct pmap *)pmap_aarch64);
 
     return SYS_ERR_OK;
+}
+
+struct vnode_public *pmap_get_vroot(struct pmap *pmap)
+{
+    struct pmap_aarch64 *pa64 = (struct pmap_aarch64 *)pmap;
+    return &pa64->root.v;
+}
+
+void pmap_set_min_mappable_va(struct pmap *pmap, lvaddr_t minva)
+{
+    struct pmap_aarch64 *pa64 = (struct pmap_aarch64 *)pmap;
+    pa64->min_mappable_va = minva;
 }
