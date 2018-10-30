@@ -225,7 +225,7 @@ class DistopsBreakdown(TestCommon):
 @tests.add_test
 class DistopsBreakdownDeleteLocal(DistopsBreakdown):
     '''Breakdown latency benchmark for deleting local copy'''
-    name = 'distops_breakdown_delete_local'
+    name = 'bench_distops_breakdown_delete_local'
     binary_name = 'bench_delete_local_copy'
     start_evname = "user_delete_call"
     end_evname = "user_delete_resp"
@@ -233,7 +233,7 @@ class DistopsBreakdownDeleteLocal(DistopsBreakdown):
 @tests.add_test
 class DistopsBreakdownDeleteForeign(DistopsBreakdown):
     '''Benchmark latency of deleting foreign copy of capability'''
-    name = 'distops_breakdown_delete_foreign'
+    name = 'bench_distops_breakdown_delete_foreign'
     binary_name = "bench_delete_foreign_copy"
     start_evname = "user_delete_call"
     end_evname = "user_delete_resp"
@@ -241,7 +241,7 @@ class DistopsBreakdownDeleteForeign(DistopsBreakdown):
 @tests.add_test
 class DistopsBreakdownDeleteLast(DistopsBreakdown):
     '''Benchmark latency of deleting last copy of capability'''
-    name = 'distops_breakdown_delete_last'
+    name = 'bench_distops_breakdown_delete_last'
     binary_name = "bench_delete_last_copy"
     start_evname = "user_delete_call"
     end_evname = "user_delete_resp"
@@ -249,7 +249,7 @@ class DistopsBreakdownDeleteLast(DistopsBreakdown):
 @tests.add_test
 class DistopsBreakdownDeleteLastRemote(DistopsBreakdown):
     '''Benchmark latency of deleting last local copy of capability with remote copies'''
-    name = 'distops_breakdown_delete_last_remote'
+    name = 'bench_distops_breakdown_delete_last_remote'
     binary_name = "bench_delete_last_copy_remote"
     start_evname = "user_delete_call"
     end_evname = "user_delete_resp"
@@ -257,7 +257,7 @@ class DistopsBreakdownDeleteLastRemote(DistopsBreakdown):
 @tests.add_test
 class DistopsBreakdownRevokeNoRemote(DistopsBreakdown):
     '''Breakdown latency benchmark for revoking cap w/o remote relations'''
-    name = 'distops_breakdown_revoke_no_remote'
+    name = 'bench_distops_breakdown_revoke_no_remote'
     start_evname = "user_revoke_call"
     end_evname = "user_revoke_resp"
 
@@ -274,7 +274,7 @@ class DistopsBreakdownRevokeNoRemote(DistopsBreakdown):
 @tests.add_test
 class DistopsBreakdownRevokeRemoteCopy(DistopsBreakdown):
     '''Breakdown latency of revoking foreign copy of capability'''
-    name = 'distops_breakdown_revoke_remote_copy'
+    name = 'bench_distops_breakdown_revoke_remote_copy'
     binary_name = "bench_revoke_remote_copy"
     start_evname = "user_revoke_call"
     end_evname = "user_revoke_resp"
@@ -282,7 +282,7 @@ class DistopsBreakdownRevokeRemoteCopy(DistopsBreakdown):
 @tests.add_test
 class DistopsBreakdownRevokeWithRemoteCopies(DistopsBreakdown):
     '''Breakdown latency of revoking a capability with remote copies/descendants'''
-    name = 'distops_breakdown_revoke_with_remote_copies'
+    name = 'bench_distops_breakdown_revoke_with_remote_copies'
     binary_name = "bench_revoke_with_remote_copies"
     start_evname = "user_revoke_call"
     end_evname = "user_revoke_resp"
@@ -290,7 +290,7 @@ class DistopsBreakdownRevokeWithRemoteCopies(DistopsBreakdown):
 @tests.add_test
 class DistopsBreakdownRetypeNoRemote(DistopsBreakdown):
     '''Breakdown latency of retyping capability with no remote relations'''
-    name = 'distops_breakdown_retype_no_remote'
+    name = 'bench_distops_breakdown_retype_no_remote'
     binary_name = "bench_retype_no_remote"
     start_evname = "user_retype_call"
     end_evname = "user_retype_resp"
@@ -298,7 +298,7 @@ class DistopsBreakdownRetypeNoRemote(DistopsBreakdown):
 @tests.add_test
 class DistopsBreakdownRetypeWithLocalDescs(DistopsBreakdown):
     '''Breakdown latency of retyping capability with local descendants but no remote relations'''
-    name = 'distops_breakdown_retype_with_local_descs'
+    name = 'bench_distops_breakdown_retype_with_local_descs'
     binary_name = "bench_retype_w_local_descendants"
     start_evname = "user_retype_call"
     end_evname = "user_retype_resp"
@@ -306,7 +306,7 @@ class DistopsBreakdownRetypeWithLocalDescs(DistopsBreakdown):
 @tests.add_test
 class DistopsBreakdownRetypeWithRemoteCopies(DistopsBreakdown):
     '''Breakdown latency of retyping capability with remote copies'''
-    name = 'distops_breakdown_retype_with_remote_copies'
+    name = 'bench_distops_breakdown_retype_with_remote_copies'
     binary_name = "bench_retype_with_remote_copies"
     start_evname = "user_retype_call"
     end_evname = "user_retype_resp"
@@ -314,7 +314,7 @@ class DistopsBreakdownRetypeWithRemoteCopies(DistopsBreakdown):
 @tests.add_test
 class DistopsBreakdownDeleteCNodeLast(DistopsBreakdown):
     '''Breakdown latency of deleting last copy of cnode with 4 slots occupied'''
-    name = 'distops_breakdown_delete_cnode_last'
+    name = 'bench_distops_breakdown_delete_cnode_last'
     binary_name = "bench_delete_cnode_last_copy"
     start_evname = "user_delete_call"
     end_evname = "user_delete_resp"
