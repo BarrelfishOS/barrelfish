@@ -25,12 +25,15 @@
 
 #define DEFAULT_COMPARATOR 9000000
 
+/* Per HPET state */
 struct hpet_driver_state {
     hpet_t d;
     uint64_t int_start_range;
     uint64_t int_end_range;
     uint64_t msix_port; // int out range
+    uint8_t nTimers; 
 };
+
 
 int hpet_init(void);
 errval_t map_fsb_int(uint64_t from_port, uint32_t msg_addr, uint32_t msg_data,

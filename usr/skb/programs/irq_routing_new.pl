@@ -41,6 +41,10 @@
 %hpet_ioapic(Lbl,InPort,32-bit number ).
 :-dynamic(hpet_ioapic/3).
 
+% This fact links the hpet_comp controller labels with the hpet_comp facts
+%hpet_comp_id(Lbl,Uid,Idx).
+:-dynamic(hpet_comp_id/3).
+
 % Link the PCI controller label with an addr(...)
 :- dynamic(pci_lbl_addr/2).
 
@@ -341,7 +345,7 @@ int_dest_unique(OutPort, OutMsg) :-
     
 
 % Try to find a route (without installing the mapping) between InPort and OutPort and OutMsg
-   route(InPort, InMsg, OutPort, OutMsg, List) :-
+route(InPort, InMsg, OutPort, OutMsg, List) :-
    find_controller(InPort, CtrlLabel),
    mapf_valid(CtrlLabel, InPort, InMsg, NOutPort, NOutMsg),
    connection(NOutPort, X), 
@@ -612,23 +616,28 @@ add_msi_controller(Lbl, InSize, Type, addr(Bus, Device, Function)) :-
     get_unused_controller_label(Type, 0, Lbl),
     assert_controller(Lbl, Type, InRange, MSIOutRange).
 
-% add hpet controller %% 24 for i/o Apic and 1 for msi
-add_hpet_controller(Lbl , Ntimers):-
-    get_unused_range(Ntimers, HpetInRange), ! ,
-    get_unused_controller_label(hpet, 0, Lbl), ! ,
-    get_max_range(HpetInRange,EndInRange), 
+
+% adds hpet_comp controller. We instantiate for each comparatator a single
+% controller. It has one input port using nullMsg, then 25 output ports,
+% 24 going to the I/OAPIC and 1 to the MSI. The mapf_valid_class
+% queries the hpet_comp fact to determine which are useable
+add_hpet_comp_controller(Lbl, HpetUid, HpetIndex) :-
+    get_unused_range(1, HpetInRange), ! ,
+    get_unused_controller_label(hpet_comp, 0, Lbl), ! ,
+    get_max_range(HpetInRange, EndInRange), 
     StartOut is EndInRange+1 , 
     EndOut is EndInRange+25 , %% 24 for ioapic , 1 for msi 
     HpetOutRange=[StartOut .. EndOut] ,
-    assert_controller(Lbl, hpet, HpetInRange, HpetOutRange),
+    assert_controller(Lbl, hpet_comp, HpetInRange, HpetOutRange),
     controller(_, msireceiver, MsiInRange, _) ,
     get_min_range(MsiInRange,MsiIn),
     add_connection(StartOut , MsiIn), %%connect 1st outport to MSI   
     ioapic_gsi_base(IoApicLbl , 0) , 
     controller(IoApicLbl,_,IoApicInRange,_),
-    get_range_boundaries(IoApicInRange,MinApic , MaxApic),  
+    get_range_boundaries(IoApicInRange, MinApic, MaxApic),  
     StartOutNew is StartOut+1, %%connect the rest of outport to IoApic 
-    ( for(I,StartOutNew,EndOut) , for(L,MinApic,MaxApic) do add_connection(I,L) ). 
+    ( for(I,StartOutNew,EndOut) , for(L,MinApic,MaxApic) do add_connection(I,L) ), 
+    assert(hpet_comp_id(Lbl, HpetUid, HptIndex)).
 
 
 %printIoApicHpet 

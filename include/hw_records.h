@@ -46,16 +46,28 @@
                                       "type: _ }"
 
 #define HW_HPET_RECORD_FIELDS \
-"address: %" PRIu64 ", size: %" PRIu16 ", nTimers:%" PRIu8 
+"address: %" PRIu64 ", uid:%" PRIu64
 
 #define HW_HPET_RECORD_FIELDS_READ \
-"address: %d, size: %d, nTimers:%d" 
+"address:%d, uid:%d" 
 
 #define HW_HPET_RECORD_FORMAT \
 "hw.hpet.{" HW_HPET_RECORD_FIELDS " }"
 
 #define HW_HPET_RECORD_REGEX \
-"r'hw\\.hpet\\.[0-9]+' { address: _, size: _, nTimers: _}"
+"r'hw\\.hpet\\.[0-9]+' { address: _, uid: _}"
+
+#define HW_HPET_COMP_RECORD_FIELDS \
+"hpet_uid:%" PRIu64 ", index:%" PRIu64
+
+#define HW_HPET_COMP_RECORD_FIELDS_READ \
+"hpet_uid: %d, index:%d" 
+
+#define HW_HPET_COMP_RECORD_FORMAT \
+"hw.hpet_comp.{" HW_HPET_COMP_RECORD_FIELDS " }"
+
+#define HW_HPET_COMP_RECORD_REGEX \
+"r'hw\\.hpet_comp\\.[0-9]+' { hpet_uid: _, index: _}"
 
 
 #endif /* INCLUDE_HW_RECORDS_ARCH_H_ */

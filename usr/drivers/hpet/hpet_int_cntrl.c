@@ -12,10 +12,14 @@
 
 struct hpet_ctrl_state {
     int bound;
-
     hpet_t dev;                       // Mackerel state
     struct int_startup_argument *arg; // Contains name etc.
 };
+
+errval_t map_fsb_int(uint64_t from_port, uint32_t msg_addr, uint32_t msg_data,
+                     void *driver_state) {
+    assert(!"NYI");
+}
 
 static void add_mapping(struct int_route_controller_binding *b,
                         const char *label, const char *class,

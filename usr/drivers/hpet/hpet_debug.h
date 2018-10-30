@@ -14,10 +14,10 @@
  * Debug printer and its power-switch:
  *****************************************************************/
 
-#define HPET_SERVICE_DEBUG 1
+//#define HPET_DEBUG_ON 1
 
-#if defined(HPET_SERVICE_DEBUG) || defined(GLOBAL_DEBUG)
-#define HPET_DEBUG(x...) printf("hpet_driver: " x)
+#if defined(HPET_DEBUG_ON) || defined(GLOBAL_DEBUG)
+#define HPET_DEBUG(x...) debug_printf("hpet_driver: " x)
 #else
 #define HPET_DEBUG(x...) ((void)0)
 #endif

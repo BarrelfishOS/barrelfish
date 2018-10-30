@@ -36,9 +36,9 @@
 #define HPET_HID_STRING                 "PNP0103"
 #define METHOD_NAME__DIS                "_DIS"
 
-#define SKB_SCHEMA_HPET_TABLE_SIZE 1024
+// hpet(base address, nTimers) 
 #define SKB_SCHEMA_HPET \
-     "hpet(%" PRIu64 ", %" PRIu16 ", %" PRIu8 ")."
+     "hpet(%" PRIu64 ", %" PRIu8 ")."
 
 struct pci_resources {
     uint8_t minbus, maxbus;
@@ -55,42 +55,6 @@ struct memrange {
 // Hack: reserved memory regions (eg. PCIe config space mapping)
 static struct memrange reserved_memory[MAX_RESERVED_MEM_REGIONS];
 static int n_reserved_memory_regions;
-
-
-static void acpi_parse_hpet(void) {
-    ACPI_STATUS as;
-    ACPI_TABLE_HPET *hpet;
-    ACPI_TABLE_HEADER *ath;
-    errval_t err;
-    uint16_t hpet_register_size = 1024;
-    uint8_t nTimers;
-    as = AcpiGetTable("HPET", 1, (ACPI_TABLE_HEADER **)&ath);
-
-    if (ACPI_FAILURE(as)) {
-        debug_printf("No HPET table found in ACPI! \n");
-        return;
-    }
-
-    hpet = (ACPI_TABLE_HPET *)ath;
-    nTimers = hpet->Id >> 8;
-    nTimers = nTimers & 31;
-    debug_printf("Found HPET: Id=%x, Address=%lx, Min Tick=%u, nTimers=%u\n",
-                 hpet->Id >> 16, hpet->Address.Address, hpet->MinimumTick,
-                 nTimers);
-
-    err = skb_add_fact(SKB_SCHEMA_HPET, hpet->Address.Address,
-                       SKB_SCHEMA_HPET_TABLE_SIZE, nTimers);
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "Failed to insert into SKB: " SKB_SCHEMA_HPET,
-                  hpet->Address.Address, SKB_SCHEMA_HPET_TABLE_SIZE, nTimers);
-    }
-
-    oct_mset(SET_SEQUENTIAL, HW_HPET_RECORD_FORMAT, hpet->Address.Address,
-             hpet_register_size, nTimers);
-
-    ACPI_DEBUG("Succesfully parsed hpet table \n");
-    return;
-}
 
 
 static ACPI_STATUS pci_resource_walker(ACPI_RESOURCE *resource, void *context)
@@ -667,80 +631,89 @@ static ACPI_STATUS add_pci_device(ACPI_HANDLE handle, UINT32 level,
     return AE_OK;
 }
 
+struct hpet_data {
+    int uid;
+    uint8_t page;
+    uint8_t attr;
+    lpaddr_t base_address;
+};
+
+static ACPI_STATUS hpet_resource_walker(ACPI_RESOURCE *resource, void *context)
+{
+    struct hpet_data *ret = context;
+    ACPI_STATUS as;
+
+    ACPI_DEBUG("enter: hpet_resource walker");
+    ACPI_RESOURCE_ADDRESS64 addr64;
+    as = AcpiResourceToAddress64(resource, &addr64);
+    if(ACPI_SUCCESS(as)){
+        ret->base_address = addr64.Address.Minimum;
+        return as;
+    }
+
+    if(resource->Type == ACPI_RESOURCE_TYPE_FIXED_MEMORY32) {
+        ACPI_RESOURCE_FIXED_MEMORY32 * fm = &resource->Data.FixedMemory32;
+        ret->base_address = fm->Address;
+        return AE_OK;
+    }
+
+    if(resource->Type == ACPI_RESOURCE_TYPE_EXTENDED_IRQ) {
+        printf("(Unexpectedly) Found HPET Extended IRQs in ACPI!");
+        return AE_OK;
+    }
+
+    ACPI_DEBUG("unknown ressource type: %d\n", resource->Type);
+    return AE_OK;
+}
+
 static ACPI_STATUS add_hpet_device(ACPI_HANDLE handle, UINT32 level,
                                    void *context, void **retval)
 {
-    ACPI_DEBUG("add_hpet_device: Enter \n  ");
-
     ACPI_STATUS as = AE_OK;
-    return as;
-    /*
-    char namebuf[128];
-    ACPI_BUFFER bufobj = {.Length = sizeof(namebuf), .Pointer = namebuf};
+    ACPI_DEBUG("resource walk add_hpet_device: Enter\n");
 
-    // get the node's name
-    as = AcpiGetName(handle, ACPI_FULL_PATHNAME, &bufobj);
+    struct hpet_data data;
+
+    ACPI_INTEGER acint;
+    as = acpi_eval_integer(handle, "_UID", &acint);
+    if(ACPI_SUCCESS(as)){
+        data.uid = acint;
+    } else {
+        // _UID implementation is optional if only one hpet is available
+        ACPI_DEBUG("Could not evaluate _UID of HPET\n");
+        data.uid = 0;
+    }
+
+    as = acpi_eval_integer(handle, "PAGE", &acint);
+    if(ACPI_SUCCESS(as)){
+        data.page = acint;
+    } else {
+        ACPI_DEBUG("Could not evaluate PAGE of HPET\n");
+        data.page = 0;
+    }
+
+    as = acpi_eval_integer(handle, "ATTR", &acint);
+    if(ACPI_SUCCESS(as)){
+        data.attr = acint;
+    } else {
+        ACPI_DEBUG("Could not evaluate ATTR of HPET\n");
+        data.attr = 0;
+    }
+
+    as = AcpiWalkResources(handle, METHOD_NAME__CRS, hpet_resource_walker,
+                           &data);
     if (ACPI_FAILURE(as)) {
         return as;
     }
-    assert(bufobj.Pointer == namebuf);
 
-    ACPI_DEBUG("add_hpet_device: buffer after ACPIGetName %s \n", namebuf);
+    ACPI_DEBUG("hpet_data uid=%d, base_address=0x%" PRIx64
+             ", page=%d, attr=%d, \n",
+             data.uid, data.base_address, data.page, data.attr);
 
-    AcpiWalkResources(handle, METHOD_NAME__CRS, fixed_resource_walker, context);
+    skb_add_fact("hpet(%d, %" PRIu64 ", page=%d, attr=%d)",
+             data.uid, data.base_address, data.page, data.attr);
 
-    if (ACPI_FAILURE(as)) {
-        return as;
-    }
-
-    ACPI_DEBUG("add_hpet_device: Acpi walk resources didn't fail \n  ");
-
-    uint8_t data[2 * sizeof(ACPI_RESOURCE) + 1];
-    ACPI_BUFFER buf = {.Length = sizeof(data), .Pointer = &data};
-
-    as = AcpiGetCurrentResources(handle, &buf);
-    if (ACPI_FAILURE(as)) {
-        debug_printf("  failed getting _CRS: %s\n", AcpiFormatException(as));
-        return -1;
-    }
-
-    assert(buf.Pointer == data);
-    ACPI_RESOURCE *res = buf.Pointer;
-    ACPI_DEBUG("add_hpet_device: ACPI Resource Type is %d \n", res->Type);
-
-    for (res = buf.Pointer; (void *)res < buf.Pointer + buf.Length;
-         res = (ACPI_RESOURCE *)(((char *)res) + res->Length)) {
-        if (res->Type == ACPI_RESOURCE_TYPE_END_TAG) {
-            break;
-        }
-
-        switch (res->Type) {
-        case ACPI_RESOURCE_TYPE_FIXED_MEMORY32: {
-            ACPI_RESOURCE_FIXED_MEMORY32 *acpires = &res->Data.FixedMemory32;
-            ACPI_DEBUG("Resource Memory: write protect %u , address %x, "
-                       "address length %d \n",
-                       acpires->WriteProtect, acpires->Address,
-                       acpires->AddressLength);
-            break;
-        }
-
-        case ACPI_RESOURCE_TYPE_EXTENDED_IRQ: {
-            ACPI_RESOURCE_EXTENDED_IRQ *irqres = &res->Data.ExtendedIrq;
-            ACPI_DEBUG("Extended IRQs:");
-            for (int i = 0; i < irqres->InterruptCount; i++) {
-                printf(" %d", irqres->Interrupts[i]);
-            }
-            printf("\n");
-            break;
-        }
-
-        default:
-            ACPI_DEBUG("Inside Loop: Unknown resource type: %" PRIu32 "\n",
-                       res->Type);
-            // USER_PANIC("NYI");
-            break;
-        }
-    } */
+    oct_mset(SET_SEQUENTIAL, HW_HPET_RECORD_FORMAT, data.base_address, data.uid);
 
     return AE_OK;
 }
@@ -1089,7 +1062,6 @@ int init_acpi(void)
 
     /* Find HPETs */
     ACPI_DEBUG("Scanning for HPET");
-    acpi_parse_hpet();
     as = AcpiGetDevices(HPET_HID_STRING, add_hpet_device, NULL, NULL);
     if (ACPI_FAILURE(as) && as != AE_NOT_FOUND) {
         printf("WARNING: AcpiGetDevices (hpet) failed with error %"PRIu32"\n", as);
