@@ -213,7 +213,7 @@ in
       arch_include _          =  ""
 
       -- sources specific to the pmap implementation
-      pmap_unified_srcs = [ "pmap_slab_mgmt.c" ]
+      pmap_unified_srcs = [ "pmap_slab_mgmt.c", "pmap_serialise.c" ]
       pmap_srcs "x86_64"  Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
       pmap_srcs "x86_64"  Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
       pmap_srcs "k1om"    Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
