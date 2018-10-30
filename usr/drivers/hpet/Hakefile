@@ -20,6 +20,12 @@
         architectures = [ "x86_64" ]
     },
 
+    build library {
+        target = "hpet_comp_module",
+        cFiles = ["hpet_comp.c" ],
+        architectures = [ "x86_64" ]
+    },
+
     -- Builds a driver domain: Use addModules instead of addLibraries to
     -- link with driver modules.
     -- The custom linker script is used to add the section where the modules
@@ -30,7 +36,7 @@
         cFiles = [ "main.c"],
         addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
         addLibraries = libDeps["driverkit" , "int_route_client" ,"int_msix_ctrl" ],
-        addModules = ["hpet_module"],
+        addModules = ["hpet_module", "hpet_comp_module"],
         mackerelDevices = [ "hpet"],
         architectures = ["x86_64"]
     }

@@ -12,28 +12,21 @@
  * ETH Zurich D-INFK, Universitaetstr. 6, CH-8092 Zurich. Attn: Systems Group.
  */
 
+#define KALUGA_DEBUG_ON 1
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <barrelfish/barrelfish.h>
-
 #include <skb/skb.h>
-
 #include <if/octopus_defs.h>
-
-#include <octopus/getset.h>
 #include <octopus/trigger.h>
-
-#include <arch/arm/omap44xx/device_registers.h>
-#include <maps/omap44xx_map.h>
-
-#include "kaluga.h"
 #include <acpi_client/acpi_client.h>
-#include <barrelfish/nameservice_client.h>
-#include <bitmacros.h>
 #include <hw_records.h>
 #include <if/acpi_defs.h>
+
+#include "kaluga.h"
 
 #define DRIVER_CORE 0
 #define HPET_INT_CAP 1 // should change it  to refer to the one in hpet.h
@@ -197,13 +190,6 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
 
         // create driver domain
         inst = instantiate_driver_domain(driver->binary, where);
-
-        if (inst == NULL) {
-            err = DRIVERKIT_ERR_DRIVER_INIT;
-            KALUGA_DEBUG("Unable to instantiate the driver \n");
-            goto out;
-        }
-
         driver->driverinstance = inst;
 
         while (inst->b == NULL) {
@@ -253,37 +239,39 @@ static errval_t hpet_comp_get_irq_index(const char *record, char *ctrl_label,
     return SYS_ERR_OK;
 }
 
+static errval_t start_hpet_comp_driver(const char *device_record){
+    errval_t err;
+    struct module_info *mi = find_module("hpet");
+    assert(mi != NULL);
+    assert(mi->driverinstance != NULL);
+
+    struct driver_instance *drv = NULL;
+    drv = ddomain_create_driver_instance("hpet_comp_module", "key");
+    drv->args[0] = malloc(128);
+    assert(drv->args[0] != NULL);
+
+    uint64_t irq_idx;
+    err = hpet_comp_get_irq_index(device_record, drv->args[0], &irq_idx);
+    if(err_is_fail(err)){
+        return err;
+    }
+    
+    KALUGA_DEBUG("for hpet_comp, got label=%s, and idx=%ld\n",
+            drv->args[0], irq_idx);
+
+    KALUGA_DEBUG("start_hpet_comp_driver: Instantiating driver \n ");
+    ddomain_instantiate_driver(mi->driverinstance, drv);
+
+    return SYS_ERR_OK;
+}
+
 static void hpet_comp_change_event(oct_mode_t mode, const char *device_record, void *st) {
     if ((mode & OCT_ON_SET) > 0) {
         KALUGA_DEBUG("HPET_comp change event: start \n ");
-        errval_t err;
-
-        struct module_info *mi = find_module("hpet");
-        if (mi == NULL) {
-            printf("hpet driver not found or not declared as auto.");
-            return;
-        }
-
-        char ctrl_label[128];
-        uint64_t irq_idx;
-        err = hpet_comp_get_irq_index(device_record, ctrl_label, &irq_idx);
+        errval_t err = start_hpet_comp_driver(device_record);
         if(err_is_fail(err)){
             DEBUG_ERR(err,"");
-            return;
         }
-        
-        KALUGA_DEBUG("for hpet_comp, got label=%s, and idx=%ld\n",
-                ctrl_label, irq_idx);
-
-        assert(mi->driverinstance != NULL);
-        struct driver_argument *arg;
-        arg = malloc(sizeof(struct driver_argument));
-        err = cnode_create_l2(&arg->arg_caps, &arg->argnode_ref);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Could not cnode_create_l2");
-        }
-
-        //err = start_hpet_driver(0, mi, (CONST_CAST)device_record, arg);
     }
 }
 
