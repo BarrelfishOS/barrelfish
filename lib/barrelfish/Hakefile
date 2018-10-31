@@ -117,8 +117,10 @@ in
       pmap_srcs "arm"     _            = [ ] -- armv7 uses its own pmap_ds implementation
       pmap_srcs _         _            = [ ]
 
-      pmap_includes "x86_64" Config.LL    = [ "include" </> "pmap_ll" ]
-      pmap_includes "x86_64" Config.ARRAY = [ "include" </> "pmap_array" ]
+      pmap_includes "x86_64"  Config.LL    = [ "include" </> "pmap_ll" ]
+      pmap_includes "x86_64"  Config.ARRAY = [ "include" </> "pmap_array" ]
+      pmap_includes "k1om"    Config.LL    = [ "include" </> "pmap_ll" ]
+      pmap_includes "k1om"    Config.ARRAY = [ "include" </> "pmap_array" ]
       pmap_includes "aarch64" Config.LL    = [ "include" </> "pmap_ll" ]
       pmap_includes "aarch64" Config.ARRAY = [ "include" </> "pmap_array" ]
       -- don't add a pmap include dir for archs that don't support
@@ -223,8 +225,10 @@ in
       pmap_srcs "arm"     _            = [ ] -- armv7 uses its own pmap_ds implementation
       pmap_srcs _         _            = [ ]
 
-      pmap_includes "x86_64" Config.LL    = [ "include" </> "pmap_ll" ]
-      pmap_includes "x86_64" Config.ARRAY = [ "include" </> "pmap_array" ]
+      pmap_includes "x86_64"  Config.LL    = [ "include" </> "pmap_ll" ]
+      pmap_includes "x86_64"  Config.ARRAY = [ "include" </> "pmap_array" ]
+      pmap_includes "k1om"    Config.LL    = [ "include" </> "pmap_ll" ]
+      pmap_includes "k1om"    Config.ARRAY = [ "include" </> "pmap_array" ]
       pmap_includes "aarch64" Config.LL    = [ "include" </> "pmap_ll" ]
       pmap_includes "aarch64" Config.ARRAY = [ "include" </> "pmap_array" ]
       -- don't add a pmap include dir for archs that don't support
