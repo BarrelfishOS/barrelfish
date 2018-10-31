@@ -386,7 +386,7 @@ errval_t rsrc_set_phase_inter(rsrcid_t id, uintptr_t phase, uint64_t timestamp)
     }
 
     // Coordinator: Change the phase globally
-    for(int i = 0; i <= MAX_COREID; i++) {
+    for(int i = 0; i < MAX_CPUS; i++) {
         if(d->joined[i]) {
             struct intermon_binding *b = NULL;
             errval_t err = intermon_binding_get(i, &b);
