@@ -25,6 +25,14 @@
 struct vnode *pmap_find_vnode(struct vnode *root, uint16_t entry)
 {
     assert(root != NULL);
+    if (!root->v.is_vnode) {
+        debug_printf(">>>> %s: called from %p %p %p %p\n", __FUNCTION__,
+                __builtin_return_address(0),
+                __builtin_return_address(1),
+                __builtin_return_address(2),
+                __builtin_return_address(3));
+        return NULL;
+    }
     assert(root->v.is_vnode);
     assert(entry < PTABLE_ENTRIES);
     struct vnode *n;
@@ -88,21 +96,14 @@ void pmap_remove_vnode(struct vnode *root, struct vnode *item)
     USER_PANIC("Should not get here");
 }
 
-struct pmap_vnode_mgmt mymgmt = { 0 };
-static uint8_t slab_buffer[INIT_SLAB_BUFFER_SIZE];
 errval_t pmap_vnode_mgmt_init(struct pmap *pmap)
 {
-    struct pmap_vnode_mgmt *m = NULL;
+    struct pmap_vnode_mgmt *m = &pmap->m;
     if (get_current_pmap() == pmap) {
-        m = &mymgmt;
         slab_init(&m->slab, sizeof(struct vnode), NULL);
         /* use static buffer for own pmap */
-        slab_grow(&m->slab, slab_buffer, INIT_SLAB_BUFFER_SIZE);
+        slab_grow(&m->slab, m->slab_buffer, INIT_SLAB_BUFFER_SIZE);
     } else {
-        m = calloc(1, sizeof(*m));
-        if (!m) {
-            return LIB_ERR_MALLOC_FAIL;
-        }
         /* malloc initial buffer for other pmaps */
         uint8_t *buf = malloc(INIT_SLAB_BUFFER_SIZE);
         if (!buf) {
@@ -111,8 +112,6 @@ errval_t pmap_vnode_mgmt_init(struct pmap *pmap)
         slab_init(&m->slab, sizeof(struct vnode), NULL);
         slab_grow(&m->slab, buf, INIT_SLAB_BUFFER_SIZE);
     }
-
-    pmap->m = m;
 
     return SYS_ERR_OK;
 }
@@ -131,10 +130,10 @@ void pmap_vnode_insert_child(struct vnode *root, struct vnode *newvnode)
 
 void pmap_vnode_free(struct pmap *pmap, struct vnode *n)
 {
-    slab_free(&pmap->m->slab, n);
+    slab_free(&pmap->m.slab, n);
 }
 
 errval_t pmap_refill_slabs(struct pmap *pmap, size_t max_slabs)
 {
-    return pmap_slab_refill(pmap, &pmap->m->slab, max_slabs);
+    return pmap_slab_refill(pmap, &pmap->m.slab, max_slabs);
 }

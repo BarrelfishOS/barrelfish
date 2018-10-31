@@ -127,7 +127,7 @@ static errval_t alloc_vnode(struct pmap_aarch64 *pmap_aarch64, struct vnode *roo
     }
     assert(retvnode);
 
-    struct vnode *newvnode = slab_alloc(&pmap_aarch64->p.m->slab);
+    struct vnode *newvnode = slab_alloc(&pmap_aarch64->p.m.slab);
     if (newvnode == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
@@ -282,7 +282,7 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     bool has_page = has_vnode(ptable, idx, pte_count);
     assert(!has_page);
 
-    struct vnode *page = slab_alloc(&pmap->p.m->slab);
+    struct vnode *page = slab_alloc(&pmap->p.m.slab);
     assert(page);
 
     page->v.is_vnode = false;
@@ -469,7 +469,7 @@ static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
                 return err_push(err, LIB_ERR_CAP_DELETE);
             }
             pmap_remove_vnode(pt, page);
-            slab_free(&pmap->p.m->slab, page);
+            slab_free(&pmap->p.m.slab, page);
         }
         else {
             return LIB_ERR_PMAP_FIND_VNODE;

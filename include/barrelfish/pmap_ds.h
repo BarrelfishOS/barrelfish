@@ -15,6 +15,15 @@
 #ifndef BARRELFISH_PMAP_DS_H
 #define BARRELFISH_PMAP_DS_H
 
+#include <barrelfish_kpi/paging_arch.h> // for PTABLE_ENTRIES
+
+// amount of slabs which are provided in core_data struct for own pmap
+#define INIT_SLAB_COUNT 32
+
+// 128 bytes is a rough estimate of sizeof(struct vnode)
+#define VNODE_SLAB_SIZE 256
+#define INIT_SLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, VNODE_SLAB_SIZE)
+
 #if defined(PMAP_LL)
 
 typedef struct vnode pmap_ds_child_t;
@@ -27,9 +36,13 @@ struct pmap_vnode_mgmt {
     struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries
     struct vregion vregion;         ///< Vregion used to reserve virtual address for metadata
     genvaddr_t vregion_offset;      ///< Offset into amount of reserved virtual address used
+    uint8_t slab_buffer[INIT_SLAB_BUFFER_SIZE];
 };
 
 #elif defined(PMAP_ARRAY)
+
+#define PTSLAB_SLABSIZE (sizeof(void *)*PTABLE_ENTRIES)
+#define INIT_PTSLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, PTSLAB_SLABSIZE)
 
 typedef struct vnode* pmap_ds_child_t;
 
@@ -42,6 +55,8 @@ struct pmap_vnode_mgmt {
     struct slab_allocator ptslab;   ///< Slab allocator for the page table children arrays
     struct vregion vregion;         ///< Vregion used to reserve virtual address for metadata
     genvaddr_t vregion_offset;      ///< Offset into amount of reserved virtual address used
+    uint8_t slab_buffer[INIT_SLAB_BUFFER_SIZE];
+    uint8_t ptslab_buffer[INIT_PTSLAB_BUFFER_SIZE];
 };
 
 #else

@@ -44,6 +44,8 @@ struct vnode { // NB: misnomer :)
     } u;
 };
 
+STATIC_ASSERT(sizeof(struct vnode) <= VNODE_SLAB_SIZE, "vnode slab size estimate big enough");
+
 struct pmap_x86 {
     struct pmap p;
     struct vnode root;          ///< Root of the vnode tree

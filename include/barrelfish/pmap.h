@@ -17,7 +17,6 @@
 
 #include <barrelfish/pmap_ds.h>
 
-struct pmap_vnode_mgmt;
 struct pmap_dump_info;
 struct pmap;
 struct pmap_mapping_info;
@@ -53,7 +52,7 @@ struct pmap {
     struct pmap_funcs f;
     struct vspace *vspace;             ///< The vspace this pmap is associated with
     struct slot_allocator *slot_alloc; ///< (Optional) slot allocator for vnodes
-    struct pmap_vnode_mgmt *m;         ///< slab allocator(s) for vnodes
+    struct pmap_vnode_mgmt m;          ///< slab allocator(s) for vnodes
 };
 
 struct pmap_mapping_info {
@@ -111,9 +110,6 @@ errval_t pmap_deserialise(struct pmap *pmap, void *buf, size_t buflen);
 /*
  * API for walking pmap -- implementation independent
  */
-
-// amount of slabs which are provided in .data for own pmap
-#define INIT_SLAB_COUNT 32
 
 /**
  * \brief Pmap traversal: return the vnode with entry equal to #entry in vnode `root`.

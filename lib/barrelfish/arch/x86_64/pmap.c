@@ -315,7 +315,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     }
 
     // setup userspace mapping
-    struct vnode *page = slab_alloc(&pmap->p.m->slab);
+    struct vnode *page = slab_alloc(&pmap->p.m.slab);
     assert(page);
     page->v.is_vnode = false;
     page->is_cloned = false;
@@ -697,7 +697,7 @@ static errval_t do_single_unmap(struct pmap_x86 *pmap, genvaddr_t vaddr,
         pmap->used_cap_slots --;
         // Free up the resources
         pmap_remove_vnode(info.page_table, info.page);
-        slab_free(&pmap->p.m->slab, info.page);
+        slab_free(&pmap->p.m.slab, info.page);
     }
 
     return SYS_ERR_OK;
@@ -1145,11 +1145,11 @@ static errval_t create_pts_pinned(struct pmap *pmap, genvaddr_t vaddr, size_t by
         }
 
         /* map the page-table read only for access to status bits */
-        genvaddr_t genvaddr = pmap->m->vregion_offset;
-        pmap->m->vregion_offset += (genvaddr_t)4096;
+        genvaddr_t genvaddr = pmap->m.vregion_offset;
+        pmap->m.vregion_offset += (genvaddr_t)4096;
 
-        assert(pmap->m->vregion_offset < vregion_get_base_addr(&pmap->m->vregion) +
-               vregion_get_size(&pmap->m->vregion));
+        assert(pmap->m.vregion_offset < vregion_get_base_addr(&pmap->m.vregion) +
+               vregion_get_size(&pmap->m.vregion));
 
         /* copy the page-table capability */
         /* XXX: this should be somewhere in struct vnode */
@@ -1402,7 +1402,7 @@ errval_t pmap_x86_64_current_init(bool init_domain)
 
     // We don't know the vnode layout for the first part of our address space
     // (which was setup by the kernel), so we avoid mapping there until told it.
-    x86->min_mappable_va = get_current_pmap()->m->vregion.base;
+    x86->min_mappable_va = x86->p.m.vregion.base;
 
     return SYS_ERR_OK;
 }

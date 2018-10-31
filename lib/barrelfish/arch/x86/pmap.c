@@ -103,7 +103,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
 {
     errval_t err;
 
-    struct vnode *newvnode = slab_alloc(&pmap->p.m->slab);
+    struct vnode *newvnode = slab_alloc(&pmap->p.m.slab);
     if (newvnode == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
@@ -327,12 +327,12 @@ errval_t pmap_x86_measure_res(struct pmap *pmap, struct pmap_res_info *buf)
     size_t free_slabs = 0;
     size_t used_slabs = 0;
     // Count allocated and free slabs in bytes; this accounts for all vnodes
-    for (struct slab_head *sh = pmap->m->slab.slabs; sh != NULL; sh = sh->next) {
+    for (struct slab_head *sh = pmap->m.slab.slabs; sh != NULL; sh = sh->next) {
         free_slabs += sh->free;
         used_slabs += sh->total - sh->free;
     }
-    buf->vnode_used = used_slabs * pmap->m->slab.blocksize;
-    buf->vnode_free = free_slabs * pmap->m->slab.blocksize;
+    buf->vnode_used = used_slabs * pmap->m.slab.blocksize;
+    buf->vnode_free = free_slabs * pmap->m.slab.blocksize;
 
     // Report capability slots in use by pmap
     buf->slots_used = x86->used_cap_slots;

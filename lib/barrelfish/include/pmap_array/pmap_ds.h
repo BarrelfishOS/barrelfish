@@ -16,9 +16,9 @@
 #ifndef LIBBF_INCLUDE_PMAP_DS_H
 #define LIBBF_INCLUDE_PMAP_DS_H
 
-#define INIT_SLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, sizeof(struct vnode))
-#define PTSLAB_SLABSIZE (sizeof(struct vnode *)*PTABLE_ENTRIES)
-#define INIT_PTSLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, PTSLAB_SLABSIZE)
+//#define INIT_SLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, sizeof(struct vnode))
+//#define PTSLAB_SLABSIZE (sizeof(struct vnode *)*PTABLE_ENTRIES)
+//#define INIT_PTSLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, PTSLAB_SLABSIZE)
 
 /**
  * \brief find next non-null child starting from index i in children array of

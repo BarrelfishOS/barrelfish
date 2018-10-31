@@ -147,7 +147,7 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
         }
 
         // allocate storage for the new vnode
-        struct vnode *n = slab_alloc(&pmap->m->slab);
+        struct vnode *n = slab_alloc(&pmap->m.slab);
         assert(n != NULL);
 
         // populate it and append to parent's list of children

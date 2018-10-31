@@ -42,7 +42,7 @@ static errval_t refill_slabs_fixed_allocator(struct pmap *pmap,
 {
     size_t pages = DIVIDE_ROUND_UP(bytes, BASE_PAGE_SIZE);
 
-    struct pmap_vnode_mgmt *m = pmap->m;
+    struct pmap_vnode_mgmt *m = &pmap->m;
 
     genvaddr_t vbase = m->vregion_offset;
 
@@ -97,7 +97,7 @@ static errval_t refill_slabs(struct pmap *pmap, struct slab_allocator *slab, siz
 {
     errval_t err;
 
-    struct pmap_vnode_mgmt *m = pmap->m;
+    struct pmap_vnode_mgmt *m = &pmap->m;
 
     /* Keep looping till we have #request slabs */
     while (slab_freecount(slab) < request) {
@@ -206,7 +206,7 @@ errval_t pmap_vnode_mgmt_current_init(struct pmap *pmap)
     // To reserve a block of virtual address space,
     // a vregion representing the address space is required.
     // We construct a superficial one here and add it to the vregion list.
-    struct vregion *vregion = &pmap->m->vregion;
+    struct vregion *vregion = &pmap->m.vregion;
     vregion->vspace = NULL;
     vregion->memobj = NULL;
     vregion->base   = META_DATA_RESERVED_BASE;
@@ -219,7 +219,7 @@ errval_t pmap_vnode_mgmt_current_init(struct pmap *pmap)
     assert(!vspace->head);
     vspace->head = vregion;
 
-    pmap->m->vregion_offset = pmap->m->vregion.base;
+    pmap->m.vregion_offset = pmap->m.vregion.base;
 
     return SYS_ERR_OK;
 }

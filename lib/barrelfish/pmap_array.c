@@ -66,32 +66,19 @@ void pmap_remove_vnode(struct vnode *root, struct vnode *item)
     }
 }
 
-struct pmap_vnode_mgmt mymgmt;
-uint8_t slab_buffer[INIT_SLAB_BUFFER_SIZE];
-uint8_t pt_slab_buffer[INIT_PTSLAB_BUFFER_SIZE];
-
 errval_t pmap_vnode_mgmt_init(struct pmap *pmap)
 {
-    struct pmap_vnode_mgmt *m = NULL;
+    struct pmap_vnode_mgmt *m = &pmap->m;
     /* special case init of own pmap vnode mgmt */
     if (get_current_pmap() == pmap) {
-        /* x86 specific portion */
-        slab_init(&mymgmt.slab, sizeof(struct vnode), NULL);
-        slab_grow(&mymgmt.slab, slab_buffer, INIT_SLAB_BUFFER_SIZE);
+        /* use core state buffers */
+        slab_init(&m->slab, sizeof(struct vnode), NULL);
+        slab_grow(&m->slab, m->slab_buffer, INIT_SLAB_BUFFER_SIZE);
 
         /* Initialize slab allocator for child arrays */
-        slab_init(&mymgmt.ptslab, PTSLAB_SLABSIZE, NULL);
-        slab_grow(&mymgmt.ptslab, pt_slab_buffer, INIT_PTSLAB_BUFFER_SIZE);
-
-        /* use static vnode_mgmt struct */
-        m = &mymgmt;
+        slab_init(&m->ptslab, PTSLAB_SLABSIZE, NULL);
+        slab_grow(&m->ptslab, m->ptslab_buffer, INIT_PTSLAB_BUFFER_SIZE);
     } else {
-        /* allocate vnode_mgmt struct */
-        m = calloc(1, sizeof(*m));
-        if (!m) {
-            return LIB_ERR_MALLOC_FAIL;
-        }
-
         /*initialize slab allocator for vnodes */
         slab_init(&m->slab, sizeof(struct vnode), NULL);
         uint8_t *buf = malloc(INIT_SLAB_BUFFER_SIZE);
@@ -109,15 +96,12 @@ errval_t pmap_vnode_mgmt_init(struct pmap *pmap)
         slab_grow(&m->ptslab, buf, INIT_PTSLAB_BUFFER_SIZE);
     }
 
-    /* assign vnode_mgmt to pmap */
-    pmap->m = m;
-
     return SYS_ERR_OK;
 }
 
 void pmap_vnode_init(struct pmap *p, struct vnode *v)
 {
-    v->v.u.vnode.children = slab_alloc(&p->m->ptslab);
+    v->v.u.vnode.children = slab_alloc(&p->m.ptslab);
     assert(v->v.u.vnode.children);
     memset(v->v.u.vnode.children, 0, PTSLAB_SLABSIZE);
 }
@@ -134,18 +118,18 @@ void pmap_vnode_insert_child(struct vnode *root, struct vnode *newvnode)
 
 void pmap_vnode_free(struct pmap *pmap, struct vnode *n)
 {
-    slab_free(&pmap->m->ptslab, n->v.u.vnode.children);
-    slab_free(&pmap->m->slab, n);
+    slab_free(&pmap->m.ptslab, n->v.u.vnode.children);
+    slab_free(&pmap->m.slab, n);
 }
 
 errval_t pmap_refill_slabs(struct pmap *pmap, size_t max_slabs)
 {
     errval_t err;
-    err = pmap_slab_refill(pmap, &pmap->m->slab, max_slabs);
+    err = pmap_slab_refill(pmap, &pmap->m.slab, max_slabs);
     if (err_is_fail(err)) {
         return err;
     }
-    err = pmap_slab_refill(pmap, &pmap->m->ptslab, max_slabs);
+    err = pmap_slab_refill(pmap, &pmap->m.ptslab, max_slabs);
     if (err_is_fail(err)) {
         return err;
     }

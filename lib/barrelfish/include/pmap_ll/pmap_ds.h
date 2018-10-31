@@ -25,14 +25,4 @@
 #define pmap_foreach_child(root, iter) \
     for (iter = (root)->v.u.vnode.children; iter; iter = iter->v.meta.next)
 
-#define INIT_SLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, sizeof(struct vnode))
-
-/* currently defined in include/barrelfish/pmap_ds.h
-struct pmap_vnode_mgmt {
-    struct slab_allocator slab;     ///< Slab allocator for the shadow page table entries
-    struct vregion vregion;         ///< Vregion used to reserve virtual address for metadata
-    genvaddr_t vregion_offset;      ///< Offset into amount of reserved virtual address used
-};
-*/
-
 #endif // LIBBF_INCLUDE_PMAP_DS_H
