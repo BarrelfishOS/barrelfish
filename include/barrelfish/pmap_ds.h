@@ -24,7 +24,7 @@
 #define VNODE_SLAB_SIZE 256
 #define INIT_SLAB_BUFFER_SIZE SLAB_STATIC_SIZE(INIT_SLAB_COUNT, VNODE_SLAB_SIZE)
 
-#if defined(PMAP_LL)
+#if defined(PMAP_LL) || defined (__ARM_ARCH_7A__)
 
 typedef struct vnode pmap_ds_child_t;
 
