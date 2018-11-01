@@ -139,6 +139,13 @@ invoke_monitor_clear_step(capaddr_t retcn, int retcnlevel, cslot_t retslot)
                        retcn, retcnlevel, retslot).error;
 }
 
+static inline errval_t
+invoke_monitor_reclaim_ram(capaddr_t retcn, int retcnlevel, cslot_t retslot)
+{
+    return cap_invoke4(cap_kernel, KernelCmd_ReclaimRAM,
+                       retcn, retcnlevel, retslot).error;
+}
+
 //{{{1 Register EP
 static inline errval_t
 invoke_monitor_register(struct capref ep)
@@ -264,5 +271,6 @@ errval_t monitor_revoke_mark_target(struct capref croot,
 errval_t monitor_revoke_mark_relations(struct capability *cap);
 errval_t monitor_delete_step(struct capref ret_cap);
 errval_t monitor_clear_step(struct capref ret_cap);
+errval_t monitor_reclaim_ram(struct capref ret_cap);
 
 #endif

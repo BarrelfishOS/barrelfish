@@ -20,6 +20,8 @@
 #include <barrelfish/spawn_client.h>
 #include <trace/trace.h>
 
+#include "capops.h" // for delete_steps_init() and reclaim_ram_init()
+
 #ifdef __k1om__
 extern char **environ;
 #endif
@@ -163,7 +165,6 @@ static errval_t boot_bsp_core(int argc, char *argv[])
 
     // initialize delete stepping, because we might get delete requests that
     // need steps before any intermon bindings are up.
-    void delete_steps_init(struct waitset *ws);
     delete_steps_init(get_default_waitset());
 
     return SYS_ERR_OK;
@@ -408,6 +409,11 @@ tracing_not_available:
     struct deferred_event ev;
     mon_heartbeat(&ev);
 #endif
+
+    err = reclaim_ram_init();
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "unable to start RAM reclaiming sweep timer, expect RAM to be dropped!");
+    }
 
     for(;;) {
         err = event_dispatch(get_default_waitset());

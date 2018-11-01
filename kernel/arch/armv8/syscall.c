@@ -723,6 +723,16 @@ INVOCATION_HANDLER(monitor_get_platform)
     return SYSRET(SYS_ERR_OK);
 }
 
+INVOCATION_HANDLER(monitor_reclaim_ram)
+{
+    INVOCATION_PRELUDE(5);
+    capaddr_t ret_cn_addr  = sa->arg2;
+    capaddr_t ret_cn_level = sa->arg3;
+    capaddr_t ret_slot     = sa->arg4;
+
+    return sys_monitor_reclaim_ram(ret_cn_addr, ret_cn_level, ret_slot);
+}
+
 /**
  * \brief Spawn a new core and create a kernel cap for it.
  */
@@ -1098,6 +1108,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Spawn_core]        = monitor_spawn_core,
         [KernelCmd_Unlock_cap]        = monitor_unlock_cap,
         [KernelCmd_Get_platform]        = monitor_get_platform,
+        [KernelCmd_ReclaimRAM]        = monitor_reclaim_ram,
     },
     [ObjType_IPI] = {
         [IPICmd_Send_Start]  = monitor_spawn_core,

@@ -47,7 +47,14 @@ void capops_retype(enum objtype type, size_t objsize, size_t count, struct capre
                    struct capref src_root, capaddr_t src, uint8_t src_level,
                    gensize_t offset, retype_result_handler_t result_handler, void *st);
 
+
+/* capops subsystem init */
+errval_t reclaim_ram_init(void);
+void delete_steps_init(struct waitset *ws);
+
+/* capops init */
 struct intermon_binding;
 errval_t capops_init(struct waitset *ws, struct intermon_binding *b);
+
 
 #endif

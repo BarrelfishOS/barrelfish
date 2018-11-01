@@ -15,7 +15,6 @@
 #include <barrelfish/event_queue.h>
 
 struct waitset *delete_steps_get_waitset(void);
-void delete_steps_init(struct waitset *ws);
 void delete_steps_trigger(void);
 void delete_steps_pause(void);
 void delete_steps_resume(void);

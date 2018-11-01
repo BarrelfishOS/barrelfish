@@ -279,3 +279,10 @@ errval_t monitor_clear_step(struct capref ret_cap)
                                      get_cnode_level(ret_cap),
                                      ret_cap.slot);
 }
+
+errval_t monitor_reclaim_ram(struct capref ret_cap)
+{
+    return invoke_monitor_reclaim_ram(get_cnode_addr(ret_cap),
+                                      get_cnode_level(ret_cap),
+                                      ret_cap.slot);
+}

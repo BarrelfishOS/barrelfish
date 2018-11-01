@@ -68,6 +68,10 @@ struct kcb {
 
     uint8_t irq_in_use[NDISPATCH / 8]; // Bitmap of handed out caps.
     struct cte irq_dispatch[NDISPATCH];
+    // 4 capabilitites for storing ram caps that we would drop, can be
+    // recovered by monitor doing KernelCmd_ClaimRAM.
+    uint8_t pending_ram_in_use;
+    struct RAM pending_ram[4];
     // TODO: maybe add a shared part which can replace struct core_data?
 };
 

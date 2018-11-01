@@ -505,3 +505,18 @@ struct sysret sys_monitor_clear_step(capaddr_t ret_cn_addr,
 
     return SYSRET(caps_clear_step(retslot));
 }
+
+struct sysret sys_monitor_reclaim_ram(capaddr_t retcn_addr,
+                                      uint8_t retcn_level,
+                                      cslot_t ret_slot)
+{
+    errval_t err;
+
+    struct cte *retslot;
+    err = sys_retslot_lookup(retcn_addr, retcn_level, ret_slot, &retslot);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+    return SYSRET(caps_reclaim_ram(retslot));
+}

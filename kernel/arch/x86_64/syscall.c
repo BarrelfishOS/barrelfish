@@ -718,6 +718,15 @@ static struct sysret monitor_get_platform(struct capability *kern_cap,
     return SYSRET(SYS_ERR_OK);
 }
 
+static struct sysret monitor_reclaim_ram(struct capability *kern_cap,
+                                         int cmd, uintptr_t *args)
+{
+    capaddr_t retcn_addr  = (capaddr_t)args[0];
+    uint8_t   retcn_level = (uint8_t)  args[1];
+    cslot_t   ret_slot    = (cslot_t)  args[2];
+    return sys_monitor_reclaim_ram(retcn_addr, retcn_level, ret_slot);
+}
+
 static struct sysret handle_frame_identify(struct capability *to,
                                            int cmd, uintptr_t *args)
 {
@@ -1653,6 +1662,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Remove_kcb]   = kernel_remove_kcb,
         [KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched,
         [KernelCmd_Get_platform] = monitor_get_platform,
+        [KernelCmd_ReclaimRAM] = monitor_reclaim_ram,
     },
     [ObjType_IPI] = {
         [IPICmd_Send_Start] = kernel_send_start_ipi,

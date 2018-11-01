@@ -28,6 +28,7 @@
 #include <mdb/mdb_tree.h>
 #include <trace/trace.h>
 #include <wakeup.h>
+#include <kcb.h>
 
 struct cte *clear_head, *clear_tail;
 struct cte *delete_head, *delete_tail;
@@ -161,6 +162,28 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
         // last copy, perform object cleanup
         return cleanup_last(cte, ret_ram_cap);
     }
+}
+
+errval_t caps_reclaim_ram(struct cte *ret_ram_cap)
+{
+    if (kcb_current->pending_ram_in_use > 0) {
+        errval_t err;
+        // grab last ram cap off array
+        struct RAM ram = kcb_current->pending_ram[--kcb_current->pending_ram_in_use];
+        if (dcb_current != monitor_ep.u.endpointlmp.listener) {
+            printk(LOG_WARN, "sending fresh ram cap to non-monitor?\n");
+        }
+        assert(ret_ram_cap->cap.type == ObjType_Null);
+        ret_ram_cap->cap.u.ram = ram;
+        ret_ram_cap->cap.type = ObjType_RAM;
+        err = mdb_insert(ret_ram_cap);
+        assert(err_is_ok(err));
+        TRACE_CAP_MSG("reclaimed", ret_ram_cap);
+        // note: this is a "success" code!
+        return SYS_ERR_RAM_CAP_CREATED;
+    }
+    // if no caps to reclaim, return CAP_NOT_FOUND.
+    return SYS_ERR_CAP_NOT_FOUND;
 }
 
 /**
@@ -322,7 +345,14 @@ cleanup_last(struct cte *cte, struct cte *ret_ram_cap)
                                       len, false, false);
         }
         else {
-            printk(LOG_WARN, "dropping ram cap base %08"PRIxGENPADDR" bytes 0x%"PRIxGENSIZE"\n", ram.base, ram.bytes);
+            // this is usually before the monitor is ready to get upcall when
+            // a core is started.
+            char *action = "dropping";
+            if (kcb_current->pending_ram_in_use < 4) {
+                action = "storing";
+                kcb_current->pending_ram[kcb_current->pending_ram_in_use++] = ram;
+            }
+            printk(LOG_WARN, "%s ram cap base %08"PRIxGENPADDR" bytes 0x%"PRIxGENSIZE"\n", action, ram.base, ram.bytes);
         }
         if (err_no(err) == SYS_ERR_LMP_BUF_OVERFLOW) {
             // printk(LOG_WARN, "dropped ram cap base %08"PRIxGENPADDR" bytes 0x%"PRIxGENSIZE"\n", ram.base, ram.bytes);

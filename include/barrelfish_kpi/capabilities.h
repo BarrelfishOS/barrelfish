@@ -505,6 +505,7 @@ enum kernel_cmd {
     KernelCmd_Remove_kcb,         ///< remove kcb from scheduling ring
     KernelCmd_Suspend_kcb_sched,  ///< suspend/resume kcb scheduler
     KernelCmd_Get_platform,       ///< Get architecture platform
+    KernelCmd_ReclaimRAM,         ///< Retrieve stored ram caps from KCB
     KernelCmd_Count
 };
 
