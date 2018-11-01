@@ -128,7 +128,7 @@ static errval_t alloc_vnode_noalloc(struct pmap_x86 *pmap, struct vnode *root,
 {
     errval_t err;
 
-    struct vnode *newvnode = slab_alloc(&pmap->p.m->slab);
+    struct vnode *newvnode = slab_alloc(&pmap->p.m.slab);
     if (newvnode == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
