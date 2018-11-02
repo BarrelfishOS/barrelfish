@@ -633,15 +633,16 @@ static struct cnoderef cnode_earlycn = {
 errval_t ram_alloc_fixed_cn(struct capref *retcap);
 errval_t ram_alloc_fixed_cn(struct capref *retcap)
 {
-    // We use a static local variable here to keep track of the early cn
-    // slots we have returned so far.
-    static cslot_t next_slot = 0;
-    if (next_slot >= L2_CNODE_SLOTS) {
+    // We keep track of which slots we've used in the dispatcher's
+    // ram_alloc_state.
+    struct ram_alloc_state *state = get_ram_alloc_state();
+
+    if (state->earlycn_capnum >= L2_CNODE_SLOTS) {
         return LIB_ERR_RAM_ALLOC_FIXED_EXHAUSTED;
     }
 
     retcap->cnode = cnode_earlycn;
-    retcap->slot = next_slot++;
+    retcap->slot = state->earlycn_capnum++;
 
     return SYS_ERR_OK;
 }

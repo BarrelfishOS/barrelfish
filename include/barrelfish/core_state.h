@@ -50,6 +50,7 @@ struct ram_alloc_state {
     uint64_t default_minbase;
     uint64_t default_maxlimit;
     int base_capnum;
+    int earlycn_capnum;
 };
 
 struct skb_state {
