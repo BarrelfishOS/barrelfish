@@ -7,7 +7,7 @@
 # ETH Zurich D-INFK, Universitaetstr 6, CH-8092 Zurich. Attn: Systems Group.
 ##########################################################################
 
-import os, shutil, select, datetime, pexpect, tempfile, signal
+import os, shutil, select, datetime, pexpect, tempfile, signal, time
 from pexpect import fdpexpect
 import barrelfish, debug
 from tests import Test
@@ -289,6 +289,8 @@ class InteractiveTest(TestCommon):
         debug.verbose("Waiting for fish.")
         self.console.expect("fish v0.2 -- pleased to meet you!",
                 timeout=self.test_timeout)
+        time.sleep(5) # let console settle for 5 seconds
+        self.console.sendline("")
         self.wait_for_prompt()
 
     def interact(self):
