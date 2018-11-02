@@ -81,6 +81,9 @@ class FVPMachineARMv7NCoresOperations(FVPMachineBaseOperations):
     def _get_cmdline(self):
         self.get_free_port()
 
+        # TODO: it may be feasible to use "-C motherboard.pl011_uart0.out_file=-"
+        # instead of telnet to grab the stdout of the model. Cf.
+        # http://infocenter.arm.com/help/topic/com.arm.doc.dui0848b/jka1396274340548.html
         return [os.path.join(FVP_PATH, "FVP_VE_Cortex-A9x" + str(self._machine.get_ncores())),
                 # Don't try to pop an LCD window up
                 "-C", "motherboard.vis.disable_visualisation=1",
