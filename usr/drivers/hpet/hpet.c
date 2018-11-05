@@ -22,12 +22,13 @@
 #include <octopus/init.h>
 #include <hw_records.h>
 
+lvaddr_t hpet_vbase = 0;
+
 static errval_t init(struct bfdriver_instance *bfi, const char *name,
                      uint64_t flags, struct capref *caps, size_t caps_len,
                      char **args, size_t args_len, iref_t *dev) {
 
     errval_t err;
-    lvaddr_t vbase;
     int uid = atoi(args[0]);
 
     // connect to octopus
@@ -44,21 +45,46 @@ static errval_t init(struct bfdriver_instance *bfi, const char *name,
         return err;
     }
 
-    err = map_device_cap(caps[HPET_MEM_CAP], &vbase);
+    struct capref cnodecap;
+    err = slot_alloc_root(&cnodecap);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "slot_alloc_root");
+        return err;
+    }
+    err = cap_copy(cnodecap, caps[0]);
+    struct cnoderef arg_cnode = build_cnoderef(cnodecap, CNODE_TYPE_OTHER); 
+    struct capref mem_cap = {
+        .cnode = arg_cnode,
+        .slot = HPET_MEM_CAP
+    };
+
+    err = map_device_cap(mem_cap, &hpet_vbase);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "unable to map HPET registers\n");
         return err;
     }
 
-    // initialize the virtual base address to Mackarel
+    // initialize mackerel
     hpet_t d;
-    hpet_initialize(&d, (mackerel_addr_t)vbase);
+    hpet_initialize(&d, (mackerel_addr_t)hpet_vbase);
 
     // configure general capabilities register
     uint64_t gcap_reg = hpet_gcap_id_rd(&d);
+    char gcap_debug[1024];
+    hpet_gcap_id_pr(gcap_debug, sizeof(gcap_debug), &d);
+    printf("HPET: gcap register: \n%s\n", gcap_debug);
+
+    err = skb_add_fact("hpet_gcap(%d, %" PRIu64 ")", uid, gcap_reg);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "skb_add_fact");
+    }
+    
+    // turn on legacy compatibility, turn on interrupts
+    hpet_gen_conf_leg_rt_cnf_wrf(&d, 1); //TODO: Check this IT should probably
+    // be on only when possible!!
+    hpet_gen_conf_enable_cnf_wrf(&d, 0);
+
     int n_timers = hpet_gcap_id_num_tim_cap_extract(gcap_reg);
-
-
     for (int i = 0; i < n_timers; i++) {
         uint32_t int_cap = hpet_timers_config_reg_timer_int_rout_cap_rdf(&d,i);
         uint8_t fsb_cap = hpet_timers_config_reg_timer_fsb_int_delv_cap_rdf(&d, i);

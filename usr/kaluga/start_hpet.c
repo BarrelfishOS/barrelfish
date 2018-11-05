@@ -110,7 +110,7 @@
 //}
 
 errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
-                           char *record, struct driver_argument *arg) {
+                           char *record ) {
     errval_t err;
     static struct domain_instance *inst = NULL;
     struct driver_instance *drv = NULL;
@@ -128,13 +128,18 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
     assert(address != 0);
 
     errval_t msgerr;
-    struct capref devcap = NULL_CAP;
-    err = slot_alloc(&devcap);
 
-    if (err_is_fail(err)) {
-        DEBUG_ERR(err, "slot_alloc");
-        goto out;
-    }
+    struct capref arg_caps;
+    struct cnoderef argnode_ref;
+    err = cnode_create_l2(&arg_caps, &argnode_ref);
+    struct capref devcap = {
+        .cnode = argnode_ref,
+        .slot = 0
+    };
+    
+    struct capref devcap_tmp;
+    err = slot_alloc(&devcap_tmp);
+    assert(err_is_ok(err));
 
     // store mem caps
     err = connect_to_acpi();
@@ -145,7 +150,7 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
     struct acpi_binding *acpi = get_acpi_binding();
     err = acpi->rpc_tx_vtbl.mm_alloc_range_proxy(acpi, BASE_PAGE_BITS, address,
                                                  address + BASE_PAGE_SIZE,
-                                                 &devcap, &msgerr);
+                                                 &devcap_tmp, &msgerr);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "mm_alloc_range_proxy\n");
         goto out;
@@ -157,6 +162,9 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
     }
     KALUGA_DEBUG("start_hpet_driver: got mem cap for hpet \n");
 
+    err = cap_copy(devcap, devcap_tmp);
+    assert(err_is_ok(err));
+
     drv = ddomain_create_driver_instance("hpet_module", "key");
     if (drv == NULL) {
         err = DRIVERKIT_ERR_DRIVER_INIT;
@@ -166,7 +174,8 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
     KALUGA_DEBUG("start_hpet_driver: created int cap for hpet \n");
 
     // add mem cap to driver
-    err = ddomain_driver_add_cap(drv, devcap);
+    drv->caps[0] = arg_caps;
+    //err = ddomain_driver_add_cap(drv, devcap);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "add_cap");
         goto out;
@@ -182,7 +191,7 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
     drv->args[0] = malloc(50);
     snprintf(drv->args[0], 50, "%ld", uid);
 
-    KALUGA_DEBUG("start_hpet_driver: Instantiating driver \n ");
+    KALUGA_DEBUG("start_hpet_driver: Instantiating driver\n");
 
     // create driver instance
     if (driver->driverinstance == NULL) {
@@ -206,19 +215,19 @@ out:
 }
 
 /*
- * For a hpet comp, find the correct irq controller in the skb and return 
- * the matching
+ * For a hpet comp, instantiate the correct irq controller in the skb and return 
+ * the input singleton range.
  */
 static errval_t hpet_comp_get_irq_index(const char *record, char *ctrl_label,
                                         uint64_t *irq_idx) {
-    int hpet_uid, index;
+    int64_t hpet_uid, index;
     errval_t err;
     err = oct_read(record, "_ { " HW_HPET_COMP_RECORD_FIELDS_READ " }", &hpet_uid,
                    &index);
     if (err_is_fail(err))
         return err;
 
-    err = skb_execute_query("Uid=%d,Index=%d,add_hpet_comp_controller(Lbl, Uid, "
+    err = skb_execute_query("Uid=%"PRIi64",Index=%"PRIi64",add_hpet_comp_controller(Lbl, Uid, "
                             "Index),write('\n'),print_int_controller(Lbl)",
                             hpet_uid, index);
     if (err_is_fail(err)) {
@@ -239,27 +248,73 @@ static errval_t hpet_comp_get_irq_index(const char *record, char *ctrl_label,
     return SYS_ERR_OK;
 }
 
+
+static errval_t store_irq_info(const char *device_record,
+                               struct driver_instance *drv) {
+    errval_t err;
+    struct capref *all_irq_cap = get_irq_cap();
+    struct capref intcap;
+
+    err = slot_alloc(&intcap);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not retype int_src cap");
+        return err;
+    }
+    uint64_t irq_idx;
+    drv->args[0] = malloc(128);
+    assert(drv->args[0]);
+    err = hpet_comp_get_irq_index(device_record, drv->args[0], &irq_idx);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    struct capref arg_caps;
+    struct cnoderef argnode_ref;
+    err = cnode_create_l2(&arg_caps, &argnode_ref);
+    struct capref irq_cap = {
+        .cnode = argnode_ref,
+        .slot = 0
+    };
+    err = cap_retype(irq_cap, *all_irq_cap, irq_idx, ObjType_IRQSrc, irq_idx, 1);
+    if (err_is_fail(err)) {
+        DEBUG_ERR(err, "Could not retype int_src cap");
+        return err;
+    }
+
+    return ddomain_driver_add_cap(drv, arg_caps);
+}
+
+static errval_t store_index_arg(const char *record,
+                               struct driver_instance *drv) {
+    int64_t hpet_uid, index;
+    errval_t err;
+    err = oct_read(record, "_ { " HW_HPET_COMP_RECORD_FIELDS_READ " }", &hpet_uid,
+                   &index);
+    if (err_is_fail(err))
+        return err;
+
+    drv->args[1] = malloc(128);
+    assert(drv->args[1] != NULL);
+    snprintf(drv->args[1], 128, "%"PRIi64, index);
+    return err;
+}
+
 static errval_t start_hpet_comp_driver(const char *device_record){
     errval_t err;
+
     struct module_info *mi = find_module("hpet");
     assert(mi != NULL);
     assert(mi->driverinstance != NULL);
 
     struct driver_instance *drv = NULL;
     drv = ddomain_create_driver_instance("hpet_comp_module", "key");
-    drv->args[0] = malloc(128);
-    assert(drv->args[0] != NULL);
 
-    uint64_t irq_idx;
-    err = hpet_comp_get_irq_index(device_record, drv->args[0], &irq_idx);
-    if(err_is_fail(err)){
-        return err;
-    }
-    
-    KALUGA_DEBUG("for hpet_comp, got label=%s, and idx=%ld\n",
-            drv->args[0], irq_idx);
+    err = store_irq_info(device_record, drv); 
+    if(err_is_fail(err)) return err;
 
-    KALUGA_DEBUG("start_hpet_comp_driver: Instantiating driver \n ");
+    err = store_index_arg(device_record, drv); 
+    if(err_is_fail(err)) return err;
+
+    KALUGA_DEBUG("start_hpet_comp_driver: Instantiating driver \n");
     ddomain_instantiate_driver(mi->driverinstance, drv);
 
     return SYS_ERR_OK;
@@ -267,7 +322,7 @@ static errval_t start_hpet_comp_driver(const char *device_record){
 
 static void hpet_comp_change_event(oct_mode_t mode, const char *device_record, void *st) {
     if ((mode & OCT_ON_SET) > 0) {
-        KALUGA_DEBUG("HPET_comp change event: start \n ");
+        KALUGA_DEBUG("HPET_comp change event: start\n");
         errval_t err = start_hpet_comp_driver(device_record);
         if(err_is_fail(err)){
             DEBUG_ERR(err,"");
@@ -277,7 +332,7 @@ static void hpet_comp_change_event(oct_mode_t mode, const char *device_record, v
 
 void hpet_change_event(oct_mode_t mode, const char *device_record, void *st) {
     if ((mode & OCT_ON_SET) > 0) {
-        KALUGA_DEBUG("HPET change event: start \n ");
+        KALUGA_DEBUG("HPET change event: start \n");
         errval_t err;
 
         struct module_info *mi = find_module("hpet");
@@ -286,19 +341,19 @@ void hpet_change_event(oct_mode_t mode, const char *device_record, void *st) {
             return;
         }
 
-        struct driver_argument *arg;
-        arg = malloc(sizeof(struct driver_argument));
-        err = cnode_create_l2(&arg->arg_caps, &arg->argnode_ref);
-        if (err_is_fail(err)) {
-            DEBUG_ERR(err, "Could not cnode_create_l2");
-        }
+        //struct driver_argument *arg;
+        //arg = malloc(sizeof(struct driver_argument));
+        //err = cnode_create_l2(&arg->arg_caps, &arg->argnode_ref);
+        //if (err_is_fail(err)) {
+        //    DEBUG_ERR(err, "Could not cnode_create_l2");
+        //}
 
         // Todo : change 0 is for core_0
-        err = start_hpet_driver(0, mi, (CONST_CAST)device_record, arg);
+        err = start_hpet_driver(0, mi, (CONST_CAST)device_record);
 
         switch (err_no(err)) {
         case SYS_ERR_OK:
-            KALUGA_DEBUG("\n Spawned HPET driver: %s\n", mi->binary);
+            KALUGA_DEBUG("Spawned HPET driver: %s\n", mi->binary);
             break;
 
         case KALUGA_ERR_DRIVER_NOT_AUTO:

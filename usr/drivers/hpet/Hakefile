@@ -13,7 +13,7 @@
 [         
     build library {
         target = "hpet_module",
-        cFiles = ["hpet.c" ,"hpet_int_cntrl.c" ],
+        cFiles = ["hpet.c" ],
         addLibraries = libDeps["skb", "int_route_client" , "int_msix_ctrl"],
         flounderDefs = [ "hpet" ],
         mackerelDevices = ["hpet"],
@@ -22,7 +22,7 @@
 
     build library {
         target = "hpet_comp_module",
-        cFiles = ["hpet_comp.c" ],
+        cFiles = ["hpet_comp.c", "hpet_int_cntrl.c" ],
         architectures = [ "x86_64" ]
     },
 

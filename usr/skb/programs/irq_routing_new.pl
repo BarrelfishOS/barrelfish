@@ -38,9 +38,6 @@
 %mapf_valid_class(ControllerClass,CtrlLbl, InPort,InMsg,OutPort,OutMsg) 
 :-dynamic(mapf_valid_class/6).
 
-%hpet_ioapic(Lbl,InPort,32-bit number ).
-:-dynamic(hpet_ioapic/3).
-
 % This fact links the hpet_comp controller labels with the hpet_comp facts
 %hpet_comp_id(Lbl,Uid,Idx).
 :-dynamic(hpet_comp_id/3).
@@ -259,17 +256,24 @@ mapf_valid_class(irte, _, _, mem_write(InAddr,InData), _, OutMsg) :-
     OutMsg $= InAddrLo + InData.
 
   
-mapf_valid_class(hpet, CtrlLabel, InPort, nullMsg, OutPort, OutMsg):- 
-    hpet_ioapic(CtrlLabel,InPort,Num),
-    assert_word(W,32), 
-    word_to_num(W,Num),
-    % get the valid bit and this becomes the corresponding Outport to I/O APIC 
-    array_list(W,L),
-    index_ones(Indx, L),
-    controller(CtrlLabel,_,_,OutRange),
-    get_min_range(OutRange,MinOut), 
-    OutPort is MinOut + Indx +1,
-    OutMsg = nullMsg.
+mapf_valid_class(hpet_comp, CtrlLabel, InPort, nullMsg, OutPort, OutMsg):- 
+    hpet_comp_id(CtrlLabel,HpetUid,HpetIdx),
+    hpet_comp(HpetUid, HpetIdx, IoapicCap, FsbCap),
+    ((
+        % IOAPIC forwarding (using IntCap)
+        assert_word(W,32), 
+        word_to_num(W,IoapicCap),
+        array_list(W,L),
+        index_ones(Indx, L),
+        controller(CtrlLabel,_,_,OutRange),
+        get_min_range(OutRange,MinOut), 
+        OutPort is MinOut + Indx + 1,
+        OutMsg = nullMsg
+    ) ; (
+        FsbCap = 1,
+        OutPort = 0,
+        OutMsg = mem_write(_,_)
+    )).
                                                                                                                                                                                                    
 % The mem write gets captured by the irte, hence the iommu is constrained by the number of slots.
 mapf_valid_class(iommu, _, _, InMsg, _, _) :-   

@@ -21,7 +21,7 @@
 #include <skb/skb.h>
 
 #define HPET_MEM_CAP 0
-#define HPET_INT_CAP 1
+#define HPET_COMP_INT_CAP 0
 
 #define DEFAULT_COMPARATOR 9000000
 
@@ -38,5 +38,8 @@ struct hpet_driver_state {
 int hpet_init(void);
 errval_t map_fsb_int(uint64_t from_port, uint32_t msg_addr, uint32_t msg_data,
                      void *driv_state);
+
+/* Slightly ugly global variable, used by the hpet_comp to find the mmaped region */
+extern lvaddr_t hpet_vbase;
 
 #endif

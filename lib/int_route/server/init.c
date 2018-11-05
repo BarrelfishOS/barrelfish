@@ -28,7 +28,7 @@
 
 struct controller_driver {
    char * label; // Label used in the SKB
-   char * class; // Label used in the SKB
+   char * class; // Class used in the SKB
    struct int_route_controller_binding * binding; //
    struct controller_driver * next; // Linked list next
 };
@@ -42,7 +42,6 @@ struct controller_driver * controller_head;
 static int exported = 0;
 
 static struct controller_driver * add_controller(struct controller_driver * d){
-    INT_DEBUG("%s: enter\n", __FUNCTION__);
     struct controller_driver * cur;
     if(controller_head == NULL){
         controller_head = malloc(sizeof(struct controller_driver));
