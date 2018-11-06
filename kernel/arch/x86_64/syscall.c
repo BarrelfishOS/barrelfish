@@ -977,17 +977,13 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
     assert(err_is_ok(err));
 #endif
 
-#ifndef CONFIG_SVM
-    // Initialize VMCS for the single virtual-CPU here instead of in 
-    // userspace, where the privilege level is not 0.
-    err = initialize_vmcs(vmcb_cte->cap.u.frame.base);
-    assert(err_is_ok(err));
-#endif
-
     // 2. Set up the target DCB
 /*     dcb->guest_desc.monitor_ep = ep_cap; */
+    // set dcb->guest_desc.vspace for VMX (Intel) vmkit.
+    dcb->guest_desc.vspace = get_address(vnode_cap);
+    // set dcb->vspace for SVM (AMD) vmkit.
+    dcb->vspace = get_address(vnode_cap);
     dcb->is_vm_guest = true;
-    dcb->guest_desc.vspace = vnode_cap->u.vnode_x86_64_pml4.base;
 /*     dcb->guest_desc.vmcb = vmcb_cap->u.frame.base; */
 /*     dcb->guest_desc.ctrl = (void *)x86_64_phys_to_mem(ctrl_cap->u.frame.base); */
 
