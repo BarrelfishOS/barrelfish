@@ -31,128 +31,133 @@ let common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                     "inthandler.c", "deferred.c", "syscalls.c", "sys_debug.c", "systime.c",
                     "notificator.c"
                   ]
+    build_libbf libname arch extraDefines =
+          (let arch_dir = "arch" </> archFamily arch
+               idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
+                 where
+                   getsrcs "lmp" = [ "lmp_chan.c", "lmp_endpoints.c" ]
+                   getsrcs "ump" = [ "ump_chan.c", "ump_endpoint.c" ]
+                   getsrcs "multihop" = [ "multihop_chan.c" ]
+                   getsrcs _ = []
+
+               -- configure default morecore pagesize based on Config.hs
+               morecore_pagesize "x86_64" = case Config.morecore_pagesize of
+                   "large" -> "LARGE_PAGE_SIZE"
+                   "huge"  -> "HUGE_PAGE_SIZE"
+                   _       -> "BASE_PAGE_SIZE"
+               morecore_pagesize "x86_32" = case Config.morecore_pagesize of
+                   "large" -> "LARGE_PAGE_SIZE"
+                   _       -> "BASE_PAGE_SIZE"
+               morecore_pagesize _ = "BASE_PAGE_SIZE"
+
+               -- sources specific to the architecture family
+               archfam_srcs "x86_32"  = [ "arch/x86_32/debug.c" ,
+                                       "arch/x86_32/dispatch.c" , "arch/x86_32/syscalls.c" ,
+                                       "arch/x86_32/sys_debug.c", "arch/x86_32/pmap.c",
+                                       "arch/x86/pmap.c",
+                                       "vspace/arch/x86_32/layout.c" , "vspace/memobj_pinned.c" ,
+                                       "vspace/pinned.c",
+                                       "arch/x86/perfmon.c", "arch/x86/tls.c",
+                                       "arch/x86/sys_debug.c"]
+               archfam_srcs "x86_64"  = [ "arch/x86_64/debug.c", "arch/x86_64/dispatch.c" ,
+                                          "arch/x86_64/syscalls.c", "arch/x86_64/sys_debug.c",
+                                          "arch/x86_64/ldt.c",
+                                          "arch/x86_64/pmap.c", "arch/x86/pmap.c",
+                                          "vspace/arch/x86_64/layout.c",
+                                          "vspace/memobj_pinned.c", "vspace/pinned.c",
+                                          "arch/x86/perfmon.c", "arch/x86/tls.c",
+                                          "arch/x86/sys_debug.c"]
+               archfam_srcs "k1om"   = [ "arch/x86_64/debug.c", "arch/x86_64/dispatch.c" ,
+                                          "arch/x86_64/syscalls.c", "arch/x86_64/sys_debug.c",
+                                          "arch/x86_64/ldt.c",
+                                          "arch/x86_64/pmap.c", "arch/x86/pmap.c",
+                                          "vspace/arch/x86_64/layout.c",
+                                          "vspace/memobj_pinned.c", "vspace/pinned.c",
+                                          "arch/x86/perfmon.c", "arch/x86/tls.c",
+                                          "arch/x86/sys_debug.c"]
+               archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c",
+                                          "arch/arm/pmap.c",
+                                          "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
+                                          "vspace/pinned.c", "vspace/arch/arm/layout.c",
+                                          "arch/arm/sys_debug.c"]
+               archfam_srcs "aarch64"   = [ "arch/aarch64/debug.c", "arch/aarch64/dispatch.c",
+                                            "arch/aarch64/context.S",
+                                            "arch/aarch64/pmap.c", "arch/aarch64/sys_debug.c",
+                                            "arch/aarch64/syscalls.c", "vspace/memobj_pinned.c" ,
+                                            "vspace/pinned.c",
+                                            "vspace/arch/aarch64/layout.c" ]
+
+               archfam_srcs _         = []
+
+               -- sources specific to the architecture
+               arch_srcs "x86_32" = [ "arch/x86/ipi_notify.c" ]
+               arch_srcs "x86_64" = [ "arch/x86/ipi_notify.c" ]
+               arch_srcs "k1om" = [ "arch/x86/ipi_notify.c" ]
+               arch_srcs _     = []
+
+               arch_assembly "x86_32"  = [ "arch/x86_32/entry.S" ]
+               arch_assembly "x86_64"  = [ "arch/x86_64/entry.S" ]
+               arch_assembly "k1om"    = [ "arch/x86_64/entry.S" ]
+               arch_assembly "arm"     = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
+               arch_assembly "aarch64" = [ "arch/aarch64/entry.S" ]
+               arch_assembly _         = []
+
+               arch_include "k1om"     = "include/arch/x86_64"
+               arch_include _          = ""
+
+               -- sources specific to the pmap implementation
+               pmap_unified_srcs = [ "pmap_slab_mgmt.c", "pmap_serialise.c" ]
+               pmap_srcs "x86_64"  Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
+               pmap_srcs "x86_64"  Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
+               pmap_srcs "k1om"    Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
+               pmap_srcs "k1om"    Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
+               pmap_srcs "aarch64" Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
+               pmap_srcs "aarch64" Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
+               pmap_srcs "arm"     _            = [ ] -- armv7 uses its own pmap_ds implementation
+               pmap_srcs _         _            = [ ]
+
+               pmap_includes "x86_64"  Config.LL    = [ "include" </> "pmap_ll" ]
+               pmap_includes "x86_64"  Config.ARRAY = [ "include" </> "pmap_array" ]
+               pmap_includes "k1om"    Config.LL    = [ "include" </> "pmap_ll" ]
+               pmap_includes "k1om"    Config.ARRAY = [ "include" </> "pmap_array" ]
+               pmap_includes "aarch64" Config.LL    = [ "include" </> "pmap_ll" ]
+               pmap_includes "aarch64" Config.ARRAY = [ "include" </> "pmap_array" ]
+               -- don't add a pmap include dir for archs that don't support
+               -- Config.pmap_datastructure.
+               pmap_includes _ _  = [ ]
+
+          in
+            build library { target = libname,
+                            architectures = [arch],
+                            cFiles = arch_srcs arch ++ archfam_srcs (archFamily arch)
+                                     ++ common_srcs ++ idc_srcs ++ pmap_srcs (archFamily arch) Config.pmap_datastructure,
+                            assemblyFiles = arch_assembly (archFamily arch),
+                            flounderDefs = [ "proc_mgmt" ],
+                            flounderBindings = [ "mem", "octopus", "interdisp", "spawn",
+                                                 "proc_mgmt", "terminal", "arrakis",
+                                                 "terminal_config" ],
+                            -- only makes sense to compile monitor binding for lmp
+                            flounderTHCStubs = [ "octopus" ],
+                            flounderExtraBindings = [ ("monitor", ["lmp"]),
+                                                      ("monitor_blocking", ["lmp", "rpcclient"]),
+                                                      ("mem", ["rpcclient"]),
+                                                      ("octopus", ["rpcclient"]),
+                                                      ("spawn", ["rpcclient"]),
+                                                      ("proc_mgmt", ["rpcclient"]),
+                                                      ("arrakis", ["rpcclient"])],
+                            addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ] ++
+                                        -- extra #defines provided by specialization calls below
+                                        [ "-D"++def | def <- extraDefines ],
+                            addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ]
+                                ++ (pmap_includes (archFamily arch) Config.pmap_datastructure),
+                            addGeneratedDependencies = [ "/include/asmoffsets.h" ],
+                            addLibraries = ["cap_predicates"]
+                          }
+         )
 in
-[(let arch_dir = "arch" </> archFamily arch
-      idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
-          where
-            getsrcs "lmp" = [ "lmp_chan.c", "lmp_endpoints.c" ]
-            getsrcs "ump" = [ "ump_chan.c", "ump_endpoint.c" ]
-            getsrcs "multihop" = [ "multihop_chan.c" ]
-            getsrcs _ = []
-
-      -- configure default morecore pagesize based on Config.hs
-      morecore_pagesize "x86_64" = case Config.morecore_pagesize of
-          "large" -> "LARGE_PAGE_SIZE"
-          "huge"  -> "HUGE_PAGE_SIZE"
-          _       -> "BASE_PAGE_SIZE"
-      morecore_pagesize "x86_32" = case Config.morecore_pagesize of
-          "large" -> "LARGE_PAGE_SIZE"
-          _       -> "BASE_PAGE_SIZE"
-      morecore_pagesize _ = "BASE_PAGE_SIZE"
-
-
-      -- sources specific to the architecture family
-      archfam_srcs "x86_32"  = [ "arch/x86_32/debug.c" ,
-                              "arch/x86_32/dispatch.c" , "arch/x86_32/syscalls.c" ,
-                              "arch/x86_32/sys_debug.c", "arch/x86_32/pmap.c",
-                              "arch/x86/pmap.c",
-                              "vspace/arch/x86_32/layout.c" , "vspace/memobj_pinned.c" ,
-                              "vspace/pinned.c",
-                              "arch/x86/perfmon.c", "arch/x86/tls.c",
-                              "arch/x86/sys_debug.c"]
-      archfam_srcs "x86_64"  = [ "arch/x86_64/debug.c", "arch/x86_64/dispatch.c" ,
-                                 "arch/x86_64/syscalls.c", "arch/x86_64/sys_debug.c",
-                                 "arch/x86_64/ldt.c",
-                                 "arch/x86_64/pmap.c", "arch/x86/pmap.c",
-                                 "vspace/arch/x86_64/layout.c",
-                                 "vspace/memobj_pinned.c", "vspace/pinned.c",
-                                 "arch/x86/perfmon.c", "arch/x86/tls.c",
-                                 "arch/x86/sys_debug.c"]
-      archfam_srcs "k1om"   = [ "arch/x86_64/debug.c", "arch/x86_64/dispatch.c" ,
-                                 "arch/x86_64/syscalls.c", "arch/x86_64/sys_debug.c",
-                                 "arch/x86_64/ldt.c",
-                                 "arch/x86_64/pmap.c", "arch/x86/pmap.c",
-                                 "vspace/arch/x86_64/layout.c",
-                                 "vspace/memobj_pinned.c", "vspace/pinned.c",
-                                 "arch/x86/perfmon.c", "arch/x86/tls.c",
-                                 "arch/x86/sys_debug.c"]
-      archfam_srcs "arm"     = [ "arch/arm/debug.c", "arch/arm/dispatch.c",
-                                 "arch/arm/pmap.c",
-                                 "arch/arm/syscalls.c", "vspace/memobj_pinned.c" ,
-                                 "vspace/pinned.c", "vspace/arch/arm/layout.c",
-                                 "arch/arm/sys_debug.c"]
-      archfam_srcs "aarch64"   = [ "arch/aarch64/debug.c", "arch/aarch64/dispatch.c",
-                                   "arch/aarch64/context.S",
-                                   "arch/aarch64/pmap.c", "arch/aarch64/sys_debug.c",
-                                   "arch/aarch64/syscalls.c", "vspace/memobj_pinned.c" ,
-                                   "vspace/pinned.c",
-                                   "vspace/arch/aarch64/layout.c" ]
-
-      archfam_srcs _         = []
-
-      -- sources specific to the architecture
-      arch_srcs "x86_32" = [ "arch/x86/ipi_notify.c" ]
-      arch_srcs "x86_64" = [ "arch/x86/ipi_notify.c" ]
-      arch_srcs "k1om" = [ "arch/x86/ipi_notify.c" ]
-      arch_srcs _     = []
-
-      arch_assembly "x86_32"  = [ "arch/x86_32/entry.S" ]
-      arch_assembly "x86_64"  = [ "arch/x86_64/entry.S" ]
-      arch_assembly "k1om"    = [ "arch/x86_64/entry.S" ]
-      arch_assembly "arm"     = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
-      arch_assembly "aarch64" = [ "arch/aarch64/entry.S" ]
-      arch_assembly _         = []
-
-      arch_include "k1om"     = "include/arch/x86_64"
-      arch_include _          = ""
-
-      -- sources specific to the pmap implementation
-      pmap_unified_srcs = [ "pmap_slab_mgmt.c", "pmap_serialise.c" ]
-      pmap_srcs "x86_64"  Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
-      pmap_srcs "x86_64"  Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
-      pmap_srcs "k1om"    Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
-      pmap_srcs "k1om"    Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
-      pmap_srcs "aarch64" Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
-      pmap_srcs "aarch64" Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
-      pmap_srcs "arm"     _            = [ ] -- armv7 uses its own pmap_ds implementation
-      pmap_srcs _         _            = [ ]
-
-      pmap_includes "x86_64"  Config.LL    = [ "include" </> "pmap_ll" ]
-      pmap_includes "x86_64"  Config.ARRAY = [ "include" </> "pmap_array" ]
-      pmap_includes "k1om"    Config.LL    = [ "include" </> "pmap_ll" ]
-      pmap_includes "k1om"    Config.ARRAY = [ "include" </> "pmap_array" ]
-      pmap_includes "aarch64" Config.LL    = [ "include" </> "pmap_ll" ]
-      pmap_includes "aarch64" Config.ARRAY = [ "include" </> "pmap_array" ]
-      -- don't add a pmap include dir for archs that don't support
-      -- Config.pmap_datastructure.
-      pmap_includes _ _  = [ ]
-
-  in
-    build library { target = "barrelfish",
-                    architectures = [arch],
-                    cFiles = arch_srcs arch ++ archfam_srcs (archFamily arch)
-                             ++ common_srcs ++ idc_srcs ++ pmap_srcs (archFamily arch) Config.pmap_datastructure,
-                    assemblyFiles = arch_assembly (archFamily arch),
-                    flounderDefs = [ "proc_mgmt" ],
-                    flounderBindings = [ "mem", "octopus", "interdisp", "spawn",
-                                         "proc_mgmt", "terminal", "arrakis",
-                                         "terminal_config" ],
-                    -- only makes sense to compile monitor binding for lmp
-                    flounderTHCStubs = [ "octopus" ],
-                    flounderExtraBindings = [ ("monitor", ["lmp"]),
-		    			      ("monitor_blocking", ["lmp", "rpcclient"]),
-                                              ("mem", ["rpcclient"]),
-                                              ("octopus", ["rpcclient"]),
-                                              ("spawn", ["rpcclient"]),
-                                              ("proc_mgmt", ["rpcclient"]),
-                                              ("arrakis", ["rpcclient"])],
-                    addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
-                    addIncludes = [ "include", "include" </> arch_dir, (arch_include arch) ]
-                        ++ (pmap_includes (archFamily arch) Config.pmap_datastructure),
-                    addGeneratedDependencies = [ "/include/asmoffsets.h" ],
-                    addLibraries = ["cap_predicates"]
-                  }
- ) | arch <- allArchitectures ] ++
+[ (build_libbf "barrelfish" arch []) | arch <- allArchitectures ] ++
+[ (build_libbf "barrelfish_mcn" arch ["GLOBAL_MCN"]) | arch <- allArchitectures ] ++
+--[ build_libbf arch "GLOBAL_MCN" | arch <- allArchitectures ] ++
 [(let arch_dir = "arch" </> archFamily arch
       idc_srcs = concat $ map getsrcs $ optInterconnectDrivers $ options arch
           where
