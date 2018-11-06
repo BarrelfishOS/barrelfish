@@ -470,6 +470,13 @@ static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_CAP_DELETE);
             }
+#ifndef GLOBAL_MCN
+            err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, page->v.mapping);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: slot_free (mapping): %s\n",
+                        err_getstring(err));
+            }
+#endif
             pmap_remove_vnode(pt, page);
             slab_free(&pmap->p.m.slab, page);
         }

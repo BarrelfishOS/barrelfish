@@ -207,6 +207,13 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
                 debug_printf("remove_empty_vnodes: cap_delete (mapping): %s\n",
                         err_getstring(err));
             }
+#ifndef GLOBAL_MCN
+            err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, n->v.mapping);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: slot_free (mapping): %s\n",
+                        err_getstring(err));
+            }
+#endif
             assert(pmap->used_cap_slots > 0);
             pmap->used_cap_slots --;
             // delete capability

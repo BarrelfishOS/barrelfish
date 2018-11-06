@@ -840,6 +840,13 @@ static errval_t do_single_unmap(struct pmap_arm *pmap, genvaddr_t vaddr,
                 DEBUG_ERR(err, "cap_delete");
                 return err_push(err, LIB_ERR_CAP_DELETE);
             }
+#ifndef GLOBAL_MCN
+            err = slot_free(page->mapping);
+            if (err_is_fail(err)) {
+                debug_printf("remove_empty_vnodes: slot_free (mapping): %s\n",
+                        err_getstring(err));
+            }
+#endif
 
             remove_vnode(pt, page);
             slab_free(&pmap->slab, page);
