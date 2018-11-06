@@ -153,6 +153,7 @@ class TestCommon(Test):
         # waiting for timeout
         return self.get_finish_string() in line or \
                line.startswith("Assertion failed on core") or \
+               line.find("PANIC!") > 0 or \
                line.startswith("Aborted")
 
     def is_booted(self, line):
