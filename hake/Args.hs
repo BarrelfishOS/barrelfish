@@ -45,7 +45,8 @@ data Args = Args {
       architectures :: [String],
       skateSchemaDefs :: [String],  -- just the Skate Schema headers
       skateSchemas :: [String],      -- Schema headers and functions
-      installDirs :: InstallDirs
+      installDirs :: InstallDirs,
+      libraryOs :: String  -- Select a non-default library OS
 }
 
 data InstallDirs = InstallDirs {
@@ -86,7 +87,8 @@ defaultArgs = Args {
       installDirs = InstallDirs {
             bindir = "/sbin",
             libdir = "/lib"
-      }
+      },
+      libraryOs = "barrelfish"
 }
 
 allArchitectures = [ "x86_64", "x86_32", "armv7", "armv8", "k1om" ]

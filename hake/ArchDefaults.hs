@@ -85,8 +85,8 @@ kernelLibs arch =
 
 -- Libraries that are linked to all applications.
 stdLibs arch =
-    [ In InstallTree arch "/lib/libbarrelfish.a",
-      In InstallTree arch "/lib/libterm_client.a",
+    -- Library OS now added in appGetOptionsForArch based on options field 'libraryOs'
+    [ In InstallTree arch "/lib/libterm_client.a",
       In InstallTree arch "/lib/liboctopus_parser.a", -- XXX: For NS client in libbarrelfish
       In InstallTree arch "/errors/errno.o",
       In InstallTree arch ("/lib/libc.a"),

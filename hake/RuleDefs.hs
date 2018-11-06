@@ -1161,6 +1161,8 @@ appGetOptionsForArch arch args =
                      optCxxFlags = (optCxxFlags $ options arch) \\
                                    [ Str f | f <- Args.omitCxxFlags args ],
                      optSuffix = "_for_app_" ++ Args.target args,
+                     optLibs = [ In InstallTree arch ("/lib"</>"lib"++(Args.libraryOs args)++".a") ] ++
+                               (optLibs $ options arch),
                      extraFlags = Args.addCFlags args,
                      extraCxxFlags = Args.addCxxFlags args,
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
