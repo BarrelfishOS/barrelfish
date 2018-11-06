@@ -68,9 +68,8 @@ errval_t reclaim_ram_init(void)
         return err;
     }
     deferred_event_init(&reclaim_ev);
-    // do reclaim sweep every second -- using deferred event
-    // 1 s == 1000 ms == 1e6 us
-    delayus_t one_sec = 1ULL*1000*1000;
+    // queue first reclaim event with 10ms delay
+    delayus_t one_sec = 10ULL*1000;
     return deferred_event_register(&reclaim_ev, get_default_waitset(), one_sec,
                                    MKCLOSURE(reclaim_ram, NULL));
 }
