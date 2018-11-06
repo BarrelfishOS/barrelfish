@@ -172,7 +172,7 @@ static errval_t alloc_vnode(struct pmap_aarch64 *pmap_aarch64, struct vnode *roo
     assert(!capref_is_null(newvnode->v.u.vnode.invokable));
 
     // set mapping cap to correct slot in mapping cnodes.
-    set_mapping_cap(newvnode, root, entry);
+    set_mapping_cap(&pmap_aarch64->p, newvnode, root, entry);
 
     // Map it
     err = vnode_map(root->v.u.vnode.invokable, newvnode->v.cap, entry,
@@ -187,6 +187,7 @@ static errval_t alloc_vnode(struct pmap_aarch64 *pmap_aarch64, struct vnode *roo
     pmap_vnode_init(&pmap_aarch64->p, newvnode);
     pmap_vnode_insert_child(root, newvnode);
 
+#ifdef GLOBAL_MCN
     /* allocate mapping cnodes */
     for (int i = 0; i < MCN_COUNT; i++) {
         err = cnode_create_l2(&newvnode->u.vnode.mcn[i], &newvnode->u.vnode.mcnode[i]);
@@ -194,6 +195,7 @@ static errval_t alloc_vnode(struct pmap_aarch64 *pmap_aarch64, struct vnode *roo
             return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
         }
     }
+#endif
 
     *retvnode = newvnode;
     return SYS_ERR_OK;
@@ -295,7 +297,7 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     // only insert child in vtree after new vnode fully initialized
     pmap_vnode_insert_child(ptable, page);
 
-    set_mapping_cap(page, ptable, idx);
+    set_mapping_cap(&pmap->p, page, ptable, idx);
 
     // Map entry into the page table
     assert(!capref_is_null(ptable->v.u.vnode.invokable));
@@ -769,6 +771,7 @@ pmap_init(struct pmap   *pmap,
     assert(!capref_is_null(pmap_aarch64->root.v.u.vnode.invokable));
     pmap_vnode_init(pmap, &pmap_aarch64->root);
 
+#ifdef GLOBAL_MCN
     /*
      * Initialize root vnode mapping cnode
      */
@@ -791,6 +794,7 @@ pmap_init(struct pmap   *pmap,
             return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
         }
     }
+#endif
 
     // choose a minimum mappable VA for most domains; enough to catch NULL
     // pointer derefs with suitably large offsets

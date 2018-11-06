@@ -330,7 +330,7 @@ static errval_t do_single_map(struct pmap_x86 *pmap, genvaddr_t vaddr,
     // only insert after vnode fully initialized
     pmap_vnode_insert_child(ptable, page);
 
-    set_mapping_cap(page, ptable, table_base);
+    set_mapping_cap(&pmap->p, page, ptable, table_base);
     pmap->used_cap_slots ++;
 
     // do map
@@ -1303,10 +1303,6 @@ static struct pmap_funcs pmap_funcs = {
  *
  * \param pmap Pmap object of type x86
  */
-#if 0
-static uint8_t static_slab_buffer[INIT_SLAB_BUFFER_SIZE];
-static uint8_t static_ptslab_buffer[INIT_PTSLAB_BUFFER_SIZE];
-#endif
 errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
                           struct capref vnode,
                           struct slot_allocator *opt_slot_alloc)
@@ -1347,6 +1343,7 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
     x86->root.u.vnode.virt_base = 0;
     x86->root.u.vnode.page_table_frame  = NULL_CAP;
 
+#ifdef GLOBAL_MCN
     if (pmap == get_current_pmap()) {
         /*
          * for now, for our own pmap, we use the left over slot allocator cnode to
@@ -1365,6 +1362,7 @@ errval_t pmap_x86_64_init(struct pmap *pmap, struct vspace *vspace,
             return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
         }
     }
+#endif
 
     // choose a minimum mappable VA for most domains; enough to catch NULL
     // pointer derefs with suitably large offsets

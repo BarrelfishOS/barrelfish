@@ -165,6 +165,7 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
         pmapx->used_cap_slots ++;
         */
 
+#if 0
         /* allocate mapping cnodes */
         for (int i = 0; i < MCN_COUNT; i++) {
             err = cnode_create_l2(&n->u.vnode.mcn[i], &n->u.vnode.mcnode[i]);
@@ -172,8 +173,9 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
                 return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
             }
         }
+#endif
 
-        set_mapping_cap(n, (struct vnode *)parent, n->v.entry);
+        set_mapping_cap(pmap, n, (struct vnode *)parent, n->v.entry);
         /* copy mapping cap into mapping cnode of parent */
         struct capref orig;
         orig.cnode = cnode_page;

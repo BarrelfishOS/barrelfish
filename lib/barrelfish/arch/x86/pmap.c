@@ -135,7 +135,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     assert(!capref_is_null(newvnode->v.cap));
     assert(!capref_is_null(newvnode->v.u.vnode.invokable));
 
-    set_mapping_cap(newvnode, root, entry);
+    set_mapping_cap(&pmap->p, newvnode, root, entry);
     pmap->used_cap_slots ++;
     assert(!capref_is_null(newvnode->v.mapping));
 
@@ -159,6 +159,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
     newvnode->u.vnode.page_table_frame  = NULL_CAP;
     newvnode->u.vnode.base = base;
 
+#if GLOBAL_MCN
     /* allocate mapping cnodes */
     for (int i = 0; i < MCN_COUNT; i++) {
         err = cnode_create_l2(&newvnode->u.vnode.mcn[i], &newvnode->u.vnode.mcnode[i]);
@@ -166,6 +167,7 @@ errval_t alloc_vnode(struct pmap_x86 *pmap, struct vnode *root,
             return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
         }
     }
+#endif
 
     *retvnode = newvnode;
     return SYS_ERR_OK;
@@ -233,6 +235,7 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
             // remove vnode from list
             pmap_remove_vnode(root, n);
 
+#if GLOBAL_MCN
             /* delete mapping cap cnodes */
             for (int x = 0; x < MCN_COUNT; x++) {
                 err = cap_destroy(n->u.vnode.mcn[x]);
@@ -241,6 +244,7 @@ void remove_empty_vnodes(struct pmap_x86 *pmap, struct vnode *root,
                             __FUNCTION__, x, err_getcode(err));
                 }
             }
+#endif
             pmap_vnode_free(&pmap->p, n);
         }
     }

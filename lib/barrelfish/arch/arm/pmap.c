@@ -68,12 +68,13 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
 static void
 set_mapping_capref(struct capref *mapping, struct vnode *root, uint32_t entry)
 {
-    //debug_printf("entry %d -> cn %d, slot %d\n", entry, entry / L2_CNODE_SLOTS, entry % L2_CNODE_SLOTS);
+#ifdef GLOBAL_MCN
     mapping->cnode = root->u.vnode.mcnode[entry / L2_CNODE_SLOTS];
     mapping->slot  = entry % L2_CNODE_SLOTS;
-    //char buf[256];
-    //debug_print_capref(buf, 256, *mapping);
-    //debug_printf("%s called from %p, setting to %s\n", __FUNCTION__, __builtin_return_address(0), buf);
+#else
+    errval_t err = slot_alloc(mapping);
+    assert(err_is_ok(err));
+#endif
     assert(!cnoderef_is_null(mapping->cnode));
 }
 
@@ -343,6 +344,7 @@ static errval_t alloc_vnode(struct pmap_arm *pmap_arm, struct vnode *root,
         return err_push(err, LIB_ERR_PMAP_MAP);
     }
 
+#ifdef GLOBAL_MCN
     /* allocate mapping cnodes */
     for (int i = 0; i < MCN_COUNT; i++) {
         err = cnode_create_l2(&newvnode->u.vnode.mcn[i], &newvnode->u.vnode.mcnode[i]);
@@ -350,6 +352,7 @@ static errval_t alloc_vnode(struct pmap_arm *pmap_arm, struct vnode *root,
             return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
         }
     }
+#endif
 
     if (retvnode) {
         *retvnode = newvnode;
