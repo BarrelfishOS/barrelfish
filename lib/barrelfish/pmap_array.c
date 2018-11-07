@@ -133,5 +133,11 @@ errval_t pmap_refill_slabs(struct pmap *pmap, size_t max_slabs)
     if (err_is_fail(err)) {
         return err;
     }
+    /* for pmap_array, after refilling ptslabs, we need to make sure that we
+     * actually still have enough vnode slabs. */
+    err = pmap_slab_refill(pmap, &pmap->m.slab, max_slabs);
+    if (err_is_fail(err)) {
+        return err;
+    }
     return SYS_ERR_OK;
 }
