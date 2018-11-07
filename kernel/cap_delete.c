@@ -180,6 +180,7 @@ errval_t caps_reclaim_ram(struct cte *ret_ram_cap)
         assert(err_is_ok(err));
         TRACE_CAP_MSG("reclaimed", ret_ram_cap);
         // note: this is a "success" code!
+        kcb_current->pending_ram[kcb_current->pending_ram_in_use] = (struct RAM){ 0 };
         return SYS_ERR_RAM_CAP_CREATED;
     }
     // if no caps to reclaim, return CAP_NOT_FOUND.
