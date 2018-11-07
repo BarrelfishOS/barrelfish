@@ -43,6 +43,50 @@ static errval_t caps_copyout_last(struct cte *target, struct cte *ret_cte);
 
 static uint32_t seqnum = 0;
 
+static inline struct cte *delete_list_remove_head(void)
+{
+    assert(delete_head);
+    struct cte *ret = delete_head;
+    if (delete_head->delete_node.next) {
+        delete_head = delete_head->delete_node.next;
+    } else {
+        delete_head = delete_tail = NULL;
+    }
+    // Clear delete_node.next as clear list uses the same pointer
+    ret->delete_node.next = NULL;
+    return ret;
+}
+
+static inline void delete_list_insert_head(struct cte *cte)
+{
+    if (!delete_head) {
+        assert(!delete_tail);
+        delete_head = delete_tail = cte;
+        cte->delete_node.next = NULL;
+    }
+    else {
+        assert(delete_tail);
+        cte->delete_node.next = delete_head;
+        delete_head = cte;
+    }
+}
+
+static inline void delete_list_insert_tail(struct cte *cte)
+{
+    if (!delete_tail) {
+        assert(!delete_head);
+        delete_head = delete_tail = cte;
+        cte->delete_node.next = NULL;
+    }
+    else {
+        assert(delete_head);
+        assert(!delete_tail->delete_node.next);
+        delete_tail->delete_node.next = cte;
+        delete_tail = cte;
+        cte->delete_node.next = NULL;
+    }
+}
+
 /**
  * \brief Try a "simple" delete of a cap. If this fails, the monitor needs to
  * negotiate a delete across the system.
@@ -113,7 +157,9 @@ errval_t caps_delete_last(struct cte *cte, struct cte *ret_ram_cap)
             caps_mark_revoke_generic(slot);
         }
 
-        assert(cte->delete_node.next == NULL || delete_head == cte);
+        // At this point the cte we're deleting should always be removed from
+        // the delete list.
+        assert(cte->delete_node.next == NULL && delete_head != cte);
         cte->delete_node.next = NULL;
         clear_list_prepend(cte);
 
@@ -406,18 +452,7 @@ static void caps_mark_revoke_generic(struct cte *cte)
         //cte->delete_node.next_slot = 0;
 
         // insert into delete list
-        if (!delete_tail) {
-            assert(!delete_head);
-            delete_head = delete_tail = cte;
-            cte->delete_node.next = NULL;
-        }
-        else {
-            assert(delete_head);
-            assert(!delete_tail->delete_node.next);
-            delete_tail->delete_node.next = cte;
-            delete_tail = cte;
-            cte->delete_node.next = NULL;
-        }
+        delete_list_insert_tail(cte);
         TRACE_CAP_MSG("inserted into delete list", cte);
 
         // because the monitors will perform a 2PC that deletes all foreign
@@ -430,6 +465,9 @@ static void caps_mark_revoke_generic(struct cte *cte)
         // some serious mojo went down in the cleanup voodoo
         panic("error while marking/deleting descendant cap for revoke:"
               " %"PRIuERRV"\n", err);
+    } else {
+        // slot should now be empty
+        assert(cte->cap.type == ObjType_Null);
     }
 }
 
@@ -643,7 +681,11 @@ errval_t caps_delete_step(struct cte *ret_next)
     assert(delete_head->mdbnode.in_delete == true);
 
     TRACE_CAP_MSG("performing delete step", delete_head);
-    struct cte *cte = delete_head, *next = cte->delete_node.next;
+    // We remove the head of the delete list here, so that potential calls to
+    // caps_delete_last() below, which may insert new elements into the delete
+    // list, see the delete list in a consistent state, with the element
+    // that's currently being delete removed. -SG, 2018-11-07.
+    struct cte *cte = delete_list_remove_head();
     if (cte->mdbnode.locked) {
         err = SYS_ERR_CAP_LOCKED;
     }
@@ -653,33 +695,30 @@ errval_t caps_delete_step(struct cte *ret_next)
     else if (cte->mdbnode.remote_copies) {
         err = caps_copyout_last(cte, ret_next);
         if (err_is_ok(err)) {
-            if (next) {
-                delete_head = next;
-            } else {
-                delete_head = delete_tail = NULL;
-            }
             err = SYS_ERR_DELETE_LAST_OWNED;
         }
     }
     else {
-        // XXX: need to clear delete_list flag because it's reused for
-        // clear_list? -SG
-        cte->delete_node.next = NULL;
+        // Do delete last, which may enqueue cte on clear list
         err = caps_delete_last(cte, ret_next);
         if (err_is_fail(err)) {
             TRACE_CAP_MSG("delete last failed", cte);
-            // if delete_last fails, reinsert in delete list
-            cte->delete_node.next = next;
+            printk(LOG_WARN, "%s: caps_delete_last failed, reinserting cte=%p in delete list\n",
+                    __FUNCTION__, cte);
+            // if delete_last fails, reinsert cte in front of delete list
+            delete_list_insert_head(cte);
         }
     }
 
-    if (err_is_ok(err)) {
-        if (next) {
-            delete_head = next;
-        } else {
-            delete_head = delete_tail = NULL;
-        }
-    }
+     if (err_is_fail(err) && err_no(err) != SYS_ERR_DELETE_LAST_OWNED) {
+         // something went wrong in one of the cases above,  reinsert cte at
+         // head of delete list.
+         // We don't reinsert when we get SYS_ERR_DELETE_LAST_OWNED, as in
+         // that case the delete step succeeded but needs more work in the
+         // monitor.
+         delete_list_insert_head(cte);
+     }
+
     return err;
 }
 
