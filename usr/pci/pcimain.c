@@ -178,7 +178,7 @@ int main(int argc, char *argv[])
     pci_program_bridges();
 
     char* record;
-    debug_printf("barrier.pci.bridges");
+    debug_printf("barrier.pci.bridges\n");
     err = oct_barrier_enter("barrier.pci.bridges", &record, 3);
     assert(err_is_ok(err));
     free(record);
