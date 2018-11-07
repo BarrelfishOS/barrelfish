@@ -81,7 +81,6 @@ let common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                                           "vspace/pinned.c", "vspace/arch/arm/layout.c",
                                           "arch/arm/sys_debug.c"]
                archfam_srcs "aarch64"   = [ "arch/aarch64/debug.c", "arch/aarch64/dispatch.c",
-                                            "arch/aarch64/context.S",
                                             "arch/aarch64/pmap.c", "arch/aarch64/sys_debug.c",
                                             "arch/aarch64/syscalls.c", "vspace/memobj_pinned.c" ,
                                             "vspace/pinned.c",
@@ -99,7 +98,7 @@ let common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                arch_assembly "x86_64"  = [ "arch/x86_64/entry.S" ]
                arch_assembly "k1om"    = [ "arch/x86_64/entry.S" ]
                arch_assembly "arm"     = [ "arch/arm/entry.S", "arch/arm/syscall.S" ]
-               arch_assembly "aarch64" = [ "arch/aarch64/entry.S" ]
+               arch_assembly "aarch64" = [ "arch/aarch64/entry.S", "arch/aarch64/context.S" ]
                arch_assembly _         = []
 
                arch_include "k1om"     = "include/arch/x86_64"
