@@ -78,6 +78,9 @@
 /* Size of CNodes in Root CNode if not the default size */
 #define SLOT_ALLOC_CNODE_BITS   L2_CNODE_BITS
 #define SLOT_ALLOC_CNODE_SLOTS  L2_CNODE_SLOTS
+/* Only allocate 32 chunks for early cnode allocator */
+#define EARLY_CNODE_ALLOCATED_BITS  (L2_CNODE_BITS - 2)
+#define EARLY_CNODE_ALLOCATED_SLOTS (1ULL << EARLY_CNODE_ALLOCATED_BITS)
 
 /* Task CNode */
 #define TASKCN_SLOT_TASKCN      0   ///< Task CNode in itself (XXX)

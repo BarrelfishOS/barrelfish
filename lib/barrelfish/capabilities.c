@@ -637,7 +637,8 @@ errval_t ram_alloc_fixed_cn(struct capref *retcap)
     // ram_alloc_state.
     struct ram_alloc_state *state = get_ram_alloc_state();
 
-    if (state->earlycn_capnum >= L2_CNODE_SLOTS) {
+    if (state->earlycn_capnum >= EARLY_CNODE_ALLOCATED_SLOTS) {
+        debug_printf("trying to allocate slot %d!\n", state->earlycn_capnum);
         return LIB_ERR_RAM_ALLOC_FIXED_EXHAUSTED;
     }
 

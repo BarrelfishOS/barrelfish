@@ -77,6 +77,6 @@ struct x86_core_data {
 #endif
 } __attribute__ ((packed));
 
-#define X86_CORE_DATA_PAGES 2200
+#define X86_CORE_DATA_PAGES 1100
 
 #endif

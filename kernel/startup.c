@@ -372,8 +372,8 @@ struct dcb *spawn_module(struct spawn_state *st,
     assert(err_is_ok(err));
 
     /* Fill up early cnode alloc CN (pre-allocated 16K pages) */
-    err = caps_create_new(ObjType_RAM, alloc_phys(L2_CNODE_SLOTS * OBJSIZE_L2CNODE),
-            L2_CNODE_SLOTS * OBJSIZE_L2CNODE, OBJSIZE_L2CNODE, my_core_id,
+    err = caps_create_new(ObjType_RAM, alloc_phys(EARLY_CNODE_ALLOCATED_SLOTS * OBJSIZE_L2CNODE),
+            EARLY_CNODE_ALLOCATED_SLOTS * OBJSIZE_L2CNODE, OBJSIZE_L2CNODE, my_core_id,
             caps_locate_slot(CNODE(st->earlycncn), 0));
     assert(err_is_ok(err));
 

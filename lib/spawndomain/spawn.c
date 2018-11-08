@@ -159,7 +159,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
     }
 
     // get big RAM cap for L2_CNODE_SLOTS L2_CNODE_SIZEd caps
-    err = ram_alloc(&ram, L2_CNODE_BITS + (L2_CNODE_BITS + OBJBITS_CTE));
+    err = ram_alloc(&ram, EARLY_CNODE_ALLOCATED_BITS + (L2_CNODE_BITS + OBJBITS_CTE));
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
@@ -169,7 +169,7 @@ static errval_t spawn_setup_cspace(struct spawninfo *si)
         .cnode = earlycn,
         .slot = 0,
     };
-    err = cap_retype(base, ram, 0, ObjType_RAM, OBJSIZE_L2CNODE, L2_CNODE_SLOTS);
+    err = cap_retype(base, ram, 0, ObjType_RAM, OBJSIZE_L2CNODE, EARLY_CNODE_ALLOCATED_SLOTS);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_CAP_RETYPE);
     }
