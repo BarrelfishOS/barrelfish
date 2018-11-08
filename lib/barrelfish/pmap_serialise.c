@@ -165,7 +165,7 @@ static errval_t deserialise_tree(struct pmap *pmap, struct serial_entry **in,
         pmapx->used_cap_slots ++;
         */
 
-#if 0
+#if GLOBAL_MCN
         /* allocate mapping cnodes */
         for (int i = 0; i < MCN_COUNT; i++) {
             err = cnode_create_l2(&n->u.vnode.mcn[i], &n->u.vnode.mcnode[i]);
