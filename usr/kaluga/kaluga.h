@@ -19,6 +19,7 @@ extern struct queue_service_state* qs;
 
 #include "boot_modules.h"
 #include "start_pci.h"
+#include "start_hpet.h"
 #include "start_cpu.h"
 #include "driver_startup.h"
 #include "device_caps.h"

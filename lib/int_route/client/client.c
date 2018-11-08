@@ -137,7 +137,7 @@ errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
     }
 
     /* add route from int_src_cap to irq_dest_cap */
-    err = int_route_client_route(intsrc, 0, irq_dest_cap);
+    err = int_route_client_route(intsrc, irq_idx , irq_dest_cap);
     if(err_is_fail(err)){
         DEBUG_ERR(err, "int_route_client_route");
         return err;

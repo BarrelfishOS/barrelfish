@@ -17,7 +17,7 @@
 #include <barrelfish/nameservice_client.h>
 
 #include <if/acpi_defs.h>
-#include <if/acpi_defs.h>
+
 
 #include <acpi_client/acpi_client.h>
 

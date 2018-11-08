@@ -207,6 +207,13 @@ errval_t arch_startup(char * add_device_db_file)
 
     KALUGA_DEBUG("Kaluga: wait_for_all_spawnds\n");
 
+    if(0){ // Disable HPET for now.
+        err = watch_for_hpet();
+        if (err_is_fail(err)) {
+            USER_PANIC_ERR(err, "Unable to watch for hpet");
+        }
+    }
+
     err = wait_for_all_spawnds();
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
@@ -231,6 +238,9 @@ errval_t arch_startup(char * add_device_db_file)
     if (err_is_fail(err) && err != KALUGA_ERR_MODULE_NOT_FOUND) {
         USER_PANIC_ERR(err, "start_lpc_timer");
     }
+
+    
+    
 
     return SYS_ERR_OK;
 }

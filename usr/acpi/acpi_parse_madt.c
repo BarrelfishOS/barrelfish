@@ -143,8 +143,8 @@ static errval_t parse_entry_io_apic(ACPI_MADT_IO_APIC *s)
 
     char ioapic_lbl[255];
     char query_buf[1024];
-    snprintf(query_buf,1024, "add_ioapic_controller(Lbl, %d, %d),"
-            "write('\n'), writeln(Lbl).",
+
+    snprintf(query_buf,1024, "add_ioapic_controller(Lbl, %d, %d).",
             s->Id, s->GlobalIrqBase);
     err = skb_execute(query_buf);
     if(err_is_fail(err)){

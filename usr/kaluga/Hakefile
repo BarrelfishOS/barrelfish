@@ -21,7 +21,7 @@ let commonCFiles = [ "boot_modules.c",
                     "driver_domains.c"
                     ] in
 [ build application { target = "kaluga",
-                      cFiles = (commonCFiles) ++ [ "start_pci.c", "x86.c" , "start_iommu.c"],
+                      cFiles = (commonCFiles) ++ [ "start_pci.c", "x86.c", "start_hpet.c", "start_iommu.c"],
                       flounderDefs = [ "monitor" , "pci", "kaluga"],
                       flounderBindings = [ "octopus" , "pci" , "kaluga"],
                       flounderExtraDefs = [ ("monitor_blocking",["rpcclient"]) ],

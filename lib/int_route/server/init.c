@@ -28,7 +28,7 @@
 
 struct controller_driver {
    char * label; // Label used in the SKB
-   char * class; // Label used in the SKB
+   char * class; // Class used in the SKB
    struct int_route_controller_binding * binding; //
    struct controller_driver * next; // Linked list next
 };
@@ -42,7 +42,6 @@ struct controller_driver * controller_head;
 static int exported = 0;
 
 static struct controller_driver * add_controller(struct controller_driver * d){
-    INT_DEBUG("%s: enter\n", __FUNCTION__);
     struct controller_driver * cur;
     if(controller_head == NULL){
         controller_head = malloc(sizeof(struct controller_driver));
@@ -251,12 +250,10 @@ static void driver_route_call(struct int_route_service_binding *b,
         struct capref intdest){
     INT_DEBUG("%s: enter\n", __FUNCTION__);
     errval_t err;
-
     uint64_t int_src_num = INVALID_VECTOR;
     err = invoke_irqsrc_get_vec_start(intsource, &int_src_num);
     uint64_t int_src_num_high = INVALID_VECTOR;
     err = invoke_irqsrc_get_vec_end(intsource, &int_src_num_high);
-
     if(int_src_num + irq_idx > int_src_num_high || irq_idx < 0){
         err = SYS_ERR_IRQ_INVALID;
         DEBUG_ERR(err, "irq_idx out of range");
@@ -265,6 +262,7 @@ static void driver_route_call(struct int_route_service_binding *b,
     }
 
     assert(err_is_ok(err));
+    int_src_num += irq_idx;
 
     uint64_t dest_vec = INVALID_VECTOR;
     err = invoke_irqdest_get_vector(intdest, &dest_vec);

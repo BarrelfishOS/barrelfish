@@ -262,8 +262,7 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
         strncpy(driver_arg->int_arg.msix_ctrl_name, lines[2],
                 sizeof(driver_arg->int_arg.msix_ctrl_name));
         KALUGA_DEBUG("Set msix_ctrl_name for (%d,%d,%d) to %s",
-                     addr.bus, addr.device, addr.function,
-                     driver_arg->int_arg.msix_ctrl_name);
+                addr.bus, addr.device, addr.function, driver_arg->int_arg.msix_ctrl_name);
 
     } else {
         KALUGA_DEBUG("No interrupt model specified. No interrupts"
