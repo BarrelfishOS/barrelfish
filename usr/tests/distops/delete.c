@@ -139,7 +139,7 @@ void init_client(struct test_binding *b)
 void client_do_test(struct test_binding *b, uint32_t test, struct capref cap)
 {
     errval_t err;
-    struct vnode_identity vi;
+    struct frame_identity fi;
     struct client_state *st = b->st;
     assert(st);
 
@@ -147,7 +147,7 @@ void client_do_test(struct test_binding *b, uint32_t test, struct capref cap)
         // Do retype while copies exist on other core
         case CLIENT_OP_ACCESS_1:
             printf("client: access cap in cnode\n");
-            err = invoke_vnode_identify(st->cap, &vi);
+            err = cap_identify_mappable(st->cap, &fi);
             if (err_is_fail(err)) {
                 printf("distops_delete: invoke failed: %s\n", err_getcode(err));
             }
