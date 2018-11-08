@@ -69,7 +69,7 @@ static errval_t init(struct bfdriver_instance *bfi, const char *name,
     hpet_initialize(&d, (mackerel_addr_t)hpet_vbase);
 
     // configure general capabilities register
-    uint64_t gcap_reg = hpet_gcap_id_rd(&d);
+    hpet_gcap_id_t gcap_reg = hpet_gcap_id_rd(&d);
     char gcap_debug[1024];
     hpet_gcap_id_pr(gcap_debug, sizeof(gcap_debug), &d);
     printf("HPET: gcap register: \n%s\n", gcap_debug);
@@ -79,10 +79,13 @@ static errval_t init(struct bfdriver_instance *bfi, const char *name,
         DEBUG_ERR(err, "skb_add_fact");
     }
     
-    // turn on legacy compatibility, turn on interrupts
-    hpet_gen_conf_leg_rt_cnf_wrf(&d, 1); //TODO: Check this IT should probably
-    // be on only when possible!!
-    hpet_gen_conf_enable_cnf_wrf(&d, 0);
+    if(hpet_gcap_id_leg_rt_cap_extract(gcap_reg)) {
+        // TODO: Figure out when use legacy replacement.
+        hpet_gen_conf_leg_rt_cnf_wrf(&d, 1); 
+    }
+
+    // Enable timer!
+    hpet_gen_conf_enable_cnf_wrf(&d, 1);
 
     int n_timers = hpet_gcap_id_num_tim_cap_extract(gcap_reg);
     for (int i = 0; i < n_timers; i++) {

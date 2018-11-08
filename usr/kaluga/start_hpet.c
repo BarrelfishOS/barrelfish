@@ -31,84 +31,6 @@
 #define DRIVER_CORE 0
 #define HPET_INT_CAP 1 // should change it  to refer to the one in hpet.h
 
-//static errval_t init_int_args(uint64_t start_input_range,
-//                              uint64_t end_input_range,
-//                              struct driver_argument *arg,
-//                              struct capref *intcap) {
-//    errval_t err;
-//    arg->int_arg.int_range_start = start_input_range;
-//    arg->int_arg.int_range_end = end_input_range;
-//
-//    // store int capability --> change this to make it modular
-//    arg->int_arg.model = INT_MODEL_MSI;
-//
-//    struct capref *all_irq_cap = get_irq_cap();
-//    // code from store_int_cap to retype int cap
-//    assert(!cnoderef_is_null(arg->argnode_ref));
-//    assert(!capref_is_null(*all_irq_cap));
-//
-//    intcap->cnode = arg->argnode_ref;
-//    intcap->slot = HPET_INT_CAP;
-//
-//    err = cap_retype(*intcap, *all_irq_cap, start_input_range, ObjType_IRQSrc,
-//                     end_input_range, 1);
-//    if (err_is_fail(err)) {
-//        DEBUG_ERR(err, "Could not retype int_src cap");
-//        return err;
-//    }
-//    return SYS_ERR_OK;
-//}
-
-//static
-//errval_t start_hpet_comparator_driver(coreid_t where, struct module_info *driver,
-//                           char *record, struct driver_argument *arg) {
-//
-//    char *q = NULL, *res = NULL;
-//
-//    struct driver_instance *drv = NULL;
-//    ierr = asprintf(
-//        &q,
-//        "add_hpet_controller(Lbl, %d),write('\n'),print_int_controller(Lbl).",
-//        nTimers);
-//    assert(ierr > 0);
-//    err = skb_evaluate(q, &res, NULL, NULL);
-//    if (err_is_fail(err)) {
-//        DEBUG_SKB_ERR(err, "add hpet controller");
-//        goto out;
-//    }
-//
-//    uint64_t start_in = 0, end_in = 0, start_out = 0, end_out = 0;
-//    char ctrl_label[64];
-//    // Format is: ctrlinfo\nLbl,Class,InLo,InHi,OutLo,OutHi
-//    ierr = sscanf(res,
-//                  "%*[^\n]\n%64[^,],%*[^,],%" SCNu64 ",%" SCNu64 ",%" SCNu64
-//                  ",%" SCNu64,
-//                  ctrl_label, &start_in, &end_in, &start_out, &end_out);
-//    if (ierr != 5) {
-//        printf("Can't parse skb result: %s\n", res);
-//        err = SKB_ERR_EXECUTION;
-//        goto out;
-//    }
-//
-//    // add input int start range ,  input int end range , output int range to
-//    // drv args
-//    drv->args[0] = malloc(50);
-//    drv->args[1] = malloc(50);
-//    drv->args[2] = malloc(50);
-//
-//    snprintf(drv->args[0], 50, "%lu", start_in);
-//    snprintf(drv->args[1], 50, "%lu", end_in);
-//    snprintf(drv->args[2], 50, "%lu", start_out);
-//
-//    // create int cap for diver
-//    struct capref intcap;
-//    err = init_int_args(start_in, end_in, arg, &intcap);
-//
-//out:
-//    free(q);
-//    free(res);
-//}
-
 errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
                            char *record ) {
     errval_t err;
@@ -181,13 +103,6 @@ errval_t start_hpet_driver(coreid_t where, struct module_info *driver,
         goto out;
     }
 
-    //// add int cap to driver
-    //err = ddomain_driver_add_cap(drv, intcap);
-    //if (err_is_fail(err)) {
-    //    USER_PANIC_ERR(err, "add_cap");
-    //    goto out;
-    //}
-
     drv->args[0] = malloc(50);
     snprintf(drv->args[0], 50, "%ld", uid);
 
@@ -249,7 +164,7 @@ static errval_t hpet_comp_get_irq_index(const char *record, char *ctrl_label,
 }
 
 
-static errval_t store_irq_info(const char *device_record,
+static errval_t hpet_comp_store_irq_info(const char *device_record,
                                struct driver_instance *drv) {
     errval_t err;
     struct capref *all_irq_cap = get_irq_cap();
@@ -283,7 +198,7 @@ static errval_t store_irq_info(const char *device_record,
     return ddomain_driver_add_cap(drv, arg_caps);
 }
 
-static errval_t store_index_arg(const char *record,
+static errval_t hpet_comp_store_index_arg(const char *record,
                                struct driver_instance *drv) {
     int64_t hpet_uid, index;
     errval_t err;
@@ -308,10 +223,10 @@ static errval_t start_hpet_comp_driver(const char *device_record){
     struct driver_instance *drv = NULL;
     drv = ddomain_create_driver_instance("hpet_comp_module", "key");
 
-    err = store_irq_info(device_record, drv); 
+    err = hpet_comp_store_irq_info(device_record, drv); 
     if(err_is_fail(err)) return err;
 
-    err = store_index_arg(device_record, drv); 
+    err = hpet_comp_store_index_arg(device_record, drv); 
     if(err_is_fail(err)) return err;
 
     KALUGA_DEBUG("start_hpet_comp_driver: Instantiating driver \n");
@@ -340,13 +255,6 @@ void hpet_change_event(oct_mode_t mode, const char *device_record, void *st) {
             printf("HPET driver not found or not declared as auto.");
             return;
         }
-
-        //struct driver_argument *arg;
-        //arg = malloc(sizeof(struct driver_argument));
-        //err = cnode_create_l2(&arg->arg_caps, &arg->argnode_ref);
-        //if (err_is_fail(err)) {
-        //    DEBUG_ERR(err, "Could not cnode_create_l2");
-        //}
 
         // Todo : change 0 is for core_0
         err = start_hpet_driver(0, mi, (CONST_CAST)device_record);
