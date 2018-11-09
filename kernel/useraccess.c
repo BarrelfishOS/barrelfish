@@ -26,9 +26,9 @@
 bool access_ok(uint8_t type, lvaddr_t buffer, size_t size)
 {
     debug(SUBSYS_SYSCALL, "%s: buffer=%#"PRIxLVADDR", size=%zu\n", __FUNCTION__, buffer, size);
-    // Check that `buffer` is a user space address, i.e. below MEMORY_OFFSET
-    if (buffer >= MEMORY_OFFSET) {
-        return SYS_ERR_INVALID_USER_BUFFER;
+    // Check that the provided buffer is fully in user space, i.e. below MEMORY_OFFSET
+    if (buffer + size >= MEMORY_OFFSET) {
+        return false;
     }
 
     // check if we have valid ptentries for base .. base + npages
