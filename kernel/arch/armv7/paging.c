@@ -663,11 +663,11 @@ bool paging_is_region_valid(lvaddr_t buffer, size_t size, uint8_t type)
             return false;
         } else if (l1e->section.type == 2) { // section
             // check if we have write access
-            if (type == ACCESS_WRITE && !l1e->section.ap10 & 1) { return false; }
+            if (type == ACCESS_WRITE && !(l1e->section.ap10 & 1)) { return false; }
             continue;
         } else if (l1e->super_section.type == 3) { // supersection
             // check if we have write access
-            if (type == ACCESS_WRITE && !l1e->super_section.ap10 & 1) { return false; }
+            if (type == ACCESS_WRITE && !(l1e->super_section.ap10 & 1)) { return false; }
         } else if (l1e->page_table.type == 1) { // ptable
             // calculate which part of ptable to check
             first_l2idx = l1idx == first_l1idx ? ARM_L2_OFFSET(buffer) : 0;
@@ -680,10 +680,10 @@ bool paging_is_region_valid(lvaddr_t buffer, size_t size, uint8_t type)
                     return false;
                 } else if (l2e->large_page.type == 1) { // large page
                     // check if we have write access
-                    if (type == ACCESS_WRITE && !l2e->large_page.ap10 & 1) { return false; }
+                    if (type == ACCESS_WRITE && !(l2e->large_page.ap10 & 1)) { return false; }
                 } else if (l2e->small_page.type >= 2) { // type == 2 or 3 - small page
                     // check if we have write access
-                    if (type == ACCESS_WRITE && !l2e->small_page.ap10 & 1) { return false; }
+                    if (type == ACCESS_WRITE && !(l2e->small_page.ap10 & 1)) { return false; }
                 }
             }
         }
