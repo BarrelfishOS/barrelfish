@@ -2036,8 +2036,16 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         if (param2 < LMP_RECV_HEADER_LENGTH) {
             return SYS_ERR_INVALID_EPLEN;
         }
+        uint16_t iftype = param2 >> 16;
+        uint16_t buflen = param2 & 0xFFFF;
         dest_cap->u.endpointlmp.epoffset = param1;
-        dest_cap->u.endpointlmp.epbuflen = param2;
+        dest_cap->u.endpointlmp.epbuflen = buflen;
+        dest_cap->u.endpointlmp.iftype = iftype;
+        break;
+
+    case ObjType_EndPointUMP:
+        assert(param2 == 0);
+        dest_cap->u.endpointump.iftype = param1;
         break;
 
     case ObjType_IO:

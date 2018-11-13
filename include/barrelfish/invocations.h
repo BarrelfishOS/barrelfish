@@ -18,6 +18,8 @@
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish_kpi/distcaps.h> // for distcap_state_t
 #include <barrelfish/caddr.h>
+#include <barrelfish/cap_predicates.h> // get_address(), get_size()
+#include <barrelfish/debug.h>
 
 #include <barrelfish/invocations_arch.h>
 #include <barrelfish/idc.h>
@@ -292,40 +294,38 @@ static inline errval_t invoke_endpoint_identify(struct capref ep,
                                                 struct endpoint_identity *ret)
 {
     assert(ret != NULL);
-    assert(get_croot_addr(ep) == CPTR_ROOTCN);
-
-    struct sysret sysret = cap_invoke2(ep, EndPointCMD_Identify, (uintptr_t)ret);
-
-    if (err_is_ok(sysret.error)) {
-        switch(ret->eptype) {
-            case ObjType_EndPointLMP :
-                ret->eptype = IDC_ENDPOINT_LMP;
-                break;
-            case ObjType_EndPointUMP :
-                ret->eptype = IDC_ENDPOINT_UMP;
-                break;
-            default:
-                return SYS_ERR_INVALID_SOURCE_TYPE;
-        }
-        return sysret.error;
-    }
 
     ret->iftype = 0;
     ret->base = 0;
     ret->length = 0;
-    ret->eptype = 0;
 
-    return sysret.error;
+    struct capability retcap;
+
+    errval_t err = invoke_cap_identify(ep, &retcap);
+
+    if (err_is_ok(err)) {
+        if (retcap.type == ObjType_EndPointLMP) {
+            // fill out with LMP info
+            ret->base = (uintptr_t)retcap.u.endpointlmp.listener +
+                        retcap.u.endpointlmp.epoffset;
+            ret->length = retcap.u.endpointlmp.epbuflen;
+            ret->iftype = retcap.u.endpointlmp.iftype;
+            ret->eptype = IDC_ENDPOINT_LMP;
+        } else if (retcap.type == ObjType_EndPointUMP) {
+            // fill out with UMP info
+            ret->base = get_address(&retcap);
+            ret->length = get_size(&retcap);
+            ret->iftype = retcap.u.endpointump.iftype;
+            ret->eptype = IDC_ENDPOINT_UMP;
+        } else {
+            // fail if cap not endpoint
+            ret->eptype = 0;
+            err = SYS_ERR_INVALID_SOURCE_TYPE;
+        }
+    }
+
+    return err;
 }
-
-static inline errval_t invoke_endpoint_set_iftype(struct capref ep,
-                                                  uint16_t iftype)
-{
-    assert(get_croot_addr(ep) == CPTR_ROOTCN);
-
-    return cap_invoke2(ep, EndPointCMD_SetIftype, (uintptr_t) iftype).error;
-}
-
 
 /**
  * \brief Cleans all dirty bits in a page table.

@@ -907,12 +907,20 @@ errval_t ump_endpoint_create_with_iftype(struct capref dest, size_t bytes,
                                          uint16_t iftype)
 {
     errval_t err;
-    err = create_mappable_cap(dest, ObjType_EndPointUMP, bytes, NULL);
+    struct capref tmp;
+    err = slot_alloc(&tmp);
     if (err_is_fail(err)) {
-        return err;   
+        return err;
     }
-
-    return invoke_endpoint_set_iftype(dest, iftype);
+    err = create_mappable_cap(tmp, ObjType_EndPointUMP, bytes, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = cap_mint(dest, tmp, iftype, 0);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    return cap_destroy(tmp);
 }
 
 /**
