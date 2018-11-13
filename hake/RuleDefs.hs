@@ -1214,63 +1214,16 @@ appBuildArch tdb tf args arch =
 --
 -- Build an Arrakis application binary
 --
+-- Use the libraryOs selection argument to link against libarrakis, and add
+-- -DARRAKIS to application CFLAGS.
+--
 
 arrakisapplication :: Args.Args
-arrakisapplication = Args.defaultArgs { Args.buildFunction = arrakisApplicationBuildFn }
-
-arrakisApplicationBuildFn :: TreeDB -> String -> Args.Args -> HRule
-arrakisApplicationBuildFn tdb tf args
-    | debugFlag && trace (Args.showArgs (tf ++ " Arrakis Application ") args) False
-        = undefined
-arrakisApplicationBuildFn tdb tf args =
-    Rules [ arrakisAppBuildArch tdb tf args arch | arch <- Args.architectures args ]
-
-arrakisAppGetOptionsForArch arch args =
-    (options arch) { extraIncludes =
-                         [ NoDep SrcTree "src" a | a <- Args.addIncludes args],
-                     optIncludes = (optIncludes $ options arch) \\
-                         [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
-                     optFlags = ((optFlags $ options arch) ++ [ Str "-DARRAKIS" ]) \\
-                                [ Str f | f <- Args.omitCFlags args ],
-                     optCxxFlags = (optCxxFlags $ options arch) \\
-                                   [ Str f | f <- Args.omitCxxFlags args ],
-                     optSuffix = "_for_app_" ++ Args.target args,
-                     optLibs = [ In InstallTree arch "/lib/libarrakis.a" ] ++
-                               ((optLibs $ options arch) \\
-                                [ In InstallTree arch "/lib/libbarrelfish.a" ]),
-                     extraFlags = Args.addCFlags args,
-                     extraCxxFlags = Args.addCxxFlags args,
-                     extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
-                     extraDependencies =
-                         [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
-                   }
-
-arrakisAppBuildArch tdb tf args arch =
-    let -- Fiddle the options
-        opts = arrakisAppGetOptionsForArch arch args
-        csrcs = Args.cFiles args
-        cxxsrcs = Args.cxxFiles args
-        gencsrc = Args.generatedCFiles args
-        gencxxsrc = Args.generatedCxxFiles args
-        appname = Args.target args
-        -- XXX: Not sure if this is correct. Currently assuming that if the app
-        -- contains C++ files, we have to use the C++ linker.
-        mylink = if cxxsrcs == [] then link else linkCxx
-    in
-      Rules ( flounderRules opts args csrcs
-              ++
-              skateRules opts args csrcs
-              ++
-              [ mackerelDependencies opts m csrcs | m <- Args.mackerelDevices args ]
-              ++
-              [ compileCFiles opts csrcs,
-                compileCxxFiles opts cxxsrcs,
-                compileGeneratedCFiles opts gencsrc,
-                compileGeneratedCxxFiles opts gencxxsrc,
-                assembleSFiles opts (Args.assemblyFiles args),
-                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args) (allModulesPaths opts args) appname
-              ]
-            )
+arrakisapplication = Args.defaultArgs {
+    Args.buildFunction = applicationBuildFn,
+    Args.libraryOs     = "arrakis",
+    Args.addCFlags     = [ "-DARRAKIS" ]
+}
 
 --
 -- Build a static library
