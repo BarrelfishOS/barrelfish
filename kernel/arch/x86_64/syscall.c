@@ -727,63 +727,6 @@ static struct sysret monitor_reclaim_ram(struct capability *kern_cap,
     return sys_monitor_reclaim_ram(retcn_addr, retcn_level, ret_slot);
 }
 
-static struct sysret handle_frame_identify(struct capability *to,
-                                           int cmd, uintptr_t *args)
-{
-    // Return with physical base address of frame
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame ||
-           to->type == ObjType_RAM   || to->type == ObjType_EndPointUMP);
-    assert((get_address(to) & BASE_PAGE_MASK) == 0);
-
-    struct frame_identity *fi = (struct frame_identity *)args[0];
-
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    fi->base = get_address(to);
-    fi->bytes = get_size(to);
-    switch(to->type) {
-        case ObjType_Frame:
-            fi->pasid = to->u.frame.pasid;
-            break;
-        case ObjType_DevFrame:
-            fi->pasid = to->u.devframe.pasid;
-            break;
-        case ObjType_RAM:
-            fi->pasid = to->u.ram.pasid;
-            break;
-        case ObjType_EndPointUMP:
-            fi->pasid = to->u.endpointump.pasid;
-            break;
-        default:
-            assert(false);
-    }
-
-    return SYSRET(SYS_ERR_OK);
-}
-
-static struct sysret handle_vnode_identify(struct capability *to,
-					   int cmd, uintptr_t *args)
-{
-    // Return with physical base address of the VNode
-    assert(to->type == ObjType_VNode_x86_64_pml4 ||
-	   to->type == ObjType_VNode_x86_64_pdpt ||
-	   to->type == ObjType_VNode_x86_64_pdir ||
-	   to->type == ObjType_VNode_x86_64_ptable ||
-       to->type == ObjType_VNode_x86_64_pml5 ||
-       to->type == ObjType_VNode_VTd_root_table ||
-       to->type == ObjType_VNode_VTd_ctxt_table);
-
-    genpaddr_t base_addr = get_address(to);
-    assert((base_addr & BASE_PAGE_MASK) == 0);
-
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = (genpaddr_t)base_addr | ((uint8_t)to->type),
-    };
-}
-
 static struct sysret handle_clean_dirty_bits(struct capability *to,
                                              int cmd, uintptr_t *args)
 {
@@ -1313,31 +1256,6 @@ static struct sysret handle_devid_create(struct capability *cap, int cmd,
                                             slot, my_core_id, &devid));
 }
 
-static struct sysret handle_devid_identify(struct capability *cap, int cmd,
-                                           uintptr_t *args)
-{
-    // Return with physical base address of frame
-    printf("Cap->type == %u\n", cap->type);
-
-    assert(cap->type == ObjType_DeviceID);
-
-    struct device_identity *di = (struct device_identity *)args[0];
-
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)di, sizeof(struct device_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    di->bus = cap->u.deviceid.bus;
-    di->device = cap->u.deviceid.device;
-    di->function = cap->u.deviceid.function;
-    di->flags = cap->u.deviceid.flags;
-    di->segment = cap->u.deviceid.segment;
-    di->type = cap->u.deviceid.type;
-
-    return SYSRET(SYS_ERR_OK);
-}
-
-
 static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
                                           uintptr_t *args)
 {
@@ -1430,15 +1348,8 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_KernelControlBlock] = {
         [KCBCmd_Identify] = handle_kcb_identify,
     },
-    [ObjType_RAM] = {
-        [RAMCmd_Identify] = handle_frame_identify,
+        [ObjType_RAM] = {
         [RAMCmd_Noop] = handle_noop,
-    },
-    [ObjType_Frame] = {
-        [FrameCmd_Identify] = handle_frame_identify,
-    },
-    [ObjType_DevFrame] = {
-        [FrameCmd_Identify] = handle_frame_identify,
     },
     [ObjType_L1CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -1464,25 +1375,21 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_CapIdentify] = handle_cap_identify,
     },
     [ObjType_VNode_VTd_root_table] = {
-        [VNodeCmd_Identify]    = handle_vnode_identify,
         [VNodeCmd_Map]         = handle_map,
         [VNodeCmd_Unmap]       = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
     },
     [ObjType_VNode_VTd_ctxt_table] = {
-        [VNodeCmd_Identify]    = handle_vnode_identify,
         [VNodeCmd_Map]         = handle_map,
         [VNodeCmd_Unmap]       = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
     },
     [ObjType_VNode_x86_64_pml5] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
     },
     [ObjType_VNode_x86_64_pml4] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
@@ -1490,7 +1397,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_pdpt] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
@@ -1498,7 +1404,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_pdir] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
@@ -1506,7 +1411,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_ptable] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_CleanDirtyBits] = handle_clean_dirty_bits,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
@@ -1551,22 +1455,18 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MappingCmd_Modify] = handle_mapping_modify,
     },
     [ObjType_VNode_x86_64_ept_pml4] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_x86_64_ept_pdpt] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_x86_64_ept_pdir] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_x86_64_ept_ptable] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_CleanDirtyBits] = handle_clean_dirty_bits,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
@@ -1647,9 +1547,6 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_DeviceIDManager] = {
         [DeviceIDManager_CreateID] = handle_devid_create,
-    },
-    [ObjType_DeviceID] = {
-        [DeviceID_Identify] = handle_devid_identify,
     },
 };
 

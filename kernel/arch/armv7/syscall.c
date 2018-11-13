@@ -108,49 +108,6 @@ handle_dispatcher_perfmon(
     return SYSRET(SYS_ERR_PERFMON_NOT_AVAILABLE);
 }
 
-static struct sysret
-handle_frame_identify(
-    struct capability* to,
-    arch_registers_state_t* context,
-    int argc
-    )
-{
-    assert(3 == argc);
-
-    struct registers_arm_syscall_args* sa = &context->syscall_args;
-
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
-    assert((get_address(to) & BASE_PAGE_MASK) == 0);
-
-    struct frame_identity *fi = (struct frame_identity *)sa->arg2;
-
-    if(!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    fi->base = get_address(to);
-    fi->bytes = get_size(to);
-
-    switch(to->type) {
-        case ObjType_Frame:
-            fi->pasid = to->u.frame.pasid;
-            break;
-        case ObjType_DevFrame:
-            fi->pasid = to->u.devframe.pasid;
-            break;
-        case ObjType_RAM:
-            fi->pasid = to->u.ram.pasid;
-            break;
-        case ObjType_EndPointUMP:
-            fi->pasid = to->u.endpointump.pasid;
-            break;
-        default:
-            assert(false);
-    }
-
-    return SYSRET(SYS_ERR_OK);
-}
-
 static struct sysret copy_or_mint(struct capability *root,
                                   struct registers_arm_syscall_args* args,
                                   bool mint)
@@ -352,25 +309,6 @@ handle_resize(
     cslot_t   retslot     = sa->arg4;
 
     return sys_resize_l1cnode(root, newroot_ptr, retcn_ptr, retslot);
-}
-
-static struct sysret
-handle_vnode_identify(
-        struct capability *vnode,
-        arch_registers_state_t *context,
-        int argc
-        )
-{
-    assert(argc == 2);
-    assert(type_is_vnode(vnode->type));
-
-    lpaddr_t base_addr = get_address(vnode);
-    assert((base_addr & BASE_PAGE_MASK) == 0);
-
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = base_addr | ((uint8_t)vnode->type),
-    };
 }
 
 static struct sysret
@@ -960,29 +898,6 @@ static struct sysret handle_devid_create(struct capability *cap,
                                             slot, my_core_id, &devid));
 }
 
-static struct sysret handle_devid_identify(struct capability *cap,
-                                           arch_registers_state_t *context,
-                                           int argc)
-{
-    struct registers_arm_syscall_args* sa = &context->syscall_args;
-
-    // Return with physical base address of frame
-    assert(cap->type == ObjType_DeviceID);
-
-    struct device_identity *di = (struct device_identity *)sa->arg2; ;
-
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)di, sizeof(struct device_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    di->bus = cap->u.deviceid.bus;
-    di->device = cap->u.deviceid.device;
-    di->function = cap->u.deviceid.function;
-    di->flags = cap->u.deviceid.flags;
-
-    return SYSRET(SYS_ERR_OK);
-}
-
 static struct sysret handle_kcb_identify(struct capability *to,
                                   arch_registers_state_t *context,
                                   int argc)
@@ -1073,12 +988,6 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KCBCmd_Identify] = handle_kcb_identify,
         [KCBCmd_Clone] = handle_kcb_clone,
     },
-    [ObjType_Frame] = {
-        [FrameCmd_Identify] = handle_frame_identify,
-    },
-    [ObjType_DevFrame] = {
-        [FrameCmd_Identify] = handle_frame_identify,
-    },
     [ObjType_L1CNode] = {
         [CNodeCmd_Copy]     = handle_copy,
         [CNodeCmd_Mint]     = handle_mint,
@@ -1103,12 +1012,10 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_CapIdentify] = handle_cap_identify,
     },
     [ObjType_VNode_ARM_l1] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
     	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_ARM_l2] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
     	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
     },
@@ -1171,9 +1078,6 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_DeviceIDManager] = {
             [DeviceIDManager_CreateID] = handle_devid_create,
-    },
-    [ObjType_DeviceID] = {
-            [DeviceID_Identify] = handle_devid_identify,
     },
 };
 

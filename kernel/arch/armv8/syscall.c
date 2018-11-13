@@ -111,32 +111,6 @@ handle_dispatcher_perfmon(
     return SYSRET(SYS_ERR_PERFMON_NOT_AVAILABLE);
 }
 
-static struct sysret
-handle_frame_identify(
-    struct capability* to,
-    arch_registers_state_t* context,
-    int argc
-    )
-{
-    assert(3 == argc);
-
-    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
-
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame || to->type == ObjType_RAM);
-    assert((get_address(to) & BASE_PAGE_MASK) == 0);
-
-    struct frame_identity *fi = (struct frame_identity *)sa->arg2;
-
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    fi->base = get_address(to);
-    fi->bytes = get_size(to);
-
-    return SYSRET(SYS_ERR_OK);
-}
-
 static struct sysret copy_or_mint(struct capability *root,
                                   struct registers_aarch64_syscall_args* args,
                                   bool mint)
@@ -914,29 +888,6 @@ static struct sysret handle_devid_create(struct capability *cap,
                                             slot, my_core_id, &devid));
 }
 
-static struct sysret handle_devid_identify(struct capability *cap,
-                                           arch_registers_state_t *context,
-                                           int argc)
-{
-    struct registers_aarch64_syscall_args* sa = &context->syscall_args;
-
-    // Return with physical base address of frame
-    assert(cap->type == ObjType_DeviceID);
-
-    struct device_identity *di = (struct device_identity *)sa->arg2;
-
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)di, sizeof(struct device_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    di->bus = cap->u.deviceid.bus;
-    di->device = cap->u.deviceid.device;
-    di->function = cap->u.deviceid.function;
-    di->flags = cap->u.deviceid.flags;
-
-    return SYSRET(SYS_ERR_OK);
-}
-
 static struct sysret handle_kcb_identify(struct capability *to,
                                   arch_registers_state_t *context,
                                   int argc)
@@ -961,15 +912,6 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_KernelControlBlock] = {
         [KCBCmd_Identify] = handle_kcb_identify
-    },
-    [ObjType_RAM] = {
-        [RAMCmd_Identify] = handle_frame_identify,
-    },
-    [ObjType_Frame] = {
-        [FrameCmd_Identify] = handle_frame_identify,
-    },
-    [ObjType_DevFrame] = {
-        [FrameCmd_Identify] = handle_frame_identify,
     },
     [ObjType_L1CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -1077,9 +1019,6 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     },
     [ObjType_DeviceIDManager] = {
             [DeviceIDManager_CreateID] = handle_devid_create,
-    },
-    [ObjType_DeviceID] = {
-            [DeviceID_Identify] = handle_devid_identify,
     },
 };
 

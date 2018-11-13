@@ -450,7 +450,6 @@ enum cnode_cmd {
 enum vnode_cmd {
     VNodeCmd_Map,
     VNodeCmd_Unmap,
-    VNodeCmd_Identify,       ///< Return the physical address of the VNode
     VNodeCmd_ModifyFlags,
     VNodeCmd_CleanDirtyBits, ///< Cleans all dirty bit in the table
     VNodeCmd_CopyRemap,      ///< Copy and remap page table for copy-on-write
@@ -526,13 +525,6 @@ enum dispatcher_cmd {
 };
 
 /**
- * Frame capability commands.
- */
-enum frame_cmd {
-    FrameCmd_Identify,      ///< Return physical address of frame
-};
-
-/**
  * Kernel control block commands.
  */
 enum kcb_cmd {
@@ -544,7 +536,6 @@ enum kcb_cmd {
  * RAM capability commands
  */
 enum ram_cmd {
-    RAMCmd_Identify,      ///< Return physical address of frame, has to be first to match FrameCmd_Identify
     RAMCmd_Noop,          ///< Noop invocation for benchmark
 };
 
@@ -598,10 +589,6 @@ enum devidman_cmd {
     DeviceIDManager_CreateID,   ///< Create a new DeviceID
 };
 
-enum devid_cmd {
-    DeviceID_Identify,          ///< Identify a device identity
-};
-
 
 /**
  * Notify capability commands.
@@ -637,13 +624,6 @@ enum ipi_cmd {
     IPICmd_Send_Start,     ///< Send Startup IPI to a destination core
     IPICmd_Send_Init,      ///< Send Init IPI to a destination core
 };
-
-enum ep_cmd {
-    EndPointCMD_FrameIdentify, ///< Identifies Just the Frame Endpoint
-    EndPointCMD_Identify,      ///< Identifies the Endpoint
-    EndPointCMD_SetIftype,      ///< Identifies the Endpoint
-};
-
 
 /**
  * Maximum command ordinal.
