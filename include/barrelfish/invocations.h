@@ -256,19 +256,22 @@ static inline errval_t invoke_cap_identify(struct capref cap,
 static inline errval_t invoke_vnode_identify(struct capref vnode,
 					     struct vnode_identity *ret)
 {
-    assert(get_croot_addr(vnode) == CPTR_ROOTCN);
-    struct sysret sysret = cap_invoke1(vnode, VNodeCmd_Identify);
+    errval_t err;
+    struct capability retcap;
+    err = invoke_cap_identify(vnode, &retcap);
 
     assert(ret != NULL);
-    if (err_is_ok(sysret.error)) {
-        ret->base = sysret.value & (~BASE_PAGE_MASK);
-	ret->type = sysret.value & BASE_PAGE_MASK;
-        return sysret.error;
-    }
 
     ret->base = 0;
     ret->type = 0;
-    return sysret.error;
+
+    if (err_is_ok(err) && type_is_vnode(retcap.type)) {
+        ret->base = get_address(&retcap);
+	ret->type = retcap.type;
+    } else if (err_is_ok(err)) {
+        err = SYS_ERR_INVALID_SOURCE_TYPE;
+    }
+    return err;
 }
 
 static inline errval_t invoke_device_identify(struct capref deviceid,
