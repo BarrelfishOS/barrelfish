@@ -277,14 +277,9 @@ static inline errval_t invoke_vnode_identify(struct capref vnode,
 static inline errval_t invoke_device_identify(struct capref deviceid,
                                               struct device_identity *ret)
 {
-    assert(ret != NULL);
-    assert(get_croot_addr(deviceid) == CPTR_ROOTCN);
+    errval_t err;
 
-    struct sysret sysret = cap_invoke2(deviceid, DeviceID_Identify, (uintptr_t)ret);
-
-    if (err_is_ok(sysret.error)) {
-        return sysret.error;
-    }
+    assert(ret);
 
     ret->bus = 0;
     ret->device = 0;
@@ -292,7 +287,20 @@ static inline errval_t invoke_device_identify(struct capref deviceid,
     ret->flags = 0;
     ret->type = DEVICE_ID_TYPE_UNKNOWN;
     ret->segment = 0;
-    return sysret.error;
+
+    struct capability retcap;
+    err = invoke_cap_identify(deviceid, &retcap);
+    if (err_is_ok(err) && retcap.type == ObjType_DeviceID) {
+        ret->bus = retcap.u.deviceid.bus;
+        ret->device = retcap.u.deviceid.device;
+        ret->function = retcap.u.deviceid.function;
+        ret->flags = retcap.u.deviceid.flags;
+        ret->segment = retcap.u.deviceid.segment;
+        ret->type = retcap.u.deviceid.type;
+    } else if (err_is_ok(err)) {
+        err = SYS_ERR_INVALID_SOURCE_TYPE;
+    }
+    return err;
 }
 
 
