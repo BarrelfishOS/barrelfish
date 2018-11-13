@@ -218,6 +218,10 @@ static inline errval_t invoke_vnode_copy_remap(struct capref ptable, capaddr_t s
 /**
  * \brief Return the physical address of a kernel control block
  *
+ * KCB identify is special because we do not have a valid implementation of
+ * mem_to_local_phys() in user space, which means we cannot use get_address()
+ * on a KCB's struct capability in user space.
+ *
  * \param kcb      CSpace address of kernel control block capability
  * \param ret      frame_identity struct filled in with relevant data
  *
