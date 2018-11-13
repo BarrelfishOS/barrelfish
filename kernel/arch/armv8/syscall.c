@@ -960,7 +960,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_DumpCapabilities] = dispatcher_dump_capabilities
     },
     [ObjType_KernelControlBlock] = {
-        [FrameCmd_Identify] = handle_kcb_identify
+        [KCBCmd_Identify] = handle_kcb_identify
     },
     [ObjType_RAM] = {
         [RAMCmd_Identify] = handle_frame_identify,

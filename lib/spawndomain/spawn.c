@@ -804,7 +804,7 @@ errval_t spawn_load_image(struct spawninfo *si, lvaddr_t binary,
         for(struct memobj_frame_list *f = m->frame_list; f != NULL; f = f->next) {
             if (f->pa == 0) {
                 struct frame_identity id;
-                err = invoke_frame_identify(f->frame, &id);
+                err = frame_identify(f->frame, &id);
                 assert(err_is_ok(err));
                 f->pa = id.base;
             }

@@ -106,7 +106,7 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     PRINTF("Co-processor handling msg_open_cb\n");
 
     struct frame_identity id;
-    err = invoke_frame_identify(msgframe, &id);
+    err = frame_identify(msgframe, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -160,7 +160,7 @@ int main(int argc, char **argv)
 
     struct dmem dmem;
     struct frame_identity id;
-    err = invoke_frame_identify(msgframe, &id);
+    err = frame_identify(msgframe, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to invoke frame identify\n");
     }

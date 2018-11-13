@@ -52,7 +52,7 @@ errval_t boot_arch_app_core(int argc, char *argv[],
         .slot  = TASKCN_SLOT_MON_URPC,
     };
     struct frame_identity frameid;
-    err = invoke_frame_identify(frame, &frameid);
+    err = frame_identify(frame, &frameid);
     if (err_is_fail(err)) {
         err = err_push(err, LIB_ERR_FRAME_IDENTIFY);
         return err;

@@ -216,31 +216,34 @@ static inline errval_t invoke_vnode_copy_remap(struct capref ptable, capaddr_t s
 }
 
 /**
- * \brief Return the physical address and size of a frame capability
+ * \brief Return the physical address of a kernel control block
  *
- * \param frame    CSpace address of frame capability
+ * \param kcb      CSpace address of kernel control block capability
  * \param ret      frame_identity struct filled in with relevant data
  *
  * \return Error code
  */
-static inline errval_t invoke_frame_identify(struct capref frame,
-                                             struct frame_identity *ret)
+static inline errval_t invoke_kcb_identify(struct capref kcb,
+                                           struct frame_identity *ret)
 {
     assert(ret != NULL);
-    assert(get_croot_addr(frame) == CPTR_ROOTCN);
-
-    struct sysret sysret = cap_invoke2(frame, FrameCmd_Identify, (uintptr_t)ret);
-
-    if (err_is_ok(sysret.error)) {
-        return sysret.error;
-    }
+    assert(get_croot_addr(kcb) == CPTR_ROOTCN);
 
     ret->base = 0;
     ret->bytes = 0;
     ret->pasid = 0;
-    return sysret.error;
+
+    return cap_invoke2(kcb, KCBCmd_Identify, (uintptr_t)ret).error;
 }
 
+/**
+ * \brief Return capability representation of a given CSpace address
+ *
+ * \param cap      CSpace address of capability
+ * \param ret      capability struct filled in with relevant data
+ *
+ * \return Error code
+ */
 static inline errval_t invoke_cap_identify(struct capref cap,
                                            struct capability *ret)
 {

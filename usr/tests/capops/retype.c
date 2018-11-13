@@ -125,7 +125,7 @@ static int test_retype_single(void)
     GOTO_IF_ERR(err, out);
     // offset of slot 0 is 8kB --> addrs should be (2+slot) * BASE_PAGE_SIZE
     for (tmp.slot = 0; tmp.slot <= 2; tmp.slot++) {
-        err = invoke_frame_identify(tmp, &fi);
+        err = frame_identify(tmp, &fi);
         assert(err_is_ok(err));
         if (bor_id.base + (2+tmp.slot)*BASE_PAGE_SIZE != fi.base ||
             fi.bytes != BASE_PAGE_SIZE)

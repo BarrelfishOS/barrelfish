@@ -316,7 +316,7 @@ alloc_guest_mem(struct guest *g, lvaddr_t guest_paddr, size_t bytes)
 
     debug_printf("%s:%d\n",__FUNCTION__, __LINE__);
     struct frame_identity frameid = { .base = 0, .bytes = 0 };
-    errval_t r = invoke_frame_identify(cap, &frameid);
+    errval_t r = frame_identify(cap, &frameid);
     assert(err_is_ok(r));
     debug_printf("alloc_guest_mem: frameid.base: 0x%lx, frameid.bytes: %zu,"
             " g->mem_low_va: 0x%lx, g->mem_high_va: 0x%lx\n",
@@ -603,7 +603,7 @@ static void ept_map(struct guest *g, struct capref cap)
     assert(err_is_ok(err));
 
     struct frame_identity fi;
-    err = invoke_frame_identify(ept_copy, &fi);
+    err = frame_identify(ept_copy, &fi);
 
     printf("%s: creating identity mapping for 0x%"PRIxGENPADDR", %lu bytes\n",
             __FUNCTION__, fi.base, fi.bytes);
@@ -666,7 +666,7 @@ static void ept_force_mapping(struct guest *g, struct capref mem)
     struct frame_identity fi;
 
     // get info about memory
-    err = invoke_frame_identify(mem, &fi);
+    err = frame_identify(mem, &fi);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "id mem cap\n");
     }
@@ -893,7 +893,7 @@ spawn_guest_domain (struct guest *g, struct spawninfo *si)
     g->name[G_NAME_LEN-1] = 0;
 
     struct frame_identity fi;
-    err = invoke_frame_identify(si->dispframe, &fi);
+    err = frame_identify(si->dispframe, &fi);
     assert(err_is_ok(err));
     g->dispframe = fi.base;
 
@@ -1180,7 +1180,7 @@ guest_setup (struct guest *g)
     assert_err(err, "guest_cspace_alloc");
     err = frame_create(g->vmcb_cap, VMCB_SIZE, NULL);
     assert_err(err, "frame_create");
-    err = invoke_frame_identify(g->vmcb_cap, &fi);
+    err = frame_identify(g->vmcb_cap, &fi);
     assert_err(err, "frame_identify");
     g->vmcb_pa = fi.base;
     err = vspace_map_one_frame_attr((void**)&g->vmcb_va, VMCB_SIZE, g->vmcb_cap,
@@ -1207,7 +1207,7 @@ guest_setup (struct guest *g)
     // allocate memory for the iopm
     err = frame_alloc(&g->iopm_cap, IOPM_SIZE, NULL);
     assert_err(err, "frame_alloc");
-    err = invoke_frame_identify(g->iopm_cap, &fi);
+    err = frame_identify(g->iopm_cap, &fi);
     assert_err(err, "frame_identify");
     g->iopm_pa = fi.base;
     err = vspace_map_one_frame_attr((void**)&g->iopm_va, IOPM_SIZE, g->iopm_cap,
@@ -1220,7 +1220,7 @@ guest_setup (struct guest *g)
     // allocate memory for I/O bitmap A
     err = frame_alloc(&g->iobmp_a_cap, IOBMP_A_SIZE, NULL);
     assert_err(err, "frame_alloc");
-    err = invoke_frame_identify(g->iobmp_a_cap, &fi);
+    err = frame_identify(g->iobmp_a_cap, &fi);
     assert_err(err, "frame_identify");
     g->iobmp_a_pa = fi.base;
     err = vspace_map_one_frame_attr((void**)&g->iobmp_a_va, IOBMP_A_SIZE, g->iobmp_a_cap,
@@ -1233,7 +1233,7 @@ guest_setup (struct guest *g)
     // allocate memory for I/O bitmap B
     err = frame_alloc(&g->iobmp_b_cap, IOBMP_B_SIZE, NULL);
     assert_err(err, "frame_alloc");
-    err = invoke_frame_identify(g->iobmp_b_cap, &fi);
+    err = frame_identify(g->iobmp_b_cap, &fi);
     assert_err(err, "frame_identify");
     g->iobmp_b_pa = fi.base;
     err = vspace_map_one_frame_attr((void**)&g->iobmp_b_va, IOBMP_B_SIZE, g->iobmp_b_cap,
@@ -1246,7 +1246,7 @@ guest_setup (struct guest *g)
     // allocate memory for the guest MSR store/load area
     err = frame_alloc(&g->msr_area_cap, VMX_MSR_AREA_SIZE, NULL);
     assert_err(err, "frame_alloc");
-    err = invoke_frame_identify(g->msr_area_cap, &fi);
+    err = frame_identify(g->msr_area_cap, &fi);
     assert_err(err, "frame_identify");
     g->msr_area_pa = fi.base;
     err = vspace_map_one_frame_attr((void**)&g->msr_area_va, VMX_MSR_AREA_SIZE,
@@ -1260,7 +1260,7 @@ guest_setup (struct guest *g)
     // allocate memory for the msrpm
     err = frame_alloc(&g->msrpm_cap, MSRPM_SIZE, NULL);
     assert_err(err, "frame_alloc");
-    err = invoke_frame_identify(g->msrpm_cap, &fi);
+    err = frame_identify(g->msrpm_cap, &fi);
     assert_err(err, "frame_identify");
     g->msrpm_pa = fi.base;
     err = vspace_map_one_frame_attr((void**)&g->msrpm_va, MSRPM_SIZE,

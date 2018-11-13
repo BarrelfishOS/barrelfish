@@ -19,7 +19,7 @@ errval_t dma_mem_from_capref(struct capref frame, struct dma_mem *mem)
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke frame id");
         return err;
@@ -69,7 +69,7 @@ errval_t dma_mem_alloc(size_t bytes, struct dma_mem *mem)
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(mem->frame, &id);
+    err = frame_identify(mem->frame, &id);
     if (err_is_fail(err)) {
         dma_mem_free(mem);
         return err;

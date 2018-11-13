@@ -239,7 +239,7 @@ errval_t xdma_register_region(struct xeon_phi *phi, struct dma_mem_mgr *st,
     #endif
 
     struct frame_identity id;
-    err = invoke_frame_identify(cap, &id);
+    err = frame_identify(cap, &id);
     if (err_is_fail(err)) {
         return err;
     }

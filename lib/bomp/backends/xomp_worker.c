@@ -205,7 +205,7 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     lvaddr_t addr = 0x0;
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -232,7 +232,7 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
             if (err_is_fail(err)) {
                 return err;
             }
-            err = invoke_frame_identify(frame, &id);
+            err = frame_identify(frame, &id);
 #else
             struct capref replicate;
             err = frame_alloc(&replicate, id.bytes, NULL);
@@ -245,7 +245,7 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
             if (err_is_fail(err)) {
                 return err;
             }
-            err = invoke_frame_identify(replicate, &id);
+            err = frame_identify(replicate, &id);
 #endif
             if (err_is_fail(err)) {
                 return err;

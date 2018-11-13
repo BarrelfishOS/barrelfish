@@ -40,7 +40,7 @@ int main(int argc, char** argv)
     assert(err_is_ok(err));
 
     struct frame_identity f1;
-    err = invoke_frame_identify(c1, &f1);
+    err = frame_identify(c1, &f1);
     assert(err_is_ok(err));
 
     struct capref c2;
@@ -48,7 +48,7 @@ int main(int argc, char** argv)
     assert(err_is_ok(err));
 
     struct frame_identity f2;
-    err = invoke_frame_identify(c2, &f2);
+    err = frame_identify(c2, &f2);
     assert(err_is_ok(err));
     printf("%s:%s:%d: storing cap with caddr=%#"PRIxCADDR" in SKB\n",
             __FILE__, __FUNCTION__, __LINE__, get_cap_addr(c1));
@@ -81,7 +81,7 @@ int main(int argc, char** argv)
     }
 
     struct frame_identity rcf1;
-    err = invoke_frame_identify(rc1, &rcf1);
+    err = frame_identify(rc1, &rcf1);
     if (f1.base != rcf1.base) {
         USER_PANIC_ERR(err, "Address doesn't match. We got the wrong cap?");
     }
@@ -100,7 +100,7 @@ int main(int argc, char** argv)
     }
 
     struct frame_identity rcf2;
-    err = invoke_frame_identify(rc2, &rcf2);
+    err = frame_identify(rc2, &rcf2);
     if (f2.base != rcf2.base) {
         USER_PANIC_ERR(err, "Address doesn't match. We got the wrong cap?");
     }

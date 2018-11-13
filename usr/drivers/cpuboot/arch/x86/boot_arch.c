@@ -683,7 +683,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
 
 
     struct frame_identity fid;
-    err = invoke_frame_identify(kcb, &fid);
+    err = invoke_kcb_identify(kcb, &fid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Invoke frame identity for KCB failed. "
                             "Did you add the syscall handler for that architecture?");

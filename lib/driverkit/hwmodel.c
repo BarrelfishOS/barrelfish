@@ -199,7 +199,7 @@ errval_t driverkit_hwmodel_vspace_map(int32_t nodeid, struct capref frame,
 {
     errval_t err;
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -260,7 +260,7 @@ errval_t driverkit_hwmodel_vspace_map_fixed(int32_t nodeid,
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -281,7 +281,7 @@ errval_t driverkit_hwmodel_vspace_alloc(struct capref frame,
     errval_t err;
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -402,7 +402,7 @@ errval_t driverkit_hwmodel_reverse_resolve(struct capref dst, int32_t nodeid,
 
     errval_t err;
     struct frame_identity id;
-    err = invoke_frame_identify(dst, &id);
+    err = frame_identify(dst, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -508,7 +508,7 @@ errval_t driverkit_hwmodel_get_map_conf(struct capref dst,
 {
     struct frame_identity id;
     errval_t err;
-    err = invoke_frame_identify(dst, &id);
+    err = frame_identify(dst, &id);
     if (err_is_fail(err)) {
         return err;
     }

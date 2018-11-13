@@ -1428,7 +1428,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
 	[DispatcherCmd_Vmclear] = handle_vmclear,
     },
     [ObjType_KernelControlBlock] = {
-        [FrameCmd_Identify] = handle_kcb_identify,
+        [KCBCmd_Identify] = handle_kcb_identify,
     },
     [ObjType_RAM] = {
         [RAMCmd_Identify] = handle_frame_identify,

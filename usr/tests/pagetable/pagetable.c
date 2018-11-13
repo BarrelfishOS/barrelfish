@@ -83,7 +83,7 @@ static void find_pagetables(struct vnode* current) {
                 printf("%s:%s:%d: we have a pagetable\n", __FILE__, __FUNCTION__, __LINE__);
 
                 struct frame_identity id = { .base = 0, .bits = 0 };
-                err = invoke_frame_identify(current->v.cap, &id);
+                err = frame_identify(current->v.cap, &id);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "Invoke vnode identify failed.");
                 }
@@ -149,7 +149,7 @@ static void find_pagetables(struct vnode* current) {
                 printf("%s:%s:%d: we have a pagetable\n", __FILE__, __FUNCTION__, __LINE__);
 
                 struct frame_identity id = { .base = 0, .bits = 0 };
-                err = invoke_frame_identify(current->v.cap, &id);
+                err = frame_identify(current->v.cap, &id);
                 if (err_is_fail(err)) {
                     USER_PANIC_ERR(err, "Invoke vnode identify failed.");
                 }

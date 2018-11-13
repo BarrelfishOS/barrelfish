@@ -48,8 +48,8 @@ static void measure_mapping(struct capref frame)
     debug_printf("Mapping of frame\n");
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
-    EXPECT_SUCCESS(err, "invoke_frame_identify");
+    err = frame_identify(frame, &id);
+    EXPECT_SUCCESS(err, "frame_identify");
 
     size_t frame_size = (1UL << id.bits);
 

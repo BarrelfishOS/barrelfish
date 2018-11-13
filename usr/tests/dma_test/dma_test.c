@@ -50,7 +50,7 @@ static void prepare(void)
     EXPECT_SUCCESS(err, "allocating frame");
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     EXPECT_SUCCESS(err, "Frame identify");
 
     assert(frame_size == id.bytes);

@@ -414,7 +414,7 @@ static void get_bootinfo(struct monitor_blocking_binding *b)
     };
 
     struct frame_identity id = { .base = 0, .bytes = 0 };
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     assert(err_is_ok(err));
 
     err = b->tx_vtbl.get_bootinfo_response(b, NOP_CONT, SYS_ERR_OK, frame,

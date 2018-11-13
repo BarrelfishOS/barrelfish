@@ -869,9 +869,9 @@ static errval_t buffer_cache_connect(const char *bcache_name)
 
     // Map the cache's memory
     struct frame_identity fid;
-    err = invoke_frame_identify(client->cache_memory, &fid);
+    err = frame_identify(client->cache_memory, &fid);
     if(err_is_fail(err)) {
-        USER_PANIC_ERR(err, "invoke_frame_identify");
+        USER_PANIC_ERR(err, "frame_identify");
     }
 
     void *pool;

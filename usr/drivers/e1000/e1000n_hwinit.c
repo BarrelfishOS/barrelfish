@@ -752,7 +752,7 @@ static void e1000_setup_rx(struct e1000_driver_state *device, struct capref rx)
     struct frame_identity frameid = { .base = 0, .bytes = 0 };
     errval_t err;
 
-    err = invoke_frame_identify(rx, &frameid);
+    err = frame_identify(rx, &frameid);
     assert(err_is_ok(err));
 
     /* clear MTA table */
@@ -864,7 +864,7 @@ static void e1000_setup_tx(struct e1000_driver_state *device, struct capref tx)
     struct frame_identity frameid = { .base = 0, .bytes = 0 };
     errval_t err;
 
-    err = invoke_frame_identify(tx, &frameid);
+    err = frame_identify(tx, &frameid);
     assert(err_is_ok(err));
 
     switch (device->mac_type) {

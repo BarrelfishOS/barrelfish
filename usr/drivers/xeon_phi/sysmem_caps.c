@@ -422,7 +422,7 @@ errval_t sysmem_cap_manager_init(struct capref sysmem_cap)
     }
 
     struct frame_identity ret;
-    err = invoke_frame_identify(sysmem_cap, &ret);
+    err = frame_identify(sysmem_cap, &ret);
     if (err_is_fail(err)) {
         return err;
     }
@@ -480,7 +480,7 @@ errval_t sysmem_cap_return(struct capref frame)
 {
     errval_t err;
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err;
     }

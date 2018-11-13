@@ -261,7 +261,7 @@ static uintptr_t map_device_cap(void)
 
     struct frame_identity frameid;
 
-    err = invoke_frame_identify(dev_cap, &frameid);
+    err = frame_identify(dev_cap, &frameid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not identify the frame.\n");
         return (0);

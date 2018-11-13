@@ -161,7 +161,7 @@ errval_t xeon_phi_hw_model_query_and_config(void *arg,
     assert(retaddr != NULL);
 
     struct frame_identity id;
-    err = invoke_frame_identify(mem, &id);
+    err = frame_identify(mem, &id);
     if (err_is_fail(err)) {
         return err;
     }

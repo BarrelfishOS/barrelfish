@@ -33,7 +33,7 @@ static void setup(size_t bytes)
     errval_t err;
     err = ram_alloc(&bunch_o_ram, log2ceil(bytes));
     assert(err_is_ok(err));
-    err = invoke_frame_identify(bunch_o_ram, &bor_id);
+    err = frame_identify(bunch_o_ram, &bor_id);
     assert(err_is_ok(err));
 }
 

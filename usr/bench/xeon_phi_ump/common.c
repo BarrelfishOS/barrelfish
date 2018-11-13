@@ -124,8 +124,8 @@ void alloc_local(void)
 #endif
 
     struct frame_identity id;
-    err = invoke_frame_identify(local_frame, &id);
-    EXPECT_SUCCESS(err, "invoke_frame_identify");
+    err = frame_identify(local_frame, &id);
+    EXPECT_SUCCESS(err, "frame_identify");
 
     local_base = id.base;
     local_frame_sz = alloced_size;
@@ -147,7 +147,7 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     domainid = domain;
 
     struct frame_identity id;
-    err = invoke_frame_identify(msgframe, &id);
+    err = frame_identify(msgframe, &id);
     EXPECT_SUCCESS(err, "frame identify");
 
     debug_printf("msg_open_cb | Frame base: %016lx, size=%lx\n", id.base,

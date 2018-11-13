@@ -536,7 +536,8 @@ enum frame_cmd {
  * Kernel control block commands.
  */
 enum kcb_cmd {
-    KCBCmd_Clone = FrameCmd_Identify+1, ///< Duplicate core_data
+    KCBCmd_Identify,      ///< Return base address of KCB frame
+    KCBCmd_Clone,         ///< Duplicate core_data
 };
 
 /**

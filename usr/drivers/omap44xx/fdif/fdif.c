@@ -305,11 +305,11 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     }
 
     struct frame_identity ret;
-    err = invoke_frame_identify(img_cap, &ret);
+    err = frame_identify(img_cap, &ret);
     assert (err_is_ok(err));
 
     struct frame_identity wkret;
-    err = invoke_frame_identify(workarea_cap, &wkret);
+    err = frame_identify(workarea_cap, &wkret);
     assert (err_is_ok(err));
 
     set_image_params(st, ret.base, wkret.base);

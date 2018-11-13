@@ -664,7 +664,7 @@ static void subways_startup(struct subways_binding *b,
 
     /* printf("startup! Mapping packetring cap\n"); */
 
-    errval_t err = invoke_frame_identify(frame, &id);
+    errval_t err = frame_identify(frame, &id);
     assert(err_is_ok(err));
     err = vspace_map_one_frame_attr(&va, 1 << id.bits, frame,
                                     VREGION_FLAGS_READ_WRITE,
@@ -901,7 +901,7 @@ int main(int argc, char *argv[])
     assert(ram_base != NULL);
 
     struct frame_identity id;
-    err = invoke_frame_identify(packetring_frame, &id);
+    err = frame_identify(packetring_frame, &id);
     assert(err_is_ok(err));
 
     rx_pbase = id.base;
@@ -928,7 +928,7 @@ int main(int argc, char *argv[])
                                        MAX_PACKETS * PACKET_SIZE, &frame);
     assert(tx_bufs != NULL);
 
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     assert(err_is_ok(err));
     tx_pbase = id.base;
     tx_vbase = (genvaddr_t)tx_bufs;

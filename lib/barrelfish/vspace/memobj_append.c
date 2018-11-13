@@ -292,7 +292,7 @@ static errval_t fill(struct memobj *memobj,
     }
 
     struct frame_identity fi;
-    errval_t err = invoke_frame_identify(frame, &fi);
+    errval_t err = frame_identify(frame, &fi);
     assert(err_is_ok(err));
 
     append->frames[slot] = frame;

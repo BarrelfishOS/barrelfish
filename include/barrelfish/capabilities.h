@@ -25,7 +25,7 @@
 #include <barrelfish/invocations.h>
 #include <barrelfish/slot_alloc.h>
 #include <barrelfish/capabilities_arch.h> // vnode_inherit_attr()
-#include <barrelfish/cap_predicates.h> // get_base(), get_size()
+#include <barrelfish/cap_predicates.h> // get_address(), get_size()
 
 __BEGIN_DECLS
 

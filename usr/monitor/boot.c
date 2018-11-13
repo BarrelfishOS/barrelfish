@@ -26,7 +26,7 @@ static errval_t trace_ump_frame_identify(struct capref frame,
 {
     // Identify UMP frame for tracing
     struct frame_identity umpid;
-    errval_t err = invoke_frame_identify(frame, &umpid);
+    errval_t err = frame_identify(frame, &umpid);
     if (err_is_fail(err)) {
         DEBUG_ERR(err, "invoke frame identity failed");
         return err;

@@ -506,7 +506,8 @@ errval_t demand_paging_region_create(size_t bytes, size_t pagesize, size_t numfr
     }
 
     struct frame_identity id;
-    invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
+    assert(err_is_ok(err));
 
     struct capref cnode_cap;
     struct capref frames;

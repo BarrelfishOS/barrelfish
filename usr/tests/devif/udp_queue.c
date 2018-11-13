@@ -301,7 +301,7 @@ int main(int argc, char *argv[])
     }
 
     // RX frame
-    err = invoke_frame_identify(memory_rx, &id);
+    err = frame_identify(memory_rx, &id);
     if (err_is_fail(err)) {
         USER_PANIC("Frame identify failed \n");
     }
@@ -313,7 +313,7 @@ int main(int argc, char *argv[])
     }
 
     // RX frame
-    err = invoke_frame_identify(memory_tx, &id);
+    err = frame_identify(memory_tx, &id);
     if (err_is_fail(err)) {
         USER_PANIC("Frame identify failed \n");
     }

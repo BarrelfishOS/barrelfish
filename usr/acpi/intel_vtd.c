@@ -98,7 +98,7 @@ static void *vtd_map_registers(genpaddr_t regset_base)
 			 regset_base + BASE_PAGE_SIZE, &regset_frame, NULL);
     assert(err_is_ok(err));
 
-    err = invoke_frame_identify(regset_frame, &regset_frame_id);
+    err = frame_identify(regset_frame, &regset_frame_id);
     assert(err_is_ok(err));
 
     err = devframe_type(&regset_devframe, regset_frame, BASE_PAGE_BITS);
@@ -117,7 +117,7 @@ static void vtd_set_root_table(struct vtd_unit *unit)
     errval_t err;
     genpaddr_t rt_base;
     struct frame_identity rt_frame_id;
-    err = invoke_frame_identify(unit->rt_frame, &rt_frame_id);
+    err = frame_identify(unit->rt_frame, &rt_frame_id);
     assert(err_is_ok(err));
     rt_base = rt_frame_id.base;
     assert((rt_base & BASE_PAGE_MASK) == 0);
@@ -174,7 +174,7 @@ static void vtd_insert_context_tables(struct vtd_unit *unit)
     errval_t err;
     struct frame_identity ct_id;
     for (int i = 0; i < NUM_ROOT_ENTRIES; i++) {
-        err = invoke_frame_identify(unit->ct_frame_caps[i], &ct_id);
+        err = frame_identify(unit->ct_frame_caps[i], &ct_id);
         assert(err_is_ok(err));
 	assert((ct_id.base & BASE_PAGE_MASK) == 0);
 	vtd_root_entry_ctp_insert(unit->root_table[i], (ct_id.base >> BASE_PAGE_BITS));
@@ -436,7 +436,7 @@ static inline uint64_t vtd_map(uint64_t va, uint64_t pa, lvaddr_t *pt, int level
             assert(err_is_ok(err));
             assert(((lvaddr_t)vbase & BASE_PAGE_MASK) == 0);
 
-            err = invoke_frame_identify(pe_frame, &pe_id);
+            err = frame_identify(pe_frame, &pe_id);
             assert(err_is_ok(err));
             assert((pe_id.base & BASE_PAGE_MASK) == 0);
 
@@ -505,7 +505,7 @@ static void vtd_create_identity_domain(void)
     void *pe_vaddr;
     err = frame_alloc(&pe_frame, 256 * BASE_PAGE_SIZE, NULL);
     assert(err_is_ok(err));
-    err = invoke_frame_identify(pe_frame, &pe_frame_id);
+    err = frame_identify(pe_frame, &pe_frame_id);
     assert(err_is_ok(err));
     err = vspace_map_one_frame_attr(&pe_vaddr, pe_frame_id.bytes, pe_frame,
 				    vtd_map_attr, NULL, NULL);

@@ -47,7 +47,7 @@ static errval_t map_mmio_space(struct xeon_phi *phi)
     void *mmio;
 
     struct frame_identity id;
-    err = invoke_frame_identify(mmio_cap, &id);
+    err = frame_identify(mmio_cap, &id);
     if (err_is_fail(err)) {
         return err;
     }

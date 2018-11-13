@@ -74,7 +74,7 @@ static errval_t ram_alloc_remote(struct capref *ret, uint8_t size_bits,
         return err;
     }
     struct frame_identity fi;
-    errval_t err2 = invoke_frame_identify(*ret, &fi);
+    errval_t err2 = frame_identify(*ret, &fi);
     if (err_is_fail(err2)){
     DEBUG_ERR(err2, "frame_identify in ram_alloc");
     }
@@ -133,7 +133,7 @@ errval_t ram_alloc_fixed(struct capref *ret, uint8_t size_bits,
         ret->slot  = state->base_capnum++;
 #ifdef ARRAKIS
         struct frame_identity fi;
-        errval_t err2 = invoke_frame_identify(*ret, &fi);
+        errval_t err2 = frame_identify(*ret, &fi);
         if (err_is_fail(err2)){
             DEBUG_ERR(err2, "frame_identify in ram_alloc");
         }

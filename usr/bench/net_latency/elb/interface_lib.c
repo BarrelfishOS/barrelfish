@@ -50,7 +50,7 @@ static void alloc_mem(uint64_t *phys, void **virt, size_t size,
         USER_PANIC("Allocating memory region frame failed!");
     }
 
-    r = invoke_frame_identify(*frame, &frameid);
+    r = frame_identify(*frame, &frameid);
     if (!err_is_ok(r)) {
         USER_PANIC("Identifying memory region frame failed!");
     }

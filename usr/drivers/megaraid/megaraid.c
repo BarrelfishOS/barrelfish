@@ -222,7 +222,7 @@ lpaddr_t v2p(void *ptr, size_t len)
 #endif
 
 #ifndef BARRELFISH
-errval_t invoke_frame_identify(struct capref cap, struct frame_identity *id)
+errval_t frame_identify(struct capref cap, struct frame_identity *id)
 {
   id->base = cap.paddr;
   return SYS_ERR_OK;
@@ -236,7 +236,7 @@ void *user_alloc(size_t size, uintptr_t *paddr)
 			      size, &cap);
   assert(va != NULL);
   struct frame_identity id;
-  errval_t err = invoke_frame_identify(cap, &id);
+  errval_t err = frame_identify(cap, &id);
   assert(err_is_ok(err));
   *paddr = id.base;
   return va;
@@ -287,7 +287,7 @@ static void *mrsas_alloc_frame(struct mrsas_mfi_cmd *cmd)
 				     frame_size, &cap);
     assert(cmd->frame_mem != NULL);
     struct frame_identity id;
-    errval_t err = invoke_frame_identify(cap, &id);
+    errval_t err = frame_identify(cap, &id);
     assert(err_is_ok(err));
     cmd->frame_phys_addr = id.base;
   
@@ -817,7 +817,7 @@ static int mrsas_alloc_tmp_dcmd(struct mrsas_tmp_dcmd *tcmd, int size)
         tcmd->tmp_dcmd_phys_addr = (lpaddr_t)tcmd->tmp_dcmd_mem;
     } else {
         struct frame_identity id;
-        errval_t err = invoke_frame_identify(cap, &id);
+        errval_t err = frame_identify(cap, &id);
         assert(err_is_ok(err));
         tcmd->tmp_dcmd_phys_addr = id.base;
     }
@@ -845,7 +845,7 @@ static int mrsas_alloc_ctlr_info_cmd(void)
         sc->ctlr_info_phys_addr = (lpaddr_t)sc->ctlr_info_mem;
     } else {
         struct frame_identity id;
-        errval_t err = invoke_frame_identify(cap, &id);
+        errval_t err = frame_identify(cap, &id);
         assert(err_is_ok(err));
         sc->ctlr_info_phys_addr = id.base;
     }
@@ -1124,7 +1124,7 @@ static void pci_init_card(int bar_count)
     if(use_vtd) {
         sc->verbuf_phys_addr = (lpaddr_t)sc->verbuf_mem;
     } else {
-        err = invoke_frame_identify(cap, &id);
+        err = frame_identify(cap, &id);
         assert(err_is_ok(err));
         sc->verbuf_phys_addr = id.base;
     }
@@ -1137,7 +1137,7 @@ static void pci_init_card(int bar_count)
     if(use_vtd) {
         sc->io_request_phys_addr = (lpaddr_t)sc->io_request_mem;
     } else {
-        err = invoke_frame_identify(cap, &id);
+        err = frame_identify(cap, &id);
         assert(err_is_ok(err));
         sc->io_request_phys_addr = id.base;
     }
@@ -1150,7 +1150,7 @@ static void pci_init_card(int bar_count)
     if(use_vtd) {
         sc->chain_frame_phys_addr = (lpaddr_t)sc->chain_frame_mem;
     } else {
-        err = invoke_frame_identify(cap, &id);
+        err = frame_identify(cap, &id);
         assert(err_is_ok(err));
         sc->chain_frame_phys_addr = id.base;
     }
@@ -1163,7 +1163,7 @@ static void pci_init_card(int bar_count)
     if(use_vtd) {
         sc->reply_desc_phys_addr = (lpaddr_t)sc->reply_desc_mem;
     } else {
-        err = invoke_frame_identify(cap, &id);
+        err = frame_identify(cap, &id);
         assert(err_is_ok(err));
         sc->reply_desc_phys_addr = id.base;
     }
@@ -1176,7 +1176,7 @@ static void pci_init_card(int bar_count)
     if(use_vtd) {
         sc->sense_phys_addr = (lpaddr_t)sc->sense_mem;
     } else {
-        err = invoke_frame_identify(cap, &id);
+        err = frame_identify(cap, &id);
         assert(err_is_ok(err));
         sc->sense_phys_addr = id.base;
     }
@@ -1189,7 +1189,7 @@ static void pci_init_card(int bar_count)
     if(use_vtd) {
         sc->evt_detail_phys_addr = (lpaddr_t)sc->evt_detail_mem;
     } else {
-        err = invoke_frame_identify(cap, &id);
+        err = frame_identify(cap, &id);
         assert(err_is_ok(err));
         sc->evt_detail_phys_addr = id.base;
     }
@@ -1204,7 +1204,7 @@ static void pci_init_card(int bar_count)
     if(use_vtd) {
         sc->ioc_init_phys_mem = (lpaddr_t)sc->ioc_init_mem;
     } else {
-        err = invoke_frame_identify(cap, &id);
+        err = frame_identify(cap, &id);
         assert(err_is_ok(err));
         sc->ioc_init_phys_mem = id.base;
     }
@@ -1293,7 +1293,7 @@ static void pci_init_card(int bar_count)
         if(use_vtd) {
             sc->raidmap_phys_addr[i] = (lpaddr_t)sc->raidmap_mem[i];
         } else {
-            err = invoke_frame_identify(cap, &id);
+            err = frame_identify(cap, &id);
             assert(err_is_ok(err));
             sc->raidmap_phys_addr[i] = id.base;
         }

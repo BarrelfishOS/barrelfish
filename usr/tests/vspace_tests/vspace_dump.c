@@ -105,7 +105,8 @@ void dump_pmap(struct pmap *pmap)
     for (size_t i = 0; i < items_written; i++) {
         struct pmap_dump_info *info = buf+i;
         struct frame_identity fi;
-        invoke_frame_identify(info->cap, &fi);
+        err = frame_identify(info->cap, &fi);
+        assert(err_is_ok(err));
         printf(PRIfmtPTIDX": 0x%"PRIxGENPADDR", 0x%"PRIxGENVADDR", 0x%zx\n",
                     GET_PTIDX(info),
                     fi.base, info->offset, ((size_t)1)<<fi.bits);

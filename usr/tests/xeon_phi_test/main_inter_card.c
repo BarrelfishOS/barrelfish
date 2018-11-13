@@ -109,7 +109,7 @@ static errval_t alloc_local(void)
     assert(alloced_size >= frame_size);
 
     struct frame_identity id;
-    err = invoke_frame_identify(local_frame, &id);
+    err = frame_identify(local_frame, &id);
     assert(err_is_ok(err));
     local_base = id.base;
     local_frame_sz = alloced_size;
@@ -129,7 +129,7 @@ static errval_t msg_open_cb(xphi_dom_id_t domain,
     domid = domain;
 
     struct frame_identity id;
-    err = invoke_frame_identify(msgframe, &id);
+    err = frame_identify(msgframe, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "could not identify the frame");
     }

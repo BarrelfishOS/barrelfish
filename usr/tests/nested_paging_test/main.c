@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
     assert(err_is_ok(err));
     assert(size == 4ull*HUGE_PAGE_SIZE);
     struct frame_identity fi;
-    err = invoke_frame_identify(page, &fi);
+    err = frame_identify(page, &fi);
     assert(err_is_ok(err));
 
     for (uint64_t i = 0; i < 4; i++) {

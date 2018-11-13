@@ -186,7 +186,7 @@ static errval_t mem_alloc(size_t size, bool map, struct mem_info *mem_info)
         return err;
     }
 
-    err = invoke_frame_identify(mem_info->cap, &mem_info->frameid);
+    err = frame_identify(mem_info->cap, &mem_info->frameid);
     if (err_is_fail(err)) {
         err =  err_push(err, LIB_ERR_FRAME_IDENTIFY);
         goto out_err;
@@ -779,7 +779,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
     core_data->dst_arch_id       = hwid;
 
     struct frame_identity fid;
-    err = invoke_frame_identify(kcb, &fid);
+    err = invoke_kcb_identify(kcb, &fid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Invoke frame identity for KCB failed. "
                             "Did you add the syscall handler for that architecture?");

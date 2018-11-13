@@ -624,7 +624,7 @@ static void probe_all(struct sfn5122f_driver_state* st)
                                    &st->mac_stats);
 
     assert(st->mac_virt != NULL);
-    r = invoke_frame_identify(st->mac_stats, &frameid);
+    r = frame_identify(st->mac_stats, &frameid);
     assert(err_is_ok(r));
     st->mac_phys = frameid.base;
     memset(st->mac_virt, 0, NUM_MAC_STATS*sizeof(uint64_t));
@@ -753,7 +753,7 @@ static void device_init(struct sfn5122f_driver_state* st)
     sfn5122f_rx_dc_pf_wm_reg_hi_wr(st->d, sfn5122f_rx_dc_pf_wm_reg_hi_rd(st->d));
    
    /*programm init ker address for interrupts */
-    r = invoke_frame_identify(st->int_ker, &frameid);
+    r = frame_identify(st->int_ker, &frameid);
     assert(err_is_ok(r));
 
     sfn5122f_int_adr_reg_ker_lo_wr(st->d, frameid.base);
@@ -968,7 +968,7 @@ static uint32_t init_evq(struct sfn5122f_driver_state* st, uint16_t n,
     sfn5122f_timer_tbl_hi_wr(st->d, n, sfn5122f_timer_tbl_hi_rd(st->d, n));
 
     /*
-    r = invoke_frame_identify(queues[n].ev_frame, &frameid);
+    r = frame_identify(queues[n].ev_frame, &frameid);
     assert(err_is_ok(r));
     ev_phys = frameid.base;
     */
@@ -1413,7 +1413,7 @@ static errval_t cd_create_queue_rpc(struct sfn5122f_devif_binding *b, struct cap
 
     DEBUG("setup queue %d \n", n);
 
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     assert(err_is_ok(err));
     // enable checksums
     st->queues[n].tx_buf_tbl = init_txq(st, n, id.base, st->csum_offload, user);
@@ -1483,7 +1483,7 @@ static errval_t cd_register_region_rpc(struct sfn5122f_devif_binding *b, uint16_
     struct frame_identity id;
     uint64_t buffer_offset = 0;
 
-    err = invoke_frame_identify(region, &id);
+    err = frame_identify(region, &id);
     if (err_is_fail(err)) {
         err = b->tx_vtbl.register_region_response(b, NOP_CONT, 0, NIC_ERR_REGISTER_REGION);
         assert(err_is_ok(err));

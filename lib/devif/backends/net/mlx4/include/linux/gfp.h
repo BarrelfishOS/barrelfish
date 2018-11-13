@@ -138,7 +138,7 @@ dma_alloc(unsigned int size, genpaddr_t *phys_addr) {
 		return NULL;
 	}
 
-	err = invoke_frame_identify(slot, &fid);
+	err = frame_identify(slot, &fid);
 	if (err_is_fail(err)) {
 		return NULL;
 	}
@@ -200,7 +200,7 @@ alloc_pages(unsigned int order) {
 		return NULL;
 	}
 
-	err = invoke_frame_identify(page->slot, &fid);
+	err = frame_identify(page->slot, &fid);
 	if (err_is_fail(err)) {
 		return NULL;
 	}

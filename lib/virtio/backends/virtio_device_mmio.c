@@ -678,7 +678,7 @@ errval_t virtio_device_mmio_init_host(struct virtio_device **host,
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(mmio_host->dev.dev_cap, &id);
+    err = frame_identify(mmio_host->dev.dev_cap, &id);
     if (err_is_fail(err)) {
         VIRTIO_DEBUG_DEV("ERROR: could not identify the frame.");
         return err;

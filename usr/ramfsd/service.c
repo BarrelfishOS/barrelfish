@@ -123,7 +123,7 @@ static errval_t ramfs_bulk_init(struct trivfs_binding *b, struct capref shared_f
 
     // Determine size of frame
     struct frame_identity frameid;
-    err = invoke_frame_identify(shared_frame, &frameid);
+    err = frame_identify(shared_frame, &frameid);
     if (err_is_fail(err)) {
         *reterr = err_push(err, LIB_ERR_FRAME_IDENTIFY);
         cap_destroy(shared_frame);

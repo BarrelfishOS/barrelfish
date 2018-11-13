@@ -186,12 +186,12 @@ static errval_t fill(struct memobj *memobj,
     /* we must make sure the frame is big enough */
     struct frame_identity fid;
 
-    err = invoke_frame_identify(frame, &fid);
+    err = frame_identify(frame, &fid);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_MEMOBJ_FILL);
     }
 
-    if ((1UL << fid.bits) < memobj->size / mo_numa->node_count) {\
+    if (fid.bytes < memobj->size / mo_numa->node_count) {\
         return LIB_ERR_MEMOBJ_FILL;
     }
 

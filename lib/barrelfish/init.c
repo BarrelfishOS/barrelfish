@@ -396,7 +396,7 @@ errval_t barrelfish_init_onthread(struct spawn_domain_params *params)
         .slot = TASKCN_SLOT_DISPFRAME,
     };
     struct frame_identity fi;
-    err = invoke_frame_identify(dispframe, &fi);
+    err = frame_identify(dispframe, &fi);
     assert(err_is_ok(err));
     debug_printf("registering with hypervisor using %"PRIu64"\n",
             fi.base);
