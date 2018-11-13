@@ -1161,8 +1161,8 @@ appGetOptionsForArch arch args =
                      optCxxFlags = (optCxxFlags $ options arch) \\
                                    [ Str f | f <- Args.omitCxxFlags args ],
                      optSuffix = "_for_app_" ++ Args.target args,
-                     optLibs = [ In InstallTree arch ("/lib"</>"lib"++(Args.libraryOs args)++".a") ] ++
-                               (optLibs $ options arch),
+                     optLibs = (library_os arch args) ++ (optLibs $ options arch),
+                     optCxxLibs = (library_os arch args) ++ (optCxxLibs $ options arch),
                      extraFlags = Args.addCFlags args,
                      extraCxxFlags = Args.addCxxFlags args,
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
@@ -1174,6 +1174,9 @@ appGetOptionsForArch arch args =
                         optPathLib = Args.libdir (Args.installDirs args)
                      }
                    }
+        where
+            library_os arch args = [ In InstallTree arch ("/lib" </> "lib" ++ (Args.libraryOs args) ++ ".a") ]
+
 
 fullTarget :: Options -> String -> String -> HRule
 fullTarget opts arch appname =
