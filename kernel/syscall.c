@@ -678,6 +678,10 @@ struct sysret sys_identify_cap(struct capability *root, capaddr_t cptr,
         return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
     }
 
+    if (root->type != ObjType_L1CNode) {
+        return SYSRET(SYS_ERR_CNODE_NOT_ROOT);
+    }
+
     struct capability *thecap;
     // XXX: what's the correct caprights here?
     err = caps_lookup_cap(root, cptr, level, &thecap, CAPRIGHTS_ALLRIGHTS);
