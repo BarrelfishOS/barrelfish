@@ -511,7 +511,7 @@ errval_t e10k_queue_create(struct e10k_queue** queue, e10k_event_cb_t cb, struct
         q->use_txhwb = false;
     } else {
         // TODO revert to true
-        q->use_txhwb = false;
+        q->use_txhwb = true;
     }
     q->cb = cb;
     
