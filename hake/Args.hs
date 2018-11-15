@@ -14,6 +14,7 @@ module Args where
 
 import HakeTypes
 import TreeDB
+import Data.Maybe as Maybe
 
 data Args = Args {
       buildFunction :: TreeDB -> String -> Args -> HRule,
@@ -46,7 +47,7 @@ data Args = Args {
       skateSchemaDefs :: [String],  -- just the Skate Schema headers
       skateSchemas :: [String],      -- Schema headers and functions
       installDirs :: InstallDirs,
-      libraryOs :: String  -- Select a non-default library OS
+      libraryOs :: Maybe Args  -- Select a library OS
 }
 
 data InstallDirs = InstallDirs {
@@ -88,7 +89,8 @@ defaultArgs = Args {
             bindir = "/sbin",
             libdir = "/lib"
       },
-      libraryOs = "barrelfish"
+      -- default libos needs to be selected in application macro!
+      libraryOs = Maybe.Nothing
 }
 
 allArchitectures = [ "x86_64", "x86_32", "armv7", "armv8", "k1om" ]

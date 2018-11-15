@@ -368,10 +368,64 @@ config_svm = True
 config_arrakismon :: Bool
 config_arrakismon = False
 
--- select pmap datastructure
-data PmapDS = LL | ARRAY deriving (Show,Eq)
-pmap_datastructure :: PmapDS
-pmap_datastructure = ARRAY
+-- Registry of library OSes.
+--
+-- This is necessary so we can add the right compiler flags (#defines etc)
+-- when an application wants to link against a particular library OS.
+--
+-- each libraryos option is an instance of (Maybe Args.Args) with the right
+-- content and is used when generating make rules.
+--
+-- Applications and libraries use "libbarrelfish" when the libraryOs field in
+-- their Args is not overwritten by the Hakefile.
+--
+-- Implementation notes:
+--  * Unfortunately we need to have the list of available  library OSes here,
+--    because providing these flags and names in the library OS Hakefile is
+--    non-trivial
+--  * We need to name the library in these expressions so hake knows which .a
+--    to include when linking.
+--  * The flags provided here should match with the feature flags that are
+--    needed by the library OS itself.
+--  * All of these need to be instances of (Maybe Args).
+--  * The library OS choices provided by the default tree are all variations of
+--    the code in lib/barrelfish, gated by different preprocessor flags.
+--
+libbarrelfish_pmap_array :: Maybe Args.Args
+libbarrelfish_pmap_array = Just Args.defaultArgs {
+    Args.target = "barrelfish_pmap_array",
+    Args.addCFlags = [ "-DPMAP_ARRAY" ]
+}
+libbarrelfish_pmap_list :: Maybe Args.Args
+libbarrelfish_pmap_list = Just Args.defaultArgs {
+    Args.target = "barrelfish_pmap_ll",
+    Args.addCFlags = [ "-DPMAP_LL" ]
+}
+libarrakis :: Maybe Args.Args
+libarrakis = Just Args.defaultArgs {
+    -- lib/barrelfish/Hakefile defines libarrakis to use PMAP_ARRAY but not
+    -- global mapping cnodes.
+    Args.target = "arrakis",
+    Args.addCFlags = [ "-DARRAKIS", "-DPMAP_ARRAY" ]
+}
+libbarrelfish_pmap_array_mcn :: Maybe Args.Args
+libbarrelfish_pmap_array_mcn = Just Args.defaultArgs {
+    Args.target = "barrelfish_pmap_array_mcn",
+    Args.addCFlags = [ "-DGLOBAL_MCN", "-DPMAP_ARRAY" ]
+}
+libbarrelfish_pmap_list_mcn :: Maybe Args.Args
+libbarrelfish_pmap_list_mcn = Just Args.defaultArgs {
+    Args.target = "barrelfish_pmap_ll_mcn",
+    Args.addCFlags = [ "-DGLOBAL_MCN", "-DPMAP_LL" ]
+}
+
+-- Select default library OS for applications that don't specify one
+-- this is used as Config.libbarrelfish in the rest of the hake
+-- implementation.
+libbarrelfish :: String -> Maybe Args.Args
+-- armv7 only supports pmap_ll!
+libbarrelfish "armv7" = libbarrelfish_pmap_list
+libbarrelfish _       = libbarrelfish_pmap_array
 
 defines :: [RuleToken]
 defines = [ Str ("-D" ++ d) | d <- [
@@ -422,11 +476,7 @@ defines = [ Str ("-D" ++ d) | d <- [
              if config_svm then "CONFIG_SVM" else "",
              if config_arrakismon then "CONFIG_ARRAKISMON" else "",
              if use_kaluga_dvm then "USE_KALUGA_DVM" else "",
-             if caps_trace then "TRACE_PMEM_CAPS" else "",
-             (case pmap_datastructure of
-                  LL    -> "PMAP_LL"
-                  ARRAY -> "PMAP_ARRAY"
-             )
+             if caps_trace then "TRACE_PMEM_CAPS" else ""
              ], d /= "" ]
 
 

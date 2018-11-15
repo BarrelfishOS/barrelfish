@@ -13,7 +13,7 @@
 
 module RuleDefs where
 import Data.List (intersect, isSuffixOf, union, (\\), nub, sortBy, elemIndex)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import System.FilePath
 import qualified X86_64
 import qualified K1om
@@ -1125,7 +1125,11 @@ allModulesPaths opts args =
 --
 
 application :: Args.Args
-application = Args.defaultArgs { Args.buildFunction = applicationBuildFn }
+application = Args.defaultArgs {
+    Args.buildFunction = applicationBuildFn
+    -- we let libraryOs default to Nothing, and grab the right default one for
+    -- the architecture we're building in appGetOptionsForArch
+}
 
 system :: Args.Args -> Args.Args
 system args = args { Args.installDirs = (Args.installDirs args) { Args.bindir = "/sbin" }}
@@ -1153,19 +1157,24 @@ appGetOptionsForArch arch args =
                          ++
                          -- Only add extra include directory for libraries
                          -- that actually need it. -SG,2017-09-19.
-                         extraIncs (Args.addLibraries args),
+                         extraIncs (Args.addLibraries args)
+                         ++
+                         extraIncs (Args.addLibraries libos),
                      optIncludes = (optIncludes $ options arch) \\
                          [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
                      optFlags = (optFlags $ options arch) \\
-                                [ Str f | f <- Args.omitCFlags args ],
+                                ([ Str f | f <- Args.omitCFlags args ] ++
+                                 [ Str f | f <- Args.omitCFlags libos]),
                      optCxxFlags = (optCxxFlags $ options arch) \\
-                                   [ Str f | f <- Args.omitCxxFlags args ],
+                                   ([ Str f | f <- Args.omitCxxFlags args ] ++
+                                    [ Str f | f <- Args.omitCxxFlags libos]),
                      optSuffix = "_for_app_" ++ Args.target args,
-                     optLibs = (library_os arch args) ++ (optLibs $ options arch),
-                     optCxxLibs = (library_os arch args) ++ (optCxxLibs $ options arch),
-                     extraFlags = Args.addCFlags args,
-                     extraCxxFlags = Args.addCxxFlags args,
-                     extraLdFlags = [ Str f | f <- Args.addLinkFlags args ],
+                     optLibs = (library_os arch) ++ (optLibs $ options arch),
+                     optCxxLibs = (library_os arch) ++ (optCxxLibs $ options arch),
+                     extraFlags = (Args.addCFlags args) ++ (Args.addCFlags libos),
+                     extraCxxFlags = (Args.addCxxFlags args) ++ (Args.addCxxFlags libos),
+                     extraLdFlags = [ Str f | f <- Args.addLinkFlags args ] ++
+                                    [ Str f | f <- Args.addLinkFlags libos ],
                      extraDependencies =
                          [Dep BuildTree arch s |
                             s <- Args.addGeneratedDependencies args],
@@ -1174,8 +1183,9 @@ appGetOptionsForArch arch args =
                         optPathLib = Args.libdir (Args.installDirs args)
                      }
                    }
-        where
-            library_os arch args = [ In InstallTree arch ("/lib" </> "lib" ++ (Args.libraryOs args) ++ ".a") ]
+    where
+        libos = fromMaybe (fromJust $ Config.libbarrelfish arch) (Args.libraryOs args)
+        library_os arch = [ In InstallTree arch ("/lib" </> "lib" ++ (Args.target libos) ++ ".a") ]
 
 
 fullTarget :: Options -> String -> String -> HRule
@@ -1217,15 +1227,14 @@ appBuildArch tdb tf args arch =
 --
 -- Build an Arrakis application binary
 --
--- Use the libraryOs selection argument to link against libarrakis, and add
--- -DARRAKIS to application CFLAGS.
+-- The arrakisapplication macro still exists for convenience, new arrakis
+-- applications should use application and override libraryOs.
 --
 
 arrakisapplication :: Args.Args
 arrakisapplication = Args.defaultArgs {
     Args.buildFunction = applicationBuildFn,
-    Args.libraryOs     = "arrakis",
-    Args.addCFlags     = [ "-DARRAKIS" ]
+    Args.libraryOs     = Config.libarrakis
 }
 
 --
@@ -1233,7 +1242,11 @@ arrakisapplication = Args.defaultArgs {
 --
 
 library :: Args.Args
-library = Args.defaultArgs { Args.buildFunction = libraryBuildFn }
+library = Args.defaultArgs {
+    Args.buildFunction = libraryBuildFn
+    -- we let libraryOs default to Nothing, and grab the right default one for
+    -- the architecture we're building in libGetOptionsForArch
+}
 
 libraryBuildFn :: TreeDB -> String -> Args.Args -> HRule
 libraryBuildFn tdb tf args | debugFlag && trace (Args.showArgs (tf ++ " Library ") args) False = undefined
@@ -1248,15 +1261,19 @@ libGetOptionsForArch arch args =
                      optIncludes = (optIncludes $ options arch) \\
                          [ NoDep SrcTree "src" i | i <- Args.omitIncludes args ],
                      optFlags = (optFlags $ options arch) \\
-                                [ Str f | f <- Args.omitCFlags args ],
+                                ([ Str f | f <- Args.omitCFlags args ] ++
+                                 [ Str f | f <- Args.omitCFlags libos]),
                      optCxxFlags = (optCxxFlags $ options arch) \\
-                                   [ Str f | f <- Args.omitCxxFlags args ],
+                                   ([ Str f | f <- Args.omitCxxFlags args ] ++
+                                    [ Str f | f <- Args.omitCxxFlags libos]),
                      optSuffix = "_for_lib_" ++ Args.target args,
-                     extraFlags = Args.addCFlags args,
-                     extraCxxFlags = Args.addCxxFlags args,
+                     extraFlags = (Args.addCFlags args) ++ (Args.addCFlags libos),
+                     extraCxxFlags = (Args.addCxxFlags args) ++ (Args.addCxxFlags libos),
                      extraDependencies =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
                    }
+    where
+        libos = fromMaybe (fromJust $ Config.libbarrelfish arch) (Args.libraryOs args)
 
 libBuildArch tdb tf args arch =
     let -- Fiddle the options

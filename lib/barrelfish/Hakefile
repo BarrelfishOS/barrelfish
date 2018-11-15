@@ -84,24 +84,6 @@ let
 
     -- sources specific to the pmap implementation
     pmap_unified_srcs = [ "pmap_slab_mgmt.c", "pmap_serialise.c" ]
-    pmap_srcs "x86_64"  Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
-    pmap_srcs "x86_64"  Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
-    pmap_srcs "k1om"    Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
-    pmap_srcs "k1om"    Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
-    pmap_srcs "aarch64" Config.LL    = pmap_unified_srcs ++ [ "pmap_ll.c" ]
-    pmap_srcs "aarch64" Config.ARRAY = pmap_unified_srcs ++ [ "pmap_array.c" ]
-    pmap_srcs "arm"     _            = [ ] -- armv7 uses its own pmap_ds implementation
-    pmap_srcs _         _            = [ ]
-
-    pmap_includes "x86_64"  Config.LL    = [ "include" </> "pmap_ll" ]
-    pmap_includes "x86_64"  Config.ARRAY = [ "include" </> "pmap_array" ]
-    pmap_includes "k1om"    Config.LL    = [ "include" </> "pmap_ll" ]
-    pmap_includes "k1om"    Config.ARRAY = [ "include" </> "pmap_array" ]
-    pmap_includes "aarch64" Config.LL    = [ "include" </> "pmap_ll" ]
-    pmap_includes "aarch64" Config.ARRAY = [ "include" </> "pmap_array" ]
-    -- don't add a pmap include dir for archs that don't support
-    -- Config.pmap_datastructure.
-    pmap_includes _ _  = [ ]
 
     idc_srcs arch = concat $ map getsrcs $ optInterconnectDrivers $ options arch
         where
@@ -124,8 +106,7 @@ let
     libraryos arch = library {
         Args.architectures = [arch],
         Args.cFiles = arch_srcs arch ++ archfam_srcs (archFamily arch) ++
-                      common_srcs ++ idc_srcs arch ++
-                      pmap_srcs (archFamily arch) Config.pmap_datastructure,
+                      common_srcs ++ idc_srcs arch,
         Args.assemblyFiles = arch_assembly (archFamily arch),
         Args.flounderBindings = [ "mem", "octopus", "interdisp", "spawn",
                                   "proc_mgmt", "terminal", "terminal_config",
@@ -143,26 +124,66 @@ let
             ("proc_mgmt", ["rpcclient"])
         ],
         Args.addIncludes = [ "include", "include" </> "arch" </> archFamily arch,
-                             (arch_include arch) ] ++
-                           (pmap_includes (archFamily arch) Config.pmap_datastructure),
+                             (arch_include arch) ],
         Args.addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
         Args.addGeneratedDependencies = [ "/include/asmoffsets.h" ],
-        Args.addLibraries = ["cap_predicates"]
+        Args.addLibraries = ["cap_predicates"],
+        -- Specify empty libos so the "library" macro doesn't add the default
+        -- libos args to a non-default libos
+        Args.libraryOs = Just Args.defaultArgs
     }
+    -- For x86, k1om and aarch64 we support all variants.
+    regularArchitectures = [ "x86_64", "k1om", "armv8" ]
 in
--- libbarrelfish: default library OS
-[ build (libraryos arch) { target = "barrelfish" } | arch <- allArchitectures ]
-++
--- libbarrelfish_mcn: library OS for domains that want mapping cnodes for their pmap
+-- libbarrelfish with array-backed pmap
 [ build (libraryos arch) {
-    target = "barrelfish_mcn",
-    addCFlags = Args.addCFlags (libraryos arch) ++ [ "-DGLOBAL_MCN" ]
-} | arch <- allArchitectures ]
+    target = "barrelfish_pmap_array",
+    cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_array.c" ],
+    addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_array" ],
+    addCFlags = Args.addCFlags (libraryos arch) ++ [ "-DPMAP_ARRAY" ]
+} | arch <- regularArchitectures ]
 ++
--- libarrakis: library OS for arrakis (guest ring 0) domains
+-- libbarrelfish with linked list-backed pmap
 [ build (libraryos arch) {
+    target = "barrelfish_pmap_ll",
+    cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_ll.c" ],
+    addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_ll" ],
+    addCFlags = Args.addCFlags (libraryos arch) ++ [ "-DPMAP_LL" ]
+} | arch <- regularArchitectures ]
+++
+-- libbarrelfish with array-backed pmap and mapping cnodes
+[ build (libraryos arch) {
+    target = "barrelfish_pmap_array_mcn",
+    cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_array.c" ],
+    addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_array" ],
+    addCFlags = Args.addCFlags (libraryos arch) ++ [ "-DPMAP_ARRAY", "-DGLOBAL_MCN" ]
+} | arch <- regularArchitectures ]
+++
+-- libbarrelfish with linked list-backed pmap and mapping cnodes
+[ build (libraryos arch) {
+    target = "barrelfish_pmap_ll_mcn",
+    cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_ll.c" ],
+    addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_ll" ],
+    addCFlags = Args.addCFlags (libraryos arch) ++ [ "-DPMAP_LL", "-DGLOBAL_MCN" ]
+} | arch <- regularArchitectures ]
+++
+[
+  -- armv7 only supports linked list pmap w/o mapping cnodes
+  build (libraryos "armv7") {
+    target = "barrelfish_pmap_ll"
+    -- armv7 doesn't need any extra includes sources or flags for pmap, as the
+    -- armv7 pmap implementation is separate from the unified implementation.
+  },
+  -- libarrakis: library OS for arrakis (guest ring 0) domains
+  -- libarrakis only supports x86_64.
+  build (libraryos "x86_64") {
     target = "arrakis",
-    flounderBindings = Args.flounderBindings (libraryos arch) ++ [ "hyper" ],
-    flounderExtraBindings = Args.flounderExtraBindings (libraryos arch) ++
+    -- Arrakis gets array-backed pmap and no mapping cnodes
+    cFiles = Args.cFiles (libraryos "x86_64") ++ pmap_unified_srcs ++ [ "pmap_array.c" ],
+    addIncludes = Args.addIncludes (libraryos "x86_64") ++ [ "include" </> "pmap_array" ],
+    addCFlags = Args.addCFlags (libraryos "x86_64") ++ [ "-DPMAP_ARRAY" ],
+    flounderBindings = Args.flounderBindings (libraryos "x86_64") ++ [ "hyper" ],
+    flounderExtraBindings = Args.flounderExtraBindings (libraryos "x86_64") ++
         [ ("arrakis", ["rpcclient"]), ("hyper", ["rpcclient"] ) ]
-} | arch <- allArchitectures ]
+  }
+]
