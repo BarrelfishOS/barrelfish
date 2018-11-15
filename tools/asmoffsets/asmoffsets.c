@@ -66,6 +66,7 @@
 #include <deputy/nodeputy.h>
 #include <kernel.h>
 #include <dispatch.h> // XXX: from kernel include dir
+#define PMAP_ARRAY  // XXX: to avoid error from not having selected a pmap implementation
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/lmp_endpoints.h>
 
