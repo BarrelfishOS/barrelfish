@@ -74,7 +74,8 @@
 >
 >                    let compiledCode = (compile $! (userbackend $! ast))
 >                    fileC <- openFile filenameUserCode WriteMode
->                    hPutStrLn fileC "#include <barrelfish/barrelfish.h>"
+>                    hPutStrLn fileC "#include <barrelfish/static_assert.h>"
+>                    hPutStrLn fileC "#include <barrelfish_kpi/capabilities.h>"
 >                    hPutStrLn fileC "#include <barrelfish_kpi/capbits.h>"
 >                    hPutStrLn fileC "#include <barrelfish/cap_predicates.h>"
 >                    hPutStrLn fileC $! show $ compiledCode {declarations = [], 
