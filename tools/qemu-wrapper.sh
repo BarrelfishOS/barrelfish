@@ -205,7 +205,7 @@ case "$ARCH" in
           QEMU_CMD="$QEMU_CMD -bios /home/netos/tftpboot/u-boot.bin \
                     -device loader,addr=0x50000000,file=$IMAGE"
        else
-           QEMU_CMD="$QEMU_CMD -bios /usr/share/qemu-efi/QEMU_EFI.fd \
+           QEMU_CMD="$QEMU_CMD -bios /home/netos/tftpboot/QEMU_EFI.fd \
                     -device virtio-blk-device,drive=image \
                     -drive if=none,id=image,file=$IMAGE,format=raw"
        fi
