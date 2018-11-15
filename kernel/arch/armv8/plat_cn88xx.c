@@ -35,8 +35,8 @@ lpaddr_t phys_memory_start = CN88XX_MAP_LMC_OFFSET;
  * ----------------------------------------------------------------------------
  */
 
-lpaddr_t platform_gic_dist_base = CN88XX_MAP_GIC_GICD_OFFFSET;
-lpaddr_t platform_gic_redist_base = CN88XX_MAP_GIC_GICRX_OFFSET;
+lpaddr_t platform_gic_distributor_base = CN88XX_MAP_GIC_GICD_OFFFSET;
+lpaddr_t platform_gic_redistributor_base = CN88XX_MAP_GIC_GICRX_OFFSET;
 
 /*
  * ----------------------------------------------------------------------------

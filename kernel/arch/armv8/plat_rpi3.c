@@ -28,7 +28,7 @@
 
 /* RAM starts at 0, provided by the MMAP */
 lpaddr_t phys_memory_start = 0;
-lpaddr_t platform_gic_cpu_base = 0;
+lpaddr_t platform_gic_cpu_interface_base = 0;
 
 /*
  * ----------------------------------------------------------------------------

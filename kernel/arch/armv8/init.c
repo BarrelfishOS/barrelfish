@@ -56,9 +56,9 @@ static struct cmdarg cmdargs[] = {
     {"ticks", ArgType_Bool, { .boolean = &kernel_ticks_enabled }},
     {"timeslice", ArgType_UInt, { .uinteger = &config_timeslice }},
     {"serial", ArgType_ULong, { .ulonginteger = &uart_base[0] }},
-    {"gic", ArgType_ULong, { .ulonginteger = &platform_gic_cpu_base }},
-    {"gicdist", ArgType_ULong, { .ulonginteger = &platform_gic_dist_base }},
-    {"gicredist", ArgType_ULong, { .ulonginteger = &platform_gic_redist_base }},
+    {"gic", ArgType_ULong, { .ulonginteger = &platform_gic_cpu_interface_base }},
+    {"gicdist", ArgType_ULong, { .ulonginteger = &platform_gic_distributor_base }},
+    {"gicredist", ArgType_ULong, { .ulonginteger = &platform_gic_redistributor_base }},
     {NULL, 0, {NULL}}
 };
 

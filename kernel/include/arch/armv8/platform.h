@@ -73,9 +73,9 @@ extern size_t uart_size[];
 /*
  * GIC locations
  */
-extern lpaddr_t platform_gic_cpu_base;
-extern lpaddr_t platform_gic_dist_base;
-extern lpaddr_t platform_gic_redist_base;
+extern lpaddr_t platform_gic_cpu_interface_base;
+extern lpaddr_t platform_gic_distributor_base;
+extern lpaddr_t platform_gic_redistributor_base;
 
 #define tsc_read() timer_get_timestamp()
 #define tsc_get_hz() timer_get_frequency()

@@ -39,8 +39,8 @@ lpaddr_t phys_memory_start= 0;
  * ----------------------------------------------------------------------------
  */
 
-lpaddr_t platform_gic_dist_base = 0x8000000;
-lpaddr_t platform_gic_redist_base = 0x80a0000;
+lpaddr_t platform_gic_distributor_base = 0x8000000;
+lpaddr_t platform_gic_redistributor_base = 0x80a0000;
 
 /*
  * ----------------------------------------------------------------------------

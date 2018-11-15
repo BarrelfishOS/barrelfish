@@ -63,9 +63,9 @@ static enum IrqType get_irq_type(uint32_t int_id)
 void gic_init(void)
 {
     lvaddr_t gic_dist_base =
-        paging_map_device( platform_get_distributor_address(), DIST_SIZE );
+        paging_map_device( platform_get_distributor_base(), DIST_SIZE );
     lvaddr_t gic_cpu_base =
-        paging_map_device( platform_get_gic_cpu_address(), CPU_SIZE );
+        paging_map_device( platform_get_gic_cpu_base), CPU_SIZE );
     pl130_gic_initialize(&gic, (mackerel_addr_t)gic_dist_base,
                                (mackerel_addr_t)gic_cpu_base );
 

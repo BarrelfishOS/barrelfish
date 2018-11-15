@@ -20,8 +20,8 @@
 #include <serial.h>
 #include <dev/rpi3_miniuart_dev.h>
 
-lpaddr_t platform_gic_dist_base;
-lpaddr_t platform_gic_redist_base;
+lpaddr_t platform_gic_distributor_address;
+lpaddr_t platform_gic_redistributor_address;
 
 static rpi3_miniuart_t uart;
 #define MSG(format, ...) printk( LOG_NOTE, "rpi3_miniuart: "format, ## __VA_ARGS__ )

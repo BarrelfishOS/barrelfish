@@ -494,7 +494,6 @@ let
          "arch/armv8/plat_apm88xxxx_consts.c",
          "arch/armv8/init.c",
          "arch/armv8/gdb_arch.c",
-         "arch/armv8/gic_v2.c",
          -----
          "arch/armv8/kernel_multiboot2.c",
          "arch/armv8/dispatch.c",
@@ -507,6 +506,7 @@ let
          "arch/armv8/timers.c",
          "arch/arm/debug.c",
          "arch/arm/gic.c",
+         "arch/arm/gic_v2.c",
          "arch/arm/irq.c"
      ],
      mackerelDevices = [
@@ -545,7 +545,6 @@ let
         "arch/armv8/plat_arm_vm.c",
         "arch/armv8/plat_arm_vm_consts.c",
         "arch/armv8/init.c",
-        "arch/armv8/gic_v3.c",
         "arch/armv8/gdb_arch.c",
         -----
         "arch/armv8/kernel_multiboot2.c",
@@ -558,6 +557,7 @@ let
         "arch/armv8/syscall.c",
         "arch/armv8/timers.c",
         "arch/arm/debug.c",
+        "arch/arm/gic_v3.c",
         "arch/arm/irq.c"
     ],
     mackerelDevices = [
@@ -593,7 +593,6 @@ let
         "arch/arm/gdb_arch.c",
         "arch/armv8/plat_qemu.c",
         "arch/armv8/init.c",
-        "arch/armv8/gic_v3.c",
         "arch/armv8/gdb_arch.c",
         -----
         "arch/armv8/kernel_multiboot2.c",
@@ -606,6 +605,7 @@ let
         "arch/armv8/syscall.c",
         "arch/armv8/timers.c",
         "arch/arm/debug.c",
+        "arch/arm/gic_v3.c",
         "arch/arm/irq.c"
     ],
     mackerelDevices = [
@@ -660,8 +660,6 @@ let
         "armv8",
         "armv8/armv8_cache_ctrl",
         "arm_icp_pit",
-        "gic_v3_dist",
-        "gic_v3_redist",
         "rpi3_miniuart"
     ],
     addLibraries = [
@@ -695,7 +693,6 @@ let
          "arch/arm/gdb_arch.c",
          "arch/armv8/plat_cn88xx.c",
          "arch/armv8/init.c",
-         "arch/armv8/gic_v3.c",
          "arch/armv8/gdb_arch.c",
          -----
          "arch/armv8/kernel_multiboot2.c",
@@ -708,6 +705,7 @@ let
          "arch/armv8/syscall.c",
          "arch/armv8/timers.c",
          "arch/arm/debug.c",
+         "arch/arm/gic_v3.c",
          "arch/arm/irq.c"
      ],
      mackerelDevices = [

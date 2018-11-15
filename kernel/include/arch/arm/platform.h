@@ -33,9 +33,9 @@ extern size_t platform_uart_size[];
 /*
  * GIC interface
  */
-extern lpaddr_t platform_gic_cpu_interface_address;
-extern lpaddr_t platform_gic_distributor_address;
-extern lpaddr_t platform_gic_redistributor_address;
+extern lpaddr_t platform_gic_cpu_interface_base;
+extern lpaddr_t platform_gic_distributor_base;
+extern lpaddr_t platform_gic_redistributor_base;
 
 /*
  * Return the base address of the private peripheral region.

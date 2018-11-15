@@ -24,8 +24,8 @@ lpaddr_t phys_memory_start= 0;
  * ----------------------------------------------------------------------------
  */
 
-lpaddr_t platform_gic_dist_base = 0x2f000000;
-lpaddr_t platform_gic_redist_base = 0x2f100000;
+lpaddr_t platform_gic_distributor_base = 0x2f000000;
+lpaddr_t platform_gic_redistributor_base = 0x2f100000;
 
 /*
  * ----------------------------------------------------------------------------

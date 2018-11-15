@@ -19,7 +19,7 @@
 static gic_v3_dist_t gic_v3_dev;
 static gic_v2_cpu_t gic_v2_cpu_dev;
 
-lpaddr_t platform_gic_redistributor_address = 0; // no redistributors on GIC v2
+lpaddr_t platform_gic_redistributor_base = 0; // no redistributors on GIC v2
 
 /*
  * This should return 1<<my_core_id
@@ -55,10 +55,10 @@ static void check_cpu_if_statusr(void)
  */
 void gic_init(void)
 {
-    lvaddr_t gic_dist = local_phys_to_mem(platform_gic_distributor_address);
+    lvaddr_t gic_dist = local_phys_to_mem(platform_gic_distributor_base);
     gic_v3_dist_initialize(&gic_v3_dev, (char *)gic_dist);
 
-    lvaddr_t gic_cpu = local_phys_to_mem(platform_gic_cpu_interface_address);
+    lvaddr_t gic_cpu = local_phys_to_mem(platform_gic_cpu_interface_base);
     gic_v2_cpu_initialize(&gic_v2_cpu_dev, (char *)gic_cpu);
 
     if (gic_v3_dist_GICD_TYPER_SecurityExtn_rdf(&gic_v3_dev)) {
