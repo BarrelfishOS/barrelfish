@@ -29,7 +29,9 @@
 #include <barrelfish/systime.h>
 #include <barrelfish_kpi/domain_params.h>
 #include <if/monitor_defs.h>
+#ifdef ARRAKIS
 #include <if/hyper_defs.h>
+#endif
 #include <trace/trace.h>
 #include <octopus/init.h>
 #include "threads_priv.h"
