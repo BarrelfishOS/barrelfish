@@ -1172,7 +1172,8 @@ appGetOptionsForArch arch args =
                      optLibs = (library_os arch) ++ (optLibs $ options arch),
                      optCxxLibs = (library_os arch) ++ (optCxxLibs $ options arch),
                      extraFlags = (Args.addCFlags args) ++ (Args.addCFlags libos),
-                     extraCxxFlags = (Args.addCxxFlags args) ++ (Args.addCxxFlags libos),
+                     extraCxxFlags = (Args.addCxxFlags args) ++ (Args.addCFlags libos) ++
+                                     (Args.addCxxFlags libos),
                      extraLdFlags = [ Str f | f <- Args.addLinkFlags args ] ++
                                     [ Str f | f <- Args.addLinkFlags libos ],
                      extraDependencies =
@@ -1268,7 +1269,8 @@ libGetOptionsForArch arch args =
                                     [ Str f | f <- Args.omitCxxFlags libos]),
                      optSuffix = "_for_lib_" ++ Args.target args,
                      extraFlags = (Args.addCFlags args) ++ (Args.addCFlags libos),
-                     extraCxxFlags = (Args.addCxxFlags args) ++ (Args.addCxxFlags libos),
+                     extraCxxFlags = (Args.addCxxFlags args) ++ (Args.addCFlags libos) ++
+                                     (Args.addCxxFlags libos),
                      extraDependencies =
                          [Dep BuildTree arch s | s <- Args.addGeneratedDependencies args]
                    }
