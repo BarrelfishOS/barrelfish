@@ -25,14 +25,6 @@
 struct vnode *pmap_find_vnode(struct vnode *root, uint16_t entry)
 {
     assert(root != NULL);
-    if (!root->v.is_vnode) {
-        debug_printf(">>>> %s: called from %p %p %p %p\n", __FUNCTION__,
-                __builtin_return_address(0),
-                __builtin_return_address(1),
-                __builtin_return_address(2),
-                __builtin_return_address(3));
-        return NULL;
-    }
     assert(root->v.is_vnode);
     assert(entry < PTABLE_ENTRIES);
     struct vnode *n;
