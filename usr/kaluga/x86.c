@@ -190,7 +190,7 @@ errval_t arch_startup(char * add_device_db_file)
     /* The IOMMU needs to have knowledge of the PCI Bridges and devices. */
 
     record = NULL;
-    debug_printf("barrier.pci.bridges");
+    debug_printf("barrier.pci.bridges\n");
     err = oct_barrier_enter("barrier.pci.bridges", &record, 3);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not wait for PCI Barrier 'barrier.pci.bridges'\n");

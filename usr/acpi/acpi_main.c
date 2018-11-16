@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
    
     // synchronize ACPI/KALUGA/PCI
     char* record = NULL;
-    debug_printf("barrier.pci.bridges");
+    debug_printf("barrier.pci.bridges\n");
     err = oct_barrier_enter("barrier.pci.bridges", &record, 3);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Could not wait for PCI Barrier 'barrier.pci.bridges'\n");
