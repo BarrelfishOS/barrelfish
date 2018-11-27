@@ -505,7 +505,6 @@ let
          "arch/armv8/syscall.c",
          "arch/armv8/timers.c",
          "arch/arm/debug.c",
-         "arch/arm/gic.c",
          "arch/arm/gic_v2.c",
          "arch/arm/irq.c"
      ],

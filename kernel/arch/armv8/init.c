@@ -21,7 +21,6 @@
 
 #include <barrelfish_kpi/arm_core_data.h>
 
-#include <arch/arm/gic.h>
 #include <arch/armv8/arm_hal.h>
 #include <arch/armv8/init.h>
 #include <arch/armv8/exceptions.h>
@@ -31,7 +30,7 @@
 #include <sysreg.h>
 #include <arch/armv8/kernel_multiboot2.h>
 #include <arch/armv8/paging_kernel_arch.h>
-#include <arch/armv8/platform.h>
+#include <arch/arm/platform.h>
 #include <systime.h>
 #include <coreboot.h>
 
@@ -45,6 +44,8 @@ struct armv8_core_data *armv8_glbl_core_data = NULL;
 lpaddr_t kernel_stack = 0;
 lpaddr_t kernel_stack_top = 0;
 
+const char *kernel_command_line;
+
 #define MSG(format, ...) printk( LOG_NOTE, "ARMv8-A: "format, ## __VA_ARGS__ )
 
 /*
@@ -55,10 +56,7 @@ static struct cmdarg cmdargs[] = {
     {"logmask", ArgType_Int, { .integer = &kernel_log_subsystem_mask }},
     {"ticks", ArgType_Bool, { .boolean = &kernel_ticks_enabled }},
     {"timeslice", ArgType_UInt, { .uinteger = &config_timeslice }},
-    {"serial", ArgType_ULong, { .ulonginteger = &uart_base[0] }},
-    {"gic", ArgType_ULong, { .ulonginteger = &platform_gic_cpu_interface_base }},
-    {"gicdist", ArgType_ULong, { .ulonginteger = &platform_gic_distributor_base }},
-    {"gicredist", ArgType_ULong, { .ulonginteger = &platform_gic_redistributor_base }},
+    {"serial", ArgType_ULong, { .ulonginteger = &platform_uart_base[0] }},
     {NULL, 0, {NULL}}
 };
 
@@ -140,6 +138,7 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
         }
 
         // parse the cmdline
+        kernel_command_line = (const char *)kernel_cmd->string;
         parse_commandline(kernel_cmd->string, cmdargs);
 
         // initialize the serial console.
@@ -167,8 +166,6 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
         break;
     }
     case ARMV8_BOOTMAGIC_PSCI :
-        //serial_init(serial_console_port, false);
-
         serial_init(serial_console_port, false);
 
         struct armv8_core_data *core_data = (struct armv8_core_data*)pointer;
@@ -207,9 +204,22 @@ arch_init(uint32_t magic, void *pointer, uintptr_t stack) {
     MSG("Exception vectors (VBAR_EL1): %p\n", &vectors);
     sysreg_write_vbar_el1((uint64_t)&vectors);
 
+    if (cpu_is_bsp()) {
+        platform_revision_init();
+	    MSG("%"PRIu32" cores in system\n", platform_get_core_count());
+        MSG("Initializing the interrupt controller\n");
+        platform_init_ic_bsp();
+    } else {
+        platform_init_ic_app();
+    }
+
+    MSG("Enabling timers\n");
+    platform_timer_init(config_timeslice);
+
     MSG("Setting coreboot spawn handler\n");
     coreboot_set_spawn_handler(CPU_ARM8, platform_boot_core);
 
+    MSG("Calling arm_kernel_startup\n");
     arm_kernel_startup(pointer);
     while (1) {
         __asm volatile ("wfi":::);

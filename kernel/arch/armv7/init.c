@@ -22,14 +22,13 @@
 #include <elf/elf.h>
 #include <exceptions.h>
 #include <getopt/getopt.h>
-#include <gic.h>
 #include <global.h>
 #include <init.h>
 #include <kcb.h>
 #include <kernel_multiboot.h>
 #include <offsets.h>
 #include <paging_kernel_arch.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <serial.h>
 #include <startup_arch.h>
 #include <stdio.h>
@@ -61,31 +60,20 @@ uint32_t periphbase = 0;
 uint32_t timerirq = 0;
 uint32_t cntfrq = 0;
 
+const char *kernel_command_line;
+
 static struct cmdarg cmdargs[] = {
-    { "consolePort", ArgType_UInt, { .uinteger = (void *)0 } },
-    { "debugPort",   ArgType_UInt, { .uinteger = (void *)0 } },
-    { "loglevel",    ArgType_Int,  { .integer  = (void *)0 } },
-    { "logmask",     ArgType_Int,  { .integer  = (void *)0 } },
-    { "timeslice",   ArgType_UInt,  { .uinteger = (void *)0 } },
-    { "periphclk",   ArgType_UInt, { .uinteger = (void *)0 } },
-    { "periphbase",  ArgType_UInt, { .uinteger = (void *)0 } },
-    { "timerirq"  ,  ArgType_UInt, { .uinteger = (void *)0 } },
-    { "cntfrq"  ,    ArgType_UInt, { .uinteger = (void *)0 } },
+    { "consolePort", ArgType_UInt, { .uinteger = &serial_console_port }},
+    { "debugPort",   ArgType_UInt, { .uinteger = &serial_debug_port }},
+    { "loglevel",    ArgType_Int,  { .integer  = &kernel_loglevel }},
+    { "logmask",     ArgType_Int,  { .integer  = &kernel_log_subsystem_mask }},
+    { "timeslice",   ArgType_UInt,  { .uinteger = &config_timeslice }},
+    { "periphclk",   ArgType_UInt, { .uinteger = &periphclk }},
+    { "periphbase",  ArgType_UInt, { .uinteger = &periphbase }},
+    { "timerirq"  ,  ArgType_UInt, { .uinteger = &timerirq }},
+    { "cntfrq"  ,    ArgType_UInt, { .uinteger = &cntfrq }},
     { NULL, 0, { NULL } }
 };
-
-static void
-init_cmdargs(void) {
-    cmdargs[0].var.uinteger= &serial_console_port;
-    cmdargs[1].var.uinteger= &serial_debug_port;
-    cmdargs[2].var.integer=  &kernel_loglevel;
-    cmdargs[3].var.integer=  &kernel_log_subsystem_mask;
-    cmdargs[4].var.uinteger= &config_timeslice;
-    cmdargs[5].var.uinteger= &periphclk;
-    cmdargs[6].var.uinteger= &periphbase;
-    cmdargs[7].var.uinteger= &timerirq;
-    cmdargs[8].var.uinteger= &cntfrq;
-}
 
 /**
  * \brief Is this the BSP?
@@ -252,7 +240,7 @@ arch_init(struct arm_core_data *boot_core_data,
     MSG("KCB at %p\n", kcb_current);
 
     MSG("Parsing command line\n");
-    init_cmdargs();
+    kernel_command_line = (const char *)core_data->cmdline;
     parse_commandline((const char *)core_data->cmdline, cmdargs);
     config_timeslice = min(max(config_timeslice, 1), 20);
 
@@ -262,17 +250,18 @@ arch_init(struct arm_core_data *boot_core_data,
     }
     MSG("Debug port initialized.\n");
 
-    MSG("Initializing the GIC\n");
-    gic_init();
-    MSG("gic_init done\n");
 
     if (cpu_is_bsp()) {
         platform_revision_init();
 	    MSG("%"PRIu32" cores in system\n", platform_get_core_count());
+        MSG("Initializing the interrupt controller\n");
+        platform_init_ic_bsp();
+    } else {
+        platform_init_ic_app();
     }
 
     MSG("Enabling timers\n");
-    timers_init(config_timeslice);
+    platform_timer_init(config_timeslice);
 
     MSG("Enabling cycle counter user access\n");
     /* enable user-mode access to the performance counter */
@@ -295,10 +284,9 @@ arch_init(struct arm_core_data *boot_core_data,
     // MSG("VFP:  MVFR0=%08x  MVFR1=%08x\n", mvfr0, mvfr1);
 
     MSG("Setting coreboot spawn handler\n");
-    coreboot_set_spawn_handler(CPU_ARM7, platform_boot_aps);
+    coreboot_set_spawn_handler(CPU_ARM7, boot_aps);
 
     MSG("Calling arm_kernel_startup\n");
-
     arm_kernel_startup();
 }
 

@@ -15,7 +15,7 @@
 #include <kernel.h>
 
 #include <cache.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <serial.h>
 #include <assert.h>
 #include <errors/errno.h>
@@ -29,6 +29,7 @@
 #include <init.h>
 #include <global.h>
 #include <paging_kernel_arch.h>
+#include <systime.h>
 #include <dev/omap/omap44xx_id_dev.h>
 #include <dev/omap/omap44xx_emif_dev.h>
 #include <dev/omap/omap44xx_cortexa9_wugen_dev.h>
@@ -46,7 +47,7 @@
 
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
-    lvaddr_t base = paging_map_device(uart_base[port], uart_size[port]);
+    lvaddr_t base = paging_map_device(platform_uart_base[port], platform_uart_size[port]);
     omap_uart_init(port, base, initialize_hw);
     return SYS_ERR_OK;
 };
@@ -54,7 +55,7 @@ errval_t serial_init(unsigned port, bool initialize_hw)
 /*
  * Print system identification.   MMU is NOT yet enabled.
  * Use Mackerel to print the identification from the system
- * configuration block.  Documentation in the OMAP4460 TRM p. 18.6.2 
+ * configuration block.  Documentation in the OMAP4460 TRM p. 18.6.2
  */
 void platform_print_id(void)
 {
@@ -117,7 +118,6 @@ size_t platform_get_ram_size(void)
     return bank_size(1, OMAP44XX_MAP_EMIF1) + bank_size(2, OMAP44XX_MAP_EMIF2);
 }
 
-uint32_t tsc_hz = 0;
 uint32_t sys_clk;
 
 static lvaddr_t ckgen_cm1_base= 0;
@@ -219,5 +219,5 @@ a9_probe_tsc(void) {
         IN_MHZ(f_cpu), KHZ_DIGIT(f_cpu),
         IN_MHZ(f_periph), KHZ_DIGIT(f_periph));
 
-    tsc_hz= f_periph;
+    systime_frequency = f_periph;
 }

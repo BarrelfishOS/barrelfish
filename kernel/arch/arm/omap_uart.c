@@ -17,7 +17,7 @@
 #include <kernel.h>
 #include <arm.h>
 #include <paging_kernel_arch.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <serial.h>
 
 //
@@ -38,7 +38,7 @@ errval_t serial_early_init(unsigned port)
 {
     assert(!paging_mmu_enabled());
     assert(port < serial_num_physical_ports);
-    omap44xx_uart3_initialize(&ports[port], (mackerel_addr_t)uart_base[port]);
+    omap44xx_uart3_initialize(&ports[port], (mackerel_addr_t)platform_uart_base[port]);
     omap_uart_hw_init(&ports[port]);
     return SYS_ERR_OK;
 }

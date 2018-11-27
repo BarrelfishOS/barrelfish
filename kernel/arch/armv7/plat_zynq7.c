@@ -26,7 +26,8 @@
 #include <global.h>
 #include <init.h>
 #include <paging_kernel_arch.h>
-#include <platform.h>
+#include <systime.h>
+#include <arch/arm/platform.h>
 #include <serial.h>
 #include <maps/zynq7_map.h>
 #include <zynq_uart.h>
@@ -46,7 +47,7 @@ errval_t
 serial_init(unsigned port, bool initialize_hw) {
     assert(paging_mmu_enabled());
     assert(port < serial_num_physical_ports);
-    lvaddr_t base = paging_map_device(uart_base[port], uart_size[port]);
+    lvaddr_t base = paging_map_device(platform_uart_base[port], platform_uart_size[port]);
     zynq_uart_init(port, base, initialize_hw);
     return SYS_ERR_OK;
 };
@@ -112,7 +113,6 @@ platform_get_ram_size(void) {
  * 33.33333MHz on the zc706.  This should be command-line configurable for
  * other boards. */
 uint32_t ps_clk = 33333330;
-uint32_t tsc_hz = 0;
 
 void
 a9_probe_tsc(void) {
@@ -166,8 +166,8 @@ a9_probe_tsc(void) {
     MSG(" CPU frequency is %"PRIu32"kHz.\n", cpu_clk/1000);
 
     /* The timers run at half the core frequency. */
-    tsc_hz= cpu_clk / 2;
-    MSG(" Timer frequency is %"PRIu32"kHz.\n", tsc_hz/1000);
+    systime_frequency = cpu_clk / 2;
+    MSG(" Timer frequency is %"PRIu32"kHz.\n", systime_frequency / 1000);
 
     /* The next step in the clock chain, for the fast IO peripherals, can be
      * either a factor or 2, or of 3. */

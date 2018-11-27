@@ -15,25 +15,17 @@
 
 #include <kernel.h>
 #include <offsets.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <serial.h>
 #include <arch/arm/pl011.h>
-#include <arch/armv8/gic_v3.h>
+#include <arch/arm/gic.h>
 
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
-    lvaddr_t base = local_phys_to_mem(uart_base[port]);
+    lvaddr_t base = local_phys_to_mem(platform_uart_base[port]);
     pl011_init(port, base, initialize_hw);
     return SYS_ERR_OK;
 };
-
-/*
- * Return the address of the UART device.
- */
-lpaddr_t platform_get_uart_address(unsigned port)
-{
-    return local_phys_to_mem(uart_base[port]);
-}
 
 /*
  * Do any extra initialisation for this particular CPU (e.g. A9/A15).

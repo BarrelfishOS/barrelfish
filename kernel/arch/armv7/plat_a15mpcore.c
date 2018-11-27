@@ -20,7 +20,7 @@
 #include <kernel.h>
 #include <init.h>
 #include <paging_kernel_arch.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <systime.h>
 #include <arch/armv7/irq.h>
 
@@ -29,21 +29,14 @@
 
 /* These are called from the A9/A15 common GIC (interrupt controller) code. */
 
-lpaddr_t
-platform_get_distributor_address(void) {
-    assert(paging_mmu_enabled());
-    return platform_get_private_region() + A15MPCORE_GICD_OFFSET;
-}
-
-lpaddr_t
-platform_get_gic_cpu_address(void) {
-    assert(paging_mmu_enabled());
-    return platform_get_private_region() + A15MPCORE_GICC_OFFSET;
-}
+lpaddr_t platform_gic_cpu_interface_base = A15MPCORE_GICC_OFFSET;
+lpaddr_t platform_gic_distributor_base = A15MPCORE_GICD_OFFSET;
 
 /* A15 platforms don't need anything special done. */
-void
-platform_revision_init(void) {
+void platform_revision_init(void)
+{
+    platform_gic_cpu_interface_base += platform_get_private_region();
+    platform_gic_distributor_base += platform_get_private_region();
 }
 
 /*
@@ -67,8 +60,8 @@ platform_get_core_count(void) {
 extern uint32_t timerirq;
 extern uint32_t cntfrq;
 
-void
-timers_init(int timeslice) {
+void platform_timer_init(int timeslice)
+{
     /* If there was a cntfrq parameter passed, then overwrite the current
      * CNTFRQ register.  We need to do this if there was no bootloader to set
      * it for us, as on the FVP simulators. */
@@ -76,11 +69,11 @@ timers_init(int timeslice) {
 
     systime_frequency = a15_gt_frequency();
 
-    /* The timeslice is in ms, so divide by 1000. */
+    /* The timeslice is in ms, so multiply by 1000000. */
     kernel_timeslice = ns_to_systime(timeslice * 1000000);
 
-    MSG("System counter frequency is %uHz.\n", systime_frequency);
-    MSG("Timeslice interrupt every %u ticks (%dms).\n",
+    MSG("System counter frequency is %lluHz.\n", systime_frequency);
+    MSG("Timeslice interrupt every %" PRIu64 " ticks (%dms).\n",
             kernel_timeslice, timeslice);
 
     a15_gt_init();
@@ -92,31 +85,19 @@ timers_init(int timeslice) {
     platform_enable_interrupt(timerirq, 0, 0, 0, 0);
 
     /* Set the first timeout. */
-    systime_set_timeout(systime_now() + kernel_timeslice);
+    systime_set_timer(kernel_timeslice);
 
     /* We use the system counter for timestamps, which doesn't need any
      * further initialisation. */
 }
 
-uint64_t
-timestamp_read(void) {
-    return a15_gt_counter();
-}
-
-uint32_t
-timestamp_freq(void) {
-    return a15_gt_frequency();
-}
-
-bool timer_interrupt(uint32_t irq)
+bool platform_is_timer_interrupt(uint32_t irq)
 {
     if (irq == timerirq) {
-        platform_acknowledge_irq(irq);
         a15_gt_mask_interrupt();
 
         /* Reset the timeout. */
-        uint64_t now = systime_now();
-        systime_set_timeout(now + kernel_timeslice);
+        systime_set_timer(kernel_timeslice);
         return 1;
     }
 
@@ -128,7 +109,12 @@ systime_t systime_now(void)
     return a15_gt_counter();
 }
 
-void systime_set_timeout(systime_t timeout)
+void systime_set_timeout(systime_t absolute_timeout)
 {
-    a15_gt_set_comparator(timeout);
+    a15_gt_set_comparator(absolute_timeout);
+}
+
+void systime_set_timer(systime_t relative_timeout)
+{
+    systime_set_timeout(systime_now() + relative_timeout);
 }

@@ -27,8 +27,8 @@
 #include <kernel_multiboot2.h>
 #include <offsets.h>
 #include <startup_arch.h>
-#include <timers.h>
-#include <platform.h>
+#include <systime.h>
+#include <arch/arm/platform.h>
 
 #include <arch/arm/startup_arm.h>
 
@@ -38,7 +38,6 @@
 #include <kcb.h>
 
 #include <efi.h>
-#include <arch/arm/gic.h>
 
 #define CNODE(cte)              get_address(&(cte)->cap)
 
@@ -726,9 +725,6 @@ void arm_kernel_startup(void *pointer)
     /* Used when bringing up other cores, must be at consistent global address
      * seen by all cores */
 
-    // Initialize system timers
-    timers_init(config_timeslice);
-
     struct dcb *init_dcb;
 
     if (cpu_is_bsp()) {
@@ -745,9 +741,6 @@ void arm_kernel_startup(void *pointer)
         memset(kcb_current, 0, sizeof(*kcb_current));
 
         init_dcb = spawn_bsp_init(BSP_INIT_MODULE_NAME);
-
-        platform_init_bsp_irqs();
-//        pit_start(0);
     } else {
         MSG("Doing non-BSP related bootup \n");
         struct armv8_core_data *core_data = (struct armv8_core_data *)pointer;
@@ -766,15 +759,15 @@ void arm_kernel_startup(void *pointer)
         kcb_current= (struct kcb *)local_phys_to_mem(core_data->kcb);
 
         init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME);
-
-       // uint32_t irq = platform_get_active_irq();
-       // platform_acknowledge_irq(irq);
     }
     // enable interrupt forwarding to cpu
-    platform_init_app_irqs();
 
     MSG("Calling dispatch from arm_kernel_startup, entry point %#"PRIxLVADDR"\n",
             get_dispatcher_shared_aarch64(init_dcb->disp)->disabled_save_area.named.pc);
+
+#ifndef CONFIG_ONESHOT_TIMER
+    systime_set_timer(kernel_timeslice);
+#endif
 
     // Should not return
     dispatch(init_dcb);

@@ -16,15 +16,16 @@
 #include <kernel.h>
 #include <maps/cn88xx.h>
 #include <offsets.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
+#include <arch/arm/gic.h>
 #include <serial.h>
 #include <psci.h>
 #include <arch/arm/pl011.h>
-#include <arch/armv8/gic_v3.h>
 #include <arch/armv8/global.h>
 #include <sysreg.h>
 #include <dev/armv8_dev.h>
 #include <barrelfish_kpi/arm_core_data.h>
+#include <getopt/getopt.h>
 
 
 lpaddr_t phys_memory_start = CN88XX_MAP_LMC_OFFSET;
@@ -57,31 +58,23 @@ unsigned int serial_debug_port = 0;
 unsigned serial_num_physical_ports = 1;
 
 /* uart bases */
-lpaddr_t uart_base[MAX_NUM_UARTS]= {
+lpaddr_t platform_uart_base[MAX_NUM_UARTS]= {
     CN88XX_MAP_UART0_OFFSET,
     CN88XX_MAP_UART1_OFFSET
 };
 
 /* uart sizes */
-size_t uart_size[MAX_NUM_UARTS]= {
+size_t platform_uart_size[MAX_NUM_UARTS]= {
     4096, 4096
 };
 
 
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
-    lvaddr_t base = local_phys_to_mem(uart_base[port]);
+    lvaddr_t base = local_phys_to_mem(platform_uart_base[port]);
     pl011_init(port, base, initialize_hw);
     return SYS_ERR_OK;
 };
-
-/*
- * Return the address of the UART device.
- */
-lpaddr_t platform_get_uart_address(unsigned port)
-{
-    return local_phys_to_mem(uart_base[port]);
-}
 
 /*
  * Do any extra initialisation for this particular CPU (e.g. A9/A15).
@@ -134,7 +127,7 @@ size_t platform_get_core_count(void)
  */
 void platform_print_id(void)
 {
-    
+
 }
 
 /*

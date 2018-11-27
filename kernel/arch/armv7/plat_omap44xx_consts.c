@@ -25,14 +25,14 @@ unsigned int serial_console_port = 2;
 unsigned int serial_debug_port = 2;
 unsigned int serial_num_physical_ports = NUM_UARTS;
 
-const lpaddr_t uart_base[NUM_UARTS] = {
+const lpaddr_t platform_uart_base[NUM_UARTS] = {
     OMAP44XX_MAP_L4_PER_UART1,
     OMAP44XX_MAP_L4_PER_UART2,
     OMAP44XX_MAP_L4_PER_UART3,
     OMAP44XX_MAP_L4_PER_UART4
 };
 
-const size_t uart_size[NUM_UARTS] = {
+const size_t platform_uart_size[NUM_UARTS] = {
     OMAP44XX_MAP_L4_PER_UART1_SIZE,
     OMAP44XX_MAP_L4_PER_UART2_SIZE,
     OMAP44XX_MAP_L4_PER_UART3_SIZE,

@@ -10,7 +10,7 @@
 
 #include <kernel.h>
 #include <dispatch.h>
-#include <arch/arm/arm.h>
+#include <systime.h>
 #include <arm_hal.h>
 #include <sysreg.h>
 #include <exceptions.h>
@@ -18,9 +18,10 @@
 #include <misc.h>
 #include <stdio.h>
 #include <wakeup.h>
-#include <timers.h>
 #include <irq.h>
-#include <arch/armv8/gic_v3.h>
+#include <arch/arm/arm.h>
+#include <arch/arm/gic.h>
+#include <arch/arm/platform.h>
 #include <dev/armv8_dev.h>
 
 void handle_user_page_fault(lvaddr_t                fault_address,
@@ -260,28 +261,17 @@ void handle_irq(arch_registers_state_t* save_area, uintptr_t fault_pc,
             dcb_current->disabled = false;
         }
     }
-
-/* XXX - put this back. */
-#if 0
-    if (pit_handle_irq(irq)) {
-        // Timer interrupt, pit_handle_irq acks it at the timer.
-        assert(kernel_ticks_enabled);
-        kernel_now += kernel_timeslice;
-        wakeup_check(kernel_now);
-        dispatch(schedule());
-    }
-    /* This is the (still) unacknowledged startup interrupt sent by the BSP.
-     * We just acknowledge it here. */
-    else
-#endif
-
-    if (irq == 30 || irq == 29) {
+    // Offer it to the timer
+    if (platform_is_timer_interrupt(irq)) {
         platform_acknowledge_irq(irq);
-        timer_reset(CONFIG_TIMESLICE);
+        wakeup_check(systime_now());
+#ifndef CONFIG_ONESHOT_TIMER
+        // Set next trigger
+        systime_set_timer(kernel_timeslice);
+#endif
         dispatch(schedule());
-    }
-    else {
-    printf("%s: %d\n", __func__, irq);
+    } else {
+        printf("%s: %d\n", __func__, irq);
         platform_acknowledge_irq(irq);
         send_user_interrupt(irq);
         panic("Unhandled IRQ %"PRIu32"\n", irq);

@@ -14,7 +14,7 @@
 #include <paging_kernel_arch.h>
 #include <string.h>
 #include <exceptions.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <cap_predicates.h>
 #include <dispatch.h>
 #include <mdb/mdb_tree.h>

@@ -16,12 +16,9 @@
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 #include <arch/arm/arm.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <serial.h>
 #include <dev/rpi3_miniuart_dev.h>
-
-lpaddr_t platform_gic_distributor_address;
-lpaddr_t platform_gic_redistributor_address;
 
 static rpi3_miniuart_t uart;
 #define MSG(format, ...) printk( LOG_NOTE, "rpi3_miniuart: "format, ## __VA_ARGS__ )

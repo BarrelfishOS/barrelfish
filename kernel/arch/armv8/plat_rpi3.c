@@ -15,7 +15,7 @@
 
 #include <kernel.h>
 #include <offsets.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <serial.h>
 #include <arch/arm/rpi3_miniuart.h>
 
@@ -25,10 +25,10 @@
 #include <psci.h>
 #include <arch/armv8/global.h>
 #include <irq.h>
+#include <getopt/getopt.h>
 
 /* RAM starts at 0, provided by the MMAP */
 lpaddr_t phys_memory_start = 0;
-lpaddr_t platform_gic_cpu_interface_base = 0;
 
 /*
  * ----------------------------------------------------------------------------
@@ -45,26 +45,18 @@ unsigned int serial_debug_port = 0;
 unsigned serial_num_physical_ports = 1;
 
 /* uart bases */
-lpaddr_t uart_base[1] = { 0x3f215040 };
-// lpaddr_t uart_base[1] = { 0x7e215040 };
+lpaddr_t platform_uart_base[1] = { 0x3f215040 };
+// lpaddr_t platform_uart_base[1] = { 0x7e215040 };
 
 /* uart sizes */
-size_t uart_size[1] = { 32 };
+size_t platform_uart_size[1] = { 32 };
 
 errval_t serial_init(unsigned port, bool initialize_hw)
 {
-    lvaddr_t base = local_phys_to_mem(uart_base[0]);
+    lvaddr_t base = local_phys_to_mem(platform_uart_base[0]);
     rpi3_miniuart_init(base, initialize_hw);
     return SYS_ERR_OK;
 };
-
-/*
- * Return the address of the UART device.
- */
-lpaddr_t platform_get_uart_address(unsigned port)
-{
-    return local_phys_to_mem(uart_base[0]);
-}
 
 /*
  * Do any extra initialisation for this particular CPU (e.g. A9/A15).
@@ -142,12 +134,12 @@ void platform_acknowledge_irq(uint32_t irq)
 {
 }
 
-errval_t platform_init_bsp_irqs(void)
+errval_t platform_init_ic_bsp(void)
 {
     return SYS_ERR_OK;
 }
 
-errval_t platform_init_app_irqs(void)
+errval_t platform_init_ic_app(void)
 {
     return SYS_ERR_OK;
 }

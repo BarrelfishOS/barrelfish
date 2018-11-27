@@ -14,7 +14,7 @@
 
 #include <cp15.h>
 #include <kernel.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 
 extern uint32_t periphbase;
 

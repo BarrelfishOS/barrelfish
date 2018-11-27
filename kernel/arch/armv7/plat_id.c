@@ -10,7 +10,7 @@
 #include <kernel.h>
 
 #include <cp15.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 
 void
 armv7_get_info(struct arch_info_armv7 *ai) {

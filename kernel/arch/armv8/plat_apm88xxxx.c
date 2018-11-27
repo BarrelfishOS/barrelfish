@@ -14,7 +14,7 @@
 
 #include <kernel.h>
 #include <offsets.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <serial.h>
 #include <dev/apm88xxxx/apm88xxxx_pc16550_dev.h>
 #include <arch/arm/gic.h>
@@ -23,7 +23,6 @@
 #include <barrelfish_kpi/arm_core_data.h>
 #include <psci.h>
 #include <arch/armv8/global.h>
-#include <arch/armv8/gic_v3.h>
 #include <paging_kernel_arch.h>
 
 /* the maximum number of UARTS supported */
@@ -38,12 +37,12 @@ errval_t serial_init(unsigned port, bool initialize_hw)
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
 
-    if ((lpaddr_t)ports[port].base == (uart_base[port] + KERNEL_OFFSET)) {
+    if ((lpaddr_t)ports[port].base == (platform_uart_base[port] + KERNEL_OFFSET)) {
         return SYS_ERR_OK;
     }
 
     apm88xxxx_pc16550_t *uart = &ports[port];
-    apm88xxxx_pc16550_initialize(uart, (mackerel_addr_t)(uart_base[port] + KERNEL_OFFSET));
+    apm88xxxx_pc16550_initialize(uart, (mackerel_addr_t)(platform_uart_base[port] + KERNEL_OFFSET));
 
     if (!initialize_hw) {
         // hw initialized, this is for non-bsp cores, where hw has been
@@ -62,12 +61,12 @@ errval_t serial_early_init(unsigned port)
         return SYS_ERR_SERIAL_PORT_INVALID;
     }
 
-    if ((lpaddr_t)ports[port].base == uart_base[port]) {
+    if ((lpaddr_t)ports[port].base == platform_uart_base[port]) {
         return SYS_ERR_OK;
     }
 
     apm88xxxx_pc16550_t *uart = &ports[port];
-    apm88xxxx_pc16550_initialize(uart, (mackerel_addr_t)uart_base[port]);
+    apm88xxxx_pc16550_initialize(uart, (mackerel_addr_t)platform_uart_base[port]);
     return SYS_ERR_OK;
 }
 
@@ -117,7 +116,10 @@ void armv8_get_info(struct arch_info_armv8 *ai)
 
 }
 
-/* GIC */
+void platform_revision_init(void)
+{
+
+}
 
 errval_t platform_boot_core(hwid_t target, genpaddr_t gen_entry, genpaddr_t context)
 {
@@ -137,6 +139,14 @@ An FIQ interrupt, even if the PSTATE F-bit is set.
      */
 
     gic_raise_softirq(target, 1);
-     
+
     return SYS_ERR_OK;
+}
+
+/*
+ * Return the core count
+ */
+size_t platform_get_core_count(void)
+{
+    return 0;
 }

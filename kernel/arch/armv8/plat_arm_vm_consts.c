@@ -47,12 +47,12 @@ unsigned serial_num_physical_ports = 1;
 
 /* uart bases */
 const lpaddr_t
-uart_base[MAX_NUM_UARTS]= {
+platform_uart_base[MAX_NUM_UARTS]= {
         0x9000000
 };
 
 /* uart sizes */
 const size_t
-uart_size[MAX_NUM_UARTS]= {
+platform_uart_size[MAX_NUM_UARTS]= {
     4096
 };

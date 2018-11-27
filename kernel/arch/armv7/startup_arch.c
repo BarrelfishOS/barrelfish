@@ -17,7 +17,7 @@
 #include <barrelfish_kpi/syscalls.h>
 #include <elf/elf.h>
 
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <paging_kernel_arch.h>
 #include <exceptions.h>
 #include <cpiobin.h>
@@ -29,7 +29,6 @@
 #include <startup_arch.h>
 #include <global.h>
 #include <kcb.h>
-#include <gic.h>
 #include <arch/arm/startup_arm.h>
 
 #define CNODE(cte)              get_address(&cte->cap)
@@ -157,7 +156,7 @@ load_init_image(
 
 
     *init_ep = *got_base = 0;
-    
+
     /* Load init ELF32 binary */
     struct multiboot_modinfo *module = multiboot_find_module(name);
     if (module == NULL) {
@@ -598,7 +597,7 @@ struct dcb *spawn_app_init(struct arm_core_data *new_core_data, const char *name
     struct cte *urpc_frame_cte =
         caps_locate_slot(CNODE(spawn_state.taskcn), TASKCN_SLOT_MON_URPC);
     // XXX: Create as devframe so the memory is not zeroed out
-    err = caps_create_new(ObjType_DevFrame, 
+    err = caps_create_new(ObjType_DevFrame,
                           core_data->urpc_frame_base,
                           core_data->urpc_frame_size,
                           core_data->urpc_frame_size,
@@ -682,22 +681,18 @@ void arm_kernel_startup(void)
 
         init_dcb = spawn_app_init(core_data, APP_INIT_MODULE_NAME);
 
-        uint32_t irq = platform_get_active_irq();
-        platform_acknowledge_irq(irq);
+        // uint32_t irq = platform_get_active_irq();
+        // platform_acknowledge_irq(irq);
     }
 
     /* XXX - this really shouldn't be necessary. */
-    MSG("Trying to enable interrupts\n"); 
-    // __asm volatile ("CPSIE aif"); 
-    MSG("Done enabling interrupts\n");
+    // MSG("Trying to enable interrupts\n");
+    // __asm volatile ("CPSIE aif");
+    // MSG("Done enabling interrupts\n");
 
     /* printf("HOLD BOOTUP - SPINNING\n"); */
     /* while (1); */
     /* printf("THIS SHOULD NOT HAPPEN\n"); */
-
-    // enable interrupt forwarding to cpu
-    // FIXME: PS: enable this as it is needed for multicore setup.
-    //gic_cpu_interface_enable();
 
     // Should not return
     MSG("Calling dispatch from arm_kernel_startup, start address is=%"PRIxLVADDR"\n",

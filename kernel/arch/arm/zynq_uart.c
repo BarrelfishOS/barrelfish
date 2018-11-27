@@ -17,7 +17,7 @@
 #include <arm.h>
 #include <dev/zynq7/zynq_uart_dev.h>
 #include <paging_kernel_arch.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <serial.h>
 #include <zynq_uart.h>
 #include <maps/zynq7_map.h>
@@ -35,7 +35,7 @@ errval_t
 serial_early_init(unsigned port) {
     assert(port < ZYNQ_UART_MAX_PORTS);
 
-    zynq_uart_initialize(&ports[port], (mackerel_addr_t)uart_base[port]);
+    zynq_uart_initialize(&ports[port], (mackerel_addr_t)platform_uart_base[port]);
 
     /* Ensure the transmitter is enabled. */
     zynq_uart_CR_tx_dis_wrf(&ports[port], 0);

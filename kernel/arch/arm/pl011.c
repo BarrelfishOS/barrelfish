@@ -16,7 +16,7 @@
 #include <kernel.h>
 #include <paging_kernel_arch.h>
 #include <arch/arm/arm.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <serial.h>
 #include <dev/pl011_uart_dev.h>
 
@@ -43,7 +43,8 @@ errval_t serial_early_init(unsigned n)
     assert(!paging_mmu_enabled());
     assert(n < serial_num_physical_ports);
 
-    pl011_uart_initialize(&uarts[n], (mackerel_addr_t)uart_base[n]);
+    pl011_uart_initialize(&uarts[n],
+        (mackerel_addr_t)local_phys_to_mem(platform_uart_base[n]));
 
     // Make sure that the UART is enabled and transmitting - not all platforms
     // do this for us.
@@ -63,7 +64,8 @@ errval_t serial_early_init_mmu_enabled(unsigned n)
     assert(paging_mmu_enabled());
     assert(n < serial_num_physical_ports);
 
-    pl011_uart_initialize(&uarts[n], (mackerel_addr_t)uart_base[n]);
+    pl011_uart_initialize(&uarts[n],
+        (mackerel_addr_t)local_phys_to_mem(platform_uart_base[n]));
 
     // Make sure that the UART is enabled and transmitting - not all platforms
     // do this for us.
@@ -95,7 +97,7 @@ void pl011_init(unsigned port, lvaddr_t base, bool hwinit)
         // Clear and enable the receive interrupt.
         pl011_uart_ICR_rxic_wrf(u, 1);
         pl011_uart_IMSC_rxim_wrf(u, 1);
-        
+
         // Configure port to 38400 baud, 8 data, no parity, 1 stop (8-N-1)
         //
         // (This is a mild scam as system is running in QEMU)
@@ -104,7 +106,7 @@ void pl011_init(unsigned port, lvaddr_t base, bool hwinit)
         // written.
         pl011_uart_IBRD_divint_wrf(u, 0xc); // Assuming UARTCLK is 7.3728MHz
         pl011_uart_FBRD_divfrac_wrf(u, 0);
-        
+
         /* Configure the line control register. */
         pl011_uart_LCR_H_t lcr= (pl011_uart_LCR_H_t)0;
         /* Disable FIFOs.  There's no way to get an interrupt when a single

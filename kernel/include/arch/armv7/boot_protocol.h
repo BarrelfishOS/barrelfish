@@ -30,5 +30,6 @@ struct armv7_boot_record {
 };
 
 void plat_advance_aps(void);
+errval_t boot_aps(hwid_t target, genpaddr_t gen_entry, genpaddr_t context);
 
 #endif /* __ARMV7_BOOT_PROTOCOL_H */

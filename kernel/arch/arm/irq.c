@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <arch/arm/arm.h>
+#include <arch/arm/platform.h>
 #include <barrelfish_kpi/lmp.h>
 #include <barrelfish_kpi/syscalls.h>
 #include <barrelfish_kpi/sys_debug.h>
@@ -23,7 +24,6 @@
 #include <syscall.h>
 #include <arch/arm/syscall_arm.h>
 #include <kcb.h>
-#include <arch/arm/gic.h>
 
 /**
  * \brief User-space IRQ dispatch table.
@@ -72,15 +72,7 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
         // documented anywhere for the A9, and this will have to be different
         // if we're using affinity routing on GICv3+ systems.
         platform_enable_interrupt(nidt, BIT(my_core_id), 0,
-                GIC_IRQ_EDGE_TRIGGERED, GIC_IRQ_N_TO_N);
-#if 0
-        if (err_is_ok(err)) {
-            // Unmask interrupt if on PIC
-            if(nidt < 16) {
-                pic_toggle_irq(nidt, true);
-            }
-        }
-#endif
+                IRQ_EDGE_TRIGGERED, IRQ_N_TO_N);
         return err;
     }
 

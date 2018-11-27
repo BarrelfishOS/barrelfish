@@ -35,6 +35,7 @@
 #include <schedule.h>
 #include <logging.h>
 
+extern const char *kernel_command_line;
 extern coreid_t my_core_id;
 
 bool arch_core_is_bsp(void);

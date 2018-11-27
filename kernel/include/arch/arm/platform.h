@@ -25,29 +25,6 @@
 #include <barrelfish_kpi/platform.h>
 
 /*
- * UART locations
- */
-extern lpaddr_t platform_uart_address[];
-extern size_t platform_uart_size[];
-
-/*
- * GIC interface
- */
-extern lpaddr_t platform_gic_cpu_interface_base;
-extern lpaddr_t platform_gic_distributor_base;
-extern lpaddr_t platform_gic_redistributor_base;
-
-/*
- * Return the base address of the private peripheral region.
- */
-lpaddr_t platform_get_private_region(void);
-
-/*
- * Initilize the platform data
- */
-void platform_init(void);
-
-/*
  * Do any extra initialisation for this particular CPU (e.g. A9/A15).
  */
 void platform_revision_init(void);
@@ -61,6 +38,11 @@ size_t platform_get_core_count(void);
  * Print system identification. MMU is NOT yet enabled.
  */
 void platform_print_id(void);
+
+/*
+ * Return the base address of the private peripheral region.
+ */
+lpaddr_t platform_get_private_region(void);
 
 /*
  * Fill out provided `struct platform_info`
@@ -81,14 +63,46 @@ errval_t platform_boot_core(hwid_t target, genpaddr_t gen_entry, genpaddr_t cont
 void platform_notify_bsp(lpaddr_t *mailbox);
 
 /*
- * Timers
+ * UART locations
  */
-void     timers_init(int timeslice);
-uint64_t timestamp_read(void);
-uint32_t timestamp_freq(void);
-bool     timer_interrupt(uint32_t irq);
+extern lpaddr_t platform_uart_base[];
+extern size_t platform_uart_size[];
 
-#define tsc_read() timer_get_timestamp()
-#define tsc_get_hz() timer_get_frequency()
+// Helpers for enabling interrupts
+#define IRQ_PRIO_LOWEST       (0xF)
+#define IRQ_CPU_TRG_ALL       (0x3) // For two cores on the PandaBoard
+#define IRQ_CPU_TRG_BSP       (0x1)
+#define IRQ_EDGE_TRIGGERED    (0x1)
+#define IRQ_LEVEL_SENSITIVE   (0x0)
+#define IRQ_1_TO_N            (0x1)
+#define IRQ_N_TO_N            (0x0)
+
+/*
+ * Interrupt controller interface
+ */
+ errval_t platform_init_ic_bsp(void);
+ errval_t platform_init_ic_app(void);
+ uint32_t platform_get_active_irq(void);
+ void     platform_acknowledge_irq(uint32_t irq);
+ void     platform_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
+                               bool edge_triggered, bool one_to_n);
+
+/*
+* Timers
+*/
+
+/**
+* @brief initialize the timer
+*/
+void platform_timer_init(int timeslice);
+
+/**
+* @brief check if the interrupt is a timer interrupt
+*
+* @param interrupt number
+* @return TRUE if it's the timer interrupt
+*/
+bool platform_is_timer_interrupt(uint32_t irq);
+
 
 #endif // __ARM_PLATFORM_H__

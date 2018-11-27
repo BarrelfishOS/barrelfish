@@ -26,13 +26,13 @@ unsigned int serial_debug_port = 1;
 unsigned int serial_num_physical_ports = NUM_UARTS;
 
 const lpaddr_t
-uart_base[NUM_UARTS]= {
+platform_uart_base[NUM_UARTS]= {
     ZINQ7_UART0_BASEADDR,
     ZINQ7_UART1_BASEADDR
 };
 
 const size_t
-uart_size[NUM_UARTS]= {
+platform_uart_size[NUM_UARTS]= {
     (1<<12),
     (1<<12)
 };

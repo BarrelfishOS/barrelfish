@@ -18,7 +18,7 @@
 #include <dispatch.h>
 #include <init.h>
 #include <arm.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <exec.h>
 #include <exceptions.h>
 #include <misc.h>

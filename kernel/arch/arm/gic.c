@@ -11,9 +11,10 @@
 
 #include <dev/pl130_gic_dev.h>
 #include <arch/arm/gic.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <paging_kernel_arch.h>
 #include <arch/armv7/irq.h>
+#include <getopt/getopt.h>
 
 static pl130_gic_t gic;
 static uint32_t it_num_lines;
@@ -21,6 +22,15 @@ static pl130_gic_ICDICTR_t gic_config;
 static uint8_t cpu_number;
 
 #define MSG(format, ...) printk( LOG_NOTE, "GIC: "format, ## __VA_ARGS__ )
+
+extern lpaddr_t platform_gic_cpu_interface_base;
+extern lpaddr_t platform_gic_distributor_base;
+
+// Command line arguments
+static struct cmdarg cmdargs[] = {
+    {"gic", ArgType_UInt, { .uinteger = &platform_gic_cpu_interface_base }},
+    {"gicdist", ArgType_UInt, { .uinteger = &platform_gic_distributor_base }}
+};
 
 enum IrqType {
     IrqType_SGI,
@@ -62,10 +72,12 @@ static enum IrqType get_irq_type(uint32_t int_id)
  */
 void gic_init(void)
 {
+    printk(LOG_NOTE, "GICv1: Initializing\n");
+    parse_commandline(kernel_command_line, cmdargs);
     lvaddr_t gic_dist_base =
-        paging_map_device( platform_get_distributor_base(), DIST_SIZE );
+        paging_map_device(platform_gic_distributor_base, DIST_SIZE );
     lvaddr_t gic_cpu_base =
-        paging_map_device( platform_get_gic_cpu_base), CPU_SIZE );
+        paging_map_device(platform_gic_cpu_interface_base, CPU_SIZE );
     pl130_gic_initialize(&gic, (mackerel_addr_t)gic_dist_base,
                                (mackerel_addr_t)gic_cpu_base );
 
@@ -144,6 +156,16 @@ void gic_cpu_interface_enable(void)
     pl130_gic_ICCICR_wr(&gic, 0x1);
 }
 
+errval_t platform_init_ic_bsp(void) {
+    gic_init();
+    gic_cpu_interface_enable();
+    return SYS_ERR_OK;
+}
+
+errval_t platform_init_ic_app(void) {
+    gic_cpu_interface_enable();
+    return SYS_ERR_OK;
+}
 
 /**
  * \brief Enable an interrupt

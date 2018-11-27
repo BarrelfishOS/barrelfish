@@ -18,7 +18,7 @@
 #include <boot_protocol.h>
 #include <cp15.h>
 #include <paging_kernel_arch.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <startup_arch.h>
 
 /*
@@ -30,7 +30,7 @@
  *
  * \returns Zero on successful boot, non-zero (error code) on failure
  */
-errval_t platform_boot_aps(hwid_t target, genpaddr_t gen_entry, genpaddr_t context)
+errval_t boot_aps(hwid_t target, genpaddr_t gen_entry, genpaddr_t context)
 {
 
     assert(paging_mmu_enabled());

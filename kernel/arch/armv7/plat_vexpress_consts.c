@@ -24,7 +24,7 @@ unsigned serial_console_port = 0;
 unsigned serial_debug_port = 0;
 unsigned serial_num_physical_ports = NUM_UARTS;
 
-const lpaddr_t uart_base[] = { 
+const lpaddr_t platform_uart_base[] = { 
     VEXPRESS_MAP_UART0, 
     VEXPRESS_MAP_UART1, 
     VEXPRESS_MAP_UART2, 
@@ -32,7 +32,7 @@ const lpaddr_t uart_base[] = {
     VEXPRESS_MAP_UART4
 };
 
-const size_t uart_size[] = { 
+const size_t platform_uart_size[] = { 
     VEXPRESS_MAP_UART0_SIZE, 
     VEXPRESS_MAP_UART1_SIZE, 
     VEXPRESS_MAP_UART2_SIZE, 

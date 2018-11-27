@@ -12,15 +12,23 @@
 #include <dev/armv8_dev.h>
 #include <dev/gic_v3_dist_dev.h>
 #include <dev/gic_v3_redist_dev.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <paging_kernel_arch.h>
-#include <arch/armv8/gic_v3.h>
+#include <arch/arm/gic.h>
 #include <irq.h>
+#include <getopt/getopt.h>
 
 static gic_v3_dist_t gic_v3_dist_dev;
 static gic_v3_redist_t gic_v3_redist_dev;
 
-lpaddr_t platform_gic_cpu_interface_base = 0; // no memory-mapped cpu interface
+extern lpaddr_t platform_gic_distributor_base;
+extern lpaddr_t platform_gic_redistributor_base;
+
+// Command line arguments
+static struct cmdarg cmdargs[] = {
+    {"gicdist", ArgType_ULong, { .ulonginteger = &platform_gic_distributor_base }},
+    {"gicredist", ArgType_ULong, { .ulonginteger = &platform_gic_redistributor_base }}
+};
 
 /*
  * Initialize the global interrupt controller
@@ -35,6 +43,7 @@ lpaddr_t platform_gic_cpu_interface_base = 0; // no memory-mapped cpu interface
 void gic_init(void)
 {
     printk(LOG_NOTE, "GICv3: Initializing\n");
+    parse_commandline(kernel_command_line, cmdargs);
     lvaddr_t gic_dist = local_phys_to_mem(platform_gic_distributor_base);
     gic_v3_dist_initialize(&gic_v3_dist_dev, (char *)gic_dist);
 
@@ -168,13 +177,14 @@ void platform_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t pr
 {
 }
 
-errval_t platform_init_bsp_irqs(void)
+errval_t platform_init_ic_bsp(void)
 {
     gic_init();
+    gic_cpu_interface_enable();
     return SYS_ERR_OK;
 }
 
-errval_t platform_init_app_irqs(void)
+errval_t platform_init_ic_app(void)
 {
     gic_cpu_interface_enable();
     return SYS_ERR_OK;

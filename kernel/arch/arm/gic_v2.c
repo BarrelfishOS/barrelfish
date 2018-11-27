@@ -12,14 +12,22 @@
 #include <dev/armv8_dev.h>
 #include <dev/gic_v3_dist_dev.h>
 #include <dev/gic_v2_cpu_dev.h>
-#include <platform.h>
 #include <paging_kernel_arch.h>
-#include <arch/armv8/gic_v3.h>
+#include <arch/arm/gic.h>
+#include <arch/arm/platform.h>
+#include <getopt/getopt.h>
 
 static gic_v3_dist_t gic_v3_dev;
 static gic_v2_cpu_t gic_v2_cpu_dev;
 
-lpaddr_t platform_gic_redistributor_base = 0; // no redistributors on GIC v2
+extern lpaddr_t platform_gic_cpu_interface_base;
+extern lpaddr_t platform_gic_distributor_base;
+
+// Command line arguments
+static struct cmdarg cmdargs[] = {
+    {"gic", ArgType_ULong, { .ulonginteger = &platform_gic_cpu_interface_base }},
+    {"gicdist", ArgType_ULong, { .ulonginteger = &platform_gic_distributor_base }}
+};
 
 /*
  * This should return 1<<my_core_id
@@ -55,6 +63,9 @@ static void check_cpu_if_statusr(void)
  */
 void gic_init(void)
 {
+    printk(LOG_NOTE, "GICv2: Initializing\n");
+    parse_commandline(kernel_command_line, cmdargs);
+
     lvaddr_t gic_dist = local_phys_to_mem(platform_gic_distributor_base);
     gic_v3_dist_initialize(&gic_v3_dev, (char *)gic_dist);
 
@@ -192,12 +203,13 @@ void gic_cpu_interface_enable(void)
     check_cpu_if_statusr();
 }
 
-errval_t platform_init_bsp_irqs(void) {
+errval_t platform_init_ic_bsp(void) {
     gic_init();
+    gic_cpu_interface_enable();
     return SYS_ERR_OK;
 }
 
-errval_t platform_init_app_irqs(void) {
+errval_t platform_init_ic_app(void) {
     gic_cpu_interface_enable();
     return SYS_ERR_OK;
 }
