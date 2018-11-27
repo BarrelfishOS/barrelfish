@@ -23,6 +23,7 @@
     build library {
         target = "hpet_comp_module",
         cFiles = ["hpet_comp.c", "hpet_int_cntrl.c" ],
+        flounderBindings = [ "int_route_controller" ],
         architectures = [ "x86_64" ]
     },
 
