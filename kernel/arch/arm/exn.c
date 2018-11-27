@@ -10,7 +10,7 @@
 #include <kernel.h>
 #include <dispatch.h>
 #include <arm.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 /* XXX - not AArch64-compatible. */
 #include <cp15.h>
 #include <exceptions.h>
@@ -20,7 +20,6 @@
 #include <stdio.h>
 #include <wakeup.h>
 #include <irq.h>
-#include <gic.h>
 #include <systime.h>
 
 void handle_user_page_fault(lvaddr_t fault_address,
@@ -319,9 +318,13 @@ void handle_irq(arch_registers_state_t* save_area,
           dcb_current->disabled ? "disabled": "enabled" );
 
     // Offer it to the timer
-    if (timer_interrupt(irq)) {
-        // Timer interrupt, timer_interrupt() acks it at the timer.
+    if (platform_is_timer_interrupt(irq)) {
+        platform_acknowledge_irq(irq);
         wakeup_check(systime_now());
+#ifndef CONFIG_ONESHOT_TIMER
+        // Set next trigger
+        systime_set_timer(kernel_timeslice);
+#endif
         dispatch(schedule());
     }
     // this is the (still) unacknowledged startup interrupt sent by the BSP

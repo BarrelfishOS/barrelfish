@@ -501,7 +501,7 @@ static void  __attribute__ ((noreturn, noinline)) text_init(void)
         apic_timer_set_divide(xapic_by1);
         kernel_timeslice = ns_to_systime(config_timeslice * 1000000);
 #ifndef CONFIG_ONESHOT_TIMER
-        systime_set_timeout(systime_now() + kernel_timeslice);
+        systime_set_timer(kernel_timeslice);
 #endif
     } else {
         printk(LOG_WARN, "APIC timer disabled: NO timeslicing\n");

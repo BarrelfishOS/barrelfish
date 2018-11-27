@@ -39,6 +39,12 @@ uint64_t systime_to_ns(systime_t time);
  * Set a point at which a timer interrupt should occur
  * if it's in a past, trigger immediately
  */
-void systime_set_timeout(systime_t timeout);
+void systime_set_timeout(systime_t absolute_timeout);
+
+/**
+ * Set a timeout at which a timer interrupt should occur, counting from now
+ * if it's 0, trigger immediately
+ */
+void systime_set_timer(systime_t relative_timeout);
 
 #endif // __SYSTIME_H

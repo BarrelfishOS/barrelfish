@@ -25,7 +25,7 @@
 #include <syscall.h>
 #include <arch/arm/syscall_arm.h>
 #include <useraccess.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <startup_arch.h>
 #include <systime.h>
 
@@ -993,7 +993,7 @@ static struct sysret handle_endpoint_identify(struct capability *cap,
 }
 
 
-static struct sysret handle_set_endpoint_iftype(struct capability *cap, 
+static struct sysret handle_set_endpoint_iftype(struct capability *cap,
                                                 arch_registers_state_t *context,
                                                 int argc)
 {
@@ -1239,7 +1239,7 @@ handle_invoke(arch_registers_state_t *context, int argc)
     r.error = caps_lookup_cap(&dcb_current->cspace.cap,
                               invoke_cptr, invoke_level,
                               &to, CAPRIGHTS_READ);
-    
+
     if (err_is_ok(r.error))
     {
         assert(to != NULL);
@@ -1379,19 +1379,19 @@ static struct sysret handle_debug_syscall(struct registers_arm_syscall_args* sa)
         case DEBUG_HARDWARE_TIMER_READ:
             /* XXX - timestamp syscalls should disappear on A15+, and be
              * consolidated on A9. */
-            retval.value = (uint32_t)timestamp_read();
+            retval.value = (uint32_t)systime_now();
             break;
 
         case DEBUG_HARDWARE_TIMER_HERTZ_READ:
-            retval.value = timestamp_freq();
+            retval.value = systime_frequency;
             break;
 
         case DEBUG_HARDWARE_GLOBAL_TIMER_LOW:
-            retval.value = (uint32_t)timestamp_read();
+            retval.value = (uint32_t)systime_now();
             break;
 
         case DEBUG_HARDWARE_GLOBAL_TIMER_HIGH:
-            retval.value = (uint32_t)(timestamp_read() >> 32);
+            retval.value = (uint32_t)(systime_now() >> 32);
             break;
 
         case DEBUG_CREATE_IRQ_SRC_CAP:

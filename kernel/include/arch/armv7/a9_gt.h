@@ -34,10 +34,6 @@ uint32_t a9_gt_read_high(void);
  * discoverable at runtime, so it's an optional boot parameter. */
 extern uint32_t periphclk;
 
-/* This is either discovered by the platform boot code, or copied from
- * periphclk. */
-extern uint32_t tsc_hz;
-
 /* Platform-specific clock rate discovery. */
 void a9_probe_tsc(void);
 

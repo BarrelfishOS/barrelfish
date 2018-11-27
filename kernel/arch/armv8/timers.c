@@ -14,20 +14,17 @@
 
 #include <kernel.h>
 #include <offsets.h>
-#include <platform.h>
+#include <arch/arm/platform.h>
 #include <serial.h>
 #include <sysreg.h>
-#include <arch/arm/gic.h>
 #include <systime.h>
-#include <timers.h>
+#include <arch/arm/platform.h>
 #include <dev/armv8_dev.h>
-
-cycles_t ticks_per_ms = 1;
 
 /*
  * Timers
  */
-void timers_init(int timeslice)
+void platform_timer_init(int timeslice)
 {
     printk(LOG_NOTE, "isr_el1=%p\n", sysreg_read_isr_el1());
     {
@@ -50,27 +47,14 @@ void timers_init(int timeslice)
     armv8_CNTP_CTL_EL0_IMASK_wrf(NULL, 0x0);
     armv8_CNTP_CTL_EL0_ENABLE_wrf(NULL, 0x1);
 
-    /* set the compare value */
-    armv8_CNTP_CVAL_EL0_wr(NULL, 0xffffffffffffffff);
-
-
-    /* systime_frequency is ticks per milisecond, while timer_get_frequency is in HZ */
-    systime_frequency = timer_get_frequency() / 1000;
+    systime_frequency = armv8_CNTFRQ_EL0_rd(NULL);
 
     /* The timeslice is in ms */
     kernel_timeslice = ns_to_systime(timeslice * 1000000);
 
-    printf("System counter frequency is %uHz.\n", timer_get_frequency());
+    printf("System counter frequency is %lluHz.\n", systime_frequency);
     printf("Timeslice interrupt every %u ticks (%dms).\n",
             kernel_timeslice, timeslice);
-
-    // Wait for n time units, close to cycles
-    armv8_CNTP_TVAL_EL0_wr(NULL, 100);
-
-    while (timer_is_set())
-        ;
-
-    timer_reset(timeslice);
 
     armv8_PMCR_EL0_t pmcr = 0;
     pmcr = armv8_PMCR_EL0_E_insert(pmcr, 1); /* All counters are enabled.*/
@@ -96,18 +80,25 @@ void timers_init(int timeslice)
 //    armv8_PMUSERENR_EL0_wr(NULL, pmu);
 }
 
-/**
- *
- * @param ms
- */
-void timer_reset(uint64_t ms)
-{
-    uint32_t val = ms * systime_frequency;
-    armv8_CNTP_TVAL_EL0_wr(NULL, val);
-}
-
-
 systime_t systime_now(void)
 {
-    return timer_get_timestamp();
+    return armv8_CNTPCT_EL0_rd(NULL);
+}
+
+void systime_set_timeout(systime_t absolute_timeout)
+{
+    armv8_CNTP_CVAL_EL0_wr(NULL, absolute_timeout);
+}
+
+void systime_set_timer(systime_t relative_timeout)
+{
+    armv8_CNTP_TVAL_EL0_wr(NULL, relative_timeout);
+}
+
+bool platform_is_timer_interrupt(uint32_t irq)
+{
+    if (irq == 30 || irq == 29) {
+        return 1;
+    }
+    return 0;
 }

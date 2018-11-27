@@ -25,14 +25,13 @@
 #include <stdio.h>
 #include <sys_debug.h>
 #include <syscall.h>
-#include <arch/arm/syscall_arm.h>
 #include <start_aps.h>
 #include <useraccess.h>
-#include <platform.h>
 #include <systime.h>
-#include <timers.h>
 #include <psci.h>
-#include <arch/armv8/gic_v3.h>
+#include <arch/arm/gic.h>
+#include <arch/arm/platform.h>
+#include <arch/arm/syscall_arm.h>
 
 // helper macros  for invocation handler definitions
 #define INVOCATION_HANDLER(func) \
@@ -1270,11 +1269,11 @@ static struct sysret handle_debug_syscall(int msg)
             break;
 
         case DEBUG_HARDWARE_TIMER_READ:
-            retval.value = timer_get_timestamp();
+            retval.value = systime_now();
             break;
 
         case DEBUG_HARDWARE_TIMER_HERTZ_READ:
-            retval.value = timer_get_frequency();
+            retval.value = systime_frequency;
             break;
 
         case DEBUG_GET_TSC_PER_MS:

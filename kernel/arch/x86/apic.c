@@ -419,19 +419,34 @@ static uint32_t systime_to_apic_ticks(systime_t ticks)
     return MIN(rt, UINT32_MAX);
 }
 
-void systime_set_timeout(systime_t timeout)
+void systime_set_timeout(systime_t absolute_timeout)
 {
     if (use_tsc_deadline) { // we have TSC deadline
-        ia32_tsc_deadline_wr(NULL, timeout);
+        ia32_tsc_deadline_wr(NULL, absolute_timeout);
     } else { // fallback to APIC timer
         uint32_t apic_ticks = 1;
 
         systime_t now = systime_now();
-        if (timeout > now) {
-            apic_ticks = systime_to_apic_ticks(timeout - now);
+        if (absolute_timeout > now) {
+            apic_ticks = systime_to_apic_ticks(absolute_timeout - now);
             if (apic_ticks == 0)
                 apic_ticks = 1;
         }
+        apic_timer_set_count(apic_ticks);
+    }
+}
+
+void systime_set_timer(systime_t relative_timeout)
+{
+    if (use_tsc_deadline) { // we have TSC deadline
+        systime_t now = systime_now();
+        ia32_tsc_deadline_wr(NULL, now + relative_timeout);
+    } else { // fallback to APIC timer
+        uint32_t apic_ticks;
+
+        apic_ticks = systime_to_apic_ticks(relative_timeout);
+        if (apic_ticks == 0)
+            apic_ticks = 1;
         apic_timer_set_count(apic_ticks);
     }
 }
