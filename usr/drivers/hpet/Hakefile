@@ -14,7 +14,7 @@
     build library {
         target = "hpet_module",
         cFiles = ["hpet.c" ],
-        addLibraries = libDeps["skb", "int_route_client" , "int_msix_ctrl"],
+        addLibraries = libDeps["int_route_client"],
         flounderDefs = [ "hpet" ],
         mackerelDevices = ["hpet"],
         architectures = [ "x86_64" ]
@@ -36,7 +36,7 @@
         target = "hpet",
         cFiles = [ "main.c"],
         addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-        addLibraries = libDeps["driverkit" , "int_route_client" ,"int_msix_ctrl" ],
+        addLibraries = libDeps["driverkit"],
         addModules = ["hpet_module", "hpet_comp_module"],
         mackerelDevices = [ "hpet"],
         architectures = ["x86_64"]
