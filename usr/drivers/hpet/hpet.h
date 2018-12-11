@@ -16,7 +16,6 @@
 #define HPET_H
 
 #include <barrelfish/barrelfish.h>
-#include <dev/hpet_dev.h>
 #include <hw_records.h>
 #include <skb/skb.h>
 
@@ -25,9 +24,11 @@
 
 #define DEFAULT_COMPARATOR 9000000
 
+struct hpet_t;
+
 /* Per HPET state */
 struct hpet_driver_state {
-    hpet_t d;
+    struct hpet_t *d;
     uint64_t int_start_range;
     uint64_t int_end_range;
     uint64_t msix_port; // int out range

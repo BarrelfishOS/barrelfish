@@ -15,6 +15,7 @@
 #include <barrelfish/barrelfish.h>
 #include <driverkit/driverkit.h>
 #include <flounder/flounder_support.h>
+#include <dev/hpet_dev.h>
 #include <hpet.h>
 #include <hpet_debug.h>
 #include <if/hpet_defs.h>

@@ -18,6 +18,7 @@
 #include <hpet.h>
 #include <hpet_debug.h>
 #include <hpet_int_cntrl.h>
+#include <dev/hpet_dev.h>
 
 
 static void int_handler(void *args) {
@@ -27,8 +28,8 @@ static void int_handler(void *args) {
 
 
 static void hpet_comp_disable_int(struct hpet_comp_st *st) {
-    hpet_timers_config_reg_timer_fsb_enb_cnf_wrf(&st->hpet_dev, st->index, 0); 
-    hpet_timers_config_reg_timer_int_enb_cnf_wrf(&st->hpet_dev, st->index, 0);
+    hpet_timers_config_reg_timer_fsb_enb_cnf_wrf(st->hpet_dev, st->index, 0); 
+    hpet_timers_config_reg_timer_int_enb_cnf_wrf(st->hpet_dev, st->index, 0);
 };
 
 
@@ -36,8 +37,8 @@ errval_t hpet_comp_enable_fsb_int(struct hpet_comp_st *st,
                                   uint32_t msg_addr, uint32_t msg_data) {
     HPET_DEBUG("MAP FSB NYI!\n");
     return SYS_ERR_OK;
-    hpet_timers_config_reg_timer_fsb_enb_cnf_wrf(&st->hpet_dev, st->index, 1); 
-    hpet_timers_config_reg_timer_int_enb_cnf_wrf(&st->hpet_dev, st->index, 1);
+    hpet_timers_config_reg_timer_fsb_enb_cnf_wrf(st->hpet_dev, st->index, 1); 
+    hpet_timers_config_reg_timer_int_enb_cnf_wrf(st->hpet_dev, st->index, 1);
     return SYS_ERR_OK;
 }
 
@@ -45,8 +46,8 @@ errval_t hpet_comp_enable_ioapic_int(struct hpet_comp_st *st,
                                      uint32_t gsi) {
     HPET_DEBUG("MAP IOAPIC NYI!\n");
     return SYS_ERR_OK;
-    hpet_timers_config_reg_timer_fsb_enb_cnf_wrf(&st->hpet_dev, st->index, 0); 
-    hpet_timers_config_reg_timer_int_enb_cnf_wrf(&st->hpet_dev, st->index, 1);
+    hpet_timers_config_reg_timer_fsb_enb_cnf_wrf(st->hpet_dev, st->index, 0); 
+    hpet_timers_config_reg_timer_int_enb_cnf_wrf(st->hpet_dev, st->index, 1);
     return SYS_ERR_OK;
 }
 
@@ -62,14 +63,14 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     debug_printf("hpet_comp: init enter! argv[0]=%s,argv[1]=%s, hpet_vbase=%p \n",
             bfi->argv[0], bfi->argv[1], (void*)hpet_vbase); 
 
-    hpet_initialize(&st->hpet_dev, (mackerel_addr_t)hpet_vbase);
+    hpet_initialize(st->hpet_dev, (mackerel_addr_t)hpet_vbase);
 
     st->index = atoi(bfi->argv[1]);
    
     // Disable all interrupts
     hpet_comp_disable_int(st);
     // Edge trigger
-    hpet_timers_config_reg_timer_int_type_cnf_wrf(&st->hpet_dev, st->index, 0); 
+    hpet_timers_config_reg_timer_int_type_cnf_wrf(st->hpet_dev, st->index, 0); 
 
     // Now instantiage hpet_comp int controller 
     err = init_hpet_int_controller(st, bfi->argv[0]);

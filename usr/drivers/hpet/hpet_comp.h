@@ -3,10 +3,9 @@
 
 #include <stdint.h>
 #include <barrelfish/barrelfish.h>
-#include <dev/hpet_dev.h>
 
 struct hpet_comp_st {
-    hpet_t hpet_dev;
+    struct hpet_t *hpet_dev;
     int index;
 };
 
