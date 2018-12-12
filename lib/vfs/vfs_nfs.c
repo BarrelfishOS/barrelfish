@@ -37,7 +37,7 @@
 #define MAX_NFS_READ_CHUNKS  40  // FIXME: Not used anymore, should be removed
 
 //#define NONBLOCKING_NFS_READ   1
-#define MAX_NFS_READ_BYTES   1330 /*14000*//*workaround for breakage in lwip*/
+#define MAX_NFS_READ_BYTES   14000
 
 /* SG,2017-10-04: lowered from 1330, now works with e1000_net_sockets_server */
 #define MAX_NFS_WRITE_BYTES  1300
