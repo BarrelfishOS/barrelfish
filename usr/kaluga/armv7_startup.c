@@ -127,6 +127,7 @@ static struct allowed_registers sdma = {
     }
 };
 
+
 static struct allowed_registers* omap44xx[] = {
     &usb,
     &fdif,
@@ -137,6 +138,15 @@ static struct allowed_registers* omap44xx[] = {
     &omap_uart,
     &sdma,
     NULL,
+};
+
+static struct allowed_registers vexpress_pl130_dist = {
+    .binary = "pl130_dist",
+    .registers =
+    {
+        {VEXPRESS_MAP_GIC_DIST, VEXPRESS_MAP_GIC_DIST_SIZE},
+        {0x0, 0x0}
+    }
 };
 
 static struct allowed_registers vexpress_uart = {
@@ -153,6 +163,7 @@ static struct allowed_registers vexpress_uart = {
 
 static struct allowed_registers* vexpress[] = {
     &vexpress_uart,
+    &vexpress_pl130_dist,
     NULL,
 };
 

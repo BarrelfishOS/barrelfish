@@ -15,3 +15,5 @@ monitor(cortexA15, "/armv7/sbin/monitor").
 
 % One cluster of one Cortex A15
 arm_core(16'000000,cortexA15).
+
+kernel_timer_irq(29).

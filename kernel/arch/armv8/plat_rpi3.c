@@ -144,7 +144,7 @@ errval_t platform_init_ic_app(void)
     return SYS_ERR_OK;
 }
 
-void platform_enable_interrupt(uint32_t int_id, uint8_t cpu_targets, uint16_t prio,
+void platform_enable_interrupt(uint32_t int_id, uint16_t prio,
                               bool edge_triggered, bool one_to_n)
 {
 }

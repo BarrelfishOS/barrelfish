@@ -119,7 +119,8 @@ handle_frame_identify(
 
     struct registers_arm_syscall_args* sa = &context->syscall_args;
 
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
+    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame ||
+           to->type == ObjType_RAM   || to->type == ObjType_EndPointUMP);
     assert((get_address(to) & BASE_PAGE_MASK) == 0);
 
     struct frame_identity *fi = (struct frame_identity *)sa->arg2;
@@ -1354,11 +1355,15 @@ handle_invoke(arch_registers_state_t *context, int argc)
     return r;
 }
 
+extern void dist_debug(void);
 static struct sysret handle_debug_syscall(struct registers_arm_syscall_args* sa)
 {
     int msg = sa->arg1;
     struct sysret retval = { .error = SYS_ERR_OK };
     switch (msg) {
+        case DEBUG_GIC_DIST:
+            dist_debug();
+            break;
 
         case DEBUG_FLUSH_CACHE:
             invalidate_data_caches_pouu(true);

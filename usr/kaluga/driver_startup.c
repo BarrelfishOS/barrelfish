@@ -127,14 +127,42 @@ errval_t default_start_function(coreid_t where,
 }
 #endif
 
-/*
-static void handler(void* arg) {
-    return ;
+/**
+ * \brief Startup function for drivers. Makes no assumptions about started 
+ * device.
+ */
+errval_t
+default_start_function_pure(coreid_t where, struct module_info* mi, char* record,
+                           struct driver_argument* arg) {
+
+    // TODO this doesn't reuse existing driver domains
+    struct domain_instance* inst;
+    errval_t err;
+
+    KALUGA_DEBUG("Creating new driver domain for %s\n", mi->binary);
+    inst = instantiate_driver_domain(mi->binary, where);
+    if (inst == NULL) {
+        return DRIVERKIT_ERR_DRIVER_INIT;
+    }
+    
+    while (inst->b == NULL) {
+        event_dispatch(get_default_waitset());
+    }   
+
+    char* oct_id;
+    err = oct_read(record, "%s {}", &oct_id);
+    assert(err_is_ok(err));
+
+    struct driver_instance* drv =
+        ddomain_create_driver_instance(arg->module_name, oct_id);
+
+    drv->args = (char*[]){NULL,NULL,NULL,NULL};
+    drv->argcn_cap = arg->arg_caps;
+    return ddomain_instantiate_driver(inst, drv);
 }
-*/
 
 /**
- * \brief Startup function for new-style drivers.
+ * \brief Startup function for new-style PCI drivers.
  *
  * Launches the driver instance in a driver domain instead.
  */

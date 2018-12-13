@@ -17,17 +17,22 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish_kpi/platform.h>
 #include <if/monitor_blocking_defs.h>
+#include <maps/vexpress_map.h>
 
 #include <skb/skb.h>
 #include <octopus/getset.h>
 
 #include "kaluga.h"
 
-static void start_driverdomain(char* record) {
+static void start_driverdomain(char* module_name, char* record) {
     struct module_info* mi = find_module("driverdomain");
+    struct driver_argument arg;
+    arg.module_name = module_name;
     if (mi != NULL) {
-        errval_t err = mi->start_function(0, mi, record, NULL);
+        errval_t err = mi->start_function(0, mi, record, &arg);
         assert(err_is_ok(err));
+    } else {
+        debug_printf("driverdomain not found!\n");
     }
 }
 
@@ -38,9 +43,10 @@ static errval_t omap44xx_startup(void)
     err = init_device_caps_manager();
     assert(err_is_ok(err));
 
-    start_driverdomain("fdif {}");
-    start_driverdomain("sdma {}");
-    start_driverdomain("mmchs { dep1: 'cm2', dep2: 'twl6030' }");
+    //start_driverdomain("pl130_dist", "pl130_dist {}");
+    start_driverdomain("fdif", "fdif {}");
+    start_driverdomain("sdma", "sdma {}");
+    start_driverdomain("mmchs", "mmchs { dep1: 'cm2', dep2: 'twl6030' }");
 
     struct module_info* mi = find_module("prcm");
     if (mi != NULL) {
@@ -79,14 +85,84 @@ static errval_t omap44xx_startup(void)
     return SYS_ERR_OK;
 }
 
+/**
+ * \brief Starts the gic distributor driver on every core
+ *
+ */
+static errval_t start_all_gic_dist(void){
+    errval_t err;
+
+    /* Prepare module and cap */
+    struct module_info *mi = find_module("driverdomain");
+    if (mi == NULL) {
+        debug_printf("Binary driverdomain not found!\n");
+        return KALUGA_ERR_MODULE_NOT_FOUND;
+    }
+    struct capref dist_reg;
+    err = get_device_cap(VEXPRESS_MAP_GIC_DIST, VEXPRESS_MAP_GIC_DIST_SIZE,
+            &dist_reg);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Get gic_dist device cap\n");
+        return err;
+    }
+    struct driver_argument arg;
+    init_driver_argument(&arg);
+    arg.module_name = "pl130_dist";
+    struct capref dst = {
+        .cnode = arg.argnode_ref,
+        .slot = 0
+    };
+    err = cap_copy(dst, dist_reg);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "cap_copy\n");
+        return err;
+    }
+
+    /* Iterate over cores */
+    err= skb_execute_query("arm_mpids(L),write(L).");
+    if (err_is_fail(err)) {
+        USER_PANIC_SKB_ERR(err, "Finding cores.");
+    }
+
+    /* Create Octopus records for the known cores. */
+    int mpidr_raw;
+    struct list_parser_status skb_list;
+    skb_read_list_init(&skb_list);
+    while(skb_read_list(&skb_list, "mpid(%d)", &mpidr_raw)) {
+        char oct_key[128];
+        snprintf(oct_key, sizeof(oct_key), "hw.arm.gic.dist.%d {}", mpidr_raw); 
+        debug_printf("starting pl130_dist on core=%d\n", mpidr_raw);
+        err = mi->start_function(mpidr_raw, mi, oct_key, &arg);
+        if(err_is_fail(err)){
+            DEBUG_ERR(err, "couldnt start gic dist on core=%d\n", mpidr_raw);
+            return err;
+        }
+    }
+    return SYS_ERR_OK;
+}
+
 static errval_t vexpress_startup(void)
 {
     errval_t err;
+    err = init_device_caps_manager();
+    assert(err_is_ok(err));
+
+    HERE;
+    err = start_all_gic_dist();
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "Unable to start all gic dist.");
+    }
+
+    HERE;
     struct module_info* mi = find_module("serial_pl011");
     if (mi != NULL) {
         err = mi->start_function(0, mi, "hw.arm.vexpress.uart {}", NULL);
         assert(err_is_ok(err));
+    } else {
+        debug_printf("Module serial_pl011 not found!\n");
     }
+
+
     return SYS_ERR_OK;
 }
 
@@ -167,7 +243,7 @@ errval_t arch_startup(char * add_device_db_file)
 
     /* Query the SKB for the available cores on this platform - we can't
      * generally discover this on ARMv7. */
-    err= skb_execute_query("arm_mpids(L) ,write(L).");
+    err= skb_execute_query("arm_mpids(L),write(L).");
     if (err_is_fail(err)) {
         USER_PANIC_SKB_ERR(err, "Finding cores.");
     }
@@ -197,6 +273,7 @@ errval_t arch_startup(char * add_device_db_file)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
     }
+
 
     switch(platform) {
         case PI_PLATFORM_OMAP44XX:

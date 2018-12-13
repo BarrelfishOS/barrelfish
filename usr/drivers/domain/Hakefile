@@ -28,7 +28,8 @@
     cFiles = [ "main.c"],
     addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
     addLibraries = libDeps [ "driverkit", "thc" ],
-    addModules = ["fdif_module", "sdma_module", "cm2_module", "twl6030_module", "mmchs_module"],
+    addModules = ["fdif_module", "sdma_module", "cm2_module", "twl6030_module",
+                  "mmchs_module", "pl130_dist_module"],
     architectures = ["armv7"]
   }
 ]

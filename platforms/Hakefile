@@ -287,7 +287,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "serial_kernel",
                         "angler",
                         "corectrl",
-                        "driverdomain"
+                        "driverdomain",
+                        "int_route"
                         ] ]
 
     -- ARMv7-A modules for Versatile Express EMM board (GEM5, qemu)
@@ -307,7 +308,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                                "skb",
                                "angler",
                                "fish",
-                               "memtest"
+                               "memtest",
+                               "driverdomain",
+                               "int_route"
                                ] ]
 
     -- ARMv7-A modules for Versatile Express EMM board (FVP)
@@ -546,6 +549,8 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
        ("root", "/armv7_a15ve_1_image-gdb.gdb"),
        ("root", "/armv7_a15ve_fvp_1_image"),
        ("root", "/armv7_a15ve_fvp_1_image-gdb.gdb"),
+       ("root", "/armv7_a15ve_2_image"),
+       ("root", "/armv7_a15ve_2_image-gdb.gdb"),
        ("root", "/armv7_a15ve_4_image"),
        ("root", "/armv7_a15ve_4_image-gdb.gdb"),
        ("root", "/armv7_a15ve_fvp_4_image"),
@@ -587,6 +592,9 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     -- Build the A15 simulation image (VersatileExpress EMM board, 1 core, FVP
     -- quirks)
     armv7Image "armv7_a15ve_fvp_1" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
+
+    -- Build the A15 simulation image (VersatileExpress EMM board, 2 cores)
+    armv7Image "armv7_a15ve_2" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
 
     -- Build the A15 simulation image (VersatileExpress EMM board, 4 cores)
     armv7Image "armv7_a15ve_4" "ve" "a15ve" "0x80000000" vExpressEMMModules_A15,
@@ -631,6 +639,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                      "armv7_a9ve_1",
                      "armv7_a9ve_4",
                      "armv7_a15ve_1",
+                     "armv7_a15ve_2",
                      "armv7_a15ve_4",
                      "armv7_a15ve_fvp_1",
                      "armv7_a15ve_fvp_4",
@@ -701,6 +710,13 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--arch", Str "a15ve",
       Str "--smp", Str "1" ]
     "Boot QEMU in 32-bit ARM mode emulating a Versatile Express board (1 core)",
+
+    boot "qemu_a15ve_2" [ "armv7" ] [
+      In SrcTree "tools" "/tools/qemu-wrapper.sh",
+      Str "--image", In BuildTree "root" "/armv7_a15ve_2_image",
+      Str "--arch", Str "a15ve",
+      Str "--smp", Str "2" ]
+    "Boot QEMU in 32-bit ARM mode emulating a Versatile Express board (2 core)",
 
     boot "qemu_a15ve_4" [ "armv7" ] [
       In SrcTree "tools" "/tools/qemu-wrapper.sh",

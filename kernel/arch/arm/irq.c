@@ -64,15 +64,9 @@ errval_t irq_table_set(unsigned int nidt, capaddr_t endpoint)
         }
         err = caps_copy_to_cte(&irq_dispatch[nidt], recv, false, 0, 0);
 
-        // Route the interrupt to this CPU, as we're the only CPU driver that
-        // knows where to send it.  XXX - this should change once we have more
-        // sophisticated interrupt routing.
-        //
-        // The mapping of interrupt interfaces to cores doesn't seem to be
-        // documented anywhere for the A9, and this will have to be different
-        // if we're using affinity routing on GICv3+ systems.
-        platform_enable_interrupt(nidt, BIT(my_core_id), 0,
-                IRQ_EDGE_TRIGGERED, IRQ_N_TO_N);
+        // Correct interrupt forwarding by the distributor must be ensured
+        // in userspace.
+        
         return err;
     }
 

@@ -350,8 +350,11 @@ caps_map_l1(struct capability* dest,
             return SYS_ERR_VNODE_SLOT_INVALID;
         }
 
-        if (src->type != ObjType_Frame && src->type != ObjType_DevFrame) {
-            panic("oops: src->type != ObjType_Frame && src->type != ObjType_DevFrame");
+        if (src->type != ObjType_Frame && src->type != ObjType_DevFrame &&
+            src->type != ObjType_EndPointUMP) {
+            panic("oops: src->type != ObjType_Frame && "
+                  "src->type != ObjType_DevFrame &&"
+                  "src->type != ObjType_EndPointUMP");
             return SYS_ERR_WRONG_MAPPING;
         }
 
@@ -492,8 +495,11 @@ caps_map_l2(struct capability* dest,
         return SYS_ERR_VNODE_SLOT_INVALID;
     }
 
-    if (src->type != ObjType_Frame && src->type != ObjType_DevFrame) {
-        panic("oops: src->type != ObjType_Frame && src->type != ObjType_DevFrame");
+    if (src->type != ObjType_Frame && src->type != ObjType_DevFrame &&
+        src->type != ObjType_EndPointUMP) {
+        panic("oops: src->type != ObjType_Frame &&"
+              "src->type != ObjType_DevFrame &&"
+              "src->type != ObjType_EndPointUMP");
         return SYS_ERR_WRONG_MAPPING;
     }
 

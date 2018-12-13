@@ -20,6 +20,10 @@ errval_t newstyle_start_function(coreid_t where, struct module_info* driver, cha
 errval_t
 default_start_function_new(coreid_t where, struct module_info* mi, char* record,
                            struct driver_argument* arg);
+errval_t
+default_start_function_pure(coreid_t where, struct module_info* mi, char* record,
+                           struct driver_argument* arg);
+
 errval_t start_iommu_driver(coreid_t where, struct module_info* driver,
                             char* record, struct driver_argument* int_arg);
 #endif /* DRIVER_STARTUP_H_ */

@@ -129,6 +129,7 @@ static struct dcontrol_rx_vtbl rpc_rx_vtbl = {
 errval_t dcontrol_service_init(struct bfdriver_instance* bfi, struct waitset* ws, 
                                 bool lmp, struct capref* ret_cap)
 {
+    debug_printf("dcontrol_service_init: enter\n");
     struct waitset* service_ws = (ws == NULL) ? get_default_waitset() : ws;
     
     errval_t err = dcontrol_create_endpoint(lmp? IDC_ENDPOINT_LMP: IDC_ENDPOINT_UMP, 

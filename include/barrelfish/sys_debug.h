@@ -29,6 +29,7 @@ __BEGIN_DECLS
 #define X86_DEBUG_LENGTH_8BYTE      (2) ///< Undefined?
 #define X86_DEBUG_LENGTH_4BYTE      (3)
 
+errval_t sys_debug_gic_dist(void);
 errval_t sys_debug_context_counter_reset(void);
 errval_t sys_debug_context_counter_read(uint64_t *ret);
 errval_t sys_debug_timeslice_counter_read(uint64_t *ret);

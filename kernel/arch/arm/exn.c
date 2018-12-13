@@ -319,6 +319,11 @@ void handle_irq(arch_registers_state_t* save_area,
 
     // Offer it to the timer
     if (platform_is_timer_interrupt(irq)) {
+        static int timer_irq_seen = false;
+        if(!timer_irq_seen){
+            printk(LOG_NOTE, "Timer IRQ received\n");
+            timer_irq_seen = true;
+        }
         platform_acknowledge_irq(irq);
         wakeup_check(systime_now());
 #ifndef CONFIG_ONESHOT_TIMER

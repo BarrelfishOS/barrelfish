@@ -88,7 +88,7 @@ void platform_timer_init(int timeslice)
     /* Global timer: use the Cortex-A9 Global Timer
        (see Cortex-A9 MPCore TRM 4.3). */
     a9_gt_init(platform_get_gt_address());
-    platform_enable_interrupt(GLOBAL_TIMER_IRQ, 0, 0, 0, 0);
+    platform_enable_interrupt(GLOBAL_TIMER_IRQ, 0, 0, 0);
     /* Discover the clock rate. */
     a9_probe_tsc();
     assert(systime_frequency != 0);

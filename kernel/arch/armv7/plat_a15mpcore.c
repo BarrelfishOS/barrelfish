@@ -29,14 +29,16 @@
 
 /* These are called from the A9/A15 common GIC (interrupt controller) code. */
 
-lpaddr_t platform_gic_cpu_interface_base = A15MPCORE_GICC_OFFSET;
-lpaddr_t platform_gic_distributor_base = A15MPCORE_GICD_OFFSET;
+lpaddr_t platform_gic_cpu_interface_base = 0;
+lpaddr_t platform_gic_distributor_base = 0;
 
 /* A15 platforms don't need anything special done. */
 void platform_revision_init(void)
 {
-    platform_gic_cpu_interface_base += platform_get_private_region();
-    platform_gic_distributor_base += platform_get_private_region();
+    platform_gic_cpu_interface_base =
+        A15MPCORE_GICC_OFFSET + platform_get_private_region();
+    platform_gic_distributor_base =
+       A15MPCORE_GICD_OFFSET + platform_get_private_region();
 }
 
 /*
@@ -81,8 +83,8 @@ void platform_timer_init(int timeslice)
     if(timerirq == 0) timerirq= DEFAULT_TIMER_IRQ;
     MSG("Timer interrupt is %u\n", timerirq);
 
-    /* Enable the interrupt. */
-    platform_enable_interrupt(timerirq, 0, 0, 0, 0);
+    ///* Enable the interrupt. */
+    platform_enable_interrupt(timerirq, 0, 0, 0);
 
     /* Set the first timeout. */
     systime_set_timer(kernel_timeslice);
