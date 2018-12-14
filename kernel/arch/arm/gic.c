@@ -50,7 +50,6 @@ enum IrqType {
  *
  * \return The type of the interrupt.
  */
-/*
 static enum IrqType get_irq_type(uint32_t int_id)
 {
     if (int_id < 16) {
@@ -60,7 +59,7 @@ static enum IrqType get_irq_type(uint32_t int_id)
     } else {
         return IrqType_SPI;
     }
-} */
+} 
 
 /*
  * Initialize the global interrupt controller
@@ -72,14 +71,13 @@ static enum IrqType get_irq_type(uint32_t int_id)
  */
 void gic_init(void)
 {
-    printk(LOG_NOTE, "GICv1: Initializing\n");
     parse_commandline(kernel_command_line, cmdargs);
-    printk(LOG_NOTE, "GICv1: gic_cpu_base=%p\n", platform_gic_cpu_interface_base);
+    printk(LOG_NOTE, "GICv1: Initializing. cpu_if=%p, dist=%p\n",
+            platform_gic_cpu_interface_base, platform_gic_distributor_base);
     lvaddr_t gic_cpu_base =
         paging_map_device(platform_gic_cpu_interface_base, CPU_SIZE );
     pl130_gic_cpuif_initialize(&gic, (mackerel_addr_t)gic_cpu_base );
 
-    printk(LOG_NOTE, "GICv1: dist_base=%p\n", platform_gic_distributor_base);
     lvaddr_t gic_dist_base =
         paging_map_device(platform_gic_distributor_base, DIST_SIZE );
     pl130_gic_dist_initialize(&gic_dist, (mackerel_addr_t)gic_dist_base );
@@ -163,11 +161,10 @@ errval_t platform_init_ic_app(void) {
  * \param 0 is level-sensitive, 1 is edge-triggered
  * \param 0 is N-to-N, 1 is 1-N
  */
-void platform_enable_interrupt(uint32_t int_id, uint16_t prio,
+errval_t platform_enable_interrupt(uint32_t int_id, uint16_t prio,
                                bool edge_triggered, bool one_to_n)
 {
     // Set Interrupt Set-Enable Register
-    /*
     uint32_t ind = int_id / 32;
     uint32_t bit_mask = (1U << (int_id % 32));
 
@@ -177,7 +174,9 @@ void platform_enable_interrupt(uint32_t int_id, uint16_t prio,
 
     enum IrqType irq_type = get_irq_type(int_id);
     // We only allow enableing PPI interrupts. 
-    assert(irq_type == IrqType_PPI);
+    if(irq_type != IrqType_PPI) {
+        return SYS_ERR_IRQ_INVALID;
+    }
 
     // Enable
     // 1 Bit per interrupt
@@ -263,7 +262,7 @@ void platform_enable_interrupt(uint32_t int_id, uint16_t prio,
         pl130_gic_dist_ICDICR_conf15_wrf(&gic_dist, ind, val);
         break;
     }
-    */
+    return SYS_ERR_OK;
 }
 
 void dist_debug(void);

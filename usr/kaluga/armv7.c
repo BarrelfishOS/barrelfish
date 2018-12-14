@@ -89,7 +89,7 @@ static errval_t omap44xx_startup(void)
  * \brief Starts the gic distributor driver on every core
  *
  */
-static errval_t start_all_gic_dist(void){
+static errval_t start_gic_dist(coreid_t where){
     errval_t err;
 
     /* Prepare module and cap */
@@ -118,27 +118,14 @@ static errval_t start_all_gic_dist(void){
         return err;
     }
 
-    /* Iterate over cores */
-    err= skb_execute_query("arm_mpids(L),write(L).");
-    if (err_is_fail(err)) {
-        USER_PANIC_SKB_ERR(err, "Finding cores.");
-    }
-
     /* Create Octopus records for the known cores. */
-    int mpidr_raw;
-    struct list_parser_status skb_list;
-    skb_read_list_init(&skb_list);
-    while(skb_read_list(&skb_list, "mpid(%d)", &mpidr_raw)) {
-        char oct_key[128];
-        snprintf(oct_key, sizeof(oct_key), "hw.arm.gic.dist.%d {}", mpidr_raw); 
-        debug_printf("starting pl130_dist on core=%d\n", mpidr_raw);
-        err = mi->start_function(mpidr_raw, mi, oct_key, &arg);
-        if(err_is_fail(err)){
-            DEBUG_ERR(err, "couldnt start gic dist on core=%d\n", mpidr_raw);
-            return err;
-        }
+    char oct_key[128];
+    snprintf(oct_key, sizeof(oct_key), "hw.arm.gic.dist.%d {}", where); 
+    err = mi->start_function(where, mi, oct_key, &arg);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "couldnt start gic dist on core=%d\n", where);
     }
-    return SYS_ERR_OK;
+    return err;
 }
 
 static errval_t vexpress_startup(void)
@@ -147,10 +134,9 @@ static errval_t vexpress_startup(void)
     err = init_device_caps_manager();
     assert(err_is_ok(err));
 
-    HERE;
-    err = start_all_gic_dist();
+    err = start_gic_dist(0);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unable to start all gic dist.");
+        USER_PANIC_ERR(err, "Unable to start gic dist.");
     }
 
     HERE;

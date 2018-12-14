@@ -80,7 +80,7 @@ void platform_timer_init(int timeslice)
 
     a15_gt_init();
 
-    if(timerirq == 0) timerirq= DEFAULT_TIMER_IRQ;
+    if(timerirq == 0) timerirq = DEFAULT_TIMER_IRQ;
     MSG("Timer interrupt is %u\n", timerirq);
 
     ///* Enable the interrupt. */

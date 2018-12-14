@@ -82,8 +82,8 @@ static errval_t pl130_dist_init(struct pl130_dist_driver_state * ds, mackerel_ad
     // TODO: determine cpu index
     ds->cpu_index = 0;
 
-    PL130_DEBUG("interrupt lines = %d\n", ds->it_num_lines);
-    PL130_DEBUG("cpu_count = %d\n", ds->cpu_count);
+    PL130_DEBUG("interrupt lines = %d, cpu_count = %d\n", ds->it_num_lines,
+            ds->cpu_count);
 
     // Distributor:
     // enable interrupt forwarding from distributor to cpu interface
@@ -116,8 +116,7 @@ static errval_t enable_interrupt(struct pl130_dist_driver_state *ds, int int_id,
     enum IrqType irq_type = get_irq_type(int_id);
 
     // We allow PPI on any core, and SPI only on instance 0
-    if(!(irq_type == IrqType_PPI
-         || (irq_type == IrqType_SPI && int_id <= ds->it_num_lines)))
+    if(!(irq_type == IrqType_SPI && int_id <= ds->it_num_lines))
     {
         PL130_DEBUG("invalid int_id=%d on cpu=%d\n", int_id, ds->cpu_index);
         return SYS_ERR_IRQ_INVALID;
@@ -307,32 +306,12 @@ static errval_t init(struct bfdriver_instance* bfi, uint64_t flags, iref_t *dev)
     err = map_device_cap(mem_cap, &dev_base);
     USER_PANIC_ON_ERR(err, "map_device_cap");
 
-    // Initialize driver structure
     err = pl130_dist_init(bfi->dstate, (mackerel_addr_t)dev_base);
     USER_PANIC_ON_ERR(err, "pl130_dist_init");
 
-    //HACK
-    //if(strcmp(bfi->name, "hw.arm.gic.dist.1") == 0)
-    //    sys_debug_gic_dist();
-    //ENDHACK
-
-    PL130_DEBUG("ENABLING TIMER INTERRUPT!\n");
-    err = enable_interrupt(bfi->dstate, 29, 0, 0, 0, 0);
-    assert(err_is_ok(err));
-    //err = enable_interrupt(bfi->dstate, 30, 0, 0, 0, 0);
-    //assert(err_is_ok(err));
-    PL130_DEBUG("ENABLED TIMER INTERRUPT!\n");
-
-    //HACK
-    //if(strcmp(bfi->name, "hw.arm.gic.dist.1") == 0)
-    //    sys_debug_gic_dist();
-    //ENDHACK
-
-    // Connect to interrupt routing service
     err = connect_to_irs(bfi->dstate);
-    assert(err_is_ok(err));
+    USER_PANIC_ON_ERR(err, "connect_to_irs");
 
-    HERE;
     return SYS_ERR_OK;
 }
 
