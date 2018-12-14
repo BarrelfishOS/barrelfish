@@ -1071,10 +1071,11 @@ static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail
         e10k_psrtype_split_ip6_wrf(st->d, n, 1);
         e10k_psrtype_split_l2_wrf(st->d, n, 1);
     } else {
-        if(st->vtdon_dcboff) {
+        if (st->vtdon_dcboff) {
             e10k_srrctl_1_desctype_wrf(st->d, n, e10k_adv_1buf);
         } else {
-            e10k_srrctl_1_desctype_wrf(st->d, n, e10k_legacy);
+            e10k_srrctl_1_desctype_wrf(st->d, n, e10k_adv_1buf);
+            //e10k_srrctl_1_desctype_wrf(st->d, n, e10k_legacy);
         }
     }
     e10k_srrctl_1_bsz_hdr_wrf(st->d, n, 128 / 64); // TODO: Do 128 bytes suffice in
@@ -1173,11 +1174,21 @@ static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail
 
         dca_rxctrl = e10k_dca_rxctrl_cpuid_insert(dca_rxctrl, my_apic_id);
 
+        e10k_dca_txctrl_t dca_txctrl = 0;
+        dca_txctrl = e10k_dca_txctrl_txdesc_dca_insert(dca_txctrl, 1);
+        dca_txctrl = e10k_dca_txctrl_txdesc_rdro_insert(dca_txctrl, 0);
+        dca_txctrl = e10k_dca_txctrl_txdesc_wbro_insert(dca_txctrl, 0);
+        dca_txctrl = e10k_dca_txctrl_txdesc_rdro_insert(dca_txctrl, 0);
+        dca_txctrl = e10k_dca_txctrl_cpuid_insert(dca_rxctrl, my_apic_id);
+
         if(n < 64) {
             e10k_dca_rxctrl_1_wr(st->d, n, dca_rxctrl);
         } else {
             e10k_dca_rxctrl_2_wr(st->d, n - 64, dca_rxctrl);
         }
+        e10k_dca_txctrl_wr(st->d, n, dca_txctrl);
+        
+        
 
         printf("DCA enabled on queue %d with APIC ID %d\n", n, my_apic_id);
     }
@@ -1848,7 +1859,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     // credit_refill value must be >= 1 for a queue to be able to send.
     // Set them all to 1 here. May be overridden via commandline.
     for(int i = 0; i < 128; i++) {
-        st->credit_refill[i] = 0xFF;
+        st->credit_refill[i] = 0x1;
     }
 
     memset(st->tx_rate, 0, sizeof(st->tx_rate));

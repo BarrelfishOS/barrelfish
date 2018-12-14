@@ -328,9 +328,14 @@ static inline int e10k_queue_add_txbuf(e10k_queue_t* q, lpaddr_t phys,
                                        size_t len)
 {
     if(!q->use_vf) {
+    /*
         return e10k_queue_add_txbuf_legacy(q, phys, rid, offset, length,
                                     valid_data, valid_length, 
                                     flags, len);
+    */
+        return e10k_queue_add_txbuf_ctx(q, phys, rid, offset, length,
+                                    valid_data, valid_length, 
+                                    flags, len, -1, false, false);
     } else {
         // TODO try generate checksums
         return e10k_queue_add_txbuf_ctx(q, phys, rid, offset, length,
@@ -465,8 +470,12 @@ static inline bool e10k_queue_get_txbuf(e10k_queue_t* q, regionid_t* rid,
                                         uint64_t* flags)
 {
     if(!q->use_vf) {
+        /*
         return e10k_queue_get_txbuf_legacy(q, rid, offset, length, valid_data, 
                                            valid_length, flags);
+        */
+        return e10k_queue_get_txbuf_avd(q, rid, offset, length, valid_data, 
+                                        valid_length, flags);
     } else {
         return e10k_queue_get_txbuf_avd(q, rid, offset, length, valid_data, 
                                         valid_length, flags);
@@ -596,8 +605,12 @@ static inline int e10k_queue_add_rxbuf(e10k_queue_t* q,
                                        uint64_t flags)
 {
     if(!q->use_vf) {
+    /*
         return e10k_queue_add_rxbuf_legacy(q, phys, rid, offset, length, valid_data,
                                            valid_length, flags);
+    */
+        return e10k_queue_add_rxbuf_adv(q, phys, rid, offset, length, valid_data,
+                                        valid_length, flags);
     } else {
         return e10k_queue_add_rxbuf_adv(q, phys, rid, offset, length, valid_data,
                                         valid_length, flags);
@@ -737,8 +750,12 @@ static inline bool e10k_queue_get_rxbuf(e10k_queue_t* q, regionid_t* rid,
                                         int* last)
 {
     if(!q->use_vf) {
+    /*
        return e10k_queue_get_rxbuf_legacy(q, rid, offset, length, valid_data, valid_length,
                                     flags, last);
+    */
+       return e10k_queue_get_rxbuf_avd(q, rid, offset, length, valid_data, valid_length,
+                                       flags, last);
     } else {
        return e10k_queue_get_rxbuf_avd(q, rid, offset, length, valid_data, valid_length,
                                        flags, last);
