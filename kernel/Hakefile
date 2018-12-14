@@ -243,8 +243,8 @@ let
     mackerelDevices = [ "arm",
                         "cpuid_arm",
                         "pl011_uart",
-                        "pl130_gic_cpuif",
-                        "pl130_gic_dist" ],
+                        "pl390_gic_cpuif",
+                        "pl390_gic_dist" ],
     addLibraries = [ "elf" ]
     },
   --
@@ -313,8 +313,8 @@ let
      mackerelDevices = [ "arm",
                          "cpuid_arm",
                          "pl011_uart",
-                         "pl130_gic_cpuif",
-                         "pl130_gic_dist",
+                         "pl390_gic_cpuif",
+                         "pl390_gic_dist",
                          "cortex_a9_gt",
                          "cortex_a9_scu"
                        ],
@@ -383,8 +383,8 @@ let
                 ],
      mackerelDevices = [ "arm",
                          "cpuid_arm",
-                         "pl130_gic_cpuif",
-                         "pl130_gic_dist",
+                         "pl390_gic_cpuif",
+                         "pl390_gic_dist",
                          "cortex_a9_pit",
                          "cortex_a9_gt",
                          "cortex_a9_scu",
@@ -468,8 +468,8 @@ let
                 ],
      mackerelDevices = [ "arm",
                          "cpuid_arm",
-                         "pl130_gic_cpuif",
-                         "pl130_gic_dist",
+                         "pl390_gic_cpuif",
+                         "pl390_gic_dist",
                          "cortex_a9_pit",
                          "cortex_a9_gt",
                          "cortex_a9_scu",
@@ -519,7 +519,7 @@ let
         "gic_v3_redist",
         "gic_v2_cpu",
         "armv8/armv8_cache_ctrl",
-        "pl130_gic_cpuif",
+        "pl390_gic_cpuif",
         "arm_icp_pit",
         "apm88xxxx/apm88xxxx_pc16550"
      ],
@@ -718,7 +718,7 @@ let
         "gic_v3_redist",
         "armv8/armv8_cache_ctrl",
         "pl011_uart",
-        "pl130_gic_cpuif",
+        "pl390_gic_cpuif",
         "arm_icp_pit"
      ],
      addLibraries = [

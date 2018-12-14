@@ -140,8 +140,8 @@ static struct allowed_registers* omap44xx[] = {
     NULL,
 };
 
-static struct allowed_registers vexpress_pl130_dist = {
-    .binary = "pl130_dist",
+static struct allowed_registers vexpress_pl390_dist = {
+    .binary = "pl390_dist",
     .registers =
     {
         {VEXPRESS_MAP_GIC_DIST, VEXPRESS_MAP_GIC_DIST_SIZE},
@@ -163,7 +163,7 @@ static struct allowed_registers vexpress_uart = {
 
 static struct allowed_registers* vexpress[] = {
     &vexpress_uart,
-    &vexpress_pl130_dist,
+    &vexpress_pl390_dist,
     NULL,
 };
 

@@ -43,7 +43,7 @@ static errval_t omap44xx_startup(void)
     err = init_device_caps_manager();
     assert(err_is_ok(err));
 
-    //start_driverdomain("pl130_dist", "pl130_dist {}");
+    //start_driverdomain("pl390_dist", "pl1390_dist {}");
     start_driverdomain("fdif", "fdif {}");
     start_driverdomain("sdma", "sdma {}");
     start_driverdomain("mmchs", "mmchs { dep1: 'cm2', dep2: 'twl6030' }");
@@ -107,7 +107,7 @@ static errval_t start_gic_dist(coreid_t where){
     }
     struct driver_argument arg;
     init_driver_argument(&arg);
-    arg.module_name = "pl130_dist";
+    arg.module_name = "pl390_dist";
     struct capref dst = {
         .cnode = arg.argnode_ref,
         .slot = 0

@@ -9,16 +9,16 @@
 
 #include <kernel.h>
 
-#include <dev/pl130_gic_cpuif_dev.h>
-#include <dev/pl130_gic_dist_dev.h>
+#include <dev/pl390_gic_cpuif_dev.h>
+#include <dev/pl390_gic_dist_dev.h>
 #include <arch/arm/gic.h>
 #include <arch/arm/platform.h>
 #include <paging_kernel_arch.h>
 #include <arch/armv7/irq.h>
 #include <getopt/getopt.h>
 
-static pl130_gic_cpuif_t gic;
-static pl130_gic_dist_t gic_dist;
+static pl390_gic_cpuif_t gic;
+static pl390_gic_dist_t gic_dist;
 
 #define MSG(format, ...) printk( LOG_NOTE, "GIC: "format, ## __VA_ARGS__ )
 
@@ -76,22 +76,22 @@ void gic_init(void)
             platform_gic_cpu_interface_base, platform_gic_distributor_base);
     lvaddr_t gic_cpu_base =
         paging_map_device(platform_gic_cpu_interface_base, CPU_SIZE );
-    pl130_gic_cpuif_initialize(&gic, (mackerel_addr_t)gic_cpu_base );
+    pl390_gic_cpuif_initialize(&gic, (mackerel_addr_t)gic_cpu_base );
 
     lvaddr_t gic_dist_base =
         paging_map_device(platform_gic_distributor_base, DIST_SIZE );
-    pl130_gic_dist_initialize(&gic_dist, (mackerel_addr_t)gic_dist_base );
+    pl390_gic_dist_initialize(&gic_dist, (mackerel_addr_t)gic_dist_base );
 
     // set priority mask of cpu interface, currently set to lowest priority
     // to accept all interrupts
-    pl130_gic_cpuif_ICCPMR_wr(&gic, 0xff);
+    pl390_gic_cpuif_ICCPMR_wr(&gic, 0xff);
 
     // set binary point to define split of group- and subpriority
     // currently we allow for 8 subpriorities
-    pl130_gic_cpuif_ICCBPR_wr(&gic, 0x2);
+    pl390_gic_cpuif_ICCBPR_wr(&gic, 0x2);
 
     // enable interrupt forwarding to processor
-    pl130_gic_cpuif_ICCICR_enable_wrf(&gic, 0x1);
+    pl390_gic_cpuif_ICCICR_enable_wrf(&gic, 0x1);
 
     MSG("gic_init done\n");
 }
@@ -99,21 +99,21 @@ void gic_init(void)
 void  __attribute__((noreturn)) gic_disable_all_irqs(void)
 {
     panic("gic_disable_all_irqs NYI for armv7");
-    // XXX Rewrite according to pl130 interface changes!
+    // XXX Rewrite according to pl390 interface changes!
     // ALSO remove noreturn option
 
     /* //disable PPI interrupts */
-    /* pl130_gic_cpuif_PPI_ICDICER_wr(&gic, (uint16_t)0xffff); */
+    /* pl390_gic_cpuif_PPI_ICDICER_wr(&gic, (uint16_t)0xffff); */
 
     /* //disable SPI interrupts */
     /* for(uint8_t i=0; i < it_num_lines; i++) { */
-    /*     pl130_gic_cpuif_SPI_ICDICER_wr(&gic, i, (uint32_t)0xffffffff); */
+    /*     pl390_gic_cpuif_SPI_ICDICER_wr(&gic, i, (uint32_t)0xffffffff); */
     /* } */
 }
 
 uint32_t platform_get_active_irq(void)
 {
-    return pl130_gic_cpuif_ICCIAR_rd(&gic);
+    return pl390_gic_cpuif_ICCIAR_rd(&gic);
 }
 
 uint32_t gic_cpu_count(void){
@@ -128,13 +128,13 @@ void gic_raise_softirq(uint8_t cpumask, uint8_t irq)
 
 void platform_acknowledge_irq(uint32_t irq)
 {
-    pl130_gic_cpuif_ICCEOIR_rawwr(&gic, irq);
+    pl390_gic_cpuif_ICCEOIR_rawwr(&gic, irq);
 }
 
 //enable interrupt forwarding to processor
 void gic_cpu_interface_enable(void)
 {
-    pl130_gic_cpuif_ICCICR_wr(&gic, 0x1);
+    pl390_gic_cpuif_ICCICR_wr(&gic, 0x1);
 }
 
 errval_t platform_init_ic_bsp(void) {
@@ -180,11 +180,11 @@ errval_t platform_enable_interrupt(uint32_t int_id, uint16_t prio,
 
     // Enable
     // 1 Bit per interrupt
-    uint32_t regval = pl130_gic_dist_ICDISER_rd(&gic_dist, ind);
+    uint32_t regval = pl390_gic_dist_ICDISER_rd(&gic_dist, ind);
     regval |= bit_mask;
-    pl130_gic_dist_ICDISER_wr(&gic_dist, ind, regval);
+    pl390_gic_dist_ICDISER_wr(&gic_dist, ind, regval);
 
-    // TODO: cleanup pl130 mackerel file so that we don't need bit magic
+    // TODO: cleanup pl390 mackerel file so that we don't need bit magic
     // here.  -SG, 2012/12/13
 
     // Priority
@@ -195,16 +195,16 @@ errval_t platform_enable_interrupt(uint32_t int_id, uint16_t prio,
     prio = (prio & 0xF)<<4;
     switch(int_id % 4) {
     case 0:
-        pl130_gic_dist_ICDIPR_prio_off0_wrf(&gic_dist, ind, prio);
+        pl390_gic_dist_ICDIPR_prio_off0_wrf(&gic_dist, ind, prio);
         break;
     case 1:
-        pl130_gic_dist_ICDIPR_prio_off1_wrf(&gic_dist, ind, prio);
+        pl390_gic_dist_ICDIPR_prio_off1_wrf(&gic_dist, ind, prio);
         break;
     case 2:
-        pl130_gic_dist_ICDIPR_prio_off2_wrf(&gic_dist, ind, prio);
+        pl390_gic_dist_ICDIPR_prio_off2_wrf(&gic_dist, ind, prio);
         break;
     case 3:
-        pl130_gic_dist_ICDIPR_prio_off3_wrf(&gic_dist, ind, prio);
+        pl390_gic_dist_ICDIPR_prio_off3_wrf(&gic_dist, ind, prio);
         break;
     }
 
@@ -214,52 +214,52 @@ errval_t platform_enable_interrupt(uint32_t int_id, uint16_t prio,
     uint8_t val = ((edge_triggered&0x1) << 1) | (one_to_n&0x1);
     switch (int_id % 16) {
     case 0:
-        pl130_gic_dist_ICDICR_conf0_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf0_wrf(&gic_dist, ind, val);
         break;
     case 1:
-        pl130_gic_dist_ICDICR_conf1_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf1_wrf(&gic_dist, ind, val);
         break;
     case 2:
-        pl130_gic_dist_ICDICR_conf2_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf2_wrf(&gic_dist, ind, val);
         break;
     case 3:
-        pl130_gic_dist_ICDICR_conf3_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf3_wrf(&gic_dist, ind, val);
         break;
     case 4:
-        pl130_gic_dist_ICDICR_conf4_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf4_wrf(&gic_dist, ind, val);
         break;
     case 5:
-        pl130_gic_dist_ICDICR_conf5_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf5_wrf(&gic_dist, ind, val);
         break;
     case 6:
-        pl130_gic_dist_ICDICR_conf6_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf6_wrf(&gic_dist, ind, val);
         break;
     case 7:
-        pl130_gic_dist_ICDICR_conf7_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf7_wrf(&gic_dist, ind, val);
         break;
     case 8:
-        pl130_gic_dist_ICDICR_conf8_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf8_wrf(&gic_dist, ind, val);
         break;
     case 9:
-        pl130_gic_dist_ICDICR_conf9_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf9_wrf(&gic_dist, ind, val);
         break;
     case 10:
-        pl130_gic_dist_ICDICR_conf10_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf10_wrf(&gic_dist, ind, val);
         break;
     case 11:
-        pl130_gic_dist_ICDICR_conf11_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf11_wrf(&gic_dist, ind, val);
         break;
     case 12:
-        pl130_gic_dist_ICDICR_conf12_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf12_wrf(&gic_dist, ind, val);
         break;
     case 13:
-        pl130_gic_dist_ICDICR_conf13_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf13_wrf(&gic_dist, ind, val);
         break;
     case 14:
-        pl130_gic_dist_ICDICR_conf14_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf14_wrf(&gic_dist, ind, val);
         break;
     case 15:
-        pl130_gic_dist_ICDICR_conf15_wrf(&gic_dist, ind, val);
+        pl390_gic_dist_ICDICR_conf15_wrf(&gic_dist, ind, val);
         break;
     }
     return SYS_ERR_OK;
@@ -271,9 +271,9 @@ void dist_debug(void)
 {
     printf("Entering dist_debug...\n");
     
-    uint32_t reg0 = pl130_gic_dist_ICDISER_rd(&gic_dist, 0);
-    uint32_t reg1 = pl130_gic_dist_ICDISER_rd(&gic_dist, 1);
-    uint32_t reg2 = pl130_gic_dist_ICDISER_rd(&gic_dist, 2);
+    uint32_t reg0 = pl390_gic_dist_ICDISER_rd(&gic_dist, 0);
+    uint32_t reg1 = pl390_gic_dist_ICDISER_rd(&gic_dist, 1);
+    uint32_t reg2 = pl390_gic_dist_ICDISER_rd(&gic_dist, 2);
     printf("ICDISER[0] = %"PRIx32"\n", reg0);
     printf("ICDISER[1] = %"PRIx32"\n", reg1);
     printf("ICDISER[2] = %"PRIx32"\n", reg2);

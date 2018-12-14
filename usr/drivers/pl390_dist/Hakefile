@@ -11,10 +11,10 @@
 --------------------------------------------------------------------------
 
 [
-    build library { target = "pl130_dist_module",
+    build library { target = "pl390_dist_module",
                     flounderBindings = [ "int_route_controller" ],
                     cFiles = ["main.c"],
-                    mackerelDevices = [ "pl130_gic_dist" ],
+                    mackerelDevices = [ "pl390_gic_dist" ],
                     architectures = ["armv7"]
     }
 ]
