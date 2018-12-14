@@ -254,7 +254,6 @@ read_menu_lst(const char *path) {
             }
         }
         else if(!strcmp(cmd, "bootdriver")) {
-            char buf[MAXBUF+1];
             len= read_string(infile, read_token, &menu->boot_driver.path);
             if(len <= 0) {
                 fprintf(stderr, "Missing timeout value.\n");
@@ -262,7 +261,6 @@ read_menu_lst(const char *path) {
             }
         }
         else if(!strcmp(cmd, "cpudriver")) {
-            char buf[MAXBUF+1];
             len= read_string(infile, read_token, &menu->kernel.path);
             if(len <= 0) {
                 fprintf(stderr, "Missing timeout value.\n");
