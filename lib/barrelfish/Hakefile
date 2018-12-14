@@ -12,7 +12,6 @@
 -- Hakefile for lib/barrelfish
 --
 --------------------------------------------------------------------------
-
 let
     common_srcs = [ "capabilities.c", "init.c", "dispatch.c", "threads.c",
                     "thread_once.c", "thread_sync.c", "slab.c", "domain.c", "idc.c",
