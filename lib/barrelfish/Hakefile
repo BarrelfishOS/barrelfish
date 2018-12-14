@@ -140,7 +140,7 @@ in
     target = "barrelfish_pmap_array",
     cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_array.c" ],
     addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_array" ],
-    addCFlags = Args.addCFlags (libraryos arch) ++ [ "-DPMAP_ARRAY" ]
+    libraryOs = Config.libbarrelfish_pmap_array
 } | arch <- regularArchitectures ]
 ++
 -- libbarrelfish with linked list-backed pmap
@@ -148,7 +148,7 @@ in
     target = "barrelfish_pmap_ll",
     cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_ll.c" ],
     addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_ll" ],
-    addCFlags = Args.addCFlags (libraryos arch) ++ [ "-DPMAP_LL" ]
+    libraryOs = Config.libbarrelfish_pmap_list
 } | arch <- regularArchitectures ]
 ++
 -- libbarrelfish with array-backed pmap and mapping cnodes
@@ -156,7 +156,7 @@ in
     target = "barrelfish_pmap_array_mcn",
     cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_array.c" ],
     addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_array" ],
-    addCFlags = Args.addCFlags (libraryos arch) ++ [ "-DPMAP_ARRAY", "-DGLOBAL_MCN" ]
+    libraryOs = Config.libbarrelfish_pmap_array_mcn
 } | arch <- regularArchitectures ]
 ++
 -- libbarrelfish with linked list-backed pmap and mapping cnodes
@@ -164,7 +164,7 @@ in
     target = "barrelfish_pmap_ll_mcn",
     cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_ll.c" ],
     addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_ll" ],
-    addCFlags = Args.addCFlags (libraryos arch) ++ [ "-DPMAP_LL", "-DGLOBAL_MCN" ]
+    libraryOs = Config.libbarrelfish_pmap_list_mcn
 } | arch <- regularArchitectures ]
 ++
 [

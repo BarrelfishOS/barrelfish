@@ -385,8 +385,8 @@ config_arrakismon = False
 --    non-trivial
 --  * We need to name the library in these expressions so hake knows which .a
 --    to include when linking.
---  * The flags provided here should match with the feature flags that are
---    needed by the library OS itself.
+--  * The library OS itself needs to use the matching Args from below as its
+--    own Args.libraryOs, see lib/barrelfish/Hakefile for examples.
 --  * All of these need to be instances of (Maybe Args).
 --  * The library OS choices provided by the default tree are all variations of
 --    the code in lib/barrelfish, gated by different preprocessor flags.
