@@ -102,8 +102,10 @@ let
         _       -> "BASE_PAGE_SIZE"
     morecore_pagesize _ = "BASE_PAGE_SIZE"
 
-    libraryos :: String -> Args.Args
-    libraryos arch = library {
+    libraryos :: String -> Maybe Args.Args -> Args.Args
+    libraryos arch libosCfg = library {
+        -- extract library target from provided library OS configuration
+        Args.target = Args.makeTarget libosCfg,
         Args.architectures = [arch],
         Args.cFiles = arch_srcs arch ++ archfam_srcs (archFamily arch) ++
                       common_srcs ++ idc_srcs arch,
@@ -128,62 +130,56 @@ let
         Args.addCFlags = [ "-DMORECORE_PAGESIZE="++(morecore_pagesize arch) ],
         Args.addGeneratedDependencies = [ "/include/asmoffsets.h" ],
         Args.addLibraries = ["cap_predicates"],
-        -- Specify empty libos so the "library" macro doesn't add the default
-        -- libos args to a non-default libos
-        Args.libraryOs = Just Args.defaultArgs
+        -- Use provided Maybe Args as library OS configuration
+        Args.libraryOs = libosCfg
     }
     -- For x86, k1om and aarch64 we support all variants.
     regularArchitectures = [ "x86_64", "k1om", "armv8" ]
 in
 -- libbarrelfish with array-backed pmap
-[ build (libraryos arch) {
-    target = "barrelfish_pmap_array",
-    cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_array.c" ],
-    addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_array" ],
-    libraryOs = Config.libbarrelfish_pmap_array
+[ build (libraryos arch Config.libbarrelfish_pmap_array) {
+    cFiles = Args.cFiles (libraryos arch Nothing) ++ pmap_unified_srcs ++ [ "pmap_array.c" ],
+    addIncludes = Args.addIncludes (libraryos arch Nothing) ++ [ "include" </> "pmap_array" ]
 } | arch <- regularArchitectures ]
 ++
 -- libbarrelfish with linked list-backed pmap
-[ build (libraryos arch) {
-    target = "barrelfish_pmap_ll",
-    cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_ll.c" ],
-    addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_ll" ],
-    libraryOs = Config.libbarrelfish_pmap_list
+[ build (libraryos arch Config.libbarrelfish_pmap_list) {
+    cFiles = Args.cFiles (libraryos arch Nothing) ++ pmap_unified_srcs ++ [ "pmap_ll.c" ],
+    addIncludes = Args.addIncludes (libraryos arch Nothing) ++ [ "include" </> "pmap_ll" ]
 } | arch <- regularArchitectures ]
 ++
 -- libbarrelfish with array-backed pmap and mapping cnodes
-[ build (libraryos arch) {
-    target = "barrelfish_pmap_array_mcn",
-    cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_array.c" ],
-    addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_array" ],
-    libraryOs = Config.libbarrelfish_pmap_array_mcn
+[ build (libraryos arch Config.libbarrelfish_pmap_array_mcn) {
+    cFiles = Args.cFiles (libraryos arch Nothing) ++ pmap_unified_srcs ++ [ "pmap_array.c" ],
+    addIncludes = Args.addIncludes (libraryos arch Nothing) ++ [ "include" </> "pmap_array" ]
 } | arch <- regularArchitectures ]
 ++
 -- libbarrelfish with linked list-backed pmap and mapping cnodes
-[ build (libraryos arch) {
-    target = "barrelfish_pmap_ll_mcn",
-    cFiles = Args.cFiles (libraryos arch) ++ pmap_unified_srcs ++ [ "pmap_ll.c" ],
-    addIncludes = Args.addIncludes (libraryos arch) ++ [ "include" </> "pmap_ll" ],
-    libraryOs = Config.libbarrelfish_pmap_list_mcn
+[ build (libraryos arch Config.libbarrelfish_pmap_list_mcn) {
+    cFiles = Args.cFiles (libraryos arch Nothing) ++ pmap_unified_srcs ++ [ "pmap_ll.c" ],
+    addIncludes = Args.addIncludes (libraryos arch Nothing) ++ [ "include" </> "pmap_ll" ]
 } | arch <- regularArchitectures ]
 ++
 [
-  -- armv7 only supports linked list pmap w/o mapping cnodes
-  build (libraryos "armv7") {
+  -- armv7 only supports linked list pmap w/o mapping cnodes, and mostly
+  -- ignores library OS selection for now
+  build (libraryos "armv7" (Just Args.defaultArgs)) {
     target = "barrelfish_pmap_ll"
     -- armv7 doesn't need any extra includes sources or flags for pmap, as the
     -- armv7 pmap implementation is separate from the unified implementation.
   },
   -- libarrakis: library OS for arrakis (guest ring 0) domains
   -- libarrakis only supports x86_64.
-  build (libraryos "x86_64") {
+  -- We hard-select PMAP_ARRAY and no global mapping CNodes for arrakis for
+  -- now.
+  build (libraryos "x86_64" (Just Args.defaultArgs)) {
     target = "arrakis",
     -- Arrakis gets array-backed pmap and no mapping cnodes
-    cFiles = Args.cFiles (libraryos "x86_64") ++ pmap_unified_srcs ++ [ "pmap_array.c" ],
-    addIncludes = Args.addIncludes (libraryos "x86_64") ++ [ "include" </> "pmap_array" ],
-    addCFlags = Args.addCFlags (libraryos "x86_64") ++ [ "-DPMAP_ARRAY" ],
-    flounderBindings = Args.flounderBindings (libraryos "x86_64") ++ [ "hyper" ],
-    flounderExtraBindings = Args.flounderExtraBindings (libraryos "x86_64") ++
+    cFiles = Args.cFiles (libraryos "x86_64" Nothing) ++ pmap_unified_srcs ++ [ "pmap_array.c" ],
+    addIncludes = Args.addIncludes (libraryos "x86_64" Nothing) ++ [ "include" </> "pmap_array" ],
+    addCFlags = Args.addCFlags (libraryos "x86_64" Nothing) ++ [ "-DPMAP_ARRAY" ],
+    flounderBindings = Args.flounderBindings (libraryos "x86_64" Nothing) ++ [ "hyper" ],
+    flounderExtraBindings = Args.flounderExtraBindings (libraryos "x86_64" Nothing) ++
         [ ("arrakis", ["rpcclient"]), ("hyper", ["rpcclient"] ) ]
   }
 ]

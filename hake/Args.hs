@@ -93,6 +93,9 @@ defaultArgs = Args {
       libraryOs = Maybe.Nothing
 }
 
+makeTarget :: Maybe Args -> String
+makeTarget args = Args.target (Maybe.fromJust args)
+
 allArchitectures = [ "x86_64", "x86_32", "armv7", "armv8", "k1om" ]
 allArchitectureFamilies = [ "x86_64", "x86_32", "arm", "k1om" ]
 -- architectures that currently support THC
