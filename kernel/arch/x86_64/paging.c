@@ -212,3 +212,19 @@ void paging_x86_64_make_good_pml4(lpaddr_t base)
         newpml4[i] = pml4[i];
     }
 }
+
+// setup 1:1 mappings for EPT pml4
+void paging_x86_64_make_good_ept_pml4(lpaddr_t base)
+{
+    union x86_64_pdir_entry *newpml4 =
+        (union x86_64_pdir_entry *)local_phys_to_mem(base);
+    uint64_t i;
+
+        // XXX: Disabled till vaddr_t is figured out
+    debug(SUBSYS_PAGING, "Is now an EPT PML4: table = 0x%"PRIxLPADDR"\n", base);
+
+    // Map memory 1:1 for EPT
+    for(i = X86_64_PML4_BASE(MEMORY_OFFSET); i < X86_64_PTABLE_SIZE; i++) {
+        paging_x86_64_map_table(&newpml4[i], i << 39);
+    }
+}

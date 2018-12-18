@@ -155,3 +155,16 @@ errval_t
 debug_print_cababilities(struct dcb *dispatcher) {
     return mdb_traverse(MDB_TRAVERSAL_ORDER_ASCENDING, sys_debug_print_capabilities_cb, dispatcher);
 }
+
+errval_t
+debug_get_mdb_size(size_t *retval)
+{
+    return mdb_size(retval);
+}
+
+errval_t
+debug_print_mdb_counters(void)
+{
+    mdb_print_counters(my_core_id);
+    return SYS_ERR_OK;
+}

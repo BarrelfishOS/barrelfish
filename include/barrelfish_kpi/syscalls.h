@@ -52,8 +52,8 @@ struct sysret {
 
 /* Architecture-specific syscalls - X86
  * FIXME: shouldn't these be in an arch-specific header? -AB */
-#define SYSCALL_X86_RELOAD_LDT       8    ///< Reload the LDT register (x86_64)
-#define SYSCALL_SUSPEND              9    ///< Suspend the CPU
+#define SYSCALL_X86_RELOAD_LDT       9    ///< Reload the LDT register (x86_64)
+#define SYSCALL_SUSPEND             10    ///< Suspend the CPU
 
 /* Architecture-specific syscalls - ARMv7 */
 #define SYSCALL_ARMv7_CACHE_CLEAN    8    ///< Clean (write back) by VA

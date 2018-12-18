@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(dev_frame, &id);
+    err = frame_identify(dev_frame, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "identifying the frame failed\n");
     }

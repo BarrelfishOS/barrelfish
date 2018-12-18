@@ -122,7 +122,7 @@ static void pci_init_card(void *arg, struct device_mem* bar_info,
     struct frame_identity id;
     assert(!capref_is_null(bar_info[XEON_PHI_APT_BAR].frame_cap));
     card->apt.cap = bar_info[XEON_PHI_APT_BAR].frame_cap;
-    err = invoke_frame_identify(card->apt.cap, &id);
+    err = frame_identify(card->apt.cap, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to identify the aperture cap");
     }
@@ -133,7 +133,7 @@ static void pci_init_card(void *arg, struct device_mem* bar_info,
     assert(!capref_is_null(bar_info[XEON_PHI_MMIO_BAR].frame_cap));
     card->mmio.cap = bar_info[XEON_PHI_MMIO_BAR].frame_cap;
 
-    err = invoke_frame_identify(card->mmio.cap, &id);
+    err = frame_identify(card->mmio.cap, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to identify the aperture cap");
     }
@@ -199,7 +199,7 @@ static errval_t xeon_phi_init_with_caps(struct xeon_phi *card, struct capref mmi
     struct frame_identity id;
     assert(!capref_is_null(apt));
     card->apt.cap = apt;
-    err = invoke_frame_identify(card->apt.cap, &id);
+    err = frame_identify(card->apt.cap, &id);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_IDENTIFY);
     }
@@ -210,7 +210,7 @@ static errval_t xeon_phi_init_with_caps(struct xeon_phi *card, struct capref mmi
     assert(!capref_is_null(mmio));
     card->mmio.cap = mmio;
 
-    err = invoke_frame_identify(card->mmio.cap, &id);
+    err = frame_identify(card->mmio.cap, &id);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_IDENTIFY);
     }

@@ -173,7 +173,7 @@ static errval_t debug_register(struct devq* q, struct capref cap,
     DEBUG("Register \n");
     struct frame_identity id;
     
-    err = invoke_frame_identify(cap, &id);
+    err = frame_identify(cap, &id);
     if (err_is_fail(err)) {
         return err;
     }

@@ -167,6 +167,8 @@ errval_t mdb_traverse(enum mdb_tree_traversal_order order, mdb_tree_traversal_fn
  */
 errval_t mdb_traverse_subtree(struct cte *cte, enum mdb_tree_traversal_order order, mdb_tree_traversal_fn cb, void *data);
 
+errval_t mdb_size(size_t *count);
+
 __END_DECLS
 
 #endif // LIBMDB_MDB_TREE_H

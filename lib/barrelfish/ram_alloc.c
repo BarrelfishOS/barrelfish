@@ -17,6 +17,9 @@
 
 #include <if/monitor_defs.h>
 #include <if/mem_defs.h>
+#ifdef ARRAKIS
+#include <if/hyper_defs.h>
+#endif
 
 /* remote (indirect through a channel) version of ram_alloc, for most domains */
 static errval_t ram_alloc_remote(struct capref *ret, uint8_t size_bits,
@@ -65,6 +68,30 @@ static errval_t ram_alloc_remote(struct capref *ret, uint8_t size_bits,
 
     thread_mutex_unlock(&ram_alloc_state->ram_alloc_lock);
 
+#if 0
+#ifdef ARRAKIS
+    if (err_is_fail(err)) {
+        return err;
+    }
+    struct frame_identity fi;
+    errval_t err2 = frame_identify(*ret, &fi);
+    if (err_is_fail(err2)){
+    DEBUG_ERR(err2, "frame_identify in ram_alloc");
+    }
+    assert(err_is_ok(err2));
+    debug_printf("[ARRADOMAIN] ram_alloc_remote: allocated %zu bytes at 0x%zx; notifing hypervisor\n",
+            fi.bytes, fi.base);
+
+    struct hyper_rpc_client *hc = get_hyper_rpc_client();
+    err = hc->vtbl.npt_map(hc, *ret, &err2);
+    assert(err_is_ok(err));
+    if (err_is_fail(err2)) {
+        DEBUG_ERR(err2, "while calling hypervisor for EPT mapping");
+    }
+    assert(err_is_ok(err2));
+#endif
+#endif
+
     if (err_is_fail(err)) {
         return err;
     }
@@ -104,6 +131,16 @@ errval_t ram_alloc_fixed(struct capref *ret, uint8_t size_bits,
         assert(state->base_capnum < L2_CNODE_SLOTS);
         ret->cnode = cnode_base;
         ret->slot  = state->base_capnum++;
+#ifdef ARRAKIS
+        struct frame_identity fi;
+        errval_t err2 = frame_identify(*ret, &fi);
+        if (err_is_fail(err2)){
+            DEBUG_ERR(err2, "frame_identify in ram_alloc");
+        }
+        assert(err_is_ok(err2));
+        debug_printf("[ARRADOMAIN] ram_alloc_fixed: allocated %zu bytes at 0x%zx\n",
+                fi.bytes, fi.base);
+#endif
         return SYS_ERR_OK;
     } else {
         return LIB_ERR_RAM_ALLOC_WRONG_SIZE;
@@ -196,6 +233,7 @@ void ram_alloc_init(void)
     ram_alloc_state->default_minbase  = 0;
     ram_alloc_state->default_maxlimit = 0;
     ram_alloc_state->base_capnum      = 0;
+    ram_alloc_state->earlycn_capnum   = 0;
 }
 
 /**

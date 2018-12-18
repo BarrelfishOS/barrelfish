@@ -115,15 +115,16 @@ errval_t lmp_endpoint_create_in_slot_with_iftype(size_t buflen, struct capref de
 
     uintptr_t epoffset = (uintptr_t)&ep->k - (uintptr_t)curdispatcher();
 
+    /* stuff buflen and iftype into second param of mint, so we don't need
+     * the ugly invoke_endpoint_set_iftype. buflen should comfortably fit into
+     * 16 bits as it is in *words* rather than bytes */
+    assert(buflen < UINT16_MAX);
+    buflen = ((uintptr_t)iftype << 16) | buflen;
+
     //debug_printf("%s: calling mint with epoffset = %"PRIuPTR", buflen = %zu\n",
     //              __FUNCTION__, epoffset, buflen); 
     // mint new badged cap from our existing reply endpoint
-    err = cap_mint(dest, cap_selfep, epoffset, buflen);
-    if (err_is_fail(err)) {
-        return err;
-    }
-
-    return invoke_endpoint_set_iftype(dest, iftype);
+    return cap_mint(dest, cap_selfep, epoffset, buflen);
 }
 
 /**

@@ -17,13 +17,13 @@
 #ifndef OFFSETS_H
 #define OFFSETS_H
 
-#define GEN_ADDR(bits)          (((genpaddr_t)1) << bits)
+#include <target/armv8/offsets_target.h>
 
 /**
  * Absolute size of virtual address space. This is 48-bit on AArch64.
  * TODO: might be implementation-specific
  */
-#define VADDR_SPACE_SIZE_BITS   48
+#define VADDR_SPACE_SIZE_BITS   ARMv8_VADDR_SPACE_SIZE_BITSA
 #define VADDR_SPACE_SIZE        GEN_ADDR(VADDR_SPACE_SIZE_BITS);
 
 /**
@@ -32,50 +32,26 @@
  * current options are 4G, 64G, 1T, 4T, 16T, 256T
  * set to 256T for now
  */
-#define PADDR_SPACE_SIZE_BITS   48
+#define PADDR_SPACE_SIZE_BITS   ARMv8_PADDR_SPACE_SIZE_BITS
 #define PADDR_SPACE_SIZE        GEN_ADDR(PADDR_SPACE_SIZE_BITS)
 
 /**
  * Start address of kernel image in physical memory.  Most ARM platforms have
  * the first physical window starting at 2GB.
  */
-#define START_KERNEL_PHYS       0x80000000
+#define START_KERNEL_PHYS       ARMv8_START_KERNEL_PHYS
 
 /**
  * Kernel offset - virtual base of the kernel's address space: the region
  * mapped by TTBR1.
  */
-#define KERNEL_OFFSET           0xffff000000000000ULL
+#define KERNEL_OFFSET           ARMv8_KERNEL_OFFSET
 
 /**
  * Maximum physical address space mappable by the kernel.  Adjust this
  * for a bigger physical address space.  
  */
-#define PADDR_SPACE_LIMIT       (GEN_ADDR(49) - 1) // 2GB
-
-/**
- * Static address space limit for the init user-space domain. The
- * static space is used to map in code and static data of the init
- * module, as well as all loaded multiboot modules. init can freely
- * allocate dynamic memory as soon as it is running. This is 32 MBytes
- * right now.
- *
- * You should make this constant a multiple of #BASE_PAGE_SIZE *
- * #PTABLE_SIZE or you'll restrict init's static address space
- * unneccessarily. init's lowest segment should also be based at these
- * multiples or it restricts itself.
- *
- */
-#define ARMV8_INIT_SPACE_LIMIT        (32 * 1024 * 1024)
-
-/**
- * Base address of init address space in virtual memory. init should
- * start at 4 MByte. The kernel maps in important structures at 2
- * MByte. This address should be page-table size aligned (i.e. with 4
- * KByte pages, a page table maps 2 MBytes. Thus, align it to
- * multiples of 2 MBytes).
- */
-#define ARMV8_INIT_VBASE              (2 * 1024 * 1024)
+#define PADDR_SPACE_LIMIT       ARMv8_PADDR_SPACE_LIMIT // 2GB
 
 /**
  * The absolute base address of mapped physical memory, within the kernel's
@@ -88,7 +64,7 @@
  * Absolute start of RAM in physical memory.  XXX - this isn't statically
  * known.
  */
-#define PHYS_MEMORY_START       0x0
+#define PHYS_MEMORY_START       ARMv8_PHYS_MEMORY_START
 
 /*
  * The top of the region, within kernel memory, in which devices are mapped.
@@ -98,7 +74,7 @@
 /**
  * Kernel stack size -- 16KB
  */
-#define KERNEL_STACK_SIZE       0x4000
+#define KERNEL_STACK_SIZE       ARMv8_KERNEL_STACK_SIZE
 
 /**
  * The size of the whole kernel image.

@@ -185,6 +185,7 @@ linkKernel opts objs libs name driverType=
                      Out arch kasmdump ],
               Rule [ Str "cpp",
                      NStr "-I", NoDep SrcTree "src" "/kernel/include/arch/armv8",
+                     NStr "-I", NoDep SrcTree "src" "/kernel/include",
                      Str "-D__ASSEMBLER__",
                      Str "-P", In SrcTree "src"
                            ("/kernel/arch/armv8/"++driverType++".lds.in"),

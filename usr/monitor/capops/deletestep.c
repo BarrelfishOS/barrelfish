@@ -61,6 +61,12 @@ delete_steps_init(struct waitset *ws)
 void
 delete_steps_trigger(void)
 {
+    struct waitset *myws = delete_steps_get_waitset();
+    if (myws == NULL) {
+        debug_printf("%s: ws == NULL?\n", __FUNCTION__);
+        return;
+    }
+    TRACE(CAPOPS, DELSTEPS_TRIGGER, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     if (!triggered) {
         triggered = true;
@@ -74,6 +80,7 @@ delete_steps_trigger(void)
 void
 delete_steps_pause(void)
 {
+    TRACE(CAPOPS, DELSTEPS_PAUSE, 0);
     DEBUG_CAPOPS("%s: called from %p\n", __FUNCTION__,
             __builtin_return_address(0));
     suspended++;
@@ -82,6 +89,7 @@ delete_steps_pause(void)
 void
 delete_steps_resume(void)
 {
+    TRACE(CAPOPS, DELSTEPS_RESUME, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     assert(suspended > 0);
     suspended--;
@@ -95,6 +103,7 @@ delete_steps_resume(void)
 static void
 delete_steps_delete_result(errval_t status, void *st)
 {
+    TRACE(CAPOPS, DELSTEPS_STEP_DONE, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     assert(err_is_ok(status));
     delete_steps_resume();
@@ -103,6 +112,7 @@ delete_steps_delete_result(errval_t status, void *st)
 static void
 delete_steps_cont(void *st)
 {
+    TRACE(CAPOPS, DELSTEPS_STEP, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     assert(triggered);

@@ -78,7 +78,7 @@
  * unneccessarily. init's lowest segment should also be based at these
  * multiples or it restricts itself.
  */
-#define X86_64_INIT_SPACE_LIMIT        (32 * 1024 * 1024)
+#define X86_64_INIT_SPACE_LIMIT        (128 * 1024 * 1024)
 
 /**
  * Base address of init address space in virtual memory. init should

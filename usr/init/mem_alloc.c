@@ -32,15 +32,22 @@
 
 /// MM allocator instance data
 static struct mm mymm;
+static bool huh = false;
 
 static errval_t mymm_alloc(struct capref *ret, uint8_t bits, uint64_t minbase,
                            uint64_t maxlimit)
 {
+    if (huh) {
+        debug_printf("%s: Called self from %p\n", __FUNCTION__, __builtin_return_address(0));
+        while(true);
+    }
+    huh = true;
     /* XXX: although we have calculated the space requirements for
      * MM_MINSIZEBITS, we only ever allocate a single dispatcher from this
      * allocator, so this should be safe */
     assert(bits >= OBJBITS_DISPATCHER);
     errval_t err = mm_alloc(&mymm, bits, ret, NULL);
+    huh = false;
     return err;
 }
 

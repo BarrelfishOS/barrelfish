@@ -114,7 +114,7 @@ static void rx_init(struct flounderbootstrap_binding *b,
     frame = cap;
 
     struct frame_identity id;
-    err = invoke_frame_identify(cap, &id);
+    err = frame_identify(cap, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "failed to identify the frame");
     }
@@ -230,7 +230,7 @@ static void start_client(void)
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "frameid failed");
     }

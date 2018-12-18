@@ -671,7 +671,7 @@ errval_t e1000_queue_create(e1000_queue_t ** q, struct capref* ep, uint32_t vend
     }
 
     E1000_DEBUG("Get resources from driver done \n");
-    err = invoke_frame_identify(device->regs, &id);
+    err = frame_identify(device->regs, &id);
     if (err_is_fail(err)) {
         goto error;
     }

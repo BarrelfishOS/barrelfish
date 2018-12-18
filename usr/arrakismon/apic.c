@@ -14,6 +14,7 @@
 #include "vmkitmon.h"
 #include "apic.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 struct apic *
 apic_new (uint64_t mmio_base_va)

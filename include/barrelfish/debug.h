@@ -27,6 +27,7 @@ __BEGIN_DECLS
 
 struct capability;
 errval_t debug_cap_identify(struct capref cap, struct capability *ret);
+errval_t debug_dump_hw_ptables_around(void *vaddr);
 errval_t debug_dump_hw_ptables(void);
 errval_t debug_cap_trace_ctrl(uintptr_t types, genpaddr_t start_addr, gensize_t size);
 void debug_cspace(struct capref root);

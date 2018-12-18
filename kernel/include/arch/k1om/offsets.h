@@ -17,6 +17,8 @@
 
 #include <target/k1om/offsets_target.h>
 
+#define MEMORY_OFFSET             K1OM_MEMORY_OFFSET
+
 #define PADDR_SPACE_SIZE          K1OM_PADDR_SPACE_SIZE
 #define PADDR_SPACE_LIMIT         K1OM_PADDR_SPACE_LIMIT
 

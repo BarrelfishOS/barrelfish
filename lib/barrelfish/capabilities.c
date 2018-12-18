@@ -326,9 +326,12 @@ errval_t cap_retype(struct capref dest_start, struct capref src, gensize_t offse
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
         struct capref src_root = get_croot_capref(src);
         struct capref dest_root = get_croot_capref(dest_start);
-        return cap_retype_remote(src_root, dest_root, scp_addr, offset, new_type,
-                                 objsize, count, dcn_addr, dest_start.slot,
-                                 dcn_level);
+        TRACE(CAPOPS, USER_RETYPE_RPC, 0);
+        err = cap_retype_remote(src_root, dest_root, scp_addr, offset, new_type,
+                                objsize, count, dcn_addr, dest_start.slot,
+                                dcn_level);
+        TRACE(CAPOPS, USER_RETYPE_RPC_DONE, 0);
+        return err;
     } else {
         return err;
     }
@@ -380,7 +383,10 @@ errval_t cap_delete(struct capref cap)
     err = invoke_cnode_delete(croot, caddr, level);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return cap_delete_remote(croot, caddr, level);
+        TRACE(CAPOPS, USER_DELETE_RPC, 0);
+        err = cap_delete_remote(croot, caddr, level);
+        TRACE(CAPOPS, USER_DELETE_RPC_DONE, 0);
+        return err;
     } else {
         return err;
     }
@@ -405,7 +411,10 @@ errval_t cap_revoke(struct capref cap)
     err = invoke_cnode_revoke(croot, caddr, level);
 
     if (err_no(err) == SYS_ERR_RETRY_THROUGH_MONITOR) {
-        return cap_revoke_remote(croot, caddr, level);
+        TRACE(CAPOPS, USER_REVOKE_RPC, 0);
+        err = cap_revoke_remote(croot, caddr, level);
+        TRACE(CAPOPS, USER_REVOKE_RPC_DONE, 0);
+        return err;
     } else {
         return err;
     }
@@ -531,6 +540,7 @@ errval_t cnode_create_l2(struct capref *ret_dest, struct cnoderef *cnoderef)
     assert(ret_dest != NULL);
     err = slot_alloc_root(ret_dest);
     if (err_is_fail(err)) {
+        DEBUG_ERR(err, "slot_alloc_root");
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
@@ -608,6 +618,37 @@ errval_t cnode_create_foreign_l2(struct capref dest_l1, cslot_t dest_slot,
 }
 
 /**
+ * \brief early allocator for L2 CNode sized RAM caps
+ *
+ * This function returns the preallocated RAM caps stored in
+ * ROOTCN_SLOT_EARLY_CN_CN.
+ */
+/// Base CNode
+static struct cnoderef cnode_earlycn = {
+    .cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_EARLY_CN_CN),
+    .level = CNODE_TYPE_OTHER,
+    .croot = CPTR_ROOTCN,
+};
+
+errval_t ram_alloc_fixed_cn(struct capref *retcap);
+errval_t ram_alloc_fixed_cn(struct capref *retcap)
+{
+    // We keep track of which slots we've used in the dispatcher's
+    // ram_alloc_state.
+    struct ram_alloc_state *state = get_ram_alloc_state();
+
+    if (state->earlycn_capnum >= EARLY_CNODE_ALLOCATED_SLOTS) {
+        debug_printf("trying to allocate slot %d!\n", state->earlycn_capnum);
+        return LIB_ERR_RAM_ALLOC_FIXED_EXHAUSTED;
+    }
+
+    retcap->cnode = cnode_earlycn;
+    retcap->slot = state->earlycn_capnum++;
+
+    return SYS_ERR_OK;
+}
+
+/**
  * \brief Create a CNode from newly-allocated RAM in the given slot
  *
  * \param dest location in which to place CNode cap
@@ -650,6 +691,10 @@ errval_t cnode_create_raw(struct capref dest, struct cnoderef *cnoderef,
 
     // Allocate some memory
     err = ram_alloc(&ram, bits + OBJBITS_CTE);
+    if (err_no(err) == LIB_ERR_RAM_ALLOC_WRONG_SIZE) {
+        // early cnode alloc request, use special allocator
+        err = ram_alloc_fixed_cn(&ram);
+    }
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_RAM_ALLOC);
     }
@@ -862,12 +907,20 @@ errval_t ump_endpoint_create_with_iftype(struct capref dest, size_t bytes,
                                          uint16_t iftype)
 {
     errval_t err;
-    err = create_mappable_cap(dest, ObjType_EndPointUMP, bytes, NULL);
+    struct capref tmp;
+    err = slot_alloc(&tmp);
     if (err_is_fail(err)) {
-        return err;   
+        return err;
     }
-
-    return invoke_endpoint_set_iftype(dest, iftype);
+    err = create_mappable_cap(tmp, ObjType_EndPointUMP, bytes, NULL);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = cap_mint(dest, tmp, iftype, 0);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    return cap_destroy(tmp);
 }
 
 /**
@@ -956,7 +1009,7 @@ errval_t idcap_create(struct capref dest)
 errval_t cnode_build_cnoderef(struct cnoderef *cnoder, struct capref capr)
 {
     struct capability cap;
-    errval_t err = debug_cap_identify(capr, &cap);
+    errval_t err = cap_direct_identify(capr, &cap);
     if (err_is_fail(err)) {
         return err;
     }

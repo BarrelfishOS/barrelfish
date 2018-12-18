@@ -18,7 +18,7 @@
 #include <barrelfish_kpi/platform.h>
 #include <barrelfish/syscall_arch.h>
 #include <target/aarch64/barrelfish_kpi/arm_core_data.h>
-#include <offsets.h>
+#include <target/armv8/offsets_target.h> //from the kernel includes
 #include <barrelfish/deferred.h>
 #include <acpi_client/acpi_client.h>
 #include <if/acpi_defs.h>
@@ -186,7 +186,7 @@ static errval_t mem_alloc(size_t size, bool map, struct mem_info *mem_info)
         return err;
     }
 
-    err = invoke_frame_identify(mem_info->cap, &mem_info->frameid);
+    err = frame_identify(mem_info->cap, &mem_info->frameid);
     if (err_is_fail(err)) {
         err =  err_push(err, LIB_ERR_FRAME_IDENTIFY);
         goto out_err;
@@ -536,7 +536,7 @@ static errval_t load_boot_and_cpu_driver(struct arch_config *cfg,
         return err;
     }
 
-    err = relocate_elf(cpu_driver, cpu_mem, KERNEL_OFFSET);
+    err = relocate_elf(cpu_driver, cpu_mem, ARMv8_KERNEL_OFFSET);
     if (err_is_fail(err)) {
         return err;
     }
@@ -545,7 +545,7 @@ static errval_t load_boot_and_cpu_driver(struct arch_config *cfg,
     DEBUG("Relocated cpu driver point is %p\n", cpu_entry_point);
 
     *ret_boot_entry = boot_entry_point;
-    *ret_cpu_entry = cpu_entry_point + KERNEL_OFFSET;
+    *ret_cpu_entry = cpu_entry_point + ARMv8_KERNEL_OFFSET;
 
     return SYS_ERR_OK;
 }
@@ -779,7 +779,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
     core_data->dst_arch_id       = hwid;
 
     struct frame_identity fid;
-    err = invoke_frame_identify(kcb, &fid);
+    err = invoke_kcb_identify(kcb, &fid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Invoke frame identity for KCB failed. "
                             "Did you add the syscall handler for that architecture?");

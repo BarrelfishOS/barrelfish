@@ -14,7 +14,6 @@
   build library {
     target = "mdb",
     cFiles = [ "mdb_tree.c", "mdb.c" ],
-    addLibraries = [ "barrelfish" ],
     addIncludes = [ "/include/barrelfish" ],
     addCFlags = [
          if Config.mdb_trace_user then "-DMDB_TRACE" else "",

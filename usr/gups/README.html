@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+<meta name="generator" content="hevea 2.00">
+<style type="text/css">
+.li-itemize{margin:1ex 0ex;}
+.li-enumerate{margin:1ex 0ex;}
+.dd-description{margin:0ex 0ex 1ex 4ex;}
+.dt-description{margin:0ex;}
+.toc{list-style:none;}
+.footnotetext{margin:0ex; padding 0ex;}
+div.footnotetext P{margin:0px; text-indent:1em;}
+.thefootnotes{text-align:left;margin:0ex;}
+.dt-thefootnotes{margin:0em;}
+.dd-thefootnotes{margin:0em 0em 0em 2em;}
+.footnoterule{margin:1em auto 1em 0px;width:50%;}
+.caption{padding-left:2ex; padding-right:2ex; margin-left:auto; margin-right:auto}
+.title{margin:2ex auto;text-align:center}
+.center{text-align:center;margin-left:auto;margin-right:auto;}
+.flushleft{text-align:left;margin-left:0ex;margin-right:auto;}
+.flushright{text-align:right;margin-left:auto;margin-right:0ex;}
+div table{margin-left:inherit;margin-right:inherit;margin-bottom:2px;margin-top:2px}
+td table{margin:auto;}
+table{border-collapse:collapse;}
+td{padding:0;}
+.cellpadding0 tr td{padding:0;}
+.cellpadding1 tr td{padding:1px;}
+pre{text-align:left;margin-left:0ex;margin-right:auto;}
+blockquote{margin-left:4ex;margin-right:4ex;text-align:left;}
+td p{margin:0px;}
+.boxed{border:1px solid black}
+.textboxed{border:1px solid black}
+.vbar{border:none;width:2px;background-color:black;}
+.hbar{border:none;height:2px;width:100%;background-color:black;}
+.hfill{border:none;height:1px;width:200%;background-color:black;}
+.vdisplay{border-collapse:separate;border-spacing:2px;width:auto; empty-cells:show; border:2px solid red;}
+.vdcell{white-space:nowrap;padding:0px border:2px solid green;}
+.display{border-collapse:separate;border-spacing:2px;width:auto; border:none;}
+.dcell{white-space:nowrap;padding:0px border:none;}
+.dcenter{margin:0ex auto;}
+.vdcenter{border:solid #FF8000 2px; margin:0ex auto;}
+.minipage{text-align:left; margin-left:0em; margin-right:auto;}
+.marginpar{border:solid thin black; width:20%; text-align:left;}
+.marginparleft{float:left; margin-left:0ex; margin-right:1ex;}
+.marginparright{float:right; margin-left:1ex; margin-right:0ex;}
+.theorem{text-align:left;margin:1ex auto 1ex 0ex;}
+.part{margin:2ex auto;text-align:center}
+h1, h2, h3, h4 {color: #527bbd;}
+.section {border-bottom: 2px solid silver;}
+</style>
+<title>DARPA/DOE HPC&#XA0;Challenge Benchmark version 1.4.2
+</title>
+</head>
+<body >
+<!--HEVEA command line is: hevea README.tex -->
+<!--CUT STYLE article--><!--CUT DEF section 1 --><table class="title"><tr><td><h1 class="titlemain">DARPA/DOE HPC&#XA0;Challenge Benchmark version 1.4.2</h1><h3 class="titlerest">Piotr Luszczek<sup><a id="text1" href="#note1">*</a></sup></h3><h3 class="titlerest">October 12, 2012</h3></td></tr>
+</table>
+<!--TOC section id=sec1 Introduction-->
+<h2 id="sec1" class="section">1&#XA0;&#XA0;Introduction</h2><!--SEC END --><p>
+This is a suite of benchmarks that measure performance of processor,
+memory subsytem, and the interconnect. For details refer to the
+HPC&#XA0;Challenge web site (<span style="font-family:monospace; color:navy;">http://icl.cs.utk.edu/hpcc/</span>.)</p><p>In essence, HPC&#XA0;Challenge consists of a number of tests each
+of which measures performance of a different aspect of the system.</p><p>If you are familiar with the High Performance Linpack&#XA0;(HPL) benchmark
+code (see the HPL web site:
+<span style="font-family:monospace; color:navy;">http://www.netlib.org/benchmark/hpl/</span>) then you can reuse the
+build script file&#XA0;(input for <span style="font-family:monospace; color:navy;">make(1)</span> command) and the input
+file that you already have for HPL. The HPC&#XA0;Challenge benchmark
+includes HPL and uses its build script and input files with only
+slight modifications. The most important change must be done to the
+line that sets the <span style="font-family:monospace; color:navy;">TOPdir</span> variable. For HPC&#XA0;Challenge, the
+variable&#X2019;s value should always be <span style="font-family:monospace; color:navy;">../../..</span> regardless of what
+it was in the HPL build script file.</p>
+<!--TOC section id=sec2 Compiling-->
+<h2 id="sec2" class="section">2&#XA0;&#XA0;Compiling</h2><!--SEC END --><p>
+The first step is to create a build script file that reflects
+characteristics of your machine. This file is reused by all the
+components of the HPC&#XA0;Challenge suite. The build script file should be
+created in the <span style="font-family:monospace; color:navy;">hpl</span> directory. This directory contains
+instructions (the files <span style="font-family:monospace; color:navy;">README</span> and <span style="font-family:monospace; color:navy;">INSTALL</span>) on how
+to create the build script file for your system. The
+<span style="font-family:monospace; color:navy;">hpl/setup</span> directory contains many examples of build script
+files. A recommended approach is to copy one of them to the
+<span style="font-family:monospace; color:navy;">hpl</span> directory and if it doesn&#X2019;t work then change it.</p><p>The build script file has a name that starts with <span style="font-family:monospace; color:navy;">Make.</span>
+prefix and usally ends with a suffix that identifies the target
+system. For example, if the suffix chosen for the system is
+<span style="font-family:monospace; color:navy;">Unix</span>, the file should be named <span style="font-family:monospace; color:navy;">Make.Unix</span>.</p><p>To build the benchmark executable (for the system named <span style="font-family:monospace; color:navy;">Unix</span>)
+type: <span style="font-family:monospace; color:navy;">make arch=Unix</span>. This command should be run in the top
+directory&#XA0;(not in the <span style="font-family:monospace; color:navy;">hpl</span> directory). It will look in the
+<span style="font-family:monospace; color:navy;">hpl</span> directory for the build script file and use it to build
+the benchmark executable.</p><p>The runtime behavior of the HPC&#XA0;Challenge source code may be
+configured at compiled time by defining a few C preprocessor
+symbols. They can be defined by adding appropriate options to
+<span style="font-family:monospace; color:navy;">CCNOOPT</span> and <span style="font-family:monospace; color:navy;">CCFLAGS</span> make variables. The former
+controls options for source code files that need to be compiled
+without aggressive optimizations to ensure accurate generation of
+system-specific parameters. The latter applies to the rest of the
+files that need good compiler optimization for best performance. To
+define a symbol <span style="font-family:monospace; color:navy;">S</span>, the majority of compilers requires option
+<span style="font-family:monospace; color:navy;">-DS</span> to be used. Currently, the following options are
+available in the HPC&#XA0;Challenge source code:
+</p><ul class="itemize"><li class="li-itemize"><span style="font-family:monospace; color:navy;">HPCC_FFT_235</span>: if this symbol is defined the FFTE
+code (an FFT implementation) will use vector sizes and processor
+counts that are not limited to powers of 2. Instead, the vector sizes
+and processor counts to be used will be a product of powers of 2, 3,
+and 5.</li><li class="li-itemize"><span style="font-family:monospace; color:navy;">HPCC_FFTW_ESTIMATE</span>: if this symbol is defined it will
+affect the way external FFTW library is called&#XA0;(it does not have any
+effect if the FFTW library is not used). When defined, this symbol
+will call the FFTW planning routine with <span style="font-family:monospace; color:navy;">FFTW_ESTIMATE</span>
+flag&#XA0;(instead of <span style="font-family:monospace; color:navy;">FFTW_MEASURE</span>). This might result with worse
+performance results but shorter execution time of the
+benchmark. Defining this symbol may also positively affect the memory
+fragmentation caused by the FFTW&#X2019;s planning routine.</li><li class="li-itemize"><span style="font-family:monospace; color:navy;">HPCC_MEMALLCTR</span>: if this symbol is defined a custom
+memory allocator will be used to alleviate effects of memory
+fragmentation and allow for larger data sets to be used which may
+result in obtaining better performance.</li><li class="li-itemize"><span style="font-family:monospace; color:navy;">HPL_USE_GETPROCESSTIMES</span>: if this symbol is defined
+then Windows-specific <span style="font-family:monospace; color:navy;">GetProcessTimes()</span> function will be used
+to measure the elapsed CPU time.</li><li class="li-itemize"><span style="font-family:monospace; color:navy;">USE_MULTIPLE_RECV</span>: if this symbol is defined then multiple non-blocking
+receives will be posted simultaneously. By default only one non-blocking
+receive is posted.</li><li class="li-itemize"><span style="font-family:monospace; color:navy;">RA_SANDIA_NOPT</span>: if this symbol is defined the
+HPC&#XA0;Challenge standard algorithm for Global RandomAccess will not be
+used. Instead, an alternative implementation from Sandia
+National Laboratory will be used. It routes messages in software
+across virtual hyper-cube topology formed from MPI processes.</li><li class="li-itemize"><span style="font-family:monospace; color:navy;">RA_SANDIA_OPT2</span>: if this symbol is defined the
+HPC&#XA0;Challenge standard algorithm for Global RandomAccess will not be
+used. Instead, instead an alternative implementation from Sandia
+National Laboratory will be used. This implementation is optimized for
+number of processors being powers of two. The optimizations
+are sorting of data before sending and unrolling the data update
+loop. If the number of process is not a power two then the code
+is the same as the one performed with the <span style="font-family:monospace; color:navy;">RA_SANDIA_NOPT</span> setting.</li><li class="li-itemize"><span style="font-family:monospace; color:navy;">RA_TIME_BOUND_DISABLE</span>: if this symbol is defined then the
+standard Global RandomAccess code will be used without time limits. This is
+discouraged for most runs because the standard algorithm tends to be slow for
+large array sizes due to a large overhead for short MPI messages.</li><li class="li-itemize"><span style="font-family:monospace; color:navy;">USING_FFTW</span>: if this symbol is defined the standard
+HPC&#XA0;Challenge FFT implemenation&#XA0;(called FFTE) will not be used.
+Instead, FFTW library will be called. Defining the
+<span style="font-family:monospace; color:navy;">USING_FFTW</span> symbol is not sufficient: appropriate flags have
+to be added in the make script so that FFTW headers files can be found
+at compile time and the FFTW libraries at link time.</li></ul>
+<!--TOC section id=sec3 Runtime Configuration-->
+<h2 id="sec3" class="section">3&#XA0;&#XA0;Runtime Configuration</h2><!--SEC END --><p>
+The HPC&#XA0;Challenge is driven by a short input file named
+<span style="font-family:monospace; color:navy;">hpccinf.txt</span> that is almost the same as the input file for
+HPL&#XA0;(customarily called <span style="font-family:monospace; color:navy;">HPL.dat</span>). Refer to the directory
+<span style="font-family:monospace; color:navy;">hpl/www/tuning.html</span> for details about the input file for
+HPL. A sample input file is included with the HPC&#XA0;Challenge
+distribution.</p><p>The differences between HPL&#X2019;s input file and HPC&#XA0;Challenge&#X2019;s input
+file can be summarized as follows:</p><ul class="itemize"><li class="li-itemize">
+Lines 3 and 4 are ignored. The output is always appended to the
+file named <span style="font-family:monospace; color:navy;">hpccoutf.txt</span>.
+</li><li class="li-itemize">There are additional lines&#XA0;(starting with line 33) that may&#XA0;(but
+do not have to) be used to customize the HPC&#XA0;Challenge benchmark. They
+are described below.
+</li></ul><p>The additional lines in the HPC&#XA0;Challenge input file&#XA0;(compared to the
+HPL input file) are:</p><ul class="itemize"><li class="li-itemize">
+Lines 33 and 34 describe additional matrix sizes to be used for
+running the PTRANS benchmark&#XA0;(one of the components of the
+HPC&#XA0;Challenge benchmark).
+</li><li class="li-itemize">Lines 35 and 36 describe additional blocking factors to be used
+for running the PTRANS test.
+</li></ul><p>Just for completeness, here is the list of lines of the HPC
+Challenge&#X2019;s input file and brief description of their meaning:
+</p><ul class="itemize"><li class="li-itemize">
+Line 1: ignored
+</li><li class="li-itemize">Line 2: ignored
+</li><li class="li-itemize">Line 3: ignored
+</li><li class="li-itemize">Line 4: ignored
+</li><li class="li-itemize">Line 5: number of matrix sizes for HPL (and PTRANS)
+</li><li class="li-itemize">Line 6: matrix sizes for HPL (and PTRANS)
+</li><li class="li-itemize">Line 7: number of blocking factors for HPL (and PTRANS)
+</li><li class="li-itemize">Line 8: blocking factors for HPL (and PTRANS)
+</li><li class="li-itemize">Line 9: type of process ordering for HPL
+</li><li class="li-itemize">Line 10: number of process grids for HPL (and PTRANS)
+</li><li class="li-itemize">Line 11: numbers of process rows of each process grid for HPL (and PTRANS)
+</li><li class="li-itemize">Line 12: numbers of process columns of each process grid for HPL (and PTRANS)
+</li><li class="li-itemize">Line 13: threshold value not to be exceeded by scaled residual for HPL (and PTRANS)
+</li><li class="li-itemize">Line 14: number of panel factorization methods for HPL
+</li><li class="li-itemize">Line 15: panel factorization methods for HPL
+</li><li class="li-itemize">Line 16: number of recursive stopping criteria for HPL
+</li><li class="li-itemize">Line 17: recursive stopping criteria for HPL
+</li><li class="li-itemize">Line 18: number of recursion panel counts for HPL
+</li><li class="li-itemize">Line 19: recursion panel counts for HPL
+</li><li class="li-itemize">Line 20: number of recursive panel factorization methods for HPL
+</li><li class="li-itemize">Line 21: recursive panel factorization methods for HPL
+</li><li class="li-itemize">Line 22: number of broadcast methods for HPL
+</li><li class="li-itemize">Line 23: broadcast methods for HPL
+</li><li class="li-itemize">Line 24: number of look-ahead depths for HPL
+</li><li class="li-itemize">Line 25: look-ahead depths for HPL
+</li><li class="li-itemize">Line 26: swap methods for HPL
+</li><li class="li-itemize">Line 27: swapping threshold for HPL
+</li><li class="li-itemize">Line 28: form of L1 for HPL
+</li><li class="li-itemize">Line 29: form of U for HPL
+</li><li class="li-itemize">Line 30: value that specifies whether equilibration should be used by HPL
+</li><li class="li-itemize">Line 31: memory alignment for HPL
+</li><li class="li-itemize">Line 32: ignored
+</li><li class="li-itemize">Line 33: number of additional problem sizes for PTRANS
+</li><li class="li-itemize">Line 34: additional problem sizes for PTRANS
+</li><li class="li-itemize">Line 35: number of additional blocking factors for PTRANS
+</li><li class="li-itemize">Line 36: additional blocking factors for PTRANS
+</li></ul>
+<!--TOC section id=sec4 Running-->
+<h2 id="sec4" class="section">4&#XA0;&#XA0;Running</h2><!--SEC END --><p>
+The exact way to run the HPC&#XA0;Challenge benchmark depends on the MPI
+implementation and system details. An example command to run the
+benchmark could like like this: <span style="font-family:monospace; color:navy;">mpirun -np 4 hpcc</span>. The
+meaning of the command&#X2019;s components is as follows:
+</p><ul class="itemize"><li class="li-itemize">
+<span style="font-family:monospace; color:navy;">mpirun</span> is the command that starts execution of an MPI
+code. Depending on the system, it might also be <span style="font-family:monospace; color:navy;">aprun</span>,
+<span style="font-family:monospace; color:navy;">mpiexec</span>, <span style="font-family:monospace; color:navy;">mprun</span>, <span style="font-family:monospace; color:navy;">poe</span>, or something
+appropriate for your computer.</li><li class="li-itemize"><span style="font-family:monospace; color:navy;">-np 4</span> is the argument that specifies that 4 MPI
+processes should be started. The number of MPI processes should be
+large enough to accomodate all the process grids specified in the
+<span style="font-family:monospace; color:navy;">hpccinf.txt</span> file.</li><li class="li-itemize"><span style="font-family:monospace; color:navy;">hpcc</span> is the name of the HPC&#XA0;Challenge executable to
+run.
+</li></ul><p>After the run, a file called <span style="font-family:monospace; color:navy;">hpccoutf.txt</span> is created. It
+contains results of the benchmark. This file should be uploaded
+through the web form at the HPC&#XA0;Challenge website.</p>
+<!--TOC section id=sec5 Source Code Changes across Versions (ChangeLog)-->
+<h2 id="sec5" class="section">5&#XA0;&#XA0;Source Code Changes across Versions (ChangeLog)</h2><!--SEC END -->
+<!--TOC subsection id=sec6 Version 1.4.3 (2013-08-26)-->
+<h3 id="sec6" class="subsection">5.1&#XA0;&#XA0;Version 1.4.3 (2013-08-26)</h3><!--SEC END --><ol class="enumerate" type=1><li class="li-enumerate">
+Increased the size of scratch vector for local FFT tests that was
+missed in the previous version (reported by SGI).
+</li><li class="li-enumerate">Added Makefile for Blue Gene/P contributed by Vasil Tsanov.
+</li></ol>
+<!--TOC subsection id=sec7 Version 1.4.2 (2012-10-12)-->
+<h3 id="sec7" class="subsection">5.2&#XA0;&#XA0;Version 1.4.2 (2012-10-12)</h3><!--SEC END --><ol class="enumerate" type=1><li class="li-enumerate">
+Increased sizes of scratch vectors for local FFT tests to account for
+runs on systems with large main memory (reported by IBM, SGI and Intel).
+</li><li class="li-enumerate">Reduced vector size for local FFT tests due to larger scratch space needed.
+</li><li class="li-enumerate">Added a type cast to prevent overflow of a 32-bit integer vector
+size in FFT data generation routine (reported by IBM).
+</li><li class="li-enumerate">Fixed variable types to handle array sizes that overflow 32-bit
+integers in RandomAccess (reported by IBM and SGI).
+</li><li class="li-enumerate">Changed time-bound code to be used by default in Global RandomAccess and
+allowed for it to be switched off with a compile time flag if necessary.
+</li><li class="li-enumerate">Code cleanup to allow compilation without warnings of RandomAccess test.
+</li><li class="li-enumerate">Changed communication code in PTRANS to avoid large message sizes that
+caused problems in some MPI implementations.
+</li><li class="li-enumerate">Updated documentation in README.txt and README.html files.
+</li></ol>
+<!--TOC subsection id=sec8 Version 1.4.1 (2010-06-01)-->
+<h3 id="sec8" class="subsection">5.3&#XA0;&#XA0;Version 1.4.1 (2010-06-01)</h3><!--SEC END --><ol class="enumerate" type=1><li class="li-enumerate">
+Added optimized variants of RandomAccess that use Linear Congruential Generator for random number generation.
+</li><li class="li-enumerate">Made corrections to comments that provide definition of the RandomAccess test.
+</li><li class="li-enumerate">Removed initialization of the main array from the timed section of optimized versions of RandomAccess.
+</li><li class="li-enumerate">Fixed the length of the vector used to compute error when using MPI implementation from FFTW.
+</li><li class="li-enumerate">Added global reduction to error calculation in MPI FFT to achieve more accurate error estimate.
+</li><li class="li-enumerate">Updated documentation in README.
+</li></ol>
+<!--TOC subsection id=sec9 Version 1.4.0 (2010-03-26)-->
+<h3 id="sec9" class="subsection">5.4&#XA0;&#XA0;Version 1.4.0 (2010-03-26)</h3><!--SEC END --><ol class="enumerate" type=1><li class="li-enumerate">
+Added new variant of RandomAccess that uses Linear Congruential Generator for random number generation.
+</li><li class="li-enumerate">Rearranged the order of benchmarks so that HPL component runs last and may be aborted
+if the performance of other components was not satisfactory. RandomAccess is now first to assist in tuning
+the code.
+</li><li class="li-enumerate">Added global initialization and finalization routine that allows to properly initialize
+and finalize external software and hardware components without changing the rest of the HPCC testing harness.
+</li><li class="li-enumerate">Lack of <span style="font-family:monospace; color:navy;">hpccinf.txt</span> is no longer reported as error but as a warning.
+</li></ol>
+<!--TOC subsection id=sec10 Version 1.3.2 (2009-03-24)-->
+<h3 id="sec10" class="subsection">5.5&#XA0;&#XA0;Version 1.3.2 (2009-03-24)</h3><!--SEC END --><ol class="enumerate" type=1><li class="li-enumerate">
+Fixed memory leaks in G-RandomAccess driver routine.
+</li><li class="li-enumerate">Made the check for 32-bit vector sizes in G-FFT optional. MKL allows for 64-bit vector sizes in its FFTW wrapper.
+</li><li class="li-enumerate">Fixed memory bug in single-process FFT.
+</li><li class="li-enumerate">Update documentation (README).
+</li></ol>
+<!--TOC subsection id=sec11 Version 1.3.1 (2008-12-09)-->
+<h3 id="sec11" class="subsection">5.6&#XA0;&#XA0;Version 1.3.1 (2008-12-09)</h3><!--SEC END --><ol class="enumerate" type=1><li class="li-enumerate">
+Fixed a dead-lock problem in FFT component due to use of wrong communicator.
+</li><li class="li-enumerate">Fixed the 32-bit random number generator in PTRANS that was using 64-bit
+routines from HPL.
+</li></ol>
+<!--TOC subsection id=sec12 Version 1.3.0 (2008-11-13)-->
+<h3 id="sec12" class="subsection">5.7&#XA0;&#XA0;Version 1.3.0 (2008-11-13)</h3><!--SEC END --><ol class="enumerate" type=1><li class="li-enumerate">
+Updated HPL component to use HPL 2.0 source code
+<ol class="enumerate" type=a><li class="li-enumerate">
+Replaced 32-bit Pseudo Random Number Generator (PRNG) with a 64-bit one.
+</li><li class="li-enumerate">Removed 3 numerical checks of the solution residual with a single one.
+</li><li class="li-enumerate">Added support for 64-bit systems with large memory sizes (before they would
+overflow during index calculations 32-bit integers.)
+</li></ol>
+</li><li class="li-enumerate">Introduced a limit on FFT vector size so they fit in a 32-bit integer (only
+applicable when using FFTW version 2.)
+</li></ol>
+<!--TOC subsection id=sec13 Version 1.2.0 (2007-06-25)-->
+<h3 id="sec13" class="subsection">5.8&#XA0;&#XA0;Version 1.2.0 (2007-06-25)</h3><!--SEC END --><ol class="enumerate" type=1><li class="li-enumerate">
+Changes in the FFT component:
+<ol class="enumerate" type=a><li class="li-enumerate">
+Added flexibility in choosing vector sizes and processor counts:
+now the code can do powers of 2, 3, and 5 both sequentially and in parallel
+tests.
+</li><li class="li-enumerate">FFTW can now run with ESTIMATE (not just MEASURE) flag: it might produce
+worse performance results but often reduces time to run the test and cuases
+less memory fragmentation.
+</li></ol>
+</li><li class="li-enumerate">Changes in the DGEMM component:
+<ol class="enumerate" type=a><li class="li-enumerate">
+Added more comprehensive checking of the numerical properties of the
+test&#X2019;s results.
+</li></ol>
+</li><li class="li-enumerate">Changes in the RandomAccess component:
+<ol class="enumerate" type=a><li class="li-enumerate">
+Removed time-bound functionality: only runs that perform complete
+computation are now possible.
+</li><li class="li-enumerate">Made the timing more accurate: main array initialization is not counted
+towards performance timing.
+</li><li class="li-enumerate">Cleaned up the code: some non-portable C language constructs have been
+removed.
+</li><li class="li-enumerate">Added new algorithms: new algorithms from Sandia based on hypercube
+network topology can now be chosen at compile time which results on much
+better performance results on many types of parallel systems.
+</li><li class="li-enumerate">Fixed potential resource leaks by adding function calls rquired by the MPI
+standard.
+</li></ol>
+</li><li class="li-enumerate">Changes in the HPL component:
+<ol class="enumerate" type=a><li class="li-enumerate">
+Cleaned up reporting of numerics: more accurate printing of scaled
+residual formula.
+</li></ol>
+</li><li class="li-enumerate">Changes in the PTRANS component:
+<ol class="enumerate" type=a><li class="li-enumerate">
+Added randomization of virtual process grids to measure bandwidth of the
+network more accurately.
+</li></ol>
+</li><li class="li-enumerate">Miscellaneous changes:
+<ol class="enumerate" type=a><li class="li-enumerate">
+Added better support for Windows-based clusters by taking advantage of
+Win32 API.
+</li><li class="li-enumerate">Added custom memory allocator to deal with memory fragmentation on some
+systems.
+</li><li class="li-enumerate">Added better reporting of configuration options in the output file.
+</li></ol>
+</li></ol>
+<!--TOC subsection id=sec14 Version 1.0.0 (2005-06-11)-->
+<h3 id="sec14" class="subsection">5.9&#XA0;&#XA0;Version 1.0.0 (2005-06-11)</h3><!--SEC END -->
+<!--TOC subsection id=sec15 Version 0.8beta (2004-10-19)-->
+<h3 id="sec15" class="subsection">5.10&#XA0;&#XA0;Version 0.8beta (2004-10-19)</h3><!--SEC END -->
+<!--TOC subsection id=sec16 Version 0.8alpha (2004-10-15)-->
+<h3 id="sec16" class="subsection">5.11&#XA0;&#XA0;Version 0.8alpha (2004-10-15)</h3><!--SEC END -->
+<!--TOC subsection id=sec17 Version 0.6beta (2004-08-21)-->
+<h3 id="sec17" class="subsection">5.12&#XA0;&#XA0;Version 0.6beta (2004-08-21)</h3><!--SEC END -->
+<!--TOC subsection id=sec18 Version 0.6alpha (2004-05-31)-->
+<h3 id="sec18" class="subsection">5.13&#XA0;&#XA0;Version 0.6alpha (2004-05-31)</h3><!--SEC END -->
+<!--TOC subsection id=sec19 Version 0.5beta (2003-12-01)-->
+<h3 id="sec19" class="subsection">5.14&#XA0;&#XA0;Version 0.5beta (2003-12-01)</h3><!--SEC END -->
+<!--TOC subsection id=sec20 Version 0.4alpha (2003-11-13)-->
+<h3 id="sec20" class="subsection">5.15&#XA0;&#XA0;Version 0.4alpha (2003-11-13)</h3><!--SEC END -->
+<!--TOC subsection id=sec21 Version 0.3alpha (2004-11-05)-->
+<h3 id="sec21" class="subsection">5.16&#XA0;&#XA0;Version 0.3alpha (2004-11-05)</h3><!--SEC END --><!--BEGIN NOTES document-->
+<hr class="footnoterule"><dl class="thefootnotes"><dt class="dt-thefootnotes">
+<a id="note1" href="#text1">*</a></dt><dd class="dd-thefootnotes"><div class="footnotetext">University of Tennessee Knoxville, Innovative
+Computing Laboratory</div>
+</dd></dl>
+<!--END NOTES-->
+<!--CUT END -->
+<!--HTMLFOOT-->
+<!--ENDHTML-->
+<!--FOOTER-->
+<hr style="height:2"><blockquote class="quote"><em>This document was translated from L<sup>A</sup>T<sub>E</sub>X by
+</em><a href="http://hevea.inria.fr/index.html"><em>H</em><em><span style="font-size:small"><sup>E</sup></span></em><em>V</em><em><span style="font-size:small"><sup>E</sup></span></em><em>A</em></a><em>.</em></blockquote></body>
+</html>

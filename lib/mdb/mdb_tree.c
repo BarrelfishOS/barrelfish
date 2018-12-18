@@ -170,7 +170,7 @@ mdb_dump_all_the_things(void)
     mdb_dump(mdb_root, 0);
 }
 
-STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 static void print_cte(struct cte *cte, char *indent_buff)
 {
     struct mdbnode *node = N(cte);
@@ -621,6 +621,7 @@ mdb_sub_insert(struct cte *new_node, struct cte **current)
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, current_);
 }
 
+uint64_t mdb_insert_count;
 errval_t
 mdb_insert(struct cte *new_node)
 {
@@ -632,6 +633,7 @@ mdb_insert(struct cte *new_node)
     print_cte(new_node, prefix);
 #endif
 #endif
+    mdb_insert_count ++;
     errval_t ret = mdb_sub_insert(new_node, &mdb_root);
     CHECK_INVARIANTS(mdb_root, new_node, true);
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, ret, mdb_root);
@@ -850,6 +852,7 @@ mdb_subtree_remove(struct cte *target, struct cte **current, struct cte *parent)
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, current_);
 }
 
+uint64_t mdb_remove_count;
 errval_t
 mdb_remove(struct cte *target)
 {
@@ -862,6 +865,7 @@ mdb_remove(struct cte *target)
     print_cte(target, prefix);
 #endif
 #endif
+    mdb_remove_count++;
     errval_t err = mdb_subtree_remove(target, &mdb_root, NULL);
     CHECK_INVARIANTS(mdb_root, target, false);
     MDB_TRACE_LEAVE_SUB_RET("%"PRIuPTR, err, mdb_root);
@@ -891,9 +895,11 @@ mdb_sub_find_equal(struct capability *cap, struct cte *current)
     }
 }
 
+uint64_t mdb_find_equal_count;
 struct cte*
 mdb_find_equal(struct capability *cap)
 {
+    mdb_find_equal_count++;
     return mdb_sub_find_equal(cap, mdb_root);
 }
 
@@ -932,9 +938,11 @@ mdb_sub_find_less(struct capability *cap, struct cte *current, bool equal_ok,
     }
 }
 
+uint64_t mdb_find_less_count;
 struct cte*
 mdb_find_less(struct capability *cap, bool equal_ok)
 {
+    mdb_find_less_count++;
     return mdb_sub_find_less(cap, mdb_root, equal_ok, false);
 }
 
@@ -974,15 +982,19 @@ mdb_sub_find_greater(struct capability *cap, struct cte *current,
     }
 }
 
+uint64_t mdb_find_greater_count;
 struct cte*
 mdb_find_greater(struct capability *cap, bool equal_ok)
 {
+    mdb_find_greater_count++;
     return mdb_sub_find_greater(cap, mdb_root, equal_ok, false);
 }
 
+uint64_t mdb_predecessor_count;
 struct cte*
 mdb_predecessor(struct cte *current)
 {
+    mdb_predecessor_count++;
     struct mdbnode *node = N(current);
     if (node->left) {
         // if possible, look just at children
@@ -998,9 +1010,11 @@ mdb_predecessor(struct cte *current)
     return mdb_sub_find_less(C(current), mdb_root, false, true);
 }
 
+uint64_t mdb_successor_count;
 struct cte*
 mdb_successor(struct cte *current)
 {
+    mdb_successor_count++;
     struct mdbnode *node = N(current);
     if (node->right) {
         // if possible, look just at children
@@ -1258,11 +1272,13 @@ mdb_sub_find_range(mdb_root_t root, genpaddr_t address, size_t size,
 
 }
 
+uint64_t mdb_find_range_count;
 errval_t
 mdb_find_range(mdb_root_t root, genpaddr_t address, gensize_t size,
                int max_result, /*out*/ struct cte **ret_node,
                /*out*/ int *result)
 {
+    mdb_find_range_count++;
     if (max_result < MDB_RANGE_NOT_FOUND ||
         max_result > MDB_RANGE_FOUND_PARTIAL)
     {
@@ -1284,9 +1300,11 @@ mdb_find_range(mdb_root_t root, genpaddr_t address, gensize_t size,
     return SYS_ERR_OK;
 }
 
+uint64_t mdb_find_cap_for_address_count;
 errval_t
 mdb_find_cap_for_address(genpaddr_t address, struct cte **ret_node)
 {
+    mdb_find_cap_for_address_count++;
     int result;
     errval_t err;
     // query for size 1 to get the smallest cap that includes the byte at the
@@ -1351,4 +1369,17 @@ mdb_traverse_subtree(struct cte *cte, enum mdb_tree_traversal_order order,
         }
     }
     return SYS_ERR_OK;
+}
+
+static errval_t count_nodes(struct cte *cte, void *data)
+{
+    size_t *counter = data;
+    *counter = *counter + 1;
+    return SYS_ERR_OK;
+}
+
+errval_t
+mdb_size(size_t *count)
+{
+    return mdb_traverse(MDB_TRAVERSAL_ORDER_ASCENDING, count_nodes, count);
 }

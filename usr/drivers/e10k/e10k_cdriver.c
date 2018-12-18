@@ -1027,12 +1027,12 @@ static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail
     bool enable_global = !st->rxtx_enabled;
 
     // Get physical addresses for rx/tx rings
-    r = invoke_frame_identify(st->queues[n].tx_frame, &frameid);
+    r = frame_identify(st->queues[n].tx_frame, &frameid);
     assert(err_is_ok(r));
     tx_phys = frameid.base;
     tx_size = frameid.bytes;
 
-    r = invoke_frame_identify(st->queues[n].rx_frame, &frameid);
+    r = frame_identify(st->queues[n].rx_frame, &frameid);
     assert(err_is_ok(r));
     rx_phys = frameid.base;
     rx_size = frameid.bytes;
@@ -1206,7 +1206,7 @@ static void queue_hw_init(struct e10k_driver_state* st, uint8_t n, bool set_tail
     // Initialize TX head index write back
     if (!capref_is_null(st->queues[n].txhwb_frame)) {
         DEBUG("[%x] TX hwb enabled ...\n", n);
-        r = invoke_frame_identify(st->queues[n].txhwb_frame, &frameid);
+        r = frame_identify(st->queues[n].txhwb_frame, &frameid);
         st->queues[n].use_txhwb = true;
         assert(err_is_ok(r));
         txhwb_phys = frameid.base;

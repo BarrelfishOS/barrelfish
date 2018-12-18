@@ -211,7 +211,7 @@ static errval_t frame_address_2d(struct capref cap, omap_sdma_addr_2d_t *addr,
     errval_t err;
     struct frame_identity id;
 
-    err = invoke_frame_identify(cap, &id);
+    err = frame_identify(cap, &id);
     if (err_is_fail(err)) return err_push(err, OMAP_SDMA_ERR_CAP_LOOKUP);
 
     lpaddr_t frame_start = id.base;
@@ -312,10 +312,10 @@ errval_t mem_copy(struct sdma_driver_state* st, struct capref dst_cap, struct ca
     struct frame_identity src_id, dst_id;
 
     // get frame sizes
-    err = invoke_frame_identify(src_cap, &src_id);
+    err = frame_identify(src_cap, &src_id);
     if (err_is_fail(err)) return err_push(err, OMAP_SDMA_ERR_CAP_LOOKUP);
 
-    err = invoke_frame_identify(dst_cap, &dst_id);
+    err = frame_identify(dst_cap, &dst_id);
     if (err_is_fail(err)) return err_push(err, OMAP_SDMA_ERR_CAP_LOOKUP);
 
     // infer element/frame number for smaller frame
@@ -341,7 +341,7 @@ errval_t mem_fill(struct sdma_driver_state* st, struct capref dst_cap, uint8_t c
     struct frame_identity dst_id;
 
     // get frame size and infer element/frame number
-    err = invoke_frame_identify(dst_cap, &dst_id);
+    err = frame_identify(dst_cap, &dst_id);
     if (err_is_fail(err)) return err_push(err, OMAP_SDMA_ERR_CAP_LOOKUP);
     init_count_1d(log2ceil(dst_id.bytes), &count);
 

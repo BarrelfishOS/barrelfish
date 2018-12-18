@@ -9,6 +9,8 @@
 
 #include "mdb_bench.h"
 
+const char *progname = NULL;
+
 static void test(char *base, size_t size, size_t runs, reset_fn reset, measure_fn measure, const char *name)
 {
     assert(size % sizeof(struct cte) == 0);
@@ -35,7 +37,7 @@ static void test(char *base, size_t size, size_t runs, reset_fn reset, measure_f
         }
 
         // output
-        printf("%s: %"PRIu64"/%zu\n", name, val - bench_tscoverhead(), num_caps);
+        printf("%s:%s: %"PRIu64"/%zu\n", progname, name, val - bench_tscoverhead(), num_caps);
     }
 
     if (run < runs) {
@@ -95,6 +97,7 @@ static void usage(const char *program)
 
 int main(int argc, char* argv[])
 {
+    progname = argv[0];
 
     size_t size_wanted = 1<<20;
     size_t runs = 100;
@@ -184,6 +187,11 @@ int main(int argc, char* argv[])
                     printf("ERROR: unkown measure \"%s\"\n", name);
                 }
             }
+        }
+        else if (strncmp(argv[arg], "seed=", 5) == 0) {
+            char *seedarg = argv[arg]+5;
+            unsigned long seed = strtoul(seedarg, NULL, 10);
+            srand(seed);
         }
         else {
             args_ok = false;

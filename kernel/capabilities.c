@@ -55,7 +55,7 @@ void caps_trace_ctrl(uint64_t types, genpaddr_t start, gensize_t size)
 
 struct capability monitor_ep;
 
-STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 int sprint_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -163,6 +163,22 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "VTd ctxt table at 0x%" PRIxGENPADDR,
                         cap->u.vnode_x86_64_pml4.base);
 
+    case ObjType_VNode_x86_64_ept_ptable:
+        return snprintf(buf, len, "x86_64 EPT Page table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_ptable.base);
+
+    case ObjType_VNode_x86_64_ept_pdir:
+        return snprintf(buf, len, "x86_64 EPT Page directory at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pdir.base);
+
+    case ObjType_VNode_x86_64_ept_pdpt:
+        return snprintf(buf, len, "x86_64 EPT PDPT at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pdpt.base);
+
+    case ObjType_VNode_x86_64_ept_pml4:
+        return snprintf(buf, len, "x86_64 EPT PML4 at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pml4.base);
+
     case ObjType_Frame_Mapping:
         mappingtype = "Frame";
         goto ObjType_Mapping;
@@ -187,6 +203,19 @@ int sprint_cap(char *buf, size_t len, struct capability *cap)
         goto ObjType_Mapping;
     case ObjType_VNode_x86_64_ptable_Mapping:
         mappingtype = "x86_64 PTABLE";
+        goto ObjType_Mapping;
+
+    case ObjType_VNode_x86_64_ept_pml4_Mapping:
+        mappingtype = "x86_64 EPT PML4";
+        goto ObjType_Mapping;
+    case ObjType_VNode_x86_64_ept_pdpt_Mapping:
+        mappingtype = "x86_64 EPT PDPT";
+        goto ObjType_Mapping;
+    case ObjType_VNode_x86_64_ept_pdir_Mapping:
+        mappingtype = "x86_64 EPT PDIR";
+        goto ObjType_Mapping;
+    case ObjType_VNode_x86_64_ept_ptable_Mapping:
+        mappingtype = "x86_64 EPT PTABLE";
         goto ObjType_Mapping;
 
     case ObjType_VNode_x86_32_pdpt_Mapping:
@@ -323,6 +352,11 @@ static uint32_t id_cap_counter = 1;
 static uint32_t domain_cap_counter = 1;
 
 /**
+ * Tracing sequence number for retypes
+ */
+static uint64_t retype_seqnum = 0;
+
+/**
  *  Sets #dest equal to #src
  *
  * #dest cannot be in use.
@@ -364,7 +398,7 @@ static errval_t set_cap(struct capability *dest, struct capability *src)
 
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t objsize)
 {
     switch(type) {
@@ -401,6 +435,10 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pdir:
     case ObjType_VNode_x86_64_ptable:
+    case ObjType_VNode_x86_64_ept_pml4:
+    case ObjType_VNode_x86_64_ept_pdpt:
+    case ObjType_VNode_x86_64_ept_pdir:
+    case ObjType_VNode_x86_64_ept_ptable:
     case ObjType_VNode_x86_32_pdpt:
     case ObjType_VNode_x86_32_pdir:
     case ObjType_VNode_x86_32_ptable:
@@ -458,6 +496,10 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
     case ObjType_VNode_x86_64_pdpt_Mapping:
     case ObjType_VNode_x86_64_pdir_Mapping:
     case ObjType_VNode_x86_64_ptable_Mapping:
+    case ObjType_VNode_x86_64_ept_pml4_Mapping:
+    case ObjType_VNode_x86_64_ept_pdpt_Mapping:
+    case ObjType_VNode_x86_64_ept_pdir_Mapping:
+    case ObjType_VNode_x86_64_ept_ptable_Mapping:
     case ObjType_VNode_x86_32_pdpt_Mapping:
     case ObjType_VNode_x86_32_pdir_Mapping:
     case ObjType_VNode_x86_32_ptable_Mapping:
@@ -476,11 +518,11 @@ static size_t caps_max_numobjs(enum objtype type, gensize_t srcsize, gensize_t o
  *
  * For the meaning of the parameters, see the 'caps_create' function.
  */
-STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
-
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
                                   gensize_t objsize, size_t count)
 {
+    TRACE(KERNEL_CAPOPS, ZERO_OBJECTS, retype_seqnum);
     assert(type < ObjType_Num);
 
     // Virtual address of the memory the kernel object resides in
@@ -528,6 +570,10 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
     case ObjType_VNode_x86_64_pdir:
     case ObjType_VNode_x86_64_pdpt:
     case ObjType_VNode_x86_64_pml4:
+    case ObjType_VNode_x86_64_ept_ptable:
+    case ObjType_VNode_x86_64_ept_pdir:
+    case ObjType_VNode_x86_64_ept_pdpt:
+    case ObjType_VNode_x86_64_ept_pml4:
     case ObjType_VNode_x86_64_pml5:
     case ObjType_VNode_VTd_root_table:
     case ObjType_VNode_VTd_ctxt_table:
@@ -563,6 +609,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
 
     }
 
+    TRACE(KERNEL_CAPOPS, ZERO_OBJECTS_DONE, retype_seqnum);
     return SYS_ERR_OK;
 }
 
@@ -588,7 +635,7 @@ static errval_t caps_zero_objects(enum objtype type, lpaddr_t lpaddr,
  */
 // If you create more capability types you need to deal with them
 // in the table below.
-STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 
 static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
                             gensize_t objsize, size_t count, coreid_t owner,
@@ -642,6 +689,7 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
 
     size_t dest_i = 0;
     err = SYS_ERR_OK;
+    bool is_ept = false;
 
     /* Set the type specific fields and insert into #dest_caps */
     switch(type) {
@@ -919,6 +967,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     }
 
     case ObjType_VNode_x86_64_ptable:
+        is_ept = true;
+    case ObjType_VNode_x86_64_ept_ptable:
     {
         size_t objsize_vnode = vnode_objsize(type);
 
@@ -937,6 +987,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     }
 
     case ObjType_VNode_x86_64_pdir:
+        is_ept = true;
+    case ObjType_VNode_x86_64_ept_pdir:
     {
         size_t objsize_vnode = vnode_objsize(type);
 
@@ -955,6 +1007,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
     }
 
     case ObjType_VNode_x86_64_pdpt:
+        is_ept = true;
+    case ObjType_VNode_x86_64_ept_pdpt:
     {
         size_t objsize_vnode = vnode_objsize(type);
 
@@ -972,6 +1026,8 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
         break;
     }
 
+    case ObjType_VNode_x86_64_ept_pml4:
+        is_ept = true;
     case ObjType_VNode_x86_64_pml4:
     {
         size_t objsize_vnode = vnode_objsize(type);
@@ -985,6 +1041,11 @@ static errval_t caps_create(enum objtype type, lpaddr_t lpaddr, gensize_t size,
             // Make it a good PML4 by inserting kernel/mem VSpaces
             lpaddr_t var = gen_phys_to_local_phys(get_address(&temp_cap));
             paging_x86_64_make_good_pml4(var);
+            if (is_ept) {
+                paging_x86_64_make_good_ept_pml4(var);
+            } else {
+                paging_x86_64_make_good_pml4(var);
+            }
 #endif
 
             // Insert the capability
@@ -1402,7 +1463,7 @@ errval_t caps_create_from_existing(struct capability *root, capaddr_t cnode_cptr
 //{{{1 Capability creation
 
 /// check arguments, return true iff ok
-STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 #ifndef NDEBUG
 static bool check_caps_create_arguments(enum objtype type,
                                         size_t bytes, size_t objsize,
@@ -1523,7 +1584,7 @@ errval_t caps_create_new(enum objtype type, lpaddr_t addr, size_t bytes,
     return SYS_ERR_OK;
 }
 
-STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 /// Retype caps
 /// Create `count` new caps of `type` from `offset` in src, and put them in
 /// `dest_cnode` starting at `dest_slot`.
@@ -1533,6 +1594,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
                      bool from_monitor)
 {
     TRACE(KERNEL, CAP_RETYPE, 0);
+    TRACE(KERNEL_CAPOPS, RETYPE_ENTER, ++retype_seqnum);
     size_t maxobjs;
     genpaddr_t base = 0;
     gensize_t size = 0;
@@ -1544,6 +1606,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     assert(type != ObjType_Null);
     assert(type < ObjType_Num);
     if (type == ObjType_Null || type >= ObjType_Num) {
+        TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
         return SYS_ERR_INVALID_RETYPE;
     }
 
@@ -1562,6 +1625,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         dest_obj_alignment = OBJSIZE_DISPATCHER;
     }
     if (src_cap->type != ObjType_IRQSrc && offset % dest_obj_alignment != 0) {
+        TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
         return SYS_ERR_RETYPE_INVALID_OFFSET;
     }
     assert(offset % dest_obj_alignment == 0 || src_cap->type == ObjType_IRQSrc);
@@ -1573,16 +1637,19 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     }
     if (type_is_mappable(type) && objsize % base_size != 0) {
         debug(SUBSYS_CAPS, "%s: objsize = %"PRIuGENSIZE"\n", __FUNCTION__, objsize);
+        TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
         return SYS_ERR_INVALID_SIZE;
     }
     else if (type == ObjType_L1CNode && objsize % OBJSIZE_L2CNODE != 0)
     {
         printk(LOG_WARN, "%s: CNode: objsize = %" PRIuGENSIZE "\n", __FUNCTION__, objsize);
+        TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
         return SYS_ERR_INVALID_SIZE;
     }
     else if (type == ObjType_L2CNode && objsize != OBJSIZE_L2CNODE)
     {
         printk(LOG_WARN, "%s: L2CNode: objsize = %"PRIuGENSIZE"\n", __FUNCTION__, objsize);
+        TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
         return SYS_ERR_INVALID_SIZE;
     }
     assert((type_is_mappable(type) && objsize % base_size == 0) ||
@@ -1593,18 +1660,20 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
 
     /* No explicit retypes to Mapping allowed */
     if (type_is_mapping(type)) {
+        TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
         return SYS_ERR_RETYPE_MAPPING_EXPLICIT;
     }
 
 
     TRACE_CAP_MSG("retyping", src_cte);
 
+    TRACE(KERNEL_CAPOPS, RETYPE_IS_RETYPEABLE, retype_seqnum);
     /* Check retypability */
     err = is_retypeable(src_cte, src_cap->type, type, from_monitor);
     if (err_is_fail(err)) {
         if (err_no(err) != SYS_ERR_REVOKE_FIRST) {
-            printk(LOG_NOTE, "caps_retype: is_retypeable failed: %"PRIuERRV"\n", err);
             debug(SUBSYS_CAPS, "caps_retype: is_retypeable failed\n");
+            TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
             return err;
         } else {
             debug(SUBSYS_CAPS,
@@ -1617,6 +1686,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             do_range_check = true;
         }
     }
+    TRACE(KERNEL_CAPOPS, RETYPE_IS_RETYPEABLE_DONE, retype_seqnum);
     // from here: src cap type is one of these.
     assert(src_cap->type == ObjType_PhysAddr ||
            src_cap->type == ObjType_RAM ||
@@ -1637,17 +1707,20 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
 
     if (maxobjs == 0) {
         debug(SUBSYS_CAPS, "caps_retype: maxobjs == 0\n");
+        TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
         return SYS_ERR_INVALID_SIZE;
     }
 
     if (count > maxobjs) {
         debug(SUBSYS_CAPS, "caps_retype: maxobjs = %zu, count = %zu\n", maxobjs, count);
+        TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
         return SYS_ERR_RETYPE_INVALID_COUNT;
     }
     // from here: count <= maxobjs
     assert(count <= maxobjs);
     // make sure nobody calls with the old behaviour
     if (count == 0) {
+        TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
         return SYS_ERR_RETYPE_INVALID_COUNT;
     }
     assert(count > 0);
@@ -1661,6 +1734,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             debug(SUBSYS_CAPS, "caps_retype: cannot create all %zu objects"
                     " of size 0x%" PRIxGENSIZE " from offset 0x%" PRIxGENSIZE "\n",
                     count, objsize, offset);
+            TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
             return SYS_ERR_RETYPE_INVALID_OFFSET;
         }
         // adjust base address for new objects
@@ -1669,6 +1743,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         // Check whether we got SYS_ERR_REVOKE_FIRST because of
         // non-overlapping child
         if (do_range_check) {
+            TRACE(KERNEL_CAPOPS, RETYPE_RANGE_CHECK, retype_seqnum);
             int find_range_result = 0;
             struct cte *found_cte = NULL;
             err = mdb_find_range(get_type_root(src_cap->type), base, objsize * count,
@@ -1701,6 +1776,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
                     assert(get_address(&found_cte->cap) >= base &&
                            get_address(&found_cte->cap) < base+objsize*count);
                 }
+                TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
                 return SYS_ERR_REVOKE_FIRST;
             }
             // return REVOKE_FIRST, if we found a cap that isn't our source
@@ -1711,14 +1787,17 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
                 debug(SUBSYS_CAPS,
                        "%s: found non source region fully covering requested region\n",
                        __FUNCTION__);
+                TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
                 return SYS_ERR_REVOKE_FIRST;
             }
+            TRACE(KERNEL_CAPOPS, RETYPE_RANGE_CHECK_DONE, retype_seqnum);
         }
     }
 
     /* check that destination slots all fit within target cnode */
     if (dest_slot + count > cnode_get_slots(dest_cnode)) {
         debug(SUBSYS_CAPS, "caps_retype: dest slots don't fit in cnode\n");
+        TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
         return SYS_ERR_SLOTS_INVALID;
     }
 
@@ -1731,6 +1810,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
             != ObjType_Null) {
             debug(SUBSYS_CAPS, "caps_retype: dest slot %d in use\n",
                   (int)(dest_slot + i));
+            TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
             return SYS_ERR_SLOTS_IN_USE;
         }
     }
@@ -1753,23 +1833,27 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
 
         // Check new range is valid
         if(vec_start_new > vec_end_new){
+            TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
             return SYS_ERR_RETYPE_INVALID_OFFSET;
         }
         
         // Check vec_start_new in range
         if(!(src_cap->u.irqsrc.vec_start <= vec_start_new &&
                 vec_start_new <= src_cap->u.irqsrc.vec_end)){
+            TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
             return SYS_ERR_RETYPE_INVALID_OFFSET;
         }
 
         // Check vec_end_new in range
         if(!(src_cap->u.irqsrc.vec_start <= vec_end_new &&
                 vec_end_new <= src_cap->u.irqsrc.vec_end)){
+            TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
             return SYS_ERR_RETYPE_INVALID_OBJSIZE;
         }
     }
 
 
+    TRACE(KERNEL_CAPOPS, RETYPE_CREATE_CAPS, retype_seqnum);
     /* create new caps */
     struct cte *dest_cte =
         caps_locate_slot(get_address(dest_cnode), dest_slot);
@@ -1785,8 +1869,10 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
     }
     if (err_is_fail(err)) {
         debug(SUBSYS_CAPS, "caps_retype: failed to create a dest cap\n");
+        TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
         return err_push(err, SYS_ERR_RETYPE_CREATE);
     }
+    TRACE(KERNEL_CAPOPS, RETYPE_CREATE_CAPS_DONE, retype_seqnum);
 
     /* special initialisation for endpoint caps */
     if (type == ObjType_EndPointLMP) {
@@ -1811,10 +1897,12 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
         }
     }
 
+    TRACE(KERNEL_CAPOPS, RETYPE_MDB_INSERT, retype_seqnum);
     /* Handle mapping */
     for (size_t i = 0; i < count; i++) {
         mdb_insert(&dest_cte[i]);
     }
+    TRACE(KERNEL_CAPOPS, RETYPE_MDB_INSERT_DONE, retype_seqnum);
 
 #ifdef TRACE_PMEM_CAPS
     for (size_t i = 0; i < count; i++) {
@@ -1823,6 +1911,7 @@ errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
 #endif
 
     TRACE(KERNEL, CAP_RETYPE, 1);
+    TRACE(KERNEL_CAPOPS, RETYPE_DONE, retype_seqnum);
     return SYS_ERR_OK;
 }
 
@@ -1877,7 +1966,7 @@ errval_t caps_copy_to_cnode(struct cte *dest_cnode_cte, cslot_t dest_slot,
 }
 
 /// Create copies to a cte
-STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
                           uintptr_t param1, uintptr_t param2)
 {
@@ -1947,8 +2036,16 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
         if (param2 < LMP_RECV_HEADER_LENGTH) {
             return SYS_ERR_INVALID_EPLEN;
         }
+        uint16_t iftype = param2 >> 16;
+        uint16_t buflen = param2 & 0xFFFF;
         dest_cap->u.endpointlmp.epoffset = param1;
-        dest_cap->u.endpointlmp.epbuflen = param2;
+        dest_cap->u.endpointlmp.epbuflen = buflen;
+        dest_cap->u.endpointlmp.iftype = iftype;
+        break;
+
+    case ObjType_EndPointUMP:
+        assert(param2 == 0);
+        dest_cap->u.endpointump.iftype = param1;
         break;
 
     case ObjType_IO:
@@ -1967,5 +2064,20 @@ errval_t caps_copy_to_cte(struct cte *dest_cte, struct cte *src_cte, bool mint,
     // Insert after doing minting operation
     mdb_insert(dest_cte);
 
+    return SYS_ERR_OK;
+}
+
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
+errval_t redact_capability(struct capability *cap)
+{
+    // TODO: figure out which other types need redacting
+    switch (cap->type) {
+        case ObjType_KernelControlBlock:
+            // don't leak KCB kernel pointer in KCB cap
+            cap->u.kernelcontrolblock.kcb = NULL;
+        default:
+            // Don't redact all other capability types
+            break;
+    }
     return SYS_ERR_OK;
 }

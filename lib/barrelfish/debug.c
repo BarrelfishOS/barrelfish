@@ -101,11 +101,19 @@ errval_t debug_cap_trace_ctrl(uintptr_t types, genpaddr_t start_addr, gensize_t 
 }
 
 /**
- * \brief Dump own hw page tables
+ * \brief Dump own hw page tables around a given vaddr
+ */
+errval_t debug_dump_hw_ptables_around(void *vaddr)
+{
+    return invoke_dispatcher_dump_ptables(cap_dispatcher, (lvaddr_t)vaddr);
+}
+
+/**
+ * \brief Dump full page tables
  */
 errval_t debug_dump_hw_ptables(void)
 {
-    return invoke_dispatcher_dump_ptables(cap_dispatcher);
+    return debug_dump_hw_ptables_around(NULL);
 }
 
 void debug_printf(const char *fmt, ...)
@@ -137,7 +145,7 @@ void debug_printf(const char *fmt, ...)
 /**
  * \brief Function to do the actual printing based on the type of capability
  */
-STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all cap types");
+STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all cap types");
 int debug_print_cap(char *buf, size_t len, struct capability *cap)
 {
     char *mappingtype;
@@ -237,6 +245,22 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         return snprintf(buf, len, "x86_64 PML4 at 0x%" PRIxGENPADDR,
                         cap->u.vnode_x86_64_pml4.base);
 
+    case ObjType_VNode_x86_64_ept_ptable:
+        return snprintf(buf, len, "x86_64 EPT Page table at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_ptable.base);
+
+    case ObjType_VNode_x86_64_ept_pdir:
+        return snprintf(buf, len, "x86_64 EPT Page directory at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pdir.base);
+
+    case ObjType_VNode_x86_64_ept_pdpt:
+        return snprintf(buf, len, "x86_64 EPT PDPT at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pdpt.base);
+
+    case ObjType_VNode_x86_64_ept_pml4:
+        return snprintf(buf, len, "x86_64 EPT PML4 at 0x%" PRIxGENPADDR,
+                        cap->u.vnode_x86_64_ept_pml4.base);
+
     case ObjType_VNode_x86_64_pml5:
         return snprintf(buf, len, "x86_64 PML5 at 0x%" PRIxGENPADDR,
                         cap->u.vnode_x86_64_pml5.base);
@@ -272,6 +296,19 @@ int debug_print_cap(char *buf, size_t len, struct capability *cap)
         goto ObjType_Mapping;
     case ObjType_VNode_x86_64_ptable_Mapping:
         mappingtype = "x86_64 PTABLE";
+        goto ObjType_Mapping;
+
+    case ObjType_VNode_x86_64_ept_pml4_Mapping:
+        mappingtype = "x86_64 EPT PML4";
+        goto ObjType_Mapping;
+    case ObjType_VNode_x86_64_ept_pdpt_Mapping:
+        mappingtype = "x86_64 EPT PDPT";
+        goto ObjType_Mapping;
+    case ObjType_VNode_x86_64_ept_pdir_Mapping:
+        mappingtype = "x86_64 EPT PDIR";
+        goto ObjType_Mapping;
+    case ObjType_VNode_x86_64_ept_ptable_Mapping:
+        mappingtype = "x86_64 EPT PTABLE";
         goto ObjType_Mapping;
 
     case ObjType_VNode_x86_32_pdpt_Mapping:
@@ -384,9 +421,9 @@ int debug_print_cap_at_capref(char *buf, size_t len, struct capref cap)
         return snprintf(buf, len, "(null cap)");
     }
 
-    err = debug_cap_identify(cap, &capability);
+    err = cap_direct_identify(cap, &capability);
     if (err_is_fail(err)) {
-        return snprintf(buf, len, "(ERROR identifying cap!)");
+        return snprintf(buf, len, "(ERROR identifying cap: %s!)", err_getcode(err));
     } else {
         return debug_print_cap(buf, len, &capability);
     }
@@ -408,10 +445,11 @@ static void walk_cspace_l2(struct capref l2cnode){
         };
 
         // Get cap data
-        err = debug_cap_identify(pos, &cap);
+        err = cap_direct_identify(pos, &cap);
         if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP ||
             err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
-            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
+            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP ||
+            cap.type == ObjType_Null) {
             continue;
         } else if (err_is_fail(err)) {
             DEBUG_ERR(err, "debug_cap_identify failed");
@@ -444,7 +482,7 @@ void debug_cspace(struct capref root)
     struct capability l2_cap;
 
     /* find out size of root cnode */
-    errval_t err = debug_cap_identify(root, &root_cap);
+    errval_t err = cap_direct_identify(root, &root_cap);
     assert(err_is_ok(err));
     assert(root_cap.type == ObjType_L1CNode);
 
@@ -460,12 +498,13 @@ void debug_cspace(struct capref root)
         struct capref pos = {
             .cnode = cnode, .slot = slot
         };
-        err = debug_cap_identify(pos, &l2_cap);
+        err = cap_direct_identify(pos, &l2_cap);
 
         // If cap type was Null, kernel returns error
         if (err_no(err) == SYS_ERR_IDENTIFY_LOOKUP ||
             err_no(err) == SYS_ERR_CAP_NOT_FOUND ||
-            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP) {
+            err_no(err) == SYS_ERR_LMP_CAPTRANSFER_SRC_LOOKUP ||
+            l2_cap.type == ObjType_Null) {
             continue;
         } else if (err_is_fail(err)) {
             DEBUG_ERR(err, "debug_cap_identify failed");

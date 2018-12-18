@@ -58,17 +58,8 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/caddr.h>
 #include <barrelfish/invocations_arch.h>
-#include <stdio.h>
-
-// Location of VSpace managed by this system.
-#define VSPACE_BEGIN   ((lvaddr_t)(512*512*512*BASE_PAGE_SIZE * (disp_get_core_id() + 1)))
-
-
-// Amount of virtual address space reserved for mapping frames
-// backing refill_slabs.
-//#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 128) // 64
-#define META_DATA_RESERVED_SPACE (BASE_PAGE_SIZE * 80000)
-// increased above value from 128 for pandaboard port
+#include <pmap_priv.h>
+#include <pmap_ds.h> // for selected pmap datastructure
 
 static inline uintptr_t
 vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
@@ -94,86 +85,30 @@ vregion_flags_to_kpi_paging_flags(vregion_flags_t flags)
     return (uintptr_t)flags;
 }
 
-/**
- * \brief Starting at a given root, return the vnode with entry equal to #entry
- */
-static struct vnode *find_vnode(struct vnode *root, uint32_t entry)
+static bool has_vnode(struct vnode *root, uint16_t entry, size_t len)
 {
     assert(root != NULL);
-    assert(root->is_vnode);
-    struct vnode *n;
-
-    for(n = root->u.vnode.children; n != NULL; n = n->next) {
-        if(n->entry == entry) {
-            return n;
-        }
-    }
-    return NULL;
-}
-
-static bool inside_region(struct vnode *root, uint32_t entry, uint32_t npages)
-{
-    assert(root != NULL);
-    assert(root->is_vnode);
-
-    struct vnode *n;
-
-    for (n = root->u.vnode.children; n; n = n->next) {
-        if (!n->is_vnode) {
-            uint16_t end = n->entry + n->u.frame.pte_count;
-            if (n->entry <= entry && entry + npages <= end) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-static bool has_vnode(struct vnode *root, uint32_t entry, size_t len)
-{
-    assert(root != NULL);
-    assert(root->is_vnode);
+    assert(root->v.is_vnode);
     struct vnode *n;
 
     uint32_t end_entry = entry + len;
 
-    for (n = root->u.vnode.children; n; n = n->next) {
-        if (n->is_vnode && n->entry == entry) {
+    pmap_foreach_child(root, n) {
+        assert(n);
+        if (n->v.is_vnode && n->v.entry == entry) {
             return true;
         }
         // n is frame
-        uint32_t end = n->entry + n->u.frame.pte_count;
-        if (n->entry < entry && end > end_entry) {
+        uint32_t end = n->v.entry + n->v.u.frame.pte_count;
+        if (n->v.entry < entry && end > end_entry) {
             return true;
         }
-        if (n->entry >= entry && n->entry < end_entry) {
+        if (n->v.entry >= entry && n->v.entry < end_entry) {
             return true;
         }
     }
 
     return false;
-}
-
-static void remove_vnode(struct vnode *root, struct vnode *item)
-{
-    assert(root->is_vnode);
-    struct vnode *walk = root->u.vnode.children;
-    struct vnode *prev = NULL;
-    while (walk) {
-        if (walk == item) {
-            if (prev) {
-                prev->next = walk->next;
-                return;
-            } else {
-                root->u.vnode.children = walk->next;
-                return;
-            }
-        }
-        prev = walk;
-        walk = walk->next;
-    }
-    assert(!"Should not get here");
 }
 
 /**
@@ -183,80 +118,86 @@ static errval_t alloc_vnode(struct pmap_aarch64 *pmap_aarch64, struct vnode *roo
                             enum objtype type, uint32_t entry,
                             struct vnode **retvnode)
 {
-    assert(root->is_vnode);
+    assert(root->v.is_vnode);
     errval_t err;
 
-    struct vnode *newvnode = slab_alloc(&pmap_aarch64->slab);
+    if (!retvnode) {
+        debug_printf("%s called without retvnode from %p, expect badness!\n", __FUNCTION__, __builtin_return_address(0));
+        // XXX: should probably return error.
+    }
+    assert(retvnode);
+
+    struct vnode *newvnode = slab_alloc(&pmap_aarch64->p.m.slab);
     if (newvnode == NULL) {
         return LIB_ERR_SLAB_ALLOC_FAIL;
     }
-    newvnode->is_vnode = true;
+    newvnode->v.is_vnode = true;
 
     // The VNode capability
-    err = pmap_aarch64->p.slot_alloc->alloc(pmap_aarch64->p.slot_alloc, &newvnode->u.vnode.cap);
+    err = pmap_aarch64->p.slot_alloc->alloc(pmap_aarch64->p.slot_alloc, &newvnode->v.cap);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_SLOT_ALLOC);
     }
 
-    assert(!capref_is_null(newvnode->u.vnode.cap));
+    assert(!capref_is_null(newvnode->v.cap));
 
-    err = vnode_create(newvnode->u.vnode.cap, type);
+    err = vnode_create(newvnode->v.cap, type);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_CREATE);
     }
 
-assert(!capref_is_null(newvnode->u.vnode.cap));
+    assert(!capref_is_null(newvnode->v.cap));
 
     // XXX: need to make sure that vnode cap that we will invoke is in our cspace!
-    if (get_croot_addr(newvnode->u.vnode.cap) != CPTR_ROOTCN) {
+    if (get_croot_addr(newvnode->v.cap) != CPTR_ROOTCN) {
         // debug_printf("%s: creating vnode for another domain in that domain's cspace; need to copy vnode cap to our cspace to make it invokable\n", __FUNCTION__);
-        assert(!capref_is_null(newvnode->u.vnode.cap));
-        err = slot_alloc(&newvnode->u.vnode.invokable);
-        assert(!capref_is_null(newvnode->u.vnode.cap));
+        assert(!capref_is_null(newvnode->v.cap));
+        err = slot_alloc(&newvnode->v.u.vnode.invokable);
+        assert(!capref_is_null(newvnode->v.cap));
         assert(err_is_ok(err));
-        assert(!capref_is_null(newvnode->u.vnode.cap));
-        err = cap_copy(newvnode->u.vnode.invokable, newvnode->u.vnode.cap);
+        assert(!capref_is_null(newvnode->v.cap));
+        err = cap_copy(newvnode->v.u.vnode.invokable, newvnode->v.cap);
         assert(err_is_ok(err));
-        assert(!capref_is_null(newvnode->u.vnode.invokable));
-        assert(!capref_is_null(newvnode->u.vnode.cap));
+        assert(!capref_is_null(newvnode->v.u.vnode.invokable));
+        assert(!capref_is_null(newvnode->v.cap));
 
-        assert(!capref_is_null(newvnode->u.vnode.cap));
+        assert(!capref_is_null(newvnode->v.cap));
     } else {
         // debug_printf("vnode in our cspace: copying capref to invokable\n");
-        assert(!capref_is_null(newvnode->u.vnode.cap));
-        newvnode->u.vnode.invokable = newvnode->u.vnode.cap;
-        assert(!capref_is_null(newvnode->u.vnode.cap));
+        assert(!capref_is_null(newvnode->v.cap));
+        newvnode->v.u.vnode.invokable = newvnode->v.cap;
+        assert(!capref_is_null(newvnode->v.cap));
     }
-    assert(!capref_is_null(newvnode->u.vnode.cap));
-    assert(!capref_is_null(newvnode->u.vnode.invokable));
+    assert(!capref_is_null(newvnode->v.cap));
+    assert(!capref_is_null(newvnode->v.u.vnode.invokable));
 
-    // The slot for the mapping capability
-    err = pmap_aarch64->p.slot_alloc->alloc(pmap_aarch64->p.slot_alloc, &newvnode->mapping);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
+    // set mapping cap to correct slot in mapping cnodes.
+    set_mapping_cap(&pmap_aarch64->p, newvnode, root, entry);
 
     // Map it
-    err = vnode_map(root->u.vnode.invokable, newvnode->u.vnode.cap, entry,
-                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1, newvnode->mapping);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_VNODE_MAP);
-    }
-
+    err = vnode_map(root->v.u.vnode.invokable, newvnode->v.cap, entry,
+                    KPI_PAGING_FLAGS_READ | KPI_PAGING_FLAGS_WRITE, 0, 1, newvnode->v.mapping);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
     }
 
     // The VNode meta data
-    newvnode->is_vnode  = true;
-    newvnode->entry     = entry;
-    newvnode->next      = root->u.vnode.children;
-    root->u.vnode.children = newvnode;
-    newvnode->u.vnode.children = NULL;
+    newvnode->v.is_vnode  = true;
+    newvnode->v.entry     = entry;
+    pmap_vnode_init(&pmap_aarch64->p, newvnode);
+    pmap_vnode_insert_child(root, newvnode);
 
-    if (retvnode) {
-        *retvnode = newvnode;
+#ifdef GLOBAL_MCN
+    /* allocate mapping cnodes */
+    for (int i = 0; i < MCN_COUNT; i++) {
+        err = cnode_create_l2(&newvnode->u.vnode.mcn[i], &newvnode->u.vnode.mcnode[i]);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
+        }
     }
+#endif
+
+    *retvnode = newvnode;
     return SYS_ERR_OK;
 }
 
@@ -273,7 +214,7 @@ static errval_t get_ptable(struct pmap_aarch64  *pmap,
     assert(root != NULL);
 
     // L0 mapping
-    if ((pl1 = find_vnode(root, VMSAv8_64_L0_BASE(vaddr))) == NULL) {
+    if ((pl1 = pmap_find_vnode(root, VMSAv8_64_L0_BASE(vaddr))) == NULL) {
         err = alloc_vnode(pmap, root, ObjType_VNode_AARCH64_l1,
                             VMSAv8_64_L0_BASE(vaddr), &pl1);
         if (err_is_fail(err)) {
@@ -282,7 +223,7 @@ static errval_t get_ptable(struct pmap_aarch64  *pmap,
     }
 
     // L1 mapping
-    if ((pl2 = find_vnode(pl1, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
+    if ((pl2 = pmap_find_vnode(pl1, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
         err = alloc_vnode(pmap, pl1, ObjType_VNode_AARCH64_l2,
                             VMSAv8_64_L1_BASE(vaddr), &pl2);
         if (err_is_fail(err)) {
@@ -291,7 +232,7 @@ static errval_t get_ptable(struct pmap_aarch64  *pmap,
     }
 
     // L2 mapping
-    if ((pl3 = find_vnode(pl2, VMSAv8_64_L2_BASE(vaddr))) == NULL) {
+    if ((pl3 = pmap_find_vnode(pl2, VMSAv8_64_L2_BASE(vaddr))) == NULL) {
         err = alloc_vnode(pmap, pl2, ObjType_VNode_AARCH64_l3,
                             VMSAv8_64_L2_BASE(vaddr), &pl3);
         if (err_is_fail(err)) {
@@ -312,17 +253,17 @@ static struct vnode *find_ptable(struct pmap_aarch64  *pmap,
     assert(root != NULL);
 
     // L0 mapping
-    if((pl1 = find_vnode(root, VMSAv8_64_L0_BASE(vaddr))) == NULL) {
+    if((pl1 = pmap_find_vnode(root, VMSAv8_64_L0_BASE(vaddr))) == NULL) {
         return NULL;
     }
 
     // L1 mapping
-    if((pl2 = find_vnode(pl1, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
+    if((pl2 = pmap_find_vnode(pl1, VMSAv8_64_L1_BASE(vaddr))) == NULL) {
         return NULL;
     }
 
     // L2 mapping
-    return find_vnode(pl2, VMSAv8_64_L2_BASE(vaddr));
+    return pmap_find_vnode(pl2, VMSAv8_64_L2_BASE(vaddr));
 }
 
 static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genvaddr_t vend,
@@ -337,33 +278,31 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     }
     uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
 
-	uintptr_t idx = VMSAv8_64_L3_BASE(vaddr);
+    uintptr_t idx = VMSAv8_64_L3_BASE(vaddr);
 
     // Create user level datastructure for the mapping
     bool has_page = has_vnode(ptable, idx, pte_count);
     assert(!has_page);
 
-    struct vnode *page = slab_alloc(&pmap->slab);
+    struct vnode *page = slab_alloc(&pmap->p.m.slab);
     assert(page);
 
-    page->is_vnode = false;
-    page->entry = idx;
-    page->next  = ptable->u.vnode.children;
-    ptable->u.vnode.children = page;
-    page->u.frame.cap = frame;
-    page->u.frame.offset = offset;
-    page->u.frame.flags = flags;
-    page->u.frame.pte_count = pte_count;
+    page->v.is_vnode = false;
+    page->v.entry = idx;
+    page->v.cap = frame;
+    page->v.u.frame.offset = offset;
+    page->v.u.frame.flags = flags;
+    page->v.u.frame.pte_count = pte_count;
 
-    err = pmap->p.slot_alloc->alloc(pmap->p.slot_alloc, &page->mapping);
-    if (err_is_fail(err)) {
-        return err_push(err, LIB_ERR_SLOT_ALLOC);
-    }
+    // only insert child in vtree after new vnode fully initialized
+    pmap_vnode_insert_child(ptable, page);
+
+    set_mapping_cap(&pmap->p, page, ptable, idx);
 
     // Map entry into the page table
-    assert(!capref_is_null(ptable->u.vnode.invokable));
-    err = vnode_map(ptable->u.vnode.invokable, frame, idx,
-                    pmap_flags, offset, pte_count, page->mapping);
+    assert(!capref_is_null(ptable->v.u.vnode.invokable));
+    err = vnode_map(ptable->v.u.vnode.invokable, frame, idx,
+                    pmap_flags, offset, pte_count, page->v.mapping);
 
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VNODE_MAP);
@@ -372,11 +311,13 @@ static errval_t do_single_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr, genva
     return SYS_ERR_OK;
 }
 
-static errval_t do_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
-                       struct capref frame, size_t offset, size_t size,
-                       vregion_flags_t flags, size_t *retoff, size_t *retsize)
+errval_t do_map(struct pmap *pmap_gen, genvaddr_t vaddr,
+                struct capref frame, size_t offset, size_t size,
+                vregion_flags_t flags, size_t *retoff, size_t *retsize)
 {
     errval_t err;
+
+    struct pmap_aarch64 *pmap = (struct pmap_aarch64 *)pmap_gen;
 
     size = ROUND_UP(size, BASE_PAGE_SIZE);
     size_t pte_count = DIVIDE_ROUND_UP(size, BASE_PAGE_SIZE);
@@ -451,7 +392,7 @@ static errval_t do_map(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
 #endif
 }
 
-static size_t
+size_t
 max_slabs_required(size_t bytes)
 {
     // Perform a slab allocation for every page (do_map -> slab_alloc)
@@ -470,72 +411,6 @@ max_slabs_required(size_t bytes)
     size_t l0entries = DIVIDE_ROUND_UP(l1entries, 512);
 
     return pages + l3entries + l2entries + l1entries + l0entries;
-}
-
-/**
- * \brief Refill slabs used for metadata
- *
- * \param pmap     The pmap to refill in
- * \param request  The number of slabs the allocator must have
- * when the function returns
- *
- * When the current pmap is initialized,
- * it reserves some virtual address space for metadata.
- * This reserved address space is used here
- *
- * Can only be called for the current pmap
- * Will recursively call into itself till it has enough slabs
- */
-#include <stdio.h>
-static errval_t refill_slabs(struct pmap_aarch64 *pmap, size_t request)
-{
-    errval_t err;
-
-    /* Keep looping till we have #request slabs */
-    while (slab_freecount(&pmap->slab) < request) {
-        // Amount of bytes required for #request
-        size_t bytes = SLAB_STATIC_SIZE(request - slab_freecount(&pmap->slab),
-                                        sizeof(struct vnode));
-
-        /* Get a frame of that size */
-        struct capref cap;
-        err = frame_alloc(&cap, bytes, &bytes);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_FRAME_ALLOC);
-        }
-
-        /* If we do not have enough slabs to map the frame in, recurse */
-        size_t required_slabs_for_frame = max_slabs_required(bytes);
-        if (slab_freecount(&pmap->slab) < required_slabs_for_frame) {
-            // If we recurse, we require more slabs than to map a single page
-            assert(required_slabs_for_frame > 4);
-
-            err = refill_slabs(pmap, required_slabs_for_frame);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_SLAB_REFILL);
-            }
-        }
-
-        /* Perform mapping */
-        genvaddr_t genvaddr = pmap->vregion_offset;
-        pmap->vregion_offset += (genvaddr_t)bytes;
-
-        // if this assert fires, increase META_DATA_RESERVED_SPACE
-        assert(pmap->vregion_offset < (vregion_get_base_addr(&pmap->vregion) +
-               vregion_get_size(&pmap->vregion)));
-
-        err = do_map(pmap, genvaddr, cap, 0, bytes,
-                     VREGION_FLAGS_READ_WRITE, NULL, NULL);
-        if (err_is_fail(err)) {
-            return err_push(err, LIB_ERR_PMAP_DO_MAP);
-        }
-
-        /* Grow the slab */
-        lvaddr_t buf = vspace_genvaddr_to_lvaddr(genvaddr);
-        slab_grow(&pmap->slab, (void*)buf, bytes);
-    }
-
-    return SYS_ERR_OK;
 }
 
 /**
@@ -560,36 +435,21 @@ map(struct pmap     *pmap,
     size_t          *retoff,
     size_t          *retsize)
 {
-    struct pmap_aarch64 *pmap_aarch64 = (struct pmap_aarch64 *)pmap;
+    errval_t err;
 
     size   += BASE_PAGE_OFFSET(offset);
     size    = ROUND_UP(size, BASE_PAGE_SIZE);
     offset -= BASE_PAGE_OFFSET(offset);
 
     const size_t slabs_reserve = 3; // == max_slabs_required(1)
-    uint64_t  slabs_free       = slab_freecount(&pmap_aarch64->slab);
     size_t    slabs_required   = max_slabs_required(size) + slabs_reserve;
 
-    if (slabs_required > slabs_free) {
-        if (get_current_pmap() == pmap) {
-            errval_t err = refill_slabs(pmap_aarch64, slabs_required);
-            if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_SLAB_REFILL);
-            }
-        }
-        else {
-            size_t bytes = SLAB_STATIC_SIZE(slabs_required - slabs_free,
-                                            sizeof(struct vnode));
-            void *buf = malloc(bytes);
-            if (!buf) {
-                return LIB_ERR_MALLOC_FAIL;
-            }
-            slab_grow(&pmap_aarch64->slab, buf, bytes);
-        }
+    err = pmap_refill_slabs(pmap, slabs_required);
+    if (err_is_fail(err)) {
+        return err;
     }
 
-    return do_map(pmap_aarch64, vaddr, frame, offset, size, flags,
-                  retoff, retsize);
+    return do_map(pmap, vaddr, frame, offset, size, flags, retoff, retsize);
 }
 
 static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
@@ -598,24 +458,27 @@ static errval_t do_single_unmap(struct pmap_aarch64 *pmap, genvaddr_t vaddr,
     errval_t err;
     struct vnode *pt = find_ptable(pmap, vaddr);
     if (pt) {
-        struct vnode *page = find_vnode(pt, VMSAv8_64_L3_BASE(vaddr));
-        if (page && page->u.frame.pte_count == pte_count) {
-            err = vnode_unmap(pt->u.vnode.cap, page->mapping);
+        struct vnode *page = pmap_find_vnode(pt, VMSAv8_64_L3_BASE(vaddr));
+        if (page && page->v.u.frame.pte_count == pte_count) {
+            err = vnode_unmap(pt->v.cap, page->v.mapping);
             if (err_is_fail(err)) {
                 DEBUG_ERR(err, "vnode_unmap");
                 return err_push(err, LIB_ERR_VNODE_UNMAP);
             }
 
-            err = cap_delete(page->mapping);
+            err = cap_delete(page->v.mapping);
             if (err_is_fail(err)) {
                 return err_push(err, LIB_ERR_CAP_DELETE);
             }
-            err = slot_free(page->mapping);
+#ifndef GLOBAL_MCN
+            err = pmap->p.slot_alloc->free(pmap->p.slot_alloc, page->v.mapping);
             if (err_is_fail(err)) {
-                return err_push(err, LIB_ERR_CAP_DELETE);
+                debug_printf("remove_empty_vnodes: slot_free (mapping): %s\n",
+                        err_getstring(err));
             }
-            remove_vnode(pt, page);
-            slab_free(&pmap->slab, page);
+#endif
+            pmap_remove_vnode(pt, page);
+            slab_free(&pmap->p.m.slab, page);
         }
         else {
             return LIB_ERR_PMAP_FIND_VNODE;
@@ -701,27 +564,56 @@ static errval_t
 determine_addr(struct pmap   *pmap,
                struct memobj *memobj,
                size_t        alignment,
-               genvaddr_t    *vaddr)
+               genvaddr_t    *retvaddr)
 {
     assert(pmap->vspace->head);
+    struct pmap_aarch64* pmap_aarch64 = (struct pmap_aarch64*)pmap;
+    genvaddr_t vaddr;
 
-    assert(alignment <= BASE_PAGE_SIZE); // NYI
+    if (alignment == 0) {
+        alignment = BASE_PAGE_SIZE;
+    } else {
+        alignment = ROUND_UP(alignment, BASE_PAGE_SIZE);
+    }
+    size_t size = ROUND_UP(memobj->size, alignment);
 
     struct vregion *walk = pmap->vspace->head;
+    // if there's space before the first object, map there
+    genvaddr_t minva = ROUND_UP(pmap_aarch64->min_mappable_va, alignment);
+
     while (walk->next) { // Try to insert between existing mappings
         genvaddr_t walk_base = vregion_get_base_addr(walk);
-        genvaddr_t walk_size = vregion_get_size(walk);
+        genvaddr_t walk_size = ROUND_UP(vregion_get_size(walk), BASE_PAGE_SIZE);
+        genvaddr_t walk_end  = ROUND_UP(walk_base + walk_size, alignment);
         genvaddr_t next_base = vregion_get_base_addr(walk->next);
 
-        if (next_base > walk_base + walk_size + memobj->size &&
-            walk_base + walk_size > VSPACE_BEGIN) { // Ensure mappings are larger than VSPACE_BEGIN
-            *vaddr = walk_base + walk_size;
-            return SYS_ERR_OK;
+        // sanity-check for page alignment
+        assert(walk_base % BASE_PAGE_SIZE == 0);
+        assert(next_base % BASE_PAGE_SIZE == 0);
+
+        if (next_base > walk_end + size && walk_end > minva) {
+            vaddr = walk_end;
+            goto out;
         }
+
         walk = walk->next;
     }
 
-    *vaddr = vregion_get_base_addr(walk) + vregion_get_size(walk);
+    // place beyond last mapping with alignment
+    vaddr = ROUND_UP((vregion_get_base_addr(walk)
+                + ROUND_UP(vregion_get_size(walk), BASE_PAGE_SIZE)),
+                alignment);
+
+
+
+out:
+    // ensure that we haven't run out of the valid part of the address space
+    if (vaddr + memobj->size > pmap_aarch64->max_mappable_va) {
+        return LIB_ERR_OUT_OF_VIRTUAL_ADDR;
+    }
+    assert(retvaddr != NULL);
+    *retvaddr = vaddr;
+
     return SYS_ERR_OK;
 }
 
@@ -732,18 +624,18 @@ static errval_t do_single_modify_flags(struct pmap_aarch64 *pmap, genvaddr_t vad
     struct vnode *ptable = find_ptable(pmap, vaddr);
     uint16_t ptentry = VMSAv8_64_L3_BASE(vaddr);
     if (ptable) {
-        struct vnode *page = find_vnode(ptable, ptentry);
+        struct vnode *page = pmap_find_vnode(ptable, ptentry);
         if (page) {
-            if (inside_region(ptable, ptentry, pages)) {
+            if (pmap_inside_region(ptable, ptentry, pages)) {
                 // we're modifying part of a valid mapped region
                 // arguments to invocation: invoke frame cap, first affected
                 // page (as offset from first page in mapping), #affected
                 // pages, new flags. Invocation should check compatibility of
                 // new set of flags with cap permissions.
-                size_t off = ptentry - page->entry;
+                size_t off = ptentry - page->v.entry;
                 uintptr_t pmap_flags = vregion_flags_to_kpi_paging_flags(flags);
                 // VA hinting NYI on ARMv8, always passing 0
-                err = invoke_mapping_modify_flags(page->mapping, off, pages, pmap_flags, 0);
+                err = invoke_mapping_modify_flags(page->v.mapping, off, pages, pmap_flags, 0);
                 printf("invoke_frame_modify_flags returned error: %s (%"PRIuERRV")\n",
                         err_getstring(err), err);
                 return err;
@@ -839,29 +731,14 @@ static errval_t lookup(struct pmap *pmap, genvaddr_t vaddr,
     return 0;
 }
 
-
-static errval_t
-serialise(struct pmap *pmap, void *buf, size_t buflen)
-{
-    // Unimplemented: ignored
-    return SYS_ERR_OK;
-}
-
-static errval_t
-deserialise(struct pmap *pmap, void *buf, size_t buflen)
-{
-    // Unimplemented: we start with an empty pmap, and avoid the bottom of the A/S
-    return SYS_ERR_OK;
-}
-
 static struct pmap_funcs pmap_funcs = {
     .determine_addr = determine_addr,
     .map = map,
     .unmap = unmap,
     .modify_flags = modify_flags,
     .lookup = lookup,
-    .serialise = serialise,
-    .deserialise = deserialise,
+    .serialise = pmap_serialise,
+    .deserialise = pmap_deserialise,
 };
 
 /**
@@ -885,26 +762,46 @@ pmap_init(struct pmap   *pmap,
         pmap->slot_alloc = get_default_slot_allocator();
     }
 
-    // Slab allocator for vnodes
-    slab_init(&pmap_aarch64->slab, sizeof(struct vnode), NULL);
-    slab_grow(&pmap_aarch64->slab,
-              pmap_aarch64->slab_buffer,
-              sizeof(pmap_aarch64->slab_buffer));
+    pmap_vnode_mgmt_init(pmap);
 
-    pmap_aarch64->root.is_vnode         = true;
-    pmap_aarch64->root.u.vnode.cap      = vnode;
-    pmap_aarch64->root.u.vnode.invokable = vnode;
+    pmap_aarch64->root.v.is_vnode         = true;
+    pmap_aarch64->root.v.cap              = vnode;
+    pmap_aarch64->root.v.u.vnode.invokable = vnode;
 
     if (get_croot_addr(vnode) != CPTR_ROOTCN) {
-        errval_t err = slot_alloc(&pmap_aarch64->root.u.vnode.invokable);
+        errval_t err = slot_alloc(&pmap_aarch64->root.v.u.vnode.invokable);
         assert(err_is_ok(err));
-        err = cap_copy(pmap_aarch64->root.u.vnode.invokable, vnode);
+        err = cap_copy(pmap_aarch64->root.v.u.vnode.invokable, vnode);
         assert(err_is_ok(err));
     }
-    assert(!capref_is_null(pmap_aarch64->root.u.vnode.cap));
-    assert(!capref_is_null(pmap_aarch64->root.u.vnode.invokable));
-    pmap_aarch64->root.u.vnode.children  = NULL;
-    pmap_aarch64->root.next              = NULL;
+    assert(!capref_is_null(pmap_aarch64->root.v.cap));
+    assert(!capref_is_null(pmap_aarch64->root.v.u.vnode.invokable));
+    pmap_vnode_init(pmap, &pmap_aarch64->root);
+
+#ifdef GLOBAL_MCN
+    /*
+     * Initialize root vnode mapping cnode
+     */
+    if (pmap == get_current_pmap()) {
+        /*
+         * for now, for our own pmap, we use the left over slot allocator cnode to
+         * provide the mapping cnode for the first half of the root page table as
+         * we cannot allocate CNodes before establishing a connection to the
+         * memory server!
+         */
+        pmap_aarch64->root.u.vnode.mcn[0].cnode = cnode_root;
+        pmap_aarch64->root.u.vnode.mcn[0].slot = ROOTCN_SLOT_ROOT_MAPPING;
+        pmap_aarch64->root.u.vnode.mcnode[0].croot = CPTR_ROOTCN;
+        pmap_aarch64->root.u.vnode.mcnode[0].cnode = ROOTCN_SLOT_ADDR(ROOTCN_SLOT_ROOT_MAPPING);
+        pmap_aarch64->root.u.vnode.mcnode[0].level = CNODE_TYPE_OTHER;
+    } else {
+        errval_t err;
+        err = cnode_create_l2(&pmap_aarch64->root.u.vnode.mcn[0], &pmap_aarch64->root.u.vnode.mcnode[0]);
+        if (err_is_fail(err)) {
+            return err_push(err, LIB_ERR_PMAP_ALLOC_CNODE);
+        }
+    }
+#endif
 
     // choose a minimum mappable VA for most domains; enough to catch NULL
     // pointer derefs with suitably large offsets
@@ -920,27 +817,19 @@ errval_t pmap_current_init(bool init_domain)
 {
     struct pmap_aarch64 *pmap_aarch64 = (struct pmap_aarch64*)get_current_pmap();
 
-    // To reserve a block of virtual address space,
-    // a vregion representing the address space is required.
-    // We construct a superficial one here and add it to the vregion list.
-    struct vregion *vregion = &pmap_aarch64->vregion;
-    assert((void*)vregion > (void*)pmap_aarch64);
-    assert((void*)vregion < (void*)(pmap_aarch64 + 1));
-    vregion->vspace = NULL;
-    vregion->memobj = NULL;
-    vregion->base   = VSPACE_BEGIN;
-    vregion->offset = 0;
-    vregion->size   = META_DATA_RESERVED_SPACE;
-    vregion->flags  = 0;
-    vregion->next = NULL;
-
-    struct vspace *vspace = pmap_aarch64->p.vspace;
-    assert(!vspace->head);
-    vspace->head = vregion;
-
-    pmap_aarch64->vregion_offset = pmap_aarch64->vregion.base;
-
-    //pmap_aarch64->min_mappable_va = VSPACE_BEGIN;
+    pmap_vnode_mgmt_current_init((struct pmap *)pmap_aarch64);
 
     return SYS_ERR_OK;
+}
+
+struct vnode_public *pmap_get_vroot(struct pmap *pmap)
+{
+    struct pmap_aarch64 *pa64 = (struct pmap_aarch64 *)pmap;
+    return &pa64->root.v;
+}
+
+void pmap_set_min_mappable_va(struct pmap *pmap, lvaddr_t minva)
+{
+    struct pmap_aarch64 *pa64 = (struct pmap_aarch64 *)pmap;
+    pa64->min_mappable_va = minva;
 }

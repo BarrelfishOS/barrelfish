@@ -218,7 +218,7 @@ static void  retype_request(struct iommu_binding *ib, struct capref src,
         case ObjType_VNode_x86_64_pml4 :
         case ObjType_VNode_x86_64_pml5 :
 
-            err = invoke_frame_identify(src, &id);
+            err = frame_identify(src, &id);
             if (err_is_fail(err)) {
                 err = err_push(err, LIB_ERR_CAP_INVOKE);
                 goto send_reply;

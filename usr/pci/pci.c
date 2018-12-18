@@ -1218,6 +1218,9 @@ static void assign_bus_numbers(struct pci_address parentaddr,
                                 uint32_t total_vfs;
                                 err = pci_get_max_vfs_for_device(&addr, &total_vfs);
                                 assert(err_is_ok(err));
+                                if (err_is_fail(err)) {
+                                    USER_PANIC_ERR(err, "%s", __FUNCTION__);
+                                }
                                 
                                 // Add fake bridge for Bridge programming algo 
                                 // bus + 1 so VFs are taken into account

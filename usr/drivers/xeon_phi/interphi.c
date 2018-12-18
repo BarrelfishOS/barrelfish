@@ -962,7 +962,8 @@ static void alloc_mem_call_rx(struct interphi_binding *_binding,
 
     msg_st->err = cap_retype(mreg->cap, ramcap, 0, ObjType_Frame, bytes, 1);
 
-    invoke_frame_identify(mreg->cap, &mreg->id);
+    errval_t err = frame_identify(mreg->cap, &mreg->id);
+    assert(err_is_ok(err));
 
     struct interphi_msg_st *st = (struct interphi_msg_st*)msg_st;
 
@@ -1157,7 +1158,7 @@ errval_t interphi_init_xphi(uint8_t xphi,
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(mi->frame, &id);
+    err = frame_identify(mi->frame, &id);
     if (err_is_fail(err)) {
         cap_destroy(mi->frame);
         free(mi);
@@ -1308,7 +1309,7 @@ errval_t interphi_init(struct xeon_phi *phi,
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(mi->frame, &id);
+    err = frame_identify(mi->frame, &id);
     if (err_is_fail(err)) {
         cap_destroy(mi->frame);
         free(mi);
@@ -1527,7 +1528,7 @@ errval_t interphi_spawn_with_cap(struct xnode *node,
     XINTER_DEBUG("spawning %s with cap on core %u\n", cmdline, core);
 
     struct frame_identity id;
-    err = invoke_frame_identify(cap, &id);
+    err = frame_identify(cap, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -1633,7 +1634,7 @@ errval_t interphi_chan_open(struct xnode *node,
     struct msg_info *mi = node->msg;
 
     struct frame_identity id;
-    err = invoke_frame_identify(msgframe, &id);
+    err = frame_identify(msgframe, &id);
     if (err_is_fail(err)) {
         return err;
     }

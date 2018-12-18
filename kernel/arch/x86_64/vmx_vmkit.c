@@ -27,9 +27,11 @@
 
 #include <dev/ia32_dev.h>
 
+#define ARRAKIS_EPT
 // Execution, entry, and exit controls that we want to use 
 // for each VM
-#ifdef CONFIG_ARRAKISMON
+#if defined(CONFIG_ARRAKISMON) && !defined(ARRAKIS_EPT)
+// Arrakis w/o EPT
 #define GUEST_PIN_BASE_CTLS_ENABLE \
     (PIN_CTLS_EXT_INTR | PIN_CTLS_NMI | PIN_CTLS_VIRT_NMI)
 
@@ -44,6 +46,36 @@
 
 #define GUEST_SP_CTLS_ENABLE \
     (0)
+     
+#define GUEST_SP_CTLS_DISABLE \
+    (0)
+
+#define GUEST_EXIT_CTLS_ENABLE \
+    (EXIT_CLTS_HOST_SIZE | EXIT_CLTS_SAVE_EFER | EXIT_CLTS_LOAD_EFER)
+
+#define GUEST_EXIT_CTLS_DISABLE \
+    (0)
+
+#define GUEST_ENTRY_CTLS_ENABLE \
+    (ENTRY_CLTS_LOAD_EFER | ENTRY_CLTS_LOAD_DBG | ENTRY_CLTS_IA32E_MODE)
+
+#define GUEST_ENTRY_CTLS_DISABLE \
+    (0)
+#elif defined(CONFIG_ARRAKISMON)
+#define GUEST_PIN_BASE_CTLS_ENABLE \
+    (PIN_CTLS_EXT_INTR | PIN_CTLS_NMI | PIN_CTLS_VIRT_NMI)
+
+#define GUEST_PIN_BASE_CTLS_DISABLE \
+    (0)
+
+#define GUEST_PP_CTLS_ENABLE \
+    (PP_CLTS_MSRBMP | PP_CLTS_IOBMP | PP_CLTS_HLT | PP_CLTS_SEC_CTLS)
+
+#define GUEST_PP_CTLS_DISABLE \
+    (0)
+
+#define GUEST_SP_CTLS_ENABLE \
+    (SP_CLTS_ENABLE_EPT)
      
 #define GUEST_SP_CTLS_DISABLE \
     (0)
@@ -392,6 +424,7 @@ static uint64_t vmx_read_msr(uint32_t index) {
 	break;
     default:
         assert(!"MSR index not supported");
+        panic("MSR index %d not supported\n", index);
     }
     return val;
 }
@@ -663,18 +696,22 @@ static inline void enter_guest(void)
 {
     // Set the host state prior to every VM-entry in case the values 
     // written to the VMCS change. 
+    //printf("%s:%d\n", __FUNCTION__, __LINE__);
     vmx_set_host_state();
 
     // This is necessary or else a #GPF will be incurred in the 
     // monitor domain.
+    //printf("%s:%d\n", __FUNCTION__, __LINE__);
     uint16_t ldtr_sel = rd_ldtr();
 
     // Perform most checks that are performed by the processor
+    //printf("%s:%d\n", __FUNCTION__, __LINE__);
     if (!launched) {
         check_guest_state_area();
 	check_host_state_area();
 	check_vmx_controls();
     }
+    //printf("%s:%d\n", __FUNCTION__, __LINE__);
 
     __asm volatile("mov %[ctrl], %%rdi\n\t"
 		   
@@ -937,8 +974,96 @@ call_monitor(struct dcb *dcb)
     dispatch(dcb->guest_desc.monitor_ep.cap.u.endpointlmp.listener);
 }
 
-struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
-                          uint64_t *args, uint64_t rflags, uint64_t rip);
+__attribute__((unused))
+static void dump_page_tables(lpaddr_t root_pt_phys)
+{
+    lvaddr_t root_pt = local_phys_to_mem(root_pt_phys);
+    printk(LOG_NOTE, "dumping page tables rooted at 0x%"PRIxLPADDR"\n", root_pt_phys);
+
+    // loop over pdpts
+    union x86_64_ptable_entry *pt;
+    size_t kernel_pml4e = X86_64_PML4_BASE(X86_64_MEMORY_OFFSET);
+    for (int pdpt_index = 0; pdpt_index < kernel_pml4e; pdpt_index++) {
+        union x86_64_pdir_entry *pdpt = (union x86_64_pdir_entry *)root_pt + pdpt_index;
+        if (!pdpt->raw) { continue; }
+        else {
+            genpaddr_t paddr = (genpaddr_t)pdpt->d.base_addr << BASE_PAGE_BITS;
+            printf("%d: 0x%"PRIxGENPADDR" (%d %d), raw=0x%"PRIx64"\n",
+                    pdpt_index, paddr,
+                    pdpt->d.read_write, pdpt->d.user_supervisor,
+                    pdpt->raw);
+        }
+        genpaddr_t pdpt_gp = pdpt->d.base_addr << BASE_PAGE_BITS;
+        lvaddr_t pdpt_lv = local_phys_to_mem(gen_phys_to_local_phys(pdpt_gp));
+
+        for (int pdir_index = 0; pdir_index < X86_64_PTABLE_SIZE; pdir_index++) {
+            // get pdir
+            union x86_64_pdir_entry *pdir = (union x86_64_pdir_entry *)pdpt_lv + pdir_index;
+            pt = (union x86_64_ptable_entry*)pdir;
+            if (!pdir->raw) { continue; }
+            // check if pdir or huge page
+            if (pt->huge.always1) {
+                // is huge page mapping
+                genpaddr_t paddr = (genpaddr_t)pt->huge.base_addr << HUGE_PAGE_BITS;
+                printf("%d.%d: 0x%"PRIxGENPADDR" (%d %d %d)\n", pdpt_index,
+                        pdir_index, paddr, pt->huge.read_write,
+                        pt->huge.dirty, pt->huge.accessed);
+                // goto next pdpt entry
+                continue;
+            } else {
+                genpaddr_t paddr = (genpaddr_t)pdir->d.base_addr << BASE_PAGE_BITS;
+                printf("%d.%d: 0x%"PRIxGENPADDR" (%d %d), raw=0x%"PRIx64"\n",
+                        pdpt_index, pdir_index, paddr,
+                        pdir->d.read_write, pdir->d.user_supervisor,
+                        pdir->raw);
+            }
+            genpaddr_t pdir_gp = pdir->d.base_addr << BASE_PAGE_BITS;
+            lvaddr_t pdir_lv = local_phys_to_mem(gen_phys_to_local_phys(pdir_gp));
+
+            for (int ptable_index = 0; ptable_index < X86_64_PTABLE_SIZE; ptable_index++) {
+                // get ptable
+                union x86_64_pdir_entry *ptable = (union x86_64_pdir_entry *)pdir_lv + ptable_index;
+                pt = (union x86_64_ptable_entry *)ptable;
+                if (!ptable->raw) { continue; }
+                // check if ptable or large page
+                if (pt->large.always1) {
+                    // is large page mapping
+                    genpaddr_t paddr = (genpaddr_t)pt->large.base_addr << LARGE_PAGE_BITS;
+                    printf("%d.%d.%d: 0x%"PRIxGENPADDR" (%d %d %d)\n",
+                            pdpt_index, pdir_index, ptable_index, paddr,
+                            pt->large.read_write, pt->large.dirty, pt->large.accessed);
+                    // goto next pdir entry
+                    continue;
+                } else {
+                    genpaddr_t paddr = (genpaddr_t)ptable->d.base_addr << BASE_PAGE_BITS;
+                    printf("%d.%d.%d: 0x%"PRIxGENPADDR" (%d %d), raw=0x%"PRIx64"\n",
+                            pdpt_index, pdir_index, ptable_index, paddr,
+                            ptable->d.read_write, ptable->d.user_supervisor,
+                            ptable->raw);
+                }
+                genpaddr_t ptable_gp = ptable->d.base_addr << BASE_PAGE_BITS;
+                lvaddr_t ptable_lv = local_phys_to_mem(gen_phys_to_local_phys(ptable_gp));
+
+                for (int entry = 0; entry < X86_64_PTABLE_SIZE; entry++) {
+                    union x86_64_ptable_entry *e =
+                        (union x86_64_ptable_entry *)ptable_lv + entry;
+                    genpaddr_t paddr = (genpaddr_t)e->base.base_addr << BASE_PAGE_BITS;
+                    if (!paddr) {
+                        continue;
+                    }
+                    printf("%d.%d.%d.%d: 0x%"PRIxGENPADDR" (%d %d %d), raw=0x%"PRIx64"\n",
+                            pdpt_index, pdir_index, ptable_index, entry,
+                            paddr, e->base.read_write, e->base.dirty, e->base.accessed,
+                            e->raw);
+                }
+            }
+        }
+    }
+}
+
+struct sysret sys_vmcall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
+                         uint64_t *args, uint64_t rflags, uint64_t rip,
+                         struct capability *root);
 
 extern uint64_t user_stack_save;
 
@@ -954,115 +1079,181 @@ vmx_vmkit_vmenter (struct dcb *dcb)
     assert(dcb->is_vm_guest);
 
     if (ept_enabled()) {
-        err = vmwrite(VMX_EPTP_F, ((dcb->vspace) & pa_width_mask() & ~BASE_PAGE_MASK) | 0x18);
-	assert(err_is_ok(err));
+        uint64_t old_eptp_root, old_guest_cr3;
+        err = vmread(VMX_EPTP_F, &old_eptp_root);
+        err+= vmread(VMX_GUEST_CR3, &old_guest_cr3);
+        assert(err_is_ok(err));
+        // dcb->vspace is root of EPT, dcb->guest.vspace is root of guest AS
+        // get dcb->vspace masked with width of physical address space and
+        // mask out low 12 bits
+        uint64_t eptp_root = 0x6ull | (3 << 3);
+        eptp_root |= (dcb->guest_desc.vspace & pa_width_mask()) & ~BASE_PAGE_MASK;
+        // set bits 5:3 to 0x3 (i.e. 1 less than length of ept walks)
+        //eptp_root |= 0x18;
+        //printk(LOG_NOTE, "setting EPTP_F to 0x%lx\n", eptp_root);
+        if (old_eptp_root != eptp_root) {
+            printk(LOG_NOTE, "setting EPTP_F to 0x%lx\n", eptp_root);
+            err = vmwrite(VMX_EPTP_F, eptp_root);
+            assert(err_is_ok(err));
+        }
+        if (old_guest_cr3 != dcb->vspace) {
+            printk(LOG_NOTE, "setting GUEST_CR3 to 0x%lx\n", dcb->vspace);
+            err = vmwrite(VMX_GUEST_CR3, dcb->vspace);
+            assert(err_is_ok(err));
+        }
+        /*
+        printk(LOG_NOTE, "doing INVEPT\n");
+        uint64_t invept_desc[2] = { 0 };
+        invept_desc[0] = eptp_root;
+        uint64_t mode = 1;
+        __asm volatile("invept %[desc], %[mode]"
+                       :
+                       : [mode] "r" (mode), [desc] "m" (invept_desc)
+                       : "memory");
+        */
+        //printf("EPT tables:\n");
+        //dump_page_tables(eptp_root & ~BASE_PAGE_MASK);
+        /*
+        printf("GUEST tables:\n");
+        dump_page_tables(dcb->guest_desc.vspace);
+        */
+        //print_vmcs_info(ctrl);
     } else {
         err = vmwrite(VMX_GUEST_CR3, dcb->vspace);
 	assert(err_is_ok(err));
     }
-   
- vmx_vmenter_loop:
+
+vmx_vmenter_loop:
 
     enter_guest();
+
+    //printk(LOG_NOTE, "VMEXIT\n");
 
     uint16_t exit_reason;
     err = vmread(VMX_EXIT_REASON, (uint64_t *)&exit_reason);
 
+    //printk(LOG_NOTE, "vmx exit reason: %u\n", exit_reason);
+
     switch(exit_reason) {
-    case VMX_EXIT_REASON_INVAL_VMCS:
-      {
-	// A condition that violates ones of the processor checks may be violated 
-	// during the execution of the guest. With the Linux guest we used, the GS
-	// limit is set to 0x10ffef, which causes one of the checks to fail. 
-	uint64_t gs_lim;
-	err += vmread(VMX_GUEST_GS_LIM, &gs_lim);
-	assert(gs_lim == 0x10ffef);
-	err += vmwrite(VMX_GUEST_GS_LIM, 0xfffef);
-	assert(err_is_ok(err));
-      }
-      goto vmx_vmenter_loop;
+        case VMX_EXIT_REASON_INVAL_VMCS:
+            {
+                // A condition that violates ones of the processor checks may be violated 
+                // during the execution of the guest. With the Linux guest we used, the GS
+                // limit is set to 0x10ffef, which causes one of the checks to fail. 
+                uint64_t gs_lim;
+                err += vmread(VMX_GUEST_GS_LIM, &gs_lim);
+                assert(gs_lim == 0x10ffef);
+                err += vmwrite(VMX_GUEST_GS_LIM, 0xfffef);
+                assert(err_is_ok(err));
+            }
+            goto vmx_vmenter_loop;
 
-    case VMX_EXIT_REASON_EXCEPTION:
-      {
-        uint64_t intr_info, type;
-	err += vmread(VMX_EXIT_INTR_INFO, &intr_info);
-	assert(err_is_ok(err));
+        case VMX_EXIT_REASON_EXCEPTION:
+            {
+                uint64_t intr_info, type;
+                err += vmread(VMX_EXIT_INTR_INFO, &intr_info);
+                assert(err_is_ok(err));
 
-	type = interruption_type(intr_info);
+                type = interruption_type(intr_info);
 
-	if (type != TYPE_NMI) {
-	    call_monitor(dcb);
-	    break;
-	}
-      }
-    case VMX_EXIT_REASON_EXT_INTR:
-    case VMX_EXIT_REASON_SMI:
-      {
-	ctrl->num_vm_exits_without_monitor_invocation++;
+                if (type != TYPE_NMI) {
+                    //printk(LOG_NOTE, "REASON: EXCEPTION, type: %lu, vec: %lu\n",
+                    //        type, intr_info & 0xF);
+                    call_monitor(dcb);
+                    break;
+                }
+            }
+        case VMX_EXIT_REASON_EXT_INTR:
+        case VMX_EXIT_REASON_SMI:
+            {
+                ctrl->num_vm_exits_without_monitor_invocation++;
 
 #ifdef CONFIG_ARRAKISMON
-	uint64_t guest_rip, guest_rsp, guest_rflags;
-	err += vmread(VMX_GUEST_RIP, &guest_rip);
-	err += vmread(VMX_GUEST_RSP, &guest_rsp);
-	err += vmread(VMX_GUEST_RFLAGS, &guest_rflags);
-	
-	uint64_t guest_fs_sel, guest_gs_sel;
-	err += vmread(VMX_GUEST_FS_SEL, &guest_fs_sel);	
-	err += vmread(VMX_GUEST_GS_SEL, &guest_gs_sel);
-	assert(err_is_ok(err));
+                //printf("EXIT_REASON: INTR || SMI\n");
+                uint64_t guest_rip, guest_rsp, guest_rflags;
+                err += vmread(VMX_GUEST_RIP, &guest_rip);
+                err += vmread(VMX_GUEST_RSP, &guest_rsp);
+                err += vmread(VMX_GUEST_RFLAGS, &guest_rflags);
 
-	arch_registers_state_t *area = NULL;
+                uint64_t guest_fs_sel, guest_gs_sel;
+                err += vmread(VMX_GUEST_FS_SEL, &guest_fs_sel);	
+                err += vmread(VMX_GUEST_GS_SEL, &guest_gs_sel);
+                assert(err_is_ok(err));
 
-	// Store user state into corresponding save area
-	if(dispatcher_is_disabled_ip(dcb->disp, guest_rip)) {
-	    area = dispatcher_get_disabled_save_area(dcb->disp);
-	    dcb->disabled = true;
-	} else {
-	    area = dispatcher_get_enabled_save_area(dcb->disp);
-	    dcb->disabled = false;
-	}
-	memcpy(area, &ctrl->regs, sizeof(arch_registers_state_t));
-	area->rip = guest_rip;
-	area->rax = ctrl->regs.rax;
-	area->rsp = guest_rsp;
-	area->eflags = guest_rflags;
-	area->fs = guest_fs_sel;
-	area->gs = guest_gs_sel;
+                arch_registers_state_t *area = NULL;
+
+                // Store user state into corresponding save area
+                if(dispatcher_is_disabled_ip(dcb->disp, guest_rip)) {
+                    area = dispatcher_get_disabled_save_area(dcb->disp);
+                    dcb->disabled = true;
+                } else {
+                    area = dispatcher_get_enabled_save_area(dcb->disp);
+                    dcb->disabled = false;
+                }
+                memcpy(area, &ctrl->regs, sizeof(arch_registers_state_t));
+                area->rip = guest_rip;
+                area->rax = ctrl->regs.rax;
+                area->rsp = guest_rsp;
+                area->eflags = guest_rflags;
+                area->fs = guest_fs_sel;
+                area->gs = guest_gs_sel;
 #endif	
-	wait_for_interrupt();
-      }
-      break;
+                wait_for_interrupt();
+            }
+            break;
 #ifdef CONFIG_ARRAKISMON
-    case VMX_EXIT_REASON_VMCALL:
-      {
-	// Translate this to a SYSCALL
-	struct registers_x86_64 *regs = &ctrl->regs;
-	uint64_t args[10] = {
-	    regs->r10, regs->r8, regs->r9, regs->r12, regs->r13, regs->r14,
-	    regs->r15, regs->rax, regs->rbp, regs->rbx
-	};
-	
-	/* printf("VMMCALL\n"); */
+        case VMX_EXIT_REASON_VMCALL:
+            {
+                // Translate this to a SYSCALL
+                struct registers_x86_64 *regs = &ctrl->regs;
+                uint64_t args[10] = {
+                    regs->r10, regs->r8, regs->r9, regs->r12, regs->r13, regs->r14,
+                    regs->r15, regs->rax, regs->rbp, regs->rbx
+                };
 
-	uint64_t guest_rip, guest_rsp, guest_rflags;
-	err += vmread(VMX_GUEST_RIP, &guest_rip);
-	err += vmread(VMX_GUEST_RSP, &guest_rsp);
-	err += vmread(VMX_GUEST_RFLAGS, &guest_rflags);
-	// Advance guest RIP to next instruction
-	err += vmwrite(VMX_GUEST_RIP, guest_rip + 3);
-	assert(err_is_ok(err));
+                //printf("VMMCALL: %lu %lx %lx\n", regs->rdi, regs->rsi, regs->rdx);
 
-	user_stack_save = guest_rsp;
-	
-	struct sysret ret = sys_syscall(regs->rdi, regs->rsi, regs->rdx, 
-					args, guest_rflags, guest_rip + 3);
-	regs->rax = ret.error;
-	regs->rdx = ret.value;
-      }
-      goto vmx_vmenter_loop;
+                uint64_t guest_rip, guest_rsp, guest_rflags, instr_len;
+                err += vmread(VMX_GUEST_RIP, &guest_rip);
+                err += vmread(VMX_GUEST_RSP, &guest_rsp);
+                err += vmread(VMX_GUEST_RFLAGS, &guest_rflags);
+                // Advance guest RIP to next instruction
+                err += vmread(VMX_EXIT_INSTR_LEN, &instr_len);
+                assert(err_is_ok(err));
+                err += vmwrite(VMX_GUEST_RIP, guest_rip + instr_len);
+                assert(err_is_ok(err));
+
+                user_stack_save = guest_rsp;
+
+                //printf("doing VMMCALL: %lu %lx %lx\n", regs->rdi, regs->rsi, regs->rdx);
+
+                struct sysret ret = sys_vmcall(regs->rdi, regs->rsi, regs->rdx,
+                        args, guest_rflags, guest_rip + instr_len, &dcb->cspace.cap);
+
+                //printf("VMMCALL done\n");
+
+                regs->rax = ret.error;
+                regs->rdx = ret.value;
+            }
+            goto vmx_vmenter_loop;
 #endif
-    default:      
-        call_monitor(dcb);
-	break;
+        default:
+            //printk(LOG_NOTE, "EXIT_REASON: %d\n", exit_reason);
+#if 0
+            if (exit_reason == VMX_EXIT_REASON_EPT_FAULT) {
+                uint64_t fault_addr, guest_rip, exit_qual;
+                err = vmread(VMX_GPADDR_F, &fault_addr);
+                err+= vmread(VMX_GUEST_RIP, &guest_rip);
+                err+= vmread(VMX_EXIT_QUAL, &exit_qual);
+                //err+= vmread(VMX_PF_ERR_MATCH
+                assert(err_is_ok(err));
+                printk(LOG_NOTE, "exit qualification: 0x%lx\n", exit_qual);
+                printk(LOG_NOTE, "guest page fault on 0x%lx, IP 0x%lx\n",
+                        fault_addr, guest_rip);
+                paging_dump_tables(dcb);
+            }
+#endif
+            call_monitor(dcb);
+            break;
     }
 }

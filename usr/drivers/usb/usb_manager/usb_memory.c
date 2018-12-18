@@ -91,7 +91,7 @@ struct usb_page *usb_mem_page_alloc(void)
         return NULL;
     }
 
-    err = invoke_frame_identify(ret->cap, &ret->frame_id);
+    err = frame_identify(ret->cap, &ret->frame_id);
 
     if (err) {
         return NULL;
@@ -165,7 +165,7 @@ struct usb_dma_page *usb_mem_dma_alloc(uint32_t size, uint32_t align)
         return NULL;
     }
 
-    err = invoke_frame_identify(ret->cap, &ret->frame_id);
+    err = frame_identify(ret->cap, &ret->frame_id);
 
     if (err) {
         return NULL;

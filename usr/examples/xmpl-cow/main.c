@@ -17,7 +17,7 @@
 #include <barrelfish/sys_debug.h>
 #include <stdio.h>
 #include <stdlib.h>
-#define BUFSIZE (32UL*1024)
+#define BUFSIZE (67108864UL)
 
 #define EX_STACK_SIZE 16384
 static char ex_stack[EX_STACK_SIZE];
@@ -111,6 +111,8 @@ static errval_t vspace_map_one_frame_cow(void **buf, size_t size,
         size_t granularity)
 {
     errval_t err;
+    // XXX: I belive these are going to be leaked: vspace_map_anon_attr() seems
+    // to call malloc() as well --KK
     if (!memobj) {
         memobj = malloc(sizeof(*memobj));
     }

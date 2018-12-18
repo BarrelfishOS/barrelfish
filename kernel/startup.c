@@ -190,6 +190,13 @@ struct dcb *spawn_module(struct spawn_state *st,
                           st->basepagecn);
     assert(err_is_ok(err));
 
+    // Early cnode alloc cnode in root cnode
+    st->earlycncn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_EARLY_CN_CN);
+    err = caps_create_new(ObjType_L2CNode, alloc_phys(OBJSIZE_L2CNODE),
+                          OBJSIZE_L2CNODE, OBJSIZE_L2CNODE, my_core_id,
+                          st->earlycncn);
+    assert(err_is_ok(err));
+
     // Super cnode in root cnode
     st->supercn = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_SUPERCN);
     err = caps_create_new(ObjType_L2CNode,
@@ -201,9 +208,10 @@ struct dcb *spawn_module(struct spawn_state *st,
     // consecutive slots in root cnode.
     assert(ROOTCN_SLOT_SLOT_ALLOC0 + 1 == ROOTCN_SLOT_SLOT_ALLOC1);
     assert(ROOTCN_SLOT_SLOT_ALLOC1 + 1 == ROOTCN_SLOT_SLOT_ALLOC2);
+    assert(ROOTCN_SLOT_SLOT_ALLOC2 + 1 == ROOTCN_SLOT_ROOT_MAPPING);
     st->slot_alloc_cn0 = caps_locate_slot(CNODE(rootcn), ROOTCN_SLOT_SLOT_ALLOC0);
     err = caps_create_new(ObjType_L2CNode,
-                          alloc_phys(3*OBJSIZE_L2CNODE), 3*OBJSIZE_L2CNODE,
+                          alloc_phys(4*OBJSIZE_L2CNODE), 4*OBJSIZE_L2CNODE,
                           OBJSIZE_L2CNODE, my_core_id, st->slot_alloc_cn0);
     assert(err_is_ok(err));
 
@@ -361,6 +369,12 @@ struct dcb *spawn_module(struct spawn_state *st,
     err = caps_create_new(ObjType_RAM, alloc_phys(L2_CNODE_SLOTS * BASE_PAGE_SIZE),
             L2_CNODE_SLOTS * BASE_PAGE_SIZE, BASE_PAGE_SIZE, my_core_id,
             caps_locate_slot(CNODE(st->basepagecn), 0));
+    assert(err_is_ok(err));
+
+    /* Fill up early cnode alloc CN (pre-allocated 16K pages) */
+    err = caps_create_new(ObjType_RAM, alloc_phys(EARLY_CNODE_ALLOCATED_SLOTS * OBJSIZE_L2CNODE),
+            EARLY_CNODE_ALLOCATED_SLOTS * OBJSIZE_L2CNODE, OBJSIZE_L2CNODE, my_core_id,
+            caps_locate_slot(CNODE(st->earlycncn), 0));
     assert(err_is_ok(err));
 
     // Store the application in the boot applications.

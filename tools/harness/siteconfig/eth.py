@@ -16,6 +16,8 @@ LOADGEN_HOSTS = ['emmentaler%d.ethz.ch' % n for n in range(1,4)]
 
 class ETH(siteconfig.BaseSite):
     # site-specific configuration variables for ETH
+    NFS_SSH_HOST = 'emmentaler1.ethz.ch'
+    NFS_SSH_PORT = 8006
     WEBSERVER_NFS_HOST = 'emmentaler.in.barrelfish.org'
     NFS_SERVER_HOST = 'tomme1.in.barrelfish.org'
     WEBSERVER_NFS_PATH_FULL = '/mnt/local/nfs/barrelfish_website'
@@ -23,6 +25,7 @@ class ETH(siteconfig.BaseSite):
     WEBSERVER_VM_PATH = '/mnt/local/nfs/harness'
     WEBSERVER_1G_PATH = '/mnt/local/nfs/harness_nfs'
     WEBSERVER_1G_FILE = 'G1.file'
+    BFSCOPE_NFS_TRACE_DIR = '/mnt/local/nfs/harness/bfscope'
 #    WEBSERVER_NFS_PATH = WEBSERVER_NFS_TEST_PATH
     WEBSERVER_NFS_PATH = WEBSERVER_NFS_PATH_FULL
     WEBSERVER_LOCAL_PATH = WEBSERVER_NFS_PATH

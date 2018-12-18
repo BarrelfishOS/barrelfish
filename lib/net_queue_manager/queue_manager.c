@@ -369,7 +369,7 @@ static errval_t register_region(struct descq* q, struct capref cap,
     buffer->queueid = exported_queueid;
 
     struct capability capability;
-    err = debug_cap_identify(cap, &capability);
+    err = cap_direct_identify(cap, &capability);
     assert(err_is_ok(err));
     assert(capability.type == ObjType_Frame);
 

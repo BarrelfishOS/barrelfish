@@ -615,7 +615,7 @@ int main(int argc, char *argv[])
     assert(ram_base != NULL);
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     assert(err_is_ok(err));
 
     rx_pbase = id.base;
@@ -642,7 +642,7 @@ int main(int argc, char *argv[])
                                        MAX_PACKETS * PACKET_SIZE, &frame);
     assert(tx_bufs != NULL);
 
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     assert(err_is_ok(err));
     tx_pbase = id.base;
     tx_vbase = (genvaddr_t)tx_bufs;

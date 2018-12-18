@@ -29,6 +29,7 @@
 \vhEntry{1.1}{11.04.2010}{TR}{Support for out-of-tree builds}
 \vhEntry{1.2}{03.07.2015}{TR}{Added platform and boot constructs}
 \vhEntry{1.3}{15.04.2017}{GZ}{Support for Modules}
+\vhEntry{1.4}{14.12.2018}{SG}{Support for library OS selection on a per application/library basis}
 \end{versionhistory}
 
 % \intro{Abstract}		% Insert abstract here
@@ -183,6 +184,7 @@ Hakefile:
         addIncludes = [ "acpica/include" ],
         addCFlags = [ "-Wno-redundant-decls" ],
         addLibraries = [ "mm", "acpi", "skb", "pci" ],
+        libraryOs = Config.libbarrelfish_pmap_array,
         architectures = [ "x86_64", "x86_32" ]
        }
 ]
@@ -216,6 +218,9 @@ here are:
 \texttt{addLibraries}, the linker makes sure to include all symbols by passing
 the \texttt{--whole-archive} option. This is useful if you want to have a more
 dynamic discovery of code (e.g., device drivers modules).
+\item[libraryOs]: Select the library OS against which to link this particular
+  application. The field is of type \verb|Maybe Args|, and the valid options are
+  defined in \verb|Config.hs|.
 \end{description}
 
 Note that filenames are relative to the current source
@@ -539,6 +544,43 @@ things than simply ``\texttt{build application}'' or ``\texttt{build
   library}'', it's a good idea to understand how these features use
 the definitions in \texttt{RuleDefs.hs}.
 
+\subsection{Library OS selection}
+
+It is worth describing the mechanism that drives the selection of a library OS
+in both \texttt{build application} and \texttt{build library} in a bit of
+detail here, as it touches both those macros.
+
+The way library OS selection works is that the \texttt{application} and
+\texttt{library}  macros read certain fields of \verb|Args.libraryOs|.
+Currently the fields that are used are \verb|Args.target|, to figure out the
+name of the libraryOs archive to include when linking, and
+\verb|Args.omitCFlags|, \verb|Args.omitCxxFlags|, \verb|Args.addCFlags|, and
+\verb|Args.addCxxFlags| to provide extra compiler flags.
+
+If a Hake rule does not set the field \verb|Args.libraryOs|, then we fall back
+to \verb|Config.libbarrelfish|, which can be used to select which library OS
+to link against by default.
+
+To reduce the number of types and leave the library OS selection mechanism
+open to future library OSes that need to provide more extra arguments to the
+compiler, we want to use another \verb|Args| struct to store the library OS
+configuration.
+The field \verb|Args.libraryOs| is of type \verb|Maybe Args| because we run
+into a circular definition when trying to define \verb|Args.defaultArgs|
+otherwise.
+
+All the library OS configurations must be defined in \texttt{Config.hs}, so
+that they are visible while the Hakefiles are evaluated.
+
+A libray OS itself is just a regular ``\texttt{build library}``, examples of
+which can be found for the variants of the default library OS in the
+``libbarrelfish`` Hakefile in \texttt{/lib/barrelfish}.
+
+A library OS should be using its own library OS configuration as
+\verb|Args.libraryOs|, and hake provides \verb|Args.makeTarget| to extract the
+target name from a \verb|Maybe Args| so library OSes are encouraged to use
+this function to extract their target from the library OS configuration.
+
 \section{Target architectures}
 
 Most of the flexibility required of Hake in building for multiple
@@ -561,7 +603,7 @@ architecture files (see above).
 To add support for multiple host build environments, one way to slice the
 problem is for the target architecture modules to import different
 host architecture modules and decide which one to call to get tool and
-path defnitions at runtime.
+path definitions at runtime.
 
 \section{Configuration}
 
@@ -704,7 +746,7 @@ The Hake binary built in a Barrelfish tree can be found in
 \item[--ghc-libdir:] Library directory for GHC.
 \end{description}
 
-\subsection{Building an external application or library}
+\section{Building an external application or library}
 
 Building an application or library \emph{outside} the main Barrelfish
 tree involves invoking Hake directly (rather than bootstrapping with

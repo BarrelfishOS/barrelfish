@@ -20,7 +20,7 @@
 
 /// Amount of virtual space for malloc
 #ifdef __x86_64__
-#       define HEAP_REGION (3500UL * 1024 * 1024) /* 2GB */
+#       define HEAP_REGION (32UL * 1024UL * 1024 * 1024) /* 32GB */
 #else
 #       define HEAP_REGION (512UL * 1024 * 1024) /* 512MB */
 #endif
@@ -104,25 +104,30 @@ Header *get_malloc_freep(void)
     return get_morecore_state()->header_freep;
 }
 
-errval_t morecore_init(size_t alignment)
+errval_t morecore_init(size_t pagesize)
 {
     errval_t err;
     struct morecore_state *state = get_morecore_state();
 
     thread_mutex_init(&state->mutex);
 
-    // setup flags that match the alignment
+    // setup flags that match the pagesize
     vregion_flags_t morecore_flags = VREGION_FLAGS_READ_WRITE;
 #if __x86_64__
-    morecore_flags |= (alignment == HUGE_PAGE_SIZE ? VREGION_FLAGS_HUGE : 0);
+    morecore_flags |= (pagesize == HUGE_PAGE_SIZE ? VREGION_FLAGS_HUGE : 0);
 #endif
-    morecore_flags |= (alignment == LARGE_PAGE_SIZE ? VREGION_FLAGS_LARGE : 0);
+    morecore_flags |= (pagesize == LARGE_PAGE_SIZE ? VREGION_FLAGS_LARGE : 0);
 
+    // Always align heap to 4 gigabyte boundary
+    const size_t heap_alignment = 4UL * 1024 * 1024 * 1024;
     err = vspace_mmu_aware_init_aligned(&state->mmu_state, NULL, HEAP_REGION,
-                                        alignment, morecore_flags);
+                                        heap_alignment, morecore_flags);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_VSPACE_MMU_AWARE_INIT);
     }
+
+    /* overwrite alignment field in vspace_mmu_aware state */
+    state->mmu_state.alignment = heap_alignment;
 
     sys_morecore_alloc = morecore_alloc;
     sys_morecore_free = morecore_free;
@@ -134,6 +139,18 @@ errval_t morecore_reinit(void)
 {
     errval_t err;
     struct morecore_state *state = get_morecore_state();
+    if ((vregion_get_flags(&state->mmu_state.vregion)
+            & (VREGION_FLAGS_HUGE|VREGION_FLAGS_LARGE)) == 0)
+    {
+        // No need to do anything if the heap is using base pages anyway
+        return SYS_ERR_OK;
+    }
+
+    if ((vregion_get_flags(&state->mmu_state.vregion) &
+         (VREGION_FLAGS_LARGE|VREGION_FLAGS_HUGE)) == 0)
+    {
+        return SYS_ERR_OK;
+    }
 
     size_t mapoffset = state->mmu_state.mapoffset;
     size_t remapsize = ROUND_UP(mapoffset, state->mmu_state.alignment);

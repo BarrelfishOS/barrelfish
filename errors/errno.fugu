@@ -232,6 +232,8 @@ errors libbarrelfish LIB_ERR_ {
     failure CAP_DELETE          "Failure in cap_delete()",
     failure CAP_DESTROY         "Failure in cap_destroy()",
     failure CAP_INVOKE          "Failure in cap_invoke()",
+    failure CAP_IDENTIFY        "Failure in cap_identify",
+    failure CAP_NOT_MAPPABLE    "Failure in cap_identify: cap not mappable",
     failure ENDPOINT_CREATE     "Failure in endpoint_create()",
     failure FRAME_IDENTIFY      "Failure in frame_identify",
     failure VNODE_MAP           "Failure in vnode_map()",
@@ -305,12 +307,14 @@ errors libbarrelfish LIB_ERR_ {
     failure PMAP_MODIFY_FLAGS "Failure in pmap_modify_flags()",
     failure PMAP_GET_PTABLE   "Failure in get_mapping()",
     failure PMAP_ALLOC_VNODE  "Failure in alloc_vnode()",
+    failure PMAP_CLONE_VNODE  "Failure in clone_vnode()",
     failure PMAP_ADDR_NOT_FREE "The requested address range is not free",
     failure PMAP_FIND_VNODE   "vnode not found",
     failure PMAP_EXISTING_MAPPING "Cannot replace existing mapping, unmap first",
     failure PMAP_FRAME_SIZE "Given Frame to small to fulfil mapping request",
     failure PMAP_FRAME_IDENTIFY "Frame could not be identified",
     failure PMAP_NOT_MAPPED "No mapping in given address range",
+    failure PMAP_ALLOC_CNODE "Failure while allocating Mapping CNode",
 
     failure OUT_OF_VIRTUAL_ADDR  "Out of virtual address",
 
@@ -836,6 +840,7 @@ errors trace TRACE_ERR_ {
     failure CREATE_CAP          "Failed to create trace buffer cap",
     failure CAP_COPY            "Failed to copy trace buffer cap",
     failure KERNEL_INVOKE       "Failed to set up tracing in kernel",
+    failure UNAVAIL             "Tracing not available on core",
 };
 
 errors driverkit DRIVERKIT_ERR_ {
@@ -1120,6 +1125,7 @@ errors omap_sdma OMAP_SDMA_ERR_ {
 
 // common/generic errors
 errors common ERR_ {
+    failure INVALID_ARGS        "Invalid arguments",
     failure NOTIMP              "Not implemented",
 };
 
@@ -1318,4 +1324,19 @@ errors psci PSCI_ERR_{
     failure DISABLED         "Core is disabled",
     failure INVALID_ADDRESS  "Invald address provided",
     failure UNKNOWN_ERROR    "Error number unknown",
+};
+
+errors arrakis ARRA_ERR_ {
+    failure GUEST_NOT_FOUND       "Guest with given handle not found",
+};
+
+errors vas VAS_ERR_ {
+    failure CREATE_NAME_CONFLICT   "Name already in use",
+    failure NO_PERMISSION          "Insufficient permissions to perform requested action",
+    failure NOT_FOUND              "Cannot find requested address space.",
+    failure DETACH_SWITCH          "Must switch out before detaching",
+    failure ATTACH_STATE           "Cannot attach. Not in detached state",
+    failure SWITCH_NOT_ATTACHED    "Can't switch to unattached file",
+    failure NOT_SUPPORTED          "Currently unsupported functionality",
+    failure OUT_OF_HANDLES         "Not enough handles",
 };

@@ -14,16 +14,23 @@
 
 #include <kernel.h>
 #include <useraccess.h>
+#include <barrelfish_kpi/paging_arch.h>
 
 /**
  * Check the validity of the user space buffer.
  *
  * \param type   Type of access to check: ACCESS_WRITE or ACCESS_READ.
  * \param buffer Pointer to beginning of buffer.
- * \param size   Size of buffer.
+ * \param size   Size of buffer in bytes.
  */
 bool access_ok(uint8_t type, lvaddr_t buffer, size_t size)
 {
-    // FIXME: Implement!
-    return true;
+    debug(SUBSYS_SYSCALL, "%s: buffer=%#"PRIxLVADDR", size=%zu\n", __FUNCTION__, buffer, size);
+    // Check that the provided buffer is fully in user space, i.e. below MEMORY_OFFSET
+    if (buffer + size >= MEMORY_OFFSET) {
+        return false;
+    }
+
+    // check if we have valid ptentries for base .. base + npages
+    return paging_is_region_valid(buffer, size, type);
 }

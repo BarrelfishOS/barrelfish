@@ -38,6 +38,7 @@ errval_t sys_debug_get_apic_timer(uint32_t *ret);
 errval_t sys_debug_print_context_counter(void);
 errval_t sys_debug_print_timeslice(void);
 errval_t sys_debug_flush_cache(void);
+errval_t sys_debug_flush_tlb(void);
 errval_t sys_debug_send_ipi(uint8_t destination, uint8_t shorthand, uint8_t vector);
 errval_t sys_debug_set_breakpoint(uintptr_t addr, uint8_t mode, uint8_t length);
 errval_t sys_debug_hardware_timer_read(uintptr_t* ret);
@@ -45,6 +46,8 @@ errval_t sys_debug_hardware_timer_hertz_read(uintptr_t* ret);
 errval_t sys_debug_hardware_global_timer_read(uint64_t *ret);
 errval_t sys_debug_get_apic_ticks_per_sec(uint32_t *ret);
 errval_t sys_debug_create_irq_src_cap(struct capref cap, uint64_t start, uint64_t end);
+errval_t sys_debug_get_mdb_size(size_t *size);
+errval_t sys_debug_print_mdb_counters(void);
 
 #ifdef ENABLE_FEIGN_FRAME_CAP
 errval_t sys_debug_feign_frame_cap(struct capref slot, lpaddr_t base,

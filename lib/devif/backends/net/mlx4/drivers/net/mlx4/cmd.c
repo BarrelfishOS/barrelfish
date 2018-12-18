@@ -2514,7 +2514,7 @@ struct mlx4_cmd_mailbox *mlx4_alloc_cmd_mailbox(void) {
 	err = frame_alloc(&mailbox->slot, MLX4_MAILBOX_SIZE, NULL);
 	assert(err_is_ok(err));
 
-	err = invoke_frame_identify(mailbox->slot, &fid);
+	err = frame_identify(mailbox->slot, &fid);
 	assert(err_is_ok(err));
 
 	mailbox->dma = fid.base; //this is the physical address

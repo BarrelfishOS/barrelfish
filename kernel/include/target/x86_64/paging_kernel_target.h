@@ -23,6 +23,7 @@ int paging_x86_64_map_memory(lpaddr_t base, size_t size);
 lvaddr_t paging_x86_64_map_device(lpaddr_t base, size_t size);
 void paging_x86_64_reset(void);
 void paging_x86_64_make_good_pml4(lpaddr_t base);
+void paging_x86_64_make_good_ept_pml4(lpaddr_t base);
 
 /// All flags valid for page access protection from user-space
 #define X86_64_PTABLE_ACCESS_MASK \
@@ -52,6 +53,26 @@ void paging_x86_64_make_good_pml4(lpaddr_t base);
 #define X86_64_IS_PRESENT(entry)                        \
     ((*(uint64_t *)(entry)) & X86_64_PTABLE_PRESENT)
 
+#ifdef __k1om__
+#define X86_64_PHYSADDR_BITS X1OM_PADDR_SPACE_BITS // TODO: Take that from offsets target
+#else
+#define X86_64_PHYSADDR_BITS X86_64_PADDR_SPACE_BITS
+#endif
+#define X86_64_PAGING_ENTRY_SIZE 64
+#define X86_64_PAGING_AVAIL2_BITS 11
+#define X86_64_PAGING_FLAG_BITS 12
+#define X86_64_PAGING_RESERVED_BITS \
+                (X86_64_PAGING_ENTRY_SIZE - X86_64_PHYSADDR_BITS - \
+                 X86_64_PAGING_AVAIL2_BITS - 1)
+#define X86_64_PAGING_HUGE_BASE_BITS \
+                (X86_64_PHYSADDR_BITS - (X86_64_PAGING_FLAG_BITS + \
+                 2*X86_64_PTABLE_BITS))
+#define X86_64_PAGING_LARGE_BASE_BITS \
+                (X86_64_PHYSADDR_BITS - (X86_64_PAGING_FLAG_BITS + \
+                 X86_64_PTABLE_BITS))
+#define X86_64_PAGING_BASE_BASE_BITS \
+                (X86_64_PHYSADDR_BITS - X86_64_PAGING_FLAG_BITS)
+
 /**
  * A page directory entry.
  */
@@ -66,30 +87,30 @@ union x86_64_pdir_entry {
         uint64_t        accessed        :1;
         uint64_t        reserved        :3;
         uint64_t        available       :3;
-        uint64_t        base_addr       :28;
-        uint64_t        reserved2       :12;
+        uint64_t        base_addr       :X86_64_PAGING_BASE_BASE_BITS;
+        uint64_t        reserved2       :X86_64_PAGING_RESERVED_BITS;
         uint64_t        available2      :11;
         uint64_t        execute_disable :1;
     } d;
 };
+STATIC_ASSERT_SIZEOF(union x86_64_pdir_entry, (X86_64_PAGING_ENTRY_SIZE / 8));
 
-#ifdef __k1om__
-#define X86_64_PHYSADDR_BITS X1OM_PADDR_SPACE_BITS // TODO: Take that from offsets target
-#else
-#define X86_64_PHYSADDR_BITS X86_64_PADDR_SPACE_BITS
-#endif
-#define X86_64_PAGING_ENTRY_SIZE 64
-#define X86_64_PAGING_AVAIL2_BITS 11
-#define X86_64_PAGING_FLAG_BITS 12
-#define X86_64_PAGING_LARGE_FLAGE_BITS 21
-#define X86_64_PAGING_RESERVED_BITS \
-                (X86_64_PAGING_ENTRY_SIZE - X86_64_PHYSADDR_BITS - \
-                 X86_64_PAGING_AVAIL2_BITS - 1)
-#define X86_64_PAGING_LARGE_BASE_BITS \
-                (X86_64_PHYSADDR_BITS - X86_64_PAGING_LARGE_FLAGE_BITS)
-#define X86_64_PAGING_BASE_BASE_BITS \
-                (X86_64_PHYSADDR_BITS - X86_64_PAGING_FLAG_BITS)
-
+union x86_64_ept_pdir_entry {
+    uint64_t raw;
+    struct {
+        uint64_t        present         :1;
+        uint64_t        read_write      :1;
+        uint64_t        user_supervisor :1;
+        uint64_t        reserved        :4;
+        uint64_t        is_directory    :1;
+        uint64_t        accessed        :1;
+        uint64_t        available       :3;
+        uint64_t        base_addr       :X86_64_PAGING_BASE_BASE_BITS;
+        uint64_t        reserved2       :X86_64_PAGING_RESERVED_BITS;
+        uint64_t        available2      :12;
+    } d;
+};
+STATIC_ASSERT_SIZEOF(union x86_64_ept_pdir_entry, (X86_64_PAGING_ENTRY_SIZE / 8));
 
 /**
  * A page table entry.
@@ -109,9 +130,9 @@ union x86_64_ptable_entry {
         uint64_t        available       :2;
         uint64_t        vtd_snoop       :1;
         uint64_t        attr_index      :1;
-        uint64_t        reserved        :17;
-        uint64_t        base_addr       :10;
-        uint64_t        reserved2       :12;
+        uint64_t        reserved        :(2*X86_64_PTABLE_BITS)-1; // 12-29
+        uint64_t        base_addr       :X86_64_PAGING_HUGE_BASE_BITS;
+        uint64_t        reserved2       :X86_64_PAGING_RESERVED_BITS;
         uint64_t        available2      :11;
         uint64_t        execute_disable :1;
     } huge;
@@ -128,7 +149,7 @@ union x86_64_ptable_entry {
         uint64_t        available       :2;
         uint64_t        vtd_snoop       :1;
         uint64_t        attr_index      :1;
-        uint64_t        reserved        :8;
+        uint64_t        reserved        :X86_64_PTABLE_BITS-1;
         uint64_t        base_addr       :X86_64_PAGING_LARGE_BASE_BITS;
         uint64_t        reserved2       :X86_64_PAGING_RESERVED_BITS;
         uint64_t        available2      :11;
@@ -152,8 +173,59 @@ union x86_64_ptable_entry {
         uint64_t        execute_disable :1;
     } base;
 };
-
 STATIC_ASSERT_SIZEOF(union x86_64_ptable_entry, (X86_64_PAGING_ENTRY_SIZE / 8));
+
+union x86_64_ept_ptable_entry {
+    uint64_t raw;
+    struct {
+        uint64_t        present         :1; // 0
+        uint64_t        read_write      :1; // 1
+        uint64_t        user_supervisor :1; // 2
+        uint64_t        ept_mt          :3; // 3-5
+        uint64_t        ipat        :1; // 6
+        uint64_t        always1         :1; // 7
+        uint64_t        accessed        :1; // 8
+        uint64_t        dirty           :1; // 9
+        uint64_t        available       :2; // 10-11
+        uint64_t        reserved        :(2*X86_64_PTABLE_BITS)-1; // 12-29
+        uint64_t        base_addr       :X86_64_PAGING_HUGE_BASE_BITS;
+        uint64_t        reserved2       :X86_64_PAGING_RESERVED_BITS;
+        uint64_t        available2      :11;
+        uint64_t        execute_disable :1;
+    } huge;
+    struct {
+        uint64_t        present         :1; // 0
+        uint64_t        read_write      :1; // 1
+        uint64_t        user_supervisor :1; // 2
+        uint64_t        ept_mt          :3; // 3-5
+        uint64_t        ipat        :1; // 6
+        uint64_t        always1         :1; // 7
+        uint64_t        accessed        :1; // 8
+        uint64_t        dirty           :1; // 9
+        uint64_t        available       :2; // 10-11
+        uint64_t        reserved        :X86_64_PTABLE_BITS-1; // 12-20
+        uint64_t        base_addr       :X86_64_PAGING_LARGE_BASE_BITS;
+        uint64_t        reserved2       :X86_64_PAGING_RESERVED_BITS;
+        uint64_t        available2      :11;
+        uint64_t        execute_disable :1;
+    } large;
+    struct {
+        uint64_t        present         :1; // 0
+        uint64_t        read_write      :1; // 1
+        uint64_t        user_supervisor :1; // 2
+        uint64_t        ept_mt          :3; // 3-5
+        uint64_t        ipat        :1; // 6
+        uint64_t        always1         :1; // 7
+        uint64_t        accessed        :1; // 8
+        uint64_t        dirty           :1; // 9
+        uint64_t        available       :2; // 10-11
+        uint64_t        base_addr       :X86_64_PAGING_BASE_BASE_BITS;
+        uint64_t        reserved2       :X86_64_PAGING_RESERVED_BITS;
+        uint64_t        available2      :11;
+        uint64_t        execute_disable :1;
+    } base;
+};
+STATIC_ASSERT_SIZEOF(union x86_64_ept_ptable_entry, (X86_64_PAGING_ENTRY_SIZE / 8));
 
 /**
  * \brief Clear page directory.
@@ -208,6 +280,20 @@ static inline void paging_x86_64_map_table(union x86_64_pdir_entry *entry,
     *entry = tmp;
 }
 
+static inline void paging_x86_64_ept_map_table(union x86_64_ept_pdir_entry *entry,
+                                               lpaddr_t base)
+{
+    union x86_64_ept_pdir_entry tmp;
+    tmp.raw = X86_64_PTABLE_CLEAR;
+
+    tmp.d.present = 1;
+    tmp.d.read_write = 1;
+    tmp.d.user_supervisor = 1;
+    tmp.d.base_addr = base >> 12;
+
+    *entry = tmp;
+}
+
 /**
  * \brief Maps a huge page.
  *
@@ -231,6 +317,24 @@ static inline void paging_x86_64_map_huge(union x86_64_ptable_entry *entry,
     tmp.huge.cache_disabled = bitmap & X86_64_PTABLE_CACHE_DISABLED ? 1 : 0;
     tmp.huge.global = bitmap & X86_64_PTABLE_GLOBAL_PAGE ? 1 : 0;
     tmp.huge.attr_index = bitmap & X86_64_PTABLE_ATTR_INDEX ? 1 : 0;
+    tmp.huge.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
+    tmp.huge.always1 = 1;
+    tmp.huge.base_addr = base >> X86_64_HUGE_PAGE_BITS;
+
+    *entry = tmp;
+}
+
+static inline void paging_x86_64_ept_map_huge(union x86_64_ept_ptable_entry *entry,
+                                           lpaddr_t base, uint64_t bitmap)
+{
+    union x86_64_ept_ptable_entry tmp;
+    tmp.raw = X86_64_PTABLE_CLEAR;
+
+    tmp.huge.present = bitmap & X86_64_PTABLE_PRESENT ? 1 : 0;
+    tmp.huge.read_write = bitmap & X86_64_PTABLE_READ_WRITE ? 1 : 0;
+    tmp.huge.user_supervisor = bitmap & X86_64_PTABLE_USER_SUPERVISOR ? 1 : 0;
+    tmp.huge.ept_mt = 6; // write-back by default
+    tmp.huge.ipat = 1; // dune sets this
     tmp.huge.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
     tmp.huge.always1 = 1;
     tmp.huge.base_addr = base >> X86_64_HUGE_PAGE_BITS;
@@ -274,6 +378,25 @@ static inline void paging_x86_64_map_large(union x86_64_ptable_entry *entry,
     *entry = tmp;
 }
 
+static inline void paging_x86_64_ept_map_large(union x86_64_ept_ptable_entry *entry,
+                                           lpaddr_t base, uint64_t bitmap)
+{
+    union x86_64_ept_ptable_entry tmp;
+    tmp.raw = X86_64_PTABLE_CLEAR;
+
+    tmp.large.present = bitmap & X86_64_PTABLE_PRESENT ? 1 : 0;
+    tmp.large.read_write = bitmap & X86_64_PTABLE_READ_WRITE ? 1 : 0;
+    tmp.large.user_supervisor = bitmap & X86_64_PTABLE_USER_SUPERVISOR ? 1 : 0;
+    tmp.large.ept_mt = 6; // write-back by default
+    tmp.large.ipat = 1;
+    tmp.large.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
+    tmp.large.always1 = 1;
+    tmp.large.base_addr = base >> 21;
+
+    *entry = tmp;
+}
+
+
 /**
  * \brief Maps a normal (small) page.
  *
@@ -309,6 +432,22 @@ static inline void paging_x86_64_map(union x86_64_ptable_entry * NONNULL entry,
     *entry = tmp;
 }
 
+static inline void paging_x86_64_ept_map(union x86_64_ept_ptable_entry * NONNULL entry,
+                                     lpaddr_t base, uint64_t bitmap)
+{
+    union x86_64_ept_ptable_entry tmp;
+    tmp.raw = X86_64_PTABLE_CLEAR;
+
+    tmp.base.present = bitmap & X86_64_PTABLE_PRESENT ? 1 : 0;
+    tmp.base.read_write = bitmap & X86_64_PTABLE_READ_WRITE ? 1 : 0;
+    tmp.base.user_supervisor = bitmap & X86_64_PTABLE_USER_SUPERVISOR ? 1 : 0;
+    tmp.large.ept_mt = 6; // write-back by default
+    tmp.large.ipat = 1;
+    tmp.base.execute_disable = bitmap & X86_64_PTABLE_EXECUTE_DISABLE ? 1 : 0;
+    tmp.base.base_addr = base >> 12;
+
+    *entry = tmp;
+}
 
 /**
  * \brief Modify flags of a huge page.

@@ -200,7 +200,7 @@ static errval_t iommu_free_vregion(struct iommu_client *st,
 static errval_t iommu_free_ram(struct capref ram)
 {
     struct frame_identity id;
-    errval_t err = invoke_frame_identify(ram, &id);
+    errval_t err = frame_identify(ram, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -1053,7 +1053,7 @@ errval_t driverkit_iommu_vspace_map_cl(struct iommu_client *cl,
     char conf_buf[512];
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -1462,7 +1462,7 @@ errval_t driverkit_iommu_mmap_cl(struct iommu_client *cl, size_t bytes,
         }
 
         struct frame_identity id;
-        err = invoke_frame_identify(mem->mem, &id);
+        err = frame_identify(mem->mem, &id);
         if (err_is_fail(err)) {
             return err;
         }

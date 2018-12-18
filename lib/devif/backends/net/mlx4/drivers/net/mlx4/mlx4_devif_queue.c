@@ -2161,7 +2161,7 @@ static errval_t mlx4_register(struct devq* q, struct capref cap,
     struct frame_identity id;
     errval_t err;
     
-    err = invoke_frame_identify(cap, &id);
+    err = frame_identify(cap, &id);
     assert(err_is_ok(err));
     assert(!device->region_id);
     device->region_id = rid;

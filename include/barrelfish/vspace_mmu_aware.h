@@ -30,6 +30,7 @@ struct vspace_mmu_vregion_list {
 struct vspace_mmu_aware {
     size_t size;
     size_t alignment;
+    size_t pagesize;
     size_t consumed;
     struct slot_allocator *slot_alloc; ///< slot allocator
     struct vregion vregion;           ///< Needs just one vregion

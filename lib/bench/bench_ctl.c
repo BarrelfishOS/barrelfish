@@ -181,17 +181,15 @@ void bench_ctl_dump_analysis(bench_ctl_t *ctl,
     size_t len = ctl->result_count;
     cycles_t *array = get_array(ctl, dimension);
 
-#if BENCH_DUMP_OCTAVE
     cycles_t avg, std_dev;
     bench_stddev(array, len, 0, &avg, &std_dev);
-#endif
 
     cycles_t *final_array =  do_sorting(array, len);
 
     size_t max99 = (size_t)((0.99 * len) + 0.5);
 #if BENCH_DUMP_OCTAVE
 
-    // printf("\% [name]  [runs]  [avg]  [stdev]  [min]  [med]  [P99]  [max]\n");
+     printf("%% [name]  [runs]  [avg]  [stdev]  [min]  [med]  [P99]  [max]\n");
     
     printf("%% %s\n%"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64", %"PRIu64
            ", %"PRIu64"; \n", prefix,(uint64_t)len, avg, std_dev, final_array[len/2],
@@ -210,21 +208,25 @@ void bench_ctl_dump_analysis(bench_ctl_t *ctl,
            (uint64_t)(max99-1),
            (uint64_t)(len-1));
 
-    printf("run [%"PRIu64"], med[%"PRIu64"], min[%"PRIu64"], "
-           "P99[%"PRIu64"], max[%"PRIu64"]\n",
+    printf("run [%"PRIu64"], avg[%"PRIu64"], med[%"PRIu64"], min[%"PRIu64"], "
+           "P99[%"PRIu64"], max[%"PRIu64"], stdev[%"PRIu64"]\n",
            (uint64_t)len,
+           (uint64_t)avg,
            (uint64_t)final_array[len/2],
            (uint64_t)final_array[0],
            (uint64_t)final_array[max99-1],
-           (uint64_t)final_array[len-1]);
+           (uint64_t)final_array[len-1],
+           (uint64_t)std_dev);
 
-    printf("run [%"PRIu64"], med[%f], min[%f], "
-           "P99[%f], max[%f]\n",
+    printf("run [%"PRIu64"], avg[%f], med[%f], min[%f], "
+           "P99[%f], max[%f], stdev[%f]\n",
            (uint64_t)len,
+           avg / (float)tscperus,
            (final_array[len/2]/(float)tscperus),
            (final_array[0]/(float)tscperus),
            (final_array[max99-1]/(float)tscperus),
-           (final_array[len-1]/(float)tscperus));
+           (final_array[len-1]/(float)tscperus),
+           std_dev / (float)tscperus);
 
     printf("%s, %"PRIu64" %f %f %f %f\n",
            prefix,

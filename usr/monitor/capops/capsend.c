@@ -587,6 +587,7 @@ errval_t
 capsend_check_retypeable(struct domcapref src, gensize_t offset, gensize_t objsize,
                          size_t count, capsend_result_fn result_fn, void *st)
 {
+    TRACE(CAPOPS, CAPSEND_CHECK_RETYPEABLE, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
@@ -653,6 +654,7 @@ check_retypeable__rx_handler(struct intermon_binding *b, intermon_caprep_t capre
                              genvaddr_t st, uint64_t offset, uint64_t objsize,
                              uint64_t count)
 {
+    TRACE(CAPOPS, CAPSEND_CHECK_RETYPEABLE_RX, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
@@ -685,6 +687,7 @@ check_retypeable__rx_handler(struct intermon_binding *b, intermon_caprep_t capre
 void
 check_retypeable_result__rx_handler(struct intermon_binding *b, errval_t status, genvaddr_t st)
 {
+    TRACE(CAPOPS, CAPSEND_CHECK_RETYPEABLE_RESULT_RX, 0);
     DEBUG_CAPOPS("%s: got %s from %d\n", __FUNCTION__, err_getcode(status),
                  ((struct intermon_state *) b->st)->core_id);
     lvaddr_t lst = (lvaddr_t) st;

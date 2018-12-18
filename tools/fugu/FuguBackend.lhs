@@ -382,6 +382,17 @@ static inline errval_t err_push(errval_t err, enum err_code code){
 }
 \end{lstlisting}
 
+To inspect error stacks in a programmatic manner, we define a function to
+remove -- or \emph{pop} -- the topmost error from a stack and return the
+remaining error stack, or garbage bits, if called on a single-value
+\verb|errval_t|.
+
+\begin{lstlisting}
+static inline errval_t err_pop(errval_t err)
+{
+    return (err >> 16);
+}
+\end{lstlisting}
 
 
 %% <- Testing for success or failure
@@ -767,6 +778,12 @@ compiler.
 >               returnc ((err .<<. uint64 bitBlock) .|. 
 >                        (cast errval_tT $ uint64 (((toInteger 1) `B.shiftL` (fromInteger bitBlock)) - 1) .&. code))
 
+We define |err_popF| as the inverse of |err_pushF|.
+
+> err_popF :: Integer -> FoFCode PureExpr
+> err_popF bitBlock = def [Static, Inline] "err_pop" err_pop_int errval_tT  [(errval_tT, Just "errval")]
+>     where err_pop_int (err : []) = returnc (err .>>. uint64 bitBlock)
+
 And the same goes for |err_is_okF| and |err_is_failF|:
 
 > err_is_okF :: Integer -> Int -> FoFCode PureExpr
@@ -1020,6 +1037,7 @@ Compile the functions:
 
 >     err_no <- err_noF bitBlock
 >     err_push <- err_pushF bitBlock
+>     err_pop <- err_popF bitBlock
 >     err_is_ok <- err_is_okF bitBlock numberOfSuccess
 >     err_is_fail <- err_is_failF bitBlock numberOfSuccess
 

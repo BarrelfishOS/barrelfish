@@ -145,7 +145,7 @@ static errval_t sfn5122f_register(struct devq* q, struct capref cap,
         }
     }
 
-    err = invoke_frame_identify(cap, &id);
+    err = frame_identify(cap, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -635,7 +635,7 @@ errval_t sfn5122f_queue_create(struct sfn5122f_queue** q, sfn5122f_event_cb_t cb
 
     DEBUG_QUEUE("rpc done \n");
     
-    err = invoke_frame_identify(regs, &id);
+    err = frame_identify(regs, &id);
     if (err_is_fail(err)) {
         return err;
     }

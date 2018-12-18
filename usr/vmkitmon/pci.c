@@ -14,6 +14,7 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "vmkitmon.h"
 #include "pci.h"

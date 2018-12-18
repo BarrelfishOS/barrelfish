@@ -185,7 +185,7 @@ errval_t frame_alloc_identify(struct capref *dest, size_t bytes,
     }
 
     if (id != NULL) {
-        err = invoke_frame_identify(*dest, id);
+        err = frame_identify(*dest, id);
     }
 
     return err;
@@ -226,7 +226,7 @@ errval_t lookup_module(const char *module_name, lvaddr_t *binary_virt,
     DEBUG("Trying to find module in cache\n");
     err = lookup_module_cache(module_name, &binary_image_cap);
     if (err_is_ok(err)) {
-        err = invoke_frame_identify(binary_image_cap, &id);
+        err = frame_identify(binary_image_cap, &id);
         *binary_phys = id.base;
         DEBUG("%s:%d: id.base=0x%"PRIxGENPADDR"\n", __FILE__, __LINE__, id.base);
         err = vspace_map_one_frame((void **)binary_virt, info.size, binary_image_cap,

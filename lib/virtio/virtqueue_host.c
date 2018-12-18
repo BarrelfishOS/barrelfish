@@ -374,7 +374,7 @@ errval_t virtio_vq_host_alloc_with_caps(struct virtqueue_setup *setup,
     assert(!capref_is_null(vring_cap));
 
     struct frame_identity id;
-    err = invoke_frame_identify(vring_cap, &id);
+    err = frame_identify(vring_cap, &id);
     if (err_is_fail(err)) {
         return err;
     }

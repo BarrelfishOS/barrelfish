@@ -299,7 +299,7 @@ static errval_t e10k_register(struct devq* q, struct capref cap, regionid_t rid)
     struct e10k_queue* queue = (struct e10k_queue*) q;
 
     struct frame_identity id;
-    err = invoke_frame_identify(cap, &id);
+    err = frame_identify(cap, &id);
     if (err_is_fail(err)) {
         return err;
     }
@@ -469,7 +469,7 @@ static errval_t map_device_memory(struct e10k_queue* q,
     struct frame_identity id = {.base = 0, .bytes = 0};
     errval_t err;
 
-    err = invoke_frame_identify(regs, &id);
+    err = frame_identify(regs, &id);
     if (err_is_fail(err)) {
         return err;
     }

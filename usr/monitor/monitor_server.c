@@ -66,7 +66,7 @@ static void ms_multiboot_cap_request(struct monitor_binding *b, cslot_t slot)
 
     // Call frame_identify to check if cap exists
     struct frame_identity id;
-    err1 = invoke_frame_identify(cap, &id);
+    err1 = frame_identify(cap, &id);
     if (err_is_fail(err1)) {
         err2 = b->tx_vtbl.multiboot_cap_reply(b, NOP_CONT, NULL_CAP, err1);
     } else {
@@ -906,7 +906,7 @@ static void span_domain_request(struct monitor_binding *mb,
 
     /* Identify the dispatcher frame */
     struct frame_identity frameid;
-    err = invoke_frame_identify(disp, &frameid);
+    err = frame_identify(disp, &frameid);
     if (err_is_fail(err)) {
         err_push(err, LIB_ERR_FRAME_IDENTIFY);
         goto reply;

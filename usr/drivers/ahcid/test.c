@@ -104,9 +104,9 @@ static void frame_alloc_identify(size_t size, struct capref *frame,
         USER_PANIC_ERR(err, "frame_alloc");
     }
 
-    err = invoke_frame_identify(*frame, id);
+    err = frame_identify(*frame, id);
     if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "invoke_frame_identify");
+        USER_PANIC_ERR(err, "frame_identify");
     }
 }
 
@@ -146,7 +146,7 @@ void ahci_simple_test(void)
     }
     */
     
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "frame identify");
     }

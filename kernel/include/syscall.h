@@ -46,6 +46,11 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
         uintptr_t offset, uintptr_t pte_count, capaddr_t mapping_crootptr,
         capaddr_t mapping_cnptr, uint8_t mapping_cn_level, cslot_t mapping_slot);
 struct sysret
+sys_copy_remap(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
+               int source_level, uintptr_t flags, uintptr_t offset,
+               uintptr_t pte_count, capaddr_t mapping_cnptr,
+               uint8_t mapping_cn_level, cslot_t mapping_slot);
+struct sysret
 sys_copy_or_mint(struct capability *root, capaddr_t dest_cspace_cptr,
                  capaddr_t destcn_cptr, cslot_t dest_slot, capaddr_t
                  source_croot_ptr, capaddr_t source_cptr,
@@ -57,6 +62,8 @@ struct sysret sys_get_state(struct capability *root, capaddr_t cptr, uint8_t lev
 struct sysret sys_get_size_l1cnode(struct capability *root);
 struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr,
                                  capaddr_t retcn_cptr, cslot_t retslot);
+struct sysret sys_identify_cap(struct capability *root, capaddr_t cptr,
+                               uint8_t level, struct capability *out);
 struct sysret
 sys_dispatcher_setup_guest (struct capability *to,
                             capaddr_t epp, capaddr_t vnodep,
@@ -125,5 +132,7 @@ struct sysret sys_monitor_delete_step(capaddr_t ret_cn_addr,
 struct sysret sys_monitor_clear_step(capaddr_t ret_cn_addr,
                                      uint8_t ret_cn_bits,
                                      cslot_t ret_slot);
-
+struct sysret sys_monitor_reclaim_ram(capaddr_t retcn_addr,
+                                      uint8_t retcn_level,
+                                      cslot_t ret_slot);
 #endif

@@ -108,49 +108,6 @@ handle_dispatcher_perfmon(
     return SYSRET(SYS_ERR_PERFMON_NOT_AVAILABLE);
 }
 
-static struct sysret
-handle_frame_identify(
-    struct capability* to,
-    arch_registers_state_t* context,
-    int argc
-    )
-{
-    assert(3 == argc);
-
-    struct registers_arm_syscall_args* sa = &context->syscall_args;
-
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame);
-    assert((get_address(to) & BASE_PAGE_MASK) == 0);
-
-    struct frame_identity *fi = (struct frame_identity *)sa->arg2;
-
-    if(!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    fi->base = get_address(to);
-    fi->bytes = get_size(to);
-
-    switch(to->type) {
-        case ObjType_Frame:
-            fi->pasid = to->u.frame.pasid;
-            break;
-        case ObjType_DevFrame:
-            fi->pasid = to->u.devframe.pasid;
-            break;
-        case ObjType_RAM:
-            fi->pasid = to->u.ram.pasid;
-            break;
-        case ObjType_EndPointUMP:
-            fi->pasid = to->u.endpointump.pasid;
-            break;
-        default:
-            assert(false);
-    }
-
-    return SYSRET(SYS_ERR_OK);
-}
-
 static struct sysret copy_or_mint(struct capability *root,
                                   struct registers_arm_syscall_args* args,
                                   bool mint)
@@ -352,25 +309,6 @@ handle_resize(
     cslot_t   retslot     = sa->arg4;
 
     return sys_resize_l1cnode(root, newroot_ptr, retcn_ptr, retslot);
-}
-
-static struct sysret
-handle_vnode_identify(
-        struct capability *vnode,
-        arch_registers_state_t *context,
-        int argc
-        )
-{
-    assert(argc == 2);
-    assert(type_is_vnode(vnode->type));
-
-    lpaddr_t base_addr = get_address(vnode);
-    assert((base_addr & BASE_PAGE_MASK) == 0);
-
-    return (struct sysret) {
-        .error = SYS_ERR_OK,
-        .value = base_addr | ((uint8_t)vnode->type),
-    };
 }
 
 static struct sysret
@@ -781,6 +719,16 @@ INVOCATION_HANDLER(monitor_get_platform)
     return SYSRET(SYS_ERR_OK);
 }
 
+INVOCATION_HANDLER(monitor_reclaim_ram)
+{
+    INVOCATION_PRELUDE(5);
+    capaddr_t ret_cn_addr  = sa->arg2;
+    capaddr_t ret_cn_level = sa->arg3;
+    capaddr_t ret_slot     = sa->arg4;
+
+    return sys_monitor_reclaim_ram(ret_cn_addr, ret_cn_level, ret_slot);
+}
+
 /**
  * \brief Spawn a new core and create a kernel cap for it.
  */
@@ -905,6 +853,20 @@ static struct sysret handle_idcap_identify(struct capability *to,
     return sys_idcap_identify(to, idp);
 }
 
+static struct sysret handle_cap_identify(struct capability *root,
+                                         arch_registers_state_t *context, int argc)
+{
+    assert(5 == argc);
+
+    struct registers_arm_syscall_args* sa = &context->syscall_args;
+
+    capaddr_t cptr = sa->arg2;
+    uint8_t level = sa->arg3;
+    struct capability *cap = (void *)sa->arg4;
+
+    return sys_identify_cap(root, cptr, level, cap);
+}
+
 static struct sysret handle_devid_create(struct capability *cap,
                                          arch_registers_state_t *context,
                                          int argc)
@@ -934,87 +896,6 @@ static struct sysret handle_devid_create(struct capability *cap,
     return SYSRET(caps_create_from_existing(&dcb_current->cspace.cap,
                                             cnode_cptr, cnode_level,
                                             slot, my_core_id, &devid));
-}
-
-static struct sysret handle_devid_identify(struct capability *cap,
-                                           arch_registers_state_t *context,
-                                           int argc)
-{
-    struct registers_arm_syscall_args* sa = &context->syscall_args;
-
-    // Return with physical base address of frame
-    assert(cap->type == ObjType_DeviceID);
-
-    struct device_identity *di = (struct device_identity *)sa->arg2; ;
-
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)di, sizeof(struct device_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    di->bus = cap->u.deviceid.bus;
-    di->device = cap->u.deviceid.device;
-    di->function = cap->u.deviceid.function;
-    di->flags = cap->u.deviceid.flags;
-
-    return SYSRET(SYS_ERR_OK);
-}
-
-static struct sysret handle_endpoint_identify(struct capability *cap,
-                                              arch_registers_state_t *context,
-                                              int argc)
-{
-    // Return with physical base address of frame
-    struct registers_arm_syscall_args* sa = &context->syscall_args;
-
-    struct endpoint_identity *eid = (struct endpoint_identity *)sa->arg2;
-
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)eid, sizeof(struct endpoint_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    switch(cap->type) {
-        case ObjType_EndPointUMP :
-            eid->base = cap->u.endpointump.base;
-            eid->length = cap->u.endpointump.bytes;
-            eid->iftype = cap->u.endpointump.iftype;
-            eid->eptype = cap->type;
-            break;
-        case ObjType_EndPointLMP :
-            eid->base   = (genpaddr_t) (uintptr_t) cap->u.endpointlmp.listener + cap->u.endpointlmp.epoffset;
-            eid->length = cap->u.endpointlmp.epbuflen;
-            eid->iftype = cap->u.endpointlmp.iftype;
-            eid->eptype = cap->type;
-            break;
-        default:
-            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
-    }
-
-    return SYSRET(SYS_ERR_OK);
-}
-
-
-static struct sysret handle_set_endpoint_iftype(struct capability *cap,
-                                                arch_registers_state_t *context,
-                                                int argc)
-{
-    struct registers_arm_syscall_args* sa = &context->syscall_args;
-
-    uint16_t iftype = sa->arg2;
-
-    switch(cap->type) {
-        case ObjType_EndPointUMP :
-            cap->u.endpointump.iftype = iftype;
-            //printf("SET_IFTYPE: UMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointump.iftype);
-            break;
-        case ObjType_EndPointLMP :
-            cap->u.endpointlmp.iftype = iftype;
-            //printf("SET_IFTYPE: LMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
-            break;
-        default:
-            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
-    }
-
-    return SYSRET(SYS_ERR_OK);
 }
 
 static struct sysret handle_kcb_identify(struct capability *to,
@@ -1104,14 +985,8 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [DispatcherCmd_DumpCapabilities] = dispatcher_dump_capabilities
     },
     [ObjType_KernelControlBlock] = {
-        [FrameCmd_Identify] = handle_kcb_identify,
+        [KCBCmd_Identify] = handle_kcb_identify,
         [KCBCmd_Clone] = handle_kcb_clone,
-    },
-    [ObjType_Frame] = {
-        [FrameCmd_Identify] = handle_frame_identify,
-    },
-    [ObjType_DevFrame] = {
-        [FrameCmd_Identify] = handle_frame_identify,
     },
     [ObjType_L1CNode] = {
         [CNodeCmd_Copy]     = handle_copy,
@@ -1123,6 +998,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_GetState] = handle_get_state,
         [CNodeCmd_GetSize]  = handle_get_size,
         [CNodeCmd_Resize]   = handle_resize,
+        [CNodeCmd_CapIdentify] = handle_cap_identify,
     },
     [ObjType_L2CNode] = {
         [CNodeCmd_Copy]     = handle_copy,
@@ -1133,14 +1009,13 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Create]   = handle_create,
         [CNodeCmd_GetState] = handle_get_state,
         [CNodeCmd_Resize]   = handle_resize,
+        [CNodeCmd_CapIdentify] = handle_cap_identify,
     },
     [ObjType_VNode_ARM_l1] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
     	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
     },
     [ObjType_VNode_ARM_l2] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
     	[VNodeCmd_Map]   = handle_map,
     	[VNodeCmd_Unmap] = handle_unmap,
     },
@@ -1193,6 +1068,7 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Spawn_core]        = monitor_spawn_core,
         [KernelCmd_Unlock_cap]        = monitor_unlock_cap,
         [KernelCmd_Get_platform]      = monitor_get_platform,
+        [KernelCmd_ReclaimRAM]        = monitor_reclaim_ram,
     },
     [ObjType_IPI] = {
         [IPICmd_Send_Start]  = monitor_spawn_core,
@@ -1203,18 +1079,6 @@ static invocation_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_DeviceIDManager] = {
             [DeviceIDManager_CreateID] = handle_devid_create,
     },
-    [ObjType_DeviceID] = {
-            [DeviceID_Identify] = handle_devid_identify,
-    },
-    [ObjType_EndPointLMP] = {
-        [EndPointCMD_Identify] = handle_endpoint_identify,
-        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
-    },
-    [ObjType_EndPointUMP] = {
-        [EndPointCMD_FrameIdentify] = handle_frame_identify,
-        [EndPointCMD_Identify] = handle_endpoint_identify,
-        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
-    }
 };
 
 static struct sysret

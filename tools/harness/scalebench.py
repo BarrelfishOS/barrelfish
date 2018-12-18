@@ -309,6 +309,7 @@ class Scalebench:
             passed = self._harness.process_results(test, path)
             debug.log('result: %s' % ("PASS" if passed else "FAIL"))
         except Exception:
+            passed = False
             msg = 'Exception while processing results'
             if self._options.keepgoing:
                 msg += ' (attempting to continue):'

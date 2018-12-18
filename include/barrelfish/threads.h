@@ -41,6 +41,7 @@ void thread_exit(int status);
 struct thread *thread_self(void);
 struct thread *thread_self_disabled(void);
 errval_t thread_join(struct thread *thread, int *retval);
+bool thread_exited(struct thread *thread);
 errval_t thread_detach(struct thread *thread);
 
 void thread_pause(struct thread *thread);
@@ -96,6 +97,8 @@ errval_t thread_get_async_error(void);
 
 void thread_store_recv_slot(struct capref recv_slot);
 struct capref thread_get_next_recv_slot(void);
+
+void *thread_get_stack_top(void);
 
 extern __thread thread_once_t thread_once_local_epoch;
 extern void thread_once_internal(thread_once_t *control, void (*func)(void));

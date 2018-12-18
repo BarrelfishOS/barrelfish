@@ -86,7 +86,7 @@ static inline struct cte *cte_for_cap(struct capability *cap)
 static inline size_t caps_get_mapping_offset(struct capability *cap) {
 
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(50 == ObjType_Num, "Check Mapping definitions");
+    STATIC_ASSERT(58 == ObjType_Num, "Check Mapping definitions");
 
     switch (cap->type) {
     case ObjType_VNode_AARCH64_l3_Mapping:
@@ -102,6 +102,10 @@ static inline size_t caps_get_mapping_offset(struct capability *cap) {
     case ObjType_VNode_x86_64_pdir_Mapping:
     case ObjType_VNode_x86_64_pdpt_Mapping:
     case ObjType_VNode_x86_64_pml4_Mapping:
+    case ObjType_VNode_x86_64_ept_ptable_Mapping:
+    case ObjType_VNode_x86_64_ept_pdir_Mapping:
+    case ObjType_VNode_x86_64_ept_pdpt_Mapping:
+    case ObjType_VNode_x86_64_ept_pml4_Mapping:
     case ObjType_DevFrame_Mapping:
     case ObjType_Frame_Mapping:
         return cap->u.frame_mapping.offset << 10;
@@ -127,6 +131,10 @@ errval_t caps_copy_to_vnode(struct cte *dest_vnode_cte, cslot_t dest_slot,
                             struct cte *src_cte, uintptr_t flags,
                             uintptr_t offset, uintptr_t pte_count,
                             struct cte *mapping_cte);
+errval_t paging_copy_remap(struct cte *dest_vnode_cte, cslot_t dest_slot,
+                           struct cte *src_cte, uintptr_t flags,
+                           uintptr_t offset, uintptr_t pte_count,
+                           struct cte *mapping_cte);
 size_t do_unmap(lvaddr_t pt, cslot_t slot, size_t num_pages);
 errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping);
 errval_t page_mappings_modify_flags(struct capability *mapping, size_t offset,
@@ -136,6 +144,7 @@ errval_t ptable_modify_flags(struct capability *leaf_pt, size_t offset,
                                     size_t pages, size_t mflags);
 errval_t paging_modify_flags(struct capability *frame, uintptr_t offset,
                              uintptr_t pages, uintptr_t kpi_paging_flags);
+void paging_dump_tables_around(struct dcb *dispatcher, lvaddr_t vaddr);
 void paging_dump_tables(struct dcb *dispatcher);
 
 errval_t caps_retype(enum objtype type, gensize_t objsize, size_t count,
@@ -165,16 +174,31 @@ errval_t caps_delete(struct cte *cte);
 errval_t caps_revoke(struct cte *cte);
 
 /*
+ * Reclaim "dropped" caps
+ */
+errval_t caps_reclaim_ram(struct cte *ret_ram_cap);
+
+/*
+ * redact struct capability for passing to user code
+ */
+errval_t redact_capability(struct capability *cap);
+
+/*
  * Cap tracing
  */
 #ifdef TRACE_PMEM_CAPS
-STATIC_ASSERT(50 == ObjType_Num, "knowledge of all cap types");
+// XXX: this is not gonna work anymore! -SG, 2018-10-22.
+STATIC_ASSERT(68 == ObjType_Num, "knowledge of all cap types");
 STATIC_ASSERT(64 >= ObjType_Num, "cap types fit in uint64_t bitfield");
 #define MAPPING_TYPES \
     ((1ull<<ObjType_VNode_x86_64_pml4_Mapping) | \
      (1ull<<ObjType_VNode_x86_64_pdpt_Mapping) | \
      (1ull<<ObjType_VNode_x86_64_pdir_Mapping) | \
      (1ull<<ObjType_VNode_x86_64_ptable_Mapping) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pml4_Mapping) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pdpt_Mapping) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pdir_Mapping) | \
+     (1ul<<ObjType_VNode_x86_64_ept_ptable_Mapping) | \
      (1ull<<ObjType_VNode_x86_32_pdpt_Mapping) | \
      (1ull<<ObjType_VNode_x86_32_pdir_Mapping) | \
      (1ull<<ObjType_VNode_x86_32_ptable_Mapping) | \
@@ -198,6 +222,10 @@ STATIC_ASSERT(64 >= ObjType_Num, "cap types fit in uint64_t bitfield");
      (1ull<<ObjType_VNode_x86_64_pdpt) | \
      (1ull<<ObjType_VNode_x86_64_pdir) | \
      (1ull<<ObjType_VNode_x86_64_ptable) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pml4) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pdpt) | \
+     (1ul<<ObjType_VNode_x86_64_ept_pdir) | \
+     (1ul<<ObjType_VNode_x86_64_ept_ptable) | \
      (1ull<<ObjType_VNode_x86_32_pdpt) | \
      (1ull<<ObjType_VNode_x86_32_pdir) | \
      (1ull<<ObjType_VNode_x86_32_ptable) | \

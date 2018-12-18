@@ -105,7 +105,7 @@ void *user_alloc(size_t size, uintptr_t *paddr)
 			      size, &cap);
   assert(va != NULL);
   struct frame_identity id;
-  errval_t err = invoke_frame_identify(cap, &id);
+  errval_t err = frame_identify(cap, &id);
   assert(err_is_ok(err));
   *paddr = id.base;
   return va;

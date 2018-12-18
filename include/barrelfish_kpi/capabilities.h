@@ -57,7 +57,7 @@ STATIC_ASSERT((L2_CNODE_SLOTS  * (1UL << OBJBITS_CTE)) == OBJSIZE_L2CNODE,
 
 static inline bool type_is_vnode(enum objtype type)
 {
-    STATIC_ASSERT(60 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_VTd_root_table ||
             type == ObjType_VNode_VTd_ctxt_table ||
@@ -66,6 +66,10 @@ static inline bool type_is_vnode(enum objtype type)
             type == ObjType_VNode_x86_64_pdpt ||
             type == ObjType_VNode_x86_64_pdir ||
             type == ObjType_VNode_x86_64_ptable ||
+            type == ObjType_VNode_x86_64_ept_pml4 ||
+            type == ObjType_VNode_x86_64_ept_pdpt ||
+            type == ObjType_VNode_x86_64_ept_pdir ||
+            type == ObjType_VNode_x86_64_ept_ptable ||
             type == ObjType_VNode_x86_32_pdpt ||
             type == ObjType_VNode_x86_32_pdir ||
             type == ObjType_VNode_x86_32_ptable ||
@@ -80,9 +84,10 @@ static inline bool type_is_vnode(enum objtype type)
 
 static inline bool type_is_vroot(enum objtype type)
 {
-    STATIC_ASSERT(60 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
 
     return (type == ObjType_VNode_x86_64_pml4 ||
+            type == ObjType_VNode_x86_64_ept_pml4 ||
 #ifdef CONFIG_PAE
             type == ObjType_VNode_x86_32_pdpt ||
 #else
@@ -102,7 +107,7 @@ static inline bool type_is_vroot(enum objtype type)
 static inline uint8_t vnode_objbits(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(60 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_VTd_root_table ||
         type == ObjType_VNode_VTd_ctxt_table ||
@@ -111,6 +116,10 @@ static inline uint8_t vnode_objbits(enum objtype type)
         type == ObjType_VNode_x86_64_pdpt ||
         type == ObjType_VNode_x86_64_pdir ||
         type == ObjType_VNode_x86_64_ptable ||
+        type == ObjType_VNode_x86_64_ept_pml4 ||
+        type == ObjType_VNode_x86_64_ept_pdpt ||
+        type == ObjType_VNode_x86_64_ept_pdir ||
+        type == ObjType_VNode_x86_64_ept_ptable ||
         type == ObjType_VNode_x86_32_pdpt ||
         type == ObjType_VNode_x86_32_pdir ||
         type == ObjType_VNode_x86_32_ptable)
@@ -137,6 +146,16 @@ static inline uint8_t vnode_objbits(enum objtype type)
     return 0;
 }
 
+static inline bool type_is_ept(enum objtype type)
+{
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
+
+    return (type == ObjType_VNode_x86_64_ept_pml4 ||
+            type == ObjType_VNode_x86_64_ept_pdpt ||
+            type == ObjType_VNode_x86_64_ept_pdir ||
+            type == ObjType_VNode_x86_64_ept_ptable);
+}
+
 /**
  * Return size of vnode in bytes. This is the size of a page table page.
  *
@@ -150,7 +169,7 @@ static inline uint8_t vnode_objbits(enum objtype type)
 static inline size_t vnode_objsize(enum objtype type)
 {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(60 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_VTd_root_table ||
         type == ObjType_VNode_VTd_ctxt_table ||
@@ -159,6 +178,10 @@ static inline size_t vnode_objsize(enum objtype type)
         type == ObjType_VNode_x86_64_pdpt ||
         type == ObjType_VNode_x86_64_pdir ||
         type == ObjType_VNode_x86_64_ptable ||
+        type == ObjType_VNode_x86_64_ept_pml4 ||
+        type == ObjType_VNode_x86_64_ept_pdpt ||
+        type == ObjType_VNode_x86_64_ept_pdir ||
+        type == ObjType_VNode_x86_64_ept_ptable ||
         type == ObjType_VNode_x86_32_pdpt ||
         type == ObjType_VNode_x86_32_pdir ||
         type == ObjType_VNode_x86_32_ptable)
@@ -195,7 +218,7 @@ static inline size_t vnode_objsize(enum objtype type)
  */
 static inline size_t vnode_entry_bits(enum objtype type) {
     // This function should be emitted by hamlet or somesuch.
-    STATIC_ASSERT(60 == ObjType_Num, "Check VNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check VNode definitions");
 
     if (type == ObjType_VNode_VTd_root_table ||
         type == ObjType_VNode_VTd_ctxt_table ||
@@ -203,7 +226,11 @@ static inline size_t vnode_entry_bits(enum objtype type) {
         type == ObjType_VNode_x86_64_pml4 ||
         type == ObjType_VNode_x86_64_pdpt ||
         type == ObjType_VNode_x86_64_pdir ||
-        type == ObjType_VNode_x86_64_ptable)
+        type == ObjType_VNode_x86_64_ptable ||
+        type == ObjType_VNode_x86_64_ept_pml4 ||
+        type == ObjType_VNode_x86_64_ept_pdpt ||
+        type == ObjType_VNode_x86_64_ept_pdir ||
+        type == ObjType_VNode_x86_64_ept_ptable)
     {
         return 9;      // log2(X86_64_PTABLE_SIZE)
     }
@@ -252,7 +279,7 @@ static inline size_t vnode_entry_bits(enum objtype type) {
  * @return Number of page table entries in bits
  */
 static inline size_t cnode_get_slots(struct capability *cnode) {
-    STATIC_ASSERT(60 == ObjType_Num, "Check CNode definitions");
+    STATIC_ASSERT(68 == ObjType_Num, "Check CNode definitions");
 
     switch (cnode->type) {
         case ObjType_L1CNode:
@@ -267,7 +294,7 @@ static inline size_t cnode_get_slots(struct capability *cnode) {
 
 static inline enum objtype get_mapping_type(enum objtype captype)
 {
-    STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all mapping types");
+    STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all mapping types");
 
     switch (captype) {
         case ObjType_Frame:
@@ -290,6 +317,14 @@ static inline enum objtype get_mapping_type(enum objtype captype)
             return ObjType_VNode_x86_64_pdir_Mapping;
         case ObjType_VNode_x86_64_ptable:
             return ObjType_VNode_x86_64_ptable_Mapping;
+        case ObjType_VNode_x86_64_ept_pml4:
+            return ObjType_VNode_x86_64_ept_pml4_Mapping;
+        case ObjType_VNode_x86_64_ept_pdpt:
+            return ObjType_VNode_x86_64_ept_pdpt_Mapping;
+        case ObjType_VNode_x86_64_ept_pdir:
+            return ObjType_VNode_x86_64_ept_pdir_Mapping;
+        case ObjType_VNode_x86_64_ept_ptable:
+            return ObjType_VNode_x86_64_ept_ptable_Mapping;
         case ObjType_VNode_x86_32_pdpt:
             return ObjType_VNode_x86_32_pdpt_Mapping;
         case ObjType_VNode_x86_32_pdir:
@@ -316,7 +351,7 @@ static inline enum objtype get_mapping_type(enum objtype captype)
 
 static inline bool type_is_mapping(enum objtype type)
 {
-    STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all mapping types");
+    STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all mapping types");
 
     switch (type) {
         case ObjType_Frame_Mapping:
@@ -329,6 +364,10 @@ static inline bool type_is_mapping(enum objtype type)
         case ObjType_VNode_x86_64_pdpt_Mapping:
         case ObjType_VNode_x86_64_pdir_Mapping:
         case ObjType_VNode_x86_64_ptable_Mapping:
+        case ObjType_VNode_x86_64_ept_pml4_Mapping:
+        case ObjType_VNode_x86_64_ept_pdpt_Mapping:
+        case ObjType_VNode_x86_64_ept_pdir_Mapping:
+        case ObjType_VNode_x86_64_ept_ptable_Mapping:
         case ObjType_VNode_x86_32_pdpt_Mapping:
         case ObjType_VNode_x86_32_pdir_Mapping:
         case ObjType_VNode_x86_32_ptable_Mapping:
@@ -348,7 +387,7 @@ static inline bool type_is_mapping(enum objtype type)
 
 static inline bool type_is_mappable(enum objtype type)
 {
-    STATIC_ASSERT(60 == ObjType_Num, "Knowledge of all mappable types");
+    STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all mappable types");
 
     switch (type) {
         case ObjType_Frame:
@@ -378,6 +417,20 @@ static inline bool type_is_mappable(enum objtype type)
     }
 }
 
+/* XXX: this should be generated by hamlet. */
+static inline pasid_t get_pasid(struct capability *cap)
+{
+    STATIC_ASSERT(68 == ObjType_Num, "Knowledge of all types that have a pasid");
+
+    if (!type_is_mappable(cap->type)) {
+        return -1;
+    }
+
+    // XXX: this assumes that everything that's mappable is derived from the
+    // abstract capability type Memory.
+    return cap->u.frame.pasid;
+}
+
 /**
  * CNode capability commands.
  */
@@ -391,13 +444,16 @@ enum cnode_cmd {
     CNodeCmd_GetState,  ///< Get distcap state for capability
     CNodeCmd_GetSize,   ///< Get Size of CNode, only applicable for L1 Cnode
     CNodeCmd_Resize,    ///< Resize CNode, only applicable for L1 Cnode
+    CNodeCmd_CapIdentify ///< Identify capability
 };
 
 enum vnode_cmd {
     VNodeCmd_Map,
     VNodeCmd_Unmap,
-    VNodeCmd_Identify,   ///< Return the physical address of the VNode
     VNodeCmd_ModifyFlags,
+    VNodeCmd_CleanDirtyBits, ///< Cleans all dirty bit in the table
+    VNodeCmd_CopyRemap,      ///< Copy and remap page table for copy-on-write
+    VNodeCmd_Inherit,        ///< Clone page table
 };
 
 /**
@@ -448,6 +504,7 @@ enum kernel_cmd {
     KernelCmd_Remove_kcb,         ///< remove kcb from scheduling ring
     KernelCmd_Suspend_kcb_sched,  ///< suspend/resume kcb scheduler
     KernelCmd_Get_platform,       ///< Get architecture platform
+    KernelCmd_ReclaimRAM,         ///< Retrieve stored ram caps from KCB
     KernelCmd_Count
 };
 
@@ -468,24 +525,18 @@ enum dispatcher_cmd {
 };
 
 /**
- * Frame capability commands.
- */
-enum frame_cmd {
-    FrameCmd_Identify,      ///< Return physical address of frame
-};
-
-/**
  * Kernel control block commands.
  */
 enum kcb_cmd {
-    KCBCmd_Clone = FrameCmd_Identify+1, ///< Duplicate core_data
+    KCBCmd_Identify,      ///< Return base address of KCB frame
+    KCBCmd_Clone,         ///< Duplicate core_data
 };
 
 /**
  * RAM capability commands
  */
 enum ram_cmd {
-    RAMCmd_Identify,      ///< Return physical address of frame
+    RAMCmd_Noop,          ///< Noop invocation for benchmark
 };
 
 /**
@@ -538,10 +589,6 @@ enum devidman_cmd {
     DeviceIDManager_CreateID,   ///< Create a new DeviceID
 };
 
-enum devid_cmd {
-    DeviceID_Identify,          ///< Identify a device identity
-};
-
 
 /**
  * Notify capability commands.
@@ -577,13 +624,6 @@ enum ipi_cmd {
     IPICmd_Send_Start,     ///< Send Startup IPI to a destination core
     IPICmd_Send_Init,      ///< Send Init IPI to a destination core
 };
-
-enum ep_cmd {
-    EndPointCMD_FrameIdentify, ///< Identifies Just the Frame Endpoint
-    EndPointCMD_Identify,      ///< Identifies the Endpoint
-    EndPointCMD_SetIftype,      ///< Identifies the Endpoint
-};
-
 
 /**
  * Maximum command ordinal.

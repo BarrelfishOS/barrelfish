@@ -88,6 +88,45 @@ errval_t vspace_map_anon_nomalloc(void **retaddr, struct memobj_anon *memobj,
     return err1;
 }
 
+errval_t vspace_map_append_nomalloc(void **retaddr, struct memobj_append *memobj,
+                                    struct vregion *vregion, size_t size,
+                                    size_t *retsize, vregion_flags_t flags,
+                                    size_t alignment)
+{
+    errval_t err1, err2;
+    size = ROUND_UP(size, BASE_PAGE_SIZE);
+    if (retsize) {
+        *retsize = size;
+    }
+
+    // Create a memobj and vregion
+    err1 = memobj_create_append(memobj, size, 0);
+    if (err_is_fail(err1)) {
+        err1 = err_push(err1, LIB_ERR_MEMOBJ_CREATE_ANON);
+        goto error;
+    }
+    err1 = vregion_map_aligned(vregion, get_current_vspace(),
+                               (struct memobj *)memobj, 0, size,
+                               flags, alignment);
+    if (err_is_fail(err1)) {
+        err1 = err_push(err1, LIB_ERR_VREGION_MAP);
+        goto error;
+    }
+
+    *retaddr = (void*)vspace_genvaddr_to_lvaddr(vregion_get_base_addr(vregion));
+
+    return SYS_ERR_OK;
+
+ error:
+    if (err_no(err1) !=  LIB_ERR_MEMOBJ_CREATE_ANON) {
+        err2 = memobj_destroy_append((struct memobj *)memobj);
+        if (err_is_fail(err2)) {
+            DEBUG_ERR(err2, "memobj_destroy_anon failed");
+        }
+    }
+    return err1;
+}
+
 /**
  * \brief Wrapper for creating and mapping a memory object of type anonymous.
  *

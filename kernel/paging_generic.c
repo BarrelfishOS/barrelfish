@@ -21,7 +21,7 @@
 #include <capabilities.h>
 #include <cap_predicates.h>
 #include <mdb/mdb_tree.h>
-#include <stdio.h>
+#include <trace/trace.h>
 
 static inline errval_t find_mapping_for_cap(struct cte *cap, struct cte **mapping)
 {
@@ -95,13 +95,6 @@ static inline errval_t find_next_ptable(struct cte *mapping_cte, struct cte **ne
 }
 
 /*
-static inline size_t get_offset(struct cte *mapping, struct cte *next)
-{
-    return (mapping->cap.u.frame_mapping.pte - get_address(&next->cap)) / get_pte_size();
-}
-*/
-
-/*
  * 'set_cap()' for mapping caps
  */
 void create_mapping_cap(struct cte *mapping_cte, struct capability *cap,
@@ -109,16 +102,14 @@ void create_mapping_cap(struct cte *mapping_cte, struct capability *cap,
 {
     assert(mapping_cte->cap.type == ObjType_Null);
     assert(type_is_vnode(ptable->cap.type));
+    // we can currently only handle page tables with less than 2^16 entries.
     assert(entry < UINT16_MAX);
-    // Currently, we have 32 bit offsets with 10 bit minimum page size, hence
-    // the offset needs to have no more than 42 significant bits. FIXME
-    //assert((offset & ~MASK(42)) == 0);
+    assert(pte_count < UINT16_MAX);
 
     mapping_cte->cap.type = get_mapping_type(cap->type);
     mapping_cte->cap.u.frame_mapping.cap = cap;
     mapping_cte->cap.u.frame_mapping.ptable = ptable;
     mapping_cte->cap.u.frame_mapping.entry = entry;
-    //mapping_cte->cap.u.frame_mapping.offset = offset >> 10;
     mapping_cte->cap.u.frame_mapping.pte_count = pte_count;
 }
 
@@ -218,6 +209,7 @@ errval_t compile_vaddr(struct cte *ptable, size_t entry, genvaddr_t *retvaddr)
 errval_t unmap_capability(struct cte *mem)
 {
     errval_t err;
+    TRACE_CTE(KERNEL_CAPOPS, UNMAP_CAPABILITY, mem);
 
     TRACE_CAP_MSG("unmapping", mem);
 
@@ -331,6 +323,12 @@ errval_t page_mappings_unmap(struct capability *pgtable, struct cte *mapping)
         } else if (err_no(err) == SYS_ERR_VNODE_SLOT_INVALID) {
             debug(SUBSYS_PAGING, "couldn't reconstruct virtual address\n");
         } else {
+            printk(LOG_NOTE, "%s: compile_vaddr returned %lu\n", __FUNCTION__, err);
+            char buf[256];
+            sprint_cap(buf, 256, pgtable);
+            printk(LOG_NOTE, "%s: ptable = %p[%s]\n", __FUNCTION__, pgtable, buf);
+            sprint_cap(buf, 256, &mapping->cap);
+            printk(LOG_NOTE, "%s: mapping = %p[%s]\n", __FUNCTION__, mapping, buf);
             return err;
         }
     }

@@ -11,15 +11,18 @@
 --------------------------------------------------------------------------
 
 [
-  build application { target = "mdb_bench",
+  build application { target = "mdb_bench_noparent",
                       cFiles = [ "main.c", "reset.c", "measure.c" ],
                       addLibraries = [ "mdb", "cap_predicates", "bench" ],
                       addIncludes = [ "/include/barrelfish" ]
                     },
-  build application { target = "mdb_bench_old",
+  build application { target = "mdb_bench_linkedlist",
                       cFiles = [ "main.c", "old_mdb.c", "reset.c", "measure.c" ],
                       addLibraries = [ "mdb", "cap_predicates", "bench" ],
                       addIncludes = [ "/include/barrelfish" ],
                       addCFlags = [ "-DOLD_MDB" ]
+                    },
+  build application { target = "mdb_bench_frequency",
+                      cFiles = [ "frequency_bench.c" ]
                     }
 ]

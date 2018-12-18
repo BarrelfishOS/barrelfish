@@ -49,6 +49,19 @@ errval_t vspace_mmu_aware_init(struct vspace_mmu_aware *state, size_t size)
             VREGION_FLAGS_READ_WRITE);
 }
 
+static size_t pagesize_from_vregion_flags(vregion_flags_t flags)
+{
+#ifdef __x86_64__
+    if (flags & VREGION_FLAGS_HUGE) {
+        return HUGE_PAGE_SIZE;
+    }
+#endif
+    if (flags & VREGION_FLAGS_LARGE) {
+        return LARGE_PAGE_SIZE;
+    }
+    return BASE_PAGE_SIZE;
+}
+
 errval_t vspace_mmu_aware_init_aligned(struct vspace_mmu_aware *state,
                                        struct slot_allocator *slot_allocator,
                                        size_t size, size_t alignment,
@@ -57,6 +70,7 @@ errval_t vspace_mmu_aware_init_aligned(struct vspace_mmu_aware *state,
     state->size = size;
     state->consumed = 0;
     state->alignment = alignment;
+    state->pagesize = pagesize_from_vregion_flags(flags);
 
     vspace_mmu_aware_set_slot_alloc(state, slot_allocator);
 
@@ -137,13 +151,13 @@ errval_t vspace_mmu_aware_map(struct vspace_mmu_aware *state, size_t req_size,
             // mapoffset is aligned to at least LARGE_PAGE_SIZE.
             alloc_size = ROUND_UP(req_size, LARGE_PAGE_SIZE);
         }
-        // Create frame of appropriate size
-allocate:
+        // allocate slot before jump target
         err = state->slot_alloc->alloc(state->slot_alloc, &frame);
         if (err_is_fail(err)) {
             return err_push(err, LIB_ERR_SLOT_ALLOC_NO_SPACE);
         }
-
+allocate:
+        // Create frame of appropriate size
         err = frame_create(frame, alloc_size, &ret_size);
         if (err_is_fail(err)) {
             if (err_no(err) == LIB_ERR_RAM_ALLOC_MS_CONSTRAINTS) {

@@ -124,7 +124,7 @@ cpu_memory_prepare(size_t *size,
         return err;
     }
 
-    err = invoke_frame_identify(cap, frameid);
+    err = frame_identify(cap, frameid);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_IDENTIFY);
     }
@@ -171,7 +171,7 @@ spawn_memory_prepare(size_t size, struct capref *cap_ret,
         return err;
     }
 
-    err = invoke_frame_identify(cap, frameid);
+    err = frame_identify(cap, frameid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "frame_identify failed");
     }
@@ -627,7 +627,7 @@ errval_t spawn_xcore_monitor(coreid_t coreid, hwid_t hwid,
     core_data->chan_id             = chanid;
 #endif
     struct frame_identity fid;
-    err = invoke_frame_identify(kcb, &fid);
+    err = invoke_kcb_identify(kcb, &fid);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Invoke frame identity for KCB failed. "
                             "Did you add the syscall handler for that architecture?");

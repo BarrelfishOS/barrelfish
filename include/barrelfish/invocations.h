@@ -18,9 +18,16 @@
 #include <barrelfish_kpi/dispatcher_shared.h>
 #include <barrelfish_kpi/distcaps.h> // for distcap_state_t
 #include <barrelfish/caddr.h>
+#include <barrelfish/cap_predicates.h> // get_address(), get_size()
+#include <barrelfish/debug.h>
 
 #include <barrelfish/invocations_arch.h>
 #include <barrelfish/idc.h>
+
+static inline errval_t invoke_ram_noop(struct capref ram)
+{
+    return cap_invoke1(ram, RAMCmd_Noop).error;
+}
 
 /**
  * \brief Create a capability.
@@ -191,61 +198,92 @@ static inline errval_t invoke_vnode_unmap(struct capref cap,
     return cap_invoke3(cap, VNodeCmd_Unmap, mapping_addr, level).error;
 }
 
+static inline errval_t invoke_vnode_modify_flags(struct capref cap,
+                                          size_t entry, size_t num_pages,
+                                          size_t attr)
+{
+    return cap_invoke4(cap, VNodeCmd_ModifyFlags, entry, num_pages, attr).error;
+}
+
+static inline errval_t invoke_vnode_copy_remap(struct capref ptable, capaddr_t slot,
+                                        capaddr_t src, enum cnode_type srclevel,
+                                        size_t flags, size_t offset, size_t pte_count,
+                                        capaddr_t mcn_addr, cslot_t mapping_slot,
+                                        enum cnode_type mcn_level)
+{
+    return cap_invoke10(ptable, VNodeCmd_CopyRemap, slot, src, srclevel, flags,
+                        offset, pte_count, mcn_addr, mapping_slot, mcn_level).error;
+}
+
 /**
- * \brief Return the physical address and size of a frame capability
+ * \brief Return the physical address of a kernel control block
  *
- * \param frame    CSpace address of frame capability
+ * KCB identify is special because we do not have a valid implementation of
+ * mem_to_local_phys() in user space, which means we cannot use get_address()
+ * on a KCB's struct capability in user space.
+ *
+ * \param kcb      CSpace address of kernel control block capability
  * \param ret      frame_identity struct filled in with relevant data
  *
  * \return Error code
  */
-static inline errval_t invoke_frame_identify(struct capref frame,
-                                             struct frame_identity *ret)
+static inline errval_t invoke_kcb_identify(struct capref kcb,
+                                           struct frame_identity *ret)
 {
     assert(ret != NULL);
-    assert(get_croot_addr(frame) == CPTR_ROOTCN);
-
-    struct sysret sysret = cap_invoke2(frame, FrameCmd_Identify, (uintptr_t)ret);
-
-    if (err_is_ok(sysret.error)) {
-        return sysret.error;
-    }
+    assert(get_croot_addr(kcb) == CPTR_ROOTCN);
 
     ret->base = 0;
     ret->bytes = 0;
     ret->pasid = 0;
-    return sysret.error;
+
+    return cap_invoke2(kcb, KCBCmd_Identify, (uintptr_t)ret).error;
+}
+
+/**
+ * \brief Return capability representation of a given CSpace address
+ *
+ * \param cap      CSpace address of capability
+ * \param ret      capability struct filled in with relevant data
+ *
+ * \return Error code
+ */
+static inline errval_t invoke_cap_identify(struct capref cap,
+                                           struct capability *ret)
+{
+    struct capref croot = get_croot_capref(cap);
+    return cap_invoke4(croot, CNodeCmd_CapIdentify,
+                       get_cap_addr(cap), get_cap_level(cap),
+                       (uintptr_t)ret).error;
 }
 
 static inline errval_t invoke_vnode_identify(struct capref vnode,
 					     struct vnode_identity *ret)
 {
-    assert(get_croot_addr(vnode) == CPTR_ROOTCN);
-    struct sysret sysret = cap_invoke1(vnode, VNodeCmd_Identify);
+    errval_t err;
+    struct capability retcap;
+    err = invoke_cap_identify(vnode, &retcap);
 
     assert(ret != NULL);
-    if (err_is_ok(sysret.error)) {
-        ret->base = sysret.value & (~BASE_PAGE_MASK);
-	ret->type = sysret.value & BASE_PAGE_MASK;
-        return sysret.error;
-    }
 
     ret->base = 0;
     ret->type = 0;
-    return sysret.error;
+
+    if (err_is_ok(err) && type_is_vnode(retcap.type)) {
+        ret->base = get_address(&retcap);
+	ret->type = retcap.type;
+    } else if (err_is_ok(err)) {
+        err = SYS_ERR_INVALID_SOURCE_TYPE;
+    }
+    return err;
 }
 
 static inline errval_t invoke_device_identify(struct capref deviceid,
                                               struct device_identity *ret)
 {
-    assert(ret != NULL);
-    assert(get_croot_addr(deviceid) == CPTR_ROOTCN);
+    errval_t err;
 
-    struct sysret sysret = cap_invoke2(deviceid, DeviceID_Identify, (uintptr_t)ret);
-
-    if (err_is_ok(sysret.error)) {
-        return sysret.error;
-    }
+    assert(ret);
 
     ret->bus = 0;
     ret->device = 0;
@@ -253,7 +291,20 @@ static inline errval_t invoke_device_identify(struct capref deviceid,
     ret->flags = 0;
     ret->type = DEVICE_ID_TYPE_UNKNOWN;
     ret->segment = 0;
-    return sysret.error;
+
+    struct capability retcap;
+    err = invoke_cap_identify(deviceid, &retcap);
+    if (err_is_ok(err) && retcap.type == ObjType_DeviceID) {
+        ret->bus = retcap.u.deviceid.bus;
+        ret->device = retcap.u.deviceid.device;
+        ret->function = retcap.u.deviceid.function;
+        ret->flags = retcap.u.deviceid.flags;
+        ret->segment = retcap.u.deviceid.segment;
+        ret->type = retcap.u.deviceid.type;
+    } else if (err_is_ok(err)) {
+        err = SYS_ERR_INVALID_SOURCE_TYPE;
+    }
+    return err;
 }
 
 
@@ -261,40 +312,51 @@ static inline errval_t invoke_endpoint_identify(struct capref ep,
                                                 struct endpoint_identity *ret)
 {
     assert(ret != NULL);
-    assert(get_croot_addr(ep) == CPTR_ROOTCN);
-
-    struct sysret sysret = cap_invoke2(ep, EndPointCMD_Identify, (uintptr_t)ret);
-
-    if (err_is_ok(sysret.error)) {
-        switch(ret->eptype) {
-            case ObjType_EndPointLMP :
-                ret->eptype = IDC_ENDPOINT_LMP;
-                break;
-            case ObjType_EndPointUMP :
-                ret->eptype = IDC_ENDPOINT_UMP;
-                break;
-            default:
-                return SYS_ERR_INVALID_SOURCE_TYPE;
-        }
-        return sysret.error;
-    }
 
     ret->iftype = 0;
     ret->base = 0;
     ret->length = 0;
-    ret->eptype = 0;
 
-    return sysret.error;
+    struct capability retcap;
+
+    errval_t err = invoke_cap_identify(ep, &retcap);
+
+    if (err_is_ok(err)) {
+        if (retcap.type == ObjType_EndPointLMP) {
+            // fill out with LMP info
+            ret->base = (uintptr_t)retcap.u.endpointlmp.listener +
+                        retcap.u.endpointlmp.epoffset;
+            ret->length = retcap.u.endpointlmp.epbuflen;
+            ret->iftype = retcap.u.endpointlmp.iftype;
+            ret->eptype = IDC_ENDPOINT_LMP;
+        } else if (retcap.type == ObjType_EndPointUMP) {
+            // fill out with UMP info
+            ret->base = get_address(&retcap);
+            ret->length = get_size(&retcap);
+            ret->iftype = retcap.u.endpointump.iftype;
+            ret->eptype = IDC_ENDPOINT_UMP;
+        } else {
+            // fail if cap not endpoint
+            ret->eptype = 0;
+            err = SYS_ERR_INVALID_SOURCE_TYPE;
+        }
+    }
+
+    return err;
 }
 
-static inline errval_t invoke_endpoint_set_iftype(struct capref ep,
-                                                  uint16_t iftype)
+/**
+ * \brief Cleans all dirty bits in a page table.
+ */
+static inline errval_t invoke_clean_dirty_bits(struct capref vnode, size_t* how_many)
 {
-    assert(get_croot_addr(ep) == CPTR_ROOTCN);
 
-    return cap_invoke2(ep, EndPointCMD_SetIftype, (uintptr_t) iftype).error;
+    struct sysret ret = cap_invoke1(vnode, VNodeCmd_CleanDirtyBits);
+    if (how_many != NULL) {
+        *how_many = ret.value;
+    }
+    return ret.error;
 }
-
 
 /**
  * \brief Modify mapping flags on parts of a mapping
@@ -371,9 +433,9 @@ invoke_dispatcher_properties(struct capref dispatcher,
 }
 
 
-static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap)
+static inline errval_t invoke_dispatcher_dump_ptables(struct capref dispcap, lvaddr_t vaddr)
 {
-    return cap_invoke1(dispcap, DispatcherCmd_DumpPTables).error;
+    return cap_invoke2(dispcap, DispatcherCmd_DumpPTables, vaddr).error;
 }
 
 static inline errval_t invoke_dispatcher_dump_capabilities(struct capref dispcap)

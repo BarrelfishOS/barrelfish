@@ -167,13 +167,6 @@ invoke_vnode_map(struct capref ptable, capaddr_t slot,
                        pte_count, mcnroot, mcnaddr, small_values).error;
 }
 
-static inline errval_t invoke_vnode_modify_flags(struct capref cap,
-                                          size_t entry, size_t num_pages,
-                                          size_t attr)
-{
-    return cap_invoke4(cap, VNodeCmd_ModifyFlags, entry, num_pages, attr).error;
-}
-
 /**
  * \brief Duplicate ARMv7 core_data into the supplied frame.
  *
@@ -241,6 +234,34 @@ static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpadd
 {
     assert(global != NULL);
     return cap_invoke2(kernel_cap, KernelCmd_GetGlobalPhys, (uintptr_t)global).error;
+}
+
+/*
+ * MVA extensions
+ */
+
+/**
+ * \brief clone vnode
+ *
+ * \arg mcn capaddr array of cnodes holding mapping caps for vnode slots
+ * \arg newflags new flags for cloned table entries. Ignored if 0.
+ */
+static inline errval_t invoke_vnode_inherit(struct capref dest, capaddr_t src,
+                                            enum cnode_type slevel,
+                                            cslot_t start, cslot_t end,
+                                            uintptr_t newflags,
+                                            capaddr_t *mcn)
+{
+    assert(ARM_L2_MAX_ENTRIES / L2_CNODE_SLOTS == 1);
+    assert(mcn[1] == CPTR_NULL);
+    assert(mcn[2] == CPTR_NULL);
+    assert(mcn[3] == CPTR_NULL);
+    assert(mcn[5] == CPTR_NULL);
+    assert(mcn[6] == CPTR_NULL);
+    assert(mcn[7] == CPTR_NULL);
+    // mcn[0] is source mcn, mcn[4] is dest mcn.
+    return cap_invoke8(dest, VNodeCmd_Inherit, src, slevel, start, end,
+                       newflags, mcn[0], mcn[4]).error;
 }
 
 #endif

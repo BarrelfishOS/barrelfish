@@ -52,7 +52,7 @@ int map_unmap(void)
     }
 
     struct frame_identity fi;
-    err = invoke_frame_identify(frame, &fi);
+    err = frame_identify(frame, &fi);
     if (err_is_fail(err)) {
         printf("frame_identify: %s (%"PRIuERRV")\n", err_getstring(err), err);
         return 1;

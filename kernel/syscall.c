@@ -487,6 +487,50 @@ sys_map(struct capability *ptable, cslot_t slot, capaddr_t source_root_cptr,
                                      offset, pte_count, mapping_cte));
 }
 
+struct sysret
+sys_copy_remap(struct capability *ptable, cslot_t slot, capaddr_t source_cptr,
+               int source_level, uintptr_t flags, uintptr_t offset,
+               uintptr_t pte_count, capaddr_t mapping_cnptr,
+               uint8_t mapping_cn_level, cslot_t mapping_slot)
+{
+    assert (type_is_vnode(ptable->type));
+
+    errval_t err;
+
+    /* Lookup source cap */
+    struct capability *root = &dcb_current->cspace.cap;
+    struct cte *src_cte;
+    err = caps_lookup_slot(root, source_cptr, source_level, &src_cte,
+                           CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
+    }
+
+    /* Lookup slot for mapping in our cspace */
+    struct cte *mapping_cnode_cte;
+    err = caps_lookup_slot(root, mapping_cnptr, mapping_cn_level,
+                           &mapping_cnode_cte, CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+
+    if (mapping_cnode_cte->cap.type != ObjType_L2CNode) {
+        return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
+    }
+
+    struct cte *mapping_cte = caps_locate_slot(get_address(&mapping_cnode_cte->cap),
+                                               mapping_slot);
+    if (mapping_cte->cap.type != ObjType_Null) {
+        return SYSRET(SYS_ERR_SLOT_IN_USE);
+    }
+
+    /* Perform map */
+    // XXX: this does not check if we do have CAPRIGHTS_READ_WRITE on
+    // the destination cap (the page table we're inserting into)
+    return SYSRET(paging_copy_remap(cte_for_cap(ptable), slot, src_cte, flags,
+                                    offset, pte_count, mapping_cte));
+}
+
 struct sysret sys_delete(struct capability *root, capaddr_t cptr, uint8_t level)
 {
     errval_t err;
@@ -619,6 +663,35 @@ struct sysret sys_resize_l1cnode(struct capability *root, capaddr_t newroot_cptr
     if (err_is_fail(err)) {
         return SYSRET(err);
     }
+
+    return SYSRET(SYS_ERR_OK);
+}
+
+/**
+ * \brief return redacted 'struct capability' for given capability
+ */
+struct sysret sys_identify_cap(struct capability *root, capaddr_t cptr,
+                               uint8_t level, struct capability *out)
+{
+    errval_t err;
+    if (!access_ok(ACCESS_WRITE, (lvaddr_t)out, sizeof(*out))) {
+        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
+    }
+
+    if (root->type != ObjType_L1CNode) {
+        return SYSRET(SYS_ERR_CNODE_NOT_ROOT);
+    }
+
+    struct capability *thecap;
+    // XXX: what's the correct caprights here?
+    err = caps_lookup_cap(root, cptr, level, &thecap, CAPRIGHTS_ALLRIGHTS);
+    if (err_is_fail(err)) {
+        return SYSRET(err);
+    }
+
+    memcpy(out, thecap, sizeof(*out));
+
+    redact_capability(out);
 
     return SYSRET(SYS_ERR_OK);
 }

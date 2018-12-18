@@ -215,6 +215,15 @@ cap VNode_x86_64_ptable from RAM inherit VNode;
 
 cap VNode_x86_64_ptable_Mapping from VNode_x86_64_ptable inherit Mapping;
 
+/* Extended page table types for x86 nested paging */
+cap VNode_x86_64_ept_pml4 from RAM inherit VNode;
+cap VNode_x86_64_ept_pml4_Mapping from VNode_x86_64_ept_pml4 inherit Mapping;
+cap VNode_x86_64_ept_pdpt from RAM inherit VNode;
+cap VNode_x86_64_ept_pdpt_Mapping from VNode_x86_64_ept_pdpt inherit Mapping;
+cap VNode_x86_64_ept_pdir from RAM inherit VNode;
+cap VNode_x86_64_ept_pdir_Mapping from VNode_x86_64_ept_pdir inherit Mapping;
+cap VNode_x86_64_ept_ptable from RAM inherit VNode;
+cap VNode_x86_64_ept_ptable_Mapping from VNode_x86_64_ept_ptable inherit Mapping;
 
 /* Intel VT-d */
 
@@ -353,7 +362,6 @@ cap Domain from ProcessManager {
     eq coreid coreid;  /* Core where the domain was created. */
     eq uint32 core_local_id;  /* Core-local ID of the domain. */
 };
-
 
 /*
 cap ProtectionDomainManager is_always_copy {

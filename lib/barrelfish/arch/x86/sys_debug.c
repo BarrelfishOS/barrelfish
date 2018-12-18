@@ -47,3 +47,16 @@ errval_t sys_debug_get_apic_ticks_per_sec(uint32_t *ret)
     *ret = sr.value;
     return sr.error;
 }
+
+errval_t sys_debug_get_mdb_size(size_t *size)
+{
+    struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_GET_MDB_SIZE);
+    *size = sr.value;
+    return sr.error;
+}
+
+errval_t sys_debug_print_mdb_counters(void)
+{
+    struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_PRINT_MDB_COUNTERS);
+    return sr.error;
+}

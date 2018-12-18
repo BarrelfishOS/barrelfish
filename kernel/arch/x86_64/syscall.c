@@ -45,6 +45,14 @@
 
 extern uint64_t user_stack_save;
 
+/**
+ * For benchmarking only
+ */
+static struct sysret handle_noop(struct capability *to, int cmd, uintptr_t *args)
+{
+    return SYSRET(SYS_ERR_OK);
+}
+
 /* FIXME: lots of missing argument checks in this function */
 static struct sysret handle_dispatcher_setup(struct capability *to,
                                              int cmd, uintptr_t *args)
@@ -244,6 +252,16 @@ static struct sysret handle_resize(struct capability *root,
     return sys_resize_l1cnode(root, newroot_ptr, retcn_ptr, retslot);
 }
 
+static struct sysret handle_cap_identify(struct capability *root,
+                                         int cmd, uintptr_t *args)
+{
+    capaddr_t cptr = args[0];
+    uint8_t  level = args[1];
+    struct capability *cap = (struct capability*)args[2];
+
+    return sys_identify_cap(root, cptr, level, cap);
+}
+
 static struct sysret handle_unmap(struct capability *pgtable,
                                   int cmd, uintptr_t *args)
 {
@@ -290,6 +308,154 @@ static struct sysret handle_mapping_modify(struct capability *mapping,
         .error = err,
         .value = 0,
     };
+}
+
+static struct sysret handle_vnode_copy_remap(struct capability *ptable,
+                                             int cmd, uintptr_t *args)
+{
+    /* Retrieve arguments */
+    uint64_t  slot          = args[0];
+    capaddr_t source_cptr   = args[1];
+    int       source_level  = args[2];
+    uint64_t  flags         = args[3];
+    uint64_t  offset        = args[4];
+    uint64_t  pte_count     = args[5];
+    capaddr_t mapping_cnptr = args[6];
+    cslot_t   mapping_slot  = args[7];
+    uint8_t   mapping_cnlevel=args[8];
+
+    struct sysret sr = sys_copy_remap(ptable, slot, source_cptr, source_level, flags,
+                                      offset, pte_count, mapping_cnptr,
+                                      mapping_cnlevel, mapping_slot);
+    return sr;
+}
+
+/*
+ *  MVAS Extension
+ */
+static struct sysret handle_inherit(struct capability *dest,
+                                  int cmd, uintptr_t *args)
+{
+    errval_t err;
+
+    capaddr_t source_cptr   = args[0];
+    int       source_level  = args[1];
+    uint64_t  start         = args[2];
+    uint64_t  end           = args[3];
+    uint64_t  flags         = args[4];
+    capaddr_t src_mcn0_cptr = (args[5] >> CPTR_BITS) & MASK(CPTR_BITS);
+    capaddr_t src_mcn1_cptr = args[5] & MASK(CPTR_BITS);
+    capaddr_t dst_mcn0_cptr = (args[6] >> CPTR_BITS) & MASK(CPTR_BITS);
+    capaddr_t dst_mcn1_cptr = args[6] & MASK(CPTR_BITS);
+
+    if (start > PTABLE_SIZE || end > PTABLE_SIZE) {
+        return SYSRET(SYS_ERR_SLOTS_INVALID);
+    }
+
+    if (start > end) {
+        return SYSRET(SYS_ERR_OK);
+    }
+
+    struct capability *root = &dcb_current->cspace.cap;
+    struct cte *src_cte;
+    err = caps_lookup_slot(root, source_cptr, source_level, &src_cte,
+                           CAPRIGHTS_READ);
+    if (err_is_fail(err)) {
+        return SYSRET(err_push(err, SYS_ERR_SOURCE_CAP_LOOKUP));
+    }
+    struct capability *src  = &src_cte->cap;
+
+    if (dest->type != src->type) {
+        return SYSRET(SYS_ERR_CNODE_TYPE);
+    }
+
+    /* lookup src mapping cnodes */
+    struct cte *src_mcn0;
+    err = caps_lookup_slot(root, src_mcn0_cptr, CNODE_TYPE_OTHER, &src_mcn0,
+                           CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: looking up cte for src mcn0 (%#"PRIxCADDR"): %d\n",
+                __FUNCTION__, src_mcn0_cptr, err_no(err));
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+    if (src_mcn0->cap.type != ObjType_L2CNode) {
+        return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
+    }
+    struct cte *src_mcn1;
+    err = caps_lookup_slot(root, src_mcn1_cptr, CNODE_TYPE_OTHER, &src_mcn1,
+                           CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: looking up cte for src mcn1 (%#"PRIxCADDR"): %d\n",
+                __FUNCTION__, src_mcn1_cptr, err_no(err));
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+    if (src_mcn1->cap.type != ObjType_L2CNode) {
+        return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
+    }
+    /* lookup src mapping cnodes */
+    struct cte *dst_mcn0;
+    err = caps_lookup_slot(root, dst_mcn0_cptr, CNODE_TYPE_OTHER, &dst_mcn0,
+                           CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: looking up cte for dest mcn0 (%#"PRIxCADDR"): %d\n",
+                __FUNCTION__, dst_mcn0_cptr, err_no(err));
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+    if (dst_mcn0->cap.type != ObjType_L2CNode) {
+        return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
+    }
+    struct cte *dst_mcn1;
+    err = caps_lookup_slot(root, dst_mcn1_cptr, CNODE_TYPE_OTHER, &dst_mcn1,
+                           CAPRIGHTS_READ_WRITE);
+    if (err_is_fail(err)) {
+        printk(LOG_NOTE, "%s: looking up cte for dest mcn1 (%#"PRIxCADDR"): %d\n",
+                __FUNCTION__, dst_mcn1_cptr, err_no(err));
+        return SYSRET(err_push(err, SYS_ERR_DEST_CNODE_LOOKUP));
+    }
+    if (dst_mcn1->cap.type != ObjType_L2CNode) {
+        return SYSRET(SYS_ERR_DEST_TYPE_INVALID);
+    }
+
+    genpaddr_t dst_addr = get_address(dest);
+    genpaddr_t src_addr = get_address(src);
+    if (!type_is_vnode(dest->type)) {
+        return SYSRET(SYS_ERR_VNODE_TYPE);
+    }
+
+    uint64_t *dst_entry = (uint64_t *)local_phys_to_mem(dst_addr);
+    uint64_t *src_entry = (uint64_t *)local_phys_to_mem(src_addr);
+
+    debug(SUBSYS_PAGING, "vnode_inherit: copying entries %"PRIu64"--%"PRIu64
+            " from %p to %p, new flags = %"PRIx64"\n",
+            start, end, src_entry, dst_entry, flags);
+
+    struct cte *src_mapping = NULL, *dst_mapping = NULL;
+    struct capability *src_mcn[PTABLE_SIZE / L2_CNODE_SLOTS] = { &src_mcn0->cap, &src_mcn1->cap };
+    struct capability *dst_mcn[PTABLE_SIZE / L2_CNODE_SLOTS] = { &dst_mcn0->cap, &dst_mcn1->cap };
+    for (uint64_t i = start; i < end; ++i) {
+        int mcn_idx = i / L2_CNODE_SLOTS;
+        assert(mcn_idx == 0 || mcn_idx == 1);
+        cslot_t mslot = i % L2_CNODE_SLOTS;
+        src_mapping = caps_locate_slot(get_address(src_mcn[mcn_idx]), mslot);
+        dst_mapping = caps_locate_slot(get_address(dst_mcn[mcn_idx]), mslot);
+        //printf("kernel: cpy: %p -> %p\n", src_entry+i, dst_entry+i);
+        //printf("kernel: cpy: [%016lx] -> [%016lx]\n", src_entry[i], dst_entry[i]);
+        assert(dst_entry[i] == 0);
+        // clone entry
+        dst_entry[i] = src_entry[i];
+        // create mapping cap for cloned entry if src mapping cap not null
+        if (src_mapping->cap.type != ObjType_Null) {
+            struct Frame_Mapping *sm = &src_mapping->cap.u.frame_mapping;
+            create_mapping_cap(dst_mapping, sm->cap, cte_for_cap(dest), i, sm->pte_count);
+            err = mdb_insert(dst_mapping);
+            assert(err_is_ok(err));
+        }
+    }
+
+    if (flags) {
+        return SYSRET(ptable_modify_flags(dest, start, end - start, flags));
+    }
+    return SYSRET(SYS_ERR_OK);
 }
 
 /// Different handler for cap operations performed by the monitor
@@ -552,63 +718,48 @@ static struct sysret monitor_get_platform(struct capability *kern_cap,
     return SYSRET(SYS_ERR_OK);
 }
 
-static struct sysret handle_frame_identify(struct capability *to,
-                                           int cmd, uintptr_t *args)
+static struct sysret monitor_reclaim_ram(struct capability *kern_cap,
+                                         int cmd, uintptr_t *args)
 {
-    // Return with physical base address of frame
-    assert(to->type == ObjType_Frame || to->type == ObjType_DevFrame ||
-           to->type == ObjType_RAM   || to->type == ObjType_EndPointUMP);
-    assert((get_address(to) & BASE_PAGE_MASK) == 0);
-
-    struct frame_identity *fi = (struct frame_identity *)args[0];
-
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)fi, sizeof(struct frame_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    fi->base = get_address(to);
-    fi->bytes = get_size(to);
-    switch(to->type) {
-        case ObjType_Frame:
-            fi->pasid = to->u.frame.pasid;
-            break;
-        case ObjType_DevFrame:
-            fi->pasid = to->u.devframe.pasid;
-            break;
-        case ObjType_RAM:
-            fi->pasid = to->u.ram.pasid;
-            break;
-        case ObjType_EndPointUMP:
-            fi->pasid = to->u.endpointump.pasid;
-            break;
-        default:
-            assert(false);
-    }
-
-    return SYSRET(SYS_ERR_OK);
+    capaddr_t retcn_addr  = (capaddr_t)args[0];
+    uint8_t   retcn_level = (uint8_t)  args[1];
+    cslot_t   ret_slot    = (cslot_t)  args[2];
+    return sys_monitor_reclaim_ram(retcn_addr, retcn_level, ret_slot);
 }
 
-static struct sysret handle_vnode_identify(struct capability *to,
-					   int cmd, uintptr_t *args)
+static struct sysret handle_clean_dirty_bits(struct capability *to,
+                                             int cmd, uintptr_t *args)
 {
-    // Return with physical base address of the VNode
-    assert(to->type == ObjType_VNode_x86_64_pml4 ||
-	   to->type == ObjType_VNode_x86_64_pdpt ||
-	   to->type == ObjType_VNode_x86_64_pdir ||
-	   to->type == ObjType_VNode_x86_64_ptable ||
-       to->type == ObjType_VNode_x86_64_pml5 ||
-       to->type == ObjType_VNode_VTd_root_table ||
-       to->type == ObjType_VNode_VTd_ctxt_table);
+    assert(to->type == ObjType_VNode_x86_64_ptable);
+    size_t cleared = 0;
 
-    genpaddr_t base_addr = get_address(to);
-    assert((base_addr & BASE_PAGE_MASK) == 0);
+    genpaddr_t dest_gp   = get_address(to);
+    lpaddr_t dest_lp     = gen_phys_to_local_phys(dest_gp);
+    lvaddr_t dest_lv     = local_phys_to_mem(dest_lp);
+    //printf("%s:%s:%d: dest_gp = %"PRIxGENVADDR" dest_lp = %"PRIxLVADDR" dest_lv = %"PRIxLVADDR" \n",
+    //       __FILE__, __FUNCTION__, __LINE__, dest_gp, dest_lp, dest_lv);
 
+    lvaddr_t* addr = (lvaddr_t*)dest_lv;
+
+    if (addr == NULL) {
+        printf("%s:%s:%d: Page table has invalid base address\n",
+               __FILE__, __FUNCTION__, __LINE__);
+        goto out;
+    }
+
+    for (int i=0; i < X86_64_PTABLE_SIZE; i++) {
+        if (addr[i] & X86_64_PTABLE_DIRTY) {
+            cleared++;
+        }
+        addr[i] &= ~X86_64_PTABLE_DIRTY;
+    }
+
+out:
     return (struct sysret) {
         .error = SYS_ERR_OK,
-        .value = (genpaddr_t)base_addr | ((uint8_t)to->type),
+        .value = cleared,
     };
 }
-
 
 static struct sysret handle_io(struct capability *to, int cmd, uintptr_t *args)
 {
@@ -771,7 +922,10 @@ handle_dispatcher_setup_guest (struct capability *to, int cmd, uintptr_t *args)
 
     // 2. Set up the target DCB
 /*     dcb->guest_desc.monitor_ep = ep_cap; */
-    dcb->vspace = vnode_cap->u.vnode_x86_64_pml4.base;
+    // set dcb->guest_desc.vspace for VMX (Intel) vmkit.
+    dcb->guest_desc.vspace = get_address(vnode_cap);
+    // set dcb->vspace for SVM (AMD) vmkit.
+    dcb->vspace = get_address(vnode_cap);
     dcb->is_vm_guest = true;
 /*     dcb->guest_desc.vmcb = vmcb_cap->u.frame.base; */
 /*     dcb->guest_desc.ctrl = (void *)x86_64_phys_to_mem(ctrl_cap->u.frame.base); */
@@ -964,11 +1118,13 @@ static struct sysret dispatcher_dump_ptables(struct capability *cap,
 {
     assert(cap->type == ObjType_Dispatcher);
 
-    printf("kernel_dump_ptables\n");
+    lvaddr_t vaddr = args[0];
+
+    printf("kernel_dump_ptables, vaddr=%#"PRIxLVADDR"\n", vaddr);
 
     struct dcb *dispatcher = cap->u.dispatcher.dcb;
 
-    paging_dump_tables(dispatcher);
+    paging_dump_tables_around(dispatcher, vaddr);
 
     return SYSRET(SYS_ERR_OK);
 }
@@ -1100,84 +1256,6 @@ static struct sysret handle_devid_create(struct capability *cap, int cmd,
                                             slot, my_core_id, &devid));
 }
 
-static struct sysret handle_devid_identify(struct capability *cap, int cmd,
-                                           uintptr_t *args)
-{
-    // Return with physical base address of frame
-    printf("Cap->type == %u\n", cap->type);
-
-    assert(cap->type == ObjType_DeviceID);
-
-    struct device_identity *di = (struct device_identity *)args[0];
-
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)di, sizeof(struct device_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    di->bus = cap->u.deviceid.bus;
-    di->device = cap->u.deviceid.device;
-    di->function = cap->u.deviceid.function;
-    di->flags = cap->u.deviceid.flags;
-    di->segment = cap->u.deviceid.segment;
-    di->type = cap->u.deviceid.type;
-
-    return SYSRET(SYS_ERR_OK);
-}
-
-
-static struct sysret handle_endpoint_identify(struct capability *cap, int cmd,
-                                               uintptr_t *args)
-{
-    // Return with physical base address of frame
-    struct endpoint_identity *eid = (struct endpoint_identity *)args[0];
-
-    if (!access_ok(ACCESS_WRITE, (lvaddr_t)eid, sizeof(struct endpoint_identity))) {
-        return SYSRET(SYS_ERR_INVALID_USER_BUFFER);
-    }
-
-    switch(cap->type) {
-        case ObjType_EndPointUMP :
-            eid->base = cap->u.endpointump.base;
-            eid->length = cap->u.endpointump.bytes;
-            eid->iftype = cap->u.endpointump.iftype;
-            eid->eptype = cap->type;
-            break;
-        case ObjType_EndPointLMP :
-            eid->base   = (genpaddr_t)cap->u.endpointlmp.listener + cap->u.endpointlmp.epoffset;
-            eid->length = cap->u.endpointlmp.epbuflen;
-            eid->iftype = cap->u.endpointlmp.iftype;
-            eid->eptype = cap->type;
-            break;
-        default:
-            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
-    }
-
-    return SYSRET(SYS_ERR_OK);
-}
-
-
-static struct sysret handle_set_endpoint_iftype(struct capability *cap, int cmd,
-                                                uintptr_t *args)
-{
-    uint16_t iftype = args[0];
-
-    switch(cap->type) {
-        case ObjType_EndPointUMP :
-            //printf("SET_IFTYPE: UMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
-            cap->u.endpointump.iftype = iftype;
-            break;
-        case ObjType_EndPointLMP :
-            //printf("SET_IFTYPE: LMP Cap->type == %d cap->iftype %d \n", cap->type, cap->u.endpointlmp.iftype);
-            cap->u.endpointlmp.iftype = iftype;
-            break;
-        default:
-            return SYSRET(SYS_ERR_INVALID_SOURCE_TYPE);
-    }
-
-    return SYSRET(SYS_ERR_OK);
-}
-
-
 static struct sysret kernel_send_init_ipi(struct capability *cap, int cmd,
                                           uintptr_t *args)
 {
@@ -1268,16 +1346,10 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
 	[DispatcherCmd_Vmclear] = handle_vmclear,
     },
     [ObjType_KernelControlBlock] = {
-        [FrameCmd_Identify] = handle_kcb_identify,
+        [KCBCmd_Identify] = handle_kcb_identify,
     },
-    [ObjType_RAM] = {
-        [RAMCmd_Identify] = handle_frame_identify,
-    },
-    [ObjType_Frame] = {
-        [FrameCmd_Identify] = handle_frame_identify,
-    },
-    [ObjType_DevFrame] = {
-        [FrameCmd_Identify] = handle_frame_identify,
+        [ObjType_RAM] = {
+        [RAMCmd_Noop] = handle_noop,
     },
     [ObjType_L1CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -1289,6 +1361,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_GetState] = handle_get_state,
         [CNodeCmd_GetSize] = handle_get_size,
         [CNodeCmd_Resize] = handle_resize,
+        [CNodeCmd_CapIdentify] = handle_cap_identify,
     },
     [ObjType_L2CNode] = {
         [CNodeCmd_Copy]   = handle_copy,
@@ -1299,48 +1372,51 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [CNodeCmd_Revoke] = handle_revoke,
         [CNodeCmd_GetState] = handle_get_state,
         [CNodeCmd_Resize] = handle_resize,
+        [CNodeCmd_CapIdentify] = handle_cap_identify,
     },
     [ObjType_VNode_VTd_root_table] = {
-        [VNodeCmd_Identify]    = handle_vnode_identify,
         [VNodeCmd_Map]         = handle_map,
         [VNodeCmd_Unmap]       = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
     },
     [ObjType_VNode_VTd_ctxt_table] = {
-        [VNodeCmd_Identify]    = handle_vnode_identify,
         [VNodeCmd_Map]         = handle_map,
         [VNodeCmd_Unmap]       = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
     },
     [ObjType_VNode_x86_64_pml5] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
     },
     [ObjType_VNode_x86_64_pml4] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_pdpt] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_pdir] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_VNode_x86_64_ptable] = {
-        [VNodeCmd_Identify] = handle_vnode_identify,
+        [VNodeCmd_CleanDirtyBits] = handle_clean_dirty_bits,
         [VNodeCmd_Map]   = handle_map,
         [VNodeCmd_Unmap] = handle_unmap,
         [VNodeCmd_ModifyFlags] = handle_vnode_modify_flags,
+        [VNodeCmd_CopyRemap] = handle_vnode_copy_remap,
+        [VNodeCmd_Inherit] = handle_inherit,
     },
     [ObjType_Frame_Mapping] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
@@ -1378,6 +1454,23 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [MappingCmd_Destroy] = handle_mapping_destroy,
         [MappingCmd_Modify] = handle_mapping_modify,
     },
+    [ObjType_VNode_x86_64_ept_pml4] = {
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+    },
+    [ObjType_VNode_x86_64_ept_pdpt] = {
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+    },
+    [ObjType_VNode_x86_64_ept_pdir] = {
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+    },
+    [ObjType_VNode_x86_64_ept_ptable] = {
+        [VNodeCmd_CleanDirtyBits] = handle_clean_dirty_bits,
+        [VNodeCmd_Map]   = handle_map,
+        [VNodeCmd_Unmap] = handle_unmap,
+    },
     [ObjType_Kernel] = {
         [KernelCmd_Get_core_id]  = monitor_get_core_id,
         [KernelCmd_Get_arch_id]  = monitor_get_arch_id,
@@ -1412,6 +1505,7 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
         [KernelCmd_Remove_kcb]   = kernel_remove_kcb,
         [KernelCmd_Suspend_kcb_sched]   = kernel_suspend_kcb_sched,
         [KernelCmd_Get_platform] = monitor_get_platform,
+        [KernelCmd_ReclaimRAM] = monitor_reclaim_ram,
     },
     [ObjType_IPI] = {
         [IPICmd_Send_Start] = kernel_send_start_ipi,
@@ -1454,25 +1548,14 @@ static invocation_handler_t invocations[ObjType_Num][CAP_MAX_CMD] = {
     [ObjType_DeviceIDManager] = {
         [DeviceIDManager_CreateID] = handle_devid_create,
     },
-    [ObjType_DeviceID] = {
-        [DeviceID_Identify] = handle_devid_identify,
-    },
-    [ObjType_EndPointLMP] = {
-        [EndPointCMD_Identify] = handle_endpoint_identify,
-        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
-    },
-    [ObjType_EndPointUMP] = {
-        [EndPointCMD_FrameIdentify] = handle_frame_identify,
-        [EndPointCMD_Identify] = handle_endpoint_identify,
-        [EndPointCMD_SetIftype] = handle_set_endpoint_iftype,
-    }
 };
 
-/* syscall C entry point; called only from entry.S so no prototype in header */
-struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
-                          uint64_t *args, uint64_t rflags, uint64_t rip);
-struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
-                          uint64_t *args, uint64_t rflags, uint64_t rip)
+struct sysret sys_vmcall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
+                         uint64_t *args, uint64_t rflags, uint64_t rip,
+                         struct capability *root);
+struct sysret sys_vmcall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
+                         uint64_t *args, uint64_t rflags, uint64_t rip,
+                         struct capability *root)
 {
     struct sysret retval = { .error = SYS_ERR_OK, .value = 0 };
 
@@ -1506,8 +1589,8 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
         // Capability to invoke
         struct capability *to = NULL;
-        retval.error = caps_lookup_cap(&dcb_current->cspace.cap, invoke_cptr,
-                                       invoke_level, &to, CAPRIGHTS_READ);
+        retval.error = caps_lookup_cap(root, invoke_cptr, invoke_level,
+                                       &to, CAPRIGHTS_READ);
         if (err_is_fail(retval.error)) {
             break;
         }
@@ -1630,6 +1713,8 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
 
             uint64_t cmd = args[0];
             if (cmd >= CAP_MAX_CMD) {
+                printk(LOG_NOTE, "illegal invocation: cmd %lu > MAX_CMD %d\n",
+                        cmd, CAP_MAX_CMD);
                 retval.error = SYS_ERR_ILLEGAL_INVOCATION;
                 break;
             }
@@ -1700,6 +1785,10 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
             wbinvd();
             break;
 
+        case DEBUG_FLUSH_TLB:
+            do_full_tlb_flush();
+            break;
+
         case DEBUG_SEND_IPI:
             apic_send_std_ipi(arg1, args[0], args[1]);
             break;
@@ -1742,6 +1831,14 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
                     args[2], args[3]);
             break;
 
+        case DEBUG_GET_MDB_SIZE:
+            retval.error = debug_get_mdb_size(&retval.value);
+            break;
+
+        case DEBUG_PRINT_MDB_COUNTERS:
+            retval.error = debug_print_mdb_counters();
+            break;
+
         default:
             printk(LOG_ERR, "invalid sys_debug msg type\n");
         }
@@ -1766,4 +1863,13 @@ struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
     }
 
     return retval;
+}
+
+/* syscall C entry point; called only from entry.S so no prototype in header */
+struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
+                          uint64_t *args, uint64_t rflags, uint64_t rip);
+struct sysret sys_syscall(uint64_t syscall, uint64_t arg0, uint64_t arg1,
+                          uint64_t *args, uint64_t rflags, uint64_t rip)
+{
+    return sys_vmcall(syscall, arg0, arg1, args, rflags, rip, &dcb_current->cspace.cap);
 }

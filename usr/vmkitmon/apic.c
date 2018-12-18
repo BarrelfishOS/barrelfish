@@ -13,6 +13,7 @@
 
 #include "vmkitmon.h"
 #include "apic.h"
+#include <stdio.h>
 #include <stdlib.h>
 
 struct apic *

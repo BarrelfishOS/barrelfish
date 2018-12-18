@@ -10,48 +10,91 @@
 #include <unistd.h>
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/cpu_arch.h>
+#include <posixcompat.h> // for sbrk_get_*() declarations
+
+// Uncomment this if you want to measure sbrk() collective runtime
+// TODO: make this a Config.hs flag maybe? -SG, 2018-10-18.
+// #define SBRK_COLLECT_STATS
 
 #if __SIZEOF_POINTER__ == 8
 #ifdef __x86_64__
 // Large memory area + large pages on x86_64
-#define SBRK_REGION_BYTES (8UL * 512UL * LARGE_PAGE_SIZE)
+#define SBRK_REGION_BYTES (128UL * HUGE_PAGE_SIZE) // 64GB
 #define SBRK_FLAGS (VREGION_FLAGS_READ_WRITE | VREGION_FLAGS_LARGE)
 #define SBRK_MIN_MAPPING (16 * LARGE_PAGE_SIZE)
 #define SBRK_REGION_ALIGNMENT LARGE_PAGE_SIZE
-#else 
+#else
 // Large memory area + normal pages
-#define SBRK_REGION_BYTES (8UL * 512UL * LARGE_PAGE_SIZE)
+#define SBRK_REGION_BYTES (8UL * 512UL * LARGE_PAGE_SIZE) // 8GB
 #define SBRK_FLAGS (VREGION_FLAGS_READ_WRITE)
 #define SBRK_MIN_MAPPING (16 * LARGE_PAGE_SIZE)
 #define SBRK_REGION_ALIGNMENT BASE_PAGE_SIZE
 #endif
 #else
 // still huge, but slightly more achievable in a 32-bit address space!
-#define SBRK_REGION_BYTES (64 * 1024 * BASE_PAGE_SIZE)
+#define SBRK_REGION_BYTES (64 * 1024 * BASE_PAGE_SIZE) // 256MB
 #define SBRK_FLAGS (VREGION_FLAGS_READ_WRITE)
 #define SBRK_MIN_MAPPING (2 * BASE_PAGE_SIZE)
 #define SBRK_REGION_ALIGNMENT BASE_PAGE_SIZE
 #endif
 
 
+static void *base = NULL;
+static size_t offset = 0; ///< How much is currently used
+static size_t goffset = 0; ///< Maximum ever allocated
+static struct memobj_append memobj_;
+static struct memobj *memobj = NULL;
+static struct vregion vregion_;
+static struct vregion *vregion = NULL;
+
+struct memobj_anon* sbrk_get_memobj(void)
+{
+    assert(memobj != NULL);
+    return (struct memobj_anon*) memobj;
+}
+
+struct vregion* sbrk_get_vregion(void)
+{
+    assert(vregion != NULL);
+    return vregion;
+}
+
+void* sbrk_get_base(void)
+{
+    assert(base != NULL);
+    return base;
+}
+
+size_t sbrk_get_offset(void)
+{
+    assert(offset != 0);
+    return offset;
+}
+
+#ifdef SBRK_COLLECT_STATS
+uint64_t sbrk_times = 0;
+
+static inline unsigned long bf_ticks(void)
+{
+   unsigned int a, d;
+   __asm__ volatile("rdtsc" : "=a" (a), "=d" (d));
+   return ((unsigned long) a) | (((unsigned long) d) << 32);
+}
+#endif
 
 void *sbrk(intptr_t increment)
 {
+#ifdef SBRK_COLLECT_STATS
+    uint64_t start = bf_ticks();
+#endif
     errval_t err;
     size_t orig_offset;
 
-    static void *base;
-    static size_t offset = 0;
-    static size_t goffset = 0;
-    static struct memobj_anon memobj_;
-    static struct memobj *memobj = NULL;
-    static struct vregion vregion_;
-    static struct vregion *vregion = NULL;
-
+    /* we're using an append memobj for sbrk */
     if (!memobj) { // Initialize
-        err = vspace_map_anon_nomalloc(&base, &memobj_, &vregion_,
-                                       SBRK_REGION_BYTES, NULL,
-                                       SBRK_FLAGS, SBRK_REGION_ALIGNMENT);
+        err = vspace_map_append_nomalloc(&base, &memobj_, &vregion_,
+                                         SBRK_REGION_BYTES, NULL,
+                                         SBRK_FLAGS, SBRK_REGION_ALIGNMENT);
         if (err_is_fail(err)) {
             DEBUG_ERR(err, "vspace_map_anon_nomalloc failed");
             return (void *)-1;
@@ -101,7 +144,7 @@ void *sbrk(intptr_t increment)
         return (void *)-1;
     }
 
-    err = memobj->f.fill(memobj, goffset, frame, inc_bytes);
+    err = memobj->f.fill(memobj, goffset, frame, 0);
     if (err_is_fail(err)) {
         debug_err(__FILE__, __func__, __LINE__, err, "memobj->f.fill failed");
         cap_destroy(frame);
@@ -119,6 +162,10 @@ void *sbrk(intptr_t increment)
 
     orig_offset = offset;
     offset += increment;
+#ifdef SBRK_COLLECT_TIMES
+    uint64_t end = bf_ticks();
+    sbrk_times += end - start;
+#endif
 
     void *ret = base + orig_offset;
     return ret;

@@ -98,7 +98,8 @@ static errval_t ip_register(struct devq* q, struct capref cap,
     struct ip_q* que = (struct ip_q*) q;
 
     // Map device registers
-    invoke_frame_identify(cap, &frameid);
+    err = frame_identify(cap, &frameid);
+    assert(err_is_ok(err));
 
     err = vspace_map_one_frame_attr(&que->regions[rid % MAX_NUM_REGIONS].va, 
                                     frameid.bytes, cap, VREGION_FLAGS_READ_WRITE, 

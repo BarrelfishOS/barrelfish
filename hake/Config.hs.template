@@ -137,6 +137,10 @@ newlib_malloc :: String
 --newlib_malloc = "dlmalloc" -- use dlmalloc
 newlib_malloc = "oldmalloc"
 
+-- Print NYI mmap() flags for each call
+libc_mmap_nyi_flags :: Bool
+libc_mmap_nyi_flags = False
+
 -- Configure pagesize for libbarrelfish's morecore implementation
 -- x86_64 accepts "small", "large", and "huge" for 4kB, 2MB and 1GB pages
 -- respectively. x86_32 accepts "small" and "large" for 4kB and 2MB/4MB pages
@@ -363,6 +367,65 @@ config_svm = True
 -- If disabled, use normal VM-guests (with vmkitmon)
 config_arrakismon :: Bool
 config_arrakismon = False
+
+-- Registry of library OSes.
+--
+-- This is necessary so we can add the right compiler flags (#defines etc)
+-- when an application wants to link against a particular library OS.
+--
+-- each libraryos option is an instance of (Maybe Args.Args) with the right
+-- content and is used when generating make rules.
+--
+-- Applications and libraries use "libbarrelfish" when the libraryOs field in
+-- their Args is not overwritten by the Hakefile.
+--
+-- Implementation notes:
+--  * Unfortunately we need to have the list of available  library OSes here,
+--    because providing these flags and names in the library OS Hakefile is
+--    non-trivial
+--  * We need to name the library in these expressions so hake knows which .a
+--    to include when linking.
+--  * The library OS itself needs to use the matching Args from below as its
+--    own Args.libraryOs, see lib/barrelfish/Hakefile for examples.
+--  * All of these need to be instances of (Maybe Args).
+--  * The library OS choices provided by the default tree are all variations of
+--    the code in lib/barrelfish, gated by different preprocessor flags.
+--
+libbarrelfish_pmap_array :: Maybe Args.Args
+libbarrelfish_pmap_array = Just Args.defaultArgs {
+    Args.target = "barrelfish_pmap_array",
+    Args.addCFlags = [ "-DPMAP_ARRAY" ]
+}
+libbarrelfish_pmap_list :: Maybe Args.Args
+libbarrelfish_pmap_list = Just Args.defaultArgs {
+    Args.target = "barrelfish_pmap_ll",
+    Args.addCFlags = [ "-DPMAP_LL" ]
+}
+libarrakis :: Maybe Args.Args
+libarrakis = Just Args.defaultArgs {
+    -- lib/barrelfish/Hakefile defines libarrakis to use PMAP_ARRAY but not
+    -- global mapping cnodes.
+    Args.target = "arrakis",
+    Args.addCFlags = [ "-DARRAKIS", "-DPMAP_ARRAY" ]
+}
+libbarrelfish_pmap_array_mcn :: Maybe Args.Args
+libbarrelfish_pmap_array_mcn = Just Args.defaultArgs {
+    Args.target = "barrelfish_pmap_array_mcn",
+    Args.addCFlags = [ "-DGLOBAL_MCN", "-DPMAP_ARRAY" ]
+}
+libbarrelfish_pmap_list_mcn :: Maybe Args.Args
+libbarrelfish_pmap_list_mcn = Just Args.defaultArgs {
+    Args.target = "barrelfish_pmap_ll_mcn",
+    Args.addCFlags = [ "-DGLOBAL_MCN", "-DPMAP_LL" ]
+}
+
+-- Select default library OS for applications that don't specify one
+-- this is used as Config.libbarrelfish in the rest of the hake
+-- implementation.
+libbarrelfish :: String -> Maybe Args.Args
+-- armv7 only supports pmap_ll!
+libbarrelfish "armv7" = libbarrelfish_pmap_list
+libbarrelfish _       = libbarrelfish_pmap_array
 
 defines :: [RuleToken]
 defines = [ Str ("-D" ++ d) | d <- [

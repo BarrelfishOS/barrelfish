@@ -29,6 +29,7 @@ struct guest {
     struct cte          monitor_ep;     ///< The endpoint to the monitor
     struct cte          ctrl;           ///< The VMKit guest shared data structure
     struct cte          vmcb;           ///< The physical address of the AMD VMCB
+    lpaddr_t            vspace;         ///< Addresss of Guest VSPACE root
 };
 
 /**

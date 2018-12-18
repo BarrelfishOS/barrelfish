@@ -16,38 +16,30 @@
 #define TARGET_AARCH64_BARRELFISH_PMAP_H
 
 #include <barrelfish/pmap.h>
+#include <barrelfish_kpi/paging_arch.h>
+#include <barrelfish/pmap_ds.h>
+
+#define MCN_COUNT DIVIDE_ROUND_UP(PTABLE_ENTRIES, L2_CNODE_SLOTS)
 
 /// Node in the meta-data, corresponds to an actual VNode object
 struct vnode {
-    uint16_t      entry;       ///< Page table entry of this VNode
-    bool          is_vnode;    ///< Is this a page table or a page mapping
-    struct vnode  *next;       ///< Next entry in list of siblings
-    struct capref mapping;     ///< the mapping for this vnode
+    struct vnode_public v;    ///< Public part of struct vnode
     union {
         struct {
-            struct capref cap;         ///< Capability of this VNode
-            struct capref invokable;    ///< Copy of VNode cap that is invokable
-            struct vnode  *children;   ///< Children of this VNode
+            struct capref mcn[MCN_COUNT]; ///< CNodes to store mappings (caprefs)
+            struct cnoderef mcnode[MCN_COUNT]; ///< CNodeRefs of mapping cnodes
         } vnode; // for non-leaf node
         struct {
-            struct capref cap;         ///< Capability of this VNode
-            genvaddr_t    offset;      ///< Offset within mapped frame cap
-            vregion_flags_t flags;     ///< Flags for mapping
-            size_t        pte_count;   ///< number of mapped PTEs in this mapping
+            // no custom fields for frame
         } frame; // for leaf node (maps page(s))
     } u;
 };
 
 struct pmap_aarch64 {
     struct pmap p;
-    struct vregion vregion;     ///< Vregion used to reserve virtual address for metadata
-    genvaddr_t vregion_offset;  ///< Offset into amount of reserved virtual address used
     struct vnode root;          ///< Root of the vnode tree
-    errval_t (*refill_slabs)(struct pmap_aarch64 *); ///< Function to refill slabs
-    struct slab_allocator slab;     ///< Slab allocator for the vnode lists
     genvaddr_t min_mappable_va; ///< Minimum mappable virtual address
     genvaddr_t max_mappable_va; ///< Maximum mappable virtual address
-    uint8_t slab_buffer[512];   ///< Initial buffer to back the allocator
 };
 
 #endif // TARGET_AARCH64_BARRELFISH_PMAP_H

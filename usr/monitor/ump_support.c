@@ -142,7 +142,7 @@ static void monitor_bind_ump_client_request(struct monitor_binding *mb,
 
     /* Identify frame */
     struct frame_identity frameid;
-    err = invoke_frame_identify(frame, &frameid);
+    err = frame_identify(frame, &frameid);
     if (err_is_fail(err)) {
         debug_err(__FILE__, __func__, __LINE__, err, "frame_identify failed");
         monitor_bind_ump_client_request_error(mb, frame, conn_id, domain_id, err);

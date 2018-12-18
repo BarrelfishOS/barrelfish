@@ -566,7 +566,7 @@ errval_t vtd_create(struct vtd *vtd, struct capref regs)
     memset(vtd, 0, sizeof(*vtd));
 
     struct frame_identity id;
-    err = invoke_frame_identify(regs, &id);
+    err = frame_identify(regs, &id);
     if (err_is_fail(err)) {
         return err;
     }

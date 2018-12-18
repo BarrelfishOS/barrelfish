@@ -55,6 +55,9 @@ void disp_trap(dispatcher_handle_t handle, uintptr_t irq, uintptr_t error,
 
 static inline void assert_print(const char *str)
 {
+    if (!str) {
+        return;
+    }
     sys_print(str, strlen(str));
 }
 
@@ -361,13 +364,13 @@ void disp_pagefault(dispatcher_handle_t handle, lvaddr_t fault_address,
     // thread is dead. better tell them what happened...
 
     static char str[256];
-    snprintf(str, sizeof(str), "%.*s: unhandled page fault (error code 0x%"
+    snprintf(str, sizeof(str), "%.*s.%d: unhandled page fault (error code 0x%"
              PRIxPTR ") on %" PRIxPTR " at IP %" PRIxPTR "\n",
-             DISP_NAME_LEN, disp->name, error, fault_address, ip);
+             DISP_NAME_LEN, disp->name, disp_get_current_core_id(), error, fault_address, ip);
     assert_print(str);
 
     // dump hw page tables
-    debug_dump_hw_ptables();
+    //debug_dump_hw_ptables();
 
 #if defined(__x86_64__) || defined(__i386__)
     snprintf(str, sizeof(str), "%s page fault due to %s%s, while in %s mode%s\n",
@@ -421,14 +424,19 @@ void disp_pagefault_disabled(dispatcher_handle_t handle, lvaddr_t fault_address,
     assert_disabled(disp->disabled);
 
 
-    // FIXME: Make sure that following are using assert_print to avoid
-    //  loop of disabled pagefaults
-    // arch_registers_state_t *regs = dispatcher_get_trap_save_area(handle);
-    // debug_print_save_area(regs);
+#ifdef __x86_64__
+    // give more info about faults that basically cannot be in text section
+    if (fault_address >= (1ULL << 39)) {
+        // FIXME: Make sure that following are using assert_print to avoid
+        //  loop of disabled pagefaults
+        arch_registers_state_t *regs = dispatcher_get_trap_save_area(handle);
+        debug_print_save_area(regs);
 
     // disabled by AB, because we can get into a loop of disabled pagefaults
-    //    debug_dump(regs);
-    //    debug_return_addresses();
+        debug_dump(regs);
+        debug_return_addresses();
+    }
+#endif
     for(;;);
 }
 

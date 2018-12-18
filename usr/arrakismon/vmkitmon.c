@@ -24,12 +24,15 @@
 #include <vfs/vfs_path.h>
 #include <spawndomain/spawndomain.h>
 #include <if/arrakis_defs.h>
+#include <if/hyper_defs.h>
 #include <if/monitor_blocking_defs.h>
 /* #include <timer/timer.h> */
 #include "ps.h"
 
 #define SERVICE_BASENAME    "arrakis" // the core ID is appended to this
+#define HYPERVISOR_SERVICE_NAME "hyper"
 
+extern bool setup_dispatcher_debug;
 static errval_t spawn_arrakis(const char *path, char *const argv[], const char *argbuf,
 			      size_t argbytes, char *const envp[],
 			      struct capref inheritcn_cap, struct capref argcn_cap,
@@ -88,6 +91,7 @@ static errval_t spawn_arrakis(const char *path, char *const argv[], const char *
     }
 
     /* spawn the image */
+    setup_dispatcher_debug = true;
     struct spawninfo si;
     err = spawn_load_image(&si, (lvaddr_t)image, info.size, CURRENT_CPU_TYPE,
                            name, disp_get_core_id(), argv, envp, inheritcn_cap,
@@ -96,6 +100,7 @@ static errval_t spawn_arrakis(const char *path, char *const argv[], const char *
         free(image);
         return err;
     }
+    setup_dispatcher_debug = false;
 
     free(image);
 
@@ -340,6 +345,17 @@ static struct arrakis_rx_vtbl rx_vtbl = {
     .spawn_arrakis_domain_call = spawn_handler,
 };
 
+static void hy_register_handler(struct hyper_binding *b, uint64_t dispframe)
+{
+    b->st = (void *)dispframe;
+    b->tx_vtbl.register_client_response(b, NOP_CONT);
+}
+
+static struct hyper_rx_vtbl hy_rx_vtbl = {
+    .npt_map_call = npt_map_handler,
+    .register_client_call = hy_register_handler,
+};
+
 static void export_cb(void *st, errval_t err, iref_t iref)
 {
     if (err_is_fail(err)) {
@@ -360,6 +376,26 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     }
 }
 
+static void hy_export_cb(void *st, errval_t err, iref_t iref)
+{
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "hyper export failed");
+    }
+
+    // construct name
+    char namebuf[32];
+    size_t len = snprintf(namebuf, sizeof(namebuf), "%s.%d.%s",
+            SERVICE_BASENAME, disp_get_core_id(), HYPERVISOR_SERVICE_NAME);
+    assert(len < sizeof(namebuf));
+    namebuf[sizeof(namebuf) - 1] = '\0';
+
+    // register this iref with the name service
+    err = nameservice_register(namebuf, iref);
+    if (err_is_fail(err)) {
+        USER_PANIC_ERR(err, "nameservice_register failed");
+    }
+}
+
 static errval_t connect_cb(void *st, struct arrakis_binding *b)
 {
     // copy my message receive handler vtable to the binding
@@ -367,10 +403,26 @@ static errval_t connect_cb(void *st, struct arrakis_binding *b)
     return SYS_ERR_OK;
 }
 
+static errval_t hy_connect_cb(void *st, struct hyper_binding *b)
+{
+    // copy my message receive handler vtable to the binding
+    b->rx_vtbl = hy_rx_vtbl;
+    return SYS_ERR_OK;
+}
+
 static errval_t start_service(void)
 {
-    return arrakis_export(NULL, export_cb, connect_cb, get_default_waitset(),
-			  IDC_EXPORT_FLAGS_DEFAULT);
+    errval_t err1, err2;
+    err1 = arrakis_export(NULL, export_cb, connect_cb, get_default_waitset(),
+            IDC_EXPORT_FLAGS_DEFAULT);
+    err2 = hyper_export(NULL, hy_export_cb, hy_connect_cb, get_default_waitset(),
+            IDC_EXPORT_FLAGS_DEFAULT);
+    if (err_is_fail(err1) && err_is_fail(err2)) {
+        return err_push(err1, err2);
+    } else if (err_is_fail(err1)) {
+        return err1;
+    }
+    return err2;
 }
 
 int main (int argc, char *argv[])

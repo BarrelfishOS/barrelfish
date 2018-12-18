@@ -54,7 +54,7 @@ static errval_t init(struct bfdriver_instance *bfi, uint64_t flags, iref_t *dev)
     }
 
     struct frame_identity id;
-    err = invoke_frame_identify(bfi->caps[0], &id);
+    err = frame_identify(bfi->caps[0], &id);
     if (err_is_fail(err)) {
         return err;
     }

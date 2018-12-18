@@ -101,7 +101,7 @@ errval_t net_buf_add(struct net_buf_pool *bp, struct capref frame, size_t buffer
     reg->framecap = frame;
     reg->pool = bp;
 
-    err = invoke_frame_identify(reg->framecap, &reg->frame);
+    err = frame_identify(reg->framecap, &reg->frame);
     if (err_is_fail(err)) {
         goto out_err1;
     }

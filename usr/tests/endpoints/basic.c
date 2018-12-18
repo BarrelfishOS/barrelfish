@@ -106,7 +106,7 @@ static void rx_init(struct flounderbootstrap_binding *b,
         errval_t err;
 
         struct frame_identity id;
-        err = invoke_frame_identify(cap, &id);
+        err = frame_identify(cap, &id);
         assert(err_is_ok(err));
         debug_printf("rx_init %s Frame: %lx\n", state->name, id.base);  
         tx_test(b, 0xb001b001);

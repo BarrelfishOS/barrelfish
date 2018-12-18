@@ -242,12 +242,6 @@ static inline errval_t invoke_send_start_ipi(struct capref ipi_cap, coreid_t cor
                        core_id, entry).error;
 }
 
-static inline errval_t invoke_vnode_modify_flags(struct capref cap,
-                                          size_t entry, size_t num_pages,
-                                          size_t attr)
-{
-    return cap_invoke4(cap, VNodeCmd_ModifyFlags, entry, num_pages, attr).error;
-}
 /**
  * \brief Return the system-wide unique ID of the passed ID capability.
  *
@@ -271,6 +265,7 @@ static inline errval_t invoke_idcap_identify(struct capref idcap,
     return sysret.error;
 }
 
+// XXX: why is this not in monitor/invocations_arch.h? -SG, 2018-10-19
 static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpaddr_t* global)
 {
     struct sysret sr = cap_invoke1(kernel_cap, KernelCmd_GetGlobalPhys);
@@ -279,6 +274,29 @@ static inline errval_t invoke_get_global_paddr(struct capref kernel_cap, genpadd
     }
 
     return sr.error;
+}
+
+/*
+ * MVA extensions
+ */
+
+/**
+ * \brief clone vnode
+ *
+ * \arg mcn capaddr array of cnodes holding mapping caps for vnode slots
+ */
+static inline errval_t invoke_vnode_inherit(struct capref dest, capaddr_t src,
+                                            enum cnode_type slevel,
+                                            cslot_t start, cslot_t end,
+                                            paging_x86_64_flags_t newflags,
+                                            capaddr_t *mcn)
+{
+    assert(PTABLE_SIZE / L2_CNODE_SLOTS == 2);
+    assert(2*CPTR_BITS <= sizeof(uintptr_t) * NBBY);
+    uintptr_t src_mcn = ((uintptr_t)mcn[0]) << CPTR_BITS | mcn[1];
+    uintptr_t dst_mcn = ((uintptr_t)mcn[2]) << CPTR_BITS | mcn[3];
+    return cap_invoke8(dest, VNodeCmd_Inherit, src, slevel, start, end,
+                       newflags, src_mcn, dst_mcn).error;
 }
 
 #endif

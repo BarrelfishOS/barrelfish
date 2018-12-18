@@ -333,7 +333,7 @@ int main(int argc, char *argv[])
     assert(ram_base != NULL);
 
     struct frame_identity id;
-    errval_t err = invoke_frame_identify(frame, &id);
+    errval_t err = frame_identify(frame, &id);
     assert(err_is_ok(err));
 
     // Add buffers to RX ring for packet reception
@@ -352,7 +352,7 @@ int main(int argc, char *argv[])
     ram_base = alloc_map_frame(VREGION_FLAGS_READ_WRITE,
                                MAX_PACKETS * PACKET_SIZE, &frame);
     assert(ram_base != NULL);
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     assert(err_is_ok(err));
     for(int i = 0; i < MAX_PACKETS; i++) {
         struct packet *p = &tx_packets[i];

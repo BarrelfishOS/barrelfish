@@ -61,7 +61,7 @@ static void prepare(void)
     EXPECT_SUCCESS(err, "allocating frame");
 
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     EXPECT_SUCCESS(err, "Frame identify");
 
     frame_addr = id.base;
@@ -86,7 +86,7 @@ static void prepare(void)
     err = frame_alloc(&frame2, DMA_BUFFER_COUNT * (1UL << DMA_BUFFER_SIZE),
                       &frame_size2);
     struct frame_identity id2;
-    err = invoke_frame_identify(frame2, &id2);
+    err = frame_identify(frame2, &id2);
     EXPECT_SUCCESS(err, "Frame identify");
 
     frame_addr2 = id2.base;

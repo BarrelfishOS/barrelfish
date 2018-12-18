@@ -19,6 +19,7 @@
 #include <dispatch.h>
 #include <mdb/mdb_tree.h>
 #include <dev/armv8_dev.h>
+#include <useraccess.h>
 
 
 // ------------------------------------------------------------------------
@@ -745,6 +746,67 @@ errval_t paging_modify_flags(struct capability *mapping, uintptr_t offset,
     }
 
     return paging_tlb_flush_range(cte_for_cap(mapping), 0, pages);
+}
+
+errval_t paging_copy_remap(struct cte *dest_vnode_cte, cslot_t dest_slot,
+                           struct cte *src_cte, uintptr_t flags,
+                           uintptr_t offset, uintptr_t pte_count,
+                           struct cte *mapping_cte)
+{
+    printk(LOG_ERR, "%s called on ARMv8: NYI!\n", __FUNCTION__);
+    return SYS_ERR_NOT_IMPLEMENTED;
+}
+
+bool paging_is_region_valid(lvaddr_t buffer, size_t size, uint8_t type)
+{
+    // XXX: ARMv8 does not seem to have ro mappings? -SG,2018-10-25.
+    // this currently ignores type
+    lvaddr_t root_pt = local_phys_to_mem(dcb_current->vspace);
+
+    lvaddr_t end = buffer + size;
+
+    uint16_t first_l0idx = VMSAv8_64_L0_BASE(buffer);
+    uint16_t last_l0idx = VMSAv8_64_L0_BASE(end);
+
+    uint16_t first_l1idx, first_l2idx, first_l3idx;
+    uint16_t last_l1idx, last_l2idx, last_l3idx;
+
+
+    union armv8_ttable_entry *pte;
+
+    for (uint16_t l0idx = first_l0idx; l0idx <= last_l0idx; l0idx++) {
+        pte = (union armv8_ttable_entry *)root_pt + l0idx;
+        if (!pte->d.valid) { return false; }
+        // calculate which part of pdpt to check
+        first_l1idx = l0idx == first_l0idx ? VMSAv8_64_L1_BASE(buffer) : 0;
+        last_l1idx  = l0idx == last_l0idx  ? VMSAv8_64_L1_BASE(end)  : PTABLE_ENTRIES;
+        // read pdpt base
+        lvaddr_t pdpt = local_phys_to_mem((genpaddr_t)pte->d.base << BASE_PAGE_BITS);
+        for (uint16_t l1idx = first_l1idx; l1idx <= last_l1idx; l1idx++) {
+            pte = (union armv8_ttable_entry *)pdpt + l1idx;
+            if (!pte->d.valid) { return false; }
+            // calculate which part of pdpt to check
+            first_l2idx = l1idx == first_l1idx ? VMSAv8_64_L2_BASE(buffer) : 0;
+            last_l2idx  = l1idx == last_l1idx  ? VMSAv8_64_L2_BASE(end)  : PTABLE_ENTRIES;
+            // read pdpt base
+            lvaddr_t pdir = local_phys_to_mem((genpaddr_t)pte->d.base << BASE_PAGE_BITS);
+            for (uint16_t l2idx = first_l2idx; l2idx <= last_l2idx; l2idx++) {
+                pte = (union armv8_ttable_entry *)pdir + l2idx;
+                if (!pte->d.valid) { return false; }
+                // calculate which part of pdpt to check
+                first_l3idx = l2idx == first_l2idx ? VMSAv8_64_L3_BASE(buffer) : 0;
+                last_l3idx  = l2idx == last_l2idx  ? VMSAv8_64_L3_BASE(end)  : PTABLE_ENTRIES;
+                // read pdpt base
+                lvaddr_t pt = local_phys_to_mem((genpaddr_t)pte->d.base << BASE_PAGE_BITS);
+                for (uint16_t l3idx = first_l3idx; l3idx < last_l3idx; l3idx++) {
+                    pte = (union armv8_ttable_entry *)pt + l3idx;
+                    if (!pte->page.valid) { return false; }
+                }
+            }
+        }
+    }
+    // if we never bailed early, the access is fine.
+    return true;
 }
 
 void paging_dump_tables(struct dcb *dispatcher)

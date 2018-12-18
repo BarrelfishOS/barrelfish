@@ -153,7 +153,7 @@ errval_t service_bootstrap(struct xeon_phi *phi,
 
     errval_t err;
     struct frame_identity id;
-    err = invoke_frame_identify(frame, &id);
+    err = frame_identify(frame, &id);
     if (err_is_fail(err)) {
         return err;
     }

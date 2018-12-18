@@ -744,13 +744,19 @@ lpc_handle_pio_write (struct lpc *l, uint16_t port, enum opsize size,
 
 struct lpc *
 lpc_new (lpc_virtual_irq_handler virq_handler,
-         lpc_virtual_irq_pending virq_pending, void *user_data,
-         struct apic *apic)
+         lpc_virtual_irq_pending virq_pending,
+#ifndef CONFIG_SVM
+	 lpc_virtual_irq_accepting virq_accepting,
+#endif  
+	 void *user_data, struct apic *apic)
 {
     struct lpc *ret = calloc(1, sizeof(struct lpc));
 
     ret->virq_handler = virq_handler;
     ret->virq_pending = virq_pending;
+#ifndef CONFIG_SVM
+    ret->virq_accepting = virq_accepting;
+#endif
     ret->virq_user_data = user_data;
     ret->apic = apic;
 

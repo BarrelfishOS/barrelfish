@@ -50,6 +50,12 @@ void slab_init(struct slab_allocator *slabs, size_t blocksize,
  */
 void slab_grow(struct slab_allocator *slabs, void *buf, size_t buflen)
 {
+    if (buflen <= sizeof(struct slab_head)) {
+        debug_printf("%s: slabs=%p, buf=%p, buflen=%zu sizeof(slab_head) = %zu\n",
+                __FUNCTION__, slabs, buf, buflen, sizeof(struct slab_head));
+        debug_printf("%s: called from %p\n", __FUNCTION__,
+                __builtin_return_address(0));
+    }
     /* setup slab_head structure at top of buffer */
     assert(buflen > sizeof(struct slab_head));
     struct slab_head *head = buf;
@@ -112,6 +118,8 @@ void *slab_alloc(struct slab_allocator *slabs)
     assert(bh != NULL);
     sh->blocks = bh->next;
     sh->free--;
+
+    memset(bh, 0, slabs->blocksize);
 
     return bh;
 }

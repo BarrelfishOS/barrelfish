@@ -26,7 +26,7 @@
  * \param vspace   The vspace to associate with the vregion
  * \param memobj   The memory object to associate with the region
  * \param offset   Offset into the memory object
- * \param size     Size of the memoryg object to use
+ * \param size     Size of the memory object to use
  * \param flags    Vregion specific flags
  * \param alignment Minimum required alignment of mapping (may be increased)
  */
@@ -143,6 +143,10 @@ errval_t vregion_map_fixed(struct vregion *vregion, struct vspace *vspace,
 errval_t vregion_destroy(struct vregion *vregion)
 {
     errval_t err;
+
+    if (!vregion) {
+        return SYS_ERR_OK;
+    }
 
     struct vspace *vspace = vregion_get_vspace(vregion);
     if (vspace != NULL) {

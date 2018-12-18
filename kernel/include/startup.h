@@ -23,7 +23,7 @@ enum region_type;
 struct spawn_state {
     /// Init's cnodes
     struct cte *taskcn, *segcn, *supercn, *physaddrcn, *modulecn,
-               *pagecn, *basepagecn,
+               *pagecn, *basepagecn, *earlycncn,
                *slot_alloc_cn0, *slot_alloc_cn1, *slot_alloc_cn2;
 
     /// Next slot in each cnode

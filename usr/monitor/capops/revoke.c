@@ -43,6 +43,7 @@ struct revoke_slave_st {
     errval_t status;
     size_t pending_agreements;
     struct revoke_slave_st *next;
+    uint64_t seqnum;
 };
 
 static void revoke_result__rx(errval_t result,
@@ -63,8 +64,9 @@ static void revoke_slave_steps__fin(void *st);
 static void revoke_done__send(struct intermon_binding *b,
                               struct intermon_msg_queue_elem *e);
 static void revoke_master_steps__fin(void *st);
-
 //static errval_t capops_revoke_subscribe()
+
+static uint64_t revoke_seqnum = 0;
 
 
 struct revoke_register_st
@@ -343,8 +345,6 @@ static bool capops_revoke_requires_agreement_relations(struct revoke_slave_st *r
     return true;
 }
 
-
-
 void
 capops_revoke(struct domcapref cap,
               revoke_result_handler_t result_handler,
@@ -352,6 +352,7 @@ capops_revoke(struct domcapref cap,
 {
     errval_t err;
 
+    TRACE(CAPOPS, REVOKE_START, ++revoke_seqnum);
     DEBUG_CAPOPS("%s ## start revocation protocol\n", __FUNCTION__);
 
     distcap_state_t state;
@@ -375,6 +376,7 @@ capops_revoke(struct domcapref cap,
 
     if (distcap_state_is_foreign(state)) {
         // need to retrieve ownership
+        TRACE(CAPOPS, REVOKE_RETRIEVE, 0);
         DEBUG_CAPOPS("%s getting cap ownership\n", __FUNCTION__);
         capops_retrieve(rst->cap, revoke_retrieve__rx, rst);
     }
@@ -397,6 +399,7 @@ free_st:
     free(rst);
 
 report_error:
+    TRACE(CAPOPS, REVOKE_CALL_RESULT, revoke_seqnum);
     result_handler(err, st);
 }
 
@@ -405,6 +408,7 @@ revoke_result__rx(errval_t result,
                   struct revoke_master_st *st,
                   bool locked)
 {
+    TRACE(CAPOPS, REVOKE_RESULT_RX, 0);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
@@ -427,6 +431,7 @@ revoke_result__rx(errval_t result,
 
     err = cap_destroy(st->cap.croot);
     PANIC_IF_ERR(err, "deleting monitor's copy of rootcn");
+    TRACE(CAPOPS, REVOKE_CALL_RESULT, revoke_seqnum);
     st->result_handler(result, st->st);
     free(st);
 }
@@ -434,6 +439,7 @@ revoke_result__rx(errval_t result,
 static void
 revoke_retrieve__rx(errval_t result, void *st_)
 {
+    TRACE(CAPOPS, REVOKE_RETRIEVE_RX, 0);
     struct revoke_master_st *st = (struct revoke_master_st*)st_;
 
     if (err_is_fail(result)) {
@@ -454,6 +460,7 @@ revoke_retrieve__rx(errval_t result, void *st_)
 static void
 revoke_local(struct revoke_master_st *st)
 {
+    TRACE(CAPOPS, REVOKE_LOCAL, 0);
     DEBUG_CAPOPS("%s: called from %p\n", __FUNCTION__,
             __builtin_return_address(0));
     errval_t err;
@@ -465,6 +472,7 @@ revoke_local(struct revoke_master_st *st)
                                      st->cap.level);
     PANIC_IF_ERR(err, "marking revoke");
 
+    TRACE(CAPOPS, REVOKE_DO_MARK, 0);
     DEBUG_CAPOPS("%s ## revocation: mark phase\n", __FUNCTION__);
     // XXX: could check whether remote copies exist here(?), -SG, 2014-11-05
     err = capsend_relations(&st->rawcap, revoke_mark__send,
@@ -475,6 +483,7 @@ revoke_local(struct revoke_master_st *st)
 static void
 revoke_no_remote(struct revoke_master_st *st)
 {
+    TRACE(CAPOPS, REVOKE_NO_REMOTE, 0);
     assert(num_monitors_ready_for_capops() == 1);
 
     if (!delete_steps_get_waitset()) {
@@ -513,17 +522,21 @@ revoke_mark__send(struct intermon_binding *b,
                   intermon_caprep_t *caprep,
                   struct capsend_mc_st *mc_st)
 {
+    struct intermon_state *ist = b->st;
+    TRACE(CAPOPS, REVOKE_MARK_SEND, ist->core_id);
     struct revoke_master_st *st;
     ptrdiff_t off = offsetof(struct revoke_master_st, revoke_mc_st);
     st = (struct revoke_master_st*)((uintptr_t)mc_st - off);
     return intermon_capops_revoke_mark__tx(b, NOP_CONT, *caprep, (lvaddr_t)st);
 }
 
+static uint64_t revoke_slave_seqnum = 0;
 void
 revoke_mark__rx(struct intermon_binding *b,
                 intermon_caprep_t caprep,
                 genvaddr_t st)
 {
+    TRACE(CAPOPS, REVOKE_MARK_RX, ++revoke_slave_seqnum);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
     struct intermon_state *inter_st = (struct intermon_state*)b->st;
@@ -532,6 +545,7 @@ revoke_mark__rx(struct intermon_binding *b,
     err = calloce(1, sizeof(*rvk_st), &rvk_st);
     PANIC_IF_ERR(err, "allocating revoke slave state");
 
+    rvk_st->seqnum = revoke_slave_seqnum;
     rvk_st->from = inter_st->core_id;
     rvk_st->st = st;
     caprep_to_capability(&caprep, &rvk_st->rawcap);
@@ -577,6 +591,7 @@ revoke_ready__send(struct intermon_binding *b,
 {
     errval_t err;
     struct revoke_slave_st *rvk_st = (struct revoke_slave_st*)e;
+    TRACE(CAPOPS, REVOKE_READY_SEND, rvk_st->seqnum);
     err = intermon_capops_revoke_ready__tx(b, NOP_CONT, rvk_st->st);
 
     if (err_no(err) == FLOUNDER_ERR_TX_BUSY) {
@@ -596,6 +611,8 @@ handle_err:
 void
 revoke_ready__rx(struct intermon_binding *b, genvaddr_t st)
 {
+    struct intermon_state *ist = b->st;
+    TRACE(CAPOPS, REVOKE_READY_RX, ist->core_id);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
     errval_t err;
 
@@ -606,6 +623,7 @@ revoke_ready__rx(struct intermon_binding *b, genvaddr_t st)
         return;
     }
 
+    TRACE(CAPOPS, REVOKE_DO_COMMIT, 0);
     if (capops_revoke_requires_agreement_local(rvk_st)) {
         return;
     }
@@ -627,6 +645,8 @@ revoke_commit__send(struct intermon_binding *b,
                     intermon_caprep_t *caprep,
                     struct capsend_mc_st *mc_st)
 {
+    struct intermon_state *ist = b->st;
+    TRACE(CAPOPS, REVOKE_COMMIT_SEND, ist->core_id);
     struct revoke_master_st *st;
     ptrdiff_t off = offsetof(struct revoke_master_st, revoke_mc_st);
     st = (struct revoke_master_st*)((char*)mc_st - off);
@@ -642,6 +662,7 @@ revoke_commit__rx(struct intermon_binding *b,
     assert(!slaves_tail->next);
 
     struct revoke_slave_st *rvk_st = slaves_head;
+    TRACE(CAPOPS, REVOKE_COMMIT_RX, rvk_st->seqnum);
     while (rvk_st && rvk_st->st != st) { rvk_st = rvk_st->next; }
     assert(rvk_st);
 
@@ -657,6 +678,7 @@ revoke_slave_steps__fin(void *st)
 {
     errval_t err;
     struct revoke_slave_st *rvk_st = (struct revoke_slave_st*)st;
+    TRACE(CAPOPS, REVOKE_SLAVE_STEPS_FIN, rvk_st->seqnum);
 
     rvk_st->im_qn.cont = revoke_done__send;
     err = capsend_target(rvk_st->from, (struct msg_queue_elem*)rvk_st);
@@ -726,6 +748,8 @@ void
 revoke_done__rx(struct intermon_binding *b,
                 genvaddr_t st)
 {
+    struct intermon_state *ist = b->st;
+    TRACE(CAPOPS, REVOKE_DONE_RX, ist->core_id);
     DEBUG_CAPOPS("%s\n", __FUNCTION__);
 
     struct revoke_master_st *rvk_st = (struct revoke_master_st*)(lvaddr_t)st;
@@ -745,6 +769,7 @@ revoke_done__rx(struct intermon_binding *b,
 static void
 revoke_master_steps__fin(void *st)
 {
+    TRACE(CAPOPS, REVOKE_MASTER_STEPS_FIN, 0);
     struct revoke_master_st *rvk_st = (struct revoke_master_st*)st;
     rvk_st->local_fin = true;
     if (rvk_st->remote_fin) {

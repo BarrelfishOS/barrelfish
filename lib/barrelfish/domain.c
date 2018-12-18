@@ -640,7 +640,7 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
 
     /* get the alignment of the morecore state */
     struct morecore_state *state = get_morecore_state();
-    remote_core_state->pagesize = state->mmu_state.alignment;
+    remote_core_state->pagesize = state->mmu_state.pagesize;
 
     /* Create the thread for the new dispatcher to init on */
     struct thread *newthread =
@@ -1193,6 +1193,28 @@ struct monitor_blocking_binding *get_monitor_blocking_binding(void)
     struct dispatcher_generic* disp = get_dispatcher_generic(handle);
     return disp->core_state.c.monitor_blocking_binding;
 }
+
+#ifdef ARRAKIS
+/**
+ * \brief set the hypervisor client binding on the dispatcher priv
+ */
+void set_hyper_binding(struct hyper_binding *b)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    disp->core_state.c.hyper_binding = b;
+}
+
+/**
+ * \brief Returns the monitor client binding on the dispatcher priv
+ */
+struct hyper_binding *get_hyper_binding(void)
+{
+    dispatcher_handle_t handle = curdispatcher();
+    struct dispatcher_generic* disp = get_dispatcher_generic(handle);
+    return disp->core_state.c.hyper_binding;
+}
+#endif
 
 /**
  * \brief set the mem client on the dispatcher priv

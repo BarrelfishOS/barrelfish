@@ -30,4 +30,10 @@
  */
 bool access_ok(uint8_t type, lvaddr_t buffer, size_t size);
 
+/**
+ * Walk page tables to check if we can access region
+ * This needs to be implemented for every arch we support
+ */
+bool paging_is_region_valid(lvaddr_t base, size_t npages, uint8_t type);
+
 #endif // USER_ACCESS_H
