@@ -672,8 +672,8 @@ static errval_t domain_new_dispatcher_varstack(coreid_t core_id,
 
     /* Create new dispatcher frame */
     struct capref frame;
-    size_t dispsize = ((size_t)1) << DISPATCHER_FRAME_BITS;
-    err = frame_alloc(&frame, dispsize, &dispsize);
+    size_t dispsize;
+    err = frame_alloc(&frame, DISPATCHER_FRAME_SIZE, &dispsize);
     if (err_is_fail(err)) {
         return err_push(err, LIB_ERR_FRAME_ALLOC);
     }

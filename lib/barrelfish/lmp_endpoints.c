@@ -203,7 +203,7 @@ void lmp_endpoints_poll_disabled(dispatcher_handle_t handle)
 
     // try the hint EP first if set
     if (disp->lmp_hint != 0) {
-        assert_disabled(disp->lmp_hint < (1UL << DISPATCHER_FRAME_BITS));
+        assert_disabled(disp->lmp_hint < DISPATCHER_FRAME_SIZE);
 
         /* compute endpoint location */
         ep = (struct lmp_endpoint *)
@@ -510,7 +510,7 @@ void lmp_endpoint_init(void)
     dispatcher_handle_t handle = disp_disable();
     size_t dispsize = get_dispatcher_size();
     void *buf = (char *)get_dispatcher_vaddr(handle) + dispsize;
-    size_t buflen = (1UL << DISPATCHER_FRAME_BITS) - dispsize;
+    size_t buflen = DISPATCHER_FRAME_SIZE - dispsize;
     struct dispatcher_generic *d = get_dispatcher_generic(handle);
 
     heap_init(&d->lmp_endpoint_heap, buf, buflen, NULL);

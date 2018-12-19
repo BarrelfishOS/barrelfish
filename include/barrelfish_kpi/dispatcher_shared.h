@@ -19,15 +19,6 @@
 
 #include <barrelfish_kpi/dispatcher_handle.h>
 
-/**
- * \brief Amount of space required for the dispatcher frame.
- * This should be at least greater than the memory required for
- * struct disp_priv.
- * Keeping it as a power of 2 allows using a single cap for dispatcher frame
- *
- * \bug Make this arch specific
- */
-#define DISPATCHER_FRAME_BITS 18
 #define DISP_NAME_LEN   16
 
 enum task_type {

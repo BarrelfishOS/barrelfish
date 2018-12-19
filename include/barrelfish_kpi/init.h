@@ -38,9 +38,16 @@
 
 
 /**
- * Size of dispatcher frame
+ * \brief Amount of space required for the dispatcher frame.
+ *
+ * This needs to be big enough to fit the struct dispatcher_<arch>, and should
+ * also provide extra room for LMP channel receive buffers.
+ *
+ * \bug Make this arch specific
+ *
+ * Moved from include/barrelfish_kpi/dispatcher_shared.h -SG,2018-12-19.
  */
-#define DISPATCHER_SIZE         ((genpaddr_t)1 << DISPATCHER_FRAME_BITS)
+#define DISPATCHER_FRAME_SIZE         ((genpaddr_t)1 << 19)
 
 /**
  * Size of initial page to carry out monitor URPC

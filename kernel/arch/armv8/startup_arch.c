@@ -533,7 +533,7 @@ static struct dcb *spawn_init_common(const char *name,
 
     /* Map dispatcher */
     spawn_init_map(init_l3, ARMV8_INIT_VBASE, INIT_DISPATCHER_VBASE,
-                   mem_to_local_phys(init_dcb->disp), DISPATCHER_SIZE,
+                   mem_to_local_phys(init_dcb->disp), DISPATCHER_FRAME_SIZE,
                    INIT_PERM_RW);
 
     disp = get_dispatcher_shared_generic(init_dcb->disp);

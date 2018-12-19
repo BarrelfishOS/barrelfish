@@ -256,10 +256,9 @@ struct dcb *spawn_module(struct spawn_state *st,
     struct cte *init_dispframe_cte = caps_locate_slot(CNODE(st->taskcn),
                                                       TASKCN_SLOT_DISPFRAME);
     err = caps_create_new(ObjType_Frame,
-                          alloc_phys_aligned(1 << DISPATCHER_FRAME_BITS,
-                                             1 << DISPATCHER_FRAME_BITS),
-                          1UL << DISPATCHER_FRAME_BITS,
-                          1UL << DISPATCHER_FRAME_BITS,
+                          alloc_phys_aligned(DISPATCHER_FRAME_SIZE, DISPATCHER_FRAME_SIZE),
+                          DISPATCHER_FRAME_SIZE,
+                          DISPATCHER_FRAME_SIZE,
                           my_core_id, init_dispframe_cte);
     assert(err_is_ok(err));
 

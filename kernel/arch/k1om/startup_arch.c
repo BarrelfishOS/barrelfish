@@ -362,7 +362,7 @@ static struct dcb *spawn_init_common(struct spawn_state *st, const char *name,
                             mem_to_local_phys((lvaddr_t)init_pdir));
     paging_x86_64_map_table(&init_pdir[X86_64_PDIR_BASE(DISPATCHER_BASE)],
                             mem_to_local_phys((lvaddr_t)init_ptable));
-    for (int i = 0; i < (1 << DISPATCHER_FRAME_BITS) / BASE_PAGE_SIZE; i++) {
+    for (int i = 0; i < DISPATCHER_FRAME_SIZE / BASE_PAGE_SIZE; i++) {
         paging_x86_64_map(&init_ptable[X86_64_PTABLE_BASE(DISPATCHER_BASE) + i],
                           mem_to_local_phys(init_dcb->disp) + i * BASE_PAGE_SIZE,
                           INIT_PAGE_BITMAP | paging_elf_to_page_flags(PF_R|PF_W));

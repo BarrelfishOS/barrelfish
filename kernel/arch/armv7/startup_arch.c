@@ -464,7 +464,7 @@ spawn_init_common(const char *name, int argc, const char *argv[],
 
     // Map dispatcher
     spawn_init_map(init_l2, INIT_VBASE, INIT_DISPATCHER_VBASE,
-                   mem_to_local_phys(init_dcb->disp), DISPATCHER_SIZE,
+                   mem_to_local_phys(init_dcb->disp), DISPATCHER_FRAME_SIZE,
                    INIT_PERM_RW);
 
     /* Locate the memory-mapped device region. */

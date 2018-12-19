@@ -125,7 +125,7 @@ sys_dispatcher_setup(struct capability *to, capaddr_t cptr, uint8_t level,
     if (dispcap->type != ObjType_Frame) {
         return SYSRET(SYS_ERR_DISP_FRAME_INVALID);
     }
-    if (get_size(dispcap) < (1UL << DISPATCHER_FRAME_BITS)) {
+    if (get_size(dispcap) < DISPATCHER_FRAME_SIZE) {
         return SYSRET(SYS_ERR_DISP_FRAME_SIZE);
     }
     /* FIXME: check rights? */

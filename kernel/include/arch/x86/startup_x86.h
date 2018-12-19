@@ -21,7 +21,7 @@
 #define BOOTINFO_BASE           ((lvaddr_t)0x200000)
 #define ARGS_BASE               (BOOTINFO_BASE + BOOTINFO_SIZE)
 #define DISPATCHER_BASE         (ARGS_BASE + ARGS_SIZE)
-#define MON_URPC_BASE           (DISPATCHER_BASE + DISPATCHER_SIZE)
+#define MON_URPC_BASE           (DISPATCHER_BASE + DISPATCHER_FRAME_SIZE)
 
 errval_t startup_map_init(lvaddr_t vbase, lpaddr_t base, size_t size,
                           uint32_t flags);

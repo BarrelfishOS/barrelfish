@@ -197,13 +197,13 @@ void dummy(void)
     /* sanity check size of various structures, so we break the build if they
      * don't match */
 #if   defined (__x86_64__) || defined(__k1om__)
-    ASSERT(sizeof(struct dispatcher_x86_64) <= (1 << DISPATCHER_FRAME_BITS));
+    ASSERT(sizeof(struct dispatcher_x86_64) <= DISPATCHER_FRAME_SIZE);
 #elif defined __i386__
-    ASSERT(sizeof(struct dispatcher_x86_32) <= (1 << DISPATCHER_FRAME_BITS));
+    ASSERT(sizeof(struct dispatcher_x86_32) <= DISPATCHER_FRAME_SIZE);
 #elif defined __arm__
-    ASSERT(sizeof(struct dispatcher_arm) <= (1 << DISPATCHER_FRAME_BITS));
+    ASSERT(sizeof(struct dispatcher_arm) <= DISPATCHER_FRAME_SIZE);
 #elif defined __aarch64__
-    ASSERT(sizeof(struct dispatcher_aarch64) <= (1 << DISPATCHER_FRAME_BITS));
+    ASSERT(sizeof(struct dispatcher_aarch64) <= DISPATCHER_FRAME_SIZE);
 #else
 #error "Define architecture"
 #endif

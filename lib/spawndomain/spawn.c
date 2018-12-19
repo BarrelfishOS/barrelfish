@@ -333,21 +333,21 @@ static errval_t spawn_setup_dispatcher(struct spawninfo *si,
     /* Create dispatcher frame (in taskcn) */
     si->dispframe.cnode = si->taskcn;
     si->dispframe.slot  = TASKCN_SLOT_DISPFRAME;
-    err = frame_create(si->dispframe, (1 << DISPATCHER_FRAME_BITS), NULL);
+    err = frame_create(si->dispframe, DISPATCHER_FRAME_SIZE, NULL);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_CREATE_DISPATCHER_FRAME);
     }
 
     /* Map in dispatcher frame */
     dispatcher_handle_t handle;
-    err = vspace_map_one_frame((void**)&handle, 1ul << DISPATCHER_FRAME_BITS,
+    err = vspace_map_one_frame((void**)&handle, DISPATCHER_FRAME_SIZE,
                                si->dispframe, NULL, NULL);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MAP_DISPATCHER_TO_SELF);
     }
     genvaddr_t spawn_dispatcher_base;
     err = spawn_vspace_map_one_frame(si, &spawn_dispatcher_base, si->dispframe,
-                                     1UL << DISPATCHER_FRAME_BITS);
+                                     DISPATCHER_FRAME_SIZE);
     if (err_is_fail(err)) {
         return err_push(err, SPAWN_ERR_MAP_DISPATCHER_TO_NEW);
     }
