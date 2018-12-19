@@ -150,7 +150,7 @@ union heap_header *heap_default_morecore(struct heap *heap, unsigned nu)
                                     BASE_PAGE_SIZE);
 
     // Allocate requested number of pages and insert freelist header
-    up = (union heap_header*)pages_alloc(nb / BASE_PAGE_SIZE);
+    up = (union heap_header*)pages_alloc(DIVIDE_ROUND_UP(nb, BASE_PAGE_SIZE));
     up->s.size = nb / sizeof(union heap_header);
 
     // Add header to freelist
