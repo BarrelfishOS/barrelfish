@@ -1055,6 +1055,7 @@ main(int argc, char **argv) {
 
     /* Load and relocate it. */
     struct loaded_image bd_image;
+    memset(&bd_image, 0, sizeof(bd_image));
     bd_image.extrasym_name= "boot_arguments";
     void *bd_loaded=
         load(bd_fd, 0, /* The boot driver executes in physical space. */
@@ -1079,6 +1080,7 @@ main(int argc, char **argv) {
 
     /* Load and relocate it. */
     struct loaded_image cpu_image;
+    memset(&cpu_image, 0, sizeof(cpu_image));
     cpu_image.extrasym_name= NULL;
     void *cpu_loaded=
         load(cpu_fd, kernel_offset, &cpu_image, 0);
