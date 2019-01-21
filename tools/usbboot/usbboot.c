@@ -339,7 +339,7 @@ int main(int argc, char **argv)
 
     r = libusb_init(&usb);
     if(r) fail_usb("libusb_init", r);
-    libusb_set_debug(usb, LIBUSB_LOG_LEVEL_WARNING);
+    libusb_set_option(usb, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_WARNING);
 
     int once= 1;
     for (;;) {
