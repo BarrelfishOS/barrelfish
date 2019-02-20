@@ -42,9 +42,10 @@
     -- We run a stand alone IRS on ARMv7
     build application { target = "int_route",
                     cFiles = [ "server/standalone.c" ],
-                    flounderDefs = [ "int_route_service" ],
+                    flounderDefs = [ "int_route_service", "monitor_blocking" ],
                     flounderBindings = [ "int_route_service", "int_route_controller" ],
-                    flounderExtraBindings = [ ("int_route_service", ["rpcclient"]) ],
+                    flounderExtraBindings = [ ("int_route_service", ["rpcclient"]),
+                                              ("monitor_blocking", ["rpcclient"]) ],
                     architectures = ["armv7"]
                    }
 ]

@@ -57,6 +57,7 @@ errval_t int_route_client_route(struct capref intsrc, int irq_idx,
     return err;
 }
 
+__attribute__((used))
 static errval_t alloc_dest_irq_cap(struct capref *retcap)
 {
     errval_t err, msgerr;
@@ -67,6 +68,27 @@ static errval_t alloc_dest_irq_cap(struct capref *retcap)
         return err;
     }
     err = r->rpc_tx_vtbl.get_irq_dest_cap(r, retcap, &msgerr);
+    if (err_is_fail(err)){
+        return err;
+    } else {
+        return msgerr;
+    }
+}
+
+/**
+ * Get IRQ 
+ */
+__attribute__((used))
+static errval_t alloc_dest_irq_cap_arm(struct capref irq_src, int irq_idx, struct capref *retcap)
+{
+    errval_t err, msgerr;
+
+    struct monitor_blocking_binding *r = get_monitor_blocking_binding();
+    err = slot_alloc(retcap);
+    if (err_is_fail(err)) {
+        return err;
+    }
+    err = r->rpc_tx_vtbl.get_irq_dest_cap_arm(r, irq_src, irq_idx, retcap, &msgerr);
     if (err_is_fail(err)){
         return err;
     } else {
@@ -105,7 +127,11 @@ errval_t int_route_client_route_and_connect(struct capref intsrc, int irq_idx,
 
     /* allocate irq dest cap */
     struct capref irq_dest_cap;
+#ifdef __arm__
+    err = alloc_dest_irq_cap_arm(intsrc, irq_idx, &irq_dest_cap);
+#else
     err = alloc_dest_irq_cap(&irq_dest_cap);
+#endif
     if(err_is_fail(err)){
         DEBUG_ERR(err, "alloc_dest_irq_cap");
         return err;

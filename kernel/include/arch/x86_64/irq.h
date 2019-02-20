@@ -165,6 +165,6 @@ errval_t irq_table_delete(unsigned int nidt);
 struct kcb;
 errval_t irq_table_notify_domains(struct kcb *kcb);
 errval_t irq_table_alloc_dest_cap(uint8_t dcn_vbits, capaddr_t dcn,
-        capaddr_t out_cap_addr);
+        capaddr_t out_cap_addr, int vec_hint);
 
 #endif

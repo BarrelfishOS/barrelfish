@@ -24,16 +24,21 @@
 #include "serial.h"
 #include "serial_debug.h"
 
-static struct term_server server;
+struct ts_state {
+    struct serial_main *serial;
+    struct term_server *server;
+};
 
-static void terminal_serial_input(char *data, size_t length)
+static void terminal_serial_input(void *st, char *data, size_t length)
 {
-    term_server_send(&server, data, length);
+    struct ts_state * ts = (struct ts_state *)st;
+    term_server_send(ts->server, data, length);
 }
 
 static void characters_handler(void *st, char *buffer, size_t length)
 {
-    serial_write(buffer, length);
+    struct ts_state * ts = (struct ts_state *)st;
+    ts->serial->output(ts->serial, buffer, length);
 }
 
 static void configuration_handler(void *st, terminal_config_option_t opt,
@@ -45,31 +50,41 @@ static void configuration_handler(void *st, terminal_config_option_t opt,
 
 static void new_session_handler(void *st, struct capref session_id)
 {
-    set_new_input_consumer(terminal_serial_input);
+    struct ts_state * ts = (struct ts_state *)st;
+    serial_set_new_input_consumer(ts->serial, terminal_serial_input, ts);
 }
 
-void start_terminal_service(char *driver_name)
+void start_terminal_service(struct serial_main *serial)
 {
     errval_t err;
     iref_t iref = NULL_IREF;
     char *service_name = NULL;
     size_t size = 0;
 
+    struct ts_state *ts = malloc(sizeof(struct ts_state));
+    assert(ts != NULL);
+    ts->server = malloc(sizeof(struct term_server));
+    assert(ts->server != NULL);
+    ts->serial = serial;
+
     struct waitset *ws = get_default_waitset();
 
-    err = term_server_init(&server, &iref, ws, ws, ws, ws, characters_handler,
+    err = term_server_init(ts->server, &iref, ws, ws, ws, ws, characters_handler,
                            configuration_handler, new_session_handler);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Error exporting terminal interface.");
     }
 
+    /* Set state pointer (keep after initialization!) */
+    ts->server->st = ts;
+
     /* build service name as driver_nameTERM_SESSION_IF_SUFFIX */
-    size = snprintf(NULL, 0, "%s%s", driver_name, TERM_SESSION_IF_SUFFIX);
+    size = snprintf(NULL, 0, "%s%s", serial->driver_name, TERM_SESSION_IF_SUFFIX);
     service_name = (char *) malloc(size + 1);
     if (service_name == NULL) {
         USER_PANIC("Error allocating memory for service name.");
     }
-    snprintf(service_name, size + 1, "%s%s", driver_name,
+    snprintf(service_name, size + 1, "%s%s", serial->driver_name,
              TERM_SESSION_IF_SUFFIX);
 
     /* register terminal session interface at nameservice */

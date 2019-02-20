@@ -18,6 +18,7 @@
 #include <barrelfish_kpi/platform.h>
 #include <if/monitor_blocking_defs.h>
 #include <maps/vexpress_map.h>
+#include <barrelfish/sys_debug.h>
 
 #include <skb/skb.h>
 #include <octopus/getset.h>
@@ -27,6 +28,7 @@
 static void start_driverdomain(char* module_name, char* record) {
     struct module_info* mi = find_module("driverdomain");
     struct driver_argument arg;
+    init_driver_argument(&arg);
     arg.module_name = module_name;
     if (mi != NULL) {
         errval_t err = mi->start_function(0, mi, record, &arg);
@@ -93,9 +95,9 @@ static errval_t start_gic_dist(coreid_t where){
     errval_t err;
 
     /* Prepare module and cap */
-    struct module_info *mi = find_module("driverdomain");
+    struct module_info *mi = find_module("driverdomain_pl390");
     if (mi == NULL) {
-        debug_printf("Binary driverdomain not found!\n");
+        debug_printf("Binary driverdomain_pl390 not found!\n");
         return KALUGA_ERR_MODULE_NOT_FOUND;
     }
     struct capref dist_reg;
@@ -128,6 +130,50 @@ static errval_t start_gic_dist(coreid_t where){
     return err;
 }
 
+static errval_t start_serial(char *name, coreid_t where){
+    errval_t err;
+
+    /* Prepare module and cap */
+    struct module_info *mi = find_module("driverdomain");
+    if (mi == NULL) {
+        debug_printf("Binary driverdomain not found!\n");
+        return KALUGA_ERR_MODULE_NOT_FOUND;
+    }
+
+    // TODO Add caps for all cases
+    if(strcmp(name, "serial_kernel") == 0) {
+        // No caps needed
+    } else {
+       assert(!"NYI"); 
+    }
+
+    struct driver_argument arg;
+    init_driver_argument(&arg);
+    arg.module_name = name;
+    struct capref irq_src;
+    err = slot_alloc(&irq_src);
+    assert(err_is_ok(err));
+
+    err = sys_debug_create_irq_src_cap(irq_src, 37, 37);
+    assert(err_is_ok(err));
+
+    struct capref irq_dst = {
+        .cnode = arg.argnode_ref,
+        .slot = 0
+    };
+    err = cap_copy(irq_dst, irq_src);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "cap_copy\n");
+        return err;
+    }
+
+    err = mi->start_function(where, mi, "hw.arm.vexpress.uart", &arg);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "couldnt start gic dist on core=%d\n", where);
+    }
+    return err;
+}
+
 static errval_t vexpress_startup(void)
 {
     errval_t err;
@@ -135,19 +181,10 @@ static errval_t vexpress_startup(void)
     assert(err_is_ok(err));
 
     err = start_gic_dist(0);
-    if (err_is_fail(err)) {
-        USER_PANIC_ERR(err, "Unable to start gic dist.");
-    }
+    assert(err_is_ok(err));
 
-    HERE;
-    struct module_info* mi = find_module("serial_pl011");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.vexpress.uart {}", NULL);
-        assert(err_is_ok(err));
-    } else {
-        debug_printf("Module serial_pl011 not found!\n");
-    }
-
+    err = start_serial("serial_kernel", 0);
+    assert(err_is_ok(err));
 
     return SYS_ERR_OK;
 }

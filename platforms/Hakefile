@@ -284,10 +284,10 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                         "usb_manager",
                         "usb_keyboard",
                         "serial_omap44xx",
-                        "serial_kernel",
                         "angler",
                         "corectrl",
                         "driverdomain",
+                        "driverdomain_pl390",
                         "int_route"
                         ] ]
 
@@ -300,8 +300,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                                "monitor",
                                "proc_mgmt",
                                "ramfsd",
-                               "serial_pl011",
-                               "serial_kernel",
                                "spawnd",
                                "startd",
                                "corectrl",
@@ -310,6 +308,7 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                                "fish",
                                "memtest",
                                "driverdomain",
+                               "driverdomain_pl390",
                                "int_route"
                                ] ]
 
@@ -322,7 +321,6 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
                               "monitor",
                               "proc_mgmt",
                               "ramfsd",
-                              "serial_pl011",
                               "serial_kernel",
                               "spawnd",
                               "startd",

@@ -106,7 +106,9 @@ static errval_t pl390_dist_init(struct pl390_dist_driver_state * ds, mackerel_ad
 static errval_t enable_interrupt(struct pl390_dist_driver_state *ds, int int_id,
     uint8_t cpu_targets, bool edge_triggered, bool one_to_n, uint16_t prio)
 {
-
+    //LH: We can't really handle level triggered interrupts in the kernel
+    assert(edge_triggered);
+    PL390_DEBUG("enable int=%d forwarding to cpu_mask=%d\n", int_id, cpu_targets);
     uint32_t ind = int_id / 32;
     uint32_t bit_mask = (1U << (int_id % 32));
     enum IrqType irq_type = get_irq_type(int_id);
@@ -233,10 +235,17 @@ static void add_mapping(struct int_route_controller_binding *b,
         int_route_controller_int_message_t to)
 {
     errval_t err;
-    PL390_DEBUG("add_mapping: label:%s, class:%s (%"PRIu64", %"PRIu64") to "
-            "(%"PRIu64", %"PRIu64")\n", label, class, from.addr, from.msg, to.addr, to.msg);
-    // TODO: CPU mask
-    err = enable_interrupt(b->st, from.port, 0, 0, 0, 0);
+    PL390_DEBUG("add_mapping: label:%s, class:%s (%"PRIu64",%"PRIu64", %"PRIu64") to "
+            "(%"PRIu64",%"PRIu64", %"PRIu64")\n", label, class,
+            from.port, from.addr, from.msg,
+            to.port, to.addr, to.msg);
+
+    assert(to.port < 8);
+    uint8_t cpu_mask = 1<<to.port;
+    bool edge_triggered = 1;
+    bool one_to_n = 0;
+    uint16_t prio = 1;
+    err = enable_interrupt(b->st, from.port, cpu_mask, edge_triggered, one_to_n, prio);
     assert(err_is_ok(err));
 }
 
@@ -255,7 +264,6 @@ static void bind_cb(void *st, errval_t err, struct int_route_controller_binding 
     char label[128];
     snprintf(label, sizeof(label), "dist_%d", ds->cpu_index);
     const char * ctrl_class = "gic_dist";
-    HERE;
     b->tx_vtbl.register_controller(b, NOP_CONT, label, ctrl_class);
 }
 
@@ -270,7 +278,6 @@ static errval_t connect_to_irs(struct bfdriver_instance *bfi) {
         return err;
     }
 
-    HERE;
     err = int_route_controller_bind(
         int_route_service, bind_cb, bfi,
         get_default_waitset(), IDC_BIND_FLAGS_DEFAULT);
@@ -279,7 +286,6 @@ static errval_t connect_to_irs(struct bfdriver_instance *bfi) {
         DEBUG_ERR(err, "Could not bind int_route_service\n");
         return err;
     }
-    HERE;
 
     return SYS_ERR_OK;
 }

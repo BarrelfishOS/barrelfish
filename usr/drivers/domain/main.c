@@ -48,16 +48,9 @@
  */
 int main(int argc, char** argv)
 {
-    size_t drivers = 0;
-    struct bfdriver* cur = NULL;
-    driverkit_list(&cur, &drivers);
-    for (size_t i=0; i<drivers; i++) {
-        //printf("%s:%s:%d: Found device driver class = %s\n", __FILE__, __FUNCTION__, __LINE__, cur->name);
-        cur += 1;
+    if(argc<3){
+        USER_PANIC("Not enough arguments. argv[2] for ddomain communication!\n");
     }
-    /*for (size_t i=0; i<argc; i++) {
-        printf("%s:%s:%d: argv[i] = %s\n", __FILE__, __FUNCTION__, __LINE__, argv[i]);
-    }*/
 
     iref_t kaluga_iref = 0;
     errval_t err = nameservice_blocking_lookup("ddomain_controller", &kaluga_iref);

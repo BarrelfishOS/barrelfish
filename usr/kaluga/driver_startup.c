@@ -135,20 +135,23 @@ errval_t
 default_start_function_pure(coreid_t where, struct module_info* mi, char* record,
                            struct driver_argument* arg) {
 
-    // TODO this doesn't reuse existing driver domains
     struct domain_instance* inst;
     errval_t err;
 
-    KALUGA_DEBUG("Creating new driver domain for %s\n", mi->binary);
-    inst = instantiate_driver_domain(mi->binary, where);
-    if (inst == NULL) {
-        return DRIVERKIT_ERR_DRIVER_INIT;
+    if(mi->driverinstance == NULL){
+        KALUGA_DEBUG("Creating new driver domain for %s\n", mi->binary);
+        inst = instantiate_driver_domain(mi->binary, where);
+        if (inst == NULL) {
+            return DRIVERKIT_ERR_DRIVER_INIT;
+        }
+        
+        while (inst->b == NULL) {
+            event_dispatch(get_default_waitset());
+        }   
+        mi->driverinstance = inst;
     }
-    
-    while (inst->b == NULL) {
-        event_dispatch(get_default_waitset());
-    }   
 
+    inst = mi->driverinstance;
     char* oct_id;
     err = oct_read(record, "%s {}", &oct_id);
     assert(err_is_ok(err));

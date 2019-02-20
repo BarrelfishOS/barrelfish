@@ -27,9 +27,18 @@
     target = "driverdomain",
     cFiles = [ "main.c"],
     addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-    addLibraries = libDeps [ "driverkit", "thc" ],
+    addLibraries = libDeps [ "driverkit", "thc", "term_server", "int_route_client" ],
     addModules = ["fdif_module", "sdma_module", "cm2_module", "twl6030_module",
-                  "mmchs_module", "pl390_dist_module"],
+                  "mmchs_module", "serial_kernel_module"],
+    architectures = ["armv7"]
+  },
+
+  build application {
+    target = "driverdomain_pl390",
+    cFiles = [ "main.c"],
+    addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
+    addLibraries = libDeps [ "driverkit", "thc", "term_server", "int_route_client" ],
+    addModules = ["pl390_dist_module"],
     architectures = ["armv7"]
   }
 ]

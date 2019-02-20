@@ -15,40 +15,44 @@
 
 #include <barrelfish/barrelfish.h>
 #include <barrelfish/inthandler.h>
+#include <int_route/int_route_client.h>
 #include <driverkit/driverkit.h>
 #include "serial.h"
 
 static void
 serial_interrupt(void *arg) {
+    struct serial_main * m = arg;
     char c;
-    errval_t err= sys_getchar(&c);
+    errval_t err = sys_getchar(&c);
     assert(err_is_ok(err));
-
-    //printf("'%c'\n", c);
-
-    serial_input(&c, 1);
+    serial_input(m, &c, 1);
 }
 
-errval_t serial_init(struct serial_params *params)
+static void
+serial_write(struct serial_main *m, const char *c, size_t len)
+{
+    sys_print(c, len);
+}
+
+errval_t serial_kernel_init(struct serial_main *m)
 {
     errval_t err;
 
-    if(params->irq == SERIAL_IRQ_INVALID)
-        USER_PANIC("serial_kernel requires an irq= parameter");
+    if(capref_is_null(m->irq_src))
+        USER_PANIC("serial_kernel requires an irq cap");
 
-    /* Register interrupt handler. */
-    err = inthandler_setup_arm(serial_interrupt, NULL, params->irq);
+    m->output = serial_write;
+
+    // Register interrupt handler
+    err = int_route_client_route_and_connect(m->irq_src, 0,
+            get_default_waitset(), serial_interrupt, m);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "interrupt setup failed.");
     }
 
     // offer service now we're up
-    start_service();
+    start_service(m);
     return SYS_ERR_OK;
 }
 
 
-void serial_write(const char *c, size_t len)
-{
-    sys_print(c, len);
-}

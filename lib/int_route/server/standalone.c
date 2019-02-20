@@ -149,10 +149,9 @@ static void driver_route_call_armv7(struct int_route_service_binding *b,
         err = int_route_controller_add_mapping__tx(gic_dist->binding,
                 BLOCKING_CONT, NULL, class, in_msg,
                 out_msg);
-        assert(err_is_ok(err));
     }
 
-    b->tx_vtbl.route_response(b, NOP_CONT, SYS_ERR_IRQ_INVALID);
+    b->tx_vtbl.route_response(b, NOP_CONT, err);
 }
 
 static void ctrl_register_controller(struct int_route_controller_binding *_binding,

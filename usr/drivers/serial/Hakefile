@@ -11,43 +11,46 @@
 -- 
 --------------------------------------------------------------------------
 
-[ build application { target = "serial_pc16550d",
-                      cFiles = [ "serial_pc16550d.c", "main.c",
+[ 
+ -- build application { target = "serial_pc16550d",
+ --                      cFiles = [ "serial_pc16550d.c", "main.c", "main_common.c"
+ --                                 "basic_service.c", "terminal_service.c" ],
+ --                      flounderBindings = [ "serial" ],
+ --                      flounderDefs = [ "terminal" , "terminal_config",
+ --                                       "terminal_session" ],
+ --                      mackerelDevices = [ "pc16550d" ],
+ --                      addLibraries = [ "pci", "term_server" ],
+ --                      architectures = [ "x86_64", "x86_32" ]
+ --                    },
+ --  build application { target = "serial_omap44xx",
+ --                      cFiles = [ "serial_omap44xx.c", "main.c", "main_common.c"
+ --                                 "basic_service.c", "terminal_service.c" ],
+ --                      flounderBindings = [ "serial" ],
+ --                      flounderDefs = [ "terminal" , "terminal_config",
+ --                                       "terminal_session" ],
+ --                      mackerelDevices = [ "omap/omap44xx_uart3" ],
+ --                      addLibraries = [ "driverkit", "term_server" ],
+ --                      architectures = [ "armv7" ]
+ --                    },
+ --  build application { target = "serial_pl011",
+ --                      cFiles = [ "serial_pl011.c", "main.c", "main_common.c"
+ --                                 "basic_service.c", "terminal_service.c" ],
+ --                      flounderBindings = [ "serial" ],
+ --                      flounderDefs = [ "terminal" , "terminal_config",
+ --                                       "terminal_session" ],
+ --                      mackerelDevices = [ "pl011_uart" ],
+ --                      addLibraries = [ "driverkit", "term_server" ],
+ --                      architectures = [ "armv7", "armv8" ]
+ --                    },
+
+  build library { target = "serial_kernel_module",
+                      cFiles = [ "serial_kernel.c", "main_module.c",
+                                 "main_common.c",
                                  "basic_service.c", "terminal_service.c" ],
                       flounderBindings = [ "serial" ],
                       flounderDefs = [ "terminal" , "terminal_config",
                                        "terminal_session" ],
-                      mackerelDevices = [ "pc16550d" ],
-                      addLibraries = [ "pci", "term_server" ],
-                      architectures = [ "x86_64", "x86_32" ]
-                    },
-  build application { target = "serial_omap44xx",
-                      cFiles = [ "serial_omap44xx.c", "main.c",
-                                 "basic_service.c", "terminal_service.c" ],
-                      flounderBindings = [ "serial" ],
-                      flounderDefs = [ "terminal" , "terminal_config",
-                                       "terminal_session" ],
-                      mackerelDevices = [ "omap/omap44xx_uart3" ],
-                      addLibraries = [ "driverkit", "term_server" ],
-                      architectures = [ "armv7" ]
-                    },
-  build application { target = "serial_pl011",
-                      cFiles = [ "serial_pl011.c", "main.c",
-                                 "basic_service.c", "terminal_service.c" ],
-                      flounderBindings = [ "serial" ],
-                      flounderDefs = [ "terminal" , "terminal_config",
-                                       "terminal_session" ],
-                      mackerelDevices = [ "pl011_uart" ],
-                      addLibraries = [ "driverkit", "term_server" ],
-                      architectures = [ "armv7", "armv8" ]
-                    },
-  build application { target = "serial_kernel",
-                      cFiles = [ "serial_kernel.c", "main.c",
-                                 "basic_service.c", "terminal_service.c" ],
-                      flounderBindings = [ "serial" ],
-                      flounderDefs = [ "terminal" , "terminal_config",
-                                       "terminal_session" ],
-                      addLibraries = [ "term_server", "driverkit" ],
+                      -- addLibraries = [ "term_server", "driverkit" ],
                       architectures = [ "x86_32", "x86_64",
                                         "armv7", "armv8" ]
                     }
