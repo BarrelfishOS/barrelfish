@@ -240,8 +240,9 @@ static void add_mapping(struct int_route_controller_binding *b,
         int_route_controller_int_message_t to)
 {
     errval_t err;
-    PL390_DEBUG("add_mapping: label:%s, class:%s (%"PRIu64",%"PRIu64", %"PRIu64") to "
-            "(%"PRIu64",%"PRIu64", %"PRIu64")\n", label, class,
+    PL390_DEBUG("add_mapping: label:%s, class:%s\n"
+            "  (%"PRIu64",%"PRIu64", %"PRIu64") to \n"
+            "  (%"PRIu64",%"PRIu64", %"PRIu64")\n", label, class,
             from.port, from.addr, from.msg,
             to.port, to.addr, to.msg);
 

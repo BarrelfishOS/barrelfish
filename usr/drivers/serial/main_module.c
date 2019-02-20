@@ -31,9 +31,6 @@ init_kernel(struct bfdriver_instance* bfi, uint64_t flags, iref_t *dev)
 
     m->irq_src.cnode = bfi->argcn;
     m->irq_src.slot = 0;
-    char db[1024];
-    debug_print_cap_at_capref(db, 1024, m->irq_src);
-    debug_printf("cap = %s\n", db);
 
     err = init_serial_main(m, bfi->argc, bfi->argv);
     assert(err_is_ok(err));
