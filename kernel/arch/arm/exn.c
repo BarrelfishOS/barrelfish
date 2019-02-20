@@ -315,6 +315,7 @@ void handle_irq(arch_registers_state_t* save_area,
     uint32_t irq = 0;
     irq = platform_get_active_irq();
     debug(SUBSYS_DISPATCH, "IRQ %"PRIu32" while %s\n", irq,
+          dcb_current == NULL ? "no dcb":
           dcb_current->disabled ? "disabled": "enabled" );
 
     // Offer it to the timer
