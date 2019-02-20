@@ -81,7 +81,6 @@ static errval_t pl390_dist_init(struct pl390_dist_driver_state * ds, mackerel_ad
     PL390_DEBUG("interrupt lines = %d, cpu_count = %d\n", ds->it_num_lines,
             ds->cpu_count);
 
-    // Distributor:
     // enable interrupt forwarding from distributor to cpu interface
     pl390_gic_dist_ICDDCR_enable_wrf(&ds->devgic, 0x1);
 
@@ -106,6 +105,9 @@ static errval_t pl390_dist_init(struct pl390_dist_driver_state * ds, mackerel_ad
 static errval_t enable_interrupt(struct pl390_dist_driver_state *ds, int int_id,
     uint8_t cpu_targets, bool edge_triggered, bool one_to_n, uint16_t prio)
 {
+    //Disable forwarding
+    pl390_gic_dist_ICDDCR_enable_wrf(&ds->devgic, 0x0);
+
     //LH: We can't really handle level triggered interrupts in the kernel
     assert(edge_triggered);
     PL390_DEBUG("enable int=%d forwarding to cpu_mask=%d\n", int_id, cpu_targets);
@@ -224,6 +226,9 @@ static errval_t enable_interrupt(struct pl390_dist_driver_state *ds, int int_id,
         pl390_gic_dist_ICDICR_conf15_wrf(&ds->devgic, ind, val);
         break;
     }
+
+    //Re-enable forwarding
+    pl390_gic_dist_ICDDCR_enable_wrf(&ds->devgic, 0x1);
 
     return SYS_ERR_OK;
 }

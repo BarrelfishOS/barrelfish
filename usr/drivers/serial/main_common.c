@@ -58,7 +58,8 @@ void serial_set_new_input_consumer(struct serial_main *main,
     if (main->buffer.buf != NULL) {
         SERIAL_DEBUG("Previously buffered input sent to newly attached "
                      "consumer.\n");
-        main->input_consumer(main->input_consumer, main->buffer.buf, main->buffer.len);
+        main->input_consumer(main->input_consumer_arg, main->buffer.buf,
+                main->buffer.len);
         free(main->buffer.buf);
         main->buffer.buf = NULL;
     }
