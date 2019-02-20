@@ -264,20 +264,3 @@ errval_t platform_enable_interrupt(uint32_t int_id, uint16_t prio,
     }
     return SYS_ERR_OK;
 }
-
-void dist_debug(void);
-void systime_set_timer(systime_t relative_timeout);
-void dist_debug(void)
-{
-    printf("Entering dist_debug...\n");
-    
-    uint32_t reg0 = pl390_gic_dist_ICDISER_rd(&gic_dist, 0);
-    uint32_t reg1 = pl390_gic_dist_ICDISER_rd(&gic_dist, 1);
-    uint32_t reg2 = pl390_gic_dist_ICDISER_rd(&gic_dist, 2);
-    printf("ICDISER[0] = %"PRIx32"\n", reg0);
-    printf("ICDISER[1] = %"PRIx32"\n", reg1);
-    printf("ICDISER[2] = %"PRIx32"\n", reg2);
-    systime_set_timer(100);
-}
-
-

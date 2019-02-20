@@ -36,11 +36,6 @@ errval_t sys_debug_context_counter_reset(void)
     return syscall2(SYSCALL_DEBUG, DEBUG_CONTEXT_COUNTER_RESET).error;
 }
 
-errval_t sys_debug_gic_dist(void)
-{
-    return syscall2(SYSCALL_DEBUG, DEBUG_GIC_DIST).error;
-}
-
 errval_t sys_debug_context_counter_read(uint64_t *ret)
 {
     struct sysret sr = syscall2(SYSCALL_DEBUG, DEBUG_CONTEXT_COUNTER_READ);

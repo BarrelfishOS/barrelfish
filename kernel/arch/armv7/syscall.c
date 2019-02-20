@@ -1423,16 +1423,11 @@ handle_invoke(arch_registers_state_t *context, int argc)
     return r;
 }
 
-extern void dist_debug(void);
 static struct sysret handle_debug_syscall(struct registers_arm_syscall_args* sa)
 {
     int msg = sa->arg1;
     struct sysret retval = { .error = SYS_ERR_OK };
     switch (msg) {
-        case DEBUG_GIC_DIST:
-            dist_debug();
-            break;
-
         case DEBUG_FLUSH_CACHE:
             invalidate_data_caches_pouu(true);
             break;
