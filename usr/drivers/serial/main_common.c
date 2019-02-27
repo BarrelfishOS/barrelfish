@@ -22,7 +22,7 @@
 #include "serial_debug.h"
 
 
-void serial_input(struct serial_main *main, char *data, size_t length)
+void serial_input(struct serial_common *main, char *data, size_t length)
 {
     if (main->input_consumer != NULL) {
         // There is a consumer (client) attached to either the basic service
@@ -47,7 +47,7 @@ void serial_input(struct serial_main *main, char *data, size_t length)
     }
 }
 
-void serial_set_new_input_consumer(struct serial_main *main,
+void serial_set_new_input_consumer(struct serial_common *main,
                                    serial_input_fn_t fn, void *fn_arg)
 {
     SERIAL_DEBUG("New input consumer set. main=%p\n", main);
@@ -65,14 +65,14 @@ void serial_set_new_input_consumer(struct serial_main *main,
     }
 }
 
-void start_service(struct serial_main *m)
+void start_service(struct serial_common *m)
 {
     SERIAL_DEBUG("Starting services.\n");
     start_terminal_service(m);
     start_basic_service(m);
 }
 
-errval_t init_serial_main(struct serial_main *m, int argc, char **argv)
+errval_t init_serial_common(struct serial_common *m)
 {
     // defaults
     m->driver_name = "serial0";       
@@ -80,21 +80,15 @@ errval_t init_serial_main(struct serial_main *m, int argc, char **argv)
     m->input_consumer_arg = NULL;
     m->buffer.buf = NULL;
     m->buffer.len = 0;
-    m->portbase       = SERIAL_PORTBASE_INVALID;
     m->irq            = SERIAL_IRQ_INVALID;
     m->membase        = SERIAL_MEMBASE_INVALID;
 
+    return SYS_ERR_OK;
+
     // Parse args
+    /*
     for (int i = 1; i < argc; i++) {
-        if (strncmp(argv[i], "portbase=", sizeof("portbase=") - 1) == 0) {
-            uint32_t x=
-                strtoul(argv[i] + sizeof("portbase=") - 1, NULL, 0);
-            if (x == 0 || x > 65535) {
-                fprintf(stderr, "Error: invalid portbase 0x%"PRIx32"\n", x);
-                goto usage;
-            }
-            m->portbase = x;
-        } else if (strncmp(argv[i], "irq=", sizeof("irq=") - 1) == 0) {
+        if (strncmp(argv[i], "irq=", sizeof("irq=") - 1) == 0) {
              uint32_t x=
                  strtoul(argv[i] + sizeof("irq=") - 1, NULL, 0);
              if (x == 0) {
@@ -121,7 +115,8 @@ errval_t init_serial_main(struct serial_main *m, int argc, char **argv)
     return SYS_ERR_OK;
 
 usage:
-    fprintf(stderr, "Usage: %s [portbase=PORT] [irq=IRQ] [name=NAME]\n"
+    fprintf(stderr, "Usage: %s [irq=IRQ] [name=NAME]\n"
                     "    [membase=ADDR] [kernel]\n", argv[0]);
     return SYS_ERR_IRQ_INVALID;
+    */
 }

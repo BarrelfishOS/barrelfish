@@ -518,7 +518,7 @@ errval_t irq_table_alloc_dest_cap(uint8_t dcn_level, capaddr_t dcn,
     errval_t err;
 
     if(vec_hint >= 0){
-        printk(LOG_WARN, "irq: vec_hint not supported on x86\n", i);
+        printk(LOG_WARN, "irq: vec_hint not supported on x86\n");
         return SYS_ERR_IRQ_INVALID;
     }
 

@@ -22,10 +22,12 @@
 #include <skb/skb.h>
 #include <pci/pci.h>
 #include <acpi_client/acpi_client.h>
+#include <if/monitor_blocking_defs.h>
 #include "kaluga.h"
 
 #define SERIAL_IRQ 4
 #define SERIAL_BINARY "serial_pc16550d"
+#define SERIAL_MODULE "serial_pc16550d"
 
 #define LPC_TIMER_IRQ 0
 #define LPC_TIMER_BINARY "lpc_timer"
@@ -37,6 +39,7 @@ static errval_t start_serial(void){
         // Get internal int number. COM1 uses ISA nr. 4
         struct driver_argument arg;
         err = init_driver_argument(&arg);
+        arg.module_name = SERIAL_MODULE;
         if(err_is_fail(err)){
             DEBUG_ERR(err, "init_driver_argument failed\n");
             return err;
@@ -62,7 +65,30 @@ static errval_t start_serial(void){
             DEBUG_ERR(err, "int_src_cap");
             return err;
         }
-        err = mi->start_function(0, mi, "hw.legacy.uart.1 {}", &arg);
+
+        // Obtain I/O  cap
+        struct capref io;
+        err = slot_alloc(&io);
+        assert(err_is_ok(err));
+
+        struct capref io_dst = {
+            .cnode = arg.argnode_ref,
+            .slot = PCIARG_SLOT_IO
+        };
+        struct monitor_blocking_binding *cl = get_monitor_blocking_binding();
+        errval_t msg_err;
+        err = cl->rpc_tx_vtbl.get_io_cap(cl, &io, &msg_err);
+        assert(err_is_ok(err));
+        err = cap_copy(io_dst, io);
+        assert(err_is_ok(err));
+
+        {
+            char caps[1024];
+            debug_print_cap_at_capref(caps, sizeof(caps), io_dst);
+            debug_printf("io_dst = %s\n", caps);
+        }
+
+        err = default_start_function_pure(0, mi, "hw.legacy.uart.1 {}", &arg);
         if(err_is_fail(err)){
             USER_PANIC_ERR(err, "serial->start_function");
         }
@@ -102,6 +128,7 @@ static errval_t start_lpc_timer(void){
             DEBUG_ERR(err, "store_int_cap");
             return err;
         }
+
 
         err = mi->start_function(0, mi, "hw.legacy.timer.1 {}", &arg);
         if(err_is_fail(err)){

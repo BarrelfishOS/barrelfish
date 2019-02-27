@@ -116,7 +116,6 @@ static void create_handler(struct ddomain_binding* binding, const char* cls, siz
         inst->argv[3] = NULL;
     }
 
-    DRIVERKIT_DEBUG("sizeof(inst->name)=%d\n", sizeof(inst->name));
     strncpy(inst->name, name, 256);
 
     err = slot_alloc(&inst->ctrl);

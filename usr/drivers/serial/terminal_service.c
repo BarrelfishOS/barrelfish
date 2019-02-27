@@ -25,7 +25,7 @@
 #include "serial_debug.h"
 
 struct ts_state {
-    struct serial_main *serial;
+    struct serial_common *serial;
     struct term_server *server;
 };
 
@@ -54,7 +54,7 @@ static void new_session_handler(void *st, struct capref session_id)
     serial_set_new_input_consumer(ts->serial, terminal_serial_input, ts);
 }
 
-void start_terminal_service(struct serial_main *serial)
+void start_terminal_service(struct serial_common *serial)
 {
     errval_t err;
     iref_t iref = NULL_IREF;

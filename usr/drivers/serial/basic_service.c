@@ -27,7 +27,7 @@
 #define SERVICE_SUFFIX "raw"
 
 struct bs_state {
-    struct serial_main *serial;
+    struct serial_common *serial;
     struct term_server *server;
 
     /// input buffers, double-buffered for safety with async IDC sends
@@ -163,7 +163,7 @@ static void export_cb(void *st, errval_t err, iref_t iref)
     free(service_name);
 }
 
-void start_basic_service(struct serial_main *serial)
+void start_basic_service(struct serial_common *serial)
 {
     errval_t err;
     struct bs_state *bs = malloc(sizeof(struct bs_state));

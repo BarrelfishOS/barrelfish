@@ -359,7 +359,7 @@ errval_t start_networking_new(coreid_t where,
         // netsocket server in seperate process TODO might put into same process
         struct module_info* mi = find_module("net_sockets_server");
         if (mi == NULL) {
-            KALUGA_DEBUG("Net_socket_server not found\n", binary_name);
+            KALUGA_DEBUG("Net_socket_server not found\n");
             return err;
         }
 

@@ -190,6 +190,20 @@ errval_t driverkit_create_driver(const char* cls, struct bfdriver_instance *inst
     }
     DRIVERKIT_DEBUG("Using driver %s for class %s\n", drv->name, cls);
 
+#if defined(ENABLE_DRIVERKIT_DEBUG)
+    {
+        char caps[1024];
+        for(int i=0; i<16; i++){
+            struct capref cc = {
+                .cnode = inst->argcn,
+                .slot = i
+            };
+            debug_print_cap_at_capref(caps, sizeof(caps), cc);
+            debug_printf("[dkit] cap %d = %s\n", i, caps);
+        }
+    }
+#endif
+
     inst->driver = drv;
 
     err = drv->init(inst, flags, device);
