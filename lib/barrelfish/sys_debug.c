@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+
 errval_t sys_nop(void)
 {
     return syscall1(SYSCALL_NOP).error;

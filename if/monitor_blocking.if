@@ -35,8 +35,13 @@ interface monitor_blocking "The monitor to client RPC interface" {
     rpc get_phyaddr_cap(out cap pyaddr, out errval err);
     rpc get_io_cap(out cap io, out errval err);
     
-    // Get a capability that is targeted at the local apic.
+    // Get a irq destination capability that is targeted at the local apic, 
+    // with an unused vector.
     rpc get_irq_dest_cap(out cap io, out errval err);
+
+    // Get a irq destination capability that is connectable with the irq src
+    // capability.
+    rpc get_irq_dest_cap_arm(in cap src, in int irq_idx, out cap io, out errval err);
 
     // Resource control
     rpc rsrc_manifest(in cap dispatcher, in String manifest[2048],

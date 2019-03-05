@@ -29,7 +29,8 @@ module /armv7/sbin/startd boot
 
 # Device drivers
 # module /armv7/sbin/serial_pl011 auto
-module /armv7/sbin/serial_kernel irq=37
+module /armv7/sbin/driverdomain auto
+# module /armv7/sbin/serial_kernel irq=37
 module /armv7/sbin/corectrl auto
 
 # General user domains

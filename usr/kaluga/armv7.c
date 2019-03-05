@@ -17,40 +17,170 @@
 #include <barrelfish/barrelfish.h>
 #include <barrelfish_kpi/platform.h>
 #include <if/monitor_blocking_defs.h>
+#include <maps/vexpress_map.h>
+#include <maps/omap44xx_map.h>
+#include <barrelfish/sys_debug.h>
 
 #include <skb/skb.h>
 #include <octopus/getset.h>
 
 #include "kaluga.h"
+#include <pci/pci.h>
 
-static void start_driverdomain(char* record) {
-    struct module_info* mi = find_module("driverdomain");
-    if (mi != NULL) {
-        errval_t err = mi->start_function(0, mi, record, NULL);
-        assert(err_is_ok(err));
+struct serial_conf {
+    char *name;
+    int irq;
+    lpaddr_t mem_base;
+    size_t mem_size;
+};
+
+static struct serial_conf vexpress_uart_0 = {
+    .name = "serial_kernel",
+    //.name = "serial_pl011",
+    .irq = 37,
+    .mem_base = VEXPRESS_MAP_UART0,
+    .mem_size = VEXPRESS_MAP_UART0_SIZE
+};
+
+static struct serial_conf omap44xx_uart_1 = {
+    .name = "serial_kernel",
+    //.name = "serial_omap44xx",
+    .irq = 106,
+    .mem_base = OMAP44XX_MAP_L4_PER_UART1,
+    .mem_size = OMAP44XX_MAP_L4_PER_UART1_SIZE
+};
+
+static errval_t start_serial(struct serial_conf *c, coreid_t where){
+    errval_t err;
+
+    /* Prepare module and cap */
+    struct module_info *mi = find_module(c->name);
+    if (mi == NULL) {
+        debug_printf("Binary %s not found!\n", c->name);
+        return KALUGA_ERR_MODULE_NOT_FOUND;
     }
+
+    struct driver_argument arg;
+    init_driver_argument(&arg);
+    arg.module_name = c->name;
+
+    // TODO Add caps for all cases
+    if(strcmp(c->name, "serial_kernel") == 0) {
+        // No caps needed
+    } else if (strcmp(c->name, "serial_pl011") == 0) {
+        struct capref mem_dst = {
+            .cnode = arg.argnode_ref,
+            .slot = PCIARG_SLOT_BAR0
+        };
+        struct capref mem_src;
+        err = get_device_cap(c->mem_base, c->mem_size, &mem_src);
+        assert(err_is_ok(err));
+        err = cap_copy(mem_dst, mem_src);
+        assert(err_is_ok(err));
+    } else {
+       assert(!"NYI"); 
+    }
+
+    struct capref irq_src;
+    err = slot_alloc(&irq_src);
+    assert(err_is_ok(err));
+
+    err = sys_debug_create_irq_src_cap(irq_src, c->irq, c->irq);
+    assert(err_is_ok(err));
+
+    struct capref irq_dst = {
+        .cnode = arg.argnode_ref,
+        .slot = PCIARG_SLOT_INT 
+    };
+    err = cap_copy(irq_dst, irq_src);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "cap_copy\n");
+        return err;
+    }
+
+    err = mi->start_function(where, mi, "hw.arm.vexpress.uart", &arg);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "couldnt start gic dist on core=%d\n", where);
+    }
+    return err;
+}
+
+__attribute((__used__))
+static void start_driverdomain(char* module_name, char* record) {
+    struct module_info* mi = find_module("driverdomain");
+    struct driver_argument arg;
+    init_driver_argument(&arg);
+    arg.module_name = module_name;
+    if (mi != NULL) {
+        errval_t err = mi->start_function(0, mi, record, &arg);
+        assert(err_is_ok(err));
+    } else {
+        debug_printf("driverdomain not found!\n");
+    }
+}
+
+/**
+ * \brief Starts the gic distributor driver on every core
+ *
+ */
+static errval_t start_gic_dist(lpaddr_t mem_base, coreid_t where){
+    errval_t err;
+
+    /* Prepare module and cap */
+    struct module_info *mi = find_module("driverdomain_pl390");
+    if (mi == NULL) {
+        debug_printf("Binary driverdomain_pl390 not found!\n");
+        return KALUGA_ERR_MODULE_NOT_FOUND;
+    }
+    struct capref dist_reg;
+    err = get_device_cap(mem_base, 0x1000, &dist_reg);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "Get gic_dist device cap\n");
+        return err;
+    }
+    struct driver_argument arg;
+    init_driver_argument(&arg);
+    arg.module_name = "pl390_dist";
+    struct capref dst = {
+        .cnode = arg.argnode_ref,
+        .slot = 0
+    };
+    err = cap_copy(dst, dist_reg);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "cap_copy\n");
+        return err;
+    }
+
+    /* Create Octopus records for the known cores. */
+    char oct_key[128];
+    snprintf(oct_key, sizeof(oct_key), "hw.arm.gic.dist.%d {}", where); 
+    err = mi->start_function(where, mi, oct_key, &arg);
+    if(err_is_fail(err)){
+        DEBUG_ERR(err, "couldnt start gic dist on core=%d\n", where);
+    }
+    return err;
 }
 
 static errval_t omap44xx_startup(void)
 {
     errval_t err;
 
+
     err = init_device_caps_manager();
     assert(err_is_ok(err));
 
-    start_driverdomain("fdif {}");
-    start_driverdomain("sdma {}");
-    start_driverdomain("mmchs { dep1: 'cm2', dep2: 'twl6030' }");
+    err = start_gic_dist(OMAP44XX_MAP_CORTEXA9_GICDIST, 0);
+    assert(err_is_ok(err));
+    debug_printf("Ignoring default drivers on OMAP44xx for now\n");
+    //start_driverdomain("fdif", "fdif {}");
+    //start_driverdomain("sdma", "sdma {}");
+    //start_driverdomain("mmchs", "mmchs { dep1: 'cm2', dep2: 'twl6030' }");
+    start_serial(&omap44xx_uart_1, 0);
+    
 
     struct module_info* mi = find_module("prcm");
     if (mi != NULL) {
         err = mi->start_function(0, mi, "hw.arm.omap44xx.prcm {}", NULL);
-        assert(err_is_ok(err));
-    }
-
-    mi = find_module("serial");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.omap44xx.uart {}", NULL);
         assert(err_is_ok(err));
     }
 
@@ -82,11 +212,15 @@ static errval_t omap44xx_startup(void)
 static errval_t vexpress_startup(void)
 {
     errval_t err;
-    struct module_info* mi = find_module("serial_pl011");
-    if (mi != NULL) {
-        err = mi->start_function(0, mi, "hw.arm.vexpress.uart {}", NULL);
-        assert(err_is_ok(err));
-    }
+    err = init_device_caps_manager();
+    assert(err_is_ok(err));
+
+    err = start_gic_dist(VEXPRESS_MAP_GIC_DIST, 0);
+    assert(err_is_ok(err));
+
+    err = start_serial(&vexpress_uart_0, 0);
+    assert(err_is_ok(err));
+
     return SYS_ERR_OK;
 }
 
@@ -167,7 +301,7 @@ errval_t arch_startup(char * add_device_db_file)
 
     /* Query the SKB for the available cores on this platform - we can't
      * generally discover this on ARMv7. */
-    err= skb_execute_query("arm_mpids(L) ,write(L).");
+    err= skb_execute_query("arm_mpids(L),write(L).");
     if (err_is_fail(err)) {
         USER_PANIC_SKB_ERR(err, "Finding cores.");
     }
@@ -197,6 +331,7 @@ errval_t arch_startup(char * add_device_db_file)
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "Unable to wait for spawnds failed.");
     }
+
 
     switch(platform) {
         case PI_PLATFORM_OMAP44XX:

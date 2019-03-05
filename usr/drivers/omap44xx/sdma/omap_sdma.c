@@ -481,7 +481,10 @@ errval_t omap_sdma_init(struct sdma_driver_state* st, mackerel_addr_t dev_base, 
     *irq_handler_entry = (uintptr_t) omap_sdma_kernel_irq_handler;
 
     // enable the SDMA interrupt in the global interrupt controller
-    platform_enable_interrupt(OMAP44XX_SDMA_IRQ, GIC_IRQ_CPU_TRG_ALL, 0,
+    // LH: This will not work anymore. We allow only PPIs to be set up
+    // with platform_enable_interrupt. The userspace should setup the 
+    // the GIC
+    err = platform_enable_interrupt(OMAP44XX_SDMA_IRQ, 0,
                             GIC_IRQ_EDGE_TRIGGERED, GIC_IRQ_N_TO_N);
 #else
     // in userspace, register normal interrupt handler

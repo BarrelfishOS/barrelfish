@@ -9,7 +9,7 @@ timeout 0
 
 title	Barrelfish
 #root	(nd)
-kernel	/armv7/sbin/cpu_a15ve loglevel=3 periphbase=0x2c000000 cntfrq=100000000 consolePort=0 timerirq=29
+kernel	/armv7/sbin/cpu_a15ve loglevel=3 periphbase=0x2c000000 consolePort=0
 module	/armv7/sbin/cpu_a15ve
 module	/armv7/sbin/init
 
@@ -22,21 +22,23 @@ module /armv7/sbin/ramfsd boot
 module /armv7/sbin/skb boot
 modulenounzip /eclipseclp_ramfs.cpio.gz nospawn
 modulenounzip /skb_ramfs.cpio.gz nospawn
-module /armv7/sbin/kaluga boot add_device_db=plat_VE_A15x4
+module /armv7/sbin/kaluga boot add_device_db=plat_VE_A15x2
 module /armv7/sbin/spawnd boot
 module /armv7/sbin/proc_mgmt boot
 module /armv7/sbin/startd boot
 
 # Device drivers
-# module /armv7/sbin/serial_pl011 auto
+module /armv7/sbin/serial_kernel auto
+module /armv7/sbin/serial_pl011 auto
 module /armv7/sbin/driverdomain auto
-# module /armv7/sbin/serial_kernel irq=37
+module /armv7/sbin/driverdomain_pl390 auto
 module /armv7/sbin/corectrl auto
 
 # General user domains
 module /armv7/sbin/angler serial0.terminal dumb
 module /armv7/sbin/fish nospawn
 
+module /armv7/sbin/int_route 
 module /armv7/sbin/memtest
 
 # gem5 simulates 512MB of RAM starting at 0x80000000

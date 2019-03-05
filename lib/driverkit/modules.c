@@ -190,11 +190,26 @@ errval_t driverkit_create_driver(const char* cls, struct bfdriver_instance *inst
     }
     DRIVERKIT_DEBUG("Using driver %s for class %s\n", drv->name, cls);
 
+#if defined(ENABLE_DRIVERKIT_DEBUG)
+    {
+        char caps[1024];
+        for(int i=0; i<16; i++){
+            struct capref cc = {
+                .cnode = inst->argcn,
+                .slot = i
+            };
+            debug_print_cap_at_capref(caps, sizeof(caps), cc);
+            debug_printf("[dkit] cap %d = %s\n", i, caps);
+        }
+    }
+#endif
+
     inst->driver = drv;
 
     err = drv->init(inst, flags, device);
     if (err_is_fail(err)) {
-       // DEBUG_ERR(err, "Can't initialize the device");
+        //DRIVERKIT_DEBUG("Init returned error...\n");
+        DEBUG_ERR(err, "Can't initialize the device");
         free_driver_instance(inst);
         return err_push(err, DRIVERKIT_ERR_DRIVER_INIT);
     }
@@ -202,7 +217,7 @@ errval_t driverkit_create_driver(const char* cls, struct bfdriver_instance *inst
     // Since Kaluga always has to be on core 0, we can do this ...
     err = dcontrol_service_init(inst, NULL, (disp_get_core_id() == 0), control);
     if (err_is_fail(err)) {
-       // DEBUG_ERR(err, "Can't set-up control interface for device.");
+        DEBUG_ERR(err, "Can't set-up control interface for device.");
         free_driver_instance(inst);
         return err_push(err, DRIVERKIT_ERR_CONTROL_SERVICE_INIT);
     }

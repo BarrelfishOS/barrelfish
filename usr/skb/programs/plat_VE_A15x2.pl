@@ -13,10 +13,8 @@
 cpu_driver(cortexA15, "/armv7/sbin/cpu_a15ve").
 monitor(cortexA15, "/armv7/sbin/monitor").
 
-% One cluster of four Cortex A15s
+% One cluster of two Cortex A15s
 arm_core(16'000000,cortexA15).
 arm_core(16'000001,cortexA15).
-arm_core(16'000002,cortexA15).
-arm_core(16'000003,cortexA15).
 
 kernel_timer_irq(29).

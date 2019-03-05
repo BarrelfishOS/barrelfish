@@ -100,6 +100,8 @@ errval_t init_device_caps_manager(void)
     struct frame_identity ret;
     err = frame_identify(requested_cap, &ret);
     size_t capbits= log2ceil(ret.bytes);
+
+    debug_printf("requested_cap base=%lx bytes=%lx\n", ret.base, ret.bytes);
     assert (err_is_ok(err));
     assert((1ULL << capbits) == ret.bytes);
 
