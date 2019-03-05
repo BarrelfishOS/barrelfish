@@ -19,6 +19,7 @@
 #include <driverkit/driverkit.h>
 #include "serial.h"
 #include "serial_debug.h"
+#include <pci/pci.h>
 
 struct serial_kernel {
     struct serial_common m;
@@ -70,7 +71,7 @@ init_kernel(struct bfdriver_instance* bfi, uint64_t flags, iref_t *dev)
 
     struct capref irq_src;
     irq_src.cnode = bfi->argcn;
-    irq_src.slot = 0;
+    irq_src.slot = PCIARG_SLOT_INT;
 
 
     // Initialize serial driver

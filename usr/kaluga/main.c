@@ -66,7 +66,10 @@ static void add_start_function_overrides(void)
     set_start_function("ioat_dma", default_start_function_new);
     set_start_function("xeon_phi", default_start_function_new);
 #else
-    set_start_function("driverdomain", default_start_function_pure);
+    set_start_function("driverdomain", default_start_function_new);
+    set_start_function("serial_kernel", default_start_function_pure);
+    set_start_function("serial_pl011", default_start_function_pure);
+    set_start_function("serial_omap44xx", default_start_function_pure);
     set_start_function("driverdomain_pl390", default_start_function_pure);
 #endif
 

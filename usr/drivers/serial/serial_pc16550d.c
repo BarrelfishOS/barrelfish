@@ -139,7 +139,7 @@ serial_pc16550d_init(struct serial_pc16550d *spc, struct capref irq_src,
 
 
 static errval_t
-init_pc16550d(struct bfdriver_instance* bfi, uint64_t flags, iref_t *dev)
+init(struct bfdriver_instance* bfi, uint64_t flags, iref_t *dev)
 {
     errval_t err;
     struct serial_pc16550d *spc = malloc(sizeof(struct serial_pc16550d));
@@ -213,4 +213,4 @@ static errval_t get_ep(struct bfdriver_instance* bfi, bool lmp, struct capref* r
     return SYS_ERR_OK;
 }
 
-DEFINE_MODULE(serial_pc16550d, init_pc16550d, attach, detach, set_sleep_level, destroy, get_ep);
+DEFINE_MODULE(serial_pc16550d, init, attach, detach, set_sleep_level, destroy, get_ep);
