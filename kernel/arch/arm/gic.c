@@ -117,8 +117,14 @@ uint32_t platform_get_active_irq(void)
 }
 
 uint32_t gic_cpu_count(void){
-    MSG("GIC can't be used to determine CPU COUNT!\n");
     return 1;
+    /*
+     * LH: The CPU count can be determined using the gic distributor, but
+     * it is called before the distributor is initialized. However,
+     * with the new coreboot it seems to be unnecessary anyway.
+     *
+     * return pl390_gic_dist_ICDICTR_cpu_number_rdf(&gic_dist);
+     */
 }
 
 void gic_raise_softirq(uint8_t cpumask, uint8_t irq)
