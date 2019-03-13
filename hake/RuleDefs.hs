@@ -36,6 +36,7 @@ debugFlag = False
 inRule :: RuleToken -> Bool
 inRule (Dep _ _ _) = False
 inRule (PreDep _ _ _) = False
+inRule (LDep _ _) = False
 inRule (Target _ _) = False
 inRule _ = True
 
@@ -270,6 +271,14 @@ linker opts objs libs mods bin
     | optArch opts == "armv8" = ARMv8.linker opts objs libs mods bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
+ldtLinker :: Options -> [String] -> String -> String -> [RuleToken]
+ldtLinker opts objs app bin
+    | optArch opts == "x86_64" = X86_64.ldtLinker opts objs app bin
+    | optArch opts == "k1om" = K1om.ldtLinker opts objs app bin
+    -- | optArch opts == "armv7" = ARMv7.ldtLinker opts objs libs mods bin
+    -- | optArch opts == "armv8" = ARMv8.ldtLinker opts objs libs mods bin
+    | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
+
 strip :: Options -> String -> String -> String -> [RuleToken]
 strip opts src debuglink target
     | optArch opts == "x86_64" = X86_64.strip opts src debuglink target
@@ -292,6 +301,12 @@ cxxlinker :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken
 cxxlinker opts objs libs mods bin
     | optArch opts == "x86_64" = X86_64.cxxlinker opts objs libs mods bin
     | optArch opts == "k1om" = K1om.cxxlinker opts objs libs mods bin
+    | otherwise = [ ErrorMsg ("Can't link C++ executables for " ++ (optArch opts)) ]
+
+ldtCxxlinker :: Options -> [String] -> String -> String -> [RuleToken]
+ldtCxxlinker opts objs app bin
+    | optArch opts == "x86_64" = X86_64.ldtCxxlinker opts objs app bin
+    | optArch opts == "k1om" = K1om.ldtCxxlinker opts objs app bin
     | otherwise = [ ErrorMsg ("Can't link C++ executables for " ++ (optArch opts)) ]
 
 --
@@ -403,11 +418,18 @@ archiveLibrary opts name objs libs =
     archive opts objs libs name (libraryPath opts name)
 
 --
--- Link an executable
+-- Link an executable, explicit libs/mods
 --
 linkExecutable :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
 linkExecutable opts objs libs mods bin =
     linker opts objs libs mods (applicationPath opts bin)
+
+--
+-- Link an executable, use ldt to calculate dependencies
+--
+ldtLinkExecutable :: Options -> [String] -> String -> String -> [RuleToken]
+ldtLinkExecutable opts objs app bin =
+    ldtLinker opts objs app (applicationPath opts bin)
 
 --
 -- Strip debug symbols from an executable
@@ -430,6 +452,14 @@ debugExecutable opts src target =
 linkCxxExecutable :: Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
 linkCxxExecutable opts objs libs mods bin =
     cxxlinker opts objs libs mods (applicationPath opts bin)
+
+--
+-- Link a C++ executable using ldt.
+-- XXX: This has not been tested
+--
+ldtLinkCxxExecutable :: Options -> [String] -> String -> String -> [RuleToken]
+ldtLinkCxxExecutable opts objs app bin =
+    ldtCxxlinker opts objs app (applicationPath opts bin)
 
 -------------------------------------------------------------------------
 
@@ -789,7 +819,7 @@ sockeyeFactFilePath d = "/sockeyefacts" </> d <.> "pl"
 sockeyeFactFileLoc d = In BuildTree "" $ sockeyeFactFilePath d
 
 sockeyeNS :: String -> String -> HRule
-sockeyeNS net rootns = 
+sockeyeNS net rootns =
     let
         factFile = sockeyeFactFilePath net
         depFile = dependFilePath factFile
@@ -806,7 +836,7 @@ sockeyeNS net rootns =
         ]
 
 sockeye :: String -> HRule
-sockeye net = 
+sockeye net =
     let
         factFile = sockeyeFactFilePath net
         depFile = dependFilePath factFile
@@ -822,7 +852,7 @@ sockeye net =
         ]
 
 sockeye2 :: String -> HRule
-sockeye2 net = 
+sockeye2 net =
     let
         factFile = sockeyeFactFilePath net
         depFile = dependFilePath factFile
@@ -916,11 +946,31 @@ link opts objs libs mods bin =
     ]
 
 --
+-- Link a set of object files and libraries together
+--
+ldtLink :: Options -> [String] -> String -> String -> HRule
+ldtLink opts objs app bin =
+    let full = bin ++ ".full"
+        debug = bin ++ ".debug"
+    in Rules [
+        Rule $ ldtLinkExecutable opts objs app full,
+        Rule $ debugExecutable opts full debug,
+        Rule $ stripExecutable opts full debug bin
+    ]
+
+--
 -- Link a set of C++ object files and libraries together
 --
 linkCxx :: Options -> [String] -> [String] -> [String] -> String -> HRule
 linkCxx opts objs libs mods bin =
     Rule (linkCxxExecutable opts objs libs mods bin)
+
+--
+-- Link a set of object files and libraries together
+--
+ldtLinkCxx :: Options -> [String] -> String -> String -> HRule
+ldtLinkCxx opts objs app bin =
+    Rule (ldtLinkCxxExecutable opts objs app bin)
 
 --
 -- Link a CPU driver.  This is where it gets distinctly architecture-specific.
@@ -1139,7 +1189,17 @@ applicationBuildFn tdb tf args
     | debugFlag && trace (Args.showArgs (tf ++ " Application ") args) False
         = undefined
 applicationBuildFn tdb tf args =
-    Rules [ appBuildArch tdb tf args arch | arch <- Args.architectures args ]
+    Rules ([ appBuildArch tdb tf args arch | arch <- Args.architectures args ] ++
+        appLibDeps args)
+    where
+      appLibDeps :: Args.Args -> [HRule]
+      appLibDeps args =
+        let
+          app = DepApp $  Args.target args
+          libs = Args.addLibraries args
+          mods = Args.addModules args
+        in
+          [Rule ([LDep app (DepLib l) | l <- (libs ++ mods)])]
 
 extraIncs libs =
     [ NoDep SrcTree "src" ("/include" </> l) | l <- filter libNeedsInc libs ]
@@ -1194,6 +1254,8 @@ fullTarget opts arch appname =
     Phony (arch ++ "_All") False
         [ Dep BuildTree arch (applicationPath opts appname) ]
 
+
+
 appBuildArch tdb tf args arch =
     let -- Fiddle the options
         opts = appGetOptionsForArch arch args
@@ -1206,7 +1268,7 @@ appBuildArch tdb tf args arch =
         appname = Args.target args
         -- XXX: Not sure if this is correct. Currently assuming that if the app
         -- contains C++ files, we have to use the C++ linker.
-        mylink = if cxxsrcs == [] then link else linkCxx
+        mylink = if cxxsrcs == [] then ldtLink else ldtLinkCxx
     in
       Rules ( flounderRules opts args csrcs
               ++
@@ -1219,10 +1281,10 @@ appBuildArch tdb tf args arch =
                 compileGeneratedCFiles opts gencsrc,
                 compileGeneratedCxxFiles opts gencxxsrc,
                 assembleSFiles opts (Args.assemblyFiles args),
-                mylink opts (allObjectPaths opts args) (allLibraryPaths opts args) (allModulesPaths opts args)
-                       appname,
+                mylink opts (allObjectPaths opts args) appname appname,
                 fullTarget opts arch appname
               ]
+
             )
 
 --
@@ -1252,7 +1314,17 @@ library = Args.defaultArgs {
 libraryBuildFn :: TreeDB -> String -> Args.Args -> HRule
 libraryBuildFn tdb tf args | debugFlag && trace (Args.showArgs (tf ++ " Library ") args) False = undefined
 libraryBuildFn tdb tf args =
-    Rules [ libBuildArch tdb tf args arch | arch <- Args.architectures args ]
+    Rules ([ libBuildArch tdb tf args arch | arch <- Args.architectures args ]
+           ++ libLibDeps args)
+    where
+      libLibDeps :: Args.Args -> [HRule]
+      libLibDeps args =
+        let
+          lib = DepLib $  Args.target args
+          libs = Args.addLibraries args
+        in
+          [Rule ([LDep lib (DepLib l) | l <- libs])]
+
 
 libGetOptionsForArch arch args =
     (options arch) { extraIncludes =

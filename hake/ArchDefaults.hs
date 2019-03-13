@@ -294,7 +294,7 @@ archive arch opts objs libs name libname =
     [ NL, Str "ranlib ", Out arch libname ]
 
 --
--- Link an executable
+-- Link an executable, explicitly stating libraries and modules
 --
 linker :: String -> String -> Options -> [String] -> [String] -> [String] -> String -> [RuleToken]
 linker arch compiler opts objs libs mods bin =
@@ -314,6 +314,29 @@ linker arch compiler opts objs libs mods bin =
     [Str "-Wl,--whole-archive"] ++ [ In BuildTree arch l | l <- mods ] ++ [Str "-Wl,--no-whole-archive"]
     ++
     [ In BuildTree arch l | l <- libs ]
+    ++
+    (optLibs opts)
+    ++
+    [Str "-Wl,--end-group"]
+
+--
+-- Link an executable, libs and mods are not passed, but later resolved
+-- using the application name "app" and the library dependency tree
+--
+ldtLinker :: String -> String -> Options -> [String] -> String -> String -> [RuleToken]
+ldtLinker arch compiler opts objs app bin =
+    [ Str compiler ]
+    ++ (optLdFlags opts)
+    ++
+    (extraLdFlags opts)
+    ++
+    [ Str "-o", Out arch bin ]
+    ++
+    [ In BuildTree arch o | o <- objs ]
+    ++
+    [Str "-Wl,--start-group"]
+    ++
+    [ Ldt BuildTree arch app ]
     ++
     (optLibs opts)
     ++
@@ -341,6 +364,31 @@ cxxlinker arch cxxcompiler opts objs libs mods bin =
     (optCxxLibs opts)
     ++
     [Str "-Wl,--end-group"]
+
+
+--
+-- Link an executable
+--
+ldtCxxlinker :: String -> String -> Options -> [String] -> String -> String -> [RuleToken]
+ldtCxxlinker arch cxxcompiler opts objs app bin =
+    [ Str cxxcompiler ]
+    ++
+    (optLdCxxFlags opts)
+    ++
+    (extraLdFlags opts)
+    ++
+    [ Str "-o", Out arch bin ]
+    ++
+    [ In BuildTree arch o | o <- objs ]
+    ++
+    [Str "-Wl,--start-group -Wl,--whole-archive"]
+    ++
+    [ Ldt BuildTree arch app ]
+    ++
+    (optCxxLibs opts)
+    ++
+    [Str "-Wl,--end-group"]
+
 
 --
 -- Strip debug symbols from an executable

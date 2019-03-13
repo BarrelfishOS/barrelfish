@@ -7,15 +7,27 @@
 -- ETH Zurich D-INFK, Universitätstasse 6, CH-8092 Zurich. Attn: Systems Group.
 --
 -- Basic Hake rule combinators
--- 
+--
 --------------------------------------------------------------------------
 
 module HakeTypes where
 
 import Data.Typeable
+import qualified Data.Map.Strict as Map
+
+-- An element of the dependency tree (application, libraries, modules)
+data DepEl = DepApp String      -- An application
+            | DepLib String     -- A library
+            | DepMod String     -- A driver module
+            deriving (Show,Eq,Ord)
+
+type LibDepTree2 = Map.Map DepEl [DepEl]
+type LdtToken = LibDepTree2 -> [RuleToken]
+
 
 data TreeRef = SrcTree | BFSrcTree | BuildTree | InstallTree
              deriving (Show,Eq,Ord)
+
 
 -- Note on Abs:
 -- The first parameter is a rule referring to an absolute resource whereas the
@@ -29,16 +41,21 @@ data RuleToken = In     TreeRef String String -- Input to the computation
                | Out    String String         -- Output of the computation
                | Target String String         -- Target that's not involved
                | Str String                   -- String with trailing " "
-               | NStr String                  -- Just a string               
-               | ContStr Bool String String   -- Conditional string 
+               | NStr String                  -- Just a string
+               | ContStr Bool String String   -- Conditional string
                | ErrorMsg String              -- Error message: $(error x)
                | NL                           -- New line
                | Abs RuleToken RuleToken      -- Absolute path rule token
-                 deriving (Show,Eq,Ord)
+               | LDep DepEl DepEl             -- Dependency Link
+               | Ldt TreeRef String String    -- Evaluate after obtaining LDT
+
+               deriving (Show,Eq,Ord)
+
 
 -- Convert a rule into an absolute rule
 makeAbs :: RuleToken -> RuleToken
 makeAbs rule = Abs rule rule
+
 
 data HRule = Rule [ RuleToken ]
            | Include RuleToken
@@ -108,10 +125,12 @@ formatToken (NoDep _ a f) = f ++ " "
 formatToken (PreDep _ a f) = f ++ " "
 formatToken (Target a f) = f ++ " "
 formatToken (Str s) = s ++ " "
-formatToken (NStr s) = s 
+formatToken (NStr s) = s
 formatToken (Abs rule _) = formatToken rule
 formatToken (ErrorMsg s) = "$(error " ++ s ++ ")"
 formatToken (NL) = "\n\t"
+formatToken (LDep _  _) = ""
+
 
 -------------------------------------------------------------------------
 --
@@ -148,4 +167,3 @@ data Options = Options {
       optSuffix :: String,
       optInstallPath :: OptionsPath
     }
-      
