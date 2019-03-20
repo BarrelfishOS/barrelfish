@@ -648,11 +648,11 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
     Rules [ copyFile SrcTree "root" ("/hake/menu.lst." ++ p)
                      "root" ("/platforms/arm/menu.lst." ++ p)
             | p <- [ "armv8_a57v",
+                     "armv8_a57_qemu",
                      "armv8_a57v_1",
                      "armv8_apm88xxxx",
                      "armv8_cn88xx",
                      "armv8_rpi3",
-                     "armv8_a57_qemu",
                      "armv7_a9ve_1",
                      "armv7_a9ve_4",
                      "armv7_a15ve_1",
@@ -740,27 +740,32 @@ let bin_rcce_lu = [ "/sbin/" ++ f | f <- [
       Str "--arch", Str "zynq7" ]
     "Boot QEMU in 32-bit ARM mode emulating a Zynq 7000",
 
+    Rule $ [
+      In SrcTree "tools" "/tools/harness/efiimage.py",
+      In BuildTree "root" "/platforms/arm/menu.lst.armv8_a57_qemu",
+      Str Config.install_dir,
+      Out "root" "qemu.img"
+    ] ++ [(Dep BuildTree "armv8" f) | f <- armv8_modules ]
+    ++ [(Dep BuildTree "armv8" "/sbin/cpu_a57_qemu")]
+    ++ [(Dep BuildTree "armv8" "/sbin/boot_armv8_generic")]
+    ++ [(Dep BuildTree "" f) | f <- modules_generic ],
+
     boot "qemu_a57v" [ "armv8" ] ([
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_a57v",
+      Str "--image", In BuildTree "root" "qemu.img",
       Str "--arch", Str "armv8",
-      Str "--hagfish", Str Config.hagfish_location ]
-      ++ [(Dep BuildTree "armv8" f) | f <- armv8_modules ]
-      ++ [(Dep BuildTree "armv8" "/sbin/cpu_a57v")]
-      ++ [(Dep BuildTree "armv8" "/sbin/boot_armv8_generic")]
-      ++ [(Dep BuildTree "" f) | f <- modules_generic ])
+      Str "--bios", In SrcTree "tools" "/tools/hagfish/QEMU_EFI.fd"
+       ]
+      )
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
     boot "qemu_a57v_debug" [ "armv8" ] ([
       In SrcTree "tools" "/tools/qemu-wrapper.sh",
-      Str "--menu", In BuildTree "root" "/platforms/arm/menu.lst.armv8_a57v",
+      Str "--image", In BuildTree "root" "qemu.img",
       Str "--arch", Str "armv8",
-      Str "--hagfish", Str Config.hagfish_location,
+      Str "--bios", In SrcTree "tools" "/tools/hagfish/QEMU_EFI.fd",
       Str "--debug", In SrcTree "tools" "/tools/debug.armv8.gdb" ]
-      ++ [(Dep BuildTree "armv8" f) | f <- armv8_modules ]
-      ++ [(Dep BuildTree "armv8" "/sbin/cpu_a57v")]
-      ++ [(Dep BuildTree "armv8" "/sbin/boot_armv8_generic")]
-      ++ [(Dep BuildTree "" f) | f <- modules_generic ])
+      )
     "Boot QEMU in 64-bit ARM mode emulating a ARM Virtual Machine",
 
     boot "qemu_x86_64" [ "x86_64" ] ([

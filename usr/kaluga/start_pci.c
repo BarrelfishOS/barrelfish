@@ -252,7 +252,7 @@ static errval_t add_int_args(struct pci_addr addr, struct driver_argument *drive
                 "write(MsixLbl).",
                 addr.bus, addr.device, addr.function);
         if(err_is_fail(err)) DEBUG_SKB_ERR(err, "add/print msix controller");
-        char * lines[8];
+        char * lines[8] = {NULL};
         lines[0] = skb_get_output();
         for(int i=0; i<7; i++){
             if(lines[i] == NULL) break;

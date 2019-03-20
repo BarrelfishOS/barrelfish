@@ -1,0 +1,3 @@
+Hagfish is our ARMv8 UEFI bootloader.  Due to the complicated UEFI build
+toolchain it is developed outside the Barrelfish tree and we include only a
+binary version.

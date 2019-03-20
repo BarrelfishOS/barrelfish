@@ -19,6 +19,7 @@ HAGFISH_LOCATION="/home/netos/tftpboot/Hagfish.efi"
 MENUFILE=""
 ARCH=""
 DEBUG_SCRIPT=""
+BIOS="/home/netos/tftpboot/QEMU_EFI.fd"
 # Grab SMP from env, if unset default to 1
 SMP=${SMP:-1}
 # Grab NIC_MODEL from env, if unset default to e1000
@@ -41,6 +42,7 @@ usage () {
     echo "    --smp <cores>      (number of cores to use, defaults to $SMP)"
     echo "    --nic-model <name> (nic model to use, defaults to $NIC_MODEL)"
     echo "    --hagfish <file>   (Hagfish boot loader, defaults to $HAGFISH_LOCATION)"
+    echo "    --bios <file>      (ARMv8 QEMU bios,  defaults to $BIOS)"
     echo "    --uboot            (boot U-Boot instead of EFI on ARMv8)"
     echo "  "
     echo "  The following environment variables are considered:"
@@ -92,6 +94,9 @@ while test $# != 0; do
         ;;
     "--hagfish")
         shift; HAGFISH_LOCATION="$1"
+        ;;
+    "--bios")
+        shift; BIOS="$1"
         ;;
     "--nic-model")
         shift; NIC_MODEL="$1"
@@ -205,7 +210,7 @@ case "$ARCH" in
           QEMU_CMD="$QEMU_CMD -bios /home/netos/tftpboot/u-boot.bin \
                     -device loader,addr=0x50000000,file=$IMAGE"
        else
-           QEMU_CMD="$QEMU_CMD -bios /home/netos/tftpboot/QEMU_EFI.fd \
+           QEMU_CMD="$QEMU_CMD -bios $BIOS \
                     -device virtio-blk-device,drive=image \
                     -drive if=none,id=image,file=$IMAGE,format=raw"
        fi

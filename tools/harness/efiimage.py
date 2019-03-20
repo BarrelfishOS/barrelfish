@@ -1,5 +1,7 @@
+#!/usr/bin/env python
+
 ##########################################################################
-# Copyright (c) 2016, ETH Zurich.
+# Copyright (c) 2016, 2019 ETH Zurich.
 # All rights reserved.
 #
 # This file is distributed under the terms in the attached LICENSE file.
@@ -8,7 +10,7 @@
 ##########################################################################
 
 import subprocess
-import os
+import os, argparse, re
 
 class EFIImage:
 
@@ -98,3 +100,60 @@ class EFIImage:
         proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
         proc.communicate(contents)
         proc.stdin.close()
+
+
+# 
+# Command line and interface functions
+#
+
+def build_bf_efi_img(img_file, build_dir, modules, menulst, hagfish):
+    hagfish_default = os.path.abspath(os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        "..","hagfish","Hagfish.efi"))
+    if hagfish is None:
+        hagfish = hagfish_default
+
+    efi = EFIImage(img_file, 200)
+    efi.create()
+    for module in modules:
+        if module[0] == "/":
+            module = module[1:]
+        efi.addFile(os.path.join(build_dir, module), module)
+    efi.writeFile("startup.nsh", "Hagfish.efi hagfish.cfg")
+    efi.addFile(hagfish, "Hagfish.efi")
+    efi.addFile(menulst, "hagfish.cfg")
+
+def parse_menu_lst(menulst):
+    with open(menulst) as f:
+        res = []
+        for line in f.readlines():
+            line = line.strip()
+            if line=="" or line[0] == "#": continue
+            parts = re.split("\s+", line, 2)
+            if len(parts) < 1:
+                print("Ignoring line: %s" % line)
+                continue
+            if parts[0] in ["stack"]:
+                # no module
+                continue
+            res.append(parts[1])
+
+    return res
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        description='Build EFI image for ARMv8')
+    p.add_argument('menulst', help='the menu.lst')
+    p.add_argument('build', help='build directory')
+    p.add_argument('file', help='output image')
+    p.add_argument('--hagfish', help='hagfish location', default=None)
+    return p.parse_args()
+
+if __name__ == "__main__":
+    print("Barrelfish EFI Image Builder")
+    args = parse_args()
+    print("Image File: %s" % args.file)
+    print("menu.lst: %s" % args.menulst)
+    modules = parse_menu_lst(args.menulst)
+    print("Modules: %s" % ",".join(modules))
+    build_bf_efi_img(args.file, args.build, modules, args.menulst, args.hagfish)

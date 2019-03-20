@@ -284,13 +284,20 @@ class QEMUMAchineARMv8Operations(QEMUMachineBaseOperations):
 
         debug.checkcmd(["make"] + modules.get_build_targets(), cwd=self._machine.options.builds[0].build_dir)
 
-        efi = efiimage.EFIImage(self._machine.kernel_img, 200)
-        efi.create()
-        for module in modules.get_build_targets():
-            efi.addFile(os.path.join(self._machine.options.builds[0].build_dir, module), module)
-        efi.writeFile("startup.nsh", "Hagfish.efi hagfish.cfg")
-        efi.addFile("/home/netos/tftpboot/Hagfish.efi", "Hagfish.efi")
-        efi.addFile(menulst_fullpath, "hagfish.cfg")
+        efiimage.build_bf_efi_img(
+                self._machine.kernel_img,
+                self._machine.options.builds[0].build_dir,
+                modules.get_build_targets(),
+                menulst_fullpath,
+                None)
+
+        #efi = efiimage.EFIImage(self._machine.kernel_img, 200)
+        #efi.create()
+        #for module in modules.get_build_targets():
+        #    efi.addFile(os.path.join(self._machine.options.builds[0].build_dir, module), module)
+        #efi.writeFile("startup.nsh", "Hagfish.efi hagfish.cfg")
+        #efi.addFile("/home/netos/tftpboot/Hagfish.efi", "Hagfish.efi")
+        #efi.addFile(menulst_fullpath, "hagfish.cfg")
 
     def _get_cmdline(self):
         qemu_wrapper = os.path.join(self._machine.options.sourcedir, QEMU_SCRIPT_PATH)
