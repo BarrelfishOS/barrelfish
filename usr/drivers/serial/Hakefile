@@ -59,14 +59,15 @@
                       flounderBindings = [ "serial" ],
                       flounderDefs = [ "terminal" , "terminal_config",
                                        "terminal_session" ],
-                      architectures = [ "x86_32", "x86_64"]
+                      architectures = [ "x86_32", "x86_64"],
+                      addLibraries = ["int_route_client"]
                     },
 
   build application {
         target = "serial_pc16550d",
         cFiles = [ "main_ddomain.c"],
         addLinkFlags = ["-T" ++ Config.source_dir ++ "/lib/driverkit/bfdrivers.ld" ],
-        addLibraries = ["driverkit", "thc", "term_server", "int_route_client"],
+        addLibraries = ["driverkit", "thc", "term_server"],
         addModules = ["serial_pc16550d_module"],
         architectures = ["x86_64"]
   },

@@ -230,7 +230,7 @@ errval_t hw_init(struct capref mem, struct serial_omap * so) {
     void *vbase;
     struct frame_identity id;
 
-    err = invoke_frame_identify(mem, &id);
+    err = frame_identify(mem, &id);
     if (err_is_fail(err)) {
         USER_PANIC_ERR(err, "vspace_map_one_frame_attr failed\n");
     }

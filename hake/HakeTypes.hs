@@ -15,10 +15,11 @@ module HakeTypes where
 import Data.Typeable
 import qualified Data.Map.Strict as Map
 
--- An element of the dependency tree (application, libraries, modules)
-data DepEl = DepApp String      -- An application
-            | DepLib String     -- A library
-            | DepMod String     -- A driver module
+-- An element of the dependency tree, first arg is always arch,,
+-- second is app/lib/module name
+data DepEl = DepApp String String      -- An application
+            | DepLib String String     -- A library
+            | DepMod String String     -- A driver module
             deriving (Show,Eq,Ord)
 
 type LibDepTree2 = Map.Map DepEl [DepEl]
@@ -130,6 +131,7 @@ formatToken (Abs rule _) = formatToken rule
 formatToken (ErrorMsg s) = "$(error " ++ s ++ ")"
 formatToken (NL) = "\n\t"
 formatToken (LDep _  _) = ""
+formatToken (Ldt _ _  _) = ""
 
 
 -------------------------------------------------------------------------

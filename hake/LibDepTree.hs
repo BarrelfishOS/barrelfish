@@ -65,15 +65,16 @@ ldtRuleExpand x ldt = case x of
   where
     tokenExpand :: RuleToken -> [RuleToken]
     tokenExpand x = case x of
-      Ldt tr arch app -> [depToRuleToken tr arch x | x <- ldtDepOf ldt (DepApp app)]
+      Ldt tr arch app -> concat [depToRuleToken tr arch x | x <- ldtDepOf ldt (DepApp arch app)]
       _ -> [x]
 
-    depToRuleToken :: TreeRef -> String -> DepEl -> RuleToken
+    depToRuleToken :: TreeRef -> String -> DepEl -> [RuleToken]
     -- XXX: I couldnt figure out where we usually prefix the architecture
-    depToRuleToken tree arch dl = In tree arch $
-        ("./" ++ arch ++ (ruleTokenArchive (RuleDefs.options arch) dl))
-
-    ruleTokenArchive :: Options -> DepEl -> String
-    ruleTokenArchive o (DepApp x) = RuleDefs.applicationPath o x
-    ruleTokenArchive o (DepLib x) = RuleDefs.libraryPath o x
-    ruleTokenArchive o (DepMod x) = RuleDefs.libraryPath o x
+    depToRuleToken tree arch (DepApp xarch x) = [In tree arch $
+        ("./" ++ arch ++ (RuleDefs.applicationPath (RuleDefs.options arch) x))]
+    depToRuleToken tree arch (DepLib xarch x) = [In tree arch $
+        ("./" ++ arch ++ (RuleDefs.libraryPath (RuleDefs.options arch) x))]
+    depToRuleToken tree arch (DepMod xarch x) =
+        [Str "-Wl,--whole-archive"] ++
+        (depToRuleToken tree arch (DepLib xarch x)) ++
+        [Str "-Wl,--no-whole-archive"]

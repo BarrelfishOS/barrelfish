@@ -275,8 +275,8 @@ ldtLinker :: Options -> [String] -> String -> String -> [RuleToken]
 ldtLinker opts objs app bin
     | optArch opts == "x86_64" = X86_64.ldtLinker opts objs app bin
     | optArch opts == "k1om" = K1om.ldtLinker opts objs app bin
-    -- | optArch opts == "armv7" = ARMv7.ldtLinker opts objs libs mods bin
-    -- | optArch opts == "armv8" = ARMv8.ldtLinker opts objs libs mods bin
+    | optArch opts == "armv7" = ARMv7.ldtLinker opts objs app bin
+    | optArch opts == "armv8" = ARMv8.ldtLinker opts objs app bin
     | otherwise = [ ErrorMsg ("Can't link executables for " ++ (optArch opts)) ]
 
 strip :: Options -> String -> String -> String -> [RuleToken]
@@ -1190,16 +1190,17 @@ applicationBuildFn tdb tf args
         = undefined
 applicationBuildFn tdb tf args =
     Rules ([ appBuildArch tdb tf args arch | arch <- Args.architectures args ] ++
-        appLibDeps args)
+        concat [ appLibDeps args arch | arch <- Args.architectures args ])
     where
-      appLibDeps :: Args.Args -> [HRule]
-      appLibDeps args =
+      appLibDeps :: Args.Args -> String -> [HRule]
+      appLibDeps args arch =
         let
-          app = DepApp $  Args.target args
+          app = DepApp arch (Args.target args)
           libs = Args.addLibraries args
           mods = Args.addModules args
         in
-          [Rule ([LDep app (DepLib l) | l <- (libs ++ mods)])]
+          [Rule ([LDep app (DepLib arch  l) | l <- (libs)])] ++
+          [Rule ([LDep app (DepMod arch l) | l <- (mods)])]
 
 extraIncs libs =
     [ NoDep SrcTree "src" ("/include" </> l) | l <- filter libNeedsInc libs ]
@@ -1314,16 +1315,16 @@ library = Args.defaultArgs {
 libraryBuildFn :: TreeDB -> String -> Args.Args -> HRule
 libraryBuildFn tdb tf args | debugFlag && trace (Args.showArgs (tf ++ " Library ") args) False = undefined
 libraryBuildFn tdb tf args =
-    Rules ([ libBuildArch tdb tf args arch | arch <- Args.architectures args ]
-           ++ libLibDeps args)
+    Rules ([ libBuildArch tdb tf args arch | arch <- Args.architectures args ] ++
+           concat [libLibDeps args arch | arch <- Args.architectures args])
     where
-      libLibDeps :: Args.Args -> [HRule]
-      libLibDeps args =
+      libLibDeps :: Args.Args -> String -> [HRule]
+      libLibDeps args arch =
         let
-          lib = DepLib $  Args.target args
+          lib = DepLib arch (Args.target args)
           libs = Args.addLibraries args
         in
-          [Rule ([LDep lib (DepLib l) | l <- libs])]
+          [Rule ([LDep lib (DepLib arch l) | l <- libs])]
 
 
 libGetOptionsForArch arch args =

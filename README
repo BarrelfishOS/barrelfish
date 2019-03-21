@@ -102,6 +102,12 @@ of writing), this means the following:
    - Then cd /usr/lib/ipxe/qemu/ &&
      sudo wget https://github.com/qemu/qemu/raw/master/pc-bios/efi-e1000e.rom
 
+ * Optional ARMv8 support:
+    - prefix all deb entries in /etc/apt/sources.list with [arch=amd64]
+    - add "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports bionic main universe"
+      to sources.list
+    - apt update && apt install gnu-efi:arm64
+
 Building
 --------------------------------
 
